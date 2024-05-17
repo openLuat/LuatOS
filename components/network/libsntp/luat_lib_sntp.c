@@ -204,3 +204,22 @@ int l_sntp_tm(lua_State *L) {
     return 1;
 }
 
+/*
+设置SNTP服务器的端口号
+@api socket.sntp_port(port)
+@int port 端口号, 默认123
+@return int 返回当前的端口号
+@usage
+-- 本函数于2024.5.17新增
+-- 大部分情况下不需要设置NTP服务器的端口号,默认123即可
+*/
+int l_sntp_port(lua_State *L) {
+    if (lua_type(L, 1) == LUA_TNUMBER){
+        uint16_t port = (uint16_t)luaL_checkinteger(L, 1);
+        if (port > 0){
+            g_sntp_ctx.port = port;
+        }
+    }
+    lua_pushinteger(L, g_sntp_ctx.port ? g_sntp_ctx.port : 123);
+    return 1;
+}

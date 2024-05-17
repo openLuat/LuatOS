@@ -77,7 +77,7 @@ int luat_sntp_connect(network_ctrl_t *sntp_netc){
     char* host = sntp_servers[g_sntp_ctx.next_server_index];
     g_sntp_ctx.next_server_index++;
     LLOGD("query %s", host);
-	ret = network_connect(sntp_netc, host, strlen(host), NULL, 123, 1000);
+	ret = network_connect(sntp_netc, host, strlen(host), NULL, g_sntp_ctx.port ? g_sntp_ctx.port : 123, 1000);
 	if (ret < 0) {
         LLOGD("network_connect ret %d", ret);
         return -1;

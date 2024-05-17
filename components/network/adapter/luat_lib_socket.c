@@ -1252,32 +1252,33 @@ NO_REMOTE_IP:
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
-	{"create",			ROREG_FUNC(l_socket_create)},
-	{"debug",		ROREG_FUNC(l_socket_set_debug)},
-	{"config",		ROREG_FUNC(l_socket_config)},
-	{"linkup",			ROREG_FUNC(l_socket_linkup)},
-	{"connect",			ROREG_FUNC(l_socket_connect)},
-	{"listen",			ROREG_FUNC(l_socket_listen)},
-	{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"discon",			ROREG_FUNC(l_socket_disconnect)},
-	{"close",			ROREG_FUNC(l_socket_close)},
-	{"tx",			ROREG_FUNC(l_socket_tx)},
-	{"rx",			ROREG_FUNC(l_socket_rx)},
-	{"read",			ROREG_FUNC(l_socket_read)},
-	{"wait",			ROREG_FUNC(l_socket_wait)},
-	{"state",		ROREG_FUNC(l_socket_state)},
-	{"release",			ROREG_FUNC(l_socket_release)},
-	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
-	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
+	{"create",				ROREG_FUNC(l_socket_create)},
+	{"debug",				ROREG_FUNC(l_socket_set_debug)},
+	{"config",				ROREG_FUNC(l_socket_config)},
+	{"linkup",				ROREG_FUNC(l_socket_linkup)},
+	{"connect",				ROREG_FUNC(l_socket_connect)},
+	{"listen",				ROREG_FUNC(l_socket_listen)},
+	{"accept",				ROREG_FUNC(l_socket_accept)},
+	{"discon",				ROREG_FUNC(l_socket_disconnect)},
+	{"close",				ROREG_FUNC(l_socket_close)},
+	{"tx",					ROREG_FUNC(l_socket_tx)},
+	{"rx",					ROREG_FUNC(l_socket_rx)},
+	{"read",				ROREG_FUNC(l_socket_read)},
+	{"wait",				ROREG_FUNC(l_socket_wait)},
+	{"state",				ROREG_FUNC(l_socket_state)},
+	{"release",				ROREG_FUNC(l_socket_release)},
+	{ "setDNS",           	ROREG_FUNC(l_socket_set_dns)},
+	{ "sslLog",				ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
-	{"adapter",			ROREG_FUNC(l_socket_adapter)},
+	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 #ifdef LUAT_USE_SNTP
-	{"sntp",         	ROREG_FUNC(l_sntp_get)},
-	{"ntptm",           ROREG_FUNC(l_sntp_tm)},
+	{"sntp",         		ROREG_FUNC(l_sntp_get)},
+	{"ntptm",           	ROREG_FUNC(l_sntp_tm)},
+	{"sntp_port",         	ROREG_FUNC(l_sntp_port)},
 #endif
 	//@const ETH0 number 带硬件协议栈的ETH0，值为5
-    { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
+    { "ETH0",           	ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡，值为4
 	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
 	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA，值为2
@@ -1287,18 +1288,18 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块，值为1
 	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
 	//@const USB number 使用LWIP协议栈的USB网卡，值为6
-	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
+	{ "USB",     			ROREG_INT(NW_ADAPTER_INDEX_USB)},
 	//@const LINK number LINK事件
-    { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
+    { "LINK",           	ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
     //@const ON_LINE number ON_LINE事件
 	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
     //@const EVENT number EVENT事件
 	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
     //@const TX_OK number TX_OK事件
-	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
+	{ "TX_OK",     			ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
     //@const CLOSED number CLOSED事件
 	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
-	{ NULL,            ROREG_INT(0)}
+	{ NULL,            		ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_socket_adapter( lua_State *L ) {

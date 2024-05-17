@@ -43,11 +43,13 @@ typedef struct sntp_ctx
     uint16_t sntp_debug;
     uint16_t ndelay_c;
     uint32_t ndelay_array[NTP_NETWORK_DELAY_CMAX];
+    uint16_t port;
 }sntp_ctx_t;
 
 int ntp_get(int adapter_index);
 void ntp_cleanup(void);
 int l_sntp_get(lua_State *L);
 int l_sntp_tm(lua_State *L);
+int l_sntp_port(lua_State *L);
 
 #endif

@@ -10,6 +10,8 @@
 #include "luat_mcu.h"
 #include "luat_zbuff.h"
 #include "luat_spi.h"
+#include "luat_i2c.h"
+#include "luat_uart.h"
 #define LUAT_LOG_TAG "mcu"
 #include "luat_log.h"
 /*

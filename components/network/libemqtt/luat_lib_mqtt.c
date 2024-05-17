@@ -176,6 +176,10 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
             }
             break;
         }
+		case MQTT_MSG_SUBACK:
+			break;
+		case MQTT_MSG_UNSUBACK:
+			break;
 		default : {
 			LLOGD("l_mqtt_callback error arg1:%d",msg->arg1);
             break;

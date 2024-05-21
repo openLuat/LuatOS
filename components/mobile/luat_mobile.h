@@ -300,7 +300,7 @@ int luat_mobile_get_flymode(int index);
 int luat_mobile_get_local_ip(int sim_id, int cid, ip_addr_t *ip_v4, ip_addr_t *ip_v6);
 #endif
 /* -------------------------------------------------- cell info begin -------------------------------------------------- */
-#define LUAT_MOBILE_CELL_MAX_NUM 9
+#define LUAT_MOBILE_CELL_MAX_NUM 21
 
 typedef struct luat_mobile_gsm_service_cell_info
 {

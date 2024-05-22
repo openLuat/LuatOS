@@ -539,7 +539,7 @@ typedef enum LUAT_MOBILE_CFUN_STATUS
 typedef enum LUAT_MOBILE_SIM_STATUS
 {
 	LUAT_MOBILE_SIM_READY = 0,	/**< SIM卡已准备好*/
-	LUAT_MOBILE_NO_SIM,			/**< SIM卡未准备好*/
+	LUAT_MOBILE_NO_SIM,			/**< 无SIM卡*/
 	LUAT_MOBILE_SIM_NEED_PIN,	/**< 需要输入PIN码*/
 	LUAT_MOBILE_SIM_ENTER_PIN_RESULT,	/**< PIN码输入结果*/
 	LUAT_MOBILE_SIM_NUMBER,		/**< 获取到电话号码(不一定有值)*/

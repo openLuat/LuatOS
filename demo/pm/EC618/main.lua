@@ -96,8 +96,15 @@ if reason > 0 then
     log.info("已经从深度休眠唤醒")
 end
 --测试最低功耗，需要下面3个GPIO操作
-gpio.setup(23,nil)
--- gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
+if rtos.bsp() == "EC618" then
+    gpio.setup(23,nil)
+    --gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
+end
+if rtos.bsp() == "EC718P" then
+    gpio.close(23)
+    gpio.setup(43,nil,gpio.PULLUP) --如果全IO开发板功耗偏高，打开这个
+end
+
 gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
 
 sys.taskInit(function()

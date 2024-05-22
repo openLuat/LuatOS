@@ -88,6 +88,7 @@ static rotable* check_rotable( lua_State* L, int idx, char const* func ) {
 
 static const rotable_Reg_t* find_key( const rotable_Reg_t* p, int n,
                                     char const* s ) {
+  (void)n;
   if( s ) {
     for( ; p->name != NULL; ++p ) {
       if( 0 == reg_compare( s, p ) )
@@ -197,10 +198,11 @@ static int rotable_udata_pairs( lua_State* L ) {
 /**
  * 与lua_newlib对应的函数, 用于生成一个库table,区别是lua_newlib生成普通table,这个函数生成rotable.
  */
-
+#include "lgc.h"
 ROTABLE_EXPORT void rotable2_newlib( lua_State* L, void const* v ) {
   const rotable_Reg_t* reg = (const rotable_Reg_t*)v;
   rotable* t = (rotable*)lua_newuserdata( L, sizeof( *t ) );
+  luaC_fix(L, L->l_G->allgc);
   lua_pushlightuserdata( L, (void*)unique_address );
   lua_rawget( L, LUA_REGISTRYINDEX );
   if( !lua_istable( L, -1 ) ) {

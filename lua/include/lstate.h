@@ -63,7 +63,7 @@ struct lua_longjmp;  /* defined in ldo.c */
 
 /* extra stack space to handle TM calls and some other extras */
 #define EXTRA_STACK   5
-
+#define G_SEED_FIXED (0xA25E41B5)
 
 #define BASIC_STACK_SIZE        (2*LUA_MINSTACK)
 

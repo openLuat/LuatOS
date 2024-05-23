@@ -67,6 +67,11 @@ size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) 
     fflush(stream);
     return size * nmemb; 
 }
+
+int luat_fs_fflush(FILE *stream) {
+    return fflush(stream);
+}
+
 int luat_fs_remove(const char *filename) {
     return remove(filename + FILENAME_OFFSET);
 }
@@ -184,6 +189,11 @@ size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_
     fflush(stream);
     return size * nmemb;
 }
+
+int luat_vfs_posix_fflush(void* userdata, FILE *stream) {
+    return fflush(stream);
+}
+
 int luat_vfs_posix_remove(void* userdata, const char *filename) {
     (void)userdata;
     return remove(filename + FILENAME_OFFSET);
@@ -371,7 +381,8 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
         T(feof),
         T(ferror),
         T(fread),
-        T(fwrite)
+        T(fwrite),
+        T(fflush)
     }
 };
 

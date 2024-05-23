@@ -120,6 +120,13 @@ size_t luat_vfs_lfs2_fwrite(void* userdata, const void *ptr, size_t size, size_t
     return ret < 0 ? 0 : ret;
 }
 
+int luat_vfs_lfs2_fflush(void* userdata, FILE *stream) {
+    lfs_t* fs = (lfs_t*)userdata;
+    lfs_file_t* file = (lfs_file_t*)stream;
+    int ret = lfs_file_sync(fs, file);
+    return ret < 0 ? 0 : ret;
+}
+
 int luat_vfs_lfs2_remove(void* userdata, const char *filename) {
     lfs_t* fs = (lfs_t*)userdata;
     return lfs_remove(fs, filename);
@@ -325,7 +332,8 @@ const struct luat_vfs_filesystem vfs_fs_lfs2 = {
         T(feof),
         T(ferror),
         T(fread),
-        T(fwrite)
+        T(fwrite),
+        T(fflush)
     }
 };
 

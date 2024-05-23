@@ -171,6 +171,7 @@ static int l_rtc_get(lua_State *L){
 @table 时钟参数,见示例
 @return bool 成功返回true,否则返回nil或false
 @usage
+-- 目前该接口不适用于移芯模块780E/700E/780EP系列，需要定时唤醒可使用pm.dtimerStart()
 -- 使用前建议先rtc.set设置为正确的时间
 rtc.timerStart(0, {year=2021,mon=9,day=1,hour=17,min=8,sec=43})
 */

@@ -112,7 +112,7 @@ static int l_pm_request(lua_State *L) {
 // }
 
 /**
-启动底层定时器,在休眠模式下依然生效. 只触发一次
+启动底层定时器,在休眠模式下依然生效. 只触发一次，关机状态下无效
 @api pm.dtimerStart(id, timeout)
 @int 定时器id,通常是0-3
 @int 定时时长,单位毫秒

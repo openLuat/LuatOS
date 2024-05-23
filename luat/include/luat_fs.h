@@ -120,6 +120,7 @@ size_t luat_fs_fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
+int luat_fs_fflush(FILE *stream);
 
 /**
  * @brief 删除文件,类似于remove
@@ -220,6 +221,7 @@ struct luat_vfs_file_opts {
     size_t (*fread)(void* fsdata, void *ptr, size_t size, size_t nmemb, FILE *stream);
     size_t (*fwrite)(void* fsdata, const void *ptr, size_t size, size_t nmemb, FILE *stream);
     void* (*mmap)(void* fsdata, FILE *stream);
+    int (*fflush)(void* fsdata, FILE *stream);
 };
 
 struct luat_vfs_filesystem_opts {

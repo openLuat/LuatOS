@@ -377,4 +377,14 @@ int luat_fs_truncate(const char* filename, size_t len) {
     return -1;
 }
 
+int luat_fs_fflush(FILE *stream) {
+    luat_vfs_fd_t* fd = getfd(stream);
+    if (fd == NULL)
+        return NULL;
+    if (fd->fsMount->fs->fopts.fflush != NULL) {
+        return fd->fsMount->fs->fopts.fflush(fd->fsMount->userdata, fd->fd);
+    }
+    return -1;
+}
+
 #endif

@@ -896,8 +896,6 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
             }
 
         pSyms = tdefl_radix_sort_syms(num_used_syms, syms0, syms1);
-        luat_heap_free(syms0);
-        luat_heap_free(syms1);
         tdefl_calculate_minimum_redundancy(pSyms, num_used_syms);
 
         for (i = 0; i < num_used_syms; i++)
@@ -910,6 +908,8 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
         for (i = 1, j = num_used_syms; i <= code_size_limit; i++)
             for (l = num_codes[i]; l > 0; l--)
                 d->m_huff_code_sizes[table_num][pSyms[--j].m_sym_index] = (mz_uint8)(i);
+        luat_heap_free(syms0);
+        luat_heap_free(syms1);
     }
 
     next_code[1] = 0;

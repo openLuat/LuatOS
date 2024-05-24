@@ -4,7 +4,7 @@
 
 int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc)
 {
-	uint8_t cmcc[] = {0, 2, 4, 7, 8, 13};
+	uint8_t cmcc[] = {0, 2, 4, 7, 8, 13, 24};
 	uint8_t cucc[] = {1, 6, 9, 10};
 	uint8_t ctcc[] = {3, 5, 11, 12};
 	if (mcc != 460) return -1;

@@ -377,6 +377,8 @@ static int l_mcu_ticks2(lua_State* L) {
 @boolean 高速晶振参考时钟是否输出
 @boolean 低速32K晶振参考时钟是否输出
 @usage
+-- 本函数于2024.5.17新增
+-- 当前仅Air780EP系列支持
 mcu.XTALRefOutput(true, false)	--高速晶振参考时钟输出,低速32K不输出
 */
 static int l_mcu_xtal_ref_output(lua_State* L) {

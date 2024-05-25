@@ -71,6 +71,10 @@ l_noret luaM_toobig (lua_State *L) {
 
 
 #include "bget.h"
+#include "luat_base.h"
+
+#define LUAT_LOG_TAG "mem"
+#include "luat_log.h"
 /*
 ** generic allocation routine.
 */
@@ -103,7 +107,7 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
       size_t used = 0;
       size_t max_used = 0;
       luat_meminfo_luavm(&total, &used, &max_used);
-      luaG_runerror(L, "memory allocation failed total %d, used %d, alloc %d", total, used, nsize);
+      LLOGE("memory allocation failed total %d, used %d, alloc %d", total, used, nsize);
       luaD_throw(L, LUA_ERRMEM);  /* rethrow memory error */
     }
   }

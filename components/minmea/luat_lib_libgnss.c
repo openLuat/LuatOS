@@ -363,7 +363,7 @@ log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
             "snr":27,     // 信噪比
             "azimuth":278, // 方向角
             "elevation":59, // 仰角
-            "tp":0,        // 0 - GPS/SASS/QSZZ, 1 - BD
+            "tp":0,        // 0 - GPS, 1 - BD
             "nr":4         // 卫星编号
         },
         // 这里忽略了22个卫星的信息
@@ -418,7 +418,7 @@ static int l_libgnss_get_gsv(lua_State *L) {
             // https://receiverhelp.trimble.com/alloy-gnss/en-us/NMEA-0183messages_GSA.html
             lua_pushliteral(L, "tp");
             if (memcmp(gnssctx.gsv[i], "$GP", 3) == 0) {
-                lua_pushinteger(L, 1);
+                lua_pushinteger(L, 0);
             }
             else if (memcmp(gnssctx.gsv[i], "$GL", 3) == 0) {
                 lua_pushinteger(L, 2);
@@ -426,16 +426,22 @@ static int l_libgnss_get_gsv(lua_State *L) {
             else if (memcmp(gnssctx.gsv[i], "$GA", 3) == 0) {
                 lua_pushinteger(L, 3);
             }
-            else if (memcmp(gnssctx.gsv[i], "$BD", 3) == 0) {
-                lua_pushinteger(L, 4);
-            }
-            else if (memcmp(gnssctx.gsv[i], "$QZ", 3) == 0) {
-                lua_pushinteger(L, 0);
-            }
-            else {
+            else if (memcmp(gnssctx.gsv[i], "$BD", 3) == 0 || memcmp(gnssctx.gsv[i], "$GB", 3) == 0) {
                 lua_pushinteger(L, 1);
             }
+            else if (memcmp(gnssctx.gsv[i], "$QZ", 3) == 0) {
+                lua_pushinteger(L, 4);
+            }
+            else {
+                lua_pushinteger(L, 0);
+            }
             lua_settable(L, -3);
+
+            // 新增一个类型, 字符串的, 实在是各种变化无法应对
+            lua_pushliteral(L, "tpstr");
+            lua_pushlstring(L, gnssctx.gsv[i]->data + 1, 2);
+            lua_settable(L, -3);
+
             lua_settable(L, -3);
             count = count + 1;
         }

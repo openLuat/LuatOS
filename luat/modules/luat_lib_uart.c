@@ -308,10 +308,12 @@ int l_uart_handler(lua_State *L, void* ptr) {
         return 0;
     }
     int org_uart_id = uart_id;
+	#if !defined(LUAT_USE_WINDOWS) && !defined(LUAT_USE_LINUX) && !defined(LUAT_USE_MACOS)
     if (uart_id >= LUAT_VUART_ID_0)
     {
     	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
     }
+	#endif
     // sent event
     if (msg->arg2 == 0) {
         //LLOGD("uart%ld sent callback", uart_id);

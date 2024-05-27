@@ -53,7 +53,7 @@ local sysplus = require "sysplus"
 local libfota = {}
 
 
-local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password)
+local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password, show_otaurl)
     if cbFnc == nil then
         cbFnc = function() end
     end
@@ -93,7 +93,9 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
         os.remove("/update.bin")
         opts.dst = "/update.bin"
     end
-    log.info("fota.url", ota_url)
+    if show_otaurl == nil or show_otaurl == true then
+        log.info("fota.url", ota_url)
+    end
     local code, headers, body = http.request("GET", ota_url, nil, nil, opts, server_cert, client_cert, client_key, client_password).wait()
     log.info("http fota", code, headers, body)
     if code == 200 or code == 206 then
@@ -126,10 +128,11 @@ fota升级
 @string client_cert 可选,客户端ca证书数据
 @string client_key 可选,客户端私钥加密数据
 @string client_password 可选,客户端私钥口令数据
+@boolean show_otaurl 可选,是否从日志中输出打印OTA升级包的URL路径，默认会打印
 @return nil 无返回值
 ]]
-function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password)
-    sys.taskInit(fota_task, cbFnc,storge_location, len, param1,ota_url, ota_port,libfota_timeout or 30000,server_cert, client_cert, client_key, client_password)
+function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password, show_otaurl)
+    sys.taskInit(fota_task, cbFnc,storge_location, len, param1,ota_url, ota_port,libfota_timeout or 30000,server_cert, client_cert, client_key, client_password, show_otaurl)
 end
 
 return libfota

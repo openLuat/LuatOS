@@ -308,7 +308,8 @@ extern int luat_pm_poweroff(void);
 @api pm.shutdown()
 @return nil 无返回值
 @usage
--- 当前仅EC618系列(Air780E/Air600E/Air700E/Air780EG支持)
+-- 当前支持EC618系列(Air780E/Air600E/Air700E/Air780EG支持)
+-- 当前支持EC718系列(Air780EP/Air780EPU等衍生型号支持)
 -- 需要2022-12-22之后编译的固件
 pm.shutdown()
  */
@@ -341,12 +342,12 @@ pm.power(pm.USB, false)
 -- Air780EG,为内置的GPS芯片上电. 注意, Air780EG的GPS和GPS_ANT是一起控制的,所以合并了.
 pm.power(pm.GPS, true)
 
--- EC618系列开启pwrkey开机防抖
+-- EC618/EC718系列开启pwrkey开机防抖
 -- 注意: 开启后, 复位键就变成关机了!!! pwrkey要长按2秒才能开机
 -- pm.power(pm.PWK_MODE, true)
 
--- EC618系列PSM+低功耗设置
--- ec618的节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗
+-- EC618/EC718系列PSM+低功耗设置
+-- ec618/ec718的节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗
 -- 详情访问: https://airpsm.cn
 -- pm.power(pm.WORK_MODE, 1)
  */
@@ -365,14 +366,14 @@ static int l_pm_power_ctrl(lua_State *L) {
 }
 
 /**
-IO高电平电压控制,当前仅EC618系列可用
+IO高电平电压控制
 @api pm.ioVol(id, val)
 @int 电平id,目前只有pm.IOVOL_ALL_GPIO
 @int 电平值,单位毫伏
 @return boolean 处理结果true成功，false失败
 @usage
--- EC618系列设置IO电平, 范围 1650 ~ 2000，2650~3400 , 单位毫伏, 步进50mv
--- 例如Air780E/Air600E/Air700E/Air780EG
+-- EC618/EC718系列设置IO电平, 范围 1650 ~ 2000，2650~3400 , 单位毫伏, 步进50mv
+-- 例如Air780E/Air600E/Air700E/Air780EG/Air780EP/Air780EPV等
 -- 注意, 这里的设置优先级会高于硬件IOSEL脚的配置
 -- 但开机时依然先使用硬件配置,直至调用本API进行配置, 所以io电平会变化
 -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)    -- 所有GPIO高电平输出3.3V

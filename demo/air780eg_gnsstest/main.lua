@@ -150,6 +150,14 @@ sys.taskInit(function()
     -- 显示串口配置
     -- uart.write(gps_uart_id, "$CFGPRT,1\r\n")
     -- sys.wait(20)
+
+    -- uart.write(gps_uart_id, "$CFGSYS,H01\r\n") -- GPS L1+SBAS+QZSS 联合定位
+    -- sys.wait(20)
+    -- uart.write(gps_uart_id, "$CFGSYS,H10\r\n") -- 单北斗 BDS B1
+    -- sys.wait(20)
+    -- uart.write(gps_uart_id, "$CFGSYS,H01\r\n") -- GPS L1+BDS B1+QZSS 联合定位,默认
+    -- sys.wait(20)
+
     -- 增加显示的语句,可选
     uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
     sys.wait(20)
@@ -157,8 +165,6 @@ sys.taskInit(function()
     sys.wait(20)
     uart.write(gps_uart_id, "$CFGMSG,0,6,1\r\n") -- ZDA
     sys.wait(20)
-    -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
-    -- libgnss.rtcAuto(true)
     
     -- 绑定uart,底层自动处理GNSS数据
     -- 这里延后到设置命令发送完成后才开始处理数据,之前的数据就不上传了

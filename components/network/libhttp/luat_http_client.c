@@ -315,7 +315,13 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 #endif
 	else if(http_ctrl->is_post==0 && http_ctrl->zbuff_body!=NULL){
 		if (http_ctrl->zbuff_body->len < http_ctrl->zbuff_body->used+length+1 ){
-			http_ctrl->zbuff_body->addr = luat_heap_realloc(http_ctrl->zbuff_body->addr,http_ctrl->zbuff_body->used+length+1);
+			void* tmpptr = luat_heap_realloc(http_ctrl->zbuff_body->addr,http_ctrl->zbuff_body->used+length+1);
+			if (tmpptr == NULL) {
+				LLOGE("out of memory when recv http body");
+				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+				return -1;
+			}
+			http_ctrl->zbuff_body->addr = tmpptr;
 		}
 		memcpy(http_ctrl->zbuff_body->addr + http_ctrl->zbuff_body->used ,at,length);
 		http_ctrl->zbuff_body->used += length;
@@ -323,8 +329,19 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	else{
 		if (!http_ctrl->body){
 			http_ctrl->body = luat_heap_malloc(length+1);
+			if (http_ctrl->body == NULL) {
+				LLOGE("out of memory when recv http body");
+				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+				return -1;
+			}
 		}else{
-			http_ctrl->body = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+length+1);
+			void* tmpptr = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+length+1);
+			if (tmpptr == NULL) {
+				LLOGE("out of memory when recv http body");
+				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+				return -1;
+			}
+			http_ctrl->body = tmpptr;
 		}
 		memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 	}

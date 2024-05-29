@@ -10,20 +10,16 @@
 
 #include "minmea.h"
 
-luat_libgnss_t *libgnss_gnss;
-luat_libgnss_tmp_t *libgnss_gnsstmp;
+luat_libgnss_t gnssctx;
 char *libgnss_recvbuff;
 int libgnss_route_uart_id = -1;
 int gnss_debug = 0;
-
-// static int parse_nmea(const char* line);
-// static int parse_data(const char* data, size_t len);
 
 void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
     (void)data_len;
     if (libgnss_recvbuff == NULL)
         return;
-    //LLOGD("uart recv cb");
+    // LLOGD("uart recv cb");
     int len = 0;
     while (1) {
         len = luat_uart_read(uart_id, libgnss_recvbuff, RECV_BUFF_SIZE - 1);
@@ -34,9 +30,6 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         }
         luat_libgnss_on_rawdata(libgnss_recvbuff, len);
         libgnss_recvbuff[len] = 0;
-        if (libgnss_gnss == NULL)
-            continue;
-        // LLOGD("uart recv %d %d", len, gnss_debug);
         if (gnss_debug) {
             LLOGD(">> %s", libgnss_recvbuff);
         }
@@ -44,41 +37,19 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
     }
 }
 
-
-// static uint32_t msg_counter[MINMEA_SENTENCE_MAX_ID];
-
 int luat_libgnss_init(int clear) {
-    if (libgnss_gnss == NULL) {
-        libgnss_gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
-        if (libgnss_gnss == NULL) {
-            LLOGW("out of memory for libgnss data parse");
-            return -1;
-        }
-        memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
-    }
-    if (libgnss_gnsstmp == NULL) {
-        libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
-        if (libgnss_gnsstmp == NULL) {
-            luat_heap_free(libgnss_gnss);
-            libgnss_gnss = NULL;
-            LLOGW("out of memory for libgnss data parse");
-            return -1;
-        }
-        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
-    }
-    // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     if (clear) {
-        memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
-        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
+        memset(&gnssctx.frame_rmc, 0, sizeof(struct minmea_sentence_rmc));
+        if (gnssctx.rmc) {
+            memset(gnssctx.rmc, 0, 128);
+        }
     }
-    //lua_pushboolean(L, 1);
     return 0;
 }
 
 #define MAX_LEN (120)
 static char nmea_tmp_buff[MAX_LEN] = {0}; // nmea 最大长度82,含换行符
 int luat_libgnss_parse_data(const char* data, size_t len) {
-    size_t prev = 0;
     size_t offset = strlen(nmea_tmp_buff);
     // 流式解析nmea数据
     for (size_t i = 0; i < len; i++)
@@ -101,131 +72,136 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
     return 0;
 }
 
-int luat_libgnss_parse_nmea(const char* line) {
-    if (libgnss_gnss == NULL && luat_libgnss_init(0)) {
-        return 0;
+static void copynmea(minmea_data_t** dst, const char* src) {
+    if (*dst == NULL) {
+        *dst = luat_heap_malloc(sizeof(minmea_data_t));
     }
-    struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;
+    if (*dst != NULL) {
+        strcpy((*dst)->data, src);
+        (*dst)->tm = luat_mcu_tick64_ms();
+    }
+}
+
+int luat_libgnss_parse_nmea(const char* line) {
+    if (strlen(line) > (LUAT_LIBGNSS_MAX_LINE - 1)) {
+        return -1;
+    }
+    char tmpbuff[128] = {0};
+    struct minmea_sentence_gsv *frame_gsv = (struct minmea_sentence_gsv*)tmpbuff;
+    struct minmea_sentence_rmc *frame_rmc = (struct minmea_sentence_rmc*)tmpbuff;
+    struct minmea_sentence_gsa *frame_gsa = (struct minmea_sentence_gsa*)tmpbuff;
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
     if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID) {
         //LLOGD("非法的NMEA数据 %s", line);
         return -1;
     }
-    // msg_counter[id] ++;
-    // int ticks = 0;
+    uint64_t tnow = luat_mcu_tick64_ms();
     struct tm tblock = {0};
     int ticks = luat_mcu_ticks();
     switch (id) {
         case MINMEA_SENTENCE_RMC: {
-            if (minmea_parse_rmc(&(libgnss_gnsstmp->frame_rmc), line)) {
-                // 清空gsa
-                memset(libgnss_gnss->frame_gsa, 0, sizeof(struct minmea_sentence_gsa) * FRAME_GSA_MAX);
-                if (libgnss_gnsstmp->frame_rmc.valid) {
-                    memcpy(&(libgnss_gnss->frame_rmc), &libgnss_gnsstmp->frame_rmc, sizeof(struct minmea_sentence_rmc));
+            if (minmea_parse_rmc(frame_rmc, line)) {
+                if (frame_rmc->valid) {
+                    memcpy(&(gnssctx.frame_rmc), frame_rmc, sizeof(struct minmea_sentence_rmc));
                     #ifdef LUAT_USE_MCU
-                    if (libgnss_gnss->rtc_auto && (libgnss_gnss->fix_at_ticks == 0 || ((uint32_t)(ticks - libgnss_gnss->fix_at_ticks)) > 600*1000)) {
+                    if (gnssctx.rtc_auto && (gnssctx.fix_at_ticks == 0 || ((uint32_t)(ticks - gnssctx.fix_at_ticks)) > 600*1000)) {
                         LLOGI("Auto-Set RTC by GNSS RMC");
-                        minmea_getdatetime(&tblock, &libgnss_gnss->frame_rmc.date, &libgnss_gnss->frame_rmc.time);
+                        minmea_getdatetime(&tblock, &gnssctx.frame_rmc.date, &gnssctx.frame_rmc.time);
                         tblock.tm_year -= 1900;
                         luat_rtc_set(&tblock);
                         // luat_rtc_set_tamp32(mktime(&tblock));
                     }
-                    if (libgnss_gnss->fix_at_ticks == 0) {
-                        LLOGI("Fixed %d %d", libgnss_gnss->frame_rmc.latitude.value, libgnss_gnss->frame_rmc.longitude.value);
+                    if (gnssctx.fix_at_ticks == 0) {
+                        LLOGI("Fixed %d %d", gnssctx.frame_rmc.latitude.value, gnssctx.frame_rmc.longitude.value);
                         // 发布系统消息
                         luat_libgnss_state_onchanged(GNSS_STATE_FIXED);
                     }
-                    libgnss_gnss->fix_at_ticks = luat_mcu_ticks();
+                    gnssctx.fix_at_ticks = luat_mcu_ticks();
                     #endif
                 }
                 else {
-                    if (libgnss_gnss->fix_at_ticks && libgnss_gnss->frame_rmc.valid) {
+                    if (gnssctx.fix_at_ticks && gnssctx.frame_rmc.valid) {
                         LLOGI("Lose"); // 发布系统消息
                         luat_libgnss_state_onchanged(GNSS_STATE_LOSE);
                     }
-                    libgnss_gnss->fix_at_ticks = 0;
-                    libgnss_gnss->frame_rmc.valid = 0;
+                    gnssctx.fix_at_ticks = 0;
+                    gnssctx.frame_rmc.valid = 0;
                     // if (libgnss_gnsstmp->frame_rmc.date.year > 0) {
-                        memcpy(&(libgnss_gnss->frame_rmc.date), &(libgnss_gnsstmp->frame_rmc.date), sizeof(struct minmea_date));
+                        memcpy(&(gnssctx.frame_rmc.date), &(frame_rmc->date), sizeof(struct minmea_date));
                     // }
                     // if (libgnss_gnsstmp->frame_rmc.time.hours > 0) {
-                        memcpy(&(libgnss_gnss->frame_rmc.time), &(libgnss_gnsstmp->frame_rmc.time), sizeof(struct minmea_time));
+                        memcpy(&(gnssctx.frame_rmc.time), &(frame_rmc->time), sizeof(struct minmea_time));
                     // }
                 }
             }
         } break;
 
-        case MINMEA_SENTENCE_GGA: {
-            memcpy(libgnss_gnss->gga, line, strlen(line) + 1);
-        } break;
-
         case MINMEA_SENTENCE_GSA: {
-            //LLOGD("GSV %s", line);
-            if (minmea_parse_gsa(&(libgnss_gnsstmp->frame_gsa), line)) {
+            if (minmea_parse_gsa(frame_gsa, line)) {
+                copynmea(&gnssctx.gsa[gnssctx.gsa_offset], line);
+                if (gnssctx.gsa_offset + 1 >= FRAME_GSA_MAX) {
+                    gnssctx.gsa_offset = 0;
+                }
+                else {
+                    gnssctx.gsa_offset ++;
+                }
+                // 把失效的GSA清理掉
                 for (size_t i = 0; i < FRAME_GSA_MAX; i++)
                 {
-                    // 如果是mode=0,代表空的
-                    if (libgnss_gnss->frame_gsa[i].mode == 0) {
-                        memcpy(&libgnss_gnss->frame_gsa[i], &(libgnss_gnsstmp->frame_gsa), sizeof(struct minmea_sentence_gsa));
-                        break;
+                    if (gnssctx.gsa[i] && gnssctx.gsa[i]->data[0] != 0 && tnow - gnssctx.gsa[i]->tm > 950) {
+                        memset(gnssctx.gsa[i], 0, sizeof(minmea_data_t));
                     }
                 }
                 
             }
         } break;
 
-        case MINMEA_SENTENCE_GLL: {
-            memcpy(libgnss_gnss->gll, line, strlen(line) + 1);
-        } break;
-
-        case MINMEA_SENTENCE_GST: {
-            memcpy(libgnss_gnss->gst, line, strlen(line) + 1);
-        } break;
-
         case MINMEA_SENTENCE_GSV: {
             //LLOGD("Got GSV : %s", line);
             if (minmea_parse_gsv(frame_gsv, line)) {
-                struct minmea_sentence_gsv *gsvs = libgnss_gnss->frame_gsv_gp;
-                if (0 == memcmp("$GPGSV", line, strlen("$GPGSV"))) {
-                    gsvs = libgnss_gnss->frame_gsv_gp;
-                }
-                else if (0 == memcmp("$GBGSV", line, strlen("$GBGSV"))) {
-                    gsvs = libgnss_gnss->frame_gsv_gb;
-                }
-                // else if (0 == memcmp("$GLGSV", line, strlen("$GLGSV"))) {
-                //     gsvs = libgnss_gnss->frame_gsv_gl;
-                // }
-                // else if (0 == memcmp("$GAGSV", line, strlen("$GAGSV"))) {
-                //     gsvs = libgnss_gnss->frame_gsv_ga;
-                // }
-                else {
-                    break;
-                }
-                //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
                 if (frame_gsv->msg_nr == 1) {
-                    //LLOGD("Clean GSV");
-                    memset(gsvs, 0, sizeof(struct minmea_sentence_gsv) * FRAME_GSV_MAX);
+                    // 检测到开头, 那么清空所有相同头部的数据
+                    for (size_t i = 0; i < FRAME_GSV_MAX; i++)
+                    {
+                        if (gnssctx.gsv[i] && 0 == memcmp(line, gnssctx.gsv[i], 6)) {
+                            memset(gnssctx.gsv[i]->data, 0, sizeof(minmea_data_t));
+                        }
+                    }
                 }
-                if (frame_gsv->msg_nr >= 1 && frame_gsv->msg_nr <= FRAME_GSV_MAX) {
-                    //LLOGD("memcpy GSV %d", frame_gsv.msg_nr);
-                    memcpy(&gsvs[frame_gsv->msg_nr - 1], frame_gsv, sizeof(struct minmea_sentence_gsv));
+                // 找一个空位,放进去
+                for (size_t i = 0; i < FRAME_GSV_MAX; i++)
+                {
+                    if (gnssctx.gsv[i] == NULL) {
+                        copynmea(&gnssctx.gsv[i], line);
+                        break;
+                    }
+                    if (gnssctx.gsv[i]->data[0] == 0) {
+                        // LLOGD("填充GSV到%d %s", i, line);
+                        copynmea(&gnssctx.gsv[i], line);
+                        break;
+                    }
                 }
-            }
-            else {
-                //LLOGD("bad GSV %s", line);
             }
         } break;
-
+        case MINMEA_SENTENCE_GGA: {
+            copynmea(&gnssctx.gga, line);
+        } break;
+        case MINMEA_SENTENCE_GLL: {
+            copynmea(&gnssctx.gll, line);
+            break;
+        }
+        case MINMEA_SENTENCE_GST: {
+            copynmea(&gnssctx.gst, line);
+            break;
+        }
         case MINMEA_SENTENCE_VTG: {
-            memcpy(libgnss_gnss->vtg, line, strlen(line) + 1);
+            copynmea(&gnssctx.vtg, line);
         } break;
         case MINMEA_SENTENCE_ZDA: {
-            memcpy(libgnss_gnss->zda, line, strlen(line) + 1);
+            copynmea(&gnssctx.zda, line);
         } break;
         case MINMEA_SENTENCE_TXT: {
-            // LLOGI("解析TXT %s", line);
-            memset(libgnss_gnss->txt.txt, 0, FRAME_TXT_MAX_LEN + 1);
-            minmea_parse_txt(&(libgnss_gnss->txt), line);
+            copynmea(&gnssctx.txt, line);
             break;
         }
         default:
@@ -233,4 +209,14 @@ int luat_libgnss_parse_nmea(const char* line) {
             break;
     }
     return 0;
+}
+
+int luat_libgnss_data_check(minmea_data_t* data, uint32_t timeout, uint64_t tnow) {
+    if (data == NULL) {
+        return 0;
+    }
+    if (data->tm == 0 || tnow - data->tm > timeout) {
+        return 0;
+    }
+    return 1;
 }

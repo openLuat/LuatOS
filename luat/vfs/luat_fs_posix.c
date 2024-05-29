@@ -128,10 +128,24 @@ int luat_fs_rmdir(char const* _DirName) {
 #else
 
 FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mode) {
-    //LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
-    (void)userdata;
+    char tmp[16] = {0};
+    int flag = 0;
+    for (size_t i = 0; i < strlen(mode); i++)
+    {
+        if (mode[i] == 'b') {
+            flag = 1;
+            break;
+        }
+    }
+    memcpy(tmp, mode, strlen(mode));
+    if (!flag)
+        tmp[strlen(mode)] = 'b';
+    mode = tmp;
+
+    LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
     FILE* fd = fopen(filename + FILENAME_OFFSET, mode);
-    // LLOGI("fopen %s %s %p", filename + FILENAME_OFFSET, mode , fd);
+    (void)userdata;
+    // LLOGI("fopen %s %s %p", filename + FILENAME_OFFSET, tmp , fd);
     return fd;
 }
 

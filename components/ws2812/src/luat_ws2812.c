@@ -73,7 +73,7 @@ int luat_ws28128_send_gpio(luat_ws2812_t *ctx)
   uint8_t pulse_level = 0x80;
   const char *send_buff = NULL;
   int pin = ctx->id;
-  send_buff = ctx->colors;
+  send_buff = (const char*)ctx->colors;
   len = ctx->count * sizeof(luat_ws2812_color_t);
 #ifdef LUAT_WS2812B_MAX_CNT
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
@@ -132,7 +132,7 @@ int luat_ws28128_send_spi(luat_ws2812_t *ctx)
     };
 
     ws2812b_spi_conf.id = ctx->id;
-    send_buff = ctx->colors;
+    send_buff = (const char*)ctx->colors;
     len = ctx->count * sizeof(luat_ws2812_color_t);
 
     const char res_buff = 0x00;
@@ -180,7 +180,7 @@ int luat_ws28128_send_pwm(luat_ws2812_t *ctx)
         .period = 800 * 1000,
         .precision = 100};
     ws2812b_pwm_conf.channel = ctx->id;
-    send_buff = ctx->colors;
+    send_buff = (const char*)ctx->colors;
     len = ctx->count * sizeof(luat_ws2812_color_t);
 
     // ws2812b_pwm_conf.pulse = 0;

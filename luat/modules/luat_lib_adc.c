@@ -62,7 +62,7 @@ adc.setRange(adc.ADC_RANGE_1_8)
 adc.setRange(adc.ADC_RANGE_3_6)
 
 
--- EC618系列(Air780E等)支持2种
+-- EC618系列(Air780E等)/EC718E系列(Air780EP/Air780EPV等)支持以下2种
 adc.setRange(adc.ADC_RANGE_1_2) -- 关闭分压
 adc.setRange(adc.ADC_RANGE_3_8) -- 启用分压
  */

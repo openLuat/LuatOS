@@ -67,7 +67,7 @@ end)
 @usage
 -- 初始化fota流程
 local result = fota.init(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
-local result = fota.init()	--ec618使用固定内部地址，所以不需要参数了
+local result = fota.init()	--ec618系列/EC718系列使用固定内部地址，所以不需要参数了
 */
 static int l_fota_init(lua_State* L)
 {

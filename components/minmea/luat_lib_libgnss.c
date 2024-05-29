@@ -49,6 +49,7 @@ end)
 #include "luat_uart.h"
 #include "luat_mcu.h"
 #include "luat_rtc.h"
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "gnss"
 #include "luat_log.h"
@@ -192,7 +193,20 @@ log.info("nmea", json.encode(libgnss.getRmc(), "11g"))
  */
 static int l_libgnss_parse(lua_State *L) {
     size_t len = 0;
-    const char* str = luaL_checklstring(L, 1, &len);
+    const char* str = NULL;
+    luat_zbuff_t* zbuff = NULL;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        str = luaL_checklstring(L, 1, &len);
+    }
+    else if (lua_isuserdata(L, 1)) {
+        zbuff = tozbuff(L);
+        str = (const char*)zbuff->addr;
+        len = zbuff->used;
+    }
+    else {
+        return 0;
+    }
+    
     if (len > 0) {
         luat_libgnss_parse_data(str, len);
     }
@@ -976,11 +990,12 @@ static int l_libgnss_rtc_auto(lua_State *L) {
 //临时处理, 当前GNSS处理均在lua线程
 // static lua_State *gnss_L;
 static int gnss_raw_cb = 0;
+static int gnss_txt_cb = 0;
 
-int luat_libgnss_rawdata_cb(lua_State *L, void* ptr) {
+static int l_libgnss_data_cb(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     // lua_getglobal(L, "sys_pub");
-    lua_geti(L, LUA_REGISTRYINDEX, gnss_raw_cb);
+    lua_geti(L, LUA_REGISTRYINDEX, msg->arg2);
     if (lua_isfunction(L, -1)) {
         // lua_pushliteral(gnss_L, "GNSS_RAW_DATA");
         lua_pushlstring(L, ptr, msg->arg1);
@@ -994,16 +1009,20 @@ int luat_libgnss_rawdata_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-int luat_libgnss_on_rawdata(const char* data, size_t len) {
-    if (gnss_raw_cb == 0)
+int luat_libgnss_on_rawdata(const char* data, size_t len, int type) {
+    if (gnss_raw_cb == 0 && type == 0)
         return 0;
+    if (gnss_txt_cb == 0 && type == 1) {
+        return 0;
+    }
     char* ptr = luat_heap_malloc(len);
     if (ptr == NULL)
         return 0;
     memcpy(ptr, data, len);
     rtos_msg_t msg = {
-        .handler = luat_libgnss_rawdata_cb,
+        .handler = l_libgnss_data_cb,
         .arg1 = len,
+        .arg2 = type == 1 ? gnss_txt_cb : gnss_raw_cb,
         .ptr = ptr
     };
     luat_msgbus_put(&msg, 0);
@@ -1031,6 +1050,16 @@ static int l_libgnss_on(lua_State *L) {
         if (lua_isfunction(L, 2)) {
             lua_pushvalue(L, 2);
             gnss_raw_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    else if (!strcmp("txt", tp)) {
+        if (gnss_txt_cb != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, gnss_txt_cb);
+            gnss_txt_cb = 0;
+        }
+        if (lua_isfunction(L, 2)) {
+            lua_pushvalue(L, 2);
+            gnss_txt_cb = luaL_ref(L, LUA_REGISTRYINDEX);
         }
     }
     return 0;

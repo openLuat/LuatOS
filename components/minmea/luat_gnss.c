@@ -28,7 +28,7 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         if (libgnss_route_uart_id > 0) {
             luat_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
         }
-        luat_libgnss_on_rawdata(libgnss_recvbuff, len);
+        luat_libgnss_on_rawdata(libgnss_recvbuff, len, 0);
         libgnss_recvbuff[len] = 0;
         if (gnss_debug) {
             LLOGD(">> %s", libgnss_recvbuff);
@@ -201,6 +201,7 @@ int luat_libgnss_parse_nmea(const char* line) {
             copynmea(&gnssctx.zda, line);
         } break;
         case MINMEA_SENTENCE_TXT: {
+            luat_libgnss_on_rawdata(line, strlen(line), 1);
             copynmea(&gnssctx.txt, line);
             break;
         }

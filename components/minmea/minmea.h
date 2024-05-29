@@ -333,7 +333,7 @@ int luat_libgnss_parse_nmea(const char* line);
 void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len);
 int luat_libgnss_state_onchanged(int state);
 
-int luat_libgnss_on_rawdata(const char* data, size_t len);
+int luat_libgnss_on_rawdata(const char* data, size_t len, int type);
 
 enum GNSS_STATE {
     GNSS_STATE_INIT = 0,

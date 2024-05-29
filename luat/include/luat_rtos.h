@@ -131,9 +131,18 @@ luat_rtos_task_handle luat_rtos_get_current_handle(void);
  * @param luat_rtos_task_handle task的句柄
  * @return task堆栈剩余的最小值,单位为字
  */
-
 uint32_t luat_rtos_task_get_high_water_mark(luat_rtos_task_handle task_handle);
 
+/**
+ * @brief 启动task运行时间记录功能，必须在task调度前启用
+ */
+void luat_rtos_task_run_time_record_enable(void);
+
+/**
+ * @brief 打印所有task运行时间和占用百分比
+ * @param print_ticks 打印具体ticks
+ */
+void luat_rtos_task_run_time_record_print(uint8_t print_ticks);
 /** @}*/
 /* ------------------------------------------------ task   end------------------------------------------------ */
 /**

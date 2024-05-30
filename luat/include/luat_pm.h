@@ -72,7 +72,11 @@ enum
  * @return int =0成功，其他失败
  */
 int luat_pm_request(int mode);
-
+/**
+ * @brief 退出休眠模式
+ * @param mode 休眠模式 见LUAT_PM_SLEEP_MODE_XXX
+ * @return int =0成功，其他失败
+ */
 int luat_pm_release(int mode);
 
 /**
@@ -119,7 +123,12 @@ int luat_pm_force(int mode);
  * @return int ，见LUAT_PM_SLEEP_MODE_XXX
  */
 int luat_pm_check(void);
-
+/**
+ * @brief 获取所有深度休眠定时器的剩余时间，单位ms
+ * @param count [OUT]定时器数量
+ * @param list [OUT]剩余时间列表
+ * @return int =0成功，其他失败
+ */
 int luat_pm_dtimer_list(size_t* count, size_t* list);
 
 /**
@@ -178,7 +187,11 @@ int luat_pm_wakeup_pin(int pin, int val);
  * @note 和luat_pm_set_sleep_mode，luat_pm_set_usb_power冲突，不可以同时使用
  */
 int luat_pm_set_power_mode(uint8_t mode, uint8_t sub_mode);
-
+/**
+ * @brief 深度休眠定时器剩余时间，单位ms
+ * @param id 定时器ID
+ * @return uint32_t 0xffffffff失败，其他是剩余时间
+ */
 uint32_t luat_pm_dtimer_remain(int id);
 /** @}*/
 #endif

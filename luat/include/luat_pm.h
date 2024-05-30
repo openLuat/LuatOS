@@ -155,9 +155,20 @@ int luat_pm_power_ctrl(int id, uint8_t val);
  */
 int luat_pm_get_poweron_reason(void);
 
-
+/**
+ * @brief 设置IO电压域的电平
+ * @param id 电压域ID，移芯平台忽略
+ * @param val 期望的电平值，单位mv
+ * @return int 成功返回0，其他失败
+ */
 int luat_pm_iovolt_ctrl(int id, int val);
 
+/**
+ * @brief 配置唤醒引脚，只针对esp系列
+ * @param pin
+ * @param val
+ * @return
+ */
 int luat_pm_wakeup_pin(int pin, int val);
 /**
  * @brief 设置联网低功耗模式，等同于AT+POWERMODE

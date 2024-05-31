@@ -36,9 +36,20 @@ typedef struct luat_fs_info
  * @return int =0成功，其他失败
  */
 int luat_fs_init(void);
-
+/**
+ * @brief 文件系统格式化
+ * @return int =0成功，其他失败
+ */
 int luat_fs_mkfs(luat_fs_conf_t *conf);
+/**
+ * @brief 文件系统挂载
+ * @return int =0成功，其他失败
+ */
 int luat_fs_mount(luat_fs_conf_t *conf);
+/**
+ * @brief 文件系统取消挂载
+ * @return int =0成功，其他失败
+ */
 int luat_fs_umount(luat_fs_conf_t *conf);
 
 /**
@@ -150,7 +161,15 @@ size_t luat_fs_fsize(const char *filename);
  * @return int =0不存在,否则存在
  */
 int luat_fs_fexist(const char *filename);
+/**
+ * @brief 行读取
+ * @param buf[OUT] 读取缓冲区
+ * @param bufsize[IN] 缓冲区大小
+ * @param stream[IN] 文件句柄
+ * @return int >=0实际写入的数量,<0出错
+ */
 int luat_fs_readline(char * buf, int bufsize, FILE * stream);
+
 void* luat_fs_mmap(FILE * stream);
 
 // TODO 文件夹相关的API
@@ -188,6 +207,13 @@ int luat_fs_rmdir(char const* _DirName);
 
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
 
+
+/**
+ * @brief 文件截断
+ * @param filename[IN] 文件名
+ * @param len[IN] 长度
+ * @return int =>0读取到文件个数,否则失败
+ */
 int luat_fs_truncate(const char* filename, size_t len);
 /**
  * @brief 文件夹是否存在

@@ -31,6 +31,12 @@ int luat_fota_write(uint8_t *data, uint32_t len);
 /// @return int =0成功，其他失败
 int luat_fota_done(void);
 
+/**
+ * @brief 结束fota流程
+ * 
+ * @param is_ok 是否结束流程
+ * @return int =0成功，其他失败
+ */
 int luat_fota_end(uint8_t is_ok);
 
 /// @brief 等待fota 准备，目前没有什么作用

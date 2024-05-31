@@ -241,9 +241,20 @@ int luat_http_client_destroy(luat_http_ctrl_t **p_http_ctrl);
  * @return 成功返回0，其他值失败
  */
 int luat_http_client_post_body(luat_http_ctrl_t *http_ctrl, void *data, uint32_t len);
-
+/**
+ * @brief http获取状态码
+ *
+ * @param http_ctrl 客户端
+ * @return 状态码
+ */
 int luat_http_client_get_status_code(luat_http_ctrl_t *http_ctrl);
-
+/**
+ * @brief http客户端设置暂停
+ *
+ * @param http_ctrl 客户端
+ * @param is_pause 是否暂停
+ * @return 成功返回0，其他值失败
+ */
 int luat_http_client_pause(luat_http_ctrl_t *http_ctrl, uint8_t is_pause);
 /**
  * @brief GET请求时要求服务器从offset位置开始传输数据，谨慎使用

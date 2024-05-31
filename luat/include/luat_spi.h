@@ -55,7 +55,14 @@ typedef struct luat_fatfs_spi
  * @return int 成功返回0
  */
 int luat_spi_setup(luat_spi_t* spi);
-//收发SPI数据尝试启动DMA模式
+/**
+ * @brief SPI收发数据尝试启动DMA模式
+ * 
+ * @param spi_id spi id
+ * @param tx_channel 发送通道
+ * @param rx_channel 接收通道
+ * @return int
+ */
 int luat_spi_config_dma(int spi_id, uint32_t tx_channel, uint32_t rx_channel);
 /**
  * @brief 关闭SPI
@@ -93,28 +100,99 @@ int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
  * @return int 返回发送字节数
  */
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
-
+/**
+ * @brief SPI速率修改
+ * 
+ * @param spi_id spi id
+ * @param speed 速率
+ * @return int 返回发送字节数
+ */
 int luat_spi_change_speed(int spi_id, uint32_t speed);
-//非阻塞SPI收发数据
+/**
+ * @brief SPI收发数据(异步)
+ * 
+ * @param spi_id spi id
+ * @param tx_buff 发送数据
+ * @param rx_buff 接收数据
+ * @param len 数据长度
+ * @param CB 回调函数
+ * @param pParam 回调参数
+ * @return int 返回发送字节数
+ */
 int luat_spi_no_block_transfer(int spi_id, uint8_t *tx_buff, uint8_t *rx_buff, size_t len, void *CB, void *pParam);
+/**
+ * @brief SPI模式获取
+ * 
+ * @param spi_id spi id
+ * @return int 模式
+ */
+int luat_spi_get_mode(int spi_id);
+/**
+ * @brief SPI模式修改
+ * 
+ * @param spi_id spi id
+ * @param mode 模式
+ * @return int 返回发送字节数
+ */
+int luat_spi_set_mode(int spi_id, uint8_t mode);
 
-// 初始化总线
+/**
+ * @brief spi总线初始化
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @return int 
+ */
 int luat_spi_bus_setup(luat_spi_device_t* spi_dev);
-// 初始化设备
+/**
+ * @brief spi设备初始化
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @return int 
+ */
 int luat_spi_device_setup(luat_spi_device_t* spi_dev);
-// 配置设备
+/**
+ * @brief spi设备配置
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @return int 
+ */
 int luat_spi_device_config(luat_spi_device_t* spi_dev);
-//关闭SPI设备，成功返回0
+/**
+ * @brief spi设备关闭
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @return int 
+ */
 int luat_spi_device_close(luat_spi_device_t* spi_dev);
-//收发SPI数据，返回接收字节数
+/**
+ * @brief spi设备收发数据，返回接收字节数
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @param send_buf 发送数据
+ * @param send_length 发送数据长度
+ * @param recv_buf 接收数据
+ * @param recv_length 接收数据长度
+ * @return int 
+ */
 int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length);
-//收SPI数据，返回接收字节数
+/**
+ * @brief spi设备接收数据，返回接收字节数
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @param recv_buf 接收数据
+ * @param length 数据长度
+ * @return int 返回接收字节数
+ */
 int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t length);
-//发SPI数据，返回发送字节数
+/**
+ * @brief spi设备发送数据，返回接收字节数
+ * 
+ * @param spi_dev luat_spi_device_t 结构体
+ * @param send_buf 发送数据
+ * @param length 数据长度
+ * @return int 返回发送字节数
+ */
 int luat_spi_device_send(luat_spi_device_t* spi_dev, const char* send_buf, size_t length);
 
-int luat_spi_get_mode(int spi_id);
-
-int luat_spi_set_mode(int spi_id, uint8_t mode);
 /**@}*/
 #endif

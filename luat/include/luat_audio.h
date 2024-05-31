@@ -292,7 +292,7 @@ uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol);
 uint8_t luat_audio_mute(uint8_t multimedia_id, uint8_t on);
 
 /**
- * @brief 调试开关
+ * @brief 音频调试开关
  * 
  * @param multimedia_id 多媒体通道
  * @param onoff 0关闭，1打开

@@ -691,8 +691,12 @@ int luat_mobile_event_deregister_handler(void);
  * @return int =0成功，其他失败
  */
 int luat_mobile_sms_sdk_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
+
 /**
- * @brief 和luat_mobile_sms_sdk_event_register_handler一样，只是为了兼容老的BSP
+ * @brief 注册底层短信消息回调函数，后续改为统一消息处理(和luat_mobile_sms_sdk_event_register_handler一样，只是为了兼容老的BSP)
+ *
+ * @param callback_fun 短信消息回调函数，如果为NULL，则是注销
+ * @return int =0成功，其他失败
  */
 int luat_mobile_sms_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
 /* ------------------------------------------------- mobile status end ------------------------------------------------ */

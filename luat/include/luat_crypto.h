@@ -22,6 +22,13 @@ typedef struct
  * @defgroup luatos_crypto crypto数据加密
  * @{
  */
+/**
+ * @brief 生成随机数
+ * 
+ * @param buff 随机数保存内存
+ * @param len 长度
+ * @return int
+ */
 int luat_crypto_trng(char* buff, size_t len);
 /// @brief 计算md5值
 /// @param str 需要计算的字符串

@@ -54,6 +54,12 @@ int luat_fskv_del(const char* key);
  */
 int luat_fskv_set(const char* key, void* data, size_t len);
 
+/**
+ * @brief 读取key大小
+ * @param key key值,不能为NULL,必须是\0结尾,最大长度64字节
+ * @param buff 缓冲区
+ * @return  长度,<=0 失败
+ */
 int luat_fskv_size(const char* key, char buff[4]);
 
 /**
@@ -70,9 +76,20 @@ int luat_fskv_get(const char* key, void* data, size_t len);
  * @return int == 0 正常 != 0失败
  */
 int luat_fskv_clear(void);
-
+/**
+ * @brief 获取kv数据库状态
+ * @param using_sz 已使用的空间,单位字节
+ * @param max_sz 总可用空间, 单位字节
+ * @param kv_count 总kv键值对数量, 单位个
+ * @return 0 成功，其他失败
+ */
 int luat_fskv_stat(size_t *using_sz, size_t *max_sz, size_t *kv_count);
-
+/**
+ * @brief 读取下一个偏移的数据
+ * @param buff 读取数据
+ * @param offset 偏移
+ * @return 0 成功，其他失败
+ */
 int luat_fskv_next(char* buff, size_t offset);
 
 /**

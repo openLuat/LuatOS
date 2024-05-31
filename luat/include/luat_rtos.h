@@ -485,6 +485,12 @@ uint32_t luat_rtos_entry_critical(void);
  */
 void luat_rtos_exit_critical(uint32_t critical);
 
+/**
+ * @brief 获取是否为中断
+ * 
+ * @param critical 进入临界保护时返回的参数
+ * @return uint32_t 0不是中断，1是中断
+ */
 uint32_t luat_rtos_get_ipsr(void);
 /*------------------------------------------------ critical   end----------------------------------------------- */
 /** @}*/

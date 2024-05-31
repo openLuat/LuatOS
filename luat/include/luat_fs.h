@@ -170,6 +170,11 @@ int luat_fs_fexist(const char *filename);
  */
 int luat_fs_readline(char * buf, int bufsize, FILE * stream);
 
+/**
+ * @brief 获取文件映射地址
+ * @param stream[IN] 文件句柄
+ * @return void* 文件地址
+ */
 void* luat_fs_mmap(FILE * stream);
 
 // TODO 文件夹相关的API

@@ -82,6 +82,13 @@ int l_camera_handler(lua_State *L, void* ptr);
  */
 int luat_camera_setup(int id, luat_spi_camera_t *conf, void* callback, void *param);
 
+/**
+ * @brief 配置图像大小
+ * @param id camera接收数据总线ID
+ * @param w 图像宽
+ * @param h 图像高
+ * @return >=0成功，其他失败
+ */
 int luat_camera_set_image_w_h(int id, uint16_t w, uint16_t h);
 
 /**
@@ -128,13 +135,27 @@ int luat_camera_pause(int id, uint8_t is_pause);
  * @return 0成功，其他失败
  */
 int luat_camera_image_decode_init(uint8_t type, void *stack, uint32_t stack_length, uint32_t priority);
-
-
+/*
+ * @brief 扫码库进行一次解码
+ * @param data 缓冲区
+ * @param image_w 图像宽
+ * @param image_h 图像高
+ * @param timeout 超时
+ * @param callback 回调函数
+ * @param param 回调参数
+ * @return 0成功，其他失败
+ */
 int luat_camera_image_decode_once(uint8_t *data, uint16_t image_w, uint16_t image_h, uint32_t timeout, void *callback, void *param);
 
-
+/*
+ * @brief 扫码库反初始化
+ */
 void luat_camera_image_decode_deinit(void);
-
+/*
+ * @brief 获取解码结果
+ * @param buf 缓冲区
+ * @return 1成功，其他失败
+ */
 int luat_camera_image_decode_get_result(uint8_t *buf);
 
 /**********以下是luatos使用，csdk不要使用***********/

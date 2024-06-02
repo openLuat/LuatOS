@@ -549,6 +549,10 @@ static int l_libgnss_get_gsa_mode0(lua_State *L) {
         lua_pushliteral(L, "vdop");
         push_gnss_value(L, &(frame_gsa.vdop), 0);
         lua_settable(L, -3);
+
+        lua_pushliteral(L, "sysid");
+        lua_pushinteger(L, frame_gsa.sysid);
+        lua_settable(L, -3);
         break;
     }
 
@@ -608,6 +612,10 @@ static int l_libgnss_get_gsa_mode1(lua_State *L) {
 
         lua_pushliteral(L, "vdop");
         push_gnss_value(L, &(frame_gsa.vdop), 0);
+        lua_settable(L, -3);
+
+        lua_pushliteral(L, "sysid");
+        lua_pushinteger(L, frame_gsa.sysid);
         lua_settable(L, -3);
         
         lua_pushliteral(L, "sats");

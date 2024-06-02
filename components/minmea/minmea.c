@@ -466,7 +466,7 @@ bool minmea_parse_gsa(struct minmea_sentence_gsa *frame, const char *sentence)
     // $GPGSA,A,3,04,05,,09,12,,,24,,,,,2.5,1.3,2.1*39
     char type[6];
 
-    if (!minmea_scan(sentence, "tciiiiiiiiiiiiifff",
+    if (!minmea_scan(sentence, "tciiiiiiiiiiiiifff;i",
             type,
             &frame->mode,
             &frame->fix_type,
@@ -484,7 +484,8 @@ bool minmea_parse_gsa(struct minmea_sentence_gsa *frame, const char *sentence)
             &frame->sats[11],
             &frame->pdop,
             &frame->hdop,
-            &frame->vdop))
+            &frame->vdop,
+            &frame->sysid))
         return false;
     if (strcmp(type+2, "GSA"))
         return false;

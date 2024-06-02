@@ -138,7 +138,7 @@ sys.taskInit(function()
             else
                 log.debug("摄像头拍照")
 				--camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-                camera.capture(camera_id,rawbuff,3)	--2和3需要非常多非常多的psram,尽量不要用
+                camera.capture(camera_id,rawbuff,1)	--2和3需要非常多非常多的psram,尽量不要用
                 result, data = sys.waitUntil("capture done", 30000)
                 log.info(rawbuff:used())
 				--camera.close(camera_id)	--完全关闭摄像头才用这个

@@ -15,7 +15,7 @@
 
 #ifndef MQTT_RECV_BUF_LEN_MAX
 #if defined(CHIP_EC618) || defined(CHIP_EC718)|| defined(CHIP_EC716)
-#define MQTT_RECV_BUF_LEN_MAX (32*1024) ///< MQTT 接收BUFF大小
+#define MQTT_RECV_BUF_LEN_MAX (80*1024) ///< MQTT 接收BUFF大小
 #else
 #define MQTT_RECV_BUF_LEN_MAX 4096 ///< MQTT 接收BUFF大小
 #endif
@@ -93,10 +93,33 @@ typedef void (*luat_mqtt_cb_t)(luat_mqtt_ctrl_t *luat_mqtt_ctrl, uint16_t event)
 int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl);
 // static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 // int l_mqtt_callback(lua_State *L, void* ptr);
+/**
+ *@brief MQTT内部回调(用户无需关心)
+ *@param ctrl luatos_mqtt对象实例
+ *@param arg1 参数1
+ *@param arg2 参数2
+ *@return 成功为0，其他值失败
+ */
 int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ctrl, int arg1, int arg2);
+/**
+ *@brief MQTT报文解析内部回调(用户无需关心)
+ *@param data 数据
+ *@param param 参数
+ *@return 成功为0，其他值失败
+ */
 int32_t luat_mqtt_callback(void *data, void *param);
+/**
+ *@brief MQTT定时器内部回调(用户无需关心)
+ */
 LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM);
 // int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl);
+/**
+ *@brief MQTT报文发送(用户无需关心)
+ *@param socket_info socket
+ *@param buf 数据
+ *@param count 数据大小
+ *@return 成功为0，其他值失败
+ */
 int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count);
 
 /**

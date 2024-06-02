@@ -174,8 +174,8 @@ int luat_pm_iovolt_ctrl(int id, int val);
 
 /**
  * @brief 配置唤醒引脚，只针对esp系列
- * @param pin
- * @param val
+ * @param pin 引脚
+ * @param val 电平
  * @return
  */
 int luat_pm_wakeup_pin(int pin, int val);

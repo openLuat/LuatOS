@@ -36,9 +36,15 @@ local DATA_SIZE_SOH =   128
 local DATA_SIZE_STX =   1024
 
 local function uart_cb(id, len)
-    local data = uart.read(id, len)
-    data = data:byte(1,1)
+    local data = uart.read(id, 1)
+    -- log.info("uart读取到数据:", data:toHex())
+    data = data:byte(1)
     sys.publish("xmodem", data)
+end
+
+function xmodem.close(uart_id)
+    uart.on(uart_id, "receive")
+    uart.close(uart_id)
 end
 
 --[[

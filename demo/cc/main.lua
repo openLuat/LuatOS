@@ -69,26 +69,39 @@ sys.taskInit(function()
 
     local voice_vol = 70
     local mic_vol = 65
+
+    local find_es8311 = false
 	--自适应开发板，如果明确是I2C几就不用了
-    i2c.setup(0,i2c.FAST)
-	i2c.setup(1,i2c.FAST)
+    i2c.setup(0, i2c.FAST)
+	i2c.setup(1, i2c.FAST)
 	pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
     sys.wait(10)
     pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
 	sys.wait(10)
-	if i2c.send(0, 0x18, 0xfd) == true then
-		log.info("音频小板", "codec on i2c0")
-	end
-	if i2c.send(1, 0x18, 0xfd) == true then
-		log.info("云喇叭开发板", "codec on i2c1")
-		power_pin = nil
-		
-		i2c_id = 1
-	end
+    if i2c.send(0, 0x18, 0xfd) == true then
+        log.info("音频小板", "codec on i2c0")
+        i2c_id = 0
+        find_es8311 = true
+    else
+        if i2c.send(1, 0x18, 0xfd) == true then
+            log.info("云喇叭开发板", "codec on i2c1")
+            find_es8311 = true
+            power_pin = nil
+            i2c_id = 1
+        end
+    end
+
+    if not find_es8311 then
+        while true do
+            log.info("not find es8311")
+            sys.wait(1000)
+        end
+    end
+
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
 
     audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin, power_on_level, power_time_delay)
-    audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
+    audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311", i2cid = i2c_id, i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
 
     audio.vol(multimedia_id, voice_vol)
     audio.micVol(multimedia_id, mic_vol)

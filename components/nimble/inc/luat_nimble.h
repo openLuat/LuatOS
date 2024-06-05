@@ -73,5 +73,7 @@ int luat_nimble_central_read(int id, struct ble_gatt_chr *);
 
 int luat_nimble_central_subscribe(int id, struct ble_gatt_chr * chr, int onoff);
 
+int luat_nimble_mac_set(const char* tmac);
+
 #endif
 

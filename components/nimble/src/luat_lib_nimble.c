@@ -281,17 +281,30 @@ static int l_nimble_set_uuid(lua_State *L) {
 
 /*
 获取蓝牙MAC
-@api nimble.mac()
+@api nimble.mac(mac)
+@string 待设置的MAC地址, 6字节, 不传就是单获取
 @return string 蓝牙MAC地址,6字节
 @usage
 -- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
 -- 本函数对所有模式都适用
 local mac = nimble.mac()
 log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
+
+-- 修改MAC地址, 2024.06.05 新增, 当前仅Air601支持, 修改后重启生效
+nimble.mac(string.fromHex("1234567890AB"))
 */
 static int l_nimble_mac(lua_State *L) {
-    int rc;
-    uint8_t own_addr_type;
+    int rc = 0;
+    uint8_t own_addr_type = 0;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        size_t len = 0;
+        const char* tmac = luaL_checklstring(L, 1, &len);
+        if (len != 6) {
+            LLOGW("mac len must be 6");
+            return 0;
+        }
+        luat_nimble_mac_set(tmac);
+    }
     rc = ble_hs_util_ensure_addr(0);
     if (rc != 0) {
         LLOGW("fail to fetch BLE MAC, rc %d", rc);

@@ -66,7 +66,7 @@ int luat_i2c_recv(int id, int addr, void* buff, size_t len);
  * @param stop 是否发送停止位
  * @return 0成功 其他失败
  */
-int luat_i2c_write_reg(int id, int addr, int reg, uint16_t value, uint8_t stop);
+int luat_i2c_write_reg(int id, int addr, int reg, void* buff, size_t len, uint8_t stop);
 /**
  * @brief I2C 读寄存器
  * 
@@ -76,7 +76,7 @@ int luat_i2c_write_reg(int id, int addr, int reg, uint16_t value, uint8_t stop);
  * @param value 数据
  * @return 0成功 其他失败
  */
-int luat_i2c_read_reg(int id, int addr, int reg, uint16_t* value);
+int luat_i2c_read_reg(int id, int addr, int reg, void* buff, size_t len);
 /**
  * @brief I2C 收发数据
  * 

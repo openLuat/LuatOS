@@ -101,6 +101,7 @@ int luat_libgnss_parse_nmea(const char* line) {
     switch (id) {
         case MINMEA_SENTENCE_RMC: {
             if (minmea_parse_rmc(frame_rmc, line)) {
+                copynmea(&gnssctx.rmc, line);
                 if (frame_rmc->valid) {
                     memcpy(&(gnssctx.frame_rmc), frame_rmc, sizeof(struct minmea_sentence_rmc));
                     #ifdef LUAT_USE_MCU
@@ -205,9 +206,10 @@ int luat_libgnss_parse_nmea(const char* line) {
             copynmea(&gnssctx.txt, line);
             break;
         }
-        default:
-            //LLOGD("why happen");
+        default: {
+            luat_libgnss_on_rawdata(line, strlen(line), 2);
             break;
+        }
     }
     return 0;
 }

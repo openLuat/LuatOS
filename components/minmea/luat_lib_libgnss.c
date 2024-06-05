@@ -62,6 +62,11 @@ extern char* libgnss_recvbuff;
 extern int libgnss_route_uart_id;
 extern int gnss_debug;
 
+static int gnss_raw_cb = 0;
+static int gnss_txt_cb = 0;
+// static int gnss_rmc_cb = 0;
+static int gnss_other_cb = 0;
+
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
 static inline void push_gnss_value(lua_State *L, struct minmea_float *f, int mode) {
@@ -285,7 +290,7 @@ static int l_libgnss_get_int_location(lua_State *L) {
 /**
 获取原始RMC位置信息
 @api libgnss.getRmc(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始RMC字符串
 @return table 原始rmc数据
 @usage
 -- 解析nmea
@@ -314,6 +319,13 @@ static int l_libgnss_get_rmc(lua_State *L) {
     lua_createtable(L, 0, 12);
 
     struct tm rtime = {0};
+
+    if (mode == 3) {
+        if (gnssctx.rmc == NULL)
+            return 0;
+        lua_pushstring(L, gnssctx.rmc->data);
+        return 1;
+    }
 
     if (1) {
         lua_pushboolean(L, gnssctx.frame_rmc.valid);
@@ -537,6 +549,10 @@ static int l_libgnss_get_gsa_mode0(lua_State *L) {
         lua_pushliteral(L, "vdop");
         push_gnss_value(L, &(frame_gsa.vdop), 0);
         lua_settable(L, -3);
+
+        lua_pushliteral(L, "sysid");
+        lua_pushinteger(L, frame_gsa.sysid);
+        lua_settable(L, -3);
         break;
     }
 
@@ -596,6 +612,10 @@ static int l_libgnss_get_gsa_mode1(lua_State *L) {
 
         lua_pushliteral(L, "vdop");
         push_gnss_value(L, &(frame_gsa.vdop), 0);
+        lua_settable(L, -3);
+
+        lua_pushliteral(L, "sysid");
+        lua_pushinteger(L, frame_gsa.sysid);
         lua_settable(L, -3);
         
         lua_pushliteral(L, "sats");
@@ -987,11 +1007,6 @@ static int l_libgnss_rtc_auto(lua_State *L) {
     return 0;
 }
 
-//临时处理, 当前GNSS处理均在lua线程
-// static lua_State *gnss_L;
-static int gnss_raw_cb = 0;
-static int gnss_txt_cb = 0;
-
 static int l_libgnss_data_cb(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     // lua_getglobal(L, "sys_pub");
@@ -1010,9 +1025,23 @@ static int l_libgnss_data_cb(lua_State *L, void* ptr) {
 }
 
 int luat_libgnss_on_rawdata(const char* data, size_t len, int type) {
-    if (gnss_raw_cb == 0 && type == 0)
-        return 0;
-    if (gnss_txt_cb == 0 && type == 1) {
+    int cb = 0;
+    if (type == 0) {
+        if (gnss_raw_cb == 0)
+            return 0;
+        cb = gnss_raw_cb;
+    }
+    else if (type == 1) {
+        if (gnss_txt_cb == 0)
+            return 0;
+        cb = gnss_txt_cb;
+    }
+    else if (type == 2) {
+        if (gnss_other_cb == 0)
+            return 0;
+        cb = gnss_other_cb;
+    }
+    else {
         return 0;
     }
     char* ptr = luat_heap_malloc(len);
@@ -1022,7 +1051,7 @@ int luat_libgnss_on_rawdata(const char* data, size_t len, int type) {
     rtos_msg_t msg = {
         .handler = l_libgnss_data_cb,
         .arg1 = len,
-        .arg2 = type == 1 ? gnss_txt_cb : gnss_raw_cb,
+        .arg2 = cb,
         .ptr = ptr
     };
     luat_msgbus_put(&msg, 0);
@@ -1060,6 +1089,16 @@ static int l_libgnss_on(lua_State *L) {
         if (lua_isfunction(L, 2)) {
             lua_pushvalue(L, 2);
             gnss_txt_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    else if (!strcmp("other", tp)) {
+        if (gnss_other_cb != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, gnss_other_cb);
+            gnss_other_cb = 0;
+        }
+        if (lua_isfunction(L, 2)) {
+            lua_pushvalue(L, 2);
+            gnss_other_cb = luaL_ref(L, LUA_REGISTRYINDEX);
         }
     }
     return 0;

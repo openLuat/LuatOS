@@ -150,6 +150,7 @@ struct minmea_sentence_gsa {
     struct minmea_float pdop;
     struct minmea_float hdop;
     struct minmea_float vdop;
+    int sysid;
 };
 
 struct minmea_sat_info {

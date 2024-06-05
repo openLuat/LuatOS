@@ -1,11 +1,4 @@
 require "bf30a2"
-local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
--- 初始化
-local result = uart.setup(uartid, -- 串口id
-115200, -- 波特率
-8, -- 数据位
-1 -- 停止位
-)
 
 camera.on(0, "scanned", function(id, str)
     if type(str) == 'string' then
@@ -33,6 +26,8 @@ if rawbuff == nil then
     log.info(err)
 end
 
+
+
 sys.taskInit(function()
     log.info("摄像头启动")
     local cspiId, i2cId = 1, 0
@@ -43,7 +38,7 @@ sys.taskInit(function()
     log.info(rtos.meminfo("sys"))
     log.info(rtos.meminfo("psram"))
     while 1 do
-        local result, data = sys.waitUntil("PRESS", 30000)
+        local result, data = sys.waitUntil("PRESS")
         if result == true and data == true then
             log.debug("摄像头拍照")
             camera_id = bf30a2Init(cspiId, i2cId, 25500000)
@@ -59,3 +54,6 @@ sys.taskInit(function()
         end
     end
 end)
+
+sys.publish("PRESS", true)
+sys.timerLoopStart(sys.publish, 60000, "PRESS", true)

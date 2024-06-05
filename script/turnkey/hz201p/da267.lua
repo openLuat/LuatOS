@@ -1,4 +1,4 @@
-local i2cId = 0
+local i2cId = 1
 local da267Addr = 0x26
 local intPin = 39
 local function ind()

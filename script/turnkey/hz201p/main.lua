@@ -7,8 +7,35 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 _G.sys = require "sys"
 
+
+-- Gsensor
 require "da267"
+
+-- 780ep不支持VOLTE，支持CAMERA
+-- 780epv固件支持VOLTE，但固件空间放不下CAMERA
+
+-- CAMERA
 require "camCapture"
+
+-- VOLTE
+-- require "ccVolte"
+
+-- LED
+sys.taskInit(function()
+    local netLed = gpio.setup(1, 0)
+    local pwrLed = gpio.setup(16, 0, nil, nil, 4)
+    while 1 do
+        netLed(1)
+        pwrLed(1)
+        sys.wait(5000)
+        netLed(0)
+        pwrLed(0)
+        sys.wait(5000)
+    end
+end)
+
+-- 默认是IDLE模式，可替换为pm.LIGHT
+pm.request(pm.IDLE)
 
 sys.taskInit(function()
     while 1 do

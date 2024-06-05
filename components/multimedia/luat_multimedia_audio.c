@@ -338,6 +338,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 				luat_audio_power(multimedia_id,0);
 				audio_conf->wakeup_ready = 0;
 				audio_conf->pa_on_enable = 0;
+#ifdef __LUATOS__
+				luat_audio_play_blank(multimedia_id, 0);
+#endif
 				break;
 			}
 			audio_conf->sleep_mode = mode;
@@ -371,6 +374,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 				luat_audio_pa(multimedia_id,0,0);
 				audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
 				audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
+#ifdef __LUATOS__
+				luat_audio_play_blank(multimedia_id, 0);
+#endif
 				break;
 			case LUAT_AUDIO_PM_SHUTDOWN:
 				luat_audio_pa(multimedia_id,0,0);
@@ -381,6 +387,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 				audio_conf->wakeup_ready = 0;
 				audio_conf->pa_on_enable = 0;
 				audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
+#ifdef __LUATOS__
+				luat_audio_play_blank(multimedia_id, 0);
+#endif
 				break;
 			case LUAT_AUDIO_PM_POWER_OFF:
 				luat_audio_pa(multimedia_id,0,0);
@@ -391,6 +400,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 				audio_conf->wakeup_ready = 0;
 				audio_conf->pa_on_enable = 0;
 				audio_conf->sleep_mode = LUAT_AUDIO_PM_POWER_OFF;
+#ifdef __LUATOS__
+				luat_audio_play_blank(multimedia_id, 0);
+#endif
 				break;
 			default:
 				return -1;

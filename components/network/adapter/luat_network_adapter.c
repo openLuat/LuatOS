@@ -1910,6 +1910,7 @@ static int tls_random( void *p_rng,
 
 int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 {
+	if (!ctrl) return -1;
 #ifdef LUAT_USE_TLS
 	ctrl->tls_mode = 1;
 	if (!ctrl->ssl)
@@ -1954,6 +1955,7 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 
 void network_deinit_tls(network_ctrl_t *ctrl)
 {
+	if (!ctrl) return -1;
 #ifdef LUAT_USE_TLS
 	if (ctrl->ssl)
 	{
@@ -1993,6 +1995,7 @@ void network_deinit_tls(network_ctrl_t *ctrl)
 
 int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
+	if (!ctrl) return -1;
 	NW_LOCK;
 	ctrl->auto_mode = 1;
 //	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
@@ -2050,6 +2053,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
  */
 int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t domain_name_len, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms)
 {
+	if (!ctrl) return -1;
 	if (ctrl->socket_id >= 0)
 	{
 		return -1;
@@ -2142,6 +2146,7 @@ NETWORK_CONNECT_WAIT:
 
 int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
+	if (!ctrl) return -1;
 	if (NW_STATE_LISTEN == ctrl->state)
 	{
 		DBG("socket %d is listen", ctrl->socket_id);
@@ -2217,6 +2222,7 @@ NETWORK_LISTEN_WAIT:
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
+	if (!ctrl) return -1;
 	NW_LOCK;
 	if (ctrl->cache_data)
 	{
@@ -2306,6 +2312,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
  */
 int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t *tx_len, uint32_t timeout_ms)
 {
+	if (!ctrl) return -1;
 	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
 	{
 		return -1;
@@ -2433,6 +2440,7 @@ NETWORK_TX_WAIT:
  */
 int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t *rx_len)
 {
+	if (!ctrl) return -1;
 	if (((ctrl->need_close && !ctrl->new_rx_flag) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE)))
 	{
 		return -1;
@@ -2553,6 +2561,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 
 int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout)
 {
+	if (!ctrl) return -1;
 	if (ctrl->new_rx_flag)
 	{
 		ctrl->wait_target_state = NW_WAIT_EVENT;
@@ -2632,6 +2641,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 
 int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break, uint8_t *is_timeout)
 {
+	if (!ctrl) return -1;
 	*is_timeout = 0;
 	*is_break = 0;
 	if (ctrl->new_rx_flag)

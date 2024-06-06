@@ -1955,7 +1955,7 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 
 void network_deinit_tls(network_ctrl_t *ctrl)
 {
-	if (!ctrl) return -1;
+	if (!ctrl) return;
 #ifdef LUAT_USE_TLS
 	if (ctrl->ssl)
 	{

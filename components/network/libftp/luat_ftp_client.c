@@ -227,7 +227,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	if (ret){
 		return -1;
 	}else{
-		LLOGD("luat_ftp_pasv_connect cmd_recv_data",g_s_ftp.network->cmd_recv_data);
+		LLOGD("luat_ftp_pasv_connect cmd_recv_data %s",g_s_ftp.network->cmd_recv_data);
 		if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_ENTER_PASSIVE, 3)){
 			LLOGD("ftp pasv_connect wrong");
 			return -1;
@@ -632,6 +632,10 @@ static void ftp_task(void *param){
 		}
 		continue;
 operation_failed:
+		if (g_s_ftp.fd){
+			luat_fs_fclose(g_s_ftp.fd);
+			g_s_ftp.fd = NULL;
+		}
 		ftp_state = FTP_ERROR;
 		l_ftp_cb(ftp_state);
 	}

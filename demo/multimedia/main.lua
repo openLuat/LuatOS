@@ -67,7 +67,7 @@ function audio_setup()
         pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
 
         local multimedia_id = 0
-        local i2c_id = 0
+        local i2c_id = 0	--云喇叭开发版是1
         local i2s_id = 0
         local i2s_mode = 0
         local i2s_sample_rate = 16000
@@ -223,10 +223,17 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
-		audio.pm(0,audio.STANDBY)
-		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
-        -- log.info(rtos.meminfo("sys"))
-        -- log.info(rtos.meminfo("lua"))
+		audio.pm(0,audio.SHUTDOWN)
+		--低功耗测试打开下面的代码
+		--[[
+		audio.pm(0,audio.POWEROFF)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
+		pm.power(pm.USB, false)
+		mobile.flymode(0, true)
+		pm.request(pm.LIGHT)
+		sys.wait(20000)
+		]]
+        log.info(rtos.meminfo("sys"))
+        log.info(rtos.meminfo("lua"))
         sys.wait(1000)
     end
     sysplus.taskDel(taskName)

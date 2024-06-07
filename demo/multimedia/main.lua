@@ -231,6 +231,7 @@ local function audio_task()
 		mobile.flymode(0, true)
 		pm.request(pm.LIGHT)
 		sys.wait(20000)
+		mobile.flymode(0, false)
 		]]
         log.info(rtos.meminfo("sys"))
         log.info(rtos.meminfo("lua"))

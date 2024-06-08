@@ -659,7 +659,7 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
-/**
+/*
 缓冲区绘制QRCode
 @api lcd.drawQrcode(x, y, str, size)
 @int x坐标
@@ -1434,7 +1434,7 @@ static int l_lcd_showimage(lua_State *L){
 主动刷新数据到界面, 仅设置buff且禁用自动属性后使用
 @api lcd.flush()
 @return bool 成功返回true, 否则返回nil/false
-@usgae
+@usage
 -- 本API与 lcd.setupBuff lcd.autoFlush 配合使用
 lcd.flush()
 */
@@ -1861,13 +1861,13 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
-    //@const direction_0 0°方向命令
+    //@const direction_0 int 0°方向命令
     { "direction_0",    ROREG_INT(0)},
-    //@const direction_90 90°方向命令
+    //@const direction_90 int 90°方向命令
     { "direction_90",   ROREG_INT(1)},
-    //@const direction_180 180°方向命令
+    //@const direction_180 int 180°方向命令
     { "direction_180",  ROREG_INT(2)},
-    //@const direction_270 270°方向命令
+    //@const direction_270 int 270°方向命令
     { "direction_270",  ROREG_INT(3)},
     //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
@@ -1879,7 +1879,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_3_BIT_9_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II)},
     //@const WIRE_4_BIT_8_INTERFACE_II 四线spi 8bit 模式II
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
-    //@const DATA_2_LANE 双通道模式
+    //@const DATA_2_LANE int 双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
 	  {NULL, ROREG_INT(0)}
 };

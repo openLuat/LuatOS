@@ -111,7 +111,6 @@ function exec_agnss()
         gnssloc = nil
     else
         -- TODO 发起基站定位
-        uart.write(gps_uart_id, "$AIDPOS,3432.70,N,10885.25,E,1.0\r\n")
     end
 end
 

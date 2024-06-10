@@ -10,7 +10,10 @@ local hdgnss = require("hdgnss")
 
 sys.taskInit(function()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
-    hdgnss.setup({uart_id=2, debug=true})
+    hdgnss.setup({
+        uart_id=2,
+        debug=true
+    })
     hdgnss.start()
 end)
 

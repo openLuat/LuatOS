@@ -17,18 +17,9 @@ local function hdcrc(str, len)
     return string.char(crc1 & 0xFF, crc2 & 0xFF)
 end
 
-local function exec_agnss()
+function hdgnss.aideph()
     local url = "http://download.openluat.com/9501-xingli/HD_GPS_BDS.hdb"
-    local dat_done = false
-    for i = 1, 3 do
-        local ip = socket.localIP()
-        if ip and ip ~= "0.0.0.0" then
-            break
-        end
-        sys.waitUntil("IP_READY", 1000)
-    end
-    socket.sntp()
-    sys.waitUntil("NTP_UPDATE", 1000)
+    local eph_body = nil
     if io.fileSize("/hdgnss.bin") > 1024 then
         local date = os.date("!*t")
         -- log.info("gnss", "当前系统时间", os.date())
@@ -41,14 +32,10 @@ local function exec_agnss()
                 local t = tonumber(tm)
                 if t and (os.time() - t < 3600*2) then
                     log.info("hdgnss", "重用星历文件")
-                    local body = io.readFile("/hdgnss.bin")
-                    for offset = 1, #body, 512 do
-                        uart.write(gps_uart_id, body:sub(offset, offset + 511))
-                        sys.wait(100)
-                    end
-                    dat_done = true
+                    eph_body = io.readFile("/hdgnss.bin")
                 else
                     log.info("hdgnss", "星历过期了")
+                    os.remove("/hdgnss.bin")
                 end
             else
                 log.info("hdgnss", "星历时间有问题")
@@ -57,35 +44,54 @@ local function exec_agnss()
             log.info("hdgnss", "系统时间有问题")
         end
     end
-    if http and not dat_done then
+    if http and not eph_body then
         -- AGNSS 已调通
         for i = 1, 3 do
             local code, _, body = http.request("GET", url, nil, nil, {timeout=3000}).wait()
             log.info("hdgnss", "AGNSS", code, body and #body or 0)
             if code == 200 and body and #body > 1024 then
-                -- for offset = 1, #body, 512 do
-                --     log.info("hdgnss", "AGNSS", "write >>>", #body:sub(offset, offset + 511))
-                --     uart.write(gps_uart_id, body:sub(offset, offset + 511))
-                --     -- sys.waitUntil("UART2_SEND", 100)
-                --     sys.wait(100) -- 等100ms反而更成功
-                -- end
-                uart.write(gps_uart_id, body)
-                -- sys.waitUntil("UART2_SEND", 1000)
                 io.writeFile("/hdgnss.bin", body)
                 sys.wait(1000)
                 local date = os.date("!*t")
                 if date.year > 2022 then
                     io.writeFile("/hdgnss_tm", tostring(os.time()))
                 end
+                eph_body = body
                 break
             end
             sys.wait(6 * 1000)
         end
     end
+    if eph_body and #eph_body > 1024 then
+        local body = eph_body
+        -- for offset = 1, #body, 512 do
+        --     -- log.info("hdgnss", "AGNSS", "write >>>", #body:sub(offset, offset + 511))
+        --     -- uart.write(gps_uart_id, body:sub(offset, offset + 511))
+        --     -- sys.waitUntil("UART2_SEND", 100)
+        --     sys.wait(100) -- 等100ms反而更成功
+        -- end
+        uart.write(gps_uart_id, body)
+    end
     sys.wait(20)
-    
+end
+
+local function exec_agnss()
+    for i = 1, 3 do
+        local ip = socket.localIP()
+        if ip and ip ~= "0.0.0.0" then
+            break
+        end
+        sys.waitUntil("IP_READY", 3000)
+    end
+
+    socket.sntp()
+    sys.waitUntil("NTP_UPDATE", 1000)
+
     -- 注入当前时间
-    hdgnss.aidtime()
+    if os.date("*t").year > 2023 then
+        hdgnss.aidtime()
+        sys.wait(20)
+    end
 
     -- 读取之前的位置信息
     local lat, lng
@@ -102,7 +108,7 @@ local function exec_agnss()
     -- 写入参考位置
     if lat and lng and lat ~= 0 and lng ~= 0 then
         hdgnss.aidpos(lat, lng)
-        -- sys.wait(20)
+        sys.wait(20)
     else
         log.info("hdgnss", "当前无辅助位置信息")
     end
@@ -124,6 +130,8 @@ local function exec_agnss()
             end
         end
     end
+
+    hdgnss.aideph()
 end
 
 function hdgnss.aidpos(lat, lng)
@@ -137,7 +145,7 @@ function hdgnss.aidpos(lat, lng)
     -- lat =  234068458 1132310388
     --        234072543	1132310160
     log.info("hdgnss", "参考坐标(单位1/10000000度)", lat, lng)
-    str = str .. pack.pack("<IIII", lat, lng, 0, 0)
+    str = str .. pack.pack("<IIII", lat, lng, 5000, 0)
     str = str .. hdcrc(str)
     log.info("hdgnss", "写入AID-POS", str:toHex())
     uart.write(gps_uart_id, str)
@@ -243,7 +251,7 @@ end)
 
 sys.taskInit(function()
     while 1 do
-        sys.wait(3600 * 1000) -- 一小时检查一次
+        sys.wait(600 * 1000) -- 10分钟检查一次
         local fixed = libgnss.isFix()
         if not fixed and not hdgnss.opts.no_agps and hdgnss.running then
             exec_agnss()

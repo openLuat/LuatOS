@@ -3,7 +3,6 @@
 LED_VBAT = 26
 gpio.setup(LED_VBAT, 0) -- 低电压警告灯
 
-adc.open(adc.CH_VBAT)
 adc.open(adc.CH_CPU)
 
 -- 适配GNSS测试设备的GPIO

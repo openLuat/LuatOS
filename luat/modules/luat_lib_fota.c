@@ -68,8 +68,8 @@ end)
 @usage
 -- 初始化fota流程
 local result = fota.init(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
-local result = fota.init()	--ec618系列/EC718系列使用固定内部地址，所以不需要参数了
-local result = fota.init(nil, 0xe0000000, spi_device, 27)	--EC718系列允许使用外部flash更新，但是地址必须加上0xe0000000的偏移
+local result = fota.init()	--ec618系列/EC7XX系列使用固定内部地址，所以不需要参数了
+local result = fota.init(0xe0000000, 0, spi_device, 27)	--EC7XX系列允许使用外部flash更新，但是地址必须加上0xe0000000的偏移
 */
 static int l_fota_init(lua_State* L)
 {
@@ -96,6 +96,7 @@ static int l_fota_init(lua_State* L)
     {
     	spi_device->user_data = &power_pin;
     }
+
 	lua_pushboolean(L, !luat_fota_init(address, length, spi_device, buf, len));
 	return 1;
 }

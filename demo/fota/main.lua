@@ -73,6 +73,10 @@ function fota_cb(ret)
     end
 end
 
+--支持外部flash全量更新的固件，可以打开下面的注释，做全量更新，外部flash挂载在SPI0，使用GPIO27控制上下电
+--spi_flash = spi.deviceSetup(0,8,0,0,8,44*1000*1000,spi.MSB,1,0)
+--fota.init(0xe0000000, nil, spi_flash, 27)	--GPIO27控制上下电
+
 -- 使用合宙iot平台进行升级
 sys.taskInit(function()
     sys.waitUntil("net_ready")

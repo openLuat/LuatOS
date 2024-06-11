@@ -211,8 +211,18 @@ static void luat_uart_soft_close(void)
 	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, 0);
 	luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, NULL);
 	luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->rx_hwtimer_id, NULL);
+	if (prv_uart_soft->is_inited)
+	{
+		luat_uart_soft_tx_node_t *node;
+		while (!llist_empty(&prv_uart_soft->tx_queue_head))
+		{
+			node = (luat_uart_soft_tx_node_t *)(prv_uart_soft->tx_queue_head.next);
+			llist_del(&node->tx_node);
+			luat_heap_alloc(NULL, node->data, 0, 0);
+			luat_heap_alloc(NULL, node, 0, 0);
+		}
+	}
 	prv_uart_soft->is_inited = 0;
-	llist_traversal(&prv_uart_soft->tx_queue_head, luat_uart_soft_del_tx_queue, NULL);
 	luat_gpio_close(prv_uart_soft->rx_pin);
 	luat_gpio_close(prv_uart_soft->tx_pin);
 	if (prv_uart_soft->pin485 != 0xff)

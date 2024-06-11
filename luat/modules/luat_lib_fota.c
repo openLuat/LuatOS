@@ -59,15 +59,17 @@ end)
 
 /**
 初始化fota流程
-@api fota.init(storge_location, len, param1)
+@api fota.init(storge_location, len, param1, param2)
 @int/string fota数据存储的起始位置<br>如果是int，则是由芯片平台具体判断<br>如果是string，则存储在文件系统中<br>如果为nil，则由底层决定存储位置
 @int 数据存储的最大空间
 @userdata param1，如果数据存储在spiflash时,为spi_device
+@int param2，目前只用于外部flash更新时, spiflash电源控制脚
 @return boolean 成功返回true, 失败返回false
 @usage
 -- 初始化fota流程
 local result = fota.init(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
 local result = fota.init()	--ec618系列/EC718系列使用固定内部地址，所以不需要参数了
+local result = fota.init(nil, 0xe0000000, spi_device, 27)	--EC718系列允许使用外部flash更新，但是地址必须加上0xe0000000的偏移
 */
 static int l_fota_init(lua_State* L)
 {
@@ -88,6 +90,11 @@ static int l_fota_init(lua_State* L)
     if (lua_isuserdata(L, 3))
     {
     	spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+    }
+    uint8_t power_pin = luaL_optinteger(L, 4, 0xffffffff);
+    if (spi_device)
+    {
+    	spi_device->user_data = &power_pin;
     }
 	lua_pushboolean(L, !luat_fota_init(address, length, spi_device, buf, len));
 	return 1;

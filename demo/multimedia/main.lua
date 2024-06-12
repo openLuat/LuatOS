@@ -79,7 +79,7 @@ function audio_setup()
         local pa_pin = 25
         local pa_on_level = 1
         local pa_delay = 100
-        local power_pin = 16
+        local power_pin = 16 -- Air780EPVH 请修改成17
         local power_on_level = 1
         local power_delay = 3
         local power_time_delay = 100

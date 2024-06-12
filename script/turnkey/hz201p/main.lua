@@ -7,7 +7,6 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 _G.sys = require "sys"
 
-
 -- Gsensor
 require "da267"
 
@@ -15,7 +14,7 @@ require "da267"
 -- 780epv固件支持VOLTE，但固件空间放不下CAMERA
 
 -- CAMERA
-require "camCapture"
+-- require "camCapture"
 
 -- VOLTE
 -- require "ccVolte"
@@ -41,6 +40,8 @@ sys.taskInit(function()
     while 1 do
         log.info("lua", rtos.meminfo())
         log.info("lua", rtos.meminfo("sys"))
+        collectgarbage("collect")
+        collectgarbage("collect")
         sys.wait(1000)
     end
 end)

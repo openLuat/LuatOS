@@ -8,8 +8,12 @@ local aliyun = require "aliyun"
 --新版已经合并, 没有了地域, 1883同时兼容加密和非加密通信，非加密会下线
 -- 阿里云资料：https://help.aliyun.com/document_detail/147356.htm?spm=a2c4g.73742.0.0.4782214ch6jkXb#section-rtu-6kn-kru
 tPara = {
-    -- 是否为一型一密, true为一型一密, false为一机一密(预注册)
-    Registration = false,
+    -- 一机一密 - ProductSecret要留空白, 或者设置为nil
+    -- 一型一密 - ProductSecret要填产品secret
+    -- 一型一密 分2种: 预注册和免预注册
+    -- 公共实例只支持 预注册, Registration 填true
+    -- 企业实例支持 预注册 和 免预注册, 如需使用免预注册, Registration 填false, 否则填true
+    Registration = true,
     -- 设备名名称, 必须唯一
     DeviceName = (mobile and mobile.imei() or (wlan and wlan.mac() or mcu.unique_id():toHex())),
     -- 产品key, 在产品详情页面

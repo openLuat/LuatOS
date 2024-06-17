@@ -28,7 +28,6 @@ sys.taskInit(function()
     sys.waitUntil("IP_READY")
     log.info("已联网", "开始初始化aliyun库")
 
-    _G.fskv = nil
     local store = aliyun.store()
 
     --判断是否是同一三元组，不是的话就重新连接

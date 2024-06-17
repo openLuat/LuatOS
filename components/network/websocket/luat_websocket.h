@@ -42,6 +42,7 @@ typedef struct luat_websocket_connopts
 {
 	const char *url;
 	uint16_t keepalive;
+	uint8_t use_ipv6;
 } luat_websocket_connopts_t;
 
 typedef struct luat_websocket_pkg

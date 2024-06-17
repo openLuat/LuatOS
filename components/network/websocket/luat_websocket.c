@@ -252,6 +252,9 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_webs
 	if (opts->keepalive > 0) {
 		websocket_ctrl->keepalive = opts->keepalive;
 	}
+	if (opts->use_ipv6) {
+		network_connect_ipv6_domain(websocket_ctrl->netc, 1);
+	}
 	return 0;
 }
 

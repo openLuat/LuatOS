@@ -1,6 +1,6 @@
-local i2cId = 0
+local i2cId = 1
 local da267Addr = 0x26
-local intPin = 30
+local intPin = 39
 local function ind()
     log.info("int", gpio.get(intPin))
     if gpio.get(intPin) == 1 then
@@ -56,8 +56,8 @@ local function init()
 end
 
 sys.taskInit(function()
-    mcu.altfun(mcu.I2C, 0, 29, 2, 0)
-    mcu.altfun(mcu.I2C, 0, 30, 2, 0)
+    mcu.altfun(mcu.I2C, i2cId, 23, 2, 0)
+    mcu.altfun(mcu.I2C, i2cId, 24, 2, 0)
     while true do
         init()
         while true do

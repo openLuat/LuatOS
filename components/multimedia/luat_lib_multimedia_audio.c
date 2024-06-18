@@ -697,6 +697,11 @@ static int l_audio_set_output_bus(lua_State *L) {
 			audio_conf->codec_conf.i2s_id = luaL_checknumber(L, -1);
 		}
 		lua_pop(L, 1);
+		lua_pushstring(L, "voltage");
+		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+			audio_conf->voltage = luaL_checknumber(L, -1);
+		}
+		lua_pop(L, 1);
     }
     ret |= luat_audio_init(id, 0, 0);
     lua_pushboolean(L, !ret);
@@ -795,6 +800,10 @@ static const rotable_Reg_t reg_audio[] =
 	{ "BUS_I2S", 		ROREG_INT(LUAT_AUDIO_BUS_I2S)},
 	//@const BUS_SOFT_DAC number 硬件输出总线，软件模式DAC类型
 	{ "BUS_SOFT_DAC", 		ROREG_INT(LUAT_AUDIO_BUS_SOFT_DAC)},
+    //@const VOLTAGE_1800 number 可配置的codec工作电压，1.8V
+	{ "VOLTAGE_1800", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_1800)},
+    //@const VOLTAGE_3300 number 可配置的codec工作电压，3.3V
+	{ "VOLTAGE_3300", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_3300)},
 	{ NULL,            ROREG_INT(0)}
 };
 

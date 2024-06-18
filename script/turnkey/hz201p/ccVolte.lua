@@ -51,7 +51,8 @@ sys.taskInit(function()
     audio.setBus(multimedia_id, audio.BUS_I2S, {
         chip = "es8311",
         i2cid = i2c_id,
-        i2sid = i2s_id
+        i2sid = i2s_id,
+        voltage = audio.VOLTAGE_1800
     }) -- 通道0的硬件输出通道设置为I2S
     audio.vol(multimedia_id, voice_vol)
     audio.micVol(multimedia_id, mic_vol)

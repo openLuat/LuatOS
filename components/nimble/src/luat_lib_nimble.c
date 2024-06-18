@@ -296,6 +296,7 @@ nimble.mac(string.fromHex("1234567890AB"))
 static int l_nimble_mac(lua_State *L) {
     int rc = 0;
     uint8_t own_addr_type = 0;
+    uint8_t addr_val[6] = {0};
     if (lua_type(L, 1) == LUA_TSTRING) {
         size_t len = 0;
         const char* tmac = luaL_checklstring(L, 1, &len);
@@ -305,6 +306,14 @@ static int l_nimble_mac(lua_State *L) {
         }
         luat_nimble_mac_set(tmac);
     }
+    #ifdef TLS_CONFIG_CPU_XT804
+    if (1) {
+        extern int luat_nimble_mac_get(uint8_t* mac);
+        luat_nimble_mac_get(addr_val);
+        lua_pushlstring(L, (const char*)addr_val, 6);
+        return 1;
+    }
+    #endif
     rc = ble_hs_util_ensure_addr(0);
     if (rc != 0) {
         LLOGW("fail to fetch BLE MAC, rc %d", rc);
@@ -319,7 +328,7 @@ static int l_nimble_mac(lua_State *L) {
     }
 
     /* Printing ADDR */
-    uint8_t addr_val[6] = {0};
+    
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
     if (rc == 0) {
         lua_pushlstring(L, (const char*)addr_val, 6);

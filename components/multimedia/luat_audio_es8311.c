@@ -289,7 +289,7 @@ static uint8_t es8311_get_mute(luat_audio_codec_conf_t* conf){
 
 // voice_vol
 static uint8_t es8311_set_voice_vol(luat_audio_codec_conf_t* conf,uint8_t vol){
-    if(vol < 0 || vol > 100) return -1;
+    if(vol > 100) return -1;
 	es8311_write_reg(conf,ES8311_DAC_REG32,(uint8_t)(vol * 2550 / 1000));
 	return 0;
 }
@@ -301,7 +301,7 @@ static uint8_t es8311_get_voice_vol(luat_audio_codec_conf_t* conf){
 
 // mic_vol
 static uint8_t es8311_set_mic_vol(luat_audio_codec_conf_t* conf,uint8_t vol){
-    if(vol < 0 || vol > 100) return -1;
+    if(vol > 100) return -1;
 	es8311_write_reg(conf,ES8311_ADC_REG17,(uint8_t)(vol * 2550 / 1000));
 	return 0;
 }

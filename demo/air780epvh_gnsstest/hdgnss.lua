@@ -3,7 +3,7 @@ local lbsLoc2 = require "lbsLoc2"
 
 local hdgnss = {}
 
-local function hdcrc(str, len)
+function hdcrc(str, len)
     if not len then
         len = #str
     end
@@ -70,7 +70,24 @@ function hdgnss.aideph()
         --     -- sys.waitUntil("UART2_SEND", 100)
         --     sys.wait(100) -- 等100ms反而更成功
         -- end
-        uart.write(gps_uart_id, body)
+        -- uart.write(gps_uart_id, body)
+        local offset = 1
+        local size = #body
+        while offset < size do
+            -- 前两个字符是F1D9
+            if body:byte(offset) == 0xF1 and body:byte(offset + 1) == 0xD9 then
+                -- log.info("hdgnss", "星历数据", body:sub(1, 16):toHex())
+                local len = body:byte(offset + 4) + body:byte(offset + 5) * 256
+                local tmp = body:sub(offset, offset + len + 7)
+                -- log.info("hdgnss", "写入星历片段", offset, len, #tmp, tmp:toHex())
+                uart.write(gps_uart_id, tmp)
+                offset = offset + len + 8
+                sys.wait(20)
+            else
+                log.warn("hdgnss", "分隔出错了", offset, size)
+                break
+            end
+        end
     end
     sys.wait(20)
 end
@@ -90,7 +107,7 @@ local function exec_agnss()
     -- 注入当前时间
     if os.date("*t").year > 2023 then
         hdgnss.aidtime()
-        sys.wait(20)
+        sys.wait(100)
     end
 
     -- 读取之前的位置信息
@@ -108,7 +125,7 @@ local function exec_agnss()
     -- 写入参考位置
     if lat and lng and lat ~= 0 and lng ~= 0 then
         hdgnss.aidpos(lat, lng)
-        sys.wait(20)
+        sys.wait(100)
     else
         log.info("hdgnss", "当前无辅助位置信息")
     end
@@ -132,6 +149,8 @@ local function exec_agnss()
     end
 
     hdgnss.aideph()
+
+    -- sys.wait(1000)
 end
 
 function hdgnss.aidpos(lat, lng)
@@ -162,7 +181,7 @@ function hdgnss.aidtime()
             0x0B, 0x11, 0x14, 0x00,           -- 指令ID: 0x0B 0x11, 载荷20字节
             0x00,                             -- UTC 0, TNOW 1
             0x00,                             -- 保留参数,填0
-            0x12,                             -- 闰秒
+            0x11,                             -- 闰秒
             date.year & 0xFF, date.year >> 8, -- 年
             date.month,                       -- 月
             date.day,                         -- 日

@@ -12,6 +12,7 @@ sys.taskInit(function()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
     hdgnss.setup({
         uart_id=2,
+        uart_forward = uart.VUART_0, -- 转发到虚拟串口,方便对接GnssToolKit3
         debug=true
     })
     hdgnss.start()

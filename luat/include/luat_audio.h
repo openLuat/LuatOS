@@ -58,6 +58,7 @@ typedef struct luat_audio_conf {
 	uint8_t power_pin;													// 电源控制
 	uint8_t power_on_level;                                             // 电源使能电平
 	uint8_t pa_is_control_enable;
+	uint8_t voltage;
 } luat_audio_conf_t;
 
 typedef enum{
@@ -66,6 +67,10 @@ typedef enum{
     LUAT_AUDIO_PM_SHUTDOWN,         /* 关断模式 */
 	LUAT_AUDIO_PM_POWER_OFF,        /* 完全断电模式 */
 }luat_audio_pm_mode_t;
+typedef enum{
+    LUAT_AUDIO_VOLTAGE_3300 = 0,         	 /* 工作在3.3V */
+	LUAT_AUDIO_VOLTAGE_1800,       			 /* 工作在1.8V */
+}luat_audio_voltage_t;
 
 typedef enum{
 	LUAT_AUDIO_BUS_DAC=0,

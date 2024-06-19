@@ -438,6 +438,7 @@ static inline void es8311_reset(luat_audio_codec_conf_t* conf){
 static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
     luat_audio_power(conf->multimedia_id,1);
     luat_rtos_task_sleep(50);
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(conf->multimedia_id);
     uint8_t temp1 = es8311_read_reg(conf,ES8311_CHD1_REGFD);
     uint8_t temp2 = es8311_read_reg(conf,ES8311_CHD2_REGFE);
     uint8_t temp3 = es8311_read_reg(conf,ES8311_CHVER_REGFF);
@@ -458,8 +459,10 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
 
     es8311_write_reg(conf,ES8311_SYSTEM_REG0B, 0x00);
     es8311_write_reg(conf,ES8311_SYSTEM_REG0C, 0x00);
-
-    es8311_write_reg(conf,ES8311_SYSTEM_REG10, (0x1C*ES8311_DAC_HP_ON) + (0x60*ES8311_VDDA_VOLTAGE) + 0x03);
+    if (audio_conf)
+        es8311_write_reg(conf,ES8311_SYSTEM_REG10, (0x1C*ES8311_DAC_HP_ON) + (0x60 * (audio_conf->voltage ? ES8311_VDDA_1V8 : ES8311_VDDA_3V3)) + 0x03);
+    else
+        es8311_write_reg(conf,ES8311_SYSTEM_REG10, (0x1C*ES8311_DAC_HP_ON) + (0x60 * ES8311_VDDA_VOLTAGE) + 0x03);
     es8311_write_reg(conf,ES8311_SYSTEM_REG11, 0x7F);	
 
     es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x3F + (ES8311_MCLK_SOURCE<<7));

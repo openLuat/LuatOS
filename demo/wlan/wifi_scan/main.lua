@@ -20,7 +20,7 @@ sys.taskInit(function()
     wlan.init()
     while 1 do
         wlan.scan()
-        sys.wait(15000)
+        sys.wait(15000) -- 注意, 尤其是Air780系列, 这个时间只能更长不能短
     end
 end)
 

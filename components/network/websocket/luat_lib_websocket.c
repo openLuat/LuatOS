@@ -192,10 +192,11 @@ static int l_websocket_set_debug(lua_State *L)
 
 /*
 websocket客户端创建
-@api websocket.create(adapter, url, keepalive)
-@int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
+@api websocket.create(adapter, url, keepalive, use_ipv6)
+@int 适配器序号, 参考socket库的常量,默认为nil,会选择平台自带的方式
 @string 连接字符串,参考usage
 @int 心跳间隔,默认60秒. 2024.4.28新增
+@boolean 是否使用ipv6,默认false. 2024.6.17新增
 @return userdata 若成功会返回websocket客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -217,6 +218,9 @@ static int l_websocket_create(lua_State *L)
 	opts.url = luaL_checklstring(L, 2, &ip_len);
 	if (lua_isinteger(L, 3)) {
 		opts.keepalive = luaL_checkinteger(L, 3);
+	}
+	if (lua_type(L, 4) == LUA_TBOOLEAN) {
+		opts.use_ipv6 = lua_toboolean(L, 4);
 	}
 
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)lua_newuserdata(L, sizeof(luat_websocket_ctrl_t));

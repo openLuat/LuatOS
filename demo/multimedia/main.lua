@@ -60,7 +60,7 @@ function audio_setup()
         -- end
         audio.config(0, 25, 1, 3, 100)
     elseif bsp == "EC718P" then
-		-- CORE+音频小板是这个配置
+		-- CORE+音频小板是这个配置/云喇叭开发板同为这个配置
 
         pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
         sys.wait(100)
@@ -79,7 +79,7 @@ function audio_setup()
         local pa_pin = 25
         local pa_on_level = 1
         local pa_delay = 100
-        local power_pin = 16
+        local power_pin = 16 -- Air780EPVH 请修改成17
         local power_on_level = 1
         local power_delay = 3
         local power_time_delay = 100

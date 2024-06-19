@@ -101,8 +101,8 @@ if rtos.bsp() == "EC618" then
     --gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
 end
 if rtos.bsp() == "EC718P" then
-    gpio.close(23)
-    gpio.setup(43,nil,gpio.PULLUP) --如果全IO开发板功耗偏高，打开这个
+    gpio.close(22)                 --20-42，21-43，22-44 718P对应IO
+    gpio.setup(44,nil,gpio.PULLUP) --如果全IO开发板功耗偏高，打开这个
 end
 
 gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要

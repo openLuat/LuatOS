@@ -37,11 +37,29 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
     }
 }
 
+static void clear_data(minmea_data_t* ptr) {
+    if (ptr) {
+        memset(ptr, 0, sizeof(minmea_data_t));
+    }
+}
+
 int luat_libgnss_init(int clear) {
     if (clear) {
         memset(&gnssctx.frame_rmc, 0, sizeof(struct minmea_sentence_rmc));
-        if (gnssctx.rmc) {
-            memset(gnssctx.rmc, 0, 128);
+        clear_data(gnssctx.rmc);
+        clear_data(gnssctx.gga);
+        clear_data(gnssctx.gll);
+        clear_data(gnssctx.gst);
+        clear_data(gnssctx.vtg);
+        clear_data(gnssctx.zda);
+        clear_data(gnssctx.txt);
+        for (size_t i = 0; i < FRAME_GSV_MAX; i++)
+        {
+            clear_data(gnssctx.gsv[i]);
+        }
+        for (size_t i = 0; i < FRAME_GSA_MAX; i++)
+        {
+            clear_data(gnssctx.gsa[i]);
         }
     }
     return 0;

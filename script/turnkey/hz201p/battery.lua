@@ -20,6 +20,6 @@ sys.taskInit(function ()
         log.info("battery", "voltage:", voltage, "percentage:", percentage)
         attributes.set("battery", percentage)
         attributes.set("vbat", voltage)
-        sys.wait(10000)
+        sys.wait(60000)
     end
 end)

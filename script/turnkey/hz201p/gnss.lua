@@ -9,8 +9,8 @@ sys.taskInit(function()
 
     sys.wait(200) -- GPNSS芯片启动需要时间
     -- 调试日志,可选
-    libgnss.debug(true)
-    libgnss.bind(2)
+    --libgnss.debug(true)
+    --libgnss.bind(2)
 end)
 
 -- 订阅GNSS状态编码

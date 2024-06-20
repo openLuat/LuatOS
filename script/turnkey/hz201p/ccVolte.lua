@@ -32,7 +32,7 @@ sys.taskInit(function()
     local power_on_level = 1
     local power_delay = 3
     local power_time_delay = 100
-    local voice_vol = 70
+    local voice_vol = 100
     local mic_vol = 80
     local find_es8311 = false
     mcu.altfun(mcu.I2C, i2c_id, 13, 2, 0)
@@ -79,12 +79,14 @@ sys.taskInit(function()
                 log.info("audio", "cc not ready")
             end
         elseif cmd == "music" then
-            audio.play(0, "/luadb/test_32k.mp3")
-            sys.wait(14000)
+            local result = audio.play(0, "/luadb/yuan.amr")
+            log.info("audio", "play music",result)
+            sys.wait(1000)
             if not audio.isEnd(0) then
                 log.info("手动关闭")
                 audio.playStop(0)
             end
+            audio.pm(0, audio.STANDBY)
         end
     end
 end)

@@ -62,10 +62,14 @@ end)
 require "battery"
 
 --信号值检测与上报
-sys.timerLoopStart(function ()
-    attributes.set("rsrp", mobile.rsrp())
-    attributes.set("rsrq", mobile.rsrq())
-end,30000)
+sys.taskInit(function ()
+    while true do
+        attributes.set("rsrp", mobile.rsrp())
+        attributes.set("rsrq", mobile.rsrq())
+        sys.wait(60000)
+    end
+end)
+
 
 --拨打电话与音频
 require "ccVolte"

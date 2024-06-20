@@ -918,7 +918,7 @@ static int l_libgnss_get_gll(lua_State* L) {
  */
 static int l_libgnss_clear(lua_State*L) {
     (void)L;
-    memset(&gnssctx.frame_rmc, 0, sizeof(struct minmea_sentence_rmc));
+    luat_libgnss_init(true);
     return 0;
 }
 

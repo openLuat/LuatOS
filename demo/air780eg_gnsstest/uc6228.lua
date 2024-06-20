@@ -25,7 +25,12 @@ function uc6228.start()
     if opts.debug then
         libgnss.debug(true)
     end
-    libgnss.bind(gps_uart_id)
+    if uc6228.opts.uart_forward then
+        uart.setup(uc6228.opts.uart_forward, 115200)
+        libgnss.bind(gps_uart_id, uc6228.opts.uart_forward)
+    else
+        libgnss.bind(gps_uart_id)
+    end
 
     -- 是否需要切换定位系统呢?
     if opts.sys then

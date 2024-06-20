@@ -140,14 +140,25 @@ FTP命令
 @string cmd 命令 目前支持:NOOP SYST TYPE PWD MKD CWD CDUP RMD DELE LIST
 @return string 成功返回true 失败返回string
 @usage
+	// 空操作，防止连接断掉
     print(ftp.command("NOOP").wait())
+	// 报告远程系统的操作系统类型
     print(ftp.command("SYST").wait())
+	// 指定文件类型
     print(ftp.command("TYPE I").wait())
+	// 显示当前工作目录名
     print(ftp.command("PWD").wait())
+	// 创建目录
     print(ftp.command("MKD QWER").wait())
+	// 改变当前工作目录
     print(ftp.command("CWD /QWER").wait())
+	// 返回上一层目录
     print(ftp.command("CDUP").wait())
+	// 删除目录
     print(ftp.command("RMD QWER").wait())
+	// 获取当前工作目录下的文件名列表
+	print(ftp.command("LIST").wait())
+	// 删除文件
 	print(ftp.command("DELE /1/12222.txt").wait())
 */
 static int l_ftp_command(lua_State *L) {

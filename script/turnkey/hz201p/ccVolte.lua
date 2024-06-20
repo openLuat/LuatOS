@@ -1,5 +1,6 @@
 local cnt = 0
 sys.subscribe("CC_IND", function(state)
+    log.info("CC_IND", state)
     if state == "READY" then
         sys.publish("CC_READY")
     elseif state == "INCOMINGCALL" then
@@ -13,6 +14,7 @@ sys.subscribe("CC_IND", function(state)
     end
 end)
 
+local ccReady = false
 sys.taskInit(function()
     local multimedia_id = 0
     local i2c_id = 0
@@ -31,7 +33,7 @@ sys.taskInit(function()
     local power_delay = 3
     local power_time_delay = 100
     local voice_vol = 70
-    local mic_vol = 65
+    local mic_vol = 80
     local find_es8311 = false
     mcu.altfun(mcu.I2C, i2c_id, 13, 2, 0)
     mcu.altfun(mcu.I2C, i2c_id, 14, 2, 0)
@@ -58,7 +60,31 @@ sys.taskInit(function()
     audio.micVol(multimedia_id, mic_vol)
     cc.init(multimedia_id)
     audio.pm(0, audio.STANDBY)
+    sys.publish("AUDIO_SETUP_DONE")--音频初始化完毕了
     sys.waitUntil("CC_READY")
+    ccReady = true
     sys.wait(100)
-    -- cc.dial(0,"114") --拨打电话
+end)
+
+sys.taskInit(function()
+    sys.waitUntil("AUDIO_SETUP_DONE")
+    log.info("audio", "ready")
+    while true do
+        local _,cmd,param = sys.waitUntil("AUDIO_CMD_RECEIVED")
+        log.info("audio", cmd, param)
+        if cmd == "call" then
+            if ccReady then
+                cc.dial(0,param) --拨打电话
+            else
+                log.info("audio", "cc not ready")
+            end
+        elseif cmd == "music" then
+            audio.play(0, "/luadb/test_32k.mp3")
+            sys.wait(14000)
+            if not audio.isEnd(0) then
+                log.info("手动关闭")
+                audio.playStop(0)
+            end
+        end
+    end
 end)

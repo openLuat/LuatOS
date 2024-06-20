@@ -20,6 +20,7 @@ local function ind()
             local xl, xm = string.byte(data, 1, 1), string.byte(data, 2, 2)
             local step = ((xl << 8) + xm) // 2
             log.info("da267", "step:", step)
+            sys.publish("STEP_COUNTER", step)
         else
             sys.publish("RESTORE_GSENSOR")
         end

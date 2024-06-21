@@ -1,10 +1,12 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "HZ201P"
-VERSION = "1.0.1"
+VERSION = "1.0.3"
 log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require "sys"
 sysplus = require("sysplus")
+
+--mcu.hardfault(0)
 
 --运营商给的dns经常抽风，手动指定
 socket.setDNS(nil, 1, "223.5.5.5")

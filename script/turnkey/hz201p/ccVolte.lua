@@ -1,3 +1,6 @@
+local pcmFile = "/luadb/10.pcm"
+local amrFile = "/luadb/10.amr"
+
 local ringTimer
 local hangUpCb = function()
     cc.hangUp(0)
@@ -24,6 +27,7 @@ sys.subscribe("CC_IND", function(state)
     elseif state == "INCOMINGCALL" then
         cnt = cnt + 1
         if cnt > 1 then
+            if ringTimer then return end
             sys.subscribe("POWERKEY_PRESSED", acceptCb)
             attributes.set("callStatus", "通话中")
             attributes.set("audioStatus", "通话中")
@@ -31,18 +35,28 @@ sys.subscribe("CC_IND", function(state)
                 sys.timerStop(ringTimer)
                 ringTimer = nil
             end
-            audio.play(0, "/luadb/call.amr")
+            if not audio.isEnd(0) then
+                log.info("手动关闭")
+                audio.playStop(0)
+            end
+            local buff = io.readFile(pcmFile)
+            audio.start(0, audio.PCM, 1, 8000, 16)
+            audio.write(0, buff)
             ringTimer = sys.timerLoopStart(function()
                 if not audio.isEnd(0) then
                     log.info("手动关闭")
                     audio.playStop(0)
                 end
-                audio.play(0, "/luadb/call.amr")
-            end, 4000)
+                audio.write(0, buff)
+            end, 400)
         end
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
-        sys.unsubscribe("POWERKEY_PRESSED", acceptCb)
-        sys.unsubscribe("POWERKEY_PRESSED", hangUpCb)
+        pcall(sys.unsubscribe, "POWERKEY_PRESSED", acceptCb)
+        pcall(sys.unsubscribe, "POWERKEY_PRESSED", hangUpCb)
+        if ringTimer then
+            sys.timerStop(ringTimer)
+            ringTimer = nil
+        end
         attributes.set("callStatus", "已就绪")
         attributes.set("audioStatus", "空闲")
         sys.publish("CC_DONE")
@@ -121,7 +135,7 @@ sys.taskInit(function()
                 log.info("audio", "cc not ready")
             end
         elseif cmd == "music" then
-            local result = audio.play(0, "/luadb/yuan.amr")
+            local result = audio.play(0, amrFile)
             attributes.set("audioStatus", "播放中")
             log.info("audio", "play music",result)
             sys.wait(1000)

@@ -1,3 +1,21 @@
+local ringTimer
+local hangUpCb = function()
+    cc.hangUp(0)
+end
+local acceptCb = function()
+    if ringTimer then
+        sys.timerStop(ringTimer)
+        ringTimer = nil
+    end
+    if not audio.isEnd(0) then
+        log.info("手动关闭")
+        audio.playStop(0)
+    end
+    local result = cc.accept(0)
+    log.info("cc accept", result)
+    sys.subscribe("POWERKEY_PRESSED", hangUpCb)
+end
+
 local cnt = 0
 sys.subscribe("CC_IND", function(state)
     log.info("CC_IND", state)
@@ -6,11 +24,27 @@ sys.subscribe("CC_IND", function(state)
     elseif state == "INCOMINGCALL" then
         cnt = cnt + 1
         if cnt > 1 then
-            cc.accept(0)
+            sys.subscribe("POWERKEY_PRESSED", acceptCb)
             attributes.set("callStatus", "通话中")
+            attributes.set("audioStatus", "通话中")
+            if ringTimer then
+                sys.timerStop(ringTimer)
+                ringTimer = nil
+            end
+            audio.play(0, "/luadb/call.amr")
+            ringTimer = sys.timerLoopStart(function()
+                if not audio.isEnd(0) then
+                    log.info("手动关闭")
+                    audio.playStop(0)
+                end
+                audio.play(0, "/luadb/call.amr")
+            end, 4000)
         end
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
+        sys.unsubscribe("POWERKEY_PRESSED", acceptCb)
+        sys.unsubscribe("POWERKEY_PRESSED", hangUpCb)
         attributes.set("callStatus", "已就绪")
+        attributes.set("audioStatus", "空闲")
         sys.publish("CC_DONE")
         audio.pm(0, audio.STANDBY)
         -- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
@@ -36,7 +70,7 @@ sys.taskInit(function()
     local power_delay = 3
     local power_time_delay = 100
     local voice_vol = 70
-    local mic_vol = 80
+    local mic_vol = 90
     local find_es8311 = false
     mcu.altfun(mcu.I2C, i2c_id, 13, 2, 0)
     mcu.altfun(mcu.I2C, i2c_id, 14, 2, 0)
@@ -81,7 +115,8 @@ sys.taskInit(function()
                 cc.dial(0,param) --拨打电话
                 attributes.set("callStatus", "通话中")
                 attributes.set("audioStatus", "通话中")
-                sys.waitUntil("AUDIO_SETUP_DONE")
+                sys.subscribe("POWERKEY_PRESSED", hangUpCb)
+                sys.waitUntil("CC_DONE")
             else
                 log.info("audio", "cc not ready")
             end

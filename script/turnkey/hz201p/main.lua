@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "HZ201P"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require "sys"
@@ -71,6 +71,29 @@ sys.taskInit(function()
         end
     end
 end)
+
+--关机键
+local powerTimer
+local powerKey = gpio.setup(46, function()
+    log.info("powerKey", gpio.get(46))
+    if gpio.get(46) == 0 then
+        sys.publish("POWERKEY_PRESSED")
+        powerTimer = sys.timerStart(function()
+            log.info("powerKey", "long press")
+            --把灯关都掉，让用户以为已经关机了
+            blueLed(0) redLed(0)
+            blueLed = function() end
+            redLed = blueLed
+            --两秒后真正关机
+            sys.timerStart(pm.shutdown, 2000)
+        end, 3000)
+    else
+        if powerTimer then
+            sys.timerStop(powerTimer)
+            log.info("powerKey", "stop press")
+        end
+    end
+end,gpio.PULLUP)
 
 --电量检测与上报
 require "battery"

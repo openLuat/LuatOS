@@ -1,15 +1,14 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "HZ201P"
-VERSION = "0.0.1"
+VERSION = "1.0.0"
 log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
-_G.sys = require "sys"
-_G.sysplus = require("sysplus")
+sys = require "sys"
+sysplus = require("sysplus")
 
 --运营商给的dns经常抽风，手动指定
 socket.setDNS(nil, 1, "223.5.5.5")
 socket.setDNS(nil, 2, "119.29.29.29")
-
 
 pm.ioVol(pm.IOVOL_ALL_GPIO, 1800)
 -- gnss的备电和gsensor的供电
@@ -17,11 +16,26 @@ local vbackup = gpio.setup(24, 1)
 -- gnss的供电
 local gpsPower = gpio.setup(26, 1)
 
+-- 使用合宙iot平台时需要这个参数
+PRODUCT_KEY = "YXdzIDo5QawWCIRywShMAKjmJsInXtsb" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+libfota = require "libfota"
+function fota_cb(ret)
+    log.info("fota", ret)
+    if ret == 0 then
+        rtos.reboot()
+    end
+end
+-- 使用合宙iot平台进行升级
+sys.subscribe("net_ready",function()
+    libfota.request(fota_cb)
+    sys.timerLoopStart(libfota.request, 3600000, fota_cb)
+end)
+
 --云平台逻辑
 require "cloud"
 
 --获取所有参数
-_G.attributes = require "attributes"
+attributes = require "attributes"
 attributes.initial()--初始化
 
 --gnss

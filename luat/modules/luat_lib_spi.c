@@ -656,6 +656,7 @@ static int l_spi_device_send(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+        luat_heap_free(send_buff);
     }else {
         send_buff = (char*)luaL_checklstring(L, 2, &len);
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));

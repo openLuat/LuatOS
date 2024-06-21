@@ -27,6 +27,7 @@ sys.taskInit(function()
 	if rtos.bsp() == "UIS8850BM" then
 		sys.wait(2000)
 	end
+	log.info("status", mobile.status())
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)
     mobile.getBand(band)
@@ -56,6 +57,7 @@ sys.taskInit(function()
     -- mobile.rtime(3) -- 在无数据交互时，RRC 3秒后自动释放
     -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了
     -- mobile.setAuto(10000,30000, 5) -- SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
+	log.info("status", mobile.status())
     sys.wait(2000)
     while 1 do
         log.info("imei", mobile.imei())
@@ -64,7 +66,9 @@ sys.taskInit(function()
         if sn then
             log.info("sn",   sn:toHex())
         end
-        log.info("muid", mobile.muid())
+		log.info("status", mobile.status())
+        
+
         log.info("iccid", mobile.iccid())
         log.info("csq", mobile.csq()) -- 4G模块的CSQ并不能完全代表强度
         log.info("rssi", mobile.rssi()) -- 需要综合rssi/rsrq/rsrp/snr一起判断

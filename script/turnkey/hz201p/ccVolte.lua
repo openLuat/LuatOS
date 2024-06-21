@@ -35,7 +35,7 @@ sys.taskInit(function()
     local power_on_level = 1
     local power_delay = 3
     local power_time_delay = 100
-    local voice_vol = 100
+    local voice_vol = 70
     local mic_vol = 80
     local find_es8311 = false
     mcu.altfun(mcu.I2C, i2c_id, 13, 2, 0)

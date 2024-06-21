@@ -17,6 +17,8 @@ local attributes = {
     rsrp = 0,
     rsrq = 0,
     vbat = 0,
+    audioStatus = "空闲",
+    callStatus = "不支持",
 }
 
 --已修改的数据，缓存在这里，等待上报

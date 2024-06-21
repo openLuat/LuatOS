@@ -65,7 +65,7 @@ local function mqttConnect()
     local retryCount = 0
     logger.info("ThingsCloud connecting...")
 
-    mqttc = mqtt.create(nil, host, port, false)
+    mqttc = mqtt.create(nil, host, port, false, {rxSize = 4096})
     mqttc:auth(mobile.imei(), accessToken, projectKey)
     mqttc:keepalive(300)
     mqttc:autoreconn(true, 10000)

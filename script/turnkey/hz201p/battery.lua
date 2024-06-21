@@ -1,5 +1,5 @@
 function voltage_to_percentage(voltage)
-    local min_voltage = 3400
+    local min_voltage = 3600
     local max_voltage = 4190
 
     if voltage <= min_voltage then

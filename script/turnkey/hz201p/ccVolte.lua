@@ -7,8 +7,11 @@ sys.subscribe("CC_IND", function(state)
         cnt = cnt + 1
         if cnt > 1 then
             cc.accept(0)
+            attributes.set("callStatus", "通话中")
         end
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
+        attributes.set("callStatus", "已就绪")
+        sys.publish("CC_DONE")
         audio.pm(0, audio.STANDBY)
         -- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
     end
@@ -63,6 +66,7 @@ sys.taskInit(function()
     sys.publish("AUDIO_SETUP_DONE")--音频初始化完毕了
     sys.waitUntil("CC_READY")
     ccReady = true
+    attributes.set("callStatus", "已就绪")
     sys.wait(100)
 end)
 
@@ -75,11 +79,15 @@ sys.taskInit(function()
         if cmd == "call" then
             if ccReady then
                 cc.dial(0,param) --拨打电话
+                attributes.set("callStatus", "通话中")
+                attributes.set("audioStatus", "通话中")
+                sys.waitUntil("AUDIO_SETUP_DONE")
             else
                 log.info("audio", "cc not ready")
             end
         elseif cmd == "music" then
             local result = audio.play(0, "/luadb/yuan.amr")
+            attributes.set("audioStatus", "播放中")
             log.info("audio", "play music",result)
             sys.wait(1000)
             if not audio.isEnd(0) then
@@ -87,6 +95,11 @@ sys.taskInit(function()
                 audio.playStop(0)
             end
             audio.pm(0, audio.STANDBY)
+            attributes.set("audioStatus", "空闲")
         end
     end
+end)
+
+audio.on(0, function(audio_id, msg)
+    log.info("msg", audio_id, msg)
 end)

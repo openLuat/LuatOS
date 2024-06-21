@@ -132,8 +132,8 @@ local function exec_agnss()
 
     -- 发起基站定位, 暂时禁用
     if mobile and false then
-        mobile.reqCellInfo(6000)
-        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        mobile.reqCellInfo(6)
+        sys.waitUntil("CELL_INFO_UPDATE", 6000)
         local lat2, lng2, t = lbsLoc2.request(5000)
         log.info("hdgnss", "基站定位结果", lat2, lng2)
         if lat2 and lng2 then

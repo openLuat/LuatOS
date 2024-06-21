@@ -150,6 +150,12 @@ static int l_rtos_timer_start(lua_State *L) {
         return 1;
     }
     luat_timer_t *timer = (luat_timer_t*)luat_heap_malloc(sizeof(luat_timer_t));
+    if (timer == NULL){
+        LLOGE("timer malloc fail");
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    
     timer->id = id;
     timer->timeout = timeout;
     timer->repeat = repeat;

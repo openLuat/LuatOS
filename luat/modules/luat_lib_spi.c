@@ -583,6 +583,7 @@ static int l_spi_device_close(lua_State *L) {
 -- 初始化spi
 local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local recv = spi_device:transfer("123")--发送123,并读取数据
+local result = spi_device:transfer({0x00,0x01})--发送0x00,0x01,并读取数据
 
 local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
 local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发出去,并读取数据
@@ -590,15 +591,27 @@ local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发�
 static int l_spi_device_transfer(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t send_length = 0;
-    const char* send_buff = NULL;
+    char* send_buff = NULL;
     char* recv_buff = NULL;
-
+    uint8_t send_mode = 0;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         send_buff = (const char*)(buff->addr+buff->cursor);
         send_length = buff->len - buff->cursor;
-    }else{
+    }else if (lua_istable(L, 2)){
+        send_mode = LUA_TTABLE;
+        send_length = lua_rawlen(L, 2); //返回数组的长度
+        send_buff = (char*)luat_heap_malloc(send_length);
+        for (size_t i = 0; i < send_length; i++){
+            lua_rawgeti(L, 2, 1 + i);
+            send_buff[i] = (char)lua_tointeger(L, -1);
+            lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
+        }
+    }else if(lua_isstring(L, 2)){
         send_buff = luaL_checklstring(L, 2, &send_length);
+    }else{
+        LLOGE("spi_device transfer first arg error");
+        return 0;
     }
     size_t length = luaL_optinteger(L,3,1);
     if(length <= send_length)
@@ -615,6 +628,9 @@ static int l_spi_device_transfer(lua_State *L) {
             return 0;
     }
     int ret = luat_spi_device_transfer(spi_device, send_buff, send_length, recv_buff, recv_length);
+    if (send_mode == LUA_TTABLE){
+        luat_heap_free(send_buff);
+    }
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
         luat_heap_free(recv_buff);
@@ -634,6 +650,7 @@ static int l_spi_device_transfer(lua_State *L) {
 -- 初始化spi
 local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local result = spi_device:send("123")--发送123
+local result = spi_device:send({0x00,0x01})--发送0x00,0x01
 
 local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
 local result = spi_device:send(buff)--把zbuff数据从指针开始，全发出去
@@ -657,9 +674,12 @@ static int l_spi_device_send(lua_State *L) {
         }
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
         luat_heap_free(send_buff);
-    }else {
+    }else if(lua_isstring(L, 2)){
         send_buff = (char*)luaL_checklstring(L, 2, &len);
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+    }else{
+        LLOGE("spi_device transfer first arg error");
+        return 0;
     }
     return 1;
 }

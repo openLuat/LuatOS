@@ -320,28 +320,23 @@ static int l_audio_record(lua_State *L){
         LLOGE("not support %d", g_s_record.type);
         return 0;
     }
+
     g_s_record.record_buffer[0] = lua_newuserdata(L, sizeof(luat_zbuff_t));
     g_s_record.record_buffer[0]->type = LUAT_HEAP_AUTO;
     g_s_record.record_buffer[0]->len = record_buffer_len;
     g_s_record.record_buffer[0]->used = 0;
     g_s_record.record_buffer[0]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[0]->len);
-    lua_pushlightuserdata(L, g_s_record.record_buffer[0]);
     g_s_record.zbuff_ref[0] = luaL_ref(L, LUA_REGISTRYINDEX);
-    lua_pop(L, 1);
 
     g_s_record.record_buffer[1] = lua_newuserdata(L, sizeof(luat_zbuff_t));
     g_s_record.record_buffer[1]->type = LUAT_HEAP_AUTO;
     g_s_record.record_buffer[0]->used = 0;
     g_s_record.record_buffer[1]->len = record_buffer_len;
     g_s_record.record_buffer[1]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[1]->len);
-    lua_pushlightuserdata(L, g_s_record.record_buffer[1]);
     g_s_record.zbuff_ref[1] = luaL_ref(L, LUA_REGISTRYINDEX);
-    lua_pop(L, 1);
 
     g_s_record.is_run = 1;
     luat_audio_run_callback_in_task(record_start, NULL, 0);
-//    luat_rtos_task_create(&g_s_record.task_handle, 8*1024, 100, "record_task", record_task, NULL, 0);
-
     lua_pushboolean(L, 1);
     return 1;
 }

@@ -613,9 +613,9 @@ static int l_spi_device_transfer(lua_State *L) {
         LLOGE("spi_device transfer first arg error");
         return 0;
     }
-    size_t length = luaL_optinteger(L,3,1);
-    if(length <= send_length)
-        send_length = length;
+    if (lua_isinteger(L, 3)){
+        send_length = (size_t)lua_tointeger(L, 3);
+    }
     size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
     if(recv_length == 0){

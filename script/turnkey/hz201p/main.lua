@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "HZ201P"
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require "sys"
@@ -28,7 +28,7 @@ function fota_cb(ret)
     end
 end
 -- 使用合宙iot平台进行升级
-sys.subscribe("net_ready",function()
+sys.subscribe("IP_READY",function()
     libfota.request(fota_cb)
     sys.timerLoopStart(libfota.request, 3600000, fota_cb)
 end)

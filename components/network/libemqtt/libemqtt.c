@@ -343,11 +343,17 @@ int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* ms
 }
 
 int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
+	uint8_t small_head[64];
+	uint8_t small_packet[128];
 	uint16_t topiclen = strlen(topic);
 	uint32_t msglen = msg_len;
 	// uint32_t tem_len;
 	uint8_t qos_flag = MQTT_QOS0_FLAG;
 	uint8_t qos_size = 0; // No QoS included
+	void *p1 = NULL;
+	void *p2 = NULL;
+	uint8_t *var_header;
+	uint8_t *packet;
 	if(qos == 1) {
 		qos_size = 2; // 2 bytes for QoS
 		qos_flag = MQTT_QOS1_FLAG;
@@ -359,11 +365,17 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 
 	// Variable header
 	size_t var_header_len = topiclen+2+qos_size;
-	uint8_t *var_header = luat_heap_malloc(var_header_len); // Topic size (2 bytes), utf-encoded topic
-	if (var_header == NULL) {
-		LLOGE("out of memory when malloc publish var_header");
-		return -1;
+	if (var_header_len <= sizeof(small_head)) {
+		var_header = small_head;
+	} else {
+		p1 = luat_heap_malloc(var_header_len);
+		if (p1 == NULL) {
+			LLOGE("out of memory when malloc var head");
+			goto ERROR_OUT;
+		}
+		var_header = (uint8_t *)p1;
 	}
+
 	memset(var_header, 0, var_header_len);
 	var_header[0] = topiclen>>8;
 	var_header[1] = topiclen&0xFF;
@@ -404,12 +416,25 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	uint8_t header_size = fixed_header_len+var_header_len;
 	uint32_t total_size = header_size + msg_len;
 	int ret = 0;
-	uint8_t *packet = luat_heap_opt_malloc(LUAT_HEAP_AUTO,total_size);
-	if (packet == NULL) {
-		luat_heap_free(var_header);
-		LLOGE("out of memory when malloc publish packet");
-		return -1;
+	if (total_size <= sizeof(small_packet)) {
+		packet = small_packet;
+	} else {
+#ifdef __LUATOS__
+		if (total_size > 8192) {
+#else
+		if (total_size > 16384) {
+#endif
+			p2 = luat_heap_opt_malloc(LUAT_HEAP_AUTO,total_size);
+		} else {
+			p2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM,total_size);
+		}
+		if (p2 == NULL) {
+			LLOGE("out of memory when malloc publish packet");
+			goto ERROR_OUT;
+		}
+		packet = (uint8_t *)p2;
 	}
+
 	memset(packet, 0, header_size);
 	memcpy(packet, fixed_header, fixed_header_len);
 	memcpy(packet+fixed_header_len, var_header, var_header_len);
@@ -418,14 +443,15 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	memcpy(packet + header_size, msg, msg_len);
 	ret = broker->send(broker->socket_info, packet, total_size);
 	if(ret < 0 || ret < total_size) {
-		luat_heap_free(packet);
-		luat_heap_free(var_header);
-		return -1;
+		goto ERROR_OUT;
 	}
-
-	luat_heap_opt_free(LUAT_HEAP_AUTO,packet);
-	luat_heap_free(var_header);
+	if (p1) luat_heap_free(p1);
+	if (p2) luat_heap_free(p2);
 	return 1;
+ERROR_OUT:
+	if (p1) luat_heap_free(p1);
+	if (p2) luat_heap_free(p2);
+	return -1;
 }
 
 int mqtt_pubrel(mqtt_broker_handle_t* broker, uint16_t message_id) {

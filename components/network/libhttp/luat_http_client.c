@@ -624,7 +624,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					return -1;
 				}
 			}
-			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff, total_len, 0, NULL, NULL, &rx_len);
+			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff+http_ctrl->resp_buff_offset, total_len, 0, NULL, NULL, &rx_len);
 			LLOGD("result:%d rx_len:%d",result,rx_len);
 			if (rx_len == 0||result!=0) {
 				http_resp_error(http_ctrl, HTTP_ERROR_RX);

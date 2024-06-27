@@ -351,18 +351,18 @@ static int l_mcu_ticks2(lua_State* L) {
 	{
 	case 0:
 		// 模式0, 返回微秒数
-		lua_pushinteger(L, (uint32_t)(us / 1000 / 1000));
-		lua_pushinteger(L, (uint32_t)(us % 1000 % 1000));
+		lua_pushinteger(L, (uint32_t)(us / 1000000));
+		lua_pushinteger(L, (uint32_t)(us % 1000000));
 		return 2;
 	case 1:
 		// 模式1, 返回毫秒数
-		lua_pushinteger(L, (uint32_t)(ms / 1000 / 1000));
-		lua_pushinteger(L, (uint32_t)(ms % 1000 % 1000));
+		lua_pushinteger(L, (uint32_t)(ms / 1000000));
+		lua_pushinteger(L, (uint32_t)(ms % 1000000));
 		return 2;
 	case 2:
 		// 模式2, 返回秒数
-		lua_pushinteger(L, (uint32_t)(sec / 1000 / 1000));
-		lua_pushinteger(L, (uint32_t)(sec % 1000 % 1000));
+		lua_pushinteger(L, (uint32_t)(sec / 1000000));
+		lua_pushinteger(L, (uint32_t)(sec % 1000000));
 		return 2;
 	default:
 		break;

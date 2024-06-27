@@ -87,7 +87,7 @@ local function mqtt_cbevent(mqtt_client, event, data, payload,metas)
 end
 
 local function mqtt_task(mqtt_host, mqtt_port, mqtt_isssl, client_id, user_name, password)
-    mqttc = mqtt.create(nil,mqtt_host, mqtt_port, mqtt_isssl)  --mqtt客户端创建
+    mqttc = mqtt.create(nil,mqtt_host, mqtt_port or 1883, mqtt_isssl)  --mqtt客户端创建
     log.debug("aliyun", "mqtt三元组", client_id,user_name,password)
     mqttc:auth(client_id,user_name,password) --mqtt三元组配置
 

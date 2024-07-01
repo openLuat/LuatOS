@@ -57,7 +57,6 @@ end)
 _G_CONNECTED = false
 local blueLed = gpio.setup(1, 0)
 local redLed = gpio.setup(16, 0, nil, nil, 4)
-local chargeState = gpio.setup(20, nil, 0)
 sys.taskInit(function()
     while true do
         if attributes.get("ledControl") then
@@ -65,7 +64,7 @@ sys.taskInit(function()
             redLed(attributes.get("redLed") and 1 or 0)
             sys.wait(500)
         else
-            redLed(chargeState() == 0 and 1 or 0)
+            redLed(attributes.get("isCharging") and 1 or 0)
             blueLed(1)
             sys.wait(_G_CONNECTED and 100 or 1000)
             blueLed(0)

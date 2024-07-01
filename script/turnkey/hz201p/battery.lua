@@ -23,3 +23,11 @@ sys.taskInit(function ()
         sys.wait(60000)
     end
 end)
+
+--充电状态检测
+local function chargeCheck()
+    log.info("chargeCheck", gpio.get(42))
+    attributes.set("isCharging", gpio.get(42) == 0)
+end
+gpio.setup(42, chargeCheck, 0, gpio.BOTH)
+attributes.set("isCharging", gpio.get(42) == 0)

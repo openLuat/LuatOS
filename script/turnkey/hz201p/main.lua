@@ -5,7 +5,7 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require "sys"
 sysplus = require("sysplus")
-
+pm.ioVol(pm.IOVOL_ALL_GPIO, 1800)
 -- mcu.hardfault(0)
 
 local function fskvInit()
@@ -29,7 +29,7 @@ if allDone then
     socket.setDNS(nil, 1, "223.5.5.5")
     socket.setDNS(nil, 2, "119.29.29.29")
 
-    pm.ioVol(pm.IOVOL_ALL_GPIO, 1800)
+
     -- gnss的备电和gsensor的供电
     local vbackup = gpio.setup(24, 1)
     -- gnss的供电

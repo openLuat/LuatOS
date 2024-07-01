@@ -62,9 +62,9 @@ uint8_t mqtt_num_rem_len_bytes(const uint8_t* buf) {
 	return num_bytes;
 }
 
-uint16_t mqtt_parse_rem_len(const uint8_t* buf) {
-	uint16_t multiplier = 1;
-	uint16_t value = 0;
+uint32_t mqtt_parse_rem_len(const uint8_t* buf) {
+	uint32_t multiplier = 1;
+	uint32_t value = 0;
 	uint8_t digit;
 	//printf("mqtt_parse_rem_len\n");
 	buf++;	// skip "flags" byte in fixed header
@@ -131,18 +131,18 @@ uint16_t mqtt_parse_pub_topic_ptr(const uint8_t* buf, const uint8_t **topic_ptr)
 	return len;
 }
 
-uint16_t mqtt_parse_publish_msg(const uint8_t* buf, uint8_t* msg) {
+uint32_t mqtt_parse_publish_msg(const uint8_t* buf, uint8_t* msg) {
 	const uint8_t* ptr;
 	//printf("mqtt_parse_publish_msg\n");
-	uint16_t msg_len = mqtt_parse_pub_msg_ptr(buf, &ptr);
+	uint32_t msg_len = mqtt_parse_pub_msg_ptr(buf, &ptr);
 	if(msg_len != 0 && ptr != NULL) {
 		memcpy(msg, ptr, msg_len);
 	}
 	return msg_len;
 }
 
-uint16_t mqtt_parse_pub_msg_ptr(const uint8_t* buf, const uint8_t **msg_ptr) {
-	uint16_t len = 0;
+uint32_t mqtt_parse_pub_msg_ptr(const uint8_t* buf, const uint8_t **msg_ptr) {
+	uint32_t len = 0;
 	//printf("mqtt_parse_pub_msg_ptr\n");
 	if(MQTTParseMessageType(buf) == MQTT_MSG_PUBLISH) {
 		// message starts at

@@ -236,10 +236,10 @@ local function proc(data)
             end
         elseif string.find(cmd, "ECNPICFG") then
             item = "OK"
-            mobile.nstOnOff(true, 1)
+            mobile.nstOnOff(true, transUartId)
             mobile.nstInput("AT+ECNPICFG?\r\n")
             mobile.nstInput(nil)
-            mobile.nstOnOff(false, 1)
+            mobile.nstOnOff(false, transUartId)
             needNowReply = false
         elseif string.find(cmd, "PCBA_TEST_DONE") then
             item = "OK"

@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "HZ201P"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require "sys"

@@ -204,7 +204,7 @@ static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		}
 	}
 	// 判断数据总长, 这里rem_len只包含mqtt头部之外的数据
-	uint16_t rem_len = mqtt_parse_rem_len(mqtt_ctrl->mqtt_packet_buffer);
+	uint32_t rem_len = mqtt_parse_rem_len(mqtt_ctrl->mqtt_packet_buffer);
 	if (rem_len > mqtt_ctrl->buffer_offset - num_bytes - 1) {
 		LLOGD("wait more data for mqtt head");
 		return 0;
@@ -304,7 +304,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 #ifdef __LUATOS__
 			const uint8_t* ptr;
 			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
 			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
             mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);

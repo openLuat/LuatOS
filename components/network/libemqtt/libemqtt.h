@@ -113,7 +113,7 @@ uint8_t mqtt_num_rem_len_bytes(const uint8_t* buf);
  *
  * @retval remaining length
  */
-uint16_t mqtt_parse_rem_len(const uint8_t* buf);
+uint32_t mqtt_parse_rem_len(const uint8_t* buf);
 
 /** Parse packet buffer for message id.
  *
@@ -151,13 +151,13 @@ uint16_t mqtt_parse_pub_topic_ptr(const uint8_t* buf, const uint8_t** topic_ptr)
  *
  * @retval size in bytes of topic (0 = no publish message in buffer)
  */
-uint16_t mqtt_parse_publish_msg(const uint8_t* buf, uint8_t* msg);
+uint32_t mqtt_parse_publish_msg(const uint8_t* buf, uint8_t* msg);
 
 /** Parse a packet buffer for a pointer to the publish message.
  *
  *  Not called directly - called by mqtt_parse_pub_msg
  */
-uint16_t mqtt_parse_pub_msg_ptr(const uint8_t* buf, const uint8_t** msg_ptr);
+uint32_t mqtt_parse_pub_msg_ptr(const uint8_t* buf, const uint8_t** msg_ptr);
 
 
 typedef struct {

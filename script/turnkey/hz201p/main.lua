@@ -33,8 +33,8 @@ if allDone then
     -- gnss的备电和gsensor的供电
     local vbackup = gpio.setup(24, 1)
     -- gnss的供电
-    local gpsPower = gpio.setup(26, 1)
-
+    local gnssEnvPower = gpio.setup(26, 1)
+    local gpsPower = gpio.setup(2, 1)
     -- 使用合宙iot平台时需要这个参数
     PRODUCT_KEY = "YXdzIDo5QawWCIRywShMAKjmJsInXtsb" -- 到 iot.openluat.com 创建项目,获取正确的项目id
     libfota = require "libfota"

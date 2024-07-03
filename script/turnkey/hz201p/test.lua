@@ -247,6 +247,7 @@ local function proc(data)
         elseif string.find(cmd, "TEST_DONE") then
             item = "OK"
             fskv.set("allDone", true)
+            sys.timerStart(pm.reboot, 3000)
         else
             find = false
             item = "ERROR"

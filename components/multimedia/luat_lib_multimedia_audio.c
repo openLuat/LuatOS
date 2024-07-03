@@ -219,7 +219,11 @@ static void record_start(uint8_t *data, uint32_t len){
 #else
             g_s_record.encoder_handler = Encoder_Interface_init(g_s_record.quailty);
 #endif
+        if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
             luat_fs_fwrite("#!AMR\n", 6, 1, g_s_record.fd);
+        }else{
+            luat_fs_fwrite("#!AMR-WB\n", 9, 1, g_s_record.fd);
+        }
 #endif
         }
     }

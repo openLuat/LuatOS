@@ -66,6 +66,7 @@ sys.subscribe("CC_IND", function(state)
 end)
 
 local ccReady = false
+local es8311Power = gpio.setup(25, 1)
 sys.taskInit(function()
     local multimedia_id = 0
     local i2c_id = 0

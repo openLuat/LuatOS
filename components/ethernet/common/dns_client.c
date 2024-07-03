@@ -418,7 +418,7 @@ static int32_t dns_check_process(void *pData, void *pParam)
 void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, void *param)
 {
 	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
-	require->uri.Data = domain_name;
+	require->uri.Data = (uint8_t *)domain_name;
 	require->uri.Pos = len;
 	require->uri.MaxLen = len;
 	require->param = param;
@@ -438,7 +438,7 @@ void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, vo
 void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, uint8_t adapter_index)
 {
 	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
-	require->uri.Data = domain_name;
+	require->uri.Data = (uint8_t *)domain_name;
 	require->uri.Pos = strlen(domain_name);
 	require->uri.MaxLen = strlen(domain_name);
 	require->param = param;
@@ -459,7 +459,7 @@ void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, 
 void dns_require_ipv6(dns_client_t *client, const char *domain_name, void *param, uint8_t adapter_index, uint8_t is_ipv6)
 {
 	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
-	require->uri.Data = domain_name;
+	require->uri.Data = (uint8_t *)domain_name;
 	require->uri.Pos = strlen(domain_name);
 	require->uri.MaxLen = strlen(domain_name);
 	require->param = param;
@@ -538,7 +538,7 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 			MsgHead.usIdentifier = BSP_Swap16(MsgHead.usIdentifier);
 			MsgHead.usFlags = BSP_Swap16(MsgHead.usFlags);
 			in->Pos += sizeof(MsgHead);
-			process = llist_traversal(&client->process_head, dns_find_process, MsgHead.usIdentifier);
+			process = llist_traversal(&client->process_head, dns_find_process, (void *)((uint32_t)MsgHead.usIdentifier));
 			if (process)
 			{
 				if ( MsgHead.usFlags & 0x8000)
@@ -675,7 +675,7 @@ NET_DNS_TX_IPV4:
 NET_DNS_RX_OUT:
 	if (!llist_empty(&client->process_head))
 	{
-		llist_traversal(&client->process_head, dns_clear_process, 1);
+		llist_traversal(&client->process_head, dns_clear_process, (void *)1);
 	}
 
 	if (llist_empty(&client->process_head) && llist_empty(&client->require_head))

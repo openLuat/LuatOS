@@ -3,8 +3,9 @@ local rxCache = ""
 
 local vbackup = gpio.setup(24, 1)
 local gnssReset = gpio.setup(27, 1)
-local gnssPower = gpio.setup(26, 1)
-
+local gnssEnvPower = gpio.setup(26, 1)
+local es8311Power = gpio.setup(25, 1)
+local gnssPower = gpio.setup(2, 1)
 local blueLed = gpio.setup(1, 0)
 local redLed = gpio.setup(16, 0, nil, nil, 4)
 
@@ -235,10 +236,10 @@ local function proc(data)
             end
         elseif string.find(cmd, "ECNPICFG") then
             item = "OK"
-            mobile.nstOnOff(true, 1)
+            mobile.nstOnOff(true, transUartId)
             mobile.nstInput("AT+ECNPICFG?\r\n")
             mobile.nstInput(nil)
-            mobile.nstOnOff(false, 1)
+            mobile.nstOnOff(false, transUartId)
             needNowReply = false
         elseif string.find(cmd, "PCBA_TEST_DONE") then
             item = "OK"

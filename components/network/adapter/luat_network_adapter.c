@@ -1431,7 +1431,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t callback, void *param)
 {
 	uint8_t adapter_index = ctrl->adapter_index;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	//network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (ctrl->dns_ip)
 	{
 		free(ctrl->dns_ip);
@@ -2091,7 +2091,7 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	}
 	ctrl->auto_mode = 1;
 	ctrl->remote_port = remote_port;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	//network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->wait_target_state = NW_WAIT_ON_LINE;
 	if (!network_check_ready(ctrl, 0))
 	{
@@ -2160,7 +2160,7 @@ int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	ctrl->is_server_mode = 1;
 	ctrl->auto_mode = 1;
 	ctrl->need_close = 0;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	//network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->wait_target_state = NW_WAIT_ON_LINE;
 	if (!network_check_ready(ctrl, 0))
 	{
@@ -2233,7 +2233,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	ctrl->auto_mode = 1;
 	ctrl->need_close = 0;
 	ctrl->new_rx_flag = 0;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	//network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 #ifdef LUAT_USE_TLS
 	if (ctrl->tls_mode)
 	{

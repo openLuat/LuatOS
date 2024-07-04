@@ -944,6 +944,50 @@ static int l_sensor_sc12a(lua_State *L)
   return 1;
 }
 
+/*
+单总线命令读写YHM27XX
+@api    sensor.yhm27xxx(pin, chip_id, reg, data)
+@int    gpio端口号
+@int    芯片ID
+@int    寄存器地址
+@int    要写入的数据，如果没填，则表示从寄存器读取数据
+@return boolean 成功返回true,失败返回false
+@return int 读取成功返回寄存器值，写入成功无返回
+@usage
+while 1 do
+    sys.wait(1000)
+    local result, data = sensor.yhm27xxx(15, 0x04, 0x05)
+    log.info("yhm27xxx", result, data)
+end
+*/
+#ifdef LUAT_USE_YHM27XX
+static int l_sensor_yhm27xx(lua_State *L)
+{
+  uint8_t pin = luaL_checkinteger(L, 1);
+  uint8_t chip_id = luaL_checkinteger(L, 2);
+  uint8_t reg = luaL_checkinteger(L, 3);
+  uint8_t data = 0;
+  uint8_t is_read = 1;
+  if (!lua_isnone(L, 4))
+  {
+    is_read = 0;
+    data = luaL_checkinteger(L, 4);
+  }
+  if(luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+  {
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+  lua_pushboolean(L, 1);
+  if (is_read)
+  {
+    lua_pushinteger(L, data);
+    return 2;
+  }
+  return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sensor[] =
     {
@@ -962,6 +1006,9 @@ static const rotable_Reg_t reg_sensor[] =
 #endif
 #ifdef LUAT_USE_SPI
         {"ws2812b_spi",     ROREG_FUNC(l_sensor_ws2812b_spi)},
+#endif
+#ifdef LUAT_USE_YHM27XX
+        {"yh27xx",     ROREG_FUNC(l_sensor_yhm27xx)},
 #endif
         {NULL,          ROREG_INT(0) }
 };

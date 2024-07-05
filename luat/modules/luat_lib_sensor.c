@@ -1008,7 +1008,7 @@ static const rotable_Reg_t reg_sensor[] =
         {"ws2812b_spi",     ROREG_FUNC(l_sensor_ws2812b_spi)},
 #endif
 #ifdef LUAT_USE_YHM27XX
-        {"yh27xx",     ROREG_FUNC(l_sensor_yhm27xx)},
+        {"yhm27xx",     ROREG_FUNC(l_sensor_yhm27xx)},
 #endif
         {NULL,          ROREG_INT(0) }
 };

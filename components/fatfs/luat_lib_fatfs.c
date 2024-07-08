@@ -191,14 +191,32 @@ static int fatfs_mount(lua_State *L)
 		LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
     return 2;
 }
+
 /*
+取消挂载fatfs
+@api fatfs.unmount(mount_point)
+@string 虚拟文件系统的挂载点, 默认是 fatfs,必须与fatfs.mount一致
+@return int 成功返回0, 否则返回失败码
+@usage
+fatfs.mount("SD")
+*/
 static int fatfs_unmount(lua_State *L) {
-	const char *mount_point = luaL_optstring(L, 1, "");
-	FRESULT re = f_unmount(mount_point);
+
+	const char *mount_point = luaL_optstring(L, 1, "/fatfs");
+#ifdef LUAT_USE_FS_VFS
+      luat_fs_conf_t conf = {
+            .busname = (char*)fs,
+            .type = "fatfs",
+            .filesystem = "fatfs",
+            .mount_point = mount_point,
+        };
+      luat_fs_umount(&conf);
+#endif
+    FRESULT re = f_mount(NULL, "/", 0);
 	lua_pushinteger(L, re);
 	return 1;
 }
-
+/*
 static int fatfs_mkfs(lua_State *L) {
 	const char *mount_point = luaL_optstring(L, 1, "");
 	// BYTE sfd = luaL_optinteger(L, 2, 0);
@@ -617,8 +635,9 @@ static const rotable_Reg_t reg_fatfs[] =
   { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
   { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
   { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
-#if 0
+
   { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
+#if 0
   { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!
   //{ "test",  fatfs_test)},
 

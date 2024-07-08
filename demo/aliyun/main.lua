@@ -8,6 +8,7 @@ if fskv then
 end
 
 -- 联网函数,非必须
+-- 使用一机一密演示，需要打开netready
 -- require "netready"
 
 -- 阿里云事件处理函数

@@ -22,7 +22,7 @@ function publishTest()
     --注意：在此处自己去控制payload的内容编码，aLiYun库中不会对payload的内容做任何编码转换
     -- aliyun.publish(topic,qos,payload,cbFnc,cbPara)
     log.info("aliyun", "上行数据")
-    aliyun.publish("/"..aliyun.opts.ProductKey.."/"..aliyun.opts.DeviceName.."/user/get",1,"LUATOS_CESHI",publishTestCb,"publishTest_"..publishCnt)
+    aliyun.publish("/"..aliyun.opts.ProductKey.."/"..aliyun.opts.DeviceName.."/user/update",1,"LUATOS_CESHI",publishTestCb,"publishTest_"..publishCnt)
 end
 
 ---数据接收的处理函数

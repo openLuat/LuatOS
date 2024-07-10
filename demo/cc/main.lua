@@ -71,6 +71,8 @@ sys.taskInit(function()
     local mic_vol = 65
 
     local find_es8311 = false
+    --内置8311的模块（比如air780epa, air780epvh）打开下面的代码
+    --gpio.setup(17,1,nil,nil,4)
 	--自适应开发板，如果明确是I2C几就不用了
     i2c.setup(0, i2c.FAST)
 	i2c.setup(1, i2c.FAST)
@@ -79,7 +81,7 @@ sys.taskInit(function()
     pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
 	sys.wait(10)
     if i2c.send(0, 0x18, 0xfd) == true then
-        log.info("音频小板", "codec on i2c0")
+        log.info("音频小板或内置ES8311", "codec on i2c0")
         i2c_id = 0
         find_es8311 = true
     else

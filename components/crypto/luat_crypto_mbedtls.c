@@ -183,11 +183,15 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     }
 
 _exit:
-	luat_heap_free(temp);
+    if (temp){
+        luat_heap_free(temp);
+    }
     mbedtls_cipher_free(&ctx);
     return 0;
 _error_exit:
-	luat_heap_free(temp);
+    if (temp){
+        luat_heap_free(temp);
+    }
 	mbedtls_cipher_free(&ctx);
 	return -1;
 }

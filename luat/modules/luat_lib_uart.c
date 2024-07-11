@@ -523,6 +523,7 @@ static int l_uart_read(lua_State *L)
 	}
 	// 限制最大读取量，否则容易死机
 	if (length > LUAT_UART_RX_MAX_LEN) {
+		LLOGE("uart read length too much %u, change to %u", length, LUAT_UART_RX_MAX_LEN);
 		length = LUAT_UART_RX_MAX_LEN;
 	}
 	uint8_t tmpbuff[128];

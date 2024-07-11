@@ -364,7 +364,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 
 /*
 配置串口参数
-@api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay)
+@api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size, rs485_gpio, rs485_level, rs485_delay, debug_enable, error_drop)
 @int 串口id, uart0写0, uart1写1, 如此类推, 最大值取决于设备
 @int 波特率, 默认115200，可选择波特率表:{2000000,921600,460800,230400,115200,57600,38400,19200,9600,4800,2400}
 @int 数据位，默认为8, 可选 7/8
@@ -375,6 +375,8 @@ int l_uart_handler(lua_State *L, void* ptr) {
 @int 485模式下的转换GPIO, 默认值0xffffffff
 @int 485模式下的rx方向GPIO的电平, 默认值0
 @int 485模式下tx向rx转换的延迟时间，默认值12bit的时间，单位us, 9600波特率填20000
+@int 开启调试功能，默认使能，填写uart.DEBUG或者非数字使能，其他值都是关闭，目前只有移芯平台支持
+@int 遇到接收错误是否放弃缓存数据，默认使能，填写uart.ERROR_DROP或者非数字使能，其他值都是关闭，目前只有移芯平台支持
 @return int 成功返回0,失败返回其他值
 @usage
 -- 最常用115200 8N1
@@ -383,6 +385,8 @@ uart.setup(1, 115200, 8, 1, uart.NONE)
 
 -- 485自动切换, 选取GPIO10作为收发转换脚
 uart.setup(1, 115200, 8, 1, uart.NONE, uart.LSB, 1024, 10, 0, 2000)
+-- 遇到接收错误不抛弃缓存数据
+uart.setup(1, 115200, 8, 1, uart.NONE, nil, 1024, nil, nil, nil, nil, 0)
 */
 static int l_uart_setup(lua_State *L)
 {
@@ -405,6 +409,8 @@ static int l_uart_setup(lua_State *L)
         uart_config.stop_bits = (uint8_t)stop_bits;
 
     uart_config.delay = luaL_optinteger(L, 10, 12000000/uart_config.baud_rate);
+    uart_config.debug_enable = luaL_optinteger(L, 11, LUAT_UART_DEBUG_ENABLE);
+    uart_config.error_drop = luaL_optinteger(L, 12, LUAT_UART_RX_ERROR_DROP_DATA);
 #ifdef LUAT_USE_SOFT_UART
     int result;
     if (prv_uart_soft && (prv_uart_soft->uart_id == uart_config.id))
@@ -1278,6 +1284,11 @@ static const rotable_Reg_t reg_uart[] =
 
     //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",       ROREG_INT(LUAT_VUART_ID_0)},
+    //@const ERROR_DROP number 遇到错误时抛弃缓存的数据
+	{ "ERROR_DROP",       ROREG_INT(LUAT_UART_RX_ERROR_DROP_DATA)},
+    //@const DEBUG number 开启调试功能
+	{ "DEBUG",       ROREG_INT(LUAT_UART_DEBUG_ENABLE)},
+
     { NULL,         ROREG_INT(0) }
 };
 

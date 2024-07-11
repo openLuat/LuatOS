@@ -46,6 +46,8 @@
 
 #define LUAT_VUART_ID_0						0x20    
 
+#define LUAT_UART_RX_ERROR_DROP_DATA		(0xD6)
+#define LUAT_UART_DEBUG_ENABLE				(0x3E)
 /**
  * @brief luat_uart
  */
@@ -62,6 +64,8 @@ typedef struct luat_uart {
     uint32_t pin485;            /**< 转换485的pin, 如果没有则是0xffffffff*/
     uint32_t delay;             /**< 485翻转延迟时间，单位us */
     uint8_t rx_level;           /**< 接收方向的电平 */
+    uint8_t debug_enable;		/**< 是否开启debug功能 ==LUAT_UART_DEBUG_ENABLE开启，其他不开启 */
+    uint8_t error_drop;			/**< 遇到错误是否放弃数据 ==LUAT_UART_RX_ERROR_DROP_DATA 放弃，其他不放弃*/
 } luat_uart_t;
 
 /**

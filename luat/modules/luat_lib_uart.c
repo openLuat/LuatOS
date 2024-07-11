@@ -17,7 +17,9 @@
 #include "luat_gpio.h"
 #define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
-
+#ifndef LUAT_UART_RX_MAX_LEN
+#define LUAT_UART_RX_MAX_LEN 0x10000
+#endif
 #define MAX_DEVICE_COUNT 9
 #define MAX_USB_DEVICE_COUNT 1
 typedef struct luat_uart_cb {
@@ -518,6 +520,10 @@ static int l_uart_read(lua_State *L)
 	if (length < 1) {
 		lua_pushliteral(L, "");
 		return 1;
+	}
+	// 限制最大读取量，否则容易死机
+	if (length > LUAT_UART_RX_MAX_LEN) {
+		length = LUAT_UART_RX_MAX_LEN;
 	}
 	uint8_t tmpbuff[128];
 	uint8_t* recv = tmpbuff;

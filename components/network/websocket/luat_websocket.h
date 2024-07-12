@@ -25,7 +25,8 @@ typedef struct
 	uint16_t remote_port; // 远程端口号
 	uint16_t buffer_offset; // 用于标识pkg_buff当前有多少数据
 	uint8_t pkg_buff[WEBSOCKET_RECV_BUF_LEN_MAX + 4];
-	int websocket_cb;		 // websocket lua回调函数
+	int websocket_cb_id;		 // websocket lua回调函数
+    void* websocket_cb;			/**< websocket 回调函数*/
 	uint32_t keepalive;		 // 心跳时长 单位s
 	uint8_t adapter_index;	 // 适配器索引号, 似乎并没有什么用
 	uint8_t websocket_state; // websocket状态
@@ -62,15 +63,19 @@ typedef struct luat_websocket_pkg
 #define WebSocket_OP_PING 0x9	  /* 1001 - ping frame */
 #define WebSocket_OP_PONG 0xA	  /* 1010 - pong frame */
 
+typedef void (*luat_websocket_cb_t)(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2);
+
 int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl);
-int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *ctrl, int arg1, int arg2);
-int32_t luat_websocket_callback(void *data, void *param);
+int luat_websocket_set_cb(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_cb_t websocket_cb);
 int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int count);
 void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_ping(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl);
 int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index);
+
+int luat_websocket_autoreconn(luat_websocket_ctrl_t *websocket_ctrl, uint8_t reconnect,uint32_t reconnect_time);
+
 int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_connopts_t* opts);
 int luat_websocket_payload(char *buff, luat_websocket_pkg_t *pkg, size_t limit);
 int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t *pkg);

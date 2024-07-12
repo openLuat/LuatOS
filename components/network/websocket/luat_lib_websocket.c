@@ -55,7 +55,7 @@ static luat_websocket_ctrl_t *get_websocket_ctrl(lua_State *L)
 	}
 }
 
-static int l_websocket_callback(lua_State *L, void *ptr)
+int l_websocket_callback(lua_State *L, void *ptr)
 {
 	(void)ptr;
 	rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
@@ -76,9 +76,9 @@ static int l_websocket_callback(lua_State *L, void *ptr)
 	}
 	case WEBSOCKET_MSG_PUBLISH:
 	{
-		if (websocket_ctrl->websocket_cb)
+		if (websocket_ctrl->websocket_cb_id)
 		{
-			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
 			if (lua_isfunction(L, -1))
 			{
 				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
@@ -95,9 +95,9 @@ static int l_websocket_callback(lua_State *L, void *ptr)
 	}
 	case WEBSOCKET_MSG_CONNACK:
 	{
-		if (websocket_ctrl->websocket_cb)
+		if (websocket_ctrl->websocket_cb_id)
 		{
-			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
 			if (lua_isfunction(L, -1))
 			{
 				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
@@ -125,9 +125,9 @@ static int l_websocket_callback(lua_State *L, void *ptr)
 	}
 	case WEBSOCKET_MSG_SENT :
 	{
-		if (websocket_ctrl->websocket_cb)
+		if (websocket_ctrl->websocket_cb_id)
 		{
-			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
 			if (lua_isfunction(L, -1))
 			{
 				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
@@ -139,9 +139,9 @@ static int l_websocket_callback(lua_State *L, void *ptr)
 	}
 	case WEBSOCKET_MSG_DISCONNECT : 
 	{
-		if (websocket_ctrl->websocket_cb)
+		if (websocket_ctrl->websocket_cb_id)
 		{
-			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
 			if (lua_isfunction(L, -1))
 			{
 				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
@@ -161,11 +161,11 @@ static int l_websocket_callback(lua_State *L, void *ptr)
 	return 0;
 }
 
-int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *ctrl, int arg1, int arg2)
+int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2)
 {
 	rtos_msg_t msg = {
 		.handler = l_websocket_callback,
-		.ptr = ctrl,
+		.ptr = websocket_ctrl,
 		.arg1 = arg1,
 		.arg2 = arg2,
 	};
@@ -275,15 +275,15 @@ event的值有:
 static int l_websocket_on(lua_State *L)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
-	if (websocket_ctrl->websocket_cb != 0)
+	if (websocket_ctrl->websocket_cb_id != 0)
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
-		websocket_ctrl->websocket_cb = 0;
+		luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
+		websocket_ctrl->websocket_cb_id = 0;
 	}
 	if (lua_isfunction(L, 2))
 	{
 		lua_pushvalue(L, 2);
-		websocket_ctrl->websocket_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+		websocket_ctrl->websocket_cb_id = luaL_ref(L, LUA_REGISTRYINDEX);
 	}
 	return 0;
 }
@@ -323,13 +323,7 @@ wsc:autoreconn(true)
 static int l_websocket_autoreconn(lua_State *L)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
-	if (lua_isboolean(L, 2))
-	{
-		websocket_ctrl->reconnect = lua_toboolean(L, 2);
-	}
-	websocket_ctrl->reconnect_time = luaL_optinteger(L, 3, 3000);
-	if (websocket_ctrl->reconnect && websocket_ctrl->reconnect_time < 1000)
-		websocket_ctrl->reconnect_time = 1000;
+    luat_websocket_autoreconn(websocket_ctrl, lua_toboolean(L, 2),luaL_optinteger(L, 3, 3000));
 	return 0;
 }
 
@@ -404,10 +398,10 @@ static int l_websocket_close(lua_State *L)
 	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
 	// websocket_disconnect(&(websocket_ctrl->broker));
 	luat_websocket_close_socket(websocket_ctrl);
-	if (websocket_ctrl->websocket_cb != 0)
+	if (websocket_ctrl->websocket_cb_id != 0)
 	{
-		luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
-		websocket_ctrl->websocket_cb = 0;
+		luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
+		websocket_ctrl->websocket_cb_id = 0;
 	}
 	luat_websocket_release_socket(websocket_ctrl);
 	return 0;

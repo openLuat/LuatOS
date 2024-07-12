@@ -2,10 +2,8 @@
 
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
-#include "luat_zbuff.h"
 #include "luat_mem.h"
 #include "luat_websocket.h"
-// #include "http_parser.h"
 
 #define LUAT_LOG_TAG "websocket"
 #include "luat_log.h"

@@ -151,7 +151,12 @@ void luat_mobile_set_sim_detect_sim0_first(void);
  * @return uint8_t 1开 0关
  */
 void luat_mobile_set_default_pdn_ipv6(uint8_t onoff);
-
+/**
+ * @brief 设置默认PDN激活时是否只支持IPV6网络，现在默认情况下不开
+ * @param onoff 1开 0关
+ * @return uint8_t 1开 0关
+ */
+void luat_mobile_set_default_pdn_only_ipv6(uint8_t onoff);
 /**
  * @brief 返回默认PDN激活时是否要IPV6网络
  * @return uint8_t 1开 0关

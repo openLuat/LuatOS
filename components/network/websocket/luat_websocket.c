@@ -29,6 +29,8 @@ static void print_pkg(const char *tag, char *buff, luat_websocket_pkg_t *pkg)
 #define print_pkg(...)
 #endif
 
+static int32_t luat_websocket_callback(void *data, void *param);
+
 int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 {
 	uint32_t pkg_len = 0;
@@ -125,16 +127,41 @@ void luat_websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl) {
 	}
 }
 
+int luat_websocket_set_cb(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_cb_t websocket_cb){
+	if (websocket_ctrl == NULL || websocket_ctrl->netc == NULL)
+		return -1;
+	websocket_ctrl->websocket_cb = websocket_cb;
+	return 0;
+}
+
+#ifdef __LUATOS__
+int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2);
+#endif
+static int luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2){
+#ifdef __LUATOS__
+    l_luat_websocket_msg_cb(websocket_ctrl,arg1,arg2);
+#else
+	if (websocket_ctrl->websocket_cb){
+		luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
+		websocket_cb(websocket_ctrl, arg1,arg2);
+	}else{
+        LLOGE("websocket need set cb\n");
+    }
+#endif
+	return 0;
+}
+
+
 LUAT_RT_RET_TYPE luat_websocket_timer_callback(LUAT_RT_CB_PARAM)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
-	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_TIMER_PING, 0);
+	luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_TIMER_PING, 0);
 }
 
 static void reconnect_timer_cb(LUAT_RT_CB_PARAM)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
-	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RECONNECT, 0);
+	luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RECONNECT, 0);
 }
 
 int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index)
@@ -157,6 +184,14 @@ int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index
 	websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
 	websocket_ctrl->ping_timer = luat_create_rtos_timer(luat_websocket_timer_callback, websocket_ctrl, NULL);
 	return 0;
+}
+
+int luat_websocket_autoreconn(luat_websocket_ctrl_t *websocket_ctrl, uint8_t reconnect,uint32_t reconnect_time){
+    websocket_ctrl->reconnect = reconnect;
+    if (reconnect){
+        websocket_ctrl->reconnect_time = reconnect_time<1000?1000:reconnect_time;
+    }
+    return 0;
 }
 
 int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_connopts_t* opts)
@@ -272,7 +307,7 @@ void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl)
 	{
 		network_force_close_socket(websocket_ctrl->netc);
 	}
-	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_DISCONNECT, 0);
+	luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_DISCONNECT, 0);
 	luat_stop_rtos_timer(websocket_ctrl->ping_timer);
 	websocket_ctrl->websocket_state = 0;
 	if (websocket_ctrl->reconnect) {
@@ -282,7 +317,7 @@ void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl)
 
 void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl)
 {
-	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RELEASE, 0);
+	luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RELEASE, 0);
 	if (websocket_ctrl->ping_timer) {
 		luat_release_rtos_timer(websocket_ctrl->ping_timer);
     	websocket_ctrl->ping_timer = NULL;
@@ -421,7 +456,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 				websocket_ctrl->websocket_state = 1;
 				luat_stop_rtos_timer(websocket_ctrl->ping_timer);
 				luat_start_rtos_timer(websocket_ctrl->ping_timer, 30000, 1);
-				l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_CONNACK, 0);
+				luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_CONNACK, 0);
 				return 1;
 			}
 		}
@@ -480,7 +515,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 			return -1;
 		}
 		memcpy(buff, buf, pkg_len);
-		l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_PUBLISH, (int)buff);
+		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_PUBLISH, (int)buff);
 	}
 
 	// 处理完成后, 如果还有数据, 移动数据, 继续处理
@@ -567,7 +602,7 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 	return 0;
 }
 
-int32_t luat_websocket_callback(void *data, void *param)
+static int32_t luat_websocket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
@@ -610,7 +645,7 @@ int32_t luat_websocket_callback(void *data, void *param)
 		luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000, 1);
 		if (websocket_ctrl->frame_wait) {
 			websocket_ctrl->frame_wait --;
-			l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_SENT, 0);
+			luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_SENT, 0);
 		}
 	}
 	else if (event->ID == EV_NW_RESULT_CLOSE)

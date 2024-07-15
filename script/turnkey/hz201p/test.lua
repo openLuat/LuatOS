@@ -9,11 +9,11 @@ local gnssPower = gpio.setup(2, 1)
 local blueLed = gpio.setup(1, 0)
 local redLed = gpio.setup(16, 0, nil, nil, 4)
 
+local powerKeyTest = false
 pm.request(pm.IDLE)
 
-
 local transUartId = 1
-if not fskv.get("pabaDone") then
+if not fskv.get("pcbaDone") then
     transUartId = 1
 else
     transUartId = uart.VUART_0
@@ -148,15 +148,30 @@ sys.taskInit(function()
     end
 end)
 
-local function powerKeyCb()
-    if gpio.get(46) == 1 then
-        table.insert(cacheTable, "POWERKEY_RELEASE#")
-    else
-        table.insert(cacheTable, "POWERKEY_PRESS#")
-    end
-    sys.publish("UART1_SEND")
+local function powerOff()
+    pm.shutdown()
 end
 
+local function powerKeyCb()
+    if gpio.get(46) == 1 then
+        if powerKeyTest then
+            table.insert(cacheTable, "POWERKEY_RELEASE#")
+        end
+        if sys.timerIsActive(powerOff) then
+            sys.timerStop(powerOff)
+        end
+    else
+        if powerKeyTest then
+            table.insert(cacheTable, "POWERKEY_PRESS#")
+        end
+        sys.timerStart(powerOff, 3000)
+    end
+    if powerKeyTest then
+        sys.publish("UART1_SEND")
+    end
+end
+gpio.debounce(46, 100)
+gpio.setup(46, powerKeyCb, gpio.PULLUP, gpio.BOTH)
 local function proc(data)
     local item = nil
     local find = true
@@ -228,22 +243,26 @@ local function proc(data)
             local onoff = string.match(cmd, "POWERKEY,(%d)")
             item = "OK"
             if onoff == "0" then
-                gpio.close(46)
+                powerKeyTest = false
             elseif onoff == "1" then
-                gpio.setup(46, powerKeyCb, gpio.PULLUP, gpio.BOTH)
+                powerKeyTest = true
             else
                 item = "ERROR"
             end
         elseif string.find(cmd, "ECNPICFG") then
-            item = "OK"
             mobile.nstOnOff(true, transUartId)
             mobile.nstInput("AT+ECNPICFG?\r\n")
             mobile.nstInput(nil)
             mobile.nstOnOff(false, transUartId)
             needNowReply = false
+        elseif string.find(cmd, "VBAT") then
+            adc.open(adc.CH_VBAT)
+            local vbat = adc.get(adc.CH_VBAT)
+            adc.close(adc.CH_VBAT)
+            item = tostring(vbat)
         elseif string.find(cmd, "PCBA_TEST_DONE") then
             item = "OK"
-            fskv.set("pabaDone", true)
+            fskv.set("pcbaDone", true)
         elseif string.find(cmd, "TEST_DONE") then
             item = "OK"
             fskv.set("allDone", true)
@@ -267,7 +286,7 @@ local function proc(data)
         return false, data
     end
 end
-gpio.debounce(46, 100)
+
 uart.on(transUartId, "receive", function(id, len)
     local result
     while 1 do
@@ -287,7 +306,6 @@ end)
 uart.on(transUartId, "sent", function()
     sys.publish("SEND_DOWN")
 end)
-
 
 sys.taskInit(function()
     while true do

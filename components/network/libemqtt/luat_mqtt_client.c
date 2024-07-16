@@ -133,6 +133,13 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     return 0;
 }
 
+int luat_mqtt_set_triad(luat_mqtt_ctrl_t *mqtt_ctrl, const char* clientid, const char* username, const char* password){
+    mqtt_init(&(mqtt_ctrl->broker), clientid);
+	mqtt_init_auth(&(mqtt_ctrl->broker), username, password);
+    return 0;
+}
+
+
 void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	LLOGI("mqtt closing socket netc:%p mqtt_state:%d",mqtt_ctrl->netc,mqtt_ctrl->mqtt_state);
 	if (mqtt_ctrl->mqtt_state){

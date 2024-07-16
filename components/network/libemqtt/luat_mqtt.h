@@ -161,6 +161,16 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index);
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts);
 
 /**
+ *@brief 设置MQTT服务器三元组信息
+ *@param mqtt_ctrl luatos_mqtt对象实例
+ *@param clientid clientid
+ *@param username username
+ *@param password password
+ *@return 成功为0，其他值失败
+ */
+int luat_mqtt_set_triad(luat_mqtt_ctrl_t *mqtt_ctrl, const char* clientid, const char* username, const char* password);
+
+/**
  *@brief 设置MQTT服务器接收buff大小
  *@param mqtt_ctrl luatos_mqtt对象实例
  *@param rxbuff_size 接收buff大小

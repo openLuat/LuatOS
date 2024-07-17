@@ -163,7 +163,7 @@ void luaS_remove (lua_State *L, TString *ts) {
   tb->nuse--;
 }
 
-
+extern TString* luat_rostr_get(const char *val_str, size_t len);
 /*
 ** checks whether short string exists and reuses it or creates a new one
 */
@@ -182,6 +182,12 @@ static TString *internshrstr (lua_State *L, const char *str, size_t l) {
       return ts;
     }
   }
+  #ifdef LUAT_USE_ROSTR
+  ts = luat_rostr_get(str, l);
+  if (ts) {
+    return ts;
+  }
+  #endif
   if (g->strt.nuse >= g->strt.size && g->strt.size <= MAX_INT/2) {
     luaS_resize(L, g->strt.size * 2);
     list = &g->strt.hash[lmod(h, g->strt.size)];  /* recompute with new size */

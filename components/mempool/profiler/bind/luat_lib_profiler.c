@@ -19,6 +19,15 @@
 #define LUAT_LOG_TAG "PRO"
 #include "luat_log.h"
 
+static inline void toHex(const char* src, size_t len, char *dst) {
+    size_t i;
+    for (i = 0; i < len; ++i) {
+        sprintf(&dst[i*2], "%02X", src[i]);
+    }
+    dst[len*2] = 0;
+}
+
+
 #include "lgc.h"
 int l_profiler_mem_stat(lua_State *L) {
     int counter = 0;
@@ -52,10 +61,10 @@ int l_profiler_mem_stat(lua_State *L) {
             type_heap[rtt] += (gc->tt == LUA_TSHRSTR ? ts->shrlen : ts->u.lnglen) + sizeof(UTString) + 1;
             if (gc->tt == LUA_TSHRSTR) {
                 LLOGD("短字符串 %08X %d %d %d %s", ts->hash, ts->marked, ts->extra, ts->shrlen, getstr(ts));
-                // toHex(getstr(ts), ts->shrlen, tmpbuff);
-                // LLOGD("{.str={.tt = LUA_TSHRSTR, .marked = 4, .extra = %d, .shrlen = %d, .hash = 0x%08X}, .data=\"%s\"},",
-                //     ts->extra, ts->shrlen, ts->hash, tmpbuff
-                // );
+                toHex(getstr(ts), ts->shrlen, tmpbuff);
+                LLOGD("{.str={.tt = LUA_TSHRSTR, .marked = 4, .extra = %d, .shrlen = %d, .hash = 0x%08X}, .data=\"%s\"},",
+                    ts->extra, ts->shrlen, ts->hash, tmpbuff
+                );
             }
             break;
         case LUA_TTABLE:

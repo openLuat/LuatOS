@@ -98,6 +98,11 @@ int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size)
 	return 0;
 }
 
+int luat_mqtt_set_keepalive(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t keepalive){
+    mqtt_ctrl->keepalive = keepalive;
+    return 0;
+}
+
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts) {
     memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
     mqtt_ctrl->remote_port = opts->port;

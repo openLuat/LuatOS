@@ -179,11 +179,12 @@ int luat_mqtt_set_triad(luat_mqtt_ctrl_t *mqtt_ctrl, const char* clientid, const
 int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size);
 
 /**
- *@brief 设置MQTT服务器信息、加密信息函数
+ *@brief 设置MQTT服务器 心跳时长 
  *@param mqtt_ctrl luatos_mqtt对象实例
- *@param opts 结构体MQTT服务器信息、加密信息函数
+ *@param keepalive keepalive 单位s
  *@return 成功为0，其他值失败
  */
+int luat_mqtt_set_keepalive(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t keepalive);
 
 /**
  *@brief 手动发起重连

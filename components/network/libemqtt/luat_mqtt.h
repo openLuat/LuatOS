@@ -187,6 +187,15 @@ int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size)
 int luat_mqtt_set_keepalive(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t keepalive);
 
 /**
+ *@brief 设置MQTT服务器 是否自动重连
+ *@param mqtt_ctrl luatos_mqtt对象实例
+ *@param auto_connect 是否自动重连
+ *@param reconnect_time 自动重连时间 单位ms
+ *@return 成功为0，其他值失败
+ */
+int luat_mqtt_set_auto_connect(luat_mqtt_ctrl_t *mqtt_ctrl, uint8_t auto_connect,uint32_t reconnect_time);
+
+/**
  *@brief 手动发起重连
  *@param mqtt_ctrl luatos_mqtt对象实例
  *@return 成功为0，其他值失败

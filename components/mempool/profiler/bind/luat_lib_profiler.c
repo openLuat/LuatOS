@@ -26,17 +26,9 @@ static inline void toHex(const char* src, size_t len, char *dst) {
     const uint8_t* ptr = (const uint8_t*)src;
     for (i = 0; i < len; ++i) {
         tmp = *ptr;
-        // tmp是否为可见字符串
-        if ((tmp >= 0x20 && tmp <= 0x7E) && (tmp != '\\' && tmp != '%' && tmp != '"')) {
-            dst[offset] = tmp;
-            offset += 1;
-            ptr += 1;
-        }
-        else {
-            sprintf(&dst[offset], "\\x%02X", tmp);
-            offset += 4;
-            ptr += 1;
-        }
+        sprintf(&dst[offset], "\\x%02X", tmp);
+        offset += 4;
+        ptr += 1;
     }
     dst[offset] = 0;
 }

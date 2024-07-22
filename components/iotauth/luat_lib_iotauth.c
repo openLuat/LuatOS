@@ -44,7 +44,7 @@ static int l_iotauth_aliyun(lua_State *L) {
     if (lua_isboolean(L, 6)){
 		is_tls = lua_toboolean(L, 6);
 	}
-    luat_aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,is_tls,ctx.client_id,ctx.user_name,ctx.password);
+    luat_aliyun_token(&ctx,product_key,device_name,device_secret,cur_timestamp,method,is_tls);
     lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
     lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
     lua_pushlstring(L, ctx.password, strlen(ctx.password));
@@ -86,6 +86,7 @@ log.info("onenet.old", client_id,user_name,password)
 
 */
 static int l_iotauth_onenet(lua_State *L) {
+    iotauth_ctx_t ctx = {0};
     char password[PASSWORD_LEN] = {0};
     size_t len = 0;
     iotauth_onenet_t onenet = {
@@ -102,10 +103,10 @@ static int l_iotauth_onenet(lua_State *L) {
     if (lua_type(L, 7) == LUA_TSTRING) {
         onenet.res = luaL_checkstring(L, 7);
     }
-    luat_onenet_token(&onenet, password);
-    lua_pushlstring(L, onenet.device_name, strlen(onenet.device_name));
-    lua_pushlstring(L, onenet.product_id, strlen(onenet.product_id));
-    lua_pushlstring(L, password, strlen(password));
+    luat_onenet_token(&ctx,&onenet);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 
@@ -123,8 +124,7 @@ local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_888
 print(client_id,user_name,password)
 */
 static int l_iotauth_iotda(lua_State *L) {
-    char client_id[CLIENT_ID_LEN] = {0};
-    char password[PASSWORD_LEN] = {0};
+    iotauth_ctx_t ctx = {0};
     size_t len = 0;
     long long cur_timestamp = 32472115200;
     int ins_timestamp = 0;
@@ -134,10 +134,10 @@ static int l_iotauth_iotda(lua_State *L) {
         cur_timestamp = luaL_checkinteger(L, 3);
         ins_timestamp = 1;
     }
-    luat_iotda_token(device_id,device_secret,cur_timestamp,ins_timestamp,client_id,password);
-    lua_pushlstring(L, client_id, strlen(client_id));
-    lua_pushlstring(L, device_id, strlen(device_id));
-    lua_pushlstring(L, password, strlen(password));
+    luat_iotda_token(&ctx,device_id,device_secret,cur_timestamp,ins_timestamp);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 
@@ -169,8 +169,7 @@ static int l_iotauth_qcloud(lua_State *L) {
         cur_timestamp = luaL_checkinteger(L, 5);
     }
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
-    luat_qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,ctx.user_name,ctx.password);
-    snprintf_(ctx.client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
+    luat_qcloud_token(&ctx,product_id, device_name,device_secret,cur_timestamp,method,sdk_appid);
     lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
     lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
     lua_pushlstring(L, ctx.password, strlen(ctx.password));
@@ -198,9 +197,7 @@ static int l_iotauth_tuya(lua_State *L) {
     if (lua_type(L, (3)) == LUA_TNUMBER){
         cur_timestamp = luaL_checkinteger(L, 3);
     }
-    luat_tuya_token(device_id,device_secret,cur_timestamp,ctx.password);
-    snprintf_(ctx.client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
-    snprintf_(ctx.user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
+    luat_tuya_token(&ctx,device_id,device_secret,cur_timestamp);
     lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
     lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
     lua_pushlstring(L, ctx.password, strlen(ctx.password));
@@ -223,18 +220,17 @@ local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrE
 print(client_id,user_name,password)
 */
 static int l_iotauth_baidu(lua_State *L) {
-    char user_name[USER_NAME_LEN] = {0};
-    char password[PASSWORD_LEN] = {0};
+    iotauth_ctx_t ctx = {0};
     size_t len = 0;
     const char* iot_core_id = luaL_checklstring(L, 1, &len);
     const char* device_key = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "MD5", &len);
     long long cur_timestamp = luaL_optinteger(L, 5, 0);
-    luat_baidu_token(iot_core_id,device_key,device_secret,method,cur_timestamp,user_name,password);
-    lua_pushlstring(L, iot_core_id, strlen(iot_core_id));
-    lua_pushlstring(L, user_name, strlen(user_name));
-    lua_pushlstring(L, password, strlen(password));
+    luat_baidu_token(&ctx,iot_core_id,device_key,device_secret,method,cur_timestamp);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 

@@ -36,7 +36,7 @@ static void str_tohex(const char* str, size_t str_len, char* hex,uint8_t upperca
     }
 }
 
-void luat_aliyun_token(const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,uint8_t is_tls,char* client_id, char* user_name, char* password){
+int luat_aliyun_token(iotauth_ctx_t* ctx,const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,uint8_t is_tls){
     char deviceId[64] = {0};
     char macSrc[200] = {0};
     char macRes[32] = {0};
@@ -49,18 +49,18 @@ void luat_aliyun_token(const char* product_key,const char* device_name,const cha
     sprintf_(deviceId,"%s.%s",product_key,device_name);
     /* setup clientid */
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
-        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacmd5,timestamp=%s|",deviceId,securemode,timestamp_value);
+        sprintf_(ctx->client_id,"%s|securemode=%d,signmethod=hmacmd5,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
-        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacsha1,timestamp=%s|",deviceId,securemode,timestamp_value);
+        sprintf_(ctx->client_id,"%s|securemode=%d,signmethod=hmacsha1,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
-        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacsha256,timestamp=%s|",deviceId,securemode,timestamp_value);
+        sprintf_(ctx->client_id,"%s|securemode=%d,signmethod=hmacsha256,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else{
         LLOGE("not support: %s",method);
-        return;
+        return -1;
     }
 
     /* setup username */
-    sprintf_(user_name,"%s&%s",device_name,product_key);
+    sprintf_(ctx->user_name,"%s&%s",device_name,product_key);
 
     /* setup password */
     memcpy(macSrc, "clientId", strlen("clientId"));
@@ -73,17 +73,18 @@ void luat_aliyun_token(const char* product_key,const char* device_name,const cha
     memcpy(macSrc + strlen(macSrc), timestamp_value, strlen(timestamp_value));
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
         luat_crypto_hmac_md5_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
-        str_tohex(macRes, 16, password,1);
+        str_tohex(macRes, 16, ctx->password,1);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
         luat_crypto_hmac_sha1_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
-        str_tohex(macRes, 20, password,1);
+        str_tohex(macRes, 20, ctx->password,1);
     }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
         luat_crypto_hmac_sha256_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
-        str_tohex(macRes, 32, password,1);
+        str_tohex(macRes, 32, ctx->password,1);
     }else{
         LLOGE("not support: %s",method);
-        return;
+        return -1;
     }
+    return 0;
 }
 
 
@@ -151,8 +152,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     return strlen(token);
 }
 
-// void luat_onenet_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,char * method,char * version,char *token){
-int luat_onenet_token(const iotauth_onenet_t* onenet, char* token) {
+int luat_onenet_token(iotauth_ctx_t* ctx,const iotauth_onenet_t* onenet) {
     size_t  declen = 0, enclen =  0,hmac_len = 0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
@@ -185,20 +185,24 @@ int luat_onenet_token(const iotauth_onenet_t* onenet, char* token) {
     }
     
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, hmac_len);
-    url_encoding_for_token(&sign, token);
+    snprintf_(ctx->client_id, CLIENT_ID_LEN,"%s", onenet->device_name);
+    snprintf_(ctx->user_name, USER_NAME_LEN,"%s", onenet->product_id);
+    url_encoding_for_token(&sign, ctx->password);
     return 0;
 }
 
-void luat_iotda_token(const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp,char* client_id,const char* password){
+int luat_iotda_token(iotauth_ctx_t* ctx,const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp){
     char hmac[65] = {0};
     char timestamp[11] = {0};
     struct tm *timeinfo = localtime( &cur_timestamp );
     if(snprintf_(timestamp, 11, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
-        return;
+        return -1;
     }
-    snprintf_(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
+    snprintf_(ctx->client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
+    snprintf_(ctx->user_name, USER_NAME_LEN,"%s", device_id);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
-    str_tohex(hmac, 32, (char *)password,0);
+    str_tohex(hmac, 32, ctx->password,0);
+    return 0;
 }
 
 /* Max size of base64 encoded PSK = 64, after decode: 64/4*3 = 48*/
@@ -215,63 +219,70 @@ static void get_next_conn_id(char *conn_id){
     conn_id[MAX_CONN_ID_LEN - 1] = '\0';
 }
 
-void luat_qcloud_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid,char* username,char* password){
+int luat_qcloud_token(iotauth_ctx_t* ctx,const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid){
     char  conn_id[MAX_CONN_ID_LEN] = {0};
     char  username_sign[41] = {0};
     char  psk_base64decode[DECODE_PSK_LENGTH] = {0};
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
-    snprintf_(username, USER_NAME_LEN,"%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
+    snprintf_(ctx->client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
+    snprintf_(ctx->user_name, USER_NAME_LEN,"%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
-        luat_crypto_hmac_sha1_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
+        luat_crypto_hmac_sha1_simple(ctx->user_name, strlen(ctx->user_name),psk_base64decode, psk_base64decode_len, username_sign);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
-        luat_crypto_hmac_sha256_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
+        luat_crypto_hmac_sha256_simple(ctx->user_name, strlen(ctx->user_name),psk_base64decode, psk_base64decode_len, username_sign);
     }else{
         LLOGE("not support: %s",method);
-        return;
+        return -1;
     }
     char username_sign_hex[100] = {0};
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         str_tohex(username_sign, 20, username_sign_hex,0);
-        snprintf_(password, PASSWORD_LEN,"%s;hmacsha1", username_sign_hex);
+        snprintf_(ctx->password, PASSWORD_LEN,"%s;hmacsha1", username_sign_hex);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
         str_tohex(username_sign, 32, username_sign_hex,0);
-        snprintf_(password, PASSWORD_LEN,"%s;hmacsha256", username_sign_hex);
+        snprintf_(ctx->password, PASSWORD_LEN,"%s;hmacsha256", username_sign_hex);
     }
+    return 0;
 }
 
-void luat_tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* password){
+int luat_tuya_token(iotauth_ctx_t* ctx,const char* device_id,const char* device_secret,long long cur_timestamp){
     char hmac[65] = {0};
     char token_temp[100]  = {0};
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    str_tohex(hmac, 32, (char *)password,0);
+    snprintf_(ctx->client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
+    snprintf_(ctx->user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
+    str_tohex(hmac, 32, ctx->password,0);
+    return 0;
 }
 
-void luat_baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* username,char* password){
+int luat_baidu_token(iotauth_ctx_t* ctx,const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp){
     char crypto[64] = {0};
     char token_temp[100] = {0};
+    snprintf_(ctx->client_id, CLIENT_ID_LEN, "%s", iot_core_id);
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
         if (cur_timestamp){
-            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+            snprintf_(ctx->user_name,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
         }else{
-            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"MD5");
+            snprintf_(ctx->user_name,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"MD5");
         }
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
-        str_tohex(crypto, 16, password,0);
+        str_tohex(crypto, 16, ctx->password,0);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
         if (cur_timestamp){
-            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+            snprintf_(ctx->user_name,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
         }else{
-            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"SHA256");
+            snprintf_(ctx->user_name,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"SHA256");
         }
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
-        str_tohex(crypto, 32, password,0);
+        str_tohex(crypto, 32, ctx->password,0);
     }else{
         LLOGE("not support: %s",method);
+        return -1;
     }
-    return;
+    return 0;
 }

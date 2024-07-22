@@ -19,6 +19,21 @@
 #define LUAT_LOG_TAG "PRO"
 #include "luat_log.h"
 
+static inline void toHex(const char* src, size_t len, char *dst) {
+    size_t i = 0;
+    size_t offset = 0;
+    uint8_t tmp = 0;
+    const uint8_t* ptr = (const uint8_t*)src;
+    for (i = 0; i < len; ++i) {
+        tmp = *ptr;
+        sprintf(&dst[offset], "\\x%02X", tmp);
+        offset += 4;
+        ptr += 1;
+    }
+    dst[offset] = 0;
+}
+
+
 #include "lgc.h"
 int l_profiler_mem_stat(lua_State *L) {
     int counter = 0;
@@ -49,13 +64,13 @@ int l_profiler_mem_stat(lua_State *L) {
             break;
         case LUA_TSTRING:
             ts = gco2ts(gc);
-            type_heap[rtt] += (gc->tt == LUA_TSHRSTR ? ts->shrlen : ts->u.lnglen) + sizeof(UTString) + 1;
+            type_heap[gc->tt] += (gc->tt == LUA_TSHRSTR ? ts->shrlen : ts->u.lnglen) + sizeof(UTString) + 1;
             if (gc->tt == LUA_TSHRSTR) {
-                LLOGD("短字符串 %08X %d %d %d %s", ts->hash, ts->marked, ts->extra, ts->shrlen, getstr(ts));
-                // toHex(getstr(ts), ts->shrlen, tmpbuff);
-                // LLOGD("{.str={.tt = LUA_TSHRSTR, .marked = 4, .extra = %d, .shrlen = %d, .hash = 0x%08X}, .data=\"%s\"},",
-                //     ts->extra, ts->shrlen, ts->hash, tmpbuff
-                // );
+                // LLOGD("短字符串 %08X %d %d %d %s", ts->hash, ts->marked, ts->extra, ts->shrlen, getstr(ts));
+                toHex(getstr(ts), ts->shrlen, tmpbuff);
+                LLOGD("{.str={.tt = LUA_TSHRSTR, .marked = 4, .extra = %d, .shrlen = %d, .hash = 0x%08X}, .data=\"%s\"},",
+                    ts->extra, ts->shrlen, ts->hash, tmpbuff
+                );
             }
             break;
         case LUA_TTABLE:
@@ -82,7 +97,7 @@ int l_profiler_mem_stat(lua_State *L) {
         case LUA_TSTRING:
             ts = gco2ts(gc);
             // LLOGD("不是一样的吗? %p %p", ts, gc);
-            type_heap[rtt] += (gc->tt == LUA_TSHRSTR ? ts->shrlen : ts->u.lnglen) + sizeof(UTString);
+            type_heap[gc->tt] += (gc->tt == LUA_TSHRSTR ? ts->shrlen : ts->u.lnglen) + sizeof(UTString);
             // if (gc->tt == LUA_TSHRSTR)
             //     LLOGD("短字符串 %08X %d %d %d %s", ts->hash, ts->marked, ts->extra, ts->shrlen, getstr(ts));
             break;
@@ -102,6 +117,20 @@ int l_profiler_mem_stat(lua_State *L) {
             LLOGD("类型 %d 内存 %d", i, type_heap[i]);
         }
     }
+    // 临时打印一下所有长度为1的字符串
+    #if 0
+    uint8_t tmpchar[2] = {0};
+    unsigned int hash;
+    for (uint8_t i = 0; i < 255; i++)
+    {
+        tmpchar[0] = i;
+        hash = luaS_hash(tmpchar, 1, G_SEED_FIXED);
+        toHex(tmpchar, 1, tmpbuff);
+        LLOGD("{.str={.tt = LUA_TSHRSTR, .marked = 4, .extra = %d, .shrlen = %d, .hash = 0x%08X}, .data=\"%s\"},",
+            0x00, 1, hash, tmpbuff
+        );
+    }
+    #endif
     
     return 0;
 }

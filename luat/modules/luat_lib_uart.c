@@ -232,6 +232,7 @@ static void luat_uart_soft_close(void)
 		luat_gpio_close(prv_uart_soft->pin485);
 	}
 	luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+	prv_uart_soft->rx_buffer.Data = NULL;
 	memset(&prv_uart_soft->rx_buffer, 0, sizeof(Buffer_Struct));
 	prv_uart_soft->is_tx_busy = 0;
 	prv_uart_soft->is_rx_busy= 0;

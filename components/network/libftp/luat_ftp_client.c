@@ -399,8 +399,10 @@ static int pasv_recv(void)
 	if (ret){
 		return -1;
 	}
+	LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
 	g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
 	if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
+		LLOGD("!1");
 		return -1;
 	}
 	pos = find_newline();
@@ -414,7 +416,7 @@ static int pasv_recv(void)
 			rx_finish = 1;
 		}
 	}
-	while(!rx_finish && g_s_ftp.network->data_netc_online)
+	while(!rx_finish && (g_s_ftp.network->data_netc_online || g_s_ftp.result_buffer.Pos))	//data通道未断开或者已经接收到数据了
 	{
 		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 		if (ret < 0){

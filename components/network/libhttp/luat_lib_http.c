@@ -467,12 +467,12 @@ exit:
 	return 0;
 }
 
-void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2) {
+void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
 	// network_close(http_ctrl->netc, 0);
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
-	msg.arg1 = arg1;
-	msg.arg2 = arg2;
+	msg.arg1 = error_code;
+	msg.arg2 = arg;
 	luat_msgbus_put(&msg, 0);
 }

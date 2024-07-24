@@ -45,6 +45,7 @@ static void clear_data(minmea_data_t* ptr) {
 
 int luat_libgnss_init(int clear) {
     if (clear) {
+        gnssctx.fix_at_ticks = 0;
         memset(&gnssctx.frame_rmc, 0, sizeof(struct minmea_sentence_rmc));
         clear_data(gnssctx.rmc);
         clear_data(gnssctx.gga);

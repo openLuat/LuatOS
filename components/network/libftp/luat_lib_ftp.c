@@ -74,12 +74,11 @@ static int l_ftp_login(lua_State *L) {
 	if (lua_isboolean(L, 6)){
 		if (lua_toboolean(L, 6)){
 			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
+			memset(luat_ftp_tls, 0, sizeof(luat_ftp_tls_t));
 		}
 	}else if (lua_istable(L, 6)){
-		if (luat_ftp_tls == NULL){
-			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
-		}
-		
+		luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
+		memset(luat_ftp_tls, 0, sizeof(luat_ftp_tls_t));
 		lua_pushstring(L, "server_cert");
 		if (LUA_TSTRING == lua_gettable(L, 6)) {
 			luat_ftp_tls->server_cert = luaL_checklstring(L, -1, &len);

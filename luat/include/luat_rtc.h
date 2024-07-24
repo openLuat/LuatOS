@@ -25,7 +25,12 @@ int luat_rtc_get(struct tm *tblock);
 int luat_rtc_timer_start(int id, struct tm *tblock);
 int luat_rtc_timer_stop(int id);
 void luat_rtc_set_tamp32(uint32_t tamp);
-
+/**
+ * @brief 设置时区，或者同步底层时区到应用层
+ *
+ * @param timezone 时区值的指针，如果是空的，则同步底层时区到应用层
+ * @return int 当前时区
+ */
 int luat_rtc_timezone(int* timezone);
 
 #endif

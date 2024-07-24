@@ -8,12 +8,12 @@
 #include "http_parser.h"
 
 #ifdef __LUATOS__
-#include "luat_fs.h"
 #include "luat_fota.h"
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_str.h"
 #endif
+#include "luat_fs.h"
 #include "luat_http.h"
 
 #define LUAT_LOG_TAG "http"
@@ -28,9 +28,8 @@
 
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 static int32_t luat_lib_http_callback(void *data, void *param);
-#ifdef __LUATOS__
+
 int strncasecmp(const char *string1, const char *string2, size_t count);
-void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2);
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGD("http close %p", http_ctrl);
 	if (http_ctrl->netc){
@@ -79,59 +78,28 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	luat_heap_free(http_ctrl);
 	return 0;
 }
+#ifndef __LUATOS__
 
-static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
-#ifdef LUAT_USE_FOTA
-	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA){
-		luat_fota_end(0);
-		// if (http_ctrl->parser.status_code){
-		// 	error_code = 0;
-		// }
-		luat_http_client_onevent(http_ctrl, error_code, 0);
-		return;
-	}
-#endif
-	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
-	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
-		http_ctrl->re_request_count++;
-		network_close(http_ctrl->netc, 0);
-		network_force_close_socket(http_ctrl->netc);
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
-			LLOGE("http_resp_error network_connect error");
-			goto error;
-		}
-	}else if (http_ctrl->close_state==0){
-error:
-		http_ctrl->close_state=1;
-		// network_close(http_ctrl->netc, 0);
-		luat_http_client_onevent(http_ctrl, error_code, 0);
-	}
-}
+void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg){
 
+	// if (http_ctrl->timeout_timer){
+	// 	luat_stop_rtos_timer(http_ctrl->timeout_timer);
+	// 	luat_release_rtos_timer(http_ctrl->timeout_timer);
+	// 	http_ctrl->timeout_timer = NULL;
+	// }
+    LLOGD("error_code:%d is_download:%d",error_code,http_ctrl->is_download);
+    LLOGD("body_len:%d",http_ctrl->body_len);
 
-static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
-	if (http_ctrl->http_cb){
-		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, http_ctrl->body_len);
-		// LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
-	}
-}
-
-#else
-static void http_network_error(luat_http_ctrl_t *http_ctrl);
-static void luat_http_dummy_cb(int status, void *data, uint32_t data_len, void *user_param) {;}
-static void http_network_close(luat_http_ctrl_t *http_ctrl)
-{
-	http_ctrl->state = HTTP_STATE_WAIT_CLOSE;
-	luat_rtos_timer_stop(http_ctrl->timeout_timer);
-	if (!network_close(http_ctrl->netc, 0))
-	{
-		http_network_error(http_ctrl);
-	}
+    if (error_code == HTTP_OK){
+        luat_http_cb http_cb = http_ctrl->http_cb;
+        http_cb(HTTP_STATE_GET_BODY, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
+        http_cb(HTTP_STATE_GET_BODY_DONE, http_ctrl->parser.status_code, 0, http_ctrl->http_cb_userdata);
+    }
 }
 
 static void http_network_error(luat_http_ctrl_t *http_ctrl)
 {
+    luat_http_cb http_cb = http_ctrl->http_cb;
 	if (++(http_ctrl->retry_cnt))
 	{
 		if (http_ctrl->retry_cnt >= http_ctrl->retry_cnt_max)
@@ -140,7 +108,7 @@ static void http_network_error(luat_http_ctrl_t *http_ctrl)
 			{
 				http_ctrl->error_code = HTTP_ERROR_STATE;
 			}
-			http_ctrl->http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
+			http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
 			return;
 		}
 	}
@@ -164,23 +132,66 @@ static void http_network_error(luat_http_ctrl_t *http_ctrl)
 		http_ctrl->state = HTTP_STATE_IDLE;
 		http_ctrl->error_code = HTTP_ERROR_CONNECT;
 		network_close(http_ctrl->netc, 0);
-		http_ctrl->http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
+		http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
 	}
 }
+static void http_network_close(luat_http_ctrl_t *http_ctrl)
+{
+	http_ctrl->state = HTTP_STATE_WAIT_CLOSE;
+	luat_rtos_timer_stop(http_ctrl->timeout_timer);
+	if (!network_close(http_ctrl->netc, 0))
+	{
+		http_network_error(http_ctrl);
+	}
+}
+
 #endif
 
+static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
+	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
+#ifdef LUAT_USE_FOTA
+	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA){
+		luat_fota_end(0);
+		luat_http_client_onevent(http_ctrl, error_code, 0);
+		return;
+	}
+#endif
+	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
+		http_ctrl->re_request_count++;
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
+			LLOGE("http_resp_error network_connect error");
+			goto error;
+		}
+	}else if (http_ctrl->close_state==0){
+error:
+		http_ctrl->close_state=1;
+		luat_http_client_onevent(http_ctrl, error_code, 0);
+	}
+}
 
+// body接收回调
+static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
+	if (http_ctrl->http_cb){
+#ifdef __LUATOS__
+		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, http_ctrl->body_len);
+		LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
+#endif
+    }
+}
 
 static int on_header_field(http_parser* parser, const char *at, size_t length){
     LLOGD("on_header_field:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-#ifdef __LUATOS__
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
 	if(!strncasecmp(at, "Content-Length: ", 16) && http_ctrl->resp_content_len == 0){
 		http_ctrl->resp_content_len = -1;
 	}
+#ifdef __LUATOS__
 	if (!http_ctrl->headers){
 		http_ctrl->headers = luat_heap_malloc(length+2);
 	}else{
@@ -191,11 +202,6 @@ static int on_header_field(http_parser* parser, const char *at, size_t length){
 	http_ctrl->headers_len += length+1;
 #else
 	char temp[16] = {':'};
-	if (http_ctrl->state != HTTP_STATE_GET_HEAD)
-	{
-		LLOGD("!");
-		return 0;
-	}
 	http_ctrl->response_head_buffer.Pos = 0;
 	OS_BufferWrite(&http_ctrl->response_head_buffer, (void*)at, length);
 	OS_BufferWrite(&http_ctrl->response_head_buffer, temp, 1);
@@ -207,7 +213,6 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
     LLOGD("on_header_value:%.*s",length,at);
 	char tmp[16] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-#ifdef __LUATOS__
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
@@ -216,18 +221,16 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 		http_ctrl->resp_content_len = atoi(tmp);
 		LLOGD("http_ctrl->resp_content_len:%d",http_ctrl->resp_content_len);
 	}
+#ifdef __LUATOS__
 	http_ctrl->headers = luat_heap_realloc(http_ctrl->headers,http_ctrl->headers_len+length+3);
 	memcpy(http_ctrl->headers+http_ctrl->headers_len,at,length);
 	memcpy(http_ctrl->headers+http_ctrl->headers_len+length, "\r\n", 2);
 	http_ctrl->headers_len += length+2;
 #else
-	if (http_ctrl->state != HTTP_STATE_GET_HEAD){
-		LLOGD("http state error %d", http_ctrl->state);
-		return 0;
-	}
 	OS_BufferWrite(&http_ctrl->response_head_buffer, (void *)at, length);
 	OS_BufferWrite(&http_ctrl->response_head_buffer, tmp, 1);
-	http_ctrl->http_cb(HTTP_STATE_GET_HEAD, http_ctrl->response_head_buffer.Data, http_ctrl->response_head_buffer.Pos, http_ctrl->http_cb_userdata);
+    luat_http_cb http_cb = http_ctrl->http_cb;
+	http_cb(HTTP_STATE_GET_HEAD, http_ctrl->response_head_buffer.Data, http_ctrl->response_head_buffer.Pos, http_ctrl->http_cb_userdata);
 #endif
     return 0;
 }
@@ -235,11 +238,12 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 static int on_headers_complete(http_parser* parser){
     LLOGD("on_headers_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-#ifdef __LUATOS__
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
+#ifdef __LUATOS__
 	http_ctrl->headers[http_ctrl->headers_len] = 0x00;
+#endif
 	if (http_ctrl->is_download){
 		luat_fs_remove(http_ctrl->dst);
 		http_ctrl->fd = luat_fs_fopen(http_ctrl->dst, "w+");
@@ -254,39 +258,17 @@ static int on_headers_complete(http_parser* parser){
 #endif
 	http_ctrl->headers_complete = 1;
 	luat_http_callback(http_ctrl);
-#else
-	if (http_ctrl->state != HTTP_STATE_GET_HEAD){
-		LLOGD("http state error %d", http_ctrl->state);
-		return 0;
-	}
-
-	if (!http_ctrl->total_len)
-	{
-		if (http_ctrl->parser.content_length != -1)
-		{
-			http_ctrl->total_len = http_ctrl->parser.content_length;
-		}
-		else
-		{
-			LLOGD("no content lenght, maybe error!");
-		}
-	}
-
-	if (http_ctrl->debug_onoff)
-	{
-		LLOGD("total %u done %u", http_ctrl->total_len, http_ctrl->done_len);
-	}
-
-	http_ctrl->http_cb(HTTP_STATE_GET_HEAD, NULL, 0, http_ctrl->http_cb_userdata);
-	http_ctrl->state = HTTP_STATE_GET_BODY;
+#ifndef __LUATOS__
+    luat_http_cb http_cb = http_ctrl->http_cb;
+    http_cb(HTTP_STATE_GET_HEAD, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
+    http_cb(HTTP_STATE_GET_HEAD_DONE, parser->status_code, 0, http_ctrl->http_cb_userdata);
 #endif
     return 0;
 }
 
 static int on_body(http_parser* parser, const char *at, size_t length){
-	// LLOGD("on_body:%.*s",length,at);
+	LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-#ifdef __LUATOS__
 	LLOGD("on_body length:%d http_ctrl->body_len:%d status_code:%d",length,http_ctrl->body_len+length,parser->status_code);
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
@@ -313,6 +295,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		}
 	}
 #endif
+#ifdef __LUATOS__
 	else if(http_ctrl->is_post==0 && http_ctrl->zbuff_body!=NULL){
 		if (http_ctrl->zbuff_body->len < http_ctrl->zbuff_body->used+length+1 ){
 			void* tmpptr = luat_heap_realloc(http_ctrl->zbuff_body->addr,http_ctrl->zbuff_body->used+length+1);
@@ -326,6 +309,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		memcpy(http_ctrl->zbuff_body->addr + http_ctrl->zbuff_body->used ,at,length);
 		http_ctrl->zbuff_body->used += length;
 	}
+#endif
 	else{
 		if (!http_ctrl->body){
 			http_ctrl->body = luat_heap_malloc(length+1);
@@ -347,18 +331,13 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	}
 	http_ctrl->body_len += length;
 	luat_http_callback(http_ctrl);
-#else
-	if (http_ctrl->state != HTTP_STATE_GET_BODY){
-		LLOGD("http state error %d", http_ctrl->state);
-		return 0;
-	}
-	http_ctrl->done_len += length;
-	http_ctrl->http_cb(HTTP_STATE_GET_BODY, (void *)at, length, http_ctrl->http_cb_userdata);
+#ifndef __LUATOS__
+    luat_http_cb http_cb = http_ctrl->http_cb;
+    http_cb(HTTP_STATE_GET_BODY, (void *)at, length, http_ctrl->http_cb_userdata);
 #endif
     return 0;
 }
 
-#ifdef __LUATOS__
 static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
     LLOGD("on_complete");
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
@@ -409,23 +388,11 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 	luat_http_client_onevent(http_ctrl, HTTP_OK, 0);
     return 0;
 }
-#endif
 
 static int on_message_complete(http_parser* parser){
     LLOGD("on_message_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-#ifdef __LUATOS__
 	http_ctrl->close_state = 1;
-#else
-	if (http_ctrl->done_len != http_ctrl->total_len)
-	{
-		LLOGD("http rx body len error %u,%u", http_ctrl->done_len, http_ctrl->total_len);
-	}
-	http_ctrl->http_cb(HTTP_STATE_GET_BODY, NULL, 0, http_ctrl->http_cb_userdata);
-	http_ctrl->error_code = 0;
-	http_ctrl->state = HTTP_STATE_DONE;
-	luat_rtos_timer_stop(http_ctrl->timeout_timer);
-#endif
 	return 0;
 }
 
@@ -507,7 +474,8 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 			http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len);
 			http_ctrl->tx_offset = 0;
 		}
-	}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
+	}
+    else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
 		if (http_ctrl->zbuff_body->used > HTTP_SEND_LEN_MAX){
 			http_send(http_ctrl, http_ctrl->zbuff_body->addr, HTTP_SEND_LEN_MAX);
 			http_ctrl->tx_offset = HTTP_SEND_LEN_MAX;
@@ -548,12 +516,13 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	// 结束头部
 	http_send(http_ctrl, (uint8_t*)"\r\n", 2);
 	// 发送body
-	free(temp);
+	luat_heap_free(temp);
 	http_ctrl->state = HTTP_STATE_GET_HEAD;
 
 	if (http_ctrl->is_post)
 	{
-		http_ctrl->http_cb(HTTP_STATE_SEND_BODY_START, NULL, 0, http_ctrl->http_cb_userdata);
+        luat_http_cb http_cb = http_ctrl->http_cb;
+		http_cb(HTTP_STATE_SEND_BODY_START, NULL, 0, http_ctrl->http_cb_userdata);
 	}
 #endif
 }
@@ -575,7 +544,7 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 	}
 #endif
 }
-#ifdef __LUATOS__
+
 int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
@@ -588,9 +557,11 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;
 	}
-	if (event->ID == EV_NW_RESULT_LINK){
-		return 0;
-	}else if(event->ID == EV_NW_RESULT_CONNECT){
+    switch (event->ID)
+    {
+    case EV_NW_RESULT_LINK:
+        return 0;
+    case EV_NW_RESULT_CONNECT:
 		http_ctrl->resp_buff_offset = 0; // 复位resp缓冲区
 		http_ctrl->resp_headers_done = 0;
 
@@ -604,7 +575,13 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		// }
 		http_send_message(http_ctrl);
 		return 0;
-	}else if(event->ID == EV_NW_RESULT_EVENT){
+    case EV_NW_RESULT_EVENT:
+		if (http_ctrl->is_pause){
+			if (http_ctrl->debug_onoff){
+				LLOGD("rx pause");
+			}
+			break;
+		}
 		uint32_t total_len = 0;
 		uint32_t rx_len = 0;
 		while (1) {
@@ -677,7 +654,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				return 0;
 			}
 		}
-	}else if(event->ID == EV_NW_RESULT_TX){
+    case EV_NW_RESULT_TX:
+#ifdef __LUATOS__
 		if (http_ctrl->tx_offset){
 			if (http_ctrl->req_body){
 				if (http_ctrl->req_body_len-http_ctrl->tx_offset > HTTP_SEND_LEN_MAX){
@@ -687,7 +665,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body+http_ctrl->tx_offset, http_ctrl->req_body_len-http_ctrl->tx_offset);
 					http_ctrl->tx_offset = 0;
 				}
-			}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
+			}
+            else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
 				if (http_ctrl->zbuff_body->used-http_ctrl->tx_offset > HTTP_SEND_LEN_MAX){
 					http_send(http_ctrl, http_ctrl->zbuff_body->addr+http_ctrl->tx_offset, HTTP_SEND_LEN_MAX);
 					http_ctrl->tx_offset += HTTP_SEND_LEN_MAX;
@@ -697,12 +676,20 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				}
 			}
 		}
+#else
+		if (http_ctrl->is_post){
+            luat_http_cb http_cb = http_ctrl->http_cb;
+			http_cb(HTTP_STATE_SEND_BODY, NULL, 0, http_ctrl->http_cb_userdata);
+		}
+#endif
 		return 0;
-	}else if(event->ID == EV_NW_RESULT_CLOSE){
-		// http_close(http_ctrl);
-		return 0;
-	}
-	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
+    case EV_NW_RESULT_CLOSE:
+        return 0;
+    default:
+        break;
+    }
+
+    ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	LLOGD("network_wait_event %d", ret);
 	if (ret < 0){
 		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
@@ -710,109 +697,19 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	}
     return 0;
 }
-#else
-static int32_t luat_lib_http_callback(void *data, void *param){
-	OS_EVENT *event = (OS_EVENT *)data;
-	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
-	if (HTTP_STATE_IDLE == http_ctrl->state)
-	{
-		LLOGD("http state error %d", http_ctrl->state);
-		return 0;
-	}
-	int ret = 0;
-	size_t nParseBytes;
-	uint32_t rx_len = 0;
-	if (event->Param1){
-		LLOGD("http network error!");
-		http_ctrl->error_code = HTTP_ERROR_STATE;
-		http_network_close(http_ctrl);
-		return -1;
-	}
-
-	switch(event->ID)
-	{
-	case EV_NW_RESULT_EVENT:
-		http_ctrl->new_data = 1;
-		if (http_ctrl->is_pause)
-		{
-			if (http_ctrl->debug_onoff)
-			{
-				LLOGD("rx pause");
-			}
-			break;
-		}
-		while (1)
-		{
-			int result = network_rx(http_ctrl->netc, http_ctrl->response_cache.Data + http_ctrl->response_cache.Pos, http_ctrl->response_cache.MaxLen - http_ctrl->response_cache.Pos, 0, NULL, NULL, &rx_len);
-			if (result)
-			{
-				http_ctrl->error_code = HTTP_ERROR_RX;
-				http_network_close(http_ctrl);
-			}
-			if (rx_len > 0)
-			{
-				http_ctrl->response_cache.Pos += rx_len;
-				nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, (const char*)http_ctrl->response_cache.Data, http_ctrl->response_cache.Pos);
-				OS_BufferRemove(&http_ctrl->response_cache, nParseBytes);
-			}
-			else
-			{
-				break;
-			}
-		}
-		break;
-	case EV_NW_RESULT_CONNECT:
-		http_ctrl->response_cache.Pos = 0;
-		http_parser_init(&http_ctrl->parser, HTTP_RESPONSE);
-		http_ctrl->parser.data = http_ctrl;
-		http_send_message(http_ctrl);
-		break;
-	case EV_NW_RESULT_TX:
-		if (http_ctrl->is_post)
-		{
-			http_ctrl->http_cb(HTTP_STATE_SEND_BODY, NULL, 0, http_ctrl->http_cb_userdata);
-		}
-		http_ctrl->state = HTTP_STATE_GET_HEAD;
-		break;
-	case EV_NW_RESULT_CLOSE:
-		if (http_ctrl->error_code && (http_ctrl->state != HTTP_STATE_DONE))
-		{
-			if (http_ctrl->debug_onoff)
-			{
-				LLOGD("http network closed");
-			}
-			http_network_error(http_ctrl);
-		}
-		else
-		{
-			http_ctrl->state = HTTP_STATE_IDLE;
-			http_ctrl->http_cb(http_ctrl->state, NULL, 0, http_ctrl->http_cb_userdata);
-		}
-		return 0;
-	case EV_NW_RESULT_LINK:
-		return 0;
-	}
-	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
-
-	if (ret < 0){
-		http_ctrl->error_code = HTTP_ERROR_STATE;
-		http_network_close(http_ctrl);
-		return -1;
-	}
-    return 0;
-}
-#endif
 
 #ifndef __LUATOS__
+static void luat_http_dummy_cb(int status, void *data, uint32_t data_len, void *user_param) {;}
 luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int adapter_index)
 {
-	luat_http_ctrl_t *http_ctrl = calloc(1, sizeof(luat_http_ctrl_t));
+	luat_http_ctrl_t *http_ctrl = luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl) return NULL;
+    memset(http_ctrl,0,sizeof(luat_http_ctrl_t));
 
 	http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
 	if (!http_ctrl->timeout_timer)
 	{
-		free(http_ctrl);
+		luat_heap_free(http_ctrl);
 		LLOGD("no more timer");
 		return NULL;
 	}
@@ -828,7 +725,7 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	if (!http_ctrl->netc)
 	{
 		luat_release_rtos_timer(http_ctrl->timeout_timer);
-		free(http_ctrl);
+		luat_heap_free(http_ctrl);
 		LLOGD("no more network ctrl");
 		return NULL;
 	}
@@ -985,22 +882,10 @@ int luat_http_client_destroy(luat_http_ctrl_t **p_http_ctrl)
 	}
 	http_ctrl->state = HTTP_STATE_WAIT_CLOSE;
 
-	network_force_close_socket(http_ctrl->netc);
-	luat_rtos_timer_stop(http_ctrl->timeout_timer);
-	luat_release_rtos_timer(http_ctrl->timeout_timer);
-	network_release_ctrl(http_ctrl->netc);
-
-	if (http_ctrl->host){
-		free(http_ctrl->host);
-	}
-	if (http_ctrl->request_line){
-		free(http_ctrl->request_line);
-	}
 	OS_DeInitBuffer(&http_ctrl->request_head_buffer);
 	OS_DeInitBuffer(&http_ctrl->response_head_buffer);
 	OS_DeInitBuffer(&http_ctrl->response_cache);
-
-	free(http_ctrl);
+    http_close(http_ctrl);
 	*p_http_ctrl = NULL;
 	return 0;
 }
@@ -1086,7 +971,6 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 	}
 	http_ctrl->data_mode = data_mode;
 	http_ctrl->retry_cnt = 0;
-	http_ctrl->total_len = 0;
 	http_ctrl->done_len = 0;
 	http_ctrl->remote_port = 0;
 	http_ctrl->parser.status_code = 0;
@@ -1096,13 +980,13 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 
     if (http_ctrl->host)
     {
-    	free(http_ctrl->host);
+    	luat_heap_free(http_ctrl->host);
     	http_ctrl->host = NULL;
     }
 
     if (http_ctrl->request_line)
     {
-    	free(http_ctrl->request_line);
+    	luat_heap_free(http_ctrl->request_line);
     	http_ctrl->request_line = NULL;
     }
 

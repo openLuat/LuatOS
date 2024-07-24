@@ -18,21 +18,40 @@
 #define HTTP_RESP_BUFF_SIZE 	(4096)
 
 #endif
+
+#define HTTP_CALLBACK 		(1)
+#define HTTP_RE_REQUEST_MAX (3)
+#define HTTP_TIMEOUT 		(10*60*1000) // 10分钟
+
 /**
  * @defgroup luatos_HTTP  HTTP(S)相关接口
  * @{
  */
-enum
-{
+enum{
 	HTTP_STATE_IDLE,
 	HTTP_STATE_CONNECT,
 	HTTP_STATE_SEND_HEAD,
 	HTTP_STATE_SEND_BODY_START,
 	HTTP_STATE_SEND_BODY,
 	HTTP_STATE_GET_HEAD,
+    HTTP_STATE_GET_HEAD_DONE,
 	HTTP_STATE_GET_BODY,
+    HTTP_STATE_GET_BODY_DONE,
 	HTTP_STATE_DONE,
 	HTTP_STATE_WAIT_CLOSE,
+};
+
+enum{
+	HTTP_OK = 0,
+    HTTP_ERROR_STATE 	= -1,
+    HTTP_ERROR_HEADER 	= -2,
+    HTTP_ERROR_BODY 	= -3,
+    HTTP_ERROR_CONNECT 	= -4,
+    HTTP_ERROR_CLOSE 	= -5,
+    HTTP_ERROR_RX 		= -6,
+    HTTP_ERROR_DOWNLOAD = -7,
+    HTTP_ERROR_TIMEOUT  = -8,
+    HTTP_ERROR_FOTA  	= -9,
 };
 
 #ifndef __LUATOS__
@@ -50,23 +69,6 @@ typedef void (*luat_http_cb)(int status, void *data, uint32_t data_len, void *us
 #define HTTP_POST_DATA 		(1)
 #endif
 
-#define HTTP_OK 			(0)
-#define HTTP_ERROR_STATE 	(-1)
-#define HTTP_ERROR_HEADER 	(-2)
-#define HTTP_ERROR_BODY 	(-3)
-#define HTTP_ERROR_CONNECT 	(-4)
-#define HTTP_ERROR_CLOSE 	(-5)
-#define HTTP_ERROR_RX 		(-6)
-#define HTTP_ERROR_DOWNLOAD (-7)
-#define HTTP_ERROR_TIMEOUT  (-8)
-#define HTTP_ERROR_FOTA  	(-9)
-
-#define HTTP_CALLBACK 		(1)
-
-#define HTTP_RE_REQUEST_MAX (3)
-
-#define HTTP_TIMEOUT 		(10*60*1000) // 10分钟
-
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	http_parser  parser;	    //解析相关
@@ -79,19 +81,20 @@ typedef struct{
 	void* timeout_timer;			/**< timeout_timer 定时器*/
 	uint32_t timeout;
 	uint32_t tx_offset;
-#ifdef __LUATOS__
-	luat_ip_addr_t ip_addr;		// http ip
-	// const char *url;			// url
-	// const char *uri;			// uri
-	// char method[12];			// method
-
 	// 发送相关
-	// uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
 	char *req_header;
 	char *req_body;				//发送body
 	size_t req_body_len;		//发送body长度
-	luat_zbuff_t *zbuff_body;
-	char *req_auth;
+    char *req_auth;
+	void* http_cb;				/**< http 回调函数 */
+	void* http_cb_userdata;				/**< http 回调函数用户传参*/
+	uint8_t is_pause;
+	uint8_t debug_onoff;
+    uint8_t headers_complete;
+    uint8_t close_state;
+	char resp_buff[HTTP_RESP_BUFF_SIZE];
+	size_t resp_buff_offset;
+	size_t resp_headers_done;
 #ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载
@@ -99,48 +102,38 @@ typedef struct{
 	uint32_t length;		
 	luat_spi_device_t* spi_device;
 #endif
-	int http_cb;				// http lua回调函数
-	int http_cb_userdata;				// http lua回调函数用户传参
 	//下载相关
 	uint8_t is_download;		//是否下载
 	char *dst;			//下载路径
-
 	// http_parser_settings parser_settings;
 	char* headers;
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
 	uint32_t body_len;			//body缓存长度
-	// uint8_t is_chunk;		//是否chunk编码
 	uint8_t re_request_count;
 	// 响应相关
 	int32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
+#ifdef __LUATOS__
+	luat_ip_addr_t ip_addr;		// http ip
 	uint64_t idp;
-
-	uint8_t headers_complete;
-	uint8_t close_state;
-	char resp_buff[HTTP_RESP_BUFF_SIZE];
-	size_t resp_buff_offset;
-	size_t resp_headers_done;
+	luat_zbuff_t *zbuff_body;
 #else
 	Buffer_Struct request_head_buffer;	/**<存放用户自定义的请求head数据*/
-	luat_http_cb http_cb;				/**< http 回调函数 */
-	void *http_cb_userdata;				/**< http 回调函数用户传参*/
 	Buffer_Struct response_head_buffer;	/**<接收到的head数据缓存，回调给客户后就销毁了*/
 	int error_code;
 	Buffer_Struct response_cache;
-	uint32_t total_len;
 	uint32_t done_len;
 	uint32_t offset;
 	uint8_t retry_cnt_max;		/**<最大重试次数*/
 	uint8_t retry_cnt;
 	uint8_t state;
 	uint8_t data_mode;
-	uint8_t is_pause;
-	uint8_t debug_onoff;
 	uint8_t new_data;
 #endif
+
 }luat_http_ctrl_t;
+
 #ifdef __LUATOS__
 int luat_http_client_init(luat_http_ctrl_t* http, int ipv6);
 int luat_http_client_start(luat_http_ctrl_t* http);

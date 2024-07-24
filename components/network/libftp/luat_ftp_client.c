@@ -19,11 +19,10 @@
 #define LUAT_LOG_TAG "ftp"
 #include "luat_log.h"
 
-#define FTP_DEBUG 0
-#if FTP_DEBUG == 0
+
 #undef LLOGD
-#define LLOGD(...)
-#endif
+#define LLOGD(format, ...) do {if (g_s_ftp.debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
+
 
 luat_ftp_ctrl_t g_s_ftp;
 
@@ -67,7 +66,7 @@ static int luat_ftp_cmd_recv(luat_ftp_ctrl_t *ftp_ctrl,uint8_t *recv_data,uint32
 	uint32_t read_len;
 	uint8_t is_break = 0,is_timeout = 0;
 	int ret = network_wait_rx(g_s_ftp.network->cmd_netc, timeout_ms, &is_break, &is_timeout);
-	LLOGD("network_wait_rx ret:%d is_break:%d is_timeout:%d",ret,is_break,is_timeout);
+	LLOGD("luat_ftp_cmd_recv network_wait_rx ret:%d is_break:%d is_timeout:%d",ret,is_break,is_timeout);
 	if (ret)
 		return -1;
 	if (is_timeout)
@@ -223,6 +222,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	uint8_t port1,port2;
 	uint16_t data_port;	
 	luat_ftp_cmd_send(&g_s_ftp, (uint8_t*)"PASV\r\n", strlen("PASV\r\n"),FTP_SOCKET_TIMEOUT);
+//	g_s_ftp.data_transfer_done = 0;
 	int ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
 		return -1;
@@ -401,8 +401,7 @@ static int pasv_recv(void)
 	}
 	LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
 	g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
-	if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
-		LLOGD("!1");
+	if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3) && memcmp(g_s_ftp.network->cmd_recv_data, FTP_DATA_CON_OPEN, 3)){
 		return -1;
 	}
 	pos = find_newline();
@@ -420,8 +419,10 @@ static int pasv_recv(void)
 	{
 		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 		if (ret < 0){
+			LLOGD("rx error!%d", ret);
 			return -1;
 		} else if (!ret) {
+			LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
 			if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT, 3)){
 				return -1;
 			}
@@ -431,6 +432,7 @@ static int pasv_recv(void)
 		}
 	}
 	if (!rx_finish) {	//没接收完就断开了
+		LLOGD("???");
 		return -1;
 	}
 	//等服务器关闭接收通道
@@ -520,7 +522,8 @@ static void ftp_task(void *param){
 			if (ret){
 				goto operation_failed;
 			}else{
-				if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
+				LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
+				if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3) && memcmp(g_s_ftp.network->cmd_recv_data, FTP_DATA_CON_OPEN, 3)){
 					LLOGD("ftp STOR wrong");
 					goto operation_failed;
 				}
@@ -821,3 +824,5 @@ int luat_ftp_push(const char * local_name,const char * remote_name){
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PUSH, 0, 0, 0, LUAT_WAIT_FOREVER);
 	return 0;
 }
+
+void luat_ftp_debug(uint8_t on_off) {g_s_ftp.debug_onoff = on_off;}

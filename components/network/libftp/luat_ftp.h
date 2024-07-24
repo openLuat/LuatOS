@@ -97,7 +97,9 @@ typedef struct{
 	luat_ftp_network_t *network;
 	FILE* fd;					//下载 FILE
 	Buffer_Struct result_buffer;
+//	uint8_t data_transfer_done;
 	uint8_t is_run;
+	uint8_t debug_onoff;
 }luat_ftp_ctrl_t;
 
 typedef struct{
@@ -115,5 +117,5 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 int luat_ftp_command(const char * command);
 int luat_ftp_pull(const char * local_name,const char * remote_name);
 int luat_ftp_push(const char * local_name,const char * remote_name);
-
+void luat_ftp_debug(uint8_t on_off);
 #endif

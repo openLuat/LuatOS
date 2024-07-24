@@ -237,6 +237,20 @@ static int l_ftp_close(lua_State *L) {
 	return 1;
 }
 
+/*
+配置是否打开debug信息
+@api ftp.debug(onoff)
+@boolean 是否打开debug开关
+@return nil 无返回值
+@usage ftp.debug(true)
+*/
+static int l_ftp_set_debug(lua_State *L){
+
+	if (lua_isboolean(L, 1)){
+		luat_ftp_debug(lua_toboolean(L, 1));
+	}
+	return 0;
+}
 #include "rotable2.h"
 #ifdef LUAT_USE_NETWORK
 static const rotable_Reg_t reg_ftp[] =
@@ -246,7 +260,7 @@ static const rotable_Reg_t reg_ftp[] =
 	{"pull",			ROREG_FUNC(l_ftp_pull)},
 	{"push",			ROREG_FUNC(l_ftp_push)},
 	{"close",			ROREG_FUNC(l_ftp_close)},
-
+	{"debug",			ROREG_FUNC(l_ftp_set_debug)},
 	{ NULL,             ROREG_INT(0)}
 };
 #else

@@ -116,7 +116,7 @@ function adxl34x.init(i2c_id)
     if chip_check() then
         i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_BW_RATE,0X0D})
         i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_POWER_CTL,0X08})
-        i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_DATA_FORMAT,0X09})
+        i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_DATA_FORMAT,0X2B})
         log.info("adxl34x init_ok")
         sys.wait(20)
         return true
@@ -141,6 +141,50 @@ function adxl34x.get_data()
     i2c.send(i2cid, ADXL34X_ADDRESS_ADR,ADXL34X_DATAZ0)
     _,accel.z = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
     return accel
+end
+
+--[[
+获取 adxl34x 中断源
+@api adxl34x.get_int_source()
+@usage
+adxl34x.get_int_source()
+]]
+function adxl34x.get_int_source()
+    i2c.readReg(0, ADXL34X_ADDRESS_ADR, ADXL34X_INT_SOURCE, 2)
+end
+
+--[[
+设置 adxl34x 活动和静止阀值
+@api adxl34x.set_thresh(i2cid, activity, inactivity, time_inactivity)
+@number 所在的i2c总线id
+@number 活动阀值
+@number 静止阀值
+@number 静止时间
+@usage
+adxl34x.set_thresh(i2cid, string.char(0x05), string.char(0x02), string.char(0x05)) 
+log.info("adxl34x_data", "adxl34x_data.x"..(adxl34x_data.x),"adxl34x_data.y"..(adxl34x_data.y),"adxl34x_data.z"..(adxl34x_data.z))
+]]
+function adxl34x.set_thresh(i2cid, activity, inactivity, time_inactivity)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_THRESH_ACT, activity)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_THRESH_INACT, inactivity)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_THRESH_INACT, time_inactivity)
+end
+
+--[[
+adxl34x 中断设置
+@api adxl34x.set_irqf(i2cid, irqf_map, irqf_act_ctl, irqf_enable)
+@number 所在的i2c总线id
+@number 中断映射
+@number 中断活动控制
+@number 中断使能
+@usage
+adxl34x.set_irqf(i2cid, string.char(0x10), string.char(0xff), string.char(0x10))
+]]
+function adxl34x.set_irqf(i2cid, irqf_map, irqf_act_ctl, irqf_enable)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_ENABLE, string.char(0x00))     -- 关闭所有中断
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_MAP, irqf_data)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_ACT_INACT_CTL, irqf_act_ctl)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_ENABLE, irqf_enable)           -- 开启中断
 end
 
 return adxl34x

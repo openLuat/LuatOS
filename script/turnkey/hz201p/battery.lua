@@ -37,16 +37,28 @@ end
 gpio.setup(42, chargeCheck, 0, gpio.BOTH)
 attributes.set("isCharging", gpio.get(42) == 0)
 
+local function exitSleepMode()
+    pm.power(pm.WORK_MODE, 0)--退出休眠模式
+    --上报所有参数
+    sys.timerStart(attributes.setAll, 6000)
+    --重启一下
+    --pm.reboot()
+end
+
 sys.subscribe("SLEEP_CMD_RECEIVED", function(on)
     if on then
         log.info("battery","enter sleepMode wait")
         pm.power(pm.WORK_MODE, 1)--进入休眠模式
     else
         log.info("battery","exit sleepMode wait")
-        pm.power(pm.WORK_MODE, 0)--退出休眠模式
-        --上报所有参数
-        sys.timerStart(attributes.setAll, 6000)
-        --重启一下
-        --pm.reboot()
+        exitSleepMode()
+    end
+end)
+
+sys.subscribe("POWERKEY_PRESSED", function()
+    log.info("battery","POWERKEY_PRESSED")
+    if attributes.get("sleepMode") then
+        attributes.set("sleepMode", false)
+        exitSleepMode()
     end
 end)

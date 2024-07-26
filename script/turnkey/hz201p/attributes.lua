@@ -34,7 +34,7 @@ function t.initial()
             attributes[k] = v
         end
         --上报数据初始化一下
-        ThingsCloud.reportAttributes(attributes)
+        --ThingsCloud.reportAttributes(attributes)
         while true do
             local hasData = false
             for _,_ in pairs(reportTemp) do

@@ -22,6 +22,9 @@ local function onConnect(result)
         _G_CONNECTED = true
         -- 当设备连接成功后
         -- 例如：切换设备的LED闪烁模式，提示用户设备已正常连接。
+
+        --上报所有参数
+        sys.timerStart(attributes.setAll, 6000)
     end
 end
 

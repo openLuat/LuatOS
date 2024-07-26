@@ -19,6 +19,8 @@ local attributes = {
     vbat = 0,
     audioStatus = "空闲",
     callStatus = "不支持",
+    isGPSOn = true,
+    sleepMode = false,
 }
 
 --已修改的数据，缓存在这里，等待上报
@@ -64,6 +66,17 @@ function t.set(k,v,fromCloud)
     if attributes[k] == v then
         return
     end
+    --休眠模式下，只有sleepMode属性可以修改
+    if attributes.sleepMode then
+        log.info("attributes.set", "sleepMode",k,v)
+        if fromCloud then--云端下发的数据只能修改sleepMode属性
+            if k ~= "sleepMode" then
+                return
+            end
+        else
+            return
+        end
+    end
     if type(v) == "table" then
         local hasChange = false
         for k1,v1 in pairs(v) do
@@ -93,6 +106,11 @@ end
 --获取所有数据
 function t.all()
     return attributes
+end
+
+--刷新所有数据
+function t.setAll()
+    reportTemp = attributes
 end
 
 return t

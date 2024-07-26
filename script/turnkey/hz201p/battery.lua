@@ -12,16 +12,21 @@ function voltage_to_percentage(voltage)
     end
 end
 
+
 adc.open(adc.CH_VBAT)
 sys.taskInit(function ()
-    while true do
+    repeat
         local voltage = adc.get(adc.CH_VBAT)
         local percentage = voltage_to_percentage(voltage)
         log.info("battery", "voltage:", voltage, "percentage:", percentage)
+        --低于3.3V时，关机
+        if voltage < 3300 then
+            pm.shutdown()
+        end
         attributes.set("battery", percentage)
         attributes.set("vbat", voltage)
         sys.wait(60000)
-    end
+    until nil
 end)
 
 --充电状态检测
@@ -31,3 +36,17 @@ local function chargeCheck()
 end
 gpio.setup(42, chargeCheck, 0, gpio.BOTH)
 attributes.set("isCharging", gpio.get(42) == 0)
+
+sys.subscribe("SLEEP_CMD_RECEIVED", function(on)
+    if on then
+        log.info("battery","enter sleepMode wait")
+        pm.power(pm.WORK_MODE, 1)--进入休眠模式
+    else
+        log.info("battery","exit sleepMode wait")
+        pm.power(pm.WORK_MODE, 0)--退出休眠模式
+        --上报所有参数
+        sys.timerStart(attributes.setAll, 6000)
+        --重启一下
+        --pm.reboot()
+    end
+end)

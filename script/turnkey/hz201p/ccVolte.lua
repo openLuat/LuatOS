@@ -125,7 +125,10 @@ sys.taskInit(function()
     while true do
         local _,cmd,param = sys.waitUntil("AUDIO_CMD_RECEIVED")
         log.info("audio", cmd, param)
-        if cmd == "call" then
+        --低功耗模式就别放了
+        if attributes.get("sleepMode") then
+            log.info("audio", "sleepMode cancel play")
+        elseif cmd == "call" then
             if ccReady then
                 cc.dial(0,param) --拨打电话
                 attributes.set("callStatus", "通话中")

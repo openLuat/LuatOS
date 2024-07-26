@@ -32,9 +32,6 @@ if allDone then
 
     -- gnss的备电和gsensor的供电
     local vbackup = gpio.setup(24, 1)
-    -- gnss的供电
-    local gnssEnvPower = gpio.setup(26, 1)
-    local gpsPower = gpio.setup(2, 1)
     -- 使用合宙iot平台时需要这个参数
     PRODUCT_KEY = "YXdzIDo5QawWCIRywShMAKjmJsInXtsb" -- 到 iot.openluat.com 创建项目,获取正确的项目id
     libfota = require "libfota"
@@ -76,7 +73,12 @@ if allDone then
     local redLed = gpio.setup(16, 0, nil, nil, 4)
     sys.taskInit(function()
         while true do
-            if attributes.get("ledControl") then
+            if attributes.get("sleepMode") then
+                blueLed(0)
+                redLed(0)
+                --直接死等到休眠状态变化后再跑
+                sys.waitUntil("SLEEP_CMD_RECEIVED")
+            elseif attributes.get("ledControl") then
                 blueLed(attributes.get("blueLed") and 1 or 0)
                 redLed(attributes.get("redLed") and 1 or 0)
                 sys.wait(500)

@@ -32,6 +32,15 @@ local function onReceive(response)
         if k == "phone" then
             -- 设备接收到云端下发的电话号码，开始拨打电话。
             sys.publish("AUDIO_CMD_RECEIVED","call",v)
+        elseif k == "sleepMode" then
+            -- 设备收到低功耗要求，更改低功耗模式
+            attributes.set("isGPSOn", false)
+            attributes.set("isFixed", "定位功能已关闭")
+            attributes.set("lat", "无数据")
+            attributes.set("lng", "无数据")
+            --最后再更改变量
+            attributes.set(k, v, true)
+            sys.timerStart(sys.publish, 6000, "SLEEP_CMD_RECEIVED", v)
         else
             attributes.set(k, v, true)
         end

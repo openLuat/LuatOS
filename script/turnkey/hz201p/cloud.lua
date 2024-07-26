@@ -17,6 +17,7 @@ local apiEndpoint = "http://sh-1-api.iot-api.com"
 
 -- 设备成功连接云平台后，触发该函数
 local function onConnect(result)
+    log.info("cloud","onConnect", result)
     if result then
         sys.publish("CLOUD_CONNECTED")
         _G_CONNECTED = true
@@ -24,7 +25,7 @@ local function onConnect(result)
         -- 例如：切换设备的LED闪烁模式，提示用户设备已正常连接。
 
         --上报所有参数
-        sys.timerStart(attributes.setAll, 6000)
+        attributes.setAll()
     end
 end
 

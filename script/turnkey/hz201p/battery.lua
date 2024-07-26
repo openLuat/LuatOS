@@ -58,7 +58,7 @@ end)
 sys.subscribe("POWERKEY_PRESSED", function()
     log.info("battery","POWERKEY_PRESSED")
     if attributes.get("sleepMode") then
-        attributes.set("sleepMode", false)
-        exitSleepMode()
+        attributes.set("sleepMode", false, true)
+        sys.publish("SLEEP_CMD_RECEIVED", false)
     end
 end)

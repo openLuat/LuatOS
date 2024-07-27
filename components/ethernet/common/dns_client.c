@@ -219,7 +219,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 			ip_addr.is_ipv6 = 1;
 #endif
-			if (ttl > 0)
+			//if (ttl > 0)
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{

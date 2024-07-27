@@ -36,7 +36,7 @@ extern void DBG_Printf(const char* format, ...);
 #define LLOGD	DBG
 #define LLOGI	DBG
 #define LLOGE	DBG
-#define LLOGE	DBG
+#define LLOGW	DBG
 #else
 #define LUAT_LOG_TAG "DNS"
 #include "luat_log.h"
@@ -175,6 +175,10 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			}
 			buf->Pos += 4;
 			ttl = BytesGetBe32FromBuf(buf);
+			if (!ttl)
+			{
+				LLOGW("ttl zero");
+			}
 			usTemp = BytesGetBe16FromBuf(buf);
 			if ( (buf->Pos + usTemp) > buf->MaxLen)
 			{
@@ -183,7 +187,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			}
 			network_set_ip_ipv4(&ip_addr, BytesGetLe32(buf->Data + buf->Pos));
 			buf->Pos += usTemp;
-			if (ttl > 0)
+//			if (ttl > 0)
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
@@ -202,6 +206,10 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			}
 			buf->Pos += 4;
 			ttl = BytesGetBe32FromBuf(buf);
+			if (!ttl)
+			{
+				LLOGW("ttl zero");
+			}
 			usTemp = BytesGetBe16FromBuf(buf);
 			if ( (buf->Pos + usTemp) > buf->MaxLen)
 			{

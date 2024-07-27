@@ -78,6 +78,7 @@ typedef struct{
 	uint8_t is_tls;             // 是否SSL
 	uint8_t custom_host;        /**< 是否自定义Host了*/
 	uint8_t is_post;
+	uint8_t re_request_count;
 	void* timeout_timer;			/**< timeout_timer 定时器*/
 	uint32_t timeout;
 	uint32_t tx_offset;
@@ -95,6 +96,8 @@ typedef struct{
 	char resp_buff[HTTP_RESP_BUFF_SIZE];
 	size_t resp_buff_offset;
 	size_t resp_headers_done;
+	uint32_t body_len;			//body缓存长度
+#ifdef __LUATOS__
 #ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载
@@ -109,12 +112,11 @@ typedef struct{
 	char* headers;
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
-	uint32_t body_len;			//body缓存长度
-	uint8_t re_request_count;
+
+
 	// 响应相关
 	int32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
-#ifdef __LUATOS__
 	luat_ip_addr_t ip_addr;		// http ip
 	uint64_t idp;
 	luat_zbuff_t *zbuff_body;
@@ -122,14 +124,13 @@ typedef struct{
 	Buffer_Struct request_head_buffer;	/**<存放用户自定义的请求head数据*/
 	Buffer_Struct response_head_buffer;	/**<接收到的head数据缓存，回调给客户后就销毁了*/
 	int error_code;
-	Buffer_Struct response_cache;
-	uint32_t done_len;
 	uint32_t offset;
+	uint32_t context_len;
 	uint8_t retry_cnt_max;		/**<最大重试次数*/
-	uint8_t retry_cnt;
 	uint8_t state;
 	uint8_t data_mode;
 	uint8_t new_data;
+	uint8_t context_len_vaild;
 #endif
 
 }luat_http_ctrl_t;
@@ -257,7 +258,14 @@ int luat_http_client_pause(luat_http_ctrl_t *http_ctrl, uint8_t is_pause);
  * @return 成功返回0，其他值失败
  */
 int luat_http_client_set_get_offset(luat_http_ctrl_t *http_ctrl, uint32_t offset);
-// int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t is_post, uint8_t ipv6, uint8_t data_mode);
+/**
+ * @brief 获取context length
+ *
+ * @param http_ctrl 客户端
+ * @param len context length值
+ * @return 成功返回0，其他值失败或者是chunk编码
+ */
+int luat_http_client_get_context_len(luat_http_ctrl_t *http_ctrl, uint32_t *len);
 /** @}*/
 #endif
 #endif

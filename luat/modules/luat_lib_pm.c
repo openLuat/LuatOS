@@ -114,7 +114,7 @@ static int l_pm_request(lua_State *L) {
 /**
 启动底层定时器,在休眠模式下依然生效. 只触发一次，关机状态下无效
 @api pm.dtimerStart(id, timeout)
-@int 定时器id,通常是0-3
+@int 定时器id,通常是0-5
 @int 定时时长,单位毫秒
 @return boolean 处理结果
 @usage
@@ -122,7 +122,7 @@ static int l_pm_request(lua_State *L) {
 pm.dtimerStart(0, 300 * 1000) -- 5分钟后唤醒
 -- Air780E/Air780EP系列
 -- id = 0 或者 id = 1 是, 最大休眠时长是2.5小时
--- id = 2 或者 id = 3 是, 最大休眠时长是3个月
+-- id >= 2是, 最大休眠时长是740小时
  */
 static int l_pm_dtimer_start(lua_State *L) {
     int dtimer_id = luaL_checkinteger(L, 1);

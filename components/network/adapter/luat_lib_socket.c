@@ -24,7 +24,7 @@ typedef struct
 	uint8_t adapter_index;
 }luat_socket_ctrl_t;
 
-#define L_CTRL_CHECK 	do {if (!l_ctrl){return 0;}}while(0)
+#define L_CTRL_CHECK 	do {if (!l_ctrl || !l_ctrl->netc){return 0;}}while(0)
 
 network_adapter_info* network_adapter_fetch(int id, void** userdata);
 
@@ -164,7 +164,7 @@ static luat_socket_ctrl_t * l_get_ctrl(lua_State *L, int index)
 static int l_socket_gc(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
-	L_CTRL_CHECK;
+	if (!l_ctrl){return 0;}
     if (l_ctrl->netc)
     {
     	network_force_close_socket(l_ctrl->netc);

@@ -20,6 +20,7 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 extern void DBG_Printf(const char* format, ...);
+extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg);
 #undef LLOGD
 #ifdef __LUATOS__
 #define LLOGD(format, ...) do {if (http_ctrl->debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
@@ -473,12 +474,12 @@ int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
 
 #define HTTP_SEND_LEN_MAX 		(4096)
 
-static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
+static uint32_t http_send(luat_http_ctrl_t *http_ctrl, void* data, size_t len) {
 	if (len == 0)
 		return 0;
 	uint32_t tx_len = 0;
 	// LLOGD("http_send data:%.*s",len,data);
-	network_tx(http_ctrl->netc, data, len, 0, NULL, 0, &tx_len, 0);
+	network_tx(http_ctrl->netc, (uint8_t *)data, len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }
 

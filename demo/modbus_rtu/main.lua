@@ -4,6 +4,18 @@ VERSION = "1.0.0"
 
 sys = require("sys")
 
+
+local uartid = 1 -- 根据实际设备选取不同的uartid
+
+--初始化
+local result = uart.setup(
+    uartid,--串口id
+    9600,--波特率
+    8,--数据位
+    1,--停止位
+    uart.None
+)
+
 sys.taskInit(function()
     uart.on(1, "recv", function(id, len)
         local data = uart.read(1, len)

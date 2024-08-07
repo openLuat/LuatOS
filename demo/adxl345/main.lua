@@ -34,7 +34,7 @@ sys.taskInit(function()
     adxl34x.set_irqf(i2cid, string.char(0x00), string.char(0xff), string.char(0x10))     -- activity映射到到INT1，并开启对应中断功能
 
     while 1 do
-        adxl34x.get_int_source()    -- 不加这个不会触发中断
+        adxl34x.get_int_source(i2cid)    -- 不加这个不会触发中断
         
         local adxl34x_data = adxl34x.get_data()
         log.info("adxl34x_data", "adxl34x_data.x"..(adxl34x_data.x),"adxl34x_data.y"..(adxl34x_data.y),"adxl34x_data.z"..(adxl34x_data.z))

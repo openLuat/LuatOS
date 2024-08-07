@@ -146,11 +146,12 @@ end
 --[[
 获取 adxl34x 中断源
 @api adxl34x.get_int_source()
+@number 所在的i2c总线id
 @usage
-adxl34x.get_int_source()
+adxl34x.get_int_source(i2cid)
 ]]
-function adxl34x.get_int_source()
-    i2c.readReg(0, ADXL34X_ADDRESS_ADR, ADXL34X_INT_SOURCE, 2)
+function adxl34x.get_int_source(i2cid)
+    i2c.readReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_SOURCE, 2)
 end
 
 --[[
@@ -182,7 +183,7 @@ adxl34x.set_irqf(i2cid, string.char(0x10), string.char(0xff), string.char(0x10))
 ]]
 function adxl34x.set_irqf(i2cid, irqf_map, irqf_act_ctl, irqf_enable)
     i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_ENABLE, string.char(0x00))     -- 关闭所有中断
-    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_MAP, irqf_data)
+    i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_MAP, irqf_map)
     i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_ACT_INACT_CTL, irqf_act_ctl)
     i2c.writeReg(i2cid, ADXL34X_ADDRESS_ADR, ADXL34X_INT_ENABLE, irqf_enable)           -- 开启中断
 end

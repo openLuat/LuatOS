@@ -96,7 +96,7 @@ void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int a
     if (error_code == HTTP_OK){
         luat_http_cb http_cb = http_ctrl->http_cb;
         http_cb(HTTP_STATE_GET_BODY, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
-        http_cb(HTTP_STATE_GET_BODY_DONE, http_ctrl->parser.status_code, 0, http_ctrl->http_cb_userdata);
+        http_cb(HTTP_STATE_GET_BODY_DONE, (void *)((uint32_t)http_ctrl->parser.status_code), 0, http_ctrl->http_cb_userdata);
         http_ctrl->error_code = 0;
         http_ctrl->state = HTTP_STATE_DONE;
         luat_rtos_timer_stop(http_ctrl->timeout_timer);
@@ -289,7 +289,7 @@ static int on_headers_complete(http_parser* parser){
     }
     luat_http_cb http_cb = http_ctrl->http_cb;
     http_cb(HTTP_STATE_GET_HEAD, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
-    http_cb(HTTP_STATE_GET_HEAD_DONE, parser->status_code, 0, http_ctrl->http_cb_userdata);
+    http_cb(HTTP_STATE_GET_HEAD_DONE, (void *)((uint32_t)parser->status_code), 0, http_ctrl->http_cb_userdata);
     http_ctrl->state = HTTP_STATE_GET_BODY;
 #endif
     return 0;

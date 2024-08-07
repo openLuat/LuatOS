@@ -22,7 +22,17 @@
 // Only use zero for debugging and/or inspection.
 #define TJE_USE_FAST_DCT 1
 
+#ifdef LUAT_EC7XX_CSDK
+#include "sctdef.h"
+#define FUNC_IN_RAM PLAT_FM_RAMCODE
+#endif
+#ifndef FUNC_IN_RAM
+#define FUNC_IN_RAM
+#endif
+
 // C std lib
+#define TJE_DATA
+#define TJE_FUN FUNC_IN_RAM
 
 
 // ============================================================
@@ -153,7 +163,7 @@ static float aan_scales[] = {
 // ============================================================
 
 // Zig-zag order:
-static const uint8_t tjei_zig_zag[64] =
+static TJE_DATA uint8_t tjei_zig_zag[64] =
 {
     0,   1,  5,  6, 14, 15, 27, 28,
     2,   4,  7, 13, 16, 26, 29, 42,
@@ -267,7 +277,7 @@ typedef struct
 
 
 
-static void tjei_write(TJEState* state, const void* data, size_t num_bytes, size_t num_elements)
+static TJE_FUN void tjei_write(TJEState* state, const void* data, size_t num_bytes, size_t num_elements)
 {
     size_t to_write = num_bytes * num_elements;
 
@@ -290,7 +300,7 @@ static void tjei_write(TJEState* state, const void* data, size_t num_bytes, size
     }
 }
 
-static void tjei_write_DQT(TJEState* state, const uint8_t* matrix, uint8_t id)
+static TJE_FUN void tjei_write_DQT(TJEState* state, const uint8_t* matrix, uint8_t id)
 {
     uint16_t DQT = tjei_be_word(0xffdb);
     tjei_write(state, &DQT, sizeof(uint16_t), 1);
@@ -309,7 +319,7 @@ typedef enum
     TJEI_AC = 1
 } TJEHuffmanTableClass;
 
-static void tjei_write_DHT(TJEState* state,
+static TJE_FUN void tjei_write_DHT(TJEState* state,
                            uint8_t const * matrix_len,
                            uint8_t const * matrix_val,
                            TJEHuffmanTableClass ht_class,
@@ -338,7 +348,7 @@ static void tjei_write_DHT(TJEState* state,
 // ============================================================
 
 // Returns all code sizes from the BITS specification (JPEG C.3)
-static uint8_t* tjei_huff_get_code_lengths(uint8_t huffsize[/*256*/], uint8_t const * bits)
+static TJE_FUN uint8_t* tjei_huff_get_code_lengths(uint8_t huffsize[/*256*/], uint8_t const * bits)
 {
     int k = 0;
     for ( int i = 0; i < 16; ++i ) {
@@ -351,7 +361,7 @@ static uint8_t* tjei_huff_get_code_lengths(uint8_t huffsize[/*256*/], uint8_t co
 }
 
 // Fills out the prefixes for each code.
-static uint16_t* tjei_huff_get_codes(uint16_t codes[], uint8_t* huffsize, int64_t count)
+static TJE_FUN uint16_t* tjei_huff_get_codes(uint16_t codes[], uint8_t* huffsize, int64_t count)
 {
     uint16_t code = 0;
     int k = 0;
@@ -371,7 +381,7 @@ static uint16_t* tjei_huff_get_codes(uint16_t codes[], uint8_t* huffsize, int64_
     }
 }
 
-static void tjei_huff_get_extended(uint8_t* out_ehuffsize,
+static TJE_FUN void tjei_huff_get_extended(uint8_t* out_ehuffsize,
                                    uint16_t* out_ehuffcode,
                                    uint8_t const * huffval,
                                    uint8_t* huffsize,
@@ -390,7 +400,7 @@ static void tjei_huff_get_extended(uint8_t* out_ehuffsize,
 // Returns:
 //  out[1] : number of bits
 //  out[0] : bits
-TJEI_FORCE_INLINE void tjei_calculate_variable_length_int(int value, uint16_t out[2])
+TJEI_FORCE_INLINE TJE_FUN void tjei_calculate_variable_length_int(int value, uint16_t out[2])
 {
     int abs_val = value;
     if ( value < 0 ) {
@@ -405,7 +415,7 @@ TJEI_FORCE_INLINE void tjei_calculate_variable_length_int(int value, uint16_t ou
 }
 
 // Write bits to file.
-TJEI_FORCE_INLINE void tjei_write_bits(TJEState* state,
+TJEI_FORCE_INLINE TJE_FUN void tjei_write_bits(TJEState* state,
                                        uint32_t* bitbuffer, uint32_t* location,
                                        uint16_t num_bits, uint16_t bits)
 {
@@ -448,7 +458,7 @@ TJEI_FORCE_INLINE void tjei_write_bits(TJEState* state,
 //  JPEG textbook (see REFERENCES section in file README).  The following code
 //  is based directly on figure 4-8 in P&M.
 //
-static void tjei_fdct (float * data)
+static TJE_FUN void tjei_fdct (float * data)
 {
     float tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7;
     float tmp10, tmp11, tmp12, tmp13;
@@ -578,7 +588,7 @@ static float slow_fdct(int u, int v, float* data)
 
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
-static void tjei_encode_and_write_MCU(TJEState* state,
+static TJE_FUN void tjei_encode_and_write_MCU(TJEState* state,
                                       float* mcu,
 #if TJE_USE_FAST_DCT
                                       float* qt,  // Pre-processed quantization matrix.
@@ -699,7 +709,7 @@ struct TJEProcessedQT
 #endif
 
 // Set up huffman tables in state.
-static void tjei_huff_expand(TJEState* state)
+static TJE_FUN void tjei_huff_expand(TJEState* state)
 {
     assert(state);
 
@@ -1019,7 +1029,7 @@ typedef struct
     uint32_t bitbuffer;
     uint32_t location;
 }TJE_ContextStruct;
-void *jpeg_encode_init(tje_write_func* func, void* context, uint8_t quality, uint32_t width, uint32_t height, uint8_t src_num_components)
+TJE_FUN void *jpeg_encode_init(tje_write_func* func, void* context, uint8_t quality, uint32_t width, uint32_t height, uint8_t src_num_components)
 {
     if (quality < 1 || quality > 3) {
         tje_log("Valid 'quality' %d values are 1 (lowest), 2, or 3 (highest)", quality);
@@ -1262,7 +1272,7 @@ void jpeg_encode_run(void *ctx, uint8_t *src_data)
     handle->cur_height += 8;
 }
 
-void jpeg_encode_end(void *ctx)
+void TJE_FUN jpeg_encode_end(void *ctx)
 {
     uint16_t EOI = tjei_be_word(0xffd9);
     TJE_ContextStruct *handle = (TJE_ContextStruct *)ctx;

@@ -116,7 +116,7 @@ local function sockettest()
         log.info("event", result, tp, data)
         if not result then
             -- 等很久了,没数据上传/下发, 发个日期心跳包吧
-            table.insert(txqueue, string.char(0))
+            table.insert(txqueue, os.date())
             sys_send(taskName, socket.EVENT, 0)
         elseif tp == "uplink" then
             -- 上行数据, 主动上报的数据,那就发送呀

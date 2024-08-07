@@ -249,7 +249,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
 	}
-	if (total_len == 0) {
+	if (total_len == 0 && !mqtt_ctrl->netc->tls_mode) {
 		LLOGW("rx event but NO data wait for recv");
 		return 0;
 	}

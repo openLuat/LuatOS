@@ -20,6 +20,7 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 extern void DBG_Printf(const char* format, ...);
+extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg);
 #undef LLOGD
 #ifdef __LUATOS__
 #define LLOGD(format, ...) do {if (http_ctrl->debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
@@ -95,7 +96,7 @@ void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int a
     if (error_code == HTTP_OK){
         luat_http_cb http_cb = http_ctrl->http_cb;
         http_cb(HTTP_STATE_GET_BODY, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
-        http_cb(HTTP_STATE_GET_BODY_DONE, http_ctrl->parser.status_code, 0, http_ctrl->http_cb_userdata);
+        http_cb(HTTP_STATE_GET_BODY_DONE, (void *)((uint32_t)http_ctrl->parser.status_code), 0, http_ctrl->http_cb_userdata);
         http_ctrl->error_code = 0;
         http_ctrl->state = HTTP_STATE_DONE;
         luat_rtos_timer_stop(http_ctrl->timeout_timer);
@@ -288,7 +289,7 @@ static int on_headers_complete(http_parser* parser){
     }
     luat_http_cb http_cb = http_ctrl->http_cb;
     http_cb(HTTP_STATE_GET_HEAD, NULL, 0, http_ctrl->http_cb_userdata); // 为了兼容老代码
-    http_cb(HTTP_STATE_GET_HEAD_DONE, parser->status_code, 0, http_ctrl->http_cb_userdata);
+    http_cb(HTTP_STATE_GET_HEAD_DONE, (void *)((uint32_t)parser->status_code), 0, http_ctrl->http_cb_userdata);
     http_ctrl->state = HTTP_STATE_GET_BODY;
 #endif
     return 0;
@@ -473,12 +474,12 @@ int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
 
 #define HTTP_SEND_LEN_MAX 		(4096)
 
-static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
+static uint32_t http_send(luat_http_ctrl_t *http_ctrl, void* data, size_t len) {
 	if (len == 0)
 		return 0;
 	uint32_t tx_len = 0;
 	// LLOGD("http_send data:%.*s",len,data);
-	network_tx(http_ctrl->netc, data, len, 0, NULL, 0, &tx_len, 0);
+	network_tx(http_ctrl->netc, (uint8_t *)data, len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }
 

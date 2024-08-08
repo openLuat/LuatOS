@@ -434,10 +434,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	if (remote_ip)
 	{
-		if (network_create_soceket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
+		if (network_create_socket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
+			if (network_create_socket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
 			{
 				return -1;
 			}
@@ -466,10 +466,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	else
 	{
-		if (network_create_soceket(ctrl, 0) < 0)
+		if (network_create_socket(ctrl, 0) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, 0) < 0)
+			if (network_create_socket(ctrl, 0) < 0)
 			{
 				return -1;
 			}
@@ -484,10 +484,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	if (remote_ip)
 	{
-		if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+		if (network_create_socket(ctrl, remote_ip->is_ipv6) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+			if (network_create_socket(ctrl, remote_ip->is_ipv6) < 0)
 			{
 				return -1;
 			}
@@ -513,10 +513,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	{
 		luat_ip_addr_t local_ip, net_mask, gate_way;
 		network_get_local_ip_info(ctrl, &local_ip, &net_mask, &gate_way);
-		if (network_create_soceket(ctrl, local_ip.is_ipv6) < 0)
+		if (network_create_socket(ctrl, local_ip.is_ipv6) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, local_ip.is_ipv6) < 0)
+			if (network_create_socket(ctrl, local_ip.is_ipv6) < 0)
 			{
 				return -1;
 			}
@@ -1533,7 +1533,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 }
 
-int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_ipv6)
+int network_create_socket(network_ctrl_t *ctrl, uint8_t is_ipv6)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->socket_id = adapter->opt->create_soceket(ctrl->is_tcp, &ctrl->tag, ctrl->socket_param, is_ipv6, adapter->user_data);

@@ -749,7 +749,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		// 	http_ctrl->resp_headers = NULL;
 		// }
 		http_send_message(http_ctrl);
-		break;
+		return 0;
     case EV_NW_RESULT_CLOSE:
 #ifndef __LUATOS__
         if (http_ctrl->error_code && (http_ctrl->state != HTTP_STATE_DONE))

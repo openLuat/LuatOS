@@ -22,6 +22,7 @@ require "single_mqtt"       -- MQTT单链接
 
 -- require "multilink_mqtt"    -- MQTT多链接
 
+-- require "ssl_mqtt"             -- MQTTS SSL链接
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

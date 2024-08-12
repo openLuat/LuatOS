@@ -284,20 +284,18 @@ static int l_mobile_sim_pin(lua_State* L) {
 @api mobile.rtime(time, auto_reset_stack)
 @int RRC自动释放时间，等同于Air724的AT+RTIME，单位秒，写0或者不写则是停用，不要超过20秒，没有意义
 @boolean 网络遇到严重故障时尝试自动恢复，和飞行模式/SIM卡切换冲突，true开启，false关闭，留空时，如果设置了时间则自动开启。本参数于2023年9月14日已废弃
+@boolean 是否启用数据传输优化，true启用，false关闭，留空为false，开启后必须等到TCP数据ACK或者超时失败，或者socket CONNECT完成（无论成功或者失败）才允许RRC提前释放，可能会增加功耗。本参数于2024年8月12日启用
 @return nil 无返回值
+@usage
+mobile.rtime(3)	--与基站无数据交互3秒后提前释放RRC
+mobile.rtime(3,nil,true) --启用数据传输优化，与基站无数据交互3秒后，提前释放RRC
  */
+extern void net_lwip_check_switch(uint8_t onoff);
 static int l_mobile_set_rrc_auto_release_time(lua_State* L) {
 	luat_mobile_set_rrc_auto_release_time(luaL_optinteger(L, 1, 0));
-//    if (LUA_TBOOLEAN == lua_type(L, 2)) {
-//    	luat_mobile_fatal_error_auto_reset_stack(lua_toboolean(L, 2));
-//    }
-//    else
-//    {
-//    	if (luaL_optinteger(L, 1, 0))
-//    	{
-//    		luat_mobile_fatal_error_auto_reset_stack(1);
-//    	}
-//    }
+    if (LUA_TBOOLEAN == lua_type(L, 3)) {
+    	net_lwip_check_switch(lua_toboolean(L, 3));
+    }
     return 0;
 }
 

@@ -3,6 +3,26 @@
 
 #ifdef __LUATOS__
 #include "luat_zbuff.h"
+#else
+typedef enum {
+    LUAT_HEAP_AUTO,
+    LUAT_HEAP_SRAM,
+    LUAT_HEAP_PSRAM,
+} LUAT_HEAP_TYPE;
+typedef struct luat_zbuff {
+	LUAT_HEAP_TYPE type; //内存类型
+    uint8_t* addr;      //数据存储的地址
+    size_t len;       //实际分配空间的长度
+    union {
+    	size_t cursor;    //目前的指针位置，表明了处理了多少数据
+    	size_t used;	//已经保存的数据量，表明了存了多少数据
+    };
+
+    uint32_t width; //宽度
+    uint32_t height;//高度
+    uint8_t bit;    //色深度
+} luat_zbuff_t;
+#endif
 
 
 #if defined(AIR101) || defined(AIR103)
@@ -12,12 +32,8 @@
 // #define HTTP_REQ_HEADER_MAX_SIZE 	(8192)
 #define HTTP_RESP_BUFF_SIZE 		(8192)
 #endif
-#else
-#include "http_parser.h"
 #define HTTP_HEADER_BASE_SIZE 	(1024)
-#define HTTP_RESP_BUFF_SIZE 	(4096)
-
-#endif
+#include "http_parser.h"
 
 #define HTTP_CALLBACK 		(1)
 #define HTTP_RE_REQUEST_MAX (3)
@@ -54,7 +70,7 @@ enum{
     HTTP_ERROR_FOTA  	= -9,
 };
 
-#ifndef __LUATOS__
+
 
 /*
  * http运行过程的回调函数
@@ -67,7 +83,7 @@ typedef void (*luat_http_cb)(int status, void *data, uint32_t data_len, void *us
 
 #define HTTP_GET_DATA 		(2)
 #define HTTP_POST_DATA 		(1)
-#endif
+
 
 typedef struct{
 	network_ctrl_t *netc;		// http netc
@@ -97,7 +113,7 @@ typedef struct{
 	size_t resp_buff_offset;
 	size_t resp_headers_done;
 	uint32_t body_len;			//body缓存长度
-#ifdef __LUATOS__
+
 #ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载
@@ -113,14 +129,13 @@ typedef struct{
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
 
-
 	// 响应相关
 	int32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	luat_ip_addr_t ip_addr;		// http ip
 	uint64_t idp;
 	luat_zbuff_t *zbuff_body;
-#else
+
 	Buffer_Struct request_head_buffer;	/**<存放用户自定义的请求head数据*/
 	Buffer_Struct response_head_buffer;	/**<接收到的head数据缓存，回调给客户后就销毁了*/
 	int error_code;
@@ -131,14 +146,13 @@ typedef struct{
 	uint8_t data_mode;
 	uint8_t new_data;
 	uint8_t context_len_vaild;
-#endif
+	uint8_t luatos_mode;
 
 }luat_http_ctrl_t;
 
-#ifdef __LUATOS__
+//下面2个API是luatos内部使用，csdk不使用
 int luat_http_client_init(luat_http_ctrl_t* http, int ipv6);
-int luat_http_client_start(luat_http_ctrl_t* http);
-#else
+int luat_http_client_start_luatos(luat_http_ctrl_t* http);
 
 /**
  * @brief 创建一个http客户端
@@ -268,4 +282,4 @@ int luat_http_client_set_get_offset(luat_http_ctrl_t *http_ctrl, uint32_t offset
 int luat_http_client_get_context_len(luat_http_ctrl_t *http_ctrl, uint32_t *len);
 /** @}*/
 #endif
-#endif
+

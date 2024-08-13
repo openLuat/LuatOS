@@ -5,10 +5,10 @@
 #include "luat_zbuff.h"
 #else
 typedef enum {
-    LUAT_HEAP_AUTO,
-    LUAT_HEAP_SRAM,
-    LUAT_HEAP_PSRAM,
-} LUAT_HEAP_TYPE;
+    LUAT_HEAP_AUTO_DUMMY,
+    LUAT_HEAP_SRAM_DUMMY,
+    LUAT_HEAP_PSRAM_DUMMY,
+} LUAT_HEAP_TYPE;//只是为了占位，不要使用
 typedef struct luat_zbuff {
 	LUAT_HEAP_TYPE type; //内存类型
     uint8_t* addr;      //数据存储的地址

@@ -27,6 +27,7 @@ sys.taskInit(function()
 	if rtos.bsp() == "UIS8850BM" then
 		sys.wait(2000)
 	end
+
 	log.info("status", mobile.status())
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)
@@ -52,7 +53,10 @@ sys.taskInit(function()
     for i=0,band1:used()-1 do
         log.info("band", band1[i])
     end
-
+	-- mobile.vsimInit()
+	-- mobile.flymode(nil,true)
+	- -mobile.vsimOnOff(true)
+	-- mobile.flymode(nil,false)
     -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
     -- mobile.rtime(3) -- 在无数据交互时，RRC 3秒后自动释放
     -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了
@@ -78,6 +82,9 @@ sys.taskInit(function()
         log.info("simid", mobile.simid()) -- 这里是获取当前SIM卡槽
         log.info("apn", mobile.apn(0,1))
         log.info("ip", socket.localIP())
+		log.info("lua", rtos.meminfo())
+        -- sys内存
+        log.info("sys", rtos.meminfo("sys"))
         sys.wait(15000)
     end
 end)

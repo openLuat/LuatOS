@@ -106,6 +106,11 @@ LUAT_WEAK void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_c
 
 static void http_network_error(luat_http_ctrl_t *http_ctrl)
 {
+	if (!http_ctrl->netc)
+	{
+		LLOGE("http is free!!!");
+		return;
+	}
     luat_http_cb http_cb = http_ctrl->http_cb;
 	if (++(http_ctrl->re_request_count))
 	{

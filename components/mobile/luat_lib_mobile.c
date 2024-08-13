@@ -949,6 +949,34 @@ static int l_mobile_nst_data_input(lua_State* L) {
     return 0;
 }
 
+/**
+初始化内置默认虚拟卡功能，2024年8月13日启用，需要固件支持
+@api mobile.vsimInit()
+@return nil 无返回值
+@usage
+mobile.vsimInit()
+ */
+static int l_mobile_init_vsim(lua_State* L) {
+	luat_mobile_softsim_init_default();
+    return 0;
+}
+
+/**
+切换内置虚拟卡和外置实体卡，2024年8月13日启用，虚拟卡需要固件支持，否则切换后无网络，需要在飞行模式下切换，或者切换后重启协议栈
+@api mobile.vsimOnOff(enable)
+@bool 开启,true开启, false关闭
+@return nil 无返回值
+@usage
+mobile.vsimOnOff(true) --使用内置虚拟卡
+mobile.vsimOnOff(false) --使用外置实体卡
+ */
+static int l_mobile_vsim_onoff(lua_State* L) {
+    if (lua_isboolean(L, 1)) {
+    	luat_mobile_softsim_onoff(lua_toboolean(L, 1));
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -983,6 +1011,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
 	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
 	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
+	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
+	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

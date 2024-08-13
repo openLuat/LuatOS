@@ -927,5 +927,6 @@ uint8_t luat_mobile_get_sync_time(void);
 
 int luat_mobile_softsim_onoff(uint8_t on_off);
 int luat_mobile_sim_detect_onoff(uint8_t on_off);
+void luat_mobile_softsim_init_default(void);
 /** @}*/
 #endif

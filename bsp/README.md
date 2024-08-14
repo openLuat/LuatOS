@@ -14,5 +14,5 @@
 * [Air105](https://gitee.com/openLuat/luatos-soc-air105)
 * [ESP32系列](https://gitee.com/openLuat/luatos-soc-idf5)
 * [EC61x系列](https://gitee.com/openLuat/luatos-soc-2022)
-* [EC7xx系列](https://gitee.com/openLuat/luatos-soc-2023)
+* [EC7xx系列](https://gitee.com/openLuat/luatos-soc-2024)
 * [PC类及模拟器](https://gitee.com/openLuat/luatos-soc-pc)

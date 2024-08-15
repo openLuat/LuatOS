@@ -34,6 +34,7 @@ LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and 
 ## 资料大全
 
 * [wiki@luatos](https://wiki.luatos.com)
+* [LuatOS文档池](https://gitee.com/openLuat/luatos-doc-pool)
 
 ## 授权协议
 

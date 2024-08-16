@@ -321,6 +321,14 @@ static int l_sms_send(lua_State *L) {
         LLOGI("phone is too short or too long!! %d", phone_len);
         return 0;
     }
+    uint8_t gateway_mode = 0;	//短信网关特殊处理
+    if ((phone_len >= 15) && !memcmp(phone, "10", 2)) {
+    	LLOGI("sms gateway mode");
+    	gateway_mode = 1;
+    	pdu_mode = 1;
+    	memcpy(phone_buff, phone, phone_len);
+    	goto NUMBER_CHECK_DONE;
+    }
     // +8613416121234
     if (auto_phone) {
 
@@ -354,7 +362,7 @@ static int l_sms_send(lua_State *L) {
         memcpy(phone_buff, phone, phone_len);
     }
     
-    
+NUMBER_CHECK_DONE:
     phone_len = strlen(phone_buff);
     phone = phone_buff;
     LLOGD("phone [%s]", phone);
@@ -365,7 +373,11 @@ static int l_sms_send(lua_State *L) {
         strcat(pdu, "01"); // 仅收件信息, 不传保留时间
         strcat(pdu, "00"); // TP-MR, 固定填0
         sprintf_(pdu + strlen(pdu), "%02X", phone_len); // 电话号码长度
-        strcat(pdu, "91"); // 目标地址格式
+        if (gateway_mode) {
+        	strcat(pdu, "81"); // 目标地址格式
+        } else {
+        	strcat(pdu, "91"); // 目标地址格式
+        }
         // 手机方号码
         for (size_t i = 0; i < phone_len; i+=2)
         {

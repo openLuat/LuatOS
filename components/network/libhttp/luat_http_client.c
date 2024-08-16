@@ -92,7 +92,7 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	return 0;
 }
 
-
+#ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg){
     if (error_code == HTTP_OK){
         luat_http_cb http_cb = http_ctrl->http_cb;
@@ -103,6 +103,7 @@ LUAT_WEAK void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_c
         luat_rtos_timer_stop(http_ctrl->timeout_timer);
     }
 }
+#endif
 
 static void http_network_error(luat_http_ctrl_t *http_ctrl)
 {

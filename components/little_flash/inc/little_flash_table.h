@@ -17,8 +17,8 @@ extern "C" {
 
 #define LITTLE_FLASH_CHIP_TABLE                                                                              \
 {                                                                                                            \
-    {"W25N01GVZEIG", LF_MF_ID_WINBOND, 0xAA21, LF_DRIVER_NAND_FLASH, 128L*1024L*1024L, 0xD8, 64L*2048L},     \
-    {"W25Q128FVSG", LF_MF_ID_WINBOND, 0x4018, LF_DRIVER_NOR_FLASH, 16L*1024L*1024L, 0x20, 4096L}             \
+    {.name="W25N01GVZEIG", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA21, .type=LF_DRIVER_NAND_FLASH, .capacity=128L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L},     \
+    {.name="W25Q128FVSG",  .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0x4018, .type=LF_DRIVER_NOR_FLASH,  .capacity=16L*1024L*1024L,  .erase_cmd=0x20, .erase_size=4096L}             \
 }
 
 #ifdef __cplusplus

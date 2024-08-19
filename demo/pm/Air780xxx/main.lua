@@ -99,13 +99,22 @@ end
 if rtos.bsp() == "EC618" then
     gpio.setup(23,nil)
     --gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
+	gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
 end
 if rtos.bsp() == "EC718P" then
-    gpio.close(22)                 --20-42，21-43，22-44 718P对应IO
-    gpio.setup(44,nil,gpio.PULLUP) --如果全IO开发板功耗偏高，打开这个
+    gpio.close(23) 
+    gpio.close(45) 
+    gpio.close(46) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+    --全IO开发板按照下面的配置功耗最低，自己板子按实际情况配置wakeuppad
+    gpio.setup(39,nil,gpio.PULLUP) 
+    gpio.setup(40,nil,gpio.PULLDOWN) 
+    gpio.setup(41,nil,gpio.PULLDOWN) 
+    gpio.setup(42,nil,gpio.PULLUP) 
+    gpio.setup(43,nil,gpio.PULLUP) 
+    gpio.setup(44,nil,gpio.PULLDOWN) 
 end
 
-gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+
 
 sys.taskInit(function()
 	log.info("工作14秒后进入深度休眠")
@@ -117,11 +126,10 @@ sys.taskInit(function()
 	pm.force(pm.HIB)
 	pm.dtimerStart(3, 40000)
 	sys.wait(5000)
-	pm.power(pm.USB, true) -- 如果是插着USB测试，需要关闭USB
+    pm.force(pm.IDLE) -- 运行到这里说明没用进入深度休眠，测试失败
+	pm.power(pm.USB, true) 
 	log.info("深度休眠测试失败")
 	mobile.flymode(0, false)
-	pm.request(pm.LIGHT)
-
 	while true do
 		sys.wait(5000)
 		log.info("深度休眠测试失败")

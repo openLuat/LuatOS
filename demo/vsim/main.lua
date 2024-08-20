@@ -7,7 +7,7 @@ log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 _G.sys = require("sys")
-mobile.config(mobile.USB_ETHERNET, 3)
+mobile.config(mobile.CONF_USB_ETHERNET, 3)
 mobile.vsimInit()
 mobile.flymode(nil,true)
 mobile.vsimOnOff(true)

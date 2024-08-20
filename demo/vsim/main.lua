@@ -1,26 +1,17 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "mobiledemo"
+PROJECT = "vsimdemo"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 _G.sys = require("sys")
-
-
-
--- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
-if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
-    pm.power(pm.PWK_MODE, false)
-end
-
-
--- 对于双卡的设备, 可以设置为自动选sim卡
--- 但是, 这样SIM1所在管脚就强制复用为SIM功能, 不可以再复用为GPIO
--- mobile.simid(2)
-mobile.simid(2,true)--优先用SIM0
-
+mobile.config(mobile.USB_ETHERNET, 3)
+mobile.vsimInit()
+mobile.flymode(nil,true)
+mobile.vsimOnOff(true)
+mobile.flymode(nil,false)
 
 sys.taskInit(function()
 
@@ -36,31 +27,7 @@ sys.taskInit(function()
     for i=0,band:used()-1 do
         log.info("band", band[i])
     end
-    band1[0] = 38
-    band1[1] = 39
-    band1[2] = 40
-    mobile.setBand(band1, 3)    --改成使用38,39,40
-    band1:clear()
-    mobile.getBand(band1)
-    log.info("修改后使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-    mobile.setBand(band, band:used())    --改回原先使用的band，也可以下载的时候选择清除fs
 
-    mobile.getBand(band1)
-    log.info("修改回默认使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-	-- mobile.vsimInit()
-	-- mobile.flymode(nil,true)
-	-- mobile.vsimOnOff(true)
-	-- mobile.flymode(nil,false)
-    -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
-    -- mobile.rtime(3) -- 在无数据交互时，RRC 3秒后自动释放
-    -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了
-    -- mobile.setAuto(10000,30000, 5) -- SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
 	log.info("status", mobile.status())
     sys.wait(2000)
     while 1 do
@@ -71,8 +38,6 @@ sys.taskInit(function()
             log.info("sn",   sn:toHex())
         end
 		log.info("status", mobile.status())
-        
-
         log.info("iccid", mobile.iccid())
         log.info("csq", mobile.csq()) -- 4G模块的CSQ并不能完全代表强度
         log.info("rssi", mobile.rssi()) -- 需要综合rssi/rsrq/rsrp/snr一起判断
@@ -98,7 +63,7 @@ end)
 
 -- 轮询式, 包含临近小区信息，这是手动搜索，和上面的自动搜索冲突，开启一个就行
 sys.taskInit(function()
-    sys.wait(5000)
+    sys.wait(15000)
 	mobile.config(mobile.CONF_SIM_WC_MODE, 2)
     while 1 do
         mobile.reqCellInfo(10)

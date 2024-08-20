@@ -1055,6 +1055,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
     //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
     {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
+    //@const CONF_USB_ETHERNET number 蜂窝网络模块的usb以太网卡控制，bit0开关1,开0关，bit1模式1NAT,0独立IP，bit2协议1ECM,0RNDIS，飞行模式里设置
+    {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",              ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	//@const PIN_CHANGE number 更换PIN码操作

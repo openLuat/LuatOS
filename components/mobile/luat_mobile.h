@@ -715,6 +715,9 @@ int luat_mobile_sms_event_register_handler(luat_mobile_sms_event_callback_t call
  */
 void luat_mobile_set_rrc_auto_release_time(uint8_t s);
 
+//实验性质API，请勿使用
+void luat_mobile_set_auto_rrc(uint8_t s1, uint32_t s2);
+void luat_mobile_set_auto_rrc_default(void);
 /**
  * @brief RRC自动释放暂停/恢复
  * 

@@ -403,7 +403,7 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 	// LLOGD("LINK %08X ON_LINE %08X EVENT %08X TX_OK %08X CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 	LLOGD("network mqtt cb %8X %08X",event->ID & 0x0ffffffff, event->Param1);
 	if (event->Param1){
-		LLOGE("mqtt_callback param1 %d, closing socket", event->Param1);
+		LLOGE("mqtt_callback param1 %d, event %d closing socket", event->Param1, event->ID - EV_NW_RESULT_BASE);
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
 	}

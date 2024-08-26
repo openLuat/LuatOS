@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "little_flash demo"
+PROJECT = "little_flash_demo"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
@@ -52,7 +52,7 @@ sys.taskInit(function()
     log.info("lf", "spi_flash", spi_flash)
     little_flash_device = lf.init(spi_flash)
     if little_flash_device then
-        log.info("lf.init ok")
+        log.info("lf.init ok",little_flash_device)
     else
         log.info("lf.init Error")
         return

@@ -501,7 +501,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->luatos_mode) {
 
 		if (http_ctrl->headers_complete){
-			result = snprintf_(http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Range: bytes=%d-\r\n", http_ctrl->body_len);
+			result = snprintf_(http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Range: bytes=%lu-\r\n", http_ctrl->body_len);
 			http_send(http_ctrl, http_ctrl->resp_buff, result);
 		}
 
@@ -542,7 +542,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 
 
 		if (http_ctrl->data_mode && (http_ctrl->offset || http_ctrl->body_len)){
-			result = snprintf_(http_ctrl->resp_buff, 320,  "Range: bytes=%u-\r\n", (http_ctrl->offset + http_ctrl->body_len));
+			result = snprintf_(http_ctrl->resp_buff, 320,  "Range: bytes=%lu-\r\n", (http_ctrl->offset + http_ctrl->body_len));
 			LLOGD("get offset %u+%u", http_ctrl->offset, http_ctrl->body_len);
 			http_send(http_ctrl, http_ctrl->resp_buff, result);
 		}

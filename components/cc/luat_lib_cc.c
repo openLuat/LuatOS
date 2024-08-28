@@ -233,9 +233,9 @@ static int l_cc_get_last_call_num(lua_State* L) {
 
 /**
 拨打电话
-@api cc.dial(sim_id,number)
+@api cc.dial(sim_id, number)
 @number sim_id
-@number 电话号码
+@string 电话号码
 @return bool 拨打电话成功与否
  */
 static int l_cc_make_call(lua_State* L) {

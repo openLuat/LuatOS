@@ -305,6 +305,7 @@ typedef struct {
     bool addr_in_4_byte;                         /**< flash is in 4-Byte addressing */
     struct {
         void (*delay)(void);                     /**< every retry's delay */
+        void (*long_delay)(void);                     /**< every retry's delay */
         size_t times;                            /**< default times for error retry */
     } retry;
     luat_sfud_flash_t luat_sfud;

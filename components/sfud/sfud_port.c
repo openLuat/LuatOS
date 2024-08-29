@@ -100,9 +100,11 @@ static sfud_err qspi_read(const struct __sfud_spi *spi, uint32_t addr, sfud_qspi
 #endif /* SFUD_USING_QSPI */
 
 /* about 100 microsecond delay */
-static void retry_delay_100us(void) {
-    uint32_t delay = 120;
-    while(delay--);
+static void retry_delay_1ms(void) {
+    luat_rtos_task_sleep(1);
+}
+static void retry_delay_10ms(void) {
+    luat_rtos_task_sleep(10);
 }
 
 static void luat_sfud_lock(const sfud_spi *spi)
@@ -125,11 +127,9 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     flash->luat_sfud.sem = luat_mutex_create();
     flash->spi.lock = luat_sfud_lock;
     flash->spi.unlock = luat_sfud_unlock;
-    /* 100 microsecond delay */
-    flash->retry.delay = retry_delay_100us;
-    /* 60 seconds timeout */
-    flash->retry.times = 60 * 10000;
-
+    flash->retry.delay = retry_delay_1ms;
+    flash->retry.long_delay = retry_delay_10ms;
+    flash->retry.times = 20;     /* write操作 20ms足够了 */
     return result;
 }
 

@@ -67,7 +67,7 @@ static sfud_err hardware_init(sfud_flash *flash);
 static sfud_err page256_or_1_byte_write(const sfud_flash *flash, uint32_t addr, size_t size, uint16_t write_gran,
         const uint8_t *data);
 static sfud_err aai_write(const sfud_flash *flash, uint32_t addr, size_t size, const uint8_t *data);
-static sfud_err wait_busy(const sfud_flash *flash);
+static sfud_err wait_busy(const sfud_flash *flash, uint32_t long_delay_times);
 static sfud_err reset(const sfud_flash *flash);
 static sfud_err read_jedec_id(sfud_flash *flash);
 static sfud_err set_write_enabled(const sfud_flash *flash, bool enabled);
@@ -422,7 +422,7 @@ sfud_err sfud_read(const sfud_flash *flash, uint32_t addr, size_t size, uint8_t 
         spi->lock(spi);
     }
 
-    result = wait_busy(flash);
+    result = wait_busy(flash, 0);
 
     if (result == SFUD_SUCCESS) {
 #ifdef SFUD_USING_QSPI
@@ -495,7 +495,7 @@ sfud_err sfud_chip_erase(const sfud_flash *flash) {
         SFUD_INFO("Error: Flash chip erase SPI communicate error.");
         goto __exit;
     }
-    result = wait_busy(flash);
+    result = wait_busy(flash, 2000);	//全片擦除最多给20秒
 
 __exit:
     /* set the flash write disable */
@@ -576,7 +576,7 @@ sfud_err sfud_erase(const sfud_flash *flash, uint32_t addr, size_t size) {
             SFUD_INFO("Error: Flash erase SPI communicate error.");
             goto __exit;
         }
-        result = wait_busy(flash);
+        result = wait_busy(flash, 100);	//擦除最多给1秒
         if (result != SFUD_SUCCESS) {
             goto __exit;
         }
@@ -678,7 +678,7 @@ static sfud_err page256_or_1_byte_write(const sfud_flash *flash, uint32_t addr, 
             SFUD_INFO("Error: Flash write SPI communicate error.");
             goto __exit;
         }
-        result = wait_busy(flash);
+        result = wait_busy(flash, 0);
         if (result != SFUD_SUCCESS) {
             goto __exit;
         }
@@ -760,7 +760,7 @@ static sfud_err aai_write(const sfud_flash *flash, uint32_t addr, size_t size, c
             goto __exit;
         }
 
-        result = wait_busy(flash);
+        result = wait_busy(flash, 100);
         if (result != SFUD_SUCCESS) {
             goto __exit;
         }
@@ -844,7 +844,7 @@ static sfud_err reset(const sfud_flash *flash) {
     cmd_data[0] = SFUD_CMD_ENABLE_RESET;
     result = spi->wr(spi, cmd_data, 1, NULL, 0);
     if (result == SFUD_SUCCESS) {
-        result = wait_busy(flash);
+        result = wait_busy(flash, 20); //初始化最多给200ms
     } else {
         SFUD_INFO("Error: Flash device reset failed.");
         return result;
@@ -854,7 +854,7 @@ static sfud_err reset(const sfud_flash *flash) {
     result = spi->wr(spi, &cmd_data[1], 1, NULL, 0);
 
     if (result == SFUD_SUCCESS) {
-        result = wait_busy(flash);
+        result = wait_busy(flash, 20); //初始化最多给200ms
     }
 
     if (result == SFUD_SUCCESS) {
@@ -984,20 +984,33 @@ sfud_err sfud_read_status(const sfud_flash *flash, uint8_t *status) {
     return flash->spi.wr(&flash->spi, &cmd, 1, status, 1);
 }
 
-static sfud_err wait_busy(const sfud_flash *flash) {
+static sfud_err wait_busy(const sfud_flash *flash, uint32_t long_delay_times) {
     sfud_err result = SFUD_SUCCESS;
     uint8_t status;
-    size_t retry_times = flash->retry.times;
-
+    size_t retry_times;
+    void (*__delay_temp)(void);
+    if (long_delay_times)
+    {
+    	retry_times = long_delay_times;
+    	__delay_temp = flash->retry.long_delay;
+    }
+    else
+    {
+    	retry_times = flash->retry.times;
+    	__delay_temp = flash->retry.delay;
+    }
     SFUD_ASSERT(flash);
 
     while (true) {
+    	__delay_temp();
         result = sfud_read_status(flash, &status);
         if (result == SFUD_SUCCESS && ((status & SFUD_STATUS_REGISTER_BUSY)) == 0) {
             break;
         }
+        retry_times--;
+        if (!retry_times) {result = SFUD_ERR_TIMEOUT;break;}
         /* retry counts */
-        SFUD_RETRY_PROCESS(flash->retry.delay, retry_times, result);
+        //SFUD_RETRY_PROCESS(flash->retry.delay, retry_times, result);
     }
 
     if (result != SFUD_SUCCESS || ((status & SFUD_STATUS_REGISTER_BUSY)) != 0) {

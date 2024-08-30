@@ -186,6 +186,7 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 	conf.irq_cb = luat_uart_soft_recv_start_irq;
 	conf.pull = LUAT_GPIO_PULLUP;
 	conf.irq = LUAT_GPIO_FALLING_IRQ;
+	conf.alt_func = -1;
 	luat_gpio_setup(&conf);
 	conf.pin = prv_uart_soft->tx_pin;
 	conf.mode = Luat_GPIO_OUTPUT;

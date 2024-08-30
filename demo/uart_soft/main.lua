@@ -1,5 +1,5 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "soft uart"
+PROJECT = "soft_uart"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
@@ -28,7 +28,9 @@ local function resouce()
     elseif rtos_bsp == "ESP32S3" then
         return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "EC618" then
-        return 17,0,1,2,19200,0,-10
+        return 17,0,1,2,19200,0,-1
+	elseif string.find(rtos_bsp,"EC718")then
+        return 2,0,3,2,9600,0,0
     else
         log.info("main", "bsp not support")
         return
@@ -49,7 +51,7 @@ local result = uart.setup(
 
 
 --循环发数据
--- sys.timerLoopStart(uart.write,1000, uartid, "test")
+--sys.timerLoopStart(uart.write,1000, uartid, "test")
 -- 收取数据会触发回调, 这里的"receive" 是固定值
 uart.on(uartid, "receive", function(id, len)
     local s = ""
@@ -59,7 +61,7 @@ uart.on(uartid, "receive", function(id, len)
         if #s > 0 then -- #s 是取字符串的长度
             -- 如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
-            log.info("uart", "receive", id, #s, s:toHex())
+            log.info("uart", "receive", id, #s, s, s:toHex())
             uart.write(id, s)
         end
     until s == ""

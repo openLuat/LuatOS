@@ -26,6 +26,10 @@ extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code
 #define LLOGD(format, ...) do {if (http_ctrl->debug_onoff) {luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__);}} while(0)
 #else
 #undef LLOGE
+#undef LLOGI
+#undef LLOGW
+#define LLOGI(format, ...)
+#define LLOGW(format, ...)
 #ifdef LUAT_LOG_NO_NEWLINE
 #define LLOGD(x,...)	do {if (http_ctrl->debug_onoff) {DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##__VA_ARGS__);}} while(0)
 #define LLOGE(x,...) DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##__VA_ARGS__)

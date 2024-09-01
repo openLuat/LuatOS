@@ -95,28 +95,35 @@ if reason > 0 then
 	mobile.flymode(0, false)
     log.info("已经从深度休眠唤醒")
 end
---测试最低功耗，需要下面3个GPIO操作
-if rtos.bsp() == "EC618" then
-    gpio.setup(23,nil)
-    --gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
-	gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+function io_init()
+    local bsp = rtos.bsp()
+    --测试最低功耗，需要下面3个GPIO操作
+    if bsp == "EC618" then
+        log.info("EC618")
+        gpio.setup(23,nil)
+        --gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
+        gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+    end
+    if string.find(bsp,"EC718") then
+        log.info("EC718")
+        gpio.close(23) 
+        gpio.close(45) 
+        gpio.close(46) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+        --全IO开发板按照下面的配置功耗最低，自己板子按实际情况配置wakeuppad
+        gpio.setup(39,nil,gpio.PULLUP) 
+        gpio.setup(40,nil,gpio.PULLDOWN) 
+        gpio.setup(41,nil,gpio.PULLDOWN) 
+        gpio.setup(42,nil,gpio.PULLUP) 
+        gpio.setup(43,nil,gpio.PULLUP) 
+        gpio.setup(44,nil,gpio.PULLDOWN) 
+    end
 end
-if rtos.bsp() == "EC718P" then
-    gpio.close(23) 
-    gpio.close(45) 
-    gpio.close(46) --这里pwrkey接地才需要，不接地通过按键控制的不需要
-    --全IO开发板按照下面的配置功耗最低，自己板子按实际情况配置wakeuppad
-    gpio.setup(39,nil,gpio.PULLUP) 
-    gpio.setup(40,nil,gpio.PULLDOWN) 
-    gpio.setup(41,nil,gpio.PULLDOWN) 
-    gpio.setup(42,nil,gpio.PULLUP) 
-    gpio.setup(43,nil,gpio.PULLUP) 
-    gpio.setup(44,nil,gpio.PULLDOWN) 
-end
+
 
 
 
 sys.taskInit(function()
+    io_init()
 	log.info("工作14秒后进入深度休眠")
 	sys.wait(14000)
 	mobile.flymode(0, true)

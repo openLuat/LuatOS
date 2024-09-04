@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "mqttdemo"
+PROJECT = "iotclouddemo"
 VERSION = "1.0.0"
 
 -- sys库是标配
@@ -69,9 +69,9 @@ sys.taskInit(function()
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
 
     -- 密钥校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",key = "xxx=="})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "xxx",key = "xxx=="})
     -- 证书校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
 
     -- 阿里云  
@@ -109,6 +109,7 @@ end)
 
 sys.subscribe("iotcloud", function(cloudc,event,data,payload)
     if event == iotcloud.CONNECT then -- 云平台联上了
+        print("iotcloud","CONNECT", "云平台连接成功")
             -- iotcloud:subscribe("test") -- 定阅主题
     elseif event == iotcloud.RECEIVE then
             print("iotcloud","topic", data, "payload", payload)

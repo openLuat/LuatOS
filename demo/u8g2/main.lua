@@ -38,7 +38,7 @@ function u8g2_pin()
         return 0,12,11,2,16,15,14
     elseif rtos_bsp == "EC618" then
         return 0,10,11,0,1,10,8
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return 0,14,15,0,14,10,8
     else
         log.info("main", "bsp not support")

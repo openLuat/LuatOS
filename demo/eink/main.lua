@@ -55,7 +55,7 @@ function eink_pin()
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,22
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return 0,10,14,8,15
     else
         log.info("main", "bsp not support")

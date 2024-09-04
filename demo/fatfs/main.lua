@@ -45,7 +45,7 @@ local function fatfs_spi_pin()
         return 2, 14
     elseif rtos_bsp == "EC618" then
         return 0, 8
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return 0, 8
     else
         log.info("main", "bsp not support")

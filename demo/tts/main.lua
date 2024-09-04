@@ -82,7 +82,7 @@ function audio_setup()
         --     audio.setBus(0, audio.BUS_SOFT_DAC)
         -- end
         audio.config(0, 25, 1, 3, 100)
-    elseif bsp == "EC718P" then
+    elseif string.find(bsp,"EC718") then
 		-- CORE+音频小板是这个配置
         pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
         sys.wait(100)

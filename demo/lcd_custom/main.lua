@@ -45,7 +45,7 @@ local function lcd_pin()
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,22
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return lcd.HWID_0,36,0xff,0xff,0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "bsp not support")

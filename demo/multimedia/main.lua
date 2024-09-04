@@ -59,7 +59,7 @@ function audio_setup()
         --     audio.setBus(0, audio.BUS_SOFT_DAC)
         -- end
         audio.config(0, 25, 1, 3, 100)
-    elseif bsp == "EC718P" then
+    elseif string.find(bsp,"EC718") then
 		-- CORE+音频小板是这个配置/云喇叭开发板同为这个配置
         local multimedia_id = 0
         local i2c_id = 0	--云喇叭开发版是1

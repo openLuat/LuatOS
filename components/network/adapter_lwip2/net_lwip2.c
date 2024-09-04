@@ -11,7 +11,8 @@
 #include "net_lwip2.h"
 
 #include "luat_crypto.h"
-
+#include "luat_msgbus.h"
+#include "luat_malloc.h"
 #define LUAT_LOG_TAG "net"
 #include "luat_log.h"
 

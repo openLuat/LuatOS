@@ -110,5 +110,28 @@ int luat_adc_global_config(int tp, int val);
  * @return 0 成功, 其他值为失败
  */
 int luat_adc_ctrl(int id, LUAT_ADC_CTRL_CMD_E cmd, luat_adc_ctrl_param_t param);
+/**
+ * luat_adc_open_and_disable_lowpower
+ * Description: 打开一个adc通道，并且阻止系统进入休眠
+ * @param pin[in] adc通道的序号
+ * @return 0 成功, 其他值为失败
+ */
+int luat_adc_open_and_disable_lowpower(int id);
+/**
+ * luat_adc_read_fast
+ * Description: 读取adc通道的值，必须由luat_adc_open_and_disable_lowpower初始化过的通道
+ * @param pin[in] adc通道的序号
+ * @param val[out] adc通道的原始值
+ * @param val2[out] adc通道的计算值,与具体通道有关
+ * @return 0 成功, 其他值为失败
+ */
+int luat_adc_read_fast(int id, int* val, int* val2);
+/**
+ * luat_adc_close_and_enable_lowpower
+ * Description: 关闭adc通道，并且允许系统进入休眠
+ * @param pin[in] adc通道的序号
+ * @return 0 成功, 其他值为失败
+ */
+int luat_adc_close_and_enable_lowpower(int id);
 /** @}*/
 #endif

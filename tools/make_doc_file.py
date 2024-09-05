@@ -4,13 +4,9 @@ import requests
 
 #bsp.h文件列表
 bsp_header_list = [
-{"name":"Air780E/Air700E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
-{"name":"Air780EP/Air780EPV","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp.h"},
-{"name":"Air601","url":"https://github.com/openLuat/luatos-soc-air101/raw/master/app/port/luat_conf_bsp.h"},
-{"name":"Air101/Air103","url":"https://github.com/openLuat/luatos-soc-air101/raw/master/app/port/luat_conf_bsp.h"},
-{"name":"Air105","url":"https://github.com/openLuat/luatos-soc-air105/raw/master/application/include/luat_conf_bsp.h"},
-{"name":"ESP32C3","url":"https://github.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
-{"name":"ESP32S3","url":"https://github.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
+{"name":"Air780E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
+{"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
+{"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
 ]
 print("getting bsp.h files...")
 for bsp in bsp_header_list:

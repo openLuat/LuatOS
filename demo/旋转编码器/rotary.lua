@@ -5,7 +5,7 @@ local rtos_bsp = rtos.bsp()
 function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
 	if rtos_bsp == "AIR105" then
         return pin.PC09, pin.PA10
-    elseif rtos_bsp == "EC718P" then -- Air780E开发板引脚
+    elseif string.find(rtos_bsp,"EC718") then -- Air780E开发板引脚
         return 12,13
     else
         log.info("main", "define led pin in main.lua")

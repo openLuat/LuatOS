@@ -17,7 +17,7 @@ local RAW_MODE = 0 -- 写1演示获取原始图像
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 local function lcd_pin()
     local rtos_bsp = rtos.bsp()
-    if rtos_bsp == "EC718P" then
+    if string.find(rtos_bsp,"EC718") then
         return lcd.HWID_0, 36, 0xff, 0xff, 0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "bsp not support")

@@ -50,7 +50,7 @@ local function ws2812_conf()
         return "pin",2,0,10,10,0            --此为pin方式直驱
     elseif rtos_bsp == "EC618" then
         return "pin",24,10,0,10,0           --此为pin方式直驱 (需要2023.7.25之后编译的固件,否则只能使用spi方式)
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return "pin",29,12,25,50,30
     else
         log.info("main", "bsp not support")

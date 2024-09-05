@@ -11,7 +11,7 @@ function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
 	if rtos_bsp == "AIR105" then
 		mcu.setXTAL(true)   --为了测试更准确，调整到外部时钟
         return 1, pin.PD06, pin.PD07
-    elseif rtos_bsp == "EC718P" then -- Air780E开发板引脚
+    elseif string.find(rtos_bsp,"EC718") then -- Air780E开发板引脚
 		gpio.setup(12,nil,nil)
 		gpio.setup(13,nil,nil)
         return 1, 12,13

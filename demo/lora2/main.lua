@@ -34,7 +34,7 @@ local function lora_pin()
         return 2,14,15,13,12
     elseif rtos_bsp == "EC618" then
         return 0,8,1,18,19
-    elseif rtos_bsp == "EC718P" then
+    elseif string.find(rtos_bsp,"EC718") then
         return 0,8,1,31,32
     else
         log.info("main", "bsp not support")

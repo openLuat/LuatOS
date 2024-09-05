@@ -13,7 +13,7 @@ sys.taskInit(function()
         -- mobile.rtime(2)  -- RRC快速释放减少connect时间能大幅降低功耗，但是会带来可能得离线风险，可选择延迟时间或者不用
         pm.power(pm.USB, false)
         pm.force(pm.LIGHT)
-    elseif bsp == "EC718P" or bsp == "EC718PV" then
+    elseif string.find(bsp,"EC718") then
         log.info("aliyun.pm", "EC718P/EC718PV方案进入低功耗模式")
         -- mobile.rtime(2) -- RRC快速释放减少connect时间能大幅降低功耗，但是会带来可能得离线风险，可选择延迟时间或者不用
         pm.power(pm.USB, false)

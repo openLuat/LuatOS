@@ -13,7 +13,7 @@ local rtos_bsp = rtos.bsp()
 local function pinx()
     if rtos_bsp == "EC618" then -- AIR780E                          -- 35是虚拟GPIO，见https://wiki.luatos.com/chips/air780e/iomux.html#id1
         return 35           
-    elseif rtos_bsp == "EC718P" then -- AIR780EP                    -- 46是虚拟GPIO
+    elseif string.find(rtos_bsp,"EC718") then -- AIR780EP                    -- 46是虚拟GPIO
         return 46
     else
         return 255 

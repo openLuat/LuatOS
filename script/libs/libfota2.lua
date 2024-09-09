@@ -112,6 +112,8 @@ function libfota2.request(cbFnc, opts)
         opts.url = "http://iot.openluat.com/api/site/firmware_upgrade"
     end
     if opts.url:sub(1, 4) ~= "###" and not opts.url_done then
+        -- 获取硬件版本信息
+        local model = hmeta and ("&model=" .. hmeta.model() .. "_" .. hmeta.hwver()) or ""
         -- 补齐project_key函数
         if not opts.project_key then
             opts.project_key = _G.PRODUCT_KEY
@@ -145,6 +147,8 @@ function libfota2.request(cbFnc, opts)
 
         -- 然后拼接到最终的url里
         opts.url = string.format("%s?imei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei, opts.project_key, opts.firmware_name, opts.version)
+        opts.url = opts.url .. model
+        
     else
         opts.url = opts.url:sub(4)
         opts.url_done = true

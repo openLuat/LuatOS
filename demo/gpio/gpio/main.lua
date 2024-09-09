@@ -77,7 +77,7 @@ sys.taskInit(function()
         if P3 and P3 ~= 255 then
             LEDC(count % 3 == 2 and 1 or 0)
         end
-        log.info("GPIO", "Go Go Go", count, rtos.bsp())
+        log.info("GPIO", "Go Go Go", count, rtos.bsp(), hmeta and hmeta.model() or "")
         log.info("LuatOS:", "https://wiki.luatos.com")
         count = count + 1
     end

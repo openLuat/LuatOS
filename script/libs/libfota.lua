@@ -70,6 +70,7 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
             if x and y and z then
                 version = x.."."..z
                 local imei = ""
+                local model = ""
                 if mobile then
                     imei = mobile.imei()
                 elseif wlan and wlan.getMac then
@@ -77,7 +78,8 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
                 else
                     imei = mcu.unique_id():toHex()
                 end
-                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. imei .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version
+                model = hmeta and ("&model=" .. hmeta.model() .. "_" .. hmeta.hwver()) or ""
+                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. imei .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version .. model
             else
                 log.error("fota", "_G.VERSION must be xxx.yyy.zzz!!!")
                 cbFnc(5)

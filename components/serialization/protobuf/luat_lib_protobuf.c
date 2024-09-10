@@ -1700,7 +1700,7 @@ static void lpb_encode_onefield(lpb_Env *e, const pb_Type *t, const pb_Field *f,
 static void lpbE_encode(lpb_Env *e, const pb_Type *t, int idx) {
     lua_State *L = e->L;
     luaL_checkstack(L, 3, "message too many levels");
-    if (e->LS->encode_order) {
+    if (1) {
         const pb_Field *f = NULL;
         while (pb_nextfield(t, &f)) {
             if (lua53_getfield(L, idx, (const char*)f->name) != LUA_TNIL)

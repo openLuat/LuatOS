@@ -571,6 +571,7 @@ typedef enum LUAT_MOBILE_CELL_INFO_STATUS
 {
 	LUAT_MOBILE_CELL_INFO_UPDATE = 0,	/**< 小区基站信息变更，只有设置了周期性搜索小区基站时才会有*/
 	LUAT_MOBILE_SIGNAL_UPDATE,			/**< 网络信号状态变更，但是不一定是有变化*/
+	LUAT_MOBILE_PLMN_UPDATE,			/**< 搜索到新的plmn*/
 }LUAT_MOBILE_CELL_INFO_STATUS_E;
 
 typedef enum LUAT_MOBILE_PDP_STATUS

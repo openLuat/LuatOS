@@ -760,6 +760,23 @@ static int l_mobile_request_cell_info(lua_State* L) {
 }
 
 /**
+锁定/解锁小区，仅用于外场测试，没接触过的，或者生产环境中请勿使用
+@api mobile.lockCell(mode, earfcn, pci)
+@int 操作码 0删除优先的频点，1设置优先频点，2锁定小区，3解锁小区
+@int 下行频点
+@int phycellid
+@return bool 成功true 失败false
+@usage
+mobile.lockCell(2,1860,32)	--锁定小区
+mobile.lockCell(3)			--解锁小区
+ */
+static int l_mobile_lock_cell(lua_State* L) {
+
+	lua_pushboolean(L, !luat_mobile_lock_cell(luaL_optinteger(L, 1, 4), luaL_optinteger(L, 2, 0), luaL_optinteger(L, 3, 0)));
+	return 1;
+}
+
+/**
 重启协议栈
 @api mobile.reset()
 @return nil 无返回值
@@ -1013,6 +1030,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"setAuto",         ROREG_FUNC(l_mobile_set_auto_work)},
     {"getCellInfo",     ROREG_FUNC(l_mobile_get_cell_info)},
     {"reqCellInfo",     ROREG_FUNC(l_mobile_request_cell_info)},
+	{"lockCell",		ROREG_FUNC(l_mobile_lock_cell)},
 	{"reset",           ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",     ROREG_FUNC(l_mobile_data_traffic)},
 	{"config",          ROREG_FUNC(l_mobile_config)},

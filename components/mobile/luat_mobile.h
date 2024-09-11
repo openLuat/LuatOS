@@ -934,5 +934,13 @@ uint8_t luat_mobile_get_sync_time(void);
 int luat_mobile_softsim_onoff(uint8_t on_off);
 int luat_mobile_sim_detect_onoff(uint8_t on_off);
 void luat_mobile_softsim_init_default(void);
+enum
+{
+	LUAT_MOBILE_LOCK_CELL_OP_UNLOCK_EARFCN,
+	LUAT_MOBILE_LOCK_CELL_OP_LOCK_EARFCN,
+	LUAT_MOBILE_LOCK_CELL_OP_LOCK_CELL,
+	LUAT_MOBILE_LOCK_CELL_OP_UNLOCK_CELL,
+};
+int luat_mobile_lock_cell(uint32_t op, uint32_t earfcn, uint16_t pci);
 /** @}*/
 #endif

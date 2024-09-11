@@ -5,8 +5,8 @@ import requests
 #bsp.h文件列表
 bsp_header_list = [
 {"name":"Air780E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
-{"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
-{"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
+{"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
+{"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
 ]
 print("getting bsp.h files...")
 for bsp in bsp_header_list:

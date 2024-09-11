@@ -441,7 +441,7 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
         end
         local data = fskv.get("iotcloud_onenet")
         -- print("fskv.get data",data)
-        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.iotda(iotcloudc.product_id,iotcloudc.device_name,data)
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.product_id,iotcloudc.device_name,data)
     end
     return true
 end

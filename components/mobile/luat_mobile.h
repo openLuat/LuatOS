@@ -572,6 +572,7 @@ typedef enum LUAT_MOBILE_CELL_INFO_STATUS
 	LUAT_MOBILE_CELL_INFO_UPDATE = 0,	/**< 小区基站信息变更，只有设置了周期性搜索小区基站时才会有*/
 	LUAT_MOBILE_SIGNAL_UPDATE,			/**< 网络信号状态变更，但是不一定是有变化*/
 	LUAT_MOBILE_PLMN_UPDATE,			/**< 搜索到新的plmn*/
+	LUAT_MOBILE_SERVICE_CELL_UPDATE,	/**< 服务小区信息变更*/
 }LUAT_MOBILE_CELL_INFO_STATUS_E;
 
 typedef enum LUAT_MOBILE_PDP_STATUS
@@ -942,5 +943,13 @@ enum
 	LUAT_MOBILE_LOCK_CELL_OP_UNLOCK_CELL,
 };
 int luat_mobile_lock_cell(uint32_t op, uint32_t earfcn, uint16_t pci);
+typedef struct
+{
+	uint32_t earfcn;
+	uint16_t pci;
+	uint16_t mcc;
+	uint16_t mnc;
+}luat_mobile_scell_extern_info_t;
+int luat_mobile_get_extern_service_cell_info(luat_mobile_scell_extern_info_t *info);
 /** @}*/
 #endif

@@ -542,6 +542,26 @@ static int l_mobile_enbid(lua_State* L) {
 }
 
 /**
+获取当前服务小区更详细的信息
+@api mobile.scell()
+@return int 服务小区的MCC
+@return int 服务小区的MNC
+@return int 服务小区的下行earfcn
+@return int 服务小区的pci
+@usage
+-- 本API于 2024.9.12 新增
+ */
+static int l_mobile_scell_extern_info(lua_State* L) {
+	luat_mobile_scell_extern_info_t info;
+    luat_mobile_get_extern_service_cell_info(&info);
+    lua_pushinteger(L, info.mcc);
+    lua_pushinteger(L, info.mnc);
+    lua_pushinteger(L, info.earfcn);
+    lua_pushinteger(L, info.pci);
+    return 4;
+}
+
+/**
 进出飞行模式
 @api mobile.flymode(index, enable)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
@@ -1022,6 +1042,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"snr",             ROREG_FUNC(l_mobile_snr)},
     {"eci",             ROREG_FUNC(l_mobile_eci)},
     {"tac",             ROREG_FUNC(l_mobile_tac)},
+	{"scell",			ROREG_FUNC(l_mobile_scell_extern_info)},
     {"enbid",           ROREG_FUNC(l_mobile_enbid)},
     {"flymode",         ROREG_FUNC(l_mobile_flymode)},
     {"simid",           ROREG_FUNC(l_mobile_simid)},
@@ -1199,6 +1220,19 @@ end)
             lua_pushstring(L, "CELL_INFO_UPDATE");
             lua_call(L, 1, 0);
 		    break;
+        case LUAT_MOBILE_SERVICE_CELL_UPDATE:
+/*
+@sys_pub mobile
+服务小区额外信息更新
+SCELL_INFO
+@usage
+-- 订阅式
+sys.subscribe("SCELL_INFO", function()
+    log.info("service cell", mobile.scell()))
+end)
+*/
+            lua_pushstring(L, "SCELL_INFO");
+            lua_call(L, 1, 0);
         default:
             break;
         }

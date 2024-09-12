@@ -88,7 +88,11 @@ sys.taskInit(function()
         sys.wait(15000)
     end
 end)
-
+-- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
+sys.subscribe("SCELL_INFO", function()
+	local mcc,mnc,earfcn,pci = mobile.scell()
+    log.info("scell", mcu.x32(mcc), mcu.x32(mnc), earfcn, pci)
+end)
 -- 基站数据的查询
 
 -- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区

@@ -5,19 +5,24 @@ import requests
 #bsp.h文件列表
 bsp_header_list = [
 {"name":"Air780E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
-{"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
-{"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
+{"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
+{"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
 ]
 print("getting bsp.h files...")
 for bsp in bsp_header_list:
-    # print("getting "+bsp["name"]+"...")
+    print("getting "+bsp["name"]+"...")
     res = ""
     #有时候获取不到完整的数据，报错的页面就是html
+    retry = 0
     while len(res) < 200 or res.find("</title>") != -1:
         res = requests.get(bsp["url"]).text
-        # print(res)
+        print(str(len(res)) + " bytes")
+        retry = retry + 1
+        if retry > 5:
+            print("failed to get "+bsp["name"]+" bsp.h file")
+            break
     bsp["url"] = res
-    # print("done "+ str(len(bsp["url"])) + " bytes")
+    print("done "+ str(len(bsp["url"])) + " bytes")
 
 def is_supported(tag, bsp) :
     if bsp["url"].find(" "+tag+" ") >= 0 or bsp["url"].find(" "+tag+"\r") >= 0 or bsp["url"].find(" "+tag+"\n") >= 0:

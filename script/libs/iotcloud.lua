@@ -32,7 +32,7 @@
     -- 一型一密
     -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",product_secret = "xxx"})
     -- 一机一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 华为云
     -- 动态注册(免预注册)
@@ -416,23 +416,9 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
     iotcloudc.ip    = 1883
     if iot_config.product_secret then                       -- 一型一密
         iotcloudc.product_secret = iot_config.product_secret
-        local version = '2018-10-31'
-        local res = "products/"..iotcloudc.product_id
-        local et = '32472115200'
-        local method = 'sha256'
-        local key = crypto.base64_decode(iotcloudc.product_secret)
-        local StringForSignature  = et .. '\n' .. method .. '\n' .. res ..'\n' .. version
-        local sign1 = crypto.hmac_sha256(StringForSignature,key)
-        local sign2 = sign1:fromHex()
-        local sign = crypto.base64_encode(sign2)
-        sign = string.urlEncode(sign)
-        res = string.urlEncode(res)
-        local token = string.format('version=%s&res=%s&et=%s&method=%s&sign=%s',version, res, et, method, sign)
-        iotcloudc.client_id = iotcloudc.device_name
-        iotcloudc.user_name = iotcloudc.product_id
-        iotcloudc.password = token
-    elseif iot_config.key then                              -- 一机一密
-        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.product_id,iotcloudc.device_name,iot_config.key)
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.product_id, iotcloudc.device_name, iot_config.product_secret, nil, nil, nil, "products/" .. iotcloudc.product_id)
+    elseif iot_config.device_secret then                              -- 一机一密
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret)
     elseif iot_config.userid and iot_config.userkey then    -- 动态注册
         iotcloudc.userid = iot_config.userid
         iotcloudc.userkey = iot_config.userkey
@@ -592,7 +578,7 @@ end
     -- 一型一密
     -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",product_secret = "xxx"})
     -- 一机一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 华为云
     -- 动态注册(免预注册)

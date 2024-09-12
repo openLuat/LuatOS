@@ -978,7 +978,7 @@ static int l_libgnss_locStr(lua_State *L) {
                             fabs(lng_f), lng_f > 0 ? 'E' : 'W');
         break;
     case 1:
-        snprintf_(buff, 63, "%d,%d", gnssctx.frame_rmc.latitude.value, gnssctx.frame_rmc.longitude.value);
+        snprintf_(buff, 63, "%ld,%ld", gnssctx.frame_rmc.latitude.value, gnssctx.frame_rmc.longitude.value);
         break;
     default:
         break;

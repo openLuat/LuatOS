@@ -541,24 +541,82 @@ static int l_mobile_enbid(lua_State* L) {
     return 1;
 }
 
+
+static inline uint16_t u162bcd(uint16_t src) {
+    uint8_t high = (src >> 8) & 0xFF;
+    uint8_t low  = src & 0xFF;
+    uint16_t dst = 0;
+    dst += (low & 0x0F) + (low >> 4) * 10;
+    dst += ((high & 0x0F) + (high >> 4) * 10) * 100;
+    //LLOGD("src %04X dst %d", src, dst);
+    return dst;
+}
+
 /**
 获取当前服务小区更详细的信息
 @api mobile.scell()
-@return int 服务小区的MCC
-@return int 服务小区的MNC
-@return int 服务小区的下行earfcn
-@return int 服务小区的pci
+@return table 服务小区的信息
 @usage
 -- 本API于 2024.9.12 新增
+log.info("cell", json.encode(mobile.scell()))
+-- 返回值示例
+{
+    "mnc": 11,
+    "mcc": 460,
+    "rssi": -78,
+    "pci": 115,
+    "rsrp": -107,
+    "tac": 30005,
+    "eci": 124045360,
+    "rsrq": -9,
+    "snr": 15,
+    "earfcn": 1850
+}
  */
 static int l_mobile_scell_extern_info(lua_State* L) {
-	luat_mobile_scell_extern_info_t info;
-    luat_mobile_get_extern_service_cell_info(&info);
-    lua_pushinteger(L, info.mcc);
-    lua_pushinteger(L, info.mnc);
+	luat_mobile_scell_extern_info_t info = {0};
+    int ret = 0;
+    ret = luat_mobile_get_extern_service_cell_info(&info);
+    if (ret) {
+        return 0;
+    }
+    lua_newtable(L);
+
+    // 驻网信息相关
+    lua_pushinteger(L, u162bcd(info.mcc));
+    lua_setfield(L, -2, "mcc");
+    lua_pushinteger(L, u162bcd(info.mnc));
+    lua_setfield(L, -2, "mnc");
     lua_pushinteger(L, info.earfcn);
+    lua_setfield(L, -2, "earfcn");
     lua_pushinteger(L, info.pci);
-    return 4;
+    lua_setfield(L, -2, "pci");
+
+    // 基站相关
+    uint32_t eci = 0;
+    uint32_t tac = 0;
+    luat_mobile_get_service_cell_identifier(&eci);
+    lua_pushinteger(L, eci);
+    lua_setfield(L, -2, "eci");
+    
+    luat_mobile_get_service_tac_or_lac(&tac);
+    lua_pushinteger(L, tac);
+    lua_setfield(L, -2, "tac");
+
+    // 信号强度相关的值
+    luat_mobile_signal_strength_info_t sinfo = {0};
+    luat_mobile_get_signal_strength_info(&sinfo);
+
+    lua_pushinteger(L, sinfo.lte_signal_strength.snr);
+    lua_setfield(L, -2, "snr");
+    lua_pushinteger(L, sinfo.lte_signal_strength.rsrp);
+    lua_setfield(L, -2, "rsrp");
+    lua_pushinteger(L, sinfo.lte_signal_strength.rsrq);
+    lua_setfield(L, -2, "rsrq");
+    lua_pushinteger(L, sinfo.lte_signal_strength.rssi);
+    lua_setfield(L, -2, "rssi");
+
+    return 1;
 }
 
 /**
@@ -619,15 +677,6 @@ static int l_mobile_status(lua_State* L) {
     return 1;
 }
 
-static inline uint16_t u162bcd(uint16_t src) {
-    uint8_t high = (src >> 8) & 0xFF;
-    uint8_t low  = src & 0xFF;
-    uint16_t dst = 0;
-    dst += (low & 0x0F) + (low >> 4) * 10;
-    dst += ((high & 0x0F) + (high >> 4) * 10) * 100;
-    //LLOGD("src %04X dst %d", src, dst);
-    return dst;
-}
 
 /**
 获取基站信息

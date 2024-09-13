@@ -235,7 +235,7 @@ int luat_mobile_active_netif(int sim_id, int cid);
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 1~6
  * @param ip_type 激活类型 1 IPV4 2 IPV6 3 IPV4V6
- * @param protocol_type 加密协议 0~2，0xff表示不需要
+ * @param protocol 加密协议 1~3，0和0xff表示不需要
  * @param apn_name apn name，如果留空则使用默认APN
  * @param apn_name_len apn name 长度
  * @param user_name 用户名

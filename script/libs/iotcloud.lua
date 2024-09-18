@@ -12,7 +12,7 @@
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
 
     -- 密钥校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",key = "xxx=="})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
     -- 证书校验
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
@@ -22,9 +22,9 @@
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
 
     -- 密钥校验 (预注册)(一机一密)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
     -- 证书校验(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
     -- ONENET云
     -- 动态注册
@@ -311,13 +311,13 @@ local function iotcloud_tencent_config(iotcloudc,iot_config,connect_config)
             iotcloudc.client_id,iotcloudc.user_name = iotauth.qcloud(iotcloudc.product_id,iotcloudc.device_name,"")
         elseif data.encryptionType == 2 then                -- 密钥认证
             iotcloudc.ip = 1883
-            iot_config.key = data.psk
-            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.qcloud(iotcloudc.product_id,iotcloudc.device_name,iot_config.key,iot_config.method)
+            iot_config.device_secret = data.psk
+            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.qcloud(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret,iot_config.method)
         end
     else                                                    -- 否则为非动态注册
-        if iot_config.key then                              -- 密钥认证
+        if iot_config.device_secret then                              -- 密钥认证
             iotcloudc.ip = 1883
-            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.qcloud(iotcloudc.product_id,iotcloudc.device_name,iot_config.key,iot_config.method)
+            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.qcloud(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret,iot_config.method)
         elseif connect_config.tls then                      -- 证书认证
             iotcloudc.ip = 8883
             iotcloudc.isssl = true
@@ -352,9 +352,9 @@ local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
         iotcloudc.password = data.deviceToken
         iotcloudc.ip = 1883
     else                                                    -- 否则为非动态注册
-        if iot_config.key then                              -- 密钥认证
+        if iot_config.device_secret then                              -- 密钥认证
             iotcloudc.ip = 1883
-            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.product_id,iotcloudc.device_name,iot_config.key,iot_config.method)
+            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret,iot_config.method)
         -- elseif connect_config.tls then                      -- 证书认证
         --     iotcloudc.ip = 443
         --     iotcloudc.isssl = true
@@ -548,7 +548,7 @@ end
 创建云平台对象
 @api iotcloud.new(cloud,iot_config,connect_config)
 @string 云平台 iotcloud.TENCENT:腾讯云 iotcloud.ALIYUN:阿里云 iotcloud.ONENET:中国移动云 iotcloud.HUAWEI:华为云 iotcloud.TUYA:涂鸦云
-@table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.product_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.key:设备秘钥,有此项则为秘钥连接  userid:用户ID,onenet专用,动态注册使用  userkey:用户Accesskey,onenet专用,动态注册使用
+@table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.product_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.device_secret:设备秘钥,有此项则为秘钥连接  userid:用户ID,onenet专用,动态注册使用  userkey:用户Accesskey,onenet专用,动态注册使用
 @table mqtt配置, host:可选,默认为平台默认host ip:可选,默认为平台默认ip tls:加密,若有此项一般为产品认证 keepalive:心跳时间,单位s 可选,默认240
 @return table 云平台对象
 @usage
@@ -558,7 +558,7 @@ end
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
 
     -- 密钥校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",key = "xxx=="})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
     -- 证书校验
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
@@ -570,7 +570,7 @@ end
     -- 密钥校验 (预注册)(一机一密)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
     -- 证书校验(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
     -- ONENET云
     -- 动态注册

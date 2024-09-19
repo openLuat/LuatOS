@@ -10,17 +10,16 @@
     -- 腾讯云 
     -- 动态注册
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
-
     -- 密钥校验
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
     -- 证书校验
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
-
     -- 阿里云  
     -- 动态注册(免预注册)(一型一密)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
-
+    -- 动态注册(预注册)(一型一密)
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})
     -- 密钥校验 (预注册)(一机一密)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
 
@@ -263,15 +262,15 @@ end
 
 local function iotcloud_aliyun_callback(mqtt_client, event, data, payload)
     -- log.info("mqtt", "event", event, mqtt_client, data, payload)
-    if data == "/ext/regnwl" then sys.publish("aliyun_autoenrol", payload) end
+    if data == "/ext/regnwl" or data == "/ext/register" then sys.publish("aliyun_autoenrol", payload) end
     if event == "disconnect" then mqtt_client:close() end
 end
 
 -- 阿里云自动注册
-local function iotcloud_aliyun_autoenrol(iotcloudc)
+local function iotcloud_aliyun_autoenrol(iotcloudc,register)
     local random = math.random(1,999)
     local data = "deviceName"..iotcloudc.device_name.."productKey"..iotcloudc.product_id.."random"..random
-    local mqttClientId = iotcloudc.device_name.."|securemode=-2,authType=regnwl,random="..random..",signmethod=hmacsha1|"
+    local mqttClientId = iotcloudc.device_name.."|securemode=-2,authType="..(register and "register" or "regnwl")..",random="..random..",signmethod=hmacsha1|"
     local mqttUserName = iotcloudc.device_name.."&"..iotcloudc.product_id
     local mqttPassword = crypto.hmac_sha1(data,iotcloudc.product_secret):lower()
     -- print("iotcloud_aliyun_autoenrol",mqttClientId,mqttUserName,mqttPassword)
@@ -284,7 +283,7 @@ local function iotcloud_aliyun_autoenrol(iotcloudc)
     if result then
         local payload = json.decode(payload)
         fskv.set("iotcloud_aliyun", payload)
-        -- print("aliyun_autoenrol payload",payload.clientId, payload.deviceToken)
+        -- print("aliyun_autoenrol payload",payload.clientId, payload.deviceToken,data.deviceSecret)
         return true
     else
         return false
@@ -338,19 +337,23 @@ end
 local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
     iotcloudc.cloud = iotcloud.ALIYUN
     iotcloudc.product_id = iot_config.product_id
-    if iot_config.product_secret then                       -- 有product_secret说明是动态注册
+    if iot_config.product_secret then                       -- 有 product_secret 说明是动态注册(一型一密)
         iotcloudc.product_secret = iot_config.product_secret
         if not fskv.get("iotcloud_aliyun") then 
-            if not iotcloud_aliyun_autoenrol(iotcloudc) then return false end
+            if not iotcloud_aliyun_autoenrol(iotcloudc,iot_config.device_name and true) then return false end
         end
         local data = fskv.get("iotcloud_aliyun")
-        -- print("aliyun_autoenrol payload",data.clientId, data.deviceToken)
-        iotcloudc.client_id = data.clientId.."|securemode=-2,authType=connwl|"
-        iotcloudc.user_name = iotcloudc.device_name.."&"..iotcloudc.product_id
-        iotcloudc.password = data.deviceToken
+        -- print("aliyun_autoenrol payload",data.clientId, data.deviceToken,data.deviceSecret)
+        if data.deviceSecret then                           -- 一型一密(预注册)
+            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.product_id,iotcloudc.device_name,data.deviceSecret,iot_config.method)
+        else                                                -- 一型一密(免预注册)
+            iotcloudc.client_id = data.clientId.."|securemode=-2,authType=connwl|"
+            iotcloudc.user_name = iotcloudc.device_name.."&"..iotcloudc.product_id
+            iotcloudc.password = data.deviceToken
+        end
         iotcloudc.ip = 1883
-    else                                                    -- 否则为非动态注册
-        if iot_config.device_secret then                              -- 密钥认证
+    else                                                    -- 否则为非动态注册(一机一密)
+        if iot_config.device_secret then                    -- 密钥认证
             iotcloudc.ip = 1883
             iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret,iot_config.method)
         -- elseif connect_config.tls then                      -- 证书认证
@@ -564,7 +567,8 @@ end
     -- 阿里云  
     -- 动态注册(免预注册)(一型一密)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
-
+    -- 动态注册(预注册)(一型一密)
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})
     -- 密钥校验 (预注册)(一机一密)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
 

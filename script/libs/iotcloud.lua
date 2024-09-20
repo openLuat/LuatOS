@@ -316,7 +316,7 @@ end
 local function iotcloud_aliyun_autoenrol(iotcloudc,register)
     local random = math.random(1,999)
     local data = "deviceName"..iotcloudc.device_name.."productKey"..iotcloudc.product_id.."random"..random
-    local mqttClientId = iotcloudc.device_name.."|securemode="..(register and "-2" or "-2")..",authType="..(register and "register" or "regnwl")..",random="..random..",signmethod=hmacsha1" .. (iotcloudc.instance_id and (",instanceId="..iotcloudc.instance_id) or "").."|"
+    local mqttClientId = iotcloudc.device_name.."|securemode="..(register and "2" or "-2")..",authType="..(register and "register" or "regnwl")..",random="..random..",signmethod=hmacsha1" .. (iotcloudc.instance_id and (",instanceId="..iotcloudc.instance_id) or "").."|"
     local mqttUserName = iotcloudc.device_name.."&"..iotcloudc.product_id
     local mqttPassword = crypto.hmac_sha1(data,iotcloudc.product_secret):lower()
     -- print("iotcloud_aliyun_autoenrol",mqttClientId,mqttUserName,mqttPassword)

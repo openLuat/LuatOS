@@ -118,9 +118,10 @@ sys.taskInit(function()
 end)
 
 sys.subscribe("iotcloud", function(cloudc,event,data,payload)
+    -- 注意，此处不是携程内，复杂操作发消息给携程内进行处理
     if event == iotcloud.CONNECT then -- 云平台联上了
         print("iotcloud","CONNECT", "云平台连接成功")
-            -- iotcloud:subscribe("test") -- 定阅主题
+            -- cloudc:subscribe("test") -- 可以自由定阅主题等
     elseif event == iotcloud.RECEIVE then
             print("iotcloud","topic", data, "payload", payload)
             -- 用户处理代码

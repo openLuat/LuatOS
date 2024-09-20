@@ -951,5 +951,6 @@ typedef struct
 	uint16_t mnc;
 }luat_mobile_scell_extern_info_t;
 int luat_mobile_get_extern_service_cell_info(luat_mobile_scell_extern_info_t *info);
+void luat_mobile_vsim_user_heartbeat_once(void);
 /** @}*/
 #endif

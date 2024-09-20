@@ -629,7 +629,7 @@ function iotcloud.new(cloud,iot_config,connect_config)
         project_id = nil,                                   -- 华为云 API专用
         
     }, cloudc)
-    if fskv then fskv.init() else return false end
+    if fskv then fskv.init() else log.error("iotcloud","iotcloud need fskv",cloud) return false end
     if iot_config.produt_id then
         iotcloudc.product_id = iot_config.produt_id
     end

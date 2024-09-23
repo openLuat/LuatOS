@@ -5,7 +5,10 @@
 @version 1.0
 @date    2021.12.08
 @tag LUAT_USE_OTP
-@demo    otp
+@usage
+----------------------------
+--- 本库已经废弃, 不要使用 ---
+----------------------------
 */
 #include "luat_base.h"
 #include "luat_otp.h"

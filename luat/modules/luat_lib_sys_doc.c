@@ -4,7 +4,7 @@
 @version 1.0
 @date    2019.11.23
 @video https://www.bilibili.com/video/BV1194y1o7q2
-@tag LUAT_CONF_BSP
+@tag LUAT_USE_GPIO
 */
 
 /*

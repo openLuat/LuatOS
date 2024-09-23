@@ -3,7 +3,7 @@
 @summary io操作(扩展)
 @version 1.0
 @date    2020.07.03
-@tag LUAT_CONF_BSP
+@tag LUAT_USE_GPIO
 @demo    fs
 @usage
 -- io模块是lua原生模块,LuatOS增加了一些API

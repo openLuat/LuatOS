@@ -105,7 +105,10 @@ static lf_err_t little_flash_write_enabled(const little_flash_t *lf, uint8_t ena
     lf->spi.transfer(lf,enable?(uint8_t[]){LF_CMD_WRITE_ENABLE}:(uint8_t[]){LF_CMD_WRITE_DISABLE}, 1,LF_NULL,0);
 
     result = little_flash_wait_busy(lf,1);
-    if (result) return result;
+    if (result) {
+        LF_ERROR("Error: Write enabled timeout.");
+        return result;
+    }
 
     if (lf->chip_info.type==LF_DRIVER_NOR_FLASH){
         result |= little_flash_read_status(lf, 0, &status);
@@ -132,7 +135,7 @@ lf_err_t little_flash_init(void){
 }
 
 #ifdef LF_USE_SFDP
-lf_err_t little_flash_sfdp_read(const little_flash_t *lf, uint32_t offset, uint8_t *data, size_t size){
+static inline lf_err_t little_flash_sfdp_read(const little_flash_t *lf, uint32_t offset, uint8_t *data, size_t size){
     lf_err_t result = LF_ERR_OK;
     uint8_t cmd_data[]={LF_CMD_SFDP_REGISTER,(uint8_t)(offset>>16),(uint8_t)(offset>>8),(uint8_t)(offset),0XFF};
     result = lf->spi.transfer(lf,cmd_data, sizeof(cmd_data), data, size);
@@ -207,7 +210,7 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     //      [9] = 0x09    0x00    0x00    0x00
 
     memcpy(&sfdp.pt, parameter_table, sfdp.parameter_length*4);
-    LF_DEBUG("sfdp.pt Flash_Memory_Density 0x%08X",sfdp.pt.Flash_Memory_Density);
+    // LF_DEBUG("sfdp.pt Flash_Memory_Density 0x%08X",sfdp.pt.Flash_Memory_Density);
 
     if (sfdp.pt.Flash_Memory_Density & 0x80000000){
         lf->chip_info.capacity = sfdp.pt.Flash_Memory_Density;
@@ -238,12 +241,14 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
         lf->chip_info.addr_bytes |= LF_ADDR_BYTES_4;
     }
 
+    // LF_DEBUG("capacity: %d bytes",lf->chip_info.capacity);
+    // LF_DEBUG("erase_size: %d bytes",lf->chip_info.erase_size);
+    // LF_DEBUG("prog_size: %d bytes",lf->chip_info.prog_size);
 
-    // LF_DEBUG("capacity %d",lf->chip_info.capacity);
     // LF_DEBUG("erase_cmd 0x%02X",lf->chip_info.erase_cmd);
-    // LF_DEBUG("erase_size %d",lf->chip_info.erase_size);
-    // LF_DEBUG("prog_size %d",lf->chip_info.prog_size);
     // LF_DEBUG("addr_bytes 0x%02X",lf->chip_info.addr_bytes);
+
+    LF_DEBUG("Found a flash chip. Size is %d bytes.",lf->chip_info.capacity);
 
     return result;
 }
@@ -305,8 +310,11 @@ lf_err_t little_flash_deinit(void){
 static lf_err_t little_flash_cheak_erase(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     uint8_t status;
-    result |= little_flash_wait_busy(lf,2000);
-    if (result) return result;
+    result |= little_flash_wait_busy(lf,4000);
+    if (result) {
+        LF_ERROR("Error: Cheak erase timeout.");
+        return result;
+    }
     if(lf->chip_info.type==LF_DRIVER_NAND_FLASH){
         result |= little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
         if (result || (status&0x04)){
@@ -320,7 +328,10 @@ static lf_err_t little_flash_cheak_write(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     uint8_t status;
     result |= little_flash_wait_busy(lf,700);
-    if (result) return result;
+    if (result) {
+        LF_ERROR("Error: Cheak write timeout.");
+        return result;
+    }
     if(lf->chip_info.type==LF_DRIVER_NAND_FLASH){
         result |= little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
         if (result||(status&0x08)){
@@ -334,7 +345,10 @@ static lf_err_t little_flash_cheak_read(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     uint8_t status;
     result |= little_flash_wait_busy(lf,60);
-    if (result) return result;
+    if (result) {
+        LF_ERROR("Error: Cheak read timeout.");
+        return result;
+    }
     if(lf->chip_info.type==LF_DRIVER_NAND_FLASH){
         result |= little_flash_read_status(lf, LF_NANDFLASH_STATUS_REGISTER3, &status);
         // 以下也是要根据不同型号移植的
@@ -387,6 +401,7 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
     }
     return LF_ERR_OK;
 error:
+    LF_ERROR("Error: Chip erase failed.");
     little_flash_write_enabled(lf, LF_DISABLE);
     if (lf->unlock) {
         lf->unlock(lf);

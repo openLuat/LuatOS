@@ -1334,7 +1334,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 		prv_adapter_table[adapter_index].ctrl_busy = zalloc(info->max_socket_num);
 	}
 
-	prv_adapter_table[adapter_index].port = 60000;
+	prv_adapter_table[adapter_index].port = 0;
 	if (!prv_network.is_init)
 	{
 		//prv_network.network_mutex = platform_create_mutex();
@@ -1553,21 +1553,24 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	uint16_t local_port = ctrl->local_port;
 	if (!local_port)
 	{
-		if (ctrl->adapter_index >= NW_ADAPTER_INDEX_HW_PS_DEVICE)
+		local_port = ctrl->adapter_index;
+		local_port *= 1000;
+		uint32_t offset = ctrl - adapter->ctrl_table;
+		if (offset >= sizeof(network_ctrl_t))
 		{
-			adapter->port += 100;
-			local_port = adapter->port;
-			if (adapter->port < 60000)
-			{
-				adapter->port = 60000;
-			}
-			if (local_port < 60000)
-			{
-				local_port = 60000;
-			}
-			local_port += ctrl->socket_id;
-			DBG("%d,%d,%d", ctrl->socket_id, local_port, adapter->port);
+			offset /= sizeof(network_ctrl_t);
 		}
+		if (offset >= adapter->opt->max_socket_num)
+		{
+			offset = adapter->opt->max_socket_num;
+		}
+		adapter->port++;
+		if (adapter->port >= 50)
+		{
+			adapter->port = 0;
+		}
+		local_port += 50000 + adapter->port + offset * 50;
+		DBG("network %d local port auto select %u",offset, local_port);
 	}
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }

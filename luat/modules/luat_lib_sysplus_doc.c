@@ -3,7 +3,7 @@
 @summary sys库的强力补充
 @version 1.0
 @date    2022.11.23
-@tag LUAT_CONF_BSP
+@tag LUAT_USE_GPIO
 @usage
 -- 本库是sys库的补充, 添加了如下内容:
 -- 1. cwait机制

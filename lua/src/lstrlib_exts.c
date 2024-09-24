@@ -1,7 +1,7 @@
 /*
 @module  string
 @summary 字符串操作函数
-@tag LUAT_CONF_BSP
+@tag LUAT_USE_GPIO
 @demo    string
 */
 #include "luat_base.h"

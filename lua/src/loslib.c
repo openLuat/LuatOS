@@ -4,7 +4,7 @@
 @summary os操作
 @version 1.0
 @date    2020.07.03
-@tag LUAT_CONF_BSP
+@tag LUAT_USE_GPIO
 @demo    os_date_time
 @usage
 -- os模块是lua原生模块, 这份文档是为了方便阐述实际使用中的常见问题

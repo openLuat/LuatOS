@@ -36,6 +36,109 @@ static void str_tohex(const char* str, size_t str_len, char* hex,uint8_t upperca
     }
 }
 
+static const unsigned char base64_dec_map[128] =
+{
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    127, 127, 127,  62, 127, 127, 127,  63,  52,  53,
+     54,  55,  56,  57,  58,  59,  60,  61, 127, 127,
+    127,  64, 127, 127, 127,   0,   1,   2,   3,   4,
+      5,   6,   7,   8,   9,  10,  11,  12,  13,  14,
+     15,  16,  17,  18,  19,  20,  21,  22,  23,  24,
+     25, 127, 127, 127, 127, 127, 127,  26,  27,  28,
+     29,  30,  31,  32,  33,  34,  35,  36,  37,  38,
+     39,  40,  41,  42,  43,  44,  45,  46,  47,  48,
+     49,  50,  51, 127, 127, 127, 127, 127
+};
+
+static int str_base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
+                   const unsigned char *src, size_t slen )
+{
+    size_t i, n;
+    uint32_t j, x;
+    unsigned char *p;
+
+    /* First pass: check for validity and get output length */
+    for( i = n = j = 0; i < slen; i++ )
+    {
+        /* Skip spaces before checking for EOL */
+        x = 0;
+        while( i < slen && src[i] == ' ' )
+        {
+            ++i;
+            ++x;
+        }
+
+        /* Spaces at end of buffer are OK */
+        if( i == slen )
+            break;
+
+        if( ( slen - i ) >= 2 &&
+            src[i] == '\r' && src[i + 1] == '\n' )
+            continue;
+
+        if( src[i] == '\n' )
+            continue;
+
+        /* Space inside a line is an error */
+        if( x != 0 )
+            return( -2 );
+
+        if( src[i] == '=' && ++j > 2 )
+            return( -2 );
+
+        if( src[i] > 127 || base64_dec_map[src[i]] == 127 )
+            return( -2 );
+
+        if( base64_dec_map[src[i]] < 64 && j != 0 )
+            return( -2 );
+
+        n++;
+    }
+
+    if( n == 0 )
+    {
+        *olen = 0;
+        return( 0 );
+    }
+
+    /* The following expression is to calculate the following formula without
+     * risk of integer overflow in n:
+     *     n = ( ( n * 6 ) + 7 ) >> 3;
+     */
+    n = ( 6 * ( n >> 3 ) ) + ( ( 6 * ( n & 0x7 ) + 7 ) >> 3 );
+    n -= j;
+
+    if( dst == NULL || dlen < n )
+    {
+        *olen = n;
+        return( -1 );
+    }
+
+   for( j = 3, n = x = 0, p = dst; i > 0; i--, src++ )
+   {
+        if( *src == '\r' || *src == '\n' || *src == ' ' )
+            continue;
+
+        j -= ( base64_dec_map[*src] == 64 );
+        x  = ( x << 6 ) | ( base64_dec_map[*src] & 0x3F );
+
+        if( ++n == 4 )
+        {
+            n = 0;
+            if( j > 0 ) *p++ = (unsigned char)( x >> 16 );
+            if( j > 1 ) *p++ = (unsigned char)( x >>  8 );
+            if( j > 2 ) *p++ = (unsigned char)( x       );
+        }
+    }
+
+    *olen = p - dst;
+
+    return( 0 );
+}
+
 int luat_aliyun_token(iotauth_ctx_t* ctx,const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,uint8_t is_tls){
     char deviceId[64] = {0};
     char macSrc[200] = {0};
@@ -168,7 +271,7 @@ int luat_onenet_token(iotauth_ctx_t* ctx,const iotauth_onenet_t* onenet) {
         sprintf_(sign.res,"products/%s/devices/%s", onenet->product_id, onenet->device_name);
     }
     
-    luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )onenet->device_secret, strlen((char*)onenet->device_secret));
+    str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )onenet->device_secret, strlen((char*)onenet->device_secret));
     sprintf_(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
     if (!strcmp("md5", onenet->method)||!strcmp("MD5", onenet->method)) {
         luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
@@ -224,7 +327,7 @@ int luat_qcloud_token(iotauth_ctx_t* ctx,const char* product_id,const char* devi
     char  username_sign[41] = {0};
     char  psk_base64decode[DECODE_PSK_LENGTH] = {0};
     size_t psk_base64decode_len = 0;
-    luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
+    str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
     snprintf_(ctx->client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
     snprintf_(ctx->user_name, USER_NAME_LEN,"%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);

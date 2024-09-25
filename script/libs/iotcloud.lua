@@ -477,9 +477,7 @@ local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
     iotcloudc.ip = 8883
     iotcloudc.isssl = true
 
-    if iot_config.host then
-        iotcloudc.host = iot_config.host
-    else
+    if connect_config.host == nil then
         if iotcloudc.endpoint then
             iotcloudc.host = iotcloudc.endpoint..".iotda-device."..iotcloudc.region..".myhuaweicloud.com"
         else
@@ -673,7 +671,7 @@ function iotcloud.new(cloud,iot_config,connect_config)
     elseif iotcloudc.isssl then
         mqtt_ssl = iotcloudc.isssl
     end
-    iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, mqtt_ssl)
+    iotcloudc.mqttc = mqtt.create(nil, connect_config.host or iotcloudc.host, connect_config.ip or iotcloudc.ip, connect_config.tls or mqtt_ssl)
     -- iotcloudc.mqttc:debug(true)
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     iotcloudc.mqttc:keepalive(connect_config.keepalive or 240)

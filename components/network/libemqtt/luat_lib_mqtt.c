@@ -65,6 +65,23 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_mqtt_ping(mqtt_ctrl);
 			break;
 		}
+		case MQTT_MSG_PINGRESP : {
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "pong");
+					lua_call(L, 2, 0);
+				}
+				lua_getglobal(L, "sys_pub");
+				if (lua_isfunction(L, -1)) {
+					lua_pushstring(L, "MQTT_PONG");
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_call(L, 2, 0);
+				}
+            }
+			break;
+		}
 		case MQTT_MSG_RECONNECT : {
 			luat_mqtt_reconnect(mqtt_ctrl);
 			break;

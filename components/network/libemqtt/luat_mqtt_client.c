@@ -381,6 +381,8 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         }
         case MQTT_MSG_PINGRESP : {
 			LLOGD("MQTT_MSG_PINGRESP");
+			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PINGRESP, msg_id);
             break;
         }
 		case MQTT_MSG_DISCONNECT : {

@@ -568,6 +568,7 @@ log.info("cell", json.encode(mobile.scell()))
     "rsrp": -107,
     "tac": 30005,
     "eci": 124045360,
+    "cid": 124045360,
     "rsrq": -9,
     "snr": 15,
     "earfcn": 1850
@@ -598,7 +599,10 @@ static int l_mobile_scell_extern_info(lua_State* L) {
     luat_mobile_get_service_cell_identifier(&eci);
     lua_pushinteger(L, eci);
     lua_setfield(L, -2, "eci");
-    
+
+    lua_pushinteger(L, eci);
+    lua_setfield(L, -2, "cid");
+
     luat_mobile_get_service_tac_or_lac(&tac);
     lua_pushinteger(L, tac);
     lua_setfield(L, -2, "tac");

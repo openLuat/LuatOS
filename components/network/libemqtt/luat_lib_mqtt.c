@@ -65,6 +65,23 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_mqtt_ping(mqtt_ctrl);
 			break;
 		}
+		case MQTT_MSG_PINGRESP : {
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "pong");
+					lua_call(L, 2, 0);
+				}
+				lua_getglobal(L, "sys_pub");
+				if (lua_isfunction(L, -1)) {
+					lua_pushstring(L, "MQTT_PONG");
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_call(L, 2, 0);
+				}
+            }
+			break;
+		}
 		case MQTT_MSG_RECONNECT : {
 			luat_mqtt_reconnect(mqtt_ctrl);
 			break;
@@ -481,6 +498,7 @@ event可能出现的值有
 			 -- dup 取值范围 0,1
   sent   -- 发送完成, qos0会马上通知, qos1/qos2会在服务器应答会回调, data为消息id
   disconnect -- 服务器断开连接,网络问题或服务器踢了客户端,例如clientId重复,超时未上报业务数据
+  pong   -- 收到服务器心跳应答,没有附加数据
 ]]
 */
 static int l_mqtt_on(lua_State *L) {

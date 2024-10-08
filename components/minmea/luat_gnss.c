@@ -31,7 +31,18 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         luat_libgnss_on_rawdata(libgnss_recvbuff, len, 0);
         libgnss_recvbuff[len] = 0;
         if (gnss_debug) {
-            LLOGD(">> %s", libgnss_recvbuff);
+            if (len > 1000) {
+                char *crlf = strstr(&libgnss_recvbuff[900], "\r\n");
+                if (crlf != NULL) {
+                    LLOGD(">> %.*s", (int)(crlf - libgnss_recvbuff), libgnss_recvbuff);
+                    LLOGD(">> %s", crlf);
+                } else {
+                    LLOGD(">> %.*s", 1000, libgnss_recvbuff);
+                    LLOGD(">> %s", &libgnss_recvbuff[1000]);
+                }
+	        } else {
+		        LLOGD(">> %s", libgnss_recvbuff);
+	        }
         }
         luat_libgnss_parse_data(libgnss_recvbuff, len);
     }

@@ -22,11 +22,11 @@
 
 #ifdef __LUATOS__
 #define malloc 	luat_heap_malloc
-#define free 	luat_heap_free
 #define zalloc	luat_heap_zalloc
 #else
 #define zalloc(x)	calloc(1, x)
 #endif
+#define free 	luat_heap_free
 #define msleep	luat_rtos_task_sleep
 
 #define OS_LOCK	luat_task_suspend_all()

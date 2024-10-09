@@ -166,5 +166,15 @@ int32_t luat_get_wifiscan_cell_info(luat_wifiscan_set_info_t * set_info,luat_wif
  * @return int =0成功，其他失败
  */
 int luat_wlan_scan_nonblock(luat_wifiscan_set_info_t * set_info);
+
+/**
+ * @brief 设置wifiscan的参数
+ * @param proi 扫描优先级，0低于数据传输 1高于数据传输
+ * @param rounds 扫描轮数，至少1轮
+ * @param one_round_timeout	1轮扫描的时间，单位秒，至少5秒
+ * @param total_timeout	全局超时，单位秒
+ * @return int =0成功，其他失败
+ */
+int luat_wlan_scan_set_param(uint8_t proi, uint8_t rounds, uint8_t one_round_timeout, uint8_t total_timeout);
 /** @}*/
 #endif

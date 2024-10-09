@@ -25,6 +25,10 @@
 #include "luat_wdt.h"
 #endif
 
+#ifdef LUAT_USE_HMETA
+#include "luat_hmeta.h"
+#endif
+
 static int report (lua_State *L, int status);
 
 lua_State *L;
@@ -188,11 +192,19 @@ int luat_main (void) {
   if (boot_mode == 0) {
     return 0; // just nop
   }
+  char model[32] = {0};
+  #ifdef LUAT_USE_HMETA
+  luat_hmeta_model_name(model);
+  #endif
+  if (model[0] == 0) {
+    char* tmp = luat_os_bsp();
+    memcpy(model, tmp, strlen(tmp));
+  }
   #ifdef LUAT_BSP_VERSION
   #ifdef LUAT_CONF_VM_64bit
-  LLOGI("LuatOS@%s base %s bsp %s 64bit", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  LLOGI("LuatOS@%s base %s bsp %s 64bit", model, LUAT_VERSION, LUAT_BSP_VERSION);
   #else
-  LLOGI("LuatOS@%s base %s bsp %s 32bit", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  LLOGI("LuatOS@%s base %s bsp %s 32bit", model, LUAT_VERSION, LUAT_BSP_VERSION);
   #endif
   /// 支持时间无关的编译, 符合幂等性
   #ifdef LUAT_BUILD_FINGER
@@ -205,9 +217,9 @@ int luat_main (void) {
   // #endif
   #else
   #ifdef LUAT_CONF_VM_64bit
-  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 64bit", luat_os_bsp(), LUAT_VERSION);
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 64bit", model, LUAT_VERSION);
   #else
-  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 32bit", luat_os_bsp(), LUAT_VERSION);
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 32bit", model, LUAT_VERSION);
   #endif
   #if LUAT_VERSION_BETA
   LLOGD("This is a beta version, for testing");

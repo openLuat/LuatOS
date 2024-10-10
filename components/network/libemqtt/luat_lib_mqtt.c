@@ -7,7 +7,7 @@
 @tag LUAT_USE_NETWORK
 @usage
 -- 具体用法请查看demo
--- 本库支持的 mqtt 3.1.1, 其他版本例如3.1 或 5 是不支持的
+-- 本库只支持 mqtt 3.1.1, 其他版本例如3.1 或 5 均不支持!!!
 -- 只支持纯MQTT/MQTTS通信, 不支持 mqtt over websocket
 
 -- 几个大前提:

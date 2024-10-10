@@ -1050,7 +1050,7 @@ static int l_mobile_nst_data_input(lua_State* L) {
 }
 
 /**
-初始化内置默认虚拟卡功能，2024年8月13日启用，需要固件支持
+初始化内置默认虚拟卡功能(不可用)
 @api mobile.vsimInit()
 @return nil 无返回值
 @usage

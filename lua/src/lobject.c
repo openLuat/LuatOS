@@ -292,9 +292,13 @@ static const char *l_str2d (const char *s, lua_Number *result) {
   return endptr;
 }
 
-
+#ifdef __USER_CODE__
+#define MAXBY10		cast(lua_Unsigned, 0xffffffff / 10)
+#define MAXLASTD	cast_int(0xffffffff % 10)
+#else
 #define MAXBY10		cast(lua_Unsigned, LUA_MAXINTEGER / 10)
 #define MAXLASTD	cast_int(LUA_MAXINTEGER % 10)
+#endif
 
 static const char *l_str2int (const char *s, lua_Integer *result) {
   lua_Unsigned a = 0;

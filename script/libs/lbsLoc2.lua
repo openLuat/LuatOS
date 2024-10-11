@@ -150,12 +150,25 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     socket.config(sc, nil, true)
     local rxbuff = zbuff.create(64)
     for k, rhost in pairs(hosts) do
-        local cells = mobile.getCellInfo()
-        if cells == nil or #cells == 0 then
-            socket.release(sc)
-            return
+        local reqStr = string.char(0, (reqTime and 4 or 0) +8) .. lbsLoc2.imei
+        local tmp = nil
+        if mobile.scell then
+            local scell = mobile.scell()
+            if scell and scell.mcc then
+                -- log.debug("lbsLoc2", "使用当前驻网基站的信息")
+                tmp = pack.pack(">bHHbbi", 1, scell.tac, scell.mcc, scell.mnc, 31, scell.eci)
+            end
         end
-        local reqStr = string.char(0, (reqTime and 4 or 0) +8) .. lbsLoc2.imei .. enCellInfo(cells)
+        if tmp == nil then
+            local cells = mobile.getCellInfo()
+            if cells == nil or #cells == 0 then
+                socket.release(sc)
+                return
+            end
+            reqStr = reqStr .. enCellInfo(cells)
+        else
+            reqStr = reqStr .. tmp
+        end
         -- log.debug("lbsLoc2", "待发送数据", (reqStr:toHex()))
         log.debug("lbsLoc2", rhost, port)
         if socket.connect(sc, rhost, port) and sys.waitUntil("LBS_CONACK", 1000) then

@@ -1,8 +1,8 @@
 --[[
 @module iotcloud
 @summary iotcloud 云平台库 (已支持: 腾讯云 阿里云 onenet 华为云 涂鸦云 百度云 Tlink云 其他也会支持,有用到的提issue会加速支持)  
-@version 2.0
-@date    2024.09.20
+@version 2.1
+@date    2024.10.14
 @author  Dozingfiretruck
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
@@ -22,8 +22,8 @@
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
     -- 一机一密(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})                    -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",key = "xxx"})-- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
 
 
     -- ONENET云
@@ -355,7 +355,8 @@ local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
         end
         iotcloudc.ip = 1883
     else                                                    -- 否则为非动态注册(一机一密)
-        if iot_config.device_secret then                    -- 密钥认证
+        if iot_config.device_secret or iot_config.key then                    -- 密钥认证
+            iot_config.device_secret = iot_config.device_secret or iot_config.key
             iotcloudc.ip = 1883
             iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.product_id,iotcloudc.device_name,iot_config.device_secret,iot_config.method)
         -- elseif connect_config.tls then                   -- 证书认证
@@ -440,6 +441,7 @@ local function iotcloud_huawei_autoenrol(iotcloudc)
             {["Content-Type"]="application/json;charset=UTF-8"},
             "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"},\"name\":\""..iotcloudc.iam_username.."\",\"password\":\""..iotcloudc.iam_password.."\"}}},\"scope\":{\"project\":{\"name\":\""..iotcloudc.region.."\"}}}}"
     ).wait()
+    -- print("iotcloud_huawei_autoenrol token_code", token_code, token_headers, token_body)
     if token_code ~= 201 then
         log.error("iotcloud_huawei_autoenrol",token_body)
         return false
@@ -574,8 +576,8 @@ end
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
     -- 一机一密 (预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})                    -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",key = "xxx"})-- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
 
     -- ONENET云
     -- 动态注册

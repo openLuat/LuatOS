@@ -598,7 +598,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	if (!http_ctrl->luatos_mode) {
 	    if (HTTP_STATE_IDLE == http_ctrl->state)
 	    {
-	        LLOGD("http state error %d", http_ctrl->state);
+	        LLOGE("http state error %d", http_ctrl->state);
 	        return 0;
 	    }
 	}
@@ -782,7 +782,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 
     ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){
-		LLOGD("network_wait_event %d", ret);
+		LLOGE("network_wait_event %d", ret);
 		if (http_ctrl->luatos_mode) {
 			http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		} else {
@@ -806,7 +806,7 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	if (!http_ctrl->timeout_timer)
 	{
 		luat_heap_free(http_ctrl);
-		LLOGD("no more timer");
+		LLOGE("no more timer");
 		return NULL;
 	}
 
@@ -822,7 +822,7 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	{
 		luat_release_rtos_timer(http_ctrl->timeout_timer);
 		luat_heap_free(http_ctrl);
-		LLOGD("no more network ctrl");
+		LLOGE("no more network ctrl");
 		return NULL;
 	}
 
@@ -845,7 +845,7 @@ int luat_http_client_base_config(luat_http_ctrl_t* http_ctrl, uint32_t timeout, 
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
 	{
-		LLOGD("http running, please stop and set");
+		LLOGE("http running, please stop and set");
 		return -ERROR_PERMISSION_DENIED;
 	}
 	http_ctrl->timeout = timeout;
@@ -863,7 +863,7 @@ int luat_http_client_ssl_config(luat_http_ctrl_t* http_ctrl, int mode, const cha
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
 	{
-		LLOGD("http running, please stop and set");
+		LLOGE("http running, please stop and set");
 		return -ERROR_PERMISSION_DENIED;
 	}
 
@@ -914,7 +914,7 @@ int luat_http_client_set_user_head(luat_http_ctrl_t *http_ctrl, const char *name
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
 	{
-		LLOGD("http running, please stop and set");
+		LLOGE("http running, please stop and set");
 		return -ERROR_PERMISSION_DENIED;
 	}
 
@@ -980,7 +980,7 @@ int luat_http_client_set_get_offset(luat_http_ctrl_t *http_ctrl, uint32_t offset
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
 	{
-		LLOGD("http running, stop and set!");
+		LLOGE("http running, stop and set!");
 		return -ERROR_PERMISSION_DENIED;
 	}
 	http_ctrl->offset = offset;
@@ -992,7 +992,7 @@ int luat_http_client_pause(luat_http_ctrl_t *http_ctrl, uint8_t is_pause)
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state != HTTP_STATE_GET_BODY)
 	{
-		LLOGD("http not recv body data, no use!");
+		LLOGE("http not recv body data, no use!");
 		return -ERROR_PERMISSION_DENIED;
 	}
 	LLOGD("http pause state %d!", is_pause);
@@ -1033,7 +1033,7 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
 	{
-		LLOGD("http running, please stop and start");
+		LLOGE("http running, please stop and start");
 		return -ERROR_PERMISSION_DENIED;
 	}
 	switch(type)

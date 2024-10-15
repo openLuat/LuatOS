@@ -79,8 +79,8 @@ sys.taskInit(function()
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
     -- 密钥校验 (预注册)(一机一密)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})                    -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",key = "xxx"})-- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
 
     -- ONENET云
     -- 动态注册
@@ -111,10 +111,10 @@ sys.taskInit(function()
 
     if iotcloudc then
         iotcloudc:connect()
+    else
+        log.error("iotcloud", "创建失败, 请检查参数")
     end
-
-
-
+    
 end)
 
 sys.subscribe("iotcloud", function(cloudc,event,data,payload)

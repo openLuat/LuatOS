@@ -41,11 +41,12 @@
     -- 手动注册(预注册)
     -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
 
-    -- -- 涂鸦云 
+    -- 涂鸦云 
     -- iotcloudc = iotcloud.new(iotcloud.TUYA,{device_name = "xxx",device_secret = "xxx"})
 
     -- 百度云 
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
 
     -- Tlink云  
     -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"})
@@ -526,10 +527,15 @@ local function iotcloud_baidu_config(iotcloudc,iot_config,connect_config)
     iotcloudc.region = iot_config.region or "gz"
     iotcloudc.host = iotcloudc.product_id..".iot."..iotcloudc.region..".baidubce.com"
     iotcloudc.ip = 1883
-    -- iotcloudc.isssl = true
     iotcloudc.device_secret = iot_config.device_secret
     if iotcloudc.device_secret then
         iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.baidu(iotcloudc.product_id,iotcloudc.device_name,iotcloudc.device_secret)
+    elseif connect_config.tls then
+        iotcloudc.ip = 1884
+        iotcloudc.isssl = true
+        iotcloudc.client_id=""
+        iotcloudc.user_name=""
+        iotcloudc.password=""
     else
         return false
     end
@@ -594,11 +600,12 @@ end
     -- 密钥校验 (预注册)
     -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
 
-    -- -- 涂鸦云 
+    -- 涂鸦云 
     -- iotcloudc = iotcloud.new(iotcloud.TUYA,{device_name = "xxx",device_secret = "xxx"})
 
     -- 百度云 
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
 
     -- Tlink云  
     -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"})
@@ -668,13 +675,16 @@ function iotcloud.new(cloud,iot_config,connect_config)
     -- print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip,iotcloudc.isssl)
     -- print("iotauth.auth",iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     if iotcloudc.ca_file then
-        iotcloudc.ca_file.verify = 1  
+        iotcloudc.ca_file.verify = 1
         mqtt_ssl = iotcloudc.ca_file
     elseif iotcloudc.isssl then
         mqtt_ssl = iotcloudc.isssl
     end
     iotcloudc.mqttc = mqtt.create(nil, connect_config.host or iotcloudc.host, connect_config.ip or iotcloudc.ip, connect_config.tls or mqtt_ssl)
+    if not iotcloudc.mqttc then return false end
+
     -- iotcloudc.mqttc:debug(true)
+
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     iotcloudc.mqttc:keepalive(connect_config.keepalive or 240)
     iotcloudc.mqttc:autoreconn(connect_config.autoreconn and true, (type(connect_config.autoreconn) == "number") or connect_config.autoreconn)-- 自动重连机制

@@ -97,11 +97,12 @@ sys.taskInit(function()
     -- 密钥校验 (预注册)
     -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
 
-    -- -- 涂鸦云 
+    -- 涂鸦云 
     -- iotcloudc = iotcloud.new(iotcloud.TUYA,{device_name = "xxx",device_secret = "xxx"})
 
     -- 百度云 
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
 
     -- Tlink云  
     -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"})

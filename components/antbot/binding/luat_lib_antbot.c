@@ -135,13 +135,11 @@ static int luat_bot_data_publish(lua_State *L)
 {
     int ret = -1;
     uint8_t *data;
-    size_t data_len;
-    int len;
+    size_t data_len = 0;
 
     data = luaL_checklstring(L, 1, &data_len);
     ret = bot_data_publish(data, data_len);
 
-exit:
     lua_pushinteger(L, ret);
     return 1;
 }
@@ -163,7 +161,7 @@ static int luat_bot_device_status_get(lua_State *L)
 @string asset_id 资源ID
 @return int 资源状态
 */
-static luat_bot_asset_status_get(lua_State *L)
+static int luat_bot_asset_status_get(lua_State *L)
 {
     int ret = -1;
     if (!lua_isstring(L, 1)) {

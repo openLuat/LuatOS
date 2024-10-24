@@ -186,7 +186,7 @@ exit:
 @int 0 - 关闭, 1 - 开启
 @return int 0:成功 其他值为失败
 */
-static luat_bot_channel_switch(lua_State *L)
+static int luat_bot_channel_switch(lua_State *L)
 {
     int ret = -1;
     if (!lua_isinteger(L, 1)) {
@@ -209,7 +209,7 @@ exit:
 @string config 配置内容
 @return int 0:成功 其他值为失败
 */
-static luat_bot_config_set(lua_State *L)
+static int luat_bot_config_set(lua_State *L)
 {
     int ret = -1;
     if (!lua_isstring(L, 1)) {
@@ -231,7 +231,7 @@ exit:
 @api antbot.config_get()
 @return string 配置内容
 */
-static luat_bot_config_get(lua_State *L)
+static int luat_bot_config_get(lua_State *L)
 {
     int ret = -1;
 
@@ -263,7 +263,7 @@ exit:
     return 1;
 }
 
-static luat_bot_data_pac(lua_State *L)
+static int luat_bot_data_pac(lua_State *L)
 {
     int ret = -1;
     int num_args = lua_gettop(L);

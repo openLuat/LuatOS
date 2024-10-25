@@ -16,7 +16,7 @@ typedef struct luat_spi
     int  master;        /**< 设置主从模式   可选  1：主机，  0：从机     */  
     int  mode;          /**< 设置全\半双工  可选  1：全双工，0：半双工    */  
     int bandrate;       /**< 频率           最小100000， 最大25600000*/  
-    int cs;             /**< cs控制引脚     SPI0的片选为GPIO8, 当配置为8时，表示启用SPI0自带片选；其他配置时，需要自行编码控制片选*/  
+    int cs;             /**< cs控制引脚     如果和硬件cs脚一致，则启用硬件cs功能，反之需要用户自行初始化成gpio功能来控制*/
 } luat_spi_t;
 
 typedef struct luat_spi_device
@@ -36,6 +36,8 @@ typedef struct luat_fatfs_spi
     uint8_t transfer_buf[7];
 	luat_spi_device_t * spi_device;
 }luat_fatfs_spi_t;
+
+typedef int (*luat_spi_irq_callback_t)(int spi_id, void *user_data);
 
 /**
     spiId,--串口id
@@ -120,6 +122,39 @@ int luat_spi_change_speed(int spi_id, uint32_t speed);
  * @return int 返回发送字节数
  */
 int luat_spi_no_block_transfer(int spi_id, uint8_t *tx_buff, uint8_t *rx_buff, size_t len, void *CB, void *pParam);
+/**
+ * @brief 设置从机SPI接收buf满回调函数，制定好SPI协议，尽量不要触发接收BUF满的中断
+ *
+ * @param spi_id spi id
+ * @param callback 回调函数
+ * @param user_data 用户数据
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_set_slave_callback(int spi_id, luat_spi_irq_callback_t callback, void *user_data);
+/**
+ * @brief 收发从机SPI数据
+ *
+ * @param spi_id spi id
+ * @param send_buf 发送数据
+ * @param recv_buf 接收数据
+ * @param recv_length 总缓冲区长度，不能大于8188
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_slave_transfer(int spi_id, const char* send_buf,  char* recv_buf, size_t total_length);
+/**
+ * @brief 从机SPI暂停工作，并返回已经接收的数据长度，不允许进入休眠状态
+ *
+ * @param spi_id spi id
+ * @return int 成功返回本次接收长度，其他-1
+ */
+int luat_spi_slave_transfer_pause_and_read_data(int spi_id);
+/**
+ * @brief 从机SPI停止工作，并允许进入休眠状态
+ *
+ * @param spi_id spi id
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_slave_transfer_stop(int spi_id);
 /**
  * @brief SPI模式获取
  * 

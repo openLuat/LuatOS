@@ -149,6 +149,13 @@ int luat_spi_slave_transfer(int spi_id, const char* send_buf,  char* recv_buf, s
  */
 int luat_spi_slave_transfer_pause_and_read_data(int spi_id);
 /**
+ * @brief 从机SPI暂停工作，不允许进入休眠状态，在irq中使用
+ *
+ * @param spi_id spi id
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_slave_transfer_pause_in_irq(int spi_id);
+/**
  * @brief 从机SPI停止工作，并允许进入休眠状态
  *
  * @param spi_id spi id

@@ -1,4 +1,31 @@
+--[[
+@module airlbs
+@summary airlbs 定位服务(收费服务，需自行联系销售申请)
+@version 1.0
+@date    2024.11.01
+@author  Dozingfiretruck
+@usage
+--注意:因使用了sys.wait()所有api需要在协程中使用
+--注意:使用前需同步时间
+-- 用法实例
+local airlbs = require "airlbs"
 
+sys.taskInit(function()
+    sys.waitUntil("IP_READY")
+
+    socket.sntp()
+    sys.waitUntil("NTP_UPDATE", 1000)
+
+    while 1 do
+        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',timeout = 1000})
+        if result then
+            print("airlbs", json.encode(data))
+        end
+        sys.wait(20000)
+    end
+
+end)
+]]
 
 sys = require("sys")
 sysplus = require("sysplus")
@@ -67,6 +94,18 @@ local function netCB(msg)
 	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
+--[[
+获取定位数据
+@api airlbs.request(param)
+@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 timeout:超时时间
+@return bool 成功返回true,失败会返回false
+@return table 定位成功生效，成功返回定位数据
+@usage
+local result , data = airlbs.request({project_id = airlbs_project_id,project_key = airlbs_project_key})
+if result then
+    print("airlbs", json.encode(data))
+end
+]]
 function airlbs.request(param)
     if not mobile then 
         log.error(lib_name,"no mobile")
@@ -131,7 +170,7 @@ function airlbs.request(param)
                 log.error(lib_name,"no location")
                 return false
             elseif data.result == 1 then
-                return true,{lon = data.lon,lat = data.lat}
+                return true,{lng = data.lng,lat = data.lat}
             elseif data.result == 2 then
                 log.error(lib_name,"qps limit")
                 return false

@@ -1,4 +1,31 @@
+--[[
+@module airlbs
+@summary airlbs 定位服务(收费服务，需自行联系销售申请)
+@version 1.0
+@date    2024.11.01
+@author  Dozingfiretruck
+@usage
+--注意:因使用了sys.wait()所有api需要在协程中使用
+--注意:使用前需同步时间
+-- 用法实例
+local airlbs = require "airlbs"
 
+sys.taskInit(function()
+    sys.waitUntil("IP_READY")
+
+    socket.sntp()
+    sys.waitUntil("NTP_UPDATE", 1000)
+
+    while 1 do
+        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',timeout = 1000})
+        if result then
+            print("airlbs", json.encode(data))
+        end
+        sys.wait(20000)
+    end
+
+end)
+]]
 
 sys = require("sys")
 sysplus = require("sysplus")
@@ -13,6 +40,7 @@ local lib_topic = lib_name.."topic"
 
 local location_data = 0
 local disconnect = -1
+local airlbs_timeout = 15000
 
 local airlbs ={}
 
@@ -41,13 +69,14 @@ local function airlbs_task(task_name, buff, timeout)
             break
         end
         if buff:used() > 0 then
+            local location = nil
             local data = buff:query(0,1) -- 获取数据
             if data:toHex() == '00' then
-                local location = json.decode(buff:query(1))
-                sys.publish(lib_topic, location_data, location)
+                location = json.decode(buff:query(1))
             else
                 log.error(lib_name,"not json data")
             end
+            sys.publish(lib_topic, location_data, location)
             buff:del()
             break
         end
@@ -67,6 +96,18 @@ local function netCB(msg)
 	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
+--[[
+获取定位数据
+@api airlbs.request(param)
+@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 timeout:超时时间,单位毫秒 默认15000
+@return bool 成功返回true,失败会返回false
+@return table 定位成功生效，成功返回定位数据
+@usage
+local result , data = airlbs.request({project_id = airlbs_project_id,project_key = airlbs_project_key})
+if result then
+    print("airlbs", json.encode(data))
+end
+]]
 function airlbs.request(param)
     if not mobile then 
         log.error(lib_name,"no mobile")
@@ -97,7 +138,7 @@ function airlbs.request(param)
     -- log.debug(lib_name,"hmac_sha1", hmac_data)
 
     mobile.reqCellInfo(60)
-    sys.waitUntil("CELL_INFO_UPDATE", param.timeout or 15000)
+    sys.waitUntil("CELL_INFO_UPDATE", param.timeout or airlbs_timeout)
     -- log.info("cell", json.encode(mobile.getCellInfo()))
 
     local lbs_data = {cells={}}
@@ -118,20 +159,23 @@ function airlbs.request(param)
 
     udp_buff:write(string.char(auth_type) .. project_id .. imei .. muid .. timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
 
-    sysplus.taskInitEx(airlbs_task, lib_name, netCB, lib_name, udp_buff, param.timeout or 15000)
+    sysplus.taskInitEx(airlbs_task, lib_name, netCB, lib_name, udp_buff, param.timeout or airlbs_timeout)
 
     while 1 do
-        local result, tp, data = sys.waitUntil(lib_topic, param.timeout or 15000)
+        local result, tp, data = sys.waitUntil(lib_topic, param.timeout or airlbs_timeout)
         log.info("event", result, tp, data)
         if not result then
             return false,"timeout"
         elseif tp == location_data then
+            if not data then
+                log.error(lib_name,"no data, please check project_id and key")
+                return false
             -- data.result 0-找不到 1-成功 2-qps超限 3-欠费? 4-其他错误 
-            if data.result == 0 then
+            elseif data.result == 0 then
                 log.error(lib_name,"no location")
                 return false
             elseif data.result == 1 then
-                return true,{lon = data.lon,lat = data.lat}
+                return true,{lng = data.lng,lat = data.lat}
             elseif data.result == 2 then
                 log.error(lib_name,"qps limit")
                 return false
@@ -143,6 +187,7 @@ function airlbs.request(param)
                 return false
             end
         else
+            log.error(lib_name,"net error")
             return false
         end
     end

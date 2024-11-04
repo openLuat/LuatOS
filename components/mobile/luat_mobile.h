@@ -953,5 +953,6 @@ typedef struct
 int luat_mobile_get_extern_service_cell_info(luat_mobile_scell_extern_info_t *info);
 void luat_mobile_vsim_user_heartbeat_once(void);
 uint32_t luat_mobile_get_search_plmn(void);
+void luat_mobile_data_ip_mode(uint8_t on_off);
 /** @}*/
 #endif

@@ -1373,6 +1373,19 @@ end)
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
 //		LLOGD("CSCON %d", status);
+/*
+@sys_pub mobile
+RRC状态
+CSCON
+@usage
+-- state 1 CONNECT 0 IDLE
+sys.subscribe("CSCON", function(state)
+	log.info("mobile", "CSCON", state)
+end)
+*/
+		lua_pushstring(L, "CSCON");
+		lua_pushinteger(L, status);
+		lua_call(L, 2, 0);
 		break;
 	case LUAT_MOBILE_EVENT_BEARER:
 		LLOGD("bearer act %d, result %d",status, index);

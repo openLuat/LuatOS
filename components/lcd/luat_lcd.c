@@ -258,15 +258,19 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
         //LLOGD("luat_lcd_flush no need");
         return 0;
     }
-    uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
-    luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w - 1, conf->flush_y_max);
-    const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
-	if (conf->port == LUAT_LCD_SPI_DEVICE){
-		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), tmp, size);
-	}else{
-		luat_spi_send(conf->port, tmp, size);
-	}
-
+    if (conf->opts->lcd_draw) {
+    	//LLOGD("luat_lcd_flush user flush");
+    	conf->opts->lcd_draw(conf, 0, conf->flush_y_min, conf->w - 1, conf->flush_y_max, &conf->buff[conf->flush_y_min * conf->w]);
+    } else {
+        uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
+        luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w - 1, conf->flush_y_max);
+        const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
+    	if (conf->port == LUAT_LCD_SPI_DEVICE){
+    		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), tmp, size);
+    	}else{
+    		luat_spi_send(conf->port, tmp, size);
+    	}
+    }
     // 重置为不需要刷新的状态
     conf->flush_y_max = 0;
     conf->flush_y_min = conf->h;
@@ -283,20 +287,23 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
     if (y2 >= conf->h) {
         y2 = conf->h - 1;
     }
-    if (conf->opts->lcd_draw)
-    	return conf->opts->lcd_draw(conf, x1, y1, x2, y2, color);
+
     // 直接刷屏模式
     if (conf->buff == NULL) {
         // 常规数据, 整体传输
         if (x1 >= 0 && y1 >= 0 && x2 <= conf->w && y2 <= conf->h) {
-            uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
-            // LLOGD("draw %dx%d %dx%d %d", x1, y1, x2, y2, size);
-            luat_lcd_set_address(conf, x1, y1, x2, y2);
-	        if (conf->port == LUAT_LCD_SPI_DEVICE){
-		        luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size* sizeof(luat_color_t));
-	        }else{
-		        luat_spi_send(conf->port, (const char*)color, size * sizeof(luat_color_t));
-	        }
+            if (conf->opts->lcd_draw) {
+            	conf->opts->lcd_draw(conf, x1, y1, x2, y2, color);
+            } else {
+				uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
+				// LLOGD("draw %dx%d %dx%d %d", x1, y1, x2, y2, size);
+				luat_lcd_set_address(conf, x1, y1, x2, y2);
+				if (conf->port == LUAT_LCD_SPI_DEVICE){
+					luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size* sizeof(luat_color_t));
+				}else{
+					luat_spi_send(conf->port, (const char*)color, size * sizeof(luat_color_t));
+				}
+            }
         }
         // 超出边界的数据, 按行传输
         else {
@@ -322,13 +329,17 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
                     lsize -= (x2 - conf->w);
                     tmp_x2 = conf->w;
                 }
+                if (conf->opts->lcd_draw) {
+                    conf->opts->lcd_draw(conf, tmp_x1, i, tmp_x2, i, line);
+                } else {
                 // LLOGD("action draw %dx%d %dx%d %d", tmp_x1, i, tmp_x2, i, lsize);
-                luat_lcd_set_address(conf, tmp_x1, i, tmp_x2, i);
-	            if (conf->port == LUAT_LCD_SPI_DEVICE){
-		            luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)line, lsize * sizeof(luat_color_t));
-	            }else{
-		            luat_spi_send(conf->port, (const char*)line, lsize * sizeof(luat_color_t));
-	            }
+                	luat_lcd_set_address(conf, tmp_x1, i, tmp_x2, i);
+					if (conf->port == LUAT_LCD_SPI_DEVICE){
+						luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)line, lsize * sizeof(luat_color_t));
+					}else{
+						luat_spi_send(conf->port, (const char*)line, lsize * sizeof(luat_color_t));
+					}
+                }
                 ptr += line_size;
             }
             

@@ -148,6 +148,11 @@ local function do_agps()
             lat = tonumber(lat)
             lng = tonumber(lng)
             log.info("lbsLoc2", lat, lng)
+            -- 转换单位
+            local lat_dd,lat_mm = math.modf(lat)
+            local lng_dd,lng_mm = math.modf(lng)
+            lat = lat_dd * 100 + lat_mm * 60
+            lng = lng_dd * 100 + lng_mm * 60
         end
     elseif wlan then
         -- wlan.scan()

@@ -1161,6 +1161,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CONF_USB_ETHERNET",        ROREG_INT(MOBILE_CONF_USB_ETHERNET)},
 	//@const CONF_DISABLE_NCELL_MEAS number 关闭邻区测量 1关，0开，除了功耗测试外不建议使用
 	{"CONF_DISABLE_NCELL_MEAS",        ROREG_INT(MOBILE_CONF_DISABLE_NCELL_MEAS)},
+	//@const CONF_MAX_TX_POWER number 设置最大发射功率，0~23，必须在每次RRC=1时调用，RRC=0后会自动清除配置
+	{"CONF_MAX_TX_POWER",        ROREG_INT(MOBILE_CONF_MAX_TX_POWER)},
 	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",              ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	//@const PIN_CHANGE number 更换PIN码操作

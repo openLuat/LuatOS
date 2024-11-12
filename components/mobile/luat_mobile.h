@@ -955,5 +955,40 @@ int luat_mobile_get_extern_service_cell_info(luat_mobile_scell_extern_info_t *in
 void luat_mobile_vsim_user_heartbeat_once(void);
 uint32_t luat_mobile_get_search_plmn(void);
 void luat_mobile_data_ip_mode(uint8_t on_off);
+
+void luat_mobile_init_auto_apn_by_plmn(void);
+void luat_mobile_init_auto_apn(void);
+typedef struct
+{
+	char  *data;	//包含apn name,user,password信息
+	uint8_t ip_type;
+	uint8_t protocol;
+	uint8_t name_len;
+	uint8_t user_len;
+	uint8_t password_len;
+}apn_info_t;
+/**
+ * 添加一条APN信息到全球APN列表，列表每次重启后都需要重建
+ * @param mcc
+ * @param mnc
+ * @param ip_type 激活的IP类型，以下参数参考luat_mobile_user_apn_auto_active
+ * @param protocol
+ * @param name
+ * @param name_len
+ * @param user
+ * @param user_len
+ * @param password
+ * @param password_len
+ * @param task_safe 是否做task安全保护，如果只输入一条写1，如果输入N条，可在开始和结束自行进行保护处理，这里写0
+ */
+void luat_mobile_add_auto_apn_item(uint16_t mcc, uint16_t mnc, uint8_t ip_type, uint8_t protocol, char *name, uint8_t name_len, char *user, uint8_t user_len, char *password, uint8_t password_len, uint8_t task_safe);
+/**
+ * 通过MCC,MNC查询APN信息
+ * @param mcc
+ * @param mnc
+ * @param apn APN信息
+ * @return =0找到匹配的信息，其他未找到
+ */
+int luat_mobile_find_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc, apn_info_t *apn);
 /** @}*/
 #endif

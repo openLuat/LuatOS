@@ -1076,6 +1076,47 @@ static int l_mobile_vsim_onoff(lua_State* L) {
     }
     return 0;
 }
+/**
+初始化自定义APN列表，主要用于海外SIM卡
+@api mobile.apnTableInit()
+@return nil 无返回值
+@usage
+mobile.vsimInit()
+ */
+static int l_mobile_init_apn_table(lua_State* L) {
+	luat_mobile_init_auto_apn_by_plmn();
+    return 0;
+}
+/**
+往自定义APN列表添加一条APN信息，主要用于海外SIM卡
+@api mobile.apnTableAdd(mcc, mnc, ip_type, protocol, apn_name, user_name, password)
+@int MCC码,16进制BCD码
+@int MNC码,16进制BCD码
+@int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
+@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下。不需要鉴权的写0
+@string APN name,不能为空
+@string APN的username
+@string APN的password
+@return nil 无返回值
+@usage
+mobile.apnTableAdd(0x460,00,3,0,"cmiot","","") -- 单独添加一条APN信息，移动公网卡设置APN为cmiot,一般不用设置
+
+ */
+static int l_mobile_add_apn_table(lua_State* L) {
+
+	size_t name_len = 0;
+	size_t user_len = 0;
+	size_t password_len = 0;
+	uint16_t mcc = luaL_optinteger(L, 1, 0x460);
+	uint16_t mnc = luaL_optinteger(L, 2, 0);
+	uint8_t ip_type = luaL_optinteger(L, 3, 3);
+	uint8_t protocol = luaL_optinteger(L, 4, 3);
+	const char* name = luaL_checklstring(L, 5, &name_len);
+	const char* user = luaL_optlstring(L, 6, "", &user_len);
+	const char* password = luaL_optlstring(L, 7, "", &password_len);
+	luat_mobile_add_auto_apn_item(mcc, mnc, ip_type, protocol, name, name_len, user, user_len, password, password_len, 1);
+    return 0;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
@@ -1115,6 +1156,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	{"vsimInit",          ROREG_FUNC(l_mobile_init_vsim)},
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
+	{"apnTableInit",          ROREG_FUNC(l_mobile_init_apn_table)},
+	{"apnTableAdd",          ROREG_FUNC(l_mobile_add_apn_table)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

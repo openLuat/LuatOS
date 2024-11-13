@@ -1081,7 +1081,7 @@ static int l_mobile_vsim_onoff(lua_State* L) {
 @api mobile.apnTableInit()
 @return nil 无返回值
 @usage
-mobile.vsimInit()
+mobile.apnTableInit()
  */
 static int l_mobile_init_apn_table(lua_State* L) {
 	luat_mobile_init_auto_apn_by_plmn();
@@ -1099,7 +1099,8 @@ static int l_mobile_init_apn_table(lua_State* L) {
 @string APN的password
 @return nil 无返回值
 @usage
-mobile.apnTableAdd(0x460,00,3,0,"cmiot","","") -- 单独添加一条APN信息，移动公网卡设置APN为cmiot,一般不用设置
+mobile.apnTableInit() -- 先初始化，必须放在SIM卡识别完成前加入，最好就是写在开头
+mobile.apnTableAdd(0x460,0x00,3,0,"cmiot","","") -- 单独添加一条APN信息，必须放在SIM卡识别完成前加入，最好就是写在开头，移动公网卡设置APN为cmiot（一般不用设置，这里只是举个例子）
 
  */
 static int l_mobile_add_apn_table(lua_State* L) {

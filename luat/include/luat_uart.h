@@ -124,7 +124,9 @@ int luat_uart_exist(int uart_id);
 typedef enum LUAT_UART_CTRL_CMD
 {
     LUAT_UART_SET_RECV_CALLBACK,/**< 接收回调 */
-    LUAT_UART_SET_SENT_CALLBACK/**< 发送回调 */
+    LUAT_UART_SET_SENT_CALLBACK,/**< 发送回调 */
+	LUAT_UART_SET_RTS_STATE,/**< 设置RTS状态 */
+	LUAT_UART_GET_CTS_STATE,/**< 获取CTS状态 */
 }LUAT_UART_CTRL_CMD_E;
 
 /**
@@ -140,6 +142,12 @@ typedef void (*luat_uart_recv_callback_t)(int uart_id, uint32_t data_len);
 typedef void (*luat_uart_sent_callback_t)(int uart_id, void *param);
 
 /**
+ * @brief 发送回调函数
+ * @param state 1 cts拉高 0 cts拉低
+ */
+typedef void (*luat_uart_cts_callback_t)(int uart_id, uint32_t state);
+
+/**
  * @brief 串口控制参数
  * 
  */
@@ -147,6 +155,7 @@ typedef struct luat_uart_ctrl_param
 {
     luat_uart_recv_callback_t recv_callback_fun;/**< 接收回调函数 */
     luat_uart_sent_callback_t sent_callback_fun;/**< 发送回调函数 */
+    luat_uart_cts_callback_t  cts_callback_fun;/**< CTS状态变更回调函数 */
 }luat_uart_ctrl_param_t;
 
 /**
@@ -160,7 +169,26 @@ typedef struct luat_uart_ctrl_param
 int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
 
 /**
- * @brief 串口复用函数，目前支持UART0，UART2
+ * @brief 串口控制
+ *
+ * @param uart_id 串口id
+ * @param cmd 串口控制命令
+ * @param param 串口控制参数
+ * @return int
+ */
+int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
+
+/**
+ * @brief 开关串口硬件流控,Air780E暂不支持
+ *
+ * @param uart_id 串口id
+ * @param cts_callback_fun CTS状态回调函数，如果设置为NULL，则关闭硬件流控功能
+ * @return int < 0失败
+ */
+int luat_uart_setup_flow_ctrl(int uart_id, luat_uart_cts_callback_t  cts_callback_fun);
+
+/**
+ * @brief 串口复用函数，目前支持UART0，UART2，仅适用于Air780E
  *
  * @param uart_id 串口id
  * @param use_alt_type 如果为1，UART0，复用到GPIO16,GPIO17;UART2复用到GPIO12 GPIO13

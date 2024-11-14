@@ -103,16 +103,16 @@ end
 --------------------------------------------------------------------------------------------------------
 --[[
 函数名：ucs2ToGb2312
-功能  ：unicode小端编码 转化为 gb2312编码,并打印出gd2312编码数据
+功能  ：unicode小端编码 转化为 gb2312编码,并打印出gb2312编码数据
 参数  ：
         ucs2s：unicode小端编码数据,注意输入参数的字节数
 返回值：
 ]]
 local function testucs2ToGb2312(ucs2s)
     print("ucs2ToGb2312")
-    local gd2312num = ucs2ToGb2312(ucs2s)--调用的是common.ucs2ToGb2312，返回的是编码所对应的字符串
-    --print("gb2312  code：",gd2312num)
-    print("gb2312  code：",string.toHex(gd2312num))
+    local gb2312num = ucs2ToGb2312(ucs2s)--调用的是common.ucs2ToGb2312，返回的是编码所对应的字符串
+    --print("gb2312  code：",gb2312num)
+    print("gb2312  code：",string.toHex(gb2312num))
 end
 
 --[[
@@ -122,9 +122,9 @@ end
         gb2312s：gb2312编码数据，注意输入参数的字节数
 返回值：
 ]]
-local function testgb2312ToUcs2(gd2312num)
+local function testgb2312ToUcs2(gb2312s)
     print("gb2312ToUcs2")
-    local ucs2num = gb2312ToUcs2(gd2312num)
+    local ucs2num = gb2312ToUcs2(gb2312s)
     print("unicode little-endian code:" .. string.toHex(ucs2num)) -- 要将二进制转换为十六进制，否则无法输出
 end
 
@@ -138,8 +138,8 @@ end
 ]]
 local function testucs2beToGb2312(ucs2s)
     print("ucs2beToGb2312")
-    local gd2312num = ucs2beToGb2312(ucs2s) -- 转化后的数据直接变成字符可以直接输出
-    print("gd2312 code :" .. string.toHex(gd2312num))
+    local gb2312num = ucs2beToGb2312(ucs2s) -- 转化后的数据直接变成字符可以直接输出
+    print("gb2312 code :" .. string.toHex(gb2312num))
 end
 
 --[[
@@ -162,9 +162,9 @@ end
         ucs2s：unicode小端编码数据，注意输入参数的字节数
 返回值：
 ]]
-local function testucs2ToUtf8(usc2)
+local function testucs2ToUtf8(usc2s)
     print("ucs2ToUtf8")
-    local utf8num = ucs2ToUtf8(usc2)
+    local utf8num = ucs2ToUtf8(usc2s)
     print("utf8  code:" .. string.toHex(utf8num))
 
 end
@@ -179,15 +179,15 @@ end
 local function testutf8ToGb2312(utf8s)
     print("utf8ToGb2312")
     local gb2312num = utf8ToGb2312(utf8s)
-    print("gd2312 code:" .. string.toHex(gb2312num))
+    print("gb2312 code:" .. string.toHex(gb2312num))
 
 end
 
 --[[
-函数名：utf8ToGb2312
-功能  ：utf8编码 转化为 gb2312编码,并打印出gb2312编码数据
+函数名：gb2312ToUtf8
+功能  ：gb2312编码 转化为 utf8编码,并打印出utf8编码数据
 参数  ：
-        utf8s：utf8编码数据，注意输入参数的字节数
+        gb2312s：gb2312s编码数据，注意输入参数的字节数
 返回值：
 ]]
 local function testgb2312ToUtf8(gb2312s)
@@ -203,7 +203,7 @@ sys.taskInit(function()
     while 1 do
         sys.wait(1000)
         testucs2ToGb2312(string.fromHex("1162")) -- "1162"是"我"字的ucs2编码，这里调用了string.fromHex将参数转化为二进制，也就是两个字节。
-        testgb2312ToUcs2(string.fromHex("CED2")) -- "CED2"是"我"字的gb22312编码
+        testgb2312ToUcs2(string.fromHex("CED2")) -- "CED2"是"我"字的gb2312编码
         testucs2beToGb2312(string.fromHex("6211")) -- "6211"是"我"字的ucs2be编码
         testgb2312ToUcs2be(string.fromHex("CED2"))
         testucs2ToUtf8(string.fromHex("1162"))

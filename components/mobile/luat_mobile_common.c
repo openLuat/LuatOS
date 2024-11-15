@@ -126,6 +126,35 @@ int luat_mobile_find_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc, apn_info_t *info
 	return result;
 }
 
+LUAT_WEAK int get_apn_info_by_static(uint16_t mcc, uint16_t mnc, apn_info_t *info)
+{
+	return -1;
+}
+
+void luat_mobile_print_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc)
+{
+	apn_info_t info;
+	if(luat_mobile_find_apn_by_mcc_mnc(mcc, mnc, &info))
+	{
+		if (get_apn_info_by_static(mcc, mnc, &info))
+		{
+			LLOGD("mcc 0x%x, mnc 0x%x not find");
+			return;
+		}
+		if (!info.data)
+		{
+			LLOGD("mcc 0x%x, mnc 0x%x no need apn");
+			return;
+		}
+	}
+
+	LLOGD("mcc 0x%x, mnc 0x%x, ip_type %d, auth_type %d, apn %dbyte %.*s, user %dbyte %.*s, password %dbyte %.*s",
+			mcc, mnc, info.ip_type, info.protocol, info.name_len, info.name_len, info.data,
+			info.user_len, info.user_len, info.user_len?(info.data + info.name_len):NULL,
+			info.password_len, info.password_len, info.password_len?(info.data + info.name_len + info.user_len):NULL);
+
+}
+
 int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc)
 {
 	uint8_t cmcc[] = {0, 2, 4, 7, 8, 13, 23, 24};

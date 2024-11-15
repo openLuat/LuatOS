@@ -1118,7 +1118,23 @@ static int l_mobile_add_apn_table(lua_State* L) {
 	luat_mobile_add_auto_apn_item(mcc, mnc, ip_type, protocol, name, name_len, user, user_len, password, password_len, 1);
     return 0;
 }
+/**
+打印自定义APN列表里的一条信息，在没有拿到卡的情况下，测试一下对应的APN信息是否和运营商提供的匹配
+@api mobile.apnTablePrint(mcc, mnc)
+@int MCC码,16进制BCD码
+@int MNC码,16进制BCD码
+@return nil 无返回值
+@usage
+mobile.apnTableInit()
+mobile.apnTablePrint(0x202, 0x01)
+ */
+static int l_mobile_print_apn_table(lua_State* L) {
 
+	uint16_t mcc = luaL_optinteger(L, 1, 0x460);
+	uint16_t mnc = luaL_optinteger(L, 2, 0);
+	luat_mobile_print_apn_by_mcc_mnc(mcc, mnc);
+    return 0;
+}
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -1159,6 +1175,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"vsimOnOff",          ROREG_FUNC(l_mobile_vsim_onoff)},
 	{"apnTableInit",          ROREG_FUNC(l_mobile_init_apn_table)},
 	{"apnTableAdd",          ROREG_FUNC(l_mobile_add_apn_table)},
+	{"apnTablePrint",          ROREG_FUNC(l_mobile_print_apn_table)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

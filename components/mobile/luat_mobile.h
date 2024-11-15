@@ -990,5 +990,12 @@ void luat_mobile_add_auto_apn_item(uint16_t mcc, uint16_t mnc, uint8_t ip_type, 
  * @return =0找到匹配的信息，其他未找到
  */
 int luat_mobile_find_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc, apn_info_t *apn);
+/**
+ * 通过MCC,MNC打印APN信息
+ * @param mcc
+ * @param mnc
+ * @return
+ */
+void luat_mobile_print_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc);
 /** @}*/
 #endif

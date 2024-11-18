@@ -171,8 +171,8 @@ function airlbs.request(param)
         lbs_data.macs={}
         for k, v in pairs(param.wifi_info) do
             lbs_data.macs[k] = {}
-            lbs_data.macs[k].mac = v.bssid:toHex():gsub("(%x%x)", "%1:"):sub(1, -2)
-            lbs_data.macs[k].rssi = v.rssi
+            lbs_data.macs[k][1] = v.bssid:toHex():gsub("(%x%x)", "%1:"):sub(1, -2)
+            lbs_data.macs[k][2] = v.rssi
         end
     end
 

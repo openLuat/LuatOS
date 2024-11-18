@@ -29,17 +29,27 @@ local airlbs_project_key = "xxx"
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
 
+    -- 如需wifi定位,需要硬件以及固件支持wifi扫描功能
+    local wifi_info = nil
+    if wlan then
+        sys.wait(3000) -- 网络可用后等待一段时间才再调用wifi扫描功能,否则可能无法获取wifi信息
+        wlan.init()
+        wlan.scan()
+        sys.waitUntil("WLAN_SCAN_DONE", 15000)
+        wifi_info = wlan.scanResult()
+        log.info("scan", "wifi_info", #wifi_info)
+    end
+
     socket.sntp()
     sys.waitUntil("NTP_UPDATE", 1000)
 
     while 1 do
-        local result , data = airlbs.request({project_id = airlbs_project_id,project_key = airlbs_project_key})
+        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',wifi_info = wifi_info,timeout = 1000})
         if result then
             print("airlbs", json.encode(data))
         end
         sys.wait(20000)
     end
-
 end)
 
 -- 用户代码已结束---------------------------------------------

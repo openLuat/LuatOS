@@ -1,8 +1,8 @@
 --[[
 @module airlbs
 @summary airlbs 定位服务(收费服务，需自行联系销售申请)
-@version 1.0
-@date    2024.11.01
+@version 1.1
+@date    2024.11.18
 @author  Dozingfiretruck
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
@@ -13,11 +13,22 @@ local airlbs = require "airlbs"
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
 
+    -- 如需wifi定位,需要硬件以及固件支持wifi扫描功能
+    local wifi_info = nil
+    if wlan then
+        sys.wait(3000) -- 网络可用后等待一段时间才再调用wifi扫描功能,否则可能无法获取wifi信息
+        wlan.init()
+        wlan.scan()
+        sys.waitUntil("WLAN_SCAN_DONE", 15000)
+        wifi_info = wlan.scanResult()
+        log.info("scan", "wifi_info", #wifi_info)
+    end
+
     socket.sntp()
     sys.waitUntil("NTP_UPDATE", 1000)
 
     while 1 do
-        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',timeout = 1000})
+        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',wifi_info = wifi_info,timeout = 1000})
         if result then
             print("airlbs", json.encode(data))
         end
@@ -99,7 +110,7 @@ end
 --[[
 获取定位数据
 @api airlbs.request(param)
-@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 timeout:超时时间,单位毫秒 默认15000
+@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 wifi_info:wifi扫描结果(wlan.scanResult()的返回值,wifi定位使用)timeout:超时时间,单位毫秒 默认15000
 @return bool 成功返回true,失败会返回false
 @return table 定位成功生效，成功返回定位数据
 @usage
@@ -155,6 +166,16 @@ function airlbs.request(param)
         lbs_data.cells[k].snr = v.snr
         lbs_data.cells[k].earfcn = v.earfcn
     end
+
+    if param.wifi_info and #param.wifi_info > 0 then
+        lbs_data.macs={}
+        for k, v in pairs(param.wifi_info) do
+            lbs_data.macs[k] = {}
+            lbs_data.macs[k].mac = v.bssid:toHex():gsub("(%x%x)", "%1:"):sub(1, -2)
+            lbs_data.macs[k].rssi = v.rssi
+        end
+    end
+
     local lbs_jdata = json.encode(lbs_data)
 
     udp_buff:write(string.char(auth_type) .. project_id .. imei .. muid .. timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)

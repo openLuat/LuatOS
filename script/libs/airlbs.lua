@@ -133,7 +133,7 @@ function airlbs.request(param)
         return false
     end
 
-    local udp_buff = zbuff.create(1024)
+    local udp_buff = zbuff.create(1500)
     local auth_type = 0x01
     local lbs_data_type = 0x00
     local project_id = param.project_id

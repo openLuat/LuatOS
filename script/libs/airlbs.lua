@@ -155,16 +155,16 @@ function airlbs.request(param)
     local lbs_data = {cells={}}
     for k, v in pairs(mobile.getCellInfo()) do
         lbs_data.cells[k] = {}
-        lbs_data.cells[k].mnc = v.mnc
-        lbs_data.cells[k].mcc = v.mcc
-        lbs_data.cells[k].rssi = v.rssi
-        lbs_data.cells[k].pci = v.pci
-        lbs_data.cells[k].rsrp = v.rsrp
-        lbs_data.cells[k].tac = v.tac
-        lbs_data.cells[k].cid = v.cid
-        lbs_data.cells[k].rsrq = v.rsrq
-        lbs_data.cells[k].snr = v.snr
-        lbs_data.cells[k].earfcn = v.earfcn
+        lbs_data.cells[k][1] = v.mcc
+        lbs_data.cells[k][2] = v.mnc
+        lbs_data.cells[k][3] = v.tac
+        lbs_data.cells[k][4] = v.cid
+        lbs_data.cells[k][5] = v.rssi
+        lbs_data.cells[k][6] = v.snr
+        lbs_data.cells[k][7] = v.pci
+        lbs_data.cells[k][8] = v.rsrp
+        lbs_data.cells[k][9] = v.rsrq
+        lbs_data.cells[k][10] = v.earfcn
     end
 
     if param.wifi_info and #param.wifi_info > 0 then

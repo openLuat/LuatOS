@@ -42,7 +42,9 @@ libfota2.request(libfota_cb, opts)
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb)
 -- 自建平台
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb, opts)
-]] local sys = require "sys"
+]]
+
+local sys = require "sys"
 require "sysplus"
 
 local libfota2 = {}
@@ -152,7 +154,7 @@ function libfota2.request(cbFnc, opts)
         opts.dst = "/update.bin"
     end
     if not cbFnc then
-        cbFnc = function()
+        cbFnc = function(ret)
         end
     end
     -- 处理URL
@@ -161,7 +163,7 @@ function libfota2.request(cbFnc, opts)
     end
     if opts.url:sub(1, 3) ~= "###" and not opts.url_done then
         -- 获取硬件版本信息
-        local model = hmeta and ("&model=" .. hmeta.model() .. "_" .. hmeta.hwver()) or ""
+        local model = hmeta and ("&model=" .. hmeta.model() .. "_" .. (hmeta.hwver and hmeta.hwver() or "_A10")) or ""
         -- 补齐project_key函数
         if not opts.project_key then
             opts.project_key = _G.PRODUCT_KEY

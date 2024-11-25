@@ -1,9 +1,9 @@
 --[[
 @module libfota2
 @summary fota升级v2
-@version 1.0
-@date    2024.04.09
-@author  wendal
+@version 1.1
+@date    2024.11.22
+@author  wendal/HH
 @demo    fota2
 @usage
 --用法实例
@@ -42,17 +42,23 @@ libfota2.request(libfota_cb, opts)
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb)
 -- 自建平台
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb, opts)
-]]
-
-local sys = require "sys"
+]] local sys = require "sys"
 require "sysplus"
 
 local libfota2 = {}
 
+-- 单独判断下服务器下发的数据是不是"{"开头"}"结尾的字符串
+local function isjson(str)
+    local start, _ = string.find(str, "^%{")
+    local _, end_ = string.find(str, "%}$")
+    return start == 1 and end_ == #str and string.sub(str, 2, #str - 1):find("%B{") == nil
+end
 
 local function fota_task(cbFnc, opts)
     local ret = 0
-    local code, headers, body = http.request(opts.method, opts.url, opts.headers, opts.body, opts, opts.server_cert, opts.client_cert, opts.client_key, opts.client_password).wait()
+    local url = opts.url
+    local code, headers, body = http.request(opts.method, opts.url, opts.headers, opts.body, opts, opts.server_cert,
+                                    opts.client_cert, opts.client_key, opts.client_password).wait()
     -- log.info("http fota", code, headers, body)
     if code == 200 or code == 206 then
         if body == 0 then
@@ -67,7 +73,48 @@ local function fota_task(cbFnc, opts)
     else
         log.info("fota", code, body)
         ret = 4
+        local hziot = "iot.openluat.com"
+        local msg, json_body, result
+        if string.find(url, hziot) then
+            log.info("使用合宙服务器,接下来解析body里的code")
+            json_body, result = json.decode(body)
+            -- 如果json解析失败，证明服务器下发的不是json
+            if result == 1 and isjson(body) then
+                code = json_body["code"]
+            else
+                -- 这个值随便取的，只要不和其他定义重复就行
+                code = 1111111111111
+            end
+            if code == 43 then
+                log.info("请等待",
+                    ",云平台生成差分升级包需要等待,一到三分钟后云平台生成完成差分包便可以请求成功")
+            elseif code == 3 then
+                log.info("无效的设备", "检查请求键名(imei小写)正确性")
+            elseif code == 17 then
+                log.info("无权限",
+                    "设备会上报imei、固件名、项目key,服务器会以此查出设备、固件、项目三 条记录，如果 这三者不在同一个用户名下，就会认为无权限。设备不在项目key对应的账户下，可寻找合宙技术支持查询该设备在哪个账户下，核实情况后可修改设备归属")
+            elseif code == 21 then
+                log.info("不允许升级", "请检查IOT平台,是否对应imei被禁止了升级")
+            elseif code == 25 then
+                log.info("无效的项目",
+                    "productkey不一致,检查是否存在拼写错误,检查模块是否在本人账户下,若不在本人账户下,请联系合宙工作人员处理")
+            elseif code == 26 then
+                log.info("无效的固件",
+                    "固件名称错误,项目中没有对应的固件,也有可能是用户自己修改了固件名称,可对照升级日志中设备当前固件名与升级配置中固件名是否相同(固件名称,固件功能要完全一致,只是版本号不同)")
+            elseif code == 27 then
+                log.info("已是最新版本",
+                    "1.设备的固件/脚本版本高于或等于云平台上的版本号 2.用户项目升级配置中未添加该设备 3.云平台升级配置中，是否升级配置为否")
+            elseif code == 40 then
+                log.info("循环升级",
+                    "云平台进入设备列表搜索被禁止的imei,解除禁止升级即可. 云平台防止模块在升级失败后,反复请求升级导致流量卡流量耗尽,在模块一天请求升级六次后会禁止模块升级. 可在平台解除")
+            elseif code == 1111111111111 then
+                log.info("云平台下发的不是json", "我看看body是个什么东西", type(body), body)
+            else
+                log.info("不是上面的那些错误code", code)
+            end
+        end
     end
+
     cbFnc(ret)
 end
 
@@ -105,13 +152,14 @@ function libfota2.request(cbFnc, opts)
         opts.dst = "/update.bin"
     end
     if not cbFnc then
-        cbFnc = function() end
+        cbFnc = function()
+        end
     end
     -- 处理URL
     if not opts.url then
-        opts.url = "http://iot.openluat.com/api/site/firmware_upgrade"
+        opts.url = "http://iot.openluat.com/api/site/firmware_upgrade?"
     end
-    if opts.url:sub(1, 4) ~= "###" and not opts.url_done then
+    if opts.url:sub(1, 3) ~= "###" and not opts.url_done then
         -- 获取硬件版本信息
         local model = hmeta and ("&model=" .. hmeta.model() .. "_" .. hmeta.hwver()) or ""
         -- 补齐project_key函数
@@ -125,12 +173,12 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐version参数
         if not opts.version then
-            local x,y,z = string.match(_G.VERSION,"(%d+).(%d+).(%d+)")
-            opts.version = rtos.version():sub(2) .. "." .. x.."."..z
+            local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")
+            opts.version = rtos.version():sub(2) .. "." .. x .. "." .. z
         end
         -- 补齐firmware_name参数
         if not opts.firmware_name then
-            opts.firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
+            opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
         end
         -- 补齐imei参数
         if not opts.imei then
@@ -146,9 +194,10 @@ function libfota2.request(cbFnc, opts)
         end
 
         -- 然后拼接到最终的url里
-        opts.url = string.format("%s?imei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei, opts.project_key, opts.firmware_name, opts.version)
+        opts.url = string.format("%simei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei,
+            opts.project_key, opts.firmware_name, opts.version)
         opts.url = opts.url .. model
-        
+
     else
         opts.url = opts.url:sub(4)
         opts.url_done = true

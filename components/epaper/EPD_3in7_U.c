@@ -260,7 +260,7 @@ void EPD_3in7_U_lut_GC(void)
 {
     UBYTE count;
     EPD_3in7_U_SendCommand(0x20);        // vcom
-    for(count = 0; count < 56 ; count++)
+    for(count = 0; count < sizeof(EPD_3in7_U_lut_R20_GC) ; count++)
     {
         EPD_3in7_U_SendData(EPD_3in7_U_lut_R20_GC[count]);
     }
@@ -280,7 +280,7 @@ void EPD_3in7_U_lut_GC(void)
     if(EPD_3in7_U_Flag == 0)
     {
         EPD_3in7_U_SendCommand(0x22);    // bw r
-        for(count = 0; count < 56 ; count++)
+        for(count = 0; count < sizeof(EPD_3in7_U_lut_R22_GC) ; count++)
         {
             EPD_3in7_U_SendData(EPD_3in7_U_lut_R22_GC[count]);
         }
@@ -297,7 +297,7 @@ void EPD_3in7_U_lut_GC(void)
     else
     {
         EPD_3in7_U_SendCommand(0x22);    // bw r
-        for(count = 0; count < 56 ; count++)
+        for(count = 0; count < sizeof(EPD_3in7_U_lut_R23_GC) ; count++)
         {
             EPD_3in7_U_SendData(EPD_3in7_U_lut_R23_GC[count]);
         }
@@ -317,7 +317,7 @@ void EPD_3in7_U_lut_DU(void)
 {
     UBYTE count;
     EPD_3in7_U_SendCommand(0x20);      // vcom
-    for(count = 0; count < 56 ; count++)
+    for(count = 0; count < sizeof(EPD_3in7_U_lut_R20_DU) ; count++)
     {
         EPD_3in7_U_SendData(EPD_3in7_U_lut_R20_DU[count]);
     }
@@ -337,7 +337,7 @@ void EPD_3in7_U_lut_DU(void)
     if(EPD_3in7_U_Flag == 0)
     {
         EPD_3in7_U_SendCommand(0x22);      // bw r
-        for(count = 0; count < 56 ; count++)
+        for(count = 0; count < sizeof(EPD_3in7_U_lut_R22_DU) ; count++)
         {
             EPD_3in7_U_SendData(EPD_3in7_U_lut_R22_DU[count]);
         }
@@ -354,7 +354,7 @@ void EPD_3in7_U_lut_DU(void)
     else
     {
         EPD_3in7_U_SendCommand(0x22);    // bw r
-        for(count = 0; count < 56 ; count++)
+        for(count = 0; count < sizeof(EPD_3in7_U_lut_R23_DU) ; count++)
         {
             EPD_3in7_U_SendData(EPD_3in7_U_lut_R23_DU[count]);
         }

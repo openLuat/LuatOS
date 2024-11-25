@@ -20,12 +20,9 @@
 #define platform_unlock_mutex	luat_mutex_unlock
 #define platform_release_mutex	luat_mutex_release
 
-#ifdef __LUATOS__
+
 #define malloc 	luat_heap_malloc
 #define zalloc	luat_heap_zalloc
-#else
-#define zalloc(x)	calloc(1, x)
-#endif
 #define free 	luat_heap_free
 #define msleep	luat_rtos_task_sleep
 

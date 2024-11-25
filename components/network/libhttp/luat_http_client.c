@@ -1129,7 +1129,7 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
             http_ctrl->remote_port = 80;
     }
 
-    http_ctrl->host = malloc(strlen(tmphost) + 1);
+    http_ctrl->host = luat_heap_malloc(strlen(tmphost) + 1);
     if (http_ctrl->host == NULL) {
         LLOGD("out of memory when malloc host");
         return -ERROR_NO_MEMORY;
@@ -1137,7 +1137,7 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
     memcpy(http_ctrl->host, tmphost, strlen(tmphost) + 1);
 
 	size_t linelen = strlen((char*)tmpuri) + 32;
-    http_ctrl->request_line = malloc(linelen);
+    http_ctrl->request_line = luat_heap_malloc(linelen);
     if (http_ctrl->request_line == NULL) {
         LLOGD("out of memory when malloc url/request_line");
         return -ERROR_NO_MEMORY;

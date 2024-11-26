@@ -94,6 +94,9 @@ if reason > 0 then
     pm.request(pm.LIGHT)
 	mobile.flymode(0, false)
     log.info("已经从深度休眠唤醒")
+	log.info("os.date()", os.date())
+    local t = rtc.get()
+    log.info("rtc", json.encode(t))
 end
 function io_init()
     local bsp = rtos.bsp()
@@ -131,7 +134,7 @@ sys.taskInit(function()
 	sys.wait(100)
 	pm.power(pm.USB, false) -- 如果是插着USB测试，需要关闭USB
 	pm.force(pm.HIB)
-	pm.dtimerStart(3, 40000)
+	pm.dtimerStart(3, 20000)
 	sys.wait(5000)
     pm.force(pm.IDLE) -- 运行到这里说明没用进入深度休眠，测试失败
 	pm.power(pm.USB, true) 

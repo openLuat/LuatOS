@@ -199,11 +199,10 @@ function libfota2.request(cbFnc, opts)
         opts.url = string.format("%simei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei,
             opts.project_key, opts.firmware_name, opts.version)
         opts.url = opts.url .. model
-
     else
         opts.url = opts.url:sub(4)
-        opts.url_done = true
     end
+    opts.url_done = true
     -- 处理method
     if not opts.method then
         opts.method = "GET"

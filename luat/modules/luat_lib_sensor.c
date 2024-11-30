@@ -14,7 +14,7 @@
 #include "luat_mem.h"
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
-
+#ifdef LUAT_USE_SENSOR
 #define LUAT_LOG_TAG "sensor"
 #include "luat_log.h"
 
@@ -1018,3 +1018,4 @@ LUAMOD_API int luaopen_sensor(lua_State *L)
   luat_newlib2(L, reg_sensor);
   return 1;
 }
+#endif

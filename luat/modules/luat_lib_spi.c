@@ -596,7 +596,7 @@ static int l_spi_device_transfer(lua_State *L) {
     uint8_t send_mode = 0;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
-        send_buff = (const char*)(buff->addr+buff->cursor);
+        send_buff = (char*)(buff->addr+buff->cursor);
         send_length = buff->len - buff->cursor;
     }else if (lua_istable(L, 2)){
         send_mode = LUA_TTABLE;
@@ -608,7 +608,7 @@ static int l_spi_device_transfer(lua_State *L) {
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
     }else if(lua_isstring(L, 2)){
-        send_buff = luaL_checklstring(L, 2, &send_length);
+        send_buff = (char*)luaL_checklstring(L, 2, &send_length);
     }else{
         LLOGE("spi_device transfer first arg error");
         return 0;

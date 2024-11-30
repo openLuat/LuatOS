@@ -384,7 +384,7 @@ mcu.XTALRefOutput(true, false)	--高速晶振参考时钟输出,低速32K不输�
 static int l_mcu_xtal_ref_output(lua_State* L) {
 	int source_main = 0;
 	int source_32k = 0;
-	int delay = luaL_optinteger(L, 3, 1200);
+	// int delay = luaL_optinteger(L, 3, 1200);
 	if (lua_isboolean(L, 1)) {
 		source_main = lua_toboolean(L, 1);
 	}

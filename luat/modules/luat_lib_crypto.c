@@ -13,7 +13,7 @@
 #include "luat_str.h"
 #include <time.h>
 #include "luat_zbuff.h"
-#include "mbedtls/md.h"
+// #include "mbedtls/md.h"
 
 #define LUAT_LOG_TAG "crypto"
 #define LUAT_CRYPTO_TYPE "crypto"

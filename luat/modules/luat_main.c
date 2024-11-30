@@ -75,9 +75,9 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
 
 static int pmain(lua_State *L) {
     int re = -2;
+    #ifndef LUAT_MAIN_DEMO
     char filename[32] = {0};
-
-    //luat_os_print_heapinfo("boot");
+    #endif
 
     // 加载内置库
     luat_openlibs(L);
@@ -197,7 +197,7 @@ int luat_main (void) {
   luat_hmeta_model_name(model);
   #endif
   if (model[0] == 0) {
-    char* tmp = luat_os_bsp();
+    const char* tmp = luat_os_bsp();
     memcpy(model, tmp, strlen(tmp));
   }
   #ifdef LUAT_BSP_VERSION

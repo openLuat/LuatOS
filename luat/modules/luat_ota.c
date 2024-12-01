@@ -5,7 +5,7 @@
 #include "luat_timer.h"
 #include "luat_mem.h"
 #include "luat_flash.h"
-
+#ifdef LUAT_USE_OTA
 #define LUAT_LOG_TAG "ota"
 #include "luat_log.h"
 
@@ -201,4 +201,6 @@ _close_decompress:
     }
     return ret;
 }
+#endif
+
 #endif

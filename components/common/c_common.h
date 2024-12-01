@@ -427,7 +427,7 @@ uint32_t TransferUnpack(uint8_t Flag, uint8_t Code, uint8_t F1, uint8_t F2, uint
  * @member:	the name of the member within the struct.
  *
  */
-#define container_of(ptr, type, member) ({			\
+#define container_of_x(ptr, type, member) ({			\
         const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
@@ -548,7 +548,7 @@ void *llist_traversal(llist_head *head, CBFuncEx_t cb, void *pData);
  * @member:	the name of the llist_struct within the struct.
  */
 #define llist_entry(ptr, type, member) \
-	container_of(ptr, type, member)
+	container_of_x(ptr, type, member)
 
 
 uint16_t BSP_Swap16(uint16_t n);

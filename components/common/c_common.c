@@ -484,7 +484,7 @@ LUAT_WEAK int32_t OS_BufferWriteLimit(Buffer_Struct *Buf, void *Data, uint32_t L
 LUAT_WEAK void OS_BufferRemove(Buffer_Struct *Buf, uint32_t Len)
 {
 	uint32_t RestLen;
-	uint32_t i;
+	// uint32_t i;
 	if (!Buf)
 		return ;
 	if (!Buf->Data)

@@ -5,7 +5,6 @@
 #include "luat_timer.h"
 #include "luat_mem.h"
 #include "luat_flash.h"
-#ifdef LUAT_USE_OTA
 #define LUAT_LOG_TAG "ota"
 #include "luat_log.h"
 
@@ -14,6 +13,8 @@ LUAT_WEAK void luat_ota_reboot(int timeout_ms) {
     luat_timer_mdelay(timeout_ms);
   luat_os_reboot(1);
 }
+
+#ifdef LUAT_USE_OTA
 
 #include "luat_crypto.h"
 #include "luat_md5.h"

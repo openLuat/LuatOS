@@ -498,12 +498,12 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
 		{
 			dns_run(&prvlwip.dns_client, NULL, &tx_msg_buf, &i);
-			if (tx_msg_buf.Pos)
+			if (tx_msg_buf.Pos && NULL != tx_msg_buf.Data)
 			{
-				out_p = pbuf_alloc(PBUF_RAW, tx_msg_buf.Pos, PBUF_ROM);
-				if (out_p)
+				out_p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
+				if (out_p && NULL != tx_msg_buf.Data)
 				{
-					out_p->payload = tx_msg_buf.Data;
+					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
 					udp_sendto(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 					pbuf_free(out_p);
@@ -520,41 +520,31 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	return ERR_OK;
 }
 
-
-
-
 static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_buf)
 {
-	int i;
-	err_t err;
+	int i = 0;
+	err_t err = 0;
 	struct pbuf *p;
-	// LLOGD("CALL net_lwip2_dns_tx_next");
 	dns_run(&prvlwip.dns_client, NULL, tx_msg_buf, &i);
-	char ip_string[64];
-	if (tx_msg_buf->Pos || prvlwip.dns_client.new_result)
-	{
-		p = pbuf_alloc(PBUF_RAW, tx_msg_buf->Pos, PBUF_ROM);
-		if (p)
-		{
-			p->payload = tx_msg_buf->Data;
-			
-			err = udp_connect(prvlwip.dns_udp[adapter_index], &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
-			if (err) {
-				LLOGI("udp_connect ret %d");
-			}
-			else {
-				err = udp_sendto(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
-				if (err) {
-					LLOGI("udp_sendto ret %d");
-				}
-			}
-			// NET_DBG("udp_connect dns_udp %d:%s",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)), err);
-			// LLOGD("udp_sendto dns_udp");
-			// err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
-			// NET_DBG("udp_sendto dns_udp %d:%s ret %d",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)), err);
-			pbuf_free(p);
+	char ip_string[64] = {0};
+	ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
+	if (tx_msg_buf->Pos && NULL != tx_msg_buf->Data) {
+		p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf->Pos, PBUF_RAM);
+		if (p == NULL) {
+			LLOGE("dns upd pbuf alloc fail!!!");
 		}
-		OS_DeInitBuffer(tx_msg_buf);
+		else {
+			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
+			err = udp_sendto(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			pbuf_free(p);
+			if (err) {
+				LLOGE("dns udp sendto ret %d", err);
+			}
+		}
+	}
+	OS_DeInitBuffer(tx_msg_buf);
+	if (prvlwip.dns_client.new_result)
+	{
 		llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
 		prvlwip.dns_client.new_result = 0;
 	}
@@ -596,15 +586,15 @@ static void net_lwip2_task(void *param)
 	luat_heap_free(param);
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	// HANDLE cur_task = luat_get_current_task();
-	struct netif *netif;
-	socket_data_t *p;
+	struct netif *netif = NULL;
+	socket_data_t *p = NULL;
 	ip_addr_t *p_ip, *local_ip;
-	struct pbuf *out_p;
-	int error, i;
+	struct pbuf *out_p = NULL;
+	int error = 0, i = 0;
 	PV_Union uPV;
 //	uint8_t active_flag;
-	uint8_t socket_id;
-	uint8_t adapter_index;
+	uint8_t socket_id = 0;
+	uint8_t adapter_index = 0;
 	socket_id = event.Param1;
 	adapter_index = event.Param3;
 	char ip_string[64] = {0};
@@ -641,7 +631,7 @@ static void net_lwip2_task(void *param)
 						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0, dataflag, 0))
 						#endif
 						#else
-						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, TCP_WRITE_FLAG_COPY))
 						#endif
 						{
 							llist_del(&p->node);
@@ -674,10 +664,10 @@ static void net_lwip2_task(void *param)
 				if (p)
 				{
 					uint32_t len = p->len;
-					out_p = pbuf_alloc(PBUF_RAW, p->len, PBUF_ROM);
+					out_p = pbuf_alloc(PBUF_TRANSPORT, p->len, PBUF_RAM);
 					if (out_p)
 					{
-						out_p->payload = p->data;
+						pbuf_take(out_p, p->data, p->len);
 						error = udp_sendto(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port);
 						// LLOGD("udp_sendto ret %d", error);
 						pbuf_free(out_p);

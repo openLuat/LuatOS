@@ -272,11 +272,11 @@ static int l_wlan_smartconfig(lua_State *L) {
 log.info("wlan mac", wlan.getMac())
 */
 static int l_wlan_get_mac(lua_State* L){
-    char tmp[6] = {0};
+    uint8_t tmp[6] = {0};
     char tmpbuff[16] = {0};
-    luat_wlan_get_mac(luaL_optinteger(L, 1, 0), tmp);
+    luat_wlan_get_mac(luaL_optinteger(L, 1, 0), (char*)tmp);
     if (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) {
-        lua_pushlstring(L, tmp, 6);
+        lua_pushlstring(L, (const char*)tmp, 6);
     }
     else {
         sprintf_(tmpbuff, "%02X%02X%02X%02X%02X%02X", tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5]);

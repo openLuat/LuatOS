@@ -39,11 +39,7 @@ typedef struct
 }network_adapter_t;
 
 static network_adapter_t prv_adapter_table[NW_ADAPTER_QTY];
-static network_info_t prv_network = {
-		.last_adapter_index = -1,
-		.default_adapter_index = -1,
-		.is_init = 0,
-};
+static network_info_t prv_network;
 static const char *prv_network_event_id_string[] =
 {
 		"适配器复位",
@@ -1307,6 +1303,7 @@ int network_string_to_ipv6(const char *string, luat_ip_addr_t *ip_addr)
 
 int network_get_last_register_adapter(void)
 {
+	if (!prv_network.is_init) return -1;
 	if (prv_network.default_adapter_index != -1) return prv_network.default_adapter_index;
 	return prv_network.last_adapter_index;
 }
@@ -1339,7 +1336,9 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	{
 		//prv_network.network_mutex = platform_create_mutex();
 		INIT_LLIST_HEAD(&prv_network.dns_cache_head);
-		prv_network.is_init = 0;
+		prv_network.default_adapter_index = -1;
+		prv_network.last_adapter_index = -1;
+		prv_network.is_init = 1;
 	}
 
 	prv_network.last_adapter_index = adapter_index;

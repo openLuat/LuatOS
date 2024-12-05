@@ -73,6 +73,25 @@ static int l_hmeta_hwver(lua_State *L) {
     return 1;
 }
 
+/*
+获取原始芯片型号
+@api hmeta.chip()
+@return string 若能识别到,返回芯片类型, 否则会是nil
+@usage
+-- 若底层正确实现, 这个函数总会返回值
+-- 本函数于 2024.12.5 新增
+*/
+static int l_hmeta_chip(lua_State *L) {
+    char buff[16] = {0};
+    luat_hmeta_chip(buff);
+    if (strlen(buff)) {
+        lua_pushstring(L, buff);
+    }
+    else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
 // static int l_hmeta_gpio(lua_State *L) {
 //     return 0;
 // }
@@ -86,6 +105,7 @@ static const rotable_Reg_t reg_hmeta[] =
 {
     { "model" ,           ROREG_FUNC(l_hmeta_model)},
     { "hwver" ,           ROREG_FUNC(l_hmeta_hwver)},
+    { "chip" ,            ROREG_FUNC(l_hmeta_chip)},
     // { "gpio" ,            ROREG_FUNC(l_hmeta_gpio)},
     // { "uart" ,            ROREG_FUNC(l_hmeta_uart)},
 	{ NULL,               ROREG_INT(0)}

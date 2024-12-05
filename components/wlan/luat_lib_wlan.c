@@ -430,18 +430,18 @@ log.info("wlan", "info", json.encode(wlan.getInfo()))
 ]]
 */
 static int l_wlan_get_info(lua_State *L) {
-    char buff[48] = {0};
+    uint8_t buff[48] = {0};
     char buff2[32] = {0};
     lua_newtable(L);
 
-    luat_wlan_get_ap_bssid(buff);
+    luat_wlan_get_ap_bssid((char*)buff);
     sprintf_(buff2, "%02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
     lua_pushstring(L, buff2);
     lua_setfield(L, -2, "bssid");
 
     memset(buff, 0, 48);
-    luat_wlan_get_ap_gateway(buff);
-    lua_pushstring(L, buff);
+    luat_wlan_get_ap_gateway((char*)buff);
+    lua_pushstring(L, (const char*)buff);
     lua_setfield(L, -2, "gw");
 
     lua_pushinteger(L, luat_wlan_get_ap_rssi());

@@ -58,7 +58,7 @@ void i2c_scan(void){
         sprintf_(scan_buff + len, "%d0: ", i);
         len++;
         for(unsigned char j=0; j<16; j++){
-            char addr = i*16+j;
+            uint8_t addr = (uint8_t)(i*16+j);
             len+=3;
             if( i2c_probe(addr) == 1){
                 sprintf_(scan_buff + len, "%02X ", addr);

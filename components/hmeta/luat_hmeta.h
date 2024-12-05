@@ -7,6 +7,8 @@ int luat_hmeta_model_name(char* buff);
 // 获取硬件版本号, 例如A11, A14
 int luat_hmeta_hwversion(char* buff);
 
+// 获取芯片组型号, 原始型号, 传入的buff最少要8字节空间
+int luat_hmeta_chip(char* buff);
 
 // -------------------------------------------------------
 //             GPIO 元数据

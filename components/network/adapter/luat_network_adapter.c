@@ -1372,6 +1372,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			adapter->ctrl_busy[i] = 1;
 			ctrl = &adapter->ctrl_table[i];
 			ctrl->adapter_index = adapter_index;
+			ctrl->local_port = 0;
 			ctrl->domain_ipv6 = 0;
 			break;
 		}

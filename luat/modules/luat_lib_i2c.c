@@ -410,9 +410,9 @@ static int l_i2c_write_reg(lua_State *L)
     size_t len;
     const char *lb = luaL_checklstring(L, 4, &len);
     int stop = luaL_optnumber(L, 5 , 1);
-    char *buff = (char *)luat_heap_malloc(sizeof(char) * len + 1);
+    char *buff = (char *)luat_heap_malloc(len + 1);
     *buff = (char)reg;
-    memcpy(buff + 1, lb, sizeof(char) + len + 1);
+    memcpy(buff + 1, lb, len);
     int result;
     if (lua_isuserdata(L, 1))
     {

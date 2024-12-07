@@ -43,7 +43,7 @@ end
 #include "luat_crypto.h"
 #include "luat_fs.h"
 
-#define LUAT_LOG_TAG "rs"
+#define LUAT_LOG_TAG "rsa"
 #include "luat_log.h"
 
 #include "mbedtls/rsa.h"

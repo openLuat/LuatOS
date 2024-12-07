@@ -31,7 +31,7 @@ LUAT_WEAK void* luat_heap_realloc(void* ptr, size_t len) {
 LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
     void *ptr = luat_heap_malloc(count * _size);
     if (ptr) {
-        memset(ptr, 0, _size);
+        memset(ptr, 0, count * _size);
     }
     return ptr;
 }

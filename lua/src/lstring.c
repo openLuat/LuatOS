@@ -142,7 +142,8 @@ static TString *createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
 #if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
   ts->static_flag = 0;
 #endif
-  getstr(ts)[l] = '\0';  /* ending 0 */
+  char* ptr = getstr(ts);
+  ptr[l] = '\0';  /* ending 0 */
   return ts;
 }
 

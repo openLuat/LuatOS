@@ -136,7 +136,7 @@ local value = mcu.x32(0x2009FFFC) --输出"0x2009fffc"
 static int l_mcu_x32(lua_State* L) {
     uint32_t value = luaL_checkinteger(L, 1);
     char c[16];
-    sprintf_(c, "0x%x", value);
+    sprintf_(c, "0x%lx", value);
     lua_pushstring(L, c);
     return 1;
 }

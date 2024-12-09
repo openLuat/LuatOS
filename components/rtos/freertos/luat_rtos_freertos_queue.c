@@ -44,7 +44,7 @@ int luat_rtos_queue_send(luat_rtos_queue_t queue_handle, void *item, uint32_t it
 	}
 	else
 	{
-		if (xQueueSend(queue_handle, item, timeout) != pdPASS)
+		if (xQueueSend(queue_handle, item, luat_rtos_ms2tick(timeout)) != pdPASS)
 			return -1;
 	}
 	return 0;
@@ -64,7 +64,7 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
 	}
 	else
 	{
-		if (xQueueReceive(queue_handle, item, timeout) != pdPASS)
+		if (xQueueReceive(queue_handle, item, luat_rtos_ms2tick(timeout)) != pdPASS)
 			return -1;
 	}
 	return 0;

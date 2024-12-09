@@ -492,6 +492,12 @@ void luat_rtos_exit_critical(uint32_t critical);
  * @return uint32_t 0不是中断，1是中断
  */
 uint32_t luat_rtos_get_ipsr(void);
+
+#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+#define luat_rtos_ms2tick(ms) (ms)
+#else
+int luat_rtos_ms2tick(int ms);
+#endif
 /*------------------------------------------------ critical   end----------------------------------------------- */
 /** @}*/
 /** @}*/

@@ -31,7 +31,7 @@ int luat_rtos_mutex_create(luat_rtos_mutex_t *mutex_handle)
 int luat_rtos_mutex_lock(luat_rtos_mutex_t mutex_handle, uint32_t timeout)
 {
 	if (!mutex_handle) return -1;
-	if (pdFALSE == xSemaphoreTakeRecursive(mutex_handle, timeout))
+	if (pdFALSE == xSemaphoreTakeRecursive(mutex_handle, luat_rtos_ms2tick(timeout)))
 		return -1;
 	return 0;
 }

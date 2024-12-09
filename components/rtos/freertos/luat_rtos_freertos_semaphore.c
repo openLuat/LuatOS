@@ -49,7 +49,7 @@ int luat_rtos_semaphore_delete(luat_rtos_semaphore_t semaphore_handle)
 int luat_rtos_semaphore_take(luat_rtos_semaphore_t semaphore_handle, uint32_t timeout)
 {
 	if (!semaphore_handle) return -1;
-	if (pdTRUE == xSemaphoreTake(semaphore_handle, timeout))
+	if (pdTRUE == xSemaphoreTake(semaphore_handle, luat_rtos_ms2tick(timeout)))
 		return 0;
 	return -1;
 }

@@ -44,6 +44,26 @@ uint64_t GetSysTickMS(void)
 }
 #endif
 
+#if defined(CHIP_EC618) || defined(CHIP_EC716) || defined(CHIP_EC718)
+#else
+int luat_rtos_ms2tick(int ms) {
+	if (configTICK_RATE_HZ == 1000) {
+		return ms;
+	}
+	if (ms == LUAT_WAIT_FOREVER) {
+		return LUAT_WAIT_FOREVER;
+	}
+    if (ms <= 0) {
+        return 0;
+	}
+    if ((configTICK_RATE_HZ) == 500) {
+        return (ms + 1) / 2;
+	}
+    return ms;
+}
+#endif
+
+
 void *create_event_task(TaskFun_t task_fun, void *param, uint32_t stack_bytes, uint8_t priority, uint16_t event_max_cnt, const char *task_name)
 {
 	priority = configMAX_PRIORITIES * priority / 100;

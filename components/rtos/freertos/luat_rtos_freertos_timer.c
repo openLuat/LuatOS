@@ -82,7 +82,7 @@ int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat)
     if (luat_rtos_get_ipsr())
     {
 		BaseType_t pxHigherPriorityTaskWoken;
-		if ((xTimerChangePeriodFromISR(htimer->timer, ms, &pxHigherPriorityTaskWoken) != pdPASS))
+		if ((xTimerChangePeriodFromISR(htimer->timer, luat_rtos_ms2tick(ms), &pxHigherPriorityTaskWoken) != pdPASS))
 			return -1;
 		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 		return 0;
@@ -163,14 +163,14 @@ int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint
     if (luat_rtos_get_ipsr())
     {
 		BaseType_t pxHigherPriorityTaskWoken;
-		if ((xTimerChangePeriodFromISR(htimer->timer, timeout, &pxHigherPriorityTaskWoken) != pdPASS))
+		if ((xTimerChangePeriodFromISR(htimer->timer, luat_rtos_ms2tick(timeout), &pxHigherPriorityTaskWoken) != pdPASS))
 			return -1;
 		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 		return 0;
     }
     else
     {
-		if (xTimerChangePeriod(htimer->timer, timeout, 0) != pdPASS)
+		if (xTimerChangePeriod(htimer->timer, luat_rtos_ms2tick(timeout), 0) != pdPASS)
 			return -1;
     }
 	return 0;

@@ -17,7 +17,7 @@
 #define LUAT_LOG_TAG "timer"
 #include "luat_log.h"
 
-#define FREERTOS_TIMER_COUNT 32
+#define FREERTOS_TIMER_COUNT 64
 static luat_timer_t* timers[FREERTOS_TIMER_COUNT] = {0};
 
 static inline int MS2T(int ms) {

@@ -59,19 +59,18 @@ int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint
 	rtos_msg_t msg;
 	switch (event){
     case LUAT_I2S_EVENT_RX_DONE:
-        if (!i2s_rx_buffer[id] || !i2s_cbs[id])
+        if (!i2s_rx_buffer[id] || !i2s_cbs[id]){
             return -1;
+        }
 
-            len = (rx_len > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:rx_len;
-            memcpy(i2s_rx_buffer[id]->addr, rx_data, rx_len);
-            i2s_rx_buffer[id]->used = len;
-            msg.handler = l_i2s_handler;
-            msg.ptr = NULL;
-            msg.arg1 = id;
-            msg.arg2 = len;
-            luat_msgbus_put(&msg, 0);
-
-
+        len = (rx_len > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:rx_len;
+        memcpy(i2s_rx_buffer[id]->addr, rx_data, rx_len);
+        i2s_rx_buffer[id]->used = len;
+        msg.handler = l_i2s_handler;
+        msg.ptr = NULL;
+        msg.arg1 = id;
+        msg.arg2 = len;
+        luat_msgbus_put(&msg, 0);
         break;
     default:
         break;

@@ -10,19 +10,26 @@
 #undef LLOGD
 #define LLOGD(...) 
 
-// #ifdef LUAT_CONF_VM_64bit
-// extern const luadb_file_t luat_inline2_libs_64bit_size64[];
-// extern const luadb_file_t luat_inline2_libs_64bit_size32[];
-// #else
-// extern const luadb_file_t luat_inline2_libs[];
-// #endif
+#ifndef LUAT_CONF_LUADB_CUSTOM_READ
+void luat_luadb_read_bytes(char* dst, const char* ptr, size_t len) {
+    memcpy(dst, ptr, len);
+}
 
-//---
 static uint8_t readU8(const char* ptr, int *index) {
     int val = ptr[*index];
     *index = (*index) + 1;
     return val & 0xFF;
 }
+
+#else
+extern void luat_luadb_read_bytes(char* dst, const char* ptr, size_t len);
+static uint8_t readU8(const char* ptr, int *index) {
+    char val = 0;
+    luat_luadb_read_bytes(&val, ptr + (*index), 1);
+    *index = (*index) + 1;
+    return val & 0xFF;
+}
+#endif
 
 static uint16_t readU16(const char* ptr, int *index) {
     return readU8(ptr,index) + (readU8(ptr,index) << 8);
@@ -111,7 +118,11 @@ size_t luat_luadb_read(luadb_fs_t *fs, int fd, void *dst, size_t size) {
         re = fdt->file->size - fdt->fd_pos;
     }
     if (re > 0) {
+        #ifndef LUAT_CONF_LUADB_CUSTOM_READ
         memcpy(dst, fdt->file->ptr + fdt->fd_pos, re);
+        #else
+        luat_luadb_read_bytes(dst, fdt->file->ptr + fdt->fd_pos, re);
+        #endif
         fdt->fd_pos += re;
     }
     //LLOGD("luadb read name %s offset %d size %d ret %d", fdt->file->name, fdt->fd_pos, size, re);
@@ -262,8 +273,8 @@ _after_head:
         
         LLOGD("LuaDB check files .... %d", i+1);
         
-        type = ptr[index++];
-        len = ptr[index++];
+        type = readU8(ptr, &index);
+        len = readU8(ptr, &index);
         if (type != 1 || len != 4) {
             LLOGD("bad file data 1 : %d %d %d", type, len, index);
             fail = 1;
@@ -273,8 +284,8 @@ _after_head:
         index += 4;
 
         // 2. 然后是名字
-        type = ptr[index++];
-        len = ptr[index++];
+        type = readU8(ptr, &index);
+        len = readU8(ptr, &index);
         if (type != 2) {
             LLOGD("bad file data 2 : %d %d %d", type, len, index);
             fail = 1;
@@ -282,18 +293,19 @@ _after_head:
         }
         // 拷贝文件名
         LLOGD("LuaDB file name len = %d", len);
-
+        #ifndef LUAT_CONF_LUADB_CUSTOM_READ
         memcpy(fs->files[i].name, &(ptr[index]), len);
-
+        #else
+        luat_luadb_read_bytes(fs->files[i].name, ptr + index, len);
+        #endif
         fs->files[i].name[len] = 0x00;
-
         index += len;
 
-        LLOGD("LuaDB file name %s", fs->files[i].name);
+        LLOGD("LuaDB file name %.*s", len, fs->files[i].name);
 
         // 3. 文件大小
-        type = ptr[index++];
-        len = ptr[index++];
+        type = readU8(ptr, &index);
+        len = readU8(ptr, &index);
         if (type != 3 || len != 4) {
             LLOGD("bad file data 3 : %d %d %d", type, len, index);
             fail = 1;
@@ -302,8 +314,8 @@ _after_head:
         fs->files[i].size = readU32(ptr, &index);
 
         // 0xFE校验码
-        type = ptr[index++];
-        len = ptr[index++];
+        type = readU8(ptr, &index);
+        len = readU8(ptr, &index);
         if (type != 0xFE || len != 2) {
             LLOGD("bad file data 4 : %d %d %d", type, len, index);
             fail = 1;
@@ -540,7 +552,9 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
         T(feof),
         T(ferror),
         T(fread),
+    #ifndef LUAT_CONF_LUADB_CUSTOM_READ
         T(mmap),
+    #endif
         .fwrite = NULL
     }
 };

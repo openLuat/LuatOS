@@ -7,7 +7,7 @@
  * Date:    2013/7/15
  *
  * Description:
- *          ucs2 ×ª»» gb2312
+ *          ucs2 ×ªï¿½ï¿½ gb2312
  **************************************************************************/
 
 #include <stdint.h>
@@ -91,7 +91,7 @@ static uint16_t get_ucs2_offset(uint16_t ucs2)
     return (uint16_t)(-1);
 }
 
-uint16_t unicode_to_gb2312(uint16_t ucs2, uint8_t marks)
+static uint16_t unicode_to_gb2312(uint16_t ucs2, uint8_t marks)
 {
 	uint16_t gb = 0xA1A1;
 	if(0x80 > ucs2)
@@ -125,7 +125,7 @@ uint16_t unicode_to_gb2312(uint16_t ucs2, uint8_t marks)
 	return gb;
 }
 
-/*+\NEW\liweiqiang\2013.11.26\ÍêÉÆgb2312<->ucs2(ucs2be)±àÂë×ª»»*/
+/*+\NEW\liweiqiang\2013.11.26\ï¿½ï¿½ï¿½ï¿½gb2312<->ucs2(ucs2be)ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½*/
 static size_t iconv_ucs2_to_gb2312_endian(char **_inbuf, size_t *inbytesleft, char **_outbuf, size_t *outbytesleft, int endian)
 {
     uint16_t gb2312 = 0xA1A1; 
@@ -192,5 +192,5 @@ size_t iconv_ucs2be_to_gb2312(char **_inbuf, size_t *inbytesleft, char **_outbuf
 {
     return iconv_ucs2_to_gb2312_endian(_inbuf, inbytesleft, _outbuf, outbytesleft, 1);
 }
-/*-\NEW\liweiqiang\2013.11.26\ÍêÉÆgb2312<->ucs2(ucs2be)±àÂë×ª»»*/
+/*-\NEW\liweiqiang\2013.11.26\ï¿½ï¿½ï¿½ï¿½gb2312<->ucs2(ucs2be)ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½*/
 

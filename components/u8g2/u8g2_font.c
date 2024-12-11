@@ -1307,13 +1307,13 @@ void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
 #if (defined __LUATOS__) || defined (__USER_CODE__)
 //探测一下是不是等宽字体
     const uint8_t *glyph_data = u8g2_font_get_glyph_data(u8g2, 'a');
-    int8_t x, y;
+    // int8_t x, y;
     int8_t d;
     u8g2_font_decode_t *decode = &(u8g2->font_decode);
 
     u8g2_font_setup_decode(u8g2, glyph_data);     /* set values in u8g2->font_decode data structure */
-    x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
-    y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
+    u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
+    u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
     d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
     luat_u8g2_is_equal_width = (d == u8g2->font_info.max_char_width);
 #endif

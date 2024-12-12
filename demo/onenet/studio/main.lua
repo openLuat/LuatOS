@@ -152,7 +152,7 @@ sys.taskInit(function()
     -------- MQTT 演示代码 --------------
     -------------------------------------
 
-    mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, ca_file)
+    mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl)
 
     mqttc:auth(client_id, user_name, password) -- client_id必填,其余选填
     -- mqttc:keepalive(240) -- 默认值240s

@@ -82,6 +82,19 @@ spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 */
+
+/*
+此处为api新增设计
+rgb:
+lcd.init("st7796s",{port = "rgb",direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26}))
+8080:
+lcd.init("st7796s",{port = "8080",direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26}))
+arm2d:
+lcd.init("st7796s",{port = "ARM2D",direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26}))
+dma2d:
+lcd.init("st7796s",{port = "DMA2D",direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26}))
+*/
+
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));

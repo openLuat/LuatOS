@@ -344,6 +344,7 @@ typedef struct
 	uint8_t dhcp_check_cnt;
 	uint8_t next_socket_index;
 	uint8_t fast_rx_ack;
+	uint8_t only_ipv6;
 }net_lwip_ctrl_struct;
 
 static net_lwip_ctrl_struct prvlwip;
@@ -799,13 +800,6 @@ static void net_lwip_dns_tx_next(Buffer_Struct *tx_msg_buf)
 	}
 }
 
-uint32_t net_lwip_rand()
-{
-	PV_Union uPV;
-	luat_crypto_trng(uPV.u8, 4);
-	return uPV.u32;
-}
-
 void net_lwip_init(void)
 {
 
@@ -860,18 +854,20 @@ static void net_lwip_close_tcp(int socket_id)
 
 void net_lwip_do_event(OS_EVENT event)
 {
-	luat_network_cb_param_t cb_param;
+//	luat_network_cb_param_t cb_param;
 	Buffer_Struct tx_msg_buf = {0,0,0};
-	HANDLE cur_task = luat_get_current_task();
+//	HANDLE cur_task = luat_get_current_task();
 	struct tcp_pcb *pcb, dpcb;
 	struct netif *netif;
-	struct dhcp *dhcp;
+//	struct dhcp *dhcp;
 	socket_data_t *p;
 	ip_addr_t *p_ip;
 	ip_addr_t *local_ip;
 	struct pbuf *out_p;
-	int error, i;
-	PV_Union uPV;
+	int error;
+	uint32_t clat_temp;
+	uint8_t need_clat;
+//	PV_Union uPV;
 	uint8_t socket_id;
 	uint8_t adapter_index;
 	socket_id = event.Param1;
@@ -993,7 +989,36 @@ void net_lwip_do_event(OS_EVENT event)
 		}
 		p_ip = (ip_addr_t *)event.Param2;
 		local_ip = NULL;
-		if (p_ip->type == IPADDR_TYPE_V4)
+		need_clat = 0;
+		if (p_ip->type == IPADDR_TYPE_V4 && prvlwip.only_ipv6)
+		{
+			need_clat = 1;
+		}
+		else if (p_ip->type == IPADDR_TYPE_V6)
+		{
+			if (0x9bff6400 == p_ip->u_addr.ip6.addr[0])
+			{
+				need_clat = 2;
+			}
+		}
+		if (need_clat)
+		{
+			//NET_DBG("adapter src is ipv6, dest is ipv4 use clat!!!");
+			if (1 == need_clat)
+			{
+				clat_temp = p_ip->u_addr.ip4.addr;
+				p_ip->type = IPADDR_TYPE_V6;
+				p_ip->u_addr.ip6.addr[0] = 0x9bff6400;
+				p_ip->u_addr.ip6.addr[1] = 0;
+				p_ip->u_addr.ip6.addr[2] = 0;
+				p_ip->u_addr.ip6.addr[3] = clat_temp;
+			}
+			local_ip = net_lwip_get_ip6(NW_ADAPTER_INDEX_LWIP_GPRS);
+			NET_DBG("clat src %s", ipaddr_ntoa(local_ip));
+			NET_DBG("clat dest %s", ipaddr_ntoa(p_ip));
+
+		}
+		else if (p_ip->type == IPADDR_TYPE_V4)
 		{
 			local_ip = &prvlwip.lwip_netif[adapter_index]->ip_addr;
 		}

@@ -130,7 +130,7 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 			{
 				if (g_s_ftp.fd)
 				{
-					luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_WRITE_FILE, rx_buffer, rx_len, 0, LUAT_WAIT_FOREVER);
+					luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_WRITE_FILE, (uint32_t)rx_buffer, rx_len, 0, LUAT_WAIT_FOREVER);
 					rx_buffer = NULL;
 					continue;
 				}

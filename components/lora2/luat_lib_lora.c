@@ -160,7 +160,7 @@ static int luat_lora_init(lua_State *L){
             LLOGE("out of memory when malloc lora_device");
             return 0;
         }
-        RadioEvents_t RadioEvents;
+        RadioEvents_t RadioEvents = {0};
         uint8_t id = 0,cs = 0,res = 0,busy = 0,dio1 = 0;
         lora_device->lora_init = true;
         if (lua_istable(L, 2)) {

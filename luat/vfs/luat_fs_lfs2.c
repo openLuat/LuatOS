@@ -66,7 +66,7 @@ int luat_vfs_lfs2_getc(void* userdata, FILE* stream) {
     lfs_file_t* file = (lfs_file_t*)stream;
     char buff = 0;
     int ret = lfs_file_read(fs, file, &buff, 1);
-    if (ret < 0)
+    if (ret != 1)
         return -1;
     return (int)buff;
 }

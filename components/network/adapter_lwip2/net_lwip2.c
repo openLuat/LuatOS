@@ -103,7 +103,8 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		#ifdef udp_bind_netif
 		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
 		#endif
-		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)adapter_index, 0);
+		int tmp = adapter_index;
+		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);
 	}
 	prvlwip.lwip_netif[adapter_index] = netif;
 }
@@ -922,21 +923,22 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	else
 	{
 		NET_DBG("network ready");
+		uint32_t tmp = adapter_index;
 		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
 			NET_DBG("使用网关作为默认DNS服务器");
-			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
+			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)tmp);
 		}
 		else {
 			NET_DBG("使用223.5.5.5作为默认DNS服务器");
 			ip4addr_aton("223.5.5.5", &addr);
-			net_lwip2_set_dns_server(0, &addr, (void*)adapter_index);
+			net_lwip2_set_dns_server(0, &addr, (void*)tmp);
 		}
 		ip4addr_aton("114.114.114.114", &addr);
-		net_lwip2_set_dns_server(1, &addr, (void*)adapter_index);
+		net_lwip2_set_dns_server(1, &addr, (void*)tmp);
 		ip4addr_aton("223.5.5.5", &addr);
-		net_lwip2_set_dns_server(2, &addr, (void*)adapter_index);
+		net_lwip2_set_dns_server(2, &addr, (void*)tmp);
 		ip4addr_aton("119.29.29.29", &addr);
-		net_lwip2_set_dns_server(3, &addr, (void*)adapter_index);
+		net_lwip2_set_dns_server(3, &addr, (void*)tmp);
 		net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
 	}
 }

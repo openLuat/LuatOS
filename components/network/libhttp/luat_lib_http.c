@@ -204,13 +204,13 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "callback");
 		if (LUA_TFUNCTION == lua_gettable(L, 5)) {
-			http_ctrl->http_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+			http_ctrl->http_cb = (void*)luaL_ref(L, LUA_REGISTRYINDEX);
 		}
 
 		if (http_ctrl->http_cb){
 			lua_pushstring(L, "userdata");
 			lua_gettable(L, 5);
-			http_ctrl->http_cb_userdata = luaL_ref(L, LUA_REGISTRYINDEX);
+			http_ctrl->http_cb_userdata = (void*)luaL_ref(L, LUA_REGISTRYINDEX);
 		}
 	}else{
 		adapter_index = network_get_last_register_adapter();
@@ -384,13 +384,13 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		if (msg->arg1 == HTTP_CALLBACK){
-			lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
+			lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
 			// int userdata_type = lua_type(L, -2);
 			if (lua_isfunction(L, -1)) {
 				lua_pushinteger(L, http_ctrl->resp_content_len);
 				lua_pushinteger(L, msg->arg2);
 				if (http_ctrl->http_cb_userdata){
-					lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
+					lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb_userdata);
 					lua_call(L, 3, 0);
 				}else{
 					lua_call(L, 2, 0);
@@ -456,10 +456,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	}
 exit:
 	if (http_ctrl->http_cb){
-		luaL_unref(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
+		luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
 		http_ctrl->http_cb = 0;
 		if (http_ctrl->http_cb_userdata){
-			luaL_unref(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
+			luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb_userdata);
 			http_ctrl->http_cb_userdata = 0;
 		}
 	}

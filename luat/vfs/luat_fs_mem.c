@@ -16,6 +16,7 @@ typedef struct luat_ram_fd
 {
     int fid;
     uint32_t  offset;
+    uint8_t readonly;
 }luat_raw_fd_t;
 
 #define RAM_FILE_MAX (8)
@@ -40,13 +41,14 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                 }
                 fd->fid = i;
                 fd->offset = 0;
+                fd->readonly = 1;
                 return (FILE*)fd;
             }
         }
         return NULL;
     }
     // 写文件
-    if (!strcmp("w", mode) || !strcmp("wb", mode) || !strcmp("w+", mode) || !strcmp("wb+", mode) || !strcmp("r+", mode) || !strcmp("rb+", mode)) {
+    if (!strcmp("w", mode) || !strcmp("wb", mode) || !strcmp("w+", mode) || !strcmp("wb+", mode) || !strcmp("w+b", mode) || !strcmp("r+", mode) || !strcmp("rb+", mode) || !strcmp("r+b", mode)) {
         // 先看看是否存在, 如果存在就重用老的
         for (size_t i = 0; i < RAM_FILE_MAX; i++)
         {
@@ -59,7 +61,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                     return NULL;
                 }
                 fd->fid = i;
-                if (!strcmp("w+", mode) || !strcmp("wb+", mode)) {
+                if (!strcmp("w+", mode) || !strcmp("wb+", mode) || !strcmp("w+b", mode)) {
                     // 截断模式
                     char* tmp = luat_heap_realloc(files[i], sizeof(ram_file_t));
                     if (tmp) {
@@ -198,6 +200,9 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
     (void)userdata;
     luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
     size_t write_size = size*nmemb;
+    if (fd->readonly) {
+        return 0;
+    }
     
     if (fd->offset + write_size > files[fd->fid]->size) {
         char* ptr = luat_heap_realloc(files[fd->fid], fd->offset + write_size + sizeof(ram_file_t));

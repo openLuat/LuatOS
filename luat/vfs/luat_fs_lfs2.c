@@ -116,6 +116,10 @@ size_t luat_vfs_lfs2_fread(void* userdata, void *ptr, size_t size, size_t nmemb,
 size_t luat_vfs_lfs2_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t* file = (lfs_file_t*)stream;
+    if ((file->flags & LFS_O_WRONLY) != LFS_O_WRONLY && (file->flags & LFS_O_APPEND) != LFS_O_APPEND) {
+        LLOGE("open file at readonly mode, reject for write flags=%08X", file->flags);
+        return 0;
+    }
     int ret = lfs_file_write(fs, file, ptr, size*nmemb);
     return ret < 0 ? 0 : ret;
 }

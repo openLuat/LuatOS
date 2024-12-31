@@ -1016,7 +1016,13 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 			prvlwip.socket[socket_id].pcb.tcp->errf = net_lwip2_tcp_err_cb;
 			prvlwip.socket[socket_id].pcb.tcp->so_options |= SOF_KEEPALIVE|SOF_REUSEADDR;
 //					tcp_set_flags(prvlwip.socket[socket_id].pcb.tcp, TCP_NODELAY);
-
+			#if LWIP_TCP_KEEPALIVE
+			if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_ETH) {
+				prvlwip.socket[socket_id].pcb.tcp->keep_intvl = 60*1000;
+			}
+			#endif
 		}
 		else
 		{

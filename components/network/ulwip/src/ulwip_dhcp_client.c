@@ -28,6 +28,11 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
 	uint32_t remote_ip = 0;
     int result = 0;
 
+    if (!netif_is_up(netif) || !netif_is_link_up(netif)) {
+        LLOGD("网卡未就绪,不发送dhcp请求 %d", ctx->adapter_index);
+        return 0;
+    }
+
     if (rxbuff) {
         rx_msg_buf.Data = (uint8_t*)rxbuff;
         rx_msg_buf.Pos = len;
@@ -131,19 +136,26 @@ static void dhcp_client_timer_cb(void *arg) {
     #endif
 }
 
+static void reset_dhcp_client(ulwip_ctx_t *ctx) {
+    memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
+    memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
+    luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
+    sprintf_(ctx->dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
+			ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
+			ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+}
+
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
     if (!ctx->dhcp_client) {
         ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
-        memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
-        memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
-        luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
-        sprintf_(ctx->dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
-			ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
-			ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+        reset_dhcp_client(ctx);
         luat_rtos_timer_create(&ctx->dhcp_timer);
         ctx->dhcp_pcb = udp_new();
         ip_set_option(ctx->dhcp_pcb, SOF_BROADCAST);
         udp_bind(ctx->dhcp_pcb, IP4_ADDR_ANY, 68);
+        #ifdef udp_bind_netif
+        udp_bind_netif(ctx->dhcp_pcb, ctx->netif);
+        #endif
         udp_connect(ctx->dhcp_pcb, IP4_ADDR_ANY, 67);
         udp_recv(ctx->dhcp_pcb, ulwip_dhcp_recv, ctx);
     }
@@ -160,7 +172,6 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
 void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
     if (luat_rtos_timer_is_active(ctx->dhcp_timer)) {
         luat_rtos_timer_stop(ctx->dhcp_timer);
-        ctx->dhcp_client->state = DHCP_STATE_DISCOVER;
-        ctx->dhcp_client->discover_cnt = 0;
+        reset_dhcp_client(ctx);
     }
 }

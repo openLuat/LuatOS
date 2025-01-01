@@ -968,6 +968,12 @@ static uint8_t net_lwip2_check_ready(void *user_data)
 		LLOGD("lwip netif is null %d", adapter_index);
 		return 0;
 	}
+	if (!netif_is_up(prvlwip.lwip_netif[adapter_index])) {
+		return 0;
+	}
+	if (!netif_is_link_up(prvlwip.lwip_netif[adapter_index])) {
+		return 0;
+	}
 	return !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
 }
 

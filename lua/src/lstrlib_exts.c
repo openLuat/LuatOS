@@ -695,7 +695,13 @@ int l_str_fromBase32(lua_State *L) {
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len + 1);
   int rl = luat_str_base32_decode((const uint8_t * )str,(uint8_t *)buff.b,buff.size);
-  luaL_pushresultsize(&buff, rl);
+  if (rl > 0 && rl <= len + 1) {
+    luaL_pushresultsize(&buff, rl);
+  }
+  else {
+    lua_pushstring(L, "");
+  }
+
   return 1;
 }
 

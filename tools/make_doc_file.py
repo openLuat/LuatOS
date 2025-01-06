@@ -4,13 +4,10 @@ import requests
 
 #bsp.h文件列表
 bsp_header_list = [
+{"name":"Air780EPM","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780epm.h"},
 {"name":"Air780E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
 {"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
 {"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780eps.h"},
-{"name":"Air780EQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780eq.h"},
-{"name":"Air700EAQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
-{"name":"Air700EMQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
-{"name":"Air700ECQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
 {"name":"Air201","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air201.h"},
 ]
 print("getting bsp.h files...")

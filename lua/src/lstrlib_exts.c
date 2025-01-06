@@ -153,7 +153,7 @@ int l_str_split (lua_State *L) {
   }
 
   size_t dlen = 0;
-  const char *delimiters = luaL_optlstring(L, 2, &dlen, ",");
+  const char *delimiters = luaL_optlstring(L, 2, ",", &dlen);
   if (dlen < 1) {
     delimiters = ",";
     dlen = 1;

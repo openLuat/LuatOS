@@ -960,6 +960,7 @@ while 1 do
     log.info("yhm27xxx", result, data)
 end
 */
+#ifdef LUAT_USE_YHM27XX
 static int l_sensor_yhm27xx(lua_State *L)
 {
   uint8_t pin = luaL_checkinteger(L, 1);
@@ -985,6 +986,7 @@ static int l_sensor_yhm27xx(lua_State *L)
   }
   return 1;
 }
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_sensor[] =
@@ -1005,7 +1007,9 @@ static const rotable_Reg_t reg_sensor[] =
 #ifdef LUAT_USE_SPI
         {"ws2812b_spi",     ROREG_FUNC(l_sensor_ws2812b_spi)},
 #endif
+#ifdef LUAT_USE_YHM27XX
         {"yhm27xx",     ROREG_FUNC(l_sensor_yhm27xx)},
+#endif
         {NULL,          ROREG_INT(0) }
 };
 

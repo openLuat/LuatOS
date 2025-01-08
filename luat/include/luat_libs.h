@@ -193,4 +193,7 @@ LUAMOD_API int luaopen_ht1621(lua_State *L);
 // NAPT
 LUAMOD_API int luaopen_napt(lua_State *L);
 
+// NETDRV
+LUAMOD_API int luaopen_netdrv( lua_State *L );
+
 #endif

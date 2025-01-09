@@ -125,7 +125,7 @@ const char* luat_lcd_name(luat_lcd_conf_t* conf) {
     return conf->opts->name;
 }
 
-int luat_lcd_init(luat_lcd_conf_t* conf) {
+LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     uint8_t direction_date = 0;
 	conf->is_init_done = 0;
     if (conf->w == 0)
@@ -174,6 +174,10 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
         }
     }
     return -1;
+}
+
+LUAT_WEAK int luat_lcd_init(luat_lcd_conf_t* conf) {
+    return luat_lcd_init_default(conf);
 }
 
 int luat_lcd_close(luat_lcd_conf_t* conf) {

@@ -227,7 +227,7 @@ static int task_loop_one(ch390h_t* ch) {
             }
             memcpy(ptr->buff, ch->rxbuff, len);
             ptr->netif = ch->netif;
-            ptr->len = len;
+            ptr->len = len - 4;
             ret = tcpip_callback(netdrv_netif_input, ptr);
             if (ret) {
                 luat_heap_free(ptr);

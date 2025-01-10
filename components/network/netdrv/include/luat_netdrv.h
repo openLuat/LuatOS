@@ -47,4 +47,6 @@ int luat_netdrv_ready(int32_t id);
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv);
 
+int luat_netdrv_mac(int32_t id, char* new, char* old);
+
 #endif

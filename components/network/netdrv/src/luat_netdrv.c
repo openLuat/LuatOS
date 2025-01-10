@@ -56,3 +56,15 @@ int luat_netdrv_register(int32_t id, luat_netdrv_t* drv) {
     drvs[id] = drv;
     return 0;
 }
+
+int luat_netdrv_mac(int32_t id, char* new, char* old) {
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
+    if (drvs[id] == NULL || drvs[id]->netif == NULL) {
+        return -1;
+    }
+    memcpy(old, drvs[id]->netif->hwaddr, 6);
+    memcpy(drvs[id]->netif->hwaddr, new, 6);
+    return 0;
+}

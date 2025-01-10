@@ -35,6 +35,8 @@ extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
 static luat_rtos_task_handle ch390h_task_handle;
 
+static int is_waiting;
+
 static int ch390h_bootup(ch390h_t* ch) {
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
 
@@ -76,8 +78,12 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         for (size_t j = 0; j < CH390H_MAX_TX_NUM; j++)
         {
             if (ch->txqueue[j] == NULL) {
+                // TODO 改成消息传送, 或者
                 ch->txqueue[j] = p2;
                 // LLOGD("找到空位了 %d", j);
+                if (is_waiting) {
+                    luat_rtos_event_send(ch390h_task_handle, 0, 0, 0, 0, 0);
+                }
                 return 0;
             }
         }
@@ -243,6 +249,7 @@ static int task_loop_one(ch390h_t* ch) {
 
     // 那有没有需要发送的数据呢?
     struct pbuf* p = NULL;
+    int has_tx = 0;
     for (size_t i = 0; i < CH390H_MAX_TX_NUM; i++)
     {
         p = ch->txqueue[i];
@@ -255,11 +262,12 @@ static int task_loop_one(ch390h_t* ch) {
         pbuf_free(p);
         ch->txqueue[i] = NULL;
         luat_ch390h_write_pkg(ch, ch->txbuff, len);
+        has_tx = 1;
     }
     
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
-    if (NSR & 0x01) {
+    if (NSR & 0x01 || has_tx) {
         return 1;
     }
 
@@ -284,7 +292,9 @@ static void ch390_task_main(void* args) {
         // LLOGD("开始新的循环");
         // luat_rtos_task_sleep(10);
         if (task_loop() == 0) {
+            is_waiting = 1;
             luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, 10);
+            is_waiting = 0;
         }
     }
 }
@@ -292,7 +302,7 @@ static void ch390_task_main(void* args) {
 void luat_ch390h_task_start(void) {
     int ret = 0;
     if (ch390h_task_handle == NULL) {
-        ret = luat_rtos_task_create(&ch390h_task_handle, 8*1024, 50, "ch390h", ch390_task_main, NULL, 16);
+        ret = luat_rtos_task_create(&ch390h_task_handle, 8*1024, 50, "ch390h", ch390_task_main, NULL, 1024);
         if (ret) {
             LLOGE("task create fail %d", ret);
             return;

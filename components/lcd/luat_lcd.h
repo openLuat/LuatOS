@@ -90,6 +90,8 @@ typedef struct luat_lcd_opts {
     uint8_t direction90;
     uint8_t direction180;
     uint8_t direction270;
+    uint8_t rb_swap;
+    uint8_t unused;
     uint16_t init_cmds_len;
     uint16_t* init_cmds;
     int (*init)(luat_lcd_conf_t* conf);

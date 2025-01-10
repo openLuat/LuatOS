@@ -261,7 +261,8 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	uint16_t flag = 0x8000;
 	*remote_ip = 0xffffffff;
 	int result = 0;
-	LLOGD("dhcp state %d", dhcp->state);
+	uint64_t tnow = luat_mcu_tick64_ms();
+	LLOGD("dhcp state %d %lld %lld %lld", dhcp->state, tnow, dhcp->lease_p1_time, dhcp->lease_p2_time);
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);
@@ -292,7 +293,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	switch(dhcp->state)
 	{
 	case DHCP_STATE_WAIT_LEASE_P1:
-		if (luat_mcu_tick64_ms() >= dhcp->lease_p1_time)
+		if (tnow >= dhcp->lease_p1_time)
 		{
 			flag = 0;
 			*remote_ip = dhcp->server_ip;
@@ -314,7 +315,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		}
 		break;
 	case DHCP_STATE_WAIT_LEASE_P2:
-		if (luat_mcu_tick64_ms() >= dhcp->lease_p2_time)
+		if (tnow >= dhcp->lease_p2_time)
 		{
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
@@ -327,14 +328,14 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
 			break;
 		}
-		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2500))
+		if (tnow >= (dhcp->last_tx_time + 2500))
 		{
 			LLOGD("lease p2 require ip long time no ack");
 			dhcp->state = DHCP_STATE_WAIT_LEASE_END;
 		}
 		break;
 	case DHCP_STATE_WAIT_LEASE_END:
-		if (luat_mcu_tick64_ms() >= dhcp->lease_end_time)
+		if (tnow >= dhcp->lease_end_time)
 		{
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
@@ -372,7 +373,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			dhcp->wait_selec_ack_cnt = 0;
 			goto DHCP_NEED_REQUIRE;
 		}
-		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
+		if (tnow >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
 		{
 			LLOGD("long time no offer, resend");
 			dhcp->discover_cnt++;

@@ -68,18 +68,20 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
         else
             local x,y,z = string.match(_G.VERSION,"(%d+).(%d+).(%d+)")
             if x and y and z then
-                version = x.."."..z
-                local imei = ""
-                local model = ""
+                local query = ""
+                local firmware_name = _G.PROJECT.. "_" .. rtos.firmware()
+                local version = _G.VERSION
                 if mobile then
-                    imei = mobile.imei()
+                    query = "imei=" .. mobile.imei()
+                    version = rtos.version():sub(2) .. "." ..  x .. "." .. z
+                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
                 elseif wlan and wlan.getMac then
-                    imei = wlan.getMac()
+                    query = "mac=" .. wlan.getMac()
                 else
-                    imei = mcu.unique_id():toHex()
+                    query = "uid=" .. mcu.unique_id():toHex()
                 end
-                model = hmeta and ("&model=" .. hmeta.model() .. "_" .. (hmeta.hwver and hmeta.hwver() or "A00")) or ""
-                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. imei .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version .. model
+                local tmp = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=%s&firmware_name=%s&version=%s&%s"
+                ota_url = string.format(tmp, _G.PRODUCT_KEY, firmware_name, version, query)
             else
                 log.error("fota", "_G.VERSION must be xxx.yyy.zzz!!!")
                 cbFnc(5)

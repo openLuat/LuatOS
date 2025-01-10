@@ -449,6 +449,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 #endif
+	else if (http_ctrl->zbuff_body) {
+		lua_pushinteger(L, http_ctrl->body_len);
+		luat_cbcwait(L, idp, 3); // code, headers, body
+	}
 	else {
 		// 非下载模式
 		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);

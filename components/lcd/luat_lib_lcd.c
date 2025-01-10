@@ -49,6 +49,7 @@ static const lcd_reg_t lcd_regs[] = {
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
   {"nv3037", &lcd_opts_nv3037},
+  {"h050iwv",LUAT_NULL},
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -97,6 +98,7 @@ lcd.init("st7796s",{port = "DMA2D",direction = 2,w = 160,h = 80,xoffset = 1,yoff
 
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
+    uint8_t spi_device = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     if (conf == NULL) {
       LLOGE("out of system memory!!!");
@@ -126,7 +128,7 @@ static int l_lcd_init(lua_State* L) {
         // 所以, 直接引用之外, 再加上强制引用, 避免被GC
         // 鉴于LCD不太可能重复初始化, 引用也没什么问题
         conf->lcd_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-        conf->port = LUAT_LCD_SPI_DEVICE;
+        spi_device = 1;
     }
     const char* tp = luaL_checklstring(L, 1, &len);
     int16_t s_index = -1;//第几个屏幕，-1表示没匹配到
@@ -146,17 +148,29 @@ static int l_lcd_init(lua_State* L) {
 
             lua_pushstring(L, "port");
             int port = lua_gettable(L, 2);
-            if (conf->port == LUAT_LCD_SPI_DEVICE && port ==LUA_TNUMBER) {
+            if (LUA_TNUMBER == port) {
+                conf->port = luaL_checkinteger(L, -1);
+            }else if(LUA_TSTRING == port){
+                size_t len;
+                const char *lcd_port = luaL_checklstring(L, -1,&len);
+                if(memcmp("device", lcd_port, len) == 0){
+                    conf->port = LUAT_LCD_SPI_DEVICE;
+                }else if(memcmp("rgb", lcd_port, len) == 0){
+                    conf->port = LUAT_LCD_PORT_RGB;
+                }else{
+                    LLOGE("port %s is not support ",lcd_port);
+                    goto end; 
+                }
+            }
+
+            if (spi_device == 1 && conf->port != LUAT_LCD_SPI_DEVICE) {
               LLOGE("port is not device but find luat_spi_device_t");
               goto end;
-            }else if (conf->port != LUAT_LCD_SPI_DEVICE && LUA_TSTRING == port){
+            }else if (spi_device == 0 && conf->port == LUAT_LCD_SPI_DEVICE){
               LLOGE("port is device but not find luat_spi_device_t");
               goto end;
-            }else if (LUA_TNUMBER == port) {
-                conf->port = luaL_checkinteger(L, -1);
-            }else if (LUA_TSTRING == port){
-                conf->port = LUAT_LCD_SPI_DEVICE;
             }
+
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_dc");
@@ -1882,8 +1896,19 @@ static const rotable_Reg_t reg_lcd[] =
     { "direction_180",  ROREG_INT(2)},
     //@const direction_270 int 270°方向命令
     { "direction_270",  ROREG_INT(3)},
+    //@const SPI 硬件spi device lcd驱动
+    { "SPI",            ROREG_INT(LUAT_LCD_SPI_DEVICE)},
     //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
+    //@const RGB 硬件RGB lcd驱动 (根据芯片支持选择)
+    { "RGB",            ROREG_INT(LUAT_LCD_PORT_RGB)},
+
+    // //@const ARM2D 硬件ARM2D lcd驱动 (根据芯片支持选择)
+    // { "ARM2D",         ROREG_INT(LUAT_LCD_PORT_ARM2D)},
+    // //@const DMA2D 硬件DMA2D lcd驱动 (根据芯片支持选择)
+    // { "DMA2D",         ROREG_INT(LUAT_LCD_PORT_DMA2D)},
+
+
     //@const WIRE_3_BIT_9_INTERFACE_I 三线spi 9bit 模式I
     { "WIRE_3_BIT_9_INTERFACE_I",   ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I)},
     //@const WIRE_4_BIT_8_INTERFACE_I 四线spi 8bit 模式I

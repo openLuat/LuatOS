@@ -394,12 +394,20 @@ static int l_ulwip_link(lua_State *L) {
     }
     if (lua_isboolean(L, 2))
     {
-        if (lua_toboolean(L, 2))
+        int new_status = lua_toboolean(L, 2);
+        int old_status = netif_is_link_up(nets[idx].netif);
+        if (new_status != old_status)
         {
-            netif_set_link_up(nets[idx].netif);
-        }
-        else {
-            netif_set_link_down(nets[idx].netif);
+            if (new_status) {
+                netif_set_link_up(nets[idx].netif);
+                if (!nets[idx].ip_static) {
+                    ulwip_dhcp_client_start(&nets[idx]);
+                }
+            }
+            else {
+                netif_set_link_down(nets[idx].netif);
+                ulwip_dhcp_client_stop(&nets[idx]);
+            }
         }
         ulwip_netif_ip_event(&nets[idx]);
     }

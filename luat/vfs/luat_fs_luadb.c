@@ -356,8 +356,8 @@ FILE* luat_vfs_luadb_fopen(void* userdata, const char *filename, const char *mod
     if (!strcmp("r", mode) || !strcmp("rb", mode) || !strcmp("r+", mode) || !strcmp("rb+", mode)) {
     }
     else {
-        // 暂时只警告
         LLOGW("/luadb is readonly %s %s", filename, mode);
+        return (FILE*)NULL;
     }
     return (FILE*)luat_luadb_open((luadb_fs_t*)userdata, filename, 0, 0);
 }

@@ -24,11 +24,19 @@
 #elif (LUAT_LCD_COLOR_DEPTH == 8)
 #define luat_color_t uint8_t
 #else
-#error "no supprt color depth"
+#error "no support color depth"
 #endif
 
-#define LUAT_LCD_SPI_DEVICE 255
-#define LUAT_LCD_HW_ID_0 0x20	//专用LCD接口的SPI ID
+enum{
+	LUAT_LCD_HW_ID_0    = 0x20,	//专用LCD接口 ID
+
+    LUAT_LCD_SPI_DEVICE,
+    LUAT_LCD_PORT_RGB,
+    LUAT_LCD_PORT_8080,
+    LUAT_LCD_PORT_ARM2D,
+    LUAT_LCD_PORT_DMA2D,
+    LUAT_LCD_PORT_MAX,
+};
 
 struct luat_lcd_opts;
 
@@ -119,6 +127,7 @@ int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *da
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);
+int luat_lcd_init_default(luat_lcd_conf_t* conf);//通用spi设备使用
 int luat_lcd_init(luat_lcd_conf_t* conf);
 int luat_lcd_close(luat_lcd_conf_t* conf);
 int luat_lcd_display_on(luat_lcd_conf_t* conf);

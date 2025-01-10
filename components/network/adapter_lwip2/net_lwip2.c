@@ -968,6 +968,12 @@ static uint8_t net_lwip2_check_ready(void *user_data)
 		LLOGD("lwip netif is null %d", adapter_index);
 		return 0;
 	}
+	if (!netif_is_up(prvlwip.lwip_netif[adapter_index])) {
+		return 0;
+	}
+	if (!netif_is_link_up(prvlwip.lwip_netif[adapter_index])) {
+		return 0;
+	}
 	return !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
 }
 
@@ -1016,7 +1022,15 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 			prvlwip.socket[socket_id].pcb.tcp->errf = net_lwip2_tcp_err_cb;
 			prvlwip.socket[socket_id].pcb.tcp->so_options |= SOF_KEEPALIVE|SOF_REUSEADDR;
 //					tcp_set_flags(prvlwip.socket[socket_id].pcb.tcp, TCP_NODELAY);
-
+			#if LWIP_TCP_KEEPALIVE
+			if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_ETH) {
+				prvlwip.socket[socket_id].pcb.tcp->keep_intvl = 5*1000;
+				prvlwip.socket[socket_id].pcb.tcp->keep_idle = 5*60*1000;
+				prvlwip.socket[socket_id].pcb.tcp->keep_cnt = 2;
+			}
+			#endif
 		}
 		else
 		{

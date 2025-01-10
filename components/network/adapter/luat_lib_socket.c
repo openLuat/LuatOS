@@ -1249,6 +1249,31 @@ NO_REMOTE_IP:
 	return 4;
 }
 
+/*
+设置默认网络适配器编号
+@api socket.dft(id)
+@int 默认适配器编号,若不传,则打包获取
+@return int 默认适配器编号
+@usage
+-- 本函数于 2025.1.6 新增
+-- 获取当前默认适配器编号
+local id = socket.dft()
+
+-- 设置默认适配器编号
+socket.dft(socket.LWIP_ETH)
+*/
+static int l_socket_default(lua_State *L) {
+	uint8_t id = 0;
+	if (lua_type(L, 1) == LUA_TNUMBER) {
+		id = (uint8_t)luaL_checkinteger(L, 1);
+		if (id < NW_ADAPTER_QTY) {
+			network_register_set_default(id);
+		}
+	}
+	lua_pushinteger(L, network_get_last_register_adapter());
+	return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {

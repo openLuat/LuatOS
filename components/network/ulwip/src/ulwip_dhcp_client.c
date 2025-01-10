@@ -146,6 +146,7 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
 }
 
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
+    LLOGD("dhcp start netif %p", ctx->netif);
     if (!ctx->dhcp_client) {
         ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
         reset_dhcp_client(ctx);
@@ -170,7 +171,8 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
 }
 
 void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
-    if (luat_rtos_timer_is_active(ctx->dhcp_timer)) {
+    LLOGD("dhcp stop netif %p", ctx->netif);
+    if (ctx->dhcp_timer != NULL && luat_rtos_timer_is_active(ctx->dhcp_timer)) {
         luat_rtos_timer_stop(ctx->dhcp_timer);
         reset_dhcp_client(ctx);
     }

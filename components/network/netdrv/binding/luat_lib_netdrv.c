@@ -27,9 +27,31 @@ static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
     conf.id = luaL_checkinteger(L, 1);
     conf.impl = luaL_optinteger(L, 2, 0);
-    conf.tp = luaL_optinteger(L, 3, 0);
-    int ret = luat_netdrv_setup(&conf);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    if (lua_istable(L, 3)) {
+        if (lua_getfield(L, 3, "spi") == LUA_TNUMBER) {
+            conf.spiid = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "cs") == LUA_TNUMBER) {
+            conf.cspin = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+
+        if (lua_getfield(L, 3, "irq") == LUA_TNUMBER) {
+            conf.irqpin = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+    }
+    luat_netdrv_t* ret = luat_netdrv_setup(&conf);
+    lua_pushboolean(L, ret != NULL);
+    return 1;
+}
+
+static int l_netdrv_dhcp(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int enable = lua_toboolean(L, 2);
+    int ret = luat_netdrv_dhcp(id, enable);
+    lua_pushboolean(L, ret == 0);
     return 1;
 }
 
@@ -37,6 +59,11 @@ static int l_netdrv_setup(lua_State *L) {
 static const rotable_Reg_t reg_netdrv[] =
 {
     { "setup" ,         ROREG_FUNC(l_netdrv_setup )},
+    { "dhcp",           ROREG_FUNC(l_netdrv_dhcp)},
+
+    { "CH390",          ROREG_INT(1)},
+    { "W5500",          ROREG_INT(2)},
+    { "W5100",          ROREG_INT(3)},
 	{ NULL,             ROREG_INT(0) }
 };
 

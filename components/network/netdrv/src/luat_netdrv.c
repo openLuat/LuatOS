@@ -1,6 +1,11 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
+#include "luat_netdrv_ch390h.h"
+#include "luat_malloc.h"
+
+#define LUAT_LOG_TAG "netdrv"
+#include "luat_log.h"
 
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
@@ -10,15 +15,31 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     }
     if (drvs[conf->id] == NULL) {
         // 注册新的设备?
+        if (conf->impl == 1) { // CH390H
+            drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
+            return drvs[conf->id];
+        }
     }
     else {
-        drvs[conf->id]->boot(NULL);
+        if (drvs[conf->id]->boot) {
+            drvs[conf->id]->boot(NULL);
+        }
     }
     return NULL;
 }
 
 int luat_netdrv_dhcp(int32_t id, int32_t enable) {
-    return -1;
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
+    if (drvs[id] == NULL) {
+        return -1;
+    }
+    if (drvs[id]->dhcp == NULL) {
+        LLOGW("该netdrv不支持设置dhcp开关");
+        return -1;
+    }
+    return drvs[id]->dhcp(drvs[id]->userdata, enable);
 }
 
 int luat_netdrv_ready(int32_t id) {

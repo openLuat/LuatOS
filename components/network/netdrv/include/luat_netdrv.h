@@ -6,6 +6,7 @@
 typedef void (*luat_netdrv_dataout_cb)(void* userdata, struct pbuf* pb, int flags);
 typedef int (*luat_netdrv_bootup_cb)(void* userdata);
 typedef int (*luat_netdrv_ready_cb)(void* userdata);
+typedef int (*luat_netdrv_dhcp_set)(void* userdata, int enable);
 
 typedef struct luat_netdrv {
     int32_t id;
@@ -13,6 +14,7 @@ typedef struct luat_netdrv {
     luat_netdrv_dataout_cb dataout;
     luat_netdrv_bootup_cb boot;
     luat_netdrv_ready_cb ready;
+    luat_netdrv_dhcp_set dhcp;
     void* userdata;
 }luat_netdrv_t;
 
@@ -30,8 +32,10 @@ typedef struct luat_netdrv_conf
 {
     int32_t id;
     int32_t impl;
-    int32_t tp;
-    int32_t flags;
+    uint8_t spiid;
+    uint8_t cspin;
+    uint8_t rstpin;
+    uint8_t irqpin;
 }luat_netdrv_conf_t;
 
 

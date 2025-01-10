@@ -162,8 +162,6 @@ function libfota2.request(cbFnc, opts)
         opts.url = "http://iot.openluat.com/api/site/firmware_upgrade?"
     end
     if opts.url:sub(1, 3) ~= "###" and not opts.url_done then
-        -- 获取硬件版本信息
-        local model = hmeta and ("&model=" .. hmeta.model() .. "_" .. (hmeta.hwver and hmeta.hwver() or "_A10")) or ""
         -- 补齐project_key函数
         if not opts.project_key then
             opts.project_key = _G.PRODUCT_KEY
@@ -175,30 +173,39 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐version参数
         if not opts.version then
-            local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")
-            opts.version = rtos.version():sub(2) .. "." .. x .. "." .. z
+            if mobile then
+                local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")
+                opts.version = rtos.version():sub(2) .. "." .. x .. "." .. z
+            else
+                opts.version = _G.VERSION
+            end
         end
         -- 补齐firmware_name参数
         if not opts.firmware_name then
-            opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
+            if mobile then
+                opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
+            else
+                opts.firmware_name = _G.PROJECT .. "_" .. rtos.firmware()
+            end
         end
+        local query = ""
         -- 补齐imei参数
         if not opts.imei then
-            local imei = ""
             if mobile then
-                imei = mobile.imei()
+                query = "imei=" .. mobile.imei()
             elseif wlan and wlan.getMac then
-                imei = wlan.getMac()
+                query = "mac=" .. wlan.getMac()
             else
-                imei = mcu.unique_id():toHex()
+                query = "uid=" .. mcu.unique_id():toHex()
             end
-            opts.imei = imei
         end
 
         -- 然后拼接到最终的url里
-        opts.url = string.format("%simei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei,
-            opts.project_key, opts.firmware_name, opts.version)
-        opts.url = opts.url .. model
+        if not opts.imei then
+            opts.url = string.format("%s%s&project_key=%s&firmware_name=%s&version=%s", opts.url, query, opts.project_key, opts.firmware_name, opts.version)
+        else
+            opts.url = string.format("%simei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei, opts.project_key, opts.firmware_name, opts.version)
+        end
     else
         opts.url = opts.url:sub(4)
     end

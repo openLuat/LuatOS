@@ -19,6 +19,7 @@ typedef struct ch390h
     uint8_t hwaddr[6];
     struct netif* netif;
     ulwip_ctx_t ulwip;
+    luat_netdrv_statics_t statics;
     uint8_t rxbuff[1600];
     uint8_t txbuff[1600];
     struct pbuf* txqueue[CH390H_MAX_TX_NUM];

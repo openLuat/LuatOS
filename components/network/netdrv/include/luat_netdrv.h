@@ -38,6 +38,18 @@ typedef struct luat_netdrv_conf
     uint8_t irqpin;
 }luat_netdrv_conf_t;
 
+typedef struct luat_netdrv_statics_item
+{
+    uint64_t counter;
+    uint64_t bytes;
+}luat_netdrv_statics_item_t;
+
+typedef struct luat_netdrv_statics
+{
+    luat_netdrv_statics_item_t in;
+    luat_netdrv_statics_item_t out;
+    luat_netdrv_statics_item_t drop;
+}luat_netdrv_statics_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);
 
@@ -47,6 +59,6 @@ int luat_netdrv_ready(int32_t id);
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv);
 
-int luat_netdrv_mac(int32_t id, char* new, char* old);
+int luat_netdrv_mac(int32_t id, const char* new, char* old);
 
 #endif

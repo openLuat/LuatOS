@@ -94,7 +94,6 @@ static int l_netdrv_mac(lua_State *L) {
     char buff[6] = {0};
     char tmpbuff[13] = {0};
     size_t len = 0;
-    int ret = 0;
     if (lua_isstring(L, 2)) {
         const char* tmp = luaL_checklstring(L, 2, &len);
         if (len != 6) {

@@ -57,7 +57,7 @@ int luat_netdrv_register(int32_t id, luat_netdrv_t* drv) {
     return 0;
 }
 
-int luat_netdrv_mac(int32_t id, char* new, char* old) {
+int luat_netdrv_mac(int32_t id, const char* new, char* old) {
     if (id < 0 || id >= NW_ADAPTER_QTY) {
         return -1;
     }

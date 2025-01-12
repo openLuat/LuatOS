@@ -1027,7 +1027,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 				adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
 				adapter_index == NW_ADAPTER_INDEX_LWIP_ETH) {
 				prvlwip.socket[socket_id].pcb.tcp->keep_intvl = 5*1000;
-				prvlwip.socket[socket_id].pcb.tcp->keep_idle = 5*60*1000;
+				prvlwip.socket[socket_id].pcb.tcp->keep_idle = 45*1000;
 				prvlwip.socket[socket_id].pcb.tcp->keep_cnt = 2;
 			}
 			#endif

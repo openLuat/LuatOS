@@ -60,12 +60,8 @@ static int ch390h_bootup(ch390h_t* ch) {
 static err_t netif_output(struct netif *netif, struct pbuf *p) {
     // LLOGD("lwip待发送数据 %p %d", p, p->tot_len);
     ch390h_t* ch = NULL;
-    struct pbuf *p2 = pbuf_alloc(PBUF_TRANSPORT, p->tot_len, PBUF_RAM);
-    if (p2 == NULL) {
-        LLOGE("内存不足, 无法传递pbuf");
-        return 0;
-    }
-    pbuf_copy(p2, p);
+    struct pbuf *p2 = NULL;
+
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
         ch = ch390h_drvs[i];
@@ -78,7 +74,13 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         for (size_t j = 0; j < CH390H_MAX_TX_NUM; j++)
         {
             if (ch->txqueue[j] == NULL) {
-                // TODO 改成消息传送, 或者
+                p2 = pbuf_alloc(PBUF_TRANSPORT, p->tot_len, PBUF_RAM);
+                if (p2 == NULL) {
+                    LLOGE("内存不足, 无法传递pbuf");
+                    return 0;
+                }
+                pbuf_copy(p2, p);
+                // TODO 改成消息传送
                 ch->txqueue[j] = p2;
                 // LLOGD("找到空位了 %d", j);
                 if (is_waiting) {
@@ -88,7 +90,6 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
             }
         }
     }
-    
     return 0;
 }
 

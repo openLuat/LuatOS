@@ -506,7 +506,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				{
 					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
-					udp_sendto(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+					udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
@@ -536,7 +536,7 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
-			err = udp_sendto(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			err = udp_sendto_if(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 			pbuf_free(p);
 			if (err) {
 				LLOGE("dns udp sendto ret %d", err);
@@ -669,7 +669,7 @@ static void net_lwip2_task(void *param)
 					if (out_p)
 					{
 						pbuf_take(out_p, p->data, p->len);
-						error = udp_sendto(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port);
+						error = udp_sendto_if(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port, prvlwip.lwip_netif[adapter_index]);
 						// LLOGD("udp_sendto ret %d", error);
 						pbuf_free(out_p);
 					}

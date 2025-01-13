@@ -97,8 +97,14 @@ static err_t luat_netif_init(struct netif *netif) {
     ch390h_t* ch = (ch390h_t*)netif->state;
     netif->linkoutput = netif_output;
     netif->output     = ulwip_etharp_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
+    #endif
     #if LWIP_IPV6
     netif->output_ip6 = ethip6_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
+    #endif
     #endif
     netif->mtu        = 1460;
     netif->flags      = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;

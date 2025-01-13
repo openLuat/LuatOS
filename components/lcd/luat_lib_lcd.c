@@ -1372,7 +1372,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // rgb高低位swap
     uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
     for (size_t i = 0; i < count; i++){
-      if (default_conf->port == LUAT_LCD_HW_ID_0)
+      if (default_conf->port < LUAT_LCD_HW_ID_0 || default_conf->port == LUAT_LCD_SPI_DEVICE)
         dev->buff[i] = tmp[i];
       else
         dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);

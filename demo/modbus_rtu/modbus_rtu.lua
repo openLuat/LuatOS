@@ -34,7 +34,9 @@ end
 
 -- modbus_rtu CRC16校验
 function modbus_rtu.crc16(data)
-    return crypto.crc16("modbus_rtu", data)
+    local crc16_data = crypto.crc16_modbus(data)
+    -- log.info("crc16end = ",crc16_data)
+    return crc16_data
 end
 
 -- 解析modbus_rtu数据帧
@@ -66,7 +68,10 @@ end
 function modbus_rtu.build_frame(addr, fun, data)
     local frame = string.char(addr, fun) .. data
     local crc = modbus_rtu.crc16(frame)
-    return frame .. pack.pack("H", crc)
+    -- log.info("CRC部分为",crc:toHex())
+    local pack_crc = pack.pack("H", crc)
+    -- log.info("pack后CRC为",aaa:toHex())
+    return frame .. pack_crc
 end
 
 -- 发送modbus_rtu命令

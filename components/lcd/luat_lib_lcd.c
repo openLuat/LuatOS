@@ -35,21 +35,25 @@ typedef struct lcd_reg {
   const luat_lcd_opts_t *lcd_opts;
 }lcd_reg_t;
 
+luat_lcd_opts_t lcd_opts_h050iwv = {
+    .name = "h050iwv",
+};
+
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
   {"st7735",  &lcd_opts_st7735},
   {"st7735v", &lcd_opts_st7735v},
   {"st7735s", &lcd_opts_st7735s},
   {"st7789",  &lcd_opts_st7789},
-  {"st7796", &lcd_opts_st7796},
+  {"st7796",  &lcd_opts_st7796},
   {"gc9a01",  &lcd_opts_gc9a01},
   {"gc9106l", &lcd_opts_gc9106l},
   {"gc9306x", &lcd_opts_gc9306x},
   {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
-  {"nv3037", &lcd_opts_nv3037},
-  {"h050iwv",LUAT_NULL},
+  {"nv3037",  &lcd_opts_nv3037},
+  {"h050iwv", &lcd_opts_h050iwv},
   {"", NULL} // 最后一个必须是空字符串
 };
 

@@ -1372,10 +1372,10 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // rgb高低位swap
     uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
     for (size_t i = 0; i < count; i++){
-      if (default_conf->port < LUAT_LCD_HW_ID_0 || default_conf->port == LUAT_LCD_SPI_DEVICE)
-        dev->buff[i] = tmp[i];
-      else
-        dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
+        if (default_conf->port < LUAT_LCD_HW_ID_0 || default_conf->port == LUAT_LCD_SPI_DEVICE)
+            dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
+        else
+            dev->buff[i] = tmp[i];
     }
     
     // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
@@ -1387,50 +1387,49 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
 }
 
 static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
-  JRESULT res;      /* Result code of TJpgDec API */
-  JDEC jdec;        /* Decompression object */
-  void *work;       /* Pointer to the decompressor work area */
+    JRESULT res;      /* Result code of TJpgDec API */
+    JDEC jdec;        /* Decompression object */
+    void *work;       /* Pointer to the decompressor work area */
 #if JD_FASTDECODE == 2
-  size_t sz_work = 3500 * 3; /* Size of work area */
+    size_t sz_work = 3500 * 3; /* Size of work area */
 #else
-  size_t sz_work = 3500; /* Size of work area */
+    size_t sz_work = 3500; /* Size of work area */
 #endif
-  IODEV devid;      /* User defined device identifier */
+    IODEV devid;      /* User defined device identifier */
 
-  FILE* fd = luat_fs_fopen(path, "r");
-  if (fd == NULL) {
-    LLOGW("no such file %s", path);
+    FILE* fd = luat_fs_fopen(path, "r");
+    if (fd == NULL) {
+        LLOGW("no such file %s", path);
     return -1;
-  }
+    }
 
-  devid.fp = fd;
-  work = luat_heap_malloc(sz_work);
-  if (work == NULL) {
-    LLOGE("out of memory when malloc jpeg decode workbuff");
-    return -3;
-  }
-  res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
-  if (res != JDR_OK) {
+    devid.fp = fd;
+    work = luat_heap_malloc(sz_work);
+    if (work == NULL) {
+        LLOGE("out of memory when malloc jpeg decode workbuff");
+        return -3;
+    }
+    res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
+    if (res != JDR_OK) {
+        luat_heap_free(work);
+        luat_fs_fclose(fd);
+        LLOGW("jd_prepare file %s error %d", path, res);
+        return -2;
+    }
+    devid.x = xpos;
+    devid.y = ypos;
+    // devid.width = jdec.width;
+    // devid.height = jdec.height;
+    res = jd_decomp(&jdec, lcd_out_func, 0);
     luat_heap_free(work);
     luat_fs_fclose(fd);
-    LLOGW("jd_prepare file %s error %d", path, res);
-    return -2;
-  }
-  devid.x = xpos;
-  devid.y = ypos;
-  // devid.width = jdec.width;
-  // devid.height = jdec.height;
-  res = jd_decomp(&jdec, lcd_out_func, 0);
-  luat_heap_free(work);
-  luat_fs_fclose(fd);
-  if (res != JDR_OK) {
-    LLOGW("jd_decomp file %s error %d", path, res);
-    return -2;
-  }
-  else {
-    lcd_auto_flush(default_conf);
-    return 0;
-  }
+    if (res != JDR_OK) {
+        LLOGW("jd_decomp file %s error %d", path, res);
+        return -2;
+    }else {
+        lcd_auto_flush(default_conf);
+        return 0;
+    }
 }
 
 /*

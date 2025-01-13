@@ -16,6 +16,9 @@
 #include "luat_timer.h"
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
+#include "lwip/ip.h"
+#include "lwip/ip4.h"
+#include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -114,12 +117,87 @@ static int l_netdrv_mac(lua_State *L) {
     return 1;
 }
 
+/*
+设置或读取ipv4地址
+@api netdrv.ipv4(addr, mark, gw)
+@string ipv4地址,如果是读取就不需要传
+@string 掩码
+@string 网关
+@return string ipv4地址
+@return string 掩码
+@return string 网关
+@usage
+-- 注意, 不是所有netdrv都支持设置的, 尤其4G Cat.1自带的netdrv就不能设置ipv4
+-- 注意, 设置ipv4时, DHCP要处于关闭状态!!
+*/
+static int l_netdrv_ipv4(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    const char* tmp = NULL;
+    size_t len = 0;
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {
+        tmp = luaL_checkstring(L, 2);
+        ipaddr_aton(tmp, &netdrv->netif->ip_addr);
+        tmp = luaL_checkstring(L, 3);
+        ipaddr_aton(tmp, &netdrv->netif->netmask);
+        tmp = luaL_checkstring(L, 4);
+        ipaddr_aton(tmp, &netdrv->netif->gw);
+    }
+    char buff[16] = {0};
+    char buff2[16] = {0};
+    char buff3[16] = {0};
+    ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff, 16);
+    ipaddr_ntoa_r(&netdrv->netif->netmask, buff2, 16);
+    ipaddr_ntoa_r(&netdrv->netif->gw, buff3, 16);
+    lua_pushstring(L, buff);
+    lua_pushstring(L, buff2);
+    lua_pushstring(L, buff3);
+    return 3;
+}
+
+/*
+开启或关闭NAPT
+@api netdrv.napt(id)
+@int 网关适配器的id
+@return bool 合法值就返回true, 否则返回nil
+@usage
+
+-- 使用4G网络作为主网关出口
+netdrv.napt(socket.LWIP_GP)
+
+-- 关闭napt功能
+netdrv.napt(socket.LWIP_GP)
+*/
+extern int luat_netdrv_gw_adapter_id;
+static int l_netdrv_napt(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    if (id < 0) {
+        LLOGD("NAPT is disabled");
+        luat_netdrv_gw_adapter_id = id;
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    LLOGD("NAPT is enabled gw %d", id);
+    luat_netdrv_gw_adapter_id = id;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {
     { "setup" ,         ROREG_FUNC(l_netdrv_setup )},
     { "dhcp",           ROREG_FUNC(l_netdrv_dhcp)},
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
+    { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
+    { "napt",           ROREG_FUNC(l_netdrv_napt)},
 
     { "CH390",          ROREG_INT(1)},
     { "W5500",          ROREG_INT(2)},

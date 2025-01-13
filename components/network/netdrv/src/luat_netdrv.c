@@ -68,3 +68,28 @@ int luat_netdrv_mac(int32_t id, const char* new, char* old) {
     memcpy(drvs[id]->netif->hwaddr, new, 6);
     return 0;
 }
+
+void luat_netdrv_stat_inc(luat_netdrv_statics_item_t* stat, size_t len) {
+    stat->bytes += len;
+    stat->counter ++;
+}
+
+luat_netdrv_t* luat_netdrv_get(int id) {
+    if (id < 0 || id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+        return NULL;
+    }
+    return drvs[id];
+}
+
+static char tmpbuff[1024];
+void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
+    if (len > 511) {
+        len = 511;
+    }
+    memset(tmpbuff, 0, 1024);
+    for (size_t i = 0; i < len; i++)
+    {
+        sprintf(tmpbuff + i * 2, "%02X", buff[i]);
+    }
+    LLOGD("%s %s", tag, tmpbuff);
+}

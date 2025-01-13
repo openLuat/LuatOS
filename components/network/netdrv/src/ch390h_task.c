@@ -18,8 +18,6 @@
 #define LUAT_LOG_TAG "ch390x"
 #include "luat_log.h"
 
-#define MACFMT "%02X%02X%02X%02X%02X%02X"
-#define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
 
 
 typedef struct pkg_msg
@@ -54,6 +52,30 @@ static int ch390h_bootup(ch390h_t* ch) {
     ch->ulwip.netif = ch->netif;
     ch->ulwip.adapter_index = ch->adapter_id;
     return 0;
+}
+
+static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
+    ch390h_t* ch = (ch390h_t*)userdata;
+    struct pbuf *p = NULL;
+    p = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
+    if (p == NULL) {
+        LLOGE("内存不足, 无法传递pbuf");
+        return;
+    }
+    pbuf_take(p, buff, len);
+    for (size_t j = 0; j < CH390H_MAX_TX_NUM; j++)
+    {
+        if (ch->txqueue[j] == NULL) {
+            ch->txqueue[j] = p;
+            // LLOGD("找到空位了 %d", j);
+            if (is_waiting) {
+                luat_rtos_event_send(ch390h_task_handle, 0, 0, 0, 0, 0);
+            }
+            return;
+        }
+    }
+    pbuf_free(p);
+    return;
 }
 
 
@@ -167,6 +189,7 @@ static int task_loop_one(ch390h_t* ch) {
         memcpy(ch->hwaddr, buff, 6);
         netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, luat_netif_init, netif_input);
         ch->status++;
+        ch->netdrv->dataout = ch390h_dataout;
         luat_ch390h_basic_config(ch);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
@@ -228,17 +251,23 @@ static int task_loop_one(ch390h_t* ch) {
             return 0;
         }
         if (len > 0) {
+            NETDRV_STAT_IN(ch->netdrv, len);
             // 收到数据, 开始后续处理
             print_erp_pkg(ch->rxbuff, len);
-            // TODO 先经过netdrv过滤器
+            // 先经过netdrv过滤器
+            LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
+            ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
+            if (ret == 0) {
+
+            }
             
             // 如果返回值是0, 那就是继续处理, 输入到netif
             pkg_msg_t* ptr = luat_heap_malloc(sizeof(pkg_msg_t) + len - 4);
             if (ptr == NULL) {
-                LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len);
+                LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
                 return 1; // 需要处理下一个包
             }
-            memcpy(ptr->buff, ch->rxbuff, len);
+            memcpy(ptr->buff, ch->rxbuff, len - 4);
             ptr->netif = ch->netif;
             ptr->len = len - 4;
             ret = tcpip_callback(netdrv_netif_input, ptr);

@@ -125,9 +125,13 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf);
 int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 
+// xxx_default 一般为通用spi设备使用
+int luat_lcd_init_default(luat_lcd_conf_t* conf);
+int luat_lcd_flush_default(luat_lcd_conf_t* conf);
+int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);
-int luat_lcd_init_default(luat_lcd_conf_t* conf);//通用spi设备使用
 int luat_lcd_init(luat_lcd_conf_t* conf);
 int luat_lcd_close(luat_lcd_conf_t* conf);
 int luat_lcd_display_on(luat_lcd_conf_t* conf);

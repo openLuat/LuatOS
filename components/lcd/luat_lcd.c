@@ -252,7 +252,7 @@ int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction){
 }
 
 #ifndef LUAT_USE_LCD_CUSTOM_DRAW
-int luat_lcd_flush(luat_lcd_conf_t* conf) {
+int luat_lcd_flush_default(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
     }
@@ -282,7 +282,11 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
+LUAT_WEAK int luat_lcd_flush(luat_lcd_conf_t* conf) {
+    return luat_lcd_flush_default(conf);
+}
+
+int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
     if (x1 >= conf->w || y1 >= conf->h || x2 < 0 || y2 < 0 || x2 < x1 || y2 < y1) {
         // LLOGE("out of lcd buff range %d %d %d %d", x1, y1, x2, y2);
         // LLOGE("out of lcd buff range %d %d %d %d %d", x1 >= conf->w, y1 >= conf->h, y2 < 0, x2 < x1, y2 < y1);
@@ -378,6 +382,10 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
         conf->flush_y_max = y2;
     }
     return 0;
+}
+
+LUAT_WEAK int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
+    return luat_lcd_draw_default(conf, x1, y1, x2, y2, color);
 }
 #endif
 

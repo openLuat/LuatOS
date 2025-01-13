@@ -97,6 +97,7 @@ lcd.init("st7796s",{port = "DMA2D",direction = 2,w = 160,h = 80,xoffset = 1,yoff
 */
 
 static int l_lcd_init(lua_State* L) {
+    int ret;
     size_t len = 0;
     uint8_t spi_device = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
@@ -111,7 +112,6 @@ static int l_lcd_init(lua_State* L) {
     }
 #if defined LUAT_USE_LCD_SERVICE
     uint8_t init_in_service = 0;
-    int ret;
     if (lua_isboolean(L, 4)) {
     	init_in_service = lua_toboolean(L, 4);
     }
@@ -162,7 +162,6 @@ static int l_lcd_init(lua_State* L) {
                     goto end; 
                 }
             }
-
             if (spi_device == 1 && conf->port != LUAT_LCD_SPI_DEVICE) {
               LLOGE("port is not device but find luat_spi_device_t");
               goto end;
@@ -227,7 +226,7 @@ static int l_lcd_init(lua_State* L) {
                 conf->h = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-            conf->buffer_size = (conf->w * conf->h) * 2;
+            conf->buffer_size = (conf->w * conf->h) * sizeof(luat_color_t);
 
             lua_pushstring(L, "xoffset");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -326,13 +325,12 @@ static int l_lcd_init(lua_State* L) {
 #if defined LUAT_USE_LCD_SERVICE
         if (init_in_service) {
         	ret = luat_lcd_init_in_service(conf);
-        } else {
+        } else 
+#endif
+        {
         	ret = luat_lcd_init(conf);
         }
 
-#else
-        int ret = luat_lcd_init(conf);
-#endif
         if (ret != 0) {
             LLOGE("lcd init fail %d", ret);
             luat_heap_free(conf);

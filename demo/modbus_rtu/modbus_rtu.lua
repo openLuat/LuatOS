@@ -34,7 +34,9 @@ end
 
 -- modbus_rtu CRC16校验
 function modbus_rtu.crc16(data)
-    return crypto.crc16("modbus_rtu", data)
+    local crc16_data = crypto.crc16_modbus(data)
+    -- log.info("crc16end = ",crc16_data)
+    return crc16_data
 end
 
 -- 解析modbus_rtu数据帧
@@ -44,7 +46,8 @@ function modbus_rtu.parse_frame(data)
     local fun = str:byte(2) or ""  -- 功能码
     local byte = str:byte(3)or "" -- 有效字节数
     local payload = str:sub(4, 4 + byte - 1)or"" -- 数据部分(根据有效字节数动态截取)
-    local idx, crc = pack.unpack(str:sub(-2, -1), "H")or "" -- CRC校验值
+    local crc_data = str:sub(-2, -1) or ""
+    local idx,crc = pack.unpack(crc_data, "H")  -- CRC校验值
 
     -- 校验CRC
     if crc == modbus_rtu.crc16(str:sub(1, -3)) then
@@ -57,7 +60,7 @@ function modbus_rtu.parse_frame(data)
             crc = crc,
         }
     else
-        log.info("modbus_rtu CRC校验失败")
+        log.info("modbus_rtu CRC校验失败",crc)
         return nil, "CRC error"
     end
 end
@@ -66,7 +69,10 @@ end
 function modbus_rtu.build_frame(addr, fun, data)
     local frame = string.char(addr, fun) .. data
     local crc = modbus_rtu.crc16(frame)
-    return frame .. pack.pack("H", crc)
+    -- log.info("CRC部分为",crc:toHex())
+    local pack_crc = pack.pack("H", crc)
+    -- log.info("pack后CRC为",aaa:toHex())
+    return frame .. pack_crc
 end
 
 -- 发送modbus_rtu命令
@@ -75,15 +81,15 @@ function modbus_rtu.send_command(uartid, addr, fun, data, interval)
     if interval then
         -- 如果传入了interval，则启用循环发送
         sys.timerLoopStart(function ()
-            log.info("每隔"..interval.."秒发一次指令",cmd:toHex())
+            -- log.info("每隔"..interval.."秒发一次指令",cmd:toHex())
             uart.write(uartid,cmd)
         end,interval)
         -- sys.timerLoopStart(uart.write, interval, uartid, cmd)
-        log.info("modbus_rtu 循环发送的间隔时间为", interval, "ms",cmd:toHex())
+        -- log.info("modbus_rtu 循环发送的间隔时间为", interval, "ms",cmd:toHex())
     else
         -- 否则只发送一次
         uart.write(uartid, cmd)
-        log.info("modbus_rtu 只发送一次", cmd:toHex())
+        -- log.info("modbus_rtu 只发送一次", cmd:toHex())
     end
 end
 

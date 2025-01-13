@@ -35,21 +35,25 @@ typedef struct lcd_reg {
   const luat_lcd_opts_t *lcd_opts;
 }lcd_reg_t;
 
+luat_lcd_opts_t lcd_opts_h050iwv = {
+    .name = "h050iwv",
+};
+
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
   {"st7735",  &lcd_opts_st7735},
   {"st7735v", &lcd_opts_st7735v},
   {"st7735s", &lcd_opts_st7735s},
   {"st7789",  &lcd_opts_st7789},
-  {"st7796", &lcd_opts_st7796},
+  {"st7796",  &lcd_opts_st7796},
   {"gc9a01",  &lcd_opts_gc9a01},
   {"gc9106l", &lcd_opts_gc9106l},
   {"gc9306x", &lcd_opts_gc9306x},
   {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
-  {"nv3037", &lcd_opts_nv3037},
-  {"h050iwv",LUAT_NULL},
+  {"nv3037",  &lcd_opts_nv3037},
+  {"h050iwv", &lcd_opts_h050iwv},
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -97,6 +101,7 @@ lcd.init("st7796s",{port = "DMA2D",direction = 2,w = 160,h = 80,xoffset = 1,yoff
 */
 
 static int l_lcd_init(lua_State* L) {
+    int ret;
     size_t len = 0;
     uint8_t spi_device = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
@@ -111,7 +116,6 @@ static int l_lcd_init(lua_State* L) {
     }
 #if defined LUAT_USE_LCD_SERVICE
     uint8_t init_in_service = 0;
-    int ret;
     if (lua_isboolean(L, 4)) {
     	init_in_service = lua_toboolean(L, 4);
     }
@@ -162,7 +166,6 @@ static int l_lcd_init(lua_State* L) {
                     goto end; 
                 }
             }
-
             if (spi_device == 1 && conf->port != LUAT_LCD_SPI_DEVICE) {
               LLOGE("port is not device but find luat_spi_device_t");
               goto end;
@@ -227,7 +230,7 @@ static int l_lcd_init(lua_State* L) {
                 conf->h = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-            conf->buffer_size = (conf->w * conf->h) * 2;
+            conf->buffer_size = (conf->w * conf->h) * sizeof(luat_color_t);
 
             lua_pushstring(L, "xoffset");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -326,13 +329,12 @@ static int l_lcd_init(lua_State* L) {
 #if defined LUAT_USE_LCD_SERVICE
         if (init_in_service) {
         	ret = luat_lcd_init_in_service(conf);
-        } else {
+        } else 
+#endif
+        {
         	ret = luat_lcd_init(conf);
         }
 
-#else
-        int ret = luat_lcd_init(conf);
-#endif
         if (ret != 0) {
             LLOGE("lcd init fail %d", ret);
             luat_heap_free(conf);
@@ -1370,10 +1372,10 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // rgb高低位swap
     uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
     for (size_t i = 0; i < count; i++){
-      if (default_conf->port == LUAT_LCD_HW_ID_0)
-        dev->buff[i] = tmp[i];
-      else
-        dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
+        if (default_conf->port < LUAT_LCD_HW_ID_0 || default_conf->port == LUAT_LCD_SPI_DEVICE)
+            dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
+        else
+            dev->buff[i] = tmp[i];
     }
     
     // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
@@ -1385,50 +1387,49 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
 }
 
 static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
-  JRESULT res;      /* Result code of TJpgDec API */
-  JDEC jdec;        /* Decompression object */
-  void *work;       /* Pointer to the decompressor work area */
+    JRESULT res;      /* Result code of TJpgDec API */
+    JDEC jdec;        /* Decompression object */
+    void *work;       /* Pointer to the decompressor work area */
 #if JD_FASTDECODE == 2
-  size_t sz_work = 3500 * 3; /* Size of work area */
+    size_t sz_work = 3500 * 3; /* Size of work area */
 #else
-  size_t sz_work = 3500; /* Size of work area */
+    size_t sz_work = 3500; /* Size of work area */
 #endif
-  IODEV devid;      /* User defined device identifier */
+    IODEV devid;      /* User defined device identifier */
 
-  FILE* fd = luat_fs_fopen(path, "r");
-  if (fd == NULL) {
-    LLOGW("no such file %s", path);
+    FILE* fd = luat_fs_fopen(path, "r");
+    if (fd == NULL) {
+        LLOGW("no such file %s", path);
     return -1;
-  }
+    }
 
-  devid.fp = fd;
-  work = luat_heap_malloc(sz_work);
-  if (work == NULL) {
-    LLOGE("out of memory when malloc jpeg decode workbuff");
-    return -3;
-  }
-  res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
-  if (res != JDR_OK) {
+    devid.fp = fd;
+    work = luat_heap_malloc(sz_work);
+    if (work == NULL) {
+        LLOGE("out of memory when malloc jpeg decode workbuff");
+        return -3;
+    }
+    res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
+    if (res != JDR_OK) {
+        luat_heap_free(work);
+        luat_fs_fclose(fd);
+        LLOGW("jd_prepare file %s error %d", path, res);
+        return -2;
+    }
+    devid.x = xpos;
+    devid.y = ypos;
+    // devid.width = jdec.width;
+    // devid.height = jdec.height;
+    res = jd_decomp(&jdec, lcd_out_func, 0);
     luat_heap_free(work);
     luat_fs_fclose(fd);
-    LLOGW("jd_prepare file %s error %d", path, res);
-    return -2;
-  }
-  devid.x = xpos;
-  devid.y = ypos;
-  // devid.width = jdec.width;
-  // devid.height = jdec.height;
-  res = jd_decomp(&jdec, lcd_out_func, 0);
-  luat_heap_free(work);
-  luat_fs_fclose(fd);
-  if (res != JDR_OK) {
-    LLOGW("jd_decomp file %s error %d", path, res);
-    return -2;
-  }
-  else {
-    lcd_auto_flush(default_conf);
-    return 0;
-  }
+    if (res != JDR_OK) {
+        LLOGW("jd_decomp file %s error %d", path, res);
+        return -2;
+    }else {
+        lcd_auto_flush(default_conf);
+        return 0;
+    }
 }
 
 /*

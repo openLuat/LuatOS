@@ -10,7 +10,7 @@ if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
     pm.power(pm.PWK_MODE, false)
 end
 
---如果你用的是合宙DTU整机系列，才需要打开，否则按自己设计的PCB来
+-- 如果你用的是合宙DTU整机系列，才需要打开，否则按自己设计的PCB来
 -- gpio.setup(1, 1) -- 485转TTL芯片供电打开
 -- gpio.setup(24, 1) -- 外置供电电源打开
 
@@ -21,7 +21,7 @@ modbus_rtu.init({
     uartid = 1, -- 接收/发送数据的串口id
     baudrate = 4800, -- 波特率
     gpio_485 = 25, -- 转向GPIO编号
-    tx_delay = 5000 -- 转向延迟时间，单位us
+    tx_delay = 50000 -- 转向延迟时间，单位us
     -- 下面这些数据不填也行，不填底层默认为如下参数
     -- databits = 8,--数据位
     -- stopbits = 1,--停止位
@@ -33,7 +33,7 @@ modbus_rtu.init({
 
 -- 定义modbus_rtu数据接收回调
 local function on_modbus_rtu_receive(frame)
-    -- log.info("modbus_rtu frame received:", json.encode(frame))
+    log.info("modbus_rtu frame received:", json.encode(frame))
     if frame.fun == 0x03 then -- 功能码0x03表示读取保持寄存器
         local byte = frame.byte
         local payload = frame.payload
@@ -81,11 +81,11 @@ end
 modbus_rtu.set_receive_callback(1, on_modbus_rtu_receive)
 
 local function send_modbus_rtu_command()
-    local addr = 0x01 -- 设备地址
-    local fun = 0x03 -- 功能码（读取保持寄存器）
-    local data = string.char(0x00, 0x00, 0x00, 0x02) -- 起始地址和寄存器数量
+    local addr = 0x01 -- 设备地址,此处填客户自己的
+    local fun = 0x03 -- 功能码（03为读取保持寄存器），此处填客户自己的
+    local data = string.char(0x00, 0x00, 0x00, 0x02) -- 起始地址和寄存器数量(此处填客户自己的起始地址进而寄存器数量)
 
-    modbus_rtu.send_command(1, addr, fun, data) -- 只发送一次命令并等待响应处理
+    -- modbus_rtu.send_command(1, addr, fun, data) -- 只发送一次命令并等待响应处理
     modbus_rtu.send_command(1, addr, fun, data, 5000) -- 循环5S发送一次
 
 end
@@ -95,6 +95,39 @@ sys.taskInit(function()
     send_modbus_rtu_command()
 
 end)
+
+-- local modbus_tcp = require("modbus_tcp")
+
+-- function modbus_tcp_test()
+--     sys.waitUntil("IP_READY")
+--     -- 连接到 Modbus TCP 服务器
+--     local netc, err = modbus_tcp.connect("112.125.89.8", 42514)
+--     if not netc then
+--         log.error("Modbus TCP", "连接失败:", err)
+--         return
+--     end
+
+--     -- 示例 1: 读取保持寄存器
+--     local response, err = modbus_tcp.send_request(netc, 1, 0x03, 0, 10) -- 读取从站地址为 1 的保持寄存器，起始地址为 0，数量为 10
+--     if not response then
+--         log.error("Modbus TCP", "读取保持寄存器失败:", err)
+--     else
+--         log.info("Modbus TCP", "读取保持寄存器响应数据:", response.data)
+--     end
+
+--     -- 示例 2: 写入单个寄存器
+--     local write_response, err = modbus_tcp.send_request(netc, 1, 0x06, 5, 1234) -- 向从站地址为 1 的寄存器地址 5 写入值 1234
+--     if not write_response then
+--         log.error("Modbus TCP", "写入单个寄存器失败:", err)
+--     else
+--         log.info("Modbus TCP", "写入单个寄存器响应数据:", write_response.data)
+--     end
+
+--     -- 关闭连接
+--     -- modbus_tcp.close(netc)
+-- end
+
+-- sys.taskInit()
 
 -- log.info("mem.lua", rtos.meminfo())
 -- log.info("mem.sys", rtos.meminfo("sys"))

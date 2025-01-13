@@ -252,7 +252,7 @@ int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction){
 }
 
 #ifndef LUAT_USE_LCD_CUSTOM_DRAW
-int luat_lcd_flush(luat_lcd_conf_t* conf) {
+int luat_lcd_flush_default(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
     }
@@ -282,7 +282,11 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
+LUAT_WEAK int luat_lcd_flush(luat_lcd_conf_t* conf) {
+    return luat_lcd_flush_default(conf);
+}
+
+int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
     if (x1 >= conf->w || y1 >= conf->h || x2 < 0 || y2 < 0 || x2 < x1 || y2 < y1) {
         // LLOGE("out of lcd buff range %d %d %d %d", x1, y1, x2, y2);
         // LLOGE("out of lcd buff range %d %d %d %d %d", x1 >= conf->w, y1 >= conf->h, y2 < 0, x2 < x1, y2 < y1);
@@ -379,11 +383,15 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
     }
     return 0;
 }
+
+LUAT_WEAK int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
+    return luat_lcd_draw_default(conf, x1, y1, x2, y2, color);
+}
 #endif
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color) {
     luat_color_t tmp = color;
-    if (conf->port != LUAT_LCD_HW_ID_0)
+    if (conf->port < LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_SPI_DEVICE)
         tmp = color_swap(color);// 注意, 这里需要把颜色swap了
     return luat_lcd_draw(conf, x, y, x, y, &tmp);
 }
@@ -422,7 +430,7 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2,
     {
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
-        if (conf->port != LUAT_LCD_HW_ID_0)
+        if (conf->port < LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_SPI_DEVICE)
             tmp = color_swap(color);// 颜色swap
         if (line_buf) {
             for (i = 0; i < dots; i++)

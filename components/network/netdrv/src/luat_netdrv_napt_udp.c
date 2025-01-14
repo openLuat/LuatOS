@@ -124,8 +124,8 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
                         memcpy(udp_buff + 12, "\x08\x00", 2);
                         memcpy(udp_buff + 14, ip_hdr, ctx->len);
                         dst->dataout(dst->userdata, udp_buff, ctx->len + 14);
-                        LLOGD("输出到内网netdrv,已额外添加eth头");
-                        luat_netdrv_print_pkg("下行数据", udp_buff, ctx->len + 14);
+                        // LLOGD("输出到内网netdrv,已额外添加eth头");
+                        // luat_netdrv_print_pkg("下行数据", udp_buff, ctx->len + 14);
                     }
                 }
                 else {
@@ -139,7 +139,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     }
     else {
         // 内网, 尝试对外网的请求吗?
-        if (ip_hdr->dest.addr == ctx->net->netif->ip_addr.u_addr.ip4.addr) {
+        if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
             return 1; // 对网关的UDP请求, 交给LWIP处理
         }
         // 寻找一个空位
@@ -209,8 +209,9 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
                 return 0;
             }
         }
+        it->tm_ms = tnow;
         // 2. 修改信息
-        ip_hdr->src.addr = gw->netif->ip_addr.u_addr.ip4.addr;
+        ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
         udp_hdr->src = it_map->wnet_local_port;
         // 3. 与ICMP不同, 先计算IP的checksum
         ip_hdr->_chksum = 0;

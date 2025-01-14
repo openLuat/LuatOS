@@ -22,7 +22,7 @@
 
 extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_ICMP_ID_RANGE_START;
-static luat_netdrv_napt_item_t icmps[ICMP_MAP_SIZE];
+static luat_netdrv_napt_icmp_t icmps[ICMP_MAP_SIZE];
 
 #define u32 uint32_t
 #define u16 uint16_t
@@ -42,7 +42,7 @@ again:
 
     for (size_t i = 0; i < ICMP_MAP_SIZE; i++)
     {
-        if (napt_curr_id == icmps[i].wnet.port)
+        if (napt_curr_id == icmps[i].wnet_id)
         {
             if (++cnt > (NAPT_ICMP_ID_RANGE_END - NAPT_ICMP_ID_RANGE_START))
             {
@@ -72,59 +72,63 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             if (icmps[i].is_vaild == 0) {
                 continue;
             }
-            if (icmp_hdr->id == icmps[i].wnet.port) {
-                // 找到映射关系了!!!
-                LLOGD("ICMP id %u -> %d", icmp_hdr->id, icmps[i].inet.port);
-                // 修改目标ID
-                icmp_hdr->id = icmps[i].inet.port;
-                // 重新计算icmp的checksum
-                icmp_hdr->chksum = 0;
-                icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
-
-                // 修改目标地址,并重新计算ip的checksu
-                ip_hdr->dest.addr = icmps[i].inet.ipv4;
-                ip_hdr->_chksum = 0;
-                ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
-
-                // 如果是ETH包, 那还需要修改源MAC和目标MAC
-                if (ctx->eth) {
-                    memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
-                    memcpy(ctx->eth->dest.addr, icmps[i].inet.mac, 6);
-                }
-                luat_netdrv_t* dst = luat_netdrv_get(icmps[i].inet.adapter_id);
-                if (dst == NULL) {
-                    LLOGE("能找到ICMP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
-
-                    return 1;
-                }
-                if (dst->dataout) {
-                    if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-                        LLOGD("输出到内网netdrv,无需额外添加eth头");
-                        dst->dataout(dst->userdata, icmp_buff, ctx->len);
-                    }
-                    else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-                        // 需要补全一个ETH头部
-                        memcpy(icmp_buff, icmps[i].inet.mac, 6);
-                        memcpy(icmp_buff + 6, dst->netif->hwaddr, 6);
-                        memcpy(icmp_buff + 12, "\x08\x00", 2);
-                        memcpy(icmp_buff + 14, ip_hdr, ctx->len);
-                        dst->dataout(dst->userdata, icmp_buff, ctx->len + 14);
-                        LLOGD("输出到内网netdrv,已额外添加eth头");
-                        luat_netdrv_print_pkg("下行数据", icmp_buff, ctx->len + 14);
-                    }
-                }
-                else {
-                    LLOGE("能找到ICMP映射关系, 但目标netdrv不支持dataout!!");
-                }
-                return 1; // 全部修改完成,
+            if (icmp_hdr->id != icmps[i].wnet_id) {
+                continue;
             }
+            if (ip_hdr->src.addr != icmps[i].wnet_ip) {
+                continue;
+            }
+            // 找到映射关系了!!!
+            LLOGD("ICMP id %u -> %d", icmp_hdr->id, icmps[i].inet_id);
+            // 修改目标ID
+            icmp_hdr->id = icmps[i].inet_id;
+            // 重新计算icmp的checksum
+            icmp_hdr->chksum = 0;
+            icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
+
+            // 修改目标地址,并重新计算ip的checksu
+            ip_hdr->dest.addr = icmps[i].inet_ip;
+            ip_hdr->_chksum = 0;
+            ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+
+            // 如果是ETH包, 那还需要修改源MAC和目标MAC
+            if (ctx->eth) {
+                memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
+                memcpy(ctx->eth->dest.addr, icmps[i].inet_mac, 6);
+            }
+            luat_netdrv_t* dst = luat_netdrv_get(icmps[i].adapter_id);
+            if (dst == NULL) {
+                LLOGE("能找到ICMP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
+                return 1;
+            }
+            if (dst->dataout) {
+                if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+                    LLOGD("输出到内网netdrv,无需额外添加eth头");
+                    dst->dataout(dst->userdata, icmp_buff, ctx->len);
+                }
+                else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+                    // 需要补全一个ETH头部
+                    memcpy(icmp_buff, icmps[i].inet_mac, 6);
+                    memcpy(icmp_buff + 6, dst->netif->hwaddr, 6);
+                    memcpy(icmp_buff + 12, "\x08\x00", 2);
+                    memcpy(icmp_buff + 14, ip_hdr, ctx->len);
+                    dst->dataout(dst->userdata, icmp_buff, ctx->len + 14);
+                    // LLOGD("输出到内网netdrv,已额外添加eth头");
+                    // luat_netdrv_print_pkg("下行数据", icmp_buff, ctx->len + 14);
+                }
+            }
+            else {
+                LLOGE("能找到ICMP映射关系, 但目标netdrv不支持dataout!!");
+            }
+            icmps[i].is_vaild = 0;
+            return 1; // 全部修改完成,
         }
         LLOGD("没有找到ICMP映射关系, 不是非内网PING");
         return 0;
     }
     else {
         // 内网, 尝试对外网的请求吗?
-        if (ip_hdr->dest.addr == ctx->net->netif->ip_addr.u_addr.ip4.addr) {
+        if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
             return 1; // 对网关的ICMP/PING请求, 交给LWIP处理
         }
         // 寻找一个空位
@@ -139,14 +143,14 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             }
             // 有空位, 马上处理
             // 1. 保存信息
-            icmps[i].inet.adapter_id = ctx->net->id;
-            icmps[i].inet.port = icmp_hdr->id;
-            icmps[i].inet.ipv4 = ip_hdr->src.addr;
-            icmps[i].wnet.port = luat_napt_icmp_id_alloc();
-            icmps[i].wnet.ipv4 = ctx->net->netif->ip_addr.u_addr.ip4.addr;
+            icmps[i].adapter_id = ctx->net->id;
+            icmps[i].inet_id = icmp_hdr->id;
+            icmps[i].inet_ip = ip_hdr->src.addr;
+            icmps[i].wnet_id = luat_napt_icmp_id_alloc();
+            icmps[i].wnet_ip = ip_hdr->dest.addr;
             // 2. 修改信息
-            ip_hdr->src.addr = gw->netif->ip_addr.u_addr.ip4.addr;
-            icmp_hdr->id = icmps[i].wnet.port;
+            ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
+            icmp_hdr->id = icmps[i].wnet_id;
             // 3. 重新计算checksum
             icmp_hdr->chksum = 0;
             icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
@@ -156,7 +160,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
 
             // 5. 如果是ETH包, 还得修正MAC地址
             if (ctx->eth) {
-                memcpy(icmps[i].inet.mac, ctx->eth->src.addr, 6);
+                memcpy(icmps[i].inet_mac, ctx->eth->src.addr, 6);
             }
             icmps[i].is_vaild = 1;
             if (gw && gw->dataout && gw->netif) {

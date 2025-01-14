@@ -2,6 +2,7 @@
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_ch390h.h"
+#include "luat_netdrv_napt.h"
 #include "luat_ch390h.h"
 #include "luat_malloc.h"
 #include "luat_spi.h"
@@ -255,7 +256,7 @@ static int task_loop_one(ch390h_t* ch) {
             // 收到数据, 开始后续处理
             print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
-            LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
+            // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
             ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
             if (ret == 0) {
 

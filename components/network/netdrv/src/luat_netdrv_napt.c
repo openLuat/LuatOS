@@ -68,7 +68,7 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         }
     }
     else {
-        LLOGD("不是ETH包, 裸IP包");
+        // LLOGD("不是ETH包, 裸IP包");
         ctx.iphdr = (struct ip_hdr*)(buff);
         ctx.eth = NULL;
     }
@@ -84,7 +84,7 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
         return 0;
     }
-    LLOGD("按协议类型, 使用对应的NAPT修改器进行处理");
+    // LLOGD("按协议类型, 使用对应的NAPT修改器进行处理");
     switch (IPH_PROTO(ctx.iphdr))
     {
     case IP_PROTO_ICMP:
@@ -101,16 +101,6 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
     return 0;
 }
 
-int luat_napt_tcp_handle(napt_ctx_t* ctx) {
-    LLOGD("当前不支持TCP包改写");
-    return 0;
-}
-
-// int luat_napt_udp_handle(napt_ctx_t* ctx) {
-//     LLOGD("当前不支持UDP包改写");
-//     return 0;
-// }
-
 static uint8_t napt_buff[1600];
 err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     if (p->tot_len > 1600) {
@@ -121,7 +111,7 @@ err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     }
     pbuf_copy_partial(p, napt_buff, p->tot_len, 0);
     int ret = luat_netdrv_napt_pkg_input(id, napt_buff, p->tot_len);
-    LLOGD("napt_pkg_input ret %d", ret);
+    // LLOGD("napt_pkg_input ret %d", ret);
     return ret == 0 ? 1 : 0;
     // return 1;
 }

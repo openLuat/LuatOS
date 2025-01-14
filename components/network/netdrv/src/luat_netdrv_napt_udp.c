@@ -28,58 +28,8 @@ static luat_netdrv_napt_tcpudp_t udps[UDP_MAP_SIZE];
 #define u16 uint16_t
 #define u8 uint8_t
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
-#define NAPT_CHKSUM_16BIT_LEN        sizeof(u16)
 
-static inline u32 alg_hdr_16bitsum(const u16 *buff, u16 len)
-{
-    u32 sum = 0;
 
-    u16 *pos = (u16 *)buff;
-    u16 remainder_size = len;
-
-    while (remainder_size > 1)
-    {
-        sum += *pos ++;
-        remainder_size -= NAPT_CHKSUM_16BIT_LEN;
-    }
-
-    if (remainder_size > 0)
-    {
-        sum += *(u8*)pos;
-    }
-
-    return sum;
-}
-
-static inline u16 alg_iphdr_chksum(const u16 *buff, u16 len)
-{
-    u32 sum = alg_hdr_16bitsum(buff, len);
-
-    sum = (sum >> 16) + (sum & 0xFFFF);
-    sum += (sum >> 16);
-
-    return (u16)(~sum);
-}
-
-static inline u16 alg_tcpudphdr_chksum(u32 src_addr, u32 dst_addr, u8 proto,
-                                       const u16 *buff, u16 len)
-{
-    u32 sum = 0;
-
-    sum += (src_addr & 0xffffUL);
-    sum += ((src_addr >> 16) & 0xffffUL);
-    sum += (dst_addr & 0xffffUL);
-    sum += ((dst_addr >> 16) & 0xffffUL);
-    sum += (u32)htons((u16)proto);
-    sum += (u32)htons(len);
-
-    sum += alg_hdr_16bitsum(buff, len);
-
-    sum = (sum >> 16) + (sum & 0xFFFF);
-    sum += (sum >> 16);
-
-    return (u16)(~sum);
-}
 
 static u16 luat_napt_udp_port_alloc(void)
 {

@@ -76,4 +76,9 @@ luat_netdrv_t* luat_netdrv_get(int id);
 
 void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
 
+// 辅助函数
+uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len);
+uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len);
+uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len);
+
 #endif

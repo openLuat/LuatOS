@@ -93,3 +93,55 @@ void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
     }
     LLOGD("%s %s", tag, tmpbuff);
 }
+
+#define NAPT_CHKSUM_16BIT_LEN        sizeof(uint16_t)
+
+uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
+{
+    uint32_t sum = 0;
+
+    uint16_t *pos = (uint16_t *)buff;
+    uint16_t remainder_size = len;
+
+    while (remainder_size > 1)
+    {
+        sum += *pos ++;
+        remainder_size -= NAPT_CHKSUM_16BIT_LEN;
+    }
+
+    if (remainder_size > 0)
+    {
+        sum += *(uint8_t*)pos;
+    }
+
+    return sum;
+}
+
+uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
+{
+    uint32_t sum = alg_hdr_16bitsum(buff, len);
+
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+
+    return (uint16_t)(~sum);
+}
+
+uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len)
+{
+    uint32_t sum = 0;
+
+    sum += (src_addr & 0xffffUL);
+    sum += ((src_addr >> 16) & 0xffffUL);
+    sum += (dst_addr & 0xffffUL);
+    sum += ((dst_addr >> 16) & 0xffffUL);
+    sum += (uint32_t)htons((uint16_t)proto);
+    sum += (uint32_t)htons(len);
+
+    sum += alg_hdr_16bitsum(buff, len);
+
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+
+    return (uint16_t)(~sum);
+}

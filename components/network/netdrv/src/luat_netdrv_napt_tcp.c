@@ -11,7 +11,7 @@
 #include "lwip/prot/tcp.h"
 #include "luat_mcu.h"
 
-#define LUAT_LOG_TAG "netdrv.napt"
+#define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
 
 #define TCP_MAP_SIZE (512)
@@ -56,37 +56,61 @@ again:
     return napt_curr_id;
 }
 
+static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
+    char buff[16] = {0};
+    char buff2[16] = {0};
+    struct ip_addr ip;
+    
+    ip_addr_set_ip4_u32(&ip, it->inet_ip);
+    ipaddr_ntoa_r(&ip, buff, 16);
+
+    ip_addr_set_ip4_u32(&ip, it->wnet_ip);
+    ipaddr_ntoa_r(&ip, buff2, 16);
+
+    LLOGD("%s (%5d) 内网 %s:%d <-> 外网 %s:%d", tag, it->wnet_local_port,
+        buff, ntohs(it->inet_port),
+        buff2, ntohs(it->wnet_port)
+    );
+}
+
 static uint8_t tcp_buff[1600];
 int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
+    luat_netdrv_napt_tcpudp_t* it = NULL;
+    luat_netdrv_napt_tcpudp_t* it_map = NULL;
     if (gw == NULL || gw->netif == NULL) {
         return 0;
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {
-        // 这是从外网到内网的PONG
+        // 这是从外网到内网的TCP包
+        LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
         for (size_t i = 0; i < TCP_MAP_SIZE; i++)
         {
-            if (tcps[i].is_vaild == 0) {
+            it = &tcps[i];
+            if (it->is_vaild == 0) {
                 continue;
             }
-            if (tcps[i].is_vaild && (tnow - tcps[i].tm_ms) > TCP_MAP_TIMEOUT) {
-                tcps[i].is_vaild = 0;
+            if (it->is_vaild && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+                it->is_vaild = 0;
                 continue;
             }
+            print_item("wnet.search item", it);
             // 校验远程IP与预期IP是否相同
-            if (ip_hdr->src.addr != tcps[i].wnet_ip) {
+            if (ip_hdr->src.addr != it->wnet_ip) {
+                LLOGD("IP地址不匹配,下一条");
                 continue;
             }
             // 下行的目标端口, 与本地端口, 是否一直
             if (tcp_hdr->dest != tcps[i].wnet_local_port) {
+                LLOGD("port不匹配,下一条");
                 continue;
             }
             // 找到映射关系了!!!
-            LLOGD("TCP port %u -> %d", tcp_hdr->dest, tcps[i].inet_port);
+            LLOGD("TCP port %u -> %d", ntohs(tcp_hdr->dest), ntohs(tcps[i].inet_port));
             tcps[i].tm_ms = tnow;
             // 修改目标端口
             tcp_hdr->dest = tcps[i].inet_port;
@@ -145,10 +169,8 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
             return 1; // 对网关的TCP请求, 交给LWIP处理
         }
-        // 寻找一个空位
         // 第一轮循环, 是否有已知映射
-        luat_netdrv_napt_tcpudp_t* it = NULL;
-        luat_netdrv_napt_tcpudp_t* it_map = NULL;
+        LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
         for (size_t i = 0; i < TCP_MAP_SIZE; i++)
         {
             it = &tcps[i];
@@ -160,21 +182,15 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 it->tm_ms = 0;
                 continue;
             }
+            
+            print_item("inet.search", it);
             // 几个要素都要相同 源IP/源端口/目标IP/目标端口, 如果是MAC包, 源MAC也要相同
-            if (it->inet_ip != ip_hdr->src.addr) {
-                LLOGD("源IP不匹配, 继续下一条");
+            if (it->inet_ip != ip_hdr->src.addr || it->inet_port != tcp_hdr->src) {
+                LLOGD("源ip/port不匹配, 继续下一条");
                 continue;
             }
-            if (it->inet_port != tcp_hdr->src) {
-                LLOGD("源port不匹配, 继续下一条");
-                continue;
-            }
-            if (it->wnet_ip != ip_hdr->dest.addr) {
-                LLOGD("目标IP不匹配, 继续下一条");
-                continue;
-            }
-            if (it->wnet_port != tcp_hdr->dest) {
-                LLOGD("目标port不匹配, 继续下一条");
+            if (it->wnet_ip != ip_hdr->dest.addr || it->wnet_port != tcp_hdr->dest) {
+                LLOGD("目标ip/port不匹配, 继续下一条");
                 continue;
             }
             if (ctx->eth && memcmp(ctx->eth->src.addr, it->inet_mac, 6)) {
@@ -185,6 +201,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             it->tm_ms = tnow;
             it_map = it;
         }
+        // 寻找一个空位
         if (it_map == NULL) {
             for (size_t i = 0; i < TCP_MAP_SIZE; i++) {
                 it = &tcps[i];
@@ -193,24 +210,24 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 }
                 // 有空位了, 马上分配
                 it_map = it;
-                it->adapter_id = ctx->net->id;
-                it->inet_port = tcp_hdr->src;
-                it->wnet_port = tcp_hdr->dest;
-                it->inet_ip = ip_hdr->src.addr;
-                it->wnet_ip = ip_hdr->dest.addr;
-                it->wnet_local_port = luat_napt_tcp_port_alloc();
-                it->tm_ms = tnow;
-                if (ctx->eth) {
-                    memcpy(it->inet_mac, ctx->eth->src.addr, 6);
-                }
-                it->is_vaild = 1;
-                LLOGD("分配新的TCP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
                 break;
             }
             if (it_map == NULL) {
                 LLOGE("没有空闲的TCP映射了!!!!");
                 return 0;
             }
+            it->adapter_id = ctx->net->id;
+            it->inet_port = tcp_hdr->src;
+            it->wnet_port = tcp_hdr->dest;
+            it->inet_ip = ip_hdr->src.addr;
+            it->wnet_ip = ip_hdr->dest.addr;
+            it->wnet_local_port = luat_napt_tcp_port_alloc();
+            it->tm_ms = tnow;
+            if (ctx->eth) {
+                memcpy(it->inet_mac, ctx->eth->src.addr, 6);
+            }
+            it->is_vaild = 1;
+            LLOGD("分配新的TCP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
         }
         // 2. 修改信息
         ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
@@ -226,7 +243,6 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                                                    IP_PROTO_TCP,
                                                    (u16 *)tcp_hdr,
                                                    ntohs(ip_hdr->_len) - iphdr_len);
-            // tcp_hdr->chksum = 0; // 强制不校验
         }
 
         // 发送出去

@@ -10,7 +10,7 @@
 #include "lwip/udp.h"
 #include "luat_mcu.h"
 
-#define LUAT_LOG_TAG "netdrv.napt"
+#define LUAT_LOG_TAG "netdrv.napt.udp"
 #include "luat_log.h"
 
 #define UDP_MAP_SIZE (512)
@@ -68,7 +68,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {
-        // 这是从外网到内网的PONG
+        // 这是从外网到内网的UDP包
         for (size_t i = 0; i < UDP_MAP_SIZE; i++)
         {
             if (udps[i].is_vaild == 0) {
@@ -83,7 +83,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
             // 下行的目标端口, 与本地端口, 是否一直
             if (udp_hdr->dest == udps[i].wnet_local_port) {
                 // 找到映射关系了!!!
-                LLOGD("UDP port %u -> %d", udp_hdr->dest, udps[i].inet_port);
+                LLOGD("UDP port %u -> %d", ntohs(udp_hdr->dest), ntohs(udps[i].inet_port));
                 // 修改目标ID
                 udp_hdr->dest = udps[i].inet_port;
 

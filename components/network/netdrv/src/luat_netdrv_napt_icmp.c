@@ -10,7 +10,7 @@
 #include "lwip/icmp.h"
 #include "luat_mcu.h"
 
-#define LUAT_LOG_TAG "netdrv.napt"
+#define LUAT_LOG_TAG "netdrv.napt.icmp"
 #include "luat_log.h"
 
 #define ICMP_MAP_SIZE (64)

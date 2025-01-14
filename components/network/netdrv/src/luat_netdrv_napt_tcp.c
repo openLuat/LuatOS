@@ -87,7 +87,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {
         // 这是从外网到内网的TCP包
-        LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
+        // LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
         for (size_t i = 0; i < TCP_MAP_SIZE; i++)
         {
             it = &tcps[i];
@@ -98,7 +98,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 it->is_vaild = 0;
                 continue;
             }
-            print_item("wnet.search item", it);
+            // print_item("wnet.search item", it);
             // 校验远程IP与预期IP是否相同
             if (ip_hdr->src.addr != it->wnet_ip) {
                 LLOGD("IP地址不匹配,下一条");
@@ -110,7 +110,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 continue;
             }
             // 找到映射关系了!!!
-            LLOGD("TCP port %u -> %d", ntohs(tcp_hdr->dest), ntohs(tcps[i].inet_port));
+            // LLOGD("TCP port %u -> %d", ntohs(tcp_hdr->dest), ntohs(tcps[i].inet_port));
             tcps[i].tm_ms = tnow;
             // 修改目标端口
             tcp_hdr->dest = tcps[i].inet_port;
@@ -186,15 +186,15 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             print_item("inet.search", it);
             // 几个要素都要相同 源IP/源端口/目标IP/目标端口, 如果是MAC包, 源MAC也要相同
             if (it->inet_ip != ip_hdr->src.addr || it->inet_port != tcp_hdr->src) {
-                LLOGD("源ip/port不匹配, 继续下一条");
+                // LLOGD("源ip/port不匹配, 继续下一条");
                 continue;
             }
             if (it->wnet_ip != ip_hdr->dest.addr || it->wnet_port != tcp_hdr->dest) {
-                LLOGD("目标ip/port不匹配, 继续下一条");
+                // LLOGD("目标ip/port不匹配, 继续下一条");
                 continue;
             }
             if (ctx->eth && memcmp(ctx->eth->src.addr, it->inet_mac, 6)) {
-                LLOGD("源MAC不匹配, 继续下一条");
+                // LLOGD("源MAC不匹配, 继续下一条");
                 continue;
             }
             // 都相同, 那就是同一个映射了, 可以服用

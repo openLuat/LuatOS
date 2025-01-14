@@ -140,7 +140,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的UDP请求, 交给LWIP处理
+            return 0; // 对网关的UDP请求, 交给LWIP处理
         }
         // 寻找一个空位
         // 第一轮循环, 是否有已知映射

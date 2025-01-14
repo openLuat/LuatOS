@@ -10,6 +10,7 @@
 #include "lwip/tcp.h"
 #include "lwip/prot/tcp.h"
 #include "luat_mcu.h"
+#include "lwip/ip_addr.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
@@ -59,7 +60,7 @@ again:
 static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
     char buff[16] = {0};
     char buff2[16] = {0};
-    struct ip_addr ip;
+    ip_addr_t ip;
     
     ip_addr_set_ip4_u32(&ip, it->inet_ip);
     ipaddr_ntoa_r(&ip, buff, 16);
@@ -167,7 +168,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的TCP请求, 交给LWIP处理
+            return 0; // 对网关的TCP请求, 交给LWIP处理
         }
         // 第一轮循环, 是否有已知映射
         LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));

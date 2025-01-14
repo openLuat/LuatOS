@@ -129,7 +129,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的ICMP/PING请求, 交给LWIP处理
+            return 0; // 对网关的ICMP/PING请求, 交给LWIP处理
         }
         // 寻找一个空位
         uint64_t tnow = luat_mcu_tick64_ms();
@@ -181,7 +181,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             else {
                 LLOGD("ICMP改写完成, 但GW不支持dataout回调?!!");
             }
-            return 0;
+            return 1;
         }
         LLOGD("没有ICMP空位了");
     }

@@ -22,10 +22,6 @@
 
 int luat_netdrv_gw_adapter_id = -1;
 
-static luat_netdrv_napt_item_t icmps[ICMP_MAP_SIZE];
-
-static luat_netdrv_napt_item_t ips[IP_MAP_SIZE];
-
 #define u32 uint32_t
 #define u16 uint16_t
 #define u8 uint8_t
@@ -42,7 +38,7 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         LLOGD("网关netif不存在,无法转发");
         return 0;
     }
-    if (len < 40 || len > 1600) {
+    if (len < 24 || len > 1600) {
         LLOGD("包长度不合法, 拒绝改写 %d", len);
         return 0;
     }
@@ -110,17 +106,17 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     return 0;
 }
 
-int luat_napt_udp_handle(napt_ctx_t* ctx) {
-    LLOGD("当前不支持UDP包改写");
-    return 0;
-}
+// int luat_napt_udp_handle(napt_ctx_t* ctx) {
+//     LLOGD("当前不支持UDP包改写");
+//     return 0;
+// }
 
 static uint8_t napt_buff[1600];
 err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     if (p->tot_len > 1600) {
         return 1;
     }
-    if (p->tot_len < 40) {
+    if (p->tot_len < 24) {
         return 1;
     }
     pbuf_copy_partial(p, napt_buff, p->tot_len, 0);

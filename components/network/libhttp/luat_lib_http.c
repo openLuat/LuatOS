@@ -134,7 +134,7 @@ static int l_http_request(lua_State *L) {
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 
-	http_ctrl->timeout = HTTP_TIMEOUT;
+	http_ctrl->timeout = 0;
 	int use_ipv6 = 0;
 	int is_debug = 0;
 
@@ -149,7 +149,7 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "timeout");
 		if (LUA_TNUMBER == lua_gettable(L, 5)) {
-			http_ctrl->timeout = luaL_optinteger(L, -1, HTTP_TIMEOUT);
+			http_ctrl->timeout = luaL_optinteger(L, -1, 0);
 		}
 		lua_pop(L, 1);
 
@@ -231,6 +231,20 @@ static int l_http_request(lua_State *L) {
 		LLOGE("netc create fail");
 		goto error;
 	}
+	#ifdef LUAT_USE_FOTA
+	if (http_ctrl->timeout < 1000 && http_ctrl->isfota) {
+		http_ctrl->timeout = HTTP_TIMEOUT;
+	}
+	#endif
+	if (http_ctrl->timeout < 1000) {
+		if (http_ctrl->is_download) {
+			http_ctrl->timeout = HTTP_TIMEOUT;
+		}
+		else {
+			http_ctrl->timeout = 60*1000;
+		}
+	}
+	LLOGD("http action timeout %dms", http_ctrl->timeout);
 
     luat_http_client_init(http_ctrl, use_ipv6);
 	http_ctrl->netc->is_debug = (uint8_t)is_debug;

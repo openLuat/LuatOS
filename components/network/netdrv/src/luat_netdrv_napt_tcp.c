@@ -95,7 +95,9 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             if (it->is_vaild == 0) {
                 continue;
             }
-            if (it->is_vaild && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+            tnow = luat_mcu_tick64_ms();
+            if (it->is_vaild && tnow > it->tm_ms &&  (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 continue;
             }
@@ -178,7 +180,9 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             if (it->is_vaild == 0) {
                 continue;
             }
-            if ((tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+            tnow = luat_mcu_tick64_ms();
+            if (tnow > it->tm_ms && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 it->tm_ms = 0;
                 continue;
@@ -198,9 +202,10 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 // LLOGD("源MAC不匹配, 继续下一条");
                 continue;
             }
-            // 都相同, 那就是同一个映射了, 可以服用
+            // 都相同, 那就是同一个映射了, 可以复用
             it->tm_ms = tnow;
             it_map = it;
+            break;
         }
         // 寻找一个空位
         if (it_map == NULL) {

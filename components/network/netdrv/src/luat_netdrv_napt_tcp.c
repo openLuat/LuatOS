@@ -209,6 +209,14 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         }
         // 寻找一个空位
         if (it_map == NULL) {
+            if ((TCPH_FLAGS(tcp_hdr) & (TCP_SYN|TCP_ACK)) == TCP_SYN && PP_NTOHS(tcp_hdr->src) >= 1024) {
+                // 允许新增映射
+            }
+            else {
+                LLOGI("非SYN包/源端口小于1024,且没有已知映射,不允许新增映射 %02X %d", TCPH_FLAGS(tcp_hdr), PP_NTOHS(tcp_hdr->src));
+                // TODO 应该返回RST?
+                return 0;
+            }
             for (size_t i = 0; i < TCP_MAP_SIZE; i++) {
                 it = &tcps[i];
                 if (it->is_vaild) {

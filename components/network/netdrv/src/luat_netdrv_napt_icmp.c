@@ -14,10 +14,10 @@
 #include "luat_log.h"
 
 #define ICMP_MAP_SIZE (64)
-#define IP_MAP_SIZE (1024)
+#define ICMP_MAP_TIMEOUT (5000)
 
 /* napt icmp id range: 3000-65535 */
-#define NAPT_ICMP_ID_RANGE_START     0xBB8
+#define NAPT_ICMP_ID_RANGE_START     0x1BB8
 #define NAPT_ICMP_ID_RANGE_END       0xFFFF
 
 extern int luat_netdrv_gw_adapter_id;
@@ -135,10 +135,10 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
         uint64_t tnow = luat_mcu_tick64_ms();
         for (size_t i = 0; i < ICMP_MAP_SIZE; i++)
         {
-            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < 5000) {
+            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < ICMP_MAP_TIMEOUT) {
                 continue;
             }
-            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) > 5000) {
+            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) > ICMP_MAP_TIMEOUT) {
                 icmps[i].is_vaild = 0;
             }
             // 有空位, 马上处理

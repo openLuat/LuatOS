@@ -136,13 +136,17 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II){
-        if (conf->pin_dc != LUAT_GPIO_NONE) luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
+        if (conf->pin_dc != LUAT_GPIO_NONE) {
+            luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
+        }
     }
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-    if (conf->tp_pin_rst != LUAT_GPIO_NONE)
+    if (conf->tp_pin_rst != LUAT_GPIO_NONE) {
         luat_gpio_mode(conf->tp_pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    if (conf->pin_pwr != LUAT_GPIO_NONE)
+    }
+    if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    }
 	if (conf->opts->user_ctrl_init)
 	{
 		conf->opts->user_ctrl_init(conf);
@@ -533,4 +537,16 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,int16_t x0, int16_t y0, uint8_t r
     }
     return 0;
 }
+
+#ifndef LUAT_COMPILER_NOWEAK
+
+LUAT_WEAK int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config) {
+    return -1;
+};
+
+LUAT_WEAK int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off) {
+    return -1;
+}
+
+#endif
 

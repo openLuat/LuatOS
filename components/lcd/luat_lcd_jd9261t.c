@@ -34,7 +34,7 @@ static void jd9261t_get_tp_point(void *param, uint32_t param_len)
 			return;
 		}
 	}
-	luat_rtos_task_sleep(1);
+	luat_timer_us_delay(15);
 	res = luat_i2c_recv(jd9261t_tp.lcd->tp_i2c_id, 0x68, buff, 60);
 	if (res)
 	{

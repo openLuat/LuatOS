@@ -134,7 +134,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
                 return 1; // 全部修改完成,
             }
         }
-        LLOGD("没有找到UDP映射关系, 放行给LWIP处理");
+        // LLOGD("没有找到UDP映射关系, 放行给LWIP处理");
         return 0;
     }
     else {

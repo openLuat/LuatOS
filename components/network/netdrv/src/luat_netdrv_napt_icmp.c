@@ -121,9 +121,9 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                 LLOGE("能找到ICMP映射关系, 但目标netdrv不支持dataout!!");
             }
             icmps[i].is_vaild = 0;
-            return 1; // 全部修改完成,
+            return 1; // 全部修改完成
         }
-        LLOGD("没有找到ICMP映射关系, 不是非内网PING");
+        // LLOGD("没有找到ICMP映射关系, 不是非内网PING");
         return 0;
     }
     else {

@@ -536,3 +536,15 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,int16_t x0, int16_t y0, uint8_t r
     return 0;
 }
 
+#ifndef LUAT_COMPILER_NOWEAK
+
+LUAT_WEAK int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config) {
+    return -1;
+};
+
+LUAT_WEAK int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off) {
+    return -1;
+}
+
+#endif
+

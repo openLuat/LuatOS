@@ -54,6 +54,7 @@ static const lcd_reg_t lcd_regs[] = {
   {"ili9486", &lcd_opts_ili9486},
   {"nv3037",  &lcd_opts_nv3037},
   {"h050iwv", &lcd_opts_h050iwv},
+  {"jd9261t_inited", &lcd_opts_jd9261t_inited},
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -121,6 +122,7 @@ static int l_lcd_init(lua_State* L) {
     }
 #endif
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
+    conf->bpp = 16;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
     conf->pin_pwr = LUAT_GPIO_NONE;
@@ -259,6 +261,26 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "interface_mode");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->interface_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "bus_speed");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bus_speed = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "flush_rate");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->flush_rate = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "vfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vfp = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "vbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vbp = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "vs");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vs = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 
@@ -1920,6 +1942,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
     //@const DATA_2_LANE int 双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
+	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
 	  {NULL, ROREG_INT(0)}
 };
 

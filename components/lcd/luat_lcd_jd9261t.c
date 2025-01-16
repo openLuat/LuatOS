@@ -52,11 +52,22 @@ static void jd9261t_get_tp_point(void *param, uint32_t param_len)
 		if (buff[i * 5 + 3] != 0xff)
 		{
 			//LLOGI("%d, %x %x %x %x", i * 5 + 3, buff[i * 5 + 3], buff[i * 5 + 4], buff[i * 5 + 5], buff[i * 5 + 6]);
-			tp_x = buff[i * 5 + 3] & 0x01;
+			tp_x = buff[i * 5 + 3];
 			tp_x = (tp_x << 8) | buff[i * 5 + 4];
-			tp_y = buff[i * 5 + 5] & 0x01;
+			tp_y = buff[i * 5 + 5];
 			tp_y = (tp_y << 8) | buff[i * 5 + 6];
-			LLOGI("TP point %d x %d y %d", i+1, tp_x, tp_y);
+			if (tp_x < jd9261t_tp.lcd->w && tp_y < jd9261t_tp.lcd->h)
+			{
+				LLOGI("TP point %d x %d y %d", i+1, tp_x, tp_y);
+			}
+			else
+			{
+				break;
+			}
+		}
+		else
+		{
+			break;
 		}
 	}
 }
@@ -112,7 +123,7 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     luat_lcd_set_direction(conf,conf->direction);
     luat_rtos_task_sleep(5);
     luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    if ((conf->tp_pin_rst != LUAT_GPIO_NONE) && (conf->tp_pin_rst || conf->tp_pin_irq))
+    if (conf->tp_driver_id)
     {
     	uint8_t ID[4];
     	ID[0] = 0x40;
@@ -140,10 +151,6 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     		gpio.irq_cb = jd9261t_irq_cb;
     		luat_gpio_setup(&gpio);
     	}
-    }
-    else
-    {
-    	LLOGI("TP not work");
     }
     luat_lcd_qspi_auto_flush_on_off(conf, 1);
     return 0;

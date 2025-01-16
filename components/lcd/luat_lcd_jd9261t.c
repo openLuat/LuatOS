@@ -46,14 +46,16 @@ static void jd9261t_get_tp_point(void *param, uint32_t param_len)
 		}
 	}
 	if (!buff[0]) return;
+
 	for (uint8_t i = 0; i < 10; i++)
 	{
 		if (buff[i * 5 + 3] != 0xff)
 		{
+			//LLOGI("%d, %x %x %x %x", i * 5 + 3, buff[i * 5 + 3], buff[i * 5 + 4], buff[i * 5 + 5], buff[i * 5 + 6]);
 			tp_x = buff[i * 5 + 3] & 0x01;
 			tp_x = (tp_x << 8) | buff[i * 5 + 4];
-			tp_y = buff[i * 5 + 6] & 0x01;
-			tp_y = (tp_y << 8) | buff[i * 5 + 8];
+			tp_y = buff[i * 5 + 5] & 0x01;
+			tp_y = (tp_y << 8) | buff[i * 5 + 6];
 			LLOGI("TP point %d x %d y %d", i+1, tp_x, tp_y);
 		}
 	}
@@ -97,7 +99,6 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
 			.hsync_reg = 0x60,
 			.write_1line_cmd = 0xde,
 	};
-	uint8_t temp = 0x0b;
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_rtos_task_sleep(5);
     luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
@@ -108,7 +109,7 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(100);
     luat_lcd_qspi_config(conf, &auto_flush);	//必须在第一个命令发送前就准备好
-    lcd_write_cmd_data(conf,0x36, &temp, 1);
+    luat_lcd_set_direction(conf,conf->direction);
     luat_rtos_task_sleep(5);
     luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     if ((conf->tp_pin_rst != LUAT_GPIO_NONE) && (conf->tp_pin_rst || conf->tp_pin_irq))
@@ -138,6 +139,7 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     		gpio.irq = LUAT_GPIO_FALLING_IRQ;
     		gpio.irq_cb = jd9261t_irq_cb;
     		luat_gpio_setup(&gpio);
+    		luat_lcd_run_api_in_service(jd9261t_get_tp_point, jd9261t_tp.lcd, 0);
     	}
     }
     else
@@ -152,8 +154,8 @@ luat_lcd_opts_t lcd_opts_jd9261t_inited = {
     .name = "jd9261t_inited",
     .init_cmds_len = 0,
     .init_cmds = NULL,
-    .direction0 = 0x03,
-    .direction90 = 0x03,
+    .direction0 = 0x00,
+    .direction90 = 0x00,
     .direction180 = 0x03,
     .direction270 = 0x03,
 	.rb_swap = 1,

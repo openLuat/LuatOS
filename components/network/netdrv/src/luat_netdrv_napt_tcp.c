@@ -74,6 +74,28 @@ static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
     );
 }
 
+static void update_tcp_stat_wnet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
+      if ((TCPH_FLAGS(tcphdr) & (TCP_SYN|TCP_ACK)) == (TCP_SYN|TCP_ACK))
+        t->synack = 1;
+      if ((TCPH_FLAGS(tcphdr) & TCP_FIN))
+        t->fin1 = 1;
+      if (t->fin2 && (TCPH_FLAGS(tcphdr) & TCP_ACK))
+        t->finack2 = 1; /* FIXME: Currently ignoring ACK seq... */
+      if (TCPH_FLAGS(tcphdr) & TCP_RST)
+        t->rst = 1;
+    // LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
+}
+
+static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
+    if ((TCPH_FLAGS(tcphdr) & TCP_FIN))
+        t->fin2 = 1;
+    if (t->fin1 && (TCPH_FLAGS(tcphdr) & TCP_ACK))
+        t->finack1 = 1; /* FIXME: Currently ignoring ACK seq... */
+    if (TCPH_FLAGS(tcphdr) & TCP_RST)
+        t->rst = 1;
+    // LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
+}
+
 static uint8_t tcp_buff[1600];
 int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
@@ -138,6 +160,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
                 memcpy(ctx->eth->dest.addr, tcps[i].inet_mac, 6);
             }
+            update_tcp_stat_wnet(tcp_hdr, &tcps[i]);
             luat_netdrv_t* dst = luat_netdrv_get(tcps[i].adapter_id);
             if (dst == NULL) {
                 LLOGE("能找到TCP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
@@ -164,7 +187,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             return 1; // 全部修改完成
         }
-        LLOGD("没有找到TCP映射关系, 放行给LWIP处理");
+        // LLOGD("没有找到TCP映射关系, 放行给LWIP处理");
         return 0;
     }
     else {
@@ -183,6 +206,15 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             tnow = luat_mcu_tick64_ms();
             if (tnow > it->tm_ms && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
                 LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
+                it->is_vaild = 0;
+                it->tm_ms = 0;
+                continue;
+            }
+
+            // 判断TCP链路状态
+            if ((((it->finack1 && it->finack2) || !it->synack) &&
+                  tnow - it->tm_ms > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
+                LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
                 it->is_vaild = 0;
                 it->tm_ms = 0;
                 continue;
@@ -230,6 +262,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 LLOGE("没有空闲的TCP映射了!!!!");
                 return 0;
             }
+            memset(it_map, 0, sizeof(luat_netdrv_napt_tcpudp_t));
             it->adapter_id = ctx->net->id;
             it->inet_port = tcp_hdr->src;
             it->wnet_port = tcp_hdr->dest;
@@ -242,6 +275,9 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             it->is_vaild = 1;
             LLOGD("分配新的TCP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
+        }
+        else {
+            update_tcp_stat_inet(tcp_hdr, it_map);
         }
         // 2. 修改信息
         ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);

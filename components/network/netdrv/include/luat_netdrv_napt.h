@@ -3,23 +3,8 @@
 
 #include "lwip/pbuf.h"
 
-// typedef struct napt_map_item
-// {
-//     uint8_t adapter_id;
-//     uint16_t port;
-//     uint32_t ipv4;
-//     uint8_t mac[6];
-// }napt_map_item_t;
-
-
-// typedef struct luat_netdrv_napt_item
-// {
-//     uint8_t     is_vaild;
-//     // uint8_t     tp; // tcp, udp, icmp
-//     napt_map_item_t inet;  // 内网信息
-//     napt_map_item_t wnet; // 外网信息
-//     uint64_t tm_ms; // 最后通信时间
-// }luat_netdrv_napt_item_t;
+// #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
+#define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)
 
 typedef struct luat_netdrv_napt_icmp
 {
@@ -44,6 +29,14 @@ typedef struct luat_netdrv_napt_tcpudp
     uint32_t wnet_ip;
     uint8_t  inet_mac[6];
     uint64_t tm_ms; // 最后通信时间
+
+    // TCP状态记录
+    unsigned int fin1 : 1;
+    unsigned int fin2 : 1;
+    unsigned int finack1 : 1;
+    unsigned int finack2 : 1;
+    unsigned int synack : 1;
+    unsigned int rst : 1;
 }luat_netdrv_napt_tcpudp_t;
 
 typedef struct napt_ctx

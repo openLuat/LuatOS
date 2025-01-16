@@ -58,12 +58,12 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         if (memcmp(ctx.eth->dest.addr, "\xFF\xFF\xFF\xFF\xFF\xFF", 6) == 0 ||
             ctx.eth->dest.addr[0] == 0x01
         ) {
-            LLOGD("是广播包,不需要执行napt");
+            // LLOGD("是广播包,不需要执行napt");
             return 0;
         }
         // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
         if (ctx.eth->type != PP_HTONS(ETHTYPE_IP)) {
-            LLOGD("不是IP包, 不需要执行napt");
+            // LLOGD("不是IP包, 不需要执行napt");
             return 0;
         }
     }

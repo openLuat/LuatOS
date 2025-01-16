@@ -99,6 +99,11 @@ lcd显示屏初始化
 spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
+-- rgb屏幕初始化
+lcd.init("h050iwv",{port = lcd.RGB, w = 800,h = 480})
+-- lcd.init("custom",{port = port,hbp = 46, hspw = 2, hfp = 48,vbp = 24, vspw = 2, vfp = 24,bus_speed = 60*1000*1000,w = 800,h = 480})
+
 */
 
 /*
@@ -331,9 +336,9 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
-            lua_pushstring(L, "vfp");
+            lua_pushstring(L, "vbp");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->vfp = luaL_checkinteger(L, -1);
+                conf->vbp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 
@@ -343,9 +348,9 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
-            lua_pushstring(L, "vbp");
+            lua_pushstring(L, "vfp");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->vbp = luaL_checkinteger(L, -1);
+                conf->vfp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 

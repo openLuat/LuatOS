@@ -44,7 +44,7 @@ if wdt then
 end
 
 local rtos_bsp = rtos.bsp()
-
+local chip_type = hmeta.chip()
 -- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 function lcd_pin()
@@ -60,7 +60,7 @@ function lcd_pin()
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,22
-    elseif string.find(rtos_bsp,"EC718") then
+    elseif string.find(rtos_bsp,"EC718") or string.find(chip_type,"EC718") then
         return lcd.HWID_0,36,0xff,0xff,25 -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "bsp not support")
@@ -92,7 +92,11 @@ end
     --lcd.invoff()
     --0.96寸TFT如果显示依旧不正常，可以尝试老版本的板子的驱动
     -- lcd.init("st7735s",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
-
+	
+	--lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 480,h = 480,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=658,vbp=19,vfp=108,vs=2},spi_lcd)
+    --lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
+    --lcd.autoFlush(false)
+	
 -- 不在内置驱动的, 看demo/lcd_custom
 
 sys.taskInit(function()
@@ -114,6 +118,7 @@ sys.taskInit(function()
         log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
         log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
         log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+		lcd.flush()
         sys.wait(1000)
     end
 end)

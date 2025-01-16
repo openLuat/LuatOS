@@ -35,10 +35,18 @@ typedef struct lcd_reg {
   const luat_lcd_opts_t *lcd_opts;
 }lcd_reg_t;
 
-luat_lcd_opts_t lcd_opts_h050iwv = {
-    .name = "h050iwv",
+luat_lcd_opts_t lcd_opts_nv3052c = {
+    .name = "nv3052c",
 };
-
+luat_lcd_opts_t lcd_opts_hx8282 = {
+    .name = "hx8282",
+};
+luat_lcd_opts_t lcd_opts_st7701s = {
+    .name = "st7701s",
+};
+luat_lcd_opts_t lcd_opts_st7701sn = {
+    .name = "st7701sn",
+};
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
   {"st7735",  &lcd_opts_st7735},
@@ -54,6 +62,11 @@ static const lcd_reg_t lcd_regs[] = {
   {"ili9486", &lcd_opts_ili9486},
   {"nv3037",  &lcd_opts_nv3037},
   {"h050iwv", &lcd_opts_h050iwv},
+  {"jd9261t_inited", &lcd_opts_jd9261t_inited},
+  {"nv3052c", &lcd_opts_nv3052c},
+  {"hx8282",  &lcd_opts_hx8282},
+  {"st7701s",  &lcd_opts_st7701s},
+  {"st7701sn",  &lcd_opts_st7701sn},
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -86,6 +99,11 @@ lcd显示屏初始化
 spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
+-- rgb屏幕初始化
+lcd.init("h050iwv",{port = lcd.RGB, w = 800,h = 480})
+-- lcd.init("custom",{port = port,hbp = 46, hspw = 2, hfp = 48,vbp = 24, vspw = 2, vfp = 24,bus_speed = 60*1000*1000,w = 800,h = 480})
+
 */
 
 /*
@@ -121,9 +139,11 @@ static int l_lcd_init(lua_State* L) {
     }
 #endif
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
+    conf->bpp = 16;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
     conf->pin_pwr = LUAT_GPIO_NONE;
+    conf->tp_pin_rst = LUAT_GPIO_NONE;
     conf->interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
@@ -194,6 +214,30 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
+            lua_pushstring(L, "tp_driver");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_driver_id = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_i2c_id");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_i2c_id = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_pin_rst");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_pin_rst = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_pin_irq");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_pin_irq = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "direction");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->direction = luaL_checkinteger(L, -1);
@@ -259,6 +303,54 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "interface_mode");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->interface_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "bus_speed");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bus_speed = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "flush_rate");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->flush_rate = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hbp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hfp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vbp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vfp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 
@@ -1467,28 +1559,27 @@ static int l_lcd_showimage(lua_State *L){
 lcd.flush()
 */
 static int l_lcd_flush(lua_State* L) {
-  luat_lcd_conf_t * conf = NULL;
-  if (lua_gettop(L) == 1) {
-    conf = lua_touserdata(L, 1);
-  }
-  else {
-    conf = default_conf;
-  }
-  if (conf == NULL) {
-    //LLOGW("lcd not init");
+    luat_lcd_conf_t * conf = NULL;
+    if (lua_gettop(L) == 1) {
+        conf = lua_touserdata(L, 1);
+    }else {
+        conf = default_conf;
+    }
+    if (conf == NULL) {
+        //LLOGW("lcd not init");
+        return 0;
+    }
+    if (conf->buff == NULL) {
+        //LLOGW("lcd without buff, not support flush");
+        return 0;
+    }
+    if (conf->auto_flush) {
+        //LLOGI("lcd auto flush is enable, no need for flush");
+        return 0;
+    }
+    luat_lcd_flush(conf);
+    lua_pushboolean(L, 1);
     return 0;
-  }
-  if (conf->buff == NULL) {
-    //LLOGW("lcd without buff, not support flush");
-    return 0;
-  }
-  if (conf->auto_flush) {
-    //LLOGI("lcd auto flush is enable, no need for flush");
-    return 0;
-  }
-  luat_lcd_flush(conf);
-  lua_pushboolean(L, 1);
-  return 0;
 }
 
 /*
@@ -1920,6 +2011,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
     //@const DATA_2_LANE int 双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
+	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
 	  {NULL, ROREG_INT(0)}
 };
 

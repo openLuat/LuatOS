@@ -47,7 +47,7 @@ jobs:
         mkdir ../LuatOS/luatosfw
         mv out/luatos/* ../LuatOS/luatosfw
     - name: Upload artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: air780
         path: luatosfw

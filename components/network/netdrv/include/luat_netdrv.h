@@ -3,20 +3,13 @@
 
 #include "lwip/pbuf.h"
 
-typedef void (*luat_netdrv_dataout_cb)(void* userdata, struct pbuf* pb, int flags);
+typedef void (*luat_netdrv_dataout_cb)(void* userdata, uint8_t* buff, uint16_t len);
 typedef int (*luat_netdrv_bootup_cb)(void* userdata);
 typedef int (*luat_netdrv_ready_cb)(void* userdata);
 typedef int (*luat_netdrv_dhcp_set)(void* userdata, int enable);
 
-typedef struct luat_netdrv {
-    int32_t id;
-    struct netif* netif;
-    luat_netdrv_dataout_cb dataout;
-    luat_netdrv_bootup_cb boot;
-    luat_netdrv_ready_cb ready;
-    luat_netdrv_dhcp_set dhcp;
-    void* userdata;
-}luat_netdrv_t;
+#define MACFMT "%02X%02X%02X%02X%02X%02X"
+#define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
 
 enum {
     LUAT_NETDRV_TP_NATIVE,
@@ -51,6 +44,17 @@ typedef struct luat_netdrv_statics
     luat_netdrv_statics_item_t drop;
 }luat_netdrv_statics_t;
 
+typedef struct luat_netdrv {
+    int32_t id;
+    struct netif* netif;
+    luat_netdrv_dataout_cb dataout;
+    luat_netdrv_bootup_cb boot;
+    luat_netdrv_ready_cb ready;
+    luat_netdrv_dhcp_set dhcp;
+    luat_netdrv_statics_t statics;
+    void* userdata;
+}luat_netdrv_t;
+
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);
 
 int luat_netdrv_dhcp(int32_t id, int32_t enable);
@@ -60,5 +64,21 @@ int luat_netdrv_ready(int32_t id);
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv);
 
 int luat_netdrv_mac(int32_t id, const char* new, char* old);
+
+void luat_netdrv_stat_inc(luat_netdrv_statics_item_t* stat, size_t len);
+
+#define NETDRV_STAT_IN(ndrv, len) luat_netdrv_stat_inc(&ndrv->statics.in, len)
+#define NETDRV_STAT_OUT(ndrv, len) luat_netdrv_stat_inc(&ndrv->statics.out, len)
+#define NETDRV_STAT_DROP(ndrv, len) luat_netdrv_stat_inc(&ndrv->statics.drop, len)
+
+
+luat_netdrv_t* luat_netdrv_get(int id);
+
+void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
+
+// 辅助函数
+uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len);
+uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len);
+uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len);
 
 #endif

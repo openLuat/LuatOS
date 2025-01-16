@@ -2,6 +2,7 @@
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_ch390h.h"
+#include "luat_netdrv_napt.h"
 #include "luat_ch390h.h"
 #include "luat_malloc.h"
 #include "luat_spi.h"
@@ -12,15 +13,12 @@
 #include "lwip/sys.h"
 #include "lwip/tcpip.h"
 #include "lwip/pbuf.h"
+#include "luat_mem.h"
 
 #include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "ch390x"
 #include "luat_log.h"
-
-#define MACFMT "%02X%02X%02X%02X%02X%02X"
-#define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
-
 
 typedef struct pkg_msg
 {
@@ -35,7 +33,7 @@ extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
 static luat_rtos_task_handle ch390h_task_handle;
 
-static int is_waiting;
+// static uint32_t remain_tx_size;
 
 static int ch390h_bootup(ch390h_t* ch) {
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
@@ -56,11 +54,40 @@ static int ch390h_bootup(ch390h_t* ch) {
     return 0;
 }
 
+static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
+    ch390h_t* ch = (ch390h_t*)userdata;
+    luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_ch390h_cstring_t) + len - 4);
+    if (cs == NULL) {
+        LLOGE("内存不足, 无法传递buff到驱动task");
+        return;
+    }
+    cs->len = len;
+    memcpy(cs->buff, buff, len);
+    // remain_tx_size += len;
+    // LLOGD("数据传递到驱动task %p %p %d remain %ld", ch, cs, len, remain_tx_size);
+    luat_rtos_event_send(ch390h_task_handle, 1, (uint32_t)ch, (uint32_t)cs, 0, 0);
+    return;
+}
+
+static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
+    luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_ch390h_cstring_t) + p->tot_len - 4);
+    if (cs == NULL) {
+        LLOGE("内存不足, 无法传递buff到驱动task");
+        return;
+    }
+    cs->len = p->tot_len;
+    pbuf_copy_partial(p, cs->buff, p->tot_len, 0);
+    // LLOGD("数据传递到驱动task %p %p %d", ch, cs, cs->len);
+    luat_rtos_event_send(ch390h_task_handle, 1, (uint32_t)ch, (uint32_t)cs, 0, 0);
+    // remain_tx_size += p->tot_len;
+    // LLOGD("数据传递到驱动task %p %p %d remain %ld", ch, cs, p->tot_len, remain_tx_size);
+    return;
+}
+
 
 static err_t netif_output(struct netif *netif, struct pbuf *p) {
     // LLOGD("lwip待发送数据 %p %d", p, p->tot_len);
     ch390h_t* ch = NULL;
-    struct pbuf *p2 = NULL;
 
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
@@ -71,24 +98,8 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         if (ch->netif != netif) {
             continue;
         }
-        for (size_t j = 0; j < CH390H_MAX_TX_NUM; j++)
-        {
-            if (ch->txqueue[j] == NULL) {
-                p2 = pbuf_alloc(PBUF_TRANSPORT, p->tot_len, PBUF_RAM);
-                if (p2 == NULL) {
-                    LLOGE("内存不足, 无法传递pbuf");
-                    return 0;
-                }
-                pbuf_copy(p2, p);
-                // TODO 改成消息传送
-                ch->txqueue[j] = p2;
-                // LLOGD("找到空位了 %d", j);
-                if (is_waiting) {
-                    luat_rtos_event_send(ch390h_task_handle, 0, 0, 0, 0, 0);
-                }
-                return 0;
-            }
-        }
+        ch390h_dataout_pbuf(ch, p);
+        break;
     }
     return 0;
 }
@@ -97,8 +108,14 @@ static err_t luat_netif_init(struct netif *netif) {
     ch390h_t* ch = (ch390h_t*)netif->state;
     netif->linkoutput = netif_output;
     netif->output     = ulwip_etharp_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
+    #endif
     #if LWIP_IPV6
     netif->output_ip6 = ethip6_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
+    #endif
     #endif
     netif->mtu        = 1460;
     netif->flags      = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
@@ -140,7 +157,7 @@ static int check_vid_pid(ch390h_t* ch) {
 }
 
 
-static int task_loop_one(ch390h_t* ch) {
+static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint8_t buff[16] = {0};
     int ret = 0;
     uint16_t len = 0;
@@ -161,6 +178,7 @@ static int task_loop_one(ch390h_t* ch) {
         memcpy(ch->hwaddr, buff, 6);
         netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, luat_netif_init, netif_input);
         ch->status++;
+        ch->netdrv->dataout = ch390h_dataout;
         luat_ch390h_basic_config(ch);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
@@ -207,6 +225,11 @@ static int task_loop_one(ch390h_t* ch) {
         }
     }
 
+    if (cs) {
+        // LLOGD("数据写入 %p %d", cs->buff, cs->len);
+        luat_ch390h_write_pkg(ch, cs->buff, cs->len);
+    }
+
     // 有没有数据待读取
     if (NSR & 0x01) {
         ret = luat_ch390h_read_pkg(ch, ch->rxbuff, &len);
@@ -222,24 +245,33 @@ static int task_loop_one(ch390h_t* ch) {
             return 0;
         }
         if (len > 0) {
+            NETDRV_STAT_IN(ch->netdrv, len);
             // 收到数据, 开始后续处理
             print_erp_pkg(ch->rxbuff, len);
-            // TODO 先经过netdrv过滤器
-            
-            // 如果返回值是0, 那就是继续处理, 输入到netif
-            pkg_msg_t* ptr = luat_heap_malloc(sizeof(pkg_msg_t) + len - 4);
-            if (ptr == NULL) {
-                LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len);
-                return 1; // 需要处理下一个包
+            // 先经过netdrv过滤器
+            // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
+            ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
+            // LLOGD("napt ret %d", ret);
+            if (ret != 0) {
+                // 不需要输入到LWIP了
+                // LLOGD("napt说不需要注入lwip了");
             }
-            memcpy(ptr->buff, ch->rxbuff, len);
-            ptr->netif = ch->netif;
-            ptr->len = len - 4;
-            ret = tcpip_callback(netdrv_netif_input, ptr);
-            if (ret) {
-                luat_heap_free(ptr);
-                LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
-                return 1;
+            else {
+                // 如果返回值是0, 那就是继续处理, 输入到netif
+                pkg_msg_t* ptr = luat_heap_malloc(sizeof(pkg_msg_t) + len - 4);
+                if (ptr == NULL) {
+                    LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
+                    return 1; // 需要处理下一个包
+                }
+                memcpy(ptr->buff, ch->rxbuff, len - 4);
+                ptr->netif = ch->netif;
+                ptr->len = len - 4;
+                ret = tcpip_callback(netdrv_netif_input, ptr);
+                if (ret) {
+                    luat_heap_free(ptr);
+                    LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
+                    return 1;
+                }
             }
         }
         // 很好, RX数据处理完成了
@@ -249,38 +281,36 @@ static int task_loop_one(ch390h_t* ch) {
     }
 
     // 那有没有需要发送的数据呢?
-    struct pbuf* p = NULL;
-    int has_tx = 0;
-    for (size_t i = 0; i < CH390H_MAX_TX_NUM; i++)
-    {
-        p = ch->txqueue[i];
-        if (p == NULL) {
-            continue;
-        }
-        // LLOGD("txqueue收到数据包 %p", p);
-        len = p->tot_len;
-        pbuf_copy_partial(p, ch->txbuff, len, 0);
-        pbuf_free(p);
-        ch->txqueue[i] = NULL;
-        luat_ch390h_write_pkg(ch, ch->txbuff, len);
-        has_tx = 1;
-    }
+    // luat_ch390h_cstring_t* cs = NULL;
+    // int has_tx = 0;
+    // for (size_t i = 0; i < CH390H_MAX_TX_NUM; i++)
+    // {
+    //     cs = ch->txqueue[i];
+    //     if (cs == NULL) {
+    //         continue;
+    //     }
+    //     memcpy(ch->txbuff, cs->buff, cs->len);
+    //     ch->txqueue[i] = NULL;
+    //     luat_ch390h_write_pkg(ch, ch->txbuff, cs->len);
+    //     luat_heap_opt_free(LUAT_HEAP_PSRAM, cs);
+    //     has_tx = 1;
+    // }
     
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
-    if (NSR & 0x01 || has_tx) {
+    if (NSR & 0x01 || cs) {
         return 1;
     }
 
     return 0;
 }
 
-static int task_loop() {
+static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     int ret = 0;
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
         if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->netif != NULL) {
-            ret += task_loop_one(ch390h_drvs[i]);
+            ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }
     return ret;
@@ -288,14 +318,35 @@ static int task_loop() {
 
 static void ch390_task_main(void* args) {
     (void)args;
-    luat_event_t evt;
+    luat_event_t evt = {0};
+    int ret = 0;
+    ch390h_t *ch = NULL;
+    luat_ch390h_cstring_t* cs = NULL;
     while (1) {
         // LLOGD("开始新的循环");
         // luat_rtos_task_sleep(10);
-        if (task_loop() == 0) {
-            is_waiting = 1;
-            luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, 10);
-            is_waiting = 0;
+        if (ret == 0) {
+            // is_waiting = 1;
+            ret = luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, 5);
+            // is_waiting = 0;
+            if (ret == 0) {
+                // 收到消息了
+                ch = (ch390h_t *)evt.param1;
+                cs = (luat_ch390h_cstring_t*)evt.param2;
+                // LLOGD("收到消息 %p %p", ch, cs);
+                ret = task_loop(ch, cs);
+                if (cs) {
+                    // remain_tx_size -= cs->len;
+                    luat_heap_opt_free(LUAT_HEAP_PSRAM, cs);
+                    cs = NULL;
+                }
+            }
+            else {
+                ret = task_loop(NULL, NULL);
+            }
+        }
+        else {
+            ret = task_loop(NULL, NULL);
         }
     }
 }

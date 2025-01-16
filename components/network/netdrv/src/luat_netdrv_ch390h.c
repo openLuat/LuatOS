@@ -77,6 +77,7 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
         drv->dataout = NULL;
         drv->boot = NULL;
         drv->dhcp = ch390h_dhcp;
+        ch->netdrv = drv;
         extern void luat_ch390h_task_start(void);
         luat_ch390h_task_start();
         LLOGD("ch390注册完成");

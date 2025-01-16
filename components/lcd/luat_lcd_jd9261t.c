@@ -161,9 +161,3 @@ luat_lcd_opts_t lcd_opts_jd9261t_inited = {
 	.no_ram_mode = 1,
 	.user_ctrl_init = jd9261t_inited_init,
 };
-
-#ifndef LUAT_COMPILER_NOWEAK
-LUAT_WEAK int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len) {
-    return -1;
-};
-#endif

@@ -299,25 +299,53 @@ static int l_lcd_init(lua_State* L) {
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->interface_mode = luaL_checkinteger(L, -1);
             }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "bus_speed");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->bus_speed = luaL_checkinteger(L, -1);
             }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "flush_rate");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->flush_rate = luaL_checkinteger(L, -1);
             }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hbp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hfp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "vfp");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->vfp = luaL_checkinteger(L, -1);
             }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "vbp");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->vbp = luaL_checkinteger(L, -1);
-            }
-            lua_pushstring(L, "vs");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->vs = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 

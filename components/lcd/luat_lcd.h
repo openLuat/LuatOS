@@ -92,9 +92,12 @@ typedef struct luat_lcd_conf {
     uint8_t bpp;			//颜色bit，默认是RGB565 16bit，预留兼容ARGB888 32bit
     uint32_t flush_rate;	//刷新率，针对no ram的屏幕起效
     uint32_t bus_speed;
-    uint16_t vfp;
+    uint16_t hbp;
+    uint16_t hspw;
+    uint16_t hfp;
     uint16_t vbp;
-    uint16_t vs;
+    uint16_t vspw;
+    uint16_t vfp;
     uint8_t tp_driver_id;
     uint8_t tp_pin_rst;
     uint8_t tp_pin_irq;

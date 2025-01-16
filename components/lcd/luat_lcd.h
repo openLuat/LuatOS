@@ -95,6 +95,10 @@ typedef struct luat_lcd_conf {
     uint16_t vfp;
     uint16_t vbp;
     uint16_t vs;
+    uint8_t tp_driver_id;
+    uint8_t tp_pin_rst;
+    uint8_t tp_pin_irq;
+    uint8_t tp_i2c_id;
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
@@ -176,7 +180,6 @@ int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction);
  * csdk适配用
  */
 void luat_lcd_service_init(uint32_t pro);
-void luat_lcd_service_run(void *api, void *data, uint32_t param, uint32_t timeout);
 int luat_lcd_service_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t *data, uint8_t is_static_buf);
 int luat_lcd_service_set_mem_type(uint8_t type);
 uint32_t luat_lcd_service_cache_len(void);
@@ -219,5 +222,7 @@ int luat_lcd_stop_show_camera(void);
 
 int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config);
 int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off);
+typedef void (*luat_lcd_api)(void *param, uint32_t param_len);
+int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len);
 #endif
 

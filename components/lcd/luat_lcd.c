@@ -139,7 +139,8 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
         if (conf->pin_dc != LUAT_GPIO_NONE) luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
     }
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-
+    if (conf->tp_pin_rst != LUAT_GPIO_NONE)
+        luat_gpio_mode(conf->tp_pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
 	if (conf->opts->user_ctrl_init)

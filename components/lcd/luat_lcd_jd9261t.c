@@ -64,9 +64,7 @@ static void jd9261t_get_tp_point(void *param, uint32_t param_len)
 static LUAT_RT_RET_TYPE jd9261t_scan_once(LUAT_RT_CB_PARAM)
 {
 	jd9261t_tp.scan_cnt++;
-#ifdef LUAT_USE_LCD_SERVICE
 	luat_lcd_run_api_in_service(jd9261t_get_tp_point, jd9261t_tp.lcd, 0);
-#endif
 	if (jd9261t_tp.scan_cnt > 10)
 	{
 		luat_rtos_timer_stop(jd9261t_tp.scan_timer);
@@ -99,15 +97,17 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
 			.hsync_reg = 0x60,
 			.write_1line_cmd = 0xde,
 	};
+	luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(5);
-    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
+//    luat_rtos_task_sleep(5);
+//    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(5);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(50);
-    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(100);
+//    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_LOW);
+//    luat_rtos_task_sleep(50);
+//    luat_gpio_set(conf->tp_pin_rst, Luat_GPIO_HIGH);
+//    luat_rtos_task_sleep(100);
+    luat_rtos_task_sleep(150);
     luat_lcd_qspi_config(conf, &auto_flush);	//必须在第一个命令发送前就准备好
     luat_lcd_set_direction(conf,conf->direction);
     luat_rtos_task_sleep(5);
@@ -139,7 +139,6 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     		gpio.irq = LUAT_GPIO_FALLING_IRQ;
     		gpio.irq_cb = jd9261t_irq_cb;
     		luat_gpio_setup(&gpio);
-    		luat_lcd_run_api_in_service(jd9261t_get_tp_point, jd9261t_tp.lcd, 0);
     	}
     }
     else
@@ -163,3 +162,8 @@ luat_lcd_opts_t lcd_opts_jd9261t_inited = {
 	.user_ctrl_init = jd9261t_inited_init,
 };
 
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len) {
+    return -1;
+};
+#endif

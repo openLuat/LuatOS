@@ -14,10 +14,10 @@
 #include "luat_log.h"
 
 #define ICMP_MAP_SIZE (64)
-#define IP_MAP_SIZE (1024)
+#define ICMP_MAP_TIMEOUT (5000)
 
 /* napt icmp id range: 3000-65535 */
-#define NAPT_ICMP_ID_RANGE_START     0xBB8
+#define NAPT_ICMP_ID_RANGE_START     0x1BB8
 #define NAPT_ICMP_ID_RANGE_END       0xFFFF
 
 extern int luat_netdrv_gw_adapter_id;
@@ -129,16 +129,16 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的ICMP/PING请求, 交给LWIP处理
+            return 0; // 对网关的ICMP/PING请求, 交给LWIP处理
         }
         // 寻找一个空位
         uint64_t tnow = luat_mcu_tick64_ms();
         for (size_t i = 0; i < ICMP_MAP_SIZE; i++)
         {
-            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < 5000) {
+            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < ICMP_MAP_TIMEOUT) {
                 continue;
             }
-            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) > 5000) {
+            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) > ICMP_MAP_TIMEOUT) {
                 icmps[i].is_vaild = 0;
             }
             // 有空位, 马上处理
@@ -181,7 +181,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             else {
                 LLOGD("ICMP改写完成, 但GW不支持dataout回调?!!");
             }
-            return 0;
+            return 1;
         }
         LLOGD("没有ICMP空位了");
     }

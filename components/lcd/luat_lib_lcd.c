@@ -35,10 +35,18 @@ typedef struct lcd_reg {
   const luat_lcd_opts_t *lcd_opts;
 }lcd_reg_t;
 
-luat_lcd_opts_t lcd_opts_h050iwv = {
-    .name = "h050iwv",
+luat_lcd_opts_t lcd_opts_nv3052c = {
+    .name = "nv3052c",
 };
-
+luat_lcd_opts_t lcd_opts_hx8282 = {
+    .name = "hx8282",
+};
+luat_lcd_opts_t lcd_opts_st7701s = {
+    .name = "st7701s",
+};
+luat_lcd_opts_t lcd_opts_st7701sn = {
+    .name = "st7701sn",
+};
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
   {"st7735",  &lcd_opts_st7735},
@@ -55,6 +63,10 @@ static const lcd_reg_t lcd_regs[] = {
   {"nv3037",  &lcd_opts_nv3037},
   {"h050iwv", &lcd_opts_h050iwv},
   {"jd9261t_inited", &lcd_opts_jd9261t_inited},
+  {"nv3052c", &lcd_opts_nv3052c},
+  {"hx8282",  &lcd_opts_hx8282},
+  {"st7701s",  &lcd_opts_st7701s},
+  {"st7701sn",  &lcd_opts_st7701sn},
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -1489,28 +1501,27 @@ static int l_lcd_showimage(lua_State *L){
 lcd.flush()
 */
 static int l_lcd_flush(lua_State* L) {
-  luat_lcd_conf_t * conf = NULL;
-  if (lua_gettop(L) == 1) {
-    conf = lua_touserdata(L, 1);
-  }
-  else {
-    conf = default_conf;
-  }
-  if (conf == NULL) {
-    //LLOGW("lcd not init");
+    luat_lcd_conf_t * conf = NULL;
+    if (lua_gettop(L) == 1) {
+        conf = lua_touserdata(L, 1);
+    }else {
+        conf = default_conf;
+    }
+    if (conf == NULL) {
+        //LLOGW("lcd not init");
+        return 0;
+    }
+    if (conf->buff == NULL) {
+        //LLOGW("lcd without buff, not support flush");
+        return 0;
+    }
+    if (conf->auto_flush) {
+        //LLOGI("lcd auto flush is enable, no need for flush");
+        return 0;
+    }
+    luat_lcd_flush(conf);
+    lua_pushboolean(L, 1);
     return 0;
-  }
-  if (conf->buff == NULL) {
-    //LLOGW("lcd without buff, not support flush");
-    return 0;
-  }
-  if (conf->auto_flush) {
-    //LLOGI("lcd auto flush is enable, no need for flush");
-    return 0;
-  }
-  luat_lcd_flush(conf);
-  lua_pushboolean(L, 1);
-  return 0;
 }
 
 /*

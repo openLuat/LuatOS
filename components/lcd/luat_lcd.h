@@ -127,6 +127,7 @@ extern luat_lcd_opts_t lcd_opts_st7735v;
 extern luat_lcd_opts_t lcd_opts_st7789;
 extern luat_lcd_opts_t lcd_opts_st7796;
 extern luat_lcd_opts_t lcd_opts_nv3037;
+extern luat_lcd_opts_t lcd_opts_h050iwv;
 extern luat_lcd_opts_t lcd_opts_jd9261t_inited;
 
 static inline luat_color_t color_swap(luat_color_t color) {

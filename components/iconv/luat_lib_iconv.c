@@ -99,7 +99,7 @@ static iconv_t get_iconv_t(lua_State *L, int i) {
 @return userdata 编码转换函数的转换句柄,若不存在会返回nil
 @usage
 --unicode大端编码 转化为 utf8编码
-local iconv = iconv.open("utf8", "ucs2be")
+local ic = iconv.open("utf8", "ucs2be")
 */
 static int Liconv_open(lua_State *L) {
     const char *tocode = luaL_checkstring(L, 1);
@@ -114,14 +114,14 @@ static int Liconv_open(lua_State *L) {
 
 /*
 字符编码转换
-@api iconv:iconv(inbuf)
+@api ic:iconv(inbuf)
 @string 释义：待转换字符串
 @return number 释义：返回编码转换后的结果<br>取值：0成功,-1失败
 @usage
 --unicode大端编码 转化为 utf8编码
 function ucs2beToUtf8(ucs2s)
-    local iconv = iconv.open("utf8", "ucs2be")
-    return iconv:iconv(ucs2s)
+    local ic = iconv.open("utf8", "ucs2be")
+    return ic:iconv(ucs2s)
 end
 */
 static int Liconv(lua_State *L) {
@@ -193,6 +193,16 @@ static int Liconvlist(lua_State *L) {
 
 #endif
 
+/*
+关闭字符编码转换
+@api iconv.close(cd) 
+@userdata iconv.open返回的句柄
+@return bool 成功返回true,否则返回false
+@usage
+--关闭字符编码转换
+local cd = iconv.open("utf8", "ucs2be")
+iconv.close(cd)
+*/
 static int Liconv_close(lua_State *L) {
     iconv_t cd = get_iconv_t(L, 1);
     if (iconv_close(cd) == 0)

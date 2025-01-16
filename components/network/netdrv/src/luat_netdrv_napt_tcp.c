@@ -10,6 +10,7 @@
 #include "lwip/tcp.h"
 #include "lwip/prot/tcp.h"
 #include "luat_mcu.h"
+#include "lwip/ip_addr.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
@@ -59,7 +60,7 @@ again:
 static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
     char buff[16] = {0};
     char buff2[16] = {0};
-    struct ip_addr ip;
+    ip_addr_t ip;
     
     ip_addr_set_ip4_u32(&ip, it->inet_ip);
     ipaddr_ntoa_r(&ip, buff, 16);
@@ -87,30 +88,32 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {
         // 这是从外网到内网的TCP包
-        LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
+        // LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
         for (size_t i = 0; i < TCP_MAP_SIZE; i++)
         {
             it = &tcps[i];
             if (it->is_vaild == 0) {
                 continue;
             }
-            if (it->is_vaild && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+            tnow = luat_mcu_tick64_ms();
+            if (it->is_vaild && tnow > it->tm_ms &&  (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 continue;
             }
-            print_item("wnet.search item", it);
+            // print_item("wnet.search item", it);
             // 校验远程IP与预期IP是否相同
             if (ip_hdr->src.addr != it->wnet_ip) {
-                LLOGD("IP地址不匹配,下一条");
+                // LLOGD("IP地址不匹配,下一条");
                 continue;
             }
             // 下行的目标端口, 与本地端口, 是否一直
             if (tcp_hdr->dest != tcps[i].wnet_local_port) {
-                LLOGD("port不匹配,下一条");
+                // LLOGD("port不匹配,下一条");
                 continue;
             }
             // 找到映射关系了!!!
-            LLOGD("TCP port %u -> %d", ntohs(tcp_hdr->dest), ntohs(tcps[i].inet_port));
+            // LLOGD("TCP port %u -> %d", ntohs(tcp_hdr->dest), ntohs(tcps[i].inet_port));
             tcps[i].tm_ms = tnow;
             // 修改目标端口
             tcp_hdr->dest = tcps[i].inet_port;
@@ -121,14 +124,14 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
 
             // 重新计算icmp的checksum
-            if (tcp_hdr->chksum) {
+            // if (tcp_hdr->chksum) {
                 tcp_hdr->chksum = 0;
                 tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr,
                                                ip_hdr->dest.addr,
                                                IP_PROTO_TCP,
                                                (u16 *)tcp_hdr,
                                                ntohs(ip_hdr->_len) - iphdr_len);
-            }
+            // }
 
             // 如果是ETH包, 那还需要修改源MAC和目标MAC
             if (ctx->eth) {
@@ -167,42 +170,53 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的TCP请求, 交给LWIP处理
+            return 0; // 对网关的TCP请求, 交给LWIP处理
         }
         // 第一轮循环, 是否有已知映射
-        LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
+        // LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
         for (size_t i = 0; i < TCP_MAP_SIZE; i++)
         {
             it = &tcps[i];
             if (it->is_vaild == 0) {
                 continue;
             }
-            if ((tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+            tnow = luat_mcu_tick64_ms();
+            if (tnow > it->tm_ms && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
+                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 it->tm_ms = 0;
                 continue;
             }
             
-            print_item("inet.search", it);
+            // print_item("inet.search", it);
             // 几个要素都要相同 源IP/源端口/目标IP/目标端口, 如果是MAC包, 源MAC也要相同
             if (it->inet_ip != ip_hdr->src.addr || it->inet_port != tcp_hdr->src) {
-                LLOGD("源ip/port不匹配, 继续下一条");
+                // LLOGD("源ip/port不匹配, 继续下一条");
                 continue;
             }
             if (it->wnet_ip != ip_hdr->dest.addr || it->wnet_port != tcp_hdr->dest) {
-                LLOGD("目标ip/port不匹配, 继续下一条");
+                // LLOGD("目标ip/port不匹配, 继续下一条");
                 continue;
             }
             if (ctx->eth && memcmp(ctx->eth->src.addr, it->inet_mac, 6)) {
-                LLOGD("源MAC不匹配, 继续下一条");
+                // LLOGD("源MAC不匹配, 继续下一条");
                 continue;
             }
-            // 都相同, 那就是同一个映射了, 可以服用
+            // 都相同, 那就是同一个映射了, 可以复用
             it->tm_ms = tnow;
             it_map = it;
+            break;
         }
         // 寻找一个空位
         if (it_map == NULL) {
+            if ((TCPH_FLAGS(tcp_hdr) & (TCP_SYN|TCP_ACK)) == TCP_SYN && PP_NTOHS(tcp_hdr->src) >= 1024) {
+                // 允许新增映射
+            }
+            else {
+                LLOGI("非SYN包/源端口小于1024,且没有已知映射,不允许新增映射 %02X %d", TCPH_FLAGS(tcp_hdr), PP_NTOHS(tcp_hdr->src));
+                // TODO 应该返回RST?
+                return 0;
+            }
             for (size_t i = 0; i < TCP_MAP_SIZE; i++) {
                 it = &tcps[i];
                 if (it->is_vaild) {
@@ -236,14 +250,14 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         ip_hdr->_chksum = 0;
         ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
         // 4. 计算IP包的checksum
-        if (tcp_hdr->chksum) {
+        // if (tcp_hdr->chksum) {
             tcp_hdr->chksum = 0;
             tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr,
                                                    ip_hdr->dest.addr,
                                                    IP_PROTO_TCP,
                                                    (u16 *)tcp_hdr,
                                                    ntohs(ip_hdr->_len) - iphdr_len);
-        }
+        // }
 
         // 发送出去
         if (gw && gw->dataout && gw->netif) {

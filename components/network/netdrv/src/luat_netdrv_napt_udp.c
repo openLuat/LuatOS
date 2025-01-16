@@ -140,7 +140,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     else {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
-            return 1; // 对网关的UDP请求, 交给LWIP处理
+            return 0; // 对网关的UDP请求, 交给LWIP处理
         }
         // 寻找一个空位
         // 第一轮循环, 是否有已知映射
@@ -159,23 +159,23 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
             }
             // 几个要素都要相同 源IP/源端口/目标IP/目标端口, 如果是MAC包, 源MAC也要相同
             if (it->inet_ip != ip_hdr->src.addr) {
-                LLOGD("源IP不匹配, 继续下一条");
+                // LLOGD("源IP不匹配, 继续下一条");
                 continue;
             }
             if (it->inet_port != udp_hdr->src) {
-                LLOGD("源port不匹配, 继续下一条");
+                // LLOGD("源port不匹配, 继续下一条");
                 continue;
             }
             if (it->wnet_ip != ip_hdr->dest.addr) {
-                LLOGD("目标IP不匹配, 继续下一条");
+                // LLOGD("目标IP不匹配, 继续下一条");
                 continue;
             }
             if (it->wnet_port != udp_hdr->dest) {
-                LLOGD("目标port不匹配, 继续下一条");
+                // LLOGD("目标port不匹配, 继续下一条");
                 continue;
             }
             if (ctx->eth && memcmp(ctx->eth->src.addr, it->inet_mac, 6)) {
-                LLOGD("源MAC不匹配, 继续下一条");
+                // LLOGD("源MAC不匹配, 继续下一条");
                 continue;
             }
             // 都相同, 那就是同一个映射了, 可以服用

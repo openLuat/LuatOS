@@ -23,6 +23,8 @@ enum
 
 	LUAT_CAMERA_MODE_AUTO = 0,
 	LUAT_CAMERA_MODE_SCAN,
+
+    LUAT_CAMERA_TYPE_USB = 0x20,
 };
 
 typedef struct luat_camera_conf
@@ -37,6 +39,8 @@ typedef struct luat_camera_conf
     uint8_t pwm_pulse;
     uint16_t sensor_width;
     uint16_t sensor_height;
+    uint16_t pid;
+    uint16_t vid;
     uint8_t color_bit;
     uint8_t id_reg;
 	uint8_t id_value;

@@ -33,7 +33,6 @@ int l_camera_handler(lua_State *L, void* ptr) {
     {
         camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
     }
-    LLOGE("l_camera_handler %d %d %d", camera_id, camera_cbs[camera_id].scanned, msg->ptr);
     if (camera_cbs[camera_id].scanned) {
         lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].scanned);
         if (lua_isfunction(L, -1)) {

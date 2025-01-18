@@ -911,7 +911,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		return;
 	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
 	if (prvlwip.netif_network_ready[adapter_index] == active_flag) {
-		LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
+		// LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
 		return;
 	}
 	prvlwip.netif_network_ready[adapter_index] = active_flag;
@@ -922,7 +922,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	}
 	else
 	{
-		NET_DBG("network ready");
+		NET_DBG("network ready %d", adapter_index);
 		uint32_t tmp = adapter_index;
 		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
 			NET_DBG("使用网关作为默认DNS服务器");

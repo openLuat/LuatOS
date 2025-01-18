@@ -144,7 +144,7 @@ function ch390h.receive_packet()
     local tmp = ch390h.read(0x72, 4)
     local rx_status = tmp:byte(2)
     local rx_len = tmp:byte(3) + (tmp:byte(4) << 8)
-    log.info("ch390h", rx_status, rx_len, (tmp:toHex()))
+    -- log.info("ch390h", rx_status, rx_len, (tmp:toHex()))
     return ch390h.read(0x72, rx_len)
 end
 
@@ -157,7 +157,7 @@ function ch390h.send_packet(buff)
         ch390h.write(0x7D, (len >> 8) & 0xFF)
         tmp = ch390h.read(0x02, 1):byte()
         ch390h.write(0x02, tmp | (1<<0))
-        log.info("ch390h", "底层发送", buff:used())
+        -- log.info("ch390h", "底层发送", buff:used())
     else
         log.info("ch390h", "底层忙")
     end

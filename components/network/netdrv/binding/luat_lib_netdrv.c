@@ -190,6 +190,49 @@ static int l_netdrv_napt(lua_State *L) {
     return 1;
 }
 
+/*
+获取netdrv的物理连接状态
+@api netdrv.link(id)
+@int netdrv的id, 例如 socket.LWIP_ETH
+@return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
+@usage
+-- 注意, 本函数仅支持读取, 而且不能ip状态, 即是否能联网
+*/
+static int l_netdrv_link(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    if (id < 0) {
+        return 0; // 非法id
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    lua_pushboolean(L, netif_is_link_up(netdrv->netif));
+    return 1;
+}
+
+/*
+获取netdrv的网络状态
+@api netdrv.ready(id)
+@int netdrv的id, 例如 socket.LWIP_ETH
+@return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
+@usage
+-- 注意, 本函数仅支持读取, 而且不能ip状态, 即是否能联网
+*/
+static int l_netdrv_ready(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    if (id < 0) {
+        return 0; // 非法id
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    lua_pushboolean(L, netif_is_link_up(netdrv->netif) && !ip_addr_isany(&netdrv->netif->ip_addr));
+    return 1;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {
@@ -198,10 +241,13 @@ static const rotable_Reg_t reg_netdrv[] =
     { "mac",            ROREG_FUNC(l_netdrv_mac)},
     { "ipv4",           ROREG_FUNC(l_netdrv_ipv4)},
     { "napt",           ROREG_FUNC(l_netdrv_napt)},
+    { "link",           ROREG_FUNC(l_netdrv_link)},
+    { "ready",          ROREG_FUNC(l_netdrv_ready)},
 
+    //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},
-    { "W5500",          ROREG_INT(2)},
-    { "W5100",          ROREG_INT(3)},
+    { "CH395",          ROREG_INT(2)}, // 考虑兼容Air724UG/Air820UG的老客户
+    { "W5500",          ROREG_INT(3)}, // 考虑兼容Air780E/Air105的老客户
 	{ NULL,             ROREG_INT(0) }
 };
 

@@ -2,8 +2,10 @@
 PROJECT = "ch390h"
 VERSION = "1.0.0"
 
--- 使用合宙iot平台时需要这个参数
-PRODUCT_KEY = "xxx" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+--[[
+!!! 本demo依赖ulwip库, 2024年的固件肯定不含这个库 !!!
+!!! 这个demo主要是调试ch390h的, 实际生产应该用netdrv库的demo!!!!
+]]
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
@@ -80,7 +82,7 @@ sys.taskInit(function ()
                 -- https://packetor.com/
                 -- https://hpd.gasmi.net/
                 -- log.info("ch390h", (tmp:toHex()))
-                log.info("ch390h", "收到数据长度", #tmp)
+                -- log.info("ch390h", "收到数据长度", #tmp)
                 ulwip.input(neti, tmp)
             end
         else
@@ -95,7 +97,7 @@ end)
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
     while 1 do
-        sys.wait(1000)
+        sys.wait(100)
         log.info("http", http.request("GET", "https://httpbin.air32.cn/get", nil, nil, {adapter=socket.LWIP_ETH}).wait())
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
@@ -106,4 +108,3 @@ end)
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
-

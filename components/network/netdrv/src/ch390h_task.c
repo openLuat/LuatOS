@@ -14,10 +14,11 @@
 #include "lwip/tcpip.h"
 #include "lwip/pbuf.h"
 #include "luat_mem.h"
+#include "luat_mcu.h"
 
 #include "luat_rtos.h"
 
-#define LUAT_LOG_TAG "ch390x"
+#define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
 
 typedef struct pkg_msg
@@ -33,7 +34,7 @@ extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
 static luat_rtos_task_handle ch390h_task_handle;
 
-// static uint32_t remain_tx_size;
+static uint64_t warn_vid_pid_tm;
 
 static int ch390h_bootup(ch390h_t* ch) {
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
@@ -149,10 +150,15 @@ static void netdrv_netif_input(void* args) {
 static int check_vid_pid(ch390h_t* ch) {
     uint8_t buff[6] = {0};
     luat_ch390h_read_vid_pid(ch, buff);
-    if (0 == memcmp(buff, "\x00\x01\x51\x91", 4)) {
-        LLOGE("读取vid/pid失败!!! %d %d %02X%02X%02X%02X", ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3]);
+    if (0 != memcmp(buff, "\x00\x1C\x51\x91", 4)) {
+        uint64_t tnow = luat_mcu_tick64_ms();
+        if (tnow - warn_vid_pid_tm > 2000) {
+            LLOGE("读取vid/pid失败!请检查接线!! %d %d %02X%02X%02X%02X", ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3]);
+            warn_vid_pid_tm = tnow;
+        }
         return -1;
     }
+    // LLOGE("读取vid/pid成功!!! %d %d %02X%02X%02X%02X", ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3]);
     return 0;
 }
 
@@ -206,6 +212,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
         if (netif_is_link_up(ch->netif)) {
+            LLOGI("link is down %d %d", ch->spiid, ch->cspin);
             netif_set_link_down(ch->netif);
             net_lwip2_set_link_state(ch->adapter_id, 0);
             if (ch->dhcp) {
@@ -217,6 +224,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     }
 
     if (!netif_is_link_up(ch->netif)) {
+        LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
         netif_set_link_up(ch->netif);
         net_lwip2_set_link_state(ch->adapter_id, 1);
         if (ch->dhcp) {

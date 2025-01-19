@@ -36,6 +36,8 @@ static luat_rtos_task_handle ch390h_task_handle;
 
 static uint64_t warn_vid_pid_tm;
 
+static int pkg_mem_type = LUAT_HEAP_AUTO;
+
 static int ch390h_bootup(ch390h_t* ch) {
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
 
@@ -55,11 +57,26 @@ static int ch390h_bootup(ch390h_t* ch) {
     return 0;
 }
 
+static luat_ch390h_cstring_t* new_cstring(uint16_t len) {
+    size_t total = 0;
+    size_t used = 0;
+    size_t max_used = 0;
+    luat_meminfo_opt_sys(pkg_mem_type, &total, &used, &max_used);
+    if (total > 0 && total - used > 32*1024) { // 最少留32k给系统用
+        luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(pkg_mem_type, sizeof(luat_ch390h_cstring_t) + len - 4);
+        if (cs == NULL) {
+            LLOGE("有剩余内存不多但分配失败! total %d used %d max_used %d len %d", total, used, max_used, len);
+        }
+        return cs;
+    }
+    LLOGE("剩余内存不多了,抛弃数据包 total %d used %d max_used %d len %d", total, used, max_used, len);
+    return NULL;
+}
+
 static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
-    luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_ch390h_cstring_t) + len - 4);
+    luat_ch390h_cstring_t* cs = new_cstring(len);
     if (cs == NULL) {
-        LLOGE("内存不足, 无法传递buff到驱动task");
         return;
     }
     cs->len = len;
@@ -71,9 +88,8 @@ static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
 }
 
 static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
-    luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_ch390h_cstring_t) + p->tot_len - 4);
+    luat_ch390h_cstring_t* cs = new_cstring(p->tot_len);
     if (cs == NULL) {
-        LLOGE("内存不足, 无法传递buff到驱动task");
         return;
     }
     cs->len = p->tot_len;
@@ -345,7 +361,7 @@ static void ch390_task_main(void* args) {
                 ret = task_loop(ch, cs);
                 if (cs) {
                     // remain_tx_size -= cs->len;
-                    luat_heap_opt_free(LUAT_HEAP_PSRAM, cs);
+                    luat_heap_opt_free(pkg_mem_type, cs);
                     cs = NULL;
                 }
             }
@@ -362,6 +378,13 @@ static void ch390_task_main(void* args) {
 void luat_ch390h_task_start(void) {
     int ret = 0;
     if (ch390h_task_handle == NULL) {
+        size_t total = 0;
+        size_t used = 0;
+        size_t max_used = 0;
+        luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+        if (total > 1024 * 512) {
+            pkg_mem_type = LUAT_HEAP_PSRAM;
+        }
         ret = luat_rtos_task_create(&ch390h_task_handle, 8*1024, 50, "ch390h", ch390_task_main, NULL, 1024);
         if (ret) {
             LLOGE("task create fail %d", ret);

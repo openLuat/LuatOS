@@ -214,7 +214,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         if (netif_is_link_up(ch->netif)) {
             LLOGI("link is down %d %d", ch->spiid, ch->cspin);
             netif_set_link_down(ch->netif);
-            net_lwip2_set_link_state(ch->adapter_id, 0);
+            ulwip_netif_ip_event(&ch->ulwip);
             if (ch->dhcp) {
                 // 停止dhcp定时器
                 ulwip_dhcp_client_stop(&ch->ulwip);
@@ -226,7 +226,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     if (!netif_is_link_up(ch->netif)) {
         LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
         netif_set_link_up(ch->netif);
-        net_lwip2_set_link_state(ch->adapter_id, 1);
+        ulwip_netif_ip_event(&ch->ulwip);
         if (ch->dhcp) {
             // 启动dhcp定时器
             ulwip_dhcp_client_start(&ch->ulwip);

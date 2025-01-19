@@ -24,6 +24,7 @@ function dnsproxy.on_request(sc, event)
             rxbuff:seek(0)
             local succ, data_len, remote_ip, remote_port = socket.rx(sc, rxbuff)
             if succ and data_len and data_len > 0 then
+                -- log.info("dnsproxy", "收到DNS查询数据", rxbuff:query():toHex())
                 if remote_ip and #remote_ip == 5 then
                     local ip1,ip2,ip3,ip4 = remote_ip:byte(2),remote_ip:byte(3),remote_ip:byte(4),remote_ip:byte(5)
                     remote_ip = string.format("%d.%d.%d.%d", ip1, ip2, ip3, ip4)
@@ -33,7 +34,7 @@ function dnsproxy.on_request(sc, event)
                     table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port})
                     rxbuff[0] = txid_map % 256
                     rxbuff[1] = txid_map // 256
-                    socket.tx(dnsproxy.main_sc, rxbuff, "114.114.114.114", 53)
+                    socket.tx(dnsproxy.main_sc, rxbuff, "223.5.5.5", 53)
                 end
             else
                 break
@@ -86,13 +87,24 @@ end
 ]]
 function dnsproxy.setup(adapter, main_adapter)
     log.info("dnsproxy", adapter, main_adapter)
-    dnsproxy.sc = socket.create(adapter, dnsproxy.on_request)
-    dnsproxy.main_sc = socket.create(main_adapter, dnsproxy.on_response)
+    dnsproxy.adapter = adapter
+    dnsproxy.main_adapter = main_adapter
+    dnsproxy.sc = socket.create(dnsproxy.adapter, dnsproxy.on_request)
+    dnsproxy.main_sc = socket.create(dnsproxy.main_adapter, dnsproxy.on_response)
     socket.config(dnsproxy.sc, 53, true)
     socket.config(dnsproxy.main_sc, nil, true)
-    socket.connect(dnsproxy.sc, "255.255.255.255", 0)
-    socket.connect(dnsproxy.main_sc, "114.114.114.114", 53)
+    dnsproxy.on_ip_ready()
     return true
 end
+
+function dnsproxy.on_ip_ready()
+    socket.close(dnsproxy.sc)
+    socket.close(dnsproxy.main_sc)
+    log.info("dnsproxy", "开启DNS代理")
+    socket.connect(dnsproxy.sc, "255.255.255.255", 0)
+    socket.connect(dnsproxy.main_sc, "223.5.5.5", 53)
+end
+
+sys.subscribe("IP_READY", dnsproxy.on_ip_ready)
 
 return dnsproxy

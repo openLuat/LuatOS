@@ -207,7 +207,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     if (0 == (NSR & (1 << 6))) {
         // 网线没插, 或者phy没有上电
         // 首先, 确保phy上电
-        luat_ch390h_read(ch, 0x1F, 1, buff);
+        // luat_ch390h_read(ch, 0x1F, 1, buff);
         // LLOGD("PHY状态 %02X", buff[0]);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
@@ -374,7 +374,7 @@ void luat_ch390h_task_start(void) {
 // 辅助函数
 static void print_erp_pkg(uint8_t* buff, uint16_t len) {
     // LLOGD("pkg len %d head " MACFMT " " MACFMT, len, MAC_ARG(buff), MAC_ARG(buff+6));
-    if (len < 40 || len > 1600) {
+    if (len < 24 || len > 1600) {
         LLOGW("非法的pkg长度 %d", len);
         return;
     }

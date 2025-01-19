@@ -62,9 +62,11 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct icmp_echo_hdr *icmp_hdr = (struct icmp_echo_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
-    if (gw == NULL || gw->netif == NULL) {
+    if (gw == NULL || gw->netif == NULL || ip_addr_isany(&gw->netif->ip_addr)) {
+        LLOGD("网关指针不正常的状态!!!");
         return 0;
     }
+    luat_netdrv_napt_icmp_t* it = NULL;
     if (ctx->is_wnet) {
         // 这是从外网到内网的PONG
         for (size_t i = 0; i < ICMP_MAP_SIZE; i++)
@@ -79,14 +81,14 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                 continue;
             }
             // 找到映射关系了!!!
-            LLOGD("ICMP id %u -> %d", icmp_hdr->id, icmps[i].inet_id);
+            // LLOGD("ICMP id wnet %d inet %u", icmp_hdr->id, icmps[i].inet_id);
             // 修改目标ID
             icmp_hdr->id = icmps[i].inet_id;
             // 重新计算icmp的checksum
             icmp_hdr->chksum = 0;
             icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
 
-            // 修改目标地址,并重新计算ip的checksu
+            // 修改目标地址,并重新计算ip的checksum
             ip_hdr->dest.addr = icmps[i].inet_ip;
             ip_hdr->_chksum = 0;
             ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
@@ -120,7 +122,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             else {
                 LLOGE("能找到ICMP映射关系, 但目标netdrv不支持dataout!!");
             }
-            icmps[i].is_vaild = 0;
+            // icmps[i].is_vaild = 0;
             return 1; // 全部修改完成
         }
         // LLOGD("没有找到ICMP映射关系, 不是非内网PING");
@@ -128,62 +130,83 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     }
     else {
         // 内网, 尝试对外网的请求吗?
+        // LLOGD("ICMP request!!!");
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
             return 0; // 对网关的ICMP/PING请求, 交给LWIP处理
         }
-        // 寻找一个空位
+
+        if (NULL == gw->dataout) {
+            return 0;
+        }
+        // 首先, 有没有已有的映射呢?
         uint64_t tnow = luat_mcu_tick64_ms();
         for (size_t i = 0; i < ICMP_MAP_SIZE; i++)
         {
-            if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < ICMP_MAP_TIMEOUT) {
-                continue;
-            }
             if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) > ICMP_MAP_TIMEOUT) {
                 icmps[i].is_vaild = 0;
+                continue;
             }
-            // 有空位, 马上处理
-            // 1. 保存信息
-            icmps[i].adapter_id = ctx->net->id;
-            icmps[i].inet_id = icmp_hdr->id;
-            icmps[i].inet_ip = ip_hdr->src.addr;
-            icmps[i].wnet_id = luat_napt_icmp_id_alloc();
-            icmps[i].wnet_ip = ip_hdr->dest.addr;
-            // 2. 修改信息
-            ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
-            icmp_hdr->id = icmps[i].wnet_id;
-            // 3. 重新计算checksum
-            icmp_hdr->chksum = 0;
-            icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
-            // 4. 计算IP包的checksum
-            ip_hdr->_chksum = 0;
-            ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+            if (icmps[i].inet_ip != ip_hdr->src.addr || icmps[i].wnet_ip != ip_hdr->dest.addr) {
+                continue;
+            }
+            if (icmps[i].inet_id == icmp_hdr->id) {
+                it = &icmps[i];
+                it->tm_ms = tnow;
+                break;
+            }
+        }
+        // 寻找一个空位
+        if (it == NULL) {
+            tnow = luat_mcu_tick64_ms();
+            for (size_t i = 0; i < ICMP_MAP_SIZE; i++) {
+                if (icmps[i].is_vaild && (tnow - icmps[i].tm_ms) < ICMP_MAP_TIMEOUT) {
+                    continue;
+                }
+                it = &icmps[i];
+                // 1. 保存信息
+                icmps[i].adapter_id = ctx->net->id;
+                icmps[i].inet_id = icmp_hdr->id;
+                icmps[i].inet_ip = ip_hdr->src.addr;
+                icmps[i].wnet_id = luat_napt_icmp_id_alloc();
+                icmps[i].wnet_ip = ip_hdr->dest.addr;
+                icmps[i].tm_ms = tnow;
+                icmps[i].is_vaild = 1;
+                LLOGD("新映射 wnet %d inet %d", icmps[i].wnet_id, icmps[i].inet_id);
+                break;
+            }
+            if (it == NULL) {
+                LLOGD("没有ICMP空位了");
+                return 0;
+            }
+        }
+        // 2. 修改信息
+        ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
+        icmp_hdr->id = it->wnet_id;
+        // 3. 重新计算checksum
+        icmp_hdr->chksum = 0;
+        icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
+        // 4. 计算IP包的checksum
+        ip_hdr->_chksum = 0;
+        ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
 
-            // 5. 如果是ETH包, 还得修正MAC地址
+        // 5. 如果是ETH包, 还得修正MAC地址
+        if (ctx->eth) {
+            memcpy(it->inet_mac, ctx->eth->src.addr, 6);
+        }
+        if (gw->netif->flags & NETIF_FLAG_ETHARP) {
+            // TODO 网关设备也是ETHARP? 还不支持
+            LLOGD("网关netdrv也是ETH, 当前不支持");
+            return 0;
+        }
+        else {
             if (ctx->eth) {
-                memcpy(icmps[i].inet_mac, ctx->eth->src.addr, 6);
-            }
-            icmps[i].is_vaild = 1;
-            if (gw && gw->dataout && gw->netif) {
-                // LLOGD("ICMP改写完成, 发送到GW");
-                if (gw->netif->flags & NETIF_FLAG_ETHARP) {
-                    // TODO 网关设备也是ETHARP? 还不支持
-                    LLOGD("网关netdrv也是ETH, 当前不支持");
-                }
-                else {
-                    if (ctx->eth) {
-                        gw->dataout(gw->userdata, ip_hdr, ctx->len - 14);
-                    }
-                    else {
-                        gw->dataout(gw->userdata, ip_hdr, ctx->len);
-                    }
-                }
+                gw->dataout(gw->userdata, ip_hdr, ctx->len - 14);
             }
             else {
-                LLOGD("ICMP改写完成, 但GW不支持dataout回调?!!");
+                gw->dataout(gw->userdata, ip_hdr, ctx->len);
             }
             return 1;
         }
-        LLOGD("没有ICMP空位了");
     }
     return 0;
 }

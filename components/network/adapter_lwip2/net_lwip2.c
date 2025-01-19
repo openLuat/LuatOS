@@ -26,7 +26,7 @@ void* luat_heap_zalloc(size_t len);
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-static int network_state = 0;
+
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -909,7 +909,9 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	// char ip_string[64];
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
 		return;
-	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
+	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)
+		&& netif_is_link_up(prvlwip.lwip_netif[adapter_index])
+		&& netif_is_up(prvlwip.lwip_netif[adapter_index]);
 	if (prvlwip.netif_network_ready[adapter_index] == active_flag) {
 		// LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
 		return;
@@ -1549,7 +1551,6 @@ int net_lwip_check_all_ack(int socket_id)
 
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown)
 {
-	network_state = updown;
 	// LLOGD("net_lwip2_set_link_state %d %d", adapter_index, updown);
 	platform_send_event(NULL, EV_LWIP_NETIF_LINK_STATE, updown, 0, adapter_index);
 }

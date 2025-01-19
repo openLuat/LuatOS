@@ -42,6 +42,7 @@ static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
     conf.id = luaL_checkinteger(L, 1);
     conf.impl = luaL_optinteger(L, 2, 0);
+    conf.irqpin = 255; // 默认无效
     if (lua_istable(L, 3)) {
         if (lua_getfield(L, 3, "spi") == LUA_TNUMBER) {
             conf.spiid = luaL_checkinteger(L, -1);

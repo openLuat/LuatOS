@@ -123,7 +123,7 @@ config为table，table里元素如下，用户根据自己实际情况修改对�
 @return 无
 @usage
 modbus_rtu.init(config)
-
+--]]
 
 -- 初始化modbus_rtu
 function modbus_rtu.init(config)

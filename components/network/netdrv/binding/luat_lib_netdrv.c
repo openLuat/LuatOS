@@ -249,6 +249,8 @@ static const rotable_Reg_t reg_netdrv[] =
     { "CH390",          ROREG_INT(1)},
     { "CH395",          ROREG_INT(2)}, // 考虑兼容Air724UG/Air820UG的老客户
     { "W5500",          ROREG_INT(3)}, // 考虑兼容Air780E/Air105的老客户
+    { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
+    { "SPINET",         ROREG_INT(32)}, // SPI形式的网卡, 可以带MAC, 也可以不带
 	{ NULL,             ROREG_INT(0) }
 };
 

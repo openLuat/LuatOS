@@ -3,8 +3,6 @@
 sys = require("sys")
 sysplus = require("sysplus")
 
-dhcps = require "dhcpsrv"
-
 sys.taskInit(function ()
     -- sys.wait(3000)
     local result = spi.setup(
@@ -25,21 +23,16 @@ sys.taskInit(function ()
     end
 
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spiid=0,cs=8})
-    sys.wait(3000)
-    local ipv4,mark, gw = netdrv.ipv4(socket.LWIP_ETH, "192.168.4.1", "255.255.255.0", "192.168.4.1")
-    log.info("ipv4", ipv4,mark, gw)
-    dhcps.create({adapter=socket.LWIP_ETH})
-    netdrv.napt(socket.LWIP_GP)
-    -- netdrv.dhcp(socket.LWIP_ETH, true)
+    netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
 
--- sys.taskInit(function()
---     sys.waitUntil("IP_READY")
---     while 1 do
---         sys.wait(60000)
---         log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
---         log.info("lua", rtos.meminfo())
---         log.info("sys", rtos.meminfo("sys"))
---     end
--- end)
+sys.taskInit(function()
+    -- sys.waitUntil("IP_READY")
+    while 1 do
+        sys.wait(6000)
+        log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
+        log.info("lua", rtos.meminfo())
+        log.info("sys", rtos.meminfo("sys"))
+    end
+end)

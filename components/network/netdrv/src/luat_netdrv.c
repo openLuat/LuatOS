@@ -2,6 +2,7 @@
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_ch390h.h"
+#include "luat_netdrv_uart.h"
 #include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "netdrv"
@@ -17,6 +18,10 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
         // 注册新的设备?
         if (conf->impl == 1) { // CH390H
             drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
+            return drvs[conf->id];
+        }
+        if (conf->impl == 16) { // UART
+            drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
     }

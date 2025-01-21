@@ -1,11 +1,21 @@
-PROJECT = "camerademo"
-VERSION = "1.0.0"
+PROJECT = "camera_30W_480_320_demo"
+VERSION = "4.0.0"
 -- 实际使用时选1个就行
-require "bf30a2"
+-- require "bf30a2"
 require "gc032a"
-require "gc0310"
+-- require "gc0310"
 sys = require("sys")
 log.style(1)
+
+--设置GPIO电压为3V
+ pm.ioVol(pm.IOVOL_ALL_GPIO, 3000)
+
+gpio.setup(2,1)--GPIO2打开给camera_3.3V供电
+gpio.setup(28,1)--GPIO28打开给lcd3.3V供电
+
+--GPIO 14 15设置为输入
+gpio.setup(14, nil)
+gpio.setup(15, nil)
 
 local SCAN_MODE = 0 -- 写1演示扫码
 local scan_pause = true
@@ -17,10 +27,10 @@ local RAW_MODE = 0 -- 写1演示获取原始图像
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 local function lcd_pin()
     local rtos_bsp = rtos.bsp()
-    if string.find(rtos_bsp,"EC718") then
+    if string.find(rtos_bsp,"780EPM") then
         return lcd.HWID_0, 36, 0xff, 0xff, 0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
-        log.info("main", "bsp not support")
+        log.info("main", "没找到合适的cat.1芯片",rtos_bsp)
         return
     end
 end
@@ -32,29 +42,30 @@ else
     port = spi_id
 end
 
---[[ 此为合宙售卖的1.8寸TFT LCD LCD 分辨率:128X160 屏幕ic:st7735 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
--- lcd.init("st7735",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
-
---[[ 此为合宙售卖的1.54寸TFT LCD LCD 分辨率:240X240 屏幕ic:st7789 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.20.391445d5Ql4uJl&id=659456700222]]
--- lcd.init("st7789",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd,true)
-
---[[ 此为合宙售卖的0.96寸TFT LCD LCD 分辨率:160X80 屏幕ic:st7735s 购买地址:https://item.taobao.com/item.htm?id=661054472686]]
--- lcd.init("st7735v",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 1,w = 160,h = 80,xoffset = 0,yoffset = 24},spi_lcd)
--- 如果显示颜色相反，请解开下面一行的注释，关闭反色
--- lcd.invoff()
--- 如果显示依旧不正常，可以尝试老版本的板子的驱动
--- lcd.init("st7735s",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
-lcd.init("gc9306x", {
+--lcd用的ST7796
+lcd.init("custom", {
     port = port,
     pin_dc = pin_dc,
     pin_pwr = bl,
     pin_rst = pin_reset,
     direction = 0,
-    w = 240,
+    direction0 = 0x00,
+    w = 480,
     h = 320,
-    xoffset = 0,
-    yoffset = 0
-}, spi_lcd, true)
+    xoffset = 50,
+    yoffset = 50,
+    sleepcmd = 0x10,
+    wakecmd = 0x11,
+    initcmd = {0x0200F0, 0x0300C3, 0x0200F0, 0x030096, 0x020036, 0x030068, 0x02003A, 0x030005, 0x0200B0, 0x030080,
+               0x0200B6, 0x030000, 0x030002, 0x0200B5, 0x030002, 0x030003, 0x030000, 0x030004, 0x0200B1, 0x030080,
+               0x030010, 0x0200B4, 0x030000, 0x0200B7, 0x0300C6, 0x0200C5, 0x030024, 0x0200E4, 0x030031, 0x0200E8,
+               0x030040, 0x03008A, 0x030000, 0x030000, 0x030029, 0x030019, 0x0300A5, 0x030033, 0x0200C2, 0x0200A7,
+               0x0200E0, 0x0300F0, 0x030009, 0x030013, 0x030012, 0x030012, 0x03002B, 0x03003C, 0x030044, 0x03004B,
+               0x03001B, 0x030018, 0x030017, 0x03001D, 0x030021, 0x0200E1, 0x0300F0, 0x030009, 0x030013, 0x03000C,
+               0x03000D, 0x030027, 0x03003B, 0x030044, 0x03004D, 0x03000B, 0x030017, 0x030017, 0x03001D, 0x030021,
+
+               0x020036, 0x0300EC, 0x0200F0, 0x0300C3, 0x0200F0, 0x030069, 0x020013, 0x020011, 0x020029}
+}, spi_lcd)
 
 local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
 -- 初始化
@@ -99,8 +110,8 @@ sys.taskInit(function()
     i2c.setup(i2cId, i2c.FAST)
     gpio.setup(5, 0) -- PD拉低
     -- camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-    camera_id = gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
-    -- camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
+    -- camera_id = gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
+    camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
     camera.stop(camera_id)
     camera.preview(camera_id, true)
     log.info("按下boot开始测试")

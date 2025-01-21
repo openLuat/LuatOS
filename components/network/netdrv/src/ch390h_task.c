@@ -338,6 +338,9 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
             ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }
+    if (ret) {
+        luat_rtos_event_send(ch390h_task_handle, 2, 0, 0, 0, 0);
+    }
     return ret;
 }
 
@@ -361,7 +364,6 @@ static int task_wait_msg(uint32_t timeout) {
     }
     else {
         ret = task_loop(NULL, NULL);
-        return 0;
     }
     return ret;
 }
@@ -382,13 +384,7 @@ static void ch390_task_main(void* args) {
             }
             count = 0;
         }
-        ret |= task_wait_msg(1); // 如果队列里有消息, 就马上获取到
-        if (ret == 0) {
-            ret = task_wait_msg(20);
-        }
-        else {
-            ret = task_loop(NULL, NULL);
-        }
+        ret = task_wait_msg(5);
     }
 }
 

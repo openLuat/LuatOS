@@ -15,6 +15,7 @@
 #include "lwip/pbuf.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#include "luat_wdt.h"
 
 #include "luat_rtos.h"
 
@@ -340,34 +341,50 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     return ret;
 }
 
+static int task_wait_msg(uint32_t timeout) {
+    luat_event_t evt = {0};
+    luat_ch390h_cstring_t* cs = NULL;
+    ch390h_t *ch = NULL;
+    int ret = luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, timeout);
+    if (ret == 0) {
+        // 收到消息了
+        ch = (ch390h_t *)evt.param1;
+        cs = (luat_ch390h_cstring_t*)evt.param2;
+        // LLOGD("收到消息 %p %p", ch, cs);
+        ret = task_loop(ch, cs);
+        if (cs) {
+            // remain_tx_size -= cs->len;
+            luat_heap_opt_free(pkg_mem_type, cs);
+            cs = NULL;
+        }
+        return 1; // 拿到消息, 那队列里可能还有消息, 马上执行下一轮操作
+    }
+    else {
+        ret = task_loop(NULL, NULL);
+        return 0;
+    }
+    return ret;
+}
+
 static void ch390_task_main(void* args) {
     (void)args;
-    luat_event_t evt = {0};
     int ret = 0;
-    ch390h_t *ch = NULL;
-    luat_ch390h_cstring_t* cs = NULL;
+    uint32_t count = 0;
     while (1) {
-        // LLOGD("开始新的循环");
-        // luat_rtos_task_sleep(10);
+        count ++;
+        if (count % 10 == 0) {
+            luat_wdt_feed();
+        }
+        if (count > 256) {
+            if (ret) {
+                LLOGD("强制休眠20ms");
+                luat_rtos_task_sleep(20);
+            }
+            count = 0;
+        }
+        ret |= task_wait_msg(1); // 如果队列里有消息, 就马上获取到
         if (ret == 0) {
-            // is_waiting = 1;
-            ret = luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, 5);
-            // is_waiting = 0;
-            if (ret == 0) {
-                // 收到消息了
-                ch = (ch390h_t *)evt.param1;
-                cs = (luat_ch390h_cstring_t*)evt.param2;
-                // LLOGD("收到消息 %p %p", ch, cs);
-                ret = task_loop(ch, cs);
-                if (cs) {
-                    // remain_tx_size -= cs->len;
-                    luat_heap_opt_free(pkg_mem_type, cs);
-                    cs = NULL;
-                }
-            }
-            else {
-                ret = task_loop(NULL, NULL);
-            }
+            ret = task_wait_msg(20);
         }
         else {
             ret = task_loop(NULL, NULL);

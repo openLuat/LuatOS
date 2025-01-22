@@ -389,10 +389,10 @@ static void ch390_task_main(void* args) {
             luat_wdt_feed();
         }
         if (count > 256) {
-            // if (ret) {
+            if (ret) {
                 // LLOGD("强制休眠20ms");
                 // luat_rtos_task_sleep(20);
-            // }
+            }
             count = 0;
         }
         ret = task_wait_msg(5);

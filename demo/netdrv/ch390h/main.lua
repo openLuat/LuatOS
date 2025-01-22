@@ -17,5 +17,3 @@ require "wan"
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
 
--- http://iot.openluat.com/api/site/firmware_upgrade?project_key=4MQAVweO8au0KQqxm4eHWnzV4ppiAZ5x&imei=864536072623240&device_key=&firmware_name=v6tracker_LuatOS-SoC_Air201&version=2002.1.5&model=Air780EPS_A13
--- http://iot.openluat.com/api/site/firmware_upgrade?project_key=epeGacglnQylV5jSKybIj1Dvqk6vm6nu&firmware_name=StudentCard_LuatOS-SoC_Air201&version=2002.1.4&imei=864536072623240

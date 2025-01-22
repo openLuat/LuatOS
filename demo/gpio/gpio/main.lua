@@ -44,8 +44,10 @@ function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
         return 10, 11, 255 -- 开发板上就2个灯
     elseif rtos_bsp == "EC618" then -- Air780E开发板引脚
         return 27, 255, 255 -- AIR780E开发板上就一个灯
-    elseif string.find(rtos_bsp,"EC716E") then -- Air780EQ开发板引脚
+    elseif string.find(rtos_bsp,"Air780EQ") or string.find(rtos_bsp,"EC716E") then -- Air780EQ开发板引脚
         return 14, 255, 255 -- AIR780EQ开发板上就一个灯
+    elseif string.find(rtos_bsp,"Air780EPM") or string.find(rtos_bsp,"EC718PM") then -- Air780E开发板引脚
+        return 27, 255, 255 -- AIR780EPM上有两个灯,但只有NETLED可控
     elseif string.find(rtos_bsp,"EC718") then -- Air780E开发板引脚
         return 27, 255, 255 -- AIR780EP开发板上就一个灯
     elseif rtos_bsp == "UIS8850BM" then -- Air780UM开发板引脚

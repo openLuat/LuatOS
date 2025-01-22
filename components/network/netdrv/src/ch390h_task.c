@@ -29,11 +29,20 @@ typedef struct pkg_msg
     uint8_t buff[4];
 }pkg_msg_t;
 
+typedef struct pkg_evt
+{
+    uint8_t id;
+    luat_ch390h_cstring_t* cs;
+    ch390h_t *ch;
+}pkg_evt_t;
+
+
 static void print_erp_pkg(uint8_t* buff, uint16_t len);
 
 extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
 static luat_rtos_task_handle ch390h_task_handle;
+static luat_rtos_queue_t qt;
 
 static uint64_t warn_vid_pid_tm;
 
@@ -74,6 +83,30 @@ static luat_ch390h_cstring_t* new_cstring(uint16_t len) {
     return NULL;
 }
 
+static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
+    uint32_t len = 0;
+    luat_rtos_queue_get_cnt(qt, &len);
+    if (len > 1024) {
+        LLOGW("太多待处理消息了!!! %d", len);
+        luat_heap_opt_free(pkg_mem_type, cs);
+        return;
+    }
+    if (len > 512) {
+        LLOGD("当前消息数量 %d", len);
+    }
+    
+    pkg_evt_t evt = {
+        .id = 1,
+        .cs = cs,
+        .ch = ch
+    };
+    int ret = luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
+    if (ret) {
+        LLOGE("消息发送失败 %d", ret);
+        luat_heap_opt_free(pkg_mem_type, cs);
+    }
+}
+
 static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
     luat_ch390h_cstring_t* cs = new_cstring(len);
@@ -82,10 +115,7 @@ static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
     }
     cs->len = len;
     memcpy(cs->buff, buff, len);
-    // remain_tx_size += len;
-    // LLOGD("数据传递到驱动task %p %p %d remain %ld", ch, cs, len, remain_tx_size);
-    luat_rtos_event_send(ch390h_task_handle, 1, (uint32_t)ch, (uint32_t)cs, 0, 0);
-    return;
+    send_msg_cs(ch, cs);
 }
 
 static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
@@ -95,11 +125,7 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
     }
     cs->len = p->tot_len;
     pbuf_copy_partial(p, cs->buff, p->tot_len, 0);
-    // LLOGD("数据传递到驱动task %p %p %d", ch, cs, cs->len);
-    luat_rtos_event_send(ch390h_task_handle, 1, (uint32_t)ch, (uint32_t)cs, 0, 0);
-    // remain_tx_size += p->tot_len;
-    // LLOGD("数据传递到驱动task %p %p %d remain %ld", ch, cs, p->tot_len, remain_tx_size);
-    return;
+    send_msg_cs(ch, cs);
 }
 
 
@@ -304,22 +330,6 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     else {
         // LLOGD("没有数据待读取");
     }
-
-    // 那有没有需要发送的数据呢?
-    // luat_ch390h_cstring_t* cs = NULL;
-    // int has_tx = 0;
-    // for (size_t i = 0; i < CH390H_MAX_TX_NUM; i++)
-    // {
-    //     cs = ch->txqueue[i];
-    //     if (cs == NULL) {
-    //         continue;
-    //     }
-    //     memcpy(ch->txbuff, cs->buff, cs->len);
-    //     ch->txqueue[i] = NULL;
-    //     luat_ch390h_write_pkg(ch, ch->txbuff, cs->len);
-    //     luat_heap_opt_free(LUAT_HEAP_PSRAM, cs);
-    //     has_tx = 1;
-    // }
     
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
@@ -339,20 +349,21 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         }
     }
     if (ret) {
-        luat_rtos_event_send(ch390h_task_handle, 2, 0, 0, 0, 0);
+        pkg_evt_t evt = {0};
+        luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
     }
     return ret;
 }
 
 static int task_wait_msg(uint32_t timeout) {
-    luat_event_t evt = {0};
     luat_ch390h_cstring_t* cs = NULL;
     ch390h_t *ch = NULL;
-    int ret = luat_rtos_event_recv(ch390h_task_handle, 0, &evt, NULL, timeout);
-    if (ret == 0) {
+    pkg_evt_t evt = {0};
+    int ret = luat_rtos_queue_recv(qt, &evt, sizeof(pkg_evt_t), timeout);
+    if (ret == 0 && evt.id == 1) {
         // 收到消息了
-        ch = (ch390h_t *)evt.param1;
-        cs = (luat_ch390h_cstring_t*)evt.param2;
+        ch = (ch390h_t *)evt.ch;
+        cs = (luat_ch390h_cstring_t*)evt.cs;
         // LLOGD("收到消息 %p %p", ch, cs);
         ret = task_loop(ch, cs);
         if (cs) {
@@ -378,10 +389,10 @@ static void ch390_task_main(void* args) {
             luat_wdt_feed();
         }
         if (count > 256) {
-            if (ret) {
-                LLOGD("强制休眠20ms");
-                luat_rtos_task_sleep(20);
-            }
+            // if (ret) {
+                // LLOGD("强制休眠20ms");
+                // luat_rtos_task_sleep(20);
+            // }
             count = 0;
         }
         ret = task_wait_msg(5);
@@ -398,7 +409,12 @@ void luat_ch390h_task_start(void) {
         if (total > 1024 * 512) {
             pkg_mem_type = LUAT_HEAP_PSRAM;
         }
-        ret = luat_rtos_task_create(&ch390h_task_handle, 8*1024, 50, "ch390h", ch390_task_main, NULL, 1024);
+        ret = luat_rtos_queue_create(&qt, 1024, sizeof(pkg_evt_t));
+        if (ret) {
+            LLOGE("queue create fail %d", ret);
+            return;
+        }
+        ret = luat_rtos_task_create(&ch390h_task_handle, 8*1024, 50, "ch390h", ch390_task_main, NULL, 0);
         if (ret) {
             LLOGE("task create fail %d", ret);
             return;

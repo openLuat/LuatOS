@@ -28,6 +28,13 @@
 #endif
 
 enum{
+    LUAT_LCD_ROTATE_0 = 0,
+    LUAT_LCD_ROTATE_90,
+    LUAT_LCD_ROTATE_180,
+    LUAT_LCD_ROTATE_270,
+};
+
+enum{
 	LUAT_LCD_HW_ID_0    = 0x20,	//专用LCD接口 ID
 
     LUAT_LCD_SPI_DEVICE,

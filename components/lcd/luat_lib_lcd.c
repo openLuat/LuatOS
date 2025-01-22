@@ -1981,13 +1981,13 @@ static const rotable_Reg_t reg_lcd[] =
 #endif
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
     //@const direction_0 int 0°方向命令
-    { "direction_0",    ROREG_INT(0)},
+    { "direction_0",    ROREG_INT(LUAT_LCD_ROTATE_0)},
     //@const direction_90 int 90°方向命令
-    { "direction_90",   ROREG_INT(1)},
+    { "direction_90",   ROREG_INT(LUAT_LCD_ROTATE_90)},
     //@const direction_180 int 180°方向命令
-    { "direction_180",  ROREG_INT(2)},
+    { "direction_180",  ROREG_INT(LUAT_LCD_ROTATE_180)},
     //@const direction_270 int 270°方向命令
-    { "direction_270",  ROREG_INT(3)},
+    { "direction_270",  ROREG_INT(LUAT_LCD_ROTATE_270)},
     //@const SPI 硬件spi device lcd驱动
     { "SPI",            ROREG_INT(LUAT_LCD_SPI_DEVICE)},
     //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)

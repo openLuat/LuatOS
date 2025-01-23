@@ -48,8 +48,12 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
     return 0;
 }
 
+static char *txtmp;
 int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) {
-    static char txtmp[2048] = {0};
+    if (txtmp == NULL) {
+        LLOGI("分配txtmp缓冲区 4k");
+        txtmp = luat_heap_malloc(4096);
+    }
     luat_gpio_set(ch->cspin, 0);
     if (count > 1600) {
         return 0; // 直接不发送
@@ -65,7 +69,6 @@ int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff)
             txtmp[0] = (addr + i) | 0x80;
             txtmp[1] = buff[i];
             luat_spi_send(ch->spiid, (const char* )txtmp, 2);
-            // LLOGD("寄存器写 addr %02X value %02X", addr, tmp[1]);
         }
     }
 

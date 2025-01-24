@@ -121,7 +121,7 @@ static char i2c_soft_recv_byte(luat_ei2c_t *ei2c)
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
     return (data);
 }
-char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len)
+LUAT_WEAK char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -142,7 +142,7 @@ char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len
     i2c_soft_stop(ei2c);
     return 0;
 }
-char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
+LUAT_WEAK char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -216,7 +216,7 @@ static int l_i2c_setup(lua_State *L)
     return 1;
 }
 
-void i2c_soft_setup(luat_ei2c_t *ei2c){
+LUAT_WEAK void i2c_soft_setup(luat_ei2c_t *ei2c){
     luat_gpio_mode(ei2c->scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     i2c_soft_stop(ei2c);
@@ -906,9 +906,9 @@ static const rotable_Reg_t reg_i2c[] =
     { "readSHT30",  ROREG_FUNC(l_i2c_readSHT30)},
 
 	{ "xfer",	    ROREG_FUNC(l_i2c_no_block_transfer)},
-
     
 	{ "scan",	    ROREG_FUNC(l_i2c_scan)},
+    
 	{ "HSMODE",     ROREG_INT(I2C_SPEED_HSMODE)},
 	{ "PLUS",       ROREG_INT(I2C_SPEED_PLUS)},
     //@const FAST number 高速

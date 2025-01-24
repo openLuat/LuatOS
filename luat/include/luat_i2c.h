@@ -138,7 +138,6 @@ typedef struct luat_ei2c {
 } luat_ei2c_t;//软件i2c
 
 void i2c_soft_setup(luat_ei2c_t *ei2c);
-void i2c_soft_start(luat_ei2c_t *ei2c);
 char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len);
 char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop);
 

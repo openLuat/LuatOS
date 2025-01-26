@@ -223,7 +223,7 @@ LUAT_WEAK int i2c_soft_setup(luat_ei2c_t *ei2c){
     return 0;
 }
 
-LUAT_WEAK int luat_i2c_close(luat_ei2c_t *ei2c){
+LUAT_WEAK int i2c_soft_close(luat_ei2c_t *ei2c){
     luat_gpio_close(ei2c->scl);
     luat_gpio_close(ei2c->sda);
     return 0;

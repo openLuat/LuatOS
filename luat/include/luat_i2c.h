@@ -137,10 +137,10 @@ typedef struct luat_ei2c {
     int16_t udelay;
 } luat_ei2c_t;//软件i2c
 
-void i2c_soft_setup(luat_ei2c_t *ei2c);
-char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len);
-char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop);
-
+int i2c_soft_setup(luat_ei2c_t *ei2c);
+int i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len);
+int i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop);
+int luat_i2c_close(luat_ei2c_t *ei2c);
 
 #define toei2c(L) ((luat_ei2c_t *)luaL_checkudata(L, 1, LUAT_EI2C_TYPE))
 

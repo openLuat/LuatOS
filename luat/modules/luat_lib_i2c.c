@@ -121,7 +121,7 @@ static char i2c_soft_recv_byte(luat_ei2c_t *ei2c)
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
     return (data);
 }
-LUAT_WEAK char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len)
+LUAT_WEAK int i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -142,7 +142,7 @@ LUAT_WEAK char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, 
     i2c_soft_stop(ei2c);
     return 0;
 }
-LUAT_WEAK char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
+LUAT_WEAK int i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -216,10 +216,17 @@ static int l_i2c_setup(lua_State *L)
     return 1;
 }
 
-LUAT_WEAK void i2c_soft_setup(luat_ei2c_t *ei2c){
+LUAT_WEAK int i2c_soft_setup(luat_ei2c_t *ei2c){
     luat_gpio_mode(ei2c->scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     i2c_soft_stop(ei2c);
+    return 0;
+}
+
+LUAT_WEAK int luat_i2c_close(luat_ei2c_t *ei2c){
+    luat_gpio_close(ei2c->scl);
+    luat_gpio_close(ei2c->sda);
+    return 0;
 }
 
 /*

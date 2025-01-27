@@ -9,7 +9,7 @@ openai = require "openai"
 local uartid = 2
 
 local opts = {
-    apikey = "sk-b08cf8b9bdc64050a0a20e3d44d7c15a",
+    apikey = "123456",
     apiurl = "https://api.deepseek.com",
     model = "deepseek-chat"
 }
@@ -22,7 +22,6 @@ uart.on(uartid, "receive", function(id, len)
         s = uart.read(id, 1024)
         if #s > 0 then -- #s 是取字符串的长度
             log.info("uart", "receive", id, #s, s)
-            -- log.info("uart", "receive", id, #s, s:toHex())
             uart.write(uartid,
                 "消息发送成功,请等待回复,若串口60S没有回复,请检查luatools打印的日志\r\n")
             sys.publish("uart_rx", s)

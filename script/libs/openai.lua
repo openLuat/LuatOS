@@ -10,9 +10,7 @@
 -- 对接deepseek演示 请阅demo/openai
 
 -- 本API正在积极设计中
-]]
-
-local openai = {
+]] local openai = {
     conf = {}
 }
 
@@ -28,7 +26,10 @@ local function talk(self, msg)
     if type(msg) == "table" then
         table.insert(self.msgs, msg)
     else
-        table.insert(self.msgs, {role="user", content=msg})
+        table.insert(self.msgs, {
+            role = "user",
+            content = msg
+        })
     end
 
     local rbody = {
@@ -38,7 +39,10 @@ local function talk(self, msg)
     }
     local url = self.opts.apiurl .. "/chat/completions"
     -- log.info("openai", "request", url, json.encode(rheaders), json.encode(rbody))
-    local code,headers,body = http.request("POST", url, rheaders, (json.encode(rbody)), {timeout=60*1000}).wait()
+    local code, headers, body = http.request("POST", url, rheaders, (json.encode(rbody)), {
+        timeout = 60 * 1000
+    }).wait()
+    local tag = ""
     -- log.info("openai", code, json.encode(headers) or "", body or "")
     if code == 200 then
         -- log.info("openai", "执行完成!!!")
@@ -46,10 +50,39 @@ local function talk(self, msg)
         if jdata and jdata.choices and #jdata.choices > 0 then
             -- 自动选用第一个回应
             local ch = jdata.choices[1].message
-            table.insert(self.msgs, {role=ch.role, content=ch.content})
+            table.insert(self.msgs, {
+                role = ch.role,
+                content = ch.content
+            })
             return ch
         end
+    elseif code == 400 then
+        tag = "请求体格式错误,请根据错误信息提示修改请求体"
+        log.warn(tag)
+    elseif code == 401 then
+        tag = "API key错误,认证失败,请检查您的API key是否正确,如没有API key,请先创建API key"
+        log.warn(tag)
+    elseif code == 402 then
+        tag = "账号余额不足,请充值"
+        log.warn(tag)
+    elseif code == 422 then
+        tag = "请求体参数错误,请根据错误信息提示修改请求体"
+        log.warn(tag)
+    elseif code == 429 then
+        tag = "请求速率（TPM 或 RPM）达到上限,请稍后再试"
+        log.warn(tag)
+    elseif code == 500 then
+        tag = "服务器内部故障,请等待后重试,若问题一直存在,请联系deepseek官方解决"
+        log.warn(tag)
+
+    elseif code == 503 then
+        tag = "服务器负载过高,请稍后重试您的请求"
+        log.warn(tag)
+    else
+        tag = "未知原因" .. code
     end
+    log.info("openai", code, json.encode(headers) or "", body or "")
+    return tag
 end
 
 --[[
@@ -86,12 +119,12 @@ function openai.completions(opts, prompt)
     local chat = {
         opts = opts,
         talk = talk,
-        msgs = {
-            prompt and {role="system", content=prompt}
-        }
+        msgs = {prompt and {
+            role = "system",
+            content = prompt
+        }}
     }
     return chat
 end
-
 
 return openai

@@ -6,33 +6,36 @@ sys = require "sys"
 require "sysplus"
 openai = require "openai"
 
+local uartid = 2
+
 local opts = {
-    apikey = "sk-123456",
+    apikey = "123456",
     apiurl = "https://api.deepseek.com",
     model = "deepseek-chat"
 }
-local chat = openai.completions(opts)
+uart.setup(uartid, 115200)
 
-uart.setup(1, 115200)
-uart.on(1, "receive", function(id, len)
-    local data = uart.read(id, len)
-    log.info("uart", id, len, data)
-    if data and #data > 0 then
-        sys.publish("uart_rx", data)
-    end
+-- 收取数据会触发回调, 这里的"receive" 是固定值
+uart.on(uartid, "receive", function(id, len)
+    local s = ""
+    repeat
+        s = uart.read(id, 1024)
+        if #s > 0 then -- #s 是取字符串的长度
+            log.info("uart", "receive", id, #s, s)
+            -- log.info("uart", "receive", id, #s, s:toHex())
+            uart.write(uartid, "消息发送成功,请等待回复,若串口60S没有回复,请检查luatools打印的日志")
+            sys.publish("uart_rx", s)
+        end
+    until s == ""
 end)
+
 
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
-    sys.wait(100)
-    -- -- 固定问答演示
-    -- local resp = chat:talk("你好,请问LuatOS是什么软件?应该如何学习呢?")
-    -- if resp then
-    --     log.info("deepseek回复", resp.content)
-    -- else
-    --     log.info("deepseek执行失败")
-    -- end
+    sys.wait(2000)
 
+    local chat = openai.completions(opts)
+    
     -- -- uart交互演示
     while 1 do
         local re, data = sys.waitUntil("uart_rx")
@@ -40,12 +43,11 @@ sys.taskInit(function()
             local resp = chat:talk(data)
             if resp then
                 log.info("deepseek回复", resp.content)
-                uart.write(1, resp.content)
+                uart.write(uartid, resp.content)
             end
         end
     end
 end)
-
 
 sys.run()
 

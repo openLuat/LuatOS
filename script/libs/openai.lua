@@ -42,6 +42,7 @@ local function talk(self, msg)
     local code, headers, body = http.request("POST", url, rheaders, (json.encode(rbody)), {
         timeout = 60 * 1000
     }).wait()
+    local tag = ""
     -- log.info("openai", code, json.encode(headers) or "", body or "")
     if code == 200 then
         -- log.info("openai", "执行完成!!!")
@@ -56,24 +57,32 @@ local function talk(self, msg)
             return ch
         end
     elseif code == 400 then
-        log.info("请求体格式错误,请根据错误信息提示修改请求体")
-        log.info("openai", code, json.encode(headers) or "", body or "")
+        tag = "请求体格式错误,请根据错误信息提示修改请求体"
+        log.warn(tag)
     elseif code == 401 then
-        log.info("API key错误,认证失败,请检查您的API key是否正确,如没有API key,请先创建API key")
+        tag = "API key错误,认证失败,请检查您的API key是否正确,如没有API key,请先创建API key"
+        log.warn(tag)
     elseif code == 402 then
-        log.info("账号余额不足,请充值")
+        tag = "账号余额不足,请充值"
+        log.warn(tag)
     elseif code == 422 then
-        log.info("请求体参数错误,请根据错误信息提示修改相关参数")
-        log.info("openai", code, json.encode(headers) or "", body or "")
+        tag = "请求体参数错误,请根据错误信息提示修改请求体"
+        log.warn(tag)
     elseif code == 429 then
-        log.info("请求速率（TPM 或 RPM）达到上限,请稍后再试")
+        tag = "请求速率（TPM 或 RPM）达到上限,请稍后再试"
+        log.warn(tag)
     elseif code == 500 then
-        log.info("服务器内部故障,请等待后重试,若问题一直存在,请联系deepseek官方解决")
+        tag = "服务器内部故障,请等待后重试,若问题一直存在,请联系deepseek官方解决"
+        log.warn(tag)
+
     elseif code == 503 then
-        log.info("服务器负载过高,请稍后重试您的请求")
+        tag = "服务器负载过高,请稍后重试您的请求"
+        log.warn(tag)
     else
-        log.info("未知原因", "openai", code, json.encode(headers) or "", body or "")
+        tag = "未知原因" .. code
     end
+    log.info("openai", code, json.encode(headers) or "", body or "")
+    return tag
 end
 
 --[[

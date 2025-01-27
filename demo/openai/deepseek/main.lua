@@ -9,7 +9,9 @@ openai = require "openai"
 local uartid = 2
 
 local opts = {
-    apikey = "123456",
+    -- apikey = "123456",
+    apikey = "sk-b08cf8b9bdc64050a0a20e3d44d7c15a",
+
     apiurl = "https://api.deepseek.com",
     model = "deepseek-chat"
 }
@@ -44,9 +46,14 @@ sys.taskInit(function()
         local re, data = sys.waitUntil("uart_rx")
         if data then
             local resp = chat:talk(data)
-            if resp then
+            if resp and type(resp) == "table" then
                 log.info("deepseek回复", resp.content)
                 uart.write(uartid, resp.content)
+            else
+                local re_data = "大语言模型返回失败,错误原因:\r\n"
+                log.info(re_data,resp)
+                uart.write(uartid,re_data)
+                uart.write(uartid,resp)
             end
         end
     end

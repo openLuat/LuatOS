@@ -171,7 +171,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	}
 #endif
 	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
-	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < http_ctrl->retry_cnt_max){
 		http_ctrl->re_request_count++;
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
@@ -832,7 +832,7 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	http_ctrl->http_cb = cb?cb:luat_http_dummy_cb;
 	http_ctrl->http_cb_userdata = user_param;
 	http_ctrl->timeout = 15000;
-	http_ctrl->retry_cnt_max = 3;
+	http_ctrl->retry_cnt_max = 0;
 	http_ctrl->state = HTTP_STATE_IDLE;
 	http_ctrl->debug_onoff = 0;
 	http_ctrl->netc->is_debug = 0;

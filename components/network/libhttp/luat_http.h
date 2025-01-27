@@ -36,7 +36,7 @@ typedef struct luat_zbuff {
 #include "http_parser.h"
 
 #define HTTP_CALLBACK 		(1)
-#define HTTP_RE_REQUEST_MAX (3)
+// #define HTTP_RE_REQUEST_MAX (3)
 #define HTTP_TIMEOUT 		(5*60*1000) // 10分钟
 
 /**

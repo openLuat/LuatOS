@@ -9,7 +9,7 @@ openai = require "openai"
 local uartid = 2
 
 local opts = {
-    apikey = "123456",
+    apikey = "sk-b08cf8b9bdc64050a0a20e3d44d7c15a",
     apiurl = "https://api.deepseek.com",
     model = "deepseek-chat"
 }
@@ -23,19 +23,23 @@ uart.on(uartid, "receive", function(id, len)
         if #s > 0 then -- #s 是取字符串的长度
             log.info("uart", "receive", id, #s, s)
             -- log.info("uart", "receive", id, #s, s:toHex())
-            uart.write(uartid, "消息发送成功,请等待回复,若串口60S没有回复,请检查luatools打印的日志")
+            uart.write(uartid,
+                "消息发送成功,请等待回复,若串口60S没有回复,请检查luatools打印的日志\r\n")
             sys.publish("uart_rx", s)
         end
     until s == ""
 end)
-
 
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
     sys.wait(2000)
 
     local chat = openai.completions(opts)
-    
+    if chat then
+        uart.write(uartid, "大语言模型初始化完成,可以开始对话了\r\n")
+    else
+        uart.write(uartid, "大语言模型初始化失败，请检查代码\r\n")
+    end
     -- -- uart交互演示
     while 1 do
         local re, data = sys.waitUntil("uart_rx")

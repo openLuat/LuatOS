@@ -14,6 +14,32 @@
     conf = {}
 }
 
+-- 定义默认参数表
+local defaultOpts = {
+    apikey = "123456",
+    apiurl = "https://api.deepseek.com",
+    model = "deepseek-chat"
+}
+
+--比较传入的table和默认table，如果传入的值里少了某个值，默认table顶上去
+local function mergeWithDefaults(opts, defaults)
+    -- 创建一个新的表来存储合并结果
+    local mergedOpts = {}
+    
+    -- 先加载默认值
+    for k, v in pairs(defaults) do
+        mergedOpts[k] = v
+    end
+    
+    -- 使用传入的 opts 表覆盖默认值
+    for k, v in pairs(opts) do
+        mergedOpts[k] = v
+    end
+
+    return mergedOpts
+end
+
+
 local function talk(self, msg)
     local rheaders = {
         ['Content-Type'] = "application/json",
@@ -74,12 +100,14 @@ local function talk(self, msg)
     elseif code == 500 then
         tag = "服务器内部故障,请等待后重试,若问题一直存在,请联系deepseek官方解决"
         log.warn(tag)
-
     elseif code == 503 then
         tag = "服务器负载过高,请稍后重试您的请求"
         log.warn(tag)
-    else
-        tag = "未知原因" .. code
+    elseif code < 0 then
+        tag = "异常，大概率是服务器问题" .. code
+        if code == -8 then
+            tag = "链接服务超时或读取数据超时" .. code
+        end
     end
     log.info("openai", code, json.encode(headers) or "", body or "")
     return tag
@@ -116,6 +144,7 @@ sys.taskInit(function()
 end)
 ]]
 function openai.completions(opts, prompt)
+    opts = mergeWithDefaults(opts, defaultOpts)
     local chat = {
         opts = opts,
         talk = talk,
@@ -125,6 +154,7 @@ function openai.completions(opts, prompt)
         }}
     }
     return chat
+
 end
 
 return openai

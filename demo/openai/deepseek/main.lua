@@ -9,11 +9,9 @@ openai = require "openai"
 local uartid = 2
 
 local opts = {
-    -- apikey = "123456",
-    apikey = "sk-b08cf8b9bdc64050a0a20e3d44d7c15a",
-
+    apikey = "123456",
     apiurl = "https://api.deepseek.com",
-    model = "deepseek-chat"
+    model = "deepseek-chat",
 }
 uart.setup(uartid, 115200)
 

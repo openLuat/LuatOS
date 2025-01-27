@@ -140,7 +140,7 @@ static int report (lua_State *L, int status) {
     // LLOGD("MSG2 ==> %s %d", msg, len);
     // l_message("LUAT", msg);
 #ifdef LUAT_USE_ERRDUMP
-    luat_errdump_save_file(msg, strlen(msg));
+    luat_errdump_save_file((const uint8_t *)msg, strlen(msg));
 #endif
     lua_pop(L, 1);  /* remove message */
   }

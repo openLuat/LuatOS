@@ -100,6 +100,8 @@ void luat_gpio_close(int pin);
  */
 int luat_gpio_set_irq_cb(int pin, luat_gpio_irq_cb cb, void* args);
 
+int luat_gpio_irq_enable(int pin, uint8_t enabled);
+
 /**
  * @brief GPIO模拟单线输出模式
  * @param Pin Pin序号

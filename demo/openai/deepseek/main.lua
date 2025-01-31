@@ -6,46 +6,56 @@ sys = require "sys"
 require "sysplus"
 openai = require "openai"
 
-local opts = {
-    apikey = "sk-123456",
-    apiurl = "https://api.deepseek.com",
-    model = "deepseek-chat"
-}
-local chat = openai.completions(opts)
+local uartid = 2
 
-uart.setup(1, 115200)
-uart.on(1, "receive", function(id, len)
-    local data = uart.read(id, len)
-    log.info("uart", id, len, data)
-    if data and #data > 0 then
-        sys.publish("uart_rx", data)
-    end
+local opts = {
+    apikey = "123456",
+    apiurl = "https://api.deepseek.com",
+    model = "deepseek-chat",
+}
+uart.setup(uartid, 115200)
+
+-- 收取数据会触发回调, 这里的"receive" 是固定值
+uart.on(uartid, "receive", function(id, len)
+    local s = ""
+    repeat
+        s = uart.read(id, 1024)
+        if #s > 0 then -- #s 是取字符串的长度
+            log.info("uart", "receive", id, #s, s)
+            uart.write(uartid,
+                "消息发送成功,请等待回复,若串口60S没有回复,请检查luatools打印的日志\r\n")
+            sys.publish("uart_rx", s)
+        end
+    until s == ""
 end)
 
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
-    sys.wait(100)
-    -- -- 固定问答演示
-    -- local resp = chat:talk("你好,请问LuatOS是什么软件?应该如何学习呢?")
-    -- if resp then
-    --     log.info("deepseek回复", resp.content)
-    -- else
-    --     log.info("deepseek执行失败")
-    -- end
+    sys.wait(2000)
 
+    local chat = openai.completions(opts)
+    if chat then
+        uart.write(uartid, "大语言模型初始化完成,可以开始对话了\r\n")
+    else
+        uart.write(uartid, "大语言模型初始化失败，请检查代码\r\n")
+    end
     -- -- uart交互演示
     while 1 do
         local re, data = sys.waitUntil("uart_rx")
         if data then
             local resp = chat:talk(data)
-            if resp then
+            if resp and type(resp) == "table" then
                 log.info("deepseek回复", resp.content)
-                uart.write(1, resp.content)
+                uart.write(uartid, resp.content)
+            else
+                local re_data = "大语言模型返回失败,错误原因:\r\n"
+                log.info(re_data,resp)
+                uart.write(uartid,re_data)
+                uart.write(uartid,resp)
             end
         end
     end
 end)
-
 
 sys.run()
 

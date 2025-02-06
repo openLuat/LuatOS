@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 
 -- sys库是标配
@@ -12,7 +12,7 @@ _G.sysplus = require("sysplus")
 sys.taskInit(function()
     sys.wait(1000)
     netdrv.setup(socket.LWIP_ETH)
-    netdrv.dhcp(socket.LWIP_ETH)
+    netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
 sys.taskInit(function()

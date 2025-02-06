@@ -9,6 +9,9 @@ PRODUCT_KEY = "xxx" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 sys = require("sys")
 sysplus = require("sysplus")
 
+log.info("ch390", "打开LDO供电")
+gpio.setup(20, 1)  --打开lan供电
+
 -- require "lan"
 require "wan"
 

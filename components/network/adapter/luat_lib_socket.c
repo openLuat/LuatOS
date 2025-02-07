@@ -1121,8 +1121,16 @@ static int l_socket_set_dns(lua_State *L)
 	    }
 	}
 #endif
-	network_set_dns_server(adapter_index, dns_index - 1, &ip_addr);
-	lua_pushboolean(L, 1);
+	void* userdata = NULL;
+	network_adapter_info* info = network_adapter_fetch(adapter_index, &userdata);
+	if (info == NULL) {
+		LLOGW("adapter_index is invaild %d", adapter_index);
+		lua_pushboolean(L, 0);
+	}
+	else {
+		network_set_dns_server(adapter_index, dns_index - 1, &ip_addr);
+		lua_pushboolean(L, 1);
+	}
 	return 1;
 }
 

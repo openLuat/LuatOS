@@ -120,7 +120,8 @@ static int l_netdrv_mac(lua_State *L) {
 
 /*
 设置或读取ipv4地址
-@api netdrv.ipv4(addr, mark, gw)
+@api netdrv.ipv4(id, addr, mark, gw)
+@int 网络适配器编号, 例如 socket.LWIP_ETH
 @string ipv4地址,如果是读取就不需要传
 @string 掩码
 @string 网关

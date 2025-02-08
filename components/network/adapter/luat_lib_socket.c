@@ -1305,6 +1305,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
+	{"dft",                 ROREG_FUNC(l_socket_default)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         		ROREG_FUNC(l_sntp_get)},
 	{"ntptm",           	ROREG_FUNC(l_sntp_tm)},

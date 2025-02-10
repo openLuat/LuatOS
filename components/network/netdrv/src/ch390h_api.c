@@ -185,7 +185,22 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
     uint8_t TCR = tmp[0];
     if (TCR & 0x01) {
         // busy!!
-        LLOGW("tx busy, drop pkg len %d ? force tx now.", len);
+        for (size_t i = 0; i < 16; i++)
+        {
+            luat_timer_us_delay(10);
+            luat_ch390h_read(ch, 0x02, 1, tmp);
+            TCR = tmp[0];
+            if (TCR & 0x01) {
+                continue;
+            }
+            break;
+        }
+        if (TCR & 0x01) {
+            LLOGW("tx busy, drop pkg len %d and reset ch390!!", len);
+            luat_ch390h_software_reset(ch);
+            luat_timer_mdelay(2);
+            return 0;
+        }
         // return 1;
     }
     // 再读一次TCR

@@ -29,6 +29,8 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_custom;
+extern luat_lcd_conf_t *lcd_dft_conf;
+extern void lcd_auto_flush(luat_lcd_conf_t *conf);
 
 #ifdef LUAT_USE_TJPGD
 #include "tjpgd.h"
@@ -64,7 +66,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // rgb高低位swap
     uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
     for (size_t i = 0; i < count; i++){
-        if (default_conf->port < LUAT_LCD_HW_ID_0 || default_conf->port == LUAT_LCD_SPI_DEVICE)
+        if (lcd_dft_conf->port < LUAT_LCD_HW_ID_0 || lcd_dft_conf->port == LUAT_LCD_SPI_DEVICE)
             dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
         else
             dev->buff[i] = tmp[i];
@@ -72,7 +74,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     
     // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
     // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
-    luat_lcd_draw(default_conf, dev->x + rect->left, dev->y + rect->top,
+    luat_lcd_draw(lcd_dft_conf, dev->x + rect->left, dev->y + rect->top,
                                 dev->x + rect->right, dev->y + rect->bottom,
                                 dev->buff);
     return 1;    /* Continue to decompress */
@@ -119,7 +121,7 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
         LLOGW("jd_decomp file %s error %d", path, res);
         return -2;
     }else {
-        lcd_auto_flush(default_conf);
+        lcd_auto_flush(lcd_dft_conf);
         return 0;
     }
 }

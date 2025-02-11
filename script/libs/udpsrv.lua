@@ -13,6 +13,7 @@
 local sys = require "sys"
 
 local udpsrv = {}
+local srvs = {}
 
 --[[
 创建UDP服务器
@@ -28,11 +29,12 @@ function udpsrv.create(port, topic, adapter)
     -- srv.topic = topic
     srv.rxbuff = zbuff.create(1500)
     local sc = socket.create(adapter, function(sc, event)
-        -- log.info("udpsrv", sc, event)
+        -- log.info("udpsrv", sc, event, "EVENT", socket.EVENT, "CLOSED", socket.CLOSED)
         if event == socket.EVENT then
             local rxbuff = srv.rxbuff
             while 1 do
                 local succ, data_len, remote_ip, remote_port = socket.rx(sc, rxbuff)
+                -- log.info("udpsrv", "???", succ, data_len, remote_ip, remote_port)
                 if succ and data_len and data_len > 0 then
                     local resp = rxbuff:toStr(0, rxbuff:used())
                     rxbuff:del()
@@ -44,9 +46,16 @@ function udpsrv.create(port, topic, adapter)
                     end
                     sys.publish(topic, resp, remote_ip, remote_port)
                 else
+                    if not succ then
+                        socket.close(sc)
+                        socket.connect(sc, "255.255.255.255", 0)
+                    end
                     break
                 end
             end
+        elseif event == socket.CLOSED then
+            log.info("dhcpsrv", "网络中断,执行关闭流程")
+            socket.close(self.sc)
         end
     end)
     if sc == nil then
@@ -66,8 +75,10 @@ function udpsrv.create(port, topic, adapter)
             socket.close(self.sc)
             -- sys.wait(200)
             socket.release(self.sc)
+            srvs[self.sc] = nil
             self.sc = nil
         end
+        srvs[srv.sc] = true
         -- log.info("udpsrv", "监听开始")
         return srv
     end
@@ -76,5 +87,14 @@ function udpsrv.create(port, topic, adapter)
     socket.release(sc)
     -- log.info("udpsrv", "监听失败")
 end
+
+sys.subscribe("IP_READY", function()
+    for sc, value in pairs(srvs) do
+        log.info("udpsrv", "自动重连udpsrv", sc)
+        if sc then
+            socket.connect(sc, "255.255.255.255", 0)
+        end
+    end
+end)
 
 return udpsrv

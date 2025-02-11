@@ -1705,13 +1705,13 @@ int network_set_mac(uint8_t adapter_index, uint8_t *mac)
 int network_set_static_ip_info(uint8_t adapter_index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6)
 {
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	return adapter->opt->set_static_ip(ip, submask, gateway, ipv6, adapter->user_data);
+	return (adapter && adapter->opt) ? adapter->opt->set_static_ip(ip, submask, gateway, ipv6, adapter->user_data) : -1;
 }
 
 int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	return adapter->opt->get_local_ip_info(ip, submask, gateway, adapter->user_data);
+	return (adapter && adapter->opt) ? adapter->opt->get_local_ip_info(ip, submask, gateway, adapter->user_data) : - 1;
 }
 
 int network_get_full_local_ip_info(network_ctrl_t *ctrl, uint8_t index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6)
@@ -1725,7 +1725,7 @@ int network_get_full_local_ip_info(network_ctrl_t *ctrl, uint8_t index, luat_ip_
 	{
 		adapter = &prv_adapter_table[index];
 	}
-	return adapter->opt->get_full_ip_info(ip, submask, gateway, ipv6, adapter->user_data);
+	return (adapter && adapter->opt) ? adapter->opt->get_full_ip_info(ip, submask, gateway, ipv6, adapter->user_data) : -1;
 }
 
 void network_force_close_socket(network_ctrl_t *ctrl)
@@ -1799,7 +1799,7 @@ int network_set_psk_info(network_ctrl_t *ctrl,
 		const unsigned char *psk, size_t psk_len,
 		const unsigned char *psk_identity, size_t psk_identity_len)
 {
-#ifdef LUAT_USE_TLS
+#if defined(LUAT_USE_TLS) && defined(MBEDTLS_KEY_EXCHANGE_SOME_PSK_ENABLED)
 	if (!ctrl->tls_mode)
 	{
 		return -ERROR_PERMISSION_DENIED;
@@ -2725,7 +2725,7 @@ uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index)
 	{
 		return 0;
 	}
-	if (adapter->opt)
+	if (adapter && adapter->opt)
 	{
 		return adapter->opt->check_ready(adapter->user_data);
 	}

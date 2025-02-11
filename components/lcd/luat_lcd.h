@@ -24,11 +24,26 @@
 #elif (LUAT_LCD_COLOR_DEPTH == 8)
 #define luat_color_t uint8_t
 #else
-#error "no supprt color depth"
+#error "no support color depth"
 #endif
 
-#define LUAT_LCD_SPI_DEVICE 255
-#define LUAT_LCD_HW_ID_0 0x20	//专用LCD接口的SPI ID
+enum{
+    LUAT_LCD_ROTATE_0 = 0,
+    LUAT_LCD_ROTATE_90,
+    LUAT_LCD_ROTATE_180,
+    LUAT_LCD_ROTATE_270,
+};
+
+enum{
+	LUAT_LCD_HW_ID_0    = 0x20,	//专用LCD接口 ID
+
+    LUAT_LCD_SPI_DEVICE,
+    LUAT_LCD_PORT_RGB,
+    LUAT_LCD_PORT_8080,
+    LUAT_LCD_PORT_ARM2D,
+    LUAT_LCD_PORT_DMA2D,
+    LUAT_LCD_PORT_MAX,
+};
 
 struct luat_lcd_opts;
 
@@ -41,14 +56,24 @@ enum{
 	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II = 13,
 	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II = 14,
 	LUAT_LCD_IM_2_DATA_LANE = 16,
+	LUAT_LCD_IM_QSPI_MODE = 0x20,
+	LUAT_LCD_IM_8080_MODE = 0x30,
 };
+
+typedef struct
+{
+	uint8_t write_4line_cmd;
+	uint8_t vsync_reg;
+	uint8_t hsync_cmd;
+	uint8_t hsync_reg;
+	uint8_t write_1line_cmd;
+}luat_lcd_qspi_conf_t;
 
 typedef struct luat_lcd_conf {
     uint8_t port;
     uint8_t pin_dc;
     uint8_t pin_pwr;
     uint8_t pin_rst;
-
     int16_t w;
     int16_t h;
     uint32_t buffer_size;
@@ -69,9 +94,21 @@ typedef struct luat_lcd_conf {
     int16_t flush_y_min;
     int16_t flush_y_max;
     uint8_t is_init_done;
-
     uint8_t interface_mode;	// LUAT_LCD_IM_XXX
     uint8_t lcd_cs_pin;		//注意不用的时候写0xff
+    uint8_t bpp;			//颜色bit，默认是RGB565 16bit，预留兼容ARGB888 32bit
+    uint32_t flush_rate;	//刷新率，针对no ram的屏幕起效
+    uint32_t bus_speed;
+    uint16_t hbp;
+    uint16_t hspw;
+    uint16_t hfp;
+    uint16_t vbp;
+    uint16_t vspw;
+    uint16_t vfp;
+    uint8_t tp_driver_id;
+    uint8_t tp_pin_rst;
+    uint8_t tp_pin_irq;
+    uint8_t tp_i2c_id;
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
@@ -82,8 +119,11 @@ typedef struct luat_lcd_opts {
     uint8_t direction90;
     uint8_t direction180;
     uint8_t direction270;
+    uint8_t rb_swap;
+    uint8_t no_ram_mode;
     uint16_t init_cmds_len;
     uint16_t* init_cmds;
+    int (*user_ctrl_init)(luat_lcd_conf_t* conf);
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
@@ -101,6 +141,8 @@ extern luat_lcd_opts_t lcd_opts_st7735v;
 extern luat_lcd_opts_t lcd_opts_st7789;
 extern luat_lcd_opts_t lcd_opts_st7796;
 extern luat_lcd_opts_t lcd_opts_nv3037;
+extern luat_lcd_opts_t lcd_opts_h050iwv;
+extern luat_lcd_opts_t lcd_opts_jd9261t_inited;
 
 static inline luat_color_t color_swap(luat_color_t color) {
     luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
@@ -114,6 +156,11 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf);
 
 int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
+
+// xxx_default 一般为通用spi设备使用
+int luat_lcd_init_default(luat_lcd_conf_t* conf);
+int luat_lcd_flush_default(luat_lcd_conf_t* conf);
+int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);
@@ -143,7 +190,6 @@ int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction);
  * csdk适配用
  */
 void luat_lcd_service_init(uint32_t pro);
-void luat_lcd_service_run(void *api, void *data, uint32_t param, uint32_t timeout);
 int luat_lcd_service_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t *data, uint8_t is_static_buf);
 int luat_lcd_service_set_mem_type(uint8_t type);
 uint32_t luat_lcd_service_cache_len(void);
@@ -183,5 +229,10 @@ int luat_lcd_show_camera_in_service(void *camera_info, camera_cut_info_t *cut_in
  * @return 0无异常，其他失败
  */
 int luat_lcd_stop_show_camera(void);
+
+int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config);
+int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off);
+typedef void (*luat_lcd_api)(void *param, uint32_t param_len);
+int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len);
 #endif
 

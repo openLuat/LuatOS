@@ -18,16 +18,21 @@
 #include "luat_log.h"
 
 #define MAX_DEVICE_COUNT 2
+#define MAX_USB_DEVICE_COUNT 1
 
 typedef struct luat_camera_cb {
     int scanned;
 } luat_camera_cb_t;
-static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT];
+static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 
 int l_camera_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
     int camera_id = msg->arg1;
+    if (camera_id >= LUAT_CAMERA_TYPE_USB)
+    {
+        camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
+    }
     if (camera_cbs[camera_id].scanned) {
         lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].scanned);
         if (lua_isfunction(L, -1)) {
@@ -149,6 +154,13 @@ static int l_camera_init(lua_State *L){
             conf.id_value = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+
+        lua_pushliteral(L, "id");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.id = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
         lua_pushliteral(L, "init_cmd");
         lua_gettable(L, 1);
         if (lua_istable(L, -1)) {
@@ -160,7 +172,8 @@ static int l_camera_init(lua_State *L){
                 lua_pop(L, 1);
             }
         }else if(lua_isstring(L, -1)){
-            int len,cmd;
+            size_t len;
+            int cmd;
             const char *fail_name = luaL_checklstring(L, -1, &len);
             FILE* fd = luat_fs_fopen(fail_name, "rb");
             conf.init_cmd_size = 0;
@@ -259,6 +272,10 @@ end)
 static int l_camera_on(lua_State *L) {
     int camera_id = luaL_checkinteger(L, 1);
     const char* event = luaL_checkstring(L, 2);
+    if (camera_id >= LUAT_CAMERA_TYPE_USB)
+    {
+        camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
+    }
     if (!strcmp("scanned", event)) {
         if (camera_cbs[camera_id].scanned != 0) {
             luaL_unref(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].scanned);
@@ -466,6 +483,8 @@ static const rotable_Reg_t reg_camera[] =
 	{ "AUTO",             ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
 	{ "SCAN",             ROREG_INT(LUAT_CAMERA_MODE_SCAN)},
+    //@const TYPE number 摄像头类型，USB
+    { "USB",              ROREG_INT(LUAT_CAMERA_TYPE_USB)},
 	{ NULL,          {}}
 };
 

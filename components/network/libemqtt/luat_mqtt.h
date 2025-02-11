@@ -1,5 +1,6 @@
 #ifndef LUAT_MQTT_H
 #define LUAT_MQTT_H
+#include "luat_network_adapter.h"
 /**
  * @defgroup luatos_MQTT  MQTT相关接口
  * @{

@@ -35,29 +35,47 @@ typedef struct lcd_reg {
   const luat_lcd_opts_t *lcd_opts;
 }lcd_reg_t;
 
+luat_lcd_opts_t lcd_opts_nv3052c = {
+    .name = "nv3052c",
+};
+luat_lcd_opts_t lcd_opts_hx8282 = {
+    .name = "hx8282",
+};
+luat_lcd_opts_t lcd_opts_st7701s = {
+    .name = "st7701s",
+};
+luat_lcd_opts_t lcd_opts_st7701sn = {
+    .name = "st7701sn",
+};
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
   {"st7735",  &lcd_opts_st7735},
   {"st7735v", &lcd_opts_st7735v},
   {"st7735s", &lcd_opts_st7735s},
   {"st7789",  &lcd_opts_st7789},
-  {"st7796", &lcd_opts_st7796},
+  {"st7796",  &lcd_opts_st7796},
   {"gc9a01",  &lcd_opts_gc9a01},
   {"gc9106l", &lcd_opts_gc9106l},
   {"gc9306x", &lcd_opts_gc9306x},
   {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
-  {"nv3037", &lcd_opts_nv3037},
+  {"nv3037",  &lcd_opts_nv3037},
+  {"h050iwv", &lcd_opts_h050iwv},
+  {"jd9261t_inited", &lcd_opts_jd9261t_inited},
+  {"nv3052c", &lcd_opts_nv3052c},
+  {"hx8282",  &lcd_opts_hx8282},
+  {"st7701s",  &lcd_opts_st7701s},
+  {"st7701sn",  &lcd_opts_st7701sn},
   {"", NULL} // 最后一个必须是空字符串
 };
 
 
-static luat_lcd_conf_t *default_conf = NULL;
+luat_lcd_conf_t *lcd_dft_conf = NULL;
 // static int dft_conf_lua_ref = 0;
 
 // 所有绘图相关的函数都应该调用本函数
-static void lcd_auto_flush(luat_lcd_conf_t *conf) {
+void lcd_auto_flush(luat_lcd_conf_t *conf) {
 #ifndef LUAT_USE_LCD_SDL2
   if (conf == NULL || conf->buff == NULL || conf->auto_flush == 0)
     return;
@@ -66,7 +84,7 @@ static void lcd_auto_flush(luat_lcd_conf_t *conf) {
 }
 
 luat_color_t lcd_str_fg_color,lcd_str_bg_color;
-luat_lcd_conf_t *l_lcd_get_default_conf(void) {return default_conf;}
+luat_lcd_conf_t *l_lcd_get_default_conf(void) {return lcd_dft_conf;}
 LUAT_WEAK void luat_lcd_IF_init(luat_lcd_conf_t* conf){}
 LUAT_WEAK int luat_lcd_init_in_service(luat_lcd_conf_t* conf){return -1;}
 /*
@@ -81,6 +99,11 @@ lcd显示屏初始化
 spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
+-- rgb屏幕初始化
+lcd.init("h050iwv",{port = lcd.RGB, w = 800,h = 480})
+-- lcd.init("custom",{port = port,hbp = 46, hspw = 2, hfp = 48,vbp = 24, vspw = 2, vfp = 24,bus_speed = 60*1000*1000,w = 800,h = 480})
+
 */
 
 /*
@@ -96,28 +119,31 @@ lcd.init("st7796s",{port = "DMA2D",direction = 2,w = 160,h = 80,xoffset = 1,yoff
 */
 
 static int l_lcd_init(lua_State* L) {
+    int ret;
     size_t len = 0;
+    uint8_t spi_device = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     if (conf == NULL) {
       LLOGE("out of system memory!!!");
       return 0;
     }
-    if (default_conf != NULL) {
+    if (lcd_dft_conf != NULL) {
       LLOGD("lcd was inited, skip");
       lua_pushboolean(L, 1);
       return 1;
     }
 #if defined LUAT_USE_LCD_SERVICE
     uint8_t init_in_service = 0;
-    int ret;
     if (lua_isboolean(L, 4)) {
     	init_in_service = lua_toboolean(L, 4);
     }
 #endif
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
+    conf->bpp = 16;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
     conf->pin_pwr = LUAT_GPIO_NONE;
+    conf->tp_pin_rst = LUAT_GPIO_NONE;
     conf->interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
@@ -126,7 +152,7 @@ static int l_lcd_init(lua_State* L) {
         // 所以, 直接引用之外, 再加上强制引用, 避免被GC
         // 鉴于LCD不太可能重复初始化, 引用也没什么问题
         conf->lcd_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-        conf->port = LUAT_LCD_SPI_DEVICE;
+        spi_device = 1;
     }
     const char* tp = luaL_checklstring(L, 1, &len);
     int16_t s_index = -1;//第几个屏幕，-1表示没匹配到
@@ -146,17 +172,28 @@ static int l_lcd_init(lua_State* L) {
 
             lua_pushstring(L, "port");
             int port = lua_gettable(L, 2);
-            if (conf->port == LUAT_LCD_SPI_DEVICE && port ==LUA_TNUMBER) {
+            if (LUA_TNUMBER == port) {
+                conf->port = luaL_checkinteger(L, -1);
+            }else if(LUA_TSTRING == port){
+                size_t len;
+                const char *lcd_port = luaL_checklstring(L, -1,&len);
+                if(memcmp("device", lcd_port, len) == 0){
+                    conf->port = LUAT_LCD_SPI_DEVICE;
+                }else if(memcmp("rgb", lcd_port, len) == 0){
+                    conf->port = LUAT_LCD_PORT_RGB;
+                }else{
+                    LLOGE("port %s is not support ",lcd_port);
+                    goto end; 
+                }
+            }
+            if (spi_device == 1 && conf->port != LUAT_LCD_SPI_DEVICE) {
               LLOGE("port is not device but find luat_spi_device_t");
               goto end;
-            }else if (conf->port != LUAT_LCD_SPI_DEVICE && LUA_TSTRING == port){
+            }else if (spi_device == 0 && conf->port == LUAT_LCD_SPI_DEVICE){
               LLOGE("port is device but not find luat_spi_device_t");
               goto end;
-            }else if (LUA_TNUMBER == port) {
-                conf->port = luaL_checkinteger(L, -1);
-            }else if (LUA_TSTRING == port){
-                conf->port = LUAT_LCD_SPI_DEVICE;
             }
+
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_dc");
@@ -174,6 +211,30 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "pin_rst");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->pin_rst = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_driver");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_driver_id = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_i2c_id");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_i2c_id = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_pin_rst");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_pin_rst = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "tp_pin_irq");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->tp_pin_irq = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 
@@ -213,7 +274,7 @@ static int l_lcd_init(lua_State* L) {
                 conf->h = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-            conf->buffer_size = (conf->w * conf->h) * 2;
+            conf->buffer_size = (conf->w * conf->h) * sizeof(luat_color_t);
 
             lua_pushstring(L, "xoffset");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -242,6 +303,54 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "interface_mode");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->interface_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "bus_speed");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->bus_speed = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "flush_rate");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->flush_rate = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hbp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "hfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->hfp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vbp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vbp = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vspw");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vspw = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "vfp");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->vfp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 
@@ -312,13 +421,12 @@ static int l_lcd_init(lua_State* L) {
 #if defined LUAT_USE_LCD_SERVICE
         if (init_in_service) {
         	ret = luat_lcd_init_in_service(conf);
-        } else {
+        } else 
+#endif
+        {
         	ret = luat_lcd_init(conf);
         }
 
-#else
-        int ret = luat_lcd_init(conf);
-#endif
         if (ret != 0) {
             LLOGE("lcd init fail %d", ret);
             luat_heap_free(conf);
@@ -326,7 +434,7 @@ static int l_lcd_init(lua_State* L) {
             return 0;
         }
         // 初始化OK, 配置额外的参数
-        default_conf = conf;
+        lcd_dft_conf = conf;
         u8g2_SetFont(&(conf->luat_lcd_u8g2), u8g2_font_opposansm12);
         u8g2_SetFontMode(&(conf->luat_lcd_u8g2), 0);
         u8g2_SetFontDirection(&(conf->luat_lcd_u8g2), 0);
@@ -348,7 +456,7 @@ end:
 lcd.close()
 */
 static int l_lcd_close(lua_State* L) {
-    int ret = luat_lcd_close(default_conf);
+    int ret = luat_lcd_close(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -361,7 +469,7 @@ static int l_lcd_close(lua_State* L) {
 lcd.on()
 */
 static int l_lcd_display_on(lua_State* L) {
-    int ret = luat_lcd_display_on(default_conf);
+    int ret = luat_lcd_display_on(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -374,7 +482,7 @@ static int l_lcd_display_on(lua_State* L) {
 lcd.off()
 */
 static int l_lcd_display_off(lua_State* L) {
-    int ret = luat_lcd_display_off(default_conf);
+    int ret = luat_lcd_display_off(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -387,7 +495,7 @@ lcd睡眠
 lcd.sleep()
 */
 static int l_lcd_sleep(lua_State* L) {
-    int ret = luat_lcd_sleep(default_conf);
+    int ret = luat_lcd_sleep(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -400,7 +508,7 @@ lcd唤醒
 lcd.wakeup()
 */
 static int l_lcd_wakeup(lua_State* L) {
-    int ret = luat_lcd_wakeup(default_conf);
+    int ret = luat_lcd_wakeup(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -413,7 +521,7 @@ lcd反显
 lcd.invon()
 */
 static int l_lcd_inv_on(lua_State* L) {
-    int ret = luat_lcd_inv_on(default_conf);
+    int ret = luat_lcd_inv_on(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -426,7 +534,7 @@ lcd反显关闭
 lcd.invoff()
 */
 static int l_lcd_inv_off(lua_State* L) {
-    int ret = luat_lcd_inv_off(default_conf);
+    int ret = luat_lcd_inv_off(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -440,7 +548,7 @@ lcd命令
 lcd.cmd(0x21)
 */
 static int l_lcd_write_cmd(lua_State* L) {
-    int ret = lcd_write_cmd_data(default_conf,(uint8_t)luaL_checkinteger(L, 1), NULL, 0);
+    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), NULL, 0);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -454,7 +562,7 @@ lcd数据
 lcd.data(0x21)
 */
 static int l_lcd_write_data(lua_State* L) {
-    int ret = lcd_write_data(default_conf,(const uint8_t)luaL_checkinteger(L, 1));
+    int ret = lcd_write_data(lcd_dft_conf,(const uint8_t)luaL_checkinteger(L, 1));
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -478,7 +586,7 @@ static int l_lcd_set_color(lua_State* L) {
 }
 
 static int l_lcd_set_direction(lua_State* L) {
-    int ret = luat_lcd_set_direction(default_conf, (uint8_t)luaL_checkinteger(L, 1));
+    int ret = luat_lcd_set_direction(lcd_dft_conf, (uint8_t)luaL_checkinteger(L, 1));
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -508,22 +616,22 @@ static int l_lcd_draw(lua_State* L) {
     if (lua_isinteger(L, 5)) {
         // color = (luat_color_t *)luaL_checkstring(L, 5);
         luat_color_t color = (luat_color_t)luaL_checkinteger(L, 1);
-        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, &color);
+        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, &color);
     }
     else if (lua_isuserdata(L, 5)) {
         buff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
         luat_color_t *color = (luat_color_t *)buff->addr;
-        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
+        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
     }
     else if(lua_isstring(L, 5)) {
         luat_color_t *color = (luat_color_t *)luaL_checkstring(L, 5);
-        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
+        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
     }
     else {
         return 0;
     }
-    lcd_auto_flush(default_conf);
-    // int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
+    lcd_auto_flush(lcd_dft_conf);
+    // int ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -541,8 +649,8 @@ static int l_lcd_clear(lua_State* L) {
     luat_color_t color = BACK_COLOR;
     if (lua_gettop(L) > 0)
         color = (luat_color_t)luaL_checkinteger(L, 1);
-    int ret = luat_lcd_clear(default_conf, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_clear(lcd_dft_conf, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -568,8 +676,8 @@ static int l_lcd_draw_fill(lua_State* L) {
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
-    int ret = luat_lcd_draw_fill(default_conf, x1,  y1,  x2,  y2, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_draw_fill(lcd_dft_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -590,8 +698,8 @@ static int l_lcd_draw_point(lua_State* L) {
     y = luaL_checkinteger(L, 2);
     if (lua_gettop(L) > 2)
         color = (luat_color_t)luaL_checkinteger(L, 3);
-    int ret = luat_lcd_draw_point(default_conf, x, y, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_draw_point(lcd_dft_conf, x, y, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -616,8 +724,8 @@ static int l_lcd_draw_line(lua_State* L) {
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
-    int ret = luat_lcd_draw_line(default_conf, x1,  y1,  x2,  y2, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_draw_line(lcd_dft_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -642,8 +750,8 @@ static int l_lcd_draw_rectangle(lua_State* L) {
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
-    int ret = luat_lcd_draw_rectangle(default_conf, x1,  y1,  x2,  y2, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_draw_rectangle(lcd_dft_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -666,8 +774,8 @@ static int l_lcd_draw_circle(lua_State* L) {
     r = luaL_checkinteger(L, 3);
     if (lua_gettop(L) > 3)
         color = (luat_color_t)luaL_checkinteger(L, 4);
-    int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
-    lcd_auto_flush(default_conf);
+    int ret = luat_lcd_draw_circle(lcd_dft_conf, x0,  y0,  r, color);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -709,13 +817,13 @@ static int l_lcd_drawQrcode(lua_State *L)
         int scale = size / qr_size ;
         if (!scale)scale = 1;
         int margin = (size - qr_size * scale) / 2;
-        luat_lcd_draw_fill(default_conf,x,y,x+size,y+size,BACK_COLOR);
+        luat_lcd_draw_fill(lcd_dft_conf,x,y,x+size,y+size,BACK_COLOR);
         x+=margin;
         y+=margin;
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
                 if (qrcodegen_getModule(qrcode, i, j))
-                    luat_lcd_draw_fill(default_conf,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,FORE_COLOR);
+                    luat_lcd_draw_fill(lcd_dft_conf,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,FORE_COLOR);
             }
         }
     }else{
@@ -726,7 +834,7 @@ end:
         luat_heap_free(qrcode);
     if (tempBuffer)
         luat_heap_free(tempBuffer);
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -788,16 +896,16 @@ static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, u
   switch(dir)
   {
     case 0:
-      luat_lcd_draw_hline(default_conf,x,y,len,color);
+      luat_lcd_draw_hline(lcd_dft_conf,x,y,len,color);
       break;
     case 1:
-      luat_lcd_draw_vline(default_conf,x,y,len,color);
+      luat_lcd_draw_vline(lcd_dft_conf,x,y,len,color);
       break;
     case 2:
-        luat_lcd_draw_hline(default_conf,x-len+1,y,len,color);
+        luat_lcd_draw_hline(lcd_dft_conf,x-len+1,y,len,color);
       break;
     case 3:
-      luat_lcd_draw_vline(default_conf,x,y-len+1,len,color);
+      luat_lcd_draw_vline(lcd_dft_conf,x,y-len+1,len,color);
       break;
   }
 }
@@ -948,7 +1056,7 @@ static int l_lcd_set_font(lua_State *L) {
       return 0;
     }
     luat_u8g2_set_ascii_indentation(0xff);
-    u8g2_SetFont(&(default_conf->luat_lcd_u8g2), ptr);
+    u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), ptr);
     if (lua_isinteger(L, 2)) {
         int indentation = luaL_checkinteger(L, 2);
     	  luat_u8g2_set_ascii_indentation(indentation);
@@ -993,9 +1101,9 @@ static int l_lcd_draw_str(lua_State* L) {
         break;
         data++;
         if ( e != 0x0fffe ){
-        delta = u8g2_font_draw_glyph(&(default_conf->luat_lcd_u8g2), x, y, e);
+        delta = u8g2_font_draw_glyph(&(lcd_dft_conf->luat_lcd_u8g2), x, y, e);
         if (e < 0x0080) delta = luat_u8g2_need_ascii_cut(delta);
-        switch(default_conf->luat_lcd_u8g2.font_decode.dir){
+        switch(lcd_dft_conf->luat_lcd_u8g2.font_decode.dir){
             case 0:
             x += delta;
             break;
@@ -1011,7 +1119,7 @@ static int l_lcd_draw_str(lua_State* L) {
         }
         }
     }
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -1066,11 +1174,11 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
       LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
     }
-		gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
+		gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
 		x+=size;
 		i+=2;
 	}
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -1123,11 +1231,11 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
       return 0;
     }
 		Gray_Process(buf,size,size,font_g);
-		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
+		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
 		x+=size;
 		i+=2;
 	}
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -1169,11 +1277,11 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
           LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
           return 0;
         }
-        unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
+        unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
         x+=str<0x80?dw:size;
       }
     }
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -1214,11 +1322,11 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
         return 0;
       }
 			Gray_Process(buf,size,size,font_g);
-      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
+      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
         	x+=size;
         }
     }
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     return 0;
 }
 
@@ -1228,7 +1336,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 
 static int l_lcd_set_default(lua_State *L) {
     if (lua_gettop(L) == 1) {
-        default_conf = lua_touserdata(L, 1);
+        lcd_dft_conf = lua_touserdata(L, 1);
         lua_pushboolean(L, 1);
         return 1;
     }
@@ -1236,9 +1344,9 @@ static int l_lcd_set_default(lua_State *L) {
 }
 
 static int l_lcd_get_default(lua_State *L) {
-    if (default_conf == NULL)
+    if (lcd_dft_conf == NULL)
       return 0;
-    lua_pushlightuserdata(L, default_conf);
+    lua_pushlightuserdata(L, lcd_dft_conf);
     return 1;
 }
 
@@ -1259,13 +1367,13 @@ static int l_lcd_get_size(lua_State *L) {
       return 2;
     }
   }
-  if (default_conf == NULL) {
+  if (lcd_dft_conf == NULL) {
     lua_pushinteger(L, 0);
     lua_pushinteger(L, 0);
   }
   else {
-    lua_pushinteger(L, default_conf->w);
-    lua_pushinteger(L, default_conf->h);
+    lua_pushinteger(L, lcd_dft_conf->w);
+    lua_pushinteger(L, lcd_dft_conf->h);
   }
   return 2;
 }
@@ -1314,109 +1422,15 @@ static int l_lcd_drawxbm(lua_State *L){
         }
         data++;
       }
-      luat_lcd_draw(default_conf, x, y+b, x+w-1, y+b, color_w);
+      luat_lcd_draw(lcd_dft_conf, x, y+b, x+w-1, y+b, color_w);
     }
     luat_heap_free(color_w);
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushboolean(L, 1);
     return 1;
 }
 
 #ifdef LUAT_USE_TJPGD
-#include "tjpgd.h"
-#include "tjpgdcnf.h"
-
-#define N_BPP (3 - JD_FORMAT)
-
-/* Session identifier for input/output functions (name, members and usage are as user defined) */
-typedef struct {
-    FILE *fp;               /* Input stream */
-    int x;
-    int y;
-    // int width;
-    // int height;
-    uint16_t buff[16*16];
-} IODEV;
-
-static unsigned int file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
-    IODEV *dev = (IODEV*)jd->device;   /* Device identifier for the session (5th argument of jd_prepare function) */
-    if (buff) {
-        /* Read bytes from input stream */
-        return luat_fs_fread(buff, 1, nbyte, dev->fp);
-    } else {
-        /* Remove bytes from input stream */
-        return luat_fs_fseek(dev->fp, nbyte, SEEK_CUR) ? 0 : nbyte;
-    }
-}
-
-static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
-    IODEV *dev = (IODEV*)jd->device;
-    uint16_t* tmp = (uint16_t*)bitmap;
-
-    // rgb高低位swap
-    uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
-    for (size_t i = 0; i < count; i++){
-      if (default_conf->port == LUAT_LCD_HW_ID_0)
-        dev->buff[i] = tmp[i];
-      else
-        dev->buff[i] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
-    }
-    
-    // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
-    // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
-    luat_lcd_draw(default_conf, dev->x + rect->left, dev->y + rect->top,
-                                dev->x + rect->right, dev->y + rect->bottom,
-                                dev->buff);
-    return 1;    /* Continue to decompress */
-}
-
-static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
-  JRESULT res;      /* Result code of TJpgDec API */
-  JDEC jdec;        /* Decompression object */
-  void *work;       /* Pointer to the decompressor work area */
-#if JD_FASTDECODE == 2
-  size_t sz_work = 3500 * 3; /* Size of work area */
-#else
-  size_t sz_work = 3500; /* Size of work area */
-#endif
-  IODEV devid;      /* User defined device identifier */
-
-  FILE* fd = luat_fs_fopen(path, "r");
-  if (fd == NULL) {
-    LLOGW("no such file %s", path);
-    return -1;
-  }
-
-  devid.fp = fd;
-  work = luat_heap_malloc(sz_work);
-  if (work == NULL) {
-    LLOGE("out of memory when malloc jpeg decode workbuff");
-    return -3;
-  }
-  res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
-  if (res != JDR_OK) {
-    luat_heap_free(work);
-    luat_fs_fclose(fd);
-    LLOGW("jd_prepare file %s error %d", path, res);
-    return -2;
-  }
-  devid.x = xpos;
-  devid.y = ypos;
-  // devid.width = jdec.width;
-  // devid.height = jdec.height;
-  res = jd_decomp(&jdec, lcd_out_func, 0);
-  luat_heap_free(work);
-  luat_fs_fclose(fd);
-  if (res != JDR_OK) {
-    LLOGW("jd_decomp file %s error %d", path, res);
-    return -2;
-  }
-  else {
-    lcd_auto_flush(default_conf);
-    return 0;
-  }
-}
-
 /*
 显示图片,当前只支持jpg,jpeg
 @api lcd.showImage(x, y, file)
@@ -1426,21 +1440,7 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
 @usage
 lcd.showImage(0,0,"/luadb/logo.jpg")
 */
-static int l_lcd_showimage(lua_State *L){
-    size_t size = 0;
-    int ret = 0;
-    int x = luaL_checkinteger(L, 1);
-    int y = luaL_checkinteger(L, 2);
-    const char* input_file = luaL_checklstring(L, 3, &size);
-    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
-      ret = lcd_draw_jpeg(input_file, x, y);
-      lua_pushboolean(L, ret == 0 ? 1 : 0);
-    } else{
-      LLOGE("input_file not support");
-      lua_pushboolean(L, 0);
-    }
-    return 1;
-}
+int l_lcd_showimage(lua_State *L);
 #endif
 
 /*
@@ -1452,28 +1452,27 @@ static int l_lcd_showimage(lua_State *L){
 lcd.flush()
 */
 static int l_lcd_flush(lua_State* L) {
-  luat_lcd_conf_t * conf = NULL;
-  if (lua_gettop(L) == 1) {
-    conf = lua_touserdata(L, 1);
-  }
-  else {
-    conf = default_conf;
-  }
-  if (conf == NULL) {
-    //LLOGW("lcd not init");
+    luat_lcd_conf_t * conf = NULL;
+    if (lua_gettop(L) == 1) {
+        conf = lua_touserdata(L, 1);
+    }else {
+        conf = lcd_dft_conf;
+    }
+    if (conf == NULL) {
+        //LLOGW("lcd not init");
+        return 0;
+    }
+    if (conf->buff == NULL) {
+        //LLOGW("lcd without buff, not support flush");
+        return 0;
+    }
+    if (conf->auto_flush) {
+        //LLOGI("lcd auto flush is enable, no need for flush");
+        return 0;
+    }
+    luat_lcd_flush(conf);
+    lua_pushboolean(L, 1);
     return 0;
-  }
-  if (conf->buff == NULL) {
-    //LLOGW("lcd without buff, not support flush");
-    return 0;
-  }
-  if (conf->auto_flush) {
-    //LLOGI("lcd auto flush is enable, no need for flush");
-    return 0;
-  }
-  luat_lcd_flush(conf);
-  lua_pushboolean(L, 1);
-  return 0;
 }
 
 /*
@@ -1492,7 +1491,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     conf = lua_touserdata(L, 1);
   }
   else {
-    conf = default_conf;
+    conf = lcd_dft_conf;
   }
   if (conf == NULL) {
     LLOGW("lcd not init");
@@ -1519,7 +1518,7 @@ static int l_lcd_setup_buff(lua_State* L) {
   conf->flush_y_min = conf->h;
   conf->flush_y_max = 0;
   // luat_lcd_clear 会将区域扩展到整个屏幕
-  luat_lcd_clear(default_conf, BACK_COLOR);
+  luat_lcd_clear(lcd_dft_conf, BACK_COLOR);
   lua_pushboolean(L, 1);
   return 1;
 }
@@ -1535,7 +1534,7 @@ lcd.autoFlush(false)
 -- 禁止自动更新后, 需要使用 lcd.flush() 主动刷新数据到屏幕
 */
 static int l_lcd_auto_flush(lua_State* L) {
-  luat_lcd_conf_t * conf = default_conf;
+  luat_lcd_conf_t * conf = lcd_dft_conf;
   if (conf == NULL) {
     LLOGW("lcd not init");
     return 0;
@@ -1649,8 +1648,8 @@ static const int l_lcd_draw_utf8(lua_State *L) {
       return 1;
     }
     // 超边界了没? 超了就没必要绘制了
-    if (default_conf->h < y || default_conf->w < x) {
-      //LLOGD("draw y %d h % font->line_height %d", y, default_conf->h, font->line_height);
+    if (lcd_dft_conf->h < y || lcd_dft_conf->w < x) {
+      //LLOGD("draw y %d h % font->line_height %d", y, lcd_dft_conf->h, font->line_height);
       // 直接返回原坐标
       lua_pushinteger(L, x);
       return 1;
@@ -1688,8 +1687,8 @@ static const int l_lcd_draw_utf8(lua_State *L) {
         memset(buff, 0, font->line_height * font->line_height * 2);
         draw_x = x + draw_offset;
         draw_offset += desc.char_w;
-        if (draw_x >= 0 &&  draw_x + desc.char_w <= default_conf->w) {
-          //if (default_conf->buff == NULL) {
+        if (draw_x >= 0 &&  draw_x + desc.char_w <= lcd_dft_conf->w) {
+          //if (lcd_dft_conf->buff == NULL) {
             for (size_t j = 0; j < font->line_height; j++)
             {
               //LLOGD("draw char pix line %d", i);
@@ -1700,7 +1699,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
                   if (buff)
                     buff[offset] = FORE_COLOR;
                   else
-                    luat_lcd_draw_point(default_conf, draw_x + k, y + j, FORE_COLOR);
+                    luat_lcd_draw_point(lcd_dft_conf, draw_x + k, y + j, FORE_COLOR);
                   //LLOGD("draw char pix mark %d", offset);
                 }
                 else {
@@ -1712,7 +1711,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
               }
             }
             //LLOGD("luat_lcd_draw %d %d %d %d", draw_x, y, draw_x + desc.char_w, y + font->line_height);
-            luat_lcd_draw(default_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
+            luat_lcd_draw(lcd_dft_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
           //}
           //else {
           //
@@ -1722,7 +1721,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
     if (buff)
       luat_heap_free(buff);
 
-    lcd_auto_flush(default_conf);
+    lcd_auto_flush(lcd_dft_conf);
     lua_pushinteger(L, draw_x + desc.char_w);
     return 1;
 }
@@ -1875,15 +1874,26 @@ static const rotable_Reg_t reg_lcd[] =
 #endif
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
     //@const direction_0 int 0°方向命令
-    { "direction_0",    ROREG_INT(0)},
+    { "direction_0",    ROREG_INT(LUAT_LCD_ROTATE_0)},
     //@const direction_90 int 90°方向命令
-    { "direction_90",   ROREG_INT(1)},
+    { "direction_90",   ROREG_INT(LUAT_LCD_ROTATE_90)},
     //@const direction_180 int 180°方向命令
-    { "direction_180",  ROREG_INT(2)},
+    { "direction_180",  ROREG_INT(LUAT_LCD_ROTATE_180)},
     //@const direction_270 int 270°方向命令
-    { "direction_270",  ROREG_INT(3)},
+    { "direction_270",  ROREG_INT(LUAT_LCD_ROTATE_270)},
+    //@const SPI 硬件spi device lcd驱动
+    { "SPI",            ROREG_INT(LUAT_LCD_SPI_DEVICE)},
     //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
+    //@const RGB 硬件RGB lcd驱动 (根据芯片支持选择)
+    { "RGB",            ROREG_INT(LUAT_LCD_PORT_RGB)},
+
+    // //@const ARM2D 硬件ARM2D lcd驱动 (根据芯片支持选择)
+    // { "ARM2D",         ROREG_INT(LUAT_LCD_PORT_ARM2D)},
+    // //@const DMA2D 硬件DMA2D lcd驱动 (根据芯片支持选择)
+    // { "DMA2D",         ROREG_INT(LUAT_LCD_PORT_DMA2D)},
+
+
     //@const WIRE_3_BIT_9_INTERFACE_I 三线spi 9bit 模式I
     { "WIRE_3_BIT_9_INTERFACE_I",   ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I)},
     //@const WIRE_4_BIT_8_INTERFACE_I 四线spi 8bit 模式I
@@ -1894,6 +1904,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
     //@const DATA_2_LANE int 双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
+	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
 	  {NULL, ROREG_INT(0)}
 };
 

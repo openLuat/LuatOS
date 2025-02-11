@@ -26,7 +26,7 @@ void* luat_heap_zalloc(size_t len);
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-static int network_state = 0;
+
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -506,7 +506,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				{
 					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
-					udp_sendto(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+					udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
@@ -536,7 +536,7 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
-			err = udp_sendto(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			err = udp_sendto_if(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 			pbuf_free(p);
 			if (err) {
 				LLOGE("dns udp sendto ret %d", err);
@@ -669,7 +669,7 @@ static void net_lwip2_task(void *param)
 					if (out_p)
 					{
 						pbuf_take(out_p, p->data, p->len);
-						error = udp_sendto(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port);
+						error = udp_sendto_if(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port, prvlwip.lwip_netif[adapter_index]);
 						// LLOGD("udp_sendto ret %d", error);
 						pbuf_free(out_p);
 					}
@@ -909,9 +909,11 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	// char ip_string[64];
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
 		return;
-	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
+	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)
+		&& netif_is_link_up(prvlwip.lwip_netif[adapter_index])
+		&& netif_is_up(prvlwip.lwip_netif[adapter_index]);
 	if (prvlwip.netif_network_ready[adapter_index] == active_flag) {
-		LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
+		// LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
 		return;
 	}
 	prvlwip.netif_network_ready[adapter_index] = active_flag;
@@ -922,7 +924,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	}
 	else
 	{
-		NET_DBG("network ready");
+		NET_DBG("network ready %d", adapter_index);
 		uint32_t tmp = adapter_index;
 		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
 			NET_DBG("使用网关作为默认DNS服务器");
@@ -966,6 +968,12 @@ static uint8_t net_lwip2_check_ready(void *user_data)
 	// LLOGD("lwip查询网络就绪情况 %d", prvlwip.netif_network_ready[adapter_index]);
 	if (prvlwip.lwip_netif[adapter_index] == NULL) {
 		LLOGD("lwip netif is null %d", adapter_index);
+		return 0;
+	}
+	if (!netif_is_up(prvlwip.lwip_netif[adapter_index])) {
+		return 0;
+	}
+	if (!netif_is_link_up(prvlwip.lwip_netif[adapter_index])) {
 		return 0;
 	}
 	return !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
@@ -1016,7 +1024,15 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 			prvlwip.socket[socket_id].pcb.tcp->errf = net_lwip2_tcp_err_cb;
 			prvlwip.socket[socket_id].pcb.tcp->so_options |= SOF_KEEPALIVE|SOF_REUSEADDR;
 //					tcp_set_flags(prvlwip.socket[socket_id].pcb.tcp, TCP_NODELAY);
-
+			#if LWIP_TCP_KEEPALIVE
+			if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP ||
+				adapter_index == NW_ADAPTER_INDEX_LWIP_ETH) {
+				prvlwip.socket[socket_id].pcb.tcp->keep_intvl = 5*1000;
+				prvlwip.socket[socket_id].pcb.tcp->keep_idle = 45*1000;
+				prvlwip.socket[socket_id].pcb.tcp->keep_cnt = 2;
+			}
+			#endif
 		}
 		else
 		{
@@ -1535,7 +1551,6 @@ int net_lwip_check_all_ack(int socket_id)
 
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown)
 {
-	network_state = updown;
 	// LLOGD("net_lwip2_set_link_state %d %d", adapter_index, updown);
 	platform_send_event(NULL, EV_LWIP_NETIF_LINK_STATE, updown, 0, adapter_index);
 }

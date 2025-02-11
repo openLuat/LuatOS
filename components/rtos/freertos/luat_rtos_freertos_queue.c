@@ -70,3 +70,15 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
 	return 0;
 }
 
+int luat_rtos_queue_get_cnt(luat_rtos_queue_t queue_handle, uint32_t *item_cnt)
+{
+	if (!queue_handle || !item_cnt)
+		return -1;
+	if (luat_rtos_get_ipsr()) {
+		*item_cnt = uxQueueMessagesWaitingFromISR(queue_handle);
+	}
+	else {
+		*item_cnt = uxQueueMessagesWaiting(queue_handle);
+	}
+	return 0;
+}

@@ -1,12 +1,4 @@
 
-/*
-@module  iotauth
-@summary IoT鉴权库, 用于生成各种云平台的参数
-@version core V0007
-@date    2022.08.06
-@demo iotauth
-@tag LUAT_USE_IOTAUTH
-*/
 #include "luat_base.h"
 #include "luat_crypto.h"
 #include "luat_mem.h"

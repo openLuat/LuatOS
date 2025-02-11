@@ -28,6 +28,7 @@ luat_lcd_opts_t lcd_opts_nv3037 = {
     .direction0 = 0x00,
     .direction90 = 0xC0,
     .direction180 = 0x70,
-    .direction270 = 0xA0
+    .direction270 = 0xA0,
+	.rb_swap = 1,
 };
 

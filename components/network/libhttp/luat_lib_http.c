@@ -114,6 +114,10 @@ log.info("http.get", code, headers, body)
 
 -- 自定义超时时间, 5000ms
 http.request("GET","http://httpbin.com/", nil, nil, {timeout=5000}).wait()
+
+-- 分段下载
+local heads = {["Range"] = "bytes=0-99"} --下载0-99之间的数据
+http.request("GET","http://httpbin.air32.cn/get", heads, nil, {timeout=5000}).wait()
 */
 static int l_http_request(lua_State *L) {
 	size_t server_cert_len = 0,client_cert_len = 0, client_key_len = 0, client_password_len = 0,len = 0;
@@ -134,7 +138,7 @@ static int l_http_request(lua_State *L) {
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 
-	http_ctrl->timeout = HTTP_TIMEOUT;
+	http_ctrl->timeout = 0;
 	int use_ipv6 = 0;
 	int is_debug = 0;
 
@@ -149,7 +153,7 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "timeout");
 		if (LUA_TNUMBER == lua_gettable(L, 5)) {
-			http_ctrl->timeout = luaL_optinteger(L, -1, HTTP_TIMEOUT);
+			http_ctrl->timeout = luaL_optinteger(L, -1, 0);
 		}
 		lua_pop(L, 1);
 
@@ -231,6 +235,20 @@ static int l_http_request(lua_State *L) {
 		LLOGE("netc create fail");
 		goto error;
 	}
+	#ifdef LUAT_USE_FOTA
+	if (http_ctrl->timeout < 1000 && http_ctrl->isfota) {
+		http_ctrl->timeout = HTTP_TIMEOUT;
+	}
+	#endif
+	if (http_ctrl->timeout < 1000) {
+		if (http_ctrl->is_download) {
+			http_ctrl->timeout = HTTP_TIMEOUT;
+		}
+		else {
+			http_ctrl->timeout = 60*1000;
+		}
+	}
+	LLOGD("http action timeout %dms", http_ctrl->timeout);
 
     luat_http_client_init(http_ctrl, use_ipv6);
 	http_ctrl->netc->is_debug = (uint8_t)is_debug;
@@ -449,6 +467,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 #endif
+	else if (http_ctrl->zbuff_body) {
+		lua_pushinteger(L, http_ctrl->body_len);
+		luat_cbcwait(L, idp, 3); // code, headers, body
+	}
 	else {
 		// 非下载模式
 		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);

@@ -79,7 +79,7 @@ err_t ulwip_ip_input_cb(struct pbuf *p, struct netif *inp) {
             rtos_msg_t msg = {0};
             msg.handler = l_ulwip_netif_output_cb;
             msg.arg1 = p->tot_len + 14;
-            msg.arg2 = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+            msg.arg2 = napt_target_adapter;
             msg.ptr = ptr;
             luat_msgbus_put(&msg, 0);
             return ERR_OK;

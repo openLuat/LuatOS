@@ -336,8 +336,8 @@ typedef struct
 	CBFuncEx_t socket_cb[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	void *user_data[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	struct udp_pcb *dns_udp;
-//	uint32_t socket_busy;
-//	uint32_t socket_connect;
+	uint32_t socket_busy;
+	uint32_t socket_connect;
 	HANDLE dns_timer;//dhcp_fine_tmr,dhcp6_tmr
 	uint8_t netif_network_ready[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint8_t dns_adapter_index;
@@ -345,6 +345,7 @@ typedef struct
 	uint8_t next_socket_index;
 	uint8_t fast_rx_ack;
 	uint8_t only_ipv6;
+	uint8_t check_enable;
 }net_lwip_ctrl_struct;
 
 static net_lwip_ctrl_struct prvlwip;
@@ -430,14 +431,14 @@ static void net_lwip_callback_to_nw_task(uint8_t adapter_index, uint32_t event_i
 			param.tag = ((luat_network_cb_param_t *)param3)->tag;
 		}
 	}
-//	switch(event_id)
-//	{
-//	case EV_NW_SOCKET_CLOSE_OK:
-//	case EV_NW_SOCKET_CONNECT_OK:
-//	case EV_NW_SOCKET_ERROR:
-//		prvlwip.socket_busy &= ~(1 << param1);
-//		break;
-//	}
+	switch(event_id)
+	{
+	case EV_NW_SOCKET_CLOSE_OK:
+	case EV_NW_SOCKET_CONNECT_OK:
+	case EV_NW_SOCKET_ERROR:
+		prvlwip.socket_busy &= ~(1 << param1);
+		break;
+	}
 	prvlwip.socket_cb[adapter_index](&event, &param);
 }
 
@@ -506,8 +507,8 @@ static void net_lwip_tcp_close_done(uint8_t adapter_index, int socket_id, uint8_
 	llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, net_lwip_del_data_cache, NULL);
 	llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip_del_data_cache, NULL);
 	llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip_del_data_cache, NULL);
-//	prvlwip.socket_busy &= ~(1 << socket_id);
-//	prvlwip.socket_connect &= ~(1 << socket_id);
+	prvlwip.socket_busy &= ~(1 << socket_id);
+	prvlwip.socket_connect &= ~(1 << socket_id);
 	OS_UNLOCK;
 	SOCKET_UNLOCK(socket_id);
 	if (notify)
@@ -905,7 +906,7 @@ void net_lwip_do_event(OS_EVENT event)
 				}
 				SOCKET_UNLOCK(socket_id);
 				tcp_output(prvlwip.socket[socket_id].pcb.tcp);
-//				prvlwip.socket_busy |= (1 << socket_id);
+				prvlwip.socket_busy |= (1 << socket_id);
 			}
 			else
 			{
@@ -1352,8 +1353,8 @@ static int net_lwip_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, ui
 	if (socket_id >= 0)
 	{
 		LWIP_ASSERT("socket must free before create", !prvlwip.socket[socket_id].pcb.ip);
-//		prvlwip.socket_busy &= ~(1 << socket_id);
-//		prvlwip.socket_connect &= ~(1 << socket_id);
+		prvlwip.socket_busy &= ~(1 << socket_id);
+		prvlwip.socket_connect &= ~(1 << socket_id);
 		prvlwip.socket_tag++;
 		*tag = prvlwip.socket_tag;
 		prvlwip.socket[socket_id].in_use = 1;
@@ -2088,25 +2089,42 @@ int net_lwip_check_all_ack(int socket_id)
 	if (!llist_empty(&prvlwip.socket[socket_id].wait_ack_head))
 	{
 		NET_DBG("socekt %d not all ack", socket_id);
-//		prvlwip.socket_busy |= (1 << socket_id);
+		prvlwip.socket_busy |= (1 << socket_id);
 		return -1;
 	}
 	if (!llist_empty(&prvlwip.socket[socket_id].tx_head))
 	{
 		NET_DBG("socekt %d not all send", socket_id);
-//		prvlwip.socket_busy |= (1 << socket_id);
+		prvlwip.socket_busy |= (1 << socket_id);
 		return -1;
 	}
 	if (prvlwip.socket[socket_id].pcb.tcp->snd_buf != TCP_SND_BUF)
 	{
 		NET_DBG("socket %d send buf %ubytes, need %u",socket_id, prvlwip.socket[socket_id].pcb.tcp->snd_buf, TCP_SND_BUF);
-//		prvlwip.socket_busy |= (1 << socket_id);
+		prvlwip.socket_busy |= (1 << socket_id);
 	}
-//	else
-//	{
-//		prvlwip.socket_busy &= ~(1 << socket_id);
-//	}
+	else
+	{
+		prvlwip.socket_busy &= ~(1 << socket_id);
+	}
 	return 0;
+}
+
+void net_lwip_check_switch(uint8_t onoff)
+{
+	prvlwip.check_enable = onoff;
+}
+
+uint8_t soc_network_check_free_hook(void)
+{
+	if (prvlwip.check_enable)
+	{
+		return !(prvlwip.dns_client.is_run || prvlwip.socket_busy || prvlwip.socket_connect);
+	}
+	else
+	{
+		return 1;
+	}
 }
 
 void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif)

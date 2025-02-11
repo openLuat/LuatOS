@@ -1121,8 +1121,16 @@ static int l_socket_set_dns(lua_State *L)
 	    }
 	}
 #endif
-	network_set_dns_server(adapter_index, dns_index - 1, &ip_addr);
-	lua_pushboolean(L, 1);
+	void* userdata = NULL;
+	network_adapter_info* info = network_adapter_fetch(adapter_index, &userdata);
+	if (info == NULL) {
+		LLOGW("adapter_index is invaild %d", adapter_index);
+		lua_pushboolean(L, 0);
+	}
+	else {
+		network_set_dns_server(adapter_index, dns_index - 1, &ip_addr);
+		lua_pushboolean(L, 1);
+	}
 	return 1;
 }
 
@@ -1249,6 +1257,31 @@ NO_REMOTE_IP:
 	return 4;
 }
 
+/*
+设置默认网络适配器编号
+@api socket.dft(id)
+@int 默认适配器编号,若不传,则打包获取
+@return int 默认适配器编号
+@usage
+-- 本函数于 2025.1.6 新增
+-- 获取当前默认适配器编号
+local id = socket.dft()
+
+-- 设置默认适配器编号
+socket.dft(socket.LWIP_ETH)
+*/
+static int l_socket_default(lua_State *L) {
+	uint8_t id = 0;
+	if (lua_type(L, 1) == LUA_TNUMBER) {
+		id = (uint8_t)luaL_checkinteger(L, 1);
+		if (id < NW_ADAPTER_QTY) {
+			network_register_set_default(id);
+		}
+	}
+	lua_pushinteger(L, network_get_last_register_adapter());
+	return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
@@ -1272,6 +1305,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
+	{"dft",                 ROREG_FUNC(l_socket_default)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         		ROREG_FUNC(l_sntp_get)},
 	{"ntptm",           	ROREG_FUNC(l_sntp_tm)},
@@ -1299,6 +1333,25 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "TX_OK",     			ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
     //@const CLOSED number CLOSED事件
 	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
+
+	//@const LWIP_USER0 number 使用LWIP协议栈的自定义网卡0, 2025.1.12新增
+	{ "LWIP_USER0",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER0)},
+	//@const LWIP_USER1 number 使用LWIP协议栈的自定义网卡1, 2025.1.12新增
+	{ "LWIP_USER1",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER1)},
+	//@const LWIP_USER2 number 使用LWIP协议栈的自定义网卡2, 2025.1.12新增
+	{ "LWIP_USER2",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER2)},
+	//@const LWIP_USER3 number 使用LWIP协议栈的自定义网卡3, 2025.1.12新增
+	{ "LWIP_USER3",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER3)},
+	//@const LWIP_USER4 number 使用LWIP协议栈的自定义网卡4, 2025.1.12新增
+	{ "LWIP_USER4",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER4)},
+	//@const LWIP_USER5 number 使用LWIP协议栈的自定义网卡5, 2025.1.12新增
+	{ "LWIP_USER5",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER5)},
+	//@const LWIP_USER6 number 使用LWIP协议栈的自定义网卡6, 2025.1.12新增
+	{ "LWIP_USER6",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER6)},
+	//@const LWIP_USER7 number 使用LWIP协议栈的自定义网卡7, 2025.1.12新增
+	{ "LWIP_USER7",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER7)},
+	
+
 	{ NULL,            		ROREG_INT(0)}
 };
 

@@ -15,6 +15,8 @@
 //           DHCP 客户端逻辑
 // -------------------------------------
 
+static void dhcp_client_timer_cb(void *arg);
+
 static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     PV_Union uIP;
     // 检查dhcp的状态
@@ -26,6 +28,11 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
 	uint32_t remote_ip = 0;
     int result = 0;
 
+    if (!netif_is_up(netif) || !netif_is_link_up(netif)) {
+        LLOGD("网卡未就绪,不发送dhcp请求 %d", ctx->adapter_index);
+        return 0;
+    }
+
     if (rxbuff) {
         rx_msg_buf.Data = (uint8_t*)rxbuff;
         rx_msg_buf.Pos = len;
@@ -34,6 +41,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
 
     // 看看是不是获取成功了
     if (DHCP_STATE_CHECK == dhcp->state) {
+on_check:
         uIP.u32 = dhcp->ip;
 		LLOGD("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = dhcp->submask;
@@ -49,19 +57,26 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
         dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
         if (rxbuff) {
             luat_heap_free(rxbuff);
+            rxbuff = NULL;
         }
         ulwip_netif_ip_event(ctx);
+        luat_rtos_timer_stop(ctx->dhcp_timer);
+        luat_rtos_timer_start(ctx->dhcp_timer, 60000, 1, dhcp_client_timer_cb, ctx);
         return 0;
     }
     result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
     if (rxbuff) {
         luat_heap_free(rxbuff);
+        rxbuff = NULL;
     }
     if (result) {
         LLOGE("ip4_dhcp_run error %d", result);
         return 0;
     }
     if (!tx_msg_buf.Pos) {
+        if (DHCP_STATE_CHECK == dhcp->state) {
+            goto on_check;
+        }
         return 0; // 没有数据需要发送
     }
     // 通过UDP发出来
@@ -76,13 +91,16 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
         data += q->len;
     }
     data = p->payload;
-    // LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
+    LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
     udp_sendto_if(ctx->dhcp_pcb, p, IP_ADDR_BROADCAST, 67, netif);
     pbuf_free(p);
     return 0;
 }
 
 static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+    if (addr == NULL || port != 67 || pcb == NULL) {
+        return 0;
+    }
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
     char* ptr = luat_heap_malloc(p->tot_len);
@@ -118,19 +136,27 @@ static void dhcp_client_timer_cb(void *arg) {
     #endif
 }
 
-void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
-    if (!ctx->dhcp_client) {
-        ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
-        memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
-        memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
-        luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
-        sprintf_(ctx->dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
+static void reset_dhcp_client(ulwip_ctx_t *ctx) {
+    memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
+    memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
+    luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
+    sprintf_(ctx->dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
 			ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
 			ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+}
+
+void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
+    LLOGD("dhcp start netif %p", ctx->netif);
+    if (!ctx->dhcp_client) {
+        ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
+        reset_dhcp_client(ctx);
         luat_rtos_timer_create(&ctx->dhcp_timer);
         ctx->dhcp_pcb = udp_new();
         ip_set_option(ctx->dhcp_pcb, SOF_BROADCAST);
         udp_bind(ctx->dhcp_pcb, IP4_ADDR_ANY, 68);
+        #ifdef udp_bind_netif
+        udp_bind_netif(ctx->dhcp_pcb, ctx->netif);
+        #endif
         udp_connect(ctx->dhcp_pcb, IP4_ADDR_ANY, 67);
         udp_recv(ctx->dhcp_pcb, ulwip_dhcp_recv, ctx);
     }
@@ -145,7 +171,9 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
 }
 
 void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
-    if (luat_rtos_timer_is_active(ctx->dhcp_timer)) {
+    LLOGD("dhcp stop netif %p", ctx->netif);
+    if (ctx->dhcp_timer != NULL && luat_rtos_timer_is_active(ctx->dhcp_timer)) {
         luat_rtos_timer_stop(ctx->dhcp_timer);
+        reset_dhcp_client(ctx);
     }
 }

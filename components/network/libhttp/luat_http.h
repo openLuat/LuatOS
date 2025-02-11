@@ -1,6 +1,6 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
-
+#include "luat_network_adapter.h"
 #ifdef __LUATOS__
 #include "luat_zbuff.h"
 #else
@@ -36,8 +36,8 @@ typedef struct luat_zbuff {
 #include "http_parser.h"
 
 #define HTTP_CALLBACK 		(1)
-#define HTTP_RE_REQUEST_MAX (3)
-#define HTTP_TIMEOUT 		(10*60*1000) // 10分钟
+// #define HTTP_RE_REQUEST_MAX (3)
+#define HTTP_TIMEOUT 		(5*60*1000) // 10分钟
 
 /**
  * @defgroup luatos_HTTP  HTTP(S)相关接口

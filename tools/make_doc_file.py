@@ -4,13 +4,10 @@ import requests
 
 #bsp.h文件列表
 bsp_header_list = [
+{"name":"Air780EPM","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780epm.h"},
 {"name":"Air780E","url":"https://github.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
 {"name":"Air780EP","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_dft.h"},
 {"name":"Air780EPS","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780eps.h"},
-{"name":"Air780EQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air780eq.h"},
-{"name":"Air700EAQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
-{"name":"Air700EMQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
-{"name":"Air700ECQ","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air700exq.h"},
 {"name":"Air201","url":"https://github.com/openLuat/luatos-soc-2024/raw/master/project/luatos/inc/luat_conf_bsp_air201.h"},
 ]
 print("getting bsp.h files...")
@@ -104,18 +101,18 @@ def make(path,modules,index_text):
         mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
 
         #支持的芯片
-        mdoc.write(get_tags(module["tag"]))
-        mdoc.write("\n\n")
+        # mdoc.write(get_tags(module["tag"]))
+        # mdoc.write("\n\n")
 
-        if len(module["url"]) > 0:
-            mdoc.write("```{note}\n本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n```\n\n")
+        # if len(module["url"]) > 0:
+        #     mdoc.write("```{note}\n本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n```\n\n")
 
-        if len(module["demo"]) > 0:
-            mdoc.write("```{tip}\n本库有专属demo，[点此链接查看"+module["module"]+"的demo例子]("+module["demo"]+")\n```\n")
-        if len(module["video"]) > 0:
-            mdoc.write("```{tip}\n本库还有视频教程，[点此链接查看]("+module["video"]+")\n```\n\n")
-        else:
-            mdoc.write("\n")
+        # if len(module["demo"]) > 0:
+        #     mdoc.write("```{tip}\n本库有专属demo，[点此链接查看"+module["module"]+"的demo例子]("+module["demo"]+")\n```\n")
+        # if len(module["video"]) > 0:
+        #     mdoc.write("```{tip}\n本库还有视频教程，[点此链接查看]("+module["video"]+")\n```\n\n")
+        # else:
+        #     mdoc.write("\n")
 
         if len(module["usage"]) > 0:
             mdoc.write("**示例**\n\n")

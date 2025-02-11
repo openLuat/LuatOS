@@ -1,6 +1,6 @@
 #ifndef LUAT_FTP_H
 #define LUAT_FTP_H
-
+#include "luat_network_adapter.h"
 #define FTP_CMD_SEND_MAX 		(128)
 #define FTP_CMD_RECV_MAX 		(1024)
 #define PUSH_BUFF_SIZE 			(4096)

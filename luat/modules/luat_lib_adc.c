@@ -153,7 +153,7 @@ static const rotable_Reg_t reg_adc[] =
 	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
 	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
 	//@const ADC_RANGE_3_8 number air780E开启ADC0,1分压电阻，范围0~3.8V
-	{ "ADC_RANGE_3_8",   ROREG_INT(7)},
+	{ "ADC_RANGE_3_8",   ROREG_INT(LUAT_ADC_AIO_RANGE_3_8)},
 	//@const ADC_RANGE_1_2 number air780E关闭ADC0,1分压电阻，范围0~1.2V
 	{ "ADC_RANGE_1_2",   ROREG_INT(0)},
 	{ "ADC_RANGE_MAX",   ROREG_INT(LUAT_ADC_AIO_RANGE_MAX)},

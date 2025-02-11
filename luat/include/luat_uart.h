@@ -229,6 +229,9 @@ void luat_uart_soft_hwtimer_onoff(int hwtimer_id, uint32_t period);
 
 void luat_uart_soft_sleep_enable(uint8_t is_enable);
 #endif
+
+int luat_uart_wait_485_tx_done(int uartid);
+
 /** @}*/
 /** @}*/
 #endif

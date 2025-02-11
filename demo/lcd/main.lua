@@ -122,23 +122,9 @@ else
     -- lcd.init("st7789",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 end
 
-<<<<<<< HEAD
-
-
 --如果显示颜色相反，请解开下面一行的注释，关闭反色
 --lcd.invoff()
 
-=======
-    --如果显示颜色相反，请解开下面一行的注释，关闭反色
-    --lcd.invoff()
-    --0.96寸TFT如果显示依旧不正常，可以尝试老版本的板子的驱动
-    -- lcd.init("st7735s",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
-	
-	--lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 480,h = 480,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=658,vbp=19,vfp=108,vs=2},spi_lcd)
-    --lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
-    --lcd.autoFlush(false)
-	
->>>>>>> c5a8d9f9bacfa00f088cb391f3d5019d108c0c20
 -- 不在内置驱动的, 看demo/lcd_custom
 
 
@@ -165,13 +151,11 @@ sys.taskInit(function()
         log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
         log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
         log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
-<<<<<<< HEAD
+
         if lcd_use_buff then
             lcd.flush()
         end
-=======
-		lcd.flush()
->>>>>>> c5a8d9f9bacfa00f088cb391f3d5019d108c0c20
+
         sys.wait(1000)
     end
 end)

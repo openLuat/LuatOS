@@ -207,7 +207,9 @@ function libfota2.request(cbFnc, opts)
             opts.url = string.format("%simei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei, opts.project_key, opts.firmware_name, opts.version)
         end
     else
-        opts.url = opts.url:sub(4)
+        if opts.url:sub(1,3)=="###" then
+            opts.url = opts.url:sub(4)
+        end
     end
     opts.url_done = true
     -- 处理method

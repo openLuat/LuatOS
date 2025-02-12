@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
-VERSION = "1.0.2"
+VERSION = "1.0.4"
 
 
 -- sys库是标配
@@ -11,6 +11,7 @@ _G.sysplus = require("sysplus")
 
 sys.taskInit(function()
     sys.wait(1000)
+    gpio.setup(13, 1, gpio.PULLUP) -- 打开开发板的LDO供电,否则3.3V没电
     netdrv.setup(socket.LWIP_ETH)
     netdrv.dhcp(socket.LWIP_ETH, true)
 end)

@@ -43,8 +43,8 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
         -- 设置分压要在adc.open之前设置，否则无效!!
         -- adc.setRange(adc.ADC_RANGE_MAX)
         return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT 
-    elseif rtos_bsp == "UIS8850BM" then 
-        return 0,255,255,255, adc.CH_CPU ,adc.CH_VBAT 
+    elseif string.find(rtos_bsp,"UIS") then 
+        return 0,1,255,255, adc.CH_CPU ,adc.CH_VBAT 
     else
         log.info("main", "define ADC pin in main.lua")
         return 255,255,255,255, adc.CH_CPU ,adc.CH_VBAT 

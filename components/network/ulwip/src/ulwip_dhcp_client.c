@@ -102,8 +102,9 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         return 0;
     }
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
+    u16_t total_len = p->tot_len;
     ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
-    char* ptr = luat_heap_malloc(p->tot_len);
+    char* ptr = luat_heap_malloc(total_len);
     if (!ptr) {
         return ERR_OK;
     }
@@ -113,7 +114,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         offset += p->len;
         p = p->next;
     } while (p);
-    ulwip_dhcp_client_run(ctx, ptr, p->tot_len);
+    ulwip_dhcp_client_run(ctx, ptr, total_len);
     // LLOGD("传递DHCP数据包");
     return ERR_OK;
 }

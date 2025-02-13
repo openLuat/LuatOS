@@ -1,5 +1,6 @@
 #include "luat_base.h"
 #include "luat_tp.h"
+#include "luat_msgbus.h"
 
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
@@ -11,44 +12,90 @@
 typedef struct tp_reg {
     const char *name;
     const luat_tp_config_t *luat_tp_config;
-  }tp_reg_t;
+}tp_reg_t;
 
 static const tp_reg_t tp_regs[] = {
     {"gt911",  &tp_config_gt911},
     {"", NULL}
-  };
+};
+
+static int l_tp_handler(lua_State* L, void* ptr) {
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    luat_tp_config_t* luat_tp_config = msg->ptr;
+    luat_tp_data_t* luat_tp_data = msg->arg1;
+
+    if (luat_tp_config->luat_cb) {
+        lua_geti(L, LUA_REGISTRYINDEX, luat_tp_config->luat_cb);
+        if (lua_isfunction(L, -1)) {
+            lua_pushlightuserdata(L, luat_tp_config);
+            lua_newtable(L);
+            lua_pushstring(L, "event");
+            lua_pushinteger(L, luat_tp_data->event);
+            lua_settable(L, -3);
+            lua_pushstring(L, "track_id");
+            lua_pushinteger(L, luat_tp_data->track_id);
+            lua_settable(L, -3);
+            lua_pushstring(L, "x");
+            lua_pushinteger(L, luat_tp_data->x_coordinate);
+            lua_settable(L, -3);
+            lua_pushstring(L, "y");
+            lua_pushinteger(L, luat_tp_data->y_coordinate);
+            lua_settable(L, -3);
+            lua_pushstring(L, "width");
+            lua_pushinteger(L, luat_tp_data->width);
+            lua_settable(L, -3);
+            lua_pushstring(L, "timestamp");
+            lua_pushinteger(L, luat_tp_data->timestamp);
+            lua_settable(L, -3);
+            lua_call(L, 2, 0);
+        }
+    }
+    return 0;
+}
+
+int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
+    rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
+    luat_msgbus_put(&msg, 1);
+    return 0;
+}
 
 static int l_tp_init(lua_State* L){
     int ret;
     size_t len = 0;
-    luat_tp_config_t *luat_tp = (luat_tp_config_t *)lua_newuserdata(L, sizeof(luat_tp_config_t));
-    if (luat_tp == NULL) {
+    luat_tp_config_t *luat_tp_config = (luat_tp_config_t *)lua_newuserdata(L, sizeof(luat_tp_config_t));
+    if (luat_tp_config == NULL) {
         LLOGE("out of system memory!!!");
         return 0;
     }
-    memset(luat_tp, 0x00, sizeof(luat_tp_config_t));
-    const char* tp_name = luaL_checklstring(L, 1, &len);
+    memset(luat_tp_config, 0x00, sizeof(luat_tp_config_t));
+    luat_tp_config->callback = l_tp_callback;
 
+    const char* tp_name = luaL_checklstring(L, 1, &len);
     for(int i = 0; i < 100; i++){
         if (strlen(tp_regs[i].name) == 0)
           break;
         if(strcmp(tp_regs[i].name,tp_name) == 0){
-            luat_tp->opts = tp_regs[i].luat_tp_config;
+            luat_tp_config->opts = tp_regs[i].luat_tp_config;
             break;
         }
     }
-
-    if (luat_tp->opts == NULL){
+    if (luat_tp_config->opts == NULL){
         LLOGE("tp_name:%s not found!!!", tp_name);
         return 0;
     }
+
+	if (lua_isfunction(L, 3)) {
+		lua_pushvalue(L, 3);
+		luat_tp_config->luat_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+
     lua_settop(L, 2);
     lua_pushstring(L, "port");
     int port = lua_gettable(L, 2);
     if (LUA_TNUMBER == port) {
-        luat_tp->i2c_id = luaL_checkinteger(L, -1);
+        luat_tp_config->i2c_id = luaL_checkinteger(L, -1);
     }else if(LUA_TUSERDATA == port){
-        luat_tp->soft_i2c = (luat_ei2c_t*)lua_touserdata(L, -1);
+        luat_tp_config->soft_i2c = (luat_ei2c_t*)lua_touserdata(L, -1);
     }else{
         LLOGE("port type error!!!");
         return 0;
@@ -57,58 +104,51 @@ static int l_tp_init(lua_State* L){
 
     lua_pushstring(L, "pin_rst");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->pin_rst = luaL_checkinteger(L, -1);
+        luat_tp_config->pin_rst = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "pin_int");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->pin_int = luaL_checkinteger(L, -1);
+        luat_tp_config->pin_int = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "w");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->w = luaL_checkinteger(L, -1);
+        luat_tp_config->w = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "h");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->h = luaL_checkinteger(L, -1);
+        luat_tp_config->h = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "refresh_rate");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->refresh_rate = luaL_checkinteger(L, -1);
+        luat_tp_config->refresh_rate = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "int_type");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->int_type = luaL_checkinteger(L, -1);
+        luat_tp_config->int_type = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
     lua_pushstring(L, "tp_num");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
-        luat_tp->tp_num = luaL_checkinteger(L, -1);
+        luat_tp_config->tp_num = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
 
+    // luat_tp_config->luat_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
-    // luat_tp->i2c_id = 0,
-    // luat_tp->pin_rst = gpio_rst,
-    // luat_tp->pin_int = gpio_int,
-    // luat_tp->soft_i2c = &soft_i2c,
-    // luat_tp->w = 320,
-    // luat_tp->h = 480,
-    // luat_tp->refresh_rate = 20,
-    // luat_tp->int_type = TP_INT_TYPE_FALLING_EDGE,
-    // luat_tp->tp_num = 1,
-    // luat_tp->opts = &tp_config_gt911;
-
-    // LLOGD("l_tp_init luat_tp:%p ",luat_tp);
-
-
-    ret = luat_tp_init(luat_tp);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 1;
+    ret = luat_tp_init(luat_tp_config);
+    if (ret){
+        // luat_tp_deinit(luat_tp_config);
+        // luaL_unref(L, LUA_REGISTRYINDEX, luat_tp_config->luat_ref);
+        return 0;
+    }else{
+        lua_pushlightuserdata(L, luat_tp_config);
+        return 1;
+    }
 }
 
 

@@ -5,6 +5,8 @@
 #include "luat_rtos.h"
 #include "luat_i2c.h"
 
+#define LUAT_TP_TOUCH_MAX 10
+
 extern luat_rtos_task_handle tp_task_handle;
 
 typedef struct luat_tp_config luat_tp_config_t;
@@ -49,8 +51,11 @@ typedef struct luat_tp_config{
     uint8_t int_type;
     int16_t w;
     int16_t h;
+    int luat_ref;
+    void* luat_cb;
     luat_tp_opts_t* opts;
     int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
+    luat_tp_data_t tp_data[LUAT_TP_TOUCH_MAX];
 } luat_tp_config_t;
 
 typedef struct luat_tp_opts {

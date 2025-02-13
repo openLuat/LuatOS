@@ -161,7 +161,7 @@ int tp_gt911_read_status(luat_tp_config_t* luat_tp_config, uint8_t *status){
 		LLOGE("read status reg fail!\r\n");
 		return -1;
 	}
-	LLOGD("status=0x%02X\r\n", *status); // 调试需要看!!!
+	// LLOGD("status=0x%02X\r\n", *status); // 调试需要看!!!
 	return 0;
 }
 
@@ -369,8 +369,7 @@ void gt911_touch_down(void *buf, int8_t id, int16_t x, int16_t y, int16_t w){
 	pre_w[id] = w;
 }
 
-void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t num){
-	uint8_t touch_num = 0;
+void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 	uint8_t *read_buf = input_buff;
 	uint8_t read_index;
 	int8_t read_id = 0;
@@ -380,8 +379,6 @@ void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t num){
 
 	static uint8_t pre_touch = 0;
 	static int8_t pre_id[GT911_TOUCH_NUMBER_MAX] = {0};
-
-	touch_num = num;
 
 	if (pre_touch > touch_num){                                       /* point up */
 		for (read_index = 0; read_index < pre_touch; read_index++){
@@ -440,19 +437,18 @@ void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t num){
 
 static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
     static uint8_t pre_touch = 0;
-    uint8_t read_num = 0, touch_num=0, point_status=0;
-    luat_tp_info_t luat_touch_info = {0};
-    tp_gt911_get_info(luat_tp_config, &luat_touch_info);
-    read_num = luat_touch_info.touch_num;
-    LLOGD("tp_gt911_read read_num:%d",read_num);
+    uint8_t touch_num=0, point_status=0;
+
+    // luat_tp_info_t luat_touch_info = {0};
+    // tp_gt911_get_info(luat_tp_config, &luat_touch_info);
+    // uint8_t read_num = luat_touch_info.touch_num;
+    // LLOGD("tp_gt911_read read_num:%d",read_num);
 
     tp_gt911_read_status(luat_tp_config, &point_status);
     if (point_status == 0){           /* no data */
-        read_num = 0;
         goto exit_;
     }
     if ((point_status & 0x80) == 0){  /* data is not ready */
-        read_num = 0;
         goto exit_;
     }
     touch_num = point_status & 0x0F;  /* get point num */
@@ -461,7 +457,7 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
         goto exit_;
     }
     
-    LLOGD("tp_gt911_read touch_num:%d",touch_num);
+    // LLOGD("tp_gt911_read touch_num:%d",touch_num);
 
     if (touch_num){
         memset(read_buff, 0x00, sizeof(read_buff));
@@ -474,7 +470,6 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
     
 exit_:
     tp_gt911_clear_status(luat_tp_config);
-    luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
     return touch_num;
 }
 

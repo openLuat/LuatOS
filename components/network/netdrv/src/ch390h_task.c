@@ -86,7 +86,7 @@ static luat_ch390h_cstring_t* new_cstring(uint16_t len) {
 static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(qt, &len);
-    if (len > 1024) {
+    if (len >= 1000) {
         LLOGW("太多待处理消息了!!! %d", len);
         luat_heap_opt_free(pkg_mem_type, cs);
         return;
@@ -222,6 +222,19 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         }
         // 读取MAC地址, 开始初始化
         luat_ch390h_read_mac(ch, buff);
+        for (size_t i = 0; i < 6; i++)
+        {
+            if (buff[i] == 0) {
+                LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+                return 0;
+            }
+        }
+        luat_ch390h_read_mac(ch, buff + 6);
+        if (memcmp(buff, buff+6, 6)) {
+            LLOGE("读取2次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+            return 0;
+        }
+        
         LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
         // TODO 判断mac是否合法
         memcpy(ch->hwaddr, buff, 6);

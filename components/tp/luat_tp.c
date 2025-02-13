@@ -26,7 +26,7 @@ void luat_tp_task_entry(void* param){
                             tp_data[i].timestamp);
             }
             if (tp_config_gt911.callback){
-                tp_config_gt911.callback(&tp_data[i]);
+                tp_config_gt911.callback(luat_tp_config,&tp_data[i]);
             }
         }
     }

@@ -5,8 +5,8 @@
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
 
-extern luat_tp_config_t tp_config_gt911;
-luat_rtos_task_handle tp_task_handle = 0;
+
+luat_rtos_task_handle tp_task_handle = NULL;
 
 void luat_tp_task_entry(void* param){
     uint32_t message_id = 0;
@@ -14,7 +14,7 @@ void luat_tp_task_entry(void* param){
     luat_tp_data_t tp_data[10];
     while (1){
         luat_rtos_message_recv(tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
-        uint8_t touch_num = tp_config_gt911.read(luat_tp_config,tp_data);
+        uint8_t touch_num = luat_tp_config->opts->read(luat_tp_config,tp_data);
         for (uint8_t i=0; i<10; i++){
             if ((TP_EVENT_TYPE_DOWN == tp_data[i].event) || (TP_EVENT_TYPE_UP == tp_data[i].event) || (TP_EVENT_TYPE_MOVE == tp_data[i].event)){
                 LLOGD("event=%d, track_id=%d, x=%d, y=%d, s=%d, timestamp=%u.\r\n", 
@@ -25,8 +25,8 @@ void luat_tp_task_entry(void* param){
                             tp_data[i].width,
                             tp_data[i].timestamp);
             }
-            if (tp_config_gt911.callback){
-                tp_config_gt911.callback(luat_tp_config,&tp_data[i]);
+            if (luat_tp_config->callback){
+                luat_tp_config->callback(luat_tp_config,&tp_data[i]);
             }
         }
     }

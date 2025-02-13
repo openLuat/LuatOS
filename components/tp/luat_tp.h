@@ -8,7 +8,7 @@
 extern luat_rtos_task_handle tp_task_handle;
 
 typedef struct luat_tp_config luat_tp_config_t;
-
+typedef struct luat_tp_opts luat_tp_opts_t;
 typedef struct luat_touch_info{
     union{
         struct {
@@ -49,11 +49,16 @@ typedef struct luat_tp_config{
     uint8_t int_type;
     int16_t w;
     int16_t h;
+    luat_tp_opts_t* opts;
+    int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
+} luat_tp_config_t;
+
+typedef struct luat_tp_opts {
+    const char* name;
     int (*init)(luat_tp_config_t* luat_tp_config);
     int (*read)(luat_tp_config_t* luat_tp_config, uint8_t* data);
     void (*deinit)(luat_tp_config_t* luat_tp_config);
-    int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
-} luat_tp_config_t;
+} luat_tp_opts_t;
 
 typedef enum{
 	TP_EVENT_TYPE_NONE = 0,
@@ -67,17 +72,9 @@ typedef enum{
 	TP_INT_TYPE_FALLING_EDGE,
 } luat_tp_int_type_t;
 
+extern luat_tp_opts_t tp_config_gt911;
+
 int luat_tp_init(luat_tp_config_t* luat_tp_config);
-
-
-
-
-
-
-
-
-
-
 
 
 

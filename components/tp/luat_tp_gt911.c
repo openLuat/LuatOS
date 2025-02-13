@@ -220,17 +220,6 @@ static int tp_gt911_gpio_init(luat_tp_config_t* luat_tp_config){
     luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(5);
 
-    // if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
-    //     luat_gpio_t gpio = {0};
-    //     gpio.pin = luat_tp_config->pin_int;
-    //     gpio.mode = Luat_GPIO_IRQ;
-    //     gpio.pull = Luat_GPIO_DEFAULT;
-    //     gpio.irq = Luat_GPIO_FALLING;
-    //     gpio.irq_cb = luat_tp_irq_cb;
-    //     gpio.irq_args = luat_tp_config;
-    //     luat_gpio_setup(&gpio);
-    // }
-
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
         luat_rtos_task_sleep(2);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
@@ -242,17 +231,7 @@ static int tp_gt911_soft_reset(luat_tp_config_t* luat_tp_config){
     return tp_i2c_write_reg16(luat_tp_config, GT911_COMMAND_REG, (uint8_t[]){0x02}, 1);
 }
 
-static int tp_gt911_get_product_id(luat_tp_config_t* luat_tp_config, uint8_t *data, uint8_t len){
-	if (tp_i2c_read_reg16(luat_tp_config, GT911_PRODUCT_ID, data, len, 1)){
-        LLOGE("tp get product id fail!");
-        return -1;
-    }
-    return 0;
-}
-
 static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
-    LLOGD("tp_gt911_init luat_tp_config:%p ",luat_tp_config);
-
     int ret = 0;
     tp_gt911_gpio_init(luat_tp_config);
     tp_i2c_init(luat_tp_config);
@@ -309,10 +288,6 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
 
     luat_rtos_task_sleep(20);
     // tp_i2c_write_reg16(luat_tp_config, GT911_COMMAND_REG, (uint8_t[]){0x00}, 1);
-    
-    uint8_t product_id[4] = {0};
-    tp_gt911_get_product_id(luat_tp_config, product_id, 4);
-    LLOGD("product id:%s", product_id);
     
     if (luat_tp_config->pin_int != LUAT_GPIO_NONE){
         luat_gpio_t gpio = {0};
@@ -464,7 +439,6 @@ void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t num){
 }
 
 static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
-    LLOGD("tp_gt911_read luat_tp_config: %p",luat_tp_config);
     static uint8_t pre_touch = 0;
     uint8_t read_num = 0, touch_num=0, point_status=0;
     luat_tp_info_t luat_touch_info = {0};
@@ -494,9 +468,6 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
         
         tp_i2c_read_reg16(luat_tp_config, GT911_POINT1_REG, read_buff, touch_num * GT911_POINT_INFO_NUM, 1);
     
-        // for (size_t i = 0; i < touch_num * GT911_POINT_INFO_NUM; i++){
-        //     LLOGD("point[%d] = 0x%02x", i, read_buff[i]);
-        // }
         gt911_read_point(read_buff, luat_tp_data, touch_num);
     }
     
@@ -507,7 +478,7 @@ exit_:
     return touch_num;
 }
 
-luat_tp_config_t tp_config_gt911 = {
+luat_tp_opts_t tp_config_gt911 = {
     .name = "gt911",
     .init = tp_gt911_init,
     .deinit = tp_gt911_deinit,

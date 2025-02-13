@@ -83,6 +83,7 @@ LUAMOD_API int luaopen_lvgl( lua_State *L );
 LUAMOD_API int luaopen_ir( lua_State *L );
 
 LUAMOD_API int luaopen_lcd( lua_State *L );
+LUAMOD_API int luaopen_tp( lua_State *L );
 LUAMOD_API int luaopen_lwip( lua_State *L );
 
 LUAMOD_API int luaopen_wdt( lua_State *L );

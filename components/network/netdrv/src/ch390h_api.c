@@ -177,12 +177,11 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
     uint8_t tmp[4] = {0};
     // 写入下一个数据
     luat_ch390h_write(ch, 0x78, len, buff);
-    // 写入长度
-    luat_ch390h_write_reg(ch, 0x7C, len & 0xFF);
-    luat_ch390h_write_reg(ch, 0x7D, (len >> 8) & 0xFF);
     
     luat_ch390h_read(ch, 0x02, 1, tmp);
     uint8_t TCR = tmp[0];
+    uint8_t NCR = 0;
+    uint8_t NSR = 0;
     if (TCR & 0x01) {
         // busy!!
         for (size_t i = 0; i < 16; i++)
@@ -197,12 +196,22 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
         }
         if (TCR & 0x01) {
             LLOGW("tx busy, drop pkg len %d and reset ch390!!", len);
+            // 读出NCR 和 NSR
+            luat_ch390h_read(ch, 0x00, 1, tmp);
+            NCR = tmp[0];
+            luat_ch390h_read(ch, 0x01, 1, tmp);
+            NSR = tmp[0];
+            LLOGD("NCR %02X NSR %02X", NCR, NSR);
+            LLOGD("NCR->FDR %02X NSR->SPEED %02X NSR->LINKST %02X", NCR & (1<<3), NSR & (1<<7), NSR & (1<<6));
             luat_ch390h_software_reset(ch);
             luat_timer_mdelay(2);
             return 0;
         }
         // return 1;
     }
+    // TCR == 0之后, 才能写入长度
+    luat_ch390h_write_reg(ch, 0x7C, len & 0xFF);
+    luat_ch390h_write_reg(ch, 0x7D, (len >> 8) & 0xFF);
     // 再读一次TCR
     luat_ch390h_read(ch, 0x02, 1, tmp);
     // 发送

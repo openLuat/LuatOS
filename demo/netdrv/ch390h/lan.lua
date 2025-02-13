@@ -32,10 +32,12 @@ sys.taskInit(function ()
     while netdrv.link(socket.LWIP_ETH) ~= true do
         sys.wait(100)
     end
+    while netdrv.link(socket.LWIP_GP) ~= true do
+        sys.wait(100)
+    end
     dhcps.create({adapter=socket.LWIP_ETH})
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
     netdrv.napt(socket.LWIP_GP)
-    -- netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
 

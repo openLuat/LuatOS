@@ -83,7 +83,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
             // 下行的目标端口, 与本地端口, 是否一直
             if (udp_hdr->dest == udps[i].wnet_local_port) {
                 // 找到映射关系了!!!
-                LLOGD("UDP port %u -> %d", ntohs(udp_hdr->dest), ntohs(udps[i].inet_port));
+                // LLOGD("UDP port %u -> %d", ntohs(udp_hdr->dest), ntohs(udps[i].inet_port));
                 // 修改目标ID
                 udp_hdr->dest = udps[i].inet_port;
 

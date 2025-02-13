@@ -1,0 +1,54 @@
+#include "luat_base.h"
+#include "luat_tp.h"
+#include "luat_mem.h"
+
+#define LUAT_LOG_TAG "tp"
+#include "luat_log.h"
+
+extern luat_tp_config_t tp_config_gt911;
+luat_rtos_task_handle tp_task_handle = 0;
+
+void luat_tp_task_entry(void* param){
+    uint32_t message_id = 0;
+    luat_tp_config_t *luat_tp_config;
+    luat_tp_data_t tp_data[10];
+    while (1){
+        luat_rtos_message_recv(tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
+        uint8_t touch_num = tp_config_gt911.read(luat_tp_config,tp_data);
+        for (uint8_t i=0; i<10; i++){
+            if ((TP_EVENT_TYPE_DOWN == tp_data[i].event) || (TP_EVENT_TYPE_UP == tp_data[i].event) || (TP_EVENT_TYPE_MOVE == tp_data[i].event)){
+                LLOGD("event=%d, track_id=%d, x=%d, y=%d, s=%d, timestamp=%u.\r\n", 
+                            tp_data[i].event,
+                            tp_data[i].track_id,
+                            tp_data[i].x_coordinate,
+                            tp_data[i].y_coordinate,
+                            tp_data[i].width,
+                            tp_data[i].timestamp);
+            }
+            if (tp_config_gt911.callback){
+                tp_config_gt911.callback(&tp_data[i]);
+            }
+        }
+    }
+}
+
+int luat_tp_init(luat_tp_config_t* luat_tp_config){
+    if (tp_task_handle == 0){
+        luat_rtos_task_create(&tp_task_handle, 2048, 50, "tp", luat_tp_task_entry, NULL, 10);
+    }
+    tp_config_gt911.init(luat_tp_config);
+
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+

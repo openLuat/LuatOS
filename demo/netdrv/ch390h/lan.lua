@@ -14,7 +14,7 @@ sys.taskInit(function ()
         0,--CPHA
         0,--CPOL
         8,--数据宽度
-        25600000--,--频率
+        51200000--,--频率
         -- spi.MSB,--高低位顺序    可选，默认高位在前
         -- spi.master,--主模式     可选，默认主
         -- spi.full--全双工       可选，默认全双工
@@ -38,6 +38,10 @@ sys.taskInit(function ()
     dhcps.create({adapter=socket.LWIP_ETH})
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
     netdrv.napt(socket.LWIP_GP)
+    if iperf then
+        log.info("启动iperf服务器端")
+        iperf.server(socket.LWIP_ETH)
+    end
 end)
 
 

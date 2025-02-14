@@ -507,9 +507,16 @@ static int handle_static_file(client_socket_ctx_t *client) {
         sprintf(path, "/luadb%s.gz", strlen(client->uri) == 1 ? "/index.html" : client->uri);
         fz = luat_fs_fsize(path);
         if (fz < 1) {
+            sprintf(path, "%s", strlen(client->uri) == 1 ? "/index.html" : client->uri);
+            fz = luat_fs_fsize(path);
+            if (fz < 1) {
+                return 0;
+            }
             return 0;
         }
-        is_gz = 1;
+        else {
+            is_gz = 1;
+        }
     }
 
     client_send_static_file(client, path, fz, is_gz);

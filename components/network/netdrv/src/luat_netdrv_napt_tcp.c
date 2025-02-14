@@ -11,11 +11,12 @@
 #include "lwip/prot/tcp.h"
 #include "luat_mcu.h"
 #include "lwip/ip_addr.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
 
-#define TCP_MAP_SIZE (512)
+#define TCP_MAP_SIZE (2048)
 #define TCP_MAP_TIMEOUT (15*60*1000)
 
 /* napt tcp port range: 7100-65535 */
@@ -24,7 +25,7 @@
 
 extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_TCP_RANGE_START;
-static luat_netdrv_napt_tcpudp_t tcps[TCP_MAP_SIZE];
+static luat_netdrv_napt_tcpudp_t* tcps;
 
 #define u32 uint32_t
 #define u16 uint16_t
@@ -106,6 +107,9 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     luat_netdrv_napt_tcpudp_t* it_map = NULL;
     if (gw == NULL || gw->netif == NULL) {
         return 0;
+    }
+    if (tcps == NULL) {
+        tcps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_tcpudp_t) * TCP_MAP_SIZE);
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {

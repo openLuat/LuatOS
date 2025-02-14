@@ -9,11 +9,12 @@
 #include "lwip/etharp.h"
 #include "lwip/udp.h"
 #include "luat_mcu.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.udp"
 #include "luat_log.h"
 
-#define UDP_MAP_SIZE (512)
+#define UDP_MAP_SIZE (1024)
 #define UDP_MAP_TIMEOUT (60*1000)
 
 /* napt udp port range: 7100-65535 */
@@ -22,7 +23,7 @@
 
 extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_UDP_RANGE_START;
-static luat_netdrv_napt_tcpudp_t udps[UDP_MAP_SIZE];
+static luat_netdrv_napt_tcpudp_t* udps;
 
 #define u32 uint32_t
 #define u16 uint16_t
@@ -65,6 +66,9 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
     if (gw == NULL || gw->netif == NULL) {
         return 0;
+    }
+    if (udps == NULL) {
+        udps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_tcpudp_t) * UDP_MAP_SIZE);
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {

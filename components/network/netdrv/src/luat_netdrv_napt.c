@@ -80,6 +80,10 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         LLOGD("不是ipv4包, 不需要执行napt");
         return 0;
     }
+    if (luat_netdrv_gw_adapter_id != id && ctx.iphdr->dest.addr == ip_addr_get_ip4_u32(&net->netif->ip_addr)) {
+        // LLOGD("是本网关的包, 不需要执行napt");
+        return 0;
+    }
     if (IPH_PROTO(ctx.iphdr) != IP_PROTO_UDP && IPH_PROTO(ctx.iphdr) != IP_PROTO_TCP && IPH_PROTO(ctx.iphdr) != IP_PROTO_ICMP) {
         LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
         return 0;

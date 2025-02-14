@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_tp.h"
 #include "luat_msgbus.h"
+#include "luat_gpio.h"
 
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
@@ -29,27 +30,37 @@ static int l_tp_handler(lua_State* L, void* ptr) {
         if (lua_isfunction(L, -1)) {
             lua_pushlightuserdata(L, luat_tp_config);
             lua_newtable(L);
-            lua_pushstring(L, "event");
-            lua_pushinteger(L, luat_tp_data->event);
-            lua_settable(L, -3);
-            lua_pushstring(L, "track_id");
-            lua_pushinteger(L, luat_tp_data->track_id);
-            lua_settable(L, -3);
-            lua_pushstring(L, "x");
-            lua_pushinteger(L, luat_tp_data->x_coordinate);
-            lua_settable(L, -3);
-            lua_pushstring(L, "y");
-            lua_pushinteger(L, luat_tp_data->y_coordinate);
-            lua_settable(L, -3);
-            lua_pushstring(L, "width");
-            lua_pushinteger(L, luat_tp_data->width);
-            lua_settable(L, -3);
-            lua_pushstring(L, "timestamp");
-            lua_pushinteger(L, luat_tp_data->timestamp);
-            lua_settable(L, -3);
+            for (uint8_t i=0; i<LUAT_TP_TOUCH_MAX; i++){
+                if ((TP_EVENT_TYPE_DOWN == luat_tp_data[i].event) || (TP_EVENT_TYPE_UP == luat_tp_data[i].event) || (TP_EVENT_TYPE_MOVE == luat_tp_data[i].event)){
+                    lua_newtable(L);
+                    lua_pushstring(L, "event");
+                    lua_pushinteger(L, luat_tp_data[i].event);
+                    lua_settable(L, -3);
+                    lua_pushstring(L, "track_id");
+                    lua_pushinteger(L, luat_tp_data[i].track_id);
+                    lua_settable(L, -3);
+                    lua_pushstring(L, "x");
+                    lua_pushinteger(L, luat_tp_data[i].x_coordinate);
+                    lua_settable(L, -3);
+                    lua_pushstring(L, "y");
+                    lua_pushinteger(L, luat_tp_data[i].y_coordinate);
+                    lua_settable(L, -3);
+                    lua_pushstring(L, "width");
+                    lua_pushinteger(L, luat_tp_data[i].width);
+                    lua_settable(L, -3);
+                    lua_pushstring(L, "timestamp");
+                    lua_pushinteger(L, luat_tp_data[i].timestamp);
+                    lua_settable(L, -3);
+
+                    lua_pushinteger(L, i + 1);
+                    lua_insert(L, -2);
+                    lua_settable(L, -3);
+                }
+            }
             lua_call(L, 2, 0);
         }
     }
+    luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
     return 0;
 }
 

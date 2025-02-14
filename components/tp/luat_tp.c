@@ -17,28 +17,20 @@ void luat_tp_task_entry(void* param){
         luat_tp_data_t* tp_data = luat_tp_config->tp_data;
         uint8_t touch_num = luat_tp_config->opts->read(luat_tp_config,tp_data);
         if (touch_num){
-            for (uint8_t i=0; i<LUAT_TP_TOUCH_MAX; i++){
-                if ((TP_EVENT_TYPE_DOWN == tp_data[i].event) || (TP_EVENT_TYPE_UP == tp_data[i].event) || (TP_EVENT_TYPE_MOVE == tp_data[i].event)){
-                //     LLOGD("event=%d, track_id=%d, x=%d, y=%d, s=%d, timestamp=%u.\r\n", 
-                //                 tp_data[i].event,
-                //                 tp_data[i].track_id,
-                //                 tp_data[i].x_coordinate,
-                //                 tp_data[i].y_coordinate,
-                //                 tp_data[i].width,
-                //                 tp_data[i].timestamp);
-                    if (luat_tp_config->callback){
-                        luat_tp_config->callback(luat_tp_config,&tp_data[i]);
-                    }
-                }
+            if (luat_tp_config->callback == NULL){
+                luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
+            }else{
+                luat_tp_config->callback(luat_tp_config,tp_data);
             }
+        }else{
+            luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
         }
-        luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
     }
 }
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
     if (tp_task_handle == 0){
-        luat_rtos_task_create(&tp_task_handle, 4096, 50, "tp", luat_tp_task_entry, NULL, 10);
+        luat_rtos_task_create(&tp_task_handle, 4096, 10, "tp", luat_tp_task_entry, NULL, 10);
     }
     tp_config_gt911.init(luat_tp_config);
 

@@ -45,6 +45,7 @@ static luat_rtos_task_handle ch390h_task_handle;
 static luat_rtos_queue_t qt;
 
 static uint64_t warn_vid_pid_tm;
+static uint64_t warn_msg_tm;
 
 static int pkg_mem_type = LUAT_HEAP_AUTO;
 
@@ -86,13 +87,22 @@ static luat_ch390h_cstring_t* new_cstring(uint16_t len) {
 static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(qt, &len);
+    uint64_t tm;
     if (len >= 1000) {
-        LLOGW("太多待处理消息了!!! %d", len);
+        tm = luat_mcu_tick64_ms();
+        if (tm - warn_msg_tm > 1000) {
+            warn_msg_tm = tm;
+            LLOGW("太多待处理消息了!!! %d", len);
+        }
         luat_heap_opt_free(pkg_mem_type, cs);
         return;
     }
     if (len > 512) {
-        LLOGD("当前消息数量 %d", len);
+        tm = luat_mcu_tick64_ms();
+        if (tm - warn_msg_tm > 1000) {
+            warn_msg_tm = tm;
+            LLOGD("当前消息数量 %d", len);
+        }
     }
     
     pkg_evt_t evt = {

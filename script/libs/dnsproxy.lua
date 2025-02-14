@@ -92,7 +92,7 @@ function dnsproxy.setup(adapter, main_adapter)
     dnsproxy.sc = socket.create(dnsproxy.adapter, dnsproxy.on_request)
     dnsproxy.main_sc = socket.create(dnsproxy.main_adapter, dnsproxy.on_response)
     socket.config(dnsproxy.sc, 53, true)
-    socket.config(dnsproxy.main_sc, nil, true)
+    socket.config(dnsproxy.main_sc, 1053, true)
     dnsproxy.on_ip_ready()
     return true
 end

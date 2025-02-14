@@ -37,7 +37,7 @@ typedef struct pkg_evt
 }pkg_evt_t;
 
 
-static void print_erp_pkg(uint8_t* buff, uint16_t len);
+// static void print_erp_pkg(uint8_t* buff, uint16_t len);
 
 extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
@@ -311,7 +311,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         if (len > 0) {
             NETDRV_STAT_IN(ch->netdrv, len);
             // 收到数据, 开始后续处理
-            print_erp_pkg(ch->rxbuff, len);
+            //print_erp_pkg(ch->rxbuff, len);
             // 先经过netdrv过滤器
             // LLOGD("ETH数据包 " MACFMT " " MACFMT " %02X%02X", MAC_ARG(ch->rxbuff), MAC_ARG(ch->rxbuff + 6), ((uint16_t)ch->rxbuff[6]) + (((uint16_t)ch->rxbuff[7])));
             ret = luat_netdrv_napt_pkg_input(ch->adapter_id, ch->rxbuff, len - 4);
@@ -437,6 +437,7 @@ void luat_ch390h_task_start(void) {
 }
 
 // 辅助函数
+#if 0
 static void print_erp_pkg(uint8_t* buff, uint16_t len) {
     // LLOGD("pkg len %d head " MACFMT " " MACFMT, len, MAC_ARG(buff), MAC_ARG(buff+6));
     if (len < 24 || len > 1600) {
@@ -456,3 +457,4 @@ static void print_erp_pkg(uint8_t* buff, uint16_t len) {
             break;
     }
 }
+#endif

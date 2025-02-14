@@ -141,9 +141,9 @@ local function dhcp_send_x(srv, pkg, client, msgtype)
     table.insert(pkg.opts, {3, string.char(srv.opts.gw[1], srv.opts.gw[2], srv.opts.gw[3], srv.opts.gw[4])})
     table.insert(pkg.opts, {51, "\x00\x00\x1E\x00"}) -- 7200秒, 大概
     table.insert(pkg.opts, {54, string.char(srv.opts.gw[1], srv.opts.gw[2], srv.opts.gw[3], srv.opts.gw[4])})
+    table.insert(pkg.opts, {6, string.char(223, 5, 5, 5)})
+    table.insert(pkg.opts, {6, string.char(119, 29, 29, 29)})
     table.insert(pkg.opts, {6, string.char(srv.opts.gw[1], srv.opts.gw[2], srv.opts.gw[3], srv.opts.gw[4])})
-    table.insert(pkg.opts, {5, string.char(223, 5, 5, 5)})
-    table.insert(pkg.opts, {5, string.char(119, 29, 29, 29)})
 
     dhcp_encode(pkg, buff)
 

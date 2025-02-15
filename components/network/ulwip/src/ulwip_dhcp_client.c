@@ -147,7 +147,11 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
 }
 
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
-    LLOGD("dhcp start netif %p", ctx->netif);
+    // LLOGD("dhcp start netif %p", ctx->netif);
+    if (ctx->netif == NULL) {
+        LLOGE("ctx->netif is NULL!!!!");
+        return;
+    }
     if (!ctx->dhcp_client) {
         ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
         reset_dhcp_client(ctx);

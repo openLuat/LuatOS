@@ -19,6 +19,7 @@
 #include "lwip/ip.h"
 #include "lwip/ip4.h"
 #include "luat_network_adapter.h"
+#include "net_lwip2.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -147,6 +148,7 @@ static int l_netdrv_ipv4(lua_State *L) {
         ipaddr_aton(tmp, &netdrv->netif->netmask);
         tmp = luaL_checkstring(L, 4);
         ipaddr_aton(tmp, &netdrv->netif->gw);
+        net_lwip2_set_link_state(id, 1);
     }
     char buff[16] = {0};
     char buff2[16] = {0};

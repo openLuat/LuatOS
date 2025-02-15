@@ -512,7 +512,6 @@ static int handle_static_file(client_socket_ctx_t *client) {
             if (fz < 1) {
                 return 0;
             }
-            return 0;
         }
         else {
             is_gz = 1;

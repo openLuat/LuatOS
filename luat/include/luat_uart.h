@@ -169,16 +169,6 @@ typedef struct luat_uart_ctrl_param
 int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
 
 /**
- * @brief 串口控制
- *
- * @param uart_id 串口id
- * @param cmd 串口控制命令
- * @param param 串口控制参数
- * @return int
- */
-int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
-
-/**
  * @brief 开关串口硬件流控,Air780E暂不支持
  *
  * @param uart_id 串口id

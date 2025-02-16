@@ -14,7 +14,7 @@ local sys = require "sys"
 
 local dnsproxy = {}
 dnsproxy.map = {}
-dnsproxy.txid = 0x1234
+dnsproxy.txid = 0x123
 dnsproxy.rxbuff = zbuff.create(1500)
 
 function dnsproxy.on_request(sc, event)
@@ -31,6 +31,9 @@ function dnsproxy.on_request(sc, event)
                     local txid_request = rxbuff[0] + rxbuff[1] * 256
                     local txid_map = dnsproxy.txid
                     dnsproxy.txid = dnsproxy.txid + 1
+                    if dnsproxy.txid > 65000 then
+                        dnsproxy.txid = 0x123
+                    end
                     table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port})
                     rxbuff[0] = txid_map % 256
                     rxbuff[1] = txid_map // 256

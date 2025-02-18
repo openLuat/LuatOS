@@ -18,7 +18,11 @@
 
 void* luat_heap_zalloc(size_t len);
 
+#ifdef LWIP_NUM_SOCKETS
+#define MAX_SOCK_NUM LWIP_NUM_SOCKETS
+#else
 #define MAX_SOCK_NUM 8
+#endif
 #define NET_DBG	LLOGD
 #define NET_ERR LLOGE
 

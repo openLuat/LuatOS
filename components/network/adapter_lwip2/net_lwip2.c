@@ -910,7 +910,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
 	int i = 0;
 	luat_ip_addr_t addr = {0};
-	// char ip_string[64];
+	char ip_string[64] = {0};
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
 		return;
 	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)
@@ -931,7 +931,8 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		NET_DBG("network ready %d", adapter_index);
 		uint32_t tmp = adapter_index;
 		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
-			NET_DBG("使用网关作为默认DNS服务器");
+			ip4addr_ntoa_r(&prvlwip.lwip_netif[adapter_index]->gw, ip_string, 32);
+			NET_DBG("使用网关作为默认DNS服务器 %s", ip_string);
 			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)tmp);
 		}
 		else {

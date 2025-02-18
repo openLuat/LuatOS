@@ -142,9 +142,8 @@ static int fatfs_mount(lua_State *L)
 		lua_pushstring(L, "fatfs_mode error");
 		return 2;
 	}
-	
-	FRESULT re = f_mount(fs, "/", 0);
-	if (re != FR_OK) {
+	FRESULT re = f_mount(fs, mount_point, 1);
+    if (re != FR_OK) {
 		if (lua_isboolean(L, 8) && lua_toboolean(L, 8) == 0) {
 			LLOGI("sd/tf mount failed %d but auto-format is disabled", re);
 		}
@@ -158,10 +157,10 @@ static int fatfs_mount(lua_State *L)
 				.n_root = 0,
 			};
 			BYTE work[FF_MAX_SS] = {0};
-			re = f_mkfs("/", &parm, work, FF_MAX_SS);
+			re = f_mkfs(mount_point, &parm, work, FF_MAX_SS);
 			LLOGD("auto format ret %d", re);
 			if (re == FR_OK) {
-				re = f_mount(fs, "/", 0);
+				re = f_mount(fs, mount_point, 1);
 				LLOGD("remount again %d", re);
 			}
 		}
@@ -267,10 +266,10 @@ static int fatfs_getfree(lua_State *L)
 {
 	DWORD fre_clust, fre_sect, tot_sect;
 	// 挂载点
-	const char *mount_point = luaL_optstring(L, 1, "");
+	const char *mount_point = luaL_optstring(L, 1, "/fatfs");
 	FATFS *fs2;
-	FRESULT re2 = f_getfree(mount_point, &fre_clust, &fs2);
-	if (re2) {
+    FRESULT re2 = f_getfree(mount_point, &fre_clust, &fs2);
+    if (re2) {
 		lua_pushnil(L);
 		lua_pushinteger(L, re2);
 		return 2;

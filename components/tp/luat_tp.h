@@ -51,7 +51,6 @@ typedef struct luat_tp_config{
     uint8_t int_type;
     int16_t w;
     int16_t h;
-    int luat_ref;
     void* luat_cb;
     luat_tp_opts_t* opts;
     int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);

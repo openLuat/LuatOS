@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_tp.h"
 #include "luat_msgbus.h"
+#include "luat_mem.h"
 #include "luat_gpio.h"
 
 #define LUAT_LOG_TAG "tp"
@@ -73,7 +74,7 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 static int l_tp_init(lua_State* L){
     int ret;
     size_t len = 0;
-    luat_tp_config_t *luat_tp_config = (luat_tp_config_t *)lua_newuserdata(L, sizeof(luat_tp_config_t));
+    luat_tp_config_t *luat_tp_config = (luat_tp_config_t *)luat_heap_malloc(sizeof(luat_tp_config_t));
     if (luat_tp_config == NULL) {
         LLOGE("out of system memory!!!");
         return 0;
@@ -149,27 +150,15 @@ static int l_tp_init(lua_State* L){
     }
     lua_pop(L, 1);
 
-    // luat_tp_config->luat_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
     ret = luat_tp_init(luat_tp_config);
     if (ret){
         // luat_tp_deinit(luat_tp_config);
-        // luaL_unref(L, LUA_REGISTRYINDEX, luat_tp_config->luat_ref);
         return 0;
     }else{
         lua_pushlightuserdata(L, luat_tp_config);
         return 1;
     }
 }
-
-
-
-
-
-
-
-
-
 
 
 

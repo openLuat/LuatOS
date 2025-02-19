@@ -32,10 +32,12 @@ int luat_tp_init(luat_tp_config_t* luat_tp_config){
     if (tp_task_handle == 0){
         luat_rtos_task_create(&tp_task_handle, 4096, 10, "tp", luat_tp_task_entry, NULL, 10);
     }
-    tp_config_gt911.init(luat_tp_config);
-
-
-    return 0;
+    if (luat_tp_config->opts->init){
+        return luat_tp_config->opts->init(luat_tp_config);
+    }else{
+        LLOGE("tp init error, no init function found!");
+        return -1;
+    }
 }
 
 

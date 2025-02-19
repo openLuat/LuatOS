@@ -65,9 +65,6 @@ sys.taskInit(function()
     gpio.setup(pin_cs, 1)
     fatfs.mount(tp or fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
-    -- 此为sdio方式,目前只101/103支持sdio,按需使用
-    -- fatfs.mount(fatfs.SDIO, "/sd")
-
     local data, err = fatfs.getfree("/sd")
     if data then
         log.info("fatfs", "getfree", json.encode(data))

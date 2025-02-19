@@ -130,8 +130,6 @@ end
 
 -- 不在内置驱动的, 看demo/lcd_custom
 
-
-
 sys.taskInit(function()
     -- 开启缓冲区, 刷屏速度回加快, 但也消耗2倍屏幕分辨率的内存
     if lcd_use_buff then
@@ -159,9 +157,32 @@ sys.taskInit(function()
             lcd.flush()
         end
 
-        sys.wait(1000)
+        sys.wait(5000)
     end
 end)
+
+local function tp_callBack(tp_device,tp_data)
+    sys.publish("TP",tp_device,tp_data)
+end
+
+tp_device = tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23,w = 320,h = 480},tp_callBack)
+-- softI2C = i2c.createSoft(20, 21)
+-- tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 22,pin_int = 23,w = 320,h = 480},tp_callBack)
+if tp_device then
+    print(tp_device)
+    sys.taskInit(function()
+        while 1 do 
+            local result, tp_device, tp_data = sys.waitUntil("TP")
+            if result then
+                lcd.drawPoint(tp_data[1].x, tp_data[1].y, 0xF800)
+                if lcd_use_buff then
+                    lcd.flush()
+                end
+            end
+        end
+    end)
+end
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

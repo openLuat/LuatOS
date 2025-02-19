@@ -1,3 +1,13 @@
+
+/*
+@module  tp
+@summary 触摸库
+@version 1.0
+@date    2025.02.19
+@demo    lcd
+@tag LUAT_USE_TP
+*/
+
 #include "luat_base.h"
 #include "luat_tp.h"
 #include "luat_msgbus.h"
@@ -7,10 +17,6 @@
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
 
-// tp.init(ic_name,{port,pin_rst,pin_int,w,h,int_type,})
-// local softI2C = i2c.createSoft(20, 21)
-// tp.init("gt911",{port=softI2C,pin_rst = 22,pin_int = 23,w = 320,h = 480})
-// tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23,w = 320,h = 480})
 typedef struct tp_reg {
     const char *name;
     const luat_tp_config_t *luat_tp_config;
@@ -70,6 +76,18 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
     luat_msgbus_put(&msg, 1);
     return 0;
 }
+
+/*
+触摸初始化
+@api tp.init(tp, args)
+@string tp类型，当前支持：<br>gt911
+@table 附加参数,与具体设备有关：<br>port 驱动方式<br>port：硬件i2c端口,例如0,1,2...如果为软件i2c对象<br>pin_rst：复位引脚<br>pin_int：中断引脚<br>w:宽度<br>h:高度
+
+@usage
+// tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23,w = 320,h = 480})
+// local softI2C = i2c.createSoft(20, 21)
+// tp.init("gt911",{port=softI2C,pin_rst = 22,pin_int = 23,w = 320,h = 480})
+*/
 
 static int l_tp_init(lua_State* L){
     int ret;

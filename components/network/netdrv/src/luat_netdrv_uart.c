@@ -21,7 +21,7 @@
 
 static luat_netdrv_uart_ctx_t* ctxs[MAX_UART_CTX_ID];
 
-static void uart_dataout(void* userdata, uint8_t* buff, uint16_t len) {
+static void uart_ip_output(void* userdata, uint8_t* buff, uint16_t len) {
     luat_netdrv_uart_ctx_t* uc = (luat_netdrv_uart_ctx_t*)userdata;
     
     memcpy(uc->txbuff, "LU\x00\x00", 4);
@@ -33,6 +33,10 @@ static void uart_dataout(void* userdata, uint8_t* buff, uint16_t len) {
     memcpy(uc->txbuff + 4 + len, &crc, 4);
     // 写到UART去
     luat_uart_write(uc->uart_id, uc->txbuff, len + 8);
+}
+
+static void uart_data_input(int uart_id, uint32_t data_len) {
+
 }
 
 static err_t netif_output(struct netif *netif, struct pbuf *p) {
@@ -49,7 +53,7 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         return 0;
     }
     pbuf_copy_partial(p, uc->txbuff + 4, p->tot_len, 0);
-    uart_dataout(uc, uc->txbuff, p->tot_len);
+    uart_ip_output(uc, uc->txbuff, p->tot_len);
     return 0;
 }
 
@@ -89,15 +93,17 @@ luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf) {
     ctx->netdrv.netif = luat_heap_malloc(sizeof(struct netif));
     ctx->netdrv.netif->state = ctx;
     ctx->netdrv.id = conf->id;
-    ctx->netdrv.dataout = uart_dataout;
+    ctx->netdrv.dataout = uart_ip_output;
     // ctx->netdrv.dhcp = uart_dhcp;
     ctx->ulwip.adapter_index = conf->id;
     ctx->ulwip.netif = ctx->netdrv.netif;
     ctx->ulwip.mtu = 1420;
 
     netif_add(ctx->netdrv.netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ctx, uart_netif_init, netif_input);
+    netif_set_up(ctx->netdrv.netif);
+    netif_set_link_up(ctx->netdrv.netif);
 
-    // TODO 启动uart线程
+    luat_uart_ctrl(ctx->uart_id, LUAT_UART_SET_RECV_CALLBACK, uart_data_input);
 
     return &ctx->netdrv;
 }

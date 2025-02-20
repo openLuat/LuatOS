@@ -1,8 +1,6 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
-#include "luat_netdrv_ch390h.h"
-#include "luat_malloc.h"
 #include "luat_netdrv_napt.h"
 #include "lwip/pbuf.h"
 #include "lwip/ip.h"

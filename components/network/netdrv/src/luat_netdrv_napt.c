@@ -1,7 +1,9 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
+#ifdef __LUATOS__
 #include "luat_netdrv_ch390h.h"
+#endif
 #include "luat_malloc.h"
 #include "luat_netdrv_napt.h"
 #include "lwip/pbuf.h"

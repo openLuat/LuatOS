@@ -1,9 +1,11 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
+#ifdef __LUATOS__
 #include "luat_netdrv_ch390h.h"
 #include "luat_netdrv_uart.h"
-#include "luat_malloc.h"
+#endif
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -16,6 +18,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     }
     if (drvs[conf->id] == NULL) {
         // 注册新的设备?
+        #ifdef __LUATOS__
         if (conf->impl == 1) { // CH390H
             drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
             return drvs[conf->id];
@@ -24,6 +27,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
+        #endif
     }
     else {
         if (drvs[conf->id]->boot) {

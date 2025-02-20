@@ -11,13 +11,15 @@ local SCAN_MODE = 0 -- 写1演示扫码
 local scan_pause = true
 local getRawStart = false
 local RAW_MODE = 0 -- 写1演示获取原始图像
+local DONE_WITH_CLOSE = false
 -- SCAN_MODE和RAW_MODE都没有写1就是拍照
 
 -- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 local function lcd_pin()
     local rtos_bsp = rtos.bsp()
-    if string.find(rtos_bsp,"EC718") then
+    local chip_type = hmeta.chip()
+    if string.find(rtos_bsp,"EC718") or string.find(chip_type,"EC718") then
         return lcd.HWID_0, 36, 0xff, 0xff, 0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "bsp not support")
@@ -59,9 +61,9 @@ lcd.init("gc9306x", {
 local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
 -- 初始化
 local result = uart.setup(uartid, -- 串口id
-115200, -- 波特率
-8, -- 数据位
-1 -- 停止位
+    115200, -- 波特率
+    8, -- 数据位
+    1 -- 停止位
 )
 
 camera.on(0, "scanned", function(id, str)
@@ -92,17 +94,27 @@ if rawbuff == nil then
     log.info(err)
 end
 
+local function device_init()
+    local cspiId, i2cId = 1,0
+    -- return bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+    return gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
+    -- return gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
+end
+
 sys.taskInit(function()
     log.info("摄像头启动")
-    local cspiId, i2cId = 1, 1
+    local i2cId = 0
     local camera_id
     i2c.setup(i2cId, i2c.FAST)
     gpio.setup(5, 0) -- PD拉低
-    -- camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-    camera_id = gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
-    -- camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
-    camera.stop(camera_id)
-    camera.preview(camera_id, true)
+    camera_id = device_init()
+    
+    if DONE_WITH_CLOSE then
+        camera.close(camera_id)
+    else
+        camera.stop(camera_id)
+        camera.preview(camera_id, true)
+    end
     log.info("按下boot开始测试")
     log.info(rtos.meminfo("sys"))
     log.info(rtos.meminfo("psram"))
@@ -112,7 +124,9 @@ sys.taskInit(function()
             if SCAN_MODE == 1 then
                 if scan_pause then
                     log.info("启动扫码")
-                    -- camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+                    if DONE_WITH_CLOSE then
+                        camera_id = device_init()
+                    end
                     camera.start(camera_id)
                     scan_pause = false
                     sys.wait(200)
@@ -120,8 +134,11 @@ sys.taskInit(function()
                     log.info(rtos.meminfo("psram"))
                 else
                     log.info("停止扫码")
-                    -- camera.close(camera_id)	--完全关闭摄像头才用这个
-                    camera.stop(camera_id)
+                    if DONE_WITH_CLOSE then
+                        camera.close(camera_id)
+                    else
+                        camera.stop(camera_id)
+                    end
                     scan_pause = true
                     sys.wait(200)
                     log.info(rtos.meminfo("sys"))
@@ -131,6 +148,9 @@ sys.taskInit(function()
                 if getRawStart == false then
                     getRawStart = true
                     log.debug("摄像头首次捕获原始图像")
+                    if DONE_WITH_CLOSE then
+                        camera_id = device_init()
+                    end
                     camera.startRaw(camera_id, 640, 480, rawbuff) -- gc032a
                     -- camera.startRaw(camera_id,240,320,rawbuff) --bf302a
                 else
@@ -138,19 +158,29 @@ sys.taskInit(function()
                     camera.getRaw(camera_id)
                 end
                 result, data = sys.waitUntil("capture done", 30000)
+                if DONE_WITH_CLOSE then
+                    camera.close(camera_id)
+                else
+                    camera.stop(camera_id)
+                end
                 log.info("摄像头捕获原始图像完成")
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
                 -- uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
             else
                 log.debug("摄像头拍照")
-                -- camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+                if DONE_WITH_CLOSE then
+                    camera_id = device_init()
+                end
                 camera.capture(camera_id, rawbuff, 1) -- 2和3需要非常多非常多的psram,尽量不要用
                 result, data = sys.waitUntil("capture done", 30000)
                 log.info(rawbuff:used())
-                -- camera.close(camera_id)	--完全关闭摄像头才用这个
-                camera.stop(camera_id)
-                uart.tx(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
+                if DONE_WITH_CLOSE then
+                    camera.close(camera_id)
+                else
+                    camera.stop(camera_id)
+                end
+                --uart.tx(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
                 rawbuff:resize(60 * 1024)
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))

@@ -121,3 +121,16 @@ err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     return ret == 0 ? 1 : 0;
     // return 1;
 }
+
+// 辅助函数
+int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
+    if (p == NULL || p->tot_len > 1600) {
+        return 0;
+    }
+    // LLOGD("pbuf情况 total %d len %d", p->tot_len, p->len);
+    if (p->tot_len == p->len) {
+        // LLOGD("其实就是单个pbuf");
+        return luat_netdrv_napt_pkg_input(id, p->payload, p->tot_len);
+    }
+    return 0; // lwip继续处理 
+}

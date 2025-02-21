@@ -55,4 +55,6 @@ int luat_napt_udp_handle(napt_ctx_t* ctx);
 
 int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len);
 
+int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p);
+
 #endif

@@ -23,10 +23,9 @@ end
 
 
 sys.taskInit(function()
-
     local result = spi.setup(
-        spiId,--串口id
-        nil,
+        spiId,--SPI id
+        nil,--CS脚
         0,--CPHA
         0,--CPOL
         8,--数据宽度

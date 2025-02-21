@@ -26,6 +26,11 @@ LUAT_WEAK int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* s
     if (spi_dev->spi_config.cs != 255)
         luat_gpio_set(spi_dev->spi_config.cs, LUAT_SPI_CS_SELECT);
     if (spi_dev->spi_config.mode){
+        if (send_length>recv_length){
+            recv_length = send_length;
+        }else{
+            send_length = recv_length;
+        }
         ret = luat_spi_transfer(spi_dev->bus_id, send_buf, send_length, recv_buf, recv_length);
     }else{
         if (send_length){

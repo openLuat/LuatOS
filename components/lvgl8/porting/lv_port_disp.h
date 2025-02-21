@@ -4,7 +4,7 @@
  */
 
 /*Copy this file as "lv_port_disp.h" and set this value to "1" to enable content*/
-#if 0
+#if 1
 
 #ifndef LV_PORT_DISP_TEMPL_H
 #define LV_PORT_DISP_TEMPL_H
@@ -19,9 +19,9 @@ extern "C" {
 #if defined(LV_LVGL_H_INCLUDE_SIMPLE)
 #include "lvgl.h"
 #else
-#include "lvgl/lvgl.h"
+#include "../lvgl.h"
 #endif
-
+#include "luat_lcd.h"
 /*********************
  *      DEFINES
  *********************/
@@ -34,7 +34,7 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 /* Initialize low level display driver */
-void lv_port_disp_init(void);
+void lv_port_disp_init(luat_lcd_conf_t* lcd_conf);
 
 /* Enable updating the screen (the flushing process) when disp_flush() is called by LVGL
  */

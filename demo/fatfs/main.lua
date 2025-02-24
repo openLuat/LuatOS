@@ -61,8 +61,11 @@ sys.taskInit(function()
 
     -- 此为spi方式
     local spi_id, pin_cs,tp = fatfs_spi_pin() 
-    spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
-    gpio.setup(pin_cs, 1)
+    if tp and tp == fatfs.SPI then
+        -- 仅SPI方式需要自行初始化spi, sdio不需要
+        spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
+        gpio.setup(pin_cs, 1)
+    end
     fatfs.mount(tp or fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
     local data, err = fatfs.getfree("/sd")

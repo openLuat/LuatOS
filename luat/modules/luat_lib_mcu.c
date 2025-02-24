@@ -426,6 +426,8 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "SPI",             ROREG_INT(LUAT_MCU_PERIPHERAL_SPI) },
 	//@const PWM number 外设类型-PWM
 	{ "PWM",             ROREG_INT(LUAT_MCU_PERIPHERAL_PWM) },
+	//@const PWM number 外设类型-CAN
+	{ "CAN",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAN) },
 	//@const GPIO number 外设类型-GPIO
 	{ "GPIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_GPIO) },
 	//@const I2S number 外设类型-I2S
@@ -433,8 +435,9 @@ static const rotable_Reg_t reg_mcu[] =
 	//@const LCD number 外设类型-LCD
 	{ "LCD",             ROREG_INT(LUAT_MCU_PERIPHERAL_LCD) },
 	//@const CAM number 外设类型-CAM
-	{ "CAM",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAM) },
-
+	{ "CAM",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
+	//@const CAM number 外设类型-CAMERA，就是CAM
+	{ "CAMERA",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
 	{ NULL,             ROREG_INT(0) }
 };
 

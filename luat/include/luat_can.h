@@ -58,7 +58,7 @@ typedef struct
  */
 typedef void (*luat_can_callback_t)(int can_id, LUAT_CAN_CB_E cb_type, void *cb_param);
 /**
- * @brief can总线基础初始化，并且无任何消息过滤
+ * @brief can总线基础初始化
  *
  * @param can_id 总线序号，如果只有一条，填0，有多条的根据实际情况填写
  * @param rx_msg_cache_max 最大接收消息缓存数量，如果写0则是使用平台默认值
@@ -153,4 +153,8 @@ int luat_can_close(uint8_t can_id);
  * @return >=0 成功并返回状态值，其他失败，状态值见LUAT_CAN_STATE_E
  */
 int luat_cat_get_state(uint8_t can_id);
+
+#ifdef __LUATOS__
+int l_can_handler(lua_State *L, void* ptr);
+#endif
 #endif

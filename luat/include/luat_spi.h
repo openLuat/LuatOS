@@ -149,6 +149,23 @@ int luat_spi_slave_transfer(int spi_id, const char* send_buf,  char* recv_buf, s
  */
 int luat_spi_slave_transfer_pause_and_read_data(int spi_id);
 /**
+ * @brief 在中断中收发从机SPI数据
+ *
+ * @param spi_id spi id
+ * @param send_buf 发送数据
+ * @param recv_buf 接收数据
+ * @param recv_length 总缓冲区长度，不能大于8188
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_slave_fast_transfer_in_irq(int spi_id, const char* send_buf,  char* recv_buf, size_t total_length);
+/**
+ * @brief 在中断中从机SPI暂停工作，并返回已经接收的数据长度，不允许进入休眠状态
+ *
+ * @param spi_id spi id
+ * @return int 成功返回本次接收长度，其他-1
+ */
+int luat_spi_slave_transfer_fast_pause_and_read_data_in_irq(int spi_id);
+/**
  * @brief 从机SPI暂停工作，不允许进入休眠状态，在irq中使用
  *
  * @param spi_id spi id

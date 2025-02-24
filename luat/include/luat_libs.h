@@ -200,4 +200,6 @@ LUAMOD_API int luaopen_netdrv( lua_State *L );
 // iperf
 LUAMOD_API int luaopen_iperf( lua_State *L );
 
+/** can库*/
+LUAMOD_API int luaopen_can( lua_State *L );
 #endif

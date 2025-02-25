@@ -134,7 +134,7 @@ int luat_mobile_set_sim_pin(int id, uint8_t operation, char pin1[9], char pin2[9
 /**
  * @brief 检查SIM卡是否准备好
  *
- * @param id sim位置，对于双卡的设备，选0或者1，其他为自动选择模式，但是0和1的优先级是一致的。非双卡的设备不支持
+ * @param id sim位置，对于双卡双待的设备，选0或者1，其他设备忽略
  * @return =1准备好，其他未准备好，或者SIM卡不在位
  */
 uint8_t luat_mobile_get_sim_ready(int id);

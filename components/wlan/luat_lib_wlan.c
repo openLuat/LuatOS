@@ -473,7 +473,8 @@ static int l_wlan_powerSave(lua_State *L) {
 
 /*
 读取或设置Hostname
-@api wlan.hostname(new_name)
+@api wlan.hostname(id, new_name)
+@int STA为0, AP为1. 本参数需要2025.2.25及之后编译的固件
 @string 新的hostname,可选, 传入就是设置
 @return string 当前的hostname或者设置后的hostname
 @usage
@@ -482,10 +483,29 @@ static int l_wlan_powerSave(lua_State *L) {
 -- hostname的默认值是  "LUATOS_" + 设备的MAC值
 -- 例如: LUATOS_0022EECC2399
 
+-- 老写法, 直接设置STA的hostname
 wlan.hostname("我的wifi物联网设备")
+-- 新的API, 支持设置STA或AP的hostname, 也可以分别取
+wlan.hostname(1, "myhost")
+wlan.hostname(0) -- 取STA的hostname
 */
 static int l_wlan_get_set_hostname(lua_State *L) {
-    if (lua_isstring(L, 1)) {
+    int id = 0;
+    if (lua_type(L, 1) == LUA_TNUMBER) {
+        id = luaL_checkinteger(L, 1);
+        if (lua_type(L, 2) == LUA_TSTRING) {
+            size_t len = 0;
+            const char* hostname = luaL_checklstring(L, 2, &len);
+            if (len > 0) {
+                if (len > 31) {
+                    LLOGE("hostname is too long");
+                    return 0;
+                }
+                luat_wlan_set_hostname(id, hostname);
+            }
+        }
+    }
+    if (lua_type(L, 1) == LUA_TSTRING) {
         size_t len = 0;
         const char* hostname = luaL_checklstring(L, 1, &len);
         if (len > 0) {
@@ -496,7 +516,7 @@ static int l_wlan_get_set_hostname(lua_State *L) {
             luat_wlan_set_hostname(0, hostname);
         }
     }
-    const char* tmp = luat_wlan_get_hostname(0);
+    const char* tmp = luat_wlan_get_hostname(id);
     lua_pushstring(L, tmp);
     return 1;
 }

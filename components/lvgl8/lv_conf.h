@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+#include "luat_conf_bsp.h"
+
 /*====================
    COLOR SETTINGS
  *====================*/
@@ -84,7 +86,9 @@
  *====================*/
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
+#ifndef LV_DISP_DEF_REFR_PERIOD
 #define LV_DISP_DEF_REFR_PERIOD 30      /*[ms]*/
+#endif
 
 /*Input device read period in milliseconds*/
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
@@ -238,7 +242,7 @@
  *-----------*/
 
 /*Enable the log module*/
-#define LV_USE_LOG 1
+#define LV_USE_LOG 0
 #if LV_USE_LOG
 
     /*How important log should be added:
@@ -342,7 +346,7 @@
 
 /*Will be added where memories needs to be aligned (with -Os data might not be aligned to boundary by default).
  * E.g. __attribute__((aligned(4)))*/
-#define LV_ATTRIBUTE_MEM_ALIGN
+#define LV_ATTRIBUTE_MEM_ALIGN __attribute__((aligned(4)))
 
 /*Attribute to mark large constant arrays for example font's bitmaps*/
 #define LV_ATTRIBUTE_LARGE_CONST

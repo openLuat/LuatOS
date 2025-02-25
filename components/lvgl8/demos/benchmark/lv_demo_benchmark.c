@@ -10,7 +10,8 @@
 
 #if LV_USE_DEMO_BENCHMARK
 #if (defined __LUATOS__) || (defined __USER_CODE__)
-extern unsigned int luat_lv_benchmark_fps;
+#define LUAT_LOG_TAG "lvgl"
+#include "luat_log.h"
 #endif
 /*********************
  *      DEFINES
@@ -827,7 +828,7 @@ static void generate_report(void)
     subtitle = lv_label_create(lv_scr_act());
     lv_label_set_text_fmt(subtitle, "Opa. speed: %"LV_PRIu32"%%", opa_speed_pct);
 #if (defined __LUATOS__) || (defined __USER_CODE__)
-    luat_lv_benchmark_fps = fps_weighted;
+    LLOGD("FPS:%d",fps_weighted);
 #endif
     lv_coord_t w = lv_obj_get_content_width(lv_scr_act());
     lv_obj_t * table = lv_table_create(lv_scr_act());

@@ -91,7 +91,6 @@ static inline void lv_canvas_set_px(lv_obj_t * canvas, lv_coord_t x, lv_coord_t 
  */
 void lv_canvas_set_px_opa(lv_obj_t * canvas, lv_coord_t x, lv_coord_t y, lv_opa_t opa);
 
-
 /**
  * Set the palette color of a canvas with index format. Valid only for `LV_IMG_CF_INDEXED1/2/4/8`
  * @param canvas pointer to canvas object
@@ -247,7 +246,7 @@ void lv_canvas_draw_polygon(lv_obj_t * canvas, const lv_point_t points[], uint32
  * @param r      radius of the arc
  * @param start_angle start angle in degrees
  * @param end_angle   end angle in degrees
- * @param draw_dsc    pointer to an initialized `lv_draw_line_dsc_t` variable
+ * @param draw_dsc    pointer to an initialized `lv_draw_arc_dsc_t` variable
  */
 void lv_canvas_draw_arc(lv_obj_t * canvas, lv_coord_t x, lv_coord_t y, lv_coord_t r, int32_t start_angle,
                         int32_t end_angle, const lv_draw_arc_dsc_t * draw_dsc);

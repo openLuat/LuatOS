@@ -717,7 +717,6 @@ static void lv_label_constructor(const lv_obj_class_t * class_p, lv_obj_t * obj)
     lv_label_set_long_mode(obj, LV_LABEL_LONG_WRAP);
     lv_label_set_text(obj, "Text");
 
-
     LV_TRACE_OBJ_CREATE("finished");
 }
 
@@ -786,7 +785,6 @@ static void lv_label_event(const lv_obj_class_t * class_p, lv_event_t * e)
         draw_main(e);
     }
 }
-
 
 static void draw_main(lv_event_t * e)
 {
@@ -1061,6 +1059,7 @@ static void lv_label_refr_text(lv_obj_t * obj)
             if(anim_template) {
                 a.act_time = anim_template->act_time;
                 a.repeat_delay = anim_template->repeat_delay;
+                a.repeat_cnt = anim_template->repeat_cnt;
             }
             else if(act_time < a.time) {
                 a.act_time = act_time;      /*To keep the old position when the label text is updated mid-scrolling*/
@@ -1088,6 +1087,7 @@ static void lv_label_refr_text(lv_obj_t * obj)
             if(anim_template) {
                 a.act_time = anim_template->act_time;
                 a.repeat_delay = anim_template->repeat_delay;
+                a.repeat_cnt = anim_template->repeat_cnt;
             }
             else if(act_time < a.time) {
                 a.act_time = act_time;      /*To keep the old position when the label text is updated mid-scrolling*/
@@ -1167,7 +1167,6 @@ static void lv_label_refr_text(lv_obj_t * obj)
 
     lv_obj_invalidate(obj);
 }
-
 
 static void lv_label_revert_dots(lv_obj_t * obj)
 {
@@ -1255,7 +1254,6 @@ static void lv_label_dot_tmp_free(lv_obj_t * obj)
     label->dot.tmp_ptr   = NULL;
 }
 
-
 static void set_ofs_x_anim(void * obj, int32_t v)
 {
     lv_label_t * label = (lv_label_t *)obj;
@@ -1269,6 +1267,5 @@ static void set_ofs_y_anim(void * obj, int32_t v)
     label->offset.y    = v;
     lv_obj_invalidate(obj);
 }
-
 
 #endif

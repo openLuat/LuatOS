@@ -13,6 +13,7 @@
 #include "luat_mem.h"
 #include "luat_can.h"
 #include "luat_zbuff.h"
+#include "c_common.h"
 
 #include "rotable2.h"
 #define MAX_DEVICE_COUNT 2
@@ -303,14 +304,15 @@ local succ, id, type, rtr, data = can.rx(0)
 */
 static int l_can_rx(lua_State *L)
 {
-	luat_can_message_t msg;
-	if (luat_can_rx_message_from_cache(luaL_optinteger(L, 1, 0), &msg) > 0)
+	luat_can_message_t msg = {0};
+	int id = luaL_optinteger(L, 1, 0);
+	if (luat_can_rx_message_from_cache(id, &msg) > 0)
 	{
 		lua_pushboolean(L, 1);
 		lua_pushinteger(L, msg.id);
 		lua_pushinteger(L, msg.is_extend);
 		lua_pushboolean(L, msg.RTR);
-		lua_pushlstring(L, msg.data, msg.len);
+		lua_pushlstring(L, (const char*)msg.data, msg.len);
 	}
 	else
 	{
@@ -334,7 +336,8 @@ can.stop(0)
 */
 static int l_can_stop(lua_State *L)
 {
-	if (luat_can_tx_stop(luaL_optinteger(L, 1, 0)))
+	int id = luaL_optinteger(L, 1, 0);
+	if (luat_can_tx_stop(id))
 	{
 		lua_pushboolean(L, 0);
 	}

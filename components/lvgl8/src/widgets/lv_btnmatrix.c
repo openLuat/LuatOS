@@ -448,6 +448,9 @@ static void lv_btnmatrix_event(const lv_obj_class_t * class_p, lv_event_t * e)
                     invalidate_button_area(obj, btnm->btn_id_sel); /*Invalidate the new area*/
                 }
             }
+            else {
+                btnm->btn_id_sel = LV_BTNMATRIX_BTN_NONE;
+            }
         }
 
         if(btnm->btn_id_sel != LV_BTNMATRIX_BTN_NONE) {
@@ -507,7 +510,6 @@ static void lv_btnmatrix_event(const lv_obj_class_t * class_p, lv_event_t * e)
                 }
                 if(btnm->one_check) make_one_button_checked(obj, btnm->btn_id_sel);
             }
-
 
             if((button_is_click_trig(btnm->ctrl_bits[btnm->btn_id_sel]) == true ||
                 button_is_popover(btnm->ctrl_bits[btnm->btn_id_sel]) == true) &&
@@ -781,7 +783,6 @@ static void draw_main(lv_event_t * e)
         bool recolor = button_is_recolor(btnm->ctrl_bits[btn_i]);
         if(recolor) draw_label_dsc_act.flag |= LV_TEXT_FLAG_RECOLOR;
         else draw_label_dsc_act.flag &= ~LV_TEXT_FLAG_RECOLOR;
-
 
         part_draw_dsc.draw_area = &btn_area;
         part_draw_dsc.id = btn_i;

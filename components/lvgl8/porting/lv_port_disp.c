@@ -11,19 +11,14 @@
  *********************/
 #include "lv_port_disp.h"
 #include <stdbool.h>
+#include "luat_mem.h"
+
+#define LUAT_LOG_TAG "lvgl"
+#include "luat_log.h"
 
 /*********************
  *      DEFINES
  *********************/
-#ifndef MY_DISP_HOR_RES
-    #warning Please define or replace the macro MY_DISP_HOR_RES with the actual screen width, default value 320 is used for now.
-    #define MY_DISP_HOR_RES    320
-#endif
-
-#ifndef MY_DISP_VER_RES
-    #warning Please define or replace the macro MY_DISP_HOR_RES with the actual screen height, default value 240 is used for now.
-    #define MY_DISP_VER_RES    240
-#endif
 
 /**********************
  *      TYPEDEFS
@@ -35,8 +30,6 @@
 static void disp_init(void);
 
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p);
-//static void gpu_fill(lv_disp_drv_t * disp_drv, lv_color_t * dest_buf, lv_coord_t dest_width,
-//        const lv_area_t * fill_area, lv_color_t color);
 
 /**********************
  *  STATIC VARIABLES
@@ -61,50 +54,14 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
      * Create a buffer for drawing
      *----------------------------*/
 
-    /**
-     * LVGL requires a buffer where it internally draws the widgets.
-     * Later this buffer will passed to your display driver's `flush_cb` to copy its content to your display.
-     * The buffer has to be greater than 1 display row
-     *
-     * There are 3 buffering configurations:
-     * 1. Create ONE buffer:
-     *      LVGL will draw the display's content here and writes it to your display
-     *
-     * 2. Create TWO buffer:
-     *      LVGL will draw the display's content to a buffer and writes it your display.
-     *      You should use DMA to write the buffer's content to the display.
-     *      It will enable LVGL to draw the next part of the screen to the other buffer while
-     *      the data is being sent form the first buffer. It makes rendering and flushing parallel.
-     *
-     * 3. Double buffering
-     *      Set 2 screens sized buffers and set disp_drv.full_refresh = 1.
-     *      This way LVGL will always provide the whole rendered screen in `flush_cb`
-     *      and you only need to change the frame buffer's address.
-     */
-
-    // /* Example for 1) */
-    // static lv_disp_draw_buf_t draw_buf_dsc_1;
-    // static lv_color_t buf_1[MY_DISP_HOR_RES * 10];                          /*A buffer for 10 rows*/
-    // lv_disp_draw_buf_init(&draw_buf_dsc_1, buf_1, NULL, MY_DISP_HOR_RES * 10);   /*Initialize the display buffer*/
-
-    // /* Example for 2) */
-    // static lv_disp_draw_buf_t draw_buf_dsc_2;
-    // static lv_color_t buf_2_1[MY_DISP_HOR_RES * 10];                        /*A buffer for 10 rows*/
-    // static lv_color_t buf_2_2[MY_DISP_HOR_RES * 10];                        /*An other buffer for 10 rows*/
-    // lv_disp_draw_buf_init(&draw_buf_dsc_2, buf_2_1, buf_2_2, MY_DISP_HOR_RES * 10);   /*Initialize the display buffer*/
-
-    // /* Example for 3) also set disp_drv.full_refresh = 1 below*/
-    // static lv_disp_draw_buf_t draw_buf_dsc_3;
-    // static lv_color_t buf_3_1[MY_DISP_HOR_RES * MY_DISP_VER_RES];            /*A screen sized buffer*/
-    // static lv_color_t buf_3_2[MY_DISP_HOR_RES * MY_DISP_VER_RES];            /*Another screen sized buffer*/
-    // lv_disp_draw_buf_init(&draw_buf_dsc_3, buf_3_1, buf_3_2,
-    //                       MY_DISP_VER_RES * LV_VER_RES_MAX);   /*Initialize the display buffer*/
-    
     static lv_disp_draw_buf_t lv_disp_draw_buf;
-    if (lcd_conf->buff){
-        lv_disp_draw_buf_init(&lv_disp_draw_buf, lcd_conf->buff, NULL, lcd_conf->w * lcd_conf->h);
-    }
-    
+    lv_color_t* buf_2_1 = NULL;
+    lv_color_t* buf_2_2 = NULL;
+
+    buf_2_1 = luat_heap_opt_malloc(LUAT_HEAP_SRAM,lcd_conf->w * 40 * sizeof(lv_color_t));
+    buf_2_2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM,lcd_conf->w * 40 * sizeof(lv_color_t));
+
+    lv_disp_draw_buf_init(&lv_disp_draw_buf, buf_2_1, buf_2_2, lcd_conf->w * 40);
 
     /*-----------------------------------
      * Register the display in LVGL
@@ -125,8 +82,6 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
     /*Set a display buffer*/
     disp_drv.draw_buf = &lv_disp_draw_buf;
 
-    disp_drv.user_data = lcd_conf;
-
     /*Required for Example 3)*/
     //disp_drv.full_refresh = 1;
 
@@ -134,6 +89,8 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
      * Note that, in lv_conf.h you can enable GPUs that has built-in support in LVGL.
      * But if you have a different GPU you can use with this callback.*/
     //disp_drv.gpu_fill_cb = gpu_fill;
+
+    disp_drv.user_data = lcd_conf;
 
     /*Finally register the driver*/
     lv_disp_drv_register(&disp_drv);
@@ -172,22 +129,9 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 {
     if(disp_flush_enabled) {
         luat_lcd_conf_t* lcd_conf = disp_drv->user_data;
-
         luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
-        if (disp_drv->buffer->flushing_last)
+        if (lv_disp_flush_is_last(disp_drv))
             luat_lcd_flush(lcd_conf);
-
-        /*The most simple case (but also the slowest) to put all pixels to the screen one-by-one*/
-
-        // int32_t x;
-        // int32_t y;
-        // for(y = area->y1; y <= area->y2; y++) {
-        //     for(x = area->x1; x <= area->x2; x++) {
-        //         /*Put a pixel to the display. For example:*/
-        //         /*put_px(x, y, *color_p)*/
-        //         color_p++;
-        //     }
-        // }
     }
 
     /*IMPORTANT!!!
@@ -212,7 +156,6 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 //        dest_buf+=dest_width;    /*Go to the next line*/
 //    }
 //}
-
 
 #else /*Enable this file at the top*/
 

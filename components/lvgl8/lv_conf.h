@@ -1,6 +1,6 @@
 /**
  * @file lv_conf.h
- * Configuration file for v8.3.9
+ * Configuration file for v8.4.0
  */
 
 /*
@@ -18,6 +18,8 @@
 #define LV_CONF_H
 
 #include <stdint.h>
+
+#include "luat_conf_bsp.h"
 
 /*====================
    COLOR SETTINGS
@@ -60,16 +62,10 @@
     #endif
 
 #else       /*LV_MEM_CUSTOM*/
-    // #define LV_MEM_CUSTOM_INCLUDE <stdlib.h>   /*Header for the dynamic memory function*/
-    // #define LV_MEM_CUSTOM_ALLOC   malloc
-    // #define LV_MEM_CUSTOM_FREE    free
-    // #define LV_MEM_CUSTOM_REALLOC realloc
-
     #define LV_MEM_CUSTOM_INCLUDE "luat_mem.h"   /*Header for the dynamic memory function*/
     #define LV_MEM_CUSTOM_ALLOC   LUAT_MEM_MALLOC
     #define LV_MEM_CUSTOM_FREE    LUAT_MEM_FREE
     #define LV_MEM_CUSTOM_REALLOC LUAT_MEM_REALLOC
-
 #endif     /*LV_MEM_CUSTOM*/
 
 /*Number of the intermediate memory buffer used during rendering and other internal processing mechanisms.
@@ -84,7 +80,9 @@
  *====================*/
 
 /*Default display refresh period. LVG will redraw changed areas with this period time*/
+#ifndef LV_DISP_DEF_REFR_PERIOD
 #define LV_DISP_DEF_REFR_PERIOD 30      /*[ms]*/
+#endif
 
 /*Input device read period in milliseconds*/
 #define LV_INDEV_DEF_READ_PERIOD 30     /*[ms]*/
@@ -93,13 +91,11 @@
  *It removes the need to manually update the tick with `lv_tick_inc()`)*/
 #define LV_TICK_CUSTOM 1
 #if LV_TICK_CUSTOM
-    // #define LV_TICK_CUSTOM_INCLUDE "Arduino.h"         /*Header for the system time function*/
-    // #define LV_TICK_CUSTOM_SYS_TIME_EXPR (millis())    /*Expression evaluating to current system time in ms*/
+    #define LV_TICK_CUSTOM_INCLUDE "luat_mcu.h"         /*Header for the system time function*/
+    #define LV_TICK_CUSTOM_SYS_TIME_EXPR (luat_mcu_tick64_ms())    /*Expression evaluating to current system time in ms*/
     /*If using lvgl as ESP32 component*/
     // #define LV_TICK_CUSTOM_INCLUDE "esp_timer.h"
     // #define LV_TICK_CUSTOM_SYS_TIME_EXPR ((esp_timer_get_time() / 1000LL))
-    #define LV_TICK_CUSTOM_INCLUDE "luat_mcu.h"
-    #define LV_TICK_CUSTOM_SYS_TIME_EXPR (luat_mcu_tick64_ms())
 #endif   /*LV_TICK_CUSTOM*/
 
 /*Default Dot Per Inch. Used to initialize default sizes such as widgets sized, style paddings.
@@ -184,6 +180,9 @@
  * GPU
  *-----------*/
 
+/*Use TSi's (aka Think Silicon) acceleration library NemaGFX */
+#define LV_USE_NEMA_GFX 0
+
 /*Use Arm's 2D acceleration library Arm-2D */
 #define LV_USE_GPU_ARM2D 0
 
@@ -238,7 +237,7 @@
  *-----------*/
 
 /*Enable the log module*/
-#define LV_USE_LOG 1
+#define LV_USE_LOG 0
 #if LV_USE_LOG
 
     /*How important log should be added:
@@ -287,7 +286,7 @@
  *-----------*/
 
 /*1: Show CPU usage and FPS count*/
-#define LV_USE_PERF_MONITOR 1
+#define LV_USE_PERF_MONITOR 0
 #if LV_USE_PERF_MONITOR
     #define LV_USE_PERF_MONITOR_POS LV_ALIGN_BOTTOM_RIGHT
 #endif
@@ -342,7 +341,7 @@
 
 /*Will be added where memories needs to be aligned (with -Os data might not be aligned to boundary by default).
  * E.g. __attribute__((aligned(4)))*/
-#define LV_ATTRIBUTE_MEM_ALIGN
+#define LV_ATTRIBUTE_MEM_ALIGN __attribute__((aligned(4)))
 
 /*Attribute to mark large constant arrays for example font's bitmaps*/
 #define LV_ATTRIBUTE_LARGE_CONST
@@ -647,6 +646,13 @@
     #define LV_FS_FATFS_CACHE_SIZE 0    /*>0 to cache this number of bytes in lv_fs_read()*/
 #endif
 
+/*API for LittleFS (library needs to be added separately). Uses lfs_file_open, lfs_file_read, etc*/
+#define LV_USE_FS_LITTLEFS 0
+#if LV_USE_FS_LITTLEFS
+    #define LV_FS_LITTLEFS_LETTER '\0'     /*Set an upper cased letter on which the drive will accessible (e.g. 'A')*/
+    #define LV_FS_LITTLEFS_CACHE_SIZE 0    /*>0 to cache this number of bytes in lv_fs_read()*/
+#endif
+
 /*PNG decoder library*/
 #define LV_USE_PNG 0
 
@@ -678,6 +684,13 @@
         #define LV_FREETYPE_CACHE_FT_FACES 0
         #define LV_FREETYPE_CACHE_FT_SIZES 0
     #endif
+#endif
+
+/*Tiny TTF library*/
+#define LV_USE_TINY_TTF 0
+#if LV_USE_TINY_TTF
+    /*Load TTF data from files*/
+    #define LV_TINY_TTF_FILE_SUPPORT 0
 #endif
 
 /*Rlottie library*/

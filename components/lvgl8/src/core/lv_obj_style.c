@@ -75,7 +75,12 @@ void _lv_obj_style_init(void)
 
 void lv_obj_add_style(lv_obj_t * obj, lv_style_t * style, lv_style_selector_t selector)
 {
+    LV_ASSERT(obj->style_cnt < 63);
+
     trans_del(obj, selector, LV_STYLE_PROP_ANY, NULL);
+
+    /*Try removing the style first to be sure it won't be added twice*/
+    lv_obj_remove_style(obj, style, selector);
 
     uint32_t i;
     /*Go after the transition and local styles*/
@@ -89,7 +94,9 @@ void lv_obj_add_style(lv_obj_t * obj, lv_style_t * style, lv_style_selector_t se
 
     /*Allocate space for the new style and shift the rest of the style to the end*/
     obj->style_cnt++;
+    LV_ASSERT(obj->style_cnt != 0);
     obj->styles = lv_mem_realloc(obj->styles, obj->style_cnt * sizeof(_lv_obj_style_t));
+    LV_ASSERT_MALLOC(obj->styles);
 
     uint32_t j;
     for(j = obj->style_cnt - 1; j > i ; j--) {
@@ -283,7 +290,6 @@ void lv_obj_set_local_style_prop_meta(lv_obj_t * obj, lv_style_prop_t prop, uint
     lv_obj_refresh_style(obj, selector, prop);
 }
 
-
 lv_style_res_t lv_obj_get_local_style_prop(lv_obj_t * obj, lv_style_prop_t prop, lv_style_value_t * value,
                                            lv_style_selector_t selector)
 {
@@ -377,7 +383,6 @@ void _lv_obj_style_create_transition(lv_obj_t * obj, lv_part_t part, lv_state_t 
 #endif
     lv_anim_start(&a);
 }
-
 
 lv_style_value_t _lv_obj_style_apply_color_filter(const lv_obj_t * obj, uint32_t part, lv_style_value_t v)
 {
@@ -487,7 +492,6 @@ lv_part_t lv_obj_style_get_selector_part(lv_style_selector_t selector)
     return selector & 0xFF0000;
 }
 
-
 lv_text_align_t lv_obj_calculate_style_text_align(const struct _lv_obj_t * obj, lv_part_t part, const char * txt)
 {
     lv_text_align_t align = lv_obj_get_style_text_align(obj, part);
@@ -529,7 +533,6 @@ lv_opa_t lv_obj_get_style_opa_recursive(const lv_obj_t * obj, lv_part_t part)
     return opa_final;
 }
 
-
 /**********************
  *   STATIC FUNCTIONS
  **********************/
@@ -552,6 +555,7 @@ static lv_style_t * get_local_style(lv_obj_t * obj, lv_style_selector_t selector
     }
 
     obj->style_cnt++;
+    LV_ASSERT(obj->style_cnt != 0);
     obj->styles = lv_mem_realloc(obj->styles, obj->style_cnt * sizeof(_lv_obj_style_t));
     LV_ASSERT_MALLOC(obj->styles);
 
@@ -588,7 +592,9 @@ static _lv_obj_style_t * get_trans_style(lv_obj_t * obj,  lv_style_selector_t se
     if(i != obj->style_cnt) return &obj->styles[i];
 
     obj->style_cnt++;
+    LV_ASSERT(obj->style_cnt != 0);
     obj->styles = lv_mem_realloc(obj->styles, obj->style_cnt * sizeof(_lv_obj_style_t));
+    LV_ASSERT_MALLOC(obj->styles);
 
     for(i = obj->style_cnt - 1; i > 0 ; i--) {
         obj->styles[i] = obj->styles[i - 1];
@@ -601,7 +607,6 @@ static _lv_obj_style_t * get_trans_style(lv_obj_t * obj,  lv_style_selector_t se
     obj->styles[0].selector = selector;
     return &obj->styles[0];
 }
-
 
 static lv_style_res_t get_prop_core(const lv_obj_t * obj, lv_part_t part, lv_style_prop_t prop, lv_style_value_t * v)
 {
@@ -896,5 +901,3 @@ static void fade_in_anim_ready(lv_anim_t * a)
 {
     lv_obj_remove_local_style_prop(a->var, LV_STYLE_OPA, 0);
 }
-
-

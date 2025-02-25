@@ -42,6 +42,10 @@
     #include "../draw/nxp/pxp/lv_gpu_nxp_pxp.h"
 #endif
 
+#if LV_USE_NEMA_GFX
+    #include "../draw/nema_gfx/lv_draw_nema_gfx.h"
+#endif
+
 /*********************
  *      DEFINES
  *********************/
@@ -137,6 +141,11 @@ void lv_init(void)
     PXP_COND_STOP(!lv_gpu_nxp_pxp_init(), "PXP init failed.");
 #endif
 
+#if LV_USE_NEMA_GFX
+    /*Initialize NEMA GPU*/
+    lv_draw_nema_gfx_init();
+#endif
+
     _lv_obj_style_init();
     _lv_ll_init(&LV_GC_ROOT(_lv_disp_ll), sizeof(lv_disp_t));
     _lv_ll_init(&LV_GC_ROOT(_lv_indev_ll), sizeof(lv_indev_t));
@@ -149,9 +158,9 @@ void lv_init(void)
     lv_img_cache_set_size(LV_IMG_CACHE_DEF_SIZE);
 #endif
     /*Test if the IDE has UTF-8 encoding*/
-    char * txt = "Á";
+    const char * txt = "Á";
 
-    uint8_t * txt_u8 = (uint8_t *)txt;
+    const uint8_t * txt_u8 = (uint8_t *)txt;
     if(txt_u8[0] != 0xc3 || txt_u8[1] != 0x81 || txt_u8[2] != 0x00) {
         LV_LOG_WARN("The strings have no UTF-8 encoding. Non-ASCII characters won't be displayed.");
     }
@@ -560,7 +569,6 @@ static void lv_obj_draw(lv_event_t * e)
 
         lv_draw_rect(draw_ctx, &draw_dsc, &coords);
 
-
 #if LV_DRAW_COMPLEX
         if(clip_corner) {
             lv_draw_mask_radius_param_t * mp = lv_mem_buf_get(sizeof(lv_draw_mask_radius_param_t));
@@ -861,6 +869,10 @@ static void lv_obj_event(const lv_obj_class_t * class_p, lv_event_t * e)
         if(layout || align || w == LV_SIZE_CONTENT || h == LV_SIZE_CONTENT) {
             lv_obj_mark_layout_as_dirty(obj);
         }
+    }
+    else if(code == LV_EVENT_CHILD_DELETED) {
+        obj->readjust_scroll_after_layout = 1;
+        lv_obj_mark_layout_as_dirty(obj);
     }
     else if(code == LV_EVENT_REFR_EXT_DRAW_SIZE) {
         lv_coord_t d = lv_obj_calculate_ext_draw_size(obj, LV_PART_MAIN);

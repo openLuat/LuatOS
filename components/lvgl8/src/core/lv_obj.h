@@ -121,7 +121,6 @@ enum {
 
 };
 
-
 typedef uint32_t lv_obj_flag_t;
 
 /**
@@ -183,6 +182,7 @@ typedef struct _lv_obj_t {
     lv_obj_flag_t flags;
     lv_state_t state;
     uint16_t layout_inv : 1;
+    uint16_t readjust_scroll_after_layout : 1;
     uint16_t scr_layout_inv : 1;
     uint16_t skip_trans : 1;
     uint16_t style_cnt  : 6;
@@ -190,7 +190,6 @@ typedef struct _lv_obj_t {
     uint16_t w_layout   : 1;
     uint16_t being_deleted   : 1;
 } lv_obj_t;
-
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -224,7 +223,6 @@ bool lv_is_initialized(void);
  */
 lv_obj_t * lv_obj_create(lv_obj_t * parent);
 
-
 /*=====================
  * Setter functions
  *====================*/
@@ -242,7 +240,6 @@ void lv_obj_add_flag(lv_obj_t * obj, lv_obj_flag_t f);
  * @param f     OR-ed values from `lv_obj_flag_t` to set.
  */
 void lv_obj_clear_flag(lv_obj_t * obj, lv_obj_flag_t f);
-
 
 /**
  * Add one or more states to the object. The other state bits will remain unchanged.
@@ -401,7 +398,6 @@ static inline lv_coord_t lv_obj_dpx(const lv_obj_t * obj, lv_coord_t n)
 #else
 #  define LV_TRACE_OBJ_CREATE(...)
 #endif
-
 
 #ifdef __cplusplus
 } /*extern "C"*/

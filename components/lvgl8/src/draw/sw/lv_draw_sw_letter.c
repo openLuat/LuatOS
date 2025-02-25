@@ -30,7 +30,6 @@
 static void /* LV_ATTRIBUTE_FAST_MEM */ draw_letter_normal(lv_draw_ctx_t * draw_ctx, const lv_draw_label_dsc_t * dsc,
                                                            const lv_point_t * pos, lv_font_glyph_dsc_t * g, const uint8_t * map_p);
 
-
 #if LV_DRAW_COMPLEX && LV_USE_FONT_SUBPX
 static void draw_letter_subpx(lv_draw_ctx_t * draw_ctx, const lv_draw_label_dsc_t * dsc, const lv_point_t * pos,
                               lv_font_glyph_dsc_t * g, const uint8_t * map_p);
@@ -103,7 +102,7 @@ void lv_draw_sw_letter(lv_draw_ctx_t * draw_ctx, const lv_draw_label_dsc_t * dsc
         if(letter >= 0x20 &&
            letter != 0xf8ff && /*LV_SYMBOL_DUMMY*/
            letter != 0x200c) { /*ZERO WIDTH NON-JOINER*/
-            LV_LOG_WARN("lv_draw_letter: glyph dsc. not found for U+%" PRIX32, letter);
+            LV_LOG_WARN("lv_draw_letter: glyph dsc. not found for U+%" LV_PRIX32, letter);
 
 #if LV_USE_FONT_PLACEHOLDER
             /* draw placeholder */
@@ -570,4 +569,3 @@ static void draw_letter_subpx(lv_draw_ctx_t * draw_ctx, const lv_draw_label_dsc_
     lv_mem_buf_release(color_buf);
 }
 #endif /*LV_DRAW_COMPLEX && LV_USE_FONT_SUBPX*/
-

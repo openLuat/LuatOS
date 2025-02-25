@@ -181,7 +181,6 @@ void lv_chart_set_div_line_count(lv_obj_t * obj, uint8_t hdiv, uint8_t vdiv)
     lv_obj_invalidate(obj);
 }
 
-
 void lv_chart_set_zoom_x(lv_obj_t * obj, uint16_t zoom_x)
 {
     LV_ASSERT_OBJ(obj, MY_CLASS);
@@ -349,6 +348,7 @@ lv_chart_series_t * lv_chart_add_series(lv_obj_t * obj, lv_color_t color, lv_cha
     lv_chart_series_t * ser = _lv_ll_ins_head(&chart->series_ll);
     LV_ASSERT_MALLOC(ser);
     if(ser == NULL) return NULL;
+    lv_memset_00(ser, sizeof(lv_chart_series_t));
 
     lv_coord_t def = LV_CHART_POINT_NONE;
 
@@ -366,9 +366,6 @@ lv_chart_series_t * lv_chart_add_series(lv_obj_t * obj, lv_color_t color, lv_cha
         return NULL;
     }
 
-    ser->start_point = 0;
-    ser->y_ext_buf_assigned = false;
-    ser->hidden = 0;
     ser->x_axis_sec = axis & LV_CHART_AXIS_SECONDARY_X ? 1 : 0;
     ser->y_axis_sec = axis & LV_CHART_AXIS_SECONDARY_Y ? 1 : 0;
 
@@ -389,6 +386,7 @@ void lv_chart_remove_series(lv_obj_t * obj, lv_chart_series_t * series)
 
     lv_chart_t * chart    = (lv_chart_t *)obj;
     if(!series->y_ext_buf_assigned && series->y_points) lv_mem_free(series->y_points);
+    if(!series->x_ext_buf_assigned && series->x_points) lv_mem_free(series->x_points);
 
     _lv_ll_remove(&chart->series_ll, series);
     lv_mem_free(series);
@@ -404,7 +402,6 @@ void lv_chart_hide_series(lv_obj_t * chart, lv_chart_series_t * series, bool hid
     series->hidden = hide ? 1 : 0;
     lv_chart_refresh(chart);
 }
-
 
 void lv_chart_set_series_color(lv_obj_t * chart, lv_chart_series_t * series, lv_color_t color)
 {
@@ -482,7 +479,6 @@ void lv_chart_set_cursor_pos(lv_obj_t * chart, lv_chart_cursor_t * cursor, lv_po
     lv_chart_refresh(chart);
 }
 
-
 /**
  * Set the coordinate of the cursor with respect
  * to the origin of series area of the chart.
@@ -519,7 +515,6 @@ lv_point_t lv_chart_get_cursor_point(lv_obj_t * chart, lv_chart_cursor_t * curso
 /*=====================
  * Set/Get value(s)
  *====================*/
-
 
 void lv_chart_set_all_value(lv_obj_t * obj, lv_chart_series_t * ser, lv_coord_t value)
 {
@@ -684,6 +679,7 @@ static void lv_chart_destructor(const lv_obj_class_t * class_p, lv_obj_t * obj)
         ser = _lv_ll_get_head(&chart->series_ll);
 
         if(!ser->y_ext_buf_assigned) lv_mem_free(ser->y_points);
+        if(!ser->x_ext_buf_assigned && ser->x_points) lv_mem_free(ser->x_points);
 
         _lv_ll_remove(&chart->series_ll, ser);
         lv_mem_free(ser);
@@ -1805,6 +1801,5 @@ lv_chart_tick_dsc_t * get_tick_gsc(lv_obj_t * obj, lv_chart_axis_t axis)
             return NULL;
     }
 }
-
 
 #endif

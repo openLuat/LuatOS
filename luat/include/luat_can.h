@@ -52,6 +52,7 @@ typedef struct
 	uint8_t data[8];		//数据
 }luat_can_message_t;
 
+
 /**
  * @brief 回调函数
  *

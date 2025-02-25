@@ -19,12 +19,56 @@
 static int l_can_cb[MAX_DEVICE_COUNT];
 static int l_can_handler(lua_State *L, void* ptr)
 {
-	return 1;
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    int can_id = msg->arg1;
+    if (l_can_cb[can_id])
+    {
+    	lua_geti(L, LUA_REGISTRYINDEX, l_can_cb[can_id]);
+        if (lua_isfunction(L, -1))
+        {
+            lua_pushinteger(L, can_id);
+            switch(msg->arg2)
+            {
+            case LUAT_CAN_CB_NEW_MSG:
+            	lua_pushinteger(L, msg->arg2);
+            	lua_pushnil(L);
+            	break;
+            case LUAT_CAN_CB_TX_OK:
+            	lua_pushinteger(L, msg->arg2);
+            	lua_pushboolean(L, 1);
+            	break;
+            case LUAT_CAN_CB_TX_FAILED:
+            	lua_pushinteger(L, LUAT_CAN_CB_TX_OK);
+            	lua_pushboolean(L, 0);
+            	break;
+            case LUAT_CAN_CB_ERROR_REPORT:
+            	lua_pushinteger(L, msg->arg2);
+            	lua_pushinteger(L, (uint32_t)msg->ptr);
+            	break;
+            case LUAT_CAN_CB_STATE_CHANGE:
+            	lua_pushinteger(L, msg->arg2);
+            	lua_pushinteger(L, (uint32_t)msg->ptr);
+            	break;
+            }
+            lua_call(L, 3, 0);
+        }
+    }
+
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
 }
 
 static void l_can_callback(int can_id, LUAT_CAN_CB_E cb_type, void *cb_param)
 {
-
+    rtos_msg_t msg;
+    msg.handler = l_can_handler;
+    msg.ptr = cb_param;
+    msg.arg1 = can_id;
+    msg.arg2 = cb_type;
+    luat_msgbus_put(&msg, 0);
 }
 /*
 CAN总线初始化
@@ -56,8 +100,8 @@ static int l_can_init(lua_State *L)
 @function 回调方法
 @return nil 无返回值
 @usage
-can.on(1, function(id, type, param1, param2)
-    log.info("can", id, type, param1, param2)
+can.on(1, function(id, type, param)
+    log.info("can", id, type, param)
 end)
 */
 static int l_can_on(lua_State *L) {

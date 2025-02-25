@@ -7,23 +7,25 @@
 @tag LUAT_USE_CAN
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_mem.h"
 #include "luat_can.h"
 #include "luat_zbuff.h"
 #include "c_common.h"
-
+#define LUAT_LOG_TAG "can"
+#include "luat_log.h"
 #include "rotable2.h"
 #define MAX_DEVICE_COUNT 2
 static int l_can_cb[MAX_DEVICE_COUNT];
+static uint8_t l_can_debug_flag;
 static int l_can_handler(lua_State *L, void* ptr)
 {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
     int can_id = msg->arg1;
+    if (l_can_debug_flag) LLOGD("callback %d,%d,%x", can_id, msg->arg2, msg->ptr);
     if (l_can_cb[can_id])
     {
     	lua_geti(L, LUA_REGISTRYINDEX, l_can_cb[can_id]);
@@ -82,8 +84,10 @@ can.init()
 */
 static int l_can_init(lua_State *L)
 {
-	if (luat_can_base_init(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0)))
+	int ret = luat_can_base_init(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0));
+	if (ret)
 	{
+		LLOGE("init failed %d",  ret);
 		lua_pushboolean(L, 0);
 	}
 	else
@@ -150,10 +154,12 @@ can.timing(0, 25000, 9, 6, 4, 2)
 */
 static int l_can_timing(lua_State *L)
 {
-	if (luat_can_set_timing(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 1000000),
+	int ret = luat_can_set_timing(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 1000000),
 			luaL_optinteger(L, 3, 5), luaL_optinteger(L, 4, 4), luaL_optinteger(L, 5, 3),
-			luaL_optinteger(L, 6, 2)))
+			luaL_optinteger(L, 6, 2));
+	if (ret)
 	{
+		LLOGE("set timing failed %d",  ret);
 		lua_pushboolean(L, 0);
 	}
 	else
@@ -174,8 +180,10 @@ can.mode(0, CAN.MODE_NORMAL)
 */
 static int l_can_mode(lua_State *L)
 {
-	if (luat_can_set_work_mode(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, LUAT_CAN_WORK_MODE_NORMAL)))
+	int ret = luat_can_set_work_mode(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, LUAT_CAN_WORK_MODE_NORMAL));
+	if (ret)
 	{
+		LLOGE("set mode failed %d",  ret);
 		lua_pushboolean(L, 0);
 	}
 	else
@@ -199,8 +207,10 @@ can.node(0, 0x123, CAN.STD)
 static int l_can_node(lua_State *L)
 {
 
-	if (luat_can_set_node(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0x1fffffff), luaL_optinteger(L, 3, 1)))
+	int ret = luat_can_set_node(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0x1fffffff), luaL_optinteger(L, 3, 1));
+	if (ret)
 	{
+		LLOGE("set node failed %d",  ret);
 		lua_pushboolean(L, 0);
 	}
 	else
@@ -231,8 +241,10 @@ static int l_can_filter(lua_State *L)
 	uint8_t dual_mode = lua_toboolean(L,2);
     BytesPutBe32(ACR, node_id);
     BytesPutBe32(AMR, mask);
-	if (luat_can_set_filter(luaL_optinteger(L, 1, 0), dual_mode, ACR, AMR))
+    int ret = luat_can_set_filter(luaL_optinteger(L, 1, 0), dual_mode, ACR, AMR);
+	if (ret)
 	{
+		LLOGE("set filter failed %d",  ret);
 		lua_pushboolean(L, 0);
 	}
 	else
@@ -277,8 +289,8 @@ static int l_can_tx(lua_State *L)
     if(lua_isuserdata(L, 6))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 6, LUAT_ZBUFF_TYPE));
-        len = buff->len - buff->cursor;
-        buf = (const char *)(buff->addr + buff->cursor);
+        len = buff->used;
+        buf = (const char *)(buff->addr);
     }
     else
     {
@@ -390,6 +402,21 @@ static int l_can_deinit(lua_State *L)
 	return 1;
 }
 
+/*
+CAN debug开关，打开后有更详细的打印
+@api can.debug(on_off)
+@boolean true打开，false关闭
+@return nil
+@usage
+can.debug(true)
+*/
+static int l_can_debug(lua_State *L)
+{
+	l_can_debug_flag = lua_toboolean(L, 1);
+	luat_can_set_debug(l_can_debug_flag);
+	return 0;
+}
+
 static const rotable_Reg_t reg_can[] =
 {
     { "init",			ROREG_FUNC(l_can_init)},
@@ -404,7 +431,7 @@ static const rotable_Reg_t reg_can[] =
 	{ "stop", 			ROREG_FUNC(l_can_stop)},
 	{ "reset",			ROREG_FUNC(l_can_reset)},
 	{ "deinit",			ROREG_FUNC(l_can_deinit)},
-
+	{ "debug",			ROREG_FUNC(l_can_debug)},
 	//@const MODE_NORMAL number 正常工作模式
     { "MODE_NORMAL",        ROREG_INT(LUAT_CAN_WORK_MODE_NORMAL)},
 	//@const MODE_LISTEN number 监听模式

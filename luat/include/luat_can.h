@@ -164,4 +164,6 @@ int luat_can_close(uint8_t can_id);
  */
 int luat_can_get_state(uint8_t can_id);
 
+uint32_t luat_can_get_last_error(uint8_t can_id);
+void luat_can_set_debug(uint8_t on_off);
 #endif

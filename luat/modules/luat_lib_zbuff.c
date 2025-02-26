@@ -1395,6 +1395,25 @@ static int l_zbuff_equal(lua_State *L)
 	return 2;
 }
 
+/**
+将当前zbuff数据转base64,输出到下一个zbuff中
+@api buff:toBase64(dst)
+@userdata zbuff指针, 必须大于目标长度, 即buff:used() * 1.35
+@return int 转换后的长度
+@usage
+buff:toBase64(dst) -- dst:len必须大于buff:used() * 1.35
+*/
+#include "luat_str.h"
+static int l_zbuff_to_base64(lua_State *L) {
+    luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+    luat_zbuff_t *buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    size_t olen = 0;
+    luat_str_base64_encode(buff2->addr, buff2->len, &olen, buff->addr, buff->used);
+    buff2->used = olen;
+    lua_pushinteger(L, olen);
+    return 1;
+};
+
 static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
     {"read", l_zbuff_read},
@@ -1443,6 +1462,7 @@ static const luaL_Reg lib_zbuff[] = {
 	{"reSize", l_zbuff_resize},
 	{"used", l_zbuff_used},
 	{"isEqual", l_zbuff_equal},
+    {"toBase64", l_zbuff_to_base64},
     {NULL, NULL}};
 
 static int luat_zbuff_meta_index(lua_State *L) {

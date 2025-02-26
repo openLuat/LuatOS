@@ -341,6 +341,11 @@ LUAT_WEAK int luat_camera_capture(int id, uint8_t quality, const char *path) {
     return -1;
 }
 
+LUAT_WEAK int luat_camera_capture_config(int id, uint16_t start_x, uint16_t start_y, uint16_t new_w, uint16_t new_h) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 LUAT_WEAK int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer) {
     LLOGD("not support yet");
     return -1;
@@ -372,10 +377,14 @@ LUAT_WEAK int luat_camera_work_mode(int id, int mode){
 }
 /**
 camera拍照
-@api camera.capture(id, save_path, quality)
+@api camera.capture(id, save_path, quality, x, y, w, h)
 @int camera id,例如0
 @string/zbuff/nil save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg，如果是zbuff，则将图片保存在buff内不写入文件系统
 @int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
+@int x, 裁剪起始横坐标，从x列开始
+@int y, 裁剪起始纵坐标，从y行开始
+@int w, 裁剪后的宽度
+@int h, 裁剪后的高度
 @return boolean 成功返回true,否则返回false,真正完成后通过camera.on设置的回调函数回调接收到的长度
 @usage
 camera.capture(0)
@@ -383,6 +392,11 @@ camera.capture(0)
 static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int quality = luaL_optinteger(L, 3, 1);
+    if (luat_camera_capture_config(id, luaL_optinteger(L, 4, 0), luaL_optinteger(L, 5, 0), luaL_optinteger(L, 6, 0), luaL_optinteger(L, 7, 0)))
+    {
+    	lua_pushboolean(L, 0);
+    	return 1;
+    }
     if (lua_isstring(L, 2)){
     	const char* save_path = luaL_checkstring(L, 2);
     	lua_pushboolean(L, !luat_camera_capture(id, quality, save_path));

@@ -180,6 +180,8 @@ int luat_camera_preview(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);
 
+int luat_camera_capture_config(int id, uint16_t start_x, uint16_t start_y, uint16_t new_w, uint16_t new_h);
+
 int luat_camera_capture(int id, uint8_t quality, const char *path);
 
 int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer);

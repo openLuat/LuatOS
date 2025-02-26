@@ -1,10 +1,15 @@
 #ifndef __NET_LWIP_H__
 #define __NET_LWIP_H__
 
-#define MAX_SOCK_NUM 8
 #include "luat_base.h"
 #include "dns_def.h"
 #include "luat_network_adapter.h"
+
+#ifdef LWIP_NUM_SOCKETS
+#define MAX_SOCK_NUM LWIP_NUM_SOCKETS
+#else
+#define MAX_SOCK_NUM 8
+#endif
 
 typedef struct
 {

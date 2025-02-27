@@ -3144,9 +3144,9 @@ int luat_lv_obj_get_type(lua_State *L) {
 //  lv_obj_user_data_t lv_obj_get_user_data(lv_obj_t* obj)
 int luat_lv_obj_get_user_data(lua_State *L) {
     LV_DEBUG("CALL lv_obj_get_user_data");
-    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_obj_user_data_t ret;
-    ret = lv_obj_get_user_data(obj);
+    // lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    // lv_obj_user_data_t ret;
+    // ret = lv_obj_get_user_data(obj);
     return 0;
 }
 

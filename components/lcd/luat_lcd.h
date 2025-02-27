@@ -6,6 +6,8 @@
 #include "luat_spi.h"
 #include "u8g2.h"
 
+#define LUAT_LCD_CONF_COUNT (1)
+
 #define LCD_W 240
 #define LCD_H 320
 #define LCD_DIRECTION 0

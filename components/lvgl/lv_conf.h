@@ -334,12 +334,12 @@ typedef void * lv_img_decoder_user_data_t;
 /* 1: use a custom tick source.
  * It removes the need to manually update the tick with `lv_tick_inc`) */
 #ifndef LV_TICK_CUSTOM
-#define LV_TICK_CUSTOM     0
+#define LV_TICK_CUSTOM     1
 #endif
 #if LV_TICK_CUSTOM == 1
 #ifndef LV_TICK_CUSTOM_INCLUDE
-#define LV_TICK_CUSTOM_INCLUDE  "Arduino.h"         /*Header for the system time function*/
-#define LV_TICK_CUSTOM_SYS_TIME_EXPR (millis())     /*Expression evaluating to current system time in ms*/
+#define LV_TICK_CUSTOM_INCLUDE  "luat_mcu.h"        /*Header for the system time function*/
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR (luat_mcu_tick64_ms())     /*Expression evaluating to current system time in ms*/
 #endif
 #endif   /*LV_TICK_CUSTOM*/
 

@@ -84,14 +84,7 @@ typedef struct luat_lcd_conf {
     uint8_t yoffset;//偏移
     uint8_t auto_flush;
     uint8_t direction;//方向
-    u8g2_t luat_lcd_u8g2 ;
-    struct luat_lcd_opts* opts;
-    luat_spi_device_t* lcd_spi_device;
-    int lcd_spi_ref;
-    void* userdata;
-
     // buff 相关
-    luat_color_t* buff;
     int buff_ref;
     int16_t flush_y_min;
     int16_t flush_y_max;
@@ -111,6 +104,12 @@ typedef struct luat_lcd_conf {
     uint8_t tp_pin_rst;
     uint8_t tp_pin_irq;
     uint8_t tp_i2c_id;
+    luat_color_t* buff;
+    struct luat_lcd_opts* opts;
+    luat_spi_device_t* lcd_spi_device;
+    int lcd_spi_ref;
+    void* userdata;
+    u8g2_t luat_lcd_u8g2 ;
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {

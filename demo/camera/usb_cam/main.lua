@@ -15,7 +15,8 @@ local camera_id = camera.USB
 local usb_camera_table = {
     id = camera_id,
     sensor_width = 1280,
-    sensor_height = 720
+    sensor_height = 720,
+    usb_port = 1
 }
 
 camera.on(camera_id, "scanned", function(id, str)

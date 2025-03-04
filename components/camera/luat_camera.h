@@ -44,6 +44,7 @@ typedef struct luat_camera_conf
     uint8_t color_bit;
     uint8_t id_reg;
 	uint8_t id_value;
+    uint8_t usb_port;
     size_t init_cmd_size;
     uint8_t *init_cmd;
 #ifdef __LUATOS__
@@ -66,6 +67,7 @@ typedef struct
 	uint8_t is_msb;	//0 or 1;
 	uint8_t is_two_line_rx; //0 or 1;
 	uint8_t seq_type;	//0 or 1
+    uint8_t usb_port;
 	uint8_t plat_param[4];
 #ifdef __LUATOS__
     luat_lcd_conf_t* lcd_conf;

@@ -161,6 +161,14 @@ static int l_camera_init(lua_State *L){
             conf.id = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+
+        lua_pushliteral(L, "usb_port");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.usb_port = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
         lua_pushliteral(L, "init_cmd");
         lua_gettable(L, 1);
         if (lua_istable(L, -1)) {

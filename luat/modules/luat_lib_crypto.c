@@ -397,58 +397,7 @@ static int l_crypto_crc8(lua_State *L)
     	if (lua_isboolean(L, 4)) {
     		is_rev = lua_toboolean(L, 4);
     	}
-    	uint8_t i;
-    	uint8_t CRC8 = start;
-		uint8_t *Src = (uint8_t *)inputData;
-		if (is_rev)
-		{
-			poly = 0;
-			for (i = 0; i < 8; i++)
-			{
-				if (start & (1 << (7 - i)))
-				{
-					poly |= 1 << i;
-				}
-			}
-			while (len--)
-			{
-
-				CRC8 ^= *Src++;
-				for (i = 0; i < 8; i++)
-				{
-					if ((CRC8 & 0x01))
-					{
-						CRC8 >>= 1;
-						CRC8 ^= poly;
-					}
-					else
-					{
-						CRC8 >>= 1;
-					}
-				}
-			}
-		}
-		else
-		{
-			while (len--)
-			{
-
-				CRC8 ^= *Src++;
-				for (i = 8; i > 0; --i)
-				{
-					if ((CRC8 & 0x80))
-					{
-						CRC8 <<= 1;
-						CRC8 ^= poly;
-					}
-					else
-					{
-						CRC8 <<= 1;
-					}
-				}
-			}
-		}
-		lua_pushinteger(L, CRC8);
+		lua_pushinteger(L, luat_crc8(inputData, len, start, poly, is_rev));
     }
     return 1;
 }

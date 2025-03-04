@@ -138,4 +138,35 @@ typedef struct luat_crypto_cipher_ctx
 
 int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx);
 
+/**
+ * @brief crc8通用算法
+ * @param data 输入数据
+ * @param len 长度
+ * @param start 起始值，一般是0
+ * @param poly 多项式
+ * @param is_reverse 是否逆序计算，顺序从MSB算到LSB，逆序从LSB算到MSB，不清楚的2个都试试
+ * @return 输出值
+ */
+uint8_t luat_crc8(const void *data, uint32_t len, uint8_t start, uint8_t poly, uint8_t is_reverse);
+
+/**
+ * @brief crc16通用算法
+ * @param data 输入数据
+ * @param len 长度
+ * @param start 起始值
+ * @param poly 多项式
+ * @param is_reverse 是否逆序计算，顺序从MSB算到LSB，逆序从LSB算到MSB，不清楚的2个都试试
+ * @return 输出值
+ */
+uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t poly, uint8_t is_reverse);
+
+/**
+ * @brief crc32常用算法
+ * @param data 输入数据
+ * @param len 长度
+ * @param start 起始值，一般是0xffffffff
+ * @param poly 多项式，一般是0x04C11DB7，填0会自动设置成0x04C11DB7
+ * @return 输出值
+ */
+uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t poly);
 #endif

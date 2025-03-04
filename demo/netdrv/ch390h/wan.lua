@@ -22,7 +22,7 @@ sys.taskInit(function ()
         return
     end
 
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spiid=0,cs=8})
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
     netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 

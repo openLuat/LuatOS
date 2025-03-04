@@ -25,7 +25,7 @@ sys.taskInit(function ()
         return
     end
 
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spiid=0,cs=8})
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
     sys.wait(3000)
     local ipv4,mark, gw = netdrv.ipv4(socket.LWIP_ETH, "192.168.4.1", "255.255.255.0", "192.168.4.1")
     log.info("ipv4", ipv4,mark, gw)

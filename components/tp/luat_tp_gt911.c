@@ -197,7 +197,8 @@ static int luat_tp_irq_cb(int pin, void *args){
     if (gt911_init_state == 0){
         return -1;
     }
-    luat_gpio_irq_enable(pin, 0);
+    luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)args;
+    luat_tp_irq_enable(luat_tp_config, 0);
     luat_rtos_message_send(tp_task_handle, 1, args);
     return 0;
 }

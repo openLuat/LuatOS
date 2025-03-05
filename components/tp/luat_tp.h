@@ -24,6 +24,7 @@ typedef struct luat_touch_info{
             uint64_t x2y:1;
             uint64_t stretch_rank:2;
             uint64_t :2;
+            uint64_t :8;
         };
         uint64_t info;
     };
@@ -80,7 +81,7 @@ extern luat_tp_opts_t tp_config_gt911;
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config);
 
-
+int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled);
 
 
 

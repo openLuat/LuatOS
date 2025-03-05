@@ -18,19 +18,24 @@ void luat_tp_task_entry(void* param){
         uint8_t touch_num = luat_tp_config->opts->read(luat_tp_config,tp_data);
         if (touch_num){
             if (luat_tp_config->callback == NULL){
-                luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
+                luat_tp_irq_enable(luat_tp_config, 1);
             }else{
                 luat_tp_config->callback(luat_tp_config,tp_data);
             }
         }else{
-            luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
+            luat_tp_irq_enable(luat_tp_config, 1);
         }
     }
 }
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
-    if (tp_task_handle == 0){
-        luat_rtos_task_create(&tp_task_handle, 4096, 10, "tp", luat_tp_task_entry, NULL, 10);
+    if (tp_task_handle == NULL){
+        int ret = luat_rtos_task_create(&tp_task_handle, 4096, 10, "tp", luat_tp_task_entry, NULL, 10);
+        if (ret){
+            tp_task_handle = NULL;
+            LLOGE("tp task create failed!");
+            return -1;
+        }
     }
     if (luat_tp_config->opts->init){
         return luat_tp_config->opts->init(luat_tp_config);
@@ -40,7 +45,9 @@ int luat_tp_init(luat_tp_config_t* luat_tp_config){
     }
 }
 
-
+int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled){
+    return luat_gpio_irq_enable(luat_tp_config->pin_int, enabled);
+}
 
 
 

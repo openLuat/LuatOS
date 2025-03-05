@@ -179,19 +179,13 @@ void lv_port_indev_init(luat_tp_config_t *luat_tp_config)
  * Touchpad
  * -----------------*/
 
-static luat_tp_data_t lvgl_tp_data[LUAT_TP_TOUCH_MAX]={0};
-
-static int luat_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
-    memcpy(lvgl_tp_data, luat_tp_data, sizeof(luat_tp_data_t)*LUAT_TP_TOUCH_MAX);
-    luat_tp_irq_enable(luat_tp_config, 1);
-    return 0;
-}
+static luat_tp_data_t* lvgl_tp_data = NULL;
 
 /*Initialize your touchpad*/
 static void touchpad_init(luat_tp_config_t *luat_tp_config)
 {
     /*Your code comes here*/
-    luat_tp_config->callback = luat_tp_callback;
+    lvgl_tp_data = luat_tp_config->tp_data;
 }
 
 /*Will be called by the library to read the touchpad*/
@@ -215,8 +209,7 @@ static void touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 }
 
 /*Return true is the touchpad is pressed*/
-static bool touchpad_is_pressed(void)
-{
+static bool touchpad_is_pressed(void){
     /*Your code comes here*/
     if (lvgl_tp_data[0].event == TP_EVENT_TYPE_DOWN || lvgl_tp_data[0].event == TP_EVENT_TYPE_MOVE){
         return true;

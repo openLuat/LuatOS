@@ -1,6 +1,6 @@
 #ifndef LUAT_ONEWIRE_H
 #define LUAT_ONEWIRE_H
-
+//废弃代码，不要引用，会与真正头文件冲突
 #define LUAT_ONEWIRE_MODE_GPIO 1
 #define LUAT_ONEWIRE_MODE_HW   2
 

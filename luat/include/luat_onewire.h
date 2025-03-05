@@ -43,6 +43,12 @@ typedef struct
  * @param id 总线ID，如果只有1条，随便写
  */
 void luat_onewire_init(int id);
+
+/**
+ * @brief 单总线关闭
+ * @param id 总线ID，如果只有1条，随便写
+ */
+void luat_onewire_deinit(int id);
 /**
  * @brief 单总线调试开关
  * @param id 总线ID，如果只有1条，随便写

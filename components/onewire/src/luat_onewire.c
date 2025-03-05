@@ -1,3 +1,4 @@
+#if 0
 #include "luat_base.h"
 #include "luat_onewire.h"
 #include "luat_gpio.h"
@@ -419,3 +420,4 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
     return 0;
 }
 
+#endif

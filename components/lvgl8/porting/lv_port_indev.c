@@ -4,13 +4,12 @@
  */
 
 /*Copy this file as "lv_port_indev.c" and set this value to "1" to enable content*/
-#if 0
+#if 1
 
 /*********************
  *      INCLUDES
  *********************/
 #include "lv_port_indev.h"
-#include "../../lvgl.h"
 
 /*********************
  *      DEFINES
@@ -24,7 +23,7 @@
  *  STATIC PROTOTYPES
  **********************/
 
-static void touchpad_init(void);
+static void touchpad_init(luat_tp_config_t *luat_tp_config);
 static void touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data);
 static bool touchpad_is_pressed(void);
 static void touchpad_get_xy(lv_coord_t * x, lv_coord_t * y);
@@ -67,7 +66,7 @@ static lv_indev_state_t encoder_state;
  *   GLOBAL FUNCTIONS
  **********************/
 
-void lv_port_indev_init(void)
+void lv_port_indev_init(luat_tp_config_t *luat_tp_config)
 {
     /**
      * Here you will find example implementation of input devices supported by LittelvGL:
@@ -88,87 +87,88 @@ void lv_port_indev_init(void)
      * -----------------*/
 
     /*Initialize your touchpad if you have*/
-    touchpad_init();
+    touchpad_init(luat_tp_config);
 
     /*Register a touchpad input device*/
     lv_indev_drv_init(&indev_drv);
+    indev_drv.user_data = luat_tp_config;
     indev_drv.type = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = touchpad_read;
     indev_touchpad = lv_indev_drv_register(&indev_drv);
 
-    /*------------------
-     * Mouse
-     * -----------------*/
+    // /*------------------
+    //  * Mouse
+    //  * -----------------*/
 
-    /*Initialize your mouse if you have*/
-    mouse_init();
+    // /*Initialize your mouse if you have*/
+    // mouse_init();
 
-    /*Register a mouse input device*/
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_POINTER;
-    indev_drv.read_cb = mouse_read;
-    indev_mouse = lv_indev_drv_register(&indev_drv);
+    // /*Register a mouse input device*/
+    // lv_indev_drv_init(&indev_drv);
+    // indev_drv.type = LV_INDEV_TYPE_POINTER;
+    // indev_drv.read_cb = mouse_read;
+    // indev_mouse = lv_indev_drv_register(&indev_drv);
 
-    /*Set cursor. For simplicity set a HOME symbol now.*/
-    lv_obj_t * mouse_cursor = lv_img_create(lv_scr_act());
-    lv_img_set_src(mouse_cursor, LV_SYMBOL_HOME);
-    lv_indev_set_cursor(indev_mouse, mouse_cursor);
+    // /*Set cursor. For simplicity set a HOME symbol now.*/
+    // lv_obj_t * mouse_cursor = lv_img_create(lv_scr_act());
+    // lv_img_set_src(mouse_cursor, LV_SYMBOL_HOME);
+    // lv_indev_set_cursor(indev_mouse, mouse_cursor);
 
-    /*------------------
-     * Keypad
-     * -----------------*/
+    // /*------------------
+    //  * Keypad
+    //  * -----------------*/
 
-    /*Initialize your keypad or keyboard if you have*/
-    keypad_init();
+    // /*Initialize your keypad or keyboard if you have*/
+    // keypad_init();
 
-    /*Register a keypad input device*/
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_KEYPAD;
-    indev_drv.read_cb = keypad_read;
-    indev_keypad = lv_indev_drv_register(&indev_drv);
+    // /*Register a keypad input device*/
+    // lv_indev_drv_init(&indev_drv);
+    // indev_drv.type = LV_INDEV_TYPE_KEYPAD;
+    // indev_drv.read_cb = keypad_read;
+    // indev_keypad = lv_indev_drv_register(&indev_drv);
 
-    /*Later you should create group(s) with `lv_group_t * group = lv_group_create()`,
-     *add objects to the group with `lv_group_add_obj(group, obj)`
-     *and assign this input device to group to navigate in it:
-     *`lv_indev_set_group(indev_keypad, group);`*/
+    // /*Later you should create group(s) with `lv_group_t * group = lv_group_create()`,
+    //  *add objects to the group with `lv_group_add_obj(group, obj)`
+    //  *and assign this input device to group to navigate in it:
+    //  *`lv_indev_set_group(indev_keypad, group);`*/
 
-    /*------------------
-     * Encoder
-     * -----------------*/
+    // /*------------------
+    //  * Encoder
+    //  * -----------------*/
 
-    /*Initialize your encoder if you have*/
-    encoder_init();
+    // /*Initialize your encoder if you have*/
+    // encoder_init();
 
-    /*Register a encoder input device*/
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_ENCODER;
-    indev_drv.read_cb = encoder_read;
-    indev_encoder = lv_indev_drv_register(&indev_drv);
+    // /*Register a encoder input device*/
+    // lv_indev_drv_init(&indev_drv);
+    // indev_drv.type = LV_INDEV_TYPE_ENCODER;
+    // indev_drv.read_cb = encoder_read;
+    // indev_encoder = lv_indev_drv_register(&indev_drv);
 
-    /*Later you should create group(s) with `lv_group_t * group = lv_group_create()`,
-     *add objects to the group with `lv_group_add_obj(group, obj)`
-     *and assign this input device to group to navigate in it:
-     *`lv_indev_set_group(indev_encoder, group);`*/
+    // /*Later you should create group(s) with `lv_group_t * group = lv_group_create()`,
+    //  *add objects to the group with `lv_group_add_obj(group, obj)`
+    //  *and assign this input device to group to navigate in it:
+    //  *`lv_indev_set_group(indev_encoder, group);`*/
 
-    /*------------------
-     * Button
-     * -----------------*/
+    // /*------------------
+    //  * Button
+    //  * -----------------*/
 
-    /*Initialize your button if you have*/
-    button_init();
+    // /*Initialize your button if you have*/
+    // button_init();
 
-    /*Register a button input device*/
-    lv_indev_drv_init(&indev_drv);
-    indev_drv.type = LV_INDEV_TYPE_BUTTON;
-    indev_drv.read_cb = button_read;
-    indev_button = lv_indev_drv_register(&indev_drv);
+    // /*Register a button input device*/
+    // lv_indev_drv_init(&indev_drv);
+    // indev_drv.type = LV_INDEV_TYPE_BUTTON;
+    // indev_drv.read_cb = button_read;
+    // indev_button = lv_indev_drv_register(&indev_drv);
 
-    /*Assign buttons to points on the screen*/
-    static const lv_point_t btn_points[2] = {
-        {10, 10},   /*Button 0 -> x:10; y:10*/
-        {40, 100},  /*Button 1 -> x:40; y:100*/
-    };
-    lv_indev_set_button_points(indev_button, btn_points);
+    // /*Assign buttons to points on the screen*/
+    // static const lv_point_t btn_points[2] = {
+    //     {10, 10},   /*Button 0 -> x:10; y:10*/
+    //     {40, 100},  /*Button 1 -> x:40; y:100*/
+    // };
+    // lv_indev_set_button_points(indev_button, btn_points);
 }
 
 /**********************
@@ -179,10 +179,19 @@ void lv_port_indev_init(void)
  * Touchpad
  * -----------------*/
 
+static luat_tp_data_t lvgl_tp_data[LUAT_TP_TOUCH_MAX]={0};
+
+static int luat_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
+    memcpy(lvgl_tp_data, luat_tp_data, sizeof(luat_tp_data_t)*LUAT_TP_TOUCH_MAX);
+    luat_tp_irq_enable(luat_tp_config, 1);
+    return 0;
+}
+
 /*Initialize your touchpad*/
-static void touchpad_init(void)
+static void touchpad_init(luat_tp_config_t *luat_tp_config)
 {
     /*Your code comes here*/
+    luat_tp_config->callback = luat_tp_callback;
 }
 
 /*Will be called by the library to read the touchpad*/
@@ -209,7 +218,9 @@ static void touchpad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 static bool touchpad_is_pressed(void)
 {
     /*Your code comes here*/
-
+    if (lvgl_tp_data[0].event == TP_EVENT_TYPE_DOWN || lvgl_tp_data[0].event == TP_EVENT_TYPE_MOVE){
+        return true;
+    }
     return false;
 }
 
@@ -217,9 +228,8 @@ static bool touchpad_is_pressed(void)
 static void touchpad_get_xy(lv_coord_t * x, lv_coord_t * y)
 {
     /*Your code comes here*/
-
-    (*x) = 0;
-    (*y) = 0;
+    (*x) = lvgl_tp_data[0].x_coordinate;
+    (*y) = lvgl_tp_data[0].y_coordinate;
 }
 
 /*------------------

@@ -58,10 +58,15 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
     lv_color_t* buf_2_1 = NULL;
     lv_color_t* buf_2_2 = NULL;
 
-    buf_2_1 = luat_heap_opt_malloc(LUAT_HEAP_SRAM,lcd_conf->w * 40 * sizeof(lv_color_t));
-    buf_2_2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM,lcd_conf->w * 40 * sizeof(lv_color_t));
+    #define SIZE_IN_PX_CNT     (lcd_conf->w * 10)
+    #define DRAW_BUFFER_SIZE    SIZE_IN_PX_CNT * sizeof(lv_color_t)
 
-    lv_disp_draw_buf_init(&lv_disp_draw_buf, buf_2_1, buf_2_2, lcd_conf->w * 40);
+    buf_2_1 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, DRAW_BUFFER_SIZE);
+    buf_2_2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, DRAW_BUFFER_SIZE);
+
+    lv_disp_draw_buf_init(&lv_disp_draw_buf, buf_2_1, buf_2_2, SIZE_IN_PX_CNT);
+
+    // lv_disp_draw_buf_init(&lv_disp_draw_buf, lcd_conf->buff, lcd_conf->buff1, lcd_conf->w * lcd_conf->h);
 
     /*-----------------------------------
      * Register the display in LVGL

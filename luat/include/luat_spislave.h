@@ -19,14 +19,12 @@ int luat_spislave_setup(luat_spi_t* conf);
 /*反初始化SPI从机*/
 int luat_spislave_close(int spi_id);
 /*开始SPI传输,异步的 */
-int luat_spislave_start(int spi_id, const char* send_buf, size_t length);
+int luat_spislave_start(int spi_id, const char* send_buf, char* recv_buf, size_t length);
 /*停止SPI传输*/
 int luat_spislave_stop(int spi_id);
 /*获取接收到的长度 */
 int luat_spislave_get_rxlen(int spi_id);
 /*停止传输并获取接收到的长度 */
 int luat_spislave_stopAndGetlen(int spi_id);
-/*从RX缓冲区读出数据制定长度的数据 */
-int luat_spislave_read(int spi_id, char* recv_buf, size_t length);
 
 #endif

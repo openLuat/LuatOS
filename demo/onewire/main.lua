@@ -8,11 +8,11 @@ local function read_ds18b20(id)
     local succ,crc8c,range,t
     local rbuff = zbuff.create(9)
     --如果有多个DS18B20,需要带上ID
-    --tbuff:write(0x55)
-    --tbuff:copy(nil, id)
-    --tbuff:write(0xb8)
+    tbuff:write(0x55)
+    tbuff:copy(nil, id)
+    tbuff:write(0xb8)
     --如果只有1个DS18B20,就用无ID方式
-    tbuff:write(0xcc,0xb8)
+    --tbuff:write(0xcc,0xb8)
     while true do
         tbuff[tbuff:used() - 1] = 0x44
         succ = onewire.tx(0, tbuff, false, true, true)
@@ -49,7 +49,7 @@ local function read_ds18b20(id)
             log.info("RAM DATA CRC校验不对",  mcu.x32(crc8c), mcu.x32(rbuff[8]))
             return
         end
-        sys.wait(5000)
+        sys.wait(500)
     end
 end
 

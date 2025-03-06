@@ -77,6 +77,8 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
                     firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
                 elseif wlan and wlan.getMac then
                     query = "mac=" .. wlan.getMac()
+                    version = rtos.version():sub(2) .. "." ..  x .. "." .. z
+                    firmware_name = _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp()
                 else
                     query = "uid=" .. mcu.unique_id():toHex()
                 end

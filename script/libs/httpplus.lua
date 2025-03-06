@@ -553,8 +553,8 @@ local opts = {
     url    = "https://httpbin.air32.cn/abc", -- 必选, 目标URL
     method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
     headers = {}, -- 可选,自定义的额外header
-    files = {},   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
-    forms = {},   -- 可选,表单参数,若存在本参数,如果不存在files,按application/x-www-form-urlencoded上传
+    files = {},   -- 可选,键值对的形式,文件上传,若存在本参数,会强制以multipart/form-data形式上传
+    forms = {},   -- 可选,键值对的形式,表单参数,若存在本参数,如果不存在files,按application/x-www-form-urlencoded上传
     body  = "abc=123",-- 可选,自定义body参数, 字符串/zbuff/table均可, 但不能与files和forms同时存在
     debug = false,    -- 可选,打开调试日志,默认false
     try_ipv6 = false, -- 可选,是否优先尝试ipv6地址,默认是false

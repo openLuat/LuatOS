@@ -16,14 +16,10 @@ void luat_tp_task_entry(void* param){
         luat_rtos_message_recv(tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
         luat_tp_data_t* tp_data = luat_tp_config->tp_data;
         uint8_t touch_num = luat_tp_config->opts->read(luat_tp_config,tp_data);
-        if (touch_num){
-            if (luat_tp_config->callback == NULL){
-                luat_tp_irq_enable(luat_tp_config, 1);
-            }else{
-                luat_tp_config->callback(luat_tp_config,tp_data);
-            }
-        }else{
+        if (luat_tp_config->callback == NULL){
             luat_tp_irq_enable(luat_tp_config, 1);
+        }else{
+            luat_tp_config->callback(luat_tp_config,tp_data);
         }
     }
 }

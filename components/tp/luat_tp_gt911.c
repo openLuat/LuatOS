@@ -390,7 +390,6 @@ void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 					LLOGE("%s, touch ID %d is out range!\r\n", __func__, read_id);
 					return;
 				}
-
 				if (pre_id[read_index] == read_id)                   /* this id is not free */
 					break;
 
@@ -402,37 +401,26 @@ void gt911_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 			}
 		}
 	}
-
-	if (touch_num)                                                 /* point down */
-	{
+	if (touch_num){                                                 /* point down */
 		uint8_t off_set;
-
-		for (read_index = 0; read_index < touch_num; read_index++)
-		{
+		for (read_index = 0; read_index < touch_num; read_index++){
 			off_set = read_index * 8;
 			read_id = read_buf[off_set] & 0x0F;
-			if (read_id >= GT911_POINT_INFO_NUM)
-			{
+			if (read_id >= GT911_POINT_INFO_NUM){
 				LLOGE("%s, touch ID %d is out range!\r\n", __func__, read_id);
 				return;
 			}
-
 			pre_id[read_index] = read_id;
 			input_x = read_buf[off_set + 1] | (read_buf[off_set + 2] << 8);	/* x */
 			input_y = read_buf[off_set + 3] | (read_buf[off_set + 4] << 8);	/* y */
 			input_w = read_buf[off_set + 5] | (read_buf[off_set + 6] << 8);	/* size */
-
 			gt911_touch_down(buf, read_id, input_x, input_y, input_w);
 		}
-	}
-	else if (pre_touch)
-	{
-		for(read_index = 0; read_index < pre_touch; read_index++)
-		{
+	}else if (pre_touch){
+		for(read_index = 0; read_index < pre_touch; read_index++){
 			gt911_touch_up(buf, pre_id[read_index]);
 		}
 	}
-
 	pre_touch = touch_num;
 }
 
@@ -460,13 +448,11 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
     
     // LLOGD("tp_gt911_read touch_num:%d",touch_num);
 
-    if (touch_num){
-        memset(read_buff, 0x00, sizeof(read_buff));
-        
-        tp_i2c_read_reg16(luat_tp_config, GT911_POINT1_REG, read_buff, touch_num * GT911_POINT_INFO_NUM, 1);
+    memset(read_buff, 0x00, sizeof(read_buff));
     
-        gt911_read_point(read_buff, luat_tp_data, touch_num);
-    }
+    tp_i2c_read_reg16(luat_tp_config, GT911_POINT1_REG, read_buff, touch_num * GT911_POINT_INFO_NUM, 1);
+
+    gt911_read_point(read_buff, luat_tp_data, touch_num);
     
     
 exit_:

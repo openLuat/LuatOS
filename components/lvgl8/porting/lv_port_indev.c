@@ -186,6 +186,7 @@ static void touchpad_init(luat_tp_config_t *luat_tp_config)
 {
     /*Your code comes here*/
     lvgl_tp_data = luat_tp_config->tp_data;
+    luat_tp_config->callback = NULL;
 }
 
 /*Will be called by the library to read the touchpad*/

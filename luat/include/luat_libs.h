@@ -202,4 +202,8 @@ LUAMOD_API int luaopen_iperf( lua_State *L );
 
 /** can库*/
 LUAMOD_API int luaopen_can( lua_State *L );
+
+// airlink库
+LUAMOD_API int luaopen_airlink( lua_State *L );
+
 #endif

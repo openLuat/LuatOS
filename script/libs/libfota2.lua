@@ -173,12 +173,8 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐version参数
         if not opts.version then
-            if mobile then
-                local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")
-                opts.version = rtos.version():sub(2) .. "." .. x .. "." .. z
-            else
-                opts.version = _G.VERSION
-            end
+            local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")
+            opts.version = rtos.version():sub(2) .. "." .. x .. "." .. z
         end
         -- 补齐firmware_name参数
         if not opts.firmware_name then

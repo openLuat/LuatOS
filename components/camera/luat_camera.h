@@ -25,6 +25,7 @@ enum
 	LUAT_CAMERA_MODE_SCAN,
 
     LUAT_CAMERA_TYPE_USB = 0x20,
+    LUAT_CAMERA_TYPE_DVP = 0
 };
 
 typedef struct luat_camera_conf

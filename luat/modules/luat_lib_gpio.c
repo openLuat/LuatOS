@@ -720,10 +720,10 @@ static const rotable_Reg_t reg_gpio[] =
     { "WAKEUP4",         ROREG_INT(HAL_WAKEUP_4)},
     //@const WAKEUP5 number WAKEUP_PAD
     { "WAKEUP5",         ROREG_INT(HAL_WAKEUP_5)},
-    //@const charge_detect_pad number WAKEUP_PAD
+    //@const CHG_DET number WAKEUP_PAD
     { "CHG_DET",         ROREG_INT(HAL_WAKEUP_CHARGE)},
 #endif
-	//@const POWERKEY number WAKEUP_PAD
+	//@const PWR_KEY number WAKEUP_PAD
 	{ "PWR_KEY",         ROREG_INT(HAL_WAKEUP_PWRKEY)},
 #endif
 	{ NULL,             ROREG_INT(0) }

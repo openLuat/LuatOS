@@ -3,6 +3,23 @@ VERSION = "1.0.0"
 sys = require("sys")
 log.style(1)
 
+--[[
+接线说明:
+   DS18B20    Air780EPM
+1. GND    -> GND
+2. VDD    -> 3.3V
+3. DATA    -> GPIO2
+
+注意:
+1. 3.3v在老版本的开发板上没有引脚, 所以需要外接, 一定要确保共地
+2. ONEWIRE功能支持在3个引脚使用, 但硬件通道只有一个, 默认是GPIO2
+3. 如需切换到其他脚, 参考如下切换逻辑, 选其中一种
+
+mcu.altfun(mcu.ONEWIRE, 0, 17, 4, 0) -- GPIO2, 也就是默认值
+mcu.altfun(mcu.ONEWIRE, 0, 22, 4, 0) -- GPIO7
+mcu.altfun(mcu.ONEWIRE, 0, 53, 4, 0) -- GPIO28
+]]
+
 local function read_ds18b20(id)
     local tbuff = zbuff.create(10)
     local succ,crc8c,range,t

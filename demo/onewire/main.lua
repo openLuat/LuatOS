@@ -67,7 +67,7 @@ local function test_ds18b20()
             if id[0] == 0x28 then
                 crc8c = crypto.crc8(id:query(0,7), 0x31, 0, true)
                 if crc8c == id[7] then
-                    log.info("探测到DS18B20")
+                    log.info("探测到DS18B20", id:query(0, 7):toHex())
                     read_ds18b20(id)
                     log.info("DS18B20离线，重新探测")
                 else

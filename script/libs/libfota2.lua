@@ -178,11 +178,7 @@ function libfota2.request(cbFnc, opts)
         end
         -- 补齐firmware_name参数
         if not opts.firmware_name then
-            if mobile then
-                opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
-            else
-                opts.firmware_name = _G.PROJECT .. "_" .. rtos.firmware()
-            end
+            opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
         end
         local query = ""
         -- 补齐imei参数

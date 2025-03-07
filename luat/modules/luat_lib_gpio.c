@@ -662,6 +662,11 @@ static int l_gpio_get_count(lua_State *L) {
 }
 
 #include "rotable2.h"
+
+#if (defined CHIP_EC618) || (defined CHIP_EC718) || (defined CHIP_EC716)
+#include "platform_define.h"
+#endif
+
 static const rotable_Reg_t reg_gpio[] =
 {
     { "setup" ,         ROREG_FUNC(l_gpio_setup )},
@@ -700,8 +705,30 @@ static const rotable_Reg_t reg_gpio[] =
     { "HIGH_IRQ",       ROREG_INT(Luat_GPIO_HIGH_IRQ)},
     //@const LOW_IRQ number 低电平触发,部分设备支持
     { "LOW_IRQ",        ROREG_INT(Luat_GPIO_LOW_IRQ)},
+#if (defined CHIP_EC618) || (defined CHIP_EC718) || (defined CHIP_EC716)
+
+    //@const WAKEUP0 number WAKEUP_PAD
+    { "WAKEUP0",         ROREG_INT(HAL_WAKEUP_0)},
+    //@const WAKEUP1 number WAKEUP_PAD
+    { "WAKEUP1",         ROREG_INT(HAL_WAKEUP_1)},
+    //@const WAKEUP2 number WAKEUP_PAD
+    { "WAKEUP2",         ROREG_INT(HAL_WAKEUP_2)},
+#if (defined CHIP_EC718) || (defined CHIP_EC716)
+    //@const WAKEUP3 number WAKEUP_PAD
+    { "WAKEUP3",         ROREG_INT(HAL_WAKEUP_3)},
+    //@const WAKEUP4 number WAKEUP_PAD
+    { "WAKEUP4",         ROREG_INT(HAL_WAKEUP_4)},
+    //@const WAKEUP5 number WAKEUP_PAD
+    { "WAKEUP5",         ROREG_INT(HAL_WAKEUP_5)},
+    //@const charge_detect_pad number WAKEUP_PAD
+    { "CHG_DET",         ROREG_INT(HAL_WAKEUP_CHARGE)},
+#endif
+	//@const POWERKEY number WAKEUP_PAD
+	{ "PWR_KEY",         ROREG_INT(HAL_WAKEUP_PWRKEY)},
+#endif
 	{ NULL,             ROREG_INT(0) }
 };
+
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
     memset(gpios, 0, sizeof(gpio_ctx_t) * LUAT_GPIO_PIN_MAX);

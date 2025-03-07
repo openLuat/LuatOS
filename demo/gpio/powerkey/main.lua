@@ -8,24 +8,9 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
-local rtos_bsp = rtos.bsp()
-
-local function pinx()
-    if rtos_bsp == "EC618" then -- AIR780E                          -- 35是虚拟GPIO，见https://wiki.luatos.com/chips/air780e/iomux.html#id1
-        return 35           
-    elseif string.find(rtos_bsp,"EC718") then -- AIR780EP                    -- 46是虚拟GPIO
-        return 46
-    else
-        return 255 
-    end
-end
-
-
-local powerkey_pin = pinx()                                         -- 赋值powerkey引脚编号
-
-if powerkey_pin ~= 255 then
-    gpio.setup(powerkey_pin, function() 
-        log.info("pwrkey", gpio.get(powerkey_pin))
+if gpio.PWR_KEY then
+    gpio.setup(gpio.PWR_KEY, function() 
+        log.info("pwrkey", gpio.get(gpio.PWR_KEY))
     end, gpio.PULLUP)
 else
     log.info("bsp not support")

@@ -495,19 +495,21 @@ static const rotable_Reg_t reg_camera[] =
 	{ "preview",     ROREG_FUNC(l_camera_preview)},
     { "stop" ,       ROREG_FUNC(l_camera_stop)},
     { "capture",     ROREG_FUNC(l_camera_capture)},
-	{ "video",     ROREG_FUNC(l_camera_video)},
-	{ "startRaw",     ROREG_FUNC(l_camera_start_raw)},
-	{ "getRaw",     ROREG_FUNC(l_camera_get_raw)},
+	{ "video",       ROREG_FUNC(l_camera_video)},
+	{ "startRaw",    ROREG_FUNC(l_camera_start_raw)},
+	{ "getRaw",      ROREG_FUNC(l_camera_get_raw)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
 
     //@const AUTO number 摄像头工作在自动模式
-	{ "AUTO",             ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
+	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
-	{ "SCAN",             ROREG_INT(LUAT_CAMERA_MODE_SCAN)},
+	{ "SCAN",        ROREG_INT(LUAT_CAMERA_MODE_SCAN)},
     //@const TYPE number 摄像头类型，USB
-    { "USB",              ROREG_INT(LUAT_CAMERA_TYPE_USB)},
-	{ NULL,          {}}
+    { "USB",         ROREG_INT(LUAT_CAMERA_TYPE_USB)},
+    //@const TYPE number 摄像头类型，DVP
+    { "DVP",         ROREG_INT(LUAT_CAMERA_TYPE_DVP)},
+	{ NULL,          ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_camera( lua_State *L ) {

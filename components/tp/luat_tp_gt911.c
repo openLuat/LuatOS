@@ -77,6 +77,24 @@
 #define GT911_REFRESH_RATE_MIN      (5)
 #define GT911_REFRESH_RATE_MAX      (20)
 
+typedef struct luat_touch_info{
+    union{
+        struct {
+            uint64_t version:8;
+            uint64_t x_max:16;
+            uint64_t y_max:16;
+            uint64_t touch_num:4;
+            uint64_t :4;
+            uint64_t int_type:2;
+            uint64_t :1;
+            uint64_t x2y:1;
+            uint64_t stretch_rank:2;
+            uint64_t :2;
+            uint64_t :8;
+        };
+        uint64_t info;
+    };
+}luat_tp_info_t;
 
 static uint8_t gt911_init_state = 0;
 
@@ -199,7 +217,7 @@ static int luat_tp_irq_cb(int pin, void *args){
     }
     luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)args;
     luat_tp_irq_enable(luat_tp_config, 0);
-    luat_rtos_message_send(tp_task_handle, 1, args);
+    luat_rtos_message_send(luat_tp_config->task_handle, 1, args);
     return 0;
 }
 
@@ -250,10 +268,10 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
 	memcpy((uint8_t*)(&cfg_table[GT911_X_OUTPUT_MAX - GT911_CONFIG_REG]), (uint8_t*)(&luat_tp_config->w), 2);
 	memcpy((uint8_t*)(&cfg_table[GT911_Y_OUTPUT_MAX - GT911_CONFIG_REG]), (uint8_t*)(&luat_tp_config->h), 2);
 
-	if (TP_INT_TYPE_RISING_EDGE == luat_tp_config->int_type){
+	if (LUAT_GPIO_RISING_IRQ == luat_tp_config->int_type){
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] &= 0xFC;
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] |= 0x00;
-	}else if (TP_INT_TYPE_FALLING_EDGE == luat_tp_config->int_type){
+	}else if (LUAT_GPIO_FALLING_IRQ == luat_tp_config->int_type){
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] &= 0xFC;
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] |= 0x01;
 	}
@@ -319,6 +337,10 @@ static int tp_gt911_deinit(luat_tp_config_t* luat_tp_config){
 
 static int tp_gt911_get_info(luat_tp_config_t* luat_tp_config, luat_tp_info_t *luat_touch_info){
     return tp_i2c_read_reg16(luat_tp_config, GT911_CONFIG_REG, luat_touch_info, sizeof(luat_tp_info_t), 1);
+}
+static void tp_gt911_read_done(luat_tp_config_t * luat_tp_config)
+{
+	luat_tp_irq_enable(luat_tp_config->pin_int, 1);
 }
 
 // gt911 get tp info.

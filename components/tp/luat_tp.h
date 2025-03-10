@@ -7,36 +7,17 @@
 
 #define LUAT_TP_TOUCH_MAX 10
 
-extern luat_rtos_task_handle tp_task_handle;
-
 typedef struct luat_tp_config luat_tp_config_t;
 typedef struct luat_tp_opts luat_tp_opts_t;
-typedef struct luat_touch_info{
-    union{
-        struct {
-            uint64_t version:8;
-            uint64_t x_max:16;
-            uint64_t y_max:16;
-            uint64_t touch_num:4;
-            uint64_t :4;
-            uint64_t int_type:2;
-            uint64_t :1;
-            uint64_t x2y:1;
-            uint64_t stretch_rank:2;
-            uint64_t :2;
-            uint64_t :8;
-        };
-        uint64_t info;
-    };
-}luat_tp_info_t;
+
 
 typedef struct{
-    uint8_t          event;
-    uint8_t          track_id;
+	uint32_t         timestamp;
     uint16_t         x_coordinate;
     uint16_t         y_coordinate;
+    uint8_t          event;
+    uint8_t          track_id;
     uint8_t          width;
-    uint32_t         timestamp;
 } luat_tp_data_t;
 
 typedef struct luat_tp_config{
@@ -56,12 +37,14 @@ typedef struct luat_tp_config{
     luat_tp_opts_t* opts;
     int (*callback)(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data);
     luat_tp_data_t tp_data[LUAT_TP_TOUCH_MAX];
+    luat_rtos_task_handle task_handle;
 } luat_tp_config_t;
 
 typedef struct luat_tp_opts {
     const char* name;
     int (*init)(luat_tp_config_t* luat_tp_config);
     int (*read)(luat_tp_config_t* luat_tp_config, uint8_t* data);
+    void (*read_done)(luat_tp_config_t* luat_tp_config);
     void (*deinit)(luat_tp_config_t* luat_tp_config);
 } luat_tp_opts_t;
 
@@ -72,10 +55,6 @@ typedef enum{
 	TP_EVENT_TYPE_MOVE
 } luat_tp_event_type_t;
 
-typedef enum{
-	TP_INT_TYPE_RISING_EDGE = 0,
-	TP_INT_TYPE_FALLING_EDGE,
-} luat_tp_int_type_t;
 
 extern luat_tp_opts_t tp_config_gt911;
 

@@ -67,7 +67,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
-    luat_gpio_irq_enable(luat_tp_config->pin_int, 1);
+    luat_tp_config->opts->read_done(luat_tp_config);
     return 0;
 }
 
@@ -186,8 +186,8 @@ static const rotable_Reg_t reg_tp[] =
 {
 	{ "init",	    ROREG_FUNC(l_tp_init)},
 
-    { "RISING",     ROREG_INT(TP_INT_TYPE_RISING_EDGE)},
-    { "FALLING",    ROREG_INT(TP_INT_TYPE_FALLING_EDGE)},
+    { "RISING",     ROREG_INT(LUAT_GPIO_RISING_IRQ)},
+    { "FALLING",    ROREG_INT(LUAT_GPIO_FALLING_IRQ)},
 	{ NULL,         ROREG_INT(0) }
 };
 

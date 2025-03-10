@@ -146,7 +146,6 @@ static int l_lcd_init(lua_State* L) {
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
     conf->pin_pwr = LUAT_GPIO_NONE;
-    conf->tp_pin_rst = LUAT_GPIO_NONE;
     conf->interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
@@ -214,30 +213,6 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "pin_rst");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->pin_rst = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "tp_driver");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->tp_driver_id = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "tp_i2c_id");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->tp_i2c_id = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "tp_pin_rst");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->tp_pin_rst = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "tp_pin_irq");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->tp_pin_irq = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
 

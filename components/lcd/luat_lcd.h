@@ -100,10 +100,6 @@ typedef struct luat_lcd_conf {
     uint16_t vbp;
     uint16_t vspw;
     uint16_t vfp;
-    uint8_t tp_driver_id;
-    uint8_t tp_pin_rst;
-    uint8_t tp_pin_irq;
-    uint8_t tp_i2c_id;
     luat_color_t* buff;
     struct luat_lcd_opts* opts;
     luat_spi_device_t* lcd_spi_device;

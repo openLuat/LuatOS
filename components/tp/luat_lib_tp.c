@@ -24,6 +24,7 @@ typedef struct tp_reg {
 
 static const tp_reg_t tp_regs[] = {
     {"gt911",  &tp_config_gt911},
+	{"jd9261t_inited",  &tp_config_jd9261t_inited},
     {"", NULL}
 };
 

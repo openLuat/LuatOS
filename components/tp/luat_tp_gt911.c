@@ -487,5 +487,5 @@ luat_tp_opts_t tp_config_gt911 = {
     .init = tp_gt911_init,
     .deinit = tp_gt911_deinit,
     .read = tp_gt911_read,
-
+	.read_done = tp_gt911_read_done,
 };

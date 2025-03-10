@@ -12,9 +12,8 @@ typedef struct
 	luat_tp_config_t* config;
 	luat_rtos_timer_t scan_timer;
 	uint8_t is_inited;
-	uint8_t scan_cnt;
 	uint8_t scan_time;
-	uint8_t is_pressed;
+	uint8_t is_scan;
 }jd9261t_tp_ctrl_t;
 
 static jd9261t_tp_ctrl_t jd9261t_tp;
@@ -39,7 +38,7 @@ static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
 			return -1;
 		}
 	}
-	luat_timer_us_delay(15);
+	luat_rtos_task_sleep(1);
 	res = luat_i2c_recv(luat_tp_config->i2c_id, 0x68, buff, 60);
 	if (res)
 	{
@@ -50,8 +49,13 @@ static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
 			return -1;
 		}
 	}
-	if (!buff[0]) return -1;
 	memset(luat_tp_data, 0, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
+	if (!buff[0])
+	{
+		luat_stop_rtos_timer(jd9261t_tp.scan_timer);
+		jd9261t_tp.is_scan = 0;
+		return 0;
+	}
 	for (uint8_t i = 0; i < 10; i++)
 	{
 		if (buff[i * 5 + 3] != 0xff)
@@ -63,45 +67,44 @@ static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
 			tp_y = (tp_y << 8) | buff[i * 5 + 6];
 			if (tp_x < luat_tp_config->w && tp_y < luat_tp_config->h)
 			{
-				LLOGI("TP point %d x %d y %d", i+1, tp_x, tp_y);
+				//LLOGI("TP point %d x %d y %d", i+1, tp_x, tp_y);
 				luat_tp_data[pressed].event = TP_EVENT_TYPE_DOWN;
 				luat_tp_data[pressed].x_coordinate = tp_x;
 				luat_tp_data[pressed].y_coordinate = tp_y;
 				pressed++;
 				if (pressed >= LUAT_TP_TOUCH_MAX)
 				{
-					return pressed;
+					goto DONE;
 				}
 			}
 			else
 			{
-				return pressed;
+				goto DONE;
 			}
 		}
 		else
 		{
-			return pressed;
+			goto DONE;
 		}
 	}
+DONE:
 	return pressed;
 }
 
 static LUAT_RT_RET_TYPE jd9261t_scan_once(LUAT_RT_CB_PARAM)
 {
-	jd9261t_tp.scan_cnt++;
     luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)param;
     luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
-	if (jd9261t_tp.scan_cnt > 10)
-	{
-		luat_rtos_timer_stop(jd9261t_tp.scan_timer);
-	}
+
 }
 
 static int jd9261t_irq_cb(int pin, void* args)
 {
-	if (jd9261t_tp.scan_cnt > 10)
+	luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)args;
+	if (!jd9261t_tp.is_scan)
 	{
-		jd9261t_tp.scan_cnt = 0;
+		jd9261t_tp.is_scan = 1;
+		luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
 		luat_start_rtos_timer(jd9261t_tp.scan_timer, jd9261t_tp.scan_time, 1);
 	}
 	return 0;
@@ -138,8 +141,8 @@ static int tp_jd9261t_inited_init(luat_tp_config_t* luat_tp_config)
 		jd9261t_tp.scan_time = (1000 / luat_tp_config->refresh_rate);
 		LLOGI("TP detect %02x%02x, refresh time %dms", ID[1], ID[0], jd9261t_tp.scan_time);
 		jd9261t_tp.config = luat_tp_config;
-		jd9261t_tp.scan_cnt = 100;
-		jd9261t_tp.scan_timer = luat_create_rtos_timer(jd9261t_scan_once, NULL, NULL);
+		jd9261t_tp.is_scan = 0;
+		jd9261t_tp.scan_timer = luat_create_rtos_timer(jd9261t_scan_once, jd9261t_tp.config, NULL);
 		luat_gpio_t gpio = {0};
 		gpio.pin = luat_tp_config->pin_int;
 		gpio.mode = LUAT_GPIO_IRQ;
@@ -147,6 +150,7 @@ static int tp_jd9261t_inited_init(luat_tp_config_t* luat_tp_config)
 		gpio.pull = (luat_tp_config->int_type == LUAT_GPIO_FALLING_IRQ)?LUAT_GPIO_PULLUP:LUAT_GPIO_PULLDOWN;
 		gpio.irq = luat_tp_config->int_type;
 		gpio.irq_cb = jd9261t_irq_cb;
+		gpio.irq_args = jd9261t_tp.config;
 		luat_gpio_setup(&gpio);
 		jd9261t_tp.is_inited = 1;
 	}

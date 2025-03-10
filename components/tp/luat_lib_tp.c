@@ -73,9 +73,14 @@ static int l_tp_handler(lua_State* L, void* ptr) {
 }
 
 int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
-    rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
-    luat_msgbus_put(&msg, 1);
-    return 0;
+	for(uint8_t i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
+		if (luat_tp_data[i].event != TP_EVENT_TYPE_NONE) {
+		    rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
+		    luat_msgbus_put(&msg, 1);
+		    return 0;
+		}
+	}
+	return 0;
 }
 
 /*

@@ -12,7 +12,7 @@
 #include "lwip/tcpip.h"
 #include "luat_ulwip.h"
 #include "luat_uart.h"
-#include "crc.h"
+#include "luat_crypto.h"
 
 #define LUAT_LOG_TAG "netdrv.uart"
 #include "luat_log.h"
@@ -29,7 +29,7 @@ static void uart_ip_output(void* userdata, uint8_t* buff, uint16_t len) {
     uc->txbuff[3] = (len >> 8) & 0xFF;
     
     // 计算CRC32
-    uint32_t crc = calcCRC32(uc->txbuff + 4, len);
+    uint32_t crc = luat_crc32(uc->txbuff + 4, len, 0xFFFFFFFF, 0);
     memcpy(uc->txbuff + 4 + len, &crc, 4);
     // 写到UART去
     luat_uart_write(uc->uart_id, uc->txbuff, len + 8);

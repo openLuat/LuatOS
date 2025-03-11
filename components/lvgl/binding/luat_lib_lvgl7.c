@@ -148,7 +148,7 @@ int luat_lv_init(lua_State *L) {
     LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
-        //LLOGD("use LCD buff");
+        // LLOGD("use LCD buff");
         fbuffer = lcd_conf->buff;
         fbuff_size = w * h;
     }
@@ -198,7 +198,6 @@ int luat_lv_init(lua_State *L) {
     my_disp_drv.hor_res = w;
     my_disp_drv.ver_res = h;
     my_disp_drv.buffer = &LV.disp_buf;
-    //LLOGD(">>%s %d", __func__, __LINE__);
 
 #ifdef LUAT_USE_LVGL_SDL2
     if (lcd_conf == NULL) {
@@ -210,7 +209,9 @@ int luat_lv_init(lua_State *L) {
     }
 #endif
     LV.disp = lv_disp_drv_register(&my_disp_drv);
-    //LLOGD(">>%s %d", __func__, __LINE__);
+    if (LV.disp == NULL) {
+        LLOGE("lv_disp_drv_register error");
+    }
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
 #ifdef LUAT_USE_LVGL_SDL2
     LLOGD("use LVGL-LCD-SDL2 swap %d", LV_COLOR_16_SWAP);

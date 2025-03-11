@@ -23,11 +23,19 @@ local MSG_PD = "playDone"   -- 播放完成所有数据
 amr_buff = zbuff.create(20 * 1024)
 --创建一个amr的encoder
 encoder = nil
-
-audio.on(0, function(id, event,buff)
+pcm_buff0 = zbuff.create(16000)
+pcm_buff1 = zbuff.create(16000)
+audio.on(0, function(id, event, point)
     --使用play来播放文件时只有播放完成回调
     if event == audio.RECORD_DATA then -- 录音数据
-        codec.encode(encoder, buff, amr_buff)
+		if point == 0 then
+			log.info("buff", point, pcm_buff0:used())
+			codec.encode(encoder, pcm_buff0, amr_buff)
+		else
+			log.info("buff", point, pcm_buff1:used())
+			codec.encode(encoder, pcm_buff1, amr_buff)
+		end
+        
     elseif event == audio.RECORD_DONE then -- 录音完成
         sys.publish("AUDIO_RECORD_DONE")
     else
@@ -190,7 +198,7 @@ local function audio_task()
     -- -- 录音到内存自行编码
     -- encoder = codec.create(codec.AMR, false, 7)
     -- print("encoder",encoder)
-    -- err = audio.record(0, audio.AMR, 5, 7)
+    -- err = audio.record(0, audio.AMR, 5, 7, nil, pcm_buff0, pcm_buff1)
     -- sys.waitUntil("AUDIO_RECORD_DONE")
     -- log.info("record","录音结束")
     -- os.remove(recordPath)

@@ -136,7 +136,6 @@ static int l_netdrv_mac(lua_State *L) {
 static int l_netdrv_ipv4(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     const char* tmp = NULL;
-    size_t len = 0;
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;

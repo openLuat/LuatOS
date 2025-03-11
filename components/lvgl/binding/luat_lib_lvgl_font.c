@@ -62,7 +62,6 @@ static const lvfont_t fonts[] = {
 local font = lvgl.font_get("opposans_m_12")
 */
 int luat_lv_font_get(lua_State *L) {
-    lv_font_t* font = NULL;
     const char* fontname = luaL_checkstring(L, 1);
     if (!strcmp("", fontname)) {
         LLOGE("字体名称不能是空字符串");

@@ -1220,7 +1220,6 @@ local ip1,ip2,ip3,ip4 = socket.remoteIP(ctrl)
 static int l_socket_remote_ip(lua_State *L)
 {
 	luat_socket_ctrl_t *ctrl = l_get_ctrl(L, 1);
-	PV_Union uPV;
 	uint8_t i;
 	uint8_t total;
 	if (!ctrl)

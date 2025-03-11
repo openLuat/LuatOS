@@ -742,7 +742,6 @@ int cms_signer_info_sign_to_der(
 	uint8_t **out, size_t *outlen)
 {
 	SM3_CTX ctx = *sm3_ctx;
-	int fixed_outlen = 1;
 	uint8_t dgst[SM3_DIGEST_SIZE];
 	uint8_t sig[SM2_MAX_SIGNATURE_SIZE];
 	size_t siglen = SM2_signature_typical_size;
@@ -1051,7 +1050,6 @@ int cms_signed_data_sign_to_der(
 	size_t digest_algors_cnt = sizeof(digest_algors)/sizeof(int);
 	uint8_t content_header[256];
 	size_t content_header_len;
-	size_t certs_len = 0;
 	uint8_t signer_infos[512];
 	size_t signer_infos_len = 0;
 	SM3_CTX sm3_ctx;
@@ -1301,7 +1299,6 @@ int cms_recipient_info_encrypt_to_der(
 	int pke_algor = OID_sm2encrypt;
 	uint8_t enced_key[SM2_MAX_CIPHERTEXT_SIZE];
 	size_t enced_key_len;
-	int fixed_outlen = 1;
 
 	if (pke_algor != OID_sm2encrypt) {
 		error_print();

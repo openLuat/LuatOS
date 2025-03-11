@@ -408,7 +408,9 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   volatile uint32_t ap_value;
   uint32_t d1,d2;
   double f64;
+#ifdef LUAT_CONF_VM_64bit
   unsigned long long u64;
+#endif
 #endif
   for (;;) {
     const char *e = strchr(fmt, '%');

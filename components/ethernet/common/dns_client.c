@@ -155,7 +155,6 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 
 	uint32_t ttl;
 	uint8_t error = 0;
-	PV_Union pvUn = {0};
 
 	for(i = 0; i < answer_num; i++)
 	{
@@ -339,7 +338,6 @@ uint8_t dns_check_uri(const char *uri, uint32_t uri_len)
 
 int32_t dns_make(dns_client_t *client, dns_process_t *process, Buffer_Struct *out)
 {
-	int Result;
 	xDNSMessage_t MsgHead;
     uint8_t *pucStart, *pucByte;
 //    uint16_t usRecordType;

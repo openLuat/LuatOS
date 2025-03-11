@@ -35,7 +35,7 @@ int luat_lv_obj_align_origo(lua_State *L) {
     LV_DEBUG("CALL lv_obj_align_origo");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
-    lv_align_t align = (lv_align_t)lua_touserdata(L, 3);
+    lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
     lv_coord_t x_ofs = (lv_coord_t)luaL_checkinteger(L, 4);
     lv_coord_t y_ofs = (lv_coord_t)luaL_checkinteger(L, 5);
     lv_obj_align_mid(obj, base, align, x_ofs, y_ofs);
@@ -46,7 +46,7 @@ int luat_lv_obj_align_origo_x(lua_State *L) {
     LV_DEBUG("CALL lv_obj_align_origo_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
-    lv_align_t align = (lv_align_t)lua_touserdata(L, 3);
+    lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
     lv_coord_t x_ofs = (lv_coord_t)luaL_checkinteger(L, 4);
     lv_obj_align_mid_x(obj, base, align, x_ofs);
     return 0;
@@ -56,7 +56,7 @@ int luat_lv_obj_align_origo_y(lua_State *L) {
     LV_DEBUG("CALL lv_obj_align_origo_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
-    lv_align_t align = (lv_align_t)lua_touserdata(L, 3);
+    lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
     lv_coord_t y_ofs = (lv_coord_t)luaL_checkinteger(L, 4);
     lv_obj_align_mid_y(obj, base, align, y_ofs);
     return 0;

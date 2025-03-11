@@ -372,6 +372,7 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
         return 0;
     }
     // buff模式
+#if 0
     int16_t x_end = x2 >= conf->w?  (conf->w - 1):x2;
     luat_color_t* dst = (conf->buff);
     size_t lsize = (x2 - x1 + 1);
@@ -395,6 +396,29 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
     }
     if (y2 > conf->flush_y_max) {
         conf->flush_y_max = y2;
+    }
+#endif
+    //LLOGI("X1 %d Y1 %d X2 %d Y2 %d", x1, y1, x2, y2);
+    int16_t x_end = (x2 >= conf->w)?(conf->w - 1):x2;
+    int16_t y_end = (y2 >= conf->h)?(conf->h - 1):y2;
+    luat_color_t* dst = (conf->buff);
+    size_t fromlsize = (x2 - x1 + 1);
+    size_t tolsize = (x_end - x1 + 1);
+    for (int16_t y = y1; y <= y_end; y++)
+    {
+        if (y < 0) continue;
+        //LLOGI("H%d L %d <- %d X2 %d Y2 %d", y, conf->w * y + x1, fromlsize * (y - y1));
+    	memcpy(&dst[(conf->w * y + x1)], &color[fromlsize * (y - y1)], tolsize * sizeof(luat_color_t));
+    }
+    // 存储需要刷新的区域
+    if (y1 < conf->flush_y_min) {
+        if (y1 >= 0)
+            conf->flush_y_min = y1;
+        else
+            conf->flush_y_min = 0;
+    }
+    if (y_end > conf->flush_y_max) {
+        conf->flush_y_max = y_end;
     }
     return 0;
 }

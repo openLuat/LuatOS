@@ -91,12 +91,12 @@ typedef struct{
 	uint32_t record_time_tmp;
 	void* encoder_handler;
 	luat_zbuff_t * record_buffer[2];
-	int record_buffer_index;
-	int zbuff_ref[2];
     uint32_t bak_sample_rate;                                   // i2s采样率
     uint32_t bak_cb_rx_len;                                     // 接收触发回调数据长度
     int (*bak_luat_i2s_event_callback)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数
+    uint32_t record_callback_level;
     uint8_t bak_is_full_duplex;		                            // 是否全双工
+    uint8_t record_buffer_index;
 }luat_record_ctrl_t;
 
 #endif

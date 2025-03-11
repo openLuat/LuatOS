@@ -35,26 +35,10 @@ int l_multimedia_raw_handler(lua_State *L, void* ptr) {
             lua_pushinteger(L, msg->arg1);
 #ifdef LUAT_USE_RECORD
             if (msg->arg1 == LUAT_MULTIMEDIA_CB_RECORD_DATA){
-                lua_pushlightuserdata(L, g_s_record.record_buffer[(int)msg->ptr]);
+            	lua_pushinteger(L, (int)msg->ptr);
                 lua_call(L, 3, 0);
             }else{
                 lua_call(L, 2, 0);
-                if (msg->arg1 == LUAT_MULTIMEDIA_CB_RECORD_DONE){
-                    luaL_unref(L,LUA_REGISTRYINDEX, g_s_record.zbuff_ref[0]);
-                    if (g_s_record.record_buffer[0]->addr){
-                        luat_heap_opt_free(g_s_record.record_buffer[0]->type,g_s_record.record_buffer[0]->addr);
-                        g_s_record.record_buffer[0]->addr = NULL;
-                        g_s_record.record_buffer[0]->len = 0;
-                        g_s_record.record_buffer[0]->used = 0;
-                    }
-                    luaL_unref(L,LUA_REGISTRYINDEX, g_s_record.zbuff_ref[1]);
-                    if (g_s_record.record_buffer[1]->addr){
-                        luat_heap_opt_free(g_s_record.record_buffer[1]->type,g_s_record.record_buffer[1]->addr);
-                        g_s_record.record_buffer[1]->addr = NULL;
-                        g_s_record.record_buffer[1]->len = 0;
-                        g_s_record.record_buffer[1]->used = 0;
-                    }
-                }
             }
 #else
             lua_call(L, 2, 0);
@@ -137,9 +121,20 @@ static void record_stop_encode_amr(void){
 #endif
 
 static void record_stop(uint8_t *data, uint32_t len);
-static void record_run(uint8_t *data, uint32_t len)
+static void record_buffer_full(void)
 {
 	rtos_msg_t msg = {0};
+	msg.handler = l_multimedia_raw_handler;
+	msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DATA;
+	msg.arg2 = g_s_record.multimedia_id;
+	msg.ptr = (void *)((uint32_t)g_s_record.record_buffer_index);
+	luat_msgbus_put(&msg, 1);
+	g_s_record.record_buffer_index = !g_s_record.record_buffer_index;
+	g_s_record.record_buffer[g_s_record.record_buffer_index]->used = 0;
+}
+static void record_run(uint8_t *data, uint32_t len)
+{
+
 	if (g_s_record.fd){
 #ifdef LUAT_SUPPORT_AMR
 		if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
@@ -153,18 +148,10 @@ static void record_run(uint8_t *data, uint32_t len)
 	}else{
 		memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, data, len);
 		g_s_record.record_buffer[g_s_record.record_buffer_index]->used += len;
-		if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_buffer[g_s_record.record_buffer_index]->len)
+		if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
 		{
-			msg.handler = l_multimedia_raw_handler;
-			msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DATA;
-			msg.arg2 = g_s_record.multimedia_id;
-			msg.ptr = g_s_record.record_buffer_index;
-			luat_msgbus_put(&msg, 1);
-			g_s_record.record_buffer_index = !g_s_record.record_buffer_index;
-			g_s_record.record_buffer[g_s_record.record_buffer_index]->used = 0;
+			record_buffer_full();
 		}
-
-
 	}
 	if (g_s_record.record_time)
 	{
@@ -268,13 +255,15 @@ static void record_stop(uint8_t *data, uint32_t len){
 
 /**
 录音
-@api audio.record(id, record_type, record_time, amr_quailty, path)
+@api audio.record(id, record_type, record_time, amr_quailty, path, record_callback_time, buff0, buff1)
 @int id             多媒体播放通道号
 @int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB)
 @int record_time    录制时长 单位秒,可选，默认0即表示一直录制
 @int amr_quailty    质量,audio.AMR下有效
 @string path        录音文件路径,可选,不指定则不保存,可在audio.on回调函数中处理原始PCM数据
 @int record_callback_time	不指定录音文件路径时，单次录音回调时长，单位是100ms。默认1，既100ms
+@zbuff				录音原始PCM数据缓存0,不填写录音文件路径才会用到
+@zbuff				录音原始PCM数据缓存1,不填写录音文件路径才会用到
 @return boolean     成功返回true,否则返回false
 @usage
 err,info = audio.record(id, type, record_time, quailty, path)
@@ -286,20 +275,25 @@ static int l_audio_record(lua_State *L){
     g_s_record.type = luaL_optinteger(L, 2,LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB);
     g_s_record.record_time = luaL_optinteger(L, 3, 0);
     g_s_record.quailty = luaL_optinteger(L, 4, 0);
-    
+    if (g_s_record.fd || g_s_record.is_run) {
+    	LLOGE("record is running");
+    	goto ERROR_OUT;
+    }
     if (lua_isstring(L, 5)) {
         const char *path = luaL_checklstring(L, 5, &len);
         luat_fs_remove(path);
         g_s_record.fd = luat_fs_fopen(path, "wb+");
         if(!g_s_record.fd){
             LLOGE("open file %s failed", path);
-            return 0;
+            goto ERROR_OUT;
         }
+    } else {
+    	if (!lua_isuserdata(L, 7) || !lua_isuserdata(L, 8))
+    	{
+    		goto ERROR_OUT;
+    	}
     }
-    if (g_s_record.is_run){
-        LLOGE("record is running");
-        return 0;
-    }
+
     record_buffer_len = luaL_optinteger(L, 6, 1);
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
@@ -324,24 +318,29 @@ static int l_audio_record(lua_State *L){
         LLOGE("not support %d", g_s_record.type);
         return 0;
     }
-
-    g_s_record.record_buffer[0] = lua_newuserdata(L, sizeof(luat_zbuff_t));
-    g_s_record.record_buffer[0]->type = LUAT_HEAP_AUTO;
-    g_s_record.record_buffer[0]->len = record_buffer_len;
-    g_s_record.record_buffer[0]->used = 0;
-    g_s_record.record_buffer[0]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[0]->len);
-    g_s_record.zbuff_ref[0] = luaL_ref(L, LUA_REGISTRYINDEX);
-
-    g_s_record.record_buffer[1] = lua_newuserdata(L, sizeof(luat_zbuff_t));
-    g_s_record.record_buffer[1]->type = LUAT_HEAP_AUTO;
-    g_s_record.record_buffer[0]->used = 0;
-    g_s_record.record_buffer[1]->len = record_buffer_len;
-    g_s_record.record_buffer[1]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[1]->len);
-    g_s_record.zbuff_ref[1] = luaL_ref(L, LUA_REGISTRYINDEX);
+    if (!g_s_record.fd)
+    {
+    	g_s_record.record_callback_level = record_buffer_len;
+    	g_s_record.record_buffer[0] = ((luat_zbuff_t *)luaL_checkudata(L, 7, LUAT_ZBUFF_TYPE));
+    	g_s_record.record_buffer[1] = ((luat_zbuff_t *)luaL_checkudata(L, 8, LUAT_ZBUFF_TYPE));
+    	g_s_record.record_buffer[0]->used = 0;
+    	g_s_record.record_buffer[1]->used = 0;
+    	if (g_s_record.record_buffer[0]->len < record_buffer_len)
+    	{
+    		__zbuff_resize(g_s_record.record_buffer[0], record_buffer_len);
+    	}
+    	if (g_s_record.record_buffer[1]->len < record_buffer_len)
+    	{
+    		__zbuff_resize(g_s_record.record_buffer[1], record_buffer_len);
+    	}
+    }
 
     g_s_record.is_run = 1;
     luat_audio_run_callback_in_task(record_start, NULL, 0);
     lua_pushboolean(L, 1);
+    return 1;
+ERROR_OUT:
+    lua_pushboolean(L, 0);
     return 1;
 }
 
@@ -427,7 +426,7 @@ static int l_audio_pause_raw(lua_State *L) {
 注册audio播放事件回调
 @api    audio.on(audio_id, func)
 @int audio id, audio 0写0, audio 1写1
-@function 回调方法，回调时传入参数为1、int 通道ID 2、int 消息值，只有audio.MORE_DATA和audio.DONE
+@function 回调方法，回调时传入参数为1、int 通道ID 2、int 消息值，有audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE,3、RECORD_DATA后面跟数据存在哪个zbuff内，0或者1
 @return nil 无返回值
 @usage
 audio.on(0, function(audio_id, msg)

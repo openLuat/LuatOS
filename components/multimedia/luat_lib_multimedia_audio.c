@@ -186,16 +186,34 @@ static void record_start(uint8_t *data, uint32_t len){
 
 	i2s->is_full_duplex = 1;
 	i2s->luat_i2s_event_callback = record_cb;
-    if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
+	switch(g_s_record.type)
+	{
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+	case LUAT_MULTIMEDIA_DATA_TYPE_PCM:
     	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
         i2s->sample_rate = 8000;
-    }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
+        break;
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
     	i2s->cb_rx_len = 640 * RECORD_ONCE_LEN;
         i2s->sample_rate = 16000;
-    }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
-    	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
-        i2s->sample_rate = 8000;
-    }
+        break;
+	default:
+		if (g_s_record.type <= 32000)
+		{
+			i2s->cb_rx_len = g_s_record.type / 5;
+		}
+		else if (g_s_record.type < 80000)
+		{
+			i2s->cb_rx_len = g_s_record.type / 10;
+		}
+		else
+		{
+			i2s->cb_rx_len = g_s_record.type / 20;
+		}
+        i2s->sample_rate = g_s_record.type;
+		break;
+	}
+
 
     //需要保存文件，看情况打开编码功能
     if (g_s_record.fd){
@@ -237,8 +255,6 @@ static void record_stop(uint8_t *data, uint32_t len){
 #endif
 		}else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
 			// 不需要特殊处理
-		}else{
-			LLOGE("not support %d", g_s_record.type);
 		}
 		luat_fs_fclose(g_s_record.fd);
 		g_s_record.fd = NULL;
@@ -257,7 +273,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 录音
 @api audio.record(id, record_type, record_time, amr_quailty, path, record_callback_time, buff0, buff1)
 @int id             多媒体播放通道号
-@int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB)
+@int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB),或者直接输入采样率
 @int record_time    录制时长 单位秒,可选，默认0即表示一直录制
 @int amr_quailty    质量,audio.AMR下有效
 @string path        录音文件路径,可选,不指定则不保存,可在audio.on回调函数中处理原始PCM数据
@@ -314,9 +330,12 @@ static int l_audio_record(lua_State *L){
 #endif
     }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
         record_buffer_len *= 320 * RECORD_ONCE_LEN;
-    }else{
-        LLOGE("not support %d", g_s_record.type);
-        return 0;
+    }else if (g_s_record.type >= 8000 ){
+    	record_buffer_len *= (g_s_record.type/5);
+    } else
+    {
+        LLOGE("not support type %d", g_s_record.type);
+        goto ERROR_OUT;
     }
     if (!g_s_record.fd)
     {

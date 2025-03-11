@@ -83,10 +83,6 @@ typedef enum{
 typedef struct{
 //	luat_rtos_task_handle task_handle;
 	FILE* fd;
-    uint8_t multimedia_id;
-	uint8_t quailty;
-	uint8_t type;
-	uint8_t is_run;
 	uint32_t record_time;
 	uint32_t record_time_tmp;
 	void* encoder_handler;
@@ -94,9 +90,13 @@ typedef struct{
     uint32_t bak_sample_rate;                                   // i2s采样率
     uint32_t bak_cb_rx_len;                                     // 接收触发回调数据长度
     int (*bak_luat_i2s_event_callback)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数
+    uint32_t type;												// LUAT_MULTIMEDIA_DATA_TYPE 或者具体采样率
     uint32_t record_callback_level;
     uint8_t bak_is_full_duplex;		                            // 是否全双工
     uint8_t record_buffer_index;
+    uint8_t multimedia_id;
+	uint8_t quailty;
+	uint8_t is_run;
 }luat_record_ctrl_t;
 
 #endif

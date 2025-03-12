@@ -269,12 +269,17 @@ static void record_stop(uint8_t *data, uint32_t len){
 	//关闭audio硬件功能
 	luat_audio_record_stop(g_s_record.multimedia_id);
 	luat_audio_pm_request(g_s_record.multimedia_id, LUAT_AUDIO_PM_STANDBY);
-	//还原参数
-	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
-	i2s->cb_rx_len = g_s_record.bak_cb_rx_len;
-	i2s->is_full_duplex = g_s_record.bak_is_full_duplex;
-	i2s->sample_rate = g_s_record.bak_sample_rate;
-	i2s->luat_i2s_event_callback = g_s_record.bak_luat_i2s_event_callback;
+    luat_audio_conf_t *audio = luat_audio_get_config(g_s_record.multimedia_id);
+    if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
+    {
+    	//还原参数
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    	i2s->cb_rx_len = g_s_record.bak_cb_rx_len;
+    	i2s->is_full_duplex = g_s_record.bak_is_full_duplex;
+    	i2s->sample_rate = g_s_record.bak_sample_rate;
+    	i2s->luat_i2s_event_callback = g_s_record.bak_luat_i2s_event_callback;
+    }
+
 	//录音存文件时，看情况关闭编码功能
 	if (g_s_record.fd) {
 		if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){

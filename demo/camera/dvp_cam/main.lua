@@ -23,8 +23,12 @@ camera.on(camera_id, "scanned", function(id, str)
         sys.publish("capture_done")
     end
 end)
--- testMode等于0时，演示摄像头拍照，将图片保存在根目录下，文件名为abc.jpg，通过设备自身启动的一个http服务端访问设备图片
--- testMode等于1时，演示摄像头拍照，将图片数据存在zbuff中，通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
+-- testMode等于0时演示摄像头拍照，将图片保存在根目录下，文件名为abc.jpg
+-- 通过模块自身启动的一个http服务端访问图片，访问url为http://xxx.xxx.xxx.xxx/abc.jpg，其中xxx.xxx.xxx.xxx为模块ip地址
+-- 需要用电脑或其他设备与模块连接同一热点
+
+-- testMode等于1时，演示摄像头拍照，将图片数据存在zbuff中
+-- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
 local testMode = 1
 
 -- WIFI热点名称

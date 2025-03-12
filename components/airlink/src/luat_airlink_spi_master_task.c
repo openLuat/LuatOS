@@ -26,7 +26,7 @@
 #define TEST_SPI_ID   0
 #define TEST_BUFF_SIZE (1600)
 #define TEST_CS_PIN 15
-#define TEST_RDY_PIN 20
+#define TEST_RDY_PIN 22
 #define TEST_BTN_PIN 2
 
 #endif
@@ -45,8 +45,6 @@ static int gpio_level_irq(void *data, void* args)
 static int slave_rdy_irq(void *data, void* args) {
     slave_rdy = 1;
     luat_rtos_event_send(gpio_task_handle, 1, 2, 3, 4, 100);
-
-
     return 0;
 }
 
@@ -98,6 +96,7 @@ static void task_test_spi(void *param)
     int i;
     size_t pkg_offset = 0;
     size_t pkg_size = 0;
+    int tmpval = 0;
 	static uint8_t send_buf[TEST_BUFF_SIZE] = {0x90,0x80,0x70,0x60};
     static uint8_t recv_buf[TEST_BUFF_SIZE] = {0};
     const char* test_data = "123456789";
@@ -110,6 +109,18 @@ static void task_test_spi(void *param)
         while(!start){luat_rtos_task_sleep(100);}
         slave_rdy = 0;
         luat_gpio_set(TEST_CS_PIN, 0);
+        for (size_t i = 0; i < 5; i++)
+        {
+            tmpval = luat_gpio_get(TEST_RDY_PIN);
+            if (tmpval == 0) {
+                LLOGD("从机未就绪,等1ms");
+                luat_rtos_task_sleep(1);
+                continue;
+            }
+            LLOGD("从机已就绪!!");
+            break;
+        }
+        
         luat_spi_transfer(TEST_SPI_ID, (const char*)send_buf, TEST_BUFF_SIZE, (char*)recv_buf, TEST_BUFF_SIZE);
         luat_gpio_set(TEST_CS_PIN, 1);
         luat_airlink_print_buff("RX", recv_buf, 32);

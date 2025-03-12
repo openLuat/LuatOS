@@ -9,7 +9,16 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+luat_rtos_queue_t airlink_cmd_queue;
+luat_rtos_queue_t airlink_ippkg_queue;
+
 int luat_airlink_start(int id) {
+    if (airlink_cmd_queue == NULL) {
+        luat_rtos_queue_create(&airlink_cmd_queue, 2048, sizeof(airlink_queue_item_t));
+    }
+    if (airlink_ippkg_queue == NULL) {
+        luat_rtos_queue_create(&airlink_ippkg_queue, 2048, sizeof(airlink_queue_item_t));
+    }
     if (id == 0) {
         extern int luat_airlink_start_slave(void);
         luat_airlink_start_slave();
@@ -29,6 +38,11 @@ void luat_airlink_data_unpack(uint8_t* buff, size_t len, size_t* pkg_offset, siz
     size_t tlen = 0;
     uint16_t crc16 = 0;
     uint16_t crc16_data = 0;
+    if (len < 12) {
+        *pkg_offset = 0;
+        *pkg_size = 0;
+        return;
+    }
     for (size_t i = 0; i < len - 12; i++)
     {
         // magic = 0xA1B1CA66
@@ -84,9 +98,63 @@ void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len) {
     {
         // sprintf(tmpbuff + i * 2, "%02X", buff[i]);
         // LLOGD("SPI TX[%d] 0x%02X", i, buff[i]);
-        LLOGD("AirLink %s [%04X-%04X] %02X%02X%02X%02X%02X%02X%02X%02X", tag, i, i + 8, 
+        LLOGD("%s [%04X-%04X] %02X%02X%02X%02X%02X%02X%02X%02X", tag, i, i + 8, 
             buff[i+0], buff[i+1], buff[i+2], buff[i+3], 
             buff[i+4], buff[i+5], buff[i+6], buff[i+7]);
     }
     // LLOGD("SPI0 %s", tmpbuff);
+}
+
+int luat_airlink_queue_send(int tp, airlink_queue_item_t* item) {
+    if (tp == LUAT_AIRLINK_QUEUE_CMD) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        return luat_rtos_queue_send(airlink_cmd_queue, item, 0, 0);
+    }
+    if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        return luat_rtos_queue_send(airlink_ippkg_queue, item, 0, 0);
+    }
+    return -2;
+}
+
+int luat_airlink_queue_get_cnt(int tp) {
+    size_t len = 0;
+    int ret = -2;
+    if (tp == LUAT_AIRLINK_QUEUE_CMD) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        ret = luat_rtos_queue_get_cnt(airlink_cmd_queue, &len);
+    }
+    if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        ret = luat_rtos_queue_get_cnt(airlink_ippkg_queue, &len);
+    }
+    if (ret) {
+        return ret;
+    }
+    return len;
+}
+
+int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* item, size_t timeout) {
+    int ret = -2;
+    if (tp == LUAT_AIRLINK_QUEUE_CMD) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        ret = luat_rtos_queue_recv(airlink_cmd_queue, item, 0, timeout);
+    }
+    if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
+        if (airlink_cmd_queue == NULL) {
+            return -1;
+        }
+        ret = luat_rtos_queue_recv(airlink_cmd_queue, item, 0, timeout);
+    }
+    return ret;
 }

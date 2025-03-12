@@ -176,43 +176,13 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 	return 0;
 }
 
+static void record_no_i2s_cb(uint8_t id, uint8_t *rx_data, uint32_t rx_len, void *param)
+{
+	luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
+}
+
 static void record_start(uint8_t *data, uint32_t len){
-	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
-	g_s_record.bak_cb_rx_len = i2s->cb_rx_len;
-	g_s_record.bak_is_full_duplex = i2s->is_full_duplex;
-	g_s_record.bak_sample_rate = i2s->sample_rate;
-	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
 
-
-	i2s->is_full_duplex = 1;
-	i2s->luat_i2s_event_callback = record_cb;
-	switch(g_s_record.type)
-	{
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-	case LUAT_MULTIMEDIA_DATA_TYPE_PCM:
-    	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
-        i2s->sample_rate = 8000;
-        break;
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-    	i2s->cb_rx_len = 640 * RECORD_ONCE_LEN;
-        i2s->sample_rate = 16000;
-        break;
-	default:
-		if (g_s_record.type <= 32000)
-		{
-			i2s->cb_rx_len = g_s_record.type / 5;
-		}
-		else if (g_s_record.type < 80000)
-		{
-			i2s->cb_rx_len = g_s_record.type / 10;
-		}
-		else
-		{
-			i2s->cb_rx_len = g_s_record.type / 20;
-		}
-        i2s->sample_rate = g_s_record.type;
-		break;
-	}
 
 
     //需要保存文件，看情况打开编码功能
@@ -224,15 +194,73 @@ static void record_start(uint8_t *data, uint32_t len){
 #else
             g_s_record.encoder_handler = Encoder_Interface_init(g_s_record.quailty);
 #endif
-        if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
-            luat_fs_fwrite("#!AMR\n", 6, 1, g_s_record.fd);
-        }else{
-            luat_fs_fwrite("#!AMR-WB\n", 9, 1, g_s_record.fd);
-        }
+			if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
+				luat_fs_fwrite("#!AMR\n", 6, 1, g_s_record.fd);
+			}else{
+				luat_fs_fwrite("#!AMR-WB\n", 9, 1, g_s_record.fd);
+			}
 #endif
         }
     }
-	luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
+    luat_audio_conf_t *audio = luat_audio_get_config(g_s_record.multimedia_id);
+    if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
+    {
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    	g_s_record.bak_cb_rx_len = i2s->cb_rx_len;
+    	g_s_record.bak_is_full_duplex = i2s->is_full_duplex;
+    	g_s_record.bak_sample_rate = i2s->sample_rate;
+    	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
+
+
+    	i2s->is_full_duplex = 1;
+    	i2s->luat_i2s_event_callback = record_cb;
+    	switch(g_s_record.type)
+    	{
+    	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+    	case LUAT_MULTIMEDIA_DATA_TYPE_PCM:
+        	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
+            i2s->sample_rate = 8000;
+            break;
+    	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+        	i2s->cb_rx_len = 640 * RECORD_ONCE_LEN;
+            i2s->sample_rate = 16000;
+            break;
+    	default:
+    		if (g_s_record.type <= 32000)
+    		{
+    			i2s->cb_rx_len = g_s_record.type / 5;
+    		}
+    		else if (g_s_record.type < 80000)
+    		{
+    			i2s->cb_rx_len = g_s_record.type / 10;
+    		}
+    		else
+    		{
+    			i2s->cb_rx_len = g_s_record.type / 20;
+    		}
+            i2s->sample_rate = g_s_record.type;
+    		break;
+    	}
+    	luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
+    } else { //非I2S的录音device
+    	uint32_t sample_rate = 8000;
+    	if (g_s_record.type >= 8000)
+    	{
+    		sample_rate = g_s_record.type;
+    	}
+    	else
+    	{
+        	switch(g_s_record.type)
+        	{
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+        		sample_rate = 16000;
+        		break;
+        	}
+    	}
+    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_no_i2s_cb, &g_s_record);
+    	luat_audio_record_and_play(g_s_record.multimedia_id, sample_rate, NULL, 3200, 2);
+    }
+
 }
 
 
@@ -803,6 +831,10 @@ static const rotable_Reg_t reg_audio[] =
     { "AMR_NB",           ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)},
     //@const AMR_WB number AMR_WB格式
     { "AMR_WB",           ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB)},
+	//@const ULAW number G711 ulaw格式
+	{ "ULAW",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ULAW)},
+    //@const ALAW number G711 alaw格式
+	{ "ALAW",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ALAW)},
 	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据
 	{ "MORE_DATA",     ROREG_INT(LUAT_MULTIMEDIA_CB_AUDIO_NEED_DATA)},
 	//@const DONE number audio.on回调函数传入参数的值，表示底层播放完全部数据了
@@ -821,6 +853,7 @@ static const rotable_Reg_t reg_audio[] =
 	{ "VOLTAGE_1800", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_1800)},
     //@const VOLTAGE_3300 number 可配置的codec工作电压，3.3V
 	{ "VOLTAGE_3300", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_3300)},
+
 	{ NULL,            ROREG_INT(0)}
 };
 

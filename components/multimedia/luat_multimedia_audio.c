@@ -424,3 +424,9 @@ LUAT_WEAK void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_
 	;
 }
 
+LUAT_WEAK void luat_audio_setup_record_callback(uint8_t multimedia_id, luat_audio_record_callback callback, void *param)
+{
+	return ;
+}
+
+

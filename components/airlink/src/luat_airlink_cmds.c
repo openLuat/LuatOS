@@ -41,17 +41,17 @@ CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result);
 
 luat_airlink_cmd_reg_t airlink_cmds[] = {
-    CMD_REG(0x01, ping),
-    CMD_REG(0x02, pong),
-    CMD_REG(0x03, reset),
-    CMD_REG(0x04, fota_init),
-    CMD_REG(0x05, fota_write),
-    CMD_REG(0x06, fota_done),
+    // CMD_REG(0x01, ping),
+    // CMD_REG(0x02, pong),
+    // CMD_REG(0x03, reset),
+    // CMD_REG(0x04, fota_init),
+    // CMD_REG(0x05, fota_write),
+    // CMD_REG(0x06, fota_done),
 
     CMD_REG(0x100, ip_pkg),
-    CMD_REG(0x101, set_mac),
-    CMD_REG(0x102, link_up),
-    CMD_REG(0x103, link_down),
+    // CMD_REG(0x101, set_mac),
+    // CMD_REG(0x102, link_up),
+    // CMD_REG(0x103, link_down),
 
     {0, NULL}
 };

@@ -113,7 +113,7 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t* item) {
         return luat_rtos_queue_send(airlink_cmd_queue, item, 0, 0);
     }
     if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
-        if (airlink_cmd_queue == NULL) {
+        if (airlink_ippkg_queue == NULL) {
             return -1;
         }
         return luat_rtos_queue_send(airlink_ippkg_queue, item, 0, 0);
@@ -131,7 +131,7 @@ int luat_airlink_queue_get_cnt(int tp) {
         ret = luat_rtos_queue_get_cnt(airlink_cmd_queue, &len);
     }
     if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
-        if (airlink_cmd_queue == NULL) {
+        if (airlink_ippkg_queue == NULL) {
             return -1;
         }
         ret = luat_rtos_queue_get_cnt(airlink_ippkg_queue, &len);
@@ -151,10 +151,30 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* item, size_t timeout) {
         ret = luat_rtos_queue_recv(airlink_cmd_queue, item, 0, timeout);
     }
     if (tp == LUAT_AIRLINK_QUEUE_IPPKG) {
-        if (airlink_cmd_queue == NULL) {
+        if (airlink_ippkg_queue == NULL) {
             return -1;
         }
-        ret = luat_rtos_queue_recv(airlink_cmd_queue, item, 0, timeout);
+        ret = luat_rtos_queue_recv(airlink_ippkg_queue, item, 0, timeout);
     }
     return ret;
+}
+
+int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len) {
+    if (len < 8) {
+        // LLOGE("数据包太小了, 抛弃掉");
+        return -1;
+    }
+    airlink_queue_item_t item = {
+        .len = len + 5,
+        .cmd = luat_heap_malloc(len + 8),
+    };
+    if (item.cmd == NULL) {
+        return -2;
+    }
+    memcpy(item.cmd->data + 1, data, len);
+    item.cmd->cmd = 0x100;
+    item.cmd->len = len + 1;
+    item.cmd->data[0] = adapter_id;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
+    return 0;
 }

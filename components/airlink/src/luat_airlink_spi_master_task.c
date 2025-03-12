@@ -18,7 +18,7 @@
 #define TEST_SPI_ID   0
 #define TEST_BUFF_SIZE (1600)
 #define TEST_CS_PIN 8
-#define TEST_RDY_PIN 26
+#define TEST_RDY_PIN 22
 #define TEST_BTN_PIN 0
 
 #else
@@ -44,7 +44,7 @@ static int gpio_level_irq(void *data, void* args)
 
 static int slave_rdy_irq(void *data, void* args) {
     slave_rdy = 1;
-    luat_rtos_event_send(gpio_task_handle, 1, 2, 3, 4, 100);
+    // luat_rtos_event_send(gpio_task_handle, 1, 2, 3, 4, 100);
     return 0;
 }
 
@@ -112,7 +112,7 @@ static void task_test_spi(void *param)
         for (size_t i = 0; i < 5; i++)
         {
             tmpval = luat_gpio_get(TEST_RDY_PIN);
-            if (tmpval == 0) {
+            if (tmpval == 1) {
                 LLOGD("从机未就绪,等1ms");
                 luat_rtos_task_sleep(1);
                 continue;

@@ -10,6 +10,8 @@
 
 static luat_rtos_task_handle airlink_task_handle;
 
+extern luat_airlink_cmd_reg_t airlink_cmds[];
+
 void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     void* ptr = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, len);
     if (ptr == NULL) {
@@ -23,16 +25,34 @@ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
 static int luat_airlink_task(void *param) {
     LLOGD("处理线程启动");
     luat_event_t event;
-    void* ptr = NULL;
+    luat_airlink_cmd_t* ptr = NULL;
     size_t len = 0;
+    luat_airlink_cmd_reg_t* cmd_reg = NULL;
     while (1) {
         luat_rtos_event_recv(airlink_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         if (event.id == 1) { // 收到数据了, 马上处理
             // 处理数据
             ptr = (void*)event.param1;
             len = event.param2;
+            if (ptr == NULL) {
+                LLOGW("空指令!");
+                continue;
+            }
             // TODO 真正的处理逻辑
-            LLOGD("收到指令/回复 ptr %p len %d", ptr, len);
+            LLOGD("收到指令/回复 cmd %d len %d", ptr->cmd, len);
+            cmd_reg = airlink_cmds;
+            while (1) {
+                if (cmd_reg->id == 0) {
+                    break;
+                }
+                if (cmd_reg->id == ptr->cmd) {
+                    LLOGI("找到CMD执行程序 %p", cmd_reg->exec);
+                    cmd_reg->exec(ptr, NULL);
+                    break;
+                }
+                cmd_reg ++;
+            }
+            
 
             // 处理完成, 释放内存
             luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr);

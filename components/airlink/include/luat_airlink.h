@@ -5,8 +5,6 @@ typedef struct luat_airlink_cmd
 {
     uint16_t cmd; // 命令, 从0x0001开始, 到0xfffe结束
     uint16_t len; // 数据长度,最高64k, 实际使用最高2k
-    uint64_t cmd_id; // 命令id, 起始1, 不需要ACK的指令, 可以传0, 逐个递增
-    uint32_t revert; // 预留4字节的空余区域
     uint8_t data[0];
 }luat_airlink_cmd_t;
 
@@ -44,5 +42,7 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t* item);
 int luat_airlink_queue_get_cnt(int tp);
 
 int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* cmd, size_t timeout);
+
+int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len);
 
 #endif

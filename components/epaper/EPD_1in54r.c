@@ -188,7 +188,7 @@ parameter:
 ******************************************************************************/
 void EPD_1IN54R_Display(const UBYTE *blackimage, const UBYTE *redimage)
 {
-    UBYTE Temp = 0x00;
+    // UBYTE Temp = 0x00;
     UWORD Width, Height;
     Width = (EPD_1IN54R_WIDTH % 8 == 0)? (EPD_1IN54R_WIDTH / 8 ): (EPD_1IN54R_WIDTH / 8 + 1);
     Height = EPD_1IN54R_HEIGHT;

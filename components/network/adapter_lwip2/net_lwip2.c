@@ -478,7 +478,6 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	Buffer_Struct msg_buf;
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	struct pbuf *out_p;
-	ip_addr_t *t_ip;
 	int i;
 	uint8_t adapter_index = (uint32_t)arg;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
@@ -579,17 +578,15 @@ static void net_lwip2_close_tcp(int socket_id)
 
 static void net_lwip2_task(void *param)
 {
-	luat_network_cb_param_t cb_param;
+	// luat_network_cb_param_t cb_param;
 	OS_EVENT event = *((OS_EVENT *)param);
 	luat_heap_free(param);
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	// HANDLE cur_task = luat_get_current_task();
-	struct netif *netif = NULL;
 	socket_data_t *p = NULL;
 	ip_addr_t *p_ip, *local_ip;
 	struct pbuf *out_p = NULL;
-	int error = 0, i = 0;
-	PV_Union uPV;
+	int error = 0;
 //	uint8_t active_flag;
 	uint8_t socket_id = 0;
 	uint8_t adapter_index = 0;
@@ -901,7 +898,6 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
-	int i = 0;
 	luat_ip_addr_t addr = {0};
 	char ip_string[64] = {0};
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
@@ -945,7 +941,6 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 
 static int net_lwip2_check_socket(void *user_data, int socket_id, uint64_t tag)
 {
-	uint8_t adapter_index = (uint32_t)user_data;
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	if (socket_id >= MAX_SOCK_NUM) return -1;
 	if (prvlwip.socket[socket_id].tag != tag) return -1;

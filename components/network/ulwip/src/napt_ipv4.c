@@ -893,7 +893,6 @@ static int alg_icmp_proc(u8 is_inet,
                          struct ip_hdr *ip_hdr,
                          ip_addr_t* gw_ip)
 {
-    int err = -1;
     struct napt_addr_4ic *napt;
     struct icmp_echo_hdr *icmp_hdr;
     u8* ptr = ((u8*)ip_hdr) - 14;
@@ -982,7 +981,6 @@ static int alg_tcp_proc(u8 is_inet,
                         struct ip_hdr *ip_hdr,
                         ip_addr_t* gw_ip)
 {
-    int err;
     u8 src_ip;
     struct napt_addr_4tu *napt;
     struct tcp_hdr *tcp_hdr;
@@ -1086,7 +1084,6 @@ static int alg_udp_proc(u8 is_inet,
                         struct ip_hdr *ip_hdr,
                         ip_addr_t* gw_ip)
 {
-    int err = 0;
     u8 src_ip;
     struct napt_addr_4tu *napt;
     struct udp_hdr *udp_hdr;

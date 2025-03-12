@@ -80,6 +80,8 @@ int luat_lv_init(lua_State *L) {
 #include "luat_lcd.h"
 
 static luat_lcd_conf_t* lcd_conf;
+static lv_color_t *fbuffer = NULL;
+static lv_color_t *fbuffer2 = NULL;
 
 LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
     //-----
@@ -105,8 +107,7 @@ int luat_lv_init(lua_State *L) {
         h = luaL_checkinteger(L, 2);
     }
 
-    lv_color_t *fbuffer = NULL;
-    lv_color_t *fbuffer2 = NULL;
+
     size_t fbuff_size = 0;
     size_t buffmode = 0;
 
@@ -145,10 +146,8 @@ int luat_lv_init(lua_State *L) {
         buffmode = luaL_checkinteger(L, 5);
     }
 
-    LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
-
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
-        //LLOGD("use LCD buff");
+        // LLOGD("use LCD buff");
         fbuffer = lcd_conf->buff;
         fbuff_size = w * h;
     }
@@ -187,6 +186,8 @@ int luat_lv_init(lua_State *L) {
             LV.buff2_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         LV.buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }
+    
+    LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
     lv_disp_buf_init(&LV.disp_buf, fbuffer, fbuffer2, fbuff_size);
 
@@ -198,7 +199,6 @@ int luat_lv_init(lua_State *L) {
     my_disp_drv.hor_res = w;
     my_disp_drv.ver_res = h;
     my_disp_drv.buffer = &LV.disp_buf;
-    //LLOGD(">>%s %d", __func__, __LINE__);
 
 #ifdef LUAT_USE_LVGL_SDL2
     if (lcd_conf == NULL) {
@@ -210,7 +210,9 @@ int luat_lv_init(lua_State *L) {
     }
 #endif
     LV.disp = lv_disp_drv_register(&my_disp_drv);
-    //LLOGD(">>%s %d", __func__, __LINE__);
+    if (LV.disp == NULL) {
+        LLOGE("lv_disp_drv_register error");
+    }
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
 #ifdef LUAT_USE_LVGL_SDL2
     LLOGD("use LVGL-LCD-SDL2 swap %d", LV_COLOR_16_SWAP);

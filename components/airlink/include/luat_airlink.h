@@ -29,5 +29,20 @@ typedef struct luat_airlink_cmd_reg
     luat_airlink_cmd_exec exec;
 }luat_airlink_cmd_reg_t;
 
+enum {
+    LUAT_AIRLINK_QUEUE_CMD = 1,
+    LUAT_AIRLINK_QUEUE_IPPKG
+};
+
+typedef struct airlink_queue_item {
+    size_t len;
+    luat_airlink_cmd_t* cmd;
+}airlink_queue_item_t;
+
+int luat_airlink_queue_send(int tp, airlink_queue_item_t* item);
+
+int luat_airlink_queue_get_cnt(int tp);
+
+int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* cmd, size_t timeout);
 
 #endif

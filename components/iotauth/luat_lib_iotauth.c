@@ -87,7 +87,7 @@ log.info("onenet.old", client_id,user_name,password)
 */
 static int l_iotauth_onenet(lua_State *L) {
     iotauth_ctx_t ctx = {0};
-    char password[PASSWORD_LEN] = {0};
+    // char password[PASSWORD_LEN] = {0};
     size_t len = 0;
     iotauth_onenet_t onenet = {
         .cur_timestamp = 32472115200

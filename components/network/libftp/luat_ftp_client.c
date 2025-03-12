@@ -54,8 +54,6 @@ static uint32_t luat_ftp_cmd_send(luat_ftp_ctrl_t *ftp_ctrl, uint8_t* send_data,
 }
 
 static int luat_ftp_cmd_recv(luat_ftp_ctrl_t *ftp_ctrl,uint8_t *recv_data,uint32_t *recv_len,uint32_t timeout_ms){
-	uint32_t total_len = 0;
-	uint32_t read_len;
 	uint8_t is_break = 0,is_timeout = 0;
 	int ret = network_wait_rx(g_s_ftp.network->cmd_netc, timeout_ms, &is_break, &is_timeout);
 	LLOGD("luat_ftp_cmd_recv network_wait_rx ret:%d is_break:%d is_timeout:%d",ret,is_break,is_timeout);

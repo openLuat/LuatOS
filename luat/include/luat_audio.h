@@ -385,6 +385,9 @@ void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off);
  */
 void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len);
 
+typedef void (*luat_audio_record_callback)(uint8_t multimedia_id, uint8_t *rx_data, uint32_t rx_len, void *param); //  非i2s录音回调函数
+void luat_audio_setup_record_callback(uint8_t multimedia_id, luat_audio_record_callback callback, void *param);
+
 void *luat_audio_inter_amr_coder_init(uint8_t is_wb, uint8_t quality);
 int luat_audio_inter_amr_coder_encode(void *handle, const uint16_t *pcm_buf, uint8_t *amr_buf, uint8_t *amr_len);
 int luat_audio_inter_amr_coder_decode(void *handle, uint16_t *pcm_buf, const uint8_t *amr_buf, uint8_t *amr_len);

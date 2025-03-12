@@ -12,7 +12,11 @@ enum
 	WEBSOCKET_MSG_DISCONNECT = 6
 };
 
+#ifdef LUAT_USE_PSRAM
+#define WEBSOCKET_RECV_BUF_LEN_MAX 16384
+#else
 #define WEBSOCKET_RECV_BUF_LEN_MAX 4096
+#endif
 
 typedef struct
 {

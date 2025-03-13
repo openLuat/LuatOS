@@ -23,13 +23,13 @@ camera.on(camera_id, "scanned", function(id, str)
         sys.publish("capture_done")
     end
 end)
--- testMode等于0时演示摄像头拍照，将图片保存在根目录下，文件名为abc.jpg
+-- testMode等于1时演示摄像头拍照，将图片保存在根目录下，文件名为abc.jpg
 -- 通过模块自身启动的一个http服务端访问图片，访问url为http://xxx.xxx.xxx.xxx/abc.jpg，其中xxx.xxx.xxx.xxx为模块ip地址
 -- 需要用电脑或其他设备与模块连接同一热点
 
--- testMode等于1时，演示摄像头拍照，将图片数据存在zbuff中
+-- testMode等于2时，演示摄像头拍照，将图片数据存在zbuff中
 -- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
-local testMode = 1
+local testMode = 2
 
 -- WIFI热点名称
 local ssid = "uiot"
@@ -54,7 +54,7 @@ sys.taskInit(function()
         end
         log.info("等待网络就绪超时")
     end
-    if testMode == 0 then
+    if testMode == 1 then
         log.info("演示模式一")
         -- 启动HTTP服务
         httpsrv.start(80, function()
@@ -80,7 +80,7 @@ sys.taskInit(function()
             -- 等待30秒
             sys.wait(30000)
         end
-    elseif testMode == 1 then
+    elseif testMode == 2 then
         log.info("演示模式二")
         rawbuff = zbuff.create(200 * 1024, 0, zbuff.HEAP_PSRAM)
         if rawbuff == nil then

@@ -340,7 +340,7 @@ static int tp_gt911_get_info(luat_tp_config_t* luat_tp_config, luat_tp_info_t *l
 }
 static void tp_gt911_read_done(luat_tp_config_t * luat_tp_config)
 {
-	luat_tp_irq_enable(luat_tp_config->pin_int, 1);
+	luat_tp_irq_enable(luat_tp_config, 1);
 }
 
 // gt911 get tp info.

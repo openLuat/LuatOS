@@ -74,7 +74,9 @@ int luat_netdrv_mac(int32_t id, const char* new, char* old) {
         return -1;
     }
     memcpy(old, drvs[id]->netif->hwaddr, 6);
-    memcpy(drvs[id]->netif->hwaddr, new, 6);
+    if (new) {
+        memcpy(drvs[id]->netif->hwaddr, new, 6);
+    }
     return 0;
 }
 

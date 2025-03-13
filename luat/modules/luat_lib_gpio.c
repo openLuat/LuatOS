@@ -201,8 +201,8 @@ gpio.setup(17, 0)
 gpio.setup(17, 1, gpio.PULLUP)
 
 -- 设置gpio27为中断, 默认双向触发
-gpio.setup(27, function(val)
-    print("IRQ_27",val) -- 提醒, val并不代表触发方向, 仅代表中断后某个时间点的电平
+gpio.setup(27, function(val,io_num)
+    print("io",io_num,val) -- 提醒, val并不代表触发方向, 仅代表中断后某个时间点的电平, io_num是IO序号
 end, gpio.PULLUP)
 
 -- 设置gpio27为中断, 仅上升沿触发

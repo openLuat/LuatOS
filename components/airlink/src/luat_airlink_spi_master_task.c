@@ -9,6 +9,7 @@
 #include "luat_pm.h"
 #include "luat_gpio.h"
 #include "luat_airlink.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -33,12 +34,16 @@
 
 static uint8_t start;
 static uint8_t slave_rdy;
+static uint8_t thread_rdy;
 static luat_rtos_task_handle spi_task_handle;
-static luat_rtos_task_handle gpio_task_handle;
 
-static int gpio_level_irq(void *data, void* args)
+static uint8_t basic_info[256];
+
+static int gpio_boot_irq(void *data, void* args)
 {
-	start = 1;
+	if (thread_rdy) {
+        luat_rtos_event_send(spi_task_handle, 1, 2, 3, 4, 100);
+    }
 	return 0;
 }
 
@@ -48,9 +53,21 @@ static int slave_rdy_irq(void *data, void* args) {
     return 0;
 }
 
+static void test_gpio(void) {
+    
+	luat_gpio_cfg_t gpio_cfg;
 
-static void task_test_spi(void *param)
-{
+    // 触发脚, BOOT脚, 只是为了测试
+	luat_gpio_set_default_cfg(&gpio_cfg);
+	gpio_cfg.pin = TEST_BTN_PIN;
+	gpio_cfg.mode = LUAT_GPIO_IRQ;
+	gpio_cfg.irq_type = LUAT_GPIO_RISING_IRQ;
+	gpio_cfg.pull = LUAT_GPIO_PULLDOWN;
+	gpio_cfg.irq_cb = gpio_boot_irq;
+	luat_gpio_open(&gpio_cfg);
+}
+
+static void spi_gpio_setup(void) {
     luat_spi_t spi_conf = {
         .id = TEST_SPI_ID,
         .CPHA = 1,
@@ -66,14 +83,8 @@ static void task_test_spi(void *param)
     luat_spi_setup(&spi_conf);
 	luat_gpio_cfg_t gpio_cfg;
 
-    // 触发脚
-	luat_gpio_set_default_cfg(&gpio_cfg);
-	gpio_cfg.pin = TEST_BTN_PIN;
-	gpio_cfg.mode = LUAT_GPIO_IRQ;
-	gpio_cfg.irq_type = LUAT_GPIO_RISING_IRQ;
-	gpio_cfg.pull = LUAT_GPIO_PULLDOWN;
-	gpio_cfg.irq_cb = gpio_level_irq;
-	luat_gpio_open(&gpio_cfg);
+    // 测试用途的管脚, 只是为了方便测试, 正式环境就去掉
+    test_gpio();
 
     // 从机准备好脚
     luat_gpio_set_default_cfg(&gpio_cfg);
@@ -92,21 +103,48 @@ static void task_test_spi(void *param)
 	gpio_cfg.pull = LUAT_GPIO_PULLUP;
     gpio_cfg.output_level = 1;
 	luat_gpio_open(&gpio_cfg);
+}
 
+
+static void spi_master_task(void *param)
+{
     int i;
     size_t pkg_offset = 0;
     size_t pkg_size = 0;
     int tmpval = 0;
-	static uint8_t send_buf[TEST_BUFF_SIZE] = {0x90,0x80,0x70,0x60};
-    static uint8_t recv_buf[TEST_BUFF_SIZE] = {0};
+    luat_event_t event = {0};
+    airlink_queue_item_t item = {0};
+	static uint8_t txbuff[TEST_BUFF_SIZE] = {0x90,0x80,0x70,0x60};
+    static uint8_t rxbuff[TEST_BUFF_SIZE] = {0};
+
+    luat_rtos_task_sleep(5); // 等5ms
+    spi_gpio_setup();
+    thread_rdy = 1;
+
     const char* test_data = "123456789";
-    luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), send_buf);
-    luat_airlink_print_buff("TX", send_buf, 16);
+    luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
+    // luat_airlink_print_buff("TX", txbuff, 16);
 
     while (1)
     {
-        // TODO 从队列读取数据, 然后打包, 发送给从机
-        while(!start){luat_rtos_task_sleep(100);}
+        // 等到消息
+        event.id = 0;
+        item.len = 0;
+        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5000);
+        luat_airlink_cmd_recv_simple(&item);
+        if (item.len == 0 && event.id == 0) {
+            // LLOGD("啥都没等到, 继续等");
+            continue; // 无事发生,继续等下一个事件.
+        }
+        if (item.len > 0 && item.cmd != NULL) {
+            LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
+            luat_airlink_data_pack(item.cmd, item.len, txbuff);
+            luat_heap_free(item.cmd);
+        }
+        else {
+            LLOGD("填充PING数据");
+            luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
+        }
         slave_rdy = 0;
         luat_gpio_set(TEST_CS_PIN, 0);
         for (size_t i = 0; i < 5; i++)
@@ -117,38 +155,33 @@ static void task_test_spi(void *param)
                 luat_rtos_task_sleep(1);
                 continue;
             }
-            LLOGD("从机已就绪!!");
+            LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
             break;
         }
         
-        luat_spi_transfer(TEST_SPI_ID, (const char*)send_buf, TEST_BUFF_SIZE, (char*)recv_buf, TEST_BUFF_SIZE);
+        luat_spi_transfer(TEST_SPI_ID, (const char*)txbuff, TEST_BUFF_SIZE, (char*)rxbuff, TEST_BUFF_SIZE);
         luat_gpio_set(TEST_CS_PIN, 1);
-        luat_airlink_print_buff("RX", recv_buf, 32);
+        // luat_airlink_print_buff("RX", rxbuff, 32);
         // 对接收到的数据进行解析
         pkg_offset = 0;
         pkg_size = 0;
-        luat_airlink_data_unpack(recv_buf, TEST_BUFF_SIZE, &pkg_offset, &pkg_size);
+        luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE, &pkg_offset, &pkg_size);
         if (pkg_size) {
-            luat_airlink_on_data_recv(recv_buf + pkg_offset, pkg_size);
+            luat_airlink_on_data_recv(rxbuff + pkg_offset, pkg_size);
         }
         
-        memset(recv_buf, 0, TEST_BUFF_SIZE);
-        luat_rtos_task_sleep(300);
+        memset(rxbuff, 0, TEST_BUFF_SIZE);
+        // luat_rtos_task_sleep(300);
         start = 0;
     }
 }
 
-// static  void task_gpio_why(void *param) {
-//     luat_event_t event;
-//     while (1) {
-//         luat_rtos_event_recv(gpio_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
-//         LLOGD("GPIO IRQ %d", event.id);
-//     }
-// }
-
 
 void luat_airlink_start_master(void)
 {
-    luat_rtos_task_create(&spi_task_handle, 4 * 1024, 95, "spi", task_test_spi, NULL, 0);
-    // luat_rtos_task_create(&gpio_task_handle, 4 * 1024, 20, "gpio", task_gpio_why, NULL, 128);
+    if (spi_task_handle != NULL) {
+        LLOGE("SPI主机任务已经启动过了!!!");
+        return;
+    }
+    luat_rtos_task_create(&spi_task_handle, 4 * 1024, 95, "spi", spi_master_task, NULL, 0);
 }

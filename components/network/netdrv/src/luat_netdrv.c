@@ -31,7 +31,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     }
     else {
         if (drvs[conf->id]->boot) {
-            drvs[conf->id]->boot(NULL);
+            drvs[conf->id]->boot(drvs[conf->id], NULL);
         }
     }
     return NULL;
@@ -48,14 +48,14 @@ int luat_netdrv_dhcp(int32_t id, int32_t enable) {
         LLOGW("该netdrv不支持设置dhcp开关");
         return -1;
     }
-    return drvs[id]->dhcp(drvs[id]->userdata, enable);
+    return drvs[id]->dhcp(drvs[id], drvs[id]->userdata, enable);
 }
 
 int luat_netdrv_ready(int32_t id) {
     if (drvs[id] == NULL) {
         return -1;
     }
-    return drvs[id]->ready(drvs[id]->userdata);
+    return drvs[id]->ready(drvs[id], drvs[id]->userdata);
 }
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv) {
@@ -153,4 +153,40 @@ uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t prot
     sum += (sum >> 16);
 
     return (uint16_t)(~sum);
+}
+
+
+void luat_netdrv_netif_input(void* args) {
+    netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
+    struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
+    if (p == NULL) {
+        LLOGD("分配pbuf失败!!! %d", ptr->len);
+        luat_heap_free(ptr);
+        return;
+    }
+    pbuf_take(p, ptr->buff, ptr->len);
+    // LLOGD("数据注入到netif " MACFMT, MAC_ARG(p->payload));
+    int ret = ptr->netif->input(p, ptr->netif);
+    if (ret) {
+        pbuf_free(p);
+    }
+    luat_heap_free(ptr);
+}
+
+int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len) {
+    netdrv_pkg_msg_t* ptr = luat_heap_malloc(sizeof(netdrv_pkg_msg_t) + len);
+    if (ptr == NULL) {
+        LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
+        return 1; // 需要处理下一个包
+    }
+    memcpy(ptr->buff, buff, len);
+    ptr->netif = netif;
+    ptr->len = len;
+    int ret = tcpip_callback(luat_netdrv_netif_input, ptr);
+    if (ret) {
+        luat_heap_free(ptr);
+        LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
+        return 1;
+    }
+    return 0;
 }

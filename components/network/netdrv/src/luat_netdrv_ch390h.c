@@ -18,7 +18,7 @@
 
 ch390h_t* ch390h_drvs[MAX_CH390H_NUM]; // 最多支持5个CH390H同时操作
 
-static int ch390h_dhcp(void* userdata, int enable) {
+static int ch390h_dhcp(luat_netdrv_t* drv, void* userdata, int enable) {
     ch390h_t* ch = (ch390h_t*)userdata;
     ch->dhcp = (uint8_t)enable;
     ch->ulwip.dhcp_enable = enable;

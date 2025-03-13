@@ -43,6 +43,8 @@ int luat_airlink_queue_get_cnt(int tp);
 
 int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* cmd, size_t timeout);
 
+int luat_airlink_cmd_recv_simple(airlink_queue_item_t* cmd);
+
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len);
 
 #endif

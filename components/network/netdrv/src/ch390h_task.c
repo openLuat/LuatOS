@@ -22,13 +22,6 @@
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
 
-typedef struct pkg_msg
-{
-    struct netif * netif;
-    uint16_t len;
-    uint8_t buff[4];
-}pkg_msg_t;
-
 typedef struct pkg_evt
 {
     uint8_t id;
@@ -184,7 +177,7 @@ static err_t luat_netif_init(struct netif *netif) {
 }
 
 static void netdrv_netif_input(void* args) {
-    pkg_msg_t* ptr = (pkg_msg_t*)args;
+    netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
     if (p == NULL) {
         LLOGD("分配pbuf失败!!! %d", ptr->len);
@@ -332,18 +325,9 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             }
             else {
                 // 如果返回值是0, 那就是继续处理, 输入到netif
-                pkg_msg_t* ptr = luat_heap_malloc(sizeof(pkg_msg_t) + len - 4);
-                if (ptr == NULL) {
-                    LLOGE("收到rx数据,但内存已满, 无法处理只能抛弃 %d", len - 4);
-                    return 1; // 需要处理下一个包
-                }
-                memcpy(ptr->buff, ch->rxbuff, len - 4);
-                ptr->netif = ch->netif;
-                ptr->len = len - 4;
-                ret = tcpip_callback(netdrv_netif_input, ptr);
+                ret = luat_netdrv_netif_input_proxy(ch->netif, ch->rxbuff, len - 4);
                 if (ret) {
-                    luat_heap_free(ptr);
-                    LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
+                    LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
                     return 1;
                 }
             }

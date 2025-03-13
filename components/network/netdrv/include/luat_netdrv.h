@@ -3,10 +3,12 @@
 
 #include "lwip/pbuf.h"
 
-typedef void (*luat_netdrv_dataout_cb)(void* userdata, uint8_t* buff, uint16_t len);
-typedef int (*luat_netdrv_bootup_cb)(void* userdata);
-typedef int (*luat_netdrv_ready_cb)(void* userdata);
-typedef int (*luat_netdrv_dhcp_set)(void* userdata, int enable);
+struct luat_netdrv;
+
+typedef void (*luat_netdrv_dataout_cb)(struct luat_netdrv* drv, void* userdata, uint8_t* buff, uint16_t len);
+typedef int (*luat_netdrv_bootup_cb)(struct luat_netdrv* drv, void* userdata);
+typedef int (*luat_netdrv_ready_cb)(struct luat_netdrv* drv, void* userdata);
+typedef int (*luat_netdrv_dhcp_set)(struct luat_netdrv* drv, void* userdata, int enable);
 
 #define MACFMT "%02X%02X%02X%02X%02X%02X"
 #define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
@@ -80,5 +82,17 @@ void luat_netdrv_print_pkg(const char* tat, uint8_t* buff, size_t len);
 uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len);
 uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len);
 uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len);
+
+// 辅助传递函数
+typedef struct netdrv_pkg_msg
+{
+    struct netif * netif;
+    uint16_t len;
+    uint8_t buff[4];
+}netdrv_pkg_msg_t;
+
+void luat_netdrv_netif_input(void* args);
+
+int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len);
 
 #endif

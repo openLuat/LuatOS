@@ -29,10 +29,25 @@ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
         return 0;
     }
     drv = luat_netdrv_get(adapter_id);
-    if (drv == NULL) {
+    if (drv == NULL || drv->netif == NULL) {
         LLOGD("没有找到适配器 %d, 无法处理其IP包", adapter_id);
         return 0;
     }
-    // TODO 转给LWIP
+    
+    // 这里开始就复杂了
+    // 首先, 这是不是平台的包, 如果是, 那就直接交给平台处理
+    //      例如wifi的包, 在wifi平台, 那就应该输出到硬件去
+    // 否则, 那就应该转给lwip处理
+    #ifdef __BK72XX__
+    if (drv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || drv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+        // 这里是wifi的包, 直接输出到硬件去
+        LLOGD("收到wifi的IP包, 直接输出到硬件去 %p %d", buff, len);
+        drv->dataout(drv, buff, len);
+        return 0;
+    }
+    #endif
+
+    luat_netdrv_netif_input_proxy(drv->netif, cmd->data + 1, cmd->len - 1);
+
     return 0;
 }

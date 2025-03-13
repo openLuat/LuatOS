@@ -171,7 +171,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             if (dst->dataout) {
                 if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
                     LLOGD("输出到内网netdrv,无需额外添加eth头");
-                    dst->dataout(dst->userdata, tcp_buff, ctx->len);
+                    dst->dataout(ctx->net, dst->userdata, tcp_buff, ctx->len);
                 }
                 else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
                     // 需要补全一个ETH头部
@@ -179,7 +179,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                     memcpy(tcp_buff + 6, dst->netif->hwaddr, 6);
                     memcpy(tcp_buff + 12, "\x08\x00", 2);
                     memcpy(tcp_buff + 14, ip_hdr, ctx->len);
-                    dst->dataout(dst->userdata, tcp_buff, ctx->len + 14);
+                    dst->dataout(ctx->net, dst->userdata, tcp_buff, ctx->len + 14);
                     // LLOGD("输出到内网netdrv,已额外添加eth头");
                     // luat_netdrv_print_pkg("下行数据", tcp_buff, ctx->len + 14);
                 }
@@ -306,10 +306,10 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             else {
                 if (ctx->eth) {
-                    gw->dataout(gw->userdata, ip_hdr, ctx->len - 14);
+                    gw->dataout(ctx->net, gw->userdata, ip_hdr, ctx->len - 14);
                 }
                 else {
-                    gw->dataout(gw->userdata, ip_hdr, ctx->len);
+                    gw->dataout(ctx->net, gw->userdata, ip_hdr, ctx->len);
                 }
             }
         }

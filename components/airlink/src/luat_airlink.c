@@ -178,3 +178,23 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len)
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
     return 0;
 }
+
+int luat_airlink_cmd_recv_simple(airlink_queue_item_t* cmd) {
+    // 看待发送队列里有没有数据, 有就发送
+    int ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_CMD);
+    // LLOGD("待发送CMD队列长度 %d", ret);
+    airlink_queue_item_t item = {0};
+    if (ret > 0) {
+        ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0);
+    }
+    else {
+        ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_IPPKG);
+        // LLOGD("待发送IPPKG队列长度 %d", ret);
+        if (ret > 0) {
+            ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0);
+            LLOGD("获取到IP数据包 %d %p", ret, item.cmd);
+        }
+    }
+    memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+    return 0;
+}

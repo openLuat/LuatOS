@@ -80,7 +80,8 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 		    return 0;
 		}
 	}
-	return 0;
+    luat_tp_config->opts->read_done(luat_tp_config);
+	return -1;
 }
 
 /*

@@ -10,6 +10,7 @@
 #include "lvgl.h"
 #include "../lv_demos/lv_examples.h"
 #include "luat_mem.h"
+#include "luat_wdt.h"
 
 /*
 lvgl benchmark demo
@@ -21,6 +22,7 @@ lvgl.demo_benchmark()
 */
 int luat_lv_demo_benchmark(lua_State *L){
 #if LV_USE_DEMO_BENCHMARK
+    luat_wdt_close();
     lv_demo_benchmark();
 #else
     LLOGW("please defined LV_USE_DEMO_BENCHMARK");

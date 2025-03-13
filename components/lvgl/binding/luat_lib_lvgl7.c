@@ -149,9 +149,11 @@ int luat_lv_init(lua_State *L) {
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
         // LLOGD("use LCD buff");
         fbuffer = lcd_conf->buff;
-        fbuff_size = w * h;
+        // fbuff_size = w * h;
+        fbuff_size = w * 10;
+        buffmode = 3;
     }
-    else if (buffmode & 0x02) {
+    if (buffmode & 0x02) {
         //LLOGD("use HEAP buff");
         fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {

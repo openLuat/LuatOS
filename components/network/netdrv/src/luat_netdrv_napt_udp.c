@@ -203,7 +203,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
                     memcpy(it->inet_mac, ctx->eth->src.addr, 6);
                 }
                 it->is_vaild = 1;
-                LLOGD("分配新的UDP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
+                //LLOGD("分配新的UDP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
                 break;
             }
             if (it_map == NULL) {

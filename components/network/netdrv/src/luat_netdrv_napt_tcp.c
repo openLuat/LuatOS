@@ -216,7 +216,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             // 判断TCP链路状态
             if ((((it->finack1 && it->finack2) || !it->synack) &&
                   tnow - it->tm_ms > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
-                LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
+                //LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
                 it->is_vaild = 0;
                 it->tm_ms = 0;
                 continue;
@@ -276,7 +276,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 memcpy(it->inet_mac, ctx->eth->src.addr, 6);
             }
             it->is_vaild = 1;
-            LLOGD("分配新的TCP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
+            //LLOGD("分配新的TCP映射 inet %d wnet %d", it->inet_port, it->wnet_local_port);
         }
         else {
             update_tcp_stat_inet(tcp_hdr, it_map);

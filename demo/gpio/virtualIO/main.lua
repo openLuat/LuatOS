@@ -8,21 +8,21 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
-local function wakeup(io)
-	log.info("wakeup", io, "input level", gpio.get(io))
+local function wakeup(val,io)
+	log.info("wakeup", io, "input level", val)
 end
 
 if gpio.PWR_KEY then
-    gpio.setup(gpio.PWR_KEY, function() 
-        log.info("pwrkey", gpio.get(gpio.PWR_KEY))
+    gpio.setup(gpio.PWR_KEY, function(val,io) 
+        log.info("pwrkey", val)
     end, gpio.PULLUP)
 else
     log.info("bsp not support powerkey")
 end
 
 if gpio.CHG_DET then
-    gpio.setup(gpio.CHG_DET, function() 
-        log.info("charge detect", gpio.get(gpio.CHG_DET))
+    gpio.setup(gpio.CHG_DET, function(val,io) 
+        log.info("charge detect", val)
     end, gpio.PULLUP)
 else
     log.info("bsp not support charge detect")

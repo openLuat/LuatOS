@@ -8,8 +8,8 @@ typedef struct luat_airlink_cmd
     uint8_t data[0];
 }luat_airlink_cmd_t;
 
+int luat_airlink_init(void);
 int luat_airlink_start(int id);
-
 int luat_airlink_stop(int id);
 
 void luat_airlink_data_pack(uint8_t* buff, size_t len, uint8_t* dst);
@@ -46,5 +46,38 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* cmd, size_t timeout);
 int luat_airlink_cmd_recv_simple(airlink_queue_item_t* cmd);
 
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len);
+
+void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len);
+void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len);
+
+typedef struct luat_airlink_dev_wifi_info {
+    uint8_t sta_mac[6];
+    uint8_t ap_mac[6];
+    uint8_t bt_mac[6];
+    uint8_t sta_state;
+    uint8_t ap_state;
+}luat_airlink_dev_wifi_info_t;
+
+typedef struct luat_airlink_dev_cat_info {
+    uint8_t ipv4[4];
+    uint8_t ipv6[16];
+    uint8_t cat_state;
+    uint8_t sim_state;
+    uint8_t imei[16];
+    uint8_t iccid[20];
+    uint8_t imsi[16];
+}luat_airlink_dev_wifi_cat_t;
+
+typedef struct luat_airlink_dev_info
+{
+    uint8_t tp;
+    union
+    {
+        luat_airlink_dev_wifi_info_t wifi;
+        luat_airlink_dev_wifi_cat_t cat1;
+    };
+    uint8_t unique_id_len;
+    uint8_t unique_id[24];
+}luat_airlink_dev_info_t;
 
 #endif

@@ -10,6 +10,7 @@
 #include "luat_gpio.h"
 #include "luat_airlink.h"
 #include "luat_mem.h"
+#include "luat_mcu.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -91,7 +92,7 @@ static void spi_gpio_setup(void) {
     gpio_cfg.pin = TEST_RDY_PIN;
     gpio_cfg.mode = LUAT_GPIO_IRQ;
     gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
-    gpio_cfg.pull = LUAT_GPIO_PULLUP;
+    gpio_cfg.pull = 0;
     gpio_cfg.irq_cb = slave_rdy_irq;
     luat_gpio_open(&gpio_cfg);
     LLOGD(" gpio rdy setup done %d", TEST_RDY_PIN);
@@ -121,28 +122,33 @@ static void spi_master_task(void *param)
     spi_gpio_setup();
     thread_rdy = 1;
 
-    const char* test_data = "123456789";
-    luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
+    // const char* test_data = "123456789";
+    // luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
     // luat_airlink_print_buff("TX", txbuff, 16);
-
+    // uint64_t tprev = 0;
+    // uint64_t tnow = 0;
     while (1)
     {
         // 等到消息
         event.id = 0;
         item.len = 0;
-        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5000);
+        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 10);
         luat_airlink_cmd_recv_simple(&item);
         if (item.len == 0 && event.id == 0) {
-            // LLOGD("啥都没等到, 继续等");
-            continue; // 无事发生,继续等下一个事件.
+            // // LLOGD("啥都没等到, 继续等");
+            // tnow = luat_mcu_tick64_ms();
+            // if (tnow - tprev < 1000) {
+            //     continue; // 无事发生,继续等下一个事件.
+            // }
+            // tprev = tnow;
         }
         if (item.len > 0 && item.cmd != NULL) {
-            LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
+            // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
             luat_airlink_data_pack(item.cmd, item.len, txbuff);
             luat_heap_free(item.cmd);
         }
         else {
-            LLOGD("填充PING数据");
+            // LLOGD("填充PING数据");
             luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
         }
         slave_rdy = 0;
@@ -155,7 +161,7 @@ static void spi_master_task(void *param)
                 luat_rtos_task_sleep(1);
                 continue;
             }
-            LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
+            // LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
             break;
         }
         

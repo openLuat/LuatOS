@@ -6,6 +6,7 @@
 #include "luat_netdrv_uart.h"
 #endif
 #include "luat_mem.h"
+#include "luat_airlink.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -31,9 +32,12 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     }
     else {
         if (drvs[conf->id]->boot) {
+            LLOGD("启动网络设备 %p", drvs[conf->id]);
             drvs[conf->id]->boot(drvs[conf->id], NULL);
+            return drvs[conf->id];
         }
     }
+    LLOGW("无效的注册id或类型 id=%d, type=%d", conf->id, conf->impl);
     return NULL;
 }
 
@@ -167,7 +171,7 @@ void luat_netdrv_netif_input(void* args) {
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);
-    // LLOGD("数据注入到netif " MACFMT, MAC_ARG(p->payload));
+    // luat_airlink_hexdump("收到IP数据,注入到netif", ptr->buff, ptr->len);
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
         pbuf_free(p);

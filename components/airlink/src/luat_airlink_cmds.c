@@ -24,6 +24,7 @@ CMD_DEFINE(reset);
 CMD_DEFINE(fota_init);
 CMD_DEFINE(fota_write);
 CMD_DEFINE(fota_done);
+CMD_DEFINE(dev_info);
 
 // MAC和IP包指令, 0x100开始
 CMD_DEFINE(ip_pkg);
@@ -47,6 +48,8 @@ luat_airlink_cmd_reg_t airlink_cmds[] = {
     // CMD_REG(0x04, fota_init),
     // CMD_REG(0x05, fota_write),
     // CMD_REG(0x06, fota_done),
+
+    CMD_REG(0x10, dev_info),
 
     CMD_REG(0x100, ip_pkg),
     // CMD_REG(0x101, set_mac),

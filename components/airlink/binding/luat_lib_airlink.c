@@ -13,6 +13,12 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+static int l_airlink_init(lua_State *L) {
+    LLOGD("初始化AirLink");
+    luat_airlink_init();
+    return 0;
+}
+
 static int l_airlink_start(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (id == 0) {
@@ -44,9 +50,10 @@ static int l_airlink_stop(lua_State *L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
+    { "init" ,         ROREG_FUNC(l_airlink_init )},
     { "start" ,        ROREG_FUNC(l_airlink_start )},
     { "stop" ,         ROREG_FUNC(l_airlink_stop )},
-	{ NULL,             ROREG_INT(0) }
+	{ NULL,            ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_airlink( lua_State *L ) {

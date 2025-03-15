@@ -32,7 +32,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     }
     else {
         if (drvs[conf->id]->boot) {
-            LLOGD("启动网络设备 %p", drvs[conf->id]);
+            //LLOGD("启动网络设备 %p", drvs[conf->id]);
             drvs[conf->id]->boot(drvs[conf->id], NULL);
             return drvs[conf->id];
         }

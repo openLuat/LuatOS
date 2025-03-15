@@ -5,7 +5,7 @@
 -- @copyright OpenLuat.com
 -- @release 2023.4.13
 local sys = require "sys"
---[[特别注意, 使用mqtt库需要下列语句]]
+--[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
 --------------需更改的信息-------------------------

@@ -5,7 +5,7 @@ VERSION = "1.0.0"
 
 -- sys库是标配
 _G.sys = require("sys")
---[[特别注意, 使用mqtt库需要下列语句]]
+--[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
 local iotcloud = require("iotcloud")

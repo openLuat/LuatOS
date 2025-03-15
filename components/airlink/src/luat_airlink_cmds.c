@@ -41,7 +41,7 @@ CMD_DEFINE(wlan_ap_stop);
 CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result);
 
-luat_airlink_cmd_reg_t airlink_cmds[] = {
+const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // CMD_REG(0x01, ping),
     // CMD_REG(0x02, pong),
     // CMD_REG(0x03, reset),

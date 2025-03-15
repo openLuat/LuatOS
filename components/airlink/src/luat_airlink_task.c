@@ -10,7 +10,7 @@
 
 static luat_rtos_task_handle airlink_task_handle;
 
-extern luat_airlink_cmd_reg_t airlink_cmds[];
+extern const luat_airlink_cmd_reg_t airlink_cmds[];
 
 void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     void* ptr = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, len);
@@ -27,7 +27,7 @@ static int luat_airlink_task(void *param) {
     luat_event_t event;
     luat_airlink_cmd_t* ptr = NULL;
     // size_t len = 0;
-    luat_airlink_cmd_reg_t* cmd_reg = NULL;
+    const luat_airlink_cmd_reg_t* cmd_reg = NULL;
     while (1) {
         luat_rtos_event_recv(airlink_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         if (event.id == 1) { // 收到数据了, 马上处理

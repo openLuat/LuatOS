@@ -89,22 +89,18 @@ static err_t luat_netif_init(struct netif *netif) {
     luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)drv->userdata;
     // LLOGD("luat_netif_init 执行cfg %p", cfg);
     // 先配置MTU和flags
-    // 暂时写死MTU
-    // 暂时写死flags
-    netif->mtu        = 1420;
-    netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
-    // if (0 == cfg->mtu) {
-    //     netif->mtu        = 1420;
-    // }
-    // else{
-    //     netif->mtu = cfg->mtu;
-    // }
-    // if (0 == cfg->flags) {
-    //     netif->flags      = NETIF_FLAG_BROADCAST;
-    // }
-    // else {
-    //     netif->flags = cfg->flags;
-    // }
+    if (0 == cfg->mtu) {
+        netif->mtu        = 1420;
+    }
+    else{
+        netif->mtu = cfg->mtu;
+    }
+    if (0 == cfg->flags) {
+        netif->flags      = NETIF_FLAG_BROADCAST;
+    }
+    else {
+        netif->flags = cfg->flags;
+    }
     if (netif->flags & NETIF_FLAG_ETHARP) {
         netif->hwaddr_len = 6;
         memcpy(netif->hwaddr, cfg->mac, 6);

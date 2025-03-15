@@ -24,7 +24,7 @@ int luat_airlink_init(void)
     luat_netdrv_t *drv = NULL;
     // 注册2个网络设备, STA和AP
     cfg.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
-    cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+    cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
     cfg.mtu = 1460;
     drv = luat_netdrv_whale_create(&cfg);
     if (drv != NULL)

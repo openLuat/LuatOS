@@ -28,7 +28,7 @@ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
 
     ret = luat_netdrv_napt_pkg_input(adapter_id, cmd->data + 1, cmd->len - 1);
     if (ret != 0) {
-        LLOGD("NAPT说已经处理完成, 不需要转发给具体的netdrv了");
+        // LLOGD("NAPT说已经处理完成, 不需要转发给具体的netdrv了");
         return 0;
     }
     drv = luat_netdrv_get(adapter_id);

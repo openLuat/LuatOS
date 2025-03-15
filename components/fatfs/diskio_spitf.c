@@ -197,9 +197,11 @@ typedef struct
 	uint8_t IsCRCCheck;
 	uint8_t SDHCError;
 	uint8_t SPIError;
-	uint8_t ExternResult[8];
+	uint8_t ExternResult[64];
 	uint8_t ExternLen;
 	uint8_t SDSC;
+	uint8_t ResetCnt;
+	uint8_t CmdCnt;
 }luat_spitf_ctrl_t;
 
 #define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
@@ -246,10 +248,8 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 	spitf->TempData[0] = 0x40|Cmd;
 	BytesPutBe32(spitf->TempData + 1, Arg);
 	spitf->TempData[5] = CRC7(spitf->TempData, 5);
-
-	memset(spitf->TempData + 6, 0xff, 8);
-	TxLen = 14;
-
+	TxLen = 6 + spitf->CmdCnt;
+	memset(spitf->TempData + 6, 0xff, TxLen - 6);
 
 	spitf->SPIError = 0;
 	spitf->SDHCError = 0;
@@ -259,6 +259,13 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 	{
 		if (spitf->TempData[i] != 0xff)
 		{
+//			LLOGE("find answer byte in %d", i);
+			if (spitf->CmdCnt != (i + 1))
+			{
+				spitf->CmdCnt = i + 1;
+				LLOGI("find answer byte in %d", i);
+			}
+
 			spitf->SDHCState = spitf->TempData[i];
 			if ((spitf->SDHCState == !spitf->IsInitDone) || !spitf->SDHCState)
 			{
@@ -516,11 +523,13 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 	spitf->SDHCState = 0xff;
 	spitf->Info->CardCapacity = 0;
 	spitf->WriteWaitCnt = 80;
+	spitf->ResetCnt = 80;
+	spitf->CmdCnt = 40;
+	memset(spitf->TempData, 0xff, spitf->ResetCnt);
 	luat_gpio_set(spitf->CSPin, 0);
-	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 40, (char *)spitf->TempData, 40);
+	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, spitf->ResetCnt, (char *)spitf->TempData, spitf->ResetCnt);
 	luat_gpio_set(spitf->CSPin, 1);
-	memset(spitf->TempData, 0xff, 40);
-	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 40, (char *)spitf->TempData, 40);
+	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, spitf->ResetCnt, (char *)spitf->TempData, spitf->ResetCnt);
 	spitf->SDSC = 0;
 	if (luat_spitf_cmd(spitf, CMD0, 0, 1))
 	{

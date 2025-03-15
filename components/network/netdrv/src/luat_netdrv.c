@@ -2,15 +2,20 @@
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #ifdef __LUATOS__
-#include "luat_netdrv_ch390h.h"
-#include "luat_netdrv_uart.h"
+// #include "luat_netdrv_ch390h.h"
+// #include "luat_netdrv_uart.h"
 #endif
 #include "luat_mem.h"
+#include "luat_airlink.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
+
+luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
+luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
+luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     if (conf->id < 0 || conf->id >= NW_ADAPTER_QTY) {
@@ -27,13 +32,20 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
+        if (conf->impl == 64) { // UART
+            drvs[conf->id] = luat_netdrv_whale_setup(conf);
+            return drvs[conf->id];
+        }
         #endif
     }
     else {
         if (drvs[conf->id]->boot) {
+            //LLOGD("启动网络设备 %p", drvs[conf->id]);
             drvs[conf->id]->boot(drvs[conf->id], NULL);
+            return drvs[conf->id];
         }
     }
+    LLOGW("无效的注册id或类型 id=%d, type=%d", conf->id, conf->impl);
     return NULL;
 }
 
@@ -74,7 +86,9 @@ int luat_netdrv_mac(int32_t id, const char* new, char* old) {
         return -1;
     }
     memcpy(old, drvs[id]->netif->hwaddr, 6);
-    memcpy(drvs[id]->netif->hwaddr, new, 6);
+    if (new) {
+        memcpy(drvs[id]->netif->hwaddr, new, 6);
+    }
     return 0;
 }
 
@@ -165,7 +179,7 @@ void luat_netdrv_netif_input(void* args) {
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);
-    // LLOGD("数据注入到netif " MACFMT, MAC_ARG(p->payload));
+    // luat_airlink_hexdump("收到IP数据,注入到netif", ptr->buff, ptr->len);
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
         pbuf_free(p);

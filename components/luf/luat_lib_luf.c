@@ -89,7 +89,7 @@ static const rotable_Reg_t reg_luf[] =
     { "dump" ,        ROREG_FUNC(l_luf_dump)},
     { "undump" ,      ROREG_FUNC(l_luf_undump)},
     { "cmp",          ROREG_FUNC(l_luf_cmp)},
-	  { NULL,           {}}
+	  { NULL,           ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_luf( lua_State *L ) {

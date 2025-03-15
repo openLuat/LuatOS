@@ -107,7 +107,7 @@ static const rotable_Reg_t reg_softkb[] =
 {
     { "init",          ROREG_FUNC(l_softkb_init)},
     { "deinit",        ROREG_FUNC(l_softkb_deinit)},
-	{ NULL,            {}}
+	{ NULL,            ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_softkb( lua_State *L ) {

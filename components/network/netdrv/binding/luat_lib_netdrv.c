@@ -58,6 +58,16 @@ static int l_netdrv_setup(lua_State *L) {
             conf.irqpin = luaL_checkinteger(L, -1);
         };
         lua_pop(L, 1);
+
+        if (lua_getfield(L, 3, "mtu") == LUA_TNUMBER) {
+            conf.mtu = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+
+        if (lua_getfield(L, 3, "flags") == LUA_TNUMBER) {
+            conf.flags = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
@@ -99,7 +109,7 @@ static int l_netdrv_mac(lua_State *L) {
     char buff[6] = {0};
     char tmpbuff[13] = {0};
     size_t len = 0;
-    if (lua_isstring(L, 2)) {
+    if (lua_type(L, 2) == LUA_TSTRING) {
         const char* tmp = luaL_checklstring(L, 2, &len);
         if (len != 6) {
             return 0;
@@ -253,6 +263,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "W5500",          ROREG_INT(3)}, // 考虑兼容Air780E/Air105的老客户
     { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
     { "SPINET",         ROREG_INT(32)}, // SPI形式的网卡, 可以带MAC, 也可以不带
+    { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
 	{ NULL,             ROREG_INT(0) }
 };
 

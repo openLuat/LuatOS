@@ -379,8 +379,8 @@ static const rotable_Reg_t reg_cc[] =
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
 	{ "quality" ,   ROREG_FUNC(l_cc_get_quality)},
     { "on" ,        ROREG_FUNC(l_cc_on)},
-    { "record", ROREG_FUNC(l_cc_record_call)},
-	{ NULL,          {}}
+    { "record", 	ROREG_FUNC(l_cc_record_call)},
+	{ NULL,         ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_cc( lua_State *L ) {

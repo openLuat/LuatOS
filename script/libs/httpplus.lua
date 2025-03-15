@@ -117,25 +117,6 @@ local function http_opts_parse(opts)
     if opts.files then
         -- 强制设置为true
         opts.multipart = true
-        local contentType =
-        {
-            txt = "text/plain",             -- 文本
-            jpg = "image/jpeg",             -- JPG 格式图片
-            jpeg = "image/jpeg",            -- JPEG 格式图片
-            png = "image/png",              -- PNG 格式图片   
-            gif = "image/gif",              -- GIF 格式图片
-            html = "image/html",            -- HTML
-            json = "application/json"       -- JSON
-        }
-        for kk, vv in pairs(opts.files) do
-            local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
-            local fname = vv:match("[^%/]+%w$")
-            local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
-            -- log.info("文件传输头", tmp)
-            table.insert(opts.mp, {vv, tmp, "file"})
-            opts.body_len = opts.body_len + #tmp + io.fileSize(vv) + 2
-            -- log.info("当前body长度", opts.body_len, "文件长度", io.fileSize(vv), fname, ct)
-        end
     end
 
     -- 表单数据
@@ -166,6 +147,31 @@ local function http_opts_parse(opts)
             end
         end
     end
+
+    if opts.files then
+        -- 强制设置为true
+        opts.multipart = true
+        local contentType =
+        {
+            txt = "text/plain",             -- 文本
+            jpg = "image/jpeg",             -- JPG 格式图片
+            jpeg = "image/jpeg",            -- JPEG 格式图片
+            png = "image/png",              -- PNG 格式图片   
+            gif = "image/gif",              -- GIF 格式图片
+            html = "image/html",            -- HTML
+            json = "application/json"       -- JSON
+        }
+        for kk, vv in pairs(opts.files) do
+            local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
+            local fname = vv:match("[^%/]+%w$")
+            local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
+            -- log.info("文件传输头", tmp)
+            table.insert(opts.mp, {vv, tmp, "file"})
+            opts.body_len = opts.body_len + #tmp + io.fileSize(vv) + 2
+            -- log.info("当前body长度", opts.body_len, "文件长度", io.fileSize(vv), fname, ct)
+        end
+    end
+
 
     -- 如果multipart模式
     if opts.multipart then

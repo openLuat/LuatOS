@@ -372,7 +372,7 @@ static const rotable_Reg_t reg_io_queue[] =
 	{ "get",         ROREG_FUNC(l_io_queue_get)},
 	{ "release",     ROREG_FUNC(l_io_queue_release)},
 	{ "exti",        ROREG_FUNC(l_io_queue_exti)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_io_queue( lua_State *L ) {

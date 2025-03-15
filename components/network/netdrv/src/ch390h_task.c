@@ -110,7 +110,7 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     }
 }
 
-static void ch390h_dataout(void* userdata, uint8_t* buff, uint16_t len) {
+static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
     luat_ch390h_cstring_t* cs = new_cstring(len);
     if (cs == NULL) {

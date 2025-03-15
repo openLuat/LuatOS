@@ -1010,7 +1010,8 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 		if (prvlwip.socket[socket_id].pcb.tcp)
 		{
 			// prvlwip.socket[socket_id].pcb.tcp->sockid = socket_id;
-			#ifdef tcp_bind_netif
+			#if defined(CHIP_EC618) || defined(CHIP_EC718)|| defined(CHIP_EC716)
+			#else
 			tcp_bind_netif(prvlwip.socket[socket_id].pcb.tcp, prvlwip.lwip_netif[adapter_index]);
 			#endif
 			prvlwip.socket[socket_id].rx_wait_size = 0;

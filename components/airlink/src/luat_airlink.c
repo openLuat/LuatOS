@@ -20,27 +20,7 @@ extern int luat_airlink_start_master(void);
 
 int luat_airlink_init(void)
 {
-    luat_netdrv_whale_t cfg = {0};
-    luat_netdrv_t *drv = NULL;
-    // 注册2个网络设备, STA和AP
-    cfg.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
-    cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
-    cfg.mtu = 1460;
-    drv = luat_netdrv_whale_create(&cfg);
-    if (drv != NULL)
-    {
-        // LLOGD("注册STA网络设备");
-        luat_netdrv_register(cfg.id, drv);
-    }
-
-    // AP设备
-    cfg.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
-    drv = luat_netdrv_whale_create(&cfg);
-    if (drv != NULL)
-    {
-        // LLOGD("注册AP网络设备");
-        luat_netdrv_register(cfg.id, drv);
-    }
+    // TODO Air8000自动新增设备?
     return 0;
 }
 

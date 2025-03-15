@@ -2,8 +2,8 @@
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
 #ifdef __LUATOS__
-#include "luat_netdrv_ch390h.h"
-#include "luat_netdrv_uart.h"
+// #include "luat_netdrv_ch390h.h"
+// #include "luat_netdrv_uart.h"
 #endif
 #include "luat_mem.h"
 #include "luat_airlink.h"
@@ -12,6 +12,10 @@
 #include "luat_log.h"
 
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
+
+luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
+luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
+luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     if (conf->id < 0 || conf->id >= NW_ADAPTER_QTY) {
@@ -26,6 +30,10 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
         }
         if (conf->impl == 16) { // UART
             drvs[conf->id] = luat_netdrv_uart_setup(conf);
+            return drvs[conf->id];
+        }
+        if (conf->impl == 64) { // UART
+            drvs[conf->id] = luat_netdrv_whale_setup(conf);
             return drvs[conf->id];
         }
         #endif

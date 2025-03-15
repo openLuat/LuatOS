@@ -175,3 +175,23 @@ luat_netdrv_t* luat_netdrv_whale_create(luat_netdrv_whale_t* tmp) {
     netdrv->userdata = cfg;
     return netdrv;
 }
+
+luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
+    luat_netdrv_whale_t cfg = {0};
+    cfg.id = conf->id;
+    cfg.flags = conf->flags;
+    cfg.mtu = conf->mtu;
+
+    if (cfg.flags == 0) {
+        if (cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+            cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+        }
+    }
+
+    luat_netdrv_t* drv = luat_netdrv_whale_create(&cfg);
+    if (drv == NULL) {
+        return NULL;
+    }
+    drv->boot(drv, drv->userdata);
+    return drv;
+}

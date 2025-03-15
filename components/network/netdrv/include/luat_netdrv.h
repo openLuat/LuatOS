@@ -31,6 +31,8 @@ typedef struct luat_netdrv_conf
     uint8_t cspin;
     uint8_t rstpin;
     uint8_t irqpin;
+    uint16_t mtu;
+    uint8_t flags;
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item

@@ -32,7 +32,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
-        if (conf->impl == 64) { // UART
+        if (conf->impl == 64) { // WHALE
             drvs[conf->id] = luat_netdrv_whale_setup(conf);
             return drvs[conf->id];
         }
@@ -45,7 +45,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             return drvs[conf->id];
         }
     }
-    LLOGW("无效的注册id或类型 id=%d, type=%d", conf->id, conf->impl);
+    LLOGW("无效的注册id或类型 id=%d, impl=%d", conf->id, conf->impl);
     return NULL;
 }
 

@@ -38,11 +38,11 @@ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
             drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
             while (1) {
                 if (drv == NULL) {
-                    LLOGD("没有找到lwip wifi sta驱动, 无法设置MAC地址");
+                    // LLOGD("没有找到lwip wifi sta驱动, 无法设置MAC地址");
                     break;
                 }
                 if (drv->netif == NULL) {
-                    LLOGD("没有找到lwip wifi sta接口, 无法设置MAC地址");
+                    // LLOGD("没有找到lwip wifi sta接口, 无法设置MAC地址");
                     break;
                 }
                 memcpy(drv->netif->hwaddr, dev->wifi.sta_mac, 6);

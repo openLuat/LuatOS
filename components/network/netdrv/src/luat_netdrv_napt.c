@@ -90,7 +90,7 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
         LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
         return 0;
     }
-    // LLOGD("按协议类型, 使用对应的NAPT修改器进行处理");
+    // LLOGD("按协议类型, 使用对应的NAPT修改器进行处理 id %d proto %d", id, IPH_PROTO(ctx.iphdr));
     switch (IPH_PROTO(ctx.iphdr))
     {
     case IP_PROTO_ICMP:

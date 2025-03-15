@@ -24,7 +24,7 @@ static int netif_ip_event_cb(lua_State *L, void* ptr);
 
 void luat_netdrv_whale_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     // TODO 发送到spi slave task
-    // LLOGD("上行给主机的IP数据 %p %d", buff, len);
+    // LLOGD("上行给主机的IP数据 %d %p %d", drv->id, buff, len);
     if (len < 0) {
         return;
     }
@@ -76,7 +76,11 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, netif_input);
 
     // 网卡设置成半可用状态
-    // netif_set_up(netdrv->netif);
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+    }
+    else {
+        netif_set_up(netdrv->netif);
+    }
     netif_set_link_up(netdrv->netif);
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
     net_lwip2_register_adapter(netdrv->id);

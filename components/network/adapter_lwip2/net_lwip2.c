@@ -1010,7 +1010,9 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 		if (prvlwip.socket[socket_id].pcb.tcp)
 		{
 			// prvlwip.socket[socket_id].pcb.tcp->sockid = socket_id;
-			// tcp_bind_netif(prvlwip.socket[socket_id].pcb.tcp, prvlwip.lwip_netif[adapter_index]);
+			#ifdef tcp_bind_netif
+			tcp_bind_netif(prvlwip.socket[socket_id].pcb.tcp, prvlwip.lwip_netif[adapter_index]);
+			#endif
 			prvlwip.socket[socket_id].rx_wait_size = 0;
 			prvlwip.socket[socket_id].tx_wait_size = 0;
 			prvlwip.socket[socket_id].pcb.tcp->callback_arg = uPV.p;

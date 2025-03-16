@@ -59,10 +59,8 @@ function main()
 		sys.wait(10)
 		local ok, param = socket.rx(netc, buff)
 		if ok and buff ~= nil and buff:used() > 0 then
-			data=buff:toStr()
-			log.info("rx_buff", #data)
 			while true do
-				local resu = audio.write(0,data) 
+				local resu = audio.write(0,buff) 
 				if resu then 
 					break
 				end

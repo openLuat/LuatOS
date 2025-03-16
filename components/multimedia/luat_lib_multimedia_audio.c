@@ -304,7 +304,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 
 /**
 录音
-@api audio.record(id, record_type, record_time, amr_quailty, path, record_callback_time, buff0, buff1)
+@api audio.record(id, record_type, record_time, amr_quailty, path, record_callback_time, buff0, buff1,channelCount)
 @int id             多媒体播放通道号
 @int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB),或者直接输入采样率
 @int record_time    录制时长 单位秒,可选，默认0即表示一直录制
@@ -313,6 +313,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 @int record_callback_time	不指定录音文件路径时，单次录音回调时长，单位是100ms。默认1，既100ms
 @zbuff				录音原始PCM数据缓存0,不填写录音文件路径才会用到
 @zbuff				录音原始PCM数据缓存1,不填写录音文件路径才会用到
+@channelCount		1单声道录音 2立体声录音 默认单声道
 @return boolean     成功返回true,否则返回false
 @usage
 err,info = audio.record(id, type, record_time, quailty, path)
@@ -344,6 +345,7 @@ static int l_audio_record(lua_State *L){
     }
 
     record_buffer_len = luaL_optinteger(L, 6, 1);
+	g_s_record.channelCnt = luaL_optinteger(L, 9, LUAT_RECORD_MONO);
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
@@ -858,7 +860,10 @@ static const rotable_Reg_t reg_audio[] =
 	{ "VOLTAGE_1800", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_1800)},
     //@const VOLTAGE_3300 number 可配置的codec工作电压，3.3V
 	{ "VOLTAGE_3300", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_3300)},
-
+    //@const RECORD_MONO number 录音使用单声道
+	{ "RECORD_MONO", 		ROREG_INT(LUAT_RECORD_MONO)},
+    //@const RECORD_STEREO number 录音使用立体声
+	{ "RECORD_STEREO", 		ROREG_INT(LUAT_RECORD_STEREO)},
 	{ NULL,            ROREG_INT(0)}
 };
 

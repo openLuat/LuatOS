@@ -8,6 +8,8 @@ VERSION = "1.0.4"
 _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
+dnsproxy = require("dnsproxy")
+dhcpsrv = require("dhcpsrv")
 
 sys.taskInit(function()
     -- 设置电平, 关闭小核的供电
@@ -29,16 +31,16 @@ sys.taskInit(function()
 
     netdrv.ipv4(socket.LWIP_STA, "192.168.1.35", "255.255.255.0", "192.168.1.1")
     sys.wait(1000)
-    while 1 do
-        -- log.info("MAC地址", netdrv.mac(socket.LWIP_STA))
-        -- log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
-        -- log.info("ready?", netdrv.ready(socket.LWIP_STA))
-        sys.wait(1000)
-        log.info("执行http请求")
-        -- local code = http.request("GET", "http://192.168.1.15:8000/README.md", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
-        log.info("http执行结果", code, code, headers, body)
-    end
+    -- while 1 do
+    --     -- log.info("MAC地址", netdrv.mac(socket.LWIP_STA))
+    --     -- log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
+    --     -- log.info("ready?", netdrv.ready(socket.LWIP_STA))
+    --     sys.wait(1000)
+    --     log.info("执行http请求")
+    --     -- local code = http.request("GET", "http://192.168.1.15:8000/README.md", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
+    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
+    --     log.info("http执行结果", code, code, headers, body)
+    -- end
 end)
 
 sys.subscribe("IP_READY", function(ip, id)
@@ -47,6 +49,24 @@ end)
 
 sys.subscribe("IP_LOSE", function(id)
     log.info("收到IP_LOSE!!", ip)
+end)
+
+sys.taskInit(function()
+    while netdrv.ready(socket.LWIP_AP) == false do
+        sys.wait(100)
+    end
+    sys.wait(100)
+    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
+    sys.wait(100)
+    dnsproxy.setup(socket.LWIP_GP, socket.LWIP_AP)
+    dhcpsrv.create({adapter=socket.LWIP_AP})
+    while 1 do
+        if netdrv.ready(socket.LWIP_GP) then
+            netdrv.napt(socket.LWIP_GP)
+            break
+        end
+        sys.wait(1000)
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

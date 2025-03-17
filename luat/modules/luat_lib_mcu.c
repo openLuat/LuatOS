@@ -440,6 +440,8 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "CAMERA",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
 	//@const ONEWIRE number 外设类型-ONEWIRE，单总线
 	{ "ONEWIRE",             ROREG_INT(LUAT_MCU_PERIPHERAL_ONEWIRE) },
+	//@const SDIO number 外设类型-SDIO，单总线
+	{ "SDIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_SDIO) },
 	{ NULL,             ROREG_INT(0) }
 };
 

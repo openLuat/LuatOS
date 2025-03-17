@@ -25,7 +25,15 @@ enum
 	LUAT_CAMERA_MODE_SCAN,
 
     LUAT_CAMERA_TYPE_USB = 0x20,
-    LUAT_CAMERA_TYPE_DVP = 0
+    LUAT_CAMERA_TYPE_DVP = 0,
+
+    // H264配置项
+    LUAT_CAMERA_CONF_H264_BASE    = 0x200,
+    LUAT_CAMERA_CONF_H264_QP_INIT,
+    LUAT_CAMERA_CONF_H264_QP_I_MAX,
+    LUAT_CAMERA_CONF_H264_QP_P_MAX,
+    LUAT_CAMERA_CONF_H264_IMB_BITS,
+    LUAT_CAMERA_CONF_H264_PMB_BITS,
 };
 
 typedef struct luat_camera_conf
@@ -187,5 +195,8 @@ int luat_camera_capture_config(int id, uint16_t start_x, uint16_t start_y, uint1
 int luat_camera_capture(int id, uint8_t quality, const char *path);
 
 int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer);
+
+int luat_camera_config(int id, int key, int value);
+
 /** @}*/
 #endif

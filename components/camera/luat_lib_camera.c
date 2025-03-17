@@ -383,6 +383,12 @@ LUAT_WEAK int luat_camera_work_mode(int id, int mode){
     LLOGD("not support yet");
     return -1;
 }
+
+LUAT_WEAK int luat_camera_config(int id, int key, int value) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 /**
 camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)
@@ -487,6 +493,27 @@ static int l_camera_preview(lua_State *L) {
 }
 
 
+/**
+配置摄像头参数
+@api camera.config(id, key, value)
+@int camera id,例如0
+@int 配置项的id
+@int 配置项的值
+@return int 配置结果,成功为0,否则为其他值
+@usage
+-- 本函数于 2025.3.17 新增, 当前仅Air8101可用
+camera.config(0, camera.CONF_H264_QP_INIT, 20)
+*/
+static int l_camera_config(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int key = luaL_checkinteger(L, 2);
+    int value = luaL_checkinteger(L, 3);
+    int ret = luat_camera_config(id, key, value);
+    lua_pushinteger(L, ret);
+    return 1;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -500,15 +527,28 @@ static const rotable_Reg_t reg_camera[] =
 	{ "getRaw",      ROREG_FUNC(l_camera_get_raw)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
+    { "config",      ROREG_FUNC(l_camera_config)},
 
     //@const AUTO number 摄像头工作在自动模式
 	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
 	{ "SCAN",        ROREG_INT(LUAT_CAMERA_MODE_SCAN)},
-    //@const TYPE number 摄像头类型，USB
+    //@const USB number 摄像头类型，USB
     { "USB",         ROREG_INT(LUAT_CAMERA_TYPE_USB)},
-    //@const TYPE number 摄像头类型，DVP
+    //@const DVP number 摄像头类型，DVP
     { "DVP",         ROREG_INT(LUAT_CAMERA_TYPE_DVP)},
+
+    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    { "CONF_H264_QP_INIT",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_INIT)},
+    //@const CONF_H264_QP_I_MAX number H264编码器QP初始化值
+    { "CONF_H264_QP_I_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_I_MAX)},
+    //@const CONF_H264_QP_P_MAX number H264编码器QP初始化值
+    { "CONF_H264_QP_P_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_P_MAX)},
+    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    { "CONF_H264_IMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_IMB_BITS)},
+    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
+
 	{ NULL,          ROREG_INT(0)}
 };
 

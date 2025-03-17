@@ -71,6 +71,10 @@ typedef enum{
     LUAT_AUDIO_VOLTAGE_3300 = 0,         	 /* 工作在3.3V */
 	LUAT_AUDIO_VOLTAGE_1800,       			 /* 工作在1.8V */
 }luat_audio_voltage_t;
+typedef enum{
+    LUAT_RECORD_MONO = 1,         	 /* 工作在3.3V */
+	LUAT_RECORD_STEREO = 2,       			 /* 工作在1.8V */
+}luat_record_channel_t;
 
 typedef enum{
 	LUAT_AUDIO_BUS_DAC=0,
@@ -97,6 +101,7 @@ typedef struct{
     uint8_t multimedia_id;
 	uint8_t quailty;
 	uint8_t is_run;
+    luat_record_channel_t channelCnt;
 }luat_record_ctrl_t;
 
 #endif

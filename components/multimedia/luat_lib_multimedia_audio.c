@@ -313,7 +313,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 @int record_callback_time	不指定录音文件路径时，单次录音回调时长，单位是100ms。默认1，既100ms
 @zbuff				录音原始PCM数据缓存0,不填写录音文件路径才会用到
 @zbuff				录音原始PCM数据缓存1,不填写录音文件路径才会用到
-@channelCount		1单声道录音 2立体声录音 默认单声道
+@channelCount		声道数量,只针对非I2S设备有效,1单声道录音 2立体声录音 默认单声道.I2S设备在I2S相关API里配置
 @return boolean     成功返回true,否则返回false
 @usage
 err,info = audio.record(id, type, record_time, quailty, path)

@@ -538,15 +538,15 @@ static const rotable_Reg_t reg_camera[] =
     //@const DVP number 摄像头类型，DVP
     { "DVP",         ROREG_INT(LUAT_CAMERA_TYPE_DVP)},
 
-    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    //@const CONF_H264_QP_INIT number H264编码器初始化QP值
     { "CONF_H264_QP_INIT",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_INIT)},
-    //@const CONF_H264_QP_I_MAX number H264编码器QP初始化值
+    //@const CONF_H264_QP_I_MAX number H264编码器I的最大QP值
     { "CONF_H264_QP_I_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_I_MAX)},
-    //@const CONF_H264_QP_P_MAX number H264编码器QP初始化值
+    //@const CONF_H264_QP_P_MAX number H264编码器P的最大QP值
     { "CONF_H264_QP_P_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_P_MAX)},
-    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    //@const CONF_H264_QP_INIT number H264编码器IMB_BITS值
     { "CONF_H264_IMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_IMB_BITS)},
-    //@const CONF_H264_QP_INIT number H264编码器QP初始化值
+    //@const CONF_H264_QP_INIT number H264编码器PMB_BITS值
     { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
 
 	{ NULL,          ROREG_INT(0)}

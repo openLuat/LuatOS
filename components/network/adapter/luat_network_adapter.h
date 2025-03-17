@@ -800,5 +800,7 @@ uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip);
  * @param ipv4 ipv4
  */
 void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4);
+
+network_adapter_info* network_adapter_fetch(int id, void** userdata);
 #endif
 // #endif

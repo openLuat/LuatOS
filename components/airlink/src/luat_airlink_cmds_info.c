@@ -48,11 +48,11 @@ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
                 memcpy(drv->netif->hwaddr, dev->wifi.sta_mac, 6);
                 drv->netif->hwaddr_len = 6;
 
-                // 网络状态对吗?
+                // STA网络状态对吗?
                 if (dev->wifi.sta_state == 0) {
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦
-                        LLOGD("wifi sta掉线了, 重新连接");
+                        LLOGD("wifi sta掉线了");
                         netif_set_down(drv->netif);
                         luat_netdrv_whale_ipevent(drv->id);
                     }
@@ -61,6 +61,38 @@ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
                     if (netif_is_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi sta上线了");
+                        netif_set_up(drv->netif);
+                        luat_netdrv_whale_ipevent(drv->id);
+                    }
+                }
+                break;
+            }
+            drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_AP);
+            while (1) {
+                if (drv == NULL) {
+                    // LLOGD("没有找到lwip wifi ap驱动, 无法设置MAC地址");
+                    break;
+                }
+                if (drv->netif == NULL) {
+                    // LLOGD("没有找到lwip wifi ap接口, 无法设置MAC地址");
+                    break;
+                }
+                memcpy(drv->netif->hwaddr, dev->wifi.sta_mac, 6);
+                drv->netif->hwaddr_len = 6;
+
+                // STA网络状态对吗?
+                if (dev->wifi.ap_state == 0) {
+                    if (netif_is_up(drv->netif)) {
+                        // 网卡掉线了哦
+                        LLOGD("wifi ap已关闭");
+                        netif_set_down(drv->netif);
+                        luat_netdrv_whale_ipevent(drv->id);
+                    }
+                }
+                else {
+                    if (netif_is_up(drv->netif) == 0) {
+                        // 网卡上线了哦
+                        LLOGD("wifi ap已开启");
                         netif_set_up(drv->netif);
                         luat_netdrv_whale_ipevent(drv->id);
                     }

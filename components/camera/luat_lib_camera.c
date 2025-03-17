@@ -544,9 +544,9 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_H264_QP_I_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_I_MAX)},
     //@const CONF_H264_QP_P_MAX number H264编码器P的最大QP值
     { "CONF_H264_QP_P_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_P_MAX)},
-    //@const CONF_H264_QP_INIT number H264编码器IMB_BITS值
+    //@const CONF_H264_IMB_BITS number H264编码器IMB_BITS值
     { "CONF_H264_IMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_IMB_BITS)},
-    //@const CONF_H264_QP_INIT number H264编码器PMB_BITS值
+    //@const CONF_H264_PMB_BITS number H264编码器PMB_BITS值
     { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
 
 	{ NULL,          ROREG_INT(0)}

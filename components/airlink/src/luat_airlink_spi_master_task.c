@@ -121,6 +121,8 @@ static void spi_master_task(void *param)
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();
     thread_rdy = 1;
+    uint64_t warn_slave_no_ready = 0;
+    uint64_t tnow = 0;
 
     // const char* test_data = "123456789";
     // luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
@@ -157,7 +159,11 @@ static void spi_master_task(void *param)
         {
             tmpval = luat_gpio_get(TEST_RDY_PIN);
             if (tmpval == 1) {
-                LLOGD("从机未就绪,等1ms");
+                tnow = luat_mcu_tick64_ms();
+                if (tnow - warn_slave_no_ready > 1000) {
+                    warn_slave_no_ready = tnow;
+                    LLOGD("从机未就绪,等1ms");
+                }
                 luat_rtos_task_sleep(1);
                 continue;
             }

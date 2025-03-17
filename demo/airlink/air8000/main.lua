@@ -41,8 +41,12 @@ sys.taskInit(function()
     end
 end)
 
-sys.subscribe("IP_READY", function(id, ip)
-    log.info("收到IP_READY!!", id, ip)
+sys.subscribe("IP_READY", function(ip, id)
+    log.info("收到IP_READY!!", ip, id)
+end)
+
+sys.subscribe("IP_LOSE", function(id)
+    log.info("收到IP_LOSE!!", ip)
 end)
 
 -- 用户代码已结束---------------------------------------------

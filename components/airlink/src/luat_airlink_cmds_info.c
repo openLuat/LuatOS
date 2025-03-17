@@ -52,7 +52,7 @@ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
                 if (dev->wifi.sta_state == 0) {
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦
-                        LLOGD("wifi sta掉线了, 重新连接");
+                        LLOGD("wifi sta掉线了");
                         netif_set_down(drv->netif);
                         luat_netdrv_whale_ipevent(drv->id);
                     }

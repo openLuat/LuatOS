@@ -138,22 +138,34 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     }
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
-        // TODO 要区分是READY还是LOSE呀
-        ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff,  32);
-        LLOGD("IP_READY %d %s", netdrv->id, buff);
-        lua_pushstring(L, "IP_READY");
-        lua_pushstring(L, buff);
-        lua_pushinteger(L, netdrv->id);
-        lua_call(L, 3, 0);
+        if (msg->arg2 == 0) {
+            lua_pushstring(L, "IP_LOSE");
+            lua_pushinteger(L, netdrv->id);
+            lua_call(L, 2, 0);
+        }
+        else {
+            ipaddr_ntoa_r(&netdrv->netif->ip_addr, buff,  32);
+            LLOGD("IP_READY %d %s", netdrv->id, buff);
+            lua_pushstring(L, "IP_READY");
+            lua_pushstring(L, buff);
+            lua_pushinteger(L, netdrv->id);
+            lua_call(L, 3, 0);
+        }
     }
     return 0;
 }
 
-void luat_netdrv_whale_ipevent(int id) {
-    net_lwip2_set_link_state(id, 1);
+void luat_netdrv_whale_ipevent(int adapter_index) {
     rtos_msg_t msg = {0};
-    msg.arg1 = id;
-    msg.arg2 = 0;
+    void* userdata = NULL;
+	network_adapter_info* info = network_adapter_fetch((uint8_t)adapter_index, &userdata);
+    if (info == NULL || info->check_ready == NULL) {
+        return;
+    }
+    int ready = info->check_ready(userdata);
+    net_lwip2_set_link_state(adapter_index, ready);
+    msg.arg1 = adapter_index;
+    msg.arg2 = ready;
     msg.ptr = NULL;
     msg.handler = netif_ip_event_cb;
     luat_msgbus_put(&msg, 0);

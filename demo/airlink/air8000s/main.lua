@@ -23,7 +23,7 @@ sys.taskInit(function()
     -- sys.waitUntil("IP_READY")
     sys.wait(6000)
     while 1 do
-        sys.wait(500)
+        sys.wait(6000)
         -- log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_ETH,timeout=3000}).wait())
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))

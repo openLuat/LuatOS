@@ -115,8 +115,8 @@ static void spi_master_task(void *param)
     int tmpval = 0;
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
-	static uint8_t txbuff[TEST_BUFF_SIZE] = {0x90,0x80,0x70,0x60};
-    static uint8_t rxbuff[TEST_BUFF_SIZE] = {0};
+	uint8_t* txbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
+    uint8_t* rxbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
 
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();

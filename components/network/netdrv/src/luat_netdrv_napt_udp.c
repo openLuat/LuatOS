@@ -56,7 +56,7 @@ again:
     return napt_curr_id;
 }
 
-static uint8_t udp_buff[1600];
+static uint8_t *udp_buff;
 int luat_napt_udp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
@@ -67,6 +67,9 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     }
     if (udps == NULL) {
         udps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_tcpudp_t) * UDP_MAP_SIZE);
+    }
+    if (udp_buff == NULL) {
+        udp_buff = luat_heap_opt_zalloc(LUAT_HEAP_SRAM, 1600);
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {

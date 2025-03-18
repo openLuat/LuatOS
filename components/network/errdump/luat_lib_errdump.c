@@ -22,6 +22,8 @@ end
 #include "luat_rtos.h"
 #ifdef LUAT_USE_MOBILE
 #include "luat_mobile.h"
+#elif defined(LUAT_USE_WLAN)
+#include "luat_wlan.h"
 #endif
 #include "luat_mcu.h"
 #include "luat_fs.h"
@@ -123,6 +125,9 @@ static void luat_errdump_make_data(lua_State *L)
 	const char *version = "";
 #ifdef LUAT_USE_MOBILE
 	char imei[16] = {0};
+#elif defined(LUAT_USE_WLAN)
+	uint8_t mac[6] = {0};
+	char tmpbuff[32] = {0};
 #endif
 	char *selfid = econf.custom_id;
 	const char *sn = version;
@@ -132,6 +137,10 @@ static void luat_errdump_make_data(lua_State *L)
 		#ifdef LUAT_USE_MOBILE
 		luat_mobile_get_imei(0, imei, 15);
 		selfid = imei;
+		#elif defined(LUAT_USE_WLAN)
+		luat_wlan_get_mac(0, (char*)mac);
+		sprintf(tmpbuff, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		selfid = tmpbuff;
 		#else
     	const char* id = luat_mcu_unique_id(&len);
 		if (id != NULL && len > 0 && len < 24) {

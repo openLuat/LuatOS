@@ -297,6 +297,14 @@ mcu.altfun(mcu.GPIO, 46, 32, 1, 0)
 -- UART2复用到paddr 25/26 alt 3
 mcu.altfun(mcu.UART,2,  25, 3, 1)
 mcu.altfun(mcu.UART,2,  26, 3, 0)
+
+-- Air8101的SDIO复用演示, 1线模式, 暂不支持4线
+mcu.altfun(mcu.SDI0,0,14)
+mcu.altfun(mcu.SDI0,0,15)
+mcu.altfun(mcu.SDI0,0,16)
+// mcu.altfun(mcu.SDI0,0,17)
+// mcu.altfun(mcu.SDI0,0,18)
+// mcu.altfun(mcu.SDI0,0,19)
  */
 static int l_mcu_alt_ctrl(lua_State* L)
 {
@@ -430,17 +438,17 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "CAN",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAN) },
 	//@const GPIO number 外设类型-GPIO
 	{ "GPIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_GPIO) },
-	//@const I2S number 外设类型-I2S
+	//@const I2S number 外设类型-I2S, 音频总线
 	{ "I2S",             ROREG_INT(LUAT_MCU_PERIPHERAL_I2S) },
-	//@const LCD number 外设类型-LCD
+	//@const LCD number 外设类型-LCD, LCD专用总线
 	{ "LCD",             ROREG_INT(LUAT_MCU_PERIPHERAL_LCD) },
-	//@const CAM number 外设类型-CAM
+	//@const CAM number 外设类型-CAM,与 mcu.CAMERA一样
 	{ "CAM",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
-	//@const CAMERA number 外设类型-CAMERA，就是CAM
+	//@const CAMERA number 外设类型-CAMERA，就是CAM,摄像头
 	{ "CAMERA",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
-	//@const ONEWIRE number 外设类型-ONEWIRE，单总线
+	//@const ONEWIRE number 外设类型-ONEWIRE，单总线协议
 	{ "ONEWIRE",             ROREG_INT(LUAT_MCU_PERIPHERAL_ONEWIRE) },
-	//@const SDIO number 外设类型-SDIO，单总线
+	//@const SDIO number 外设类型-SDIO，接TF卡
 	{ "SDIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_SDIO) },
 	{ NULL,             ROREG_INT(0) }
 };

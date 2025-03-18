@@ -94,7 +94,7 @@ static err_t luat_netif_init(struct netif *netif) {
     // LLOGD("luat_netif_init 执行cfg %p", cfg);
     // 先配置MTU和flags
     if (0 == cfg->mtu) {
-        netif->mtu        = 1420;
+        netif->mtu        = 1460;
     }
     else{
         netif->mtu = cfg->mtu;
@@ -200,7 +200,16 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
 
     if (cfg.flags == 0) {
         if (cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
-            cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+            cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
+            #if LWIP_IGMP
+            cfg.flags |= NETIF_FLAG_IGMP;
+            #endif
+            #if LWIP_IPV6
+            cfg.flags != NETIF_FLAG_MLD6;
+            #endif
+            if (cfg.mtu == 0) {
+                cfg.mtu = 1460;
+            }
         }
     }
 

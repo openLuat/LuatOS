@@ -6,6 +6,7 @@
 #include "lwip/ip.h"
 #include "lwip/icmp.h"
 #include "luat_mcu.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.icmp"
 #include "luat_log.h"
@@ -19,7 +20,7 @@
 
 extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_ICMP_ID_RANGE_START;
-static luat_netdrv_napt_icmp_t icmps[ICMP_MAP_SIZE];
+static luat_netdrv_napt_icmp_t* icmps;
 
 #define u32 uint32_t
 #define u16 uint16_t
@@ -53,7 +54,7 @@ again:
     return napt_curr_id;
 }
 
-static uint8_t icmp_buff[1600];
+static uint8_t *icmp_buff;
 int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
@@ -62,6 +63,12 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     if (gw == NULL || gw->netif == NULL || ip_addr_isany(&gw->netif->ip_addr)) {
         LLOGD("网关指针不正常的状态!!!");
         return 0;
+    }
+    if (icmps == NULL) {
+        icmps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_icmp_t) * ICMP_MAP_SIZE);
+    }
+    if (icmp_buff == NULL) {
+        icmp_buff = luat_heap_opt_zalloc(LUAT_HEAP_SRAM, 1600);
     }
     luat_netdrv_napt_icmp_t* it = NULL;
     if (ctx->is_wnet) {

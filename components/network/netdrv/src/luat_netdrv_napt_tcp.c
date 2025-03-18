@@ -95,7 +95,7 @@ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp
     // LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
 }
 
-static uint8_t tcp_buff[1600];
+static uint8_t *tcp_buff;
 int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
@@ -108,6 +108,9 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     }
     if (tcps == NULL) {
         tcps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_tcpudp_t) * TCP_MAP_SIZE);
+    }
+    if (tcp_buff == NULL) {
+        tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_SRAM, 1600);
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     if (ctx->is_wnet) {

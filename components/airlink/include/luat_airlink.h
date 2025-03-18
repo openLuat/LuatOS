@@ -19,6 +19,8 @@ void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
 void luat_airlink_on_data_recv(uint8_t *data, size_t len);
 
+typedef void (*luat_airlink_newdata_notify_cb)(void);
+
 typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
 
 typedef struct luat_airlink_cmd_reg
@@ -79,5 +81,8 @@ typedef struct luat_airlink_dev_info
     uint8_t unique_id_len;
     uint8_t unique_id[24];
 }luat_airlink_dev_info_t;
+
+
+extern luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 
 #endif

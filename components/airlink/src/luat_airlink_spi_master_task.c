@@ -34,11 +34,13 @@
 #endif
 
 static uint8_t start;
-static uint8_t slave_rdy;
+// static uint8_t slave_rdy;
 static uint8_t thread_rdy;
 static luat_rtos_task_handle spi_task_handle;
 
 static uint8_t basic_info[256];
+
+static uint32_t is_waiting_queue = 0;
 
 static int gpio_boot_irq(void *data, void* args)
 {
@@ -49,9 +51,20 @@ static int gpio_boot_irq(void *data, void* args)
 }
 
 static int slave_rdy_irq(void *data, void* args) {
-    slave_rdy = 1;
-    // luat_rtos_event_send(gpio_task_handle, 1, 2, 3, 4, 100);
+    if (is_waiting_queue) {
+        // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
+        is_waiting_queue = 0;
+        luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
+    }
     return 0;
+}
+
+static void on_newdata_notify(void) {
+    if (is_waiting_queue) {
+        is_waiting_queue = 0;
+        // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
+        luat_rtos_event_send(spi_task_handle, 3, 2, 3, 4, 100);
+    }
 }
 
 static void test_gpio(void) {
@@ -123,6 +136,7 @@ static void spi_master_task(void *param)
     thread_rdy = 1;
     uint64_t warn_slave_no_ready = 0;
     uint64_t tnow = 0;
+    g_airlink_newdata_notify_cb = on_newdata_notify;
 
     // const char* test_data = "123456789";
     // luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
@@ -134,7 +148,9 @@ static void spi_master_task(void *param)
         // 等到消息
         event.id = 0;
         item.len = 0;
+        is_waiting_queue = 1;
         luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 10);
+        is_waiting_queue = 0;
         luat_airlink_cmd_recv_simple(&item);
         if (item.len == 0 && event.id == 0) {
             // // LLOGD("啥都没等到, 继续等");
@@ -153,14 +169,14 @@ static void spi_master_task(void *param)
             // LLOGD("填充PING数据");
             luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
         }
-        slave_rdy = 0;
+        // slave_rdy = 0;
         luat_gpio_set(TEST_CS_PIN, 0);
         for (size_t i = 0; i < 5; i++)
         {
             tmpval = luat_gpio_get(TEST_RDY_PIN);
             if (tmpval == 1) {
                 tnow = luat_mcu_tick64_ms();
-                if (tnow - warn_slave_no_ready > 1000) {
+                if (tnow - warn_slave_no_ready > 100) {
                     warn_slave_no_ready = tnow;
                     LLOGD("从机未就绪,等1ms");
                 }
@@ -180,6 +196,9 @@ static void spi_master_task(void *param)
         luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE, &pkg_offset, &pkg_size);
         if (pkg_size) {
             luat_airlink_on_data_recv(rxbuff + pkg_offset, pkg_size);
+        }
+        else {
+            LLOGE("接收到数据不正确, 丢弃");
         }
         
         memset(rxbuff, 0, TEST_BUFF_SIZE);

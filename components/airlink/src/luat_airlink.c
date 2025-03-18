@@ -17,6 +17,7 @@ luat_rtos_queue_t airlink_ippkg_queue;
 
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
+luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 
 int luat_airlink_init(void)
 {
@@ -130,21 +131,32 @@ void luat_airlink_print_buff(const char *tag, uint8_t *buff, size_t len)
 
 int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
 {
+    int ret = -1;
     if (tp == LUAT_AIRLINK_QUEUE_CMD)
     {
         if (airlink_cmd_queue == NULL)
         {
             return -1;
         }
-        return luat_rtos_queue_send(airlink_cmd_queue, item, 0, 0);
+        else {
+            ret = luat_rtos_queue_send(airlink_cmd_queue, item, 0, 0);
+        }
     }
     if (tp == LUAT_AIRLINK_QUEUE_IPPKG)
     {
         if (airlink_ippkg_queue == NULL)
         {
-            return -1;
+            return -2;
         }
-        return luat_rtos_queue_send(airlink_ippkg_queue, item, 0, 0);
+        else {
+            ret = luat_rtos_queue_send(airlink_ippkg_queue, item, 0, 0);
+        } 
+    }
+    if (ret == 0) {
+        if (g_airlink_newdata_notify_cb) {
+            g_airlink_newdata_notify_cb();
+        }
+        return 0;
     }
     return -2;
 }
@@ -200,6 +212,7 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t *item, size_t timeout)
 
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
 {
+    int ret = 0;
     if (len < 8)
     {
         LLOGE("数据包太小了, 抛弃掉");
@@ -233,7 +246,12 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     item.cmd->cmd = 0x100;
     item.cmd->len = len + 1;
     item.cmd->data[0] = adapter_id;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
+    ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_IPPKG, &item);
+    if (ret != 0) {
+        luat_heap_free(item.cmd);
+        LLOGD("发送消息失败 长度 %d ret %d", len, ret);
+        return -4;
+    }
     return 0;
 }
 

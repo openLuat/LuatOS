@@ -101,6 +101,7 @@ typedef struct luat_lcd_conf {
     uint16_t vspw;
     uint16_t vfp;
     luat_color_t* buff;
+    luat_color_t* buff_ex;
     struct luat_lcd_opts* opts;
     luat_spi_device_t* lcd_spi_device;
     int lcd_spi_ref;
@@ -162,6 +163,7 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);
 int luat_lcd_init(luat_lcd_conf_t* conf);
+int luat_lcd_setup_buff(luat_lcd_conf_t* conf);
 int luat_lcd_close(luat_lcd_conf_t* conf);
 int luat_lcd_display_on(luat_lcd_conf_t* conf);
 int luat_lcd_display_off(luat_lcd_conf_t* conf);

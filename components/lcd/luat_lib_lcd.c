@@ -1480,11 +1480,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     return 0;
   }
   if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
-    conf->buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    if (conf->buff == NULL) {
-      LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
-      conf->buff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    }
+    luat_lcd_setup_buff(conf);
   }
   else {
     conf->buff = lua_newuserdata(L, sizeof(luat_color_t) * conf->w * conf->h);

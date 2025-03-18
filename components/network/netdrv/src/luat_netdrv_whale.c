@@ -205,7 +205,7 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
             cfg.flags |= NETIF_FLAG_IGMP;
             #endif
             #if LWIP_IPV6
-            cfg.flags != NETIF_FLAG_MLD6;
+            cfg.flags |= NETIF_FLAG_MLD6;
             #endif
             if (cfg.mtu == 0) {
                 cfg.mtu = 1460;

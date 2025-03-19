@@ -98,7 +98,7 @@ static void spi_gpio_setup(void) {
 	luat_gpio_cfg_t gpio_cfg;
 
     // 测试用途的管脚, 只是为了方便测试, 正式环境就去掉
-    test_gpio();
+    // test_gpio();
 
     // 从机准备好脚
     luat_gpio_set_default_cfg(&gpio_cfg);
@@ -198,7 +198,7 @@ static void spi_master_task(void *param)
             luat_airlink_on_data_recv(rxbuff + pkg_offset, pkg_size);
         }
         else {
-            LLOGE("接收到数据不正确, 丢弃");
+            // LLOGE("接收到数据不正确, 丢弃");
         }
         
         memset(rxbuff, 0, TEST_BUFF_SIZE);

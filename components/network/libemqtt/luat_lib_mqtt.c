@@ -433,7 +433,7 @@ mqtt三元组配置及cleanSession
 @string 账号 可选
 @string 密码 可选
 @bool 清除session,默认true,可选
-@return nil 无返回值
+@return bool 成功返回true,否则返回nil. 注意, 返回值是2025.3.19新增的
 @usage
 -- 无账号密码登录,仅clientId
 mqttc:auth("123456789")
@@ -453,10 +453,23 @@ static int l_mqtt_auth(lua_State *L) {
 	if (lua_isboolean(L, 5) && !lua_toboolean(L, 5)) {
 		cleanSession = 0;
 	}
+	if (client_id != NULL && strlen(client_id) > MQTT_CONF_CLIENT_ID_LENGTH) {
+		LLOGE("mqtt client_id 太长或者无效!!!!");
+		return 0;
+	}
+	if (username != NULL && strlen(username) > MQTT_CONF_USERNAME_LENGTH) {
+		LLOGE("mqtt username 太长或者无效!!!!");
+		return 0;
+	}
+	if (password != NULL && strlen(password) > MQTT_CONF_PASSWORD_LENGTH) {
+		LLOGE("mqtt password 太长或者无效!!!!");
+		return 0;
+	}
 	mqtt_init(&(mqtt_ctrl->broker), client_id);
 	mqtt_init_auth(&(mqtt_ctrl->broker), username, password);
 	mqtt_ctrl->broker.clean_session = cleanSession;
-	return 0;
+	lua_pushboolean(L, 1);
+	return 1;
 }
 
 /*

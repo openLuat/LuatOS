@@ -169,7 +169,7 @@ if tp then
     -- softI2C = i2c.createSoft(20, 21)
     -- tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 22,pin_int = 23,w = 320,h = 480},tp_callBack)
     softI2C = i2c.createSoft(8, 5)
-    tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6,w = 320,h = 480})
+    tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6,w = 320,h = 480},tp_callBack)
     if tp_device then
         print(tp_device)
         sys.taskInit(function()

@@ -53,7 +53,7 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 -- 方法1, 使用SPI模式
     local spiId = 2
     local result = spi.setup(
-        spiId,--串口id
+        spiId,--spi id
         255, -- 不使用默认CS脚
         0,--CPHA
         0,--CPOL

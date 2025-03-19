@@ -107,7 +107,6 @@ int luat_lv_init(lua_State *L) {
         h = luaL_checkinteger(L, 2);
     }
 
-
     size_t fbuff_size = 0;
     size_t buffmode = 0;
 
@@ -128,6 +127,7 @@ int luat_lv_init(lua_State *L) {
         return 0;
         #endif
     }
+    lcd_conf->lcd_use_lvgl = 1;
     if (w == 0 || h == 0) {
         w = lcd_conf->w;
         h = lcd_conf->h;

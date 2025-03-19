@@ -45,6 +45,7 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 
 void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
 {
+    lcd_conf->lcd_use_lvgl = 1;
     /*-------------------------
      * Initialize your display
      * -----------------------*/

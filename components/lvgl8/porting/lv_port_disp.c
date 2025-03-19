@@ -57,14 +57,19 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
     static lv_disp_draw_buf_t lv_disp_draw_buf;
     lv_color_t* buf_2_1 = NULL;
     lv_color_t* buf_2_2 = NULL;
+    uint32_t size_in_px_cnt = (lcd_conf->w * 10);
+    
+    if (lcd_conf->buff_ex) {
+        size_in_px_cnt = lcd_conf->w * lcd_conf->h;
+        buf_2_1 = lcd_conf->buff;
+        buf_2_2 = lcd_conf->buff_ex;
+    }else{
+        uint32_t draw_buffer_size = size_in_px_cnt * sizeof(lv_color_t);
+        buf_2_1 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, draw_buffer_size);
+        buf_2_2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, draw_buffer_size);
+    }
 
-    #define SIZE_IN_PX_CNT     (lcd_conf->w * 10)
-    #define DRAW_BUFFER_SIZE    SIZE_IN_PX_CNT * sizeof(lv_color_t)
-
-    buf_2_1 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, DRAW_BUFFER_SIZE);
-    buf_2_2 = luat_heap_opt_malloc(LUAT_HEAP_SRAM, DRAW_BUFFER_SIZE);
-
-    lv_disp_draw_buf_init(&lv_disp_draw_buf, buf_2_1, buf_2_2, SIZE_IN_PX_CNT);
+    lv_disp_draw_buf_init(&lv_disp_draw_buf, buf_2_1, buf_2_2, size_in_px_cnt);
 
     // lv_disp_draw_buf_init(&lv_disp_draw_buf, lcd_conf->buff, lcd_conf->buff1, lcd_conf->w * lcd_conf->h);
 
@@ -88,7 +93,9 @@ void lv_port_disp_init(luat_lcd_conf_t* lcd_conf)
     disp_drv.draw_buf = &lv_disp_draw_buf;
 
     /*Required for Example 3)*/
-    //disp_drv.full_refresh = 1;
+    if (lcd_conf->buff_ex){
+        disp_drv.full_refresh = 1;
+    }
 
     /* Fill a memory array with a color if you have GPU.
      * Note that, in lv_conf.h you can enable GPUs that has built-in support in LVGL.
@@ -134,9 +141,15 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 {
     if(disp_flush_enabled) {
         luat_lcd_conf_t* lcd_conf = disp_drv->user_data;
-        luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
-        if (lv_disp_flush_is_last(disp_drv))
+        if (lcd_conf->buff_ex == NULL){
+            luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+        }
+        if (lv_disp_flush_is_last(disp_drv)){
+            if (lcd_conf->buff_ex){
+                lcd_conf->buff_draw = color_p;
+            }
             luat_lcd_flush(lcd_conf);
+        }
     }
 
     /*IMPORTANT!!!

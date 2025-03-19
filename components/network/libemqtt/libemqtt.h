@@ -42,7 +42,7 @@
 #endif
 
 #ifndef MQTT_CONF_PASSWORD_LENGTH
-	#define MQTT_CONF_PASSWORD_LENGTH 192 // Recommended by MQTT Specification (12 + '\0')
+	#define MQTT_CONF_PASSWORD_LENGTH 512 // Recommended by MQTT Specification (12 + '\0')
 #endif
 
 

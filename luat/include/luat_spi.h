@@ -40,7 +40,7 @@ typedef struct luat_fatfs_spi
 typedef int (*luat_spi_irq_callback_t)(int spi_id, void *user_data);
 
 /**
-    spiId,--串口id
+    spiId,--spi id
     cs,
     0,--CPHA
     0,--CPOL

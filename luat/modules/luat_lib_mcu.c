@@ -281,11 +281,11 @@ static int l_mcu_iomux(lua_State* L)
 }
 
 /*
-IO外设功能复用选择，注意普通MCU是以GPIO号为序号，但是专用SOC，比如CAT1的，是以PAD号为序号。本函数不是所有平台适用
+IO外设功能复用选择，注意普通MCU通常是以GPIO号为唯一ID号，但是专用SOC，比如CAT1的，可能以PAD号或者模块pin脚号(pin.xxx后续支持)为唯一ID号。本函数不是所有平台适用
 @api mcu.altfun(type, sn, pad_index, alt_fun, is_input)
 @int 外设类型，目前有mcu.UART,mcu.I2C,mcu.SPI,mcu.PWM,mcu.GPIO,mcu.I2S,mcu.LCD,mcu.CAM，具体需要看平台
 @int 总线序号，0~N，如果是mcu.GPIO，则是GPIO号。具体看平台的IOMUX复用表
-@int pad号，如果留空不写，则表示清除配置，使用平台的默认配置。具体看平台的IOMUX复用表
+@int 唯一ID号，如果留空不写，则表示清除配置，使用平台的默认配置。具体看平台的IOMUX复用表
 @int 复用功能序号，0~N。具体看平台的IOMUX复用表
 @boolean 是否是输入功能，true是，留空是false
 @usage

@@ -2,6 +2,7 @@ PROJECT = "candemo"
 VERSION = "1.0.0"
 sys = require("sys")
 log.style(1)
+local SELF_TEST_FLAG = false --自测模式标识，改成true就进行自收自发模式
 local node_a = true   -- A节点写true, B节点写false
 local can_id = 0
 local rx_id
@@ -13,7 +14,7 @@ else
     rx_id = 0x12345677
     tx_id = 0x12345678
 end
-local test_cnt, test_num
+local test_cnt = 0
 local tx_buf = zbuff.create(8)
 local function can_cb(id, cb_type, param)
     if cb_type == can.CB_MSG then
@@ -45,14 +46,26 @@ local function can_tx_test(data)
     else
         log.info("node b tx")
     end
+	test_cnt = test_cnt + 1
+	if test_cnt > 8 then
+		test_cnt = 1
+	end
+	tx_buf:set(0,test_cnt)
+	tx_buf:seek(test_cnt)
     can.tx(can_id, tx_id, can.EXT, false, true, tx_buf)
 end
 -- can.debug(true)
+
 can.init(can_id, 128)
 can.on(can_id, can_cb)
 can.timing(can_id, 1000000, 5, 4, 3, 2)
-can.node(can_id, rx_id, can.EXT)
-can.mode(can_id, can.MODE_NORMAL)   -- 一旦设置mode就开始正常工作了，此时不能再设置node,timing,filter等
--- can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK
+if SELF_TEST_FLAG then
+	can.node(can_id, tx_id, can.EXT)	-- 测试模式下，允许接收的ID和发送ID一致才会有新数据提醒
+	can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK
+else
+	can.node(can_id, rx_id, can.EXT)
+	can.mode(can_id, can.MODE_NORMAL)   -- 一旦设置mode就开始正常工作了，此时不能再设置node,timing,filter等
+end
+
 sys.timerLoopStart(can_tx_test, 1000)
 sys.run()

@@ -65,7 +65,7 @@ sys.subscribe("IP_READY", function(ip, id)
 end)
 
 sys.subscribe("IP_LOSE", function(id)
-    log.info("收到IP_LOSE!!", ip)
+    log.info("收到IP_LOSE!!", id)
 end)
 
 sys.taskInit(function()

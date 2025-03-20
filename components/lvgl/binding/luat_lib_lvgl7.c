@@ -107,7 +107,6 @@ int luat_lv_init(lua_State *L) {
         h = luaL_checkinteger(L, 2);
     }
 
-
     size_t fbuff_size = 0;
     size_t buffmode = 0;
 
@@ -128,6 +127,7 @@ int luat_lv_init(lua_State *L) {
         return 0;
         #endif
     }
+    lcd_conf->lcd_use_lvgl = 1;
     if (w == 0 || h == 0) {
         w = lcd_conf->w;
         h = lcd_conf->h;
@@ -148,10 +148,15 @@ int luat_lv_init(lua_State *L) {
 
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
         // LLOGD("use LCD buff");
-        fbuffer = lcd_conf->buff;
-        // fbuff_size = w * h;
-        fbuff_size = w * 10;
-        buffmode = 3;
+        if (lcd_conf->buff_ex){
+            fbuffer = lcd_conf->buff;
+            fbuffer2 = lcd_conf->buff_ex;
+            fbuff_size = w * h;
+            buffmode = 0x04; //使用LCD的双buff模式
+        }else{
+            fbuff_size = w * 10;
+            buffmode = 0x03; //申请双buff模式
+        }
     }
     if (buffmode & 0x02) {
         //LLOGD("use HEAP buff");
@@ -169,7 +174,7 @@ int luat_lv_init(lua_State *L) {
             }
         }
     }
-    else {
+    else if(buffmode==0){
         //LLOGD("use VM buff");
         fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {

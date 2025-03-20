@@ -42,19 +42,28 @@ CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result);
 
 const luat_airlink_cmd_reg_t airlink_cmds[] = {
+    // 最常用的放前面
+    CMD_REG(0x10,  dev_info),
+    CMD_REG(0x100, ip_pkg),
+    CMD_REG(0x03,  reset),
+
     // CMD_REG(0x01, ping),
     // CMD_REG(0x02, pong),
-    // CMD_REG(0x03, reset),
-    // CMD_REG(0x04, fota_init),
-    // CMD_REG(0x05, fota_write),
-    // CMD_REG(0x06, fota_done),
+#ifdef LUAT_USE_AIRLINK_FOTA    
+    CMD_REG(0x04, fota_init),
+    CMD_REG(0x05, fota_write),
+    CMD_REG(0x06, fota_done),
+#endif
 
-    CMD_REG(0x10, dev_info),
-
-    CMD_REG(0x100, ip_pkg),
-    // CMD_REG(0x101, set_mac),
-    // CMD_REG(0x102, link_up),
-    // CMD_REG(0x103, link_down),
+#ifdef LUAT_USE_AIRLINK_WIFI
+    CMD_REG(0x200, wlan_init),
+    CMD_REG(0x201, wlan_sta_connect),
+    CMD_REG(0x202, wlan_sta_disconnect),
+    CMD_REG(0x203, wlan_ap_start),
+    CMD_REG(0x204, wlan_ap_stop),
+    CMD_REG(0x205, wlan_scan),
+    CMD_REG(0x206, wlan_scan_result),
+#endif
 
     {0, NULL}
 };

@@ -252,6 +252,7 @@ static int tp_gt911_soft_reset(luat_tp_config_t* luat_tp_config){
 
 static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
     int ret = 0;
+    luat_rtos_task_sleep(100);
     tp_gt911_gpio_init(luat_tp_config);
     tp_i2c_init(luat_tp_config);
 

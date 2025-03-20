@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 
 
 -- sys库是标配
@@ -11,10 +11,27 @@ _G.sysplus = require("sysplus")
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 
+gpio.setup(0, function()
+    sys.publish("WIFI_RESET")
+end, gpio.PULLDOWN, gpio.RISING)
+gpio.debounce(0, 100)
+
+gpio.setup(23, 0, gpio.PULLUP) -- 关闭Air8000S的LDO供电
+
+sys.taskInit(function()
+    sys.wait(100)
+    while 1 do
+        sys.waitUntil("WIFI_RESET")
+        log.info("复位WIFI部分")
+        gpio.set(23, 0)
+        sys.wait(100)
+        gpio.setup(23, 1)
+    end
+end)
+
 sys.taskInit(function()
     -- 设置电平, 关闭小核的供电
     pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
-    gpio.setup(23, 0) -- 关闭Air8000S的LDO供电
     sys.wait(100)
     -- 初始化airlink
     airlink.init()

@@ -86,7 +86,7 @@ sys.taskInit(function()
 
     local spiId = 2
     local result = spi.setup(
-        spiId,--串口id
+        spiId,--spi id
         255, -- 不使用默认CS脚
         0,--CPHA
         0,--CPOL

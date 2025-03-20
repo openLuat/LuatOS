@@ -124,7 +124,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             tnow = luat_mcu_tick64_ms();
             if (it->is_vaild && tnow > it->tm_ms &&  (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
-                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
+                // LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 continue;
             }
@@ -214,7 +214,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             }
             tnow = luat_mcu_tick64_ms();
             if (tnow > it->tm_ms && (tnow - it->tm_ms) > TCP_MAP_TIMEOUT) {
-                LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
+                // LLOGD("映射关系超时了!!设置为无效 %lld %lld %lld", tnow, it->tm_ms, tnow - it->tm_ms);
                 it->is_vaild = 0;
                 it->tm_ms = 0;
                 continue;

@@ -67,20 +67,6 @@ static void on_newdata_notify(void) {
     }
 }
 
-static void test_gpio(void) {
-    
-	luat_gpio_cfg_t gpio_cfg;
-
-    // 触发脚, BOOT脚, 只是为了测试
-	luat_gpio_set_default_cfg(&gpio_cfg);
-	gpio_cfg.pin = TEST_BTN_PIN;
-	gpio_cfg.mode = LUAT_GPIO_IRQ;
-	gpio_cfg.irq_type = LUAT_GPIO_RISING_IRQ;
-	gpio_cfg.pull = LUAT_GPIO_PULLDOWN;
-	gpio_cfg.irq_cb = gpio_boot_irq;
-	luat_gpio_open(&gpio_cfg);
-}
-
 static void spi_gpio_setup(void) {
     luat_spi_t spi_conf = {
         .id = TEST_SPI_ID,
@@ -95,10 +81,7 @@ static void spi_gpio_setup(void) {
     };
     luat_pm_iovolt_ctrl(0, 3300);
     luat_spi_setup(&spi_conf);
-	luat_gpio_cfg_t gpio_cfg;
-
-    // 测试用途的管脚, 只是为了方便测试, 正式环境就去掉
-    test_gpio();
+	luat_gpio_cfg_t gpio_cfg = {0};
 
     // 从机准备好脚
     luat_gpio_set_default_cfg(&gpio_cfg);
@@ -108,7 +91,7 @@ static void spi_gpio_setup(void) {
     gpio_cfg.pull = 0;
     gpio_cfg.irq_cb = slave_rdy_irq;
     luat_gpio_open(&gpio_cfg);
-    LLOGD(" gpio rdy setup done %d", TEST_RDY_PIN);
+    LLOGD("gpio rdy setup done %d", TEST_RDY_PIN);
 
     // CS片选脚
 	luat_gpio_set_default_cfg(&gpio_cfg);
@@ -138,11 +121,6 @@ static void spi_master_task(void *param)
     uint64_t tnow = 0;
     g_airlink_newdata_notify_cb = on_newdata_notify;
 
-    // const char* test_data = "123456789";
-    // luat_airlink_data_pack((uint8_t*)test_data, strlen(test_data), basic_info);
-    // luat_airlink_print_buff("TX", txbuff, 16);
-    // uint64_t tprev = 0;
-    // uint64_t tnow = 0;
     while (1)
     {
         // 等到消息
@@ -198,7 +176,7 @@ static void spi_master_task(void *param)
             luat_airlink_on_data_recv(rxbuff + pkg_offset, pkg_size);
         }
         else {
-            LLOGE("接收到数据不正确, 丢弃");
+            // LLOGE("接收到数据不正确, 丢弃");
         }
         
         memset(rxbuff, 0, TEST_BUFF_SIZE);

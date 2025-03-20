@@ -85,4 +85,15 @@ typedef struct luat_airlink_dev_info
 
 extern luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 
+typedef struct luat_airlink_spi_conf
+{
+    uint8_t spi_id;
+    uint8_t master; // 主从
+    uint8_t cs_pin; // cs引脚
+    uint8_t rdy_pin; // rdy引脚
+}luat_airlink_spi_conf_t;
+
+extern luat_airlink_spi_conf_t g_airlink_spi_conf;
+
+
 #endif

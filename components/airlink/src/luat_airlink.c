@@ -18,6 +18,7 @@ luat_rtos_queue_t airlink_ippkg_queue;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
+luat_airlink_spi_conf_t g_airlink_spi_conf;
 
 int luat_airlink_init(void)
 {

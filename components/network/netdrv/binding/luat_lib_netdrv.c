@@ -182,7 +182,7 @@ static int l_netdrv_ipv4(lua_State *L) {
 netdrv.napt(socket.LWIP_GP)
 
 -- 关闭napt功能
-netdrv.napt(socket.LWIP_GP)
+netdrv.napt(-1)
 */
 extern int luat_netdrv_gw_adapter_id;
 static int l_netdrv_napt(lua_State *L) {

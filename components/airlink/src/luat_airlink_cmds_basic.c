@@ -38,7 +38,7 @@ int luat_airlink_cmd_exec_fota_init(luat_airlink_cmd_t* cmd, void* userdata) {
     return 0;
 }
 
-int luat_airlink_cmd_exec_fota_data(luat_airlink_cmd_t* cmd, void* userdata) {
+int luat_airlink_cmd_exec_fota_write(luat_airlink_cmd_t* cmd, void* userdata) {
     LLOGD("收到FOTA数据!!!");
     int ret = luat_fota_write(cmd->data, cmd->len);
     LLOGD("fota_write ret %d", ret);

@@ -106,8 +106,7 @@ static void spi_gpio_setup(void) {
 static void spi_master_task(void *param)
 {
     int i;
-    size_t pkg_offset = 0;
-    size_t pkg_size = 0;
+    airlink_link_data_t* link = NULL;
     int tmpval = 0;
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
@@ -169,11 +168,9 @@ static void spi_master_task(void *param)
         luat_gpio_set(TEST_CS_PIN, 1);
         // luat_airlink_print_buff("RX", rxbuff, 32);
         // 对接收到的数据进行解析
-        pkg_offset = 0;
-        pkg_size = 0;
-        luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE, &pkg_offset, &pkg_size);
-        if (pkg_size) {
-            luat_airlink_on_data_recv(rxbuff + pkg_offset, pkg_size);
+        link = luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE);
+        if (link) {
+            luat_airlink_on_data_recv(link->data, link->len);
         }
         else {
             // LLOGE("接收到数据不正确, 丢弃");

@@ -95,5 +95,10 @@ typedef struct luat_airlink_spi_conf
 
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
 
+uint64_t luat_airlink_get_next_cmd_id(void);
+
+luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
+
+void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd);
 
 #endif

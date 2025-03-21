@@ -41,6 +41,11 @@ CMD_DEFINE(wlan_ap_stop);
 CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result);
 
+// GPIO指令, 0x300开始
+CMD_DEFINE(gpio_setup);
+CMD_DEFINE(gpio_set);
+CMD_DEFINE(gpio_get);
+
 const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),

@@ -317,3 +317,25 @@ void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
     LLOGD("%s %s", tag, tmp);
     luat_heap_opt_free(LUAT_HEAP_PSRAM, tmp);
 }
+
+static uint64_t next_cmd_id;
+
+uint64_t luat_airlink_get_next_cmd_id() {
+    // TODO 加锁?
+    return next_cmd_id++;
+}
+
+luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
+    luat_airlink_cmd_t* cmd = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_airlink_cmd_t) + data_len);
+    if (cmd) {
+        cmd->len = data_len;
+        cmd->cmd = cmd_id;
+    }
+    return cmd;
+}
+
+void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd) {
+    if (cmd) {
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, cmd);
+    }
+}

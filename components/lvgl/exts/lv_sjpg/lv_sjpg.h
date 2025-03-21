@@ -46,15 +46,15 @@ typedef struct {
     uint8_t* img_cache_buff;
     int img_cache_x_res;
     int img_cache_y_res;
-    union {
-        uint8_t *raw_sjpg_data;
-        uint32_t file_seek_offset;
-    };
+    uint8_t *raw_sjpg_data;               //Used when type==SJPEG_IO_SOURCE_C_ARRAY.
+    uint32_t raw_sjpg_data_size;          //Num bytes pointed to by raw_sjpg_data.
+    uint32_t raw_sjpg_data_next_read_pos; //Used for all types.
 } io_source_t;
 
 
 typedef struct {
     uint8_t *sjpeg_data;
+    uint32_t sjpeg_data_size;
     int sjpeg_x_res;
     int sjpeg_y_res;
     int sjpeg_total_frames;

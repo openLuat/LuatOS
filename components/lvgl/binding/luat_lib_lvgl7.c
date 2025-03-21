@@ -127,7 +127,7 @@ int luat_lv_init(lua_State *L) {
         return 0;
         #endif
     }
-    lcd_conf->lcd_use_lvgl = 1;
+
     if (w == 0 || h == 0) {
         w = lcd_conf->w;
         h = lcd_conf->h;
@@ -145,18 +145,20 @@ int luat_lv_init(lua_State *L) {
     if (lua_isinteger(L, 5)) {
         buffmode = luaL_checkinteger(L, 5);
     }
-
+    // lcd_conf->lcd_use_lvgl = 1;
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
         // LLOGD("use LCD buff");
-        if (lcd_conf->buff_ex){
-            fbuffer = lcd_conf->buff;
-            fbuffer2 = lcd_conf->buff_ex;
-            fbuff_size = w * h;
-            buffmode = 0x04; //使用LCD的双buff模式
-        }else{
-            fbuff_size = w * 10;
-            buffmode = 0x03; //申请双buff模式
-        }
+        // if (lcd_conf->buff_ex){
+        //     fbuffer = lcd_conf->buff;
+        //     fbuffer2 = lcd_conf->buff_ex;
+        //     fbuff_size = w * h;
+        //     buffmode = 0x04; //使用LCD的双buff模式
+        // }else{
+        //     fbuff_size = w * 10;
+        //     buffmode = 0x03; //申请双buff模式
+        // }
+        fbuff_size = w * 10;
+        buffmode = 0x03; //申请双buff模式
     }
     if (buffmode & 0x02) {
         //LLOGD("use HEAP buff");

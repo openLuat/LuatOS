@@ -11,6 +11,7 @@
 #include "../lv_misc/lv_debug.h"
 #include "../lv_misc/lv_math.h"
 #include "../lv_draw/lv_draw.h"
+#include "../lv_draw/lv_img_cache.h"
 #include "../lv_core/lv_refr.h"
 #include "../lv_themes/lv_theme.h"
 
@@ -1107,7 +1108,7 @@ static lv_res_t lv_canvas_signal(lv_obj_t * canvas, lv_signal_t sign, void * par
     if(sign == LV_SIGNAL_GET_TYPE) return lv_obj_handle_get_type_signal(param, LV_OBJX_NAME);
 
     if(sign == LV_SIGNAL_CLEANUP) {
-        /*Nothing to cleanup. (No dynamically allocated memory in 'ext')*/
+        lv_img_cache_invalidate_src(lv_canvas_get_img(canvas));
     }
 
     return res;

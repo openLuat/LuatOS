@@ -768,12 +768,6 @@ static lv_res_t tabview_scrl_signal(lv_obj_t * tabview_scrl, lv_signal_t sign, v
             if(base_dir != LV_BIDI_DIR_RTL) tab_cur++;
             else tab_cur --;
         }
-        else
-        {
-            /*d1开启o3优化后，无法左滑，需要加入打印*/
-            char buf[20];
-            lv_snprintf(buf,20,"%d %d\n",page_x1, page_x2);
-        }
 
         if(tab_cur > ext->tab_cnt - 1) tab_cur = ext->tab_cnt - 1;
         if(tab_cur < 0) tab_cur = 0;

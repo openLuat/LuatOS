@@ -129,7 +129,6 @@ void lv_switch_on(lv_obj_t * sw, lv_anim_enable_t anim)
         return;
     lv_bar_set_value(sw, 1, anim);
     lv_obj_add_state(sw, LV_STATE_CHECKED);
-    lv_event_send(sw, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
 /**
@@ -148,7 +147,6 @@ void lv_switch_off(lv_obj_t * sw, lv_anim_enable_t anim)
         return;
     lv_bar_set_value(sw, 0, anim);
     lv_obj_clear_state(sw, LV_STATE_CHECKED);
-    lv_event_send(sw, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
 /**

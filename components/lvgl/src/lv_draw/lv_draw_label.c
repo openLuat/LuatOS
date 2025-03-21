@@ -120,7 +120,6 @@ LV_ATTRIBUTE_FAST_MEM void lv_draw_label(const lv_area_t * coords, const lv_area
     if(dsc->opa <= LV_OPA_MIN) return;
     const lv_font_t * font = dsc->font;
     int32_t w;
-    lv_color_t color = dsc->color;
 
     /*No need to waste processor time if string is empty*/
     if(txt[0] == '\0')  return;
@@ -305,7 +304,7 @@ LV_ATTRIBUTE_FAST_MEM void lv_draw_label(const lv_area_t * coords, const lv_area
                 }
             }
 
-            
+            lv_color_t color = dsc->color;
 
             if(cmd_state == CMD_STATE_IN) color = recolor;
 
@@ -684,6 +683,14 @@ static void draw_letter_subpx(lv_coord_t pos_x, lv_coord_t pos_y, lv_font_glyph_
     int32_t col_bit;
     col_bit = bit_ofs & 0x7; /* "& 0x7" equals to "% 8" just faster */
 
+    lv_area_t map_area;
+    map_area.x1 = col_start / 3 + pos_x;
+    map_area.x2 = col_end / 3  + pos_x - 1;
+    map_area.y1 = row_start + pos_y;
+    map_area.y2 = map_area.y1;
+
+    if(map_area.x2 <= map_area.x1) return;
+
     int32_t mask_buf_size = box_w * box_h > LV_HOR_RES_MAX ? LV_HOR_RES_MAX : g->box_w * g->box_h;
     lv_opa_t * mask_buf = _lv_mem_buf_get(mask_buf_size);
     int32_t mask_p = 0;
@@ -701,12 +708,6 @@ static void draw_letter_subpx(lv_coord_t pos_x, lv_coord_t pos_y, lv_font_glyph_
 
     /*If the letter is partially out of mask the move there on VDB*/
     vdb_buf_tmp += (row_start * vdb_width) + col_start / 3;
-
-    lv_area_t map_area;
-    map_area.x1 = col_start / 3 + pos_x;
-    map_area.x2 = col_end / 3  + pos_x - 1;
-    map_area.y1 = row_start + pos_y;
-    map_area.y2 = map_area.y1;
 
     uint8_t other_mask_cnt = lv_draw_mask_get_cnt();
 

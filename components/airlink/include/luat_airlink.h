@@ -8,12 +8,21 @@ typedef struct luat_airlink_cmd
     uint8_t data[0];
 }luat_airlink_cmd_t;
 
+typedef struct airlink_link_data {
+    uint8_t magic[4];
+    uint16_t len;
+    uint16_t crc16;
+    uint32_t pkgid; // 包序号,为了重传
+    uint32_t flags; // 包头标志,首先是为了支持流量控制
+    uint8_t data[0];
+}airlink_link_data_t;
+
 int luat_airlink_init(void);
 int luat_airlink_start(int id);
 int luat_airlink_stop(int id);
 
 void luat_airlink_data_pack(uint8_t* buff, size_t len, uint8_t* dst);
-void luat_airlink_data_unpack(uint8_t* buff, size_t len, size_t* pkg_offset, size_t* pkg_size);
+airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len);
 
 void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);

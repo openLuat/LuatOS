@@ -87,6 +87,32 @@ static unsigned int input_func ( JDEC* jd, uint8_t* buff, unsigned int ndata );
 static int is_jpg( const uint8_t *raw_data );
 static void lv_sjpg_cleanup( SJPEG* sjpeg );
 static void lv_sjpg_free( SJPEG* sjpeg );
+
+#if LV_USE_FILESYSTEM
+enum {
+    LV_FS_SEEK_SET = 0x00,
+    LV_FS_SEEK_CUR = 0x01,
+    LV_FS_SEEK_END = 0x02,
+};
+typedef uint8_t lv_fs_whence_t;
+
+static lv_fs_res_t lv_fs_seek_to_old(lv_fs_file_t * file_p, uint32_t pos, lv_fs_whence_t whence)
+{
+    uint32_t read_pos = 0;
+    uint32_t res_pos  = 0;
+    lv_fs_tell(file_p, &read_pos);
+
+    if(whence == LV_FS_SEEK_SET){
+        res_pos = pos;
+    }
+    else {
+        res_pos = read_pos + pos;
+    }
+    lv_fs_seek(file_p, res_pos);
+
+    return LV_FS_RES_OK;
+}
+#endif
  /**********************
  *  STATIC VARIABLES
  **********************/
@@ -199,7 +225,7 @@ static lv_res_t decoder_info( lv_img_decoder_t * decoder, const void * src, lv_i
           }
 
           if(strcmp((char *)buff, "_SJPG__") == 0 ) {
-              lv_fs_seek(&file, 14, LV_FS_SEEK_SET);
+              lv_fs_seek_to_old(&file, 14, LV_FS_SEEK_SET);
               res = lv_fs_read(&file, buff, 4, &rn);
               if(res != LV_FS_RES_OK || rn != 4 ) {
                   lv_fs_close(&file);
@@ -299,7 +325,7 @@ static size_t input_func ( JDEC* jd, uint8_t* buff, size_t ndata )
         } else {
             uint32_t pos;
             lv_fs_tell(lv_file_p, &pos);
-            lv_fs_seek(lv_file_p, (uint32_t)(ndata + pos),  LV_FS_SEEK_SET);
+            lv_fs_seek_to_old(lv_file_p, (uint32_t)(ndata + pos),  LV_FS_SEEK_SET);
             return ndata;
         }
     }
@@ -779,7 +805,7 @@ static lv_res_t decoder_read_line( lv_img_decoder_t * decoder, lv_img_decoder_ds
         /*If line not from cache, refresh cache */
         if(sjpeg_req_frame_index != sjpeg->sjpeg_cache_frame_index) {
             sjpeg->io.raw_sjpg_data_next_read_pos = (int)(sjpeg->frame_base_offset [ sjpeg_req_frame_index ]);
-            lv_fs_seek( &(sjpeg->io.lv_file), sjpeg->io.raw_sjpg_data_next_read_pos, LV_FS_SEEK_SET);
+            lv_fs_seek_to_old( &(sjpeg->io.lv_file), sjpeg->io.raw_sjpg_data_next_read_pos, LV_FS_SEEK_SET);
 
             rc = lv_jd_prepare( sjpeg->tjpeg_jd, input_func, sjpeg->workb, (size_t)TJPGD_WORKBUFF_SIZE, &(sjpeg->io));
             if(rc != JDR_OK ) return LV_RES_INV;

@@ -23,6 +23,7 @@ sys.taskInit(function()
     sys.wait(100)
     sys.waitUntil("IP_READY", 10000)
     netdrv.napt(socket.LWIP_GP)
+    dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
 end)
 
 sys.subscribe("IP_READY", function(id, ip)

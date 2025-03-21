@@ -126,16 +126,13 @@ static void spi_master_task(void *param)
         event.id = 0;
         item.len = 0;
         is_waiting_queue = 1;
-        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 10);
+        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5);
         is_waiting_queue = 0;
-        luat_airlink_cmd_recv_simple(&item);
-        if (item.len == 0 && event.id == 0) {
-            // // LLOGD("啥都没等到, 继续等");
-            // tnow = luat_mcu_tick64_ms();
-            // if (tnow - tprev < 1000) {
-            //     continue; // 无事发生,继续等下一个事件.
-            // }
-            // tprev = tnow;
+        if (link == NULL || (link->flags & 0x1) == 0) {
+            luat_airlink_cmd_recv_simple(&item);
+        }
+        else {
+            LLOGI("从机内存高水位, 停止下发IP数据");
         }
         if (item.len > 0 && item.cmd != NULL) {
             // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);

@@ -32,6 +32,8 @@ typedef void (*luat_airlink_newdata_notify_cb)(void);
 
 typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
 
+typedef int (*luat_airlink_link_data_cb)(airlink_link_data_t* link);
+
 typedef struct luat_airlink_cmd_reg
 {
     uint16_t id;
@@ -103,11 +105,14 @@ typedef struct luat_airlink_spi_conf
 }luat_airlink_spi_conf_t;
 
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
+extern luat_airlink_link_data_cb g_airlink_link_data_cb;
 
 uint64_t luat_airlink_get_next_cmd_id(void);
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
 
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd);
+
+
 
 #endif

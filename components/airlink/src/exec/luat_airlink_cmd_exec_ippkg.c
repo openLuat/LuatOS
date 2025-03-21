@@ -50,6 +50,7 @@ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     #endif
 
+    // luat_airlink_hexdump("收到IP包且要注入LWIP", cmd->data + 1, cmd->len - 1);
     luat_netdrv_netif_input_proxy(drv->netif, cmd->data + 1, cmd->len - 1);
 
     return 0;

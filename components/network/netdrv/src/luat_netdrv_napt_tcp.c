@@ -254,7 +254,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 // 允许新增映射
             }
             else {
-                LLOGI("非SYN包/源端口小于1024,且没有已知映射,不允许新增映射 %02X %d", TCPH_FLAGS(tcp_hdr), PP_NTOHS(tcp_hdr->src));
+                // LLOGI("非SYN包/源端口小于1024,且没有已知映射,不允许新增映射 %02X %d", TCPH_FLAGS(tcp_hdr), PP_NTOHS(tcp_hdr->src));
                 // TODO 应该返回RST?
                 return 0;
             }

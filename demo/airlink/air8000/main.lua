@@ -75,7 +75,7 @@ sys.taskInit(function()
     sys.wait(100)
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
     sys.wait(100)
-    dnsproxy.setup(socket.LWIP_GP, socket.LWIP_AP)
+    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     while 1 do
         if netdrv.ready(socket.LWIP_GP) then

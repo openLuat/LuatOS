@@ -22,7 +22,6 @@ extern "C" {
 #else
 #include "../lvgl.h"
 #endif
-#include "luat_tp.h"
 
 /*********************
  *      DEFINES

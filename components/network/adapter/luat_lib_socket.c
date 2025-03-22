@@ -1236,6 +1236,7 @@ static int l_socket_remote_ip(lua_State *L)
 #ifdef LUAT_USE_LWIP
 		lua_pushfstring(L, "%s", ipaddr_ntoa(&ctrl->netc->dns_ip[i].ip));
 #else
+		PV_Union uPV;
 		uPV.u32 = &ctrl->netc->dns_ip[i].ip.ipv4;
 		lua_pushfstring(L, "%d.%d.%d.%d", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
 #endif

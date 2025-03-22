@@ -321,14 +321,21 @@ int l_caplevel_handler(lua_State *L, void* ptr) {
     if (gpios[pin].lua_ref == 0)
         return 0;
     lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
+    uint64_t diff = 0;
+    uint64_t us_int = 0;
+    uint64_t us_float = 0;
     if (!lua_isnil(L, -1)) {
         if(cap_target_level == 1){
-            lua_pushnumber(L, (float)(falling_tick-rising_tick)/luat_mcu_us_period());
+            diff = falling_tick - rising_tick;
         }else{
-            lua_pushnumber(L, (float)(rising_tick-falling_tick)/luat_mcu_us_period());
+            diff = rising_tick - falling_tick;
         }
-        lua_call(L, 1, 0);
-    }  
+        us_int = diff / luat_mcu_us_period();
+        us_float = diff % luat_mcu_us_period();
+        lua_pushinteger(L, (uint32_t)us_int);
+        lua_pushinteger(L, (uint32_t)us_float);
+        lua_call(L, 2, 0);
+    }
     return 0;
 }
 int luat_caplevel_irq_cb(int pin, void* args) {
@@ -382,7 +389,7 @@ int luat_caplevel_irq_cb(int pin, void* args) {
 @return any 返回获取电平的闭包
 @usage
 -- 捕获pin.PA07为高电平的持续时间
-gpio.caplevel(pin.PA07,1,function(val) print(val) end)
+gpio.caplevel(pin.PA07,1,function(us_int) print(us_float) end)
 */
 static int l_gpio_caplevel(lua_State *L){
     luat_gpio_t conf = {0};

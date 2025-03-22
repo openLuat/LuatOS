@@ -9,7 +9,6 @@
 #include "lvgl.h"
 #include "luat_mem.h"
 
-#include "luat_tp.h"
 
 static lv_indev_data_t point_emulator_data = {0};
 static lv_indev_data_t keyboard_emulator_data = {0};
@@ -22,6 +21,8 @@ static bool point_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data) {
     return false;
 }
 
+#ifdef LUAT_USE_TP
+#include "luat_tp.h"
 static luat_tp_data_t* lvgl_tp_data = NULL;
 /*Return true is the touchpad is pressed*/
 static bool touchpad_is_pressed(void){
@@ -38,6 +39,7 @@ static void touchpad_get_xy(lv_coord_t * x, lv_coord_t * y)
     (*x) = lvgl_tp_data[0].x_coordinate;
     (*y) = lvgl_tp_data[0].y_coordinate;
 }
+#endif
 
 static bool touch_input_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 {
@@ -86,6 +88,7 @@ int luat_lv_indev_drv_register(lua_State* L) {
             lv_indev_drv_register(&indev_drv);
             ok = 1;
         }else if(!strcmp("touch", dtype)) {
+            #ifdef LUAT_USE_TP
             // indev_drv.user_data = &point_emulator_data;
             // memset(indev_drv.user_data, 0, sizeof(lv_indev_data_t));
             if (lua_isuserdata(L, 3)) {
@@ -99,6 +102,7 @@ int luat_lv_indev_drv_register(lua_State* L) {
             }else {
                 // log_e("touch input need tp");
             }
+            #endif
         }
         //else if(!strcmp("xpt2046", type)) {
         //    // TODO 支持xpt2046?

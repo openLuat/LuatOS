@@ -249,9 +249,8 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 		memcmp(data_addr,"169.254.0.0",11)==0||
 		memcmp(data_addr,"169.254.0.16",12)==0||
 		memcmp(data_addr,"0.",2) == 0){
-
-		memset(data_addr,0,64);
 		LLOGW("服务器回应不可路由的地址(%s)。使用服务器地址代替 %s", data_addr, g_s_ftp.network->addr);
+		memset(data_addr,0,64);
 		LLOGD("g_s_ftp.network->addr:%s",g_s_ftp.network->addr);
 		memcpy(data_addr, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr)+1);
 	}

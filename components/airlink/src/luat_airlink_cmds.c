@@ -25,6 +25,7 @@ CMD_DEFINE(fota_init);
 CMD_DEFINE(fota_write);
 CMD_DEFINE(fota_done);
 CMD_DEFINE(dev_info);
+CMD_DEFINE(sdata);
 
 // MAC和IP包指令, 0x100开始
 CMD_DEFINE(ip_pkg);
@@ -44,23 +45,26 @@ CMD_DEFINE(wlan_scan_result);
 // GPIO指令, 0x300开始
 CMD_DEFINE(gpio_setup);
 CMD_DEFINE(gpio_set);
-CMD_DEFINE(gpio_get);
+// CMD_DEFINE(gpio_get);
 
 const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x100, ip_pkg),
     CMD_REG(0x03,  reset),
+#ifdef LUAT_USE_AIRLINK_EXEC_SDATA
+    CMD_REG(0x20,  sdata),
+#endif
 
     // CMD_REG(0x01, ping),
     // CMD_REG(0x02, pong),
-#ifdef LUAT_USE_AIRLINK_FOTA    
+#ifdef LUAT_USE_AIRLINK_EXEC_FOTA
     CMD_REG(0x04, fota_init),
     CMD_REG(0x05, fota_write),
     CMD_REG(0x06, fota_done),
 #endif
 
-#ifdef LUAT_USE_AIRLINK_WIFI
+#ifdef LUAT_USE_AIRLINK_EXEC_WIFI
     CMD_REG(0x200, wlan_init),
     CMD_REG(0x201, wlan_sta_connect),
     CMD_REG(0x202, wlan_sta_disconnect),
@@ -68,6 +72,11 @@ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x204, wlan_ap_stop),
     CMD_REG(0x205, wlan_scan),
     CMD_REG(0x206, wlan_scan_result),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_GPIO
+    CMD_REG(0x300, gpio_setup),
+    CMD_REG(0x301, gpio_set),
 #endif
 
     {0, NULL}

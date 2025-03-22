@@ -113,6 +113,10 @@ luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
 
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd);
 
-
+// GPIO 操作, 临时放这里
+#include "luat_gpio.h"
+int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio);
+int luat_airlink_drv_gpio_set(int pin, int level);
+int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio);
 
 #endif

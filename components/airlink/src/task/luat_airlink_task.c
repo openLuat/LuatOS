@@ -60,6 +60,9 @@ static int luat_airlink_task(void *param) {
                 }
                 cmd_reg ++;
             }
+            if (cmd_reg == NULL) {
+                LLOGW("找不到CMD执行程序 %d", ptr->cmd);
+            }
 
             // 处理完成, 释放内存
             luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr);

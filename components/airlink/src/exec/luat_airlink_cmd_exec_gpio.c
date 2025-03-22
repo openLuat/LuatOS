@@ -13,6 +13,8 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+#undef LLOGD
+#define LLOGD(...) 
 
 // 前8字节是指令id, 用于返回执行结果, 待定.
 
@@ -20,7 +22,7 @@ static int airlink_gpio_irq_cb(int pin, void* args) {
     return 0;
 }
 
-int luat_airlink_cmd_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
+int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_gpio_t conf = {0};
     // 后面是配置参数,是luat_gpio_t结构体
     memcpy(&conf, cmd->data + 8, sizeof(luat_gpio_t));
@@ -30,6 +32,7 @@ int luat_airlink_cmd_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     LLOGD("收到GPIO配置指令!!! pin %d", conf.pin);
     if (conf.mode == Luat_GPIO_IRQ) {
         conf.irq_cb = airlink_gpio_irq_cb;
+        conf.irq_args = NULL;
     }
     else {
         conf.irq_cb = NULL;
@@ -39,7 +42,7 @@ int luat_airlink_cmd_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     return 0;
 }
 
-int luat_airlink_cmd_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
+int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
     LLOGD("收到GPIO设置指令!!!");
     uint8_t params[2];
     memcpy(params, cmd->data + 8, 2);
@@ -47,6 +50,6 @@ int luat_airlink_cmd_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
         params[0] -= 100;
     }
     int ret = luat_gpio_set(params[0], params[1]);
-    LLOGD("收到GPIO配置指令!!! pin %d level %d ret %d", params[0], params[1], ret);
+    LLOGD("收到GPIO设置指令!!! pin %d level %d ret %d", params[0], params[1], ret);
     return 0;
 }

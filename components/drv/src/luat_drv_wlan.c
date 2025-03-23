@@ -26,11 +26,11 @@ int luat_drv_wlan_ready(void) {
 }
 
 int luat_drv_wlan_connect(luat_wlan_conninfo_t* info) {
-    return 0;
+    return luat_airlink_drv_wlan_connect(info);
 }
 
 int luat_drv_wlan_disconnect(void) {
-    return 0;
+    return luat_airlink_drv_wlan_disconnect();
 }
 
 int luat_drv_wlan_scan(void) {

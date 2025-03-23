@@ -71,9 +71,36 @@ int luat_airlink_drv_wlan_mode(luat_wlan_config_t *conf);
 
 int luat_airlink_drv_wlan_ready(void);
 
-int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info);
+int luat_airlink_drv_wlan_connect(luat_wlan_conninfo_t* info) {
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_wlan_conninfo_t) + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x201, item.len) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    memcpy(cmd->data + 8, info, sizeof(luat_wlan_conninfo_t));
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
 
-int luat_airlink_drv_wlan_disconnect(void);
+int luat_airlink_drv_wlan_disconnect(void) {
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x202, item.len) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
 
 int luat_airlink_drv_wlan_scan(void);
 

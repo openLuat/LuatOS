@@ -29,7 +29,7 @@ function test_ap()
 end
 
 function test_sta()
-    wlan.connect("uiot", "12345678")
+    wlan.connect("luatos1234", "12341234")
     netdrv.dhcp(socket.LWIP_STA, true)
     netdrv.napt(socket.LWIP_STA)
     while 1 do
@@ -43,6 +43,20 @@ function test_sta()
         log.info("http执行结果", code, headers, body and #body)
     end
 end
+
+function test_scan()
+    while 1 do
+        wlan.scan()
+        sys.wait(30 * 1000)
+    end
+end
+sys.subscribe("WLAN_SCAN_DONE", function ()
+    local results = wlan.scanResult()
+    log.info("scan", "results", #results)
+    for k,v in pairs(results) do
+        log.info("scan", v["ssid"], v["rssi"], (v["bssid"]:toHex()))
+    end
+end)
 
 sys.taskInit(function()
     -- 稍微缓一下
@@ -63,7 +77,10 @@ sys.taskInit(function()
     -- test_ap()
 
     -- 连接STA测试
-    test_sta()
+    -- test_sta()
+
+    -- wifi扫描测试
+    test_scan()
 end)
 
 

@@ -190,6 +190,7 @@ end)
 static int l_wlan_scan(lua_State* L){
     (void)L;
     #ifdef LUAT_USE_DRV_WLAN
+    luat_drv_wlan_scan();
     #else
     luat_wlan_scan();
     #endif
@@ -216,7 +217,11 @@ static int l_wlan_scan_result(lua_State* L) {
         return 1;
     }
     memset(results, 0, sizeof(luat_wlan_scan_result_t) * ap_limit);
+    #ifdef LUAT_USE_DRV_WLAN
+    int len = luat_drv_wlan_scan_get_result(results, ap_limit);
+    #else
     int len = luat_wlan_scan_get_result(results, ap_limit);
+    #endif
     for (int i = 0; i < len; i++)
     {
         lua_newtable(L);

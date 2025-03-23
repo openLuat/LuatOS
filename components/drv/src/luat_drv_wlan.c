@@ -34,11 +34,11 @@ int luat_drv_wlan_disconnect(void) {
 }
 
 int luat_drv_wlan_scan(void) {
-    return 0;
+    return luat_airlink_drv_wlan_scan();
 }
 
 int luat_drv_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap_limit) {
-    return 0;
+    return luat_airlink_drv_wlan_scan_get_result(results, ap_limit);
 }
 
 int luat_drv_wlan_set_station_ip(luat_wlan_station_info_t *info) {

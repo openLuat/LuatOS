@@ -179,7 +179,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                 icmps[i].wnet_ip = ip_hdr->dest.addr;
                 icmps[i].tm_ms = tnow;
                 icmps[i].is_vaild = 1;
-                LLOGD("新映射 wnet %d inet %d", icmps[i].wnet_id, icmps[i].inet_id);
+                //LLOGD("新映射 wnet %d inet %d", icmps[i].wnet_id, icmps[i].inet_id);
                 break;
             }
             if (it == NULL) {

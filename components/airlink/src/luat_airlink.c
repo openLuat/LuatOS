@@ -282,7 +282,7 @@ uint64_t luat_airlink_get_next_cmd_id() {
 }
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
-    luat_airlink_cmd_t* cmd = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_airlink_cmd_t) + data_len);
+    luat_airlink_cmd_t* cmd = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + data_len);
     if (cmd) {
         cmd->len = data_len;
         cmd->cmd = cmd_id;

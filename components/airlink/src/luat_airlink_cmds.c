@@ -71,7 +71,7 @@ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x203, wlan_ap_start),
     CMD_REG(0x204, wlan_ap_stop),
     CMD_REG(0x205, wlan_scan),
-    CMD_REG(0x206, wlan_scan_result),
+    // CMD_REG(0x206, wlan_scan_result),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO

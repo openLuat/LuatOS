@@ -19,6 +19,10 @@
 #include "luat_mcu.h"
 #include <math.h>
 
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
+
 #define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"
 
@@ -120,11 +124,7 @@ static int luat_gpio_irq_count(int pin, void* args) {
 
 int luat_gpio_irq_default(int pin, void* args) {
     rtos_msg_t msg = {0};
-#ifdef LUAT_GPIO_PIN_MAX
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
-#else
-    if (pin < 0 || pin >= Luat_GPIO_MAX_ID) {
-#endif
         return 0;
     }
 
@@ -284,7 +284,11 @@ static int l_gpio_setup(lua_State *L) {
     {
     	conf.alt_func = -1;
     }
+    #ifdef LUAT_USE_DRV_GPIO
+    int re = luat_drv_gpio_setup(&conf);
+    #else
     int re = luat_gpio_setup(&conf);
+    #endif
     if (re != 0) {
         LLOGW("gpio setup fail pin=%d", conf.pin);
         return 0;
@@ -297,7 +301,11 @@ static int l_gpio_setup(lua_State *L) {
         gpios[conf.pin].lua_ref = conf.lua_ref;
     }
     else if (conf.mode == Luat_GPIO_OUTPUT) {
+        #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(conf.pin, conf.irq); // irq被重用为OUTPUT的初始值
+        #else
         luat_gpio_set(conf.pin, conf.irq); // irq被重用为OUTPUT的初始值
+        #endif
     }
     // 生成闭包
     lua_settop(L, 1);
@@ -445,7 +453,11 @@ static int l_gpio_set(lua_State *L) {
         pin = luaL_checkinteger(L, 1);
         value = luaL_checkinteger(L, 2);
     }
+    #ifdef LUAT_USE_DRV_GPIO
+    luat_drv_gpio_set(pin, value);
+    #else
     luat_gpio_set(pin, value);
+    #endif
     gpio_bit_set(pin, (uint8_t)value);
     return 0;
 }

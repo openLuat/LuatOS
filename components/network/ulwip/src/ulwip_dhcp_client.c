@@ -141,9 +141,16 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
     memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
     memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
     luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
-    sprintf_(ctx->dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
-			ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
-			ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+    #if LWIP_NETIF_HOSTNAME
+    if (ctx->netif && ctx->netif->hostname) {
+        strncpy(ctx->dhcp_client->name, ctx->netif->hostname, strlen(ctx->dhcp_client->name) + 1);
+    }
+    #endif
+    if (ctx->dhcp_client->name[0] == 0) {
+        sprintf_(ctx->dhcp_client->name, "LuatOS_%02X%02X%02X%02X%02X%02X",
+                ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
+                ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+    }
 }
 
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {

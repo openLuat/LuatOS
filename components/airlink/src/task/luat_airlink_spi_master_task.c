@@ -110,8 +110,8 @@ static void spi_master_task(void *param)
     int tmpval = 0;
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
-	uint8_t* txbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
-    uint8_t* rxbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
+	uint8_t* txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    uint8_t* rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
 
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();
@@ -137,7 +137,7 @@ static void spi_master_task(void *param)
         if (item.len > 0 && item.cmd != NULL) {
             // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
             luat_airlink_data_pack(item.cmd, item.len, txbuff);
-            luat_heap_free(item.cmd);
+            luat_airlink_cmd_free(item.cmd);
         }
         else {
             // LLOGD("填充PING数据");

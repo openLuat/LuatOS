@@ -1,6 +1,12 @@
 #ifndef LUAT_AIRLINK_H
 #define LUAT_AIRLINK_H
 
+#ifdef LUAT_USE_PSRAM
+#define AIRLINK_MEM_TYPE LUAT_HEAP_PSRAM
+#else
+#define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
+#endif
+
 typedef struct luat_airlink_cmd_ext
 {
     uint64_t pkgid;

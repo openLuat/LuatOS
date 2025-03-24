@@ -687,7 +687,7 @@ function iotcloud.new(cloud,iot_config,connect_config)
 
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     iotcloudc.mqttc:keepalive(connect_config.keepalive or 240)
-    iotcloudc.mqttc:autoreconn(connect_config.autoreconn and true, (type(connect_config.autoreconn) == "number") or connect_config.autoreconn)-- 自动重连机制
+    iotcloudc.mqttc:autoreconn(connect_config.autoreconn and true, (type(connect_config.autoreconn) == "number") and connect_config.autoreconn or 3000)-- 自动重连机制
     iotcloudc.mqttc:on(iotcloud_mqtt_callback)              -- mqtt回调
     table.insert(cloudc_table,iotcloudc)                    -- 添加到表里记录
     return iotcloudc,error_code                             -- 错误返回待处理

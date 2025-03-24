@@ -14,6 +14,7 @@ PWR8000S = gpio.setup(23, 0, gpio.PULLUP) -- 关闭Air8000S的LDO供电
 
 
 function test_ap()
+    log.info("执行AP创建操作")
     wlan.createAP("uiot5678", "12345678")
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
     sys.wait(100)
@@ -75,6 +76,8 @@ sys.taskInit(function()
     -- 启动底层线程, 从机模式
     airlink.start(1)
     PWR8000S(1)
+    sys.wait(500) -- 稍微缓一下
+    airlink.test(10)
     netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
     netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
 

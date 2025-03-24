@@ -46,6 +46,7 @@ end
 
 function test_scan()
     while 1 do
+        log.info("执行wifi扫描")
         wlan.scan()
         sys.wait(30 * 1000)
     end
@@ -55,6 +56,14 @@ sys.subscribe("WLAN_SCAN_DONE", function ()
     log.info("scan", "results", #results)
     for k,v in pairs(results) do
         log.info("scan", v["ssid"], v["rssi"], (v["bssid"]:toHex()))
+    end
+end)
+
+--  每隔6秒打印一次airlink统计数据, 调试用
+sys.taskInit(function()
+    while 1 do
+        sys.wait(6000)
+        airlink.statistics()
     end
 end)
 
@@ -74,13 +83,13 @@ sys.taskInit(function()
     sys.wait(100)
     
     -- 启动AP测试
-    -- test_ap()
+    test_ap()
 
     -- 连接STA测试
     -- test_sta()
 
     -- wifi扫描测试
-    test_scan()
+    -- test_scan()
 end)
 
 

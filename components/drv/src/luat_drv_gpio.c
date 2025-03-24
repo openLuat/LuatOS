@@ -17,7 +17,7 @@ int luat_drv_gpio_open(luat_gpio_cfg_t* gpio) {
     if (gpio->pin < 0 || gpio->pin >= 255) {
         return -2;
     }
-    if (gpio->pin < 100) {
+    if (gpio->pin < 128) {
         return luat_gpio_open(gpio);
     }
     else {
@@ -29,7 +29,7 @@ int luat_drv_gpio_set(int pin, int level) {
     if (pin < 0 || pin >= 255) {
         return -1;
     }
-    if (pin < 100) {
+    if (pin < 128) {
         return luat_gpio_set(pin, level);
     }
     else {
@@ -45,7 +45,7 @@ int luat_drv_gpio_setup(luat_gpio_t* gpio) {
     if (gpio->pin < 0 || gpio->pin >= 255) {
         return -2;
     }
-    if (gpio->pin < 100) {
+    if (gpio->pin < 128) {
         return luat_gpio_setup(gpio);
     }
     else {

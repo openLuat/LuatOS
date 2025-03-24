@@ -169,4 +169,7 @@ uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t pol
  * @return 输出值
  */
 uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t poly);
+
+// 快速modbus crc16算法
+uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len);
 #endif

@@ -26,6 +26,7 @@ CMD_DEFINE(fota_write);
 CMD_DEFINE(fota_done);
 CMD_DEFINE(dev_info);
 CMD_DEFINE(sdata);
+CMD_DEFINE(nop);
 
 // MAC和IP包指令, 0x100开始
 CMD_DEFINE(ip_pkg);
@@ -80,5 +81,6 @@ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x301, gpio_set),
 #endif
 
+    CMD_REG(0x21, nop),
     {0, NULL}
 };

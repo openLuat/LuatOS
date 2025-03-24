@@ -33,6 +33,8 @@
 
 #endif
 
+extern airlink_statistic_t g_airlink_statistic;
+
 static uint8_t start;
 // static uint8_t slave_rdy;
 static uint8_t thread_rdy;
@@ -42,29 +44,25 @@ static uint8_t basic_info[256];
 
 static uint32_t is_waiting_queue = 0;
 
-static int gpio_boot_irq(void *data, void* args)
-{
-	if (thread_rdy) {
-        luat_rtos_event_send(spi_task_handle, 1, 2, 3, 4, 100);
-    }
-	return 0;
-}
+static luat_rtos_queue_t evt_queue;
 
 static int slave_rdy_irq(void *data, void* args) {
     if (is_waiting_queue) {
         // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
         is_waiting_queue = 0;
-        luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
+        // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
     }
     return 0;
 }
 
 static void on_newdata_notify(void) {
-    if (is_waiting_queue) {
-        is_waiting_queue = 0;
+    // if (is_waiting_queue) {
+        // is_waiting_queue = 0;
         // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
-        luat_rtos_event_send(spi_task_handle, 3, 2, 3, 4, 100);
-    }
+        // luat_rtos_event_send(spi_task_handle, 3, 2, 3, 4, 0);
+    // }
+    luat_event_t evt = {.id=3};
+    luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
 
 static void spi_gpio_setup(void) {
@@ -126,8 +124,24 @@ static void spi_master_task(void *param)
         event.id = 0;
         item.len = 0;
         is_waiting_queue = 1;
-        luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5);
+        // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5);
+        luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 5);
         is_waiting_queue = 0;
+        switch (event.id)
+        {
+        case 0:
+            g_airlink_statistic.event_timeout.total ++;
+            break;
+        case 2:
+            g_airlink_statistic.event_rdy_irq.total ++;
+            break;
+        case 3:
+            g_airlink_statistic.event_new_data.total ++;
+            break;
+        default:
+            break;
+        }
+        // LLOGD("事件id %p %d", spi_task_handle, event.id);
         if (link == NULL || (link->flags & 0x1) == 0) {
             luat_airlink_cmd_recv_simple(&item);
         }
@@ -149,6 +163,7 @@ static void spi_master_task(void *param)
         {
             tmpval = luat_gpio_get(TEST_RDY_PIN);
             if (tmpval == 1) {
+                g_airlink_statistic.wait_rdy.total ++;
                 tnow = luat_mcu_tick64_ms();
                 if (tnow - warn_slave_no_ready > 100) {
                     warn_slave_no_ready = tnow;
@@ -160,18 +175,28 @@ static void spi_master_task(void *param)
             // LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
             break;
         }
-        
+        g_airlink_statistic.tx_pkg.total ++;
         luat_spi_transfer(TEST_SPI_ID, (const char*)txbuff, TEST_BUFF_SIZE, (char*)rxbuff, TEST_BUFF_SIZE);
         luat_gpio_set(TEST_CS_PIN, 1);
         // luat_airlink_print_buff("RX", rxbuff, 32);
         // 对接收到的数据进行解析
         link = luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE);
         if (link) {
+            g_airlink_statistic.tx_pkg.ok ++;
             luat_airlink_on_data_recv(link->data, link->len);
         }
         else {
+            g_airlink_statistic.tx_pkg.err ++;
             // LLOGE("接收到数据不正确, 丢弃");
         }
+
+        // for (size_t i = 0; i < 5; i++) {
+        //     tmpval = luat_gpio_get(TEST_RDY_PIN);
+        //     if (tmpval == 0) {
+        //         break;
+        //     }
+        //     luat_rtos_task_sleep(1);
+        // }
         
         memset(rxbuff, 0, TEST_BUFF_SIZE);
         // luat_rtos_task_sleep(300);
@@ -186,5 +211,6 @@ void luat_airlink_start_master(void)
         LLOGE("SPI主机任务已经启动过了!!!");
         return;
     }
+    luat_rtos_queue_create(&evt_queue, 2048, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 4 * 1024, 95, "spi", spi_master_task, NULL, 0);
 }

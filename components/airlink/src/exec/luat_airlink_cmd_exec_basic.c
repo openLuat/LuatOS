@@ -14,6 +14,11 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+int luat_airlink_cmd_exec_nop(luat_airlink_cmd_t *cmd, void *userdata)
+{
+    return 0;
+}
+
 int luat_airlink_cmd_exec_ping(luat_airlink_cmd_t *cmd, void *userdata)
 {
     LLOGD("收到ping指令,返回pong");

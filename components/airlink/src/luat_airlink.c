@@ -25,6 +25,7 @@ extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
+airlink_statistic_t g_airlink_statistic;
 
 int luat_airlink_init(void)
 {
@@ -293,5 +294,23 @@ luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd) {
     if (cmd) {
         luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    }
+}
+
+
+void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
+    airlink_queue_item_t item = {0};
+    int ret = 0;
+    item.len = cmd->len + sizeof(luat_airlink_cmd_t);
+    item.cmd = luat_airlink_cmd_new(cmd->cmd, cmd->len);
+    if (item.cmd == NULL) {
+        LLOGD("luat_airlink_send2slave 内存不足, 丢弃掉");
+        return;
+    }
+    ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    if (ret != 0) {
+        LLOGD("luat_airlink_send2slave 发送消息失败 长度 %d ret %d", cmd->len, ret);
+        luat_airlink_cmd_free(item.cmd);
+        return;
     }
 }

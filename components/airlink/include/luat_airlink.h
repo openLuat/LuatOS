@@ -30,6 +30,27 @@ typedef struct airlink_link_data {
     uint8_t data[0];
 }airlink_link_data_t;
 
+typedef struct airlink_statistic_part {
+    uint64_t total;
+    uint64_t ok;
+    uint64_t err;
+    uint64_t drop;
+}airlink_statistic_part_t;
+
+typedef struct airlink_statistic {
+    // 传输统计信息
+    airlink_statistic_part_t rx_pkg;
+    airlink_statistic_part_t tx_pkg;
+    airlink_statistic_part_t wait_rdy;
+    airlink_statistic_part_t rx_ip;
+    airlink_statistic_part_t tx_ip;
+
+    // Task等待事件
+    airlink_statistic_part_t event_timeout;
+    airlink_statistic_part_t event_rdy_irq;
+    airlink_statistic_part_t event_new_data;
+}airlink_statistic_t;
+
 int luat_airlink_init(void);
 int luat_airlink_start(int id);
 int luat_airlink_stop(int id);
@@ -72,6 +93,8 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t* cmd, size_t timeout);
 int luat_airlink_cmd_recv_simple(airlink_queue_item_t* cmd);
 
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len);
+
+void luat_airlink_send2slave(luat_airlink_cmd_t* cmd);
 
 void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len);
 void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len);

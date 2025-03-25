@@ -12,7 +12,7 @@
 #define LUAT_LOG_TAG "netdrv.napt.udp"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_PARAM
+#ifdef LUAT_USE_PSRAM
 #define UDP_MAP_SIZE (8*1024)
 #else
 #define UDP_MAP_SIZE (1024)

@@ -21,6 +21,7 @@
 static err_t luat_netif_init(struct netif *netif);
 static err_t netif_output(struct netif *netif, struct pbuf *p);
 static int netif_ip_event_cb(lua_State *L, void* ptr);
+static int whale_dhcp(luat_netdrv_t* drv, void* userdata, int enable);
 
 void luat_netdrv_whale_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     // TODO 发送到spi slave task
@@ -72,6 +73,9 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         netdrv->netif = luat_heap_malloc(sizeof(struct netif));
         memset(netdrv->netif, 0, sizeof(struct netif));
     }
+    luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)userdata;
+    cfg->ulwip.netif = netdrv->netif;
+    cfg->ulwip.adapter_index = cfg->id;
 
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, netif_input);
 
@@ -160,6 +164,7 @@ void luat_netdrv_whale_ipevent(int adapter_index) {
     void* userdata = NULL;
 	network_adapter_info* info = network_adapter_fetch((uint8_t)adapter_index, &userdata);
     if (info == NULL || info->check_ready == NULL) {
+        // LLOGI("网络适配器(%d)不存在, 或者没有check_ready函数", adapter_index);
         return;
     }
     int ready = info->check_ready(userdata);
@@ -189,6 +194,7 @@ luat_netdrv_t* luat_netdrv_whale_create(luat_netdrv_whale_t* tmp) {
     netdrv->dataout = luat_netdrv_whale_dataout;
     netdrv->boot = luat_netdrv_whale_boot;
     netdrv->userdata = cfg;
+    netdrv->dhcp = whale_dhcp;
     return netdrv;
 }
 
@@ -197,7 +203,6 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
     cfg.id = conf->id;
     cfg.flags = conf->flags;
     cfg.mtu = conf->mtu;
-
     if (cfg.flags == 0) {
         if (cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || cfg.id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
             cfg.flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP;
@@ -219,4 +224,17 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
     }
     drv->boot(drv, drv->userdata);
     return drv;
+}
+
+static int whale_dhcp(luat_netdrv_t* drv, void* userdata, int enable) {
+    luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)userdata;
+    cfg->dhcp = (uint8_t)enable;
+    cfg->ulwip.dhcp_enable = enable;
+    if (enable && cfg->ulwip.netif) {
+        ulwip_dhcp_client_start(&cfg->ulwip);
+    }
+    else {
+        ulwip_dhcp_client_stop(&cfg->ulwip);
+    }
+    return 0;
 }

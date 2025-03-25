@@ -19,6 +19,9 @@
 
 #include "luat_base.h"
 #include "luat_wlan.h"
+#ifdef LUAT_USE_DRV_WLAN
+#include "luat/drv_wlan.h"
+#endif
 
 #define LUAT_LOG_TAG "wlan"
 #include "luat_log.h"
@@ -39,7 +42,11 @@ static inline void to_ipv4(const char* data, uint8_t* dst) {
 @return bool 成功返回true,否则返回false
 */
 static int l_wlan_init(lua_State* L){
+    #ifdef LUAT_USE_DRV_WLAN
+    int ret = luat_drv_wlan_init(NULL);
+    #else
     int ret = luat_wlan_init(NULL);
+    #endif
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -72,28 +79,14 @@ static int l_wlan_mode(lua_State* L){
         mode = LUAT_WLAN_MODE_STA;
     }
 
-    // switch (mode)
-    // {
-    // case LUAT_WLAN_MODE_NULL:
-    //     LLOGD("wlan mode NULL");
-    //     break;
-    // case LUAT_WLAN_MODE_STA:
-    //     LLOGD("wlan mode STATION");
-    //     break;
-    // case LUAT_WLAN_MODE_AP:
-    //     LLOGD("wlan mode AP");
-    //     break;
-    // case LUAT_WLAN_MODE_APSTA:
-    //     LLOGD("wlan mode AP-STATION");
-    //     break;
-    
-    // default:
-    //     break;
-    // }
     luat_wlan_config_t conf = {
         .mode = mode
     };
+    #ifdef LUAT_USE_DRV_WLAN
+    int ret = luat_drv_wlan_mode(&conf);
+    #else
     int ret = luat_wlan_mode(&conf);
+    #endif
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -104,7 +97,11 @@ static int l_wlan_mode(lua_State* L){
 @return bool 已经连接成功返回true,否则返回false
 */
 static int l_wlan_ready(lua_State* L){
+    #ifdef LUAT_USE_DRV_WLAN
+    lua_pushboolean(L, luat_drv_wlan_ready());
+    #else
     lua_pushboolean(L, luat_wlan_ready());
+    #endif
     return 1;
 }
 
@@ -142,8 +139,11 @@ static int l_wlan_connect(lua_State* L){
     if (len == 6) {
         memcpy(info.bssid, bssid, 6);
     }
-
+    #ifdef LUAT_USE_DRV_WLAN
+    int ret = luat_drv_wlan_connect(&info);
+    #else
     int ret = luat_wlan_connect(&info);
+    #endif
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -154,7 +154,11 @@ static int l_wlan_connect(lua_State* L){
 */
 static int l_wlan_disconnect(lua_State* L){
     (void)L;
+    #ifdef LUAT_USE_DRV_WLAN
+    luat_drv_wlan_disconnect();
+    #else
     luat_wlan_disconnect();
+    #endif
     return 0;
 }
 
@@ -185,7 +189,11 @@ end)
 */
 static int l_wlan_scan(lua_State* L){
     (void)L;
+    #ifdef LUAT_USE_DRV_WLAN
+    luat_drv_wlan_scan();
+    #else
     luat_wlan_scan();
+    #endif
     return 0;
 }
 
@@ -209,7 +217,11 @@ static int l_wlan_scan_result(lua_State* L) {
         return 1;
     }
     memset(results, 0, sizeof(luat_wlan_scan_result_t) * ap_limit);
+    #ifdef LUAT_USE_DRV_WLAN
+    int len = luat_drv_wlan_scan_get_result(results, ap_limit);
+    #else
     int len = luat_wlan_scan_get_result(results, ap_limit);
+    #endif
     for (int i = 0; i < len; i++)
     {
         lua_newtable(L);
@@ -391,7 +403,11 @@ static int l_wlan_ap_start(lua_State *L) {
     memcpy(apinfo.ssid, ssid, ssid_len);
     memcpy(apinfo.password, password, password_len);
 
+    #ifdef LUAT_USE_DRV_WLAN
+    int ret = luat_drv_wlan_ap_start(&apinfo);
+    #else
     int ret = luat_wlan_ap_start(&apinfo);
+    #endif
     if (ret)
         LLOGD("apstart ret %d", ret);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
@@ -406,7 +422,11 @@ static int l_wlan_ap_start(lua_State *L) {
 wlan.stopAP()
 */
 static int l_wlan_ap_stop(lua_State *L) {
+    #ifdef LUAT_USE_DRV_WLAN
+    int ret = luat_drv_wlan_ap_stop();
+    #else
     int ret = luat_wlan_ap_stop();
+    #endif
     if (ret)
         LLOGD("apstop ret %d", ret);
     lua_pushboolean(L, ret == 0 ? 1 : 0);

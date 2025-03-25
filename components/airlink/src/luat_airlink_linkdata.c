@@ -41,7 +41,8 @@ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len)
             if (tlen > 0 && tlen + 4 + i + 4 <= len)
             {
                 // 计算crc16
-                crc16_data = luat_crc16(buff + i + 4 + 4, tlen + 8, 0xFFFF, 0x1021, 0);
+                // crc16_data = luat_crc16(buff + i + 4 + 4, tlen + 8, 0xFFFF, 0x1021, 0);
+                crc16_data = luat_crc16_modbus(&buff[i + 4 + 4], tlen + 8);
                 if (crc16_data == crc16)
                 {
                     return link;
@@ -79,5 +80,6 @@ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
         g_airlink_link_data_cb(data);
     }
     
-    data->crc16 = luat_crc16(&data->pkgid, len + 8, 0xFFFF, 0x1021, 0);
+    // data->crc16 = luat_crc16(&data->pkgid, len + 8, 0xFFFF, 0x1021, 0);
+    data->crc16 = luat_crc16_modbus(&data->pkgid, len + 8);
 }

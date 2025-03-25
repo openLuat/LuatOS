@@ -26,8 +26,8 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_gpio_t conf = {0};
     // 后面是配置参数,是luat_gpio_t结构体
     memcpy(&conf, cmd->data + 8, sizeof(luat_gpio_t));
-    if (conf.pin > 100) {
-        conf.pin -= 100;
+    if (conf.pin >= 128) {
+        conf.pin -= 128;
     }
     LLOGD("收到GPIO配置指令!!! pin %d", conf.pin);
     if (conf.mode == Luat_GPIO_IRQ) {
@@ -46,8 +46,8 @@ int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
     LLOGD("收到GPIO设置指令!!!");
     uint8_t params[2];
     memcpy(params, cmd->data + 8, 2);
-    if (params[0] > 100) {
-        params[0] -= 100;
+    if (params[0] >= 128) {
+        params[0] -= 128;
     }
     int ret = luat_gpio_set(params[0], params[1]);
     LLOGD("收到GPIO设置指令!!! pin %d level %d ret %d", params[0], params[1], ret);

@@ -14,6 +14,11 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+int luat_airlink_cmd_exec_nop(luat_airlink_cmd_t *cmd, void *userdata)
+{
+    return 0;
+}
+
 int luat_airlink_cmd_exec_ping(luat_airlink_cmd_t *cmd, void *userdata)
 {
     LLOGD("收到ping指令,返回pong");
@@ -67,7 +72,7 @@ static int sdata_cb(lua_State *L, void *ptr)
     lua_getglobal(L, "sys_pub");
     lua_pushstring(L, "AIRLINK_SDATA");
     lua_pushlstring(L, msg->ptr, msg->arg1);
-    luat_heap_opt_free(LUAT_HEAP_PSRAM, msg->ptr);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, msg->ptr);
     lua_call(L, 2, 0);
     return 0;
 }
@@ -77,7 +82,7 @@ int luat_airlink_cmd_exec_sdata(luat_airlink_cmd_t *cmd, void *userdata)
     LLOGD("收到sdata指令!!!");
     rtos_msg_t msg = {0};
     msg.handler = sdata_cb;
-    msg.ptr = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, cmd->len);
+    msg.ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, cmd->len);
     if (msg.ptr == NULL)
     {
         LLOGE("sdata_cb malloc fail!!! %d", cmd->len);

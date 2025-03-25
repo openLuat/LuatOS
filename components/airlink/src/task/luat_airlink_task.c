@@ -21,7 +21,7 @@ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
         luat_airlink_cmd_exec_ip_pkg(cmd, NULL);
         return;
     }
-    void* ptr = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, len);
+    void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {
         LLOGE("airlink分配内存失败!!! %d", len);
         return;
@@ -65,7 +65,7 @@ static int luat_airlink_task(void *param) {
             }
 
             // 处理完成, 释放内存
-            luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr);
+            luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);
         }
     }
     return 0;
@@ -73,7 +73,7 @@ static int luat_airlink_task(void *param) {
 
 void luat_airlink_task_start(void) {
     if (airlink_task_handle == NULL) {
-        luat_rtos_task_create(&airlink_task_handle, 8 * 1024, 50, "airlink", luat_airlink_task, NULL, 1024);
+        luat_rtos_task_create(&airlink_task_handle, 16 * 1024, 50, "airlink", luat_airlink_task, NULL, 1024);
     }
     else {
         LLOGD("airlink task 已经启动过了");

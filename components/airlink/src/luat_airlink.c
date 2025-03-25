@@ -12,6 +12,12 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_PSRAM
+#define AIRLINK_MEM_TYPE LUAT_HEAP_PSRAM
+#else
+#define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
+#endif
+
 luat_rtos_queue_t airlink_cmd_queue;
 luat_rtos_queue_t airlink_ippkg_queue;
 
@@ -19,6 +25,7 @@ extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
+airlink_statistic_t g_airlink_statistic;
 
 int luat_airlink_init(void)
 {
@@ -170,10 +177,24 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
             return -3;
         }
     }
+    // 检查内存状态, 如果内存不足, 就直接丢弃掉
+    size_t total = 0;
+    size_t used = 0;
+    size_t max_used = 0;
+    luat_meminfo_opt_sys(AIRLINK_MEM_TYPE, &total, &used, &max_used);
+    if (total - used < 32*1024 && len > 512) {
+        LLOGW("内存相对不足(%d), 丢弃掉大包(%d)", total - used, len);
+        return -3;
+    }
+    else if (total - used < 8*1024) {
+        // 内存严重不足, 抛弃所有的包
+        LLOGW("内存严重不足(%d), 丢弃掉所有包(%d)", total - used, len);
+        return -4;
+    }
 
     airlink_queue_item_t item = {
         .len = len + 5,
-        .cmd = luat_heap_malloc(len + 8),
+        .cmd = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, len + 8),
     };
     if (item.cmd == NULL)
     {
@@ -242,7 +263,7 @@ void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
     if (len > 500) {
         len = 500;
     }
-    uint8_t* tmp = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, len * 2 + 1);
+    uint8_t* tmp = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, len * 2 + 1);
     if (tmp == NULL) {
         return;
     }
@@ -251,7 +272,7 @@ void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
         sprintf((char*)(tmp + i * 2), "%02X", buff[i]);
     }
     LLOGD("%s %s", tag, tmp);
-    luat_heap_opt_free(LUAT_HEAP_PSRAM, tmp);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, tmp);
 }
 
 static uint64_t next_cmd_id;
@@ -262,7 +283,7 @@ uint64_t luat_airlink_get_next_cmd_id() {
 }
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
-    luat_airlink_cmd_t* cmd = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_airlink_cmd_t) + data_len);
+    luat_airlink_cmd_t* cmd = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + data_len);
     if (cmd) {
         cmd->len = data_len;
         cmd->cmd = cmd_id;
@@ -272,6 +293,24 @@ luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd_id, uint16_t data_len) {
 
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd) {
     if (cmd) {
-        luat_heap_opt_free(LUAT_HEAP_PSRAM, cmd);
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    }
+}
+
+
+void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
+    airlink_queue_item_t item = {0};
+    int ret = 0;
+    item.len = cmd->len + sizeof(luat_airlink_cmd_t);
+    item.cmd = luat_airlink_cmd_new(cmd->cmd, cmd->len);
+    if (item.cmd == NULL) {
+        LLOGD("luat_airlink_send2slave 内存不足, 丢弃掉");
+        return;
+    }
+    ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    if (ret != 0) {
+        LLOGD("luat_airlink_send2slave 发送消息失败 长度 %d ret %d", cmd->len, ret);
+        luat_airlink_cmd_free(item.cmd);
+        return;
     }
 }

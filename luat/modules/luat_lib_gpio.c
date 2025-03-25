@@ -553,7 +553,11 @@ static int l_gpio_toggle(lua_State *L) {
         return 0;
     }
     uint8_t value = gpio_bit_get(pin);
+    #ifdef LUAT_USE_DRV_GPIO
+    luat_drv_gpio_set(pin, value == 0 ? Luat_GPIO_HIGH : Luat_GPIO_LOW);
+    #else
     luat_gpio_set(pin, value == 0 ? Luat_GPIO_HIGH : Luat_GPIO_LOW);
+    #endif
     gpio_bit_set(pin, value == 0 ? 1 : 0);
     return 0;
 }
@@ -767,9 +771,17 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
     conf.lua_ref = 0;
     conf.irq_cb = 0;
     conf.alt_func = -1;
+    #ifdef LUAT_USE_DRV_GPIO
+    luat_drv_gpio_setup(&conf);
+    if (conf.mode == Luat_GPIO_OUTPUT) {
+        luat_drv_gpio_set(pin, initOutput);
+    }
+    #else
     luat_gpio_setup(&conf);
-    if (conf.mode == Luat_GPIO_OUTPUT)
+    if (conf.mode == Luat_GPIO_OUTPUT) {
         luat_gpio_set(pin, initOutput);
+    }
+    #endif
 }
 
 #ifndef LUAT_COMPILER_NOWEAK

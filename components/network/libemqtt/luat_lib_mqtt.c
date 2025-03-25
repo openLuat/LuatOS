@@ -316,7 +316,7 @@ mqttc = mqtt.create(nil,"120.55.137.106", 8883, {server_cert=io.readFile("/luadb
 mqttc = mqtt.create(nil,"120.55.137.106", 8883, {
 					server_cert=io.readFile("/luadb/ca.crt"),
 					client_cert=io.readFile("/luadb/client.pem"),
-					client_key="123456",
+					client_key=io.readFile("/luadb/client.key"),
 					client_password="123456",
 					})
 */

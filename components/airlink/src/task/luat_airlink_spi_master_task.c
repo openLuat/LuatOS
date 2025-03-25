@@ -130,16 +130,21 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     uint64_t warn_slave_no_ready = 0;
     uint64_t tnow = 0;
     g_airlink_newdata_notify_cb = on_newdata_notify;
-
     while (1)
     {
         // 等到消息
         event.id = 0;
         item.len = 0;
-        is_waiting_queue = 1;
-        // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5);
-        luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 3);
-        is_waiting_queue = 0;
+        if (link != NULL && (link->flags.queue_cmd != 0 || link->flags.queue_cmd != 0)) {
+            // 立即进行下一轮操作
+            event.id = 2;
+        }
+        else {
+            is_waiting_queue = 1;
+            luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 5);
+            is_waiting_queue = 0;
+        }
+        
         switch (event.id)
         {
         case 0:
@@ -155,7 +160,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
             break;
         }
         // LLOGD("事件id %p %d", spi_task_handle, event.id);
-        if (link == NULL || (link->flags & 0x1) == 0) {
+        if (link == NULL || (link->flags.mem_is_high) == 0) {
             luat_airlink_cmd_recv_simple(&item);
         }
         else {
@@ -188,6 +193,10 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
             // LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
             break;
         }
+
+        // 清除link
+        link = NULL;
+
         g_airlink_statistic.tx_pkg.total ++;
         luat_spi_transfer(TEST_SPI_ID, (const char*)txbuff, TEST_BUFF_SIZE, (char*)rxbuff, TEST_BUFF_SIZE);
         luat_gpio_set(TEST_CS_PIN, 1);

@@ -21,12 +21,19 @@ typedef struct luat_airlink_cmd
     uint8_t data[0];
 }luat_airlink_cmd_t;
 
+typedef struct airlink_flags {
+    uint8_t mem_is_high: 1;
+    uint8_t queue_cmd: 1; // 用于指示命令包的队列是否还有数据
+    uint8_t queue_ip: 1; // 用于ip包的队列是否还有数据
+    uint32_t revert: 29; // 保留位, 用于扩展
+}airlink_flags_t;
+
 typedef struct airlink_link_data {
     uint8_t magic[4];
     uint16_t len;
     uint16_t crc16;
     uint32_t pkgid; // 包序号,为了重传
-    uint32_t flags; // 包头标志,首先是为了支持流量控制
+    airlink_flags_t flags; // 包头标志,首先是为了支持流量控制
     uint8_t data[0];
 }airlink_link_data_t;
 

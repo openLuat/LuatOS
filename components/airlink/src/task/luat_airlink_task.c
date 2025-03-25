@@ -16,11 +16,11 @@ extern int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata)
 
 void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
-    if (cmd->cmd == 0x100) {
-        // IP数据直接处理,不走线程
-        luat_airlink_cmd_exec_ip_pkg(cmd, NULL);
-        return;
-    }
+    // if (cmd->cmd == 0x100) {
+    //     // IP数据直接处理,不走线程
+    //     luat_airlink_cmd_exec_ip_pkg(cmd, NULL);
+    //     return;
+    // }
     void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {
         LLOGE("airlink分配内存失败!!! %d", len);

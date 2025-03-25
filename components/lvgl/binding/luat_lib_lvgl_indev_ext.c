@@ -39,7 +39,6 @@ static void touchpad_get_xy(lv_coord_t * x, lv_coord_t * y)
     (*x) = lvgl_tp_data[0].x_coordinate;
     (*y) = lvgl_tp_data[0].y_coordinate;
 }
-#endif
 
 static bool touch_input_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
 {
@@ -62,6 +61,7 @@ static bool touch_input_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
     /*Return `false` because we are not buffering and no more data to read*/
     return false;
 }
+#endif
 
 /*
 注册输入设备驱动

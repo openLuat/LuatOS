@@ -223,10 +223,15 @@ uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t pol
 // 仅追求数据的modbus crc16算法
 // from https://github.com/LacobusVentura/MODBUS-CRC16/blob/master/README.md
 // MIT协议
-#ifndef LUAT_ATTR_METHOD_INRAM_CRC16
-#define LUAT_ATTR_METHOD_INRAM_CRC16 
+#ifdef TYPE_EC718M
+#include "platform_def.h"
 #endif
-LUAT_ATTR_METHOD_INRAM_CRC16 static const uint16_t modbus_table[256] = {
+
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
+
+static uint16_t modbus_table[256] = {
 	0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
 	0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
 	0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
@@ -260,10 +265,8 @@ LUAT_ATTR_METHOD_INRAM_CRC16 static const uint16_t modbus_table[256] = {
 	0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
 	0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040 };
 
-LUAT_ATTR_METHOD_INRAM_CRC16 uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len)
+__USER_FUNC_IN_RAM__ uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len)
 {
-
-
 	uint8_t xor = 0;
 	uint16_t crc = 0xFFFF;
 

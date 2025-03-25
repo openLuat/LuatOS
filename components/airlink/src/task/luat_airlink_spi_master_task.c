@@ -33,6 +33,14 @@
 
 #endif
 
+#ifdef TYPE_EC718M
+#include "platform_def.h"
+#endif
+
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
+
 extern airlink_statistic_t g_airlink_statistic;
 
 static uint8_t start;
@@ -46,16 +54,21 @@ static uint32_t is_waiting_queue = 0;
 
 static luat_rtos_queue_t evt_queue;
 
-static int slave_rdy_irq(void *data, void* args) {
-    if (is_waiting_queue) {
-        // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
-        is_waiting_queue = 0;
-        // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
-    }
+__USER_FUNC_IN_RAM__ static int slave_rdy_irq(void *data, void* args) {
+    // uint32_t len = 0;
+    // if (is_waiting_queue) {
+    //     is_waiting_queue = 0;
+    //     luat_rtos_queue_get_cnt(evt_queue, &len);
+    //     // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
+    //     luat_event_t evt = {.id=2};
+    //     if (len < 24) {
+    //         luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
+    //     }
+    // }
     return 0;
 }
 
-static void on_newdata_notify(void) {
+__USER_FUNC_IN_RAM__ static void on_newdata_notify(void) {
     // if (is_waiting_queue) {
         // is_waiting_queue = 0;
         // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
@@ -101,7 +114,7 @@ static void spi_gpio_setup(void) {
 }
 
 
-static void spi_master_task(void *param)
+__USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
     int i;
     airlink_link_data_t* link = NULL;
@@ -125,7 +138,7 @@ static void spi_master_task(void *param)
         item.len = 0;
         is_waiting_queue = 1;
         // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, 5);
-        luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 5);
+        luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 3);
         is_waiting_queue = 0;
         switch (event.id)
         {
@@ -189,14 +202,6 @@ static void spi_master_task(void *param)
             g_airlink_statistic.tx_pkg.err ++;
             // LLOGE("接收到数据不正确, 丢弃");
         }
-
-        // for (size_t i = 0; i < 5; i++) {
-        //     tmpval = luat_gpio_get(TEST_RDY_PIN);
-        //     if (tmpval == 0) {
-        //         break;
-        //     }
-        //     luat_rtos_task_sleep(1);
-        // }
         
         memset(rxbuff, 0, TEST_BUFF_SIZE);
         // luat_rtos_task_sleep(300);

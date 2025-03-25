@@ -333,7 +333,7 @@ int l_rtos_standby(lua_State *L);
 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
 @api pm.power(id, onoff)
 @int 电源控制id,pm.USB pm.GPS之类
-@boolean or int 开关true/1开，false/0关，默认关，部分选项支持数值
+@boolean/int 开关true/1开，false/0关，默认关，部分选项支持数值
 @return boolean 处理结果true成功，false失败
 @usage
 -- 关闭USB电源, 反之开启就是传true

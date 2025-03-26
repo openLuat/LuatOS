@@ -180,14 +180,14 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "disconnect");
-					lua_pushnumber(L, mqtt_ctrl->error_state);
+					lua_pushinteger(L, mqtt_ctrl->error_state);
 					lua_call(L, 3, 0);
 				}
 				lua_getglobal(L, "sys_pub");
 				if (lua_isfunction(L, -1)) {
 					lua_pushstring(L, "MQTT_DISCONNECT");
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
-					lua_pushnumber(L, mqtt_ctrl->error_state);
+					lua_pushinteger(L, mqtt_ctrl->error_state);
 					lua_call(L, 3, 0);
 				}
             }
@@ -316,7 +316,7 @@ mqttc = mqtt.create(nil,"120.55.137.106", 8883, {server_cert=io.readFile("/luadb
 mqttc = mqtt.create(nil,"120.55.137.106", 8883, {
 					server_cert=io.readFile("/luadb/ca.crt"),
 					client_cert=io.readFile("/luadb/client.pem"),
-					client_key="123456",
+					client_key=io.readFile("/luadb/client.key"),
 					client_password="123456",
 					})
 */

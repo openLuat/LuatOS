@@ -474,7 +474,7 @@ local function http_exec(opts)
                         socket.tx(netc, fdata)
                         write_counter = write_counter + #fdata
                         -- 注意, 这里要等待TX_OK事件
-                        sys.waitUntil(opts.topic, 3000)
+                        sys.waitUntil(opts.topic, 300)
                     end
                     fd:close()
                 end

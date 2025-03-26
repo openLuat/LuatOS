@@ -197,7 +197,7 @@ static int l_can_mode(lua_State *L)
 CAN总线设置节点ID，这是一种简易的过滤规则，只接收和ID完全匹配的消息，和can.filter选择一个使用
 @api can.node(id, node_id, id_type)
 @int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
-@int node_id, 节点ID, 标准格式11位或者扩展格式29位，根据is_extend_id决定，默认值是0x1fffffff，id值越小，优先级越高
+@int node_id, 节点ID, 标准格式11位或者扩展格式29位，根据id_type决定，默认值是0x1fffffff，id值越小，优先级越高
 @int id_type，ID类型，填1或者CAN.EXT为扩展格式，填0或者CAN.STD为标准格式
 @return boolean 成功返回true,失败返回false
 @usage
@@ -272,9 +272,9 @@ static int l_can_state(lua_State *L)
 CAN发送一条消息
 @api can.tx(id, msg_id, id_type, RTR, need_ack, data)
 @int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
-@int msg_id, 节点ID, 标准格式11位或者扩展格式29位，根据is_extend_id决定，默认值是0x1fffffff，id值越小，优先级越高
+@int msg_id, 节点ID, 标准格式11位或者扩展格式29位，根据id_type决定，默认值是0x1fffffff，id值越小，优先级越高
 @int id_type, ID类型，填1或者CAN.EXT为扩展格式，填0或者CAN.STD为标准格式
-@boolean RTR, 是否是双过滤模式，true是，false不是，默认是false
+@boolean RTR, 是否是遥控帧，true是，false不是，默认是false
 @boolean need_ack，是否需要应答，true是，false不需要，默认是true
 @string/zbuff data, 需要发送的数据, 如果是zbuff会从指针起始位置开始发送，最多发送8字节
 @return boolean 成功返回true,失败返回false

@@ -12,7 +12,7 @@
 提醒:
 对于仅支持wifiscan的模块, 仅 init/scan/scanResult 函数是可用的
 
-例如: Air780E/Air600E/Air780EG等仅支持wifiscan
+例如: Air780EXXX等仅支持wifiscan
 ]]
 
 */

@@ -7,7 +7,7 @@
 @demo    cc
 @tag LUAT_USE_VOLTE
 @usage
--- 当前仅Air780EPV支持VoLTE通话功能
+-- 选型手册上支持VoLTE通话功能的模组支持
 */
 
 #include "luat_base.h"

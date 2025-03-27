@@ -215,12 +215,12 @@ end, gpio.PULLUP, gpio.RISING)
 gpio.setup(7, gpio.count)
 
 -- alt_func 于2023.7.2新增
--- 本功能仅对部分平台有效, 且仅用于调整GPIO复用,其他复用方式请使用muc.iomux函数
+-- 本功能仅对AIR780EXXX有效,仅用于调整GPIO复用,不能用于外设复用调整
 -- 以下示例代码, 将I2S_DOUT复用成gpio18
 -- AIR780E的PIN33(模块管脚序号), 对应paddr 38, 默认功能是I2S_DOUT, 复用成gpio18
 -- 方向输出,且初始化电平为低,使用硬件默认上下拉配置
--- Air780E(EC618系列的GPIO复用请查阅 https://air780e.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
--- Air780EP(EC718P系列的GPIO复用请查阅 https://air780ep.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
+-- Air780E(GPIO复用请查阅 https://air780e.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
+-- Air780EP(GPIO复用请查阅 https://air780ep.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
 gpio.setup(18, 0, nil, nil, 4)
 
 -- 提醒: 

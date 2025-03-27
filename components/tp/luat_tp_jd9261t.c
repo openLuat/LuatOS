@@ -21,26 +21,26 @@ static jd9261t_tp_ctrl_t jd9261t_tp;
 static int tp_i2c_send(luat_tp_config_t* luat_tp_config, int addr, void* buff, size_t len, uint8_t stop)
 {
     if (luat_tp_config->soft_i2c != NULL){
-        return i2c_soft_send(luat_tp_config->soft_i2c, addr, buff, len, stop);
+        return i2c_soft_send(luat_tp_config->soft_i2c, addr, (char*)buff, len, stop);
     }else{
-        return luat_i2c_send(luat_tp_config->i2c_id, addr, buff, len, stop);
+        return luat_i2c_send(luat_tp_config->i2c_id, addr, (char*)buff, len, stop);
     }
 }
 
 static int tp_i2c_recv(luat_tp_config_t* luat_tp_config, int addr, void* buff, size_t len)
 {
     if (luat_tp_config->soft_i2c != NULL){
-        return i2c_soft_recv(luat_tp_config->soft_i2c, addr, buff, len);
+        return i2c_soft_recv(luat_tp_config->soft_i2c, addr, (char*)buff, len);
     }else{
-        return luat_i2c_recv(luat_tp_config->i2c_id, addr, buff, len);
+        return luat_i2c_recv(luat_tp_config->i2c_id, addr, (char*)buff, len);
     }
 }
 
 static int tp_i2c_xfer(luat_tp_config_t* luat_tp_config, int addr, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len)
 {
     if (luat_tp_config->soft_i2c != NULL){
-    	i2c_soft_send(luat_tp_config->soft_i2c, addr, reg, reg_len, 0);
-        return i2c_soft_recv(luat_tp_config->soft_i2c, addr, buff, len);
+    	i2c_soft_send(luat_tp_config->soft_i2c, addr, (char*)reg, reg_len, 0);
+        return i2c_soft_recv(luat_tp_config->soft_i2c, addr, (char*)buff, len);
     }else{
         return luat_i2c_transfer(luat_tp_config->i2c_id, addr, reg, reg_len, buff, len);
     }

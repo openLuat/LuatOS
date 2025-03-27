@@ -499,10 +499,14 @@ static int l_camera_preview(lua_State *L) {
 @int camera id,例如0
 @int 配置项的id
 @int 配置项的值
-@return int 配置结果,成功为0,否则为其他值
+@return nil 当前无返回值
 @usage
 -- 本函数于 2025.3.17 新增, 当前仅Air8101可用
-camera.config(0, camera.CONF_H264_QP_INIT, 20)
+camera.config(0, camera.CONF_H264_QP_INIT, 16)
+camera.config(0, camera.CONF_H264_QP_I_MAX, 16)
+camera.config(0, camera.CONF_H264_QP_P_MAX, 8)
+camera.config(0, camera.CONF_H264_IMB_BITS, 3)
+camera.config(0, camera.CONF_H264_PMB_BITS, 1)
 */
 static int l_camera_config(lua_State *L) {
     int id = luaL_checkinteger(L, 1);

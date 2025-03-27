@@ -235,7 +235,7 @@ LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){return -1;}
 LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){return -1;}
 #endif
 /*
-mcu死机时处理模式，目前只有EC618平台适用
+mcu死机时处理模式
 @api mcu.hardfault(mode)
 @int 处理模式，0死机停机，1死机后重启，2死机后尽量将错误信息提交给外部工具后重启 3.死机时写入关键信息到flash后立刻重启
 @usage

@@ -88,7 +88,7 @@ int l_camera_handler(lua_State *L, void* ptr);
 #endif
 /**
  * @brief 配置spi camera并且初始化camera
- * @param id camera接收数据总线ID，ec618上有2条，0和1
+ * @param id camera接收数据总线ID,见选型手册,例如AIR780EXXX是0
  * @param conf camera相关配置
  * @param callback camera接收中断回调，注意这是在中断里的回调
  * @param param 中断回调时用户的参数

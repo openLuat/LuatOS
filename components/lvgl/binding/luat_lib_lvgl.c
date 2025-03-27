@@ -174,7 +174,7 @@ static int l_lv_theme_set_act(lua_State *L) {
 }
 
 /*
-LVGL休眠控制，暂停/恢复刷新定时器，目前只有105和EC618可以用
+LVGL休眠控制，暂停/恢复刷新定时器，目前只有Air105和Air780EXXX可以用
 @api lvgl.sleep(enable)
 @boolean true暂停 false恢复
 @usage

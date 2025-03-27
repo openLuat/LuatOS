@@ -731,7 +731,7 @@ static int l_uart_exist(lua_State *L)
 
 
 /*
-buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前air105,air780e支持这个操作
+buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前air105,Air780EXXX支持这个操作
 @api    uart.rx(id, buff)
 @int 串口id, uart0写0, uart1写1
 @zbuff zbuff对象
@@ -787,7 +787,7 @@ static int l_uart_rx(lua_State *L)
 }
 
 /*
-读串口Rx缓存中剩余数据量，目前air105,air780e支持这个操作
+读串口Rx缓存中剩余数据量，目前air105,Air780EXXX支持这个操作
 @api    uart.rxSize(id)
 @int 串口id, uart0写0, uart1写1
 @return int 返回读到的长度
@@ -819,7 +819,7 @@ LUAT_WEAK void luat_uart_clear_rx_cache(int uart_id)
 
 }
 /*
-清除串口Rx缓存中剩余数据量，目前air105,air780e支持这个操作
+清除串口Rx缓存中剩余数据量，目前air105,Air780EXXX支持这个操作
 @api    uart.rxClear(id)
 @int 串口id, uart0写0, uart1写1
 @usage

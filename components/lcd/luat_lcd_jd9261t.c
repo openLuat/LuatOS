@@ -43,6 +43,8 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
 
 luat_lcd_opts_t lcd_opts_jd9261t_inited = {
     .name = "jd9261t_inited",
+    .sleep_cmd = 0xff,			//不需要发命令
+    .wakeup_cmd = 0xff,			//不需要发命令
     .init_cmds_len = 0,
     .init_cmds = NULL,
     .direction0 = 0x00,

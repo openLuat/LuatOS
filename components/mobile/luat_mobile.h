@@ -41,7 +41,7 @@ int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len);
  * @brief 获取SN，如果用户没有调用luat_mobile_set_sn接口写过SN，默认值为空
  * 
  * @param buff[OUT] SN数据
- * @param buf_len 用户传入缓存的大小，EC618平台底层支持的最大长度为32字节，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @param buf_len 用户传入缓存的大小，Air780EXXX平台底层支持的最大长度为32字节，如果底层数据量大于buf_len，只会传出buf_len大小的数据
  * @return int <= 0错误 >0实际传出的大小
  */
 int luat_mobile_get_sn(char* buff, size_t buf_len);
@@ -50,7 +50,7 @@ int luat_mobile_get_sn(char* buff, size_t buf_len);
  * @brief 设置SN
  * 
  * @param buff SN数据，必须是ascii值大于等于0x21小于等于0x7e的可见ascii字符
- * @param buf_len SN数据长度；EC618平台底层支持的最大长度为32字节，如果buf_len大于32，只会保存前32字节的数据
+ * @param buf_len SN数据长度；Air780EXXX平台底层支持的最大长度为32字节，如果buf_len大于32，只会保存前32字节的数据
  * @return int = 0成功， = -1失败
  */
 int luat_mobile_set_sn(char* buff, uint8_t buf_len);
@@ -176,7 +176,7 @@ uint8_t luat_mobile_get_default_pdn_ipv6(void);
 int luat_mobile_get_apn(int sim_id, int cid, char* buff, size_t buf_len);
 
 /**
- * @brief 用户控制APN激活过程。只有使用了本函数后，才能通过手动激活用户的APN并加装网卡。只有EC618/EC7XX支持
+ * @brief 用户控制APN激活过程。只有使用了本函数后，才能通过手动激活用户的APN并加装网卡。只有Air780EXXX支持，不建议使用
  */
 void luat_mobile_user_ctrl_apn(void);
 /**
@@ -184,7 +184,7 @@ void luat_mobile_user_ctrl_apn(void);
  */
 void luat_mobile_user_ctrl_apn_stop(void);
 /**
- * @brief 手动设置APN激活所需的最小信息，如果需要更详细的设置，可以自行修改本函数。，只有EC618/EC7XX支持
+ * @brief 手动设置APN激活所需的最小信息，如果需要更详细的设置，可以自行修改本函数。只有Air780EXXX支持，不建议使用
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -197,7 +197,7 @@ int luat_mobile_set_apn_base_info(int sim_id, int cid, uint8_t type, uint8_t* ap
 
 
 /**
- * @brief 手动设置APN激活所需的加密信息，如果需要更详细的设置，可以自行修改本函数。大部分情况下不需要加密信息，定向卡可能需要。只有EC618/EC7XX支持
+ * @brief 手动设置APN激活所需的加密信息，如果需要更详细的设置，可以自行修改本函数。大部分情况下不需要加密信息，定向卡可能需要。只有Air780EXXX支持，不建议使用
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -211,7 +211,7 @@ int luat_mobile_set_apn_base_info(int sim_id, int cid, uint8_t type, uint8_t* ap
 int luat_mobile_set_apn_auth_info(int sim_id, int cid, uint8_t protocol, uint8_t *user_name, uint8_t user_name_len, uint8_t *password, uint8_t password_len);
 
 /**
- * @brief 手动激活/去激活APN。只有EC618/EC7XX支持
+ * @brief 手动激活/去激活APN。只有Air780EXXX支持，不建议使用
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -221,7 +221,7 @@ int luat_mobile_set_apn_auth_info(int sim_id, int cid, uint8_t protocol, uint8_t
 int luat_mobile_active_apn(int sim_id, int cid, uint8_t state);
 
 /**
- * @brief 手动激活网卡。只有EC618支持
+ * @brief 手动激活网卡。只有Air780EXXX支持，不建议使用
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -230,7 +230,7 @@ int luat_mobile_active_apn(int sim_id, int cid, uint8_t state);
 int luat_mobile_active_netif(int sim_id, int cid);
 
 /**
- * @brief 用户设置APN的基本信息，并且自动激活，注意不能和上述手动操作APN的API共用，专网卡如果不能用公网apn激活默认承载的必须用这个
+ * @brief 用户设置APN的基本信息，并且自动激活，注意不能和上述手动操作APN的API共用，专网卡如果不能用公网apn激活默认承载的必须用这个，推荐使用
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 1~6
@@ -528,7 +528,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 	LUAT_MOBILE_EVENT_BEARER,/**< PDP承载状态*/
 	LUAT_MOBILE_EVENT_SMS,	/**< SMS短信 >*/
-	LUAT_MOBILE_EVENT_NAS_ERROR,/**< NAS异常消息，air780e, air780ep有效*/
+	LUAT_MOBILE_EVENT_NAS_ERROR,/**< NAS异常消息，air780exxx系列有效*/
 	LUAT_MOBILE_EVENT_IMS_REGISTER_STATUS, /**< IMS注册状态，volte必须在注册成功情况下使用*/
 	LUAT_MOBILE_EVENT_CC,	/**< 通话相关消息*/
 	LUAT_MOBILE_EVENT_USB_ETH_ON,

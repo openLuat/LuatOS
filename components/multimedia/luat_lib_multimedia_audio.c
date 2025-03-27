@@ -505,7 +505,7 @@ static int l_audio_raw_on(lua_State *L) {
 播放或者停止播放一个文件，播放完成后，会回调一个audio.DONE消息，可以用pause来暂停或者恢复，其他API不可用。考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
 @api audio.play(id, path, errStop)
 @int 音频通道
-@string/table 文件名，如果为空，则表示停止播放，如果是table，则表示连续播放多个文件，主要应用于云喇叭，目前只有EC618支持，并且会用到errStop参数
+@string/table 文件名，如果为空，则表示停止播放，如果是table，则表示连续播放多个文件，主要应用于云喇叭，目前只有Air780EXXX支持，并且会用到errStop参数
 @boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @return boolean 成功返回true,否则返回false
 @usage
@@ -625,7 +625,7 @@ static int l_audio_play_wait_end(lua_State *L) {
 }
 
 /*
-获取最近一次播放结果，不是所有平台都支持的，目前只有EC618支持
+获取最近一次播放结果，不是所有平台都支持的，目前只有Air780EXXX支持
 @api audio.getError(id)
 @int 音频通道
 @return boolean 是否全部播放成功，true成功，false有文件播放失败

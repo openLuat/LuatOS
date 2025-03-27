@@ -206,7 +206,7 @@ static int l_mobile_number(lua_State* L) {
 /**
 获取当前SIM卡槽,或者切换卡槽
 @api mobile.simid(id)
-@int SIM卡的编号, 例如0, 1, 如果支持双卡，比如EC618，可以填2来自适应，但是会占用掉4个IO(gpio4/5/6/23)。如果不填就直接读取当前卡槽
+@int SIM卡的编号, 例如0, 1, 如果支持双卡，例如Air780EXXX，可以填2来自适应，但是会占用掉4个IO(gpio4/5/6/23)。如果不填就直接读取当前卡槽
 @boolean 是否优先用SIM0，只有SIM卡编号写2自适应才有用！！！。true优先用SIM0，false则由具体平台决定，支持双卡双待SIM0优先，不支持的是上一次检测到的优先，默认是false，必须在开机就配置，否则就无效了
 @return int 当前sim卡槽编号,若失败返回-1
 @usage
@@ -916,15 +916,15 @@ static int l_mobile_data_traffic(lua_State* L) {
 @int 配置值,根据具体配置的item决定
 @return boolean 是否成功
 @usage
---针对不同平台有不同的配置，谨慎使用，目前只有EC618/EC718系列
+--针对不同平台有不同的配置，谨慎使用，目前只有Air780EXXX系列支持
 
--- EC618配置小区重选信号差值门限，不能大于15dbm，必须在飞行模式下才能用
+-- Air780EXXX配置小区重选信号差值门限，不能大于15dbm，必须在飞行模式下才能用
 mobile.flymode(0,true)
 mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)
 mobile.config(mobile.CONF_STATICCONFIG, 1) --开启网络静态优化
 mobile.flymode(0,false)
 
--- EC618设置SIM写入次数的统计
+-- Air780EXXX设置SIM写入次数的统计
 -- 关闭统计
 mobile.config(mobile.CONF_SIM_WC_MODE, 0)
 -- 开启统计, 默认也是开启的.

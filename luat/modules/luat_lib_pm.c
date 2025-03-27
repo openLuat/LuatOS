@@ -35,7 +35,7 @@
         wakeup脚可唤醒
         唤醒后程序从头运行,休眠前的运行时数据全丢
 
-对部分模块,例如Air780E, DEEP/HIB对用户代码没有区别
+对部分模块,例如Air780EXXX, DEEP/HIB对用户代码没有区别
 
 除pm.shutdown()外, RTC总是运行的, 除非掉电
 ]]
@@ -43,10 +43,10 @@
 -- 定时器唤醒, 请使用 pm.dtimerStart()
 -- wakeup唤醒
     -- 如Air101/Air103, 有独立的wakeup脚, 不需要配置,可直接控制唤醒
-    -- 如Air780E系列, 有多个wakeup可用, 通过gpio.setup(32)配置虚拟GPIO进行唤醒配置
+    -- 如Air780EXXX系列, 有多个wakeup可用, 通过gpio.setup()配置虚拟GPIO进行唤醒配置,参考demo/gpio/virtualIO
 
 pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
--- 对应Air780E系列, 执行后并不一定马上进入休眠模式, 如无后续数据传输需求,可先进入飞行模式,然后快速休眠
+-- 对应Air780EXXX系列, 执行后并不一定马上进入休眠模式, 如无后续数据传输需求,可先进入飞行模式,然后快速休眠
 */
 #include "lua.h"
 #include "lauxlib.h"
@@ -121,7 +121,7 @@ static int l_pm_request(lua_State *L) {
 @usage
 -- 添加底层定时器
 pm.dtimerStart(0, 300 * 1000) -- 5分钟后唤醒
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)
+-- 针对Air780EXXX有如下限制
 -- id = 0 或者 id = 1 是, 最大休眠时长是2.5小时
 -- id >= 2是, 最大休眠时长是740小时
  */
@@ -260,7 +260,7 @@ static int l_pm_last_reson(lua_State *L) {
 @usage
 -- 请求进入休眠模式
 pm.force(pm.HIB)
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等), 该操作会关闭USB通信
+-- 针对Air780EXXX, 该操作会关闭USB通信
 -- 唤醒后如需开启USB, 请打开USB电压
 --pm.power(pm.USB, true)
  */
@@ -280,7 +280,7 @@ pm.request(pm.HIB)
 if pm.check() then
     log.info("pm", "it is ok to hib")
 else
-    -- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等), 该操作会关闭USB通信
+    -- 针对Air780EXXX, 该操作会关闭USB通信
     pm.force(pm.HIB) -- 强制休眠
     -- 唤醒后如需开启USB, 请打开USB电压
     --sys.wait(100)
@@ -342,12 +342,12 @@ pm.power(pm.USB, false)
 -- Air780EG,为内置的GPS芯片上电. 注意, Air780EG的GPS和GPS_ANT是一起控制的,所以合并了.
 pm.power(pm.GPS, true)
 
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)开启pwrkey开机防抖
+-- Air780EXXX开启pwrkey开机防抖
 -- 注意: 开启后, 复位键就变成关机了!!! pwrkey要长按2秒才能开机
 -- pm.power(pm.PWK_MODE, true)
 
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)PSM+低功耗设置
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗
+-- Air780EXXX PSM+低功耗设置
+-- Air780EXXX节能模式，0~3，0完全关闭，1~2普通低功耗，3超低功耗，深度休眠
 -- 详情访问: https://airpsm.cn
 -- pm.power(pm.WORK_MODE, 1)
  */
@@ -372,7 +372,7 @@ IO高电平电压控制
 @int 电平值,单位毫伏
 @return boolean 处理结果true成功，false失败
 @usage
--- 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)设置IO电平, 范围 1650 ~ 2000，2650~3400 , 单位毫伏, 步进50mv
+-- Air780EXXX设置IO电平, 范围 1650 ~ 2000，2650~3400 , 单位毫伏, 步进50mv
 -- 注意, 这里的设置优先级会高于硬件IOSEL脚的配置
 -- 但开机时依然先使用硬件配置,直至调用本API进行配置, 所以io电平会变化
 -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)    -- 所有GPIO高电平输出3.3V
@@ -462,15 +462,15 @@ static const rotable_Reg_t reg_pm[] =
     { "GPS_ANT",        ROREG_INT(LUAT_PM_POWER_GPS_ANT)},
     //@const CAMERA number camera电源，CAM_VCC输出
     { "CAMERA",         ROREG_INT(LUAT_PM_POWER_CAMERA)},
-    //@const DAC_EN number Air780E和Air600E，Air780EP的DAC_EN(新版硬件手册的LDO_CTL，同一个PIN，命名变更)，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
+    //@const DAC_EN number Air780EXXX的DAC_EN(新版硬件手册的LDO_CTL，同一个PIN，命名变更)，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
     { "DAC_EN",         ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
-    //@const LDO_CTL number Air780E和Air600E，Air780EP的LDO_CTL(老版硬件手册的DAC_EN，同一个PIN，命名变更)，Air780EP的LDO_CTL, 注意audio的默认配置会自动使用这个脚来控制CODEC的使能
+    //@const LDO_CTL number Air780EXXX的LDO_CTL(老版硬件手册的DAC_EN，同一个PIN，命名变更)，Air780EXXX的LDO_CTL, 注意audio的默认配置会自动使用这个脚来控制CODEC的使能
     { "LDO_CTL",         ROREG_INT(LUAT_PM_POWER_LDO_CTL_PIN)},
-    //@const PWK_MODE number 是否开启移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
+    //@const PWK_MODE number 是否Air780EXXX的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
     { "PWK_MODE",       ROREG_INT(LUAT_PM_POWER_POWERKEY_MODE)},
-    //@const WORK_MODE number 移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)的节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗
+    //@const WORK_MODE number Air780EXXX的节能模式，0~3，0完全关闭，1~2普通低功耗，3超低功耗，深度休眠
     { "WORK_MODE",    ROREG_INT(LUAT_PM_POWER_WORK_MODE)},
-	//@const IOVL number 所有GPIO高电平电压控制,当前仅移芯CAT1平台系列(Air780E/Air700E/Air780EP等等)可用
+	//@const IOVL number 所有GPIO高电平电压控制,当前仅Air780EXXX可用
     { "IOVOL_ALL_GPIO",    ROREG_INT(LUAT_PM_ALL_GPIO)},
 
 	{ NULL,             ROREG_INT(0) }

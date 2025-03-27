@@ -187,7 +187,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式，如果填gpio.count，则为中断计数功能，中断时不回调
 @int pull 上拉下拉模式, 可以是上拉模式 gpio.PULLUP 或下拉模式 gpio.PULLDOWN, 或者开漏模式 0. 需要根据实际硬件选用
 @int irq 中断触发模式,默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都触发gpio.BOTH 
-@int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
+@int alt 复用选项，目前只有Air780EXXX平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
 @usage
 
@@ -215,12 +215,12 @@ end, gpio.PULLUP, gpio.RISING)
 gpio.setup(7, gpio.count)
 
 -- alt_func 于2023.7.2新增
--- 本功能仅对部分平台有效, 且仅用于调整GPIO复用,其他复用方式请使用muc.iomux函数
+-- 本功能仅对AIR780EXXX有效,仅用于调整GPIO复用,不能用于外设复用调整
 -- 以下示例代码, 将I2S_DOUT复用成gpio18
 -- AIR780E的PIN33(模块管脚序号), 对应paddr 38, 默认功能是I2S_DOUT, 复用成gpio18
 -- 方向输出,且初始化电平为低,使用硬件默认上下拉配置
--- Air780E(EC618系列的GPIO复用请查阅 https://air780e.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
--- Air780EP(EC718P系列的GPIO复用请查阅 https://air780ep.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
+-- Air780E(GPIO复用请查阅 https://air780e.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
+-- Air780EP(GPIO复用请查阅 https://air780ep.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
 gpio.setup(18, 0, nil, nil, 4)
 
 -- 提醒: 
@@ -228,7 +228,7 @@ gpio.setup(18, 0, nil, nil, 4)
 -- 当管脚为输出模式,才能通过gpio.set()设置电平
 -- 当管脚为输出模式,通过gpio.get()总会得到0
 -- 中断回调的val参数不代表触发方向, 仅代表中断后某个时间点的电平
--- 对Cat.1模块,EC618系列只有AONGPIO才能双向触发，其他系列所有GPIO都能双向触发，具体看硬件手册
+-- 对Cat.1模块,Air780E只有GPIO20~22才能双向触发，其他系列所有GPIO都能双向触发，具体看硬件手册
 -- 默认设置下,中断是没有防抖时间的,可以通过gpio.set_debounce(pin, 50)来设置防抖时间
 
 -- pull参数的额外说明, 上拉/下拉配置

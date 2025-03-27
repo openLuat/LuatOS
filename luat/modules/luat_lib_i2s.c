@@ -153,7 +153,7 @@ static int l_i2s_send(lua_State *L) {
 }
 
 /*
-接收i2s数据，注意在数据在回调时已经存放在zbuff里，目前只有air780e系列支持
+接收i2s数据，注意在数据在回调时已经存放在zbuff里，目前只有air780exxx系列支持
 @api i2s.recv(id, buffer, len)
 @int 通道id
 @zbuff 数据缓存区

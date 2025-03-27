@@ -27,7 +27,7 @@
 @api codec.create(type, isDecoder, quality)
 @int 多媒体类型，目前支持codec.MP3 codec.AMR
 @boolean 是否是解码器，true解码器，false编码器，默认true，是解码器
-@int 编码等级，部分bsp有内部编码器，可能需要提前输入编码等级，比如air780ep的内部amr编码器
+@int 编码等级，部分bsp有内部编解码器，可能需要提前输入编解码等级，不知道的就填7
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 创建解码器

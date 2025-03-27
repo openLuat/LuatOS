@@ -28,7 +28,7 @@ static luat_lv_t LV = {0};
 @int 屏幕高,可选,默认从lcd取
 @userdata lcd指针,可选,lcd初始化后有默认值,预留的多屏入口
 @int 缓冲区大小,默认宽*10, 不含色深.
-@int 缓冲模式,默认0, 单buff模式, 可选1,双buff模式
+@int 缓冲模式,默认0x06, bit0:是否使用lcdbuff bit1:buff1 bit2:buff2 bit3:是否使用lua heap
 @return bool 成功返回true,否则返回false
  */
 int luat_lv_init(lua_State *L);

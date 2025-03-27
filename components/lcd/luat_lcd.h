@@ -128,6 +128,7 @@ typedef struct luat_lcd_opts {
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
     int (*lcd_draw)(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+    int (*sleep_ctrl)(luat_lcd_conf_t* conf, uint8_t on_off);
 } luat_lcd_opts_t;
 
 extern luat_lcd_opts_t lcd_opts_gc9106l;
@@ -198,6 +199,7 @@ void luat_lcd_IF_init(luat_lcd_conf_t* conf);
 int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int luat_lcd_IF_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 int luat_lcd_IF_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+int luat_lcd_IF_sleep(luat_lcd_conf_t* conf, uint8_t on_off);
 /**
  * @brief luat_lcd_init放到service里跑，避免luat_lcd_init里漫长的delay带来的影响
  * @param conf lcd配置

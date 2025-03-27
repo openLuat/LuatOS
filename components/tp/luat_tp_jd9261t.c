@@ -132,8 +132,10 @@ static int jd9261t_irq_cb(int pin, void* args)
 	if (!jd9261t_tp.is_scan)
 	{
 		jd9261t_tp.is_scan = 1;
+		//luat_tp_irq_enable(luat_tp_config, 0);
 		luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
-		luat_start_rtos_timer(jd9261t_tp.scan_timer, jd9261t_tp.scan_time, 1);
+		//luat_start_rtos_timer(jd9261t_tp.scan_timer, jd9261t_tp.scan_time, 1);
+
 	}
 	return 0;
 }
@@ -152,7 +154,7 @@ static int tp_jd9261t_inited_init(luat_tp_config_t* luat_tp_config)
         luat_i2c_setup(luat_tp_config->i2c_id, I2C_SPEED_SLOW);
     }
 
-	if (tp_i2c_xfer(luat_tp_config->i2c_id, 0x68, ID, 4, ID, 2))
+	if (tp_i2c_xfer(luat_tp_config, 0x68, ID, 4, ID, 2))
 	{
 		LLOGE("TP not detect");
 	}
@@ -162,12 +164,12 @@ static int tp_jd9261t_inited_init(luat_tp_config_t* luat_tp_config)
 		{
 			luat_tp_config->refresh_rate = 10;
 		}
-		if (luat_tp_config->refresh_rate > 50)
+		if (luat_tp_config->refresh_rate > 100)
 		{
-			luat_tp_config->refresh_rate = 50;
+			luat_tp_config->refresh_rate = 100;
 		}
 		jd9261t_tp.scan_time = (1000 / luat_tp_config->refresh_rate);
-		LLOGI("TP detect %02x%02x, refresh time %dms", ID[1], ID[0], jd9261t_tp.scan_time);
+//		LLOGI("TP detect %02x%02x, refresh time %dms", ID[1], ID[0], jd9261t_tp.scan_time);
 		jd9261t_tp.config = luat_tp_config;
 		jd9261t_tp.is_scan = 0;
 		jd9261t_tp.scan_timer = luat_create_rtos_timer(jd9261t_scan_once, jd9261t_tp.config, NULL);
@@ -198,7 +200,8 @@ static int tp_jd9261t_deinit(luat_tp_config_t* luat_tp_config){
 
 static void tp_jd9261t_read_done(luat_tp_config_t * luat_tp_config)
 {
-
+	jd9261t_tp.is_scan = 0;
+	//luat_tp_irq_enable(luat_tp_config, 1);
 }
 
 luat_tp_opts_t tp_config_jd9261t_inited = {

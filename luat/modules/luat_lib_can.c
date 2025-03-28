@@ -229,8 +229,8 @@ CAN总线设置接收过滤模式，当can.node不满足需求时才使用这个
 @int AMR, 接收屏蔽寄存器值，必须写0xnnnnnnnn这样的格式，大端格式赋值到4个AMR寄存器上，对应bit写0表示需要检测，写1表示不检测，默认是0xffffffff，不过滤全接收
 @return boolean 成功返回true,失败返回false
 @usage
-can.filter(0, false, 0x12345678, 0x07) --效果等同于can.node(0, 0x12345678, CAN.EXT)
-can.filter(0, false, 0x123, 0x0001fffff) --效果等同于can.node(0, 0x123, CAN.STD)
+can.filter(0, false, 0x12345678 << 3, 0x07) --效果等同于can.node(0, 0x12345678, CAN.EXT)
+can.filter(0, false, 0x123 << 21, 0x0001fffff) --效果等同于can.node(0, 0x123, CAN.STD)
 */
 static int l_can_filter(lua_State *L)
 {

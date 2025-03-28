@@ -39,7 +39,10 @@ static int start_gogogo(int adpater_id, int is_server) {
         return 0;
     }
     if (is_server) {
+        char buff[64] = {0};
+        ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
         iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, NULL, NULL);
+        LLOGD("iperf listen %s:5001", buff);
     }
     else {
         //iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5000, NULL, NULL);

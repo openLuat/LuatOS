@@ -22,6 +22,12 @@
 #ifdef LUAT_USE_DRV_WLAN
 #include "luat/drv_wlan.h"
 #endif
+#include "luat_network_adapter.h"
+#ifdef LUAT_USE_NETDRV
+#include "luat_netdrv.h"
+#endif
+#include "lwip/ip.h"
+#include "lwip/ip_addr.h"
 
 #define LUAT_LOG_TAG "wlan"
 #include "luat_log.h"
@@ -96,12 +102,9 @@ static int l_wlan_mode(lua_State* L){
 @api wlan.ready()
 @return bool 已经连接成功返回true,否则返回false
 */
-static int l_wlan_ready(lua_State* L){
-    #ifdef LUAT_USE_DRV_WLAN
-    lua_pushboolean(L, luat_drv_wlan_ready());
-    #else
-    lua_pushboolean(L, luat_wlan_ready());
-    #endif
+static int l_wlan_ready(lua_State* L) {
+    int ready = network_check_ready(NULL, NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+    lua_pushboolean(L, ready);
     return 1;
 }
 
@@ -286,7 +289,22 @@ log.info("wlan mac", wlan.getMac())
 static int l_wlan_get_mac(lua_State* L){
     uint8_t tmp[6] = {0};
     char tmpbuff[16] = {0};
+    #ifdef LUAT_USE_NETDRV
+    int id = luaL_optinteger(L, 1, 0);
+    if (id == 0) {
+        id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+    }
+    else {
+        id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL ||netdrv->netif == NULL) {
+        return 0;
+    }
+    memcpy(tmp, netdrv->netif->hwaddr, 6);
+    #else
     luat_wlan_get_mac(luaL_optinteger(L, 1, 0), (char*)tmp);
+    #endif
     if (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) {
         lua_pushlstring(L, (const char*)tmp, 6);
     }
@@ -330,7 +348,22 @@ static int l_wlan_set_mac(lua_State* L){
 */
 static int l_wlan_get_ip(lua_State* L){
     char tmpbuff[16] = {0};
+    #ifdef LUAT_USE_NETDRV
+    int id = luaL_optinteger(L, 1, 0);
+    if (id == 0) {
+        id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+    }
+    else {
+        id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL ||netdrv->netif == NULL) {
+        return 0;
+    }
+    ipaddr_ntoa_r(&netdrv->netif->ip_addr, tmpbuff, 16);
+    #else
     luat_wlan_get_ip(luaL_optinteger(L, 1, 0), tmpbuff);
+    #endif
     lua_pushstring(L, tmpbuff);
     return 1;
 }

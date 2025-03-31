@@ -111,6 +111,17 @@ static int l_tp_init(lua_State* L){
     memset(luat_tp_config, 0x00, sizeof(luat_tp_config_t));
     luat_tp_config->callback = l_tp_callback;
     luat_tp_config->pin_rst = LUAT_GPIO_NONE;
+#ifdef LUAT_USE_LCD
+    luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
+    if (lcd_conf){
+        luat_tp_config->w = lcd_conf->w;
+        luat_tp_config->h = lcd_conf->h;
+        if (lcd_conf->direction90 || lcd_conf->direction270){
+            luat_tp_config->swap_xy = 1;
+        }
+    }
+#endif
+
     const char* tp_name = luaL_checklstring(L, 1, &len);
     for(int i = 0; i < 100; i++){
         if (strlen(tp_regs[i].name) == 0)
@@ -178,16 +189,6 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->tp_num = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
-
-#ifdef LUAT_USE_LCD
-    if (luat_tp_config->w == 0 || luat_tp_config->h == 0){
-        luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
-        if (lcd_conf){
-            luat_tp_config->w = lcd_conf->w;
-            luat_tp_config->h = lcd_conf->h;
-        }
-    }
-#endif
 
     ret = luat_tp_init(luat_tp_config);
     if (ret){

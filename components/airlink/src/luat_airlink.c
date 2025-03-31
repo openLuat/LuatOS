@@ -14,8 +14,10 @@
 
 #ifdef LUAT_USE_PSRAM
 #define AIRLINK_MEM_TYPE LUAT_HEAP_PSRAM
+#define AIRLINK_QUEUE_SIZE (4*1024)
 #else
 #define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
+#define AIRLINK_QUEUE_SIZE (2*1024)
 #endif
 
 luat_rtos_queue_t airlink_cmd_queue;
@@ -37,11 +39,11 @@ int luat_airlink_start(int id)
 {
     if (airlink_cmd_queue == NULL)
     {
-        luat_rtos_queue_create(&airlink_cmd_queue, 2048, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&airlink_cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     if (airlink_ippkg_queue == NULL)
     {
-        luat_rtos_queue_create(&airlink_ippkg_queue, 2048, sizeof(airlink_queue_item_t));
+        luat_rtos_queue_create(&airlink_ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
     if (id == 0)
     {

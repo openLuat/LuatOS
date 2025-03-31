@@ -106,7 +106,7 @@ static int l_tp_init(lua_State* L){
     }
     memset(luat_tp_config, 0x00, sizeof(luat_tp_config_t));
     luat_tp_config->callback = l_tp_callback;
-
+    luat_tp_config->pin_rst = LUAT_GPIO_NONE;
     const char* tp_name = luaL_checklstring(L, 1, &len);
     for(int i = 0; i < 100; i++){
         if (strlen(tp_regs[i].name) == 0)

@@ -14,6 +14,10 @@
 #include "luat_mem.h"
 #include "luat_gpio.h"
 
+#ifdef LUAT_USE_LCD
+#include "luat_lcd.h"
+#endif
+
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
 
@@ -174,6 +178,16 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->tp_num = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
+
+#ifdef LUAT_USE_LCD
+    if (luat_tp_config->w == 0 || luat_tp_config->h == 0){
+        luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
+        if (lcd_conf){
+            luat_tp_config->w = lcd_conf->w;
+            luat_tp_config->h = lcd_conf->h;
+        }
+    }
+#endif
 
     ret = luat_tp_init(luat_tp_config);
     if (ret){

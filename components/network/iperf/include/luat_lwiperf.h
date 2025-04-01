@@ -86,7 +86,8 @@ void* luat_lwiperf_start_tcp_server(const ip_addr_t* local_addr, u16_t local_por
 void* luat_lwiperf_start_tcp_server_default(lwiperf_report_fn report_fn, void* report_arg);
 void* luat_lwiperf_start_tcp_client(const ip_addr_t* remote_addr, u16_t remote_port,
                                enum lwiperf_client_type type,
-                               lwiperf_report_fn report_fn, void* report_arg);
+                               lwiperf_report_fn report_fn, void* report_arg,
+                               const ip_addr_t* local_addr);
 void* luat_lwiperf_start_tcp_client_default(const ip_addr_t* remote_addr,
                                lwiperf_report_fn report_fn, void* report_arg);
 

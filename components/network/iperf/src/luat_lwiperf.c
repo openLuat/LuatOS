@@ -396,7 +396,8 @@
   */
  static err_t
  lwiperf_tx_start_impl(const ip_addr_t *remote_ip, u16_t remote_port, lwiperf_settings_t *settings, lwiperf_report_fn report_fn,
-                       void *report_arg, lwiperf_state_base_t *related_master_state, lwiperf_state_tcp_t **new_conn)
+                       void *report_arg, lwiperf_state_base_t *related_master_state, lwiperf_state_tcp_t **new_conn,
+                      const ip_addr_t *local_ip)
  {
    err_t err;
    lwiperf_state_tcp_t *client_conn;
@@ -435,6 +436,14 @@
    tcp_err(newpcb, lwiperf_tcp_err);
  
    ip_addr_copy(remote_addr, *remote_ip);
+
+   if (local_ip != NULL) {
+    err = tcp_bind(newpcb, local_ip, 0);
+    if (err != ERR_OK) {
+      return err;
+    }
+   }
+   
  
    err = tcp_connect(newpcb, &remote_addr, remote_port, lwiperf_tcp_client_connected);
    if (err != ERR_OK) {
@@ -454,7 +463,7 @@
    u16_t remote_port = (u16_t)lwip_htonl(conn->settings.remote_port);
  
    ret = lwiperf_tx_start_impl(&conn->conn_pcb->remote_ip, remote_port, &conn->settings, conn->report_fn, conn->report_arg,
-     conn->base.related_master_state, &new_conn);
+     conn->base.related_master_state, &new_conn, NULL);
    if (ret == ERR_OK) {
      LWIP_ASSERT("new_conn != NULL", new_conn != NULL);
      new_conn->settings.flags = 0; /* prevent the remote side starting back as client again */
@@ -756,7 +765,7 @@
                                 lwiperf_report_fn report_fn, void* report_arg)
  {
    return  luat_lwiperf_start_tcp_client(remote_addr, LWIPERF_TCP_PORT_DEFAULT, LWIPERF_CLIENT,
-                                   report_fn, report_arg);
+                                   report_fn, report_arg, NULL);
  }
  
  /**
@@ -767,7 +776,7 @@
   *          by calling @ref lwiperf_abort()
   */
  void*  luat_lwiperf_start_tcp_client(const ip_addr_t* remote_addr, u16_t remote_port,
-   enum lwiperf_client_type type, lwiperf_report_fn report_fn, void* report_arg)
+   enum lwiperf_client_type type, lwiperf_report_fn report_fn, void* report_arg, const ip_addr_t* local_addr)
  {
    err_t ret;
    lwiperf_settings_t settings;
@@ -796,7 +805,7 @@
    /* TODO: implement passing duration/amount of bytes to transfer */
    settings.amount = htonl((u32_t)-1000);
  
-   ret = lwiperf_tx_start_impl(remote_addr, remote_port, &settings, report_fn, report_arg, NULL, &state);
+   ret = lwiperf_tx_start_impl(remote_addr, remote_port, &settings, report_fn, report_arg, NULL, &state, local_addr);
    if (ret == ERR_OK) {
      LWIP_ASSERT("state != NULL", state != NULL);
      if (type != LWIPERF_CLIENT) {

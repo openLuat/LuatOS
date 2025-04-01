@@ -14,6 +14,7 @@
 #include "luat_lwiperf.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
+#include "luat_msgbus.h"
 #include "lwip/ip.h"
 
 #define LUAT_LOG_TAG "iperf"
@@ -21,8 +22,36 @@
 
 static void* iperf_session;
 
-static int start_gogogo(int adpater_id, int is_server) {
+static int l_iperf_report_handle(lua_State*L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    uint32_t bytes_transferred, ms_duration, bandwidth;
+    bytes_transferred = msg->arg1;
+    ms_duration = msg->arg2;
+    bandwidth = (int)ptr;
+    lua_getglobal(L, "sys_pub");
+    lua_pushstring(L, "IPERF_REPORT");
+    lua_pushinteger(L, bytes_transferred);
+    lua_pushinteger(L, ms_duration);
+    lua_pushinteger(L, bandwidth);
+    LLOGD("report bytes %ld ms_duration %ld bandwidth %ld kbps", bytes_transferred, ms_duration, bandwidth);
+    lua_call(L, 4, 0);
+    return 0;
+}
 
+static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
+    const ip_addr_t* local_addr, u16_t local_port, const ip_addr_t* remote_addr, u16_t remote_port,
+    u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
+    rtos_msg_t msg = {0};
+    msg.arg1 = bytes_transferred;
+    msg.arg2 = ms_duration;
+    msg.ptr = (void*)bandwidth_kbitpsec;
+    msg.handler = l_iperf_report_handle;
+    luat_msgbus_put(&msg, 0);
+}
+
+static int start_gogogo(int adpater_id, int is_server, const ip_addr_t* remote_ip) {
+    char buff[64] = {0};
+    char buff2[64] = {0};
     if (adpater_id < 0 || adpater_id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         // 必须明确指定合法的索引号
         LLOGE("非法的网络适配器索引号 %d", adpater_id);
@@ -38,15 +67,15 @@ static int start_gogogo(int adpater_id, int is_server) {
         LLOGE("该网络还没就绪, 无法启动");
         return 0;
     }
+    ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
     if (is_server) {
-        char buff[64] = {0};
-        ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
-        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, NULL, NULL);
+        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, iperf_report_cb, NULL);
         LLOGD("iperf listen %s:5001", buff);
     }
     else {
-        //iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5000, NULL, NULL);
-        return 0;
+        ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
+        luat_lwiperf_start_tcp_client(remote_ip, 5001, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
+        LLOGD("iperf connect %s --> %s:5001", buff, buff2);
     }
     return iperf_session != NULL;
 }
@@ -69,7 +98,7 @@ static int l_iperf_server(lua_State *L) {
         return 0;
     }
     int adpater_id = luaL_checkinteger(L, 1);
-    if (start_gogogo(adpater_id, 1)) {
+    if (start_gogogo(adpater_id, 1, NULL)) {
         lua_pushboolean(L, 1);
         return 1;
     }
@@ -77,6 +106,21 @@ static int l_iperf_server(lua_State *L) {
 }
 
 static int l_iperf_client(lua_State *L) {
+    ip_addr_t remote_ip = {0};
+    if (iperf_session != NULL) {
+        LLOGE("已经启动了server或者client,要先关掉才能启动新的");
+        return 0;
+    }
+    int adpater_id = luaL_checkinteger(L, 1);
+    const char* ip = luaL_checkstring(L, 2);
+    if (ipaddr_aton(ip, &remote_ip) == 0) {
+        LLOGE("非法的ip地址 %s", ip);
+        return 0;
+    }
+    if (start_gogogo(adpater_id, 0, &remote_ip)) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
     return 0;
 }
 
@@ -92,6 +136,7 @@ static int l_iperf_abort(lua_State *L) {
         return 0;
     }
     luat_lwiperf_abort(iperf_session);
+    iperf_session = NULL;
     lua_pushboolean(L, 1);
     return 1;
 }

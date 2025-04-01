@@ -116,7 +116,7 @@ static int l_tp_init(lua_State* L){
     if (lcd_conf){
         luat_tp_config->w = lcd_conf->w;
         luat_tp_config->h = lcd_conf->h;
-        if (lcd_conf->direction90 || lcd_conf->direction270){
+        if (lcd_conf->opts->direction90 || lcd_conf->opts->direction270){
             luat_tp_config->swap_xy = 1;
         }
     }

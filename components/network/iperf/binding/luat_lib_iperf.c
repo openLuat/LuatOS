@@ -105,6 +105,28 @@ static int l_iperf_server(lua_State *L) {
     return 0;
 }
 
+/*
+启动client模式
+@api iperf.client(id)
+@int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH0
+@string 远程服务器的ip, 只能是ipv4地址,不支持域名!!! 必须填值
+@return boolean 成功返回true, 失败返回false
+@usage
+-- 启动client模式, 连接服务器的5001端口
+if iperf then
+    log.info("启动iperf客户端端")
+    -- 47.94.236.172 是演示服务器, 不一定有开启
+    iperf.client(socket.LWIP_ETH, "47.94.236.172")
+    sys.wait(60*1000)
+    -- 测试完成停掉
+    iperf.abort()
+end
+
+-- 测试结果回调
+sys.subscribe("IPERF_REPORT", function(bytes, ms_duration, bandwidth)
+    log.info("iperf", bytes, ms_duration, bandwidth)
+end)
+*/
 static int l_iperf_client(lua_State *L) {
     ip_addr_t remote_ip = {0};
     if (iperf_session != NULL) {

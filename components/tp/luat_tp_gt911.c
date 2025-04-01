@@ -234,12 +234,13 @@ static int tp_gt911_gpio_init(luat_tp_config_t* luat_tp_config){
     // luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_HIGH);
     /* 0x5D */
     luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
-
-    luat_rtos_task_sleep(1);
-    luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(5);
-
+    
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
+
+        luat_rtos_task_sleep(1);
+        luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
+        luat_rtos_task_sleep(5);
+
         luat_rtos_task_sleep(2);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
     }

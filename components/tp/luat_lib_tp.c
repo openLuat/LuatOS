@@ -14,6 +14,10 @@
 #include "luat_mem.h"
 #include "luat_gpio.h"
 
+#ifdef LUAT_USE_LCD
+#include "luat_lcd.h"
+#endif
+
 #define LUAT_LOG_TAG "tp"
 #include "luat_log.h"
 
@@ -106,6 +110,17 @@ static int l_tp_init(lua_State* L){
     }
     memset(luat_tp_config, 0x00, sizeof(luat_tp_config_t));
     luat_tp_config->callback = l_tp_callback;
+    luat_tp_config->pin_rst = LUAT_GPIO_NONE;
+#ifdef LUAT_USE_LCD
+    luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
+    if (lcd_conf){
+        luat_tp_config->w = lcd_conf->w;
+        luat_tp_config->h = lcd_conf->h;
+        if (lcd_conf->direction90 || lcd_conf->direction270){
+            luat_tp_config->swap_xy = 1;
+        }
+    }
+#endif
 
     const char* tp_name = luaL_checklstring(L, 1, &len);
     for(int i = 0; i < 100; i++){

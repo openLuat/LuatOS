@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 
 
 -- sys库是标配
@@ -9,16 +9,14 @@ _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
+wdt.init(3000)
+sys.timerLoopStart(wdt.feed, 1000)
+
 sys.taskInit(function()
     -- sys.wait(500)
     airlink.start(0)
-    wlan.init()
-    -- wlan.connect("uiot", "12345678")
-    -- sys.wait(500)
-    -- wlan.createAP("uiot5678", "12345678")
-    -- log.info("设置静态IPV4")
-    -- netdrv.ipv4(socket.LWIP_ETH, "192.168.1.129", "255.255.255.0", "192.168.1.1")
-    -- log.info("ip", socket.localIP(socket.LWIP_ETH))
+    -- wlan.init()
+    -- sys.wait(5000)
 end)
 
 sys.taskInit(function()
@@ -30,6 +28,7 @@ sys.taskInit(function()
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
         log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
+        airlink.statistics()
         -- log.info("ip", socket.localIP(socket.LWIP_ETH))
     end
 end)

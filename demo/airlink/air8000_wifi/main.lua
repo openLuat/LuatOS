@@ -12,6 +12,15 @@ httpplus = require("httpplus")
 
 PWR8000S = gpio.setup(23, 0, gpio.PULLUP) -- 关闭Air8000S的LDO供电
 
+gpio.debounce(0, 1000)
+gpio.setup(0, function()
+    sys.taskInit(function()
+        log.info("复位Air8000S")
+        PWR8000S(0)
+        sys.wait(20)
+        PWR8000S(1)
+    end)
+end, gpio.PULLDOWN)
 
 function test_ap()
     log.info("执行AP创建操作")
@@ -30,19 +39,25 @@ function test_ap()
 end
 
 function test_sta()
+    log.info("执行STA连接操作")
     wlan.connect("luatos1234", "12341234")
     netdrv.dhcp(socket.LWIP_STA, true)
-    netdrv.napt(socket.LWIP_STA)
-    while 1 do
-        -- log.info("MAC地址", netdrv.mac(socket.LWIP_STA))
-        -- log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
-        -- log.info("ready?", netdrv.ready(socket.LWIP_STA))
-        sys.wait(1000)
-        log.info("执行http请求")
-        -- local code = http.request("GET", "http://192.168.1.15:8000/README.md", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
-        log.info("http执行结果", code, headers, body and #body)
-    end
+    -- netdrv.napt(socket.LWIP_STA)
+    sys.wait(8000)
+    iperf.server(socket.LWIP_STA)
+
+    sys.wait(5000)
+    -- airlink.slave_reboot()
+    -- while 1 do
+    --     -- log.info("MAC地址", netdrv.mac(socket.LWIP_STA))
+    --     -- log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
+    --     -- log.info("ready?", netdrv.ready(socket.LWIP_STA))
+    --     sys.wait(1000)
+    --     log.info("执行http请求")
+    --     -- local code = http.request("GET", "http://192.168.1.15:8000/README.md", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
+    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=3000}).wait()
+    --     log.info("http执行结果", code, headers, body and #body)
+    -- end
 end
 
 function test_scan()
@@ -74,8 +89,9 @@ sys.taskInit(function()
     -- 初始化airlink
     airlink.init()
     -- 启动底层线程, 从机模式
-    airlink.start(1)
     PWR8000S(1)
+    sys.wait(200)
+    airlink.start(1)
     sys.wait(500) -- 稍微缓一下
     airlink.test(10)
     netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
@@ -86,10 +102,10 @@ sys.taskInit(function()
     sys.wait(100)
     
     -- 启动AP测试
-    test_ap()
+    -- test_ap()
 
     -- 连接STA测试
-    -- test_sta()
+    test_sta()
 
     -- wifi扫描测试
     -- test_scan()

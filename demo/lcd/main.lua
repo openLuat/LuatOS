@@ -86,28 +86,32 @@ end
 if spi_id == lcd.RGB then
     lcd.init("h050iwv",
             {port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,
-            direction = 0,w = 800,h = 480,xoffset = 0,yoffset = 0})
+            direction = 0,w = 800,h = 480})
     
     -- lcd.init("hx8282",
     --         {port = port,pin_pwr = bl, pin_rst = pin_reset,
-    --         direction = 0,w = 1024,h = 600,xoffset = 0,yoffset = 0})
+    --         direction = 0,w = 1024,h = 600})
 
     -- lcd.init("nv3052c",
     --         {port = port,pin_pwr = bl, pin_rst = pin_reset,
-    --         direction = 0,w = 720,h = 1280,xoffset = 0,yoffset = 0})
+    --         direction = 0,w = 720,h = 1280})
 
     -- lcd.init("st7701sn",
     --         {port = port,pin_pwr = bl, pin_rst = pin_reset,
-    --         direction = 0,w = 480,h = 854,xoffset = 0,yoffset = 0})
+    --         direction = 0,w = 480,h = 854})
 
     -- lcd.init("st7701s",
     --         {port = port,pin_pwr = bl, pin_rst = pin_reset,
-    --         direction = 0,w = 480,h = 480,xoffset = 0,yoffset = 0})
+    --         direction = 0,w = 480,h = 480})
 
     -- lcd.init("custom",
     --         {port = port,hbp = 46, hspw = 2, hfp = 48,vbp = 24, vspw = 2, vfp = 24,
-    --         bus_speed = 60*1000*1000,
-    --         direction = 0,w = 800,h = 480,xoffset = 0,yoffset = 0})
+    --         bus_speed = 60*1000*1000,direction = 0,w = 800,h = 480})
+
+    -- -- "jd9261t"
+    -- lcd.init("custom",{port = port,
+    --         hbp = 180, hspw = 2, hfp = 48,vbp =24, vspw = 2, vfp = 158,
+    --         bus_speed = 60*1000*1000,direction = 0,w =720,h = 720})
 
 else
     --[[ 此为合宙售卖的1.8寸TFT LCD LCD 分辨率:128X160 屏幕ic:st7735 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
@@ -165,12 +169,19 @@ if tp then
         sys.publish("TP",tp_device,tp_data)
     end
     -- 根据具体设计修改配置
+
     -- 硬件i2c参考
-    -- tp_device = tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23,w = 320,h = 480},tp_callBack)
-    
-    -- 软件i2c 参考
+    -- local i2c_id = 0
+    -- i2c.setup(i2c_id)
+    -- tp_device = tp.init("gt911",{port=i2c_id0,pin_rst = 22,pin_int = 23},tp_callBack)
+
+    -- 软件i2c 参考, 由于软件模拟，所以i2c速率需自己测试填写延时进行控制!不同bsp速度不同需自行调整!!!!
+    -- "jd9261t"
+    -- softI2C = i2c.createSoft(8, 5, 60)
+    -- tp_device =  tp.init("jd9261t",{port=softI2C,pin_rst = 9,pin_int = 6},tp_callBack)
+    -- "gt911"
     softI2C = i2c.createSoft(8, 5)
-    tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6,w = 320,h = 480},tp_callBack)
+    tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6},tp_callBack)
     if tp_device then
         print(tp_device)
         sys.taskInit(function()

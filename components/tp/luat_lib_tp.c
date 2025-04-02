@@ -209,6 +209,11 @@ static const rotable_Reg_t reg_tp[] =
 {
 	{ "init",	    ROREG_FUNC(l_tp_init)},
 
+    { "EVENT_TYPE_NONE",    ROREG_INT(TP_EVENT_TYPE_NONE)},
+    { "EVENT_TYPE_DOWN",    ROREG_INT(TP_EVENT_TYPE_DOWN)},
+    { "EVENT_TYPE_UP",      ROREG_INT(TP_EVENT_TYPE_UP)},
+    { "EVENT_TYPE_MOVE",    ROREG_INT(TP_EVENT_TYPE_MOVE)},
+
     { "RISING",     ROREG_INT(LUAT_GPIO_RISING_IRQ)},
     { "FALLING",    ROREG_INT(LUAT_GPIO_FALLING_IRQ)},
 	{ NULL,         ROREG_INT(0) }

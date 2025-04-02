@@ -234,7 +234,7 @@ static int tp_gt911_gpio_init(luat_tp_config_t* luat_tp_config){
     // luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_HIGH);
     /* 0x5D */
     luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
-    
+
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
 
         luat_rtos_task_sleep(1);
@@ -255,7 +255,6 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
     int ret = 0;
     luat_rtos_task_sleep(100);
     tp_gt911_gpio_init(luat_tp_config);
-    tp_i2c_init(luat_tp_config);
 
     ret = tp_gt911_detect(luat_tp_config);
     if (ret){

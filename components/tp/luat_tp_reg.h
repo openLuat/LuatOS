@@ -3,15 +3,6 @@
 
 #include "luat_i2c.h"
 
-static inline int tp_i2c_init(luat_tp_config_t* luat_tp_config){
-    if (luat_tp_config->soft_i2c != NULL){
-        i2c_soft_setup(luat_tp_config->soft_i2c);
-    }else{
-        luat_i2c_setup(luat_tp_config->i2c_id, I2C_SPEED_FAST);
-    }
-    return 0;
-}
-
 static inline int tp_i2c_write(luat_tp_config_t* luat_tp_config, uint8_t* cmd, size_t cmd_len, void* data, size_t data_len){
     size_t len = cmd_len+data_len;
     uint8_t data_reg[len];

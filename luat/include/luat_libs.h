@@ -206,4 +206,7 @@ LUAMOD_API int luaopen_can( lua_State *L );
 // airlink库
 LUAMOD_API int luaopen_airlink( lua_State *L );
 
+// 充电芯片
+LUAMOD_API int luaopen_yhm27xx( lua_State *L );
+
 #endif

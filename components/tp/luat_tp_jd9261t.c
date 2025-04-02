@@ -60,6 +60,7 @@ typedef struct luat_touch_info{
 }luat_tp_info_t;
 
 static uint8_t jd9261t_init_state = 0;
+static uint8_t jd9261t_back_door_mode = 1;
 
 /* 根据官方推荐,使用后门方式 */
 static inline int jd9261t_Read_BackDoor_RegSingle(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata){
@@ -91,8 +92,7 @@ static inline int jd9261t_Write_BackDoor_RegSingle(luat_tp_config_t* luat_tp_con
     return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
 }
 
-static inline int jd9261t_Read_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen)
-{
+static inline int jd9261t_Read_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen){
     uint8_t addrBuf[JD_SIX_SIZE];
 
     addrBuf[0] = 0xF3;
@@ -105,8 +105,7 @@ static inline int jd9261t_Read_BackDoor_RegMulti(luat_tp_config_t* luat_tp_confi
     return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, rlen, 0);
 }
 
-static inline int jd9261t_Write_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen)
-{
+static inline int jd9261t_Write_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen){
     uint8_t addrBuf[JD_SIX_SIZE];
 
     addrBuf[0] = 0xF2;
@@ -117,6 +116,122 @@ static inline int jd9261t_Write_BackDoor_RegMulti(luat_tp_config_t* luat_tp_conf
     addrBuf[5] = 0x03;
 
     return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), wdata, wlen);
+}
+
+static int jd9261t_Read_FW_RegSingleI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata){
+    uint8_t addrBuf[JD_SIX_SIZE];
+    uint8_t readBuf[JD_ONE_SIZE];
+
+    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
+    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
+    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
+    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
+    addrBuf[4] = 0x00;
+    addrBuf[5] = 0x01;
+
+    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, JD_ONE_SIZE, 0);
+}
+
+static int jd9261t_Write_FW_RegSingleI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t wdata){
+    uint8_t addrBuf[JD_SIX_SIZE];
+    uint8_t writeBuf[JD_ONE_SIZE];
+
+    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
+    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
+    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
+    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
+    addrBuf[4] = 0x00;
+    addrBuf[5] = 0x01;
+    writeBuf[0] = wdata;
+
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+}
+
+static int jd9261t_Read_FW_RegMultiI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen){
+    uint8_t addrBuf[JD_SIX_SIZE];
+
+    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
+    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
+    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
+    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
+    addrBuf[4] = (uint8_t)((rlen & 0xFF00) >> 8);
+    addrBuf[5] = (uint8_t)((rlen & 0x00FF) >> 0);
+
+    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, rlen, 0);
+}
+
+static int jd9261t_Write_FW_RegMultiI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen){
+    uint8_t addrBuf[JD_SIX_SIZE];
+
+    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
+    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
+    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
+    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
+    addrBuf[4] = (uint8_t)((wlen & 0xFF00) >> 8);
+    addrBuf[5] = (uint8_t)((wlen & 0x00FF) >> 0);
+
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), wdata, wlen);
+}
+
+static inline int jd9261t_ReadRegSingle(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata){
+    if (jd9261t_back_door_mode){
+        return jd9261t_Read_BackDoor_RegSingle(luat_tp_config, addr, rdata);
+    } else {
+        return jd9261t_Read_FW_RegSingleI2c(luat_tp_config, addr, rdata);
+    }
+}
+
+static inline int jd9261t_WriteRegSingle(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t wdata){
+    if (jd9261t_back_door_mode){
+        return jd9261t_Write_BackDoor_RegSingle(luat_tp_config, addr, wdata);
+    } else {
+        return jd9261t_Write_FW_RegSingleI2c(luat_tp_config, addr, wdata);
+    }
+}
+
+static inline int jd9261t_ReadRegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen){
+    if (jd9261t_back_door_mode){
+        return jd9261t_Read_BackDoor_RegMulti(luat_tp_config, addr, rdata, rlen);
+    } else {
+        return jd9261t_Read_FW_RegMultiI2c(luat_tp_config, addr, rdata, rlen);
+    }
+}
+
+static inline int jd9261t_WriteRegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen){
+    if (jd9261t_back_door_mode){
+        return jd9261t_Write_BackDoor_RegMulti(luat_tp_config, addr, wdata, wlen);
+    } else {
+        return jd9261t_Write_FW_RegMultiI2c(luat_tp_config, addr, wdata, wlen);
+    }
+}
+
+
+static inline int jd9261t_EnterBackDoor(luat_tp_config_t* luat_tp_config){
+    uint8_t addrBuf[JD_FIVE_SIZE];
+    uint8_t writeBuf[JD_ONE_SIZE];
+
+    addrBuf[0] = 0xF2;
+    addrBuf[1] = 0xAA;
+    addrBuf[2] = 0xF0;
+    addrBuf[3] = 0x0F;
+    addrBuf[4] = 0x55;
+    writeBuf[0] = 0x68;
+
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+}
+
+static inline int jd9261t_ExitBackDoor(luat_tp_config_t* luat_tp_config){
+    uint8_t addrBuf[JD_FIVE_SIZE];
+    uint8_t writeBuf[JD_ONE_SIZE];
+
+    addrBuf[0] = 0xF2;
+    addrBuf[1] = 0xAA;
+    addrBuf[2] = 0x88;
+    addrBuf[3] = 0x00;
+    addrBuf[4] = 0x00;
+    writeBuf[0] = 0x00;
+
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
 }
 
 // static int jd9261t_obtain_config(luat_tp_config_t* luat_tp_config, uint8_t *config, uint8_t size){
@@ -151,16 +266,26 @@ static inline int jd9261t_Write_BackDoor_RegMulti(luat_tp_config_t* luat_tp_conf
 // 	return 0;
 // }
 
+static inline int tp_jd9261t_soft_reset(luat_tp_config_t* luat_tp_config){
+    return tp_i2c_write_reg32(luat_tp_config, JT9261T_REG_RESET, (uint8_t[]){JT9261T_CMD_RESET}, 1);
+}
+
 static int tp_jd9261t_detect(luat_tp_config_t* luat_tp_config){
     uint16_t product_id = 0;
     luat_tp_config->address = JT9261T_ADDRESS0;
-    jd9261t_Read_BackDoor_RegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
+    if (jd9261t_back_door_mode){
+        jd9261t_EnterBackDoor(luat_tp_config); /* EnterBackDoor */
+    }
+    jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
     if (product_id == JT9261T_PRODUCT_ID_CODE){
         LLOGI("TP find device JT9261T ,address:0x%02X",luat_tp_config->address);
         return 0;
     }else{
         luat_tp_config->address = JT9261T_ADDRESS1;
-        jd9261t_Read_BackDoor_RegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
+        if (jd9261t_back_door_mode){
+            jd9261t_EnterBackDoor(luat_tp_config); /* EnterBackDoor */
+        }
+        jd9261t_ReadRegMulti(luat_tp_config, JT9261T_PRODUCT_ID, &product_id, sizeof(product_id));
         if (product_id == JT9261T_PRODUCT_ID_CODE){
             LLOGI("TP find device JT9261T ,address:0x%02X",luat_tp_config->address);
             return 0;
@@ -205,38 +330,6 @@ static inline int tp_jd9261t_gpio_init(luat_tp_config_t* luat_tp_config){
     return 0;
 }
 
-static inline int tp_jd9261t_soft_reset(luat_tp_config_t* luat_tp_config){
-    return tp_i2c_write_reg32(luat_tp_config, JT9261T_REG_RESET, (uint8_t[]){JT9261T_CMD_RESET}, 1);
-}
-
-static inline int jd9261t_EnterBackDoor(luat_tp_config_t* luat_tp_config){
-    uint8_t addrBuf[JD_FIVE_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = 0xAA;
-    addrBuf[2] = 0xF0;
-    addrBuf[3] = 0x0F;
-    addrBuf[4] = 0x55;
-    writeBuf[0] = 0x68;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
-}
-
-static inline int jd9261t_ExitBackDoor(luat_tp_config_t* luat_tp_config){
-    uint8_t addrBuf[JD_FIVE_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = 0xAA;
-    addrBuf[2] = 0x88;
-    addrBuf[3] = 0x00;
-    addrBuf[4] = 0x00;
-    writeBuf[0] = 0x00;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
-}
-
 static int tp_jd9261t_init(luat_tp_config_t* luat_tp_config){
     int ret = 0;
     luat_rtos_task_sleep(100);
@@ -245,12 +338,16 @@ static int tp_jd9261t_init(luat_tp_config_t* luat_tp_config){
 
     ret = tp_jd9261t_detect(luat_tp_config);
     if (ret){
-        LLOGE("tp detect fail!");
-        return ret;
+        LLOGD("tp backdoor mode detect fail!");
+        jd9261t_back_door_mode = 0;
+        ret = tp_jd9261t_detect(luat_tp_config);
+        if(ret){
+            LLOGE("tp detect fail!");
+            return ret;
+        }
     }
 
-    /* EnterBackDoor */
-    jd9261t_EnterBackDoor(luat_tp_config);
+
 
     // uint8_t cfg_table[JT9261T_CONFIG_SIZE] = {0};
     // jd9261t_obtain_config(luat_tp_config, cfg_table, JT9261T_CONFIG_SIZE);
@@ -428,7 +525,7 @@ void jd9261t_read_point(luat_tp_touch_t *input_buff, void *buf, uint8_t touch_nu
 static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
     uint8_t touch_num=0, point_status=0;
 
-    jd9261t_Read_BackDoor_RegMulti(luat_tp_config, JT9261T_READ_COOR_ADDR, (uint8_t *)&luat_touch_info, sizeof(luat_touch_info));
+    jd9261t_ReadRegMulti(luat_tp_config, JT9261T_READ_COOR_ADDR, (uint8_t *)&luat_touch_info, sizeof(luat_touch_info));
     
     touch_num = luat_touch_info.touch_num;
     jd9261t_read_point(luat_touch_info.point, luat_tp_data, luat_touch_info.touch_num);

@@ -48,7 +48,7 @@ CMD_DEFINE(gpio_setup);
 CMD_DEFINE(gpio_set);
 // CMD_DEFINE(gpio_get);
 
-const luat_airlink_cmd_reg_t airlink_cmds[] = {
+__USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x100, ip_pkg),

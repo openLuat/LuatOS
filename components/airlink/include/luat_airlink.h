@@ -51,6 +51,10 @@ typedef struct airlink_statistic {
     airlink_statistic_part_t wait_rdy;
     airlink_statistic_part_t rx_ip;
     airlink_statistic_part_t tx_ip;
+    airlink_statistic_part_t rx_bytes;
+    airlink_statistic_part_t tx_bytes;
+    airlink_statistic_part_t rx_napt_ip;
+    airlink_statistic_part_t rx_napt_bytes;
 
     // Task等待事件
     airlink_statistic_part_t event_timeout;
@@ -210,5 +214,13 @@ int luat_airlink_drv_wlan_get_ap_gateway(char* buff);
 // AP类
 int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo);
 int luat_airlink_drv_wlan_ap_stop(void);
+
+#ifdef TYPE_EC718M
+#include "platform_def.h"
+#endif
+
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
 
 #endif

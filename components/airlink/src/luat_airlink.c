@@ -28,6 +28,7 @@ extern int luat_airlink_start_master(void);
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
+uint32_t g_airlink_spi_task_mode;
 
 int luat_airlink_init(void)
 {
@@ -47,10 +48,12 @@ int luat_airlink_start(int id)
     }
     if (id == 0)
     {
+        g_airlink_spi_task_mode = 0;
         luat_airlink_start_slave();
     }
     else
     {
+        g_airlink_spi_task_mode = 1;
         luat_airlink_start_master();
     }
     return 0;
@@ -159,14 +162,20 @@ int luat_airlink_cmd_recv(int tp, airlink_queue_item_t *item, size_t timeout)
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
 {
     int ret = 0;
+    g_airlink_statistic.tx_ip.total ++;
+    g_airlink_statistic.tx_bytes.total += len;
     if (len < 8)
     {
         LLOGE("数据包太小了, 抛弃掉");
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -1;
     }
     luat_netdrv_t* netdrv = luat_netdrv_get(adapter_id);
     if (netdrv == NULL || netdrv->netif == NULL) {
         LLOGW("应该是BUG了, netdrv为空或者没有netif %d", adapter_id);
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -2;
     }
     struct eth_hdr* eth = (struct eth_hdr*)data;
@@ -176,6 +185,8 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
         }
         else {
             // LLOGD("不是ARP/IP包,丢弃掉");
+            g_airlink_statistic.tx_ip.drop ++;
+            g_airlink_statistic.tx_bytes.drop += len;
             return -3;
         }
     }
@@ -186,11 +197,15 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     luat_meminfo_opt_sys(AIRLINK_MEM_TYPE, &total, &used, &max_used);
     if (total - used < 32*1024 && len > 512) {
         LLOGW("内存相对不足(%d), 丢弃掉大包(%d)", total - used, len);
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -3;
     }
     else if (total - used < 8*1024) {
         // 内存严重不足, 抛弃所有的包
         LLOGW("内存严重不足(%d), 丢弃掉所有包(%d)", total - used, len);
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -4;
     }
 
@@ -200,6 +215,8 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     };
     if (item.cmd == NULL)
     {
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -2;
     }
     memcpy(item.cmd->data + 1, data, len);
@@ -210,8 +227,12 @@ int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t *data, size_t len)
     if (ret != 0) {
         luat_heap_free(item.cmd);
         LLOGD("发送消息失败 长度 %d ret %d", len, ret);
+        g_airlink_statistic.tx_ip.drop ++;
+        g_airlink_statistic.tx_bytes.drop += len;
         return -4;
     }
+    g_airlink_statistic.tx_ip.ok ++;
+    g_airlink_statistic.tx_bytes.ok += len;
     return 0;
 }
 

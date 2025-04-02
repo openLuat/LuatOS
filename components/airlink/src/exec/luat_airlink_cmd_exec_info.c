@@ -21,7 +21,7 @@
 
 luat_airlink_dev_info_t airlink_ext_dev_info;
 
-int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
+__USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_airlink_dev_info_t* dev = cmd->data;
     luat_netdrv_t* drv = NULL;
     // LLOGD("收到设备信息通知 类型 %d", dev->tp);

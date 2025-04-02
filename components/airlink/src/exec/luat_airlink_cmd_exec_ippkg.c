@@ -17,8 +17,12 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
+extern airlink_statistic_t g_airlink_statistic;
+
+__USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
     uint8_t adapter_id = cmd->data[0];
+    g_airlink_statistic.rx_ip.total += 1;
+    g_airlink_statistic.rx_bytes.total += cmd->len - 1;
     // LLOGD("收到IP包 长度 %d 适配器 %d", cmd->len - 1, adapter_id);
     // luat_airlink_print_mac_pkg(cmd->data + 1, cmd->len - 1);
     // luat_airlink_hexdump("收到IP包", cmd->data + 1, cmd->len - 1);
@@ -28,14 +32,20 @@ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
 
     ret = luat_netdrv_napt_pkg_input(adapter_id, cmd->data + 1, cmd->len - 1);
     if (ret != 0) {
+        g_airlink_statistic.rx_napt_ip.total += 1;
+        g_airlink_statistic.rx_napt_bytes.total += cmd->len - 1;
         // LLOGD("NAPT说已经处理完成, 不需要转发给具体的netdrv了");
         return 0;
     }
     drv = luat_netdrv_get(adapter_id);
     if (drv == NULL || drv->netif == NULL) {
+        g_airlink_statistic.rx_ip.drop += 1;
+        g_airlink_statistic.rx_bytes.drop += cmd->len - 1;
         LLOGD("没有找到适配器 %d, 无法处理其IP包", adapter_id);
         return 0;
     }
+    g_airlink_statistic.rx_ip.ok += 1;
+    g_airlink_statistic.rx_bytes.ok += cmd->len - 1;
     
     // 这里开始就复杂了
     // 首先, 如果是平台的包, 那就直接交给平台处理

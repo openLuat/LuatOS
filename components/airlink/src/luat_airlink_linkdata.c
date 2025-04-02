@@ -12,14 +12,6 @@ airlink数据打包解包,数据链路层
 #include "luat_netdrv_whale.h"
 #include "lwip/prot/ethernet.h"
 
-#ifdef TYPE_EC718M
-#include "platform_def.h"
-#endif
-
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__ 
-#endif
-
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 

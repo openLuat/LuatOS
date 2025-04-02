@@ -14,7 +14,7 @@ extern const luat_airlink_cmd_reg_t airlink_cmds[];
 
 extern int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata);
 
-void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
+__USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     // if (cmd->cmd == 0x100) {
     //     // IP数据直接处理,不走线程
@@ -30,8 +30,8 @@ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     luat_rtos_event_send(airlink_task_handle, 1, (uint32_t)ptr, len, 0, 0);
 }
 
-static int luat_airlink_task(void *param) {
-    LLOGD("处理线程启动");
+__USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
+    // LLOGD("处理线程启动");
     luat_event_t event;
     luat_airlink_cmd_t* ptr = NULL;
     // size_t len = 0;

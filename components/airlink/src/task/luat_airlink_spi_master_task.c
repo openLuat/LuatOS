@@ -199,7 +199,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
             if (tmpval == 1) {
                 g_airlink_statistic.wait_rdy.total ++;
                 tnow = luat_mcu_tick64_ms();
-                if (tnow - warn_slave_no_ready > 100) {
+                if (tnow - warn_slave_no_ready > 1000) {
                     warn_slave_no_ready = tnow;
                     LLOGD("从机未就绪,等1ms");
                 }

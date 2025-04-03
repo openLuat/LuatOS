@@ -8,15 +8,6 @@
 #define LUAT_LOG_TAG "jd9261t"
 #include "luat_log.h"
 
-#define JD_ONE_SIZE    1
-#define JD_TWO_SIZE    2
-#define JD_THREE_SIZE  3
-#define JD_FOUR_SIZE   4
-#define JD_FIVE_SIZE   5
-#define JD_SIX_SIZE    6
-#define JD_SEVEN_SIZE  7
-#define JD_EIGHT_SIZE  8
-
 #define JT9261T_ADDRESS0              (0x68)
 #define JT9261T_ADDRESS1              (0x14)
 
@@ -60,116 +51,103 @@ typedef struct luat_touch_info{
 }luat_tp_info_t;
 
 static uint8_t jd9261t_init_state = 0;
+
+/* 根据官方推荐,优先使用后门方式,自动识别，如不支持自动切换至非后门 */
 static uint8_t jd9261t_back_door_mode = 1;
 
-/* 根据官方推荐,使用后门方式 */
 static inline int jd9261t_Read_BackDoor_RegSingle(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata){
-    int ReCode;
-    uint8_t addrBuf[JD_SIX_SIZE];
-
-    addrBuf[0] = 0xF3;
-    addrBuf[1] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[2] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[4] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[5] = 0x03;
-
-    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, JD_ONE_SIZE, 0);
+    uint8_t addrBuf[] = {
+        0xF3,
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x03,
+    };
+    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, 1, 0);
 }
 
 static inline int jd9261t_Write_BackDoor_RegSingle(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t wdata){
-    uint8_t addrBuf[JD_SIX_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[2] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[4] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[5] = 0x03;
-    writeBuf[0] = wdata;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+    uint8_t addrBuf[] = {
+        0xF2,
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x03,
+    };
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), (uint8_t[]){wdata}, 1);
 }
 
 static inline int jd9261t_Read_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen){
-    uint8_t addrBuf[JD_SIX_SIZE];
-
-    addrBuf[0] = 0xF3;
-    addrBuf[1] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[2] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[4] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[5] = 0x03;
-
+    uint8_t addrBuf[] = {
+        0xF3,
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x03,
+    };
     return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, rlen, 0);
 }
 
 static inline int jd9261t_Write_BackDoor_RegMulti(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen){
-    uint8_t addrBuf[JD_SIX_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[2] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[3] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[4] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[5] = 0x03;
-
+    uint8_t addrBuf[] = {
+        0xF2,
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x03,
+    };
     return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), wdata, wlen);
 }
 
 static int jd9261t_Read_FW_RegSingleI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata){
-    uint8_t addrBuf[JD_SIX_SIZE];
-    uint8_t readBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[4] = 0x00;
-    addrBuf[5] = 0x01;
-
-    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, JD_ONE_SIZE, 0);
+    uint8_t addrBuf[] = {
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x00,
+        0x01,
+    };
+    return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, 1, 0);
 }
 
 static int jd9261t_Write_FW_RegSingleI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t wdata){
-    uint8_t addrBuf[JD_SIX_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[4] = 0x00;
-    addrBuf[5] = 0x01;
-    writeBuf[0] = wdata;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+    uint8_t addrBuf[] = {
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        0x00,
+        0x01,
+    };
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), (uint8_t[]){wdata}, 1);
 }
 
 static int jd9261t_Read_FW_RegMultiI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *rdata, uint16_t rlen){
-    uint8_t addrBuf[JD_SIX_SIZE];
-
-    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[4] = (uint8_t)((rlen & 0xFF00) >> 8);
-    addrBuf[5] = (uint8_t)((rlen & 0x00FF) >> 0);
-
+    uint8_t addrBuf[] = {
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        (uint8_t)((rlen & 0xFF00) >> 8),
+        (uint8_t)((rlen & 0x00FF) >> 0),
+    };
     return tp_i2c_read(luat_tp_config, addrBuf, sizeof(addrBuf), rdata, rlen, 0);
 }
 
 static int jd9261t_Write_FW_RegMultiI2c(luat_tp_config_t* luat_tp_config, uint32_t addr, uint8_t *wdata, uint16_t wlen){
-    uint8_t addrBuf[JD_SIX_SIZE];
-
-    addrBuf[0] = (uint8_t)((addr & 0xFF000000) >> 24);
-    addrBuf[1] = (uint8_t)((addr & 0x00FF0000) >> 16);
-    addrBuf[2] = (uint8_t)((addr & 0x0000FF00) >> 8);
-    addrBuf[3] = (uint8_t)((addr & 0x000000FF) >> 0);
-    addrBuf[4] = (uint8_t)((wlen & 0xFF00) >> 8);
-    addrBuf[5] = (uint8_t)((wlen & 0x00FF) >> 0);
-
+    uint8_t addrBuf[] = {
+        (uint8_t)((addr & 0xFF000000) >> 24),
+        (uint8_t)((addr & 0x00FF0000) >> 16),
+        (uint8_t)((addr & 0x0000FF00) >> 8),
+        (uint8_t)((addr & 0x000000FF) >> 0),
+        (uint8_t)((wlen & 0xFF00) >> 8),
+        (uint8_t)((wlen & 0x00FF) >> 0),
+    };
     return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), wdata, wlen);
 }
 
@@ -207,31 +185,25 @@ static inline int jd9261t_WriteRegMulti(luat_tp_config_t* luat_tp_config, uint32
 
 
 static inline int jd9261t_EnterBackDoor(luat_tp_config_t* luat_tp_config){
-    uint8_t addrBuf[JD_FIVE_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = 0xAA;
-    addrBuf[2] = 0xF0;
-    addrBuf[3] = 0x0F;
-    addrBuf[4] = 0x55;
-    writeBuf[0] = 0x68;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+    uint8_t addrBuf[] = {
+        0xF2,
+        0xAA,
+        0xF0,
+        0x0F,
+        0x55,
+    };
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), (uint8_t[]){0x68}, 1);
 }
 
 static inline int jd9261t_ExitBackDoor(luat_tp_config_t* luat_tp_config){
-    uint8_t addrBuf[JD_FIVE_SIZE];
-    uint8_t writeBuf[JD_ONE_SIZE];
-
-    addrBuf[0] = 0xF2;
-    addrBuf[1] = 0xAA;
-    addrBuf[2] = 0x88;
-    addrBuf[3] = 0x00;
-    addrBuf[4] = 0x00;
-    writeBuf[0] = 0x00;
-
-    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), writeBuf, sizeof(writeBuf));
+    uint8_t addrBuf[] = {
+        0xF2,
+        0xAA,
+        0x88,
+        0x00,
+        0x00,
+    };
+    return tp_i2c_write(luat_tp_config, addrBuf, sizeof(addrBuf), (uint8_t[]){0x00}, 1);
 }
 
 // static int jd9261t_obtain_config(luat_tp_config_t* luat_tp_config, uint8_t *config, uint8_t size){
@@ -423,9 +395,12 @@ static int tp_jd9261t_deinit(luat_tp_config_t* luat_tp_config){
     return 0;
 }
 
-static void tp_jd9261t_read_done(luat_tp_config_t * luat_tp_config)
-{
-	luat_tp_irq_enable(luat_tp_config, 1);
+static void tp_jd9261t_read_done(luat_tp_config_t * luat_tp_config){
+    if (luat_gpio_get(luat_tp_config->pin_int)){
+        luat_tp_irq_enable(luat_tp_config, 1);
+    }else{
+        luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
+    }
 }
 
 // jd9261t get tp info.

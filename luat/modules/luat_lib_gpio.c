@@ -730,20 +730,21 @@ static const rotable_Reg_t reg_gpio[] =
     { "LOW_IRQ",        ROREG_INT(Luat_GPIO_LOW_IRQ)},
 #if (defined CHIP_EC618) || (defined CHIP_EC718) || (defined CHIP_EC716)
 
-    //@const WAKEUP0 number WAKEUP_PAD
+    //@const WAKEUP0 number 休眠唤醒脚0
     { "WAKEUP0",         ROREG_INT(HAL_WAKEUP_0)},
-    //@const WAKEUP1 number WAKEUP_PAD
+    //@const WAKEUP1 number 休眠唤醒脚1
     { "WAKEUP1",         ROREG_INT(HAL_WAKEUP_1)},
-    //@const WAKEUP2 number WAKEUP_PAD
+    //@const WAKEUP2 number 休眠唤醒脚2
     { "WAKEUP2",         ROREG_INT(HAL_WAKEUP_2)},
 #if (defined CHIP_EC718) || (defined CHIP_EC716)
-    //@const WAKEUP3 number WAKEUP_PAD
+    //@const WAKEUP3 number 休眠唤醒脚3
     { "WAKEUP3",         ROREG_INT(HAL_WAKEUP_3)},
-    //@const WAKEUP4 number WAKEUP_PAD
+    //@const WAKEUP4 number 休眠唤醒脚4
     { "WAKEUP4",         ROREG_INT(HAL_WAKEUP_4)},
-    //@const WAKEUP5 number WAKEUP_PAD
+    //@const WAKEUP5 number 休眠唤醒脚5
     { "WAKEUP5",         ROREG_INT(HAL_WAKEUP_5)},
-    //@const CHG_DET number WAKEUP_PAD
+    //@const WAKEUP6 number 休眠唤醒脚6
+    { "WAKEUP6",         ROREG_INT(HAL_WAKEUP_CHARGE)},
     { "CHG_DET",         ROREG_INT(HAL_WAKEUP_CHARGE)},
 #endif
 	//@const PWR_KEY number WAKEUP_PAD

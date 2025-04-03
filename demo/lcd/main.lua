@@ -108,7 +108,7 @@ if spi_id == lcd.RGB then
     --         {port = port,hbp = 46, hspw = 2, hfp = 48,vbp = 24, vspw = 2, vfp = 24,
     --         bus_speed = 60*1000*1000,direction = 0,w = 800,h = 480})
 
-    -- -- "jd9261t"
+    -- "jd9261t"
     -- lcd.init("custom",{port = port,
     --         hbp = 180, hspw = 2, hfp = 48,vbp =24, vspw = 2, vfp = 158,
     --         bus_speed = 60*1000*1000,direction = 0,w =720,h = 720})
@@ -177,7 +177,7 @@ if tp then
 
     -- 软件i2c 参考, 由于软件模拟，所以i2c速率需自己测试填写延时进行控制!不同bsp速度不同需自行调整!!!!
     -- "jd9261t"
-    -- softI2C = i2c.createSoft(8, 5, 60)
+    -- softI2C = i2c.createSoft(8, 5, 25)
     -- tp_device =  tp.init("jd9261t",{port=softI2C,pin_rst = 9,pin_int = 6},tp_callBack)
     -- "gt911"
     softI2C = i2c.createSoft(8, 5)
@@ -188,9 +188,11 @@ if tp then
             while 1 do 
                 local result, tp_device, tp_data = sys.waitUntil("TP")
                 if result then
-                    lcd.drawPoint(tp_data[1].x, tp_data[1].y, 0xF800)
-                    if lcd_use_buff then
-                        lcd.flush()
+                    if tp_data[1].event == 1 or tp_data[1].event == 3 then
+                        lcd.drawPoint(tp_data[1].x, tp_data[1].y, 0xF800)
+                        if lcd_use_buff then
+                            lcd.flush()
+                        end
                     end
                 end
             end

@@ -188,7 +188,7 @@ if tp then
             while 1 do 
                 local result, tp_device, tp_data = sys.waitUntil("TP")
                 if result then
-                    if tp_data[1].event == 1 or tp_data[1].event == 3 then
+                    if tp_data[1].event == tp.EVENT_TYPE_DOWN or tp_data[1].event == tp.EVENT_TYPE_MOVE then
                         lcd.drawPoint(tp_data[1].x, tp_data[1].y, 0xF800)
                         if lcd_use_buff then
                             lcd.flush()

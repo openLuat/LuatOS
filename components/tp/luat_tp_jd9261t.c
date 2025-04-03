@@ -37,16 +37,18 @@
 #define JT9261T_REFRESH_RATE_MAX      (20)
 
 typedef struct{
-    uint16_t x;
-    uint16_t y;
+    uint8_t x_h;
+    uint8_t x_l;
+    uint8_t y_h;
+    uint8_t y_l;
     uint8_t w;
-    uint8_t test;
+    uint8_t reserved;
 }luat_tp_touch_t;
 
 typedef struct luat_touch_info{
     uint8_t touch_num;
-    uint8_t test0;
-    uint8_t test1;
+    uint8_t reserved0;
+    uint8_t reserved1;
     luat_tp_touch_t point[JT9261T_TOUCH_NUMBER_MAX];
 }luat_tp_info_t;
 
@@ -453,7 +455,7 @@ void jd9261t_touch_down(void *buf, int8_t id, int16_t x, int16_t y, int16_t w){
 	pre_w[id] = w;
 }
 
-void jd9261t_read_point(luat_tp_touch_t *input_buff, void *buf, uint8_t touch_num){
+void jd9261t_read_point(luat_tp_config_t* luat_tp_config, luat_tp_touch_t *input_buff, void *buf, uint8_t touch_num){
 	luat_tp_touch_t *read_buf = input_buff;
 	uint8_t read_index;
 	int8_t read_id = 0;
@@ -484,8 +486,11 @@ void jd9261t_read_point(luat_tp_touch_t *input_buff, void *buf, uint8_t touch_nu
 		uint8_t off_set;
 		for (read_index = 0; read_index < touch_num; read_index++){
 			pre_id[read_index] = read_index;
-			input_x = read_buf[read_index].x;	/* x */
-			input_y = read_buf[read_index].y;	/* y */
+			input_x = read_buf[read_index].x_h<<8 | read_buf[read_index].x_l;	/* x */
+			input_y = read_buf[read_index].y_h<<8 | read_buf[read_index].y_l;	/* y */
+            if (input_x>luat_tp_config->w || input_y>luat_tp_config->h){
+                return;
+            }
             input_w = read_buf[read_index].w;	/* w */
 			jd9261t_touch_down(buf, read_index, input_x, input_y, input_w);
 		}
@@ -503,7 +508,7 @@ static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
     jd9261t_ReadRegMulti(luat_tp_config, JT9261T_READ_COOR_ADDR, (uint8_t *)&luat_touch_info, sizeof(luat_touch_info));
     
     touch_num = luat_touch_info.touch_num;
-    jd9261t_read_point(luat_touch_info.point, luat_tp_data, luat_touch_info.touch_num);
+    jd9261t_read_point(luat_tp_config, luat_touch_info.point, luat_tp_data, luat_touch_info.touch_num);
 
     return touch_num;
 }

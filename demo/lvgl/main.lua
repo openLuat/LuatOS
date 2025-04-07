@@ -135,14 +135,14 @@ end
 
 -- 不在内置驱动的, 看demo/lcd_custom
 
-local label, slider_value
+local img_luatos, slider_value
 
 local function event_handler(obj, event)
     if (event == lvgl.EVENT_VALUE_CHANGED) then
         local LV_VER_RES = lvgl.disp_get_ver_res()
         local value = lvgl.slider_get_value(obj)
         lvgl.label_set_text(slider_value, value)
-        lvgl.obj_set_x(label, LV_VER_RES*value/100)
+        lvgl.obj_set_x(img_luatos, LV_VER_RES*value/100)
     end
 end
 
@@ -159,6 +159,7 @@ sys.taskInit(function()
     if tp then
         softI2C = i2c.createSoft(8, 5)
         tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6})
+        
         lvgl.indev_drv_register("pointer", "touch", tp_device)
     end
 
@@ -168,9 +169,9 @@ sys.taskInit(function()
     lvgl.obj_align(lv_slider, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
     lvgl.obj_set_event_cb(lv_slider, event_handler)
 
-    label = lvgl.label_create(scr)
-    lvgl.label_set_text(label, "LuatOS!")
-    lvgl.obj_set_y(label,lvgl.obj_get_y(lv_slider) - 40)
+    img_luatos = lvgl.img_create(scr)
+    lvgl.img_set_src(img_luatos, "/luadb/logo.jpg")
+    lvgl.obj_set_y(img_luatos,lvgl.obj_get_y(lv_slider) - 100)
 
     slider_value = lvgl.label_create(scr)
     lvgl.label_set_text(slider_value, 0)

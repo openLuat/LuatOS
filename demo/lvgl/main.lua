@@ -109,6 +109,11 @@ if spi_id == lcd.RGB then
     --         bus_speed = 60*1000*1000,
     --         direction = 0,w = 800,h = 480,xoffset = 0,yoffset = 0})
 
+    -- "jd9261t"
+    -- lcd.init("custom",{port = port,
+    --         hbp = 180, hspw = 2, hfp = 48,vbp =24, vspw = 2, vfp = 158,
+    --         bus_speed = 60*1000*1000,direction = 0,w =720,h = 720})
+
 else
     --[[ 此为合宙售卖的1.8寸TFT LCD LCD 分辨率:128X160 屏幕ic:st7735 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
     lcd.init("st7735",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
@@ -130,9 +135,14 @@ end
 
 -- 不在内置驱动的, 看demo/lcd_custom
 
+local label, slider_value
+
 local function event_handler(obj, event)
-    if(event == lvgl.EVENT_CLICKED) then
-            print("Clicked")
+    if (event == lvgl.EVENT_VALUE_CHANGED) then
+        local LV_VER_RES = lvgl.disp_get_ver_res()
+        local value = lvgl.slider_get_value(obj)
+        lvgl.label_set_text(slider_value, value)
+        lvgl.obj_set_x(label, LV_VER_RES*value/100)
     end
 end
 
@@ -148,18 +158,24 @@ sys.taskInit(function()
 
     if tp then
         softI2C = i2c.createSoft(8, 5)
-        tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6,w = 320,h = 480})
-        
+        tp_device =  tp.init("gt911",{port=softI2C,pin_rst = 9,pin_int = 6})
         lvgl.indev_drv_register("pointer", "touch", tp_device)
     end
 
     local scr = lvgl.obj_create(nil, nil)
-    local btn = lvgl.btn_create(scr)
-    lvgl.obj_set_event_cb(btn, event_handler)
-    lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
-    local label = lvgl.label_create(btn)
+
+    local lv_slider = lvgl.slider_create(scr, nil)
+    lvgl.obj_align(lv_slider, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
+    lvgl.obj_set_event_cb(lv_slider, event_handler)
+
+    label = lvgl.label_create(scr)
     lvgl.label_set_text(label, "LuatOS!")
-    
+    lvgl.obj_set_y(label,lvgl.obj_get_y(lv_slider) - 40)
+
+    slider_value = lvgl.label_create(scr)
+    lvgl.label_set_text(slider_value, 0)
+    lvgl.obj_align(slider_value, lv_slider, lvgl.ALIGN_OUT_BOTTOM_MID, 0, 20)
+
     lvgl.scr_load(scr)
 end)
 

@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -193,12 +194,12 @@ int luat_lv_table_get_cell_merge_right(lua_State *L) {
 int luat_lv_table_get_pressed_cell(lua_State *L) {
     LV_DEBUG("CALL lv_table_get_pressed_cell");
     lv_obj_t* table = (lv_obj_t*)lua_touserdata(L, 1);
-    uint16_t* row = (uint16_t*)lua_touserdata(L, 2);
-    uint16_t* col = (uint16_t*)lua_touserdata(L, 3);
+    uint16_t row = 0;
+    uint16_t col = 0;
     lv_res_t ret;
-    ret = lv_table_get_pressed_cell(table ,row ,col);
-    lua_pushboolean(L, ret == LV_RES_OK ? 1 : 0);
-    lua_pushinteger(L, ret);
+    ret = lv_table_get_pressed_cell(table , &row , &col);
+    lua_pushinteger(L, row);
+    lua_pushinteger(L, col);
     return 2;
 }
 

@@ -50,6 +50,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
     int type = (*(luat_sfud_flash_t*)(spi->user_data)).luat_spi;
     if ( type == LUAT_TYPE_SPI ) {
         luat_spi_t* spi_flash = (luat_spi_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
+        luat_spi_lock(spi_flash -> id);
         if (write_size && read_size) {
             if (luat_spi_transfer(spi_flash -> id, (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
                 result = SFUD_ERR_TIMEOUT;
@@ -63,6 +64,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
                 result = SFUD_ERR_READ;
             }
         }
+        luat_spi_unlock(spi_flash -> id);
     }
     else if ( type == LUAT_TYPE_SPI_DEVICE ) {
         luat_spi_device_t* spi_dev = (luat_spi_device_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);

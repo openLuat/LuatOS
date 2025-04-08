@@ -29,6 +29,8 @@
 #define LUAT_LOG_TAG "SPI_TF"
 #include "luat_log.h"
 
+//#define luat_spi_lock(x)
+//#define luat_spi_unlock(x)
 
 #define __SDHC_BLOCK_LEN__	(512)
 
@@ -911,7 +913,9 @@ static uint8_t luat_spitf_is_ready(luat_spitf_ctrl_t *spitf)
 static DSTATUS luat_spitf_initialize(void* userdata)
 {
 	luat_mutex_lock(g_s_spitf.locker);
+	luat_spi_lock(g_s_spitf.SpiID);
 	luat_spitf_init(&g_s_spitf);
+	luat_spi_unlock(g_s_spitf.SpiID);
 	luat_mutex_unlock(g_s_spitf.locker);
 	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
 }
@@ -919,6 +923,7 @@ static DSTATUS luat_spitf_initialize(void* userdata)
 static DSTATUS luat_spitf_status(void* userdata)
 {
 	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
+
 }
 
 static DRESULT luat_spitf_read(void* userdata, uint8_t* buff, LBA_t sector, UINT count)
@@ -929,7 +934,9 @@ static DRESULT luat_spitf_read(void* userdata, uint8_t* buff, LBA_t sector, UINT
 		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
+	luat_spi_lock(g_s_spitf.SpiID);
 	luat_spitf_read_blocks(&g_s_spitf, buff, sector, count);
+	luat_spi_unlock(g_s_spitf.SpiID);
 	luat_mutex_unlock(g_s_spitf.locker);
 	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
@@ -942,7 +949,9 @@ static DRESULT luat_spitf_write(void* userdata, const uint8_t* buff, LBA_t secto
 		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
+	luat_spi_lock(g_s_spitf.SpiID);
 	luat_spitf_write_blocks(&g_s_spitf, buff, sector, count);
+	luat_spi_unlock(g_s_spitf.SpiID);
 	luat_mutex_unlock(g_s_spitf.locker);
 	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
@@ -955,7 +964,9 @@ static DRESULT luat_spitf_ioctl(void* userdata, uint8_t ctrl, void* buff)
 		luat_mutex_unlock(g_s_spitf.locker);
 		return RES_NOTRDY;
 	}
+	luat_spi_lock(g_s_spitf.SpiID);
 	luat_spitf_read_config(&g_s_spitf);
+	luat_spi_unlock(g_s_spitf.SpiID);
 	luat_mutex_unlock(g_s_spitf.locker);
 	switch (ctrl) {
 		case CTRL_SYNC :		/* Make sure that no pending write process */

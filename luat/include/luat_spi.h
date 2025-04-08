@@ -253,5 +253,20 @@ int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t leng
  */
 int luat_spi_device_send(luat_spi_device_t* spi_dev, const char* send_buf, size_t length);
 
+/**
+ * @brief 锁定SPI，只有主模式下才能使用，多个设备挂载在同一条总线上需要使用
+ *
+ * @param spi_id spi id
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_lock(int spi_id);
+
+/**
+ * @brief 释放SPI，只有主模式下才能使用，多个设备挂载在同一条总线上需要使用
+ *
+ * @param spi_id spi id
+ * @return int 成功返回0，其他-1
+ */
+int luat_spi_unlock(int spi_id);
 /**@}*/
 #endif

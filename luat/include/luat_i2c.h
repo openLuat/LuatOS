@@ -127,6 +127,23 @@ int luat_i2c_no_block_transfer(int id, int addr, uint8_t is_read, uint8_t *reg, 
 int luat_i2c_set_iomux(int id, uint8_t value);
 
 int luat_i2c_set_polling_mode(int id, uint8_t on_off);
+
+/**
+ * @brief 锁定I2C，只有主模式下才能使用，多个设备挂载在同一条总线上需要使用
+ *
+ * @param id i2c总线id
+ * @return int 成功返回0，其他-1
+ */
+int luat_i2c_lock(int id);
+
+/**
+ * @brief 释放I2C，只有主模式下才能使用，多个设备挂载在同一条总线上需要使用
+ *
+ * @param id i2c总线id
+ * @return int 成功返回0，其他-1
+ */
+int luat_i2c_unlock(int id);
+/**@}*/
 /** @}*/
 
 #define LUAT_EI2C_TYPE "EI2C*"

@@ -198,8 +198,11 @@ int luat_lv_table_get_pressed_cell(lua_State *L) {
     uint16_t col = 0;
     lv_res_t ret;
     ret = lv_table_get_pressed_cell(table , &row , &col);
-    lua_pushinteger(L, row);
-    lua_pushinteger(L, col);
-    return 2;
+    if (ret == 0) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+        return 2;
+    }
+    return 0;
 }
 

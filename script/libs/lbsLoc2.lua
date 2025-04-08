@@ -103,7 +103,7 @@ end
 @number 服务器端口,默认12411,一般不需要填
 @bool   是否要求返回服务器时间
 @return string  若成功,返回定位坐标的纬度,否则会返还nil
-@return string  若成功,返回定位坐标的精度,否则会返还nil
+@return string  若成功,返回定位坐标的经度,否则会返还nil
 @return table   服务器时间,东八区时间. 当reqTime为true且定位成功才会返回
 @usage
 -- 关于坐标系

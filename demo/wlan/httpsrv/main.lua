@@ -45,7 +45,7 @@ sys.taskInit(function()
             return 200, {}, "ok"
         end
         return 404, {}, "Not Found" .. uri
-    end)
+    end, socket.LWIP_STA)
     log.info("web", "pls open url http://" .. _G.wlan_ip .. "/")
 end)
 

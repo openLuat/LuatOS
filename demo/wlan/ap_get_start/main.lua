@@ -28,6 +28,7 @@ local LEDA= gpio.setup(12, 0, gpio.PULLUP)
 local scan_result = {}
 
 sys.taskInit(function()
+    log.info("AP", "luatos_" .. wlan.getMac(), "12341234")
     sys.wait(1000)
     wlan.init()
     sys.wait(300)
@@ -70,7 +71,7 @@ sys.taskInit(function()
         end
         -- 其他情况就是找不到了
         return 404, {}, "Not Found" .. uri
-    end)
+    end, socket.LWIP_AP)
     log.info("web", "pls open url http://192.168.4.1/")
 end)
 

@@ -937,7 +937,7 @@ static int l_socket_listen(lua_State *L)
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
 @usage 
-local succ, new_netc = socket.listen(ctrl, cb)
+local succ, new_netc = socket.accept(ctrl, cb)
 */
 static int l_socket_accept(lua_State *L)
 {

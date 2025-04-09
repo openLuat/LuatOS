@@ -112,7 +112,8 @@ static int l_mcu_hz(lua_State* L) {
 local value = mcu.reg32(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值,修改bit0为1
 */
 static int l_mcu_reg32(lua_State* L) {
-    volatile uint32_t *address = (uint32_t *)(luaL_checkinteger(L, 1) & 0xfffffffc);
+	uint32_t addr = luaL_checkinteger(L, 1);
+    volatile uint32_t *address = (uint32_t *)(addr & 0xfffffffc);
     if (lua_isinteger(L, 2)) {
     	volatile uint32_t value = lua_tointeger(L, 2);
     	volatile uint32_t mask = luaL_optinteger(L, 3, 0xffffffff);

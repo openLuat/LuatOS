@@ -9,6 +9,7 @@
 #include "luat_mcu.h"
 #include <math.h>
 #include "luat_airlink.h"
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -108,18 +109,58 @@ static int l_airlink_slave_reboot(lua_State *L) {
     return 0;
 }
 
+static int l_airlink_sdata(lua_State *L) {
+    size_t len = 0;
+    const char* data = NULL;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        data = luaL_checklstring(L, 1, &len);
+    }
+    else if (lua_isuserdata(L, 1)) {
+        // zbuff
+        luat_zbuff_t* buff = tozbuff(L);
+        data = (const char*)buff->addr;
+        len = buff->used;
+    }
+    else {
+        LLOGE("无效的参数,只能是字符串或者zbuff");
+        return 0;
+    }
+    if (len > 1500) {
+        LLOGE("无效的数据长度,最大1500字节");
+        return 0;
+    }
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    cmd->cmd = 0x20;
+    cmd->len = len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int l_airlink_ready(lua_State *L) {
+    lua_pushboolean(L, luat_airlink_ready());
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
     { "init" ,         ROREG_FUNC(l_airlink_init )},
     { "start" ,        ROREG_FUNC(l_airlink_start )},
     { "stop" ,         ROREG_FUNC(l_airlink_stop )},
+    { "ready",         ROREG_FUNC(l_airlink_ready)},
     { "test",          ROREG_FUNC(l_airlink_test )},
+    { "sdata",         ROREG_FUNC(l_airlink_sdata)},
     { "statistics",    ROREG_FUNC(l_airlink_statistics )},
     { "slave_reboot",   ROREG_FUNC(l_airlink_slave_reboot )},
 
     // 测试用的fota指令
     // { "fota",          ROREG_FUNC(l_airlink_fota )},
+
+    { "MODE_SPI_SLAVE",    ROREG_INT(0) },
+    { "MODE_SPI_MASTER",   ROREG_INT(1) },
 	{ NULL,            ROREG_INT(0) }
 };
 

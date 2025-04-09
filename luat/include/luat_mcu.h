@@ -39,8 +39,9 @@ void luat_mcu_set_clk_source(uint8_t source_main, uint8_t source_32k, uint32_t d
  * @return 0 用户配置了 1用户没配置
  */
 uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
+#endif
 /**
- * @brief 用户控制外设的IOMUX，如果不配置或者取消，则外设初始化时使用默认配置
+ * @brief 用户控制外设的IOMUX，如果不配置或者取消，则外设初始化时使用默认配置，已废弃
  * @param type 外设类型 LUAT_MCU_PERIPHERAL_XXX
  * @param sn 外设序号，0~7
  * @param pad_index pad序号，具体看芯片，可能是GPIO序号，可能是PAD序号。如果是-1，则表示取消配置
@@ -49,7 +50,7 @@ uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
  * @return 无
  */
 void luat_mcu_iomux_ctrl(uint8_t type, uint8_t sn, int pad_index, uint8_t alt, uint8_t is_input);
-#endif
+
 
 void luat_mcu_set_hardfault_mode(int mode);
 /**

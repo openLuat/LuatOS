@@ -56,7 +56,7 @@ typedef struct luat_gpio_cfg
     uint8_t output_level;/**<GPIO输出高低电平选择*/
     luat_gpio_irq_cb irq_cb;/**<GPIO中断回调函数*/
     void* irq_args;/**<GPIO中断回调时用户参数*/
-    uint8_t alt_fun;/**<有些SOC的GPIO会在不同引脚上被复用，通过alt_fun来确定具体用哪个*/
+    uint8_t alt_fun;/**<有些SOC的GPIO会在不同引脚上被复用，通过alt_fun来确定具体用哪个,已废弃*/
 } luat_gpio_cfg_t;
 
 

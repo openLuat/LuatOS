@@ -2,7 +2,7 @@
 #define LUAT_MCU_H
 #include "luat_base.h"
 
-enum
+typedef enum
 {
 	LUAT_MCU_PERIPHERAL_UART,
 	LUAT_MCU_PERIPHERAL_I2C,
@@ -15,7 +15,8 @@ enum
 	LUAT_MCU_PERIPHERAL_LCD,
 	LUAT_MCU_PERIPHERAL_CAMERA,
 	LUAT_MCU_PERIPHERAL_ONEWIRE,
-};
+	LUAT_MCU_PERIPHERAL_KEYBORAD,
+}LUAT_MCU_PERIPHERAL_E;
 
 int luat_mcu_set_clk(size_t mhz);
 int luat_mcu_get_clk(void);
@@ -30,6 +31,7 @@ int luat_mcu_us_period(void);
 uint64_t luat_mcu_tick64_ms(void);
 void luat_mcu_set_clk_source(uint8_t source_main, uint8_t source_32k, uint32_t delay);
 
+#if 0
 /**
  * @brief 用户是否设置了外设的IOMUX
  * @param type 外设类型 LUAT_MCU_PERIPHERAL_XXX
@@ -47,6 +49,7 @@ uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
  * @return 无
  */
 void luat_mcu_iomux_ctrl(uint8_t type, uint8_t sn, int pad_index, uint8_t alt, uint8_t is_input);
+#endif
 
 void luat_mcu_set_hardfault_mode(int mode);
 /**

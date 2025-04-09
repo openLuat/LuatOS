@@ -77,7 +77,7 @@ typedef	struct
 
 typedef	struct
 {
-	pin_iomux_info onewire;
+	pin_iomux_info io;
 }onewire_iomux_info;
 
 typedef struct

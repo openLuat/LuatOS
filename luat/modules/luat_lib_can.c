@@ -462,9 +462,9 @@ static const rotable_Reg_t reg_can[] =
     { "CB_ERR",        ROREG_INT(LUAT_CAN_CB_ERROR_REPORT)},
 	//@const CB_STATE number 回调消息类型，总线状态变更，后续param是新的状态，也可以用can.state读出
 	{ "CB_STATE",        ROREG_INT(LUAT_CAN_CB_STATE_CHANGE)},
-    //@const STATE_TEST number 自收自发状态，选择自测模式时进入这个状态
+    //@const EXT number 扩展帧
     { "EXT",        ROREG_INT(1)},
-	//@const STATE_SLEEP number 休眠状态，选择休眠模式时进入这个状态
+	//@const STD number 标准帧
 	{ "STD",        ROREG_INT(0)},
     { NULL,         ROREG_INT(0) }
 };

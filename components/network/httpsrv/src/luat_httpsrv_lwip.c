@@ -415,7 +415,7 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
         return -1;
     }
     tcp->flags |= SOF_REUSEADDR;
-    ret = tcp_bind(tcp, NULL, ctx->port);
+    ret = tcp_bind(tcp, &ctx->netif->ip_addr, ctx->port);
     if (ret) {
         LLOGD("httpsrv bind port %d ret %d", ctx->port);
         return -2;

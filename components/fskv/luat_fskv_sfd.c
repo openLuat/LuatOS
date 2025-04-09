@@ -26,7 +26,7 @@ int luat_fskv_set(const char* key, void* data, size_t len) {
         return -1;
     }
     ret = lfs_file_write(&sfd_lfs->lfs, &fd, data, len);
-    lfs_file_close(&sfd_lfs->lfs, &fd);
+    ret |= lfs_file_close(&sfd_lfs->lfs, &fd);
     return ret;
 }
 

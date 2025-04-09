@@ -144,6 +144,93 @@ static int l_airlink_ready(lua_State *L) {
     return 1;
 }
 
+static int l_airlink_cmd(lua_State *L) {
+    size_t len = 0;
+    const char* data = NULL;
+    uint32_t cmd_id = luaL_checkinteger(L, 1);
+    if (lua_type(L, 2) == LUA_TSTRING) {
+        data = luaL_checklstring(L, 1, &len);
+    }
+    else if (lua_isuserdata(L, 1)) {
+        // zbuff
+        luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        data = (const char*)buff->addr;
+        len = buff->used;
+    }
+    else {
+        LLOGE("无效的参数,只能是字符串或者zbuff");
+        return 0;
+    }
+    if (len > 1500) {
+        LLOGE("无效的数据长度,最大1500字节");
+        return 0;
+    }
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    cmd->cmd = cmd_id;
+    cmd->len = len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(cmd_id, 8);
+    uint64_t pkgid = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &pkgid, 8);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int l_airlink_sfota_init(lua_State *L) {
+    LLOGD("执行sfota_init");
+    return sample_cmd_nodata(L, 0x04);
+}
+
+static int l_airlink_sfota_done(lua_State *L) {
+    LLOGD("执行sfota_done");
+    return sample_cmd_nodata(L, 0x06);
+}
+
+static int l_airlink_sfota_end(lua_State *L) {
+    LLOGD("执行sfota_end");
+    return sample_cmd_nodata(L, 0x07);
+}
+
+static int l_airlink_sfota_write(lua_State *L) {
+    LLOGD("执行sfota_write");
+    size_t len = 0;
+    const char* data = NULL;
+    if (lua_type(L, 1) == LUA_TSTRING) {
+        data = luaL_checklstring(L, 1, &len);
+    }
+    else if (lua_isuserdata(L, 1)) {
+        // zbuff
+        luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+        data = (const char*)buff->addr;
+        len = buff->used;
+    }
+    else {
+        LLOGE("无效的参数,只能是字符串或者zbuff");
+        return 0;
+    }
+    if (len > 1500) {
+        LLOGE("无效的数据长度,最大1500字节");
+        return 0;
+    }
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    cmd->cmd = 0x05;
+    cmd->len = len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -153,11 +240,15 @@ static const rotable_Reg_t reg_airlink[] =
     { "ready",         ROREG_FUNC(l_airlink_ready)},
     { "test",          ROREG_FUNC(l_airlink_test )},
     { "sdata",         ROREG_FUNC(l_airlink_sdata)},
+    { "cmd",           ROREG_FUNC(l_airlink_cmd)},
     { "statistics",    ROREG_FUNC(l_airlink_statistics )},
-    { "slave_reboot",   ROREG_FUNC(l_airlink_slave_reboot )},
+    { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
 
     // 测试用的fota指令
-    // { "fota",          ROREG_FUNC(l_airlink_fota )},
+    { "sfota_init",     ROREG_FUNC(l_airlink_sfota_init )},
+    { "sfota_write",    ROREG_FUNC(l_airlink_sfota_write )},
+    { "sfota_end",      ROREG_FUNC(l_airlink_sfota_end )},
+    { "sfota_done",     ROREG_FUNC(l_airlink_sfota_done )},
 
     { "MODE_SPI_SLAVE",    ROREG_INT(0) },
     { "MODE_SPI_MASTER",   ROREG_INT(1) },

@@ -63,6 +63,14 @@ int luat_airlink_cmd_exec_fota_done(luat_airlink_cmd_t *cmd, void *userdata)
     return 0;
 }
 
+int luat_airlink_cmd_exec_fota_end(luat_airlink_cmd_t *cmd, void *userdata)
+{
+    LLOGD("收到FOTA传输完毕指令!!!");
+    int ret = luat_fota_end(1);
+    LLOGD("fota_write ret %d", ret);
+    return 0;
+}
+
 #ifdef __LUATOS__
 #include "luat_msgbus.h"
 

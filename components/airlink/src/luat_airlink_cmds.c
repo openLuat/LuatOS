@@ -24,6 +24,7 @@ CMD_DEFINE(reset);
 CMD_DEFINE(fota_init);
 CMD_DEFINE(fota_write);
 CMD_DEFINE(fota_done);
+CMD_DEFINE(fota_end);
 CMD_DEFINE(dev_info);
 CMD_DEFINE(sdata);
 CMD_DEFINE(nop);
@@ -63,6 +64,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x04, fota_init),
     CMD_REG(0x05, fota_write),
     CMD_REG(0x06, fota_done),
+    CMD_REG(0x07, fota_end),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_WIFI

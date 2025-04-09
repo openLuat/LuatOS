@@ -7,6 +7,8 @@
 #include "luat_crypto.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_whale.h"
+#include "luat_mcu.h"
+
 #include "lwip/prot/ethernet.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -29,6 +31,7 @@ luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
 uint32_t g_airlink_spi_task_mode;
+uint64_t g_airlink_last_cmd_timestamp;
 
 int luat_airlink_init(void)
 {
@@ -330,10 +333,19 @@ void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
         LLOGD("luat_airlink_send2slave 内存不足, 丢弃掉");
         return;
     }
+    memcpy(item.cmd->data, cmd->data, cmd->len);
     ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     if (ret != 0) {
         LLOGD("luat_airlink_send2slave 发送消息失败 长度 %d ret %d", cmd->len, ret);
         luat_airlink_cmd_free(item.cmd);
         return;
     }
+}
+
+int luat_airlink_ready(void) {
+    uint64_t tnow = luat_mcu_tick64_ms();
+    if (tnow - g_airlink_last_cmd_timestamp < 100) {
+        return 1;
+    }
+    return 0;
 }

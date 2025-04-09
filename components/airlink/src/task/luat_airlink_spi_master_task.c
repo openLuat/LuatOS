@@ -183,7 +183,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
             LLOGI("从机内存高水位, 停止下发IP数据");
         }
         if (item.len > 0 && item.cmd != NULL) {
-            // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
+            // LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id %d", item.cmd->cmd);
             luat_airlink_data_pack(item.cmd, item.len, txbuff);
             luat_airlink_cmd_free(item.cmd);
         }

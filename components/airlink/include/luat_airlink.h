@@ -7,6 +7,10 @@
 #define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
 #endif
 
+extern uint64_t g_airlink_last_cmd_timestamp;
+
+int luat_airlink_ready(void);
+
 typedef struct luat_airlink_cmd_ext
 {
     uint64_t pkgid;

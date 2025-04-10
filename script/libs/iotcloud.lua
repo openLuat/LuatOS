@@ -382,7 +382,7 @@ end
 local function iotcloud_onenet_autoenrol(iotcloudc)
     local version = '2022-05-01'
     local res = "userid/"..iotcloudc.userid
-    local et = '32472115200'
+    local et = '2051193600'
     local method = 'SHA256'
     local key = crypto.base64_decode(iotcloudc.userkey)
     local StringForSignature  = et .. '\n' .. method .. '\n' .. res ..'\n' .. version

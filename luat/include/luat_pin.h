@@ -49,18 +49,21 @@ typedef struct
 	uint8_t altfun_id;	//复用功能id
 }luat_pin_iomux_info;	//pin复用信息
 
-typedef struct
+typedef union
 {
-	uint16_t peripheral_type:5;
-	uint16_t peripheral_id:4;
-	uint16_t function_id:4;
-	uint16_t pad:2;
-	uint16_t is_no_use:1;
-}luat_pin_peripheral_function_description_t;
+	struct
+	{
+		uint16_t function_id:4;
+		uint16_t peripheral_id:4;
+		uint16_t peripheral_type:5;
+		uint16_t is_no_use:1;
+	};
+	uint16_t code;
+}luat_pin_peripheral_function_description_u;
 
 typedef struct
 {
-	luat_pin_peripheral_function_description_t function[8];
+	uint16_t function_code[8];
 	uint16_t index;
 	uint8_t uid;
 }luat_pin_function_description_t;

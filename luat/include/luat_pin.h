@@ -61,14 +61,17 @@ typedef struct
 
 typedef struct
 {
-	uint16_t
-};
+	uint16_t peripheral_type:5;
+	uint16_t peripheral_id:4;
+	uint16_t function_id:4;
+}pin_peripheral_function_description_t;
 
 typedef struct
 {
+	pin_peripheral_function_description_t function[10];
 	uint16_t index;
 	iomux_uid_u uid;
-};
+}pin_function_description_t;
 
 
 typedef struct

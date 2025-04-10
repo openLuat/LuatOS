@@ -5,7 +5,7 @@
 #include "luat_netdrv_napt.h"
 #include "luat_ch390h.h"
 #include "luat_malloc.h"
-#include "luat_spi.h"
+// #include "luat_spi.h"
 #include "luat_gpio.h"
 #include "net_lwip2.h"
 #include "luat_ulwip.h"
@@ -210,7 +210,7 @@ static int check_vid_pid(ch390h_t* ch) {
 
 
 static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
-    uint8_t buff[16] = {0};
+    uint8_t buff[32] = {0};
     int ret = 0;
     uint16_t len = 0;
     
@@ -233,8 +233,9 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             }
         }
         luat_ch390h_read_mac(ch, buff + 6);
-        if (memcmp(buff, buff+6, 6)) {
-            LLOGE("读取2次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+        luat_ch390h_read_mac(ch, buff + 12);
+        if (memcmp(buff, buff+6, 6) || memcmp(buff, buff+12, 6)) {
+            LLOGE("读取3次mac地址不匹配!!! %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
             return 0;
         }
         

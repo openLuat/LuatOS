@@ -64,7 +64,7 @@ static int l_yhm27xx_cmd(lua_State *L)
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_yhm27xx[] = {
-        {"yhm27xx",     ROREG_FUNC(l_yhm27xx_cmd)},
+        {"cmd",     ROREG_FUNC(l_yhm27xx_cmd)},
         {NULL,          ROREG_INT(0)}
 };
 

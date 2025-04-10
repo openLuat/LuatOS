@@ -193,7 +193,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
         }
         // slave_rdy = 0;
         luat_gpio_set(TEST_CS_PIN, 0);
-        for (size_t i = 0; i < 5; i++)
+        for (size_t i = 0; i < 1000; i++)
         {
             tmpval = luat_gpio_get(TEST_RDY_PIN);
             if (tmpval == 1) {

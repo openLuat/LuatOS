@@ -210,4 +210,6 @@ LUAMOD_API int luaopen_airlink( lua_State *L );
 // 充电芯片
 LUAMOD_API int luaopen_yhm27xx( lua_State *L );
 
+LUAMOD_API int luaopen_vtool( lua_State *L );
+
 #endif

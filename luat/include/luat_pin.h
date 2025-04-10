@@ -43,70 +43,62 @@ typedef enum
 	LUAT_PIN_ONLY_ONE_QTY = 1,
 }LUAT_PIN_FUNC_E;
 
-typedef union
-{
-	struct
-	{
-		uint8_t ec_gpio_id:7;			//移芯平台的GPIO号
-		uint8_t ec_gpio_is_altfun4:1;	//移芯对应GPIO功能是不是复用功能4
-	};
-	uint8_t common_gpio_id;				//以GPIO号为唯一ID的芯片的GPIO id
-}iomux_uid_u;
-
 typedef struct
 {
-	iomux_uid_u uid;	//用于硬件操作所需的唯一ID
+	uint8_t uid;	//用于硬件操作所需的唯一ID
 	uint8_t altfun_id;	//复用功能id
-}pin_iomux_info;	//pin复用信息
+}luat_pin_iomux_info;	//pin复用信息
 
 typedef struct
 {
 	uint16_t peripheral_type:5;
 	uint16_t peripheral_id:4;
 	uint16_t function_id:4;
-}pin_peripheral_function_description_t;
+	uint16_t pad:2;
+	uint16_t is_no_use:1;
+}luat_pin_peripheral_function_description_t;
 
 typedef struct
 {
-	pin_peripheral_function_description_t function[10];
+	luat_pin_peripheral_function_description_t function[8];
 	uint16_t index;
-	iomux_uid_u uid;
-}pin_function_description_t;
+	uint8_t uid;
+}luat_pin_function_description_t;
 
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_UART_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_UART_QTY];
 }luat_uart_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_I2C_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_I2C_QTY];
 }luat_i2c_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_SPI_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_SPI_QTY];
 }luat_spi_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_PWM_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_PWM_QTY];
 }luat_pwm_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_CAN_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_CAN_QTY];
 }luat_can_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_I2S_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_I2S_QTY];
 }luat_i2s_pin_iomux_t;
 
 typedef struct
 {
-	pin_iomux_info pin_list[LUAT_PIN_SDIO_QTY];
+	luat_pin_iomux_info pin_list[LUAT_PIN_SDIO_QTY];
 }luat_sdio_pin_iomux_t;
 
 
@@ -121,7 +113,7 @@ int luat_pin_parse(const char* pin_name, size_t* zone, size_t* index);
  * @param pin_list 输出pin复用信息表
  * @return 0成功，其他失败
  */
-int luat_pin_get_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, pin_iomux_info *pin_list);
+int luat_pin_get_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, luat_pin_iomux_info *pin_list);
 /**
  * @brief 设置某个外设的全部pin复用信息，如果该外设只有一种复用可能性，则不必设置，会直接失败
  * @param type 外设类型，见LUAT_MCU_PERIPHERAL_E
@@ -129,15 +121,16 @@ int luat_pin_get_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, pin_iomux_in
  * @param pin_list 输入pin复用信息表
  * @return 0成功，其他失败
  */
-int luat_pin_set_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, pin_iomux_info *pin_list);
+int luat_pin_set_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, luat_pin_iomux_info *pin_list);
 /**
- * @brief 从模块pin脚号返回芯片pin的唯一id
+ * @brief 从模块pin脚号返回芯片pin功能的详细描述
  * @param num 模块pin脚号
- * @return pin的唯一id，如果唯一id是0xff代表没有
+ * @param pin_function 芯片pin功能的详细描述
+ * @return 0成功，其他失败
  */
-iomux_uid_u luat_pin_get_from_num(uint32_t num);
+int luat_pin_get_description_from_num(uint32_t num, luat_pin_function_description_t *pin_function);
 
-void luat_pin_iomux_config(pin_iomux_info pin, uint8_t use_altfunction_pull, uint8_t driver_strength);
+void luat_pin_iomux_config(luat_pin_iomux_info pin, uint8_t use_altfunction_pull, uint8_t driver_strength);
 
-void luat_pin_iomux_print(pin_iomux_info *pin_list, uint8_t num);
+void luat_pin_iomux_print(luat_pin_iomux_info *pin_list, uint8_t num);
 #endif

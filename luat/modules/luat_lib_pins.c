@@ -16,7 +16,7 @@
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
 
-static luat_pin_peripheral_function_description_t luat_pins_function_analyze(char *string)
+static uint16_t luat_pins_function_analyze(char *string)
 {
 	const char *peripheral_names[LUAT_MCU_PERIPHERAL_QTY] = {
 			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD"
@@ -36,6 +36,7 @@ static luat_pin_peripheral_function_description_t luat_pins_function_analyze(cha
 	const char *function4_names[2] = {
 			"MCLK","CMD"
 	};
+	return 0xffff;
 }
 
 /**

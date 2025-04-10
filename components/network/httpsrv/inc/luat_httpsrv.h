@@ -9,6 +9,8 @@ typedef struct luat_httpsrv_ctx
     int lua_ref_id;
     int server_fd;
     void* userdata;
+    uint8_t adapter_id;
+    struct netif* netif;
 }luat_httpsrv_ctx_t;
 
 

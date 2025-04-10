@@ -18,16 +18,6 @@
 
 #include "http_parser.h"
 
-// #define HTTPSRV_MAX (4)
-// static luat_httpsrv_ctx_t ctxs[HTTPSRV_MAX];
-
-// #define CLIENT_BUFF_SIZE (4096)
-
-// #define HTTP_RESP_400 "HTTP/1.0 400 Bad Request\r\n"
-// #define HTTP_RESP_200 "HTTP/1.0 200 OK\r\n"
-// #define HTTP_RESP_302 "HTTP/1.0 302 Found\r\n"
-// #define HTTP_RESP_404 "HTTP/1.0 404 Not Found\r\n"
-
 
 typedef struct client_socket_ctx
 {
@@ -107,6 +97,7 @@ static int client_write(client_socket_ctx_t* client, const char* buff, size_t le
 #endif
     if (ret == 0) {
         client->send_size += len;
+        // LLOGD("send more %d/%d", client->sent_size, client->send_size);
     }
     else {
         LLOGE("client_write err %d", ret);
@@ -269,7 +260,7 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         tcp_abort(tpcb);
         return ERR_ABRT;
     }
-    LLOGD("tpcb %p p %p len %d err %d", tpcb, p, p->len, err);
+    // LLOGD("tpcb %p p %p len %d err %d", tpcb, p, p->len, err);
     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
     if (ctx->buff == NULL) {
         ctx->buff = luat_heap_malloc(4096);
@@ -331,7 +322,7 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
         if (ctx->sbuff_offset) {
             ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
             if (ret == 0) {
-                ctx->send_size += ctx->sbuff_offset;
+                // ctx->send_size += ctx->sbuff_offset;
                 ctx->sbuff_offset = 0;
             }
         }
@@ -350,12 +341,13 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
                 ctx->sbuff_offset = ret;
                 ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
                 if (ret == 0) {
-                    ctx->send_size += ctx->sbuff_offset;
+                    // ctx->send_size += ctx->sbuff_offset;
                     ctx->sbuff_offset = 0;
                 }
             }
         }
     }
+    // LLOGD("done? %d sent %d/%d", ctx->write_done, ctx->sent_size, ctx->send_size);
     if (ctx->write_done && ctx->send_size == ctx->sent_size) {
         tcp_err(ctx->pcb, NULL);
         tcp_sent(ctx->pcb, NULL);
@@ -383,6 +375,7 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     (void)arg;
     if (err) {
         LLOGD("accpet err %d", err);
+        tcp_abort(newpcb);
         return ERR_OK;
     }
     client_socket_ctx_t* ctx = luat_heap_malloc(sizeof(client_socket_ctx_t));
@@ -422,7 +415,7 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
         return -1;
     }
     tcp->flags |= SOF_REUSEADDR;
-    ret = tcp_bind(tcp, NULL, ctx->port);
+    ret = tcp_bind(tcp, &ctx->netif->ip_addr, ctx->port);
     if (ret) {
         LLOGD("httpsrv bind port %d ret %d", ctx->port);
         return -2;

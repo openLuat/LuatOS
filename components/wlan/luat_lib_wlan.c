@@ -289,7 +289,7 @@ log.info("wlan mac", wlan.getMac())
 static int l_wlan_get_mac(lua_State* L){
     uint8_t tmp[6] = {0};
     char tmpbuff[16] = {0};
-    #ifdef LUAT_USE_NETDRV
+    #if defined(LUAT_USE_NETDRV) && !defined(CONFIG_SOC_BK7258)
     int id = luaL_optinteger(L, 1, 0);
     if (id == 0) {
         id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;

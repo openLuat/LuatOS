@@ -9,15 +9,20 @@
 
 #include "luat_base.h"
 #include "luat_httpsrv.h"
+#include "luat_network_adapter.h"
+#include "luat_netdrv.h"
+#include "lwip/netif.h"
+#include "lwip/ip_addr.h"
 
 #define LUAT_LOG_TAG "httpsrv"
 #include "luat_log.h"
 
 /*
 启动并监听一个http端口
-@api httpsrv.start(port, func)
+@api httpsrv.start(port, func, adapter)
 @int 端口号
 @function 回调函数
+@int 网络适配器编号, 默认是平台自带的网络协议栈
 @return bool 成功返回true, 否则返回false
 @usage
 
@@ -46,20 +51,30 @@ end)
 -- 当前默认查找 /luadb/xxx 下的文件,暂不可配置
 */
 static int l_httpsrv_start(lua_State *L) {
+    luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
+    char buff[64] = {0};
     int port = luaL_checkinteger(L, 1);
     if (!lua_isfunction(L, 2)) {
         LLOGW("httpsrv need callback function!!!");
         return 0;
     }
-    lua_pushvalue(L, 2);
-    int lua_ref_id = luaL_ref(L, LUA_REGISTRYINDEX);
     luat_httpsrv_ctx_t ctx = {
-        .port = port,
-        .lua_ref_id = lua_ref_id
+        .port = port
     };
+    uint8_t adapter_index = luaL_optinteger(L, 3, network_get_last_register_adapter());
+    ctx.adapter_id = adapter_index;
+    luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
+    if (drv == NULL || drv->netif == NULL) {
+        LLOGW("该网络还没准备好 %d", adapter_index);
+        return 0;
+    }
+    ctx.netif = drv->netif;
+    lua_pushvalue(L, 2);
+    ctx.lua_ref_id = luaL_ref(L, LUA_REGISTRYINDEX);
     int ret = luat_httpsrv_start(&ctx);
     if (ret == 0) {
-        LLOGI("http listen at 0.0.0.0:%d", ctx.port);
+        ipaddr_ntoa_r(&drv->netif->ip_addr, buff,  32);
+        LLOGI("http listen at %s:%d", buff, ctx.port);
     }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;

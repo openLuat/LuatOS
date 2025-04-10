@@ -57,6 +57,11 @@
  #include "lwip/opt.h"
  
  #include <string.h>
+ #include "luat_base.h"
+ #include "luat_mem.h"
+
+ #define LUAT_LOG_TAG "lwiperf"
+ #include "luat_log.h"
  
  /* Currently, only TCP is implemented */
  #if LWIP_TCP && LWIP_CALLBACK_API
@@ -73,12 +78,16 @@
  #ifndef LWIPERF_SERVER_IP_TYPE
  #define LWIPERF_SERVER_IP_TYPE      IPADDR_TYPE_ANY
  #endif
+
+static void* iperf_malloc(size_t line, size_t len);
+static void iperf_free(size_t line, void* ptr);
  
  /* File internal memory allocation (struct lwiperf_*): this defaults to
     the heap */
+ #undef LWIPERF_ALLOC
  #ifndef LWIPERF_ALLOC
- #define LWIPERF_ALLOC(type)         mem_malloc(sizeof(type))
- #define LWIPERF_FREE(type, item)    mem_free(item)
+ #define LWIPERF_ALLOC(type)         iperf_malloc(__LINE__, sizeof(type))
+ #define LWIPERF_FREE(type, item)    iperf_free(__LINE__, item)
  #endif
  
  /** If this is 1, check that received data has the correct format */
@@ -386,6 +395,7 @@
      lwiperf_tcp_close(conn, LWIPERF_TCP_ABORTED_REMOTE);
      return ERR_OK;
    }
+   LLOGD("连接成功!!");
    conn->poll_count = 0;
    conn->time_started = sys_now();
    return lwiperf_tcp_client_send_more(conn);
@@ -439,6 +449,7 @@
 
    if (local_ip != NULL) {
     err = tcp_bind(newpcb, local_ip, 0);
+    LLOGD("绑定本地ip ret %d", err);
     if (err != ERR_OK) {
       return err;
     }
@@ -804,7 +815,7 @@
    settings.remote_port = htonl(LWIPERF_TCP_PORT_DEFAULT);
    /* TODO: implement passing duration/amount of bytes to transfer */
    settings.amount = htonl((u32_t)-1000);
- 
+   LLOGD("准备启动iperf客户端");
    ret = lwiperf_tx_start_impl(remote_addr, remote_port, &settings, report_fn, report_arg, NULL, &state, local_addr);
    if (ret == ERR_OK) {
      LWIP_ASSERT("state != NULL", state != NULL);
@@ -857,5 +868,18 @@
      }
    }
  }
+
+static void* iperf_malloc(size_t line, size_t len) {
+  void* ptr = luat_heap_malloc(len);
+  LLOGD("iperf_malloc %d %d 0x%p", line, len, ptr);
+  return ptr;
+}
+static void iperf_free(size_t line, void* ptr) {
+  if (ptr == NULL) {
+    return;
+  }
+  LLOGD("iperf_free %d %p", line, ptr);
+  luat_heap_free(ptr);
+}
  
  #endif /* LWIP_TCP && LWIP_CALLBACK_API */

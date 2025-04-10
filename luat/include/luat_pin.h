@@ -61,48 +61,51 @@ typedef struct
 
 typedef struct
 {
+	uint16_t
+};
+
+typedef struct
+{
+	uint16_t index;
+	iomux_uid_u uid;
+};
+
+
+typedef struct
+{
 	pin_iomux_info pin_list[LUAT_PIN_UART_QTY];
-}uart_pin_iomux_t;
+}luat_uart_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_I2C_QTY];
-}i2c_pin_iomux_t;
+}luat_i2c_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_SPI_QTY];
-}spi_pin_iomux_t;
+}luat_spi_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_PWM_QTY];
-}pwm_pin_iomux_t;
+}luat_pwm_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_CAN_QTY];
-}can_pin_iomux_t;
+}luat_can_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_I2S_QTY];
-}i2s_pin_iomux_t;
+}luat_i2s_pin_iomux_t;
 
 typedef struct
 {
 	pin_iomux_info pin_list[LUAT_PIN_SDIO_QTY];
-}sdio_pin_iomux_t;
+}luat_sdio_pin_iomux_t;
 
-typedef struct
-{
-	pin_iomux_info pin_list[LUAT_PIN_ONLY_ONE_QTY];
-}gpio_pin_iomux_t;
-
-typedef struct
-{
-	pin_iomux_info pin_list[LUAT_PIN_ONLY_ONE_QTY];
-}onewire_pin_iomux_t;
 
 int luat_pin_to_gpio(const char* pin_name);
 

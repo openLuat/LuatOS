@@ -185,6 +185,7 @@ void luat_netdrv_netif_input(void* args) {
     // luat_airlink_hexdump("收到IP数据,注入到netif", ptr->buff, ptr->len);
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
+        LLOGW("netif->input ret %d", ret);
         pbuf_free(p);
     }
     luat_heap_free(ptr);

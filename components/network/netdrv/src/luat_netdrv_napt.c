@@ -30,7 +30,11 @@ int luat_netdrv_gw_adapter_id = -1;
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 #define NAPT_CHKSUM_16BIT_LEN        sizeof(u16)
 
-int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
+
+__USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
     if (luat_netdrv_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启

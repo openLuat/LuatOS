@@ -25,7 +25,10 @@ sys.taskInit(function()
     end
 
 end)
-]] sys = require("sys")
+]] 
+
+
+sys = require("sys")
 sysplus = require("sysplus")
 libnet = require "libnet"
 
@@ -41,9 +44,9 @@ local airlbs_timeout = 15000
 
 local airlbs = {}
 
-local function airlbs_task(task_name, buff, timeout)
+local function airlbs_task(task_name, buff, timeout, adapter)
     local netc = socket.create(nil, lib_name)
-    socket.config(netc, nil, true) -- udp
+    socket.config(netc, adapter, true) -- udp
 
     sysplus.cleanMsg(lib_name)
     local result = libnet.connect(lib_name, 15000, netc, airlbs_host, airlbs_port)
@@ -103,6 +106,12 @@ local result , data = airlbs.request({project_id = airlbs_project_id,project_key
 if result then
     print("airlbs", json.encode(data))
 end
+-- 2025.4.10 新增adapter参数
+local result , data = airlbs.request({
+    project_id = airlbs_project_id,
+    project_key = airlbs_project_key,
+    adapter = socket.LWIP_STA
+})
 ]]
 function airlbs.request(param)
     if not mobile then
@@ -165,7 +174,7 @@ function airlbs.request(param)
     log.info("扫描出的数据",lbs_jdata)
     udp_buff:write(string.char(auth_type) .. project_id .. imei .. muid .. timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
 
-    sysplus.taskInitEx(airlbs_task, lib_name, netCB, lib_name, udp_buff, param.timeout or airlbs_timeout)
+    sysplus.taskInitEx(airlbs_task, lib_name, netCB, lib_name, udp_buff, param.timeout or airlbs_timeout, param.adapter)
 
     while 1 do
         local result, tp, data = sys.waitUntil(lib_topic, param.timeout or airlbs_timeout)

@@ -31,6 +31,8 @@ static int search(char *string, size_t string_len, const char **table, uint8_t l
 static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char *string, size_t len)
 {
 	luat_pin_peripheral_function_description_u description;
+	char *old = string;
+	size_t org_len = len;
 	size_t offset = 0;
 	const char *peripheral_names[LUAT_MCU_PERIPHERAL_QTY] = {
 			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD"
@@ -247,7 +249,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 LUAT_PIN_FUNCTION_ANALYZE_DONE:
 	if (!description.is_no_use)
 	{
-		LLOGD("%.*s find %d,%d,%d", len, string, description.peripheral_type, description.peripheral_id, description.function_id);
+		LLOGD("%.*s find %d,%d,%d", org_len, old, description.peripheral_type, description.peripheral_id, description.function_id);
 	}
 	return description;
 }
@@ -290,9 +292,7 @@ static int luat_pin_setup(lua_State *L){
         	LLOGE("pin%d不支持修改", pin);
         	goto LUAT_PIN_SETUP_DONE;
     	}
-
-    	altfun_id = luaL_optinteger(L, 2, -1);
-    	if (altfun_id < 0)
+    	if (!lua_isinteger(L, 2))
     	{
     		func_name = luaL_checklstring(L, 2, &len);
         	if (len < 2)
@@ -315,6 +315,7 @@ static int luat_pin_setup(lua_State *L){
     	}
     	else
     	{
+    		altfun_id = luaL_optinteger(L, 2, LUAT_PIN_ALT_FUNCTION_MAX);
     		if (altfun_id < LUAT_PIN_ALT_FUNCTION_MAX)
     		{
     			func_description.code = pin_description.function_code[altfun_id];

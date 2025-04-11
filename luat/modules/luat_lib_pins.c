@@ -3,9 +3,24 @@
 @summary 管脚外设复用
 @version 1.0
 @date    2025.4.10
-@tag
+@tag     @tag LUAT_USE_PINS
+@demo     pins
 @usage
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
+-- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
 
+-- 本库的API属于高级用法, 仅动态配置管脚时使用
+-- 本库的API属于高级用法, 仅动态配置管脚时使用
+-- 本库的API属于高级用法, 仅动态配置管脚时使用
 */
 
 #include "luat_base.h"
@@ -15,6 +30,11 @@
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
+
+static int luat_isdigit(char c)
+{
+	return (c >= '0' && c <= '9');
+}
 
 static int search(char *string, size_t string_len, const char **table, uint8_t len)
 {
@@ -65,7 +85,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 			description.peripheral_id = 0;
 			string += offset;
 			len -= offset;
-			while(isdigit(string[0]))
+			while(luat_isdigit(string[0]))
 			{
 				description.peripheral_id = description.peripheral_id * 10 + (string[0] - '0');
 				string++;
@@ -258,18 +278,15 @@ LUAT_PIN_FUNCTION_ANALYZE_DONE:
 当某种外设允许复用在不同引脚上时，指定某个管脚允许复用成某种外设功能，需要在外设启用前配置好，外设启用时起作用。
 @api pins.setup(pin, func)
 @int 管脚物理编号, 对应模组俯视图下的顺序编号, 例如 67, 68
-@string/int 功能说明, 可以直接填写复用功能的altfunction号码, 比如altfunction1写1, 如果不清楚就写具体功能, 例如 "GPIO18", "UART1_TX", "UART1_RX", "SPI1_CLK", "I2C1_CLK", 目前支持的外设有"UART","I2C","SPI","PWM","CAN","GPIO","ONEWIRE"
+@string 功能说明, 例如 "GPIO18", "UART1_TX", "UART1_RX", "SPI1_CLK", "I2C1_CLK", 目前支持的外设有"UART","I2C","SPI","PWM","CAN","GPIO","ONEWIRE"
 @return boolean 配置成功,返回true, 其他情况均返回false, 并在日志中提示失败原因
 @usage
---把air780epm的PIN67脚,做GPIO 18用, 下面2个等价
+--把air780epm的PIN67脚,做GPIO 18用
 --pins.setup(67, "GPIO18")
---pins.setup(67, 4)
---把air780epm的PIN55脚,做uart2 rx用, 下面2个等价
+--把air780epm的PIN55脚,做uart2 rx用
 --pins.setup(55, "UART2_RXD")
---pins.setup(55, 2)
---把air780epm的PIN56脚,做uart2 tx用, 下面2个等价
+--把air780epm的PIN56脚,做uart2 tx用
 --pins.setup(56, "UART2_TXD")
---pins.setup(56, 2)
  */
 static int luat_pin_setup(lua_State *L){
     size_t len;
@@ -360,13 +377,12 @@ LUAT_PIN_SETUP_DONE:
 加载硬件配置，如果存在/luadb/pins.json，开机后自动加载/luadb/pins.json，无需调用
 @api pins.load(path)
 @string path, 配置文件路径, 可选, 默认值是 /luadb/pins.json
-@return boolean 成功返回true, 失败返回false
+@return boolean 成功返回true, 失败返回nil, 并在日志中提示失败原因
 @usage
-pins.load()
 pins.load("/my.json")
 */
 static int luat_pin_load(lua_State *L){
-	return 1;
+	return 0;
 }
 
 #include "rotable2.h"

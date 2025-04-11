@@ -256,21 +256,26 @@ LUAT_PIN_FUNCTION_ANALYZE_DONE:
 当某种外设允许复用在不同引脚上时，指定某个管脚允许复用成某种外设功能，需要在外设启用前配置好，外设启用时起作用。
 @api pins.setup(pin, func)
 @int 管脚物理编号, 对应模组俯视图下的顺序编号, 例如 67, 68
-@string 功能说明, 例如 "GPIO18", "UART1_TX", "UART1_RX", "SPI1_CLK", "I2C1_CLK", 目前支持的外设有"UART","I2C","SPI","PWM","CAN","GPIO","ONEWIRE"
+@string/int 功能说明, 可以直接填写复用功能的altfunction号码, 比如altfunction1写1, 如果不清楚就写具体功能, 例如 "GPIO18", "UART1_TX", "UART1_RX", "SPI1_CLK", "I2C1_CLK", 目前支持的外设有"UART","I2C","SPI","PWM","CAN","GPIO","ONEWIRE"
 @return boolean 配置成功,返回true, 其他情况均返回false, 并在日志中提示失败原因
 @usage
--- 把air780epm的PIN67脚,做GPIO 18用
+--把air780epm的PIN67脚,做GPIO 18用, 下面2个等价
 --pins.setup(67, "GPIO18")
--- 把air780epm的PIN55脚,做uart2 rx用
---pins.setup(55, "UART2_RX")
--- 把air780epm的PIN56脚,做uart2 tx用
---pins.setup(56, "UART2_TX")
+--pins.setup(67, 4)
+--把air780epm的PIN55脚,做uart2 rx用, 下面2个等价
+--pins.setup(55, "UART2_RXD")
+--pins.setup(55, 2)
+--把air780epm的PIN56脚,做uart2 tx用, 下面2个等价
+--pins.setup(56, "UART2_TXD")
+--pins.setup(56, 2)
  */
 static int luat_pin_setup(lua_State *L){
     size_t len;
     int pin = 0;
     int result;
-    const char* func_name = luaL_checklstring(L, 2, &len);
+    int altfun_id;
+    const char* func_name = NULL;
+    luat_pin_peripheral_function_description_u func_description;
     pin = luaL_optinteger(L, 1, -1);
     if (pin < 0)
     {
@@ -279,27 +284,51 @@ static int luat_pin_setup(lua_State *L){
     }
     else
     {
-    	if (len < 2)
-    	{
-    		LLOGE("%.*s外设功能描述不正确", len, func_name);
-    		goto LUAT_PIN_SETUP_DONE;
-    	}
     	luat_pin_function_description_t pin_description;
     	if (luat_pin_get_description_from_num(pin, &pin_description))
     	{
         	LLOGE("pin%d不支持修改", pin);
         	goto LUAT_PIN_SETUP_DONE;
     	}
-    	luat_pin_peripheral_function_description_u func_description = luat_pin_function_analyze(func_name, len);
-    	if (func_description.code == 0xffff)
+
+    	altfun_id = luaL_optinteger(L, 2, -1);
+    	if (altfun_id < 0)
     	{
-    		goto LUAT_PIN_SETUP_DONE;
+    		func_name = luaL_checklstring(L, 2, &len);
+        	if (len < 2)
+        	{
+        		LLOGE("%.*s外设功能描述不正确", len, func_name);
+        		goto LUAT_PIN_SETUP_DONE;
+        	}
+
+        	func_description = luat_pin_function_analyze(func_name, len);
+        	if (func_description.code == 0xffff)
+        	{
+        		goto LUAT_PIN_SETUP_DONE;
+        	}
+        	altfun_id = luat_pin_get_altfun_id_from_description(func_description.code, &pin_description);
+        	if (altfun_id == 0xff)
+        	{
+        		LLOGE("%.*s不是pin%d的可配置功能", len, func_name, pin);
+        		goto LUAT_PIN_SETUP_DONE;
+        	}
     	}
-    	uint8_t altfun_id = luat_pin_get_altfun_id_from_description(func_description.code, &pin_description);
-    	if (altfun_id == 0xff)
+    	else
     	{
-    		LLOGE("%.*s不是pin%d的可配置功能", len, func_name, pin);
-    		goto LUAT_PIN_SETUP_DONE;
+    		if (altfun_id < LUAT_PIN_ALT_FUNCTION_MAX)
+    		{
+    			func_description.code = pin_description.function_code[altfun_id];
+    			if (func_description.code == 0xffff)
+    			{
+            		LLOGE("没有altfunction%d", altfun_id);
+            		goto LUAT_PIN_SETUP_DONE;
+    			}
+    		}
+    		else
+    		{
+        		LLOGE("没有altfunction%d", altfun_id);
+        		goto LUAT_PIN_SETUP_DONE;
+    		}
     	}
     	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
     	if (!luat_pin_get_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
@@ -312,7 +341,14 @@ static int luat_pin_setup(lua_State *L){
     			goto LUAT_PIN_SETUP_DONE;
     		}
     	}
-    	LLOGE("%.*s不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", len, func_name);
+    	if (func_name)
+    	{
+    		LLOGE("%.*s不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", len, func_name);
+    	}
+    	else
+    	{
+    		LLOGE("altfunction%d不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", altfun_id);
+    	}
     }
 LUAT_PIN_SETUP_DONE:
 	lua_pushboolean(L, result);

@@ -41,6 +41,8 @@ typedef enum
 	LUAT_PIN_SDIO_QTY,
 
 	LUAT_PIN_ONLY_ONE_QTY = 1,
+	LUAT_PIN_FUNCTION_MAX = LUAT_PIN_SDIO_QTY,
+	LUAT_PIN_ALT_FUNCTION_MAX = 8,
 }LUAT_PIN_FUNC_E;
 
 typedef struct
@@ -63,7 +65,7 @@ typedef union
 
 typedef struct
 {
-	uint16_t function_code[8];
+	uint16_t function_code[LUAT_PIN_ALT_FUNCTION_MAX];
 	uint16_t index;
 	uint8_t uid;
 }luat_pin_function_description_t;
@@ -132,6 +134,14 @@ int luat_pin_set_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, luat_pin_iom
  * @return 0成功，其他失败
  */
 int luat_pin_get_description_from_num(uint32_t num, luat_pin_function_description_t *pin_function);
+
+/**
+ * @brief 从芯片pin功能的详细描述找出所需功能的altfun_id
+ * @param code 功能id
+ * @param pin_function 芯片pin功能的详细描述
+ * @return 0xff失败，其他成功
+ */
+uint8_t luat_pin_get_altfun_id_from_description(uint16_t code, luat_pin_function_description_t *pin_function);
 
 void luat_pin_iomux_config(luat_pin_iomux_info pin, uint8_t use_altfunction_pull, uint8_t driver_strength);
 

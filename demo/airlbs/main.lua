@@ -10,9 +10,7 @@ sys = require("sys")
 sysplus = require("sysplus")
 libnet = require "libnet"
 
-log.info("main", "hello world")
-
-print(_VERSION)
+log.info("main", PROJECT, VERSION)
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -44,9 +42,9 @@ sys.taskInit(function()
     sys.waitUntil("NTP_UPDATE", 1000)
 
     while 1 do
-        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',wifi_info = wifi_info,timeout = 1000})
+        local result , data = airlbs.request({project_id = airlbs_project_id, project_key = airlbs_project_key, wifi_info = wifi_info, timeout = 1000})
         if result then
-            print("airlbs", json.encode(data))
+            log.info("airlbs", json.encode(data))
         end
         sys.wait(20000)
     end

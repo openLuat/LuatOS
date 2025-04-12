@@ -1,35 +1,15 @@
-/*
-@module  pins
-@summary 管脚外设复用
-@version 1.0
-@date    2025.4.10
-@tag     @tag LUAT_USE_PINS
-@demo     pins
-@usage
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
--- 请使用LuaTools的可视化工具进行配置,你通常不需要使用这个demo
-
--- 本库的API属于高级用法, 仅动态配置管脚时使用
--- 本库的API属于高级用法, 仅动态配置管脚时使用
--- 本库的API属于高级用法, 仅动态配置管脚时使用
-*/
 
 #include "luat_base.h"
-#include "luat_pin.h"
+#include "luat_pins.h"
 #include "luat_mcu.h"
 #include <stdlib.h>
+#include "luat_fs.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
+
+#include "cJSON.h"
 
 static int luat_isdigit(char c)
 {
@@ -274,126 +254,188 @@ LUAT_PIN_FUNCTION_ANALYZE_DONE:
 	return description;
 }
 
-/**
-当某种外设允许复用在不同引脚上时，指定某个管脚允许复用成某种外设功能，需要在外设启用前配置好，外设启用时起作用。
-@api pins.setup(pin, func)
-@int 管脚物理编号, 对应模组俯视图下的顺序编号, 例如 67, 68
-@string 功能说明, 例如 "GPIO18", "UART1_TX", "UART1_RX", "SPI1_CLK", "I2C1_CLK", 目前支持的外设有"UART","I2C","SPI","PWM","CAN","GPIO","ONEWIRE"
-@return boolean 配置成功,返回true, 其他情况均返回false, 并在日志中提示失败原因
-@usage
---把air780epm的PIN67脚,做GPIO 18用
---pins.setup(67, "GPIO18")
---把air780epm的PIN55脚,做uart2 rx用
---pins.setup(55, "UART2_RXD")
---把air780epm的PIN56脚,做uart2 tx用
---pins.setup(56, "UART2_TXD")
- */
-static int luat_pin_setup(lua_State *L){
-    size_t len;
-    int pin = 0;
-    int result;
-    int altfun_id;
-    const char* func_name = NULL;
-    luat_pin_peripheral_function_description_u func_description;
-    pin = luaL_optinteger(L, 1, -1);
-    if (pin < 0)
-    {
-    	LLOGE("pin序号参数错误");
-    	goto LUAT_PIN_SETUP_DONE;
-    }
-    else
-    {
-    	luat_pin_function_description_t pin_description;
-    	if (luat_pin_get_description_from_num(pin, &pin_description))
-    	{
-        	LLOGE("pin%d不支持修改", pin);
-        	goto LUAT_PIN_SETUP_DONE;
-    	}
-    	if (!lua_isinteger(L, 2))
-    	{
-    		func_name = luaL_checklstring(L, 2, &len);
-        	if (len < 2)
-        	{
-        		LLOGE("%.*s外设功能描述不正确", len, func_name);
-        		goto LUAT_PIN_SETUP_DONE;
-        	}
+int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int altfun_id) {
+	luat_pin_function_description_t pin_description;
+	luat_pin_peripheral_function_description_u func_description;
+	int result;
+	if (luat_pin_get_description_from_num(pin, &pin_description))
+	{
+		LLOGE("pin%d不支持修改", pin);
+		goto LUAT_PIN_SETUP_DONE;
+	}
+	if (func_name != NULL)
+	{
+		if (name_len < 2)
+		{
+			LLOGE("%.*s外设功能描述不正确", name_len, func_name);
+			goto LUAT_PIN_SETUP_DONE;
+		}
 
-        	func_description = luat_pin_function_analyze(func_name, len);
-        	if (func_description.code == 0xffff)
-        	{
-        		goto LUAT_PIN_SETUP_DONE;
-        	}
-        	altfun_id = luat_pin_get_altfun_id_from_description(func_description.code, &pin_description);
-        	if (altfun_id == 0xff)
-        	{
-        		LLOGE("%.*s不是pin%d的可配置功能", len, func_name, pin);
-        		goto LUAT_PIN_SETUP_DONE;
-        	}
-    	}
-    	else
-    	{
-    		altfun_id = luaL_optinteger(L, 2, LUAT_PIN_ALT_FUNCTION_MAX);
-    		if (altfun_id < LUAT_PIN_ALT_FUNCTION_MAX)
-    		{
-    			func_description.code = pin_description.function_code[altfun_id];
-    			if (func_description.code == 0xffff)
-    			{
-            		LLOGE("没有altfunction%d", altfun_id);
-            		goto LUAT_PIN_SETUP_DONE;
-    			}
-    		}
-    		else
-    		{
-        		LLOGE("没有altfunction%d", altfun_id);
-        		goto LUAT_PIN_SETUP_DONE;
-    		}
-    	}
-    	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
-    	if (!luat_pin_get_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
-    	{
-    		pin_list[func_description.function_id].altfun_id = altfun_id;
-    		pin_list[func_description.function_id].uid = pin_description.uid;
-    		if (!luat_pin_set_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
-    		{
-    			result = 1;
-    			goto LUAT_PIN_SETUP_DONE;
-    		}
-    	}
-    	if (func_name)
-    	{
-    		LLOGE("%.*s不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", len, func_name);
-    	}
-    	else
-    	{
-    		LLOGE("altfunction%d不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", altfun_id);
-    	}
-    }
+		func_description = luat_pin_function_analyze(func_name, name_len);
+		if (func_description.code == 0xffff)
+		{
+			goto LUAT_PIN_SETUP_DONE;
+		}
+		altfun_id = luat_pin_get_altfun_id_from_description(func_description.code, &pin_description);
+		if (altfun_id == 0xff)
+		{
+			LLOGE("%.*s不是pin%d的可配置功能", name_len, func_name, pin);
+			goto LUAT_PIN_SETUP_DONE;
+		}
+	}
+	else
+	{
+		if (altfun_id < LUAT_PIN_ALT_FUNCTION_MAX)
+		{
+			func_description.code = pin_description.function_code[altfun_id];
+			if (func_description.code == 0xffff)
+			{
+				LLOGE("没有altfunction%d", altfun_id);
+				goto LUAT_PIN_SETUP_DONE;
+			}
+		}
+		else
+		{
+			LLOGE("没有altfunction%d", altfun_id);
+			goto LUAT_PIN_SETUP_DONE;
+		}
+	}
+	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
+	if (!luat_pin_get_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
+	{
+		pin_list[func_description.function_id].altfun_id = altfun_id;
+		pin_list[func_description.function_id].uid = pin_description.uid;
+		if (!luat_pin_set_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
+		{
+			result = 1;
+			goto LUAT_PIN_SETUP_DONE;
+		}
+	}
+	if (func_name)
+	{
+		LLOGE("%.*s不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", name_len, func_name);
+	}
+	else
+	{
+		LLOGE("altfunction%d不可配置，请确认硬件手册上该功能可以复用在2个及以上的pin", altfun_id);
+	}
 LUAT_PIN_SETUP_DONE:
-	lua_pushboolean(L, result);
-	return 1;
+	return result;
 }
 
-/**
-加载硬件配置，如果存在/luadb/pins.json，开机后自动加载/luadb/pins.json，无需调用
-@api pins.load(path)
-@string path, 配置文件路径, 可选, 默认值是 /luadb/pins.json
-@return boolean 成功返回true, 失败返回nil, 并在日志中提示失败原因
-@usage
-pins.load("/my.json")
-*/
-static int luat_pin_load(lua_State *L){
+// 加载过程
+static int luat_pins_load_from_json(cJSON *root)
+{
+	cJSON *pins = cJSON_GetObjectItem(root, "pins");
+	cJSON *item;
+	cJSON *pin_item;
+	cJSON *func_item;
+	uint16_t pin;
+	const char* func = NULL;
+	if (pins == NULL) {
+		LLOGE("json without pins item!!!");
+		return -101;
+	}
+	int pins_count = cJSON_GetArraySize(pins);
+	if (pins_count < 1) {
+		LLOGE("invaild pins item!!!");
+		return -102;
+	}
+	if (pins_count == 0) {
+		LLOGD("pins is emtry!!!");
+		return -103;
+	}
+	for (size_t i = 0; i < pins_count; i++)
+	{
+		item = cJSON_GetArrayItem(pins, i);
+		if (item == NULL) {
+			LLOGW("emtry pins item[%d]??", i);
+			continue;
+		}
+		if (!cJSON_IsArray(item)) {
+			LLOGW("pins item[%d] is not array", i);
+			continue;
+		}
+		pin_item = cJSON_GetArrayItem(item, 0);
+		func_item = cJSON_GetArrayItem(item, 1);
+		if (pin_item == NULL || func_item == NULL) {
+			LLOGW("pins item[%d] is not vaild!!!", i);
+			continue;
+		}
+		if (!cJSON_IsNumber(pin_item)) {
+			LLOGW("pins item[%d] pin is not number", i);
+			continue;
+		}
+		if (!cJSON_IsString(func_item) || func_item->valuestring == NULL) {
+			LLOGW("pins item[%d] func is not string", i);
+			continue;
+		}
+		pin = pin_item->valueint;
+		func = func_item->valuestring;
+		if (luat_pins_setup(pin, func, strlen(func), 0) != 0) {
+			LLOGW("pins %d %s setup failed", pin, func);
+			continue;
+		}
+	}
+	
+
 	return 0;
 }
 
-#include "rotable2.h"
-static const rotable_Reg_t reg_pins[] =
+static int luat_pins_load_from_bin(const uint8_t *data, size_t len)
 {
-    {"setup",     ROREG_FUNC(luat_pin_setup)},
-	{"load",     ROREG_FUNC(luat_pin_load)},
-	{ NULL,     ROREG_INT(0) }
-};
+	LLOGE("not support bin file yet");
+	return -5;
+}
 
-LUAMOD_API int luaopen_pins( lua_State *L ) {
-    luat_newlib2(L, reg_pins);
-    return 1;
+int luat_pins_load_from_file(const char* path) {
+	size_t flen;
+	int ret = -100;
+	flen = luat_fs_fsize(path);
+	if (flen < 1) {
+		LLOGW("%s not exist!!", path);
+		return -1;
+	}
+	if (flen > 16 * 1024) {
+		LLOGW("%s too large!!", path);
+		return -2;
+	}
+	uint8_t *data = (uint8_t *)luat_heap_malloc(flen);
+	if (data == NULL) {
+		LLOGW("no memory for loading %s", path);
+		return -3;
+	}
+	FILE* fd = luat_fs_fopen(path, "rb");
+	if (fd == NULL) {
+		LLOGW("open %s failed", path);
+		luat_heap_free(data);
+		return -4;
+	}
+	if (luat_fs_fread(data, 1, flen, fd) != flen) {
+		LLOGW("read %s failed", path);
+		luat_heap_free(data);
+		return -4;
+	}
+	luat_fs_fclose(fd);
+	if (memcmp(path + strlen(path) - 4, ".bin", 4) == 0) {
+		ret = luat_pins_load_from_bin(data, flen);
+	}
+	else if (memcmp(path + strlen(path) - 5, ".json", 5)) {
+		cJSON * root = cJSON_ParseWithLength((const char *)data, flen);
+		if (root == NULL) {
+			LLOGE("not valid json %s", path);
+		}
+		else {
+			ret = luat_pins_load_from_json((cJSON *)root);
+			cJSON_Delete(root);
+		}
+	}
+	else {
+		LLOGE("unknown file type %s", path);
+	}
+	if (data) {
+		luat_heap_free(data);
+		data = NULL;
+	}
+	return ret;
 }

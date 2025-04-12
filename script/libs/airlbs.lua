@@ -124,11 +124,6 @@ function airlbs.request(param)
         return false
     end
 
-    if param.wifi_info and #param.wifi_info == 0 then
-        log.error(lib_name, "no wifi_info")
-        return false
-    end
-
     local udp_buff = zbuff.create(1500)
     local auth_type = 0x01
     local lbs_data_type = 0x00

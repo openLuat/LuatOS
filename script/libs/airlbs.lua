@@ -114,16 +114,18 @@ local result , data = airlbs.request({
 })
 ]]
 function airlbs.request(param)
-    if not mobile then
-        log.error(lib_name, "no mobile")
-        return false
-    end
-    if mobile.status() == 0 then
-        log.error(lib_name, "网络未注册")
-        return false
-    end
-    if param.project_id == nil or param.project_key == nil then
+    if not param or param.project_id == nil or param.project_key == nil then
         log.error(lib_name, "param error")
+        return false
+    end
+
+    if not mobile and not param.wifi_info then
+        log.error(lib_name, "no mobile and no wifi_info")
+        return false
+    end
+
+    if param.wifi_info and #param.wifi_info == 0 then
+        log.error(lib_name, "no wifi_info")
         return false
     end
 
@@ -141,26 +143,25 @@ function airlbs.request(param)
     local nonce = crypto.trng(6)
     local hmac_data = crypto.hmac_sha1(project_id .. imei .. muid .. timestamp .. nonce, project_key)
     -- log.debug(lib_name,"hmac_sha1", hmac_data)
-
-    mobile.reqCellInfo(60)
-    sys.waitUntil("CELL_INFO_UPDATE", param.timeout or airlbs_timeout)
-    -- log.info("cell", json.encode(mobile.getCellInfo()))
-
-    local lbs_data = {
-        cells = {}
-    }
-    for k, v in pairs(mobile.getCellInfo()) do
-        lbs_data.cells[k] = {}
-        lbs_data.cells[k][1] = v.mcc
-        lbs_data.cells[k][2] = v.mnc
-        lbs_data.cells[k][3] = v.tac
-        lbs_data.cells[k][4] = v.cid
-        lbs_data.cells[k][5] = v.rssi
-        lbs_data.cells[k][6] = v.snr
-        lbs_data.cells[k][7] = v.pci
-        lbs_data.cells[k][8] = v.rsrp
-        lbs_data.cells[k][9] = v.rsrq
-        lbs_data.cells[k][10] = v.earfcn
+    local lbs_data = {}
+    if mobile then
+        mobile.reqCellInfo(60)
+        sys.waitUntil("CELL_INFO_UPDATE", param.timeout or airlbs_timeout)
+        lbs_data.cells = {}
+        -- log.info("cell", json.encode(mobile.getCellInfo()))
+        for k, v in pairs(mobile.getCellInfo()) do
+            lbs_data.cells[k] = {}
+            lbs_data.cells[k][1] = v.mcc
+            lbs_data.cells[k][2] = v.mnc
+            lbs_data.cells[k][3] = v.tac
+            lbs_data.cells[k][4] = v.cid
+            lbs_data.cells[k][5] = v.rssi
+            lbs_data.cells[k][6] = v.snr
+            lbs_data.cells[k][7] = v.pci
+            lbs_data.cells[k][8] = v.rsrp
+            lbs_data.cells[k][9] = v.rsrq
+            lbs_data.cells[k][10] = v.earfcn
+        end
     end
     if param.wifi_info and #param.wifi_info > 0 then
         lbs_data.macs = {}

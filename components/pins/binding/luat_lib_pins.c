@@ -80,11 +80,12 @@ LUAT_PIN_SETUP_DONE:
 
 /**
 加载硬件配置，如果存在/luadb/pins.json，开机后自动加载/luadb/pins.json，无需调用
-@api pins.load(path)
+@api pins.loadjson(path)
 @string path, 配置文件路径, 可选, 默认值是 /luadb/pins.json
 @return boolean 成功返回true, 失败返回nil, 并在日志中提示失败原因
+@return int 失败返回错误码, 成功返回0
 @usage
-pins.load("/my.json")
+pins.loadjson("/my.json")
 */
 static int l_pins_load(lua_State *L) {
 	const char* path = luaL_checkstring(L, 1);
@@ -98,11 +99,15 @@ static int l_pins_load(lua_State *L) {
 static const rotable_Reg_t reg_pins[] =
 {
     {"setup",     ROREG_FUNC(l_pins_setup)},
-	{"load",      ROREG_FUNC(l_pins_load)},
+	{"loadjson",  ROREG_FUNC(l_pins_load)},
 	{ NULL,       ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pins( lua_State *L ) {
     luat_newlib2(L, reg_pins);
+	int ret = luat_pins_load_from_file("/luadb/pins.json");
+	if (ret == 0) {
+		LLOGD("pins.json 加载和配置完成");
+	}
     return 1;
 }

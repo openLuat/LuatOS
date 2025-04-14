@@ -5,13 +5,16 @@
 #include <stdlib.h>
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include "luat_pm.h"
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
 
 #include "cJSON.h"
 
-static int luat_isdigit(char c)
+uint8_t g_pins_debug;
+
+static inline int luat_isdigit(char c)
 {
 	return (c >= '0' && c <= '9');
 }
@@ -249,15 +252,18 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 LUAT_PIN_FUNCTION_ANALYZE_DONE:
 	if (!description.is_no_use)
 	{
-		LLOGD("%.*s find %d,%d,%d", org_len, old, description.peripheral_type, description.peripheral_id, description.function_id);
+		if (g_pins_debug) {
+			LLOGD("%.*s find %d,%d,%d", org_len, old, description.peripheral_type, description.peripheral_id, description.function_id);
+		}
 	}
 	return description;
 }
 
 int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int altfun_id) {
-	luat_pin_function_description_t pin_description;
-	luat_pin_peripheral_function_description_u func_description;
-	int result;
+	luat_pin_function_description_t pin_description = {0};
+	luat_pin_peripheral_function_description_u func_description = {0};
+	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
+	int result = 0;
 	if (luat_pin_get_description_from_num(pin, &pin_description))
 	{
 		LLOGE("pin%d不支持修改", pin);
@@ -300,16 +306,22 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 			goto LUAT_PIN_SETUP_DONE;
 		}
 	}
-	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
 	if (!luat_pin_get_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
 	{
 		pin_list[func_description.function_id].altfun_id = altfun_id;
 		pin_list[func_description.function_id].uid = pin_description.uid;
-		if (!luat_pin_set_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
+		result = luat_pin_set_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list);
+		if (result >= 0)
 		{
 			result = 1;
 			goto LUAT_PIN_SETUP_DONE;
 		}
+		else {
+			LLOGD("luat_pin_set_iomux_info fail! pin %d tp %d id %d", pin, func_description.peripheral_type, func_description.peripheral_id);
+		}
+	}
+	else {
+		LLOGD("luat_pin_get_iomux_info fail! pin %d tp %d id %d", pin, func_description.peripheral_type, func_description.peripheral_id);
 	}
 	if (func_name)
 	{
@@ -327,10 +339,10 @@ LUAT_PIN_SETUP_DONE:
 static int luat_pins_load_from_json(cJSON *root)
 {
 	cJSON *pins = cJSON_GetObjectItem(root, "pins");
-	cJSON *item;
-	cJSON *pin_item;
-	cJSON *func_item;
-	uint16_t pin;
+	cJSON *item = NULL;
+	cJSON *pin_item = NULL;
+	cJSON *func_item = NULL;
+	uint16_t pin = 0;
 	const char* func = NULL;
 	if (pins == NULL) {
 		LLOGE("json without pins item!!!");
@@ -372,7 +384,7 @@ static int luat_pins_load_from_json(cJSON *root)
 		}
 		pin = pin_item->valueint;
 		func = func_item->valuestring;
-		if (luat_pins_setup(pin, func, strlen(func), 0) != 0) {
+		if (luat_pins_setup(pin, func, strlen(func), 0) != 1) {
 			LLOGW("pins %d %s setup failed", pin, func);
 			continue;
 		}
@@ -420,12 +432,27 @@ int luat_pins_load_from_file(const char* path) {
 	if (memcmp(path + strlen(path) - 4, ".bin", 4) == 0) {
 		ret = luat_pins_load_from_bin(data, flen);
 	}
-	else if (memcmp(path + strlen(path) - 5, ".json", 5)) {
+	else if (memcmp(path + strlen(path) - 5, ".json", 5) == 0) {
 		cJSON * root = cJSON_ParseWithLength((const char *)data, flen);
 		if (root == NULL) {
 			LLOGE("not valid json %s", path);
 		}
 		else {
+			// 是否为debug模式
+			if (cJSON_HasObjectItem(root, "pins_debug")) {
+				cJSON *item = cJSON_GetObjectItem(root, "pins_debug");
+				g_pins_debug = item->valueint;
+				if (g_pins_debug) {
+					LLOGI("pins debug模式开启");
+				}
+			}
+			// 检查io电平配置
+			if (cJSON_HasObjectItem(root, "iovolt")) {
+				cJSON *item = cJSON_GetObjectItem(root, "iovolt");
+				if(item->valueint >= 1800 && item->valueint <= 3300) {
+					luat_pm_iovolt_ctrl(LUAT_PM_ALL_GPIO, item->valueint);
+				}
+			}
 			ret = luat_pins_load_from_json((cJSON *)root);
 			cJSON_Delete(root);
 		}

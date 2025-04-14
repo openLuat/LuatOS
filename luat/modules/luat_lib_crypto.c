@@ -366,7 +366,13 @@ static int l_crypto_crc32(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-
+    if (lua_isinteger(L, 2) || lua_isinteger(L, 3) || lua_isinteger(L, 4)) {
+    	uint32_t start = luaL_optinteger(L, 2, 0xffffffff);
+    	uint32_t poly = luaL_optinteger(L, 3, 0x04C11DB7);
+    	uint32_t end = luaL_optinteger(L, 4, 0xffffffff);
+        lua_pushinteger(L, luat_crc32(inputData, len, start, poly) ^ end);
+        return 1;
+    }
     lua_pushinteger(L, calcCRC32(inputData, len));
     return 1;
 }

@@ -158,8 +158,8 @@ static void prvCRC32_CreateTable(uint32_t *Tab, uint32_t Gen)
 {
 	uint32_t crc;
 	uint32_t i, j, temp, t1, t2, flag;
-	if (Tab[1] != 0)
-		return;
+//	if (Tab[1] != 0)
+//		return;
 	for (i = 0; i < 256; i++)
 	{
 		temp = prvReflect(i, 8);

@@ -359,26 +359,22 @@ static int l_crypto_crc16_modbus(lua_State *L)
 @string 数据
 @int 初始化值,默认0xFFFFFFFF
 @int crc多项式，可选，默认0x04C11DB7
-@int 结束值,可选，默认0xFFFFFFFF
+@int 结束值,可选，默认0xFFFFFFFF，计算结果异或结束值才是最终输出值
 @return int 对应的CRC32值
 @usage
 -- 计算CRC32
 local crc = crypto.crc32(data)
 -- start和poly可选, 是 2025.4.14 新增的参数
-local crc = crypto.crc32(data, 0xFFFFFFFF, 0x04C11DB7)
+local crc = crypto.crc32(data, 0xFFFFFFFF, 0x04C11DB7, 0xFFFFFFFF) --等同于crypto.crc32(data)
  */
 static int l_crypto_crc32(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-    if (lua_isinteger(L, 2) || lua_isinteger(L, 3) || lua_isinteger(L, 4)) {
-    	uint32_t start = luaL_optinteger(L, 2, 0xffffffff);
-    	uint32_t poly = luaL_optinteger(L, 3, 0x04C11DB7);
-    	uint32_t end = luaL_optinteger(L, 4, 0xffffffff);
-        lua_pushinteger(L, luat_crc32(inputData, len, start, poly) ^ end);
-        return 1;
-    }
-    lua_pushinteger(L, calcCRC32(inputData, len));
+	uint32_t start = luaL_optinteger(L, 2, 0xffffffff);
+	uint32_t poly = luaL_optinteger(L, 3, 0x04C11DB7);
+	uint32_t end = luaL_optinteger(L, 4, 0xffffffff);
+    lua_pushinteger(L, luat_crc32(inputData, len, start, poly) ^ end);
     return 1;
 }
 

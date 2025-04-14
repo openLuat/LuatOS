@@ -254,6 +254,13 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         // TODO 是不是应该恢复到状态0
         return 0;
     }
+    if (ch->status == 3) {
+        LLOGD("request ch390 reset spi%d cs%d", ch->spiid, ch->cspin);
+        luat_ch390h_software_reset(ch);
+        ch->status = 2;
+        luat_rtos_task_sleep(10);
+        return 0;
+    }
     if (ch->status != 2) {
         // 处于中间状态, 暂不管它
         LLOGI("wait for netif init %d %d", ch->spiid, ch->cspin);

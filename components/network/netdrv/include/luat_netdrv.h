@@ -9,6 +9,7 @@ typedef void (*luat_netdrv_dataout_cb)(struct luat_netdrv* drv, void* userdata, 
 typedef int (*luat_netdrv_bootup_cb)(struct luat_netdrv* drv, void* userdata);
 typedef int (*luat_netdrv_ready_cb)(struct luat_netdrv* drv, void* userdata);
 typedef int (*luat_netdrv_dhcp_set)(struct luat_netdrv* drv, void* userdata, int enable);
+typedef int (*luat_netdrv_ctrl_cb)(struct luat_netdrv* drv, void* userdata, int cmd, void* param);
 
 #define MACFMT "%02X%02X%02X%02X%02X%02X"
 #define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
@@ -21,6 +22,10 @@ enum {
     LUAT_NETDRV_TP_SPINET,
     LUAT_NETDRV_TP_UARTNET,
     LUAT_NETDRV_TP_USB
+};
+
+enum {
+    LUAT_NETDRV_CTRL_RESET,
 };
 
 typedef struct luat_netdrv_conf
@@ -57,6 +62,7 @@ typedef struct luat_netdrv {
     luat_netdrv_dhcp_set dhcp;
     luat_netdrv_statics_t statics;
     void* userdata;
+    luat_netdrv_ctrl_cb ctrl;
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);

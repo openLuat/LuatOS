@@ -101,6 +101,7 @@ function dnsproxy.setup(adapter, main_adapter)
 end
 
 function dnsproxy.on_ip_ready()
+    if not dnsproxy.sc then return end
     socket.close(dnsproxy.sc)
     socket.close(dnsproxy.main_sc)
     log.info("dnsproxy", "开启DNS代理")

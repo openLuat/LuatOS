@@ -355,12 +355,17 @@ static int l_crypto_crc16_modbus(lua_State *L)
 
 /**
 计算crc32值
-@api crypto.crc32(data)
+@api crypto.crc32(data, start, poly, endv)
 @string 数据
+@int 初始化值,默认0xFFFFFFFF
+@int crc多项式，可选，默认0x04C11DB7
+@int 结束值,可选，默认0xFFFFFFFF
 @return int 对应的CRC32值
 @usage
 -- 计算CRC32
 local crc = crypto.crc32(data)
+-- start和poly可选, 是 2025.4.14 新增的参数
+local crc = crypto.crc32(data, 0xFFFFFFFF, 0x04C11DB7)
  */
 static int l_crypto_crc32(lua_State *L)
 {

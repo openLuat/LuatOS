@@ -1,0 +1,9 @@
+{
+    "pins" : [
+        [17, "UART1_RXD"],
+        [18, "UART1_TXD"],
+        [55, "UART2_RXD"],
+        [56, "UART2_TXD"]
+    ],
+    "pins_debug" : true
+}

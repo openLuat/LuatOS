@@ -5,5 +5,5 @@
         [55, "UART2_RXD"],
         [56, "UART2_TXD"]
     ],
-    "pins_debug" : true
+    "pins_debug" : false
 }

@@ -95,11 +95,25 @@ static int l_pins_load(lua_State *L) {
 	return 2;
 }
 
+/**
+调试模式
+@api pins.debug(mode)
+@boolean 是否开启调试模式, 默认是关闭的, 就是日志多一些
+@usage
+pins.debug(true)
+*/
+static int l_pins_debug(lua_State *L) {
+	extern uint8_t g_pins_debug;
+	g_pins_debug = (uint8_t)lua_toboolean(L, 1);
+	return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pins[] =
 {
     {"setup",     ROREG_FUNC(l_pins_setup)},
 	{"loadjson",  ROREG_FUNC(l_pins_load)},
+	{"debug",	  ROREG_FUNC(l_pins_debug)},
 	{ NULL,       ROREG_INT(0) }
 };
 

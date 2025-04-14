@@ -31,6 +31,25 @@ static int ch390h_dhcp(luat_netdrv_t* drv, void* userdata, int enable) {
     return 0;
 }
 
+static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, size_t len) {
+    ch390h_t* ch = (ch390h_t*)userdata;
+    if (ch == NULL) {
+        return -2;
+    }
+    switch (cmd) {
+        case LUAT_NETDRV_CTRL_RESET:
+            if (ch->status == 2) {
+                ch->status = 3;
+            }
+            else {
+                LLOGD("ch390并非处于已初始化状态, 不能重置");
+                return -3;
+            }
+            return 0;
+    }
+    return 0;
+}
+
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
     
     LLOGD("注册CH390H设备 SPI id %d cs %d irq %d", cfg->spiid, cfg->cspin, cfg->irqpin);
@@ -77,6 +96,7 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
         drv->dataout = NULL;
         drv->boot = NULL;
         drv->dhcp = ch390h_dhcp;
+        drv->ctrl = ch390h_ctrl;
         ch->netdrv = drv;
         extern void luat_ch390h_task_start(void);
         luat_ch390h_task_start();

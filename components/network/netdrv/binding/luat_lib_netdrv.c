@@ -245,6 +245,37 @@ static int l_netdrv_ready(lua_State *L) {
     return 1;
 }
 
+/*
+给具体的驱动发送控制指令
+@api netdrv.ctrl(id, cmd, arg)
+@int 网络适配器编号, 例如 socket.LWIP_ETH
+@int 指令, 例如 netdrv.CTRL_RESET
+@int 参数, 例如 netdrv.RESET_HARD
+@return boolean 成功与否
+@usage
+-- 重启网卡, 仅CH390H支持, 其他网络设备暂不支持
+-- 本函数于 2025.4.14 新增
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_RESET, netdrv.RESET_HARD)
+*/
+static int l_netdrv_ctrl(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int cmd = luaL_checkinteger(L, 2);
+    int arg = luaL_checkinteger(L, 3);
+    luat_netdrv_t* drv = luat_netdrv_get(id);
+    if (drv == NULL) {
+        LLOGW("not such netdrv %d", id);
+        return 0;
+    }
+    if (drv->ctrl == NULL) {
+        LLOGW("netdrv %d not support ctrl", id);
+        return 0;
+    }
+    int ret = drv->ctrl(drv, drv->userdata, cmd, arg);
+    lua_pushboolean(L, ret == 0);
+    lua_pushinteger(L, ret);
+    return 2;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
@@ -257,6 +288,8 @@ static const rotable_Reg_t reg_netdrv[] =
     { "link",           ROREG_FUNC(l_netdrv_link)},
     { "ready",          ROREG_FUNC(l_netdrv_ready)},
 
+    { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
+
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},
     { "CH395",          ROREG_INT(2)}, // 考虑兼容Air724UG/Air820UG的老客户
@@ -264,6 +297,10 @@ static const rotable_Reg_t reg_netdrv[] =
     { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
     { "SPINET",         ROREG_INT(32)}, // SPI形式的网卡, 可以带MAC, 也可以不带
     { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
+
+    { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
+    { "RESET_HARD",     ROREG_INT(0x101)},
+    { "RESET_SOFT",     ROREG_INT(0x102)},
 	{ NULL,             ROREG_INT(0) }
 };
 

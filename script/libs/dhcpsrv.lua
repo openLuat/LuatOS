@@ -1,4 +1,12 @@
-
+--[[
+@module dhcpsrv
+@summary DHCP服务器端
+@version 1.0.0
+@date    2025.04.15
+@author  wendal
+@usage
+-- 参考dhcpsrv.create函数
+]]
 local dhcpsrv = {}
 
 local udpsrv = require("udpsrv")
@@ -211,15 +219,19 @@ local function dhcp_handle_request(srv, pkg)
     -- 看看是不是已经分配了ip
     for _, client in pairs(srv.clients) do
         if client.mac == mac then
-            log.info(TAG, "request,发现已经分配的mac地址, send ack")
+            log.info(TAG, "request,发现已经分配的mac地址, send ack", mac:toHex())
             client.tm = mcu.ticks() // mcu.hz()
             stat = 3
             dhcp_send_ack(srv, pkg, client)
+            if srv.opts.ack_cb then
+                local cip = string.format("%d.%d.%d.%d", srv.opts.gw[1], srv.opts.gw[2], srv.opts.gw[3], client.ip)
+                srv.opts.ack_cb(cip, mac:toHex())
+            end
             return
         end
     end
     -- 没有找到, 那应该返回NACK
-    log.info(TAG, "request,没有分配的mac地址, send nack")
+    log.info(TAG, "request,对应mac地址没有分配ip, send nack")
     dhcp_send_nack(srv, pkg, {ip=pkg.yiaddr:byte(1)})
 end
 
@@ -252,10 +264,10 @@ local function dhcp_pkg_handle(srv, pkg)
 
     -- 处理discover包
     if pkg.msgtype == 1 then
-        log.info(TAG, "是discover包")
+        log.info(TAG, "是discover包", mac:toHex())
         dhcp_handle_discover(srv, pkg)
     elseif pkg.msgtype == 3 then
-        log.info(TAG, "是request包")
+        log.info(TAG, "是request包", mac:toHex())
         dhcp_handle_request(srv, pkg)
     end
     -- TODO 处理结束, 打印一下客户的列表?
@@ -276,6 +288,27 @@ local function dhcp_task(srv)
         end
     end
 end
+
+--[[
+创建一个dhcp服务器
+@api dhcpsrv.create(opts)
+@table 选项,参考库的说明, 及demo的用法
+@return 服务器对象
+@usage
+-- 创建一个dhcp服务器, 最简介的版本
+dhcpsrv.create({adapter=socket.LWIP_AP})
+-- 详细的版本
+-- 创建一个dhcp服务器
+local dhcpsrv_opts = {
+    adapter=socket.LWIP_AP, -- 监听哪个网卡, 必须填写
+    mark = {255, 255, 255, 0}, -- 网络掩码, 默认 255.255.255.0
+    gw = {192, 168, 4, 1}, -- 网关, 默认 192.168.4.1
+    ip_start = 100, -- ip起始地址, 默认100
+    ip_end = 200, -- ip结束地址, 默认200
+    ack_cb = function(ip, mac) end, -- ack回调, 有客户端连接上来时触发, ip和mac地址会传进来
+}
+dhcpsrv.create(dhcpsrv_opts)
+]]
 function dhcpsrv.create(opts)
     local srv = {}
     if not opts then

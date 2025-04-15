@@ -201,7 +201,7 @@ int ff_mutex_take (	/* Returns 1:Succeeded or 0:Timeout */
 	return (int)(osMutexWait(Mutex[vol], FF_FS_TIMEOUT) == osOK);
 
 #elif OS_TYPE == 5	/* LUATOS */
-	luat_rtos_mutex_lock(Mutex[vol], LUAT_WAIT_FOREVER);
+    return (int)(luat_rtos_mutex_lock(Mutex[vol], LUAT_WAIT_FOREVER) == 0);
 
 #endif
 }

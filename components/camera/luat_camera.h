@@ -61,6 +61,7 @@ typedef struct luat_camera_conf
 #else
     void *lcd_conf;
 #endif
+    uint8_t stream;
 } luat_camera_conf_t;
 
 typedef struct

@@ -35,7 +35,9 @@ sys.taskInit(function ()
     while netdrv.link(socket.LWIP_GP) ~= true do
         sys.wait(100)
     end
-    dhcps.create({adapter=socket.LWIP_ETH})
+    dhcps.create({adapter=socket.LWIP_ETH, ack_cb=function(ip, mac)
+        log.info("dhcpsrv", "sta已连接", ip, mac)
+    end})
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
     netdrv.napt(socket.LWIP_GP)
     if iperf then

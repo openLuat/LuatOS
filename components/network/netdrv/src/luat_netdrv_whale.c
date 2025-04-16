@@ -89,6 +89,7 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
     net_lwip2_register_adapter(netdrv->id);
     // LLOGD("luat_netif_init 执行完成");
+    drv->boot = NULL; // 不允许二次boot
 }
 
 static err_t luat_netif_init(struct netif *netif) {

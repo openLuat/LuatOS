@@ -7,6 +7,12 @@ VERSION = "1.0.4"
 -- sys库是标配
 _G.sys = require("sys")
 
+wdt.init(3000)
+sys.timerLoopStart(function()
+    wdt.feed()
+    log.info("喂狗")
+end, 1000)
+
 sys.taskInit(function()
     sys.wait(100)
     -- 初始化airlink

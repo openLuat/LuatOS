@@ -87,7 +87,7 @@ end)
 sys.taskInit(function()
     log.info("新的Air8000脚本...")
 
-    sys.wait(300) -- 稍微缓一下, Air8000S的启动大概需要300ms
+    sys.wait(500) -- 稍微缓一下, Air8000S的启动大概需要300ms
     wlan.init()
     sys.wait(100)
     

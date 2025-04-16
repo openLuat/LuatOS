@@ -223,6 +223,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         if (check_vid_pid(ch)) {
             return 0;
         }
+        luat_rtos_task_sleep(10);
         // 读取MAC地址, 开始初始化
         luat_ch390h_read_mac(ch, buff);
         for (size_t i = 0; i < 6; i++)

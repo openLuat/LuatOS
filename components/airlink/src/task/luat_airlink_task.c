@@ -53,6 +53,11 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
             // if (ptr->cmd != 0x10) {
             //     LLOGD("收到指令/回复 cmd %d len %d", ptr->cmd, ptr->len);
             // }
+            if (g_airlink_last_cmd_timestamp == 0) {
+                uint64_t tmp = luat_mcu_tick64_ms();
+                LLOGI("AIRLINK_READY %ld", (uint32_t)tmp);
+                // TODO 发个系统消息
+            }
             g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
             cmd_reg = airlink_cmds;
             while (1) {

@@ -9,48 +9,48 @@
 
     -- 腾讯云 
     -- 动态注册
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx" ,product_secret = "xxx"})
     -- 密钥校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
     -- 证书校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
     -- 阿里云  
     -- 一型一密(免预注册-仅企业版支持)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",product_secret = "xxx"}) -- 企业版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",product_secret = "xxx"}) -- 企业版公共实例
     -- 一型一密(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{product_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
     -- 一机一密(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{product_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
 
 
     -- ONENET云
     -- 动态注册
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",userid = "xxx",userkey = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",userid = "xxx",userkey = "xxx"})
     -- 一型一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",product_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",product_secret = "xxx"})
     -- 一机一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 华为云
     -- 动态注册(免预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",project_id = "xxx",endpoint = "xxx",
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{product_id = "xxx",project_id = "xxx",endpoint = "xxx",
     --                         iam_username="xxx",iam_password="xxx",iam_domain="xxx"})
     -- 手动注册(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{product_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 涂鸦云 
     -- iotcloudc = iotcloud.new(iotcloud.TUYA,{device_name = "xxx",device_secret = "xxx"})
 
     -- 百度云 
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{product_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{product_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
 
     -- Tlink云  
-    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"})
-    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{product_id = "xxx",product_secret = "xxx",device_name = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{product_id = "xxx",product_secret = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
 ]]
 
@@ -569,47 +569,47 @@ end
 
     -- 腾讯云 
     -- 动态注册
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx" ,product_secret = "xxx"})
     -- 密钥校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx",device_name = "123456789",device_secret = "xxx=="})
     -- 证书校验
-    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{product_id = "xxx",device_name = "123456789"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
     -- 阿里云  
     -- 一型一密(免预注册-仅企业版支持)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",product_secret = "xxx"}) -- 企业版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",product_secret = "xxx"}) -- 企业版公共实例
     -- 一型一密(预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{product_id = "xxx",device_name = "xxx",product_secret = "xxx"})                     -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",device_name = "xxx",product_secret = "xxx"}) -- 新版公共实例
     -- 一机一密 (预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
-    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{product_id = "xxx",device_name = "xxx",device_secret = "xxx"})                    -- 旧版公共实例
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{instance_id = "xxx",product_id = "xxx",device_name = "xxx",device_secret = "xxx"})-- 新版公共实例
 
     -- ONENET云
     -- 动态注册
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",userid = "xxx",userkey = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",userid = "xxx",userkey = "xxx"})
     -- 一型一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",product_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",product_secret = "xxx"})
     -- 一机一密
-    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{product_id = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 华为云
     -- 动态注册(免预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",project_id = "xxx",endpoint = "xxx",
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{product_id = "xxx",project_id = "xxx",endpoint = "xxx",
     --                         iam_username="xxx",iam_password="xxx",iam_domain="xxx"})
     -- 密钥校验 (预注册)
-    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{product_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
 
     -- 涂鸦云 
     -- iotcloudc = iotcloud.new(iotcloud.TUYA,{device_name = "xxx",device_secret = "xxx"})
 
     -- 百度云 
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
-    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{produt_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{product_id = "afadjlw",device_name = "test",device_secret = "BBDVsSRGefaknffT"})
+    -- iotcloudc = iotcloud.new(iotcloud.BAIDU,{product_id = "xxx",device_name = "xxx"},{tls={server_cert=io.readFile("/luadb/GlobalSign.cer"),client_cert=io.readFile("/luadb/client_cert"),client_key=io.readFile("/luadb/client_private_key")}})
 
     -- Tlink云  
-    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"})
-    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{produt_id = "xxx",product_secret = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
+    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{product_id = "xxx",product_secret = "xxx",device_name = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.TLINK,{product_id = "xxx",product_secret = "xxx",device_name = "xxx"},{tls={client_cert=io.readFile("/luadb/client_cert.crt")}})
 
 ]]
 function iotcloud.new(cloud,iot_config,connect_config)
@@ -644,6 +644,9 @@ function iotcloud.new(cloud,iot_config,connect_config)
         
     }, cloudc)
     if fskv then fskv.init() else log.error("iotcloud","iotcloud need fskv",cloud) return false end
+    if iot_config.product_id then
+        iotcloudc.product_id = iot_config.product_id
+    end
     if iot_config.produt_id then
         iotcloudc.product_id = iot_config.produt_id
     end
@@ -672,8 +675,8 @@ function iotcloud.new(cloud,iot_config,connect_config)
         log.error("iotcloud","cloud not support",cloud)
         return false
     end
-    -- print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip,iotcloudc.isssl)
-    -- print("iotauth.auth",iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
+    print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip,iotcloudc.isssl)
+    print("iotauth.auth",iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     if iotcloudc.ca_file then
         iotcloudc.ca_file.verify = 1
         mqtt_ssl = iotcloudc.ca_file

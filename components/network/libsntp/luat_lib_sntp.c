@@ -100,8 +100,14 @@ int l_sntp_get(lua_State *L) {
         const char * server_addr = luaL_checklstring(L, 1, &len);
         if (len < SNTP_SERVER_LEN_MAX - 1){
             memcpy(sntp_servers[0], server_addr, len + 1);
-        }else{
+        } 
+        else if (len < 5) {
+            LLOGE("server_addr too short %s", server_addr);
+            return 0;
+        }
+        else{
             LLOGE("server_addr too long %s", server_addr);
+            return 0;
         }
 	}else if(lua_istable(L, 1)){
         size_t count = lua_rawlen(L, 1);

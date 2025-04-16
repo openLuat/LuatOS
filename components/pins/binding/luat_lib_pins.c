@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include "luat_hmeta.h"
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
@@ -79,12 +80,16 @@ LUAT_PIN_SETUP_DONE:
 }
 
 /**
-加载硬件配置，如果存在/luadb/pins.json，开机后自动加载/luadb/pins.json，无需调用
+加载硬件配置
 @api pins.loadjson(path)
 @string path, 配置文件路径, 可选, 默认值是 /luadb/pins.json
 @return boolean 成功返回true, 失败返回nil, 并在日志中提示失败原因
 @return int 失败返回错误码, 成功返回0
 @usage
+-- ，如果存在/luadb/pins_$model.json 就自动加载
+-- 其中的 $model是型号, 例如 Air780EPM, 默认加载的是 luadb/pins_Air780EPM.json
+
+-- 以下是自行加载配置的例子, 一般用不到
 pins.loadjson("/my.json")
 */
 static int l_pins_load(lua_State *L) {
@@ -119,9 +124,14 @@ static const rotable_Reg_t reg_pins[] =
 
 LUAMOD_API int luaopen_pins( lua_State *L ) {
     luat_newlib2(L, reg_pins);
-	int ret = luat_pins_load_from_file("/luadb/pins.json");
+	char buff[64] = {0};
+	char name[40] = {0};
+	luat_hmeta_model_name(name);
+	snprintf(buff, sizeof(buff), "/luadb/pins_%s.json", name);
+	
+	int ret = luat_pins_load_from_file(buff);
 	if (ret == 0) {
-		LLOGD("pins.json 加载和配置完成");
+		LLOGD("%s 加载和配置完成", buff);
 	}
     return 1;
 }

@@ -359,7 +359,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 //		}
 //		break;
 	case DHCP_STATE_DISCOVER:
-		LLOGD("dhcp discover");
+		LLOGD("dhcp discover %02X%02X%02X%02X%02X%02X", (uint8_t)dhcp->mac[0], (uint8_t)dhcp->mac[1], (uint8_t)dhcp->mac[2], (uint8_t)dhcp->mac[3], (uint8_t)dhcp->mac[4], (uint8_t)dhcp->mac[5]);
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_discover_msg(dhcp, out);
 		dhcp->last_tx_time = luat_mcu_tick64_ms();

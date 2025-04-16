@@ -165,6 +165,16 @@ luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
 
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd);
 
+enum {
+    LUAT_AIRLINK_CONF_SPI_ID = 0x100,
+    LUAT_AIRLINK_CONF_SPI_MODE,
+    LUAT_AIRLINK_CONF_SPI_CS,
+    LUAT_AIRLINK_CONF_SPI_RDY,
+    LUAT_AIRLINK_CONF_SPI_IRQ,
+
+    LUAT_AIRLINK_CONF_UART_ID
+};
+
 // GPIO 操作, 临时放这里
 #include "luat_gpio.h"
 int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio);

@@ -231,11 +231,56 @@ static int l_airlink_sfota_write(lua_State *L) {
     return 1;
 }
 
+/*
+配置AirLink的参数
+@api airlink.config(key, value)
+@int key 配置项, 参考airlink的常数项
+@int value 配置值
+@return bool 成功返回true, 失败返回nil
+@usage
+--配置AirLink的SPI ID为1, CS引脚为10, RDY引脚为11, IRQ引脚为12
+airlink.config(airlink.CONF_SPI_ID, 1)
+airlink.config(airlink.CONF_SPI_CS, 10)
+airlink.config(airlink.CONF_SPI_RDY, 11)
+airlink.config(airlink.CONF_SPI_IRQ, 12)
+*/
+static int l_airlink_config(lua_State *L) {
+    int key = luaL_checkinteger(L, 1);
+    int value = luaL_checkinteger(L, 2);
+    switch (key)
+    {
+    case LUAT_AIRLINK_CONF_SPI_ID:
+        g_airlink_spi_conf.spi_id = value;
+        break;
+    case LUAT_AIRLINK_CONF_SPI_CS:
+        g_airlink_spi_conf.cs_pin = value;
+        break;
+    case LUAT_AIRLINK_CONF_SPI_RDY:
+        g_airlink_spi_conf.rdy_pin = value;
+        break;
+    case LUAT_AIRLINK_CONF_SPI_IRQ:
+        g_airlink_spi_conf.irq_pin = value;
+        break;
+    
+    default:
+        return 0;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int l_airlink_sfota(lua_State *L) {
+    // 直接发指令是不行了, 需要干预airlink task的执行流程
+    // bk72xx的flash擦除很慢, 导致spi master需要等很久才能发下一个包
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
     { "init" ,         ROREG_FUNC(l_airlink_init )},
-    { "start" ,        ROREG_FUNC(l_airlink_start )},
+    { "config",        ROREG_FUNC(l_airlink_config)},
+    { "start" ,        ROREG_FUNC(l_airlink_start)},
     { "stop" ,         ROREG_FUNC(l_airlink_stop )},
     { "ready",         ROREG_FUNC(l_airlink_ready)},
     { "test",          ROREG_FUNC(l_airlink_test )},
@@ -245,14 +290,16 @@ static const rotable_Reg_t reg_airlink[] =
     { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
 
     // 测试用的fota指令
-    { "sfota_init",     ROREG_FUNC(l_airlink_sfota_init )},
-    { "sfota_write",    ROREG_FUNC(l_airlink_sfota_write )},
-    { "sfota_end",      ROREG_FUNC(l_airlink_sfota_end )},
-    { "sfota_done",     ROREG_FUNC(l_airlink_sfota_done )},
+    { "sfota",         ROREG_FUNC(l_airlink_sfota )},
 
     { "MODE_SPI_SLAVE",    ROREG_INT(0) },
     { "MODE_SPI_MASTER",   ROREG_INT(1) },
-	{ NULL,            ROREG_INT(0) }
+
+    { "CONF_SPI_ID",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_ID)},
+    { "CONF_SPI_CS",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_CS)},
+    { "CONF_SPI_RDY",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_RDY)},
+    { "CONF_SPI_IRQ",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_IRQ)},
+	{ NULL,                ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_airlink( lua_State *L ) {

@@ -8,6 +8,10 @@
 */
 #include "luat_base.h"
 #include "luat_pwm.h"
+#include "luat_mem.h"
+
+#define LUAT_LOG_TAG "pwm"
+#include "luat_log.h"
 
 /**
 开启指定的PWM通道
@@ -79,12 +83,103 @@ static int l_pwm_capture(lua_State *L) {
     return 1;
 }
 
+// 新的API系列, 封装老的版本, bsp层暂时不改
+static luat_pwm_conf_t* confs[6];
+
+static int l_pwm_setup(lua_State *L) {
+    luat_pwm_conf_t conf = {
+        .pnum = 0,
+        .precision = 100
+    };
+    conf.channel = luaL_checkinteger(L, 1);
+    conf.period = luaL_checkinteger(L, 2);
+    conf.pulse = luaL_optnumber(L, 3,0);
+    if (lua_isnumber(L, 4) || lua_isinteger(L, 4)){
+        conf.pnum = luaL_checkinteger(L, 4);
+    }
+    if (lua_isnumber(L, 5) || lua_isinteger(L, 5)){
+        conf.precision = luaL_checkinteger(L, 5);
+    }
+    if (conf.channel > 5 || conf.channel < 0) {
+        return 0;
+    }
+    if (confs[conf.channel] == NULL) {
+        confs[conf.channel] = luat_heap_malloc(sizeof(luat_pwm_conf_t));
+        if (confs[conf.channel] == NULL) {
+            LLOGE("pwm_setup malloc fail");
+            return 0;
+        }
+    }
+    memcpy(confs[conf.channel], &conf, sizeof(luat_pwm_conf_t));
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int check_channel(lua_State *L) {
+    int channel = luaL_checkinteger(L, 1);
+    if (channel > 5 || channel < 0) {
+        return -1;
+    }
+    if (confs[channel] == NULL) {
+        LLOGE("请先调用pwm.setup!! %d", channel);
+        return -1;
+    }
+    return channel;
+}
+
+static int l_pwm_start(lua_State *L) {
+    int channel = check_channel(L);
+    if (channel < 0) {
+        return 0;
+    }
+    int ret = luat_pwm_setup(confs[channel]);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+static int l_pwm_stop(lua_State *L) {
+    int channel = check_channel(L);
+    if (channel < 0) {
+        return 0;
+    }
+    luat_pwm_close(channel);
+    luat_heap_free(confs[channel]);
+    confs[channel] = NULL;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+static int l_pwm_set_duty(lua_State *L) {
+    int channel = check_channel(L);
+    if (channel < 0) {
+        return 0;
+    }
+    confs[channel]->pulse = luaL_checkinteger(L, 2);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+static int l_pwm_set_freq(lua_State *L) {
+    int channel = check_channel(L);
+    if (channel < 0) {
+        return 0;
+    }
+    confs[channel]->period = luaL_checkinteger(L, 2);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pwm[] =
 {
     { "open" ,       ROREG_FUNC(l_pwm_open )},
     { "close" ,      ROREG_FUNC(l_pwm_close)},
     { "capture" ,    ROREG_FUNC(l_pwm_capture)},
+
+    // 新api, setup,start,stop
+    { "setup" ,      ROREG_FUNC(l_pwm_setup )},
+    { "start" ,      ROREG_FUNC(l_pwm_start )},
+    { "stop" ,       ROREG_FUNC(l_pwm_stop )},
+    { "setDuty" ,    ROREG_FUNC(l_pwm_set_duty )},
+    { "setFreq" ,    ROREG_FUNC(l_pwm_set_freq )},
+
 	{ NULL,          ROREG_INT(0) }
 };
 

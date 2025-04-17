@@ -212,4 +212,7 @@ LUAMOD_API int luaopen_yhm27xx( lua_State *L );
 
 LUAMOD_API int luaopen_vtool( lua_State *L );
 
+// icmp
+LUAMOD_API int luaopen_icmp( lua_State *L );
+
 #endif

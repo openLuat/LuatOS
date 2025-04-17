@@ -275,6 +275,11 @@ static int l_airlink_sfota(lua_State *L) {
     return 0;
 }
 
+static int l_airlink_debug(lua_State *L) {
+    g_airlink_debug = luaL_checkinteger(L, 1);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -291,6 +296,8 @@ static const rotable_Reg_t reg_airlink[] =
 
     // 测试用的fota指令
     { "sfota",         ROREG_FUNC(l_airlink_sfota )},
+
+    { "debug",         ROREG_FUNC(l_airlink_debug )},
 
     { "MODE_SPI_SLAVE",    ROREG_INT(0) },
     { "MODE_SPI_MASTER",   ROREG_INT(1) },

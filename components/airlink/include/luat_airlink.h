@@ -229,6 +229,15 @@ int luat_airlink_drv_wlan_get_ap_gateway(char* buff);
 int luat_airlink_drv_wlan_ap_start(luat_wlan_apinfo_t *apinfo);
 int luat_airlink_drv_wlan_ap_stop(void);
 
+
+// uart参数
+#include "luat_uart.h"
+int luat_airlink_drv_uart_setup(luat_uart_t* uart);
+int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length);
+int luat_airlink_drv_uart_read(int uart_id, void* buffer, size_t length);
+
+extern uint32_t g_airlink_debug;
+
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif

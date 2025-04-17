@@ -38,7 +38,7 @@ typedef struct client_socket_ctx
     size_t sent_size;
 
     FILE* fd;
-    char sbuff[512];
+    char sbuff[1500];
     uint32_t sbuff_offset;
     uint8_t write_done;
 }client_socket_ctx_t;
@@ -97,7 +97,7 @@ static int client_write(client_socket_ctx_t* client, const char* buff, size_t le
 #endif
     if (ret == 0) {
         client->send_size += len;
-        // LLOGD("send more %d/%d", client->sent_size, client->send_size);
+        LLOGD("send more %d/%d", client->sent_size, client->send_size);
     }
     else {
         LLOGE("client_write err %d", ret);
@@ -327,7 +327,7 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             }
         }
         else {
-            ret = luat_fs_fread(ctx->sbuff, 512, 1, ctx->fd);
+            ret = luat_fs_fread(ctx->sbuff, 1400, 1, ctx->fd);
             if (ret < 1) {
                 luat_fs_fclose(ctx->fd);
                 ctx->fd = NULL;
@@ -344,10 +344,11 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
                     // ctx->send_size += ctx->sbuff_offset;
                     ctx->sbuff_offset = 0;
                 }
+                ctx->sbuff_offset = 0;
             }
         }
     }
-    // LLOGD("done? %d sent %d/%d", ctx->write_done, ctx->sent_size, ctx->send_size);
+    LLOGD("done? %d sent %d/%d", ctx->write_done, ctx->sent_size, ctx->send_size);
     if (ctx->write_done && ctx->send_size == ctx->sent_size) {
         tcp_err(ctx->pcb, NULL);
         tcp_sent(ctx->pcb, NULL);

@@ -150,8 +150,8 @@ int luat_icmp_ping(luat_icmp_ctx_t* ctx, ip_addr_t* dst, size_t size) {
     // LLOGD("ICMP sendto %s --> %s", buff, buff2);
     ctx->send_time = luat_mcu_tick64_ms();
     ret = raw_sendto(ctx->pcb, p, dst);
+    pbuf_free(p);
     if (ret) {
-        pbuf_free(p);
         LLOGW("ICMP sendto error %d %s --> %s", ret, buff, buff2);
         return ret;
     }

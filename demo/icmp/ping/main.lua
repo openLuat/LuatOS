@@ -10,13 +10,24 @@ sys.subscribe("PING_RESULT", function(id, time, dst)
 end)
 
 sys.taskInit(function()
+    local adapter = socket.LWIP_GP
+    local ip = "121.14.77.221"
+    -- icmp.debug(true)
+    if wlan and wlan.connect then
+        sys.wait(500)
+        wlan.init()
+        wlan.connect("luatos1234", "12341234")
+        adapter = socket.LWIP_STA
+        -- ip = "192.168.1.10"
+    end
     sys.waitUntil("IP_READY")
     sys.wait(1000)
-    icmp.setup(socket.LWIP_GP)
+    icmp.setup(adapter)
     while 1 do
-        icmp.ping(socket.LWIP_GP, "121.14.77.221")
+        log.info("执行PING操作", ip)
+        icmp.ping(adapter, ip)
         sys.waitUntil("PING_RESULT", 3000)
-        sys.wait(3000)
+        sys.wait(1000)
     end
 end)
 

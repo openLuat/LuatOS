@@ -49,6 +49,12 @@ CMD_DEFINE(gpio_setup);
 CMD_DEFINE(gpio_set);
 // CMD_DEFINE(gpio_get);
 
+// UART指令, 0x400开始
+CMD_DEFINE(uart_setup);
+CMD_DEFINE(uart_write);
+CMD_DEFINE(uart_close);
+CMD_DEFINE(uart_data_cb);
+
 __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
@@ -81,6 +87,14 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO
     CMD_REG(0x300, gpio_setup),
     CMD_REG(0x301, gpio_set),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_UART
+    CMD_REG(0x400, uart_setup),
+    CMD_REG(0x401, uart_write),
+    CMD_REG(0x402, uart_close),
+#else
+    CMD_REG(0x410, uart_data_cb),
 #endif
 
     CMD_REG(0x21, nop),

@@ -15,11 +15,15 @@
 
 static luat_icmp_ctx_t* ctxs[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 
+uint8_t g_icmp_debug;
+
 static u8_t luat_icmp_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const ip_addr_t *addr)
 {
     char buff[32] = {0};
     ipaddr_ntoa_r(addr, buff, 32);
-    // LLOGD("ICMP recv %p %p %d", arg, pcb, p->tot_len);
+    if (g_icmp_debug) {
+        LLOGD("ICMP recv %p %p %d", arg, pcb, p->tot_len);
+    }
     uint32_t adapter_id = (uint32_t)arg;
     if (adapter_id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         return 0;
@@ -39,7 +43,9 @@ static u8_t luat_icmp_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const
 
     if (p->tot_len >= sizeof(struct icmp_echo_hdr) + sizeof(struct ip_hdr)) {
         iecho = (struct icmp_echo_hdr *)(p->payload + sizeof(struct ip_hdr));
-
+        if (g_icmp_debug) {
+            LLOGD("ICMP recv %d %d %d", iecho->type, htons(iecho->id), htons(iecho->seqno));
+        }
         /* 验证是否为ICMP Echo回复 */
         if (iecho->type == ICMP_ER && htons(iecho->id) == ctx->id && htons(iecho->seqno) == ctx->seqno) {
             
@@ -134,7 +140,7 @@ int luat_icmp_ping(luat_icmp_ctx_t* ctx, ip_addr_t* dst, size_t size) {
     iecho = (struct icmp_echo_hdr *)(p->payload);
     ctx->id ++;
     ctx->seqno ++;
-    ping_prepare_echo(iecho, size, ctx->id, ctx->seqno);
+    ping_prepare_echo(iecho, ping_size, ctx->id, ctx->seqno);
 
     // ret = raw_sendto_if_src(ctx->pcb, p, dst, ctx->netif, &ctx->netif->ip_addr);
     char buff[32] = {0};

@@ -131,11 +131,18 @@ static int l_icmp_ping(lua_State *L) {
     return 1;
 }
 
+static int l_icmp_debug(lua_State *L) {
+    extern uint8_t g_icmp_debug;
+    g_icmp_debug = lua_toboolean(L, 1);
+    lua_pushboolean(L, g_icmp_debug);
+    return 1;
+}
 
 static const rotable_Reg_t reg_icmp[] =
 {
     { "setup" ,           ROREG_FUNC(l_icmp_setup)},
     { "ping" ,            ROREG_FUNC(l_icmp_ping)},
+    { "debug" ,           ROREG_FUNC(l_icmp_debug)},
     // { "close" ,           ROREG_FUNC(l_icmp_close)},
 	{ NULL,               ROREG_INT(0)}
 };

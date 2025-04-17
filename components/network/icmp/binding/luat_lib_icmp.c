@@ -42,7 +42,7 @@ static int l_icmp_handler(lua_State *L, void* ptr) {
     uint32_t addr = msg->arg2;
     char buff[32] = {0};
     ip_addr_t ip = {0};
-    ip.u_addr.ip4.addr = addr;
+    ip_addr_set_ip4_u32(&ip, addr);
     ipaddr_ntoa_r(&ip, buff, 32);
     if (lua_isfunction(L, -1)) {
         lua_pushstring(L, "PING_RESULT");
@@ -62,7 +62,7 @@ static void l_icmp_cb(void* _ctx, uint32_t tused) {
     rtos_msg_t msg = {
         .handler = l_icmp_handler,
         .arg1 = ctx->adapter_id << 16 | (tused & 0xFFFF),
-        .arg2 = ctx->dst.u_addr.ip4.addr
+        .arg2 = ip_addr_get_ip4_u32(&ctx->dst)
     };
     luat_msgbus_put(&msg, 0);
 }

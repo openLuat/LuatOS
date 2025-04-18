@@ -195,7 +195,15 @@ static int l_lcd_init(lua_State* L) {
               LLOGE("port is device but not find luat_spi_device_t");
               goto end;
             }
+            if (conf->port < LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_SPI_DEVICE){
+                conf->lcd_rgb_swap = 1;
+            }
+            lua_pop(L, 1);
 
+            lua_pushstring(L, "swap");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                conf->lcd_rgb_swap = lua_toboolean(L, -1);
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_dc");

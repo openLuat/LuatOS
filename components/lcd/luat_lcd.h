@@ -107,6 +107,7 @@ typedef struct luat_lcd_conf {
     luat_spi_device_t* lcd_spi_device;
     int lcd_spi_ref;
     int lcd_use_lvgl;
+    int lcd_rgb_swap;
     void* userdata;
     u8g2_t luat_lcd_u8g2 ;
 } luat_lcd_conf_t;

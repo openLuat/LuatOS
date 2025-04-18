@@ -450,7 +450,7 @@ LUAT_WEAK int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color) {
     luat_color_t tmp = color;
-    if (conf->lcd_rgb_swap)
+    if (conf->endianness_swap)
         tmp = color_swap(color);// 注意, 这里需要把颜色swap了
     return luat_lcd_draw(conf, x, y, x, y, &tmp);
 }
@@ -489,7 +489,7 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2,
     {
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
-        if (conf->lcd_rgb_swap)
+        if (conf->endianness_swap)
             tmp = color_swap(color);// 颜色swap
         if (line_buf) {
             for (i = 0; i < dots; i++)

@@ -170,6 +170,7 @@ static int l_lcd_init(lua_State* L) {
         LLOGD("ic support: %s",tp);
         if (lua_gettop(L) > 1) {
             conf->opts = (struct luat_lcd_opts *)lcd_regs[s_index].lcd_opts;
+            conf->opts->rb_swap = 1;
             lua_settop(L, 2); // 丢弃多余的参数
 
             lua_pushstring(L, "port");
@@ -196,13 +197,19 @@ static int l_lcd_init(lua_State* L) {
               goto end;
             }
             if (conf->port < LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_SPI_DEVICE){
-                conf->lcd_rgb_swap = 1;
+                conf->endianness_swap = 1;
             }
             lua_pop(L, 1);
 
-            lua_pushstring(L, "swap");
+            lua_pushstring(L, "endianness_swap");
             if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-                conf->lcd_rgb_swap = lua_toboolean(L, -1);
+                conf->endianness_swap = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
+            
+            lua_pushstring(L, "rb_swap");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                conf->opts->rb_swap = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
 

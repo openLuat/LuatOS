@@ -44,6 +44,13 @@ sys.taskInit(function ()
         log.info("启动iperf服务器端")
         iperf.server(socket.LWIP_ETH)
     end
+    if httpsrv then
+        log.info("启动httpsrv")
+        httpsrv.start(80, function(fd, method, uri, headers, body)
+            log.info("httpsrv", "收到请求", uri, headers, body)
+            return 200, {}, "ok"
+        end, socket.LWIP_ETH)
+    end
 end)
 
 

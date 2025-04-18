@@ -28,10 +28,33 @@ end)
 
 
 sys.taskInit(function()
-    -- sys.waitUntil("IP_READY")
+    -- 等以太网就绪
+    while 1 do
+        local result, ip, adapter = sys.waitUntil("IP_READY", 3000)
+        log.info("ready?", result, ip, adapter)
+        if adapter and adapter ==  socket.LWIP_ETH then
+            break
+        end
+    end
+    
+    sys.wait(200)
+    httpsrv.start(80, function()
+        log.info("httpsrv", method, uri, json.encode(headers), body)
+        -- meminfo()
+        if uri == "/led/1" then
+            LEDA(1)
+            return 200, {}, "ok"
+        elseif uri == "/led/0" then
+            LEDA(0)
+            return 200, {}, "ok"
+        end
+        return 404, {}, "Not Found" .. uri
+    end, socket.LWIP_ETH)
+    iperf.server(socket.LWIP_ETH)
     while 1 do
         sys.wait(6000)
-        log.info("http", http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait())
+        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait()
+        log.info("http", code, headers, body and #body)
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
     end

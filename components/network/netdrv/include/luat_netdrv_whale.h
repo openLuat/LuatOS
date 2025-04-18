@@ -22,6 +22,6 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata);
 
 luat_netdrv_t* luat_netdrv_whale_create(luat_netdrv_whale_t* cfg);
 
-void luat_netdrv_whale_ipevent(int id);
+void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown);
 
 #endif

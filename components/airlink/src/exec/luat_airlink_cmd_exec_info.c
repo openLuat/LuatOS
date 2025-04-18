@@ -53,16 +53,14 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦
                         LLOGD("wifi sta掉线了");
-                        netif_set_down(drv->netif);
-                        luat_netdrv_whale_ipevent(drv->id);
+                        luat_netdrv_whale_ipevent(drv, 0);
                     }
                 }
                 else {
                     if (netif_is_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi sta上线了");
-                        netif_set_up(drv->netif);
-                        luat_netdrv_whale_ipevent(drv->id);
+                        luat_netdrv_whale_ipevent(drv, 1);
                     }
                 }
                 break;
@@ -85,16 +83,14 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦
                         LLOGD("wifi ap已关闭");
-                        netif_set_down(drv->netif);
-                        luat_netdrv_whale_ipevent(drv->id);
+                        luat_netdrv_whale_ipevent(drv->id, 0);
                     }
                 }
                 else {
                     if (netif_is_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi ap已开启");
-                        netif_set_up(drv->netif);
-                        luat_netdrv_whale_ipevent(drv->id);
+                        luat_netdrv_whale_ipevent(drv->id, 1);
                     }
                 }
                 break;

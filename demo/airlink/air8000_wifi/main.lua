@@ -44,7 +44,7 @@ end
 function test_sta()
     log.info("执行STA连接操作")
     wlan.connect("luatos1234", "12341234")
-    netdrv.dhcp(socket.LWIP_STA, true)
+    -- netdrv.dhcp(socket.LWIP_STA, true)
     sys.wait(8000)
     iperf.server(socket.LWIP_STA)
 
@@ -87,7 +87,7 @@ end)
 sys.taskInit(function()
     log.info("新的Air8000脚本...")
 
-    sys.wait(500) -- 稍微缓一下, Air8000S的启动大概需要300ms
+    sys.wait(200) -- 稍微缓一下, Air8000S的启动大概需要300ms
     wlan.init()
     sys.wait(100)
     

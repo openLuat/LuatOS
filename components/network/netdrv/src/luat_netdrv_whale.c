@@ -85,10 +85,14 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     else {
         netif_set_up(netdrv->netif);
     }
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+        cfg->dhcp = 1;
+        cfg->ulwip.dhcp_enable = 1;
+    }
     netif_set_link_up(netdrv->netif);
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
     net_lwip2_register_adapter(netdrv->id);
-    // LLOGD("luat_netif_init 执行完成");
+    // LLOGD("luat_netdrv_whale_boot 执行完成");
     drv->boot = NULL; // 不允许二次boot
 }
 
@@ -160,17 +164,38 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-void luat_netdrv_whale_ipevent(int adapter_index) {
+void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
     rtos_msg_t msg = {0};
     void* userdata = NULL;
-	network_adapter_info* info = network_adapter_fetch((uint8_t)adapter_index, &userdata);
+    if (drv == NULL || drv->netif == NULL) {
+        return;
+    }
+    luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)drv->userdata;
+    if (updown) {
+        netif_set_up(drv->netif);
+        if (cfg->ulwip.netif == NULL) {
+            cfg->ulwip.netif = drv->netif;
+        }
+        if (drv->dhcp) {
+            // LLOGD("dhcp启动 %p", cfg->ulwip.netif);
+            ulwip_dhcp_client_start(&cfg->ulwip);
+        }
+    }
+    else {
+        netif_set_down(drv->netif);
+        if (drv->dhcp) {
+            // LLOGD("dhcp停止");
+            ulwip_dhcp_client_stop(&cfg->ulwip);
+        }
+    }
+	network_adapter_info* info = network_adapter_fetch(drv->id, &userdata);
     if (info == NULL || info->check_ready == NULL) {
         // LLOGI("网络适配器(%d)不存在, 或者没有check_ready函数", adapter_index);
         return;
     }
     int ready = info->check_ready(userdata);
-    net_lwip2_set_link_state(adapter_index, ready);
-    msg.arg1 = adapter_index;
+    net_lwip2_set_link_state(drv->id, ready);
+    msg.arg1 = drv->id;
     msg.arg2 = ready;
     msg.ptr = NULL;
     msg.handler = netif_ip_event_cb;

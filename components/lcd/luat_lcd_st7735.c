@@ -33,5 +33,6 @@ luat_lcd_opts_t lcd_opts_st7735 = {
     .direction90 = 0x70,
     .direction180 = 0x00,
     .direction270 = 0xA0,
+	.rb_swap = 1,
 };
 

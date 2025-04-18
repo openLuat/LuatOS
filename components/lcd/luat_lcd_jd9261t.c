@@ -51,6 +51,7 @@ luat_lcd_opts_t lcd_opts_jd9261t_inited = {
     .direction90 = 0x00,
     .direction180 = 0x03,
     .direction270 = 0x03,
+	.rb_swap = 1,
 	.no_ram_mode = 1,
 	.user_ctrl_init = jd9261t_inited_init,
 };

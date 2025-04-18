@@ -153,7 +153,8 @@ static int l_pwm_set_duty(lua_State *L) {
         return 0;
     }
     confs[channel]->pulse = luaL_checkinteger(L, 2);
-    lua_pushboolean(L, 1);
+    int ret = luat_pwm_setup(confs[channel]);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
 static int l_pwm_set_freq(lua_State *L) {
@@ -162,7 +163,8 @@ static int l_pwm_set_freq(lua_State *L) {
         return 0;
     }
     confs[channel]->period = luaL_checkinteger(L, 2);
-    lua_pushboolean(L, 1);
+    int ret = luat_pwm_setup(confs[channel]);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
 

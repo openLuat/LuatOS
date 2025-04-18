@@ -151,6 +151,7 @@ static int l_netdrv_ipv4(lua_State *L) {
         return 0;
     }
     if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {
+        luat_netdrv_dhcp(id, 0); // 自动关闭DHCP
         tmp = luaL_checkstring(L, 2);
         ipaddr_aton(tmp, &netdrv->netif->ip_addr);
         tmp = luaL_checkstring(L, 3);

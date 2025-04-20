@@ -49,9 +49,11 @@ int luat_airlink_cmd_exec_fota_init(luat_airlink_cmd_t *cmd, void *userdata)
 
 int luat_airlink_cmd_exec_fota_write(luat_airlink_cmd_t *cmd, void *userdata)
 {
-    LLOGD("收到FOTA数据!!!");
+    // LLOGD("收到FOTA数据, len=%ld %02X%02X%02X%02X", cmd->len, cmd->data[0], cmd->data[1], cmd->data[2], cmd->data[3]);
     int ret = luat_fota_write(cmd->data, cmd->len);
-    LLOGD("fota_write ret %d", ret);
+    if (ret) {
+        LLOGD("fota_write ret %d", ret);
+    }
     return 0;
 }
 
@@ -59,7 +61,7 @@ int luat_airlink_cmd_exec_fota_done(luat_airlink_cmd_t *cmd, void *userdata)
 {
     LLOGD("收到FOTA传输完毕指令!!!");
     int ret = luat_fota_done();
-    LLOGD("fota_write ret %d", ret);
+    LLOGD("fota_done ret %d", ret);
     return 0;
 }
 
@@ -67,7 +69,7 @@ int luat_airlink_cmd_exec_fota_end(luat_airlink_cmd_t *cmd, void *userdata)
 {
     LLOGD("收到FOTA传输完毕指令!!!");
     int ret = luat_fota_end(1);
-    LLOGD("fota_write ret %d", ret);
+    LLOGD("fota_end ret %d", ret);
     return 0;
 }
 

@@ -9,6 +9,7 @@
 #include "luat_mcu.h"
 #include <math.h>
 #include "luat_airlink.h"
+#include "luat_airlink_fota.h"
 #include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -272,7 +273,15 @@ static int l_airlink_config(lua_State *L) {
 static int l_airlink_sfota(lua_State *L) {
     // 直接发指令是不行了, 需要干预airlink task的执行流程
     // bk72xx的flash擦除很慢, 导致spi master需要等很久才能发下一个包
-    return 0;
+    const char* path = luaL_checkstring(L, 1);
+    luat_airlink_fota_t ctx = {0};
+    memcpy(ctx.path, path, strlen(path) + 1);
+    int ret = luat_airlink_fota_init(&ctx);
+    if (ret) {
+        LLOGE("sfota 启动失败!!! %s %d", path, ret);
+    }
+    lua_pushboolean(L, ret == 0);
+    return 1;
 }
 
 static int l_airlink_debug(lua_State *L) {
@@ -296,6 +305,10 @@ static const rotable_Reg_t reg_airlink[] =
 
     // 测试用的fota指令
     { "sfota",         ROREG_FUNC(l_airlink_sfota )},
+    { "sfota_init",    ROREG_FUNC(l_airlink_sfota_init )},
+    { "sfota_done",    ROREG_FUNC(l_airlink_sfota_done )},
+    { "sfota_end",     ROREG_FUNC(l_airlink_sfota_end )},
+    { "sfota_write",   ROREG_FUNC(l_airlink_sfota_write )},
 
     { "debug",         ROREG_FUNC(l_airlink_debug )},
 

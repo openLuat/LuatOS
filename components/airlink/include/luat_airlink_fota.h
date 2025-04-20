@@ -5,6 +5,7 @@
 
 typedef struct luat_airlink_fota {
     uint32_t state;
+    size_t total_size;
     char path[64];
     size_t wait_init;
     size_t wait_first_data;

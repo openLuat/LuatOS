@@ -19,9 +19,10 @@
 
 #define MASTER_SPI_ID g_airlink_spi_conf.spi_id
 #define TEST_BUFF_SIZE (1600)
-#define TEST_CS_PIN g_airlink_spi_conf.cs_pin
-#define TEST_RDY_PIN g_airlink_spi_conf.rdy_pin
-#define TEST_IRQ_PIN g_airlink_spi_conf.irq_pin
+
+#define AIRLINK_SPI_CS_PIN g_airlink_spi_conf.cs_pin
+#define AIRLINK_SPI_RDY_PIN g_airlink_spi_conf.rdy_pin
+#define AIRLINK_SPI_IRQ_PIN g_airlink_spi_conf.irq_pin
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"
@@ -112,7 +113,7 @@ static void spi_gpio_setup(void)
 
     // 从机准备好脚
     luat_gpio_set_default_cfg(&gpio_cfg);
-    gpio_cfg.pin = TEST_RDY_PIN;
+    gpio_cfg.pin = AIRLINK_SPI_RDY_PIN;
     gpio_cfg.mode = LUAT_GPIO_INPUT;
     gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
     gpio_cfg.pull = 0;
@@ -120,7 +121,7 @@ static void spi_gpio_setup(void)
 
     // CS片选脚
     luat_gpio_set_default_cfg(&gpio_cfg);
-    gpio_cfg.pin = TEST_CS_PIN;
+    gpio_cfg.pin = AIRLINK_SPI_CS_PIN;
     gpio_cfg.mode = LUAT_GPIO_OUTPUT;
     gpio_cfg.pull = LUAT_GPIO_PULLUP;
     gpio_cfg.output_level = 1;
@@ -129,7 +130,7 @@ static void spi_gpio_setup(void)
     if (g_airlink_spi_conf.irq_pin != 255)
     {
         luat_gpio_set_default_cfg(&gpio_cfg);
-        gpio_cfg.pin = TEST_RDY_PIN;
+        gpio_cfg.pin = AIRLINK_SPI_RDY_PIN;
         gpio_cfg.mode = LUAT_GPIO_IRQ;
         gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
         gpio_cfg.pull = LUAT_GPIO_PULLUP;
@@ -138,7 +139,7 @@ static void spi_gpio_setup(void)
     }
 }
 
-static void record_statistic(luat_event_t event)
+__USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
 {
     switch (event.id)
     {
@@ -170,7 +171,7 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
 
     g_airlink_statistic.tx_pkg.total++;
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
-    luat_gpio_set(TEST_CS_PIN, 1);
+    luat_gpio_set(AIRLINK_SPI_CS_PIN, 1);
     // luat_airlink_print_buff("RX", rxbuff, 32);
     // 对接收到的数据进行解析
     link = luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE);
@@ -188,11 +189,11 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
 
 __USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
 {
-    luat_gpio_set(TEST_CS_PIN, 0); // 拉低片选, 等待从机就绪
+    luat_gpio_set(AIRLINK_SPI_CS_PIN, 0); // 拉低片选, 等待从机就绪
     int tmpval = 0;
     for (size_t i = 0; i < timeout_ms; i++)
     {
-        tmpval = luat_gpio_get(TEST_RDY_PIN);
+        tmpval = luat_gpio_get(AIRLINK_SPI_RDY_PIN);
         if (tmpval == 1)
         {
             g_airlink_statistic.wait_rdy.total++;
@@ -213,7 +214,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
     }
 }
 
-void airlink_wait_and_prepare_data(uint8_t *txbuff)
+__USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
 {
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
@@ -226,7 +227,7 @@ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     else
     {
         is_waiting_queue = 1;
-        luat_rtos_queue_recv(evt_queue, &event, sizeof(event), 5);
+        luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), 5);
         is_waiting_queue = 0;
     }
 
@@ -243,7 +244,7 @@ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
     if (item.len > 0 && item.cmd != NULL)
     {
-        // LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id %d", item.cmd->cmd);
+        LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id 0x%04X", item.cmd->cmd);
         luat_airlink_data_pack(item.cmd, item.len, txbuff);
         luat_airlink_cmd_free(item.cmd);
     }
@@ -293,5 +294,5 @@ void luat_airlink_start_master(void)
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
 
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
-    luat_rtos_task_create(&spi_task_handle, 4 * 1024, 95, "spi", spi_master_task, NULL, 0);
+    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 95, "spi", spi_master_task, NULL, 0);
 }

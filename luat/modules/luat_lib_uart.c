@@ -15,8 +15,18 @@
 #include "string.h"
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
+
+#ifdef LUAT_USE_DRV_UART
+#include "luat/drv_uart.h"
+#endif
+
 #define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
+
+
+
+
+
 #ifndef LUAT_UART_RX_MAX_LEN
 #define LUAT_UART_RX_MAX_LEN 0x10000
 #endif
@@ -413,19 +423,28 @@ static int l_uart_setup(lua_State *L)
     uart_config.delay = luaL_optinteger(L, 10, 12000000/uart_config.baud_rate);
     uart_config.debug_enable = luaL_optinteger(L, 11, LUAT_UART_DEBUG_ENABLE);
     uart_config.error_drop = luaL_optinteger(L, 12, LUAT_UART_RX_ERROR_DROP_DATA);
+	int result = 0;
 #ifdef LUAT_USE_SOFT_UART
-    int result;
+    
     if (prv_uart_soft && (prv_uart_soft->uart_id == uart_config.id))
     {
     	result = luat_uart_soft_setup(&uart_config);
     }
     else
     {
+		#ifdef LUAT_USE_DRV_UART
+		result = luat_drv_uart_setup(&uart_config);
+		#else
     	result = luat_uart_setup(&uart_config);
+		#endif
     }
     lua_pushinteger(L, result);
 #else
-    int result = luat_uart_setup(&uart_config);
+	#ifdef LUAT_USE_DRV_UART
+	result = luat_drv_uart_setup(&uart_config);
+	#else
+    result = luat_uart_setup(&uart_config);
+	#endif
     lua_pushinteger(L, result);
 #endif
     return 1;
@@ -465,8 +484,8 @@ static int l_uart_write(lua_State *L)
         if(len > l)
             len = l;
     }
+	int result;
 #ifdef LUAT_USE_SOFT_UART
-    int result;
     if (prv_uart_soft && (prv_uart_soft->uart_id == id))
     {
     	result = luat_uart_soft_write((const uint8_t*)buf, len);
@@ -477,7 +496,11 @@ static int l_uart_write(lua_State *L)
     }
     lua_pushinteger(L, result);
 #else
-    int result = luat_uart_write(id, (char*)buf, len);
+	#ifdef LUAT_USE_DRV_UART
+	result = luat_drv_uart_write(id, (char*)buf, len);
+	#else
+    result = luat_uart_write(id, (char*)buf, len);
+	#endif
     lua_pushinteger(L, result);
 #endif
     return 1;
@@ -600,8 +623,9 @@ uart.close(1)
 */
 static int l_uart_close(lua_State *L)
 {
-#ifdef LUAT_USE_SOFT_UART
 	uint8_t id = luaL_checkinteger(L,1);
+#ifdef LUAT_USE_SOFT_UART
+	
 	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
 	{
 		luat_uart_soft_close();
@@ -612,9 +636,7 @@ static int l_uart_close(lua_State *L)
 	}
 	return 0;
 #else
-//    uint8_t result = luat_uart_close(luaL_checkinteger(L, 1));
-//    lua_pushinteger(L, result);
-	luat_uart_close(luaL_checkinteger(L, 1));
+	luat_uart_close(id);
     return 0;
 #endif
 }

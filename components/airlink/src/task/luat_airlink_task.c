@@ -49,6 +49,9 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
                 LLOGW("空指令!");
                 continue;
             }
+            if (ptr->cmd == 0) {
+                goto clean;
+            }
             // 真正的处理逻辑
             // if (ptr->cmd != 0x10) {
             //     LLOGD("收到指令/回复 cmd %d len %d", ptr->cmd, ptr->len);
@@ -65,16 +68,21 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
                     break;
                 }
                 if (cmd_reg->id == ptr->cmd) {
-                    // LLOGI("找到CMD执行程序 %p", cmd_reg->exec);
+                    // if (ptr->cmd != 0x10) {
+                    //     LLOGI("找到CMD执行程序 %04X %p %d", ptr->cmd, cmd_reg->exec, ptr->len);
+                    // }
                     cmd_reg->exec(ptr, NULL);
+                    // if (ptr->cmd != 0x10) {
+                    //     LLOGI("执行完毕 %d %p", ptr->cmd, cmd_reg->exec);
+                    // }
                     break;
                 }
                 cmd_reg ++;
             }
-            if (cmd_reg == NULL) {
-                LLOGW("找不到CMD执行程序 %d", ptr->cmd);
-            }
-
+            // if (cmd_reg->id == 0) {
+            //     LLOGW("找不到CMD执行程序 %d", ptr->cmd);
+            // }
+            clean:
             // 处理完成, 释放内存
             luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);
         }

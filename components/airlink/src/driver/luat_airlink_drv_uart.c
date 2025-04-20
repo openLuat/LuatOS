@@ -16,12 +16,14 @@
 
 
 int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
+    LLOGD("执行uart setup %d baud_rate %d", conf->id, conf->baud_rate);
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
-        .len = sizeof(luat_gpio_t) + sizeof(luat_airlink_cmd_t) + 8
+        .len = sizeof(luat_uart_t) + sizeof(luat_airlink_cmd_t) + 8
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x400, sizeof(luat_uart_t) + 8);
     if (cmd == NULL) {
+        LLOGE("内存分配失败!!");
         return -101;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
@@ -32,12 +34,13 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
 }
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
+    LLOGD("执行uart write %d %p %d", uart_id, data, length);
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
-    airlink_queue_item_t item = {
-        .len = sizeof(luat_gpio_t) + sizeof(luat_airlink_cmd_t) + 8
-    };
+    size_t total_len = length + sizeof(luat_airlink_cmd_t) + 8 + 1;
+    airlink_queue_item_t item = {.len = total_len};
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, length + 1 + 8);
     if (cmd == NULL) {
+        LLOGE("内存分配失败!!");
         return -101;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
@@ -52,10 +55,11 @@ int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
 int luat_airlink_drv_uart_close(int uart_id) {
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
-        .len = sizeof(luat_gpio_t) + sizeof(luat_airlink_cmd_t) + 8
+        .len = sizeof(luat_airlink_cmd_t) + 8 + 1
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x402, 8 + 1);
     if (cmd == NULL) {
+        LLOGE("内存分配失败!!");
         return -101;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);

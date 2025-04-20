@@ -27,14 +27,18 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     if (drvs[conf->id] == NULL) {
         // 注册新的设备?
         #ifdef __LUATOS__
+        #ifdef LUAT_USE_NETDRV_CH390H
         if (conf->impl == 1) { // CH390H
             drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
             return drvs[conf->id];
         }
+        #endif
+        #ifdef LUAT_USE_NETDRV_UART
         if (conf->impl == 16) { // UART
             drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
+        #endif
         if (conf->impl == 64) { // WHALE
             drvs[conf->id] = luat_netdrv_whale_setup(conf);
             return drvs[conf->id];

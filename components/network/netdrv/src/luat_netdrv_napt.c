@@ -34,6 +34,11 @@ int luat_netdrv_gw_adapter_id = -1;
 #define __USER_FUNC_IN_RAM__ 
 #endif
 
+#if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
+__USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+    return 0;
+}
+#else
 __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
     if (luat_netdrv_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
@@ -110,6 +115,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_
 
     return 0;
 }
+#endif
 
 static uint8_t napt_buff[1600];
 err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {

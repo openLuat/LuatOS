@@ -244,7 +244,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
     if (item.len > 0 && item.cmd != NULL)
     {
-        LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id 0x%04X", item.cmd->cmd);
+        // LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id 0x%04X", item.cmd->cmd);
         luat_airlink_data_pack(item.cmd, item.len, txbuff);
         luat_airlink_cmd_free(item.cmd);
     }

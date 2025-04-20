@@ -77,6 +77,10 @@ void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
 void luat_airlink_on_data_recv(uint8_t *data, size_t len);
 
+void airlink_wait_for_slave_ready(size_t timeout_ms);
+void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff);
+void airlink_wait_and_prepare_data(uint8_t *txbuff);
+
 typedef void (*luat_airlink_newdata_notify_cb)(void);
 
 typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
@@ -120,6 +124,9 @@ typedef struct luat_airlink_dev_wifi_info {
     uint8_t bt_mac[6];
     uint8_t sta_state;
     uint8_t ap_state;
+    uint8_t reverted[32]; // 预留的空位
+    uint8_t version[4];
+    uint8_t fw_type[2];
 }luat_airlink_dev_wifi_info_t;
 
 typedef struct luat_airlink_dev_cat_info {
@@ -130,6 +137,9 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t imei[16];
     uint8_t iccid[20];
     uint8_t imsi[16];
+    uint8_t reverted[32]; // 预留的空位
+    uint8_t version[4];
+    uint8_t fw_type[2];
 }luat_airlink_dev_wifi_cat_t;
 
 typedef struct luat_airlink_dev_info
@@ -164,6 +174,8 @@ uint64_t luat_airlink_get_next_cmd_id(void);
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
 
 void luat_airlink_cmd_free(luat_airlink_cmd_t* cmd);
+int luat_airlink_send_cmd_simple_nodata(uint16_t cmd_id);
+int luat_airlink_send_cmd_simple(uint16_t cmd_id, uint8_t* data, uint16_t len);
 
 enum {
     LUAT_AIRLINK_CONF_SPI_ID = 0x100,

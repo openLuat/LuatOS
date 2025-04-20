@@ -3,6 +3,7 @@
 #include "luat_mem.h"
 #include "luat/drv_gpio.h"
 #include "luat_airlink.h"
+#include "luat_airlink_drv_gpio.h"
 
 #define LUAT_LOG_TAG "drv.gpio"
 #include "luat_log.h"

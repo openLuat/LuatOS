@@ -350,3 +350,22 @@ int luat_airlink_ready(void) {
     }
     return 0;
 }
+
+int luat_airlink_send_cmd_simple_nodata(uint16_t cmd_id) {
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(cmd_id, 8);
+    uint64_t pkgid = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &pkgid, 8);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}
+
+int luat_airlink_send_cmd_simple(uint16_t cmd_id, uint8_t* data, uint16_t len) {
+    luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    cmd->cmd = cmd_id;
+    cmd->len = len;
+    memcpy(cmd->data, data, len);
+    luat_airlink_send2slave(cmd);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
+    return 0;
+}

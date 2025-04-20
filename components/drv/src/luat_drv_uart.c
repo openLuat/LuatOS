@@ -4,6 +4,7 @@
 #include "luat/drv_gpio.h"
 #include "luat/drv_uart.h"
 #include "luat_airlink.h"
+#include "luat_airlink_drv_uart.h"
 
 #define LUAT_LOG_TAG "drv.uart"
 #include "luat_log.h"

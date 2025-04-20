@@ -3,6 +3,7 @@
 #include "luat_mem.h"
 #include "luat_wlan.h"
 #include "luat_airlink.h"
+#include "luat_airlink_drv_wlan.h"
 #include "luat/drv_wlan.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"

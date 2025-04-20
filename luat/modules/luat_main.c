@@ -56,6 +56,16 @@ void luat_force_gc_all(void)
 {
 	lua_gc(L, LUA_GCCOLLECT, 0);
 }
+
+static int dolibrary (lua_State *L, const char *name) {
+  int status;
+  lua_getglobal(L, "require");
+  lua_pushstring(L, name);
+  lua_call(L, 1, 1);  /* call 'require(name)' */
+  lua_setglobal(L, name);  /* global[name] = require return */
+  return 0;
+}
+
 int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机制是否正常
   return luaL_dostring(L, "local sys = require \"sys\"\n"
                           "log.info(\"main\", os.date())\n"
@@ -91,6 +101,13 @@ static int pmain(lua_State *L) {
 #endif
     if (re == -2) {
       #ifndef LUAT_MAIN_DEMO
+        // add by wendal, 自动加载sys和sysplus
+        #ifndef LUAT_CONF_AUTOLOAD_SYS_DISABLE
+        dolibrary(L, "sys");
+        #ifndef LUAT_CONF_AUTOLOAD_SYSPLUS_DISABLE
+        dolibrary(L, "sysplus");
+        #endif
+        #endif
         if (luat_search_module("main", filename) == 0) {
           re = luaL_dofile(L, filename);
         }

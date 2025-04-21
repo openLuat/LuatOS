@@ -133,6 +133,7 @@ luat_rtos_task_handle luat_rtos_get_current_handle(void);
  */
 uint32_t luat_rtos_task_get_high_water_mark(luat_rtos_task_handle task_handle);
 
+uint32_t luat_rtos_task_stack_free_space(luat_rtos_task_handle task_handle);
 /**
  * @brief 启动task运行时间记录功能，必须在task调度前启用
  */

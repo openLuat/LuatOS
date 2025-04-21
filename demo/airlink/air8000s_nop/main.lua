@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 
 
 -- sys库是标配
@@ -25,6 +25,7 @@ sys.taskInit(function()
         log.info("sys", rtos.meminfo("sys"))
         -- log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
         -- log.info("ip", socket.localIP(socket.LWIP_ETH))
+        airlink.statistics()
     end
 end)
 

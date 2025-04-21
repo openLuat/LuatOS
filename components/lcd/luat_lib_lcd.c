@@ -605,6 +605,10 @@ static int l_lcd_draw(lua_State* L) {
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
+    if (lcd_dft_conf == NULL) {
+      LLOGE("lcd not init");
+      return 0;
+    }
     if (lua_isinteger(L, 5)) {
         // color = (luat_color_t *)luaL_checkstring(L, 5);
         luat_color_t color = (luat_color_t)luaL_checkinteger(L, 1);
@@ -1083,6 +1087,10 @@ static int l_lcd_draw_str(lua_State* L) {
     // lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
     if (sz == 0)
         return 0;
+    if (lcd_dft_conf == NULL) {
+      LLOGE("lcd not init");
+      return 0;
+    }
     uint16_t e;
     int16_t delta;
     utf8_state = 0;
@@ -1155,6 +1163,11 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
 	int y = luaL_checkinteger(L, 4);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
   // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+  
+  if (lcd_dft_conf == NULL) {
+    LLOGE("lcd not init");
+    return 0;
+  }
 	while ( i < len){
 		strhigh = *fontCode;
 		fontCode++;
@@ -1399,6 +1412,11 @@ static int l_lcd_drawxbm(lua_State *L){
     int w1 = w/8;
     if (w%8)w1++;
     if (len != h*w1)return 0;
+    
+    if (lcd_dft_conf == NULL) {
+      LLOGE("lcd not init");
+      return 0;
+    }
     luat_color_t* color_w = luat_heap_malloc(sizeof(luat_color_t) * w);
     for (size_t b = 0; b < h; b++){
       size_t a = 0;
@@ -1490,7 +1508,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     return 0;
   }
   if (conf->buff != NULL) {
-    LLOGW("lcd buff is ok");
+    LLOGI("lcd buff is aready exist");
     return 0;
   }
   if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {

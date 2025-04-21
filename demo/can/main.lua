@@ -2,11 +2,12 @@ PROJECT = "candemo"
 VERSION = "1.0.0"
 sys = require("sys")
 log.style(1)
-local SELF_TEST_FLAG = false --自测模式标识，改成true就进行自收自发模式
+local SELF_TEST_FLAG = true --自测模式标识，写true就进行自收自发模式，写false就进行正常收发模式
 local node_a = true   -- A节点写true, B节点写false
 local can_id = 0
 local rx_id
 local tx_id
+local stb_pin = 28		-- stb引脚根据实际情况写
 if node_a then          -- A/B节点区分，互相传输测试
     rx_id = 0x12345678
     tx_id = 0x12345677
@@ -55,7 +56,7 @@ local function can_tx_test(data)
     can.tx(can_id, tx_id, can.EXT, false, true, tx_buf)
 end
 -- can.debug(true)
-
+gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
 can.init(can_id, 128)
 can.on(can_id, can_cb)
 can.timing(can_id, 1000000, 5, 4, 3, 2)

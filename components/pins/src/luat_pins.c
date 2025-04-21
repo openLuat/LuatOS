@@ -46,8 +46,8 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 	const char *function1_names[3] = {
 			"TX","SDA","MISO"
 	};
-	const char *function2_names[4] = {
-			"RTS","SCLK","STB","BCLK"
+	const char *function2_names[3] = {
+			"RTS","SCLK","BCLK"
 	};
 	const char *function3_names[3] = {
 			"CTS","CS","LRCLK"

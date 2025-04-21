@@ -7,7 +7,7 @@ local node_a = true   -- A节点写true, B节点写false
 local can_id = 0
 local rx_id
 local tx_id
-local stb_pin = 28		-- stb引脚根据实际情况写
+local stb_pin = 28		-- stb引脚根据实际情况写，不用的话，也可以不写
 if node_a then          -- A/B节点区分，互相传输测试
     rx_id = 0x12345678
     tx_id = 0x12345677

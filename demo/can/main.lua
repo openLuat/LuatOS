@@ -56,7 +56,8 @@ local function can_tx_test(data)
     can.tx(can_id, tx_id, can.EXT, false, true, tx_buf)
 end
 -- can.debug(true)
-gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
+gpio.setup(stb_pin,0)
+-- gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
 can.init(can_id, 128)
 can.on(can_id, can_cb)
 can.timing(can_id, 1000000, 5, 4, 3, 2)

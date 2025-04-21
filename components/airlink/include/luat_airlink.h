@@ -139,7 +139,7 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t imsi[16];
     uint8_t reverted[32]; // 预留的空位
     uint8_t version[4];
-    uint8_t fw_type[2];
+    uint8_t fw_type[4];
 }luat_airlink_dev_wifi_cat_t;
 
 typedef struct luat_airlink_dev_info

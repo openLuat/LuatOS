@@ -33,17 +33,8 @@ static int report (lua_State *L, int status);
 
 lua_State *L;
 
-static uint8_t boot_mode = 1;
-
-void stopboot(void) {
-  boot_mode = 0;
-}
-
-// lua_State * luat_get_state() {
-//   return L;
-// }
-
-luat_rtos_timer_t luar_error_timer;
+static luat_rtos_timer_t luar_error_timer;
+static char model[32] = {0};
 
 static LUAT_RT_RET_TYPE l_timer_error_cb(LUAT_RT_CB_PARAM) {
   LLOGE("未找到main.lua,请刷入脚本以运行程序,luatos快速入门教程: https://wiki.luatos.com/boardGuide/roadmap.html");
@@ -91,10 +82,26 @@ static int pmain(lua_State *L) {
 
     // 加载内置库
     luat_openlibs(L);
+    #if !defined(LUAT_USE_PSRAM)
     lua_gc(L, LUA_GCCOLLECT, 0);
+    #endif
     luat_os_print_heapinfo("loadlibs");
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
+
+  
+	// Air8000硬等最多200ms, 梁健要加的, 有问题找他
+  #ifdef LUAT_USE_AIRLINK
+  if (memcmp("Air8000\0", model, 0) == 0 || memcmp("Air8000W\0", model, 9) == 0) {
+	  size_t count = 0;
+	  #define AIRLINK_WAIT_MS (5)
+    extern uint64_t g_airlink_last_cmd_timestamp;
+	  while (g_airlink_last_cmd_timestamp == 0 && count < 200) {
+		  luat_rtos_task_sleep(AIRLINK_WAIT_MS);
+		  count += AIRLINK_WAIT_MS;
+	}
+	}
+  #endif
 
 #ifdef LUAT_HAS_CUSTOM_LIB_INIT
     luat_custom_init(L);
@@ -206,10 +213,7 @@ _exit:
  * sys.run() 
 */
 int luat_main (void) {
-  if (boot_mode == 0) {
-    return 0; // just nop
-  }
-  char model[32] = {0};
+  
   #ifdef LUAT_USE_HMETA
   luat_hmeta_model_name(model);
   #endif
@@ -250,6 +254,8 @@ int luat_main (void) {
     luat_os_reboot(5);
   }
 #endif
+
+
   luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
 #ifdef LUAT_USE_WDT

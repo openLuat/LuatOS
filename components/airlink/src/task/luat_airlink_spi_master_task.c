@@ -260,7 +260,6 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
     int i;
     luat_event_t event = {0};
-
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();
     thread_rdy = 1;

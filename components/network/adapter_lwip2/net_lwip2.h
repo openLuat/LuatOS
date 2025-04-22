@@ -6,7 +6,11 @@
 #include "luat_network_adapter.h"
 
 #ifdef LWIP_NUM_SOCKETS
+#if LWIP_NUM_SOCKETS > 16
+#define MAX_SOCK_NUM 16
+#else
 #define MAX_SOCK_NUM LWIP_NUM_SOCKETS
+#endif
 #else
 #define MAX_SOCK_NUM 8
 #endif

@@ -483,7 +483,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
 		return ERR_OK;
 	}
-	// char ip_string[64];
+	char ip_string[64];
 	//LLOGD("%s:%d", __FILE__, __LINE__);
 	if (p)
 	{
@@ -502,6 +502,8 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				{
 					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
+					ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
+					LLOGD("dns udp sendto %s:%d", ip_string, DNS_SERVER_PORT);
 					udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 				}
 				if (out_p) {
@@ -596,7 +598,8 @@ static void net_lwip2_task(void *param)
 	adapter_index = event.Param3;
 	char ip_string[64] = {0};
 
-	// LLOGD("CALL net_lwip2_task event %08X adapter_index %d", event.ID, adapter_index);
+	ip_addr_t* ips;
+	uint32_t is_ipv6;
 
 	switch(event.ID)
 	{
@@ -762,6 +765,7 @@ static void net_lwip2_task(void *param)
 		}
 		else
 		{
+			NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
 			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
 				NET_DBG("udp bind ret %d port %d", error, prvlwip.socket[socket_id].local_port);
@@ -875,6 +879,24 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_NETIF_LINK_STATE:
 		net_lwip2_check_network_ready(event.Param3);
 		break;
+	case EV_LWIP_NETIF_SET_IP:
+		ips = (ip_addr_t*)event.Param1;
+		is_ipv6 = (uint32_t)event.Param2;
+		if (is_ipv6) {
+			LLOGE("当前不支持设置ipv6地址");
+			luat_heap_free(ips);
+			break;
+		}
+		// ipaddr_ntoa_r(&ips[0], ip_string, 64);
+		// LLOGI("设置IP啊 %s", ip_string);
+		// ipaddr_ntoa_r(&ips[1], ip_string, 64);
+		// LLOGI("设置MARK啊 %s", ip_string);
+		// ipaddr_ntoa_r(&ips[2], ip_string, 64);
+		// LLOGI("设置GW啊 %s", ip_string);
+		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ips[0], &ips[1], &ips[2]);
+		luat_heap_free(ips);
+		net_lwip2_check_network_ready(adapter_index);
+		break;
 	default:
 		NET_DBG("unknow event %x,%x", event.ID, event.Param1);
 		break;
@@ -960,18 +982,24 @@ static uint8_t net_lwip2_check_ready(void *user_data)
 {
 	uint8_t adapter_index = (uint32_t)user_data;
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
-	// LLOGD("lwip查询网络就绪情况 %d", prvlwip.netif_network_ready[adapter_index]);
+	// LLOGD("lwip2查询网络就绪情况 %d", prvlwip.netif_network_ready[adapter_index]);
 	if (prvlwip.lwip_netif[adapter_index] == NULL) {
 		LLOGD("lwip netif is null %d", adapter_index);
 		return 0;
 	}
 	if (!netif_is_up(prvlwip.lwip_netif[adapter_index])) {
+		// LLOGD("netif is not up %d", adapter_index);
 		return 0;
 	}
 	if (!netif_is_link_up(prvlwip.lwip_netif[adapter_index])) {
+		// LLOGD("netif is not link up %d", adapter_index);
 		return 0;
 	}
-	return !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
+	if (ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)) {
+		LLOGD("netif addr is 0.0.0.0 %d", adapter_index);
+		return 0;
+	}
+	return 1;
 }
 
 static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id)
@@ -979,6 +1007,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	PV_Union uPV;
 	uPV.u16[0] = socket_id;
 	uPV.u16[1] = adapter_index;
+	LLOGE("socket_id???? %d", socket_id);
 	if (socket_id >= MAX_SOCK_NUM)
 		return;
 	if (prvlwip.socket[socket_id].is_tcp)
@@ -1040,6 +1069,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	}
 	else
 	{
+		// LLOGE("udp new in net_lwip2");
 		prvlwip.socket[socket_id].pcb.udp = udp_new();
 		if (prvlwip.socket[socket_id].pcb.udp)
 		{
@@ -1100,11 +1130,11 @@ static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, u
 		llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip2_del_data_cache, NULL);
 		// OS_UNLOCK;
 		// if (platform_get_current_task() == prvlwip.task_handle)
-		{
-			net_lwip2_create_socket_now(index, socket_id);
-			return socket_id;
-		}
-		// platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CREATE, socket_id, 0, user_data);
+		// {
+		// 	net_lwip2_create_socket_now(index, socket_id);
+		// 	return socket_id;
+		// }
+		platform_send_event(NULL, EV_LWIP_SOCKET_CREATE, socket_id, 0, user_data);
 	}
 	else
 	{
@@ -1418,17 +1448,30 @@ static int net_lwip2_set_mac(uint8_t *mac, void *user_data)
 	// memcpy(prvlwip.lwip_netif->hwaddr, mac, 6);
 	return -1;
 }
-int net_lwip2_set_static_ip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
+static int net_lwip2_set_static_ip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
 {
-	// uint8_t index = (uint32_t)user_data;
-	// if (index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
-	// if (!prvlwip.lwip_netif) return -1;
-	// luat_ip_addr_t *p_ip = zalloc(sizeof(luat_ip_addr_t) * 5);
-	// p_ip[0] = ip?(*ip):ip_addr_any_type;
-	// p_ip[1] = submask?(*submask):ip_addr_any_type;
-	// p_ip[2] = gateway?(*gateway):ip_addr_any_type;
-	// p_ip[3] = ipv6?(*ipv6):ip_addr_any_type;
-	// platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip, ipv6, user_data);
+	uint8_t index = (uint32_t)user_data;
+	if (index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
+	if (!prvlwip.lwip_netif[index]) return -1;
+	luat_ip_addr_t *p_ip = luat_heap_malloc(sizeof(luat_ip_addr_t) * 4);
+	if (p_ip == NULL) {
+		NET_ERR("net_lwip2_set_static_ip malloc fail");
+		return -1;
+	}
+	memset(p_ip, 0, sizeof(luat_ip_addr_t) * 4);
+	if (ip) {
+		memcpy(&p_ip[0], ip, sizeof(luat_ip_addr_t));
+	}
+	if (submask) {
+		memcpy(&p_ip[1], submask, sizeof(luat_ip_addr_t));
+	}
+	if (gateway) {
+		memcpy(&p_ip[2], gateway, sizeof(luat_ip_addr_t));
+	}
+	if (ipv6) {
+		memcpy(&p_ip[3], ipv6, sizeof(luat_ip_addr_t));
+	}
+	platform_send_event(prvlwip.task_handle, EV_LWIP_NETIF_SET_IP, p_ip, ipv6 != NULL, user_data);
 	return 0;
 }
 

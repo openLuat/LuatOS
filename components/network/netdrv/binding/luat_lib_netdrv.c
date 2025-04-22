@@ -142,10 +142,16 @@ static int l_netdrv_mac(lua_State *L) {
 @usage
 -- 注意, 不是所有netdrv都支持设置的, 尤其4G Cat.1自带的netdrv就不能设置ipv4
 -- 注意, 设置ipv4时, DHCP要处于关闭状态!!
+-- 当前设置ip但ip值非法, 不返回任何东西
+-- 如果设置ip且ip值合法, 会返回ip, mask, gw
 */
 static int l_netdrv_ipv4(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     const char* tmp = NULL;
+    luat_ip_addr_t ip;
+    luat_ip_addr_t netmask;
+    luat_ip_addr_t gw;
+    int ret = 0;
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;
@@ -153,12 +159,24 @@ static int l_netdrv_ipv4(lua_State *L) {
     if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {
         luat_netdrv_dhcp(id, 0); // 自动关闭DHCP
         tmp = luaL_checkstring(L, 2);
-        ipaddr_aton(tmp, &netdrv->netif->ip_addr);
+        ret = ipaddr_aton(tmp, &ip);
+        if (!ret) {
+            LLOGW("非法IP[%d] %s %d", id, tmp, ret);
+            return 0;
+        }
         tmp = luaL_checkstring(L, 3);
-        ipaddr_aton(tmp, &netdrv->netif->netmask);
+        ret = ipaddr_aton(tmp, &netmask);
+        if (!ret) {
+            LLOGW("非法MARK[%d] %s %d", id, tmp, ret);
+            return 0;
+        }
         tmp = luaL_checkstring(L, 4);
-        ipaddr_aton(tmp, &netdrv->netif->gw);
-        net_lwip2_set_link_state(id, 1);
+        ret = ipaddr_aton(tmp, &gw);
+        if (ret == 0) {
+            LLOGW("非法GW[%d] %s %d", id, tmp, ret);
+            return 0;
+        }
+        network_set_static_ip_info(id, &ip, &netmask, &gw, NULL);
     }
     char buff[16] = {0};
     char buff2[16] = {0};

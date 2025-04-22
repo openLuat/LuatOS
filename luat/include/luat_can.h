@@ -163,6 +163,20 @@ int luat_can_close(uint8_t can_id);
  * @return >=0 成功并返回状态值，其他失败，状态值见LUAT_CAN_STATE_E
  */
 int luat_can_get_state(uint8_t can_id);
+/**
+ * @brief 设置STB脚输出电平
+ * @param can_id 总线序号
+ * @param on_off 0低电平，其他高电平
+ * @return 0成功，其他失败
+ */
+int luat_can_set_stb_io_level(uint8_t can_id, uint8_t on_off);
+
+/**
+ * @brief 设置CAN控制器进入bus off状态
+ * @param can_id 总线序号
+ * @return 0成功，其他失败
+ */
+int luat_can_bus_off(uint8_t can_id);
 
 uint32_t luat_can_get_last_error(uint8_t can_id);
 void luat_can_set_debug(uint8_t on_off);

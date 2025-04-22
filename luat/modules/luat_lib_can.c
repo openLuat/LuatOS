@@ -381,6 +381,28 @@ static int l_can_reset(lua_State *L)
 	return 1;
 }
 
+
+/*
+CAN总线关闭，此时可以重新进行timing,filter,node等配置
+@api can.busOff(id)
+@int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
+@return boolean 成功返回true,失败返回false
+@usage
+can.busOff(0)
+*/
+static int l_can_bus_off(lua_State *L)
+{
+	if (luat_can_bus_off(luaL_optinteger(L, 1, 0)))
+	{
+		lua_pushboolean(L, 0);
+	}
+	else
+	{
+		lua_pushboolean(L, 1);
+	}
+	return 1;
+}
+
 /*
 CAN完全关闭
 @api can.deinit(id)
@@ -430,6 +452,7 @@ static const rotable_Reg_t reg_can[] =
 	{ "rx",				ROREG_FUNC(l_can_rx)},
 	{ "stop", 			ROREG_FUNC(l_can_stop)},
 	{ "reset",			ROREG_FUNC(l_can_reset)},
+	{ "busOff",			ROREG_FUNC(l_can_bus_off)},
 	{ "deinit",			ROREG_FUNC(l_can_deinit)},
 	{ "debug",			ROREG_FUNC(l_can_debug)},
 	//@const MODE_NORMAL number 正常工作模式

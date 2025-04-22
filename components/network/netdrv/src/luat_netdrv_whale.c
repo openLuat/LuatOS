@@ -176,14 +176,14 @@ void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
         if (cfg->ulwip.netif == NULL) {
             cfg->ulwip.netif = drv->netif;
         }
-        if (drv->dhcp) {
+        if (cfg->dhcp) {
             // LLOGD("dhcp启动 %p", cfg->ulwip.netif);
             ulwip_dhcp_client_start(&cfg->ulwip);
         }
     }
     else {
         netif_set_down(drv->netif);
-        if (drv->dhcp) {
+        if (cfg->dhcp) {
             // LLOGD("dhcp停止");
             ulwip_dhcp_client_stop(&cfg->ulwip);
         }
@@ -254,9 +254,15 @@ luat_netdrv_t*  luat_netdrv_whale_setup(luat_netdrv_conf_t* conf) {
 
 static int whale_dhcp(luat_netdrv_t* drv, void* userdata, int enable) {
     luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)userdata;
+    if (cfg->dhcp == enable) {
+        return 0;
+    }
     cfg->dhcp = (uint8_t)enable;
     cfg->ulwip.dhcp_enable = enable;
-    if (enable && cfg->ulwip.netif) {
+    if (cfg->ulwip.netif == NULL) {
+        return 0;
+    }
+    if (enable) {
         ulwip_dhcp_client_start(&cfg->ulwip);
     }
     else {

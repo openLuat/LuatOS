@@ -83,14 +83,14 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦
                         LLOGD("wifi ap已关闭");
-                        luat_netdrv_whale_ipevent(drv->id, 0);
+                        luat_netdrv_whale_ipevent(drv, 0);
                     }
                 }
                 else {
                     if (netif_is_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi ap已开启");
-                        luat_netdrv_whale_ipevent(drv->id, 1);
+                        luat_netdrv_whale_ipevent(drv, 1);
                     }
                 }
                 break;

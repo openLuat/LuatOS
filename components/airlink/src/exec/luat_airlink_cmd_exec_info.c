@@ -14,6 +14,7 @@
 #include "luat_network_adapter.h"
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
+#include "lwip/ip_addr.h"
 #include "luat_netdrv_whale.h"
 
 #define LUAT_LOG_TAG "airlink"
@@ -24,6 +25,7 @@ luat_airlink_dev_info_t airlink_ext_dev_info;
 __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_airlink_dev_info_t* dev = cmd->data;
     luat_netdrv_t* drv = NULL;
+    char buff[32] = {0};
     // LLOGD("收到设备信息通知 类型 %d", dev->tp);
     if (dev->tp == 0) {
         return 0;
@@ -75,8 +77,8 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                     // LLOGD("没有找到lwip wifi ap接口, 无法设置MAC地址");
                     break;
                 }
-                memcpy(drv->netif->hwaddr, dev->wifi.sta_mac, 6);
                 drv->netif->hwaddr_len = 6;
+                memcpy(drv->netif->hwaddr, dev->wifi.ap_mac, 6);
 
                 // STA网络状态对吗?
                 if (dev->wifi.ap_state == 0) {
@@ -89,7 +91,8 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                 else {
                     if (netif_is_up(drv->netif) == 0) {
                         // 网卡上线了哦
-                        LLOGD("wifi ap已开启");
+                        ipaddr_ntoa_r(&drv->netif->ip_addr, buff, 32);
+                        LLOGD("wifi ap已开启 %s", buff);
                         luat_netdrv_whale_ipevent(drv, 1);
                     }
                 }

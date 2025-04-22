@@ -26,6 +26,7 @@ sys.taskInit(function ()
     netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
+LEDA = gpio.setup(27, 0, gpio.PULLUP)
 
 sys.taskInit(function()
     -- 等以太网就绪
@@ -38,7 +39,7 @@ sys.taskInit(function()
     end
     
     sys.wait(200)
-    httpsrv.start(80, function()
+    httpsrv.start(80, function(client, method, uri, headers, body)
         log.info("httpsrv", method, uri, json.encode(headers), body)
         -- meminfo()
         if uri == "/led/1" then

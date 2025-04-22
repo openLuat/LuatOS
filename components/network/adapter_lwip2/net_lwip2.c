@@ -1007,7 +1007,6 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	PV_Union uPV;
 	uPV.u16[0] = socket_id;
 	uPV.u16[1] = adapter_index;
-	LLOGE("socket_id???? %d", socket_id);
 	if (socket_id >= MAX_SOCK_NUM)
 		return;
 	if (prvlwip.socket[socket_id].is_tcp)

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<header>
+    <meta charset="utf-8" />
+    <title>Http Server Get-Start</title>
+    <!-- fetch api-->
+    <!-- <script type="text/javascript" src="/petite-vue.js"></script> -->
+    <script type="text/javascript">
+        function led(key) {
+            fetch("/led/" + key)
+        }
+        function wifi_get_aplist() {
+            var resp = fetch("/scan/list").then(function (resp) {
+                console.log(resp, resp.status)
+                if (resp.status != 200) {
+                    return
+                }
+                resp.json().then(function (data) {
+                    console.log("data", data)
+                    var tmp = ""
+                    for (let index = 0; index < data.data.length; index++) {
+                        const apname = data.data[index];
+                        if (index == 0) {
+                            tmp += "<option vaule='" + index + "' selected>" + apname+"</option>\n"
+                        }
+                        else {
+                            tmp += "<option vaule='" + index + "'>" + apname+"</option>\n"
+                        }
+                        
+                    }
+                    document.getElementById("aplist").innerHTML = tmp
+                })
+            })
+        }
+        function wifi_scan() {
+            fetch("/scan/go")
+            setTimeout(wifi_get_aplist, 3000)
+        }
+        function wifi_connect() {
+            var ssid = document.getElementById("ssid").value
+            var passwd = document.getElementById("passwd").value
+            console.log(ssid, passwd)
+            fetch("/connect", {
+                method : "POST",
+                body : JSON.stringify({ssid:ssid, passwd:passwd})
+            }).then(function(resp) {
+                if (resp.status == 200) {
+                    alert("正在尝试连接")
+                }
+                else {
+                    alert("出了点问题")
+                }
+            })
+        }
+        function wifi_ipstat() {
+            fetch("/connok").then(function(resp){
+                if (resp.status != 200)
+                    return
+                resp.json().then(function(data){
+                    console.log(data)
+                    if (data && data.ip != "0.0.0.0") {
+                        document.getElementById("ipstat").innerHTML = "已联网"
+                    }
+                })
+            })
+        }
+        function select_changed(event) {
+            var apselect = document.getElementById("aplist")
+            var ssid = document.getElementById("ssid")
+            ssid.value = apselect.options[apselect.selectedIndex].text
+        }
+        setTimeout(wifi_get_aplist, 3000)
+        // setInterval(wifi_ipstat, 3000)
+    </script>
+</header>
+
+<body>
+    <h2>点击按钮, led灯会亮起或熄灭</h2>
+    <div>
+        <div>
+            <button onclick="led(1)">LED亮</button>
+        </div>
+        <div>
+            <button onclick="led(0)">LED灭</button>
+        </div>
+    </div>
+    <h2>AP WEB 配网</h2>
+    <div v-scope="{aps:[]}">
+        <div>
+            <button onclick="wifi_scan()">扫描wifi</button>
+        </div>
+        <div>
+            <h4>wifi列表</h4>
+            <select id="aplist" onchange="select_changed()">
+                <option vaule="">luatos1234</option>
+            </select>
+            <p></p>
+            wifi名称: <input id="ssid">
+            <p></p>
+            密码: <input id="passwd">
+            <p></p>
+            <button onclick="wifi_connect()">连接</button>
+        </div>
+        <div>
+            <h4>联网状态:</h4><span id="ipstat">未联网</span>
+            <p></p>
+            <button onclick="wifi_ipstat()">检查状态</button>
+        </div>
+    </div>
+    <div>
+        <h4>Power by <a href="https://wiki.luatos.com">LuatOS</a></h4>
+    </div>
+</body>
+
+</html>

@@ -1501,7 +1501,8 @@ int net_lwip2_setsockopt2(int socket_id, uint64_t tag,  int level, int optname, 
 	int result = net_lwip2_check_socket(user_data, socket_id, tag);
 	if (result) return result;
 	#if LWIP_SOCKET
-	return lwip_setsockopt(socket_id, level, optname, optval, optlen);
+	// return lwip_setsockopt(socket_id, level, optname, optval, optlen);
+	return 0;
 	#else
 	return 0;
 	#endif

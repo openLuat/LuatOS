@@ -65,11 +65,11 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 		if (!memcmp(string, peripheral_names[description.peripheral_type], offset))
 		{
 			int function_id;
+			string += offset;
+			len -= offset;
 			if (description.peripheral_type != LUAT_MCU_PERIPHERAL_GPIO)
 			{
 				description.peripheral_id = 0;
-				string += offset;
-				len -= offset;
 				while(luat_isdigit(string[0]))
 				{
 					description.peripheral_id = description.peripheral_id * 10 + (string[0] - '0');

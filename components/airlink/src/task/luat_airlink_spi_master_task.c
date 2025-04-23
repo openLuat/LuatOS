@@ -293,5 +293,5 @@ void luat_airlink_start_master(void)
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
 
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
-    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 95, "spi", spi_master_task, NULL, 0);
+    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
 }

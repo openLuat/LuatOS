@@ -187,9 +187,10 @@ int luat_uart_setup_flow_ctrl(int uart_id, luat_uart_cts_callback_t  cts_callbac
 int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type);
 
 #ifdef LUAT_USE_SOFT_UART
-#ifndef __BSP_COMMON_H__
-#include "c_common.h"
-#endif
+//#ifndef __BSP_COMMON_H__
+//#include "c_common.h"
+//#endif
+typedef void (* CommonFun_t)(void);
 /**
  * @brief 软件串口所需硬件定时器配置
  *

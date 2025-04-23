@@ -112,7 +112,7 @@ int luat_airlink_cmd_exec_notify_log(luat_airlink_cmd_t *cmd, void *userdata) {
     }
     uint8_t level = cmd->data[0];
     uint8_t tag_len = cmd->data[1];
-    uint8_t tag[16] = {0};
+    char tag[16] = {0};
     memcpy(tag, cmd->data + 2, tag_len);
     luat_log_log(level, tag, "%.*s", cmd->len - 2 - tag_len, cmd->data + 2 + tag_len);
     return 0;
@@ -134,7 +134,7 @@ static int push_args(lua_State *L, uint8_t* ptr, uint32_t* limit) {
     switch (type)
     {
     case LUA_TSTRING:
-        lua_pushlstring(L, ptr + 2, len);
+        lua_pushlstring(L, (const char*)ptr + 2, len);
         break;
     case LUA_TNUMBER:
         memcpy(&f, ptr + 2, 4);

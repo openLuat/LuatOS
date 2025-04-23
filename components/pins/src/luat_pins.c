@@ -47,7 +47,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 			"TX","SDA","MISO"
 	};
 	const char *function2_names[3] = {
-			"RTS","SCLK","BCLK"
+			"RTS","CLK","BCLK"
 	};
 	const char *function3_names[3] = {
 			"CTS","CS","LRCLK"
@@ -264,6 +264,22 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 	luat_pin_peripheral_function_description_u func_description = {0};
 	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
 	int result = 0;
+	// 需要忽略部分特定名称的pin
+	#ifdef CHIP_EC718
+	if (name_len < 4) {
+		return 0;
+	}
+	if (memcmp("DBG_", func_name, 4) == 0 
+		|| memcmp("LCD_", func_name, 4) == 0 
+		|| memcmp("USIM_", func_name, 5) == 0 
+		|| memcmp("VBUS", func_name, 4) == 0
+		|| memcmp("USB_", func_name, 4) == 0
+		|| memcmp("CHG_", func_name, 4) == 0
+		|| memcmp("CAM_", func_name, 4) == 0
+		|| memcmp("SPI", func_name, 3) == 0) {
+		return 0;
+	}
+	#endif
 	if (luat_pin_get_description_from_num(pin, &pin_description))
 	{
 		LLOGE("pin%d不支持修改", pin);

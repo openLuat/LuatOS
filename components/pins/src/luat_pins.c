@@ -65,14 +65,17 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 		if (!memcmp(string, peripheral_names[description.peripheral_type], offset))
 		{
 			int function_id;
-			description.peripheral_id = 0;
-			string += offset;
-			len -= offset;
-			while(luat_isdigit(string[0]))
+			if (description.peripheral_type != LUAT_MCU_PERIPHERAL_GPIO)
 			{
-				description.peripheral_id = description.peripheral_id * 10 + (string[0] - '0');
-				string++;
-				len--;
+				description.peripheral_id = 0;
+				string += offset;
+				len -= offset;
+				while(luat_isdigit(string[0]))
+				{
+					description.peripheral_id = description.peripheral_id * 10 + (string[0] - '0');
+					string++;
+					len--;
+				}
 			}
 			switch(description.peripheral_type)
 			{
@@ -175,9 +178,16 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 				}
 				break;
 			case LUAT_MCU_PERIPHERAL_GPIO:
-				if (!string[0])
+				if (luat_isdigit(string[0]))
 				{
-					description.function_id = 0;
+					function_id = 0;
+					while(luat_isdigit(string[0]))
+					{
+						function_id = function_id * 10 + (string[0] - '0');
+						string++;
+						len--;
+					}
+					description.code |= (function_id & 0x00ff);
 					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 				}
 				break;
@@ -322,11 +332,19 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 			goto LUAT_PIN_SETUP_DONE;
 		}
 	}
-	if (!luat_pin_get_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list))
+	if (!luat_pin_get_iomux_info(func_description.peripheral_type, (func_description.peripheral_type != LUAT_MCU_PERIPHERAL_GPIO)?(func_description.peripheral_id):(func_description.code & 0x00ff), pin_list))
 	{
-		pin_list[func_description.function_id].altfun_id = altfun_id;
-		pin_list[func_description.function_id].uid = pin_description.uid;
-		result = luat_pin_set_iomux_info(func_description.peripheral_type, func_description.peripheral_id, pin_list);
+		if (func_description.peripheral_type != LUAT_MCU_PERIPHERAL_GPIO)
+		{
+			pin_list[func_description.function_id].altfun_id = altfun_id;
+			pin_list[func_description.function_id].uid = pin_description.uid;
+		}
+		else
+		{
+			pin_list[0].altfun_id = altfun_id;
+			pin_list[0].uid = pin_description.uid;
+		}
+		result = luat_pin_set_iomux_info(func_description.peripheral_type, (func_description.peripheral_type != LUAT_MCU_PERIPHERAL_GPIO)?(func_description.peripheral_id):(func_description.code & 0x00ff), pin_list);
 		if (result >= 0)
 		{
 			result = 1;

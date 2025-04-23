@@ -5,6 +5,35 @@
 @date    2025.2.24
 @demo can
 @tag LUAT_USE_CAN
+@usage
+--[[
+错误码介绍
+错误码由4byte组成小端格式的uint32
+byte3预留无意义
+byte2方向，0TX 1RX
+byte1类型，0bit 1form 2stuff
+byte0位置：
+0x03 start of frame
+0x02 extended: ID bits 28 - 21, standard:  10 - 3
+0x06 extended: ID bits 20 - 18, standard:  2 - 0
+0x04 extended: substitute RTR, standard: RTR
+0x05 identifier extension
+0x07 extended: ID bits 17 - 13
+0x0f extended: ID bits 12 - 5
+0x0e extended: ID bits 4 - 0
+0x0C RTR
+0x0D reserved bit 1
+0x09 reserved bit 0
+0x0b data length code
+0x0a data section
+0x08 CRC sequence
+0x18 CRC delimiter
+0x19 ACK slot
+0x1b ACK delimiter
+0x1a end of frame
+0x12 intermission
+0x00 unspecified
+]]
 */
 #include "luat_base.h"
 #include "luat_sys.h"
@@ -481,7 +510,7 @@ static const rotable_Reg_t reg_can[] =
     { "CB_MSG",        ROREG_INT(LUAT_CAN_CB_NEW_MSG)},
     //@const CB_TX number 回调消息类型，数据发送结束，需要根据后续param确定发送成功还是失败
     { "CB_TX",        ROREG_INT(LUAT_CAN_CB_TX_OK)},
-    //@const CB_ERR number 回调消息类型，有错误报告，后续param是错误码
+    //@const CB_ERR number 回调消息类型，有错误报告，后续param是错误码，具体见错误码介绍
     { "CB_ERR",        ROREG_INT(LUAT_CAN_CB_ERROR_REPORT)},
 	//@const CB_STATE number 回调消息类型，总线状态变更，后续param是新的状态，也可以用can.state读出
 	{ "CB_STATE",        ROREG_INT(LUAT_CAN_CB_STATE_CHANGE)},

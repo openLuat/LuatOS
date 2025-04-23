@@ -44,6 +44,7 @@ def main():
     paddr_list = set()
     alt_list = set()
     alt_dft_list = set()
+    autotest_script = ""
     for item in data["pins"] :
         pin = item[0]
         paddr = item[1]
@@ -75,6 +76,10 @@ def main():
             logging.error("alt %s is duplicate" % alt)
         alt_dft_list.add(alt)
 
+        # 生成自动测试脚本, 全部功能配置一遍
+        for altitem in self_alts :
+            autotest_script += "pins.setup(%3d, \"%s\")\n" % (pin, altitem)
+
     alt_list_sorted = sorted(list(alt_list))
     # for alt in alt_list_sorted:
     #     logging.debug("alt %s" % alt)
@@ -89,6 +94,11 @@ def main():
     for tp in slist :
         slist[tp] = sorted(slist[tp])
         logging.debug("dft alt %s : %s" % (tp, ",".join(slist[tp])))
+
+    model = os.path.basename(path).split(".")[0]
+    dst = os.path.join("..", "..", "..", "demo", "pins", model + "_test.lua")
+    with open(dst, "w+", encoding='utf-8') as f:
+        f.write(autotest_script)
 
 
 if __name__ == '__main__':

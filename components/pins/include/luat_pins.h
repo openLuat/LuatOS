@@ -119,7 +119,7 @@ int luat_pin_get_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, luat_pin_iom
  * @param type 外设类型，见LUAT_MCU_PERIPHERAL_E
  * @param id 外设id，例如uart2就填2
  * @param pin_list 输入pin复用信息表
- * @return 0成功，其他失败
+ * @return 0成功，1代表只有一种复用, <0代表失败
  */
 int luat_pin_set_iomux_info(LUAT_MCU_PERIPHERAL_E type, uint8_t id, luat_pin_iomux_info *pin_list);
 /**

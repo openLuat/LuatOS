@@ -28,6 +28,9 @@ CMD_DEFINE(fota_end);
 CMD_DEFINE(dev_info);
 CMD_DEFINE(sdata);
 CMD_DEFINE(nop);
+// 通知类指令, 0x80开始
+CMD_DEFINE(notify_sys_pub);
+CMD_DEFINE(notify_log);
 
 // MAC和IP包指令, 0x100开始
 CMD_DEFINE(ip_pkg);
@@ -62,6 +65,11 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x03,  reset),
 #ifdef LUAT_USE_AIRLINK_EXEC_SDATA
     CMD_REG(0x20,  sdata),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_NOTIFY
+    CMD_REG(0x80, notify_sys_pub),
+    CMD_REG(0x81, notify_log),
 #endif
 
     // CMD_REG(0x01, ping),

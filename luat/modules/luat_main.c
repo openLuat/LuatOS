@@ -92,7 +92,8 @@ static int pmain(lua_State *L) {
   
 	// Air8000硬等最多200ms, 梁健要加的, 有问题找他
   #ifdef LUAT_USE_AIRLINK
-  if (memcmp("Air8000\0", model, 0) == 0 || memcmp("Air8000W\0", model, 9) == 0) {
+  if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0) {
+    //LLOGD("等待Air8000s启动");
 	  size_t count = 0;
 	  #define AIRLINK_WAIT_MS (5)
     extern uint64_t g_airlink_last_cmd_timestamp;

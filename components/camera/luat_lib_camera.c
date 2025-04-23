@@ -82,6 +82,7 @@ static int l_camera_init(lua_State *L){
     if (lua_istable(L, 1)) {
     	luat_camera_conf_t conf = {0};
     	conf.lcd_conf = luat_lcd_get_default();
+        conf.stream = 1;
         lua_pushliteral(L, "zbar_scan");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {

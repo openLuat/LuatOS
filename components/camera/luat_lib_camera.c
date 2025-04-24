@@ -401,14 +401,23 @@ camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)
 @int camera id,例如0
 @string/zbuff/nil save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg，如果是zbuff，则将图片保存在buff内不写入文件系统
-@int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
+@int quality, jpeg压缩质量, 见下面的使用说明
 @int x, 裁剪起始横坐标，从x列开始
 @int y, 裁剪起始纵坐标，从y行开始
 @int w, 裁剪后的宽度
 @int h, 裁剪后的高度
 @return boolean 成功返回true,否则返回false,真正完成后通过camera.on设置的回调函数回调接收到的长度
 @usage
-camera.capture(0)
+-- 保存到文件,质量为80
+camera.capture(0, "/capture.jpg", 80)
+-- 保存到内存文件系统
+camera.capture(0, "/ram/123.jpg", 80)
+
+-- 保存到zbuff,质量为80
+camera.capture(0, buff, 80)
+
+-- jpeg压缩质量,请使用 50 - 95 之间的数值
+-- 为保持兼容性, 质量值1/2/3, 分别对应 90/85/99
 */
 static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);

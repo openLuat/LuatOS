@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 #include "luat_mem.h"
+
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
 
@@ -19,12 +20,13 @@ typedef struct luat_ram_fd
     uint8_t readonly;
 }luat_raw_fd_t;
 
-#define RAM_FILE_MAX (8)
+#define RAM_FILE_MAX (64)
 static ram_file_t* files[RAM_FILE_MAX];
 
 
 FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode) {
     (void)userdata;
+    // LLOGD("ram fs open %s %s", filename, mode);
     if (filename == NULL || mode == NULL || strlen(filename) > 31)
         return NULL;
     // 读文件
@@ -61,15 +63,21 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                     return NULL;
                 }
                 fd->fid = i;
+                fd->readonly = 0;
+                fd->offset = 0;
                 if (!strcmp("w+", mode) || !strcmp("wb+", mode) || !strcmp("w+b", mode)) {
                     // 截断模式
                     char* tmp = luat_heap_realloc(files[i], sizeof(ram_file_t));
                     if (tmp) {
                         files[i] = (ram_file_t*)tmp;
                     }
+                    else {
+                        LLOGE("realloc ram_file_t failed");
+                        luat_heap_free(fd);
+                        return NULL;
+                    }
                     files[i]->size = 0;
                 }
-                fd->offset = 0;
                 return (FILE*)fd;
             }
         }
@@ -92,6 +100,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
             }
             fd->fid = i;
             fd->offset = 0;
+            fd->readonly = 0;
             return (FILE*)fd;
         }
     }
@@ -110,10 +119,12 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                 }
                 fd->fid = i;
                 fd->offset = files[i]->size;
+                fd->readonly = 0;
                 return (FILE*)fd;
             }
         }
     }
+    LLOGE("too many ram files >= %d", RAM_FILE_MAX);
     return NULL;
 }
 
@@ -139,7 +150,6 @@ int luat_vfs_ram_getc(void* userdata, FILE* stream) {
 
 int luat_vfs_ram_fseek(void* userdata, FILE* stream, long int offset, int origin) {
     (void)userdata;
-    //LLOGD("fseek %p %p %d %d", userdata, stream, offset, origin);
     luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
     if (origin == SEEK_CUR) {
         fd->offset += offset;
@@ -158,7 +168,7 @@ int luat_vfs_ram_fseek(void* userdata, FILE* stream, long int offset, int origin
 int luat_vfs_ram_ftell(void* userdata, FILE* stream) {
     (void)userdata;
     luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
-    //LLOGD("tell %p %p %d %d", userdata, stream, fd->size, fd->offset);
+    // LLOGD("tell %p %p offset %d", userdata, stream, fd->offset);
     return fd->offset;
 }
 
@@ -200,14 +210,18 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
     (void)userdata;
     luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
     size_t write_size = size*nmemb;
+    if (write_size > 128 * 1024) {
+        LLOGW("ramfs large write !! %ld", write_size);
+    }
     if (fd->readonly) {
+        LLOGW("readonly fd %d!! path %s", fd->fid, files[fd->fid]->name);
         return 0;
     }
     
     if (fd->offset + write_size > files[fd->fid]->size) {
         char* ptr = luat_heap_realloc(files[fd->fid], fd->offset + write_size + sizeof(ram_file_t));
         if (ptr == NULL) {
-            LLOGW("/ram out of sys memory!!");
+            LLOGW("/ram out of sys memory!! %ld", write_size);
             return 0;
         }
         files[fd->fid] = (ram_file_t*)ptr;

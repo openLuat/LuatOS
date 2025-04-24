@@ -100,6 +100,13 @@ def main():
     with open(dst, "w+", encoding='utf-8') as f:
         f.write(autotest_script)
 
+    # 检查管脚是不是全部声明了, 包括不需要复用的
+    for item in data["pins_others"] :
+        pin = item[0]
+        pin_list.add(pin)
+    for id in range(1, data["pin_count"] + 1) :
+        if id not in pin_list :
+            logging.error("pin %d is not declared" % id)
 
 if __name__ == '__main__':
     main()

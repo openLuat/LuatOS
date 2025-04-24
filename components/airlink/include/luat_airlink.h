@@ -251,6 +251,15 @@ int luat_airlink_drv_uart_close(int uart_id);
 
 extern uint32_t g_airlink_debug;
 
+int luat_airlink_syspub_addstring(const char* str, size_t len, uint8_t *dst, uint32_t limit);
+int luat_airlink_syspub_addfloat32(const float val, uint8_t *dst, uint32_t limit);
+int luat_airlink_syspub_addint32(const int32_t val, uint8_t *dst, uint32_t limit);
+int luat_airlink_syspub_addnil(const uint8_t *dst, uint32_t limit);
+int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit);
+
+int luat_airlink_syspub_send(uint8_t* buff, size_t len);
+
+
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif

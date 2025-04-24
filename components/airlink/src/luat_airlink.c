@@ -369,3 +369,74 @@ int luat_airlink_send_cmd_simple(uint16_t cmd_id, uint8_t* data, uint16_t len) {
     luat_heap_opt_free(AIRLINK_MEM_TYPE, cmd);
     return 0;
 }
+
+// 添加syspub所需的数据
+
+int luat_airlink_syspub_addstring(const char* str, size_t len, uint8_t *dst, uint32_t limit) {
+    if (len + 2 > limit) {
+        return -1;
+    }
+    uint8_t tmp = LUA_TSTRING;
+    memcpy(dst, &tmp, 1);
+    tmp = (uint8_t)len;
+    memcpy(dst + 1, &tmp, 1);
+    memcpy(dst + 2, str, len);
+    return len + 2;
+}
+
+int luat_airlink_syspub_addfloat32(const float val, uint8_t *dst, uint32_t limit) {
+    if (4 + 2 > limit) {
+        return -1;
+    }
+    uint8_t tmp = LUA_TNUMBER;
+    memcpy(dst, &tmp, 1);
+    tmp = (uint8_t)4;
+    memcpy(dst + 1, &tmp, 1);
+    memcpy(dst + 2, &val, 4);
+    return 4 + 2;
+}
+
+int luat_airlink_syspub_addint32(const int32_t val, uint8_t *dst, uint32_t limit) {
+    if (4 + 2 > limit) {
+        return -1;
+    }
+    uint8_t tmp = LUA_TINTEGER;
+    memcpy(dst, &tmp, 1);
+    tmp = (uint8_t)4;
+    memcpy(dst + 1, &tmp, 1);
+    memcpy(dst + 2, &val, 4);
+    return 4 + 2;
+}
+
+int luat_airlink_syspub_addnil(const uint8_t *dst, uint32_t limit) {
+    if (2 > limit) {
+        return -1;
+    }
+    uint8_t tmp = LUA_TBOOLEAN;
+    memcpy(dst, &tmp, 1);
+    tmp = (uint8_t)4;
+    memcpy(dst + 1, &tmp, 1);
+    return 2;
+}
+int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit) {
+    if (1 + 2 > limit) {
+        return -1;
+    }
+    uint8_t tmp = LUA_TINTEGER;
+    memcpy(dst, &tmp, 1);
+    tmp = (uint8_t)4;
+    memcpy(dst + 1, &tmp, 1);
+    memcpy(dst + 2, &b, 1);
+    return 1 + 2;
+}
+
+int luat_airlink_syspub_send(uint8_t* buff, size_t len) {
+    // LLOGD("传输syspub命令数据 %d", len);
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x80, 8 + len);
+    uint64_t pkgid = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &pkgid, 8);
+    memcpy(cmd->data + 8, buff, len);
+    luat_airlink_send2slave(cmd);
+    luat_airlink_cmd_free(cmd);
+    return 0;
+}

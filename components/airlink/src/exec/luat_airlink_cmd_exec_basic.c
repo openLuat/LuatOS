@@ -134,21 +134,26 @@ static int push_args(lua_State *L, uint8_t* ptr, uint32_t* limit) {
     switch (type)
     {
     case LUA_TSTRING:
+        // LLOGD("添加字符串 %.*s", len, ptr + 2);
         lua_pushlstring(L, (const char*)ptr + 2, len);
         break;
     case LUA_TNUMBER:
         memcpy(&f, ptr + 2, 4);
+        // LLOGD("添加浮点数 %f", f);
         lua_pushnumber(L, f);
         break;
     case LUA_TINTEGER:
         memcpy(&i, ptr + 2, 4);
+        // LLOGD("添加整数 %d", i);
         lua_pushinteger(L, i);
         break;
     case LUA_TBOOLEAN:
         memcpy(&b, ptr + 2, 1);
+        // LLOGD("添加bool %d", b);
         lua_pushboolean(L, b);
         break;
     case LUA_TNIL:
+        // LLOGD("添加nil");
         lua_pushnil(L);
         break;
     
@@ -174,23 +179,25 @@ static int l_airlink_sys_pub(lua_State *L, void* ptr) {
         tmp += ret;
         c ++;
     }
-    lua_pcall(L, c + 1, 0, 0);
+    lua_pcall(L, c, 0, 0);
     return 0;
 }
 
 int luat_airlink_cmd_exec_notify_sys_pub(luat_airlink_cmd_t *cmd, void *userdata) {
-    if (cmd->len < 9) {
+    // LLOGD("收到sys_pub指令!!! %d", cmd->len);
+    if (cmd->len < 12) {
+        LLOGD("非法的sys_pub指令,长度不足 %d", cmd->len);
         return 0;
     }
     rtos_msg_t msg = {0};
     msg.handler = l_airlink_sys_pub;
-    msg.ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, cmd->len);
+    msg.ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, cmd->len - 8);
     if (msg.ptr == NULL) {
-        LLOGE("l_airlink_sys_pub malloc fail!!! %d", cmd->len);
+        LLOGE("l_airlink_sys_pub malloc fail!!! %d", cmd->len - 8);
         return 0;
     }
-    memcpy(msg.ptr, cmd->data, cmd->len);
-    msg.arg1 = cmd->len;
+    memcpy(msg.ptr, cmd->data + 8, cmd->len - 8);
+    msg.arg1 = cmd->len - 8;
     luat_msgbus_put(&msg, 0);
     return 0;
 }

@@ -11,8 +11,8 @@ _G.sysplus = require("sysplus")
 
 sys.taskInit(function()
     -- sys.wait(500)
-    airlink.start(0)
-    wlan.init()
+    -- airlink.start(0)
+    -- wlan.init()
 end)
 
 sys.taskInit(function()

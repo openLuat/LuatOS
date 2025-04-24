@@ -118,18 +118,6 @@ end)
 -- end)
 
 sys.taskInit(function()
-    -- -- 稍微缓一下
-    -- sys.wait(10)
-    -- -- 初始化airlink
-    -- airlink.init()
-    -- -- 启动底层线程, 从机模式
-    -- airlink.start(1)
-    -- PWR8000S(1)
-    -- sys.wait(500) -- 稍微缓一下
-    -- airlink.test(10)
-    -- sys.wait(100)
-    -- netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
-    -- netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
 
     -- sys.wait(100)
     wlan.init()

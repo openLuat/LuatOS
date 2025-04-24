@@ -1554,7 +1554,7 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	if (!local_port)
 	{
 		local_port = ctrl->adapter_index;
-		local_port *= 1000;
+		local_port *= 640;
 		uint32_t offset = ctrl - adapter->ctrl_table;
 		if (offset >= sizeof(network_ctrl_t))
 		{
@@ -1565,11 +1565,11 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 			offset = adapter->opt->max_socket_num;
 		}
 		adapter->port++;
-		if (adapter->port >= 50)
+		if (adapter->port >= 10)
 		{
 			adapter->port = 0;
 		}
-		local_port += 50000 + adapter->port + offset * 50;
+		local_port += 50000 + adapter->port + offset * 10;
 		DBG("network %d local port auto select %u",offset, local_port);
 	}
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, local_port, remote_ip, ctrl->remote_port, adapter->user_data);

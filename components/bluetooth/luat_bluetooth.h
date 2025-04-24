@@ -32,6 +32,15 @@ typedef enum{
 #define ADV_TYPE_SERVICE_DATA               (0x16)
 #define ADV_TYPE_MANUFACTURER_SPECIFIC      (0xFF)
 
+#define LUAT_BLE_GATT_UUID_16                       (0x01 << 0)
+#define LUAT_BLE_GATT_UUID_32                       (0x01 << 1)
+#define LUAT_BLE_GATT_UUID_128                      (0x01 << 2)
+// Permission
+#define LUAT_BLE_GATT_PERM_READ                     (0x01 << 3) // Read
+#define LUAT_BLE_GATT_PERM_WRITE                    (0x01 << 4) // Write
+#define LUAT_BLE_GATT_PERM_IND                      (0x01 << 5) // Indication
+#define LUAT_BLE_GATT_PERM_NOTIFY                   (0x01 << 6) // Notification
+
 typedef enum{
     LUAT_ADV_TYPE_FLAGS = 0x01,
     LUAT_ADV_TYPE_INCOMPLETE16,
@@ -109,9 +118,47 @@ typedef enum{
     LUAT_BLE_EVENT_WRITE,       // BLE写数据
     LUAT_BLE_EVENT_READ,        // BLE读数据
 
+    LUAT_BLE_EVENT_WLAN_CONFIG_SUCCESS,
+    LUAT_BLE_EVENT_WLAN_CONFIG_FAILED,
+
 } luat_ble_event_t;
 
+typedef enum{
+    LUAT_BLE_WLAN_CONFIG_TYPE_BK,
+}luat_ble_wlan_config_type_t;
+
+typedef struct luat_bluetooth luat_bluetooth_t;
+
 typedef struct{
+    uint8_t ssid[32];
+    uint8_t password[64];
+    uint8_t ssid_len;
+    uint8_t password_len;
+    uint8_t security;
+    void* userdata;
+}luat_ble_wlan_config_info_t;
+typedef struct{
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t att_idx;       /**< The index of the attribute */
+    uint8_t *value;         /**< The attribute value */
+    uint16_t len;           /**< The length of the attribute value */
+    uint16_t size;
+} luat_ble_write_req_t;
+
+typedef struct{
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t att_idx;       /**< The index of the attribute */
+    uint8_t *value;         /**< The attribute value */
+    uint16_t len;           /**< The data length read */
+    uint16_t size;          /**< The size of attribute value to read */
+} luat_ble_read_req_t;
+
+typedef struct{
+    union {
+        luat_ble_write_req_t write_req;
+        luat_ble_read_req_t read_req;
+    };
+    luat_ble_wlan_config_info_t wlan_config;
     void* param0;
     void* param1;
     void* param2;
@@ -122,23 +169,15 @@ typedef struct {
     int len;
 }luat_ble_adv_data_t;
 
-typedef struct luat_bluetooth luat_bluetooth_t;
+typedef void (*luat_ble_wlan_config_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_wlan_config_info_t* wlan_config);
 
 typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
 typedef struct{
-    uint8_t uuid[16];   // 16 bits UUID LSB First
-    uint16_t perm;      // Attribute Permissions (see enum \ref bk_ble_perm_mask)
-    /// Attribute Extended Permissions (see enum \ref bk_ble_ext_perm_mask)
+    uint8_t uuid[16];
+    uint16_t perm;
     uint16_t ext_perm;
-    /// Attribute Max Size
-    /// note: for characteristic declaration contains handle offset
-    /// note: for included service, contains target service handle
     uint16_t max_size;
-
-    uint16_t value_len;
-    ///pointer to value if BK_BLE_PERM_SET(RI, ENABLE) not set and BK_BLE_PERM_SET(VALUE_INCL, ENABLE) set
-    void *p_value_context;
 } luat_ble_att_db_t;
 
 typedef struct {
@@ -162,11 +201,12 @@ typedef struct {
 typedef struct {
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
+    luat_ble_wlan_config_cb_t wlan_config_cb;
+    void* userdata;
 }luat_ble_t;
 
 typedef struct {
-    luat_ble_actv_state state;
-    luat_ble_cb_t cb;
+    void* userdata;
 }luat_bt_t;
 
 typedef struct luat_bluetooth{
@@ -181,7 +221,7 @@ int luat_ble_deinit(luat_bluetooth_t* luat_bluetooth);
 
 int luat_ble_create_advertising(luat_bluetooth_t* luat_bluetooth, luat_ble_adv_cfg_t* adv_cfg);
 
-int luat_ble_set_name(luat_bluetooth_t* luat_bluetooth, uint8_t* name, uint8_t len);
+int luat_ble_set_name(luat_bluetooth_t* luat_bluetooth, char* name, uint8_t len);
 
 int luat_ble_set_adv_data(luat_bluetooth_t* luat_bluetooth, uint8_t* adv_buff, uint8_t adv_len);
 
@@ -195,6 +235,12 @@ int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
 
 int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
 
+int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t con_idx, uint16_t att_idx, uint32_t len, uint8_t *buf);
+
+
+int luat_ble_wlan_config(luat_ble_wlan_config_type_t config_type, luat_ble_wlan_config_cb_t luat_ble_wlan_config_cb);
+
+
 // bt
 
 
@@ -202,22 +248,9 @@ int luat_bt_get_mac(luat_bluetooth_t* luat_bluetooth, uint8_t *addr);
 int luat_bt_set_mac(luat_bluetooth_t* luat_bluetooth, uint8_t *addr, uint8_t len);
 
 
-
 // bluetooth
 
 luat_bluetooth_t* luat_bluetooth_init(void);
 int luat_bluetooth_deinit(luat_bluetooth_t* luat_bluetooth);
-
-typedef enum{
-    LUAT_BLE_WLAN_CONFIG_TYPE_BK,
-}luat_ble_wlan_config_type_t;
-
-typedef struct{
-    uint8_t ssid[32];
-    uint8_t password[64];
-    uint8_t security;
-}luat_ble_wlan_config_info_t;
-
-int luat_ble_wlan_config(luat_ble_wlan_config_type_t config_type, luat_ble_wlan_config_info_t* config_info);
 
 #endif

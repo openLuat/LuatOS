@@ -57,6 +57,7 @@ typedef enum{
 
 
 extern luat_tp_opts_t tp_config_gt911;
+extern luat_tp_opts_t tp_config_gt9157;
 extern luat_tp_opts_t tp_config_jd9261t;
 extern luat_tp_opts_t tp_config_jd9261t_inited;
 

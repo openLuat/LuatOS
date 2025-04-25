@@ -322,7 +322,11 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 }
 #endif
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
-    if (luat_uart_exist(id)) {
+	#ifndef LUAT_USE_DRV_UART
+	#else
+    if (luat_uart_exist(id)) 
+	#endif
+	{
         uart_app_recvs[id] = cb;
         luat_setup_cb(id, 1, 0); // 暂时覆盖
     }
@@ -772,7 +776,11 @@ static int l_uart_exist(lua_State *L)
 	}
 	return 1;
 #else
+	#ifdef LUAT_USE_DRV_UART
+	lua_pushboolean(L, luaL_checkinteger(L,1) <= LUAT_VUART_ID_0);
+	#else
     lua_pushboolean(L, luat_uart_exist(luaL_checkinteger(L,1)));
+	#endif
     return 1;
 #endif
 }

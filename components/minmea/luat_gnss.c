@@ -5,6 +5,10 @@
 #include "luat_rtc.h"
 #include "luat_mcu.h"
 
+#ifdef LUAT_USE_DRV_UART
+#include "luat/drv_uart.h"
+#endif
+
 #define LUAT_LOG_TAG "gnss"
 #include "luat_log.h"
 
@@ -22,7 +26,11 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
     // LLOGD("uart recv cb");
     int len = 0;
     while (1) {
+        #ifdef LUAT_USE_DRV_UART
+        len = luat_drv_uart_read(uart_id, libgnss_recvbuff, RECV_BUFF_SIZE - 1);
+        #else
         len = luat_uart_read(uart_id, libgnss_recvbuff, RECV_BUFF_SIZE - 1);
+        #endif
         if (len < 1 || len >= RECV_BUFF_SIZE)
             break;
         if (libgnss_route_uart_id > 0) {

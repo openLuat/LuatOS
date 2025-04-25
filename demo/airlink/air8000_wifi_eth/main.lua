@@ -28,15 +28,8 @@ function test_ap()
     log.info("执行AP创建操作")
     wlan.createAP("uiot5678", "12345678")
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    -- for i=1, 10 do
-    --     log.info("当前ip信息", netdrv.ipv4(socket.LWIP_AP))
-    --     sys.wait(100)
-    -- end
     sys.wait(5000)
-    -- netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    -- log.info("创建dns代理", netdrv.ipv4(socket.LWIP_AP))
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
-    -- log.info('创建DHCP服务器', netdrv.ipv4(socket.LWIP_AP))
+    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_ETH)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     while 1 do
         if netdrv.ready(socket.LWIP_ETH) then
@@ -91,10 +84,7 @@ function eth_wan()
         0,--CPHA
         0,--CPOL
         8,--数据宽度
-        25600000--,--频率
-        -- spi.MSB,--高低位顺序    可选，默认高位在前
-        -- spi.master,--主模式     可选，默认主
-        -- spi.full--全双工       可选，默认全双工
+        25600000--,--波特率
     )
     log.info("main", "open spi",result)
     if result ~= 0 then--返回值为0，表示打开成功

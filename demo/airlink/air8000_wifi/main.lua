@@ -26,10 +26,6 @@ function test_ap()
     log.info("执行AP创建操作")
     wlan.createAP("uiot5678", "12345678")
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    for i=1, 10 do
-        log.info("当前ip信息", netdrv.ipv4(socket.LWIP_AP))
-        sys.wait(100)
-    end
     sys.wait(5000)
     -- netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
     -- log.info("创建dns代理", netdrv.ipv4(socket.LWIP_AP))
@@ -50,7 +46,7 @@ sys.subscribe("WLAN_STA_INC", function(evt, data)
     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
     -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
     -- 当evt=DISCONNECTED, data断开的原因, 整数类型
-    log.info("收到STA事件", evt)
+    log.info("收到STA事件", evt, data)
 end)
 
 -- wifi的AP相关事件
@@ -58,7 +54,7 @@ sys.subscribe("WLAN_AP_INC", function(evt, data)
     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
     -- 当evt=CONNECTED, data是连接的AP的新STA的MAC地址
     -- 当evt=DISCONNECTED, data是断开与AP连接的STA的MAC地址
-    log.info("收到STA事件", evt)
+    log.info("收到AP事件", evt, data and data:toHex())
 end)
 
 function test_sta()

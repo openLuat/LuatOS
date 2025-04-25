@@ -109,8 +109,8 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             }
             if (dst->dataout) {
                 if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-                    LLOGD("输出到内网netdrv,无需额外添加eth头");
-                    dst->dataout(dst, dst->userdata, icmp_buff, ctx->len);
+                    // LLOGD("输出到内网netdrv,无需额外添加eth头");
+                    dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
                 }
                 else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
                     // 需要补全一个ETH头部
@@ -202,9 +202,14 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             memcpy(it->inet_mac, ctx->eth->src.addr, 6);
         }
         if (gw->netif->flags & NETIF_FLAG_ETHARP) {
-            // TODO 网关设备也是ETHARP? 还不支持
-            LLOGD("网关netdrv也是ETH, 当前不支持");
-            return 0;
+            if (ctx->eth) {
+                memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
+                gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
+            }
+            else {
+                LLOGD("网关netdrv是ETH,源网卡不是ETH, 当前不支持");
+                return 0;
+            }
         }
         else {
             if (ctx->eth) {

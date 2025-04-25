@@ -10,6 +10,7 @@
 #include "lwip/ip.h"
 #include "lwip/etharp.h"
 #include "lwip/icmp.h"
+#include "lwip/prot/etharp.h"
 #include "luat_mcu.h"
 
 #define LUAT_LOG_TAG "netdrv.napt"
@@ -73,6 +74,35 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_
             return 0;
         }
         // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
+        if (ctx.eth->type == PP_HTONS(ETHTYPE_ARP)) {
+            // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
+            if (luat_netdrv_gw_adapter_id == id) {
+                // LLOGD("ETH包 " MACFMT " -> " MACFMT " %04X", MAC_ARG(ctx.eth->src.addr), MAC_ARG(ctx.eth->dest.addr), ctx.eth->type);
+                // 这是网关侧的ARP包, 需要分析是否网关的ARP包, 然后更新到本地ARP表
+                struct etharp_hdr* hdr = (struct etharp_hdr*)(buff + SIZEOF_ETH_HDR);
+                ip4_addr_t sipaddr, dipaddr;
+                // 是不是ARP回应
+                // LLOGD("ARP数据 %04X %04X", hdr->opcode, PP_HTONS(ARP_REPLY));
+                memcpy(&sipaddr, &hdr->sipaddr, 4);
+                memcpy(&dipaddr, &hdr->dipaddr, 4);
+                char tmp[16];
+                ip4addr_ntoa_r(&sipaddr, tmp, 16);
+                // LLOGD("ARP数据 %04X %04X from %s", hdr->opcode, PP_HTONS(ARP_REPLY), tmp);
+                // if (hdr->opcode == PP_HTONS(ARP_REPLY)) {
+                    // memcpy(&dipaddr, &hdr->dipaddr, 4);
+                    luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
+                    if (gw && gw->netif) {
+                        // LLOGD("sipaddr.addr %08X", sipaddr.addr);
+                        memcpy(gw->gw_mac, hdr->shwaddr.addr, 6);
+                        // LLOGD("网关MAC更新成功 %02X%02X%02X%02X%02X%02X", gw->gw_mac[0], gw->gw_mac[1], gw->gw_mac[2], gw->gw_mac[3], gw->gw_mac[4], gw->gw_mac[5]);
+                        // return 0;
+                    }
+                    else {
+                        // LLOGD("不是网关的ARP包? gw %p", gw);
+                    }
+                // }
+            }
+        }
         if (ctx.eth->type != PP_HTONS(ETHTYPE_IP)) {
             // LLOGD("不是IP包, 不需要执行napt");
             return 0;

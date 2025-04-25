@@ -63,6 +63,7 @@ typedef struct luat_netdrv {
     luat_netdrv_statics_t statics;
     void* userdata;
     luat_netdrv_ctrl_cb ctrl;
+    uint8_t gw_mac[6];
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);

@@ -6,7 +6,7 @@ sysplus = require("sysplus")
 sys.taskInit(function ()
     -- sys.wait(3000)
     local result = spi.setup(
-        0,--串口id
+        1,--spi id
         nil,
         0,--CPHA
         0,--CPOL
@@ -22,7 +22,7 @@ sys.taskInit(function ()
         return
     end
 
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})
     netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 

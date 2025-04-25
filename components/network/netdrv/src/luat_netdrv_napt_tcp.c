@@ -17,7 +17,7 @@
 #define TCP_MAP_SIZE (2048)
 #define TCP_MAP_TIMEOUT (15*60*1000)
 
-/* napt tcp port range: 7100-65535 */
+/* napt tcp port range: 7100-23210 */
 #define NAPT_TCP_RANGE_START     0x1BBC
 #define NAPT_TCP_RANGE_END       0x5AAA
 

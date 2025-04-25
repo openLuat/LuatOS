@@ -19,7 +19,7 @@
 #endif
 #define UDP_MAP_TIMEOUT (60*1000)
 
-/* napt udp port range: 7100-65535 */
+/* napt udp port range: 7100-23210 */
 #define NAPT_UDP_RANGE_START     0x1BBC
 #define NAPT_UDP_RANGE_END       0x5AAA
 

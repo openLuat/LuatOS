@@ -20,7 +20,7 @@ GND                    GND
 
 核心要义: 找对应SPI端口的3个脚, CLK时钟, MISO和MOSI, CS脚可以选硬件默认的,也可以自选一个普通GPIO
 
-SD/TF模块请选不带电平装好的版本!!
+SD/TF模块请选不带电平转换的版本!!
 https://detail.tmall.com/item.htm?abbucket=10&id=634710962749&ns=1&spm=a21n57.1.0.0.696f523csnpBFA&skuId=4710673879054
 
 如果是带电平转换的, SPI波特率要限制在10M或以下

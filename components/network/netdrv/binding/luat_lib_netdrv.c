@@ -35,9 +35,13 @@
 -- Air8101初始化内部以太网控制器
 netdrv.setup(socket.LWIP_ETH)
 
--- Air8000/Air780EPM初始化CH390H/D作为LAN口, 单一使用.不含WAN.
+-- Air8000/Air780EPM初始化CH390H/D作为LAN/WAN
+-- 支持多个CH390H, 使用不同的CS脚区分不同网口
 netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
 netdrv.dhcp(socket.LWIP_ETH, true)
+-- 支持CH390H的中断模式, 能提供响应速度, 但是需要外接中断引脚
+-- 实测对总网速没有帮助, 轻负载时能降低功耗, 让模组能进入低功耗模式
+netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8,irq=20})
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
@@ -311,14 +315,15 @@ static const rotable_Reg_t reg_netdrv[] =
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},
-    { "CH395",          ROREG_INT(2)}, // 考虑兼容Air724UG/Air820UG的老客户
-    { "W5500",          ROREG_INT(3)}, // 考虑兼容Air780EXXX/Air105的老客户
     { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
-    { "SPINET",         ROREG_INT(32)}, // SPI形式的网卡, 可以带MAC, 也可以不带
+    //@const WHALE number 虚拟网卡
     { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
 
+    //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
+    //@const CTRL_RESET number 请求对网卡硬复位,当前仅支持CH390H
     { "RESET_HARD",     ROREG_INT(0x101)},
+    //@const CTRL_RESET number 请求对网卡硬复位,当前仅支持CH390H
     { "RESET_SOFT",     ROREG_INT(0x102)},
 	{ NULL,             ROREG_INT(0) }
 };

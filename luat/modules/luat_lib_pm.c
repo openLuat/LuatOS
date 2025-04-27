@@ -200,7 +200,7 @@ static int l_pm_dtimer_list(lua_State *L) {
 
 /**
 检查定时唤醒是哪一个定时器，如果不是定时唤醒的，返回-1
-@api dtimerWkId()
+@api pm.dtimerWkId()
 @return int 处理结果 >=0 是本次定时唤醒的定时器ID，其他错误，说明不是定时唤醒的
 @usage
 local timer_id = pm.dtimerWkId()

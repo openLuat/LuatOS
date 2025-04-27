@@ -34,7 +34,11 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         if (len < 1 || len >= RECV_BUFF_SIZE)
             break;
         if (libgnss_route_uart_id > 0) {
+            #ifdef LUAT_USE_DRV_UART
+            luat_drv_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
+            #else
             luat_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
+            #endif
         }
         luat_libgnss_on_rawdata(libgnss_recvbuff, len, 0);
         libgnss_recvbuff[len] = 0;

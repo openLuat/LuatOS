@@ -942,13 +942,19 @@ libgnss.bind(2, uart.VUART_0)
 */
 static int l_libgnss_bind(lua_State* L) {
     int uart_id = luaL_checkinteger(L, 1);
+    int next_uart_id = 0;
     l_libgnss_clear(L);
     if (libgnss_recvbuff == NULL) {
         libgnss_recvbuff = luat_heap_malloc(RECV_BUFF_SIZE);
     }
     luat_uart_set_app_recv(uart_id, l_libgnss_uart_recv_cb);
     if (lua_isinteger(L, 2)) {
-        libgnss_route_uart_id = luaL_checkinteger(L, 2);
+        next_uart_id = luaL_checkinteger(L, 2);
+        if (uart_id == libgnss_route_uart_id) {
+            LLOGW("id == next_id , is NOT allow. %d", uart_id);
+            return 0;
+        }
+        libgnss_route_uart_id = next_uart_id;
     }
     return 0;
 }

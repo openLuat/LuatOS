@@ -340,6 +340,9 @@ void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
         luat_setup_cb(id, 1, 0); // 暂时覆盖
 		#endif
     }
+	else {
+		LLOGW("not exist uart id=%d", id);
+	}
 }
 
 int l_uart_handler(lua_State *L, void* ptr) {
@@ -349,10 +352,11 @@ int l_uart_handler(lua_State *L, void* ptr) {
     int uart_id = msg->arg1;
     // LLOGD("l_uart_handler %d", uart_id);
 	#ifdef LUAT_USE_DRV_UART
-	if (luat_drv_uart_exist(uart_id)) {
+	if (!luat_drv_uart_exist(uart_id))
 	#else
-    if (!luat_uart_exist(uart_id)) {
+    if (!luat_uart_exist(uart_id))
 	#endif
+	{
         //LLOGW("not exist uart id=%ld but event fired?!", uart_id);
         return 0;
     }

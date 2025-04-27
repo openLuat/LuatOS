@@ -207,16 +207,22 @@ int luat_lcd_close(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_display_off(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != LUAT_GPIO_NONE)
+    if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    lcd_write_cmd_data(conf,0x28, NULL, 0);
+    }
+    if (conf->port != LUAT_LCD_PORT_RGB) {
+        lcd_write_cmd_data(conf,0x28, NULL, 0);
+    }
     return 0;
 }
 
 int luat_lcd_display_on(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != LUAT_GPIO_NONE)
+    if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    lcd_write_cmd_data(conf,0x29, NULL, 0);
+    }
+    if (conf->port != LUAT_LCD_PORT_RGB) {
+        lcd_write_cmd_data(conf,0x29, NULL, 0);
+    }
     return 0;
 }
 

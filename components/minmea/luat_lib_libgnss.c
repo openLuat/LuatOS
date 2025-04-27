@@ -946,10 +946,7 @@ static int l_libgnss_bind(lua_State* L) {
     if (libgnss_recvbuff == NULL) {
         libgnss_recvbuff = luat_heap_malloc(RECV_BUFF_SIZE);
     }
-    if (luat_uart_exist(uart_id)) {
-        //uart_app_recvs[uart_id] = nmea_uart_recv_cb;
-        luat_uart_set_app_recv(uart_id, l_libgnss_uart_recv_cb);
-    }
+    luat_uart_set_app_recv(uart_id, l_libgnss_uart_recv_cb);
     if (lua_isinteger(L, 2)) {
         libgnss_route_uart_id = luaL_checkinteger(L, 2);
     }

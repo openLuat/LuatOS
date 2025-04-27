@@ -321,14 +321,24 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 	return 0;
 }
 #endif
+
+#ifdef LUAT_USE_DRV_UART
+int luat_drv_uart_exist(int id) {
+	return id >= 0 && id <= MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT;
+}
+#endif
+
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
-	#ifndef LUAT_USE_DRV_UART
+	#ifdef LUAT_USE_DRV_UART
+	if (luat_drv_uart_exist(id))
 	#else
-    if (luat_uart_exist(id)) 
+    if (luat_uart_exist(id))
 	#endif
 	{
         uart_app_recvs[id] = cb;
+		#ifndef LUAT_USE_DRV_UART
         luat_setup_cb(id, 1, 0); // 暂时覆盖
+		#endif
     }
 }
 
@@ -338,12 +348,14 @@ int l_uart_handler(lua_State *L, void* ptr) {
     lua_pop(L, 1);
     int uart_id = msg->arg1;
     // LLOGD("l_uart_handler %d", uart_id);
-	#ifndef LUAT_USE_DRV_UART
+	#ifdef LUAT_USE_DRV_UART
+	if (luat_drv_uart_exist(uart_id)) {
+	#else
     if (!luat_uart_exist(uart_id)) {
+	#endif
         //LLOGW("not exist uart id=%ld but event fired?!", uart_id);
         return 0;
     }
-	#endif
     int org_uart_id = uart_id;
 	#if !defined(LUAT_USE_WINDOWS) && !defined(LUAT_USE_LINUX) && !defined(LUAT_USE_MACOS)
     if (uart_id >= LUAT_VUART_ID_0)
@@ -377,7 +389,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
                 LLOGD("uart%ld received callback not function", uart_id);
             }
         }
-        else {
+        else if (uart_app_recvs[uart_id] == NULL) {
             LLOGD("uart%ld no received callback", uart_id);
         }
     }

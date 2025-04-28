@@ -60,7 +60,7 @@ static const ct_reg_t ct_regs[] = {
     {"bin",     "application/octet-stream"},
 };
 
+luat_httpsrv_ctx_t* luat_httpsrv_malloc(int port, int adapter_index);
 int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);
 int luat_httpsrv_free(luat_httpsrv_ctx_t* ctx);
 int luat_httpsrv_stop(luat_httpsrv_ctx_t* ctx);
-int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);

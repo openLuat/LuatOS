@@ -151,7 +151,9 @@ int luat_lv_init(lua_State *L) {
     }else{
         buffmode = 0x06; //heap申请双buff模式
     }
-    lcd_conf->lcd_use_lvgl = 1;
+    if (lcd_conf) {
+        lcd_conf->lcd_use_lvgl = 1;
+    }
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
         // LLOGD("use LCD buff");
         fbuff_size = w * h;

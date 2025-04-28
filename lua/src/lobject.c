@@ -436,7 +436,7 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         goto top2str;
       }
       case 'I': {  /* a 'lua_Integer' */
-#if (defined __PRINT_ALIGNED_32BIT__) && (defined LUAT_CONF_VM_64bit)
+#if (defined __PRINT_ALIGNED_32BIT__) && (defined LUAT_CONF_VM_64bit) && !(defined __BK72XX__)
         // 针对EC618的va_arg取double出错的临时解决方案
         // 直接调用 va_arg(argp, double) 会返回0
         // 可能与某个gcc参数有关

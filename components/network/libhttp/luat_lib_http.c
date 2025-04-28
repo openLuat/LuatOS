@@ -237,7 +237,7 @@ static int l_http_request(lua_State *L) {
 	}
 	#ifdef LUAT_USE_FOTA
 	if (http_ctrl->timeout < 1000 && http_ctrl->isfota) {
-		http_ctrl->timeout = HTTP_TIMEOUT;
+		http_ctrl->timeout = HTTP_TIMEOUT * 2;
 	}
 	#endif
 	if (http_ctrl->timeout < 1000) {

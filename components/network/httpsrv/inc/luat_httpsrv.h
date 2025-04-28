@@ -11,6 +11,7 @@ typedef struct luat_httpsrv_ctx
     void* userdata;
     uint8_t adapter_id;
     struct netif* netif;
+    struct tcp_pcb* pcb;
 }luat_httpsrv_ctx_t;
 
 
@@ -59,6 +60,7 @@ static const ct_reg_t ct_regs[] = {
     {"bin",     "application/octet-stream"},
 };
 
-
-int luat_httpsrv_stop(int port);
+int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);
+int luat_httpsrv_free(luat_httpsrv_ctx_t* ctx);
+int luat_httpsrv_stop(luat_httpsrv_ctx_t* ctx);
 int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);

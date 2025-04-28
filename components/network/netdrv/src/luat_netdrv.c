@@ -179,10 +179,21 @@ uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t prot
 
 void luat_netdrv_netif_input(void* args) {
     netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
+    if (ptr == NULL) {
+        return;
+    }
+    if (ptr->len == 0) {
+        LLOGE("什么情况,ptr->len == 0?!");
+        return;
+    }
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
     if (p == NULL) {
         LLOGD("分配pbuf失败!!! %d", ptr->len);
         luat_heap_free(ptr);
+        return;
+    }
+    if (p->tot_len != ptr->len) {
+        LLOGE("p->tot_len != ptr->len %d %d", p->tot_len, ptr->len);
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);

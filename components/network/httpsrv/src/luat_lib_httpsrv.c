@@ -17,6 +17,18 @@
 #define LUAT_LOG_TAG "httpsrv"
 #include "luat_log.h"
 
+#define LUAT_HTTPSRV_COUNT 16
+
+typedef struct port_srv
+{
+    uint16_t port;
+    uint8_t adapter;
+    uint8_t status;
+    luat_httpsrv_ctx_t* ctx;
+}port_srv_t;
+
+static port_srv_t srvs[LUAT_HTTPSRV_COUNT];
+
 /*
 启动并监听一个http端口
 @api httpsrv.start(port, func, adapter)
@@ -58,23 +70,48 @@ static int l_httpsrv_start(lua_State *L) {
         LLOGW("httpsrv need callback function!!!");
         return 0;
     }
-    luat_httpsrv_ctx_t ctx = {
-        .port = port
-    };
     uint8_t adapter_index = luaL_optinteger(L, 3, network_get_last_register_adapter());
-    ctx.adapter_id = adapter_index;
     luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
     if (drv == NULL || drv->netif == NULL) {
         LLOGW("该网络还没准备好 %d", adapter_index);
         return 0;
     }
-    ctx.netif = drv->netif;
+    // 检查一下是否有空位
+    for (size_t i = 0; i < LUAT_HTTPSRV_COUNT; i++)
+    {
+        if (srvs[i].port == port && srvs[i].adapter == adapter_index) {
+            LLOGW("httpsrv port %d already in use", port);
+            return 0;
+        }
+    }
+    int index = -1;
+    for (size_t i = 0; i < LUAT_HTTPSRV_COUNT; i++)
+    {
+        if (srvs[i].ctx == NULL) {
+            index = i;
+            break;
+        }
+    }
+    if (index < 0) {
+        LLOGW("httpsrv no free slot, max %d", LUAT_HTTPSRV_COUNT);
+        return 0;
+    }
+
+    luat_httpsrv_ctx_t* ctx = luat_httpsrv_malloc(port, adapter_index);
+    if (ctx == NULL) {
+        return 0;
+    }
+    ctx->netif = drv->netif;
     lua_pushvalue(L, 2);
-    ctx.lua_ref_id = luaL_ref(L, LUA_REGISTRYINDEX);
-    int ret = luat_httpsrv_start(&ctx);
+    ctx->lua_ref_id = luaL_ref(L, LUA_REGISTRYINDEX);
+    int ret = luat_httpsrv_start(ctx);
     if (ret == 0) {
         ipaddr_ntoa_r(&drv->netif->ip_addr, buff,  32);
-        LLOGI("http listen at %s:%d", buff, ctx.port);
+        LLOGI("http listen at %s:%d", buff, ctx->port);
+        srvs[index].port = port;
+        srvs[index].adapter = adapter_index;
+        srvs[index].ctx = ctx;
+        srvs[index].status = 1;
     }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -88,7 +125,26 @@ static int l_httpsrv_start(lua_State *L) {
 */
 static int l_httpsrv_stop(lua_State *L) {
     int port = luaL_checkinteger(L, 1);
-    luat_httpsrv_stop(port);
+    uint8_t adapter_index = luaL_optinteger(L, 3, network_get_last_register_adapter());
+    for (size_t i = 0; i < LUAT_HTTPSRV_COUNT; i++)
+    {
+        if (srvs[i].port == port && srvs[i].adapter == adapter_index) {
+            if (srvs[i].ctx != NULL) {
+                srvs[i].port = 0;
+                srvs[i].adapter = 0;
+                srvs[i].status = 0;
+
+                if (srvs[i].ctx->lua_ref_id != LUA_NOREF) {
+                    luaL_unref(L, LUA_REGISTRYINDEX, srvs[i].ctx->lua_ref_id);
+                    srvs[i].ctx->lua_ref_id = LUA_NOREF;
+                }
+                luat_httpsrv_stop(srvs[i].ctx);
+                srvs[i].ctx = NULL;
+                lua_pushboolean(L, 1);
+                return 1;
+            }
+        }
+    }
     return 0;
 }
 

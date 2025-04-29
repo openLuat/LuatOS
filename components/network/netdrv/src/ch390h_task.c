@@ -408,12 +408,7 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         }
     }
     if (ret) {
-        uint32_t len = 0;
-        pkg_evt_t evt = {0};
-        luat_rtos_queue_get_cnt(qt, &len);
-        if (len < 16) { // 插入空指令,马上执行下一次轮询
-            luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
-        }
+        luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
     }
     return ret;
 }
@@ -455,10 +450,10 @@ static void ch390_task_main(void* args) {
         if (count % 10 == 0) {
             luat_wdt_feed();
         }
-        if (count > 256) {
+        if (count > 1024) {
             if (ret) {
-                // LLOGD("强制休眠20ms");
-                // luat_rtos_task_sleep(20);
+                LLOGD("强制休眠20ms");
+                luat_rtos_task_sleep(20);
             }
             count = 0;
         }

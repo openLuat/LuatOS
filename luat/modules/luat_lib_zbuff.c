@@ -1129,15 +1129,29 @@ static int l_zbuff_copy(lua_State *L)
 }
 
 /**
-获取zbuff里最后一个数据位置指针到首地址的偏移量，来表示zbuff内已有有效数据量大小，注意这个不同于分配的空间大小，由于seek()会改变最后一个数据位置指针，因此也会影响到used()返回值。
+设置/获取zbuff里最后一个数据位置指针到首地址的偏移量，来表示zbuff内已有有效数据量大小，注意这个不同于分配的空间大小，由于seek()会改变最后一个数据位置指针，因此也会影响到used()返回值。
 @api buff:used()
+@int 最后一个数据位置指针到首地址的偏移量，不能是负数，如果不填则不更改当前值，如果该值超过了buff总量，则自动改为buff总量
 @return int 有效数据量大小
 @usage
-buff:used()
+buff:used()	--直接返回当前的有效数据量大小
+buff:used(123) --设置当前的有效数据量为123字节，如果buff本身不到123字节，比如120字节，则会改成120，返回值是120
 */
 static int l_zbuff_used(lua_State *L)
 {
 	luat_zbuff_t *buff = tozbuff(L);
+	if (lua_isinteger(L, 2))
+	{
+		size_t temp_cursor = luaL_optinteger(L, 2, buff->used);
+		if (temp_cursor > buff->len)
+		{
+			buff->used = buff->len;
+		}
+		else
+		{
+			buff->used = temp_cursor;
+		}
+	}
     lua_pushinteger(L, buff->used);
     return 1;
 }

@@ -372,12 +372,12 @@ static void client_err_cb(void *arg, err_t err) {
 }
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
-    luat_httpsrv_ctx_t* srvctx = (luat_httpsrv_ctx_t*) arg;
     if (err) {
         LLOGD("accpet err %d", err);
         tcp_abort(newpcb);
         return ERR_OK;
     }
+    luat_httpsrv_ctx_t* srvctx = (luat_httpsrv_ctx_t*) arg;
     client_socket_ctx_t* ctx = luat_heap_malloc(sizeof(client_socket_ctx_t));
     if (ctx == NULL) {
         LLOGD("out of memory when malloc client ctx");
@@ -510,6 +510,7 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 发送body
     FILE*  fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
+        tcp_abort(client->pcb);
         tcp_close(client->pcb);
         LLOGE("open %s FAIL!!", path);
         return 1;

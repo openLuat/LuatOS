@@ -123,7 +123,10 @@ void _lv_indev_read_task(lv_task_t * task)
     } while(more_to_read);
 
     /*End of indev processing, so no act indev*/
+    #ifdef __LUATOS__
+    #else
     indev_act     = NULL;
+    #endif
     indev_obj_act = NULL;
 
     LV_LOG_TRACE("indev read task finished");

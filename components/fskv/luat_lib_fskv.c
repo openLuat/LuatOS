@@ -7,25 +7,9 @@
 @demo    fskv
 @tag     LUAT_USE_FSKV
 @usage
--- 本库的目标是替代fdb库
--- 1. 兼容fdb的函数
--- 2. 使用fdb的flash空间,启用时也会替代fdb库
--- 3. 功能上与EEPROM是类似的
 fskv.init()
 fskv.set("wendal", 1234)
 log.info("fskv", "wendal", fskv.get("wendal"))
-
---[[ 
-fskv与fdb的实现机制导致的差异
-
-                    fskv          fdb
-1. value长度        4096           255
-2. key长度          63             64
-3. 空间利用率(对比)  较低           较高
-4. 读取速度         恒定           脏数据影响速度,非恒定
-5. 写入数据         恒定           脏数据影响速度,非恒定
-6. 均衡擦除         自动           自动
-]]
 */
 
 #include "luat_base.h"
@@ -48,20 +32,14 @@ extern luat_sfd_lfs_t* sfd_lfs;
 #endif
 static int fskv_inited;
 
-// static char fskv_read_buff[LUAT_FSKV_MAX_SIZE];
-
 /**
 初始化kv数据库
 @api fskv.init()
 @return boolean 成功返回true,否则返回false
 @usage
 if fskv.init() then
-    log.info("fdb", "kv数据库初始化成功")
+    log.info("fskv", "kv数据库初始化成功")
 end
-
--- 关于清空fdb库
--- 下载工具是没有提供直接清除fdb数据的途径的, 但有办法解决
--- 写一个main.lua, 执行 fskv.kvdb_init 后 执行 fskv.clear() 即可全清fdb数据.
  */
 static int l_fskvdb_init(lua_State *L) {
     if (fskv_inited == 0) {
@@ -98,10 +76,10 @@ static int l_fskvdb_init(lua_State *L) {
 @usage
 -- 设置数据, 字符串,数值,table,布尔值,均可
 -- 但不可以是nil, function, userdata, task
-log.info("fdb", fskv.set("wendal", "goodgoodstudy"))
-log.info("fdb", fskv.set("upgrade", true))
-log.info("fdb", fskv.set("timer", 1))
-log.info("fdb", fskv.set("bigd", {name="wendal",age=123}))
+log.info("fskv", fskv.set("wendal", "goodgoodstudy"))
+log.info("fskv", fskv.set("upgrade", true))
+log.info("fskv", fskv.set("timer", 1))
+log.info("fskv", fskv.set("bigd", {name="wendal",age=123}))
  */
 static int l_fskv_set(lua_State *L) {
     if (fskv_inited == 0) {
@@ -217,22 +195,22 @@ static int l_fskv_set(lua_State *L) {
 -- 本API在2023.7.26新增,注意与set函数区别
 -- 设置数据, 字符串,数值,table,布尔值,均可
 -- 但不可以是function, userdata, task
-log.info("fdb", fskv.sett("mytable", "wendal", "goodgoodstudy"))
-log.info("fdb", fskv.sett("mytable", "upgrade", true))
-log.info("fdb", fskv.sett("mytable", "timer", 1))
-log.info("fdb", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
+log.info("fskv", fskv.sett("mytable", "wendal", "goodgoodstudy"))
+log.info("fskv", fskv.sett("mytable", "upgrade", true))
+log.info("fskv", fskv.sett("mytable", "timer", 1))
+log.info("fskv", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
 
 -- 下列语句将打印出4个元素的table
-log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
+log.info("fskv", fskv.get("mytable"), json.encode(fskv.get("mytable")))
 -- 注意: 如果key不存在, 或者原本的值不是table类型,将会完全覆盖
 -- 例如下列写法,最终获取到的是table,而非第一行的字符串
-log.info("fdb", fskv.set("mykv", "123"))
-log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
+log.info("fskv", fskv.set("mykv", "123"))
+log.info("fskv", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
 
 
 -- 如果设置的数据填nil, 代表删除对应的key
-log.info("fdb", fskv.sett("mykv", "name", "wendal"))
-log.info("fdb", fskv.sett("mykv", "name")) -- 相当于删除
+log.info("fskv", fskv.sett("mykv", "name", "wendal"))
+log.info("fskv", fskv.sett("mykv", "name")) -- 相当于删除
 -- 
  */
 static int l_fskv_sett(lua_State *L) {
@@ -301,7 +279,7 @@ static int l_fskv_sett(lua_State *L) {
 @return any 存在则返回数据,否则返回nil
 @usage
 if fskv.init() then
-    log.info("fdb", fskv.get("wendal"))
+    log.info("fskv", fskv.get("wendal"))
 end
 
 -- 若需要"默认值", 对应非bool布尔值, 可以这样写
@@ -391,7 +369,7 @@ static int l_fskv_get(lua_State *L) {
 @string key的名称,必填,不能空字符串
 @return bool 成功返回true,否则返回false
 @usage
-log.info("fdb", fskv.del("wendal"))
+log.info("fskv", fskv.del("wendal"))
  */
 static int l_fskv_del(lua_State *L) {
     if (fskv_inited == 0) {
@@ -440,7 +418,7 @@ if iter then
         if not k then
             break
         end
-        log.info("fdb", k, "value", fskv.kv_get(k))
+        log.info("fskv", k, "value", fskv.kv_get(k))
     end
 end
  */
@@ -493,7 +471,7 @@ static int l_fskv_next(lua_State *L) {
 @return int 总kv键值对数量, 单位个
 @usage
 local used, total,kv_count = fskv.status()
-log.info("fdb", "kv", used,total,kv_count)
+log.info("fskv", "kv", used,total,kv_count)
 */
 static int l_fskv_stat(lua_State *L) {
     size_t using_sz = 0;

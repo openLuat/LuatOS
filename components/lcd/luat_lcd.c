@@ -10,7 +10,7 @@
 
 luat_color_t BACK_COLOR = LCD_WHITE, FORE_COLOR = LCD_BLACK;
 
-luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
+static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint16_t cmd = 0,cmd_len = 0;

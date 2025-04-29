@@ -84,7 +84,7 @@ function eth_wan()
         0,--CPHA
         0,--CPOL
         8,--数据宽度
-        25600000--,--波特率
+        51200000--,--波特率
     )
     log.info("main", "open spi",result)
     if result ~= 0 then--返回值为0，表示打开成功
@@ -94,6 +94,15 @@ function eth_wan()
 
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})
     netdrv.dhcp(socket.LWIP_ETH, true)
+
+    while 1 do
+        local ip = netdrv.ipv4(socket.LWIP_ETH)
+        if ip and ip ~= "0.0.0.0" then
+            break
+        end
+        sys.wait(100)
+    end
+    iperf.server(socket.LWIP_ETH)
 end
 
 sys.taskInit(function()

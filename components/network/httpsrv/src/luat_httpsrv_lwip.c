@@ -18,10 +18,12 @@
 
 #include "http_parser.h"
 
+#undef LLOGD
+#define LLOGD(...) 
 
 typedef struct client_socket_ctx
 {
-    // int id;
+    int lua_ref_id;
     int code;
     struct http_parser parser;
 
@@ -42,9 +44,6 @@ typedef struct client_socket_ctx
     uint32_t sbuff_offset;
     uint8_t write_done;
 }client_socket_ctx_t;
-
-static struct tcp_pcb* srvpcb;
-static int lua_ref_id;
 
 static int handle_static_file(client_socket_ctx_t *client);
 
@@ -180,7 +179,7 @@ static void client_cleanup(client_socket_ctx_t *client) {
 
 static int luat_client_cb(lua_State* L, void* ptr) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)ptr;
-    lua_geti(L, LUA_REGISTRYINDEX, lua_ref_id);
+    lua_geti(L, LUA_REGISTRYINDEX, client->lua_ref_id);
     if (lua_isnil(L, -1)) {
         client_cleanup(client);
         return 0;
@@ -373,12 +372,12 @@ static void client_err_cb(void *arg, err_t err) {
 }
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
-    (void)arg;
     if (err) {
         LLOGD("accpet err %d", err);
         tcp_abort(newpcb);
         return ERR_OK;
     }
+    luat_httpsrv_ctx_t* srvctx = (luat_httpsrv_ctx_t*) arg;
     client_socket_ctx_t* ctx = luat_heap_malloc(sizeof(client_socket_ctx_t));
     if (ctx == NULL) {
         LLOGD("out of memory when malloc client ctx");
@@ -388,6 +387,7 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     tcp_accepted(newpcb);
     memset(ctx, 0, sizeof(client_socket_ctx_t));
     ctx->pcb = newpcb;
+    ctx->lua_ref_id = srvctx->lua_ref_id;
     tcp_arg(newpcb, ctx);
     tcp_recv(newpcb, client_recv_cb);
     tcp_sent(newpcb, client_sent_cb);
@@ -395,37 +395,69 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     return ERR_OK;
 }
 
-int luat_httpsrv_stop(int port) {
-    (void)port;
-    if (srvpcb != NULL) {
-        tcp_close(srvpcb);
-        srvpcb = NULL;
+static void srv_stop_cb(void* arg) {
+    luat_httpsrv_ctx_t* ctx = (luat_httpsrv_ctx_t*)arg;
+    if (ctx == NULL) {
+        return;
     }
+    if (ctx->pcb) {
+        tcp_abort(ctx->pcb);
+        tcp_close(ctx->pcb);
+        ctx->pcb = NULL;
+    }
+    luat_httpsrv_free(ctx);
+}
+int luat_httpsrv_stop(luat_httpsrv_ctx_t* ctx) {
+    tcpip_callback(srv_stop_cb, ctx);
     return 0;
 }
 
-int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
-    if (srvpcb != NULL) {
-        LLOGE("only allow 1 httpsrv");
-        return -10;
-    }
+static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
     struct tcp_pcb* tcp = tcp_new();
     int ret = 0;
     if (tcp == NULL) {
         LLOGD("out of memory when malloc httpsrv tcp_pcb");
-        return -1;
+        return;
     }
     tcp->flags |= SOF_REUSEADDR;
     ret = tcp_bind(tcp, &ctx->netif->ip_addr, ctx->port);
     if (ret) {
         LLOGD("httpsrv bind port %d ret %d", ctx->port);
-        return -2;
+        return;
     }
-    lua_ref_id = ctx->lua_ref_id;
-    srvpcb = tcp_listen(tcp);
-    tcp_arg(srvpcb, NULL);
-    tcp_accept(srvpcb, srv_accept_cb);
+    ctx->pcb = tcp_listen_with_backlog(tcp, 1);
+    tcp_arg(ctx->pcb, ctx);
+    tcp_accept(ctx->pcb, srv_accept_cb);
+    return;
+}
+
+luat_httpsrv_ctx_t* luat_httpsrv_malloc(int port, int adapter_index) {
+    luat_httpsrv_ctx_t* ctx = luat_heap_malloc(sizeof(luat_httpsrv_ctx_t));
+    if (ctx == NULL) {
+        LLOGD("out of memory when malloc httpsrv ctx");
+        return NULL;
+    }
+    memset(ctx, 0, sizeof(luat_httpsrv_ctx_t));
+    ctx->port = port;
+    ctx->adapter_id = adapter_index;
+    return ctx;
+}
+
+int luat_httpsrv_free(luat_httpsrv_ctx_t* ctx) {
+    if (ctx == NULL) {
+        return 0;
+    }
+    luat_heap_free(ctx);
+    ctx = NULL;
     return 0;
+} 
+
+int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
+    int ret = tcpip_callback(luat_httpsrv_start_cb, ctx);
+    if (ret) {
+        LLOGE("启动失败 %d", ret);
+    }
+    return ret;
 }
 
 // 静态文件的处理
@@ -478,6 +510,7 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 发送body
     FILE*  fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
+        tcp_abort(client->pcb);
         tcp_close(client->pcb);
         LLOGE("open %s FAIL!!", path);
         return 1;

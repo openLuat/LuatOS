@@ -40,10 +40,29 @@ static luat_rtos_queue_t qt;
 static uint64_t warn_vid_pid_tm;
 static uint64_t warn_msg_tm;
 
+static uint32_t s_ch390h_mode; // 0 -- PULL 模式, 1 == IRQ 模式
+
 static int pkg_mem_type = LUAT_HEAP_AUTO;
 
+static int ch390h_irq_cb(void *data, void *args) {
+    uint32_t len = 0;
+    luat_rtos_queue_get_cnt(qt, &len);
+    if (len > 4) {
+        return 0;
+    }
+    pkg_evt_t evt = {
+        .id = 2
+    };
+    luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
+    return 0;
+}
+
 static int ch390h_bootup(ch390h_t* ch) {
+    if (ch->ulwip.netif != NULL) {
+        return 0;
+    }
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
+    luat_gpio_cfg_t gpio_cfg = {0};
 
     // 初始化CS脚
     luat_gpio_t gpio = {0};
@@ -53,7 +72,21 @@ static int ch390h_bootup(ch390h_t* ch) {
     gpio.irq = 1;
     luat_gpio_setup(&gpio);
 
-    // TODO 初始化INT脚
+    // 初始化INT脚
+    if (ch->intpin != 0xff) {
+        luat_gpio_set_default_cfg(&gpio_cfg);
+        gpio_cfg.pin = ch->intpin;
+        gpio_cfg.mode = LUAT_GPIO_IRQ;
+        gpio_cfg.irq_type = LUAT_GPIO_RISING_IRQ;
+        gpio_cfg.pull = 0;
+        gpio_cfg.irq_cb = ch390h_irq_cb;
+        luat_gpio_open(&gpio_cfg);
+        LLOGI("enable irq mode in pin %d", ch->intpin);
+        s_ch390h_mode = 1;
+    }
+    else {
+        // LLOGI("enable pull mode, use pool mode");
+    }
 
     // 初始化dhcp相关资源
     ch->ulwip.netif = ch->netif;
@@ -249,6 +282,9 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         luat_ch390h_basic_config(ch);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
+        if (ch->intpin != 255) {
+            luat_ch390h_write_reg(ch, 0x7F, 1); // 开启接收中断
+        }
         return 0; // 等待下一个周期
     }
     if (check_vid_pid(ch)) {
@@ -318,6 +354,9 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             luat_ch390h_basic_config(ch);
             luat_ch390h_set_phy(ch, 1);
             luat_ch390h_set_rx(ch, 1);
+            if (ch->intpin != 255) {
+                luat_ch390h_write_reg(ch, 0x7F, 1); // 开启接收中断
+            }
             return 0;
         }
         if (len > 0) {
@@ -346,6 +385,10 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     else {
         // LLOGD("没有数据待读取");
     }
+
+    if (ch->intpin != 255) {
+        luat_ch390h_write_reg(ch, 0x7E, 0x3F); // 清除中断
+    }
     
     // 这一轮处理完成了
     // 如果rx有数据, 那就不要等待, 立即开始下一轮
@@ -365,7 +408,6 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         }
     }
     if (ret) {
-        pkg_evt_t evt = {0};
         luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
     }
     return ret;
@@ -376,6 +418,7 @@ static int task_wait_msg(uint32_t timeout) {
     ch390h_t *ch = NULL;
     pkg_evt_t evt = {0};
     int ret = luat_rtos_queue_recv(qt, &evt, sizeof(pkg_evt_t), timeout);
+    // LLOGD("evt id %d ret %d timeout %d", evt.id, ret, timeout);
     if (ret == 0 && evt.id == 1) {
         // 收到消息了
         ch = (ch390h_t *)evt.ch;
@@ -390,6 +433,9 @@ static int task_wait_msg(uint32_t timeout) {
         return 1; // 拿到消息, 那队列里可能还有消息, 马上执行下一轮操作
     }
     else {
+        // if (evt.id == 2) {
+        //     LLOGD("CH390中断触发");
+        // }
         ret = task_loop(NULL, NULL);
     }
     return ret;
@@ -404,14 +450,19 @@ static void ch390_task_main(void* args) {
         if (count % 10 == 0) {
             luat_wdt_feed();
         }
-        if (count > 256) {
+        if (count > 1024) {
             if (ret) {
-                // LLOGD("强制休眠20ms");
-                // luat_rtos_task_sleep(20);
+                LLOGD("强制休眠20ms");
+                luat_rtos_task_sleep(20);
             }
             count = 0;
         }
-        ret = task_wait_msg(5);
+        if (s_ch390h_mode == 0) {
+            ret = task_wait_msg(5);
+        }
+        else {
+            ret = task_wait_msg(1000);
+        }
     }
 }
 

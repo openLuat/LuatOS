@@ -226,13 +226,24 @@ typedef struct
  * @param start_y 起始位置y
  * @return 0无异常，其他失败
  */
-int luat_lcd_show_camera_in_service(void *camera_info, camera_cut_info_t *cut_info, uint16_t start_x, uint16_t start_y);
+int luat_lcd_start_show_camera(void *camera_info, camera_cut_info_t *cut_info, uint16_t start_x, uint16_t start_y);
+
+/**
+ * @brief 摄像头在后台启动预览
+ * @param camera_info camera配置，里面有lcd配置
+ * @param cut_info 剪裁配置，可以留空
+ * @param start_x 起始位置x
+ * @param start_y 起始位置y
+ * @return 0无异常，其他失败
+ */
+int luat_lcd_start_show_camera_in_service(void *camera_info, camera_cut_info_t *cut_info, uint16_t start_x, uint16_t start_y);
 
 /**
  * @brief 停止摄像头预览
+ * @param camera_info camera配置，里面有lcd配置
  * @return 0无异常，其他失败
  */
-int luat_lcd_stop_show_camera(void);
+int luat_lcd_stop_show_camera(void *camera_info);
 
 int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config);
 int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off);

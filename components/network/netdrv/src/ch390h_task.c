@@ -408,6 +408,7 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
         }
     }
     if (ret) {
+        pkg_evt_t evt = {0};
         luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
     }
     return ret;

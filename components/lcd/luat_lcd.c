@@ -10,7 +10,7 @@
 
 luat_color_t BACK_COLOR = LCD_WHITE, FORE_COLOR = LCD_BLACK;
 
-static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
+static luat_lcd_conf_t* lcd_confs[LUAT_LCD_CONF_COUNT] = {0};
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint16_t cmd = 0,cmd_len = 0;
@@ -113,11 +113,21 @@ int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *d
 
 luat_lcd_conf_t* luat_lcd_get_default(void) {
     for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
-        if (confs[i] != NULL) {
-            return confs[i];
+        if (lcd_confs[i] != NULL) {
+            return lcd_confs[i];
         }
     }
     return NULL;
+}
+
+int luat_lcd_conf_add(luat_lcd_conf_t* conf) {
+    for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
+        if (lcd_confs[i] == NULL) {
+            lcd_confs[i] = conf;
+            return i;
+        }
+    }
+    return -1;
 }
 
 const char* luat_lcd_name(luat_lcd_conf_t* conf) {
@@ -175,8 +185,8 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
 INIT_DONE:
     conf->is_init_done = 1;
     for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
-        if (confs[i] == NULL) {
-            confs[i] = conf;
+        if (lcd_confs[i] == NULL) {
+            lcd_confs[i] = conf;
             return 0;
         }
     }

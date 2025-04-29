@@ -249,5 +249,8 @@ int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_confi
 int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off);
 typedef void (*luat_lcd_api)(void *param, uint32_t param_len);
 int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len);
+
+
+int luat_lcd_conf_add(luat_lcd_conf_t* conf);
 #endif
 

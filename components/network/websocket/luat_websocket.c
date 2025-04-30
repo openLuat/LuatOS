@@ -545,7 +545,7 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 	}
 	int recv_want = 0;
 
-	while (WEBSOCKET_RECV_BUF_LEN_MAX + 8 - websocket_ctrl->buffer_offset > 0)
+	while (((WEBSOCKET_RECV_BUF_LEN_MAX + 8) - websocket_ctrl->buffer_offset) > 0)
 	{
 		if (WEBSOCKET_MAX_READ > (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset))
 		{
@@ -588,7 +588,7 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 			return -1;
 		}
 	}
-	if (WEBSOCKET_RECV_BUF_LEN_MAX + 8 < websocket_ctrl->buffer_offset > 0) {
+	if (WEBSOCKET_RECV_BUF_LEN_MAX + 8 < websocket_ctrl->buffer_offset) {
 		LLOGD("pkg maybe too large");
 		return -1;
 	}

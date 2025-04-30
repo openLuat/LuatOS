@@ -209,6 +209,8 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "rb_swap");
             if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
                 conf->opts->rb_swap = lua_toboolean(L, -1);
+            } else {
+            	conf->opts->rb_swap = 0;
             }
             lua_pop(L, 1);
 
@@ -346,6 +348,11 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
 
+            lua_pushstring(L, "pin_cs");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->lcd_cs_pin = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
         }
         if (s_index == 0){
             unsigned int cmd = 0;

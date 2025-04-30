@@ -453,8 +453,8 @@ static void ch390_task_main(void* args) {
         }
         if (count > 1024) {
             if (ret) {
-                LLOGD("强制休眠20ms");
-                luat_rtos_task_sleep(20);
+                // LLOGD("强制休眠20ms");
+                // luat_rtos_task_sleep(20);
             }
             count = 0;
         }

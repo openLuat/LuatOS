@@ -193,8 +193,18 @@ typedef enum{
     LUAT_BLE_ADV_ADDR_MODE_NRPA,     // 不可解析的私有地址
 }luat_ble_adv_addr_mode_t;
 
+typedef enum{
+    LUAT_BLE_ADV_CHNL_37    = 0x01, /**< Byte value for advertising channel map for channel 37 enable */
+    LUAT_BLE_ADV_CHNL_38    = 0x02, /**< Byte value for advertising channel map for channel 38 enable */
+    LUAT_BLE_ADV_CHNL_39    = 0x04, /**< Byte value for advertising channel map for channel 39 enable */
+    LUAT_BLE_ADV_CHNLS_ALL  = 0x07, /**< Byte value for advertising channel map for channel 37, 38 and 39 enable */
+}luat_ble_adv_chnl_t;
+
 typedef struct {
     luat_ble_adv_addr_mode_t addr_mode;
+    luat_ble_adv_chnl_t channel_map;
+    uint32_t intv_min;
+    uint32_t intv_max;
     int len;
 }luat_ble_adv_cfg_t;
 
@@ -202,6 +212,7 @@ typedef struct {
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
     luat_ble_wlan_config_cb_t wlan_config_cb;
+    int lua_cb;
     void* userdata;
 }luat_ble_t;
 
@@ -212,6 +223,7 @@ typedef struct {
 typedef struct luat_bluetooth{
     luat_ble_t* luat_ble;
     luat_bt_t* luat_bt;
+    int bluetooth_ref;
 }luat_bluetooth_t;
 
 
@@ -250,7 +262,7 @@ int luat_bt_set_mac(luat_bluetooth_t* luat_bluetooth, uint8_t *addr, uint8_t len
 
 // bluetooth
 
-luat_bluetooth_t* luat_bluetooth_init(void);
+int luat_bluetooth_init(luat_bluetooth_t* luat_bluetooth);
 int luat_bluetooth_deinit(luat_bluetooth_t* luat_bluetooth);
 
 #endif

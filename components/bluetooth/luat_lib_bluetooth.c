@@ -1,0 +1,338 @@
+#include "luat_base.h"
+#include "luat_mem.h"
+#include "luat_rtos.h"
+#include "luat_msgbus.h"
+#include "luat_bluetooth.h"
+
+#include "luat_log.h"
+#define LUAT_LOG_TAG "bluetooth"
+
+#define LUAT_BLUETOOTH_TYPE "BLUETOOTH*"
+#define LUAT_BLE_TYPE "BLE*"
+
+static int luatos_ble_callback(lua_State *L, void* ptr){
+	(void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_bluetooth_t* luat_bluetooth =(luat_bluetooth_t *)msg->ptr;
+    luat_ble_event_t ble_event = (luat_ble_event_t)msg->arg1;
+    luat_ble_param_t* luat_ble_param = (luat_ble_param_t*)msg->arg2;
+
+    if (luat_bluetooth->luat_ble->lua_cb) {
+        lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->luat_ble->lua_cb);
+        if (lua_isfunction(L, -1)) {
+            lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->bluetooth_ref);
+            lua_pushinteger(L, ble_event);
+            lua_call(L, 2, 0);
+        }
+    }
+
+    switch(ble_event){
+        default:
+            break;
+    }
+    return 0;
+}
+
+static void luat_ble_cb(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param){
+    luat_ble_wlan_config_info_t* config_info = (luat_ble_wlan_config_info_t*)luat_bluetooth->luat_ble->userdata;
+    luat_ble_wlan_config_cb_t luat_ble_wlan_config_cb = luat_bluetooth->luat_ble->wlan_config_cb;
+    // LLOGD("ble event: %d", ble_event);
+
+    rtos_msg_t msg = {
+        .handler = luatos_ble_callback,
+        .ptr = (void*)luat_bluetooth,
+        .arg1 = (int)ble_event,
+        .arg2 = (int)ble_param,
+    };
+    luat_msgbus_put(&msg, 0);
+}
+
+
+static int l_bluetooth_create(lua_State* L) {
+    if (!lua_isuserdata(L, 1)){
+        return 0;
+    }
+    size_t len = 0;
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+    const char* type = luaL_checklstring(L, 2, &len);
+    if(memcmp("ble", type, len) == 0 || memcmp("BLE", type, len) == 0){
+        luat_ble_init(luat_bluetooth, luat_ble_cb);
+        int ble_param = lua_gettable(L, 2);
+        if (lua_gettable(L, 2) == LUA_TTABLE){
+            /* code */
+        }
+        
+    }else{
+        LLOGE("error type: %s", type);
+        return 0;
+    }
+    return 0;
+}
+
+static int l_bluetooth_create_ble(lua_State* L) {
+    if (!lua_isuserdata(L, 1)){
+        return 0;
+    }
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+    luat_ble_init(luat_bluetooth, luat_ble_cb);
+
+    if (lua_isfunction(L, 2)) {
+		lua_pushvalue(L, 2);
+		luat_bluetooth->luat_ble->lua_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static int l_ble_gatt_create(lua_State* L) {
+    if (!lua_isuserdata(L, 1)){
+        return 0;
+    }
+    if (lua_type(L, 2) != LUA_TTABLE){
+        LLOGE("error param");
+        return 0;
+    }
+    size_t len = 0;
+    luat_ble_gatt_cfg_t luat_ble_gatt_cfg = {0};
+
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+
+    lua_pushstring(L, "uuid");
+    if (LUA_TSTRING == lua_gettable(L, -2)){
+        const char* data = luaL_checklstring(L, -1, &len);
+        memcpy(luat_ble_gatt_cfg.uuid, data, len);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "att_db");
+    if (LUA_TTABLE == lua_gettable(L, -2)){
+        luat_ble_gatt_cfg.att_db_num = luaL_len(L, -1);
+        luat_ble_gatt_cfg.att_db = (luat_ble_att_db_t*)luat_heap_malloc(sizeof(luat_ble_att_db_t) * luat_ble_gatt_cfg.att_db_num);
+        for (int i = 1; i <= luat_ble_gatt_cfg.att_db_num; i++) {
+            lua_rawgeti(L, -1, i);
+            int table_len = luaL_len(L, -1);
+            for (int j = 1; j <= table_len; j++){
+                lua_rawgeti(L, -1, j);
+
+                if (j == 1 && lua_type(L, -1) == LUA_TSTRING){
+                    const char* data = luaL_checklstring(L, -1, &len);
+                    memcpy(luat_ble_gatt_cfg.att_db[i-1].uuid, data, len);
+                }else if(j == 2 && lua_type(L, -1) == LUA_TNUMBER){
+                    luat_ble_gatt_cfg.att_db[i-1].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+                }else if(j == 3 && lua_type(L, -1) == LUA_TNUMBER){
+                    luat_ble_gatt_cfg.att_db[i-1].ext_perm = (uint16_t)luaL_optnumber(L, -1, 0);
+                }else if(j == 4 && lua_type(L, -1) == LUA_TNUMBER){
+                    luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
+                }else{
+                    LLOGE("error att_db type");
+                    goto end; 
+                }
+                lua_pop(L, 1);
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
+    luat_heap_free(luat_ble_gatt_cfg.att_db);
+
+    // if (lua_isfunction(L, 3)) {
+	// 	lua_pushvalue(L, 3);
+	// 	luat_bluetooth->luat_ble->lua_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+	// }
+
+    lua_pushboolean(L, 1);
+    return 1;
+end:
+    return 0;
+}
+
+static int l_ble_advertising_create(lua_State* L) {
+    if (!lua_isuserdata(L, 1)){
+        return 0;
+    }
+    if (lua_type(L, 2) != LUA_TTABLE){
+        LLOGE("error param");
+        return 0;
+    }
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+    size_t len = 0;
+    // const char* complete_local_name = NULL;
+    // lua_pushstring(L, "name");
+    // if (LUA_TSTRING == lua_gettable(L, 2)) {
+    //     complete_local_name = luaL_checklstring(L, -1, &len);
+    // }else{
+    //     complete_local_name = (char* )luat_heap_malloc(32);
+    //     memset(complete_local_name, 0, 32);
+    //     sprintf_(complete_local_name, "LuatOS_%s", luat_os_bsp());
+    // }
+    // lua_pop(L, 1);
+
+    luat_ble_adv_cfg_t luat_ble_adv_cfg = {
+        .addr_mode = LUAT_BLE_ADV_ADDR_MODE_PUBLIC,
+        .channel_map = LUAT_BLE_ADV_CHNLS_ALL,
+        .intv_min = 120,
+        .intv_max = 160,
+    };
+
+    lua_pushstring(L, "addr_mode");
+    if (LUA_TNUMBER == lua_gettable(L, -2)){
+        luat_ble_adv_cfg.addr_mode = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "channel_map");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_ble_adv_cfg.channel_map = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "intv_min");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_ble_adv_cfg.intv_min = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "intv_max");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_ble_adv_cfg.intv_max = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    luat_ble_create_advertising(luat_bluetooth, &luat_ble_adv_cfg);
+
+    // 广播内容 (adv data)
+    uint8_t adv_data[255] = {0};
+    uint8_t adv_index = 0;
+
+    lua_pushstring(L, "adv_data");
+    if (LUA_TTABLE == lua_gettable(L, -2)){
+        int adv_data_count = luaL_len(L, -1);
+        for (int i = 1; i <= adv_data_count; i++) {
+            lua_rawgeti(L, -1, i);
+            if (LUA_TTABLE == lua_type(L, -1)){
+                lua_rawgeti(L, -1, 2);
+                if (lua_type(L, -1) == LUA_TSTRING){
+                    const char* data = luaL_checklstring(L, -1, &len);
+                    adv_data[adv_index++] = (uint8_t)(len+1);
+                    lua_rawgeti(L, -2, 1);
+                    if (lua_type(L, -1) == LUA_TNUMBER){
+                        adv_data[adv_index++] = (uint8_t)luaL_checknumber(L, -1);
+                    }else{
+                        LLOGE("error adv_data type");
+                        goto end;
+                    }
+                    memcpy(adv_data + adv_index, data, len);
+                    adv_index += len;
+                    lua_pop(L, 2);
+                }else{
+                    LLOGE("error adv_data type");
+                    goto end;
+                }
+            }else{
+                LLOGE("error adv_data type");
+                goto end;
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    /* set adv paramters */
+    luat_ble_set_adv_data(luat_bluetooth, adv_data, adv_index);
+    // luat_ble_set_name(luat_bluetooth, complete_local_name, strlen(complete_local_name));
+
+    lua_pushboolean(L, 1);
+    return 1;
+end:
+    return 0;
+}
+
+static int l_ble_advertising_start(lua_State* L) {
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
+    lua_pushboolean(L, luat_ble_start_advertising(luat_bluetooth)?0:1);
+    return 1;
+}
+
+static int l_ble_advertising_stop(lua_State* L) {
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
+    lua_pushboolean(L, luat_ble_stop_advertising(luat_bluetooth)?0:1);
+    return 1;
+}
+
+static int l_bluetooth_init(lua_State* L) {
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
+    if (luat_bluetooth) {
+        luat_bluetooth_init(luat_bluetooth);
+        luaL_setmetatable(L, LUAT_BLUETOOTH_TYPE);
+        lua_pushvalue(L, -1);
+        luat_bluetooth->bluetooth_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        return 1;
+    }
+    return 0;
+}
+
+static int _bluetooth_struct_newindex(lua_State *L);
+
+void luat_bluetooth_struct_init(lua_State *L) {
+    luaL_newmetatable(L, LUAT_BLUETOOTH_TYPE);
+    lua_pushcfunction(L, _bluetooth_struct_newindex);
+    lua_setfield( L, -2, "__index" );
+    lua_pop(L, 1);
+}
+
+#include "rotable2.h"
+static const rotable_Reg_t reg_bluetooth[] =
+{
+	{"init",               ROREG_FUNC(l_bluetooth_init)},
+    {"create",             ROREG_FUNC(l_bluetooth_create)},
+    {"ble",                ROREG_FUNC(l_bluetooth_create_ble)},
+    {"gatt_create",         ROREG_FUNC(l_ble_gatt_create)},
+    {"adv_create",         ROREG_FUNC(l_ble_advertising_create)},
+    {"adv_start",          ROREG_FUNC(l_ble_advertising_start)},
+    {"adv_stop",           ROREG_FUNC(l_ble_advertising_stop)},
+
+    // ADV_ADDR_MODE
+    {"PUBLIC",                ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_PUBLIC)},
+    {"RANDOM",                ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_RANDOM)},
+    {"RPA",                ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_RPA)},
+    {"NRPA",                ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_NRPA)},
+    // ADV_CHNL
+    {"CHNL_37",                ROREG_INT(LUAT_BLE_ADV_CHNL_37)},
+    {"CHNL_38",                ROREG_INT(LUAT_BLE_ADV_CHNL_38)},
+    {"CHNL_39",                ROREG_INT(LUAT_BLE_ADV_CHNL_39)},
+    {"CHNLS_ALL",                ROREG_INT(LUAT_BLE_ADV_CHNLS_ALL)},
+    // Permission
+    {"READ",                ROREG_INT(LUAT_BLE_GATT_PERM_READ)},
+    {"WRITE",                ROREG_INT(LUAT_BLE_GATT_PERM_WRITE)},
+    {"IND",                ROREG_INT(LUAT_BLE_GATT_PERM_IND)},
+    {"NOTIFY",                ROREG_INT(LUAT_BLE_GATT_PERM_NOTIFY)},
+    // FLAGS
+    {"FLAGS",                ROREG_INT(LUAT_ADV_TYPE_FLAGS)},
+    {"COMPLETE_LOCAL_NAME",  ROREG_INT(LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)},
+    {"SERVICE_DATA",  ROREG_INT(LUAT_ADV_TYPE_SERVICE_DATA_16BIT)},
+    {"MANUFACTURER_SPECIFIC_DATA",  ROREG_INT(LUAT_ADV_TYPE_MANUFACTURER_SPECIFIC_DATA)},
+	{ NULL,             ROREG_INT(0)}
+};
+
+static int _bluetooth_struct_newindex(lua_State *L) {
+	const rotable_Reg_t* reg = reg_bluetooth;
+    const char* key = luaL_checkstring(L, 2);
+	while (1) {
+		if (reg->name == NULL)
+			return 0;
+		if (!strcmp(reg->name, key)) {
+			lua_pushcfunction(L, reg->value.value.func);
+			return 1;
+		}
+		reg ++;
+	}
+}
+
+LUAMOD_API int luaopen_bluetooth( lua_State *L ) {
+    rotable2_newlib(L, reg_bluetooth);
+    luat_bluetooth_struct_init(L);
+    lua_pushvalue(L, -1);
+    lua_setglobal(L, "ble");
+    return 1;
+}

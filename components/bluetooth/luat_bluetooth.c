@@ -175,7 +175,8 @@ static void luat_ble_cb(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_e
 
 int luat_ble_wlan_config_bk(luat_ble_wlan_config_info_t* config_info, luat_ble_cb_t luat_ble_wlan_config_cb){
     int ret = 0;
-    luat_bluetooth_t* luat_bluetooth = luat_bluetooth_init();
+    luat_bluetooth_t* luat_bluetooth = luat_heap_malloc(sizeof(luat_bluetooth_t));
+    luat_bluetooth_init(luat_bluetooth);
     luat_ble_init(luat_bluetooth, luat_ble_cb);
     luat_bluetooth->luat_ble->userdata = config_info;
     luat_bluetooth->luat_ble->wlan_config_cb = luat_ble_wlan_config_cb;

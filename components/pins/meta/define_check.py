@@ -101,7 +101,7 @@ def main():
         f.write(autotest_script)
 
     # 检查管脚是不是全部声明了, 包括不需要复用的
-    for item in data["pins_others"] :
+    for item in data["pin_others"] :
         pin = item[0]
         pin_list.add(pin)
     for id in range(1, data["pin_count"] + 1) :

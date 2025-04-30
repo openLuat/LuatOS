@@ -13,10 +13,14 @@ enum
 };
 
 #ifdef LUAT_USE_PSRAM
-#define WEBSOCKET_RECV_BUF_LEN_MAX 16384
+#define WEBSOCKET_PAYLOAD_MAX (32*1024)
+#define WEBSOCKET_MAX_READ (16*1024)
 #else
-#define WEBSOCKET_RECV_BUF_LEN_MAX 4096
+#define WEBSOCKET_PAYLOAD_MAX (8*1024)
+#define WEBSOCKET_MAX_READ (4*1024)
 #endif
+
+#define WEBSOCKET_RECV_BUF_LEN_MAX (WEBSOCKET_PAYLOAD_MAX + 16)
 
 typedef struct
 {
@@ -28,7 +32,7 @@ typedef struct
 	uint8_t is_tls;
 	uint16_t remote_port; // 远程端口号
 	uint16_t buffer_offset; // 用于标识pkg_buff当前有多少数据
-	uint8_t pkg_buff[WEBSOCKET_RECV_BUF_LEN_MAX + 4];
+	uint8_t pkg_buff[WEBSOCKET_RECV_BUF_LEN_MAX + 16];
 	int websocket_cb_id;		 // websocket lua回调函数
     void* websocket_cb;			/**< websocket 回调函数*/
 	uint32_t keepalive;		 // 心跳时长 单位s

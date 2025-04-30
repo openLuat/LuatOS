@@ -54,7 +54,7 @@ int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 		if (limit < 4)
 		{
 			// 还缺1个字节,等吧
-			LLOGD("wait more data offset %d", limit);
+			LLOGD("wait more data offset, limit %d < 4", limit);
 			return 0;
 		}
 		pkg->plen = (buf[2] & 0xFF) << 8;
@@ -74,10 +74,15 @@ int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 		pkg->payload = buf + 2;
 	}
 
-	LLOGD("payload %04X pkg %04X", pkg->plen, pkg_len);
+	LLOGD("payload size %ld pkg %ld", pkg->plen, pkg_len);
+	if (pkg->plen > WEBSOCKET_PAYLOAD_MAX)
+	{
+		LLOGE("websocket payload is too large!!! %ld , must < %ld", pkg->plen, WEBSOCKET_RECV_BUF_LEN_MAX);
+		return -1;
+	}
 	if (limit < pkg_len)
 	{
-		LLOGD("wait more data offset %d", limit);
+		LLOGD("wait more data, limit %ld want %ld", limit, pkg_len);
 		return 0;
 	}
 
@@ -530,41 +535,25 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 
 int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 {
-	// LLOGD("luat_websocket_read_packet websocket_ctrl->buffer_offset:%d",websocket_ctrl->buffer_offset);
-	// int ret = -1;
-	// uint8_t *read_buff = NULL;
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(websocket_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-	// if (total_len > 0xFFFF)
-	// {
-	// 	LLOGE("too many data wait for recv %d", total_len);
-	// 	//luat_websocket_close_socket(websocket_ctrl);
-	// 	return -1;
-	// }
 	if (total_len == 0)
 	{
 		LLOGW("rx event but NO data wait for recv");
 		return 0;
 	}
-	if (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset <= 0)
-	{
-		LLOGE("buff is FULL, websocket packet too big");
-		//luat_websocket_close_socket(websocket_ctrl);
-		return -1;
-	}
-#define MAX_READ (1024)
 	int recv_want = 0;
 
-	while (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset > 0)
+	while (WEBSOCKET_RECV_BUF_LEN_MAX + 8 - websocket_ctrl->buffer_offset > 0)
 	{
-		if (MAX_READ > (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset))
+		if (WEBSOCKET_MAX_READ > (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset))
 		{
 			recv_want = WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset;
 		}
 		else
 		{
-			recv_want = MAX_READ;
+			recv_want = WEBSOCKET_MAX_READ;
 		}
 		// 从网络接收数据
 		result = network_rx(websocket_ctrl->netc, websocket_ctrl->pkg_buff + websocket_ctrl->buffer_offset, recv_want, 0, NULL, NULL, &rx_len);
@@ -598,6 +587,10 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 			//luat_websocket_close_socket(websocket_ctrl);
 			return -1;
 		}
+	}
+	if (WEBSOCKET_RECV_BUF_LEN_MAX + 8 < websocket_ctrl->buffer_offset > 0) {
+		LLOGD("pkg maybe too large");
+		return -1;
 	}
 	return 0;
 }

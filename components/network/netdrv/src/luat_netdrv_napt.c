@@ -4,14 +4,20 @@
 #ifdef __LUATOS__
 #include "luat_netdrv_ch390h.h"
 #endif
-#include "luat_malloc.h"
 #include "luat_netdrv_napt.h"
+#include "luat_mcu.h"
+#include "luat_mem.h"
+
 #include "lwip/pbuf.h"
 #include "lwip/ip.h"
 #include "lwip/etharp.h"
 #include "lwip/icmp.h"
 #include "lwip/prot/etharp.h"
-#include "luat_mcu.h"
+#include "lwip/tcpip.h"
+#include "lwip/tcp.h"
+#include "lwip/udp.h"
+#include "lwip/prot/tcp.h"
+#include "lwip/prot/udp.h"
 
 #define LUAT_LOG_TAG "netdrv.napt"
 #include "luat_log.h"
@@ -130,20 +136,27 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_
         return 0;
     }
     // LLOGD("按协议类型, 使用对应的NAPT修改器进行处理 id %d proto %d", id, IPH_PROTO(ctx.iphdr));
+    uint64_t tbegin = luat_mcu_tick64();
+    int ret = 0;
     switch (IPH_PROTO(ctx.iphdr))
     {
     case IP_PROTO_ICMP:
-        return luat_napt_icmp_handle(&ctx);
+        ret = luat_napt_icmp_handle(&ctx);
+        break;
     case IP_PROTO_TCP:
-        return luat_napt_tcp_handle(&ctx);
+        ret = luat_napt_tcp_handle(&ctx);
+        break;
     case IP_PROTO_UDP:
-        return luat_napt_udp_handle(&ctx);
+        ret = luat_napt_udp_handle(&ctx);
+        break;
     default:
         LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
         return 0;
     }
-
-    return 0;
+    uint64_t tend = luat_mcu_tick64();
+    uint64_t tused_us = (tend - tbegin) / luat_mcu_us_period();
+    LLOGI("time used %lld us tp %d", tused_us, IPH_PROTO(ctx.iphdr));
+    return ret;
 }
 #endif
 
@@ -173,4 +186,132 @@ int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
         return luat_netdrv_napt_pkg_input(id, p->payload, p->tot_len);
     }
     return 0; // lwip继续处理 
+}
+
+
+// --- TCP/UDP的映射关系维护
+
+static luat_rtos_mutex_t tcp_mutex;
+static luat_netdrv_napt_llist_t node_head;
+
+// 端口分配
+#define NAPT_TCP_RANGE_START     0x1BBC
+#define NAPT_TCP_RANGE_END       0x5AAA
+// static uint32_t port_used;
+static u16 luat_napt_tcp_port_alloc(void) {
+    luat_netdrv_napt_llist_t* head = node_head.next;
+    size_t used = 0;
+    for (size_t i = NAPT_TCP_RANGE_END; i <= NAPT_TCP_RANGE_START; i++)
+    {
+        head = node_head.next;
+        used = 0;
+        while (head != NULL) {
+            if (head->item.wnet_local_port == i) {
+                used = 1;
+                break;
+            }
+            head = head->next;
+        }
+        if (used == 0) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+// 外网到内网
+int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping) {
+    int ret = -1;
+    luat_netdrv_napt_llist_t* head = node_head.next;
+    uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
+    struct ip_hdr* ip_hdr = ctx->iphdr;
+    uint64_t tnow = luat_mcu_tick64_ms();
+    luat_netdrv_napt_tcpudp_t tmp = {0};
+    struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
+
+    tmp.wnet_ip = ctx->iphdr->src.addr;
+    tmp.wnet_port = tcp_hdr->src;
+    tmp.wnet_local_port = tcp_hdr->dest;
+
+    // TODO Lock
+    if (tcp_mutex == NULL) {
+        luat_rtos_mutex_create(&tcp_mutex);
+    }
+    luat_rtos_mutex_lock(tcp_mutex, 5000);
+    while (head != NULL) {
+        if (memcmp(&tmp.wnet_ip, &head->item.wnet_ip, 8) == 0) {
+            memcpy(mapping, &head->item, sizeof(luat_netdrv_napt_tcpudp_t));
+            head->item.tm_ms = tnow;
+            ret = 0;
+            break;
+        }
+        head = head->next;
+    }
+    // TODO UnLock
+    luat_rtos_mutex_unlock(tcp_mutex);
+    return ret;
+}
+
+// 内网到外网
+int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping) {
+    int ret = -1;
+    luat_netdrv_napt_llist_t* head = node_head.next;
+    uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
+    struct ip_hdr* ip_hdr = ctx->iphdr;
+    uint64_t tnow = luat_mcu_tick64_ms();
+    luat_netdrv_napt_tcpudp_t tmp = {0};
+    struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
+
+    tmp.inet_ip = ctx->iphdr->src.addr;
+    tmp.inet_port = tcp_hdr->src;
+    tmp.wnet_ip = ctx->iphdr->dest.addr;
+    tmp.wnet_port = tcp_hdr->dest;
+
+    if (tcp_mutex == NULL) {
+        luat_rtos_mutex_create(&tcp_mutex);
+    }
+    luat_rtos_mutex_lock(tcp_mutex, 5000);
+
+    while (head != NULL) {
+        if (memcmp(&tmp.inet_ip, &head->item.inet_ip, 8 + 8) == 0) {
+            memcpy(mapping, &head->item, sizeof(luat_netdrv_napt_tcpudp_t));
+            head->item.tm_ms = tnow;
+            ret = 0;
+            break;
+        }
+        head = head->next;
+    }
+    while (ret != 0) {
+        tmp.wnet_local_port = luat_napt_tcp_port_alloc();
+        if (tmp.wnet_local_port == 0) {
+            LLOGE("TCP映射关系已经用完");
+            ret = - 2;
+            break;
+        }
+        // 没找到, 那就新增一个
+        luat_netdrv_napt_llist_t* node = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_llist_t));
+        if (node == NULL) {
+            // 内存不够了
+            ret = -3;
+            break;
+        }
+        else {
+            node->item.wnet_local_port = tcp_hdr->dest;
+            memcpy(&node->item, mapping, sizeof(luat_netdrv_napt_tcpudp_t));
+            node->item.tm_ms = luat_mcu_tick64_ms();
+            node->next = node_head.next;
+            node_head.next = node;
+            ret = 0;
+        }
+        break;
+    }
+
+    // unlock
+    luat_rtos_mutex_unlock(tcp_mutex);
+
+    return ret;
+}
+
+int luat_netdrv_napt_watch_task_main(void) {
+    return 0;
 }

@@ -166,25 +166,20 @@ CAN总线配置时序
 @api can.timing(id, br, PTS, PBS1, PBS2, SJW)
 @int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
 @int br, 波特率, 默认1Mbps
-@int PTS, 传播时间段, 范围1~8，默认5
-@int PBS1, 相位缓冲段1，范围1~8，默认4
-@int PBS2, 相位缓冲段2，范围2~8，默认3
+@int PTS, 传播时间段, 范围1~8
+@int PBS1, 相位缓冲段1，范围1~8
+@int PBS2, 相位缓冲段2，范围2~8
 @int SJW, 同步补偿宽度值，范围1~4，默认2
 @return boolean 成功返回true,失败返回false
 @usage
-can.timing(0, 1000000, 5, 4, 3, 2)
-can.timing(0, 650000, 9, 6, 4, 2)
-can.timing(0, 500000, 5, 4, 3, 2)
-can.timing(0, 250000, 5, 4, 3, 2)
-can.timing(0, 125000, 5, 4, 3, 2)
-can.timing(0, 100000, 5, 4, 3, 2)
-can.timing(0, 50000, 9, 6, 4, 2)
-can.timing(0, 25000, 9, 6, 4, 2)
+-- air780EPM参考，不一定适合其他平台，CAN的实际波特率=基础时钟/分频系数/(1+PTS+PBS1+PBS2)，详见can.capacity
+can.timing(0, 100000, 6, 6, 3, 2)
+can.timing(0, 125000, 6, 6, 4, 2)
 */
 static int l_can_timing(lua_State *L)
 {
 	int ret = luat_can_set_timing(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 1000000),
-			luaL_optinteger(L, 3, 5), luaL_optinteger(L, 4, 4), luaL_optinteger(L, 5, 3),
+			luaL_optinteger(L, 3, 6), luaL_optinteger(L, 4, 6), luaL_optinteger(L, 5, 4),
 			luaL_optinteger(L, 6, 2));
 	if (ret)
 	{
@@ -438,7 +433,7 @@ CAN完全关闭
 @int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
 @return boolean 成功返回true,失败返回false
 @usage
-can.state(0)
+can.deinit(0)
 */
 static int l_can_deinit(lua_State *L)
 {
@@ -468,6 +463,36 @@ static int l_can_debug(lua_State *L)
 	return 0;
 }
 
+/*
+获取CAN时钟特性，包括基础时钟,分频系数范围,CAN的实际波特率=基础时钟/分频系数/(1+PTS+PBS1+PBS2),从时钟特性里能看出对应平台是否能配置出需要的波特率
+@api can.capacity(id)
+@int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
+@return boolean 成功返回true,失败返回false,如果失败就不用看后面的参数了
+@return int,基础时钟
+@return int,最小分频系数
+@return int,最大分频系数
+@return int,分频系数步进，一般为1
+@usage
+local res, clk, div_min, div_max, div_step = can.capacity(0)
+*/
+static int l_can_capacity(lua_State *L)
+{
+	uint32_t clk, div_min, div_max, div_step;
+	if (luat_can_get_capacity(luaL_optinteger(L, 1, 0), &clk, &div_min, &div_max, &div_step))
+	{
+		lua_pushboolean(L, 0);
+	}
+	else
+	{
+		lua_pushboolean(L, 1);
+	}
+	lua_pushinteger(L, clk);
+	lua_pushinteger(L, div_min);
+	lua_pushinteger(L, div_max);
+	lua_pushinteger(L, div_step);
+	return 5;
+}
+
 static const rotable_Reg_t reg_can[] =
 {
     { "init",			ROREG_FUNC(l_can_init)},
@@ -484,6 +509,7 @@ static const rotable_Reg_t reg_can[] =
 	{ "busOff",			ROREG_FUNC(l_can_bus_off)},
 	{ "deinit",			ROREG_FUNC(l_can_deinit)},
 	{ "debug",			ROREG_FUNC(l_can_debug)},
+	{ "capacity",		ROREG_FUNC(l_can_capacity)},
 	//@const MODE_NORMAL number 正常工作模式
     { "MODE_NORMAL",        ROREG_INT(LUAT_CAN_WORK_MODE_NORMAL)},
 	//@const MODE_LISTEN number 监听模式

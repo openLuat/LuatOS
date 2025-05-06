@@ -60,7 +60,8 @@ gpio.setup(stb_pin,0)
 -- gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
 can.init(can_id, 128)
 can.on(can_id, can_cb)
-can.timing(can_id, 1000000, 5, 4, 3, 2)
+can.timing(can_id, 1000000, 6, 6, 4, 2)
+-- can.timing(can_id, 100000, 6, 6, 3, 2)
 if SELF_TEST_FLAG then
 	can.node(can_id, tx_id, can.EXT)	-- 测试模式下，允许接收的ID和发送ID一致才会有新数据提醒
 	can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK

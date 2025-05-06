@@ -178,6 +178,23 @@ int luat_can_set_stb_io_level(uint8_t can_id, uint8_t on_off);
  */
 int luat_can_bus_off(uint8_t can_id);
 
+/**
+ * @brief 获取CAN控制器的时钟特性
+ * @param can_id 总线序号
+ * @param clk 基础时钟
+ * @param div_min 分频系数最小值
+ * @param div_max 分频系数最大值
+ * @param div_step 分频系数步进值
+ * @return 0成功，其他失败
+ */
+int luat_can_get_capacity(uint8_t can_id, uint32_t *clk, uint32_t *div_min, uint32_t *div_max, uint32_t *div_step);
+
+
 uint32_t luat_can_get_last_error(uint8_t can_id);
+/**
+ * @brief 设置CAN的debug状态
+ * @param on_off 0关闭，1开启
+ * @return 无
+ */
 void luat_can_set_debug(uint8_t on_off);
 #endif

@@ -237,6 +237,21 @@ __USER_FUNC_IN_RAM__ static size_t luat_napt_tcp_port_alloc(void) {
     return 0;
 }
 
+static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
+    char buff[32] = {0};
+    char buff2[32] = {0};
+    ip_addr_t ipaddr;
+    // 输出可视化的本地ip
+    ip_addr_set_ip4_u32(&ipaddr, it->inet_ip);
+    ipaddr_ntoa_r(&ipaddr, buff, 32);
+
+    // 输出可视化的远程ip
+    ip_addr_set_ip4_u32(&ipaddr, it->wnet_ip);
+    ipaddr_ntoa_r(&ipaddr, buff2, 32);
+
+    LLOGD("%s %s:%d -> %s:%d local %d", tag, buff2, it->wnet_port, buff, it->inet_port, it->wnet_local_port);
+}
+
 __USER_FUNC_IN_RAM__ static void mapping_cleanup(void) {
     luat_netdrv_napt_llist_t* head = node_head.next;
     luat_netdrv_napt_llist_t* prev = &node_head;
@@ -248,49 +263,60 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(void) {
     size_t port;
     int flag = 0;
     luat_netdrv_napt_tcpudp_t* it = NULL;
+    // size_t c_all = 0;
+    // size_t c_remain = 0;
     while (head != NULL) {
+        flag = 0;
+        // c_all ++;
         it = &head->item;
         // 远程ip(4 byte), 远程端口(2 byte), 本地映射端口(2 byte)
         tdiff = tnow - it->tm_ms;
         if (tdiff > 20*60*1000) {
             flag = 1;
-            // LLOGD("映射关系超时 %lldms port %ld", tdiff, it->wnet_local_port);
+            // print_item("空闲时间超时,移除", it);
         }
-        else if ((((it->finack1 && it->finack2) || !it->synack) &&
-                  tnow - it->tm_ms > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
-            // LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
+        else if ((((it->finack1 && it->finack2) || !it->synack) && tdiff > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
+            // print_item("TCP链接已关闭,移除", it);
             flag = 1;
         }
         if (flag) {
             tmp = head;
             port = it->wnet_local_port - NAPT_TCP_RANGE_START;
-            // LLOGD("释放端口号 %d", it->wnet_local_port);
             offset = port / ( 4 * 8);
             soffset = port % ( 4 * 8);
             port_used[offset] &= (~(1 << soffset));
             prev->next = head->next;
             head = head->next;
             // 注意, prev不变
+            // LLOGD("移除%p prev %p next %p", tmp, prev, head);
             luat_heap_opt_free(LUAT_HEAP_PSRAM, tmp);
         }
         else {
+            // c_remain ++;
             prev = head;
             head = head->next;
         }
     }
+    // LLOGD("清理映射关系 %d/%d", c_remain, c_all);
 }
 
 
 __USER_FUNC_IN_RAM__ static void update_tcp_stat_wnet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
-    if ((TCPH_FLAGS(tcphdr) & (TCP_SYN|TCP_ACK)) == (TCP_SYN|TCP_ACK))
+    if ((TCPH_FLAGS(tcphdr) & (TCP_SYN|TCP_ACK)) == (TCP_SYN|TCP_ACK)) {
       t->synack = 1;
-    if ((TCPH_FLAGS(tcphdr) & TCP_FIN))
+    //   LLOGD("收到TCP SYN ACK, 连接已建立");
+    }
+    if ((TCPH_FLAGS(tcphdr) & TCP_FIN)) {
       t->fin1 = 1;
-    if (t->fin2 && (TCPH_FLAGS(tcphdr) & TCP_ACK))
+    }
+    if (t->fin2 && (TCPH_FLAGS(tcphdr) & TCP_ACK)) {
       t->finack2 = 1; /* FIXME: Currently ignoring ACK seq... */
-    if (TCPH_FLAGS(tcphdr) & TCP_RST)
+    //   LLOGD("收到TCP FIN2 ACK, 连接完成断开");
+    }
+    if (TCPH_FLAGS(tcphdr) & TCP_RST) {
       t->rst = 1;
-  // LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
+    }
+//   LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
 }
 
 __USER_FUNC_IN_RAM__ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
@@ -325,8 +351,10 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netd
     luat_rtos_mutex_lock(tcp_mutex, 5000);
     // 清理映射关系
     if (tsec - clean_tm > 5) {
+        // LLOGD("执行映射关系清理 %ld %ld", tsec, clean_tm);
         mapping_cleanup();
         clean_tm = tsec;
+        // LLOGD("完成映射关系清理 %ld %ld", tsec, clean_tm);
     }
     while (head != NULL) {
         // 远程ip(4 byte), 远程端口(2 byte), 本地映射端口(2 byte)
@@ -361,10 +389,20 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
     tmp.wnet_port = tcp_hdr->dest;
 
     if (tcp_mutex == NULL) {
-        luat_rtos_mutex_create(&tcp_mutex);
+        ret = luat_rtos_mutex_create(&tcp_mutex);
+        if (ret) {
+            LLOGE("napt创建锁失败了!! ret %d", ret);
+            return -5;
+        }
     }
     
-    luat_rtos_mutex_lock(tcp_mutex, 5000);
+    ret = luat_rtos_mutex_lock(tcp_mutex, 1000);
+    if (ret) {
+        LLOGE("napt加锁失败!!! ret %d", ret);
+        return -4;
+    }
+
+    ret = -1;
 
     // 清理映射关系
     if (tsec - clean_tm > 5) {
@@ -377,9 +415,9 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
         if (memcmp(&tmp.inet_ip, &head->item.inet_ip, 6 + 6) == 0) {
             head->item.tm_ms = tnow;
             ret = 0;
+            memcpy(mapping, &head->item, sizeof(luat_netdrv_napt_tcpudp_t));
             // 映射关系找到了,那就关联一下情况
             update_tcp_stat_inet(tcp_hdr, &head->item);
-            memcpy(mapping, &head->item, sizeof(luat_netdrv_napt_tcpudp_t));
             break;
         }
         head = head->next;
@@ -395,6 +433,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
         luat_netdrv_napt_llist_t* node = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_llist_t));
         if (node == NULL) {
             // 内存不够了
+            LLOGD("内存不够了,无法分配映射关系 !!!");
             ret = -3;
             break;
         }
@@ -409,7 +448,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
             node->next = node_head.next;
             node_head.next = node;
             memcpy(mapping, &node->item, sizeof(luat_netdrv_napt_tcpudp_t));
-            LLOGD("分配出去的端口号 %d", node->item.wnet_local_port);
+            // LLOGD("分配出去的端口号 %d", node->item.wnet_local_port);
             ret = 0;
         }
         break;

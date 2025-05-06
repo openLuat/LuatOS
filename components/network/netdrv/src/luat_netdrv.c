@@ -6,6 +6,7 @@
 // #include "luat_netdrv_uart.h"
 #endif
 #include "luat_mem.h"
+#include "luat_mcu.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"

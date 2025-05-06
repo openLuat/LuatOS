@@ -258,13 +258,13 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(void) {
         }
         else if ((((it->finack1 && it->finack2) || !it->synack) &&
                   tnow - it->tm_ms > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
-            LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
+            // LLOGD("映射的TCP链路已经断开%lldms, 超过 %ld ms, 设置为无效", tnow - it->tm_ms, IP_NAPT_TIMEOUT_MS_TCP_DISCON);
             flag = 1;
         }
         if (flag) {
             tmp = head;
             port = it->wnet_local_port - NAPT_TCP_RANGE_START;
-            LLOGD("释放端口号 %d", it->wnet_local_port);
+            // LLOGD("释放端口号 %d", it->wnet_local_port);
             offset = port / ( 4 * 8);
             soffset = port % ( 4 * 8);
             port_used[offset] &= (~(1 << soffset));

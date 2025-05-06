@@ -14,6 +14,10 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
+
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
@@ -126,7 +130,7 @@ void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
 
 #define NAPT_CHKSUM_16BIT_LEN        sizeof(uint16_t)
 
-uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
+__USER_FUNC_IN_RAM__ uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = 0;
 
@@ -147,7 +151,7 @@ uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
     return sum;
 }
 
-uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
+__USER_FUNC_IN_RAM__ uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = alg_hdr_16bitsum(buff, len);
 
@@ -157,7 +161,7 @@ uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
     return (uint16_t)(~sum);
 }
 
-uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len)
+__USER_FUNC_IN_RAM__ uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = 0;
 
@@ -215,11 +219,25 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     memcpy(ptr->buff, buff, len);
     ptr->netif = netif;
     ptr->len = len;
-    int ret = tcpip_callback(luat_netdrv_netif_input, ptr);
+    // uint64_t tbegin = luat_mcu_tick64();
+    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
+    // uint64_t tend = luat_mcu_tick64();
+    // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
+    // if (tused > 50) {
+    //     LLOGD("tcpip_callback!! use %lld us", tused);
+    // }
     if (ret) {
         luat_heap_free(ptr);
         LLOGE("tcpip_callback 返回错误!!! ret %d", ret);
         return 1;
     }
     return 0;
+}
+
+
+
+void luat_netdrv_print_tm(const char * tag) {
+    uint64_t tnow = luat_mcu_tick64();
+    uint64_t t_us = tnow / luat_mcu_us_period();
+    LLOGI("tag %s time %lld", tag, t_us);
 }

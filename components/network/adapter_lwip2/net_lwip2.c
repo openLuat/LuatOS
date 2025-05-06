@@ -765,7 +765,7 @@ static void net_lwip2_task(void *param)
 		}
 		else
 		{
-			NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
+			// NET_DBG("udp bind %d", prvlwip.socket[socket_id].local_port);
 			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
 			if (error) {
 				NET_DBG("udp bind ret %d port %d", error, prvlwip.socket[socket_id].local_port);

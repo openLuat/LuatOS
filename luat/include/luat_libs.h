@@ -215,4 +215,7 @@ LUAMOD_API int luaopen_vtool( lua_State *L );
 // icmp
 LUAMOD_API int luaopen_icmp( lua_State *L );
 
+// bluetooth
+LUAMOD_API int luaopen_bluetooth( lua_State *L );
+
 #endif

@@ -253,7 +253,7 @@ static int l_netdrv_link(lua_State *L) {
 @int netdrv的id, 例如 socket.LWIP_ETH
 @return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
 @usage
--- 注意, 本函数仅支持读取, 即判断是否能联网
+-- 注意, 本函数仅支持读取, 即判断是否能通信, 不代表IP状态
 */
 static int l_netdrv_ready(lua_State *L) {
     int id = luaL_checkinteger(L, 1);

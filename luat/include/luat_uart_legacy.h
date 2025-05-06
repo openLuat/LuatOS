@@ -4,7 +4,13 @@
 #include "luat_base.h"
 
 #ifdef __LUATOS__
+enum
+{
+	LUAT_VUART_STATE_CONNECT,
+	LUAT_VUART_STATE_DISCONNECT,
+};
 int l_uart_handler(lua_State *L, void* ptr);
+int l_vuart_state_handler(lua_State *L, void* ptr);
 #endif
 
 #ifdef LUAT_FORCE_WIN32

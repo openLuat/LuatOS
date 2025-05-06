@@ -345,6 +345,20 @@ void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
 	}
 }
 
+int l_vuart_state_handler(lua_State *L, void* ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+    	lua_pushstring(L, "VUART_STATE");
+        lua_pushinteger(L, msg->arg1);
+        lua_pushboolean(L, !msg->arg2);
+        lua_call(L, 3, 0);
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
 int l_uart_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);

@@ -36,6 +36,11 @@ log.info("main", "usb uart demo")
 
 local uartid = uart.VUART_0 -- USB虚拟串口的固定id
 
+-- 2025年5月6日新增，虚拟UART对端（比如PC串口工具）打开和关闭通知
+sys.subscribe("VUART_STATE", function(vuart_id, state)
+    log.info("vuart", vuart_id, "is connect", state)
+end)
+
 --初始化
 local result = uart.setup(
     uartid,--串口id

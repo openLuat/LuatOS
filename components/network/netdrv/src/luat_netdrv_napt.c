@@ -254,7 +254,7 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(void) {
         tdiff = tnow - it->tm_ms;
         if (tdiff > 20*60*1000) {
             flag = 1;
-            LLOGD("映射关系超时 %lldms port %ld", tdiff, it->wnet_local_port);
+            // LLOGD("映射关系超时 %lldms port %ld", tdiff, it->wnet_local_port);
         }
         else if ((((it->finack1 && it->finack2) || !it->synack) &&
                   tnow - it->tm_ms > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {

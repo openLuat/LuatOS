@@ -13,7 +13,7 @@
 #include "luat_log.h"
 
 #ifdef LUAT_USE_PSRAM
-#define UDP_MAP_SIZE (256)
+#define UDP_MAP_SIZE (2048)
 #else
 #define UDP_MAP_SIZE (1024)
 #endif

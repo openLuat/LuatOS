@@ -139,6 +139,7 @@ typedef struct{
 }luat_ble_wlan_config_info_t;
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t prf_id;        /**< The id of the profile */
     uint16_t att_idx;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The length of the attribute value */
@@ -147,6 +148,7 @@ typedef struct{
 
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t prf_id;        /**< The id of the profile */
     uint16_t att_idx;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The data length read */
@@ -154,6 +156,7 @@ typedef struct{
 } luat_ble_read_req_t;
 
 typedef struct{
+    uint32_t conn_idx;
     union {
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
@@ -181,6 +184,7 @@ typedef struct{
 } luat_ble_att_db_t;
 
 typedef struct {
+    uint16_t prf_id;
     uint8_t uuid[16];
     luat_ble_att_db_t* att_db;  // attribute database
     uint8_t att_db_num;         // number of attributes database
@@ -247,7 +251,7 @@ int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
 
 int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
 
-int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t con_idx, uint16_t att_idx, uint32_t len, uint8_t *buf);
+int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t con_idx, uint16_t prf_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
 
 
 int luat_ble_wlan_config(luat_ble_wlan_config_type_t config_type, luat_ble_wlan_config_cb_t luat_ble_wlan_config_cb);

@@ -24,7 +24,7 @@ local wifiList = {} -- 用于保存扫描到的wifi信息
 local requestParam = {} -- 用于保存定位请求参数
 
 local airlbs = require "airlbs"
--- 此为收费服务，  下面两个参数需自行联系销售申请
+
 local airlbsProjectId = "XXXXXX" -- 定位所需的项目key_id
 local airlbsProjectKey = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" -- 定位所需的项目key
 

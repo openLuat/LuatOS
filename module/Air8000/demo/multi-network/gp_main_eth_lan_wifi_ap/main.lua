@@ -50,27 +50,7 @@ function test_ap()
         sys.wait(3000)
     end
 end
-function test_ap()
-    wlan.createAP("uiot5678", "12345678")
-    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    for i=1, 10 do
-        log.info("当前ip信息", netdrv.ipv4(socket.LWIP_AP))
-        sys.wait(100)
-    end
-    sys.wait(5000)
-    -- netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    -- log.info("创建dns代理", netdrv.ipv4(socket.LWIP_AP))
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
-    -- log.info('创建DHCP服务器', netdrv.ipv4(socket.LWIP_AP))
-    dhcpsrv.create({adapter=socket.LWIP_AP})
-    while 1 do
-        if netdrv.ready(socket.LWIP_GP) then
-            netdrv.napt(socket.LWIP_GP)
-            break
-        end
-        sys.wait(1000)
-    end
-end
+
 sys.subscribe("PING_RESULT", function(id, time, dst)
     log.info("ping.result", id, time, dst);
 end)

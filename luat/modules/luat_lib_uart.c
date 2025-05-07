@@ -336,9 +336,7 @@ void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
 	#endif
 	{
         uart_app_recvs[id] = cb;
-		// #ifndef LUAT_USE_DRV_UART
         luat_setup_cb(id, 1, 0); // 暂时覆盖
-		// #endif
     }
 	else {
 		LLOGW("not exist uart id=%d", id);

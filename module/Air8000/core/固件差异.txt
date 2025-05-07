@@ -1,0 +1,3 @@
+LuatOS-SoC_V20xx_Air8000_LVGL  	固件支持LVGL，不支持VOLTE
+LuatOS-SoC_V20xx_Air8000_VOLTE 	固件支持VOLTE，不支持LVGL
+除此之外，两个固件支持的其他功能都一样。

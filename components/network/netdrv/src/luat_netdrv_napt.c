@@ -163,13 +163,19 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_
 }
 #endif
 
-static uint8_t napt_buff[1600];
+static uint8_t* napt_buff;
 err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     if (p->tot_len > 1600) {
         return 1;
     }
     if (p->tot_len < 24) {
         return 1;
+    }
+    if (napt_buff == NULL) {
+        napt_buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, 1600);
+        if (napt_buff == NULL) {
+            return ERR_MEM;
+        }
     }
     pbuf_copy_partial(p, napt_buff, p->tot_len, 0);
     int ret = luat_netdrv_napt_pkg_input(id, napt_buff, p->tot_len);
@@ -201,7 +207,7 @@ static size_t clean_tm = 1;
 // 端口分配
 #define NAPT_TCP_RANGE_START     0x1BBC
 #define NAPT_TCP_RANGE_END       0x5AAA
-static uint32_t port_used[1024];
+static uint32_t* port_used;
 __USER_FUNC_IN_RAM__ static size_t luat_napt_tcp_port_alloc(void) {
     #if 0
     luat_netdrv_napt_llist_t* head = node_head.next;
@@ -225,6 +231,13 @@ __USER_FUNC_IN_RAM__ static size_t luat_napt_tcp_port_alloc(void) {
     #else
     size_t offset;
     size_t soffset;
+    if (port_used == NULL) {
+        port_used = luat_heap_malloc((NAPT_TCP_RANGE_END - NAPT_TCP_RANGE_START) / 4 + 1);
+        if (port_used == NULL) {
+            return 0;
+        }
+        memset(port_used, 0, 1024);
+    }
     for (size_t i = 0; i <= NAPT_TCP_RANGE_END - NAPT_TCP_RANGE_START; i++) {
         offset = i / ( 4 * 8);
         soffset = i % ( 4 * 8);
@@ -263,6 +276,9 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(void) {
     size_t port;
     int flag = 0;
     luat_netdrv_napt_tcpudp_t* it = NULL;
+    if (port_used == NULL) {
+        return;
+    }
     // size_t c_all = 0;
     // size_t c_remain = 0;
     while (head != NULL) {

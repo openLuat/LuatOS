@@ -259,11 +259,15 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         luat_rtos_task_sleep(10);
         // 读取MAC地址, 开始初始化
         luat_ch390h_read_mac(ch, buff);
+        size_t tmpc = 0;
         for (size_t i = 0; i < 6; i++)
         {
             if (buff[i] == 0) {
-                LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
-                return 0;
+                tmpc ++;
+                if (tmpc == 2) {
+                    LLOGD("非法MAC地址 %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+                    return 0;
+                }
             }
         }
         luat_ch390h_read_mac(ch, buff + 6);

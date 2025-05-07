@@ -143,21 +143,21 @@ static void luat_ble_cb(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_e
             case BEKEN_IDX_CHAR_VALUE:
                 break;
             case BEKEN_IDX_CHAR_DESC:{
-                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, read_req->att_idx, sizeof(bk_notify), &bk_notify[0]);
+                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, 0, read_req->att_idx, sizeof(bk_notify), &bk_notify[0]);
                 break;
             }
 
             case BEKEN_IDX_CHAR_SSID_DECL:
                 break;
             case BEKEN_IDX_CHAR_SSID_VALUE:{
-                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, read_req->att_idx, config_info->ssid_len, config_info->ssid);
+                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, 0, read_req->att_idx, config_info->ssid_len, config_info->ssid);
                 // LLOGI("read ssid: %s, length: %d", config_info->ssid, config_info->ssid_len);
                 break;
             }
             case BEKEN_IDX_CHAR_PASSWORD_DECL:
                 break;
             case BEKEN_IDX_CHAR_PASSWORD_VALUE:{
-                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, read_req->att_idx, config_info->password_len, config_info->password);
+                luat_ble_read_response(luat_bluetooth,read_req->conn_idx, 0, read_req->att_idx, config_info->password_len, config_info->password);
                 // LLOGI("read ssid: %s, length: %d", config_info->password, config_info->password_len);
                 break;
             }

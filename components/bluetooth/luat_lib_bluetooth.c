@@ -69,7 +69,8 @@ static int l_ble_gatt_create(lua_State* L) {
     }
 
     luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
-    
+    luat_ble_gatt_cfg_t luat_ble_gatt_cfg = {0};
+
     int argc = lua_gettop(L);
     for (size_t m = 2; m <= argc; m++){
         if (lua_type(L, m) != LUA_TTABLE){
@@ -77,8 +78,8 @@ static int l_ble_gatt_create(lua_State* L) {
             return 0;
         }
         size_t len = 0;
-        luat_ble_gatt_cfg_t luat_ble_gatt_cfg = {0};
-    
+        
+        memset(luat_ble_gatt_cfg.uuid, 0x00, sizeof(luat_ble_gatt_cfg.uuid));
         lua_pushstring(L, "uuid");
         if (LUA_TSTRING == lua_gettable(L, m)){
             const char* data = luaL_checklstring(L, -1, &len);
@@ -115,7 +116,8 @@ static int l_ble_gatt_create(lua_State* L) {
         }
         lua_pop(L, 1);
         luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
-        luat_heap_free(luat_ble_gatt_cfg.att_db);    
+        luat_heap_free(luat_ble_gatt_cfg.att_db);
+        luat_ble_gatt_cfg.prf_id++;
     }
 
     lua_pushboolean(L, 1);

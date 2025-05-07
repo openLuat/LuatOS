@@ -94,7 +94,6 @@ int luat_lv_indev_drv_register(lua_State* L) {
             if (lua_isuserdata(L, 3)) {
                 luat_tp_config_t *luat_tp_config = lua_touserdata(L, 3);
                 lvgl_tp_data = luat_tp_config->tp_data;
-                luat_tp_config->callback = NULL;
 
                 indev_drv.read_cb = touch_input_read;
                 lv_indev_drv_register(&indev_drv);

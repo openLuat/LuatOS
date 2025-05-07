@@ -460,9 +460,10 @@ static void ch390_task_main(void* args) {
             luat_wdt_feed();
         }
         if (count > 1024) {
+            // 每隔1024次循环, 休眠10ms, 不然CP会被饿死
             if (ret) {
                 // LLOGD("强制休眠20ms");
-                // luat_rtos_task_sleep(20);
+                luat_rtos_task_sleep(10);
             }
             count = 0;
         }

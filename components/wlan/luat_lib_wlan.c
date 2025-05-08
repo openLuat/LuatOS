@@ -333,9 +333,24 @@ local mac = string.fromHex("000000000000")
 wlan.setMac(0, mac)
 */
 static int l_wlan_set_mac(lua_State* L){
-    // int id = luaL_optinteger(L, 1, 0);
+    int id = luaL_optinteger(L, 1, 0);
     const char* mac = luaL_checkstring(L, 2);
-    int ret = luat_wlan_set_mac(luaL_optinteger(L, 1, 0), mac);
+#ifdef LUAT_USE_DRV_WLAN
+    if (id == 2)
+        id = 0;
+    else if (id == 3)
+        id = 1;
+    else
+    {
+        LLOGE("mac parm id error %d", id);
+        return 0;
+    }
+    int ret = luat_drv_wlan_set_mac(id, mac);
+    // LLOGD("l_wlan_set_mac %02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    // LLOGD("set mac result %d", ret);
+#else
+    int ret = luat_wlan_set_mac(id, mac);
+#endif
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

@@ -138,7 +138,27 @@ int luat_airlink_drv_wlan_smartconfig_stop(void);
 
 // 数据类
 int luat_airlink_drv_wlan_get_mac(int id, char* mac);
-int luat_airlink_drv_wlan_set_mac(int id, const char* mac);
+
+int luat_airlink_drv_wlan_set_mac(int id, const char* mac)
+{
+    uint8_t c_id = id;
+    
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_airlink_cmd_t) + 8 + 6
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x207, item.len) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    // LLOGE("未传递之前 id = %d, mac = %02X%02X%02X%02X%02X%02X", c_id, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    memcpy(cmd->data + 8, &c_id, 1);
+    memcpy(cmd->data + 9, mac, 6);
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
 
 int luat_airlink_drv_wlan_get_ip(int type, char* data);
 

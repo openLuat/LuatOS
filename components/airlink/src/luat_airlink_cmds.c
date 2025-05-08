@@ -46,6 +46,7 @@ CMD_DEFINE(wlan_ap_start);
 CMD_DEFINE(wlan_ap_stop);
 CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result_cb);
+CMD_DEFINE(wlan_set_mac);
 
 // GPIO指令, 0x300开始
 CMD_DEFINE(gpio_setup);
@@ -88,6 +89,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x203, wlan_ap_start),
     CMD_REG(0x204, wlan_ap_stop),
     CMD_REG(0x205, wlan_scan),
+    CMD_REG(0x207, wlan_set_mac),
 #else
     CMD_REG(0x206, wlan_scan_result_cb),
 #endif

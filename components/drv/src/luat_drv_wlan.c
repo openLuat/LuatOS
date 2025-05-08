@@ -59,7 +59,7 @@ int luat_drv_wlan_get_mac(int id, char* mac) {
     return 0;
 }
 int luat_drv_wlan_set_mac(int id, const char* mac) {
-    return 0;
+    return luat_airlink_drv_wlan_set_mac(id, mac);
 }
 
 int luat_drv_wlan_get_ip(int type, char* data) {

@@ -91,3 +91,14 @@ int luat_airlink_cmd_exec_wlan_scan_result_cb(luat_airlink_cmd_t* cmd, void* use
     luat_msgbus_put(&msg, 0);
     return 0;
 }
+
+int luat_airlink_cmd_exec_wlan_set_mac(luat_airlink_cmd_t* cmd, void* userdata) {
+
+    uint8_t id = cmd->data[8];
+    uint8_t mac[6] = {0};
+    memcpy(mac, cmd->data + 9, 6);
+    // LLOGE("luat_airlink_cmd_exec_wlan_set_mac id: %d", (int)id);
+    // LLOGE("luat_airlink_cmd_exec_wlan_set_mac mac: %02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    int ret = luat_wlan_set_mac((int)id, (char*)mac);
+    return ret;
+}

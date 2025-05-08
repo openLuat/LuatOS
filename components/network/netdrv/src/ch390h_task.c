@@ -463,7 +463,7 @@ static void ch390_task_main(void* args) {
             // 每隔1024次循环, 休眠10ms, 不然CP会被饿死
             if (ret) {
                 // LLOGD("强制休眠20ms");
-                luat_rtos_task_sleep(10);
+                // luat_rtos_task_sleep(10);
             }
             count = 0;
         }

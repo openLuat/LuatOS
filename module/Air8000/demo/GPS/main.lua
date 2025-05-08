@@ -4,9 +4,10 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-
+-- sys库是标配
+_G.sys = require("sys")
+--[[特别注意, 使用http库需要下列语句]]
+_G.sysplus = require("sysplus")
 
 -- mobile.flymode(0,true)
 if wdt then
@@ -19,21 +20,19 @@ log.info("main", "air8000_gnss")
 
 mcu.hardfault(0)    --死机后停机，一般用于调试状态
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.0V
-local gps_uart_id = 2 -- 根据实际设备选取不同的uartid
-uart.setup(gps_uart_id, 115200)
--- libgnss.bind(gps_uart_id)-- 绑定uart, 马上开始解析GNSS数据
---打开或者关闭GNSS的函数，传1打开，传0关闭
 
-
+local gnss = require("agps_icoe")
 sys.taskInit(function()
-    log.info("GPS", "start")
+    log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
     pm.power(pm.GPS, true)
-    -- 绑定uart,底层自动处理GNSS数据
-    -- 第二个参数是转发到虚拟UART, 方便上位机分析
-    libgnss.bind(gps_uart_id, uart.VUART_0)
-    sys.wait(200) -- GPNSS芯片启动需要时间
-    -- 调试日志,可选
-    libgnss.debug(true)
+    gnss.setup({
+        uart_id=2,
+        uart_forward = uart.VUART_0, -- 转发到虚拟串口,方便对接GnssToolKit3
+        debug=true,
+        sys=1
+    })
+    gnss.start()
+    gnss.agps()
 end)
 
 

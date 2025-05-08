@@ -1,4 +1,16 @@
--- LuaTools需要PROJECT和VERSION这两个信息
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+
+本demo演示的功能为：
+使用Air8000核心板演示GPS定位功能以及agps辅助功能
+]]
 PROJECT = "air8000_gnss"
 VERSION = "1.0.0"
 
@@ -22,7 +34,7 @@ mcu.hardfault(0)    --死机后停机，一般用于调试状态
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.0V
 
 local gnss = require("agps_icoe")
-sys.taskInit(function()
+function test_gnss()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
     pm.power(pm.GPS, true)
     gnss.setup({
@@ -31,12 +43,9 @@ sys.taskInit(function()
         debug=true,
         sys=1
     })
-    gnss.start()
-    gnss.agps()
-end)
-
-
-sys.taskInit(function()
+    gnss.start() --初始化gnss
+    gnss.agps() --使用agps辅助定位
+    --循环打印解析后的数据，可以根据需要打开对应注释
     while 1 do
         sys.wait(5000)
         log.info("RMC", json.encode(libgnss.getRmc(2) or {}, "7f"))         --解析后的rmc数据
@@ -50,7 +59,11 @@ sys.taskInit(function()
         -- log.info("sys", rtos.meminfo("sys"))
         -- log.info("lua", rtos.meminfo("lua"))
     end
-end)
+end
+sys.taskInit(test_gnss)
+
+
+
 
 -- 订阅GNSS状态编码
 sys.subscribe("GNSS_STATE", function(event, ticks)
@@ -68,7 +81,6 @@ sys.subscribe("GNSS_STATE", function(event, ticks)
         -- end
     end
 end)
-
 
 
 -- 用户代码已结束---------------------------------------------

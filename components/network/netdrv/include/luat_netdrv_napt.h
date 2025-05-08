@@ -56,7 +56,13 @@ typedef struct luat_netdrv_napt_llist
     luat_netdrv_napt_tcpudp_t item;
 }luat_netdrv_napt_llist_t;
 
-
+typedef struct luat_netdrv_napt_ctx{
+    size_t clean_tm;
+    size_t item_max;
+    size_t item_last;
+    // uint32_t port_used[1024];
+    luat_netdrv_napt_tcpudp_t items[2048];
+}luat_netdrv_napt_ctx_t;
 
 int luat_napt_icmp_handle(napt_ctx_t* ctx);
 int luat_napt_tcp_handle(napt_ctx_t* ctx);

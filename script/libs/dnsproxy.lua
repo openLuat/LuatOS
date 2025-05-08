@@ -12,7 +12,9 @@
 
 local sys = require "sys"
 
-local dnsproxy = {}
+local dnsproxy = {
+    server = "119.29.29.29"
+}
 dnsproxy.map = {}
 dnsproxy.txid = 0x123
 dnsproxy.rxbuff = zbuff.create(1500)
@@ -37,7 +39,7 @@ function dnsproxy.on_request(sc, event)
                     table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port})
                     rxbuff[0] = txid_map % 256
                     rxbuff[1] = txid_map // 256
-                    socket.tx(dnsproxy.main_sc, rxbuff, "223.5.5.5", 53)
+                    socket.tx(dnsproxy.main_sc, rxbuff, dnsproxy.server or "223.5.5.5", 53)
                 end
             else
                 break
@@ -105,8 +107,10 @@ function dnsproxy.on_ip_ready()
     socket.close(dnsproxy.sc)
     socket.close(dnsproxy.main_sc)
     log.info("dnsproxy", "开启DNS代理")
-    socket.connect(dnsproxy.sc, "255.255.255.255", 0)
-    socket.connect(dnsproxy.main_sc, "223.5.5.5", 53)
+    local ret = socket.connect(dnsproxy.sc, "255.255.255.255", 0)
+    log.info("dnsproxy", "内网监听结果", ret)
+    ret = socket.connect(dnsproxy.main_sc, dnsproxy.server or "223.5.5.5", 53)
+    log.info("dnsproxy", "外网监听结果", ret)
 end
 
 sys.subscribe("IP_READY", dnsproxy.on_ip_ready)

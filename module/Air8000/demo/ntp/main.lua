@@ -12,6 +12,21 @@ mqtt也是内置库, 无需require
 _G.sys = require("sys")
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", function(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt)
+end)
+
+-- wifi的AP相关事件
+sys.subscribe("WLAN_AP_INC", function(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的新STA的MAC地址
+    -- 当evt=DISCONNECTED, data是断开与AP连接的STA的MAC地址
+    log.info("收到AP事件", evt)
+end)
 
 
 
@@ -37,12 +52,6 @@ sys.taskInit(function()
         --mobile.simid(2) -- 自动切换SIM卡
         -- LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
-    elseif w5500 then
-        -- w5500 以太网, 当前仅Air105支持
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        w5500.config() --默认是DHCP模式
-        w5500.bind(socket.ETH0)
-        -- LED = gpio.setup(62, 0, gpio.PULLUP)
     elseif socket then
         -- 适配的socket库也OK
         -- 没有其他操作, 单纯给个注释说明
@@ -69,6 +78,8 @@ sys.taskInit(function()
         -- 使用内置的ntp服务器地址, 包括阿里ntp
         log.info("开始执行SNTP")
         socket.sntp()
+        -- 如果使用wifi 获取NTP 地址
+        -- socket.sntp(nil, socket.LWIP_STA)
         -- 自定义ntp地址
         -- socket.sntp("ntp.aliyun.com")
         -- socket.sntp({"baidu.com", "abc.com", "ntp.air32.cn"})

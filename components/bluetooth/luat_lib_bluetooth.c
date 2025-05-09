@@ -38,7 +38,7 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_pushinteger(L, write_req->prf_id);
             lua_settable(L, -3);
             lua_pushliteral(L, "att_idx"); 
-            lua_pushinteger(L, write_req->att_idx);
+            lua_pushinteger(L, write_req->att_idx + 1);
             lua_settable(L, -3);
             lua_pushliteral(L, "data"); 
             lua_pushlstring(L, (const char *)write_req->value, write_req->len);

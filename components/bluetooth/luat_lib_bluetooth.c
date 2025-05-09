@@ -83,8 +83,6 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
 }
 
 static void luat_ble_cb(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param){
-    luat_ble_wlan_config_info_t* config_info = (luat_ble_wlan_config_info_t*)luat_bluetooth->luat_ble->userdata;
-    luat_ble_wlan_config_cb_t luat_ble_wlan_config_cb = luat_bluetooth->luat_ble->wlan_config_cb;
     // LLOGD("ble event: %d", ble_event);
     luat_ble_param_t* luat_ble_param = NULL;
     if (ble_param){
@@ -144,10 +142,6 @@ static int l_ble_gatt_create(lua_State* L) {
             memcpy(luat_ble_gatt_cfg.uuid, data, len);
         }
         lua_pop(L, 1);
-
-        for (size_t i = 0; i < 16; i++){
-            LLOGD("luat_ble_gatt_cfg.uuid[%d]:%02X", i, luat_ble_gatt_cfg.uuid[i]);
-        }
         
         lua_pushstring(L, "att_db");
         if (LUA_TTABLE == lua_gettable(L, m)){
@@ -333,6 +327,24 @@ static const rotable_Reg_t reg_bluetooth[] = {
     {"adv_create",                  ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start",                   ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop",                    ROREG_FUNC(l_ble_advertising_stop)},
+
+    // BLE_EVENT
+    {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
+    {"EVENT_INIT",                  ROREG_INT(LUAT_BLE_EVENT_INIT)},
+    {"EVENT_DEINIT",                ROREG_INT(LUAT_BLE_EVENT_DEINIT)},
+    {"EVENT_ADV_INIT",                ROREG_INT(LUAT_BLE_EVENT_ADV_INIT)},
+    {"EVENT_ADV_START",            ROREG_INT(LUAT_BLE_EVENT_ADV_START)},
+    {"EVENT_ADV_STOP",                ROREG_INT(LUAT_BLE_EVENT_ADV_STOP)},
+    {"EVENT_ADV_DEINIT",            ROREG_INT(LUAT_BLE_EVENT_ADV_DEINIT)},
+    {"EVENT_SCAN_INIT",           ROREG_INT(LUAT_BLE_EVENT_SCAN_INIT)},
+    {"EVENT_SCAN_START",            ROREG_INT(LUAT_BLE_EVENT_SCAN_START)},
+    {"EVENT_SCAN_STOP",             ROREG_INT(LUAT_BLE_EVENT_SCAN_STOP)},
+    {"EVENT_SCAN_DEINIT",                  ROREG_INT(LUAT_BLE_EVENT_SCAN_DEINIT)},
+    {"EVENT_CONN",                  ROREG_INT(LUAT_BLE_EVENT_CONN)},
+    {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
+    {"EVENT_WRITE",                   ROREG_INT(LUAT_BLE_EVENT_WRITE)},
+    {"EVENT_READ",                ROREG_INT(LUAT_BLE_EVENT_READ)},
+    
 
 
 

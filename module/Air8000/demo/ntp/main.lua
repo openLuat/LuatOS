@@ -12,6 +12,12 @@ mqtt也是内置库, 无需require
 _G.sys = require("sys")
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
+
+
+local net_modle = nil 
+-- local net_modle = "WIFI"   -- 如果是用WIFI 选择这里
+
+
 -- wifi的STA相关事件
 sys.subscribe("WLAN_STA_INC", function(evt, data)
     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
@@ -36,7 +42,7 @@ sys.taskInit(function()
     -----------------------------
     -- 统一联网函数, 可自行删减
     ----------------------------
-    if wlan and wlan.connect then
+    if net_modle == "WIFI" then
         -- wifi 联网, ESP32系列均支持
         local ssid = "luatos1234"
         local password = "12341234"
@@ -47,6 +53,7 @@ sys.taskInit(function()
         wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
         device_id = wlan.getMac()
         wlan.connect(ssid, password, 1)
+        socket.dft(socket.LWIP_STA)  -- 设置默认上网方式为wifi sta
     elseif mobile then
         -- Air8000/Air600E系列
         --mobile.simid(2) -- 自动切换SIM卡
@@ -67,6 +74,7 @@ sys.taskInit(function()
     sys.publish("net_ready", device_id)
 end)
 
+
 sys.taskInit(function()
     -- 等待联网
     local ret, device_id = sys.waitUntil("net_ready")
@@ -78,8 +86,6 @@ sys.taskInit(function()
         -- 使用内置的ntp服务器地址, 包括阿里ntp
         log.info("开始执行SNTP")
         socket.sntp()
-        -- 如果使用wifi 获取NTP 地址
-        -- socket.sntp(nil, socket.LWIP_STA)
         -- 自定义ntp地址
         -- socket.sntp("ntp.aliyun.com")
         -- socket.sntp({"baidu.com", "abc.com", "ntp.air32.cn"})

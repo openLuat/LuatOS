@@ -124,7 +124,7 @@ sys.taskInit(function()
     -- 启动AP测试
     -- netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
     -- netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
-    -- wlan.init()
+    wlan.init()
     -- sys.wait(5000)
     
     -- sys.wait(300)

@@ -33,6 +33,7 @@
 #endif
 
 extern airlink_statistic_t g_airlink_statistic;
+extern uint32_t g_airlink_pause;
 
 // static uint8_t start;
 // static uint8_t slave_rdy;
@@ -218,6 +219,12 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
 {
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
+    if (g_airlink_pause) {
+        while (g_airlink_pause) {
+            LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
+            luat_rtos_task_sleep(1000);
+        }
+    }
     // 等到消息
     if (link != NULL && (link->flags.queue_cmd != 0 || link->flags.queue_cmd != 0))
     {

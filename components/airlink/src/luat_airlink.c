@@ -33,6 +33,7 @@ airlink_statistic_t g_airlink_statistic;
 uint32_t g_airlink_spi_task_mode;
 uint64_t g_airlink_last_cmd_timestamp;
 uint32_t g_airlink_debug;
+uint32_t g_airlink_pause;
 
 int luat_airlink_init(void)
 {

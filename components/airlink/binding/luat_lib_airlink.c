@@ -17,6 +17,7 @@
 
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_spi_task_mode;
+extern uint32_t g_airlink_pause;
 
 static int l_airlink_init(lua_State *L) {
     LLOGD("初始化AirLink");
@@ -289,6 +290,11 @@ static int l_airlink_debug(lua_State *L) {
     return 0;
 }
 
+static int l_airlink_pause(lua_State *L) {
+    g_airlink_pause = luaL_checkinteger(L, 1);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -302,6 +308,7 @@ static const rotable_Reg_t reg_airlink[] =
     { "cmd",           ROREG_FUNC(l_airlink_cmd)},
     { "statistics",    ROREG_FUNC(l_airlink_statistics )},
     { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
+    { "pause",         ROREG_FUNC(l_airlink_pause)},
 
     // 测试用的fota指令
     { "sfota",         ROREG_FUNC(l_airlink_sfota )},

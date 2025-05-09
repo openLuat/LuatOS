@@ -60,7 +60,7 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_pushinteger(L, read_req->prf_id);
             lua_settable(L, -3);
             lua_pushliteral(L, "att_idx"); 
-            lua_pushinteger(L, read_req->att_idx);
+            lua_pushinteger(L, read_req->att_idx + 1);
             lua_settable(L, -3);
             lua_pushliteral(L, "data"); 
             lua_pushlstring(L, (const char *)read_req->value, read_req->len);
@@ -161,7 +161,7 @@ static int l_ble_gatt_create(lua_State* L) {
                     }else if(j == 3 && lua_type(L, -1) == LUA_TNUMBER){
                         luat_ble_gatt_cfg.att_db[i-1].ext_perm = (uint16_t)luaL_optnumber(L, -1, 0);
                     }else if(j == 4 && lua_type(L, -1) == LUA_TNUMBER){
-                        luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
+                        luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 256);
                     }else{
                         LLOGE("error att_db type");
                         goto end; 
@@ -332,19 +332,19 @@ static const rotable_Reg_t reg_bluetooth[] = {
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
     {"EVENT_INIT",                  ROREG_INT(LUAT_BLE_EVENT_INIT)},
     {"EVENT_DEINIT",                ROREG_INT(LUAT_BLE_EVENT_DEINIT)},
-    {"EVENT_ADV_INIT",                ROREG_INT(LUAT_BLE_EVENT_ADV_INIT)},
-    {"EVENT_ADV_START",            ROREG_INT(LUAT_BLE_EVENT_ADV_START)},
-    {"EVENT_ADV_STOP",                ROREG_INT(LUAT_BLE_EVENT_ADV_STOP)},
+    {"EVENT_ADV_INIT",              ROREG_INT(LUAT_BLE_EVENT_ADV_INIT)},
+    {"EVENT_ADV_START",             ROREG_INT(LUAT_BLE_EVENT_ADV_START)},
+    {"EVENT_ADV_STOP",              ROREG_INT(LUAT_BLE_EVENT_ADV_STOP)},
     {"EVENT_ADV_DEINIT",            ROREG_INT(LUAT_BLE_EVENT_ADV_DEINIT)},
-    {"EVENT_SCAN_INIT",           ROREG_INT(LUAT_BLE_EVENT_SCAN_INIT)},
+    {"EVENT_SCAN_INIT",             ROREG_INT(LUAT_BLE_EVENT_SCAN_INIT)},
     {"EVENT_SCAN_START",            ROREG_INT(LUAT_BLE_EVENT_SCAN_START)},
     {"EVENT_SCAN_STOP",             ROREG_INT(LUAT_BLE_EVENT_SCAN_STOP)},
-    {"EVENT_SCAN_DEINIT",                  ROREG_INT(LUAT_BLE_EVENT_SCAN_DEINIT)},
+    {"EVENT_SCAN_DEINIT",           ROREG_INT(LUAT_BLE_EVENT_SCAN_DEINIT)},
     {"EVENT_CONN",                  ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
-    {"EVENT_WRITE",                   ROREG_INT(LUAT_BLE_EVENT_WRITE)},
-    {"EVENT_READ",                ROREG_INT(LUAT_BLE_EVENT_READ)},
-    
+    {"EVENT_WRITE",                 ROREG_INT(LUAT_BLE_EVENT_WRITE)},
+    {"EVENT_READ",                  ROREG_INT(LUAT_BLE_EVENT_READ)},
+
 
 
 

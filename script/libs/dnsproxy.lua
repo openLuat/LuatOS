@@ -13,13 +13,14 @@
 local sys = require "sys"
 
 local dnsproxy = {
-    server = "119.29.29.29"
+    server = "119.29.29.29",
+    srvs = {},
+    map = {},
+    txid = 0x123,
+    rxbuff = zbuff.create(1500)
 }
-dnsproxy.map = {}
-dnsproxy.txid = 0x123
-dnsproxy.rxbuff = zbuff.create(1500)
 
-function dnsproxy.on_request(sc, event)
+function dnsproxy.on_request(sc, event, adapter)
     if event == socket.EVENT then
         local rxbuff = dnsproxy.rxbuff
         while 1 do
@@ -36,7 +37,7 @@ function dnsproxy.on_request(sc, event)
                     if dnsproxy.txid > 65000 then
                         dnsproxy.txid = 0x123
                     end
-                    table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port})
+                    table.insert(dnsproxy.map, {txid_request, txid_map, remote_ip, remote_port, adapter})
                     rxbuff[0] = txid_map % 256
                     rxbuff[1] = txid_map // 256
                     socket.tx(dnsproxy.main_sc, rxbuff, dnsproxy.server or "223.5.5.5", 53)
@@ -67,7 +68,9 @@ function dnsproxy.on_response(sc, event)
                             local remote_port = mapit[4]
                             rxbuff[0] = txid_request % 256
                             rxbuff[1] = txid_request // 256
-                            socket.tx(dnsproxy.sc, rxbuff, remote_ip, remote_port)
+                            local adapter = mapit[5]
+                            -- log.info("dnsproxy", "转发DNS响应数据", adapter, dnsproxy.srvs[adapter])
+                            socket.tx(dnsproxy.srvs[adapter], rxbuff, remote_ip, remote_port)
                             index = i
                             break
                         end
@@ -85,32 +88,36 @@ end
 
 --[[
 创建UDP服务器
-@api dnsproxy.create(adapter, main_adapter)
+@api dnsproxy.setup(adapter, main_adapter)
 @int 监听的网络适配器id
 @int 网络适配编号, 默认为nil,可选
 @return table UDP服务的实体, 若创建失败会返回nil
 ]]
 function dnsproxy.setup(adapter, main_adapter)
     log.info("dnsproxy", adapter, main_adapter)
-    dnsproxy.adapter = adapter
-    dnsproxy.main_adapter = main_adapter
-    dnsproxy.sc = socket.create(dnsproxy.adapter, dnsproxy.on_request)
-    dnsproxy.main_sc = socket.create(dnsproxy.main_adapter, dnsproxy.on_response)
-    socket.config(dnsproxy.sc, 53, true)
-    socket.config(dnsproxy.main_sc, 1053, true)
+    if dnsproxy.main_sc == nil then
+        dnsproxy.main_sc = socket.create(main_adapter, dnsproxy.on_response)
+        socket.config(dnsproxy.main_sc, 1053, true)
+    end
+    if dnsproxy.srvs[adapter] == nil then
+        dnsproxy.srvs[adapter] = socket.create(adapter, function(sc, event)
+            dnsproxy.on_request(sc, event, adapter)
+        end)
+        socket.config(dnsproxy.srvs[adapter], 53, true)
+    end
     dnsproxy.on_ip_ready()
     return true
 end
 
 function dnsproxy.on_ip_ready()
-    if not dnsproxy.sc then return end
-    socket.close(dnsproxy.sc)
+    log.info("dnsproxy", "开始监听")
+    if not dnsproxy.main_sc then return end
     socket.close(dnsproxy.main_sc)
-    log.info("dnsproxy", "开启DNS代理")
-    local ret = socket.connect(dnsproxy.sc, "255.255.255.255", 0)
-    log.info("dnsproxy", "内网监听结果", ret)
-    ret = socket.connect(dnsproxy.main_sc, dnsproxy.server or "223.5.5.5", 53)
-    log.info("dnsproxy", "外网监听结果", ret)
+    for k, v in pairs(dnsproxy.srvs) do
+        socket.close(v)
+        socket.connect(v, "255.255.255.255", 0)
+    end
+    socket.connect(dnsproxy.main_sc, dnsproxy.server or "223.5.5.5", 53)
 end
 
 sys.subscribe("IP_READY", dnsproxy.on_ip_ready)

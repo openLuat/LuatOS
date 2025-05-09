@@ -63,7 +63,7 @@ end)
 
 function test_sta()
     log.info("执行STA连接操作")
-    wlan.connect("luatos1234", "12341234")
+    wlan.connect("Xiaomi 13", "15055190176")
     -- netdrv.dhcp(socket.LWIP_STA, true)
     sys.wait(8000)
     iperf.server(socket.LWIP_STA)

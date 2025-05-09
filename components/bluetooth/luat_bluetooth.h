@@ -118,22 +118,16 @@ typedef enum{
     LUAT_BLE_EVENT_WRITE,       // BLE写数据
     LUAT_BLE_EVENT_READ,        // BLE读数据
 
-    LUAT_BLE_EVENT_WLAN_CONFIG_SUCCESS,
-    LUAT_BLE_EVENT_WLAN_CONFIG_FAILED,
-
 } luat_ble_event_t;
 
 
 typedef struct luat_bluetooth luat_bluetooth_t;
 
 typedef struct{
-    uint8_t ssid[32];
-    uint8_t password[64];
-    uint8_t ssid_len;
-    uint8_t password_len;
-    uint8_t security;
-    void* userdata;
-}luat_ble_wlan_config_info_t;
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint8_t peer_addr_type; /**< Peer address type */
+    uint8_t peer_addr[6];   /**< Peer BT address */
+} luat_ble_device_info_t;
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
     uint16_t prf_id;        /**< The id of the profile */
@@ -155,6 +149,7 @@ typedef struct{
 typedef struct{
     uint32_t conn_idx;
     union {
+        luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
     };
@@ -164,8 +159,6 @@ typedef struct {
     uint8_t *adv_data;
     int len;
 }luat_ble_adv_data_t;
-
-typedef void (*luat_ble_wlan_config_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_wlan_config_info_t* wlan_config);
 
 typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
@@ -208,7 +201,6 @@ typedef struct {
 typedef struct {
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
-    luat_ble_wlan_config_cb_t wlan_config_cb;
     int lua_cb;
     void* userdata;
 }luat_ble_t;

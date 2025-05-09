@@ -123,9 +123,6 @@ typedef enum{
 
 } luat_ble_event_t;
 
-typedef enum{
-    LUAT_BLE_WLAN_CONFIG_TYPE_BK,
-}luat_ble_wlan_config_type_t;
 
 typedef struct luat_bluetooth luat_bluetooth_t;
 
@@ -161,10 +158,6 @@ typedef struct{
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
     };
-    luat_ble_wlan_config_info_t wlan_config;
-    void* param0;
-    void* param1;
-    void* param2;
 } luat_ble_param_t;
 
 typedef struct {
@@ -252,9 +245,6 @@ int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
 int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
 
 int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t con_idx, uint16_t prf_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
-
-
-int luat_ble_wlan_config(luat_ble_wlan_config_type_t config_type, luat_ble_wlan_config_cb_t luat_ble_wlan_config_cb);
 
 
 // bt

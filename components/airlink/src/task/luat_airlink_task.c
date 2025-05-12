@@ -35,11 +35,13 @@ __USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
 
 __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
     // LLOGD("处理线程启动");
-    luat_event_t event;
+    luat_event_t event = {0};
     luat_airlink_cmd_t* ptr = NULL;
     // size_t len = 0;
+    luat_rtos_task_sleep(2);
     const luat_airlink_cmd_reg_t* cmd_reg = NULL;
     while (1) {
+        event.id = 0;
         luat_rtos_event_recv(airlink_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         if (event.id == 1) { // 收到数据了, 马上处理
             // 处理数据

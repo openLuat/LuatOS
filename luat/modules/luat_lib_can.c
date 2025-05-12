@@ -468,10 +468,10 @@ static int l_can_debug(lua_State *L)
 @api can.capacity(id)
 @int id, 如果只有一条总线写0或者留空, 有多条的，can0写0，can1写1, 如此类推, 一般情况只有1条
 @return boolean 成功返回true,失败返回false,如果失败就不用看后面的参数了
-@return int,基础时钟
-@return int,最小分频系数
-@return int,最大分频系数
-@return int,分频系数步进，一般为1
+@return int 基础时钟
+@return int 最小分频系数
+@return int 最大分频系数
+@return int 分频系数步进，一般为1
 @usage
 local res, clk, div_min, div_max, div_step = can.capacity(0)
 */

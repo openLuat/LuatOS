@@ -209,8 +209,6 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "rb_swap");
             if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
                 conf->opts->rb_swap = lua_toboolean(L, -1);
-            } else {
-            	conf->opts->rb_swap = 0;
             }
             lua_pop(L, 1);
 

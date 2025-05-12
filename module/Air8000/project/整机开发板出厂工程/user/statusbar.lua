@@ -1,9 +1,9 @@
-statusbar_780epm = {}
+statusbar_8000 = {}
 
 lbsLoc2 = require "lbsLoc2"
 
 --状态栏数据 
-statusbar_780epm.data = {
+statusbar_8000.data = {
     -- 电池状态
     bat_level = 0, -- 电量等级 (0-4)
     sig_stren = 0, -- 4G信号强度 (0-4)
@@ -28,8 +28,8 @@ local weather_icons = {
       ["风"] = "/luadb/wind.jpg"
 }
 
-function statusbar_780epm.get_bat_level()
-    local data = statusbar_780epm.data
+function statusbar_8000.get_bat_level()
+    local data = statusbar_8000.data
     adc.open(adc.CH_VBAT)
     local vbat = adc.get(adc.CH_VBAT)
     local dump_power = vbat/4200
@@ -49,8 +49,8 @@ function statusbar_780epm.get_bat_level()
     log.info("bat_level:",data.bat_level)
 end
 
-function statusbar_780epm.get_sig_strength()
-    local data = statusbar_780epm.data
+function statusbar_8000.get_sig_strength()
+    local data = statusbar_8000.data
     local cp = mobile.status()
     log.info("mobile status:", cp)
 
@@ -73,10 +73,10 @@ function statusbar_780epm.get_sig_strength()
     end
 end
 
-function statusbar_780epm.get_weather()
+function statusbar_8000.get_weather()
     local lbs_location
     local winfo
-    local data = statusbar_780epm.data
+    local data = statusbar_8000.data
 
     if not data.net_ready then
         return
@@ -136,4 +136,4 @@ function statusbar_780epm.get_weather()
     end
 end
 
-return statusbar_780epm
+return statusbar_8000

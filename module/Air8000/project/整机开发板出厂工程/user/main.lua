@@ -7,7 +7,7 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 
 local airlcd = require "airlcd"
-local aircam = require "camera780epm_simple"
+local aircam = require "camera8000_simple"
 local airrus = require "russia"
 local airstatus = require "statusbar"
 local airtestwlan = require "test_wlan"
@@ -312,7 +312,7 @@ local function UITask()
     airlcd.lcd_init("AirLCD_1000")
 
     KeyInit()
-    log.info("合宙 780EPM startup v13:" .. sid)
+    log.info("合宙 8000 startup v13:" .. sid)
 
     while 1 do
         keypressed()

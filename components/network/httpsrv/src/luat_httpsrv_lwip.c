@@ -368,7 +368,11 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
 static void client_err_cb(void *arg, err_t err) {
     LLOGD("client cb %d", err);
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
-    client_cleanup(client);
+    if(client->pcb)
+    {
+        client_cleanup(client);
+        client->pcb = NULL;
+    }
 }
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {

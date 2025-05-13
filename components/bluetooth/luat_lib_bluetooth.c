@@ -126,76 +126,176 @@ static int l_ble_gatt_create(lua_State* L) {
 
     luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
     luat_ble_gatt_cfg_t luat_ble_gatt_cfg = {0};
+    size_t len = 0;
 
-    int argc = lua_gettop(L);
-    for (size_t m = 2; m <= argc; m++){
-        if (lua_type(L, m) != LUA_TTABLE){
-            LLOGE("error param");
+    if (lua_type(L, 2) != LUA_TTABLE){
+        LLOGE("error param");
+        return 0;
+    }
+
+    luat_ble_gatt_cfg.service_num = luaL_len(L, 2);
+    LLOGD("service num: %d", luat_ble_gatt_cfg.service_num);
+    luat_ble_gatt_cfg.service = (luat_ble_gatt_service_t*)luat_heap_malloc(sizeof(luat_ble_gatt_service_t) * luat_ble_gatt_cfg.service_num);
+    for (size_t i = 1; i <= luat_ble_gatt_cfg.service_num; i++){
+        lua_rawgeti(L, 2, i);
+        int num = luaL_len(L, -1);
+        LLOGD("num num: %d", num);
+        // service uuid
+        if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
+            const char* service_uuid = luaL_checklstring(L, -1, &len);
+            if (len == 2){
+                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
+            }else if (len == 4){
+                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_32;
+            }else if (len == 16){
+                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_128;
+            }
+            luat_ble_uuid_swap(service_uuid, luat_ble_gatt_cfg.service[i-1].uuid_type);
+            memcpy(luat_ble_gatt_cfg.service[i-1].uuid, service_uuid, len);
+        }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
+            uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
+            luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
+            luat_ble_gatt_cfg.service[i-1].uuid[0] = service_uuid & 0xff;
+            luat_ble_gatt_cfg.service[i-1].uuid[1] = service_uuid >> 8;
+        }else{
+            LLOGE("error uuid type");
             return 0;
         }
-        size_t len = 0;
-        
-        memset(luat_ble_gatt_cfg.uuid, 0x00, sizeof(luat_ble_gatt_cfg.uuid));
-        lua_pushstring(L, "uuid");
-        if (LUA_TSTRING == lua_gettable(L, m)){
-            const char* uuid_data = luaL_checklstring(L, -1, &len);
-            if (len == 2){
-                luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_16;
-            }else if (len == 4){
-                luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_32;
-            }else if (len == 16){
-                luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_128;
-            }
-            luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.uuid_type);
-            memcpy(luat_ble_gatt_cfg.uuid, uuid_data, len);
-        }
         lua_pop(L, 1);
-        
-        lua_pushstring(L, "att_db");
-        if (LUA_TTABLE == lua_gettable(L, m)){
-            luat_ble_gatt_cfg.att_db_num = luaL_len(L, -1);
-            luat_ble_gatt_cfg.att_db = (luat_ble_att_db_t*)luat_heap_malloc(sizeof(luat_ble_att_db_t) * luat_ble_gatt_cfg.att_db_num);
-            memset(luat_ble_gatt_cfg.att_db, 0x00, sizeof(luat_ble_att_db_t));
-            for (int i = 1; i <= luat_ble_gatt_cfg.att_db_num; i++) {
-                lua_rawgeti(L, -1, i);
-                int table_len = luaL_len(L, -1);
-                for (int j = 1; j <= table_len; j++){
-                    lua_rawgeti(L, -1, j);
-                    if (j == 1 && lua_type(L, -1) == LUA_TSTRING){
-                        const char* uuid_data = luaL_checklstring(L, -1, &len);
-                        if (len == 2){
-                            luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                        }else if (len == 4){
-                            luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_32;
-                        }else if (len == 16){
-                            luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_128;
-                        }
-                        luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.att_db[i-1].uuid_type);
-                        memcpy(luat_ble_gatt_cfg.att_db[i-1].uuid, uuid_data, len);
-                    }else if(j == 2 && lua_type(L, -1) == LUA_TNUMBER){
-                        luat_ble_gatt_cfg.att_db[i-1].perm = (uint16_t)luaL_optnumber(L, -1, 0);
-                    }else if(j == 3 && lua_type(L, -1) == LUA_TNUMBER){
-                        luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 256);
-                    }else{
-                        LLOGE("error att_db type");
-                        goto end; 
+
+        // Characteristics
+        luat_ble_gatt_cfg.service[i-1].characteristics_num = num-1;
+        LLOGD("characteristics num: %d", luat_ble_gatt_cfg.service[i-1].characteristics_num);
+        luat_ble_gatt_cfg.service[i-1].characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_cfg.service[i-1].characteristics_num);
+    
+        for (size_t j = 2; j <= num; j++){
+            if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
+                LLOGD("j: %d", j);
+                lua_rawgeti(L, -1, 1);
+                // Characteristics uuid
+                if (LUA_TSTRING == lua_type(L, -1)){
+                    const char* characteristics_uuid = luaL_checklstring(L, -1, &len);
+                    if (len == 2){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                    }else if (len == 4){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_32;
+                    }else if (len == 16){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
                     }
-                    lua_pop(L, 1);
+                    luat_ble_uuid_swap(characteristics_uuid, luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type);
+                    memcpy(luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid, characteristics_uuid, len);
+                }else if (LUA_TNUMBER == lua_type(L, -1)){
+                    uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
+                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid[0] = characteristics_uuid & 0xff;
+                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid[1] = characteristics_uuid >> 8;
+                }else{
+                    LLOGE("error characteristics uuid type");
+                    goto error_exit;
+                }
+                lua_pop(L, 1);
+                // Characteristics properties
+                lua_rawgeti(L, -1, 2);
+                if (LUA_TNUMBER == lua_type(L, -1)){
+                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+                }
+                lua_pop(L, 1);
+                // Characteristics descriptors
+                lua_rawgeti(L, -1, 3);
+                if (LUA_TSTRING == lua_type(L, -1)){
+                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors = (luat_ble_gatt_desc_t*)luat_heap_malloc(sizeof(luat_ble_gatt_desc_t));
+                    const char* descriptors_uuid = luaL_checklstring(L, -1, &len);
+                    if (len == 2){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_16;
+                    }else if (len == 4){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_32;
+                    }else if (len == 16){
+                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_128;
+                    }
+                    luat_ble_uuid_swap(descriptors_uuid, luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type);
+                    memcpy(luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid, descriptors_uuid, len);
                 }
                 lua_pop(L, 1);
             }
-        }else{
-            LLOGE("error att_db");
-            goto end;
+            lua_pop(L, 1);
         }
-        lua_pop(L, 1);
-        luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
-        luat_heap_free(luat_ble_gatt_cfg.att_db);
-        luat_ble_gatt_cfg.prf_id++;
     }
+    luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
+
+
+
+
+    // int argc = lua_gettop(L);
+    // for (size_t m = 2; m <= argc; m++){
+    //     if (lua_type(L, m) != LUA_TTABLE){
+    //         LLOGE("error param");
+    //         return 0;
+    //     }
+    //     size_t len = 0;
+        
+    //     memset(luat_ble_gatt_cfg.uuid, 0x00, sizeof(luat_ble_gatt_cfg.uuid));
+    //     lua_pushstring(L, "uuid");
+    //     if (LUA_TSTRING == lua_gettable(L, m)){
+    //         const char* uuid_data = luaL_checklstring(L, -1, &len);
+    //         if (len == 2){
+    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_16;
+    //         }else if (len == 4){
+    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_32;
+    //         }else if (len == 16){
+    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_128;
+    //         }
+    //         luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.uuid_type);
+    //         memcpy(luat_ble_gatt_cfg.uuid, uuid_data, len);
+    //     }
+    //     lua_pop(L, 1);
+        
+    //     lua_pushstring(L, "att_db");
+    //     if (LUA_TTABLE == lua_gettable(L, m)){
+    //         luat_ble_gatt_cfg.att_db_num = luaL_len(L, -1);
+    //         luat_ble_gatt_cfg.att_db = (luat_ble_att_db_t*)luat_heap_malloc(sizeof(luat_ble_att_db_t) * luat_ble_gatt_cfg.att_db_num);
+    //         memset(luat_ble_gatt_cfg.att_db, 0x00, sizeof(luat_ble_att_db_t));
+    //         for (int i = 1; i <= luat_ble_gatt_cfg.att_db_num; i++) {
+    //             lua_rawgeti(L, -1, i);
+    //             int table_len = luaL_len(L, -1);
+    //             for (int j = 1; j <= table_len; j++){
+    //                 lua_rawgeti(L, -1, j);
+    //                 if (j == 1 && lua_type(L, -1) == LUA_TSTRING){
+    //                     const char* uuid_data = luaL_checklstring(L, -1, &len);
+    //                     if (len == 2){
+    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
+    //                     }else if (len == 4){
+    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_32;
+    //                     }else if (len == 16){
+    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_128;
+    //                     }
+    //                     luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.att_db[i-1].uuid_type);
+    //                     memcpy(luat_ble_gatt_cfg.att_db[i-1].uuid, uuid_data, len);
+    //                 }else if(j == 2 && lua_type(L, -1) == LUA_TNUMBER){
+    //                     luat_ble_gatt_cfg.att_db[i-1].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+    //                 }else if(j == 3 && lua_type(L, -1) == LUA_TNUMBER){
+    //                     luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 256);
+    //                 }else{
+    //                     LLOGE("error att_db type");
+    //                     goto end; 
+    //                 }
+    //                 lua_pop(L, 1);
+    //             }
+    //             lua_pop(L, 1);
+    //         }
+    //     }else{
+    //         LLOGE("error att_db");
+    //         goto end;
+    //     }
+    //     lua_pop(L, 1);
+    //     luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
+    //     luat_heap_free(luat_ble_gatt_cfg.att_db);
+    //     luat_ble_gatt_cfg.prf_id++;
+    // }
+
+
     lua_pushboolean(L, 1);
     return 1;
-end:
+error_exit:
     return 0;
 }
 

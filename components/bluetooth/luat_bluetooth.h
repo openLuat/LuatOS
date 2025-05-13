@@ -176,7 +176,7 @@ typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t
 typedef struct{
     uint8_t uuid[16];
     luat_ble_uuid_type uuid_type;
-} luat_ble_desc_t;
+} luat_ble_gatt_desc_t;
 
 typedef struct{
     uint16_t att_idx;
@@ -184,15 +184,20 @@ typedef struct{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_desc_t* descriptors;
-} luat_ble_att_db_t;
+    luat_ble_gatt_desc_t* descriptors;
+} luat_ble_gatt_chara_t;
 
 typedef struct {
     uint16_t prf_id;
     uint8_t uuid[16];
     luat_ble_uuid_type uuid_type;
-    luat_ble_att_db_t* att_db;  // attribute database
-    uint8_t att_db_num;         // number of attributes database
+    luat_ble_gatt_chara_t* characteristics; // characteristics
+    uint8_t characteristics_num;            // number of characteristics
+}luat_ble_gatt_service_t;
+
+typedef struct {
+    luat_ble_gatt_service_t* service;   // service
+    uint8_t service_num;                // number of service
 }luat_ble_gatt_cfg_t;
 
 typedef enum{

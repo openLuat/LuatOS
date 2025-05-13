@@ -368,10 +368,10 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
 static void client_err_cb(void *arg, err_t err) {
     LLOGD("client cb %d", err);
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
-    if(client->pcb)
+    client_cleanup(client);
+    if(ERR_RST == err)
     {
-        client_cleanup(client);
-        client->pcb = NULL;
+        tcp_err(client->pcb, NULL);
     }
 }
 

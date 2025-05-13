@@ -26,15 +26,6 @@ typedef enum{
     // BLE_ACTV_PER_SYNC_STARTED,
 } luat_ble_actv_state;
 
-#define ADV_TYPE_FLAGS                      (0x01)
-#define ADV_TYPE_LOCAL_NAME                 (0x09)
-#define ADV_TYPE_SERVICE_UUIDS_16BIT        (0x14)
-#define ADV_TYPE_SERVICE_DATA               (0x16)
-#define ADV_TYPE_MANUFACTURER_SPECIFIC      (0xFF)
-
-#define LUAT_BLE_GATT_UUID_16                       (0x01 << 0)
-#define LUAT_BLE_GATT_UUID_32                       (0x01 << 1)
-#define LUAT_BLE_GATT_UUID_128                      (0x01 << 2)
 // Permission
 #define LUAT_BLE_GATT_PERM_READ                     (0x01 << 3) // Read
 #define LUAT_BLE_GATT_PERM_WRITE                    (0x01 << 4) // Write
@@ -95,6 +86,20 @@ typedef enum{
     LUAT_ADV_TYPE_MANUFACTURER_SPECIFIC_DATA    = 0xFF,
 } luat_ble_adv_type_t;
 
+// GATT SERVICE UUIDS 0X1800 - 0X185B
+#define LUAT_BLE_GATT_SERVICE_MIN   0X1800
+#define LUAT_BLE_GATT_SERVICE_MIX   0X185B
+
+// Descriptors UUIDS 0X2900 - 0X2915
+#define LUAT_BLE_GATT_DESC_MIN      0X2900
+#define LUAT_BLE_GATT_DESC_MIX      0X2915
+
+// Declarations
+#define LUAT_BLE_PRIMARY_SERVICE    0x2800
+#define LUAT_BLE_SECONDARY_SERVICE  0x2801
+#define LUAT_BLE_INCLUDE            0x2802
+#define LUAT_BLE_CHARACTERISTIC     0x2803
+
 typedef enum{
     LUAT_BLE_EVENT_NONE,
     // BLE
@@ -120,6 +125,11 @@ typedef enum{
 
 } luat_ble_event_t;
 
+typedef enum{
+    LUAT_BLE_UUID_TYPE_16,
+    LUAT_BLE_UUID_TYPE_32,
+    LUAT_BLE_UUID_TYPE_128,
+}luat_ble_uuid_type;
 
 typedef struct luat_bluetooth luat_bluetooth_t;
 
@@ -128,6 +138,7 @@ typedef struct{
     uint8_t peer_addr_type; /**< Peer address type */
     uint8_t peer_addr[6];   /**< Peer BT address */
 } luat_ble_device_info_t;
+
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
     uint16_t prf_id;        /**< The id of the profile */
@@ -164,14 +175,22 @@ typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t
 
 typedef struct{
     uint8_t uuid[16];
+    luat_ble_uuid_type uuid_type;
+} luat_ble_desc_t;
+
+typedef struct{
+    uint16_t att_idx;
+    uint8_t uuid[16];
+    luat_ble_uuid_type uuid_type;
     uint16_t perm;
-    uint16_t ext_perm;
     uint16_t max_size;
+    luat_ble_desc_t* descriptors;
 } luat_ble_att_db_t;
 
 typedef struct {
     uint16_t prf_id;
     uint8_t uuid[16];
+    luat_ble_uuid_type uuid_type;
     luat_ble_att_db_t* att_db;  // attribute database
     uint8_t att_db_num;         // number of attributes database
 }luat_ble_gatt_cfg_t;
@@ -215,6 +234,7 @@ typedef struct luat_bluetooth{
     int bluetooth_ref;
 }luat_bluetooth_t;
 
+int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
 
 int luat_ble_init(luat_bluetooth_t* luat_bluetooth, luat_ble_cb_t luat_ble_cb);
 

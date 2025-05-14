@@ -7,7 +7,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
-
+#include "luat_gpio.h"
 #include "luat_ota.h"
 
 #define LUAT_LOG_TAG "main"
@@ -101,6 +101,10 @@ static int pmain(lua_State *L) {
 		  luat_rtos_task_sleep(AIRLINK_WAIT_MS);
 		  count += AIRLINK_WAIT_MS;
 	  }
+    if (g_airlink_last_cmd_timestamp > 0) {
+      // 启动完成, 把wifi的GPIO24设置为高电平, 防止充电ic被关闭
+      luat_gpio_mode(24 + 128, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+    }
     // LLOGD("等待Air8000s结束");
 	}
   #endif

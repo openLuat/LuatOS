@@ -286,8 +286,12 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		|| memcmp("USB_", func_name, 4) == 0
 		|| memcmp("CHG_", func_name, 4) == 0
 		|| memcmp("CAM_", func_name, 4) == 0
-		|| memcmp("SPI", func_name, 3) == 0) {
-		return 0;
+		|| memcmp("SPI", func_name, 3) == 0
+		|| memcmp("WAKEUP", func_name, 5) == 0
+		|| memcmp("ADC", func_name, 3) == 0
+		|| memcmp("PWR_KEY", func_name, 7) == 0
+		|| memcmp("I2S", func_name, 3) == 0){
+		return 1;
 	}
 	#endif
 	if (luat_pin_get_description_from_num(pin, &pin_description))

@@ -11,6 +11,9 @@
 
 int luat_drv_uart_setup(luat_uart_t* uart) {
     if (uart->id >= 10 && uart->id <= 19) {
+        if (uart->pin485 != 255 && uart->pin485 >= 128) {
+            uart->pin485 -= 128;
+        }
         return luat_airlink_drv_uart_setup(uart);
     }
     else {

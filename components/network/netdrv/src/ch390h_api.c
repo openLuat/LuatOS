@@ -151,6 +151,7 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
     uint8_t tmp[4] = {0};
     // 先假读一次
     luat_ch390h_read(ch, 0x70, 1, tmp);
+    tmp[0] = 0;
     // 真正读取一次
     luat_ch390h_read(ch, 0x70, 1, tmp);
     uint8_t MRCMDX = tmp[0];

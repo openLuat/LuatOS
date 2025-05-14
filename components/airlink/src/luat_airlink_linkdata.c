@@ -71,6 +71,7 @@ __USER_FUNC_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint
     dst[3] = 0x66;
 
     // 写入长度和crc16
+    memset(&data->flags, 0, sizeof(data->flags));
     data->len = len;
     data->pkgid = next_pkg_id++;
     memset(&data->flags, 0, sizeof(data->flags));

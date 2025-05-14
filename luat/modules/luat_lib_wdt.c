@@ -68,7 +68,7 @@ sys.wait(9000)
 wdt.close()
 */
 static int l_wdt_close(lua_State *L) {
-    int ret = luat_wdt_feed();
+    int ret = luat_wdt_close();
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

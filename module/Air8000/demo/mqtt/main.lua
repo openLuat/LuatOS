@@ -22,8 +22,8 @@ local client_id = "mqttx_b55c41b7"
 local user_name = "user"
 local password = "password"
 
-local pub_topic = "/luatos/pub/123"-- .. (mcu.unique_id():toHex())
-local sub_topic = "/luatos/sub/123"-- .. (mcu.unique_id():toHex())
+local pub_topic = "/luatos/pub/123"
+local sub_topic = "/luatos/sub/123"
 
 
 local mqttc = nil
@@ -33,8 +33,7 @@ gpio.setup(LEDA, 0, gpio.PULLUP)
 
 -- 统一联网函数
 sys.taskInit(function()
-    local device_id = mcu.unique_id():toHex()
-    device_id = mobile.imei()
+    local device_id = mobile.imei()
     -- 默认都等到联网成功
     sys.waitUntil("IP_READY")
     sys.publish("net_ready", device_id)

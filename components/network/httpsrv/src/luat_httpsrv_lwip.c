@@ -239,6 +239,8 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     int ret = tcpip_callback(client_resp, client);
     if (ret) {
         LLOGE("tcpip_callback %d", ret); // 这就很不好搞了
+        tcp_err(client->pcb, NULL);
+        tcp_sent(client->pcb, NULL);
         tcp_abort(client->pcb);
         client_cleanup(client);
     }

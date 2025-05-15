@@ -324,6 +324,9 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 
 #ifdef LUAT_USE_DRV_UART
 int luat_drv_uart_exist(int id) {
+	if (id >= LUAT_VUART_ID_0) 
+		return 1;
+
 	return id >= 0 && id <= MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT;
 }
 #endif

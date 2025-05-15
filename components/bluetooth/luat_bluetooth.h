@@ -31,6 +31,7 @@ typedef enum{
 #define LUAT_BLE_GATT_PERM_WRITE                    (0x01 << 4) // Write
 #define LUAT_BLE_GATT_PERM_IND                      (0x01 << 5) // Indication
 #define LUAT_BLE_GATT_PERM_NOTIFY                   (0x01 << 6) // Notification
+#define LUAT_BLE_GATT_PERM_WRITE_CMD                (0x01 << 7) // Write Command
 
 typedef enum{
     LUAT_ADV_TYPE_FLAGS = 0x01,
@@ -141,7 +142,7 @@ typedef struct{
 
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
-    uint16_t prf_id;        /**< The id of the profile */
+    uint16_t service_id;        /**< The id of the gatt service */
     uint16_t att_idx;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The length of the attribute value */
@@ -150,7 +151,7 @@ typedef struct{
 
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
-    uint16_t prf_id;        /**< The id of the profile */
+    uint16_t service_id;        /**< The id of the gatt service */
     uint16_t att_idx;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The data length read */
@@ -188,7 +189,6 @@ typedef struct{
 } luat_ble_gatt_chara_t;
 
 typedef struct {
-    uint16_t prf_id;
     uint8_t uuid[16];
     luat_ble_uuid_type uuid_type;
     luat_ble_gatt_chara_t* characteristics; // characteristics
@@ -261,7 +261,7 @@ int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
 
 int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
 
-int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t con_idx, uint16_t prf_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
+int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t conn_idx, uint16_t service_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
 
 
 // bt

@@ -15,10 +15,6 @@ httpplus = require("httpplus")
 
 gpio.setup(140, 1, gpio.PULLUP)
 
--- 通过boot按键方便刷Air8000S
-function PWR8000S(val)
-    gpio.set(23, val)
-end
 
 
 function test_ap()

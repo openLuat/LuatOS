@@ -6,11 +6,53 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
+--[[
+接线要求:
+
+SPI 使用常规4线解法
+开发板(Air105)         TF模块
+PB3                    CS
+PB2(SPI2_CLK)          CLK
+PB4(SPI2_MISO)         MOSI
+PB5(SPI2_MISO)         MISO
+3.3V                   VCC
+GND                    GND
+
+核心要义: 找对应SPI端口的3个脚, CLK时钟, MISO和MOSI, CS脚可以选硬件默认的,也可以自选一个普通GPIO
+
+SD/TF模块请选不带电平转换的版本!!
+https://detail.tmall.com/item.htm?abbucket=10&id=634710962749&ns=1&spm=a21n57.1.0.0.696f523csnpBFA&skuId=4710673879054
+
+如果是带电平转换的, SPI波特率要限制在10M或以下
+]]
+
+-- 特别提醒, 由于FAT32是DOS时代的产物, 文件名超过8个字节是需要额外支持的(需要更大的ROM)
+-- 例如 /sd/boottime 是合法文件名, 而/sd/boot_time就不是合法文件名, 需要启用长文件名支持.
+
 local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
-    return 1, 20    -- Air8000整机开发板上的pin_cs为gpio20
+    if rtos_bsp == "AIR101" then
+        return 0, pin.PB04
+    elseif rtos_bsp == "AIR103" then
+        return 0, pin.PB04
+    elseif rtos_bsp == "AIR105" then
+        return 2, pin.PB03
+    elseif rtos_bsp == "ESP32C3" then
+        return 2, 7
+    elseif rtos_bsp == "ESP32S3" then
+        return 2, 14
+    elseif rtos_bsp == "EC618" then
+        return 0, 8
+    elseif string.find(rtos_bsp,"EC718") then
+        return 0, 8
+    elseif string.find(rtos_bsp,"Air810") then
+        return 0, 3, fatfs.SDIO
+    else
+        log.info("main", "bsp not support")
+        return
+    end
 end
 
 sys.taskInit(function()
@@ -19,10 +61,12 @@ sys.taskInit(function()
 
     -- 此为spi方式
     local spi_id, pin_cs,tp = fatfs_spi_pin() 
-    -- 仅SPI方式需要自行初始化spi, sdio不需要
-    spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
-    gpio.setup(pin_cs, 1)
-    fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    if tp and tp == fatfs.SPI then
+        -- 仅SPI方式需要自行初始化spi, sdio不需要
+        spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
+        gpio.setup(pin_cs, 1)
+    end
+    fatfs.mount(tp or fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
     local data, err = fatfs.getfree("/sd")
     if data then

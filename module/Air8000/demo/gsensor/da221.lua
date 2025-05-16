@@ -1,5 +1,5 @@
 local i2cId = 0
-local intPin = 39
+local intPin = gpio.WAKEUP2
 -- 是否打印日志
 local logSwitch = true
 local moduleName = "da221"

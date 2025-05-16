@@ -1,4 +1,6 @@
 
+--使用5月13日编译的固件可以正常测试KC6089和HC-B202两款usb摄像头
+
 local httpplus = require "httpplus"
 
 local camera_id = camera.USB

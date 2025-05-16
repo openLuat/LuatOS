@@ -17,14 +17,11 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
     luat_ble_event_t ble_event = (luat_ble_event_t)msg->arg1;
     luat_ble_param_t* luat_ble_param = (luat_ble_param_t*)msg->arg2;
 
-    // if (luat_bluetooth->luat_ble->lua_cb) {
-        lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->luat_ble->lua_cb);
-        if (lua_isfunction(L, -1)) {
-            lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->bluetooth_ref);
-            lua_pushinteger(L, ble_event);
-            // lua_call(L, 2, 0);
-        }
-    // }
+    lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->luat_ble->lua_cb);
+    if (lua_isfunction(L, -1)) {
+        lua_geti(L, LUA_REGISTRYINDEX, luat_bluetooth->bluetooth_ref);
+        lua_pushinteger(L, ble_event);
+    }
 
     switch(ble_event){
         case LUAT_BLE_EVENT_WRITE:{
@@ -34,8 +31,8 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_pushliteral(L, "conn_idx"); 
             lua_pushinteger(L, write_req->conn_idx);
             lua_settable(L, -3);
-            lua_pushliteral(L, "prf_id"); 
-            lua_pushinteger(L, write_req->prf_id);
+            lua_pushliteral(L, "service_id"); 
+            lua_pushinteger(L, write_req->service_id+1);
             lua_settable(L, -3);
             lua_pushliteral(L, "att_idx"); 
             lua_pushinteger(L, write_req->att_idx + 1);
@@ -56,20 +53,15 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_pushliteral(L, "conn_idx"); 
             lua_pushinteger(L, read_req->conn_idx);
             lua_settable(L, -3);
-            lua_pushliteral(L, "prf_id"); 
-            lua_pushinteger(L, read_req->prf_id);
+            lua_pushliteral(L, "service_id"); 
+            lua_pushinteger(L, read_req->service_id+1);
             lua_settable(L, -3);
             lua_pushliteral(L, "att_idx"); 
             lua_pushinteger(L, read_req->att_idx + 1);
             lua_settable(L, -3);
-            lua_pushliteral(L, "data"); 
-            lua_pushlstring(L, (const char *)read_req->value, read_req->len);
-            lua_settable(L, -3);
 
             lua_call(L, 3, 0);
-            if (read_req->value){
-                luat_heap_free(read_req->value);
-            }
+
             break;
         }
         default:
@@ -84,23 +76,26 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
 
 static void luat_ble_cb(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param){
     LLOGD("ble event: %d", ble_event);
-    // luat_ble_param_t* luat_ble_param = NULL;
-    // if (ble_param){
-    //     luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
-    //     memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
-    //     if ((ble_event == LUAT_BLE_EVENT_WRITE || ble_event == LUAT_BLE_EVENT_READ) && ble_param->write_req.len){
-    //         luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.len);
-    //         memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.len);
-    //     }
-    // }
+    luat_ble_param_t* luat_ble_param = NULL;
+    if (ble_param){
+        LLOGD("ble param: %p", ble_param);
+        luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
+        memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
+        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.len){
+            luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.len);
+            memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.len);
+        }else if(ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.len){
+            LLOGD("ble read read_req value: %p", ble_param->read_req.value);
+        }
+    }
     
-    // rtos_msg_t msg = {
-    //     .handler = luatos_ble_callback,
-    //     .ptr = (void*)luat_bluetooth,
-    //     .arg1 = (int)ble_event,
-    //     .arg2 = (int)luat_ble_param,
-    // };
-    // luat_msgbus_put(&msg, 0);
+    rtos_msg_t msg = {
+        .handler = luatos_ble_callback,
+        .ptr = (void*)luat_bluetooth,
+        .arg1 = (int)ble_event,
+        .arg2 = (int)luat_ble_param,
+    };
+    luat_msgbus_put(&msg, 0);
 }
 
 static int l_bluetooth_create_ble(lua_State* L) {
@@ -134,12 +129,10 @@ static int l_ble_gatt_create(lua_State* L) {
     }
 
     luat_ble_gatt_cfg.service_num = luaL_len(L, 2);
-    LLOGD("service num: %d", luat_ble_gatt_cfg.service_num);
     luat_ble_gatt_cfg.service = (luat_ble_gatt_service_t*)luat_heap_malloc(sizeof(luat_ble_gatt_service_t) * luat_ble_gatt_cfg.service_num);
     for (size_t i = 1; i <= luat_ble_gatt_cfg.service_num; i++){
         lua_rawgeti(L, 2, i);
         int num = luaL_len(L, -1);
-        LLOGD("num num: %d", num);
         // service uuid
         if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
             const char* service_uuid = luaL_checklstring(L, -1, &len);
@@ -165,12 +158,11 @@ static int l_ble_gatt_create(lua_State* L) {
 
         // Characteristics
         luat_ble_gatt_cfg.service[i-1].characteristics_num = num-1;
-        LLOGD("characteristics num: %d", luat_ble_gatt_cfg.service[i-1].characteristics_num);
+        // LLOGD("characteristics num: %d", luat_ble_gatt_cfg.service[i-1].characteristics_num);
         luat_ble_gatt_cfg.service[i-1].characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_cfg.service[i-1].characteristics_num);
     
         for (size_t j = 2; j <= num; j++){
             if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
-                LLOGD("j: %d", j);
                 lua_rawgeti(L, -1, 1);
                 // Characteristics uuid
                 if (LUA_TSTRING == lua_type(L, -1)){
@@ -221,77 +213,6 @@ static int l_ble_gatt_create(lua_State* L) {
         }
     }
     luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
-
-
-
-
-    // int argc = lua_gettop(L);
-    // for (size_t m = 2; m <= argc; m++){
-    //     if (lua_type(L, m) != LUA_TTABLE){
-    //         LLOGE("error param");
-    //         return 0;
-    //     }
-    //     size_t len = 0;
-        
-    //     memset(luat_ble_gatt_cfg.uuid, 0x00, sizeof(luat_ble_gatt_cfg.uuid));
-    //     lua_pushstring(L, "uuid");
-    //     if (LUA_TSTRING == lua_gettable(L, m)){
-    //         const char* uuid_data = luaL_checklstring(L, -1, &len);
-    //         if (len == 2){
-    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_16;
-    //         }else if (len == 4){
-    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_32;
-    //         }else if (len == 16){
-    //             luat_ble_gatt_cfg.uuid_type = LUAT_BLE_UUID_TYPE_128;
-    //         }
-    //         luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.uuid_type);
-    //         memcpy(luat_ble_gatt_cfg.uuid, uuid_data, len);
-    //     }
-    //     lua_pop(L, 1);
-        
-    //     lua_pushstring(L, "att_db");
-    //     if (LUA_TTABLE == lua_gettable(L, m)){
-    //         luat_ble_gatt_cfg.att_db_num = luaL_len(L, -1);
-    //         luat_ble_gatt_cfg.att_db = (luat_ble_att_db_t*)luat_heap_malloc(sizeof(luat_ble_att_db_t) * luat_ble_gatt_cfg.att_db_num);
-    //         memset(luat_ble_gatt_cfg.att_db, 0x00, sizeof(luat_ble_att_db_t));
-    //         for (int i = 1; i <= luat_ble_gatt_cfg.att_db_num; i++) {
-    //             lua_rawgeti(L, -1, i);
-    //             int table_len = luaL_len(L, -1);
-    //             for (int j = 1; j <= table_len; j++){
-    //                 lua_rawgeti(L, -1, j);
-    //                 if (j == 1 && lua_type(L, -1) == LUA_TSTRING){
-    //                     const char* uuid_data = luaL_checklstring(L, -1, &len);
-    //                     if (len == 2){
-    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
-    //                     }else if (len == 4){
-    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_32;
-    //                     }else if (len == 16){
-    //                         luat_ble_gatt_cfg.att_db[i-1].uuid_type = LUAT_BLE_UUID_TYPE_128;
-    //                     }
-    //                     luat_ble_uuid_swap(uuid_data, luat_ble_gatt_cfg.att_db[i-1].uuid_type);
-    //                     memcpy(luat_ble_gatt_cfg.att_db[i-1].uuid, uuid_data, len);
-    //                 }else if(j == 2 && lua_type(L, -1) == LUA_TNUMBER){
-    //                     luat_ble_gatt_cfg.att_db[i-1].perm = (uint16_t)luaL_optnumber(L, -1, 0);
-    //                 }else if(j == 3 && lua_type(L, -1) == LUA_TNUMBER){
-    //                     luat_ble_gatt_cfg.att_db[i-1].max_size = (uint16_t)luaL_optnumber(L, -1, 256);
-    //                 }else{
-    //                     LLOGE("error att_db type");
-    //                     goto end; 
-    //                 }
-    //                 lua_pop(L, 1);
-    //             }
-    //             lua_pop(L, 1);
-    //         }
-    //     }else{
-    //         LLOGE("error att_db");
-    //         goto end;
-    //     }
-    //     lua_pop(L, 1);
-    //     luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
-    //     luat_heap_free(luat_ble_gatt_cfg.att_db);
-    //     luat_ble_gatt_cfg.prf_id++;
-    // }
-
 
     lua_pushboolean(L, 1);
     return 1;
@@ -402,13 +323,13 @@ end:
 }
 
 static int l_ble_advertising_start(lua_State* L) {
-    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
     lua_pushboolean(L, luat_ble_start_advertising(luat_bluetooth)?0:1);
     return 1;
 }
 
 static int l_ble_advertising_stop(lua_State* L) {
-    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
     lua_pushboolean(L, luat_ble_stop_advertising(luat_bluetooth)?0:1);
     return 1;
 }
@@ -422,6 +343,45 @@ static int l_bluetooth_init(lua_State* L) {
         luat_bluetooth->bluetooth_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         return 1;
     }
+    return 0;
+}
+
+static int l_ble_read_response(lua_State* L) {
+    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+    uint8_t conn_idx = 0;
+    uint16_t service_id, att_idx = 0;
+    if (luat_bluetooth) {
+        lua_pushstring(L, "conn_idx");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            conn_idx = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+        lua_pushstring(L, "service_id");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            service_id = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+        lua_pushstring(L, "att_idx");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            att_idx = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        size_t len = 0;
+        const char* response_data = luaL_checklstring(L, -1, &len);
+        LLOGD("read response conn_idx:%d service_id:%d att_idx:%d", conn_idx, service_id, att_idx);
+        luat_ble_read_response(luat_bluetooth, conn_idx, service_id-1, att_idx-1, len, (uint8_t *)response_data);
+
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
     return 0;
 }
 
@@ -442,6 +402,8 @@ static const rotable_Reg_t reg_bluetooth[] = {
     {"adv_create",                  ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start",                   ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop",                    ROREG_FUNC(l_ble_advertising_stop)},
+
+    {"read_response",               ROREG_FUNC(l_ble_read_response)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
@@ -478,6 +440,7 @@ static const rotable_Reg_t reg_bluetooth[] = {
     {"WRITE",                       ROREG_INT(LUAT_BLE_GATT_PERM_WRITE)},
     {"IND",                         ROREG_INT(LUAT_BLE_GATT_PERM_IND)},
     {"NOTIFY",                      ROREG_INT(LUAT_BLE_GATT_PERM_NOTIFY)},
+    {"WRITE_CMD",                   ROREG_INT(LUAT_BLE_GATT_PERM_WRITE_CMD)},
     // FLAGS
     {"FLAGS",                       ROREG_INT(LUAT_ADV_TYPE_FLAGS)},
     {"COMPLETE_LOCAL_NAME",         ROREG_INT(LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)},

@@ -1,0 +1,53 @@
+ {
+    " pins" : [
+      //RGB数据引脚24个
+       [42, "RGB_r[0]", "PIN42脚, 做RGB_r[0]用, 用作RGB中R的数据位0"],
+       [40, "RGB_r[1]", "PIN40脚, 做RGB_r[1]用, 用作RGB中R的数据位1"],
+       [43, "RGB_r[2]", "PIN43脚, 做RGB_r[2]用, 用作RGB中R的数据位2"],
+       [39, "RGB_r[3]", "PIN39脚, 做RGB_r[3]用, 用作RGB中R的数据位3"],
+       [44, "RGB_r[4]", "PIN44脚, 做RGB_r[4]用, 用作RGB中R的数据位4"],
+       [38, "RGB_r[5]", "PIN38脚, 做RGB_r[5]用, 用作RGB中R的数据位5"],
+       [45, "RGB_r[6]", "PIN45脚, 做RGB_r[0]用, 用作RGB中R的数据位6"],
+       [37, "RGB_r[7]", "PIN37脚, 做RGB_r[0]用, 用作RGB中R的数据位7"],
+
+       [46, "RGB_g[0]", "PIN46脚, 做RGB_g[0]用, 用作RGB中G的数据位0"],
+       [36, "RGB_g[1]", "PIN36脚, 做RGB_g[1]用, 用作RGB中G的数据位1"],
+       [47, "RGB_g[2]", "PIN47脚, 做RGB_g[2]用, 用作RGB中G的数据位2"],
+       [35, "RGB_g[3]", "PIN35脚, 做RGB_g[3]用, 用作RGB中G的数据位3"],
+       [48, "RGB_g[4]", "PIN48脚, 做RGB_g[4]用, 用作RGB中G的数据位4"],
+       [34, "RGB_g[5]", "PIN34脚, 做RGB_g[5]用, 用作RGB中G的数据位5"],
+       [49, "RGB_g[6]", "PIN49脚, 做RGB_g[0]用, 用作RGB中G的数据位6"],
+       [33, "RGB_g[7]", "PIN33脚, 做RGB_g[0]用, 用作RGB中G的数据位7"],
+
+       [50, "RGB_b[0]", "PIN50脚, 做RGB_b[0]用, 用作RGB中B的数据位0"],
+       [32, "RGB_b[1]", "PIN32脚, 做RGB_b[1]用, 用作RGB中B的数据位1"],
+       [51, "RGB_b[2]", "PIN51脚, 做RGB_b[2]用, 用作RGB中B的数据位2"],
+       [31, "RGB_b[3]", "PIN31脚, 做RGB_b[3]用, 用作RGB中B的数据位3"],
+       [52, "RGB_b[4]", "PIN52脚, 做RGB_b[4]用, 用作RGB中B的数据位4"],
+       [30, "RGB_b[5]", "PIN30脚, 做RGB_b[5]用, 用作RGB中B的数据位5"],
+       [53, "RGB_b[6]", "PIN53脚, 做RGB_b[0]用, 用作RGB中B的数据位6"],
+       [29, "RGB_b[7]", "PIN29脚, 做RGB_b[0]用, 用作RGB中B的数据位7"],
+
+       //RGB控制引脚5个
+       [28, "RGB_dclk", "PIN28脚, 做RGB_dclk用, 用作RGB中的同步时钟信号"],
+       [54, "RGB_disp", "PIN54脚, 做RGB_disp用, 用作RGB中的待机模式选择功能"],
+       [55, "RGB_hsync", "PIN55脚, 做RGB_hsync用, 用作RGB中的行同步信号"],
+       [56, "RGB_vsync", "PIN56脚, 做RGB_vsync用, 用作RGB中的列同步信号"],
+       [57, "RGB_de", "PIN57脚, 做RGB_de用, 用作RGB中的数据有效使能信号"],
+
+       //LCD控制引脚5个
+       [8, "GPIO5", "PIN8脚, 做GPIO5用, 用作LCD背光控制"],
+       [13, "GPIO9", "PIN13脚, 做GPIO9用, 用作LCD复位控制"],
+       [14, "GPIO8", "PIN14脚, 做GPIO8用, 用作LCD数据输入"],
+       [75, "GPIO28", "PIN75脚, 做GPIO28用, 用作LCD时钟信号"],
+       [68, "GPIO12", "PIN68脚, 做GPIO12用, 用作LCD片选控制"],
+
+
+       //TP控制引脚4个
+       [9, "GPIO6", "PIN9脚, 做GPIO6用, 用作TP RST控制"],
+       [10, "GPIO7", "PIN10脚, 做GPIO7用, 用作TP INT控制"],
+       [12, "I2C1_SCL", "PIN12脚, 做I2C1_SCL用, 用作TP I2C时钟信号"],
+       [11, "I2C1_SDA", "PIN11脚, 做I2C1_SDA用, 用作TP I2C数据信号"],
+
+    ]
+ }

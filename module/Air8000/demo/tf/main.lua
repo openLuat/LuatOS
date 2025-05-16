@@ -10,7 +10,7 @@ local rtos_bsp = rtos.bsp()
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
-    return 1, 17
+    return 1, 20    -- Air8000整机开发板上的pin_cs为gpio20
 end
 
 sys.taskInit(function()
@@ -23,7 +23,6 @@ sys.taskInit(function()
     spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
     gpio.setup(pin_cs, 1)
     fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
-    -- fatfs.mount(fatfs.SDIO, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
     local data, err = fatfs.getfree("/sd")
     if data then

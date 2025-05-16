@@ -74,8 +74,10 @@ end
 function audio_setup()
 		local i2c_id = 0            -- i2c_id 0
 
-		local pa_pin = 16           -- 喇叭pa功放脚
-		local power_pin = 8         -- es8311电源脚
+        local pa_pin = 162           -- 喇叭pa功放脚
+        local power_pin = 164         -- es8311电源脚
+
+
 
 		local i2s_id = 0            -- i2s_id 0
 		local i2s_mode = 0          -- i2s模式 0 主机 1 从机
@@ -94,6 +96,8 @@ function audio_setup()
 
 		local voice_vol = 70        -- 喇叭音量
 		local mic_vol = 80          -- 麦克风音量
+        gpio.setup(power_pin, 1, gpio.PULLUP)         
+        gpio.setup(pa_pin, 1, gpio.PULLUP)
 		pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
 		sys.wait(100)
 		pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电

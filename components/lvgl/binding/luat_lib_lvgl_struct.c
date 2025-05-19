@@ -478,6 +478,7 @@ int _lvgl_struct_img_dsc_t_newindex(lua_State *L) {
 
 int _lvgl_struct_style_t_gc(lua_State *L) {
     lv_style_t *style = (lv_style_t *) lua_touserdata(L, 1);
+    LLOGI("执行_lvgl_struct_style_t_gc %p", style);
     if (style != NULL) {
         lv_style_reset(style);
     }

@@ -46,14 +46,6 @@ function test_ap()
     end
     log.info("netdrv", "创建dns代理服务, 供AP使用")
     dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
-    while 1 do
-        if netdrv.ready(socket.LWIP_GP) then
-            log.info("netdrv", "4G作为网关")
-            netdrv.napt(socket.LWIP_GP)
-            break
-        end
-        sys.wait(1000)
-    end
 end
 
 sys.subscribe("PING_RESULT", function(id, time, dst)
@@ -116,10 +108,19 @@ sys.taskInit(function()
     while airlink.ready() ~= true do
         sys.wait(100)
     end
-    eth_lan()
     wlan.init()
-    sys.wait(300)
-    test_ap()
+    sys.taskInit(eth_lan)
+    sys.taskInit(test_ap)
+
+    
+    while 1 do
+        if netdrv.ready(socket.LWIP_GP) then
+            log.info("netdrv", "4G作为网关")
+            netdrv.napt(socket.LWIP_GP)
+            break
+        end
+        sys.wait(1000)
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

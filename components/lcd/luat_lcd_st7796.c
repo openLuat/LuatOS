@@ -27,7 +27,7 @@ luat_lcd_opts_t lcd_opts_st7796 = {
     .init_cmds_len = sizeof(st7796_init_cmds)/sizeof(st7796_init_cmds[0]),
     .init_cmds = st7796_init_cmds,
     .direction0 = 0x48,
-    .direction90 = 0x88,
-    .direction180 = 0x28,
+    .direction90 = 0x28,
+    .direction180 = 0x88,
     .direction270 = 0xE8
 };

@@ -21,6 +21,9 @@
 CMD_DEFINE(ping);
 CMD_DEFINE(pong);
 CMD_DEFINE(reset);
+CMD_DEFINE(result);
+
+
 CMD_DEFINE(fota_init);
 CMD_DEFINE(fota_write);
 CMD_DEFINE(fota_done);
@@ -51,7 +54,8 @@ CMD_DEFINE(wlan_set_mac);
 // GPIO指令, 0x300开始
 CMD_DEFINE(gpio_setup);
 CMD_DEFINE(gpio_set);
-// CMD_DEFINE(gpio_get);
+CMD_DEFINE(gpio_get);
+CMD_DEFINE(gpio_get_result);
 
 // UART指令, 0x400开始
 CMD_DEFINE(uart_setup);
@@ -64,6 +68,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x100, ip_pkg),
     CMD_REG(0x03,  reset),
+    CMD_REG(0x08,  result),
 #ifdef LUAT_USE_AIRLINK_EXEC_SDATA
     CMD_REG(0x20,  sdata),
 #endif
@@ -97,6 +102,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO
     CMD_REG(0x300, gpio_setup),
     CMD_REG(0x301, gpio_set),
+    CMD_REG(0x302, gpio_get),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_UART

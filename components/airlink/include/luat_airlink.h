@@ -114,6 +114,7 @@ int luat_airlink_cmd_recv_simple(airlink_queue_item_t* cmd);
 int luat_airlink_queue_send_ippkg(uint8_t adapter_id, uint8_t* data, size_t len);
 
 void luat_airlink_send2slave(luat_airlink_cmd_t* cmd);
+int luat_airlink_result_send(uint8_t* buff, size_t len);
 
 void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len);
 void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len);
@@ -258,6 +259,21 @@ int luat_airlink_syspub_addnil(const uint8_t *dst, uint32_t limit);
 int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit);
 
 int luat_airlink_syspub_send(uint8_t* buff, size_t len);
+
+struct luat_airlink_result_reg;
+typedef void (*airlink_result_exec)(struct luat_airlink_result_reg *reg, luat_airlink_cmd_t* cmd);
+
+typedef struct luat_airlink_result_reg
+{
+    uint64_t tm;
+    uint64_t id;
+    void* userdata;
+    void* userdata2;
+    airlink_result_exec exec;
+    airlink_result_exec cleanup;
+}luat_airlink_result_reg_t;
+
+int luat_airlink_result_reg(luat_airlink_result_reg_t* reg);
 
 
 #ifdef TYPE_EC718M

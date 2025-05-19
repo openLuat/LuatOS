@@ -118,8 +118,13 @@ static int l_tp_init(lua_State* L){
     if (lcd_conf){
         luat_tp_config->w = lcd_conf->w;
         luat_tp_config->h = lcd_conf->h;
-        if (lcd_conf->opts->direction90 || lcd_conf->opts->direction270){
-            luat_tp_config->swap_xy = 1;
+        luat_tp_config->direction = lcd_conf->direction;
+        if (lcd_conf->direction == LUAT_LCD_ROTATE_0 || lcd_conf->direction == LUAT_LCD_ROTATE_180){
+            luat_tp_config->w = lcd_conf->w;
+            luat_tp_config->h = lcd_conf->h;
+        }else{
+            luat_tp_config->w = lcd_conf->h;
+            luat_tp_config->h = lcd_conf->w;
         }
     }
 #endif
@@ -191,6 +196,12 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->tp_num = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
+
+    // lua_pushstring(L, "swap_xy");
+    // if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+    //     luat_tp_config->swap_xy = lua_toboolean(L, -1);
+    // }
+    // lua_pop(L, 1);
 
     ret = luat_tp_init(luat_tp_config);
     if (ret){

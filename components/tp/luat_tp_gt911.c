@@ -276,7 +276,7 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] &= 0xFC;
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] |= 0x01;
 	}
-
+    LLOGD("swap_xy:%d",luat_tp_config->swap_xy);
 	// xy cordinate swap.
 	if (luat_tp_config->swap_xy){
 		cfg_table[GT911_MODULE_SWITCH1 - GT911_CONFIG_REG] &= 0xF7;

@@ -16,6 +16,22 @@ void luat_tp_task_entry(void* param){
         luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
         luat_tp_data_t* tp_data = luat_tp_config->tp_data;
         luat_tp_config->opts->read(luat_tp_config,tp_data);
+        uint16_t coordinate_tmp;
+
+        if (luat_tp_config->direction == LUAT_TP_ROTATE_90){
+            coordinate_tmp = tp_data->x_coordinate;
+            tp_data->x_coordinate = tp_data->y_coordinate;
+            tp_data->y_coordinate = luat_tp_config->w - coordinate_tmp;
+        }else if (luat_tp_config->direction == LUAT_TP_ROTATE_180){
+            coordinate_tmp = tp_data->y_coordinate;
+            tp_data->x_coordinate = luat_tp_config->w - tp_data->x_coordinate;
+            tp_data->y_coordinate = luat_tp_config->h - coordinate_tmp;
+        }else if (luat_tp_config->direction == LUAT_TP_ROTATE_270){
+            coordinate_tmp = tp_data->x_coordinate;
+            tp_data->x_coordinate = luat_tp_config->h - tp_data->y_coordinate;
+            tp_data->y_coordinate = coordinate_tmp;
+        }
+        
 
         if (luat_tp_config->callback == NULL){
         	luat_tp_config->opts->read_done(luat_tp_config);

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8" />
+    <title>Air8000 Wi-Fi 配置系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h2, h4 {
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+    <script type="text/javascript">
+        function led(key) {
+            fetch("/led/" + key)
+        }
+        function setAP() {
+            var ssid = document.getElementById("ssid").value;
+            var passwd = document.getElementById("passwd").value;
+            fetch('/setap', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ ssid: ssid, passwd: passwd })
+            }).then(function (resp) {
+                if (resp.status == 200) {
+                    alert("AP配置成功，正在重启...")
+                } else {
+                    alert("配置失败，请重试")
+                }
+            })
+        }
+        function startAP() {
+            fetch("/startap").then(function (resp) {
+                if (resp.status == 200) {
+                    alert("AP模式已启动")
+                } else {
+                    alert("启动失败")
+                }
+            })
+        }
+        function getAPStatus() {
+            fetch("/apstatus").then(function (resp) {
+                if (resp.status == 200) {
+                    resp.json().then(function (data) {
+                        document.getElementById("apstatus").innerHTML = data.status
+                    })
+                }
+            })
+        }
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Air8000工业引擎 Wi-Fi 配置系统</h1>
+        <h2>LED 控制</h2>
+        <div>
+            <button onclick="led(1)">LED亮</button>
+            <button onclick="led(0)">LED灭</button>
+        </div>
+
+        <h2>AP模式配置</h2>
+        <div>
+            <button onclick="startAP()">启动AP模式</button>
+        </div>
+        <div>
+            <h4>AP状态:</h4>
+            <span id="apstatus" class="status">未启动</span>
+            <button onclick="getAPStatus()">检查状态</button>
+        </div>
+        <div>
+            <h4>设置AP账号和密码</h4>
+            <input type="text" id="ssid" placeholder="输入AP名称" />
+            <input type="password" id="passwd" placeholder="输入AP密码" />
+            <button onclick="setAP()">保存配置</button>
+        </div>
+        <div>
+            <h4>Power by <a href="https://docs.openluat.com/osapi/lutos_framework/">LuatOS</a></h4>
+        </div>
+    </div>
+</body>
+
+</html>

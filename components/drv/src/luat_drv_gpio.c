@@ -53,3 +53,17 @@ int luat_drv_gpio_setup(luat_gpio_t* gpio) {
         return luat_airlink_drv_gpio_setup(gpio);
     }
 }
+
+
+int luat_drv_gpio_get(int pin, int* val) {
+    if (pin < 0 || pin >= 255) {
+        return -2;
+    }
+    if (pin < 128) {
+        *val = luat_gpio_get(pin);
+        return 0;
+    }
+    else {
+        return luat_airlink_drv_gpio_get(pin, val);
+    }
+}

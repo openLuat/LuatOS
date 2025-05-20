@@ -9,7 +9,7 @@ dnsproxy = require "dnsproxy"
 sys.taskInit(function ()
     -- sys.wait(3000)
     local result = spi.setup(
-        0,--串口id
+        0,--spi id
         nil,
         0,--CPHA
         0,--CPOL

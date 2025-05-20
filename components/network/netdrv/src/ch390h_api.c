@@ -18,34 +18,40 @@
 
 int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) {
     char tmp[1] = {0};
+    int ret = 0;
     luat_spi_lock(ch->spiid);
-    luat_gpio_set(ch->cspin, 0);
     if (addr == 0x72) {
         tmp[0] = addr;
-        luat_spi_send(ch->spiid, tmp, 1);
+        luat_gpio_set(ch->cspin, 0);
+        ret = luat_spi_send(ch->spiid, tmp, 1);
+        if (ret != 1) {
+            LLOGE("luat_spi_send 1 but ret %d", ret);
+        }
         char* ptr = (char*)buff;
         while (count > 0) {
-            if (count > 64) {
-                luat_spi_recv(ch->spiid, ptr, 64);
-                count -= 64;
-                ptr += 64;
+            if (count > 256) {
+                ret = luat_spi_recv(ch->spiid, ptr, 256);
+                count -= 256;
+                ptr += 256;
             }
             else {
-                luat_spi_recv(ch->spiid, ptr, count);
+                ret = luat_spi_recv(ch->spiid, ptr, count);
                 break;
             }
         }
+        luat_gpio_set(ch->cspin, 1);
     }
     else {
         for (size_t i = 0; i < count; i++)
         {
             tmp[0] = addr + i;
+            luat_gpio_set(ch->cspin, 0);
             luat_spi_send(ch->spiid, tmp, 1);
             luat_spi_recv(ch->spiid, (char*)&buff[i], 1);
+            luat_gpio_set(ch->cspin, 1);
         }
     }
 
-    luat_gpio_set(ch->cspin, 1);
     luat_spi_unlock(ch->spiid);
     return 0;
 }
@@ -56,26 +62,28 @@ int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff)
         // LLOGI("分配txtmp缓冲区 3k");
         s_txtmp = luat_heap_malloc(3 * 1024);
     }
-    luat_spi_lock(ch->spiid);
-    luat_gpio_set(ch->cspin, 0);
     if (count > 1600) {
         return 0; // 直接不发送
     }
+    luat_spi_lock(ch->spiid);
     if (addr == 0x78) {
         s_txtmp[0] = addr | 0x80;
         memcpy(s_txtmp+1, buff, count);
+        luat_gpio_set(ch->cspin, 0);
         luat_spi_send(ch->spiid, (const char* )s_txtmp, 1 + count);
+        luat_gpio_set(ch->cspin, 1);
     }
     else {
         for (size_t i = 0; i < count; i++)
         {
             s_txtmp[0] = (addr + i) | 0x80;
             s_txtmp[1] = buff[i];
+            luat_gpio_set(ch->cspin, 0);
             luat_spi_send(ch->spiid, (const char* )s_txtmp, 2);
+            luat_gpio_set(ch->cspin, 1);
         }
     }
 
-    luat_gpio_set(ch->cspin, 1);
     luat_spi_unlock(ch->spiid);
     return 0;
 }
@@ -155,10 +163,17 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
     // 真正读取一次
     luat_ch390h_read(ch, 0x70, 1, tmp);
     uint8_t MRCMDX = tmp[0];
+    uint8_t MRCMDX2 = tmp[0];
     if (MRCMDX & 0xFE) {
         // 出错了!!
-        LLOGW("MRCMDX %02X !!! reset self", MRCMDX);
-        return -1;
+        // 再读一次
+        luat_ch390h_read(ch, 0x70, 1, tmp);
+        luat_ch390h_read(ch, 0x70, 1, tmp);
+        MRCMDX2 = tmp[0];
+        if (MRCMDX2 & 0xFE) {
+            LLOGW("MRCMDX %02X/%02X !!! reset self", MRCMDX, MRCMDX2);
+            return -1;
+        }
     }
     if ((MRCMDX & 0x01) == 0) {
         // 没有数据

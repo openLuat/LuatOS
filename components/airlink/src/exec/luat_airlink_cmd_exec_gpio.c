@@ -53,3 +53,18 @@ int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
     LLOGD("收到GPIO设置指令!!! pin %d level %d ret %d", params[0], params[1], ret);
     return 0;
 }
+
+
+int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
+    LLOGD("收到GPIO读取指令!!!");
+    uint8_t params[10];
+    memcpy(params, cmd->data, 9);
+    if (params[0] >= 128) {
+        params[0] -= 128;
+    }
+    params[9] = luat_gpio_get(params[8]);
+    LLOGD("收到GPIO读取指令!!! pin %d level %d", params[8], params[9]);
+    // 反馈读取结果
+    luat_airlink_result_send(params, 10);
+    return 0;
+}

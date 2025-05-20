@@ -10,6 +10,12 @@
 typedef struct luat_tp_config luat_tp_config_t;
 typedef struct luat_tp_opts luat_tp_opts_t;
 
+enum{
+    LUAT_TP_ROTATE_0 = 0,
+    LUAT_TP_ROTATE_90,
+    LUAT_TP_ROTATE_180,
+    LUAT_TP_ROTATE_270,
+};
 
 typedef struct{
 	uint32_t         timestamp;
@@ -28,6 +34,7 @@ typedef struct luat_tp_config{
     uint8_t pin_rst;
     uint8_t pin_int;
     uint8_t swap_xy;
+    uint8_t direction;  // 旋转方向(软件控制) 
     uint8_t refresh_rate;
     uint8_t tp_num;
     uint8_t int_type;

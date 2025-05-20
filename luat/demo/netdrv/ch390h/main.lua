@@ -12,8 +12,8 @@ sysplus = require("sysplus")
 log.info("ch390", "打开LDO供电")
 gpio.setup(20, 1)  --打开lan供电
 
--- require "lan"
-require "wan"
+require "lan"
+-- require "wan"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

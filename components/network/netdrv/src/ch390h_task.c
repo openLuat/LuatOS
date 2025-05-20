@@ -229,6 +229,11 @@ static void netdrv_netif_input(void* args) {
 static int check_vid_pid(ch390h_t* ch) {
     uint8_t buff[6] = {0};
     luat_ch390h_read_vid_pid(ch, buff);
+    if (0 == memcmp(buff, "\x00\x1C\x51\x91", 4)) {
+        return 0; // 第一次就读取成功, 那就马上返回
+    }
+    // 再读一次
+    luat_ch390h_read_vid_pid(ch, buff);
     if (0 != memcmp(buff, "\x00\x1C\x51\x91", 4)) {
         uint64_t tnow = luat_mcu_tick64_ms();
         if (tnow - warn_vid_pid_tm > 2000) {

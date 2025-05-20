@@ -472,10 +472,26 @@ static int l_gpio_set(lua_State *L) {
 gpio.get(17)
 */
 static int l_gpio_get(lua_State *L) {
-    if (lua_isinteger(L, lua_upvalueindex(1)))
-        lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, lua_upvalueindex(1))) & 0x01 ? 1 : 0);
-    else
-        lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, 1)) & 0x01 ? 1 : 0);
+    int upindex = lua_upvalueindex(1);
+    int value = 0;
+    int pin = 0;
+    if (lua_isinteger(L, upindex)) {
+        pin = luaL_checkinteger(L, upindex);
+    }
+    else {
+        pin = luaL_checkinteger(L, 1);
+    }
+    if (pin != 255) {
+        #if defined(LUAT_USE_DRV_GPIO)
+        int ret = luat_drv_gpio_get(pin, &value) & 0x01 ? 1 : 0;
+        if (ret == 0) {
+            value = (value & 0x01) ? 1 : 0;
+        }
+        #else
+        value = luat_gpio_get(pin) & 0x01 ? 1 : 0;
+        #endif
+    }
+    lua_pushinteger(L, value);
     return 1;
 }
 

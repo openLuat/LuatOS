@@ -441,3 +441,60 @@ int luat_airlink_syspub_send(uint8_t* buff, size_t len) {
     luat_airlink_cmd_free(cmd);
     return 0;
 }
+
+
+static luat_rtos_mutex_t reg_mutex;
+static luat_airlink_result_reg_t regs[64];
+
+int luat_airlink_result_reg(luat_airlink_result_reg_t* reg) {
+    if (reg_mutex == NULL) {
+        reg_mutex = luat_rtos_mutex_create(&reg_mutex);
+    }
+    luat_rtos_mutex_lock(reg_mutex, 1000);
+    for (size_t i = 0; i < 64; i++)
+    {
+        if (regs[i].tm == 0) {
+            memcpy(&regs[i], reg, sizeof(luat_airlink_result_reg_t));
+            luat_rtos_mutex_unlock(reg_mutex);
+            return 0;
+        }
+    }
+    luat_rtos_mutex_unlock(reg_mutex);
+    return -1;
+}
+
+int luat_airlink_cmd_exec_result(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (reg_mutex == NULL) {
+        reg_mutex = luat_rtos_mutex_create(&reg_mutex);
+    }
+    if (cmd->len < 16) {
+        LLOGE("对端设备返回的result长度不足16字节 %d", cmd->len); 
+        return 0;
+    }
+    uint64_t id = 0;
+    memcpy(&id, cmd->data + 8, 8);
+
+    luat_rtos_mutex_lock(reg_mutex, 1000);
+    for (size_t i = 0; i < 64; i++)
+    {
+        if (memcmp(&regs[i].id, &id, 8) == 0) {
+            regs[i].exec(&regs[i], cmd);
+            memset(&regs[i], 0, sizeof(luat_airlink_result_reg_t));
+            luat_rtos_mutex_unlock(reg_mutex);
+            return 0;
+        }
+    }
+    luat_rtos_mutex_unlock(reg_mutex);
+    return -1;
+}
+
+int luat_airlink_result_send(uint8_t* buff, size_t len) {
+    // LLOGD("传输syspub命令数据 %d", len);
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x08, 8 + len);
+    uint64_t pkgid = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &pkgid, 8);
+    memcpy(cmd->data + 8, buff, len);
+    luat_airlink_send2slave(cmd);
+    luat_airlink_cmd_free(cmd);
+    return 0;
+}

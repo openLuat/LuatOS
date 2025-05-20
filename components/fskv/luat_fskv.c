@@ -86,8 +86,7 @@ static int luat_fskv_lfs_init(uint32_t fskv_address, uint32_t total_len) {
         fskv_lfs->conf.block_size = LFS_BLOCK_DEVICE_ERASE_SIZE;
         fskv_lfs->conf.block_cycles = 200;
         fskv_lfs->conf.name_max = 63;
-        fskv_lfs->conf.read_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
-        fskv_lfs->conf.cache_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
+        fskv_lfs->conf.read_size = LFS_BLOCK_DEVICE_READ_SIZE;
         fskv_lfs->conf.prog_size = LFS_BLOCK_DEVICE_PROG_SIZE;
         fskv_lfs->conf.cache_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
         fskv_lfs->conf.lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;

@@ -57,7 +57,7 @@ local REG_CONFIG_1 = 0x07        -- 配置端口1
 --         必须传入，不允许为空；
 
 --返回值：成功返回true，失败返回false
-function write_register(reg, value)
+local function write_register(reg, value)
     local data = {reg, value}
     local result = i2c.send(AirGPIO_1000.i2c_id, AirGPIO_1000.slave_address, data)
     return result
@@ -71,7 +71,7 @@ end
 --         必须传入，不允许为空；
 
 --返回值：成功返回1个字节的number类型，失败返回nil
-function read_register(reg)
+local function read_register(reg)
     i2c.send(AirGPIO_1000.i2c_id, AirGPIO_1000.slave_address, reg)
     local data = i2c.recv(AirGPIO_1000.i2c_id, AirGPIO_1000.slave_address, 1)
     if data and #data == 1 then

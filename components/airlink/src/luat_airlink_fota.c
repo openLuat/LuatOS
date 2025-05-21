@@ -117,14 +117,16 @@ void airlink_sfota_exec(void)
             break;
         }
         sent_size += ret;
-        if (sent_size % (64 * 1024) == 0)
+        if (sent_size % (4 * 1024) == 0)
         {
             // 每64k打印一次日志
             LLOGD("sfota sent %ld/%ld head %02X%02X%02X%02X", sent_size, g_airlink_fota->total_size,
                   s_airlink_fota_rxbuff[0], s_airlink_fota_rxbuff[1], s_airlink_fota_rxbuff[2], s_airlink_fota_rxbuff[3]);
         }
         pack_and_send(0x05, s_airlink_fota_rxbuff, ret);
-        if (sent_size == (5 * 1024))
+         // 在5.10开始的wifi固件, 仅在8k的位置需要等待 5秒
+         // 在4.24及之前的固件, 卡顿的位置在5k写入之后, 等待15秒
+        if (sent_size == (8 * 1024))
         {
             // 到达5k后, bk的fota实现需要擦除APP分区,耗时比较久, 需要区分
             if (g_airlink_fota->wait_first_data)
@@ -133,7 +135,7 @@ void airlink_sfota_exec(void)
             }
             else
             {
-                luat_rtos_task_sleep(15000);
+                luat_rtos_task_sleep(5000);
             }
         }
         else if (wait_timeout > 0)

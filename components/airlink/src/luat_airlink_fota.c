@@ -135,7 +135,8 @@ void airlink_sfota_exec(void)
             }
             else
             {
-                luat_rtos_task_sleep(5000);
+                // luat_rtos_task_sleep(5000);
+                luat_rtos_task_sleep(8000);
             }
         }
         else if (wait_timeout > 0)

@@ -96,7 +96,7 @@ def main():
         logging.debug("dft alt %s : %s" % (tp, ",".join(slist[tp])))
 
     model = os.path.basename(path).split(".")[0]
-    dst = os.path.join("..", "..", "..", "demo", "pins", model + "_test.lua")
+    dst = os.path.join("..", "..", "..", "luat", "demo", "pins", model + "_test.lua")
     with open(dst, "w+", encoding='utf-8') as f:
         f.write(autotest_script)
 

@@ -2,14 +2,14 @@
 PROJECT = "Air8000_AP_Config"
 VERSION = "1.0.0"
 
--- 引入必要的库文件(lua编写), 内部库不需要require
+-- 引入必要的库文件
 sys = require("sys")
 sysplus = require("sysplus")
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 
--- 初始化LED灯, 根据实际GPIO修改
-local LEDA = gpio.setup(12, 0, gpio.PULLUP)
+-- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改
+local LEDA = gpio.setup(20, 0, gpio.PULLUP)
 
 -- AP模式配置，如果未在WEB网页配置AP账号和密码，默认为如下ssid和passwd
 local ap_config = {

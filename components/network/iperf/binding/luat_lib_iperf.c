@@ -16,6 +16,7 @@
 #include "luat_netdrv.h"
 #include "luat_msgbus.h"
 #include "lwip/ip.h"
+#include "lwip/tcpip.h"
 
 #define LUAT_LOG_TAG "iperf"
 #include "luat_log.h"
@@ -49,9 +50,33 @@ static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
     luat_msgbus_put(&msg, 0);
 }
 
-static int start_gogogo(int adpater_id, int is_server, const ip_addr_t* remote_ip) {
+typedef struct iperf_start_ctx {
+    luat_netdrv_t* drv;
+    uint8_t mode;
+    const ip_addr_t* remote_ip;
+}iperf_start_ctx_t;
+
+static void iperf_start_cb(void* args) {
     char buff[64] = {0};
     char buff2[64] = {0};
+    iperf_start_ctx_t* ctx = (iperf_start_ctx_t*)args;
+    uint8_t is_server = ctx->mode;
+    luat_netdrv_t* drv = ctx->drv;
+    const ip_addr_t* remote_ip = ctx->remote_ip;
+    ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
+    LLOGD("启动iperf %s %p", is_server ? "server" : "client", remote_ip);
+    if (is_server) {
+        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, iperf_report_cb, NULL);
+        LLOGD("iperf listen %s:5001", buff);
+    }
+    else {
+        luat_lwiperf_start_tcp_client(remote_ip, 5001, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
+        ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
+        LLOGD("iperf connect %s --> %s:5001", buff, buff2);
+    }
+}
+
+static int start_gogogo(int adpater_id, int is_server, const ip_addr_t* remote_ip) {
     if (adpater_id < 0 || adpater_id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         // 必须明确指定合法的索引号
         LLOGE("非法的网络适配器索引号 %d", adpater_id);
@@ -67,16 +92,12 @@ static int start_gogogo(int adpater_id, int is_server, const ip_addr_t* remote_i
         LLOGE("该网络还没就绪, 无法启动");
         return 0;
     }
-    ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
-    if (is_server) {
-        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, iperf_report_cb, NULL);
-        LLOGD("iperf listen %s:5001", buff);
-    }
-    else {
-        ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
-        luat_lwiperf_start_tcp_client(remote_ip, 5001, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
-        LLOGD("iperf connect %s --> %s:5001", buff, buff2);
-    }
+    iperf_start_ctx_t ctx = {
+        .drv = drv,
+        .mode = is_server,
+        .remote_ip = remote_ip
+    };
+    tcpip_callback_with_block(iperf_start_cb, &ctx, 1);
     return iperf_session != NULL;
 }
 

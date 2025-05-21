@@ -86,8 +86,8 @@ static void iperf_free(size_t line, void* ptr);
     the heap */
  #undef LWIPERF_ALLOC
  #ifndef LWIPERF_ALLOC
- #define LWIPERF_ALLOC(type)         iperf_malloc(__LINE__, sizeof(type))
- #define LWIPERF_FREE(type, item)    iperf_free(__LINE__, item)
+ #define LWIPERF_ALLOC(type)         iperf_malloc(sizeof(type), sizeof(type))
+ #define LWIPERF_FREE(type, item)    iperf_free(sizeof(type), item)
  #endif
  
  /** If this is 1, check that received data has the correct format */
@@ -870,7 +870,8 @@ static void iperf_free(size_t line, void* ptr);
  }
 
 static void* iperf_malloc(size_t line, size_t len) {
-  void* ptr = luat_heap_malloc(len);
+  void* ptr = luat_heap_malloc(len + 4096);
+  ptr = luat_heap_malloc(len + 4096);
   LLOGD("iperf_malloc %d %d 0x%p", line, len, ptr);
   return ptr;
 }

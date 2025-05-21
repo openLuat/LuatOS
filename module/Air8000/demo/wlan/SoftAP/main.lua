@@ -1,98 +1,136 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "Air8000_AP_Config"
+PROJECT = "WIFI_AP"
 VERSION = "1.0.0"
+--[[
+本demo演示AP的配网实例
+1. 启动后, 会创建一个 luatos_8888 地址的热点
+2. 热点密码是 12345678
+3. 热点网关是 192.168.4.1, 同时也是配网网页的ip
+4. http://192.168.4.1
+]]
 
--- 引入必要的库文件
-sys = require("sys")
-sysplus = require("sysplus")
+-- sys库是标配
+_G.sys = require("sys")
+require "sysplus"
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
+httpplus = require("httpplus")
 
 -- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改
 local LEDA = gpio.setup(20, 0, gpio.PULLUP)
 
--- AP模式配置，如果未在WEB网页配置AP账号和密码，默认为如下ssid和passwd
-local ap_config = {
-    ssid = "Air8000_AP",
-    passwd = "12345678",
-    gateway = "192.168.4.1",
-    netmask = "255.255.255.0",
-    channel = 6
-}
-
--- 保存的AP状态
-local ap_status = "未启动"
-
-sys.taskInit(function()
+function create_ap()
+    log.info("执行AP创建操作", "luatos8888")
+    wlan.createAP("luatos8888", "12345678")
     sys.wait(1000)
-    -- STA模式连接到路由器，此处修改为你的 STA SSID 和密码
-    wlan.init()
-    wlan.connect("luatos1234", "12341234", 1) -- 替换为你的 STA 配置
-    log.info("wlan", "waiting for IP_READY in STA mode")
-
-    while not wlan.ready() do
-        local ret, ip = sys.waitUntil("IP_READY", 30000)
-        log.info("ip", ret, ip)
-        if ip then
-            _G.wlan_ip = ip
+    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
+    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
+    dhcpsrv.create({adapter=socket.LWIP_AP})
+    while 1 do
+        if netdrv.ready(socket.LWIP_GP) then
+            netdrv.napt(socket.LWIP_GP)
+            break
         end
+        sys.wait(1000)
     end
-    log.info("wlan", "STA mode ready !!", wlan.getMac())
+end
 
-    -- 启动HTTP服务器
+function wifi_networking()
+   sys.wait(3000)
+    -- AP的ssid和password
+    wlan.scan()
+    -- sys.wait(500)
     httpsrv.start(80, function(fd, method, uri, headers, body)
         log.info("httpsrv", method, uri, json.encode(headers), body)
-
-        -- 控制LED
+        -- /led是控制灯的API
         if uri == "/led/1" then
             LEDA(1)
-            return 200, {}, "LED on"
+            return 200, {}, "ok"
         elseif uri == "/led/0" then
             LEDA(0)
-            return 200, {}, "LED off"
-        -- 启动AP模式
-        elseif uri == "/startap" then
-            -- 创建AP
-            wlan.createAP(ap_config.ssid, ap_config.passwd, ap_config.gateway, ap_config.netmask, ap_config.channel)
-            
-            -- 配置AP的IP地址和网关
-            netdrv.ipv4(socket.LWIP_AP, ap_config.gateway, ap_config.netmask, ap_config.gateway)
-            
-            dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
-            -- 创建DHCP服务器
-            dhcpsrv.create({adapter=socket.LWIP_AP})
-
-            -- 启用NAT
-            while 1 do
-                if netdrv.ready(socket.LWIP_GP) then
-                    netdrv.napt(socket.LWIP_GP)
-                    break
-                end
-                sys.wait(1000)
-            end
-            
-            ap_status = "已启动"
-            return 200, {}, "AP started"
-        -- 获取AP状态
-        elseif uri == "/apstatus" then
-            return 200, {["Content-Type"]="application/json"}, json.encode({status = ap_status})
-        -- 设置AP配置
-        elseif uri == "/setap" then
-            if method == "POST" and body then
+            return 200, {}, "ok"
+        -- 扫描AP
+        elseif uri == "/scan/go" then
+            wlan.scan()
+            return 200, {}, "ok"
+        -- 前端获取AP列表
+        elseif uri == "/scan/list" then
+            return 200, {["Content-Type"]="applaction/json"}, (json.encode({data=_G.scan_result, ok=true}))
+        -- 前端填好了ssid和密码, 那就连接吧
+        elseif uri == "/connect" then
+            if method == "POST" and body and #body > 2 then
                 local jdata = json.decode(body)
-                if jdata and jdata.ssid and jdata.passwd then
-                    ap_config.ssid = jdata.ssid
-                    ap_config.passwd = jdata.passwd
-                    ap_status = "配置已更新，需重启AP"
-                    return 200, {}, "AP config updated"
+                if jdata and jdata.ssid then
+                    -- 开启一个定时器联网, 否则这个情况可能会联网完成后才执行完
+                    sys.timerStart(wlan.connect, 500, jdata.ssid, jdata.passwd)
+                    return 200, {}, "ok"
                 end
             end
-            return 400, {}, "Bad Request"
+            return 400, {}, "ok"
+        -- 根据ip地址来判断是否已经连接成功
+        elseif uri == "/connok" then
+            return 200, {["Content-Type"]="applaction/json"}, json.encode({ip=socket.localIP()})
         end
+        -- 其他情况就是找不到了
         return 404, {}, "Not Found" .. uri
-    end, socket.LWIP_STA)
+    end, socket.LWIP_AP)
+    log.info("web", "pls open url http://192.168.4.1/")
+end
 
-    log.info("web", "please open url http://" .. _G.wlan_ip .. "/")
+-- wifi扫描成功后, 会有WLAN_SCAN_DONE消息, 读取即可
+sys.subscribe("WLAN_SCAN_DONE", function ()
+    local result = wlan.scanResult()
+    _G.scan_result = {}
+    for k,v in pairs(result) do
+        log.info("scan", (v["ssid"] and #v["ssid"] > 0) and v["ssid"] or "[隐藏SSID]", v["rssi"], (v["bssid"]:toHex()))
+        if v["ssid"] and #v["ssid"] > 0 then
+            table.insert(_G.scan_result, v["ssid"])
+        end
+    end
+    log.info("scan", "aplist", json.encode(_G.scan_result))
+end)
+
+sys.subscribe("IP_READY", function()
+    -- 联网成功后, 模拟上报到服务器
+    log.info("wlan", "已联网", "通知服务器")
+
+end)
+
+function test_scan()
+    while 1 do
+        log.info("执行wifi扫描")
+        wlan.scan()
+        sys.wait(30 * 1000)
+    end
+end
+sys.subscribe("WLAN_SCAN_DONE", function ()
+    local results = wlan.scanResult()
+    log.info("scan", "results", #results)
+    for k,v in pairs(results) do
+        log.info("scan", v["ssid"], v["rssi"], (v["bssid"]:toHex()))
+    end
+end)
+
+--  每隔6秒打印一次airlink统计数据, 调试用
+-- sys.taskInit(function()
+--     while 1 do
+--         sys.wait(6000)
+--         airlink.statistics()
+--     end
+-- end)
+
+sys.taskInit(function()
+
+    -- sys.wait(100)
+    wlan.init()
+    sys.wait(100)
+
+    -- 启动AP测试
+    create_ap()
+    wifi_networking()
+
+    -- wifi扫描测试
+    -- test_scan()
 end)
 
 -- 用户代码已结束---------------------------------------------

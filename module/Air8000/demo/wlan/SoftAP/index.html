@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh">
-<head>
+<header>
     <meta charset="utf-8" />
-    <title>Air8000 Wi-Fi 配置系统</title>
+    <title>Air8000 Wi-Fi 配网系统</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,12 +36,15 @@
         button:hover {
             background-color: #2980b9;
         }
-        input[type="text"], input[type="password"] {
+        select, input[type="text"] {
             width: 100%;
             padding: 10px;
             margin: 5px 0 15px;
             border: 1px solid #ccc;
             border-radius: 5px;
+        }
+        #aplist {
+            height: 40px;
         }
         .status {
             font-weight: bold;
@@ -52,72 +55,100 @@
         function led(key) {
             fetch("/led/" + key)
         }
-        function setAP() {
-            var ssid = document.getElementById("ssid").value;
-            var passwd = document.getElementById("passwd").value;
-            fetch('/setap', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ ssid: ssid, passwd: passwd })
-            }).then(function (resp) {
+        function wifi_get_aplist() {
+            var resp = fetch("/scan/list").then(function (resp) {
+                console.log(resp, resp.status)
+                if (resp.status != 200) {
+                    return
+                }
+                resp.json().then(function (data) {
+                    console.log("data", data)
+                    var tmp = ""
+                    for (let index = 0; index < data.data.length; index++) {
+                        const apname = data.data[index];
+                        if (index == 0) {
+                            tmp += "<option vaule='" + index + "' selected>" + apname+"</option>\n"
+                        }
+                        else {
+                            tmp += "<option vaule='" + index + "'>" + apname+"</option>\n"
+                        }
+
+                    }
+                    document.getElementById("aplist").innerHTML = tmp
+                })
+            })
+        }
+        function wifi_scan() {
+            fetch("/scan/go")
+            setTimeout(wifi_get_aplist, 3000)
+        }
+        function wifi_connect() {
+            var ssid = document.getElementById("ssid").value
+            var passwd = document.getElementById("passwd").value
+            console.log(ssid, passwd)
+            fetch("/connect", {
+                method : "POST",
+                body : JSON.stringify({ssid:ssid, passwd:passwd})
+            }).then(function(resp) {
                 if (resp.status == 200) {
-                    alert("AP配置成功，正在重启...")
-                } else {
-                    alert("配置失败，请重试")
+                    alert("正在尝试连接")
+                }
+                else {
+                    alert("出了点问题")
                 }
             })
         }
-        function startAP() {
-            fetch("/startap").then(function (resp) {
-                if (resp.status == 200) {
-                    alert("AP模式已启动")
-                } else {
-                    alert("启动失败")
-                }
+        function wifi_ipstat() {
+            fetch("/connok").then(function(resp){
+                if (resp.status != 200)
+                    return
+                resp.json().then(function(data){
+                    console.log(data)
+                    if (data && data.ip != "0.0.0.0") {
+                        document.getElementById("ipstat").innerHTML = "已联网"
+                    }
+                })
             })
         }
-        function getAPStatus() {
-            fetch("/apstatus").then(function (resp) {
-                if (resp.status == 200) {
-                    resp.json().then(function (data) {
-                        document.getElementById("apstatus").innerHTML = data.status
-                    })
-                }
-            })
+        function select_changed(event) {
+            var apselect = document.getElementById("aplist")
+            var ssid = document.getElementById("ssid")
+            ssid.value = apselect.options[apselect.selectedIndex].text
         }
+        setTimeout(wifi_get_aplist, 3000)
+        // setInterval(wifi_ipstat, 3000)
     </script>
-</head>
+</header>
 
 <body>
     <div class="container">
-        <h1>Air8000工业引擎 Wi-Fi 配置系统</h1>
+        <h1>Air8000工业引擎 Wi-Fi 配网系统</h1>
         <h2>LED 控制</h2>
         <div>
             <button onclick="led(1)">LED亮</button>
             <button onclick="led(0)">LED灭</button>
         </div>
-
-        <h2>AP模式配置</h2>
+        <h2>AP WEB 配网</h2>
         <div>
-            <button onclick="startAP()">启动AP模式</button>
+            <button onclick="wifi_scan()">扫描 Wi-Fi</button>
         </div>
         <div>
-            <h4>AP状态:</h4>
-            <span id="apstatus" class="status">未启动</span>
-            <button onclick="getAPStatus()">检查状态</button>
+            <h4>Wi-Fi 列表</h4>
+            <select id="aplist" onchange="select_changed()">
+                <option value="">Wi-Fi名称</option>
+            </select>
+            <input type="text" id="ssid" placeholder="输入 Wi-Fi 名称" style="width: 580px;"/>
+            <input type="text" id="passwd" placeholder="输入 Wi-Fi 密码" style="width: 580px;"/>
+            <button onclick="wifi_connect()">连接</button>
         </div>
         <div>
-            <h4>设置AP账号和密码</h4>
-            <input type="text" id="ssid" placeholder="输入AP名称" />
-            <input type="password" id="passwd" placeholder="输入AP密码" />
-            <button onclick="setAP()">保存配置</button>
+            <h4>联网状态:</h4>
+            <span id="ipstat" class="status">未联网</span>
+            <button onclick="wifi_ipstat()">检查状态</button>
         </div>
         <div>
             <h4>Power by <a href="https://docs.openluat.com/osapi/lutos_framework/">LuatOS</a></h4>
         </div>
     </div>
 </body>
-
 </html>

@@ -459,7 +459,7 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
     if (point_status == 0){           /* no data */
         goto exit_;
     }
-    if (point_status == 0x80){  /* data is not ready */
+    if ((point_status & 0x80) == 0){   /* data is not ready */
         goto exit_;
     }
     touch_num = point_status & 0x0F;  /* get point num */

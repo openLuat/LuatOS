@@ -1512,7 +1512,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     LLOGW("lcd not init");
     return 0;
   }
-  if (conf->buff != NULL) {
+  if (conf->buff != NULL && conf->buff_ex != NULL) {
     LLOGI("lcd buff is aready exist");
     return 0;
   }

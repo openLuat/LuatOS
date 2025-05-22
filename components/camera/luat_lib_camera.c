@@ -558,6 +558,12 @@ static const rotable_Reg_t reg_camera[] =
     { "USB",         ROREG_INT(LUAT_CAMERA_TYPE_USB)},
     //@const DVP number 摄像头类型，DVP
     { "DVP",         ROREG_INT(LUAT_CAMERA_TYPE_DVP)},
+    //@const ROTATE_0 number 摄像头预览，画面不旋转
+    { "ROTATE_0",    ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_0)},
+    //@const ROTATE_90 number 摄像头预览，画面旋转90度
+    { "ROTATE_90",   ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_90)},
+    //@const ROTATE_270 number 摄像头预览，画面旋转270度
+    { "ROTATE_270",  ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_270)},
 
     //@const CONF_H264_QP_INIT number H264编码器初始化QP值
     { "CONF_H264_QP_INIT",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_INIT)},
@@ -569,6 +575,10 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_H264_IMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_IMB_BITS)},
     //@const CONF_H264_PMB_BITS number H264编码器PMB_BITS值
     { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
+    //@const CONF_PREVIEW_ENABLE number 是否启动摄像头预览功能，默认开启
+    { "CONF_PREVIEW_ENABLE",        ROREG_INT(LUAT_CAMERA_CONF_PREVIEW_ENABLE)},
+    //@const CONF_PREVIEW_ROTATE number 摄像头预览画面的旋转角度
+    { "CONF_PREVIEW_ROTATE",        ROREG_INT(LUAT_CAMERA_CONF_PREVIEW_ROTATE)},
 
 	{ NULL,          ROREG_INT(0)}
 };

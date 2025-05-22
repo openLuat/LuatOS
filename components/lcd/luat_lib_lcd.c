@@ -1487,7 +1487,7 @@ static int l_lcd_flush(lua_State* L) {
     }
     luat_lcd_flush(conf);
     lua_pushboolean(L, 1);
-    return 0;
+    return 1;
 }
 
 /*

@@ -58,7 +58,7 @@ sys.taskInit(function()
         -- 写入可见字符串
         uart.write(uartid, "test data.")
         -- 写入十六进制字符串
-        -- uart.write(1, string.char(0x55,0xAA,0x4B,0x03,0x86))
+        -- uart.write(uartid, string.char(0x55,0xAA,0x4B,0x03,0x86))
     end
 end)
 

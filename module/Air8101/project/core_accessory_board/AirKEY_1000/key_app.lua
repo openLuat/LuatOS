@@ -20,7 +20,7 @@ local KEY8_GPIO_ID = 24
 
 
 --按键1的中断处理函数
---int_level：number类型，air_key.setup函数配置按键1时，对应的GPIO中断触发类型
+--int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --gpio_id：number类型，air_key.setup函数配置按键1时，对应的Air8101上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
@@ -33,7 +33,7 @@ local function key1_int_cbfunc(int_level, gpio_id)
 end
 
 --按键2的中断处理函数
---int_level：number类型，air_key.setup函数配置按键2时，对应的GPIO中断触发类型
+--int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --gpio_id：number类型，air_key.setup函数配置按键2时，对应的Air8101上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
@@ -46,7 +46,7 @@ local function key2_int_cbfunc(int_level, gpio_id)
 end
 
 --按键3的中断处理函数
---int_level：number类型，air_key.setup函数配置按键3时，对应的GPIO中断触发类型
+--int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --gpio_id：number类型，air_key.setup函数配置按键3时，对应的Air8101上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
@@ -59,7 +59,7 @@ local function key3_int_cbfunc(int_level, gpio_id)
 end
 
 --按键4的中断处理函数
---int_level：number类型，air_key.setup函数配置按键4时，对应的GPIO中断触发类型
+--int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --gpio_id：number类型，air_key.setup函数配置按键4时，对应的Air8101上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
@@ -73,7 +73,7 @@ end
 
 
 --按键5、6、7、8的中断处理函数
---int_level：number类型，air_key.setup函数配置按键5、6、7、8时，对应的GPIO中断触发类型
+--int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --gpio_id：number类型，air_key.setup函数配置按键5、6、7、8时，对应的Air8101上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作

@@ -24,7 +24,7 @@ local AirKEY_1000 = {}
 --int_cbfunc：function类型；
 --          表示中断处理函数，函数的定义格式如下：
 --                           function cb_func(level, gpio_id)
---                               --level：表示触发中断类型，上升沿触发为gpio.RISING，下降沿触发为gpio.FALLING
+--                               --level：表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
 --                               --gpio_id：表示触发中断的主机中断引脚的GPIO ID；
 --                           end
 --          中断函数中不要直接执行耗时较长的动作，例如写fskv，写文件，延时等，可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作

@@ -25,7 +25,18 @@ local uart485Pin = 17   -- 用于控制485收发转换的方向转换脚
 gpio.setup(16, 1)       -- 打开电源(开发板485供电脚是gpio16，用开发板测试需要开机初始化拉高gpio16)
 
 -- 初始化串口参数
-uart.setup(uartid, 9600, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 20000)
+uart.setup(
+    uartid, -- 串口ID
+    9600, -- 波特率
+    8, -- 数据位
+    1, -- 停止位
+    uart.NONE, -- 校验位
+    uart.LSB, -- 大小端
+    1024, -- 缓冲区大小
+    uart485Pin, -- 485模式下收发转换脚gpio
+    0, -- 485模式下rx方向gpio的电平
+    20000 -- 485模式下tx向rx转换的延迟时间
+)
 
 -- 收取数据会触发回调, 这里的"receive" 是固定值
 uart.on(uartid, "receive", function(id, len)

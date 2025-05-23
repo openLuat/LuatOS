@@ -299,7 +299,7 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
 		cfg_table[GT911_TOUCH_NUMBER - GT911_CONFIG_REG] = luat_tp_config->tp_num;
 	}
 
-    gt911_update_config(luat_tp_config, cfg_table, GT911_CONFIG_SIZE);
+    // gt911_update_config(luat_tp_config, cfg_table, GT911_CONFIG_SIZE);
     
     // gt911_update_config(luat_tp_config, gt911_cfg_table, GT911_CONFIG_SIZE);
 

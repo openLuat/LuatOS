@@ -68,6 +68,19 @@ end
 
 --必须在task中使用
 function AirCAMERA_1030.capture()
+    local co, is_main = coroutine.running()
+    -- Lua 5.1: 直接返回协程（主协程返回 nil）
+    -- Lua 5.2+: 返回协程和是否是主协程
+    if type(co) == "thread" and is_main then
+        log.error("AirCAMERA_1030.capture error", "must in task", type(co) == "thread", is_main)
+        return false
+    end
+
+    if co == nil then
+        log.error("AirCAMERA_1030.capture error", "must in task", co)
+        return false
+    end
+
     if not AirCAMERA_1030.opend then
         log.error("AirCAMERA_1030.capture error", "camera isn't opend")
         return false

@@ -9,11 +9,11 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
 本demo实现的业务逻辑为：
-1、Air8101核心板+AirCAMERA_1030配件板，核心板上的3.3V和5V的按键拨动开关，选择5V的方向
-2、每隔10秒循环一次，使用AirCAMERA_1030拍照，然后通过Air8101上传到http服务器，可以在http前端页面查看拍摄的照片
+1、Air8101核心板+USB HUB+4个USB摄像头，注意根据USB摄像头的规格书，拨动核心板上的3.3V和5V的按键开关
+2、每隔10秒循环一次，依次启动4个USB摄像头中的其中一个，拍照然后上传到http服务器，可以在http前端页面查看拍摄的照片
 ]]
 
-PROJECT = "AirCAMERA_1030"
+PROJECT = "AirUSBHUB_1000"
 VERSION = "001.000.000"
 
 
@@ -66,7 +66,7 @@ sys.timerLoopStart(function()
 
 -- 加载WIFI网络连接管理功能模块
 require "wifi_app"
--- 加载AirCAMERA_1030拍照并且通过http上传照片的功能模块
+-- 加载AirUSBHUB_1000外挂的摄像头拍照并且通过http上传照片的功能模块
 require "http_app"
 
 

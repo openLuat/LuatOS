@@ -1,333 +1,145 @@
-PROJECT = "startupv13"
+--- 模块功能：lvglDemo
+-- @module lvglDemo
+-- @release 2025.03.17
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "lvglDemo"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
-sys = require("sys")
+_G.sys = require("sys")
 
-local airlcd = require "airlcd"
-local aircam = require "camera780epm_simple"
-local airrus = require "russia"
-local airstatus = require "statusbar"
-local airtestwlan = require "test_wlan"
-local airbuzzer = require "airbuzzer"
-
-local key = ""      
-
-local powertick = 0
-local boottick = 0
-local SWITCH_LONG_TIME = 500
-local ROT_LONG_TIME = 300
-local QUIT_LONG_TIME = 3000
-
-local sid = 0
-
--- 按键事件类型：
--- "switch": 短按开机键切换菜单；  
--- "enter"： 长按开机键进入功能菜单或者退出功能菜单
-
--- 当前功能界面
--- "main":      九宫格主界面
--- "picshow":   图片显示
--- "camshow":   摄像头预览
--- "russia":    俄罗斯方块
--- "LAN":       以太网 LAN
--- "WAN":       以太网 WAN
--- "selftest":  硬件自检
--- "modbusTCP": modbus-TCP
--- "modbusRTU": modbus-RTU
--- "CAN":       CAN 测试
-local cur_fun = "main"
-local cur_sel = 0
-
-local funlist = {
-"picshow", "camshow","russia",
-"LAN", "WAN","selftest",
-"modbusTCP","modbusRTU","CAN"
-}
-
-local bkcolor = lcd.rgb565(11, 37, 102,false)
-
-local function wdtInit()
+pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 设置GPIO电平
 -- 添加硬狗防止程序卡死
-  if wdt then
+if wdt then
     wdt.init(9000) -- 初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
-  end
 end
 
-local function StartCam()
-  airlcd.lcd_init("AirLCD_0001")
-  sys.taskInit(aircam.start_cam)
-  aircam.isquit = false
+-- 根据不同的BSP返回不同的值
+function lcd_pin()
+    return lcd.HWID_0, 36, 0xff, 0xff, 160 -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
+    -- return 0,1,10,8,22
 end
 
-local function QuitCam()
-  aircam.isquit  = true
-  sys.wait(300)
-  airlcd.lcd_init("AirLCD_0001")
+local spi_id, pin_reset, pin_dc, pin_cs, bl = lcd_pin()
+
+if spi_id ~= lcd.HWID_0 then
+    spi_lcd = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 0)
+    port = "device"
+else
+    port = spi_id
 end
 
-local function keypressed()
-  if key == "" then
-    return
-  end
-  
-  log.info("keypressed : ", key, cur_fun)
+-- mcu.altfun(mcu.I2C, 1, 19, 2, 0)
+-- mcu.altfun(mcu.I2C, 1, 20, 2, 0)
 
-  if cur_fun == "russia" then
-      if key == "quit" then
-          cur_fun = "main"
-      else
-          airrus.keypressed(key)
-      end
-      key = ""
-      return
-  end
+-- lcd_use_buff = true
 
-  if key == "switch" then
-    if cur_fun == "main" then
-      cur_sel = cur_sel + 1
-      if cur_sel > 9 then
-        cur_sel = 1
-      end
-      log.info("select num:", cur_sel)
+sys.taskInit(function()
+    sys.wait(500) 
+    -- gpio.setup(147, 1, gpio.PULLUP)
+    -- gpio.setup(153, 1, gpio.PULLUP)
+    gpio.setup(164, 1, gpio.PULLUP)
+
+    gpio.setup(141, 1, gpio.PULLUP)
+    sys.wait(2000)
+    -- -- lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 480,h = 480,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=70000000,flush_rate=658,vbp=19,vfp=108,vs=2})
+    lcd.init("st7796",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 320,h = 480,xoffset = 0,yoffset = 0},spi_lcd)
+	
+    gpio.setup(160, 1, gpio.PULLUP) -- 单独拉高背光
+
+    -- 开启缓冲区, 刷屏速度回加快, 但也消耗2倍屏幕分辨率的内存
+    if lcd_use_buff then
+        lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
+        -- lcd.setupBuff()       -- 使用lua内存, 只需要选一种
+        lcd.autoFlush(false)
     end
-    key = ""
-  elseif key == "enter" or key == "quit" then
-    if cur_fun == "main" then
-      cur_fun = funlist[cur_sel]
-      if cur_fun == "camshow" then
-        StartCam()
-      elseif cur_fun == "russia" then
-        airrus.initrus()
-      elseif cur_fun == "LAN" then
-        
-      elseif cur_fun == "WAN" then
-        sys.taskInit(airtestwlan.test_wan)
-      elseif cur_fun == "selftest" then
 
-      elseif cur_fun == "modbusTCP" then
-
-      elseif cur_fun == "modbusRTU" then
-
-      elseif cur_fun == "CAN" then
-      end
-    else
-      cur_fun = "main"
-      if not aircam.isquit then
-        QuitCam()
-      end
-    end
-    key = ""
-  end
-  key = ""
-end
-
-local function PowerInterrupt()
-    local s1 = 0
-    local s2 = 0
-    local v = gpio.get(gpio.PWR_KEY)
-    log.info("pwrkey：", v, powertick)
-    if v == 0 then
-      powertick = mcu.ticks()
-      airbuzzer.start_buzzer()
-    elseif  v == 1 then
-      s1 = mcu.ticks()
-      airbuzzer.stop_buzzer()
-      local s2 = s1 - powertick
-      if s2 < SWITCH_LONG_TIME then
-          key = "switch"
-          if cur_fun == "russia" then
-            key = "left"
-          end
-      elseif s2 < QUIT_LONG_TIME then
-          key = "enter"
-          if cur_fun == "russia" then
-            key = "fast"
-          end
-      else
-          key = "quit"
-      end
-      powertick = s1
-      log.info("power key：", v, powertick,s2,key)
-    end
-end
-
-local function BootInterrupt()
-    local v = gpio.get(0)
-    log.info("gpio0：", v, boottick)
-    if v == 1 then
-      boottick = mcu.ticks()
-    elseif  v == 0 then
-      s1 = mcu.ticks()
-      local s2 = s1 - boottick
-      if s2 < ROT_LONG_TIME then
-        key = "right"
-      else
-        key = "up"
-      end
-      boottick = s1
-      log.info("gpio0 key：", v, boottick,s2,key)
-    end
-end
-
-local function KeyInit()
-    if not gpio.PWR_KEY then
-      log.info("bsp not support powerkey")
-      return
-    end
-  
-    gpio.setup(gpio.PWR_KEY, PowerInterrupt, gpio.PULLUP, gpio.BOTH)
-    gpio.setup(0, BootInterrupt, gpio.PULLDOWN, gpio.BOTH)
-end
-
-local function update()
-  if cur_fun == "russia" then
-    airrus.updaterus()
-  end
-
-  if not airstatus.data.weather.result and ((sid % 50) == 0)  then
-    airstatus.get_sig_strength()
-    airstatus.get_weather()
-  end
-  if airstatus.data.bat_level == 0 then
-    airstatus.get_bat_level()
-  end
-end
-
--- 画状态栏
-local function draw_statusbar()
-  lcd.showImage(0, 0, "/luadb/signal" .. airstatus.data.sig_stren .. ".jpg")
-  lcd.showImage(64, 0, "/luadb/power" .. airstatus.data.bat_level .. ".jpg")
-  lcd.showImage(128, 0, "/luadb/temp.jpg")
-  lcd.showImage(192, 0, "/luadb/humidity.jpg")
-  lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
-
-  if airstatus.data.weather.result then
-      lcd.setFont(lcd.font_opposansm32_chinese)
-      lcd.drawStr(172, 30, tostring(airstatus.data.weather.temp))
-      lcd.drawStr(236, 30, tostring(airstatus.data.weather.humidity))
-      lcd.showImage(256, 0, airstatus.data.weather_icon)
-  else
-      lcd.showImage(256, 0, "/luadb/default.jpg")
-  end
-end
-
-local function draw_wan()
-  lcd.showImage(0, 65, "/luadb/function5.jpg")
-end
-
-local function draw_lan()
-  lcd.showImage(0, 65, "/luadb/function4.jpg")
-end
-
-local function draw_selftest()
-  lcd.showImage(0, 65, "/luadb/choose1.jpg")
-  lcd.showImage(0, 194, "/luadb/choose2.jpg")
-  lcd.showImage(0, 322, "/luadb/choose3.jpg")
-end
-
-local function draw_modbusRTU()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
-
-local function draw_modbusTCP()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
-
-local function draw_CAN()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
-
---画九宫格界面
-local function draw_main()
-  local i = 0
-  local j = 0 
-  local x,y
-  local fname
-  local sel = 0
-  
-  for i = 1,3 do
-    for j = 1,3 do
-      x = 64 + (i-1)*128 + 24
-      y = (j-1)*106 + 13
-      sel = j+(i-1)*3
-      if sel == cur_sel then
-        fname = "/luadb/" .. "D" .. sel .. ".jpg"
-      else
-        fname = "/luadb/" .. "L" .. sel .. ".jpg"
-      end
-      -- log.info("fname：", fname, x,y,sel,cur_sel)
-      lcd.showImage(y,x,fname)
-    end
-  end      
-end
-
-local function draw_pic()
-  lcd.showImage(0,64,"/luadb/P1.jpg")
-end
-
-local function draw()
-  if cur_fun == "camshow" then
-    return
-  end
-
-  lcd.clear(bkcolor)    
-  
-  draw_statusbar()
-  
-  if cur_fun == "main" then
-    draw_main()
-  elseif cur_fun == "picshow" then
-    draw_pic()
-  elseif cur_fun == "russia" then
-    airrus.drawrus()
-  elseif cur_fun == "LAN" then
-    draw_lan()
-  elseif cur_fun == "WAN" then
-    draw_wan()
-  elseif cur_fun == "selftest" then
-    draw_selftest()
-  elseif cur_fun == "modbusTCP" then
-    draw_modbusTCP()
-  elseif cur_fun == "modbusRTU" then
-    draw_modbusRTU()
-  elseif cur_fun == "CAN" then
-    draw_CAN()
-end
-  
-  lcd.showImage(0,448,"/luadb/Lbottom.jpg")
-  lcd.flush()
-end
-
-wdtInit()
-airlcd.lcd_init("AirLCD_0001")
-
-local function UITask()
-    KeyInit()
-    log.info("合宙 780EPM startup v13:" .. sid)
-
-    while 1 do
-        keypressed()
-        
-        update()
-
-        draw()
-
-        if ((sid % 10) == 0) then
-          log.info("sid: ", sid, cur_fun)
+    if tp then
+        log.info("tp", "tp init")
+        local function tp_callBack(tp_device,tp_data)
+            sys.publish("TP",tp_device,tp_data)
+            log.info("TP",tp_data[1].x,tp_data[1].y,tp_data[1].event)
         end
 
-        sid = sid + 1
-        sys.wait(10)
+        -- local softI2C = i2c.createSoft(20, 21, 2) -- SCL, SDA
+        -- local softI2C = i2c.createSoft(28, 26, 1) -- SCL, SDA
+        -- tp_device = tp.init("jd9261t_inited",{port=softI2C, pin_rst = 27,pin_int = gpio.CHG_DET,w = width,h = height,int_type=gpio.FALLING, refresh_rate = 60},tp_callBack)
+
+        -- tp_device = tp.init("jd9261t_inited",{port=0, pin_rst = 20,pin_int = gpio.WAKEUP0,w = width,h = height,int_type=gpio.FALLING, refresh_rate = 60},tp_callBack)
+        local i2c_id = 0
+        i2c.setup(i2c_id, i2c.SLOW)
+        tp_device = tp.init("gt911",{port=i2c_id, pin_rst = 20,pin_int = gpio.WAKEUP0,},tp_callBack)
+
+        -- gpio.setup(gpio.WAKEUP0, function ()
+        --     log.info("tp", "tp interrupt")
+        -- end, gpio.PULLUP, gpio.FALLING)
+        if tp_device then
+            print(tp_device)
+            sys.taskInit(function()
+                while 1 do 
+                    local result, tp_device, tp_data = sys.waitUntil("TP")
+                    if result then
+                        lcd.drawPoint(tp_data[1].x, tp_data[1].y, 0xF800)
+                        lcd.flush()
+                    end
+                end
+            end)
+        end
     end
 
-end
 
-sys.taskInit(UITask)
--- 当前是给camera 表的变量赋值让camera 退出。 未来可以让 UI task 发消息给camera 任务，让camera 任务关闭摄像头，释放LCD
+    while 1 do 
+        lcd.clear()
+        -- log.info("wiki", "https://wiki.luatos.com/api/lcd.html")
+        -- -- API 文档 https://wiki.luatos.com/api/lcd.html
+        -- if lcd.showImage then
+        --     -- 注意, jpg需要是常规格式, 不能是渐进式JPG
+        --     -- 如果无法解码, 可以用画图工具另存为,新文件就能解码了
+        --     lcd.showImage(40,0,"/luadb/logo.jpg")
+        --     sys.wait(100)
+        -- end
+        -- log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
+        -- log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
+        -- log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+
+        if lcd_use_buff then
+            lcd.flush()
+        end
+
+        sys.wait(5000)
+    end
+
+    -- log.info("lvgl", lvgl.init())
+    -- -- lvgl.demo_widgets()
+    -- local background = lvgl.obj_create(nil, nil)
+    -- local scr = lvgl.obj_create(background, nil)
+    -- -- local btn = lvgl.btn_create(scr)
+    -- local label = lvgl.label_create(scr)
+    -- -- lvgl.obj_align(label, lvgl.scr_act(), lvgl.ALIGN_LEFT_MID, 0, 0)
+    -- lvgl.obj_set_width(background, 480)
+    -- lvgl.obj_set_height(background, 480)
+    -- lvgl.obj_set_width(scr, 480)
+    -- lvgl.obj_set_height(scr, 480)
+
+    -- local font = lvgl.font_get("opposans_m_12") --中文字体
+    -- lvgl.obj_set_style_local_text_font(lvgl.scr_act(), lvgl.OBJ_PART_MAIN, lvgl.STATE_DEFAULT, font)
+
+    -- lvgl.obj_align(label, lvgl.scr_act(), lvgl.ALIGN_OUT_TOP_LEFT, 0, 40);    -- 设置label的位置
+    -- lvgl.label_set_text(label, "4G/WiFi/BLE/GNSS/Gsensor/电源管理\r\n6路串口/60个IO/TTS/通话/LCD/485/...\r\n合宙工业引擎Air8000,国内海外均支持")
+
+
+    -- local img = lvgl.img_create(scr)
+    -- lvgl.img_set_src(img, "/luadb/hz.png")
+    -- lvgl.obj_align(img, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 50)
+
+    -- lvgl.scr_load(scr)
+    -- lvgl.indev_drv_register("pointer", "emulator")
+end)
+
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

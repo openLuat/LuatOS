@@ -18,7 +18,7 @@ gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 local i2c_id = 0            -- i2c_id 0
 
 local pa_pin = 162           -- 喇叭pa功放脚
-local power_pin = 164         -- es8311电源脚
+local power_pin = 27         -- es8311电源脚
 
 local i2s_id = 0            -- i2s_id 0
 local i2s_mode = 0          -- i2s模式 0 主机 1 从机
@@ -35,7 +35,7 @@ local pa_delay = 100            -- 在DAC启动后，延迟多长时间打开PA�
 local power_on_level = 1        -- 电源控制IO的电平，默认拉高
 local power_time_delay = 100    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms
 
-local voice_vol = 50        -- 喇叭音量
+local voice_vol = 70        -- 喇叭音量
 local mic_vol = 80          -- 麦克风音量
 
 gpio.setup(power_pin, 1, gpio.PULLUP)         

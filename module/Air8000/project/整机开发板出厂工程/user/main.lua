@@ -47,7 +47,7 @@ local funlist = {
 "modbusTCP","modbusRTU","CAN"
 }
 
-local bkcolor = lcd.rgb565(11, 37, 102,false)
+local bkcolor = lcd.rgb565(99, 180, 245,false)
 
 local function wdtInit()
 -- 添加硬狗防止程序卡死

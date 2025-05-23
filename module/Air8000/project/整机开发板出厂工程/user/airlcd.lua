@@ -1,8 +1,7 @@
 local airLCD = {}
-local function tp_callBack(tp_device,tp_data)
-    sys.publish("TP",tp_device,tp_data)
-    log.info("TP",tp_data[1].x,tp_data[1].y,tp_data[1].event)
-end
+
+
+
 
 function airLCD.lcd_init(sn)
     if sn == "AirLCD_1000" then
@@ -36,19 +35,24 @@ function airLCD.lcd_init(sn)
         wakecmd = 0x11,           -- LCD唤醒命令
     
     }
-    sys.wait(500)
-    gpio.setup(141, 1)              -- GPIO141打开给lcd电源供电 
-    sys.wait(1000)
-    lcd.init(lcd_ic, lcd_param)     -- 初始化LCD 参数
-    
-    spi_lcd = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 0)
-    lcd.init("st7796",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 320,h = 480,xoffset = 0,yoffset = 0},spi_lcd)
-	
-    local i2c_id = 0
-    i2c.setup(i2c_id, i2c.SLOW)
-    tp.init("gt911",{port=i2c_id, pin_rst = 20,pin_int = gpio.WAKEUP0,},tp_callBack)
+    gpio.setup(164, 1, gpio.PULLUP)
+    gpio.setup(141, 1, gpio.PULLUP)
+    sys.wait(2000)
+    lcd.init(lcd_ic,lcd_param)
     lcd.setupBuff(nil, true)        -- 设置缓冲区大小，使用系统内存
     lcd.autoFlush(false)            -- 自动刷新LCD
+    if sn == "AirLCD_1001"  then
+        log.info("tp", "tp init")
+        local function tp_callBack(tp_device,tp_data)
+            sys.publish("TP",tp_device,tp_data)
+            log.info("TP",tp_data[1].x,tp_data[1].y,tp_data[1].event)
+        end
+
+        local i2c_id = 0
+        i2c.setup(i2c_id, i2c.SLOW)
+        tp_device = tp.init("gt911",{port=i2c_id, pin_rst = 20,pin_int = gpio.WAKEUP0,},tp_callBack)
+    end
+
 end
 
 

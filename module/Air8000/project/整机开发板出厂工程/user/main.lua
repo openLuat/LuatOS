@@ -309,7 +309,7 @@ end
 wdtInit()
 
 local function UITask()
-    airlcd.lcd_init("AirLCD_1000")
+    airlcd.lcd_init("AirLCD_1001")
 
     KeyInit()
     log.info("合宙 8000 startup v13:" .. sid)

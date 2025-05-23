@@ -193,7 +193,7 @@ INIT_DONE:
     return -1;
 }
 
-LUAT_WEAK int luat_lcd_setup_buff(luat_lcd_conf_t* conf){
+LUAT_WEAK int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
     conf->buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
     if (conf->buff == NULL) {
       LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
@@ -214,6 +214,10 @@ LUAT_WEAK int luat_lcd_setup_buff(luat_lcd_conf_t* conf){
     }
 
     return 0;
+}
+
+LUAT_WEAK int luat_lcd_setup_buff(luat_lcd_conf_t* conf) {
+    return luat_lcd_setup_buff_default(conf);
 }
 
 LUAT_WEAK int luat_lcd_init(luat_lcd_conf_t* conf) {

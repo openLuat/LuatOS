@@ -6,8 +6,7 @@ local httpplus = require "httpplus"
 local air_camera = require "AirCAMERA_1030"
 
 
-local function http_upload_photo_task_func()
-    log.info("http_upload_photo_task_func enter", wlan.ready())    
+local function http_upload_photo_task_func() 
 
     local result = air_camera.open()
     if not result then

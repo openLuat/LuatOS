@@ -1,23 +1,25 @@
 -- Luatools需要PROJECT和VERSION这两个信息
-PROJECT = "uart"
+PROJECT = "single_uart"
 VERSION = "1.0.0"
 
+-- 打印版本信息
 log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
 
 if wdt then
-    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+    -- 添加硬狗防止程序卡死，在支持的设备上启用这个功能
+    wdt.init(9000) -- 初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 end
 
-log.info("main", "uart demo run......")
+-- 打印提示信息
+log.info("main", "single uart demo")
 
 local uartid = 1 -- 根据实际设备选取不同的uartid
 
---初始化
+-- 初始化串口参数
 uart.setup(
     uartid,--串口id
     115200,--波特率
@@ -42,7 +44,10 @@ sys.taskInit(function()
     -- 循环两秒向串口发一次数据
     while true do
         sys.wait(2000)
-        uart.write(uartid, "test data.")
+        -- 写入可见字符串
+        -- uart.write(uartid, "test data.")
+        -- 写入十六进制字符串
+        uart.write(uartid, string.char(0x55,0xAA,0x4B,0x03,0x86))
     end
 end)
 

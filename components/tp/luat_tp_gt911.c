@@ -472,10 +472,11 @@ static int tp_gt911_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_
 
     memset(read_buff, 0x00, sizeof(read_buff));
     
-    tp_i2c_read_reg16(luat_tp_config, GT911_POINT1_REG, read_buff, touch_num * GT911_POINT_INFO_NUM, 1);
+    if (touch_num){
+        tp_i2c_read_reg16(luat_tp_config, GT911_POINT1_REG, read_buff, touch_num * GT911_POINT_INFO_NUM, 1);
+    }
 
     gt911_read_point(read_buff, luat_tp_data, touch_num);
-    
     
 exit_:
     tp_gt911_clear_status(luat_tp_config);

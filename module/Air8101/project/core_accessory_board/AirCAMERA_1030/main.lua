@@ -9,8 +9,8 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
 本demo实现的业务逻辑为：
-1、通过核心板的UART，接收PC端串口工具下发的测试指令
-2、根据测试指令进行测试，同时返回提示信息给PC端串口工具，提醒人工去判断测试是否通过
+1、Air8101核心板+AirCAMERA_1030配件板，核心板上的3.3V和5V的按键拨动开关，选择5V的方向
+2、每隔10秒循环一次，使用AirCAMERA_1030拍照，然后通过Air8101上传到http服务器，可以在http前端页面查看拍摄的照片
 ]]
 
 PROJECT = "AirCAMERA_1030"
@@ -65,9 +65,9 @@ sys.timerLoopStart(function()
  end, 3000)
 
 -- 加载WIFI网络连接管理功能模块
-require "wlan_connect"
--- 加载USB摄像头测试功能模块
-require "usb_camera_test"
+require "wifi_app"
+-- 加载AirCAMERA_1030拍照并且通过http上传照片的功能模块
+require "http_app"
 
 
 

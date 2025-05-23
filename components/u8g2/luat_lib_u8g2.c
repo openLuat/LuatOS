@@ -842,7 +842,7 @@ u8g2.drawGtfontGb2312("啊啊啊",32,0,0)
 */
 static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
@@ -936,7 +936,7 @@ u8g2.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
-    int len;
+    size_t len;
     int i = 0;
     uint8_t strhigh,strlow ;
     uint16_t e,str;

@@ -31,7 +31,7 @@ typedef struct
     uint16_t adv_w[94];
     uint16_t code;
     uint32_t dot;
-    char buf[1];
+    unsigned char buf[1];
 } gt_font_param_t;
 
 gt_font_char_t **gt_font_cache_open(gt_font_param_t *param, uint16_t code) {

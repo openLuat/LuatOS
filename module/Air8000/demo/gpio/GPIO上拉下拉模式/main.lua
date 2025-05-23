@@ -16,7 +16,7 @@ end
 --配置gpio2为中断下拉模式，模块上30 管脚
 --配置gpio27为中断下拉模式，模块上35 管脚
 --请根据实际需求更改gpio编号和上下拉
-local gpio_pin1 = 2      -
+local gpio_pin1 = 2      
 local gpio_pin2 = 27
 -- 按键防抖函数
 gpio.debounce(gpio_pin1, 50)

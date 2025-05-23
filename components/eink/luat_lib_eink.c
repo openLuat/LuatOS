@@ -1043,7 +1043,7 @@ extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned sh
 
 static int l_eink_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
@@ -1071,7 +1071,7 @@ static int l_eink_draw_gtfont_gb2312(lua_State *L) {
 
 static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 	unsigned char buf[2048];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
@@ -1099,7 +1099,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 extern unsigned short unicodetogb2312 ( unsigned short	chr);
 static int l_eink_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
-    int len;
+    size_t len;
     int i = 0;
     uint8_t strhigh,strlow ;
     uint16_t e,str;
@@ -1128,7 +1128,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
 
 static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char buf[2048];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t e,str;

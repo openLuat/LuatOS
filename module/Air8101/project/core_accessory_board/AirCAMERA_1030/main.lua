@@ -65,9 +65,9 @@ sys.timerLoopStart(function()
  end, 3000)
 
 -- 加载WIFI网络连接管理功能模块
-require "wlan_connect"
--- 加载USB摄像头测试功能模块
-require "usb_camera_test"
+require "wifi_app"
+-- 加载AirCAMERA_1030拍照并且通过http上传照片的功能模块
+require "http_app"
 
 
 

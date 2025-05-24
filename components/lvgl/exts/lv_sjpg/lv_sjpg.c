@@ -83,7 +83,7 @@ static lv_res_t decoder_info( lv_img_decoder_t * decoder, const void * src, lv_i
 static lv_res_t decoder_open( lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc );
 static lv_res_t decoder_read_line( lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc, lv_coord_t x,lv_coord_t y, lv_coord_t len, uint8_t * buf );
 static void decoder_close( lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc );
-static unsigned int input_func ( JDEC* jd, uint8_t* buff, unsigned int ndata );
+static size_t input_func ( JDEC* jd, uint8_t* buff, size_t ndata );
 static int is_jpg( const uint8_t *raw_data );
 static void lv_sjpg_cleanup( SJPEG* sjpeg );
 static void lv_sjpg_free( SJPEG* sjpeg );

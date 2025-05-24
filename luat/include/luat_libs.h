@@ -217,6 +217,8 @@ LUAMOD_API int luaopen_icmp( lua_State *L );
 
 // bluetooth
 LUAMOD_API int luaopen_bluetooth( lua_State *L );
+// ble
+LUAMOD_API int luaopen_ble( lua_State *L );
 
 // modbus
 LUAMOD_API int luaopen_modbus( lua_State *L );

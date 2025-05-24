@@ -174,19 +174,16 @@ typedef struct {
 
 typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
-typedef struct{
-    uint8_t uuid[16];
-    luat_ble_uuid_type uuid_type;
-} luat_ble_gatt_desc_t;
+typedef struct luat_ble_gatt_chara luat_ble_gatt_chara_t;
 
-typedef struct{
-    uint16_t att_idx;
+struct luat_ble_gatt_chara{
+    uint16_t handle;
     uint8_t uuid[16];
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_gatt_desc_t* descriptors;
-} luat_ble_gatt_chara_t;
+    luat_ble_gatt_chara_t* descriptors;
+};
 
 typedef struct {
     uint8_t uuid[16];
@@ -194,11 +191,6 @@ typedef struct {
     luat_ble_gatt_chara_t* characteristics; // characteristics
     uint8_t characteristics_num;            // number of characteristics
 }luat_ble_gatt_service_t;
-
-typedef struct {
-    luat_ble_gatt_service_t* service;   // service
-    uint8_t service_num;                // number of service
-}luat_ble_gatt_cfg_t;
 
 typedef enum{
     LUAT_BLE_ADV_ADDR_MODE_PUBLIC,   // 控制器的公共地址
@@ -259,9 +251,9 @@ int luat_ble_stop_advertising(luat_bluetooth_t* luat_bluetooth);
 
 int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
 
-int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
+int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_service_t* luat_ble_gatt_service);
 
-int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t conn_idx, uint16_t service_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
+int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint32_t len, uint8_t *buf);
 
 
 // bt

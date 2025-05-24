@@ -108,7 +108,10 @@ static int l_bluetooth_create_ble(lua_State* L) {
     if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);
 		luat_bluetooth->luat_ble->lua_cb = luaL_ref(L, LUA_REGISTRYINDEX);
-	}
+	}else{
+        LLOGE("error cb");
+        return 0;
+    }
 
     lua_pushboolean(L, 1);
     return 1;
@@ -120,99 +123,93 @@ static int l_ble_gatt_create(lua_State* L) {
     }
 
     luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
-    luat_ble_gatt_cfg_t luat_ble_gatt_cfg = {0};
+    luat_ble_gatt_service_t luat_ble_gatt_service = {0};
     size_t len = 0;
 
     if (lua_type(L, 2) != LUA_TTABLE){
         LLOGE("error param");
         return 0;
     }
-
-    luat_ble_gatt_cfg.service_num = luaL_len(L, 2);
-    luat_ble_gatt_cfg.service = (luat_ble_gatt_service_t*)luat_heap_malloc(sizeof(luat_ble_gatt_service_t) * luat_ble_gatt_cfg.service_num);
-    for (size_t i = 1; i <= luat_ble_gatt_cfg.service_num; i++){
-        lua_rawgeti(L, 2, i);
-        int num = luaL_len(L, -1);
-        // service uuid
-        if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
-            const char* service_uuid = luaL_checklstring(L, -1, &len);
-            if (len == 2){
-                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
-            }else if (len == 4){
-                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_32;
-            }else if (len == 16){
-                luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_128;
-            }
-            luat_ble_uuid_swap(service_uuid, luat_ble_gatt_cfg.service[i-1].uuid_type);
-            memcpy(luat_ble_gatt_cfg.service[i-1].uuid, service_uuid, len);
-        }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
-            uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
-            luat_ble_gatt_cfg.service[i-1].uuid_type = LUAT_BLE_UUID_TYPE_16;
-            luat_ble_gatt_cfg.service[i-1].uuid[0] = service_uuid & 0xff;
-            luat_ble_gatt_cfg.service[i-1].uuid[1] = service_uuid >> 8;
-        }else{
-            LLOGE("error uuid type");
-            return 0;
-        }
-        lua_pop(L, 1);
-
-        // Characteristics
-        luat_ble_gatt_cfg.service[i-1].characteristics_num = num-1;
-        // LLOGD("characteristics num: %d", luat_ble_gatt_cfg.service[i-1].characteristics_num);
-        luat_ble_gatt_cfg.service[i-1].characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_cfg.service[i-1].characteristics_num);
     
-        for (size_t j = 2; j <= num; j++){
-            if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
-                lua_rawgeti(L, -1, 1);
-                // Characteristics uuid
-                if (LUA_TSTRING == lua_type(L, -1)){
-                    const char* characteristics_uuid = luaL_checklstring(L, -1, &len);
-                    if (len == 2){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                    }else if (len == 4){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_32;
-                    }else if (len == 16){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
-                    }
-                    luat_ble_uuid_swap(characteristics_uuid, luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type);
-                    memcpy(luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid, characteristics_uuid, len);
-                }else if (LUA_TNUMBER == lua_type(L, -1)){
-                    uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
-                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid[0] = characteristics_uuid & 0xff;
-                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].uuid[1] = characteristics_uuid >> 8;
-                }else{
-                    LLOGE("error characteristics uuid type");
-                    goto error_exit;
+    luat_ble_gatt_service.characteristics_num = luaL_len(L, 2)-1;
+
+    if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
+        const char* service_uuid = luaL_checklstring(L, -1, &len);
+        if (len == 2){
+            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_16;
+        }else if (len == 4){
+            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_32;
+        }else if (len == 16){
+            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_128;
+        }
+        luat_ble_uuid_swap(service_uuid, luat_ble_gatt_service.uuid_type);
+        memcpy(luat_ble_gatt_service.uuid, service_uuid, len);
+    }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
+        uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
+        luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_16;
+        luat_ble_gatt_service.uuid[0] = service_uuid & 0xff;
+        luat_ble_gatt_service.uuid[1] = service_uuid >> 8;
+    }else{
+        LLOGE("error uuid type");
+        return 0;
+    }
+    lua_pop(L, 1);
+
+    // Characteristics
+    luat_ble_gatt_service.characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_service.characteristics_num);
+
+    for (size_t j = 2; j <= luat_ble_gatt_service.characteristics_num+1; j++){
+        if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
+            lua_rawgeti(L, -1, 1);
+            // Characteristics uuid
+            if (LUA_TSTRING == lua_type(L, -1)){
+                const char* characteristics_uuid = luaL_checklstring(L, -1, &len);
+                if (len == 2){
+                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                }else if (len == 4){
+                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_32;
+                }else if (len == 16){
+                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
                 }
-                lua_pop(L, 1);
-                // Characteristics properties
-                lua_rawgeti(L, -1, 2);
-                if (LUA_TNUMBER == lua_type(L, -1)){
-                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+                luat_ble_uuid_swap(characteristics_uuid, luat_ble_gatt_service.characteristics[j-2].uuid_type);
+                memcpy(luat_ble_gatt_service.characteristics[j-2].uuid, characteristics_uuid, len);
+            }else if (LUA_TNUMBER == lua_type(L, -1)){
+                uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
+                luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                luat_ble_gatt_service.characteristics[j-2].uuid[0] = characteristics_uuid & 0xff;
+                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid >> 8;
+            }else{
+                LLOGE("error characteristics uuid type");
+                goto error_exit;
+            }
+            lua_pop(L, 1);
+            // Characteristics properties
+            lua_rawgeti(L, -1, 2);
+            if (LUA_TNUMBER == lua_type(L, -1)){
+                luat_ble_gatt_service.characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+            }
+            lua_pop(L, 1);
+            // Characteristics descriptors
+            lua_rawgeti(L, -1, 3);
+            if (LUA_TSTRING == lua_type(L, -1)){
+                luat_ble_gatt_service.characteristics[j-2].descriptors = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t));
+                memset(luat_ble_gatt_service.characteristics[j-2].descriptors, 0, sizeof(luat_ble_gatt_chara_t));
+                const char* descriptors_uuid = luaL_checklstring(L, -1, &len);
+                if (len == 2){
+                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_16;
+                }else if (len == 4){
+                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_32;
+                }else if (len == 16){
+                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_128;
                 }
-                lua_pop(L, 1);
-                // Characteristics descriptors
-                lua_rawgeti(L, -1, 3);
-                if (LUA_TSTRING == lua_type(L, -1)){
-                    luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors = (luat_ble_gatt_desc_t*)luat_heap_malloc(sizeof(luat_ble_gatt_desc_t));
-                    const char* descriptors_uuid = luaL_checklstring(L, -1, &len);
-                    if (len == 2){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_16;
-                    }else if (len == 4){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_32;
-                    }else if (len == 16){
-                        luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_128;
-                    }
-                    luat_ble_uuid_swap(descriptors_uuid, luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid_type);
-                    memcpy(luat_ble_gatt_cfg.service[i-1].characteristics[j-2].descriptors->uuid, descriptors_uuid, len);
-                }
-                lua_pop(L, 1);
+                luat_ble_uuid_swap(descriptors_uuid, luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type);
+                memcpy(luat_ble_gatt_service.characteristics[j-2].descriptors->uuid, descriptors_uuid, len);
             }
             lua_pop(L, 1);
         }
+        lua_pop(L, 1);
     }
-    luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_cfg);
+    luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_service);
 
     lua_pushboolean(L, 1);
     return 1;
@@ -421,9 +418,6 @@ static const rotable_Reg_t reg_bluetooth[] = {
     {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE",                 ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ",                  ROREG_INT(LUAT_BLE_EVENT_READ)},
-
-
-
 
     // ADV_ADDR_MODE
     {"PUBLIC",                      ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_PUBLIC)},

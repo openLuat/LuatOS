@@ -210,9 +210,11 @@ static int l_ble_gatt_create(lua_State* L) {
         lua_pop(L, 1);
     }
     luat_ble_create_gatt(luat_bluetooth, &luat_ble_gatt_service);
-
-    lua_pushboolean(L, 1);
-    return 1;
+    for (size_t i = 0; i < luat_ble_gatt_service.characteristics_num; i++){
+        lua_pushinteger(L, luat_ble_gatt_service.characteristics[i].handle);
+    }
+    // lua_pushboolean(L, 1);
+    return luat_ble_gatt_service.characteristics_num;
 error_exit:
     return 0;
 }

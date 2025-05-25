@@ -43,14 +43,14 @@ end
 
 --P04引脚中断处理函数
 --id：0x04
---level：上升沿触发中断为gpio.RISING，下降沿触发中断为gpio.FALLING
+--level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0
 local function P04_int_cbfunc(id, level)
     log.info("P04_int_cbfunc", id, level==gpio.RISING and 1 or 0)
 end
 
 --P14引脚中断处理函数
 --id：0x14
---level：上升沿触发中断为gpio.RISING，下降沿触发中断为gpio.FALLING
+--level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0
 local function P14_int_cbfunc(id, level)
     log.info("P14_int_cbfunc", id, level==gpio.RISING and 1 or 0)
 end

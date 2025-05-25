@@ -1,10 +1,3 @@
---[[
-本功能模块演示的内容为：
-使用Air8101核心板的I2C0接口驱动控制AirGPIO_1000配件板上16个扩展GPIO的输入输出和中断功能
-AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板
-]]
-
-
 --加载AirGPIO_1000驱动文件
 local air_gpio = require "AirGPIO_1000"
 
@@ -45,14 +38,14 @@ end
 --id：0x04
 --level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0
 local function P04_int_cbfunc(id, level)
-    log.info("P04_int_cbfunc", id, level==gpio.RISING and 1 or 0)
+    log.info("P04_int_cbfunc", id, level)
 end
 
 --P14引脚中断处理函数
 --id：0x14
 --level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0
 local function P14_int_cbfunc(id, level)
-    log.info("P14_int_cbfunc", id, level==gpio.RISING and 1 or 0)
+    log.info("P14_int_cbfunc", id, level)
 end
 
 --AirGPIO_1000扩展GPIO中断测试

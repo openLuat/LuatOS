@@ -8,9 +8,11 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo演示的功能为：
-使用Air8101核心板的I2C接口驱动合宙AirGPIO_1000配件板控制扩展GPIO输入输出和中断功能
-AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板
+AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板；
+本demo演示的核心功能为：
+Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
+分输出、输入和中断三种应用场景来演示；
+更多说明参考本目录下的readme.md文件
 ]]
 PROJECT = "AirGPIO_1000"
 VERSION = "001.000.000"

@@ -2,3 +2,4 @@
 - STA:展示air8000 使用wifi 路由器上网能力
 - eth_wan_wifi_ap: 以太网路由器数据经过air8000转化为wifi 热点，给其他的wifi 设备联网
 - wifi_sta_eth_lan: wifi 路由器数据，经过air8000 转化为以太网数据，提供给以太网设备上网
+- Swifi_configuration_network_by_ap 通过链接Air8000 wifi 的AP(热点),打开网页配置wifi sta 网络号密码的方法，达到WIFI 使用wifi 路由器上网的目的

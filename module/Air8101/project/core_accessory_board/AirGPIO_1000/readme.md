@@ -20,6 +20,8 @@ Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 4、Air8101核心板和AirGPIO_1000配件板的硬件接线方式为
 
+- Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）
+
 - 基本连接参考下表
 
 | Air8101核心板 | AirGPIO_1000配件板 |
@@ -39,9 +41,10 @@ Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 ## 演示软件环境
 
-1、[最新版本的内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
+1、Luatools下载调试工具
 
-2、Luatools下载调试工具
+2、[Air8101最新版本的内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
+
 
 ## 演示操作步骤
 

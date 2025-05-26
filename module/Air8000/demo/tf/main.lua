@@ -8,12 +8,19 @@ _G.sys = require("sys")
 
 local rtos_bsp = rtos.bsp()
 
+local USE_CH390 = false  -- 设置为true或false来控制是否使用ch390
+
+if USE_CH390 then
+    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+end
+
+
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
     return 1, 20    -- Air8000整机开发板上的pin_cs为gpio20
 end
 
-sys.taskInit(function()
+local function main_task()
     sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 
@@ -96,10 +103,9 @@ sys.taskInit(function()
         log.info("sdio", "line3", f:read("*l"))
         f:close()
     end
+end
 
-    -- #################################################
-
-end)
+sys.taskInit(main_task)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

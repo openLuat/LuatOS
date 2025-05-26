@@ -183,7 +183,6 @@ struct luat_ble_gatt_chara{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_gatt_chara_t* descriptors;
 };
 
 typedef struct {

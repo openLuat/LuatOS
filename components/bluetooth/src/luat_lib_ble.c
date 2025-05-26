@@ -122,7 +122,6 @@ static int l_ble_gatt_create(lua_State* L) {
         }else if (len == 16){
             luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_128;
         }
-        luat_ble_uuid_swap(service_uuid, luat_ble_gatt_service.uuid_type);
         memcpy(luat_ble_gatt_service.uuid, service_uuid, len);
     }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
         uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
@@ -137,7 +136,7 @@ static int l_ble_gatt_create(lua_State* L) {
 
     // Characteristics
     luat_ble_gatt_service.characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_service.characteristics_num);
-
+    memset(luat_ble_gatt_service.characteristics, 0, sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_service.characteristics_num);
     for (size_t j = 2; j <= luat_ble_gatt_service.characteristics_num+1; j++){
         if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
             lua_rawgeti(L, -1, 1);
@@ -151,13 +150,12 @@ static int l_ble_gatt_create(lua_State* L) {
                 }else if (len == 16){
                     luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
                 }
-                luat_ble_uuid_swap(characteristics_uuid, luat_ble_gatt_service.characteristics[j-2].uuid_type);
                 memcpy(luat_ble_gatt_service.characteristics[j-2].uuid, characteristics_uuid, len);
             }else if (LUA_TNUMBER == lua_type(L, -1)){
                 uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
                 luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                luat_ble_gatt_service.characteristics[j-2].uuid[0] = characteristics_uuid & 0xff;
-                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid >> 8;
+                luat_ble_gatt_service.characteristics[j-2].uuid[0] = characteristics_uuid >> 8;
+                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid & 0xff;
             }else{
                 LLOGE("error characteristics uuid type");
                 goto error_exit;
@@ -169,21 +167,12 @@ static int l_ble_gatt_create(lua_State* L) {
                 luat_ble_gatt_service.characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
             }
             lua_pop(L, 1);
-            // Characteristics descriptors
+            // Characteristics max_size
             lua_rawgeti(L, -1, 3);
-            if (LUA_TSTRING == lua_type(L, -1)){
-                luat_ble_gatt_service.characteristics[j-2].descriptors = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t));
-                memset(luat_ble_gatt_service.characteristics[j-2].descriptors, 0, sizeof(luat_ble_gatt_chara_t));
-                const char* descriptors_uuid = luaL_checklstring(L, -1, &len);
-                if (len == 2){
-                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_16;
-                }else if (len == 4){
-                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_32;
-                }else if (len == 16){
-                    luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type = LUAT_BLE_UUID_TYPE_128;
-                }
-                luat_ble_uuid_swap(descriptors_uuid, luat_ble_gatt_service.characteristics[j-2].descriptors->uuid_type);
-                memcpy(luat_ble_gatt_service.characteristics[j-2].descriptors->uuid, descriptors_uuid, len);
+            if (LUA_TNUMBER == lua_type(L, -1)){
+                luat_ble_gatt_service.characteristics[j-2].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
+            }else{
+                luat_ble_gatt_service.characteristics[j-2].max_size = 256;
             }
             lua_pop(L, 1);
         }
@@ -193,7 +182,7 @@ static int l_ble_gatt_create(lua_State* L) {
     for (size_t i = 0; i < luat_ble_gatt_service.characteristics_num; i++){
         lua_pushinteger(L, luat_ble_gatt_service.characteristics[i].handle);
     }
-    // lua_pushboolean(L, 1);
+    luat_heap_free(luat_ble_gatt_service.characteristics);
     return luat_ble_gatt_service.characteristics_num;
 error_exit:
     return 0;

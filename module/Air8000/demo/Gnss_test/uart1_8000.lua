@@ -9,8 +9,6 @@ uart.setup(
 )
 
 
--- --循环发数据
--- sys.timerLoopStart(uart.write,1000, uartid, "test")
 -- 收取数据会触发回调, 这里的"receive" 是固定值
 uart.on(uartid, "receive", function(id, len)
     local s = ""
@@ -21,12 +19,8 @@ uart.on(uartid, "receive", function(id, len)
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
             log.info("uart1", "receive", id, #s, s)
             uart.write(2, s)
-            -- log.info("uart", "receive", id, #s, s:toHex())
         end
-        -- 如使用2024.5.13之前编译的ESP32C3/ESP32S3固件, 恢复下面的代码可以正常工作
-        -- if #s == len then
-        --     break
-        -- end
+
     until s == ""
 end)
 

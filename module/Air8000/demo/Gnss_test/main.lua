@@ -39,12 +39,7 @@ uart.on(2, "receive", function(id, len)
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
             log.info("uart2", "receive", id, #s, s)
             uart.write(1, s)
-            -- log.info("uart", "receive", id, #s, s:toHex())
         end
-        -- 如使用2024.5.13之前编译的ESP32C3/ESP32S3固件, 恢复下面的代码可以正常工作
-        -- if #s == len then
-        --     break
-        -- end
     until s == ""
 end)
 

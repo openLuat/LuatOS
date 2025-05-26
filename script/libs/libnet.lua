@@ -22,7 +22,7 @@ function libnet.waitLink(taskName, timeout, ...)
 		return false
 	end
 	if not result then
-		result = sys_wait(taskName, socket.LINK, timeout)
+		result = sysplus.waitMsg(taskName, socket.LINK, timeout)
 	else
 		return true
 	end
@@ -48,7 +48,7 @@ function libnet.connect(taskName,timeout, ... )
 		return false
 	end
 	if not result then
-		result = sys_wait(taskName, socket.ON_LINE, timeout)
+		result = sysplus.waitMsg(taskName, socket.ON_LINE, timeout)
 	else
 		return true
 	end
@@ -73,7 +73,7 @@ function libnet.listen(taskName,timeout, ... )
 		return false
 	end
 	if not result then
-		result = sys_wait(taskName, socket.ON_LINE, timeout)
+		result = sysplus.waitMsg(taskName, socket.ON_LINE, timeout)
 	else
 		return true
 	end
@@ -102,7 +102,7 @@ function libnet.tx(taskName,timeout, ...)
 		return true, true
 	end
 	if not result then
-		result = sys_wait(taskName, socket.TX_OK, timeout)
+		result = sysplus.waitMsg(taskName, socket.TX_OK, timeout)
 	else
 		return true, is_full
 	end
@@ -128,7 +128,7 @@ function libnet.wait(taskName,timeout, netc)
 		return false,false
 	end
 	if not result then
-		result = sys_wait(taskName, socket.EVENT, timeout)
+		result = sysplus.waitMsg(taskName, socket.EVENT, timeout)
 	else
 		return true,true
 	end
@@ -157,7 +157,7 @@ function libnet.close(taskName,timeout, netc)
 		return
 	end
 	if not result then
-		result = sys_wait(taskName, socket.CLOSED, timeout)
+		result = sysplus.waitMsg(taskName, socket.CLOSED, timeout)
 	else
 		socket.close(netc)
 		return

@@ -8,7 +8,7 @@ _G.sys = require("sys")
 
 local rtos_bsp = rtos.bsp()
 
-local USE_CH390 = false  -- 使用ch390时，设置为true，否则为false
+local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 
 if USE_CH390 then
     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电

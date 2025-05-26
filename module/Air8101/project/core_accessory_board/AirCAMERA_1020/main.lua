@@ -8,13 +8,13 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板；
+AirCAMERA_1020是合宙设计生产的一款DVP摄像头配件板；
 本demo演示的核心功能为：
-Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
-分输出、输入和中断三种应用场景来演示；
+Air8101核心板+AirCAMERA_1020配件板，演示DVP摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
 更多说明参考本目录下的readme.md文件
 ]]
-PROJECT = "AirGPIO_1000"
+
+PROJECT = "AirCAMERA_1020"
 VERSION = "001.000.000"
 
 
@@ -60,13 +60,16 @@ end
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
--- sys.timerLoopStart(function()
---     log.info("mem.lua", rtos.meminfo())
---     log.info("mem.sys", rtos.meminfo("sys"))
---  end, 3000)
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+ end, 3000)
 
- -- 加载gpio应用模块
- require "gpio_app"
+-- 加载WIFI网络连接管理功能模块
+require "wifi_app"
+-- 加载AirCAMERA_1020拍照并且通过http上传照片的功能模块
+require "http_app"
+
 
 
 -- 用户代码已结束---------------------------------------------

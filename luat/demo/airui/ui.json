@@ -1,0 +1,566 @@
+{
+    "fonts": [
+    ],
+    "images": [
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/Saved Pictures/rabbit.png",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/rabbit.png"
+        }
+    ],
+    "pages": [
+        {
+            "children": [
+                {
+                    "class": "lv_textarea",
+                    "click": true,
+                    "cursor blink time": 400,
+                    "cursor position": 49,
+                    "drag": false,
+                    "edge flash": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 62,
+                        "width": 227,
+                        "x": 107,
+                        "y": 64
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "max length": 0,
+                    "name": "text_area_1",
+                    "one line mode": false,
+                    "password mode": false,
+                    "placeholder": "",
+                    "scroll propagation": false,
+                    "scrollbars": "Drag",
+                    "styles": [
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 0,
+                            "state": 6
+                        },
+                        {
+                            "part": 1,
+                            "state": 0
+                        },
+                        {
+                            "part": 1,
+                            "state": 1
+                        },
+                        {
+                            "part": 1,
+                            "state": 2
+                        },
+                        {
+                            "part": 1,
+                            "state": 3
+                        },
+                        {
+                            "part": 1,
+                            "state": 4
+                        },
+                        {
+                            "part": 1,
+                            "state": 5
+                        },
+                        {
+                            "part": 1,
+                            "state": 6
+                        },
+                        {
+                            "part": 2,
+                            "state": 0
+                        },
+                        {
+                            "part": 2,
+                            "state": 1
+                        },
+                        {
+                            "part": 2,
+                            "state": 2
+                        },
+                        {
+                            "part": 2,
+                            "state": 3
+                        },
+                        {
+                            "part": 2,
+                            "state": 4
+                        },
+                        {
+                            "part": 2,
+                            "state": 5
+                        },
+                        {
+                            "part": 2,
+                            "state": 6
+                        },
+                        {
+                            "part": 3,
+                            "state": 0
+                        },
+                        {
+                            "part": 3,
+                            "state": 1
+                        },
+                        {
+                            "part": 3,
+                            "state": 2
+                        },
+                        {
+                            "part": 3,
+                            "state": 3
+                        },
+                        {
+                            "part": 3,
+                            "state": 4
+                        },
+                        {
+                            "part": 3,
+                            "state": 5
+                        },
+                        {
+                            "part": 3,
+                            "state": 6
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 0
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 1
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 2
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 3
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 4
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 5
+                        },
+                        {
+                            "Text": {
+                                "text_font": "123abc 16"
+                            },
+                            "part": 4,
+                            "state": 6
+                        }
+                    ],
+                    "text": "Here is a test project,do you know how to use it?",
+                    "text align": "Left",
+                    "type": "Text area"
+                },
+                {
+                    "checkable": false,
+                    "class": "lv_btn",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "fit": "None",
+                    "geometry": {
+                        "height": 35,
+                        "width": 100,
+                        "x": 115,
+                        "y": 200
+                    },
+                    "hidden": false,
+                    "layout": "Center",
+                    "locked": false,
+                    "name": "button_1",
+                    "state": "Released",
+                    "style": "Custome Style",
+                    "styles": [
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "YES"
+                            },
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Button"
+                },
+                {
+                    "checkable": false,
+                    "class": "lv_btn",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "fit": "None",
+                    "geometry": {
+                        "height": 35,
+                        "width": 100,
+                        "x": 271,
+                        "y": 201
+                    },
+                    "hidden": false,
+                    "layout": "Center",
+                    "locked": false,
+                    "name": "button_2",
+                    "state": "Released",
+                    "style": "Custome Style",
+                    "styles": [
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Value": {
+                                "value_font": "123abc 16",
+                                "value_str": "NO"
+                            },
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Button"
+                },
+                {
+                    "brightness": 255,
+                    "class": "lv_led",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 43,
+                        "width": 43,
+                        "x": 142,
+                        "y": 251
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "led_1",
+                    "styles": [
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0x00ff00"
+                            },
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "switch": "On",
+                    "type": "LED"
+                },
+                {
+                    "brightness": 255,
+                    "class": "lv_led",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 43,
+                        "width": 43,
+                        "x": 302,
+                        "y": 252
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "led_2",
+                    "styles": [
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Background": {
+                                "bg_color": "0xff0000"
+                            },
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "switch": "Off",
+                    "type": "LED"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 320,
+                "width": 480,
+                "x": 0,
+                "y": 0
+            },
+            "name": "mainpage",
+            "styles": [
+                {
+                    "bg_color": "0xff5500",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        }
+    ],
+    "project_name": "demo_1-2",
+    "project_settings": {
+        "color_depth": 32,
+        "keyBoard": {
+            "chinese_input": false,
+            "chinese_library": "mini",
+            "display_kb": false,
+            "keyboard_font_size": 18,
+            "keyboard_font_type": "SourceHanSerifSC_Regular"
+        },
+        "resolution": {
+            "height": 320,
+            "width": 480
+        },
+        "screen_retated": 90
+    },
+    "ui_version": "8.1.0",
+    "version": "1.0.0"
+}

@@ -9,23 +9,16 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 
--- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改
+-- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改(如果使用整机开发板可以用GPIO146)
 local LEDA = gpio.setup(20, 0, gpio.PULLUP)
+
 
 function create_ap()
     log.info("执行AP创建操作", "luatos8888")
     wlan.createAP("luatos8888", "12345678")
     sys.wait(1000)
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
-    while 1 do
-        if netdrv.ready(socket.LWIP_GP) then
-            netdrv.napt(socket.LWIP_GP)
-            break
-        end
-        sys.wait(1000)
-    end
 end
 
 function wifi_networking()
@@ -57,7 +50,8 @@ function handle_http_request(fd, method, uri, headers, body)
         end
         return 400, {}, "ok"
     elseif uri == "/connok" then
-        return 200, {["Content-Type"]="application/json"}, json.encode({ip=socket.localIP()})
+        log.info("connok", json.encode({ip=socket.localIP(2)}))
+        return 200, {["Content-Type"]="application/json"}, json.encode({ip=socket.localIP(2)})
     end
     return 404, {}, "Not Found" .. uri
 end
@@ -74,8 +68,11 @@ function scan_done_handle()
     log.info("scan", "aplist", json.encode(_G.scan_result))
 end
 
-function ip_ready_handle()
-    log.info("wlan", "已联网", "通知服务器")
+function ip_ready_handle(ip, adapter)
+    log.info("ip_ready_handle",ip, adapter)
+    if adapter == 2 then
+        log.info("wifi sta 链接成功")
+    end
 end
 
 function test_scan()

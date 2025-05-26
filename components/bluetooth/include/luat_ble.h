@@ -1,5 +1,5 @@
-#ifndef LUAT_BLUETOOTH
-#define LUAT_BLUETOOTH
+#ifndef __LUAT_BLE__
+#define __LUAT_BLE__
 
 
 
@@ -133,6 +133,7 @@ typedef enum{
 }luat_ble_uuid_type;
 
 typedef struct luat_bluetooth luat_bluetooth_t;
+typedef struct luat_ble luat_ble_t;
 
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
@@ -143,7 +144,7 @@ typedef struct{
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
     uint16_t service_id;        /**< The id of the gatt service */
-    uint16_t att_idx;       /**< The index of the attribute */
+    uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The length of the attribute value */
     uint16_t size;
@@ -152,7 +153,7 @@ typedef struct{
 typedef struct{
     uint8_t conn_idx;       /**< The index of the connection */
     uint16_t service_id;        /**< The id of the gatt service */
-    uint16_t att_idx;       /**< The index of the attribute */
+    uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The data length read */
     uint16_t size;          /**< The size of attribute value to read */
@@ -172,21 +173,18 @@ typedef struct {
     int len;
 }luat_ble_adv_data_t;
 
-typedef void (*luat_ble_cb_t)(luat_bluetooth_t* luat_bluetooth, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
+typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
-typedef struct{
-    uint8_t uuid[16];
-    luat_ble_uuid_type uuid_type;
-} luat_ble_gatt_desc_t;
+typedef struct luat_ble_gatt_chara luat_ble_gatt_chara_t;
 
-typedef struct{
-    uint16_t att_idx;
+struct luat_ble_gatt_chara{
+    uint16_t handle;
     uint8_t uuid[16];
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_gatt_desc_t* descriptors;
-} luat_ble_gatt_chara_t;
+    luat_ble_gatt_chara_t* descriptors;
+};
 
 typedef struct {
     uint8_t uuid[16];
@@ -194,11 +192,6 @@ typedef struct {
     luat_ble_gatt_chara_t* characteristics; // characteristics
     uint8_t characteristics_num;            // number of characteristics
 }luat_ble_gatt_service_t;
-
-typedef struct {
-    luat_ble_gatt_service_t* service;   // service
-    uint8_t service_num;                // number of service
-}luat_ble_gatt_cfg_t;
 
 typedef enum{
     LUAT_BLE_ADV_ADDR_MODE_PUBLIC,   // 控制器的公共地址
@@ -222,58 +215,36 @@ typedef struct {
     int len;
 }luat_ble_adv_cfg_t;
 
-typedef struct {
+struct luat_ble{
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
     int lua_cb;
+    int ble_ref;
     void* userdata;
-}luat_ble_t;
-
-typedef struct {
-    void* userdata;
-}luat_bt_t;
-
-typedef struct luat_bluetooth{
-    luat_ble_t* luat_ble;
-    luat_bt_t* luat_bt;
-    int bluetooth_ref;
-}luat_bluetooth_t;
+};
 
 int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
 
-int luat_ble_init(luat_bluetooth_t* luat_bluetooth, luat_ble_cb_t luat_ble_cb);
+int luat_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb);
 
-int luat_ble_deinit(luat_bluetooth_t* luat_bluetooth);
+int luat_ble_deinit(luat_ble_t* luat_ble);
 
-int luat_ble_create_advertising(luat_bluetooth_t* luat_bluetooth, luat_ble_adv_cfg_t* adv_cfg);
+int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg);
 
-int luat_ble_set_name(luat_bluetooth_t* luat_bluetooth, char* name, uint8_t len);
+int luat_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len);
 
-int luat_ble_set_adv_data(luat_bluetooth_t* luat_bluetooth, uint8_t* adv_buff, uint8_t adv_len);
+int luat_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len);
 
-int luat_ble_set_scan_rsp_data(luat_bluetooth_t* luat_bluetooth, uint8_t* scan_buff, uint8_t scan_len);
+int luat_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* scan_buff, uint8_t scan_len);
 
-int luat_ble_start_advertising(luat_bluetooth_t* luat_bluetooth);
+int luat_ble_start_advertising(luat_ble_t* luat_ble);
 
-int luat_ble_stop_advertising(luat_bluetooth_t* luat_bluetooth);
+int luat_ble_stop_advertising(luat_ble_t* luat_ble);
 
-int luat_ble_delete_advertising(luat_bluetooth_t* luat_bluetooth);
+int luat_ble_delete_advertising(luat_ble_t* luat_ble);
 
-int luat_ble_create_gatt(luat_bluetooth_t* luat_bluetooth, luat_ble_gatt_cfg_t* gatt_cfg);
+int luat_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service_t* luat_ble_gatt_service);
 
-int luat_ble_read_response(luat_bluetooth_t* luat_bluetooth, uint8_t conn_idx, uint16_t service_id, uint16_t att_idx, uint32_t len, uint8_t *buf);
-
-
-// bt
-
-
-int luat_bt_get_mac(luat_bluetooth_t* luat_bluetooth, uint8_t *addr);
-int luat_bt_set_mac(luat_bluetooth_t* luat_bluetooth, uint8_t *addr, uint8_t len);
-
-
-// bluetooth
-
-int luat_bluetooth_init(luat_bluetooth_t* luat_bluetooth);
-int luat_bluetooth_deinit(luat_bluetooth_t* luat_bluetooth);
+int luat_ble_read_response(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint32_t len, uint8_t *buf);
 
 #endif

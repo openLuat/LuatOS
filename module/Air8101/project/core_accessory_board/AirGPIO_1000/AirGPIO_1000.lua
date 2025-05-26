@@ -94,7 +94,7 @@ sys.subscribe("AirGPIO_1000_INT", function()
                 local cur_level = AirGPIO_1000.get(k)
                 if v.old_level~=cur_level then
                     v.old_level = cur_level
-                    if v.cb_func then v.cb_func(k, cur_level==1 and gpio.RISING or gpio.FALLING) end
+                    if v.cb_func then v.cb_func(k, cur_level) end
                 end
             end
         end
@@ -209,7 +209,7 @@ end
 --           function类型时，表示中断模式，此function为中断回调函数，函数的定义格式如下：
 --                           function cb_func(id, level)
 --                               --id：表示触发中断的AirGPIO_1000上的扩展GPIO ID，取值范围为0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
---                               --level：表示触发中断类型，上升沿触发为gpio.RISING，下降沿触发为gpio.FALLING
+--                               --level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0；
 --                           end
 
 --返回值：成功返回true，失败返回false

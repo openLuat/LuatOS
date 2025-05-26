@@ -8,9 +8,12 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo实现的业务逻辑为：
-1、Air8101核心板+USB HUB+4个USB摄像头，注意根据USB摄像头的规格书，拨动核心板上的3.3V和5V的按键开关
-2、每隔10秒循环一次，依次启动4个USB摄像头中的其中一个，拍照然后上传到http服务器，可以在http前端页面查看拍摄的照片
+AirCAMERA_1030是合宙设计生产的一款USB摄像头配件板；
+AirUSBHUB_1000是合宙直接使用的第三方一拖四的USB HUB（例如绿联的USB HUB产品）；
+本demo演示的核心功能为：
+Air8101核心板+AirUSBHUB_1000+HUB上外挂四个AirCAMERA_1030配件板；
+依次演示四个AirCAMERA_1030的USB摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
+更多说明参考本目录下的readme.md文件
 ]]
 
 PROJECT = "AirUSBHUB_1000"

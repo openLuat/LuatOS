@@ -295,7 +295,7 @@ local function draw()
   elseif cur_fun == "selftest" then
     draw_selftest()
   elseif cur_fun == "modbusTCP" then
-    draw_modbusTCP()
+    draw_modbusTCP()xx
   elseif cur_fun == "modbusRTU" then
     draw_modbusRTU()
   elseif cur_fun == "CAN" then

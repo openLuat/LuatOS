@@ -95,6 +95,8 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 @api tp.init(tp, args)
 @string tp类型，当前支持：<br>gt911 <br>gt9157 <br>jd9261t
 @table 附加参数,与具体设备有关：<br>port 驱动方式<br>port：硬件i2c端口,例如0,1,2...如果为软件i2c对象<br>pin_rst：复位引脚<br>pin_int：中断引脚<br>w:宽度<br>h:高度
+@function 回调函数, 回调参数:tp_device,tp_data:触摸数据,内部为多个触摸点数据表,每个表中有参数event:触摸事件 x:x坐标 y:y坐标 
+@return tp_device
 
 @usage
 // tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23,w = 320,h = 480})
@@ -155,6 +157,8 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->i2c_id = luaL_checkinteger(L, -1);
     }else if(LUA_TUSERDATA == port){
         luat_tp_config->soft_i2c = (luat_ei2c_t*)lua_touserdata(L, -1);
+        lua_pushvalue(L, -1);
+        luat_tp_config->soft_i2c->ei2c_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }else{
         LLOGE("port type error!!!");
         return 0;
@@ -229,6 +233,11 @@ static const rotable_Reg_t reg_tp[] =
     { "EVENT_UP",      ROREG_INT(TP_EVENT_TYPE_UP)},
     //@const EVENT_MOVE number 移动
     { "EVENT_MOVE",    ROREG_INT(TP_EVENT_TYPE_MOVE)},
+
+    { "EVENT_TYPE_DOWN",    ROREG_INT(TP_EVENT_TYPE_DOWN)},
+    { "EVENT_TYPE_DOWN",    ROREG_INT(TP_EVENT_TYPE_DOWN)},
+    { "EVENT_TYPE_UP",      ROREG_INT(TP_EVENT_TYPE_UP)},
+    { "EVENT_TYPE_MOVE",    ROREG_INT(TP_EVENT_TYPE_MOVE)},
 
     { "RISING",     ROREG_INT(LUAT_GPIO_RISING_IRQ)},
     { "FALLING",    ROREG_INT(LUAT_GPIO_FALLING_IRQ)},

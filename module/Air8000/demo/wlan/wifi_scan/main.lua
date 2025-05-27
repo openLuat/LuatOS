@@ -6,18 +6,6 @@ VERSION = "1.0.5"
 _G.sys = require("sys")
 require "sysplus"
 
-PWR8000S = gpio.setup(23, 0, gpio.PULLUP) -- 关闭Air8000S的LDO供电
-
-gpio.debounce(0, 1000)
-gpio.setup(0, function()
-    sys.taskInit(function()
-        log.info("复位Air8000S")
-        PWR8000S(0)
-        sys.wait(20)
-        PWR8000S(1)
-    end)
-end, gpio.PULLDOWN)
-
 function test_scan()
     while 1 do
         log.info("执行wifi扫描")
@@ -25,13 +13,18 @@ function test_scan()
         sys.wait(30 * 1000)
     end
 end
-sys.subscribe("WLAN_SCAN_DONE", function ()
-    local results = wlan.scanResult()
-    log.info("scan", "results", #results)
-    for k,v in pairs(results) do
-        log.info("scan", v["ssid"], v["rssi"], (v["bssid"]:toHex()))
+
+function scan_done_handle()
+    local result = wlan.scanResult()
+    _G.scan_result = {}
+    for k, v in pairs(result) do
+        log.info("scan", (v["ssid"] and #v["ssid"] > 0) and v["ssid"] or "[隐藏SSID]", v["rssi"], (v["bssid"]:toHex()))
+        if v["ssid"] and #v["ssid"] > 0 then
+            table.insert(_G.scan_result, v["ssid"])
+        end
     end
-end)
+    log.info("scan", "aplist", json.encode(_G.scan_result))
+end
 
 --  每隔6秒打印一次airlink统计数据, 调试用
 sys.taskInit(function()
@@ -41,6 +34,7 @@ sys.taskInit(function()
     end
 end)
 
+sys.subscribe("WLAN_SCAN_DONE", scan_done_handle)
 sys.taskInit(function()
     -- 稍微缓一下
     sys.wait(500)

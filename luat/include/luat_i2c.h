@@ -152,6 +152,7 @@ typedef struct luat_ei2c {
     int8_t sda;
     int8_t scl;
     int16_t udelay;
+    int ei2c_ref;
 } luat_ei2c_t;//软件i2c
 
 int i2c_soft_setup(luat_ei2c_t *ei2c);

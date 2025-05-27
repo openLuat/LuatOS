@@ -1,8 +1,6 @@
 --本文件中的主机是指I2C主机，具体指Air8101
 --本文件中的从机是指I2C从机，具体指AirGPIO_1000配件板上的IO扩展芯片
 
-
-
 local AirGPIO_1000 = 
 {
     -- i2c_id：主机的i2c id；
@@ -30,7 +28,10 @@ local AirGPIO_1000 =
     -- }
 }
 
--- A0 A1 A2 connect GND
+-- 从机硬件上有三个引脚A0 A1 A2可以配置I2C从设备的地址
+-- 当A0 A1 A2都接地时的从设备基地址为(0x40 >> 1)
+-- A0 A1 A2有0到7一共八种排序组合，基地址+0/1/2/3/4/5/6/7即为八种从设备的地址
+-- AirGPIO_1000默认A0 A1 A2都接地，所以AirGPIO_1000的从设备地址默认也为(0x40 >> 1)
 local SALVE_ADDRESS_HIGH_4BIT = (0x40 >> 1)
 
 -- 寄存器地址
@@ -84,14 +85,23 @@ end
 --主机上的中断引脚处理函数
 local function gpio_int_callback()
     log.info("gpio_int_callback")
+    --在中断处理函数中不能直接执行耗时较长的动作
+    --所以在此处publish一个"AirGPIO_1000_INT"消息
+    --在其他位置订阅这个消息，进行异步处理
+    --异步处理这个消息的函数可以直接执行耗时较长的动作
     sys.publish("AirGPIO_1000_INT")
 end
 
-sys.subscribe("AirGPIO_1000_INT", function()
+--遍历用户扩展GPIO中断函数表，进行处理
+local function user_gpio_int_callback()
     if AirGPIO_1000.ints then
+        --遍历用户扩展GPIO中断函数表
         for k,v in pairs(AirGPIO_1000.ints) do
             if v then
+                --读取扩展GPIO的输入电平
                 local cur_level = AirGPIO_1000.get(k)
+                --如果输入电平和上一次输入电平不一致
+                --则执行用户扩展GPIO中断函数
                 if v.old_level~=cur_level then
                     v.old_level = cur_level
                     if v.cb_func then v.cb_func(k, cur_level) end
@@ -99,7 +109,11 @@ sys.subscribe("AirGPIO_1000_INT", function()
             end
         end
     end
-end)
+end
+
+--订阅"AirGPIO_1000_INT"消息的处理函数user_gpio_int_callback
+--当其他位置publish "AirGPIO_1000_INT"消息时，会执行user_gpio_int_callback
+sys.subscribe("AirGPIO_1000_INT", user_gpio_int_callback)
 
 --检查AirGPIO_1000上的扩展GPIO ID是否有效
 
@@ -129,6 +143,7 @@ end
 
 --返回值：成功返回true，失败返回false
 function AirGPIO_1000.init(i2c_id, gpio_int_id)
+    --检查参数的合法性
     if not (i2c_id == 0 or i2c_id == 1) then
         log.error("AirGPIO_1000.init", "invalid i2c_id", i2c_id)
         return false
@@ -142,6 +157,7 @@ function AirGPIO_1000.init(i2c_id, gpio_int_id)
     AirGPIO_1000.i2c_id = i2c_id
     AirGPIO_1000.gpio_int_id = gpio_int_id
 
+    --初始化I2C
     if i2c.setup(i2c_id, i2c.FAST) ~= 1 then
         log.error("AirGPIO_1000.init", "i2c.setup error", i2c_id)
         return false
@@ -149,7 +165,9 @@ function AirGPIO_1000.init(i2c_id, gpio_int_id)
 
     --自动识别从设备地址
     --AirGPIO_1000上使用的TCA9555芯片有三个引脚，A2 A1 A0，可以配置三个bit的I2C从设备地址
-    --从 0 0 0 到 1 1 1，一共可以配置8种；
+    --从 0 0 0 到 1 1 1，也就是十进制的0到7，一共可以配置8种；
+    --依次读取这8个从设备地址上的一个寄存器地址数据
+    --如果返回应答数据，则从设备地址自动识别成功
     for i=0,7 do
         i2c.send(i2c_id, SALVE_ADDRESS_HIGH_4BIT+i, REG_INPUT_PORT_0)
         local data = i2c.recv(i2c_id, SALVE_ADDRESS_HIGH_4BIT+i, 1)
@@ -160,12 +178,15 @@ function AirGPIO_1000.init(i2c_id, gpio_int_id)
         end
     end
 
+    --自动识别从设备地址失败
     if not AirGPIO_1000.slave_address then
         log.error("AirGPIO_1000.init", "slave_address unknown")
         i2c.close(i2c_id)
         return false
     end
 
+
+    --配置主机上的中断GPIO，用来实时检测从机上扩展GPIO的输入电平变化
     if gpio_int_id then
         gpio.setup(gpio_int_id, gpio_int_callback, gpio.PULLUP, gpio.FALLING)
     end
@@ -177,17 +198,20 @@ end
 
 --返回值：成功返回true，失败返回false
 function AirGPIO_1000.deinit()
+    --关闭主机I2C
     if AirGPIO_1000.i2c_id then
         i2c.close(AirGPIO_1000.i2c_id)
         AirGPIO_1000.i2c_id = nil
         AirGPIO_1000.slave_address = nil
     end
 
+    --关闭主机中断GPIO
     if AirGPIO_1000.gpio_int_id then
         gpio.close(AirGPIO_1000.gpio_int_id)
         AirGPIO_1000.gpio_int_id = nil
     end
 
+    --清空用户注册的扩展GPIO中断处理表
     if type(AirGPIO_1000.ints)=="table" then
         for k,v in pairs(AirGPIO_1000.ints) do
             AirGPIO_1000.ints[k] = nil
@@ -214,6 +238,7 @@ end
 
 --返回值：成功返回true，失败返回false
 function AirGPIO_1000.setup(gpio_id, gpio_mode)
+    --检查参数的合法性
     if not check_gpio_id_valid(gpio_id) then
         log.error("AirGPIO_1000.setup", "invalid gpio_id", gpio_id)
         return false
@@ -227,8 +252,10 @@ function AirGPIO_1000.setup(gpio_id, gpio_mode)
     log.info("AirGPIO_1000.setup", "enter", gpio_id, type(gpio_mode), gpio_mode)
 
 
-
+    --根据扩展GPIO ID识别当前扩展GPIO使用的配置寄存器地址
+    --0x0x开头的ID为REG_CONFIG_0，0x01开头的ID为REG_CONFIG_1
     local reg_addr = ((gpio_id>>4) == 0) and REG_CONFIG_0 or REG_CONFIG_1
+    --读取从机中输出寄存器当前的值
     local reg_data = read_register(reg_addr)
 
     if reg_data==nil then
@@ -238,12 +265,16 @@ function AirGPIO_1000.setup(gpio_id, gpio_mode)
 
     local mask = 1<<(gpio_id&0x0F)
     local value
+    --GPIO配置为输出模式
     if gpio_mode==0 or gpio_mode==1 then
         value = reg_data & (~mask)
+    --GPIO配置为输入模式
     elseif gpio_mode==nil or type(gpio_mode)=="function" then
         value = reg_data | mask
     end
 
+    --如果寄存器新值和旧值相比，发生变化
+    --写新值到从机的配置寄存器中
     if reg_data~=value then
         if not write_register(reg_addr, value) then
             log.error("AirGPIO_1000.setup", "config write error", reg_addr, value)
@@ -253,6 +284,7 @@ function AirGPIO_1000.setup(gpio_id, gpio_mode)
 
     log.info("AirGPIO_1000.setup", "config", reg_addr, reg_data, value)
 
+    --如果是中断模式，并且用户注册了中断处理函数
     if type(gpio_mode)=="function" then
         if AirGPIO_1000.ints==nil then
             AirGPIO_1000.ints = {}
@@ -260,37 +292,17 @@ function AirGPIO_1000.setup(gpio_id, gpio_mode)
         if AirGPIO_1000.ints[gpio_id]==nil then
             AirGPIO_1000.ints[gpio_id] = {}
         end
+        --存储中断处理函数
         AirGPIO_1000.ints[gpio_id].cb_func = gpio_mode
+        --读取当前时刻GPIO的输入电平状态
         AirGPIO_1000.ints[gpio_id].old_level = AirGPIO_1000.get(gpio_id)
     end
 
+    --如果配置的是输入模式或者中断模式，可以直接返回了
     if gpio_mode~=0 and gpio_mode~=1 then return true end
 
 
-
-    -- reg_addr = ((gpio_id>>4) == 0) and REG_OUTPUT_PORT_0 or REG_OUTPUT_PORT_1
-    -- reg_data = read_register(reg_addr)
-
-    -- if reg_data==nil then
-    --     log.error("AirGPIO_1000.setup", "read output register error", reg_addr)
-    --     return false
-    -- end    
-
-    -- mask = 1<<(gpio_id&0x0F)
-
-    -- if gpio_mode==0 then
-    --     value = reg_data & (~mask)
-    -- elseif gpio_mode==1 then
-    --     value = reg_data | mask
-    -- end
-
-    -- if reg_data~=value then
-    --     if not write_register(reg_addr, value) then
-    --         log.error("AirGPIO_1000.setup", "output write error", reg_addr, value)
-    --         return false
-    --     end
-    -- end
-
+    --如果配置的输出模式，初始化输出的电平为gpio_mode
     if not AirGPIO_1000.set(gpio_id, gpio_mode) then
         log.error("AirGPIO_1000.setup", "output set error")
         return false
@@ -316,6 +328,7 @@ end
 
 --返回值：成功返回true，失败返回false
 function AirGPIO_1000.set(gpio_id, output_level)
+    --检查参数的合法性
     if not check_gpio_id_valid(gpio_id) then
         log.error("AirGPIO_1000.set", "invalid gpio_id", gpio_id)
         return false
@@ -328,7 +341,10 @@ function AirGPIO_1000.set(gpio_id, output_level)
 
     log.info("AirGPIO_1000.set", "enter", gpio_id, output_level)
 
+    --根据扩展GPIO ID识别当前扩展GPIO使用的输出寄存器地址
+    --0x0x开头的ID为REG_OUTPUT_PORT_0，0x01开头的ID为REG_OUTPUT_PORT_1
     local reg_addr = ((gpio_id>>4) == 0) and REG_OUTPUT_PORT_0 or REG_OUTPUT_PORT_1
+    --读取从机中输出寄存器当前的值
     local reg_data = read_register(reg_addr)
 
     if reg_data==nil then
@@ -339,12 +355,16 @@ function AirGPIO_1000.set(gpio_id, output_level)
     local mask = 1<<(gpio_id&0x0F)
     local value
 
+    --输出低电平
     if output_level==0 then
         value = reg_data & (~mask)
+    --输出高电平
     elseif output_level==1 then
         value = reg_data | mask
     end
 
+    --如果寄存器新值和旧值相比，发生变化
+    --写新值到从机的输出寄存器中
     if reg_data~=value then
         if not write_register(reg_addr, value) then
             log.error("AirGPIO_1000.set", "output write error", reg_addr, value)
@@ -365,21 +385,26 @@ end
 --         取值范围：0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
 --         必须传入，不允许为空；
 
---返回值：number类型，表示输入的电平，0表示低电平，1表示高电平；如果读取失败，返回nil
+--返回值：number类型，表示输入的电平，0表示低电平，1表示高电平；如果读取失败，返回false
 function AirGPIO_1000.get(gpio_id)
+    --检查参数的合法性
     if not check_gpio_id_valid(gpio_id) then
         log.error("AirGPIO_1000.get", "invalid gpio_id", gpio_id)
         return false
     end
 
+    --根据扩展GPIO ID识别当前扩展GPIO使用的输入寄存器地址
+    --0x0x开头的ID为REG_INPUT_PORT_0，0x01开头的ID为REG_INPUT_PORT_1
     local reg_addr = ((gpio_id>>4) == 0) and REG_INPUT_PORT_0 or REG_INPUT_PORT_1
+    --读取从机中输入寄存器当前的值
     local value = read_register(reg_addr)
 
     if not value then
         log.error("AirGPIO_1000.get", "read_register error", reg_addr)
-        return nil
+        return false
     end
 
+    --返回输入寄存器的值和GPIO对应的bit位的值
     return ((value>>(gpio_id&0x0F)) & 0x01)
 end
 

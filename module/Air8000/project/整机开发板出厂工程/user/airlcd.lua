@@ -45,7 +45,6 @@ function airLCD.lcd_init(sn)
         log.info("tp", "tp init")
         local function tp_callBack(tp_device,tp_data)
             sys.publish("TP",tp_device,tp_data)
-            log.info("TP",tp_data[1].x,tp_data[1].y,tp_data[1].event)
         end
 
         local i2c_id = 0

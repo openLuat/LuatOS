@@ -5,21 +5,16 @@ log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 sys = require("sys")
-
+-- local airgps = require "airgps"
 local airlcd = require "airlcd"
+local airmusic = require "airmusic"
+local airtts  = require "airtts"
 local aircam = require "camera8000_simple"
 local airrus = require "russia"
 local airstatus = require "statusbar"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
 
-local key = ""      
-
-local powertick = 0
-local boottick = 0
-local SWITCH_LONG_TIME = 500
-local ROT_LONG_TIME = 300
-local QUIT_LONG_TIME = 3000
 
 local sid = 0
 
@@ -55,12 +50,6 @@ local sid = 0
 -- "uart":      串口输出
 -- "232":       232
 
-
-
-
-
-
-
 local cur_fun = "main"
 local cur_sel = 0
 
@@ -92,123 +81,6 @@ local function QuitCam()
   airlcd.lcd_init("AirLCD_1001")
 end
 
-local function keypressed()
-  if key == "" then
-    return
-  end
-  
-  log.info("keypressed : ", key, cur_fun)
-
-  if cur_fun == "russia" then
-      if key == "quit" then
-          cur_fun = "main"
-      else
-          airrus.keypressed(key)
-      end
-      return
-  end
-
-  if key == "switch" then
-    if cur_fun == "main" then
-      cur_sel = cur_sel + 1
-      if cur_sel > 9 then
-        cur_sel = 1
-      end
-      log.info("select num:", cur_sel)
-    end
-    key = ""
-  elseif key == "enter" or key == "quit" then
-    if cur_fun == "main" then
-      cur_fun = funlist[cur_sel]
-      if cur_fun == "camshow" then
-        StartCam()
-      elseif cur_fun == "russia" then
-        airrus.initrus()
-      elseif cur_fun == "LAN" then
-        
-      elseif cur_fun == "WAN" then
-        sys.taskInit(airtestwlan.test_wan)
-      elseif cur_fun == "selftest" then
-
-      elseif cur_fun == "modbusTCP" then
-
-      elseif cur_fun == "modbusRTU" then
-
-      elseif cur_fun == "CAN" then
-      end
-    else
-      cur_fun = "main"
-      if not aircam.isquit then
-        QuitCam()
-      end
-    end
-    key = ""
-  end
-end
-
-local function PowerInterrupt()
-    local s1 = 0
-    local s2 = 0
-    local v = gpio.get(gpio.PWR_KEY)
-    log.info("pwrkey：", v, powertick)
-    if v == 0 then
-      powertick = mcu.ticks()
-      airbuzzer.start_buzzer()
-    elseif  v == 1 then
-      s1 = mcu.ticks()
-      airbuzzer.stop_buzzer()
-      local s2 = s1 - powertick
-      if s2 < SWITCH_LONG_TIME then
-          key = "switch"
-          if cur_fun == "russia" then
-            key = "left"
-          end
-      elseif s2 < QUIT_LONG_TIME then
-          key = "enter"
-          if cur_fun == "russia" then
-            key = "fast"
-          end
-      else
-          key = "quit"
-      end
-      powertick = s1
-      --if cur_fun == "russia" then
-      --  airrus.keypressed(key)
-      --end
-      log.info("power key：", v, powertick,s2,key)
-    end
-end
-
-local function BootInterrupt()
-    local v = gpio.get(0)
-    log.info("gpio0：", v, boottick)
-    if v == 1 then
-      boottick = mcu.ticks()
-    elseif  v == 0 then
-      s1 = mcu.ticks()
-      local s2 = s1 - boottick
-      if s2 < ROT_LONG_TIME then
-        key = "right"
-      else
-        key = "up"
-      end
-      boottick = s1
-      --if cur_fun == "russia" then
-      --  airrus.keypressed(key)
-      --end
-      log.info("gpio0 key：", v, boottick,s2,key)
-    end
-end
-
-local function KeyInit()
-    if not gpio.PWR_KEY then
-      log.info("bsp not support powerkey")
-      return
-    end
-  
-    gpio.setup(gpio.PWR_KEY, PowerInterrupt, gpio.PULLUP, gpio.BOTH)
-    gpio.setup(0, BootInterrupt, gpio.PULLDOWN, gpio.BOTH)
-end
 
 local function update()
   if cur_fun == "russia" then
@@ -223,6 +95,102 @@ local function update()
     airstatus.get_bat_level()
   end
 end
+
+
+
+local lock_push = 1
+local function main_local(x,y)
+  if x > 0 and  x < 100 and y > 64  and  y < 192 then
+    return 1
+  elseif x > 100 and  x < 200 and y > 64  and  y < 192 then
+    return 2
+  elseif x > 200 and  x < 300 and y > 64  and  y < 192 then
+    return 3
+  elseif x > 0 and  x < 100 and y > 192  and  y < 320 then
+    return 4
+  elseif x > 100 and  x < 200 and y > 192  and  y < 320 then
+    return 5
+  elseif x > 200 and  x < 300 and y > 192  and  y < 320 then
+    return 6
+  elseif x > 0 and  x < 100 and y > 320  and  y < 448 then
+    return 7
+  elseif x > 100 and  x < 200 and y > 320  and  y < 448 then
+    return 8
+  elseif x > 200 and  x < 300 and y > 320  and  y < 448 then
+    return 9
+  end
+end
+
+local function handal_main(x,y)
+  key =  main_local(x,y) 
+  log.info("tp_handal key",key)
+  if key == 1 then
+  elseif key == 2 then
+  elseif key == 3 then
+  elseif key == 4 then
+  elseif key == 5 then
+  elseif key == 6 then
+  elseif key == 7 then
+  elseif key == 8 then    --  tts
+    airtts.play("支持 4G + 卫星定位 + WiFi + 蓝牙，5秒极速联网，51个可编程IO/4个UART/4个通用ADC/1个CAN接口，支持LuatOS二次开发，源码开放例程丰富，支持485/232/充电/以太网驱动/多网融合/VoLTE通话")
+  elseif key == 9 then
+    cur_fun = "main1"
+  end
+end
+
+local function handal_main1(x,y)
+  key =  main_local(x,y) 
+  log.info("tp_handal key",key)
+  if key == 1 then
+  elseif key == 2 then
+    airmusic.play("/luadb/1.mp3")
+  elseif key == 3 then
+  elseif key == 4 then
+  elseif key == 5 then
+  elseif key == 6 then
+  elseif key == 7 then
+    cur_fun = "main"
+  elseif key == 8 then
+  elseif key == 9 then
+    cur_fun = "main2"
+  end
+end
+
+local function handal_main2(x,y)
+  key =  main_local(x,y) 
+  log.info("tp_handal key",key)
+  if key == 1 then
+  
+  elseif key == 2 then
+  elseif key == 3 then
+  elseif key == 4 then
+  elseif key == 5 then
+  elseif key == 6 then
+  elseif key == 7 then
+    cur_fun = "main1"
+  elseif key == 8 then
+  elseif key == 9 then
+    cur_fun = "main"
+  end
+end
+
+local function  tp_handal(tp_device,tp_data)
+  log.info("tp_handal",tp_data[1].x,tp_data[1].y,tp_data[1].event)
+  if tp_data[1].event == 1 then
+    lock_push = 0
+  end
+  if tp_data[1].event == 2  and   lock_push == 0 then
+    if cur_fun == "main" then
+      handal_main(tp_data[1].x,tp_data[1].y)
+    elseif cur_fun == "main1" then
+      handal_main1(tp_data[1].x,tp_data[1].y)
+    elseif cur_fun == "main2" then
+      handal_main2(tp_data[1].x,tp_data[1].y)
+    end
+    lock_push = 1
+  end
+end
+
 
 -- 画状态栏
 local function draw_statusbar()
@@ -242,31 +210,31 @@ local function draw_statusbar()
   end
 end
 
-local function draw_wan()
-  lcd.showImage(0, 65, "/luadb/function5.jpg")
-end
+-- local function draw_wan()
+--   lcd.showImage(0, 65, "/luadb/function5.jpg")
+-- end
 
-local function draw_lan()
-  lcd.showImage(0, 65, "/luadb/function4.jpg")
-end
+-- local function draw_lan()
+--   lcd.showImage(0, 65, "/luadb/function4.jpg")
+-- end
 
-local function draw_selftest()
-  lcd.showImage(0, 65, "/luadb/choose1.jpg")
-  lcd.showImage(0, 194, "/luadb/choose2.jpg")
-  lcd.showImage(0, 322, "/luadb/choose3.jpg")
-end
+-- local function draw_selftest()
+--   lcd.showImage(0, 65, "/luadb/choose1.jpg")
+--   lcd.showImage(0, 194, "/luadb/choose2.jpg")
+--   lcd.showImage(0, 322, "/luadb/choose3.jpg")
+-- end
 
-local function draw_modbusRTU()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
+-- local function draw_modbusRTU()
+--   lcd.showImage(0, 65, "/luadb/final_function.jpg")
+-- end
 
-local function draw_modbusTCP()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
+-- local function draw_modbusTCP()
+--   lcd.showImage(0, 65, "/luadb/final_function.jpg")
+-- end
 
-local function draw_CAN()
-  lcd.showImage(0, 65, "/luadb/final_function.jpg")
-end
+-- local function draw_CAN()
+--   lcd.showImage(0, 65, "/luadb/final_function.jpg")
+-- end
 
 --画九宫格界面
 local function draw_main()
@@ -288,7 +256,7 @@ local function draw_main()
   end      
 end
 
-local function draw_main2()
+local function draw_main1()
   local i = 0
   local j = 0 
   local x,y
@@ -307,7 +275,7 @@ local function draw_main2()
   end      
 end
 
-local function draw_main3()
+local function draw_main2()
   local i = 0
   local j = 0 
   local x,y
@@ -341,10 +309,10 @@ local function draw()
   
   if cur_fun == "main" then
     draw_main()
+  elseif cur_fun == "main1" then
+    draw_main1()
   elseif cur_fun == "main2" then
     draw_main2()
-  elseif cur_fun == "main3" then
-    draw_main3()
   elseif cur_fun == "picshow" then
     draw_pic()
   elseif cur_fun == "russia" then
@@ -373,23 +341,19 @@ wdtInit()
 
 local function UITask()
     airlcd.lcd_init("AirLCD_1001")
+    sys.subscribe("TP",tp_handal)
 
-    KeyInit()
     log.info("合宙 8000 startup v13:" .. sid)
 
     while 1 do
-        keypressed()
-        
-        update()
+      update()
+      draw()
+      if ((sid % 10) == 0) then
+        log.info("sid: ", sid, cur_fun)
+      end
 
-        draw()
-
-        if ((sid % 10) == 0) then
-          log.info("sid: ", sid, cur_fun)
-        end
-
-        sid = sid + 1
-        sys.wait(10)
+      sid = sid + 1
+      sys.wait(10)
     end
 
 end

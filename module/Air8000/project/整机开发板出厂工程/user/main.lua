@@ -29,22 +29,45 @@ local sid = 0
 
 -- 当前功能界面
 -- "main":      九宫格主界面
--- "picshow":   图片显示
--- "camshow":   摄像头预览
--- "russia":    俄罗斯方块
--- "LAN":       以太网 LAN
--- "WAN":       以太网 WAN
--- "selftest":  硬件自检
--- "modbusTCP": modbus-TCP
--- "modbusRTU": modbus-RTU
--- "CAN":       CAN 测试
+-----------页面1------------------
+-- "gps":       gps定位
+-- "wifiap":    wifiap，可实现4g转wifi 用作热点传出
+-- "wifista":   链接wifi路由器
+-- "camera":    摄像头预览
+-- "call":      拨打电话
+-- "bt":        蓝牙
+-- "sms":       短信
+-- "tts":       文字转语音
+------------页面2------------------
+-- "record":    录音
+-- "music":     播放音乐
+-- "tf":        驱动TF卡
+-- "gsensor":   运动传感器
+-- "pm":        电源管理
+-- "lan":       以太网lan 通讯，通过air8000 给以太网设备上网
+-- "wan":       以太网wan 通讯，通过以太网给air8000 上网
+---------页面3------------------
+-- "multi-network": 多网融合演示
+-- "485":       485 通讯
+-- "can":       can 通讯
+-- "onewire":   onewire 通讯
+-- "pwm":       输出PWM 波形
+-- "uart":      串口输出
+-- "232":       232
+
+
+
+
+
+
+
 local cur_fun = "main"
 local cur_sel = 0
 
 local funlist = {
-"picshow", "camshow","russia",
-"LAN", "WAN","selftest",
-"modbusTCP","modbusRTU","CAN"
+"gps", "wifiap","wifista","camera", "call","bt","sms","tts",
+"record","music","tf","gsensor","pm","lan","wan",
+"multi-network","485","can","onewire","pwm","uart","232"
 }
 
 local bkcolor = lcd.rgb565(99, 180, 245,false)
@@ -58,7 +81,7 @@ local function wdtInit()
 end
 
 local function StartCam()
-  airlcd.lcd_init("AirLCD_43_01")
+  airlcd.lcd_init("AirLCD_1001")
   sys.taskInit(aircam.start_cam)
   aircam.isquit = false
 end
@@ -66,7 +89,7 @@ end
 local function QuitCam()
   aircam.isquit  = true
   sys.wait(300)
-  airlcd.lcd_init("AirLCD_43_01")
+  airlcd.lcd_init("AirLCD_1001")
 end
 
 local function keypressed()
@@ -258,11 +281,45 @@ local function draw_main()
       x = 64 + (i-1)*128 + 24
       y = (j-1)*106 + 13
       sel = j+(i-1)*3
-      if sel == cur_sel then
-        fname = "/luadb/" .. "D" .. sel .. ".jpg"
-      else
-        fname = "/luadb/" .. "L" .. sel .. ".jpg"
-      end
+      fname = "/luadb/" .. "A" .. sel .. ".jpg"
+      -- log.info("fname：", fname, x,y,sel,cur_sel)
+      lcd.showImage(y,x,fname)
+    end
+  end      
+end
+
+local function draw_main2()
+  local i = 0
+  local j = 0 
+  local x,y
+  local fname
+  local sel = 0
+  
+  for i = 1,3 do
+    for j = 1,3 do
+      x = 64 + (i-1)*128 + 24
+      y = (j-1)*106 + 13
+      sel = j+(i-1)*3
+      fname = "/luadb/" .. "B" .. sel .. ".jpg"
+      -- log.info("fname：", fname, x,y,sel,cur_sel)
+      lcd.showImage(y,x,fname)
+    end
+  end      
+end
+
+local function draw_main3()
+  local i = 0
+  local j = 0 
+  local x,y
+  local fname
+  local sel = 0
+  
+  for i = 1,3 do
+    for j = 1,3 do
+      x = 64 + (i-1)*128 + 24
+      y = (j-1)*106 + 13
+      sel = j+(i-1)*3
+      fname = "/luadb/" .. "C" .. sel .. ".jpg"
       -- log.info("fname：", fname, x,y,sel,cur_sel)
       lcd.showImage(y,x,fname)
     end
@@ -284,6 +341,10 @@ local function draw()
   
   if cur_fun == "main" then
     draw_main()
+  elseif cur_fun == "main2" then
+    draw_main2()
+  elseif cur_fun == "main3" then
+    draw_main3()
   elseif cur_fun == "picshow" then
     draw_pic()
   elseif cur_fun == "russia" then
@@ -307,6 +368,8 @@ end
 end
 
 wdtInit()
+
+
 
 local function UITask()
     airlcd.lcd_init("AirLCD_1001")

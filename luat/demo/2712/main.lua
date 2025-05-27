@@ -10,7 +10,7 @@ _G.sys = require("sys")
 充电IC的相关逻辑
 ]]
 
-local gpio_pin = 152
+local gpio_pin = 24
 gpio.setup(gpio_pin, 1, gpio.PULLUP)
 sys.taskInit(function()
     sys.wait(1000)

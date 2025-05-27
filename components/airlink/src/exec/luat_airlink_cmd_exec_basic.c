@@ -164,22 +164,26 @@ static int push_args(lua_State *L, uint8_t* ptr, uint32_t* limit) {
 }
 
 static int l_airlink_sys_pub(lua_State *L, void* ptr) {
+    int ret = 0;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
+        LLOGE("获取 sys_pub 失败!!!");
         return 0;
     };
     uint32_t limit = msg->arg1;
     uint8_t* tmp = msg->ptr;
     int c = 0;
     while (limit > 0) {
-        int ret = push_args(L, tmp, &limit);
-        if (ret < 0) {
+        ret = push_args(L, tmp, &limit);
+        if (ret <= 0) {
             break;
         }
         tmp += ret;
+        limit -= ret;
         c ++;
     }
-    lua_pcall(L, c, 0, 0);
+    ret = lua_pcall(L, c, 0, 0);
+    // LLOGD("pcall args %d ret %d", c, ret);
     return 0;
 }
 

@@ -140,6 +140,7 @@ static void dhcp_client_timer_cb(void *arg) {
 static void reset_dhcp_client(ulwip_ctx_t *ctx) {
     memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
     memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
+    ctx->ip_ready = 0;
     luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
     #if LWIP_NETIF_HOSTNAME
     if (ctx->netif && ctx->netif->hostname) {

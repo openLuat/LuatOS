@@ -155,7 +155,7 @@ static int l_ble_gatt_create(lua_State* L) {
                 uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
                 luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
                 luat_ble_gatt_service.characteristics[j-2].uuid[0] = characteristics_uuid >> 8;
-                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid & 0xff;
+                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid & 0xFF;
             }else{
                 LLOGE("error characteristics uuid type");
                 goto error_exit;
@@ -175,6 +175,15 @@ static int l_ble_gatt_create(lua_State* L) {
                 luat_ble_gatt_service.characteristics[j-2].max_size = 256;
             }
             lua_pop(L, 1);
+            if (luat_ble_gatt_service.characteristics[j-2].uuid_type == LUAT_BLE_UUID_TYPE_16
+                && luat_ble_gatt_service.characteristics[j-2].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8)
+                && luat_ble_gatt_service.characteristics[j-2].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
+                // Descriptors
+                luat_ble_gatt_service.characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_READ;
+                luat_ble_gatt_service.characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_WRITE;
+                luat_ble_gatt_service.characteristics[j-2].max_size = 0;
+            }
+
         }
         lua_pop(L, 1);
     }

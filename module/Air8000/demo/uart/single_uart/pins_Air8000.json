@@ -1,0 +1,7 @@
+ {
+    "pins" : [
+       [40, "UART2_TXD", " UART2_TX"],
+       [41, "UART2_RXD", " UART2_RX"],
+       [25, "UART3_RXD", " UART3_RX"],
+       [26, "UART3_TXD", " UART3_TX"]    ]
+ }

@@ -157,6 +157,8 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->i2c_id = luaL_checkinteger(L, -1);
     }else if(LUA_TUSERDATA == port){
         luat_tp_config->soft_i2c = (luat_ei2c_t*)lua_touserdata(L, -1);
+        lua_pushvalue(L, -1);
+        luat_tp_config->soft_i2c->ei2c_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }else{
         LLOGE("port type error!!!");
         return 0;

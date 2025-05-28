@@ -8,9 +8,10 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo演示的功能为：
-使用Air8101核心板+AirPHY_1000配件板，配件板上的以太网口通过网线连接路由器，演示以太网数传功能；
-AirPHY_1000是合宙设计生产的一款搭载LAN8720Ai芯片的以太网配件板，可以搭配Air8101使用；
+AirPHY_1000是合宙设计生产的一款搭载LAN8720Ai芯片的以太网配件板；
+本demo演示的核心功能为：
+Air8101核心板+AirPHY_1000配件板，使用配件板上的以太网口通过网线连接路由器，演示以太网数传功能；
+更多说明参考本目录下的readme.md文件
 ]]
 PROJECT = "AirPHY_1000"
 VERSION = "001.000.000"
@@ -63,8 +64,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 --  end, 3000)
 
- -- 加载AirPHY_1000应用模块
- require "AirPHY_1000_app"
+-- 加载以太网连接管理功能模块
+require "phy_app"
+-- 加载http get应用的功能模块
+require "http_app"
 
 
 -- 用户代码已结束---------------------------------------------

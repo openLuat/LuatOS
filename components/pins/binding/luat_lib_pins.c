@@ -103,14 +103,21 @@ static int l_pins_load(lua_State *L) {
 /**
 调试模式
 @api pins.debug(mode)
-@boolean 是否开启调试模式, 默认是关闭的, 就是日志多一些
+@boolean 是否开启调试模式, 默认是关闭的, 打开之后日志多很多
+@return nil 无返回值
 @usage
 pins.debug(true)
 */
 static int l_pins_debug(lua_State *L) {
 	extern uint8_t g_pins_debug;
-	g_pins_debug = (uint8_t)lua_toboolean(L, 1);
-	return 0;
+	if (lua_isinteger(L, 1)) {
+		g_pins_debug = luaL_checkinteger(L, 1);
+	}
+	else if (lua_isboolean(L, 1)) {
+		g_pins_debug = (uint8_t)lua_toboolean(L, 1);
+	}
+	lua_pushboolean(L, g_pins_debug);
+	return 1;
 }
 
 #include "rotable2.h"

@@ -10,6 +10,8 @@ Air8101核心板+AirLCD_1020配件板，使用lcd图形库函数演示UI显示�
 
 ## 演示硬件环境
 
+![](https://docs.openluat.com/air8101/product/file/AirLCD_1020/hw_connection.jpg)
+
 1、Air8101核心板
 
 2、AirLCD_1020配件板
@@ -73,9 +75,11 @@ Air8101核心板+AirLCD_1020配件板，使用lcd图形库函数演示UI显示�
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Air8101核心板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
 
-2、[LuatOS-SoC_V1004_Air8101_20250527_085719.soc之后的固件都可以，如果打开这个网页，还没有合适的固件，联系合宙销售同事获取](https://docs.openluat.com/air8101/luatos/firmware/)
+2、Luatools下载调试工具
+
+3、[LuatOS-SoC_V1004_Air8101_20250527_085719.soc以及之后的固件都可以，如果打开这个网页，还没有合适的固件，联系合宙销售同事获取](https://docs.openluat.com/air8101/luatos/firmware/)
 
 
 ## 演示操作步骤
@@ -90,5 +94,9 @@ Air8101核心板+AirLCD_1020配件板，使用lcd图形库函数演示UI显示�
 
    (1) lcd上可以全屏显示一张图片，表示lcd显示功能正常；
 
-   (2) 在触摸面板（注意：将触摸面板上的塑料膜撕掉）上，使用手指按下后，所按的位置会出现一个不太规则并且也没有全部填充的红色实心圆，表示触摸功能正常；   
+   (2) 在触摸面板（注意：将触摸面板上的塑料膜撕掉）上，使用手指按下后，所按的位置会出现一个不太规则并且也没有全部填充的红色实心圆，表示触摸功能正常； 
+
+   (3) 每隔10秒钟，会自动刷屏，清空红色实心圆；  
+
+5、[点击此处观看演示视频](https://docs.openluat.com/air8101/product/file/AirLCD_1020/lcd.mp4)
 

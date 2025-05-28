@@ -75,9 +75,11 @@ Air8101核心板+AirLCD_1020配件板，使用lvgl图形库函数演示UI显示�
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Air8101核心板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
 
-2、[LuatOS-SoC_V1004_Air8101_20250527_085719.soc以及之后的固件都可以，如果打开这个网页，还没有合适的固件，联系合宙销售同事获取](https://docs.openluat.com/air8101/luatos/firmware/)
+2、Luatools下载调试工具
+
+3、[LuatOS-SoC_V1004_Air8101_20250527_085719.soc以及之后的固件都可以，如果打开这个网页，还没有合适的固件，联系合宙销售同事获取](https://docs.openluat.com/air8101/luatos/firmware/)
 
 
 ## 演示操作步骤

@@ -8,13 +8,20 @@ AirKEY_1000是合宙设计生产的一款支持8个独立按键的配件板；
 Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
 
 
+## 核心板+配件板资料
+
+[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+
 ## 演示硬件环境
+
+![](https://docs.openluat.com/air8101/product/file/AirKEY_1000/hw_connection.jpg)
 
 1、Air8101核心板
 
 2、AirKEY_1000配件板
 
-3、母对母的杜邦线
+3、母对母的杜邦线9根
 
 4、Air8101核心板和AirKEY_1000配件板的硬件接线方式为
 
@@ -38,6 +45,7 @@ Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检�
 1、[最新版本的内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
 
 2、Luatools下载调试工具
+
 
 ## 演示操作步骤
 

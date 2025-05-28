@@ -8,7 +8,16 @@ AirPHY_1000是合宙设计生产的一款搭载LAN8720Ai芯片的以太网配件
 Air8101核心板+AirPHY_1000配件板，使用配件板上的以太网口通过网线连接路由器，演示以太网数传功能；
 
 
+## 核心板+配件板资料
+
+[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+
 ## 演示硬件环境
+
+![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection.jpg)
+
+![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection1.jpg)
 
 1、Air8101核心板
 
@@ -43,6 +52,7 @@ Air8101核心板+AirPHY_1000配件板，使用配件板上的以太网口通过�
 1、Luatools下载调试工具
 
 2、[最新版本的内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
+
 
 ## 演示操作步骤
 

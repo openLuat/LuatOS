@@ -8,11 +8,20 @@ AirCAMERA_1020是合宙设计生产的一款DVP摄像头配件板；
 Air8101核心板+AirCAMERA_1020配件板，演示DVP摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
 
 
+## 核心板+配件板资料
+
+[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+
 ## 演示硬件环境
+
+![](https://docs.openluat.com/air8101/product/file/AirCAMERA_1020/hw_connection.jpg)
+
+![](https://docs.openluat.com/air8101/product/file/AirCAMERA_1020/hw_connection1.jpg)
 
 1、Air8101核心板
 
-2、AirCAMERA_1020配件板（带DVP摄像头）
+2、AirCAMERA_1020配件板（带DVP摄像头，1.8V的开关拨到ON，1.2V和1.5V的开关拨到OFF）
 
 3、Air8101核心板和AirCAMERA_1020配件板的硬件接线方式为
 
@@ -49,6 +58,7 @@ Air8101核心板+AirCAMERA_1020配件板，演示DVP摄像头100万像素拍照+
 1、Luatools下载调试工具
 
 2、[Air8101 V1003版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V1003固件对比验证）
+
 
 ## 演示操作步骤
 

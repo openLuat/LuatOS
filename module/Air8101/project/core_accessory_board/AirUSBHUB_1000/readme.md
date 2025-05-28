@@ -12,7 +12,14 @@ Air8101核心板+AirUSBHUB_1000+HUB上外挂四个AirCAMERA_1030配件板；
 依次演示四个AirCAMERA_1030的USB摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
 
 
+## 核心板+配件板资料
+
+[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+
 ## 演示硬件环境
+
+![](https://docs.openluat.com/air8101/product/file/AirUSBHUB_1000/hw_connection.jpg)
 
 1、Air8101核心板
 

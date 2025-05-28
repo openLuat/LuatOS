@@ -39,7 +39,7 @@ function TCP_TASK()
     log.info("connect ip: ", ip, "port:", port)
 
     sys.waitUntil("IP_READY")                -- 等待联网成功
-    netCB = socket.create(nil, taskName)     -- 创建socket对象
+    netCB = socket.create(socket.LWIP_GP, taskName)     -- 创建socket对象，设置为4G上网方式，如果是wifi 上网，需要设置为socket.LWIP_STA
     socket.debug(netCB, true)                -- 打开调试日志
     socket.config(netCB, nil, protocol, ssl)      -- 此配置为TCP连接，无SSL加密
 

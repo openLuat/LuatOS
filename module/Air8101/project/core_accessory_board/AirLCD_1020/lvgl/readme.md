@@ -10,6 +10,8 @@ Air8101核心板+AirLCD_1020配件板，使用lvgl图形库函数演示UI显示�
 
 ## 演示硬件环境
 
+![](https://docs.openluat.com/air8101/product/file/AirLCD_1020/hw_connection.jpg)
+
 1、Air8101核心板
 
 2、AirLCD_1020配件板
@@ -91,4 +93,6 @@ Air8101核心板+AirLCD_1020配件板，使用lvgl图形库函数演示UI显示�
    (1) lcd上会显示一个按钮，按钮上显示Press Me，按钮下方有一个标签，标签上显示0；表示lcd显示功能正常；
 
    (2) 手指点击一次Press Me按钮，标签上的数字加一，表示触摸功能正常；   
+
+5、![点击此处观看演示视频](https://docs.openluat.com/air8101/product/file/AirLCD_1020/lvgl.mp4)
 

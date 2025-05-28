@@ -94,5 +94,5 @@ Air8101核心板+AirLCD_1020配件板，使用lvgl图形库函数演示UI显示�
 
    (2) 手指点击一次Press Me按钮，标签上的数字加一，表示触摸功能正常；   
 
-5、![点击此处观看演示视频](https://docs.openluat.com/air8101/product/file/AirLCD_1020/lvgl.mp4)
+5、[点击此处观看演示视频](https://docs.openluat.com/air8101/product/file/AirLCD_1020/lvgl.mp4)
 

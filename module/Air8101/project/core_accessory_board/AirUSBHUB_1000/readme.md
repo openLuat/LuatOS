@@ -37,11 +37,7 @@ Air8101核心板+AirUSBHUB_1000+HUB上外挂四个AirCAMERA_1030配件板；
 
 1、Luatools下载调试工具
 
-2、编写本demo时，暂时还没有一个固件可以完整测试成功本demo的所有功能，目前固件测试情况如下
-
-   (1) 使用LuatOS-SoC_V1004_Air8101_20250513_175014.soc固件，可以测试AirCAMERA_1030配件板的拍照功能，无法测试WIFI联网和HTTP上传照片功能；
-
-   (2) [使用这里的Air8101 历史版本固件V1002版本](https://docs.openluat.com/air8101/luatos/firmware/#1)，可以测试AirCAMERA_1030配件板（配件板上的摄像头换成HC-B202）的拍照+WIFI联网+HTTP上传照片功能
+2、[Air8101 V1003版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V1003固件对比验证）
 
 ## 演示操作步骤
 
@@ -55,6 +51,6 @@ Air8101核心板+AirUSBHUB_1000+HUB上外挂四个AirCAMERA_1030配件板；
 
 5、观察Luatools的运行日志，如果输出 http_upload_photo_task_func httpplus.request 200 x，表示USB HUB上的第x个摄像头测试正常
 
-6、电脑上浏览器打开https://www.air32.cn/upload/data/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+6、电脑上浏览器打开[https://www.air32.cn/upload/data/jpg/](https://www.air32.cn/upload/data/jpg/)，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
    
 

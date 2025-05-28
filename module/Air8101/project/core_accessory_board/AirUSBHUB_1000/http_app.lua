@@ -11,9 +11,9 @@ local function http_upload_photo_task_func()
 
     while true do
     	--USB HUB上一共接了4个AirCAMERA_1030摄像头
-	--在USB HUB上的端口号依次记录为1,2,3,4
-	--camera_usbhub_port的值在0,1,2,3之间依次循环
-	--打开摄像头时，使用camera_usbhub_port+1的值指定USB HUB端口号
+	    --在USB HUB上的端口号依次记录为1,2,3,4
+	    --camera_usbhub_port的值在0,1,2,3之间依次循环
+	    --打开摄像头时，使用camera_usbhub_port+1的值指定USB HUB端口号
         ::continue::
         camera_usbhub_port = camera_usbhub_port+1
         camera_usbhub_port = camera_usbhub_port%4
@@ -21,8 +21,8 @@ local function http_upload_photo_task_func()
         log.info("http_upload_photo_task_func", "camera_usbhub_port", camera_usbhub_port+1)
 
         --打开USB HUB上端口号为camera_usbhub_port+1的AirCAMERA_1030摄像头
-	local result = air_camera.open(camera_usbhub_port+1)
-	--如果打开失败，跳转到continue标签，打开USB HUB上的下一个AirCAMERA_1030摄像头
+	    local result = air_camera.open(camera_usbhub_port+1)
+	    --如果打开失败，跳转到continue标签，打开USB HUB上的下一个AirCAMERA_1030摄像头
         if not result then
             log.error("http_upload_photo_task_func error", "air_camera.open fail")
             goto continue
@@ -40,9 +40,9 @@ local function http_upload_photo_task_func()
         end
 
         --检查WIFI连接状态
-        log.info("http_upload_photo_task_func", "wlan.ready()", wlan.ready())
+        log.info("http_upload_photo_task_func", "socket.adapter(socket.LWIP_STA)", socket.adapter(socket.LWIP_STA))
         --如果WIFI还没有连接成功
-        if not wlan.ready() then
+        if not socket.adapter(socket.LWIP_STA) then
             --在此处阻塞等待WIFI连接成功的消息"IP_READY"
             --或者等待30秒超时退出阻塞等待状态
             --如果没有等到"IP_READY"消息，关闭当前摄像头，跳转到continue标签，打开USB HUB上的下一个AirCAMERA_1030摄像头
@@ -73,10 +73,10 @@ local function http_upload_photo_task_func()
         log.info("psram", rtos.meminfo("psram"))
 
         --关闭当前摄像头
-	air_camera.close()
+	    air_camera.close()
 
         -- 等待10秒钟       
-	sys.wait(10000)
+	    sys.wait(10000)
     end    
 end
 

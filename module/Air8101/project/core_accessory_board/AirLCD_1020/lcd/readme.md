@@ -1,0 +1,102 @@
+
+## 演示功能概述
+
+AirLCD_1020是合宙设计生产的一款5寸RGB888接口800*480分辨率的电容触摸显示屏配件板
+
+本demo演示的核心功能为：
+
+Air8101核心板+AirLCD_1020配件板，使用lcd图形库函数演示UI显示和触摸功能；
+
+
+## 演示硬件环境
+
+![](https://docs.openluat.com/air8101/product/file/AirLCD_1020/hw_connection.jpg)
+
+1、Air8101核心板
+
+2、AirLCD_1020配件板
+
+3、双排40PIN的双头线
+
+4、Air8101核心板和AirGPIO_1000配件板的硬件接线方式为
+
+- Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
+
+- 为了演示方便，所以Air8101核心板上电后直接通过vbat引脚给AirLCD_1020配件板提供了3.3V的供电；
+
+- 客户在设计实际项目时，一般来说，需要通过一个GPIO来控制LDO给LCD和TP供电，这样可以灵活地控制供电，可以使项目的整体功耗降到最低；
+
+- 核心板和配件板之间配备了双排40PIN的双头线，可以参考下表很方便地连接双方各自的40个管脚，插入或者拔出双头线时，要慢慢的操作，防止将排针折弯；
+
+| Air8101核心板 | AirLCD_1020配件板 |
+| ------------ | ------------------ |
+|     gnd      |         GND        |
+|     vbat     |         VCC        |
+|    42/R0     |        RGB_R0      |
+|    40/R1     |        RGB_R1      |
+|    43/R2     |        RGB_R2      |
+|    39/R3     |        RGB_R3      |
+|    44/R4     |        RGB_R4      |
+|    38/R5     |        RGB_R5      |
+|    45/R6     |        RGB_R6      |
+|    37/R7     |        RGB_R7      |
+|    46/G0     |        RGB_G0      |
+|    36/G1     |        RGB_G1      |
+|    47/G2     |        RGB_G2      |
+|    35/G3     |        RGB_G3      |
+|    48/G4     |        RGB_G4      |
+|    34/G5     |        RGB_G5      |
+|    49/G6     |        RGB_G6      |
+|    33/G7     |        RGB_G7      |
+|    50/B0     |        RGB_B0      |
+|    32/B1     |        RGB_B1      |
+|    51/B2     |        RGB_B2      |
+|    31/B3     |        RGB_B3      |
+|    52/B4     |        RGB_B4      |
+|    30/B5     |        RGB_B5      |
+|    53/B6     |        RGB_B6      |
+|    29/B7     |        RGB_B7      |
+|   28/DCLK    |       RGB_DCLK     |
+|   54/DISP    |       RGB_DISP     |
+|   55/HSYN    |       RGB_HSYNC    |
+|   56/VSYN    |       RGB_VSYNC    |
+|    57/DE     |        RGB_DE      |
+|   14/GPIO8   |        LCD_BL      |
+|   13/GPIO9   |        LCD_RST     |
+|    8/GPIO5   |        LCD_SDI     |
+|    9/GPIO6   |        LCD_SCL     |
+|  68/GPIO12   |        LCD_CS      |
+|  75/GPIO28   |        TP_RST      |
+|   10/GPIO7   |        TP_INT      |
+|   12/U1TX    |        TP_SCL      |
+|   11/U1RX    |        TP_SDA      |
+
+
+
+## 演示软件环境
+
+1、[Air8101核心板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+2、Luatools下载调试工具
+
+3、[LuatOS-SoC_V1004_Air8101_20250527_085719.soc以及之后的固件都可以，如果打开这个网页，还没有合适的固件，联系合宙销售同事获取](https://docs.openluat.com/air8101/luatos/firmware/)
+
+
+## 演示操作步骤
+
+1、搭建好演示硬件环境
+
+2、不需要修改demo脚本代码
+
+3、Luatools烧录内核固件和demo脚本代码
+
+4、烧录成功后，自动开机运行
+
+   (1) lcd上可以全屏显示一张图片，表示lcd显示功能正常；
+
+   (2) 在触摸面板（注意：将触摸面板上的塑料膜撕掉）上，使用手指按下后，所按的位置会出现一个不太规则并且也没有全部填充的红色实心圆，表示触摸功能正常； 
+
+   (3) 每隔10秒钟，会自动刷屏，清空红色实心圆；  
+
+5、[点击此处观看演示视频](https://docs.openluat.com/air8101/product/file/AirLCD_1020/lcd.mp4)
+

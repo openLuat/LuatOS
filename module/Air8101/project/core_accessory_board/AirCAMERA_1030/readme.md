@@ -20,7 +20,9 @@ Air8101核心板+AirCAMERA_1030配件板，演示USB摄像头100万像素拍照+
 
 - 如果测试发现软件频繁重启，可能是供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
 
-- Air8101核心板上的3.3V和5V拨动开关，拨到5V的一端；
+- Air8101核心板上的3.3V和5V拨动开关，拨到5V的一端；为了演示方便，所以Air8101核心板的上电后直接给AirCAMERA_1030配件板提供了供电；
+
+- 客户在设计实际项目时，一般来说，需要通过一个GPIO来控制LDO给摄像头供电，这样可以灵活地控制摄像头的供电，可以使项目的整体功耗降到最低；
 
 - Air8101核心板的USB-A母座和AirCAMERA_1030配件板的USB-A公座相连；
 
@@ -29,11 +31,7 @@ Air8101核心板+AirCAMERA_1030配件板，演示USB摄像头100万像素拍照+
 
 1、Luatools下载调试工具
 
-2、编写本demo时，暂时还没有一个固件可以完整测试成功本demo的所有功能，目前固件测试情况如下
-
-   (1) 使用LuatOS-SoC_V1004_Air8101_20250513_175014.soc固件，可以测试AirCAMERA_1030配件板的拍照功能，无法测试WIFI联网和HTTP上传照片功能；
-
-   (2) [使用这里的Air8101 历史版本固件V1002版本](https://docs.openluat.com/air8101/luatos/firmware/#1)，可以测试AirCAMERA_1030配件板（配件板上的摄像头换成HC-B202）的拍照+WIFI联网+HTTP上传照片功能
+2、[Air8101 V1003版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V1003固件对比验证）
 
 ## 演示操作步骤
 
@@ -47,6 +45,6 @@ Air8101核心板+AirCAMERA_1030配件板，演示USB摄像头100万像素拍照+
 
 5、观察Luatools的运行日志，如果输出 http_upload_photo_task_func httpplus.request 200表示测试正常
 
-6、电脑上浏览器打开https://www.air32.cn/upload/data/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+6、电脑上浏览器打开[https://www.air32.cn/upload/data/jpg/](https://www.air32.cn/upload/data/jpg/)，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
    
 

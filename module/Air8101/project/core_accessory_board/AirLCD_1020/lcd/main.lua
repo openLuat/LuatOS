@@ -8,11 +8,12 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo演示的功能为：
-使用Air8101核心板驱动显示合宙AirLCD_3341配件板全屏显示一张图片
-AirLCD_3341是合宙设计生产的一款5寸RGB888接口800*480分辨率的电容触摸显示屏
+AirLCD_1020是合宙设计生产的一款5寸RGB888接口800*480分辨率的电容触摸显示屏配件板
+本demo演示的核心功能为：
+Air8101核心板+AirLCD_1020配件板，使用lcd图形库函数演示UI显示和触摸功能；
+更多说明参考本目录下的readme.md文件
 ]]
-PROJECT = "AirLCD_1020"
+PROJECT = "AirLCD_1020_LCD"
 VERSION = "001.000.000"
 
 
@@ -63,8 +64,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 --  end, 3000)
 
- -- 加载lcd显示应用模块
- require "lcd_app"
+-- 加载lcd显示应用模块
+require "lcd_app"
+-- 加载lcd全屏刷新jpg图片速率测试应用模块(和require "lcd_app"有冲突，不能同时打开)
+-- require "lcd_jpg_fps"
 
 
 -- 用户代码已结束---------------------------------------------

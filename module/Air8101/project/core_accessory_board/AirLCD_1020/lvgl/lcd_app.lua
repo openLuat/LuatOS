@@ -1,21 +1,12 @@
---[[
-本功能模块演示的内容为：
-使用Air8101核心板驱动显示合宙AirLCD_1020配件板全屏显示一个按钮和一个标签
-点击按钮一次，标签上的数字增加一
-AirLCD_1020是合宙设计生产的一款5寸RGB888接口800*480分辨率的电容触摸显示屏
-
-使用了Air8101核心板右边的两排排针，一共40个引脚
-这些引脚的功能说明参考本demo的pins_Air8101.json文件
-]]
-
-
 --加载AirLCD_1020驱动文件
 local air_lcd = require "AirLCD_1020"
 --TP设备
 local tp_device
 
 
-
+--lcd显示和TP触摸控制task
+--显示一个button控件和一个label控件
+--点击button一次，label上的数字加一
 local function lcd_app_task_func()
 
     -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
@@ -70,6 +61,7 @@ tp_device = air_lcd.init_tp()
 --打开LCD背光
 air_lcd.open_backlight()
 
---创建LCD显示应用的task，并且运行task的主函数lcd_app_task_func
+--创建并且启动一个task
+--task的主函数为lcd_app_task_func
 sys.taskInit(lcd_app_task_func)
 

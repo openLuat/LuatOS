@@ -222,15 +222,19 @@ struct luat_ble{
     void* userdata;
 };
 
+// public function
 int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
 
 int luat_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb);
 
 int luat_ble_deinit(luat_ble_t* luat_ble);
 
-int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg);
-
 int luat_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len);
+
+int luat_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu);
+
+// advertise
+int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg);
 
 int luat_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len);
 
@@ -242,8 +246,16 @@ int luat_ble_stop_advertising(luat_ble_t* luat_ble);
 
 int luat_ble_delete_advertising(luat_ble_t* luat_ble);
 
+// gatt
 int luat_ble_create_gatt(luat_ble_t* luat_ble, luat_ble_gatt_service_t* luat_ble_gatt_service);
 
-int luat_ble_read_response(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint32_t len, uint8_t *buf);
+// slaver
+int luat_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len);
+
+int luat_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len);
+
+
+
+
 
 #endif

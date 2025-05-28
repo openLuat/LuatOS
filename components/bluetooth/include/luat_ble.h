@@ -228,9 +228,11 @@ int luat_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb);
 
 int luat_ble_deinit(luat_ble_t* luat_ble);
 
-int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg);
-
 int luat_ble_set_name(luat_ble_t* luat_ble, char* name, uint8_t len);
+
+int luat_ble_set_max_mtu(luat_ble_t* luat_ble, uint16_t max_mtu);
+
+int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cfg);
 
 int luat_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len);
 

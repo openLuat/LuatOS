@@ -311,7 +311,7 @@ static int l_ble_advertising_stop(lua_State* L) {
     return 1;
 }
 
-static int l_ble_read_response(lua_State* L) {
+static int l_ble_read_response_value(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
     uint8_t conn_idx = 0;
     uint16_t service_id, handle = 0;
@@ -340,8 +340,47 @@ static int l_ble_read_response(lua_State* L) {
 
         size_t len = 0;
         const char* response_data = luaL_checklstring(L, -1, &len);
+        LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
+        int ret = luat_ble_read_response_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)response_data, len);
+        lua_pushboolean(L, ret==0?1:0);
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
+    return 0;
+}
+
+static int l_ble_write_notify(lua_State* L) {
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    uint8_t conn_idx = 0;
+    uint16_t service_id, handle = 0;
+    if (luat_ble) {
+        lua_pushstring(L, "conn_idx");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            conn_idx = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+        lua_pushstring(L, "service_id");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            service_id = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+        lua_pushstring(L, "handle");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            handle = luaL_checknumber(L, -1);
+        }else{
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        size_t len = 0;
+        const char* value = luaL_checklstring(L, -1, &len);
         // LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
-        luat_ble_read_response(luat_ble, conn_idx, service_id, handle, len, (uint8_t *)response_data);
+        luat_ble_write_notify_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)value, len);
 
         return 1;
     }
@@ -366,7 +405,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"adv_start",                   ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop",                    ROREG_FUNC(l_ble_advertising_stop)},
 
-    {"read_response",               ROREG_FUNC(l_ble_read_response)},
+    {"write_notify",                 ROREG_FUNC(l_ble_write_notify)},
+    {"read_response",         ROREG_FUNC(l_ble_read_response_value)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},

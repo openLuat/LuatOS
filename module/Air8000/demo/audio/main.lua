@@ -14,11 +14,10 @@ _G.sysplus = require("sysplus")
 gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 
 
-
 local i2c_id = 0            -- i2c_id 0
 
 local pa_pin = 162           -- 喇叭pa功放脚
-local power_pin = 27         -- es8311电源脚
+local power_pin = 164         -- es8311电源脚
 
 local i2s_id = 0            -- i2s_id 0
 local i2s_mode = 0          -- i2s模式 0 主机 1 从机

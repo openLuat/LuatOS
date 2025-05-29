@@ -18,6 +18,8 @@ typedef struct luat_icmp_ctx
     struct netif *netif;
     struct raw_pcb *pcb;
     ip_addr_t dst;
+    ip_addr_t tmpdst;
+    size_t len;
     uint16_t id;
     uint16_t seqno;
     uint64_t send_time;
@@ -28,6 +30,6 @@ typedef struct luat_icmp_ctx
 
 luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id);
 luat_icmp_ctx_t* luat_icmp_get(uint8_t adapter_id);
-int luat_icmp_ping(luat_icmp_ctx_t* ctx, ip_addr_t* dst, size_t size);
+void luat_icmp_ping(luat_icmp_ctx_t* ctx);
 
 #endif

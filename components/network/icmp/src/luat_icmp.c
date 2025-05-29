@@ -120,21 +120,16 @@ luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
     return ctx;
 }
 
-int luat_icmp_ping(luat_icmp_ctx_t* ctx, ip_addr_t* dst, size_t size) {
+void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
     int ret = 0;
-
     struct icmp_echo_hdr *iecho;
-
-    if (ctx == NULL || dst == NULL) {
-        return -1;
-    }
-    memcpy(&ctx->dst, dst, sizeof(ip_addr_t));
+    memcpy(&ctx->dst, &ctx->tmpdst, sizeof(ip_addr_t));
     ctx->send_time = 0;
     ctx->recv_time = 0;
-    int ping_size = sizeof(struct icmp_echo_hdr) + size;
+    int ping_size = sizeof(struct icmp_echo_hdr) + ctx->len;
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, ping_size, PBUF_RAM);
     if (p == NULL) {
-        return -2;
+        return;
     }
     raw_bind(ctx->pcb, &ctx->netif->ip_addr);
     iecho = (struct icmp_echo_hdr *)(p->payload);
@@ -146,14 +141,12 @@ int luat_icmp_ping(luat_icmp_ctx_t* ctx, ip_addr_t* dst, size_t size) {
     char buff[32] = {0};
     char buff2[32] = {0};
     ipaddr_ntoa_r(&ctx->netif->ip_addr, buff, 32);
-    ipaddr_ntoa_r(dst, buff2, 32);
+    ipaddr_ntoa_r(&ctx->dst, buff2, 32);
     // LLOGD("ICMP sendto %s --> %s", buff, buff2);
     ctx->send_time = luat_mcu_tick64_ms();
-    ret = raw_sendto(ctx->pcb, p, dst);
+    ret = raw_sendto(ctx->pcb, p, &ctx->dst);
     pbuf_free(p);
     if (ret) {
         LLOGW("ICMP sendto error %d %s --> %s", ret, buff, buff2);
-        return ret;
     }
-    return 0;
 }

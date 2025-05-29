@@ -22,6 +22,7 @@ sys.waitUnitl("PING_RESULT", 3000)
 #include "luat_msgbus.h"
 
 #include "lwip/ip_addr.h"
+#include "lwip/tcpip.h"
 
 #include "rotable2.h"
 
@@ -120,13 +121,15 @@ static int l_icmp_ping(lua_State *L) {
         }
     }
     const char* ip = luaL_checkstring(L, 2);
-    size_t len = luaL_optinteger(L, 3, 128);
-    ip_addr_t addr = {0};
-    if (0 == ipaddr_aton(ip, &addr)) {
+    ctx->len = luaL_optinteger(L, 3, 128);
+    if (0 == ipaddr_aton(ip, &ctx->tmpdst)) {
         LLOGW("目标地址非法 %s", ip);
         return 0;
     };
-    int result = luat_icmp_ping(ctx, &addr, len);
+    int result = tcpip_callback_with_block(luat_icmp_ping, ctx, 1);
+    if (result) {
+        LLOGW("luat_icmp_ping/tcpip_callback_with_block result %d", result);
+    }
     lua_pushinteger(L, result == 0);
     return 1;
 }

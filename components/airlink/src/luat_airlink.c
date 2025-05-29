@@ -498,3 +498,22 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
     luat_airlink_cmd_free(cmd);
     return 0;
 }
+
+void luat_airlink_wait_ready(void) {
+  // Air8000硬等最多200ms, 梁健要加的, 有问题找他
+  if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0 || memcmp("Air8000A\0", model, 9) == 0) {
+    // LLOGD("等待Air8000s启动");
+	  size_t count = 0;
+	  #define AIRLINK_WAIT_MS (5)
+    extern uint64_t g_airlink_last_cmd_timestamp;
+	  while (g_airlink_last_cmd_timestamp == 0 && count < 200) {
+		  luat_rtos_task_sleep(AIRLINK_WAIT_MS);
+		  count += AIRLINK_WAIT_MS;
+	  }
+    if (g_airlink_last_cmd_timestamp > 0) {
+      // 启动完成, 把wifi的GPIO24设置为高电平, 防止充电ic被关闭
+      luat_gpio_mode(24 + 128, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+    }
+    // LLOGD("等待Air8000s结束");
+	}
+}

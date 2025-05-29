@@ -9,20 +9,7 @@ httpplus = require("httpplus")
 
 gpio.setup(140, 1, gpio.PULLUP)
 
--- 通过boot按键方便刷Air8000S
-function PWR8000S(val)
-    gpio.set(23, val)
-end
 
-gpio.debounce(0, 1000)
-gpio.setup(0, function()
-    sys.taskInit(function()
-        log.info("复位Air8000S")
-        PWR8000S(0)
-        sys.wait(20)
-        PWR8000S(1)
-    end)
-end, gpio.PULLDOWN)
 
 function test_ap()
     log.info("执行AP创建操作")

@@ -15,25 +15,7 @@ httpplus = require("httpplus")
 -- 打开 CH390 供电
 gpio.setup(140, 1, gpio.PULLUP)
 
--- 通过 BOOT 按键方便刷 Air8000S
--- 定义函数 PWR8000S，用于控制 Air8000S 的 LDO 供电引脚
-function PWR8000S(val)
-    gpio.set(23, val)
-end
 
--- 加个防抖，中断后马上上报，但 1s 内只上报一次
-gpio.debounce(0, 1000)
-
--- 配置 GPIO0 为中断，默认双向触发，且启用内部下拉
-function resetAir8000S()
-    sys.taskInit(function()
-        log.info("复位Air8000S")
-        PWR8000S(0)
-        sys.wait(20)
-        PWR8000S(1)
-    end)
-end
-gpio.setup(0, resetAir8000S, gpio.PULLDOWN)
 
 -- 配置 WiFi AP 功能，使得 WiFi 设备实现 4G上网
 function test_ap()

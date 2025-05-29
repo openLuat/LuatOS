@@ -9,6 +9,7 @@ sys = require("sys")
 local airlcd = require "airlcd"
 local airmusic = require "airmusic"
 local airtts  = require "airtts"
+local airaudio  = require "airaudio"
 local aircam = require "camera8000_simple"
 local airrus = require "russia"
 local airstatus = require "statusbar"
@@ -132,7 +133,7 @@ local function handal_main(x,y)
   elseif key == 6 then
   elseif key == 7 then
   elseif key == 8 then    --  tts
-    airtts.play("支持 4G + 卫星定位 + WiFi + 蓝牙，5秒极速联网，51个可编程IO/4个UART/4个通用ADC/1个CAN接口，支持LuatOS二次开发，源码开放例程丰富，支持485/232/充电/以太网驱动/多网融合/VoLTE通话")
+    airtts.play("支持 4G,卫星定位,WiFi,蓝牙，5秒极速联网，51个可编程IO/4个UART/4个通用ADC/1个CAN接口，支持LuatOS二次开发，源码开放例程丰富，支持485/232/充电/以太网驱动/多网融合/VoLTE通话")
   elseif key == 9 then
     cur_fun = "main1"
   end
@@ -340,6 +341,7 @@ wdtInit()
 
 
 local function UITask()
+    airaudio.init()
     airlcd.lcd_init("AirLCD_1001")
     sys.subscribe("TP",tp_handal)
 

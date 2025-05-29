@@ -81,6 +81,8 @@ local function main_task()
         sys.wait(500)
         gpio.setup(147, 1, gpio.PULLUP) -- camera的供电使能脚
         gpio.setup(153, 1, gpio.PULLUP) -- 控制camera电源的pd脚
+        gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
+        gpio.setup(164, 1, gpio.PULLUP)          -- i2c工作的电压域
         sys.wait(4000)
         log.info("摄像头启动")
         local camera_id = device_init()

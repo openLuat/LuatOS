@@ -15,7 +15,7 @@ local airrus = require "russia"
 local airstatus = require "statusbar"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
-
+local taskName = "MAIN"
 
 local sid = 0
 
@@ -70,17 +70,6 @@ local function wdtInit()
   end
 end
 
-local function StartCam()
-  airlcd.lcd_init("AirLCD_1001")
-  sys.taskInit(aircam.start_cam)
-  aircam.isquit = false
-end
-
-local function QuitCam()
-  aircam.isquit  = true
-  sys.wait(300)
-  airlcd.lcd_init("AirLCD_1001")
-end
 
 
 local function update()
@@ -133,8 +122,8 @@ local function handal_main(x,y)
   elseif key == 6 then
   elseif key == 7 then
   elseif key == 8 then    --  tts
-    airtts.play("支持 4G,卫星定位,WiFi,蓝牙，5秒极速联网，51个可编程IO/4个UART/4个通用ADC/1个CAN接口，支持LuatOS二次开发，源码开放例程丰富，支持485/232/充电/以太网驱动/多网融合/VoLTE通话")
-  elseif key == 9 then
+    cur_fun  = "tts"
+   elseif key == 9 then
     cur_fun = "main1"
   end
 end
@@ -187,6 +176,8 @@ local function  tp_handal(tp_device,tp_data)
       handal_main1(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main2" then
       handal_main2(tp_data[1].x,tp_data[1].y)
+    elseif cur_fun == "tts" then
+      airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -211,31 +202,6 @@ local function draw_statusbar()
   end
 end
 
--- local function draw_wan()
---   lcd.showImage(0, 65, "/luadb/function5.jpg")
--- end
-
--- local function draw_lan()
---   lcd.showImage(0, 65, "/luadb/function4.jpg")
--- end
-
--- local function draw_selftest()
---   lcd.showImage(0, 65, "/luadb/choose1.jpg")
---   lcd.showImage(0, 194, "/luadb/choose2.jpg")
---   lcd.showImage(0, 322, "/luadb/choose3.jpg")
--- end
-
--- local function draw_modbusRTU()
---   lcd.showImage(0, 65, "/luadb/final_function.jpg")
--- end
-
--- local function draw_modbusTCP()
---   lcd.showImage(0, 65, "/luadb/final_function.jpg")
--- end
-
--- local function draw_CAN()
---   lcd.showImage(0, 65, "/luadb/final_function.jpg")
--- end
 
 --画九宫格界面
 local function draw_main()
@@ -299,6 +265,11 @@ local function draw_pic()
   lcd.showImage(0,64,"/luadb/P1.jpg")
 end
 
+local function draw_tts()
+  if  airtts.run()   then
+    cur_fun = "main"
+  end
+end
 local function draw()
   if cur_fun == "camshow" then
     return
@@ -314,6 +285,8 @@ local function draw()
     draw_main1()
   elseif cur_fun == "main2" then
     draw_main2()
+  elseif cur_fun == "tts" then
+    draw_tts()
   elseif cur_fun == "picshow" then
     draw_pic()
   elseif cur_fun == "russia" then
@@ -330,7 +303,7 @@ local function draw()
     draw_modbusRTU()
   elseif cur_fun == "CAN" then
     draw_CAN()
-end
+  end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")
   lcd.flush()
@@ -359,8 +332,8 @@ local function UITask()
     end
 
 end
+sysplus.taskInitEx(UITask, taskName)
 
-sys.taskInit(UITask)
 -- 当前是给camera 表的变量赋值让camera 退出。 未来可以让 UI task 发消息给camera 任务，让camera 任务关闭摄像头，释放LCD
 
 -- 用户代码已结束---------------------------------------------

@@ -6,7 +6,6 @@
 功能演示使用 Air8000 整机开发板进行。
 ]]
 
-
 -- 加载三个用到的库：dnsproxy 用于 DNS 代理服务，dhcpsrv 用于 DHCP 服务器服务，httpplus 用于 HTTP 请求相关的操作。
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
@@ -14,8 +13,6 @@ httpplus = require("httpplus")
 
 -- 打开 CH390 供电
 gpio.setup(140, 1, gpio.PULLUP)
-
-
 
 -- 配置 WiFi AP 功能，使得 WiFi 设备实现 4G上网
 function test_ap()
@@ -27,8 +24,8 @@ function test_ap()
     -- 获取 WiFi AP 网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
     log.info("netdrv", "等待AP就绪")
     while netdrv.ready(socket.LWIP_AP) ~= true do
-        log.info("netdrv", "等待AP就绪")
-        sys.wait(10000)
+        -- log.info("netdrv", "等待AP就绪")
+        sys.wait(100)
     end
     -- 创建 DHCP 服务器，为连接到 WiFi AP 的设备分配 IP 地址。
     log.info("netdrv", "创建dhcp服务器, 供AP使用")
@@ -36,7 +33,7 @@ function test_ap()
     -- 获取 4G 网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
     log.info("netdrv", "等待4G就绪")
     while netdrv.ready(socket.LWIP_GP) ~= true do
-        log.info("netdrv", "等待4G就绪")
+        -- log.info("netdrv", "等待4G就绪")
         sys.wait(100)
     end
     -- 创建 DNS 代理服务，使得 WiFi AP 上的设备可以通过 4G 网络访问互联网。
@@ -94,8 +91,8 @@ function eth_lan()
     netdrv.ipv4(socket.LWIP_ETH, "192.168.5.1", "255.255.255.0", "0.0.0.0")
     -- 获取以太网网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
     while netdrv.ready(socket.LWIP_ETH) ~= true do
-        log.info("netdrv", "等待以太网就绪") -- 若以太网设备没有连上，可打开此处注释排查。
-        sys.wait(10000)
+        -- log.info("netdrv", "等待以太网就绪") -- 若以太网设备没有连上，可打开此处注释排查。
+        sys.wait(100)
     end
     log.info("netdrv", "以太网就绪")
     -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。

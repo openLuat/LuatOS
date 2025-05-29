@@ -128,6 +128,13 @@ typedef struct luat_airlink_dev_wifi_info {
     uint8_t reverted[32]; // 预留的空位
     uint8_t version[4];
     uint8_t fw_type[2];
+    uint8_t unique_id_len;
+    uint8_t unique_id[24];
+
+    // 2025.5.29 新增
+    uint8_t sta_ap_bssid[6]; // AP的MAC地址(BSSID)
+    int32_t sta_ap_rssi;     // AP信号强度
+    uint8_t sta_ap_channel;  // AP所属的通道
 }luat_airlink_dev_wifi_info_t;
 
 typedef struct luat_airlink_dev_cat_info {
@@ -141,6 +148,8 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t reverted[32]; // 预留的空位
     uint8_t version[4];
     uint8_t fw_type[4];
+    uint8_t unique_id_len;
+    uint8_t unique_id[24];
 }luat_airlink_dev_wifi_cat_t;
 
 typedef struct luat_airlink_dev_info
@@ -151,8 +160,6 @@ typedef struct luat_airlink_dev_info
         luat_airlink_dev_wifi_info_t wifi;
         luat_airlink_dev_wifi_cat_t cat1;
     };
-    uint8_t unique_id_len;
-    uint8_t unique_id[24];
 }luat_airlink_dev_info_t;
 
 

@@ -10,7 +10,7 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 
-#define LUAT_LOG_TAG "drv.gpio"
+#define LUAT_LOG_TAG "drv.wlan"
 #include "luat_log.h"
 
 // #undef LLOGD

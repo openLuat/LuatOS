@@ -83,7 +83,9 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
                 g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
                 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
                 if (g_airlink_ext_dev_info.tp == 0x01 && g_airlink_ext_dev_info.wifi.version > 0) {
-                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, g_airlink_ext_dev_info.wifi.version);
+                    uint32_t tmpv = 0;
+                    memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
+                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv);
                 }
                 else {
                     LLOGI("AIRLINK_READY %ld", (uint32_t)g_airlink_last_cmd_timestamp);

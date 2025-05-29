@@ -8,6 +8,7 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_whale.h"
 #include "luat_mcu.h"
+#include "luat_hmeta.h"
 
 #include "lwip/prot/ethernet.h"
 
@@ -501,6 +502,8 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
 
 void luat_airlink_wait_ready(void) {
   // Air8000硬等最多200ms, 梁健要加的, 有问题找他
+  char model[32] = {0};
+  luat_hmeta_model_name(model);
   if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0 || memcmp("Air8000A\0", model, 9) == 0) {
     // LLOGD("等待Air8000s启动");
 	  size_t count = 0;

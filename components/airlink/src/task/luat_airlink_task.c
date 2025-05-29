@@ -58,12 +58,6 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
             // if (ptr->cmd != 0x10) {
             //     LLOGD("收到指令/回复 cmd %d len %d", ptr->cmd, ptr->len);
             // }
-            if (g_airlink_last_cmd_timestamp == 0) {
-                uint64_t tmp = luat_mcu_tick64_ms();
-                LLOGI("AIRLINK_READY %ld", (uint32_t)tmp);
-                // TODO 发个系统消息
-            }
-            g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
             cmd_reg = airlink_cmds;
             while (1) {
                 if (cmd_reg->id == 0) {
@@ -84,6 +78,21 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
             // if (cmd_reg->id == 0) {
             //     LLOGW("找不到CMD执行程序 %d", ptr->cmd);
             // }
+            
+            if (g_airlink_last_cmd_timestamp == 0) {
+                g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
+                extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+                if (g_airlink_ext_dev_info.tp == 0x01 && g_airlink_ext_dev_info.wifi.version > 0) {
+                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, g_airlink_ext_dev_info.wifi.version);
+                }
+                else {
+                    LLOGI("AIRLINK_READY %ld", (uint32_t)g_airlink_last_cmd_timestamp);
+                }
+                // TODO 发个系统消息
+            }
+            else {
+                g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
+            }
             clean:
             // 处理完成, 释放内存
             luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);

@@ -20,7 +20,7 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-luat_airlink_dev_info_t airlink_ext_dev_info;
+luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_airlink_dev_info_t* dev = cmd->data;
@@ -30,7 +30,7 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
     if (dev->tp == 0) {
         return 0;
     }
-    memcpy(&airlink_ext_dev_info, dev, sizeof(luat_airlink_dev_info_t));
+    memcpy(&g_airlink_ext_dev_info, dev, sizeof(luat_airlink_dev_info_t));
     if (dev->tp == 1) {
         // WIFI设备
         // 首先, 把MAC地址打印出来

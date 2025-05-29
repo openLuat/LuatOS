@@ -7,12 +7,16 @@
 #include "luat/drv_wlan.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
 
 #define LUAT_LOG_TAG "drv.gpio"
 #include "luat_log.h"
 
 // #undef LLOGD
 // #define LLOGD(...) 
+
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 int luat_drv_wlan_init(luat_wlan_config_t *conf) {
     return luat_airlink_drv_wlan_init(conf);
@@ -84,15 +88,28 @@ int luat_drv_wlan_get_ps(void) {
 }
 
 int luat_drv_wlan_get_ap_bssid(char* buff) {
-    return -1;
+    if (g_airlink_ext_dev_info.wifi.sta_state == 0) {
+        buff[0] = 0;
+        return -1;
+    }
+    memcpy(buff, g_airlink_ext_dev_info.wifi.sta_ap_bssid, 6);
+    return 0;
 }
 
 int luat_drv_wlan_get_ap_rssi(void) {
-    return -1;
+    if (g_airlink_ext_dev_info.wifi.sta_state == 0) {
+        return 0;
+    }
+    return g_airlink_ext_dev_info.wifi.sta_ap_rssi;
 }
 
 int luat_drv_wlan_get_ap_gateway(char* buff) {
-    return -1;
+    luat_netdrv_t* drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+    if (drv == NULL || drv->netif == NULL) {
+        return 0;
+    }
+    ipaddr_ntoa_r(&drv->netif->gw, buff, 16);
+    return 0;
 }
 
 

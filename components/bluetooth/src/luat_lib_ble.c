@@ -293,6 +293,15 @@ static int l_ble_advertising_create(lua_State* L) {
     /* set adv paramters */
     luat_ble_set_adv_data(luat_ble, adv_data, adv_index);
 
+    lua_pushstring(L, "rsp_data");
+    if (LUA_TSTRING == lua_gettable(L, 2)) {
+        uint8_t* rsp_data = luaL_checklstring(L, -1, &len);
+        if (len){
+            luat_ble_set_scan_rsp_data(luat_ble, rsp_data, len);
+        }
+    }
+    lua_pop(L, 1);
+
     lua_pushboolean(L, 1);
     return 1;
 end:
@@ -400,13 +409,15 @@ void luat_ble_struct_init(lua_State *L) {
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_ble[] = {
-    {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
+    // advertise
     {"adv_create",                  ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start",                   ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop",                    ROREG_FUNC(l_ble_advertising_stop)},
-
-    {"write_notify",                 ROREG_FUNC(l_ble_write_notify)},
-    {"read_response",         ROREG_FUNC(l_ble_read_response_value)},
+    // gatt
+    {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
+    // slaver
+    {"write_notify",                ROREG_FUNC(l_ble_write_notify)},
+    {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},

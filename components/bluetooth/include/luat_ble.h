@@ -211,7 +211,6 @@ typedef struct {
     luat_ble_adv_chnl_t channel_map;
     uint32_t intv_min;
     uint32_t intv_max;
-    int len;
 }luat_ble_adv_cfg_t;
 
 struct luat_ble{
@@ -238,7 +237,7 @@ int luat_ble_create_advertising(luat_ble_t* luat_ble, luat_ble_adv_cfg_t* adv_cf
 
 int luat_ble_set_adv_data(luat_ble_t* luat_ble, uint8_t* adv_buff, uint8_t adv_len);
 
-int luat_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* scan_buff, uint8_t scan_len);
+int luat_ble_set_scan_rsp_data(luat_ble_t* luat_ble, uint8_t* rsp_data, uint8_t rsp_len);
 
 int luat_ble_start_advertising(luat_ble_t* luat_ble);
 

@@ -46,7 +46,7 @@ function test_ap()
     log.info("netdrv", "等待AP就绪")
     while netdrv.ready(socket.LWIP_AP) ~= true do
         log.info("netdrv", "等待AP就绪")
-        sys.wait(100)
+        sys.wait(10000)
     end
     -- 创建 DHCP 服务器，为连接到 WiFi AP 的设备分配 IP 地址。
     log.info("netdrv", "创建dhcp服务器, 供AP使用")
@@ -113,7 +113,7 @@ function eth_lan()
     -- 获取以太网网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
     while netdrv.ready(socket.LWIP_ETH) ~= true do
         log.info("netdrv", "等待以太网就绪") -- 若以太网设备没有连上，可打开此处注释排查。
-        sys.wait(100)
+        sys.wait(10000)
     end
     log.info("netdrv", "以太网就绪")
     -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。

@@ -12,6 +12,7 @@
 -- 具体用法请查阅demo,并联系蚂蚁链获取技术支持
  */
 #include "luat_base.h"
+#ifdef LUAT_USE_ANTBOT
 #include "rotable2.h"
 #include "luat_zbuff.h"
 #include "luat_lib_antbot.h"
@@ -317,3 +318,5 @@ LUAMOD_API int luaopen_antbot(lua_State *L)
     luat_newlib2(L, reg_antbot);
     return 1;
 }
+
+#endif

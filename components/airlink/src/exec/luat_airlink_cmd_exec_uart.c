@@ -126,3 +126,15 @@ int luat_airlink_cmd_exec_uart_data_cb(luat_airlink_cmd_t* cmd, void* userdata) 
     luat_airlink_drv_uart_data_cb(id + 10, cmd->data + 9, cmd->len - 9);
     return 0;
 }
+
+// 接收sent事件
+extern int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length);
+int luat_airlink_cmd_exec_uart_sent_cb(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 9) {
+        return 0;
+    }
+    uint8_t id = cmd->data[8];
+    // LLOGD("uart sent %d %d", id, cmd->len - 9);
+    luat_airlink_drv_uart_sent_cb(id + 10, cmd->data + 9, cmd->len - 9);
+    return 0;
+}

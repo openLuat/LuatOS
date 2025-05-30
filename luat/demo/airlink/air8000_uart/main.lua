@@ -41,7 +41,11 @@ function uart_on()
             end
         until s == ""
     end)
-    log.info("uart.on", result)
+    log.info("uart.on", "receive", result)
+
+    uart.on(uartid, "sent", function(id)
+        log.info("uart", id, "sent")
+    end)
 end
 
 sys.taskInit(function()

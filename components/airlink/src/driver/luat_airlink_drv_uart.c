@@ -132,3 +132,13 @@ int luat_airlink_drv_uart_read(int uart_id, void* data, size_t length) {
     }
     return 0;
 }
+
+int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length) {
+    rtos_msg_t msg = {0};
+    msg.handler = l_uart_handler;
+    msg.ptr = NULL;
+    msg.arg1 = uart_id;
+    msg.arg2 = 0;
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}

@@ -22,8 +22,8 @@ PROJECT = "spi_camera_demo"
 VERSION = "1.0.0"
 -- 实际使用时选1个就行
 -- require "bf30a2"
--- require "gc0310"
-require "gc032a"
+require "gc0310"
+-- require "gc032a"
 sys = require("sys")
 sysplus = require("sysplus")
 
@@ -73,8 +73,8 @@ local function device_init()
     gpio.setup(153, 0) -- PD拉低
     sys.wait(500)
     -- return bf30a2Init(cspiId,i2cId,25500000,TEST_MODE,TEST_MODE)
-    -- return gc0310Init(cspiId, i2cId, 25500000, TEST_MODE, TEST_MODE)
-    return gc032aInit(cspiId, i2cId, 24000000, TEST_MODE, TEST_MODE)
+    return gc0310Init(cspiId, i2cId, 25500000, TEST_MODE, TEST_MODE)
+    -- return gc032aInit(cspiId, i2cId, 24000000, TEST_MODE, TEST_MODE)
 end
 
 local function main_task()

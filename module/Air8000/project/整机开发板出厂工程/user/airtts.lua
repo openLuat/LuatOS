@@ -67,7 +67,7 @@ local function audio_task()
 end
 
 
-function airtts.run()
+function airtts.run()       -- TTS 播放主程序
     if run_state == 0 then
         lcd.setFont(lcd.font_opposansm12_chinese) -- 具体取值可参考api文档的常量表
         sysplus.taskInitEx(audio_task, taskName)
@@ -89,7 +89,7 @@ function airtts.run()
 end
 
 
-function airtts.tp_handal(x,y,event)
+function airtts.tp_handal(x,y,event)       -- 判断是否需要停止播放
     if x > 120 and  x < 200 and y > 300  and  y < 380 then
         audio_stop()
     end

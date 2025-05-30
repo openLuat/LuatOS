@@ -10,7 +10,7 @@ local airlcd = require "airlcd"
 local airmusic = require "airmusic"
 local airtts  = require "airtts"
 local airaudio  = require "airaudio"
-local aircam = require "camera8000_simple"
+local aircamera = require "aircamera"
 local airrus = require "russia"
 local airstatus = require "statusbar"
 local airtestwlan = require "test_wlan"
@@ -118,6 +118,7 @@ local function handal_main(x,y)
   elseif key == 2 then
   elseif key == 3 then
   elseif key == 4 then
+    cur_fun  = "camera"
   elseif key == 5 then
   elseif key == 6 then
   elseif key == 7 then
@@ -270,6 +271,13 @@ local function draw_tts()
     cur_fun = "main"
   end
 end
+
+local function draw_camera()
+  if  aircamera.run()   then
+    cur_fun = "main"
+  end
+end
+
 local function draw()
   if cur_fun == "camshow" then
     return
@@ -287,6 +295,8 @@ local function draw()
     draw_main2()
   elseif cur_fun == "tts" then
     draw_tts()
+  elseif cur_fun  == "camera" then
+    draw_camera()
   elseif cur_fun == "picshow" then
     draw_pic()
   elseif cur_fun == "russia" then

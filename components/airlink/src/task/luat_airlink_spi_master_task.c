@@ -46,6 +46,10 @@ static uint32_t is_waiting_queue = 0;
 
 static luat_rtos_queue_t evt_queue;
 
+extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+
+luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+
 __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 {
     uint32_t len = 0;
@@ -131,7 +135,7 @@ static void spi_gpio_setup(void)
     if (g_airlink_spi_conf.irq_pin != 255)
     {
         luat_gpio_set_default_cfg(&gpio_cfg);
-        gpio_cfg.pin = AIRLINK_SPI_RDY_PIN;
+        gpio_cfg.pin = g_airlink_spi_conf.irq_pin;
         gpio_cfg.mode = LUAT_GPIO_IRQ;
         gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
         gpio_cfg.pull = LUAT_GPIO_PULLUP;
@@ -219,6 +223,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
 {
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
+    uint32_t timeout = 5;
     if (g_airlink_pause) {
         while (g_airlink_pause) {
             LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
@@ -226,6 +231,9 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         }
     }
     // 等到消息
+    if (link != NULL && link->flags.irq_ready) {
+        timeout = 1000;
+    }
     if (link != NULL && (link->flags.queue_cmd != 0 || link->flags.queue_cmd != 0))
     {
         // 立即进行下一轮操作
@@ -234,7 +242,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     else
     {
         is_waiting_queue = 1;
-        luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), 5);
+        luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), timeout);
         is_waiting_queue = 0;
     }
 
@@ -262,6 +270,14 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
 }
 
+__USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
+    memset(&link->flags, 0, sizeof(uint32_t));
+    if (g_airlink_irq_ctx.enable) {
+        link->flags.irq_ready = 1;
+        link->flags.irq_pin = g_airlink_irq_ctx.slave_pin - 140;
+    }
+}
+
 
 __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
@@ -271,6 +287,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     spi_gpio_setup();
     thread_rdy = 1;
     g_airlink_newdata_notify_cb = on_newdata_notify;
+    g_airlink_link_data_cb = on_link_data_notify;
     while (1)
     {
         if (g_airlink_fota != NULL && g_airlink_fota->state == 1) {
@@ -301,4 +318,25 @@ void luat_airlink_start_master(void)
 
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+}
+
+int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {
+    if (!ctx) {
+        return -1;
+    }
+    luat_gpio_cfg_t gpio_cfg = {0};
+    ctx->slave_ready = 0;
+    memcpy(&g_airlink_irq_ctx, ctx, sizeof(luat_airlink_irq_ctx_t));
+    g_airlink_spi_conf.irq_pin = ctx->master_pin;
+    if (ctx->enable) {
+        luat_gpio_set_default_cfg(&gpio_cfg);
+        gpio_cfg.pin = g_airlink_spi_conf.irq_pin;
+        gpio_cfg.mode = LUAT_GPIO_IRQ;
+        gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
+        gpio_cfg.pull = LUAT_GPIO_PULLUP;
+        gpio_cfg.irq_cb = slave_irq_cb;
+        luat_gpio_open(&gpio_cfg);
+        LLOGD("中断模式开启,等待slave就绪");
+    }
+    return 0;
 }

@@ -1,25 +1,32 @@
 local i2cId = 0
 local intPin = gpio.WAKEUP2
+local interruptMode = false      -- 中断模式
 -- 是否打印日志
 local logSwitch = true
 local moduleName = "da221"
 
 local da221Addr = 0x27
-local soft_reset = {0x00, 0x24}     -- 软件复位地址
-local chipid_addr = 0x01            -- 芯片ID地址
-local rangeaddr = {0x0f, 0x00}      -- 设置加速度量程，默认2g
-local int_set1_reg = {0x16, 0x87}   --设置x,y,z发生变化时，产生中断
-local int_set2_reg = {0x17, 0x10}   --使能新数据中断，数据变化时，产生中断，本程序不设置
-local int_map1_reg = {0x19, 0x04}   --运动的时候，产生中断
+local soft_reset = {0x00, 0x24}         -- 软件复位地址
+local chipid_addr = 0x01                -- 芯片ID地址
+local rangeaddr = {0x0f, 0x00}          -- 设置加速度量程，默认2g
+local int_set1_reg = {0x16, 0x87}       --设置x,y,z发生变化时，产生中断
+local int_set2_reg = {0x17, 0x10}       --使能新数据中断，数据变化时，产生中断，本程序不设置
+local int_map1_reg = {0x19, 0x04}       --运动的时候，产生中断
 local int_map2_reg = {0x1a, 0x01}
 
-local active_dur_addr = {0x27, 0x00}  -- 设置激活时间，默认0x00
-local active_ths_addr = {0x28, 0x05}  -- 设置激活阈值
-local mode_addr = {0x11, 0x34}  -- 设置模式
-local odr_addr = {0x10, 0x08}  -- 设置采样率
-local int_latch_addr = {0x21, 0x02}  -- 设置中断锁存
+local active_dur_addr = {0x27, 0x00}    -- 设置激活时间，默认0x00
+local active_ths_addr = {0x28, 0x05}    -- 设置激活阈值
+local odr_addr = {0x10, 0x08}           -- 设置采样率 100Hz
+local mode_addr = {0x11, 0x00}          -- 设置正常模式
+local int_latch_addr = {0x21, 0x02}     -- 设置中断锁存
 
 local x_lsb_reg = 0x02
+local x_mab_reg = 0x03
+local y_lsb_reg = 0x04
+local y_mab_reg = 0x05
+local z_lsb_reg = 0x06
+local z_mab_reg = 0x07
+
 local active_state = 0x0b
 local active_state_data
 
@@ -30,48 +37,49 @@ local function logF(...)
     end
 end
 
---字符串转字节数组
-local function stringToBytes(hexStr)
-    local bytes = {}
-    for i = 1, #hexStr, 2 do
-        local byteStr = hexStr:sub(i, i+1)
-        local byte = tonumber(byteStr, 16)
-        table.insert(bytes, byte)
-    end
-    return bytes
+local function read_xyz()
+    i2c.send(i2cId, da221Addr, x_lsb_reg, 1)
+    local recv_x_lsb = i2c.recv(i2cId, da221Addr, 1)
+    i2c.send(i2cId, da221Addr, x_mab_reg, 1)
+    local recv_x_mab = i2c.recv(i2cId, da221Addr, 1)
+    local x_data = (string.byte(recv_x_mab) << 8) | string.byte(recv_x_lsb)
+
+    i2c.send(i2cId, da221Addr, y_lsb_reg, 1)
+    local recv_y_lsb = i2c.recv(i2cId, da221Addr, 1)
+    i2c.send(i2cId, da221Addr, y_mab_reg, 1)
+    local recv_y_mab = i2c.recv(i2cId, da221Addr, 1)
+    local y_data = (string.byte(recv_y_mab) << 8) | string.byte(recv_y_lsb)
+
+    i2c.send(i2cId, da221Addr, z_lsb_reg, 1)
+    local recv_z_lsb = i2c.recv(i2cId, da221Addr, 1)
+    i2c.send(i2cId, da221Addr, z_mab_reg, 1)
+    local recv_z_mab = i2c.recv(i2cId, da221Addr, 1)
+    local z_data = (string.byte(recv_z_mab) << 8) | string.byte(recv_z_lsb)
+
+    local x_accel = x_data / 1024
+    local y_accel = y_data / 1024
+    local z_accel = z_data / 1024
+
+
+    return x_accel, y_accel, z_accel
 end
 
-local interruptCount = 0  -- 计数器
-local function ind()
-    logF("int", gpio.get(intPin))
-    --gsensor()  -- 调用gsensor函数，计算设备是否处于运动状态
-    if gpio.get(intPin) == 1 then
-        -- interruptCount = interruptCount + 1  -- 增加计数器
-        -- if interruptCount >= 2 then  -- 判断是否达到2次
-        --     gsensor()  -- 调用gsensor函数
-        --     interruptCount = 0  -- 重置计数器
-        -- end
-        -- manage.setLastCrashLevel()
-        --读取x，y，z轴的数据
-        i2c.send(i2cId, da221Addr, 0x02, 1)
-        local data = i2c.recv(i2cId, da221Addr, 6)
-        if data and #data == 6 then
-            logF("XYZ ORIGIN DATA", data:toHex())
-            local xl, xm, yl, ym, zl, zm = string.byte(data, 1, 1), string.byte(data, 2, 2), string.byte(data, 3, 3), string.byte(data, 4, 4), string.byte(data, 5, 5), string.byte(data, 6, 6)
-            local x, y, z = (xm << 8 | xl) >> 4, (ym << 8 | yl) >> 4, (zm << 8 | zl) >> 4
-            logF("x:", x, "y:", y, "z:", z)
-        else
-            sys.publish("RESTORE_GSENSOR")
-            return
+-- 中断模式
+if interruptMode then
+    local function ind()
+        logF("int", gpio.get(intPin))
+        if gpio.get(intPin) == 1 then
+            local x,y,z = read_xyz()      --读取x，y，z轴的数据
+            log.info("x", x, "y", y, "z", z)
         end
-
     end
+
+    -- gpio.debounce(intPin, 100)
+    gpio.setup(intPin, ind)
+
 end
 
--- gpio.debounce(intPin, 100)
-gpio.setup(intPin, ind)
-
-local function init()
+local function da221_init()
     log.info("da221 init...")
     --关闭i2c
     i2c.close(i2cId)
@@ -86,12 +94,15 @@ local function init()
     log.info("i2c", "chipid",chipid:toHex())
     if string.byte(chipid) == 0x13 then
         log.info("da221 init success")
+        sys.publish("DA221_INIT_SUCCESS")
     else
         log.info("da221 init fail")
     end
 
     -- 设置寄存器
-    i2c.send(i2cId, da221Addr, int_set1_reg, 1)--设置x,y,z发生变化时，产生中断
+    i2c.send(i2cId, da221Addr, rangeaddr, 1)    --设置加速度量程，默认2g
+    sys.wait(5)
+    i2c.send(i2cId, da221Addr, int_set1_reg, 1) --设置x,y,z发生变化时，产生中断
     sys.wait(5)
     i2c.send(i2cId, da221Addr, int_map1_reg, 1)--运动的时候，产生中断
     sys.wait(5)
@@ -107,51 +118,19 @@ local function init()
     sys.wait(5)
 end
 
+
 sys.taskInit(function()
-    mcu.altfun(mcu.I2C, i2cId, 13, 2, 0)
-    mcu.altfun(mcu.I2C, i2cId, 14, 2, 0)
-    -- while true do
-        init()
+    local result = sys.waitUntil("DA221_INIT_SUCCESS")
 
-
+    -- 轮询读取三轴速度
+    if not interruptMode then
         while true do
-        --     --等待da221传感器数据不正确，复位的消息
-        --     local result = sys.waitUntil("RESTORE_GSENSOR", 60 * 1000)
-        --     --如果接收到了复位消息，则跳出读取数据的循环，重新执行init()函数
-        --     if result then
-        --         break
-        --     end
-        --     --读取da221传感器的型号值，默认是0x13
-        --     i2c.send(i2cId, da221Addr, 0x01, 1)
-        --     local data = i2c.recv(i2cId, da221Addr, 1)
-        --     if not data or data == "" or string.byte(data) ~= 0x13 then
-        --         break
-        --     end
             -- 读取三轴速度
-            i2c.send(i2cId, da221Addr, x_lsb_reg, 1)
-            local recv_data_xyz = i2c.recv(i2cId, da221Addr, 6)
-            local hex_data_xyz = stringToBytes(recv_data_xyz:toHex())
-            log.info("recv_data_xyz", recv_data_xyz:toHex())
-            if recv_data_xyz and #recv_data_xyz == 6 then
-                -- local data_xyz = {}
-                -- for i = 1, #recv_data_xyz do
-                --     -- 将提取的子字符串添加到结果表中
-                --     table.insert(data_xyz, recv_data_xyz:sub(i, i):toHex())
-                -- end
-                -- data_xyz = data_xyz:byte()
-                log.info(string.format("Byte: %02X %02X %02X %02X %02X %02X", hex_data_xyz[1], hex_data_xyz[2], hex_data_xyz[3], hex_data_xyz[4], hex_data_xyz[5], hex_data_xyz[6]))
-                -- 提取X轴数据
-                local acc_x = ((hex_data_xyz[2] << 8)|hex_data_xyz[1])>>4;
-                -- 提取Y轴数据
-                local acc_y = ((hex_data_xyz[4] << 8)|hex_data_xyz[3])>>4;
-                -- 提取Z轴数据
-                local acc_z = ((hex_data_xyz[6] << 8)|hex_data_xyz[5])>>4;
-                log.info(string.format("acc_x %.1f", acc_x))
-                log.info(string.format("acc_y %.1f", acc_y))
-                log.info(string.format("acc_z %.1f", acc_z))
-                -- sys.publish("gsensor", {x = acc_x, y = acc_y, z = acc_z})
-            end
-            sys.wait(4000)
+            local x,y,z = read_xyz()      --读取x，y，z轴的数据
+            log.info("x", x, "y", y, "z", z)
+            sys.wait(1000)
         end
-    -- end
+    end
 end)
+
+sys.taskInit(da221_init)

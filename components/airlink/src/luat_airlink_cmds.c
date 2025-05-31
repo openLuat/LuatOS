@@ -62,6 +62,7 @@ CMD_DEFINE(uart_setup);
 CMD_DEFINE(uart_write);
 CMD_DEFINE(uart_close);
 CMD_DEFINE(uart_data_cb);
+CMD_DEFINE(uart_sent_cb);
 
 __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
@@ -111,6 +112,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x402, uart_close),
 #else
     CMD_REG(0x410, uart_data_cb),
+    CMD_REG(0x411, uart_sent_cb),
 #endif
 
     CMD_REG(0x21, nop),

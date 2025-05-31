@@ -295,6 +295,17 @@ static int l_airlink_pause(lua_State *L) {
     return 0;
 }
 
+static int l_airlink_irqmode(lua_State *L) {
+    luat_airlink_irq_ctx_t ctx = {0};
+    ctx.enable = lua_toboolean(L, 1);
+    if (ctx.enable) {
+        ctx.master_pin = luaL_checkinteger(L, 2);
+        ctx.slave_pin = luaL_checkinteger(L, 3);
+    }
+    luat_airlink_irqmode(&ctx);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -309,6 +320,7 @@ static const rotable_Reg_t reg_airlink[] =
     { "statistics",    ROREG_FUNC(l_airlink_statistics )},
     { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
     { "pause",         ROREG_FUNC(l_airlink_pause)},
+    { "irqmode",       ROREG_FUNC(l_airlink_irqmode)},
 
     // 测试用的fota指令
     { "sfota",         ROREG_FUNC(l_airlink_sfota )},

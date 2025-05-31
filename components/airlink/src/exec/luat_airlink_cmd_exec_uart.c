@@ -29,6 +29,23 @@ static void rx_data_input(int uart_id, uint32_t data_len) {
     luat_rtos_queue_send(rx_queue, &id, 0, 0);
 }
 
+static void tx_sent_cb(int uart_id, uint32_t data_len) {
+    size_t total_len = sizeof(luat_airlink_cmd_t) + 8 + 1;
+    airlink_queue_item_t item = {.len = total_len};
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x411, 1 + 8);
+    if (cmd == NULL) {
+        LLOGE("内存分配失败!!");
+        return;
+    }
+    uint64_t luat_airlink_next_cmd_id = 0;
+    luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t tmp = (uint8_t)uart_id;
+    memcpy(cmd->data + 8, &tmp, 1);
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+}
+
 static void rx_data_input2(int uart_id, uint32_t data_len) {
     // LLOGD("执行uart read %d %d", uart_id, data_len);
     uint64_t luat_airlink_next_cmd_id = 0;
@@ -90,6 +107,7 @@ int luat_airlink_cmd_exec_uart_setup(luat_airlink_cmd_t* cmd, void* userdata) {
             luat_rtos_task_create(&rx_thread, 4 * 1024, 50, "airlink_rx", rx_thread_main, NULL, 0);
         }
         luat_uart_ctrl(uart->id, LUAT_UART_SET_RECV_CALLBACK, rx_data_input);
+        luat_uart_ctrl(uart->id, LUAT_UART_SET_SENT_CALLBACK, tx_sent_cb);
     }
     return ret;
 }
@@ -124,5 +142,17 @@ int luat_airlink_cmd_exec_uart_data_cb(luat_airlink_cmd_t* cmd, void* userdata) 
     uint8_t id = cmd->data[8];
     // LLOGD("uart数据输入 %d %d", id, cmd->len - 9);
     luat_airlink_drv_uart_data_cb(id + 10, cmd->data + 9, cmd->len - 9);
+    return 0;
+}
+
+// 接收sent事件
+extern int luat_airlink_drv_uart_sent_cb(int uart_id, void* buffer, size_t length);
+int luat_airlink_cmd_exec_uart_sent_cb(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 9) {
+        return 0;
+    }
+    uint8_t id = cmd->data[8];
+    // LLOGD("uart sent %d %d", id, cmd->len - 9);
+    luat_airlink_drv_uart_sent_cb(id + 10, cmd->data + 9, cmd->len - 9);
     return 0;
 }

@@ -29,7 +29,9 @@ typedef struct airlink_flags {
     uint8_t mem_is_high: 1;
     uint8_t queue_cmd: 1; // 用于指示命令包的队列是否还有数据
     uint8_t queue_ip: 1; // 用于ip包的队列是否还有数据
-    uint32_t revert: 29; // 保留位, 用于扩展
+    uint8_t irq_ready: 1; // 是否切换到IRQ模式
+    uint8_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
+    uint32_t revert: 24; // 保留位, 用于扩展
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
@@ -282,6 +284,15 @@ typedef struct luat_airlink_result_reg
 
 int luat_airlink_result_reg(luat_airlink_result_reg_t* reg);
 
+typedef struct luat_airlink_irq_ctx
+{
+    int enable;
+    int master_pin;
+    int slave_pin;
+    int slave_ready;
+}luat_airlink_irq_ctx_t;
+
+int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx);
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

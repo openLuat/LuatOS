@@ -2,7 +2,6 @@ local airLCD = {}
 
 
 
-
 function airLCD.lcd_init(sn)
     if sn == "AirLCD_1000" then
         width = 320
@@ -37,7 +36,7 @@ function airLCD.lcd_init(sn)
     }
     gpio.setup(164, 1, gpio.PULLUP)
     gpio.setup(141, 1, gpio.PULLUP)
-    sys.wait(2000)
+    sys.wait(1000)
     lcd.init(lcd_ic,lcd_param)
     lcd.setupBuff(nil, true)        -- 设置缓冲区大小，使用系统内存
     lcd.autoFlush(false)            -- 自动刷新LCD
@@ -53,7 +52,5 @@ function airLCD.lcd_init(sn)
     end
 
 end
-
-
 
 return airLCD

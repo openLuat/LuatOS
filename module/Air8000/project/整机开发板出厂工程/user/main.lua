@@ -60,7 +60,7 @@ local funlist = {
 "multi-network","485","can","onewire","pwm","uart","232"
 }
 
-local bkcolor = lcd.rgb565(99, 180, 245,false)
+_G.bkcolor = lcd.rgb565(99, 180, 245,false)
 
 local function wdtInit()
 -- 添加硬狗防止程序卡死
@@ -166,7 +166,7 @@ local function handal_main2(x,y)
 end
 
 local function  tp_handal(tp_device,tp_data)
-  log.info("tp_handal",tp_data[1].x,tp_data[1].y,tp_data[1].event)
+  -- log.info("tp_handal",tp_data[1].x,tp_data[1].y,tp_data[1].event)
   if tp_data[1].event == 1 then
     lock_push = 0
   end
@@ -179,6 +179,8 @@ local function  tp_handal(tp_device,tp_data)
       handal_main2(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "tts" then
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "camera" then
+      aircamera.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -273,6 +275,7 @@ local function draw_tts()
 end
 
 local function draw_camera()
+
   if  aircamera.run()   then
     cur_fun = "main"
   end
@@ -283,7 +286,7 @@ local function draw()
     return
   end
 
-  lcd.clear(bkcolor)    
+  lcd.clear(_G.bkcolor)    
   
   draw_statusbar()
   
@@ -325,11 +328,11 @@ wdtInit()
 
 local function UITask()
     airaudio.init()
+    sys.wait(1000)
+    log.info("合宙 8000 startup v1")
+    aircamera.init()
     airlcd.lcd_init("AirLCD_1001")
     sys.subscribe("TP",tp_handal)
-
-    log.info("合宙 8000 startup v13:" .. sid)
-
     while 1 do
       update()
       draw()

@@ -23,7 +23,6 @@ local result = uart.setup(uartid, -- 串口id
 1 -- 停止位
 )
 
-
 camera.on(0, "scanned", function(id, str)
     if type(str) == 'string' then
         log.info("扫码结果", str)
@@ -49,7 +48,7 @@ local function HTTP_SEND_FILE()
         url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
         method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
         headers = {}, -- 可选,自定义的额外header
-        files = {file= "/testcamera.jpg"},   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
+        bodyfile="/ram/testcamera.jpg",   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
         forms = {}, -- 可选,表单参数,若存在本参数,如果不存在files,按application/x-www-form-urlencoded上传
         -- body  = "abc=123",-- 可选,自定义body参数, 字符串/zbuff/table均可, 但不能与files和forms同时存在
         debug = false, -- 可选,打开调试日志,默认false
@@ -86,10 +85,20 @@ local function aircamera_run()
     log.info(rtos.meminfo("sys"))
     log.info(rtos.meminfo("psram"))
     if TEST_MODE == 1 then
+        log.info("aircamera start scan")
+        camera.close(camera_id)
+        log.info("摄像头初始化-扫码")
+        gpio.setup(153, 1) -- PD拉高
+        sys.wait(100)
+        gpio.setup(153, 0) -- PD拉低
+        sys.wait(500)
+        camera_id = gc0310Init(cspiId, i2cId, 25500000, 1, 1)  -- 最后两个1 ，是默认按照扫码始化
+        sys.wait(100)
         camera.start(camera_id)  -- 开始扫码
     end
     while true do
         if TEST_MODE == 0 then
+            camera.close(camera_id)
             break
         end
         sys.wait(30)
@@ -106,13 +115,12 @@ function aircamera.init()
     log.info("摄像头初始化")
     gpio.setup(153, 0) -- PD拉低
     sys.wait(500)
-    camera_id = gc0310Init(cspiId, i2cId, 25500000, 1, 1)
-
-    -- camera.stop(camera_id) -- 暂停摄像头捕获数据。仅停止了图像捕获，未影响预览功能。
+    camera_id = gc0310Init(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个0 ，是默认按照拍照初始化
 end
 
 local function aircamera_ui()
     -- lcd.clear()
+
     if TEST_MODE ==0 then
         lcd.clear(_G.bkcolor)    
         lcd.autoFlush(false) 
@@ -136,6 +144,7 @@ local function aircamera_ui()
     elseif TEST_MODE == 1 or TEST_MODE == 2 then
         aircamera_run()
     elseif TEST_MODE == 3 then
+        TEST_MODE = 0
         return true
     end
     return false
@@ -153,9 +162,18 @@ end
 
 function send_file_task()
     if camera_capture_flag == 0 then
-        log.info("send_file_task")
+        log.info("aircamera send_file_task1")
         camera_capture_flag = 1
-        camera.capture(camera_id, "/testcamera.jpg", 1)
+        log.info("摄像头初始化-拍照")
+        camera.close(camera_id)
+        gpio.setup(153, 1) -- PD拉高
+        sys.wait(100)
+        gpio.setup(153, 0) -- PD拉低
+        sys.wait(500)
+        camera_id = gc0310Init(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个1 ，是默认按照扫码始化
+        sys.wait(100)
+        local res= camera.capture(camera_id, "/ram/testcamera.jpg", 3)
+        log.info("aircamera send_file_task1 res",res)
         sys.waitUntil("capture done", 30000)
         camera.preview(camera_id, false)
         TEST_MODE = 0

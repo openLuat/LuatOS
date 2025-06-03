@@ -159,7 +159,10 @@ local function http_opts_parse(opts)
             png = "image/png",              -- PNG 格式图片   
             gif = "image/gif",              -- GIF 格式图片
             html = "image/html",            -- HTML
-            json = "application/json"       -- JSON
+            json = "application/json",      -- JSON
+            mp4 = "video/mp4",              -- MP4 格式视频
+            mp3 = "audio/mp3",              -- MP3 格式音频
+            webm = "video/webm",            -- WebM 格式视频
         }
         for kk, vv in pairs(opts.files) do
             local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"

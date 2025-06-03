@@ -188,7 +188,7 @@ static int l_socket_gc(lua_State *L)
 在指定网卡上申请一个socket_ctrl
 @api    socket.create(adapter, cb)
 @int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
-@string or function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
+@string/function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
 @return userdata 成功返回network_ctrl，失败返回nil
 @usage
 

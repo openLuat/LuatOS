@@ -83,14 +83,14 @@ local function HTTP_SEND_FILE()
         url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
         method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
         headers = {}, -- 可选,自定义的额外header
-        files = {file= "/testcamera.jpg"},   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
+        -- files = {file= "/ram/abc.jpg"},   -- 可选,文件上传,若存在本参数,会强制以multipart/form-data形式上传
         forms = {}, -- 可选,表单参数,若存在本参数,如果不存在files,按application/x-www-form-urlencoded上传
         -- body  = "abc=123",-- 可选,自定义body参数, 字符串/zbuff/table均可, 但不能与files和forms同时存在
         debug = false, -- 可选,打开调试日志,默认false
         try_ipv6 = false, -- 可选,是否优先尝试ipv6地址,默认是false
         adapter = nil, -- 可选,网络适配器编号, 默认是自动选
         timeout = 30, -- 可选,读取服务器响应的超时时间,单位秒,默认30
-        -- bodyfile = "/testCamera.jpg" -- 可选,直接把文件内容作为body上传, 优先级高于body参数
+        bodyfile = "/ram/abc.jpg" -- 可选,直接把文件内容作为body上传, 优先级高于body参数
     }
 
     local code, resp = httpplus.request(opts)
@@ -130,7 +130,7 @@ sys.taskInit(function()
     -- 但是如果你的照片名字是按一定规律排序的，一定记得删除
     -- 后面的参数是照片质量，如果感觉默认的1质量不太好，可以换成2或者3
     -- 但是，2和3需要非常多非常多的psram,能不用还是不用
-    camera.capture(camera_id, "/testcamera.jpg", 1)
+    camera.capture(camera_id, "/ram/abc.jpg", 1)
 
     result, data = sys.waitUntil("capture done", 30000)
 

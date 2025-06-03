@@ -458,6 +458,7 @@ local function http_exec(opts)
     -- 然后是body
     local rbody = ""
     local write_counter = 0
+    local fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 根据psram状态来选
     if opts.mp and #opts.mp > 0 then
         opts.log(TAG, "执行mulitpart上传模式")
         for k, v in pairs(opts.mp) do
@@ -469,13 +470,15 @@ local function http_exec(opts)
                 -- log.info("写入文件数据", v[1])
                 if fd then
                     while not opts.is_closed do
-                       local fdata = fd:read(1400)
-                        if not fdata or #fdata == 0 then
+                        fbuf:seek(0)
+                        local ok, flen = fd:fill(fbuf)
+                        if not ok or flen <= 0 then
                             break
                         end
+                        fbuf:seek(flen)
                         -- log.info("写入文件数据", "长度", #fdata)
-                        socket.tx(netc, fdata)
-                        write_counter = write_counter + #fdata
+                        socket.tx(netc, fbuf)
+                        write_counter = write_counter + flen
                         -- 注意, 这里要等待TX_OK事件
                         sys.waitUntil(opts.topic, 300)
                     end
@@ -498,13 +501,15 @@ local function http_exec(opts)
         -- log.info("写入文件数据", v[1])
         if fd then
             while not opts.is_closed do
-                local fdata = fd:read(1400)
-                if not fdata or #fdata == 0 then
+                fbuf:seek(0)
+                local ok, flen = fd:fill(fbuf)
+                if not ok or flen <= 0 then
                     break
                 end
+                fbuf:seek(flen)
                 -- log.info("写入文件数据", "长度", #fdata)
-                socket.tx(netc, fdata)
-                write_counter = write_counter + #fdata
+                socket.tx(netc, fbuf)
+                write_counter = write_counter + flen
                 -- 注意, 这里要等待TX_OK事件
                 sys.waitUntil(opts.topic, 300)
             end

@@ -14,7 +14,7 @@
 #include "luat_log.h"
 
 //在buff对象后添加数据，返回增加的字节数
-int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
+static int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
 {
     if (buff->len - buff->cursor < len)
         len = buff->len - buff->cursor;
@@ -76,7 +76,7 @@ int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
         return GET_POINT_##n(buff, point); \
 
 //获取某点的颜色
-uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
+static uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 {
     switch (buff->bit)
     {

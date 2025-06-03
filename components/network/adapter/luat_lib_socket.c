@@ -203,7 +203,7 @@ local netc = socket.create(nil, "MySocket")
 --[[
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl
-param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSED等等
+param2为具体的消息，只能是socket.LINK, socket.ON_LINE, socket.TX_OK, socket.EVENT, socket.CLOSED等等
 param3为消息对应的参数
 ]]
 */

@@ -973,10 +973,23 @@ static int l_sensor_yhm27xx(lua_State *L)
     is_read = 0;
     data = luaL_checkinteger(L, 4);
   }
-  if(luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+  if(pin >= 128)
   {
-    lua_pushboolean(L, 0);
-    return 1;
+    #ifdef LUAT_USE_DRV_GPIO
+    if(luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+    {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+    #endif
+  }
+  else
+  {
+    if(luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+    {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
   }
   lua_pushboolean(L, 1);
   if (is_read)

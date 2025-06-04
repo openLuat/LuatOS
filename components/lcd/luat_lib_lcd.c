@@ -1224,7 +1224,7 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
 	uint16_t str;
   const char *fontCode = luaL_checklstring(L, 1,&len);
   unsigned char size = luaL_checkinteger(L, 2);
-	unsigned char font_g = luaL_checkinteger(L, 3);
+	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
@@ -1310,7 +1310,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	uint16_t e,str;
   const char *fontCode = luaL_checklstring(L, 1,&len);
   unsigned char size = luaL_checkinteger(L, 2);
-	unsigned char font_g = luaL_checkinteger(L, 3);
+	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);

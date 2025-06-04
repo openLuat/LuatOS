@@ -65,6 +65,13 @@ CMD_DEFINE(uart_close);
 CMD_DEFINE(uart_data_cb);
 CMD_DEFINE(uart_sent_cb);
 
+// PM指令, 0x600开始
+CMD_DEFINE(pm_request);
+
+// PWM指令, 0x700开始
+CMD_DEFINE(pwm_setup);
+CMD_DEFINE(pwm_close);
+
 __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
@@ -115,6 +122,15 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #else
     CMD_REG(0x410, uart_data_cb),
     CMD_REG(0x411, uart_sent_cb),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_PM
+    CMD_REG(0x600, pm_request),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_PWM
+    CMD_REG(0x700, pwm_setup),
+    CMD_REG(0x701, pwm_close),
 #endif
 
     CMD_REG(0x21, nop),

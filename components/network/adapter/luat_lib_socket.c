@@ -204,7 +204,7 @@ local netc = socket.create(nil, "MySocket")
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl
 param2为具体的消息，只能是socket.LINK, socket.ON_LINE, socket.TX_OK, socket.EVENT, socket.CLOSED等等
-param3为消息对应的参数
+param3为消息对应的参数，目前只有0和-1，0表示成功或者可能有新数据（具体消息为socket.EVENT），-1表示失败或者有异常，需要断开重连
 ]]
 */
 static int l_socket_create(lua_State *L)

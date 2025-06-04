@@ -76,7 +76,11 @@ local function HTTP_SEND_FILE()
     end
 
 end
-
+function aircamera.close()
+    if camera_id then
+        camera.close(camera_id)
+    end
+end
 
 local function aircamera_run()
     lcd.autoFlush(true) 

@@ -47,7 +47,9 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
         return ERR_MEM;
     }
     pbuf_copy_partial(p, buff, p->tot_len, 0);
-    // luat_airlink_hexdump("准备上行给硬件协议栈的IP数据", buff, p->tot_len);
+    if (g_netdrv_debug_enable) {
+        luat_airlink_hexdump("上行给硬件", buff, p->tot_len);
+    }
     // TODO 这里应该根据userdata, 也就是whale上下文, 转发可配置的出口
     luat_airlink_queue_send_ippkg(netdrv->id, buff, p->tot_len);
     luat_heap_opt_free(LUAT_HEAP_PSRAM, buff);
@@ -128,12 +130,10 @@ static err_t luat_netif_init(struct netif *netif) {
     }
     #if ENABLE_PSIF
     netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
+    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
     #endif
     #if LWIP_IPV6
     netif->output_ip6 = netif_output_ip6;
-    #if ENABLE_PSIF
-    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
-    #endif
     #endif
     return 0;
 }

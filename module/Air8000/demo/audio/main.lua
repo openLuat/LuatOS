@@ -16,8 +16,8 @@ gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 
 local i2c_id = 0            -- i2c_id 0
 
-local pa_pin = 162           -- 喇叭pa功放脚
-local power_pin = 164         -- es8311电源脚
+local pa_pin = 162           -- 喇叭pa功放脚,需要根据自己的硬件配置
+local power_pin = 164         -- es8311电源脚,需要根据自己的硬件配置
 
 local i2s_id = 0            -- i2s_id 0
 local i2s_mode = 0          -- i2s模式 0 主机 1 从机
@@ -37,8 +37,8 @@ local power_time_delay = 100    -- 音频播放完毕时，PA与DAC关闭的时�
 local voice_vol = 70        -- 喇叭音量
 local mic_vol = 80          -- 麦克风音量
 
-gpio.setup(power_pin, 1, gpio.PULLUP)         
-gpio.setup(pa_pin, 1, gpio.PULLUP)
+gpio.setup(power_pin, 1, gpio.PULLUP)            -- 打开es8311 的电源脚
+gpio.setup(pa_pin, 1, gpio.PULLUP)               -- 打开pa 的电源脚
 
 function audio_setup()
     pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电

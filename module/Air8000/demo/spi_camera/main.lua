@@ -81,8 +81,8 @@ local function main_task()
         sys.wait(500)
         gpio.setup(147, 1, gpio.PULLUP) -- camera的供电使能脚
         gpio.setup(153, 1, gpio.PULLUP) -- 控制camera电源的pd脚
-        gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
-        gpio.setup(164, 1, gpio.PULLUP)          -- i2c工作的电压域
+        gpio.setup(24, 1, gpio.PULLUP)          -- 打开内部公用的gsensor，所以需要先打开供电
+        gpio.setup(164, 1, gpio.PULLUP)          -- 因为整机开发板的音频i2c 共用，不打开会导致I2C 对地，所以需要打开音频的codec
         sys.wait(4000)
         log.info("摄像头启动")
         local camera_id = device_init()

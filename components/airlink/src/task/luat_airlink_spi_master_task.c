@@ -57,9 +57,13 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
     //     is_waiting_queue = 0;
     luat_rtos_queue_get_cnt(evt_queue, &len);
     // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
-    luat_event_t evt = {.id = 2};
-    if (len < 24)
+    static uint32_t irq_seq = 0;
+    luat_event_t evt = {.id = 2, .param1 = irq_seq};
+    irq_seq ++;
+    if (len < 128)
     {
+        // 这里要发2条数据, 因为client已经准备好的数据实际上是老的,需要读2次才是最新的, 所以要发两条
+        luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
         luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
     }
     // }
@@ -68,11 +72,6 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
-    // if (is_waiting_queue) {
-    // is_waiting_queue = 0;
-    // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
-    // luat_rtos_event_send(spi_task_handle, 3, 2, 3, 4, 0);
-    // }
     luat_event_t evt = {.id = 3};
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
@@ -249,11 +248,11 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
     else
     {
-        is_waiting_queue = 1;
+        // is_waiting_queue = 1;
         luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), timeout);
-        is_waiting_queue = 0;
+        // is_waiting_queue = 0;
         if (2 == event.id) {
-            LLOGD("从机通知IRQ中断");
+            // LLOGD("从机通知IRQ中断");
         }
     }
 

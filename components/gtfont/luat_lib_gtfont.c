@@ -178,7 +178,7 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 
 #ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK int GT_Font_Init(void) {
-    return 0;
+    return 1;
 }
 #endif
 
@@ -199,7 +199,7 @@ static int l_gtfont_init(lua_State* L) {
 	const char data = 0xff;
 	luat_spi_device_send(gt_spi_dev, &data, 1);
 	int font_init = GT_Font_Init();
-	lua_pushboolean(L, font_init == 0 ? 1 : 0);
+	lua_pushboolean(L, font_init > 0 ? 1 : 0);
     return 1;
 }
 

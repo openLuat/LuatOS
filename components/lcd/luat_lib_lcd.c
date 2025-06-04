@@ -1197,7 +1197,7 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
 @api lcd.drawGtfontGb2312Gray(str,size,gray,x,y)
 @string str 显示字符串
 @int size 字体大小 (支持16-192号大小字体)
-@int gray 灰度[1阶/2阶/3阶/4阶]
+@int gray 灰度[1阶/2阶/4阶]
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -1209,7 +1209,7 @@ lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 @api lcd.drawGtfontGbkGray(str,size,gray,x,y)
 @string str 显示字符串
 @int size 字体大小 (支持16-192号大小字体)
-@int gray 灰度[1阶/2阶/3阶/4阶]
+@int gray 灰度[1阶/2阶/4阶]
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -1235,12 +1235,8 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
-    if(font_size != size*font_g){
-      LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
-      return 0;
-    }
-		Gray_Process(buf,size,size,font_g);
+		int dot = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
+		Gray_Process(buf,dot/font_g,size,font_g);
 		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
 		x+=size;
 		i+=2;
@@ -1300,7 +1296,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
 @api lcd.drawGtfontUtf8Gray(str,size,gray,x,y)
 @string str 显示字符串
 @int size 字体大小 (支持16-192号大小字体)
-@int gray 灰度[1阶/2阶/3阶/4阶]
+@int gray 灰度[1阶/2阶/4阶]
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -1326,13 +1322,14 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
         fontCode++;
         if ( e != 0x0fffe ){
 			uint16_t str = unicodetogb2312(e);
-			int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
-      if(font_size != size*font_g){
-        LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
-        return 0;
-      }
-			Gray_Process(buf,size,size,font_g);
-      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
+
+            // unsigned int* width = NULL;
+            // width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
+            // LLOGW("get_Font_Gray width[0]:%d width[1]:%d",width[0], width[1]);
+
+			int dot = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
+			Gray_Process(buf,dot/font_g,size,font_g);
+            gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
         	x+=size;
         }
     }

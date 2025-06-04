@@ -347,7 +347,11 @@ void luat_airlink_send2slave(luat_airlink_cmd_t* cmd) {
 
 int luat_airlink_ready(void) {
     uint64_t tnow = luat_mcu_tick64_ms();
-    if (tnow - g_airlink_last_cmd_timestamp < 100) {
+    uint64_t diff = tnow - g_airlink_last_cmd_timestamp;
+    // LLOGD("tnow %lld", tnow);
+    // LLOGD("gt %lld", g_airlink_last_cmd_timestamp);
+    // LLOGD("diff %lld", diff);
+    if (diff < 2000) {
         return 1;
     }
     return 0;
@@ -518,5 +522,5 @@ void luat_airlink_wait_ready(void) {
       luat_gpio_mode(24 + 128, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
     }
     // LLOGD("等待Air8000s结束");
-	}
+  }
 }

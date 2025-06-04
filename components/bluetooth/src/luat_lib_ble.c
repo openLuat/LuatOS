@@ -63,6 +63,29 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
 
             break;
         }
+        case LUAT_BLE_EVENT_SCAN_REPORT: {
+            luat_ble_adv_req_t* adv_req = &(luat_ble_param->adv_req);
+            lua_createtable(L, 0, 3);
+            
+            lua_pushliteral(L, "rssi"); 
+            lua_pushinteger(L, adv_req->rssi);
+            lua_settable(L, -3);
+            lua_pushliteral(L, "adv_addr"); 
+            lua_pushlstring(L, (const char *)adv_req->adv_addr, 6);
+            lua_settable(L, -3);
+            lua_pushliteral(L, "data"); 
+            lua_pushlstring(L, (const char *)adv_req->data, adv_req->data_len);
+            lua_settable(L, -3);
+    // uint8_t actv_idx;     /**< The index of the activity */
+    // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
+    // uint8_t adv_addr_type;/**< Advertising address type: public/random */
+
+            lua_call(L, 3, 0);
+            if (adv_req->data){
+                luat_heap_free(adv_req->data);
+            }
+            break;
+        }
         default:
             lua_call(L, 2, 0);
             break;
@@ -77,7 +100,7 @@ void luat_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_para
     LLOGD("ble event: %d", ble_event);
     luat_ble_param_t* luat_ble_param = NULL;
     if (ble_param){
-        LLOGD("ble param: %p", ble_param);
+        // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
         if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.len){
@@ -85,6 +108,9 @@ void luat_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_para
             memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.len);
         }else if(ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.len){
             LLOGD("ble read read_req value: %p", ble_param->read_req.value);
+        }else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len){
+            luat_ble_param->adv_req.data = luat_heap_malloc(ble_param->adv_req.data_len);
+            memcpy(luat_ble_param->adv_req.data, ble_param->adv_req.data, ble_param->adv_req.data_len);
         }
     }
     
@@ -211,7 +237,7 @@ static int l_ble_advertising_create(lua_State* L) {
     const char complete_local_name[32] = {0};
 
     luat_ble_adv_cfg_t luat_ble_adv_cfg = {
-        .addr_mode = LUAT_BLE_ADV_ADDR_MODE_PUBLIC,
+        .addr_mode = LUAT_BLE_ADDR_MODE_PUBLIC,
         .channel_map = LUAT_BLE_ADV_CHNLS_ALL,
         .intv_min = 120,
         .intv_max = 160,
@@ -398,6 +424,34 @@ end_error:
     return 0;
 }
 
+static int l_ble_scanning_create(lua_State* L) {
+    if (!lua_isuserdata(L, 1)){
+        return 0;
+    }
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    if (luat_ble){
+        luat_ble_scan_cfg_t luat_ble_scan_cfg = {
+            .addr_mode = LUAT_BLE_ADDR_MODE_PUBLIC,
+            .scan_interval = 100,
+            .scan_window = 100,
+        };
+        lua_pushboolean(L, luat_ble_create_scanning(luat_ble,&luat_ble_scan_cfg)?0:1);
+        return 1;
+    }
+    return 0;
+}
+static int l_ble_scanning_start(lua_State* L) {
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    lua_pushboolean(L, luat_ble_start_scanning(luat_ble)?0:1);
+    return 1;
+}
+
+static int l_ble_scanning_stop(lua_State* L) {
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    lua_pushboolean(L, luat_ble_stop_scanning(luat_ble)?0:1);
+    return 1;
+}
+
 static int _ble_struct_newindex(lua_State *L);
 
 void luat_ble_struct_init(lua_State *L) {
@@ -414,10 +468,14 @@ static const rotable_Reg_t reg_ble[] = {
     {"adv_start",                   ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop",                    ROREG_FUNC(l_ble_advertising_stop)},
     // gatt
-    {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
     // slaver
+    {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
     {"write_notify",                ROREG_FUNC(l_ble_write_notify)},
     {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
+    // scanning
+    {"scan_create",                 ROREG_FUNC(l_ble_scanning_create)},
+    {"scan_start",                  ROREG_FUNC(l_ble_scanning_start)},
+    {"scan_stop",                   ROREG_FUNC(l_ble_scanning_stop)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
@@ -431,16 +489,17 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_SCAN_START",            ROREG_INT(LUAT_BLE_EVENT_SCAN_START)},
     {"EVENT_SCAN_STOP",             ROREG_INT(LUAT_BLE_EVENT_SCAN_STOP)},
     {"EVENT_SCAN_DEINIT",           ROREG_INT(LUAT_BLE_EVENT_SCAN_DEINIT)},
+    {"EVENT_SCAN_REPORT",           ROREG_INT(LUAT_BLE_EVENT_SCAN_REPORT)},
     {"EVENT_CONN",                  ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE",                 ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ",                  ROREG_INT(LUAT_BLE_EVENT_READ)},
 
     // ADV_ADDR_MODE
-    {"PUBLIC",                      ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_PUBLIC)},
-    {"RANDOM",                      ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_RANDOM)},
-    {"RPA",                         ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_RPA)},
-    {"NRPA",                        ROREG_INT(LUAT_BLE_ADV_ADDR_MODE_NRPA)},
+    {"PUBLIC",                      ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},
+    {"RANDOM",                      ROREG_INT(LUAT_BLE_ADDR_MODE_RANDOM)},
+    {"RPA",                         ROREG_INT(LUAT_BLE_ADDR_MODE_RPA)},
+    {"NRPA",                        ROREG_INT(LUAT_BLE_ADDR_MODE_NRPA)},
     // ADV_CHNL
     {"CHNL_37",                     ROREG_INT(LUAT_BLE_ADV_CHNL_37)},
     {"CHNL_38",                     ROREG_INT(LUAT_BLE_ADV_CHNL_38)},

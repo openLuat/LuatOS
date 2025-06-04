@@ -996,7 +996,7 @@ static uint8_t net_lwip2_check_ready(void *user_data)
 		return 0;
 	}
 	if (ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)) {
-		LLOGD("netif addr is 0.0.0.0 %d", adapter_index);
+		// LLOGD("netif addr is 0.0.0.0 %d", adapter_index);
 		return 0;
 	}
 	return 1;

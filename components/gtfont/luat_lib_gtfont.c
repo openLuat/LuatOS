@@ -68,7 +68,10 @@ unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,un
  * data灰度数据;  x,y=显示起始坐标 ; w 宽度, h 高度,grade 灰度阶级[1阶/2阶/4阶]
  * HB_par	1 白底黑字	0 黑底白字
  *------------------------------------------------------------------------------------------*/
-void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
+void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
+                            unsigned short w ,unsigned short h,unsigned char grade, 
+                            unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),
+                            void* userdata,int mode){
 	unsigned int temp=0,gray,x_temp=x;
 	unsigned int i=0,j=0,t;
 	unsigned char c,c2,*p;
@@ -153,7 +156,33 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 			}
 		}
 	}
-	else{
+	else if(grade==5 || grade==6){
+		for(i=0;i<t*h;i++){
+			c=*p++;
+			for(j=0;j<2;j++){
+				color4bit=(c>>4);
+				if(HB_par==1)color4bit= (15-color4bit)*255/15;//白底黑字
+				else color4bit= color4bit*255/15;//黑底白字
+                if(color4bit > 0x00 && color4bit < 0xFF && grade == 5)
+                    color4bit = color4bit - 0x11;
+                else if(color4bit >= 0x11 && color4bit < 0xFF && grade == 6)
+                    color4bit = (color4bit == 0x11) ? (color4bit - 0x11) : (color4bit - 0x22);
+				gray=color4bit/8;
+				color=(0x001f&gray)<<11;				//r-5
+				color=color|(((0x003f)&(gray*2))<<5);	//g-6
+				color=color|(0x001f&gray);				//b-5
+				temp=color;
+				c<<=4;
+				if(x<(x_temp+w)){
+					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+					else if (mode == 1)point((Paint *)userdata, x,y,temp);
+				}
+				x++;
+				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
+			}
+		}
+	}
+	else{   //1bits
 		for(i=0;i<t*h;i++){
 			c=*p++;
 			for(j=0;j<8;j++){
@@ -199,7 +228,7 @@ static int l_gtfont_init(lua_State* L) {
 	const char data = 0xff;
 	luat_spi_device_send(gt_spi_dev, &data, 1);
 	int font_init = GT_Font_Init();
-	lua_pushboolean(L, font_init == 0 ? 1 : 0);
+	lua_pushboolean(L, font_init > 0 ? 1 : 0);
     return 1;
 }
 

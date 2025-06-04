@@ -57,9 +57,13 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
     //     is_waiting_queue = 0;
     luat_rtos_queue_get_cnt(evt_queue, &len);
     // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
-    luat_event_t evt = {.id = 2};
-    if (len < 24)
+    static uint32_t irq_seq = 0;
+    luat_event_t evt = {.id = 2, .param1 = irq_seq};
+    irq_seq ++;
+    if (len < 128)
     {
+        // 这里要发2条数据, 因为client已经准备好的数据实际上是老的,需要读2次才是最新的, 所以要发两条
+        luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
         luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
     }
     // }
@@ -68,11 +72,6 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
-    // if (is_waiting_queue) {
-    // is_waiting_queue = 0;
-    // LLOGD("新消息通知, 通知spi线程进行下一次传输!!");
-    // luat_rtos_event_send(spi_task_handle, 3, 2, 3, 4, 0);
-    // }
     luat_event_t evt = {.id = 3};
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
@@ -164,15 +163,17 @@ __USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
 
 static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
-static airlink_link_data_t *link = NULL;
+static airlink_link_data_t s_link;
 static uint64_t warn_slave_no_ready = 0;
 static uint64_t tnow = 0;
 extern void airlink_sfota_exec();
+static uint8_t slave_is_irq_ready = 0;
 
 __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff)
 {
     // 清除link
-    link = NULL;
+    memset(&s_link, 0, sizeof(airlink_link_data_t));
+    airlink_link_data_t *link = NULL;
 
     g_airlink_statistic.tx_pkg.total++;
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
@@ -183,6 +184,11 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
     if (link)
     {
         g_airlink_statistic.tx_pkg.ok++;
+        memcpy(&s_link, link, sizeof(airlink_link_data_t));
+        if (slave_is_irq_ready == 0 && link->flags.irq_ready) {
+            LLOGI("slave回复irq模式已经开启,正式开始IRQ交互模式");
+            slave_is_irq_ready = 1;
+        }
         luat_airlink_on_data_recv(link->data, link->len);
     }
     else
@@ -231,25 +237,29 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         }
     }
     // 等到消息
-    if (link != NULL && link->flags.irq_ready) {
+    // LLOGD("link irq %d cmd %d ip %d", s_link.flags.irq_ready, s_link.flags.queue_cmd, s_link.flags.queue_ip);
+    if (s_link.flags.irq_ready) {
         timeout = 1000;
     }
-    if (link != NULL && (link->flags.queue_cmd != 0 || link->flags.queue_cmd != 0))
+    if (s_link.flags.queue_cmd || s_link.flags.queue_ip)
     {
         // 立即进行下一轮操作
-        event.id = 2;
+        event.id = 4;
     }
     else
     {
-        is_waiting_queue = 1;
+        // is_waiting_queue = 1;
         luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), timeout);
-        is_waiting_queue = 0;
+        // is_waiting_queue = 0;
+        if (2 == event.id) {
+            // LLOGD("从机通知IRQ中断");
+        }
     }
 
     record_statistic(event);
 
     // LLOGD("事件id %p %d", spi_task_handle, event.id);
-    if (link == NULL || (link->flags.mem_is_high) == 0)
+    if (s_link.flags.mem_is_high == 0)
     {
         luat_airlink_cmd_recv_simple(&item);
     }
@@ -336,7 +346,7 @@ int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {
         gpio_cfg.pull = LUAT_GPIO_PULLUP;
         gpio_cfg.irq_cb = slave_irq_cb;
         luat_gpio_open(&gpio_cfg);
-        LLOGD("中断模式开启,等待slave就绪");
+        LLOGD("中断模式(GPIO%d)开启,等待slave就绪", g_airlink_spi_conf.irq_pin);
     }
     return 0;
 }

@@ -22,6 +22,11 @@ gpio.setup(0, function()
     end)
 end, gpio.PULLDOWN)
 
+if airlink.irqmode then
+    log.info("尝试开启IRQ模式", "GPIO20 <--> GPIO140")
+    airlink.irqmode(true, 20, 140)
+end
+
 function test_ap()
     log.info("执行AP创建操作")
     wlan.createAP("uiot5678", "12345678")
@@ -67,6 +72,7 @@ function test_sta()
 
     sys.wait(5000)
     while 1 do
+        log.info("wlan", "info", json.encode(wlan.getInfo()))
         -- log.info("MAC地址", netdrv.mac(socket.LWIP_STA))
         -- log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
         -- log.info("ready?", netdrv.ready(socket.LWIP_STA))

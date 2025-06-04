@@ -299,6 +299,23 @@ static int l_netdrv_ctrl(lua_State *L) {
     return 2;
 }
 
+/*
+设置调试信息输出
+@api netdrv.debug(id, enable)
+@int 网络适配器编号, 例如 socket.LWIP_ETH, 如果传0就是全局调试开关
+@boolean 是否开启调试信息输出
+@return boolean 成功与否
+@usage
+-- 打开netdrv全局调试开关
+netdrv.debug(0, true)
+*/
+static int l_netdrv_debug(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int enable = lua_toboolean(L, 2);
+    luat_netdrv_debug_set(id, enable);
+    return 0;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
@@ -312,6 +329,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "ready",          ROREG_FUNC(l_netdrv_ready)},
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
+    { "debug",          ROREG_FUNC(l_netdrv_debug)},
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},

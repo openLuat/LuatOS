@@ -537,6 +537,12 @@ static void ftp_task(void *param){
 					break;
 				luat_ftp_data_send(&g_s_ftp, buff, len);
 				offset += len;
+				// BK72xx平台, 内存使用量过大时, wifi会死, 这里加点sleep试试
+				#if defined(CONFIG_LUATOS)
+				if (offset % 32*1024 == 0) {
+					luat_rtos_task_sleep(200);
+				}
+				#endif
 			}
 			luat_heap_free(buff);
 			LLOGD("offset:%d file_size:%d",offset,g_s_ftp.network->local_file_size);

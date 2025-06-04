@@ -21,6 +21,8 @@
 
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
+uint32_t g_netdrv_debug_enable;
+
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
 luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
 luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
@@ -202,7 +204,9 @@ void luat_netdrv_netif_input(void* args) {
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);
-    // luat_airlink_hexdump("收到IP数据,注入到netif", ptr->buff, ptr->len);
+    if (g_netdrv_debug_enable) {
+        luat_netdrv_print_pkg("收到IP数据,注入到netif", ptr->buff, ptr->len);
+    }
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
         LLOGW("netif->input ret %d", ret);
@@ -241,4 +245,23 @@ void luat_netdrv_print_tm(const char * tag) {
     uint64_t tnow = luat_mcu_tick64();
     uint64_t t_us = tnow / luat_mcu_us_period();
     LLOGI("tag %s time %lld", tag, t_us);
+}
+
+void luat_netdrv_debug_set(int id, int enable) {
+    if (id == 0) {
+        g_netdrv_debug_enable = enable;
+        LLOGD("debug is %d now", enable);
+    }
+    else if (id >= NW_ADAPTER_INDEX_LWIP_GPRS && id < NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+        luat_netdrv_t* drv = luat_netdrv_get(id);
+        if (drv && drv->debug) {
+            drv->debug(drv, drv->userdata, enable);
+        }
+        else {
+            LLOGW("netdrv %d not support debug", id);
+        }
+    }
+    else {
+        LLOGW("netdrv %d not support debug", id);
+    }
 }

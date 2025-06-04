@@ -10,6 +10,7 @@ typedef int (*luat_netdrv_bootup_cb)(struct luat_netdrv* drv, void* userdata);
 typedef int (*luat_netdrv_ready_cb)(struct luat_netdrv* drv, void* userdata);
 typedef int (*luat_netdrv_dhcp_set)(struct luat_netdrv* drv, void* userdata, int enable);
 typedef int (*luat_netdrv_ctrl_cb)(struct luat_netdrv* drv, void* userdata, int cmd, void* param);
+typedef int (*luat_netdrv_debug_cb)(struct luat_netdrv* drv, void* userdata, int enable);
 
 #define MACFMT "%02X%02X%02X%02X%02X%02X"
 #define MAC_ARG(x) ((uint8_t*)(x))[0],((uint8_t*)(x))[1],((uint8_t*)(x))[2],((uint8_t*)(x))[3],((uint8_t*)(x))[4],((uint8_t*)(x))[5]
@@ -64,6 +65,7 @@ typedef struct luat_netdrv {
     void* userdata;
     luat_netdrv_ctrl_cb ctrl;
     uint8_t gw_mac[6];
+    luat_netdrv_debug_cb debug;
 }luat_netdrv_t;
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf);
@@ -105,5 +107,9 @@ void luat_netdrv_netif_input(void* args);
 int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t len);
 
 void luat_netdrv_print_tm(const char * tag);
+
+void luat_netdrv_debug_set(int id, int enable);
+
+extern uint32_t g_netdrv_debug_enable;
 
 #endif

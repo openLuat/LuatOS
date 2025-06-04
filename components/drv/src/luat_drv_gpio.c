@@ -27,7 +27,6 @@ int luat_drv_gpio_open(luat_gpio_cfg_t* gpio) {
 }
 
 int luat_drv_gpio_set(int pin, int level) {
-    LLOGD("执行luat_drv_gpio_set pin %d level %d", pin, level);
     if (pin < 0 || pin >= 255) {
         return -1;
     }

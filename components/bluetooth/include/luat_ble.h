@@ -116,6 +116,7 @@ typedef enum{
     LUAT_BLE_EVENT_SCAN_START,  // BLE开始扫描
     LUAT_BLE_EVENT_SCAN_STOP,   // BLE停止扫描
     LUAT_BLE_EVENT_SCAN_DEINIT, // BLE反初始化扫描成功
+    LUAT_BLE_EVENT_SCAN_REPORT, // BLE扫描到设备
     // CONN
     LUAT_BLE_EVENT_CONN,        // BLE连接成功
     LUAT_BLE_EVENT_DISCONN,     // BLE断开连接
@@ -160,11 +161,22 @@ typedef struct{
 } luat_ble_read_req_t;
 
 typedef struct{
-    uint32_t conn_idx;
+    uint8_t actv_idx;     /**< The index of the activity */
+    uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
+    uint8_t adv_addr_type;/**< Advertising address type: public/random */
+    int8_t rssi;         /**< RSSI value for advertising packet (in dBm, between -127 and +20 dBm) */
+    uint8_t *data;        /**< Data of advertising packet */
+    uint8_t data_len;     /**< Data length in advertising packet */
+    uint8_t adv_addr[6];  /**<Advertising address value */
+} luat_ble_adv_req_t;
+
+typedef struct{
+    // uint32_t conn_idx;
     union {
         luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
+        luat_ble_adv_req_t adv_req;
     };
 } luat_ble_param_t;
 
@@ -193,11 +205,11 @@ typedef struct {
 }luat_ble_gatt_service_t;
 
 typedef enum{
-    LUAT_BLE_ADV_ADDR_MODE_PUBLIC,   // 控制器的公共地址
-    LUAT_BLE_ADV_ADDR_MODE_RANDOM,   // 生成的静态地址
-    LUAT_BLE_ADV_ADDR_MODE_RPA,      // 可解析的私有地址
-    LUAT_BLE_ADV_ADDR_MODE_NRPA,     // 不可解析的私有地址
-}luat_ble_adv_addr_mode_t;
+    LUAT_BLE_ADDR_MODE_PUBLIC,   // 控制器的公共地址
+    LUAT_BLE_ADDR_MODE_RANDOM,   // 生成的静态地址
+    LUAT_BLE_ADDR_MODE_RPA,      // 可解析的私有地址
+    LUAT_BLE_ADDR_MODE_NRPA,     // 不可解析的私有地址
+}luat_ble_addr_mode_t;
 
 typedef enum{
     LUAT_BLE_ADV_CHNL_37    = 0x01, /**< Byte value for advertising channel map for channel 37 enable */
@@ -207,11 +219,24 @@ typedef enum{
 }luat_ble_adv_chnl_t;
 
 typedef struct {
-    luat_ble_adv_addr_mode_t addr_mode;
     luat_ble_adv_chnl_t channel_map;
+    luat_ble_addr_mode_t addr_mode;
     uint32_t intv_min;
     uint32_t intv_max;
 }luat_ble_adv_cfg_t;
+
+/// Scan type
+typedef enum {
+    LUAT_BLE_PASSIVE_SCANNING,      // Passive Scanning. No scanning PDUs shall be sent (default)
+    LUAT_BLE_ACTIVE_SCANNING,       // Active scanning. Scanning PDUs may be sent
+}luat_ble_scan_type_t;
+
+typedef struct {
+    luat_ble_scan_type_t scan_type;
+    luat_ble_addr_mode_t addr_mode;
+    uint16_t scan_interval;         // Scan interval (in unit of 625us).
+    uint16_t scan_window;           // Scan window (in unit of 625us).
+}luat_ble_scan_cfg_t;
 
 struct luat_ble{
     luat_ble_actv_state state;
@@ -253,7 +278,14 @@ int luat_ble_read_response_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_
 
 int luat_ble_write_notify_value(luat_ble_t* luat_ble, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len);
 
+// scanning
+int luat_ble_create_scanning(luat_ble_t* luat_ble, luat_ble_scan_cfg_t* scan_cfg);
 
+int luat_ble_start_scanning(luat_ble_t* luat_ble);
+
+int luat_ble_stop_scanning(luat_ble_t* luat_ble);
+
+int luat_ble_delete_scanning(luat_ble_t* luat_ble);
 
 
 

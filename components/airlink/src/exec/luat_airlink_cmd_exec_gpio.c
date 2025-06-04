@@ -68,3 +68,16 @@ int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_airlink_result_send(params, 10);
     return 0;
 }
+
+int luat_airlink_cmd_exec_gpio_driver_yhm27xx(luat_airlink_cmd_t* cmd, void* userdata) {
+    LLOGE("收到yhm27xx的GPIO设置指令!!!");
+
+    uint8_t params[5];
+    memcpy(params, cmd->data + 8, 5);
+    if (params[0] >= 128) {
+        params[0] -= 128;
+    }
+    int ret = luat_gpio_driver_yhm27xx(params[0], params[1],params[2], params[3], &(params[4]));
+    
+    return 0;
+}

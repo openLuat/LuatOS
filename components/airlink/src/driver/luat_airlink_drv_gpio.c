@@ -40,7 +40,7 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
         .len = 2 + sizeof(luat_airlink_cmd_t) + 8
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x301, 2 + 8) ;
-    if (cmd == NULL) {
+    if (cmd == NULL) { 
         return -101;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
@@ -91,3 +91,28 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
     luat_rtos_semaphore_take(semaphore_drv_gpio, 1000);
     return 0;
 }
+
+int luat_airlink_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t RegAddress, uint8_t IsRead, uint8_t *Data) 
+{
+    uint8_t Pin_id = Pin;
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 5 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x304, 5 + 8) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t* data = cmd->data + 8;
+    data[0] = Pin_id;
+    data[1] = ChipID;
+    data[2] = RegAddress;
+    data[3] = IsRead;
+    data[4] = *Data;
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
+

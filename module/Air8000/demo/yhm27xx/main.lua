@@ -8,6 +8,8 @@ _G.sys = require("sys")
 
 --[[
 充电IC的相关逻辑
+
+目前Air8000对充电ic寄存器的操作，是只写的，不支持读取。
 ]]
 
 local gpio_pin = 152

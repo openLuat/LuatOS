@@ -42,6 +42,7 @@ typedef struct luat_netdrv_napt_tcpudp
 typedef struct napt_ctx
 {
     luat_netdrv_t* net;
+    luat_netdrv_t* drv_gw;
     uint8_t* buff;
     size_t len;
     struct eth_hdr* eth;
@@ -57,11 +58,13 @@ typedef struct luat_netdrv_napt_llist
 }luat_netdrv_napt_llist_t;
 
 typedef struct luat_netdrv_napt_ctx{
+    uint32_t ip_tp;
     size_t clean_tm;
     size_t item_max;
     size_t item_last;
-    // uint32_t port_used[1024];
     luat_netdrv_napt_tcpudp_t items[2048];
+    luat_rtos_mutex_t lock;
+    uint32_t *port_used;
 }luat_netdrv_napt_ctx_t;
 
 int luat_napt_icmp_handle(napt_ctx_t* ctx);
@@ -73,7 +76,9 @@ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len);
 int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p);
 
 // 维护影响关系
-int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping);
-int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping);
+int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx);
+int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx);
+
+void luat_netdrv_napt_enable(int adapter_id);
 
 #endif

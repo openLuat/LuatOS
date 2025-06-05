@@ -16,10 +16,12 @@
 #include "luat_timer.h"
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
-#include "lwip/ip.h"
-#include "lwip/ip4.h"
+#include "luat_netdrv_napt.h"
 #include "luat_network_adapter.h"
 #include "net_lwip2.h"
+
+#include "lwip/ip.h"
+#include "lwip/ip4.h"
 
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
@@ -207,21 +209,21 @@ netdrv.napt(socket.LWIP_GP)
 -- 关闭napt功能
 netdrv.napt(-1)
 */
-extern int luat_netdrv_gw_adapter_id;
 static int l_netdrv_napt(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (id < 0) {
         LLOGD("NAPT is disabled");
-        luat_netdrv_gw_adapter_id = id;
+        luat_netdrv_napt_enable(id);
         lua_pushboolean(L, 1);
         return 1;
     }
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGE("对应的网关netdrv不存在或未就绪 %d", id);
         return 0;
     }
     LLOGD("NAPT is enabled gw %d", id);
-    luat_netdrv_gw_adapter_id = id;
+    luat_netdrv_napt_enable(id);
     lua_pushboolean(L, 1);
     return 1;
 }

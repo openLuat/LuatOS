@@ -239,7 +239,10 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     // 等到消息
     // LLOGD("link irq %d cmd %d ip %d", s_link.flags.irq_ready, s_link.flags.queue_cmd, s_link.flags.queue_ip);
     if (s_link.flags.irq_ready) {
-        timeout = 1000;
+        if (g_airlink_spi_conf.irq_timeout == 0) {
+            g_airlink_spi_conf.irq_timeout = 5000;
+        }
+        timeout = g_airlink_spi_conf.irq_timeout;
     }
     if (s_link.flags.queue_cmd || s_link.flags.queue_ip)
     {

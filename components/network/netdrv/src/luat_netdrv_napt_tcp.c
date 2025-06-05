@@ -22,8 +22,11 @@ extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 #define u8 uint8_t
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
 
-int luat_napt_tcp_handle(napt_ctx_t* ctx) {
+__USER_FUNC_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);

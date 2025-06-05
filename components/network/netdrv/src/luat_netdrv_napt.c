@@ -24,7 +24,7 @@
 #include "luat_log.h"
 
 #define ICMP_MAP_SIZE (32)
-#define IP_MAP_SIZE (1024)
+#define UDP_MAP_TIMEOUT (60 * 1000)
 
 /* napt icmp id range: 3000-65535 */
 #define NAPT_ICMP_ID_RANGE_START     0xBB8
@@ -291,13 +291,19 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_ct
         flag = 0;
         it = &napt_ctx->items[i];
         tdiff = tnow - it->tm_ms;
-        if (tdiff > 20*60*1000) {
-            // print_item("空闲时间超时,移除", it);
-            flag = 1;
+        if (napt_ctx->ip_tp == IP_PROTO_TCP) {
+            if (tdiff > 20*60*1000) { // TCP是20分钟
+                flag = 1;
+            }
+            else if ((((it->finack1 && it->finack2) || !it->synack) && tdiff > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
+                // print_item("TCP链接已关闭,移除", it);
+                flag = 1;
+            }
         }
-        else if ((((it->finack1 && it->finack2) || !it->synack) && tdiff > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
-            // print_item("TCP链接已关闭,移除", it);
-            flag = 1;
+        else if (napt_ctx->ip_tp == IP_PROTO_UDP) {
+            if (tdiff > 2*60*1000) { // UDP 是2分钟
+                flag = 1;
+            }
         }
         if (flag == 1) {
             // 标记为删除
@@ -366,10 +372,17 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netd
     luat_netdrv_napt_tcpudp_t tmp = {0};
     luat_netdrv_napt_tcpudp_t* it = NULL;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
+    struct udp_hdr *udp_hdr = (struct udp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
 
     tmp.wnet_ip = ctx->iphdr->src.addr;
-    tmp.wnet_port = tcp_hdr->src;
-    tmp.wnet_local_port = tcp_hdr->dest;
+    if (napt_ctx->ip_tp == IP_PROTO_TCP) {
+        tmp.wnet_port = tcp_hdr->src;
+        tmp.wnet_local_port = tcp_hdr->dest;
+    }
+    else {
+        tmp.wnet_port = udp_hdr->src;
+        tmp.wnet_local_port = udp_hdr->dest;
+    }
 
     luat_rtos_mutex_lock(napt_ctx->lock, 5000);
     // 清理映射关系
@@ -387,7 +400,9 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netd
             it->tm_ms = tnow;
             memcpy(mapping, it, sizeof(luat_netdrv_napt_tcpudp_t));
             ret = 0;
-            update_tcp_stat_wnet(tcp_hdr, it);
+            if (napt_ctx->ip_tp == IP_PROTO_TCP) {
+                update_tcp_stat_wnet(tcp_hdr, it);
+            }
             break;
         }
     }
@@ -406,12 +421,19 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
     luat_netdrv_napt_tcpudp_t tmp = {0};
     size_t tmpaddr = 0;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
+    struct udp_hdr *udp_hdr = (struct udp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     size_t c_all = 0;
 
     tmp.inet_ip = ctx->iphdr->src.addr;
-    tmp.inet_port = tcp_hdr->src;
     tmp.wnet_ip = ctx->iphdr->dest.addr;
-    tmp.wnet_port = tcp_hdr->dest;
+    if (napt_ctx->ip_tp == IP_PROTO_TCP) {
+        tmp.inet_port = tcp_hdr->src;
+        tmp.wnet_port = tcp_hdr->dest;
+    }
+    else {
+        tmp.inet_port = udp_hdr->src;
+        tmp.wnet_port = udp_hdr->dest;
+    }
     
     ret = luat_rtos_mutex_lock(napt_ctx->lock, 1000);
     if (ret) {
@@ -434,7 +456,9 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
             ret = 0;
             memcpy(mapping, it, sizeof(luat_netdrv_napt_tcpudp_t));
             // 映射关系找到了,那就关联一下情况
-            update_tcp_stat_inet(tcp_hdr, it);
+            if (napt_ctx->ip_tp == IP_PROTO_TCP) {
+                update_tcp_stat_inet(tcp_hdr, it);
+            }
             break;
         }
     }

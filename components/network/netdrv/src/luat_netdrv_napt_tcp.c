@@ -14,7 +14,6 @@
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
 
-static luat_netdrv_napt_tcpudp_t* tcps;
 static uint8_t *tcp_buff;
 extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 

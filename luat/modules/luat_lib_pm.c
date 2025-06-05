@@ -57,6 +57,10 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 #define LUAT_LOG_TAG "pm"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_DRV_PM
+#include "luat/drv_pm.h"
+#endif
+
 // static int lua_event_cb = 0;
 /*
 @sys_pub pm
@@ -80,8 +84,9 @@ int luat_dtimer_cb(lua_State *L, void* ptr) {
 
 /**
 请求进入指定的休眠模式
-@api pm.request(mode)
+@api pm.request(mode, chip)
 @int 休眠模式,例如pm.IDLE/LIGHT/DEEP/HIB.
+@int 休眠芯片的ID, 默认是0, 大部分型号都只有0
 @return boolean 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
 @usage
 -- 请求进入休眠模式
@@ -96,21 +101,20 @@ pm.request(pm.HIB)
  */
 static int l_pm_request(lua_State *L) {
     int mode = luaL_checkinteger(L, 1);
-    if (luat_pm_request(mode) == 0)
-        lua_pushboolean(L, 1);
-    else
-        lua_pushboolean(L, 0);
+    int ret = 0;
+    #ifdef LUAT_USE_DRV_PM
+    int chip = 0;
+    if (lua_isinteger(L, 2)) {
+        chip = luaL_checkinteger(L, 2);
+    }
+    ret = luat_drv_pm_request(chip, mode);
+    #else
+    ret = luat_pm_request(mode);
+    #endif
+
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
-
-// static int l_pm_release(lua_State *L) {
-//     int mode = luaL_checkinteger(L, 1);
-//     if (luat_pm_release(mode) == 0)
-//         lua_pushboolean(L, 1);
-//     else
-//         lua_pushboolean(L, 0);
-//     return 1;
-// }
 
 /**
 启动底层定时器,在休眠模式下依然生效. 只触发一次，关机状态下无效
@@ -219,19 +223,6 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
     return 1;
 }
 
-// static int l_pm_on(lua_State *L) {
-//     if (lua_isfunction(L, 1)) {
-//         if (lua_event_cb != 0) {
-//             luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
-//         }
-//         lua_event_cb = luaL_ref(L, LUA_REGISTRYINDEX);
-//     }
-//     else if (lua_event_cb != 0) {
-//         luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
-//     }
-//     return 0;
-// }
-
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 @api pm.lastReson()
@@ -331,9 +322,10 @@ int l_rtos_standby(lua_State *L);
 
 /**
 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
-@api pm.power(id, onoff)
+@api pm.power(id, onoff, chip)
 @int 电源控制id,pm.USB pm.GPS之类
 @boolean/int 开关true/1开，false/0关，默认关，部分选项支持数值
+@int 休眠芯片的ID, 默认是0, 大部分型号都只有0
 @return boolean 处理结果true成功，false失败
 @usage
 -- 关闭USB电源, 反之开启就是传true
@@ -354,6 +346,7 @@ pm.power(pm.GPS, true)
 static int l_pm_power_ctrl(lua_State *L) {
 	uint8_t onoff = 0;
     int id = luaL_checkinteger(L, 1);
+    int ret = 0;
     if (lua_isboolean(L, 2)) {
     	onoff = lua_toboolean(L, 2);
     }
@@ -361,7 +354,16 @@ static int l_pm_power_ctrl(lua_State *L) {
     {
     	onoff = lua_tointeger(L, 2);
     }
-    lua_pushboolean(L, !luat_pm_power_ctrl(id, onoff));
+    #ifdef LUAT_USE_DRV_PM
+    int chip = 0;
+    if (lua_isinteger(L, 3)) {
+        chip = luaL_checkinteger(L, 3);
+    }
+    ret = luat_drv_pm_power_ctrl(chip, id, onoff);
+    #else
+    ret = luat_pm_power_ctrl(id, onoff);
+    #endif
+    lua_pushboolean(L, !ret);
     return 1;
 }
 
@@ -379,16 +381,16 @@ IO高电平电压控制
 -- pm.ioVol(pm.IOVOL_ALL_GPIO, 1800)    -- 所有GPIO高电平输出1.8V
 */
 static int l_pm_iovolt_ctrl(lua_State *L) {
-int val = 3300;
- int id = luaL_optinteger(L, 1, LUAT_PM_ALL_GPIO);
- if (lua_isboolean(L, 2)) {
-	val = lua_toboolean(L, 2);
- }
- else if (lua_isinteger(L, 2)) {
-	 val = luaL_checkinteger(L, 2);
- }
- lua_pushboolean(L, !luat_pm_iovolt_ctrl(id, val));
- return 1;
+    int val = 3300;
+    int id = luaL_optinteger(L, 1, LUAT_PM_ALL_GPIO);
+    if (lua_isboolean(L, 2)) {
+	    val = lua_toboolean(L, 2);
+    }
+    else if (lua_isinteger(L, 2)) {
+	    val = luaL_checkinteger(L, 2);
+    }
+    lua_pushboolean(L, !luat_pm_iovolt_ctrl(id, val));
+    return 1;
 }
 
 #ifndef LUAT_COMPILER_NOWEAK
@@ -440,8 +442,8 @@ static const rotable_Reg_t reg_pm[] =
     { "shutdown",       ROREG_FUNC(l_pm_power_off)},
     { "reboot",         ROREG_FUNC(l_rtos_reboot)},
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
-    { "ioVol",         ROREG_FUNC(l_pm_iovolt_ctrl)},
-    { "wakeupPin",         ROREG_FUNC(l_pm_wakeup_pin)},
+    { "ioVol",          ROREG_FUNC(l_pm_iovolt_ctrl)},
+    { "wakeupPin",      ROREG_FUNC(l_pm_wakeup_pin)},
 
 
     //@const NONE number 不休眠模式
@@ -465,13 +467,17 @@ static const rotable_Reg_t reg_pm[] =
     //@const DAC_EN number Air780EXXX的DAC_EN(新版硬件手册的LDO_CTL，同一个PIN，命名变更)，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
     { "DAC_EN",         ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
     //@const LDO_CTL number Air780EXXX的LDO_CTL(老版硬件手册的DAC_EN，同一个PIN，命名变更)，Air780EXXX的LDO_CTL, 注意audio的默认配置会自动使用这个脚来控制CODEC的使能
-    { "LDO_CTL",         ROREG_INT(LUAT_PM_POWER_LDO_CTL_PIN)},
+    { "LDO_CTL",        ROREG_INT(LUAT_PM_POWER_LDO_CTL_PIN)},
     //@const PWK_MODE number 是否Air780EXXX的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
     { "PWK_MODE",       ROREG_INT(LUAT_PM_POWER_POWERKEY_MODE)},
     //@const WORK_MODE number Air780EXXX的节能模式，0~3，0完全关闭，1~2普通低功耗，3超低功耗，深度休眠
-    { "WORK_MODE",    ROREG_INT(LUAT_PM_POWER_WORK_MODE)},
+    { "WORK_MODE",      ROREG_INT(LUAT_PM_POWER_WORK_MODE)},
 	//@const IOVL number 所有GPIO高电平电压控制,当前仅Air780EXXX可用
-    { "IOVOL_ALL_GPIO",    ROREG_INT(LUAT_PM_ALL_GPIO)},
+    { "IOVOL_ALL_GPIO", ROREG_INT(LUAT_PM_ALL_GPIO)},
+    //@const ID_NATIVE number PM控制的ID, 主芯片, 任意芯片的默认值就是它
+    { "ID_NATIVE",      ROREG_INT(1)},
+    //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用
+    { "ID_WIFI",        ROREG_INT(1)},
 
 	{ NULL,             ROREG_INT(0) }
 };

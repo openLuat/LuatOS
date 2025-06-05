@@ -77,10 +77,6 @@ local function update()
     airrus.updaterus()
   end
 
-  if not airstatus.data.weather.result and ((sid % 50) == 0)  then
-    airstatus.get_sig_strength()
-    airstatus.get_weather()
-  end
   if airstatus.data.bat_level == 0 then
     airstatus.get_bat_level()
   end
@@ -334,9 +330,20 @@ local function draw()
   lcd.flush()
 end
 
+local function update_airstatus()
+  airstatus.get_sig_strength()
+  airstatus.get_weather()
+end
+
 wdtInit()
 
 
+function ip_ready_handle(ip, adapter)
+  log.info("ip_ready_handle",ip, adapter)
+  if adapter == socket.LWIP_GP then
+    sysplus.taskInitEx(update_airstatus, "update_airstatus")
+  end
+end
 
 local function UITask()
     airaudio.init()
@@ -357,6 +364,7 @@ local function UITask()
     end
 
 end
+sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 
 -- 当前是给camera 表的变量赋值让camera 退出。 未来可以让 UI task 发消息给camera 任务，让camera 任务关闭摄像头，释放LCD

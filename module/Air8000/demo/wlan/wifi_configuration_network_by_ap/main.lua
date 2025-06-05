@@ -70,7 +70,7 @@ end
 
 function ip_ready_handle(ip, adapter)
     log.info("ip_ready_handle",ip, adapter)
-    if adapter == 2 then
+    if adapter == socket.LWIP_STA then
         log.info("wifi sta 链接成功")
     end
 end

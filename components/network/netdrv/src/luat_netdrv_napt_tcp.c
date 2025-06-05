@@ -14,21 +14,23 @@
 #define LUAT_LOG_TAG "netdrv.napt.tcp"
 #include "luat_log.h"
 
-extern int luat_netdrv_gw_adapter_id;
-static luat_netdrv_napt_tcpudp_t* tcps;
 static uint8_t *tcp_buff;
+extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 
 #define u32 uint32_t
 #define u16 uint16_t
 #define u8 uint8_t
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 
+#ifndef __USER_FUNC_IN_RAM__
+#define __USER_FUNC_IN_RAM__ 
+#endif
 
-int luat_napt_tcp_handle(napt_ctx_t* ctx) {
+__USER_FUNC_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
-    luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
+    luat_netdrv_t* gw = ctx->drv_gw;
     luat_netdrv_napt_tcpudp_t* it = NULL;
     luat_netdrv_napt_tcpudp_t* it_map = NULL;
     int ret = 0;
@@ -43,7 +45,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     if (ctx->is_wnet) {
         // 这是从外网到内网的TCP包
         // LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
-        ret = luat_netdrv_napt_tcp_wan2lan(ctx, &mapping);
+        ret = luat_netdrv_napt_tcp_wan2lan(ctx, &mapping, g_napt_tcp_ctx);
         if (ret == 0) {
             // 修改目标端口
             tcp_hdr->dest = mapping.inet_port;
@@ -108,7 +110,7 @@ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         }
         // 第一轮循环, 是否有已知映射
         // LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
-        ret = luat_netdrv_napt_tcp_lan2wan(ctx, &mapping);
+        ret = luat_netdrv_napt_tcp_lan2wan(ctx, &mapping, g_napt_tcp_ctx);
         if (ret != 0) {
             return 0;
         }

@@ -18,7 +18,6 @@
 #define NAPT_ICMP_ID_RANGE_START     0x1BB8
 #define NAPT_ICMP_ID_RANGE_END       0xFFFF
 
-extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_ICMP_ID_RANGE_START;
 static luat_netdrv_napt_icmp_t* icmps;
 
@@ -59,7 +58,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct icmp_echo_hdr *icmp_hdr = (struct icmp_echo_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
-    luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
+    luat_netdrv_t* gw = ctx->drv_gw;
     if (gw == NULL || gw->netif == NULL || ip_addr_isany(&gw->netif->ip_addr)) {
         LLOGD("网关指针不正常的状态!!!");
         return 0;

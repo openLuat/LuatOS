@@ -27,7 +27,7 @@ if wdt then
     wdt.init(9000)--初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
-log.info("main", "air8000_gnss")
+log.info("main", "air8000_gns11s")
 
 
 mcu.hardfault(0)    --死机后停机，一般用于调试状态
@@ -48,8 +48,8 @@ function test_gnss()
     --循环打印解析后的数据，可以根据需要打开对应注释
     while 1 do
         sys.wait(5000)
-        log.info("RMC", json.encode(libgnss.getRmc(2) or {}, "7f"))         --解析后的rmc数据
-        log.info("GGA", libgnss.getGga(3))                                   --解析后的gga数据
+        log.info("RMC1", json.encode(libgnss.getRmc(2)))         --解析后的rmc数据
+        -- log.info("GGA", libgnss.getGga(3))                                   --解析后的gga数据
         -- log.info("GLL", json.encode(libgnss.getGll(2) or {}, "7f"))
         -- log.info("GSA", json.encode(libgnss.getGsa(1) or {}, "7f"))
         -- log.info("GSV", json.encode(libgnss.getGsv(2) or {}, "7f"))

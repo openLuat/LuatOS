@@ -354,7 +354,15 @@ static int l_airlink_config(lua_State *L) {
     case LUAT_AIRLINK_CONF_SPI_IRQ:
         g_airlink_spi_conf.irq_pin = value;
         break;
-    
+    case LUAT_AIRLINK_CONF_IRQ_TIMEOUT:
+        if (value < 5) {
+            value = 5;
+        }
+        else if (value > 60*1000) {
+            value = 60*1000;
+        }
+        g_airlink_spi_conf.irq_timeout = value;
+        break;
     default:
         return 0;
     }
@@ -463,14 +471,24 @@ static const rotable_Reg_t reg_airlink[] =
 
     { "debug",         ROREG_FUNC(l_airlink_debug )},
 
+    //@const MODE_SPI_SLAVE number airlink.start参数, SPI从机模式
     { "MODE_SPI_SLAVE",    ROREG_INT(0) },
+    //@const MODE_SPI_MASTER number airlink.start参数, SPI主机模式
     { "MODE_SPI_MASTER",   ROREG_INT(1) },
+    //@const MODE_UART number airlink.start参数, UART模式
     { "MODE_UART",         ROREG_INT(2) },
 
+    //@const CONF_SPI_ID number SPI配置参数, 设置SPI的ID
     { "CONF_SPI_ID",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_ID)},
+    //@const CONF_SPI_CS number SPI配置参数, 设置SPI的CS脚的GPIO
     { "CONF_SPI_CS",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_CS)},
+    //@const CONF_SPI_RDY number SPI/UART配置参数, 设置RDY脚的GPIO
     { "CONF_SPI_RDY",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_RDY)},
+    //@const CONF_SPI_IRQ number SPI/UART配置参数, 设置IRQ脚的GPIO
     { "CONF_SPI_IRQ",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_IRQ)},
+    //@const CONF_IRQ_TIMEOUT number SPIUART配置参数, 设置IRQ模式的等待超时时间
+    { "CONF_IRQ_TIMEOUT",  ROREG_INT(LUAT_AIRLINK_CONF_IRQ_TIMEOUT)},
+
 	{ NULL,                ROREG_INT(0) }
 };
 

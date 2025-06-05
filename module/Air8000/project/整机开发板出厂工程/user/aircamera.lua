@@ -76,7 +76,11 @@ local function HTTP_SEND_FILE()
     end
 
 end
-
+function aircamera.close()
+    if camera_id then
+        camera.close(camera_id)
+    end
+end
 
 local function aircamera_run()
     lcd.autoFlush(true) 
@@ -172,7 +176,7 @@ function send_file_task()
         sys.wait(500)
         camera_id = gc0310Init(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个1 ，是默认按照扫码始化
         sys.wait(100)
-        local res= camera.capture(camera_id, "/ram/testcamera.jpg", 3)
+        local res= camera.capture(camera_id, "/ram/testcamera.jpg", 95)
         log.info("aircamera send_file_task1 res",res)
         sys.waitUntil("capture done", 30000)
         camera.preview(camera_id, false)

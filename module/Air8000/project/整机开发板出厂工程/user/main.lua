@@ -5,8 +5,8 @@ log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 sys = require("sys")
--- local airgps = require "airgps"
 local airlcd = require "airlcd"
+local airgps = require "airgps"
 local airmusic = require "airmusic"
 local airtts  = require "airtts"
 local airaudio  = require "airaudio"
@@ -115,6 +115,7 @@ local function handal_main(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
+    cur_fun  = "gps"
   elseif key == 2 then
   elseif key == 3 then
   elseif key == 4 then
@@ -181,6 +182,8 @@ local function  tp_handal(tp_device,tp_data)
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "camera" then
       aircamera.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "gps" then
+      airgps.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -281,6 +284,15 @@ local function draw_camera()
   end
 end
 
+
+local function draw_gps()
+  aircamera.close()
+  if  airgps.run()   then
+    cur_fun = "main"
+  end
+end
+
+
 local function draw()
   if cur_fun == "camshow" then
     return
@@ -300,8 +312,8 @@ local function draw()
     draw_tts()
   elseif cur_fun  == "camera" then
     draw_camera()
-  elseif cur_fun == "picshow" then
-    draw_pic()
+  elseif cur_fun == "gps" then
+    draw_gps()
   elseif cur_fun == "russia" then
     airrus.drawrus()
   elseif cur_fun == "LAN" then
@@ -330,7 +342,7 @@ local function UITask()
     airaudio.init()
     sys.wait(1000)
     log.info("合宙 8000 startup v1")
-    aircamera.init()
+    -- aircamera.init()
     airlcd.lcd_init("AirLCD_1001")
     sys.subscribe("TP",tp_handal)
     while 1 do

@@ -23,7 +23,6 @@
 #define NAPT_UDP_RANGE_START     0x1BBC
 #define NAPT_UDP_RANGE_END       0x5AAA
 
-extern int luat_netdrv_gw_adapter_id;
 static uint16_t napt_curr_id = NAPT_UDP_RANGE_START;
 static luat_netdrv_napt_tcpudp_t* udps;
 
@@ -65,7 +64,7 @@ int luat_napt_udp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct udp_hdr *udp_hdr = (struct udp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
-    luat_netdrv_t* gw = luat_netdrv_get(luat_netdrv_gw_adapter_id);
+    luat_netdrv_t* gw = ctx->drv_gw;
     if (gw == NULL || gw->netif == NULL) {
         return 0;
     }

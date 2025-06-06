@@ -30,13 +30,13 @@ local function lcd_vector_font_app_task_func()
 
     -- 创建一个按钮
     local btn = lvgl.btn_create(scr)  -- 在屏幕上创建一个按钮
-    lvgl.obj_set_size(btn, 100, 50)  -- 设置按钮大小为100x50
-    lvgl.obj_align(btn, nil, lvgl.ALIGN_CENTER, 0, 0)  -- 将按钮居中
+    lvgl.obj_set_size(btn, 240, 50)  -- 设置按钮大小为240x50
+    lvgl.obj_align(btn, nil, lvgl.ALIGN_CENTER, 0, 200)  -- 将按钮左右居中，向下偏移200像素
 
     -- 在按钮上添加一个标签
     local btn_label = lvgl.label_create(btn)  -- 在按钮上创建一个标签
     lvgl.obj_set_style_local_text_font(btn_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font32)  -- 设置为32号矢量字体
-    lvgl.label_set_text(btn_label, "点我")  -- 设置按钮标签的文本为“Press Me”
+    lvgl.label_set_text(btn_label, "点我")  -- 设置按钮标签的文本为“点我”
     lvgl.obj_align(btn_label, nil, lvgl.ALIGN_CENTER, 0, 0)  -- 将标签居中显示在按钮上
 
     -- 创建一个标签用于显示数字

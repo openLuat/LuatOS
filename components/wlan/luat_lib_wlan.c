@@ -103,7 +103,11 @@ static int l_wlan_mode(lua_State* L){
 @return bool 已经连接成功返回true,否则返回false
 */
 static int l_wlan_ready(lua_State* L) {
+    #ifdef LUAT_USE_DRV_WLAN
     int ready = network_check_ready(NULL, NW_ADAPTER_INDEX_LWIP_WIFI_STA);
+    #else
+    int ready = luat_wlan_ready();
+    #endif
     lua_pushboolean(L, ready);
     return 1;
 }

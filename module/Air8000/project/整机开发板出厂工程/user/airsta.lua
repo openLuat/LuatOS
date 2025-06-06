@@ -142,9 +142,9 @@ function airgps.run()       -- TTS 播放主程序
 
         lcd.showImage(20,360,"/luadb/back.jpg")
         if gps_is_run then
-            lcd.showImage(130,370,"/luadb/stop_gps.jpg")
+            lcd.showImage(130,370,"/luadb/stop.jpg")
         else
-            lcd.showImage(130,370,"/luadb/start_gps.jpg")
+            lcd.showImage(130,370,"/luadb/start.jpg")
         end
         
 
@@ -157,7 +157,7 @@ function airgps.run()       -- TTS 播放主程序
     end
 end
 
-local function stop_gps()
+local function stop()
     gnss.stop()
 end
 
@@ -166,7 +166,7 @@ function airgps.tp_handal(x,y,event)       -- 判断是否需要停止播放
         run_state = 0
     elseif x > 130 and  x < 241 and y > 370  and  y < 417 then
         if  gps_is_run then
-            sys.taskInit(stop_gps, "stop_gps")   
+            sys.taskInit(stop, "stop")   
         else
             sys.taskInit(setup_gps, "setup_gps")   
         end

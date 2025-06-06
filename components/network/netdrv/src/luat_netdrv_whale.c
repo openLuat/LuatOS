@@ -9,6 +9,7 @@
 #include "lwip/netif.h"
 #include "lwip/ip.h"
 #include "lwip/pbuf.h"
+#include "lwip/tcpip.h"
 #include "net_lwip2.h"
 #include "luat_airlink.h"
 #include "luat_mem.h"
@@ -164,12 +165,16 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
+typedef struct tmpptr {
+    luat_netdrv_t* drv;
+    uint8_t updown;
+}tmpptr_t;
+
+static void _luat_netdrv_whale_ipevent(tmpptr_t* ptr) {
+    luat_netdrv_t* drv = ptr->drv;
+    uint8_t updown = ptr->updown;
     rtos_msg_t msg = {0};
     void* userdata = NULL;
-    if (drv == NULL || drv->netif == NULL) {
-        return;
-    }
     luat_netdrv_whale_t* cfg = (luat_netdrv_whale_t*)drv->userdata;
     if (updown) {
         netif_set_up(drv->netif);
@@ -178,6 +183,8 @@ void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
         }
         if (cfg->dhcp) {
             // LLOGD("dhcp启动 %p", cfg->ulwip.netif);
+            ip_addr_set_ip4_u32(&cfg->ulwip.netif->ip_addr, 0);
+            ip_addr_set_ip4_u32(&cfg->ulwip.netif->gw, 0);
             ulwip_dhcp_client_start(&cfg->ulwip);
         }
     }
@@ -185,6 +192,8 @@ void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
         netif_set_down(drv->netif);
         if (cfg->dhcp) {
             // LLOGD("dhcp停止");
+            ip_addr_set_ip4_u32(&cfg->ulwip.netif->ip_addr, 0);
+            ip_addr_set_ip4_u32(&cfg->ulwip.netif->gw, 0);
             ulwip_dhcp_client_stop(&cfg->ulwip);
         }
     }
@@ -200,6 +209,17 @@ void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
     msg.ptr = NULL;
     msg.handler = netif_ip_event_cb;
     luat_msgbus_put(&msg, 0);
+}
+
+void luat_netdrv_whale_ipevent(luat_netdrv_t* drv, uint8_t updown) {
+    if (drv == NULL || drv->netif == NULL) {
+        return;
+    }
+    tmpptr_t ptr = {
+        .drv = drv,
+        .updown = updown,
+    };
+    tcpip_callback_with_block(_luat_netdrv_whale_ipevent, &ptr, 1);
 }
 
 

@@ -107,13 +107,14 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
             ret = luat_rtos_queue_send(airlink_ippkg_queue, item, 0, 0);
         } 
     }
+    // LLOGD("luat_airlink_queue_send %d %d", tp, ret);
     if (ret == 0) {
         if (g_airlink_newdata_notify_cb) {
             g_airlink_newdata_notify_cb();
         }
         return 0;
     }
-    return -2;
+    return ret;
 }
 
 int luat_airlink_queue_get_cnt(int tp)
@@ -289,8 +290,8 @@ void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len) {
 }
 
 void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
-    if (len > 500) {
-        len = 500;
+    if (len > 256) {
+        len = 256;
     }
     uint8_t* tmp = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, len * 2 + 1);
     if (tmp == NULL) {

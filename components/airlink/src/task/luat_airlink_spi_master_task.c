@@ -53,8 +53,6 @@ luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 {
     uint32_t len = 0;
-    // if (is_waiting_queue) {
-    //     is_waiting_queue = 0;
     luat_rtos_queue_get_cnt(evt_queue, &len);
     // luat_rtos_event_send(spi_task_handle, 2, 2, 3, 4, 100);
     static uint32_t irq_seq = 0;
@@ -66,7 +64,6 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
         luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
         luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
     }
-    // }
     return 0;
 }
 
@@ -230,6 +227,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
     uint32_t timeout = 5;
+    int ret = 0;
     if (g_airlink_pause) {
         while (g_airlink_pause) {
             LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
@@ -240,7 +238,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     // LLOGD("link irq %d cmd %d ip %d", s_link.flags.irq_ready, s_link.flags.queue_cmd, s_link.flags.queue_ip);
     if (s_link.flags.irq_ready) {
         if (g_airlink_spi_conf.irq_timeout == 0) {
-            g_airlink_spi_conf.irq_timeout = 5000;
+            g_airlink_spi_conf.irq_timeout = 500;
         }
         timeout = g_airlink_spi_conf.irq_timeout;
     }
@@ -252,10 +250,13 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     else
     {
         // is_waiting_queue = 1;
-        luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), timeout);
+        ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), timeout);
         // is_waiting_queue = 0;
         if (2 == event.id) {
             // LLOGD("从机通知IRQ中断");
+        }
+        else if (ret) {
+            // LLOGD("irq timeout %d", timeout);
         }
     }
 

@@ -24,7 +24,7 @@ end, gpio.PULLDOWN)
 
 if airlink.irqmode then
     log.info("尝试开启IRQ模式", "GPIO20 <--> GPIO140")
-    airlink.irqmode(true, 20, 140)
+    -- airlink.irqmode(true, 20, 140)
 end
 
 function test_ap()

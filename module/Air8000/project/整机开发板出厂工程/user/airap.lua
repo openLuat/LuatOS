@@ -6,7 +6,7 @@ httpplus = require("httpplus")
 local run_state = false
 local ap_state = false
 local wifi_net_state = "未打开"
-local ssid = "uiot"
+local ssid = "Air8000_"
 local password = "12345678"
 local number = 0
 local event = ""
@@ -18,8 +18,12 @@ local function start_ap()
     log.info("start_ap")
     ssid = ssid .. wlan.getMac()
     wlan.createAP(ssid, password)
+
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    sys.wait(5000)
+     while netdrv.ready(socket.LWIP_AP) ~= true do
+        sys.wait(100)
+    end
+    -- sys.wait(5000)
     dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     while 1 do
@@ -38,7 +42,7 @@ local function stop_ap()
 end
 
 sys.subscribe("WLAN_AP_INC", function(evt, data)
-    event = evt.. "," ..data
+    event = evt.. ",对方的MAC为：" .. data:toHex()
     if evt == "CONNECTED" then
         number = number + 1
     elseif evt == "DISCONNECTED" then
@@ -58,7 +62,7 @@ function airap.run()
     run_state = true
     while true do
         sys.wait(10)
-        airlink.statistics()
+        -- airlink.statistics()
         lcd.clear(_G.bkcolor) 
         lcd.drawStr(0,80,"WIFI AP状态:"..wifi_net_state )
         if ap_state then
@@ -71,9 +75,9 @@ function airap.run()
 
         lcd.showImage(20,360,"/luadb/back.jpg")
         if gps_is_run then
-            lcd.showImage(130,370,"/luadb/stop_gps.jpg")
+            lcd.showImage(130,370,"/luadb/stop.jpg")
         else
-            lcd.showImage(130,370,"/luadb/start_gps.jpg")
+            lcd.showImage(130,370,"/luadb/start.jpg")
         end
         
 

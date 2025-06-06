@@ -1334,7 +1334,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
     lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
     // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
     uint16_t buff_size = size*4*size*4/8+512;
-    unsigned char* buf = luat_heap_opt_malloc(LUAT_HEAP_PSRAM,buff_size);
+    unsigned char* buf = luat_heap_malloc(buff_size);
     // LLOGD("buff_size:%d buf:%p", buff_size,buf);
     if (buf == NULL){
         LLOGE("malloc error");
@@ -1352,7 +1352,6 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
             unsigned int* width = NULL;
             width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
             // LLOGW("get_Font_Gray width[0]:%d width[1]:%d",width[0], width[1]);
-
             gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], 1,luat_lcd_draw_point,lcd_dft_conf,0);
         	x+=str<0x80?width[0]/2+1:width[0];
         }

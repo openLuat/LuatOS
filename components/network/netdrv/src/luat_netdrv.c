@@ -1,10 +1,6 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
-#ifdef __LUATOS__
-// #include "luat_netdrv_ch390h.h"
-// #include "luat_netdrv_uart.h"
-#endif
 #include "luat_mem.h"
 #include "luat_mcu.h"
 
@@ -37,12 +33,6 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
         #ifdef LUAT_USE_NETDRV_CH390H
         if (conf->impl == 1) { // CH390H
             drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
-            return drvs[conf->id];
-        }
-        #endif
-        #ifdef LUAT_USE_NETDRV_UART
-        if (conf->impl == 16) { // UART
-            drvs[conf->id] = luat_netdrv_uart_setup(conf);
             return drvs[conf->id];
         }
         #endif

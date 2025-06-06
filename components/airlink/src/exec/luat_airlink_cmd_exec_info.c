@@ -26,16 +26,25 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
     luat_airlink_dev_info_t* dev = cmd->data;
     luat_netdrv_t* drv = NULL;
     char buff[32] = {0};
+    uint32_t version = 0;
     // LLOGD("收到设备信息通知 类型 %d", dev->tp);
     if (dev->tp == 0) {
         return 0;
     }
-    memcpy(&g_airlink_ext_dev_info, dev, sizeof(luat_airlink_dev_info_t));
+    size_t len = sizeof(luat_airlink_dev_info_t);
+    if (len > cmd->len) {
+        len = cmd->len; // 为了兼容老版本的wifi固件, 需要把数据截断, 如果超过的话
+    }
+    else {
+        // wifi固件比4G固件更新的, 那就抛弃掉后面的数据
+    }
+    memcpy(&g_airlink_ext_dev_info, dev, len);
     if (dev->tp == 1) {
         // WIFI设备
         // 首先, 把MAC地址打印出来
         // LLOGD("wifi sta MAC %02X:%02X:%02X:%02X:%02X:%02X", dev->wifi.sta_mac[0], dev->wifi.sta_mac[1], dev->wifi.sta_mac[2], dev->wifi.sta_mac[3], dev->wifi.sta_mac[4], dev->wifi.sta_mac[5]);
         if (dev->wifi.sta_mac[0]) {
+            memcpy(&version, dev->wifi.version, 4);
             // 是合法的MAC地址, 那就搞一下
             drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_WIFI_STA);
             while (1) {
@@ -80,7 +89,11 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
                 drv->netif->hwaddr_len = 6;
                 memcpy(drv->netif->hwaddr, dev->wifi.ap_mac, 6);
 
-                // STA网络状态对吗?
+                // 如果wifi固件版本是0, 那需要兼容一下AP状态
+                if (version == 0) {
+                    dev->wifi.ap_state = 1;
+                }
+                // AP网络状态对吗?
                 if (dev->wifi.ap_state == 0) {
                     if (netif_is_up(drv->netif)) {
                         // 网卡掉线了哦

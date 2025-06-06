@@ -8,6 +8,7 @@ sys = require("sys")
 local airlcd = require "airlcd"
 local airgps = require "airgps"
 local airmusic = require "airmusic"
+local airap = require "airap"
 local airtts  = require "airtts"
 local airaudio  = require "airaudio"
 local aircamera = require "aircamera"
@@ -52,13 +53,13 @@ local sid = 0
 -- "232":       232
 
 local cur_fun = "main"
-local cur_sel = 0
+-- local cur_sel = 0
 
-local funlist = {
-"gps", "wifiap","wifista","camera", "call","bt","sms","tts",
-"record","music","tf","gsensor","pm","lan","wan",
-"multi-network","485","can","onewire","pwm","uart","232"
-}
+-- local funlist = {
+-- "gps", "wifiap","wifista","camera", "call","bt","sms","tts",
+-- "record","music","tf","gsensor","pm","lan","wan",
+-- "multi-network","485","can","onewire","pwm","uart","232"
+-- }
 
 _G.bkcolor = lcd.rgb565(99, 180, 245,false)
 
@@ -77,10 +78,6 @@ local function update()
     airrus.updaterus()
   end
 
-  if not airstatus.data.weather.result and ((sid % 50) == 0)  then
-    airstatus.get_sig_strength()
-    airstatus.get_weather()
-  end
   if airstatus.data.bat_level == 0 then
     airstatus.get_bat_level()
   end
@@ -117,7 +114,9 @@ local function handal_main(x,y)
   if key == 1 then
     cur_fun  = "gps"
   elseif key == 2 then
+    cur_fun = "ap"
   elseif key == 3 then
+    cur_fun = "sta"
   elseif key == 4 then
     cur_fun  = "camera"
   elseif key == 5 then
@@ -184,6 +183,8 @@ local function  tp_handal(tp_device,tp_data)
       aircamera.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "gps" then
       airgps.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "ap" then
+      airap.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -292,6 +293,18 @@ local function draw_gps()
   end
 end
 
+local function draw_ap()
+  if  airap.run()   then
+    cur_fun = "main"
+  end
+end
+
+local function draw_sta()
+  if  airsta.run()   then
+    cur_fun = "main"
+  end
+end
+
 
 local function draw()
   if cur_fun == "camshow" then
@@ -314,32 +327,32 @@ local function draw()
     draw_camera()
   elseif cur_fun == "gps" then
     draw_gps()
-  elseif cur_fun == "russia" then
-    airrus.drawrus()
-  elseif cur_fun == "LAN" then
-    draw_lan()
-  elseif cur_fun == "WAN" then
-    draw_wan()
-  elseif cur_fun == "selftest" then
-    draw_selftest()
-  elseif cur_fun == "modbusTCP" then
-    draw_modbusTCP()
-  elseif cur_fun == "modbusRTU" then
-    draw_modbusRTU()
-  elseif cur_fun == "CAN" then
-    draw_CAN()
+  elseif cur_fun == "ap" then
+    draw_ap()
+  elseif cur_fun == "sta" then
+    draw_sta()
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")
   lcd.flush()
 end
 
+local function update_airstatus()
+  airstatus.get_sig_strength()
+  airstatus.get_weather()
+end
+
 wdtInit()
 
 
+function ip_ready_handle(ip, adapter)
+  log.info("ip_ready_handle",ip, adapter)
+  if adapter == socket.LWIP_GP then
+    sysplus.taskInitEx(update_airstatus, "update_airstatus")
+  end
+end
 
 local function UITask()
-    airaudio.init()
     sys.wait(1000)
     log.info("合宙 8000 startup v1")
     -- aircamera.init()
@@ -357,6 +370,7 @@ local function UITask()
     end
 
 end
+sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 
 -- 当前是给camera 表的变量赋值让camera 退出。 未来可以让 UI task 发消息给camera 任务，让camera 任务关闭摄像头，释放LCD

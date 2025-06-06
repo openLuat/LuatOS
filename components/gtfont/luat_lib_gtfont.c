@@ -69,9 +69,10 @@ unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,un
  * HB_par	1 白底黑字	0 黑底白字
  *------------------------------------------------------------------------------------------*/
 void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
-                            unsigned short w ,unsigned short h,unsigned char grade, 
-                            unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),
-                            void* userdata,int mode){
+                unsigned short w ,unsigned short h,
+                unsigned char grade,unsigned char HB_par,
+                int(*point)(void*,uint16_t, uint16_t, uint32_t),
+                void* userdata,int mode){
 	unsigned int temp=0,gray,x_temp=x;
 	unsigned int i=0,j=0,t;
 	unsigned char c,c2,*p;
@@ -203,6 +204,28 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 			}
 		}
 	}
+}
+
+unsigned int gtfont_get_width(unsigned char *p,unsigned int zfwidth,unsigned int zfhigh ){
+    unsigned char *q;
+    unsigned int i,j,tem,tem1,witdh1=0,witdh2=0;
+    q=p;
+    for (i=0;i<zfwidth/16;i++){
+        tem=0;
+        tem1=0;
+        for (j=0;j<zfhigh;j++){
+            tem=(*(q+j*(zfwidth/8)+i*2)|(*(q+1+j*(zfwidth/8)+i*2))<<8);
+            tem1=tem1|tem;
+        }
+        witdh1=0;
+        for (j=0;j<16;j++){
+            if (((tem1<<j)&0x8000)==0x8000){
+            witdh1=j;
+            }
+        }
+        witdh2+=witdh1;
+    }
+    return witdh2;
 }
 
 #ifndef LUAT_COMPILER_NOWEAK

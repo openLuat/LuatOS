@@ -122,8 +122,8 @@ function airgps.run()       -- TTS 播放主程序
     
     lcd.setFont(lcd.font_opposansm12_chinese) -- 具体取值可参考api文档的常量表
     while true do
-        lcd.clear(_G.bkcolor) 
         sys.wait(1000)
+        lcd.clear(_G.bkcolor)
         -- log.info("scell", json.encode(mobile.scell()))
         gps_state_get()
         -- log.info("airgps.run 11 ")

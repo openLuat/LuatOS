@@ -1,6 +1,6 @@
 local aircamera = {}
 
-require "gc0310"
+require "gc032a"
 local airlcd = require "airlcd"
 local httpplus = require "httpplus"
 local taskName = "SPI_CAMERA"
@@ -96,7 +96,7 @@ local function aircamera_run()
         sys.wait(100)
         gpio.setup(153, 0) -- PD拉低
         sys.wait(500)
-        camera_id = gc0310Init(cspiId, i2cId, 25500000, 1, 1)  -- 最后两个1 ，是默认按照扫码始化
+        camera_id = gc032aInit(cspiId, i2cId, 25500000, 1, 1)  -- 最后两个1 ，是默认按照扫码始化
         sys.wait(100)
         camera.start(camera_id)  -- 开始扫码
     end
@@ -119,7 +119,7 @@ function aircamera.init()
     log.info("摄像头初始化")
     gpio.setup(153, 0) -- PD拉低
     sys.wait(500)
-    camera_id = gc0310Init(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个0 ，是默认按照拍照初始化
+    camera_id = gc032aInit(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个0 ，是默认按照拍照初始化
 end
 
 local function aircamera_ui()
@@ -174,7 +174,7 @@ function send_file_task()
         sys.wait(100)
         gpio.setup(153, 0) -- PD拉低
         sys.wait(500)
-        camera_id = gc0310Init(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个1 ，是默认按照扫码始化
+        camera_id = gc032aInit(cspiId, i2cId, 25500000, 0, 0)  -- 最后两个1 ，是默认按照扫码始化
         sys.wait(100)
         local res= camera.capture(camera_id, "/ram/testcamera.jpg", 95)
         log.info("aircamera send_file_task1 res",res)

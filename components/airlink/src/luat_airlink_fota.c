@@ -9,6 +9,7 @@
 #include "luat_log.h"
 
 luat_airlink_fota_t *g_airlink_fota;
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 int luat_airlink_fota_init(luat_airlink_fota_t *ctx)
 {
@@ -71,6 +72,8 @@ void airlink_sfota_exec(void)
     int ret = 0;
     g_airlink_fota->total_size = luat_fs_fsize(g_airlink_fota->path);
     LLOGI("开始执行sFOTA file size %ld", g_airlink_fota->total_size);
+    uint32_t tmpv = 0;
+    memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
     FILE *fd = luat_fs_fopen(g_airlink_fota->path, "rb");
     if (fd == NULL)
     {
@@ -124,9 +127,12 @@ void airlink_sfota_exec(void)
                   s_airlink_fota_rxbuff[0], s_airlink_fota_rxbuff[1], s_airlink_fota_rxbuff[2], s_airlink_fota_rxbuff[3]);
         }
         pack_and_send(0x05, s_airlink_fota_rxbuff, ret);
-         // 在5.10开始的wifi固件, 仅在8k的位置需要等待 5秒
-         // 在4.24及之前的固件, 卡顿的位置在5k写入之后, 等待15秒
-        if (sent_size == (8 * 1024))
+        // 在5.10开始的wifi固件, 仅在8k的位置需要等待 5秒
+        // 在4.24及之前的固件, 卡顿的位置在5k写入之后, 等待15秒
+        if (tmpv == 0 && sent_size == 5 * 1024) {
+            luat_rtos_task_sleep(15000);
+        }
+        else if (sent_size == (8 * 1024))
         {
             // 到达5k后, bk的fota实现需要擦除APP分区,耗时比较久, 需要区分
             if (g_airlink_fota->wait_first_data)

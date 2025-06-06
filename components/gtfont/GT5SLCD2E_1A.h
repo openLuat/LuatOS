@@ -121,6 +121,13 @@ void AlphaBlend_whiteBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int 
 void AlphaBlend_blackBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int y,
 	int src_w, int src_h, int dst_w, int dst_h,unsigned char *SrcGray,unsigned char Grade);
 
+unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
+void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
+                unsigned short w ,unsigned short h,
+                unsigned char grade,unsigned char HB_par,
+                int(*point)(void*,uint16_t, uint16_t, uint32_t),
+                void* userdata,int mode);
+unsigned int gtfont_get_width(unsigned char *p,unsigned int zfwidth,unsigned int zfhigh );
 
 #endif
 

@@ -75,13 +75,7 @@ function ip_ready_handle(ip, adapter)
     end
 end
 
-function test_scan()
-    while 1 do
-        log.info("执行wifi扫描")
-        wlan.scan()
-        sys.wait(30 * 1000)
-    end
-end
+
 
 function main_task()
     wlan.init()
@@ -90,7 +84,7 @@ function main_task()
     create_ap()
     wifi_networking()
 
-    test_scan()
+    
 end
 
 sys.subscribe("WLAN_SCAN_DONE", scan_done_handle)

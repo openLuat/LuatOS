@@ -4,17 +4,69 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 local run_state = false
-local ap_state = false
+local sta_state = false
 local wifi_net_state = "未打开"
 local ssid = "Air8000_"
 local password = "12345678"
 local number = 0
 local event = ""
 
+local LEDA = gpio.setup(146, 0, gpio.PULLUP)
 
-local function start_sta()
-    wifi_net_state = "已打开，创建路由中"
-    wlan.init()
+function handle_http_request(fd, method, uri, headers, body)
+    log.info("httpsrv", method, uri, json.encode(headers), body)
+    if uri == "/led/1" then
+        LEDA(1)
+        event = "绿灯已打开"
+        return 200, {}, "ok"
+    elseif uri == "/led/0" then
+        LEDA(0)
+        event = "绿灯已关闭"
+        return 200, {}, "ok"
+    elseif uri == "/scan/go" then
+        event = "开始搜索WiFi"
+        wlan.scan()
+        return 200, {}, "ok"
+    elseif uri == "/scan/list" then
+        return 200, {["Content-Type"]="application/json"}, (json.encode({data=_G.scan_result, ok=true}))
+    elseif uri == "/connect" then
+        if method == "POST" and body and #body > 2 then
+            local jdata = json.decode(body)
+            if jdata and jdata.ssid then
+                event = "开始链接目标WiFi 路由器"
+                sys.timerStart(wlan.connect, 500, jdata.ssid, jdata.passwd)
+                return 200, {}, "ok"
+            end
+        end
+        return 400, {}, "ok"
+    elseif uri == "/connok" then
+        log.info("connok", json.encode({ip=socket.localIP(2)}))
+        return 200, {["Content-Type"]="application/json"}, json.encode({ip=socket.localIP(2)})
+    end
+    return 404, {}, "Not Found" .. uri
+end
+function wifi_networking()
+    sys.wait(3000)
+    httpsrv.start(80, handle_http_request, socket.LWIP_AP)
+    log.info("web", "pls open url http://192.168.4.1/")
+end
+
+function scan_done_handle()
+    local result = wlan.scanResult()
+    _G.scan_result = {}
+    for k, v in pairs(result) do
+        log.info("scan", (v["ssid"] and #v["ssid"] > 0) and v["ssid"] or "[隐藏SSID]", v["rssi"], (v["bssid"]:toHex()))
+        if v["ssid"] and #v["ssid"] > 0 then
+            table.insert(_G.scan_result, v["ssid"])
+        end
+    end
+    log.info("scan", "aplist", json.encode(_G.scan_result))
+end
+
+
+local function start_ap()
+    wifi_net_state = "创建AP 热点中,通过AP 热点配置 STA 网络"
+    wifi_networking()  --  创建网页服务,可以根据此服务进行配网
     log.info("start_sta")
     ssid = ssid .. wlan.getMac()
     wlan.createAP(ssid, password)
@@ -24,36 +76,40 @@ local function start_sta()
         sys.wait(100)
     end
     -- sys.wait(5000)
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
-    while 1 do
-        if netdrv.ready(socket.LWIP_GP) then
-            netdrv.napt(socket.LWIP_GP)
-            wifi_net_state = "已打开，热点可用"
-            log.info("start_sta ok")
-            break
-        end
-        sys.wait(500)
-    end
+    wifi_net_state = "创建AP 热点完成"
+    event = "请连接热点后,并打开192.168.4.1网页"
 end
-
-local function stop_ap()
+local function start_sta()
+    wlan.init()
+    sys.subscribe("WLAN_SCAN_DONE", scan_done_handle)
+    sys.subscribe("IP_READY", ip_ready_handle)
+    start_ap()
+    
+end
+local function stop_sta()
     wlan.stopAP()
 end
 
 sys.subscribe("WLAN_AP_INC", function(evt, data)
-    event = evt.. ",对方的MAC为：" .. data:toHex()
+    
     if evt == "CONNECTED" then
-        number = number + 1
+        event = "配置工具连接成功,请打开192.168.4.1"
     elseif evt == "DISCONNECTED" then
-        number = number - 1
+        event = "配置工具断开"
     end
     log.info("收到AP事件", evt, data and data:toHex())
 end)
-sys.subscribe("PING_RESULT", function(id, time, dst)
-    log.info("ping", id, time, dst);
-    event = "ping" .. id .. time .. dst
+
+sys.subscribe("WLAN_STA_INC", function(evt, data)
+    if evt == "CONNECTED" then
+        event = "连接成功,连接的SSID 是：" .. data
+    elseif evt == "DISCONNECTED" then
+        event = "断开了,断开的原因是：" .. data
+    end
+    log.info("收到STA事件", evt, data )
 end)
+
 
 
 function airsta.run()       
@@ -64,17 +120,16 @@ function airsta.run()
         sys.wait(10)
         -- airlink.statistics()
         lcd.clear(_G.bkcolor) 
-        lcd.drawStr(0,80,"WIFI AP状态:"..wifi_net_state )
-        if ap_state then
-            lcd.drawStr(0,120,"WIFI ssid:" .. ssid )
-            lcd.drawStr(0,140,"WIFI password:" .. password )
-            lcd.drawStr(0,160,"WIFI MAC:" .. wlan.getMac() )
-            lcd.drawStr(0,180,"链接WIFI 数量:" .. number)
-            lcd.drawStr(0,200, event)
+        lcd.drawStr(0,80,"WIFI STA状态:"..wifi_net_state )
+        if sta_state then
+            lcd.drawStr(0,100,"WIFI ssid:" .. ssid )
+            lcd.drawStr(0,120,"WIFI password:" .. password )
+
+            lcd.drawStr(0,150, event)
         end
 
         lcd.showImage(20,360,"/luadb/back.jpg")
-        if ap_state then
+        if sta_state then
             lcd.showImage(130,370,"/luadb/stop.jpg")
         else
             lcd.showImage(130,370,"/luadb/start.jpg")
@@ -91,14 +146,14 @@ function airsta.run()
 end
 
 local function start_sta_task()
-    ap_state = true
+    sta_state = true
     start_sta()
 end
 
 
-local function stop_ap_task()
-    stop_ap()
-    ap_state = false
+local function stop_sta_task()
+    wlan.disconnect()
+    sta_state = false
 end
 function airsta.start_sta() 
     start_sta()
@@ -108,8 +163,8 @@ function airsta.tp_handal(x,y,event)       -- 判断是否需要停止播放
     if x > 20 and  x < 100 and y > 360  and  y < 440 then
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
-        if ap_state then
-            sysplus.taskInitEx(stop_ap_task, "stop_ap_task")
+        if sta_state then
+            sysplus.taskInitEx(stop_sta_task, "stop_sta_task")
         else
             sysplus.taskInitEx(start_sta_task , "start_sta_task")
         end

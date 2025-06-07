@@ -13,6 +13,16 @@ local event = ""
 
 local LEDA = gpio.setup(146, 0, gpio.PULLUP)
 
+local function test_sta_http()
+    local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_STA,timeout=5000,debug=false}).wait()
+    --  注意使用不同的网络出口，可以设置不同的适配器，比如你想通过sta 方式上网就填入adapter=socket.LWIP_STA，如果使用4G 则填入adapter=socket.LWIP_GP
+    log.info("http执行结果", code, headers, body and #body)
+    if code == 200 then
+        wifi_net_state = "STA 连接成功,http 通过STA 测试成功"
+    end
+
+end
+
 function handle_http_request(fd, method, uri, headers, body)
     log.info("httpsrv", method, uri, json.encode(headers), body)
     if uri == "/led/1" then
@@ -41,6 +51,7 @@ function handle_http_request(fd, method, uri, headers, body)
         return 400, {}, "ok"
     elseif uri == "/connok" then
         log.info("connok", json.encode({ip=socket.localIP(2)}))
+        
         return 200, {["Content-Type"]="application/json"}, json.encode({ip=socket.localIP(2)})
     end
     return 404, {}, "Not Found" .. uri
@@ -61,6 +72,7 @@ function scan_done_handle()
         end
     end
     log.info("scan", "aplist", json.encode(_G.scan_result))
+    event = "搜索热点完成,共搜到" ..  #_G.scan_result .. "个,请选择热点,并输入密码后连接"
 end
 
 
@@ -78,7 +90,7 @@ local function start_ap()
     -- sys.wait(5000)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     wifi_net_state = "创建AP 热点完成"
-    event = "请连接热点后,并打开192.168.4.1网页"
+    event = "请连接热点后,打开192.168.4.1网页"
 end
 local function start_sta()
     wlan.init()
@@ -104,6 +116,8 @@ end)
 sys.subscribe("WLAN_STA_INC", function(evt, data)
     if evt == "CONNECTED" then
         event = "连接成功,连接的SSID 是：" .. data
+        wifi_net_state = "STA 连接成功"
+        sysplus.taskInitEx(test_sta_http,"test_sta_http")
     elseif evt == "DISCONNECTED" then
         event = "断开了,断开的原因是：" .. data
     end

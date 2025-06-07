@@ -8,14 +8,13 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo实现的业务逻辑为：
-1、通过核心板的UART1，接收PC端串口工具下发的测试指令
-2、根据测试指令进行测试，同时返回提示信息给PC端串口工具，提醒人工去判断硬件测试项是否通过
-3、测试指令参考uart_cmd.lua文件注释
+AirCAMERA_1030是合宙设计生产的一款USB摄像头配件板；
+本demo演示的核心功能为：
+Air8101核心板+AirCAMERA_1030配件板，演示USB摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
 更多说明参考本目录下的readme.md文件
 ]]
 
-PROJECT = "core_board_hw_test"
+PROJECT = "AirCAMERA_1030"
 VERSION = "001.000.000"
 
 
@@ -66,14 +65,14 @@ sys.timerLoopStart(function()
     log.info("mem.sys", rtos.meminfo("sys"))
  end, 3000)
 
--- 加载GPIO测试功能模块
-require "gpio_test"
 -- 加载WIFI网络连接管理功能模块
-require "wlan_connect"
--- 加载USB摄像头测试功能模块
-require "usb_camera_test"
--- 加载串口通信功能模块
-require "uart_cmd"
+require "wifi_app"
+-- 加载AirCAMERA_1030拍照并且通过http上传照片的功能模块
+require "http_app"
+-- 加载tf卡应用模块
+require "tf_app"
+-- 加载lcd和矢量字体显示应用模块
+require "lcd_vector_font_app"
 
 
 

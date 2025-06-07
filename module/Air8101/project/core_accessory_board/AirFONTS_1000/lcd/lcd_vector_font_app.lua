@@ -184,8 +184,14 @@ local function lcd_vector_font_app_task_func()
 end
 
 
+-- mcu.altfun(mcu.SPI,0,33)
+-- mcu.altfun(mcu.SPI,0,34)
+-- mcu.altfun(mcu.SPI,0,35)
+-- mcu.altfun(mcu.SPI,0,36)
+
 --初始化矢量字库
-air_vetor_fonts.init()
+-- air_vetor_fonts.init()
+air_vetor_fonts.init(0, 34)
 
 --初始化LCD
 air_lcd.init_lcd()

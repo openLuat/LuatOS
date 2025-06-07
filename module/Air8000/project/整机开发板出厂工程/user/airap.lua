@@ -74,7 +74,7 @@ function airap.run()
         end
 
         lcd.showImage(20,360,"/luadb/back.jpg")
-        if gps_is_run then
+        if ap_state then
             lcd.showImage(130,370,"/luadb/stop.jpg")
         else
             lcd.showImage(130,370,"/luadb/start.jpg")

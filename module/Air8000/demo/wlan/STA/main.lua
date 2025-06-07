@@ -40,13 +40,6 @@ sys.subscribe("WLAN_STA_INC", function(evt, data)
     log.info("收到STA事件", evt)
 end)
 
--- wifi的AP相关事件
-sys.subscribe("WLAN_AP_INC", function(evt, data)
-    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
-    -- 当evt=CONNECTED, data是连接的AP的新STA的MAC地址
-    -- 当evt=DISCONNECTED, data是断开与AP连接的STA的MAC地址
-    log.info("收到AP事件", evt)
-end)
 
 function test_sta()
     log.info("执行STA连接操作")
@@ -106,21 +99,8 @@ end)
 
 sys.taskInit(function()
     log.info("新的Air8000脚本...")
-
-    -- sys.wait(200) -- 稍微缓一下, Air8000S的启动大概需要300ms
-    -- 启动AP测试
-    -- netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
-    -- netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
     wlan.init()
-    -- sys.wait(5000)
-    
-    -- sys.wait(300)
-    -- test_ap()
-
-    -- 连接STA测试
     test_sta()
-
-    -- wifi扫描测试
     test_scan()
 end)
 

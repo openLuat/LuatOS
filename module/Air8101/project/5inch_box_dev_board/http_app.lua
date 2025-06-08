@@ -7,6 +7,8 @@ local air_camera = require "AirCAMERA_1030"
 --上传结束后，等待10秒钟重复执行拍照和上传的动作；
 local function http_upload_photo_task_func() 
 
+    -- camera.config(0, camera.CONF_PREVIEW_ENABLE, 1)
+
     --打开摄像头
     local result = air_camera.open()
     --如果打开失败，直接退出这个函数

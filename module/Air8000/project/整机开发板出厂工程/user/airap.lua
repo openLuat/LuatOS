@@ -30,6 +30,8 @@ local function start_ap()
         if netdrv.ready(socket.LWIP_GP) then
             netdrv.napt(socket.LWIP_GP)
             wifi_net_state = "已打开，热点可用"
+            log.info("AP 创建成功，如果无法连接，需要将按照https://docs.openluat.com/air8000/luatos/app/updatwifi/update/ 升级固件")
+            log.info("AP 创建成功，如果无法连接，请升级本仓库的最新core")
             log.info("start_ap ok")
             break
         end

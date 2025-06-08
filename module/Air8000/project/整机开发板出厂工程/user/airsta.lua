@@ -18,7 +18,7 @@ local function test_sta_http()
     --  注意使用不同的网络出口，可以设置不同的适配器，比如你想通过sta 方式上网就填入adapter=socket.LWIP_STA，如果使用4G 则填入adapter=socket.LWIP_GP
     log.info("http执行结果", code, headers, body and #body)
     if code == 200 then
-        wifi_net_state = "STA 连接成功,http 通过STA 测试成功"
+        wifi_net_state = "STA 连接成功,http 通过STA 上网测试成功"
     end
 
 end

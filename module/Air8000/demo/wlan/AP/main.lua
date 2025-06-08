@@ -20,6 +20,8 @@ function test_ap()
     while 1 do
         if netdrv.ready(socket.LWIP_GP) then
             netdrv.napt(socket.LWIP_GP)
+            log.info("AP 创建成功，如果无法连接，需要将按照https://docs.openluat.com/air8000/luatos/app/updatwifi/update/ 升级固件")
+            log.info("AP 创建成功，如果无法连接，请升级本仓库的最新core")
             break
         end
         sys.wait(1000)

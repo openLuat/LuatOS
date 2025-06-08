@@ -63,6 +63,8 @@ typedef struct luat_camera_conf
     uint8_t id_reg;
 	uint8_t id_value;
     uint8_t usb_port;
+    uint8_t stream;
+    uint8_t async;
     size_t init_cmd_size;
     uint8_t *init_cmd;
 #ifdef __LUATOS__
@@ -70,7 +72,6 @@ typedef struct luat_camera_conf
 #else
     void *lcd_conf;
 #endif
-    uint8_t stream;
 } luat_camera_conf_t;
 
 typedef struct

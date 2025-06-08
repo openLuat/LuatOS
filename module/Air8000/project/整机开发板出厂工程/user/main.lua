@@ -7,6 +7,7 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 local airlcd = require "airlcd"
 local airgps = require "airgps"
+local airsta = require "airsta"
 local airmusic = require "airmusic"
 local airap = require "airap"
 local airtts  = require "airtts"
@@ -185,6 +186,8 @@ local function  tp_handal(tp_device,tp_data)
       airgps.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "ap" then
       airap.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "sta" then
+      airsta.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end

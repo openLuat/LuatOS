@@ -9,29 +9,6 @@ httpplus = require("httpplus")
 
 
 
-function test_ap()
-    log.info("执行AP创建操作")
-    wlan.createAP("uiot5678", "12345678")
-    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    for i=1, 10 do
-        log.info("当前ip信息", netdrv.ipv4(socket.LWIP_AP))
-        sys.wait(100)
-    end
-    sys.wait(5000)
-    -- netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
-    -- log.info("创建dns代理", netdrv.ipv4(socket.LWIP_AP))
-    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
-    -- log.info('创建DHCP服务器', netdrv.ipv4(socket.LWIP_AP))
-    dhcpsrv.create({adapter=socket.LWIP_AP})
-    while 1 do
-        if netdrv.ready(socket.LWIP_GP) then
-            netdrv.napt(socket.LWIP_GP)
-            break
-        end
-        sys.wait(1000)
-    end
-end
-
 -- wifi的STA相关事件
 sys.subscribe("WLAN_STA_INC", function(evt, data)
     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
@@ -46,7 +23,7 @@ function test_sta()
     wlan.connect("Xiaomi 13", "15055190176")
     -- netdrv.dhcp(socket.LWIP_STA, true)
     sys.wait(8000)
-    iperf.server(socket.LWIP_STA)
+    -- iperf.server(socket.LWIP_STA)
     -- iperf.client(socket.LWIP_STA, "47.94.236.172")
 
     sys.wait(5000)
@@ -89,6 +66,13 @@ sys.subscribe("WLAN_SCAN_DONE", function ()
     end
 end)
 
+function ip_ready_handle(ip, adapter)
+    log.info("ip_ready_handle",ip, adapter)
+    if adapter == socket.LWIP_STA then
+        log.info("wifi sta 链接成功")
+    end
+end
+
 --  每隔6秒打印一次airlink统计数据, 调试用
 -- sys.taskInit(function()
 --     while 1 do
@@ -103,7 +87,7 @@ sys.taskInit(function()
     test_sta()
     test_scan()
 end)
-
+sys.subscribe("IP_READY", ip_ready_handle)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -22,6 +22,7 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
 			.hsync_cmd = 0xde,
 			.hsync_reg = 0x60,
 			.write_1line_cmd = 0xde,
+			.write_4line_data = 0,
 	};
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
 //    luat_rtos_task_sleep(5);
@@ -391,6 +392,7 @@ static int jd9261t_init(luat_lcd_conf_t* conf)
 			.hsync_cmd = 0xde,
 			.hsync_reg = 0x60,
 			.write_1line_cmd = 0xde,
+			.write_4line_data = 0,
 	};
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
 //    luat_rtos_task_sleep(5);

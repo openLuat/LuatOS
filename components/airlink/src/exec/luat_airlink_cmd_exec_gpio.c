@@ -70,7 +70,7 @@ int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
 }
 
 int luat_airlink_cmd_exec_gpio_driver_yhm27xx(luat_airlink_cmd_t* cmd, void* userdata) {
-    LLOGE("收到yhm27xx的GPIO设置指令!!!");
+    // LLOGE("收到yhm27xx的GPIO设置指令!!!");
 
     uint8_t params[5];
     memcpy(params, cmd->data + 8, 5);
@@ -81,3 +81,34 @@ int luat_airlink_cmd_exec_gpio_driver_yhm27xx(luat_airlink_cmd_t* cmd, void* use
     
     return 0;
 }
+
+int luat_airlink_cmd_exec_gpio_driver_yhm27xx_reqinfo(luat_airlink_cmd_t* cmd, void* userdata) {
+    // LLOGE("收到yhm27xx的GPIO设置指令!!!");
+
+    uint8_t pin = cmd->data[8];
+    uint8_t chip_id = cmd->data[9];
+    uint8_t params[9] = {0};
+    for (uint8_t i = 0; i < 9; i++)
+    {
+        luat_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(params[i]));
+    }
+    
+    // 反馈数据, 走sys_pub
+    uint8_t buff[256] = {0};
+    int ret = 0;
+    int remain = 256;
+    uint8_t *ptr = buff;
+
+    ret = luat_airlink_syspub_addstring("YHM27XX_REG", strlen("YHM27XX_REG"), ptr, remain);
+    ptr += ret;
+    remain -= ret;
+        
+    ret = luat_airlink_syspub_addstring((const char*)params, 9, ptr, remain);
+    ptr += ret;
+    remain -= ret;
+
+    luat_airlink_syspub_send(buff, ptr - buff);
+    
+    return 0;
+}
+

@@ -1,37 +1,43 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
-
+#include "luat_gpio.h"
+#include "luat_rtos.h"
 #define LUAT_LOG_TAG "sh8601z"
 #include "luat_log.h"
-
-static const uint16_t sh8601z_init_cmds[] = {
-    // 发送初始化命令
-    0x023a,0x0355,
-	0x0253,0x0320,
-    0x0235,0x0300,
-    0x0251,0x03ff,
-};
-
 
 static int sh8601z_inited_init(luat_lcd_conf_t* conf)
 {
 	luat_lcd_qspi_conf_t auto_flush =
 	{
 			.write_4line_cmd = 0x32,
-			.vsync_reg = 0x61,
-			.hsync_cmd = 0xde,
-			.hsync_reg = 0x60,
+			.vsync_reg = 0,
+			.hsync_cmd = 0,
+			.hsync_reg = 0,
 			.write_1line_cmd = 0x02,
 			.write_4line_data = 0x12,
 	};
     luat_lcd_qspi_config(conf, &auto_flush);	//必须在第一个命令发送前就准备好
-    return luat_lcd_init_default(conf);
+    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
+    luat_rtos_task_sleep(10);
+    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
+    luat_rtos_task_sleep(50);
+    luat_lcd_wakeup(conf);
+    luat_rtos_task_sleep(100);
+    uint8_t temp = 0x55;
+    lcd_write_cmd_data(conf,0x3A, &temp, 1);
+    temp = 0x20;
+    lcd_write_cmd_data(conf,0x53, &temp, 1);
+    temp = 0xff;
+    lcd_write_cmd_data(conf,0x51, &temp, 1);
+//    luat_lcd_clear(conf,LCD_BLACK);
+    luat_lcd_display_on(conf);
+    return 0;
 }
 
 luat_lcd_opts_t lcd_opts_sh8601z = {
-    .name = "jd9261t_inited",
-    .init_cmds_len = sizeof(sh8601z_init_cmds)/sizeof(sh8601z_init_cmds[0]),
-    .init_cmds = sh8601z_init_cmds,
+    .name = "sh8601z",
+    .init_cmds_len = 0,
+    .init_cmds = NULL,
     .direction0 = 0x00,
     .direction90 = 0x00,
     .direction180 = 0x40,

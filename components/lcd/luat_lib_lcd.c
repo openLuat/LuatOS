@@ -67,6 +67,7 @@ static const lcd_reg_t lcd_regs[] = {
   {"hx8282",  &lcd_opts_hx8282},
   {"st7701s",  &lcd_opts_st7701s},
   {"st7701sn",  &lcd_opts_st7701sn},
+  {"sh8601z",  &lcd_opts_sh8601z},
   {"", NULL} // 最后一个必须是空字符串
 };
 

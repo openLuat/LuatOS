@@ -18,7 +18,7 @@ static int sh8601z_inited_init(luat_lcd_conf_t* conf)
 	};
     luat_lcd_qspi_config(conf, &auto_flush);	//必须在第一个命令发送前就准备好
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(10);
+    luat_rtos_task_sleep(20);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(50);
     luat_lcd_wakeup(conf);

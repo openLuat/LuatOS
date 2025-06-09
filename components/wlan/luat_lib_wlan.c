@@ -551,7 +551,11 @@ static int l_wlan_powerSave(lua_State *L) {
     int mode = 0;
     if (lua_isinteger(L, 1)) {
         mode = luaL_checkinteger(L, 1);
+        #ifdef LUAT_USE_DRV_WLAN
+        luat_drv_wlan_set_ps(mode);
+        #else
         luat_wlan_set_ps(mode);
+        #endif
     }
     mode = luat_wlan_get_ps();
     lua_pushinteger(L, mode);

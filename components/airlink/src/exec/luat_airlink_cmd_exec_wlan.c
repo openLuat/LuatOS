@@ -102,3 +102,11 @@ int luat_airlink_cmd_exec_wlan_set_mac(luat_airlink_cmd_t* cmd, void* userdata) 
     int ret = luat_wlan_set_mac((int)id, (char*)mac);
     return ret;
 }
+
+int luat_airlink_cmd_exec_wlan_set_ps(luat_airlink_cmd_t* cmd, void* userdata) {
+
+    uint8_t mode = cmd->data[8];
+
+    int ret = luat_wlan_set_ps((int)mode);
+    return ret;
+}

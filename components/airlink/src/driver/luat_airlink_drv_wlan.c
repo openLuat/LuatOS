@@ -167,7 +167,25 @@ const char* luat_airlink_drv_wlan_get_hostname(int id);
 int luat_airlink_drv_wlan_set_hostname(int id, const char* hostname);
 
 // 设置和获取省电模式
-int luat_airlink_drv_wlan_set_ps(int mode);
+int luat_airlink_drv_wlan_set_ps(int mode)
+{
+    uint8_t c_mode = mode;
+
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_airlink_cmd_t) + 8 + 1
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x208, item.len) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    memcpy(cmd->data + 8, &c_mode, 1);
+    
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
 
 int luat_airlink_drv_wlan_get_ps(void);
 

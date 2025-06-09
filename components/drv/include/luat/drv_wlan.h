@@ -35,6 +35,7 @@ const char* luat_drv_wlan_get_hostname(int id);
 int luat_drv_wlan_set_hostname(int id, const char* hostname);
 
 // 设置和获取省电模式
+int luat_drv_wlan_drv_set_ps(int mode);
 int luat_drv_wlan_set_ps(int mode);
 
 int luat_drv_wlan_get_ps(void);

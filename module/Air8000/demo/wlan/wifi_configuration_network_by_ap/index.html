@@ -68,6 +68,7 @@
                         const apname = data.data[index];
                         if (index == 0) {
                             tmp += "<option vaule='" + index + "' selected>" + apname+"</option>\n"
+                            document.getElementById("ssid").value = data.data[0]
                         }
                         else {
                             tmp += "<option vaule='" + index + "'>" + apname+"</option>\n"
@@ -75,6 +76,7 @@
 
                     }
                     document.getElementById("aplist").innerHTML = tmp
+                    
                 })
             })
         }

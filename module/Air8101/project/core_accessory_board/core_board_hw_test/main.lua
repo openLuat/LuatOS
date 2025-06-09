@@ -12,6 +12,7 @@ VERSION：项目版本号，ascii string类型
 1、通过核心板的UART1，接收PC端串口工具下发的测试指令
 2、根据测试指令进行测试，同时返回提示信息给PC端串口工具，提醒人工去判断硬件测试项是否通过
 3、测试指令参考uart_cmd.lua文件注释
+更多说明参考本目录下的readme.md文件
 ]]
 
 PROJECT = "core_board_hw_test"

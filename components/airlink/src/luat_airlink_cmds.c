@@ -67,6 +67,7 @@ CMD_DEFINE(uart_sent_cb);
 
 // PM指令, 0x600开始
 CMD_DEFINE(pm_request);
+CMD_DEFINE(pm_power_ctrl);
 
 // PWM指令, 0x700开始
 CMD_DEFINE(pwm_setup);
@@ -126,6 +127,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 
 #ifdef LUAT_USE_AIRLINK_EXEC_PM
     CMD_REG(0x600, pm_request),
+    CMD_REG(0x601, pm_power_ctrl),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_PWM

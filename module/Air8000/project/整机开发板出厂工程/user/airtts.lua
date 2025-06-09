@@ -7,7 +7,7 @@ local play_string =  "支持 4G,卫星定位,WiFi,蓝牙，5秒极速联网，"
 local play_string1 =  "51个可编程IO/4个UART/4个通用ADC/1个CAN接口，"
 local play_string2 =  "支持LuatOS二次开发，源码开放例程丰富，"
 local play_string3 =  "支持485/232/充电/以太网驱动/多网融合/VoLTE通话，"
-
+local airaudio  = require "airaudio"
 local taskName = "airtts"
 local run_state = 0
 
@@ -60,6 +60,7 @@ function audio_stop()
 end
 
 local function audio_task()
+    airaudio.init()
     if fonts.list then
         log.info("fonts", "u8g2", json.encode(fonts.list("u8g2")))
     end

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh">
+<header>
+    <meta charset="utf-8" />
+    <title>Air8000 Wi-Fi 配网系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h2, h4 {
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #aplist {
+            height: 40px;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+    <script type="text/javascript">
+        function led(key) {
+            fetch("/led/" + key)
+        }
+        function wifi_get_aplist() {
+            var resp = fetch("/scan/list").then(function (resp) {
+                console.log(resp, resp.status)
+                if (resp.status != 200) {
+                    return
+                }
+                resp.json().then(function (data) {
+                    console.log("data", data)
+                    var tmp = ""
+                    for (let index = 0; index < data.data.length; index++) {
+                        const apname = data.data[index];
+                        if (index == 0) {
+                            tmp += "<option vaule='" + index + "' selected>" + apname+"</option>\n"
+                            document.getElementById("ssid").value = data.data[0]
+                        }
+                        else {
+                            tmp += "<option vaule='" + index + "'>" + apname+"</option>\n"
+                        }
+
+                    }
+                    document.getElementById("aplist").innerHTML = tmp
+                    
+                })
+            })
+        }
+        function wifi_scan() {
+            fetch("/scan/go")
+            setTimeout(wifi_get_aplist, 3000)
+        }
+        function wifi_connect() {
+            var ssid = document.getElementById("ssid").value
+            var passwd = document.getElementById("passwd").value
+            console.log(ssid, passwd)
+            fetch("/connect", {
+                method : "POST",
+                body : JSON.stringify({ssid:ssid, passwd:passwd})
+            }).then(function(resp) {
+                if (resp.status == 200) {
+                    alert("正在尝试连接")
+                }
+                else {
+                    alert("出了点问题")
+                }
+            })
+        }
+        function wifi_ipstat() {
+            fetch("/connok").then(function(resp){
+                if (resp.status != 200)
+                    return
+                resp.json().then(function(data){
+                    console.log(data)
+                    if (data && data.ip != "0.0.0.0") {
+                        document.getElementById("ipstat").innerHTML = "已联网"
+                    }
+                })
+            })
+        }
+        function select_changed(event) {
+            var apselect = document.getElementById("aplist")
+            var ssid = document.getElementById("ssid")
+            ssid.value = apselect.options[apselect.selectedIndex].text
+        }
+        setTimeout(wifi_get_aplist, 3000)
+        // setInterval(wifi_ipstat, 3000)
+    </script>
+</header>
+
+<body>
+    <div class="container">
+        <h1>Air8000工业引擎 Wi-Fi 配网系统</h1>
+        <h2>LED 控制</h2>
+        <div>
+            <button onclick="led(1)">LED亮</button>
+            <button onclick="led(0)">LED灭</button>
+        </div>
+        <h2>AP WEB 配网</h2>
+        <div>
+            <button onclick="wifi_scan()">扫描 Wi-Fi</button>
+        </div>
+        <div>
+            <h4>Wi-Fi 列表</h4>
+            <select id="aplist" onchange="select_changed()">
+                <option value="">Wi-Fi名称</option>
+            </select>
+            <input type="text" id="ssid" placeholder="输入 Wi-Fi 名称" style="width: 580px;"/>
+            <input type="text" id="passwd" placeholder="输入 Wi-Fi 密码" style="width: 580px;"/>
+            <button onclick="wifi_connect()">连接</button>
+        </div>
+        <div>
+            <h4>联网状态:</h4>
+            <span id="ipstat" class="status">未联网</span>
+            <button onclick="wifi_ipstat()">检查状态</button>
+        </div>
+        <div>
+            <h4>Power by <a href="https://docs.openluat.com/osapi/lutos_framework/">LuatOS</a></h4>
+        </div>
+    </div>
+</body>
+</html>

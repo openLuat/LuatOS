@@ -1131,8 +1131,6 @@ static int l_lcd_draw_str(lua_State* L) {
 #ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
-extern unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
-extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
 /*
 使用gtfont显示gb2312字符串
@@ -1157,38 +1155,45 @@ lcd.drawGtfontGb2312("啊啊啊",32,0,0)
 lcd.drawGtfontGbk("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_gbk(lua_State *L) {
-    unsigned char buf[128];
 	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
-  const char *fontCode = luaL_checklstring(L, 1,&len);
-  unsigned char size = luaL_checkinteger(L, 2);
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
 	int x = luaL_checkinteger(L, 3);
 	int y = luaL_checkinteger(L, 4);
-  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
-  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
+    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
   
-  if (lcd_dft_conf == NULL) {
-    LLOGE("lcd not init");
-    return 0;
-  }
+    if (lcd_dft_conf == NULL) {
+        LLOGE("lcd not init");
+        return 0;
+    }
+    int buff_size = size*size/8;
+    unsigned char* buf = luat_heap_malloc(buff_size);
+    if (buf == NULL){
+        LLOGE("malloc error");
+        return 0;
+    }
 	while ( i < len){
+        memset(buf,0x00,buff_size);
 		strhigh = *fontCode;
 		fontCode++;
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
 		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
-    if(font_size == 0){
-      LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
-      return 0;
-    }
+        if(font_size == 0){
+        LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
+        return 0;
+        }
 		gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
 		x+=size;
 		i+=2;
 	}
     lcd_auto_flush(lcd_dft_conf);
+    luat_heap_free(buf);
     return 0;
 }
 
@@ -1217,31 +1222,39 @@ lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 lcd.drawGtfontGbkGray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
-	unsigned char buf[2048];
 	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
-  const char *fontCode = luaL_checklstring(L, 1,&len);
-  unsigned char size = luaL_checkinteger(L, 2);
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
 	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
-  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    int buff_size = size*4*size*4/8+512;
+    unsigned char* buf = luat_heap_malloc(buff_size);
+    if (buf == NULL){
+        LLOGE("malloc error");
+        return 0;
+    }
 	while ( i < len){
+        memset(buf,0x00,buff_size);
 		strhigh = *fontCode;
 		fontCode++;
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		int dot = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
-		Gray_Process(buf,dot/font_g,size,font_g);
-		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
-		x+=size;
+        unsigned int* width = NULL;
+        width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
+        // LLOGW("get_Font_Gray width[0]:%d width[1]:%d",width[0], width[1]);
+        gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], 1,luat_lcd_draw_point,lcd_dft_conf,0);
+        x+=str<0x80?width[0]/2+1:width[0];
 		i+=2;
 	}
     lcd_auto_flush(lcd_dft_conf);
+    luat_heap_free(buf);
     return 0;
 }
 
@@ -1259,7 +1272,6 @@ extern unsigned short unicodetogb2312 ( unsigned short	chr);
 lcd.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
-    unsigned char buf[128] = {0};
     size_t len;
     int i = 0;
     uint8_t strhigh,strlow ;
@@ -1270,24 +1282,31 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     int y = luaL_checkinteger(L, 4);
     lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
     // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+    int buff_size = size*size/8+512;
+    unsigned char* buf = luat_heap_malloc(buff_size);
+    if (buf == NULL){
+        LLOGE("malloc error");
+        return 0;
+    }
     for(;;){
-      e = utf8_next((uint8_t)*fontCode);
-      if ( e == 0x0ffff )
-      break;
-      fontCode++;
-      if ( e != 0x0fffe ){
-        uint16_t str = unicodetogb2312(e);
-        memset(buf,0,128);
-        int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
-        if(font_size == 0){
-          LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
-          return 0;
+        memset(buf,0,buff_size);
+        e = utf8_next((uint8_t)*fontCode);
+        if ( e == 0x0ffff )
+        break;
+        fontCode++;
+        if ( e != 0x0fffe ){
+            uint16_t str = unicodetogb2312(e);
+            int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
+            if(font_size == 0){
+            LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
+            return 0;
+            }
+            unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
+            x+=str<0x80?dw:size;
         }
-        unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
-        x+=str<0x80?dw:size;
-      }
     }
     lcd_auto_flush(lcd_dft_conf);
+    luat_heap_free(buf);
     return 0;
 }
 
@@ -1303,19 +1322,26 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
 lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
-	unsigned char buf[2048] = {0};
 	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t e,str;
-  const char *fontCode = luaL_checklstring(L, 1,&len);
-  unsigned char size = luaL_checkinteger(L, 2);
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
 	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
-  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    uint16_t buff_size = size*4*size*4/8+512;
+    unsigned char* buf = luat_heap_malloc(buff_size);
+    // LLOGD("buff_size:%d buf:%p", buff_size,buf);
+    if (buf == NULL){
+        LLOGE("malloc error");
+        return 0;
+    }
 	for(;;){
+        memset(buf,0x00,buff_size);
         e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
         break;
@@ -1323,17 +1349,15 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
         if ( e != 0x0fffe ){
 			uint16_t str = unicodetogb2312(e);
 
-            // unsigned int* width = NULL;
-            // width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
+            unsigned int* width = NULL;
+            width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
             // LLOGW("get_Font_Gray width[0]:%d width[1]:%d",width[0], width[1]);
-
-			int dot = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
-			Gray_Process(buf,dot/font_g,size,font_g);
-            gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,lcd_dft_conf,0);
-        	x+=size;
+            gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], 1,luat_lcd_draw_point,lcd_dft_conf,0);
+        	x+=str<0x80?width[0]/2+1:width[0];
         }
     }
     lcd_auto_flush(lcd_dft_conf);
+    luat_heap_free(buf);
     return 0;
 }
 

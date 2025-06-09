@@ -172,7 +172,8 @@ local function do_agps()
     -- 然后, 判断星历时间和下载星历
     local now = os.time()
     local agps_time = tonumber(io.readFile("/hxxt_tm") or "0") or 0
-    if now - agps_time > 3600 then
+
+    if now - agps_time > 3600 or io.fileSize("/hxxt.dat") < 1024 then
         local url = agps_icoe.opts.url
         if not agps_icoe.opts.url then
             if agps_icoe.opts.sys and 2 == agps_icoe.opts.sys then
@@ -185,12 +186,13 @@ local function do_agps()
         local code = http.request("GET", url, nil, nil, {dst="/hxxt.dat"}).wait()
         if code and code == 200 then
             log.info("agps_icoe", "下载星历成功", url)
+            sys.publish("GNSS_STATE", "AGPS_DOWNLOADED")
             io.writeFile("/hxxt_tm", tostring(now))
         else
             log.info("agps_icoe", "下载星历失败", code)
         end
     else
-        log.info("agps_icoe", "星历不需要更新", now - agps_time)
+        log.info("agps_icoe", "星历不需要更新1", now - agps_time)
     end
 
     local gps_uart_id = agps_icoe.opts.uart_id or 2
@@ -215,6 +217,7 @@ local function do_agps()
     if not lat or not lng then
         -- lat, lng = 23.4068813, 113.2317505
         log.info("agps_icoe", "没有GPS坐标", lat, lng)
+        sys.publish("GNSS_STATE", "AGPS_LBS_LOC_ERR")
         return -- TODO 暂时不写入参考位置
     end
     if socket.sntp then
@@ -229,13 +232,13 @@ local function do_agps()
         uart.write(gps_uart_id, str .. "\r\n")
         sys.wait(20)
     end
-
+    sys.publish("GNSS_STATE", "AGPS_WIRTE_OK")
     local str = string.format("$AIDPOS,%.7f,%s,%.7f,%s,1.0\r\n",
     lat > 0 and lat or (0 - lat), lat > 0 and 'N' or 'S',
     lng > 0 and lng or (0 - lng), lng > 0 and 'E' or 'W')
     log.info("agps_icoe", "写入AGPS参考位置", str)
     uart.write(gps_uart_id, str)
-
+    
     -- 结束
     agps_icoe.agps_tm = now
 end

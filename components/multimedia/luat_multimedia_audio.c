@@ -1,5 +1,8 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
 #include "luat_i2s.h"
 #include "luat_audio.h"
 #include "luat_multimedia.h"
@@ -114,7 +117,11 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
             audio_conf->pa_pin = pin;
             audio_conf->pa_on_level = level;
             luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !level);
+        #ifdef LUAT_USE_DRV_GPIO
+            luat_drv_gpio_set(pin, !level);
+        #else
             luat_gpio_set(pin, !level);
+        #endif
             audio_conf->pa_is_control_enable = 1;
             luat_rtos_timer_create(&audio_conf->pa_delay_timer);
         }else{
@@ -152,7 +159,11 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
             luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)multimedia_id);
         }
         else{
+        #ifdef LUAT_USE_DRV_GPIO
+            luat_drv_gpio_set(audio_conf->pa_pin, on?audio_conf->pa_on_level:!audio_conf->pa_on_level);
+        #else
             luat_gpio_set(audio_conf->pa_pin, on?audio_conf->pa_on_level:!audio_conf->pa_on_level);
+        #endif
             //LLOGD("PA %d,%d,%d", audio_conf->pa_pin, audio_conf->pa_on_level, on);
             if (on) audio_conf->pa_on_enable = 1;
         }
@@ -163,7 +174,11 @@ LUAT_WEAK void luat_audio_power(uint8_t multimedia_id,uint8_t on){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->power_pin == LUAT_GPIO_NONE) return;
+    #ifdef LUAT_USE_DRV_GPIO
+        luat_drv_gpio_set(audio_conf->power_pin, on?audio_conf->power_on_level:!audio_conf->power_on_level);
+    #else
         luat_gpio_set(audio_conf->power_pin, on?audio_conf->power_on_level:!audio_conf->power_on_level);
+    #endif
     }
 }
 

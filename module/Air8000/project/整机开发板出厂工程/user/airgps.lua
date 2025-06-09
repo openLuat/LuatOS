@@ -5,8 +5,11 @@ local gps_is_run  = false
 local lat = ""
 local lng = ""
 local total_sats = 0
+local total_sats_use = 0
 local speed = 0
 local degrees = ""
+local snr = ""
+local snr1 = ""
 local location = ""
 local move = "静止"
 local time = ""
@@ -30,9 +33,40 @@ local function setup_gps()
 end
 local function gps_state_get()
     local gsv =  libgnss.getGsv()
+    -- log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
     if gsv and  gsv.total_sats then
         total_sats = gsv.total_sats
     end
+    local tmp = {}
+    snr = ""
+    snr1 = ""
+    if gsv.total_sats > 0 then
+        for i = 1, gsv.total_sats do
+            if gsv.sats[i].snr and gsv.sats[i].snr ~= 0 then
+                table.insert(tmp, gsv.sats[i].snr)
+            end
+        end
+        total_sats_use = #tmp
+        table.sort(tmp, function(a, b)
+            return a > b
+        end)
+        if #tmp > 16 then
+            for i = 1 , 16 do
+                snr = snr .. tmp[i] .. "," 
+            end
+            
+            for i = 17 , #tmp do
+                snr1 = snr1 .. tmp[i] .. "," 
+            end
+        else
+            for i = 1 , #tmp do
+                snr = snr .. tmp[i] .. "," 
+            end            
+        end
+        -- log.info("gps_state_get",#tmp,snr,snr1 )
+    end
+
+
     local vtg =  libgnss.getVtg()
     if vtg and  gsv.speed_kph then
         speed = gsv.speed_kph
@@ -50,7 +84,7 @@ local function gps_state_get()
         lng = rmc.lng
         variation = rmc.variation
         
-        time = rmc.year .. "年" .. rmc.month .. "月" .. rmc.day .. "日" .. rmc.hour .. "时" .. (rmc.min + 8) .. "分"  ..   rmc.sec .. "秒" 
+        time = rmc.year .. "年" .. rmc.month .. "月" .. rmc.day .. "日" .. (rmc.hour + 8) .. "时" .. rmc.min  .. "分"  ..   rmc.sec .. "秒" 
         -- speed = libgnss.getIntLocation(2)
     end
 end
@@ -73,6 +107,12 @@ sys.subscribe("GNSS_STATE", function(event, ticks)
         -- end
     elseif event == "LOSE" then
         gps_state = "定位失败"
+    elseif event == "AGPS_DOWNLOADED" then
+        gps_state = "定位中:辅助定位数据下载完成"
+    elseif event == "AGPS_LBS_LOC_ERR" then
+        gps_state = "定位中:辅助定位坐标位置获取失败"
+    elseif event == "AGPS_WIRTE_OK" then
+        gps_state = "定位中:辅助定位写入完成,正在搜星"
     end
 end)
 
@@ -82,27 +122,29 @@ function airgps.run()       -- TTS 播放主程序
     
     lcd.setFont(lcd.font_opposansm12_chinese) -- 具体取值可参考api文档的常量表
     while true do
-        lcd.clear(_G.bkcolor) 
-        sys.wait(100)
-        
+        sys.wait(1000)
+        lcd.clear(_G.bkcolor)
+        -- log.info("scell", json.encode(mobile.scell()))
         gps_state_get()
         -- log.info("airgps.run 11 ")
         
         lcd.drawStr(0,80,"GPS 状态:" .. gps_state)
-        lcd.drawStr(0,110,"经度:" .. lng  .. " 纬度:".. lat)
-        lcd.drawStr(0,140,"卫星数:" .. total_sats)
-        lcd.drawStr(0,170,"速度:" .. speed .. "千米/小时")
-        lcd.drawStr(0,200,"方向:" .. degrees)
-        lcd.drawStr(0,230,"位置:" .. location)
-        lcd.drawStr(0,260,"时间:" .. time)
-        lcd.drawStr(0,290,"运动状态:" .. move)
+        lcd.drawStr(0,110,"经度:" .. lng  .. " 纬度:".. lat .. " (WGS-84坐标系)" )
+        lcd.drawStr(0,140,"可见卫星数:" .. total_sats .. " ,可用卫星数:" .. total_sats_use)
+        lcd.drawStr(0,160,"信噪比:" .. snr)      
+        lcd.drawStr(0,180,snr1)       
+        lcd.drawStr(0,200,"速度:" .. speed .. "千米/小时")
+        lcd.drawStr(0,230,"方向:" .. degrees)
+        lcd.drawStr(0,260,"位置:" .. location)
+        lcd.drawStr(0,290,"高精度时间:" .. time)
+        lcd.drawStr(0,320,"运动状态:" .. move)
 
 
         lcd.showImage(20,360,"/luadb/back.jpg")
         if gps_is_run then
-            lcd.showImage(130,370,"/luadb/stop_gps.jpg")
+            lcd.showImage(130,370,"/luadb/stop.jpg")
         else
-            lcd.showImage(130,370,"/luadb/start_gps.jpg")
+            lcd.showImage(130,370,"/luadb/start.jpg")
         end
         
 
@@ -115,7 +157,7 @@ function airgps.run()       -- TTS 播放主程序
     end
 end
 
-local function stop_gps()
+local function stop()
     gnss.stop()
 end
 
@@ -124,7 +166,7 @@ function airgps.tp_handal(x,y,event)       -- 判断是否需要停止播放
         run_state = 0
     elseif x > 130 and  x < 241 and y > 370  and  y < 417 then
         if  gps_is_run then
-            sys.taskInit(stop_gps, "stop_gps")   
+            sys.taskInit(stop, "stop")   
         else
             sys.taskInit(setup_gps, "setup_gps")   
         end

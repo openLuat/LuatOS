@@ -26,6 +26,14 @@ sys.subscribe("IP_LOSE", function(id)
     log.info("ip_lose", id)
 end)
 
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", function(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt, data)
+end)
+
 sys.taskInit(function()
 
     while 1 do

@@ -24,7 +24,7 @@ typedef struct luat_camera_cb {
     int scanned;
 } luat_camera_cb_t;
 static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
-
+static uint64_t camera_idp = 0;
 int l_camera_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
@@ -177,6 +177,13 @@ static int l_camera_init(lua_State *L){
         }
         lua_pop(L, 1);
 
+        lua_pushliteral(L, "async");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.async = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
         lua_pushliteral(L, "init_cmd");
         lua_gettable(L, 1);
         if (lua_istable(L, -1)) {
@@ -231,9 +238,13 @@ static int l_camera_init(lua_State *L){
         lua_pop(L, 1);
         result = luat_camera_init(&conf);
         if (result < 0) {
-        	lua_pushboolean(L, 0);
+            lua_pushboolean(L, 0);
         } else {
-        	lua_pushinteger(L, result);
+            if (conf.async) {
+                camera_idp = luat_pushcwait(L);
+            } else {
+                lua_pushinteger(L, result);
+            }
         }
 
     } else if (lua_isinteger(L, 1)) {
@@ -588,3 +599,24 @@ LUAMOD_API int luaopen_camera( lua_State *L ) {
     return 1;
 }
 
+//------------------------------------------------------
+static int32_t l_camera_callback(lua_State *L, void* ptr) {
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    if (camera_idp) {
+        if (msg->arg1 < 0) {
+            lua_pushinteger(L, 0);
+        } else {
+            lua_pushinteger(L, msg->arg1);
+        }
+        luat_cbcwait(L, camera_idp, 1);
+        camera_idp = 0;
+    }
+    return 0;
+}
+
+void luat_camera_async_init_result(int result) {
+    rtos_msg_t msg = {0};
+    msg.handler = l_camera_callback;
+    msg.arg1 = result;
+    luat_msgbus_put(&msg, 0);
+}

@@ -29,8 +29,13 @@ typedef struct pkg_evt
     ch390h_t *ch;
 }pkg_evt_t;
 
-
-// static void print_erp_pkg(uint8_t* buff, uint16_t len);
+#ifdef LUAt_USE_NETDRV_LWIP_ARP
+extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
+extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
+#else
+#define luat_netdrv_netif_input_main netif_input
+#define luat_netdrv_etharp_output ulwip_etharp_output
+#endif
 
 extern ch390h_t* ch390h_drvs[MAX_CH390H_NUM];
 
@@ -187,7 +192,7 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
 static err_t luat_netif_init(struct netif *netif) {
     ch390h_t* ch = (ch390h_t*)netif->state;
     netif->linkoutput = netif_output;
-    netif->output     = ulwip_etharp_output;
+    netif->output     = luat_netdrv_etharp_output;
     #if ENABLE_PSIF
     netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
     #endif
@@ -285,7 +290,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
         // TODO 判断mac是否合法
         memcpy(ch->hwaddr, buff, 6);
-        netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, luat_netif_init, netif_input);
+        netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, luat_netif_init, luat_netdrv_netif_input_main);
         ch->status++;
         ch->netdrv->dataout = ch390h_dataout;
         luat_ch390h_basic_config(ch);

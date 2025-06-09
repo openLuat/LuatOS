@@ -45,6 +45,7 @@ typedef struct
 	struct udp_pcb *dns_udp[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	HANDLE dns_timer[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint8_t next_socket_index;
+	HANDLE arp_timer;
 }net_lwip2_ctrl_struct;
 
 

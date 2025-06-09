@@ -72,3 +72,7 @@ int luat_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t RegAddres
 {
     return luat_airlink_drv_gpio_driver_yhm27xx(Pin, ChipID, RegAddress, IsRead, Data);
 }
+
+int luat_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID) {
+    return luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(Pin, ChipID);
+}

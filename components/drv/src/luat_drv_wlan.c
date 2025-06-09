@@ -78,9 +78,8 @@ int luat_drv_wlan_set_hostname(int id, const char* hostname) {
     return -1;
 }
 
-// 设置和获取省电模式
-int luat_drv_wlan_set_ps(int mode) {
-    return -1;
+int luat_drv_wlan_drv_set_ps(int mode) {
+    return luat_airlink_drv_wlan_set_ps(mode);
 }
 
 int luat_drv_wlan_get_ps(void) {
@@ -186,8 +185,8 @@ int luat_wlan_set_hostname(int id, const char* hostname) {
 }
 
 // 设置和获取省电模式
-int luat_wlan_set_ps(int mode) {
-    return luat_drv_wlan_set_ps(mode);
+int luat_drv_wlan_set_ps(int mode) {
+    return luat_drv_wlan_drv_set_ps(mode);
 }
 
 int luat_wlan_get_ps(void) {

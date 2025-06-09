@@ -50,6 +50,7 @@ CMD_DEFINE(wlan_ap_stop);
 CMD_DEFINE(wlan_scan);
 CMD_DEFINE(wlan_scan_result_cb);
 CMD_DEFINE(wlan_set_mac);
+CMD_DEFINE(wlan_set_ps);
 
 // GPIO指令, 0x300开始
 CMD_DEFINE(gpio_setup);
@@ -57,6 +58,7 @@ CMD_DEFINE(gpio_set);
 CMD_DEFINE(gpio_get);
 CMD_DEFINE(gpio_get_result);
 CMD_DEFINE(gpio_driver_yhm27xx);
+CMD_DEFINE(gpio_driver_yhm27xx_reqinfo);
 
 // UART指令, 0x400开始
 CMD_DEFINE(uart_setup);
@@ -105,6 +107,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x204, wlan_ap_stop),
     CMD_REG(0x205, wlan_scan),
     CMD_REG(0x207, wlan_set_mac),
+    CMD_REG(0x208, wlan_set_ps),
 #else
     CMD_REG(0x206, wlan_scan_result_cb),
 #endif
@@ -114,6 +117,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x301, gpio_set),
     // CMD_REG(0x302, gpio_get),
     CMD_REG(0x304, gpio_driver_yhm27xx),
+    CMD_REG(0x305, gpio_driver_yhm27xx_reqinfo),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_UART

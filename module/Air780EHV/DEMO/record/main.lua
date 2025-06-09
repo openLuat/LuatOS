@@ -95,6 +95,8 @@ function audio_setup()
     pins.setup(58, "I2C0_SDA")
     pins.setup(57, "I2C0_SCL")
 
+    sys.wait(200)
+
 
     i2c.setup(i2c_id, i2c.FAST) -- 设置i2c
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,
@@ -105,7 +107,6 @@ function audio_setup()
         chip = "es8311",
         i2cid = i2c_id,
         i2sid = i2s_id,
-        voltage = audio.VOLTAGE_1800
     }) -- 通道0的硬件输出通道设置为I2S
 
     audio.vol(multimedia_id, voice_vol)

@@ -23,7 +23,7 @@
 #define SOCKET_BUF_LEN	(3 * TCP_MSS)
 #endif
 
-
+extern void luat_netdrv_etharp_tmr(void);
 static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
@@ -46,6 +46,7 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_NETIF_SET_IP,
 	EV_LWIP_NETIF_IPV6_BY_MAC,
+	EV_LWIP_ARP_TIMER,
 };
 
 #define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
@@ -72,6 +73,14 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
+#ifdef LUAt_USE_NETDRV_LWIP_ARP
+static LUAT_RT_RET_TYPE net_lwip_arp_timer_cb(LUAT_RT_CB_PARAM)
+{
+	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER, 0, 0, (uint32_t)param);
+	return LUAT_RT_RET;
+}
+#endif
+
 void net_lwip2_init(uint8_t adapter_index)
 {
 	uint8_t i;
@@ -92,6 +101,10 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
 		dns_init_client(&prvlwip.dns_client);
+		#ifdef LUAt_USE_NETDRV_LWIP_ARP
+		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
+		platform_start_timer(prvlwip.arp_timer, 1000, 1);
+		#endif
 	}
 	if (prvlwip.dns_udp[adapter_index] == NULL) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
@@ -897,6 +910,11 @@ static void net_lwip2_task(void *param)
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);
 		break;
+	#ifdef LUAt_USE_NETDRV_LWIP_ARP
+	case EV_LWIP_ARP_TIMER:
+		luat_netdrv_etharp_tmr();
+		break;
+	#endif
 	default:
 		NET_DBG("unknow event %x,%x", event.ID, event.Param1);
 		break;

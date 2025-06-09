@@ -215,7 +215,7 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     ptr->netif = netif;
     ptr->len = len;
     // uint64_t tbegin = luat_mcu_tick64();
-    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
+    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 1);
     // uint64_t tend = luat_mcu_tick64();
     // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
     // if (tused > 50) {
@@ -255,3 +255,22 @@ void luat_netdrv_debug_set(int id, int enable) {
         LLOGW("netdrv %d not support debug", id);
     }
 }
+
+#include "lwip/etharp.h"
+// #include "luat_netdrv_etharp.h"
+extern err_t luat_netdrv_ethernet_input(struct pbuf *p, struct netif *netif);
+err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp)
+{
+//   LWIP_ASSERT_CORE_LOCKED();
+
+  LWIP_ASSERT("netif_input: invalid pbuf", p != NULL);
+  LWIP_ASSERT("netif_input: invalid netif", inp != NULL);
+
+#if LWIP_ETHERNET
+  if (inp->flags & (NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET)) {
+    return luat_netdrv_ethernet_input(p, inp);
+  } else
+#endif /* LWIP_ETHERNET */
+    return ip_input(p, inp);
+}
+

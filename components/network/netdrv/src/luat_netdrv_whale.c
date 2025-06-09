@@ -19,6 +19,14 @@
 #define LUAT_LOG_TAG "netdrv.whale"
 #include "luat_log.h"
 
+#ifdef LUAt_USE_NETDRV_LWIP_ARP
+extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
+extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
+#else
+#define luat_netdrv_netif_input_main netif_input
+#define luat_netdrv_etharp_output ulwip_etharp_output
+#endif
+
 static err_t luat_netif_init(struct netif *netif);
 static err_t netif_output(struct netif *netif, struct pbuf *p);
 static int netif_ip_event_cb(lua_State *L, void* ptr);
@@ -80,7 +88,7 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     cfg->ulwip.netif = netdrv->netif;
     cfg->ulwip.adapter_index = cfg->id;
 
-    netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, netif_input);
+    netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, luat_netdrv_netif_input_main);
 
     // 网卡设置成半可用状态
     if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
@@ -124,7 +132,7 @@ static err_t luat_netif_init(struct netif *netif) {
 
     netif->linkoutput = netif_output;
     if (netif->flags & NETIF_FLAG_ETHARP) {
-        netif->output = ulwip_etharp_output;
+        netif->output = luat_netdrv_etharp_output;
     }
     else {
         netif->output = netif_ip4_output;

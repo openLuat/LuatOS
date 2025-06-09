@@ -69,6 +69,7 @@ typedef struct
 	uint8_t hsync_cmd;
 	uint8_t hsync_reg;
 	uint8_t write_1line_cmd;
+	uint8_t write_4line_data;
 }luat_lcd_qspi_conf_t;
 
 typedef struct luat_lcd_conf {
@@ -146,6 +147,7 @@ extern luat_lcd_opts_t lcd_opts_nv3037;
 extern luat_lcd_opts_t lcd_opts_h050iwv;
 extern luat_lcd_opts_t lcd_opts_jd9261t_inited;
 extern luat_lcd_opts_t lcd_opts_jd9261t;
+extern luat_lcd_opts_t lcd_opts_sh8601z;
 
 static inline luat_color_t color_swap(luat_color_t color) {
     luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);

@@ -15,6 +15,7 @@
 #include "luat_mem.h"
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
+#include "luat_msgbus.h"
 
 #define LUAT_LOG_TAG "yhm27xx"
 #include "luat_log.h"
@@ -48,7 +49,11 @@ static int l_yhm27xx_cmd(lua_State *L)
     is_read = 0;
     data = luaL_checkinteger(L, 4);
   }
+  #ifdef LUAT_USE_DRV_GPIO
+  if(luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+  #else
   if(luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+  #endif
   {
     lua_pushboolean(L, 0);
     return 1;
@@ -62,9 +67,45 @@ static int l_yhm27xx_cmd(lua_State *L)
   return 1;
 }
 
+static uint8_t reg_infos[9] = {0};
+
+static int l_yhm_27xx_cb(lua_State *L, void *ptr) {
+  lua_getglobal(L, "sys_pub");
+  if (lua_isfunction(L, -1)) {
+    lua_pushstring(L, "YHM27XX_REG");
+    lua_pushlstring(L, (const char*)reg_infos, 9);
+    lua_call(L, 2, 0);
+  }
+  return 0;
+}
+
+static void luat_gpio_driver_yhm27xx_reqinfo(uint8_t pin, uint8_t chip_id) {
+  
+  for (uint8_t i = 0; i < 9; i++)
+  {
+    luat_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(reg_infos[i]));
+  }
+  rtos_msg_t msg = {0};
+  msg.handler = l_yhm_27xx_cb;
+  luat_msgbus_put(&msg, 0);
+}
+
+static int l_yhm27xx_reqinfo(lua_State *L)
+{
+  uint8_t pin = luaL_checkinteger(L, 1);
+  uint8_t chip_id = luaL_checkinteger(L, 2);
+  #ifdef LUAT_USE_DRV_GPIO
+  luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+  #else
+  luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+  #endif
+  return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_yhm27xx[] = {
         {"cmd",     ROREG_FUNC(l_yhm27xx_cmd)},
+        {"reqinfo", ROREG_FUNC(l_yhm27xx_reqinfo)},
         {NULL,          ROREG_INT(0)}
 };
 

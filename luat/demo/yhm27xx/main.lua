@@ -39,58 +39,44 @@ local set_2I = 0xC0         --2倍
 sys.taskInit(function()
     sys.wait(1000)
     local result, data = yhm27xx.cmd(gpio_pin, sensor_addr, id_register)
-    -- log.info("yhm27xxx", result, data)
-    if result == true and data ~= nil then
-        log.info("yhm27xxx", "yhm27xx存在--")
-
-        sys.wait(200)
-        --设置充电电压为4V
-        result,data = sensor.yhm27xx(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
-        if result == true then
-            log.info("yhm27xxx 设置电压成功")
-        else
-            log.info("yhm27xxx 设置电压失败")
-        end
-        sys.wait(200)
-        --充电电流设置为1倍
-        result,data = yhm27xx.cmd(gpio_pin, sensor_addr, I_ctrl_register, set_I)
-
-        if result == true then
-            log.info("yhm27xxx 设置电流成功")
-        else
-            log.info("yhm27xxx 设置电流失败")
-        end
-
-        log.info("开始读所有寄存器的值")
-        yhm27xx.reqinfo(gpio_pin, sensor_addr)
-        sys.subscribe("YHM27XX_REG", function(data)
-            -- log.info("yhm27xx", data and data:toHex())
-            if data then
-                Data_reg00 = data:byte(1)
-                Data_reg01 = data:byte(2)
-                Data_reg02 = data:byte(3)
-                Data_reg03 = data:byte(4)
-                Data_reg04 = data:byte(5)
-                Data_reg05 = data:byte(6)
-                Data_reg06 = data:byte(7)
-                Data_reg07 = data:byte(8)
-                Data_reg08 = data:byte(9)
-                log.info("yhm27xxx 0x00 读取数据为：" , Data_reg00)
-                log.info("yhm27xxx 0x01 读取数据为：" , Data_reg01)
-                log.info("yhm27xxx 0x02 读取数据为：" , Data_reg02)
-                log.info("yhm27xxx 0x03 读取数据为：" , Data_reg03)
-                log.info("yhm27xxx 0x04(无含义) 读取数据为：" , Data_reg04)
-                log.info("yhm27xxx 0x05 读取数据为：" , Data_reg05)
-                log.info("yhm27xxx 0x06 读取数据为：" , Data_reg06)
-                log.info("yhm27xxx 0x07 读取数据为：" , Data_reg07)
-                log.info("yhm27xxx 0x08 读取数据为：" , Data_reg08)
-
-            end
-        end)
-
+    sys.wait(200)
+    --设置充电电压为4V
+    result,data = sensor.yhm27xx(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
+    if result == true then
+        log.info("yhm27xxx 设置电压成功")
     else
-        log.warn("yhm27xx", "yhm27xx不存在")
+        log.info("yhm27xxx 设置电压失败")
     end
+    sys.wait(200)
+    --充电电流设置为1倍
+    result,data = yhm27xx.cmd(gpio_pin, sensor_addr, I_ctrl_register, set_I)
+
+    if result == true then
+        log.info("yhm27xxx 设置电流成功")
+    else
+        log.info("yhm27xxx 设置电流失败")
+    end
+
+    log.info("开始读所有寄存器的值")
+    sys.wait(200)
+    yhm27xx.reqinfo(gpio_pin, sensor_addr)
+    local result, data = sys.waitUntil("YHM27XX_REG", 200)
+    local Data_reg={}
+    if result then
+        for i=1,9 do
+            Data_reg[i] = data:byte(i)
+        end
+        log.info("yhm27xxx 寄存器0x00 功能:设置充电电压，   读取数据为：" , Data_reg[1])
+        log.info("yhm27xxx 寄存器0x01 功能:设置充电电流,    读取数据为：" , Data_reg[2])
+        log.info("yhm27xxx 寄存器0x02 功能:设置模式，       读取数据为：" , Data_reg[3])
+        log.info("yhm27xxx 寄存器0x03 功能:配置寄存器,      读取数据为：" , Data_reg[4])
+        log.info("yhm27xxx        0x04(无含义) 读取数据为：" , Data_reg[5])
+        log.info("yhm27xxx 寄存器0x05 功能:状态寄存器1(只读),读取数据为：" , Data_reg[6])
+        log.info("yhm27xxx 寄存器0x06 功能:状态寄存器2(只读),读取数据为：" , Data_reg[7])
+        log.info("yhm27xxx 寄存器0x07 功能:状态寄存器3(只读),读取数据为：" , Data_reg[8])
+        log.info("yhm27xxx 寄存器0x08 功能:id寄存器(只读),   读取数据为：" , Data_reg[9])
+    end
+
 end)
 
 sys.run()

@@ -14,15 +14,8 @@ adc.setRange(adc.ADC_RANGE_MAX) -- 启用分压
 
 local rtos_bsp = rtos.bsp()
 function adc_pin() -- 根据不同开发板，设置ADC编号
-    if rtos_bsp == "EC618" then --Air8000开发板ADC编号
-        -- 默认不开启分压,范围是0-1.2v精度高
-        -- 设置分压要在adc.open之前设置，否则无效!!
-        -- adc.setRange(adc.ADC_RANGE_3_8)
-        return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT
-    else
-        log.info("main", "define ADC pin in main.lua")
-        return 0,1,255,255, adc.CH_CPU ,adc.CH_VBAT
-    end
+    log.info("main", "define ADC pin in main.lua")
+    return 0,1,255,255, adc.CH_CPU ,adc.CH_VBAT
 end
 local adc_pin_0,adc_pin_1,adc_pin_2,adc_pin_3,adc_pin_temp,adc_pin_vbat=adc_pin()
 

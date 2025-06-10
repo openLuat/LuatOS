@@ -64,6 +64,12 @@
 // 使用本地的定义, 不受LWIP配置的影响
 #undef ARP_TABLE_SIZE
 #define ARP_TABLE_SIZE 127
+#undef ARP_QUEUEING
+#define ARP_QUEUEING 1
+#undef ARP_QUEUE_LEN
+#define ARP_QUEUE_LEN 3
+#undef ARP_MAXAGE
+#define ARP_MAXAGE 300
 
 #ifndef netif_addr_idx_t
 #define netif_addr_idx_t u8_t

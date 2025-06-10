@@ -11,7 +11,7 @@ sys = require("sys")
 --初始化通讯串口
 local uartid = 1        -- 根据实际设备选取不同的uartid
 local uart485Pin = 17   -- 用于控制485接收和发送的使能引脚
-gpio.setup(16, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
+gpio.setup(16, 1)        --打开电源(开发板485供电脚是gpio16，用开发板测试需要开机初始化拉高gpio16)
 uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 

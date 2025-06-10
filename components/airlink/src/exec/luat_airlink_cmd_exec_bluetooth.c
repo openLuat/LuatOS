@@ -50,10 +50,10 @@ int luat_airlink_cmd_exec_ble_deinit(luat_airlink_cmd_t *cmd, void *userdata)
 int luat_airlink_cmd_exec_ble_set_name(luat_airlink_cmd_t *cmd, void *userdata)
 {
     luat_ble_t* luat_ble = (luat_ble_t *)(cmd->data + 8);
-    char* name = (char*)cmd->data[8];
-    uint8_t len = cmd->data[9];
+    char* name = (char*)(cmd->data + 8);
+    uint8_t len = cmd->len - 8;
     int ret = luat_ble_set_name(luat_ble, name, len);
-    return 0;
+    return ret;
 }
 
 int luat_airlink_cmd_exec_ble_set_max_mtu(luat_airlink_cmd_t *cmd, void *userdata)

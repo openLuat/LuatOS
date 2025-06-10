@@ -90,6 +90,20 @@ static void luat_gpio_driver_yhm27xx_reqinfo(uint8_t pin, uint8_t chip_id) {
   luat_msgbus_put(&msg, 0);
 }
 
+/*
+获取最新的寄存器信息(异步)
+@api    yhm27xx.reqinfo(pin, chip_id)
+@int    gpio端口号
+@int    芯片ID
+@return nil 无返回值
+@usage
+
+sys.subscribe("YHM27XX_REG", function(data)
+  -- 注意, 会一次性读出0-9,总共8个寄存器值
+  log.info("yhm27xx", data and data:toHex())
+end)
+yhm27xx.reqinfo(24, 0x04)
+*/
 static int l_yhm27xx_reqinfo(lua_State *L)
 {
   uint8_t pin = luaL_checkinteger(L, 1);

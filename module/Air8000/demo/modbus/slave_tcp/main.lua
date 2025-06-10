@@ -9,7 +9,7 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
 log.info("ch390", "打开LDO供电")
-gpio.setup(140, 1)  --打开lan供电
+gpio.setup(140, 1)  --打开开发板lan供电
 require "lan"
 
 -- 创建从站设备

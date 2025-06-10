@@ -10,11 +10,9 @@ _G.sysplus = require("sysplus")
 
 --初始化网络
 log.info("ch390", "打开LDO供电")
-gpio.setup(20, 1)  --打开lan供电
+gpio.setup(140, 1)  --打开开发板lan供电
 
-mcu.hardfault(0) -- 死机后停机，一般用于调试状态
 require "lan"
-
 
 -- 创建主站设备，TCP模式
 mb_tcp = modbus.create_master(modbus.MODBUS_TCP, socket.LWIP_ETH)

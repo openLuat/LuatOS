@@ -24,7 +24,7 @@ end, gpio.PULLDOWN)
 sys.taskInit(function()
     sys.wait(1000)
     airlink.debug(1)
-    airlink.sfota("/luadb/air8000s_v6.bin")
+    airlink.sfota("/luadb/air8000s_v7.bin")
 end)
 
 

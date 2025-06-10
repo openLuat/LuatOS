@@ -3,6 +3,9 @@
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include "luat_ble.h"
+#ifdef LUAT_USE_DRV_BLUETOOTH
+#include "luat/drv_bluetooth.h"
+#endif
 
 #include "luat_log.h"
 #define LUAT_LOG_TAG "ble"
@@ -215,7 +218,11 @@ static int l_ble_gatt_create(lua_State* L) {
         }
         lua_pop(L, 1);
     }
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    luat_drv_ble_create_gatt(luat_ble, &luat_ble_gatt_service);
+#else
     luat_ble_create_gatt(luat_ble, &luat_ble_gatt_service);
+#endif
     for (size_t i = 0; i < luat_ble_gatt_service.characteristics_num; i++){
         lua_pushinteger(L, luat_ble_gatt_service.characteristics[i].handle);
     }
@@ -269,7 +276,11 @@ static int l_ble_advertising_create(lua_State* L) {
     }
     lua_pop(L, 1);
 
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    luat_drv_ble_create_advertising(luat_ble, &luat_ble_adv_cfg);
+#else
     luat_ble_create_advertising(luat_ble, &luat_ble_adv_cfg);
+#endif
 
     // 广播内容 (adv data)
     uint8_t adv_data[255] = {0};
@@ -290,7 +301,11 @@ static int l_ble_advertising_create(lua_State* L) {
                         uint8_t adv_type = (uint8_t)luaL_checknumber(L, -1);
                         adv_data[adv_index++] = adv_type;
                         if (adv_type == LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME){
+                        #ifdef LUAT_USE_DRV_BLUETOOTH
+                            luat_drv_ble_set_name(luat_ble, data, len);
+                        #else
                             luat_ble_set_name(luat_ble, data, len);
+                        #endif
                             local_name_set_flag = 1;
                         }
                     }else{
@@ -315,17 +330,29 @@ static int l_ble_advertising_create(lua_State* L) {
 
     if (!local_name_set_flag){
         sprintf_(complete_local_name, "LuatOS_%s", luat_os_bsp());
+    #ifdef LUAT_USE_DRV_BLUETOOTH
+        luat_drv_ble_set_name(luat_ble, complete_local_name, strlen(complete_local_name));
+    #else
         luat_ble_set_name(luat_ble, complete_local_name, strlen(complete_local_name));
+    #endif
     }
 
     /* set adv paramters */
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    luat_drv_ble_set_adv_data(luat_ble, adv_data, adv_index);
+#else
     luat_ble_set_adv_data(luat_ble, adv_data, adv_index);
+#endif
 
     lua_pushstring(L, "rsp_data");
     if (LUA_TSTRING == lua_gettable(L, 2)) {
         uint8_t* rsp_data = luaL_checklstring(L, -1, &len);
         if (len){
+        #ifdef LUAT_USE_DRV_BLUETOOTH
+            luat_drv_ble_set_scan_rsp_data(luat_ble, rsp_data, len);
+        #else
             luat_ble_set_scan_rsp_data(luat_ble, rsp_data, len);
+        #endif
         }
     }
     lua_pop(L, 1);
@@ -338,13 +365,21 @@ end:
 
 static int l_ble_advertising_start(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    lua_pushboolean(L, luat_drv_ble_start_advertising(luat_ble)?0:1);
+#else
     lua_pushboolean(L, luat_ble_start_advertising(luat_ble)?0:1);
+#endif
     return 1;
 }
 
 static int l_ble_advertising_stop(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    lua_pushboolean(L, luat_drv_ble_stop_advertising(luat_ble)?0:1);
+#else
     lua_pushboolean(L, luat_ble_stop_advertising(luat_ble)?0:1);
+#endif
     return 1;
 }
 
@@ -378,7 +413,11 @@ static int l_ble_read_response_value(lua_State* L) {
         size_t len = 0;
         const char* response_data = luaL_checklstring(L, -1, &len);
         LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
+    #ifdef LUAT_USE_DRV_BLUETOOTH
+        int ret = luat_drv_ble_read_response_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)response_data, len);
+    #else
         int ret = luat_ble_read_response_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)response_data, len);
+    #endif
         lua_pushboolean(L, ret==0?1:0);
         return 1;
     }
@@ -417,7 +456,11 @@ static int l_ble_write_notify(lua_State* L) {
         size_t len = 0;
         const char* value = luaL_checklstring(L, -1, &len);
         // LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
+    #ifdef LUAT_USE_DRV_BLUETOOTH
+        luat_drv_ble_write_notify_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)value, len);
+    #else
         luat_ble_write_notify_value(luat_ble, conn_idx, service_id, handle, (uint8_t *)value, len);
+    #endif
 
         return 1;
     }
@@ -437,19 +480,31 @@ static int l_ble_scanning_create(lua_State* L) {
             .scan_interval = 100,
             .scan_window = 100,
         };
+    #ifdef LUAT_USE_DRV_BLUETOOTH
+        lua_pushboolean(L, luat_drv_ble_create_scanning(luat_ble,&luat_ble_scan_cfg)?0:1);
+    #else
         lua_pushboolean(L, luat_ble_create_scanning(luat_ble,&luat_ble_scan_cfg)?0:1);
+    #endif
         return 1;
     }
     return 0;
 }
 static int l_ble_scanning_start(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    lua_pushboolean(L, luat_drv_ble_start_scanning(luat_ble)?0:1);
+#else
     lua_pushboolean(L, luat_ble_start_scanning(luat_ble)?0:1);
+#endif
     return 1;
 }
 
 static int l_ble_scanning_stop(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+#ifdef LUAT_USE_DRV_BLUETOOTH
+
+    lua_pushboolean(L, luat_drv_ble_stop_scanning(luat_ble)?0:1);
+#else
     lua_pushboolean(L, luat_ble_stop_scanning(luat_ble)?0:1);
     return 1;
 }

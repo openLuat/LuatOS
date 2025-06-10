@@ -67,6 +67,28 @@ CMD_DEFINE(uart_close);
 CMD_DEFINE(uart_data_cb);
 CMD_DEFINE(uart_sent_cb);
 
+// bluetooth 蓝牙指令，0x500开始
+CMD_DEFINE(bluetooth_init);
+
+CMD_DEFINE(ble_uuid_swap);
+CMD_DEFINE(ble_init);
+CMD_DEFINE(ble_deinit);
+CMD_DEFINE(ble_set_name);
+CMD_DEFINE(ble_set_max_mtu);
+CMD_DEFINE(ble_create_advertising);
+CMD_DEFINE(ble_set_adv_data);
+CMD_DEFINE(ble_set_scan_rsp_data);
+CMD_DEFINE(ble_start_advertising);
+CMD_DEFINE(ble_stop_advertising);
+CMD_DEFINE(ble_delete_advertising);
+CMD_DEFINE(ble_create_gatt);
+CMD_DEFINE(ble_read_response_value);
+CMD_DEFINE(ble_write_notify_value);
+CMD_DEFINE(ble_create_scanning);
+CMD_DEFINE(ble_start_scanning);
+CMD_DEFINE(ble_stop_scanning);
+CMD_DEFINE(ble_delete_scanning);
+
 // PM指令, 0x600开始
 CMD_DEFINE(pm_request);
 CMD_DEFINE(pm_power_ctrl);
@@ -127,6 +149,29 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #else
     CMD_REG(0x410, uart_data_cb),
     CMD_REG(0x411, uart_sent_cb),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
+    CMD_REG(0x500, bluetooth_init),
+
+    CMD_REG(0x510, ble_uuid_swap),
+    CMD_REG(0x511, ble_init),
+    CMD_REG(0x512, ble_deinit),
+    CMD_REG(0x513, ble_set_name),
+    CMD_REG(0x514, ble_set_max_mtu),
+    CMD_REG(0x515, ble_create_advertising),
+    CMD_REG(0x516, ble_set_adv_data),
+    CMD_REG(0x517, ble_set_scan_rsp_data),
+    CMD_REG(0x518, ble_start_advertising),
+    CMD_REG(0x519, ble_stop_advertising),
+    CMD_REG(0x51a, ble_delete_advertising),
+    CMD_REG(0x51b, ble_create_gatt),
+    CMD_REG(0x51c, ble_read_response_value),
+    CMD_REG(0x51d, ble_write_notify_value),
+    CMD_REG(0x51e, ble_create_scanning),
+    CMD_REG(0x51f, ble_start_scanning),
+    CMD_REG(0x520, ble_stop_scanning),
+    CMD_REG(0x521, ble_delete_scanning),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_PM

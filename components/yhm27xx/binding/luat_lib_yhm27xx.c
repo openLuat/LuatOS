@@ -44,16 +44,21 @@ static int l_yhm27xx_cmd(lua_State *L)
   uint8_t reg = luaL_checkinteger(L, 3);
   uint8_t data = 0;
   uint8_t is_read = 1;
+  int ret = 0;
   if (!lua_isnone(L, 4))
   {
     is_read = 0;
     data = luaL_checkinteger(L, 4);
   }
   #ifdef LUAT_USE_DRV_GPIO
-  if(luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+  if (pin >= 128) {
+    ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+  }
+  else
   #else
-  if(luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data))
+    ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
   #endif
+  if (ret != 0)
   {
     lua_pushboolean(L, 0);
     return 1;
@@ -109,10 +114,12 @@ static int l_yhm27xx_reqinfo(lua_State *L)
   uint8_t pin = luaL_checkinteger(L, 1);
   uint8_t chip_id = luaL_checkinteger(L, 2);
   #ifdef LUAT_USE_DRV_GPIO
-  luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
-  #else
-  luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+  if (pin >= 128) {
+    luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+    return 0;
+  }
   #endif
+  luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
   return 0;
 }
 

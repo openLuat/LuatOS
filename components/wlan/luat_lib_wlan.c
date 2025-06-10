@@ -21,6 +21,7 @@
 #include "luat_wlan.h"
 #ifdef LUAT_USE_DRV_WLAN
 #include "luat/drv_wlan.h"
+#include "luat_hmeta.h"
 #endif
 #include "luat_network_adapter.h"
 #ifdef LUAT_USE_NETDRV
@@ -196,6 +197,7 @@ end)
 */
 static int l_wlan_scan(lua_State* L){
     (void)L;
+    // TODO 对于没有wifi的Air8000模组, 要走自身的wifiscan
     #ifdef LUAT_USE_DRV_WLAN
     luat_drv_wlan_scan();
     #else

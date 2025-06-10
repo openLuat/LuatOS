@@ -70,6 +70,9 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_pushliteral(L, "rssi"); 
             lua_pushinteger(L, adv_req->rssi);
             lua_settable(L, -3);
+            lua_pushliteral(L, "addr_type"); 
+            lua_pushinteger(L, adv_req->adv_addr_type);
+            lua_settable(L, -3);
             lua_pushliteral(L, "adv_addr"); 
             lua_pushlstring(L, (const char *)adv_req->adv_addr, 6);
             lua_settable(L, -3);
@@ -78,7 +81,6 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_settable(L, -3);
     // uint8_t actv_idx;     /**< The index of the activity */
     // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
-    // uint8_t adv_addr_type;/**< Advertising address type: public/random */
 
             lua_call(L, 3, 0);
             if (adv_req->data){
@@ -452,6 +454,25 @@ static int l_ble_scanning_stop(lua_State* L) {
     return 1;
 }
 
+static int l_ble_connect(lua_State* L) {
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    size_t len;
+    uint8_t* adv_addr = luaL_checklstring(L, 2, &len);
+    uint8_t adv_addr_type = luaL_checknumber(L, 3);
+    LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
+        adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
+        adv_addr[3], adv_addr[4], adv_addr[5]);
+    lua_pushboolean(L, luat_ble_connect(luat_ble, adv_addr, adv_addr_type)?0:1);
+    return 1;
+}
+
+static int l_ble_disconnect(lua_State* L) {
+    luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
+    uint8_t conn_idx = luaL_checknumber(L, 2);
+    lua_pushboolean(L, luat_ble_disconnect(luat_ble, conn_idx)?0:1);
+    return 1;
+}
+
 static int _ble_struct_newindex(lua_State *L);
 
 void luat_ble_struct_init(lua_State *L) {
@@ -476,6 +497,9 @@ static const rotable_Reg_t reg_ble[] = {
     {"scan_create",                 ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start",                  ROREG_FUNC(l_ble_scanning_start)},
     {"scan_stop",                   ROREG_FUNC(l_ble_scanning_stop)},
+
+    {"connect",                   ROREG_FUNC(l_ble_connect)},
+    {"disconnect",                   ROREG_FUNC(l_ble_disconnect)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},

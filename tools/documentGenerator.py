@@ -21,7 +21,8 @@ print(snippet_path)
 file_list = api_get.get_file_list([
         source_path,
         source_path+"/../lua",
-        source_path+"/../components"
+        source_path+"/../components",
+        source_path+"/../../luatos-ext-components",
     ])
 
 modules = api_get.get_modules(file_list)

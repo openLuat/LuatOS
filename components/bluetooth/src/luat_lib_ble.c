@@ -502,10 +502,10 @@ static int l_ble_scanning_start(lua_State* L) {
 static int l_ble_scanning_stop(lua_State* L) {
     luat_ble_t* luat_ble = (luat_ble_t *)luaL_checkudata(L, 1, LUAT_BLE_TYPE);
 #ifdef LUAT_USE_DRV_BLUETOOTH
-
     lua_pushboolean(L, luat_drv_ble_stop_scanning(luat_ble)?0:1);
 #else
     lua_pushboolean(L, luat_ble_stop_scanning(luat_ble)?0:1);
+#endif
     return 1;
 }
 

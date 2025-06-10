@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_mem.h"
-#include "luat_ble.h"
+#include "luat_bluetooth.h"
 
 #include "luat_log.h"
 #define LUAT_LOG_TAG "ble"
@@ -24,8 +24,5 @@ int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type){
     }
     return 0;
 }
-
-
-
 
 

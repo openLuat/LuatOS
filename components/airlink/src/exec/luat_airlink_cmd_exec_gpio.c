@@ -88,11 +88,11 @@ int luat_airlink_cmd_exec_gpio_driver_yhm27xx_reqinfo(luat_airlink_cmd_t* cmd, v
     uint8_t pin = cmd->data[8];
     uint8_t chip_id = cmd->data[9];
     uint8_t params[9] = {0};
+    if(pin >= 128)  pin -= 128;
     for (uint8_t i = 0; i < 9; i++)
     {
         luat_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(params[i]));
     }
-    
     // 反馈数据, 走sys_pub
     uint8_t buff[256] = {0};
     int ret = 0;

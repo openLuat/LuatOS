@@ -163,7 +163,7 @@ typedef struct{
 typedef struct{
     uint8_t actv_idx;     /**< The index of the activity */
     uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
-    uint8_t adv_addr_type;/**< Advertising address type: public/random */
+    uint8_t adv_addr_type;  /**< Advertising address type: public/random */
     int8_t rssi;         /**< RSSI value for advertising packet (in dBm, between -127 and +20 dBm) */
     uint8_t *data;        /**< Data of advertising packet */
     uint8_t data_len;     /**< Data length in advertising packet */
@@ -239,6 +239,7 @@ typedef struct {
 }luat_ble_scan_cfg_t;
 
 struct luat_ble{
+    uint8_t actv_idx;
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
     int lua_cb;
@@ -287,6 +288,8 @@ int luat_ble_stop_scanning(luat_ble_t* luat_ble);
 
 int luat_ble_delete_scanning(luat_ble_t* luat_ble);
 
+int luat_ble_connect(luat_ble_t* luat_ble, uint8_t* adv_addr,uint8_t adv_addr_type);
 
+int luat_ble_disconnect(luat_ble_t* luat_ble, uint8_t conn_idx);
 
 #endif

@@ -765,6 +765,10 @@ static const rotable_Reg_t reg_gpio[] =
     { "WAKEUP6",         ROREG_INT(HAL_WAKEUP_CHARGE)},
     { "CHG_DET",         ROREG_INT(HAL_WAKEUP_CHARGE)},
 #endif
+#if (defined LUAT_MODEL_AIR780EHV)
+    //@const AUDIOPA_EN number 音频PA使能脚, 仅Air780EHV特有的引脚
+    { "AUDIOPA_EN",      ROREG_INT(HAL_GPIO_22)},
+#endif
 	//@const PWR_KEY number 开机键,支持双向触发中断,不支持输出
 	{ "PWR_KEY",         ROREG_INT(HAL_WAKEUP_PWRKEY)},
 #endif

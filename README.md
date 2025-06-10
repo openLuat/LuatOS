@@ -3,25 +3,35 @@
 [![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 
-LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
+LuatOS，基于强大的Lua引擎架构设计，Lua脚本开发，快速实现业务逻辑；
 
-强大的Lua引擎, 为mcu和物联网设备高度优化, 支持众多组件, 非常低的内存需求(最低16K RAM, 128K Flash).
+LuatOS，在合宙历史上经历了两个阶段，一个是LuatOS-Air，一个是LuatOS-SoC，也就是现在的LuatOS；
+
+LuatOS-Air，典型硬件为Air724UG，为合宙上一代的产品；
+
+LuatOS，也就是曾经命名过的LuatOS-SoC，是合宙现在主推的开发方式，所支持的硬件如下：
+
+Air8000系列，包括Air8000/Air8000W/Air8000G/Air8000T/Air8000A/Air8000D等；
+
+Air8101系列，包括Air8101/Air8101A等；
+
+Air780Exx系列，包括Air780EPM/Air780EHM/Air780EHV/Air780EGH等；
+
+**LuatOS，现已支持74个核心库，55个扩展卡，1000余个API，100多个基于场景的demo，让你开发智能设备像做PPT一样轻松。**
+
 
 ## 快速入门
 
 1. 使用或购买支持的开发板
-    * [Air780EPM-4G Cat.1开发板](https://luat.taobao.com)
-    * [Air8000引擎 开发板](https://luat.taobao.com)
-    * [Air8101引擎 开发板](https://luat.taobao.com)
+    * [合宙官方淘宝店](https://luat.taobao.com)
     * [PC - 无需开发板的模拟器](https://gitee.com/openLuat/luatos-soc-pc)
-2. 掌握[刷机](https://wiki.luatos.com/boardGuide/flash.html)
-3. 尝试[各种demo](https://gitee.com/openLuat/LuatOS/tree/master/demo), 浏览[API](https://wiki.luatos.com/api/index.html), [30分钟入门lua语法(视频)](https://www.bilibili.com/video/BV1vf4y1L7Rb?spm_id_from=333.999.0.0)
+2. 掌握[刷机](https://docs.openluat.com/air780epm/common/Luatools/)
+3. 尝试[学习LuatOS](https://docs.openluat.com/osapi/luatos_framework/), 浏览[API](https://docs.openluat.com/osapi/), [30分钟入门lua语法(视频)](https://docs.openluat.com/air780epm/product/video/)
 4. 愉快地写业务代码
 
 ## 资料大全
 
-* [wiki@luatos](https://wiki.luatos.com)
-* [LuatOS文档池](https://gitee.com/openLuat/luatos-doc-pool)
+* [docs@luatos](https://docs.openluat.com/osapi/luatos_framework/)
 
 ## 授权协议
 

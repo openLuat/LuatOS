@@ -448,7 +448,21 @@ static int l_airlink_irqmode(lua_State *L) {
     return 0;
 }
 
-static int l_airlink_l_airlink_power(lua_State *L) {
+/*
+关闭airlink相关供电
+@api airlink.power(enable)
+@boolean enable true: 使能 false: 禁用
+@return nil 无返回值
+@usage
+-- 关闭airlink相关供电, 通常用于省电
+-- 当前仅对Air8000带wifi功能的模组有效
+-- 关闭之后, 如需使用wifi功能, 需要重新执行wifi.init等操作
+-- 注意, wifi供电关掉后, >=128的GPIO也会变成输入高阻态
+airlink.power(false)
+-- 开启wifi芯片,恢复airlink通信
+airlink.power(true)
+*/
+static int l_airlink_power(lua_State *L) {
     int enable = 0;
     if (lua_isboolean(L, 1)) {
         enable = lua_toboolean(L, 1);

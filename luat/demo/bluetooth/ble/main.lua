@@ -34,13 +34,15 @@ local att_db = {--Service
 
 local function ble_callback(ble_device, ble_event, ble_param)
     if ble_event == ble.EVENT_CONN then
-        print("ble connect")
+        log.info("ble", "connect 成功")
     elseif ble_event == ble.EVENT_DISCONN then
-        print("ble connect")
+        log.info("ble", "disconnect")
+        -- 1秒后重新开始广播
+        sys.timerStart(function() ble_device:adv_start() end, 1000)
     elseif ble_event == ble.EVENT_WRITE then
-        print("ble write",ble_param.conn_idx,ble_param.service_id,ble_param.handle,ble_param.data:toHex())
+        log.info("ble", "write", ble_param.conn_idx,ble_param.service_id,ble_param.handle,ble_param.data:toHex())
     elseif ble_event == ble.EVENT_READ then
-        print("ble read",ble_param.conn_idx,ble_param.service_id,ble_param.handle)
+        log.info("ble", "read", ble_param.conn_idx,ble_param.service_id,ble_param.handle)
         ble_device:read_response(ble_param,string.fromHex("1234"))
     end
 end

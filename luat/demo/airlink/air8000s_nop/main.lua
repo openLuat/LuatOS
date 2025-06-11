@@ -2,6 +2,9 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "netdrv"
 VERSION = "1.0.5"
+--[[特别注意, 生成量产文件的时候要带上nop.txt，否则会造成fota失败]]
+--[[特别注意, 生成量产文件的时候要带上nop.txt，否则会造成fota失败]]
+--[[特别注意, 生成量产文件的时候要带上nop.txt，否则会造成fota失败]]
 
 
 -- sys库是标配

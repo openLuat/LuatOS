@@ -20,10 +20,12 @@
 #include "luat_timer.h"
 #include "luat_rtos.h"
 #include "luat_mcu.h"
-#include <math.h>
 #include "luat_airlink.h"
 #include "luat_airlink_fota.h"
 #include "luat_zbuff.h"
+#include "luat_hmeta.h"
+
+#include <math.h>
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -446,6 +448,44 @@ static int l_airlink_irqmode(lua_State *L) {
     return 0;
 }
 
+/*
+关闭airlink相关供电
+@api airlink.power(enable)
+@boolean enable true: 使能 false: 禁用
+@return nil 无返回值
+@usage
+-- 关闭airlink相关供电, 通常用于省电
+-- 当前仅对Air8000带wifi功能的模组有效
+-- 关闭之后, 如需使用wifi功能, 需要重新执行wifi.init等操作
+-- 注意, wifi供电关掉后, >=128的GPIO也会变成输入高阻态
+airlink.power(false)
+-- 开启wifi芯片,恢复airlink通信
+airlink.power(true)
+*/
+static int l_airlink_power(lua_State *L) {
+    int enable = 0;
+    if (lua_isboolean(L, 1)) {
+        enable = lua_toboolean(L, 1);
+    }
+    else if (lua_isinteger(L, 1)) {
+        enable = luaL_checkinteger(L, 1);
+    }
+    // 首先, 判断是不是有wifi的Air8000
+    if (luat_airlink_has_wifi()) {
+        if (enable) {
+            luat_gpio_set(23, 1);
+            g_airlink_pause = 0;
+            LLOGI("wifi chip power on, airlink pause=false");
+        }
+        else {
+            luat_gpio_set(23, 0);
+            g_airlink_pause = 1;
+            LLOGI("wifi chip power off, airlink pause=true");
+        }
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -461,6 +501,8 @@ static const rotable_Reg_t reg_airlink[] =
     { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
     { "pause",         ROREG_FUNC(l_airlink_pause)},
     { "irqmode",       ROREG_FUNC(l_airlink_irqmode)},
+    { "power",         ROREG_FUNC(l_airlink_power)},
+
 
     // 测试用的fota指令
     { "sfota",         ROREG_FUNC(l_airlink_sfota )},

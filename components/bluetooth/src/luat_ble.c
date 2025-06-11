@@ -5,7 +5,6 @@
 #include "luat_log.h"
 #define LUAT_LOG_TAG "ble"
 
-
 int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type){
     uint8_t len = 0;
     if(uuid_type == LUAT_BLE_UUID_TYPE_16){

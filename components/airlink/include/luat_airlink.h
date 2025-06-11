@@ -23,7 +23,6 @@ typedef struct luat_airlink_cmd
     uint16_t cmd; // 命令, 从0x0001开始, 到0xfffe结束
     uint16_t len; // 数据长度,最高64k, 实际使用最高2k
     uint8_t data[0];
-    void* func[0];
 }luat_airlink_cmd_t;
 
 typedef struct airlink_flags {
@@ -296,6 +295,8 @@ typedef struct luat_airlink_irq_ctx
 }luat_airlink_irq_ctx_t;
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx);
+
+int luat_airlink_has_wifi(void);
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

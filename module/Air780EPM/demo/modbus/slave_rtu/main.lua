@@ -11,7 +11,7 @@ sys = require("sys")
 local uartid = 1        -- 根据实际设备选取不同的uartid
 local uart485Pin = 24   -- 用于控制485接收和发送的使能引脚
 gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
-uart.setup(uartid, 9600, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
+uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 
 -- 创建从站设备，可选择RTU、ASCII、TCP，此demo仅用作测试RTU和ASCII。

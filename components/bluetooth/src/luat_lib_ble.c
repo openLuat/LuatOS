@@ -9,6 +9,9 @@
 
 #define LUAT_BLE_TYPE "BLE*"
 
+extern int g_bt_ble_ref;
+extern int g_ble_lua_cb_ref;
+
 static int luatos_ble_callback(lua_State *L, void* ptr){
 	(void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -16,9 +19,9 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
     luat_ble_event_t ble_event = (luat_ble_event_t)msg->arg1;
     luat_ble_param_t* luat_ble_param = (luat_ble_param_t*)msg->arg2;
 
-    lua_geti(L, LUA_REGISTRYINDEX, luat_ble->lua_cb);
+    lua_geti(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
     if (lua_isfunction(L, -1)) {
-        lua_geti(L, LUA_REGISTRYINDEX, luat_ble->ble_ref);
+        lua_geti(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
         lua_pushinteger(L, ble_event);
     }
 

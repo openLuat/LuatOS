@@ -9,37 +9,45 @@
 
 extern void luat_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
+static int s_bt_ref;
+int g_bt_ble_ref;
+int g_ble_lua_cb_ref;
+
 static int l_bluetooth_create_ble(lua_State* L) {
     if (!lua_isuserdata(L, 1)){
         return 0;
     }
-    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
+    // luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
 
-    luat_bluetooth->luat_ble = (luat_ble_t*)lua_newuserdata(L, sizeof(luat_ble_t));
-    luat_ble_init(luat_bluetooth->luat_ble, luat_ble_cb);
+    // luat_bluetooth->luat_ble = (luat_ble_t*)lua_newuserdata(L, sizeof(luat_ble_t));
+    luat_ble_init(NULL, luat_ble_cb);
 
     if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);
-		luat_bluetooth->luat_ble->lua_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+		g_ble_lua_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	}else{
         LLOGE("error cb");
         return 0;
     }
 
+    lua_newuserdata(L, sizeof(luat_ble_t));
     luaL_setmetatable(L, LUAT_BLE_TYPE);
     lua_pushvalue(L, -1);
-    luat_bluetooth->luat_ble->ble_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    g_bt_ble_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     return 1;
 }
 
 static int l_bluetooth_init(lua_State* L) {
-    luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
-    if (luat_bluetooth) {
-        luat_bluetooth_init(luat_bluetooth);
+    void* bt = lua_newuserdata(L, 4);
+    if (bt) {
+        luat_bluetooth_init(NULL);
         luaL_setmetatable(L, LUAT_BLUETOOTH_TYPE);
         lua_pushvalue(L, -1);
-        luat_bluetooth->bluetooth_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        s_bt_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         return 1;
+    }
+    else {
+        LLOGE("创建BT代理对象失败,内存不足");
     }
     return 0;
 }

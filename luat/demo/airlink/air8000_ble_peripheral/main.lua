@@ -68,10 +68,17 @@ sys.taskInit(function()
     bluetooth_device = bluetooth.init()
     log.info("初始化BLE功能")
     ble_device = bluetooth_device:ble(ble_callback)
+    if ble_device == nil then
+        log.error("当前固件不支持完整的BLE")
+        return
+    end
 
     log.info('开始创建GATT')
     characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
     log.info("创建的GATT为",characteristic1,characteristic2,characteristic3,characteristic4)
+    if characteristic1 == nil then
+        log.error("创建GATT失败")
+    end
 
     log.info("开始设置广播内容")
     ble_device:adv_create({

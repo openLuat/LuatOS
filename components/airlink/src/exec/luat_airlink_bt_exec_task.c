@@ -29,25 +29,33 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_bl
 
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
+    LLOGD("bt task start ...");
+    int ret = 0;
     while (1) {
         msg = NULL;
         // 接收消息, 然后执行
-        luat_rtos_queue_recv(evt_queue, 0, &msg, LUAT_WAIT_FOREVER);
+        ret = luat_rtos_queue_recv(evt_queue, &msg, 0, LUAT_WAIT_FOREVER);
+        LLOGD("bt task recv msg %d %p", ret, msg);
         if (msg) {
-            // TODO 执行指令
+            // 执行指令
             switch (msg->cmd_id)
             {
             case LUAT_DRV_BT_CMD_BT_INIT:
-                luat_bluetooth_init(NULL);
+                LLOGD("执行luat_bluetooth_init");
+                ret = luat_bluetooth_init(NULL);
+                LLOGD("bt init %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BT_DEINIT:
-                luat_bluetooth_deinit(NULL);
+                ret = luat_bluetooth_deinit(NULL);
+                LLOGD("bt deinit %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_INIT:
-                luat_ble_init(NULL, drv_ble_cb); // 不能通过airlink传递函数指针, 这里要用本地的
+                ret = luat_ble_init(NULL, drv_ble_cb); // 不能通过airlink传递函数指针, 这里要用本地的
+                LLOGD("ble deinit %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_DEINIT:
-                luat_ble_deinit(NULL);
+                ret = luat_ble_deinit(NULL);
+                LLOGD("ble deinit %d", ret);
                 break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);
@@ -69,11 +77,20 @@ int luat_drv_bt_msg_send(luat_drv_ble_msg_t *msg) {
 }
 
 int luat_drv_bt_task_start(void) {
+    int ret = 0;
     if (evt_queue == NULL) {
-        luat_rtos_queue_create(&evt_queue, 1024, sizeof(void*));
+        ret = luat_rtos_queue_create(&evt_queue, 1024, sizeof(void*));
+        if (ret) {
+            LLOGE("evt queue create failed %d", ret);
+            return -1;
+        }
     }
     if (g_task_handle == NULL) {
-        luat_rtos_task_create(&g_task_handle, 8*1024, 20, "drv_bt", drv_bt_task, NULL, 0);
+        ret = luat_rtos_task_create(&g_task_handle, 8*1024, 20, "drv_bt", drv_bt_task, NULL, 0);
+        if (ret) {
+            LLOGE("drv_bt task create failed %d", ret);
+            return -1;
+        }
     }
     return 0;
 }

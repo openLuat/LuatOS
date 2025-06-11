@@ -14,6 +14,7 @@
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 int luat_bluetooth_init(void* args) {
+    LLOGD("执行luat_bluetooth_init");
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 8 + sizeof(luat_airlink_cmd_t) + 8
@@ -29,7 +30,7 @@ int luat_bluetooth_init(void* args) {
     data[1] = 0;
     // 然后2个字节的主机协议版本号, 当前全是0
 
-    // 剩余4个字节备用就行了
+    // 这个指令当没有参数, 加4个字节备用吧
 
     // 全部拷贝过去
     memcpy(cmd->data + 8, data, 8);

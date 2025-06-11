@@ -53,6 +53,7 @@ static void drv_bt_task(void *param) {
                 LLOGD("unknow bt cmd %d", msg->cmd_id);
                 break;
             }
+            luat_heap_free(msg);
         }
         luat_rtos_task_sleep(5); // TODO 删掉
     }

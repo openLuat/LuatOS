@@ -11,6 +11,8 @@
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
 
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+
 int luat_bluetooth_init(void* args) {
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
@@ -43,8 +45,8 @@ int luat_bluetooth_deinit(void* args) {
 }
 
 int luat_bluetooth_get_mac(void* args, uint8_t *addr) {
-    LLOGE("not support yet");
-    return -1;
+    memcpy(addr, g_airlink_ext_dev_info.wifi.bt_mac, 6);
+    return 0;
 }
 
 int luat_bluetooth_set_mac(void* args, uint8_t *addr, uint8_t len) {

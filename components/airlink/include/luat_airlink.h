@@ -296,6 +296,8 @@ typedef struct luat_airlink_irq_ctx
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx);
 
+int luat_airlink_has_wifi(void);
+
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif

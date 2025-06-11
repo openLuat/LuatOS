@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "wififota"
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 
 -- sys库是标配
 _G.sys = require("sys")

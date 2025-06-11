@@ -6,7 +6,7 @@ VERSION = "1.0.0"
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
 
-print(_VERSION)
+log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
 -- characteristic handle
 local characteristic1,characteristic2,characteristic3,characteristic4
@@ -47,12 +47,16 @@ end
 
 
 sys.taskInit(function()
-
+    log.info("开始初始化蓝牙核心")
     bluetooth_device = bluetooth.init()
+    log.info("初始化BLE功能")
     ble_device = bluetooth_device:ble(ble_callback)
 
+    log.info('开始创建GATT')
     characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
+    log.info("创建的GATT为",characteristic1,characteristic2,characteristic3,characteristic4)
 
+    log.info("开始设置广播内容")
     ble_device:adv_create({
         addr_mode = ble.PUBLIC,
         channel_map = ble.CHNLS_ALL,
@@ -66,6 +70,7 @@ sys.taskInit(function()
         }
     })
 
+    log.info("开始广播")
     ble_device:adv_start()
     -- ble_device:adv_stop()
 

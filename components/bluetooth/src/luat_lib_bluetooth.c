@@ -4,6 +4,7 @@
 #include "luat_msgbus.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+
 #include "luat_log.h"
 #define LUAT_LOG_TAG "bluetooth"
 
@@ -14,19 +15,19 @@ int g_bt_ble_ref;
 int g_ble_lua_cb_ref;
 
 static int l_bluetooth_create_ble(lua_State* L) {
-    if (!lua_isuserdata(L, 1)){
-        return 0;
-    }
-    // luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
-
-    // luat_bluetooth->luat_ble = (luat_ble_t*)lua_newuserdata(L, sizeof(luat_ble_t));
-    luat_ble_init(NULL, luat_ble_cb);
-
+    int ret = 0;
+    
     if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);
 		g_ble_lua_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	}else{
         LLOGE("error cb");
+        return 0;
+    }
+
+    ret = luat_ble_init(NULL, luat_ble_cb);
+    if (ret) {
+        LLOGE("ble init %d", ret);
         return 0;
     }
 

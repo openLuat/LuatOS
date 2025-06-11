@@ -14,13 +14,13 @@ gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发
 uart.setup(uartid, 9600, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 
--- 创建从站设备
+-- 创建从站设备，可选择RTU、ASCII、TCP，此demo仅用作测试RTU和ASCII。
 local slave_id = 1
 mb_rtu_s = modbus.create_slave(modbus.MODBUS_RTU, slave_id, uartid)
 -- mb_rtu_s = modbus.create_slave(modbus.MODBUS_ASCII, slave_id, uartid)
 
 
--- 创建寄存器数据区
+-- 添加一块寄存器内存区
 registers = zbuff.create(1)
 modbus.add_block(mb_rtu_s, modbus.REGISTERS, 0, 32, registers)
 registers:clear()
@@ -30,21 +30,20 @@ ciols = zbuff.create(1)
 modbus.add_block(mb_rtu_s, modbus.CIOLS, 0, 32, ciols)
 ciols:clear()
 
--- 启动通讯
+
+-- 启动modbus从站
 modbus.slave_start(mb_rtu_s)
 
-local counter = 0
 
+local counter = 0
 -- 修改和读取modbus值
 function modify_data()
-    counter = counter + 1
-    
+    counter = counter + 1  
     -- 写入寄存器数据 (16位无符号整数)
     registers:seek(0)
     for i=0,31 do
         registers:writeU16((counter + i) % 65536)  -- 写入递增数字，限制在0-65535
-    end
-    
+    end  
     -- 写入线圈数据 (1位布尔值)
     ciols:seek(0)
     for i=0,31 do
@@ -59,10 +58,12 @@ function modify_data()
 end
 sys.timerLoopStart(modify_data,1000)
 
+-- -- 测试停止modbus从站，将在从站启动两分钟后关闭
 -- sys.timerStart(function()
 --     modbus.slave_stop(mb_rtu_s)
 --     log.info("Modbus", "2分钟时间到，停止Modbus从站")
 -- end, 2 * 60 * 1000)  -- 2分钟（单位：毫秒）
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

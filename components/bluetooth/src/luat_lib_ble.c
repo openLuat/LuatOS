@@ -5,7 +5,7 @@
 #include "luat_ble.h"
 
 #include "luat_log.h"
-#define LUAT_LOG_TAG "ble"
+#define LUAT_LOG_TAG "bt.ble"
 
 #define LUAT_BLE_TYPE "BLE*"
 
@@ -104,7 +104,7 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
 }
 
 void luat_ble_cb(luat_ble_t* args, luat_ble_event_t ble_event, luat_ble_param_t* ble_param){
-    LLOGD("ble event: %d", ble_event);
+    LLOGD("ble event: %d param: %p", ble_event, ble_param);
     luat_ble_param_t* luat_ble_param = NULL;
     if (ble_param){
         // LLOGD("ble param: %p", ble_param);

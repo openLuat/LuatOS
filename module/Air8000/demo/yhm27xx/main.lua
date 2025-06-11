@@ -1,63 +1,82 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "2712_demo"
+PROJECT = "yhm27xx_demo"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
+sys = require("sys")
+log.info("main", PROJECT, VERSION)
 
---[[
-充电IC的相关逻辑
-
-目前Air8000对充电ic寄存器的操作，是只写的，不支持读取。
-]]
-
-local gpio_pin = 152
-
+local gpio_pin = 152 
+-- gpio.setup(gpio_pin, 1, gpio.PULLUP)
 local sensor_addr = 0x04
+--电压控制寄存器地址
 local V_ctrl_register = 0x00
+--电流控制寄存器地址
 local I_ctrl_register = 0x01
+--模式寄存器地址
 local mode_register = 0x02
+--配置寄存器，默认为0x00
 local config_register = 0x03
+-------------------注意：0x04寄存器无含义
+--状态寄存器
+local status1_register = 0x05   --只读
+local status2_register = 0x06   --只读
+local status3_register = 0x07   --只读
+--id寄存器
+local id_register = 0x08        --只读
+--充电电压常用参数,默认门限电压为4.35V
+local set_4V = 0xE0         --4V
+local set_4V25 = 0x20       --4.25V
+local set_4V35 = 0x60       --4.35V
+local set_4V45 = 0xA0       --4.45V
+--充电电流常用参数，默认充电电流为0.5倍yhm27xx芯片SNS管脚的电流
+local set_0I5 = 0x00        --0.5倍
+local set_0I7 = 0x40        --0.7倍
+local set_I = 0x80          --1倍
+local set_1I5 = 0xA0        --1.5倍
+local set_2I = 0xC0         --2倍
 
-local status1_register = 0x05   --read only
-local status2_register = 0x06   --read only
-local status3_register = 0x07   --read only
-local id_register = 0x08        --read only
-
-local set_4V = 0xE0
-local set_4V25 = 0x20
-local set_4V35 = 0x60
-local set_4V45 = 0xA0
-
-
-gpio.setup(gpio_pin, 1, gpio.PULLUP)
 sys.taskInit(function()
     sys.wait(1000)
-    local result, data = sensor.yhm27xx(gpio_pin, sensor_addr, id_register)
+    local result, data = yhm27xx.cmd(gpio_pin, sensor_addr, id_register)
     sys.wait(200)
-    log.info("yhm27xxx", result, data)
-    if result == true and data ~= nil then
-        log.info("yhm27xxx", "yhm27xx存在--")
-
-        sys.wait(200)
-        result, data = sensor.yhm27xx(gpio_pin, sensor_addr, V_ctrl_register)
-        log.info("yhm27xxx 0x00 读取数据为：" , data, result)
-
-        -- 写入V_CTRL寄存器 设置成 4.25v
-        result = sensor.yhm27xx(gpio_pin, sensor_addr, V_ctrl_register, set_4V25)
-        if result == true then
-            log.info("yhm27xxx 写入V_CTRL成功：" , data, result)
-        else
-            log.info("yhm27xxx", "写入V_CTRL失败, ", result)
-        end
-
+    --设置充电电压为4V
+    result,data = sensor.yhm27xx(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
+    if result == true then
+        log.info("yhm27xxx 设置电压成功")
     else
-        log.warn("yhm27xxx", "yhm27xx不存在")
+        log.info("yhm27xxx 设置电压失败")
     end
+    sys.wait(200)
+    --充电电流设置为1倍
+    result,data = yhm27xx.cmd(gpio_pin, sensor_addr, I_ctrl_register, set_I)
+
+    if result == true then
+        log.info("yhm27xxx 设置电流成功")
+    else
+        log.info("yhm27xxx 设置电流失败")
+    end
+
+    log.info("开始读所有寄存器的值")
+    sys.wait(200)
+    yhm27xx.reqinfo(gpio_pin, sensor_addr)
+    local result, data = sys.waitUntil("YHM27XX_REG", 200)
+    local Data_reg={}
+    if result then
+        for i=1,9 do
+            Data_reg[i] = data:byte(i)
+        end
+        log.info("yhm27xxx 寄存器0x00 功能:设置充电电压，   读取数据为：" , Data_reg[1])
+        log.info("yhm27xxx 寄存器0x01 功能:设置充电电流,    读取数据为：" , Data_reg[2])
+        log.info("yhm27xxx 寄存器0x02 功能:设置模式，       读取数据为：" , Data_reg[3])
+        log.info("yhm27xxx 寄存器0x03 功能:配置寄存器,      读取数据为：" , Data_reg[4])
+        log.info("yhm27xxx        0x04(无含义) 读取数据为：" , Data_reg[5])
+        log.info("yhm27xxx 寄存器0x05 功能:状态寄存器1(只读),读取数据为：" , Data_reg[6])
+        log.info("yhm27xxx 寄存器0x06 功能:状态寄存器2(只读),读取数据为：" , Data_reg[7])
+        log.info("yhm27xxx 寄存器0x07 功能:状态寄存器3(只读),读取数据为：" , Data_reg[8])
+        log.info("yhm27xxx 寄存器0x08 功能:id寄存器(只读),   读取数据为：" , Data_reg[9])
+    end
+
 end)
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

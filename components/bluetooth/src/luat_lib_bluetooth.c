@@ -4,7 +4,9 @@
 #include "luat_msgbus.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
-
+#ifdef LUAT_USE_DRV_BLUETOOTH
+#include "luat/drv_bluetooth.h"
+#endif
 #include "luat_log.h"
 #define LUAT_LOG_TAG "bluetooth"
 
@@ -17,8 +19,11 @@ static int l_bluetooth_create_ble(lua_State* L) {
     luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t *)luaL_checkudata(L, 1, LUAT_BLUETOOTH_TYPE);
 
     luat_bluetooth->luat_ble = (luat_ble_t*)lua_newuserdata(L, sizeof(luat_ble_t));
-
+#ifdef LUAT_USE_DRV_BLUETOOTH
+    luat_drv_ble_init(luat_bluetooth->luat_ble, luat_ble_cb);
+#else
     luat_ble_init(luat_bluetooth->luat_ble, luat_ble_cb);
+#endif
 
     if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);
@@ -37,7 +42,11 @@ static int l_bluetooth_create_ble(lua_State* L) {
 static int l_bluetooth_init(lua_State* L) {
     luat_bluetooth_t* luat_bluetooth = (luat_bluetooth_t*)lua_newuserdata(L, sizeof(luat_bluetooth_t));
     if (luat_bluetooth) {
+    #ifdef LUAT_USE_DRV_BLUETOOTH
+        luat_drv_bluetooth_init(luat_bluetooth);
+    #else
         luat_bluetooth_init(luat_bluetooth);
+    #endif
         luaL_setmetatable(L, LUAT_BLUETOOTH_TYPE);
         lua_pushvalue(L, -1);
         luat_bluetooth->bluetooth_ref = luaL_ref(L, LUA_REGISTRYINDEX);

@@ -19,15 +19,15 @@ int luat_bluetooth_init(void* args) {
     airlink_queue_item_t item = {
         .len = 8 + sizeof(luat_airlink_cmd_t) + 8
     };
-    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, sizeof(uint8_t) + 8) ;
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, 8 + 8) ;
     if (cmd == NULL) {
         return -101;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
-    uint8_t data[8];
+    uint8_t data[8] = {0};
     // 前2个字节是蓝牙cmd id
-    data[0] = 0;
-    data[1] = 0;
+    // uint16_t id = LUAT_DRV_BT_CMD_BT_INIT;
+    // memcpy(data, &id, 2);
     // 然后2个字节的主机协议版本号, 当前全是0
 
     // 这个指令当没有参数, 加4个字节备用吧

@@ -14,8 +14,30 @@
 #include "luat_log.h"
 
 int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_init");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, 8 + 8) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_INIT;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+
+    // 这个指令当没有参数, 加4个字节备用吧
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 int luat_ble_deinit(void* args) {

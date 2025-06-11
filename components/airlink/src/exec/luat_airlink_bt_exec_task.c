@@ -51,7 +51,7 @@ static void drv_bt_task(void *param) {
                 break;
             case LUAT_DRV_BT_CMD_BLE_INIT:
                 ret = luat_ble_init(NULL, drv_ble_cb); // 不能通过airlink传递函数指针, 这里要用本地的
-                LLOGD("ble deinit %d", ret);
+                LLOGD("ble init %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_DEINIT:
                 ret = luat_ble_deinit(NULL);

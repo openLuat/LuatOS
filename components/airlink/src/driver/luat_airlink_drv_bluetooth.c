@@ -84,7 +84,6 @@ int luat_airlink_drv_ble_init(luat_ble_t* luat_ble, luat_ble_cb_t luat_ble_cb) {
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     memcpy(cmd->data + 8, luat_ble, sizeof(luat_ble_t));
-    cmd->func[0] = luat_ble_cb;
     item.cmd = cmd;
 
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);

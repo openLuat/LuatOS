@@ -35,8 +35,7 @@ int luat_airlink_cmd_exec_ble_uuid_swap(luat_airlink_cmd_t *cmd, void *userdata)
 int luat_airlink_cmd_exec_ble_init(luat_airlink_cmd_t *cmd, void *userdata)
 {
     luat_ble_t *luat_ble = (luat_ble_t *)(cmd->data + 8);
-    luat_ble_cb_t luat_ble_cb = cmd->func[0];
-    luat_ble_init(luat_ble, luat_ble_cb);
+    luat_ble_init(NULL, NULL);
     return 0;
 }
 

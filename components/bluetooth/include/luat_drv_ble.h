@@ -3,8 +3,9 @@
 
 typedef struct luat_drv_ble_msg
 {
-    uint32_t cmd_id;
-    uint32_t len;
+    uint64_t id; // 命令seq序号
+    uint16_t cmd_id;
+    uint16_t len;
     uint8_t data[0];
 }luat_drv_ble_msg_t;
 
@@ -20,5 +21,8 @@ enum {
 
     LUAT_DRV_BT_CMD_MAX
 };
+
+int luat_drv_bt_task_start(void);
+int luat_drv_bt_msg_send(luat_drv_ble_msg_t *msg);
 
 #endif

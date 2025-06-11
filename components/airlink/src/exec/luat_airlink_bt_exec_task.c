@@ -27,10 +27,32 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_bl
     // 注意, 这里要代理不同的事件, 转发到airlink
 }
 
+static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_gatt_service_t gatt = {0};
+    uint16_t sizeof_gatt = 0;
+    uint16_t sizeof_gatt_chara = 0;
+    uint16_t num_of_gatt_srv = 0;
+    memcpy(&sizeof_gatt, msg->data + 6, 2); // 注意, data已经去掉2个字节的cmd_id
+    memcpy(&sizeof_gatt_chara, msg->data + 8, 2); // 注意, data已经去掉2个字节的cmd_id
+    memcpy(&num_of_gatt_srv, msg->data + 10, 2); // 注意, data已经去掉2个字节的cmd_id
+    LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
+    LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
+    memcpy(&gatt, msg->data + 12, sizeof(luat_ble_gatt_service_t));
+    gatt.characteristics = msg->data + 12 + sizeof_gatt;
+    for (size_t i = 0; i < num_of_gatt_srv; i++)
+    {
+        LLOGD("gatt chara %d maxsize %d", i, gatt.characteristics[i].max_size);
+    }
+    luat_ble_create_gatt(NULL, &gatt);
+    return 0;
+}
+
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
     LLOGD("bt task start ...");
     int ret = 0;
+    char buff[128] = {0};
     while (1) {
         msg = NULL;
         // 接收消息, 然后执行
@@ -56,6 +78,17 @@ static void drv_bt_task(void *param) {
             case LUAT_DRV_BT_CMD_BLE_DEINIT:
                 ret = luat_ble_deinit(NULL);
                 LLOGD("ble deinit %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_GATT_CREATE:
+                ret = drv_gatt_create(msg);
+                LLOGD("ble gatt create %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_SET_NAME:
+                memcpy(buff, msg->data + 7, msg->data[6]);
+                buff[msg->data[6]] = 0;
+                LLOGD("ble set name len = %d %s", msg->data[6], buff);
+                ret = luat_ble_set_name(NULL, buff, msg->data[6]);
+                LLOGD("ble set name %d", ret);
                 break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);

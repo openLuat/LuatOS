@@ -10,7 +10,7 @@
 
 * core  [固件文件](core/)
 * demo  [演示代码](demo/)
-* case  [案例代码](case/)
+* project  [案例代码](project/)
 
 ## 授权协议
 

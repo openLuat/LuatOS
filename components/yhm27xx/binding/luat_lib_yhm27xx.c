@@ -16,6 +16,10 @@
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
 #include "luat_msgbus.h"
+#include "luat_gpio.h"
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
 
 #define LUAT_LOG_TAG "yhm27xx"
 #include "luat_log.h"
@@ -51,12 +55,9 @@ static int l_yhm27xx_cmd(lua_State *L)
     data = luaL_checkinteger(L, 4);
   }
   #ifdef LUAT_USE_DRV_GPIO
-  if (pin >= 128) {
-    ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
-  }
-  else
+  ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
   #else
-    ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+  ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
   #endif
   if (ret != 0)
   {

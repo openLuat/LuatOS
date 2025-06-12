@@ -46,8 +46,29 @@ int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
 }
 
 int luat_ble_deinit(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_deinit");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, 8 + 8) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_DEINIT;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
@@ -89,38 +110,179 @@ int luat_ble_set_max_mtu(void* args, uint16_t max_mtu) {
 
 // advertise
 int luat_ble_create_advertising(void* args, luat_ble_adv_cfg_t* adv_cfg) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_create_advertising");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8 + sizeof(uint16_t) + sizeof(luat_ble_adv_cfg_t)
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_CREATE;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+    // 然后是结构体大小
+    uint16_t sizeof_adv = sizeof(luat_ble_adv_cfg_t);
+    memcpy(cmd->data + 8 + 8, &sizeof_adv, 2);
+    // 然后是数据
+    memcpy(cmd->data + 8 + 8 + 2, adv_cfg, sizeof_adv);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_set_adv_data(void* args, uint8_t* adv_buff, uint8_t adv_len) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_set_adv_data %p %d", adv_buff, adv_len);
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8 + sizeof(uint16_t) + adv_len
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_SET_DATA;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+    // 然后是结构体大小
+    uint16_t datalen = adv_len;
+    memcpy(cmd->data + 8 + 8, &datalen, 2);
+    // 然后是名字
+    memcpy(cmd->data + 8 + 8 + 2, adv_buff, datalen);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_set_scan_rsp_data(void* args, uint8_t* rsp_data, uint8_t rsp_len) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_set_scan_rsp_data %p %d", rsp_data, rsp_len);
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8 + sizeof(uint16_t) + rsp_len
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+    // 然后是结构体大小
+    uint16_t datalen = rsp_len;
+    memcpy(cmd->data + 8 + 8, &datalen, 2);
+    // 然后是名字
+    memcpy(cmd->data + 8 + 8 + 2, rsp_data, datalen);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_start_advertising(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_start_advertising");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_START;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_stop_advertising(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_start_advertising");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_STOP;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_delete_advertising(void* args) {
-    LLOGE("not support yet");
-    return -1;
+        LLOGD("执行luat_ble_start_advertising");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    uint8_t data[8] = {0};
+     // 前2个字节是蓝牙cmd id
+    uint16_t id = LUAT_DRV_BT_CMD_BLE_ADV_START;
+    memcpy(data, &id, 2);
+    // 然后2个字节的主机协议版本号, 当前全是0
+    // 剩余4个字节做预留
+
+    // 全部拷贝过去
+    memcpy(cmd->data + 8, data, 8);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 

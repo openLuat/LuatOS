@@ -44,8 +44,32 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     {
         LLOGD("gatt chara %d maxsize %d", i, gatt.characteristics[i].max_size);
     }
-    luat_ble_create_gatt(NULL, &gatt);
-    return 0;
+    return luat_ble_create_gatt(NULL, &gatt);
+}
+
+static int drv_adv_create(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_adv_cfg_t adv = {0};
+    uint16_t sizeof_adv = 0;
+    memcpy(&sizeof_adv, msg->data + 6, 2);
+    memcpy(&adv, msg->data + 8, sizeof(luat_ble_adv_cfg_t));
+    return luat_ble_create_advertising(NULL, &adv);
+}
+
+static int drv_adv_set_data(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    uint16_t datalen = 0;
+    memcpy(&datalen, msg->data + 6, 2);
+    LLOGD("adv set data len %d", datalen);
+    return luat_ble_set_adv_data(NULL, msg->data + 8, datalen);
+}
+
+static int drv_adv_set_scan_rsp_data(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    uint16_t datalen = 0;
+    memcpy(&datalen, msg->data + 6, 2);
+    LLOGD("adv set scan rsp data len %d", datalen);
+    return luat_ble_set_scan_rsp_data(NULL, msg->data + 8, datalen);
 }
 
 static void drv_bt_task(void *param) {
@@ -86,9 +110,32 @@ static void drv_bt_task(void *param) {
             case LUAT_DRV_BT_CMD_BLE_SET_NAME:
                 memcpy(buff, msg->data + 7, msg->data[6]);
                 buff[msg->data[6]] = 0;
-                LLOGD("ble set name len = %d %s", msg->data[6], buff);
                 ret = luat_ble_set_name(NULL, buff, msg->data[6]);
                 LLOGD("ble set name %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_CREATE:
+                ret = drv_adv_create(msg);
+                LLOGD("ble adv start %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_START:
+                ret = luat_ble_start_advertising(NULL);
+                LLOGD("ble adv start %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_STOP:
+                ret = luat_ble_stop_advertising(NULL);
+                LLOGD("ble adv stop %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_DELETE:
+                ret = luat_ble_delete_advertising(NULL);
+                LLOGD("ble adv delete %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_SET_DATA:
+                ret = drv_adv_set_data(msg);
+                LLOGD("ble adv set data %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA:
+                ret = drv_adv_set_scan_rsp_data(msg);
+                LLOGD("ble adv set resp data %d", ret);
                 break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);

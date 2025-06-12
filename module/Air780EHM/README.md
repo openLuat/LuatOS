@@ -4,7 +4,7 @@
 
 本代码库 是 合宙 Air780EHM  模组的代码中心, 包括固件, 演示代码, 案例代码等
 
-如需查阅文档, 请访问合宙文档中心的[Air780EHM模块文档中心](https://docs.openluat.com/air780ehm)
+如需查阅文档, 请访问合宙文档中心的[Air780EHM模块文档中心](https://docs.openluat.com/air780epm/)
 
 #### 目录说明
 

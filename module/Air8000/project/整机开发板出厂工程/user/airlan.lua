@@ -4,18 +4,19 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 local run_state = false
-local ap_state = false
-local wifi_net_state = "未打开"
-local ssid = "Air8000_"
-local password = "12345678"
+local lan_state = false
 local number = 0
+local bytes = ""
+local ms_duration = ""
+local bandwidth = ""
+local lan_net_state = "未打开"
 local event = ""
 
 
 local function start_lan()
     sys.wait(500)
     log.info("ch390", "打开LDO供电")
-    event = "打开LDO供电"
+    lan_net_state = "打开LDO供电"
     gpio.setup(140, 1, gpio.PULLUP)     --打开ch390供电
     sys.wait(2000)
     local result = spi.setup(
@@ -50,19 +51,20 @@ local function start_lan()
         sys.wait(100)
     end
     sys.wait(2000)
-    dhcps.create({adapter=socket.LWIP_ETH})
+    dhcpsrv.create({adapter=socket.LWIP_ETH})
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
     netdrv.napt(socket.LWIP_GP)
     log.info("启动iperf服务器端")
-    event = "以太网服务创建成功,启动iperf服务器端"
+    lan_net_state = "以太网服务创建成功,启动iperf服务器端"
     iperf.server(socket.LWIP_ETH)
-    
 end
 
 local function stop_lan()
    
 end
-
+sys.subscribe("IPERF_REPORT", function(bytes, ms_duration, bandwidth)
+    log.info("iperf", bytes, ms_duration, bandwidth)
+end)
 function airlan.run()       
     log.info("airlan.run")
     lcd.setFont(lcd.font_opposansm12_chinese) -- 具体取值可参考api文档的常量表
@@ -71,17 +73,17 @@ function airlan.run()
         sys.wait(10)
         -- airlink.statistics()
         lcd.clear(_G.bkcolor) 
-        lcd.drawStr(0,80,"以太网WAN状态:"..wifi_net_state )
-        if ap_state then
-            lcd.drawStr(0,120,"WIFI ssid:" .. ssid )
-            lcd.drawStr(0,140,"WIFI password:" .. password )
-            lcd.drawStr(0,160,"WIFI MAC:" .. wlan.getMac() )
-            lcd.drawStr(0,180,"链接WIFI 数量:" .. number)
+        lcd.drawStr(0,80,"以太网LAN状态:"..lan_net_state )
+        if lan_state then
+            lcd.drawStr(0,120,"bytes:" .. bytes )
+            lcd.drawStr(0,140,"ms_duration:" .. ms_duration )
+            lcd.drawStr(0,160,"bandwidth:" .. bandwidth )
+            lcd.drawStr(0,180,"空间 LUA:" .. rtos.meminfo() .. ",SYS:" .. rtos.meminfo("sys") )
             lcd.drawStr(0,200, event)
         end
 
         lcd.showImage(20,360,"/luadb/back.jpg")
-        if ap_state then
+        if lan_state then
             lcd.showImage(130,370,"/luadb/stop.jpg")
         else
             lcd.showImage(130,370,"/luadb/start.jpg")
@@ -98,14 +100,14 @@ function airlan.run()
 end
 
 local function start_lan_task()
-    ap_state = true
+    lan_state = true
     start_lan()
 end
 
 
 local function stop_lan_task()
     -- stop_lan()
-    ap_state = false
+    lan_state = false
 end
 function airlan.start_lan() 
     start_lan()
@@ -115,7 +117,7 @@ function airlan.tp_handal(x,y,event)       -- 判断是否需要停止播放
     if x > 20 and  x < 100 and y > 360  and  y < 440 then
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
-        if ap_state then
+        if lan_state then
             sysplus.taskInitEx(stop_lan_task, "stop_lan_task")
         else
             sysplus.taskInitEx(start_lan_task , "start_lan_task")

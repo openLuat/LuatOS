@@ -19,7 +19,7 @@ log.info("main", "air8000_gnss")
 
 
 mcu.hardfault(0)    --死机后停机，一般用于调试状态
-pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.0V
+pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.3V
 require("uart1_8000")
 
 function test_gnss()

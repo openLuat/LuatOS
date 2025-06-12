@@ -87,7 +87,7 @@ function setup_network_sharing()
     -- 获取以太网网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
     while netdrv.ready(socket.LWIP_ETH) ~= true do
         log.info("netdrv", "等待以太网就绪") -- 若以太网设备没有连上，可打开此处注释排查。
-        sys.wait(10000)
+        sys.wait(1000)
     end
 
     -- 启用以太网的DHCP服务

@@ -10,7 +10,7 @@ sys = require("sys")
 sysplus = require("sysplus")
 
 
--- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.0V
+-- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.3V
 
 require "lan"
 -- require "wan"

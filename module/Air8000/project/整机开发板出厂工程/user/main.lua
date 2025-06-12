@@ -11,12 +11,16 @@ local airsta = require "airsta"
 local airmusic = require "airmusic"
 local airap = require "airap"
 local airtts  = require "airtts"
+local airlan = require "airlan"
+local airwan = require "airwan"
+
 local airaudio  = require "airaudio"
 local aircamera = require "aircamera"
 local airrus = require "russia"
 local airstatus = require "statusbar"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
+local multi_network = require "multi_network"
 local taskName = "MAIN"
 
 local sid = 0
@@ -45,7 +49,7 @@ local sid = 0
 -- "lan":       以太网lan 通讯，通过air8000 给以太网设备上网
 -- "wan":       以太网wan 通讯，通过以太网给air8000 上网
 ---------页面3------------------
--- "multi-network": 多网融合演示
+-- "multi_network": 多网融合演示
 -- "485":       485 通讯
 -- "can":       can 通讯
 -- "onewire":   onewire 通讯
@@ -59,7 +63,7 @@ local cur_fun = "main"
 -- local funlist = {
 -- "gps", "wifiap","wifista","camera", "call","bt","sms","tts",
 -- "record","music","tf","gsensor","pm","lan","wan",
--- "multi-network","485","can","onewire","pwm","uart","232"
+-- "multi_network","485","can","onewire","pwm","uart","232"
 -- }
 
 _G.bkcolor = lcd.rgb565(99, 180, 245,false)
@@ -135,14 +139,16 @@ local function handal_main1(x,y)
   log.info("tp_handal key",key)
   if key == 1 then
   elseif key == 2 then
-    airmusic.play("/luadb/1.mp3")
+   
   elseif key == 3 then
   elseif key == 4 then
   elseif key == 5 then
   elseif key == 6 then
+    cur_fun = "lan"
   elseif key == 7 then
     cur_fun = "main"
   elseif key == 8 then
+    cur_fun = "wan"
   elseif key == 9 then
     cur_fun = "main2"
   end
@@ -152,7 +158,7 @@ local function handal_main2(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
-  
+    cur_fun  = "multi_network"
   elseif key == 2 then
   elseif key == 3 then
   elseif key == 4 then
@@ -188,6 +194,12 @@ local function  tp_handal(tp_device,tp_data)
       airap.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "sta" then
       airsta.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "multi_network" then
+      multi_network.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "wan" then
+      airwan.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "lan" then
+      airlan.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -308,6 +320,23 @@ local function draw_sta()
   end
 end
 
+local function draw_wan()
+  if  airwan.run()   then
+    cur_fun = "main"
+  end
+end
+
+local function draw_lan()
+  if  airlan.run()   then
+    cur_fun = "main"
+  end
+end
+
+local function draw_multi_network()
+  if  multi_network.run()   then
+    cur_fun = "main"
+  end
+end
 
 local function draw()
   if cur_fun == "camshow" then
@@ -334,6 +363,12 @@ local function draw()
     draw_ap()
   elseif cur_fun == "sta" then
     draw_sta()
+  elseif cur_fun == "wan" then
+    draw_wan()
+  elseif cur_fun == "lan" then
+    draw_lan()
+  elseif cur_fun == "multi_network" then
+    draw_multi_network()    
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")

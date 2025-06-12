@@ -146,6 +146,7 @@ local function aircamera_ui()
         lcd.drawStr(100,440,"点击上方按钮将返回主界面")
         lcd.flush()
     elseif TEST_MODE == 1 or TEST_MODE == 2 then
+        aircamera.init()
         aircamera_run()
     elseif TEST_MODE == 3 then
         TEST_MODE = 0

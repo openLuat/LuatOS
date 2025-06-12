@@ -31,7 +31,7 @@ log.info("main", "air8000_gns11s")
 
 
 mcu.hardfault(0)    --死机后停机，一般用于调试状态
-pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.0V
+pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 所有GPIO高电平输出3.3V
 
 local gnss = require("agps_icoe")
 function test_gnss()

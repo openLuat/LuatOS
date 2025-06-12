@@ -6,6 +6,8 @@ typedef struct luat_drv_ble_msg
     uint64_t id; // 命令seq序号
     uint16_t cmd_id;
     uint16_t len;
+    uint16_t version;
+    uint16_t reserved;
     uint8_t data[0];
 }luat_drv_ble_msg_t;
 
@@ -24,6 +26,8 @@ enum {
     LUAT_DRV_BT_CMD_BLE_ADV_DELETE, // 删除广播
     LUAT_DRV_BT_CMD_BLE_ADV_SET_DATA, // 设置广播数据
     LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA, // 设置广播响应数据
+
+    LUAT_DRV_BT_CMD_BLE_EVENT_CB = 128, // 事件回调
 
     LUAT_DRV_BT_CMD_MAX
 };

@@ -177,6 +177,7 @@ typedef struct{
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
+        uint8_t data[128]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;
 

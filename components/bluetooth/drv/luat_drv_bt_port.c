@@ -17,23 +17,15 @@ int luat_bluetooth_init(void* args) {
     LLOGD("执行luat_bluetooth_init");
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
-        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+        .len = sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t)
     };
-    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, 8 + 8) ;
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
     if (cmd == NULL) {
         return -101;
     }
-    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
-    uint8_t data[8] = {0};
-    // 前2个字节是蓝牙cmd id
-    // uint16_t id = LUAT_DRV_BT_CMD_BT_INIT;
-    // memcpy(data, &id, 2);
-    // 然后2个字节的主机协议版本号, 当前全是0
-
-    // 这个指令当没有参数, 加4个字节备用吧
-
-    // 全部拷贝过去
-    memcpy(cmd->data + 8, data, 8);
+    luat_drv_ble_msg_t msg = { .id = luat_airlink_next_cmd_id};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BT_INIT;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
 
     item.cmd = cmd;
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
@@ -41,8 +33,22 @@ int luat_bluetooth_init(void* args) {
 }
 
 int luat_bluetooth_deinit(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_bluetooth_deinit");
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t)
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = luat_airlink_next_cmd_id};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BT_DEINIT;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 int luat_bluetooth_get_mac(void* args, uint8_t *addr) {

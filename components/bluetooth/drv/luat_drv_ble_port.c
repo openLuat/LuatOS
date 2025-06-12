@@ -268,8 +268,8 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
 
     item.cmd = cmd;
 
-    LLOGD("gatt 数据长度 %d %d %d", item.len, cmd->len, cmd->len - sizeof(luat_drv_ble_msg_t));
-    luat_airlink_print_buff("bt req HEX", cmd->data, cmd->len);
+    // LLOGD("gatt 数据长度 %d %d %d", item.len, cmd->len, cmd->len - sizeof(luat_drv_ble_msg_t));
+    // luat_airlink_print_buff("bt req HEX", cmd->data, cmd->len);
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return 0;
 }

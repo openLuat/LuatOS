@@ -28,7 +28,7 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
     LLOGD("drv_ble event %d", event);
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
-        .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + (param ? 1000 : 16)
+        .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + 1024
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x510, item.len - sizeof(luat_airlink_cmd_t));
     if (cmd == NULL) {
@@ -36,25 +36,29 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         return;
     }
     luat_drv_ble_msg_t *msg = (luat_drv_ble_msg_t *)cmd->data;
+    void* ptr = cmd->data + sizeof(luat_drv_ble_msg_t);
     msg->id = seq;
     msg->cmd_id = LUAT_DRV_BT_CMD_BLE_EVENT_CB;
 
     uint32_t tmp = event;
-    memcpy(msg->data, &tmp, 4);
+    memcpy(ptr, &tmp, 4);
     if (param) {
-        if (param->adv_req.data && param->adv_req.data_len > 0) {
-            memcpy(msg->data + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
+        LLOGD("param %p", param);
+        if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
+            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
         }
-        else if (param->read_req.value && param->read_req.len > 0) {
-            memcpy(msg->data + 4 + sizeof(luat_ble_param_t), param->read_req.value, param->read_req.len);
+        else if (LUAT_BLE_EVENT_READ == event && param->read_req.value && param->read_req.len > 0) {
+            LLOGD("read req value %d %p", param->read_req.len, param->read_req.value);
+            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->read_req.value, param->read_req.len);
         }
-        else if (param->write_req.value && param->write_req.len > 0) {
-            memcpy(msg->data + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.len);
+        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value && param->write_req.len > 0) {
+            LLOGD("write req value %d %p", param->write_req.len, param->write_req.value);
+            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.len);
         }
-        param->adv_req.data = NULL;
-        param->read_req.value = NULL;
-        param->write_req.value = NULL;
-        memcpy(msg->data + 4, param, sizeof(luat_ble_param_t));
+        // param->adv_req.data = NULL;
+        // param->read_req.value = NULL;
+        // param->write_req.value = NULL;
+        memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }
 
     item.cmd = cmd;

@@ -60,14 +60,21 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
         luat_ble_event_t event = (luat_ble_event_t)tmp;
         luat_ble_param_t param = {0};
         memcpy(&param, msg->data + 4, sizeof(luat_ble_param_t));
-        // 以下数据暂时填0, 还没想好怎么传
-        param.adv_req.data_len = 0;
-        param.adv_req.data = NULL;
-        param.read_req.len = 0;
-        param.read_req.value = NULL;
-        param.write_req.len = 0;
-        param.write_req.value = NULL;
         LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
+
+        // 把能处理的先尝试处理一下
+        if (event == LUAT_BLE_EVENT_WRITE && param.write_req.len) {
+            param.write_req.value = luat_heap_malloc(param.write_req.len);
+            memcpy(param.write_req.value, msg->data + 4 + sizeof(luat_ble_param_t), param.write_req.len);
+        }
+        else if (event == LUAT_BLE_EVENT_READ && param.read_req.len) {
+            param.read_req.value = luat_heap_malloc(param.read_req.len);
+            memcpy(param.read_req.value, msg->data + 4 + sizeof(luat_ble_param_t), param.read_req.len);
+        }
+        else if (event == LUAT_BLE_EVENT_SCAN_REPORT && param.adv_req.data_len) {
+            param.adv_req.data = luat_heap_malloc(param.adv_req.data_len);
+            memcpy(param.adv_req.data, msg->data + 4 + sizeof(luat_ble_param_t), param.adv_req.data_len);
+        }
         g_drv_ble_cb(NULL, event, &param);
         return 0;
     }

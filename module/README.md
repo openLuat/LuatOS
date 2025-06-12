@@ -22,6 +22,8 @@ project：合宙基于该模组型号设计的产品，如开发板、核心板+
 
 MIT License
 
+```lua
 print("感谢您使用LuatOS ^_^")
 
 print("Thank you for using LuatOS ^_^")
+```

@@ -64,14 +64,17 @@ end
 
 
 sys.taskInit(function()
+    sys.wait(500)
     log.info("开始初始化蓝牙核心")
     bluetooth_device = bluetooth.init()
+    sys.wait(100)
     log.info("初始化BLE功能")
     ble_device = bluetooth_device:ble(ble_callback)
     if ble_device == nil then
         log.error("当前固件不支持完整的BLE")
         return
     end
+    sys.wait(100)
 
     log.info('开始创建GATT')
     characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
@@ -80,6 +83,7 @@ sys.taskInit(function()
         log.error("创建GATT失败")
     end
 
+    sys.wait(100)
     log.info("开始设置广播内容")
     ble_device:adv_create({
         addr_mode = ble.PUBLIC,
@@ -88,12 +92,13 @@ sys.taskInit(function()
         intv_max = 120,
         adv_data = {
             {ble.FLAGS,string.char(0x06)},
-            {ble.COMPLETE_LOCAL_NAME, "LuatOS"},
+            {ble.COMPLETE_LOCAL_NAME, "LuatOS123"},
             {ble.SERVICE_DATA, string.fromHex("FE01")},
             {ble.MANUFACTURER_SPECIFIC_DATA, string.fromHex("05F0")},
         }
     })
 
+    sys.wait(100)
     log.info("开始广播")
     ble_device:adv_start()
     -- ble_device:adv_stop()

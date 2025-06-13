@@ -6,8 +6,9 @@ log.info("main", PROJECT, VERSION)
 sys = require "sys"
 sysplus = require("sysplus")
 
--- gsensor的供电打开
-local vbackup = gpio.setup(24, 1)
+gpio.setup(24, 1, gpio.PULLUP)  -- gsensor 开关
+gpio.setup(164, 1, gpio.PULLUP) -- air8000 和解码芯片公用
+gpio.setup(147, 1, gpio.PULLUP) -- camera的供电使能脚
 
 local da221 = require "da221"
 

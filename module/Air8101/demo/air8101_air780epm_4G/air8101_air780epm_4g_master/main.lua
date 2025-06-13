@@ -7,9 +7,6 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-本demo演示的功能为：
-Air8101模块通过外挂Air780EPM模块实现4G联网功能
 ]]
 PROJECT = "netdrv"
 VERSION = "001.000.000"
@@ -44,13 +41,17 @@ PRODUCT_KEY = "XPwaCKtrZywvcwTMvvdGUTtuiP6zLRTY" --换成自己的
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
-sys.timerLoopStart(function()
+local function print_mem()
+    -- 打印Lua虚拟机内存使用情况（默认为lua虚拟机内存）
     log.info("mem.lua", rtos.meminfo())
+    -- 打印系统内存使用情况（“sys”为系统内存）
     log.info("mem.sys", rtos.meminfo("sys"))
-end, 3000)
+end
+
+sys.timerLoopStart(print_mem, 3000)
 
 -- 加载功能模块
-require "network_and_http"
+require "network_airlink"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

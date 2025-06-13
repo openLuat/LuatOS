@@ -302,6 +302,10 @@ static int l_sms_send(lua_State *L) {
         LLOGI("sms is emtry");
         return 0;
     }
+    if (payload_len >= 140) {
+        LLOGE("sms is too long %d > 140", payload_len);
+        return 0;
+    }
 
     int pdu_mode = 0;
     for (size_t i = 0; i < payload_len; i++)

@@ -19,6 +19,24 @@ Air780Exx系列，包括Air780EPM/Air780EHM/Air780EHV/Air780EGH等；
 
 **LuatOS，现已支持74个核心库，55个扩展卡，1000余个API，100多个基于场景的demo，让你开发智能设备像做PPT一样轻松。**
 
+本仓库包含如下文件夹：
+
+.github文件夹，Github Action 配置文件, 用于自动化构建和测试
+
+components 组件库,，LuatOS在Lua基础上扩展的一系列库的源码
+
+lua文件夹，Lua虚拟机5.3系列的源码, 经过合宙优化和测试
+
+luat文件夹，LuatOS核心框架代码
+
+module文件夹，合宙模组和工业引擎主流型号的固件、demo、project参考代码等
+
+script文件夹，LuatOS扩展库
+
+tools文件夹，辅助工具
+
+.gitignore Git的文件忽略配置文件
+
 
 ## 快速入门
 

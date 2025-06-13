@@ -70,7 +70,12 @@ int luat_drv_gpio_get(int pin, int* val) {
 
 int luat_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t RegAddress, uint8_t IsRead, uint8_t *Data) 
 {
-    return luat_airlink_drv_gpio_driver_yhm27xx(Pin, ChipID, RegAddress, IsRead, Data);
+    if (Pin >= 128) {
+        return luat_airlink_drv_gpio_driver_yhm27xx(Pin, ChipID, RegAddress, IsRead, Data);
+    }
+    else {
+        return luat_gpio_driver_yhm27xx(Pin, ChipID, RegAddress, IsRead, Data);
+    }
 }
 
 int luat_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID) {

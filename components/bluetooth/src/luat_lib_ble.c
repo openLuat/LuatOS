@@ -12,7 +12,7 @@
 extern int g_bt_ble_ref;
 extern int g_ble_lua_cb_ref;
 
-static int luatos_ble_callback(lua_State *L, void* ptr){
+int l_ble_callback(lua_State *L, void* ptr) {
 	(void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_ble_event_t evt = (luat_ble_event_t)msg->arg1;
@@ -22,6 +22,10 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
     if (lua_isfunction(L, -1)) {
         lua_geti(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
         lua_pushinteger(L, evt);
+    }
+    else {
+        LLOGE("用户回调函数不存在");
+        goto exit;
     }
 
     switch(evt){
@@ -96,6 +100,7 @@ static int luatos_ble_callback(lua_State *L, void* ptr){
             lua_call(L, 2, 0);
             break;
     }
+exit:
     if (param){
         luat_heap_free(param);
         param = NULL;
@@ -122,7 +127,7 @@ void luat_ble_cb(luat_ble_t* args, luat_ble_event_t ble_event, luat_ble_param_t*
     }
     
     rtos_msg_t msg = {
-        .handler = luatos_ble_callback,
+        .handler = l_ble_callback,
         .ptr = (void*)NULL,
         .arg1 = (int)ble_event,
         .arg2 = (int)luat_ble_param,

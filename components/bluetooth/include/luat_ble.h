@@ -120,6 +120,7 @@ typedef enum{
     // CONN
     LUAT_BLE_EVENT_CONN,        // BLE连接成功
     LUAT_BLE_EVENT_DISCONN,     // BLE断开连接
+    LUAT_BLE_EVENT_GATT_DONE,     // BLE GATT
 
     // WRITE
     LUAT_BLE_EVENT_WRITE,       // BLE写数据
@@ -177,6 +178,7 @@ typedef struct{
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
+        uint8_t data[128]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;
 
@@ -185,20 +187,30 @@ typedef struct {
     int len;
 }luat_ble_adv_data_t;
 
-typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
+typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, void* ble_param);
 
 typedef struct luat_ble_gatt_chara luat_ble_gatt_chara_t;
-
-struct luat_ble_gatt_chara{
+#define LUAT_BLE_UUID_LEN_MAX   16
+typedef struct luat_ble_gatt_descriptor{
     uint16_t handle;
-    uint8_t uuid[16];
+    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
+}luat_ble_gatt_descriptor_t;
+
+struct luat_ble_gatt_chara{
+    uint16_t handle;
+    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
+    luat_ble_uuid_type uuid_type;
+    uint16_t perm;
+    uint16_t max_size;
+    luat_ble_gatt_descriptor_t* descriptor;     // descriptor
+    uint8_t descriptors_num;            // number of descriptor
 };
 
 typedef struct {
-    uint8_t uuid[16];
+    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
     luat_ble_uuid_type uuid_type;
     luat_ble_gatt_chara_t* characteristics; // characteristics
     uint8_t characteristics_num;            // number of characteristics

@@ -55,14 +55,15 @@ local function ble_callback(ble_device, ble_event, ble_param)
         -- 1秒后重新开始广播
         sys.timerStart(function() ble_device:adv_start() end, 1000)
     elseif ble_event == ble.EVENT_WRITE then
+        -- 收到数据
         log.info("ble", "write", ble_param.conn_idx,ble_param.service_id,ble_param.handle,ble_param.data:toHex())
     elseif ble_event == ble.EVENT_READ then
+        -- 收到读请求
         log.info("ble", "read", ble_param.conn_idx,ble_param.service_id,ble_param.handle)
-        ble_device:read_response(ble_param,string.fromHex("1234"))
     elseif ble_event == ble.EVENT_SCAN_INIT then
         log.info("ble", "scan init")
     elseif ble_event == ble.EVENT_SCAN_REPORT then
-        log.info("ble", "scan report", ble_param.rssi, ble_param.adv_addr:toHex())
+        log.info("ble", "scan report", ble_param.rssi, ble_param.adv_addr:toHex(), ble_param.data:toHex())
     elseif ble_event == ble.EVENT_SCAN_STOP then
         log.info("ble", "scan stop")
     end
@@ -83,8 +84,8 @@ sys.taskInit(function()
     end
     sys.wait(100)
 
-    -- 扫描蓝牙
     if bt_scan then
+        -- 扫描模式
         sys.wait(1000)
         ble_device:scan_create()
         sys.wait(100)

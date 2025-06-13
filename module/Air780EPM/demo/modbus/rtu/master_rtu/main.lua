@@ -70,20 +70,20 @@ sys.timerLoopStart(function()
 end, 5000)
 
 
--- 获取从站1的状态，每个5秒获取从站状态并在日志打印出来（仅方便调试使用，量产时可删除）
+-- 获取从站1的状态，每隔5秒获取从站状态并在日志打印出来（仅方便调试使用，量产时可删除）
 sys.timerLoopStart(function()
     local status = modbus.get_slave_state(mb_slave1)
     log.info("modbus1", status)
 end, 5000)
 
--- -- 获取从站2的状态，每个5秒获取从站状态并在日志打印出来（仅方便调试使用，量产时可删除）
+-- -- 获取从站2的状态，每隔5秒获取从站状态并在日志打印出来（仅方便调试使用，量产时可删除）
 -- sys.timerLoopStart(function()
 --     local status = modbus.get_slave_state(mb_slave2)
 --     log.info("modbus2", status)
 -- end, 5000)
 
 
--- -- 每个5秒执行一次mb_slave1_msg1消息，使用modbus.exec(master_handler, msg_handler)接口须先在modbus.set_msg_comm_period(msg_handler, comm_period)接口中设置为手动模式；成功返回true，其他情况返回false
+-- -- 每隔5秒执行一次mb_slave1_msg1消息，使用modbus.exec(master_handler, msg_handler)接口须先在modbus.set_msg_comm_period(msg_handler, comm_period)接口中设置为手动模式；成功返回true，其他情况返回false
 -- sys.timerLoopStart(function()
 --     local status=modbus.exec(mb_rtu, mb_slave1_msg1)
 --     log.info("msg",status)
@@ -91,10 +91,10 @@ end, 5000)
 
 
 -- -- 测试删除一个从站对象，并删除与之相关的通讯消息句柄。需在主站停止时(modbus.master_stop)执行该操作，否则无效。
--- -- 将3分钟后删除从站1（主站已关闭），删除与之相关的通讯消息句柄，并在5秒后重启主站，可以观察从站是否删除成功。
+-- -- 将在3分钟后删除从站1（主站已关闭），删除与之相关的通讯消息句柄，并在5秒后重启主站，可以观察从站是否删除成功。
 -- sys.timerStart(function()
 --     local status = modbus.remove_slave(mb_rtu, mb_slave1)
---     log.info("modbus", "slave remove after 3 minutes")
+--     log.info("modbus", "slave1 remove after 3 minutes")
 --     log.info("remove", status)
     
 -- -- 移除从站后，5秒后重新启动Modbus主站

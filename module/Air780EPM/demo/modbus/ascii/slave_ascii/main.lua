@@ -14,7 +14,7 @@ gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发
 uart.setup(uartid, 9600, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 
--- 创建从站设备，可选择RTU、ASCII、TCP，此demo仅用作测试RTU和ASCII。
+-- 创建从站设备，此demo用作测试ASCII。
 local slave_id = 1
 mb_ascii_s = modbus.create_slave(modbus.MODBUS_ASCII, slave_id, uartid)
 

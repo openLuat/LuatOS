@@ -59,9 +59,16 @@ local function ble_callback(ble_device, ble_event, ble_param)
     elseif ble_event == ble.EVENT_READ then
         log.info("ble", "read", ble_param.conn_idx,ble_param.service_id,ble_param.handle)
         ble_device:read_response(ble_param,string.fromHex("1234"))
+    elseif ble_event == ble.EVENT_SCAN_INIT then
+        log.info("ble", "scan init")
+    elseif ble_event == ble.EVENT_SCAN_REPORT then
+        log.info("ble", "scan report", ble_param.rssi, ble_param.adv_addr:toHex())
+    elseif ble_event == ble.EVENT_SCAN_STOP then
+        log.info("ble", "scan stop")
     end
 end
 
+local bt_scan = false   -- 是否扫描蓝牙
 
 sys.taskInit(function()
     sys.wait(500)
@@ -76,32 +83,47 @@ sys.taskInit(function()
     end
     sys.wait(100)
 
-    log.info('开始创建GATT')
-    characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
-    log.info("创建的GATT为",characteristic1,characteristic2,characteristic3,characteristic4)
-    if characteristic1 == nil then
-        log.error("创建GATT失败")
+    -- 扫描蓝牙
+    if bt_scan then
+        sys.wait(1000)
+        ble_device:scan_create()
+        sys.wait(100)
+        log.info("开始扫描")
+        ble_device:scan_start()
+
+        sys.wait(5000)
+        log.info("停止扫描")
+        ble_device:scan_stop()
+    else
+        log.info('开始创建GATT')
+        characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
+        log.info("创建的GATT为",characteristic1,characteristic2,characteristic3,characteristic4)
+        if characteristic1 == nil then
+            log.error("创建GATT失败")
+        end
+
+        sys.wait(100)
+        log.info("开始设置广播内容")
+        ble_device:adv_create({
+            addr_mode = ble.PUBLIC,
+            channel_map = ble.CHNLS_ALL,
+            intv_min = 120,
+            intv_max = 120,
+            adv_data = {
+                {ble.FLAGS,string.char(0x06)},
+                {ble.COMPLETE_LOCAL_NAME, "LuatOS123"},
+                {ble.SERVICE_DATA, string.fromHex("FE01")},
+                {ble.MANUFACTURER_SPECIFIC_DATA, string.fromHex("05F0")},
+            }
+        })
+
+        sys.wait(100)
+        log.info("开始广播")
+        ble_device:adv_start()
+        -- ble_device:adv_stop()
     end
 
-    sys.wait(100)
-    log.info("开始设置广播内容")
-    ble_device:adv_create({
-        addr_mode = ble.PUBLIC,
-        channel_map = ble.CHNLS_ALL,
-        intv_min = 120,
-        intv_max = 120,
-        adv_data = {
-            {ble.FLAGS,string.char(0x06)},
-            {ble.COMPLETE_LOCAL_NAME, "LuatOS123"},
-            {ble.SERVICE_DATA, string.fromHex("FE01")},
-            {ble.MANUFACTURER_SPECIFIC_DATA, string.fromHex("05F0")},
-        }
-    })
 
-    sys.wait(100)
-    log.info("开始广播")
-    ble_device:adv_start()
-    -- ble_device:adv_stop()
 end)
 
 

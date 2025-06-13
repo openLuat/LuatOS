@@ -20,9 +20,6 @@ uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 -- 设置通讯超时时间和消息发送超时重发次数，当主站未在 设置的时间 内接收到从站数据，将向从站再次发送问询（问询次数按设置的 消息超时重发次数 发送，默认1）
 -- 设置断线重连时间间隔，当从站与主站断连后，主站将在设置时间内重新连接从站(默认5000ms)
 mb_rtu = modbus.create_master(modbus.MODBUS_RTU, uartid,3000,2000,1,5000)
--- -- 创建主站设备，ASCII模式
--- mb_rtu = modbus.create_master(modbus.MODBUS_ASCII, uartid)
-
 
 -- 为主站添加从站，从站ID为1，可使用modbus.add_slave(master_handler, slave_id)接口添加多个从站，最多可以添加247个
 mb_slave1 = modbus.add_slave(mb_rtu, 1)
@@ -63,7 +60,7 @@ modbus.master_start(mb_rtu)
 
 
 -- -- 设置消息通讯周期，搭配modbus.create_master/modbus.set_comm_interval_time(mb_rtu, 3000)设置通讯时间使用，若设置通讯周期为2次，将在2倍的通讯时间后向从站问询数据
-modbus.set_msg_comm_period(mb_slave1_msg1, 2)
+-- modbus.set_msg_comm_period(mb_slave1_msg1, 2)
 
 
 -- 获取所有从站状态,如果所有从站状态为正常，返回true，其他情况返回false,将在每隔5秒的时间获取所有从站状态，并在日志中打印状态（仅方便调试使用，量产时可删除）
@@ -116,9 +113,9 @@ function modify_data()
     log.info("slave1 reg: ", slave1_msg1_buf:readU16(), slave1_msg1_buf:readU16(),
                              slave1_msg1_buf:readU16(), slave1_msg1_buf:readU16())
 
-    slave2_msg1_buf:seek(0)
-    log.info("slave2 reg: ", slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16(),
-                             slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16())
+    -- slave2_msg1_buf:seek(0)
+    -- log.info("slave2 reg: ", slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16(),
+    --                          slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16())
 
     -- 写入变量值
     -- slave2_msg1_buf:seek(0)

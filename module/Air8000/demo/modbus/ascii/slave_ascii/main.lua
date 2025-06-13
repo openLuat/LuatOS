@@ -1,5 +1,5 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "modbus_slave_rtu"
+PROJECT = "modbus_slave_ascii"
 VERSION = "1.0.0"
 log.style(1)
 log.info("main", PROJECT, VERSION)
@@ -14,25 +14,24 @@ gpio.setup(16, 1)        --打开电源(开发板485供电脚是gpio16，用开�
 uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 
--- 创建从站设备，可选择RTU、ASCII、TCP，此demo仅用作测试RTU和ASCII。
+-- 创建从站设备，可选择RTU、ASCII、TCP，此demo用作测试ASCII。
 local slave_id = 1
-mb_rtu_s = modbus.create_slave(modbus.MODBUS_RTU, slave_id, uartid)
--- mb_rtu_s = modbus.create_slave(modbus.MODBUS_ASCII, slave_id, uartid)
+mb_ascii_s = modbus.create_slave(modbus.MODBUS_ASCII, slave_id, uartid)
 
 
 -- 添加一块寄存器内存区
 registers = zbuff.create(1)
-modbus.add_block(mb_rtu_s, modbus.REGISTERS, 0, 32, registers)
+modbus.add_block(mb_ascii_s, modbus.REGISTERS, 0, 32, registers)
 registers:clear()
 
 -- 创建线圈数据区
 ciols = zbuff.create(1)
-modbus.add_block(mb_rtu_s, modbus.CIOLS, 0, 32, ciols)
+modbus.add_block(mb_ascii_s, modbus.CIOLS, 0, 32, ciols)
 ciols:clear()
 
 
 -- 启动modbus从站
-modbus.slave_start(mb_rtu_s)
+modbus.slave_start(mb_ascii_s)
 
 
 local counter = 0
@@ -60,7 +59,7 @@ sys.timerLoopStart(modify_data,1000)
 
 -- -- 测试停止modbus从站，将在从站启动两分钟后关闭
 -- sys.timerStart(function()
---     modbus.slave_stop(mb_rtu_s)
+--     modbus.slave_stop(mb_ascii_s)
 --     log.info("Modbus", "2分钟时间到，停止Modbus从站")
 -- end, 2 * 60 * 1000)  -- 2分钟（单位：毫秒）
 

@@ -66,6 +66,7 @@ function airLCD.lcd_init(sn)
           end
       end)
   end
+
 end
 
 return airLCD

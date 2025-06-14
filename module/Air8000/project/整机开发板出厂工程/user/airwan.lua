@@ -39,8 +39,15 @@ local function start_wan()
     -- SPI ID 1, 片选 GPIO12
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})
     netdrv.dhcp(socket.LWIP_ETH, true)
-
+    while 1 do
+        local result, ip, adapter = sys.waitUntil("IP_READY", 3000)
+        log.info("ready?", result, ip, adapter)
+        if adapter and adapter ==  socket.LWIP_ETH then
+            break
+        end
+    end
     iperf.client(socket.LWIP_ETH, "192.168.4.1")
+    log.info("创建完成,iperf 客户端创建完成")
     wifi_net_state = "创建完成,iperf 客户端创建完成"
 end
 

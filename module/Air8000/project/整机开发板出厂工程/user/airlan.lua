@@ -50,6 +50,7 @@ local function start_lan()
     while netdrv.link(socket.LWIP_GP) ~= true do
         sys.wait(100)
     end
+
     sys.wait(2000)
     dhcpsrv.create({adapter=socket.LWIP_ETH})
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)

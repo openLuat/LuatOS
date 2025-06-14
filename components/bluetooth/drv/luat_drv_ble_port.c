@@ -289,26 +289,88 @@ int luat_ble_write_notify_value(void* args, uint8_t conn_idx, uint16_t service_i
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_create_scanning");
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8 + sizeof(uint16_t) + sizeof(luat_ble_scan_cfg_t)
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_SCAN_CREATE;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    // 然后是结构体大小
+    uint16_t sizeof_scan = sizeof(luat_ble_scan_cfg_t);
+    memcpy(cmd->data + 8 + 8, &sizeof_scan, 2);
+    // 然后是数据
+    memcpy(cmd->data + 8 + 8 + 2, scan_cfg, sizeof_scan);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_start_scanning(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_start_scanning");
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_SCAN_START;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_stop_scanning(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_stop_scanning");
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_SCAN_STOP;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 
 int luat_ble_delete_scanning(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_delete_scanning");
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_SCAN_DELETE;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 

@@ -109,7 +109,7 @@ exit:
 }
 
 void luat_ble_cb(luat_ble_t* args, luat_ble_event_t ble_event, luat_ble_param_t* ble_param){
-    LLOGD("ble event: %d param: %p", ble_event, ble_param);
+    // LLOGD("ble event: %d param: %p", ble_event, ble_param);
     luat_ble_param_t* luat_ble_param = NULL;
     if (ble_param){
         // LLOGD("ble param: %p", ble_param);

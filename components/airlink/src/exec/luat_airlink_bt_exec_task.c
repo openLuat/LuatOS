@@ -106,6 +106,15 @@ static int drv_adv_set_scan_rsp_data(luat_drv_ble_msg_t *msg) {
     return luat_ble_set_scan_rsp_data(NULL, msg->data + 2, datalen);
 }
 
+static int drv_adv_create_scanning(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_scan_cfg_t scan = {0};
+    uint16_t sizeof_scan = 0;
+    memcpy(&sizeof_scan, msg->data, 2);
+    memcpy(&scan, msg->data + 2, sizeof(luat_ble_scan_cfg_t));
+    return luat_ble_create_scanning(NULL, &scan);
+}
+
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
     LLOGD("bt task start ...");
@@ -170,6 +179,22 @@ static void drv_bt_task(void *param) {
             case LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA:
                 ret = drv_adv_set_scan_rsp_data(msg);
                 LLOGD("ble adv set resp data %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_SCAN_CREATE:
+                ret = drv_adv_create_scanning(msg);
+                LLOGD("ble adv create scanning %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_SCAN_START:
+                ret = luat_ble_start_scanning(NULL);
+                LLOGD("ble adv start scanning %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_SCAN_STOP:
+                ret = luat_ble_stop_scanning(NULL);
+                LLOGD("ble adv stop scanning %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_SCAN_DELETE:
+                ret = luat_ble_delete_scanning(NULL);
+                LLOGD("ble adv delete scaning %d", ret);
                 break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);

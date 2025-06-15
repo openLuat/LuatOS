@@ -69,13 +69,13 @@ local function wrapper(co,...)
     end
     return ...
 end
-sys.coresume = function(...)   
+sys.coresume = function(...)
     local arg = {...}
-    return wrapper(arg[1], coroutine.resume(...)) -- 恢复协程，并且检查协程执行结果
+    return wrapper(arg[1], coroutine.resume(...))
 end
 
 function sys.check_task()
-    local co, ismain = coroutine.running()   -- 获取当前协程号，如果是主协程，则ismain为 true,主协程不允许等待，因为一旦等待则无法接受消息，其他的任务也无法继续执行
+    local co, ismain = coroutine.running()
     if ismain then
         error(debug.traceback("attempt to yield from outside a coroutine"))
     end
@@ -90,9 +90,9 @@ function sys.wait(ms)
     -- 参数检测，参数不能为负值
     --assert(ms > 0, "The wait time cannot be negative!")
     -- 选一个未使用的定时器ID给该任务线程
-    local co = sys.check_task()       --  获取当前的task,并检测，如果是在main task ，则报异常，如果不是，返回当前协程号
-    while true do                     -- 如果定时器的id 大于最大值，则返回重新找空的timerPool 仓位
-        if taskTimerId >= TASK_TIMER_ID_MAX - 1 then  
+    local co = sys.check_task()
+    while true do
+        if taskTimerId >= TASK_TIMER_ID_MAX - 1 then
             taskTimerId = 0
         else
             taskTimerId = taskTimerId + 1
@@ -102,15 +102,15 @@ function sys.wait(ms)
         end
     end
     local timerid = taskTimerId
-    timerPool[timerid] = co           -- timerPool 仓位赋值
+    timerPool[timerid] = co
     -- 调用core的rtos定时器
-    if 1 ~= rtos.timer_start(timerid, ms) then log.debug("rtos.timer_start error") return end   -- 通过core 开始启动定时器，如果超过64 则报错
+    if 1 ~= rtos.timer_start(timerid, ms) then log.debug("rtos.timer_start error") return end
     -- 挂起调用的任务线程
-    local message = {coroutine.yield()}         -- 挂起当前的task
-    if #message ~= 0 then                       -- 判断挂起协程结束后返回值，如果有返回值，说明恢复协程的时候，有带参数
-        rtos.timer_stop(timerid)                -- 有参数，一定是消息返回了，定时器需要提前停止
-        timerPool[timerid] = nil                -- 释放core定时器和timerPool定时器列表
-        return unpack(message)                  -- 返回消息的带的参数
+    local message = {coroutine.yield()}
+    if #message ~= 0 then
+        rtos.timer_stop(timerid)
+        timerPool[timerid] = nil
+        return unpack(message)
     end
 end
 
@@ -121,16 +121,15 @@ end
 -- @return data 接收到消息返回消息参数
 -- @usage result, data = sys.waitUntil("SIM_IND", 120000)
 function sys.waitUntil(id, ms)
-    local co = sys.check_task()         -- 获取并检查当前的task
-    sys.subscribe(id, co)               -- 订阅当前ID 消息,订阅的回调是task 号，如果消息过来，则可以解除下一行的挂起状态
-    local message = ms and {sys.wait(ms)} or {coroutine.yield()}  -- 如果有写入时间，则进入sys.wait,定时间到就直接进入下行的取消订阅，如果时间未到，却等来了订阅的消息，则在sys.wait 里面 会解除挂起，然后解除订阅
+    local co = sys.check_task()
+    sys.subscribe(id, co)
+    local message = ms and {sys.wait(ms)} or {coroutine.yield()}
     sys.unsubscribe(id, co)
-    return message[1] ~= nil, unpack(message, 2, #message)  -- 返回订阅消息带的参数
+    return message[1] ~= nil, unpack(message, 2, #message)
 end
 
-
 --- 同上，但不返回等待结果
-function sys.waitUntilMsg(id)           -- 同上，不需要sys.wait 挂起
+function sys.waitUntilMsg(id)
     local co = sys.check_task()
     sys.subscribe(id, co)
     local message = {coroutine.yield()}
@@ -144,7 +143,7 @@ end
 -- @return message 接收到消息返回message，超时返回false
 -- @return data 接收到消息返回消息参数
 -- @usage result, data = sys.waitUntilExt("SIM_IND", 120000)
-function sys.waitUntilExt(id, ms)           --  好像没用
+function sys.waitUntilExt(id, ms)
     local co = sys.check_task()
     sys.subscribe(id, co)
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
@@ -193,15 +192,15 @@ end
 -- @usage timerStop(1)
 function sys.timerStop(val, ...)
     -- val 为定时器ID
-    if type(val) == 'number' then                          -- 停止单个定时器
+    if type(val) == 'number' then
         timerPool[val], para[val] = nil, nil
         rtos.timer_stop(val)
-    else                                                   -- 停止多个定时器 
+    else
         for k, v in pairs(timerPool) do
             -- 回调函数相同
             if type(v) == 'table' and v.cb == val or v == val then
                 -- 可变参数相同
-                if cmpTable({...}, para[k]) then           -- 带来的定时器列表的参数和sys.lua 内之前创建的参数是否一致，如果一致，则取消定时器，释放timerPool
+                if cmpTable({...}, para[k]) then
                     rtos.timer_stop(k)
                     timerPool[k], para[k] = nil, nil
                     break
@@ -215,9 +214,9 @@ end
 -- @param fnc 定时器回调函数
 -- @return 无
 -- @usage timerStopAll(cbFnc)
-function sys.timerStopAll(fnc)              --  停止同一回调函数所有的定时器
+function sys.timerStopAll(fnc)
     for k, v in pairs(timerPool) do
-        if type(v) == "table" and v.cb == fnc or v == fnc then  -- 只判断函数名，不判断参数
+        if type(v) == "table" and v.cb == fnc or v == fnc then
             rtos.timer_stop(k)
             timerPool[k], para[k] = nil, nil
         end
@@ -230,13 +229,14 @@ function sys.timerAdvStart(fnc, ms, _repeat, ...)
     --assert(ms > 0, "sys.timerStart(Second parameter) is <= zero !")
     -- 关闭完全相同的定时器
     local arg = {...}
-    if #arg == 0 then                           -- 如果没有参数，直接停止无参的定时器
+    if #arg == 0 then
         sys.timerStop(fnc)
     else
-        sys.timerStop(fnc, ...)                 -- 如果有参数，停止对应的有参定时器
+        sys.timerStop(fnc, ...)
     end
+    -- 为定时器申请ID，ID值 1-20 留给任务，20-30留给消息专用定时器
     while true do
-        if msgId >= MSG_TIMER_ID_MAX then msgId = TASK_TIMER_ID_MAX end  -- 这里的区别是，sys.wait 是taskTimerId，这里msgid,为什么要区分
+        if msgId >= MSG_TIMER_ID_MAX then msgId = TASK_TIMER_ID_MAX end
         msgId = msgId + 1
         if timerPool[msgId] == nil then
             timerPool[msgId] = fnc
@@ -244,10 +244,10 @@ function sys.timerAdvStart(fnc, ms, _repeat, ...)
         end
     end
     --调用底层接口启动定时器
-    if rtos.timer_start(msgId, ms, _repeat) ~= 1 then return end    -- 如果_repeat为-1.则core，会启用一个循环定时器
+    if rtos.timer_start(msgId, ms, _repeat) ~= 1 then return end
     --如果存在可变参数，在定时器参数表中保存参数
     if #arg ~= 0 then
-        para[msgId] = arg       -- 存定时器参数表，为了后面判断停止定时器，或者定时器事件到时，寻找符合参数的定时器，作为判断标准
+        para[msgId] = arg
     end
     --返回定时器id
     return msgId
@@ -277,7 +277,7 @@ end
 --另一种是开启定时器时的回调函数，此形式时必须再传入可变参数...才能唯一标记一个定时器
 -- @param ... 可变参数
 -- @return number 开启状态返回true，否则nil
-function sys.timerIsActive(val, ...)          -- 判断定时器释放存在，其实很简单就是看timerPool 对应的id 释放为空
+function sys.timerIsActive(val, ...)
     if type(val) == "number" then
         return timerPool[val]
     else
@@ -311,8 +311,8 @@ function sys.subscribe(id, callback)
         for _, v in pairs(id) do sys.subscribe(v, callback) end
         return
     end
-    if not subscribers[id] then subscribers[id] = {} end  
-    subscribers[id][callback] = true              -- 创建一般的订阅消息的数据结构，即每个元素里面保存的是一个回调函数
+    if not subscribers[id] then subscribers[id] = {} end
+    subscribers[id][callback] = true
 end
 --- 取消订阅消息
 -- @param id 消息id
@@ -341,7 +341,7 @@ end
 -- @param ... 可变参数，用户自定义
 -- @return 无
 -- @usage publish("NET_STATUS_IND")
-function sys.publish(...)                  -- 消息插入消息队列，在定时器任务处理完毕后，执行消息发布
+function sys.publish(...)
     table.insert(messageQueue, {...})
 end
 
@@ -351,25 +351,21 @@ local function dispatch()
         if #messageQueue == 0 then
             break
         end
-        local message = table.remove(messageQueue, 1)       -- 移除消息，并且将消息赋值给message 变量
-        if subscribers[message[1]] then                     -- 消息队列的第一个值就是订阅的id号，如果该ID 号依然存在订阅的列表内，则进行信息筛选
+        local message = table.remove(messageQueue, 1)
+        if subscribers[message[1]] then
             local tmpt = {}
-            for callback, _ in pairs(subscribers[message[1]]) do   -- 遍历某个消息对应的回调函数，将回调函数，和返回的参数一一提取出到tmpt里面
+            for callback, _ in pairs(subscribers[message[1]]) do
                 table.insert(tmpt, callback)
             end
-            for _, callback in ipairs(tmpt) do                      -- 遍历回调列表，先判断回调属性，如果是function ,则回调回调函数
+            for _, callback in ipairs(tmpt) do
                 if type(callback) == "function" then
                     callback(unpack(message, 2, #message))
-                elseif type(callback) == "thread" then              -- 如果是thread（即协程），则恢复挂起的协程，一般是waituntil函数，这里有个问题，为何不是sys.wait?
+                elseif type(callback) == "thread" then
                     sys.coresume(callback, unpack(message))
                 end
             end
         end
     end
-end
-
-local function sss()
-    print()
 end
 
 -- rtos消息回调
@@ -388,28 +384,28 @@ end
 ------------------------------------------ Luat 主调度框架  ------------------------------------------
 function sys.safeRun()
     -- 分发内部消息
-    dispatch()                              -- 内部消息的分发和定时器消息交替进行
+    dispatch()
     -- 阻塞读取外部消息
-    local msg, param, exparam = rtos.receive(rtos.INF_TIMEOUT)     -- 第一个是消息类型（目前只有定时器消息），param，是定时器消息的ID 号，exparam，判断是是否是循环定时器
+    local msg, param, exparam = rtos.receive(rtos.INF_TIMEOUT)
     --log.info("sys", msg, param, exparam, tableNSize(timerPool), tableNSize(para), tableNSize(taskTimerPool), tableNSize(subscribers))
     -- 空消息?
     if not msg or msg == 0 then
         -- 无任何操作
     -- 判断是否为定时器消息，并且消息是否注册
     elseif msg == rtos.MSG_TIMER and timerPool[param] then
-        if param < TASK_TIMER_ID_MAX then           -- 这里都是task 的内部等待
+        if param < TASK_TIMER_ID_MAX then
             local taskId = timerPool[param]
             timerPool[param] = nil
             sys.coresume(taskId)
-        else                                        -- 这里收到的是定时器消息
-            local cb = timerPool[param]             -- 获取回调函数
+        else
+            local cb = timerPool[param]
             --如果不是循环定时器，从定时器id表中删除此定时器
             if exparam == 0 then timerPool[param] = nil end
             if para[param] ~= nil then
-                cb(unpack(para[param]))            -- 回调含参数的定时器函数
+                cb(unpack(para[param]))
                 if exparam == 0 then para[param] = nil end
             else
-                cb()                                -- 直接回调定时器函数
+                cb()
             end
             --如果是循环定时器，继续启动此定时器
             --if loop[param] then rtos.timer_start(param, loop[param]) end
@@ -492,7 +488,7 @@ local taskList = {}
 -- @return co  返回该任务的线程号
 -- @usage sys.taskInitEx(task1,'a',callback)
 function sys.taskInitEx(fun, taskName, cbFun, ...)
-    taskList[taskName]={msgQueue={}, To=false, cb=cbFun}      --  相对于taskinit ,增加了一个taskname
+    taskList[taskName]={msgQueue={}, To=false, cb=cbFun}
     return sys.taskInit(fun, ...)
 end
 

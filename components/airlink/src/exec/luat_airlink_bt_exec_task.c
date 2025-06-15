@@ -9,9 +9,11 @@
 #include "luat_gpio.h"
 #include "luat_airlink.h"
 
+#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
 #include "luat_drv_ble.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+#endif
 
 #include "luat_mem.h"
 #include "luat_mcu.h"
@@ -19,6 +21,8 @@
 
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
+
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 
 static luat_rtos_queue_t evt_queue;
 static luat_rtos_task_handle g_task_handle;
@@ -233,3 +237,5 @@ int luat_drv_bt_task_start(void) {
     }
     return 0;
 }
+
+#endif

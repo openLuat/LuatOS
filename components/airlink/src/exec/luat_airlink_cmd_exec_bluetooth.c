@@ -1,8 +1,4 @@
 #include "luat_base.h"
-#include "luat_airlink.h"
-#include "luat_bluetooth.h"
-#include "luat_ble.h"
-#include "luat_bt.h"
 
 #include "luat_rtos.h"
 #include "luat_debug.h"
@@ -15,6 +11,10 @@
 
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 
+#include "luat_airlink.h"
+#include "luat_bluetooth.h"
+#include "luat_ble.h"
+#include "luat_bt.h"
 #include "luat_drv_ble.h"
 
 int luat_airlink_cmd_exec_bt_request(luat_airlink_cmd_t *cmd, void *userdata)
@@ -41,9 +41,9 @@ int luat_airlink_cmd_exec_bt_request(luat_airlink_cmd_t *cmd, void *userdata)
 
 #endif
 
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP
 
 #include "luat_drv_ble.h"
-
 extern luat_ble_cb_t g_drv_ble_cb;
 
 int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
@@ -80,3 +80,5 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
     }
     return 0;
 }
+
+#endif

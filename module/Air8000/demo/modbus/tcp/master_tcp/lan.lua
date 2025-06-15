@@ -36,12 +36,16 @@ sys.taskInit(function ()
         sys.wait(100)
     end
     dhcps.create({adapter=socket.LWIP_ETH})
-    dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
-    netdrv.napt(socket.LWIP_GP)
-    if iperf then
-        log.info("启动iperf服务器端")
-        iperf.server(socket.LWIP_ETH)
-    end
+
+
+    -- dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_GP)
+    -- netdrv.napt(socket.LWIP_GP)
+
+
+    dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_ETH)
+    netdrv.napt(socket.LWIP_ETH)
+
+    -- netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
 

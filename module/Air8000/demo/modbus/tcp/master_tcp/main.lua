@@ -109,37 +109,39 @@ end, 5000)
 -- end, 180000) 
 
 
--- 修改和读取modbus值
-addvar = 0
-function modify_data()
-    -- 获取变量值
-    slave1_msg1_buf:seek(0)
-    log.info("slave1 reg: ", slave1_msg1_buf:readU16(), slave1_msg1_buf:readU16(),
-                             slave1_msg1_buf:readU16(), slave1_msg1_buf:readU16())
-    
-    -- slave2_msg1_buf:seek(0)
-    -- log.info("slave2 reg: ", slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16(),
-    --                          slave2_msg1_buf:readU16(), slave2_msg1_buf:readU16())
+-- 获取从站1的状态，每1秒获取一次数据并转换为JSON
+sys.timerLoopStart(function()
+    -- 检查从站状态
+    local status = modbus.get_slave_state(mb_slave1)
+    if status == 0 then  -- 0表示正常
+        -- 读取缓冲区数据
+        slave1_msg1_buf:seek(0)  -- 重置指针到起始位置
+        
+        -- 读取4个寄存器的值(每个寄存器2字节)
+        local reg1 = slave1_msg1_buf:readU16()
+        local reg2 = slave1_msg1_buf:readU16()
+        local reg3 = slave1_msg1_buf:readU16()
+        local reg4 = slave1_msg1_buf:readU16()
+        
+        -- 创建数据表
+        local data = {
+            addr = 1,  -- 从站地址
+            fun = 3,   -- 功能码03
+            reg1 = reg1 / 10,  -- 假设原始数据需要除以10得到实际值
+            reg2 = reg2 / 10,
+            reg3 = reg3 / 10,
+            reg4 = reg4 / 10,
+            timestamp = os.time()  -- 添加时间戳
+        }
+        
+        -- 转换为JSON
+        local json_str = json.encode(data)
+        log.info("Modbus数据转JSON:", json_str)
 
-    -- -- 写入变量值
-    -- slave2_msg1_buf:seek(0)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- slave2_msg1_buf:writeU16(addvar)
-    -- addvar=addvar+1
-
-	-- -- 每周期值取反
-    -- slave1_msg2_buf:seek(0)
-	-- slave1_msg2_buf:writeU8(addvar%2)
-	-- slave1_msg2_buf:writeU8(addvar%2)
-	-- slave1_msg2_buf:writeU8(addvar%2)
-	-- slave1_msg2_buf:writeU8(addvar%2)
-	-- slave1_msg2_buf:writeU8(addvar%2)
-end
-sys.timerLoopStart(modify_data,1000)
+    else
+        log.warn("从站1状态异常:", status)
+    end
+end, 1000)
 
 
 -- -- 将在主站开启2分钟后停止modbus主站

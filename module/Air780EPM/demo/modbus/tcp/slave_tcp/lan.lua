@@ -43,11 +43,6 @@ sys.taskInit(function ()
     netdrv.napt(socket.LWIP_ETH)
 
     -- netdrv.dhcp(socket.LWIP_ETH, true)
-
-    if iperf then
-        log.info("启动iperf服务器端")
-        iperf.server(socket.LWIP_ETH)
-    end
 end)
 
 

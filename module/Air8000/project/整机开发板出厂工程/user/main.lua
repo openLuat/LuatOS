@@ -14,6 +14,12 @@ local airtts  = require "airtts"
 local airlan = require "airlan"
 local airwan = require "airwan"
 
+local airsms = require "airsms"
+local aircall = require "aircall"
+local airgsensor = require "airgsensor"
+local airpower = require "airpower"
+local airtf = require "airtf"
+
 local airaudio  = require "airaudio"
 local aircamera = require "aircamera"
 local airrus = require "russia"
@@ -117,18 +123,20 @@ local function handal_main(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
-    cur_fun  = "gps"
+    cur_fun  = "airgps"
   elseif key == 2 then
-    cur_fun = "ap"
+    cur_fun = "airap"
   elseif key == 3 then
-    cur_fun = "sta"
+    cur_fun = "airsta"
   elseif key == 4 then
-    cur_fun  = "camera"
+    cur_fun  = "aircamera"
   elseif key == 5 then
+    cur_fun  = "aircall"
   elseif key == 6 then
   elseif key == 7 then
+    cur_fun  = "airsms"
   elseif key == 8 then    --  tts
-    cur_fun  = "tts"
+    cur_fun  = "airtts"
    elseif key == 9 then
     cur_fun = "main1"
   end
@@ -141,14 +149,17 @@ local function handal_main1(x,y)
   elseif key == 2 then
    
   elseif key == 3 then
+    cur_fun  = "airtf"
   elseif key == 4 then
+    cur_fun  = "airgsensor"
   elseif key == 5 then
+    cur_fun  = "airpower"
   elseif key == 6 then
-    cur_fun = "lan"
+    cur_fun = "airlan"
   elseif key == 7 then
     cur_fun = "main"
   elseif key == 8 then
-    cur_fun = "wan"
+    cur_fun = "airwan"
   elseif key == 9 then
     cur_fun = "main2"
   end
@@ -184,22 +195,33 @@ local function  tp_handal(tp_device,tp_data)
       handal_main1(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main2" then
       handal_main2(tp_data[1].x,tp_data[1].y)
-    elseif cur_fun == "tts" then
+    elseif cur_fun == "airtts" then
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "camera" then
+    elseif cur_fun == "aircamera" then
       aircamera.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "gps" then
+    elseif cur_fun == "airgps" then
       airgps.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "ap" then
+    elseif cur_fun == "airap" then
       airap.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "sta" then
+    elseif cur_fun == "airsta" then
       airsta.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "multi_network" then
       multi_network.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "wan" then
+    elseif cur_fun == "airwan" then
       airwan.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-    elseif cur_fun == "lan" then
+    elseif cur_fun == "airlan" then
       airlan.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airsms" then
+      airsms.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "aircall" then
+      aircall.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airtf" then
+      airtf.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airgsensor" then
+      airgsensor.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airpower" then
+      airpower.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+
     end
     lock_push = 1
   end
@@ -332,6 +354,36 @@ local function draw_lan()
   end
 end
 
+local function draw_sms()
+  if  airsms.run()   then
+    cur_fun = "main"
+  end
+end
+
+local function draw_call()
+  if  aircall.run()   then
+    cur_fun = "main"
+  end
+end
+
+local function draw_tf()
+  if  airtf.run()   then
+    cur_fun = "main1"
+  end
+end
+
+local function draw_gsensor()
+  if  airgsensor.run()   then
+    cur_fun = "main1"
+  end
+end
+
+local function draw_power()
+  if  airpower.run()   then
+    cur_fun = "main1"
+  end
+end
+
 local function draw_multi_network()
   if  multi_network.run()   then
     cur_fun = "main"
@@ -353,20 +405,30 @@ local function draw()
     draw_main1()
   elseif cur_fun == "main2" then
     draw_main2()
-  elseif cur_fun == "tts" then
+  elseif cur_fun == "airtts" then
     draw_tts()
-  elseif cur_fun  == "camera" then
+  elseif cur_fun  == "aircamera" then
     draw_camera()
-  elseif cur_fun == "gps" then
+  elseif cur_fun == "airgps" then
     draw_gps()
-  elseif cur_fun == "ap" then
+  elseif cur_fun == "airap" then
     draw_ap()
-  elseif cur_fun == "sta" then
+  elseif cur_fun == "airsta" then
     draw_sta()
-  elseif cur_fun == "wan" then
+  elseif cur_fun == "airwan" then
     draw_wan()
-  elseif cur_fun == "lan" then
+  elseif cur_fun == "airlan" then
     draw_lan()
+  elseif cur_fun == "airsms" then
+    draw_sms()
+  elseif cur_fun == "aircall" then
+    draw_call()
+  elseif cur_fun == "airtf" then
+    draw_tf()
+  elseif cur_fun == "airgsensor" then
+    draw_gsensor()
+  elseif cur_fun == "airpower" then
+    draw_power()
   elseif cur_fun == "multi_network" then
     draw_multi_network()    
   end

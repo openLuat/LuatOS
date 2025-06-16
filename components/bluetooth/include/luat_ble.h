@@ -282,6 +282,19 @@ struct luat_ble{
     void* userdata;
 };
 
+typedef struct luat_ble_rw_req
+{
+    uint16_t service_id;
+    uint16_t att_handle;
+    uint32_t len;
+    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
+    uint8_t uuid_type;
+    uint8_t re0;
+    uint8_t re1[16];
+    uint8_t data[0];
+}luat_ble_rw_req_t;
+
+
 // public function
 int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
 

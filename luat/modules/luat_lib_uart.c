@@ -384,7 +384,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 	#endif
     // sent event
     if (msg->arg2 == 0) {
-        LLOGD("uart%ld sent callback", uart_id);
+        // LLOGD("uart%ld sent callback", uart_id);
         if (uart_cbs[uart_id].sent) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
             if (lua_isfunction(L, -1)) {

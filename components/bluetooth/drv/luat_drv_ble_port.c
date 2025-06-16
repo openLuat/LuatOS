@@ -275,13 +275,13 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
 }
 
 // slaver
-int luat_ble_read_response_value(void* args, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len) {
+int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len) {
     LLOGE("not support yet");
     return -1;
 }
 
 
-int luat_ble_write_notify_value(void* args, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len) {
+int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len) {
     LLOGE("not support yet");
     return -1;
 }
@@ -380,7 +380,7 @@ int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type) {
 }
 
 
-int luat_ble_disconnect(void* args, uint8_t conn_idx) {
+int luat_ble_disconnect(void* args) {
     LLOGE("not support yet");
     return -1;
 }

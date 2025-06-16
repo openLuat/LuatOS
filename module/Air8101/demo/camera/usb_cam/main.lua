@@ -98,6 +98,11 @@ local usb_camera_set = {
 }
 local usb_camera_table = usb_camera_set[1] -- 选择摄像头参数
 
+-- 开启摄像头画面预览
+-- camera.config(0, camera.CONF_PREVIEW_ENABLE, 1)
+-- 假如预览画面方向有问题，配置下画面旋转
+-- camera.config(0, camera.CONF_PREVIEW_ROTATE, camera.ROTATE_90)
+
 -- 注册摄像头回调函数
 camera.on(camera_id, "scanned", function(id, str)
     log.info("scanned", id, str)
@@ -181,6 +186,7 @@ sys.taskInit(function()
     -- -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
     -- lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
     -- lcd.autoFlush(false)
+    -- lcd.clear()
 
     if rawbuff == nil then
         while true do
@@ -204,6 +210,8 @@ sys.taskInit(function()
             result, data = sys.waitUntil("capture done", 30000)
             log.info(rawbuff:used())
             camera.stop(camera_id) --停止指定的camera
+            -- lcd.showImage(0, 0, "/abc.jpg") --在屏幕上显示照片
+            -- lcd.flush()
             -- camera.close(camera_id)	--关闭指定的camera，释放相应的IO资源；完全关闭摄像头才用这个
             -- rawbuff:resize(200 * 1024)
 

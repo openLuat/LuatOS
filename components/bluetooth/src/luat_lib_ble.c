@@ -32,7 +32,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
         case LUAT_BLE_EVENT_WRITE:{
             luat_ble_write_req_t* write_req = &(param->write_req);
 
-            lua_createtable(L, 0, 3);
+            lua_createtable(L, 0, 4);
             lua_pushliteral(L, "conn_idx"); 
             lua_pushinteger(L, write_req->conn_idx);
             lua_settable(L, -3);
@@ -72,7 +72,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
         }
         case LUAT_BLE_EVENT_SCAN_REPORT: {
             luat_ble_adv_req_t* adv_req = &(param->adv_req);
-            lua_createtable(L, 0, 3);
+            lua_createtable(L, 0, 4);
             
             lua_pushliteral(L, "rssi"); 
             lua_pushinteger(L, adv_req->rssi);
@@ -94,6 +94,45 @@ int l_ble_callback(lua_State *L, void* ptr) {
                 luat_heap_free(adv_req->data);
                 adv_req->data = NULL;
             }
+            break;
+        }
+        case LUAT_BLE_EVENT_GATT_DONE:{
+            luat_ble_gatt_service_t** gatt_services = param->gatt_service;
+            uint8_t gatt_service_num = param->gatt_service_num;
+            lua_createtable(L, gatt_service_num, 0);
+            for (size_t i = 0; i < gatt_service_num; i++){
+                luat_ble_gatt_service_t* gatt_service = gatt_services[i];
+                lua_newtable(L);
+                // servise uuid
+                if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_16){
+                    lua_pushlstring(L, (const char *)gatt_service->uuid, 2);
+                }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_32){
+                    lua_pushlstring(L, (const char *)gatt_service->uuid, 4);
+                }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_128){
+                    lua_pushlstring(L, (const char *)gatt_service->uuid, 16);
+                }
+                lua_rawseti(L, -2, 1);
+                // characteristics
+                uint8_t characteristics_num = gatt_service->characteristics_num;
+                for (size_t m = 0; m < characteristics_num; m++){
+                    luat_ble_gatt_chara_t* gatt_chara = &gatt_service->characteristics[m];
+                    lua_newtable(L);
+                    if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_16){
+                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 2);
+                    }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_32){
+                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 4);
+                    }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_128){
+                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 16);
+                    }
+                    lua_seti(L, -2, 1);
+                    // Properties
+                    // lua_seti(L, -2, 2);
+
+                    lua_seti(L, -2, m+2);
+                }
+                lua_rawseti(L, -2, i+1);
+            }
+            lua_call(L, 3, 0);
             break;
         }
         default:

@@ -175,6 +175,7 @@ typedef struct luat_airlink_spi_conf
     uint8_t rdy_pin; // 从机就绪引脚, 低电平状态代表就绪,才能开始SPI传输
     uint8_t irq_pin; // 新数据通知脚, 从机还有新数据时, 会拉低该脚
     uint32_t irq_timeout;
+    uint8_t uart_id;
 }luat_airlink_spi_conf_t;
 
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;

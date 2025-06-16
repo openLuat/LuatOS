@@ -9,13 +9,15 @@
 #define LUAT_LOG_TAG "airlink.bt"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
-
+#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
 #include "luat_airlink.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
 #include "luat_bt.h"
 #include "luat_drv_ble.h"
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 
 int luat_airlink_cmd_exec_bt_request(luat_airlink_cmd_t *cmd, void *userdata)
 {
@@ -43,7 +45,8 @@ int luat_airlink_cmd_exec_bt_request(luat_airlink_cmd_t *cmd, void *userdata)
 
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP
 
-#include "luat_drv_ble.h"
+
+
 extern luat_ble_cb_t g_drv_ble_cb;
 
 int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {

@@ -197,7 +197,7 @@ local function handal_main3(x,y)
     cur_fun = "main2"
   elseif key == 8 then
   elseif key == 9 then
-    cur_fun = "main1"
+    cur_fun = "main"
   end
 end
 

@@ -488,15 +488,17 @@ static int32_t net_lwip2_dns_check_result(void *data, void *param)
 
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
-	Buffer_Struct msg_buf;
+	Buffer_Struct msg_buf = {0};
 	Buffer_Struct tx_msg_buf = {0,0,0};
-	struct pbuf *out_p;
-	int i;
+	struct pbuf *out_p = NULL;
+	int i = 0;
+	int ret = 0;
+	char ip_string[64] = {0};
+	char ipstr2[64] = {0};
 	uint8_t adapter_index = (uint32_t)arg;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
 		return ERR_OK;
 	}
-	char ip_string[64];
 	//LLOGD("%s:%d", __FILE__, __LINE__);
 	if (p)
 	{
@@ -516,8 +518,12 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
 					ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
-					LLOGD("dns udp sendto %s:%d", ip_string, DNS_SERVER_PORT);
-					udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
+					ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
+					LLOGD("dns udp sendto %s:%d from %s", ip_string, DNS_SERVER_PORT, ipstr2);
+					ret = udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
+					if (ret) {
+						LLOGE("dns udp sendto %s:%d ret %d", ip_string, DNS_SERVER_PORT, ret);
+					}
 				}
 				if (out_p) {
 					pbuf_free(out_p);
@@ -538,7 +544,9 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 {
 	int i = 0;
 	err_t err = 0;
-	struct pbuf *p;
+	struct pbuf *p = NULL;
+	char ipstr[64] = {0};
+	char ipstr2[64] = {0};
 	dns_run(&prvlwip.dns_client, NULL, tx_msg_buf, &i);
 	char ip_string[64] = {0};
 	ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
@@ -549,10 +557,13 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
+			ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
+			ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ipstr, sizeof(ipstr));
+			LLOGD("dns udp sendto %s:%d from %s", ipstr, DNS_SERVER_PORT, ipstr2);
 			err = udp_sendto_if(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 			pbuf_free(p);
 			if (err) {
-				LLOGE("dns udp sendto ret %d", err);
+				LLOGE("dns udp sendto %s:%d from %s ret %d", ipstr, DNS_SERVER_PORT, ipstr2,  err);
 			}
 		}
 	}

@@ -136,61 +136,10 @@ typedef enum{
 
 typedef struct luat_bluetooth luat_bluetooth_t;
 typedef struct luat_ble luat_ble_t;
-
-typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
-    uint8_t peer_addr_type; /**< Peer address type */
-    uint8_t peer_addr[6];   /**< Peer BT address */
-} luat_ble_device_info_t;
-
-typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
-    uint16_t service_id;        /**< The id of the gatt service */
-    uint16_t handle;       /**< The index of the attribute */
-    uint8_t *value;         /**< The attribute value */
-    uint16_t len;           /**< The length of the attribute value */
-    uint16_t size;
-} luat_ble_write_req_t;
-
-typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
-    uint16_t service_id;        /**< The id of the gatt service */
-    uint16_t handle;       /**< The index of the attribute */
-    uint8_t *value;         /**< The attribute value */
-    uint16_t len;           /**< The data length read */
-    uint16_t size;          /**< The size of attribute value to read */
-} luat_ble_read_req_t;
-
-typedef struct{
-    uint8_t actv_idx;     /**< The index of the activity */
-    uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
-    uint8_t adv_addr_type;  /**< Advertising address type: public/random */
-    int8_t rssi;         /**< RSSI value for advertising packet (in dBm, between -127 and +20 dBm) */
-    uint8_t *data;        /**< Data of advertising packet */
-    uint8_t data_len;     /**< Data length in advertising packet */
-    uint8_t adv_addr[6];  /**<Advertising address value */
-} luat_ble_adv_req_t;
-
-typedef struct{
-    // uint32_t conn_idx;
-    union {
-        luat_ble_device_info_t luat_ble_device_info;
-        luat_ble_write_req_t write_req;
-        luat_ble_read_req_t read_req;
-        luat_ble_adv_req_t adv_req;
-        uint8_t data[128]; // 预留一个大的后备区域
-    };
-} luat_ble_param_t;
-
-typedef struct {
-    uint8_t *adv_data;
-    int len;
-}luat_ble_adv_data_t;
-
-typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, void* ble_param);
-
 typedef struct luat_ble_gatt_chara luat_ble_gatt_chara_t;
+
 #define LUAT_BLE_UUID_LEN_MAX   16
+
 typedef struct luat_ble_gatt_descriptor{
     uint16_t handle;
     uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
@@ -249,6 +198,61 @@ typedef struct {
     uint16_t scan_interval;         // Scan interval (in unit of 625us).
     uint16_t scan_window;           // Scan window (in unit of 625us).
 }luat_ble_scan_cfg_t;
+
+typedef struct{
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint8_t peer_addr_type; /**< Peer address type */
+    uint8_t peer_addr[6];   /**< Peer BT address */
+} luat_ble_device_info_t;
+
+typedef struct{
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t service_id;        /**< The id of the gatt service */
+    uint16_t handle;       /**< The index of the attribute */
+    uint8_t *value;         /**< The attribute value */
+    uint16_t len;           /**< The length of the attribute value */
+    uint16_t size;
+} luat_ble_write_req_t;
+
+typedef struct{
+    uint8_t conn_idx;       /**< The index of the connection */
+    uint16_t service_id;        /**< The id of the gatt service */
+    uint16_t handle;       /**< The index of the attribute */
+    uint8_t *value;         /**< The attribute value */
+    uint16_t len;           /**< The data length read */
+    uint16_t size;          /**< The size of attribute value to read */
+} luat_ble_read_req_t;
+
+typedef struct{
+    uint8_t actv_idx;     /**< The index of the activity */
+    uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
+    uint8_t adv_addr_type;  /**< Advertising address type: public/random */
+    int8_t rssi;         /**< RSSI value for advertising packet (in dBm, between -127 and +20 dBm) */
+    uint8_t *data;        /**< Data of advertising packet */
+    uint8_t data_len;     /**< Data length in advertising packet */
+    uint8_t adv_addr[6];  /**<Advertising address value */
+} luat_ble_adv_req_t;
+
+typedef struct{
+    // uint32_t conn_idx;
+    uint8_t gatt_service_num;
+    luat_ble_gatt_service_t* gatt_service;
+    void* user_data;
+    union {
+        luat_ble_device_info_t luat_ble_device_info;
+        luat_ble_write_req_t write_req;
+        luat_ble_read_req_t read_req;
+        luat_ble_adv_req_t adv_req;
+        uint8_t data[128]; // 预留一个大的后备区域
+    };
+} luat_ble_param_t;
+
+typedef struct {
+    uint8_t *adv_data;
+    int len;
+}luat_ble_adv_data_t;
+
+typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
 struct luat_ble{
     uint8_t actv_idx;

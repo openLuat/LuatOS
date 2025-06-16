@@ -20,7 +20,7 @@ function airsms.run()
         sys.wait(10)
         -- airlink.statistics()
         lcd.clear(_G.bkcolor) 
-        lcd.drawStr(0,80,"需要代码内修改发送短信的号码" )
+        lcd.drawStr(0,80,"短信测试：需要代码内修改发送短信的号码" )
 
         --[
         -- 此处可填写短信demo ui

@@ -3,6 +3,7 @@
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include "luat_ble.h"
+#include "luat_bluetooth.h"
 
 #include "luat_log.h"
 #define LUAT_LOG_TAG "bt.ble"
@@ -17,6 +18,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_ble_event_t evt = (luat_ble_event_t)msg->arg1;
     luat_ble_param_t* param = (luat_ble_param_t*)msg->arg2;
+    uint8_t tmpbuff[16] = {0};
 
     lua_geti(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
     if (lua_isfunction(L, -1)) {
@@ -132,6 +134,30 @@ int l_ble_callback(lua_State *L, void* ptr) {
                 }
                 lua_rawseti(L, -2, i+1);
             }
+            lua_call(L, 3, 0);
+            break;
+        }
+        case LUAT_BLE_EVENT_CONN: {
+            luat_ble_conn_ind_t* conn = &(param->conn_ind);
+            lua_newtable(L);
+            memcpy(tmpbuff, conn->peer_addr, 6);
+            luat_bluetooth_mac_swap(tmpbuff);
+            lua_pushlstring(L, (const char*)tmpbuff, 6);
+            lua_setfield(L, -2, "addr");
+            // lua_pushinteger(L, conn->conn_idx);
+            // lua_setfield(L, -2, "conn_idx");
+            lua_pushinteger(L, conn->peer_addr_type);
+            lua_setfield(L, -2, "addr_type");
+            lua_call(L, 3, 0);
+            break;
+        }
+        case LUAT_BLE_EVENT_DISCONN : {
+            luat_ble_disconn_ind_t* disconn = &(param->disconn_ind);
+            lua_newtable(L);
+            // lua_pushinteger(L, disconn->conn_idx);
+            // lua_setfield(L, -2, "conn_idx");
+            lua_pushinteger(L, disconn->reason);
+            lua_setfield(L, -2, "reason");
             lua_call(L, 3, 0);
             break;
         }

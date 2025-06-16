@@ -126,6 +126,8 @@ typedef enum{
     LUAT_BLE_EVENT_WRITE,       // BLE写数据
     LUAT_BLE_EVENT_READ,        // BLE读数据
 
+    LUAT_BLE_EVENT_MAX,
+
 } luat_ble_event_t;
 
 typedef enum{
@@ -233,6 +235,31 @@ typedef struct{
     uint8_t adv_addr[6];  /**<Advertising address value */
 } luat_ble_adv_req_t;
 
+typedef struct luat_ble_conn_ind
+{
+    /// The index of connection
+    uint8_t conn_idx;
+    /// Peer address type
+    uint8_t peer_addr_type;
+    /// Peer BT address
+    uint8_t peer_addr[6];
+    /// Clock accuracy
+    uint8_t clk_accuracy;
+    /// Connection interval
+    uint16_t con_interval;
+    /// Connection latency
+    uint16_t con_latency;
+    /// Link supervision timeout
+    uint16_t sup_to;
+}luat_ble_conn_ind_t;
+
+typedef struct luat_ble_disconn_ind
+{
+    /// The index of connection
+    uint8_t conn_idx;
+    uint8_t reason;
+}luat_ble_disconn_ind_t;
+
 typedef struct{
     // uint32_t conn_idx;
     uint8_t gatt_service_num;
@@ -243,6 +270,8 @@ typedef struct{
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
+        luat_ble_conn_ind_t conn_ind;
+        luat_ble_disconn_ind_t disconn_ind;
         uint8_t data[128]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;

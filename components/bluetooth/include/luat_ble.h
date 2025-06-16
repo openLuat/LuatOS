@@ -126,6 +126,8 @@ typedef enum{
     LUAT_BLE_EVENT_WRITE,       // BLE写数据
     LUAT_BLE_EVENT_READ,        // BLE读数据
 
+    LUAT_BLE_EVENT_MAX,
+
 } luat_ble_event_t;
 
 typedef enum{
@@ -200,13 +202,11 @@ typedef struct {
 }luat_ble_scan_cfg_t;
 
 typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
     uint8_t peer_addr_type; /**< Peer address type */
     uint8_t peer_addr[6];   /**< Peer BT address */
 } luat_ble_device_info_t;
 
 typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
     uint16_t service_id;        /**< The id of the gatt service */
     uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
@@ -215,7 +215,6 @@ typedef struct{
 } luat_ble_write_req_t;
 
 typedef struct{
-    uint8_t conn_idx;       /**< The index of the connection */
     uint16_t service_id;        /**< The id of the gatt service */
     uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
@@ -233,8 +232,28 @@ typedef struct{
     uint8_t adv_addr[6];  /**<Advertising address value */
 } luat_ble_adv_req_t;
 
+typedef struct luat_ble_conn_ind
+{
+    /// Peer address type
+    uint8_t peer_addr_type;
+    /// Peer BT address
+    uint8_t peer_addr[6];
+    /// Clock accuracy
+    uint8_t clk_accuracy;
+    /// Connection interval
+    uint16_t con_interval;
+    /// Connection latency
+    uint16_t con_latency;
+    /// Link supervision timeout
+    uint16_t sup_to;
+}luat_ble_conn_ind_t;
+
+typedef struct luat_ble_disconn_ind
+{
+    uint8_t reason;
+}luat_ble_disconn_ind_t;
+
 typedef struct{
-    // uint32_t conn_idx;
     uint8_t gatt_service_num;
     luat_ble_gatt_service_t* gatt_service;
     void* user_data;
@@ -243,6 +262,8 @@ typedef struct{
         luat_ble_write_req_t write_req;
         luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
+        luat_ble_conn_ind_t conn_ind;
+        luat_ble_disconn_ind_t disconn_ind;
         uint8_t data[128]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;
@@ -289,9 +310,9 @@ int luat_ble_delete_advertising(void* args);
 int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* luat_ble_gatt_service);
 
 // slaver
-int luat_ble_read_response_value(void* args, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len);
+int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len);
 
-int luat_ble_write_notify_value(void* args, uint8_t conn_idx, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len);
+int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);
@@ -304,6 +325,6 @@ int luat_ble_delete_scanning(void* args);
 
 int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type);
 
-int luat_ble_disconnect(void* args, uint8_t conn_idx);
+int luat_ble_disconnect(void* args);
 
 #endif

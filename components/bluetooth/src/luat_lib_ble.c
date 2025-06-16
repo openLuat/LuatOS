@@ -3,6 +3,7 @@
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include "luat_ble.h"
+#include "luat_bluetooth.h"
 
 #include "luat_log.h"
 #define LUAT_LOG_TAG "bt.ble"
@@ -17,6 +18,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_ble_event_t evt = (luat_ble_event_t)msg->arg1;
     luat_ble_param_t* param = (luat_ble_param_t*)msg->arg2;
+    uint8_t tmpbuff[16] = {0};
 
     lua_geti(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
     if (lua_isfunction(L, -1)) {
@@ -32,10 +34,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
         case LUAT_BLE_EVENT_WRITE:{
             luat_ble_write_req_t* write_req = &(param->write_req);
 
-            lua_createtable(L, 0, 4);
-            lua_pushliteral(L, "conn_idx"); 
-            lua_pushinteger(L, write_req->conn_idx);
-            lua_settable(L, -3);
+            lua_createtable(L, 0, 3);
             lua_pushliteral(L, "service_id"); 
             lua_pushinteger(L, write_req->service_id);
             lua_settable(L, -3);
@@ -54,11 +53,7 @@ int l_ble_callback(lua_State *L, void* ptr) {
         }
         case LUAT_BLE_EVENT_READ: {
             luat_ble_read_req_t* read_req = &(param->read_req);
-            lua_createtable(L, 0, 3);
-
-            lua_pushliteral(L, "conn_idx"); 
-            lua_pushinteger(L, read_req->conn_idx);
-            lua_settable(L, -3);
+            lua_createtable(L, 0, 2);
             lua_pushliteral(L, "service_id"); 
             lua_pushinteger(L, read_req->service_id);
             lua_settable(L, -3);
@@ -132,6 +127,26 @@ int l_ble_callback(lua_State *L, void* ptr) {
                 }
                 lua_rawseti(L, -2, i+1);
             }
+            lua_call(L, 3, 0);
+            break;
+        }
+        case LUAT_BLE_EVENT_CONN: {
+            luat_ble_conn_ind_t* conn = &(param->conn_ind);
+            lua_newtable(L);
+            memcpy(tmpbuff, conn->peer_addr, 6);
+            luat_bluetooth_mac_swap(tmpbuff);
+            lua_pushlstring(L, (const char*)tmpbuff, 6);
+            lua_setfield(L, -2, "addr");
+            lua_pushinteger(L, conn->peer_addr_type);
+            lua_setfield(L, -2, "addr_type");
+            lua_call(L, 3, 0);
+            break;
+        }
+        case LUAT_BLE_EVENT_DISCONN : {
+            luat_ble_disconn_ind_t* disconn = &(param->disconn_ind);
+            lua_newtable(L);
+            lua_pushinteger(L, disconn->reason);
+            lua_setfield(L, -2, "reason");
             lua_call(L, 3, 0);
             break;
         }
@@ -394,15 +409,8 @@ static int l_ble_advertising_stop(lua_State* L) {
 }
 
 static int l_ble_read_response_value(lua_State* L) {
-    uint8_t conn_idx = 0;
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pushstring(L, "conn_idx");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            conn_idx = luaL_checknumber(L, -1);
-        }else{
-            goto end_error;
-        }
         lua_pop(L, 1);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -421,8 +429,8 @@ static int l_ble_read_response_value(lua_State* L) {
 
         size_t len = 0;
         const char* response_data = luaL_checklstring(L, -1, &len);
-        LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
-        int ret = luat_ble_read_response_value(NULL, conn_idx, service_id, handle, (uint8_t *)response_data, len);
+        LLOGD("read response service_id:%d handle:%d", service_id, handle);
+        int ret = luat_ble_read_response_value(NULL, service_id, handle, (uint8_t *)response_data, len);
         lua_pushboolean(L, ret==0?1:0);
         return 1;
     }
@@ -432,15 +440,8 @@ end_error:
 }
 
 static int l_ble_write_notify(lua_State* L) {
-    uint8_t conn_idx = 0;
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pushstring(L, "conn_idx");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            conn_idx = luaL_checknumber(L, -1);
-        }else{
-            goto end_error;
-        }
         lua_pop(L, 1);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -459,8 +460,8 @@ static int l_ble_write_notify(lua_State* L) {
 
         size_t len = 0;
         const char* value = luaL_checklstring(L, -1, &len);
-        // LLOGD("read response conn_idx:%d service_id:%d handle:%d", conn_idx, service_id, handle);
-        luat_ble_write_notify_value(NULL, conn_idx, service_id, handle, (uint8_t *)value, len);
+        // LLOGD("read response service_id:%d handle:%d", service_id, handle);
+        luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
 
         return 1;
     }
@@ -506,8 +507,7 @@ static int l_ble_connect(lua_State* L) {
 }
 
 static int l_ble_disconnect(lua_State* L) {
-    uint8_t conn_idx = luaL_checknumber(L, 2);
-    lua_pushboolean(L, luat_ble_disconnect(NULL, conn_idx)?0:1);
+    lua_pushboolean(L, luat_ble_disconnect(NULL)?0:1);
     return 1;
 }
 

@@ -357,7 +357,7 @@ local function resp_parse(opts)
                         -- opts.log(TAG, "chunked分片长度", ctmp, ctmp:toHex())
                         local clen = tonumber(ctmp, 16)
                         -- opts.log(TAG, "chunked分片长度2", clen)
-                        if clen == 0 then
+                        if clen == nil or clen == 0 then
                             -- 末尾了
                             opts.rx_buff:resize(coffset)
                             crun = false

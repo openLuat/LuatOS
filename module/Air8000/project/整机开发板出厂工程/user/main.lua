@@ -179,7 +179,25 @@ local function handal_main2(x,y)
     cur_fun = "main1"
   elseif key == 8 then
   elseif key == 9 then
-    cur_fun = "main"
+    cur_fun = "main3"
+  end
+end
+
+local function handal_main3(x,y)
+  key =  main_local(x,y) 
+  log.info("tp_handal key",key)
+  if key == 1 then
+    cur_fun  = "multi_network"
+  elseif key == 2 then
+  elseif key == 3 then
+  elseif key == 4 then
+  elseif key == 5 then
+  elseif key == 6 then
+  elseif key == 7 then
+    cur_fun = "main2"
+  elseif key == 8 then
+  elseif key == 9 then
+    cur_fun = "main1"
   end
 end
 
@@ -195,6 +213,8 @@ local function  tp_handal(tp_device,tp_data)
       handal_main1(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main2" then
       handal_main2(tp_data[1].x,tp_data[1].y)
+    elseif cur_fun == "main3" then
+      handal_main3(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "airtts" then
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "aircamera" then
@@ -305,6 +325,26 @@ local function draw_main2()
   end      
 end
 
+local function draw_main3()
+  local i = 0
+  local j = 0 
+  local x,y
+  local fname
+  local sel = 0
+  
+  for i = 1,3 do
+    for j = 1,3 do
+      x = 64 + (i-1)*128 + 24
+      y = (j-1)*106 + 13
+      sel = j+(i-1)*3
+      fname = "/luadb/" .. "D" .. sel .. ".jpg"
+      -- log.info("fname：", fname, x,y,sel,cur_sel)
+      lcd.showImage(y,x,fname)
+    end
+  end      
+end
+
+
 local function draw_pic()
   lcd.showImage(0,64,"/luadb/P1.jpg")
 end
@@ -405,6 +445,8 @@ local function draw()
     draw_main1()
   elseif cur_fun == "main2" then
     draw_main2()
+  elseif cur_fun == "main3" then
+    draw_main3()
   elseif cur_fun == "airtts" then
     draw_tts()
   elseif cur_fun  == "aircamera" then

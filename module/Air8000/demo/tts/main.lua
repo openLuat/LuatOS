@@ -40,9 +40,8 @@ local mic_vol = 80          -- 麦克风音量
 gpio.setup(power_pin, 1, gpio.PULLUP)         
 gpio.setup(pa_pin, 1, gpio.PULLUP)
 function audio_setup()
-    pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
+
     sys.wait(100)
-    pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
 
     i2c.setup(i2c_id,i2c.FAST)
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)

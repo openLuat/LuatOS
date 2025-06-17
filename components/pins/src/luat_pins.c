@@ -6,6 +6,7 @@
 #include "luat_fs.h"
 #include "luat_mem.h"
 #include "luat_pm.h"
+#include "luat_hmeta.h"
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
@@ -275,6 +276,12 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
 	int result = 0;
 	// 需要忽略部分特定名称的pin
+	#ifdef LUAT_MODEL_AIR780EHV
+	if (pin == 57 || pin == 58) { // air780ehv的57/58不支持配置
+		LLOGE("pin%d不支持修改", pin);
+		goto LUAT_PIN_SETUP_DONE;
+	}
+	#endif
 	#ifdef CHIP_EC718
 	if (name_len < 4) {
 		return 0;

@@ -23,8 +23,10 @@ require("uart1_780egh")
 
 function test_gnss()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
-    pm.power(pm.GPS, true)
-    uart.setup(2,115200)
+    pm.power(pm.GPS, true) --打开GPS
+    uart.setup(2,115200) --配置模组内部主芯片与GNSS芯片通信用UART的相关参数
+    libgnss.bind(2) --马上开始解析NMEA格式数据
+    libgnss.debug(true) --开发调试期可打开调试日志
 end
 sys.taskInit(test_gnss)
 

@@ -20,8 +20,6 @@
         [86,  26, "SPI0_CLK",  ["GPIO11", "SPI0_CLK", "", "UART2_TXD", "", "", "", ""]],
         [28,  27, "UART2_RXD", ["GPIO12", "SPI1_CS", "",   "UART2_RXD", "", "", "", "CAN_RXD"]],
         [29,  28, "UART2_TXD", ["GPIO13", "SPI1_MOSI", "", "UART2_TXD", "", "", "", "CAN_TXD"]],
-        [58,  29, "I2C0_SDA",  ["GPIO14", "SPI1_MISO", "I2C0_SDA", "UART3_RXD", "", "PWM0", "", ""]],
-        [57,  30, "I2C0_SCL",  ["GPIO15", "SPI1_CLK", "I2C0_SCL", "UART3_TXD", "", "PWM1", "", ""]],
         [38,  0, "DBG_RXD",   ["", "DBG_RXD", "", "", "", "", "", ""]],
         [39,  0, "DBG_TXD",   ["", "DBG_TXD", "", "", "", "", "", ""]],
         [17,  33, "UART1_RXD", ["GPIO18", "UART1_RXD", "", "", "", "", "", ""]],
@@ -85,6 +83,9 @@
         [46, "GND"],
         [47, "GND"],
         [48, "GND"],
+
+        [57, "NC"],
+        [58, "NC"],
 
         [59, "USB_DP"],
         [60, "USB_DM"],

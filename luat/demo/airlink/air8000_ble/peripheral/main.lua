@@ -38,19 +38,23 @@ local att_db = { -- Service
     }
 }
 
+ble_stat = false
+
 local function ble_callback(dev, evt, param)
     if evt == ble.EVENT_CONN then
-        log.info("ble", "connect 成功")
+        log.info("ble", "connect 成功", param, param and param.addr and param.addr:toHex() or "unknow")
+        ble_stat = true
     elseif evt == ble.EVENT_DISCONN then
         log.info("ble", "disconnect")
+        ble_stat = false
         -- 1秒后重新开始广播
         sys.timerStart(function() dev:adv_start() end, 1000)
     elseif evt == ble.EVENT_WRITE then
         -- 收到数据
-        log.info("ble", "write", param.conn_idx, param.service_id, param.handle, param.data:toHex())
+        log.info("ble", "write", param.service_id, param.handle, param.data:toHex())
     elseif evt == ble.EVENT_READ then
         -- 收到读请求
-        log.info("ble", "read", param.conn_idx, param.service_id, param.handle)
+        log.info("ble", "read", param.service_id, param.handle)
     end
 end
 
@@ -92,7 +96,20 @@ sys.taskInit(function()
     sys.wait(100)
     log.info("开始广播")
     ble_device:adv_start()
-    -- ble_device:adv_stop()
+
+    while 1 do
+        sys.wait(3000)
+        if ble_stat then
+            local wt = {
+                service_id = 0,
+                handle = characteristic4
+            }
+            local result = ble_device:write_notify(wt, "123456")
+            log.info("ble", "发送数据", result)
+        else
+            -- log.info("等待连接成功之后发送数据")
+        end
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

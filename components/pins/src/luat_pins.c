@@ -276,6 +276,12 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 	luat_pin_iomux_info pin_list[LUAT_PIN_FUNCTION_MAX] = {0};
 	int result = 0;
 	// 需要忽略部分特定名称的pin
+	#ifdef LUAT_MODEL_AIR780EHV
+	if (pin == 57 || pin == 58) { // air780ehv的57/58不支持配置
+		LLOGE("pin%d不支持修改", pin);
+		goto LUAT_PIN_SETUP_DONE;
+	}
+	#endif
 	#ifdef CHIP_EC718
 	if (name_len < 4) {
 		return 0;
@@ -293,14 +299,6 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		|| memcmp("PWR_KEY", func_name, 7) == 0
 		|| memcmp("I2S", func_name, 3) == 0){
 		return 1;
-	}
-	if (pin == 57 || pin == 58) {
-		char buff[32] = {0};
-		luat_hmeta_model_name(buff);
-		if (0 == memcmp("Air780EHV", buff, 9)) {
-			LLOGE("pin%d不支持修改", pin);
-			goto LUAT_PIN_SETUP_DONE;
-		}
 	}
 	#endif
 	if (luat_pin_get_description_from_num(pin, &pin_description))

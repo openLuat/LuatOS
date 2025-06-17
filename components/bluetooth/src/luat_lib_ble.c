@@ -442,11 +442,13 @@ end_error:
 static int l_ble_write_notify(lua_State* L) {
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pop(L, 1);
+        // lua_pop(L, 1);
+        lua_pushvalue(L, 2);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             service_id = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失service_id参数");
             goto end_error;
         }
         lua_pop(L, 1);
@@ -454,15 +456,17 @@ static int l_ble_write_notify(lua_State* L) {
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             handle = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失handle参数");
             goto end_error;
         }
         lua_pop(L, 1);
 
         size_t len = 0;
-        const char* value = luaL_checklstring(L, -1, &len);
-        // LLOGD("read response service_id:%d handle:%d", service_id, handle);
+        const char* value = luaL_checklstring(L, 3, &len);
+        LLOGD("write notify service_id:%d handle:%d data len %d", service_id, handle, len);
         luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
 
+        lua_pushboolean(L, 1);
         return 1;
     }
 end_error:

@@ -297,7 +297,7 @@ int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_h
 
 
 int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len) {
-    LLOGD("执行luat_ble_create_gatt");
+    LLOGD("执行luat_ble_write_notify_value");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {

@@ -44,14 +44,14 @@ local set_4V5   = 0xC0       --4.5V
 local set_4V525 = 0xD0       --4.525V
 
 --充电电流常用参数，默认充电电流为250mA，即0.5倍*500=250mA
-local set_0I2 = 0x20        --0.2倍，0.2*500=100mA
-local set_0I5 = 0x00        --0.5倍，0.5*500=250mA
-local set_0I7 = 0x40        --0.7倍，0.7*500=350mA
-local set_0I9 = 0x60        --0.9倍，0.9*500=450mA
-local set_I = 0x80          --  1倍，1.0*500=500mA
-local set_1I5 = 0xA0        --1.5倍，1.5*500=750mA
-local set_2I = 0xC0         --  2倍，2.0*500=1000mA
-local set_3I = 0xE0         --  3倍，3.0*500=1500mA
+local set_0I2 = 0x22        --0.2倍，0.2*500=100mA
+local set_0I5 = 0x02        --0.5倍，0.5*500=250mA
+local set_0I7 = 0x42        --0.7倍，0.7*500=350mA
+local set_0I9 = 0x62        --0.9倍，0.9*500=450mA
+local set_I = 0x82          --  1倍，1.0*500=500mA
+local set_1I5 = 0xA2        --1.5倍，1.5*500=750mA
+local set_2I = 0xC2         --  2倍，2.0*500=1000mA
+local set_3I = 0xE2         --  3倍，3.0*500=1500mA
 
 local V_table={
     ["224"] = "4.0V",
@@ -114,23 +114,24 @@ sys.taskInit(function()
     else
         log.info("yhm27xxx 设置电流失败")
     end
-
     log.info("读寄存器的值...")
-    sys.wait(200)
-    yhm27xx.reqinfo(gpio_pin, sensor_addr)
-    local result, data = sys.waitUntil("YHM27XX_REG", 200)
-    local Data_reg={}
+    adc.open(adc.CH_VBAT)
+    while true do
+        sys.wait(3000)
+        yhm27xx.reqinfo(gpio_pin, sensor_addr)
+        local result, data = sys.waitUntil("YHM27XX_REG", 200)
+        local Data_reg={}
 
-    if result then
-        for i=1,9 do
-            Data_reg[i] = data:byte(i)
+        if result then
+            for i=1,9 do
+                Data_reg[i] = data:byte(i)
+            end
+            log.info("当前电池电压", "VBAT", adc.get(adc.CH_VBAT))
+            log.info("yhm27xxx 寄存器0x00 功能:设置充电电压，   读取数据为：", V_table[tostring(Data_reg[1])])
+            log.info("yhm27xxx 寄存器0x00 功能:设置充电电流，   读取数据为：", I_table[tostring(Data_reg[2])])
+            log.info("yhm27xxx 寄存器0x05 功能:充电状态寄存器(只读),读取数据为：" , charge_status_table[tostring((Data_reg[6] & 0xE0)>>5)])
         end
-
-        log.info("yhm27xxx 寄存器0x00 功能:设置充电电压，   读取数据为：", V_table[tostring(Data_reg[1])])
-        log.info("yhm27xxx 寄存器0x00 功能:设置充电电流，   读取数据为：", I_table[tostring(Data_reg[2])])
-        log.info("yhm27xxx 寄存器0x05 功能:充电状态寄存器(只读),读取数据为：" , charge_status_table[tostring((Data_reg[6] & 0xE0)>>5)])
     end
-
 end)
 
 sys.run()

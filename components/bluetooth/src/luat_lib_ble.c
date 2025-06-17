@@ -478,12 +478,21 @@ static int l_ble_scanning_create(lua_State* L) {
         return 0;
     }
     if (1){
-        luat_ble_scan_cfg_t luat_ble_scan_cfg = {
+        luat_ble_scan_cfg_t cfg = {
             .addr_mode = LUAT_BLE_ADDR_MODE_PUBLIC,
             .scan_interval = 100,
             .scan_window = 100,
         };
-        lua_pushboolean(L, luat_ble_create_scanning(NULL, &luat_ble_scan_cfg)?0:1);
+        if (lua_isinteger(L, 2)) {
+            cfg.addr_mode = luaL_checkinteger(L, 2);
+        }
+        if (lua_isinteger(L, 3)) {
+            cfg.scan_interval = luaL_checkinteger(L, 3);
+        }
+        if (lua_isinteger(L, 4)) {
+            cfg.scan_window = luaL_checkinteger(L, 4);
+        }
+        lua_pushboolean(L, luat_ble_create_scanning(NULL, &cfg)?0:1);
         return 1;
     }
     return 0;

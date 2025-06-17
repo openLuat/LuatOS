@@ -21,6 +21,9 @@ uint32_t reserved; // 保留字段, 目前都是0
 
 luat_ble_cb_t g_drv_ble_cb;
 
+#undef LLOGD
+#define LLOGD(...)
+
 int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
     LLOGD("执行luat_ble_init %p", luat_ble_cb);
     g_drv_ble_cb = luat_ble_cb;

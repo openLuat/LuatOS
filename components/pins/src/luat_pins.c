@@ -6,6 +6,7 @@
 #include "luat_fs.h"
 #include "luat_mem.h"
 #include "luat_pm.h"
+#include "luat_hmeta.h"
 
 #define LUAT_LOG_TAG "pins"
 #include "luat_log.h"
@@ -292,6 +293,14 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		|| memcmp("PWR_KEY", func_name, 7) == 0
 		|| memcmp("I2S", func_name, 3) == 0){
 		return 1;
+	}
+	if (pin == 57 || pin == 58) {
+		char buff[32] = {0};
+		luat_hmeta_model_name(buff);
+		if (0 == memcmp("Air780EHV", buff, 9)) {
+			LLOGE("pin%d不支持修改", pin);
+			goto LUAT_PIN_SETUP_DONE;
+		}
 	}
 	#endif
 	if (luat_pin_get_description_from_num(pin, &pin_description))

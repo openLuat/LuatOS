@@ -189,13 +189,13 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 
 	if (BytesGetBe32(&in->Data[4]) != dhcp->xid)
 	{
-		LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
+		// LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		if (BytesGetBe32(&in->Data[4]) == (dhcp->xid - 1))
 		{
-			LLOGD("maybe get same ack, drop");
+			LLOGD("maybe get same ack, drop %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 			return 0;
 		}
-		LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
+		LLOGD("xid error %x,%x not for us, drop", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		return -3;
 	}
 	if (memcmp(dhcp->mac, &in->Data[28], 6))

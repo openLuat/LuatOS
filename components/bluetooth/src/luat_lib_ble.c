@@ -411,11 +411,11 @@ static int l_ble_advertising_stop(lua_State* L) {
 static int l_ble_read_response_value(lua_State* L) {
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pop(L, 1);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             service_id = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失service_id参数");
             goto end_error;
         }
         lua_pop(L, 1);
@@ -423,13 +423,14 @@ static int l_ble_read_response_value(lua_State* L) {
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             handle = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失handle参数");
             goto end_error;
         }
         lua_pop(L, 1);
 
         size_t len = 0;
-        const char* response_data = luaL_checklstring(L, -1, &len);
-        LLOGD("read response service_id:%d handle:%d", service_id, handle);
+        const char* response_data = luaL_checklstring(L, 3, &len);
+        LLOGD("send read response service_id:%d handle:%d len %d", service_id, handle, len);
         int ret = luat_ble_read_response_value(NULL, service_id, handle, (uint8_t *)response_data, len);
         lua_pushboolean(L, ret==0?1:0);
         return 1;
@@ -442,11 +443,11 @@ end_error:
 static int l_ble_write_notify(lua_State* L) {
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pop(L, 1);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             service_id = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失service_id参数");
             goto end_error;
         }
         lua_pop(L, 1);
@@ -454,15 +455,17 @@ static int l_ble_write_notify(lua_State* L) {
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             handle = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失handle参数");
             goto end_error;
         }
         lua_pop(L, 1);
 
         size_t len = 0;
-        const char* value = luaL_checklstring(L, -1, &len);
-        // LLOGD("read response service_id:%d handle:%d", service_id, handle);
+        const char* value = luaL_checklstring(L, 3, &len);
+        LLOGD("write notify service_id:%d handle:%d data len %d", service_id, handle, len);
         luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
 
+        lua_pushboolean(L, 1);
         return 1;
     }
 end_error:
@@ -531,13 +534,14 @@ static const rotable_Reg_t reg_ble[] = {
     {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
     {"write_notify",                ROREG_FUNC(l_ble_write_notify)},
     {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
+    {"send_read_resp",              ROREG_FUNC(l_ble_read_response_value)},
     // scanning
     {"scan_create",                 ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start",                  ROREG_FUNC(l_ble_scanning_start)},
     {"scan_stop",                   ROREG_FUNC(l_ble_scanning_stop)},
 
-    {"connect",                   ROREG_FUNC(l_ble_connect)},
-    {"disconnect",                   ROREG_FUNC(l_ble_disconnect)},
+    {"connect",                     ROREG_FUNC(l_ble_connect)},
+    {"disconnect",                  ROREG_FUNC(l_ble_disconnect)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
@@ -555,7 +559,9 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_CONN",                  ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE",                 ROREG_INT(LUAT_BLE_EVENT_WRITE)},
+    {"EVENT_WRITE_REQ",             ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ",                  ROREG_INT(LUAT_BLE_EVENT_READ)},
+    {"EVENT_READ_REQ",              ROREG_INT(LUAT_BLE_EVENT_READ)},
 
     // ADV_ADDR_MODE
     {"PUBLIC",                      ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},

@@ -33,6 +33,7 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_spi_task_mode;
 extern uint32_t g_airlink_pause;
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 /*
 初始化AirLink
@@ -486,6 +487,22 @@ static int l_airlink_power(lua_State *L) {
     return 0;
 }
 
+/*
+获取从机版本号
+@api airlink.sver()
+@return int 从机固件版本号
+@usage
+-- 注意, 获取之前, 需要确定airlink.ready()已经返回true
+log.info("airlink", "从机固件版本号", airlink.sver())
+
+*/
+static int l_airlink_sversion(lua_State *L) {
+    uint32_t version = 0;
+    memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    lua_pushinteger(L, version);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_airlink[] =
 {
@@ -502,6 +519,8 @@ static const rotable_Reg_t reg_airlink[] =
     { "pause",         ROREG_FUNC(l_airlink_pause)},
     { "irqmode",       ROREG_FUNC(l_airlink_irqmode)},
     { "power",         ROREG_FUNC(l_airlink_power)},
+
+    { "sver",          ROREG_FUNC(l_airlink_sversion) },
 
 
     // 测试用的fota指令

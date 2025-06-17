@@ -54,26 +54,26 @@ sys.taskInit(function()
     -- end
     while true do
         sys.wait(1000)
-        log.info("ftp 启动")
-        print(ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
+        log.info("ftp测试启动=====================")
+        log.info("登录", ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
     
-        print(ftp.command("NOOP").wait())
-        print(ftp.command("SYST").wait())
+        log.info("执行NOOP", ftp.command("NOOP").wait())
+        log.info("执行SYST", ftp.command("SYST").wait())
 
-        print(ftp.command("TYPE I").wait())
-        print(ftp.command("PWD").wait())
-        print(ftp.command("MKD QWER").wait())
-        print(ftp.command("CWD /QWER").wait())
+        log.info("执行TYPE I", ftp.command("TYPE I").wait())
+        log.info("执行PWD", ftp.command("PWD").wait())
+        log.info("执行MKD QWER", ftp.command("MKD QWER").wait())
+        log.info("执行CWD /QWER", ftp.command("CWD /QWER").wait())
 
-        print(ftp.command("CDUP").wait())
-        print(ftp.command("RMD QWER").wait())
+        log.info("执行CDUP", ftp.command("CDUP").wait())
+        log.info("执行RMD QWER", ftp.command("RMD QWER").wait())
 
-        print(ftp.command("LIST").wait())
+        log.info("执行LIST", ftp.command("LIST").wait())
 
         -- io.writeFile("/1222.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
-        -- print(ftp.push("/1222.txt","/12222.txt").wait())
+        -- log.info("", ftp.push("/1222.txt","/12222.txt").wait())
         
-        print(ftp.pull("/122224.txt","/122224.txt").wait())
+        log.info("执行下载指令", ftp.pull("/122224.txt","/122224.txt").wait())
 
         local f = io.open("/122224.txt", "r")
         if f then
@@ -84,10 +84,18 @@ sys.taskInit(function()
             log.info("fs", "open file for read failed")
         end
 
-        print(ftp.command("DELE /12222.txt").wait())
-        print(ftp.push("/122224.txt","/12222.txt").wait())
-        print(ftp.close().wait())
+        log.info("执行删除指令", "删除/12222.txt")
+        local result = ftp.command("DELE /12222.txt").wait()
+        log.info("执行结果", result)
+        log.info("执行上传指令", "/122224.txt")
+        io.writeFile("/122224.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
+        local result = ftp.push("/122224.txt","/12222.txt").wait()
+        log.info("执行结果", result)
+        log.info("关闭ftp")
+        local result = ftp.close().wait()
+        log.info("执行结果", result)
         log.info("meminfo", rtos.meminfo("sys"))
+        log.info("测试结束,等15秒====================")
         sys.wait(15000)
     end
 

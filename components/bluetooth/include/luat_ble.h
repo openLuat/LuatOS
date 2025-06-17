@@ -158,6 +158,8 @@ struct luat_ble_gatt_chara{
     uint16_t max_size;
     luat_ble_gatt_descriptor_t* descriptor;     // descriptor
     uint8_t descriptors_num;            // number of descriptor
+    uint8_t* value;
+    uint16_t value_len;
 };
 
 typedef struct {
@@ -232,8 +234,7 @@ typedef struct{
     uint8_t adv_addr[6];  /**<Advertising address value */
 } luat_ble_adv_req_t;
 
-typedef struct luat_ble_conn_ind
-{
+typedef struct luat_ble_conn_ind{
     /// Peer address type
     uint8_t peer_addr_type;
     /// Peer BT address
@@ -248,8 +249,7 @@ typedef struct luat_ble_conn_ind
     uint16_t sup_to;
 }luat_ble_conn_ind_t;
 
-typedef struct luat_ble_disconn_ind
-{
+typedef struct luat_ble_disconn_ind{
     uint8_t reason;
 }luat_ble_disconn_ind_t;
 
@@ -282,10 +282,9 @@ struct luat_ble{
     void* userdata;
 };
 
-typedef struct luat_ble_rw_req
-{
+typedef struct luat_ble_rw_req{
     uint16_t service_id;
-    uint16_t att_handle;
+    uint16_t handle;
     uint32_t len;
     uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
     uint8_t uuid_type;
@@ -320,12 +319,15 @@ int luat_ble_stop_advertising(void* args);
 int luat_ble_delete_advertising(void* args);
 
 // gatt
-int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* luat_ble_gatt_service);
+int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt_service);
 
 // slaver
-int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len);
+int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t handle, uint8_t *data, uint32_t len);
 
-int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len);
+int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t handle, uint8_t *data, uint16_t len);
+
+// master
+int luat_ble_notify_enable(void* args, uint16_t handle, uint8_t enable);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);

@@ -2,15 +2,24 @@
 PROJECT = "testtts"
 VERSION = "1.0.0"
 
---[[
-本demo可直接在Air8000整机开发板上运行
+--[[]
+运行环境：Air780EHV核心板+AirAUDIO_1000配件板
+最后修改时间：2025-6-17
+使用了如下IO口：
+[5, "spk+", " PIN5脚, 用于喇叭正极"],
+[6, "spk-", " PIN6脚, 用于喇叭负极"],
+[78, "gpio28", " PIN78脚, 用于PA使能脚"],
+3.3V
+GND
+执行逻辑为：
+设置i2s和音频参数，读取文件qianzw.txt里面的内容，然后播放出来
 ]]
 
+-- sysplus库是可选的，可以用sys库代替
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
--- gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 
 local i2c_id = 0 -- i2c_id 0
 
@@ -34,14 +43,12 @@ local power_time_delay = 100 -- 音频播放完毕时，PA与DAC关闭的时间�
 
 local voice_vol = 50 -- 喇叭音量
 local mic_vol = 80 -- 麦克风音量
-gpio.setup(power_pin, 1, gpio.PULLUP)
-gpio.setup(pa_pin, 1, gpio.PULLUP)
 
-pins.setup(58, "I2C0_SDA")
-pins.setup(57, "I2C0_SCL")
+gpio.setup(power_pin, 1, gpio.PULLUP)   -- 设置功放电源脚
+gpio.setup(pa_pin, 1, gpio.PULLUP)      -- 设置功放PA脚
 
 function audio_setup()
-
+    log.info("audio_setup")
     sys.wait(200)
 
     i2c.setup(i2c_id, i2c.FAST)
@@ -84,19 +91,6 @@ end)
 local function audio_task()
     local result
     sys.waitUntil("AUDIO_READY")
-    -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
-    if sfud then
-        spi_flash = spi.deviceSetup(1, 12, 0, 0, 8, 25600000, spi.MSB, 1, 0)
-        local ret = sfud.init(spi_flash)
-        if ret then
-            log.info("sfud.init ok")
-        else
-            log.info("sfud.init error", ret)
-            return
-        end
-    else
-        log.info("tts", "TTS_ONCHIP?? skip sfud")
-    end
 
     -- 本例子是按行播放 "千字文", 文本来源自wiki百科
     local fd = nil

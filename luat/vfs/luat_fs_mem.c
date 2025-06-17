@@ -105,7 +105,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
         }
     }
     // 追加模式
-    else if (!strcmp("a", mode) || !strcmp("ab", mode) || !strcmp("a+", mode) || !strcmp("ab+", mode) ) {
+    else if (!strcmp("a", mode) || !strcmp("ab", mode) || !strcmp("a+", mode) || !strcmp("ab+", mode) || !strcmp("a+b", mode) ) {
         // 先看看是否存在, 如果存在就重用老的
         for (size_t i = 0; i < RAM_FILE_MAX; i++)
         {

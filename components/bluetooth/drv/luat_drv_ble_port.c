@@ -21,6 +21,9 @@ uint32_t reserved; // 保留字段, 目前都是0
 
 luat_ble_cb_t g_drv_ble_cb;
 
+#undef LLOGD
+#define LLOGD(...)
+
 int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
     LLOGD("执行luat_ble_init %p", luat_ble_cb);
     g_drv_ble_cb = luat_ble_cb;
@@ -290,7 +293,7 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
 }
 
 // slaver
-int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint32_t len) {
+int luat_ble_read_response_value(void* args, uint16_t att_handle, uint8_t *data, uint32_t len) {
     LLOGD("执行send_read_resp");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
@@ -309,9 +312,7 @@ int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_h
     msg.cmd_id = LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP;
     memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
     luat_ble_rw_req_t req = {
-        .service_id = service_id,
-        .att_handle = att_handle,
-        .data = NULL,
+        .handle = att_handle,
         .len = len
     };
     tmp = sizeof(luat_ble_rw_req_t);
@@ -325,7 +326,7 @@ int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_h
 }
 
 
-int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_handle, uint8_t *data, uint16_t len) {
+int luat_ble_write_notify_value(void* args, uint16_t att_handle, uint8_t *data, uint16_t len) {
     LLOGD("执行luat_ble_write_notify_value");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
@@ -344,9 +345,7 @@ int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_ha
     msg.cmd_id = LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY;
     memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
     luat_ble_rw_req_t req = {
-        .service_id = service_id,
-        .att_handle = att_handle,
-        .data = NULL,
+        .handle = att_handle,
         .len = len
     };
     tmp = sizeof(luat_ble_rw_req_t);

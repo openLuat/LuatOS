@@ -1,4 +1,3 @@
-
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "ftpdemo"
 VERSION = "1.0.0"
@@ -12,6 +11,26 @@ ftp也是内置库, 无需require
 _G.sys = require("sys")
 --[[特别注意, 使用ftp库需要下列语句]]
 _G.sysplus = require("sysplus")
+
+local server_ip = "121.43.224.154" -- 服务器IP
+local server_port = 21 -- 服务器端口号
+local server_username = "ftp_user" -- 服务器登陆用户名
+local server_password = "3QujbiMG" -- 服务器登陆密码
+
+local is_ssl = flase -- 非ssl加密连接
+-- local is_ssl =true --如果是不带证书的加密打开这句话
+
+-- local ssl_encrypt = {
+--     server_cert = "/luadb/server_cert.cert",--服务器ca证书数据
+--     client_cert = "/luadb/client_cert.cert",--客户端ca证书数据
+--     client_key = "/luadb/client_key",-- 客户端私钥加密数据
+--     client_password = "naovswoivbfpfvjwpojv[pawjb[dsfjb]]"--客户端私钥口令数据
+-- }
+
+-- local is_ssl = ssl_encrypt --如果是带证书的加密，请将上述ssl_encrypt内的文件名换成自己的
+
+local local_name = "/123.txt" -- 模块内部文件名及其路径
+local remote_name = "/12222.txt" -- 服务器上的文件名及其路径
 
 sys.taskInit(function()
     -----------------------------
@@ -35,73 +54,78 @@ sys.taskInit(function()
         -- w5500.init(spi.SPI_2, 24000000, pin.PB03, pin.PC00, pin.PC03)
         w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
         log.info("auto mac", w5500.getMac():toHex())
-        w5500.config() --默认是DHCP模式
+        w5500.config() -- 默认是DHCP模式
         w5500.bind(socket.ETH0)
         -- LED = gpio.setup(62, 0, gpio.PULLUP)
         sys.wait(1000)
         -- TODO 获取mac地址作为device_id
     elseif mobile then
         -- Air780E/Air600E系列
-        --mobile.simid(2)
+        -- mobile.simid(2)
         -- LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
-        sys.waitUntil("IP_READY", 30000)
+        sys.waitUntil("IP_READY") -- 死等到联网成功
+        log.info("联网成功")
+        -- 联网成功后发布联网成功的消息
+        sys.publish("net_ready")
     end
+end)
 
-    -- -- 打印一下支持的加密套件, 通常来说, 固件已包含常见的99%的加密套件
-    -- if crypto.cipher_suites then
-    --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
-    -- end
+--[[操作ftp的函数，因为用了sys.wait，请在task内调用
+本函数每隔15S就会进行一次登陆到主动断开的操作，
+如果您不需要断开 或者只需要单次，请修改本函数中的while true do逻辑
+]]
+local function ftp_test()
+    sys.waitUntil("net_ready") -- 死等到联网成功
     while true do
         sys.wait(1000)
-        log.info("ftp测试启动=====================")
-        log.info("登录", ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
-    
-        log.info("执行NOOP", ftp.command("NOOP").wait())
-        log.info("执行SYST", ftp.command("SYST").wait())
+        log.info("ftp 启动")
 
-        log.info("执行TYPE I", ftp.command("TYPE I").wait())
-        log.info("执行PWD", ftp.command("PWD").wait())
-        log.info("执行MKD QWER", ftp.command("MKD QWER").wait())
-        log.info("执行CWD /QWER", ftp.command("CWD /QWER").wait())
+        log.info("登陆FTP服务器",
+            ftp.login(nil, server_ip, server_port, server_username, server_password, is_ssl).wait())
 
-        log.info("执行CDUP", ftp.command("CDUP").wait())
-        log.info("执行RMD QWER", ftp.command("RMD QWER").wait())
+        log.info("空操作，防止连接断掉", ftp.command("NOOP").wait())
+        log.info("报告远程系统的操作系统类型", ftp.command("SYST").wait())
 
-        log.info("执行LIST", ftp.command("LIST").wait())
+        log.info("指定文件类型", ftp.command("TYPE I").wait())
+        log.info("显示当前工作目录名", ftp.command("PWD").wait())
+        log.info("创建一个目录 目录名为QWER", ftp.command("MKD QWER").wait())
+        log.info("改变当前工作目录为QWER", ftp.command("CWD /QWER").wait())
 
-        -- io.writeFile("/1222.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
-        -- log.info("", ftp.push("/1222.txt","/12222.txt").wait())
-        
-        log.info("执行下载指令", ftp.pull("/122224.txt","/122224.txt").wait())
+        log.info("返回上一层目录", ftp.command("CDUP").wait())
+        log.info("删除名为QWER的目录", ftp.command("RMD QWER").wait())
 
-        local f = io.open("/122224.txt", "r")
+        log.info("获取当前工作目录下的文件名列表", ftp.command("LIST").wait())
+
+        log.info("在本地创建一个文件", "文件名及其目录为" .. local_name,
+            io.writeFile(local_name, "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl"))
+        --[[如果下载失败，部分服务器可能会直接断开本次连接，如果遇到下述打印
+            net_lwip_tcp_err_cb 662:adapter 1 socket 20 not closing, but error -14
+            是正常的，此处打印服务器主动断开客户端时会出现
+        ]]
+        log.info("下载服务器上的" .. remote_name, ftp.pull(remote_name, remote_name).wait())
+
+        local f = io.open(remote_name, "r") -- 只读的方式打开服务器上下载的文件
         if f then
             local data = f:read("*a")
             f:close()
-            log.info("fs", "writed data", data)
+            log.info("ftp", "下载的文件" .. remote_name .. "内容是", data)
         else
-            log.info("fs", "open file for read failed")
+            log.info("fs", "打开下载的文件失败")
         end
-
-        log.info("执行删除指令", "删除/12222.txt")
-        local result = ftp.command("DELE /12222.txt").wait()
-        log.info("执行结果", result)
-        log.info("执行上传指令", "/122224.txt")
-        io.writeFile("/122224.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
-        local result = ftp.push("/122224.txt","/12222.txt").wait()
-        log.info("执行结果", result)
-        log.info("关闭ftp")
-        local result = ftp.close().wait()
-        log.info("执行结果", result)
+        sys.wait(1000) -- 等一秒 防止删除失败
+        log.info("删除FTP服务器当前目录下的" .. remote_name, ftp.command("DELE " .. remote_name).wait())
+        sys.wait(1000) -- 等一秒 防止覆盖失败
+        log.info("上传本地的" .. local_name, "到服务器上并且更名为" .. remote_name,
+            ftp.push(local_name, remote_name).wait())
+        sys.wait(1000) -- 等一秒 防止关闭失败
+        log.info("关闭本次和服务器之间链接", ftp.close().wait())
         log.info("meminfo", rtos.meminfo("sys"))
-        log.info("测试结束,等15秒====================")
         sys.wait(15000)
     end
+end
 
-
-end)
-
+sys.taskInit(ftp_test)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

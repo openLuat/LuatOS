@@ -30,19 +30,29 @@ end
 log.info("main", "air780egh_gnss")
 
 
-mcu.hardfault(0)    --死机后停机，一般用于调试状态
-
 local gnss = require("agps_icoe")
 function test_gnss()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
-    pm.power(pm.GPS, true) --打开GPS
-    uart.setup(2,115200) --配置模组内部主芯片与GNSS芯片通信用UART的相关参数
-    libgnss.bind(2) --马上开始解析NMEA格式数据
-    libgnss.debug(true) --开发调试期可打开调试日志
+    pm.power(pm.GPS, true)
+    gnss.setup({
+        uart_id=2,
+        uart_forward = uart.VUART_0, -- 转发到虚拟串口,方便对接GnssToolKit3
+        debug=true,
+        sys=1
+    })
     gnss.start() --初始化gnss
     gnss.agps() --使用agps辅助定位
+    --循环打印解析后的数据，可以根据需要打开对应注释
+    while 1 do
+        sys.wait(5000)
+        log.info("RMC", json.encode(libgnss.getRmc(2) or {}, "7f"))         --解析后的rmc数据
+        log.info("GGA", libgnss.getGga(3))                                   --解析后的gga数据
+    end
 end
 sys.taskInit(test_gnss)
+
+
+
 
 -- 订阅GNSS状态编码
 sys.subscribe("GNSS_STATE", function(event, ticks)

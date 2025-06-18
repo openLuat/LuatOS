@@ -313,7 +313,7 @@ int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t att_h
     memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
     luat_ble_rw_req_t req = {
         .service_id = service_id,
-        .att_handle = att_handle,
+        .handle = att_handle,
         .data = NULL,
         .len = len
     };
@@ -348,7 +348,7 @@ int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t att_ha
     memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
     luat_ble_rw_req_t req = {
         .service_id = service_id,
-        .att_handle = att_handle,
+        .handle = att_handle,
         .data = NULL,
         .len = len
     };

@@ -53,10 +53,10 @@ end
     local i2s_communication_format = i2s.MODE_LSB
     local i2s_channel_bits = 16
 
-    local pa_pin = 16
+    local pa_pin = 0      --  PA 使能开关
     local pa_on_level = 1
     local pa_delay = 100
-    local power_pin = 8
+    local power_pin = 28      --  8311 使能开关
     local power_on_level = 1
     local power_delay = 3
     local power_time_delay = 100
@@ -65,11 +65,11 @@ end
     local mic_vol = 80
 
     local find_es8311 = false
+    gpio.setup(24, 1, gpio.PULLUP)          -- 默认打开内部的I2C0 相关器件，不然I2C 初始化会失败
+    gpio.setup(power_pin, 1, gpio.PULLUP)            -- 打开es8311 的电源脚
+    gpio.setup(pa_pin, 1, gpio.PULLUP)               -- 打开pa 的电源脚
+    sys.wait(300)
     i2c.setup(i2c_id, i2c.FAST)
-    gpio.setup(8, 0)
-    sys.wait(10)
-    gpio.setup(8, 1)
-	sys.wait(10)
     if i2c.send(i2c_id, 0x18, 0xfd) == true then
         log.info("音频小板或内置ES8311", "codec on i2c0")
         find_es8311 = true

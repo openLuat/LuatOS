@@ -142,6 +142,11 @@ typedef struct luat_ble_gatt_chara luat_ble_gatt_chara_t;
 
 #define LUAT_BLE_UUID_LEN_MAX   16
 
+typedef struct luat_ble_uuid{
+    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
+    luat_ble_uuid_type uuid_type;
+}luat_ble_uuid_t;
+
 typedef struct luat_ble_gatt_descriptor{
     uint16_t handle;
     uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
@@ -209,7 +214,6 @@ typedef struct{
 } luat_ble_device_info_t;
 
 typedef struct{
-    uint16_t service_id;        /**< The id of the gatt service */
     uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The length of the attribute value */
@@ -217,7 +221,6 @@ typedef struct{
 } luat_ble_write_req_t;
 
 typedef struct{
-    uint16_t service_id;        /**< The id of the gatt service */
     uint16_t handle;       /**< The index of the attribute */
     uint8_t *value;         /**< The attribute value */
     uint16_t len;           /**< The data length read */
@@ -283,7 +286,6 @@ struct luat_ble{
 };
 
 typedef struct luat_ble_rw_req{
-    uint16_t service_id;
     uint16_t handle;
     uint32_t len;
     uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
@@ -320,11 +322,13 @@ int luat_ble_delete_advertising(void* args);
 
 // gatt
 int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt_service);
+int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor);
+int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint16_t* handle);
 
 // slaver
-int luat_ble_read_response_value(void* args, uint16_t service_id, uint16_t handle, uint8_t *data, uint32_t len);
+// int luat_ble_read_response_value(void* args, uint16_t handle, uint8_t *data, uint32_t len);
 
-int luat_ble_write_notify_value(void* args, uint16_t service_id, uint16_t handle, uint8_t *data, uint16_t len);
+int luat_ble_write_notify_value(void* args, uint16_t handle, uint8_t *data, uint16_t len);
 
 // master
 int luat_ble_notify_enable(void* args, uint16_t handle, uint8_t enable);

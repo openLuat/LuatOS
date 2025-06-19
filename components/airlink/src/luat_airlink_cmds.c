@@ -59,6 +59,7 @@ CMD_DEFINE(gpio_get);
 CMD_DEFINE(gpio_get_result);
 CMD_DEFINE(gpio_driver_yhm27xx);
 CMD_DEFINE(gpio_driver_yhm27xx_reqinfo);
+CMD_DEFINE(gpio_irq_cb);
 
 // UART指令, 0x400开始
 CMD_DEFINE(uart_setup);
@@ -120,9 +121,13 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO
     CMD_REG(0x300, gpio_setup),
     CMD_REG(0x301, gpio_set),
-    // CMD_REG(0x302, gpio_get),
+    CMD_REG(0x302, gpio_get),
     CMD_REG(0x304, gpio_driver_yhm27xx),
     CMD_REG(0x305, gpio_driver_yhm27xx_reqinfo),
+#endif
+#ifdef LUAT_USE_AIRLINK_EXEC_GPIO_RESP
+    CMD_REG(0x310, gpio_get_result),
+    // CMD_REG(0x311, gpio_irq_cb),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_UART

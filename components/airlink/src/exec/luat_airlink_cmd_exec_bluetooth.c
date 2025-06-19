@@ -63,7 +63,7 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
         luat_ble_event_t event = (luat_ble_event_t)tmp;
         luat_ble_param_t param = {0};
         memcpy(&param, msg->data + 4, sizeof(luat_ble_param_t));
-        LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
+        // LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
 
         // 把能处理的先尝试处理一下
         if (event == LUAT_BLE_EVENT_WRITE && param.write_req.len) {

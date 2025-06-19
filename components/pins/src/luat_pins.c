@@ -301,11 +301,6 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		return 1;
 	}
 	#endif
-	if (luat_pin_get_description_from_num(pin, &pin_description))
-	{
-		LLOGE("pin%d不支持修改", pin);
-		goto LUAT_PIN_SETUP_DONE;
-	}
 	if (func_name != NULL)
 	{
 		if (name_len < 2)
@@ -319,6 +314,22 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		{
 			goto LUAT_PIN_SETUP_DONE;
 		}
+		// GPIO128 及以上的, 不支持配置
+		if (func_description.function_id == LUAT_MCU_PERIPHERAL_GPIO && func_description.peripheral_id >= 128) {
+			goto LUAT_PIN_SETUP_DONE;
+		}
+		// UART10 及以上的, 不支持配置
+		if (func_description.function_id == LUAT_MCU_PERIPHERAL_UART && func_description.peripheral_id >= 10) {
+			goto LUAT_PIN_SETUP_DONE;
+		}
+	}
+	if (luat_pin_get_description_from_num(pin, &pin_description))
+	{
+		LLOGE("pin%d不支持修改", pin);
+		goto LUAT_PIN_SETUP_DONE;
+	}
+	if (func_name != NULL)
+	{
 		altfun_id = luat_pin_get_altfun_id_from_description(func_description.code, &pin_description);
 		if (altfun_id == 0xff)
 		{

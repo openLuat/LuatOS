@@ -401,10 +401,10 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 
 
 /**
-配置唤醒引脚 (当前仅仅esp系列可用)
+配置唤醒引脚
 @api pm.wakeupPin(pin,level)
 @int gpio引脚
-@int 唤醒电压 可选,默认上升沿唤醒
+@int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
 @return boolean 处理结果
 @usage
 pm.wakeupPin(8, gpio.RISING)

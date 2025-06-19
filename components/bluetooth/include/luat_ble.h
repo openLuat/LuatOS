@@ -131,9 +131,9 @@ typedef enum{
 } luat_ble_event_t;
 
 typedef enum{
-    LUAT_BLE_UUID_TYPE_16,
-    LUAT_BLE_UUID_TYPE_32,
-    LUAT_BLE_UUID_TYPE_128,
+    LUAT_BLE_UUID_TYPE_16 = 2,
+    LUAT_BLE_UUID_TYPE_32 = 4,
+    LUAT_BLE_UUID_TYPE_128 = 16,
 }luat_ble_uuid_type;
 
 typedef struct luat_bluetooth luat_bluetooth_t;
@@ -153,6 +153,8 @@ typedef struct luat_ble_gatt_descriptor{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
+    uint8_t* value;
+    uint16_t value_len;
 }luat_ble_gatt_descriptor_t;
 
 struct luat_ble_gatt_chara{
@@ -161,10 +163,10 @@ struct luat_ble_gatt_chara{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_gatt_descriptor_t* descriptor;     // descriptor
-    uint8_t descriptors_num;            // number of descriptor
     uint8_t* value;
     uint16_t value_len;
+    luat_ble_gatt_descriptor_t* descriptor;     // descriptor
+    uint8_t descriptors_num;            // number of descriptor
 };
 
 typedef struct {

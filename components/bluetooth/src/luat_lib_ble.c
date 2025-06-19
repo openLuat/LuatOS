@@ -34,14 +34,28 @@ int l_ble_callback(lua_State *L, void* ptr) {
         case LUAT_BLE_EVENT_WRITE:{
             luat_ble_write_req_t* write_req = &(param->write_req);
 
-            lua_createtable(L, 0, 3);
-            // lua_pushliteral(L, "service_id"); 
-            // lua_pushinteger(L, write_req->service_id);
-            // lua_settable(L, -3);
+            lua_createtable(L, 0, 5);
             lua_pushliteral(L, "handle"); 
             lua_pushinteger(L, write_req->handle);
             lua_settable(L, -3);
-            lua_pushliteral(L, "data"); 
+            luat_ble_uuid_t uuid_service = {0};
+            luat_ble_uuid_t uuid_characteristic = {0};
+            luat_ble_uuid_t uuid_descriptor = {0};
+            luat_ble_handle2uuid(write_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
+
+            lua_pushliteral(L, "uuid_service");
+            lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
+            lua_settable(L, -3);
+            lua_pushliteral(L, "uuid_characteristic");
+            lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
+            lua_settable(L, -3);
+            if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0){
+                lua_pushliteral(L, "uuid_descriptor");
+                lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
+                lua_settable(L, -3);
+            }
+
+            lua_pushliteral(L, "data");
             lua_pushlstring(L, (const char *)write_req->value, write_req->len);
             lua_settable(L, -3);
             lua_call(L, 3, 0);
@@ -53,13 +67,30 @@ int l_ble_callback(lua_State *L, void* ptr) {
         }
         case LUAT_BLE_EVENT_READ: {
             luat_ble_read_req_t* read_req = &(param->read_req);
-            lua_createtable(L, 0, 2);
-            // lua_pushliteral(L, "service_id"); 
-            // lua_pushinteger(L, read_req->service_id);
-            // lua_settable(L, -3);
+            lua_createtable(L, 0, 5);
             lua_pushliteral(L, "handle"); 
             lua_pushinteger(L, read_req->handle);
             lua_settable(L, -3);
+
+            luat_ble_uuid_t uuid_service = {0};
+            luat_ble_uuid_t uuid_characteristic = {0};
+            luat_ble_uuid_t uuid_descriptor = {0};
+            luat_ble_handle2uuid(read_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
+            // LLOGD("service:0x%02X %d characteristic:0x%02X %d descriptor:0x%02X %d",
+            //     uuid_service.uuid[0]<<8|uuid_service.uuid[1],uuid_service.uuid_type,
+            //     uuid_characteristic.uuid[0]<<8|uuid_characteristic.uuid[1],uuid_characteristic.uuid_type,
+            //     uuid_descriptor.uuid[0]<<8|uuid_descriptor.uuid[1],uuid_descriptor.uuid_type);
+            lua_pushliteral(L, "uuid_service");
+            lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
+            lua_settable(L, -3);
+            lua_pushliteral(L, "uuid_characteristic");
+            lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
+            lua_settable(L, -3);
+            if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0){
+                lua_pushliteral(L, "uuid_descriptor");
+                lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
+                lua_settable(L, -3);
+            }
 
             lua_call(L, 3, 0);
 
@@ -99,26 +130,14 @@ int l_ble_callback(lua_State *L, void* ptr) {
                 luat_ble_gatt_service_t* gatt_service = gatt_services[i];
                 lua_newtable(L);
                 // servise uuid
-                if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_16){
-                    lua_pushlstring(L, (const char *)gatt_service->uuid, 2);
-                }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_32){
-                    lua_pushlstring(L, (const char *)gatt_service->uuid, 4);
-                }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_128){
-                    lua_pushlstring(L, (const char *)gatt_service->uuid, 16);
-                }
+                lua_pushlstring(L, (const char *)gatt_service->uuid, gatt_service->uuid_type);
                 lua_rawseti(L, -2, 1);
                 // characteristics
                 uint8_t characteristics_num = gatt_service->characteristics_num;
                 for (size_t m = 0; m < characteristics_num; m++){
                     luat_ble_gatt_chara_t* gatt_chara = &gatt_service->characteristics[m];
                     lua_newtable(L);
-                    if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_16){
-                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 2);
-                    }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_32){
-                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 4);
-                    }else if (gatt_service->uuid_type == LUAT_BLE_UUID_TYPE_128){
-                        lua_pushlstring(L, (const char *)gatt_chara->uuid, 16);
-                    }
+                    lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_service->uuid_type);
                     lua_seti(L, -2, 1);
                     // Properties
                     // lua_seti(L, -2, 2);
@@ -439,29 +458,53 @@ static int l_ble_advertising_stop(lua_State* L) {
 // }
 
 static int l_ble_write_notify(lua_State* L) {
-    uint16_t service_id, handle = 0;
+    uint16_t handle = 0;
+    const char* service_uuid = NULL;
+    const char* characteristic_uuid = NULL;
+    const char* descriptor_uuid = NULL;
     if (1) {
-        lua_pushstring(L, "service_id");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            service_id = luaL_checknumber(L, -1);
-        }else{
-            LLOGW("缺失service_id参数");
-            goto end_error;
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "handle");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            handle = luaL_checknumber(L, -1);
-        }else{
-            LLOGW("缺失handle参数");
-            goto end_error;
-        }
-        lua_pop(L, 1);
-
+        // lua_pushstring(L, "handle");
+        // if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        //     handle = luaL_checknumber(L, -1);
+        // }
+        // lua_pop(L, 1);
         size_t len = 0;
         const char* value = luaL_checklstring(L, 3, &len);
-        LLOGD("write notify service_id:%d handle:%d data len %d", service_id, handle, len);
-        // luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
+        LLOGD("write notify handle:%d data len %d", handle, len);
+        if (handle==0){
+            luat_ble_uuid_t service = {0};
+            luat_ble_uuid_t characteristic = {0};
+            luat_ble_uuid_t descriptor = {0};
+
+            lua_pushstring(L, "uuid_service");
+            if (LUA_TSTRING == lua_gettable(L, 2)) {
+                service_uuid = luaL_checklstring(L, -1, &service.uuid_type);
+                memcpy(service.uuid, service_uuid, service.uuid_type);
+            }else{
+                LLOGW("缺失 uuid_service 参数");
+                goto end_error;
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "uuid_characteristic");
+            if (LUA_TSTRING == lua_gettable(L, 2)) {
+                characteristic_uuid = luaL_checklstring(L, -1, &characteristic.uuid_type);
+                memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
+            }else{
+                LLOGW("缺失 uuid_characteristic 参数");
+                goto end_error;
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "uuid_descriptor");
+            if (LUA_TSTRING == lua_gettable(L, 2)) {
+                descriptor_uuid = luaL_checklstring(L, -1, &descriptor.uuid_type);
+                memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
+            }
+            lua_pop(L, 1);
+            luat_ble_uuid2handle(&service, &characteristic, descriptor_uuid?&descriptor:NULL, &handle);
+
+        }
+        LLOGD("handle:%d",handle);
+        luat_ble_write_notify_value(NULL, handle, (uint8_t *)value, len);
 
         lua_pushboolean(L, 1);
         return 1;

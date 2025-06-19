@@ -90,6 +90,9 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
     }
 }
 
+static void on_uart_data_in(uint8_t* buff, size_t len) {
+
+}
 
 __USER_FUNC_IN_RAM__ static void uart_task(void *param)
 {
@@ -104,6 +107,7 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
     thread_rdy = 1;
     g_airlink_newdata_notify_cb = on_newdata_notify;
     g_airlink_link_data_cb = on_link_data_notify;
+    uint8_t pbuff[2048] = {0};
     while (1)
     {
         uart_id = g_airlink_spi_conf.uart_id;
@@ -115,6 +119,7 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
             else {
                 LLOGD("收到uart数据长度 %d", ret);
                 // TODO 推送数据, 并解析处理
+                on_uart_data_in(s_rxbuff, ret);
             }
         }
         ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), 60*1000);
@@ -125,10 +130,11 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
             if (item.len > 0 && item.cmd != NULL)
             {
                 // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
+                luat_airlink_data_pack((uint8_t*)item.cmd, item.len, pbuff);
                 s_txbuff[0] = 0x7E;
                 offset = 1;
-                ptr = (uint8_t*)item.cmd;
-                for (size_t i = 0; i < item.len; i++)
+                ptr = (uint8_t*)pbuff;
+                for (size_t i = 0; i < item.len + sizeof(airlink_link_data_t); i++)
                 {
                     if (ptr[i] == 0x7E) {
                         s_txbuff[offset++] = 0x7D;

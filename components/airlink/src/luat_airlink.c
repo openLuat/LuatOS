@@ -54,13 +54,26 @@ int luat_airlink_start(int id)
     }
     if (id == 0)
     {
+        #ifdef LUAT_USE_AIRLINK_SPI_SLAVE
         g_airlink_spi_task_mode = 0;
         luat_airlink_start_slave();
+        return 0;
+        #endif
     }
-    else
+    else if (id == 1)
     {
+        #ifdef LUAT_USE_AIRLINK_SPI_MASTER
         g_airlink_spi_task_mode = 1;
         luat_airlink_start_master();
+        return 0;
+        #endif
+    }
+    else if (id == 2) {
+        #ifdef LUAT_USE_AIRLINK_UART
+        g_airlink_spi_task_mode = 2;
+        luat_airlink_start_uart();
+        return 0;
+        #endif
     }
     return 0;
 }

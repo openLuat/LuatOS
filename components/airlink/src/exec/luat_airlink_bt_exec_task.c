@@ -119,6 +119,27 @@ static int drv_adv_create_scanning(luat_drv_ble_msg_t *msg) {
     return luat_ble_create_scanning(NULL, &scan);
 }
 
+static int drv_ble_write_notify(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble write notify len %d", write.len);
+    // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
+    return luat_ble_write_notify_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
+}
+
+// static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {
+//     // 从数据中解析出参数, 重新组装
+//     luat_ble_rw_req_t write = {0};
+//     uint16_t sizeof_write = 0;
+//     memcpy(&sizeof_write, msg->data, 2);
+//     memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+//     LLOGD("ble send read resp len %d", write.len);
+//     return luat_ble_read_response_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
+// }
+
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
     LLOGD("bt task start ...");
@@ -200,6 +221,14 @@ static void drv_bt_task(void *param) {
                 ret = luat_ble_delete_scanning(NULL);
                 LLOGD("ble adv delete scaning %d", ret);
                 break;
+            case LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY:
+                ret = drv_ble_write_notify(msg);
+                LLOGD("ble wrtite notify %d", ret);
+                break;
+            // case LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP:
+            //     ret = drv_ble_send_read_resp(msg);
+            //     LLOGD("ble send read resp %d", ret);
+            //     break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);
                 break;

@@ -41,10 +41,8 @@ gpio.setup(power_pin, 1, gpio.PULLUP)            -- 打开es8311 的电源脚
 gpio.setup(pa_pin, 1, gpio.PULLUP)               -- 打开pa 的电源脚
 
 function audio_setup()
-    pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
     sys.wait(100)
-    pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
-
+ 
     i2c.setup(i2c_id,i2c.FAST)      --设置i2c
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)    --设置i2s
 

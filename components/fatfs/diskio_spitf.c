@@ -265,7 +265,7 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 			if (spitf->CmdCnt != (i + 1))
 			{
 				spitf->CmdCnt = i + 1;
-				LLOGI("find answer byte in %d", i);
+				// LLOGI("find answer byte in %d", i);
 			}
 
 			spitf->SDHCState = spitf->TempData[i];

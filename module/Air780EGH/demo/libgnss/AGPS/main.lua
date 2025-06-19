@@ -30,8 +30,6 @@ end
 log.info("main", "air780egh_gnss")
 
 
-mcu.hardfault(0)    --死机后停机，一般用于调试状态
-
 local gnss = require("agps_icoe")
 function test_gnss()
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")

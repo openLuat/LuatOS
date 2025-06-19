@@ -52,44 +52,42 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
     return 0;
 }
 
-static void drv_gpio_result_exec(struct luat_airlink_result_reg *reg, luat_airlink_cmd_t* cmd) {
-    uint8_t tmp;
-    memcpy(&tmp, cmd->data + 8 + 8 + 1, 1);
-    int* val = reg->userdata2;
-    *val = tmp;
-    luat_rtos_semaphore_release(reg->userdata);
-}
-
-static void drv_gpio_result_cleanup(struct luat_airlink_result_reg *reg, luat_airlink_cmd_t* cmd) {
-    luat_rtos_semaphore_release(reg->userdata);
-}
-
-// static luat_rtos_semaphore_t semaphore_drv_gpio;
+luat_rtos_semaphore_t g_drv_gpio_sem;
+uint64_t g_drv_gpio_input_level = 0;
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 int luat_airlink_drv_gpio_get(int pin, int* val) {
-    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    if (pin >= 128) {
+        pin -= 128;
+    }
+    if (pin >= 64) {
+        LLOGE("invaild pin %d/%d", pin, pin + 128);
+        return 0;
+    }
+    uint32_t version;
+    memcpy(&version, &g_airlink_ext_dev_info.wifi.version, 4);
+    if (version < 9) {
+        LLOGE("wifi version < 9, not support gpio.set");
+        return 0;
+    }
+    uint64_t seq_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = 1 + sizeof(luat_airlink_cmd_t) + 8
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x302, 1 + 8) ;
     if (cmd == NULL) {
-        return -101;
+        LLOGE("out of memory when gpio.get");
+        return 0;
     }
-    luat_rtos_semaphore_t semaphore_drv_gpio;
-    luat_rtos_semaphore_create(&semaphore_drv_gpio, 0);
-    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    if (g_drv_gpio_sem == NULL) {
+        luat_rtos_semaphore_create(&g_drv_gpio_sem, 0);
+    }
+    memcpy(cmd->data, &seq_id, 8);
     uint8_t* data = cmd->data + 8;
     data[0] = (uint8_t)pin;
     item.cmd = cmd;
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    luat_airlink_result_reg_t reg = {
-        .exec = drv_gpio_result_exec,
-        .id = luat_airlink_next_cmd_id,
-        .userdata = semaphore_drv_gpio,
-        .userdata2 = val
-    };
-    luat_airlink_result_reg(&reg);
-    luat_rtos_semaphore_take(semaphore_drv_gpio, 1000);
-    return 0;
+    luat_rtos_semaphore_take(g_drv_gpio_sem, 100);
+    return (g_drv_gpio_input_level >> pin) & 1;
 }
 
 int luat_airlink_drv_gpio_driver_yhm27xx(uint32_t Pin, uint8_t ChipID, uint8_t RegAddress, uint8_t IsRead, uint8_t *Data) 

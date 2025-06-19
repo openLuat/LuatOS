@@ -35,9 +35,9 @@ int l_ble_callback(lua_State *L, void* ptr) {
             luat_ble_write_req_t* write_req = &(param->write_req);
 
             lua_createtable(L, 0, 3);
-            lua_pushliteral(L, "service_id"); 
-            lua_pushinteger(L, write_req->service_id);
-            lua_settable(L, -3);
+            // lua_pushliteral(L, "service_id"); 
+            // lua_pushinteger(L, write_req->service_id);
+            // lua_settable(L, -3);
             lua_pushliteral(L, "handle"); 
             lua_pushinteger(L, write_req->handle);
             lua_settable(L, -3);
@@ -54,9 +54,9 @@ int l_ble_callback(lua_State *L, void* ptr) {
         case LUAT_BLE_EVENT_READ: {
             luat_ble_read_req_t* read_req = &(param->read_req);
             lua_createtable(L, 0, 2);
-            lua_pushliteral(L, "service_id"); 
-            lua_pushinteger(L, read_req->service_id);
-            lua_settable(L, -3);
+            // lua_pushliteral(L, "service_id"); 
+            // lua_pushinteger(L, read_req->service_id);
+            // lua_settable(L, -3);
             lua_pushliteral(L, "handle"); 
             lua_pushinteger(L, read_req->handle);
             lua_settable(L, -3);
@@ -194,59 +194,61 @@ static int l_ble_gatt_create(lua_State* L) {
         return 0;
     }
 
-    luat_ble_gatt_service_t luat_ble_gatt_service = {0};
     size_t len = 0;
+    luat_ble_gatt_service_t* luat_ble_gatt_service = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+    memset(luat_ble_gatt_service,0,sizeof(luat_ble_gatt_service_t));
 
     if (lua_type(L, 2) != LUA_TTABLE){
         LLOGE("error param");
         return 0;
     }
     
-    luat_ble_gatt_service.characteristics_num = luaL_len(L, 2)-1;
+    luat_ble_gatt_service->characteristics_num = luaL_len(L, 2)-1;
 
     if (lua_rawgeti(L, -1, 1) == LUA_TSTRING){
         const char* service_uuid = luaL_checklstring(L, -1, &len);
         if (len == 2){
-            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_16;
+            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_16;
         }else if (len == 4){
-            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_32;
+            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_32;
         }else if (len == 16){
-            luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_128;
+            luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_128;
         }
-        memcpy(luat_ble_gatt_service.uuid, service_uuid, len);
+        memcpy(luat_ble_gatt_service->uuid, service_uuid, len);
     }else if (lua_rawgeti(L, -1, 1) == LUA_TNUMBER){
         uint16_t service_uuid = (uint16_t)luaL_checknumber(L, -1);
-        luat_ble_gatt_service.uuid_type = LUAT_BLE_UUID_TYPE_16;
-        luat_ble_gatt_service.uuid[0] = service_uuid & 0xff;
-        luat_ble_gatt_service.uuid[1] = service_uuid >> 8;
+        luat_ble_gatt_service->uuid_type = LUAT_BLE_UUID_TYPE_16;
+        luat_ble_gatt_service->uuid[0] = service_uuid & 0xff;
+        luat_ble_gatt_service->uuid[1] = service_uuid >> 8;
     }else{
         LLOGE("error uuid type");
         return 0;
     }
     lua_pop(L, 1);
-
+    uint8_t characteristics_num = luat_ble_gatt_service->characteristics_num;
     // Characteristics
-    luat_ble_gatt_service.characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_service.characteristics_num);
-    memset(luat_ble_gatt_service.characteristics, 0, sizeof(luat_ble_gatt_chara_t) * luat_ble_gatt_service.characteristics_num);
-    for (size_t j = 2; j <= luat_ble_gatt_service.characteristics_num+1; j++){
+    luat_ble_gatt_service->characteristics = (luat_ble_gatt_chara_t*)luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * characteristics_num);
+    memset(luat_ble_gatt_service->characteristics, 0, sizeof(luat_ble_gatt_chara_t) * characteristics_num);
+    luat_ble_gatt_chara_t* characteristics = luat_ble_gatt_service->characteristics;
+    for (size_t j = 2; j <= characteristics_num+1; j++){
         if (lua_rawgeti(L, -1, j) == LUA_TTABLE){
             lua_rawgeti(L, -1, 1);
             // Characteristics uuid
             if (LUA_TSTRING == lua_type(L, -1)){
                 const char* characteristics_uuid = luaL_checklstring(L, -1, &len);
                 if (len == 2){
-                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                    characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
                 }else if (len == 4){
-                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_32;
+                    characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_32;
                 }else if (len == 16){
-                    luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
+                    characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_128;
                 }
-                memcpy(luat_ble_gatt_service.characteristics[j-2].uuid, characteristics_uuid, len);
+                memcpy(characteristics[j-2].uuid, characteristics_uuid, len);
             }else if (LUA_TNUMBER == lua_type(L, -1)){
                 uint16_t characteristics_uuid = (uint16_t)luaL_checknumber(L, -1);
-                luat_ble_gatt_service.characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
-                luat_ble_gatt_service.characteristics[j-2].uuid[0] = characteristics_uuid >> 8;
-                luat_ble_gatt_service.characteristics[j-2].uuid[1] = characteristics_uuid & 0xFF;
+                characteristics[j-2].uuid_type = LUAT_BLE_UUID_TYPE_16;
+                characteristics[j-2].uuid[0] = characteristics_uuid >> 8;
+                characteristics[j-2].uuid[1] = characteristics_uuid & 0xFF;
             }else{
                 LLOGE("error characteristics uuid type");
                 goto error_exit;
@@ -255,35 +257,31 @@ static int l_ble_gatt_create(lua_State* L) {
             // Characteristics properties
             lua_rawgeti(L, -1, 2);
             if (LUA_TNUMBER == lua_type(L, -1)){
-                luat_ble_gatt_service.characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
+                characteristics[j-2].perm = (uint16_t)luaL_optnumber(L, -1, 0);
             }
             lua_pop(L, 1);
             // Characteristics max_size
             lua_rawgeti(L, -1, 3);
             if (LUA_TNUMBER == lua_type(L, -1)){
-                luat_ble_gatt_service.characteristics[j-2].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
+                characteristics[j-2].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
             }else{
-                luat_ble_gatt_service.characteristics[j-2].max_size = 256;
+                characteristics[j-2].max_size = 256;
             }
             lua_pop(L, 1);
-            if (luat_ble_gatt_service.characteristics[j-2].uuid_type == LUAT_BLE_UUID_TYPE_16
-                && luat_ble_gatt_service.characteristics[j-2].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8)
-                && luat_ble_gatt_service.characteristics[j-2].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
+            if (characteristics[j-2].uuid_type == LUAT_BLE_UUID_TYPE_16
+                && characteristics[j-2].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8)
+                && characteristics[j-2].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
                 // Descriptors
-                luat_ble_gatt_service.characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_READ;
-                luat_ble_gatt_service.characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_WRITE;
-                luat_ble_gatt_service.characteristics[j-2].max_size = 0;
+                characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_READ;
+                characteristics[j-2].perm |= LUAT_BLE_GATT_PERM_WRITE;
+                characteristics[j-2].max_size = 0;
             }
 
         }
         lua_pop(L, 1);
     }
-    luat_ble_create_gatt(NULL, &luat_ble_gatt_service);
-    for (size_t i = 0; i < luat_ble_gatt_service.characteristics_num; i++){
-        lua_pushinteger(L, luat_ble_gatt_service.characteristics[i].handle);
-    }
-    luat_heap_free(luat_ble_gatt_service.characteristics);
-    return luat_ble_gatt_service.characteristics_num;
+    lua_pushboolean(L, luat_ble_create_gatt(NULL, luat_ble_gatt_service)==0?1:0);
+    return 1;
 error_exit:
     return 0;
 }
@@ -408,45 +406,46 @@ static int l_ble_advertising_stop(lua_State* L) {
     return 1;
 }
 
-static int l_ble_read_response_value(lua_State* L) {
-    uint16_t service_id, handle = 0;
-    if (1) {
-        lua_pop(L, 1);
-        lua_pushstring(L, "service_id");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            service_id = luaL_checknumber(L, -1);
-        }else{
-            goto end_error;
-        }
-        lua_pop(L, 1);
-        lua_pushstring(L, "handle");
-        if (LUA_TNUMBER == lua_gettable(L, 2)) {
-            handle = luaL_checknumber(L, -1);
-        }else{
-            goto end_error;
-        }
-        lua_pop(L, 1);
+// static int l_ble_read_response_value(lua_State* L) {
+//     uint16_t service_id, handle = 0;
+//     if (1) {
+//         lua_pushstring(L, "service_id");
+//         if (LUA_TNUMBER == lua_gettable(L, 2)) {
+//             service_id = luaL_checknumber(L, -1);
+//         }else{
+//             LLOGW("缺失service_id参数");
+//             goto end_error;
+//         }
+//         lua_pop(L, 1);
+//         lua_pushstring(L, "handle");
+//         if (LUA_TNUMBER == lua_gettable(L, 2)) {
+//             handle = luaL_checknumber(L, -1);
+//         }else{
+//             LLOGW("缺失handle参数");
+//             goto end_error;
+//         }
+//         lua_pop(L, 1);
 
-        size_t len = 0;
-        const char* response_data = luaL_checklstring(L, -1, &len);
-        LLOGD("read response service_id:%d handle:%d", service_id, handle);
-        int ret = luat_ble_read_response_value(NULL, service_id, handle, (uint8_t *)response_data, len);
-        lua_pushboolean(L, ret==0?1:0);
-        return 1;
-    }
-end_error:
-    LLOGE("error param");
-    return 0;
-}
+//         size_t len = 0;
+//         const char* response_data = luaL_checklstring(L, 3, &len);
+//         LLOGD("send read response service_id:%d handle:%d len %d", service_id, handle, len);
+//         int ret = luat_ble_read_response_value(NULL, service_id, handle, (uint8_t *)response_data, len);
+//         lua_pushboolean(L, ret==0?1:0);
+//         return 1;
+//     }
+// end_error:
+//     LLOGE("error param");
+//     return 0;
+// }
 
 static int l_ble_write_notify(lua_State* L) {
     uint16_t service_id, handle = 0;
     if (1) {
-        lua_pop(L, 1);
         lua_pushstring(L, "service_id");
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             service_id = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失service_id参数");
             goto end_error;
         }
         lua_pop(L, 1);
@@ -454,15 +453,17 @@ static int l_ble_write_notify(lua_State* L) {
         if (LUA_TNUMBER == lua_gettable(L, 2)) {
             handle = luaL_checknumber(L, -1);
         }else{
+            LLOGW("缺失handle参数");
             goto end_error;
         }
         lua_pop(L, 1);
 
         size_t len = 0;
-        const char* value = luaL_checklstring(L, -1, &len);
-        // LLOGD("read response service_id:%d handle:%d", service_id, handle);
-        luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
+        const char* value = luaL_checklstring(L, 3, &len);
+        LLOGD("write notify service_id:%d handle:%d data len %d", service_id, handle, len);
+        // luat_ble_write_notify_value(NULL, service_id, handle, (uint8_t *)value, len);
 
+        lua_pushboolean(L, 1);
         return 1;
     }
 end_error:
@@ -475,12 +476,21 @@ static int l_ble_scanning_create(lua_State* L) {
         return 0;
     }
     if (1){
-        luat_ble_scan_cfg_t luat_ble_scan_cfg = {
+        luat_ble_scan_cfg_t cfg = {
             .addr_mode = LUAT_BLE_ADDR_MODE_PUBLIC,
             .scan_interval = 100,
             .scan_window = 100,
         };
-        lua_pushboolean(L, luat_ble_create_scanning(NULL, &luat_ble_scan_cfg)?0:1);
+        if (lua_isinteger(L, 2)) {
+            cfg.addr_mode = luaL_checkinteger(L, 2);
+        }
+        if (lua_isinteger(L, 3)) {
+            cfg.scan_interval = luaL_checkinteger(L, 3);
+        }
+        if (lua_isinteger(L, 4)) {
+            cfg.scan_window = luaL_checkinteger(L, 4);
+        }
+        lua_pushboolean(L, luat_ble_create_scanning(NULL, &cfg)?0:1);
         return 1;
     }
     return 0;
@@ -530,14 +540,15 @@ static const rotable_Reg_t reg_ble[] = {
     // slaver
     {"gatt_create",                 ROREG_FUNC(l_ble_gatt_create)},
     {"write_notify",                ROREG_FUNC(l_ble_write_notify)},
-    {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
+    // {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
+    // {"send_read_resp",              ROREG_FUNC(l_ble_read_response_value)},
     // scanning
     {"scan_create",                 ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start",                  ROREG_FUNC(l_ble_scanning_start)},
     {"scan_stop",                   ROREG_FUNC(l_ble_scanning_stop)},
 
-    {"connect",                   ROREG_FUNC(l_ble_connect)},
-    {"disconnect",                   ROREG_FUNC(l_ble_disconnect)},
+    {"connect",                     ROREG_FUNC(l_ble_connect)},
+    {"disconnect",                  ROREG_FUNC(l_ble_disconnect)},
 
     // BLE_EVENT
     {"EVENT_NONE",                  ROREG_INT(LUAT_BLE_EVENT_NONE)},
@@ -555,7 +566,9 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_CONN",                  ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN",               ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE",                 ROREG_INT(LUAT_BLE_EVENT_WRITE)},
+    {"EVENT_WRITE_REQ",             ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ",                  ROREG_INT(LUAT_BLE_EVENT_READ)},
+    {"EVENT_READ_REQ",              ROREG_INT(LUAT_BLE_EVENT_READ)},
 
     // ADV_ADDR_MODE
     {"PUBLIC",                      ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},

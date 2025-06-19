@@ -19,23 +19,13 @@ local gps_uart_id = 2 -- 根据实际设备选取不同的uartid
 uart.setup(gps_uart_id, 115200)
 
 sys.taskInit(function()
-    log.info("GPS", "start")
-    pm.power(pm.GPS, true)
-    -- 绑定uart,底层自动处理GNSS数据
-    -- 第二个参数是转发到虚拟UART, 方便上位机分析
-    libgnss.bind(gps_uart_id, uart.VUART_0)
-    sys.wait(200) -- GPNSS芯片启动需要时间
-    -- 调试日志,可选
-    libgnss.debug(true)
+    log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
+    pm.power(pm.GPS, true) --打开GPS
+    uart.setup(2,115200) --配置模组内部主芯片与GNSS芯片通信用UART的相关参数
+    libgnss.bind(2) --马上开始解析NMEA格式数据
+    libgnss.debug(true) --开发调试期可打开调试日志
 end)
 
-sys.taskInit(function()
-    while 1 do
-        sys.wait(5000)
-        log.info("RMC", json.encode(libgnss.getRmc(2) or {}, "7f"))         --解析后的rmc数据
-        log.info("GGA", libgnss.getGga(3))                                   --解析后的gga数据
-    end
-end)
 
 -- 订阅GNSS状态编码
 sys.subscribe("GNSS_STATE", function(event, ticks)

@@ -64,8 +64,57 @@ int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     params[9] = luat_gpio_get(params[8]);
     LLOGD("收到GPIO读取指令!!! pin %d level %d", params[8], params[9]);
+
     // 反馈读取结果
-    luat_airlink_result_send(params, 10);
+    uint64_t seq_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 2 + sizeof(luat_airlink_cmd_t) + 8 + 8
+    };
+    luat_airlink_cmd_t* cmd2 = luat_airlink_cmd_new(0x310, 2 + 8 + 8) ;
+    if (cmd2 == NULL) { 
+        return -101;
+    }
+    memcpy(cmd2->data, &seq_id, 8);
+    memcpy(cmd2->data + 8, cmd->data, 8);
+    uint8_t* data = cmd2->data + 16;
+    data[0] = (uint8_t)params[8];
+    data[1] = (uint8_t)params[9];
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}
+
+extern luat_rtos_semaphore_t g_drv_gpio_sem;
+extern uint64_t g_drv_gpio_input_level;
+int luat_airlink_cmd_exec_gpio_get_result(luat_airlink_cmd_t* cmd, void* userdata) {
+    LLOGD("收到GPIO读取指令的回复!!!");
+    if (g_drv_gpio_sem == NULL) {
+        LLOGE("g_drv_gpio_sem is NULL");
+        return 0;
+    }
+    if (cmd->len < 8 + 8 + 2) {
+        LLOGE("gpio_get_result data len error %d", cmd->len);
+        return 0;
+    }
+    // TODO 打印出发送和收到的seq id, 匹配一下, 验证数据
+
+    // 读取数据, pin 及 输入值
+    uint8_t params[2];
+    memcpy(params, cmd->data + 8 + 8, 2);
+    uint8_t pin = params[0];
+    uint8_t level = params[1];
+    LLOGI("gpio(%d) input %d", pin, level);
+    if (pin < 64) {
+        if (level) {
+            // bit set
+            g_drv_gpio_input_level |= (1ULL << pin);
+        }
+        else {
+            // bit clean
+            g_drv_gpio_input_level &= ~(1ULL << pin);
+        }
+        luat_rtos_semaphore_release(&g_drv_gpio_sem);
+    }
     return 0;
 }
 

@@ -1,16 +1,35 @@
+
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "testtts"
+PROJECT = "audio"
 VERSION = "1.0.0"
 
---[[
-本demo可直接在Air8000整机开发板上运行
+--[[]
+运行环境：Air780EHV核心板+AirAUDIO_1000配件板
+最后修改时间：2025-6-17
+使用了如下IO口：
+[5, "spk+", " PIN5脚, 用于喇叭正极"],
+[6, "spk-", " PIN6脚, 用于喇叭负极"],
+[78, "gpio28", " PIN78脚, 用于PA使能脚"],
+3.3V
+GND
+SD卡的使用IO口：
+[83, "SPI0CS", " PIN83脚, 用于SD卡片选脚"],
+[84, "SPI0MISO," PIN84脚, 用于SD卡数据脚"],
+[85, "SPI0MOSI", " PIN85脚, 用于SD卡数据脚"],
+[86, "SPI0CLK", " PIN86脚, 用于SD卡时钟脚"],
+[24, "VDD_EXT", " PIN24脚, 用于给SD卡供电脚"],
+GND
+执行逻辑为：
+设置i2s和音频参数，写了四种操作方式
+1、播放脚本区的文件
+2、挂载SD卡，通过HTTP下载到SD卡，播放SD卡中的文件
+3、通过HTTP下载到文件区，播放文件区中的文件
+4、通过HTTP下载到内存里面，播放内存中的文件
 ]]
 
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
-
--- gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 
 local i2c_id = 0 -- i2c_id 0
 
@@ -34,14 +53,12 @@ local power_time_delay = 100 -- 音频播放完毕时，PA与DAC关闭的时间�
 
 local voice_vol = 50 -- 喇叭音量
 local mic_vol = 80 -- 麦克风音量
-gpio.setup(power_pin, 1, gpio.PULLUP)
-gpio.setup(pa_pin, 1, gpio.PULLUP)
 
-pins.setup(58, "I2C0_SDA")
-pins.setup(57, "I2C0_SCL")
+gpio.setup(power_pin, 1, gpio.PULLUP)   -- 设置功放电源脚
+gpio.setup(pa_pin, 1, gpio.PULLUP)      -- 设置功放PA脚
 
 function audio_setup()
-
+    log.info("audio_setup")
     sys.wait(200)
 
     i2c.setup(i2c_id, i2c.FAST)
@@ -82,47 +99,31 @@ audio.on(0, function(id, event)
 end)
 
 local function audio_task()
-    local result
+    local result    
     sys.waitUntil("AUDIO_READY")
-    -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
-    if sfud then
-        spi_flash = spi.deviceSetup(1, 12, 0, 0, 8, 25600000, spi.MSB, 1, 0)
-        local ret = sfud.init(spi_flash)
-        if ret then
-            log.info("sfud.init ok")
-        else
-            log.info("sfud.init error", ret)
-            return
-        end
-    else
-        log.info("tts", "TTS_ONCHIP?? skip sfud")
-    end
-
-    -- 本例子是按行播放 "千字文", 文本来源自wiki百科
-    local fd = nil
-    local line = nil
+    --以下内容为SD卡挂载的方式，如果有需要用到SD卡可以打开下面的挂载流程
+    -- -- 此为spi方式
+    -- local spi_id, pin_cs=0,8
+    -- -- 仅SPI方式需要自行初始化spi, sdio不需要
+    -- spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
+    -- gpio.setup(pin_cs, 1)
+    -- fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    -- -- 等待IP准备好,此段内容为通过http下载播放文件
+    -- local result=sys.waitUntil("IP_READY",15000)
+    -- if result then
+    --     local code, headers, body = http.request("GET", "http://airtest.openluat.com:2900/download/1.mp3",nil,nil,{dst="/1.mp3"}).wait()--存到本地文件区，适用于多次播放
+    --     -- local code, headers, body = http.request("GET", "http://airtest.openluat.com:2900/download/1.mp3",nil,nil,{dst="/ram/1.mp3"}).wait()--存到内存里面，适用于下载播放一次，然后不需要再次播放或者不重启的时候可以继续播放，重启后需要重新下载
+    --     -- local code, headers, body = http.request("GET", "http://airtest.openluat.com:2900/download/1.mp3",nil,nil,{dst="/sd/1.mp3"}).wait()--存到sd卡里面
+    --     log.info("下载完成", code, headers, body)
+    -- end
     while true do
         log.info("开始播放")
-        line = nil
-        if not fd then
-            fd = io.open("/luadb/qianzw.txt")
-        end
-        if fd then
-            line = fd:read("*l")
-            if line == nil then
-                fd:close()
-                fd = nil
-            end
-        end
-        if line == nil then
-            line =
-                "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十"
-        end
-        line = line:trim()
-        log.info("播放内容", line)
-        result = audio.tts(0, line)
+        -- result = audio.play(0,"/1.mp3") --播放HTTP下载的文件
+        -- result = audio.play(0,"/ram/1.mp3") --播放HTTP下载到内存的文件
+        result = audio.play(0,"/luadb/1.mp3") -- 播放本地脚本区文件
+        -- result = audio.play(0,"/sd/1.mp3") -- 播放sd卡里面文件
         if result then
-            -- 等待音频通道的回调消息，或者切换歌曲的消息
+        --等待音频通道的回调消息，或者切换歌曲的消息
             while true do
                 msg = sysplus.waitMsg(taskName, nil)
                 if type(msg) == 'table' then
@@ -143,15 +144,19 @@ local function audio_task()
             audio.playStop(0)
         end
         if audio.pm then
-            audio.pm(0, audio.STANDBY)
+		    audio.pm(0,audio.STANDBY)       --PM模式 待机模式，PA断电，codec待机状态，系统不能进低功耗状态，如果PA不可控，codec进入静音模式
         end
-        -- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
+		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
         log.info("mem", "sys", rtos.meminfo("sys"))
         log.info("mem", "lua", rtos.meminfo("lua"))
         sys.wait(1000)
     end
-    sysplus.taskDel(taskName)
 end
+
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+ end, 3000)
 
 sysplus.taskInitEx(audio_task, taskName)
 

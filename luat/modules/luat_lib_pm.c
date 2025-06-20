@@ -61,7 +61,6 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 #include "luat_airlink.h"
 #include "luat/drv_pm.h"
 
-luat_airlink_irq_ctx_t ctx = {0};
 extern uint32_t g_airlink_pause;
 #endif
 
@@ -412,9 +411,7 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 @api pm.wakeupPin(pin,level)
 @int gpio引脚
 @int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
-@int 当前是否为配置唤醒wifi_pin功能 1-是 0-否
-@int 唤醒引脚对应的主机的gpio引脚，例如选择 4g的gpio20
-@int 0-禁用wifi唤醒，1-启用wifi唤醒
+@int 芯片的ID, 默认是0, 大部分型号都只有0
 @return boolean 处理结果
 @usage
 pm.wakeupPin(8, gpio.RISING)
@@ -434,23 +431,7 @@ static int l_pm_wakeup_pin(lua_State *L) {
         if (lua_isinteger(L, 3)) {
             chip = luaL_checkinteger(L, 3);
         }
-        int pin = luaL_checkinteger(L, 1);
-        if (lua_isinteger(L, 4) && lua_isinteger(L, 5)) {
-            ctx.enable = luaL_checkinteger(L, 5);
-            if (ctx.enable) {
-                ctx.master_pin = luaL_checkinteger(L, 4);
-                ctx.slave_pin = pin;
-                ctx.irq_mode = level;
-            }
-            else {
-                ctx.master_pin = 0;
-                ctx.slave_pin = 0;
-                ctx.irq_mode = 0;
-            }
-            luat_airlink_wakeup_irqmode(&ctx);
-        }
-
-        luat_drv_pm_wakeup_pin(chip, pin, level);
+        luat_drv_pm_wakeup_pin(chip, luaL_checkinteger(L, 1), level);
         #else
         luat_pm_wakeup_pin(luaL_checkinteger(L, 1), level);
         #endif

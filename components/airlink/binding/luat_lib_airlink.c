@@ -455,6 +455,36 @@ static int l_airlink_irqmode(lua_State *L) {
 }
 
 /*
+开启wakeup唤醒中断模式
+@api airlink.wakeupIrqmode(mode, master_gpio, slave_gpio, irq_mode)
+@int mode false: 禁用 true: 启用
+@int master_gpio 主机引脚, 建议使用GPIO20
+@int slave_gpio 从机引脚, Air8000使用GPIO140, Air8101使用GPIO28
+@int irq_mode 中断模式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
+@return nil 无返回值
+@usage
+-- 用于设置唤醒wifi 开启此功能后, 会在Air8000主机休眠唤醒时，允许在master_gpio上产生一个脉冲，从而通过绑定的slave_gpio触发中断唤醒wifi
+airlink.wakeupIrqmode(true, 20, 140, gpio.RISING)
+-- 注意, 开启本模式, 外部接线必须稳固, 否则可能会导致触发的中断脉冲不完整或接收不到，从而无法唤醒wifi
+*/
+static int l_airlink_wakeup_irqmode(lua_State *L) {
+    luat_airlink_irq_ctx_t ctx = {0};
+    ctx.enable = lua_toboolean(L, 1);
+    if (ctx.enable) {
+        ctx.master_pin = luaL_checkinteger(L, 2);
+        ctx.slave_pin = luaL_checkinteger(L, 3);
+        ctx.irq_mode = luaL_checkinteger(L, 4);
+    }
+    else {
+        ctx.master_pin = 0;
+        ctx.slave_pin = 0;
+        ctx.irq_mode = -1;
+    }
+    luat_airlink_wakeup_irqmode(&ctx);
+    return 0;
+}
+
+/*
 关闭airlink相关供电
 @api airlink.power(enable)
 @boolean enable true: 使能 false: 禁用
@@ -523,6 +553,7 @@ static const rotable_Reg_t reg_airlink[] =
     { "slave_reboot",  ROREG_FUNC(l_airlink_slave_reboot )},
     { "pause",         ROREG_FUNC(l_airlink_pause)},
     { "irqmode",       ROREG_FUNC(l_airlink_irqmode)},
+    { "wakeupIrqmode", ROREG_FUNC(l_airlink_wakeup_irqmode)},
     { "power",         ROREG_FUNC(l_airlink_power)},
 
     { "sver",          ROREG_FUNC(l_airlink_sversion) },

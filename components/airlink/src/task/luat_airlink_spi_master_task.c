@@ -232,6 +232,8 @@ __USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
     }
 }
 
+static int queue_emtry_counter; // 上一个循环里, 是否待发送的数据, 如果有, 则需要立即发送
+
 __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
 {
     luat_event_t event = {0};
@@ -276,6 +278,9 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         // 立即进行下一轮操作
         event.id = 4;
     }
+    else if (queue_emtry_counter == 0) {
+        event.id = 5;
+    }
     else
     {
         // is_waiting_queue = 1;
@@ -305,11 +310,13 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO cmd id 0x%04X", item.cmd->cmd);
         luat_airlink_data_pack(item.cmd, item.len, txbuff);
         luat_airlink_cmd_free(item.cmd);
+        queue_emtry_counter = 0;
     }
     else
     {
         // LLOGD("填充PING数据");
         luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
+        queue_emtry_counter ++;
     }
 }
 

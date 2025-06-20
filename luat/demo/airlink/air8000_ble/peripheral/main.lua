@@ -20,9 +20,6 @@ gpio.setup(0, function()
     end)
 end, gpio.PULLDOWN)
 
--- characteristic handle
-local characteristic1, characteristic2, characteristic3, characteristic4
-
 local att_db = { -- Service
     string.fromHex("FA00"), -- Service UUID
     -- Characteristic
@@ -49,18 +46,16 @@ local function ble_callback(dev, evt, param)
         ble_stat = false
         -- 1秒后重新开始广播
         sys.timerStart(function() dev:adv_start() end, 1000)
-    elseif evt == ble.EVENT_WRITE then
-        -- 收到数据
-        log.info("ble", "write", param.service_id, param.handle, param.data:toHex())
-    elseif evt == ble.EVENT_READ then
-        -- 收到读请求
-        log.info("ble", "read", param.service_id, param.handle)
+    elseif evt == ble.EVENT_WRITE_REQ then
+        -- 收到写请求
+        log.info("ble", "接收到写请求", param.uuid_service:toHex() param.data:toHex())
     end
 end
 
 local bt_scan = false -- 是否扫描蓝牙
 
 sys.taskInit(function()
+    local ret = 0
     sys.wait(500)
     log.info("开始初始化蓝牙核心")
     bluetooth_device = bluetooth.init()
@@ -74,9 +69,8 @@ sys.taskInit(function()
     sys.wait(100)
 
     log.info('开始创建GATT')
-    characteristic1, characteristic2, characteristic3, characteristic4 = ble_device:gatt_create(att_db)
-    log.info("创建的GATT为", characteristic1, characteristic2, characteristic3, characteristic4)
-    if characteristic1 == nil then log.error("创建GATT失败") end
+    ret = ble_device:gatt_create(att_db)
+    log.info("创建的GATT", ret)
 
     sys.wait(100)
     log.info("开始设置广播内容")
@@ -97,19 +91,19 @@ sys.taskInit(function()
     log.info("开始广播")
     ble_device:adv_start()
 
-    while 1 do
-        sys.wait(3000)
-        if ble_stat then
-            local wt = {
-                service_id = 0,
-                handle = characteristic4
-            }
-            local result = ble_device:write_notify(wt, "123456")
-            log.info("ble", "发送数据", result)
-        else
-            -- log.info("等待连接成功之后发送数据")
-        end
-    end
+    -- while 1 do
+    --     sys.wait(3000)
+    --     if ble_stat then
+    --         local wt = {
+    --             service_id = 0,
+    --             handle = characteristic4
+    --         }
+    --         local result = ble_device:write_notify(wt, "123456")
+    --         log.info("ble", "发送数据", result)
+    --     else
+    --         -- log.info("等待连接成功之后发送数据")
+    --     end
+    -- end
 end)
 
 -- 用户代码已结束---------------------------------------------

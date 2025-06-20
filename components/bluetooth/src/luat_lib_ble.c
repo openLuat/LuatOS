@@ -43,30 +43,29 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushliteral(L, "handle");
         lua_pushinteger(L, write_req->handle);
         lua_settable(L, -3);
-        luat_ble_uuid_t uuid_service = {0};
-        luat_ble_uuid_t uuid_characteristic = {0};
-        luat_ble_uuid_t uuid_descriptor = {0};
-        luat_ble_handle2uuid(write_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
+        // luat_ble_uuid_t uuid_service = {0};
+        // luat_ble_uuid_t uuid_characteristic = {0};
+        // luat_ble_uuid_t uuid_descriptor = {0};
+        // luat_ble_handle2uuid(write_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
 
         lua_pushliteral(L, "uuid_service");
-        lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
+        lua_pushlstring(L, (const char *)write_req->uuid_service.uuid, write_req->uuid_service.uuid_type);
         lua_settable(L, -3);
         lua_pushliteral(L, "uuid_characteristic");
-        lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
+        lua_pushlstring(L, (const char *)write_req->uuid_characteristic.uuid, write_req->uuid_characteristic.uuid_type);
         lua_settable(L, -3);
-        if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0)
+        if (write_req->uuid_descriptor.uuid[0] != 0 || write_req->uuid_descriptor.uuid[1] != 0)
         {
             lua_pushliteral(L, "uuid_descriptor");
-            lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
+            lua_pushlstring(L, (const char *)write_req->uuid_descriptor.uuid, write_req->uuid_descriptor.uuid_type);
             lua_settable(L, -3);
         }
 
         lua_pushliteral(L, "data");
-        lua_pushlstring(L, (const char *)write_req->value, write_req->len);
+        lua_pushlstring(L, (const char *)write_req->value, write_req->value_len);
         lua_settable(L, -3);
         lua_call(L, 3, 0);
-        if (write_req->value)
-        {
+        if (write_req->value){
             luat_heap_free(write_req->value);
             write_req->value = NULL;
         }
@@ -206,15 +205,15 @@ void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t 
         // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
-        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.len)
+        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len)
         {
-            luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.len);
-            memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.len);
+            luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.value_len);
+            memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.value_len);
         }
-        else if (ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.len)
-        {
-            LLOGD("ble read read_req value: %p", ble_param->read_req.value);
-        }
+        // else if (ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.value_len)
+        // {
+        //     LLOGD("ble read read_req value: %p", ble_param->read_req.value);
+        // }
         else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len)
         {
             luat_ble_param->adv_req.data = luat_heap_malloc(ble_param->adv_req.data_len);

@@ -451,8 +451,16 @@ int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type) {
     return -1;
 }
 
-
 int luat_ble_disconnect(void* args) {
     LLOGE("not support yet");
     return -1;
 }
+
+int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint16_t* handle) {
+    return 0;
+}
+
+int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor) {
+    return 0;
+}
+

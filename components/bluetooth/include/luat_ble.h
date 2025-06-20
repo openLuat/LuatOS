@@ -330,10 +330,13 @@ int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_ch
 // slaver
 // int luat_ble_read_response_value(void* args, uint16_t handle, uint8_t *data, uint32_t len);
 
-int luat_ble_write_notify_value(void* args, uint16_t handle, uint8_t *data, uint16_t len);
+int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t* len);
+
 
 // master
-int luat_ble_notify_enable(void* args, uint16_t handle, uint8_t enable);
+int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t enable);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);

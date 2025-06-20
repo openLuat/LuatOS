@@ -29,6 +29,13 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     if (conf.pin >= 128) {
         conf.pin -= 128;
     }
+    #ifdef __BK72XX__
+    // SPI的GPIO禁止设置
+    if ((conf.pin >= 13 && conf.pin <= 17) || conf.pin == 48) {
+        LLOGE("禁止设置SPI相关的GPIO");
+        return 0;
+    }
+    #endif
     LLOGD("收到GPIO配置指令!!! pin %d", conf.pin);
     if (conf.mode == Luat_GPIO_IRQ) {
         conf.irq_cb = airlink_gpio_irq_cb;
@@ -43,7 +50,7 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
 }
 
 int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
-    LLOGD("收到GPIO设置指令!!!");
+    LLOGD("收到gpio.set指令!!!");
     uint8_t params[2];
     memcpy(params, cmd->data + 8, 2);
     if (params[0] >= 128) {
@@ -56,7 +63,7 @@ int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
 
 
 int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* reqcmd, void* userdata) {
-    LLOGD("收到GPIO读取指令!!!");
+    LLOGD("收到gpio.get指令!!!");
     uint8_t params[10];
     memcpy(params, reqcmd->data, 9);
     if (params[0] >= 128) {

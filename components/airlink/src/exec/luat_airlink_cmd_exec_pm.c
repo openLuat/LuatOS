@@ -31,3 +31,12 @@ int luat_airlink_cmd_exec_pm_power_ctrl(luat_airlink_cmd_t* cmd, void* userdata)
     luat_pm_power_ctrl(id, onoff);
     return 0;
 }
+
+int luat_airlink_cmd_exec_pm_wakeup_pin(luat_airlink_cmd_t* cmd, void* userdata) {
+    uint32_t pin = 0;
+    memcpy(&pin, cmd->data + 8, 4);
+    uint8_t val = cmd->data[8 + 4];
+    LLOGD("收到pm_wakeup_pin指令!!! pin %d val %d", pin, val);
+    luat_pm_wakeup_pin(pin, val);
+    return 0;
+}

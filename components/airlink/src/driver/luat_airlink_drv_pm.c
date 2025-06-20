@@ -50,3 +50,21 @@ int luat_airlink_drv_pm_power_ctrl(int id, uint8_t val) {
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return 0;
 }
+
+int luat_airlink_drv_pm_wakeup_pin(int pin, int val) {
+    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 5 + sizeof(luat_airlink_cmd_t) + 8
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x602, 5 + 8) ;
+    if (cmd == NULL) {
+        return -101;
+    }
+
+    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+    memcpy(cmd->data + 8, &pin, 4);
+    memcpy(cmd->data + 8 + 4, &val, 1);
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
+}

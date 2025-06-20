@@ -29,3 +29,13 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
         return luat_airlink_drv_pm_power_ctrl(id, val);
     }
 }
+
+int luat_drv_pm_wakeup_pin(int chip, int pin, int val) {
+    if (chip == 0) {
+        return luat_pm_wakeup_pin(pin, val);
+    }
+    else {
+        pin -= 128;
+        return luat_airlink_drv_pm_wakeup_pin(pin, val);
+    }
+}

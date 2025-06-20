@@ -341,4 +341,12 @@ int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type);
 
 int luat_ble_disconnect(void* args);
 
+typedef struct luat_ble_rw_req{
+    uint32_t len;
+    luat_ble_uuid_t service;
+    luat_ble_uuid_t characteristic;
+    luat_ble_uuid_t descriptor;
+    uint8_t data[0];
+}luat_ble_rw_req_t;
+
 #endif

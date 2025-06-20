@@ -7,13 +7,6 @@ VERSION = "1.0.0"
 mqtt也是内置库, 无需require
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
-
-
-
-
-
 
 sys.taskInit(function()
     -----------------------------

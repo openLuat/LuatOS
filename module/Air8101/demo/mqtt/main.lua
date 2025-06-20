@@ -7,10 +7,6 @@ VERSION = "1.0.0"
 mqtt也是内置库, 无需require
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
---[[特别注意, 使用mqtt库需要下列语句]]
-_G.sysplus = require("sysplus")
 
 --根据自己的服务器修改以下参数
 local mqtt_host = "lbsmqtt.airm2m.com"

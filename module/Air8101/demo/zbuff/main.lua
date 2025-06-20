@@ -4,9 +4,6 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-
 sys.taskInit(function()
     sys.wait(3000)
     -- zbuff可以理解为char[], char*, uint8_t*

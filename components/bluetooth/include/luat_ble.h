@@ -131,9 +131,9 @@ typedef enum{
 } luat_ble_event_t;
 
 typedef enum{
-    LUAT_BLE_UUID_TYPE_16,
-    LUAT_BLE_UUID_TYPE_32,
-    LUAT_BLE_UUID_TYPE_128,
+    LUAT_BLE_UUID_TYPE_16 = 2,
+    LUAT_BLE_UUID_TYPE_32 = 4,
+    LUAT_BLE_UUID_TYPE_128 = 16,
 }luat_ble_uuid_type;
 
 typedef struct luat_bluetooth luat_bluetooth_t;
@@ -153,6 +153,8 @@ typedef struct luat_ble_gatt_descriptor{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
+    uint8_t* value;
+    uint16_t value_len;
 }luat_ble_gatt_descriptor_t;
 
 struct luat_ble_gatt_chara{
@@ -161,10 +163,10 @@ struct luat_ble_gatt_chara{
     luat_ble_uuid_type uuid_type;
     uint16_t perm;
     uint16_t max_size;
-    luat_ble_gatt_descriptor_t* descriptor;     // descriptor
-    uint8_t descriptors_num;            // number of descriptor
     uint8_t* value;
     uint16_t value_len;
+    luat_ble_gatt_descriptor_t* descriptor;     // descriptor
+    uint8_t descriptors_num;            // number of descriptor
 };
 
 typedef struct {
@@ -215,8 +217,11 @@ typedef struct{
 
 typedef struct{
     uint16_t handle;       /**< The index of the attribute */
+    luat_ble_uuid_t uuid_service;
+    luat_ble_uuid_t uuid_characteristic;
+    luat_ble_uuid_t uuid_descriptor;
     uint8_t *value;         /**< The attribute value */
-    uint16_t len;           /**< The length of the attribute value */
+    uint16_t value_len;           /**< The length of the attribute value */
     uint16_t size;
 } luat_ble_write_req_t;
 
@@ -256,18 +261,24 @@ typedef struct luat_ble_disconn_ind{
     uint8_t reason;
 }luat_ble_disconn_ind_t;
 
-typedef struct{
+typedef struct luat_ble_gatt_done_ind
+{
     uint8_t gatt_service_num;
     luat_ble_gatt_service_t* gatt_service;
     void* user_data;
+}luat_ble_gatt_done_ind_t;
+
+
+typedef struct{
     union {
         luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
-        luat_ble_read_req_t read_req;
+        // luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
         luat_ble_conn_ind_t conn_ind;
         luat_ble_disconn_ind_t disconn_ind;
-        uint8_t data[128]; // 预留一个大的后备区域
+        luat_ble_gatt_done_ind_t gatt_done_ind;
+        uint8_t data[256]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;
 
@@ -284,17 +295,6 @@ struct luat_ble{
     luat_ble_cb_t cb;
     void* userdata;
 };
-
-typedef struct luat_ble_rw_req{
-    uint16_t handle;
-    uint32_t len;
-    uint8_t uuid[LUAT_BLE_UUID_LEN_MAX];
-    uint8_t uuid_type;
-    uint8_t re0;
-    uint8_t re1[16];
-    uint8_t data[0];
-}luat_ble_rw_req_t;
-
 
 // public function
 int luat_ble_uuid_swap(uint8_t* uuid_data, luat_ble_uuid_type uuid_type);
@@ -326,12 +326,13 @@ int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_bl
 int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint16_t* handle);
 
 // slaver
-// int luat_ble_read_response_value(void* args, uint16_t handle, uint8_t *data, uint32_t len);
+int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t* len);
 
-int luat_ble_write_notify_value(void* args, uint16_t handle, uint8_t *data, uint16_t len);
 
 // master
-int luat_ble_notify_enable(void* args, uint16_t handle, uint8_t enable);
+int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t enable);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);
@@ -345,5 +346,13 @@ int luat_ble_delete_scanning(void* args);
 int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type);
 
 int luat_ble_disconnect(void* args);
+
+typedef struct luat_ble_rw_req{
+    uint32_t len;
+    luat_ble_uuid_t service;
+    luat_ble_uuid_t characteristic;
+    luat_ble_uuid_t descriptor;
+    uint8_t data[0];
+}luat_ble_rw_req_t;
 
 #endif

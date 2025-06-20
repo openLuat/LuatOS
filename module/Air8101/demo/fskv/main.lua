@@ -2,9 +2,6 @@
 PROJECT = "fskvdemo"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
 sys.taskInit(function()
     sys.wait(1000) -- 免得日志刷没了, 生产环境不需要
 

@@ -293,9 +293,11 @@ typedef struct luat_airlink_irq_ctx
     int master_pin;
     int slave_pin;
     int slave_ready;
+    int irq_mode;
 }luat_airlink_irq_ctx_t;
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx);
+int luat_airlink_wakeup_irqmode(luat_airlink_irq_ctx_t *ctx);
 
 int luat_airlink_has_wifi(void);
 

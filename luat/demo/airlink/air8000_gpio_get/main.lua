@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air8000_gpio_ext"
+PROJECT = "air8000_gpio_get"
 VERSION = "1.0.5"
 
 -- sys库是标配
@@ -23,14 +23,16 @@ gpio.setup(0, function()
 end, gpio.PULLDOWN)
 
 sys.taskInit(function()
-    -- 闪灯开始
-    sys.wait(100)
-    pin = 164
+
+    -- GPIO153 输出电平
+    -- GPIO160 读取电平
+    sys.wait(3000)
+    IN = gpio.setup(160, nil, gpio.PULLUP)
+    OUT = gpio.setup(153, 0, gpio.PULLUP)
     while 1 do
-        gpio.setup(pin, 0, gpio.PULLUP)
-        sys.wait(500)
-        gpio.setup(pin, 1, gpio.PULLUP)
-        sys.wait(500)
+        gpio.toggle(153)
+        log.info("gpio", "读出的值是", gpio.get(160)) 
+        sys.wait(1000)
     end
 end)
 

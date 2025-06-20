@@ -3,9 +3,6 @@
 PROJECT = "sntpdemo"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
 -- 统一联网函数
 sys.taskInit(function()
     -----------------------------

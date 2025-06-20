@@ -5,9 +5,6 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-
 if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
     pm.power(pm.PWK_MODE, false)
 end

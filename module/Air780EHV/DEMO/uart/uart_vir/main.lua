@@ -1,8 +1,11 @@
 -- Luatools需要PROJECT和VERSION这两个信息
-PROJECT = "uart"
+PROJECT = "uart_vir"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+sys = require("sys")
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -12,7 +15,7 @@ end
 
 log.info("main", "uart demo run......")
 
-local uartid = 1 -- 根据实际设备选取不同的uartid
+local uartid = uart.VUART_0 -- 使用USB虚拟串口，固定id
 
 --初始化
 uart.setup(
@@ -36,10 +39,20 @@ uart.on(uartid, "receive", function(id, len)
 end)
 
 sys.taskInit(function()
-    -- 循环两秒向串口发一次数据
+    local data =
+    {
+        host = "abcdefg.com",
+        port = "1883",
+        clientID = "c88885",
+        username = "user",
+        password = "123456",
+        ca_self = {ssl=false},
+    }
+    local jsondata = json.encode(data)
+    -- 循环每两秒向串口发一次数据
     while true do
         sys.wait(2000)
-        uart.write(uartid, "test data.")
+        uart.write(uartid, jsondata)
     end
 end)
 

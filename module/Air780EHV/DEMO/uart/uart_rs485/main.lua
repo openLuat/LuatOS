@@ -1,8 +1,11 @@
 -- Luatools需要PROJECT和VERSION这两个信息
-PROJECT = "uart"
+PROJECT = "uart_RS485"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+sys = require("sys")
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -12,15 +15,13 @@ end
 
 log.info("main", "uart demo run......")
 
-local uartid = 1 -- 根据实际设备选取不同的uartid
+local uartid = 1        -- 根据实际设备选取不同的uartid
+local uart485Pin = 25   -- 用于控制485接收和发送的使能引脚
+
+gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
 
 --初始化
-uart.setup(
-    uartid,--串口id
-    115200,--波特率
-    8,--数据位
-    1--停止位
-)
+uart.setup(uartid, 9600, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 -- 收取数据会触发回调, 这里的"receive" 是固定值
 uart.on(uartid, "receive", function(id, len)

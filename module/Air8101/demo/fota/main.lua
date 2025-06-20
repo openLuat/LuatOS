@@ -10,7 +10,6 @@ VERSION = "001.000.000"
 -- 使用合宙iot平台时需要这个参数
 PRODUCT_KEY = "q01f89YFOFYxluL05jMI6aiIlKJy1SYA" -- 到 iot.openluat.com 创建项目,获取正确的项目key(刚刚剪切板里的校验码就填这里)
 
-sys = require "sys"
 libfota2 = require "libfota2"
 
 -- 联网函数, 可自行删减

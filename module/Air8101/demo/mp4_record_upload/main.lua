@@ -3,8 +3,6 @@
 PROJECT = "Air8101_VideoRecord_SDSave_OSSUpload"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
 httpplus = require "httpplus"
 
 --[[

@@ -51,12 +51,12 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
             memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
         }
-        else if (LUAT_BLE_EVENT_READ == event && param->read_req.value && param->read_req.len > 0) {
+        else if (LUAT_BLE_EVENT_READ == event) {
             // 请求读, 这个事件仅能通知lua, .value的数据是要被写入的, 不是被读
         }
-        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value && param->write_req.len > 0) {
-            LLOGD("write req value %d %p", param->write_req.len, param->write_req.value);
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.len);
+        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
+            LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
+            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.value_len);
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }
@@ -127,7 +127,13 @@ static int drv_ble_write_notify(luat_drv_ble_msg_t *msg) {
     memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
     LLOGD("ble write notify len %d", write.len);
     // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
-    return luat_ble_write_notify_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
+    if (write.descriptor.uuid_type) {
+        return luat_ble_write_notify_value(&write.service, &write.characteristic, &write.descriptor, msg->data + 2 + sizeof_write, write.len);
+    }
+    else {
+        return luat_ble_write_notify_value(&write.service, &write.characteristic, NULL, msg->data + 2 + sizeof_write, write.len);
+    }
+    
 }
 
 // static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {

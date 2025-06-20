@@ -2,11 +2,6 @@
 PROJECT = "hmetademo"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
-
-
 sys.taskInit(function()
     while hmeta do
         -- hmeta识别底层模组类型的

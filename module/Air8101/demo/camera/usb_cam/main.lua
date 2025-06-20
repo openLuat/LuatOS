@@ -1,6 +1,6 @@
 PROJECT = "usb_cam_demo"
 VERSION = "1.0.0"
-sys = require("sys")
+
 -- log.style(1)
 
 httpplus = require "httpplus"

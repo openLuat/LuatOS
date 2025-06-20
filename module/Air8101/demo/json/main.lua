@@ -3,10 +3,6 @@
 PROJECT = "json_demo"
 VERSION = "1.0.0"
 
-
--- sys库是标配
-sys = require("sys")
-
 log.info("main", PROJECT, VERSION)
 
 -- json库支持将 table 转为 字符串, 或者反过来, 字符串 转 table

@@ -3,10 +3,6 @@
 PROJECT = "protobuf_demo"
 VERSION = "1.0.0"
 
-
--- sys库是标配
-sys = require("sys")
-
 log.info("main", PROJECT, VERSION)
 
 

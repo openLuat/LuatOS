@@ -10,10 +10,6 @@ http也是内置库, 无需require
 如需上传大文件,请使用 httpplus 库, 对应demo/httpplus
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
---[[特别注意, 使用http库需要下列语句]]
-_G.sysplus = require("sysplus")
 
 -- 网络任务
 sys.taskInit(function()

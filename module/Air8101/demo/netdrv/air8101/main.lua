@@ -3,12 +3,6 @@
 PROJECT = "netdrv"
 VERSION = "1.0.4"
 
-
--- sys库是标配
-_G.sys = require("sys")
---[[特别注意, 使用mqtt库需要下列语句]]
-_G.sysplus = require("sysplus")
-
 sys.taskInit(function()
     sys.wait(500)
     gpio.setup(13, 1, gpio.PULLUP) -- 打开开发板的LDO供电,否则3.3V没电

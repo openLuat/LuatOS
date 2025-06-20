@@ -55,10 +55,10 @@ int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
 }
 
 
-int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
+int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* reqcmd, void* userdata) {
     LLOGD("收到GPIO读取指令!!!");
     uint8_t params[10];
-    memcpy(params, cmd->data, 9);
+    memcpy(params, reqcmd->data, 9);
     if (params[0] >= 128) {
         params[0] -= 128;
     }
@@ -75,11 +75,16 @@ int luat_airlink_cmd_exec_gpio_get(luat_airlink_cmd_t* cmd, void* userdata) {
         return -101;
     }
     memcpy(cmd2->data, &seq_id, 8);
-    memcpy(cmd2->data + 8, cmd->data, 8);
+    memcpy(cmd2->data + 8, reqcmd->data, 8);
     uint8_t* data = cmd2->data + 16;
     data[0] = (uint8_t)params[8];
     data[1] = (uint8_t)params[9];
-    item.cmd = cmd;
+    item.cmd = cmd2;
+    LLOGD("发送回复 %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X",
+        cmd2->data[0],  cmd2->data[1], cmd2->data[2], cmd2->data[3],  cmd2->data[4],  cmd2->data[5],  cmd2->data[6],  cmd2->data[7],
+        cmd2->data[8],  cmd2->data[9], cmd2->data[0], cmd2->data[11], cmd2->data[12], cmd2->data[13], cmd2->data[14], cmd2->data[15], 
+        cmd2->data[16], cmd2->data[17]
+    );
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return 0;
 }
@@ -97,23 +102,27 @@ int luat_airlink_cmd_exec_gpio_get_result(luat_airlink_cmd_t* cmd, void* userdat
         return 0;
     }
     // TODO 打印出发送和收到的seq id, 匹配一下, 验证数据
+    LLOGD("收到回复 %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X%02X%02X %02X%02X",
+        cmd->data[0],  cmd->data[1], cmd->data[2], cmd->data[3],  cmd->data[4],  cmd->data[5],  cmd->data[6],  cmd->data[7],
+        cmd->data[8],  cmd->data[9], cmd->data[0], cmd->data[11], cmd->data[12], cmd->data[13], cmd->data[14], cmd->data[15], 
+        cmd->data[16], cmd->data[17]
+    );
 
     // 读取数据, pin 及 输入值
-    uint8_t params[2];
-    memcpy(params, cmd->data + 8 + 8, 2);
-    uint8_t pin = params[0];
-    uint8_t level = params[1];
-    LLOGI("gpio(%d) input %d", pin, level);
+    uint8_t pin = cmd->data[16];
+    uint8_t level = cmd->data[17];
+    // LLOGI("gpio(%d) input %d", pin, level);
     if (pin < 64) {
+        uint64_t tmp = pin;
         if (level) {
             // bit set
-            g_drv_gpio_input_level |= (1ULL << pin);
+            g_drv_gpio_input_level |= (1ULL << tmp);
         }
         else {
             // bit clean
-            g_drv_gpio_input_level &= ~(1ULL << pin);
+            g_drv_gpio_input_level &= ~(1ULL << tmp);
         }
-        luat_rtos_semaphore_release(&g_drv_gpio_sem);
+        luat_rtos_semaphore_release(g_drv_gpio_sem);
     }
     return 0;
 }

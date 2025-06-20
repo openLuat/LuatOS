@@ -88,12 +88,6 @@ int luat_ble_set_name(void* args, char* name, uint8_t len) {
     return 0;
 }
 
-
-int luat_ble_set_max_mtu(void* args, uint16_t max_mtu) {
-    LLOGE("set max mtu %d not support yet", max_mtu);
-    return -1;
-}
-
 // advertise
 int luat_ble_create_advertising(void* args, luat_ble_adv_cfg_t* adv_cfg) {
     LLOGD("执行luat_ble_create_advertising");

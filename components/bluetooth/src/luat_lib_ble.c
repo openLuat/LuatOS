@@ -133,8 +133,8 @@ int l_ble_callback(lua_State *L, void *ptr)
     }
     case LUAT_BLE_EVENT_GATT_DONE:
     {
-        luat_ble_gatt_service_t **gatt_services = param->gatt_service;
-        uint8_t gatt_service_num = param->gatt_service_num;
+        luat_ble_gatt_service_t **gatt_services = &param->gatt_done_ind.gatt_service;
+        uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
         lua_createtable(L, gatt_service_num, 0);
         for (size_t i = 0; i < gatt_service_num; i++)
         {

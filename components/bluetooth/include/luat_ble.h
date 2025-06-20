@@ -261,10 +261,15 @@ typedef struct luat_ble_disconn_ind{
     uint8_t reason;
 }luat_ble_disconn_ind_t;
 
-typedef struct{
+typedef struct luat_ble_gatt_done_ind
+{
     uint8_t gatt_service_num;
     luat_ble_gatt_service_t* gatt_service;
     void* user_data;
+}luat_ble_gatt_done_ind_t;
+
+
+typedef struct{
     union {
         luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
@@ -272,7 +277,8 @@ typedef struct{
         luat_ble_adv_req_t adv_req;
         luat_ble_conn_ind_t conn_ind;
         luat_ble_disconn_ind_t disconn_ind;
-        uint8_t data[128]; // 预留一个大的后备区域
+        luat_ble_gatt_done_ind_t gatt_done_ind;
+        uint8_t data[256]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;
 

@@ -285,12 +285,12 @@ static int l_gpio_setup(lua_State *L) {
     	conf.alt_func = -1;
     }
     #ifdef LUAT_USE_DRV_GPIO
-    int re = luat_drv_gpio_setup(&conf);
+    int ret = luat_drv_gpio_setup(&conf);
     #else
-    int re = luat_gpio_setup(&conf);
+    int ret = luat_gpio_setup(&conf);
     #endif
-    if (re != 0) {
-        LLOGW("gpio setup fail pin=%d", conf.pin);
+    if (ret != 0) {
+        LLOGW("gpio setup fail pin=%d ret %d", conf.pin, ret);
         return 0;
     }
     if (conf.mode == Luat_GPIO_IRQ) {

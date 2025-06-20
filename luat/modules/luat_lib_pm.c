@@ -412,6 +412,9 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 @api pm.wakeupPin(pin,level)
 @int gpio引脚
 @int 唤醒方式, 例如gpio.RISING (上升沿), gpio.FALLING (下降沿)
+@int 当前是否为配置唤醒wifi_pin功能 1-是 0-否
+@int 唤醒引脚对应的主机的gpio引脚，例如选择 4g的gpio20
+@int 0-禁用wifi唤醒，1-启用wifi唤醒
 @return boolean 处理结果
 @usage
 pm.wakeupPin(8, gpio.RISING)

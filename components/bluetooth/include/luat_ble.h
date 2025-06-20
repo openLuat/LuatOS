@@ -328,7 +328,7 @@ int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_bl
 int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint16_t* handle);
 
 // slaver
-// int luat_ble_read_response_value(void* args, uint16_t handle, uint8_t *data, uint32_t len);
+int luat_ble_read_response_value(void* args, uint16_t handle, uint8_t *data, uint32_t len); //bsp内部使用
 
 int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
 int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);

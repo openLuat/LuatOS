@@ -512,43 +512,10 @@ static int l_ble_advertising_start(lua_State *L)
     return 1;
 }
 
-static int l_ble_advertising_stop(lua_State *L)
-{
+static int l_ble_advertising_stop(lua_State *L){
     lua_pushboolean(L, luat_ble_stop_advertising(NULL) ? 0 : 1);
     return 1;
 }
-
-// static int l_ble_read_response_value(lua_State* L) {
-//     uint16_t service_id, handle = 0;
-//     if (1) {
-//         lua_pushstring(L, "service_id");
-//         if (LUA_TNUMBER == lua_gettable(L, 2)) {
-//             service_id = luaL_checknumber(L, -1);
-//         }else{
-//             LLOGW("缺失service_id参数");
-//             goto end_error;
-//         }
-//         lua_pop(L, 1);
-//         lua_pushstring(L, "handle");
-//         if (LUA_TNUMBER == lua_gettable(L, 2)) {
-//             handle = luaL_checknumber(L, -1);
-//         }else{
-//             LLOGW("缺失handle参数");
-//             goto end_error;
-//         }
-//         lua_pop(L, 1);
-
-//         size_t len = 0;
-//         const char* response_data = luaL_checklstring(L, 3, &len);
-//         LLOGD("send read response service_id:%d handle:%d len %d", service_id, handle, len);
-//         int ret = luat_ble_read_response_value(NULL, service_id, handle, (uint8_t *)response_data, len);
-//         lua_pushboolean(L, ret==0?1:0);
-//         return 1;
-//     }
-// end_error:
-//     LLOGE("error param");
-//     return 0;
-// }
 
 static int l_ble_write_notify(lua_State *L){
     uint16_t handle = 0;
@@ -677,14 +644,14 @@ static const rotable_Reg_t reg_ble[] = {
     {"adv_create", ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start", ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop", ROREG_FUNC(l_ble_advertising_stop)},
+
     // gatt
     // slaver
     {"gatt_create", ROREG_FUNC(l_ble_gatt_create)},
     {"write_notify", ROREG_FUNC(l_ble_write_notify)},
     {"write_value", ROREG_FUNC(l_ble_write_value)},
     {"read_value", ROREG_FUNC(l_ble_read_value)},
-    // {"read_response",               ROREG_FUNC(l_ble_read_response_value)},
-    // {"send_read_resp",              ROREG_FUNC(l_ble_read_response_value)},
+    
     // scanning
     {"scan_create", ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start", ROREG_FUNC(l_ble_scanning_start)},

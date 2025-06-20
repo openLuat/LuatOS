@@ -58,7 +58,11 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 #include "luat_log.h"
 
 #ifdef LUAT_USE_DRV_PM
+#include "luat_airlink.h"
 #include "luat/drv_pm.h"
+
+luat_airlink_irq_ctx_t ctx = {0};
+extern uint32_t g_airlink_pause;
 #endif
 
 // static int lua_event_cb = 0;
@@ -106,6 +110,9 @@ static int l_pm_request(lua_State *L) {
     int chip = 0;
     if (lua_isinteger(L, 2)) {
         chip = luaL_checkinteger(L, 2);
+        if (chip > 0) {
+            g_airlink_pause = 1;    // wifi进入休眠自动暂停airlink工作
+        }
     }
     ret = luat_drv_pm_request(chip, mode);
     #else
@@ -419,7 +426,31 @@ static int l_pm_wakeup_pin(lua_State *L) {
 			lua_pop(L, 1);
 		}
     }else if(lua_isnumber(L, 1)){
+        #ifdef LUAT_USE_DRV_PM
+        int chip = 0;
+        if (lua_isinteger(L, 3)) {
+            chip = luaL_checkinteger(L, 3);
+        }
+        int pin = luaL_checkinteger(L, 1);
+        if (lua_isinteger(L, 4) && lua_isinteger(L, 5)) {
+            ctx.enable = luaL_checkinteger(L, 5);
+            if (ctx.enable) {
+                ctx.master_pin = luaL_checkinteger(L, 4);
+                ctx.slave_pin = pin;
+                ctx.irq_mode = level;
+            }
+            else {
+                ctx.master_pin = 0;
+                ctx.slave_pin = 0;
+                ctx.irq_mode = 0;
+            }
+            luat_airlink_wakeup_irqmode(&ctx);
+        }
+
+        luat_drv_pm_wakeup_pin(chip, pin, level);
+        #else
         luat_pm_wakeup_pin(luaL_checkinteger(L, 1), level);
+        #endif
     }
     lua_pushboolean(L, 1);
     return 1;

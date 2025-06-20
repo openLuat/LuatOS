@@ -34,6 +34,7 @@ extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_spi_task_mode;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 /*
 初始化AirLink
@@ -422,6 +423,10 @@ airlink.pause(1)
 */
 static int l_airlink_pause(lua_State *L) {
     g_airlink_pause = luaL_checkinteger(L, 1);
+    // 配置过wakeup pin，并且airlink恢复运行时，就触发一次中断唤醒
+    if (g_airlink_wakeup_irq_ctx.master_pin != 0 && !g_airlink_pause) {
+        g_airlink_wakeup_irq_ctx.enable = 1;
+    }
     return 0;
 }
 

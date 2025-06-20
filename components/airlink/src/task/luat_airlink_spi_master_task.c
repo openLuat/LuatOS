@@ -47,8 +47,10 @@ static uint32_t is_waiting_queue = 0;
 static luat_rtos_queue_t evt_queue;
 
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 {
@@ -66,6 +68,14 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
     }
     return 0;
 }
+
+__USER_FUNC_IN_RAM__ static int wakeup_irq_cb(void *data, void *args)
+{
+    // g_airlink_wakeup_irq_ctx.enable = 0;
+    LLOGI("触发唤醒wifi wakeup_irq_cb");
+    return 0;
+}
+
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
@@ -234,6 +244,25 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
             luat_rtos_task_sleep(1000);
         }
     }
+    if (g_airlink_wakeup_irq_ctx.enable)
+    {
+        luat_gpio_cfg_t gpio_cfg = {0};
+        luat_gpio_set_default_cfg(&gpio_cfg);
+        int pin = g_airlink_wakeup_irq_ctx.master_pin;
+        int val = g_airlink_wakeup_irq_ctx.irq_mode == Luat_GPIO_FALLING ? 1 : 0;
+        gpio_cfg.pin = pin;
+        gpio_cfg.mode = LUAT_GPIO_OUTPUT;
+        gpio_cfg.pull = g_airlink_wakeup_irq_ctx.irq_mode == Luat_GPIO_FALLING ? LUAT_GPIO_PULLUP : LUAT_GPIO_PULLDOWN;
+        gpio_cfg.output_level = val;
+        luat_gpio_open(&gpio_cfg);
+        LLOGI("g_airlink_wakeup_irq_ctx %p, state %d, slave_pin %d", g_airlink_wakeup_irq_ctx, g_airlink_wakeup_irq_ctx.enable, g_airlink_wakeup_irq_ctx.slave_pin);
+        luat_gpio_set(pin, val);
+        luat_rtos_task_sleep(120);
+        luat_gpio_set(pin, !val);
+        luat_rtos_task_sleep(120);
+        luat_gpio_set(pin, val);
+        g_airlink_wakeup_irq_ctx.enable = 0;
+    }
     // 等到消息
     // LLOGD("link irq %d cmd %d ip %d", s_link.flags.irq_ready, s_link.flags.queue_cmd, s_link.flags.queue_ip);
     if (s_link.flags.irq_ready) {
@@ -351,6 +380,26 @@ int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {
         gpio_cfg.irq_cb = slave_irq_cb;
         luat_gpio_open(&gpio_cfg);
         LLOGD("中断模式(GPIO%d)开启,等待slave就绪", g_airlink_spi_conf.irq_pin);
+    }
+    return 0;
+}
+
+int luat_airlink_wakeup_irqmode(luat_airlink_irq_ctx_t *ctx) {
+    if (!ctx) {
+        return -1;
+    }
+    luat_gpio_cfg_t gpio_cfg = {0};
+    ctx->slave_ready = 0;
+    memcpy(&g_airlink_wakeup_irq_ctx, ctx, sizeof(luat_airlink_irq_ctx_t));
+    if (ctx->enable) {
+        luat_gpio_set_default_cfg(&gpio_cfg);
+        gpio_cfg.pin = ctx->master_pin;
+        gpio_cfg.mode = LUAT_GPIO_IRQ;
+        gpio_cfg.irq_type = ctx->irq_mode;
+        gpio_cfg.pull = ctx->irq_mode == Luat_GPIO_FALLING ? LUAT_GPIO_PULLUP : LUAT_GPIO_PULLDOWN;
+        gpio_cfg.irq_cb = wakeup_irq_cb;
+        luat_gpio_open(&gpio_cfg);
+        LLOGD("WAKEUP中断模式(GPIO%d)开启,等待slave就绪", ctx->master_pin);
     }
     return 0;
 }

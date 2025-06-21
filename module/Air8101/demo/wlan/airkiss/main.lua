@@ -7,10 +7,6 @@
 PROJECT = "AirKiss"
 VERSION = "1.0.0"
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-require("sysplus")
-
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
     wdt.init(9000)--初始化watchdog设置为9s

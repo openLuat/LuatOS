@@ -736,6 +736,13 @@ void luat_mobile_rrc_auto_release_pause(uint8_t onoff);
 void luat_mobile_rrc_release_once(void);
 
 /**
+ * @brief 获取当前与基站的RRC状态，等于AT+CSCON
+ *
+ * @return uint8_t 1=CONNECT, 0=IDLE或者DISCONNECT
+ */
+uint8_t luat_mobile_get_rrc_state(void);
+
+/**
  * @brief 重新底层网络协议栈，本质是快速的进出飞行模式，注意和设置飞行模式是冲突的，一定时间内只能用一个。
  * 
  * @return int =0成功，其他失败

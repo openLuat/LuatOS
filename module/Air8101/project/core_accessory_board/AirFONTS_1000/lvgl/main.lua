@@ -22,17 +22,6 @@ VERSION = "001.000.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 加载必须用到的sys功能模块
--- sys功能模块是LuatOS运行框架的基础模块
-_G.sys = require("sys")
-
-
--- 加载大部分情况下会用到的sysplus功能模块
--- sysplus功能模块是sys功能模块的强力补充
--- 如果项目脚本中用到了sysplus的接口，则打开此处的注释
--- _G.sysplus = require("sysplus")
-
-
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then

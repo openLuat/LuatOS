@@ -9,8 +9,6 @@ local uart_baud = 115200
 -- 输出项目目名称及版本号
 log.info("main", PROJECT, VERSION)
 
--- sys库是标配
-_G.sys = require("sys")
 
 --初始化
 --[[uart.setup(

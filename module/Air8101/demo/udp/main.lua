@@ -4,9 +4,6 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- 一定要添加sys.lua !!!!
-sys = require("sys")
-sysplus = require("sysplus")
 libnet = require "libnet"
 
 if wdt then

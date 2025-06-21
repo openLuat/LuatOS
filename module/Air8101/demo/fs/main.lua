@@ -2,9 +2,6 @@
 PROJECT = "demo_fs_test"
 VERSION = "1.0.0"
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-
 -- 通过屏蔽变量来控制测试对应FS路径,默认打开LFS
 local PATH_LFS = "/"
 --local PATH_RAM = "/ram/"

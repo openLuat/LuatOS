@@ -4,9 +4,6 @@ PROJECT = "timer_demo"
 VERSION = "1.0.0"
 
 
--- sys库是标配
-sys = require("sys")
-
 sys.taskInit(function()
 log.info("------start timer_demo------")
 -- 定义一个单次触发的定时器回调函数

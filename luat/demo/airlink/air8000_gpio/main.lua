@@ -7,25 +7,29 @@ VERSION = "1.0.5"
 _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 
-PWR8000S = gpio.setup(23, 0, gpio.PULLUP) -- 关闭Air8000S的LDO供电
+-- 通过boot按键方便刷Air8000S
+function PWR8000S(val)
+    gpio.set(23, val)
+end
+
+gpio.debounce(0, 1000)
+gpio.setup(0, function()
+    sys.taskInit(function()
+        log.info("复位Air8000S")
+        PWR8000S(0)
+        sys.wait(20)
+        PWR8000S(1)
+    end)
+end, gpio.PULLDOWN)
 
 sys.taskInit(function()
-    -- 稍微缓一下
-    sys.wait(10)
-    -- 初始化airlink
-    airlink.init()
-    -- 启动底层线程, 从机模式
-    airlink.start(1)
-    PWR8000S(1)
-
     -- 闪灯开始
     sys.wait(100)
+    pin = 164
     while 1 do
-        gpio.setup(109, 0, gpio.PULLUP)
-        gpio.setup(108, 1, gpio.PULLUP)
+        gpio.setup(pin, 0, gpio.PULLUP)
         sys.wait(500)
-        gpio.setup(109, 1, gpio.PULLUP)
-        gpio.setup(108, 0, gpio.PULLUP)
+        gpio.setup(pin, 1, gpio.PULLUP)
         sys.wait(500)
     end
 end)

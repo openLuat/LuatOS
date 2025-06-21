@@ -5,9 +5,6 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- 一定要添加sys.lua !!!!
-sys = require("sys")
-
 -- 添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000) -- 初始化watchdog设置为9s

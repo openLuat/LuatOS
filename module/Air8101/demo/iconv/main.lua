@@ -2,9 +2,6 @@
 PROJECT = "iconv_demo"
 VERSION = "1.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
 --- unicode小端编码 转化为 gb2312编码
 -- @string ucs2s unicode小端编码数据
 -- @return string data,gb2312编码数据

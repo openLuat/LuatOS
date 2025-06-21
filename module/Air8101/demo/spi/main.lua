@@ -2,8 +2,6 @@
 PROJECT = "w25q_spi_demo"
 VERSION = "1.0.1"
 
-sys = require("sys")
-
 --spi编号，请按实际情况修改！
 local spiId = 1  --这里使用SPI 1
 

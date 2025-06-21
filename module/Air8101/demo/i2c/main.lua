@@ -3,8 +3,6 @@
 PROJECT = "sht20demo"
 VERSION = "1.0.0"
 
--- sys库是标配
-sys = require("sys")
 --添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000) -- 初始化watchdog设置为9s
@@ -28,7 +26,7 @@ sys.taskInit(function()
     local temp,hump -- 真实值
 
     --0100 0000  传感器七位地址
-    local addr = 0x40
+    local addr = 0x44
     -- 按实际修改哦
     local id = 0
     ------------------硬件I2C---------------------------------

@@ -1,6 +1,5 @@
 PROJECT = "Air8101_dvp_camerademo"
 VERSION = "1.0.0"
-sys = require("sys")
 
 httpplus = require "httpplus"
 

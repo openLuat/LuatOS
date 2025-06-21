@@ -2,9 +2,6 @@
 PROJECT = "TEST"  --逐行运行:从这一行开始运行
 VERSION = "2.0.0"
 
---请求底层系统接口模块
-sys = require("sys")
-sysplus = require("sysplus")
 libnet = require "libnet"
 
 if wdt then

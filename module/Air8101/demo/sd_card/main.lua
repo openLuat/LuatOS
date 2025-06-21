@@ -3,9 +3,6 @@
 PROJECT = "fatfs"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-_G.sysplus = require("sysplus")
 
 --[[
 注意：B10开发板需要SD_3.3V和SWD3.3V短接
@@ -41,6 +38,7 @@ local function fatfs_spi_pin()
 end
 
 sys.taskInit(function()
+    gpio.setup(13,1)
     sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 

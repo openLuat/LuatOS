@@ -3,8 +3,6 @@ PROJECT = "demo_str_test"
 VERSION = "1.0.0"
 
 LOG_TAG = "str"
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
 
 --[[
 用例0101 字符串定义与基本操作

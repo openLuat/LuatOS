@@ -16,7 +16,7 @@
 #include "luat_multimedia.h"
 #include "luat_audio.h"
 #include "luat_mem.h"
-
+#define MAX_DEVICE_COUNT 2
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif

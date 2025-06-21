@@ -41,6 +41,7 @@ int luat_drv_gpio_set(int pin, int level) {
 int luat_drv_gpio_setup(luat_gpio_t* gpio) {
     LLOGD("执行luat_drv_gpio_setup pin %d mode %d", gpio->pin, gpio->mode);
     if (gpio == NULL) {
+        LLOGE("gpio is NULL");
         return -1;
     }
     if (gpio->pin < 0 || gpio->pin >= 255) {

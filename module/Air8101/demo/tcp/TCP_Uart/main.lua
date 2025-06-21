@@ -2,11 +2,6 @@
 PROJECT = "Wifi_TCP_Uart"
 VERSION = "1.0.0"
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-require("sysplus")
-
-_G.sysplus = require("sysplus")
 local taskName = "TCP_TASK"             -- sysplus库用到的任务名称，也作为任务id
 
 if wdt then

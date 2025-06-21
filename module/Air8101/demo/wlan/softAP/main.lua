@@ -2,10 +2,6 @@
 PROJECT = "Air8101_SoftAP"
 VERSION = "1.0.0"
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-sysplus = require("sysplus")
--- libnet = require "libnet"
 
 --[[
 本demo演示AP的配网实例

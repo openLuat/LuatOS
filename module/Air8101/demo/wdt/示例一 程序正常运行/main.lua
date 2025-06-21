@@ -5,9 +5,6 @@ VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
 
--- sys库是标配
-_G.sys = require("sys")
-
 sys.taskInit(function()
     -- 这个demo要求有wdt库
     -- wdt库的使用,基本上每个demo的头部都有演示

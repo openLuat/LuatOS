@@ -6,9 +6,6 @@ VERSION = "2.0.0"
 本demo演示 log日志的基本操作
 ]]
 
-sys = require("sys")
-
-
 sys.taskInit(function ()
     sys.wait(1000) -- 延时一会儿，免得看不到日志
     local tmp

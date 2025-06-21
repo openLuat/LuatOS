@@ -67,7 +67,12 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
 
 static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     // 从数据中解析出参数, 重新组装
-    luat_ble_gatt_service_t gatt = {0};
+    luat_ble_gatt_service_t* gatt = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+    if (gatt == NULL) {
+        LLOGE("out of memory when malloc gatt");
+        return -1;
+    }
+    // uint8_t* ptr = &msg->data[0];
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
     uint16_t num_of_gatt_srv = 0;
@@ -78,14 +83,19 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     memcpy(&sizeof_gatt_desc, msg->data + 6, 2);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
-    memcpy(&gatt, msg->data + 8, sizeof(luat_ble_gatt_service_t));
-    gatt.characteristics = msg->data + 8 + sizeof_gatt;
-    for (size_t i = 0; i < num_of_gatt_srv; i++)
+    memcpy(gatt, msg->data + 8, sizeof(luat_ble_gatt_service_t));
+    LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
+    gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
-        gatt.characteristics[i].descriptor = msg->data + 8 + sizeof_gatt + sizeof_gatt_chara * num_of_gatt_srv + sizeof_gatt_desc * i;
-        LLOGD("gatt char %d maxsize %d descriptors_num %d", i, gatt.characteristics[i].max_size, gatt.characteristics[i].descriptors_num);
+        memcpy(&gatt->characteristics[i], msg->data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
+        if (gatt->characteristics[i].descriptors_num) {
+            LLOGD("gatt->characteristics[i].descriptors_num %d", gatt->characteristics[i].descriptors_num);
+        }
+        gatt->characteristics[i].descriptor = NULL;
+        gatt->characteristics[i].descriptors_num = 0;
     }
-    return luat_ble_create_gatt(NULL, &gatt);
+    return luat_ble_create_gatt(NULL, gatt);
 }
 
 static int drv_adv_create(luat_drv_ble_msg_t *msg) {

@@ -584,6 +584,66 @@ end_error:
     return 0;
 }
 
+static int l_ble_write_indicate(lua_State *L){
+    uint16_t ret = 0;
+    const char *service_uuid = NULL;
+    const char *characteristic_uuid = NULL;
+    const char *descriptor_uuid = NULL;
+    luat_ble_uuid_t service = {0};
+    luat_ble_uuid_t characteristic = {0};
+    luat_ble_uuid_t descriptor = {0};
+    size_t tmp = 0;
+    if (1){
+        size_t len = 0;
+        const char *value = luaL_checklstring(L, 3, &len);
+
+        lua_pushstring(L, "uuid_service");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            service_uuid = luaL_checklstring(L, -1, &tmp);
+            service.uuid_type = tmp;
+            memcpy(service.uuid, service_uuid, service.uuid_type);
+            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_service 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "uuid_characteristic");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            characteristic_uuid = luaL_checklstring(L, -1, &tmp);
+            characteristic.uuid_type = tmp;
+            memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
+            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_characteristic 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "uuid_descriptor");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            descriptor_uuid = luaL_checklstring(L, -1, &tmp);
+            descriptor.uuid_type = tmp;
+            memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
+            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            ret = luat_ble_write_indicate_value(&service, &characteristic, &descriptor, (uint8_t *)value, len);
+        }else{
+            ret = luat_ble_write_indicate_value(&service, &characteristic, NULL, (uint8_t *)value, len);
+        }
+        lua_pop(L, 1);
+        
+        LLOGD("luat_ble_write_indicate_value ret %d", ret);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
+    return 0;
+}
+
 static int l_ble_scanning_create(lua_State *L){
     if (!lua_isuserdata(L, 1)){
         return 0;
@@ -668,6 +728,7 @@ static const rotable_Reg_t reg_ble[] = {
     {"gatt_create", ROREG_FUNC(l_ble_gatt_create)},
     {"write_notify", ROREG_FUNC(l_ble_write_notify)},
     {"write_value", ROREG_FUNC(l_ble_write_value)},
+    {"write_indicate", ROREG_FUNC(l_ble_write_indicate)},
     {"read_value", ROREG_FUNC(l_ble_read_value)},
     
     // scanning

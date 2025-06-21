@@ -149,6 +149,23 @@ static int drv_ble_write_notify(luat_drv_ble_msg_t *msg) {
     
 }
 
+static int drv_ble_write_indication(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble write indication len %d", write.len);
+    // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
+    if (write.descriptor.uuid_type) {
+        return luat_ble_write_indicate_value(&write.service, &write.characteristic, &write.descriptor, msg->data + 2 + sizeof_write, write.len);
+    }
+    else {
+        return luat_ble_write_indicate_value(&write.service, &write.characteristic, NULL, msg->data + 2 + sizeof_write, write.len);
+    }
+    
+}
+
 // static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {
 //     // 从数据中解析出参数, 重新组装
 //     luat_ble_rw_req_t write = {0};
@@ -244,6 +261,11 @@ static void drv_bt_task(void *param) {
                 ret = drv_ble_write_notify(msg);
                 LLOGD("ble wrtite notify %d", ret);
                 break;
+            case LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION:
+                ret = drv_ble_write_indication(msg);
+                LLOGD("ble wrtite indication %d", ret);
+                break;
+                
             // case LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP:
             //     ret = drv_ble_send_read_resp(msg);
             //     LLOGD("ble send read resp %d", ret);

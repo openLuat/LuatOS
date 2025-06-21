@@ -293,9 +293,16 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
         if (gatt->characteristics[m].uuid_type == LUAT_BLE_UUID_TYPE_16
             && gatt->characteristics[m].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8)
             && gatt->characteristics[m].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
-            // Descriptors
         }else{
             att_db_nb++;
+        }
+
+        // Descriptors
+        if (gatt->characteristics[m].descriptor){
+            uint8_t descriptors_num = gatt->characteristics[m].descriptors_num;
+            for (size_t n = 0; n < descriptors_num; n++){
+                att_db_nb++;
+            }
         }
         gatt->characteristics[m].handle = att_db_nb++;
     }

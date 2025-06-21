@@ -231,10 +231,15 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     LLOGD("执行luat_ble_create_gatt");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
+
+    uint16_t descriptor_totalNum = 0;
+    for (size_t i = 0; i < gatt->characteristics_num; i++) { descriptor_totalNum += gatt->characteristics[i].descriptors_num; }
+
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) 
                + sizeof(luat_drv_ble_msg_t) + sizeof(luat_ble_gatt_service_t) 
                + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t)
+               + descriptor_totalNum * sizeof(luat_ble_gatt_descriptor_t)
                + 16
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
@@ -256,12 +261,23 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     // 然后是服务id的数量
     tmp = gatt->characteristics_num;
     memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2 + 2, &tmp, 2);
+    // 然后是luat_ble_gatt_descriptor_t的大小
+    tmp = sizeof(luat_ble_gatt_descriptor_t);
+    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2 + 2 + 2, &tmp, 2);
 
     // 头部拷贝完成, 拷贝数据
     memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8, gatt, sizeof(luat_ble_gatt_service_t));
     // 然后是服务id
     memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t), 
         gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
+    
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        uint8_t descriptor_num = gatt->characteristics[i].descriptors_num;
+        // 然后是描述符id
+        memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
+        gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
+    }
 
     item.cmd = cmd;
 

@@ -71,16 +71,19 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
     uint16_t num_of_gatt_srv = 0;
+    uint16_t sizeof_gatt_desc = 0;
     memcpy(&sizeof_gatt, msg->data, 2);
     memcpy(&sizeof_gatt_chara, msg->data + 2, 2);
     memcpy(&num_of_gatt_srv, msg->data + 4, 2);
+    memcpy(&sizeof_gatt_desc, msg->data + 6, 2);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
     memcpy(&gatt, msg->data + 8, sizeof(luat_ble_gatt_service_t));
     gatt.characteristics = msg->data + 8 + sizeof_gatt;
     for (size_t i = 0; i < num_of_gatt_srv; i++)
     {
-        LLOGD("gatt char %d maxsize %d", i, gatt.characteristics[i].max_size);
+        gatt.characteristics[i].descriptor = msg->data + 8 + sizeof_gatt + sizeof_gatt_chara * num_of_gatt_srv + sizeof_gatt_desc * i;
+        LLOGD("gatt char %d maxsize %d descriptors_num %d", i, gatt.characteristics[i].max_size, gatt.characteristics[i].descriptors_num);
     }
     return luat_ble_create_gatt(NULL, &gatt);
 }

@@ -284,28 +284,6 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     // LLOGD("gatt 数据长度 %d %d %d", item.len, cmd->len, cmd->len - sizeof(luat_drv_ble_msg_t));
     // luat_airlink_print_buff("bt req HEX", cmd->data, cmd->len);
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-
-    // 仿照bk实现, 计算handle, 临时的
-    uint8_t att_db_nb = 0;
-    att_db_nb++;
-    for (size_t m = 0; m < gatt->characteristics_num; m++){
-        // Characteristics
-        if (gatt->characteristics[m].uuid_type == LUAT_BLE_UUID_TYPE_16
-            && gatt->characteristics[m].uuid[0] == (LUAT_BLE_GATT_DESC_MAX >> 8)
-            && gatt->characteristics[m].uuid[1] <= (LUAT_BLE_GATT_DESC_MAX & 0xFF)){
-        }else{
-            att_db_nb++;
-        }
-
-        // Descriptors
-        if (gatt->characteristics[m].descriptor){
-            uint8_t descriptors_num = gatt->characteristics[m].descriptors_num;
-            for (size_t n = 0; n < descriptors_num; n++){
-                att_db_nb++;
-            }
-        }
-        gatt->characteristics[m].handle = att_db_nb++;
-    }
     return 0;
 }
 

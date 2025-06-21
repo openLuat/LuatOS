@@ -72,7 +72,7 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
         LLOGE("out of memory when malloc gatt");
         return -1;
     }
-    // uint8_t* ptr = &msg->data[0];
+    size_t offset = 0;
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
     uint16_t num_of_gatt_srv = 0;
@@ -83,18 +83,30 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     memcpy(&sizeof_gatt_desc, msg->data + 6, 2);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
-    memcpy(gatt, msg->data + 8, sizeof(luat_ble_gatt_service_t));
+    offset = 8;
+    
+    memcpy(gatt, msg->data + offset, sizeof(luat_ble_gatt_service_t));
+    offset += sizeof(luat_ble_gatt_service_t);
+
     LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
     gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
         memcpy(&gatt->characteristics[i], msg->data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
         if (gatt->characteristics[i].descriptors_num) {
-            LLOGD("gatt->characteristics[i].descriptors_num %d", gatt->characteristics[i].descriptors_num);
+            LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
+            gatt->characteristics[i].descriptor = luat_heap_malloc(gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
         }
-        gatt->characteristics[i].descriptor = NULL;
-        gatt->characteristics[i].descriptors_num = 0;
+        offset += sizeof(luat_ble_gatt_chara_t);
     }
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        if (gatt->characteristics[i].descriptors_num) {
+            memcpy(gatt->characteristics[i].descriptor, msg->data + offset, gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
+        }
+        offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
+    }
+
     return luat_ble_create_gatt(NULL, gatt);
 }
 

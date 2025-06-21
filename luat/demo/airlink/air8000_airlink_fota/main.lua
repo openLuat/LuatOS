@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "wififota"
-VERSION = "1.0.7"
+VERSION = "1.0.9"
 
 -- sys库是标配
 _G.sys = require("sys")
@@ -24,7 +24,7 @@ end, gpio.PULLDOWN)
 sys.taskInit(function()
     sys.wait(1000)
     airlink.debug(1)
-    airlink.sfota("/luadb/air8000s_v7.bin")
+    airlink.sfota("/luadb/air8000s_v9.bin")
 end)
 
 

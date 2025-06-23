@@ -48,7 +48,7 @@ local function ble_callback(dev, evt, param)
         sys.timerStart(function() dev:adv_start() end, 1000)
     elseif evt == ble.EVENT_WRITE_REQ then
         -- 收到写请求
-        log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.data:toHex())
+        log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.uuid_characteristic:toHex(), param.data:toHex())
     end
 end
 

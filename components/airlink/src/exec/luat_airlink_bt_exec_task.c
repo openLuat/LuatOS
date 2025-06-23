@@ -50,6 +50,8 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         LLOGD("param %p", param);
         if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
             memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
+            luat_heap_free(param->adv_req.data);
+            param->adv_req.data = NULL;
         }
         else if (LUAT_BLE_EVENT_READ == event) {
             // 请求读, 这个事件仅能通知lua, .value的数据是要被写入的, 不是被读
@@ -57,6 +59,8 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
             LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
             memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.value_len);
+            luat_heap_free(param->write_req.value);
+            param->write_req.value = NULL;
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }

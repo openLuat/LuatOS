@@ -20,7 +20,7 @@ gpio.setup(0, function()
     end)
 end, gpio.PULLDOWN)
 
-local att_db = { -- Service
+local att_db =   { -- Service
     string.fromHex("FA00"), -- Service UUID
     -- Characteristic
     { -- Characteristic 1

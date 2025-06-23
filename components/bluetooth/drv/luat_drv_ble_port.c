@@ -231,6 +231,7 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     LLOGD("执行luat_ble_create_gatt");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
+    int ret = 0;
 
     uint16_t descriptor_totalNum = 0;
     for (size_t i = 0; i < gatt->characteristics_num; i++) { descriptor_totalNum += gatt->characteristics[i].descriptors_num; }
@@ -244,7 +245,8 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
     if (cmd == NULL) {
-        return -101;
+        ret = -101;
+        goto cleanup;
     }
     
     luat_drv_ble_msg_t msg = { .id = seq};
@@ -284,7 +286,18 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
     // LLOGD("gatt 数据长度 %d %d %d", item.len, cmd->len, cmd->len - sizeof(luat_drv_ble_msg_t));
     // luat_airlink_print_buff("bt req HEX", cmd->data, cmd->len);
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+
+cleanup:
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        if (gatt->characteristics[i].descriptor) {
+            luat_heap_free(gatt->characteristics[i].descriptor);
+            gatt->characteristics[i].descriptor = NULL;
+        }
+    }
+    luat_heap_free(gatt->characteristics);
+    gatt->characteristics = NULL;
+    return ret;
 }
 
 int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len) {

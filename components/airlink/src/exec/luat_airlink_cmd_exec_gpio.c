@@ -31,7 +31,7 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     #ifdef __BK72XX__
     // SPI的GPIO禁止设置
-    if ((conf.pin >= 13 && conf.pin <= 17) || conf.pin == 48) {
+    if ((conf.pin >= 14 && conf.pin <= 17) || conf.pin == 48) {
         LLOGE("禁止设置SPI相关的GPIO");
         return 0;
     }

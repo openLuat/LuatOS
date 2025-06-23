@@ -8,7 +8,7 @@ VERSION = "1.0.0"
 使用了如下IO口：
 [5, "spk+", " PIN5脚, 用于喇叭正极"],
 [6, "spk-", " PIN6脚, 用于喇叭负极"],
-[78, "gpio28", " PIN78脚, 用于PA使能脚"],
+[20, "AudioPA_EN", " PIN20脚, 用于PA使能脚"],
 3.3V
 GND
 执行逻辑为：
@@ -23,7 +23,7 @@ _G.sysplus = require("sysplus")
 
 local i2c_id = 0 -- i2c_id 0
 
-local pa_pin = 28 -- 喇叭pa功放脚
+local pa_pin = gpio.AUDIOPA_EN -- 喇叭pa功放脚
 local power_pin = 20 -- es8311电源脚
 
 local i2s_id = 0 -- i2s_id 0
@@ -44,7 +44,7 @@ local power_time_delay = 100 -- 音频播放完毕时，PA与DAC关闭的时间�
 local voice_vol = 50 -- 喇叭音量
 local mic_vol = 80 -- 麦克风音量
 
-gpio.setup(power_pin, 1, gpio.PULLUP)   -- 设置功放电源脚
+gpio.setup(power_pin, 1, gpio.PULLUP)   -- 设置ES83111电源脚
 gpio.setup(pa_pin, 1, gpio.PULLUP)      -- 设置功放PA脚
 
 function audio_setup()
@@ -108,7 +108,7 @@ local function audio_task()
                 fd = nil
             end
         end
-        if line == nil then
+        if line == nil then --如果没有找到千字文，播放以下文本
             line =
                 "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十"
         end

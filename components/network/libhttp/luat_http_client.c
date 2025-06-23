@@ -146,7 +146,14 @@ static void http_network_error(luat_http_ctrl_t *http_ctrl)
 		http_ctrl->state = HTTP_STATE_IDLE;
 		http_ctrl->error_code = HTTP_ERROR_CONNECT;
 		network_close(http_ctrl->netc, 0);
-		http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
+		if (http_cb)
+		{
+			http_cb(http_ctrl->error_code, NULL, 0, http_ctrl->http_cb_userdata);
+		}
+		else
+		{
+			luat_debug_assert(__FUNCTION__, __LINE__, "http no cb");
+		}
 	}
 }
 static void http_network_close(luat_http_ctrl_t *http_ctrl)

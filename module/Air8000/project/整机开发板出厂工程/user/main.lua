@@ -24,6 +24,7 @@ local airaudio  = require "airaudio"
 local aircamera = require "aircamera"
 local airrus = require "russia"
 local airstatus = require "statusbar"
+local airble = require "airble"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
@@ -133,6 +134,7 @@ local function handal_main(x,y)
   elseif key == 5 then
     cur_fun  = "aircall"
   elseif key == 6 then
+    cur_fun  = "airble"
   elseif key == 7 then
     cur_fun  = "airsms"
   elseif key == 8 then    --  tts
@@ -241,7 +243,8 @@ local function  tp_handal(tp_device,tp_data)
       airgsensor.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "airpower" then
       airpower.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
-
+    elseif cur_fun == "airble" then
+      airble.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -430,10 +433,18 @@ local function draw_multi_network()
   end
 end
 
+local function draw_airble()
+    if  airble.run()   then
+      cur_fun = "main"
+    end
+end
+
+
 local function draw()
   if cur_fun == "camshow" then
     return
   end
+
 
   lcd.clear(_G.bkcolor)    
   
@@ -473,6 +484,8 @@ local function draw()
     draw_power()
   elseif cur_fun == "multi_network" then
     draw_multi_network()    
+  elseif cur_fun == "multi_network" then
+    draw_airble()
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")

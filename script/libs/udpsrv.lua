@@ -7,7 +7,8 @@
 @demo    socket
 @tag LUAT_USE_NETWORK
 @usage
--- 具体用法请查阅demo
+-- 具体用法请查
+阅demo
 ]]
 
 local sys = require "sys"

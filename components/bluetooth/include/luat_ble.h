@@ -261,8 +261,7 @@ typedef struct luat_ble_disconn_ind{
     uint8_t reason;
 }luat_ble_disconn_ind_t;
 
-typedef struct luat_ble_gatt_done_ind
-{
+typedef struct luat_ble_gatt_done_ind{
     uint8_t gatt_service_num;
     luat_ble_gatt_service_t* gatt_service;
     void* user_data;

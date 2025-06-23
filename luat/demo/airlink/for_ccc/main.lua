@@ -25,6 +25,8 @@ uart.setup(
     1--停止位
 )
 
+-- gpio.setup(140, 1, gpio.PULLUP)
+
 local topic_uart_receive = "air8000_uart1_receive"
 
 -- --循环发数据
@@ -60,7 +62,7 @@ sys.taskInit(function()
     while 1 do
         local ret, data = sys.waitUntil(topic_uart_receive)
         if ret then
-            if data:sub(1,11) == "AT+WIFI_OFF" then--关闭wifi------------
+            if data:sub(1,10) == "AT+WIFIOFF" then--关闭wifi------------
                 local result = airlink.power(false)
                 log.info("关闭wifi")
                 if not result then
@@ -68,7 +70,7 @@ sys.taskInit(function()
                 else
                     uart.write(uartid, "ERROR\r\n")
                 end
-            elseif data:sub(1,10) == "AT+WIFI_ON" then--开启wifi
+            elseif data:sub(1,9) == "AT+WIFION" then--开启wifi
                 airlink.power(true)
                 while airlink.ready() ~= true do
                     sys.wait(100)
@@ -80,7 +82,7 @@ sys.taskInit(function()
                 else
                     uart.write(uartid, "ERROR\r\n")--------------
                 end
-            elseif data:sub(1,12) == "AT+WIFI_SCAN" then--wifi扫描---------------
+            elseif data:sub(1,11) == "AT+WIFISCAN" then--wifi扫描---------------
                 while airlink.ready() ~= true do
                     sys.wait(100)
                 end
@@ -89,36 +91,34 @@ sys.taskInit(function()
                 log.info("扫描wifi")
                 sys.waitUntil("WLAN_SCAN_DONE", 5000)
                 local results = wlan.scanResult()
-                for k,v in pairs(results) do
-                    uart.write(uartid, string.format("+WIFISCAN: %s,%s,%s\r\n",
-                                    v["bssid"]:toHex(), v["rssi"], v["channel"]))
-                end
                 if results then
                     uart.write(uartid, "OK\r\n")
                 else
                     uart.write(uartid, "ERROR\r\n")
                 end
-            elseif data:sub(1,16) == "AT+WIFI_CONNECT=" then -- 连接指定ssid/passwd--------
+            elseif data:sub(1,8) == "AT+WIFI=" then -- 连接指定ssid/passwd--------
                 wlan.init()
 
-                local SSID = data:sub(17,data:find(",")-1)
+                local SSID = data:sub(9,data:find(",")-1)
                 local PWD = data:sub(data:find(",")+1,data:find('\r')-1)
 
                 log.info("SSID", SSID,"PWD", PWD)
-                wlan.connect(SSID, PWD)
-                sys.wait(8000)
-                iperf.server(socket.LWIP_STA)
-                sys.wait(5000)
-                log.info("连接指定wifi")
-                local code, headers, body = http.request("GET", "https://httpbin.air32.cn/get", nil, nil, {adapter=socket.LWIP_STA}).wait()
-                log.info("http", code, headers, body and #body)
-                if code == 200 then
-                    uart.write(uartid, "OK\r\n")
-                else
+                local result = wlan.connect(SSID, PWD)
+                log.info("连接指定wifi",result)
+
+                local result, ip, adapter = sys.waitUntil("IP_READY",5000)
+                log.info("ready?", result, ip, adapter)
+
+                if not result then
                     uart.write(uartid, "ERROR\r\n")
+                else
+                    -- netdrv.ipv4(socket.LWIP_STA)
+                    log.info("IP地址", netdrv.ipv4(socket.LWIP_STA))
+
+                    uart.write(uartid, "OK\r\n")
                 end
 
-            elseif data:sub(1,11) == "AT+BLE_Init" then--初始化蓝牙
+            elseif data:sub(1,10) == "AT+BLEINIT" then--初始化蓝牙
                 bluetooth_device = bluetooth.init()
                 ble_device = bluetooth_device:ble(ble_callback)
                 log.info("初始化蓝牙")
@@ -127,7 +127,7 @@ sys.taskInit(function()
                 else
                     uart.write(uartid, "ERROR\r\n")
                 end
-            elseif data:sub(1,11) == "AT+BLE_Scan" then--蓝牙扫描
+            elseif data:sub(1,10) == "AT+BLESCAN" then--蓝牙扫描
 
                 -- 扫描模式
                 sys.wait(1000)
@@ -146,8 +146,8 @@ sys.taskInit(function()
                     uart.write(uartid, "ERROR\r\n")
                 end
 
-            elseif data:sub(1,11) == "AT+ResetAll" then--整体复位
-                uart.write(uartid, "Reset all\r\n")
+            elseif data:sub(1,11) == "AT+RESETALL" then--整体复位
+                uart.write(uartid, "OK\r\n")
                 sys.wait(500)
                 rtos.reboot()
 

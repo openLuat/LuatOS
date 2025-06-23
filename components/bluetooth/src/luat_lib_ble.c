@@ -22,31 +22,22 @@ int l_ble_callback(lua_State *L, void *ptr)
     uint8_t tmpbuff[16] = {0};
 
     lua_geti(L, LUA_REGISTRYINDEX, g_ble_lua_cb_ref);
-    if (lua_isfunction(L, -1))
-    {
+    if (lua_isfunction(L, -1)){
         lua_geti(L, LUA_REGISTRYINDEX, g_bt_ble_ref);
         lua_pushinteger(L, evt);
-    }
-    else
-    {
+    }else{
         LLOGE("用户回调函数不存在");
         goto exit;
     }
 
-    switch (evt)
-    {
-    case LUAT_BLE_EVENT_WRITE:
-    {
+    switch (evt){
+    case LUAT_BLE_EVENT_WRITE:{
         luat_ble_write_req_t *write_req = &(param->write_req);
 
         lua_createtable(L, 0, 5);
         lua_pushliteral(L, "handle");
         lua_pushinteger(L, write_req->handle);
         lua_settable(L, -3);
-        // luat_ble_uuid_t uuid_service = {0};
-        // luat_ble_uuid_t uuid_characteristic = {0};
-        // luat_ble_uuid_t uuid_descriptor = {0};
-        // luat_ble_handle2uuid(write_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
 
         lua_pushliteral(L, "uuid_service");
         lua_pushlstring(L, (const char *)write_req->uuid_service.uuid, write_req->uuid_service.uuid_type);
@@ -54,8 +45,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushliteral(L, "uuid_characteristic");
         lua_pushlstring(L, (const char *)write_req->uuid_characteristic.uuid, write_req->uuid_characteristic.uuid_type);
         lua_settable(L, -3);
-        if (write_req->uuid_descriptor.uuid[0] != 0 || write_req->uuid_descriptor.uuid[1] != 0)
-        {
+        if (write_req->uuid_descriptor.uuid[0] != 0 || write_req->uuid_descriptor.uuid[1] != 0){
             lua_pushliteral(L, "uuid_descriptor");
             lua_pushlstring(L, (const char *)write_req->uuid_descriptor.uuid, write_req->uuid_descriptor.uuid_type);
             lua_settable(L, -3);
@@ -124,20 +114,17 @@ int l_ble_callback(lua_State *L, void *ptr)
         // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
 
         lua_call(L, 3, 0);
-        if (adv_req->data)
-        {
+        if (adv_req->data){
             luat_heap_free(adv_req->data);
             adv_req->data = NULL;
         }
         break;
     }
-    case LUAT_BLE_EVENT_GATT_DONE:
-    {
+    case LUAT_BLE_EVENT_GATT_DONE:{
         luat_ble_gatt_service_t **gatt_services = &param->gatt_done_ind.gatt_service;
         uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
         lua_createtable(L, gatt_service_num, 0);
-        for (size_t i = 0; i < gatt_service_num; i++)
-        {
+        for (size_t i = 0; i < gatt_service_num; i++){
             luat_ble_gatt_service_t *gatt_service = gatt_services[i];
             lua_newtable(L);
             // servise uuid
@@ -145,14 +132,14 @@ int l_ble_callback(lua_State *L, void *ptr)
             lua_rawseti(L, -2, 1);
             // characteristics
             uint8_t characteristics_num = gatt_service->characteristics_num;
-            for (size_t m = 0; m < characteristics_num; m++)
-            {
+            for (size_t m = 0; m < characteristics_num; m++){
                 luat_ble_gatt_chara_t *gatt_chara = &gatt_service->characteristics[m];
                 lua_newtable(L);
                 lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_service->uuid_type);
                 lua_seti(L, -2, 1);
                 // Properties
-                // lua_seti(L, -2, 2);
+                lua_pushnumber(L, gatt_chara->perm);
+                lua_seti(L, -2, 2);
 
                 lua_seti(L, -2, m + 2);
             }

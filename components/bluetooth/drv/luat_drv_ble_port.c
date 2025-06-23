@@ -367,7 +367,7 @@ int luat_ble_write_indicate_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t
     return 0;
 }
 
-int c(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len) {
+int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len) {
     LLOGD("执行luat_ble_write_value");
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();

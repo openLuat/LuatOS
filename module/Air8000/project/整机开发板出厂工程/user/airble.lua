@@ -18,7 +18,13 @@ local Characteristic4_read = nil
 local Characteristic4ind = nil
 
 
-local att_db = { -- Service
+local att_db = nil
+
+
+ble_stat = false
+
+local function set_att_db()
+    att_db = { -- Service
     string.fromHex("FA00"), -- Service UUID
     -- Characteristic
     { -- Characteristic 1
@@ -32,8 +38,7 @@ local att_db = { -- Service
         string.fromHex(Characteristic4), ble.IND | ble.READ
     }
 }
-
-ble_stat = false
+end
 
 local function ble_callback(dev, evt, param)
     if evt == ble.EVENT_CONN then
@@ -59,6 +64,7 @@ end
 
 local function ble_peripheral_setup()
     local ret = 0
+    set_att_db()
     sys.wait(500)
     log.info("开始初始化蓝牙核心")
     bluetooth_device = bluetooth.init()

@@ -381,14 +381,11 @@ error_exit:
     return 0;
 }
 
-static int l_ble_advertising_create(lua_State *L)
-{
-    if (!lua_isuserdata(L, 1))
-    {
+static int l_ble_advertising_create(lua_State *L){
+    if (!lua_isuserdata(L, 1)){
         return 0;
     }
-    if (lua_type(L, 2) != LUA_TTABLE)
-    {
+    if (lua_type(L, 2) != LUA_TTABLE){
         LLOGE("error param");
         return 0;
     }
@@ -404,29 +401,25 @@ static int l_ble_advertising_create(lua_State *L)
     };
 
     lua_pushstring(L, "addr_mode");
-    if (LUA_TNUMBER == lua_gettable(L, -2))
-    {
+    if (LUA_TNUMBER == lua_gettable(L, -2)){
         luat_ble_adv_cfg.addr_mode = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
 
     lua_pushstring(L, "channel_map");
-    if (LUA_TNUMBER == lua_gettable(L, 2))
-    {
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.channel_map = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
 
     lua_pushstring(L, "intv_min");
-    if (LUA_TNUMBER == lua_gettable(L, 2))
-    {
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.intv_min = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
 
     lua_pushstring(L, "intv_max");
-    if (LUA_TNUMBER == lua_gettable(L, 2))
-    {
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.intv_max = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
@@ -438,47 +431,35 @@ static int l_ble_advertising_create(lua_State *L)
     uint8_t adv_index = 0;
 
     lua_pushstring(L, "adv_data");
-    if (LUA_TTABLE == lua_gettable(L, -2))
-    {
+    if (LUA_TTABLE == lua_gettable(L, -2)){
         int adv_data_count = luaL_len(L, -1);
-        for (int i = 1; i <= adv_data_count; i++)
-        {
+        for (int i = 1; i <= adv_data_count; i++){
             lua_rawgeti(L, -1, i);
-            if (LUA_TTABLE == lua_type(L, -1))
-            {
+            if (LUA_TTABLE == lua_type(L, -1)){
                 lua_rawgeti(L, -1, 2);
-                if (lua_type(L, -1) == LUA_TSTRING)
-                {
+                if (lua_type(L, -1) == LUA_TSTRING){
                     const char *data = luaL_checklstring(L, -1, &len);
                     adv_data[adv_index++] = (uint8_t)(len + 1);
                     lua_rawgeti(L, -2, 1);
-                    if (lua_type(L, -1) == LUA_TNUMBER)
-                    {
+                    if (lua_type(L, -1) == LUA_TNUMBER){
                         uint8_t adv_type = (uint8_t)luaL_checknumber(L, -1);
                         adv_data[adv_index++] = adv_type;
-                        if (adv_type == LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)
-                        {
+                        if (adv_type == LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME){
                             luat_ble_set_name(NULL, data, len);
                             local_name_set_flag = 1;
                         }
-                    }
-                    else
-                    {
+                    }else{
                         LLOGE("error adv_data type");
                         goto end;
                     }
                     memcpy(adv_data + adv_index, data, len);
                     adv_index += len;
                     lua_pop(L, 2);
-                }
-                else
-                {
+                }else{
                     LLOGE("error adv_data type");
                     goto end;
                 }
-            }
-            else
-            {
+            }else{
                 LLOGE("error adv_data type");
                 goto end;
             }
@@ -487,8 +468,7 @@ static int l_ble_advertising_create(lua_State *L)
     }
     lua_pop(L, 1);
 
-    if (!local_name_set_flag)
-    {
+    if (!local_name_set_flag){
         sprintf_(complete_local_name, "LuatOS_%s", luat_os_bsp());
         luat_ble_set_name(NULL, complete_local_name, strlen(complete_local_name));
     }
@@ -497,11 +477,9 @@ static int l_ble_advertising_create(lua_State *L)
     luat_ble_set_adv_data(NULL, adv_data, adv_index);
 
     lua_pushstring(L, "rsp_data");
-    if (LUA_TSTRING == lua_gettable(L, 2))
-    {
+    if (LUA_TSTRING == lua_gettable(L, 2)){
         uint8_t *rsp_data = luaL_checklstring(L, -1, &len);
-        if (len)
-        {
+        if (len){
             luat_ble_set_scan_rsp_data(NULL, rsp_data, len);
         }
     }
@@ -513,8 +491,7 @@ end:
     return 0;
 }
 
-static int l_ble_advertising_start(lua_State *L)
-{
+static int l_ble_advertising_start(lua_State *L){
     lua_pushboolean(L, luat_ble_start_advertising(NULL) ? 0 : 1);
     return 1;
 }
@@ -750,14 +727,14 @@ static int l_ble_read_value(lua_State *L){
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
             LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
-            ret = luat_ble_read_value(&service, &characteristic, &descriptor, (uint8_t *)value, &len);
+            ret = luat_ble_read_value(&service, &characteristic, &descriptor, value, &len);
 
         }else{
-            ret = luat_ble_read_value(&service, &characteristic, NULL, (uint8_t *)value, &len);
+            ret = luat_ble_read_value(&service, &characteristic, NULL, value, &len);
         }
         lua_pop(L, 1);
         if (ret == 0){
-            lua_pushlstring(L, value, len);
+            lua_pushlstring(L, (const char *)value, len);
             return 1;
         }
     }

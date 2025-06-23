@@ -1057,6 +1057,12 @@ static int l_lcd_set_font(lua_State *L) {
       LLOGE("only font pointer is allow");
       return 0;
     }
+
+    if (lcd_dft_conf == NULL) {
+      LLOGE("lcd not init");
+      return 0;
+    }
+
     luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), ptr);
     if (lua_isinteger(L, 2)) {

@@ -3,19 +3,24 @@
 PROJECT = "ccdemo"
 VERSION = "1.0.0"
 log.style(1)
---[[
-    本demo暂时只在air780ep测试过
-    本demo需要外挂ES8311 codec芯片
+--[[]
+运行环境：Air780EHV核心板+AirAUDIO_1000配件板
+最后修改时间：2025-6-17
+使用了如下IO口：
+[3, "MIC+", " PIN3脚, 用于麦克风正极"],
+[4, "MIC-", " PIN4脚, 用于麦克风负极"],
+[5, "spk+", " PIN5脚, 用于喇叭正极"],
+[6, "spk-", " PIN6脚, 用于喇叭负极"],
+[20, "AudioPA_EN", " PIN20脚, 用于PA使能脚"],
+3.3V
+GND
+执行逻辑为：
+设置i2s和音频参数，读取文件qianzw.txt里面的内容，然后播放出来
 ]]
 
 -- sys库是标配
 sys = require("sys")
 
-if wdt then
-    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
-    --wdt.init(9000)--初始化watchdog设置为9s
-    --sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
-end
 local up1 = zbuff.create(6400,0)
 local up2 = zbuff.create(6400,0)
 local down1 = zbuff.create(6400,0)
@@ -55,7 +60,7 @@ sys.taskInit(function()
     local multimedia_id = 0
  local i2c_id = 0 -- i2c_id 0
 
-    local pa_pin = 28 -- 喇叭pa功放脚
+    local pa_pin = gpio.AUDIOPA_EN -- 喇叭pa功放脚
     local power_pin = 20 -- es8311电源脚
 
     local i2s_id = 0 -- i2s_id 0
@@ -77,9 +82,6 @@ sys.taskInit(function()
     local mic_vol = 80 -- 麦克风音量
     gpio.setup(power_pin, 1, gpio.PULLUP)
     gpio.setup(pa_pin, 1, gpio.PULLUP)
-
-    pins.setup(58, "I2C0_SDA")
-    pins.setup(57, "I2C0_SCL")
 
     sys.wait(200)
 
@@ -103,7 +105,7 @@ sys.taskInit(function()
     sys.waitUntil("CC_READY")
     log.info("一切就绪，5S后准备打电话")
     sys.wait(5000)   
-    cc.dial(0,"15821341112") --拨打电话
+    -- cc.dial(0,"12345678910) --拨打电话
 
 
 

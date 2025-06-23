@@ -28,4 +28,5 @@ luat_lcd_opts_t lcd_opts_gc9106l = {
     .direction90 = 0x08,
     .direction180 = 0x68,
     .direction270 = 0xA8,
+	.rb_swap = 1,
 };

@@ -51,12 +51,12 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
             memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
         }
-        else if (LUAT_BLE_EVENT_READ == event && param->read_req.value && param->read_req.len > 0) {
+        else if (LUAT_BLE_EVENT_READ == event) {
             // 请求读, 这个事件仅能通知lua, .value的数据是要被写入的, 不是被读
         }
-        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value && param->write_req.len > 0) {
-            LLOGD("write req value %d %p", param->write_req.len, param->write_req.value);
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.len);
+        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
+            LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
+            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.value_len);
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }
@@ -67,22 +67,47 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
 
 static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     // 从数据中解析出参数, 重新组装
-    luat_ble_gatt_service_t gatt = {0};
+    luat_ble_gatt_service_t* gatt = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+    if (gatt == NULL) {
+        LLOGE("out of memory when malloc gatt");
+        return -1;
+    }
+    size_t offset = 0;
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
     uint16_t num_of_gatt_srv = 0;
+    uint16_t sizeof_gatt_desc = 0;
     memcpy(&sizeof_gatt, msg->data, 2);
     memcpy(&sizeof_gatt_chara, msg->data + 2, 2);
     memcpy(&num_of_gatt_srv, msg->data + 4, 2);
+    memcpy(&sizeof_gatt_desc, msg->data + 6, 2);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
-    memcpy(&gatt, msg->data + 8, sizeof(luat_ble_gatt_service_t));
-    gatt.characteristics = msg->data + 8 + sizeof_gatt;
-    for (size_t i = 0; i < num_of_gatt_srv; i++)
+    offset = 8;
+    
+    memcpy(gatt, msg->data + offset, sizeof(luat_ble_gatt_service_t));
+    offset += sizeof(luat_ble_gatt_service_t);
+
+    LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
+    gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
-        LLOGD("gatt char %d maxsize %d", i, gatt.characteristics[i].max_size);
+        memcpy(&gatt->characteristics[i], msg->data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
+        if (gatt->characteristics[i].descriptors_num) {
+            LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
+            gatt->characteristics[i].descriptor = luat_heap_malloc(gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
+        }
+        offset += sizeof(luat_ble_gatt_chara_t);
     }
-    return luat_ble_create_gatt(NULL, &gatt);
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        if (gatt->characteristics[i].descriptors_num) {
+            memcpy(gatt->characteristics[i].descriptor, msg->data + offset, gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
+        }
+        offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
+    }
+
+    return luat_ble_create_gatt(NULL, gatt);
 }
 
 static int drv_adv_create(luat_drv_ble_msg_t *msg) {
@@ -127,7 +152,47 @@ static int drv_ble_write_notify(luat_drv_ble_msg_t *msg) {
     memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
     LLOGD("ble write notify len %d", write.len);
     // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
-    return luat_ble_write_notify_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
+    if (write.descriptor.uuid_type) {
+        return luat_ble_write_notify_value(&write.service, &write.characteristic, &write.descriptor, msg->data + 2 + sizeof_write, write.len);
+    }
+    else {
+        return luat_ble_write_notify_value(&write.service, &write.characteristic, NULL, msg->data + 2 + sizeof_write, write.len);
+    }
+    
+}
+
+static int drv_ble_write_indication(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble write indication len %d", write.len);
+    // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
+    if (write.descriptor.uuid_type) {
+        return luat_ble_write_indicate_value(&write.service, &write.characteristic, &write.descriptor, msg->data + 2 + sizeof_write, write.len);
+    }
+    else {
+        return luat_ble_write_indicate_value(&write.service, &write.characteristic, NULL, msg->data + 2 + sizeof_write, write.len);
+    }
+    
+}
+
+static int drv_ble_write_value(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble write value len %d", write.len);
+    // LLOGD("ble write notify %.*s", write.len, msg->data + 2 + sizeof_write);
+    if (write.descriptor.uuid_type) {
+        return luat_ble_write_value(&write.service, &write.characteristic, &write.descriptor, msg->data + 2 + sizeof_write, write.len);
+    }
+    else {
+        return luat_ble_write_value(&write.service, &write.characteristic, NULL, msg->data + 2 + sizeof_write, write.len);
+    }
+    
 }
 
 // static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {
@@ -225,6 +290,15 @@ static void drv_bt_task(void *param) {
                 ret = drv_ble_write_notify(msg);
                 LLOGD("ble wrtite notify %d", ret);
                 break;
+            case LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION:
+                ret = drv_ble_write_indication(msg);
+                LLOGD("ble wrtite indication %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_WRITE_VALUE:
+                ret = drv_ble_write_value(msg);
+                LLOGD("ble wrtite value %d", ret);
+                break;
+                
             // case LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP:
             //     ret = drv_ble_send_read_resp(msg);
             //     LLOGD("ble send read resp %d", ret);

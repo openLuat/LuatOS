@@ -68,7 +68,7 @@ int luat_airlink_drv_gpio_get(int pin, int* val) {
     uint32_t version;
     memcpy(&version, &g_airlink_ext_dev_info.wifi.version, 4);
     if (version < 9) {
-        LLOGE("wifi version < 9, not support gpio.set");
+        LLOGE("wifi version < 9, not support gpio.get");
         *val = 0;
         return 0;
     }

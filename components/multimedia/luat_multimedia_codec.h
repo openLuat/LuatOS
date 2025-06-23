@@ -15,7 +15,6 @@
 
 #define MP3_FRAME_LEN 4 * 1152
 
-#define MAX_DEVICE_COUNT 2
 #define MP3_MAX_CODED_FRAME_SIZE 1792
 
 enum{

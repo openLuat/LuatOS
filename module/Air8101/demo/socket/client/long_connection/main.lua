@@ -1,16 +1,16 @@
 --[[
 本demo演示的核心功能为：
-一、创建四路socket连接，详情如下
-    1、创建一个tcp client，连接tcp server；
-    2、创建一个udp client，连接udp server；
-    3、创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
-    4、创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
-二、每一路socket连接出现异常后，自动重连；
-三、每一路socket连接，client按照以下几种逻辑发送数据给server
-    1、串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
-    2、定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
-四、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后通过uart1发送出去；
-
+1、创建四路socket连接，详情如下
+- 创建一个tcp client，连接tcp server；
+- 创建一个udp client，连接udp server；（后续补充）
+- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；（后续补充）
+- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；（后续补充）
+2、每一路socket连接出现异常后，自动重连；
+3、每一路socket连接，client按照以下几种逻辑发送数据给server
+- 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
+- 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
+4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
+5、每一路socket连接，启动一个网络业务逻辑看门狗task，用来监控socket工作状态，如果连续长时间工作不正常，重启整个软件系统（后续补充）；
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -62,46 +62,33 @@ end
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
 -- 加载WIFI网络连接管理应用功能模块
 require "wifi_app"
 
 -- 加载串口应用功能模块
 require "uart_app"
--- -- 加载定时器应用功能模块
--- require "timer_app"
+-- 加载定时器应用功能模块
+require "timer_app"
+-- 加载测试应用功能模块(只有调试某些接口时才需要)
+-- require "test_app"
 
--- -- 加载tcp client socket主应用功能模块
--- require "tcp_client_main"
--- -- 加载tcp client socket数据发送功能模块
--- require "tcp_client_sender"
--- -- 加载tcp client socket数据接收功能模块
--- require "tcp_client_receiver"
+-- 加载tcp client socket主应用功能模块
+require "tcp_client_main"
 
--- -- 加载udp client socket主应用功能模块
+
+-- 加载udp client socket主应用功能模块(后续补充)
 -- require "udp_client_main"
--- -- 加载udp client socket数据发送功能模块
--- require "udp_client_sender"
--- -- 加载udp client socket数据接收功能模块
--- require "udp_client_receiver"
 
--- -- 加载tcp ssl client socket主应用功能模块
+-- 加载tcp ssl client socket主应用功能模块(后续补充)
 -- require "tcp_ssl_client_main"
--- -- 加载tcp ssl client socket数据发送功能模块
--- require "tcp_ssl_client_sender"
--- -- 加载tcp ssl client socket数据接收功能模块
--- require "tcp_ssl_client_receiver"
 
--- -- 加载tcp ssl ca client socket主应用功能模块
+-- 加载tcp ssl ca client socket主应用功能模块(后续补充)
 -- require "tcp_ssl_ca_client_main"
--- -- 加载tcp ssl ca client socket数据发送功能模块
--- require "tcp_ssl_ca_client_sender"
--- -- 加载tcp ssl ca client socket数据接收功能模块
--- require "tcp_ssl_ca_client_receiver"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

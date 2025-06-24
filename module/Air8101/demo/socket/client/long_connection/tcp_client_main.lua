@@ -55,7 +55,7 @@ local function tcp_client_main_task_func()
             goto EXCEPTION_PROC
         end
 
-        -- 配置socket client对象为普通的tcp client
+        -- 配置socket client对象为tcp client
         result = socket.config(socket_client)
         -- 如果配置失败
         if not result then

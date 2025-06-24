@@ -2,9 +2,9 @@
 本demo演示的核心功能为：
 1、创建四路socket连接，详情如下
 - 创建一个tcp client，连接tcp server；
-- 创建一个udp client，连接udp server；（后续补充）
-- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；（后续补充）
-- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；（后续补充）
+- 创建一个udp client，连接udp server；
+- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
+- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
 2、每一路socket连接出现异常后，自动重连；
 3、每一路socket连接，client按照以下几种逻辑发送数据给server
 - 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
@@ -80,15 +80,18 @@ require "timer_app"
 -- 加载tcp client socket主应用功能模块
 require "tcp_client_main"
 
-
--- 加载udp client socket主应用功能模块(后续补充)
+-- 加载udp client socket主应用功能模块
 -- require "udp_client_main"
 
--- 加载tcp ssl client socket主应用功能模块(后续补充)
--- require "tcp_ssl_client_main"
+-- 打开内核固件中ssl的调试日志（需要分析问题时再打开）
+-- socket.sslLog(3)
+-- 加载tcp ssl client socket主应用功能模块
+-- require "tcp_ssl_main"
 
--- 加载tcp ssl ca client socket主应用功能模块(后续补充)
--- require "tcp_ssl_ca_client_main"
+-- 加载sntp时间同步应用功能模块（ca证书校验的ssl socket需要时间同步功能）
+-- require "sntp_app"
+-- 加载tcp ssl ca client socket主应用功能模块
+-- require "tcp_ssl_ca_main"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

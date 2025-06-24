@@ -344,6 +344,7 @@ static int l_ble_gatt_create(lua_State *L){
                 if (LUA_TSTRING == lua_type(L, -1)){
                     const char *value = luaL_checklstring(L, -1, &len);
                     characteristics[characteristics_num].value = luat_heap_malloc(len);
+                    memcpy(characteristics[characteristics_num].value, value, len);
                     characteristics[characteristics_num].value_len = len;
                 }
                 lua_pop(L, 1);
@@ -714,15 +715,18 @@ static int l_ble_read_value(lua_State *L){
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
             LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
-            ret = luat_ble_read_value(&service, &characteristic, &descriptor, value, &len);
+            ret = luat_ble_read_value(&service, &characteristic, &descriptor, &value, &len);
 
         }else{
-            ret = luat_ble_read_value(&service, &characteristic, NULL, value, &len);
+            ret = luat_ble_read_value(&service, &characteristic, NULL, &value, &len);
         }
         lua_pop(L, 1);
         if (ret == 0){
             lua_pushlstring(L, (const char *)value, len);
             return 1;
+        }else{
+            LLOGE("ble read value error");
+            return 0;
         }
     }
 end_error:

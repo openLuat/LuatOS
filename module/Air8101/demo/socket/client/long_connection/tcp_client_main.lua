@@ -18,10 +18,10 @@ local tcp_client_sender = require "tcp_client_sender"
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 47946
+local SERVER_PORT = 42264
 
 -- tcp_client_main的任务名
-local TASK_NAME = "tcp_client_main"
+local TASK_NAME = tcp_client_sender.TASK_NAME
 
 
 -- 处理未识别的消息
@@ -121,7 +121,8 @@ local function tcp_client_main_task_func()
             socket_client = nil
         end
         
-        -- 跳转到循环体开始位置，自动发起重连
+        -- 5秒后跳转到循环体开始位置，自动发起重连
+        sys.wait(5000)
     end
 end
 

@@ -29,18 +29,16 @@ para的内容为数据发送结果的用户回调函数的回调参数，可以�
 ]]
 local send_queue = {}
 
--- 插入一条数据到发送队列send_queue中
-local function insert(data, cb)
-    table.insert(send_queue, {data=data, cb=cb})
+-- tcp_client_main的任务名
+tcp_client_sender.TASK_NAME = "tcp_client_main"
+
+-- "SEND_DATA_REQ"消息的处理函数
+local function send_data_req_proc_func(tag, data, cb)
+    -- 将原始数据增加前缀，然后插入到发送队列send_queue中
+    table.insert(send_queue, {data="send from "..tag..": "..data, cb=cb})
     -- 通知tcp_client_main主任务有数据需要发送
     -- tcp_client_main主任务如果处在libnet.wait调用的阻塞等待状态，就会退出阻塞状态
     sysplus.sendMsg("tcp_client_main", socket.EVENT, 0)
-end
-
--- "SEND_DATA_REQ"消息的处理函数
--- 将原始数据增加前缀，然后插入到发送队列send_queue中
-local function send_data_req_proc_func(tag, data, cb)
-    insert("send from "..tag..": "..data, cb)
 end
 
 -- 数据发送应用逻辑处理入口
@@ -90,7 +88,7 @@ end
 function tcp_client_sender.exception_proc()
     -- 遍历数据发送队列send_queue
     while #send_queue>0 do
-        local item = table.remove(send_queue,1)
+        local send_item = table.remove(send_queue,1)
         -- 发送失败，如果当前发送的数据有用户回调函数，则执行用户回调函数
         if send_item.cb and send_item.cb.func then
             send_item.cb.func(false, send_item.cb.para)

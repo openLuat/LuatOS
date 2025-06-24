@@ -3,6 +3,7 @@
 
 #include "luat_rtos.h"
 // #include "luat_msgbus.h"
+#include "luat_debug.h"
 
 #include "luat_mem.h"
 #include "http_parser.h"
@@ -19,6 +20,7 @@
 
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
+
 extern void DBG_Printf(const char* format, ...);
 extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg);
 #undef LLOGD

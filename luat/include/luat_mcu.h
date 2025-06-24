@@ -52,7 +52,11 @@ uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
  */
 void luat_mcu_iomux_ctrl(uint8_t type, uint8_t sn, int pad_index, uint8_t alt, uint8_t is_input);
 
-
+/**
+ * @brief 死机后处理模式
+ * @param mode 0死机后停机 1死机后立刻重启 2死机后尽量将错误信息提交给外部工具后重启
+ * @return 无
+ */
 void luat_mcu_set_hardfault_mode(int mode);
 /**
  * @brief 外部晶振参考信号输出

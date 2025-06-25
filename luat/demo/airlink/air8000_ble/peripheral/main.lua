@@ -48,7 +48,7 @@ local function ble_callback(dev, evt, param)
         sys.timerStart(function() dev:adv_start() end, 1000)
     elseif evt == ble.EVENT_WRITE_REQ then
         -- 收到写请求
-        log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.data:toHex(),param.uuid_characteristic:toHex())
+        log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.uuid_characteristic:toHex(), param.data:toHex())
     end
 end
 
@@ -91,6 +91,15 @@ sys.taskInit(function()
     log.info("开始广播")
     ble_device:adv_start()
 
+        
+    -- 放入预设值, 注意是有READ属性的特性才能读取
+    -- 手机APP设置MTU到256
+    local wt = {
+        uuid_service = string.fromHex("FA00"),
+        uuid_characteristic = string.fromHex("EA01"), 
+    }
+    ble_device:write_value(wt, "12345678901234567890")
+
     while 1 do
         sys.wait(3000)
         if ble_stat then
@@ -103,6 +112,12 @@ sys.taskInit(function()
         else
             -- log.info("等待连接成功之后发送数据")
         end
+        
+        local wt = {
+            uuid_service = string.fromHex("FA00"),
+            uuid_characteristic = string.fromHex("EA03"), 
+        }
+        ble_device:write_value(wt, "8888 123454")
     end
 end)
 

@@ -40,6 +40,7 @@ void luat_mutex_release(void *mutex);
 /* ----------------------------------- timer ----------------------------------- */
 void *luat_create_rtos_timer(void *cb, void *param, void *task_handle);
 int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat);
+int luat_start_rtos_timer_v2(void *timer, uint64_t tick, uint8_t is_repeat, uint8_t is_cb_in_irq);
 int luat_start_rtos_timer_us(void *timer, uint32_t us);
 void luat_stop_rtos_timer(void *timer);
 void luat_release_rtos_timer(void *timer);

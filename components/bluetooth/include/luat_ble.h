@@ -180,8 +180,8 @@ typedef struct {
 typedef enum{
     LUAT_BLE_ADDR_MODE_PUBLIC,   // 控制器的公共地址
     LUAT_BLE_ADDR_MODE_RANDOM,   // 生成的静态地址
-    LUAT_BLE_ADDR_MODE_RPA,      // 可解析的私有地址
-    LUAT_BLE_ADDR_MODE_NRPA,     // 不可解析的私有地址
+    LUAT_BLE_ADDR_MODE_RPA,    // 可解析的私有地址
+    LUAT_BLE_ADDR_MODE_NRPA,    // 不可解析的私有地址
 }luat_ble_addr_mode_t;
 
 typedef enum{

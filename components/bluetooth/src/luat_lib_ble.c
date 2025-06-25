@@ -143,9 +143,7 @@ int l_ble_callback(lua_State *L, void *ptr)
             read_req->value = NULL;
         }
         break;
-    }
-    case LUAT_BLE_EVENT_SCAN_REPORT:
-    {
+    }case LUAT_BLE_EVENT_SCAN_REPORT:{
         luat_ble_adv_req_t *adv_req = &(param->adv_req);
         lua_createtable(L, 0, 4);
 
@@ -170,8 +168,7 @@ int l_ble_callback(lua_State *L, void *ptr)
             adv_req->data = NULL;
         }
         break;
-    }
-    case LUAT_BLE_EVENT_GATT_DONE:{
+    }case LUAT_BLE_EVENT_GATT_DONE:{
         luat_ble_gatt_service_t **gatt_services = param->gatt_done_ind.gatt_service;
         uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
         lua_createtable(L, gatt_service_num, 0);
@@ -198,9 +195,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         }
         lua_call(L, 3, 0);
         break;
-    }
-    case LUAT_BLE_EVENT_CONN:
-    {
+    }case LUAT_BLE_EVENT_CONN:{
         luat_ble_conn_ind_t *conn = &(param->conn_ind);
         lua_newtable(L);
         memcpy(tmpbuff, conn->peer_addr, 6);
@@ -211,9 +206,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_setfield(L, -2, "addr_type");
         lua_call(L, 3, 0);
         break;
-    }
-    case LUAT_BLE_EVENT_DISCONN:
-    {
+    }case LUAT_BLE_EVENT_DISCONN:{
         luat_ble_disconn_ind_t *disconn = &(param->disconn_ind);
         lua_newtable(L);
         lua_pushinteger(L, disconn->reason);
@@ -603,7 +596,6 @@ static int l_ble_advertising_stop(lua_State *L){
 ble_device:write_notify({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_notify(lua_State *L){
@@ -677,7 +669,6 @@ end_error:
 ble_device:write_indicate({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_indicate(lua_State *L){
@@ -751,7 +742,6 @@ end_error:
 ble_device:write_value({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_value(lua_State *L){
@@ -815,6 +805,18 @@ end_error:
     return 0;
 }
 
+/*
+读取特征值
+@api ble.read_value(opts)
+@table 特征值的描述信息
+@return boolean 是否成功
+@usage
+-- 读取特征值,通过回调中的 EVENT_READ_VALUE 事件返回读取的value值
+ble_device:read_value({
+    uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
+    uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
+})
+*/
 static int l_ble_read_value(lua_State *L){
     uint16_t ret = 0;
     const char *service_uuid = NULL;
@@ -946,17 +948,35 @@ static int l_ble_scanning_stop(lua_State *L){
     return 1;
 }
 
+/*
+BLE连接
+@api ble.connect()
+@string mac 地址
+@int 地址类型 ble.PUBLIC ble.RANDOM
+@return boolean 是否成功
+@usage
+-- BLE连接
+ble_device:connect(string.fromHex("C8478C4E027D"),0)
+*/
 static int l_ble_connect(lua_State *L){
     size_t len;
     uint8_t *adv_addr = luaL_checklstring(L, 2, &len);
     uint8_t adv_addr_type = luaL_checknumber(L, 3);
-    LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
-          adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
-          adv_addr[3], adv_addr[4], adv_addr[5]);
+    // LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
+    //       adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
+    //       adv_addr[3], adv_addr[4], adv_addr[5]);
     lua_pushboolean(L, luat_ble_connect(NULL, adv_addr, adv_addr_type) ? 0 : 1);
     return 1;
 }
 
+/*
+BLE断开连接
+@api ble.disconnect()
+@return boolean 是否成功
+@usage
+-- BLE断开连接
+ble_device:disconnect()
+*/
 static int l_ble_disconnect(lua_State *L){
     lua_pushboolean(L, luat_ble_disconnect(NULL) ? 0 : 1);
     return 1;
@@ -1014,21 +1034,32 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_READ_VALUE", ROREG_INT(LUAT_BLE_EVENT_READ_VALUE)},
 
     // ADV_ADDR_MODE
+    // @const PUBLIC 控制器的公共地址
     {"PUBLIC", ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},
+    // @const RANDOM 生成的静态地址
     {"RANDOM", ROREG_INT(LUAT_BLE_ADDR_MODE_RANDOM)},
     {"RPA", ROREG_INT(LUAT_BLE_ADDR_MODE_RPA)},
     {"NRPA", ROREG_INT(LUAT_BLE_ADDR_MODE_NRPA)},
+
     // ADV_CHNL
+    //@const CHNL_37 37通道
     {"CHNL_37", ROREG_INT(LUAT_BLE_ADV_CHNL_37)},
+    //@const CHNL_38 38通道
     {"CHNL_38", ROREG_INT(LUAT_BLE_ADV_CHNL_38)},
+    //@const CHNL_39 39通道
     {"CHNL_39", ROREG_INT(LUAT_BLE_ADV_CHNL_39)},
+    //@const CHNLS_ALL 所有通道(37 38 39)
     {"CHNLS_ALL", ROREG_INT(LUAT_BLE_ADV_CHNLS_ALL)},
+
     // Permission
+    //@const READ 读权限
     {"READ", ROREG_INT(LUAT_BLE_GATT_PERM_READ)},
+    //@const READ 写权限
     {"WRITE", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE)},
     {"IND", ROREG_INT(LUAT_BLE_GATT_PERM_IND)},
     {"NOTIFY", ROREG_INT(LUAT_BLE_GATT_PERM_NOTIFY)},
     {"WRITE_CMD", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE_CMD)},
+
     // FLAGS
     {"FLAGS", ROREG_INT(LUAT_ADV_TYPE_FLAGS)},
     {"COMPLETE_LOCAL_NAME", ROREG_INT(LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)},

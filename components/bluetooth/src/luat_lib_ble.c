@@ -99,10 +99,6 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushlstring(L, (const char *)write_req->value, write_req->value_len);
         lua_settable(L, -3);
         lua_call(L, 3, 0);
-        if (write_req->value){
-            luat_heap_free(write_req->value);
-            write_req->value = NULL;
-        }
         break;
     }
     case LUAT_BLE_EVENT_READ:
@@ -158,10 +154,6 @@ int l_ble_callback(lua_State *L, void *ptr)
         // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
 
         lua_call(L, 3, 0);
-        if (adv_req->data){
-            luat_heap_free(adv_req->data);
-            adv_req->data = NULL;
-        }
         break;
     }
     case LUAT_BLE_EVENT_GATT_DONE:{
@@ -221,6 +213,18 @@ int l_ble_callback(lua_State *L, void *ptr)
 exit:
     if (param)
     {
+        if (param->write_req.value)
+        {
+            LLOGD("free write_req.value %p", param->write_req.value);
+            luat_heap_free(param->write_req.value);
+            param->write_req.value = NULL;
+        }
+        if (param->adv_req.data)
+        {
+            LLOGD("free adv_req.data %p", param->adv_req.data);
+            luat_heap_free(param->adv_req.data);
+            param->adv_req.data = NULL;
+        }
         luat_heap_free(param);
         param = NULL;
     }

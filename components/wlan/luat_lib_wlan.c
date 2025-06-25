@@ -147,6 +147,10 @@ static int l_wlan_connect(lua_State* L){
     if (len == 6) {
         memcpy(info.bssid, bssid, 6);
     }
+    else if (ssid == NULL || strlen(ssid) == 0) {
+        LLOGE("ssid is emtry!!!");
+        return 0;
+    }
     #ifdef LUAT_USE_DRV_WLAN
     int ret = luat_drv_wlan_connect(&info);
     #else

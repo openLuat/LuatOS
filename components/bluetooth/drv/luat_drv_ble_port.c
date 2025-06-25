@@ -24,6 +24,16 @@ luat_ble_cb_t g_drv_ble_cb;
 #undef LLOGD
 #define LLOGD(...)
 
+// 读取wifi固件版本, 控制API适配状态
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+static uint32_t get_ble_version(void) {
+    uint32_t version = 0;
+    if (g_airlink_ext_dev_info.tp == 1) {
+        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    }
+    return version;
+}
+
 int luat_ble_init(void* args, luat_ble_cb_t luat_ble_cb) {
     LLOGD("执行luat_ble_init %p", luat_ble_cb);
     g_drv_ble_cb = luat_ble_cb;
@@ -508,22 +518,58 @@ int luat_ble_delete_scanning(void* args) {
 }
 
 
-int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type) {
-    LLOGE("not support yet");
+int luat_ble_connect(void* args, luat_ble_connect_req_t *conn) {
+    LLOGD("执行luat_ble_connect");
+    if (get_ble_version() < 11) {
+        LLOGE("luat_ble_connect not support, ble version is %d", get_ble_version());
+        return -1;
+    }
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + 8 + sizeof(luat_ble_connect_req_t) + 2
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    uint16_t tmp = sizeof(luat_ble_connect_req_t);
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_CONNECT;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+    // 然后是结构体大小
+    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t), &tmp, 2);
+    // 然后是连接请求数据
+    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2, conn, sizeof(luat_ble_connect_req_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
     return -1;
 }
 
 int luat_ble_disconnect(void* args) {
-    LLOGE("not support yet");
-    return -1;
+    LLOGD("执行luat_ble_disconnect");
+    if (get_ble_version() < 11) {
+        LLOGE("luat_ble_connect not support, ble version is %d", get_ble_version());
+        return -1;
+    }
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = 8 + sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t)
+    };
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_DISCONNECT;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t **data, uint16_t* len) {
     LLOGE("not support yet -> luat_ble_read_value");
-    return -1;
-}
-
-int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor) {
-    LLOGE("not support yet -> luat_ble_handle2uuid");
     return -1;
 }

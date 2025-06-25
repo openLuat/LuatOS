@@ -356,9 +356,6 @@ int luat_ble_stop_scanning(void* args);
 
 int luat_ble_delete_scanning(void* args);
 
-int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type);
-
-int luat_ble_disconnect(void* args);
 
 typedef struct luat_ble_rw_req{
     uint32_t len;
@@ -367,5 +364,17 @@ typedef struct luat_ble_rw_req{
     luat_ble_uuid_t descriptor;
     uint8_t data[0];
 }luat_ble_rw_req_t;
+
+typedef struct luat_ble_conn_req {
+    uint8_t adv_addr_type;  /**< Advertising address type: public/random */
+    uint8_t adv_addr[6];    /**< Advertising address value */
+    uint16_t conn_interval;  /**< Connection interval */
+    uint16_t conn_latency;   /**< Connection latency */
+    uint16_t sup_to;         /**< Link supervision timeout */
+}luat_ble_connect_req_t;
+
+int luat_ble_connect(void* args, luat_ble_connect_req_t *conn);
+
+int luat_ble_disconnect(void* args);
 
 #endif

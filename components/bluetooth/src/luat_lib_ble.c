@@ -956,13 +956,20 @@ BLE连接
 ble_device:connect(string.fromHex("C8478C4E027D"),0)
 */
 static int l_ble_connect(lua_State *L){
-    size_t len;
+    size_t len = 0;
+    luat_ble_connect_req_t conn = {0};
     uint8_t *adv_addr = luaL_checklstring(L, 2, &len);
     uint8_t adv_addr_type = luaL_checknumber(L, 3);
+    if (len != 6){
+        LLOGE("error adv_addr len %d", len);
+        return 0;
+    }
+    memcpy(conn.adv_addr, adv_addr, len);
+    conn.adv_addr_type = adv_addr_type;
     // LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
     //       adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
     //       adv_addr[3], adv_addr[4], adv_addr[5]);
-    lua_pushboolean(L, luat_ble_connect(NULL, adv_addr, adv_addr_type) ? 0 : 1);
+    lua_pushboolean(L, luat_ble_connect(NULL, &conn) ? 0 : 1);
     return 1;
 }
 

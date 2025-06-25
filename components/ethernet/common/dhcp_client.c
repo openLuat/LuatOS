@@ -223,6 +223,11 @@ __CHECK:
 			if (DHCP_ACK == ack)
 			{
 				dhcp->lease_time = BytesGetBe32(&in->Data[in->Pos + 2]);
+				if (dhcp->lease_time < 60)
+				{
+					LLOGW("lease time too short %d, set to 60", dhcp->lease_time);
+					dhcp->lease_time = 60; // 最小租约时间为60秒
+				}
 				lease_time = dhcp->lease_time;
 				lease_time *= 1000;
 				dhcp->lease_end_time = luat_mcu_tick64_ms() + lease_time;

@@ -103,7 +103,13 @@ function ble_callback(dev, evt, param)
         -- param 是事件参数, 包含以下字段:
         -- param.uuid_service: 服务的UUID
         -- param.uuid_characteristic: 特征的UUID
+        -- param.uuid_descriptor: 描述符的UUID, 可选, 不一定存在
         -- param.data: 写入的数据
+    -- ble.EVENT_SCAN_REPORT: 扫描到设备
+        -- param 是事件参数, 包含以下字段:
+        -- param.rssi: 信号强度
+        -- param.adv_addr: 广播地址, 6字节的二进制数据
+        -- param.data: 广播数据, 二进制数据
 
     if evt == ble.EVENT_CONN then
         log.info("ble", "connect 成功", param, param and param.addr and param.addr:toHex() or "unknow")
@@ -113,6 +119,8 @@ function ble_callback(dev, evt, param)
         ble_stat = false
         -- 1秒后重新开始广播
         sys.timerStart(function() dev:adv_start() end, 1000)
+    elseif ble_event == ble.EVENT_SCAN_REPORT then
+        log.info("ble", "scan report", param.rssi, param.adv_addr:toHex(), param.data:toHex())
     elseif evt == ble.EVENT_WRITE_REQ then
         -- 收到写请求
         log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.uuid_characteristic:toHex(), param.data:toHex())

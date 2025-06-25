@@ -686,7 +686,7 @@ static int l_ble_write_indicate(lua_State *L){
             service_uuid = luaL_checklstring(L, -1, &tmp);
             service.uuid_type = tmp;
             memcpy(service.uuid, service_uuid, service.uuid_type);
-            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_service 参数");
@@ -699,7 +699,7 @@ static int l_ble_write_indicate(lua_State *L){
             characteristic_uuid = luaL_checklstring(L, -1, &tmp);
             characteristic.uuid_type = tmp;
             memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
-            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_characteristic 参数");
@@ -712,7 +712,7 @@ static int l_ble_write_indicate(lua_State *L){
             descriptor_uuid = luaL_checklstring(L, -1, &tmp);
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
-            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            // LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
             ret = luat_ble_write_indicate_value(&service, &characteristic, &descriptor, (uint8_t *)value, len);
         }else{
             ret = luat_ble_write_indicate_value(&service, &characteristic, NULL, (uint8_t *)value, len);

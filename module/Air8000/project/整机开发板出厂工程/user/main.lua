@@ -484,7 +484,7 @@ local function draw()
     draw_power()
   elseif cur_fun == "multi_network" then
     draw_multi_network()    
-  elseif cur_fun == "multi_network" then
+  elseif cur_fun == "airble" then
     draw_airble()
   end
   

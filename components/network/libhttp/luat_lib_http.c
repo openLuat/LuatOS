@@ -491,7 +491,6 @@ exit:
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
 	// network_close(http_ctrl->netc, 0);
-	if (!http_ctrl->luatos_mode) return;
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;

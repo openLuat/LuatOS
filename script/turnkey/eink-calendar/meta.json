@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/eink_calendar_wifi",
+    "tags" : ["turnkey", "esp32c3", "墨水屏", "wlan", "wifi"],
+    "version" : "1.0.0",
+    "title" : "墨水屏日历,esp32c3版本",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["wlan"]
+}

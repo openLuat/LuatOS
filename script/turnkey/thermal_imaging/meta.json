@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/thermal_imaging",
+    "tags" : ["turnkey", "mlx90640", "air101", "air103", "air105","esp32-c3","热成像"],
+    "version" : "1.0.0",
+    "title" : "热成像,适用于air101/air103/air105/esp32-c3",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["mlx90640"]
+}

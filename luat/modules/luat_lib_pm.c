@@ -494,10 +494,6 @@ static const rotable_Reg_t reg_pm[] =
     //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用
     { "ID_WIFI",        ROREG_INT(1)},
 
-    //@const WIFI_STA_DTIM number wifi芯片控制STA模式下的DTIM间隔,单位100ms,默认值是1
-    { "WIFI_STA_DTIM",  ROREG_INT(LUAT_PM_POWER_WIFI_STA_DTIM)},
-    { "WIFI_AP_DTIM",   ROREG_INT(LUAT_PM_POWER_WIFI_AP_DTIM)},
-
 	{ NULL,             ROREG_INT(0) }
 };
 

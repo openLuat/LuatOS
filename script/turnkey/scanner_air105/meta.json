@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/scanner_air105",
+    "tags" : ["turnkey", "scanner", "air105", "扫码枪"],
+    "version" : "1.0.0",
+    "title" : "扫码枪方案,适用于Air105+配套的摄像头",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["camera", "usbapp"]
+}

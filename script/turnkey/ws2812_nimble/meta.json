@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/ws2812_nimble",
+    "tags" : ["turnkey", "ws2812", "ble", "air101", "air103", "蓝牙", "nimble"],
+    "version" : "1.0.0",
+    "title" : "蓝牙ws2812控制器,适用于air101/air103",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["nimble"]
+}

@@ -518,7 +518,7 @@ int luat_ble_disconnect(void* args) {
     return -1;
 }
 
-int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t **data, uint16_t* len) {
+int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t* len) {
     LLOGE("not support yet -> luat_ble_read_value");
     return -1;
 }

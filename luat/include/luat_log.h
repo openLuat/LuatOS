@@ -4,7 +4,6 @@
 #define LUAT_LOG_H
 
 #include "luat_base.h"
-
 #define LUAT_LOG_DEBUG 1
 #define LUAT_LOG_INFO  2
 #define LUAT_LOG_WARN  3

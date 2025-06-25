@@ -557,7 +557,6 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
-			prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
 			ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
 			ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ipstr, sizeof(ipstr));
 			LLOGD("dns udp sendto %s:%d from %s", ipstr, DNS_SERVER_PORT, ipstr2);

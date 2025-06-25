@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/esp32c3_remote_poweron",
+    "tags" : ["turnkey", "esp32c3", "远程开机棒"],
+    "version" : "1.0.0",
+    "title" : "PC远程开机棒, esp32c3版本",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["wlan"]
+}

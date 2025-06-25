@@ -203,12 +203,6 @@ typedef enum {
     LUAT_BLE_ACTIVE_SCANNING,       // Active scanning. Scanning PDUs may be sent
 }luat_ble_scan_type_t;
 
-typedef enum {
-    LUAT_BLE_MODE_NONE,
-    LUAT_BLE_MODE_SLAVER,
-    LUAT_BLE_MODE_MASTER,
-}luat_ble_mode_t;
-
 typedef struct {
     luat_ble_scan_type_t scan_type;
     luat_ble_addr_mode_t addr_mode;
@@ -269,7 +263,7 @@ typedef struct luat_ble_disconn_ind{
 
 typedef struct luat_ble_gatt_done_ind{
     uint8_t gatt_service_num;
-    luat_ble_gatt_service_t** gatt_service;
+    luat_ble_gatt_service_t* gatt_service;
     void* user_data;
 }luat_ble_gatt_done_ind_t;
 
@@ -295,7 +289,6 @@ typedef struct {
 typedef void (*luat_ble_cb_t)(luat_ble_t* luat_ble, luat_ble_event_t ble_event, luat_ble_param_t* ble_param);
 
 struct luat_ble{
-    luat_ble_mode_t mode;
     uint8_t actv_idx;
     luat_ble_actv_state state;
     luat_ble_cb_t cb;
@@ -312,8 +305,6 @@ int luat_ble_deinit(void* args);
 int luat_ble_set_name(void* args, char* name, uint8_t len);
 
 int luat_ble_set_max_mtu(void* args, uint16_t max_mtu);
-
-luat_ble_mode_t luat_ble_get_mode(void* args);
 
 // advertise
 int luat_ble_create_advertising(void* args, luat_ble_adv_cfg_t* adv_cfg);
@@ -334,10 +325,10 @@ int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_bl
 int luat_ble_uuid2handle(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint16_t* handle);
 
 // slaver
-int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t* data, uint16_t len);
-int luat_ble_write_indicate_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t* data, uint16_t len);
-int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t* data, uint16_t len);
-int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t** data, uint16_t* len);
+int luat_ble_write_notify_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_write_indicate_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_write_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t len);
+int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t *data, uint16_t* len);
 
 
 // master

@@ -197,15 +197,12 @@ end)
 */
 static int l_wlan_scan(lua_State* L){
     (void)L;
+    // TODO 对于没有wifi的Air8000模组, 要走自身的wifiscan
     #ifdef LUAT_USE_DRV_WLAN
-    #ifdef LUAT_USE_AIRLINK
-    if (luat_airlink_has_wifi()) {
-        luat_drv_wlan_scan();
-        return 0;
-    }
-    #endif
-    #endif
+    luat_drv_wlan_scan();
+    #else
     luat_wlan_scan();
+    #endif
     return 0;
 }
 

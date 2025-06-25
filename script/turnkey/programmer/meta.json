@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/offline_programmer",
+    "tags" : ["turnkey", "air101", "离线烧录器"],
+    "version" : "1.0.0",
+    "title" : "离线烧录器,当前支持对air101/air103刷机",
+    "files" : {
+        "." : "*"
+    },
+    "dependency" : ["uart"]
+}

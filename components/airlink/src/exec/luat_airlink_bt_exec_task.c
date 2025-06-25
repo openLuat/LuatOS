@@ -288,15 +288,15 @@ static void drv_bt_task(void *param) {
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY:
                 ret = drv_ble_write_notify(msg);
-                LLOGD("ble wrtite notify %d", ret);
+                LLOGD("ble write notify %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION:
                 ret = drv_ble_write_indication(msg);
-                LLOGD("ble wrtite indication %d", ret);
+                LLOGD("ble write indication %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_VALUE:
                 ret = drv_ble_write_value(msg);
-                LLOGD("ble wrtite value %d", ret);
+                LLOGD("ble write value %d", ret);
                 break;
                 
             // case LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP:

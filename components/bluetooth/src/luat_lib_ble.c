@@ -109,14 +109,6 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushinteger(L, read_req->handle);
         lua_settable(L, -3);
 
-        luat_ble_uuid_t uuid_service = {0};
-        luat_ble_uuid_t uuid_characteristic = {0};
-        luat_ble_uuid_t uuid_descriptor = {0};
-        luat_ble_handle2uuid(read_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
-        // LLOGD("service:0x%02X %d characteristic:0x%02X %d descriptor:0x%02X %d",
-        //     uuid_service.uuid[0]<<8|uuid_service.uuid[1],uuid_service.uuid_type,
-        //     uuid_characteristic.uuid[0]<<8|uuid_characteristic.uuid[1],uuid_characteristic.uuid_type,
-        //     uuid_descriptor.uuid[0]<<8|uuid_descriptor.uuid[1],uuid_descriptor.uuid_type);
         lua_pushliteral(L, "uuid_service");
         lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
         lua_settable(L, -3);

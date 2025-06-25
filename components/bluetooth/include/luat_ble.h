@@ -122,9 +122,10 @@ typedef enum{
     LUAT_BLE_EVENT_DISCONN,     // BLE断开连接
     LUAT_BLE_EVENT_GATT_DONE,     // BLE GATT
 
-    // WRITE
-    LUAT_BLE_EVENT_WRITE,       // BLE写数据
-    LUAT_BLE_EVENT_READ,        // BLE读数据
+    // WRITE/READ
+    LUAT_BLE_EVENT_WRITE,         // BLE从模式下，主设备写操作事件
+    LUAT_BLE_EVENT_READ,         // BLE从模式下，主设备读操作事件
+    LUAT_BLE_EVENT_READ_VALUE,      // BLE读value数据回调
 
     LUAT_BLE_EVENT_MAX,
 
@@ -233,8 +234,11 @@ typedef struct{
 
 typedef struct{
     uint16_t handle;       /**< The index of the attribute */
+    luat_ble_uuid_t uuid_service;
+    luat_ble_uuid_t uuid_characteristic;
+    luat_ble_uuid_t uuid_descriptor;
     uint8_t *value;         /**< The attribute value */
-    uint16_t len;           /**< The data length read */
+    uint16_t value_len;           /**< The data length read */
     uint16_t size;          /**< The size of attribute value to read */
 } luat_ble_read_req_t;
 
@@ -278,7 +282,7 @@ typedef struct{
     union {
         luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
-        // luat_ble_read_req_t read_req;
+        luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
         luat_ble_conn_ind_t conn_ind;
         luat_ble_disconn_ind_t disconn_ind;

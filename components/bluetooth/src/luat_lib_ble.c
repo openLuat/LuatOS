@@ -106,35 +106,42 @@ int l_ble_callback(lua_State *L, void *ptr)
         break;
     }
     case LUAT_BLE_EVENT_READ:
-    {
-        // luat_ble_read_req_t *read_req = &(param->read_req);
-        // lua_createtable(L, 0, 5);
-        // lua_pushliteral(L, "handle");
-        // lua_pushinteger(L, read_req->handle);
-        // lua_settable(L, -3);
+    case LUAT_BLE_EVENT_READ_VALUE:{
+        luat_ble_read_req_t *read_req = &(param->read_req);
+        lua_createtable(L, 0, 5);
+        lua_pushliteral(L, "handle");
+        lua_pushinteger(L, read_req->handle);
+        lua_settable(L, -3);
 
-        // luat_ble_uuid_t uuid_service = {0};
-        // luat_ble_uuid_t uuid_characteristic = {0};
-        // luat_ble_uuid_t uuid_descriptor = {0};
-        // luat_ble_handle2uuid(read_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
-        // // LLOGD("service:0x%02X %d characteristic:0x%02X %d descriptor:0x%02X %d",
-        // //     uuid_service.uuid[0]<<8|uuid_service.uuid[1],uuid_service.uuid_type,
-        // //     uuid_characteristic.uuid[0]<<8|uuid_characteristic.uuid[1],uuid_characteristic.uuid_type,
-        // //     uuid_descriptor.uuid[0]<<8|uuid_descriptor.uuid[1],uuid_descriptor.uuid_type);
-        // lua_pushliteral(L, "uuid_service");
-        // lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
-        // lua_settable(L, -3);
-        // lua_pushliteral(L, "uuid_characteristic");
-        // lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
-        // lua_settable(L, -3);
-        // if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0){
-        //     lua_pushliteral(L, "uuid_descriptor");
-        //     lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
-        //     lua_settable(L, -3);
-        // }
-
-        // lua_call(L, 3, 0);
-
+        luat_ble_uuid_t uuid_service = {0};
+        luat_ble_uuid_t uuid_characteristic = {0};
+        luat_ble_uuid_t uuid_descriptor = {0};
+        luat_ble_handle2uuid(read_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
+        // LLOGD("service:0x%02X %d characteristic:0x%02X %d descriptor:0x%02X %d",
+        //     uuid_service.uuid[0]<<8|uuid_service.uuid[1],uuid_service.uuid_type,
+        //     uuid_characteristic.uuid[0]<<8|uuid_characteristic.uuid[1],uuid_characteristic.uuid_type,
+        //     uuid_descriptor.uuid[0]<<8|uuid_descriptor.uuid[1],uuid_descriptor.uuid_type);
+        lua_pushliteral(L, "uuid_service");
+        lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
+        lua_settable(L, -3);
+        lua_pushliteral(L, "uuid_characteristic");
+        lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
+        lua_settable(L, -3);
+        if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0){
+            lua_pushliteral(L, "uuid_descriptor");
+            lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
+            lua_settable(L, -3);
+        }
+        if (evt == LUAT_BLE_EVENT_READ_VALUE){
+            lua_pushliteral(L, "data");
+            lua_pushlstring(L, (const char *)read_req->value, read_req->value_len);
+            lua_settable(L, -3);
+        }
+        lua_call(L, 3, 0);
+        if (read_req->value){
+            luat_heap_free(read_req->value);
+            read_req->value = NULL;
+        }
         break;
     }
     case LUAT_BLE_EVENT_SCAN_REPORT:
@@ -227,26 +234,20 @@ exit:
     return 0;
 }
 
-void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t *ble_param)
-{
+void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t *ble_param){
     // LLOGD("ble event: %d param: %p", ble_event, ble_param);
     luat_ble_param_t *luat_ble_param = NULL;
-    if (ble_param)
-    {
+    if (ble_param){
         // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
-        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len)
-        {
+        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len){
             luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.value_len);
             memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.value_len);
-        }
-        // else if (ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.value_len)
-        // {
-        //     LLOGD("ble read read_req value: %p", ble_param->read_req.value);
-        // }
-        else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len)
-        {
+        }else if (ble_event == LUAT_BLE_EVENT_READ_VALUE && ble_param->read_req.value_len){
+            luat_ble_param->read_req.value = luat_heap_malloc(ble_param->read_req.value_len);
+            memcpy(luat_ble_param->read_req.value, ble_param->read_req.value, ble_param->read_req.value_len);
+        }else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len){
             luat_ble_param->adv_req.data = luat_heap_malloc(ble_param->adv_req.data_len);
             memcpy(luat_ble_param->adv_req.data, ble_param->adv_req.data, ble_param->adv_req.data_len);
         }
@@ -1009,9 +1010,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_CONN", ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN", ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE", ROREG_INT(LUAT_BLE_EVENT_WRITE)},
-    {"EVENT_WRITE_REQ", ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ", ROREG_INT(LUAT_BLE_EVENT_READ)},
-    {"EVENT_READ_REQ", ROREG_INT(LUAT_BLE_EVENT_READ)},
+    {"EVENT_READ_VALUE", ROREG_INT(LUAT_BLE_EVENT_READ_VALUE)},
 
     // ADV_ADDR_MODE
     {"PUBLIC", ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},

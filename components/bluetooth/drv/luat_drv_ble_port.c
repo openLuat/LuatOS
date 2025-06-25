@@ -523,3 +523,7 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
     return -1;
 }
 
+int luat_ble_handle2uuid(uint16_t handle, luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor) {
+    LLOGE("not support yet -> luat_ble_handle2uuid");
+    return -1;
+}

@@ -20,12 +20,7 @@ log.style(1)
 
 注意:
 1. ONEWIRE功能支持在4个引脚使用, 但硬件通道只有一个, 默认是GPIO2
-2. 如需切换到其他脚, 参考如下切换逻辑, 选其中一种
-
-mcu.altfun(mcu.ONEWIRE, 0, 17, 4, 0) -- GPIO2, 也就是默认值
-mcu.altfun(mcu.ONEWIRE, 0, 18, 4, 0) -- GPIO3
-mcu.altfun(mcu.ONEWIRE, 0, 22, 4, 0) -- GPIO7
-mcu.altfun(mcu.ONEWIRE, 0, 53, 4, 0) -- GPIO28
+2. 如需切换到其他脚, 参考Air780EPM目录下的onewire_multi_18b20_swich_read
 ]]
 
 local function read_ds18b20(id)

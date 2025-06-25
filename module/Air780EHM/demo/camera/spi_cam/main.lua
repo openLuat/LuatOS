@@ -10,8 +10,7 @@ log.style(1)
 
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3000)
 
---  mcu.altfun(mcu.I2C, 0, 66, 2, nil)
---  mcu.altfun(mcu.I2C, 0, 67, 2, nil)
+
 
 gpio.setup(2,1)--GPIO2打开给camera_3.3V供电
 

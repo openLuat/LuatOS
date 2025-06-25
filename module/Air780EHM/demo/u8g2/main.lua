@@ -25,8 +25,6 @@ sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
 -- gpio.setup(14, nil) -- 关闭GPIO14,防止camera复用关系出问题
 -- gpio.setup(15, nil) -- 关闭GPIO15,防止camera复用关系出问题
 
--- mcu.altfun(mcu.I2C, 4, 67, 3, nil)
--- mcu.altfun(mcu.I2C, 4, 66, 3, nil)
 
 local rtos_bsp = rtos.bsp()
 

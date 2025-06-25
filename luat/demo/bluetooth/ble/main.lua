@@ -8,29 +8,31 @@ sys = require("sys")
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
--- characteristic handle
-local characteristic1,characteristic2,characteristic3,characteristic4
-
 local att_db = {--Service
         string.fromHex("FA00"),             --Service UUID
         -- Characteristic
         { -- Characteristic 1
-            string.fromHex("EA01"),         -- Characteristic UUID Value
+            0xEA01,                         -- Characteristic UUID Value
             ble.NOTIFY|ble.READ|ble.WRITE,  -- Properties
+            string.fromHex("1234")          -- Value
+
         },
         { -- Characteristic 2
-            string.fromHex("EA02"),
+            0xEA02,
             ble.WRITE,
         },
         { -- Characteristic 3
-            string.fromHex("EA03"),
+            0xEA03,
             ble.READ,
+            string.fromHex("5678")
         },
         { -- Characteristic 4
-            string.fromHex("EA04"),
-            ble.READ|ble.WRITE,
+            0xEA04,
+            ble.NOTIFY|ble.READ|ble.WRITE,
         },
     }
+
+local scan_count = 0
 
 local function ble_callback(ble_device, ble_event, ble_param)
     if ble_event == ble.EVENT_CONN then
@@ -40,10 +42,28 @@ local function ble_callback(ble_device, ble_event, ble_param)
         -- 1秒后重新开始广播
         sys.timerStart(function() ble_device:adv_start() end, 1000)
     elseif ble_event == ble.EVENT_WRITE then
-        log.info("ble", "write", ble_param.conn_idx,ble_param.service_id,ble_param.handle,ble_param.data:toHex())
-    elseif ble_event == ble.EVENT_READ then
-        log.info("ble", "read", ble_param.conn_idx,ble_param.service_id,ble_param.handle)
-        ble_device:read_response(ble_param,string.fromHex("1234"))
+        log.info("ble", "write", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex())
+        log.info("ble", "data", ble_param.data:toHex())
+        -- ble_device:write_notify(ble_param,string.fromHex("123456"))
+    elseif ble_event == ble.EVENT_READ_VALUE then
+        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data:toHex(),ble_param.data)
+    elseif ble_event == ble.EVENT_SCAN_REPORT then
+        print("ble scan report",ble_param.addr_type,ble_param.rssi,ble_param.adv_addr:toHex(),ble_param.data:toHex(),ble_param.data)
+        scan_count = scan_count + 1
+        if scan_count > 20 then
+            ble_device:scan_stop()
+        end
+        if ble_param.addr_type == 0 and ble_param.data:find("LuatOS") then
+            ble_device:scan_stop()
+            ble_device:connect(ble_param.adv_addr,ble_param.addr_type)
+        end
+    elseif ble_event == 14 then
+
+        local characteristic = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA02")}
+        ble_device:write_value(characteristic,string.fromHex("1234"))
+
+        local characteristic = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA03")}
+        ble_device:read_value(characteristic)
     end
 end
 
@@ -54,9 +74,9 @@ sys.taskInit(function()
     log.info("初始化BLE功能")
     ble_device = bluetooth_device:ble(ble_callback)
 
+    -- slaver
     log.info('开始创建GATT')
-    characteristic1,characteristic2,characteristic3,characteristic4 = ble_device:gatt_create(att_db)
-    log.info("创建的GATT为",characteristic1,characteristic2,characteristic3,characteristic4)
+    ble_device:gatt_create(att_db)
 
     log.info("开始设置广播内容")
     ble_device:adv_create({
@@ -69,12 +89,16 @@ sys.taskInit(function()
             {ble.COMPLETE_LOCAL_NAME, "LuatOS"},
             {ble.SERVICE_DATA, string.fromHex("FE01")},
             {ble.MANUFACTURER_SPECIFIC_DATA, string.fromHex("05F0")},
-        }
+        },
     })
-
     log.info("开始广播")
     ble_device:adv_start()
     -- ble_device:adv_stop()
+
+    -- master
+    -- ble_device:scan_create({})
+    -- ble_device:scan_start()
+    -- -- ble_device:scan_stop()
 
     while 1 do
         sys.wait(1000)

@@ -126,10 +126,6 @@ int l_ble_callback(lua_State *L, void *ptr)
             lua_settable(L, -3);
         }
         lua_call(L, 3, 0);
-        if (read_req->value){
-            luat_heap_free(read_req->value);
-            read_req->value = NULL;
-        }
         break;
     }case LUAT_BLE_EVENT_SCAN_REPORT:{
         luat_ble_adv_req_t *adv_req = &(param->adv_req);
@@ -207,15 +203,20 @@ exit:
     {
         if (param->write_req.value)
         {
-            LLOGD("free write_req.value %p", param->write_req.value);
+            // LLOGD("free write_req.value %p", param->write_req.value);
             luat_heap_free(param->write_req.value);
             param->write_req.value = NULL;
         }
         if (param->adv_req.data)
         {
-            LLOGD("free adv_req.data %p", param->adv_req.data);
+            // LLOGD("free adv_req.data %p", param->adv_req.data);
             luat_heap_free(param->adv_req.data);
             param->adv_req.data = NULL;
+        }
+        if (param->read_req.value){
+            // LLOGD("free read_req.value %p", param->read_req.value);
+            luat_heap_free(param->read_req.value);
+            param->read_req.value = NULL;
         }
         luat_heap_free(param);
         param = NULL;

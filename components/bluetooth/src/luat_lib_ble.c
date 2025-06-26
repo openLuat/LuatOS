@@ -163,7 +163,7 @@ int l_ble_callback(lua_State *L, void *ptr)
             for (size_t m = 0; m < characteristics_num; m++){
                 luat_ble_gatt_chara_t *gatt_chara = &gatt_service->characteristics[m];
                 lua_newtable(L);
-                lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_service->uuid_type);
+                lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_chara->uuid_type);
                 lua_seti(L, -2, 1);
                 // Properties
                 lua_pushnumber(L, gatt_chara->perm);

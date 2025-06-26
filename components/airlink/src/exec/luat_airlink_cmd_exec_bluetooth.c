@@ -51,6 +51,7 @@ int luat_airlink_cmd_exec_bt_request(luat_airlink_cmd_t *cmd, void *userdata)
 
 
 extern luat_ble_cb_t g_drv_ble_cb;
+static luat_ble_gatt_service_t* s_gatts[16];
 
 int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
     if (cmd->len < 10) {
@@ -92,15 +93,16 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
         }
         else if (event == LUAT_BLE_EVENT_GATT_DONE) {
             LLOGI("gatt done, gatt len %d, unpack now", param->gatt_done_ind.gatt_service_num);
-            param->gatt_done_ind.gatt_service = luat_heap_malloc(sizeof(luat_ble_gatt_service_t) * param->gatt_done_ind.gatt_service_num);
-            if (param->gatt_done_ind.gatt_service == NULL) {
-                LLOGE("out of memory when malloc gatt service");
-                return 0;
-            }
+            
+            param->gatt_done_ind.gatt_service = s_gatts;
             for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
             {
-                luat_ble_gatt_unpack(&param->gatt_done_ind.gatt_service[i], msg->data + offset, &tmplen);
-                LLOGI("gatt service %d unpacked, len %d", i, tmplen);
+                if (param->gatt_done_ind.gatt_service[i] == NULL) {
+                    param->gatt_done_ind.gatt_service[i] = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+                }
+                // TODO 这个函数还是会有内存泄露的情况
+                luat_ble_gatt_unpack(param->gatt_done_ind.gatt_service[i], msg->data + offset, &tmplen);
+                // LLOGI("gatt service %d unpacked, len %d", i, tmplen);
                 if (tmplen == 0) {
                     break;
                 }
@@ -175,19 +177,20 @@ int luat_ble_gatt_unpack(luat_ble_gatt_service_t* gatt, uint8_t* data, size_t* l
     memcpy(&num_of_gatt_srv, data + 4, 2);
     memcpy(&sizeof_gatt_desc, data + 6, 2);
     // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
-    // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
+    // LLOGD("sizeof(luat_ble_gatt_chara_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
     offset = 8;
     
     memcpy(gatt, data + offset, sizeof(luat_ble_gatt_service_t));
     offset += sizeof(luat_ble_gatt_service_t);
+    // LLOGD("Gatt uuid_type %d uuid %02X%02X", gatt->uuid_type, gatt->uuid[0], gatt->uuid[1]);
 
-    LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
+    // LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
     gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
         memcpy(&gatt->characteristics[i], data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
         if (gatt->characteristics[i].descriptors_num) {
-            LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
+            // LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
             gatt->characteristics[i].descriptor = luat_heap_malloc(gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
         }
         offset += sizeof(luat_ble_gatt_chara_t);

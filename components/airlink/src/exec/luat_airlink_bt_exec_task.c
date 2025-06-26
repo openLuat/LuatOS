@@ -69,16 +69,18 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         else if (LUAT_BLE_EVENT_GATT_DONE == event) {
             // TODO 这个操作就比较复杂了
             // 需要将gatt的内容全部拷贝到ptr中
-            LLOGI("gatt done, gatt len %d, pack now", param->gatt_done_ind.gatt_service_num);
+            // LLOGI("gatt done, gatt len %d, pack now", param->gatt_done_ind.gatt_service_num);
             for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
             {
                 gatt = param->gatt_done_ind.gatt_service[i];
+                // LLOGD("gatt service %02X%02X", gatt->uuid[0], gatt->uuid[1]);
                 len = 0;
                 luat_ble_gatt_pack(gatt, ptr + offset, &len);
                 if (len == 0) {
                     LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
                     break;
                 }
+                // LLOGD("gatt service pack %d/%d", len, offset);
                 offset += len;
             }
             // return;

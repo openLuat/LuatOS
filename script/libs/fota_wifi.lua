@@ -1,14 +1,12 @@
--- fota_wifi.lua
+--[[
 -- @module fota_wifi
 -- @summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
 -- @version 1.0.1
 -- @date    2025.6.26
 -- @author  tuoyiheng
 -- @usage
---[[
-注：使用时在创建的一个task处理函数中直接调用fota_wifi.request()即可开始执行WiFi升级任务
-
-用法实例:
+--注：使用时在创建的一个task处理函数中直接调用fota_wifi.request()即可开始执行WiFi升级任务
+--用法实例
 local fota_wifi = require("fota_wifi")
 
 local function wifi_fota_task_func()
@@ -27,17 +25,7 @@ end
 -- 两种调用方式均可，任选其一
 -- sys.taskInit(wifi_fota_task_func)
 sysplus.taskInitEx(wifi_fota_task_func, "wifi_fota_task")
-
 ]]
-
-
--- local sys = require "sys"
--- local http = require "http"
--- local json = require "json"
--- local airlink = require "airlink"
--- local mobile = require "mobile"
--- local hmeta = require "hmeta"
-
 local fota_wifi = {}
 local is_request = false -- 标记是否正在执行request任务
 local fota_result = false -- 记录fota任务的执行结果
@@ -127,7 +115,7 @@ local function download_file(url)
         if io.exists(file_path) then
             os.remove(file_path)
         end
-        
+
     end
     return nil
 end
@@ -149,7 +137,19 @@ local function fota_start(file_path)
     end
 end
 
--- WIFI升级
+--[[
+Air8000系列模组自动升级wifi
+@api fota_wifi.request()
+@number 挂载ina226的i2c总线id
+@return bool 成功返回true
+@usage
+local result = fota_wifi.request()
+if result then
+    log.info("fota_wifi", "升级任务执行成功")
+else
+    log.info("fota_wifi", "升级任务执行失败")
+end
+]]
 function fota_wifi.request()
     if is_request then
         log.warn("fota_wifi", "升级任务正在执行中，请勿重复调用")

@@ -263,11 +263,8 @@ local att_db = { -- Service
     -- Characteristic
     { -- Characteristic 1
         string.fromHex("EA01"), -- Characteristic UUID Value, 特征的UUID值, 可以是16位、32位或128位
-        ble.NOTIFY | ble.READ | ble.WRITE -- Properties, 对应蓝牙特征的属性, 可以是以下值的组合:
-        -- ble.READ: 可读
-        -- ble.WRITE: 可写
-        -- ble.NOTIFY: 可通知
-        -- ble.INDICATE: 可指示
+        ble.NOTIFY | ble.READ | ble.WRITE -- Properties, 对应蓝牙特征的属性, 参考权限常量
+        string.fromHex("1234"), -- 默认value
     }
 }
 ble_device:gatt_create(att_db)
@@ -878,7 +875,8 @@ end_error:
     return 0;
 }
 
-/*创建一个BLE扫描
+/*
+创建一个BLE扫描
 @api ble.scan_create(addr_mode, scan_interval, scan_window)
 @number addr_mode 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
 @number scan_interval 扫描间隔, 单位为0.625ms, 最小值为20, 最大值为10240
@@ -1039,9 +1037,9 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_GATT_DONE", ROREG_INT(LUAT_BLE_EVENT_GATT_DONE)},
 
     // ADV_ADDR_MODE
-    // @const PUBLIC 控制器的公共地址
+    //@const PUBLIC 控制器的公共地址
     {"PUBLIC", ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},
-    // @const RANDOM 生成的静态地址
+    //@const RANDOM 生成的静态地址
     {"RANDOM", ROREG_INT(LUAT_BLE_ADDR_MODE_RANDOM)},
     {"RPA", ROREG_INT(LUAT_BLE_ADDR_MODE_RPA)},
     {"NRPA", ROREG_INT(LUAT_BLE_ADDR_MODE_NRPA)},
@@ -1059,10 +1057,13 @@ static const rotable_Reg_t reg_ble[] = {
     // Permission
     //@const READ 读权限
     {"READ", ROREG_INT(LUAT_BLE_GATT_PERM_READ)},
-    //@const READ 写权限
+    //@const WRITE 写权限
     {"WRITE", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE)},
+    //@const IND 指示权限
     {"IND", ROREG_INT(LUAT_BLE_GATT_PERM_IND)},
+    //@const NOTIFY 通知权限
     {"NOTIFY", ROREG_INT(LUAT_BLE_GATT_PERM_NOTIFY)},
+    //@const WRITE_CMD 写权限(无需确认)
     {"WRITE_CMD", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE_CMD)},
 
     // FLAGS

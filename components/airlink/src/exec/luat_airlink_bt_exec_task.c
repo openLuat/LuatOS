@@ -237,15 +237,23 @@ static int drv_ble_connect(luat_drv_ble_msg_t *msg) {
     return luat_ble_connect(NULL, &conn);
 }
 
-// static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {
-//     // 从数据中解析出参数, 重新组装
-//     luat_ble_rw_req_t write = {0};
-//     uint16_t sizeof_write = 0;
-//     memcpy(&sizeof_write, msg->data, 2);
-//     memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
-//     LLOGD("ble send read resp len %d", write.len);
-//     return luat_ble_read_response_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
-// }
+static int drv_ble_read_value(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble read len %d", write.len);
+    uint8_t* value = NULL;
+    int ret = 0;
+    if (write.descriptor.uuid_type) {
+        ret = luat_ble_read_value(&write.service, &write.characteristic, &write.descriptor, &value, write.len);
+    }
+    else {
+        ret = luat_ble_read_value(&write.service, &write.characteristic, NULL, &value, write.len);
+    }
+    return ret;
+}
 
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
@@ -353,7 +361,10 @@ static void drv_bt_task(void *param) {
                 ret = luat_ble_disconnect(NULL);
                 LLOGD("ble disconnect %d", ret);
                 break;
-
+            case LUAT_DRV_BT_CMD_BLE_READ_VALUE:
+                ret = drv_ble_read_value(msg);
+                LLOGD("ble read value %d", ret);
+                break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);
                 break;

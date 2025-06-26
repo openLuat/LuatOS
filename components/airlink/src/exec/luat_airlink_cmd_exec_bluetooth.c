@@ -69,7 +69,7 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
         luat_ble_event_t event = (luat_ble_event_t)tmp;
         luat_ble_param_t* param = luat_heap_malloc(sizeof(luat_ble_param_t));
         memcpy(param, msg->data + 4, sizeof(luat_ble_param_t));
-        // LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
+        LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
         // param->write_req.value = NULL;
         // param->adv_req.data = NULL;
         // param->read_req.value = NULL;

@@ -24,18 +24,21 @@ local function ble_callback(ble_device, ble_event, ble_param)
     if ble_event == ble.EVENT_CONN then
         log.info("ble", "connect 成功")
     elseif ble_event == ble.EVENT_DISCONN then
-        log.info("ble", "disconnect 完成")
+        log.info("ble", "disconnect", ble_param.reason)
+        sys.timerStart(function() ble_device:scan_start() end, 1000)
     elseif ble_event == ble.EVENT_WRITE then
         log.info("ble", "write", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex())
         log.info("ble", "data", ble_param.data:toHex())
-        -- ble_device:write_notify(ble_param,string.fromHex("123456"))
     elseif ble_event == ble.EVENT_READ_VALUE then
-        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data:toHex(),ble_param.data)
+        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data:toHex())
     elseif ble_event == ble.EVENT_SCAN_REPORT then
         print("ble scan report",ble_param.addr_type,ble_param.rssi,ble_param.adv_addr:toHex(),ble_param.data:toHex())
         scan_count = scan_count + 1
         if scan_count > 100 then
+            log.info("ble", "扫描次数超过100次, 停止扫描, 15秒后重新开始")
+            scan_count = 0
             ble_device:scan_stop()
+            sys.timerStart(function() ble_device:scan_start() end, 15000)
         end
         -- 注意, 这里是连接到另外一个设备, 设备名称带LuatOS字样
         if ble_param.addr_type == 0 and ble_param.data:find("LuatOS") then

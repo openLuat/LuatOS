@@ -22,49 +22,6 @@
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
 
-#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
-int luat_ble_gatt_unpack(luat_ble_gatt_service_t* gatt, uint8_t* data, size_t* len) {
-    size_t offset = 0;
-    uint16_t sizeof_gatt = 0;
-    uint16_t sizeof_gatt_chara = 0;
-    uint16_t num_of_gatt_srv = 0;
-    uint16_t sizeof_gatt_desc = 0;
-    memcpy(&sizeof_gatt, data, 2);
-    memcpy(&sizeof_gatt_chara, data + 2, 2);
-    memcpy(&num_of_gatt_srv, data + 4, 2);
-    memcpy(&sizeof_gatt_desc, data + 6, 2);
-    // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
-    // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
-    offset = 8;
-    
-    memcpy(gatt, data + offset, sizeof(luat_ble_gatt_service_t));
-    offset += sizeof(luat_ble_gatt_service_t);
-
-    LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
-    gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
-    for (size_t i = 0; i < gatt->characteristics_num; i++)
-    {
-        memcpy(&gatt->characteristics[i], data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
-        if (gatt->characteristics[i].descriptors_num) {
-            LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
-            gatt->characteristics[i].descriptor = luat_heap_malloc(gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
-        }
-        offset += sizeof(luat_ble_gatt_chara_t);
-    }
-    for (size_t i = 0; i < gatt->characteristics_num; i++)
-    {
-        if (gatt->characteristics[i].descriptors_num) {
-            memcpy(gatt->characteristics[i].descriptor, data + offset, gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
-        }
-        offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
-    }
-    if (len) {
-        *len = offset;
-    }
-    return 0;
-}
-#endif
-
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 
 static luat_rtos_queue_t evt_queue;
@@ -88,28 +45,43 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
     msg->cmd_id = LUAT_DRV_BT_CMD_BLE_EVENT_CB;
 
     uint32_t tmp = event;
+    size_t offset = 0;
+    size_t len = 0;
+    luat_ble_gatt_service_t* gatt = NULL;
     memcpy(ptr, &tmp, 4);
     if (param) {
         // LLOGD("param %p", param);
+        offset = 4 + sizeof(luat_ble_param_t);
         if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
+            memcpy(ptr + offset, param->adv_req.data, param->adv_req.data_len);
         }
         else if (LUAT_BLE_EVENT_READ == event) {
             // 请求读, 这个事件仅能通知lua, .value的数据是要被写入的, 不是被读
         }
         else if (LUAT_BLE_EVENT_READ_VALUE == event && param->read_req.value && param->read_req.value_len > 0) {
             LLOGD("read resp value %d %p", param->read_req.value_len, param->read_req.value);
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->read_req.value, param->read_req.value_len);
+            memcpy(ptr + offset, param->read_req.value, param->read_req.value_len);
         }
         else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
             LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.value_len);
+            memcpy(ptr + offset, param->write_req.value, param->write_req.value_len);
         }
         else if (LUAT_BLE_EVENT_GATT_DONE == event) {
             // TODO 这个操作就比较复杂了
             // 需要将gatt的内容全部拷贝到ptr中
-            LLOGI("gatt done, gatt len %d, event drop now", param->gatt_done_ind.gatt_service_num);
-            return;
+            LLOGI("gatt done, gatt len %d, pack now", param->gatt_done_ind.gatt_service_num);
+            for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
+            {
+                gatt = param->gatt_done_ind.gatt_service[i];
+                len = 0;
+                luat_ble_gatt_pack(gatt, ptr + offset, &len);
+                if (len == 0) {
+                    LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
+                    break;
+                }
+                offset += len;
+            }
+            // return;
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }

@@ -10,9 +10,9 @@
 #include "luat_airlink.h"
 
 #if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
-#include "luat_drv_ble.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+#include "luat_drv_ble.h"
 #endif
 
 #include "luat_mem.h"
@@ -21,6 +21,49 @@
 
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
+
+#if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
+int luat_ble_gatt_unpack(luat_ble_gatt_service_t* gatt, uint8_t* data, size_t* len) {
+    size_t offset = 0;
+    uint16_t sizeof_gatt = 0;
+    uint16_t sizeof_gatt_chara = 0;
+    uint16_t num_of_gatt_srv = 0;
+    uint16_t sizeof_gatt_desc = 0;
+    memcpy(&sizeof_gatt, data, 2);
+    memcpy(&sizeof_gatt_chara, data + 2, 2);
+    memcpy(&num_of_gatt_srv, data + 4, 2);
+    memcpy(&sizeof_gatt_desc, data + 6, 2);
+    // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_service_t), sizeof_gatt);
+    // LLOGD("sizeof(luat_ble_gatt_service_t) = %d act %d", sizeof(luat_ble_gatt_chara_t), sizeof_gatt_chara);
+    offset = 8;
+    
+    memcpy(gatt, data + offset, sizeof(luat_ble_gatt_service_t));
+    offset += sizeof(luat_ble_gatt_service_t);
+
+    LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
+    gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        memcpy(&gatt->characteristics[i], data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));
+        if (gatt->characteristics[i].descriptors_num) {
+            LLOGD("gatt->characteristics[%d].descriptors_num %d", i, gatt->characteristics[i].descriptors_num);
+            gatt->characteristics[i].descriptor = luat_heap_malloc(gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
+        }
+        offset += sizeof(luat_ble_gatt_chara_t);
+    }
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        if (gatt->characteristics[i].descriptors_num) {
+            memcpy(gatt->characteristics[i].descriptor, data + offset, gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t));
+        }
+        offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
+    }
+    if (len) {
+        *len = offset;
+    }
+    return 0;
+}
+#endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH
 
@@ -65,6 +108,8 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         else if (LUAT_BLE_EVENT_GATT_DONE == event) {
             // TODO 这个操作就比较复杂了
             // 需要将gatt的内容全部拷贝到ptr中
+            LLOGI("gatt done, gatt len %d, event drop now", param->gatt_done_ind.gatt_service_num);
+            return;
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }
@@ -75,11 +120,16 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
 
 static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     // 从数据中解析出参数, 重新组装
+    int ret = 0;
+    size_t rlen = 0;
     luat_ble_gatt_service_t* gatt = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
     if (gatt == NULL) {
         LLOGE("out of memory when malloc gatt");
         return -1;
     }
+    #if 1
+    luat_ble_gatt_unpack(gatt, msg->data, &rlen);
+    #else
     size_t offset = 0;
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
@@ -114,8 +164,9 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
         }
         offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
     }
-
-    return luat_ble_create_gatt(NULL, gatt);
+    #endif
+    ret = luat_ble_create_gatt(NULL, gatt);
+    return ret;
 }
 
 static int drv_adv_create(luat_drv_ble_msg_t *msg) {

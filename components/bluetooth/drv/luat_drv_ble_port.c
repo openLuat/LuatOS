@@ -11,18 +11,18 @@ uint32_t reserved; // 保留字段, 目前都是0
 // 然后是命令自身的数据
 */
 #include "luat_base.h"
-#include "luat_drv_ble.h"
 #include "luat_airlink.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+#include "luat_drv_ble.h"
 
 #define LUAT_LOG_TAG "drv.ble"
 #include "luat_log.h"
 
 luat_ble_cb_t g_drv_ble_cb;
 
-#undef LLOGD
-#define LLOGD(...)
+// #undef LLOGD
+// #define LLOGD(...)
 
 // 读取wifi固件版本, 控制API适配状态
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
@@ -236,15 +236,61 @@ int luat_ble_delete_advertising(void* args) {
 }
 
 
+int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len) {
+    uint16_t descriptor_totalNum = 0;
+    for (size_t i = 0; i < gatt->characteristics_num; i++) {
+        descriptor_totalNum += gatt->characteristics[i].descriptors_num;
+        LLOGD("统计GATT描述符数量 %d/%d", gatt->characteristics[i].descriptors_num, descriptor_totalNum);
+    }
+    uint16_t tmp = 0;
+
+    tmp = sizeof(luat_ble_gatt_service_t);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t), &tmp, 2);
+    // 然后是luat_ble_gatt_chara_t的大小
+    tmp = sizeof(luat_ble_gatt_chara_t);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2, &tmp, 2);
+    // 然后是服务id的数量
+    tmp = gatt->characteristics_num;
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2, &tmp, 2);
+    // 然后是luat_ble_gatt_descriptor_t的大小
+    tmp = sizeof(luat_ble_gatt_descriptor_t);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2 + 2, &tmp, 2);
+
+    // 头部拷贝完成, 拷贝数据
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8, gatt, sizeof(luat_ble_gatt_service_t));
+    // 然后是服务id
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t), 
+        gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
+    
+    for (size_t i = 0; i < gatt->characteristics_num; i++)
+    {
+        uint8_t descriptor_num = gatt->characteristics[i].descriptors_num;
+        // 然后是描述符id
+        memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
+        gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
+    }
+    if (_len) {
+        // 如果有传入len, 则返回实际长度
+        *_len = 8
+                + sizeof(luat_ble_gatt_service_t) 
+                + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t)
+                + descriptor_totalNum * sizeof(luat_ble_gatt_descriptor_t);
+    }
+    return 0;
+}
+
 // gatt
 int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
-    LLOGD("执行luat_ble_create_gatt");
+    LLOGD("执行luat_ble_create_gatt %d", gatt->characteristics_num);
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
     int ret = 0;
 
     uint16_t descriptor_totalNum = 0;
-    for (size_t i = 0; i < gatt->characteristics_num; i++) { descriptor_totalNum += gatt->characteristics[i].descriptors_num; }
+    for (size_t i = 0; i < gatt->characteristics_num; i++) {
+        descriptor_totalNum += gatt->characteristics[i].descriptors_num;
+        LLOGD("统计GATT描述符数量 %d/%d", gatt->characteristics[i].descriptors_num, descriptor_totalNum);
+    }
 
     airlink_queue_item_t item = {
         .len = sizeof(luat_airlink_cmd_t) 
@@ -259,37 +305,48 @@ int luat_ble_create_gatt(void* args, luat_ble_gatt_service_t* gatt) {
         goto cleanup;
     }
     
+    // 数据部分
+    uint8_t ptr[1024] = {0};
+
     luat_drv_ble_msg_t msg = { .id = seq};
     msg.cmd_id = LUAT_DRV_BT_CMD_BLE_GATT_CREATE;
-    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+    memcpy(ptr, &msg, sizeof(luat_drv_ble_msg_t));
     
-    // 数据部分
-    // 首先是luat_ble_gatt_service_t结构的大小
+    // LLOGD("ptr %p cmd %p cmd->data %p", ptr, cmd + 1, cmd->data);
+    #if 1
+    luat_ble_gatt_pack(gatt, ptr, NULL);
+    // luat_airlink_hexdump("GATT_A1", cmd->data, cmd->len);
+    #else
     tmp = sizeof(luat_ble_gatt_service_t);
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t), &tmp, 2);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t), &tmp, 2);
     // 然后是luat_ble_gatt_chara_t的大小
     tmp = sizeof(luat_ble_gatt_chara_t);
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2, &tmp, 2);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2, &tmp, 2);
     // 然后是服务id的数量
     tmp = gatt->characteristics_num;
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2 + 2, &tmp, 2);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2, &tmp, 2);
     // 然后是luat_ble_gatt_descriptor_t的大小
     tmp = sizeof(luat_ble_gatt_descriptor_t);
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 2 + 2 + 2, &tmp, 2);
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 2 + 2 + 2, &tmp, 2);
 
     // 头部拷贝完成, 拷贝数据
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8, gatt, sizeof(luat_ble_gatt_service_t));
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8, gatt, sizeof(luat_ble_gatt_service_t));
     // 然后是服务id
-    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t), 
+    memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t), 
         gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
     
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
         uint8_t descriptor_num = gatt->characteristics[i].descriptors_num;
         // 然后是描述符id
-        memcpy(cmd->data + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
+        memcpy(ptr + sizeof(luat_drv_ble_msg_t) + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
         gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
     }
+    #endif
+    memcpy(cmd->data, ptr, cmd->len);
+    // LLOGD("----> %s %s", __DATE__, __TIME__);
+
+    // luat_airlink_hexdump("GATT_A2", cmd->data, cmd->len);
 
     item.cmd = cmd;
 
@@ -573,3 +630,8 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
     LLOGE("not support yet -> luat_ble_read_value");
     return -1;
 }
+
+/*
+040000000000000004000000000000001C00280004002000FA00000000000000000000000000000002000000C441130C040000000000EA01000000000000000000000000000002005800000100000000000000007842130C010000000000EA020000000000000000000000000000020010000001000000000000000000000000000000000000EA030000000000000000000000000000020008000001000000000000000000000000000000000000EA0400000000000000000000000000000200280000010000000000000000000000000000000000002902000000000000000000000000000002000000000000000000000000000000000000000000
+040000000000000004000000000000001C00280004002000FA00000000000000000000000000000002000000CC480F0C040000000000EA010000000000000000000000000000020058000001000000000000000080490F0C010000000000EA020000000000000000000000000000020010000001000000000000000000000000000000000000EA030000000000000000000000000000020008000001000000000000000000000000000000000000EA0400000000000000000000000000000200280000010000000000000000000000000000000000002902000000000000000000000000000002000000000000000000000000000000000000000000
+*/

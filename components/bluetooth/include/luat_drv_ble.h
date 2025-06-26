@@ -46,4 +46,9 @@ enum {
 int luat_drv_bt_task_start(void);
 int luat_drv_bt_msg_send(luat_drv_ble_msg_t *msg);
 
+
+int luat_ble_gatt_pack(luat_ble_gatt_service_t *gatt, uint8_t *data, size_t *len);
+
+int luat_ble_gatt_unpack(luat_ble_gatt_service_t *gatt, uint8_t *data, size_t *len);
+
 #endif

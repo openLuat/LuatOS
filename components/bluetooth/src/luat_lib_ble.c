@@ -433,7 +433,7 @@ ble_device:adv_create({
     channel_map = ble.CHNLS_ALL, -- 广播的通道, 可选值: ble.CHNLS_37, ble.CHNLS_38, ble.CHNLS_39, ble.CHNLS_ALL
     intv_min = 120, -- 广播间隔最小值, 单位为0.625ms, 最小值为20, 最大值为10240
     intv_max = 120, -- 广播间隔最大值, 单位为0.625ms, 最小值为20, 最大值为10240
-    adv_data = {
+    adv_data = { -- 支持表格形式, 也支持字符串形式(255字节以内)
         {ble.FLAGS, string.char(0x06)},
         {ble.COMPLETE_LOCAL_NAME, "LuatOS123"}, -- 广播的设备名
         {ble.SERVICE_DATA, string.fromHex("FE01")}, -- 广播的服务数据
@@ -525,6 +525,20 @@ static int l_ble_advertising_create(lua_State *L){
             }
             lua_pop(L, 1);
         }
+    }
+    else if (lua_isstring(L, -1)){
+        // 字符串形式
+        const char *data = luaL_checklstring(L, -1, &len);
+        if (len > 255) {
+            LLOGE("adv_data too long, max length is 255");
+            goto end;
+        }
+        memcpy(adv_data, data, len);
+        adv_index = len;
+    }
+    else {
+        LLOGE("error adv_data type");
+        goto end;
     }
     lua_pop(L, 1);
 

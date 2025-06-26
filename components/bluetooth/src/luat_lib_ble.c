@@ -876,6 +876,69 @@ end_error:
 }
 
 /*
+开关监听
+@api ble.notify_enable(opts, value)
+@table 特征值的描述信息
+@boolean enable 开/关 可选,默认开
+@return boolean 是否成功
+@usage
+-- 写入特征值,填充预设值,被动读取
+ble_device:notify_enable({
+    uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
+    uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
+}, true) -- 开/关
+*/
+static int l_ble_notify_enable(lua_State *L){
+    uint16_t ret = 0;
+    const char *service_uuid = NULL;
+    const char *characteristic_uuid = NULL;
+    luat_ble_uuid_t service = {0};
+    luat_ble_uuid_t characteristic = {0};
+    size_t tmp = 0;
+    if (1){
+        uint8_t enable = 1;
+        if (lua_isboolean(L, 3)) {
+            enable = lua_toboolean(L, 3);
+        }
+
+        lua_pushstring(L, "uuid_service");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            service_uuid = luaL_checklstring(L, -1, &tmp);
+            service.uuid_type = tmp;
+            memcpy(service.uuid, service_uuid, service.uuid_type);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_service 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "uuid_characteristic");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            characteristic_uuid = luaL_checklstring(L, -1, &tmp);
+            characteristic.uuid_type = tmp;
+            memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_characteristic 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        ret = luat_ble_notify_enable(&service, &characteristic, enable);
+        
+        // LLOGD("luat_ble_write_value ret %d", ret);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
+    return 0;
+}
+
+/*
 创建一个BLE扫描
 @api ble.scan_create(addr_mode, scan_interval, scan_window)
 @number addr_mode 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
@@ -1007,7 +1070,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"write_indicate", ROREG_FUNC(l_ble_write_indicate)},
     {"write_value", ROREG_FUNC(l_ble_write_value)},
     {"read_value", ROREG_FUNC(l_ble_read_value)},
-    
+
+    {"notify_enable", ROREG_FUNC(l_ble_notify_enable)},
     // scanning
     {"scan_create", ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start", ROREG_FUNC(l_ble_scanning_start)},

@@ -345,7 +345,7 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
 
 
 // master
-int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t enable);
+int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, uint8_t enable);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);

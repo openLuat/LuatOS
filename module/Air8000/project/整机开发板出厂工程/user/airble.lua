@@ -52,7 +52,7 @@ local function ble_callback(dev, evt, param)
         ble_flag = false
         -- 1秒后重新开始广播
         sys.timerStart(function() dev:adv_start() end, 1000)
-    elseif evt == ble.EVENT_WRITE_REQ then
+    elseif evt == ble.EVENT_WRITE then
         -- 收到写请求
         ble_state = "接收到写请求"
         log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.data:toHex(),param.uuid_characteristic:toHex())

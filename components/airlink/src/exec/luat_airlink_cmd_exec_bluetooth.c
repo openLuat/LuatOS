@@ -60,15 +60,18 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
     if (g_drv_ble_cb == NULL) {
         return -101;
     }
+    uint32_t tmp = 0;
+    size_t offset = 4 + sizeof(luat_ble_param_t);
+    size_t tmplen = 0;
+    luat_ble_gatt_service_t* gatt;
+    luat_ble_gatt_chara_t* gatt_chara;
+    luat_ble_gatt_descriptor_t* gatt_chara_desc;
     luat_drv_ble_msg_t* msg = (luat_drv_ble_msg_t *)(cmd->data);
     if (msg->cmd_id == LUAT_DRV_BT_CMD_BLE_EVENT_CB) {
-        uint32_t tmp = 0;
-        size_t offset = 4 + sizeof(luat_ble_param_t);
-        size_t tmplen = 0;
         memcpy(&tmp, msg->data, 4);
         luat_ble_event_t event = (luat_ble_event_t)tmp;
-        luat_ble_param_t* param = luat_heap_malloc(sizeof(luat_ble_param_t));
-        memcpy(param, msg->data + 4, sizeof(luat_ble_param_t));
+        luat_ble_param_t* param = (luat_ble_param_t*)(msg->data + 4);
+        // memcpy(param, msg->data + 4, sizeof(luat_ble_param_t));
         LLOGD("收到bt event %d %d", event, cmd->len - sizeof(luat_drv_ble_msg_t));
         // param->write_req.value = NULL;
         // param->adv_req.data = NULL;
@@ -76,20 +79,17 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
 
         // 把能处理的先尝试处理一下
         if (event == LUAT_BLE_EVENT_WRITE && param->write_req.value_len) {
-            param->write_req.value = luat_heap_malloc(param->write_req.value_len);
-            memcpy(param->write_req.value, msg->data + offset, param->write_req.value_len);
+            param->write_req.value = (uint8_t*)(msg->data + offset);
         }
         // else if (event == LUAT_BLE_EVENT_READ && param.read_req.len) {
         //     param.read_req.value = luat_heap_malloc(param.read_req.len);
         //     memcpy(param.read_req.value, msg->data + offset, param.read_req.len);
         // }
         else if (event == LUAT_BLE_EVENT_SCAN_REPORT && param->adv_req.data_len) {
-            param->adv_req.data = luat_heap_malloc(param->adv_req.data_len);
-            memcpy(param->adv_req.data, msg->data + offset, param->adv_req.data_len);
+            param->adv_req.data = (uint8_t*)(msg->data + offset);
         }
         else if (event == LUAT_BLE_EVENT_READ_VALUE && param->read_req.value_len) {
-            param->read_req.value = luat_heap_malloc(param->read_req.value_len);
-            memcpy(param->read_req.value, msg->data + offset, param->read_req.value_len);
+            param->read_req.value = (uint8_t*)(msg->data + offset);
         }
         else if (event == LUAT_BLE_EVENT_GATT_DONE) {
             LLOGI("gatt done, gatt len %d, unpack now", param->gatt_done_ind.gatt_service_num);
@@ -99,6 +99,19 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
             {
                 if (param->gatt_done_ind.gatt_service[i] == NULL) {
                     param->gatt_done_ind.gatt_service[i] = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+                }
+                else  {
+                    gatt = param->gatt_done_ind.gatt_service[i];
+                    for (size_t ch_i = 0; ch_i < gatt->characteristics_num; ch_i++)
+                    {
+                        if (gatt->characteristics[ch_i].descriptor != NULL) {
+                            luat_heap_free(gatt->characteristics[ch_i].descriptor);
+                            gatt->characteristics[ch_i].descriptor = NULL;
+                        } 
+                    }
+                    luat_heap_free(gatt->characteristics);
+                    gatt->characteristics = NULL;
+                    gatt->characteristics_num = 0;
                 }
                 // TODO 这个函数还是会有内存泄露的情况
                 luat_ble_gatt_unpack(param->gatt_done_ind.gatt_service[i], msg->data + offset, &tmplen);
@@ -130,6 +143,8 @@ int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len
         // LLOGD("统计GATT描述符数量 %d/%d", gatt->characteristics[i].descriptors_num, descriptor_totalNum);
     }
     uint16_t tmp = 0;
+    uint16_t offset = 0;
+    uint8_t descriptor_num;
 
     tmp = sizeof(luat_ble_gatt_service_t);
     memcpy(ptr, &tmp, 2);
@@ -149,12 +164,16 @@ int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len
     memcpy(ptr + 8 + sizeof(luat_ble_gatt_service_t), 
         gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
     
+    offset = 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t);
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
-        uint8_t descriptor_num = gatt->characteristics[i].descriptors_num;
+        descriptor_num = gatt->characteristics[i].descriptors_num;
+        if (descriptor_num == 0) {
+            continue;
+        }
         // 然后是描述符id
-        memcpy(ptr + 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t) + i * sizeof(luat_ble_gatt_descriptor_t), 
-        gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
+        memcpy(ptr + offset, gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
+        offset += descriptor_num * sizeof(luat_ble_gatt_descriptor_t);
     }
     if (_len) {
         // 如果有传入len, 则返回实际长度

@@ -21,8 +21,8 @@ uint32_t reserved; // 保留字段, 目前都是0
 
 luat_ble_cb_t g_drv_ble_cb;
 
-// #undef LLOGD
-// #define LLOGD(...)
+#undef LLOGD
+#define LLOGD(...)
 
 // 读取wifi固件版本, 控制API适配状态
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;

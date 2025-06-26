@@ -1061,6 +1061,56 @@ static int l_ble_disconnect(lua_State *L){
     return 1;
 }
 
+/*
+解码广播数据
+@api ble.adv_decode(data)
+@string data 广播数据
+@return table 广播数据的解码结果
+@usage
+-- 解码广播数据
+local data = string.fromHex("1EFF060001092002BE0F0AAD8A6D2E251ED6DFBB3D15249929E10BE138DF7B")
+-- 解析广播数据
+local adv_data = ble_device:adv_decode(data)
+if adv_data then
+    for k, v in pairs(adv_data) do
+        log.info("ble", "adv data", v.len, v.tp, v.data:toHex())
+    end
+end
+*/
+static int l_ble_adv_decode(lua_State *L) {
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 2, &len);
+    if (len == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_newtable(L);
+    uint8_t *p = (uint8_t *)data;
+    size_t offset = 0;
+    int index = 1;
+    while (offset < len) {
+        uint8_t length = p[offset++];
+        if (length == 0 || offset + length > len) {
+            LLOGE("Invalid BLE advertisement data");
+            lua_pushnil(L);
+            return 1;
+        }
+        uint8_t type = p[offset++];
+        lua_newtable(L);
+        lua_pushinteger(L, length - 1); // Length does not include the length byte itself
+        lua_setfield(L, -2, "len");
+        lua_pushinteger(L, type);
+        lua_setfield(L, -2, "tp");
+        lua_pushlstring(L, (const char *)&p[offset], length - 1); // Data does not include the length byte
+        lua_setfield(L, -2, "data");
+
+        lua_seti(L, -2, index);
+        offset += length - 1;
+        index ++;
+    }
+    return 1;
+}
+
 static int _ble_struct_newindex(lua_State *L);
 
 void luat_ble_struct_init(lua_State *L){
@@ -1076,6 +1126,7 @@ static const rotable_Reg_t reg_ble[] = {
     {"adv_create", ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start", ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop", ROREG_FUNC(l_ble_advertising_stop)},
+    {"adv_decode", ROREG_FUNC(l_ble_adv_decode)},
 
     // gatt
     // slaver
@@ -1093,6 +1144,7 @@ static const rotable_Reg_t reg_ble[] = {
 
     {"connect", ROREG_FUNC(l_ble_connect)},
     {"disconnect", ROREG_FUNC(l_ble_disconnect)},
+
 
     // BLE_EVENT
     {"EVENT_NONE", ROREG_INT(LUAT_BLE_EVENT_NONE)},

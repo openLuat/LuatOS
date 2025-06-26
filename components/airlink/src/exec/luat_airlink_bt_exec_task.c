@@ -29,7 +29,9 @@ static luat_rtos_task_handle g_task_handle;
 
 static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_param_t* param) {
     // 注意, 这里要代理不同的事件, 转发到airlink
-    LLOGD("drv_ble event %d", event);
+    if (event != LUAT_BLE_EVENT_SCAN_REPORT) {
+        LLOGD("drv_ble event %d", event);
+    }
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + 1024

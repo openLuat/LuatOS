@@ -28,6 +28,13 @@ local function ble_callback(ble_device, ble_event, ble_param)
         log.info("ble", "scan init")
     elseif ble_event == ble.EVENT_SCAN_REPORT then
         log.info("ble", "scan report", ble_param.rssi, ble_param.adv_addr:toHex(), ble_param.data:toHex())
+        -- 解析广播数据, 日志很多, 按需使用
+        -- local adv_data = ble_device:adv_decode(ble_param.data)
+        -- if adv_data then
+        --     for k, v in pairs(adv_data) do
+        --         log.info("ble", "adv data", v.len, v.tp, v.data:toHex())
+        --     end
+        -- end
     elseif ble_event == ble.EVENT_SCAN_STOP then
         log.info("ble", "scan stop")
     end

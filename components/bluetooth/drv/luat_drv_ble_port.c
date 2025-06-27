@@ -535,7 +535,7 @@ int luat_ble_delete_scanning(void* args) {
 int luat_ble_connect(void* args, luat_ble_connect_req_t *conn) {
     LLOGD("执行luat_ble_connect");
     if (get_ble_version() < 11) {
-        LLOGE("luat_ble_connect not support, ble version is %d", get_ble_version());
+        LLOGE("ble:connect not support, ble version is %d", get_ble_version());
         return -1;
     }
     uint64_t seq = luat_airlink_get_next_cmd_id();
@@ -563,7 +563,7 @@ int luat_ble_connect(void* args, luat_ble_connect_req_t *conn) {
 int luat_ble_disconnect(void* args) {
     LLOGD("执行luat_ble_disconnect");
     if (get_ble_version() < 11) {
-        LLOGE("luat_ble_connect not support, ble version is %d", get_ble_version());
+        LLOGE("ble:disconnect not support, ble version is %d", get_ble_version());
         return -1;
     }
     uint64_t seq = luat_airlink_get_next_cmd_id();
@@ -585,6 +585,10 @@ int luat_ble_disconnect(void* args) {
 
 int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t **data, uint16_t* len) {
     LLOGD("执行luat_ble_read_value");
+    if (get_ble_version() < 11) {
+        LLOGE("ble:read_value not support, ble version is %d", get_ble_version());
+        return -1;
+    }
     uint16_t tmp = 0;
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
@@ -629,8 +633,45 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
 }
 
 int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, uint8_t enable) {
-    LLOGE("not support yet -> luat_ble_notify_enable");
-    return -1;
+    LLOGD("执行luat_ble_notify_enable %d", enable);
+    if (get_ble_version() < 11) {
+        LLOGE("ble:notify_enable not support, ble version is %d", get_ble_version());
+        return -1;
+    }
+    uint16_t tmp = 0;
+    uint64_t seq = luat_airlink_get_next_cmd_id();
+    airlink_queue_item_t item = {
+        .len = sizeof(luat_airlink_cmd_t) 
+               + sizeof(luat_drv_ble_msg_t) + sizeof(luat_ble_rw_req_t) 
+               + sizeof(uint16_t)
+               + 16
+    };
+
+    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x500, item.len - sizeof(luat_airlink_cmd_t));
+    if (cmd == NULL) {
+        return -101;
+    }
+    
+    luat_drv_ble_msg_t msg = { .id = seq};
+    msg.cmd_id = LUAT_DRV_BT_CMD_BLE_NOTIFY_ENABLE;
+    memcpy(cmd->data, &msg, sizeof(luat_drv_ble_msg_t));
+    luat_ble_rw_req_t req = {
+        .len = 1
+    };
+    if (uuid_service) {
+        memcpy(&req.service, uuid_service, sizeof(luat_ble_uuid_t));
+    }
+    if (uuid_characteristic) {
+        memcpy(&req.characteristic, uuid_characteristic, sizeof(luat_ble_uuid_t));
+    }
+    tmp = sizeof(luat_ble_rw_req_t);
+    memcpy(cmd->data + sizeof(luat_drv_ble_msg_t), &tmp, 2);
+    memcpy(cmd->data + 2 + sizeof(luat_drv_ble_msg_t), &req, sizeof(luat_ble_rw_req_t));
+    memcpy(cmd->data + 2 + sizeof(luat_drv_ble_msg_t) + sizeof(luat_ble_rw_req_t), &enable, 1);
+
+    item.cmd = cmd;
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return 0;
 }
 
 

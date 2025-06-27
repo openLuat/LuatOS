@@ -38,6 +38,9 @@ enum {
     LUAT_DRV_BT_CMD_BLE_CONNECT, // 读取值
     LUAT_DRV_BT_CMD_BLE_DISCONNECT, // 断开连接
     LUAT_DRV_BT_CMD_BLE_READ_VALUE, // 读取值, 异步的
+    LUAT_DRV_BT_CMD_BLE_NOTIFY_ENABLE, // 通知使能
+
+
     LUAT_DRV_BT_CMD_BLE_EVENT_CB = 128, // 事件回调
 
     LUAT_DRV_BT_CMD_MAX

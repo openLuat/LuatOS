@@ -257,6 +257,19 @@ static int drv_ble_read_value(luat_drv_ble_msg_t *msg) {
     return ret;
 }
 
+static int drv_ble_notify_enable(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    uint8_t enable = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    memcpy(&enable, msg->data + 2 + sizeof_write, 1);
+    int ret = luat_ble_notify_enable(&write.service, &write.characteristic, enable);
+    LLOGD("ble notify enable %d ret %d", enable, ret);
+    return ret;
+}
+
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
     LLOGD("bt task start ...");
@@ -274,81 +287,81 @@ static void drv_bt_task(void *param) {
             case LUAT_DRV_BT_CMD_BT_INIT:
                 LLOGD("执行luat_bluetooth_init");
                 ret = luat_bluetooth_init(NULL);
-                LLOGD("bt init %d", ret);
+                LLOGD("bt init ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BT_DEINIT:
                 ret = luat_bluetooth_deinit(NULL);
-                LLOGD("bt deinit %d", ret);
+                LLOGD("bt deinit ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_INIT:
                 ret = luat_ble_init(NULL, drv_ble_cb); // 不能通过airlink传递函数指针, 这里要用本地的
-                LLOGD("ble init %d", ret);
+                LLOGD("ble init ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_DEINIT:
                 ret = luat_ble_deinit(NULL);
-                LLOGD("ble deinit %d", ret);
+                LLOGD("ble deinit ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_GATT_CREATE:
                 ret = drv_gatt_create(msg);
-                LLOGD("ble gatt create %d", ret);
+                LLOGD("ble gatt create ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SET_NAME:
                 memcpy(buff, msg->data + 1, msg->data[0]);
                 buff[msg->data[0]] = 0;
                 ret = luat_ble_set_name(NULL, buff, msg->data[0]);
-                LLOGD("ble set name %d", ret);
+                LLOGD("ble set name ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_CREATE:
                 ret = drv_adv_create(msg);
-                LLOGD("ble adv start %d", ret);
+                LLOGD("ble adv start ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_START:
                 ret = luat_ble_start_advertising(NULL);
-                LLOGD("ble adv start %d", ret);
+                LLOGD("ble adv start ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_STOP:
                 ret = luat_ble_stop_advertising(NULL);
-                LLOGD("ble adv stop %d", ret);
+                LLOGD("ble adv stop ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_DELETE:
                 ret = luat_ble_delete_advertising(NULL);
-                LLOGD("ble adv delete %d", ret);
+                LLOGD("ble adv delete ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_SET_DATA:
                 ret = drv_adv_set_data(msg);
-                LLOGD("ble adv set data %d", ret);
+                LLOGD("ble adv set data ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_ADV_SET_SCAN_RSP_DATA:
                 ret = drv_adv_set_scan_rsp_data(msg);
-                LLOGD("ble adv set resp data %d", ret);
+                LLOGD("ble adv set resp data ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SCAN_CREATE:
                 ret = drv_adv_create_scanning(msg);
-                LLOGD("ble adv create scanning %d", ret);
+                LLOGD("ble adv create scanning ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SCAN_START:
                 ret = luat_ble_start_scanning(NULL);
-                LLOGD("ble adv start scanning %d", ret);
+                LLOGD("ble adv start scanning ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SCAN_STOP:
                 ret = luat_ble_stop_scanning(NULL);
-                LLOGD("ble adv stop scanning %d", ret);
+                LLOGD("ble adv stop scanning ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SCAN_DELETE:
                 ret = luat_ble_delete_scanning(NULL);
-                LLOGD("ble adv delete scaning %d", ret);
+                LLOGD("ble adv delete scaning ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_NOTIFY:
                 ret = drv_ble_write_notify(msg);
-                LLOGD("ble write notify %d", ret);
+                LLOGD("ble write notify ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION:
                 ret = drv_ble_write_indication(msg);
-                LLOGD("ble write indication %d", ret);
+                LLOGD("ble write indication ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_WRITE_VALUE:
                 ret = drv_ble_write_value(msg);
-                LLOGD("ble write value %d", ret);
+                LLOGD("ble write value ret %d", ret);
                 break;
                 
             // case LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP:
@@ -357,18 +370,23 @@ static void drv_bt_task(void *param) {
             //     break;
             case LUAT_DRV_BT_CMD_BLE_CONNECT:
                 ret = drv_ble_connect(msg);
-                LLOGD("ble connect %d", ret);
+                LLOGD("ble connect ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_DISCONNECT:
                 ret = luat_ble_disconnect(NULL);
-                LLOGD("ble disconnect %d", ret);
+                LLOGD("ble disconnect ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_READ_VALUE:
                 ret = drv_ble_read_value(msg);
-                LLOGD("ble read value %d", ret);
+                LLOGD("ble read value ret %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_NOTIFY_ENABLE:
+                // 通知使能
+                ret = drv_ble_notify_enable(msg);
+                LLOGD("ble notify enable ret %d", ret);
                 break;
             default:
-                LLOGD("unknow bt cmd %d", msg->cmd_id);
+                LLOGD("unknow bt cmd id %d", msg->cmd_id);
                 break;
             }
             luat_heap_free(msg);

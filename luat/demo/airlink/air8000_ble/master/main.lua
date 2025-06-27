@@ -50,6 +50,11 @@ local function ble_callback(ble_device, ble_event, ble_param)
         -- 读取GATT完成, 打印出来
         log.info("ble", "gatt item", ble_param)
     elseif ble_event == ble.EVENT_GATT_DONE then
+        log.info("ble", "gatt done", ble_param.service_num)
+        local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA01")}
+        ble_device:notify_enable(wt, true) -- 开启通知
+
+        -- 主动写入数据, 但不带通知, 带通知是 write_notify
         local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA02")}
         ble_device:write_value(wt,string.fromHex("1234"))
 

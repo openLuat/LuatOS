@@ -140,7 +140,6 @@ end
 --[[
 Air8000系列模组自动升级wifi
 @api fota_wifi.request()
-@number 挂载ina226的i2c总线id
 @return bool 成功返回true
 @usage
 local result = fota_wifi.request()

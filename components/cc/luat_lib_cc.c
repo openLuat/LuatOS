@@ -40,6 +40,11 @@ typedef struct
 	luat_zbuff_t *down_buff[2];
 	int record_cb;
 	HANDLE record_timer;
+
+    uint32_t bak_sample_rate;                                   // i2s采样率备份
+    int (*bak_luat_i2s_event_callback)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数备份
+    uint8_t bak_is_full_duplex;		                            // 是否全双工备份
+
 	uint32_t next_download_point;
 	uint8_t *download_buffer;
 	uint8_t total_download_cnt;
@@ -141,10 +146,12 @@ static void luat_volte_task(void *param){
 	luat_zbuff_t *zbuff = NULL;
 	luat_event_t event;
 	uint8_t multimedia_id = (int)param;
+	uint8_t speech_on_off = 0;
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
 	luat_i2s_conf_t *i2s = luat_i2s_get_config(multimedia_id);
-	i2s->is_full_duplex = 1;
-	i2s->luat_i2s_event_callback = record_cb;
+	luat_cc.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
+	luat_cc.bak_sample_rate = i2s->sample_rate;
+	luat_cc.bak_is_full_duplex = i2s->is_full_duplex;
 	while (1){
 		luat_rtos_event_recv(luat_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
@@ -167,13 +174,28 @@ static void luat_volte_task(void *param){
 				}
                 luat_cc.is_call_uplink_on = 0;
                 luat_audio_speech_stop(multimedia_id);
+	            i2s->is_full_duplex = luat_cc.bak_is_full_duplex;
+	            i2s->luat_i2s_event_callback = luat_cc.bak_luat_i2s_event_callback;
+	            i2s->sample_rate = luat_cc.bak_sample_rate;
 	            LLOGD("VOLTE_EVENT_PLAY_STOP");
+	            LLOGD("load old i2s param");
+	            speech_on_off = 0;
                 break;
             }
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_START:
 			luat_cc.record_type = event.param1;
 			luat_cc.is_call_uplink_on = 1;
+			if (!speech_on_off)
+			{
+				luat_cc.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
+				luat_cc.bak_sample_rate = i2s->sample_rate;
+				luat_cc.bak_is_full_duplex = i2s->is_full_duplex;
+				i2s->is_full_duplex = 1;
+				i2s->luat_i2s_event_callback = record_cb;
+				speech_on_off = 1;
+				LLOGD("save old i2s param");
+			}
 			luat_audio_speech(multimedia_id, 0, event.param1, NULL, 0, 1);
             luat_cc.record_up_zbuff_point = 0;
             if (luat_cc.record_on_off) {
@@ -209,7 +231,18 @@ static void luat_volte_task(void *param){
 			break;
 		case VOLTE_EVENT_PLAY_VOICE:
 			luat_cc.play_type = event.param3; //1 = 8K 2 = 16K
+			if (!speech_on_off)
+			{
+				luat_cc.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
+				luat_cc.bak_sample_rate = i2s->sample_rate;
+				luat_cc.bak_is_full_duplex = i2s->is_full_duplex;
+				i2s->is_full_duplex = 1;
+				i2s->luat_i2s_event_callback = record_cb;
+				speech_on_off = 1;
+				LLOGD("save old i2s param");
+			}
 			luat_audio_speech(multimedia_id, 1, event.param3, (uint8_t *)event.param1, event.param2, 1);
+
 			LLOGD("VOLTE PLAY VOICE");
 			break;
 		case VOLTE_EVENT_HANGUP:

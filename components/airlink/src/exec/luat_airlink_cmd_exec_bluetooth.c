@@ -91,38 +91,41 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
         else if (event == LUAT_BLE_EVENT_READ_VALUE && param->read_req.value_len) {
             param->read_req.value = (uint8_t*)(msg->data + offset);
         }
-        else if (event == LUAT_BLE_EVENT_GATT_DONE) {
-            LLOGI("gatt done, gatt len %d, unpack now", param->gatt_done_ind.gatt_service_num);
-            
-            param->gatt_done_ind.gatt_service = s_gatts;
-            for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
-            {
-                if (param->gatt_done_ind.gatt_service[i] == NULL) {
-                    param->gatt_done_ind.gatt_service[i] = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
-                }
-                else  {
-                    gatt = param->gatt_done_ind.gatt_service[i];
-                    for (size_t ch_i = 0; ch_i < gatt->characteristics_num; ch_i++)
-                    {
-                        if (gatt->characteristics[ch_i].descriptor != NULL) {
-                            luat_heap_free(gatt->characteristics[ch_i].descriptor);
-                            gatt->characteristics[ch_i].descriptor = NULL;
-                        } 
-                    }
-                    luat_heap_free(gatt->characteristics);
-                    gatt->characteristics = NULL;
-                    gatt->characteristics_num = 0;
-                }
-                // TODO 这个函数还是会有内存泄露的情况
-                luat_ble_gatt_unpack(param->gatt_done_ind.gatt_service[i], msg->data + offset, &tmplen);
-                // LLOGI("gatt service %d unpacked, len %d", i, tmplen);
-                if (tmplen == 0) {
-                    break;
-                }
-                offset += tmplen;
+        else if (event == LUAT_BLE_EVENT_GATT_ITEM) {
+            tmp = param->gatt_item_ind.gatt_service_index;
+            if (tmp >= 16) {
+                LLOGE("gatt item index %d out of range", tmp);
+                return -1;
             }
-            // 暂时还是不返回解码完成再说
-            // return 0;
+            if (s_gatts[tmp] == NULL) {
+                s_gatts[tmp] = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
+                if (s_gatts[tmp] == NULL) {
+                    LLOGE("out of memory when malloc gatt service");
+                    return -1;
+                }
+            }
+            else {
+                gatt = s_gatts[tmp];
+                for (size_t ch_i = 0; ch_i < gatt->characteristics_num; ch_i++)
+                {
+                    if (gatt->characteristics[ch_i].descriptor != NULL) {
+                        luat_heap_free(gatt->characteristics[ch_i].descriptor);
+                        gatt->characteristics[ch_i].descriptor = NULL;
+                    } 
+                }
+                luat_heap_free(gatt->characteristics);
+                gatt->characteristics = NULL;
+                gatt->characteristics_num = 0;
+            }
+            luat_ble_gatt_unpack(s_gatts[tmp], msg->data + offset, &tmplen);
+            if (tmplen == 0) {
+                LLOGE("gatt item unpack failed, gatt %p len=0!!!", s_gatts[tmp]);
+                return -1;
+            }
+            param->gatt_item_ind.gatt_service = s_gatts[tmp];
+        }
+        else if (event == LUAT_BLE_EVENT_GATT_DONE) {
+            LLOGI("gatt done, gatt total %d", param->gatt_done_ind.gatt_service_num);
         }
         g_drv_ble_cb(NULL, event, param);
         return 0;

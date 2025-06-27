@@ -68,24 +68,24 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
             LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
             memcpy(ptr + offset, param->write_req.value, param->write_req.value_len);
         }
-        else if (LUAT_BLE_EVENT_GATT_DONE == event) {
-            // TODO 这个操作就比较复杂了
-            // 需要将gatt的内容全部拷贝到ptr中
-            // LLOGI("gatt done, gatt len %d, pack now", param->gatt_done_ind.gatt_service_num);
-            for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
-            {
-                gatt = param->gatt_done_ind.gatt_service[i];
-                // LLOGD("gatt service %02X%02X", gatt->uuid[0], gatt->uuid[1]);
-                len = 0;
-                luat_ble_gatt_pack(gatt, ptr + offset, &len);
-                if (len == 0) {
-                    LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
-                    break;
-                }
-                // LLOGD("gatt service pack %d/%d", len, offset);
-                offset += len;
+        else if (LUAT_BLE_EVENT_GATT_ITEM == event) {
+            // 这个事件是gatt服务项回调, 需要将gatt的内容全部拷贝到ptr中
+            // LLOGD("gatt item %d", param->gatt_item_ind.gatt_service_num);
+            gatt = param->gatt_item_ind.gatt_service;
+            if (gatt == NULL) {
+                LLOGE("gatt item is NULL");
+                return;
             }
-            // return;
+            len = 0;
+            luat_ble_gatt_pack(gatt, ptr + offset, &len);
+            if (len == 0) {
+                LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
+                return;
+            }
+            // return; // 临时的
+        }
+        else if (LUAT_BLE_EVENT_GATT_DONE == event) {
+            // pass
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }

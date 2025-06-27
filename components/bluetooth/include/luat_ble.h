@@ -127,6 +127,8 @@ typedef enum{
     LUAT_BLE_EVENT_READ,         // BLE从模式下，主设备读操作事件
     LUAT_BLE_EVENT_READ_VALUE,      // BLE读value数据回调
 
+    LUAT_BLE_EVENT_GATT_ITEM,      // BLE GATT服务项回调
+
     LUAT_BLE_EVENT_MAX,
 
 } luat_ble_event_t;
@@ -271,10 +273,14 @@ typedef struct luat_ble_disconn_ind{
     uint8_t reason;
 }luat_ble_disconn_ind_t;
 
+typedef struct luat_ble_gatt_item_ind{
+    uint8_t gatt_service_index;
+    uint8_t gatt_service_total_num;
+    luat_ble_gatt_service_t* gatt_service;
+}luat_ble_gatt_item_ind_t;
+
 typedef struct luat_ble_gatt_done_ind{
     uint8_t gatt_service_num;
-    luat_ble_gatt_service_t** gatt_service;
-    void* user_data;
 }luat_ble_gatt_done_ind_t;
 
 
@@ -287,6 +293,7 @@ typedef struct{
         luat_ble_conn_ind_t conn_ind;
         luat_ble_disconn_ind_t disconn_ind;
         luat_ble_gatt_done_ind_t gatt_done_ind;
+        luat_ble_gatt_item_ind_t gatt_item_ind;
         uint8_t data[256]; // 预留一个大的后备区域
     };
 } luat_ble_param_t;

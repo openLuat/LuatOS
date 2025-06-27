@@ -46,11 +46,10 @@ local function ble_callback(ble_device, ble_event, ble_param)
             ble_device:scan_stop()
             ble_device:connect(ble_param.adv_addr,ble_param.addr_type)
         end
-    elseif ble_event == ble.EVENT_GATT_DONE then
+    elseif ble_event == ble.EVENT_GATT_ITEM then
         -- 读取GATT完成, 打印出来
-        for k, v in pairs(ble_param) do
-            log.info("ble", "gatt", k, v[1]:toHex())
-        end
+        log.info("ble", "gatt item", ble_param)
+    elseif ble_event == ble.EVENT_GATT_DONE then
         local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA02")}
         ble_device:write_value(wt,string.fromHex("1234"))
 

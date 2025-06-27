@@ -35,6 +35,9 @@ local function ble_callback(ble_device, ble_event, ble_param)
         --         log.info("ble", "adv data", v.len, v.tp, v.data:toHex())
         --     end
         -- end
+        -- if ble_param.data:byte(1) == 0x1A then
+        --     log.info("ble", "ibeacon数据", ble_param.rssi, ble_param.adv_addr:toHex(), ble_param.data:toHex())
+        -- end
     elseif ble_event == ble.EVENT_SCAN_STOP then
         log.info("ble", "scan stop")
     end
@@ -62,11 +65,18 @@ sys.taskInit(function()
     log.info("开始扫描")
     ble_device:scan_start()
 
-    sys.wait(15000)
-    log.info("停止扫描")
-    ble_device:scan_stop()
+    -- sys.wait(15000)
+    -- log.info("停止扫描")
+    -- ble_device:scan_stop()
 
 end)
+
+-- sys.timerLoopStart(function()
+--     print("hi, LuatOS")
+--     print("mem.lua", rtos.meminfo())
+--     print("mem.sys", rtos.meminfo("sys"))
+--     print("mem.psram", rtos.meminfo("psram"))
+-- end, 3000)
 
 
 -- 用户代码已结束---------------------------------------------

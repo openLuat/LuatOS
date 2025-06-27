@@ -148,31 +148,32 @@ int l_ble_callback(lua_State *L, void *ptr)
 
         lua_call(L, 3, 0);
         break;
-    }case LUAT_BLE_EVENT_GATT_DONE:{
-        luat_ble_gatt_service_t **gatt_services = param->gatt_done_ind.gatt_service;
-        uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
-        lua_createtable(L, gatt_service_num, 0);
-        for (size_t i = 0; i < gatt_service_num; i++){
-            luat_ble_gatt_service_t *gatt_service = gatt_services[i];
+    }case LUAT_BLE_EVENT_GATT_ITEM:{
+        luat_ble_gatt_service_t *gatt_service = param->gatt_item_ind.gatt_service;
+        lua_newtable(L);
+        // servise uuid
+        lua_pushlstring(L, (const char *)gatt_service->uuid, gatt_service->uuid_type);
+        lua_rawseti(L, -2, 1);
+        // characteristics
+        uint8_t characteristics_num = gatt_service->characteristics_num;
+        for (size_t m = 0; m < characteristics_num; m++){
+            luat_ble_gatt_chara_t *gatt_chara = &gatt_service->characteristics[m];
             lua_newtable(L);
-            // servise uuid
-            lua_pushlstring(L, (const char *)gatt_service->uuid, gatt_service->uuid_type);
-            lua_rawseti(L, -2, 1);
-            // characteristics
-            uint8_t characteristics_num = gatt_service->characteristics_num;
-            for (size_t m = 0; m < characteristics_num; m++){
-                luat_ble_gatt_chara_t *gatt_chara = &gatt_service->characteristics[m];
-                lua_newtable(L);
-                lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_chara->uuid_type);
-                lua_seti(L, -2, 1);
-                // Properties
-                lua_pushnumber(L, gatt_chara->perm);
-                lua_seti(L, -2, 2);
+            lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_chara->uuid_type);
+            lua_seti(L, -2, 1);
+            // Properties
+            lua_pushnumber(L, gatt_chara->perm);
+            lua_seti(L, -2, 2);
 
-                lua_seti(L, -2, m + 2);
-            }
-            lua_rawseti(L, -2, i + 1);
+            lua_seti(L, -2, m + 2);
         }
+        lua_call(L, 3, 0);
+        break;
+    }case LUAT_BLE_EVENT_GATT_DONE:{
+        uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
+        lua_newtable(L);
+        lua_pushinteger(L, gatt_service_num);
+        lua_setfield(L, -2, "service_num");
         lua_call(L, 3, 0);
         break;
     }case LUAT_BLE_EVENT_CONN:{
@@ -1165,6 +1166,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_READ", ROREG_INT(LUAT_BLE_EVENT_READ)},
     {"EVENT_READ_VALUE", ROREG_INT(LUAT_BLE_EVENT_READ_VALUE)},
     {"EVENT_GATT_DONE", ROREG_INT(LUAT_BLE_EVENT_GATT_DONE)},
+    {"EVENT_GATT_ITEM", ROREG_INT(LUAT_BLE_EVENT_GATT_ITEM)},
+    
 
     // ADV_ADDR_MODE
     //@const PUBLIC 控制器的公共地址

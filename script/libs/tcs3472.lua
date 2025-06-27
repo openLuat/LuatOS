@@ -14,13 +14,15 @@ sys.taskInit(function()
     i2c.setup(i2cid,i2c_speed)
     tcs3472.init(i2cid)--初始化,传入i2c_id
     while 1 do
-        local rgb_date = tcs3472.get_rgb()
-        log.info("rgb_date.R:",rgb_date.R)
-        log.info("rgb_date.G:",rgb_date.G)
-        log.info("rgb_date.B:",rgb_date.B)
-        log.info("rgb_date.C:",rgb_date.C)
-        local lux_date = tcs3472.get_lux(rgb_date)
-        log.info("lux_date:",lux_date)
+        local rgb_data = tcs3472.get_rgb()
+        log.info("rgb_data.R:",rgb_data.R)
+        log.info("rgb_data.G:",rgb_data.G)
+        log.info("rgb_data.B:",rgb_data.B)
+        log.info("rgb_data.C:",rgb_data.C)
+        if rgb_data.R then
+            local lux_date = tcs3472.get_lux(rgb_data)
+            log.info("lux_date:",lux_date)
+        end
         sys.wait(1000)
     end
 end)
@@ -281,21 +283,25 @@ end
 @api tcs3472.get_rgb()
 @return table tcs3472 rgb数据
 @usage
-local rgb_date = tcs3472.get_rgb()
-log.info("rgb_date.R:",rgb_date.R)
-log.info("rgb_date.G:",rgb_date.G)
-log.info("rgb_date.B:",rgb_date.B)
-log.info("rgb_date.C:",rgb_date.C)
+local rgb_data = tcs3472.get_rgb()
+log.info("rgb_data.R:",rgb_data.R)
+log.info("rgb_data.G:",rgb_data.G)
+log.info("rgb_data.B:",rgb_data.B)
+log.info("rgb_data.C:",rgb_data.C)
 ]]
 function tcs3472.get_rgb()
     local status = TCS3472_STATUS_AVALID;
-    local rgb_date={R=nil,G=nil,B=nil,C=nil}
+    local rgb_data={R=nil,G=nil,B=nil,C=nil}
     status = tcs3472_readbyte(TCS3472_CDATAL)
+    if status == nil then
+        log.error("tcs3472","read status error")
+        return rgb_data
+    end
     if bit.band(status,TCS3472_STATUS_AVALID) then
-        rgb_date.C = tcs3472_readword(TCS3472_CDATAL)
-        rgb_date.R = tcs3472_readword(TCS3472_RDATAL)
-        rgb_date.G = tcs3472_readword(TCS3472_GDATAL)
-        rgb_date.B = tcs3472_readword(TCS3472_BDATAL)
+        rgb_data.C = tcs3472_readword(TCS3472_CDATAL)
+        rgb_data.R = tcs3472_readword(TCS3472_RDATAL)
+        rgb_data.G = tcs3472_readword(TCS3472_GDATAL)
+        rgb_data.B = tcs3472_readword(TCS3472_BDATAL)
     end
     
     if integrationTime_t== TCS3472_INTEGRATIONTIME_2_4MS then
@@ -311,7 +317,7 @@ function tcs3472.get_rgb()
     elseif integrationTime_t== TCS3472_INTEGRATIONTIME_700MS then
         sys.wait(700)
     end
-    return rgb_date
+    return rgb_data
 end
 
 --[[
@@ -320,7 +326,7 @@ end
 @table  rgb_data rgb数据
 @return number lux数据
 @usage
-local lux_date = tcs3472.get_lux(rgb_date)
+local lux_date = tcs3472.get_lux(rgb_data)
 log.info("lux_date:",lux_date)
 ]]
 function tcs3472.get_lux(rgb)

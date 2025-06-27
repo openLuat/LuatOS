@@ -56,6 +56,15 @@ typedef struct luat_i2s_conf{
     void *userdata;                                         // 用户数据
 }luat_i2s_conf_t;
 
+typedef struct
+{
+    uint32_t sample_rate;                                   // i2s采样率
+    uint32_t cb_rx_len;                                     // 接收触发回调数据长度
+    int (*luat_i2s_event_callback)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数
+    uint8_t is_full_duplex;		                            // 是否全双工
+    uint8_t is_saved;
+}luat_i2s_save_conf_t;
+
 // 配置
 int luat_i2s_setup(const luat_i2s_conf_t *conf);                  // 初始化i2s
 int luat_i2s_modify(uint8_t id,uint8_t channel_format,uint8_t data_bits,uint32_t sample_rate);      // 修改i2s配置(不会进行初始化操作,动态修改配置)
@@ -71,6 +80,9 @@ int luat_i2s_close(uint8_t id);                 // i2s关闭
 
 // 获取配置
 luat_i2s_conf_t *luat_i2s_get_config(uint8_t id);
+
+int luat_i2s_save_old_config(uint8_t id);
+int luat_i2s_load_old_config(uint8_t id);
 
 int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 int luat_i2s_rxbuff_info(uint8_t id, size_t *buffsize, size_t* remain);

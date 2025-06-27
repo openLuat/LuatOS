@@ -43,7 +43,6 @@ typedef struct luat_audio_conf {
 	uint16_t soft_vol;
     uint16_t speech_downlink_type;
     uint16_t speech_uplink_type;
-    uint16_t i2s_rx_cb_save;
 	uint16_t last_vol;
 	uint16_t last_mic_vol;
     uint8_t bus_type;

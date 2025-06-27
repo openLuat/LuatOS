@@ -99,46 +99,35 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_pushlstring(L, (const char *)write_req->value, write_req->value_len);
         lua_settable(L, -3);
         lua_call(L, 3, 0);
-        if (write_req->value){
-            luat_heap_free(write_req->value);
-            write_req->value = NULL;
-        }
         break;
     }
     case LUAT_BLE_EVENT_READ:
-    {
-        // luat_ble_read_req_t *read_req = &(param->read_req);
-        // lua_createtable(L, 0, 5);
-        // lua_pushliteral(L, "handle");
-        // lua_pushinteger(L, read_req->handle);
-        // lua_settable(L, -3);
+    case LUAT_BLE_EVENT_READ_VALUE:{
+        luat_ble_read_req_t *read_req = &(param->read_req);
+        lua_createtable(L, 0, 5);
+        lua_pushliteral(L, "handle");
+        lua_pushinteger(L, read_req->handle);
+        lua_settable(L, -3);
 
-        // luat_ble_uuid_t uuid_service = {0};
-        // luat_ble_uuid_t uuid_characteristic = {0};
-        // luat_ble_uuid_t uuid_descriptor = {0};
-        // luat_ble_handle2uuid(read_req->handle, &uuid_service, &uuid_characteristic, &uuid_descriptor);
-        // // LLOGD("service:0x%02X %d characteristic:0x%02X %d descriptor:0x%02X %d",
-        // //     uuid_service.uuid[0]<<8|uuid_service.uuid[1],uuid_service.uuid_type,
-        // //     uuid_characteristic.uuid[0]<<8|uuid_characteristic.uuid[1],uuid_characteristic.uuid_type,
-        // //     uuid_descriptor.uuid[0]<<8|uuid_descriptor.uuid[1],uuid_descriptor.uuid_type);
-        // lua_pushliteral(L, "uuid_service");
-        // lua_pushlstring(L, (const char *)uuid_service.uuid, uuid_service.uuid_type);
-        // lua_settable(L, -3);
-        // lua_pushliteral(L, "uuid_characteristic");
-        // lua_pushlstring(L, (const char *)uuid_characteristic.uuid, uuid_characteristic.uuid_type);
-        // lua_settable(L, -3);
-        // if (uuid_descriptor.uuid[0] != 0 || uuid_descriptor.uuid[1] != 0){
-        //     lua_pushliteral(L, "uuid_descriptor");
-        //     lua_pushlstring(L, (const char *)uuid_descriptor.uuid, uuid_descriptor.uuid_type);
-        //     lua_settable(L, -3);
-        // }
-
-        // lua_call(L, 3, 0);
-
+        lua_pushliteral(L, "uuid_service");
+        lua_pushlstring(L, (const char *)read_req->uuid_service.uuid, read_req->uuid_service.uuid_type);
+        lua_settable(L, -3);
+        lua_pushliteral(L, "uuid_characteristic");
+        lua_pushlstring(L, (const char *)read_req->uuid_characteristic.uuid, read_req->uuid_characteristic.uuid_type);
+        lua_settable(L, -3);
+        if (read_req->uuid_descriptor.uuid[0] != 0 || read_req->uuid_descriptor.uuid[1] != 0){
+            lua_pushliteral(L, "uuid_descriptor");
+            lua_pushlstring(L, (const char *)read_req->uuid_descriptor.uuid, read_req->uuid_descriptor.uuid_type);
+            lua_settable(L, -3);
+        }
+        if (evt == LUAT_BLE_EVENT_READ_VALUE){
+            lua_pushliteral(L, "data");
+            lua_pushlstring(L, (const char *)read_req->value, read_req->value_len);
+            lua_settable(L, -3);
+        }
+        lua_call(L, 3, 0);
         break;
-    }
-    case LUAT_BLE_EVENT_SCAN_REPORT:
-    {
+    }case LUAT_BLE_EVENT_SCAN_REPORT:{
         luat_ble_adv_req_t *adv_req = &(param->adv_req);
         lua_createtable(L, 0, 4);
 
@@ -158,13 +147,8 @@ int l_ble_callback(lua_State *L, void *ptr)
         // uint8_t evt_type;     /**< Event type (see enum \ref adv_report_info and see enum \ref adv_report_type)*/
 
         lua_call(L, 3, 0);
-        if (adv_req->data){
-            luat_heap_free(adv_req->data);
-            adv_req->data = NULL;
-        }
         break;
-    }
-    case LUAT_BLE_EVENT_GATT_DONE:{
+    }case LUAT_BLE_EVENT_GATT_DONE:{
         luat_ble_gatt_service_t **gatt_services = param->gatt_done_ind.gatt_service;
         uint8_t gatt_service_num = param->gatt_done_ind.gatt_service_num;
         lua_createtable(L, gatt_service_num, 0);
@@ -179,7 +163,7 @@ int l_ble_callback(lua_State *L, void *ptr)
             for (size_t m = 0; m < characteristics_num; m++){
                 luat_ble_gatt_chara_t *gatt_chara = &gatt_service->characteristics[m];
                 lua_newtable(L);
-                lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_service->uuid_type);
+                lua_pushlstring(L, (const char *)gatt_chara->uuid, gatt_chara->uuid_type);
                 lua_seti(L, -2, 1);
                 // Properties
                 lua_pushnumber(L, gatt_chara->perm);
@@ -191,9 +175,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         }
         lua_call(L, 3, 0);
         break;
-    }
-    case LUAT_BLE_EVENT_CONN:
-    {
+    }case LUAT_BLE_EVENT_CONN:{
         luat_ble_conn_ind_t *conn = &(param->conn_ind);
         lua_newtable(L);
         memcpy(tmpbuff, conn->peer_addr, 6);
@@ -204,9 +186,7 @@ int l_ble_callback(lua_State *L, void *ptr)
         lua_setfield(L, -2, "addr_type");
         lua_call(L, 3, 0);
         break;
-    }
-    case LUAT_BLE_EVENT_DISCONN:
-    {
+    }case LUAT_BLE_EVENT_DISCONN:{
         luat_ble_disconn_ind_t *disconn = &(param->disconn_ind);
         lua_newtable(L);
         lua_pushinteger(L, disconn->reason);
@@ -221,32 +201,43 @@ int l_ble_callback(lua_State *L, void *ptr)
 exit:
     if (param)
     {
+        if (LUAT_BLE_EVENT_WRITE == evt && param->write_req.value)
+        {
+            // LLOGD("free write_req.value %p", param->write_req.value);
+            luat_heap_free(param->write_req.value);
+            param->write_req.value = NULL;
+        }
+        else if (LUAT_BLE_EVENT_SCAN_REPORT == evt && param->adv_req.data)
+        {
+            // LLOGD("free adv_req.data %p", param->adv_req.data);
+            luat_heap_free(param->adv_req.data);
+            param->adv_req.data = NULL;
+        }
+        else if (LUAT_BLE_EVENT_READ_VALUE == evt && param->read_req.value){
+            // LLOGD("free read_req.value %p", param->read_req.value);
+            luat_heap_free(param->read_req.value);
+            param->read_req.value = NULL;
+        }
         luat_heap_free(param);
         param = NULL;
     }
     return 0;
 }
 
-void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t *ble_param)
-{
+void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t *ble_param){
     // LLOGD("ble event: %d param: %p", ble_event, ble_param);
     luat_ble_param_t *luat_ble_param = NULL;
-    if (ble_param)
-    {
+    if (ble_param){
         // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
-        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len)
-        {
+        if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len){
             luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.value_len);
             memcpy(luat_ble_param->write_req.value, ble_param->write_req.value, ble_param->write_req.value_len);
-        }
-        // else if (ble_event == LUAT_BLE_EVENT_READ && ble_param->read_req.value_len)
-        // {
-        //     LLOGD("ble read read_req value: %p", ble_param->read_req.value);
-        // }
-        else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len)
-        {
+        }else if (ble_event == LUAT_BLE_EVENT_READ_VALUE && ble_param->read_req.value_len){
+            luat_ble_param->read_req.value = luat_heap_malloc(ble_param->read_req.value_len);
+            memcpy(luat_ble_param->read_req.value, ble_param->read_req.value, ble_param->read_req.value_len);
+        }else if (ble_event == LUAT_BLE_EVENT_SCAN_REPORT && ble_param->adv_req.data_len){
             luat_ble_param->adv_req.data = luat_heap_malloc(ble_param->adv_req.data_len);
             memcpy(luat_ble_param->adv_req.data, ble_param->adv_req.data, ble_param->adv_req.data_len);
         }
@@ -272,11 +263,8 @@ local att_db = { -- Service
     -- Characteristic
     { -- Characteristic 1
         string.fromHex("EA01"), -- Characteristic UUID Value, 特征的UUID值, 可以是16位、32位或128位
-        ble.NOTIFY | ble.READ | ble.WRITE -- Properties, 对应蓝牙特征的属性, 可以是以下值的组合:
-        -- ble.READ: 可读
-        -- ble.WRITE: 可写
-        -- ble.NOTIFY: 可通知
-        -- ble.INDICATE: 可指示
+        ble.NOTIFY | ble.READ | ble.WRITE -- Properties, 对应蓝牙特征的属性, 参考权限常量
+        string.fromHex("1234"), -- 默认value
     }
 }
 ble_device:gatt_create(att_db)
@@ -445,7 +433,7 @@ ble_device:adv_create({
     channel_map = ble.CHNLS_ALL, -- 广播的通道, 可选值: ble.CHNLS_37, ble.CHNLS_38, ble.CHNLS_39, ble.CHNLS_ALL
     intv_min = 120, -- 广播间隔最小值, 单位为0.625ms, 最小值为20, 最大值为10240
     intv_max = 120, -- 广播间隔最大值, 单位为0.625ms, 最小值为20, 最大值为10240
-    adv_data = {
+    adv_data = { -- 支持表格形式, 也支持字符串形式(255字节以内)
         {ble.FLAGS, string.char(0x06)},
         {ble.COMPLETE_LOCAL_NAME, "LuatOS123"}, -- 广播的设备名
         {ble.SERVICE_DATA, string.fromHex("FE01")}, -- 广播的服务数据
@@ -538,6 +526,20 @@ static int l_ble_advertising_create(lua_State *L){
             lua_pop(L, 1);
         }
     }
+    else if (lua_isstring(L, -1)){
+        // 字符串形式
+        const char *data = luaL_checklstring(L, -1, &len);
+        if (len > 255) {
+            LLOGE("adv_data too long, max length is 255");
+            goto end;
+        }
+        memcpy(adv_data, data, len);
+        adv_index = len;
+    }
+    else {
+        LLOGE("error adv_data type");
+        goto end;
+    }
     lua_pop(L, 1);
 
     if (!local_name_set_flag){
@@ -602,7 +604,6 @@ static int l_ble_advertising_stop(lua_State *L){
 ble_device:write_notify({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_notify(lua_State *L){
@@ -623,7 +624,7 @@ static int l_ble_write_notify(lua_State *L){
             service_uuid = luaL_checklstring(L, -1, &tmp);
             service.uuid_type = tmp;
             memcpy(service.uuid, service_uuid, service.uuid_type);
-            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_service 参数");
@@ -636,7 +637,7 @@ static int l_ble_write_notify(lua_State *L){
             characteristic_uuid = luaL_checklstring(L, -1, &tmp);
             characteristic.uuid_type = tmp;
             memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
-            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_characteristic 参数");
@@ -649,7 +650,7 @@ static int l_ble_write_notify(lua_State *L){
             descriptor_uuid = luaL_checklstring(L, -1, &tmp);
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
-            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            // LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
             ret = luat_ble_write_notify_value(&service, &characteristic, &descriptor, (uint8_t *)value, len);
         }else{
             ret = luat_ble_write_notify_value(&service, &characteristic, NULL, (uint8_t *)value, len);
@@ -676,7 +677,6 @@ end_error:
 ble_device:write_indicate({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_indicate(lua_State *L){
@@ -697,7 +697,7 @@ static int l_ble_write_indicate(lua_State *L){
             service_uuid = luaL_checklstring(L, -1, &tmp);
             service.uuid_type = tmp;
             memcpy(service.uuid, service_uuid, service.uuid_type);
-            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_service 参数");
@@ -710,7 +710,7 @@ static int l_ble_write_indicate(lua_State *L){
             characteristic_uuid = luaL_checklstring(L, -1, &tmp);
             characteristic.uuid_type = tmp;
             memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
-            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_characteristic 参数");
@@ -723,7 +723,7 @@ static int l_ble_write_indicate(lua_State *L){
             descriptor_uuid = luaL_checklstring(L, -1, &tmp);
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
-            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            // LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
             ret = luat_ble_write_indicate_value(&service, &characteristic, &descriptor, (uint8_t *)value, len);
         }else{
             ret = luat_ble_write_indicate_value(&service, &characteristic, NULL, (uint8_t *)value, len);
@@ -750,7 +750,6 @@ end_error:
 ble_device:write_value({
     uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
     uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
-    uuid_descriptor = "2902" -- 可选, 描述符的UUID值, 可以是16位、32位或128位
 }, "Hello BLE") -- 要写入的值
 */
 static int l_ble_write_value(lua_State *L){
@@ -771,7 +770,7 @@ static int l_ble_write_value(lua_State *L){
             service_uuid = luaL_checklstring(L, -1, &tmp);
             service.uuid_type = tmp;
             memcpy(service.uuid, service_uuid, service.uuid_type);
-            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_service 参数");
@@ -784,7 +783,7 @@ static int l_ble_write_value(lua_State *L){
             characteristic_uuid = luaL_checklstring(L, -1, &tmp);
             characteristic.uuid_type = tmp;
             memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
-            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_characteristic 参数");
@@ -797,7 +796,7 @@ static int l_ble_write_value(lua_State *L){
             descriptor_uuid = luaL_checklstring(L, -1, &tmp);
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
-            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            // LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
             ret = luat_ble_write_value(&service, &characteristic, &descriptor, (uint8_t *)value, len);
 
         }else{
@@ -814,6 +813,18 @@ end_error:
     return 0;
 }
 
+/*
+读取特征值
+@api ble.read_value(opts)
+@table 特征值的描述信息
+@return boolean 是否成功
+@usage
+-- 读取特征值,通过回调中的 EVENT_READ_VALUE 事件返回读取的value值
+ble_device:read_value({
+    uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
+    uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
+})
+*/
 static int l_ble_read_value(lua_State *L){
     uint16_t ret = 0;
     const char *service_uuid = NULL;
@@ -832,7 +843,7 @@ static int l_ble_read_value(lua_State *L){
             service_uuid = luaL_checklstring(L, -1, &tmp);
             service.uuid_type = tmp;
             memcpy(service.uuid, service_uuid, service.uuid_type);
-            LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_service 参数");
@@ -845,7 +856,7 @@ static int l_ble_read_value(lua_State *L){
             characteristic_uuid = luaL_checklstring(L, -1, &tmp);
             characteristic.uuid_type = tmp;
             memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
-            LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
         }
         else{
             LLOGW("缺失 uuid_characteristic 参数");
@@ -858,7 +869,7 @@ static int l_ble_read_value(lua_State *L){
             descriptor_uuid = luaL_checklstring(L, -1, &tmp);
             descriptor.uuid_type = tmp;
             memcpy(descriptor.uuid, descriptor_uuid, descriptor.uuid_type);
-            LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
+            // LLOGD("uuid_descriptor: %02X %02X", descriptor.uuid[0], descriptor.uuid[1]);
             ret = luat_ble_read_value(&service, &characteristic, &descriptor, &value, &len);
 
         }else{
@@ -878,7 +889,71 @@ end_error:
     return 0;
 }
 
-/*创建一个BLE扫描
+/*
+开关监听
+@api ble.notify_enable(opts, value)
+@table 特征值的描述信息
+@boolean enable 开/关 可选,默认开
+@return boolean 是否成功
+@usage
+-- 写入特征值,填充预设值,被动读取
+ble_device:notify_enable({
+    uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
+    uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
+}, true) -- 开/关
+*/
+static int l_ble_notify_enable(lua_State *L){
+    uint16_t ret = 0;
+    const char *service_uuid = NULL;
+    const char *characteristic_uuid = NULL;
+    luat_ble_uuid_t service = {0};
+    luat_ble_uuid_t characteristic = {0};
+    size_t tmp = 0;
+    if (1){
+        uint8_t enable = 1;
+        if (lua_isboolean(L, 3)) {
+            enable = lua_toboolean(L, 3);
+        }
+
+        lua_pushstring(L, "uuid_service");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            service_uuid = luaL_checklstring(L, -1, &tmp);
+            service.uuid_type = tmp;
+            memcpy(service.uuid, service_uuid, service.uuid_type);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_service 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "uuid_characteristic");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            characteristic_uuid = luaL_checklstring(L, -1, &tmp);
+            characteristic.uuid_type = tmp;
+            memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_characteristic 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        ret = luat_ble_notify_enable(&service, &characteristic, enable);
+        
+        // LLOGD("luat_ble_write_value ret %d", ret);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
+    return 0;
+}
+
+/*
+创建一个BLE扫描
 @api ble.scan_create(addr_mode, scan_interval, scan_window)
 @number addr_mode 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
 @number scan_interval 扫描间隔, 单位为0.625ms, 最小值为20, 最大值为10240
@@ -945,19 +1020,94 @@ static int l_ble_scanning_stop(lua_State *L){
     return 1;
 }
 
+/*
+BLE连接
+@api ble.connect()
+@string mac 地址
+@int 地址类型 ble.PUBLIC ble.RANDOM
+@return boolean 是否成功
+@usage
+-- BLE连接
+ble_device:connect(string.fromHex("C8478C4E027D"),0)
+*/
 static int l_ble_connect(lua_State *L){
-    size_t len;
+    size_t len = 0;
+    luat_ble_connect_req_t conn = {0};
     uint8_t *adv_addr = luaL_checklstring(L, 2, &len);
     uint8_t adv_addr_type = luaL_checknumber(L, 3);
-    LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
-          adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
-          adv_addr[3], adv_addr[4], adv_addr[5]);
-    lua_pushboolean(L, luat_ble_connect(NULL, adv_addr, adv_addr_type) ? 0 : 1);
+    if (len != 6){
+        LLOGE("error adv_addr len %d", len);
+        return 0;
+    }
+    memcpy(conn.adv_addr, adv_addr, len);
+    conn.adv_addr_type = adv_addr_type;
+    // LLOGD(" adv_addr_type:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x",
+    //       adv_addr_type, adv_addr[0], adv_addr[1], adv_addr[2],
+    //       adv_addr[3], adv_addr[4], adv_addr[5]);
+    lua_pushboolean(L, luat_ble_connect(NULL, &conn) ? 0 : 1);
     return 1;
 }
 
+/*
+BLE断开连接
+@api ble.disconnect()
+@return boolean 是否成功
+@usage
+-- BLE断开连接
+ble_device:disconnect()
+*/
 static int l_ble_disconnect(lua_State *L){
     lua_pushboolean(L, luat_ble_disconnect(NULL) ? 0 : 1);
+    return 1;
+}
+
+/*
+解码广播数据
+@api ble.adv_decode(data)
+@string data 广播数据
+@return table 广播数据的解码结果
+@usage
+-- 解码广播数据
+local data = string.fromHex("1EFF060001092002BE0F0AAD8A6D2E251ED6DFBB3D15249929E10BE138DF7B")
+-- 解析广播数据
+local adv_data = ble_device:adv_decode(data)
+if adv_data then
+    for k, v in pairs(adv_data) do
+        log.info("ble", "adv data", v.len, v.tp, v.data:toHex())
+    end
+end
+*/
+static int l_ble_adv_decode(lua_State *L) {
+    size_t len = 0;
+    const char *data = luaL_checklstring(L, 2, &len);
+    if (len == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_newtable(L);
+    uint8_t *p = (uint8_t *)data;
+    size_t offset = 0;
+    int index = 1;
+    while (offset < len) {
+        uint8_t length = p[offset++];
+        if (length == 0 || offset + length > len) {
+            LLOGE("Invalid BLE advertisement data");
+            lua_pushnil(L);
+            return 1;
+        }
+        uint8_t type = p[offset++];
+        lua_newtable(L);
+        lua_pushinteger(L, length - 1); // Length does not include the length byte itself
+        lua_setfield(L, -2, "len");
+        lua_pushinteger(L, type);
+        lua_setfield(L, -2, "tp");
+        lua_pushlstring(L, (const char *)&p[offset], length - 1); // Data does not include the length byte
+        lua_setfield(L, -2, "data");
+
+        lua_seti(L, -2, index);
+        offset += length - 1;
+        index ++;
+    }
     return 1;
 }
 
@@ -976,6 +1126,7 @@ static const rotable_Reg_t reg_ble[] = {
     {"adv_create", ROREG_FUNC(l_ble_advertising_create)},
     {"adv_start", ROREG_FUNC(l_ble_advertising_start)},
     {"adv_stop", ROREG_FUNC(l_ble_advertising_stop)},
+    {"adv_decode", ROREG_FUNC(l_ble_adv_decode)},
 
     // gatt
     // slaver
@@ -984,7 +1135,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"write_indicate", ROREG_FUNC(l_ble_write_indicate)},
     {"write_value", ROREG_FUNC(l_ble_write_value)},
     {"read_value", ROREG_FUNC(l_ble_read_value)},
-    
+
+    {"notify_enable", ROREG_FUNC(l_ble_notify_enable)},
     // scanning
     {"scan_create", ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start", ROREG_FUNC(l_ble_scanning_start)},
@@ -992,6 +1144,7 @@ static const rotable_Reg_t reg_ble[] = {
 
     {"connect", ROREG_FUNC(l_ble_connect)},
     {"disconnect", ROREG_FUNC(l_ble_disconnect)},
+
 
     // BLE_EVENT
     {"EVENT_NONE", ROREG_INT(LUAT_BLE_EVENT_NONE)},
@@ -1009,26 +1162,40 @@ static const rotable_Reg_t reg_ble[] = {
     {"EVENT_CONN", ROREG_INT(LUAT_BLE_EVENT_CONN)},
     {"EVENT_DISCONN", ROREG_INT(LUAT_BLE_EVENT_DISCONN)},
     {"EVENT_WRITE", ROREG_INT(LUAT_BLE_EVENT_WRITE)},
-    {"EVENT_WRITE_REQ", ROREG_INT(LUAT_BLE_EVENT_WRITE)},
     {"EVENT_READ", ROREG_INT(LUAT_BLE_EVENT_READ)},
-    {"EVENT_READ_REQ", ROREG_INT(LUAT_BLE_EVENT_READ)},
+    {"EVENT_READ_VALUE", ROREG_INT(LUAT_BLE_EVENT_READ_VALUE)},
+    {"EVENT_GATT_DONE", ROREG_INT(LUAT_BLE_EVENT_GATT_DONE)},
 
     // ADV_ADDR_MODE
+    //@const PUBLIC 控制器的公共地址
     {"PUBLIC", ROREG_INT(LUAT_BLE_ADDR_MODE_PUBLIC)},
+    //@const RANDOM 生成的静态地址
     {"RANDOM", ROREG_INT(LUAT_BLE_ADDR_MODE_RANDOM)},
     {"RPA", ROREG_INT(LUAT_BLE_ADDR_MODE_RPA)},
     {"NRPA", ROREG_INT(LUAT_BLE_ADDR_MODE_NRPA)},
+
     // ADV_CHNL
+    //@const CHNL_37 37通道
     {"CHNL_37", ROREG_INT(LUAT_BLE_ADV_CHNL_37)},
+    //@const CHNL_38 38通道
     {"CHNL_38", ROREG_INT(LUAT_BLE_ADV_CHNL_38)},
+    //@const CHNL_39 39通道
     {"CHNL_39", ROREG_INT(LUAT_BLE_ADV_CHNL_39)},
+    //@const CHNLS_ALL 所有通道(37 38 39)
     {"CHNLS_ALL", ROREG_INT(LUAT_BLE_ADV_CHNLS_ALL)},
+
     // Permission
+    //@const READ 读权限
     {"READ", ROREG_INT(LUAT_BLE_GATT_PERM_READ)},
+    //@const WRITE 写权限
     {"WRITE", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE)},
+    //@const IND 指示权限
     {"IND", ROREG_INT(LUAT_BLE_GATT_PERM_IND)},
+    //@const NOTIFY 通知权限
     {"NOTIFY", ROREG_INT(LUAT_BLE_GATT_PERM_NOTIFY)},
+    //@const WRITE_CMD 写权限(无需确认)
     {"WRITE_CMD", ROREG_INT(LUAT_BLE_GATT_PERM_WRITE_CMD)},
+
     // FLAGS
     {"FLAGS", ROREG_INT(LUAT_ADV_TYPE_FLAGS)},
     {"COMPLETE_LOCAL_NAME", ROREG_INT(LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)},

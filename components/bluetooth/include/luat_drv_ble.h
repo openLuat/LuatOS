@@ -34,7 +34,10 @@ enum {
     LUAT_DRV_BT_CMD_BLE_WRITE_INDICATION, // 写入,带订阅的
     LUAT_DRV_BT_CMD_BLE_SEND_READ_RESP, // 发送读响应
     LUAT_DRV_BT_CMD_BLE_WRITE_VALUE, // 写入值
-
+    LUAT_DRV_BT_CMD_BLE_READ_REQ, // 请求读取值
+    LUAT_DRV_BT_CMD_BLE_CONNECT, // 读取值
+    LUAT_DRV_BT_CMD_BLE_DISCONNECT, // 断开连接
+    LUAT_DRV_BT_CMD_BLE_READ_VALUE, // 读取值, 异步的
     LUAT_DRV_BT_CMD_BLE_EVENT_CB = 128, // 事件回调
 
     LUAT_DRV_BT_CMD_MAX
@@ -42,5 +45,10 @@ enum {
 
 int luat_drv_bt_task_start(void);
 int luat_drv_bt_msg_send(luat_drv_ble_msg_t *msg);
+
+
+int luat_ble_gatt_pack(luat_ble_gatt_service_t *gatt, uint8_t *data, size_t *len);
+
+int luat_ble_gatt_unpack(luat_ble_gatt_service_t *gatt, uint8_t *data, size_t *len);
 
 #endif

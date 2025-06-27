@@ -70,10 +70,7 @@ audio.on(0, function(id, event, buff)
 end)
 
 sys.taskInit(function()
-    mcu.altfun(mcu.I2C, Gsensori2cId, 23, 2, 0)
-    mcu.altfun(mcu.I2C, Gsensori2cId, 24, 2, 0)
-    mcu.altfun(mcu.I2C, es8311i2cId, 13, 2, 0)
-    mcu.altfun(mcu.I2C, es8311i2cId, 14, 2, 0)
+
     local codecIsInit = false
     while true do
         local result, param1, param2 = sys.waitUntil("CONTROL")

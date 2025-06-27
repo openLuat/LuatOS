@@ -5,6 +5,7 @@
 2. 一律打包luat_drv_ble_msg_t
 */
 #include "luat_base.h"
+#include "luat_ble.h"
 #include "luat_drv_ble.h"
 #include "luat_airlink.h"
 

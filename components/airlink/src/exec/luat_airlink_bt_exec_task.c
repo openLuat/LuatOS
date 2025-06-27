@@ -10,9 +10,9 @@
 #include "luat_airlink.h"
 
 #if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)
-#include "luat_drv_ble.h"
 #include "luat_bluetooth.h"
 #include "luat_ble.h"
+#include "luat_drv_ble.h"
 #endif
 
 #include "luat_mem.h"
@@ -29,7 +29,9 @@ static luat_rtos_task_handle g_task_handle;
 
 static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_param_t* param) {
     // 注意, 这里要代理不同的事件, 转发到airlink
-    LLOGD("drv_ble event %d", event);
+    if (event != LUAT_BLE_EVENT_SCAN_REPORT) {
+        LLOGD("drv_ble event %d", event);
+    }
     uint64_t seq = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + 1024
@@ -45,18 +47,45 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
     msg->cmd_id = LUAT_DRV_BT_CMD_BLE_EVENT_CB;
 
     uint32_t tmp = event;
+    size_t offset = 0;
+    size_t len = 0;
+    luat_ble_gatt_service_t* gatt = NULL;
     memcpy(ptr, &tmp, 4);
     if (param) {
-        LLOGD("param %p", param);
+        // LLOGD("param %p", param);
+        offset = 4 + sizeof(luat_ble_param_t);
         if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->adv_req.data, param->adv_req.data_len);
+            memcpy(ptr + offset, param->adv_req.data, param->adv_req.data_len);
         }
         else if (LUAT_BLE_EVENT_READ == event) {
             // 请求读, 这个事件仅能通知lua, .value的数据是要被写入的, 不是被读
         }
+        else if (LUAT_BLE_EVENT_READ_VALUE == event && param->read_req.value && param->read_req.value_len > 0) {
+            LLOGD("read resp value %d %p", param->read_req.value_len, param->read_req.value);
+            memcpy(ptr + offset, param->read_req.value, param->read_req.value_len);
+        }
         else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
             LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
-            memcpy(ptr + 4 + sizeof(luat_ble_param_t), param->write_req.value, param->write_req.value_len);
+            memcpy(ptr + offset, param->write_req.value, param->write_req.value_len);
+        }
+        else if (LUAT_BLE_EVENT_GATT_DONE == event) {
+            // TODO 这个操作就比较复杂了
+            // 需要将gatt的内容全部拷贝到ptr中
+            // LLOGI("gatt done, gatt len %d, pack now", param->gatt_done_ind.gatt_service_num);
+            for (size_t i = 0; i < param->gatt_done_ind.gatt_service_num; i++)
+            {
+                gatt = param->gatt_done_ind.gatt_service[i];
+                // LLOGD("gatt service %02X%02X", gatt->uuid[0], gatt->uuid[1]);
+                len = 0;
+                luat_ble_gatt_pack(gatt, ptr + offset, &len);
+                if (len == 0) {
+                    LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
+                    break;
+                }
+                // LLOGD("gatt service pack %d/%d", len, offset);
+                offset += len;
+            }
+            // return;
         }
         memcpy(ptr + 4, param, sizeof(luat_ble_param_t));
     }
@@ -67,11 +96,16 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
 
 static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
     // 从数据中解析出参数, 重新组装
+    int ret = 0;
+    size_t rlen = 0;
     luat_ble_gatt_service_t* gatt = luat_heap_malloc(sizeof(luat_ble_gatt_service_t));
     if (gatt == NULL) {
         LLOGE("out of memory when malloc gatt");
         return -1;
     }
+    #if 1
+    luat_ble_gatt_unpack(gatt, msg->data, &rlen);
+    #else
     size_t offset = 0;
     uint16_t sizeof_gatt = 0;
     uint16_t sizeof_gatt_chara = 0;
@@ -106,8 +140,9 @@ static int drv_gatt_create(luat_drv_ble_msg_t *msg) {
         }
         offset += gatt->characteristics[i].descriptors_num * sizeof(luat_ble_gatt_descriptor_t);
     }
-
-    return luat_ble_create_gatt(NULL, gatt);
+    #endif
+    ret = luat_ble_create_gatt(NULL, gatt);
+    return ret;
 }
 
 static int drv_adv_create(luat_drv_ble_msg_t *msg) {
@@ -195,15 +230,32 @@ static int drv_ble_write_value(luat_drv_ble_msg_t *msg) {
     
 }
 
-// static int drv_ble_send_read_resp(luat_drv_ble_msg_t *msg) {
-//     // 从数据中解析出参数, 重新组装
-//     luat_ble_rw_req_t write = {0};
-//     uint16_t sizeof_write = 0;
-//     memcpy(&sizeof_write, msg->data, 2);
-//     memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
-//     LLOGD("ble send read resp len %d", write.len);
-//     return luat_ble_read_response_value(NULL, write.handle, msg->data + 2 + sizeof_write, write.len);
-// }
+static int drv_ble_connect(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_connect_req_t conn = {0};
+    uint16_t sizeof_conn = 0;
+    memcpy(&sizeof_conn, msg->data, 2);
+    memcpy(&conn, msg->data + 2, sizeof(luat_ble_connect_req_t));
+    return luat_ble_connect(NULL, &conn);
+}
+
+static int drv_ble_read_value(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    LLOGD("ble read len %d", write.len);
+    uint8_t* value = NULL;
+    int ret = 0;
+    if (write.descriptor.uuid_type) {
+        ret = luat_ble_read_value(&write.service, &write.characteristic, &write.descriptor, &value, write.len);
+    }
+    else {
+        ret = luat_ble_read_value(&write.service, &write.characteristic, NULL, &value, write.len);
+    }
+    return ret;
+}
 
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
@@ -303,6 +355,18 @@ static void drv_bt_task(void *param) {
             //     ret = drv_ble_send_read_resp(msg);
             //     LLOGD("ble send read resp %d", ret);
             //     break;
+            case LUAT_DRV_BT_CMD_BLE_CONNECT:
+                ret = drv_ble_connect(msg);
+                LLOGD("ble connect %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_DISCONNECT:
+                ret = luat_ble_disconnect(NULL);
+                LLOGD("ble disconnect %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_READ_VALUE:
+                ret = drv_ble_read_value(msg);
+                LLOGD("ble read value %d", ret);
+                break;
             default:
                 LLOGD("unknow bt cmd %d", msg->cmd_id);
                 break;

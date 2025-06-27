@@ -51,7 +51,7 @@ void luat_debug_print(const char *fmt, ...);
  * @param fmt 格式
  * @param ... 后续变量
  */
-#define LUAT_DEBUG_PRINT(fmt, argv...) luat_debug_print("%s %d:"fmt, __FUNCTION__,__LINE__, ##argv)
+#define LUAT_DEBUG_PRINT(fmt, ...) luat_debug_print("%s %d:"fmt, __FUNCTION__,__LINE__, ##__VA_ARGS__)
 
 /**
  * @brief 断言处理，并格式打印输出到LOG口
@@ -64,11 +64,11 @@ void luat_debug_print(const char *fmt, ...);
 void luat_debug_assert(const char *fun_name, unsigned int line_no, const char *fmt, ...);
 
 
-#define LUAT_DEBUG_ASSERT(condition, fmt, argv...)  do {  \
+#define LUAT_DEBUG_ASSERT(condition, fmt, ...)  do {  \
 														{ \
 															if((condition) == 0) \
 															{ \
-																luat_debug_assert(__FUNCTION__, __LINE__, fmt, ##argv); \
+																luat_debug_assert(__FUNCTION__, __LINE__, fmt, ##__VA_ARGS__); \
 															}\
 														} \
 													} while(0) ///< luat_debug_assert宏定义为LUAT_DEBUG_ASSERT

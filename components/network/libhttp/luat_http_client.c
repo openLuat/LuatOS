@@ -703,6 +703,10 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			if (http_ctrl->resp_headers_done) {
 				size_t nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
+				if(http_ctrl->parser.http_errno) {
+					LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
+					return 0;
+				}
 				if (http_ctrl->close_state) {
 					http_ctrl->resp_buff_offset = 0;
 					on_complete(&http_ctrl->parser, http_ctrl);

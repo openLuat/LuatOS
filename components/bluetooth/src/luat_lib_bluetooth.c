@@ -99,7 +99,7 @@ function ble_callback(dev, evt, param)
     -- ble.EVENT_DISCONN: 断开连接
         -- param 是事件参数, 包含以下字段:
         -- param.reason: 断开连接的原因
-    -- ble.EVENT_WRITE_REQ: 收到写请求
+    -- ble.EVENT_WRITE: 收到写请求
         -- param 是事件参数, 包含以下字段:
         -- param.uuid_service: 服务的UUID
         -- param.uuid_characteristic: 特征的UUID
@@ -121,7 +121,7 @@ function ble_callback(dev, evt, param)
         sys.timerStart(function() dev:adv_start() end, 1000)
     elseif ble_event == ble.EVENT_SCAN_REPORT then
         log.info("ble", "scan report", param.rssi, param.adv_addr:toHex(), param.data:toHex())
-    elseif evt == ble.EVENT_WRITE_REQ then
+    elseif evt == ble.EVENT_WRITE then
         -- 收到写请求
         log.info("ble", "接收到写请求", param.uuid_service:toHex(), param.uuid_characteristic:toHex(), param.data:toHex())
     end

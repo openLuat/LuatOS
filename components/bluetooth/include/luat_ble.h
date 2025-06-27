@@ -122,9 +122,10 @@ typedef enum{
     LUAT_BLE_EVENT_DISCONN,     // BLE断开连接
     LUAT_BLE_EVENT_GATT_DONE,     // BLE GATT
 
-    // WRITE
-    LUAT_BLE_EVENT_WRITE,       // BLE写数据
-    LUAT_BLE_EVENT_READ,        // BLE读数据
+    // WRITE/READ
+    LUAT_BLE_EVENT_WRITE,         // BLE从模式下，主设备写操作事件
+    LUAT_BLE_EVENT_READ,         // BLE从模式下，主设备读操作事件
+    LUAT_BLE_EVENT_READ_VALUE,      // BLE读value数据回调
 
     LUAT_BLE_EVENT_MAX,
 
@@ -179,8 +180,8 @@ typedef struct {
 typedef enum{
     LUAT_BLE_ADDR_MODE_PUBLIC,   // 控制器的公共地址
     LUAT_BLE_ADDR_MODE_RANDOM,   // 生成的静态地址
-    LUAT_BLE_ADDR_MODE_RPA,      // 可解析的私有地址
-    LUAT_BLE_ADDR_MODE_NRPA,     // 不可解析的私有地址
+    LUAT_BLE_ADDR_MODE_RPA,    // 可解析的私有地址
+    LUAT_BLE_ADDR_MODE_NRPA,    // 不可解析的私有地址
 }luat_ble_addr_mode_t;
 
 typedef enum{
@@ -233,8 +234,11 @@ typedef struct{
 
 typedef struct{
     uint16_t handle;       /**< The index of the attribute */
+    luat_ble_uuid_t uuid_service;
+    luat_ble_uuid_t uuid_characteristic;
+    luat_ble_uuid_t uuid_descriptor;
     uint8_t *value;         /**< The attribute value */
-    uint16_t len;           /**< The data length read */
+    uint16_t value_len;           /**< The data length read */
     uint16_t size;          /**< The size of attribute value to read */
 } luat_ble_read_req_t;
 
@@ -278,7 +282,7 @@ typedef struct{
     union {
         luat_ble_device_info_t luat_ble_device_info;
         luat_ble_write_req_t write_req;
-        // luat_ble_read_req_t read_req;
+        luat_ble_read_req_t read_req;
         luat_ble_adv_req_t adv_req;
         luat_ble_conn_ind_t conn_ind;
         luat_ble_disconn_ind_t disconn_ind;
@@ -341,7 +345,7 @@ int luat_ble_read_value(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_cha
 
 
 // master
-int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, luat_ble_uuid_t* uuid_descriptor, uint8_t enable);
+int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, uint8_t enable);
 
 // scanning
 int luat_ble_create_scanning(void* args, luat_ble_scan_cfg_t* scan_cfg);
@@ -352,9 +356,6 @@ int luat_ble_stop_scanning(void* args);
 
 int luat_ble_delete_scanning(void* args);
 
-int luat_ble_connect(void* args, uint8_t* adv_addr,uint8_t adv_addr_type);
-
-int luat_ble_disconnect(void* args);
 
 typedef struct luat_ble_rw_req{
     uint32_t len;
@@ -363,5 +364,17 @@ typedef struct luat_ble_rw_req{
     luat_ble_uuid_t descriptor;
     uint8_t data[0];
 }luat_ble_rw_req_t;
+
+typedef struct luat_ble_conn_req {
+    uint8_t adv_addr_type;  /**< Advertising address type: public/random */
+    uint8_t adv_addr[6];    /**< Advertising address value */
+    uint16_t conn_interval;  /**< Connection interval */
+    uint16_t conn_latency;   /**< Connection latency */
+    uint16_t sup_to;         /**< Link supervision timeout */
+}luat_ble_connect_req_t;
+
+int luat_ble_connect(void* args, luat_ble_connect_req_t *conn);
+
+int luat_ble_disconnect(void* args);
 
 #endif

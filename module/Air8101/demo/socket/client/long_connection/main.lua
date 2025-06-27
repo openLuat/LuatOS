@@ -81,17 +81,17 @@ require "timer_app"
 require "tcp_client_main"
 
 -- 加载udp client socket主应用功能模块
--- require "udp_client_main"
+require "udp_client_main"
 
 -- 打开内核固件中ssl的调试日志（需要分析问题时再打开）
 -- socket.sslLog(3)
 -- 加载tcp ssl client socket主应用功能模块
--- require "tcp_ssl_main"
+require "tcp_ssl_main"
 
 -- 加载sntp时间同步应用功能模块（ca证书校验的ssl socket需要时间同步功能）
--- require "sntp_app"
+require "sntp_app"
 -- 加载tcp ssl ca client socket主应用功能模块
--- require "tcp_ssl_ca_main"
+require "tcp_ssl_ca_main"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

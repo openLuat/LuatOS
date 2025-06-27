@@ -2,6 +2,8 @@
 
 ## 最新版本
 
+#### 2025.06.27
+
 [LuatOS-SoC_V2008_Air8000_LVGL_0627](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_LVGL_0627.soc)
 
 [LuatOS-SoC_V2008_Air8000_VOLTE_0627](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_VOLTE_0627.soc)
@@ -10,11 +12,45 @@
 
 ## 历史版本
 
+#### 2025.06.23
+
 [LuatOS-SoC_V2008_Air8000_LVGL_0623](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_LVGL_0623.soc)
 
 [LuatOS-SoC_V2008_Air8000_VOLTE_0623](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_VOLTE_0623.soc)
 
 [LuatOS-SoC_V2008_Air8000_FS_0623](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_FS_0623.soc)
+
+#### 2025.06.21
+
+[LuatOS-SoC_V2008_Air8000_LVGL_0621](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_LVGL_0621.soc)
+
+[LuatOS-SoC_V2008_Air8000_FS_0621](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_FS_0621.soc)
+
+#### 2025.06.10
+
+[LuatOS-SoC_V2007_Air8000_LVGL_0610](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_LVGL_0610.soc)
+
+[LuatOS-SoC_V2007_Air8000_VOLTE_0610](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_VOLTE_0610.soc)
+
+[LuatOS-SoC_V2007_Air8000_FS_0610](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_FS_0610.soc)
+
+#### 2025.06.07
+
+[LuatOS-SoC_V2007_Air8000_LVGL_0607](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_LVGL_0607.soc)
+
+[LuatOS-SoC_V2007_Air8000_VOLTE_0607](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_VOLTE_0607.soc)
+
+#### 2025.06.04
+
+[LuatOS-SoC_V2007_Air8000_LVGL_0604](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_LVGL_0610.soc)
+
+[LuatOS-SoC_V2007_Air8000_VOLTE_0604](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_VOLTE_0604.soc)
+
+#### 2025.05.27
+
+[LuatOS-SoC_V2007_Air8000_LVGL_0527](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_LVGL_0527.soc)
+
+[LuatOS-SoC_V2007_Air8000_VOLTE_0527](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2007_Air8000_VOLTE_0527.soc)
 
 
 

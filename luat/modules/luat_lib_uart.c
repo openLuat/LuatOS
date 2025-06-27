@@ -1352,6 +1352,20 @@ static int l_uart_list(lua_State *L)
 }
 #endif
 
+
+LUAT_WEAK void luat_uart_patch(int *param) {;}
+
+static int l_uart_patch(lua_State *L)
+{
+	int param[6];
+	for(int i = 0; i < 6; i++)
+	{
+		param[i] = luaL_optinteger(L, i, 0);
+	}
+	luat_uart_patch(param);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
 {
@@ -1368,6 +1382,7 @@ static const rotable_Reg_t reg_uart[] =
     { "on",         ROREG_FUNC(l_uart_on)},
     { "setup",      ROREG_FUNC(l_uart_setup)},
     { "exist",      ROREG_FUNC(l_uart_exist)},
+	{ "patch",      ROREG_FUNC(l_uart_patch)},
 #ifdef LUAT_FORCE_WIN32
     { "list",       ROREG_FUNC(l_uart_list)},
 #endif

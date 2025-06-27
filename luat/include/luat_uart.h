@@ -222,7 +222,7 @@ void luat_uart_soft_sleep_enable(uint8_t is_enable);
 #endif
 
 int luat_uart_wait_485_tx_done(int uartid);
-
+void luat_uart_patch(int *param);
 /** @}*/
 /** @}*/
 #endif

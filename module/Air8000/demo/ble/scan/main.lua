@@ -1,36 +1,10 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "ble_scan"
+PROJECT = "ble"
 VERSION = "1.0.0"
 
---[[
-Air8000的BLE支持4种模式，分别是主机模式(central)，从机模式(peripheral)，广播者模式(ibeacon)，以及观察者模式(scan)。
-1.主机模式(central)：
-主机模式是能够搜索别人并主动建立连接的一方，从扫描状态转化而来的。其可以和一个或多个从设备进行连接通信，它会定期的扫描周围的广播状态设备发送的广播信息，可以对周围设备进行搜索并选择所需要连接的从设备进行配对连接，建立通信链路成功后，主从双方就可以发送接收数据。
-2.从机模式(peripheral)：
-从机模式是从广播者模式转化而来的，未被连接的从机首先进入广播状态，等待被主机搜索，当主机扫描到从设备建立连接后，就可以和主机设备进行数据的收发，其不能主动的建立连接，只能等别人来连接自己。和广播模式有区别的地方在于，从机模式的设备是可以被连接的，定期的和主机进行连接和数据传输，在数据传输过程中作从机。
-3.广播者模式(ibeacon)
-处于广播模式的设备，会周期性的广播beacon信息, 但不会被扫描到, 也不会连接其他设备。
-4.观察者模式(scan)
-观察者模式，该模式下模块为非连接，相对广播者模式的一对多发送广播，观察者可以一对多接收数据。在该模式中，设备可以仅监听和读取空中的广播数据。和主机唯一的区别是不能发起连接，只能持续扫描从机。
-蓝牙中的重要概念
-1. GATT（通用属性配置文件）
-  - 定义 BLE 设备如何组织和传输数据，以 “服务（Service）” 和 “特征（Characteristic）” 为单位。
-  - 示例：心率监测设备的 GATT 服务包含 “心率特征”，手机通过读取该特征获取心率数据。
-2. 服务和特征
-- 服务是特征的容器，通过逻辑分组简化复杂功能的管理；
-- 特征是数据交互的最小单元，通过属性定义实现灵活的读写与推送机制；
-- 两者结合构成 GATT 协议的核心框架，支撑蓝牙设备间的标准化数据交互（如智能穿戴、医疗设备、物联网传感器）。
-3. 特征的关键属性（Properties）
-特征通过 “属性” 定义数据的操作方式，常见属性包括：
-  1. 可读（Read）：允许客户端读取特征值（如读取电池电量）。
-  2. 可写（Write）：允许客户端写入特征值（如设置设备参数）。
-  3. 通知（Notification）：服务端主动发送特征值更新（如心率变化时推送给手机）。
-  4. 指示（Indication）：比通知更可靠的推送（需客户端确认接收）。
-4. UUID
-  UUID 是蓝牙 GATT 协议的 “数字身份证”，通过标准化的唯一标识机制，实现了跨厂商设备的功能互认（标准 UUID）与厂商个性化功能的扩展（自定义 UUID）
-  Air8000 的所有操作，都通过UUID来索引和管理
-]]
+-- 引入必要的库文件(lua编写), 内部库不需要require
+sys = require("sys")
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
@@ -54,6 +28,16 @@ local function ble_callback(ble_device, ble_event, ble_param)
         log.info("ble", "scan init")
     elseif ble_event == ble.EVENT_SCAN_REPORT then
         log.info("ble", "scan report", ble_param.rssi, ble_param.adv_addr:toHex(), ble_param.data:toHex())
+        -- 解析广播数据, 日志很多, 按需使用
+        -- local adv_data = ble_device:adv_decode(ble_param.data)
+        -- if adv_data then
+        --     for k, v in pairs(adv_data) do
+        --         log.info("ble", "adv data", v.len, v.tp, v.data:toHex())
+        --     end
+        -- end
+        -- if ble_param.data:byte(1) == 0x1A then
+        --     log.info("ble", "ibeacon数据", ble_param.rssi, ble_param.adv_addr:toHex(), ble_param.data:toHex())
+        -- end
     elseif ble_event == ble.EVENT_SCAN_STOP then
         log.info("ble", "scan stop")
     end
@@ -81,11 +65,18 @@ sys.taskInit(function()
     log.info("开始扫描")
     ble_device:scan_start()
 
-    sys.wait(15000)
-    log.info("停止扫描")
-    ble_device:scan_stop()
+    -- sys.wait(15000)
+    -- log.info("停止扫描")
+    -- ble_device:scan_stop()
 
 end)
+
+-- sys.timerLoopStart(function()
+--     print("hi, LuatOS")
+--     print("mem.lua", rtos.meminfo())
+--     print("mem.sys", rtos.meminfo("sys"))
+--     print("mem.psram", rtos.meminfo("psram"))
+-- end, 3000)
 
 
 -- 用户代码已结束---------------------------------------------

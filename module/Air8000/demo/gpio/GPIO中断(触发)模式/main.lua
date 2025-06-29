@@ -20,7 +20,10 @@ gpio.debounce(gpio_pin, 100)
 gpio.setup(gpio_pin, function()
     log.info("gpio", gpio_pin, "被触发")
 end, gpio.PULLUP, gpio.BOTH)
-
+-- 使用wakeup 获取中断
+gpio.setup(gpio.wakeup0, function()
+    log.info("wakeup0", gpio_pin, "被触发")
+end, gpio.PULLUP, gpio.BOTH)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

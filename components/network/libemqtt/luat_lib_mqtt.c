@@ -332,6 +332,7 @@ static int l_mqtt_create(lua_State *L) {
 		LLOGE("out of memory when malloc mqtt_ctrl");
 		return 0;
 	}
+	mqtt_ctrl->app_cb = NULL;
 
 	ret = luat_mqtt_init(mqtt_ctrl, adapter_index);
 	if (ret) {

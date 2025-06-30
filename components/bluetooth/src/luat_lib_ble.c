@@ -459,6 +459,8 @@ static int l_ble_advertising_create(lua_State *L){
         .channel_map = LUAT_BLE_ADV_CHNLS_ALL,
         .intv_min = 120,
         .intv_max = 160,
+        .adv_type = LUAT_BLE_ADV_TYPE_LEGACY,
+        .adv_prop = LUAT_BLE_ADV_PROP_CONNECTABLE | LUAT_BLE_ADV_PROP_SCANNABLE,
     };
 
     lua_pushstring(L, "addr_mode");
@@ -482,6 +484,18 @@ static int l_ble_advertising_create(lua_State *L){
     lua_pushstring(L, "intv_max");
     if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.intv_max = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "adv_type");
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
+        luat_ble_adv_cfg.adv_type = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "adv_prop");
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
+        luat_ble_adv_cfg.adv_prop = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
 
@@ -1204,6 +1218,20 @@ static const rotable_Reg_t reg_ble[] = {
     {"COMPLETE_LOCAL_NAME", ROREG_INT(LUAT_ADV_TYPE_COMPLETE_LOCAL_NAME)},
     {"SERVICE_DATA", ROREG_INT(LUAT_ADV_TYPE_SERVICE_DATA_16BIT)},
     {"MANUFACTURER_SPECIFIC_DATA", ROREG_INT(LUAT_ADV_TYPE_MANUFACTURER_SPECIFIC_DATA)},
+
+    // adv type
+    {"ADV_TYPE_LEGACY", ROREG_INT(LUAT_BLE_ADV_TYPE_LEGACY)},
+    {"ADV_TYPE_EXTENDED", ROREG_INT(LUAT_BLE_ADV_TYPE_EXTENDED)},
+    {"ADV_TYPE_SCAN_RESPONSE", ROREG_INT(LUAT_BLE_ADV_PERIODIC)},
+
+    // adv prop
+    {"ADV_PROP_CONNECTABLE", ROREG_INT(LUAT_BLE_ADV_PROP_CONNECTABLE)},
+    {"ADV_PROP_SCANNABLE", ROREG_INT(LUAT_BLE_ADV_PROP_SCANNABLE)},
+    {"ADV_PROP_DIRECTED", ROREG_INT(LUAT_BLE_ADV_PROP_DIRECTED)},
+    {"ADV_PROP_HDC", ROREG_INT(LUAT_BLE_ADV_PROP_HDC)},
+    {"ADV_PROP_ANONYMOUS", ROREG_INT(LUAT_BLE_ADV_PROP_ANONYMOUS)},
+    {"ADV_PROP_LEGACY", ROREG_INT(LUAT_BLE_ADV_PROP_LEGACY)},
+    {"ADV_PROP_TX_PWR", ROREG_INT(LUAT_BLE_ADV_PROP_TX_PWR)},
     {NULL, ROREG_INT(0)}};
 
 static int _ble_struct_newindex(lua_State *L){

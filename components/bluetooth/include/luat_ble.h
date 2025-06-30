@@ -186,6 +186,12 @@ typedef enum{
     LUAT_BLE_ADDR_MODE_NRPA,    // 不可解析的私有地址
 }luat_ble_addr_mode_t;
 
+enum {
+    LUAT_BLE_ADV_TYPE_LEGACY = 0x00, /**< Legacy advertising */
+    LUAT_BLE_ADV_TYPE_EXTENDED = 0x01, /**< Extended advertising */
+    LUAT_BLE_ADV_PERIODIC = 0x02, /**< Periodic advertising */
+};
+
 typedef enum{
     LUAT_BLE_ADV_CHNL_37    = 0x01, /**< Byte value for advertising channel map for channel 37 enable */
     LUAT_BLE_ADV_CHNL_38    = 0x02, /**< Byte value for advertising channel map for channel 38 enable */
@@ -193,11 +199,23 @@ typedef enum{
     LUAT_BLE_ADV_CHNLS_ALL  = 0x07, /**< Byte value for advertising channel map for channel 37, 38 and 39 enable */
 }luat_ble_adv_chnl_t;
 
+typedef enum{
+    LUAT_BLE_ADV_PROP_CONNECTABLE = 0x01, /**< Connectable advertising */
+    LUAT_BLE_ADV_PROP_SCANNABLE   = 0x02, /**< Scannable advertising */
+    LUAT_BLE_ADV_PROP_DIRECTED    = 0x04, /**< Directed advertising */
+    LUAT_BLE_ADV_PROP_HDC         = (1 << 3), /**< High duty cycle advertising */
+    LUAT_BLE_ADV_PROP_LEGACY      = (1 << 4), /**< Legacy advertising */
+    LUAT_BLE_ADV_PROP_ANONYMOUS   = (1 << 5), /**< Anonymous advertising */
+    LUAT_BLE_ADV_PROP_TX_PWR      = (1 << 6), /**< Scan response */
+} luat_ble_adv_prop_t;
+
 typedef struct {
     luat_ble_adv_chnl_t channel_map;
     luat_ble_addr_mode_t addr_mode;
     uint32_t intv_min;
     uint32_t intv_max;
+    uint8_t adv_prop;
+    uint8_t adv_type;
 }luat_ble_adv_cfg_t;
 
 /// Scan type

@@ -222,5 +222,6 @@ LUAMOD_API int luaopen_ble( lua_State *L );
 
 // modbus
 LUAMOD_API int luaopen_modbus( lua_State *L );
-
+/** airtalk库*/
+LUAMOD_API int luaopen_airtalk( lua_State *L );
 #endif

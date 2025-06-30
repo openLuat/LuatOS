@@ -203,9 +203,10 @@ typedef enum{
     LUAT_BLE_ADV_PROP_CONNECTABLE = 0x01, /**< Connectable advertising */
     LUAT_BLE_ADV_PROP_SCANNABLE   = 0x02, /**< Scannable advertising */
     LUAT_BLE_ADV_PROP_DIRECTED    = 0x04, /**< Directed advertising */
-    LUAT_BLE_ADV_PROP_SCAN_RSP    = 0x08, /**< Scan response */
-    LUAT_BLE_ADV_PROP_LEGACY      = 0x10, /**< Legacy advertising */
-    LUAT_BLE_ADV_PROP_ANONYMOUS   = 0x20, /**< Anonymous advertising */
+    LUAT_BLE_ADV_PROP_HDC         = (1 << 3), /**< High duty cycle advertising */
+    LUAT_BLE_ADV_PROP_LEGACY      = (1 << 4), /**< Legacy advertising */
+    LUAT_BLE_ADV_PROP_ANONYMOUS   = (1 << 5), /**< Anonymous advertising */
+    LUAT_BLE_ADV_PROP_TX_PWR      = (1 << 6), /**< Scan response */
 } luat_ble_adv_prop_t;
 
 typedef struct {

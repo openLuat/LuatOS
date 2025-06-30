@@ -27,12 +27,23 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr);
 
 int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 #ifdef __LUATOS__
+	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)ptr;
 	rtos_msg_t msg = {
 		.handler = luatos_mqtt_callback,
 		.ptr = ptr,
 		.arg1 = arg1,
 		.arg2 = arg2
 	};
+
+	if (mqtt_ctrl->app_cb)
+	{
+		luat_mqtt_cb_t mqtt_cb = mqtt_ctrl->app_cb;
+		mqtt_cb(mqtt_ctrl, arg1);
+		if (MQTT_MSG_PUBLISH == arg1)
+		{
+			return 0;
+		}
+	}
 	luat_msgbus_put(&msg, 0);
 #else
 	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)ptr;
@@ -320,13 +331,20 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			LLOGD("MQTT_MSG_PUBLISH");
 			qos = MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer);
 #ifdef __LUATOS__
-			const uint8_t* ptr;
-			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-			uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
-			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
-            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
-			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
+			if (!mqtt_ctrl->app_cb)
+			{
+				const uint8_t* ptr;
+				uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+				uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+				luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
+				mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
+	            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
+				l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
+			}
+			else
+			{
+				l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
+			}
 #else
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
 #endif

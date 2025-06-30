@@ -459,6 +459,8 @@ static int l_ble_advertising_create(lua_State *L){
         .channel_map = LUAT_BLE_ADV_CHNLS_ALL,
         .intv_min = 120,
         .intv_max = 160,
+        .adv_type = LUAT_BLE_ADV_TYPE_LEGACY,
+        .adv_prop = LUAT_BLE_ADV_PROP_CONNECTABLE | LUAT_BLE_ADV_PROP_SCANNABLE,
     };
 
     lua_pushstring(L, "addr_mode");
@@ -482,6 +484,18 @@ static int l_ble_advertising_create(lua_State *L){
     lua_pushstring(L, "intv_max");
     if (LUA_TNUMBER == lua_gettable(L, 2)){
         luat_ble_adv_cfg.intv_max = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "adv_type");
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
+        luat_ble_adv_cfg.adv_type = luaL_checknumber(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_pushstring(L, "adv_prop");
+    if (LUA_TNUMBER == lua_gettable(L, 2)){
+        luat_ble_adv_cfg.adv_prop = luaL_checknumber(L, -1);
     }
     lua_pop(L, 1);
 

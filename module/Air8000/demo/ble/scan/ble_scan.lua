@@ -1,6 +1,6 @@
 --[[
-本文件为Air8000核心板演示peripheral功能的代码示例，核心业务逻辑为：
-广播者模式(ibeacon)的基本流程(概要描述)
+本文件为Air8000核心板演示scan功能的代码示例，核心业务逻辑为：
+观察者模式(scan)的基本流程(概要描述)
 1. 初始化蓝牙框架
 2. 创建BLE对象
 local ble_device = bluetooth_device:ble(ble_event_cb)

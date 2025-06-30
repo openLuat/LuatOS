@@ -23,8 +23,6 @@
 
 2、[Air8000 固件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)
 
-3、[Air8000 BLE从机代码](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/ble/peripheral)
-
 ## 演示核心步骤
 
 1、核心板通过usb数据线连接到电脑上

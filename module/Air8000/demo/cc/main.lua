@@ -91,7 +91,7 @@ function cc_setup()
 
     sys.waitUntil("CC_READY")
     sys.wait(10000)
-    cc.dial(0,"15893470522") --拨打电话
+    cc.dial(0,"158xxxxxxxx") --拨打电话
 end
 cc.on("record", record)--注册cc事件回调
 sys.taskInit(cc_setup) --初始化cc

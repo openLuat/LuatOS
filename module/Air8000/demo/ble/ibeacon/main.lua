@@ -1,64 +1,59 @@
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "ble"
-VERSION = "1.0.0"
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
+本demo演示的核心功能为：
+Air8000核心板演示ibeacon功能；
+iBeacon是一种基于蓝牙低功耗(BLE)技术的室内定位和近场通信技术，
+它允许设备在一定范围内周期性广播ibeacon信息，从而实现位置感知和交互功能。
+本demo中，Air8000核心板作为ibeacon设备，定期广播ibeacon信号，
+其他支持ibeacon的设备可以接收这些信号并进行相应的处理。
+更多说明参考本目录下的readme.md文件
+]]
+PROJECT = "ibeacon"
+VERSION = "1.0.0"
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
--- 通过boot按键方便刷Air8000S
-function PWR8000S(val) gpio.set(23, val) end
-
-gpio.debounce(0, 1000)
-gpio.setup(0, function()
-    sys.taskInit(function()
-        log.info("复位Air8000S")
-        PWR8000S(0)
-        sys.wait(20)
-        PWR8000S(1)
-    end)
-end, gpio.PULLDOWN)
-
-function ble_callback()
-    -- 无事可做
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
-sys.taskInit(function()
-    local ret = 0
-    sys.wait(500)
-    log.info("开始初始化蓝牙核心")
-    bluetooth_device = bluetooth.init()
-    sys.wait(100)
-    log.info("初始化BLE功能")
-    ble_device = bluetooth_device:ble(ble_callback)
-    sys.wait(100)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    sys.wait(100)
-    log.info("开始设置广播内容")
 
-    local adv_data = string.char(0x4C, 0x00, -- Manufacturer ID（2字节）
-                                0x02, 0x15, -- iBeacon数据类型（2字节）
-                                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, -- UUID（16字节）
-                                0x00, 0x01, -- Major（2字节）
-                                0x00, 0x02, -- Minor（2字节）
-                                0xC0) -- Signal Power（1字节）
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-    ble_device:adv_create({
-        addr_mode = ble.PUBLIC,
-        channel_map = ble.CHNLS_ALL,
-        intv_min = 120,
-        intv_max = 120,
-        adv_data = {
-            {ble.FLAGS, string.char(0x06)},
-            {ble.MANUFACTURER_SPECIFIC_DATA, adv_data}
-        }
-    })
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    sys.wait(100)
-    log.info("开始广播")
-    ble_device:adv_start()
-end)
+-- 加载 ibeacon 蓝牙功能模块
+require "ble_ibeacon"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

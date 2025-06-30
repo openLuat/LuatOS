@@ -15,13 +15,14 @@ sys.taskInit(function()
     sys.wait(1000)
     -- 压缩过的字符串
     local tmp = io.readFile("/luadb/fastlz.h") or "q309pura;dsnf;asdouyf89q03fonaewofhaeop;fhiqp02398ryhai;ofinap983fyua0weo;ifhj3p908fhaes;iofaw789prhfaeiwop;fhaesp98fadsjklfhasklfsjask;flhadsfk"
+    local maxOut = #tmp
     local L1 = fastlz.compress(tmp)
-    local dstr = fastlz.uncompress(L1)
+    local dstr = fastlz.uncompress(L1, maxOut)
     log.info("fastlz", "压缩等级1", #tmp, #L1, #dstr)
     L1 = nil
     dstr = nil
     local L2 = fastlz.compress(tmp, 2)
-    local dstr = fastlz.uncompress(L2)
+    local dstr = fastlz.uncompress(L2, maxOut)
     log.info("fastlz", "压缩等级2", #tmp, #L2, #dstr)
     L1 = nil
     dstr = nil

@@ -36,12 +36,14 @@ sys.taskInit(function()
 
     sys.wait(100)
     log.info("开始设置广播内容")
-    local adv_data = string.char(0x4C, 0x00,
-                                0x02, 0x15, 0x01, 0x02, 0x03, 0x04, 0x05,
-                                        0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-                                        0x00, 0x01,
-                                        0x00, 0x02,
-                                        0x00)
+
+    local adv_data = string.char(0x4C, 0x00, -- Manufacturer ID（2字节）
+                                0x02, 0x15, -- iBeacon数据类型（2字节）
+                                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, -- UUID（16字节）
+                                0x00, 0x01, -- Major（2字节）
+                                0x00, 0x02, -- Minor（2字节）
+                                0xC0) -- Signal Power（1字节）
+
     ble_device:adv_create({
         addr_mode = ble.PUBLIC,
         channel_map = ble.CHNLS_ALL,

@@ -139,7 +139,7 @@ int luat_airlink_cmd_exec_bt_resp_result_cb(luat_airlink_cmd_t *cmd, void *userd
     }
     luat_drv_ble_msg_t* msg = (luat_drv_ble_msg_t *)(cmd->data);
     luat_drv_ble_result_t *resp_result = (luat_drv_ble_result_t *)(msg->data);
-    LLOGI("执行结果 result: %d", resp_result->result);
+    LLOGD("执行结果 result: %d", resp_result->result);
     return 0;
 }
 

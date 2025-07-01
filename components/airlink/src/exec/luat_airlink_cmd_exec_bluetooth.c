@@ -133,6 +133,16 @@ int luat_airlink_cmd_exec_bt_resp_cb(luat_airlink_cmd_t *cmd, void *userdata) {
     return 0;
 }
 
+int luat_airlink_cmd_exec_bt_resp_result_cb(luat_airlink_cmd_t *cmd, void *userdata) {
+    if (cmd->len < 10) {
+        return -100;
+    }
+    luat_drv_ble_msg_t* msg = (luat_drv_ble_msg_t *)(cmd->data);
+    luat_drv_ble_result_t *resp_result = (luat_drv_ble_result_t *)(msg->data);
+    LLOGI("执行结果 result: %d", resp_result->result);
+    return 0;
+}
+
 #endif
 
 #if defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH) || defined(LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP)

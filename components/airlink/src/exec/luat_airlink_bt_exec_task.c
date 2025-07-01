@@ -389,6 +389,25 @@ static void drv_bt_task(void *param) {
                 LLOGD("unknow bt cmd id %d", msg->cmd_id);
                 break;
             }
+            uint64_t seq = luat_airlink_get_next_cmd_id();
+            airlink_queue_item_t item = {
+                .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + sizeof(luat_drv_ble_result_t)
+            };
+            luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x511, item.len - sizeof(luat_airlink_cmd_t));
+            if (cmd != NULL) {
+                luat_drv_ble_msg_t *resp_msg = (luat_drv_ble_msg_t *)cmd->data;
+                resp_msg->id = seq;
+                resp_msg->cmd_id = LUAT_DRV_BT_CMD_BLE_EXEC_RESULT;
+                void* ptr = cmd->data + sizeof(luat_drv_ble_msg_t);
+                luat_drv_ble_result_t resp_result = {.last_id = msg->id, .result = ret};
+                memcpy(ptr, &resp_result, sizeof(luat_drv_ble_result_t));
+                item.cmd = cmd;
+                luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+            }
+            else
+            {
+                LLOGW("out of memory when alloc ble event");
+            }
             luat_heap_free(msg);
         }
         luat_rtos_task_sleep(5); // TODO 删掉

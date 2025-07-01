@@ -539,9 +539,9 @@ static void ftp_task(void *param){
 				offset += len;
 				// BK72xx平台, 内存使用量过大时, wifi会死, 这里加点sleep试试
 				#if defined(CONFIG_LUATOS)
-				if (offset % 32*1024 == 0) {
+				// if (offset % 32*1024 == 0) {
 					luat_rtos_task_sleep(200);
-				}
+				// }
 				#endif
 			}
 			luat_heap_free(buff);

@@ -11,6 +11,12 @@ typedef struct luat_drv_ble_msg
     uint8_t data[0];
 }luat_drv_ble_msg_t;
 
+typedef struct luat_drv_ble_result
+{
+    uint64_t last_id;
+    int32_t result;
+}luat_drv_ble_result_t;
+
 // 定义蓝牙cmd id
 
 enum {
@@ -42,7 +48,7 @@ enum {
 
 
     LUAT_DRV_BT_CMD_BLE_EVENT_CB = 128, // 事件回调
-
+    LUAT_DRV_BT_CMD_BLE_EXEC_RESULT,
     LUAT_DRV_BT_CMD_MAX
 };
 

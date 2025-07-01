@@ -1,4 +1,10 @@
 --[[
+@module  uart_app
+@summary 串口应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为串口应用功能模块，核心业务逻辑为：
 1、打开uart1，波特率115200，数据位8，停止位1，无奇偶校验位；
 2、uart1和pc端的串口工具相连；
@@ -7,7 +13,7 @@
 
 本文件的对外接口有两个：
 1、sys.publish("SEND_DATA_REQ", "uart", read_buf)，通过publish通知其他应用功能模块处理read_buf数据；
-2、sys.subscribe("RECV_DATA_FROM_SERVER", recv_data_from_server_proc)，订阅RECV_DATA_FROM_SERVER消息，处理消息携带的数据；
+2、sys.subscribe("RECV_DATA_FROM_SERVER", recv_data_from_server_proc)，订阅RECV_DATA_FROM_SERVER消息，处理消息携带的数据；；
 ]]
 
 

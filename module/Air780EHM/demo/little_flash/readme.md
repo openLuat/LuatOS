@@ -1,7 +1,7 @@
 
 ## 演示功能概述
 
-使用Air780EHM核心板对SPI FLASH来挂载成lfs文件系统，并通过文件系统相关接口去操作lfs文件系统中的文件，将演示文件的读写、删除、追加等操作
+使用Air780EHM核心板将SPI FLASH挂载成lfs文件系统，并通过文件系统相关接口去操作lfs文件系统中的文件，演示文件的读写、删除、追加等操作。
 
 ## 演示硬件环境
 
@@ -16,18 +16,19 @@
 - Air780EHM核心板通过TYPE-C USB口供电；（核心板USB旁边的开关拨到on一端）
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
+
 5、Air780EHM核心板和spi flash模块接线方式
-``` lua
---[[
-Air780EHM            SPI_FLASH
-GND(任意)            GND
-VDD_EXT              VCC
-GPIO8/SPI0_CS        CS,片选
-SPI0_SLK             CLK,时钟
-SPI0_MOSI            DI,主机输出,从机输入
-SPI0_MISO            DO,主机输入,从机输出
-]]
-```
+
+|   Air780EHM     |       SPI_FLASH       |
+| --------------- | --------------------- |
+|  GND(任意)      |          GND          |
+|  VDD_EXT        |          VCC          |
+|  GPIO8/SPI0_CS  |        CS,片选        |
+|  SPI0_SLK       |        CLK,时钟       |
+|  SPI0_MOSI      |  DI,主机输出,从机输入  |
+|  SPI0_MISO      |  DO,主机输入,从机输出  |
+
+
 
 ## 演示软件环境
 

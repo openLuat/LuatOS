@@ -202,7 +202,7 @@ int l_ble_callback(lua_State *L, void *ptr)
 exit:
     if (param)
     {
-        if (LUAT_BLE_EVENT_WRITE == evt && param->write_req.value)
+        if (LUAT_BLE_EVENT_WRITE == evt && param->write_req.value_len)
         {
             // LLOGD("free write_req.value %p", param->write_req.value);
             luat_heap_free(param->write_req.value);
@@ -214,7 +214,7 @@ exit:
             luat_heap_free(param->adv_req.data);
             param->adv_req.data = NULL;
         }
-        else if (LUAT_BLE_EVENT_READ_VALUE == evt && param->read_req.value){
+        else if (LUAT_BLE_EVENT_READ_VALUE == evt && param->read_req.value_len){
             // LLOGD("free read_req.value %p", param->read_req.value);
             luat_heap_free(param->read_req.value);
             param->read_req.value = NULL;
@@ -231,6 +231,7 @@ void luat_ble_cb(luat_ble_t *args, luat_ble_event_t ble_event, luat_ble_param_t 
     if (ble_param){
         // LLOGD("ble param: %p", ble_param);
         luat_ble_param = luat_heap_malloc(sizeof(luat_ble_param_t));
+        memset(luat_ble_param,0,sizeof(luat_ble_param_t));
         memcpy(luat_ble_param, ble_param, sizeof(luat_ble_param_t));
         if (ble_event == LUAT_BLE_EVENT_WRITE && ble_param->write_req.value_len){
             luat_ble_param->write_req.value = luat_heap_malloc(ble_param->write_req.value_len);

@@ -21,14 +21,14 @@
 
 [如何使用 LuaTools 烧录软件 - luatos@air8000 - 合宙模组资料中心](https://docs.openluat.com/air8000/luatos/common/download/)
 
-2、[Air8000 固件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)
+2、[Air8000 V2008版本固件（2025.06.27及之后发布）](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)(测试通过的固件是LuatOS-SoC_V2008_Air8000_LVGL_0627.soc)
 
 ## 演示核心步骤
 
-1、核心板通过usb数据线连接到电脑上
+1、搭建好演示硬件环境
 
 2、通过Luatools将demo与固件烧录到核心板中
 
 3、烧录成功后，自动开机运行
 
-4、接下来通过蓝牙APP 进行演示Air8000的BLE master功能，详见文档：https://docs.openluat.com/air8000/luatos/app/BLE/
+4、接下来通过蓝牙APP 演示Air8000的BLE master功能

@@ -1,4 +1,10 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.07.01
+@author  孟伟
+@usage
 本demo演示的功能为：
 实现使用Air780EHM核心板将spi_flash挂测成lfs文件系统，并演示lfs文件系统中的文件的读写、删除、追加等操作。
 ]]

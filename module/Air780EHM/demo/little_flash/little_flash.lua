@@ -1,5 +1,11 @@
 
 --[[
+@module  little_flash
+@summary little_flash测试功能模块
+@version 1.0
+@date    2025.07.01
+@author  孟伟
+@usage
 本demo是 Air780EHM + spi_flash. 以 Air780EHM核心板为例, 接线如下:
 
 Air780EHM            SPI_FLASH

@@ -1,4 +1,10 @@
 --[[
+@module  fastlz_test
+@summary fastlz压缩与解压缩测试功能模块
+@version 1.0
+@date    2025.07.01
+@author  孟伟
+@usage
 使用Air780EHM演示压缩与解压缩的流程。
 ]]
 

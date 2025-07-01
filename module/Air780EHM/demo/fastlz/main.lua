@@ -1,4 +1,10 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.07.01
+@author  孟伟
+@usage
 本demo演示的功能为：
 实现使用Air780EHM来对文本/段落序列、原始像素数据序列或具有大量重复的任何其他数据块的快速压缩与解压缩。
 ]]

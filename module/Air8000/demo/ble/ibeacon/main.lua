@@ -1,4 +1,21 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.07.01
+@author  wangshihao
+@usage
+本demo演示的核心功能为：
+Air8000核心板演示ibeacon功能；
+iBeacon是一种基于蓝牙低功耗(BLE)技术的室内定位和近场通信技术，
+它允许设备在一定范围内周期性广播ibeacon信息，从而实现位置感知和交互功能。
+本demo中，Air8000核心板作为ibeacon设备，定期广播ibeacon信号，
+其他支持ibeacon的设备可以接收这些信号并进行相应的处理。
+
+更多说明参考本目录下的readme.md文件
+]]
+
+--[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
         可以随便定义，只要不使用,就行
@@ -7,17 +24,9 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-本demo演示的核心功能为：
-Air8000核心板演示ibeacon功能；
-iBeacon是一种基于蓝牙低功耗(BLE)技术的室内定位和近场通信技术，
-它允许设备在一定范围内周期性广播ibeacon信息，从而实现位置感知和交互功能。
-本demo中，Air8000核心板作为ibeacon设备，定期广播ibeacon信号，
-其他支持ibeacon的设备可以接收这些信号并进行相应的处理。
-更多说明参考本目录下的readme.md文件
 ]]
-PROJECT = "ibeacon"
-VERSION = "1.0.0"
+PROJECT = "ble_ibeacon"
+VERSION = "001.000.000"
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 

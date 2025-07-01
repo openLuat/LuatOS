@@ -16,7 +16,7 @@ VERSION：项目版本号，ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "FastLZ"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
 --添加硬狗防止程序卡死
 if wdt then

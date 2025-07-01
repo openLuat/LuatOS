@@ -1,4 +1,10 @@
 --[[
+@module  tcp_ssl_receiver
+@summary tcp_ssl client socket数据接收应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为tcp_ssl client socket数据接收应用功能模块，核心业务逻辑为：
 从内核读取接收到的数据，然后将数据发送给其他应用功能模块做进一步处理；
 

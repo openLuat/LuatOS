@@ -3,6 +3,17 @@
 仅调试需要，项目量产时不需要；
 ]]
 
+--[[
+@module  test_app
+@summary 测试应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
+本文件为测试应用功能模块，用来测试其他功能模块的外部接口；
+仅调试需要，项目量产时不需要；
+]]
+
 
 -- 模拟四个socket client从server收到了数据，然后publish消息"RECV_DATA_FROM_SERVER"
 sys.taskInit(function()

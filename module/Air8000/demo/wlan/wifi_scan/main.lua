@@ -6,6 +6,10 @@ VERSION = "1.0.5"
 _G.sys = require("sys")
 require "sysplus"
 
+-- 如果需要升级WIFI固件，请打开下面两行注释
+-- local fota_wifi = require("fota_wifi")
+-- sys.taskInit(fota_wifi.request)
+
 function test_scan()
     while 1 do
         log.info("执行wifi扫描")

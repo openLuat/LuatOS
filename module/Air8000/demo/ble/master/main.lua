@@ -36,6 +36,10 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
+-- 如果需要升级WIFI固件，请打开下面两行注释
+-- local fota_wifi = require("fota_wifi")
+-- sys.taskInit(fota_wifi.request)
+
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
 -- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档

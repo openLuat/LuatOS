@@ -1,4 +1,4 @@
--- 必须在task里用
+-- 必须在task里用,自发光屏幕不需要背光控制
 function co5300_init(lcd_cfg)
     lcd.qspi(0x02, 0x32, 0x12)
     lcd.init("user", lcd_cfg) 

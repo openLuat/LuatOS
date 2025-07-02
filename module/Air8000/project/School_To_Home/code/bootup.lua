@@ -42,8 +42,8 @@ _G.mreport = require "mreport"
 -- config
 require "cfg"
 
---2712A
--- require "2712A"
+--2712
+require "2712"
 
 -- netWork
 _G.netWork = require "netWork"

@@ -8,7 +8,9 @@ end
 
 local common = {}
 
-local mode = "CAPTURE"
+-- local mode = "CAPTURE"
+local mode = "STATIC_GNSS"
+
 local lastGPSLocation
 
 -- 0200 状态位定义

@@ -57,6 +57,7 @@ luat_lcd_opts_t lcd_opts_jd9261t_inited = {
 	.user_ctrl_init = jd9261t_inited_init,
 };
 
+#if 0
 typedef struct
 {
 	union
@@ -451,3 +452,5 @@ luat_lcd_opts_t lcd_opts_jd9261t = {
 	.no_ram_mode = 1,
 	.user_ctrl_init = jd9261t_init,
 };
+
+#endif

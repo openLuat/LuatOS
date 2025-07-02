@@ -1,0 +1,20 @@
+-- 必须在task里用
+function co5300_init(lcd_cfg)
+    lcd.qspi(0x02, 0x32, 0x12)
+    lcd.init("user", lcd_cfg) 
+    gpio.set(lcd_cfg.pin_rst, 0)
+    sys.wait(300)
+    gpio.set(lcd_cfg.pin_rst, 1)
+    sys.wait(200)
+    lcd.cmd(0xfe, 0x00)
+    lcd.cmd(0xc4, 0x80)
+    lcd.cmd(0x3a, 0x55)
+    lcd.cmd(0x35, 0x00)
+    lcd.cmd(0x53, 0x20)
+    lcd.cmd(0x51, 0x7a)
+    lcd.cmd(0x63, 0xaa)
+    lcd.cmd(0x36, 0x00) --方向
+    lcd.wakeup()
+    sys.wait(200)
+    lcd.cmd(0x29)
+end

@@ -140,29 +140,10 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
 }
 
 int luat_vfs_ram_getc(void* userdata, FILE* stream) {
-    (void)userdata;
-    //LLOGD("getc %p %p", userdata, stream);
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
-    //LLOGD("getc %p %p %d %d", userdata, stream, fd->offset, fd->size);
-    if (fd->fid < 0 || fd->fid >= RAM_FILE_MAX) {
-        return -1;
-    }
-    if (files[fd->fid] == NULL) {
-        return -1;
-    }
-    ram_file_block_t* block = files[fd->fid]->head;
-    size_t offset = fd->offset;
-    while (block) {
-        if (offset < BLOCK_SIZE) {
-            uint8_t c = block->data[offset];
-            if (c == '\0') {
-                return -1;
-            }
-            fd->offset++;
+    uint8_t c = 0;
+    size_t len = luat_vfs_ram_fread(userdata, &c, 1, 1, stream);
+    if (len == 1) {
             return c;
-        }
-        offset -= BLOCK_SIZE;
-        block = block->next;
     }
     return -1;
 }

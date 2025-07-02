@@ -23,6 +23,9 @@
 #include "luat/drv_wlan.h"
 #include "luat_hmeta.h"
 #endif
+#ifdef LUAT_USE_AIRLINK
+#include "luat_airlink.h"
+#endif
 #include "luat_network_adapter.h"
 #ifdef LUAT_USE_NETDRV
 #include "luat_netdrv.h"

@@ -22,10 +22,10 @@ gpio.setup(0, function()
     end)
 end, gpio.PULLDOWN)
 
-if airlink.irqmode then
-    log.info("尝试开启IRQ模式", "GPIO20 <--> GPIO140")
-    -- airlink.irqmode(true, 20, 140)
-end
+-- if airlink.irqmode then
+--     log.info("尝试开启IRQ模式", "GPIO20 <--> GPIO140")
+--     airlink.irqmode(true, 20, 140)
+-- end
 
 function test_ap()
     log.info("执行AP创建操作")

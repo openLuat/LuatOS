@@ -153,9 +153,11 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     }
-	if (conf->opts->user_ctrl_init)
-	{
-		conf->opts->user_ctrl_init(conf);
+	if (conf->opts->user_ctrl_init) {
+		int res = conf->opts->user_ctrl_init(conf);
+		if (res > 0) {
+			goto INIT_NOT_DONE;
+		}
 		goto INIT_DONE;
 	}
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
@@ -184,6 +186,7 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     luat_lcd_display_on(conf);
 INIT_DONE:
     conf->is_init_done = 1;
+INIT_NOT_DONE:
     for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
         if (lcd_confs[i] == NULL) {
             lcd_confs[i] = conf;
@@ -621,6 +624,10 @@ LUAT_WEAK int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *
 
 LUAT_WEAK int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off) {
     return -1;
+}
+
+LUAT_WEAK uint8_t luat_lcd_qspi_is_no_ram(luat_lcd_conf_t* conf) {
+    return 0;
 }
 LUAT_WEAK int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len) {
     return -1;

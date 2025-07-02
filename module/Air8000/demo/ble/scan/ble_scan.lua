@@ -1,4 +1,10 @@
 --[[
+@module  ble_ibeacon
+@summary Air8000演示ibeacon功能模块
+@version 1.0
+@date    2025.07.01
+@author  wangshihao
+@usage
 本文件为Air8000核心板演示scan功能的代码示例，核心业务逻辑为：
 观察者模式(scan)的基本流程(概要描述)
 1. 初始化蓝牙框架

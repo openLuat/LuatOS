@@ -1,18 +1,12 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.07.01
-@author  wangshihao
+@author  孟伟
 @usage
-本demo演示的核心功能为：
-Air8000核心板演示ibeacon功能；
-iBeacon是一种基于蓝牙低功耗(BLE)技术的室内定位和近场通信技术，
-它允许设备在一定范围内周期性广播ibeacon信息，从而实现位置感知和交互功能。
-本demo中，Air8000核心板作为ibeacon设备，定期广播ibeacon信号，
-其他支持ibeacon的设备可以接收这些信号并进行相应的处理。
-
-更多说明参考本目录下的readme.md文件
+本demo演示的功能为：
+使用Air780EHM核心板通过SFUD库实现对SPI Flash的高效操作，并可以挂载sfud lfs文件系统，通过文件系统相关接口去操作sfud lfs文件系统中的文件，并演示文件的读写、删除、追加等操作。
 ]]
 
 --[[
@@ -25,18 +19,16 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "ble_ibeacon"
+PROJECT = "sfuddemo"
 VERSION = "001.000.000"
 
-log.info("main", "project name is ", PROJECT, "version is ", VERSION)
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
--- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
--- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+--添加硬狗防止程序卡死
 if wdt then
-    --配置喂狗超时时间为9秒钟
-    wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
-    sys.timerLoopStart(wdt.feed, 3000)
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -53,6 +45,7 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
+
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
@@ -61,8 +54,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载 ibeacon 蓝牙功能模块
-require "ble_ibeacon"
+
+--加载SFUD测试应用模块
+require "sfud_test"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

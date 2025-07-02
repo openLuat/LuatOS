@@ -1,4 +1,10 @@
 --[[
+@module  ble_ibeacon
+@summary Air8000演示ibeacon功能模块
+@version 1.0
+@date    2025.07.01
+@author  wangshihao
+@usage
 本文件为Air8000核心板演示ibeacon功能的代码示例，核心业务逻辑为：
 1. 初始化蓝牙底层框架
 2. 创建BLE对象实例

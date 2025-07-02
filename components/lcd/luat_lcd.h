@@ -64,12 +64,12 @@ enum{
 
 typedef struct
 {
-	uint8_t write_4line_cmd;
+	uint8_t write_4line_cmd;  //address 1线 data4线
 	uint8_t vsync_reg;
 	uint8_t hsync_cmd;
 	uint8_t hsync_reg;
-	uint8_t write_1line_cmd;
-	uint8_t write_4line_data;
+	uint8_t write_1line_cmd;	//cmd 1线 param 1线
+	uint8_t write_4line_data;	//address data都是4线
 }luat_lcd_qspi_conf_t;
 
 typedef struct luat_lcd_conf {
@@ -146,7 +146,7 @@ extern luat_lcd_opts_t lcd_opts_st7796;
 extern luat_lcd_opts_t lcd_opts_nv3037;
 extern luat_lcd_opts_t lcd_opts_h050iwv;
 extern luat_lcd_opts_t lcd_opts_jd9261t_inited;
-extern luat_lcd_opts_t lcd_opts_jd9261t;
+//extern luat_lcd_opts_t lcd_opts_jd9261t;
 extern luat_lcd_opts_t lcd_opts_sh8601z;
 
 static inline luat_color_t color_swap(luat_color_t color) {
@@ -251,6 +251,7 @@ int luat_lcd_stop_show_camera(void *camera_info);
 
 int luat_lcd_qspi_config(luat_lcd_conf_t* conf, luat_lcd_qspi_conf_t *qspi_config);
 int luat_lcd_qspi_auto_flush_on_off(luat_lcd_conf_t* conf, uint8_t on_off);
+uint8_t luat_lcd_qspi_is_no_ram(luat_lcd_conf_t* conf);
 typedef void (*luat_lcd_api)(void *param, uint32_t param_len);
 int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_len);
 

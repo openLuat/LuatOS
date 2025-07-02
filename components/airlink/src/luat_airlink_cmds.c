@@ -72,6 +72,7 @@ CMD_DEFINE(uart_sent_cb);
 CMD_DEFINE(bt_request);
 
 CMD_DEFINE(bt_resp_cb);
+CMD_DEFINE(bt_resp_result_cb);
 
 // PM指令, 0x600开始
 CMD_DEFINE(pm_request);
@@ -145,6 +146,7 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_BLUETOOTH_RESP
     CMD_REG(0x510, bt_resp_cb),
+    CMD_REG(0x511, bt_resp_result_cb),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_PM

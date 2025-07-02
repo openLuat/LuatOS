@@ -6,7 +6,7 @@
 @author  孟伟
 @usage
 本demo演示的功能为：
-实现使用Air780EHM核心板将spi_flash挂测成lfs文件系统，并演示lfs文件系统中的文件的读写、删除、追加等操作。
+使用Air780EHM核心板通过SFUD库实现对SPI Flash的高效操作，并可以挂载sfud lfs文件系统，通过文件系统相关接口去操作sfud lfs文件系统中的文件，并演示文件的读写、删除、追加等操作。
 ]]
 
 --[[
@@ -19,11 +19,11 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "little_flash_demo"
+PROJECT = "sfuddemo"
 VERSION = "001.000.000"
+
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -55,8 +55,9 @@ end
 -- end, 3000)
 
 
---加载little_flash应用模块
-require "little_flash"
+--加载SFUD测试应用模块
+require "sfud_test"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

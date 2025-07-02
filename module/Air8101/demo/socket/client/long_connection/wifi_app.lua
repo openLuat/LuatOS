@@ -1,14 +1,20 @@
 --[[
+@module  wifi_app
+@summary WIFI网络连接管理应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为WIFI网络连接管理应用功能模块，核心业务逻辑为：
 1、初始化WIFI网络；
 2、连接WIFI路由器；
 3、和WIFI路由器之间的连接状态发生变化时，在日志中进行打印；
 
-本文件没有对外接口；
+本文件没有对外接口，直接在main.lua中require "wifi_app"就可以加载运行；
 ]]
 
 local function ip_ready_func()
-    log.info("wlan_connect.ip_ready_func", "IP_READY")
+    log.info("wlan_connect.ip_ready_func", "IP_READY", json.encode(wlan.getInfo()))
 end
 
 local function ip_lose_func()

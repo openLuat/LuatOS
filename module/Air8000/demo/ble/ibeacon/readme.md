@@ -1,7 +1,7 @@
 
 ## 演示功能概述
 
-将使用Air8000核心板，演示Air8000蓝牙从机模式下发送通知到主机，以及如何通过手机向Air8000进行读写操作。
+将使用Air8000核心板演示ibeacon功能。
 
 ## 演示硬件环境
 
@@ -21,7 +21,7 @@
 
 [如何使用 LuaTools 烧录软件 - luatos@air8000 - 合宙模组资料中心](https://docs.openluat.com/air8000/luatos/common/download/)
 
-2、[Air8000 V2008版本固件（2025.06.27及之后发布）](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)(测试通过的固件是LuatOS-SoC_V2008_Air8000_LVGL_0627.soc)
+2、[Air8000 V2008版本固件（2025年6月27日及之后发布）](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)(测试通过的固件是LuatOS-SoC_V2008_Air8000_LVGL_0627.soc)
 
 ## 演示核心步骤
 
@@ -31,4 +31,4 @@
 
 3、烧录成功后，自动开机运行
 
-4、接下来通过蓝牙APP 连接作为蓝牙从机设备的Air8000进行操作
+4、接下来通过蓝牙APP 扫描并查看ibeacon信息

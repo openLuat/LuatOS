@@ -199,7 +199,6 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
 
     // 如果偏移量已经超出文件大小
     if (fd->offset >= files[fd->fid]->size) {
-        LLOGW("offset %d >= size %d", fd->offset, files[fd->fid]->size);
         return 0;
     }
 
@@ -316,7 +315,8 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
     }
 
     fd->offset += (size_t)(src - (const uint8_t*)ptr);
-    files[fd->fid]->size = offset > files[fd->fid]->size ? offset : files[fd->fid]->size;
+    // 更新文件大小
+    files[fd->fid]->size = total_size;
     // 打印一下写入的数据
     // LLOGD("write data %s", (char*)ptr);
     return (size_t)(src - (const uint8_t*)ptr);

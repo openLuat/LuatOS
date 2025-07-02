@@ -215,17 +215,36 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
     (void)userdata;
     luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
     size_t read_size = size * nmemb;
+
+    // 如果偏移量已经超出文件大小
     if (fd->offset >= files[fd->fid]->size) {
+        LLOGW("offset %d >= size %d", fd->offset, files[fd->fid]->size);
         return 0;
     }
-    if (fd->offset + read_size >= files[fd->fid]->size) {
+
+    // 如果读取的大小超出文件剩余大小，调整读取大小
+    if (fd->offset + read_size > files[fd->fid]->size) {
         read_size = files[fd->fid]->size - fd->offset;
     }
+
+    // 找到offset对应的起始block
     ram_file_block_t* block = files[fd->fid]->head;
     size_t offset = fd->offset;
+    while (block != NULL && offset >= BLOCK_SIZE) {
+        offset -= BLOCK_SIZE;
+        block = block->next;
+    }
+
+    // 如果没有找到对应的block
+    if (block == NULL) {
+        LLOGW("no block for offset %d", fd->offset);
+        return 0;
+    }
+
+    // 开始读取
     uint8_t* dst = (uint8_t*)ptr;
     size_t bytes_read = 0; // 用于记录实际读取的字节数
-    while (block && read_size > 0) {
+    while (block != NULL && read_size > 0) {
         size_t copy_size = BLOCK_SIZE - (offset % BLOCK_SIZE);
         if (copy_size > read_size) {
             copy_size = read_size;
@@ -239,6 +258,7 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
             block = block->next;
         }
     }
+
     fd->offset += bytes_read; // 更新文件偏移量
     return bytes_read; // 返回实际读取的字节数
 }
@@ -251,30 +271,56 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
         LLOGW("readonly fd %d!! path %s", fd->fid, files[fd->fid]->name);
         return 0;
     }
+
+    // 计算最终需要的总大小
+    size_t total_size = fd->offset + write_size;
+    size_t current_size = files[fd->fid]->size; // 当前文件大小
+
+    // 先补齐block
     ram_file_block_t* block = files[fd->fid]->head;
+    size_t block_offset = 0; // 当前block的偏移量
+
+    // 遍历现有的block，直到block_offset达到total_size
+    while (block != NULL && block_offset < total_size) {
+        block_offset += BLOCK_SIZE;
+        block = block->next;
+    }
+
+    // 如果block_offset小于total_size，继续分配新的block
+    while (block_offset < total_size) {
+        block = luat_heap_malloc(sizeof(ram_file_block_t));
+        if (block == NULL) {
+            LLOGW("out of memory when malloc ram_file_block_t");
+            return 0;
+        }
+        memset(block, 0, sizeof(ram_file_block_t));
+        block->next = NULL;
+
+        // 将新分配的block链接到链表末尾
+        if (files[fd->fid]->head == NULL) {
+            files[fd->fid]->head = block;
+        } else {
+            ram_file_block_t* last = files[fd->fid]->head;
+            while (last->next) {
+                last = last->next;
+            }
+            last->next = block;
+        }
+
+        block_offset += BLOCK_SIZE;
+    }
+
+    // 现在偏移到offset对应的block
+    block = files[fd->fid]->head;
     size_t offset = fd->offset;
+    while (block != NULL && offset >= BLOCK_SIZE) {
+        offset -= BLOCK_SIZE;
+        block = block->next;
+    }
+
+    // 开始写
     const uint8_t* src = (const uint8_t*)ptr;
     while (write_size > 0) {
-        if (block == NULL || offset % BLOCK_SIZE == 0) {
-            if (block == NULL) {
-                block = luat_heap_malloc(sizeof(ram_file_block_t));
-                if (block == NULL) {
-                    LLOGW("out of memory when malloc ram_file_block_t");
-                    return 0;
-                }
-                memset(block, 0, sizeof(ram_file_block_t));
-                block->next = NULL;
-                if (files[fd->fid]->head == NULL) {
-                    files[fd->fid]->head = block;
-                } else {
-                    ram_file_block_t* last = files[fd->fid]->head;
-                    while (last->next) {
-                        last = last->next;
-                    }
-                    last->next = block;
-                }
-            }
-        }
         size_t copy_size = BLOCK_SIZE - (offset % BLOCK_SIZE);
         if (copy_size > write_size) {
             copy_size = write_size;
@@ -287,6 +333,7 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
             block = block->next;
         }
     }
+
     fd->offset += (size_t)(src - (const uint8_t*)ptr);
     files[fd->fid]->size = offset > files[fd->fid]->size ? offset : files[fd->fid]->size;
     // 打印一下写入的数据

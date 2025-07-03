@@ -239,10 +239,9 @@ local function btc_blufi_wifi_conn_report(sta_conn_state)
         if wlan_info.bssid then
             data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_BSSID,6) .. string.fromHex(wlan_info.bssid)
         end
-        print("rssi",type(wlan_info.rssi),wlan_info.rssi)
-        -- if wlan_info.rssi then
-        --     data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_RSSI,1) .. tonumber(wlan_info.rssi)
-        -- end
+        if wlan_info.rssi then
+            data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_RSSI,1,wlan_info.rssi%256)
+        end
     end
     if blufi_env.sta_ssid then
         data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_SSID,#blufi_env.sta_ssid) .. blufi_env.sta_ssid
@@ -395,7 +394,7 @@ local function btc_blufi_protocol_handler(parse_data)
                                 {ssid=blufi_env.sta_ssid,password=blufi_env.sta_passwd,})
             wlan.connect(blufi_env.sta_ssid, blufi_env.sta_passwd)
             blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNING
-            local results = sys.waitUntil("IP_READY",1000)
+            local results = sys.waitUntil("IP_READY",3000)
             if results then blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNED 
             else blufi_env.wlan_state = BLUFI_WLAN_STATE_DISCONN end
             btc_blufi_wifi_conn_report()

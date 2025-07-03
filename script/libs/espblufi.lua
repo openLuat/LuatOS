@@ -37,7 +37,8 @@ local function espblufi_callback(event,data)
 end
 
 sys.taskInit(function()
-    espblufi.init(espblufi_callback)
+    local bluetooth_device = bluetooth.init()
+    espblufi.init(bluetooth_device, espblufi_callback)
     espblufi.start()
     while 1 do
         sys.wait(1000)
@@ -489,15 +490,20 @@ end
 
 --[[
 初始化espblufi
-@api espblufi.init(espblufi_callback,local_name)
+@api espblufi.init(bluetooth_device,espblufi_callback,local_name)
+@userdata bluetooth_device 蓝牙设备对象
 @function 事件回调函数
 @number 蓝牙名，可选，默认为"BLUFI_xxx",xxx为设备型号(因为esp的配网测试app默认过滤蓝牙名称为BLUFI_开头的设备进行显示,可手动修改)
 @usage
 espblufi.init(espblufi_callback)
 ]]
-function espblufi.init(espblufi_callback,local_name)
+function espblufi.init(bluetooth_device,espblufi_callback,local_name)
     if not bluetooth or not ble or not wlan then
         log.error("need bluetooth ble and wlan")
+        return
+    end
+    if bluetooth_device == nil or type(bluetooth_device) ~= "userdata" then
+        log.error("bluetooth_device is nil")
         return
     end
     if not espblufi_callback then
@@ -510,7 +516,6 @@ function espblufi.init(espblufi_callback,local_name)
         local_name = "BLUFI_"..rtos.bsp()
     end
     wlan.init()
-    local bluetooth_device = bluetooth.init()
     local ble_device = bluetooth_device:ble(espblufi_ble_callback)
     ble_device:gatt_create(espblufi_att_db)
     ble_device:adv_create({

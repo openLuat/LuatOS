@@ -34,7 +34,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air780EHM V2008版本固件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM/core)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2007固件对比验证）
+2、[Air780EHM V2008版本固件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM/core)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2008固件对比验证）
 
 ## 演示核心步骤
 
@@ -47,14 +47,15 @@
 (1) 直接操作sfud接口去读写Flash,结果如下：
 
 ```lua
-[2025-07-01 21:25:27.134][000000001.369] I/user.sfud	spi_flash	SPI*: 0C7F6EF0
-[2025-07-01 21:25:27.139][000000001.370] I/sfud Found a Winbond flash chip. Size is 4194304 bytes.
-[2025-07-01 21:25:27.142][000000001.389] I/sfud LuatOS-sfud flash device initialized successfully.
-[2025-07-01 21:25:27.149][000000001.390] I/user.sfud.init ok
-[2025-07-01 21:25:27.153][000000001.390] I/user.sfud.getDeviceNum	1
-[2025-07-01 21:25:27.157][000000001.390] I/user.sfud.getInfo	4194304	4096
-[2025-07-01 21:25:27.162][000000001.421] I/user.sfud.eraseWrite	0
-[2025-07-01 21:25:27.167][000000001.422] I/user.sfud.read	luat
+[2025-07-03 19:00:18.305][000000001.391] I/user.sfud	spi_flash	SPI*: 0C7F6E58
+[2025-07-03 19:00:18.325][000000001.392] I/sfud Found a Winbond flash chip. Size is 4194304 bytes.
+[2025-07-03 19:00:18.351][000000001.411] I/sfud LuatOS-sfud flash device initialized successfully.
+[2025-07-03 19:00:18.421][000000001.412] I/user.sfud.init ok
+[2025-07-03 19:00:18.480][000000001.412] I/user.sfud.getDeviceNum	1
+[2025-07-03 19:00:18.536][000000001.412] I/user.sfud.getInfo	4194304	4096
+[2025-07-03 19:00:18.590][000000001.443] I/user.sfud.eraseWrite	0
+[2025-07-03 19:00:18.637][000000001.444] I/user.sfud 写入与读取数据成功
+
 ```
 
 (2) 将Flash设备成功挂载为sfud lfs文件系统后，通过标准化文件管理接口对文件系统进行了全流程验证，结果如下：

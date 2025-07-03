@@ -1,6 +1,6 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.07.01
 @author  wangshihao
@@ -35,10 +35,6 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
--- 如果需要升级WIFI固件，请打开下面两行注释
--- local fota_wifi = require("fota_wifi")
--- sys.taskInit(fota_wifi.request)
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题

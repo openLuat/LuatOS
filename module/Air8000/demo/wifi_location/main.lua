@@ -7,7 +7,7 @@
     (4)执行时间同步
     (5)等待时间同步成功
     (6)循环扫描wifi，如果扫描到wifi信息，则请求wifi定位
-]] 
+]]
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "WLAN_LOCATION"
@@ -22,6 +22,27 @@ local result = false -- 用于保存结果
 local data = nil -- 用于保存定位请求数据
 local wifiList = {} -- 用于保存扫描到的wifi信息
 local requestParam = {} -- 用于保存定位请求参数
+local fota_wifi = require("fota_wifi")
+
+local function wifi_fota_task_func()
+    local result = fota_wifi.request()
+    if result then
+        log.info("fota_wifi", "升级任务执行成功")
+    else
+        log.info("fota_wifi", "升级任务执行失败")
+    end
+end
+
+-- 判断网络是否正常
+local function wait_ip_ready()
+    local result, ip, adapter = sys.waitUntil("IP_READY", 30000)
+    if result then
+        log.info("fota_wifi", "开始执行升级任务")
+        sys.taskInit(wifi_fota_task_func)
+    else
+        log.error("当前正在升级WIFI&蓝牙固件，请插入可以上网的SIM卡")
+    end
+end
 
 local airlbs = require "airlbs"
 
@@ -84,6 +105,9 @@ sys.taskInit(function()
         airlink.statistics()
     end
 end)
+
+-- 在设备启动时检查网络状态
+sys.taskInit(wait_ip_ready)
 
 sysplus.taskInitEx(wlan_location_task, taskName)
 

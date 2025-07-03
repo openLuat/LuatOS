@@ -1,6 +1,6 @@
 --[[
 @module espblufi
-@summary espblufi esp blufi 蓝牙配网
+@summary espblufi esp blufi 蓝牙配网(注意:初版不支持加密功能,需要后续版本支持!!!!!!!!)
 @version 1.0
 @date    2025.07.01
 @author  Dozingfiretruck
@@ -13,9 +13,6 @@
 
 -- IOS测试APP下载地址:https://apps.apple.com/cn/app/espblufi/id1450614082
 -- IOSAPP源码下载地址:https://github.com/EspressifApp/EspBlufiForiOS
-
--- 安卓测试APP下载地址:https://github.com/EspressifApp/EspBlufiForAndroid/releases
--- 安卓APP源码下载地址:https://github.com/EspressifApp/EspBlufiForAndroid
 
 -- 小程序测试:微信搜索小程序:ESP Config
 -- 小程序源码下载地址:https://github.com/EspressifApps/ESP-Config-WeChat

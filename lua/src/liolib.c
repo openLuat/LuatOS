@@ -64,8 +64,9 @@ end
 #include "lauxlib.h"
 #include "lualib.h"
 
-
-
+#define l_fseek luat_fs_fseek
+#define l_ftell luat_fs_ftell
+#define l_seeknum int32_t
 
 /*
 ** Change this macro to accept other modes for 'fopen' besides

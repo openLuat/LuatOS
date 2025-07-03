@@ -15,7 +15,7 @@ local function mqtt_cb(mqtt_client, event, data, payload)
     log.info("mqtt", "event", event, mqtt_client, data, payload)
 end
 
-function airtalk_demo_mqtt_8k()
+function airtalk_demo_mqtt_8k(speech_topic)
     --client_id也可以自己设置
     client_id = mobile.imei()
     audio_init()
@@ -23,7 +23,7 @@ function airtalk_demo_mqtt_8k()
     mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, {rxSize = 4096})
     airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc, 200) -- 缓冲至少200ms播放
     airtalk.on(airtalk_event_cb)
-    airtalk.start(client_id)
+    airtalk.start(client_id, speech_topic)
 
     mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
     mqttc:keepalive(240) -- 默认值240s

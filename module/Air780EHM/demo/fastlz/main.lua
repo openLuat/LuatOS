@@ -1,4 +1,14 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.07.01
+@author  孟伟
+@usage
+本demo演示的功能为：
+实现使用Air780EHM来对文本/段落序列、原始像素数据序列或具有大量重复的任何其他数据块的快速压缩与解压缩。
+]]
+--[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
         可以随便定义，只要不使用,就行
@@ -8,12 +18,11 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-本demo演示的功能为：
-实现使用Air780EHM来对文本/段落序列、原始像素数据序列或具有大量重复的任何其他数据块的快速压缩与解压缩。
+
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "FastLZ"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -21,46 +30,33 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
-function test_fastlz()
-    sys.wait(1000)
-    -- 原始数据
-    local originStr = io.readFile("/luadb/test.txt") or "q309pura;dsnf;asdouyf89q03fonaewofhaeop;fhiqp02398ryhai;ofinap983fyua0weo;ifhj3p908fhaes;iofaw789prhfaeiwop;fhaesp98fadsjklfhasklfsjask;flhadsfk"
-    local maxOut = #originStr
-    log.info("原始数据长度", #originStr)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    -- 以压缩等级1 进行压缩
-    local L1 = fastlz.compress(originStr,1)
-    log.info("压缩等级1：压缩后的数据长度", #L1)
 
-    -- 解压
-    local dstr1 = fastlz.uncompress(L1,maxOut)
-    log.info("压缩等级1：解压后的的数据长度", #dstr1)
-    -- 判断解压后的数据是否与原始数据相同
-    if originStr == dstr1 then
-        log.info("压缩等级1：解压后的数据与原始数据相同")
-    else
-        log.info("压缩等级1：解压后的数据与原始数据不同")
-    end
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-    sys.wait(1000)
 
-    -- 以压缩等级2 进行压缩
-    local L2 = fastlz.compress(originStr, 2)
-    log.info("压缩等级2：压缩后的数据长度", #L2)
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    -- 解压
-    local dstr2 = fastlz.uncompress(L2,maxOut)
-    log.info("压缩等级2：解压后的数据长度", #dstr2)
 
-    -- 判断解压后的数据是否与原始数据相同
-    if originStr == dstr2 then
-        log.info("压缩等级2：解压后的数据与原始数据相同")
-    else
-        log.info("压缩等级2：解压后的数据与原始数据不同")
-    end
-end
+--加载fastlz测试应用模块
+require "fastlz_test"
 
-sys.taskInit(test_fastlz)
 
 
 -- 用户代码已结束---------------------------------------------

@@ -9,6 +9,10 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 
+-- 如果需要升级WIFI固件，请打开下面两行注释
+-- local fota_wifi = require("fota_wifi")
+-- sys.taskInit(fota_wifi.request)
+
 -- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改(如果使用整机开发板可以用GPIO146)
 local LEDA = gpio.setup(20, 0, gpio.PULLUP)
 

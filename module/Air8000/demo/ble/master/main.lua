@@ -1,81 +1,69 @@
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.07.01
+@author  wangshihao
+@usage
+本demo演示的核心功能为：
+演示了Air8000核心板作为BLE Master的核心功能。
+主要功能是扫描周围的BLE设备，当发现设备名称中包含"LuatOS"的设备时，自动连接该设备，然后进行GATT操作（如开启通知、写入数据、读取数据）等。
 
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "ble"
-VERSION = "1.0.0"
+更多说明参考本目录下的readme.md文件
+]]
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "ble_master"
+VERSION = "001.000.000"
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
--- 通过boot按键方便刷Air8000S
-function PWR8000S(val) gpio.set(23, val) end
-
-gpio.debounce(0, 1000)
-gpio.setup(0, function()
-    sys.taskInit(function()
-        log.info("复位Air8000S")
-        PWR8000S(0)
-        sys.wait(20)
-        PWR8000S(1)
-    end)
-end, gpio.PULLDOWN)
-
-local scan_count = 0
-
-local function ble_callback(ble_device, ble_event, ble_param)
-    if ble_event == ble.EVENT_CONN then
-        log.info("ble", "connect 成功")
-    elseif ble_event == ble.EVENT_DISCONN then
-        log.info("ble", "disconnect", ble_param.reason)
-        sys.timerStart(function() ble_device:scan_start() end, 1000)
-    elseif ble_event == ble.EVENT_WRITE then
-        log.info("ble", "write", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex())
-        log.info("ble", "data", ble_param.data:toHex())
-    elseif ble_event == ble.EVENT_READ_VALUE then
-        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data:toHex())
-    elseif ble_event == ble.EVENT_SCAN_REPORT then
-        print("ble scan report",ble_param.addr_type,ble_param.rssi,ble_param.adv_addr:toHex(),ble_param.data:toHex())
-        scan_count = scan_count + 1
-        if scan_count > 100 then
-            log.info("ble", "扫描次数超过100次, 停止扫描, 15秒后重新开始")
-            scan_count = 0
-            ble_device:scan_stop()
-            sys.timerStart(function() ble_device:scan_start() end, 15000)
-        end
-        -- 注意, 这里是连接到另外一个设备, 设备名称带LuatOS字样
-        if ble_param.addr_type == 0 and ble_param.data:find("LuatOS") then
-            log.info("ble", "停止扫描, 连接设备", ble_param.adv_addr:toHex(), ble_param.addr_type)
-            ble_device:scan_stop()
-            ble_device:connect(ble_param.adv_addr,ble_param.addr_type)
-        end
-    elseif ble_event == ble.EVENT_GATT_ITEM then
-        -- 读取GATT完成, 打印出来
-        log.info("ble", "gatt item", ble_param)
-    elseif ble_event == ble.EVENT_GATT_DONE then
-        log.info("ble", "gatt done", ble_param.service_num)
-        local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA01")}
-        ble_device:notify_enable(wt, true) -- 开启通知
-
-        -- 主动写入数据, 但不带通知, 带通知是 write_notify
-        local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA02")}
-        ble_device:write_value(wt,string.fromHex("1234"))
-
-        local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA03")}
-        ble_device:read_value(wt)
-    end
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
+-- 如果需要升级WIFI固件，请打开下面两行注释
+-- local fota_wifi = require("fota_wifi")
+-- sys.taskInit(fota_wifi.request)
 
-sys.taskInit(function()
-    log.info("开始初始化蓝牙核心")
-    bluetooth_device = bluetooth.init()
-    log.info("初始化BLE功能")
-    ble_device = bluetooth_device:ble(ble_callback)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    -- master
-    ble_device:scan_create({})
-    ble_device:scan_start()
-    -- ble_device:scan_stop()
-end)
 
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+-- 加载 master 蓝牙功能模块
+require "ble_master"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -7,6 +7,9 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 
+-- 如果需要升级WIFI固件，请打开下面两行注释
+-- local fota_wifi = require("fota_wifi")
+-- sys.taskInit(fota_wifi.request)
 
 function test_ap()
     log.info("执行AP创建操作")

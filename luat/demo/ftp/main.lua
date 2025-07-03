@@ -41,34 +41,19 @@ sys.taskInit(function()
         local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)
-        -- TODO 改成esptouch配网
-        -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
         wlan.setMode(wlan.STATION)
         wlan.connect(ssid, password, 1)
-        local result, data = sys.waitUntil("IP_READY", 30000)
-        log.info("wlan", "IP_READY", result, data)
-        device_id = wlan.getMac()
-    elseif rtos.bsp() == "AIR105" then
-        -- w5500 以太网, 当前仅Air105支持
-        -- w5500.init(spi.SPI_2, 24000000, pin.PB03, pin.PC00, pin.PC03)
-        w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
-        log.info("auto mac", w5500.getMac():toHex())
-        w5500.config() -- 默认是DHCP模式
-        w5500.bind(socket.ETH0)
-        -- LED = gpio.setup(62, 0, gpio.PULLUP)
-        sys.wait(1000)
-        -- TODO 获取mac地址作为device_id
     elseif mobile then
         -- Air780E/Air600E系列
         -- mobile.simid(2)
         -- LED = gpio.setup(27, 0, gpio.PULLUP)
-        device_id = mobile.imei()
-        sys.waitUntil("IP_READY") -- 死等到联网成功
-        log.info("联网成功")
-        -- 联网成功后发布联网成功的消息
-        sys.publish("net_ready")
+        -- device_id = mobile.imei()
     end
+    sys.waitUntil("IP_READY") -- 死等到联网成功
+    log.info("联网成功")
+    -- 联网成功后发布联网成功的消息
+    sys.publish("net_ready")
 end)
 
 --[[操作ftp的函数，因为用了sys.wait，请在task内调用
@@ -97,8 +82,8 @@ local function ftp_test()
 
         log.info("获取当前工作目录下的文件名列表", ftp.command("LIST").wait())
 
-        log.info("在本地创建一个文件", "文件名及其目录为" .. local_name,
-            io.writeFile(local_name, "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl"))
+        log.info("在本地创建一个文件", "文件名及其目录为" .. local_name)
+        io.writeFile(local_name, "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
         --[[如果下载失败，部分服务器可能会直接断开本次连接，如果遇到下述打印
             net_lwip_tcp_err_cb 662:adapter 1 socket 20 not closing, but error -14
             是正常的，此处打印服务器主动断开客户端时会出现

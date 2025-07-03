@@ -190,6 +190,11 @@ int luat_pm_wakeup_pin(int pin, int val);
  */
 int luat_pm_set_power_mode(uint8_t mode, uint8_t sub_mode);
 /**
+ * @brief 最后一次请求的休眠模式
+ * @return int ，见LUAT_PM_SLEEP_MODE_XXX
+ */
+int luat_pm_get_last_req_mode(void);
+/**
  * @brief 深度休眠定时器剩余时间，单位ms
  * @param id 定时器ID
  * @return uint32_t 0xffffffff失败，其他是剩余时间

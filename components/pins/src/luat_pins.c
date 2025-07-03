@@ -34,7 +34,7 @@ static int search(char *string, size_t string_len, const char **table, uint8_t l
 
 static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char *string, size_t len)
 {
-	luat_pin_peripheral_function_description_u description;
+	luat_pin_peripheral_function_description_u description = {0};
 	char *old = string;
 	size_t org_len = len;
 	size_t offset = 0;
@@ -315,14 +315,15 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 			goto LUAT_PIN_SETUP_DONE;
 		}
 		// GPIO128 及以上的, 不支持配置
-		if (func_description.function_id == LUAT_MCU_PERIPHERAL_GPIO && func_description.peripheral_id >= 128) {
+		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_GPIO && func_description.code >= 128) {
 			goto LUAT_PIN_SETUP_DONE;
 		}
 		// UART10 及以上的, 不支持配置
-		if (func_description.function_id == LUAT_MCU_PERIPHERAL_UART && func_description.peripheral_id >= 10) {
+		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_UART && func_description.code >= 10) {
 			goto LUAT_PIN_SETUP_DONE;
 		}
 	}
+	LLOGD("luat_pins_setup pin %d func %.*s fid %d pid %d", pin, (int)name_len, func_name, func_description.function_id, func_description.peripheral_id);
 	if (luat_pin_get_description_from_num(pin, &pin_description))
 	{
 		LLOGE("pin%d不支持修改", pin);

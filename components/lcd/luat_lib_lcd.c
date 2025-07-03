@@ -29,6 +29,7 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_custom;
+extern const luat_lcd_opts_t lcd_opts_user_ctrl;
 
 typedef struct lcd_reg {
   const char *name;
@@ -68,9 +69,9 @@ static const lcd_reg_t lcd_regs[] = {
   {"st7701s",  &lcd_opts_st7701s},
   {"st7701sn",  &lcd_opts_st7701sn},
   {"sh8601z",  &lcd_opts_sh8601z},
+  {"user",  &lcd_opts_user_ctrl},
   {"", NULL} // 最后一个必须是空字符串
 };
-
 
 luat_lcd_conf_t *lcd_dft_conf = NULL;
 // static int dft_conf_lua_ref = 0;
@@ -538,14 +539,33 @@ static int l_lcd_inv_off(lua_State* L) {
 
 /*
 lcd命令
-@api lcd.cmd(cmd)
-@int cmd
+@api lcd.cmd(cmd, param, param_len)
+@int lcd命令模式下的命令值
+@int/zbuff lcd命令模式下的参数值，如果只有1个参数，可以用int，如果有多个，使用zbuff传入
+@int 参数长度，如果上一个参数是int，则忽略长度
+@return boolean
 @usage
 -- lcd命令
 lcd.cmd(0x21)
+lcd.cmd(0x21)
 */
 static int l_lcd_write_cmd(lua_State* L) {
-    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), NULL, 0);
+	uint8_t param;
+	uint32_t param_len = 0;
+	const uint8_t *data = NULL;
+	if (lua_isinteger(L, 2))
+	{
+		param = lua_tointeger(L, 2);
+		param_len = 1;
+		data = &param;
+	}
+	else if (lua_isuserdata(L, 2)) {
+        // zbuff
+        luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        data = (const uint8_t*)buff->addr;
+        param_len = luaL_optinteger(L, 3, buff->used);
+    }
+    int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, param_len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -1769,6 +1789,53 @@ static const int l_lcd_draw_utf8(lua_State *L) {
 }
 #endif
 
+/*
+硬件lcd qspi接口配置，需要在lcd.init前配置好
+@api lcd.qspi(1_wire_command, 1_wire_command, 1_wire_command_4_wire_data, 4_wire_command_4_wire_data, vsync_reg, hsync_cmd, hsync_reg)
+@int lcd命令模式下的qspi指令
+@int lcd数据模式下，1线地址，4线数据的qspi指令，
+@int lcd数据模式下，4线地址，4线数据的qspi指令，可以留空，如果存在，发送数据时优先使用这个模式
+@int 帧同步时的地址值，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
+@int 行同步时的指令，一般情况和命令模式下的指令一致，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
+@int 行同步时的地址值，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
+@return nil
+@usage
+-- sh8601z驱动ic所需的qspi配置
+lcd.qspi(0x02, 0x32, 0x12)
+-- jd9261t驱动ic所需的qspi配置
+lcd.qspi(0xde, 0xde, nil, 0x61, 0xde, 0x60)
+-- CO5300驱动ic所需的qspi配置
+lcd.qspi(0x02, 0x32, 0x12)
+*/
+static int l_lcd_qspi_config(lua_State* L)
+{
+	luat_lcd_qspi_conf_t qspi_config = {0};
+	qspi_config.write_1line_cmd = luaL_optinteger(L, 1, 0x02);
+	qspi_config.write_4line_cmd = luaL_optinteger(L, 2, 0x32);
+	qspi_config.write_4line_data = luaL_optinteger(L, 3, 0);
+	qspi_config.vsync_reg = luaL_optinteger(L, 4, 0);
+	qspi_config.hsync_cmd = luaL_optinteger(L, 5, 0);
+	qspi_config.hsync_reg = luaL_optinteger(L, 6, 0);
+	luat_lcd_qspi_config(NULL, &qspi_config);
+	return 0;
+}
+
+/*
+用户使用脚本初始化LCD完成后，必须调用本API
+@api lcd.user_done()
+@return nil
+*/
+static int l_lcd_user_ctrl_done(lua_State* L)
+{
+	lcd_dft_conf->is_init_done = 1;
+	if (LUAT_LCD_IM_QSPI_MODE == lcd_dft_conf->interface_mode) {
+		if (luat_lcd_qspi_is_no_ram(lcd_dft_conf)) {
+		    luat_lcd_qspi_auto_flush_on_off(lcd_dft_conf, 1);
+		}
+	}
+	return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
 {
@@ -1801,6 +1868,8 @@ static const rotable_Reg_t reg_lcd[] =
     { "setColor",   ROREG_FUNC(l_lcd_set_color)},
     { "draw",       ROREG_FUNC(l_lcd_draw)},
     { "rgb565",     ROREG_FUNC(l_lcd_rgb565)},
+	{ "qspi",		ROREG_FUNC(l_lcd_qspi_config)},
+	{ "user_done",		ROREG_FUNC(l_lcd_user_ctrl_done)},
 #ifdef LUAT_USE_UFONT
     { "drawUTF8",   ROREG_FUNC(l_lcd_draw_utf8)},
 #endif
@@ -1944,9 +2013,12 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_3_BIT_9_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II)},
     //@const WIRE_4_BIT_8_INTERFACE_II 四线spi 8bit 模式II
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
-    //@const DATA_2_LANE int 双通道模式
+    //@const DATA_2_LANE spi双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
+	//@const QSPI_MODE QSPI模式
 	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
+	//@const 8080_MODE 8080模式
+	{ "8080_MODE",                ROREG_INT(LUAT_LCD_IM_8080_MODE)},
 	  {NULL, ROREG_INT(0)}
 };
 

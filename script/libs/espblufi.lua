@@ -497,9 +497,11 @@ espblufi.init(espblufi_callback)
 ]]
 function espblufi.init(espblufi_callback,local_name)
     if not bluetooth or not ble or not wlan then
+        log.error("need bluetooth ble and wlan")
         return
     end
     if not espblufi_callback then
+        log.error("espblufi_callback is nil")
         return
     else
         blufi_env.callback = espblufi_callback
@@ -512,10 +514,6 @@ function espblufi.init(espblufi_callback,local_name)
     local ble_device = bluetooth_device:ble(espblufi_ble_callback)
     ble_device:gatt_create(espblufi_att_db)
     ble_device:adv_create({
-        addr_mode = ble.PUBLIC,
-        channel_map = ble.CHNLS_ALL,
-        intv_min = 120,
-        intv_max = 120,
         adv_data = {{ble.FLAGS,string.char(0x06)},{ble.COMPLETE_LOCAL_NAME, local_name}},
     })
     blufi_env.ble_device = ble_device

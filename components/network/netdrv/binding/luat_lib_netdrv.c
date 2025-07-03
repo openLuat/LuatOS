@@ -112,7 +112,7 @@ log.info("netdrv", "mac addr", netdrv.mac(socket.LWIP_ETH))
 */
 static int l_netdrv_mac(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    char buff[6] = {0};
+    uint8_t buff[6] = {0};
     char tmpbuff[13] = {0};
     size_t len = 0;
     if (lua_type(L, 2) == LUA_TSTRING) {
@@ -120,10 +120,10 @@ static int l_netdrv_mac(lua_State *L) {
         if (len != 6) {
             return 0;
         }
-        luat_netdrv_mac(id, tmp, buff);
+        luat_netdrv_mac(id, tmp, (char*)buff);
     }
     else {
-        luat_netdrv_mac(id, NULL, buff);
+        luat_netdrv_mac(id, NULL, (char*)buff);
     }
     if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
         lua_pushlstring(L, (const char*)buff, 6);

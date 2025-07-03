@@ -5,7 +5,7 @@
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
 
-#if 0
+#if 1
 
 #define BLOCK_SIZE 4096
 
@@ -160,6 +160,10 @@ int luat_vfs_ram_fseek(void* userdata, FILE* stream, long int offset, int origin
     }
     else {
         fd->offset = files[fd->fid]->size - offset;
+    }
+    if (fd->offset > files[fd->fid]->size) {
+        // 如果偏移量超过了文件大小，设置为文件大小
+        fd->offset = files[fd->fid]->size;
     }
     return 0;
 }

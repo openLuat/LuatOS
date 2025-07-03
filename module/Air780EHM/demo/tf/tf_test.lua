@@ -1,28 +1,20 @@
---[[]
-运行环境：Air780EHM核心板+SD卡扩展板
-最后修改时间：2025-7-2
-使用了如下IO口：
-SD卡的使用IO口：
-[83, "SPI0CS", " PIN83脚, 用于SD卡片选脚"],
-[84, "SPI0MISO," PIN84脚, 用于SD卡数据脚"],
-[85, "SPI0MOSI", " PIN85脚, 用于SD卡数据脚"],
-[86, "SPI0CLK", " PIN86脚, 用于SD卡时钟脚"],
-[24, "VDD_EXT", " PIN24脚, 用于给SD卡供电脚"],
-GND
-执行逻辑为：
-1. 初始化SD卡
-2. 挂载文件系统
-3. 在文件系统中创建一个文件
-4. 向文件中写入数据
-5. 读取文件中的数据
-6. 删除文件
-7. 卸载文件系统
-8. 关闭SD卡
-
-扩展了HTTP从服务器下载文件到SD卡的功能，可以下载指定URL的文件到SD卡中，并保存到SD卡里面
+--[[
+@module  tf_test
+@summary tf_test测试功能模块
+@version 1.0
+@date    2025.07.02
+@author  李源龙
+@usage
+使用Air780EHM核心板通过fatfs库和io库实现对tf卡的高效操作，并可以挂载fatfs文件系统，通过文件系统相关接口去操作fatfs文件系统中的文件，并演示文件的读写、删除、追加以及HTTP服务器下载到SD卡等操作。
+以 Air780EHM核心板为例,和AirMICROSD_1000接线如下:
+Air780EHM            AirMICROSD_1000
+GND(任意)            GND
+VDD_EXT              VCC
+GPIO8/SPI0_CS        CS,片选
+SPI0_SLK             CLK,时钟
+SPI0_MOSI            MOSI,主机输出,从机输入
+SPI0_MISO            MISO,主机输入,从机输出
 ]]
--- sys库是标配
-_G.sys = require("sys")
 
 
 local function main_task()

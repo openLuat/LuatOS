@@ -6,7 +6,7 @@
 @author  李源龙
 @usage
 本demo演示的功能为：
-使用Air780EHM核心板通过SFUD库实现对SPI Flash的高效操作，并可以挂载sfud lfs文件系统，通过文件系统相关接口去操作sfud lfs文件系统中的文件，并演示文件的读写、删除、追加等操作。
+使用Air780EHM核心板通过fatfs库和io库实现对tf卡的高效操作，并可以挂载fatfs文件系统，通过文件系统相关接口去操作fatfs文件系统中的文件，并演示文件的读写、删除、追加以及HTTP服务器下载到SD卡等操作。
 ]]
 
 --[[
@@ -19,8 +19,8 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "fatfs"
-VERSION = "1.0.0"
+PROJECT = "tftest"
+VERSION = "001.000.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

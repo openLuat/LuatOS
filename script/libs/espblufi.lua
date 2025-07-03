@@ -1,6 +1,6 @@
 --[[
 @module espblufi
-@summary espblufi esp blufi 蓝牙配网(注意:初版不支持加密功能,需要后续版本支持!!!!!!!!)
+@summary espblufi esp blufi 蓝牙配网(注意:初版暂不支持加密功能!!!!!!!!)
 @version 1.0
 @date    2025.07.01
 @author  Dozingfiretruck
@@ -17,7 +17,7 @@
 -- 小程序测试:微信搜索小程序:ESP Config
 -- 小程序源码下载地址:https://github.com/EspressifApps/ESP-Config-WeChat
 
--- 注意:初版不支持加密功能,需要后续版本支持!!!!!!!!
+-- 注意:初版暂不支持加密功能!!!!!!!!
 
 -- 用法实例
 local espblufi = require("espblufi")
@@ -391,7 +391,7 @@ local function btc_blufi_protocol_handler(parse_data)
             blufi_env.opmode = blufi_hdr.data:byte(1)
         elseif blufi_subtype == BLUFI_TYPE_CTRL_SUBTYPE_CONN_TO_AP then
             blufi_env.callback(espblufi.EVENT_STA_INFO,
-                                {ssid=blufi_env.sta_ssid,password=blufi_env.sta_passwd,})
+                                {ssid=blufi_env.sta_ssid,password=blufi_env.sta_passwd})
             wlan.connect(blufi_env.sta_ssid, blufi_env.sta_passwd)
             blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNING
             local results = sys.waitUntil("IP_READY",3000)
@@ -460,7 +460,6 @@ local function btc_blufi_protocol_handler(parse_data)
         end
     else
         return
-
     end
 end
 

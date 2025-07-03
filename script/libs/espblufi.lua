@@ -493,7 +493,14 @@ local function espblufi_ble_callback(ble_device, ble_event, ble_param)
     end
 end
 
-
+--[[
+初始化espblufi
+@api espblufi.init(espblufi_callback,local_name)
+@function 事件回调函数
+@number 蓝牙名，可选，默认为"BLUFI_xxx",xxx为设备型号(因为esp的配网测试app默认过滤蓝牙名称为BLUFI_开头的设备进行显示,可手动修改)
+@usage
+espblufi.init(espblufi_callback)
+]]
 function espblufi.init(espblufi_callback,local_name)
     if not bluetooth or not ble or not wlan then
         return
@@ -521,11 +528,23 @@ function espblufi.init(espblufi_callback,local_name)
     return
 end
 
+--[[
+开始配网
+@api espblufi.start()
+@usage
+espblufi.start()
+]]
 function espblufi.start()
     sys.taskInit(espblufi_task)
     blufi_env.ble_device:adv_start()
 end
 
+--[[
+停止配网
+@api espblufi.stop()
+@usage
+espblufi.stop()
+]]
 function espblufi.stop()
     blufi_env.ble_device:adv_stop()
     sys.publish(BLUFI_TOPIC,BLUFI_TASK_EXIT)
@@ -535,6 +554,13 @@ function espblufi.deinit()
     
 end
 
+--[[
+发送自定义数据，一般用于接收到客户端发送的自定义命令后进行回复
+@api espblufi.send_custom_data(data)
+@string 回复的数据包内容
+@usage
+espblufi.send_custom_data(data)
+]]
 function espblufi.send_custom_data(data)
     btc_blufi_send_custom_data(data)
 end

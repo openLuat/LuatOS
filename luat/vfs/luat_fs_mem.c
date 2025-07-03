@@ -32,6 +32,7 @@ typedef struct luat_ram_fd
 #define RAM_FILE_MAX (64)
 static ram_file_t* files[RAM_FILE_MAX];
 
+size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream);
 
 FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode) {
     (void)userdata;

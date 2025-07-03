@@ -4,7 +4,6 @@
 @version 1.0
 @date    2025.07.01
 @author  Dozingfiretruck
-@demo    espblufi
 @usage
 -- 此为Blufi 配网库
 -- BluFi 配网指南:https://www.espressif.com/sites/default/files/documentation/esp32_bluetooth_networking_user_guide_cn.pdf

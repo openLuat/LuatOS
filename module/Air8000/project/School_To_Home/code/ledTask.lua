@@ -1,21 +1,21 @@
 -- 蓝灯
 local netLed = gpio.setup(1, 0)
-sys.taskInit(function()
-    while true do
-        while not srvs.isConnected() do
-            manage.wake("led")
-            netLed(1)
-            sys.wait(500)
-            netLed(0)
-            manage.sleep("led")
-            sys.wait(500)
-        end
-        netLed(0)
-        while srvs.isConnected() do
-            sys.wait(10000)
-        end
-    end
-end)
+-- sys.taskInit(function()
+--     while true do
+--         while not srvs.isConnected() do
+--             manage.wake("led")
+--             netLed(1)
+--             sys.wait(500)
+--             netLed(0)
+--             manage.sleep("led")
+--             sys.wait(500)
+--         end
+--         netLed(0)
+--         while srvs.isConnected() do
+--             sys.wait(10000)
+--         end
+--     end
+-- end)
 
 -- 黄灯  在gnss.lua里面，由当前Air201上CC0257B的1PPS引脚控制，可以给GNSS芯片发指令改变1pps输出周期
 

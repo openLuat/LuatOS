@@ -6,6 +6,23 @@
 @author  Dozingfiretruck
 @demo    espblufi
 @usage
+-- 此为Blufi 配网库
+-- BluFi 配网指南:https://www.espressif.com/sites/default/files/documentation/esp32_bluetooth_networking_user_guide_cn.pdf
+
+-- 安卓测试APP下载地址:https://github.com/EspressifApp/EspBlufiForAndroid/releases
+-- 安卓APP源码下载地址:https://github.com/EspressifApp/EspBlufiForAndroid
+
+-- IOS测试APP下载地址:https://apps.apple.com/cn/app/espblufi/id1450614082
+-- IOSAPP源码下载地址:https://github.com/EspressifApp/EspBlufiForiOS
+
+-- 安卓测试APP下载地址:https://github.com/EspressifApp/EspBlufiForAndroid/releases
+-- 安卓APP源码下载地址:https://github.com/EspressifApp/EspBlufiForAndroid
+
+-- 小程序测试:微信搜索小程序:ESP Config
+-- 小程序源码下载地址:https://github.com/EspressifApps/ESP-Config-WeChat
+
+-- 注意:初版不支持加密功能,需要后续版本支持!!!!!!!!
+
 -- 用法实例
 local espblufi = require("espblufi")
 

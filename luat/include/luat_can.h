@@ -126,7 +126,7 @@ int luat_can_set_filter(uint8_t can_id, uint8_t is_dual_mode, uint8_t ACR[4], ui
  * @param data，帧数据
  * @return 0成功，其他失败
  */
-int luat_can_tx_message(uint8_t can_id, uint32_t message_id, uint8_t is_extend_id, uint8_t is_RTR, uint8_t need_ack, uint8_t data_len, uint8_t *data);
+int luat_can_tx_message(uint8_t can_id, uint32_t message_id, uint8_t is_extend_id, uint8_t is_RTR, uint8_t need_ack, uint8_t data_len, const void *data);
 
 /**
  * @brief 停止未完成的消息发送

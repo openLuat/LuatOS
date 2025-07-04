@@ -259,7 +259,7 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
 
     // 计算最终需要的总大小
     size_t total_size = fd->offset + write_size;
-    size_t current_size = files[fd->fid]->size; // 当前文件大小
+//    size_t current_size = files[fd->fid]->size; // 当前文件大小
 
     // 先补齐block
     ram_file_block_t* block = files[fd->fid]->head;

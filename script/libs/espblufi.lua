@@ -1,6 +1,6 @@
 --[[
 @module espblufi
-@summary espblufi esp blufi 蓝牙配网(注意:初版不支持加密功能,需要后续版本支持!!!!!!!!)
+@summary espblufi esp blufi 蓝牙配网(注意:初版暂不支持加密功能!!!!!!!!)
 @version 1.0
 @date    2025.07.01
 @author  Dozingfiretruck
@@ -17,7 +17,7 @@
 -- 小程序测试:微信搜索小程序:ESP Config
 -- 小程序源码下载地址:https://github.com/EspressifApps/ESP-Config-WeChat
 
--- 注意:初版不支持加密功能,需要后续版本支持!!!!!!!!
+-- 注意:初版暂不支持加密功能!!!!!!!!
 
 -- 用法实例
 local espblufi = require("espblufi")
@@ -37,7 +37,8 @@ local function espblufi_callback(event,data)
 end
 
 sys.taskInit(function()
-    espblufi.init(espblufi_callback)
+    local bluetooth_device = bluetooth.init()
+    espblufi.init(bluetooth_device, espblufi_callback)
     espblufi.start()
     while 1 do
         sys.wait(1000)
@@ -239,10 +240,9 @@ local function btc_blufi_wifi_conn_report(sta_conn_state)
         if wlan_info.bssid then
             data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_BSSID,6) .. string.fromHex(wlan_info.bssid)
         end
-        print("rssi",type(wlan_info.rssi),wlan_info.rssi)
-        -- if wlan_info.rssi then
-        --     data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_RSSI,1) .. tonumber(wlan_info.rssi)
-        -- end
+        if wlan_info.rssi then
+            data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_CONN_RSSI,1,wlan_info.rssi%256)
+        end
     end
     if blufi_env.sta_ssid then
         data = data .. string.char(BLUFI_TYPE_DATA_SUBTYPE_STA_SSID,#blufi_env.sta_ssid) .. blufi_env.sta_ssid
@@ -392,10 +392,10 @@ local function btc_blufi_protocol_handler(parse_data)
             blufi_env.opmode = blufi_hdr.data:byte(1)
         elseif blufi_subtype == BLUFI_TYPE_CTRL_SUBTYPE_CONN_TO_AP then
             blufi_env.callback(espblufi.EVENT_STA_INFO,
-                                {ssid=blufi_env.sta_ssid,password=blufi_env.sta_passwd,})
+                                {ssid=blufi_env.sta_ssid,password=blufi_env.sta_passwd})
             wlan.connect(blufi_env.sta_ssid, blufi_env.sta_passwd)
             blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNING
-            local results = sys.waitUntil("IP_READY",1000)
+            local results = sys.waitUntil("IP_READY",3000)
             if results then blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNED 
             else blufi_env.wlan_state = BLUFI_WLAN_STATE_DISCONN end
             btc_blufi_wifi_conn_report()
@@ -461,7 +461,6 @@ local function btc_blufi_protocol_handler(parse_data)
         end
     else
         return
-
     end
 end
 
@@ -491,17 +490,24 @@ end
 
 --[[
 初始化espblufi
-@api espblufi.init(espblufi_callback,local_name)
+@api espblufi.init(bluetooth_device,espblufi_callback,local_name)
+@userdata bluetooth_device 蓝牙设备对象
 @function 事件回调函数
 @number 蓝牙名，可选，默认为"BLUFI_xxx",xxx为设备型号(因为esp的配网测试app默认过滤蓝牙名称为BLUFI_开头的设备进行显示,可手动修改)
 @usage
 espblufi.init(espblufi_callback)
 ]]
-function espblufi.init(espblufi_callback,local_name)
+function espblufi.init(bluetooth_device,espblufi_callback,local_name)
     if not bluetooth or not ble or not wlan then
+        log.error("need bluetooth ble and wlan")
+        return
+    end
+    if bluetooth_device == nil or type(bluetooth_device) ~= "userdata" then
+        log.error("bluetooth_device is nil")
         return
     end
     if not espblufi_callback then
+        log.error("espblufi_callback is nil")
         return
     else
         blufi_env.callback = espblufi_callback
@@ -510,14 +516,9 @@ function espblufi.init(espblufi_callback,local_name)
         local_name = "BLUFI_"..rtos.bsp()
     end
     wlan.init()
-    local bluetooth_device = bluetooth.init()
     local ble_device = bluetooth_device:ble(espblufi_ble_callback)
     ble_device:gatt_create(espblufi_att_db)
     ble_device:adv_create({
-        addr_mode = ble.PUBLIC,
-        channel_map = ble.CHNLS_ALL,
-        intv_min = 120,
-        intv_max = 120,
         adv_data = {{ble.FLAGS,string.char(0x06)},{ble.COMPLETE_LOCAL_NAME, local_name}},
     })
     blufi_env.ble_device = ble_device

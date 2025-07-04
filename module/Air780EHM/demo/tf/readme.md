@@ -1,7 +1,7 @@
 
 ## 演示功能概述
 
-使用Air780EHM核心板通过fatfs库实现对SPI SD的高效操作，并可以挂载fatfs文件系统，通过文件系统相关接口去操作fatfs文件系统中的文件，并演示文件的读写、删除、追加以及HTTP服务器下载到SD卡等操作。
+使用Air780EHM核心板通过fatfs库和io库实现对tf卡的高效操作，并可以挂载fatfs文件系统，通过文件系统相关接口去操作fatfs文件系统中的文件，并演示文件的读写、删除、追加以及HTTP服务器下载到SD卡等操作。
 
 ## 演示硬件环境
 
@@ -9,7 +9,7 @@
 
 2、TYPE-C USB数据线一根
 
-3、spi SD卡模块一个和SD卡一张
+3、AirMICROSD_1000模块一个和SD卡一张
 
 4、Air780EHM核心板和数据线的硬件接线方式为
 
@@ -17,9 +17,9 @@
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-5、Air780EHM核心板和spi SD卡模块接线方式
+5、Air780EHM核心板和AirMICROSD_1000模块接线方式
 
-|   Air780EHM     |       SPI_SD卡模块    |
+|   Air780EHM     |    AirMICROSD_1000    |
 | --------------- | --------------------- |
 |  GND(任意)      |          GND          |
 |  VDD_EXT        |          VCC          |

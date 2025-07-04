@@ -45,8 +45,15 @@ function sfud_test_func()
     local test_sfud_mount = false
     --通过sfud接口对flash进行写入和读取操作
     if test_sfud_raw then
-        log.info("sfud.eraseWrite",sfud.eraseWrite(sfud_device,1024,"luatos-sfud1234567890123456789012345678901234567890"))
-        log.info("sfud.read",sfud.read(sfud_device,1024,4))
+        local test_str = "luatos-sfud1234567890123456789012345678901234567890"
+        log.info("sfud.eraseWrite",sfud.eraseWrite(sfud_device,1024,test_str))
+        local read_str = sfud.read(sfud_device,1024,#test_str)
+        if test_str == read_str then
+            log.info("sfud 写入与读取数据成功")
+        else
+            log.info("sfud 写入与读取数据失败")
+        end
+
     end
     --挂载为sfud lfs文件系统，通过文件系统相关接口去操作sfud lfs文件系统中的文件，并演示文件的读写、删除、追加等操作。
     if test_sfud_mount then

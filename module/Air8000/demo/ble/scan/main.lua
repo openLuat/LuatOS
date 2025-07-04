@@ -57,6 +57,9 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 如果需要升级WIFI固件，请打开下面注释
+require "check_wifi"
+
 -- 加载 scan 蓝牙功能模块
 require "ble_scan"
 

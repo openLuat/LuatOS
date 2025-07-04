@@ -55,7 +55,7 @@ function ble_scan()
     sys.wait(100)
     -- 扫描模式
     sys.wait(1000)
-    ble_device:scan_create() -- 使用默认参数, addr_mode=0, scan_interval=100, scan_window=100
+    ble_device:scan_create(0,1000,100) -- 使用默认参数, addr_mode=0, scan_interval=100, scan_window=100
     -- ble_device:scan_create(0, 10, 10) -- 使用自定义参数
     sys.wait(100)
     log.info("开始扫描")

@@ -47,7 +47,6 @@ end
 --     errDump.config(true, 600)
 -- end
 
-
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
@@ -60,6 +59,9 @@ end
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
+
+-- 如果需要升级WIFI固件，请打开下面注释
+require "check_wifi"
 
 -- 加载 ibeacon 蓝牙功能模块
 require "ble_ibeacon"

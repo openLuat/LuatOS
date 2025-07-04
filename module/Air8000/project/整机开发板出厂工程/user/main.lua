@@ -29,7 +29,7 @@ local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
 local taskName = "MAIN"
-
+local  fota_wifi = require("fota_wifi")
 local sid = 0
 
 -- 按键事件类型：
@@ -505,11 +505,13 @@ function ip_ready_handle(ip, adapter)
   if adapter == socket.LWIP_GP then
     sysplus.taskInitEx(update_airstatus, "update_airstatus")
   end
+
+  
 end
 
 local function UITask()
     sys.wait(1000)
-    log.info("合宙 8000 startup v1")
+    log.info("合宙 8000 startup v11111")
     -- aircamera.init()
     airlcd.lcd_init("AirLCD_1001")
     sys.subscribe("TP",tp_handal)
@@ -525,6 +527,12 @@ local function UITask()
     end
 
 end
+local function  wififota()
+  fota_wifi.request()
+end
+
+
+sysplus.taskInitEx(wififota,"fota_wifi")
 sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 

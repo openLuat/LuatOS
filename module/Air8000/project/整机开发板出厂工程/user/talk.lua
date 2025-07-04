@@ -5,7 +5,7 @@ dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 local run_state = false -- 判断本UI DEMO 是否运行
 local airaudio  = require "airaudio"
-local speech_topic = "15055190176"  --  填写手机号，需要保证所有对讲设备，网页都是同一个号码   
+local speech_topic = ""  --  填写手机号，需要保证所有对讲设备，网页都是同一个号码   
 local mqtt_host = "lbsmqtt.airm2m.com"
 local mqtt_port = 1884
 local mqtt_isssl = false
@@ -35,7 +35,7 @@ local function init_talk()
     airaudio.init() 
 
     client_id = mobile.imei()
-
+    
 
     mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, {rxSize = 4096})
     airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc, 200) -- 缓冲至少200ms播放
@@ -74,22 +74,20 @@ function talk.run()
     while true do
         sys.wait(10)
         lcd.clear(_G.bkcolor)
-        lcd.drawStr(0, 80, "开始对讲测试:"..talk_state)
-        lcd.drawStr(0, 100, event)
-        
+        if speech_topic == "" then
+            lcd.drawStr(0, 80, "请填入speech_topic,并保证所有终端topic 一致")
+        else
+            lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic .. ",所有终端或者网页都要使用同一个topic")
+            lcd.drawStr(0, 100, talk_state)
+            
 
-        lcd.drawStr(0, 120, "事件:" .. event)
-
-
-        -- [
-        -- 此处可填写demo ui
-        -- ]
-
-
-        lcd.showImage(130, 350, "/luadb/start.jpg") -- 对讲开始按钮
-        lcd.showImage(130, 397, "/luadb/stop.jpg") -- 对讲停止按钮
-        
-        lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
+            lcd.drawStr(0, 120, "事件:" .. event)
+            lcd.showImage(130, 350, "/luadb/start.jpg") -- 对讲开始按钮
+            lcd.showImage(130, 397, "/luadb/stop.jpg") -- 对讲停止按钮
+            
+            lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
+            
+        end
         lcd.flush()
 
         if not run_state then -- 等待结束，返回主界面

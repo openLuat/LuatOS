@@ -551,10 +551,10 @@ static int l_uart_write(lua_State *L)
 }
 
 /*
-读串口
+FIFO方式取出串口缓存的数据
 @api    uart.read(id, len)
 @int 串口id, uart0写0, uart1写1
-@int 读取长度
+@int 期望读取长度，可选，不填时读取全部，无论写多少，最多读取当前缓存区所有数据
 @file/zbuff 可选：文件句柄或zbuff对象
 @return string 读取到的数据 / 传入zbuff时，返回读到的长度，并把zbuff指针后移
 @usage
@@ -702,7 +702,7 @@ static int l_uart_close(lua_State *L)
 注册串口事件回调
 @api    uart.on(id, event, func)
 @int 串口id, uart0写0, uart1写1
-@string 事件名称
+@string 事件名称，目前只有"receive"/"recv":新数据接收完成或者接收缓存满了,"sent":发送结束
 @function 回调方法
 @return nil 无返回值
 @usage

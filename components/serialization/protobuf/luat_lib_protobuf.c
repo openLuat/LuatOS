@@ -2233,6 +2233,13 @@ LUALIB_API int luaopen_protobuf(lua_State *L) {
     return 1;
 }
 
+void luat_heap_free(void* ptr);
+void luat_heap_free_pb(void* ptr) {
+    if (ptr) {
+        luat_heap_free(ptr);
+    }
+}
+
 PB_NS_END
 
 /* cc: flags+='-O3 -ggdb -pedantic -std=c90 -Wall -Wextra --coverage'

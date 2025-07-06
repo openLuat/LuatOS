@@ -43,10 +43,10 @@
 #include <limits.h>
 
 void* luat_heap_malloc(size_t len);
-void  luat_heap_free(void* ptr);
+void  luat_heap_free_pb(void* ptr);
 
 #define os_malloc luat_heap_malloc
-#define os_free luat_heap_free
+#define os_free luat_heap_free_pb
 
 PB_NS_BEGIN
 

@@ -165,6 +165,10 @@ static int l_pm_dtimer_stop(lua_State *L) {
 LUAT_WEAK uint32_t luat_pm_dtimer_remain(int id){
 	return -1;
 }
+
+LUAT_WEAK int luat_pm_get_last_req_mode(void){
+	return -1;
+}
 #endif
 
 /**

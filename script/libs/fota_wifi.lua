@@ -22,9 +22,15 @@ local function wifi_fota_task_func()
     -- ...此处省略很多代码
 end
 
--- 两种调用方式均可，任选其一
--- sys.taskInit(wifi_fota_task_func)
-sysplus.taskInitEx(wifi_fota_task_func, "wifi_fota_task")
+-- 判断SIM卡是否
+local function wait_sim_ready()
+    sys.waitUntil("IP_READY")
+    log.info("fota_wifi", "SIM卡已插入，开始执行升级任务")
+    sys.taskInit(wifi_fota_task_func)
+end
+
+-- 在设备启动时检查SIM卡状态
+sys.taskInit(wait_sim_ready)
 ]]
 local fota_wifi = {}
 local is_request = false -- 标记是否正在执行request任务
@@ -115,13 +121,25 @@ local function download_file(url)
         if io.exists(file_path) then
             os.remove(file_path)
         end
-
     end
     return nil
 end
 
 -- 执行升级操作
 local function fota_start(file_path)
+    -- 检查文件是否存在
+    if not io.exists(file_path) then
+        log.error("fota_wifi", "升级文件不存在")
+        return false
+    end
+    
+    -- 检查文件大小是否超过256K (256 * 1024 Bytes)
+    local file_size = io.fileSize(file_path)
+    if file_size < 256 * 1024 then
+        log.error("fota_wifi", "升级文件大小不足256K，文件大小:", file_size)
+        return false
+    end
+    
     -- 执行airlink.sfota操作
     local result = airlink.sfota(file_path)
     if result then
@@ -136,6 +154,7 @@ local function fota_start(file_path)
         return false
     end
 end
+
 
 --[[
 Air8000系列模组自动升级wifi
@@ -169,7 +188,7 @@ function fota_wifi.request()
     log.info("fota_wifi", "正在请求升级信息, URL:", request_url)
 
     -- 发送HTTP请求获取服务器响应
-    local code, headers, body = http.request("GET", request_url, {}, nil, nil).wait()
+    local code, headers, body = http.request("GET", request_url, {}, nil, {timeout = 30000}).wait()
     if code == 200 then
         log.info("fota_wifi", "获取服务器响应成功")
         -- 打印返回的body内容

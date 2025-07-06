@@ -28,8 +28,11 @@ local airble = require "airble"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
-local taskName = "MAIN"
+local talk = require "talk"
 
+
+local taskName = "MAIN"
+local  fota_wifi = require("fota_wifi")
 local sid = 0
 
 -- 按键事件类型：
@@ -189,7 +192,7 @@ local function handal_main3(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
-    cur_fun  = "multi_network"
+    cur_fun  = "talk"
   elseif key == 2 then
   elseif key == 3 then
   elseif key == 4 then
@@ -245,6 +248,8 @@ local function  tp_handal(tp_device,tp_data)
       airpower.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "airble" then
       airble.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "talk" then
+      talk.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -439,6 +444,12 @@ local function draw_airble()
     end
 end
 
+local function draw_talk()
+  if  talk.run()   then
+    cur_fun = "main"
+  end
+end
+
 
 local function draw()
   if cur_fun == "camshow" then
@@ -486,6 +497,8 @@ local function draw()
     draw_multi_network()    
   elseif cur_fun == "airble" then
     draw_airble()
+  elseif cur_fun == "talk" then
+    draw_talk()
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")
@@ -505,11 +518,13 @@ function ip_ready_handle(ip, adapter)
   if adapter == socket.LWIP_GP then
     sysplus.taskInitEx(update_airstatus, "update_airstatus")
   end
+
+  
 end
 
 local function UITask()
     sys.wait(1000)
-    log.info("合宙 8000 startup v1")
+    log.info("合宙 8000 startup v11111")
     -- aircamera.init()
     airlcd.lcd_init("AirLCD_1001")
     sys.subscribe("TP",tp_handal)
@@ -525,6 +540,12 @@ local function UITask()
     end
 
 end
+local function  wififota()
+  fota_wifi.request()
+end
+
+
+sysplus.taskInitEx(wififota,"fota_wifi")
 sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 

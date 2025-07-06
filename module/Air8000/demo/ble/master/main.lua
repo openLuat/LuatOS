@@ -1,6 +1,6 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.07.01
 @author  wangshihao
@@ -57,6 +57,9 @@ end
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
+
+-- 如果需要升级WIFI固件，请打开下面注释
+require "check_wifi"
 
 -- 加载 master 蓝牙功能模块
 require "ble_master"

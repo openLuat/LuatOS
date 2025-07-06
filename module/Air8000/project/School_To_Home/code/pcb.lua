@@ -53,7 +53,7 @@ function pcb.chargeCmdPin()
     if hversion == "1.0.2" then
         return 20
     else
-        return 27
+        return 152
     end
 end
 

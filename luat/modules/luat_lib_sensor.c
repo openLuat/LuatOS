@@ -15,6 +15,11 @@
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
 #ifdef LUAT_USE_SENSOR
+
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
+
 #define LUAT_LOG_TAG "sensor"
 #include "luat_log.h"
 

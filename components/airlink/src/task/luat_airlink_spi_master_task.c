@@ -303,7 +303,9 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
     else
     {
-        LLOGI("从机内存高水位, 停止下发IP数据");
+        if (g_airlink_debug) {
+            LLOGI("从机内存高水位, 停止下发IP数据");
+        }
     }
     if (item.len > 0 && item.cmd != NULL)
     {

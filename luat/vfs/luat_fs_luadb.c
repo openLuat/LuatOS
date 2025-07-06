@@ -114,6 +114,10 @@ size_t luat_luadb_read(luadb_fs_t *fs, int fd, void *dst, size_t size) {
         return 0;
     luadb_fd_t *fdt = &fs->fds[fd];
     int re = size;
+    if (fdt->fd_pos >= fdt->file->size) {
+        //LLOGD("luadb read name %s offset %d size %d ret 0", fdt->file->name, fdt->fd_pos, size);
+        return 0; // 已经读完了
+    }
     if (fdt->fd_pos + size > fdt->file->size) {
         re = fdt->file->size - fdt->fd_pos;
     }
@@ -126,20 +130,23 @@ size_t luat_luadb_read(luadb_fs_t *fs, int fd, void *dst, size_t size) {
         fdt->fd_pos += re;
     }
     //LLOGD("luadb read name %s offset %d size %d ret %d", fdt->file->name, fdt->fd_pos, size, re);
-    return re;
+    return re > 0 ? re : 0;
 }
 
 long luat_luadb_lseek(luadb_fs_t *fs, int fd, long /*off_t*/ offset, int mode) {
     if (fd < 0 || fd >= LUAT_LUADB_MAX_OPENFILE || fs->fds[fd].file == NULL)
         return -1;
     if (mode == SEEK_END) {
-        fs->fds[fd].fd_pos = fs->fds[fd].file->size;
+        fs->fds[fd].fd_pos = fs->fds[fd].file->size - offset;
     }
     else if (mode == SEEK_CUR) {
         fs->fds[fd].fd_pos += offset;
     }
     else {
         fs->fds[fd].fd_pos = offset;
+    }
+    if (fs->fds[fd].fd_pos > fs->fds[fd].file->size) {
+        fs->fds[fd].fd_pos = fs->fds[fd].file->size;
     }
     return fs->fds[fd].fd_pos;
 }

@@ -1,11 +1,11 @@
 --[[
 @module  ble_ibeacon
-@summary Air8000演示ibeacon功能模块
+@summary Air8000演示BLE主机模式功能模块
 @version 1.0
 @date    2025.07.01
 @author  wangshihao
 @usage
-本文件为Air8000核心板演示master功能的代码示例，核心业务逻辑为：
+本文件为Air8000核心板演示BLE主机模式的代码示例，核心业务逻辑为：
 1. 初始化蓝牙底层框架
     bluetooth_device = bluetooth.init()
 2. 创建BLE对象实例
@@ -36,17 +36,17 @@
 local scan_count = 0
 
 local function ble_callback(ble_device, ble_event, ble_param)
-    if ble_event == ble.EVENT_CONN then
+    if ble_event == ble.EVENT_CONN then -- 连接成功
         log.info("ble", "connect 成功")
-    elseif ble_event == ble.EVENT_DISCONN then
+    elseif ble_event == ble.EVENT_DISCONN then -- 断开连接，并打印断开原因
         log.info("ble", "disconnect", ble_param.reason)
-        sys.timerStart(function() ble_device:scan_start() end, 1000)
-    elseif ble_event == ble.EVENT_WRITE then
+        sys.timerStart(function() ble_device:scan_start() end, 1000) -- 1秒后重新开始扫描
+    elseif ble_event == ble.EVENT_WRITE then --收到写请求
         log.info("ble", "write", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex())
         log.info("ble", "data", ble_param.data:toHex())
-    elseif ble_event == ble.EVENT_READ_VALUE then
-        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data:toHex())
-    elseif ble_event == ble.EVENT_SCAN_REPORT then
+    elseif ble_event == ble.EVENT_READ_VALUE then -- 收到读请求
+        log.info("ble", "read", ble_param.handle,ble_param.uuid_service:toHex(),ble_param.uuid_characteristic:toHex(),ble_param.data)
+    elseif ble_event == ble.EVENT_SCAN_REPORT then -- 扫描到设备
         print("ble scan report",ble_param.addr_type,ble_param.rssi,ble_param.adv_addr:toHex(),ble_param.data:toHex())
         scan_count = scan_count + 1
         if scan_count > 100 then
@@ -61,18 +61,24 @@ local function ble_callback(ble_device, ble_event, ble_param)
             ble_device:scan_stop()
             ble_device:connect(ble_param.adv_addr,ble_param.addr_type)
         end
-    elseif ble_event == ble.EVENT_GATT_ITEM then
-        -- 读取GATT完成, 打印出来
+    elseif ble_event == ble.EVENT_GATT_ITEM then -- 读取GATT信息
+        -- 读取GATT完成，打印出来
         log.info("ble", "gatt item", ble_param)
-    elseif ble_event == ble.EVENT_GATT_DONE then
+    elseif ble_event == ble.EVENT_GATT_DONE then -- GATT操作完成
+        -- GATT操作完成，打印服务数量
         log.info("ble", "gatt done", ble_param.service_num)
+
+        -- 开启指定服务和特征值的通知
         local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA01")}
         ble_device:notify_enable(wt, true) -- 开启通知
 
         -- 主动写入数据, 但不带通知, 带通知是 write_notify
         local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA02")}
-        ble_device:write_value(wt,string.fromHex("1234"))
+        ble_device:write_value(wt, string.fromHex("1234")) -- 写入数据, 这里是写入十六进制数据"1234"
+        log.info("ble", "write value", wt.uuid_service:toHex(), wt.uuid_characteristic:toHex(), "1234")
 
+        -- 读取特征值数据
+        -- 注意, 这里是读取另外一个设备的特征值数据
         local wt = {uuid_service = string.fromHex("FA00"), uuid_characteristic = string.fromHex("EA03")}
         ble_device:read_value(wt)
     end

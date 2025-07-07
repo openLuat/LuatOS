@@ -220,23 +220,49 @@ function AirGPIO_1000.deinit()
     end
 end
 
+--[[
+配置AirGPIO_1000上的扩展GPIO管脚功能；
+支持配置为输出，输入和中断三种模式；
 
---配置AirGPIO_1000上的扩展GPIO管脚功能
+@api AirGPIO_1000.setup(gpio_id, gpio_mode)
 
---gpio_id：number类型；
---         表示AirGPIO_1000上的扩展GPIO ID；
---         取值范围：0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
---         必须传入，不允许为空；
---gpio_mode：number类型，nil或者空类型，function类型；
---           number类型时，表示输出模式，取值范围为0和1，0表示默认输出低电平，1表示默认输出高电平；
---           nil或者空类型时，表示输入模式；
---           function类型时，表示中断模式，此function为中断回调函数，函数的定义格式如下：
---                           function cb_func(id, level)
---                               --id：表示触发中断的AirGPIO_1000上的扩展GPIO ID，取值范围为0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
---                               --level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0；
---                           end
+@number
+gpio_id
+表示AirGPIO_1000上的扩展GPIO ID；
+取值范围：0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
+必须传入，不允许为空或者nil；
 
---返回值：成功返回true，失败返回false
+@number or function or nil or 空
+gpio_mode
+number类型时，表示输出模式，取值范围为0和1，0表示默认输出低电平，1表示默认输出高电平；
+nil或者空类型时，表示输入模式；
+function类型时，表示中断模式，此function为中断回调函数，函数的定义格式如下：
+function cb_func(id, level)
+    --id：表示触发中断的AirGPIO_1000上的扩展GPIO ID，取值范围为0x00到0x07，0x10到0x17，一共16种，分别对应16个扩展GPIO引脚；
+    --level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0；并不是指触发中断的电平状态；
+end
+
+@return bool
+成功返回true，失败返回false
+
+@usage
+-- GPIO ID 0x00配置为输出模式，默认输出低电平
+AirGPIO_1000.setup(0x00, 0)
+
+-- GPIO ID 0x11配置为输入模式
+AirGPIO_1000.setup(0x11)
+
+
+--P04引脚中断处理函数
+--id：0x04
+--level：触发中断后，某一时刻，扩展GPIO输入的电平状态，高电平为1， 低电平为0
+local function P04_int_cbfunc(id, level)
+    log.info("P04_int_cbfunc", id, level)
+end
+
+-- GPIO ID 0x04配置为中断模式，中断处理函数为P04_int_cbfunc
+AirGPIO_1000.setup(0x04, P04_int_cbfunc)
+]]
 function AirGPIO_1000.setup(gpio_id, gpio_mode)
     --检查参数的合法性
     if not check_gpio_id_valid(gpio_id) then

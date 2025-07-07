@@ -16,8 +16,8 @@
 
 int luat_airlink_cmd_exec_pm_request(luat_airlink_cmd_t* cmd, void* userdata) {
     uint8_t tp = cmd->data[8];
-    if (tp >= LUAT_PM_SLEEP_MODE_NONE && tp <= LUAT_PM_SLEEP_MODE_DEEP) {
-        LLOGD("收到pm_request指令!!! tp %d", tp);
+    if (tp >= LUAT_PM_SLEEP_MODE_NONE && tp <= LUAT_PM_SLEEP_MODE_STANDBY) {
+        LLOGI("pm request %d", tp);
         luat_pm_request(tp);
     }
     return 0;

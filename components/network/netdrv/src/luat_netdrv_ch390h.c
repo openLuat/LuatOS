@@ -71,7 +71,7 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
                 luat_heap_free(ch);
                 return NULL;
             }
-            if (ch390h_drvs[i]->spiid == ch->spiid || ch390h_drvs[i]->cspin == ch->cspin) {
+            if (ch390h_drvs[i]->spiid == ch->spiid  && ch390h_drvs[i]->cspin == ch->cspin) {
                 LLOGE("已经注册过相同的spi+cs %d %d",ch->spiid, ch->cspin);
                 luat_heap_free(ch);
                 return NULL;

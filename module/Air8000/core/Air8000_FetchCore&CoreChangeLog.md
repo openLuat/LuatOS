@@ -2,6 +2,23 @@
 
 ## 最新版本
 
+![image-20250707193502347](air8000_core_1-11.png)
+
+#### 2025.07.07
+
+根据不同的核心库功能，拆分组合成多个固件，通过固件名称后的数字区分。具体每个固件的功能可参考固件版本对应关系的表格。
+
+[Air8000_1-11_20250707.zip](https://docs.openluat.com/cdn2/tmp/Air8000_1-11_20250707.zip)
+
+1. 修复ftp,在wifi环境下无法使用。
+2. 修复蓝牙write发送数据死机。
+3. 修复ch390不能复用一个spi的问题。
+4. 添加支持SFUD库
+5. 添加支持airtalk库
+6. 添加支持U8G2库
+
+## 历史版本
+
 #### 2025.06.27
 
 [LuatOS-SoC_V2008_Air8000_LVGL_0627](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_LVGL_0627.soc)
@@ -10,7 +27,12 @@
 
 [LuatOS-SoC_V2008_Air8000_FS_0627](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_FS_0627.soc)
 
-## 历史版本
+1. http请求没有加回调函数时添加asset异常提示。
+2. 修复FS版本使用vsim功能出现死机的问题。
+3. 修复蓝牙连接后有概率出现死机的问题。
+4. 蓝牙功能目前已实现主机模式（扫描+主动连接），从机模式（广播+被动连接），仅广播（典型应用ibeacon），仅观察（扫描）
+5. 支持httpdns指定adapter网络适配器id，使用不同的网络进行请求。
+6. 修复tcs3472，读不到元器件时返回空数据，会报错。
 
 #### 2025.06.23
 
@@ -20,11 +42,23 @@
 
 [LuatOS-SoC_V2008_Air8000_FS_0623](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_FS_0623.soc)
 
+1. VOLTE固件 修复接收短信死机和电信卡只能接收一条短信的问题。
+2. 修复无法控制GPIO141。
+
 #### 2025.06.21
 
 [LuatOS-SoC_V2008_Air8000_LVGL_0621](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_LVGL_0621.soc)
 
 [LuatOS-SoC_V2008_Air8000_FS_0621](https://docs.openluat.com/cdn2/Air8000/LuatOS-SoC_V2008_Air8000_FS_0621.soc)
+
+1. 目前可支持ble低功耗蓝牙广播、从机模式、扫描蓝牙功能。（当前的蓝牙api功能仍处于调试阶段，后续可能还会对api做改动）
+2. gpio.get接口支持获取>128gpio输入输出模式的电平状态。
+3. 添加airlink.power接口，可控制wifi供电和运行状态。
+4. 修复sms.send发送超长短信会死机。限制短信发送长度超过140字节，会直接拒绝发送。
+5. 修复Air8000G读不到充电ic。
+6. fs 兼容a+b模式打开文件。
+7. 支持wifi进入休眠 light和deep模式。
+8. 支持使用pm.wakeupPin接口配置唤醒wifi休眠的gpio。
 
 #### 2025.06.10
 
@@ -56,34 +90,19 @@
 
 ## 固件更新记录
 
-#### 2025.06.27
-
-1. http请求没有加回调函数时添加asset异常提示。
-2. 修复FS版本使用vsim功能出现死机的问题。
-3. 修复蓝牙连接后有概率出现死机的问题。
-4. 蓝牙功能目前已实现主机模式（扫描+主动连接），从机模式（广播+被动连接），仅广播（典型应用ibeacon），仅观察（扫描）
-5. 支持httpdns指定adapter网络适配器id，使用不同的网络进行请求。
-6. 修复tcs3472，读不到元器件时返回空数据，会报错。
+6. 
 
 
 
 #### 2025.06.23
 
-1. VOLTE固件 修复接收短信死机和电信卡只能接收一条短信的问题。
-2. 修复无法控制GPIO141。
+1. 
 
 
 
 #### 2025.06.21
 
-1. 目前可支持ble低功耗蓝牙广播、从机模式、扫描蓝牙功能。（当前的蓝牙api功能仍处于调试阶段，后续可能还会对api做改动）
-2. gpio.get接口支持获取>128gpio输入输出模式的电平状态。
-3. 添加airlink.power接口，可控制wifi供电和运行状态
-4. 修复sms.send发送超长短信会死机。限制短信发送长度超过140字节，会直接拒绝发送。
-5. 修复Air8000G读不到充电ic。
-6. fs 兼容a+b模式打开文件。
-7. 支持wifi进入休眠 light和deep模式。
-8. 支持使用pm.wakeupPin接口配置唤醒wifi休眠的gpio。
+1. 
 
 
 

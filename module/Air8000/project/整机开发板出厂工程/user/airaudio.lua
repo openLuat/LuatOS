@@ -20,7 +20,7 @@ local pa_on_level = 1           -- PA打开电平 1 高电平 0 低电平
 local power_delay = 3           -- 在DAC启动前插入的冗余时间，单位100ms
 local pa_delay = 100            -- 在DAC启动后，延迟多长时间打开PA，单位1ms
 local power_on_level = 1        -- 电源控制IO的电平，默认拉高
-local power_time_delay = 100    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms
+local power_time_delay = 600    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms
 local taskName = "task_tts"
 
 local play_string = "降功耗，找合宙"

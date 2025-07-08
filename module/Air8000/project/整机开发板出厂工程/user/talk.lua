@@ -6,12 +6,12 @@ httpplus = require("httpplus")
 local run_state = false -- 判断本UI DEMO 是否运行
 local airaudio  = require "airaudio"
 local speech_topic = ""  --  填写手机号，需要保证所有对讲设备，网页都是同一个号码   
-local mqtt_host = "lbsmqtt.airm2m.com"
-local mqtt_port = 1884
+local mqtt_host = "lbsmqtt.openluat.com"
+local mqtt_port = 1886
 local mqtt_isssl = false
 local client_id = nil
-local user_name = "user"
-local password = "password"
+local user_name = "mqtt_hz_test_1"
+local password = "Ck8WpNCp"
 local mqttc = nil
 local message = ""
 local event = ""
@@ -19,7 +19,7 @@ local talk_state = ""
 
 
 
-local function talk_event_cb(event, param)
+local function airtalk_event_cb(event, param)
     log.info("talk event", event, param)
     event  = event
 end
@@ -35,11 +35,10 @@ local function init_talk()
     airaudio.init() 
 
     client_id = mobile.imei()
-    
 
     mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, {rxSize = 4096})
     airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc, 200) -- 缓冲至少200ms播放
-    airtalk.on(talk_event_cb)
+    airtalk.on(airtalk_event_cb)
     airtalk.start(client_id, speech_topic)
 
     mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
@@ -68,8 +67,8 @@ function talk.run()
     log.info("talk.run")
     lcd.setFont(lcd.font_opposansm12_chinese) -- 设置中文字体
     run_state = true
+    sys.taskInit(init_talk)
 
-    init_talk() -- 初始化电话功能相关配置
 
     while true do
         sys.wait(10)
@@ -77,11 +76,13 @@ function talk.run()
         if speech_topic == "" then
             lcd.drawStr(0, 80, "请填入speech_topic,并保证所有终端topic 一致")
         else
-            lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic .. ",所有终端或者网页都要使用同一个topic")
-            lcd.drawStr(0, 100, talk_state)
+            lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
+            lcd.drawStr(0, 120, "所有终端或者网页都要使用同一个topic")
+
+            lcd.drawStr(0, 140, talk_state)
             
 
-            lcd.drawStr(0, 120, "事件:" .. event)
+            lcd.drawStr(0, 160, "事件:" .. event)
             lcd.showImage(130, 350, "/luadb/start.jpg") -- 对讲开始按钮
             lcd.showImage(130, 397, "/luadb/stop.jpg") -- 对讲停止按钮
             

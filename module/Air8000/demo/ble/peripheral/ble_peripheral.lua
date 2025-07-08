@@ -81,7 +81,7 @@ function ble_peripheral()
         intv_max = 120,
         adv_data = {
             {ble.FLAGS, string.char(0x06)},
-            {ble.COMPLETE_LOCAL_NAME, "LuatOS123"},
+            {ble.COMPLETE_LOCAL_NAME, "LuatOS"},
             {ble.SERVICE_DATA, string.fromHex("FE01")},
             {ble.MANUFACTURER_SPECIFIC_DATA, string.fromHex("05F0")}
         }

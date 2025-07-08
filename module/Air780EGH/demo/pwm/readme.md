@@ -19,7 +19,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air780EGH V2008版本固件](https://docs.openluat.com/air780EGH/luatos/firmware/version/)（测试使用V2008 1号固件）
+2、[Air780EGH V2008版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)（测试使用V2008 1号固件）
 
 ## 演示核心步骤
 

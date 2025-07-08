@@ -173,8 +173,14 @@ CAN总线配置时序
 @return boolean 成功返回true,失败返回false
 @usage
 -- air780EPM参考，不一定适合其他平台，CAN的实际波特率=基础时钟/分频系数/(1+PTS+PBS1+PBS2)，详见can.capacity
+-- 快速参考，50K及x2,x4,x8,x16都可以用同一个PTS+PBS1+PBS2
+-- 快速参考，125K及x2,x4,x8都可以用同一个PTS+PBS1+PBS2
+can.timing(0, 50000, 6, 6, 3, 2)
 can.timing(0, 100000, 6, 6, 3, 2)
+can.timing(0, 400000, 6, 6, 3, 2)
 can.timing(0, 125000, 6, 6, 4, 2)
+can.timing(0, 250000, 6, 6, 4, 2)
+can.timing(0, 1000000, 6, 6, 4, 2)
 */
 static int l_can_timing(lua_State *L)
 {

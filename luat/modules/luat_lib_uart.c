@@ -1358,9 +1358,9 @@ LUAT_WEAK void luat_uart_patch(int *param) {;}
 static int l_uart_patch(lua_State *L)
 {
 	int param[6];
-	for(int i = 0; i < 6; i++)
+	for(int i = 1; i <= 6; i++)
 	{
-		param[i] = luaL_optinteger(L, i, 0);
+		param[i - 1] = luaL_optinteger(L, i, 0);
 	}
 	luat_uart_patch(param);
     return 0;

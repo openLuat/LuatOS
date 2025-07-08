@@ -1,4 +1,10 @@
 --[[
+@module  tcp_client_main
+@summary tcp client socket主应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为tcp client socket主应用功能模块，核心业务逻辑为：
 1、创建一个tcp client socket，连接server；
 2、处理连接异常，出现异常后执行重连动作；
@@ -18,7 +24,7 @@ local tcp_client_sender = require "tcp_client_sender"
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 44560
+local SERVER_PORT = 42753
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
@@ -45,7 +51,7 @@ local function tcp_client_main_task_func()
         end
 
         -- 检测到了IP_READY消息
-        log.warn("tcp_client_main_task_func", "recv IP_READY")
+        log.info("tcp_client_main_task_func", "recv IP_READY")
 
         -- 创建socket client对象
         socket_client = socket.create(socket.LWIP_STA, TASK_NAME)

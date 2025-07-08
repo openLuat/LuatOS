@@ -1,4 +1,10 @@
 --[[
+@module  tcp_client_sender
+@summary tcp client socket数据发送应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为tcp client socket数据发送应用功能模块，核心业务逻辑为：
 1、sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)订阅"SEND_DATA_REQ"消息，将其他应用模块需要发送的数据存储到队列send_queue中；
 2、tcp_client_main主任务调用tcp_client_sender.proc接口，遍历队列send_queue，逐条发送数据到server；
@@ -12,7 +18,7 @@
 2、tcp_client_sender.proc：数据发送应用逻辑处理入口，在tcp_client_main.lua中调用；
 3、tcp_client_sender.exception_proc：数据发送应用逻辑异常处理入口，在tcp_client_main.lua中调用；
 ]]
--- local taskname = d2name
+
 local tcp_client_sender = {}
 
 local libnet = require "libnet"
@@ -54,6 +60,7 @@ function tcp_client_sender.proc(task_name, socket_client)
 
         -- 发送这条数据，超时时间15秒钟
         result, buff_full = libnet.tx(task_name, 15000, socket_client, send_item.data)
+
         -- 发送失败
         if not result then
             log.error("tcp_client_sender.proc", "libnet.tx error")
@@ -74,7 +81,6 @@ function tcp_client_sender.proc(task_name, socket_client)
         end
 
         log.info("tcp_client_sender.proc", "send success")
-        -- sys.sendMsg(taskname,"send success")
         -- 发送成功，如果当前发送的数据有用户回调函数，则执行用户回调函数
         if send_item.cb and send_item.cb.func then
             send_item.cb.func(true, send_item.cb.para)

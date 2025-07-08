@@ -17,7 +17,7 @@ local wifi_mode = true -- true 需要   --false 不需要
 
 -----是否需要保持服务器心跳------------------------------------------------------
 local tcp_mode = true -- true 需要，设置下方心跳包。    --false 不需要，不需要设置心跳包。
-local tcp_heartbeat = 0.5 -- PSM+模式心跳包，单位（分钟），输入 1 为 一分钟一次心跳包。
+local tcp_heartbeat = 5 -- PSM+模式心跳包，单位（分钟），输入 1 为 一分钟一次心跳包。
 local heart_data = string.rep("1234567890", 3) -- 心跳包数据内容，可自定义。
 -------------------------------------------------------------------------------
 
@@ -63,24 +63,17 @@ function psm_power_func()
                 log.info("发送失败！", a)
             end
             -- 判断完有没有发送成功后都进入PSM+模式，减少功耗损耗。
-            log.info("三秒后进入PSM+模式,每" .. tcp_heartbeat .. "分钟后唤醒一次。")
-            sys.wait(3000)
             -- 配置dtimerStart唤醒定时器，根据预设时间唤醒Air8101上传心跳信息。
             pm.dtimerStart(0, tcp_heartbeat * 60 * 1000)
             -- 定完定时器即可进入PSM+，执行到这条代码后，CPU关机，后续代码不会执行。
             pm.power(pm.WORK_MODE, 3)
         else
-            -- 判断不需要连接TCP平台发心跳，直接进入PSM+模式
-            log.info("三秒后进入PSM+模式,未设置心跳，不再唤醒。")
-            sys.wait(3000)
-            -- 定完定时器即可进入PSM+，执行到这条代码后，CPU关机，后续代码不会执行。
+            -- 执行到这条代码后，CPU关机，后续代码不会执行。
             pm.power(pm.WORK_MODE, 3)
         end
     else
         -- 判断不需要连WIFI，直接进入PSM+
-        log.info("三秒后进入PSM+模式,未设置心跳，不再唤醒。")
-        sys.wait(3000)
-        -- 定完定时器即可进入PSM+，执行到这条代码后，CPU关机，后续代码不会执行。
+        -- 执行到这条代码后，CPU关机，后续代码不会执行。
         pm.power(pm.WORK_MODE, 3)
     end
 end

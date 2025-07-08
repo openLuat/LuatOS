@@ -7,8 +7,8 @@
 @usage
 本demo演示的核心功能为：
 三种低功耗模式代码演示和功耗体验
-1、normal常规模式：normal.lua中就是常规模式的代码案例,持续向平台发送心跳数据。平均功耗：8.17mA
-2、low_power低功耗模式：low_powerr.lua中就是低功耗模式的代码案例，进入低功耗模式后向平台发送心跳包。平均功耗：218uA
+1、normal常规模式：normal.lua中就是常规模式的代码案例,持续向平台发送心跳数据。平均功耗：6.6mA
+2、low_power低功耗模式：low_powerr.lua中就是低功耗模式的代码案例，进入低功耗模式后向平台发送心跳包。DTIM1模式平均功耗：1.5mA。DTIM10模式平均功耗380uA。
 3、psm+低功耗模式：psm+_power.lua中就是PSM+模式的代码案例，定时唤醒向平台发送心跳包。平均功耗：11uA
 更多说明参考本目录下的readme.md文件
 ]]
@@ -67,8 +67,8 @@ end
 
 --选择需要体验的功耗模式，注释另外两个代码即可！快捷键Ctrl + /
 -- require "normal"
--- require "low_power"
-require "psm+_power"
+require "low_power"
+-- require "psm+_power"
 
 
 -- 用户代码已结束---------------------------------------------------------------

@@ -112,12 +112,13 @@ local function ind()
         end       
     end
 end    
-gpio.setup(intPin, ind)
+
 
 
 local function da221_init()
     log.info("da221 init...")
     --关闭i2c
+    gpio.setup(intPin, ind)
     i2c.close(i2cId)            ------初始化i2c
     --重新打开i2c,i2c速度设置为低速
     i2c.setup(i2cId, i2c.SLOW)
@@ -157,7 +158,7 @@ local function da221_init()
     sys.wait(5)
 end
 
-function da221_run()
+local function da221_run()
     -- 轮询读取三轴速度
     log.info("interrupt_state123",is_da221_init,interrupt_state )
     da221_init()

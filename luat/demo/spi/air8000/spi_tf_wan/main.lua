@@ -21,7 +21,7 @@ sysplus = require("sysplus")
 local rtos_bsp = rtos.bsp()
 
 local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
-local SPI_SPEED = 12800000
+local SPI_SPEED = 25600000
 
 if USE_CH390 then
     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电

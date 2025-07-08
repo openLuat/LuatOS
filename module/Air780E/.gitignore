@@ -1,0 +1,95 @@
+# Prerequisites
+*.d
+*.luac
+*.lnks
+*.pdf
+.vscode
+vscode.code-workspace
+.idea
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+#*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+
+bsp/air302/FlashToolCLI/
+bsp/air302/tmp/
+bsp/air302/local*
+bsp/air302/disk/
+*.zip
+tools/java/.classpath
+tools/java/.project
+tools/java/.settings/
+tools/java/target/
+
+bsp/air640w/disk/
+bsp/air640w/tmp/
+bsp/air640w/local*
+
+__pycache__
+*.pyc
+
+*.tlv
+*.fs
+bsp/air302/air302_sdk/**
+/bsp/air724/sdk/out
+/bsp/air724/sdk/hex
+/bsp/air724/sdk/prebuilts/win32
+
+*.cmake
+*.xmake
+
+debug.log
+
+量产文件
+
+CMakefiles
+bsp/win32/build/
+bsp/win32/release/
+bsp/pico/build/
+bsp/linux/build/

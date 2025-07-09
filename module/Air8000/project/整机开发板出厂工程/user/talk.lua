@@ -118,8 +118,8 @@ function talk.run()
                 lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
                 lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com")
                 lcd.drawStr(0, 140, "所有终端或者网页都要使用同一个topic")
-                lcd.drawStr(0, 140, talk_state)
-                lcd.drawStr(0, 160, "事件:" .. event)
+                lcd.drawStr(0, 160, talk_state)
+                lcd.drawStr(0, 180, "事件:" .. event)
                 
                 -- 显示输入法入口按钮
                 lcd.showImage(130, 250, "/luadb/input_topic.jpg")

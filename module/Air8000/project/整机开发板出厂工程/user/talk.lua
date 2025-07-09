@@ -98,6 +98,9 @@ function talk.run()
     
     speech_topic = fskv.get("talk_channel")
     log.info("get  speech_topic",speech_topic)
+    if  speech_topic   then
+        sys.taskInit(init_talk)
+    end
 
     while run_state do
         sys.wait(100)

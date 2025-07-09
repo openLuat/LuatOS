@@ -77,7 +77,7 @@ local cur_fun = "main"
 -- }
 
 _G.bkcolor = lcd.rgb565(99, 180, 245,false)
-
+fskv.init()
 local function wdtInit()
 -- 添加硬狗防止程序卡死
   if wdt then

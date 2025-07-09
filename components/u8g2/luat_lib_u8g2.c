@@ -820,7 +820,7 @@ static int l_u8g2_SetContrast(lua_State *L)
 
 #ifdef LUAT_USE_GTFONT
 
-#include "GT5SLCD2E_1A.h"
+#include "luat_gtfont.h"
 
 static int gtfont_u8g2_DrawPixel(u8g2_t *u8g2, uint16_t x, uint16_t y,uint32_t color){
     u8g2_DrawPixel(&conf->u8g2,x, y);
@@ -867,7 +867,6 @@ static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
 }
 
 #ifdef LUAT_USE_GTFONT_UTF8
-extern unsigned short unicodetogb2312 ( unsigned short	chr);
 
 static uint8_t utf8_state;
 static uint16_t encoding;
@@ -948,7 +947,7 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
         break;
         fontCode++;
         if ( e != 0x0fffe ){
-            uint16_t str = unicodetogb2312(e);
+            uint16_t str = gt_unicode2gb18030(e);
             int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
             if(font_size == 0){
                 LLOGW("get gtfont error size:%d font_size:%d",size,font_size);

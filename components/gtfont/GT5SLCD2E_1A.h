@@ -2,11 +2,11 @@
  *创建时间：2020-03-27
  *创建人：	yang
 **/
-#ifndef _GT5SLCD2E1A_H_
-#define _GT5SLCD2E1A_H_
+#ifndef _GT5SLCD2E1A_HZ_H_
+#define _GT5SLCD2E1A_HZ_H_
 
 /* 外部函数声明 */
-extern unsigned long r_dat_bat(unsigned long address,unsigned long DataLen,unsigned char *pBuff);
+extern unsigned char r_dat_bat(unsigned long address,unsigned long DataLen,unsigned char *pBuff);
 extern unsigned char gt_read_data(unsigned char* sendbuf , unsigned char sendlen , unsigned char* receivebuf, unsigned int receivelen);
 
 extern unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned long byte_long,unsigned char *p_arr);
@@ -82,11 +82,6 @@ int GT_Font_Init(void);
 **/
 unsigned int* get_Font_Gray(unsigned char *pBits,unsigned char sty,unsigned long fontCode,unsigned char fontSize, unsigned char thick);
 
-//Unicode转GBK
-unsigned long  U2G(unsigned int  unicode);	
-//BIG5转GBK
-unsigned int BIG52GBK( unsigned char h,unsigned char l );
-
 /*----------------------------------------------------------------------------------------
  * 灰度数据转换函数 2阶灰度/4阶灰度
  * 说明 : 将点阵数据转换为灰度数据 [eg:32点阵数据转2阶灰度数据则转为16点阵灰度数据]
@@ -121,13 +116,10 @@ void AlphaBlend_whiteBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int 
 void AlphaBlend_blackBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int y,
 	int src_w, int src_h, int dst_w, int dst_h,unsigned char *SrcGray,unsigned char Grade);
 
-unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
-void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
-                unsigned short w ,unsigned short h,
-                unsigned char grade,unsigned char HB_par,
-                int(*point)(void*,uint16_t, uint16_t, uint32_t),
-                void* userdata,int mode);
-unsigned int gtfont_get_width(unsigned char *p,unsigned int zfwidth,unsigned int zfhigh );
+//Unicode转GBK
+unsigned long U2G(unsigned int  unicode);	
+//BIG5转GBK
+unsigned int BIG52GBK( unsigned char h,unsigned char l );
 
 #endif
 

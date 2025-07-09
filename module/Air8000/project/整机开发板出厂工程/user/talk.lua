@@ -107,9 +107,11 @@ function talk.run()
             lcd.clear(_G.bkcolor) 
             if  speech_topic  == nil then
                 lcd.drawStr(0, 80, "输入任意手机号,并保证所有终端/平台一致")
+                lcd.drawStr(0, 100, "平台端网址:https://airtalk.openluat.com/")
                 lcd.showImage(130, 250, "/luadb/input_topic.jpg")
             else
                 lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
+                lcd.drawStr(0, 100, "平台端网址:https://airtalk.openluat.com/")
                 lcd.drawStr(0, 120, "所有终端或者网页都要使用同一个topic")
                 lcd.drawStr(0, 140, talk_state)
                 lcd.drawStr(0, 160, "事件:" .. event)

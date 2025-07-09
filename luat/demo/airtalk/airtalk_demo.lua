@@ -1,9 +1,9 @@
-local mqtt_host = "lbsmqtt.airm2m.com"
-local mqtt_port = 1884
+local mqtt_host = "lbsmqtt.openluat.com"
+local mqtt_port = 1886
 local mqtt_isssl = false
 local client_id = nil
-local user_name = "user"
-local password = "password"
+local user_name = "mqtt_hz_test_1"
+local password = "Ck8WpNCp"
 local mqttc = nil
 require "audio_config"
 

@@ -67,7 +67,7 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
         icmps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_icmp_t) * ICMP_MAP_SIZE);
     }
     if (icmp_buff == NULL) {
-        icmp_buff = luat_heap_opt_zalloc(LUAT_HEAP_SRAM, 1600);
+        icmp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
     }
     luat_netdrv_napt_icmp_t* it = NULL;
     if (ctx->is_wnet) {

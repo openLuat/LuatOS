@@ -38,7 +38,7 @@ __USER_FUNC_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         return 0;
     }
     if (tcp_buff == NULL) {
-        tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_SRAM, 1600);
+        tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
     }
     uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t mapping = {0};

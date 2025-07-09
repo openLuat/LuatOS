@@ -2,9 +2,7 @@
 
 #ifdef LUAT_USE_GTFONT
 
-#include "GT5SLCD2E_1A.h"
-
-extern unsigned short unicodetogb2312(unsigned short);
+#include "luat_gtfont.h"
 
 typedef struct
 {
@@ -161,7 +159,7 @@ static inline uint16_t gt_font_get_adv_w(gt_font_param_t *param, uint16_t code) 
 
 bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_glyph_dsc_t *dsc_out, uint32_t letter, uint32_t letter_next) {
     gt_font_param_t *param = font->dsc;
-    uint16_t code = unicodetogb2312(letter);
+    uint16_t code = gt_unicode2gb18030(letter);
 
     dsc_out->adv_w = gt_font_get_adv_w(param, code);
     dsc_out->box_w = ((param->code == code ? param->dot : param->size) + 7) / 8 * 8;
@@ -175,7 +173,7 @@ bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_glyph_dsc
 
 uint8_t *gt_font_get_glyph_bitmap(const struct _lv_font_struct *font, uint32_t letter) {
     gt_font_param_t *param = font->dsc;
-    uint16_t code = unicodetogb2312(letter);
+    uint16_t code = gt_unicode2gb18030(letter);
     gt_font_get(param, code);
     return param->buf;
 }

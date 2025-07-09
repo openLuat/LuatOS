@@ -22,15 +22,19 @@ local function wifi_fota_task_func()
     -- ...此处省略很多代码
 end
 
--- 判断SIM卡是否
-local function wait_sim_ready()
-    sys.waitUntil("IP_READY")
-    log.info("fota_wifi", "SIM卡已插入，开始执行升级任务")
-    sys.taskInit(wifi_fota_task_func)
+-- 判断网络是否正常
+local function wait_ip_ready()
+    local result, ip, adapter = sys.waitUntil("IP_READY", 30000)
+    if result then
+        log.info("fota_wifi", "开始执行升级任务")
+        sys.taskInit(wifi_fota_task_func)
+    else
+        log.error("当前正在升级WIFI&蓝牙固件，请插入可以上网的SIM卡")
+    end
 end
 
 -- 在设备启动时检查SIM卡状态
-sys.taskInit(wait_sim_ready)
+sys.taskInit(wait_ip_ready)
 ]]
 local fota_wifi = {}
 local is_request = false -- 标记是否正在执行request任务
@@ -132,14 +136,14 @@ local function fota_start(file_path)
         log.error("fota_wifi", "升级文件不存在")
         return false
     end
-    
+
     -- 检查文件大小是否超过256K (256 * 1024 Bytes)
     local file_size = io.fileSize(file_path)
     if file_size < 256 * 1024 then
         log.error("fota_wifi", "升级文件大小不足256K，文件大小:", file_size)
         return false
     end
-    
+
     -- 执行airlink.sfota操作
     local result = airlink.sfota(file_path)
     if result then

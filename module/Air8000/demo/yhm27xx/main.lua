@@ -35,13 +35,6 @@ local set_4V275 = 0x30       --4.275V
 local set_4V3   = 0x40       --4.3V
 local set_4V325 = 0x50       --4.325V
 local set_4V35  = 0x60       --4.35V
-local set_4V375 = 0x70       --4.375V
-local set_4V4   = 0x80       --4.4V
-local set_4V425 = 0x90       --4.425V
-local set_4V45  = 0xA0       --4.45V
-local set_4V475 = 0xB0       --4.475V
-local set_4V5   = 0xC0       --4.5V
-local set_4V525 = 0xD0       --4.525V
 
 --充电电流常用参数，默认充电电流为250mA，即0.5倍*500=250mA
 local set_0I2 = 0x22        --0.2倍，0.2*500=100mA
@@ -50,8 +43,7 @@ local set_0I7 = 0x42        --0.7倍，0.7*500=350mA
 local set_0I9 = 0x62        --0.9倍，0.9*500=450mA
 local set_I = 0x82          --  1倍，1.0*500=500mA
 local set_1I5 = 0xA2        --1.5倍，1.5*500=750mA
-local set_2I = 0xC2         --  2倍，2.0*500=1000mA
-local set_3I = 0xE2         --  3倍，3.0*500=1500mA
+
 
 local V_table={
     ["14"] = "4.0V",

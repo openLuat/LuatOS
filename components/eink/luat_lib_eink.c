@@ -1037,7 +1037,7 @@ static int l_eink_model(lua_State *L) {
 
 #ifdef LUAT_USE_GTFONT
 
-#include "GT5SLCD2E_1A.h"
+#include "luat_gtfont.h"
 
 static int l_eink_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
@@ -1094,7 +1094,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 }
 
 #ifdef LUAT_USE_GTFONT_UTF8
-extern unsigned short unicodetogb2312 ( unsigned short	chr);
+
 static int l_eink_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
     size_t len;
@@ -1111,7 +1111,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
       break;
       fontCode++;
       if ( e != 0x0fffe ){
-        uint16_t str = unicodetogb2312(e);
+        uint16_t str = gt_unicode2gb18030(e);
         int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
         if(font_size == 0){
           LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
@@ -1141,7 +1141,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
         break;
         fontCode++;
         if ( e != 0x0fffe ){
-			uint16_t str = unicodetogb2312(e);
+			uint16_t str = gt_unicode2gb18030(e);
 			get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
       gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);

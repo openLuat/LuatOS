@@ -1,4 +1,10 @@
 --[[
+@module  tcp_client_receiver
+@summary tcp client socket数据接收应用功能模块 
+@version 1.0
+@date    2025.07.01
+@author  朱天华
+@usage
 本文件为tcp client socket数据接收应用功能模块，核心业务逻辑为：
 从内核读取接收到的数据，然后将数据发送给其他应用功能模块做进一步处理；
 
@@ -24,31 +30,40 @@ function tcp_client_receiver.proc(socket_client)
         -- 如果等不及垃圾处理器自动处理，在确定以后不会再使用recv_buff时，则可以主动调用recv_buff:free()释放内存空间
     end
 
-    -- 从内核的缓冲区中读取数据到recv_buff中
-    -- 如果recv_buff的存储空间不足，会自动扩容
-    local result = socket.rx(socket_client, recv_buff)
+    -- 循环从内核的缓冲区读取接收到的数据
+    -- 如果读取失败，返回false，退出
+    -- 如果读取成功，处理数据，并且继续循环读取
+    -- 如果读取成功，并且读出来的数据为空，表示已经没有数据可读，返回true，退出
+    while true do
+        -- 从内核的缓冲区中读取数据到recv_buff中
+        -- 如果recv_buff的存储空间不足，会自动扩容
+        local result = socket.rx(socket_client, recv_buff)
 
-    -- 读取数据失败
-    -- 有两种情况：
-    -- 1、recv_buff扩容失败
-    -- 2、socket client和server之间的连接断开
-    if not result then
-        log.error("tcp_client_receiver.proc", "socket.rx error")
-        return false
-    end
+        -- 读取数据失败
+        -- 有两种情况：
+        -- 1、recv_buff扩容失败
+        -- 2、socket client和server之间的连接断开
+        if not result then
+            log.error("tcp_client_receiver.proc", "socket.rx error")
+            return false
+        end
 
-    -- 如果读取到了数据, used()就必然大于0, 进行处理
-    if recv_buff:used() > 0 then
-        log.info("tcp_client_receiver.proc", "recv data len", recv_buff:used())
+        -- 如果读取到了数据, used()就必然大于0, 进行处理
+        if recv_buff:used() > 0 then
+            log.info("tcp_client_receiver.proc", "recv data len", recv_buff:used())
 
-        -- 读取socket数据接收缓冲区中的数据，赋值给data
-        local data = recv_buff:query()
+            -- 读取socket数据接收缓冲区中的数据，赋值给data
+            local data = recv_buff:query()
 
-        -- 将数据data通过"RECV_DATA_FROM_SERVER"消息publish出去，给其他应用模块处理
-        sys.publish("RECV_DATA_FROM_SERVER", "recv from tcp server: ", data)
+            -- 将数据data通过"RECV_DATA_FROM_SERVER"消息publish出去，给其他应用模块处理
+            sys.publish("RECV_DATA_FROM_SERVER", "recv from tcp server: ", data)
 
-        -- 清空socket数据接收缓冲区中的数据
-        recv_buff:del()
+            -- 清空socket数据接收缓冲区中的数据
+            recv_buff:del()
+            -- 读取成功，但是读出来的数据为空，表示已经没有数据可读，可以退出循环了
+        else
+            break
+        end
     end
 
     return true

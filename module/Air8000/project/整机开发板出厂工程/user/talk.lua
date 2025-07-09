@@ -1,11 +1,18 @@
+-- talk.lua
 local talk = {}
 
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
-local run_state = false -- 判断本UI DEMO 是否运行
+
+local run_state = false
 local airaudio  = require "airaudio"
-local speech_topic = ""  --  填写手机号，需要保证所有对讲设备，网页都是同一个号码   
+local input_method = require "InputMethod" 
+local input_key = false
+
+-- 初始化fskv
+
+local speech_topic = nil
 local mqtt_host = "lbsmqtt.openluat.com"
 local mqtt_port = 1886
 local mqtt_isssl = false
@@ -16,23 +23,25 @@ local mqttc = nil
 local message = ""
 local event = ""
 local talk_state = ""
-
-
+local mqttc = nil
 
 local function airtalk_event_cb(event, param)
     log.info("talk event", event, param)
     event  = event
 end
 
+
+-- MQTT回调函数
 local function mqtt_cb(mqtt_client, event, data, payload)
     log.info("mqtt", "event", event, mqtt_client, data, payload)
+    -- 连接成功时订阅主题
 end
-
 
 
 local function init_talk()
     log.info("init_call")
     airaudio.init() 
+
 
     client_id = mobile.imei()
 
@@ -52,6 +61,85 @@ local function init_talk()
 
 end
 
+-- 重新初始化对讲函数
+local function reinit_talk()
+    log.info("talk", "重新初始化对讲")
+    
+    -- 安全停止对讲
+    if airtalk and airtalk.stop then
+        airtalk.stop()
+    end
+    if mqttc then
+        mqttc:close()
+    end
+    
+    -- 重新初始化对讲
+    sys.taskInit(init_talk)
+end
+
+-- 输入法回调函数
+local function submit_callback(input_text)
+    if input_text and #input_text > 0 then
+        speech_topic = input_text
+        fskv.set("talk_channel", input_text)  -- 保存频道名称到fskv
+        log.info("talk", "使用主题:", fskv.get("talk_channel"))
+        input_key = false
+   
+        -- 重新初始化对讲
+        sys.taskInit(reinit_talk)
+    end
+end
+
+
+function talk.run()
+    log.info("talk.run")
+    lcd.setFont(lcd.font_opposansm12_chinese)
+    run_state = true
+    
+    speech_topic = fskv.get("talk_channel")
+    log.info("get  speech_topic",speech_topic)
+    if  speech_topic   then
+        sys.taskInit(init_talk)
+    end
+
+    while run_state do
+        sys.wait(100)
+        if input_method.is_active() then
+            input_method.periodic_refresh()
+        else
+            lcd.clear(_G.bkcolor) 
+            if  speech_topic  == nil then
+                lcd.drawStr(0, 80, "输入任意手机号,并保证所有终端/平台一致")
+                lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
+                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com")
+                lcd.showImage(130, 250, "/luadb/input_topic.jpg")
+            else
+                lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
+                lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
+                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com")
+                lcd.drawStr(0, 140, "所有终端或者网页都要使用同一个topic")
+                lcd.drawStr(0, 140, talk_state)
+                lcd.drawStr(0, 160, "事件:" .. event)
+                
+                -- 显示输入法入口按钮
+                lcd.showImage(130, 250, "/luadb/input_topic.jpg")
+                lcd.showImage(130, 350, "/luadb/start.jpg")
+                lcd.showImage(130, 397, "/luadb/stop.jpg")
+                lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
+                -- log.info("flush ui") 
+            end
+            lcd.showImage(20,360,"/luadb/back.jpg")
+            lcd.flush()
+        end
+
+
+        if not run_state then
+            return true
+        end
+    end
+end
+
+
 local function stop_talk()
     talk_state = "语音停止采集"
     airtalk.uplink(false)
@@ -63,48 +151,30 @@ local function start_talk()
     airtalk.uplink(true)
 end
 
-function talk.run()
-    log.info("talk.run")
-    lcd.setFont(lcd.font_opposansm12_chinese) -- 设置中文字体
-    run_state = true
-    sys.taskInit(init_talk)
 
-
-    while true do
-        sys.wait(10)
-        lcd.clear(_G.bkcolor)
-        if speech_topic == "" then
-            lcd.drawStr(0, 80, "请填入speech_topic,并保证所有终端topic 一致")
-        else
-            lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
-            lcd.drawStr(0, 120, "所有终端或者网页都要使用同一个topic")
-
-            lcd.drawStr(0, 140, talk_state)
-            
-
-            lcd.drawStr(0, 160, "事件:" .. event)
-            lcd.showImage(130, 350, "/luadb/start.jpg") -- 对讲开始按钮
-            lcd.showImage(130, 397, "/luadb/stop.jpg") -- 对讲停止按钮
-            
-            lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
-            
-        end
-        lcd.flush()
-
-        if not run_state then -- 等待结束，返回主界面
-            return true
-        end
-    end
+local function start_input()
+    input_key = true
+    input_method.init(false, "talk", submit_callback)  -- 直接传递函数
 end
+
+
 
 function talk.tp_handal(x, y, event)
-    if x > 20 and x < 100 and y > 360 and y < 440 then
-        run_state = false
-    elseif x > 130 and x < 230 and y > 350 and y < 397 then
-        sysplus.taskInitEx(start_talk, "start_talk")
-    elseif x > 130 and x < 230 and y > 397 and y < 444 then
-        sysplus.taskInitEx(stop_talk, "stop_talk")
+    if input_key then
+        input_method.process_touch(x, y)
+    else
+        if x > 20 and x < 100 and y > 360 and y < 440 then
+            run_state = false
+        elseif x > 130 and x < 230 and y > 350 and y < 397 then
+            sysplus.taskInitEx(start_talk, "start_talk")
+        elseif x > 130 and x < 230 and y > 397 and y < 444 then
+            sysplus.taskInitEx(stop_talk, "stop_talk")
+        elseif x > 130 and x < 230 and y > 250 and y < 300 then
+            sysplus.taskInitEx(start_input,"start_input")
+        end
     end
 end
+
+
 
 return talk

@@ -315,11 +315,11 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 			goto LUAT_PIN_SETUP_DONE;
 		}
 		// GPIO128 及以上的, 不支持配置
-		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_GPIO && func_description.code >= 128) {
+		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_GPIO && (func_description.code & 0x00ff) >= 128) {
 			goto LUAT_PIN_SETUP_DONE;
 		}
 		// UART10 及以上的, 不支持配置
-		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_UART && func_description.code >= 10) {
+		if (func_description.peripheral_type == LUAT_MCU_PERIPHERAL_UART && func_description.peripheral_id >= 10) {
 			goto LUAT_PIN_SETUP_DONE;
 		}
 	}

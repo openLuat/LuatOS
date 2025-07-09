@@ -194,7 +194,7 @@ i2c初始化
 @api i2c.setup(id, speed, pullup)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C速度, 例如i2c.FAST
-@bool 是否软件上拉, 默认不开启，需要硬件支持
+@bool 是否使用轮询模式，true是，false不是。默认状态具体平台决定，除非使用中有问题，否则留空！！！
 @return int 成功就返回1,否则返回0
 @usage
 -- 初始化i2c1

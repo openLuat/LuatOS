@@ -883,8 +883,8 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 						if (prv_adapter_table[ctrl->adapter_index].opt->check_ack) {
 							return prv_adapter_table[ctrl->adapter_index].opt->check_ack(ctrl->adapter_index, ctrl->socket_id);
 						}
-						// TODO 待全部bsp都增加check_ack函数后, 就不再需要下面的调用了
-						return net_lwip_check_all_ack(ctrl->socket_id);
+						NET_DBG("BUG!! neek to check ack, but adapter don't has check_ack function");
+						return 0;
 					}
 					else
 					{

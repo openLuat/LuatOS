@@ -1613,7 +1613,7 @@ static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id) {
 	return 0;
 }
 
-#if !defined(CHIP_EC718) && !defined(CHIP_EC618) && !defined(CHIP_EC716)
+#if !defined(CHIP_EC718) && !defined(CHIP_EC618) && !defined(CHIP_EC716) && !defined(CONFIG_SOC_8910)
 int net_lwip_check_all_ack(int socket_id)
 {
 	return net_lwip2_check_ack(0, socket_id);

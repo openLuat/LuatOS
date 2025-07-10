@@ -2046,6 +2046,32 @@ static void net_lwip_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *u
 	prvlwip.user_data[index] = param;
 }
 
+static int net_lwip_check_ack(int socket_id)
+{
+	if (!llist_empty(&prvlwip.socket[socket_id].wait_ack_head))
+	{
+		NET_DBG("socekt %d not all ack", socket_id);
+		prvlwip.socket_busy |= (1 << socket_id);
+		return -1;
+	}
+	if (!llist_empty(&prvlwip.socket[socket_id].tx_head))
+	{
+		NET_DBG("socekt %d not all send", socket_id);
+		prvlwip.socket_busy |= (1 << socket_id);
+		return -1;
+	}
+	if (prvlwip.socket[socket_id].pcb.tcp->snd_buf != TCP_SND_BUF)
+	{
+		NET_DBG("socket %d send buf %ubytes, need %u",socket_id, prvlwip.socket[socket_id].pcb.tcp->snd_buf, TCP_SND_BUF);
+		prvlwip.socket_busy |= (1 << socket_id);
+	}
+	else
+	{
+		prvlwip.socket_busy &= ~(1 << socket_id);
+	}
+	return 0;
+}
+
 static network_adapter_info prv_net_lwip_adapter =
 {
 		.check_ready = net_lwip_check_ready,
@@ -2071,6 +2097,7 @@ static network_adapter_info prv_net_lwip_adapter =
 		.get_local_ip_info = net_lwip_get_local_ip_info,
 		.get_full_ip_info = net_lwip_get_full_ip_info,
 		.socket_set_callback = net_lwip_socket_set_callback,
+		.check_ack = net_lwip_check_ack,
 		.name = "lwip",
 		.max_socket_num = MAX_SOCK_NUM,
 		.no_accept = 1,

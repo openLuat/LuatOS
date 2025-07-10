@@ -1211,8 +1211,8 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
 		fontCode++;
 		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
         if(font_size == 0){
-        LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
-        return 0;
+            LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
+            return 0;
         }
 		gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
 		x+=size;
@@ -1327,7 +1327,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
                 return 0;
             }
             unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
-            x+=(str<0x80 && str!=0x31)?dw:size;
+            x+=(str<0x80 && str!=0x20)?dw:size;
         }
     }
     lcd_auto_flush(lcd_dft_conf);

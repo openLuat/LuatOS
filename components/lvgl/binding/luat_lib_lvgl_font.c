@@ -110,6 +110,12 @@ int luat_lv_font_load(lua_State *L) {
             luat_spi_device_t *spi = lua_touserdata(L, 1);
             uint8_t size = luaL_optinteger(L, 2, 16);
             uint8_t bpp = luaL_optinteger(L, 3, 4);
+
+            if (size>=16 && size<34) bpp = 4;
+            else if(size>=34 && size<98) bpp = 2;
+            else if(size>=98 && size<=192) bpp = 1;
+            else return 0;
+
             uint16_t thickness = luaL_optinteger(L, 4, size * bpp);
             uint8_t cache_size = luaL_optinteger(L, 5, 0);
             uint8_t sty_zh = luaL_optinteger(L, 6, 1);
@@ -118,6 +124,7 @@ int luat_lv_font_load(lua_State *L) {
             if (!(bpp >= 1 && bpp <= 4 && bpp != 3)) {
                 return 0;
             }
+
             if (gt_spi_dev == NULL) {
                 gt_spi_dev = lua_touserdata(L, 1);
             }

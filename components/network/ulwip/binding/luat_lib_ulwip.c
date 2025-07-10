@@ -488,7 +488,6 @@ static int l_ulwip_input(lua_State *L) {
     netif_cb_ctx_t* cb_ctx = (netif_cb_ctx_t*)luat_heap_malloc(sizeof(netif_cb_ctx_t));
     if (cb_ctx == NULL) {
         LLOGE("netif->input ret %d", ret);
-        LWIP_DEBUGF(NETIF_DEBUG, ("l_ulwip_input: IP input error\n"));
         pbuf_free(p);
         return 0;
     }
@@ -503,7 +502,6 @@ static int l_ulwip_input(lua_State *L) {
     #endif
     if(ret != ERR_OK) {
         LLOGE("netif->input ret %d", ret);
-        LWIP_DEBUGF(NETIF_DEBUG, ("l_ulwip_input: IP input error\n"));
         pbuf_free(p);
         return 0;
     }

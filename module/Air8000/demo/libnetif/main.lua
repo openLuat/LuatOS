@@ -22,8 +22,10 @@ sys.taskInit(function()
     libnetif.setPriorityOrder({
         -- {
         --     ETHERNET = {
+        --         -- mode = "Air8101",
         --         pwrpin = 140,
-        --         ping_ip = "112.125.89.8",
+        --         ping_time = 3000,
+        --         ping_ip = "112.125.89.8"
         --     }
         -- },
         {

@@ -9,9 +9,10 @@ local libnetif = {}
 
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
+httpdns = require("httpdns")
 -- 设置pingip
-local wifi_ping_ip = "192.168.1.1"
-local eth_ping_ip = "192.168.1.1"
+local wifi_ping_ip
+local eth_ping_ip
 
 
 local ping_time = 10000
@@ -77,24 +78,29 @@ local function setupETH(config)
     gpio.setup(config.pwrpin, 1, gpio.PULLUP)
     sys.wait(100)
 
-    -- 配置SPI和初始化网络驱动
-    local result = spi.setup(1, -- spi id
-        nil, 0,                 -- CPHA
-        0,                      -- CPOL
-        8,                      -- 数据宽度
-        51200000                -- ,--波特率
-    )
-    log.info("main", "open spi", result)
-    if result ~= 0 then -- 返回值为0，表示打开成功
-        log.info("main", "spi open error", result)
-        gpio.close(config.pwrpin)
-        return false
+    if config.mode == "Air8101" then
+        log.info("8101以太网")
+        netdrv.setup(socket.LWIP_ETH)
+    else
+        -- 配置SPI和初始化网络驱动
+        local result = spi.setup(1, -- spi id
+        nil, 0, -- CPHA
+        0, -- CPOL
+        8, -- 数据宽度
+        51200000 -- ,--波特率
+        )
+        log.info("main", "open spi", result)
+        if result ~= 0 then -- 返回值为0，表示打开成功
+            log.info("main", "spi open error", result)
+            gpio.close(config.pwrpin)
+            return false
+        end
+        -- 初始化指定netdrv设备,
+        -- socket.LWIP_ETH 网络适配器编号
+        -- netdrv.CH390外挂CH390
+        -- SPI ID 1, 片选 GPIO12
+        netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi = 1, cs = 12})
     end
-    -- 初始化指定netdrv设备,
-    -- socket.LWIP_ETH 网络适配器编号
-    -- netdrv.CH390外挂CH390
-    -- SPI ID 1, 片选 GPIO12
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, { spi = 1, cs = 12 })
     netdrv.dhcp(socket.LWIP_ETH, true)
     available[socket.LWIP_ETH] = connection_states.OPENED
     log.info("以太网初始化完成")
@@ -108,7 +114,7 @@ local function setWifiInfo(config)
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
     end
-    log.info("Wi-Fi名称:", config.ssid)
+    log.info("WiFi名称:", config.ssid)
     log.info("密码     :", config.password)
     log.info("ping_ip  :", config.ping_ip)
     wlan.init()
@@ -359,29 +365,43 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)
 end
 
 -- ping操作
-local function ping_request(adapter)
-    log.info("ping_request(adapter)")
-    local ping_ip
-    if adapter == socket.LWIP_ETH then
-        ping_ip = eth_ping_ip
-        icmp.setup(adapter)
-        icmp.ping(adapter, ping_ip)
+local function ping_request(adaptertest)
+    log.info("dns_request",typeToString(adaptertest))
+    if adaptertest == socket.LWIP_ETH then
+        if eth_ping_ip == nil then
+            local ip = httpdns.ali("air32.cn", {adapter=adaptertest, timeout=3000})
+            if ip ~= nil then
+                available[adaptertest] = connection_states.CONNECTED
+            end
+            log.info("httpdns", "air32.cn", ip)
+        else
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, eth_ping_ip)
+        end
     end
-    if adapter == socket.LWIP_STA then
-        ping_ip = wifi_ping_ip
-        icmp.setup(adapter)
-        icmp.ping(adapter, ping_ip)
+    if adaptertest == socket.LWIP_STA then
+        if wifi_ping_ip == nil then
+            local ip = httpdns.ali("air32.cn", {adapter=adaptertest, timeout=3000})
+            if ip ~= nil then
+                available[adaptertest] = connection_states.CONNECTED
+            end
+            log.info("httpdns", "air32.cn", ip)
+        else
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, wifi_ping_ip)
+        end
     end
-    if adapter == socket.LWIP_GP then
+    if adaptertest == socket.LWIP_GP then
         available[socket.LWIP_GP] = connection_states.CONNECTED
     end
+    applyPriority()
 end
 -- 网卡上线回调函数
 local function ip_ready_handle(ip, adapter)
     log.info("ip_ready_handle", ip, typeToString(adapter))
     -- 需要ping操作，ping通后认为网络可用
     available[adapter] = connection_states.CONNECTING
-    ping_request(adapter)
+    -- ping_request(adapter)
 end
 -- 网卡下线回调函数
 local function ip_lose_handle(adapter)
@@ -401,9 +421,10 @@ sys.taskInit(function()
             if available[net_type] == connection_states.CONNECTING then
                 ping_request(net_type)
                 log.info(typeToString(net_type) .. "网卡未ping通，需要定时ping")
+                sys.wait(ping_time)
             end
         end
-        sys.wait(ping_time)
+        sys.wait(1000)
     end
 end)
 

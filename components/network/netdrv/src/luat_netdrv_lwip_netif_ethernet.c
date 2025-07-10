@@ -37,10 +37,10 @@
  * This file is part of the lwIP TCP/IP stack.
  *
  */
-
+#include "luat_base.h"
 #include "lwip/opt.h"
 
-#if LWIP_ARP || LWIP_ETHERNET
+#if (LWIP_ARP || LWIP_ETHERNET) && defined(LUAt_USE_NETDRV_LWIP_ARP)
 
 #include "netif/ethernet.h"
 #include "lwip/def.h"

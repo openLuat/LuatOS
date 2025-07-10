@@ -36,10 +36,12 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
             return drvs[conf->id];
         }
         #endif
+        #ifdef LUAT_USE_AIRLINK
         if (conf->impl == 64) { // WHALE
             drvs[conf->id] = luat_netdrv_whale_setup(conf);
             return drvs[conf->id];
         }
+        #endif
         #endif
     }
     else {

@@ -44,7 +44,7 @@ typedef struct ulwip_ctx
     uint8_t hwaddr[ETH_HWADDR_LEN];
     dhcp_client_info_t *dhcp_client;
     luat_rtos_timer_t dhcp_timer;
-    struct udp_pcb *dhcp_pcb;
+    // struct udp_pcb *dhcp_pcb;
 }ulwip_ctx_t;
 
 typedef struct netif_cb_ctx {

@@ -14,8 +14,10 @@
 // -------------------------------------
 //           DHCP 客户端逻辑
 // -------------------------------------
+static struct udp_pcb* s_ulwip_dhcp;
 
 static void dhcp_client_timer_cb(void *arg);
+static ulwip_ctx_t* s_ctxs[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 
 static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     PV_Union uIP;
@@ -92,7 +94,7 @@ on_check:
     }
     data = p->payload;
     LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
-    udp_sendto_if(ctx->dhcp_pcb, p, IP_ADDR_BROADCAST, 67, netif);
+    udp_sendto_if(s_ulwip_dhcp, p, IP_ADDR_BROADCAST, 67, netif);
     pbuf_free(p);
     return 0;
 }
@@ -103,7 +105,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     }
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     u16_t total_len = p->tot_len;
-    ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
+    // ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
     char* ptr = luat_heap_malloc(total_len);
     if (!ptr) {
         return ERR_OK;
@@ -114,8 +116,45 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         offset += p->len;
         p = p->next;
     } while (p);
-    ulwip_dhcp_client_run(ctx, ptr, total_len);
-    // LLOGD("传递DHCP数据包");
+
+    // 解析DHCP数据包中的mac地址
+    uint8_t received_mac[6];
+    memcpy(received_mac, ptr + 28, 6);
+    
+    u16_t ip_header_length = IP_IS_V6(addr) ? 40 : 20;
+    u16_t udp_header_length = 8;
+
+    // 收到DHCP数据包, 需要逐个ctx查一遍, 对照xid
+    for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
+    {
+        if (s_ctxs[i] == NULL || s_ctxs[i]->dhcp_client == NULL || s_ctxs[i]->netif == NULL) {
+            continue;
+        }
+
+        // 检查数据包长度是否足够
+        // max_dhcp packetlen = mtu - ip_head - udp_head
+        u16_t max_dhcp_packet_len = s_ctxs[i]->netif->mtu - ip_header_length - udp_header_length;
+        if (p->tot_len > max_dhcp_packet_len) {
+            LLOGE("DHCP包长度超过最大值 %d", max_dhcp_packet_len);
+            pbuf_free(p);
+            return 0;
+        }
+
+        // 获取网络接口的mac地址
+        struct netif *netif = s_ctxs[i]->netif;
+        uint8_t *local_mac = netif->hwaddr;
+
+        // LLOGD("mac %02X:%02X:%02X:%02X:%02X:%02X", local_mac[0], local_mac[1], local_mac[2], local_mac[3], local_mac[4], local_mac[5]);
+        // LLOGD("received_mac %02X:%02X:%02X:%02X:%02X:%02X", received_mac[0], received_mac[1], received_mac[2], received_mac[3], received_mac[4], received_mac[5]);
+        // 比较mac地址
+        if (memcmp(local_mac, received_mac, 6) == 0) {
+            // 如果找到匹配的网络接口
+            if (s_ctxs[i]->dhcp_client != NULL) {
+                ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+            }
+            break;
+        }
+    }
     return ERR_OK;
 }
 
@@ -160,18 +199,21 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         LLOGE("ctx->netif is NULL!!!!");
         return;
     }
+    if (s_ulwip_dhcp == NULL) {
+        s_ulwip_dhcp = udp_new();
+        ip_set_option(s_ulwip_dhcp, SOF_BROADCAST);
+        udp_bind(s_ulwip_dhcp, IP4_ADDR_ANY, 68);
+        // #ifdef udp_bind_netif
+        // udp_bind_netif(ctx->dhcp_pcb, ctx->netif);
+        // #endif
+        udp_connect(s_ulwip_dhcp, IP4_ADDR_ANY, 67);
+        udp_recv(s_ulwip_dhcp, ulwip_dhcp_recv, ctx);
+    }
     if (!ctx->dhcp_client) {
         ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
         reset_dhcp_client(ctx);
         luat_rtos_timer_create(&ctx->dhcp_timer);
-        ctx->dhcp_pcb = udp_new();
-        ip_set_option(ctx->dhcp_pcb, SOF_BROADCAST);
-        udp_bind(ctx->dhcp_pcb, IP4_ADDR_ANY, 68);
-        #ifdef udp_bind_netif
-        udp_bind_netif(ctx->dhcp_pcb, ctx->netif);
-        #endif
-        udp_connect(ctx->dhcp_pcb, IP4_ADDR_ANY, 67);
-        udp_recv(ctx->dhcp_pcb, ulwip_dhcp_recv, ctx);
+        s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
     }
     ip_addr_set_any(0, &ctx->netif->ip_addr);
     ctx->dhcp_client->state = DHCP_STATE_DISCOVER;

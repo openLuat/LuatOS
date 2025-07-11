@@ -85,7 +85,6 @@ void lcd_auto_flush(luat_lcd_conf_t *conf) {
   luat_lcd_flush(conf);
 }
 
-luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 luat_lcd_conf_t *l_lcd_get_default_conf(void) {return lcd_dft_conf;}
 LUAT_WEAK void luat_lcd_IF_init(luat_lcd_conf_t* conf){}
 LUAT_WEAK int luat_lcd_init_in_service(luat_lcd_conf_t* conf){return -1;}
@@ -968,11 +967,11 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
     {
       if ( is_foreground )
       {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_fg_color);
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, FORE_COLOR);
       }
       // else if ( decode->is_transparent == 0 )
       // {
-	    // u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_bg_color);
+	    // u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, BACK_COLOR);
       // }
     }
     /* check, whether the end of the run length code has been reached */
@@ -1114,8 +1113,8 @@ static int l_lcd_draw_str(lua_State* L) {
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
-    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 4,FORE_COLOR);
-    // lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
+    FORE_COLOR = (luat_color_t)luaL_optinteger(L, 4,FORE_COLOR);
+    // BACK_COLOR = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
     if (sz == 0)
         return 0;
     if (lcd_dft_conf == NULL) {
@@ -1189,8 +1188,8 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
     unsigned char size = luaL_checkinteger(L, 2);
 	int x = luaL_checkinteger(L, 3);
 	int y = luaL_checkinteger(L, 4);
-    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
-    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+    FORE_COLOR = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
+    // BACK_COLOR = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
   
     if (lcd_dft_conf == NULL) {
         LLOGE("lcd not init");
@@ -1257,8 +1256,8 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
 	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
-    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    FORE_COLOR = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+    // BACK_COLOR = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
     int buff_size = size*4*size*4/8+512;
     unsigned char* buf = luat_heap_malloc(buff_size);
     if (buf == NULL){
@@ -1275,7 +1274,7 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
         unsigned int* width = NULL;
         width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
         // LLOGW("get_Font_Gray width[0]:%d width[1]:%d",width[0], width[1]);
-        int dw = gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], 1,luat_lcd_draw_point,lcd_dft_conf,0);
+        int dw = gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], luat_lcd_draw_point,lcd_dft_conf,0);
         x+=dw;
 		i+=2;
 	}
@@ -1305,8 +1304,8 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     unsigned char size = luaL_checkinteger(L, 2);
     int x = luaL_checkinteger(L, 3);
     int y = luaL_checkinteger(L, 4);
-    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
-    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+    FORE_COLOR = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
+    // BACK_COLOR = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
     int buff_size = size*size/8+512;
     unsigned char* buf = luat_heap_malloc(buff_size);
     if (buf == NULL){
@@ -1356,8 +1355,8 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
-    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+    FORE_COLOR = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+    // BACK_COLOR = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
     uint16_t buff_size = size*4*size*4/8+512;
     unsigned char* buf = luat_heap_malloc(buff_size);
     // LLOGD("buff_size:%d buf:%p", buff_size,buf);
@@ -1376,7 +1375,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
             unsigned int* width = NULL;
             width = get_Font_Gray(buf,str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY,str,size, size);
             // LLOGW("get_Font_Gray size:%d width[0]:%d width[1]:%d", size, width[0], width[1]);
-            int dw = gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], 1,luat_lcd_draw_point,lcd_dft_conf,0);
+            int dw = gtfont_draw_gray_hz(buf, x, y, width[0] , size, width[1], luat_lcd_draw_point,lcd_dft_conf,0);
         	// LLOGW("gtfont_draw_gray_hz dw:%d",dw);
             x+=dw;
         }

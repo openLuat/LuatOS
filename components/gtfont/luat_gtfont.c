@@ -11,9 +11,9 @@
 #include "luat_log.h"
 
 #ifdef LUAT_USE_LCD
-extern luat_color_t lcd_str_fg_color,lcd_str_bg_color;
+extern luat_color_t BACK_COLOR, FORE_COLOR;
 #else
-static luat_color_t lcd_str_fg_color  = LCD_BLACK ,lcd_str_bg_color  = LCD_WHITE ;
+static luat_color_t BACK_COLOR = LCD_WHITE, FORE_COLOR = LCD_BLACK;
 #endif
 
 luat_spi_device_t* gt_spi_dev = NULL;
@@ -103,7 +103,7 @@ unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,un
 				}else{
 					/* 显示一个像素点 */
 					if (dw<k+(j*8)) dw = k+(j*8);
-					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_fg_color);
+					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, FORE_COLOR);
 					else if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0x0000);
 					else if (mode == 2)point((u8g2_t *)userdata, x+k+(j*8), y+i, 0x0000);
 				}
@@ -120,13 +120,10 @@ unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,un
  * 灰度数据显示函数 1阶灰度/2阶灰度/4阶灰度
  * 参数 ：
  * data灰度数据;  x,y=显示起始坐标 ; w 宽度, h 高度,grade 灰度阶级[1阶/2阶/4阶]
- * HB_par	1 白底黑字	0 黑底白字
  *------------------------------------------------------------------------------------------*/
 unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
-                unsigned short w ,unsigned short h,
-                unsigned char grade,unsigned char HB_par,
-                int(*point)(void*,uint16_t, uint16_t, uint32_t),
-                void* userdata,int mode){
+                unsigned short w ,unsigned short h,unsigned char grade,
+                int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
 	unsigned int temp=0,gray,x_temp=x,dw=0;
 	unsigned int i=0,j=0,t;
 	unsigned char c,c2,*p;
@@ -138,145 +135,68 @@ unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned 
 			c=*p++;
 			for(j=0;j<4;j++){
 				color2bit=(c>>6);//获取像素点的2bit颜色值
-				if(HB_par==1)color2bit= (3-color2bit)*250/3;//白底黑字
-				else color2bit= color2bit*250/3;//黑底白字
-				gray=color2bit/8;
-				color=(0x001f&gray)<<11;							//r-5
-				color=color|(((0x003f)&(gray*2))<<5);	//g-6
-				color=color|(0x001f&gray);						//b-5
-				temp=color;
-				temp=temp;
-				c<<=2;
-				if(x<(x_temp+w)){
-					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
-					else if (mode == 1)point((Paint *)userdata, x,y,temp);
-                    if (HB_par){
-                        if (temp != 0xFFDF && dw < x){
+                if (color2bit!=0){
+                    color2bit=(3-color2bit)*255/3;//白底黑字
+                    gray=color2bit/8;
+                    color=(0x001f&gray)<<11;							//r-5
+                    color=color|(((0x003f)&(gray*2))<<5);	//g-6
+                    color=color|(0x001f&gray);						//b-5
+                    temp=color;
+                    if(x<(x_temp+w)){
+                        if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+                        else if (mode == 1)point((Paint *)userdata, x,y,temp);
+                        // LLOGD("x_temp:%d,x:%d,dw:%d,temp:0x%x",x_temp,x,dw,temp);
+                        if (dw < x){
                             dw = x;
                         }
                     }
-				}
+                }
+                c<<=2;
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
 			}
 		}
-	}
-	else if(grade==3){
-		for(i=0;i<t*h;i+=3){
-			c=*p; c2=*(p+1);
-			color3bit[0]=(c>>5)&0x07;
-			color3bit[1]=(c>>2)&0x07;
-			color3bit[2]=((c<<1)|(c2>>7))&0x07;
-			p++;
-			c=*p; c2=*(p+1);
-			color3bit[3]=(c>>4)&0x07;
-			color3bit[4]=(c>>1)&0x07;
-			color3bit[5]=((c<<2)|(c2>>6))&0x07;
-			p++;
-			c=*p;
-			color3bit[6]=(c>>3)&0x07;
-			color3bit[7]=(c>>0)&0x07;
-			p++;
-			for(j=0;j<8;j++){
-				if(HB_par==1)color3bit[j]= (7-color3bit[j])*255/7;//白底黑字
-				else color3bit[j]=color3bit[j]*255/7;//黑底白字
-				gray =color3bit[j]/8;
-				color=(0x001f&gray)<<11;							//r-5
-				color=color|(((0x003f)&(gray*2))<<5);	//g-6
-				color=color|(0x001f&gray);						//b-5
-				temp =color;
-				if(x<(x_temp+w)){
-					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
-					else if (mode == 1)point((Paint *)userdata, x,y,temp);
-                    if (HB_par){
-                        if (temp != 0xFFDF && dw < x){
-                            dw = x;
-                        }
-                    }
-				}
-				x++;
-				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
-			}
-		}
-	}
-	else if(grade==4){
+	}else if(grade==4){
 		for(i=0;i<t*h;i++){
 			c=*p++;
 			for(j=0;j<2;j++){
 				color4bit=(c>>4);
-				if(HB_par==1)color4bit= (15-color4bit)*255/15;//白底黑字
-				else color4bit= color4bit*255/15;//黑底白字
-				gray=color4bit/8;
-				color=(0x001f&gray)<<11;				//r-5
-				color=color|(((0x003f)&(gray*2))<<5);	//g-6
-				color=color|(0x001f&gray);				//b-5
-				temp=color;
-				c<<=4;
-				if(x<(x_temp+w)){
-					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
-					else if (mode == 1)point((Paint *)userdata, x,y,temp);
-                    if (HB_par){
+                if (color4bit!=0){
+                    color4bit= (15-color4bit)*255/15;//白底黑字
+                    gray=color4bit/8;
+                    color=((0x001f&gray))<<11;				//r-5
+                    color=color|(((0x003f&(gray*2)))<<5);	//g-6
+                    color=color|((0x001f&gray));				//b-5
+                    temp=color;
+                    if(x<(x_temp+w)){
+                        if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+                        else if (mode == 1)point((Paint *)userdata, x,y,temp);
                         // LLOGD("x_temp:%d,x:%d,dw:%d,temp:0x%x",x_temp,x,dw,temp);
-                        if (temp != 0xFFDF && dw < x){
+                        if (dw < x){
                             // LLOGD("x_temp:%d,x:%d,dw:%d",x_temp,x,dw);
                             dw = x;
                         }
                     }
-				}
+                }
+                c<<=4;
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
 			}
 		}
-	}
-	else if(grade==5 || grade==6){
-		for(i=0;i<t*h;i++){
-			c=*p++;
-			for(j=0;j<2;j++){
-				color4bit=(c>>4);
-				if(HB_par==1)color4bit= (15-color4bit)*255/15;//白底黑字
-				else color4bit= color4bit*255/15;//黑底白字
-                if(color4bit > 0x00 && color4bit < 0xFF && grade == 5)
-                    color4bit = color4bit - 0x11;
-                else if(color4bit >= 0x11 && color4bit < 0xFF && grade == 6)
-                    color4bit = (color4bit == 0x11) ? (color4bit - 0x11) : (color4bit - 0x22);
-				gray=color4bit/8;
-				color=(0x001f&gray)<<11;				//r-5
-				color=color|(((0x003f)&(gray*2))<<5);	//g-6
-				color=color|(0x001f&gray);				//b-5
-				temp=color;
-				c<<=4;
-				if(x<(x_temp+w)){
-					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
-					else if (mode == 1)point((Paint *)userdata, x,y,temp);
-                    if (HB_par){
-                        if (temp != 0xFFDF && dw < x){
-                            dw = x;
-                        }
-                    }
-				}
-				x++;
-				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
-			}
-		}
-	}
-	else{   //1bits
+	}else{   //1bits
 		for(i=0;i<t*h;i++){
 			c=*p++;
 			for(j=0;j<8;j++){
-				if(c&0x80) color=lcd_str_fg_color;
-				else color=lcd_str_bg_color;
-				c<<=1;
-				if(x<(x_temp+w)){
-					if(color == lcd_str_fg_color){
-						if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,color);
-						else if (mode == 1)point((Paint *)userdata, x,y,color);
-					}
-                    if (HB_par){
-                        if (temp != lcd_str_bg_color && dw < x){
+				if(c&0x80) {
+                    if(x<(x_temp+w)){
+                        if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,FORE_COLOR);
+                        else if (mode == 1)point((Paint *)userdata, x,y,FORE_COLOR);
+                        if (dw < x){
                             dw = x;
                         }
                     }
-				}
+                }
+				c<<=1;
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
 			}

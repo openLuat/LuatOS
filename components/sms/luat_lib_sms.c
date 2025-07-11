@@ -700,6 +700,22 @@ LONG_SMS_DONE:
     }
     luat_rtos_task_delete(sms_send_task_handle);
 }
+
+/*
+发送长短信(每段PDU发送超时时间30s)
+@api sms.sendLong(phone, msg, auto_phone_fix).wait()
+@string 电话号码,必填
+@string 短信内容,必填
+@bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
+@return bool 异步等待结果 成功返回true, 否则返回false或nil
+@usgae
+sys.taskInit(function()
+    local str = string.rep("1234567890", 50)
+    sys.waitUntil("IP_READY")
+    -- 发送500bytes的短信
+    sms.sendLong("+8613416121234", str).wait()
+end)
+*/
 static int l_long_sms_send(lua_State *L) {
     size_t phone_len = 0;
     size_t payload_len = 0;

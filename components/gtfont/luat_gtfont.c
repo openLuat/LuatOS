@@ -263,17 +263,19 @@ unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned 
 		for(i=0;i<t*h;i++){
 			c=*p++;
 			for(j=0;j<8;j++){
-				if(c&0x80) color=0x0000;
-				else color=0xffff;
+				if(c&0x80) color=lcd_str_fg_color;
+				else color=lcd_str_bg_color;
 				c<<=1;
 				if(x<(x_temp+w)){
-					if(color == 0x0000 && HB_par == 1){
+					if(color == lcd_str_fg_color){
 						if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,color);
 						else if (mode == 1)point((Paint *)userdata, x,y,color);
-					}else if(HB_par == 0 && color == 0x0000){
-						if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,~color);
-						else if (mode == 1)point((Paint *)userdata, x,y,~color);
 					}
+                    if (HB_par){
+                        if (temp != lcd_str_bg_color && dw < x){
+                            dw = x;
+                        }
+                    }
 				}
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}

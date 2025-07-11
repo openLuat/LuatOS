@@ -117,9 +117,12 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         p = p->next;
     } while (p);
 
-    // 解析DHCP数据包中的xid
-    uint32_t received_xid = *(uint32_t *)(ptr + 4);     // xid位于第4 - 7字节
-    received_xid = ntohl(received_xid);                 // 转换为本地字节序
+    // 解析DHCP数据包中的mac地址
+    uint8_t received_mac[6];
+    memcpy(received_mac, ptr + 28, 6);
+    
+    u16_t ip_header_length = IP_IS_V6(addr) ? 40 : 20;
+    u16_t udp_header_length = 8;
 
     // 收到DHCP数据包, 需要逐个ctx查一遍, 对照xid
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
@@ -127,12 +130,28 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         if (s_ctxs[i] == NULL || s_ctxs[i]->dhcp_client == NULL || s_ctxs[i]->netif == NULL) {
             continue;
         }
-        // 确保以无符号整数形式比较xid
-        uint32_t local_xid = s_ctxs[i]->dhcp_client->xid;
 
-        // LLOGD("传递DHCP数据包");
-        if (local_xid == received_xid) {
-            ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+        // 检查数据包长度是否足够
+        // max_dhcp packetlen = mtu - ip_head - udp_head
+        u16_t max_dhcp_packet_len = s_ctxs[i]->netif->mtu - ip_header_length - udp_header_length;
+        if (p->tot_len > max_dhcp_packet_len) {
+            LLOGE("DHCP包长度超过最大值 %d", max_dhcp_packet_len);
+            pbuf_free(p);
+            return 0;
+        }
+
+        // 获取网络接口的mac地址
+        struct netif *netif = s_ctxs[i]->netif;
+        uint8_t *local_mac = netif->hwaddr;
+
+        // LLOGD("mac %02X:%02X:%02X:%02X:%02X:%02X", local_mac[0], local_mac[1], local_mac[2], local_mac[3], local_mac[4], local_mac[5]);
+        // LLOGD("received_mac %02X:%02X:%02X:%02X:%02X:%02X", received_mac[0], received_mac[1], received_mac[2], received_mac[3], received_mac[4], received_mac[5]);
+        // 比较mac地址
+        if (memcmp(local_mac, received_mac, 6) == 0) {
+            // 如果找到匹配的网络接口
+            if (s_ctxs[i]->dhcp_client != NULL) {
+                ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+            }
             break;
         }
     }

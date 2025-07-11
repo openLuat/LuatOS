@@ -117,16 +117,23 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         p = p->next;
     } while (p);
 
+    // 解析DHCP数据包中的xid
+    uint32_t received_xid = *(uint32_t *)(ptr + 4);     // xid位于第4 - 7字节
+    received_xid = ntohl(received_xid);                 // 转换为本地字节序
+
     // 收到DHCP数据包, 需要逐个ctx查一遍, 对照xid
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
     {
         if (s_ctxs[i] == NULL || s_ctxs[i]->dhcp_client == NULL || s_ctxs[i]->netif == NULL) {
             continue;
         }
-        // 先暴力一点, 全部试一遍
+        // 确保以无符号整数形式比较xid
+        uint32_t local_xid = s_ctxs[i]->dhcp_client->xid;
 
         // LLOGD("传递DHCP数据包");
-        ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+        if (local_xid == received_xid) {
+            ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+        }
     }
     return ERR_OK;
 }

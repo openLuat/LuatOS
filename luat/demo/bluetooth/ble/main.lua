@@ -99,10 +99,6 @@ sys.taskInit(function()
     -- ble_device:scan_create({})
     -- ble_device:scan_start()
     -- -- ble_device:scan_stop()
-
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 
 

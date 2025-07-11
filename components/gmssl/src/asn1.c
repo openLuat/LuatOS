@@ -1361,7 +1361,7 @@ int asn1_string_is_printable_string(const char *a, size_t alen)
 	}
 	return 1;
 }
-
+#if 0
 int asn1_printable_string_case_ignore_match(const char *a, size_t alen,
 	const char *b, size_t blen)
 {
@@ -1394,7 +1394,7 @@ int asn1_printable_string_case_ignore_match(const char *a, size_t alen,
 	}
 	return 1;
 }
-
+#endif
 int asn1_printable_string_to_der_ex(int tag, const char *d, size_t dlen, uint8_t **out, size_t *outlen)
 {
 	int ret;

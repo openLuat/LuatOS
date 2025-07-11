@@ -133,6 +133,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         // LLOGD("传递DHCP数据包");
         if (local_xid == received_xid) {
             ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
+            break;
         }
     }
     return ERR_OK;

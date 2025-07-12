@@ -19,7 +19,7 @@
 #define LUAT_LOG_TAG "netdrv.whale"
 #include "luat_log.h"
 
-#ifdef LUAt_USE_NETDRV_LWIP_ARP
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
 extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
 extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
 #else

@@ -5,11 +5,11 @@
 #include "luat_rtos.h"
 #include "dns_def.h"
 #include "luat_network_adapter.h"
+#include "lwip/init.h"
 #include "lwip/tcpip.h"
 #include "lwip/udp.h"
 #include "lwip/sockets.h"
 #include "net_lwip2.h"
-
 #include "luat_crypto.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
@@ -110,7 +110,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
-		#ifdef udp_bind_netif
+		#if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
 		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
 		#endif
 		int tmp = adapter_index;

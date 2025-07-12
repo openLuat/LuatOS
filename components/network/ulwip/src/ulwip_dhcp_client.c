@@ -111,11 +111,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         return ERR_OK;
     }
     size_t offset = 0;
-    do {
-        memcpy(ptr + offset, p->payload, p->len);
-        offset += p->len;
-        p = p->next;
-    } while (p);
+    pbuf_copy_partial(p, ptr, total_len, 0);
 
     // 解析DHCP数据包中的mac地址
     uint8_t received_mac[6];
@@ -123,25 +119,26 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     
     u16_t ip_header_length = IP_IS_V6(addr) ? 40 : 20;
     u16_t udp_header_length = 8;
+    ulwip_ctx_t* ctx = NULL;
 
     // 收到DHCP数据包, 需要逐个ctx查一遍, 对照xid
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
     {
-        if (s_ctxs[i] == NULL || s_ctxs[i]->dhcp_client == NULL || s_ctxs[i]->netif == NULL) {
+        ctx = s_ctxs[i];
+        if (ctx == NULL || ctx->dhcp_client == NULL || ctx->netif == NULL) {
             continue;
         }
 
         // 检查数据包长度是否足够
         // max_dhcp packetlen = mtu - ip_head - udp_head
-        u16_t max_dhcp_packet_len = s_ctxs[i]->netif->mtu - ip_header_length - udp_header_length;
-        if (p->tot_len > max_dhcp_packet_len) {
+        u16_t max_dhcp_packet_len = ctx->netif->mtu - ip_header_length - udp_header_length;
+        if (total_len > max_dhcp_packet_len) {
             LLOGE("DHCP包长度超过最大值 %d", max_dhcp_packet_len);
-            pbuf_free(p);
-            return 0;
+            return ERR_OK;
         }
 
         // 获取网络接口的mac地址
-        struct netif *netif = s_ctxs[i]->netif;
+        struct netif *netif = ctx->netif;
         uint8_t *local_mac = netif->hwaddr;
 
         // LLOGD("mac %02X:%02X:%02X:%02X:%02X:%02X", local_mac[0], local_mac[1], local_mac[2], local_mac[3], local_mac[4], local_mac[5]);
@@ -149,9 +146,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         // 比较mac地址
         if (memcmp(local_mac, received_mac, 6) == 0) {
             // 如果找到匹配的网络接口
-            if (s_ctxs[i]->dhcp_client != NULL) {
-                ulwip_dhcp_client_run(s_ctxs[i], ptr, total_len);
-            }
+            ulwip_dhcp_client_run(ctx, ptr, total_len);
             break;
         }
     }

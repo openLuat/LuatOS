@@ -74,7 +74,13 @@ sys.taskInit(function()
             timeout = timeout * 1000
         })
         if result then
-                log.info("airlbs多基站定位返回的经纬度数据为", json.encode(data))
+            local data_str = json.encode(data)
+            log.info("airlbs多基站定位返回的经纬度数据为", data_str)
+            -- 解析经纬度
+            local lat = data_str:match("\"lat\":([0-9.-]+)")
+            log.info("airlbs", "lat", lat)
+            local lng = data_str:match("\"lng\":([0-9.-]+)")
+            log.info("airlbs", "lng", lng)
         else
             log.warn("请检查project_id和project_key")
         end

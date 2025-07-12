@@ -488,7 +488,7 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
     /* set dac softramp,disable DAC_EQ */
     es8311_write_reg(conf,ES8311_DAC_REG37, 0x08);
     // set internal reference signal (ADC + DAC)
-    es8311_write_reg(conf,ES8311_GPIO_REG44, (ES8311_ADC2DAC_SEL<<7));
+    // es8311_write_reg(conf,ES8311_GPIO_REG44, (ES8311_ADC2DAC_SEL<<7));
     // adc vol
     //es8311_write_reg(conf,ES8311_ADC_REG17, es8311_adcvol_bak);
     // dac vol

@@ -16,6 +16,7 @@
 #include "luat_mem.h"
 #include "luat_mobile.h"
 #include "luat_timer.h"
+#include "luat_rtos.h"
 
 void luat_str_fromhex(char* str, size_t len, char* buff) ;
 
@@ -42,6 +43,21 @@ typedef struct long_sms
 static long_sms_t* lngbuffs[LONG_SMS_CMAX];
 // static char* longsms = NULL;
 // static int longsms_refNum = -1;
+
+enum{
+	SMS_EVENT_SEND_RET = 0,
+};
+luat_rtos_task_handle sms_send_task_handle = NULL;
+typedef struct long_sms_send
+{
+    size_t payload_len;
+    size_t phone_len;
+    const char *payload;
+    const char *phone;
+    uint8_t auto_phone;
+}long_sms_send_t;
+static uint8_t idx = 254;
+static uint64_t long_sms_send_idp;
 
 
 static void ucs2char(char* source, size_t size, char* dst2, size_t* outlen) {
@@ -270,6 +286,15 @@ void luat_sms_recv_cb(uint32_t event, void *param)
     luat_msgbus_put(&msg, 0);
 }
 
+void luat_sms_send_cb(int ret)
+{
+    if(long_sms_send_idp)
+    {
+        LLOGE("send cb: %d", ret);
+        luat_rtos_event_send(sms_send_task_handle, SMS_EVENT_SEND_RET, ret, 0, 0, 0);
+    }
+}
+
 /*
 发送短信
 @api sms.send(phone, msg, auto_phone_fix)
@@ -455,6 +480,304 @@ NUMBER_CHECK_DONE:
     return 1;
 }
 
+static int32_t l_long_sms_send_callback(lua_State *L, void* ptr){
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    if (msg->arg1)
+    {
+        lua_pushboolean(L, 0);
+    }
+    else
+    {
+        lua_pushboolean(L, 1);
+    }
+    luat_cbcwait(L, long_sms_send_idp, 1);
+    long_sms_send_idp = 0;
+    return 0;
+}
+
+void long_sms_send_task(void *params)
+{
+    long_sms_send_t *args = (long_sms_send_t*)params;
+    int ret = 0;
+    uint8_t is_done = 0; 
+    uint8_t is_error = 0;
+    char phone_buff[32] = {0};
+    rtos_msg_t msg = {
+        .handler = l_long_sms_send_callback,
+        .arg1 = 0,
+        .arg2 = 0
+    };
+    // 计算此条短信unicode长度
+    uint16_t pdu_message_len = 0;
+    for (size_t i = 0; i < args->payload_len; i++)
+    {
+        // 首先是不是单字节
+        if (args->payload[i] & 0x80) {
+            // 非ASCII编码
+            if (args->payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+                i+=2;
+                pdu_message_len += 2;
+                continue;
+            }
+            if (args->payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
+                i++;
+                pdu_message_len += 2;
+                continue;
+            }
+            LLOGD("bad UTF8 string");
+            break;
+        }
+        // 单个ASCII字符, 但需要扩展到2位
+        else {
+            // ASCII编码
+            pdu_message_len += 2;
+            continue;
+        }
+    }
+
+    uint16_t pducnt = (pdu_message_len + 133) / 134;
+    char udhi[20] = {0};
+    char *pdu_buf = NULL;
+    pdu_buf = luat_heap_malloc(pdu_message_len * 4);
+    if (NULL == pdu_buf) {
+        LLOGE("out of memory");
+        is_error = 1;
+        goto LONG_SMS_DONE;
+    }
+    memset(pdu_buf, 0x00 ,pdu_message_len * 4);
+
+    // UTF8 to unicode
+    uint16_t unicode = 0;
+    for (size_t i = 0; i < args->payload_len; i++)
+    {
+        // 首先是不是单字节
+        if (args->payload[i] & 0x80) {
+            // 非ASCII编码
+            if (args->payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+                unicode = ((args->payload[i] & 0x0F) << 12) + ((args->payload[i+1] & 0x3F) << 6) + (args->payload[i+2] & 0x3F);
+                //LLOGD("unicode %04X %02X%02X%02X", unicode, payload[i], payload[i+1], payload[i+2]);
+                sprintf_(pdu_buf + strlen(pdu_buf), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
+                i+=2;
+                continue;
+            }
+            if (args->payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
+                unicode = ((args->payload[i] & 0x1F) << 6) + (args->payload[i+1] & 0x3F);
+                //LLOGD("unicode %04X %02X%02X", unicode, payload[i], payload[i+1]);
+                sprintf_(pdu_buf + strlen(pdu_buf), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
+                i++;
+                continue;
+            }
+            LLOGD("bad UTF8 string");
+            break;
+        }
+        // 单个ASCII字符, 但需要扩展到2位
+        else {
+            // ASCII编码
+            strcat(pdu_buf, "00");
+            sprintf_(pdu_buf + strlen(pdu_buf), "%02X", args->payload[i]);
+            continue;
+        }
+    }
+    uint8_t gateway_mode = 0;	//短信网关特殊处理
+    if ((args->phone_len >= 15) && !memcmp(args->phone, "10", 2)) {
+    	LLOGI("sms gateway mode");
+    	gateway_mode = 1;
+    	memcpy(phone_buff, args->phone, args->phone_len);
+    	goto NUMBER_CHECK_DONE;
+    }
+    // +8613416121234
+    if (args->auto_phone) {
+        if (args->phone[0] == '+') {
+            memcpy(phone_buff, args->phone + 1, args->phone_len - 1);
+        }
+        // 13416121234
+        else if (args->phone[0] != '8' && args->phone[1] != '6') {
+            phone_buff[0] = '8';
+            phone_buff[1] = '6';
+            memcpy(phone_buff + 2, args->phone, args->phone_len);
+        }
+        else {
+            memcpy(phone_buff, args->phone, args->phone_len);
+        }
+    }
+    else {
+        memcpy(phone_buff, args->phone, args->phone_len);
+    }
+    
+NUMBER_CHECK_DONE:
+
+    strcat(udhi, "05");
+    strcat(udhi, "00");
+    strcat(udhi, "03");
+    sprintf_(udhi + 6, "%02X", idx);
+    sprintf_(udhi + 8, "%02X", pducnt);
+    
+    args->phone_len = strlen(phone_buff);
+    args->phone = phone_buff;
+    LLOGD("phone [%s]", args->phone);
+    char pdu[280 + 100] = {0};
+    // 首先, 填充PDU头部
+    strcat(pdu, "00"); // 使用内置短信中心,暂时不可设置
+    strcat(pdu, "41"); // 仅收件信息, 不传保留时间
+    strcat(pdu, "10"); // TP-MR
+    sprintf_(pdu + strlen(pdu), "%02X", args->phone_len); // 电话号码长度
+    if (gateway_mode) {
+    	strcat(pdu, "81"); // 目标地址格式
+    } else {
+    	strcat(pdu, "91"); // 目标地址格式
+    }
+    // 手机方号码
+    for (size_t i = 0; i < args->phone_len; i+=2)
+    {
+        if (i == (args->phone_len - 1) && args->phone_len % 2 != 0) {
+            pdu[strlen(pdu)] = 'F';
+            pdu[strlen(pdu)] = args->phone[i];
+        } else {
+            pdu[strlen(pdu)] = args->phone[i+1];
+            pdu[strlen(pdu)] = args->phone[i];
+        }
+    }
+    strcat(pdu, "00"); // 协议标识(TP-PID) 是普通GSM类型，点到点方式
+    strcat(pdu, "08"); // 编码格式, UCS编码
+    size_t pdu_len_offset = strlen(pdu);
+    strcat(pdu, "00"); // 这是预留的, 填充数据会后更新成正确的值
+
+    luat_event_t event = {0};
+    uint16_t i = 0;
+    uint16_t sn = 1;
+    char tmp[3] = {0};
+    while(1)
+    {
+        memset(pdu + pdu_len_offset + 2, 0x00, 380 - pdu_len_offset - 2);
+        sprintf_(udhi + 10, "%02X", sn);
+        memcpy(pdu + pdu_len_offset + 2, udhi, 12);
+        if (pdu_message_len - i <= 134) {
+            memcpy(pdu + pdu_len_offset + 2 + strlen(udhi),  pdu_buf + (i * 2), (pdu_message_len - i) * 2);
+            sprintf_(tmp, "%02X", (pdu_message_len - i) + 6);
+            memcpy(pdu + pdu_len_offset, tmp, 2);
+            is_done = 1;
+
+        } else {
+            sprintf_(tmp, "%02X", 140);
+            memcpy(pdu + pdu_len_offset, tmp, 2);
+            memcpy(pdu + pdu_len_offset + 2 + strlen(udhi),  pdu_buf + (i * 2), 134 * 2);
+            i += 134;
+        }
+        // 当前发送的序号
+        sn++;
+        // 打印PDU数据, 调试用
+        LLOGD("PDU %s", pdu);
+        ret = luat_sms_send_msg(pdu, "", 1, 54);
+        if (ret) {
+            LLOGE("long sms send fail:%d", ret);
+            is_error = 1;
+            break;
+        }
+        ret = luat_rtos_event_recv(sms_send_task_handle, 0, &event, NULL, 30000); // 30s没收到,则认为发送失败
+        if (ret || event.id != SMS_EVENT_SEND_RET || event.param1 != 0) {
+            // 异常
+            LLOGE("long sms except:%d, %d", ret, event.param1);
+            is_error = 1;
+            break;
+        }
+        if (is_done) {
+            break;
+        }
+    }
+
+LONG_SMS_DONE:
+    msg.arg1 = is_error;
+    luat_msgbus_put(&msg, 0);
+    if(pdu_buf != NULL)
+    {
+        luat_heap_free(pdu_buf);
+        pdu_buf = NULL;
+    }
+    if (args != NULL)
+    {
+        luat_heap_free(args);
+        args = NULL;
+    }
+    luat_rtos_task_delete(sms_send_task_handle);
+}
+
+/*
+发送长短信(每段PDU发送超时时间30s)
+@api sms.sendLong(phone, msg, auto_phone_fix).wait()
+@string 电话号码,必填
+@string 短信内容,必填
+@bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
+@return bool 异步等待结果 成功返回true, 否则返回false或nil
+@usgae
+sys.taskInit(function()
+    local str = string.rep("1234567890", 50)
+    sys.waitUntil("IP_READY")
+    -- 发送500bytes的短信
+    sms.sendLong("+8613416121234", str).wait()
+end)
+*/
+static int l_long_sms_send(lua_State *L) {
+    size_t phone_len = 0;
+    size_t payload_len = 0;
+    const char* phone = luaL_checklstring(L, 1, &phone_len);
+    const char* payload = luaL_checklstring(L, 2, &payload_len);
+    int auto_phone = 1;
+    if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
+        auto_phone = 0;
+    }
+
+    if (long_sms_send_idp) {
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L,1);
+        return 1;
+    }
+
+    if (payload_len == 0) {
+        LLOGE("sms is emtry");
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L, 1);
+        return 1;
+    }
+
+    if (payload_len <= 140) {
+        LLOGE("sms is too short %d < 140", payload_len);
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L, 1);
+        return 1;
+    }
+
+    if (phone_len < 3 || phone_len > 29) {
+        LLOGE("phone is too short or too long!! %d", phone_len);
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L, 1);
+        return 1;
+    }
+
+    long_sms_send_t *args = NULL;
+    args = luat_heap_malloc(sizeof(long_sms_send_t));
+    if (NULL == args) {
+        LLOGE("out of memory");
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L, 1);
+        return 1;
+    }
+    memset(args, 0x00, sizeof(long_sms_send_t));
+    args->payload = payload;
+    args->payload_len = payload_len;
+    args->phone = phone;
+    args->phone_len = phone_len;
+    args->auto_phone = auto_phone;
+    long_sms_send_idp = luat_pushcwait(L);
+    int ret = luat_rtos_task_create(&sms_send_task_handle, 10 * 1024, 10, "sms_send_task", long_sms_send_task, (void*)args, 10);
+    if (ret) {
+        LLOGE("sms send task create failed");
+        luat_heap_free(args);
+        long_sms_send_idp = 0;
+        luat_pushcwait_error(L, 1);
+    }
+    return 1;
+}
+
 /**
 设置新SMS的回调函数
 @api sms.setNewSmsCb(func)
@@ -530,6 +853,7 @@ static const rotable_Reg_t reg_sms[] =
     { "setNewSmsCb",    ROREG_FUNC(l_sms_cb)},
     { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
+    { "sendLong",      ROREG_FUNC(l_long_sms_send)},
 	{ NULL,             ROREG_INT(0)}
 };
 

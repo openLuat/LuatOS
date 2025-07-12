@@ -429,7 +429,11 @@ static int l_audio_record_stop(lua_State *L) {
 audio.write(0, "xxxxxx")
 */
 static int l_audio_write_raw(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
     size_t len;
     const char *buf;
     if(lua_isuserdata(L, 2))
@@ -455,8 +459,12 @@ static int l_audio_write_raw(lua_State *L) {
 audio.stop(0)
 */
 static int l_audio_stop_raw(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    lua_pushboolean(L, !luat_audio_stop_raw(id));
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
+    lua_pushboolean(L, !luat_audio_stop_raw(multimedia_id));
     return 1;
 }
 
@@ -471,8 +479,12 @@ audio.pause(0, true) --暂停通道0
 audio.pause(0, false) --恢复通道0
 */
 static int l_audio_pause_raw(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    lua_pushboolean(L, !luat_audio_pause_raw(id, lua_toboolean(L, 2)));
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
+    lua_pushboolean(L, !luat_audio_pause_raw(multimedia_id, lua_toboolean(L, 2)));
     return 1;
 }
 
@@ -488,7 +500,11 @@ audio.on(0, function(audio_id, msg)
 end)
 */
 static int l_audio_raw_on(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
 	if (multimedia_cbs[multimedia_id].function_ref != 0) {
 		luaL_unref(L, LUA_REGISTRYINDEX, multimedia_cbs[multimedia_id].function_ref);
 		multimedia_cbs[multimedia_id].function_ref = 0;
@@ -513,7 +529,11 @@ audio.play(0, "xxxxxx")		--开始播放某个文件
 audio.play(0)				--停止播放某个文件
 */
 static int l_audio_play(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
     size_t len = 0;
     int result = 0;
     const char *buf;
@@ -571,7 +591,11 @@ audio.tts(0)				--停止播放
 -- https://wiki.luatos.com/chips/air780e/tts.html
 */
 static int l_audio_play_tts(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
     size_t len = 0;
     int result = 0;
     const char *buf;
@@ -604,7 +628,12 @@ static int l_audio_play_tts(lua_State *L) {
 audio.playStop(0)
 */
 static int l_audio_play_stop(lua_State *L) {
-    lua_pushboolean(L, !luat_audio_play_stop(luaL_checkinteger(L, 1)));
+	uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
+    lua_pushboolean(L, !luat_audio_play_stop(multimedia_id));
     return 1;
 }
 
@@ -619,7 +648,11 @@ audio.isEnd(0)
 
 */
 static int l_audio_play_wait_end(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
     lua_pushboolean(L, luat_audio_is_finish(multimedia_id));
     return 1;
 }
@@ -635,7 +668,11 @@ static int l_audio_play_wait_end(lua_State *L) {
 local result, user_stop, file_no = audio.getError(0)
 */
 static int l_audio_play_get_last_error(lua_State *L) {
-    int multimedia_id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
 	int result = luat_audio_play_get_last_error(multimedia_id);
 	lua_pushboolean(L, 0 == result);
 	lua_pushboolean(L, result < 0);
@@ -659,7 +696,11 @@ audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这
 audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了
 */
 static int l_audio_config(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
     int pa_pin = luaL_optinteger(L, 2, -1);
     int level = luaL_optinteger(L, 3, 1);
     int dac_pre_delay = luaL_optinteger(L, 4, 5);
@@ -673,8 +714,8 @@ static int l_audio_config(lua_State *L) {
         dac_pre_delay = 0;
     if (dac_last_delay < 0)
         dac_last_delay = 0;
-    luat_audio_config_pa(id, pa_pin, level, (uint32_t)dac_pre_delay, (uint32_t)dac_last_delay);
-    luat_audio_config_dac(id, dac_power_pin, dac_power_level, (uint32_t)pa_dac_delay);
+    luat_audio_config_pa(multimedia_id, pa_pin, level, (uint32_t)dac_pre_delay, (uint32_t)dac_last_delay);
+    luat_audio_config_dac(multimedia_id, dac_power_pin, dac_power_level, (uint32_t)pa_dac_delay);
     return 0;
 }
 
@@ -788,7 +829,10 @@ audio 休眠控制(一般会自动调用不需要手动执行)
 audio.pm(multimedia_id,audio.RESUME)
 */
 static int l_audio_pm_request(lua_State *L) {
-    lua_pushboolean(L, !luat_audio_pm_request(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2)));
+	uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	luat_audio_pm_mode_t mode = (luat_audio_pm_mode_t)luaL_checkinteger(L, 2);
+	int ret = luat_audio_pm_request(multimedia_id, mode);
+    lua_pushboolean(L, !ret);
     return 1;
 }
 

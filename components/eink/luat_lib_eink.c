@@ -1086,7 +1086,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 		fontCode++;
 		get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
 		Gray_Process(buf,size,size,font_g);
-		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
+		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
 		x+=size;
 		i+=2;
 	}
@@ -1144,7 +1144,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 			uint16_t str = gt_unicode2gb18030(e);
 			get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
-      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
+      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
         	x+=size;
         }
     }

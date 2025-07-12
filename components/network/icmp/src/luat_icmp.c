@@ -5,6 +5,7 @@
 #include "luat_network_adapter.h"
 #include "luat_mcu.h"
 
+#include "lwip/init.h"
 #include "lwip/prot/icmp.h"
 #include "lwip/prot/ip.h"
 #include "lwip/pbuf.h"
@@ -114,7 +115,9 @@ luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
     ctx->id = 0x02;
     ctx->seqno = 0x01;
     ctx->adapter_id = adapter_id;
-    // raw_bind_netif(ctx->pcb, ctx->netif);
+    #if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
+    raw_bind_netif(ctx->pcb, ctx->netif);
+    #endif
     raw_bind(ctx->pcb, &ctx->netif->ip_addr);
     raw_recv(ctx->pcb, luat_icmp_recv, (void*)(uint32_t)adapter_id);
     return ctx;

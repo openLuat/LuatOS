@@ -45,7 +45,7 @@
 #include "luat_base.h"
 #include "lwip/opt.h"
 
-#if LWIP_IPV4 && LWIP_ARP && defined(LUAt_USE_NETDRV_LWIP_ARP) /* don't build if not configured for use in lwipopts.h */
+#if LWIP_IPV4 && LWIP_ARP && defined(LUAT_USE_NETDRV_LWIP_ARP) /* don't build if not configured for use in lwipopts.h */
 
 // #include "lwip/etharp.h"
 #include "lwip/stats.h"

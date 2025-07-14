@@ -200,9 +200,9 @@ typedef enum{
 }luat_ble_adv_chnl_t;
 
 typedef enum{
-    LUAT_BLE_ADV_PROP_CONNECTABLE = 0x01, /**< Connectable advertising */
-    LUAT_BLE_ADV_PROP_SCANNABLE   = 0x02, /**< Scannable advertising */
-    LUAT_BLE_ADV_PROP_DIRECTED    = 0x04, /**< Directed advertising */
+    LUAT_BLE_ADV_PROP_CONNECTABLE = (1 << 0), /**< Connectable advertising */
+    LUAT_BLE_ADV_PROP_SCANNABLE   = (1 << 1), /**< Scannable advertising */
+    LUAT_BLE_ADV_PROP_DIRECTED    = (1 << 2), /**< Directed advertising */
     LUAT_BLE_ADV_PROP_HDC         = (1 << 3), /**< High duty cycle advertising */
     LUAT_BLE_ADV_PROP_LEGACY      = (1 << 4), /**< Legacy advertising */
     LUAT_BLE_ADV_PROP_ANONYMOUS   = (1 << 5), /**< Anonymous advertising */

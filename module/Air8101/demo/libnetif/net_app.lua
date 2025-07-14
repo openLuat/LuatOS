@@ -18,7 +18,7 @@ sys.taskInit(function()
     libnetif.set_priority_order({
         {
             ETHERNET = {
-                pwrpin = 140,                    -- 供电使能引脚(number)
+                pwrpin = 13,                    -- 供电使能引脚(number)，根据接线引脚选择，Air8101核心板默认为gpio13
                 ping_time = 3000,               -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
                 ping_ip = "112.125.89.8"        -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
             }

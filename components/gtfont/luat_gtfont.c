@@ -136,12 +136,16 @@ unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned 
 			for(j=0;j<4;j++){
 				color2bit=(c>>6);//获取像素点的2bit颜色值
                 if (color2bit!=0){
-                    color2bit=(3-color2bit)*255/3;//白底黑字
-                    gray=color2bit/8;
-                    color=(0x001f&gray)<<11;							//r-5
-                    color=color|(((0x003f)&(gray*2))<<5);	//g-6
-                    color=color|(0x001f&gray);						//b-5
-                    temp=color;
+                    if (FORE_COLOR == LCD_BLACK){
+                        color2bit=(3-color2bit)*255/3;//白底黑字
+                        gray=color2bit/8;
+                        color=(0x001f&gray)<<11;							//r-5
+                        color=color|(((0x003f)&(gray*2))<<5);	//g-6
+                        color=color|(0x001f&gray);						//b-5
+                        temp=color;   
+                    }else{
+                        temp=FORE_COLOR;
+                    }
                     if(x<(x_temp+w)){
                         if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
                         else if (mode == 1)point((Paint *)userdata, x,y,temp);
@@ -162,15 +166,25 @@ unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned 
 			for(j=0;j<2;j++){
 				color4bit=(c>>4);
                 if (color4bit!=0){
-                    color4bit= (15-color4bit)*255/15;//白底黑字
-                    gray=color4bit/8;
-                    color=((0x001f&gray))<<11;				//r-5
-                    color=color|(((0x003f&(gray*2)))<<5);	//g-6
-                    color=color|((0x001f&gray));				//b-5
-                    temp=color;
+                    uint8_t disp = 0;
+                    if (FORE_COLOR == LCD_BLACK){
+                        color4bit= (15-color4bit)*255/15;//白底黑字
+                        gray=color4bit/8;
+
+                        color=((0x001f&gray))<<11;				//r-5
+                        color=color|(((0x003f&(gray*2)))<<5);	//g-6
+                        color=color|((0x001f&gray));				//b-5
+                        temp=color;
+                        disp = 1;
+                    }else if(color4bit>=7){
+                        temp=FORE_COLOR;
+                        disp = 1;
+                    }
                     if(x<(x_temp+w)){
-                        if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
-                        else if (mode == 1)point((Paint *)userdata, x,y,temp);
+                        if (disp){
+                            if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+                            else if (mode == 1)point((Paint *)userdata, x,y,temp);
+                        }
                         // LLOGD("x_temp:%d,x:%d,dw:%d,temp:0x%x",x_temp,x,dw,temp);
                         if (dw < x){
                             // LLOGD("x_temp:%d,x:%d,dw:%d",x_temp,x,dw);

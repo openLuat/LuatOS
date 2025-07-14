@@ -29,7 +29,7 @@ GND              <--->  GND
 
 1、Luatools下载调试工具
 
-2、[Air780EGH 最新版本固件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EGH/core)
+2、[Air780EGH 最新版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 ## 演示核心步骤
 

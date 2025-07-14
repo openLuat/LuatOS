@@ -27,7 +27,6 @@ local mqttc = nil
 local message = ""
 local event = ""
 local talk_state = ""
-local mqttc = nil
 
 local function airtalk_event_cb(event, param)
     log.info("talk event", event, param)
@@ -81,19 +80,6 @@ local function reinit_talk()
     sys.taskInit(init_talk)
 end
 
--- 输入法回调函数
-local function submit_callback(input_text)
-    if input_text and #input_text > 0 then
-        speech_topic = input_text
-        fskv.set("talk_channel", input_text)  -- 保存频道名称到fskv
-        log.info("talk", "使用主题:", fskv.get("talk_channel"))
-        input_key = false
-   
-        -- 重新初始化对讲
-        sys.taskInit(reinit_talk)
-    end
-end
-
 --初始化airtalk
 function talk.run()
     log.info("talk.run")
@@ -119,18 +105,6 @@ local function start_talk()
 end
 
 
--- gpio.debounce(gpio.WAKEUP0,1000)
--- gpio.setup(gpio.WAKEUP0,function(val)
---     if val == 1 then
---         log.info("talk", "暂停",val)
---         stop_talk()
---     else
---         log.info("talk2", "录音上传",val)
---         start_talk()
-
---     end
--- end)
-
 --设置防抖
 gpio.debounce(gpio.PWR_KEY,1000)
 gpio.setup(gpio.PWR_KEY,function(val)
@@ -142,7 +116,8 @@ gpio.setup(gpio.PWR_KEY,function(val)
         start_talk()
 
     end
-end)
+end,gpio.PULLUP)
+
 
 
 return talk

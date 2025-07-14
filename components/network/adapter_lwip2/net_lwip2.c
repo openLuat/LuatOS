@@ -5,11 +5,11 @@
 #include "luat_rtos.h"
 #include "dns_def.h"
 #include "luat_network_adapter.h"
+#include "lwip/init.h"
 #include "lwip/tcpip.h"
 #include "lwip/udp.h"
 #include "lwip/sockets.h"
 #include "net_lwip2.h"
-
 #include "luat_crypto.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
@@ -73,7 +73,7 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
-#ifdef LUAt_USE_NETDRV_LWIP_ARP
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
 static LUAT_RT_RET_TYPE net_lwip_arp_timer_cb(LUAT_RT_CB_PARAM)
 {
 	platform_send_event(NULL, (uint32_t)EV_LWIP_ARP_TIMER, 0, 0, (uint32_t)param);
@@ -101,7 +101,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
 		dns_init_client(&prvlwip.dns_client);
-		#ifdef LUAt_USE_NETDRV_LWIP_ARP
+		#ifdef LUAT_USE_NETDRV_LWIP_ARP
 		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
 		platform_start_timer(prvlwip.arp_timer, 1000, 1);
 		#endif
@@ -110,7 +110,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
-		#ifdef udp_bind_netif
+		#if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
 		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
 		#endif
 		int tmp = adapter_index;
@@ -922,7 +922,7 @@ static void net_lwip2_task(void *param)
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);
 		break;
-	#ifdef LUAt_USE_NETDRV_LWIP_ARP
+	#ifdef LUAT_USE_NETDRV_LWIP_ARP
 	case EV_LWIP_ARP_TIMER:
 		luat_netdrv_etharp_tmr();
 		break;

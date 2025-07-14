@@ -44,15 +44,15 @@ int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, length + 1 + 8);
     if (cmd == NULL) {
         LLOGE("内存分配失败!!");
-        return -101;
+        return 0;
     }
     memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
     uint8_t tmp = (uint8_t)uart_id;
     memcpy(cmd->data + 8, &tmp, 1);
     memcpy(cmd->data + 9, data, length);
     item.cmd = cmd;
-    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return 0;
+    int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+    return ret == 0 ? length : 0;
 }
 
 int luat_airlink_drv_uart_close(int uart_id) {

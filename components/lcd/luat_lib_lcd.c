@@ -1326,7 +1326,11 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
                 return 0;
             }
             unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
-            x+=(str<0x80 && str!=0x20)?dw:size;
+            if (str==0x20){
+                x+=size/2;
+            }else{
+               x+=(str<0x80)?dw:size; 
+            }
         }
     }
     lcd_auto_flush(lcd_dft_conf);

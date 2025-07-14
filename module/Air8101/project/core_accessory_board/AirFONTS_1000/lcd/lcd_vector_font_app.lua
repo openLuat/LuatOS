@@ -74,7 +74,7 @@ local function lcd_vector_font_app_task_func()
             lcd.clear()
 
             lcd.drawGtfontUtf8(i.."号",i,10,10)
-            lcd.drawGtfontUtf8("合宙Air8101 LuatOS",i,10,10+i+5)
+            lcd.drawGtfontUtf8("Air8101 LuatOS",i,10,10+i+5)
 
             --刷屏显示
             lcd.flush()
@@ -99,22 +99,21 @@ local function lcd_vector_font_app_task_func()
             sys.wait(100)
         end
 
-        -- 还有错误，不能显示
         --设置背景色为白色，文字的前景色为蓝色
-        -- lcd.setColor(0xFFFF, 0x001F)
-        -- for i=129,192,1 do
-        --     --清屏
-        --     lcd.clear()
+        lcd.setColor(0xFFFF, 0x001F)
+        for i=129,192,1 do
+            --清屏
+            lcd.clear()
 
-        --     lcd.drawGtfontUtf8(i.."号",i,10,10)
-        --     lcd.drawGtfontUtf8("合宙",i,10,10+i+5)
+            lcd.drawGtfontUtf8(i.."号",i,10,10)
+            lcd.drawGtfontUtf8("合宙",i,10,10+i+5)
 
-        --     --刷屏显示
-        --     lcd.flush()
+            --刷屏显示
+            lcd.flush()
 
-        --     --等待100毫秒
-        --     sys.wait(100)
-        -- end
+            --等待100毫秒
+            sys.wait(100)
+        end
 
 
         -- 16号到192号支持灰度的显示效果演示
@@ -165,18 +164,18 @@ local function lcd_vector_font_app_task_func()
 
         -- 还有错误，不能显示
         --设置背景色为白色，文字的前景色为蓝色
-        -- lcd.setColor(0xFFFF, 0x001F)
-        -- for i=129,192,1 do
-        --     --清屏
-        --     lcd.clear()
+        lcd.setColor(0xFFFF, 0x001F)
+        for i=129,192,1 do
+            --清屏
+            lcd.clear()
 
-        --     lcd.drawGtfontUtf8(i.."号",i,10,10)
-        --     lcd.drawGtfontUtf8("合宙",i,10,10+i+5)
+            lcd.drawGtfontUtf8(i.."号",i,10,10)
+            lcd.drawGtfontUtf8("合宙",i,10,10+i+5)
 
-        --     --刷屏显示
-        --     lcd.flush()
-        --     sys.wait(100)
-        -- end
+            --刷屏显示
+            lcd.flush()
+            sys.wait(100)
+        end
 
         --等待1秒钟
         sys.wait(1000)

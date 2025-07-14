@@ -41,13 +41,14 @@ typedef enum
 
 	LUAT_PIN_ONLY_ONE_QTY = 1,
 	LUAT_PIN_FUNCTION_MAX = LUAT_PIN_SDIO_QTY,
-	LUAT_PIN_ALT_FUNCTION_MAX = 8,
+	LUAT_PIN_ALT_FUNCTION_MAX = 9,
 }LUAT_PIN_FUNC_E;
 
 typedef struct
 {
 	uint8_t uid;	//用于硬件操作所需的唯一ID
 	uint8_t altfun_id;	//复用功能id
+	uint8_t platform_param[2];
 }luat_pin_iomux_info;	//pin复用信息
 
 typedef union

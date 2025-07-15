@@ -23,9 +23,6 @@
 
 #include "qrcodegen.h"
 
-int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
-uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
-
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_custom;
@@ -80,7 +77,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     return 1;    /* Continue to decompress */
 }
 
-static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
+int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
     void *work;       /* Pointer to the decompressor work area */
@@ -110,8 +107,8 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
         LLOGW("jd_prepare file %s error %d", path, res);
         return -2;
     }
-    devid.x = xpos;
-    devid.y = ypos;
+    devid.x = x;
+    devid.y = y;
     // devid.width = jdec.width;
     // devid.height = jdec.height;
     res = jd_decomp(&jdec, lcd_out_func, 0);
@@ -126,28 +123,4 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
     }
 }
 
-/*
-显示图片,当前只支持jpg,jpeg
-@api lcd.showImage(x, y, file)
-@int X坐标
-@int y坐标
-@string 文件路径
-@usage
-lcd.showImage(0,0,"/luadb/logo.jpg")
-*/
-int l_lcd_showimage(lua_State *L) {
-    size_t size = 0;
-    int ret = 0;
-    int x = luaL_checkinteger(L, 1);
-    int y = luaL_checkinteger(L, 2);
-    const char* input_file = luaL_checklstring(L, 3, &size);
-    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
-      ret = lcd_draw_jpeg(input_file, x, y);
-      lua_pushboolean(L, ret == 0 ? 1 : 0);
-    } else{
-      LLOGE("input_file not support");
-      lua_pushboolean(L, 0);
-    }
-    return 1;
-}
 #endif

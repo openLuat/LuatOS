@@ -193,6 +193,9 @@ int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, l
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf, int16_t x0, int16_t y0, uint8_t r, luat_color_t color);
 int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction);
+#ifdef LUAT_USE_TJPGD
+int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
+#endif
 /*
  * csdk适配用
  */

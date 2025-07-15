@@ -145,10 +145,10 @@ static inline uint16_t gt_font_get_adv_w(gt_font_param_t *param, uint16_t code) 
 
     if (code >= 0x21 && code <= 0x7e) {
         int i = code - 0x21;
-        if (param->adv_w[i] == 0xFFFF) {
+        // if (param->adv_w[i] == 0xFFFF) {
             gt_font_get(param, code);
             param->adv_w[i] = get_font_adv_w(param->buf, param->dot, param->size, param->bpp);
-        }
+        // }
         adv_w = param->adv_w[i];
     } else if (code == 0x20) {
         adv_w = param->size / 2;
@@ -157,7 +157,7 @@ static inline uint16_t gt_font_get_adv_w(gt_font_param_t *param, uint16_t code) 
     return adv_w;
 }
 
-bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_glyph_dsc_t *dsc_out, uint32_t letter, uint32_t letter_next) {
+static bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_glyph_dsc_t *dsc_out, uint32_t letter, uint32_t letter_next) {
     gt_font_param_t *param = font->dsc;
     uint16_t code = gt_unicode2gb18030(letter);
 
@@ -171,7 +171,7 @@ bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_glyph_dsc
     return true;
 }
 
-uint8_t *gt_font_get_glyph_bitmap(const struct _lv_font_struct *font, uint32_t letter) {
+static uint8_t *gt_font_get_glyph_bitmap(const struct _lv_font_struct *font, uint32_t letter) {
     gt_font_param_t *param = font->dsc;
     uint16_t code = gt_unicode2gb18030(letter);
     gt_font_get(param, code);

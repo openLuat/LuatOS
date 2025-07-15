@@ -1326,7 +1326,11 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
                 return 0;
             }
             unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,lcd_dft_conf,0);
-            x+=(str<0x80 && str!=0x20)?dw:size;
+            if (str==0x20){
+                x+=size/2;
+            }else{
+               x+=(str<0x80)?dw:size; 
+            }
         }
     }
     lcd_auto_flush(lcd_dft_conf);
@@ -1500,7 +1504,25 @@ static int l_lcd_drawxbm(lua_State *L){
 @usage
 lcd.showImage(0,0,"/luadb/logo.jpg")
 */
-int l_lcd_showimage(lua_State *L);
+int l_lcd_showimage(lua_State *L) {
+    if (lcd_dft_conf == NULL) {
+      LLOGE("lcd not init");
+      return 0;
+    }
+    size_t size = 0;
+    int ret = 0;
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    const char* input_file = luaL_checklstring(L, 3, &size);
+    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
+      ret = lcd_draw_jpeg(lcd_dft_conf, input_file, x, y);
+      lua_pushboolean(L, ret == 0 ? 1 : 0);
+    } else{
+      LLOGE("input_file not support");
+      lua_pushboolean(L, 0);
+    }
+    return 1;
+}
 #endif
 
 /*

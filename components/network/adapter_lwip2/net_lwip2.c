@@ -111,7 +111,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
 		#if LWIP_VERSION_MAJOR == 2 && LWIP_VERSION_MINOR >= 1
-		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
+		//udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
 		#endif
 		int tmp = adapter_index;
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)tmp, NULL);

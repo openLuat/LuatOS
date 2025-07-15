@@ -62,12 +62,20 @@ function psm_power_func()
             else
                 log.info("发送失败！", a)
             end
+            -- 进入PSM+前需要手动断开AP链接，不然无法正常进入PSM+
+            wlan.disconnect()
+            -- 等待断网事件确定已经断开AP
+            sys.waitUntil("IP_LOSE", 5000)
             -- 判断完有没有发送成功后都进入PSM+模式，减少功耗损耗。
             -- 配置dtimerStart唤醒定时器，根据预设时间唤醒Air8101上传心跳信息。
             pm.dtimerStart(0, tcp_heartbeat * 60 * 1000)
             -- 定完定时器即可进入PSM+，执行到这条代码后，CPU关机，后续代码不会执行。
             pm.power(pm.WORK_MODE, 3)
         else
+            -- 进入PSM+前需要手动断开AP链接，不然无法正常进入PSM+
+            wlan.disconnect()
+            -- 等待断网事件确定已经断开AP
+            sys.waitUntil("IP_LOSE", 5000)
             -- 执行到这条代码后，CPU关机，后续代码不会执行。
             pm.power(pm.WORK_MODE, 3)
         end

@@ -429,7 +429,7 @@ camera.capture(0, "/ram/123.jpg", 80)
 camera.capture(0, buff, 80)
 
 -- jpeg压缩质量,请使用 50 - 95 之间的数值
--- 为保持兼容性, 质量值1/2/3, 分别对应 90/85/99
+-- 为保持兼容性, 质量值1/2/3, 分别对应 90/95/99
 */
 static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);

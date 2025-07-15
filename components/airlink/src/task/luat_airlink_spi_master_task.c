@@ -346,6 +346,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
             airlink_sfota_exec();
         }
 
+        memset(s_txbuff, 0, TEST_BUFF_SIZE);
         airlink_wait_and_prepare_data(s_txbuff);
         // slave_rdy = 0;
         airlink_wait_for_slave_ready(1000); // 最多等1秒

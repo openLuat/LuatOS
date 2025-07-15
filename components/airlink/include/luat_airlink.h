@@ -176,6 +176,7 @@ typedef struct luat_airlink_spi_conf
     uint8_t irq_pin; // 新数据通知脚, 从机还有新数据时, 会拉低该脚
     uint32_t irq_timeout;
     uint8_t uart_id;
+    uint32_t speed;
 }luat_airlink_spi_conf_t;
 
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
@@ -195,6 +196,7 @@ enum {
     LUAT_AIRLINK_CONF_SPI_CS,
     LUAT_AIRLINK_CONF_SPI_RDY,
     LUAT_AIRLINK_CONF_SPI_IRQ,
+    LUAT_AIRLINK_CONF_SPI_SPEED,
 
     LUAT_AIRLINK_CONF_UART_ID,
     LUAT_AIRLINK_CONF_IRQ_TIMEOUT,

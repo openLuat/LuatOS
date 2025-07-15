@@ -115,7 +115,7 @@ static void spi_gpio_setup(void)
         .bit_dict = 0,
         .master = 1,
         .mode = 1, // mode设置为1，全双工
-        .bandrate = 31000000,
+        .bandrate = g_airlink_spi_conf.speed > 0 ? g_airlink_spi_conf.speed : 31000000,
         .cs = 255};
     luat_pm_iovolt_ctrl(0, 3300);
 

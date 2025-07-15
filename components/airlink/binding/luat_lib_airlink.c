@@ -367,6 +367,15 @@ static int l_airlink_config(lua_State *L) {
         }
         g_airlink_spi_conf.irq_timeout = value;
         break;
+    case LUAT_AIRLINK_CONF_SPI_SPEED:
+        if (value < 1000000) {
+            value = 1000000; // 最低1MHz
+        }
+        else if (value > 100000000) {
+            value = 100000000; // 最高100MHz
+        }
+        g_airlink_spi_conf.speed = value;
+        break;
     default:
         return 0;
     }
@@ -583,6 +592,8 @@ static const rotable_Reg_t reg_airlink[] =
     { "CONF_SPI_RDY",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_RDY)},
     //@const CONF_SPI_IRQ number SPI/UART配置参数, 设置IRQ脚的GPIO
     { "CONF_SPI_IRQ",      ROREG_INT(LUAT_AIRLINK_CONF_SPI_IRQ)},
+    //@const CONF_SPI_SPEED number SPI配置参数, 设置SPI的波特率
+    { "CONF_SPI_SPEED",    ROREG_INT(LUAT_AIRLINK_CONF_SPI_SPEED)},
     //@const CONF_IRQ_TIMEOUT number SPIUART配置参数, 设置IRQ模式的等待超时时间
     { "CONF_IRQ_TIMEOUT",  ROREG_INT(LUAT_AIRLINK_CONF_IRQ_TIMEOUT)},
 

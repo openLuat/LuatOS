@@ -59,7 +59,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index);
 static void net_lwip2_task(void *param);
 static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id);
 static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
-static ip_addr_t *net_lwip2_get_ip6(void);
+static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index);
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
 
@@ -751,18 +751,21 @@ static void net_lwip2_task(void *param)
 		ipaddr_ntoa_r(p_ip, ip_string, 64);
 		LLOGD("connect %s:%d %s", ip_string, prvlwip.socket[socket_id].remote_port, prvlwip.socket[socket_id].is_tcp ? "TCP" : "UDP");
 		local_ip = NULL;
-		// if (p_ip->type == IPADDR_TYPE_V4)
-		// {
+		#if LWIP_IPV6
+		if (p_ip->type == IPADDR_TYPE_V4)
+		{
+		#endif
 			local_ip = &prvlwip.lwip_netif[adapter_index]->ip_addr;
 			// char ip_string[64];
 			// ipaddr_ntoa_r(&prvlwip.lwip_netif->ip_addr, ip_string, 64);
 			// LLOGD("EV_LWIP_SOCKET_CONNECT local_ip %s", ip_string);
-		// }
-		// else
-		// {
-		// 	local_ip = net_lwip2_get_ip6();
-
-		// }
+		#if LWIP_IPV6
+		}
+		else
+		{
+			local_ip = net_lwip2_get_ip6(adapter_index);
+		}
+		#endif
 		if (!local_ip && prvlwip.socket[socket_id].is_tcp)
 		{
 			NET_DBG("netif no ip !!!!!!");
@@ -1417,15 +1420,17 @@ static int net_lwip2_get_full_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submas
 	*ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
 	*submask = prvlwip.lwip_netif[adapter_index]->netmask;
 	*gateway = prvlwip.lwip_netif[adapter_index]->gw;
-	// luat_ip_addr_t *local_ip = net_lwip2_get_ip6();
-	// if (local_ip)
-	// {
-	// 	*ipv6 = *local_ip;
-	// }
-	// else
-	// {
-	// 	ipv6->type = 0xff;
-	// }
+	#if LWIP_IPV6
+	luat_ip_addr_t *local_ip = net_lwip2_get_ip6(adapter_index);
+	if (local_ip)
+	{
+		*ipv6 = *local_ip;
+	}
+	else
+	{
+		ipv6->type = 0xff;
+	}
+	#endif
 	return 0;
 }
 
@@ -1455,7 +1460,7 @@ static int net_lwip2_dns_ipv6(const char *domain_name, uint32_t len, void *param
 	char *prv_domain_name = (char *)zalloc(len + 1);
 	memcpy(prv_domain_name, domain_name, len);
 	// platform_send_event(prvlwip.task_handle, (prvlwip.ec618_ipv6.type != IPADDR_TYPE_V6)?EV_LWIP_SOCKET_DNS:EV_LWIP_SOCKET_DNS_IPV6, prv_domain_name, param, user_data);
-	platform_send_event(NULL, EV_LWIP_SOCKET_DNS, prv_domain_name, param, user_data);
+	platform_send_event(NULL, EV_LWIP_SOCKET_DNS_IPV6, prv_domain_name, param, user_data);
 	return 0;
 }
 
@@ -1631,4 +1636,27 @@ struct netif * net_lwip2_get_netif(uint8_t adapter_index)
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY)
 		return NULL;
 	return prvlwip.lwip_netif[adapter_index];
+}
+
+static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index)
+{
+	#if LWIP_IPV6
+	int i;
+	for(i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
+	{
+		if (IP6_ADDR_PREFERRED == (prvlwip.lwip_netif[adapter_index]->ip6_addr_state[i] & IP6_ADDR_PREFERRED))
+		{
+			return &prvlwip.lwip_netif[adapter_index]->ip6_addr[i];
+		}
+	}
+
+	for(i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
+	{
+		if (prvlwip.lwip_netif[adapter_index]->ip6_addr_state[i] & IP6_ADDR_VALID)
+		{
+			return &prvlwip.lwip_netif[adapter_index]->ip6_addr[i];
+		}
+	}
+	#endif
+	return NULL;
 }

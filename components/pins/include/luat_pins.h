@@ -114,6 +114,10 @@ typedef struct
 	luat_pin_iomux_info pin_list[LUAT_PIN_SDIO_QTY];
 }luat_sdio_pin_iomux_t;
 
+typedef struct
+{
+	luat_pin_iomux_info pin_list[LUAT_PIN_CAMERA_QTY];
+}luat_camera_pin_iomux_t;
 
 /**
  * @brief 获取某种外设的全部pin复用信息

@@ -25,7 +25,6 @@
 
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
-extern const luat_lcd_opts_t lcd_opts_custom;
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern void lcd_auto_flush(luat_lcd_conf_t *conf);
 

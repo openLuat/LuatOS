@@ -11,31 +11,31 @@
 -- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
 -- 相关链接: https://www.openluat.com/GPS-Offset.html
 
---关于GPS的三种应用场景：
+--关于gnss的三种应用场景：
 gnss.DEFAULT:
---- GPS应用模式1.
+--- gnss应用模式1.
 --
--- 打开GPS后，GPS定位成功时，如果有回调函数，会调用回调函数
+-- 打开gnss后，gnss定位成功时，如果有回调函数，会调用回调函数
 --
--- 使用此应用模式调用gnss.open打开的“GPS应用”，必须主动调用gnss.close或者gnss.closeAll才能关闭此“GPS应用”,主动关闭时，即使有回调函数，也不会调用回调函数
+-- 使用此应用模式调用gnss.open打开的“gnss应用”，必须主动调用gnss.close或者gnss.closeAll才能关闭此“gnss应用”,主动关闭时，即使有回调函数，也不会调用回调函数
 -- 通俗点说就是一直打开，除非自己手动关闭掉
 
 gnss.TIMERORSUC:
---- GPS应用模式2.
+--- gnss应用模式2.
 --
--- 打开GPS后，如果在GPS开启最大时长到达时，没有定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，如果在gnss开启最大时长到达时，没有定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，如果在GPS开启最大时长内，定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，如果在gnss开启最大时长内，定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，在自动关闭此“GPS应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“GPS应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
 -- 通俗点说就是设置规定时间打开，如果规定时间内定位成功就会关闭此应用，如果没有定位成功，时间到了也会关闭此应用
 
 gnss.TIMER:
---- GPS应用模式3.
+--- gnss应用模式3.
 --
--- 打开GPS后，在GPS开启最大时长时间到达时，无论是否定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，在gnss开启最大时长时间到达时，无论是否定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，在自动关闭此“GPS应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“GPS应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
 -- 通俗点说就是设置规定时间打开，无论是否定位成功，到了时间都会关闭此应用，和第二种的区别在于定位成功之后不会关闭，到时间之后才会关闭
 
 gnss=require("gnss")    
@@ -87,16 +87,16 @@ end)
 
 ]]
 local gnss = {}
---GPS开启标志，true表示开启状态，false或者nil表示关闭状态
+--gnss开启标志，true表示开启状态，false或者nil表示关闭状态
 local openFlag
---GPS定位标志，true表示，其余表示未定位
+--gnss定位标志，true表示，其余表示未定位
 local fixFlag=nil
 
 --串口配置
 local uartBaudrate = 115200
 local uartID = 2
 
---gps 的串口线程是否在工作；
+--gnss 的串口线程是否在工作；
 local taskFlag=false
 
 --agps操作，联网访问服务器获取星历数据
@@ -287,44 +287,44 @@ local function _close()
 end
 
 
---- GPS应用模式1.
+--- gnss应用模式1.
 --
--- 打开GPS后，GPS定位成功时，如果有回调函数，会调用回调函数
+-- 打开gnss后，gnss定位成功时，如果有回调函数，会调用回调函数
 --
--- 使用此应用模式调用gnss.open打开的“GPS应用”，必须主动调用gnss.close或者gnss.closeAll才能关闭此“GPS应用”,主动关闭时，即使有回调函数，也不会调用回调函数
+-- 使用此应用模式调用gnss.open打开的“gnss应用”，必须主动调用gnss.close或者gnss.closeAll才能关闭此“gnss应用”,主动关闭时，即使有回调函数，也不会调用回调函数
 gnss.DEFAULT = 1
---- GPS应用模式2.
+--- gnss应用模式2.
 --
--- 打开GPS后，如果在GPS开启最大时长到达时，没有定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，如果在gnss开启最大时长到达时，没有定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，如果在GPS开启最大时长内，定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，如果在gnss开启最大时长内，定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，在自动关闭此“GPS应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“GPS应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
 gnss.TIMERORSUC = 2
---- GPS应用模式3.
+--- gnss应用模式3.
 --
--- 打开GPS后，在GPS开启最大时长时间到达时，无论是否定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“GPS应用”
+-- 打开gnss后，在gnss开启最大时长时间到达时，无论是否定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
 --
--- 打开GPS后，在自动关闭此“GPS应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“GPS应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
 gnss.TIMER = 3
 
---“GPS应用”表
+--“gnss应用”表
 local tList = {}
 
 --[[
 函数名：delItem
-功能  ：从“GPS应用”表中删除一项“GPS应用”，并不是真正的删除，只是设置一个无效标志
+功能  ：从“gnss应用”表中删除一项“gnss应用”，并不是真正的删除，只是设置一个无效标志
 参数  ：
-        mode：GPS应用模式
+        mode：gnss应用模式
         para：
-            para.tag：“GPS应用”标记
-            para.val：GPS开启最大时长
+            para.tag：“gnss应用”标记
+            para.val：gnss开启最大时长
             para.cb：回调函数
 返回值：无
 ]]
 local function delItem(mode,para)
     for i=1,#tList do
-        --标志有效 并且 GPS应用模式相同 并且 “GPS应用”标记相同
+        --标志有效 并且 gnss应用模式相同 并且 “gnss应用”标记相同
         if tList[i].flag and tList[i].mode==mode and tList[i].para.tag==para.tag then
             --设置无效标志
             tList[i].flag,tList[i].delay = false
@@ -342,23 +342,23 @@ end)
 
 --[[
 函数名：addItem
-功能  ：新增一项“GPS应用”到“GPS应用”表
+功能  ：新增一项“gnss应用”到“gnss应用”表
 参数  ：
-        mode：GPS应用模式
+        mode：gnss应用模式
         para：
-            para.tag：“GPS应用”标记
-            para.val：GPS开启最大时长
+            para.tag：“gnss应用”标记
+            para.val：gnss开启最大时长
             para.cb：回调函数
 返回值：无
 ]]
 local function addItem(mode,para)
-    --删除相同的“GPS应用”
+    --删除相同的“gnss应用”
     delItem(mode,para)
     local item,i,fnd = {flag=true, mode=mode, para=para}
-    --如果是TIMERORSUC或者TIMER模式，初始化GPS工作剩余时间
+    --如果是TIMERORSUC或者TIMER模式，初始化gnss工作剩余时间
     if mode==gnss.TIMERORSUC or mode==gnss.TIMER then item.para.remain = para.val end
     for i=1,#tList do
-        --如果存在无效的“GPS应用”项，直接使用此位置
+        --如果存在无效的“gnss应用”项，直接使用此位置
         if not tList[i].flag then
             tList[i] = item
             fnd = true
@@ -417,9 +417,9 @@ end
 
 --[[
 函数名：statInd
-功能  ：处理GPS定位成功的消息
+功能  ：处理gnss定位成功的消息
 参数  ：
-        evt：GPS消息类型
+        evt：gnss消息类型
 返回值：无
 ]]
 local function statInd(evt)
@@ -484,28 +484,25 @@ function gnss.setup(opts)
 end
 
 --[[
-打开一个“GPS应用”
-“GPS应用”：指的是使用GPS功能的一个应用
-例如，假设有如下3种需求，要打开GPS，则一共有3个“GPS应用”：
-“GPS应用1”：每隔1分钟打开一次GPS
-“GPS应用2”：设备发生震动时打开GPS
-“GPS应用3”：收到一条特殊短信时打开GPS
-只有所有“GPS应用”都关闭了，才会去真正关闭GPS
-每个“GPS应用”打开或者关闭GPS时，最多有4个参数，其中 GPS应用模式和GPS应用标记 共同决定了一个唯一的“GPS应用”：
-1、GPS应用模式(必选)
-2、GPS应用标记(必选)
-3、GPS开启最大时长[可选]
-4、回调函数[可选]
-例如gnss.open(gnss.TIMERORSUC,{tag="TEST",val=120,cb=testGpsCb})
-gnss.TIMERORSUC为GPS应用模式，"TEST"为GPS应用标记，120秒为GPS开启最大时长，testGpsCb为回调函数
+打开一个“gnss应用”
 @api gnss.open(mode,para)
-@number mode GPS应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，GPS应用参数
-    para.tag：string类型，GPS应用标记
-    para.val：number类型，GPS应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数
-    para.cb：GPS应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
+@number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
 @return nil
 @usage
+-- “gnss应用”：指的是使用gnss功能的一个应用
+-- 例如，假设有如下3种需求，要打开gnss，则一共有3个“gnss应用”：
+-- “gnss应用1”：每隔1分钟打开一次gnss
+-- “gnss应用2”：设备发生震动时打开gnss
+-- “gnss应用3”：收到一条特殊短信时打开gnss
+-- 只有所有“gnss应用”都关闭了，才会去真正关闭gnss
+-- 每个“gnss应用”打开或者关闭gnss时，最多有4个参数，其中 gnss应用模式和gnss应用标记 共同决定了一个唯一的“gnss应用”：
+-- 1、gnss应用模式(必选)
+-- 2、gnss应用标记(必选)
+-- 3、gnss开启最大时长[可选]
+-- 4、回调函数[可选]
+-- 例如gnss.open(gnss.TIMERORSUC,{tag="TEST",val=120,cb=testgnssCb})
+-- gnss.TIMERORSUC为gnss应用模式，"TEST"为gnss应用标记，120秒为gnss开启最大时长，testgnssCb为回调函数
 gnss.open(gnss.DEFAULT,{tag="TEST1",cb=test1Cb})
 gnss.open(gnss.TIMERORSUC,{tag="TEST2",val=60,cb=test2Cb})
 gnss.open(gnss.TIMER,{tag="TEST3",val=120,cb=test3Cb})
@@ -513,7 +510,7 @@ gnss.open(gnss.TIMER,{tag="TEST3",val=120,cb=test3Cb})
 function gnss.open(mode,para)
     assert((para and type(para) == "table" and para.tag and type(para.tag) == "string"),"gnss.open para invalid")
     log.info("gnss.open",mode,para.tag,para.val,para.cb)
-    --如果GPS定位成功
+    --如果gnss定位成功
     if libgnss.isFix() then
         if mode~=gnss.TIMER then
             --执行回调函数
@@ -522,7 +519,7 @@ function gnss.open(mode,para)
         end
     end
     addItem(mode,para)
-    --真正去打开GPS
+    --真正去打开gnss
     _open()
     --启动1秒的定时器
     if existTimerItem() and not sys.timerIsActive(timerFnc) then
@@ -532,14 +529,10 @@ end
 
 
 --[[
-关闭一个“GPS应用”
-只是从逻辑上关闭一个GPS应用，并不一定真正关闭GPS，是有所有的GPS应用都处于关闭状态，才会去真正关闭GPS
+关闭一个“gnss应用”，只是从逻辑上关闭一个gnss应用，并不一定真正关闭gnss，是有所有的gnss应用都处于关闭状态，才会去真正关闭gnss
 @api gnss.close()
-@number mode GPS应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，GPS应用参数
-    para.tag：string类型，GPS应用标记
-    para.val：number类型，GPS应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数
-    para.cb：GPS应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
+@number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
 @return nil
 @usage
 gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
@@ -548,7 +541,7 @@ gnss.close(gnss.TIMER,{tag="TEST1"})
 function gnss.close(mode,para)
     assert((para and type(para)=="table" and para.tag and type(para.tag)=="string"),"gnss.close para invalid")
     log.info("gnss.close",mode,para.tag,para.val,para.cb)
-    --删除此“GPS应用”
+    --删除此“gnss应用”
     delItem(mode,para)
     local valid,i
     for i=1,#tList do
@@ -556,12 +549,12 @@ function gnss.close(mode,para)
             valid = true
         end
     end
-    --如果没有一个“GPS应用”有效，则关闭GPS
+    --如果没有一个“gnss应用”有效，则关闭gnss
     if not valid then _close() end
 end
 
 --[[
-关闭所有“GPS应用”
+关闭所有“gnss应用”
 @api gnss.closeAll()
 @return nil
 @usage
@@ -578,14 +571,10 @@ function gnss.closeAll()
 end
 
 --[[
-判断一个“GPS应用”是否处于激活状态
+判断一个“gnss应用”是否处于激活状态
 @api gnss.isActive(mode,para)
-@number mode GPS应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，GPS应用参数
-    para.tag：string类型，GPS应用标记
-    para.val：number类型，GPS应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数
-    para.cb：GPS应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
-GPS应用模式和GPS应用标记唯一确定一个“GPS应用”，调用本接口查询状态时，mode和para.tag要和gnss.open打开一个“GPS应用”时传入的mode和para.tag保持一致
+@number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数,gnss应用模式和gnss应用标记唯一确定一个“gnss应用”，调用本接口查询状态时，mode和para.tag要和gnss.open打开一个“gnss应用”时传入的mode和para.tag保持一致
 @return bool result，处于激活状态返回true，否则返回nil
 @usage
 gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
@@ -752,7 +741,6 @@ end
 -- 解析nmea
 log.info("nmea", "vtg", json.encode(gnss.getVtg()))
 -- 示例
---[[
 {
     "speed_knots":0,        // 速度, 英里/小时
     "true_track_degrees":0,  // 真北方向角
@@ -762,7 +750,7 @@ log.info("nmea", "vtg", json.encode(gnss.getVtg()))
 
 --模式3
 log.info("nmea", "vtg", json.encode(gnss.getVtg(3)))
-返回值："$GNVTG,0.000,T,,M,0.000,N,0.000,K,A*13\r"
+-- 返回值："$GNVTG,0.000,T,,M,0.000,N,0.000,K,A*13\r"
 -- 提醒: 在速度<5km/h时, 不会返回方向角
 ]]
 function gnss.getVtg(data_mode)
@@ -847,7 +835,7 @@ end
 --获取位置字符串
 --[[
 获取位置字符串
-@api libgnss.locStr(mode)
+@api gnss.locStr(mode)
 @int 字符串模式. 0- "DDMM.MMM,N,DDMMM.MM,E,1.0",1 - DDDDDDD格式
 @return 指定模式的字符串
 @usage

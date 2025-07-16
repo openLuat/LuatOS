@@ -23,9 +23,9 @@ local rtos_bsp = rtos.bsp()
 local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 local SPI_SPEED = 25600000
 
-if USE_CH390 then
-    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
-end
+-- if USE_CH390 then
+--     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+-- end
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
@@ -34,6 +34,7 @@ end
 
 -- TF卡和WAN口初始化函数
 local function tf_wan_init()
+    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
     sys.wait(1000)
     
     -- #################################################
@@ -130,9 +131,6 @@ local function tf_wan_init()
     -- #################################################
     log.info("tf_wan", "开始初始化WAN口")
     sys.wait(500)
-    log.info("ch390", "打开LDO供电")
-    gpio.setup(140, 1, gpio.PULLUP)     --打开ch390供电
-    sys.wait(6000)
 
     -- 初始化指定netdrv设备,
     -- socket.LWIP_ETH 网络适配器编号

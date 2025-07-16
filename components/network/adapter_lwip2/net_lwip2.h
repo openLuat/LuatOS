@@ -31,7 +31,7 @@ typedef struct
 typedef struct
 {
 	uint64_t socket_tag;
-	dns_client_t dns_client;
+	dns_client_t *dns_client[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	socket_ctrl_t socket[MAX_SOCK_NUM];
 	ip_addr_t ec618_ipv6;
 	struct netif *lwip_netif[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];

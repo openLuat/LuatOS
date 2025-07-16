@@ -35,7 +35,7 @@ end
 -- TF卡和WAN口初始化函数
 local function tf_wan_init()
     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
-    sys.wait(1000)
+    sys.wait(1000)                   -- 延迟1秒让ch390 稳定后再挂载TF卡
     
     -- #################################################
     -- 首先初始化TF卡

@@ -331,7 +331,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         luat_ch390h_set_rx(ch, 1);
         if (netif_is_link_up(ch->netif)) {
             LLOGI("link is down %d %d", ch->spiid, ch->cspin);
-            netif_set_link_down(ch->netif);
+            luat_netdrv_netif_set_link_down(ch->netif);
             ulwip_netif_ip_event(&ch->ulwip);
             if (ch->dhcp) {
                 // 停止dhcp定时器

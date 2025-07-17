@@ -30,14 +30,9 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 
-// static uint8_t start;
-// static uint8_t slave_rdy;
-static uint8_t thread_rdy;
 static luat_rtos_task_handle g_uart_task;
-static uint8_t basic_info[256];
 static luat_rtos_queue_t evt_queue;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
-
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
@@ -45,16 +40,21 @@ __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
 
-static void uart_cb(uint8_t *data, size_t len) {
-    // nop
+static void uart_cb(int uart_id, uint32_t data_len) {
+    luat_event_t evt = {.id = 2};
+    luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
 
 static void uart_gpio_setup(void)
 {
+    int ret = 0;
     if (g_airlink_spi_conf.uart_id == 0) {
         g_airlink_spi_conf.uart_id = 1;
     }
-    luat_uart_ctrl(g_airlink_spi_conf.uart_id, LUAT_UART_SET_RECV_CALLBACK, uart_cb);
+    ret = luat_uart_ctrl(g_airlink_spi_conf.uart_id, LUAT_UART_SET_RECV_CALLBACK, uart_cb);
+    if (ret) {
+        LLOGW("luat_uart_ctrl ret:%d", ret);
+    }
 }
 
 __USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
@@ -78,9 +78,6 @@ __USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
 static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
 static airlink_link_data_t s_link;
-static uint64_t warn_slave_no_ready = 0;
-static uint64_t tnow = 0;
-static uint8_t slave_is_irq_ready = 0;
 
 __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
     memset(&link->flags, 0, sizeof(uint32_t));
@@ -91,7 +88,9 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
 }
 
 static void on_uart_data_in(uint8_t* buff, size_t len) {
-    //收到数据后去除帧头帧尾和魔数，遇到0x7E/0x7D 要转义
+    // TODO 要处理分包, 连包的情况
+    // TODO 不能假设开头和结尾就一定是0x7E, 要查找, 要缓存
+    // 收到数据后去除帧头帧尾和魔数，遇到0x7E/0x7D 要转义
     uint8_t* receive_data = buff;
     size_t receive_len = len-2;
     memcpy(receive_data, buff+1, receive_len);//去帧头帧尾
@@ -106,7 +105,13 @@ static void on_uart_data_in(uint8_t* buff, size_t len) {
             receive_len--;
         }
     }
-    airlink_link_data_t *return_rxbuff = luat_airlink_data_unpack(receive_data, receive_len);
+    airlink_link_data_t *link = luat_airlink_data_unpack(receive_data, receive_len);
+    if (link == NULL) {
+        LLOGE("luat_airlink_data_unpack failed len %d", receive_len);
+        return;
+    }
+    LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
+    luat_airlink_on_data_recv(link->data, link->len);
 }
 
 __USER_FUNC_IN_RAM__ static void uart_task(void *param)
@@ -119,38 +124,40 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
     int uart_id;
     luat_rtos_task_sleep(5); // 等5ms
     uart_gpio_setup();
-    thread_rdy = 1;
     g_airlink_newdata_notify_cb = on_newdata_notify;
     g_airlink_link_data_cb = on_link_data_notify;
-    uint8_t pbuff[2048] = {0};
+    // 单个link data的长度最大是1600字节,极端情况下所有数据都要转义,那就是3200字节,所以这里预留4K
+    uint8_t *pbuff = luat_heap_malloc(4*1024);
     while (1)
     {
         uart_id = g_airlink_spi_conf.uart_id;
-        LLOGD("uart_task:uart_id:%d", uart_id);
+        // LLOGD("uart_task:uart_id:%d", uart_id);
         while (1) {
             ret = luat_uart_read(uart_id, (char *)s_rxbuff, TEST_BUFF_SIZE);
-            LLOGD("uart_task:uart read buff len:%d", ret);
+            // LLOGD("uart_task:uart read buff len:%d", ret);
             if (ret <= 0) {
                 break;
             }
             else {
                 // LLOGD("收到uart数据长度 %d", ret);
-                for(int i = 0; i < (sizeof(s_rxbuff)/sizeof(s_rxbuff[0])); i++)
-                    LLOGD("收到uart数据 %x", s_rxbuff[i]);
-                // TODO 推送数据, 并解析处理
+                // 推送数据, 并解析处理
                 on_uart_data_in(s_rxbuff, ret);
             }
         }
+        event.id = 0;
         ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), 15*1000);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
-        if (ret == 0) {
+        //LLOGD("收到airlink数据事件 ret:%d, id:%d", ret, event.id);
+        record_statistic(event);
+        while (1) {
             // 有数据, 要处理了
             item.len = 0;
             luat_airlink_cmd_recv_simple(&item);//从（发送）队列里取出数据存在item中
+            //LLOGD("队列数据长度:%d, cmd:%p", item.len, item.cmd);
             if (item.len > 0 && item.cmd != NULL)
             {
                 // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
                 luat_airlink_data_pack((uint8_t*)item.cmd, item.len, pbuff);
-                int temp_len = sizeof(pbuff)/sizeof(pbuff[0]);
+                // int temp_len = sizeof(pbuff)/sizeof(pbuff[0]);
                 s_txbuff[0] = 0x7E;
                 offset = 1;
                 ptr = (uint8_t*)pbuff;
@@ -179,7 +186,11 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
                     }
                 }
                 s_txbuff[offset++] = 0x7E;
+                //LLOGD("发送数据长度:%d, cmd:%p", offset, item.cmd);
                 luat_uart_write(uart_id, (const char *)s_txbuff, offset);
+            }
+            else {
+                break; // 没有数据了, 退出循环
             }
         }
     }
@@ -187,15 +198,23 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
 
 void luat_airlink_start_uart(void)
 {
+    int ret = 0;
     if (g_uart_task != NULL)
     {
-        LLOGE("SPI主机任务已经启动过了!!!");
+        // TODO 支持多个UART?
+        LLOGE("UART任务已经启动过了!!! uart %d", g_airlink_spi_conf.uart_id);
         return;
     }
 
     s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
 
-    luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
-    luat_rtos_task_create(&g_uart_task, 8 * 1024, 50, "uart", uart_task, NULL, 0);
+    ret = luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
+    if (ret) {
+        LLOGW("创建evt_queue ret:%d", ret);
+    }
+    ret = luat_rtos_task_create(&g_uart_task, 8 * 1024, 50, "uart", uart_task, NULL, 0);
+    if (ret) {
+        LLOGW("创建uart_task ret:%d", ret);
+    }
 }

@@ -105,12 +105,10 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     }
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     u16_t total_len = p->tot_len;
-    // ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
     char* ptr = luat_heap_malloc(total_len);
     if (!ptr) {
         return ERR_OK;
     }
-    size_t offset = 0;
     pbuf_copy_partial(p, ptr, total_len, 0);
 
     // 解析DHCP数据包中的mac地址
@@ -120,6 +118,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     u16_t ip_header_length = IP_IS_V6(addr) ? 40 : 20;
     u16_t udp_header_length = 8;
     ulwip_ctx_t* ctx = NULL;
+    u16_t max_dhcp_packet_len;
 
     // 收到DHCP数据包, 需要逐个ctx查一遍, 对照xid
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
@@ -129,14 +128,6 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
             continue;
         }
 
-        // 检查数据包长度是否足够
-        // max_dhcp packetlen = mtu - ip_head - udp_head
-        u16_t max_dhcp_packet_len = ctx->netif->mtu - ip_header_length - udp_header_length;
-        if (total_len > max_dhcp_packet_len) {
-            LLOGE("DHCP包长度超过最大值 %d", max_dhcp_packet_len);
-            return ERR_OK;
-        }
-
         // 获取网络接口的mac地址
         struct netif *netif = ctx->netif;
         uint8_t *local_mac = netif->hwaddr;
@@ -144,11 +135,23 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         // LLOGD("mac %02X:%02X:%02X:%02X:%02X:%02X", local_mac[0], local_mac[1], local_mac[2], local_mac[3], local_mac[4], local_mac[5]);
         // LLOGD("received_mac %02X:%02X:%02X:%02X:%02X:%02X", received_mac[0], received_mac[1], received_mac[2], received_mac[3], received_mac[4], received_mac[5]);
         // 比较mac地址
-        if (memcmp(local_mac, received_mac, 6) == 0) {
+        if (0 == memcmp(local_mac, received_mac, 6)) {
             // 如果找到匹配的网络接口
+            // 先检查数据包长度是否足够
+            max_dhcp_packet_len = ctx->netif->mtu - ip_header_length - udp_header_length;
+            if (total_len > max_dhcp_packet_len) {
+                LLOGE("dhcp pkg too large %d mtu %d len %d", ctx->adapter_index, ctx->netif->mtu, max_dhcp_packet_len);
+                break;
+            }
+            // 注意, ulwip_dhcp_client_run是会释放ptr的, 所以不能在这里释放
             ulwip_dhcp_client_run(ctx, ptr, total_len);
+            ptr = NULL; // 防止重复释放
             break;
         }
+    }
+    if (ptr) {
+        luat_heap_free(ptr);
+        ptr = NULL;
     }
     return ERR_OK;
 }

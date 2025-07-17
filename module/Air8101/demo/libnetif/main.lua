@@ -66,9 +66,9 @@ end
 -- 网络管理，设置网络优先级和多网融合功能
 require "netif_app"
 -- 测试http
-require "http_test"
+-- require "http_test"
 -- 测试mqtt
--- require "mqtt_test"
+require "mqtt_test"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

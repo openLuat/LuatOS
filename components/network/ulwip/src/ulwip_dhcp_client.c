@@ -32,6 +32,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
 
     if (!netif_is_up(netif) || !netif_is_link_up(netif)) {
         LLOGD("网卡未就绪,不发送dhcp请求 %d", ctx->adapter_index);
+        luat_heap_free(rxbuff);
         return 0;
     }
 

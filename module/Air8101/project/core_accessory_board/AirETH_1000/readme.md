@@ -35,10 +35,10 @@ Air8101核心板+AirETH_1000配件板，使用配件板上的以太网口通过�
 | ------------ | ------------------ |
 | 59/3V3          | 3.3v              |
 | gnd             | gnd               |
-| RGB DCLK/GPIO14 | SCK               |
-| RGB DISP/GPIO15 | CSS               |
-| RGB DE/GPIO16   | SDO               |
-| RGB HSYN/GPIO17 | SDI               |
+| 28/DCLK | SCK               |
+| 54/DISP | CSS               |
+| 55/HSYN | SDO               |
+| 57/DE | SDI               |
 | 14/GPIO8        | INT               |
 
 

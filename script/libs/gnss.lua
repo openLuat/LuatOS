@@ -6,6 +6,7 @@
 @author  李源龙
 @usage
 -- 用法实例
+-- 注意：gnss.lua适用的产品范围，只能用于合宙内部集成GNSS功能的产品，目前有Air780EGH，Air8000系列
 -- 提醒: 本库输出的坐标,均为 WGS84 坐标系
 -- 如需要在国内地图使用, 要转换成对应地图的坐标系, 例如 GCJ02 BD09
 -- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
@@ -14,43 +15,49 @@
 --关于gnss的三种应用场景：
 gnss.DEFAULT:
 --- gnss应用模式1.
---
 -- 打开gnss后，gnss定位成功时，如果有回调函数，会调用回调函数
---
--- 使用此应用模式调用gnss.open打开的“gnss应用”，必须主动调用gnss.close或者gnss.closeAll才能关闭此“gnss应用”,主动关闭时，即使有回调函数，也不会调用回调函数
+-- 使用此应用模式调用gnss.open打开的“gnss应用”，必须主动调用gnss.close
+-- 或者gnss.closeAll才能关闭此“gnss应用”,主动关闭时，即使有回调函数，也不会调用回调函数
 -- 通俗点说就是一直打开，除非自己手动关闭掉
 
 gnss.TIMERORSUC:
 --- gnss应用模式2.
---
--- 打开gnss后，如果在gnss开启最大时长到达时，没有定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
---
--- 打开gnss后，如果在gnss开启最大时长内，定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
---
--- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
--- 通俗点说就是设置规定时间打开，如果规定时间内定位成功就会关闭此应用，如果没有定位成功，时间到了也会关闭此应用
+-- 打开gnss后，如果在gnss开启最大时长到达时，没有定位成功，如果有回调函数，
+-- 会调用回调函数，然后自动关闭此“gnss应用”
+-- 打开gnss后，如果在gnss开启最大时长内，定位成功，如果有回调函数，
+-- 会调用回调函数，然后自动关闭此“gnss应用”
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者
+-- gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 通俗点说就是设置规定时间打开，如果规定时间内定位成功就会自动关闭此应用，
+-- 如果没有定位成功，时间到了也会自动关闭此应用
 
 gnss.TIMER:
 --- gnss应用模式3.
---
--- 打开gnss后，在gnss开启最大时长时间到达时，无论是否定位成功，如果有回调函数，会调用回调函数，然后自动关闭此“gnss应用”
---
--- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
--- 通俗点说就是设置规定时间打开，无论是否定位成功，到了时间都会关闭此应用，和第二种的区别在于定位成功之后不会关闭，到时间之后才会关闭
+-- 打开gnss后，在gnss开启最大时长时间到达时，无论是否定位成功，如果有回调函数，
+-- 会调用回调函数，然后自动关闭此“gnss应用”
+-- 打开gnss后，在自动关闭此“gnss应用”前，可以调用gnss.close或者gnss.closeAll
+-- 主动关闭此“gnss应用”，主动关闭时，即使有回调函数，也不会调用回调函数
+-- 通俗点说就是设置规定时间打开，无论是否定位成功，到了时间都会自动关闭此应用，
+-- 和第二种的区别在于定位成功之后不会关闭，到时间之后才会关闭
 
 gnss=require("gnss")    
 
-function test1Cb(val)
-    log.info("TAG+++++++++",val)
+local function mode1_cb(tag)
+    log.info("TAGmode1_cb+++++++++",tag)
     log.info("nmea", "rmc", json.encode(gnss.getRmc(2)))
 end
 
-function test2Cb(val)
-    log.info("TAG+++++++++",val)
+local function mode2_cb(tag)
+    log.info("TAGmode2_cb+++++++++",tag)
     log.info("nmea", "rmc", json.encode(gnss.getRmc(2)))
 end
 
-sys.taskInit(function()
+local function mode3_cb(tag)
+    log.info("TAGmode3_cb+++++++++",tag)
+    log.info("nmea", "rmc", json.encode(gnss.getRmc(2)))
+end
+
+local function gnss_fnc()
     local gnssotps={
         gnssmode=1, --1为卫星全定位，2为单北斗
         agps_enable=true,    --是否使用AGPS，开启AGPS后定位速度更快，会访问服务器下载星历，星历时效性为北斗1小时，GPS4小时，默认下载星历的时间为1小时，即一小时内只会下载一次
@@ -60,29 +67,39 @@ sys.taskInit(function()
         -- bind=1, --绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号
         -- rtc=false    --定位成功后自动设置RTC true开启，flase关闭
     }
+    --设置gnss参数
     gnss.setup(gnssotps)
-    gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
-    gnss.open(gnss.TIMERORSUC,{tag="TEST3",val=60,cb=test2Cb})
-    gnss.open(gnss.DEFAULT,{tag="TEST2",cb=test2Cb})
+    --开启gnss应用
+    gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+    gnss.open(gnss.DEFAULT,{tag="MODE2",cb=mode2_cb})
+    gnss.open(gnss.TIMERORSUC,{tag="MODE3",val=60,cb=mode3_cb})
     sys.wait(40000)
-    log.info("关闭定时器的")
-    gnss.close(gnss.TIMER,{tag="TEST1"})
-    log.info("定时器状态1",gnss.isActive(gnss.TIMER,{tag="TEST1"}))
-    log.info("定时器状态2",gnss.isActive(gnss.DEFAULT,{tag="TEST2"}))
-    log.info("定时器状态3",gnss.isActive(gnss.TIMERORSUC,{tag="TEST3"}))
+    log.info("关闭一个gnss应用，然后查看下所有应用的状态")
+    --关闭一个gnss应用
+    gnss.close(gnss.TIMER,{tag="MODE1"})
+    --查询3个gnss应用状态
+    log.info("gnss应用状态1",gnss.isActive(gnss.TIMER,{tag="MODE1"}))
+    log.info("gnss应用状态2",gnss.isActive(gnss.DEFAULT,{tag="MODE2"}))
+    log.info("gnss应用状态3",gnss.isActive(gnss.TIMERORSUC,{tag="MODE3"}))
     sys.wait(10000)
+    --关闭所有gnss应用
     gnss.closeAll()
-    log.info("定时器状态1",gnss.isActive(gnss.TIMER,{tag="TEST1"}))
-    log.info("定时器状态2",gnss.isActive(gnss.DEFAULT,{tag="TEST2"}))
-    log.info("定时器状态3",gnss.isActive(gnss.TIMERORSUC,{tag="TEST3"}))
-end)
+    --查询3个gnss应用状态
+    log.info("gnss应用状态1",gnss.isActive(gnss.TIMER,{tag="MODE1"}))
+    log.info("gnss应用状态2",gnss.isActive(gnss.DEFAULT,{tag="MODE2"}))
+    log.info("gnss应用状态3",gnss.isActive(gnss.TIMERORSUC,{tag="MODE3"}))
+end
 
+sys.taskInit(gnss_fnc)
+
+
+--关于获取定位成功的处理方式：
 sys.subscribe("GNSS_STATE", function(event, ticks)
     -- event取值有
-    -- FIXED 定位成功
-    -- LOSE  定位丢失
-    -- ticks是事件发生的时间,一般可以忽略
-    log.info("gnss", "state", event, ticks)
+    -- FIXED string类型 定位成功
+    -- LOSE  string类型 定位丢失
+    -- ticks number类型 是事件发生的时间,一般可以忽略
+    log.info("gnss", "state", event)
 end)
 
 ]]
@@ -93,8 +110,8 @@ local openFlag
 local fixFlag=nil
 
 --串口配置
-local uartBaudrate = 115200
-local uartID = 2
+local uart_baudrate = 115200
+local uart_id = 2
 
 --gnss 的串口线程是否在工作；
 local taskFlag=false
@@ -103,7 +120,12 @@ local taskFlag=false
 local function _agps()
     -- 首先, 发起位置查询
 local lat, lng
-sys.waitUntil("net_ready")
+while not socket.adapter() do
+    log.warn("tcp_client_main_task_func", "wait IP_READY")
+    -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"
+    -- 或者等待30秒超时退出阻塞等待状态
+    sys.waitUntil("IP_READY", 30000)
+end
 if mobile then
     mobile.reqCellInfo(6)
     sys.waitUntil("CELL_INFO_UPDATE", 6000)
@@ -162,7 +184,7 @@ else
     log.info("gnss.opts", "星历不需要更新", now - agps_time)
 end
 
-local gps_uart_id = uartID
+local gps_uart_id = uart_id
 
 -- 写入星历
 local agps_data = io.readFile("/hxxt.dat")
@@ -228,7 +250,7 @@ end
 local function _open()
     if openFlag then return end
     libgnss.clear() -- 清空数据,兼初始化
-    uart.setup(uartID, uartBaudrate)
+    uart.setup(uart_id, uart_baudrate)
     -- pm.power(pm.GPS, false)
     pm.power(pm.GPS, true)
     if gnss.opts.gnssmode==1 then
@@ -237,7 +259,7 @@ local function _open()
         elseif gnss.opts.gnssmode==2 then
         --默认开启单北斗
         sys.timerStart(function()
-            uart.write(uartID, "$CFGSYS,h10\r\n")
+            uart.write(uart_id, "$CFGSYS,h10\r\n")
         end,200)
         log.info("单北斗开启")
     end
@@ -250,9 +272,9 @@ local function _open()
     end
     if type(gnss.opts.bind)=="number"  then
         log.info("绑定bind事件")
-        libgnss.bind(uartID,gnss.opts.bind)
+        libgnss.bind(uart_id,gnss.opts.bind)
     else
-        libgnss.bind(uartID)
+        libgnss.bind(uart_id)
     end
     if gnss.opts.rtc==true then
         log.info("rtc开启")
@@ -267,8 +289,12 @@ local function _open()
     end
     --设置输出VTG内容
     sys.timerStart(function()
-        uart.write(uartID,"$CFGMSG,0,5,1,1\r\n")
-    end,500)
+        uart.write(uart_id,"$CFGMSG,0,5,1,1\r\n")
+    end,800)
+     --设置输出ZDA内容
+     sys.timerStart(function()
+        uart.write(uart_id,"$CFGMSG,0,6,1,1\r\n")
+    end,900)
     openFlag = true
     sys.publish("GPS_STATE","OPEN")
     log.info("gnss._open")
@@ -278,7 +304,7 @@ end
 local function _close()
     if not openFlag then return end
     pm.power(pm.GPS, false)
-    uart.close(uartID)
+    uart.close(uart_id)
     libgnss.clear()
     openFlag = false
     fixFlag = false
@@ -332,12 +358,6 @@ local function delItem(mode,para)
         end
     end
 end
-sys.taskInit(function()
-    sys.waitUntil("IP_READY")
-    log.info("已联网")
-    sys.publish("net_ready")
-end)
-
 
 
 --[[
@@ -466,19 +486,19 @@ local gnssotps={
 ]]
 function gnss.setup(opts)
     gnss.opts=opts
-    if hmeta.model()=="780EGH" or hmeta.model()=="Air8000" then
-        uartID=2
-        uartBaudrate=115200
+    if hmeta.model():find("780EGH") or hmeta.model():find("8000") then
+        uart_id=2
+        uart_baudrate=115200
     else
-        if gnss.opts.uartid then
-            uartID=gnss.opts.uartid
+        if gnss.opts.uart_id then
+            uart_id=gnss.opts.uart_id
         else
-            uartID=2    
+            uart_id=2    
         end
         if gnss.opts.uartbaud then
-            uartBaudrate=gnss.opts.uartbaud
+            uart_baudrate=gnss.opts.uartbaud
         else
-            uartBaudrate=115200
+            uart_baudrate=115200
         end
     end   
 end
@@ -487,7 +507,7 @@ end
 打开一个“gnss应用”
 @api gnss.open(mode,para)
 @number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长单位：秒，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
 @return nil
 @usage
 -- “gnss应用”：指的是使用gnss功能的一个应用
@@ -501,11 +521,11 @@ end
 -- 2、gnss应用标记(必选)
 -- 3、gnss开启最大时长[可选]
 -- 4、回调函数[可选]
--- 例如gnss.open(gnss.TIMERORSUC,{tag="TEST",val=120,cb=testgnssCb})
--- gnss.TIMERORSUC为gnss应用模式，"TEST"为gnss应用标记，120秒为gnss开启最大时长，testgnssCb为回调函数
-gnss.open(gnss.DEFAULT,{tag="TEST1",cb=test1Cb})
-gnss.open(gnss.TIMERORSUC,{tag="TEST2",val=60,cb=test2Cb})
-gnss.open(gnss.TIMER,{tag="TEST3",val=120,cb=test3Cb})
+-- 例如gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+-- gnss.TIMER为gnss应用模式，"MODE1"为gnss应用标记，60秒为gnss开启最大时长，mode1_cb为回调函数
+gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+gnss.open(gnss.DEFAULT,{tag="MODE2",cb=mode2_cb})
+gnss.open(gnss.TIMERORSUC,{tag="MODE3",val=60,cb=mode3_cb})
 ]]
 function gnss.open(mode,para)
     assert((para and type(para) == "table" and para.tag and type(para.tag) == "string"),"gnss.open para invalid")
@@ -532,11 +552,11 @@ end
 关闭一个“gnss应用”，只是从逻辑上关闭一个gnss应用，并不一定真正关闭gnss，是有所有的gnss应用都处于关闭状态，才会去真正关闭gnss
 @api gnss.close()
 @number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长单位：秒，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
 @return nil
 @usage
-gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
-gnss.close(gnss.TIMER,{tag="TEST1"})
+gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+gnss.close(gnss.TIMER,{tag="MODE1"})
 ]]
 function gnss.close(mode,para)
     assert((para and type(para)=="table" and para.tag and type(para.tag)=="string"),"gnss.close para invalid")
@@ -558,9 +578,9 @@ end
 @api gnss.closeAll()
 @return nil
 @usage
-gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
-gnss.open(gnss.TIMERORSUC,{tag="TEST3",val=60,cb=test2Cb})
-gnss.open(gnss.DEFAULT,{tag="TEST2",cb=test2Cb})
+gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+gnss.open(gnss.DEFAULT,{tag="MODE2",cb=mode2_cb})
+gnss.open(gnss.TIMERORSUC,{tag="MODE3",val=60,cb=mode3_cb})
 gnss.closeAll()
 ]]
 function gnss.closeAll()
@@ -574,15 +594,15 @@ end
 判断一个“gnss应用”是否处于激活状态
 @api gnss.isActive(mode,para)
 @number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
-@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数,gnss应用模式和gnss应用标记唯一确定一个“gnss应用”，调用本接口查询状态时，mode和para.tag要和gnss.open打开一个“gnss应用”时传入的mode和para.tag保持一致
+@param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长单位：秒，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数,gnss应用模式和gnss应用标记唯一确定一个“gnss应用”，调用本接口查询状态时，mode和para.tag要和gnss.open打开一个“gnss应用”时传入的mode和para.tag保持一致
 @return bool result，处于激活状态返回true，否则返回nil
 @usage
-gnss.open(gnss.TIMER,{tag="TEST1",val=60,cb=test1Cb})
-gnss.open(gnss.TIMERORSUC,{tag="TEST3",val=60,cb=test2Cb})
-gnss.open(gnss.DEFAULT,{tag="TEST2",cb=test2Cb})
-log.info("定时器状态1",gnss.isActive(gnss.TIMER,{tag="TEST1"}))
-log.info("定时器状态2",gnss.isActive(gnss.DEFAULT,{tag="TEST2"}))
-log.info("定时器状态3",gnss.isActive(gnss.TIMERORSUC,{tag="TEST3"}))
+gnss.open(gnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
+gnss.open(gnss.DEFAULT,{tag="MODE2",cb=mode2_cb})
+gnss.open(gnss.TIMERORSUC,{tag="MODE3",val=60,cb=mode3_cb})
+log.info("gnss应用状态1",gnss.isActive(gnss.TIMER,{tag="MODE1"}))
+log.info("gnss应用状态2",gnss.isActive(gnss.DEFAULT,{tag="MODE2"}))
+log.info("gnss应用状态3",gnss.isActive(gnss.TIMERORSUC,{tag="MODE3"}))
 ]]
 function gnss.isActive(mode,para)
     assert((para and type(para)=="table" and para.tag and type(para.tag)=="string"),"gnss.isActive para invalid")
@@ -597,7 +617,7 @@ sys.subscribe("GNSS_STATE",statInd)
 --[[
 当前是否已经定位成功
 @api gnss.isFix()
-@return boolean   定位成功与否
+@return boolean   true/false，定位成功返回true，否则返回false
 @usage
 log.info("nmea", "isFix", gnss.isFix())
 ]]
@@ -607,38 +627,25 @@ end
 
 
 --[[
-清除历史定位数据
-@api gnss.clear()
-@return nil
-@usage
-gnss.clear()
-]]
-function gnss.clear()
-   libgnss.clear()
-end
-
-
---[[
-获取位置信息
+获取number类型的位置信息
 @api gnss.getIntLocation(speed_type)
 @number 速度单位,默认是m/h,
 0 - m/h 米/小时, 默认值, 整型
 1 - m/s 米/秒, 浮点数
 2 - km/h 千米/小时, 浮点数
 3 - kn/h 英里/小时, 浮点数
-@return int lat数据, 格式为 ddddddddd
-@return int lng数据, 格式为 ddddddddd
-@return int speed数据, 单位米.
+@return number lat数据, 格式为 ddddddddd，示例：343482649
+@return number lng数据, 格式为 ddddddddd，示例：1135039700
+@return number speed数据, 单位根据speed_type决定，m/h, m/s, km/h, kn/h
 @usage
--- 建议用gnss.getRmc(1)
+-- 该数据是通过RMC转换的，如果想获取更详细的可以用gnss.getRmc(1)
+-- speed数据默认 米/小时，返回值例如：343482649	1135039700	390m/h
 log.info("nmea", "loc", gnss.getIntLocation())
--- 默认 米/小时
-log.info("nmea", "loc", gnss.getIntLocation())
--- 米/秒
+-- speed数据米/秒，返回值例如：343482649	1135039700	0.1085478m/s
 log.info("nmea", "loc", gnss.getIntLocation(1))
--- 千米/小时
+-- speed数据千米/小时，返回值例如：343482649	1135039700	0.3907720km/h
 log.info("nmea", "loc", gnss.getIntLocation(2))
--- 英里/小时
+-- speed数据英里/小时，返回值例如：343482649	1135039700	0.2110000kn/h
 log.info("nmea", "loc", gnss.getIntLocation(3))
 ]]
 function gnss.getIntLocation(speed_type)
@@ -647,20 +654,20 @@ end
 
 
 --[[
-获取原始RMC位置信息
-@api gnss.getRmc(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始RMC字符串
-@return table 原始rmc数据
+获取RMC的信息，经纬度，时间，速度，航向，定位是否有效，磁偏角
+@api gnss.getRmc(lonlat_mode)
+@number 经纬度数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始RMC字符串
+@return table/string rmc数据
 @usage
 -- 解析nmea
 log.info("nmea", "rmc", json.encode(gnss.getRmc(2)))
--- 实例输出
+-- 实例输出,获取值的解释
 -- {
---     "course":0,
+--     "course":0,     // 地面航向，单位为度，从北向起顺时针计算
 --     "valid":true,   // true定位成功,false定位丢失
 --     "lat":23.4067,  // 纬度, 正数为北纬, 负数为南纬
 --     "lng":113.231,  // 经度, 正数为东经, 负数为西经
---     "variation":0,  // 地面航向，单位为度，从北向起顺时针计算
+--     "variation":0,  // 磁偏角，固定为0
 --     "speed":0       // 地面速度, 单位为"节"
 --     "year":2023,    // 年份
 --     "month":1,      // 月份, 1-12
@@ -669,9 +676,21 @@ log.info("nmea", "rmc", json.encode(gnss.getRmc(2)))
 --     "min":23,       // 分钟,0-59
 --     "sec":20,       // 秒,0-59
 -- }
+模式0示例：
+log.info("nmea", "rmc0", json.encode(gnss.getRmc(0)))
+{"variation":0,"lat":3434.8266602,"min":54,"valid":true,"day":17,"lng":11350.3974609,"speed":0.2110000,"year":2025,"month":7,"sec":30,"hour":11,"course":344.9920044}
+模式1示例：
+log.info("nmea", "rmc1", json.encode(gnss.getRmc(1)))
+{"variation":0,"lat":345804414,"min":54,"valid":true,"day":17,"lng":1138399500,"speed":0.2110000,"year":2025,"month":7,"sec":30,"hour":11,"course":344.9920044}
+模式2示例：
+log.info("nmea", "rmc2", json.encode(gnss.getRmc(2)))
+{"variation":0,"lat":34.5804405,"min":54,"valid":true,"day":17,"lng":113.8399506,"speed":0.2110000,"year":2025,"month":7,"sec":30,"hour":11,"course":344.9920044}
+模式3示例：
+log.info("nmea", "rmc3", json.encode(gnss.getRmc(3)))
+"$GNRMC,115430.000,A,3434.82649,N,11350.39700,E,0.211,344.992,170725,,,A,S*02\r"
 ]]
-function gnss.getRmc(data_mode)
-    return libgnss.getRmc(data_mode)
+function gnss.getRmc(lonlat_mode)
+    return libgnss.getRmc(lonlat_mode)
 end
 
 --[[
@@ -689,7 +708,7 @@ log.info("nmea", "gsv", json.encode(gnss.getGsv()))
 --             "snr":27,     // 信噪比
 --             "azimuth":278, // 方向角
 --             "elevation":59, // 仰角
---             "tp":0,        // 0 - GPS, 1 - BD
+--             "tp":0,        // 0 - GPS, 1 - BD, 2 - GLONASS, 3 - Galileo, 4 - QZSS
 --             "nr":4         // 卫星编号
 --         },
 --         // 这里忽略了22个卫星的信息
@@ -711,7 +730,7 @@ end
 --[[
 获取原始GSA信息
 @api gnss.getGsa(data_mode)
-@int 模式，默认为0 -所有卫星系统全部输出在一起，1 - 每个卫星系统单独分开输出
+@number 模式，默认为0 -所有卫星系统全部输出在一起，1 - 每个卫星系统单独分开输出
 @return table 原始GSA数据
 @usage
 -- 获取
@@ -735,8 +754,8 @@ end
 --[[
 获取VTA速度信息
 @api gnss.getVtg(data_mode)
-@int 可选, 3-原始字符串, 不传或者传其他值, 则返回浮点值
-@return table 原始VTA数据
+@number 可选, 3-原始字符串, 不传或者传其他值, 则返回浮点值
+@return table/string 原始VTA数据
 @usage
 -- 解析nmea
 log.info("nmea", "vtg", json.encode(gnss.getVtg()))
@@ -782,15 +801,13 @@ end
 
 --[[
 获取GGA数据
-@api gnss.getGga(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始字符串
+@api gnss.getGga(lonlat_mode)
+@number 经纬度数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始GGA字符串
 @return table GGA数据, 若如不存在会返回nil
 @usage
 local gga = gnss.getGga(2)
-if gga then
-    log.info("GGA", json.encode(gga, "11g"))
-end
---实例输出
+log.info("GGA", json.encode(gga, "11g"))
+--实例输出,获取值的解释:
 -- {
 --     "dgps_age":0,             // 差分校正时延，单位为秒
 --     "fix_quality":1,          // 定位状态标识 0 - 无效,1 - 单点定位,2 - 差分定位
@@ -801,22 +818,46 @@ end
 --     "latitude":23.4067,       // 纬度, 正数为北纬, 负数为南纬
 --     "height":0                // 椭球高，固定输出 1 位小数
 -- }
+模式0示例：
+local gga = gnss.getGga(0)
+if gga then
+    log.info("GGA0", json.encode(gga, "11g"))
+end
+{"longitude":11350.398438,"dgps_age":0,"altitude":165.50000000,"hdop":4.9239997860,"height":-15.199999809,"fix_quality":1,"satellites_tracked":5,"latitude":3434.8137207}
+模式1示例：
+local gga1 = gnss.getGga(1)
+if gga1 then
+    log.info("GGA1", json.encode(gga1, "11g"))
+end
+{"longitude":1138399884,"dgps_age":0,"altitude":165.50000000,"hdop":4.9239997860,"height":-15.199999809,"fix_quality":1,"satellites_tracked":5,"latitude":345802287}
+模式2示例：
+local gga2 = gnss.getGga(2)
+if gga2 then
+    log.info("GGA2", json.encode(gga2, "11g"))
+end
+{"longitude":113.83998871,"dgps_age":0,"altitude":165.50000000,"hdop":4.9239997860,"height":-15.199999809,"fix_quality":1,"satellites_tracked":5,"latitude":34.580226898}
+模式3示例：
+local gga3 = gnss.getGga(3)
+if gga3 then
+    log.info("GGA3", json.encode(gga3, "11g"))
+end
+"$GNGGA,131241.000,3434.81372,N,11350.39930,E,1,05,4.924,165.5,M,-15.2,M,,*6D\r"
 ]]
-function gnss.getGga(data_mode)
-    return  libgnss.getGga(data_mode)
+function gnss.getGga(lonlat_mode)
+    return  libgnss.getGga(lonlat_mode)
 end
 
 --[[
 获取GLL数据
 @api gnss.getGll(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
+@number 经纬度数据的格式, 0-DDMM.MMMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GLL数据, 若如不存在会返回nil
 @usage
 local gll = gnss.getGll(2)
 if gll then
     log.info("GLL", json.encode(gll, "11g"))
 end
--- 实例数据
+-- 实例数据,获取值的解释:
 -- {
 --     "status":"A",        // 定位状态, A有效, B无效
 --     "mode":"A",          // 定位模式, V无效, A单点解, D差分解
@@ -827,6 +868,24 @@ end
 --     "latitude":23.4067,  // 纬度, 正数为北纬, 负数为南纬
 --     "us":0               // 微妙数, 通常为0
 -- }
+模式0示例：
+local gll = gnss.getGll(0)
+if gll then
+    log.info("GLL0", json.encode(gll, "11g"))
+end
+{"longitude":11350.398438,"sec":43,"min":12,"mode":"A","hour":13,"us":0,"status":"A","latitude":3434.8132324}
+模式1示例：
+local gll1 = gnss.getGll(1)
+if gll1 then
+    log.info("GLL1", json.encode(gll1, "11g"))
+end
+{"longitude":1138399802,"sec":43,"min":12,"mode":"A","hour":13,"us":0,"status":"A","latitude":345802200}
+模式2示例：
+local gll2 = gnss.getGll(2)
+if gll2 then
+    log.info("GLL2", json.encode(gll2, "11g"))
+end
+{"longitude":113.83998108,"sec":43,"min":12,"mode":"A","hour":13,"us":0,"status":"A","latitude":34.580219269}
 ]]
 function gnss.getGll(data_mode)
     return  libgnss.getGll(data_mode)
@@ -836,14 +895,14 @@ end
 --[[
 获取位置字符串
 @api gnss.locStr(mode)
-@int 字符串模式. 0- "DDMM.MMM,N,DDMMM.MM,E,1.0",1 - DDDDDDD格式
+@number 字符串模式. 0- "DDMM.MMM,N,DDMMM.MM,E,1.0",1 - DDDDDDD格式
 @return 指定模式的字符串
 @usage
--- 仅推荐在定位成功后调用
+-- 仅可以在定位成功后调用，定位成功前调用数据无效
 log.info("nmea", "locStr0", json.encode(gnss.locStr(0)))
 log.info("nmea", "locStr1", json.encode(gnss.locStr(1)))
 -- 实例数据
-locStr0	"3434.801,N,11350.40,E,1.0"
+locStr0	"3434.801,N,11350.40,E,1.0"    1.0为默认海拔值，非实际值
 locStr1	"343480057,1135040025"
 ]]
 function gnss.locStr(mode)

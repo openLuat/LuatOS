@@ -61,15 +61,15 @@
 
 - Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
 
-| Air8101核心板   | AirETH_1000配件板 |
-| --------------- | ----------------- |
-| 59/3V3          | 3.3v              |
-| gnd             | gnd               |
-| RGB DCLK/GPIO14 | SCK               |
-| RGB DISP/GPIO15 | CSS               |
-| RGB DE/GPIO16   | SDO               |
-| RGB HSYN/GPIO17 | SDI               |
-| 14/GPIO8        | INT               |
+| Air8101核心板 | AirETH_1000配件板 |
+| ------------- | ----------------- |
+| 59/3V3        | 3.3v              |
+| gnd           | gnd               |
+| 28/DCLK       | SCK               |
+| 54/DISP       | CSS               |
+| 55/HSYN       | SDO               |
+| 57/DE         | SDI               |
+| 14/GPIO8      | INT               |
 
 ## 演示软件环境
 

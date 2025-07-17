@@ -109,6 +109,15 @@ int luat_lv_font_load(lua_State *L) {
         #ifdef LUAT_USE_GTFONT
             luat_spi_device_t *spi = lua_touserdata(L, 1);
             uint8_t size = luaL_optinteger(L, 2, 16);
+            if (size&1){
+                LLOGE("size not support odd");
+                size++;
+            }
+            if (size<16||size>192){
+                LLOGE("size not support");
+                return 0;
+            }
+            
             uint8_t bpp = luaL_optinteger(L, 3, 4);
 
             if (size>=16 && size<34) bpp = 4;

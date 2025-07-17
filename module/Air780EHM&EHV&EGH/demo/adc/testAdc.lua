@@ -16,7 +16,7 @@
 local testAdc = {}
 
 function adc_pin()
-    --Air780EHV开发板ADC编号
+    --开发板ADC编号
     -- 默认不开启分压,范围是0-1.1v精度高
     -- 开启分压后，外部输入最大不可超过3.3V
     -- 设置分压要在adc.open之前设置，否则无效!!

@@ -18,6 +18,7 @@ log.info("main", "uart_two demo run......")
 -- 根据实际设备选取不同的uartid
 local uartid1 = 1 -- 第一个串口id
 local uartid2 = 2 -- 第二个串口id
+--local uartid2 = 3 --第三个串口id(Air780EGH用第三个串口，UART2已经用作通信主芯片和GNSS芯片之间的通信用)
 
 -- 初始化第一个串口
 uart.setup(

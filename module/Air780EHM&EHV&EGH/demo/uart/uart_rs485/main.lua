@@ -16,7 +16,7 @@ end
 log.info("main", "uart demo run......")
 
 local uartid = 1        -- 根据实际设备选取不同的uartid
-local uart485Pin = 25   -- 用于控制485接收和发送的使能引脚
+local uart485Pin = 25   -- 用于控制485接收和发送的使能引脚（根据实际设备选取不同引脚）
 
 gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
 

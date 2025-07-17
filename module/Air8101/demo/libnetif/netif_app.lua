@@ -18,27 +18,27 @@ sys.taskInit(function()
     libnetif.set_priority_order({
     -- Air8101 支持 MAC接口 与 SPI接口 两种方式外挂以太网，程序中默认使用MAC接口，请根据实际情况选择。
         -- Air8101 MAC接口 外挂以太网的配置代码：
-        {
-            ETHERNET = {
-                pwrpin = 13,                    -- 供电使能引脚(number)，根据接线引脚选择，Air8101核心板默认为gpio13
-                ping_time = 3000,               -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
-                ping_ip = "112.125.89.8"        -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
-            }
-        },
-        -- Air8101 SPI接口 外挂以太网的配置代码：
         -- {
-        --     ETHUSER1 = {
+        --     ETHERNET = {
         --         pwrpin = 13,                    -- 供电使能引脚(number)，根据接线引脚选择，Air8101核心板默认为gpio13
         --         ping_time = 3000,               -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
-        --         ping_ip = "112.125.89.8",       -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
-        --         tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        --         opts = { spi = 0, cs = 15 }
+        --         ping_ip = "112.125.89.8"        -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
         --     }
         -- },
+        -- Air8101 SPI接口 外挂以太网的配置代码：
+        {
+            ETHUSER1 = {
+                pwrpin = 13,                    -- 供电使能引脚(number)，根据接线引脚选择，Air8101核心板默认为gpio13
+                ping_time = 3000,               -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
+                ping_ip = "112.125.89.8",       -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
+                tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+                opts = { spi = 1, cs = 3 }
+            }
+        },
         {
             WIFI = {
-                ssid = "test",                  --wifi名称
-                password = "HZ88888888",        --wifi密码
+                ssid = "HONOR_100_Pro",                  --wifi名称
+                password = "12356789",        --wifi密码
                 -- ping_ip = "112.125.89.8"     -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件
             }
         }

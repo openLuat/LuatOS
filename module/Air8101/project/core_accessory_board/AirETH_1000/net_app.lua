@@ -28,7 +28,7 @@ local function spi_eth_init_task_func()
     sys.wait(6000)
     -- 初始化SPI
     local result = spi.setup(
-        0,--spi_id
+        1,--spi_id
         nil,
         0,--CPHA
         0,--CPOL
@@ -57,7 +57,7 @@ local function spi_eth_init_task_func()
     -- socket.LWIP_USER1 指定网络适配器编号
     -- netdrv.CH390外挂CH390
     -- SPI ID 0, 片选 GPIO15
-    netdrv.setup(socket.LWIP_USER1, netdrv.CH390, {spi=0,cs=15})
+    netdrv.setup(socket.LWIP_USER1, netdrv.CH390, {spi=1,cs=3})
 
     --在以太网上开启动态主机配置协议
     netdrv.dhcp(socket.LWIP_USER1, true)

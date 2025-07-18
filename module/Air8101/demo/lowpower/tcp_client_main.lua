@@ -24,7 +24,7 @@ local tcp_client_sender = require "tcp_client_sender"
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 42753
+local SERVER_PORT = 47043
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
@@ -54,7 +54,7 @@ local function tcp_client_main_task_func()
         log.info("tcp_client_main_task_func", "recv IP_READY")
 
         -- 创建socket client对象
-        socket_client = socket.create(socket.LWIP_STA, TASK_NAME)
+        socket_client = socket.create(nil, TASK_NAME)
         -- 如果创建socket client对象失败
         if not socket_client then
             log.error("tcp_client_main_task_func", "socket.create error")

@@ -1,1 +1,0 @@
-[Air780EHV固件下载地址](https://docs.openluat.com/air780ehv/luatos/firmware/version/)

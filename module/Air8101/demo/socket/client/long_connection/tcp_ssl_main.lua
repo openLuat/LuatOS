@@ -54,7 +54,7 @@ local function tcp_ssl_main_task_func()
         log.info("tcp_ssl_main_task_func", "recv IP_READY")
 
         -- 创建socket client对象
-        socket_client = socket.create(socket.LWIP_STA, TASK_NAME)
+        socket_client = socket.create(nil, TASK_NAME)
         -- 如果创建socket client对象失败
         if not socket_client then
             log.error("tcp_ssl_main_task_func", "socket.create error")

@@ -79,7 +79,7 @@ static int l_mcu_unique_id(lua_State* L) {
 @usage
 local tick = mcu.ticks()
 print("ticks", tick)
--- 如需不会溢出的值, 可用mcu.ticks32(), 于2024.5.7新增
+-- 如需不会溢出的值, 可用mcu.ticks2(), 于2024.5.7新增
 */
 static int l_mcu_ticks(lua_State* L) {
     long tick = luat_mcu_ticks();

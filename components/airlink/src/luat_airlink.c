@@ -29,6 +29,7 @@ luat_rtos_queue_t airlink_ippkg_queue;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern void luat_airlink_start_uart(void);
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
@@ -548,4 +549,10 @@ int luat_airlink_has_wifi(void) {
         return 1;
     }
     return 0;
+}
+
+uint32_t luat_airlink_sversion(void) {
+    uint32_t version = 0;
+    memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    return version;
 }

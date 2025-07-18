@@ -36,7 +36,8 @@ local current_priority = { socket.LWIP_ETH, socket.LWIP_STA, socket.LWIP_GP }
 local available = {
     [socket.LWIP_STA] = connection_states.DISCONNECTED,
     [socket.LWIP_ETH] = connection_states.DISCONNECTED,
-    [socket.LWIP_GP] = connection_states.DISCONNECTED
+    [socket.LWIP_GP] = connection_states.DISCONNECTED,
+    [socket.LWIP_USER1] = connection_states.DISCONNECTED
 }
 -- 当前使用的网卡
 local current_active = socket.LWIP_USER0
@@ -46,7 +47,8 @@ local function type_to_string(net_type)
     local type_map = {
         [socket.LWIP_STA] = "WiFi",
         [socket.LWIP_ETH] = "Ethernet",
-        [socket.LWIP_GP] = "4G"
+        [socket.LWIP_GP] = "4G",
+        [socket.LWIP_USER1] = "8101SPIETH"
     }
     return type_map[net_type] or "Unknown"
 end
@@ -111,6 +113,40 @@ local function setup_eth(config)
     return true
 end
 
+--打开8101spi以太网Wan功能
+local function setup_eth_user1(config)
+    eth_ping_ip = config.ping_ip
+    if type(config.ping_time) == "number" then
+        ping_time = config.ping_time
+    end
+    log.info("初始化以太网")
+    -- 打开CH390供电
+    gpio.setup(config.pwrpin, 1, gpio.PULLUP)
+    sys.wait(100)
+    log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
+    -- 配置SPI和初始化网络驱动
+    local result = spi.setup(config.opts.spi,     -- spi id
+        nil, 0,                                   -- CPHA
+        0,                                        -- CPOL
+        8,                                        -- 数据宽度
+        51200000                                  -- ,--波特率
+    )
+    log.info("main", "open spi", result)
+    if result ~= 0 then     -- 返回值为0，表示打开成功
+        log.info("main", "spi open error", result)
+        gpio.close(config.pwrpin)
+        return false
+    end
+    -- 初始化指定netdrv设备,
+    -- socket.LWIP_ETH 网络适配器编号
+    -- netdrv.CH390外挂CH390
+    -- SPI ID 1, 片选 GPIO12
+    netdrv.setup(socket.LWIP_USER1, config.tp, config.opts)
+    netdrv.dhcp(socket.LWIP_USER1, true)
+    available[socket.LWIP_USER1] = connection_states.OPENED
+    log.info("以太网初始化完成")
+    return true
+end
 
 --连接wifi(STA模式)
 local function set_wifi_info(config)
@@ -152,6 +188,7 @@ libnetif.set_priority_order({
                                       -- 填写外网ip的话要保证外网ip始终可用，
                                       -- 填写局域网ip的话要确保相应ip固定且能够被ping通
             ping_time = 10000         -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
+                                      -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
         }
     },
     { -- 次优先级网络
@@ -163,6 +200,7 @@ libnetif.set_priority_order({
                                       -- 填写外网ip的话要保证外网ip始终可用，
                                       -- 填写局域网ip的话要确保相应ip固定且能够被ping通
             ping_time = 10000         -- 填写ping_ip且未ping通时的检测间隔(ms, 可选,默认为10秒)
+                                      -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
             tp = netdrv.CH390         -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
             opts = { spi = 1, cs = 12 }   -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         }
@@ -173,6 +211,11 @@ libnetif.set_priority_order({
 })
 ]]
 function libnetif.set_priority_order(networkConfigs)
+    --判断表中数据个数
+    if #networkConfigs <2 then
+        log.error("请至少添加两个网络")
+        return false
+    end
     local new_priority = {}
     for _, config in ipairs(networkConfigs) do
         if type(config.WIFI) == "table" then
@@ -183,6 +226,15 @@ function libnetif.set_priority_order(networkConfigs)
                 return false
             end
             table.insert(new_priority, socket.LWIP_STA)
+        end
+        if type(config.ETHUSER1) == "table" then
+            --开启以太网
+            local res = setup_eth_user1(config.ETHUSER1)
+            if res == false then
+                log.error("以太网打开失败")
+                return false
+            end
+            table.insert(new_priority, socket.LWIP_USER1)
         end
         if type(config.ETHERNET) == "table" then
             --开启以太网
@@ -391,17 +443,20 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en, eth_
     netdrv.napt(main_adapter)
     return true
 end
-
+--httpdns域名解析测试
+local function http_dnstest(adaptertest)
+    local ip = httpdns.ali("baidu.com", { adapter = adaptertest, timeout = 3000 })
+    if ip ~= nil then
+        available[adaptertest] = connection_states.CONNECTED
+    end
+    log.info("httpdns", "baidu.com", ip)
+end
 -- ping操作
 local function ping_request(adaptertest)
     log.info("dns_request",type_to_string(adaptertest))
-    if adaptertest == socket.LWIP_ETH then
+    if adaptertest == socket.LWIP_ETH or adaptertest == socket.LWIP_USER1 then
         if eth_ping_ip == nil then
-            local ip = httpdns.ali("baidu.com", {adapter=adaptertest, timeout=3000})
-            if ip ~= nil then
-                available[adaptertest] = connection_states.CONNECTED
-            end
-            log.info("httpdns", "baidu.com", ip)
+           http_dnstest(adaptertest)
         else
             icmp.setup(adaptertest)
             icmp.ping(adaptertest, eth_ping_ip)
@@ -409,18 +464,22 @@ local function ping_request(adaptertest)
     end
     if adaptertest == socket.LWIP_STA then
         if wifi_ping_ip == nil then
-            local ip = httpdns.ali("baidu.com", {adapter=adaptertest, timeout=3000})
-            if ip ~= nil then
-                available[adaptertest] = connection_states.CONNECTED
-            end
-            log.info("httpdns", "baidu.com", ip)
+            http_dnstest(adaptertest)
         else
             icmp.setup(adaptertest)
             icmp.ping(adaptertest, wifi_ping_ip)
         end
     end
     if adaptertest == socket.LWIP_GP then
-        available[socket.LWIP_GP] = connection_states.CONNECTED
+        if eth_ping_ip ~= nil then
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, eth_ping_ip)
+        elseif wifi_ping_ip ~= nil then
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, wifi_ping_ip)
+        else
+            http_dnstest(adaptertest)
+        end
     end
     apply_priority()
 end
@@ -455,6 +514,19 @@ sys.taskInit(function()
         sys.wait(1000)
     end
 end)
+
+
+--[[
+对正常状态的网卡进行ping测试
+@api libnetif.ping_test()
+]]
+function libnetif.ping_test()
+    for _, net_type in ipairs(current_priority) do
+        if available[net_type] == connection_states.CONNECTED then
+            available[net_type] = connection_states.CONNECTING
+        end
+    end
+end
 
 
 sys.subscribe("PING_RESULT", function(id, time, dst)

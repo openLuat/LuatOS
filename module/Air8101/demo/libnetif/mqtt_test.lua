@@ -33,6 +33,19 @@ libnetif.notify_status(function(net_type)
     sys.publish("mqtt_pub", "close")  --关闭现在的mqtt链接
 end)
 
+-- 这里演示在另一个task里上报数据, 会定时上报数据,不需要就注释掉
+sys.taskInit(function()
+    sys.wait(3000)
+    local data = "hello mqtt"
+    local qos = 1 -- QOS0不带puback, QOS1是带puback的
+    while true do
+        sys.wait(3000)
+        if mqttc and mqttc:ready() then
+            local pkgid = mqttc:publish(pub_topic, data, qos)
+        end
+    end
+end)
+
 
 sys.taskInit(function()
         -- 等待联网

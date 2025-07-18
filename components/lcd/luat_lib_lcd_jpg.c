@@ -25,7 +25,6 @@
 
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
-extern const luat_lcd_opts_t lcd_opts_custom;
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern void lcd_auto_flush(luat_lcd_conf_t *conf);
 
@@ -77,7 +76,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     return 1;    /* Continue to decompress */
 }
 
-int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
+LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
     void *work;       /* Pointer to the decompressor work area */

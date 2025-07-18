@@ -12,6 +12,10 @@
 #define LLOGD(...) 
 
 int luat_drv_bluetooth_init(luat_bluetooth_t* luat_bluetooth) {
+    if (luat_airlink_sversion() < 10) {
+        LLOGE("wifi fw version too low, need >= 10");
+        return -1;
+    }
     return luat_airlink_drv_bluetooth_init(luat_bluetooth);
 }
 

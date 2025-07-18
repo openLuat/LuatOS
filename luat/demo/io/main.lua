@@ -14,7 +14,9 @@ if wdt then
 end
 
 
--- Lua IO 操作测试 Demo
+
+local function io_test()
+    -- Lua IO 操作测试 Demo
 log.info("io_test", "开始测试IO模块功能")
 
 -- 1. 测试文件存在性检查
@@ -74,7 +76,12 @@ end
 -- 8. 测试目录操作
 local testDir = "/test_dir"
 log.info("io_test", "创建目录:", io.mkdir(testDir))
-log.info("io_test", "目录存在:", io.exists(testDir))
+sys.wait(1000)
+
+local ret, data = io.lsdir(testDir)
+if ret then
+log.info("io_test", "目标目录存在", json.encode(data))
+end
 
 -- 在目录中创建几个测试文件
 io.writeFile(testDir.."/file1.txt", "测试文件1")
@@ -94,8 +101,24 @@ local mountPoints = io.lsmount()
 log.info("io_test", "挂载点列表:", json.encode(mountPoints))
 
 -- 11. 测试删除目录
+
+log.info("io_test","删除目录前先删除目录下的文件，否则非空目录删除会失败")
+
+log.info("io_test","删除测试文件1",os.remove(testDir.."/file1.txt"))
+log.info("io_test","删除测试文件2",os.remove(testDir.."/file2.txt"))
+log.info("io_test","删除测试文件3",os.remove(testDir.."/file3.txt"))
+
+
 log.info("io_test", "删除目录:", io.rmdir(testDir))
-log.info("io_test", "目录删除后存在:", io.exists(testDir))
+
+
+local ret, data = io.lsdir(testDir)
+if ret then
+log.info("io_test", "目录删除后存在:", json.encode(data))
+else
+log.info("io_test", "目录删除后不存在")
+
+end
 
 -- 12. 测试文件系统格式化(通常不执行，因为会清空数据)
 --[[
@@ -106,6 +129,9 @@ log.info("io_test", "格式化文件系统:", formatOk, err)
 -- 清理测试文件
 os.remove(testFile)
 log.info("io_test", "测试完成，已清理测试文件")
+end
+
+sys.taskInit(io_test)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

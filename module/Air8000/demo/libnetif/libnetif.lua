@@ -4,6 +4,10 @@
 @version 1.0
 @date    2025.06.26
 @author  wjq
+本文件的对外接口有3个：
+1、libnetif.setPriorityOrder(networkConfigs)：设置网络优先级顺序并初始化对应网络，在net_app.lua中调用；
+2、libnetif.notifyStatus(cb_fnc)：设置网络状态变化回调函数；
+3、libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)：配置网络代理实现多网融合，在net_app.lua中调用；
 ]]
 local libnetif = {}
 
@@ -32,32 +36,34 @@ local current_priority = { socket.LWIP_ETH, socket.LWIP_STA, socket.LWIP_GP }
 local available = {
     [socket.LWIP_STA] = connection_states.DISCONNECTED,
     [socket.LWIP_ETH] = connection_states.DISCONNECTED,
-    [socket.LWIP_GP] = connection_states.DISCONNECTED
+    [socket.LWIP_GP] = connection_states.DISCONNECTED,
+    [socket.LWIP_USER1] = connection_states.DISCONNECTED
 }
 -- 当前使用的网卡
 local current_active = socket.LWIP_USER0
 
 -- 网络类型转字符串
-local function typeToString(net_type)
+local function type_to_string(net_type)
     local type_map = {
         [socket.LWIP_STA] = "WiFi",
         [socket.LWIP_ETH] = "Ethernet",
-        [socket.LWIP_GP] = "4G"
+        [socket.LWIP_GP] = "4G",
+        [socket.LWIP_USER1] = "8101SPIETH"
     }
     return type_map[net_type] or "Unknown"
 end
 
 -- 状态更改后重新设置默认网卡
-local function applyPriority()
+local function apply_priority()
     -- 查找优先级最高的可用网络
     for _, net_type in ipairs(current_priority) do
-        -- log.info("网卡顺序",typeToString(net_type),available[net_type])
+        -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
         if available[net_type] == connection_states.CONNECTED then
             -- 设置优先级高的网卡
-            log.info("设置网卡", typeToString(net_type))
+            log.info("设置网卡", type_to_string(net_type))
             if current_active ~= net_type then
                 if current_active ~= socket.LWIP_USER0 then
-                    states_cbfnc(typeToString(net_type)) -- 默认网卡改变的回调函数
+                    states_cbfnc(type_to_string(net_type)) -- 默认网卡改变的回调函数
                 end
                 socket.dft(net_type)
                 current_active = net_type
@@ -68,7 +74,7 @@ local function applyPriority()
 end
 
 --打开以太网Wan功能
-local function setupETH(config)
+local function setup_eth(config)
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -77,13 +83,13 @@ local function setupETH(config)
     -- 打开CH390供电
     gpio.setup(config.pwrpin, 1, gpio.PULLUP)
     sys.wait(100)
-
-    if config.mode == "Air8101" then
+    if config.tp == nil then
         log.info("8101以太网")
         netdrv.setup(socket.LWIP_ETH)
     else
+        log.info("config.opts.spi",config.opts.spi,",config.type",config.tp)
         -- 配置SPI和初始化网络驱动
-        local result = spi.setup(1, -- spi id
+        local result = spi.setup(config.opts.spi, -- spi id
         nil, 0, -- CPHA
         0, -- CPOL
         8, -- 数据宽度
@@ -99,7 +105,7 @@ local function setupETH(config)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
-        netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi = 1, cs = 12})
+        netdrv.setup(socket.LWIP_ETH, config.tp, config.opts)
     end
     netdrv.dhcp(socket.LWIP_ETH, true)
     available[socket.LWIP_ETH] = connection_states.OPENED
@@ -107,9 +113,43 @@ local function setupETH(config)
     return true
 end
 
+--打开8101spi以太网Wan功能
+local function setup_eth_user1(config)
+    eth_ping_ip = config.ping_ip
+    if type(config.ping_time) == "number" then
+        ping_time = config.ping_time
+    end
+    log.info("初始化以太网")
+    -- 打开CH390供电
+    gpio.setup(config.pwrpin, 1, gpio.PULLUP)
+    sys.wait(100)
+    log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
+    -- 配置SPI和初始化网络驱动
+    local result = spi.setup(config.opts.spi,     -- spi id
+        nil, 0,                                   -- CPHA
+        0,                                        -- CPOL
+        8,                                        -- 数据宽度
+        51200000                                  -- ,--波特率
+    )
+    log.info("main", "open spi", result)
+    if result ~= 0 then     -- 返回值为0，表示打开成功
+        log.info("main", "spi open error", result)
+        gpio.close(config.pwrpin)
+        return false
+    end
+    -- 初始化指定netdrv设备,
+    -- socket.LWIP_ETH 网络适配器编号
+    -- netdrv.CH390外挂CH390
+    -- SPI ID 1, 片选 GPIO12
+    netdrv.setup(socket.LWIP_USER1, config.tp, config.opts)
+    netdrv.dhcp(socket.LWIP_USER1, true)
+    available[socket.LWIP_USER1] = connection_states.OPENED
+    log.info("以太网初始化完成")
+    return true
+end
 
 --连接wifi(STA模式)
-local function setWifiInfo(config)
+local function set_wifi_info(config)
     wifi_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -131,25 +171,38 @@ local function setWifiInfo(config)
 end
 
 --[[
-设置网络优先级
-@api libnetif.setPriorityOrder(new_priority)
+设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.
+例：插入网线且能够dns域名解析获取到baidu.com的ip，网卡状态切换为可用。拔掉网线网卡状态切换为不可用
+@api libnetif.set_priority_order(new_priority)
 @table 网络优先级列表
 @return boolean 成功返回true，失败返回false
 @usage
-libnetif.setPriorityOrder({
+libnetif.set_priority_order({
     { -- 最高优先级网络
         WIFI = { -- WiFi配置
             ssid = "your_ssid",       -- WiFi名称(string)
             password = "your_pwd",    -- WiFi密码(string)
-            ping_ip = "192.168.1.1",  -- 连通性检测IP(string),根据需要设置外网或局域网ip
-            ping_time = 10000         -- 检测间隔(ms, 可选，默认为10秒)
+            ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
+                                      -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
+                                      -- 所以需要根据网络环境填写内网或者外网ip,
+                                      -- 填写外网ip的话要保证外网ip始终可用，
+                                      -- 填写局域网ip的话要确保相应ip固定且能够被ping通
+            ping_time = 10000         -- 填写ping_ip且未ping通时的检测间隔(ms, 可选，默认为10秒)
+                                      -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
         }
     },
     { -- 次优先级网络
         ETHERNET = { -- 以太网配置
             pwrpin = 140,             -- 供电使能引脚(number)
-            ping_ip = "192.168.1.1",  -- 连通性检测IP(string)，根据需要设置外网或局域网ip
-            ping_time = 10000         -- 检测间隔(ms, 可选,默认为10秒)
+            ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
+                                      -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
+                                      -- 所以需要根据网络环境填写内网或者外网ip,
+                                      -- 填写外网ip的话要保证外网ip始终可用，
+                                      -- 填写局域网ip的话要确保相应ip固定且能够被ping通
+            ping_time = 10000         -- 填写ping_ip且未ping通时的检测间隔(ms, 可选,默认为10秒)
+                                      -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
+            tp = netdrv.CH390         -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+            opts = { spi = 1, cs = 12 }   -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         }
     },
     { -- 最低优先级网络
@@ -157,21 +210,35 @@ libnetif.setPriorityOrder({
     }
 })
 ]]
-function libnetif.setPriorityOrder(networkConfigs)
+function libnetif.set_priority_order(networkConfigs)
+    --判断表中数据个数
+    if #networkConfigs <2 then
+        log.error("请至少添加两个网络")
+        return false
+    end
     local new_priority = {}
     for _, config in ipairs(networkConfigs) do
         if type(config.WIFI) == "table" then
             --开启wifi
-            local res = setWifiInfo(config.WIFI)
+            local res = set_wifi_info(config.WIFI)
             if res == false then
                 log.error("wifi连接失败")
                 return false
             end
             table.insert(new_priority, socket.LWIP_STA)
         end
+        if type(config.ETHUSER1) == "table" then
+            --开启以太网
+            local res = setup_eth_user1(config.ETHUSER1)
+            if res == false then
+                log.error("以太网打开失败")
+                return false
+            end
+            table.insert(new_priority, socket.LWIP_USER1)
+        end
         if type(config.ETHERNET) == "table" then
             --开启以太网
-            local res = setupETH(config.ETHERNET)
+            local res = setup_eth(config.ETHERNET)
             if res == false then
                 log.error("以太网打开失败")
                 return false
@@ -186,24 +253,24 @@ function libnetif.setPriorityOrder(networkConfigs)
 
     -- 设置新优先级
     current_priority = new_priority
-    applyPriority()
+    apply_priority()
 
     return true
 end
 
 --[[
 设置网络状态变化回调函数
-@api libnetif.notifyStatus(cb_fnc)
+@api libnetif.notify_status(cb_fnc)
 @function 回调函数
 @usage
-    libnetif.notifyStatus(function(net_type)
+    libnetif.notify_status(function(net_type)
     log.info("可以使用优先级更高的网络:", net_type)
     end)
 ]]
-function libnetif.notifyStatus(cb_fnc)
-    log.info("notifyStatus", type(cb_fnc))
+function libnetif.notify_status(cb_fnc)
+    log.info("notify_status", type(cb_fnc))
     if type(cb_fnc) ~= "function" then
-        log.error("notifyStatus设置错误，请传入一个函数")
+        log.error("notify_status设置错误，请传入一个函数")
         return
     end
     states_cbfnc = cb_fnc
@@ -217,10 +284,18 @@ end
 @string wifi名称，没有用到wifi可不填
 @string wifi密码，没有用到wifi可不填
 @int 以太网模块的供电使能引脚（gpio编号），没有用到以太网模块可不填
+@table 以太网模块参数(选填参数)，仅spi方式外挂以太网时需要填写。
 @usage
-    libnetif.setproxy(socket.LWIP_AP,socket.LWIP_ETH,"test","HZ88888888",140)
+    --典型应用：
+    -- 4G作为出口供WiFi和以太网设备上网
+    libnetif.setproxy(socket.LWIP_AP, socket.LWIP_GP, "test", "HZ88888888", nil)
+    libnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, nil, nil, 140, {tp = netdrv.CH390, opts = { spi = 1, cs = 12}})
+    -- 以太网作为出口供WiFi设备上网
+    libnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, "Hotspot", "password123", 13)
+    -- 4G作为出口供以太网设备上网
+    libnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, nil, nil, 140, {tp = netdrv.CH390, opts = { spi = 1, cs = 12}})
 ]]
-function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)
+function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en, eth_config)
     if adapter == socket.LWIP_ETH then
         log.info("ch390", "打开LDO供电", power_en)
         gpio.setup(power_en, 1, gpio.PULLUP)
@@ -241,7 +316,7 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网")
-        netdrv.setup(socket.LWIP_ETH, netdrv.CH390, { spi = 1, cs = 12, irq = 255 })
+        netdrv.setup(socket.LWIP_ETH, eth_config.tp, eth_config.opts)
         log.info("netdrv", "等待以太网就绪")
         sys.wait(1000)
         -- 设置以太网的 IP 地址、子网掩码、网关地址
@@ -299,28 +374,33 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)
     if main_adapter == socket.LWIP_ETH and available[socket.LWIP_ETH] == connection_states.DISCONNECTED then
         -- 打开WAN功能
         log.info("ch390", "打开LDO供电", power_en)
-        -- wlan.disconnect()
-        gpio.setup(power_en, 1, gpio.PULLUP) -- 打开ch390供电
+        -- 打开CH390供电
+        gpio.setup(power_en, 1, gpio.PULLUP)
         sys.wait(100)
-        local result = spi.setup(1,          -- spi_id
-            nil, 0,                          -- CPHA
-            0,                               -- CPOL
-            8,                               -- 数据宽度
-            25600000                         -- ,--频率
-        -- spi.MSB,--高低位顺序    可选，默认高位在前
-        -- spi.master,--主模式     可选，默认主
-        -- spi.full--全双工       可选，默认全双工
-        )
-        log.info("main", "open", result)
-        if result ~= 0 then -- 返回值为0，表示打开成功
-            log.info("main", "spi open error", result)
-            gpio.close(power_en)
-            return false
-        end
-        local success = netdrv.setup(socket.LWIP_ETH, netdrv.CH390, { spi = 1, cs = 12 })
-        if not success then
-            log.error("以太网初始化失败")
-            return false
+        if eth_config.tp == nil then
+            log.info("8101以太网")
+            netdrv.setup(socket.LWIP_ETH)
+        else
+            log.info("config.opts.spi", eth_config.opts.spi, ",config.type", eth_config.tp)
+            -- 配置SPI和初始化网络驱动
+            local result = spi.setup(eth_config.opts.spi, -- spi id
+                nil, 0,                           -- CPHA
+                0,                                -- CPOL
+                8,                                -- 数据宽度
+                51200000                          -- ,--波特率
+            )
+            log.info("main", "open spi", result)
+            if result ~= 0 then -- 返回值为0，表示打开成功
+                log.info("main", "spi open error", result)
+                gpio.close(eth_config.pwrpin)
+                return false
+            end
+            -- 初始化指定netdrv设备,
+            local success = netdrv.setup(socket.LWIP_ETH, eth_config.tp, eth_config.opts)
+            if not success then
+                log.error("以太网初始化失败")
+                return false
+            end
         end
         netdrv.dhcp(socket.LWIP_ETH, true)
         local count = 1
@@ -363,17 +443,20 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)
     netdrv.napt(main_adapter)
     return true
 end
-
+--httpdns域名解析测试
+local function http_dnstest(adaptertest)
+    local ip = httpdns.ali("baidu.com", { adapter = adaptertest, timeout = 3000 })
+    if ip ~= nil then
+        available[adaptertest] = connection_states.CONNECTED
+    end
+    log.info("httpdns", "baidu.com", ip)
+end
 -- ping操作
 local function ping_request(adaptertest)
-    log.info("dns_request",typeToString(adaptertest))
-    if adaptertest == socket.LWIP_ETH then
+    log.info("dns_request",type_to_string(adaptertest))
+    if adaptertest == socket.LWIP_ETH or adaptertest == socket.LWIP_USER1 then
         if eth_ping_ip == nil then
-            local ip = httpdns.ali("air32.cn", {adapter=adaptertest, timeout=3000})
-            if ip ~= nil then
-                available[adaptertest] = connection_states.CONNECTED
-            end
-            log.info("httpdns", "air32.cn", ip)
+           http_dnstest(adaptertest)
         else
             icmp.setup(adaptertest)
             icmp.ping(adaptertest, eth_ping_ip)
@@ -381,35 +464,39 @@ local function ping_request(adaptertest)
     end
     if adaptertest == socket.LWIP_STA then
         if wifi_ping_ip == nil then
-            local ip = httpdns.ali("air32.cn", {adapter=adaptertest, timeout=3000})
-            if ip ~= nil then
-                available[adaptertest] = connection_states.CONNECTED
-            end
-            log.info("httpdns", "air32.cn", ip)
+            http_dnstest(adaptertest)
         else
             icmp.setup(adaptertest)
             icmp.ping(adaptertest, wifi_ping_ip)
         end
     end
     if adaptertest == socket.LWIP_GP then
-        available[socket.LWIP_GP] = connection_states.CONNECTED
+        if eth_ping_ip ~= nil then
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, eth_ping_ip)
+        elseif wifi_ping_ip ~= nil then
+            icmp.setup(adaptertest)
+            icmp.ping(adaptertest, wifi_ping_ip)
+        else
+            http_dnstest(adaptertest)
+        end
     end
-    applyPriority()
+    apply_priority()
 end
 -- 网卡上线回调函数
 local function ip_ready_handle(ip, adapter)
-    log.info("ip_ready_handle", ip, typeToString(adapter))
+    log.info("ip_ready_handle", ip, type_to_string(adapter))
     -- 需要ping操作，ping通后认为网络可用
     available[adapter] = connection_states.CONNECTING
     -- ping_request(adapter)
 end
 -- 网卡下线回调函数
 local function ip_lose_handle(adapter)
-    log.info("ip_lose_handle", typeToString(adapter))
+    log.info("ip_lose_handle", type_to_string(adapter))
     available[adapter] = connection_states.DISCONNECTED
     if current_active == adapter then
-        log.info(typeToString(adapter) .. " 失效，切换到其他网络")
-        applyPriority()
+        log.info(type_to_string(adapter) .. " 失效，切换到其他网络")
+        apply_priority()
     end
 end
 
@@ -417,10 +504,10 @@ end
 sys.taskInit(function()
     while true do
         for _, net_type in ipairs(current_priority) do
-            -- log.info("网卡顺序",typeToString(net_type),available[net_type])
+            -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
             if available[net_type] == connection_states.CONNECTING then
                 ping_request(net_type)
-                log.info(typeToString(net_type) .. "网卡未ping通，需要定时ping")
+                log.info(type_to_string(net_type) .. "网卡未ping通，需要定时ping")
                 sys.wait(ping_time)
             end
         end
@@ -429,10 +516,23 @@ sys.taskInit(function()
 end)
 
 
+--[[
+对正常状态的网卡进行ping测试
+@api libnetif.ping_test()
+]]
+function libnetif.ping_test()
+    for _, net_type in ipairs(current_priority) do
+        if available[net_type] == connection_states.CONNECTED then
+            available[net_type] = connection_states.CONNECTING
+        end
+    end
+end
+
+
 sys.subscribe("PING_RESULT", function(id, time, dst)
-    log.info("ping", typeToString(id), time, dst);
+    log.info("ping", type_to_string(id), time, dst);
     available[id] = connection_states.CONNECTED
-    applyPriority()
+    apply_priority()
 end)
 -- 订阅网络状态变化的消息
 sys.subscribe("IP_READY", ip_ready_handle)

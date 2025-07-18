@@ -64,7 +64,7 @@ end
 
 
 -- 网络管理，设置网络优先级和多网融合功能
-require "net_app"
+require "netif_app"
 -- 测试http
 -- require "http_test"
 -- 测试mqtt

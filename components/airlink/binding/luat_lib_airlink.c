@@ -70,9 +70,13 @@ static int l_airlink_start(lua_State *L) {
         // 临时入口,先写死
         LLOGD("启动AirLink从机模式");
     }
-    else {
-        // 临时入口,先写死
+        else if(id == 1)
+    {
         LLOGD("启动AirLink主机模式");
+    }
+    else if(id == 2)
+    {
+        LLOGD("启动AirLink UART模式");
     }
     luat_airlink_task_start();
     luat_airlink_start(id);

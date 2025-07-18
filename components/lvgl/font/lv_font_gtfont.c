@@ -4,87 +4,22 @@
 
 #include "luat_gtfont.h"
 
-typedef struct
-{
-    int life;
-    uint16_t code;
-    uint16_t dot;
-    char data[1];
-} gt_font_char_t;
+#define LUAT_LOG_TAG "lvgl_gtfont"
+#include "luat_log.h"
 
-typedef struct
-{
-    uint16_t i;
-    gt_font_char_t **chars;
-} gt_font_cache_t;
-
-typedef struct
-{
+typedef struct{
     uint8_t sty_zh;
     uint8_t sty_en;
     uint16_t size;
     uint16_t bpp;
     uint16_t thickness;
-    gt_font_cache_t *cache;
-    uint16_t adv_w[94];
     uint16_t code;
     uint32_t dot;
-    unsigned char buf[1];
+    unsigned char buf[0];
 } gt_font_param_t;
 
-gt_font_char_t **gt_font_cache_open(gt_font_param_t *param, uint16_t code) {
-    if (param->cache == NULL)
-        return NULL;
-
-    gt_font_char_t *cached_char = NULL;
-    gt_font_cache_t *cache = param->cache;
-    gt_font_char_t **chars = cache->chars;
-
-    int i = 0;
-    for (i = 0; i < cache->i && chars[i] != NULL; ++i)
-    {
-        if(chars[i]->life > (INT32_MIN + 1)) {
-            chars[i]->life -= 1;
-        }
-    }
-
-    for(i = 0; i < cache->i && chars[i] != NULL; i++) {
-        if(chars[i]->code == code) {
-            cached_char = chars[i];
-            cached_char->life += 1;
-            if(cached_char->life > 1000) cached_char->life = 1000;
-            break;
-        }
-    }
-
-    if (cached_char || i < cache->i) return &chars[i];
-
-    i = 0;
-    for(int j = 1; j < cache->i; j++) {
-        if(cache->chars[j]->life < chars[i]->life) {
-            i = j;
-        }
-    }
-
-    chars[i]->life = 0;
-    chars[i]->code = 0;
-
-    return &chars[i];
-}
-
 static void gt_font_get(gt_font_param_t *param, uint16_t code) {
-    if (param->code == code)
-        return;
-
-    gt_font_char_t *vc = NULL;
-    gt_font_char_t **cached_char = gt_font_cache_open(param, code);
-    if (cached_char != NULL && (vc = *cached_char) != NULL && vc->code == code) {
-        param->code = code;
-        param->dot = vc->dot;
-        int size = ((param->dot + 7) / 8 * 8) * param->size * param->bpp / 8;
-        memcpy(param->buf, vc->data, size);
-        return;
-    }
+    if (param->code == code) return;
 
     uint8_t sty = param->sty_zh;
     if (code >= 0x20 && code <= 0x7e)
@@ -98,20 +33,10 @@ static void gt_font_get(gt_font_param_t *param, uint16_t code) {
     param->dot = dot / param->bpp;
 
     Gray_Process(param->buf, param->dot, param->size, param->bpp);
-
-    if (cached_char != NULL) {
-        int size = ((param->dot + 7) / 8 * 8) * param->size * param->bpp / 8;
-        vc = lv_mem_realloc(vc, sizeof(gt_font_char_t) + size);
-        vc->dot = param->dot;
-        vc->code = code;
-        vc->life = 0;
-        memcpy(vc->data, param->buf, size);
-
-        *cached_char = vc;
-    }
+    // LLOGD("dot:%d param->dot:%d aram->size:%d param->bpp:%d",dot,param->dot,param->size, param->bpp);
 }
 
-int get_font_adv_w(uint8_t *buf, int width, int height, int bpp) {
+static int get_font_adv_w(uint8_t *buf, int width, int height, int bpp) {
     uint8_t *p = buf;
     uint16_t w = width, h = height;
     uint32_t i = 0, j = 0, x = 0, y = 0;
@@ -136,24 +61,17 @@ int get_font_adv_w(uint8_t *buf, int width, int height, int bpp) {
             }
         }
     }
-
     return adv_w + 1;
 }
 
 static inline uint16_t gt_font_get_adv_w(gt_font_param_t *param, uint16_t code) {
     uint16_t adv_w = param->size;
-
+    gt_font_get(param, code);
     if (code >= 0x21 && code <= 0x7e) {
-        int i = code - 0x21;
-        // if (param->adv_w[i] == 0xFFFF) {
-            gt_font_get(param, code);
-            param->adv_w[i] = get_font_adv_w(param->buf, param->dot, param->size, param->bpp);
-        // }
-        adv_w = param->adv_w[i];
+        adv_w = get_font_adv_w(param->buf, param->dot, param->size, param->bpp);
     } else if (code == 0x20) {
         adv_w = param->size / 2;
     }
-
     return adv_w;
 }
 
@@ -162,19 +80,19 @@ static bool gt_font_get_glyph_dsc(const struct _lv_font_struct *font, lv_font_gl
     uint16_t code = gt_unicode2gb18030(letter);
 
     dsc_out->adv_w = gt_font_get_adv_w(param, code);
-    dsc_out->box_w = ((param->code == code ? param->dot : param->size) + 7) / 8 * 8;
+    dsc_out->box_w = (param->dot + 7) / 8 * 8;
+    // LLOGD("adv_w:%d box_w:%d",dsc_out->adv_w,dsc_out->box_w);
     dsc_out->box_h = param->size;
     dsc_out->ofs_x = 0;
     dsc_out->ofs_y = 0;
-    dsc_out->bpp   = param->bpp;
+    dsc_out->bpp  = param->bpp;
 
     return true;
 }
 
 static uint8_t *gt_font_get_glyph_bitmap(const struct _lv_font_struct *font, uint32_t letter) {
     gt_font_param_t *param = font->dsc;
-    uint16_t code = gt_unicode2gb18030(letter);
-    gt_font_get(param, code);
+    gt_font_get(param, gt_unicode2gb18030(letter));
     return param->buf;
 }
 
@@ -185,47 +103,30 @@ bool lv_font_is_gt(lv_font_t *font) {
 }
 
 lv_font_t *lv_font_new_gt(uint8_t sty_zh, uint8_t sty_en, uint8_t size, uint8_t bpp, uint16_t thickness, uint8_t cache_size) {
-    lv_font_t *font = NULL;
-    do {
-        font = lv_mem_alloc(sizeof(lv_font_t));
-        if (!font) break;
+    lv_font_t *font = lv_mem_alloc(sizeof(lv_font_t));
+    if (!font) return NULL;
 
-        memset(font, 0, sizeof(lv_font_t));
-        font->get_glyph_dsc = gt_font_get_glyph_dsc;
-        font->get_glyph_bitmap = gt_font_get_glyph_bitmap;
-        font->line_height = size;
+    memset(font, 0, sizeof(lv_font_t));
+    font->get_glyph_dsc = gt_font_get_glyph_dsc;
+    font->get_glyph_bitmap = gt_font_get_glyph_bitmap;
+    font->line_height = size;
 
-        int malloc_size = size * bpp * size * bpp;
-        gt_font_param_t *param = lv_mem_alloc(sizeof(gt_font_param_t) + malloc_size);
-        if (!param) break;
+    int malloc_size = size * bpp * size * bpp;
+    gt_font_param_t *param = lv_mem_alloc(sizeof(gt_font_param_t) + malloc_size);
+    if (!param) {
+        lv_font_del_gt(font);
+        return NULL;
+    }
 
-        memset(param, 0, sizeof(*param));
-        font->dsc = param;
-        memset(param->adv_w, 0xFF, sizeof(param->adv_w));
-        param->sty_zh = sty_zh;
-        param->sty_en = sty_en;
-        param->size = size;
-        param->bpp = bpp;
-        param->thickness = thickness;
-        if (cache_size != 0) {
-            gt_font_cache_t *cache = lv_mem_alloc(sizeof(gt_font_cache_t));
-            if (!cache) break;
+    memset(param, 0, sizeof(*param));
+    font->dsc = param;
+    param->sty_zh = sty_zh;
+    param->sty_en = sty_en;
+    param->size = size;
+    param->bpp = bpp;
+    param->thickness = thickness;
 
-            memset(cache, 0, sizeof(*cache));
-            param->cache = cache;
-            cache->i = cache_size;
-            cache->chars = lv_mem_alloc(cache_size * sizeof(gt_font_char_t *));
-            if (!cache->chars) break;
-
-            memset(cache->chars, 0, cache_size * sizeof(gt_font_char_t *));
-        }
-
-        return font;
-
-    } while (0);
-
-    lv_font_del_gt(font);
-    return NULL;
+    return font;
 }
 
 void lv_font_del_gt(lv_font_t *font) {
@@ -235,14 +136,6 @@ void lv_font_del_gt(lv_font_t *font) {
         return;
     }
     gt_font_param_t *param = font->dsc;
-    if (param->cache) {
-        gt_font_char_t **chars = param->cache->chars;
-        for (int i = 0; i < param->cache->i; ++i) {
-            if (chars[i]) lv_mem_free(chars[i]);
-        }
-        if (param->cache->chars) lv_mem_free(param->cache->chars);
-        lv_mem_free(param->cache);
-    }
     lv_mem_free(param);
     lv_mem_free(font);
 }

@@ -276,3 +276,39 @@ err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp)
     return ip_input(p, inp);
 }
 
+void luat_netdrv_netif_set_down(struct netif* netif) {
+    if (netif == NULL) {
+        return;
+    }
+    netif_set_down(netif);
+    #if LWIP_IPV4 && LWIP_ARP
+    #ifdef LUAT_USE_NETDRV_LWIP_ARP
+    if (netif->flags & NETIF_FLAG_ETHARP) {
+        luat_netdrv_etharp_cleanup_netif(netif);
+    }
+    #endif
+    #endif /* LWIP_IPV4 && LWIP_ARP */
+
+    #if LWIP_IPV6
+    nd6_cleanup_netif(netif);
+    #endif /* LWIP_IPV6 */
+}
+
+void luat_netdrv_netif_set_link_down(struct netif* netif) {
+    if (netif == NULL) {
+        return;
+    }
+    netif_set_link_down(netif);
+    #if LWIP_IPV4 && LWIP_ARP
+    #ifdef LUAT_USE_NETDRV_LWIP_ARP
+    if (netif->flags & NETIF_FLAG_ETHARP) {
+        extern void luat_netdrv_etharp_cleanup_netif(struct netif *netif);
+        luat_netdrv_etharp_cleanup_netif(netif);
+    }
+    #endif
+    #endif /* LWIP_IPV4 && LWIP_ARP */
+
+    #if LWIP_IPV6
+    nd6_cleanup_netif(netif);
+    #endif /* LWIP_IPV6 */
+}

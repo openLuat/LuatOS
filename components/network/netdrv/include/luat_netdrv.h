@@ -110,6 +110,10 @@ void luat_netdrv_print_tm(const char * tag);
 
 void luat_netdrv_debug_set(int id, int enable);
 
+void luat_netdrv_netif_set_down(struct netif* netif);
+
+void luat_netdrv_netif_set_link_down(struct netif* netif);
+
 extern uint32_t g_netdrv_debug_enable;
 
 #endif

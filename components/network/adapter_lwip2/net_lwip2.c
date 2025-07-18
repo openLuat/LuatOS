@@ -97,16 +97,20 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
 		return; // 超范围了
 	}
-	if (prvlwip_inited == 0) {
+	if (0 == prvlwip_inited) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
-		dns_init_client(&prvlwip.dns_client);
 		#ifdef LUAT_USE_NETDRV_LWIP_ARP
 		prvlwip.arp_timer = platform_create_timer(net_lwip_arp_timer_cb, (void *)NULL, NULL);
 		platform_start_timer(prvlwip.arp_timer, 1000, 1);
 		#endif
 	}
-	if (prvlwip.dns_udp[adapter_index] == NULL) {
+	if (NULL == prvlwip.dns_client[adapter_index]) {
+		prvlwip.dns_client[adapter_index] = luat_heap_malloc(sizeof(dns_client_t));
+		// memset(prvlwip.dns_client[adapter_index], 0, sizeof(dns_client_t));
+		dns_init_client(prvlwip.dns_client[adapter_index]);
+	}
+	if (NULL == prvlwip.dns_udp[adapter_index]) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
@@ -505,22 +509,22 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		OS_InitBuffer(&msg_buf, p->tot_len);
 		pbuf_copy_partial(p, msg_buf.Data, p->tot_len, 0);
 		pbuf_free(p);
-		dns_run(&prvlwip.dns_client, &msg_buf, NULL, &i);
+		dns_run(prvlwip.dns_client[adapter_index], &msg_buf, NULL, &i);
 		OS_DeInitBuffer(&msg_buf);
-		llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
+		llist_traversal(&prvlwip.dns_client[adapter_index]->require_head, net_lwip2_dns_check_result, NULL);
 		{
-			dns_run(&prvlwip.dns_client, NULL, &tx_msg_buf, &i);
+			dns_run(prvlwip.dns_client[adapter_index], NULL, &tx_msg_buf, &i);
 			if (tx_msg_buf.Pos && NULL != tx_msg_buf.Data)
 			{
 				out_p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
 				if (out_p && NULL != tx_msg_buf.Data)
 				{
 					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
-					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
-					ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
+					memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
+					ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ip_string, sizeof(ip_string));
 					ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
 					LLOGD("dns udp sendto %s:%d from %s", ip_string, DNS_SERVER_PORT, ipstr2);
-					ret = udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
+					ret = udp_sendto_if(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client[adapter_index]->dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 					if (ret) {
 						LLOGE("dns udp sendto %s:%d ret %d", ip_string, DNS_SERVER_PORT, ret);
 					}
@@ -529,11 +533,11 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
-				llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
+				llist_traversal(&prvlwip.dns_client[adapter_index]->require_head, net_lwip2_dns_check_result, NULL);
 			}
 		}
 	}
-	if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
+	if (!prvlwip.dns_client[adapter_index]->is_run && prvlwip.dns_timer[adapter_index])
 	{
 		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
@@ -547,9 +551,11 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 	struct pbuf *p = NULL;
 	char ipstr[64] = {0};
 	char ipstr2[64] = {0};
-	dns_run(&prvlwip.dns_client, NULL, tx_msg_buf, &i);
+	dns_run(prvlwip.dns_client[adapter_index], NULL, tx_msg_buf, &i);
 	char ip_string[64] = {0};
-	ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string));
+	// LLOGI("net_lwip2_dns_tx_next %d %p", adapter_index, prvlwip.dns_client[adapter_index]);
+	ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ip_string, sizeof(ip_string));
+	LLOGD("adatper %d dns server %s", adapter_index, ip_string);
 	if (tx_msg_buf->Pos && NULL != tx_msg_buf->Data) {
 		p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf->Pos, PBUF_RAM);
 		if (p == NULL) {
@@ -557,11 +563,11 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 		else {
 			pbuf_take(p, tx_msg_buf->Data, tx_msg_buf->Pos);
-			prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
+			memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
 			ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));
-			ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ipstr, sizeof(ipstr));
+			ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ipstr, sizeof(ipstr));
 			LLOGD("dns udp sendto %s:%d from %s", ipstr, DNS_SERVER_PORT, ipstr2);
-			err = udp_sendto_if(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
+			err = udp_sendto_if(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client[adapter_index]->dns_server[i], DNS_SERVER_PORT, prvlwip.lwip_netif[adapter_index]);
 			pbuf_free(p);
 			if (err) {
 				LLOGE("dns udp sendto %s:%d from %s ret %d", ipstr, DNS_SERVER_PORT, ipstr2,  err);
@@ -569,10 +575,10 @@ static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_b
 		}
 	}
 	OS_DeInitBuffer(tx_msg_buf);
-	if (prvlwip.dns_client.new_result)
+	if (prvlwip.dns_client[adapter_index]->new_result)
 	{
-		llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
-		prvlwip.dns_client.new_result = 0;
+		llist_traversal(&prvlwip.dns_client[adapter_index]->require_head, net_lwip2_dns_check_result, NULL);
+		prvlwip.dns_client[adapter_index]->new_result = 0;
 	}
 
 }
@@ -694,7 +700,10 @@ static void net_lwip2_task(void *param)
 					{
 						pbuf_take(out_p, p->data, p->len);
 						error = udp_sendto_if(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port, prvlwip.lwip_netif[adapter_index]);
-						// LLOGD("udp_sendto ret %d", error);
+						if (error) {
+							ipaddr_ntoa_r(&p->ip, ip_string, sizeof(ip_string));
+							LLOGI("udp_sendto_if err %d %s:%d", error, ip_string, p->port);
+						}
 						pbuf_free(out_p);
 					}
 					else
@@ -722,7 +731,7 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_DNS_TIMER:
 #ifdef LUAT_USE_DNS
 		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
-		if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
+		if (!prvlwip.dns_client[adapter_index]->is_run && prvlwip.dns_timer[adapter_index])
 		{
 			platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 		}
@@ -820,11 +829,11 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_SOCKET_DNS:
 	case EV_LWIP_SOCKET_DNS_IPV6:
 		// LLOGD("event dns query");
-		if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
+		if (!prvlwip.dns_client[adapter_index]->is_run && prvlwip.dns_timer[adapter_index])
 		{
 			platform_start_timer(prvlwip.dns_timer[adapter_index], 1000, 1);
 		}
-		dns_require_ipv6(&prvlwip.dns_client, event.Param1, event.Param2, event.Param3, (event.ID - EV_LWIP_SOCKET_DNS));
+		dns_require_ipv6(prvlwip.dns_client[adapter_index], event.Param1, event.Param2, event.Param3, (event.ID - EV_LWIP_SOCKET_DNS));
 		// LLOGD("event dns query 2");
 		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
 		// LLOGD("event dns query 3");
@@ -1469,8 +1478,9 @@ static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, vo
 	uint8_t adapter_index = (uint32_t)user_data;
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	if (server_index >= MAX_DNS_SERVER) return -1;
-	prvlwip.dns_client.dns_server[server_index] = *ip;
-	prvlwip.dns_client.is_static_dns[server_index] = 1;
+	if (prvlwip.dns_client[adapter_index] == NULL) return -1;
+	prvlwip.dns_client[adapter_index]->dns_server[server_index] = *ip;
+	prvlwip.dns_client[adapter_index]->is_static_dns[server_index] = 1;
 	return 0;
 }
 

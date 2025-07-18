@@ -197,7 +197,7 @@ static void _luat_netdrv_whale_ipevent(tmpptr_t* ptr) {
         }
     }
     else {
-        netif_set_down(drv->netif);
+        luat_netdrv_netif_set_down(drv->netif);
         if (cfg->dhcp) {
             // LLOGD("dhcp停止");
             ip_addr_set_ip4_u32(&cfg->ulwip.netif->ip_addr, 0);

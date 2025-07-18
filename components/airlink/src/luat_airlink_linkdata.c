@@ -37,7 +37,6 @@ __USER_FUNC_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff
             link = (airlink_link_data_t*)(buff + i);
             tlen = link->len;
             crc16 = link->crc16;
-            // LLOGD("找到magic, 且数据长度为 %d", tlen);
             if (tlen > 0 && tlen + 4 + i + 4 <= len)
             {
                 // 计算crc16
@@ -50,6 +49,7 @@ __USER_FUNC_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff
                 else
                 {
                     LLOGD("crc16校验失败 %d %d", crc16_data, crc16);
+                    link = NULL;
                 }
             }
             else
@@ -58,6 +58,7 @@ __USER_FUNC_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff
             }
         }
     }
+
     return NULL;
 }
 
@@ -75,8 +76,9 @@ __USER_FUNC_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint
     data->len = len;
     data->pkgid = next_pkg_id++;
     memset(&data->flags, 0, sizeof(data->flags));
-    memcpy(data->data, buff, len);
 
+
+    memcpy(data->data, buff, len);
     if (g_airlink_link_data_cb) {
         g_airlink_link_data_cb(data);
     }

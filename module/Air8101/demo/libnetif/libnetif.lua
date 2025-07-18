@@ -4,10 +4,12 @@
 @version 1.0
 @date    2025.06.26
 @author  wjq
-本文件的对外接口有3个：
-1、libnetif.setPriorityOrder(networkConfigs)：设置网络优先级顺序并初始化对应网络，在net_app.lua中调用；
-2、libnetif.notifyStatus(cb_fnc)：设置网络状态变化回调函数；
+@usage
+本文件的对外接口有4个：
+1、libnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络，在net_app.lua中调用；
+2、libnetif.notify_status(cb_fnc)：设置网络状态变化回调函数；
 3、libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)：配置网络代理实现多网融合，在net_app.lua中调用；
+4、libnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
 local libnetif = {}
 
@@ -55,21 +57,26 @@ end
 
 -- 状态更改后重新设置默认网卡
 local function apply_priority()
+    local usable = false
     -- 查找优先级最高的可用网络
     for _, net_type in ipairs(current_priority) do
         -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
         if available[net_type] == connection_states.CONNECTED then
+            usable = true
             -- 设置优先级高的网卡
-            log.info("设置网卡", type_to_string(net_type))
             if current_active ~= net_type then
+                log.info("设置网卡", type_to_string(net_type))
                 if current_active ~= socket.LWIP_USER0 then
-                    states_cbfnc(type_to_string(net_type)) -- 默认网卡改变的回调函数
+                    states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
                 end
                 socket.dft(net_type)
                 current_active = net_type
             end
             break
         end
+    end
+    if usable == false then
+        states_cbfnc(nil, -1)
     end
 end
 
@@ -263,8 +270,8 @@ end
 @api libnetif.notify_status(cb_fnc)
 @function 回调函数
 @usage
-    libnetif.notify_status(function(net_type)
-    log.info("可以使用优先级更高的网络:", net_type)
+    libnetif.notify_status(function(net_type,adapter)
+    log.info("可以使用优先级更高的网络:", net_type,adapter)
     end)
 ]]
 function libnetif.notify_status(cb_fnc)
@@ -343,10 +350,6 @@ function libnetif.setproxy(adapter, main_adapter, ssid, password, power_en, eth_
         wlan.setMode(wlan.APSTA)
         -- 打开AP功能，设置混合模式
         log.info("执行AP创建操作", airlink.ready(), "正常吗?")
-        -- 设置 WiFi 热点的名称和密码
-        if type(ssid)  then
-            
-        end
         wlan.createAP(ssid, password)
         -- 设置 AP 的 IP 地址、子网掩码、网关地址
         netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
@@ -515,12 +518,17 @@ sys.taskInit(function()
     end
 end)
 
+local interval_time = nil
 
 --[[
 对正常状态的网卡进行ping测试
-@api libnetif.ping_test()
+@api libnetif.check_network_status(interval),
+@int 检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
-function libnetif.ping_test()
+function libnetif.check_network_status(interval)
+    if interval ~= nil then
+        interval_time = interval
+    end
     for _, net_type in ipairs(current_priority) do
         if available[net_type] == connection_states.CONNECTED then
             available[net_type] = connection_states.CONNECTING
@@ -528,6 +536,16 @@ function libnetif.ping_test()
     end
 end
 
+--循环ping检测任务，默认不启用
+sys.taskInit(function()
+    while true do
+        if interval_time ~= nil then
+            sys.wait(interval_time)
+            libnetif.check_network_status()
+        end
+        sys.wait(1000)
+    end
+end)
 
 sys.subscribe("PING_RESULT", function(id, time, dst)
     log.info("ping", type_to_string(id), time, dst);

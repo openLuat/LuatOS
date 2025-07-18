@@ -275,14 +275,10 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     uint8_t recv_data[4]={0};
     result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_JEDEC_ID}, 1, recv_data, sizeof(recv_data));
     if(result) return result;
-    if (recv_data[0]!=0xFF){
-        manufacturer_id = recv_data[0];
-        device_id = recv_data[1]<<8|recv_data[2];
-    }else{
-        manufacturer_id = recv_data[1];
-        device_id = recv_data[2]<<8|recv_data[3];
-    }
 
+    // nor flash?
+    manufacturer_id = recv_data[0];
+    device_id = recv_data[1]<<8|recv_data[2];
     for (size_t i = 0; i < sizeof(little_flash_table)/sizeof(little_flash_table[0]); i++){
         if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
             memcpy(&lf->chip_info.name,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
@@ -292,6 +288,19 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
             return result;
         }
     }
+    // nand flash?
+    manufacturer_id = recv_data[1];
+    device_id = recv_data[2]<<8|recv_data[3];
+    for (size_t i = 0; i < sizeof(little_flash_table)/sizeof(little_flash_table[0]); i++){
+        if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
+            memcpy(&lf->chip_info.name,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
+            LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
+            LF_DEBUG("little flash fonud flash %s",lf->chip_info.name);
+            result = little_flash_reset(lf);
+            return result;
+        }
+    }
+    // all not found
     LF_DEBUG("NOT fonud flash");
     return LF_ERR_NO_FLASH;
 }

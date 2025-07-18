@@ -25,7 +25,7 @@ uart.setup(
 -- 测试网站 https://netlab.luatos.com/ 点击 打开TCP 获取测试端口号
 -- 要按实际情况修改
 local host = "112.125.89.8" -- 服务器ip或者域名, 都可以的
-local port = 47500          -- 服务器端口号
+local port = 43743          -- 服务器端口号
 local is_udp = true         -- 如果是UDP, 要改成true, false就是TCP
 local is_tls = false        -- 加密与否, 要看服务器的实际情况
 --=============================================================
@@ -114,11 +114,13 @@ function sockettask(d1Name, txqueue, rxtopic)
 
     -- 准备好所需要的接收缓冲区
     local rx_buff = zbuff.create(1024)
-    local netc = socket.create(nil, d1Name)
-    socket.config(netc, nil, is_udp, is_tls)
-    log.info("任务id", d1Name)
+    local netc
 
     while true do
+        netc = socket.create(nil, d1Name)
+        socket.config(netc, nil, is_udp, is_tls)
+        log.info("任务id", d1Name)
+
         -- 连接服务器, 15秒超时
         log.info("socket", "开始连接服务器")
         sysplus.cleanMsg(d1Name)
@@ -170,10 +172,11 @@ function sockettask(d1Name, txqueue, rxtopic)
             end
             -- 循环尾部, 继续下一轮循环
         end
-        -- 能到这里, 要么服务器断开连接, 要么上报(tx)失败, 或者是主动退出
         libnet.close(d1Name, 5000, netc)
-        -- log.info(rtos.meminfo("sys"))
-        sys.wait(30000) -- 这是重连时长, 自行调整
+        socket.release(netc)
+        rx_buff:clear(0)
+        netc=nil
+        sys.wait(1000)
     end
 end
 

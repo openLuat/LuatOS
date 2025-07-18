@@ -47,7 +47,7 @@ static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
     return;
   }
   if (index > 1) {
-    dbuff.buff[dbuff.offset++] = '\t';
+    dbuff.buff[dbuff.offset++] = ' ';
   }
   if (dbuff.offset + slen >= 512) {
     dbuff.buff[dbuff.offset] = 0x00;

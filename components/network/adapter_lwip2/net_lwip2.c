@@ -700,7 +700,10 @@ static void net_lwip2_task(void *param)
 					{
 						pbuf_take(out_p, p->data, p->len);
 						error = udp_sendto_if(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port, prvlwip.lwip_netif[adapter_index]);
-						// LLOGD("udp_sendto ret %d", error);
+						if (error) {
+							ipaddr_ntoa_r(&p->ip, ip_string, sizeof(ip_string));
+							LLOGI("udp_sendto_if err %d %s:%d", error, ip_string, p->port);
+						}
 						pbuf_free(out_p);
 					}
 					else

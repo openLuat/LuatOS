@@ -213,7 +213,7 @@ function airgsensor.run()
         else            
         lcd.showImage(130,370,"/luadb/start.jpg")    --  关闭中断模式            
         end
-
+        lcd.showImage(20,360,"/luadb/back.jpg")
         lcd.showImage(0,448,"/luadb/Lbottom.jpg")
         lcd.flush()--刷新页面        
         if not  run_state  then    -- 等待结束，返回主界面

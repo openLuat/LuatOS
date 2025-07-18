@@ -166,7 +166,7 @@ function airble.run()
         lcd.drawStr(0,160,"服务:FA00,特征:" .. Characteristic4   .. "可读数据为：" .. Characteristic4_read)
 
 
-
+        lcd.showImage(20,360,"/luadb/back.jpg")
         lcd.showImage(130,350,"/luadb/start.jpg")   -- EA01 发送数据
         lcd.flush()
         

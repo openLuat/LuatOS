@@ -20,7 +20,6 @@ local uart_rx_buff = zbuff.create(1024)     -- 串口接收到的数据
 local libnet = require "libnet"         -- libnet库，支持tcp、udp协议所用的同步阻塞接口
 local ip = "112.125.89.8"               -- 连接tcp服务器的ip地址
 local port = 46244                 -- 连接tcp服务器的端口
-local netCB = nil                       -- socket服务的回调函数
 local connect_state = false             -- 连接状态 true:已连接   false:未连接
 local protocol = false                  -- 通讯协议 true:UDP协议  false:TCP协议
 local ssl = false                       -- 加密传输 true:加密     false:不加密
@@ -34,19 +33,25 @@ uart.setup(
     8,--数据位
     1--停止位
 )
+
+-- 处理未识别的消息
+local function tcp_client_main_cbfunc(msg)
+	log.info("tcp_client_main_cbfunc", msg[1], msg[2], msg[3], msg[4])
+end
+
+
 function TCP_TASK()
     -- 打印一下连接的目标ip和端口号
     log.info("connect ip: ", ip, "port:", port)
 
     sys.waitUntil("IP_READY")                -- 等待联网成功
-    netCB = socket.create(socket.LWIP_GP, taskName)     -- 创建socket对象，设置为4G上网方式，如果是wifi 上网，需要设置为socket.LWIP_STA
-    socket.debug(netCB, true)                -- 打开调试日志
-    socket.config(netCB, nil, protocol, ssl)      -- 此配置为TCP连接，无SSL加密
-
-    -- 串口和TCP服务器的交互逻辑
+    local socket_client
     while true do
+        socket_client = socket.create(nil, taskName)     -- 创建socket对象
+        socket.debug(socket_client, true)                      -- 打开调试日志
+        socket.config(socket_client, nil, protocol, ssl)       -- 此配置为TCP连接，无SSL加密
         -- 连接服务器，返回是否连接成功
-        result = libnet.connect(taskName, 15000, netCB, ip, port)
+        result = libnet.connect(taskName, 15000, socket_client, ip, port)
 
         -- 收取数据会触发回调, 这里的"receive" 是固定值不要修改。
         uart.on(uartid, "receive", function(id, len)
@@ -65,12 +70,12 @@ function TCP_TASK()
         -- 如果连接成功，则改变连接状态参数，并且随便发一条数据到服务器，看服务器能不能收到
         if result then
             connect_state = true
-            libnet.tx(taskName, 0, netCB, "TCP  CONNECT")
+            libnet.tx(taskName, 0, socket_client, "TCP  CONNECT")
         end
 
         -- 连接上服务器后，等待处理接收服务器下行至模块的数据 和 发送串口的数据到服务器
         while result do
-            succ, param, _, _ = socket.rx(netCB, rx_buff)   -- 接收数据
+            succ, param, _, _ = socket.rx(socket_client, rx_buff)   -- 接收数据
             if not succ then
                 log.info("服务器断开了", succ, param, ip, port)
                 break
@@ -87,7 +92,7 @@ function TCP_TASK()
             uart_rx_buff:del()                      -- 清除串口buff的数据长度
             if tx_buff:used() > 0 then
                 log.info("发送到服务器数据，长度", tx_buff:used())
-                local result = libnet.tx(taskName, 0, netCB, tx_buff)   -- 发送数据
+                local result = libnet.tx(taskName, 0, socket_client, tx_buff)   -- 发送数据
                 if not result then
                     log.info("发送失败了", result, param)
                     break
@@ -108,7 +113,7 @@ function TCP_TASK()
             log.info(rtos.meminfo("sys"))   -- 打印系统内存
 
             -- 阻塞等待新的消息到来，比如服务器下发，串口接收到数据
-            result, param = libnet.wait(taskName, 15000, netCB)
+            result, param = libnet.wait(taskName, 15000, socket_client)
             if not result then
                 log.info("服务器断开了", result, param)
                 break
@@ -117,16 +122,18 @@ function TCP_TASK()
 
         -- 服务器断开后的行动，由于while true的影响，所以会再次重新执行进行 重新连接。
         connect_state = false
-        libnet.close(taskName, 5000, netCB)
+        libnet.close(d1Name, 5000, socket_client)
+        socket.release(socket_client)
         tx_buff:clear(0)
         rx_buff:clear(0)
+        socket_client=nil
         sys.wait(1000)
     end
 
 end
 
 -- libnet库依赖于sysplus，所以只能通过sysplus.taskInitEx创建的任务函数中运行
-sysplus.taskInitEx(TCP_TASK, taskName, netCB)
+sysplus.taskInitEx(TCP_TASK, taskName, tcp_client_main_cbfunc)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

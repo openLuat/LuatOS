@@ -114,7 +114,7 @@ function TCP_TASK()
             log.info(rtos.meminfo("sys"))   -- 打印系统内存
 
             -- 阻塞等待新的消息到来，比如服务器下发，串口接收到数据
-            result, param = libnet.wait(taskName, 15000, netCB)
+            result, param = libnet.wait(taskName, 15000, socket_client)
             if not result then
                 log.info("服务器断开了", result, param)
                 break
@@ -134,7 +134,7 @@ function TCP_TASK()
 end
 
 -- libnet库依赖于sysplus，所以只能通过sysplus.taskInitEx创建的任务函数中运行
-sysplus.taskInitEx(TCP_TASK, taskName, netCB)
+sysplus.taskInitEx(TCP_TASK, taskName, tcp_client_main_cbfunc)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

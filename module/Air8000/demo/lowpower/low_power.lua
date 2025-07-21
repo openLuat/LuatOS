@@ -1,12 +1,13 @@
 
 -- netlab.luatos.com上打开TCP 有测试服务器
 local server_ip = "112.125.89.8"
-local server_port = 47523
+local server_port = 45360
 local is_udp = false --用户根据自己实际情况选择
 
 --是UDP服务器就赋值为true，是TCP服务器就赋值为flase
 --UDP服务器比TCP服务器功耗低
 --如果用户对数据的丢包率有极为苛刻的要求，最好选择TCP
+
 
 local Heartbeat_interval = 5 -- 发送数据的间隔时间，单位分钟
 -- 配置GPIO达到最低功耗
@@ -69,8 +70,33 @@ local function socketTask()
     end
 end
 
-function socketDemo()
+local function sleep_handle()
+    pm.power(pm.WORK_MODE, 1)
+end
 
+-- 收取数据会触发回调, 这里的"receive" 是固定值
+uart.on(1, "receive", function(id, len)
+    local s = ""
+    pm.power(pm.WORK_MODE, 0) -- 进入极致功耗模式
+    repeat
+        s = uart.read(id, 128)
+        
+        if #s > 0 then -- #s 是取字符串的长度
+            -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
+            log.info("uart", "receive", id, #s, s)
+            uart.write(1, "recv:" .. s)
+            -- log.info("uart", "receive", id, #s, s:toHex()) --如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
+        end
+    sys.timerStart(sleep_handle,1500)   --  延迟一段时间，不然无法打印日志，如果不考虑打印日志，可以直接进入休眠
+    until s == ""
+end)
+
+function socketDemo()
+    sys.wait(2000)
+    uart.setup(1, 9600) -- 配置uart1，外部唤醒用 
+    uart.write(1, "test lowpower")
+    log.info("开始测试低功耗模式")
+    sys.wait(2000)
     --配置GPIO以达到最低功耗的目的
     gpio.setup(23, nil)
     gpio.close(33) -- 如果功耗偏高，开始尝试关闭WAKEUPPAD1

@@ -77,7 +77,7 @@ typedef struct LG {
 #define addbuff(b,p,e) \
   { size_t t = cast(size_t, e); \
     memcpy(b + p, &t, sizeof(t)); p += sizeof(t); }
-
+#if 0
 static unsigned int makeseed (lua_State *L) {
   char buff[4 * sizeof(size_t)];
   unsigned int h = luai_makeseed();
@@ -89,7 +89,7 @@ static unsigned int makeseed (lua_State *L) {
   lua_assert(p == sizeof(buff));
   return luaS_hash(buff, p, h);
 }
-
+#endif
 
 /*
 ** set GCdebt to a new value keeping the value (totalbytes + GCdebt)

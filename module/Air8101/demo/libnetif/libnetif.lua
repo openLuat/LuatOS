@@ -6,9 +6,9 @@
 @author  wjq
 @usage
 本文件的对外接口有4个：
-1、libnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络，在net_app.lua中调用；
-2、libnetif.notify_status(cb_fnc)：设置网络状态变化回调函数；
-3、libnetif.setproxy(adapter, main_adapter, ssid, password, power_en)：配置网络代理实现多网融合，在net_app.lua中调用；
+1、libnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络
+2、libnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
+3、libnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合
 4、libnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
 local libnetif = {}

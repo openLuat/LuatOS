@@ -125,8 +125,8 @@ def make(path,modules,index_text):
             mdoc.write("## "+api["api"]+"\n\n")
 
             #支持的芯片
-            mdoc.write(get_tags(api["tag"], True))
-            mdoc.write("\n\n")
+            #mdoc.write(get_tags(api["tag"], True))
+            #mdoc.write("\n\n")
 
             mdoc.write(api["summary"]+"\n\n")
 

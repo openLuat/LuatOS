@@ -223,9 +223,9 @@ __USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
     // luat_spi_no_block_transfer(SLAVE_SPI_ID, s_txbuff, s_rxbuff, TEST_BUFF_SIZE * 2, spi_slave_transfer_cb, NULL);
     LLOGD("spi slave transfer done");
     LLOGD("slave 接收的数据");
-    print_hex(s_rxbuff, TEST_BUFF_SIZE);
+    // print_hex(s_rxbuff, TEST_BUFF_SIZE);
     LLOGD("slave 发送的数据");
-    print_hex(s_txbuff, TEST_BUFF_SIZE);
+    // print_hex(s_txbuff, TEST_BUFF_SIZE);
 
     // 通知主机已经准备好了
     luat_gpio_set(AIRLINK_SPI_RDY_PIN, 1);
@@ -306,7 +306,7 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
             // print_hex(s_txbuff, len);
             luat_airlink_print_buff("slave TX", s_txbuff, len);
             // luat_spi_slave_transfer(SLAVE_SPI_ID, (const char* )s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
-            luat_spi_slave_transfer(SLAVE_SPI_ID, s_txbuff, s_rxbuff, TEST_BUFF_SIZE);
+            luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
             // LLOGD("slave 接收的数据 %s", s_rxbuff);
             luat_airlink_print_buff("send done slave RX", s_rxbuff, len);
             // print_hex(s_rxbuff, len);

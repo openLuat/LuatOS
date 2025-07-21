@@ -55,7 +55,7 @@ local function testTask(ip, port)
         end
         libnet.close(d1Name, 5000, netc)
         retry = retry + 1
-        if needBreak then
+        if needBreak then   
             break
         end
     end

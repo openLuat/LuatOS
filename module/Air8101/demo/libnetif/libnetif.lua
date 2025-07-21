@@ -254,7 +254,7 @@ function libnetif.set_priority_order(networkConfigs)
         if config.LWIP_GP then
             --开启4G
             table.insert(new_priority, socket.LWIP_GP)
-            available[socket.LWIP_GP] = connection_states.OPENED
+            available[socket.LWIP_GP] = connection_states.CONNECTING
         end
     end
 

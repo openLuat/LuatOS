@@ -219,7 +219,7 @@ __USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
     }
 
     // luat_spi_slave_transfer(SLAVE_SPI_ID, (const char *)s_txbuff, (char *)s_rxbuff, TEST_BUFF_SIZE);
-    luat_spi_slave_transfer(SLAVE_SPI_ID, s_txbuff, s_rxbuff, TEST_BUFF_SIZE);
+    luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
     // luat_spi_no_block_transfer(SLAVE_SPI_ID, s_txbuff, s_rxbuff, TEST_BUFF_SIZE * 2, spi_slave_transfer_cb, NULL);
     LLOGD("spi slave transfer done");
     LLOGD("slave 接收的数据");

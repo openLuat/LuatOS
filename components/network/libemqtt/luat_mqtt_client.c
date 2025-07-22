@@ -37,9 +37,8 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 
 	if (mqtt_ctrl->app_cb)
 	{
-		luat_mqtt_cb_t mqtt_cb = mqtt_ctrl->app_cb;
-		mqtt_cb(mqtt_ctrl, arg1);
-		if (MQTT_MSG_PUBLISH == arg1)
+		luat_mqtt_app_cb_t mqtt_cb = mqtt_ctrl->app_cb;
+		if (mqtt_cb(mqtt_ctrl, arg1))
 		{
 			return 0;
 		}

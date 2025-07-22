@@ -5,7 +5,7 @@
 
 #include "libemqtt.h"
 #include "luat_mqtt.h"
-#if 0
+
 typedef struct
 {
 	llist_head node;
@@ -56,7 +56,7 @@ static void download_check_timer(void *param)
 }
 
 
-static void airtalk_mqtt_cb(luat_mqtt_ctrl_t *mqtt_ctrl, uint16_t event)
+static int airtalk_mqtt_cb(luat_mqtt_ctrl_t *mqtt_ctrl, uint16_t event)
 {
 	int ret;
 	if (event != MQTT_MSG_PUBLISH)
@@ -80,7 +80,7 @@ static void airtalk_mqtt_cb(luat_mqtt_ctrl_t *mqtt_ctrl, uint16_t event)
 		}
 		luat_rtos_event_send(prv_demo_mqtt.mqtt_task_handle, AIRTALK_EVENT_MQTT_DOWNLINK_DATA, (uint32_t)topic, (uint32_t)payload, len, 0);
 	}
-	return;
+	return 0;
 }
 
 static void airtalk_demo_mqtt_task(void *param)
@@ -374,4 +374,3 @@ void luat_airtalk_net_debug_switch(uint8_t on_off)
 	prv_demo_mqtt.debug_on_off = on_off;
 }
 
-#endif

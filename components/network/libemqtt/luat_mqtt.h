@@ -45,7 +45,7 @@ typedef struct{
 	uint32_t rxbuff_size; 		/**< mqtt_packet_buffer的长度*/
 	uint8_t *mqtt_packet_buffer;/**< 接收BUFF*/
 	void* mqtt_cb;			/**< mqtt 回调函数*/
-	void *app_cb;				/**< mqtt 特殊应用回调，数据收发不再会调用到lua层*/
+	void* app_cb;				/**< mqtt 特殊应用回调，数据收发不再会调用到lua层*/
 	int8_t error_state;    		/**< mqtt 错误状态*/
 	uint16_t remote_port; 		/**< 远程端口号*/
 	uint32_t keepalive;   		/**< 心跳时长 单位s*/
@@ -87,6 +87,7 @@ typedef struct luat_mqtt_connopts
 }luat_mqtt_connopts_t;
 
 typedef void (*luat_mqtt_cb_t)(luat_mqtt_ctrl_t *luat_mqtt_ctrl, uint16_t event);
+typedef int (*luat_mqtt_app_cb_t)(luat_mqtt_ctrl_t *luat_mqtt_ctrl, uint16_t event);
 
 /**
  *@brief 发起MQTT连接

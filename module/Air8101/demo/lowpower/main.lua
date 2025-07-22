@@ -66,8 +66,8 @@ end
 
 
 --选择需要体验的功耗模式，注释另外两个代码即可！快捷键Ctrl + /
--- require "normal"
-require "module.Air8000.demo.lowpower.low_power_dissipation"
+-- require "normal_power"
+require "low_power"
 -- require "psm+_power"
 
 

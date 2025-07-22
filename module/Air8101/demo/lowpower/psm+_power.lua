@@ -25,7 +25,7 @@ local heart_data = string.rep("1234567890", 3) -- 心跳包数据内容，可自
 function send_result(a1, b1)
     log.info("发送状态 :", a1, b1)
     -- 获取tcp_client_sender发送状态后推送信息解除psm_power_func()的sys.waitUntil挂起状态。并返回发送状态a1。
-    sys.publish("send_success", a1, b1)
+    sys.publish("send_result", a1, b1)
 end
 
 -- 定义一个表，将回调函数放在表中，因为tcp_client_sender处理回调函数时考虑到带参执行，所以要将函数和参数都放在表里
@@ -55,7 +55,7 @@ function psm_power_func()
             -- 第一个值为sys.waitUntil的结果，是否信息唤醒。
             -- 第二个值为发送是否成功
             -- 第三个值为回调函数带的参数
-            local _, a, b = sys.waitUntil("send_success")
+            local _, a, b = sys.waitUntil("send_result")
             -- 通过发送状态判断发送是否成功，并打印变量 a 的赋值
             if a then
                 log.info("发送成功！", a)

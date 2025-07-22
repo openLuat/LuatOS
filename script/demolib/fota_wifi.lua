@@ -1,12 +1,12 @@
 --[[
--- @module fota_wifi
--- @summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
--- @version 1.0.1
--- @date    2025.6.26
--- @author  tuoyiheng
--- @usage
---注：使用时在创建的一个task处理函数中直接调用fota_wifi.request()即可开始执行WiFi升级任务
---用法实例
+@module fota_wifi
+@summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
+@version 1.0.1
+@date    2025.6.26
+@author  tuoyiheng
+@usage
+注：使用时在创建的一个task处理函数中直接调用fota_wifi.request()即可开始执行WiFi升级任务
+-- 用法实例
 local fota_wifi = require("fota_wifi")
 
 local function wifi_fota_task_func()

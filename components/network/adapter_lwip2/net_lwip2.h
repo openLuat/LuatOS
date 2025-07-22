@@ -4,6 +4,7 @@
 #include "luat_base.h"
 #include "dns_def.h"
 #include "luat_network_adapter.h"
+#include "dhcp_def.h"
 
 #ifdef LWIP_NUM_SOCKETS
 #if LWIP_NUM_SOCKETS > 16
@@ -46,6 +47,7 @@ typedef struct
 	HANDLE dns_timer[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint8_t next_socket_index;
 	HANDLE arp_timer;
+	dhcp_client_info_t *dhcpc[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 }net_lwip2_ctrl_struct;
 
 
@@ -61,5 +63,7 @@ struct netif * net_lwip2_get_netif(uint8_t adapter_index);
  * 不能用过DHCP获取IP的网卡，必须先设置静态IP！！！！！！，比如GPRS
  */
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
+
+void net_lwip2_set_dhcp_client(uint8_t adapter_index, dhcp_client_info_t *dhcp_client);
 
 #endif

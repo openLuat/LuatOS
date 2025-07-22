@@ -93,15 +93,11 @@ int ulwip_netif_ip_event(ulwip_ctx_t* ctx) {
     ready_now &= netif_is_up(netif);
     luat_ip_addr_t ip = {0};
 
+    if (ctx->dhcp_client) {
+        net_lwip2_set_dhcp_client(ctx->adapter_index, ctx->dhcp_client);
+    }
+
     net_lwip2_set_link_state(ctx->adapter_index, ready_now);
-    if (ctx->dhcp_client->dns_server[0]) {
-        network_set_ip_ipv4(&ip, ctx->dhcp_client->dns_server[0]);
-        network_set_dns_server(ctx->adapter_index, 0, &ip);
-    }
-    if (ctx->dhcp_client->dns_server[1]) {
-        network_set_ip_ipv4(&ip, ctx->dhcp_client->dns_server[1]);
-        network_set_dns_server(ctx->adapter_index, 1, &ip);
-    }
     if (ctx->ip_ready == ready_now) {
         return 0;
     }

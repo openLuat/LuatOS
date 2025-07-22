@@ -178,7 +178,6 @@ end
 
 --[[
 设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
-例：插入网线且能够dns域名解析获取到baidu.com的ip，网卡状态切换为可用。拔掉网线网卡状态切换为不可用
 @api libnetif.set_priority_order(new_priority)
 @table 网络优先级列表
 @return boolean 成功返回true，失败返回false
@@ -266,11 +265,7 @@ function libnetif.set_priority_order(networkConfigs)
 end
 
 --[[
-设置网络状态变化回调函数
-触发条件是 网卡切换或者所有网卡都断网
-返回值为:
-1. 当有可用网络的时候，返回当前使用网卡、网卡id；
-2. 当没有可用网络的时候，返回 nil、-1 。
+设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。返回值为:1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
 @api libnetif.notify_status(cb_fnc)
 @function 回调函数
 @usage

@@ -50,7 +50,7 @@ local function tcp_ssl_ca_main_task_func()
 
     while true do
         -- 如果WIFI还没有连接成功，一直在这里循环等待
-        while not socket.adapter(socket.LWIP_STA) do
+        while not socket.adapter(socket.dft()) do
             log.warn("tcp_ssl_ca_main_task_func", "wait IP_READY")
             -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"
             -- 或者等待30秒超时退出阻塞等待状态

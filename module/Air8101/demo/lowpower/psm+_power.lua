@@ -43,7 +43,7 @@ function psm_power_func()
         if tcp_mode then
             -- 导入tcp客户端收发功能模块，运行tcp客户端连接，自动处理TCP收发消息。
             require "tcp_client_main"
-            while not socket.adapter(socket.LWIP_STA) do
+            while not socket.adapter(socket.dft()) do
                 log.warn("tcp_client_main_task_func", "wait IP_READY")
                 -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"，避免联网过快，丢失了"IP_READY"信息而导致一直被卡住。
                 -- 或者等待30秒超时退出阻塞等待状态

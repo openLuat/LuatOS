@@ -39,7 +39,7 @@ typedef struct
 {
 	uint16_t profile_id;
 	uint16_t length;
-	uint8_t data[];
+	uint32_t data[];
 }rtp_extern_head_t;
 /**
  * 从输入数据解析出RTP包头

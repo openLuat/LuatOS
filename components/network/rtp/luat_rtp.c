@@ -1,6 +1,6 @@
 #include "luat_rtp.h"
 
-int luat_unpack_rtp_head(const uint32_t *input, uint32_t input_len, rtp_base_head_t *base_head,, uint32_t **csrc)
+int luat_unpack_rtp_head(const uint32_t *input, uint32_t input_len, rtp_base_head_t *base_head, uint32_t **csrc)
 {
 	if (input_len < 12) return -ERROR_PARAM_OVERFLOW;
 	Buffer_Struct buf = {0};
@@ -95,9 +95,12 @@ int luat_pack_rtp(rtp_base_head_t *base_head, rtp_extern_head_t *extern_head, co
 		BytesPutBe16ToBuf(&buf, extern_head->length);
 		if (extern_head->length)
 		{
-			BytesPut8ToBuf(&buf, extern_head->data, extern_head->length * 4);
+			for(int i = 0; i < extern_head->length; i++)
+			{
+				BytesPutBe32ToBuf(&buf, extern_head->data[i]);
+			}
 		}
 	}
-	BytesPut8ToBuf(&buf, payload, payload_len);
+	OS_BufferWrite(&buf, payload, payload_len);
 	return buf.Pos;
 }

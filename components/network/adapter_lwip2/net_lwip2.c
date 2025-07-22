@@ -106,7 +106,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		#endif
 	}
 	if (NULL == prvlwip.dns_client[adapter_index]) {
-		prvlwip.dns_client[adapter_index] = luat_heap_malloc(sizeof(dns_client_t));
+		prvlwip.dns_client[adapter_index] = luat_heap_zalloc(sizeof(dns_client_t));
 		// memset(prvlwip.dns_client[adapter_index], 0, sizeof(dns_client_t));
 		dns_init_client(prvlwip.dns_client[adapter_index]);
 	}
@@ -146,7 +146,7 @@ static int net_lwip2_next_data_cache(void *p, void *u)
 
 static socket_data_t * net_lwip2_create_data_node(uint8_t socket_id, uint8_t *data, uint32_t len, luat_ip_addr_t *remote_ip, uint16_t remote_port)
 {
-	socket_data_t *p = (socket_data_t *)luat_heap_malloc(sizeof(socket_data_t));
+	socket_data_t *p = (socket_data_t *)luat_heap_zalloc(sizeof(socket_data_t));
 	if (p)
 	{
 		memset(p, 0, sizeof(socket_data_t));
@@ -163,7 +163,7 @@ static socket_data_t * net_lwip2_create_data_node(uint8_t socket_id, uint8_t *da
 		p->tag = prvlwip.socket[socket_id].tag;
 		if (data && len)
 		{
-			p->data = luat_heap_malloc(len);
+			p->data = luat_heap_zalloc(len);
 			if (p->data)
 			{
 				memcpy(p->data, data, len);
@@ -228,7 +228,7 @@ static int net_lwip2_rx_data(int socket_id, struct pbuf *p, const ip_addr_t *add
 	socket_data_t *data_p = net_lwip2_create_data_node(socket_id, NULL, 0, addr, port);
 	if (data_p)
 	{
-		data_p->data = luat_heap_malloc(p->tot_len);
+		data_p->data = luat_heap_zalloc(p->tot_len);
 		if (data_p->data)
 		{
 			data_p->len = pbuf_copy_partial(p, data_p->data, p->tot_len, 0);
@@ -949,7 +949,7 @@ static void net_lwip2_task(void *param)
 
 static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
-	OS_EVENT *event = luat_heap_malloc(sizeof(OS_EVENT));
+	OS_EVENT *event = luat_heap_zalloc(sizeof(OS_EVENT));
 	event->ID = id;
 	event->Param1 = param1;
 	event->Param2 = param2;
@@ -965,6 +965,8 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
 	luat_ip_addr_t addr = {0};
+	dns_client_t *dns_client = prvlwip.dns_client[adapter_index];
+	dhcp_client_info_t* dhcpc = prvlwip.dhcpc[adapter_index];
 	char ip_string[64] = {0};
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
 		return;
@@ -985,22 +987,42 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	{
 		NET_DBG("network ready %d", adapter_index);
 		uint32_t tmp = adapter_index;
-		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
-			ip4addr_ntoa_r(&prvlwip.lwip_netif[adapter_index]->gw, ip_string, 32);
-			NET_DBG("使用网关作为默认DNS服务器 %s", ip_string);
-			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)tmp);
+		luat_ip_addr_t addr = {0};
+		uint8_t dns0_set = 0;
+		uint8_t dns1_set = 0;
+		// LLOGD("开始设置DNS服务器 %d static? %d %d %d %d", adapter_index, dns_client->is_static_dns[0], dns_client->is_static_dns[1], prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[0] : 0, prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[1] : 0);
+		if (dns_client->is_static_dns[0] == 0) {
+			if (dhcpc && dhcpc->dns_server[0]) {
+				network_set_ip_ipv4(&dns_client->dns_server[0], dhcpc->dns_server[0]);
+				dns0_set = 1;
+				// LLOGD("使用DHCP分配的DNS服务器作为首选DNS服务器");
+			}
 		}
 		else {
-			NET_DBG("使用223.5.5.5作为默认DNS服务器");
-			ip4addr_aton("223.5.5.5", &addr);
-			net_lwip2_set_dns_server(0, &addr, (void*)tmp);
+			dns0_set = 1; // 静态DNS服务器, 就不更新了
 		}
-		ip4addr_aton("114.114.114.114", &addr);
-		net_lwip2_set_dns_server(1, &addr, (void*)tmp);
-		ip4addr_aton("223.5.5.5", &addr);
-		net_lwip2_set_dns_server(2, &addr, (void*)tmp);
-		ip4addr_aton("119.29.29.29", &addr);
-		net_lwip2_set_dns_server(3, &addr, (void*)tmp);
+		if (dns_client->is_static_dns[1] == 0) {
+			if (dhcpc && dhcpc->dns_server[1]) {
+				network_set_ip_ipv4(&dns_client->dns_server[1], dhcpc->dns_server[1]);
+				dns1_set = 1;
+				// LLOGD("使用DHCP分配的DNS服务器作为次选DNS服务器");
+			}
+		}
+		else {
+			dns1_set = 1; // 静态DNS服务器, 就不更新了
+		}
+
+		if (dns0_set == 0) {
+			// LLOGD("使用网关作为首选DNS服务器");
+			memcpy(&dns_client->dns_server[0], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
+		}
+		else {
+			// LLOGI("首选DNS服务器 %s", ipaddr_ntoa(&prvlwip.dns_client[adapter_index]->dns_server[0]));
+		}
+		
+		if (dns1_set == 0) {
+			network_set_ip_ipv4(&dns_client->dns_server[1], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
+		}
 		net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
 	}
 }
@@ -1479,8 +1501,11 @@ static int net_lwip2_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, vo
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	if (server_index >= MAX_DNS_SERVER) return -1;
 	if (prvlwip.dns_client[adapter_index] == NULL) return -1;
-	prvlwip.dns_client[adapter_index]->dns_server[server_index] = *ip;
+	memcpy(&prvlwip.dns_client[adapter_index]->dns_server[server_index], ip, sizeof(luat_ip_addr_t));
 	prvlwip.dns_client[adapter_index]->is_static_dns[server_index] = 1;
+	char buff[64] = {0};
+	ipaddr_ntoa_r(ip, buff, 64);
+	NET_DBG("设置DNS服务器 id %d index %d ip %s", adapter_index, server_index, buff);
 	return 0;
 }
 
@@ -1497,7 +1522,7 @@ static int net_lwip2_set_static_ip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, 
 	uint8_t index = (uint32_t)user_data;
 	if (index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	if (!prvlwip.lwip_netif[index]) return -1;
-	luat_ip_addr_t *p_ip = luat_heap_malloc(sizeof(luat_ip_addr_t) * 4);
+	luat_ip_addr_t *p_ip = luat_heap_zalloc(sizeof(luat_ip_addr_t) * 4);
 	if (p_ip == NULL) {
 		NET_ERR("net_lwip2_set_static_ip malloc fail");
 		return -1;
@@ -1669,4 +1694,14 @@ static ip_addr_t *net_lwip2_get_ip6(uint8_t adapter_index)
 	}
 	#endif
 	return NULL;
+}
+
+void net_lwip2_set_dhcp_client(uint8_t adapter_index, dhcp_client_info_t *dhcp_client) {
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+		return; // 超范围了
+	}
+	if (prvlwip.dhcpc[adapter_index]) {
+		return;
+	}
+	prvlwip.dhcpc[adapter_index] = dhcp_client;
 }

@@ -27,8 +27,8 @@ wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)
 
 --WIFI联网成功（做为STATION成功连接AP，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
 --各个功能模块可以订阅"IP_READY"消息实时处理WIFI联网成功的事件
---也可以在任何时刻调用socket.adapter(socket.LWIP_STA)来获取WIFI网络是否连接成功
+--也可以在任何时刻调用socket.adapter(socket.dft())来获取WIFI网络是否连接成功
 
 --WIFI断网后，内核固件会产生一个"IP_LOSE"消息
 --各个功能模块可以订阅"IP_LOSE"消息实时处理WIFI断网的事件
---也可以在任何时刻调用socket.adapter(socket.LWIP_STA)来获取WIFI网络是否连接成功
+--也可以在任何时刻调用socket.adapter(socket.dft())来获取WIFI网络是否连接成功

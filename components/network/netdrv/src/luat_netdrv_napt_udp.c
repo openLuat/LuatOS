@@ -48,8 +48,8 @@ __USER_FUNC_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
 
             // 修改目标地址到内网地址,并重新计算ip的checksum
             ip_hdr->dest.addr = mapping.inet_ip;
-            ip_hdr->_chksum = 0;
-            ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+            IPH_CHKSUM_SET(ip_hdr, 0);
+            IPH_CHKSUM_SET(ip_hdr, alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len));
 
             // 重新计算icmp的checksum
             if (udp_hdr->chksum)
@@ -122,8 +122,8 @@ __USER_FUNC_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
         ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
         udp_hdr->src = mapping.wnet_local_port;
         // 3. 与ICMP不同, 先计算IP的checksum
-        ip_hdr->_chksum = 0;
-        ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+        IPH_CHKSUM_SET(ip_hdr, 0);
+        IPH_CHKSUM_SET(ip_hdr, alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len));
         // 4. 计算IP包的checksum
         if (udp_hdr->chksum)
         {

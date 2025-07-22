@@ -303,6 +303,8 @@ int luat_airlink_wakeup_irqmode(luat_airlink_irq_ctx_t *ctx);
 
 int luat_airlink_has_wifi(void);
 
+uint32_t luat_airlink_sversion(void);
+
 #ifdef TYPE_EC718M
 #include "platform_def.h"
 #endif

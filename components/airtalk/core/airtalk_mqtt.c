@@ -5,7 +5,7 @@
 
 #include "libemqtt.h"
 #include "luat_mqtt.h"
-
+#if 0
 typedef struct
 {
 	llist_head node;
@@ -373,3 +373,5 @@ void luat_airtalk_net_debug_switch(uint8_t on_off)
 {
 	prv_demo_mqtt.debug_on_off = on_off;
 }
+
+#endif

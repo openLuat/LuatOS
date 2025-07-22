@@ -1341,8 +1341,6 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	
 	//@const LWIP_SPI number 使用LWIP协议栈的SPI网络
 	{ "LWIP_SPI",          		ROREG_INT(NW_ADAPTER_INDEX_LWIP_SPI)},
-	//@const LWIP_UART number 使用LWIP协议栈的UART网络
-	{ "LWIP_UART",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_UART)},
 
 	//@const LWIP_USER0 number 使用LWIP协议栈的自定义网卡0, 2025.1.12新增
 	{ "LWIP_USER0",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER0)},

@@ -35,10 +35,7 @@ int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 {
 	uint32_t pkg_len = 0;
 	// 先处理FIN
-	if (buf[0] && (1 << 7))
-	{
-		pkg->FIN = 1;
-	}
+	pkg->FIN = (buf[0] >> 7) & 0x01;
 	// 处理操作码
 	pkg->OPT_CODE = buf[0] & 0xF;
 	// 然后处理plen
@@ -489,6 +486,8 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 
 	switch (pkg.OPT_CODE)
 	{
+	case 0x00: // 连续帧
+		break;
 	case 0x01: // 文本帧
 		break;
 	case 0x02: // 二进制帧
@@ -505,7 +504,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 		break;
 
 	default:
-		LLOGE("unkown optcode %0x2X", pkg.OPT_CODE);
+		LLOGE("unkown optcode 0x%02X", pkg.OPT_CODE);
 		return -1;
 	}
 

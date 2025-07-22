@@ -18,6 +18,7 @@
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
 #include "luat_network_adapter.h"
+#include "luat_netdrv_event.h"
 #include "net_lwip2.h"
 
 #include "lwip/ip.h"
@@ -345,6 +346,17 @@ static const rotable_Reg_t reg_netdrv[] =
     { "RESET_HARD",     ROREG_INT(0x101)},
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H
     { "RESET_SOFT",     ROREG_INT(0x102)},
+
+    { "EVENT_TCP",      ROREG_INT(LUAT_NETDRV_EVENT_TCP)},
+    { "EVENT_UDP",      ROREG_INT(LUAT_NETDRV_EVENT_UDP)},
+    { "EVENT_DNS",      ROREG_INT(LUAT_NETDRV_EVENT_DNS)},
+
+    { "EVT_TCP_FLAG_CREATE", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CREATE)},
+    { "EVT_TCP_FLAG_CONNECT", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CREATE)},
+    { "EVT_TCP_FLAG_DISCONNECT", ROREG_INT(NETDRV_EVENT_TCP_FLAG_DISCONNECT)},
+    { "EVT_UDP_FLAG_CLOSE", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CLOSE)},
+    { "EVT_TCP_FLAG_ERROR", ROREG_INT(NETDRV_EVENT_TCP_FLAG_ERROR)},
+
 	{ NULL,             ROREG_INT(0) }
 };
 

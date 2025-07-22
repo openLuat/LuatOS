@@ -39,9 +39,9 @@ local function http_upload_photo_task_func()
         end
 
         --检查WIFI连接状态
-        log.info("http_upload_photo_task_func", "socket.adapter(socket.LWIP_STA)", socket.adapter(socket.LWIP_STA))
+        log.info("http_upload_photo_task_func", "socket.adapter(socket.dft())", socket.adapter(socket.dft()))
         --如果WIFI还没有连接成功
-        if not socket.adapter(socket.LWIP_STA) then
+        if not socket.adapter(socket.dft()) then
             --在此处阻塞等待WIFI连接成功的消息"IP_READY"
             --或者等待30秒超时退出阻塞等待状态
             --如果没有等到"IP_READY"消息，关闭摄像头，并且直接退出这个函数

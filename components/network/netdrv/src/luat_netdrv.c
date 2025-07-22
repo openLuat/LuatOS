@@ -270,7 +270,11 @@ err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp)
 
 #if LWIP_ETHERNET
   if (inp->flags & (NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET)) {
+    #if defined(LUAT_USE_NETDRV_LWIP_ARP)
     return luat_netdrv_ethernet_input(p, inp);
+    #else
+    return ethernet_input(p, inp);
+    #endif /* LUAT_USE_NETDRV_LWIP_ARP */
   } else
 #endif /* LWIP_ETHERNET */
     return ip_input(p, inp);

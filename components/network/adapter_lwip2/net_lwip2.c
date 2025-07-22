@@ -987,11 +987,11 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		uint32_t tmp = adapter_index;
 		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
 			ip4addr_ntoa_r(&prvlwip.lwip_netif[adapter_index]->gw, ip_string, 32);
-			NET_DBG("使用网关作为默认DNS服务器 %s", ip_string);
+			//NET_DBG("使用网关作为默认DNS服务器 %s", ip_string);
 			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)tmp);
 		}
 		else {
-			NET_DBG("使用223.5.5.5作为默认DNS服务器");
+			//NET_DBG("使用223.5.5.5作为默认DNS服务器");
 			ip4addr_aton("223.5.5.5", &addr);
 			net_lwip2_set_dns_server(0, &addr, (void*)tmp);
 		}

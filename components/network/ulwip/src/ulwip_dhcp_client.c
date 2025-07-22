@@ -56,6 +56,15 @@ on_check:
 		LLOGD("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		LLOGD("租约时间:%u秒", dhcp->lease_time);
 
+        if (dhcp->dns_server[0] != 0) {
+            uIP.u32 = dhcp->dns_server[0];
+            LLOGD("DNS服务器1:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+        }
+        if (dhcp->dns_server[1] != 0) {
+            uIP.u32 = dhcp->dns_server[1];
+            LLOGD("DNS服务器2:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+        }
+
         // 设置到netif
         ip_addr_set_ip4_u32(&netif->ip_addr, dhcp->ip);
         ip_addr_set_ip4_u32(&netif->netmask, dhcp->submask);

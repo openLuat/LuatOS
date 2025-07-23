@@ -38,7 +38,8 @@ local function logF(...)
 end
 
 local function read_xyz()
-    -- 从X轴LSB寄存器(0x02)开始连续读取6字节数据(X/Y/Z各2字节)
+    -- da221是LSB在前，MSB在后，每个寄存器都是1字节数据，每次读取都是6个寄存器数据一起获取
+    -- 因此直接从X轴LSB寄存器(0x02)开始连续读取6字节数据(X/Y/Z各2字节)，避免出现数据撕裂问题
     i2c.send(i2cId, da221Addr, x_lsb_reg, 1)
     local recv_data = i2c.recv(i2cId, da221Addr, 6)
 

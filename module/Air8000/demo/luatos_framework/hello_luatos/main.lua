@@ -6,7 +6,7 @@
 @author  朱天华
 @usage
 本demo演示的核心功能为：
-每隔一秒钟在日志中输出一次Hello, LuatOS
+每隔一秒钟通过日志输出一次Hello, LuatOS
 更多说明参考本目录下的readme.md文件
 ]]
 

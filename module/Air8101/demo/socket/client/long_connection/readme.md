@@ -63,15 +63,13 @@
 
 4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-5、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_ca_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+5、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
-6、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+6、Luatools烧录内核固件和修改后的demo脚本代码
 
-7、Luatools烧录内核固件和修改后的demo脚本代码
+7、烧录成功后，自动开机运行
 
-8、烧录成功后，自动开机运行
-
-9、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server、TCP SSL server，一共四个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
+8、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
 
 ``` lua
 [2025-06-24 16:47:39.085]send from timer: 1
@@ -85,9 +83,9 @@
 ```
 
 
-10、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
+9、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
 
-11、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
+10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
 
 ``` lua
 [2025-06-24 17:19:58.402]send from uart: kerjkjwr

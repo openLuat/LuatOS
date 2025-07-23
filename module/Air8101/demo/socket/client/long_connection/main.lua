@@ -73,6 +73,9 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 加载网络环境检测看门狗功能模块
+require "network_watchdog"
+
 -- 加载WIFI网络连接管理应用功能模块
 require "wifi_app"
 
@@ -80,8 +83,6 @@ require "wifi_app"
 require "uart_app"
 -- 加载定时器应用功能模块
 require "timer_app"
--- 加载测试应用功能模块(只有调试某些接口时才需要)
--- require "test_app"
 
 -- 加载tcp client socket主应用功能模块
 require "tcp_client_main"

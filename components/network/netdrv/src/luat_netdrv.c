@@ -259,6 +259,7 @@ void luat_netdrv_debug_set(int id, int enable) {
 }
 
 #include "lwip/etharp.h"
+#include "netif/ethernet.h"
 // #include "luat_netdrv_etharp.h"
 extern err_t luat_netdrv_ethernet_input(struct pbuf *p, struct netif *netif);
 err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp)

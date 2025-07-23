@@ -20,7 +20,22 @@ local tcp_ssl_ca_receiver = {}
 -- socket数据接收缓冲区
 local recv_buff = nil
 
--- 数据接收应用入口函数
+--[[
+检查socket client是否收到数据，如果收到数据，读取并且处理完所有数据
+
+@api tcp_ssl_ca_receiver.proc(socket_client)
+
+@param1 socket_client userdata
+表示由socket.create接口创建的socket client对象；
+必须传入，不允许为空或者nil；
+
+@return1 result bool
+表示处理结果，成功为true，失败为false
+
+@usage
+-- 
+tcp_ssl_ca_receiver.proc(socket_client)
+]]
 function tcp_ssl_ca_receiver.proc(socket_client)
     -- 如果socket数据接收缓冲区还没有申请过空间，则先申请内存空间
     if recv_buff==nil then
@@ -63,6 +78,9 @@ function tcp_ssl_ca_receiver.proc(socket_client)
 
             -- 将数据data通过"RECV_DATA_FROM_SERVER"消息publish出去，给其他应用模块处理
             sys.publish("RECV_DATA_FROM_SERVER", "recv from tcp_ssl_ca server: ", data)
+
+            -- 接收到数据，通知网络环境检测看门狗功能模块进行喂狗
+            sys.publish("FEED_NETWORK_WATCHDOG")
 
             -- 清空socket数据接收缓冲区中的数据
             recv_buff:del()

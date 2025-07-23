@@ -47,7 +47,25 @@ local function send_data_req_proc_func(tag, data, cb)
     sysplus.sendMsg(tcp_client_sender.TASK_NAME, socket.EVENT, 0)
 end
 
--- 数据发送应用逻辑处理入口
+--[[
+检查socket client是否需要发送数据，如果需要发送数据，读取并且发送完发送队列中的所有数据
+
+@api tcp_client_sender.proc(task_name, socket_client)
+
+@param1 task_name string
+表示socket.create接口创建socket client对象时所处的task的name；
+必须传入，不允许为空或者nil；
+
+@param2 socket_client userdata
+表示由socket.create接口创建的socket client对象；
+必须传入，不允许为空或者nil；
+
+@return1 result bool
+表示处理结果，成功为true，失败为false
+
+@usage
+tcp_client_sender.proc("tcp_client_main", socket_client)
+]]
 function tcp_client_sender.proc(task_name, socket_client)
     local send_item
     local result, buff_full
@@ -85,12 +103,22 @@ function tcp_client_sender.proc(task_name, socket_client)
         if send_item.cb and send_item.cb.func then
             send_item.cb.func(true, send_item.cb.para)
         end
+
+        -- 发送成功，通知网络环境检测看门狗功能模块进行喂狗
+        sys.publish("FEED_NETWORK_WATCHDOG")
     end
 
     return true
 end
 
--- 数据发送应用逻辑异常处理入口
+--[[
+socket client连接出现异常时，清空等待发送的数据，并且执行发送方的回调函数
+
+@api tcp_client_sender.exception_proc()
+
+@usage
+tcp_client_sender.exception_proc()
+]]
 function tcp_client_sender.exception_proc()
     -- 遍历数据发送队列send_queue
     while #send_queue>0 do

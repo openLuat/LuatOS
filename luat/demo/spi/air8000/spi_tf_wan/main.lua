@@ -20,12 +20,9 @@ sysplus = require("sysplus")
 
 local rtos_bsp = rtos.bsp()
 
-local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 local SPI_SPEED = 25600000
 
--- if USE_CH390 then
---     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
--- end
+
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
@@ -34,7 +31,7 @@ end
 
 -- TF卡和WAN口初始化函数
 local function tf_wan_init()
-    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电， Air8000 的ch390 和 tf卡共用SPI ，ch390 如果不打开的话会让SPI 无法正常工作，从而导致TF卡无法使用
     sys.wait(1000)                   -- 延迟1秒让ch390 稳定后再挂载TF卡
     
     -- #################################################

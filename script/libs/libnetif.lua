@@ -6,9 +6,9 @@
 @author  wjq
 @usage
 本文件的对外接口有4个：
-1、libnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络
+1、libnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络(需要在task中调用)
 2、libnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
-3、libnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合
+3、libnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、libnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
 local libnetif = {}
@@ -177,8 +177,7 @@ local function set_wifi_info(config)
 end
 
 --[[
-设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.
-例：插入网线且能够dns域名解析获取到baidu.com的ip，网卡状态切换为可用。拔掉网线网卡状态切换为不可用
+设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
 @api libnetif.set_priority_order(new_priority)
 @table 网络优先级列表
 @return boolean 成功返回true，失败返回false
@@ -254,7 +253,7 @@ function libnetif.set_priority_order(networkConfigs)
         if config.LWIP_GP then
             --开启4G
             table.insert(new_priority, socket.LWIP_GP)
-            available[socket.LWIP_GP] = connection_states.OPENED
+            available[socket.LWIP_GP] = connection_states.CONNECTING
         end
     end
 
@@ -266,11 +265,7 @@ function libnetif.set_priority_order(networkConfigs)
 end
 
 --[[
-设置网络状态变化回调函数
-触发条件是 网卡切换或者所有网卡都断网
-返回值为:
-1. 当有可用网络的时候，返回当前使用网卡、网卡id；
-2. 当没有可用网络的时候，返回 nil、-1 。
+设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。返回值为:1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
 @api libnetif.notify_status(cb_fnc)
 @function 回调函数
 @usage
@@ -288,7 +283,7 @@ function libnetif.notify_status(cb_fnc)
 end
 
 --[[
-设置多网融合模式，例如4G作为数据出口给WIFI或以太网设备上网
+设置多网融合模式，例如4G作为数据出口给WIFI或以太网设备上网(需要在task中调用)
 @api libnetif.setproxy(adapter, main_adapter,other_configs)
 @adapter 需要使用网络的网卡，例如socket.LWIP_ETH
 @adapter 提供网络的网卡，例如socket.LWIP_GP

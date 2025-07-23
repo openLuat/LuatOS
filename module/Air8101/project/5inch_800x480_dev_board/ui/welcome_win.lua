@@ -28,6 +28,7 @@ local function welcome_win_task_func()
     local font_zoom_interval = 5
 
     lcd.setColor(lcd_device.bg_color, lcd_device.fg_color)    
+    
 
     for i=1,font_zoom_cnt do
         -- 清屏
@@ -39,9 +40,9 @@ local function welcome_win_task_func()
         -- 第三个参数固定为4
         -- 第四个参数为显示的左上角x坐标
         -- 第五个参数为显示的左上角y坐标
-        lcd.drawGtfontUtf8(first_line_text,
+        lcd.drawGtfontUtf8Gray(first_line_text,
             font_max_size-(i-1)*font_sub_size,
-            -- 4,
+            4,
             math.floor(central_pos_x-4*(font_max_size-(i-1)*font_sub_size)/2),
             central_pos_y-vertical_space-(font_max_size-(i-1)*font_sub_size))
 
@@ -52,9 +53,9 @@ local function welcome_win_task_func()
         -- 第三个参数固定为4
         -- 第四个参数为显示的左上角x坐标
         -- 第五个参数为显示的左上角y坐标
-        lcd.drawGtfontUtf8(second_line_text,
+        lcd.drawGtfontUtf8Gray(second_line_text,
             font_max_size-(i-1)*font_sub_size,
-            -- 4,
+            4,
             math.floor(central_pos_x-5*(font_max_size-(i-1)*font_sub_size)/2),
             central_pos_y+vertical_space)
 

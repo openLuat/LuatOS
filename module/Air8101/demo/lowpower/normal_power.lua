@@ -42,7 +42,7 @@ end
 -- 定义一个发送心跳信息功能函数。
 function send_tcp_heartbeat_func()
     -- 通过网卡状态判断WIFI是否连接成功，WIFI连接成功后再运行消息发送。
-    while not socket.adapter(socket.LWIP_STA) do
+    while not socket.adapter(socket.dft()) do
         -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"，避免联网过快，丢失了"IP_READY"信息而导致一直被卡住。
         -- 或者等待30秒超时退出阻塞等待状态
         log.warn("tcp_client_main_task_func", "wait IP_READY")

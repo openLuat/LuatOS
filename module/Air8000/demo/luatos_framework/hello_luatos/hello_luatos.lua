@@ -7,7 +7,7 @@
 @usage
 本文件为hello_luatos应用功能模块，核心业务逻辑为：
 1、创建一个task；
-2、在task中的任务处理函数中，每隔一秒钟在日志中输出一次Hello, LuatOS；
+2、在task的任务处理函数中，每隔一秒钟通过日志输出一次Hello, LuatOS；
 
 本文件没有对外接口，直接在main.lua中require "hello_luatos"就可以加载运行；
 ]]

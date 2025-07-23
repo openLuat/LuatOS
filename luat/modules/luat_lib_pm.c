@@ -493,6 +493,10 @@ static const rotable_Reg_t reg_pm[] =
     { "WORK_MODE",      ROREG_INT(LUAT_PM_POWER_WORK_MODE)},
 	//@const IOVL number 所有GPIO高电平电压控制,当前仅Air780EXXX可用
     { "IOVOL_ALL_GPIO", ROREG_INT(LUAT_PM_ALL_GPIO)},
+	//@const IOVL number VMMC电压域IO
+    { "IOVOL_SDIO", ROREG_INT(LUAT_PM_LDO_TYPE_VMMC)},
+	//@const IOVL number VLCD电压域IO
+    { "IOVOL_LCD", ROREG_INT(LUAT_PM_LDO_TYPE_VLCD)},
     //@const ID_NATIVE number PM控制的ID, 主芯片, 任意芯片的默认值就是它
     { "ID_NATIVE",      ROREG_INT(1)},
     //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用

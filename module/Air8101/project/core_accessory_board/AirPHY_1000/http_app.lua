@@ -1,10 +1,10 @@
 
 --这个task的核心业务逻辑是：每隔一段时间发送一次http get请求，测试http数传是否正常
 local function http_get_task_func()
-    --检查以太网连接状态
-    log.info("http_get_task_func", "socket.adapter(socket.LWIP_ETH)",socket.adapter(socket.LWIP_ETH))
-    --如果以太网还没有连接成功
-    if not socket.adapter(socket.LWIP_ETH) then
+    --检查当前使用的网卡(本demo使用的是以太网卡socket.LWIP_ETH)的连接状态
+    log.info("http_get_task_func", "socket.adapter(socket.dft())", socket.adapter(socket.dft()))
+    --如果当前使用的网卡还没有连接成功
+    if not socket.adapter(socket.dft()) then
         --phy_app.lua中的以太网配置和启动结束后，一旦以太网卡准备就绪，就会产生一个"IP_READY"消息
         --在此处阻塞等待以太网连接成功的消息"IP_READY"
         --或者等待30秒超时退出阻塞等待状态
@@ -24,7 +24,6 @@ local function http_get_task_func()
         --wait()表示在此处阻塞等待整个过程的结束
 
         --具体到此处的代码，对部分参数以及返回值做如下解释
-        --adapter=socket.LWIP_ETH表示使用的是以太网卡
         --timeout=3000表示超时时间为3秒，如果3秒内没有成功结束或者异常结束整个过程，则会超时结束；
         --整个过程结束后，http.request().wait()有三个返回值code，headers，body
         --code表示结果，number类型，详细说明参考API手册，一般来说：
@@ -33,14 +32,14 @@ local function http_get_task_func()
         --             其余结果值参考API手册
         --headers表示服务器返回的应答头，table类型
         --body表示服务器返回的应答题，具体到这里的代码使用方式，为string类型
-        log.info("http", http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {adapter=socket.LWIP_ETH,timeout=3000}).wait())
+        log.info("http", http.request("GET", "http://httpbin.air32.cn/get", nil, nil, {timeout=3000}).wait())
 
         --打印使用的内存信息，方便分析内存使用情况
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
 
-        --打印以太网卡下的本地IP，网关，子网掩码，网关IP信息
-        log.info("ip", socket.localIP(socket.LWIP_ETH))
+        --打印当前使用的网卡(本demo使用的是以太网卡socket.LWIP_ETH)下的本地IP，网关，子网掩码，网关IP信息
+        log.info("ip", socket.dft(), socket.localIP(socket.dft()))
 
         --等待6秒钟
         sys.wait(6000)

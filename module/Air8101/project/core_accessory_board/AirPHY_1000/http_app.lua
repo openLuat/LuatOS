@@ -3,7 +3,7 @@
 local function http_get_task_func()
     --检查当前使用的网卡(本demo使用的是以太网卡socket.LWIP_ETH)的连接状态
     log.info("http_get_task_func", "socket.adapter(socket.dft())", socket.adapter(socket.dft()))
-    --如果当前使用的网卡还没有连接成功
+    --如果当前使用的网卡(本demo使用的是以太网卡socket.LWIP_ETH)还没有连接成功
     if not socket.adapter(socket.dft()) then
         --phy_app.lua中的以太网配置和启动结束后，一旦以太网卡准备就绪，就会产生一个"IP_READY"消息
         --在此处阻塞等待以太网连接成功的消息"IP_READY"

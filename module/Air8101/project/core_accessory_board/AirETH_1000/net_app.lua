@@ -24,8 +24,6 @@ gpio.setup(13, 1, gpio.PULLUP)
 
 --这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网上开启动态主机配置协议
 local function spi_eth_init_task_func()
-
-    sys.wait(6000)
     -- 初始化SPI
     local result = spi.setup(
         0,--spi_id

@@ -146,9 +146,9 @@ typedef struct {
     uint8_t y_l;
 } point_data_t;
 
-static int16_t pre_x[CTS820_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
-static int16_t pre_y[CTS820_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
-static int16_t pre_w[CTS820_TOUCH_NUMBER_MAX] = {-1, -1, -1, -1, -1};
+static int16_t pre_x[CTS820_TOUCH_NUMBER_MAX] = {-1, -1};
+static int16_t pre_y[CTS820_TOUCH_NUMBER_MAX] = {-1, -1};
+static int16_t pre_w[CTS820_TOUCH_NUMBER_MAX] = {-1, -1};
 static uint8_t s_tp_down[CTS820_TOUCH_NUMBER_MAX];
 
 static uint8_t read_buff[CTS820_POINT_INFO_NUM * CTS820_TOUCH_NUMBER_MAX];

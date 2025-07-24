@@ -288,19 +288,6 @@ end
 @adapter 需要使用网络的网卡，例如socket.LWIP_ETH
 @adapter 提供网络的网卡，例如socket.LWIP_GP
 @table 其他设置参数(选填参数)，
-{
-        ssid = "Hotspot",                -- WiFi名称(string)，网卡包含wifi时填写
-        password = "password123",        -- WiFi密码(string)，网卡包含wifi时填写
-        tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-        opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
-        ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
-        adapter_addr = "192.168.5.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
-        adapter_gw= { 192, 168, 5, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
-        ap_opts={                        -- AP模式下配置项(选填参数)
-        hidden = false,                  -- 是否隐藏SSID, 默认false,不隐藏
-        max_conn = 4 },                  -- 最大客户端数量, 默认4
-        channel=6                        -- AP建立的通道, 默认6
-}
 @usage
     --典型应用：
     -- 4G作为出口供WiFi和以太网设备上网
@@ -585,6 +572,9 @@ local function http_dnstest(adaptertest)
     local ip = httpdns.ali("baidu.com", { adapter = adaptertest, timeout = 3000 })
     if ip ~= nil then
         available[adaptertest] = connection_states.CONNECTED
+        log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析成功")
+    else
+        log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析失败")
     end
     log.info("httpdns", "baidu.com", ip)
 end
@@ -645,8 +635,8 @@ sys.taskInit(function()
         for _, net_type in ipairs(current_priority) do
             -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
             if available[net_type] == connection_states.CONNECTING then
+                log.info(type_to_string(net_type) .. "网卡开始PING")
                 ping_request(net_type)
-                log.info(type_to_string(net_type) .. "网卡未ping通，需要定时ping")
                 sys.wait(ping_time)
             end
         end
@@ -684,7 +674,8 @@ sys.taskInit(function()
 end)
 
 sys.subscribe("PING_RESULT", function(id, time, dst)
-    log.info("ping", type_to_string(id), time, dst);
+    log.info("ping",id, time, dst)
+    log.info(type_to_string(id) .. "网卡PING测试成功")
     available[id] = connection_states.CONNECTED
     apply_priority()
 end)

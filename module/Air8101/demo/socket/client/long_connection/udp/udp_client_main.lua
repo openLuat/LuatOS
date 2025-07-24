@@ -24,7 +24,7 @@ local udp_client_sender = require "udp_client_sender"
 -- 点击 打开UDP 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 42250
+local SERVER_PORT = 46392
 
 -- udp_client_main的任务名
 local TASK_NAME = udp_client_sender.TASK_NAME
@@ -42,16 +42,20 @@ local function udp_client_main_task_func()
     local result, para1, para2
 
     while true do
-        -- 如果WIFI还没有连接成功，一直在这里循环等待
+        -- 如果当前时间点设置的网卡还没有连接成功，一直在这里循环等待
         while not socket.adapter(socket.dft()) do
-            log.warn("udp_client_main_task_func", "wait IP_READY")
-            -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"
-            -- 或者等待30秒超时退出阻塞等待状态
-            sys.waitUntil("IP_READY", 30000)
+            log.warn("udp_client_main_task_func", "wait IP_READY", socket.dft())
+            -- 在此处阻塞等待网卡连接成功的消息"IP_READY"
+            -- 或者等待1秒超时退出阻塞等待状态;
+            -- 注意：此处的1000毫秒超时不要修改的更长；
+            -- 因为当使用libnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改当前使用的网卡
+            -- 当libnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+            -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+            sys.waitUntil("IP_READY", 1000)
         end
 
         -- 检测到了IP_READY消息
-        log.info("udp_client_main_task_func", "recv IP_READY")
+        log.info("udp_client_main_task_func", "recv IP_READY", socket.dft())
 
         -- 创建socket client对象
         socket_client = socket.create(nil, TASK_NAME)

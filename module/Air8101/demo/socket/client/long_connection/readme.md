@@ -1,3 +1,24 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的任何一种网卡；
+
+3、tcp文件夹：tcp client连接以及数据收发处理逻辑；
+
+4、udp文件夹：udp client连接以及数据收发处理逻辑；
+
+5、tcp_ssl文件夹：tcp ssl client连接以及数据收发处理逻辑；
+
+6、tcp_ssl_ca文件夹：tcp ssl client单向认证连接以及数据收发处理逻辑；
+
+7、network_watchdog.lua：网络环境检测看门狗；
+
+8、timer_app.lua：通知四个client定时发送数据到服务器；
+
+9、uart_app.lua：在四个client和uart外设之间透传数据；
+
+
 
 ## 演示功能概述
 1、创建四路socket连接，详情如下
@@ -20,7 +41,19 @@
 
 4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
 
-5、每一路socket连接，启动一个网络业务逻辑看门狗task，用来监控socket工作状态，如果连续长时间工作不正常，重启整个软件系统（后续补充）；
+5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+
+   (1) netdrv_wifi：WIFI STA网卡
+
+   (2) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+
+
 
 
 ## 演示硬件环境

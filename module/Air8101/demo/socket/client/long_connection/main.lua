@@ -76,8 +76,8 @@ end
 -- 加载网络环境检测看门狗功能模块
 require "network_watchdog"
 
--- 加载WIFI网络连接管理应用功能模块
-require "wifi_app"
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
 -- 加载串口应用功能模块
 require "uart_app"
@@ -92,11 +92,10 @@ require "udp_client_main"
 
 -- 打开内核固件中ssl的调试日志（需要分析问题时再打开）
 -- socket.sslLog(3)
+
 -- 加载tcp ssl client socket主应用功能模块
 require "tcp_ssl_main"
 
--- 加载sntp时间同步应用功能模块（ca证书校验的ssl socket需要时间同步功能）
-require "sntp_app"
 -- 加载tcp ssl ca client socket主应用功能模块
 require "tcp_ssl_ca_main"
 

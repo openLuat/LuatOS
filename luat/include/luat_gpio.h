@@ -154,4 +154,7 @@ int luat_gpio_driver_yhm27xx(uint32_t pin, uint8_t chip_id, uint8_t reg, uint8_t
 /** @}*/
 
 void luat_gpio_mode(int pin, int mode, int pull, int initOutput);
+
+void luat_gpo_open(uint8_t id);
+void luat_gpo_output(uint8_t pin, uint8_t level);
 #endif

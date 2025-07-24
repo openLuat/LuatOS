@@ -11,14 +11,13 @@ mqtt也是内置库, 无需require
 _G.sys = require("sys")
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
-local netLed = require("netLed")
 
 
 --根据自己的服务器修改以下参数
 local mqtt_host = "lbsmqtt.airm2m.com"
 local mqtt_port = 1884
 local mqtt_isssl = false
-local client_id = "mqttx_b55c41b7"
+local client_id = "client_id"
 local user_name = "user"
 local password = "password"
 
@@ -45,7 +44,7 @@ sys.taskInit(function()
 
     client_id = device_id
     pub_topic = device_id .. "/up"  -- 设备发布的主题，开发者可自行修改
-    sub_topic = device_id .. "/down" -- 设备订阅的主题，开发者可自行修改
+    sub_topic = device_id .. "/down" -- 设备订阅的主题,使用MQTTFx测试时，向这个topic中发布，开发者可自行修改
 
     -- 打印一下上报(pub)和下发(sub)的topic名称
     -- 上报: 设备 ---> 服务器

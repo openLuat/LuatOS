@@ -68,6 +68,7 @@ extern luat_tp_opts_t tp_config_gt9157;
 extern luat_tp_opts_t tp_config_jd9261t;
 extern luat_tp_opts_t tp_config_jd9261t_inited;
 extern luat_tp_opts_t tp_config_ft3x68;
+extern luat_tp_opts_t tp_config_cts820;
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config);
 

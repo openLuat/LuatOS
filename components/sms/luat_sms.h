@@ -126,6 +126,14 @@ void luat_sms_init(void);
 int luat_sms_send_msg(uint8_t *p_input, char *p_des, bool is_pdu, int input_pdu_len);
 
 /**
+ * @brief 发送PDU短信
+ * @param pdu_data          PDU格式的短信
+ * @param pdu_len           PDU格式短信的长度
+ * @return 0成功,-1失败
+ */
+int luat_sms_send_msg_v2(uint8_t *pdu_data, size_t pdu_len);
+
+/**
  * @brief 接受短信回调
  * @param callback_fun    回调函数
  */

@@ -1,7 +1,7 @@
 
 -- netlab.luatos.com上打开TCP 有测试服务器
 local server_ip = "112.125.89.8"
-local server_port = 45360
+local server_port = 43890
 local is_udp = false --用户根据自己实际情况选择
 
 --是UDP服务器就赋值为true，是TCP服务器就赋值为flase
@@ -14,7 +14,7 @@ local Heartbeat_interval = 5 -- 发送数据的间隔时间，单位分钟
 gpio.setup(25, 0) -- 关闭GNSS电源
 gpio.setup(24, 0) -- 关闭三轴电源
 gpio.setup(23, 0) -- 关闭wifi电源
--- 数据内容  
+-- 数据内容
 local heart_data = string.rep("1234567890", 10)
 local rxbuf = zbuff.create(8192)
 
@@ -71,6 +71,7 @@ local function socketTask()
 end
 
 local function sleep_handle()
+    pm.power(pm.WORK_MODE, 1, 1)
     pm.power(pm.WORK_MODE, 1)
 end
 
@@ -80,7 +81,7 @@ uart.on(1, "receive", function(id, len)
     pm.power(pm.WORK_MODE, 0) -- 进入极致功耗模式
     repeat
         s = uart.read(id, 128)
-        
+
         if #s > 0 then -- #s 是取字符串的长度
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
             log.info("uart", "receive", id, #s, s)
@@ -93,7 +94,7 @@ end)
 
 function socketDemo()
     sys.wait(2000)
-    uart.setup(1, 9600) -- 配置uart1，外部唤醒用 
+    uart.setup(1, 9600) -- 配置uart1，外部唤醒用
     uart.write(1, "test lowpower")
     log.info("开始测试低功耗模式")
     sys.wait(2000)
@@ -105,11 +106,16 @@ function socketDemo()
     --关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
     pm.power(pm.USB, false)
 
-     --进入低功耗长连接模式
+    --进入低功耗长连接模式
+    -- WiFi模组进入低功耗模式
+    pm.power(pm.WORK_MODE, 1, 1)
+    -- 同时4G进入低功耗模式
     pm.power(pm.WORK_MODE, 1)
+    sys.wait(20)
+    -- 暂停airlink通信，进一步降低功耗
+    airlink.pause(1)
 
     sys.taskInit(socketTask)
-
 end
 
 sys.taskInit(socketDemo)

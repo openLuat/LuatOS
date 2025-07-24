@@ -8,62 +8,11 @@
 #define LUAT_LOG_TAG "cts820"
 #include "luat_log.h"
 
-#define CTS820_ADDRESS              (0x15)
-
-#define CTS820_CHIP_ID_CODE       (0xB7)
-
-#define CTS820_COMMAND_REG           (0x8040)
-
-#define CTS820_CONFIG_REG            (0x8047)
-#define CTS820_CONFIG_VERSION        (0x8047)
-#define CTS820_X_OUTPUT_MAX          (0x8048)
-#define CTS820_Y_OUTPUT_MAX          (0x804A)
-#define CTS820_TOUCH_NUMBER          (0x804C)
-#define CTS820_MODULE_SWITCH1        (0x804D)
-#define CTS820_MODULE_SWITCH2        (0x804E)
-#define CTS820_SHAKE_COUNT           (0x804F)
-#define CTS820_FILTER                (0x8050)
-#define CTS820_LARGE_TOUCH           (0x8051)
-#define CTS820_NOISE_REDUCTION       (0x8052)
-#define CTS820_SCREEN_TOUCH_LEVEL    (0x8053)
-#define CTS820_SCREEN_LEVEL_TOUCH    (0x8054)
-#define CTS820_LOW_POWER_CONTROL     (0x8055)
-#define CTS820_REFRESH_RATE          (0x8056)
-#define CTS820_X_THRESHOLD           (0x8057)
-#define CTS820_Y_THRESHOLD           (0x8058)
-#define CTS820_X_SPEED_LIMIT         (0x8059)
-#define CTS820_Y_SPEED_LIMIT         (0x805A)
-#define CTS820_SPACE                 (0x805B)
-#define CTS820_STRETCH_RATE          (0x805D)
-#define CTS820_STRETCH_R0            (0x805E)
-#define CTS820_STRETCH_R1            (0x805F)
-#define CTS820_STRETCH_R2            (0x8060)
-#define CTS820_STRETCH_RM            (0x8061)
-#define CTS820_DRV_GROUPA_NUM        (0x8062)
-#define CTS820_DRV_GROUPB_NUM        (0x8063)
-#define CTS820_SENSOR_NUM            (0x8064)
-#define CTS820_FREQA_FACTOR          (0x8065)
-#define CTS820_FREQB_FACTOR          (0x8066)
-#define CTS820_PANNEL_BITFREQL       (0x8067)
-#define CTS820_PANNEL_BITFREQH       (0x8068)
-#define CTS820_PANNEL_SENSOR_TIMEL   (0x8069)
-#define CTS820_PANNEL_SENSOR_TIMEH   (0x806A)
-#define CTS820_PANNEL_TX_GAIN        (0x806B)
-#define CTS820_PANNEL_RX_GAIN        (0x806C)
-
-#define CTS820_CHECK_SUM             (0x80FF)
-#define CTS820_CONFIG_FRESH          (0x8100)
-
+#define CTS820_ADDRESS               (0x15)
+#define CTS820_CHIP_ID_CODE          (0xB7)
 #define CTS820_CHIP_ID               (0xA7)
-#define CTS820_FIRMWARE_VERSION      (0x8144)
-#define CTS820_X_RESOLUTION          (0x8146)
-#define CTS820_Y_RESOLUTION          (0x8148)
-#define CTS820_VENDOR_ID             (0x814A)
-
 #define CTS820_STATUS                (0x02)
-
 #define CTS820_POINT1_REG            (0x03)
-
 
 #define CTS820_CONFIG_SIZE           (CTS820_CONFIG_FRESH - CTS820_CONFIG_REG + 1)
 #define CTS820_POINT_INFO_NUM        (4)

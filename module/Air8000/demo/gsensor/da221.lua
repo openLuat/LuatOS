@@ -56,8 +56,13 @@ local function read_xyz()
     local z_data = (string.byte(recv_data, 6) << 4) | (string.byte(recv_data, 5) >> 4)
 
     -- 转换为12位有符号整数
+    -- 判断X轴数据是否大于2047，若大于则表示数据为负数
+    -- 因为12位有符号整数的范围是 -2048 到 2047，原始数据为无符号形式，大于2047的部分需要转换为负数
+    -- 通过减去4096 (2^12) 将无符号数转换为对应的有符号负数
     if x_data > 2047 then x_data = x_data - 4096 end
+    -- 判断Y轴数据是否大于2047，若大于则进行同样的有符号转换
     if y_data > 2047 then y_data = y_data - 4096 end
+    -- 判断Z轴数据是否大于2047，若大于则进行同样的有符号转换
     if z_data > 2047 then z_data = z_data - 4096 end
 
     -- 转换为加速度值（单位：g）

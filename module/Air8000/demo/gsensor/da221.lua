@@ -75,7 +75,7 @@ if interruptMode then
         logF("int", gpio.get(intPin))
         if gpio.get(intPin) == 1 then
             local x,y,z = read_xyz()      --读取x，y，z轴的数据
-            log.info("x", x, "y", y, "z", z)
+            log.info("x", x..'g', "y", y..'g', "z", z..'g')
         end
     end
 
@@ -132,7 +132,7 @@ sys.taskInit(function()
         while true do
             -- 读取三轴速度
             local x,y,z = read_xyz()      --读取x，y，z轴的数据
-            log.info("x", x, "y", y, "z", z)
+            log.info("x", x..'g', "y", y..'g', "z", z..'g')
             sys.wait(1000)
         end
     end

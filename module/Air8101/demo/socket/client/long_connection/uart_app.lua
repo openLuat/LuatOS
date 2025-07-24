@@ -12,8 +12,8 @@
 4、收到四个socket client从socket server接收到的数据后，将数据通过uart1发送到pc端串口工具；
 
 本文件的对外接口有两个：
-1、sys.publish("SEND_DATA_REQ", "uart", read_buf)，通过publish通知其他应用功能模块处理read_buf数据；
-2、sys.subscribe("RECV_DATA_FROM_SERVER", recv_data_from_server_proc)，订阅RECV_DATA_FROM_SERVER消息，处理消息携带的数据；；
+1、sys.publish("SEND_DATA_REQ", "uart", read_buf)，通过publish通知socket client数据发送功能模块发送read_buf数据，不关心数据发送成功还是失败；
+2、sys.subscribe("RECV_DATA_FROM_SERVER", recv_data_from_server_proc)，订阅RECV_DATA_FROM_SERVER消息，处理消息携带的数据；
 ]]
 
 

@@ -10,9 +10,7 @@ local rtos_bsp = rtos.bsp()
 
 local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 
-if USE_CH390 then
-    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
-end
+
 
 
 -- spi_id,pin_cs
@@ -21,6 +19,9 @@ local function fatfs_spi_pin()
 end
 
 local function main_task()
+    if USE_CH390 then     -- Air8000 的ch390 和 tf卡共用SPI ，ch390 如果不打开的话会让SPI 无法正常
+        gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+    end
     sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 

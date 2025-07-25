@@ -4,7 +4,8 @@ dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 httpplus = require("httpplus")
 local run_state = false  -- 判断本UI DEMO 是否运行
-
+local fail = 0
+local sucess = 0
 local function fatfs_spi_pin()
     return 1, 20 -- Air8000整机开发板上的pin_cs为gpio20，spi_id为1
 end
@@ -48,8 +49,10 @@ function airtf.run()
         lcd.drawStr(0, 140, "进度: "..progress.."%")
         
         -- 显示循环次数
-        lcd.drawStr(0, 170, "循环次数: "..cycle_count)
-        
+        lcd.drawStr(0, 170, "循环次数: "..cycle_count  )
+        lcd.drawStr(0, 190, "成功次数: "..sucess )
+        lcd.drawStr(0, 210, "失败次数:".. fail )
+
         -- 显示返回按钮
         lcd.showImage(20, 360, "/luadb/back.jpg")
         lcd.flush()
@@ -69,13 +72,15 @@ function airtf.run()
                 operation_status = "CH390供电已启用"
             else
                 operation_status = "CH390供电失败"
+                fail = fail + 1
+                operation_index = 1
             end
             
             -- 设置SPI
             spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
             gpio.setup(pin_cs, 1)
             operation_status = operation_status..",SPI初始化完成"
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 2 then
             -- 挂载TF卡（带重试机制）
@@ -87,7 +92,8 @@ function airtf.run()
                 operation_status = "挂载成功"
             else
                 operation_status = "挂载失败("..(mount_err or "未知")..")"
-                
+                fail = fail + 1
+                operation_index = 1
                 -- 最多重试3次
                 if mount_retry_count < 3 then
                     operation_index = operation_index - 1  -- 重试当前步骤
@@ -96,7 +102,7 @@ function airtf.run()
                     operation_status = operation_status.."，已放弃"
                 end
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 3 then
             -- 创建目录
@@ -105,11 +111,13 @@ function airtf.run()
                     operation_status = "完成"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 4 then
             -- 创建测试文件
@@ -120,11 +128,13 @@ function airtf.run()
                     operation_status = "完成"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000)
+            sys.wait(50)
             
         elseif operation_index == 5 then
             -- 写入内容
@@ -136,11 +146,13 @@ function airtf.run()
                     operation_status = "完成"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 6 then
             -- 读取内容
@@ -152,11 +164,13 @@ function airtf.run()
                     operation_status = "读取成功"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 7 then
             -- 删除文件
@@ -165,11 +179,13 @@ function airtf.run()
                     operation_status = "完成"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000)
+            sys.wait(50)
             
         elseif operation_index == 8 then
             -- 删除目录
@@ -182,7 +198,7 @@ function airtf.run()
             else
                 operation_status = "跳过(TF卡未挂载)"
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 9 then
             -- 卸载TF卡
@@ -192,11 +208,13 @@ function airtf.run()
                     operation_status = "完成"
                 else
                     operation_status = "失败"
+                    fail = fail + 1
+                    operation_index = 1
                 end
             else
                 operation_status = "未挂载"
             end
-            sys.wait(1000) 
+            sys.wait(50) 
             
         elseif operation_index == 10 then
             -- 关闭SPI
@@ -204,10 +222,13 @@ function airtf.run()
                 spi.close(spi_id)
                 spi_id = nil
                 operation_status = "完成"
+                sucess = sucess +1
             else
                 operation_status = "未初始化"
+                fail = fail + 1
+                operation_index = 1
             end
-            sys.wait(1000) 
+            sys.wait(50) 
         end
         
         -- 移动到下一步操作（如果未重试）
@@ -217,7 +238,7 @@ function airtf.run()
             operation_index = 1
             mount_retry_count = 0
             cycle_count = cycle_count + 1  -- 增加循环次数
-            sys.wait(1000) -- 操作完成后延时1秒再重新开始
+            sys.wait(50) -- 操作完成后延时1秒再重新开始
         end
     end
     

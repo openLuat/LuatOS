@@ -17,13 +17,14 @@ sys.taskInit(function()
     -----------------------------
     -- 统一联网函数, 可自行删减
     ----------------------------
+    -- 设置wifi网络名称(ssid)和密码(password)
+    local ssid = "ChinaNet-7jU2"
+    local password = "xnceqvkr"
+
     if wlan and wlan.connect then
         -- wifi 联网, ssid表示wifi网络名称，password为网络密码
-        local ssid = "ChinaNet-7jU2"
-        local password = "xnceqvkr"
         --输出wifi的用户名称、密码及硬件库名称
         log.info("wifi", ssid, password, rtos.bsp() )
-
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         -- 网络初始化
         wlan.init()

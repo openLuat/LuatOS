@@ -829,7 +829,7 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	}
 	else
 	{
-		http_ctrl->netc = network_alloc_ctrl(network_get_last_register_adapter());
+		http_ctrl->netc = network_alloc_ctrl(network_register_get_default());
 	}
 	if (!http_ctrl->netc)
 	{

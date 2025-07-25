@@ -15,7 +15,7 @@ sys.taskInit(function()
     gpio.setup(16,1)    --打开jd9261t LCD电源，根据板子实际情况修改
     gpio.setup(17,1)    --打开co5300 LCD电源，根据板子实际情况修改
 
-    co5300_init({port = lcd.HWID_0, pin_dc = -1, pin_pwr = -1, pin_rst = 36, w = 480, h = 480, interface_mode=lcd.QSPI_MODE,bus_speed=50000000, rb_swap = true})
+    co5300_init({port = lcd.HWID_0, pin_dc = -1, pin_pwr = -1, pin_rst = 36, w = 480, h = 466, interface_mode=lcd.QSPI_MODE,bus_speed=50000000, rb_swap = true})
     -- jd9261t_init({port = lcd.HWID_0,pin_dc = -1, pin_pwr = 27, pin_rst = 36, w = 480,h = 480, interface_mode=lcd.QSPI_MODE, bus_speed=60000000,flush_rate=659,vbp=19,vfp=108,vs=2,rb_swap=true})
     -- jd9261t_init({port = lcd.HWID_0,pin_dc = -1, pin_pwr = 27, pin_rst = 36, w = 540,h = 540, interface_mode=lcd.QSPI_MODE, bus_speed=80000000,flush_rate=600,vbp=10,vfp=108,vs=2,rb_swap=true})
     -- jd9261t_init({port = lcd.HWID_0,pin_dc = -1, pin_pwr = 27, pin_rst = 36, w = 720,h = 720, interface_mode=lcd.QSPI_MODE, bus_speed=60000000,flush_rate=300,vbp=10,vfp=160,vs=2,rb_swap=true})

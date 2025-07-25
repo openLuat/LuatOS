@@ -7,6 +7,11 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
 
+-- 开启调试模式
+modbus.debug(1)
+-- -- 关闭调试模式
+-- modbus.debug(0)
+
 --初始化通讯串口
 local uartid = 1        -- 根据实际设备选取不同的uartid
 local uart485Pin = 17   -- 用于控制485接收和发送的使能引脚
@@ -16,7 +21,7 @@ uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 
 -- 创建从站设备，可选择RTU、ASCII、TCP，此demo用作测试RTU
 local slave_id = 1
-mb_rtu_s = modbus.create_slave(modbus.MODBUS_RTU, slave_id, uartid)
+mb_rtu_s = modbus.create_slave(modbus.MODBUS_RTU, slave_id, uartid,115200)
 
 
 -- 添加一块寄存器内存区

@@ -15,13 +15,18 @@ gpio.setup(20, 1)  --打开lan供电
 mcu.hardfault(0) -- 死机后停机，一般用于调试状态
 require "lan"
 
+-- 开启调试模式
+modbus.debug(1)
+-- -- 关闭调试模式
+-- modbus.debug(0)
+
 
 -- 创建主站设备，TCP模式
 -- 设置连接方式为socket.LWIP_ETH
 -- 设置通讯间隔时间，主站将按每隔 设置时间 的频率向从站问询数据（默认100ms），当添加了多个从站后，主站向每个从站问询的时间间隔将叠加
 -- 设置通讯超时时间和消息发送超时重发次数，当主站未在 设置的时间 内接收到从站数据，将向从站再次发送问询（问询次数按设置的 消息超时重发次数 发送，默认1）
 -- 设置断线重连时间间隔，当从站与主站断连后，主站将在设置时间内重新连接从站(默认5000ms)
-mb_tcp = modbus.create_master(modbus.MODBUS_TCP, socket.LWIP_ETH,3000,1,5000)
+mb_tcp = modbus.create_master(modbus.MODBUS_TCP, socket.LWIP_ETH,3000,2000,1,5000)
 
 
 -- 为主站添加从站，从站ID为1，ip地址为 192.168.0.104，端口号为 6000,最多可添加247个从站

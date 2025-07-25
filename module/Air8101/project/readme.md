@@ -16,7 +16,7 @@
 
  |
 
- |------5inch_box_dev_board：5寸整机开发板
+ |------5inch_800x480_dev_board：5寸整机开发板
 
  |
 

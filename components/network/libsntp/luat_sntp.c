@@ -331,7 +331,7 @@ int32_t luat_sntp_callback(void *data, void *param) {
 
 int ntp_get(int adapter_index){
     if (-1 == adapter_index){
-        adapter_index = network_get_last_register_adapter();
+        adapter_index = network_register_get_default();
     }
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		return -1;

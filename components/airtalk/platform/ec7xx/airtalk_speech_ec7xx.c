@@ -253,7 +253,7 @@ static void speech_task(void *param)
 				luat_airtalk_callback(LUAT_AIRTALK_CB_PLAY_START, NULL, 0);
 				if (prv_speech.record_enable)//已经请求录音了，那么就开始录音了
 				{
-					luat_airtalk_net_uplink_start();
+//					luat_airtalk_net_uplink_start();
 					luat_airtalk_callback(LUAT_AIRTALK_CB_RECORD_START, NULL, 0);
 				}
 				luat_airtalk_callback(LUAT_AIRTALK_CB_AUDIO_START, NULL, 0);
@@ -333,14 +333,14 @@ void luat_airtalk_speech_save_downlink_data(uint8_t *data, uint32_t len)
 	OS_WriteFifo(&prv_speech.download_data_fifo, data, len);
 }
 
-void luat_airtalk_speech_record_switch(uint8_t on_off, uint8_t is_16k)
+void luat_airtalk_speech_record_switch(uint8_t on_off)
 {
 	if (on_off)
 	{
 		if (!prv_speech.audio_handle)
 		{
 			prv_speech.record_enable = 1;
-			luat_rtos_event_send(prv_speech.speech_task_handle, AIRTALK_EVENT_AMR_START, is_16k, 0, 0, 0);
+			luat_rtos_event_send(prv_speech.speech_task_handle, AIRTALK_EVENT_AMR_START, luat_airtalk_is_16k(), 0, 0, 0);
 		}
 		else
 		{

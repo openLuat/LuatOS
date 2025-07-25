@@ -16,6 +16,7 @@ void luat_tp_task_entry(void* param){
     luat_tp_config_t *luat_tp_config = NULL;
     while (1){
         luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
+
         luat_tp_data_t* tp_data = luat_tp_config->tp_data;
         luat_tp_config->opts->read(luat_tp_config,tp_data);
         uint16_t coordinate_tmp;

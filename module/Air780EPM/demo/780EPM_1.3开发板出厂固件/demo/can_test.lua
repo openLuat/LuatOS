@@ -51,7 +51,8 @@ end
 -- can.debug(true)
 can.init(can_id, 128)
 can.on(can_id, can_cb)
-can.timing(can_id, 1000000, 5, 4, 3, 2)
+can.timing(can_id, 1000000, 6, 6, 4, 2)
+-- can.timing(can_id, 100000, 6, 6, 3, 2)
 can.node(can_id, rx_id, can.EXT)
 can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK
 

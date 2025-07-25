@@ -143,8 +143,13 @@ int luat_search_module(const char* name, char* filename) {
 }
 
 static int searcher_Lua (lua_State *L) {
-  char filename[32] = {0};
-  const char *name = luaL_checkstring(L, 1);
+  char filename[64] = {0};
+  size_t len = 0;
+  const char *name = luaL_checklstring(L, 1, &len);
+  if (len < 1 || len > 48) {
+    lua_pushfstring(L, "module name '%s' len %d is invalid", name, len);
+    return lua_error(L);
+  }
   int re = luat_search_module(name, filename);
   if (re == 0)
     re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);

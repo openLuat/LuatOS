@@ -29,7 +29,6 @@
 
 
 static int l_airtalk_cb;
-static int l_airtalk_protocol;
 static int l_airtalk_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -52,7 +51,7 @@ static int l_airtalk_handler(lua_State *L, void* ptr) {
 /*
 配置airtalk参数
 @api airtalk.config(protocol,netc,cache_time,encode_cnt,decode_cnt,audio_pm_mode_when_stop)
-@int 协议类型，见airtalk.PROTOCOL_XXX
+@int 语音数据传输协议类型，见airtalk.PROTOCOL_XXX
 @userdata network_ctrl或者mqtt客户端，如果协议是mqtt类型，传入mqtt.create返回值，如果是其他类型，传入socket.create的返回值
 @int 缓冲时间，单位ms，默认500ms，值越小，delay越小，抗网络波动能力越差
 @int 单次编码帧数，默认值5，不能低于2，不能高于5
@@ -61,20 +60,19 @@ static int l_airtalk_handler(lua_State *L, void* ptr) {
 @return nil
 @usage
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
-airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc)
+airtalk.config(airtalk.PROTOCOL_MQTT, mqttc)
 */
 static int l_airtalk_config(lua_State *L)
 {
-	l_airtalk_protocol = luaL_optinteger(L, 1, LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_8K);
+	int airtalk_protocol = luaL_optinteger(L, 1, LUAT_AIRTALK_PROTOCOL_MQTT);
 	int cache_time = luaL_optinteger(L, 3, 500);
 	int encode_cnt = luaL_optinteger(L, 4, 5);
 	int decode_cnt = luaL_optinteger(L, 5, 5);
 	int audio_pm_mode_when_stop = luaL_optinteger(L, 6, LUAT_AUDIO_PM_SHUTDOWN);
 	luat_mqtt_ctrl_t * mqtt_ctrl;
-	switch (l_airtalk_protocol)
+	switch (airtalk_protocol)
 	{
-	case LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_8K:
-	case LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_16K:
+	case LUAT_AIRTALK_PROTOCOL_MQTT:
 		if (luaL_testudata(L, 2, LUAT_MQTT_CTRL_TYPE)){
 			mqtt_ctrl = ((luat_mqtt_ctrl_t *)luaL_checkudata(L, 2, LUAT_MQTT_CTRL_TYPE));
 		}else{
@@ -82,19 +80,17 @@ static int l_airtalk_config(lua_State *L)
 		}
 		if (!mqtt_ctrl)
 		{
-			LLOGE("protocol %d no mqttc", l_airtalk_protocol);
+			LLOGE("protocol %d no mqttc", airtalk_protocol);
 			return 0;
 		}
-		luat_airtalk_net_param_config(cache_time);
+		luat_airtalk_net_param_config(airtalk_protocol, cache_time);
 		luat_airtalk_net_set_mqtt_ctrl(mqtt_ctrl);
 		luat_airtalk_speech_audio_param_config(0, audio_pm_mode_when_stop);
 		luat_airtalk_speech_set_one_block_frame_cnt(decode_cnt, encode_cnt);
-		break;
-	case LUAT_AIRTALK_PROTOCOL_AIRM2M:
-		LLOGE("protocol %d no support!", l_airtalk_protocol);
+		luat_airtalk_net_mqtt_init();
 		break;
 	default:
-		LLOGE("protocol %d no support!", l_airtalk_protocol);
+		LLOGE("protocol %d no support!", airtalk_protocol);
 		break;
 
 	}
@@ -127,40 +123,68 @@ static int l_airtalk_on(lua_State *L) {
 
 /*
 airtalk启动
-@api airtalk.start(uid,ctrl_url,ctrl_port)
-@string 用于确认身份的唯一id，不超过15字节，如果是演示协议，随意填写一个不重复的即可
-@string 如果协议是非MQTT类型是服务器url，如果是mqtt演示协议，则是通话topic，不填则使用默认topic
-@int  服务器端口，如果是mqtt协议，不需要填写，mqtt.create已经传入
+@api airtalk.start()
 @return nil
 @usage
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
-airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc)
+airtalk.config(airtalk.PROTOCOL_MQTT, mqttc)
 airtalk.on(function(event, param)
     log.info("airtalk event", event, param)
 end)
---airtalk.start("123456789012345", "xxxxxx")	--用户用mqtt测试协议时，应该自己定义topic，防止被别人听
-airtalk.start("123456789012345")
+airtalk.start()
 */
 static int l_airtalk_start(lua_State *L)
 {
-    size_t len;
-    const char *id = lua_tolstring(L, 1, &len);//取出字符串数据;
-    luat_airtalk_net_set_device_id(id, len);
     luat_airtalk_speech_init();
-    switch (l_airtalk_protocol)
-    {
-    case LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_8K:
-    case LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_16K:
-    	if (lua_isstring(L, 2))
-    	{
-    		id = lua_tolstring(L, 2, &len);
-    		luat_airtalk_net_set_mqtt_topic(id, len + 1);
-    	}
-    	luat_airtalk_net_demo_mqtt_init(l_airtalk_protocol);
-    	break;
-    }
+    luat_airtalk_net_init();
     return 0;
 }
+
+/*
+配置airtalk mqtt类型语音数据的专用topic
+@api airtalk.set_topic(topic)
+@string topic
+@return nil
+@usage
+airtalk.set_topic("xxxxxxxxxx")
+*/
+static int l_airtalk_set_mqtt_topic(lua_State *L)
+{
+	size_t len;
+    const char *id = lua_tolstring(L, 1, &len);//取出字符串数据;
+    luat_airtalk_net_set_mqtt_topic(id, len + 1);
+    return 0;
+}
+
+/*
+airtalk工作启动/停止
+@api airtalk.speech(mode, on_off)
+@int  工作模式，见airtalk.MODE_XXX
+@boolean  启停控制，true开始，false停止
+@return nil
+@usage
+--1对1对讲开始
+airtalk.speech(airtalk.MODE_PERSON,true)
+--1对多对讲开始
+airtalk.speech(airtalk.MODE_GROUP,true)
+*/
+static int l_airtalk_speech(lua_State *L)
+{
+	int mode = luaL_optinteger(L, 1, LUAT_AIRTALK_SPEECH_MODE_PERSON);
+	int on_off = lua_toboolean(L, 2);
+	switch(mode)
+	{
+	case LUAT_AIRTALK_SPEECH_MODE_PERSON:
+
+		luat_airtalk_speech_record_switch(lua_toboolean(L, 1));
+		break;
+	case LUAT_AIRTALK_SPEECH_MODE_GROUP:
+		break;
+	}
+
+    return 0;
+}
+
 
 /*
 airtalk上行控制
@@ -175,7 +199,7 @@ airtalk.uplink(false)
 */
 static int l_airtalk_uplink(lua_State *L)
 {
-	luat_airtalk_speech_record_switch(lua_toboolean(L, 1), l_airtalk_protocol);
+	luat_airtalk_speech_record_switch(lua_toboolean(L, 1));
     return 0;
 }
 
@@ -199,12 +223,16 @@ static const rotable_Reg_t reg_airtalk[] =
     { "config",      ROREG_FUNC(l_airtalk_config)},
     { "on",         ROREG_FUNC(l_airtalk_on)},
     { "start",      ROREG_FUNC(l_airtalk_start)},
+	{ "set_topic",      ROREG_FUNC(l_airtalk_set_mqtt_topic)},
+	{ "speech",      ROREG_FUNC(l_airtalk_speech)},
     { "uplink",      ROREG_FUNC(l_airtalk_uplink)},
 	{ "debug",      ROREG_FUNC(l_airtalk_debug)},
-	//@const PROTOCOL_DEMO_MQTT_8K number 演示用MQTT协议，音频采样率8K
-    { "PROTOCOL_DEMO_MQTT_8K",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_8K)},
-	//@const PROTOCOL_DEMO_MQTT_16K number 演示用MQTT协议，音频采样率16K
-    { "PROTOCOL_DEMO_MQTT_16K",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_DEMO_MQTT_16K)},
+	//@const PROTOCOL_MQTT number 语音数据用MQTT传输
+    { "PROTOCOL_MQTT",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_MQTT)},
+	//@const MODE_PERSON number 对讲工作模式1对1
+    { "MODE_PERSON",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_PERSON)},
+	//@const MODE_GROUP number 对讲工作模式多人
+    { "MODE_GROUP",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP)},
 	//@const EVENT_OFF_LINE number airtalk离线
     { "EVENT_OFF_LINE",       ROREG_INT(LUAT_AIRTALK_CB_ON_LINE_IDLE)},
 	//@const EVENT_ON_LINE_IDLE number airtalk在线处于空闲状态

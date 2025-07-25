@@ -107,7 +107,12 @@ on_check:
     }
     data = p->payload;
     LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
-    udp_sendto_if(s_ulwip_dhcp, p, IP_ADDR_BROADCAST, 67, netif);
+    // ip_addr_set_any(0, &s_ulwip_dhcp->local_ip);
+    memcpy(&s_ulwip_dhcp->local_ip, &netif->ip_addr, sizeof(ip_addr_t));    // 本地地址设为netif的ip地址
+    result = udp_sendto_if(s_ulwip_dhcp, p, IP_ADDR_BROADCAST, 67, netif);
+    if (result != ERR_OK) {
+        LLOGE("dhcp udp_sendto_if error %d", result);
+    }
     pbuf_free(p);
     return 0;
 }

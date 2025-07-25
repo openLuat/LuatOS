@@ -60,6 +60,20 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
 //		case MQTT_MSG_TCP_TX_DONE:
+//			if (mqtt_ctrl->mqtt_cb) {
+//				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+//				if (lua_isfunction(L, -1)) {
+//					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+//					lua_pushstring(L, "tcp_ack");
+//					lua_call(L, 2, 0);
+//				}
+//				lua_getglobal(L, "sys_pub");
+//				if (lua_isfunction(L, -1)) {
+//					lua_pushstring(L, "MQTT_TCPACK");
+//					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+//					lua_call(L, 2, 0);
+//				}
+//            }
 //			break;
 		case MQTT_MSG_TIMER_PING : {
 			luat_mqtt_ping(mqtt_ctrl);
@@ -89,7 +103,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 		case MQTT_MSG_PUBLISH : {
 			luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
 			if (mqtt_ctrl->mqtt_cb) {
-				luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
+//				luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
@@ -194,6 +208,20 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
             break;
         }
 		case MQTT_MSG_SUBACK:
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "suback");
+					lua_call(L, 2, 0);
+				}
+				lua_getglobal(L, "sys_pub");
+				if (lua_isfunction(L, -1)) {
+					lua_pushstring(L, "MQTT_SUBACK");
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_call(L, 2, 0);
+				}
+            }
 			break;
 		case MQTT_MSG_UNSUBACK:
 			break;
@@ -322,7 +350,7 @@ mqttc = mqtt.create(nil,"120.55.137.106", 8883, {
 */
 static int l_mqtt_create(lua_State *L) {
 	int ret = 0;
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		LLOGE("尚无已注册的网络适配器");
 		return 0;

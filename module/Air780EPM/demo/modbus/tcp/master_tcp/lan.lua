@@ -40,8 +40,6 @@ sys.taskInit(function ()
 
     dnsproxy.setup(socket.LWIP_ETH, socket.LWIP_ETH)
     netdrv.napt(socket.LWIP_ETH)
-
-    -- netdrv.dhcp(socket.LWIP_ETH, true)
 end)
 
 

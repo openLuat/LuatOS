@@ -15,16 +15,17 @@
 
 local libnet = require "libnet"
 
+-- 加载sntp时间同步应用功能模块（ca证书校验的ssl socket需要时间同步功能）
+require "sntp_app"
+
 -- 加载tcp_ssl_ca client socket数据接收功能模块
 local tcp_ssl_ca_receiver = require "tcp_ssl_ca_receiver"
 -- 加载tcp_ssl_ca client socket数据发送功能模块
 local tcp_ssl_ca_sender = require "tcp_ssl_ca_sender"
 
--- 电脑访问：https://netlab.luatos.com/
--- 点击 打开TCP SSL 按钮，会创建一个TCP SSL server
--- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 42347
+-- https://www.baidu.com网站服务器，地址为"www.baidu.com"，端口为443
+local SERVER_ADDR = "www.baidu.com"
+local SERVER_PORT = 443
 
 -- tcp_ssl_ca_main的任务名
 local TASK_NAME = tcp_ssl_ca_sender.TASK_NAME
@@ -41,24 +42,31 @@ local function tcp_ssl_ca_main_task_func()
     local socket_client
     local result, para1, para2
 
-    -- 用来验证server证书是否合法的ca证书文件为E6.crt
+    -- 用来验证server证书是否合法的ca证书文件为baidu_parent_ca.crt
+    -- 此ca证书的有效期截止到2028年11月21日
     -- 将这个ca证书文件的内容读取出来，赋值给server_ca_cert
-    -- 注意：此处的ca证书文件仅用来验证netlab创建的server证书
+    -- 注意：此处的ca证书文件仅用来验证baidu网站的server证书
+    -- baidu网站的server证书有效期截止到2026年8月10日
+    -- 在有效期之前，baidu会更换server证书，如果server证书更换后，此处验证使用的baidu_parent_ca.crt也可能需要更换
+    -- 使用电脑上的网页浏览器访问https://www.baidu.com，可以实时看到baidu的server证书以及baidu_parent_ca.crt
     -- 如果你使用的是自己的server，要替换为自己server证书对应的ca证书文件
-    -- local server_ca_cert = io.readFile("/luadb/E6.crt")
-    local server_ca_cert = io.readFile("/luadb/ISRG Root X1.crt")
+    local server_ca_cert = io.readFile("/luadb/baidu_parent_ca.crt")
 
     while true do
-        -- 如果WIFI还没有连接成功，一直在这里循环等待
+        -- 如果当前时间点设置的网卡还没有连接成功，一直在这里循环等待
         while not socket.adapter(socket.dft()) do
-            log.warn("tcp_ssl_ca_main_task_func", "wait IP_READY")
-            -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"
-            -- 或者等待30秒超时退出阻塞等待状态
-            sys.waitUntil("IP_READY", 30000)
+            log.warn("tcp_ssl_ca_main_task_func", "wait IP_READY", socket.dft())
+            -- 在此处阻塞等待网卡连接成功的消息"IP_READY"
+            -- 或者等待1秒超时退出阻塞等待状态;
+            -- 注意：此处的1000毫秒超时不要修改的更长；
+            -- 因为当使用libnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改当前使用的网卡
+            -- 当libnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+            -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+            sys.waitUntil("IP_READY", 1000)
         end
 
         -- 检测到了IP_READY消息
-        log.info("tcp_ssl_ca_main_task_func", "recv IP_READY")
+        log.info("tcp_ssl_ca_main_task_func", "recv IP_READY", socket.dft())
 
         -- 创建socket client对象
         socket_client = socket.create(nil, TASK_NAME)
@@ -75,7 +83,7 @@ local function tcp_ssl_ca_main_task_func()
         -- 2、任何证书都有有效期，无论是ca证书还是server证书，必须在有效期截止之前，及时更换证书，延长有效期，否则证书校验会失败；
         -- 3、如果要更换ca证书，需要在设备端远程升级，必须保证ca证书失效之前升级成功，否则校验失败，就无法连接server；
         -- 综上所述，证书校验虽然安全，可以验证身份，但是后续维护成本比较高；除非有需要，否则可以不配置证书校验功能；
-        -- 另外，使用https://netlab.luatos.com/创建的TCP SSL Server，使用的server证书有可能过了有效期；
+        -- 另外，如果使用https://netlab.luatos.com/创建的TCP SSL Server，使用的server证书有可能过了有效期；
         -- 如果过了有效期，使用本文件无法连接成功tcp ssl ca server，遇到这种问题，可以在main.lua中打开socket.sslLog(3)，观察Luatools的日志，如果出现类似于下面的日志
         -- expires on        : 2020-12-27 15:46:55
         -- 表示证书有效期截止到2020-12-27 15:46:55，明显就是证书已经过了有效期

@@ -1,3 +1,24 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的五种网卡(单wifi网卡，单rmii以太网卡，单spi以太网卡，单4g网卡，多网卡)中的任何一种网卡；
+
+3、tcp文件夹：tcp client连接以及数据收发处理逻辑；
+
+4、udp文件夹：udp client连接以及数据收发处理逻辑；
+
+5、tcp_ssl文件夹：tcp ssl client连接以及数据收发处理逻辑；
+
+6、tcp_ssl_ca文件夹：tcp ssl client单向认证连接以及数据收发处理逻辑；
+
+7、network_watchdog.lua：网络环境检测看门狗；
+
+8、timer_app.lua：通知四个client定时发送数据到服务器；
+
+9、uart_app.lua：在四个client和uart外设之间透传数据；
+
+
 
 ## 演示功能概述
 1、创建四路socket连接，详情如下
@@ -20,7 +41,19 @@
 
 4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
 
-5、每一路socket连接，启动一个网络业务逻辑看门狗task，用来监控socket工作状态，如果连续长时间工作不正常，重启整个软件系统（后续补充）；
+5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+
+   (1) netdrv_wifi：WIFI STA网卡
+
+   (2) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+
+
 
 
 ## 演示硬件环境
@@ -63,15 +96,13 @@
 
 4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-5、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_ca_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+5、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
-6、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+6、Luatools烧录内核固件和修改后的demo脚本代码
 
-7、Luatools烧录内核固件和修改后的demo脚本代码
+7、烧录成功后，自动开机运行
 
-8、烧录成功后，自动开机运行
-
-9、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server、TCP SSL server，一共四个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
+8、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
 
 ``` lua
 [2025-06-24 16:47:39.085]send from timer: 1
@@ -85,9 +116,9 @@
 ```
 
 
-10、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
+9、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
 
-11、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
+10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
 
 ``` lua
 [2025-06-24 17:19:58.402]send from uart: kerjkjwr

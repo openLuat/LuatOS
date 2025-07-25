@@ -63,32 +63,41 @@ end
 
 
 local function read_xyz() ---读取三轴数据
-    i2c.send(i2cId, da221Addr, x_lsb_reg, 1)   --读取X轴低字节（LSB） -- 发送LSB寄存器地址
-    local recv_x_lsb = i2c.recv(i2cId, da221Addr, 1) -- 接收1字节LSB数据
-    i2c.send(i2cId, da221Addr, x_msb_reg, 1)   --读取X轴高字节（MSB） --读取X轴高字节（MSB）  
-    local recv_x_mab = i2c.recv(i2cId, da221Addr, 1)   ---- 接收1字节MSB数据
-    local x_data = (string.byte(recv_x_mab) << 8) | string.byte(recv_x_lsb)
-    --↑ 组合16位数据: MSB左移8位 + LSB    原理：高字节占据高位，低字节占据低位
+    -- da221是LSB在前，MSB在后，每个寄存器都是1字节数据，每次读取都是6个寄存器数据一起获取
+    -- 因此直接从X轴LSB寄存器(0x02)开始连续读取6字节数据(X/Y/Z各2字节)，避免出现数据撕裂问题
+    i2c.send(i2cId, da221Addr, x_lsb_reg, 1)
+    local recv_data = i2c.recv(i2cId, da221Addr, 6)
 
-    i2c.send(i2cId, da221Addr, y_lsb_reg, 1)
-    local recv_y_lsb = i2c.recv(i2cId, da221Addr, 1)
-    i2c.send(i2cId, da221Addr, y_msb_reg, 1)
-    local recv_y_mab = i2c.recv(i2cId, da221Addr, 1)
-    local y_data = (string.byte(recv_y_mab) << 8) | string.byte(recv_y_lsb)
+    -- LSB数据格式为: D[3] D[2] D[1] D[0] unused unused unused unused
+    -- MSB数据格式为: D[11] D[10] D[9] D[8] D[7] D[6] D[5] D[4]
+    -- 数据位为12位，需要将MSB数据左移4位，LSB数据右移4位，最后进行或运算
+    -- 解析X轴数据 (LSB在前，MSB在后)
+    local x_data = (string.byte(recv_data, 2) << 4) | (string.byte(recv_data, 1) >> 4)
 
-    i2c.send(i2cId, da221Addr, z_lsb_reg, 1)
-    local recv_z_lsb = i2c.recv(i2cId, da221Addr, 1)
-    i2c.send(i2cId, da221Addr, z_msb_reg, 1)
-    local recv_z_mab = i2c.recv(i2cId, da221Addr, 1)
-    local z_data = (string.byte(recv_z_mab) << 8) | string.byte(recv_z_lsb)
+    -- 解析Y轴数据 (LSB在前，MSB在后)
+    local y_data = (string.byte(recv_data, 4) << 4) | (string.byte(recv_data, 3) >> 4)
 
-    local x_accel = x_data / 1024  -- 原始值除以1024得实际加速度（单位：g）
+    -- 解析Z轴数据 (LSB在前，MSB在后)
+    local z_data = (string.byte(recv_data, 6) << 4) | (string.byte(recv_data, 5) >> 4)
+
+    -- 转换为12位有符号整数
+    -- 判断X轴数据是否大于2047，若大于则表示数据为负数
+    -- 因为12位有符号整数的范围是 -2048 到 2047，原始数据为无符号形式，大于2047的部分需要转换为负数
+    -- 通过减去4096 (2^12) 将无符号数转换为对应的有符号负数
+    if x_data > 2047 then x_data = x_data - 4096 end
+    -- 判断Y轴数据是否大于2047，若大于则进行同样的有符号转换
+    if y_data > 2047 then y_data = y_data - 4096 end
+    -- 判断Z轴数据是否大于2047，若大于则进行同样的有符号转换
+    if z_data > 2047 then z_data = z_data - 4096 end
+
+    -- 原始值除以1024得实际加速度（单位：g）
+    local x_accel = x_data / 1024
     local y_accel = y_data / 1024
     local z_accel = z_data / 1024
     --↑ 原理：1024 = 2¹⁰，表明传感器量程为±2g（满量程对应±1024）
     -- 例如：静止时Z轴≈1024 → 1g，水平放置时X/Y轴≈0
 
-     return x_accel, y_accel, z_accel
+    return x_accel, y_accel, z_accel
 end
 local intstu=false
 

@@ -99,8 +99,12 @@ int luat_pack_rtp(rtp_base_head_t *base_head, rtp_extern_head_t *extern_head, co
 			{
 				BytesPutBe32ToBuf(&buf, extern_head->data[i]);
 			}
+//			OS_BufferWrite(&buf, extern_head->data, extern_head->length * 4);
 		}
 	}
-	OS_BufferWrite(&buf, payload, payload_len);
+	if (payload && payload_len)
+	{
+		OS_BufferWrite(&buf, payload, payload_len);
+	}
 	return buf.Pos;
 }

@@ -15,6 +15,11 @@ gpio.setup(20, 1)  --打开lan供电
 mcu.hardfault(0) -- 死机后停机，一般用于调试状态
 require "lan"
 
+-- 开启调试模式
+modbus.debug(1)
+-- -- 关闭调试模式
+-- modbus.debug(0)
+
 
 -- 创建主站设备，TCP模式
 -- 设置连接方式为socket.LWIP_ETH

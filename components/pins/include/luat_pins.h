@@ -151,6 +151,13 @@ int luat_pin_get_description_from_num(uint32_t num, luat_pin_function_descriptio
  */
 uint8_t luat_pin_get_altfun_id_from_description(uint16_t code, luat_pin_function_description_t *pin_function);
 
+/**
+ * @brief 芯片pin变成高阻态
+ * @param pin pin复用信息
+ * @return 无
+ */
+void luat_pin_close(luat_pin_iomux_info pin);
+
 void luat_pin_iomux_config(luat_pin_iomux_info pin, uint8_t use_altfunction_pull, uint8_t driver_strength);
 
 void luat_pin_iomux_print(luat_pin_iomux_info *pin_list, uint8_t num);
@@ -158,5 +165,6 @@ void luat_pin_iomux_print(luat_pin_iomux_info *pin_list, uint8_t num);
 int luat_pins_load_from_file(const char* path);
 
 int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int altfun_id);
+
 
 #endif

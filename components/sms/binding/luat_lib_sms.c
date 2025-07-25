@@ -39,6 +39,18 @@ typedef struct long_sms
     char buff[1];
 }long_sms_t;
 
+typedef struct 
+{
+    size_t phone_len;           // 电话号码长度
+    size_t payload_len;          // 待编码的数据长度
+    const char *phone;          // 电话号码
+    uint8_t pdu_buf[320];       // 组包后的PDU短信
+    uint8_t payload_buf[200];    // 编码后的短信数据
+    uint8_t auto_phone;         // 是否自动处理电话号码
+    uint8_t maxNum;             // 短信最大条数， 长短信用
+    uint8_t seqNum;             // 当前短信序号
+}luat_sms_pdu_packet_t;
+
 #define LONG_SMS_CMAX (128)
 static long_sms_t* lngbuffs[LONG_SMS_CMAX];
 // static char* longsms = NULL;
@@ -52,11 +64,13 @@ typedef struct long_sms_send
 {
     size_t payload_len;
     size_t phone_len;
-    const char *payload;
     const char *phone;
+    uint8_t *payload;
     uint8_t auto_phone;
 }long_sms_send_t;
+
 static uint8_t idx = 254;
+
 static uint64_t long_sms_send_idp;
 
 
@@ -98,6 +112,48 @@ static void ucs2char(char* source, size_t size, char* dst2, size_t* outlen) {
     *outlen = dstlen;
     //LLOGD("ucs2char %d", dstlen);
 }
+
+static int utf82ucs2(char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen) {
+    uint16_t unicode = 0;
+    size_t tmplen = 0;
+    for (size_t i = 0; i < source_len; i++)
+    {
+        if(tmplen >= dstlen) {
+            LLOGE("tmplen >= dstlen index: %d, tmplen: %d, dstlen: %d", i, tmplen, dstlen);
+            return -1;
+        }
+        // 首先是不是单字节
+        if (source[i] & 0x80) {
+            // 非ASCII编码
+            if (source[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+                unicode = ((source[i] & 0x0F) << 12) + ((source[i+1] & 0x3F) << 6) + (source[i+2] & 0x3F);
+                dst[tmplen++] = (unicode >> 8) & 0xFF;
+                dst[tmplen++] = unicode & 0xFF;
+                i+=2;
+                continue;
+            }
+            if (source[i] & 0xC0) { // 110xxxxx 10xxxxxx
+                unicode = ((source[i] & 0x1F) << 6) + (source[i+1] & 0x3F);
+                dst[tmplen++] = (unicode >> 8) & 0xFF;
+                dst[tmplen++] = unicode & 0xFF;
+                i++;
+                continue;
+            }
+            LLOGE("bat utf8 string");
+            return -1;
+        }
+        // 单个ASCII字符, 但需要扩展到2位
+        else {
+            // ASCII编码
+            dst[tmplen++] = 0x00;
+            dst[tmplen++] = source[i];
+            continue;
+        }
+    }
+    *outlen = tmplen;
+    return 0;
+}
+
 
 static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, size_t dstlen) {
     char phone[strlen(sms->phone_address) * 3 + 1];
@@ -288,8 +344,7 @@ void luat_sms_recv_cb(uint32_t event, void *param)
 
 void luat_sms_send_cb(int ret)
 {
-    if(long_sms_send_idp)
-    {
+    if(long_sms_send_idp) {
         LLOGE("send cb: %d", ret);
         luat_rtos_event_send(sms_send_task_handle, SMS_EVENT_SEND_RET, ret, 0, 0, 0);
     }
@@ -324,158 +379,49 @@ static int l_sms_send(lua_State *L) {
     char phone_buff[32] = {0};
 
     if (payload_len == 0) {
-        LLOGI("sms is emtry");
+        LLOGE("sms is emtry");
         return 0;
     }
-    if (payload_len >= 140) {
-        LLOGE("sms is too long %d > 140", payload_len);
-        return 0;
-    }
-
-    int pdu_mode = 0;
-    for (size_t i = 0; i < payload_len; i++)
-    {
-        if (payload[i] & 0x80) {
-            LLOGD("found non-ASCII char, using PDU mode");
-            pdu_mode = 1;
-            break;
-        }
-    }
-
     
     if (phone_len < 3 || phone_len > 29) {
-        LLOGI("phone is too short or too long!! %d", phone_len);
+        LLOGE("phone is too short or too long!! %d", phone_len);
         return 0;
     }
-    uint8_t gateway_mode = 0;	//短信网关特殊处理
-    if ((phone_len >= 15) && !memcmp(phone, "10", 2)) {
-    	LLOGI("sms gateway mode");
-    	gateway_mode = 1;
-    	pdu_mode = 1;
-    	memcpy(phone_buff, phone, phone_len);
-    	goto NUMBER_CHECK_DONE;
-    }
-    // +8613416121234
-    if (auto_phone) {
 
-        if (pdu_mode) { // PDU模式下, 必须带上国家代码
-            if (phone[0] == '+') {
-                memcpy(phone_buff, phone + 1, phone_len - 1);
-            }
-            // 13416121234
-            else if (phone[0] != '8' && phone[1] != '6') {
-                phone_buff[0] = '8';
-                phone_buff[1] = '6';
-                memcpy(phone_buff + 2, phone, phone_len);
-            }
-            else {
-                memcpy(phone_buff, phone, phone_len);
-            }
-        }
-        else {
-            if (phone[0] == '+') {
-                memcpy(phone_buff, phone + 3, phone_len - 3);
-            }
-            else if (phone[0] == '8' && phone[1] == '6') {
-                memcpy(phone_buff, phone+2, phone_len - 2);
-            }
-            else {
-                memcpy(phone_buff, phone, phone_len);
-            }
-        }
+    size_t outlen = 0;
+    uint8_t *ucs2_buf = NULL;
+    ucs2_buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
+    if (ucs2_buf == NULL)
+    {
+        LLOGE("out of memory");
+        return 0;
     }
-    else {
-        memcpy(phone_buff, phone, phone_len);
+    memset(ucs2_buf, 0x00, payload_len * 3);
+    ret = utf82ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
+    if (ret != 0) {
+        LLOGE("utf82ucs2 encode fail");
+        luat_heap_free(ucs2_buf);
+        return 0;
     }
-    
-NUMBER_CHECK_DONE:
-    phone_len = strlen(phone_buff);
-    phone = phone_buff;
-    LLOGD("phone [%s]", phone);
-    if (pdu_mode) {
-        char pdu[280 + 100] = {0};
-        // 首先, 填充PDU头部
-        strcat(pdu, "00"); // 使用内置短信中心,暂时不可设置
-        strcat(pdu, "01"); // 仅收件信息, 不传保留时间
-        strcat(pdu, "00"); // TP-MR, 固定填0
-        sprintf_(pdu + strlen(pdu), "%02X", phone_len); // 电话号码长度
-        if (gateway_mode) {
-        	strcat(pdu, "81"); // 目标地址格式
-        } else {
-        	strcat(pdu, "91"); // 目标地址格式
-        }
-        // 手机方号码
-        for (size_t i = 0; i < phone_len; i+=2)
-        {
-            if (i == (phone_len - 1) && phone_len % 2 != 0) {
-                pdu[strlen(pdu)] = 'F';
-                pdu[strlen(pdu)] = phone[i];
-            }
-            else {
-                pdu[strlen(pdu)] = phone[i+1];
-                pdu[strlen(pdu)] = phone[i];
-            }
-        }
-        strcat(pdu, "00"); // 协议标识(TP-PID) 是普通GSM类型，点到点方式
-        strcat(pdu, "08"); // 编码格式, UCS编码
-        size_t pdu_len_offset = strlen(pdu);
-        strcat(pdu, "00"); // 这是预留的, 填充数据会后更新成正确的值
-        uint16_t unicode = 0;
-        size_t pdu_userdata_len = 0;
-        for (size_t i = 0; i < payload_len; i++)
-        {
-            // 首先是不是单字节
-            if (payload[i] & 0x80) {
-                // 非ASCII编码
-                if (payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
-                    unicode = ((payload[i] & 0x0F) << 12) + ((payload[i+1] & 0x3F) << 6) + (payload[i+2] & 0x3F);
-                    //LLOGD("unicode %04X %02X%02X%02X", unicode, payload[i], payload[i+1], payload[i+2]);
-                    sprintf_(pdu + strlen(pdu), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
-                    i+=2;
-                    pdu_userdata_len += 2;
-                    continue;
-                }
-                if (payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
-                    unicode = ((payload[i] & 0x1F) << 6) + (payload[i+1] & 0x3F);
-                    //LLOGD("unicode %04X %02X%02X", unicode, payload[i], payload[i+1]);
-                    sprintf_(pdu + strlen(pdu), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
-                    i++;
-                    pdu_userdata_len += 2;
-                    continue;
-                }
-                LLOGD("bad UTF8 string");
-                break;
-            }
-            // 单个ASCII字符, 但需要扩展到2位
-            else {
-                // ASCII编码
-                strcat(pdu, "00");
-                sprintf_(pdu + strlen(pdu), "%02X", payload[i]);
-                pdu_userdata_len += 2;
-                continue;
-            }
-        }
-        if (pdu_userdata_len > 140) {
-            LLOGI("sms is too long %d", pdu_userdata_len);
-            return 0;
-        }
-        // 修正pdu长度
-        char tmp[3] = {0};
-        sprintf_(tmp, "%02X", pdu_userdata_len);
-        memcpy(pdu + pdu_len_offset, tmp, 2);
 
-        // 打印PDU数据, 调试用
-        LLOGD("PDU %s", pdu);
-        payload = pdu;
-        payload_len = strlen(pdu);
-        phone = "";
-        ret = luat_sms_send_msg(pdu, "", 1, 54);
-        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    if(outlen > 140)
+    {
+        LLOGE("sms is too long %d > 140", outlen);
+        luat_heap_free(ucs2_buf);
+        return 0;
     }
-    else {
-        ret = luat_sms_send_msg(payload, phone, 0, 0);
-        lua_pushboolean(L, ret == 0 ? 1 : 0);
-    }
+    luat_sms_pdu_packet_t pdu_packet = {0};
+    memcpy(pdu_packet.payload_buf, ucs2_buf, outlen);
+    luat_heap_free(ucs2_buf);
+    pdu_packet.auto_phone = auto_phone;
+    pdu_packet.payload_len = outlen;
+    pdu_packet.maxNum = 1;
+    pdu_packet.phone_len = phone_len;
+    pdu_packet.phone = phone;
+    int len = luat_sms_pdu_packet(&pdu_packet);
+    LLOGW("pdu len %d", len);
+    ret = luat_sms_send_msg_v2(pdu_packet.pdu_buf, len);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     LLOGD("sms ret %d", ret);
     return 1;
 }
@@ -495,179 +441,149 @@ static int32_t l_long_sms_send_callback(lua_State *L, void* ptr){
     return 0;
 }
 
+static int hex2int(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    return -1;
+}
+
+
+
+
+//buf PDU缓冲区, phone 电话号码, payload 信息内容, phone_len 电话号码长度, payload_len 信息内容长度, auto_phone 是否自动处理电话号码, is_long 是否长短信, maxNum 最大条数, seqNum 当前序号
+int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
+{
+    // 先处理一下电话号码
+    uint8_t gateway_mode = 0;	//短信网关特殊处理
+    uint8_t pos = 0;
+    size_t phone_len = packet->phone_len;
+    char phone_buff[32] = {0};
+    if ((packet->phone_len >= 15) && !memcmp(packet->phone, "10", 2)) {
+    	LLOGI("sms gateway mode");
+    	gateway_mode = 1;
+    	memcpy(phone_buff, packet->phone, phone_len);
+    }
+    else
+    {
+        if (packet->auto_phone) {
+            if (packet->phone[0] == '+') {
+                memcpy(phone_buff, packet->phone + 1, phone_len - 1);
+                phone_len -= 1;
+            }
+            // 13416121234
+            else if (packet->phone[0] != '8' && packet->phone[1] != '6') {
+                phone_buff[0] = '8';
+                phone_buff[1] = '6';
+                memcpy(phone_buff + 2, packet->phone, phone_len);
+                phone_len += 2;
+            }
+            else {
+                memcpy(phone_buff, packet->phone, phone_len);
+            }
+        }
+        else {
+            memcpy(phone_buff, packet->phone, phone_len);
+        }
+    }
+
+    packet->pdu_buf[pos++] = 0x00;
+    if(packet->maxNum == 1)
+    {
+        packet->pdu_buf[pos++] = 0x01;
+    }
+    else
+    {
+        packet->pdu_buf[pos++] = 0x41;
+    }
+    packet->pdu_buf[pos++] = 0x00;
+    packet->pdu_buf[pos++] = phone_len;
+    packet->pdu_buf[pos++] = gateway_mode ? 0x81 : 0x91;
+    uint8_t one_char = 0;
+    for (size_t i = 0; i < phone_len; i+=2)
+    {
+        if (i == (phone_len - 1) && phone_len % 2 != 0) {
+            one_char = hex2int('F') << 4;
+            one_char |= (0x0F & hex2int(phone_buff[i]));
+            packet->pdu_buf[pos++] = one_char; 
+        }
+        else {
+            one_char = hex2int(phone_buff[i+1]) << 4;
+            one_char |= (0x0F & hex2int(phone_buff[i]));
+            packet->pdu_buf[pos++] = one_char;
+        }
+    }
+
+    packet->pdu_buf[pos++] = 0x00;
+    packet->pdu_buf[pos++] = 0x08;
+    if(packet->maxNum == 1)
+    {
+        packet->pdu_buf[pos++] = packet->payload_len;
+        memcpy(packet->pdu_buf + pos, packet->payload_buf, packet->payload_len);
+        pos += packet->payload_len;
+        return pos;
+    }
+    packet->pdu_buf[pos++] = packet->payload_len + 6;
+
+    // 长短信
+    // UDHI
+    // 0: UDHL,    固定 0x05 
+    // 1: IEI,     固定 0X00
+    // 2: IEDL,    固定 
+    // 3: Reference NO 消息参考序号
+    // 4: Maximum   NO 消息总条数
+    // 5: Current   NO 当前短信序号
+    // uint8_t udhi[6] = {0x05, 0x00, 0x03, 0x00, 0x00, 0x00};
+    uint8_t udhi[6] = {0x05, 0x00, 0x03, idx, packet->maxNum, packet->seqNum};
+    memcpy(packet->pdu_buf + pos, udhi, 6);
+    pos += 6;
+    memcpy(packet->pdu_buf + pos, packet->payload_buf, packet->payload_len);
+    pos += packet->payload_len;
+    return pos;
+}
+
 void long_sms_send_task(void *params)
 {
     long_sms_send_t *args = (long_sms_send_t*)params;
     int ret = 0;
     uint8_t is_done = 0; 
     uint8_t is_error = 0;
-    char phone_buff[32] = {0};
     rtos_msg_t msg = {
         .handler = l_long_sms_send_callback,
         .arg1 = 0,
         .arg2 = 0
     };
-    // 计算此条短信unicode长度
-    uint16_t pdu_message_len = 0;
-    for (size_t i = 0; i < args->payload_len; i++)
-    {
-        // 首先是不是单字节
-        if (args->payload[i] & 0x80) {
-            // 非ASCII编码
-            if (args->payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
-                i+=2;
-                pdu_message_len += 2;
-                continue;
-            }
-            if (args->payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
-                i++;
-                pdu_message_len += 2;
-                continue;
-            }
-            LLOGD("bad UTF8 string");
-            break;
-        }
-        // 单个ASCII字符, 但需要扩展到2位
-        else {
-            // ASCII编码
-            pdu_message_len += 2;
-            continue;
-        }
-    }
-
-    uint16_t pducnt = (pdu_message_len + 133) / 134;
-    char udhi[20] = {0};
-    char *pdu_buf = NULL;
-    pdu_buf = luat_heap_malloc(pdu_message_len * 4);
-    if (NULL == pdu_buf) {
-        LLOGE("out of memory");
-        is_error = 1;
-        goto LONG_SMS_DONE;
-    }
-    memset(pdu_buf, 0x00 ,pdu_message_len * 4);
-
-    // UTF8 to unicode
-    uint16_t unicode = 0;
-    for (size_t i = 0; i < args->payload_len; i++)
-    {
-        // 首先是不是单字节
-        if (args->payload[i] & 0x80) {
-            // 非ASCII编码
-            if (args->payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
-                unicode = ((args->payload[i] & 0x0F) << 12) + ((args->payload[i+1] & 0x3F) << 6) + (args->payload[i+2] & 0x3F);
-                //LLOGD("unicode %04X %02X%02X%02X", unicode, payload[i], payload[i+1], payload[i+2]);
-                sprintf_(pdu_buf + strlen(pdu_buf), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
-                i+=2;
-                continue;
-            }
-            if (args->payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
-                unicode = ((args->payload[i] & 0x1F) << 6) + (args->payload[i+1] & 0x3F);
-                //LLOGD("unicode %04X %02X%02X", unicode, payload[i], payload[i+1]);
-                sprintf_(pdu_buf + strlen(pdu_buf), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
-                i++;
-                continue;
-            }
-            LLOGD("bad UTF8 string");
-            break;
-        }
-        // 单个ASCII字符, 但需要扩展到2位
-        else {
-            // ASCII编码
-            strcat(pdu_buf, "00");
-            sprintf_(pdu_buf + strlen(pdu_buf), "%02X", args->payload[i]);
-            continue;
-        }
-    }
-    uint8_t gateway_mode = 0;	//短信网关特殊处理
-    if ((args->phone_len >= 15) && !memcmp(args->phone, "10", 2)) {
-    	LLOGI("sms gateway mode");
-    	gateway_mode = 1;
-    	memcpy(phone_buff, args->phone, args->phone_len);
-    	goto NUMBER_CHECK_DONE;
-    }
-    // +8613416121234
-    if (args->auto_phone) {
-        if (args->phone[0] == '+') {
-            memcpy(phone_buff, args->phone + 1, args->phone_len - 1);
-        }
-        // 13416121234
-        else if (args->phone[0] != '8' && args->phone[1] != '6') {
-            phone_buff[0] = '8';
-            phone_buff[1] = '6';
-            memcpy(phone_buff + 2, args->phone, args->phone_len);
-        }
-        else {
-            memcpy(phone_buff, args->phone, args->phone_len);
-        }
-    }
-    else {
-        memcpy(phone_buff, args->phone, args->phone_len);
-    }
-    
-NUMBER_CHECK_DONE:
-
-    strcat(udhi, "05");
-    strcat(udhi, "00");
-    strcat(udhi, "03");
-    sprintf_(udhi + 6, "%02X", idx);
-    sprintf_(udhi + 8, "%02X", pducnt);
-    
-    args->phone_len = strlen(phone_buff);
-    args->phone = phone_buff;
-    LLOGD("phone [%s]", args->phone);
-    char pdu[280 + 100] = {0};
-    // 首先, 填充PDU头部
-    strcat(pdu, "00"); // 使用内置短信中心,暂时不可设置
-    strcat(pdu, "41"); // 仅收件信息, 不传保留时间
-    strcat(pdu, "10"); // TP-MR
-    sprintf_(pdu + strlen(pdu), "%02X", args->phone_len); // 电话号码长度
-    if (gateway_mode) {
-    	strcat(pdu, "81"); // 目标地址格式
-    } else {
-    	strcat(pdu, "91"); // 目标地址格式
-    }
-    // 手机方号码
-    for (size_t i = 0; i < args->phone_len; i+=2)
-    {
-        if (i == (args->phone_len - 1) && args->phone_len % 2 != 0) {
-            pdu[strlen(pdu)] = 'F';
-            pdu[strlen(pdu)] = args->phone[i];
-        } else {
-            pdu[strlen(pdu)] = args->phone[i+1];
-            pdu[strlen(pdu)] = args->phone[i];
-        }
-    }
-    strcat(pdu, "00"); // 协议标识(TP-PID) 是普通GSM类型，点到点方式
-    strcat(pdu, "08"); // 编码格式, UCS编码
-    size_t pdu_len_offset = strlen(pdu);
-    strcat(pdu, "00"); // 这是预留的, 填充数据会后更新成正确的值
-
+    size_t outlen = args->payload_len;
+    uint16_t pducnt = (outlen + 133) / 134;
+    idx = (idx  + 1) % 255;
     luat_event_t event = {0};
     uint16_t i = 0;
     uint16_t sn = 1;
     char tmp[3] = {0};
+    luat_sms_pdu_packet_t pdu_packet = {0};
+    pdu_packet.auto_phone = args->auto_phone;
+    pdu_packet.maxNum = pducnt;
+    pdu_packet.phone_len = args->phone_len;
+    pdu_packet.phone = args->phone;
     while(1)
     {
-        memset(pdu + pdu_len_offset + 2, 0x00, 380 - pdu_len_offset - 2);
-        sprintf_(udhi + 10, "%02X", sn);
-        memcpy(pdu + pdu_len_offset + 2, udhi, 12);
-        if (pdu_message_len - i <= 134) {
-            memcpy(pdu + pdu_len_offset + 2 + strlen(udhi),  pdu_buf + (i * 2), (pdu_message_len - i) * 2);
-            sprintf_(tmp, "%02X", (pdu_message_len - i) + 6);
-            memcpy(pdu + pdu_len_offset, tmp, 2);
+        if (outlen - i <= 134) {
+            memcpy(pdu_packet.payload_buf, args->payload + i, outlen - i);
+            pdu_packet.payload_len = (outlen - i);
             is_done = 1;
-
         } else {
-            sprintf_(tmp, "%02X", 140);
-            memcpy(pdu + pdu_len_offset, tmp, 2);
-            memcpy(pdu + pdu_len_offset + 2 + strlen(udhi),  pdu_buf + (i * 2), 134 * 2);
+            memcpy(pdu_packet.payload_buf, args->payload + i, 134);
+            pdu_packet.payload_len = 134;
             i += 134;
         }
-        // 当前发送的序号
+        pdu_packet.seqNum = sn;
+        int pos = luat_sms_pdu_packet(&pdu_packet);
         sn++;
-        // 打印PDU数据, 调试用
-        LLOGD("PDU %s", pdu);
-        ret = luat_sms_send_msg(pdu, "", 1, 54);
+        ret = luat_sms_send_msg_v2(pdu_packet.pdu_buf, pos);
         if (ret) {
             LLOGE("long sms send fail:%d", ret);
             is_error = 1;
@@ -688,10 +604,10 @@ NUMBER_CHECK_DONE:
 LONG_SMS_DONE:
     msg.arg1 = is_error;
     luat_msgbus_put(&msg, 0);
-    if(pdu_buf != NULL)
+    if(args->payload != NULL)
     {
-        luat_heap_free(pdu_buf);
-        pdu_buf = NULL;
+        luat_heap_free(args->payload);
+        args->payload = NULL;
     }
     if (args != NULL)
     {
@@ -719,6 +635,8 @@ end)
 static int l_long_sms_send(lua_State *L) {
     size_t phone_len = 0;
     size_t payload_len = 0;
+    uint8_t *ucs2buf = NULL;
+    long_sms_send_t *args = NULL;
     const char* phone = luaL_checklstring(L, 1, &phone_len);
     const char* payload = luaL_checklstring(L, 2, &payload_len);
     int auto_phone = 1;
@@ -734,47 +652,59 @@ static int l_long_sms_send(lua_State *L) {
 
     if (payload_len == 0) {
         LLOGE("sms is emtry");
-        lua_pushboolean(L, 0);
-        luat_pushcwait_error(L, 1);
-        return 1;
-    }
-
-    if (payload_len <= 140) {
-        LLOGE("sms is too short %d < 140", payload_len);
-        lua_pushboolean(L, 0);
-        luat_pushcwait_error(L, 1);
-        return 1;
+        goto SMS_FAIL;
     }
 
     if (phone_len < 3 || phone_len > 29) {
         LLOGE("phone is too short or too long!! %d", phone_len);
-        lua_pushboolean(L, 0);
-        luat_pushcwait_error(L, 1);
-        return 1;
+        goto SMS_FAIL;
     }
 
-    long_sms_send_t *args = NULL;
+    size_t outlen = 0;
+    ucs2buf = (uint8_t *)luat_heap_malloc(payload_len * 3);
+    if (ucs2buf == NULL)
+    {
+        LLOGE("out of memory");
+        goto SMS_FAIL;
+    }
+
+    memset(ucs2buf, 0x00, payload_len * 3);
+
+    int ret = utf82ucs2(payload, payload_len, ucs2buf, payload_len * 3, &outlen);
+
+    if (ret || outlen <= 140)
+    {
+        LLOGE("utf8 to ucs2 fail ret: %d, or ucs2 len is too short len: %d", ret, outlen);
+        goto SMS_FAIL;
+    }
+
     args = luat_heap_malloc(sizeof(long_sms_send_t));
     if (NULL == args) {
         LLOGE("out of memory");
-        lua_pushboolean(L, 0);
-        luat_pushcwait_error(L, 1);
-        return 1;
+        goto SMS_FAIL;
     }
     memset(args, 0x00, sizeof(long_sms_send_t));
-    args->payload = payload;
-    args->payload_len = payload_len;
+    args->payload = ucs2buf;
+    args->payload_len = outlen;
     args->phone = phone;
     args->phone_len = phone_len;
     args->auto_phone = auto_phone;
     long_sms_send_idp = luat_pushcwait(L);
-    int ret = luat_rtos_task_create(&sms_send_task_handle, 10 * 1024, 10, "sms_send_task", long_sms_send_task, (void*)args, 10);
-    if (ret) {
-        LLOGE("sms send task create failed");
-        luat_heap_free(args);
-        long_sms_send_idp = 0;
-        luat_pushcwait_error(L, 1);
+    ret = luat_rtos_task_create(&sms_send_task_handle, 10 * 1024, 10, "sms_send_task", long_sms_send_task, (void*)args, 10);
+    if (!ret) {
+        return 1;
     }
+    LLOGE("sms send task create failed");
+SMS_FAIL:
+    long_sms_send_idp = 0;
+    if(ucs2buf != NULL) {
+        luat_heap_free(ucs2buf);
+    }
+    if (args != NULL) {
+        luat_heap_free(args);
+    }
+    lua_pushboolean(L, 0);
+    luat_pushcwait_error(L, 1);
     return 1;
 }
 

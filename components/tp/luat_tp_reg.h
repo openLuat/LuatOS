@@ -26,13 +26,13 @@ static inline int tp_i2c_read(luat_tp_config_t* luat_tp_config, uint8_t* cmd, si
 }
 
 static inline int tp_i2c_write_reg8(luat_tp_config_t* luat_tp_config, uint8_t reg, void* buff, size_t len){
-    uint8_t data_reg[sizeof(uint8_t)] = {reg};
-    return tp_i2c_write(luat_tp_config, data_reg, sizeof(uint8_t), buff, len);
+    uint8_t data_reg[1] = {reg};
+    return tp_i2c_write(luat_tp_config, data_reg, 1, buff, len);
 }
 
 static inline int tp_i2c_read_reg8(luat_tp_config_t* luat_tp_config, uint8_t reg, void* buff, size_t len, uint8_t stop){
-    uint8_t data_reg[sizeof(uint8_t)] = {reg};
-    return tp_i2c_read(luat_tp_config, data_reg, sizeof(uint8_t), buff, len, stop);
+    uint8_t data_reg[1] = {reg};
+    return tp_i2c_read(luat_tp_config, data_reg, 1, buff, len, stop);
 }
 
 static inline int tp_i2c_write_reg16(luat_tp_config_t* luat_tp_config, uint16_t reg, void* buff, size_t len){

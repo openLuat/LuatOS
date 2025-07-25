@@ -126,6 +126,7 @@ static void parse_data(uint8_t* buff, size_t len)
     luat_airlink_on_data_recv(link->data, link->len);
 }
 
+#if 0
 static void on_uart_data_in(uint8_t* buff, size_t len) 
 {
     // TODO 要处理分包, 连包的情况
@@ -316,6 +317,127 @@ static void on_uart_data_in(uint8_t* buff, size_t len)
     }//while
 
 }
+#endif
+
+static void unpack_data(uint8_t* buff, size_t len)
+{
+    LLOGD("unpack_data: src len = %d", len);
+    if (len < 2) {
+        LLOGE("unpack_data: data too short");
+        return; // 数据太短, 无法解析
+    }
+    // 存储最终数据到s_rxbuff
+    uint8_t* unpacked_data = s_rxbuff;
+    size_t unpacked_len = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (buff[i] == 0x7D) {
+            // 转义字符, 下一个字节是转义码
+            if (i + 1 < len) {
+                if (buff[i + 1] == 0x02) {
+                    unpacked_data[unpacked_len++] = 0x7E; // 转义为0x7E
+                } else if (buff[i + 1] == 0x01) {
+                    unpacked_data[unpacked_len++] = 0x7D; // 转义为0x7D
+                }
+                i++; // 跳过下一个字节
+            }
+        } else {
+            unpacked_data[unpacked_len++] = buff[i]; // 普通数据直接复制
+        }
+    }
+    if (unpacked_len < sizeof(airlink_link_data_t)) {
+        LLOGE("unpack_data: unpacked data too short, len %d", unpacked_len);
+        return; // 解包后的数据太短, 无法解析
+    }
+    airlink_link_data_t *link = NULL;
+    link = luat_airlink_data_unpack(unpacked_data, unpacked_len);
+    if (link == NULL) {
+        LLOGE("luat_airlink_data_unpack failed, unpacked_len %d", unpacked_len);
+        return; // 解析失败
+    }
+    LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
+    luat_airlink_on_data_recv(link->data, link->len);
+}
+
+#define UNPACK_BUFF_SIZE (8*1024)
+static uint8_t* rxbuf;
+static uint32_t rxoffset = 0;
+void on_airlink_uart_data_in(uint8_t* buff, size_t len) 
+{
+    int ret = 0;
+    size_t offset = 0;
+    size_t end_offset = 0;
+    // 首先, 输入的数据是否为0, 也可能是太长的数据
+    if (len == 0) {
+        return; // 不需要处理
+    }
+    if (rxbuf == NULL) {
+        // 分配内存
+        rxbuf = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
+        if (rxbuf == NULL) {
+            LLOGE("无法分配内存给rxbuf");
+            return; // 内存分配失败
+        }
+    }
+    if (s_rxbuff == NULL) {
+        // 分配内存给s_rxbuff
+        s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
+        if (s_rxbuff == NULL) {
+            LLOGE("无法分配内存给s_rxbuff");
+            return; // 内存分配失败
+        }
+    }
+    // 按协议要求, 单个包的最大长度, 应该是 2 + 1600*2 + 2 = 3206 字节
+    // 所以, 8k完全可以放入2个包
+    memcpy(rxbuf + rxoffset, buff, len);
+    rxoffset += len;
+
+    // 首先, 检查首个字节是不是0x7E, 如果不是, 那么就需要查找包头, 直至找到0x7E
+    if (rxbuf[0] != 0x7E) {
+        offset = 1;
+        // 如果不是, 那么就需要查找包头, 直至找到0x7E
+        while (offset < rxoffset && rxbuf[offset] != 0x7E) {
+            offset++;
+        }
+        if (offset >= rxoffset) {
+            LLOGW("没有找到包头, 清空当前数据, 等待下次数据 %d", rxoffset);
+            rxoffset = 0;
+            return;
+        }
+        // 找到包头, 移动数据到前面
+        if (offset > 1) {
+            memmove(rxbuf, rxbuf + offset, rxoffset - offset);
+            rxoffset -= offset;
+        }
+    }
+
+    offset = 0;
+    while (rxoffset - offset >= 2) {
+        // 搜索包头
+        if (rxbuf[offset] == 0x7E) {
+            // 找到包头, 继续查找包尾
+            end_offset = offset + 1;
+            while (end_offset < rxoffset && rxbuf[end_offset] != 0x7E) {
+                end_offset++;
+            }
+            if (end_offset >= rxoffset) {
+                // 没有找到包尾, 等待下次数据
+                break;
+            }
+            // 找到包尾, 解析数据
+            size_t data_len = end_offset - offset - 1; // 包头和包尾不算在内
+            // 反转义数据
+            if (data_len > 1) {
+                unpack_data(rxbuf + offset + 1, data_len); // 包头和包尾不算在内
+            }
+            // 移动剩余数据到前面
+            memmove(rxbuf, rxbuf + end_offset + 1, rxoffset - end_offset - 1);
+            rxoffset -= (end_offset + 1 - offset);
+        } else {
+            // 没有找到包头, 移动一个字节
+            offset++;
+        }
+    }
+}
 
 __USER_FUNC_IN_RAM__ static void uart_task(void *param)
 {
@@ -336,7 +458,7 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
         uart_id = g_airlink_spi_conf.uart_id;
         // LLOGD("uart_task:uart_id:%d", uart_id);
         while (1) {
-            ret = luat_uart_read(uart_id, (char *)s_rxbuff, TEST_BUFF_SIZE);
+            ret = luat_uart_read(uart_id, (char *)s_rxbuff, 1024);
             // LLOGD("uart_task:uart read buff len:%d", ret);
             if (ret <= 0) 
             {
@@ -347,7 +469,7 @@ __USER_FUNC_IN_RAM__ static void uart_task(void *param)
                 LLOGD("收到uart数据长度 %d", ret);
                 // luat_airlink_print_buff("uart_task:uart read buff", s_rxbuff, ret);
                 // 推送数据, 并解析处理
-                on_uart_data_in(s_rxbuff, ret);
+                on_airlink_uart_data_in(s_rxbuff, ret);
                 // for(uint8_t j = 0; j < ret; j++)
                 // {
                 //     LLOGD("收到数据:%02x", s_rxbuff[j]);
@@ -415,6 +537,7 @@ void luat_airlink_start_uart(void)
 
     s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    rxbuf = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
 
     ret = luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     if (ret) {

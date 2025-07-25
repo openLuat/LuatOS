@@ -16,13 +16,13 @@ sys.taskInit(function()
     -----------------------------
     -- 统一联网函数, 可自行删减
     ----------------------------
+    -- 设置wifi网络名称(ssid)和密码(password)
+    local ssid = "ChinaNet-7jU2"
+    local password = "xnceqvkr"
+
     if wlan and wlan.connect then
-        -- wifi 联网, ssid表示wifi网络名称，password为网络密码
-        local ssid = "ChinaNet-7jU2"
-        local password = "xnceqvkr"
         --输出wifi的用户名称、密码及硬件库名称
         log.info("wifi", ssid, password, rtos.bsp() )
-
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         -- 网络初始化
         wlan.init()
@@ -302,7 +302,7 @@ sys.taskInit(function()
         -- 保存后下载到开发板进行测试演示
 
         -- 演示GET请求
-        -- demo_http_get()
+        demo_http_get()
         -- 表单提交
         -- demo_http_post_form()
         -- POST一个json字符串
@@ -333,7 +333,7 @@ sys.taskInit(function()
         -- GET方法文件下载
         --demo_http_download()
         -- gzip压缩的响应, 以和风天气为例
-        demo_http_get_gzip()
+        -- demo_http_get_gzip()
 
         sys.wait(1000)
         -- 打印一下内存状态

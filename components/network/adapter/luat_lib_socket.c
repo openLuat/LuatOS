@@ -48,7 +48,7 @@ end)
 static int l_socket_local_ip(lua_State *L)
 {
 	luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		return 0;
@@ -209,7 +209,7 @@ param3为消息对应的参数，目前只有0和-1，0表示成功或者可能�
 */
 static int l_socket_create(lua_State *L)
 {
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		lua_pushnil(L);
@@ -1062,7 +1062,7 @@ static int l_socket_set_dns(lua_State *L)
 {
 #ifdef LUAT_USE_LWIP
 	char ip_buf[68];
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		lua_pushboolean(L, 0);
@@ -1088,7 +1088,7 @@ static int l_socket_set_dns(lua_State *L)
 	    ipaddr_aton(ip_buf, &ip_addr);
 	}
 #else
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		lua_pushboolean(L, 0);
@@ -1266,6 +1266,7 @@ NO_REMOTE_IP:
 @api socket.dft(id)
 @int 默认适配器编号,若不传,则打包获取
 @return int 默认适配器编号
+@return int 最后一个注册的适配器编号(2025.7.25新增)
 @usage
 -- 本函数于 2025.1.6 新增
 -- 获取当前默认适配器编号
@@ -1273,6 +1274,10 @@ local id = socket.dft()
 
 -- 设置默认适配器编号
 socket.dft(socket.LWIP_ETH)
+
+-- 获取当前默认适配器编号, 及最后一个注册的适配器编号
+local id, last_id = socket.dft()
+log.info("当前默认适配器编号", id, "最后一个注册的适配器编号", last_id)
 */
 static int l_socket_default(lua_State *L) {
 	uint8_t id = 0;
@@ -1282,8 +1287,9 @@ static int l_socket_default(lua_State *L) {
 			network_register_set_default(id);
 		}
 	}
-	lua_pushinteger(L, network_get_last_register_adapter());
-	return 1;
+	lua_pushinteger(L, network_register_get_default());
+	lua_pushinteger(L, network_get_last_register_adapter_real());
+	return 2;
 }
 
 #include "rotable2.h"

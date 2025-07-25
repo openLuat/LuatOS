@@ -129,7 +129,7 @@ int l_sntp_get(lua_State *L) {
         LLOGI("sntp is running");
         return 0;
     }
-    int adapter_index = luaL_optinteger(L, 2, network_get_last_register_adapter());
+    int adapter_index = luaL_optinteger(L, 2, network_register_get_default());
     int ret = ntp_get(adapter_index);
     if (ret) {
 #ifdef __LUATOS__

@@ -20,7 +20,26 @@
 
 
 
+## 系统消息介绍
+
+1、"IP_READY"：某种网卡已经获取到ip信息，仅仅获取到了ip信息，能否和外网连通还不确认；
+
+2、"IP_LOSE"：某种网卡已经掉网；
+
+
+
+## 用户消息介绍
+
+1、"RECV_DATA_FROM_SERVER"：socket client收到服务器下发的数据后，通过此消息发布出去，给其他应用模块处理；
+
+2、"SEND_DATA_REQ"：其他应用模块发布此消息，通知socket client发送数据给服务器；
+
+3、"FEED_NETWORK_WATCHDOG"：网络环境检测看门狗的喂狗消息，在需要喂狗的地方发布此消息；
+
+
+
 ## 演示功能概述
+
 1、创建四路socket连接，详情如下
 
 - 创建一个tcp client，连接tcp server；
@@ -58,6 +77,8 @@
 
 ## 演示硬件环境
 
+![](https://docs.openluat.com/air8101/luatos/app/image/netdrv_multi.jpg)
+
 1、Air8101核心板一块
 
 2、TYPE-C USB数据线一根
@@ -73,6 +94,35 @@
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 - USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
+
+5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
+
+| Air8101核心板 | AirPHY_1000配件板  |
+| ------------ | ------------------ |
+|    59/3V3    |         3.3v       |
+|     gnd      |         gnd        |
+|     5/D2     |         RX1        |
+|    72/D1     |         RX0        |
+|    71/D3     |         CRS        |
+|     4/D0     |         MDIO       |
+|     6/D4     |         TX0        |
+|    74/PCK    |         MDC        |
+|    70/D5     |         TX1        |
+|     7/D6     |         TXEN       |
+|     不接     |          NC        |
+|    69/D7     |         CLK        |
+
+6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+
+| Air8101核心板   |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 59/3V3          | 3.3v              |
+| gnd             | gnd               |
+| 28/DCLK         | SCK               |
+| 54/DISP         | CSS               |
+| 55/HSYN         | SDO               |
+| 57/DE           | SDI               |
+| 14/GPIO8        | INT               |
 
 
 ## 演示软件环境

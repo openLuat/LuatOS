@@ -23,10 +23,6 @@ local rtos_bsp = rtos.bsp()
 local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 local SPI_SPEED = 25600000
 
--- if USE_CH390 then
---     gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
--- end
-
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
     return 1, 20    -- Air8000整机开发板上的pin_cs为gpio20
@@ -34,7 +30,11 @@ end
 
 -- TF卡和WAN口初始化函数
 local function tf_wan_init()
-    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+
+    if USE_CH390 then
+        gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+    end
+
     sys.wait(1000)                   -- 延迟1秒让ch390 稳定后再挂载TF卡
     
     -- #################################################
@@ -47,7 +47,7 @@ local function tf_wan_init()
     local spi_id, pin_cs,tp = fatfs_spi_pin() 
     -- 仅SPI方式需要自行初始化spi, sdio不需要
     -- 使用较低的统一速度以兼容TF卡和CH390
-    spi.setup(spi_id, nil, 0, 0, pin_cs, SPI_SPEED)
+    spi.setup(spi_id, pin_cs, 0, 0, 8, SPI_SPEED)
     gpio.setup(pin_cs, 1)
     fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, SPI_SPEED)
 

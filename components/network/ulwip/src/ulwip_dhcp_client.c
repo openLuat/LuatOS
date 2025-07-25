@@ -230,6 +230,7 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
     }
     ip_addr_set_any(0, &ctx->netif->ip_addr);
+    ip_addr_set_any(0, &s_ulwip_dhcp->local_ip);
     ctx->dhcp_client->state = DHCP_STATE_DISCOVER;
     ctx->dhcp_client->discover_cnt = 0;
     if (!luat_rtos_timer_is_active(ctx->dhcp_timer))

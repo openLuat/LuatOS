@@ -80,6 +80,43 @@ LUAT_PIN_SETUP_DONE:
 }
 
 /**
+将对应管脚变成高阻或者输入，不对外输出
+@api pins.close(pin)
+@int 管脚物理编号, 对应模组俯视图下的顺序编号, 例如 67, 68
+@return boolean 配置成功,返回true, 其他情况均返回false, 并在日志中提示失败原因
+@usage
+--把air780epm的PIN67脚关闭掉
+--pins.close(67)
+ */
+static int l_pins_close(lua_State *L){
+
+    int pin = 0;
+    int result = 0;
+    pin = luaL_optinteger(L, 1, -1);
+    if (pin < 0)
+    {
+    	LLOGE("pin序号参数错误");
+    	goto LUAT_PIN_SETUP_DONE;
+    }
+    else
+    {
+    	luat_pin_function_description_t pin_function;
+    	if (luat_pin_get_description_from_num(pin, &pin_function))
+    	{
+    		LLOGE("pin%d不支持修改", pin);
+    		goto LUAT_PIN_SETUP_DONE;
+    	}
+    	luat_pin_iomux_info pin_info;
+    	pin_info.uid = pin_function.uid;
+    	luat_pin_close(pin_info);
+    	result = 1;
+    }
+LUAT_PIN_SETUP_DONE:
+	lua_pushboolean(L, result);
+	return 1;
+}
+
+/**
 加载硬件配置
 @api pins.loadjson(path)
 @string path, 配置文件路径, 可选, 默认值是 /luadb/pins.json
@@ -124,6 +161,7 @@ static int l_pins_debug(lua_State *L) {
 static const rotable_Reg_t reg_pins[] =
 {
     {"setup",     ROREG_FUNC(l_pins_setup)},
+	{"close",     ROREG_FUNC(l_pins_close)},
 	{"loadjson",  ROREG_FUNC(l_pins_load)},
 	{"debug",	  ROREG_FUNC(l_pins_debug)},
 	{ NULL,       ROREG_INT(0) }

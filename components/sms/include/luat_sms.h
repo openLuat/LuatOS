@@ -23,6 +23,11 @@
 #define LUAT_SMS_H
 
 #include "luat_base.h"
+
+#ifndef bool
+#define bool    uint8_t
+#endif
+
 /**
  * @defgroup LUAT_SMS  SMS接口
  * @{
@@ -32,6 +37,11 @@
 #define LUAT_SMS_MAX_PDU_SIZE 180
 #define LUAT_SMS_MAX_LENGTH_OF_ADDRESS_VALUE 40
 #define LUAT_SMS_MAX_ADDR_STR_MAX_LEN ((LUAT_SMS_MAX_LENGTH_OF_ADDRESS_VALUE + 1) * 4)
+
+#define LUAT_SMS_SHORT_MSG_PDU_SIZE (140)
+#define LUAT_SMS_LONG_MSG_PDU_SIZE (134)
+
+
 typedef void (*LUAT_SMS_HANDLE_CB)(uint8_t event, void* param);
 typedef void (*LUAT_SMS_HANDLE_SEND_CB)(int ret);
 
@@ -110,6 +120,19 @@ typedef struct
 }LUAT_SMS_RECV_MSG_T;
 
 
+typedef struct 
+{
+    size_t phone_len;           // 电话号码长度
+    size_t payload_len;         // 待组包的短信数据长度
+    const char *phone;          // 电话号码
+    uint8_t pdu_buf[320];       // 组包后的PDU短信
+    uint8_t payload_buf[200];   // 待组包的短信数据
+    uint8_t auto_phone;         // 是否自动处理电话号码
+    uint8_t maxNum;             // 短信最大条数， 长短信用
+    uint8_t seqNum;             // 当前短信序号
+    uint8_t refNum;
+}luat_sms_pdu_packet_t;
+
 /**
  * @brief 初始化短信
  */
@@ -145,5 +168,11 @@ void luat_sms_recv_msg_register_handler(LUAT_SMS_HANDLE_CB callback_fun);
  * @param callback_fun    回调函数
  */
 void luat_sms_send_msg_register_handler(LUAT_SMS_HANDLE_SEND_CB callback_fun);
+
+/**
+ * @brief 打包pdu数据
+ * @param packet    
+ */
+int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet);
 /**@}*/
 #endif

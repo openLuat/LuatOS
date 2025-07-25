@@ -44,6 +44,10 @@ static void luat_airtalk_mqtt_recv_function(uint8_t *data, uint32_t len)
 static int airtalk_mqtt_cb(luat_mqtt_ctrl_t *mqtt_ctrl, uint16_t event)
 {
 	int ret;
+	if (!prv_mqtt.topic.Data)
+	{
+		return 0;
+	}
 	if (event != MQTT_MSG_PUBLISH)
 	{
 		return 0;

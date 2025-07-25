@@ -19,7 +19,7 @@ uart.setup(uartid, 115200, 8, 1, uart.NONE, uart.LSB, 1024, uart485Pin, 0, 2000)
 -- 设置通讯间隔时间，主站将按每隔 设置时间 的频率向从站问询数据（默认100ms），当添加了多个从站后，主站向每个从站问询的时间间隔将叠加
 -- 设置通讯超时时间和消息发送超时重发次数，当主站未在 设置的时间 内接收到从站数据，将向从站再次发送问询（问询次数按设置的 消息超时重发次数 发送，默认1）
 -- 设置断线重连时间间隔，当从站与主站断连后，主站将在设置时间内重新连接从站(默认5000ms)
-mb_ascii = modbus.create_master(modbus.MODBUS_ASCII, uartid,3000,2000,1,5000)
+mb_ascii = modbus.create_master(modbus.MODBUS_ASCII, uartid,115200,3000,2000,1,5000)
 
 
 -- 为主站添加从站，从站ID为1，可使用modbus.add_slave(master_handler, slave_id)接口添加多个从站，最多可以添加247个
@@ -84,7 +84,7 @@ end, 5000)
 -- end, 5000)
 
 
--- -- 每隔5秒执行一次mb_slave1_msg1消息，使用modbus.exec(master_handler, msg_handler)接口须先在modbus.set_msg_comm_period(msg_handler, comm_period)接口中设置为手动模式；成功返回true，其他情况返回false
+-- -- 每隔5秒执行一次mb_slave1_msg1消息，使用modbus.exec(master_handler, msg_handler)接口须先在modbus.create_msg接口中设置为手动模式；成功返回true，其他情况返回false
 -- sys.timerLoopStart(function()
 --     local status=modbus.exec(mb_ascii, mb_slave1_msg1)
 --     log.info("msg",status)

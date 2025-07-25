@@ -8,6 +8,11 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
+-- 开启调试模式
+modbus.debug(1)
+-- -- 关闭调试模式
+-- modbus.debug(0)
+
 --初始化网络
 log.info("ch390", "打开LDO供电")
 gpio.setup(140, 1)  --打开开发板lan供电

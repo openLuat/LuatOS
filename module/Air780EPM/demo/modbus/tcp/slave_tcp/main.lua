@@ -12,6 +12,12 @@ log.info("ch390", "打开LDO供电")
 gpio.setup(20, 1)  --打开lan供电
 require "lan"
 
+
+-- 开启调试模式
+modbus.debug(1)
+-- -- 关闭调试模式
+-- modbus.debug(0)
+
 -- 创建从站设备，可选择RTU、ASCII、TCP，此demo仅用作测试TCP。设置该从站端口号为6000，网卡适配器序列号为socket.LWIP_ETH。
 local slave_id = 1
 mb_tcp_s = modbus.create_slave(modbus.MODBUS_TCP, slave_id, 6000, socket.LWIP_ETH)

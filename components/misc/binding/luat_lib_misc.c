@@ -20,7 +20,7 @@
 某个引脚的GPO功能使能
 @api misc.gpo_setup(id)
 @int id, GPO编号
-@return nil
+@return nil 无返回值
 @usage
 misc.gpo_setup(0)
 */
@@ -37,7 +37,7 @@ GPO输出高低电平
 @api misc.gpo_output(id,level)
 @int id, GPO编号
 @int level, 1高电平，0低电平
-@return nil
+@return nil 无返回值
 @usage
 misc.gpo_output(0,1)
 */

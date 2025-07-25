@@ -50,8 +50,28 @@ Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关
 
 local libnetif = require "libnetif"
 
+-- 网卡状态变化通知回调函数
+-- 当libnetif中检测到网卡切换或者所有网卡都断网时，会触发调用此回调函数
+-- 当网卡切换切换时：
+--     net_type：string类型，表示当前使用的网卡字符串
+--     adapter：number类型，表示当前使用的网卡id
+-- 当所有网卡断网时：
+--     net_type：为nil
+--     adapter：number类型，为-1
+local function netdrv_multiple_notify_cbfunc(net_type,adapter)
+    if type(net_type)=="string" then
+        log.info("netdrv_multiple_notify_cbfunc", "use new adapter", net_type, adapter)
+    elseif type(net_type)=="nil" then
+        log.warn("netdrv_multiple_notify_cbfunc", "no available adapter", net_type, adapter)
+    else
+        log.warn("netdrv_multiple_notify_cbfunc", "unknown status", net_type, adapter)
+    end
+end
+
+
+
 local function netdrv_multiple_task_func()
-    --设置网络优先级
+    --设置网卡优先级
     libnetif.set_priority_order(
         {
             -- “通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）”的以太网卡，可以使用Air8101核心板+AirPHY_1000配件板验证
@@ -105,8 +125,18 @@ local function netdrv_multiple_task_func()
                 }
             }
         }
-    )
+    )    
 end
 
+-- 设置网卡状态变化通知回调函数netdrv_multiple_notify_cbfunc
+libnetif.notify_status(netdrv_multiple_notify_cbfunc)
 
+-- 如果存在udp网络应用，并且udp网络应用中，根据应用层的心跳能够判断出来udp数据通信出现了异常；
+-- 可以在判断出现异常的位置，调用一次libnetif.check_network_status()接口，强制对当前正式使用的网卡进行一次连通性检测；
+-- 如果存在tcp网络应用，不需要用户调用libnetif.check_network_status()接口去控制，libnetif会在tcp网络应用通信异常时自动对当前使用的网卡进行连通性检测。
+
+
+-- 启动一个task，task的处理函数为netdrv_multiple_task_func
+-- 在处理函数中调用libnetif.set_priority_order设置网卡优先级
+-- 因为libnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
 sys.taskInit(netdrv_multiple_task_func)

@@ -229,9 +229,9 @@ static const rotable_Reg_t reg_airtalk[] =
 	{ "debug",      ROREG_FUNC(l_airtalk_debug)},
 	//@const PROTOCOL_MQTT number 语音数据用MQTT传输
     { "PROTOCOL_MQTT",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_MQTT)},
-	//@const PROTOCOL_MQTT number 语音数据用MQTT传输
+	//@const MODE_PERSON number 对讲工作模式1对1
     { "MODE_PERSON",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_PERSON)},
-	//@const PROTOCOL_MQTT number 语音数据用MQTT传输
+	//@const MODE_GROUP number 对讲工作模式多人
     { "MODE_GROUP",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP)},
 	//@const EVENT_OFF_LINE number airtalk离线
     { "EVENT_OFF_LINE",       ROREG_INT(LUAT_AIRTALK_CB_ON_LINE_IDLE)},

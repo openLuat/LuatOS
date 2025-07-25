@@ -42,7 +42,7 @@ local available = {
     [socket.LWIP_USER1] = connection_states.DISCONNECTED
 }
 -- 当前使用的网卡
-local current_active = socket.LWIP_USER0
+local current_active = nil
 
 -- 网络类型转字符串
 local function type_to_string(net_type)
@@ -66,16 +66,16 @@ local function apply_priority()
             -- 设置优先级高的网卡
             if current_active ~= net_type then
                 log.info("设置网卡", type_to_string(net_type))
-                if current_active ~= socket.LWIP_USER0 then
-                    states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
-                end
+                states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
                 socket.dft(net_type)
                 current_active = net_type
             end
             break
         end
     end
-    if usable == false then
+
+    -- 从存在可用网卡到没有可用网卡，才通知回调
+    if usable == false and  current_active ~= nil then
         states_cbfnc(nil, -1)
     end
 end

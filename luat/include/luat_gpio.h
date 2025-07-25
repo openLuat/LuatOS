@@ -157,4 +157,5 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput);
 
 void luat_gpo_open(uint8_t id);
 void luat_gpo_output(uint8_t pin, uint8_t level);
+uint8_t luat_gpo_get_output_level(uint8_t id);
 #endif

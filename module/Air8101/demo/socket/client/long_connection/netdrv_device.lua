@@ -9,7 +9,7 @@
 1、netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
 2、netdrv_ethernet_rmii：socket.LWIP_ETH，通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡；
 3、netdrv_ethernet_spi：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
-4、netdrv_4G：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
+4、netdrv_4g：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
 5、netdrv_multi_network：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 
 根据自己的项目需求，只需要require以上五种中的一种即可；

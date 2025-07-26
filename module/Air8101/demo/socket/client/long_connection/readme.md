@@ -146,7 +146,17 @@
 
 4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-5、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+5、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
+
+- 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+
+- 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
+
+- 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
+
+- 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
+
+- 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
 6、Luatools烧录内核固件和修改后的demo脚本代码
 
@@ -175,10 +185,12 @@
 73656E642066726F6D20756172743A206B65726A6B6A7772
 ```
 
-12、在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
+11、在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
 
 ``` lua
 recv from tcp server: 123456798012345678901234567830
 recv from udp server: 123456798012345678901234567830   
 recv from tcp_ssl server: 123456789901234
 ```
+
+12、注意：第四路连接，连接的是baidu的https网站，连接成功后，Air8000每隔一段时间发数据给服务器，因为发送的不是http合法格式的数据，所以每隔一段时间服务器都会主动断开连接，断开连接后，Air8000会自动重连，如此循环，属于正常现象。

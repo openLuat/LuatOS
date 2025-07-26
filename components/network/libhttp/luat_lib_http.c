@@ -145,9 +145,9 @@ static int l_http_request(lua_State *L) {
 	if (lua_istable(L, 5)){
 		lua_pushstring(L, "adapter");
 		if (LUA_TNUMBER == lua_gettable(L, 5)) {
-			adapter_index = luaL_optinteger(L, -1, network_get_last_register_adapter());
+			adapter_index = luaL_optinteger(L, -1, network_register_get_default());
 		}else{
-			adapter_index = network_get_last_register_adapter();
+			adapter_index = network_register_get_default();
 		}
 		lua_pop(L, 1);
 
@@ -217,7 +217,7 @@ static int l_http_request(lua_State *L) {
 			http_ctrl->http_cb_userdata = (void*)luaL_ref(L, LUA_REGISTRYINDEX);
 		}
 	}else{
-		adapter_index = network_get_last_register_adapter();
+		adapter_index = network_register_get_default();
 	}
 #ifdef LUAT_USE_FOTA
 	if (http_ctrl->isfota == 1 && http_ctrl->is_download == 1){

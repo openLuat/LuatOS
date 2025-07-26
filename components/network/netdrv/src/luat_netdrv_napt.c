@@ -169,7 +169,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_
         ret = luat_napt_udp_handle(&ctx);
         break;
     default:
-        LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
+        // LLOGD("不是tcp/udp/icmp包, 不需要执行napt");
         return 0;
     }
     // uint64_t tend = luat_mcu_tick64();

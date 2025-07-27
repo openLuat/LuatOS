@@ -82,7 +82,7 @@ local function ip_ready(id, ip)
     -- 打印网络就绪的信息。
     log.info("收到IP_READY!!", id, ip)
     -- 给对端设备发送网络状态信息。
-    airlink.sdata("Air780EPM_IP_READY!!")
+    -- airlink.sdata("Air780EPM_IP_READY!!")
 end
 
 -- 订阅IP_LOSE事件，打印收到的信息。
@@ -90,7 +90,7 @@ local function ip_lose(id, ip)
     -- 打印网络断开的信息。
     log.info("收到IP_LOSE!!", id, ip)
     -- 给对端设备发送网络状态信息。
-    airlink.sdata("Air780EPM_IP_LOSE!!")
+    -- airlink.sdata("Air780EPM_IP_LOSE!!")
 end
 
 -- 订阅airlink的SDATA事件，打印收到的信息。
@@ -103,16 +103,16 @@ end
 sys.taskInit(init_airlink_net)
 
 -- 一个简单的HTTP GET请求测试程序，用于判断Air780EPM的网络访问外网是否正常。
-sys.taskInit(http_get_test)
+-- sys.taskInit(http_get_test)
 
 -- Air780EPM发送数据信息给Air8101。
-sys.taskInit(airlink_sdata_Air8101)
+-- sys.taskInit(airlink_sdata_Air8101)
 
 -- 订阅IP_READY事件，打印收到的信息。
-sys.subscribe("IP_READY", ip_ready)
+-- sys.subscribe("IP_READY", ip_ready)
 
 -- 订阅IP_LOSE事件，打印收到的信息。
-sys.subscribe("IP_LOSE", ip_lose)
+-- sys.subscribe("IP_LOSE", ip_lose)
 
 -- 订阅airlink的SDATA事件，打印收到的信息。
-sys.subscribe("AIRLINK_SDATA", airlink_sdata)
+-- sys.subscribe("AIRLINK_SDATA", airlink_sdata)

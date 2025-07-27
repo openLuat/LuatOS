@@ -441,12 +441,16 @@ static const rotable_Reg_t reg_mcu[] =
 	//@const CAM number 外设类型-CAM,与 mcu.CAMERA一样
 	{ "CAM",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
 	//@const CAMERA number 外设类型-CAMERA，就是CAM,摄像头
-	{ "CAMERA",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
+	{ "CAMERA",          ROREG_INT(LUAT_MCU_PERIPHERAL_CAMERA) },
 	//@const ONEWIRE number 外设类型-ONEWIRE，单总线协议
-	{ "ONEWIRE",             ROREG_INT(LUAT_MCU_PERIPHERAL_ONEWIRE) },
+	{ "ONEWIRE",         ROREG_INT(LUAT_MCU_PERIPHERAL_ONEWIRE) },
 	//@const SDIO number 外设类型-SDIO，接TF卡
-	{ "SDIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_SDIO) },
-	{ NULL,             ROREG_INT(0) }
+	{ "SDIO",            ROREG_INT(LUAT_MCU_PERIPHERAL_SDIO) },
+	//@const KEYBORAD number 外设类型-KEYBORAD，键盘
+	{ "KEYBORAD",        ROREG_INT(LUAT_MCU_PERIPHERAL_KEYBORAD) },
+	//@const ETH number 外设类型-ETH，网口
+	{ "ETH",             ROREG_INT(LUAT_MCU_PERIPHERAL_ETH) },
+	{ NULL,              ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_mcu( lua_State *L ) {

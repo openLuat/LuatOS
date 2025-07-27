@@ -29,16 +29,16 @@ sys.taskInit(function()
 
 end)
 
--- sys.taskInit(function()
---     while 1 do
---         -- 发送给对端设备
---         local data = rtos.bsp() .. " " .. os.date() .. " " .. (mobile and mobile.imei() or "")
---         log.info("client 发送数据给sever设备", data, "当前airlink状态", airlink.ready())
---         airlink.sdata(data)
---         airlink.test(1000) -- 要测试高速连续发送的情况
---         sys.wait(1000)
---     end
--- end)
+sys.taskInit(function()
+    while 1 do
+        -- 发送给对端设备
+        local data = rtos.bsp() .. " " .. os.date() .. " " .. (mobile and mobile.imei() or "")
+        log.info("client 发送数据给sever设备", data, "当前airlink状态", airlink.ready())
+        airlink.sdata(data)
+        -- airlink.test(1000) -- 要测试高速连续发送的情况
+        sys.wait(1000)
+    end
+end)
 
 sys.taskInit(function()
     -- sys.waitUntil("IP_READY")
@@ -61,10 +61,6 @@ sys.taskInit(function()
         -- log.info("lua", rtos.meminfo())
         -- log.info("sys", rtos.meminfo("sys"))
     end
-end)
-
-sys.subscribe("AIRLINK_SDATA", function(data)
-    log.info("client 收到AIRLINK_SDATA!!", data)
 end)
 
 

@@ -25,17 +25,14 @@ sys.taskInit(function()
     sys.wait(100)
     --等待IP_READY事件
     sys.waitUntil("IP_READY", 1000)
-    -- netdrv.napt(socket.LWIP_GP)
-    -- netdrv.debug(0, true)
-    -- dnsproxy.setup(socket.LWIP_USER0,socket.LWIP_GP)
-    -- while 1 do
-    --     -- 发送给对端设备
-    --     local data = rtos.bsp() .. " " .. os.date() .. " " .. (mobile and mobile.imei() or "")
-    --     log.info("sever 发送数据给client设备", data, "当前airlink状态", airlink.ready())
-    --     airlink.sdata(data)
-    --     airlink.test(1000) -- 要测试高速连续发送的情况
-    --     sys.wait(1000)
-    -- end
+    while 1 do
+        -- 发送给对端设备
+        local data = rtos.bsp() .. " " .. os.date() .. " " .. (mobile and mobile.imei() or "")
+        log.info("sever 发送数据给client设备", data, "当前airlink状态", airlink.ready())
+        airlink.sdata(data)
+        -- airlink.test(1000) -- 要测试高速连续发送的情况
+        sys.wait(1000)
+    end
 end)
 
 sys.taskInit(function()
@@ -54,22 +51,11 @@ sys.taskInit(function()
     else
         log.info("airlink", "Client mode")
     end
-    -- while 1 do
-    --     sys.wait(500)
-    --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_USER0,timeout=3000}).wait()
-    --     log.info("http", code, body and #body)
-    --     -- log.info("lua", rtos.meminfo())
-    --     -- log.info("sys", rtos.meminfo("sys"))
-    -- end
 end)
 
 --订阅IP_READY事件，打印收到的信息
 sys.subscribe("IP_READY", function(id,ip)
     log.info("收到IP_READY!!", id,ip)
-end)
-
-sys.subscribe("AIRLINK_SDATA", function(data)
-    log.info("sever 收到AIRLINK_SDATA!!", data)
 end)
 
 -- 用户代码已结束---------------------------------------------

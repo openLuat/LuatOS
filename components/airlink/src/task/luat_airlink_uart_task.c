@@ -221,9 +221,7 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
             while (end_offset < rxoffset && rxbuf[end_offset] != 0x7E) {
                 end_offset++;
                 if(end_offset > 4096){
-                    for(uint32_t i = 0;i < rxoffset;i++){
-                        rxbuf[i] = 0;
-                    }
+                    rxoffset = 0;
                     LLOGD("缓存数据超4k，仍未找到包尾，丢弃数据");
                     break;
                 }

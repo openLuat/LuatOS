@@ -74,7 +74,6 @@
 
 
 
-
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/air8101/luatos/app/image/netdrv_multi.jpg)
@@ -124,6 +123,30 @@
 | 57/DE           | SDI               |
 | 14/GPIO8        | INT               |
 
+7、可选Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板一块，Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式为:
+
+| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板  |
+| ------------ | ---------------------------------------------- |
+|     gnd      |                     GND                        |
+|  54/DISP     |                     83/SPI0CS                  |
+|  55/HSYN     |                     84/SPI0MISO                |
+|    57/DE     |                     85/SPI0MOSI                |
+|  28/DCLK     |                     86/SPI0CLK                 |
+|    43/R2     |                     19/GPIO22                  |
+|  75/GPIO28   |                     22/GPIO1                   |
+
+
+| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM开发板  |
+| ------------ | ---------------------------------------------- |
+|     gnd      |                     GND                        |
+|  54/DISP     |                     SPI_CS                     |
+|  55/HSYN     |                     SPI_MISO                   |
+|    57/DE     |                     SPI_MOSI                   |
+|  28/DCLK     |                     SPI_CLK                    |
+|    43/R2     |                     GPIO22                     |
+|  75/GPIO28   |                     GPIO1                      |
+
+
 
 ## 演示软件环境
 
@@ -134,6 +157,7 @@
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
 4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
+
 
 
 ## 演示核心步骤

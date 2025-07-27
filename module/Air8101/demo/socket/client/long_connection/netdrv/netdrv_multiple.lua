@@ -29,7 +29,7 @@ Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关
 |    69/D7     |         CLK        |
 
 
-通过SPI外挂CH390H芯片的以太网卡：
+通过SPI外挂CH390H芯片的以太网卡（此网卡和4G网卡硬件连接有冲突，如果使用以太网，可以优先使用rmii接口的以太网卡，如果必须使用spi以太网卡，注意更换以太网或者4G网卡使用的spi，不要冲突）：
 Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
 如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
@@ -42,6 +42,11 @@ Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关
 | 55/HSYN         | SDO               |
 | 57/DE           | SDI               |
 | 14/GPIO8        | INT               |
+
+
+通过SPI接口外挂4G模组(Air780EHM/Air780EHV/Air780EGH/Air780EPM)的4G网卡：
+Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式，参考netdrv_4g.lua的文件头注释；
+
 
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
@@ -91,24 +96,24 @@ local function netdrv_multiple_task_func()
             },
 
             -- “通过SPI外挂CH390H芯片”的以太网卡，可以使用Air8101核心板+AirETH_1000配件板验证
-            {
-                ETHUSER1 = {
-                    -- 供电使能GPIO，此demo使用的59脚3V3供电，受GPIO13控制
-                    pwrpin = 13,
-                    -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
-                    -- 如果没有传入此参数，libnetif会使用默认值10秒
-                    ping_time = 3000, 
+            -- {
+            --     ETHUSER1 = {
+            --         -- 供电使能GPIO，此demo使用的59脚3V3供电，受GPIO13控制
+            --         pwrpin = 13,
+            --         -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
+            --         -- 如果没有传入此参数，libnetif会使用默认值10秒
+            --         ping_time = 3000, 
 
-                    -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，libnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
-                    -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
-                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+            --         -- 连通性检测ip(选填参数)；
+            --         -- 如果没有传入ip地址，libnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
+            --         -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
+            --         -- ping_ip = "填入可靠的并且可以ping通的ip地址",
 
-                    -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-                    tp = netdrv.CH390, 
-                    opts = {spi=0, cs=15}
-                }
-            },
+            --         -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+            --         tp = netdrv.CH390, 
+            --         opts = {spi=0, cs=15}
+            --     }
+            -- },
 
             -- WIFI STA网卡
             {

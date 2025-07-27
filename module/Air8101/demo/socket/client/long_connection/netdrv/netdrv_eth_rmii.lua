@@ -2,7 +2,7 @@
 @module  netdrv_eth_rmii
 @summary “通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块 
 @version 1.0
-@date    2025.07.024
+@date    2025.07.24
 @author  朱天华
 @usage
 本文件为“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块 ，核心业务逻辑为：

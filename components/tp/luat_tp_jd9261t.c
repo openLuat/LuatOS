@@ -483,7 +483,6 @@ void jd9261t_read_point(luat_tp_config_t* luat_tp_config, luat_tp_touch_t *input
 		}
 	}
 	if (touch_num){                                                 /* point down */
-		uint8_t off_set;
 		for (read_index = 0; read_index < touch_num; read_index++){
 			pre_id[read_index] = read_index;
 			input_x = read_buf[read_index].x_h<<8 | read_buf[read_index].x_l;	/* x */
@@ -503,7 +502,7 @@ void jd9261t_read_point(luat_tp_config_t* luat_tp_config, luat_tp_touch_t *input
 }
 
 static int tp_jd9261t_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
-    uint8_t touch_num=0, point_status=0;
+    uint8_t touch_num=0;
 
     jd9261t_ReadRegMulti(luat_tp_config, JT9261T_READ_COOR_ADDR, (uint8_t *)&luat_touch_info, sizeof(luat_touch_info));
     

@@ -249,7 +249,7 @@ void cst820_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 }
 
 static int tp_cst820_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
-    uint8_t touch_num=0, point_status=0;
+    uint8_t touch_num=0;
     tp_i2c_read_reg8(luat_tp_config, CST820_STATUS, &touch_num, 1, 0);
     
     // tp_cst820_read_status(luat_tp_config, &point_status);

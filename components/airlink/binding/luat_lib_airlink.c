@@ -380,6 +380,13 @@ static int l_airlink_config(lua_State *L) {
         }
         g_airlink_spi_conf.speed = value;
         break;
+    case LUAT_AIRLINK_CONF_UART_ID:
+        if (value < 0 || value > 3) {
+            LLOGE("无效的UART %d, 只能是0~3", value);
+            return 0;
+        }
+        g_airlink_spi_conf.uart_id = value;
+        break;
     default:
         return 0;
     }
@@ -600,6 +607,8 @@ static const rotable_Reg_t reg_airlink[] =
     { "CONF_SPI_SPEED",    ROREG_INT(LUAT_AIRLINK_CONF_SPI_SPEED)},
     //@const CONF_IRQ_TIMEOUT number SPIUART配置参数, 设置IRQ模式的等待超时时间
     { "CONF_IRQ_TIMEOUT",  ROREG_INT(LUAT_AIRLINK_CONF_IRQ_TIMEOUT)},
+    //@const CONF_UART_ID number UART配置参数, 设置UART的ID
+    { "CONF_UART_ID",      ROREG_INT(LUAT_AIRLINK_CONF_UART_ID)},
 
 	{ NULL,                ROREG_INT(0) }
 };

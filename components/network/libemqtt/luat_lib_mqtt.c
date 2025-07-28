@@ -112,30 +112,34 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 					lua_pushstring(L, "recv");
 					lua_pushlstring(L, (const char*)(mqtt_msg->data),mqtt_msg->topic_len);
 					lua_pushlstring(L, (const char*)(mqtt_msg->data+mqtt_msg->topic_len),mqtt_msg->payload_len);
-					
-					// 增加一个返回值meta，类型为table，包含qos、retain和dup
-					// 	mqttc:on(function(mqtt_client, event, data, payload, meta)
-            		// 		if event == "recv" then
-            		//     	log.info("mqtt recv", "topic", data)
-            		//     	log.info("mqtt recv", 'payload', payload)
-            		//     	log.info("mqtt recv", 'meta.qos', meta.qos)
-            		//     	log.info("mqtt recv", 'meta.retain', meta.retain)
-            		//     	log.info("mqtt recv", 'meta.dup', meta.dup)
-					lua_createtable(L, 0, 3);
-
-					lua_pushliteral(L, "qos"); 
-					lua_pushinteger(L, MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer));
+//					 增加一个返回值meta，类型为table，包含qos、retain和dup
+//					 	mqttc:on(function(mqtt_client, event, data, payload, meta)
+//            		 		if event == "recv" then
+//            		     	log.info("mqtt recv", "topic", data)
+//            		     	log.info("mqtt recv", 'payload', payload)
+//            		     	log.info("mqtt recv", 'meta.message_id', meta.message_id)
+//            		     	log.info("mqtt recv", 'meta.qos', meta.qos)
+//            		     	log.info("mqtt recv", 'meta.retain', meta.retain)
+//            		     	log.info("mqtt recv", 'meta.dup', meta.dup)
+					lua_createtable(L, 0, 4);
+					lua_pushliteral(L, "message_id");
+					lua_pushinteger(L, mqtt_msg->message_id);
 					lua_settable(L, -3);
 
-					lua_pushliteral(L, "retain"); 
-					lua_pushinteger(L, MQTTParseMessageRetain(mqtt_ctrl->mqtt_packet_buffer));
+					lua_pushliteral(L, "qos");
+					lua_pushinteger(L, (mqtt_msg->flags & 0x06) >> 1);
+//					lua_pushinteger(L, MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer));
 					lua_settable(L, -3);
 
-					lua_pushliteral(L, "dup"); 
-					lua_pushinteger(L, MQTTParseMessageDuplicate(mqtt_ctrl->mqtt_packet_buffer));
+					lua_pushliteral(L, "retain");
+					lua_pushinteger(L, mqtt_msg->flags & 0x01);
+//					lua_pushinteger(L, MQTTParseMessageRetain(mqtt_ctrl->mqtt_packet_buffer));
 					lua_settable(L, -3);
 
-					// lua_call(L, 4, 0);
+					lua_pushliteral(L, "dup");
+					lua_pushinteger(L, (mqtt_msg->flags & 0x08)?1:0);
+//					lua_pushinteger(L, MQTTParseMessageDuplicate(mqtt_ctrl->mqtt_packet_buffer));
+					lua_settable(L, -3);
 					lua_call(L, 5, 0);
 				}
             }
@@ -556,8 +560,9 @@ event可能出现的值有
   conack	-- 服务器鉴权完成, 表示mqtt连接已经建立, 可以订阅和发布数据了
   suback 	-- 订阅完成，data为应答结果, true成功，payload为0~2数字表示qos，data为false则失败，payload为失败码，一般是0x80
   unsuback	-- 取消订阅完成
-  recv   	-- 接收到数据,由服务器下发, data为topic值(string), payload为业务数据(string).metas是元数据(table), 一般不处理.
+  recv   	-- 接收到数据,由服务器下发, data为topic值(string), payload为业务数据(string), metas是元数据(table), 一般不处理.
              -- metas包含以下内容
+             -- message_id
 			 -- qos 取值范围0,1,2
 			 -- retain 取值范围 0,1
 			 -- dup 取值范围 0,1

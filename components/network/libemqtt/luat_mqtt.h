@@ -65,8 +65,9 @@ typedef struct{
 
 typedef struct{
 	uint16_t topic_len;
-	uint16_t dummy;
+	uint16_t message_id;
     uint32_t payload_len;
+    uint8_t flags;
 	uint8_t data[];
 }luat_mqtt_msg_t;
 

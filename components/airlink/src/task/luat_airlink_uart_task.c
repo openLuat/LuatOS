@@ -94,7 +94,7 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
 
 static void parse_data(uint8_t* buff, size_t len)
 {
-    luat_airlink_print_buff("反转义前的数据", buff,  len);
+    // luat_airlink_print_buff("反转义前的数据", buff,  len);
     // 收到数据后去除帧头帧尾和魔数，遇到0x7E/0x7D 要转义
     uint8_t* parse_buff = buff;
     size_t parse_len = len - 2;
@@ -267,6 +267,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             uart_id = g_airlink_spi_conf.uart_id;
             // 有数据, 要处理了
             item.len = 0;
+            item.cmd = NULL;
             luat_airlink_cmd_recv_simple(&item);//从（发送）队列里取出数据存在item中
             // LLOGD("队列数据长度:%d, cmd:%p", item.len, item.cmd);
             if (item.len > 0 && item.cmd != NULL)
@@ -295,6 +296,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
                 s_txbuff[offset++] = 0x7E;
                 luat_uart_write(uart_id, (const char *)s_txbuff, offset);
                 // LLOGD ("发送数据长度:%d", offset);
+                luat_airlink_cmd_free(item.cmd);
             }
             else {
                 break; // 没有数据了, 退出循环

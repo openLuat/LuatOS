@@ -242,7 +242,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     int ret = 0;
     if (g_airlink_pause) {
         while (g_airlink_pause) {
-            LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
+            //LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
             luat_rtos_task_sleep(1000);
         }
     }

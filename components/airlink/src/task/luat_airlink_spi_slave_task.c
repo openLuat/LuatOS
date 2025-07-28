@@ -26,7 +26,7 @@
 #include "platform_def.h"
 #endif
 
-static uint8_t thread_rdy;
+// static uint8_t thread_rdy;
 static luat_rtos_task_handle spi_task_handle;
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
@@ -35,7 +35,7 @@ static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
 static int self_ready;
 static int pin_rdy_state;
-static uint8_t g_sys_need_reboot;
+// static uint8_t g_sys_need_reboot;
 static int is_irq_mode;
 static uint32_t irq_counter; // 中断计数
 
@@ -245,8 +245,8 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
 {
     LLOGE("spi_slave_task!!!");
     int ret = 0;
-    int i;
-    airlink_link_data_t* link = NULL;
+    // int i;
+    // airlink_link_data_t* link = NULL;
     luat_event_t event = {0};
 
     luat_rtos_task_sleep(5); // 等5ms

@@ -45,8 +45,8 @@ __USER_FUNC_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
 }
 
 __USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
-    luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     #ifdef __BK72XX__
+    luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     if (cmd->cmd == 0x100) {
         // IP数据直接处理,不走线程
         luat_airlink_cmd_exec_ip_pkg(cmd, NULL);

@@ -91,7 +91,7 @@ int ulwip_netif_ip_event(ulwip_ctx_t* ctx) {
     int ready_now = !ip_addr_isany(&netif->ip_addr);
     ready_now &= netif_is_link_up(netif);
     ready_now &= netif_is_up(netif);
-    luat_ip_addr_t ip = {0};
+    // luat_ip_addr_t ip = {0};
 
     if (ctx->dhcp_client) {
         net_lwip2_set_dhcp_client(ctx->adapter_index, ctx->dhcp_client);

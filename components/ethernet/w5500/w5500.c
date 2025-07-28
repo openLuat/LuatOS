@@ -440,9 +440,9 @@ W5500_SOCKET_CONFIG_START:
 
 static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t is_listen, uint32_t remote_ip, uint16_t remote_port)
 {
-	uint32_t ip;
-	uint16_t port;
-	uint8_t delay_cnt;
+	// uint32_t ip;
+	// uint16_t port;
+	// uint8_t delay_cnt;
 	uint8_t temp;
 	uint8_t cmd[16];
 	temp = w5500_socket_state(w5500, socket_id);
@@ -487,7 +487,7 @@ static int w5500_socket_auto_heart(w5500_ctrl_t *w5500, uint8_t socket_id, uint8
 
 static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data, uint32_t len)
 {
-	uint8_t delay_cnt;
+	// uint8_t delay_cnt;
 	uint8_t temp;
 	uint8_t point[6];
 	uint16_t tx_free, tx_point;
@@ -530,7 +530,7 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 
 static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data, uint16_t len)
 {
-	uint8_t delay_cnt;
+	// uint8_t delay_cnt;
 	uint8_t temp;
 	uint8_t point[4];
 	uint16_t rx_size, rx_point;
@@ -1182,7 +1182,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 
 static void w5500_read_irq(w5500_ctrl_t *w5500)
 {
-	OS_EVENT socket_event;
+	// OS_EVENT socket_event;
 	uint8_t temp[64];
 	uint8_t socket_irqs[MAX_SOCK_NUM];
 	uint8_t socket_irq, common_irq;
@@ -1503,8 +1503,8 @@ int w5500_reset(void)
 
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin)
 {
-	uint8_t *uid;
-	size_t t, i;
+	// uint8_t *uid;
+	size_t i;
 	if (!prv_w5500_ctrl)
 	{
 		w5500_ctrl_t *w5500 = malloc(sizeof(w5500_ctrl_t));

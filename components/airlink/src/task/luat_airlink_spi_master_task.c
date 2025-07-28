@@ -42,7 +42,7 @@ static luat_rtos_task_handle spi_task_handle;
 
 static uint8_t basic_info[256];
 
-static uint32_t is_waiting_queue = 0;
+// static uint32_t is_waiting_queue = 0;
 
 static luat_rtos_queue_t evt_queue;
 
@@ -333,8 +333,8 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
 
 __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
-    int i;
-    luat_event_t event = {0};
+    // int i;
+    // luat_event_t event = {0};
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();
     thread_rdy = 1;

@@ -93,7 +93,7 @@ int l_softkb_init(lua_State* L) {
     softkb.deinit(0)
  */
 int l_softkb_deinit(lua_State* L) {
-    luat_softkeyboard_conf_t conf = {0};
+    // luat_softkeyboard_conf_t conf = {0};
     uint8_t softkb_port = luaL_checkinteger(L,1);
     int ret = luat_softkeyboard_deinit(&softkb_conf[softkb_port]);
     luat_heap_free(softkb_conf[softkb_port].inio);

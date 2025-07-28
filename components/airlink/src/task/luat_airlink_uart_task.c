@@ -30,10 +30,10 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 
-static luat_rtos_task_handle g_uart_task;
+// static luat_rtos_task_handle g_uart_task;
 static luat_rtos_task_handle g_uart_transfer_task;
 static luat_rtos_task_handle g_uart_receive_task;
-static luat_rtos_queue_t evt_queue;
+// static luat_rtos_queue_t evt_queue;
 static luat_rtos_queue_t tx_evt_queue;// 
 static luat_rtos_queue_t rx_evt_queue;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
@@ -84,7 +84,7 @@ __USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
 
 static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
-static airlink_link_data_t s_link;
+// static airlink_link_data_t s_link;
 
 __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
     memset(&link->flags, 0, sizeof(uint32_t));
@@ -167,7 +167,7 @@ static uint8_t* rxbuf;
 static uint32_t rxoffset = 0;
 void on_airlink_uart_data_in(uint8_t* buff, size_t len)
 {
-    int ret = 0;
+    // int ret = 0;
     size_t offset = 0;
     size_t end_offset = 0;
     // 首先, 输入的数据是否为0, 也可能是太长的数据

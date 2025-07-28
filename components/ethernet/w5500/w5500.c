@@ -689,7 +689,7 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 {
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	uint32_t remote_ip;
-	int result;
+	// int result;
 	if (w5500->link_ready != check_state)
 	{
 		LLOGD("link %d -> %d", w5500->link_ready, check_state);
@@ -704,7 +704,7 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 				uint8_t temp[1];
 				temp[0] = MR_UDP_FARP;
 				w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, 1);
-				result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+				ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
 				w5500_check_dhcp(w5500);
 				if (tx_msg_buf.Pos)
 				{

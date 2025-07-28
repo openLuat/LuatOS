@@ -27,6 +27,7 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     if (conf->id < 0 || conf->id >= NW_ADAPTER_QTY) {
         return NULL;
     }
+    int ret = 0;
     if (drvs[conf->id] == NULL) {
         // 注册新的设备?
         #ifdef __LUATOS__
@@ -47,7 +48,10 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     else {
         if (drvs[conf->id]->boot) {
             //LLOGD("启动网络设备 %p", drvs[conf->id]);
-            drvs[conf->id]->boot(drvs[conf->id], NULL);
+            ret = drvs[conf->id]->boot(drvs[conf->id], NULL);
+            if (ret) {
+                return NULL;
+            }
         }
         return drvs[conf->id];
     }

@@ -33,7 +33,7 @@ typedef struct
 static airtalk_network_ctrl_t prv_network;
 
 //播放完成
-static void end_broadcast_play(void)
+static void airtalk_full_stop(void)
 {
 	net_data_struct *net_cache;
 	luat_airtalk_speech_stop_play();
@@ -296,9 +296,12 @@ TX_DATA_DONE:
 			sync_lost = 1;
 			break;
 		case AIRTALK_EVENT_NETWORK_FORCE_STOP:
-			sync_lost = 1;
-			prv_network.is_ready = 0;
-			end_broadcast_play();
+			if (prv_network.is_ready)
+			{
+				sync_lost = 1;
+				prv_network.is_ready = 0;
+				airtalk_full_stop();
+			}
 			break;
 		case AIRTALK_EVENT_NETWORK_MSG:
 			break;
@@ -320,8 +323,14 @@ void luat_airtalk_net_param_config(uint8_t audio_data_protocl, uint32_t download
 	prv_network.download_cache_time = download_cache_time;
 }
 
-void luat_airtalk_net_transfer_start(void)
+void luat_airtalk_net_set_ssrc(uint32_t ssrc)
 {
+	prv_network.local_ssrc = ssrc;
+}
+
+void luat_airtalk_net_transfer_start(uint8_t work_mode)
+{
+	prv_network.work_mode = work_mode;
 	luat_rtos_event_send(prv_network.task_handle, AIRTALK_EVENT_NETWORK_READY_START, 0, 0, 0, 0);
 }
 

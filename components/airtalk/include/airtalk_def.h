@@ -52,6 +52,7 @@ typedef struct
 	uint8_t is_ready;
 	uint8_t audio_data_protocl;
 	uint8_t is_16k;
+	uint8_t work_mode;
 	uint8_t debug_on_off;
 }airtalk_network_ctrl_t;
 #endif

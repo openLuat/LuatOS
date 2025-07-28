@@ -1098,15 +1098,12 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 static int l_eink_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
     size_t len;
-    int i = 0;
-    uint8_t strhigh,strlow ;
-    uint16_t e,str;
     const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
     int x = luaL_checkinteger(L, 3);
     int y = luaL_checkinteger(L, 4);
     for(;;){
-      e = utf8_next((uint8_t)*fontCode);
+      uint16_t e = utf8_next((uint8_t)*fontCode);
       if ( e == 0x0ffff )
       break;
       fontCode++;
@@ -1127,16 +1124,13 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
 static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char buf[2048];
 	size_t len;
-	int i = 0;
-	uint8_t strhigh,strlow ;
-	uint16_t e,str;
   const char *fontCode = luaL_checklstring(L, 1,&len);
   unsigned char size = luaL_checkinteger(L, 2);
 	unsigned char font_g = luaL_checkinteger(L, 3);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
 	for(;;){
-        e = utf8_next((uint8_t)*fontCode);
+        uint16_t e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
         break;
         fontCode++;

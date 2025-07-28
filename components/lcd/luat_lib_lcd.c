@@ -1255,7 +1255,7 @@ static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
 	uint16_t str;
     const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
-	unsigned char font_g = luaL_optinteger(L, 3, 4);
+	// unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
     FORE_COLOR = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
@@ -1299,9 +1299,6 @@ lcd.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     size_t len;
-    int i = 0;
-    uint8_t strhigh,strlow ;
-    uint16_t e,str;
     const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
     int x = luaL_checkinteger(L, 3);
@@ -1316,7 +1313,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     }
     for(;;){
         memset(buf,0,buff_size);
-        e = utf8_next((uint8_t)*fontCode);
+        uint16_t e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
         break;
         fontCode++;
@@ -1331,7 +1328,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
             if (str==0x20){
                 x+=size/2;
             }else{
-               x+=(str<0x80)?dw:size; 
+                x+=(str<0x80)?dw:size; 
             }
         }
     }
@@ -1353,12 +1350,9 @@ lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	size_t len;
-	int i = 0;
-	uint8_t strhigh,strlow;
-	uint16_t e,str;
     const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
-	unsigned char font_g = luaL_optinteger(L, 3, 4);
+	// unsigned char font_g = luaL_optinteger(L, 3, 4);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
     FORE_COLOR = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
@@ -1372,7 +1366,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
     }
 	for(;;){
         memset(buf,0x00,buff_size);
-        e = utf8_next((uint8_t)*fontCode);
+        uint16_t e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
         break;
         fontCode++;

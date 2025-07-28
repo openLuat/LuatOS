@@ -237,7 +237,6 @@ void ft3x68_read_point(luat_tp_config_t* luat_tp_config, luat_tp_touch_t *input_
 		}
 	}
 	if (touch_num){                                                 /* point down */
-		uint8_t off_set;
 		for (read_index = 0; read_index < touch_num; read_index++){
 			pre_id[read_index] = read_index;
 			input_x = read_buf[read_index].x_h<<8 | read_buf[read_index].x_l;	/* x */

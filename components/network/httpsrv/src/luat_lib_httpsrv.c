@@ -63,7 +63,7 @@ end)
 -- 当前默认查找 /luadb/xxx 下的文件,暂不可配置
 */
 static int l_httpsrv_start(lua_State *L) {
-    luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
+    // luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
     char buff[64] = {0};
     int port = luaL_checkinteger(L, 1);
     if (!lua_isfunction(L, 2)) {

@@ -31,7 +31,7 @@ __USER_FUNC_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     luat_netdrv_t* gw = ctx->drv_gw;
-    luat_netdrv_napt_tcpudp_t* it = NULL;
+    // luat_netdrv_napt_tcpudp_t* it = NULL;
     luat_netdrv_napt_tcpudp_t* it_map = NULL;
     int ret = 0;
     if (gw == NULL || gw->netif == NULL) {
@@ -40,7 +40,7 @@ __USER_FUNC_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     if (tcp_buff == NULL) {
         tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
     }
-    uint64_t tnow = luat_mcu_tick64_ms();
+    // uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t mapping = {0};
     if (ctx->is_wnet) {
         // 这是从外网到内网的TCP包

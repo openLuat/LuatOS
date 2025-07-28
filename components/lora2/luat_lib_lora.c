@@ -386,7 +386,7 @@ lora_device:set_rxconfig(
 */
 static int luat_lora_set_rxconfig(lua_State *L){
     uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
-    uint32_t frequency = 433000000,timeout = 0;
+    // uint32_t frequency = 433000000,timeout = 0;
     bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false,rateOptimize = false;
     lora_device_t  * lora_device = get_lora_device(L);
     if (lua_istable(L, 2)) {

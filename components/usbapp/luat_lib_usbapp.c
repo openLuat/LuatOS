@@ -9,6 +9,7 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
+#include "luat_usbapp.h"
 
 #define USB_ID0 0
 

@@ -964,10 +964,10 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
-	luat_ip_addr_t addr = {0};
+	// luat_ip_addr_t addr = {0};
 	dns_client_t *dns_client = prvlwip.dns_client[adapter_index];
 	dhcp_client_info_t* dhcpc = prvlwip.dhcpc[adapter_index];
-	char ip_string[64] = {0};
+	// char ip_string[64] = {0};
 	if (prvlwip.lwip_netif[adapter_index] == NULL)
 		return;
 	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)
@@ -986,8 +986,8 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	else
 	{
 		NET_DBG("network ready %d", adapter_index);
-		uint32_t tmp = adapter_index;
-		luat_ip_addr_t addr = {0};
+		// uint32_t tmp = adapter_index;
+		// luat_ip_addr_t addr = {0};
 		uint8_t dns0_set = 0;
 		uint8_t dns1_set = 0;
 		// LLOGD("开始设置DNS服务器 %d static? %d %d %d %d", adapter_index, dns_client->is_static_dns[0], dns_client->is_static_dns[1], prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[0] : 0, prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[1] : 0);
@@ -1150,7 +1150,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 
 static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, uint8_t is_ipv6, void *user_data)
 {
-	uint8_t index = (uint32_t)user_data;
+	// uint8_t index = (uint32_t)user_data;
 	uint8_t adapter_index = (uint32_t)user_data;
 	if ((uint32_t)adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
 	int i, socket_id;

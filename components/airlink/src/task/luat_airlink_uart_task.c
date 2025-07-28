@@ -38,6 +38,8 @@ static luat_rtos_queue_t tx_evt_queue;//
 static luat_rtos_queue_t rx_evt_queue;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 
+static void luat_airlink_uart_transfer_task(void);
+static void luat_airlink_uart_receive_task(void);
 
 __USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
 {
@@ -261,6 +263,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     while(1)
     {
         ret = luat_rtos_queue_recv(tx_evt_queue, &event, sizeof(luat_event_t), 15*1000);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
+        (void)ret;
         //LLOGD("收到airlink数据事件 ret:%d, id:%d", ret, event.id);
         record_statistic(event);
         while (1) {
@@ -353,7 +356,7 @@ void luat_airlink_start_uart(void)
     luat_airlink_uart_receive_task();
 }
 
-void luat_airlink_uart_transfer_task(void)
+static void luat_airlink_uart_transfer_task(void)
 {
     int ret = 0;
     if (g_uart_transfer_task != NULL)
@@ -368,7 +371,7 @@ void luat_airlink_uart_transfer_task(void)
     }
 }
 
-void luat_airlink_uart_receive_task(void)
+static void luat_airlink_uart_receive_task(void)
 {
     int ret = 0;
     if (g_uart_receive_task != NULL)

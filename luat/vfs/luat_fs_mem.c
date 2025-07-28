@@ -131,6 +131,8 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                 return (FILE*)fd;
             }
         }
+        LLOGW("file %s not found, can't open with mode %s", filename, mode);
+        return NULL;
     }
     else {
         LLOGE("unkown open mode %s", mode);

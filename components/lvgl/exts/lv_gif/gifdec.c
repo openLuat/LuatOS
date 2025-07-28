@@ -64,7 +64,6 @@ gd_open_gif_data(const void *data)
 
 static gd_GIF * gif_open(gd_GIF * gif_base)
 {
-    int fd;
     uint8_t sigver[3];
     uint16_t width, height, depth;
     uint8_t fdsz, bgidx, aspect;
@@ -569,8 +568,8 @@ gd_get_frame(gd_GIF *gif)
 void
 gd_render_frame(gd_GIF *gif, uint8_t *buffer)
 {
-    uint32_t i;
-    uint32_t j;
+//    uint32_t i;
+//    uint32_t j;
 //    for(i = 0, j = 0; i < gif->width * gif->height * 3; i+= 3, j+=4) {
 //        buffer[j + 0] = gif->canvas[i + 2];
 //        buffer[j + 1] = gif->canvas[i + 1];

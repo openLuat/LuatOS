@@ -19,7 +19,7 @@ httpdns = require("httpdns")
 -- 设置pingip
 local wifi_ping_ip
 local eth_ping_ip
-
+local local_network_mode
 
 local ping_time = 10000
 -- 连接状态
@@ -76,12 +76,17 @@ local function apply_priority()
 
     -- 从存在可用网卡到没有可用网卡，才通知回调
     if usable == false and  current_active ~= nil then
+        --避免重复通知
+        current_active = nil
         states_cbfnc(nil, -1)
     end
 end
 
 --打开以太网Wan功能
 local function setup_eth(config)
+    if config.local_network_mode then
+        local_network_mode = true
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -93,7 +98,11 @@ local function setup_eth(config)
     sys.wait(100)
     if config.tp == nil then
         log.info("8101以太网")
-        netdrv.setup(socket.LWIP_ETH)
+        if netdrv.setup(socket.LWIP_ETH) == false then
+            log.error("以太网初始化失败")
+            gpio.close(config.pwrpin)
+            return false
+        end      
     else
         log.info("config.opts.spi",config.opts.spi,",config.type",config.tp)
         -- 配置SPI和初始化网络驱动
@@ -113,7 +122,11 @@ local function setup_eth(config)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
-        netdrv.setup(socket.LWIP_ETH, config.tp, config.opts)
+        if netdrv.setup(socket.LWIP_ETH, config.tp, config.opts) == false then
+            log.error("以太网初始化失败")
+            gpio.close(config.pwrpin)
+            return false
+        end    
     end
     netdrv.dhcp(socket.LWIP_ETH, true)
     log.info("以太网初始化完成")
@@ -122,6 +135,9 @@ end
 
 --打开8101spi以太网Wan功能
 local function setup_eth_user1(config)
+    if config.local_network_mode then
+        local_network_mode = true
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -149,7 +165,12 @@ local function setup_eth_user1(config)
     -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
     -- SPI ID 1, 片选 GPIO12
-    netdrv.setup(socket.LWIP_USER1, config.tp, config.opts)
+    if netdrv.setup(socket.LWIP_USER1, config.tp, config.opts) == false then
+        log.error("以太网初始化失败")
+        gpio.close(config.pwrpin)
+        return false
+    end
+    
     netdrv.dhcp(socket.LWIP_USER1, true)
     log.info("以太网初始化完成")
     return true
@@ -157,6 +178,9 @@ end
 
 --连接wifi(STA模式)
 local function set_wifi_info(config)
+    if config.local_network_mode then
+        local_network_mode = true
+    end
     wifi_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -187,6 +211,7 @@ libnetif.set_priority_order({
         WIFI = { -- WiFi配置
             ssid = "your_ssid",       -- WiFi名称(string)
             password = "your_pwd",    -- WiFi密码(string)
+            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，ping_ip将设置为网卡网关ip.
             ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
                                       -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
                                       -- 所以需要根据网络环境填写内网或者外网ip,
@@ -199,6 +224,7 @@ libnetif.set_priority_order({
     { -- 次优先级网络
         ETHERNET = { -- 以太网配置
             pwrpin = 140,             -- 供电使能引脚(number)
+            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，ping_ip将设置为网卡网关ip.
             ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
                                       -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
                                       -- 所以需要根据网络环境填写内网或者外网ip,
@@ -347,7 +373,11 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
-        netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts)
+        if netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts) == false then
+            log.error("初始化以太网失败")
+            gpio.close(other_configs.ethpower_en)
+            return false
+        end
         log.info("netdrv", "等待以太网就绪")
         sys.wait(1000)
         -- 设置以太网的 IP 地址、子网掩码、网关地址
@@ -424,7 +454,11 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
-        netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts)
+        if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
+            log.error("初始化以太网失败")
+            gpio.close(other_configs.ethpower_en)
+            return false
+        end
         log.info("netdrv", "等待以太网就绪")
         sys.wait(1000)
         -- 设置以太网的 IP 地址、子网掩码、网关地址
@@ -464,7 +498,11 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         sys.wait(100)
         if other_configs.tp == nil then
             log.info("8101以太网")
-            netdrv.setup(socket.LWIP_ETH)
+            if netdrv.setup(socket.LWIP_ETH) == false then
+            log.error("以太网初始化失败")
+            gpio.close(other_configs.ethpower_en)
+            return false
+        end  
         else
             log.info("config.opts.spi", other_configs.opts.spi, ",config.type", other_configs.tp)
             -- 配置SPI和初始化网络驱动
@@ -484,6 +522,7 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
             local success = netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts)
             if not success then
                 log.error("以太网初始化失败")
+                gpio.close(other_configs.ethpower_en)
                 return false
             end
         end
@@ -524,7 +563,11 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         -- socket.LWIP_ETH 网络适配器编号
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
-        netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts)
+        if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
+            log.error("以太网初始化失败")
+            gpio.close(other_configs.ethpower_en)
+            return false
+        end
         netdrv.dhcp(socket.LWIP_USER1, true)
         log.info("以太网初始化完成")
         local count = 1
@@ -612,7 +655,16 @@ local function ping_request(adaptertest)
 end
 -- 网卡上线回调函数
 local function ip_ready_handle(ip, adapter)
-    log.info("ip_ready_handle", ip, type_to_string(adapter),"state",available[adapter])
+    local _, _, gw = socket.localIP(adapter)
+    log.info("ip_ready_handle", ip, type_to_string(adapter),"state",available[adapter],"gw", gw)
+    if local_network_mode then
+        if adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+            eth_ping_ip = gw
+        elseif adapter == socket.LWIP_STA then
+            wifi_ping_ip = gw
+        end
+    end
+    log.info("eth_ping_ip",eth_ping_ip,"wifi_ping_ip",wifi_ping_ip)
     -- 需要ping操作，ping通后认为网络可用
     if available[adapter] == connection_states.OPENED then
         available[adapter] = connection_states.CONNECTING

@@ -1365,6 +1365,8 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	//@const LWIP_USER7 number 使用LWIP协议栈的自定义网卡7, 2025.1.12新增
 	{ "LWIP_USER7",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_USER7)},
 	
+	//@const LWIP_GP_GW number 4G代理网关
+	{ "LWIP_GP_GW",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GP_GW)},
 
 	{ NULL,            		ROREG_INT(0)}
 };

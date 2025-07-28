@@ -353,7 +353,7 @@ mobile.apn(0,1,"name","user","password",nil,3)
  */
 static int l_mobile_apn(lua_State* L) {
     char buff[64] = {0};
-    size_t len = 0;
+    // size_t len = 0;
     size_t wlen = 0;
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
@@ -1250,7 +1250,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
     LUAT_MOBILE_EVENT_E event;
     uint8_t index;
     uint8_t status;
-    int ret;
+    // int ret;
 
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);

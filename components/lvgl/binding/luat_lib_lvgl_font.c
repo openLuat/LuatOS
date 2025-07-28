@@ -107,7 +107,7 @@ int luat_lv_font_load(lua_State *L) {
     lv_font_t *font = NULL;
     if (lua_isuserdata(L, 1)) {
         #ifdef LUAT_USE_GTFONT
-            luat_spi_device_t *spi = lua_touserdata(L, 1);
+            // luat_spi_device_t *spi = lua_touserdata(L, 1);
             uint8_t size = luaL_optinteger(L, 2, 16);
             if (size&1){
                 LLOGE("size not support odd");

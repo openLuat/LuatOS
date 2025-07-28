@@ -333,7 +333,7 @@ static int l_mobile_set_auto_work(lua_State* L) {
 
 /**
 获取或设置APN，设置APN必须在入网前就设置好，比如在SIM卡识别完成前就设置好
-@api mobile.apn(index, cid, new_apn_name, user_name, password, ip_type, protocol)
+@api mobile.apn(index, cid, new_apn_name, user_name, password, ip_type, protocol, is_del)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @int cid, 默认0，如果要用非默认APN来激活，必须>0
 @string 新的APN,不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现
@@ -344,8 +344,12 @@ static int l_mobile_set_auto_work(lua_State* L) {
 @boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果
 @return string 如果网络注册成功，返回注册用的APN值，反之是nil。设置好不会立刻有返回值，需要等网络注册成功
 @usage
-mobile.apn(0,1,"cmiot","","",nil,0) -- 移动公网卡设置APN为cmiot,一般不用设置
-mobile.apn(0,1,"name","user","password",nil,3) -- 专网卡设置的demo，name，user，password联系卡商获取
+-- 注意, 在国内, 公网卡基本上都不需要设置APN, 专网卡才需要设置
+mobile.apn(0,1,"cmiot","","",nil,0)
+
+-- 专网卡设置的demo，name，user，password联系卡商获取
+-- 设置后, 再次立即获取, 并不会返回设置的值, 要等联网成功 - 设置好不会立刻有返回值，需要等网络注册成功
+mobile.apn(0,1,"name","user","password",nil,3)
  */
 static int l_mobile_apn(lua_State* L) {
     char buff[64] = {0};

@@ -689,7 +689,7 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 {
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	uint32_t remote_ip;
-	int result;
+	// int result;
 	if (w5500->link_ready != check_state)
 	{
 		LLOGD("link %d -> %d", w5500->link_ready, check_state);

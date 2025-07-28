@@ -10,6 +10,7 @@
 #include "luat_base.h"
 #include "luat_softkeyboard.h"
 #include "luat_msgbus.h"
+#include "luat_mem.h"
 
 #define MAX_DEVICE_COUNT 2
 static luat_softkeyboard_conf_t softkb_conf[MAX_DEVICE_COUNT];
@@ -92,7 +93,7 @@ int l_softkb_init(lua_State* L) {
     softkb.deinit(0)
  */
 int l_softkb_deinit(lua_State* L) {
-    luat_softkeyboard_conf_t conf = {0};
+    // luat_softkeyboard_conf_t conf = {0};
     uint8_t softkb_port = luaL_checkinteger(L,1);
     int ret = luat_softkeyboard_deinit(&softkb_conf[softkb_port]);
     luat_heap_free(softkb_conf[softkb_port].inio);

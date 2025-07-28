@@ -54,7 +54,6 @@ static int tp_cst820_detect(luat_tp_config_t* luat_tp_config){
     uint8_t chip_id = 0;
     luat_tp_config->address = CST820_ADDRESS;
     tp_i2c_read_reg8(luat_tp_config, CST820_CHIP_ID, &chip_id, 1, 0);
-    LLOGD("chip_id:0x%02X", chip_id);
     if (chip_id == CST820_CHIP_ID_CODE){
         LLOGI("TP find device CST820 ,address:0x%02X",luat_tp_config->address);
         return 0;
@@ -250,7 +249,7 @@ void cst820_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 }
 
 static int tp_cst820_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
-    uint8_t touch_num=0, point_status=0;
+    uint8_t touch_num=0;
     tp_i2c_read_reg8(luat_tp_config, CST820_STATUS, &touch_num, 1, 0);
     
     // tp_cst820_read_status(luat_tp_config, &point_status);

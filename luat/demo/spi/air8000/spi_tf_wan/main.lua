@@ -20,9 +20,8 @@ sysplus = require("sysplus")
 
 local rtos_bsp = rtos.bsp()
 
+local USE_CH390 = true  -- 使用ch390时，设置为true，否则为false
 local SPI_SPEED = 25600000
-
-
 
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
@@ -31,7 +30,11 @@ end
 
 -- TF卡和WAN口初始化函数
 local function tf_wan_init()
-    gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电， Air8000 的ch390 和 tf卡共用SPI ，ch390 如果不打开的话会让SPI 无法正常工作，从而导致TF卡无法使用
+
+    if USE_CH390 then
+        gpio.setup(140, 1, gpio.PULLUP)  -- 打开ch390供电
+    end
+
     sys.wait(1000)                   -- 延迟1秒让ch390 稳定后再挂载TF卡
     
     -- #################################################
@@ -44,9 +47,9 @@ local function tf_wan_init()
     local spi_id, pin_cs,tp = fatfs_spi_pin() 
     -- 仅SPI方式需要自行初始化spi, sdio不需要
     -- 使用较低的统一速度以兼容TF卡和CH390
-    spi.setup(spi_id, nil, 0, 0, pin_cs, SPI_SPEED)
+    spi.setup(spi_id, pin_cs, 0, 0, 8, SPI_SPEED)
     gpio.setup(pin_cs, 1)
-    fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, SPI_SPEED)
+    fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, SPI_SPEED)     -- 初始化TF 卡的时候，带入片选GPIO
 
     local data, err = fatfs.getfree("/sd")
     if data then
@@ -133,7 +136,7 @@ local function tf_wan_init()
     -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
     -- SPI ID 1, 片选 GPIO12
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})    -- 初始化以太网的时候，带入片选GPIO
     netdrv.dhcp(socket.LWIP_ETH, true)
     
     log.info("tf_wan", "WAN口初始化完成")

@@ -34,7 +34,6 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 		.arg1 = arg1,
 		.arg2 = arg2
 	};
-
 	if (mqtt_ctrl->app_cb)
 	{
 		luat_mqtt_app_cb_t mqtt_cb = mqtt_ctrl->app_cb;
@@ -320,6 +319,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 				LLOGW("CONACK 0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
 				mqtt_ctrl->error_state = mqtt_ctrl->mqtt_packet_buffer[3];
                 luat_mqtt_close_socket(mqtt_ctrl);
+                l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_CONACK_ERROR, mqtt_ctrl->mqtt_packet_buffer[3]);
                 return -1;
             }
 			mqtt_ctrl->mqtt_state = MQTT_STATE_READY;
@@ -330,23 +330,27 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			LLOGD("MQTT_MSG_PUBLISH");
 			qos = MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer);
 #ifdef __LUATOS__
-			if (!mqtt_ctrl->app_cb)
+			if (mqtt_ctrl->app_cb)
 			{
-				const uint8_t* ptr;
-				uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-				uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-				luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
-				mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
-	            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
-				l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
+				luat_mqtt_app_cb_t mqtt_cb = mqtt_ctrl->app_cb;
+				if (mqtt_cb(mqtt_ctrl, MQTT_MSG_PUBLISH))
+				{
+					goto MQTT_MSG_PUBLISH_DONE;
+				}
 			}
-			else
-			{
-				l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
-			}
+			const uint8_t* ptr;
+			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
+			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
+            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
+            mqtt_msg->message_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
+            mqtt_msg->flags = mqtt_ctrl->mqtt_packet_buffer[0];
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
 #else
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
 #endif
+MQTT_MSG_PUBLISH_DONE:
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("msg %d qos %d", msg_id, qos);
 			// 还要回复puback
@@ -363,7 +367,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         case MQTT_MSG_PUBACK : {
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("MQTT_MSG_PUBACK %d", msg_id);
-            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, msg_id);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, mqtt_ctrl->mqtt_packet_buffer[4]);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
@@ -423,6 +427,19 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 	LLOGD("network mqtt cb %8X %08X",event->ID & 0x0ffffffff, event->Param1);
 	if (event->Param1){
 		LLOGE("mqtt_callback param1 %d, event %d closing socket", event->Param1, event->ID - EV_NW_RESULT_BASE);
+
+		switch(event->ID)
+		{
+		case EV_NW_RESULT_CONNECT:
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_CON_ERROR, 0);
+			break;
+		case EV_NW_RESULT_TX:
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TX_ERROR, 0);
+			break;
+		default:
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_NET_ERROR, 0);
+			break;
+		}
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
 	}

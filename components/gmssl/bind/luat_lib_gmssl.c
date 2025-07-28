@@ -20,6 +20,7 @@
 #include "gmssl/sm2.h"
 #include "gmssl/sm3.h"
 #include "gmssl/sm4.h"
+#include "luat_str.h"
 // #include "mbedtls/hmac_drbg.h"
 
 #define LUAT_LOG_TAG "sm"
@@ -28,8 +29,6 @@
 #define SM4_BLOCK_LEN 16
 #define SM2_STR_LEN 300
 #define HEX_CODE 16
-
-extern void luat_str_fromhex(const char* str, size_t len, char* buff);
 
 static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
 {

@@ -63,14 +63,14 @@ end)
 -- 当前默认查找 /luadb/xxx 下的文件,暂不可配置
 */
 static int l_httpsrv_start(lua_State *L) {
-    luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
+    // luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
     char buff[64] = {0};
     int port = luaL_checkinteger(L, 1);
     if (!lua_isfunction(L, 2)) {
         LLOGW("httpsrv need callback function!!!");
         return 0;
     }
-    uint8_t adapter_index = luaL_optinteger(L, 3, network_get_last_register_adapter());
+    uint8_t adapter_index = luaL_optinteger(L, 3, network_register_get_default());
     luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
     if (drv == NULL || drv->netif == NULL) {
         LLOGW("该网络还没准备好 %d", adapter_index);
@@ -125,7 +125,7 @@ static int l_httpsrv_start(lua_State *L) {
 */
 static int l_httpsrv_stop(lua_State *L) {
     int port = luaL_checkinteger(L, 1);
-    uint8_t adapter_index = luaL_optinteger(L, 3, network_get_last_register_adapter());
+    uint8_t adapter_index = luaL_optinteger(L, 3, network_register_get_default());
     for (size_t i = 0; i < LUAT_HTTPSRV_COUNT; i++)
     {
         if (srvs[i].port == port && srvs[i].adapter == adapter_index) {

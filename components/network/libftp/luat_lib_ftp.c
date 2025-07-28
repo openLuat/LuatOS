@@ -64,7 +64,7 @@ static int l_ftp_login(lua_State *L) {
 	int result = 0;
 	size_t len = 0;
 	luat_ftp_tls_t* luat_ftp_tls = NULL;
-	uint8_t adapter = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	uint8_t adapter = luaL_optinteger(L, 1, network_register_get_default());
 	const char *ip_addr = luaL_checklstring(L, 2, &len);
 	uint16_t port = luaL_optinteger(L, 3, 21);
 	const char *username = luaL_optlstring(L, 4, "",&len);

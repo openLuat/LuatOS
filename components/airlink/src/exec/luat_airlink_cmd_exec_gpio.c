@@ -46,7 +46,7 @@ int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     int ret = luat_gpio_setup(&conf);
     LLOGD("收到GPIO配置指令!!! pin %d ret %d", conf.pin, ret);
-    return 0;
+    return ret;
 }
 
 int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
@@ -58,7 +58,7 @@ int luat_airlink_cmd_exec_gpio_set(luat_airlink_cmd_t* cmd, void* userdata) {
     }
     int ret = luat_gpio_set(params[0], params[1]);
     LLOGD("收到GPIO设置指令!!! pin %d level %d ret %d", params[0], params[1], ret);
-    return 0;
+    return ret;
 }
 
 
@@ -144,7 +144,7 @@ int luat_airlink_cmd_exec_gpio_driver_yhm27xx(luat_airlink_cmd_t* cmd, void* use
     }
     int ret = luat_gpio_driver_yhm27xx(params[0], params[1],params[2], params[3], &(params[4]));
     
-    return 0;
+    return ret;
 }
 
 int luat_airlink_cmd_exec_gpio_driver_yhm27xx_reqinfo(luat_airlink_cmd_t* cmd, void* userdata) {

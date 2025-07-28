@@ -50,7 +50,7 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
             // 然后, 如果是进入
             else {
                 s_wifi_sleep = 1;
-                luat_airlink_drv_pm_power_ctrl(1, val);
+                luat_airlink_drv_pm_power_ctrl(id, val);
                 luat_rtos_task_sleep(10);
                 // 如果是进入休眠模式, 恢复airlink工作
                 g_airlink_pause = 1;

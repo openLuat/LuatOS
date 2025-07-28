@@ -54,7 +54,6 @@ static int tp_cst820_detect(luat_tp_config_t* luat_tp_config){
     uint8_t chip_id = 0;
     luat_tp_config->address = CST820_ADDRESS;
     tp_i2c_read_reg8(luat_tp_config, CST820_CHIP_ID, &chip_id, 1, 0);
-    LLOGD("chip_id:0x%02X", chip_id);
     if (chip_id == CST820_CHIP_ID_CODE){
         LLOGI("TP find device CST820 ,address:0x%02X",luat_tp_config->address);
         return 0;

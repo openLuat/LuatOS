@@ -87,7 +87,7 @@ int luat_airlink_stop(int id)
 
 void luat_airlink_print_buff(const char *tag, uint8_t *buff, size_t len)
 {
-    static char tmpbuff[1024] = {0};
+    // static char tmpbuff[1024] = {0};
     for (size_t i = 0; i < len; i += 8)
     {
         // sprintf(tmpbuff + i * 2, "%02X", buff[i]);
@@ -291,8 +291,8 @@ void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len) {
     LLOGD("pkg len %d 前24个字节 " MACFMT MACFMT MACFMT MACFMT, len, MAC_ARG(buff), MAC_ARG(buff + 6), MAC_ARG(buff+12), MAC_ARG(buff + 18));
     
     struct eth_hdr* eth = (struct eth_hdr*)buff;
-    struct ip_hdr* iphdr = (struct ip_hdr*)(buff + SIZEOF_ETH_HDR);
-    struct etharp_hdr* arp = (struct etharp_hdr*)(buff + SIZEOF_ETH_HDR);
+    // struct ip_hdr* iphdr = (struct ip_hdr*)(buff + SIZEOF_ETH_HDR);
+    // struct etharp_hdr* arp = (struct etharp_hdr*)(buff + SIZEOF_ETH_HDR);
     // LLOGD("eth " MACFMT " -> " MACFMT " tp %02X", MAC_ARG(eth->src.addr), MAC_ARG(eth->dest.addr), (u16_t)lwip_htons(eth->type));
     switch (eth->type) {
         case PP_HTONS(ETHTYPE_IP):

@@ -207,7 +207,7 @@ int luat_airlink_drv_wlan_scan_result_cb(void) {
     }
     luat_wlan_scan_result_t *scan_result = ptr + sizeof(luat_airlink_cmd_t) + 1;
 
-    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+    luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
         .len = fulllen,
         .cmd = ptr

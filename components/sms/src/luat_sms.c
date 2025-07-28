@@ -1,5 +1,5 @@
 #include "luat_sms.h"
-
+#include "luat_str.h"
 
 static int hex2int(char c)
 {

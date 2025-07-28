@@ -17,9 +17,7 @@
 #include "luat_mobile.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
-
-void luat_str_fromhex(char* str, size_t len, char* buff) ;
-
+#include "luat_str.h"
 #include "luat_sms.h"
 
 #ifndef bool

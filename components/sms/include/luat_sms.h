@@ -174,5 +174,10 @@ void luat_sms_send_msg_register_handler(LUAT_SMS_HANDLE_SEND_CB callback_fun);
  * @param packet    
  */
 int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet);
+
+void ucs2char(char* source, size_t size, char* dst2, size_t* outlen);
+int utf82ucs2(char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen);
+
+
 /**@}*/
 #endif

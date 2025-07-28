@@ -10,6 +10,7 @@
 #include "luat_base.h"
 #include "luat_softkeyboard.h"
 #include "luat_msgbus.h"
+#include "luat_mem.h"
 
 #define MAX_DEVICE_COUNT 2
 static luat_softkeyboard_conf_t softkb_conf[MAX_DEVICE_COUNT];

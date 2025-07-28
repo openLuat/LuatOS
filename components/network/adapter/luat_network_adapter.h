@@ -104,6 +104,7 @@ enum
 	NW_ADAPTER_INDEX_LWIP_USER5,
 	NW_ADAPTER_INDEX_LWIP_USER6,
 	NW_ADAPTER_INDEX_LWIP_USER7,
+	NW_ADAPTER_INDEX_LWIP_GP_GW,
 	NW_ADAPTER_INDEX_LWIP_NETIF_QTY,
 	NW_ADAPTER_INDEX_HW_PS_DEVICE = NW_ADAPTER_INDEX_LWIP_NETIF_QTY,
 	NW_ADAPTER_INDEX_ETH0 = NW_ADAPTER_INDEX_HW_PS_DEVICE,	//外挂以太网+硬件协议栈
@@ -333,6 +334,12 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
  * @param adapter_index 网卡适配器序号 NW_ADAPTER_INDEX_XXX
  */
 void network_register_set_default(uint8_t adapter_index);
+
+/**
+ * 获取默认适配器
+ * @param adapter_index 网卡适配器序号 NW_ADAPTER_INDEX_XXX
+ */
+int network_register_get_default(void);
 
 /**
  * 设置某个网卡适配器的DNS服务器地址
@@ -802,5 +809,8 @@ uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip);
 void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4);
 
 network_adapter_info* network_adapter_fetch(int id, void** userdata);
+
+// 获取真正的最后一个注册的网卡适配器序号, network_get_last_register_adapter用的地方太多了,已经改不了
+int network_get_last_register_adapter_real(void);
 #endif
 // #endif

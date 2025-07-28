@@ -207,7 +207,7 @@ wsc = websocket.create(nil,"wss://air32.cn/abc")
 static int l_websocket_create(lua_State *L)
 {
 	int ret = 0;
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	int adapter_index = luaL_optinteger(L, 1, network_register_get_default());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		return 0;

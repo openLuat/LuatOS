@@ -563,6 +563,8 @@ static int l_lcd_write_cmd(lua_State* L) {
         luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         data = (const uint8_t*)buff->addr;
         param_len = luaL_optinteger(L, 3, buff->used);
+    }else if(lua_isstring(L, 2)){
+        data = (const uint8_t*)luaL_checklstring(L, 2, &param_len);
     }
     int ret = lcd_write_cmd_data(lcd_dft_conf,(uint8_t)luaL_checkinteger(L, 1), data, param_len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);

@@ -9,10 +9,10 @@
 // 若bsp没有定义最大PIN编号, 那么默认给个128吧
 #ifdef LUAT_USE_DRV_GPIO
 #undef LUAT_GPIO_PIN_MAX
-#define LUAT_GPIO_PIN_MAX 256
+#define LUAT_GPIO_PIN_MAX 254
 #else
 #ifndef LUAT_GPIO_PIN_MAX
-#define LUAT_GPIO_PIN_MAX   (128)
+#define LUAT_GPIO_PIN_MAX   (127)
 #endif
 #endif
 

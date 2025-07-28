@@ -9,6 +9,12 @@ _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
+-- 第一组是GPIO27, GPIO29, GPIO32到GPIO39
+-- 支持切换到第二组ETH引脚, GPIO47到GPIO55 (临时写法,将来支持pins)
+-- if mcu.ETH then
+--     mcu.altfun(mcu.ETH, 0, 49) -- 固定用GPIO49来选
+-- end
+
 sys.taskInit(function()
     sys.wait(500)
     gpio.setup(13, 1, gpio.PULLUP) -- 打开开发板的LDO供电,否则3.3V没电

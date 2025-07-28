@@ -238,7 +238,7 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
     switch(msg->arg1)
     {
     case LUAT_ERRDUMP_CONNECT:
-    	econf.netc = network_alloc_ctrl(network_get_last_register_adapter());
+    	econf.netc = network_alloc_ctrl(network_register_get_default());
     	if (!econf.netc)
     	{
     		LLOGE("no socket, errdump fail, after %d second retry", econf.upload_period);

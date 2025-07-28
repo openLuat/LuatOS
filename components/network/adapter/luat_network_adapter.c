@@ -1310,6 +1310,11 @@ int network_get_last_register_adapter(void)
 
 void network_register_set_default(uint8_t adapter_index)
 {
+	int dft = network_register_get_default();
+	if (dft != -1 && dft != adapter_index)
+	{
+		DBG_Printf("change from %d to %d", dft, adapter_index);
+	}
 	prv_network.default_adapter_index = adapter_index;
 }
 
@@ -2803,4 +2808,18 @@ void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4)
 	ip->ipv4 = ipv4;
 #endif
 }
+
+
+int network_get_last_register_adapter_real(void)
+{
+	if (!prv_network.is_init) return -1;
+	return prv_network.last_adapter_index;
+}
+
+int network_register_get_default(void) {
+	if (!prv_network.is_init) return -1;
+	if (prv_network.default_adapter_index != -1) return prv_network.default_adapter_index;
+	return prv_network.last_adapter_index; 
+}
+
 #endif

@@ -10,6 +10,10 @@
 #define MQTT_MSG_TIMER_PING 	2	/**< mqtt ping前回调消息 */
 #define MQTT_MSG_RECONNECT  	3	/**< mqtt 重连前回调消息 */
 #define MQTT_MSG_CLOSE 			4	/**< mqtt 关闭回调消息(不会再重连) */
+#define MQTT_MSG_CON_ERROR 		5
+#define MQTT_MSG_TX_ERROR 		6
+#define MQTT_MSG_CONACK_ERROR 	7
+#define MQTT_MSG_NET_ERROR 		8
 
 #define MQTT_ERROR_STATE_SOCKET		-1
 #define MQTT_ERROR_STATE_DISCONNECT	-2

@@ -46,6 +46,14 @@
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
 
+static const char *error_string[MQTT_MSG_NET_ERROR - MQTT_MSG_CON_ERROR + 1] =
+{
+		"connect",
+		"tx",
+		"conack",
+		"other"
+};
+
 static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	if (luaL_testudata(L, 1, LUAT_MQTT_CTRL_TYPE)){
 		return ((luat_mqtt_ctrl_t *)luaL_checkudata(L, 1, LUAT_MQTT_CTRL_TYPE));
@@ -65,12 +73,6 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 //				if (lua_isfunction(L, -1)) {
 //					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 //					lua_pushstring(L, "tcp_ack");
-//					lua_call(L, 2, 0);
-//				}
-//				lua_getglobal(L, "sys_pub");
-//				if (lua_isfunction(L, -1)) {
-//					lua_pushstring(L, "MQTT_TCPACK");
-//					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 //					lua_call(L, 2, 0);
 //				}
 //            }
@@ -148,12 +150,12 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 					lua_pushstring(L, "conack");
 					lua_call(L, 2, 0);
 				}
-				lua_getglobal(L, "sys_pub");
-				if (lua_isfunction(L, -1)) {
-					lua_pushstring(L, "MQTT_CONNACK");
-					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
-					lua_call(L, 2, 0);
-				}
+//				lua_getglobal(L, "sys_pub");
+//				if (lua_isfunction(L, -1)) {
+//					lua_pushstring(L, "MQTT_CONNACK");
+//					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+//					lua_call(L, 2, 0);
+//				}
             }
             break;
         }
@@ -197,13 +199,13 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 					lua_pushinteger(L, mqtt_ctrl->error_state);
 					lua_call(L, 3, 0);
 				}
-				lua_getglobal(L, "sys_pub");
-				if (lua_isfunction(L, -1)) {
-					lua_pushstring(L, "MQTT_DISCONNECT");
-					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
-					lua_pushinteger(L, mqtt_ctrl->error_state);
-					lua_call(L, 3, 0);
-				}
+//				lua_getglobal(L, "sys_pub");
+//				if (lua_isfunction(L, -1)) {
+//					lua_pushstring(L, "MQTT_DISCONNECT");
+//					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+//					lua_pushinteger(L, mqtt_ctrl->error_state);
+//					lua_call(L, 3, 0);
+//				}
             }
             break;
         }
@@ -213,17 +215,36 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "suback");
-					lua_call(L, 2, 0);
-				}
-				lua_getglobal(L, "sys_pub");
-				if (lua_isfunction(L, -1)) {
-					lua_pushstring(L, "MQTT_SUBACK");
-					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
-					lua_call(L, 2, 0);
+					lua_pushboolean(L, (msg->arg2 <= 2));
+					lua_pushinteger(L, msg->arg2);
+					lua_call(L, 4, 0);
 				}
             }
 			break;
 		case MQTT_MSG_UNSUBACK:
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "unsuback");
+					lua_call(L, 2, 0);
+				}
+            }
+			break;
+		case MQTT_MSG_CON_ERROR:
+		case MQTT_MSG_TX_ERROR:
+		case MQTT_MSG_CONACK_ERROR:
+		case MQTT_MSG_NET_ERROR:
+			if (mqtt_ctrl->mqtt_ref) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "error");
+					lua_pushstring(L, error_string[msg->arg1 - MQTT_MSG_CON_ERROR]);
+					lua_pushinteger(L, msg->arg2);
+					lua_call(L, 4, 0);
+				}
+            }
 			break;
 		default : {
 			LLOGD("l_mqtt_callback error arg1:%d",msg->arg1);
@@ -532,15 +553,22 @@ mqttc:on(function(mqtt_client, event, data, payload, metas)
 end)
 --[[
 event可能出现的值有
-  conack -- 服务器鉴权完成,mqtt连接已经建立, 可以订阅和发布数据了,没有附加数据
-  recv   -- 接收到数据,由服务器下发, data为topic值(string), payload为业务数据(string).metas是元数据(table), 一般不处理. 
+  conack	-- 服务器鉴权完成, 表示mqtt连接已经建立, 可以订阅和发布数据了
+  suback 	-- 订阅完成，data为应答结果, true成功，payload为0~2数字表示qos，data为false则失败，payload为失败码，一般是0x80
+  unsuback	-- 取消订阅完成
+  recv   	-- 接收到数据,由服务器下发, data为topic值(string), payload为业务数据(string).metas是元数据(table), 一般不处理.
              -- metas包含以下内容
 			 -- qos 取值范围0,1,2
 			 -- retain 取值范围 0,1
 			 -- dup 取值范围 0,1
-  sent   -- 发送完成, qos0会马上通知, qos1/qos2会在服务器应答会回调, data为消息id
+  sent   	-- 发送完成, qos0会马上通知, qos1/qos2会在服务器应答会回调, data为消息id
   disconnect -- 服务器断开连接,网络问题或服务器踢了客户端,例如clientId重复,超时未上报业务数据
-  pong   -- 收到服务器心跳应答,没有附加数据
+  pong   	-- 收到服务器心跳应答,没有附加数据
+  error		-- 严重的异常，会导致断开连接, data(string)为具体异常，有以下几种
+  	  	  	  -- connect 服务器连接不上
+  	  	  	  -- tx 发送数据失败
+  	  	  	  -- conack 服务器鉴权失败，失败码在payload(int)
+  	  	  	  -- other 其他异常
 ]]
 */
 static int l_mqtt_on(lua_State *L) {

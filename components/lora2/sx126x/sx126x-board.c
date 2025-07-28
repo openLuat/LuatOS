@@ -68,7 +68,6 @@ void SX126xWakeup2( lora_device_t* lora_device){
 }
 
 void SX126xWriteCommand2( lora_device_t* lora_device,RadioCommands_t command, uint8_t *buffer, uint16_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2( lora_device );
     uint8_t cmd[1+size];
     cmd[0] = (uint8_t)command;
@@ -80,7 +79,6 @@ void SX126xWriteCommand2( lora_device_t* lora_device,RadioCommands_t command, ui
 }
 
 void SX126xReadCommand2( lora_device_t* lora_device,RadioCommands_t command, uint8_t *buffer, uint16_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2( lora_device);
     uint8_t cmd[2] = {(uint8_t)command,0x00};
     lora_spi_transfer(lora_device, cmd, 2,buffer,size);
@@ -88,7 +86,6 @@ void SX126xReadCommand2( lora_device_t* lora_device,RadioCommands_t command, uin
 }
 
 void SX126xWriteRegister2s2(lora_device_t* lora_device, uint16_t address, uint8_t *buffer, uint16_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2( lora_device );
     uint8_t cmd[3+size];
     cmd[0] = RADIO_WRITE_REGISTER;
@@ -104,7 +101,6 @@ void SX126xWriteRegister2( lora_device_t* lora_device,uint16_t address, uint8_t 
 }
 
 void SX126xReadRegister2s2( lora_device_t* lora_device,uint16_t address, uint8_t *buffer, uint16_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2(lora_device );
     uint8_t cmd[4] = {RADIO_READ_REGISTER,( address & 0xFF00 ) >> 8,address & 0x00FF,0x00};
     lora_spi_transfer(lora_device, cmd, 4,buffer,size);
@@ -118,7 +114,6 @@ uint8_t SX126xReadRegister2( lora_device_t* lora_device,uint16_t address ){
 }
 
 void SX126xWriteBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2( lora_device);
     uint8_t cmd[2+size];
     cmd[0] = RADIO_WRITE_BUFFER;
@@ -130,7 +125,6 @@ void SX126xWriteBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buf
 }
 
 void SX126xReadBuffer2(lora_device_t* lora_device, uint8_t offset, uint8_t *buffer, uint8_t size ){
-    uint16_t i = 0;
     SX126xCheckDeviceReady2(lora_device);
     uint8_t cmd[3] = {RADIO_READ_BUFFER,offset,0x00};
     lora_spi_transfer(lora_device, cmd, 3,buffer,size);

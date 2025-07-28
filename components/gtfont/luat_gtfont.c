@@ -126,8 +126,8 @@ unsigned int gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned 
                 int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
 	unsigned int temp=0,gray,x_temp=x,dw=0;
 	unsigned int i=0,j=0,t;
-	unsigned char c,c2,*p;
-	unsigned long color4bit,color3bit[8],color2bit,color;
+	unsigned char c,*p;
+	unsigned long color4bit,color2bit,color;
 	t=(w+7)/8*grade;//
 	p=data;
 	if(grade==2){

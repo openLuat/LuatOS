@@ -211,7 +211,9 @@ libnetif.set_priority_order({
         WIFI = { -- WiFi配置
             ssid = "your_ssid",       -- WiFi名称(string)
             password = "your_pwd",    -- WiFi密码(string)
-            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，ping_ip将设置为网卡网关ip.
+            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，libnetif会自动将ping_ip设置为网卡的网关ip。
+                                      -- 用户不需要传入ping_ip参数，即使传入了，也无效。
+                                      -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
             ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
                                       -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
                                       -- 所以需要根据网络环境填写内网或者外网ip,
@@ -224,7 +226,9 @@ libnetif.set_priority_order({
     { -- 次优先级网络
         ETHERNET = { -- 以太网配置
             pwrpin = 140,             -- 供电使能引脚(number)
-            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，ping_ip将设置为网卡网关ip.
+            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，libnetif会自动将ping_ip设置为网卡的网关ip。
+                                      -- 用户不需要传入ping_ip参数，即使传入了，也无效。
+                                      -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
             ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
                                       -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
                                       -- 所以需要根据网络环境填写内网或者外网ip,

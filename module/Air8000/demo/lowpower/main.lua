@@ -7,8 +7,8 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 log.style(1)
 
---require "normal" --正常模式
-require "low_power" --低功耗模式
+require "normal" --正常模式
+-- require "low_power" --低功耗模式
 --  require "ultra_low_power" --超低功耗模式(PSM+模式)
 
 -- 用户代码已结束---------------------------------------------

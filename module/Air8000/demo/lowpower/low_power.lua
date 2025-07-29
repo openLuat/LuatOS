@@ -11,9 +11,7 @@ local is_udp = false --用户根据自己实际情况选择
 
 local Heartbeat_interval = 5 -- 发送数据的间隔时间，单位分钟
 -- 配置GPIO达到最低功耗
-gpio.setup(25, 0) -- 关闭GNSS电源
 gpio.setup(24, 0) -- 关闭三轴电源
-gpio.setup(23, 0) -- 关闭wifi电源
 -- 数据内容
 local heart_data = string.rep("1234567890", 10)
 local rxbuf = zbuff.create(8192)

@@ -6,9 +6,7 @@ local server_port = 47523
 
 local rxbuf = zbuff.create(8192)
 -- 配置GPIO达到最低功耗
-gpio.setup(25, 0) -- 关闭GNSS电源
 gpio.setup(24, 0) -- 关闭三轴电源
-gpio.setup(23, 0) -- 关闭wifi电源
 sys.subscribe("IP_READY", function(ip, adapter)
     log.info("mobile", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP)
     sys.publish("net_ready")

@@ -339,11 +339,11 @@ void luat_airlink_start_uart(void)
 {
     int ret = 0;
     
-    ret = luat_rtos_queue_create(&tx_evt_queue, 4 * 1024, sizeof(luat_event_t));
+    ret = luat_rtos_queue_create(&tx_evt_queue, 128, sizeof(luat_event_t));
     if (ret) {
         LLOGW("创建tx_evt_queue ret:%d", ret);
     }
-    ret = luat_rtos_queue_create(&rx_evt_queue, 4 * 1024, sizeof(luat_event_t));
+    ret = luat_rtos_queue_create(&rx_evt_queue, 128, sizeof(luat_event_t));
     if (ret) {
         LLOGW("创建rx_evt_queue ret:%d", ret);
     }

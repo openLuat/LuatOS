@@ -7,7 +7,9 @@ static inline int tp_i2c_write(luat_tp_config_t* luat_tp_config, uint8_t* cmd, s
     size_t len = cmd_len+data_len;
     uint8_t data_reg[len];
     memcpy(data_reg, cmd, cmd_len);
-    memcpy(data_reg+cmd_len, data, data_len);
+    if (data_len){
+        memcpy(data_reg+cmd_len, data, data_len);
+    }
     if (luat_tp_config->soft_i2c != NULL){
         return i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)data_reg, len, 1);
     }else{

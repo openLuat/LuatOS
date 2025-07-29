@@ -1,17 +1,24 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "airlink_uart"
+PROJECT = "airlink_uart_http"
 VERSION = "1.0.1"
 
 dnsproxy = require("dnsproxy")
 
-is_gw = false -- 是否是网关模式
+-----------------------------------
+-- 配置区域
+-----------------------------------
+is_gw = false -- 是否是网关模式, 要插卡, 要能联网
+uart_id = 1   -- 按实际接到UART的ID来设置, 1或2
+airlink.config(airlink.CONF_UART_ID, uart_id) -- 设置airlink使用的UART ID
+uart.setup(uart_id, 115200) -- 初始化UART1, 波特率115200, 8N1
+-- 注意, uart波特率的设置值,取决于两个设备的都支持的最高波特率, 例如2M也是可以的, 但要确保两个设备都支持2M波特率
+-------------------------------------
+
 
 sys.taskInit(function()
     sys.wait(500)
     log.info("airlink", "Starting airlink with UART task")
-    -- 首先, 初始化uart1, 115200波特率 8N1
-    uart.setup(1, 115200)
     -- 初始化airlink
     airlink.init()
     -- 注册网卡
@@ -30,6 +37,7 @@ sys.taskInit(function()
 end)
 
 sys.taskInit(function()
+    sys.wait(1000)
     while 1 do
         -- 发送给对端设备
         local data = rtos.bsp() .. " " .. os.date() .. " " .. (mobile and mobile.imei() or "")

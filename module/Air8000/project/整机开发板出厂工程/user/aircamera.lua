@@ -80,8 +80,10 @@ local function HTTP_SEND_FILE()
 end
 function aircamera.close()
     if camera_id then
+
         camera.close(camera_id)
     end
+
 end
 
 local function aircamera_run()
@@ -151,6 +153,8 @@ local function aircamera_ui()
         aircamera.init()
         aircamera_run()
     elseif TEST_MODE == 3 then
+        aircamera.close()
+        gpio.setup(147, 0) -- camera的供电使能脚
         TEST_MODE = 0
         return true
     end

@@ -111,7 +111,7 @@ static int hyn_wr_reg(luat_tp_config_t* luat_tp_config, uint32_t reg_addr, uint8
     }
     if(rlen){
         if (luat_tp_config->soft_i2c != NULL){
-            ret |= i2c_soft_recv(luat_tp_config->soft_i2c, luat_tp_config->address, rbuf, rlen);
+            ret |= i2c_soft_recv(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)rbuf, rlen);
         }else{
             ret |= luat_i2c_recv(luat_tp_config->i2c_id, luat_tp_config->address, rbuf, rlen);
         }

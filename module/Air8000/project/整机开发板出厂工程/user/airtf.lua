@@ -65,17 +65,22 @@ function airtf.run()
 
             spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)      --  初始化SPI 接口
       
-            operation_status = operation_status..",SPI初始化完成"
+            operation_status = "SPI初始化完成"
             sys.wait(50) 
             
         elseif operation_index == 2 then
             -- 挂载TF卡（带重试机制）
             mount_retry_count = mount_retry_count + 1
+            
+            fatfs.unmount("/sd")
             local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 10 * 1000 * 1000) -- 传输tf 卡的片选
             
-            if mount_ok then
+
+            if  mount_ok then
                 tf_mounted = true
                 operation_status = "挂载成功"
+                os.remove("/sd/io_test/testfile.txt")
+                io.rmdir("/sd/io_test")
             else
                 operation_status = "挂载失败("..(mount_err or "未知")..")"
                 log.info(operation_status)
@@ -97,7 +102,7 @@ function airtf.run()
                 if io.mkdir("/sd/io_test") then
                     operation_status = "创建目录完成"
                 else
-                    operation_status = "创建目录失败"
+                    operation_status = "创建目录失败1"
                     log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
@@ -240,6 +245,7 @@ function airtf.run()
     -- 尝试清理资源
     if tf_mounted then
         fatfs.unmount("/sd")
+        tf_mounted = false
     end
     if spi_id then
         spi.close(spi_id)

@@ -31,7 +31,7 @@ local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
 local talk = require "talk"
 
-
+local airrecord = require "airrecord"
 local taskName = "MAIN"
 local  fota_wifi = require("fota_wifi")
 local sid = 0
@@ -127,7 +127,7 @@ local function main_local(x,y)
   end
 end
 
-local function handal_main(x,y)
+local function home_first_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -151,10 +151,11 @@ local function handal_main(x,y)
   end
 end
 
-local function handal_main1(x,y)
+local function home_second_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
+    cur_fun  = "airrecord"
   elseif key == 2 then
    
   elseif key == 3 then
@@ -174,7 +175,7 @@ local function handal_main1(x,y)
   end
 end
 
-local function handal_main2(x,y)
+local function home_third_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -192,7 +193,7 @@ local function handal_main2(x,y)
   end
 end
 
-local function handal_main3(x,y)
+local function home_fourth_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -217,13 +218,13 @@ local function  tp_handal(tp_device,tp_data)
   end
   if tp_data[1].event == 2  and   lock_push == 0 then
     if cur_fun == "main" then
-      handal_main(tp_data[1].x,tp_data[1].y)
+      home_first_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main1" then
-      handal_main1(tp_data[1].x,tp_data[1].y)
+      home_second_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main2" then
-      handal_main2(tp_data[1].x,tp_data[1].y)
+      home_third_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main3" then
-      handal_main3(tp_data[1].x,tp_data[1].y)
+      home_fourth_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "airtts" then
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "aircamera" then
@@ -254,6 +255,8 @@ local function  tp_handal(tp_device,tp_data)
       airble.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "talk" then
       talk.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airrecord" then
+      airrecord.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -454,6 +457,11 @@ local function draw_talk()
   end
 end
 
+local function draw_airrecord()
+  if  airrecord.run()   then
+    cur_fun = "main"
+  end
+end
 
 local function draw()
   if cur_fun == "camshow" then
@@ -503,6 +511,8 @@ local function draw()
     draw_airble()
   elseif cur_fun == "talk" then
     draw_talk()
+  elseif cur_fun == "airrecord" then
+    draw_airrecord()
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")

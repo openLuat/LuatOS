@@ -62,11 +62,7 @@ function airtf.run()
             -- 初始化SPI接口
             spi_id, pin_cs = fatfs_spi_pin()
             
-            -- 启用CH390供电（GPIO140）
-            local ch390_power_ok, ch390_error = pcall(function()
-                gpio.setup(140, 1, gpio.PULLUP)
-                sys.wait(500) -- 等待电源稳定
-            end)
+
             
             if ch390_power_ok then
                 operation_status = "CH390供电已启用"
@@ -76,16 +72,16 @@ function airtf.run()
                 operation_index = 1
             end
             
-            -- 设置SPI
-            spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
-            gpio.setup(pin_cs, 1)
+
+            spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)      --  初始化SPI 接口
+      
             operation_status = operation_status..",SPI初始化完成"
             sys.wait(50) 
             
         elseif operation_index == 2 then
             -- 挂载TF卡（带重试机制）
             mount_retry_count = mount_retry_count + 1
-            local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 10 * 1000 * 1000) -- 降低SPI速率
+            local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 10 * 1000 * 1000) -- 传输tf 卡的片选
             
             if mount_ok then
                 tf_mounted = true

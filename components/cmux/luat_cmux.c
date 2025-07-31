@@ -172,7 +172,7 @@ static void uih_dbg_manage(unsigned char*buff,size_t len){
 }
 #ifdef LUAT_USE_YMODEM
 #include "luat_ymodem.h"
-static int ymodem_state = 0;
+// static int ymodem_state = 0;
 static void* ymodem_handler = NULL;
 #endif
 static void uih_download_manage(unsigned char*buff,size_t len){

@@ -439,7 +439,7 @@ static int luat_lora_set_rxconfig(lua_State *L){
     const char* lora_ic = luaL_checklstring(L, 1, &len);
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
-        uint32_t frequency = 433000000,timeout = 0;
+        // uint32_t frequency = 433000000,timeout = 0;
         bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false,rateOptimize = false;
 
         if (lua_istable(L, 2)) {

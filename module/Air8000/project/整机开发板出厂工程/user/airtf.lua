@@ -61,37 +61,29 @@ function airtf.run()
         if operation_index == 1 then
             -- 初始化SPI接口
             spi_id, pin_cs = fatfs_spi_pin()
-            
-            -- 启用CH390供电（GPIO140）
-            local ch390_power_ok, ch390_error = pcall(function()
-                gpio.setup(140, 1, gpio.PULLUP)
-                sys.wait(500) -- 等待电源稳定
-            end)
-            
-            if ch390_power_ok then
-                operation_status = "CH390供电已启用"
-            else
-                operation_status = "CH390供电失败"
-                fail = fail + 1
-                operation_index = 1
-            end
-            
-            -- 设置SPI
-            spi.setup(spi_id, nil, 0, 0, pin_cs, 400 * 1000)
-            gpio.setup(pin_cs, 1)
-            operation_status = operation_status..",SPI初始化完成"
+        
+
+            spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)      --  初始化SPI 接口
+      
+            operation_status = "SPI初始化完成"
             sys.wait(50) 
             
         elseif operation_index == 2 then
             -- 挂载TF卡（带重试机制）
             mount_retry_count = mount_retry_count + 1
-            local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 10 * 1000 * 1000) -- 降低SPI速率
             
-            if mount_ok then
+            fatfs.unmount("/sd")
+            local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 10 * 1000 * 1000) -- 传输tf 卡的片选
+            
+
+            if  mount_ok then
                 tf_mounted = true
                 operation_status = "挂载成功"
+                os.remove("/sd/io_test/testfile.txt")
+                io.rmdir("/sd/io_test")
             else
                 operation_status = "挂载失败("..(mount_err or "未知")..")"
+                log.info(operation_status)
                 fail = fail + 1
                 operation_index = 1
                 -- 最多重试3次
@@ -108,9 +100,10 @@ function airtf.run()
             -- 创建目录
             if tf_mounted then
                 if io.mkdir("/sd/io_test") then
-                    operation_status = "完成"
+                    operation_status = "创建目录完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "创建目录失败1"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -125,9 +118,10 @@ function airtf.run()
                 local file = io.open("/sd/io_test/testfile.txt", "wb")
                 if file then
                     file:close()
-                    operation_status = "完成"
+                    operation_status = "创建测试文件完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "创建测试文件失败"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -143,9 +137,10 @@ function airtf.run()
                 if file then
                     file:write("LuatOS TF卡测试")
                     file:close()
-                    operation_status = "完成"
+                    operation_status = "写入内容完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "写入内容失败"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -163,7 +158,8 @@ function airtf.run()
                     file:close()
                     operation_status = "读取成功"
                 else
-                    operation_status = "失败"
+                    operation_status = "读取失败"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -176,9 +172,10 @@ function airtf.run()
             -- 删除文件
             if tf_mounted then
                 if os.remove("/sd/io_test/testfile.txt") then
-                    operation_status = "完成"
+                    operation_status = "删除文件完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "删除文件失败"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -191,9 +188,10 @@ function airtf.run()
             -- 删除目录
             if tf_mounted then
                 if io.rmdir("/sd/io_test") then
-                    operation_status = "完成"
+                    operation_status = "删除目录完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "删除目录失败"
+                    log.info(operation_status)
                 end
             else
                 operation_status = "跳过(TF卡未挂载)"
@@ -205,9 +203,10 @@ function airtf.run()
             if tf_mounted then
                 if fatfs.unmount("/sd") then
                     tf_mounted = false
-                    operation_status = "完成"
+                    operation_status = "卸载TF卡完成"
                 else
-                    operation_status = "失败"
+                    operation_status = "卸载TF卡失败"
+                    log.info(operation_status)
                     fail = fail + 1
                     operation_index = 1
                 end
@@ -221,10 +220,11 @@ function airtf.run()
             if spi_id then
                 spi.close(spi_id)
                 spi_id = nil
-                operation_status = "完成"
+                operation_status = "关闭SPI完成"
                 sucess = sucess +1
             else
-                operation_status = "未初始化"
+                operation_status = "关闭SPI失败"
+                log.info(operation_status)
                 fail = fail + 1
                 operation_index = 1
             end
@@ -245,6 +245,7 @@ function airtf.run()
     -- 尝试清理资源
     if tf_mounted then
         fatfs.unmount("/sd")
+        tf_mounted = false
     end
     if spi_id then
         spi.close(spi_id)

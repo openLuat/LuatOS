@@ -49,7 +49,7 @@ void luat_force_gc_all(void)
 }
 
 static int dolibrary (lua_State *L, const char *name) {
-  int status;
+//   int status;
   lua_getglobal(L, "require");
   lua_pushstring(L, name);
   lua_call(L, 1, 1);  /* call 'require(name)' */

@@ -17,9 +17,7 @@
 #include "luat_mobile.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
-
-void luat_str_fromhex(char* str, size_t len, char* buff) ;
-
+#include "luat_str.h"
 #include "luat_sms.h"
 
 #ifndef bool
@@ -307,11 +305,12 @@ void luat_sms_send_cb(int ret)
 
     // 长短信继续发送
     g_s_sms_pdu_packet.seqNum++;
-
+    // 最后一包
     if (g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE <= LUAT_SMS_LONG_MSG_PDU_SIZE) {
         memcpy(g_s_sms_pdu_packet.payload_buf, g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE, g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE);
         g_s_sms_pdu_packet.payload_len = g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE ;
     } else {
+        // 继续发送
         memcpy(g_s_sms_pdu_packet.payload_buf, g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE, LUAT_SMS_LONG_MSG_PDU_SIZE);
         g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
     }
@@ -326,6 +325,10 @@ void luat_sms_send_cb(int ret)
             luat_msgbus_put(&msg, 0);
         } else {
             g_s_sms_pdu_packet.maxNum = 0;
+        }
+        if (g_s_sms_send.payload != NULL) {
+            luat_heap_free(g_s_sms_send.payload);
+            g_s_sms_send.payload = NULL;
         }
     }
     return;
@@ -366,7 +369,7 @@ static int l_sms_send(lua_State *L) {
     }
 
     if (payload_len == 0) {
-        LLOGE("sms is emtry");
+        LLOGE("sms is empty");
         return 0;
     }
     
@@ -475,7 +478,7 @@ static int l_long_sms_send(lua_State *L) {
     }
 
     if (payload_len == 0) {
-        LLOGE("sms is emtry");
+        LLOGE("sms is empty");
         goto SMS_FAIL;
     }
 

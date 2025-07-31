@@ -39,6 +39,7 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
         // wifi固件比4G固件更新的, 那就抛弃掉后面的数据
     }
     memcpy(&g_airlink_ext_dev_info, dev, len);
+    #ifdef LUAT_USE_DRV_WLAN
     if (dev->tp == 1) {
         // WIFI设备
         // 首先, 把MAC地址打印出来
@@ -113,5 +114,33 @@ __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd,
             }
         }
     }
+    #endif
+    #ifdef LUAT_USE_DRV_MOBILE
+    if (dev->tp == 2) { // 4G设备
+        // 根据网络状态, 发出IP_READY/IP_LOSE事件
+        drv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_GP_GW);
+        if (drv == NULL || drv->netif == NULL) {
+            // GP代理网卡没有找到, 可能是没有初始化
+            return 0;
+        }
+        // 1是已注册, 5是漫游且已注册
+        if (dev->cat1.cat_state != 1 && dev->cat1.cat_state != 5) {
+            // 掉线了
+            if (netif_is_up(drv->netif)) {
+                // 网卡掉线了哦
+                LLOGD("4G网卡掉线了");
+                luat_netdrv_whale_ipevent(drv, 0);
+            }
+        }
+        else {
+            // 上线了
+            if (netif_is_up(drv->netif) == 0) {
+                // 网卡上线了哦
+                LLOGD("4G网卡上线了");
+                luat_netdrv_whale_ipevent(drv, 1);
+            }
+        }
+    }
+    #endif
     return 0;
 }

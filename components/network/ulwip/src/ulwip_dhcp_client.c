@@ -100,6 +100,10 @@ on_check:
     // LLOGD("待发送DHCP包长度 %d 前4个字节分别是 %02X%02X%02X%02X", tx_msg_buf.Pos, 
     //     tx_msg_buf.Data[0], tx_msg_buf.Data[1], tx_msg_buf.Data[2], tx_msg_buf.Data[3]);
     p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
+    if (p == NULL) {
+        LLOGE("pbuf_alloc error");
+        return -1;
+    }
     char* data = (char*)tx_msg_buf.Data;
     for (q = p; q != NULL; q = q->next) {
         memcpy(q->payload, data, q->len);
@@ -215,13 +219,11 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         LLOGE("ctx->netif is NULL!!!!");
         return;
     }
+    // 注意, 这里只能建一个udp上下文, 要监听全部网卡
     if (s_ulwip_dhcp == NULL) {
         s_ulwip_dhcp = udp_new();
         ip_set_option(s_ulwip_dhcp, SOF_BROADCAST);
         udp_bind(s_ulwip_dhcp, IP4_ADDR_ANY, 68);
-        // #ifdef udp_bind_netif
-        // udp_bind_netif(ctx->dhcp_pcb, ctx->netif);
-        // #endif
         udp_connect(s_ulwip_dhcp, IP4_ADDR_ANY, 67);
         udp_recv(s_ulwip_dhcp, ulwip_dhcp_recv, ctx);
     }
@@ -232,6 +234,8 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
     }
     ip_addr_set_any(0, &ctx->netif->ip_addr);
+    ip_addr_set_any(0, &ctx->netif->ip_addr);
+    ip_addr_set_any(0, &ctx->netif->netmask);
     ctx->dhcp_client->state = DHCP_STATE_DISCOVER;
     ctx->dhcp_client->discover_cnt = 0;
     if (!luat_rtos_timer_is_active(ctx->dhcp_timer))
@@ -245,6 +249,17 @@ void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
     // LLOGD("dhcp stop netif %p", ctx->netif);
     if (ctx->dhcp_timer != NULL && luat_rtos_timer_is_active(ctx->dhcp_timer)) {
         luat_rtos_timer_stop(ctx->dhcp_timer);
-        reset_dhcp_client(ctx);
+        
+    }
+    if (ctx->dhcp_enable) {
+        if (ctx->dhcp_client) {
+            // 重置dhcp客户端
+            reset_dhcp_client(ctx);
+        }
+        if (ctx->netif) {
+            ip_addr_set_any(0, &ctx->netif->ip_addr);
+            ip_addr_set_any(0, &ctx->netif->ip_addr);
+            ip_addr_set_any(0, &ctx->netif->netmask);
+        }
     }
 }

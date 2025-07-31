@@ -419,7 +419,6 @@ error:
 }
 
 lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t len){
-    lf_err_t result = LF_ERR_OK;
     uint8_t cmd_data[4]={0};
     if (addr + len > lf->chip_info.capacity) {
         LF_ERROR("Error: Flash address is out of bound.");
@@ -472,7 +471,6 @@ error:
 
 
 lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
-    lf_err_t result = LF_ERR_OK;
 #ifdef LF_USE_HEAP
     uint8_t* cmd_data = (uint8_t*)lf->malloc(4+lf->chip_info.prog_size);
     if (!cmd_data){

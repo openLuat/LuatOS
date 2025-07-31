@@ -85,6 +85,12 @@ CMD_DEFINE(pm_wakeup_pin);
 CMD_DEFINE(pwm_setup);
 CMD_DEFINE(pwm_close);
 
+// MOBILE指令, 0x800开始
+CMD_DEFINE(mobile_imei);
+CMD_DEFINE(mobile_imsi);
+CMD_DEFINE(mobile_iccid);
+CMD_DEFINE(mobile_muid);
+
 __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
@@ -160,6 +166,13 @@ __USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #ifdef LUAT_USE_AIRLINK_EXEC_PWM
     CMD_REG(0x700, pwm_setup),
     CMD_REG(0x701, pwm_close),
+#endif
+
+#ifdef LUAT_USE_AIRLINK_EXEC_MOBILE
+    CMD_REG(0x800, mobile_imei),
+    CMD_REG(0x801, mobile_imsi),
+    CMD_REG(0x802, mobile_iccid),
+    CMD_REG(0x803, mobile_muid),
 #endif
 
     CMD_REG(0x21, nop),

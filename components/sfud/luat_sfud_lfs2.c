@@ -21,23 +21,23 @@ static size_t sfud_offset = 0;
 // Read a block
 static int sfud_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_read(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
+    return sfud_read(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
     //LLOGD("sfud_block_device_read ret %d", ret);
-    return LFS_ERR_OK;
+    // return LFS_ERR_OK;
 }
 
 static int sfud_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_write(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
+    return sfud_write(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
     //LLOGD("sfud_block_device_prog ret %d", ret);
-    return LFS_ERR_OK;
+    // return LFS_ERR_OK;
 }
 
 static int sfud_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_erase(flash, sfud_offset + block * flash->chip.erase_gran, flash->chip.erase_gran);
+    return sfud_erase(flash, sfud_offset + block * flash->chip.erase_gran, flash->chip.erase_gran);
     //LLOGD("sfud_block_device_erase ret %d", ret);
-    return LFS_ERR_OK;
+    // return LFS_ERR_OK;
 }
 
 static int sfud_block_device_sync(const struct lfs_config *cfg) {

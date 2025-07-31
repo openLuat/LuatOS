@@ -366,7 +366,7 @@ __USER_FUNC_IN_RAM__ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, lu
 __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
     int ret = -1;
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
-    struct ip_hdr* ip_hdr = ctx->iphdr;
+    // struct ip_hdr* ip_hdr = ctx->iphdr;
     uint64_t tnow = luat_mcu_tick64_ms();
     uint32_t tsec = (uint32_t)(tnow / 1000);
     luat_netdrv_napt_tcpudp_t tmp = {0};
@@ -392,7 +392,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netd
         napt_ctx->clean_tm = tsec;
         // LLOGD("完成映射关系清理 %ld %ld", tsec, napt_ctx->clean_tm);
     }
-    size_t c_all = 0;
+    // size_t c_all = 0;
     for (size_t i = 0; i < napt_ctx->item_last; i++) {
         it = &napt_ctx->items[i];
         // 远程ip(4 byte), 远程端口(2 byte), 本地映射端口(2 byte)
@@ -415,11 +415,11 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netd
     int ret = -1;
     luat_netdrv_napt_tcpudp_t* it = NULL;
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
-    struct ip_hdr* ip_hdr = ctx->iphdr;
+    // struct ip_hdr* ip_hdr = ctx->iphdr;
     uint64_t tnow = luat_mcu_tick64_ms();
     uint32_t tsec = (uint32_t)(tnow / 1000);
     luat_netdrv_napt_tcpudp_t tmp = {0};
-    size_t tmpaddr = 0;
+    // size_t tmpaddr = 0;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     struct udp_hdr *udp_hdr = (struct udp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     size_t c_all = 0;

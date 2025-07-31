@@ -278,7 +278,7 @@ static int l_onewire_debug(lua_State *L)
 @int id, 硬件单总线编号,如果只有一条则随意填写
 @return nil
 @usage
-onewire.init(0) --初始化硬件单总线
+onewire.deinit(0) --初始化硬件单总线
 */
 static int l_onewire_deinit(lua_State *L)
 {

@@ -1,10 +1,9 @@
 local server_ip = "112.125.89.8" 
-local server_port = 47523 -- 换成自己的
+local server_port = 46153 -- 换成自己的
 local period = 3 * 60 * 60 * 1000 -- 3小时唤醒一次
 -- 配置GPIO达到最低功耗
-gpio.setup(25, 0) -- 关闭GNSS电源
-gpio.setup(24, 0) -- 关闭三轴电源
-gpio.setup(23, 0) -- 关闭wifi电源
+-- gpio.setup(24, 0) -- 关闭三轴电源
+
 local reason, slp_state = pm.lastReson() -- 获取唤醒原因
 log.info("wakeup state", pm.lastReson())
 local libnet = require "libnet"
@@ -29,7 +28,7 @@ local function testTask(ip, port)
         mobile.flymode(0, false) -- 退出飞行模式，进入psm+前进入飞行模式，唤醒后需要主动退出
     end
 
-    --gpio.close(32)
+    -- gpio.close(32)
 
     local netc, needBreak
     local result, param, is_err
@@ -61,8 +60,9 @@ local function testTask(ip, port)
     end
 
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
-    
+
     -- 配置GPIO以达到最低功耗的目的
+
 
     gpio.close(45) 
     gpio.close(46) --这里pwrkey接地才需要，不接地通过按键控制的不需要

@@ -1,6 +1,6 @@
 /*
 @module  sfud
-@summary SPI FLASH sfud软件包
+@summary flash驱动 软件包(支持驱动nor flash设备)
 @version 1.0
 @date    2021.09.23
 @demo sfud

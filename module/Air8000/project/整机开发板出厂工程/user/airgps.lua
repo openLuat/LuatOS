@@ -13,11 +13,12 @@ local snr1 = ""
 local location = ""
 local move = "静止"
 local time = ""
+local gnss = require("agps_icoe")
 
 local function setup_gps()
     gps_is_run = true
     gps_state = "定位中"
-    local gnss = require("agps_icoe")
+    
     log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
     pm.power(pm.GPS, true)
     gnss.setup({
@@ -152,6 +153,8 @@ function airgps.run()       -- TTS 播放主程序
         lcd.flush()
         
         if run_state == 0 then    -- 等待结束
+            gnss.stop()
+            pm.power(pm.GPS, false)
             return true
         end
     end
@@ -159,6 +162,7 @@ end
 
 local function stop()
     gnss.stop()
+    pm.power(pm.GPS, false)
 end
 
 function airgps.tp_handal(x,y,event)       -- 判断是否需要停止播放

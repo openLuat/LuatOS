@@ -1,6 +1,6 @@
 --[[
 @module  ble_ibeacon
-@summary Air8000演示ibeacon功能模块
+@summary Air8000演示scan功能模块
 @version 1.0
 @date    2025.07.01
 @author  wangshihao

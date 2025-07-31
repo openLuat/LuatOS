@@ -653,7 +653,7 @@ static int l_mqtt_autoreconn(lua_State *L) {
 @string 消息,必填,但长度可以是0
 @int 消息级别 0/1 默认0
 @int 是否存档, 0/1,默认0
-@return int 消息id, 当qos为1或2时会有效值. 若底层返回是否, 会返回nil
+@return int 消息id, 当qos为1或2时会有效值. 若底层返回有错误发生, 则会返回nil
 @usage 
 mqttc:publish("/luatos/123456", "123")
 */

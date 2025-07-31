@@ -15,8 +15,6 @@
 
 local function ip_ready_func()
     log.info("netdrv_wifi.ip_ready_func", "IP_READY", json.encode(wlan.getInfo()))
-    -- 下面这一行代码临时保留，是为了规避内核固件的一个bug，等内核固件修改bug后，demo中删掉这一行代码
-    socket.dft(socket.LWIP_STA)
 end
 
 local function ip_lose_func()
@@ -32,6 +30,8 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
+-- 设置默认网卡为socket.LWIP_STA
+socket.dft(socket.LWIP_STA)
 
 
 wlan.init()

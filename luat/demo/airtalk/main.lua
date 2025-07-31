@@ -1,12 +1,13 @@
 PROJECT = "airtalk_demo"
 VERSION = "1.0.1"
 PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+_G.sys=require"sys"
 log.style(1)
 require "demo_define"
-require "airtalk_net_ctrl"
+require "airtalk_dev_ctrl"
 require "audio_config"
 
-errDump.config(true, 600, "airtalk_test")
+--errDump.config(true, 600, "airtalk_test")
 
 local function key_cb()
 
@@ -32,20 +33,17 @@ local function user_task()
     airtalk_mqtt_init()
     local msg
     while true do
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_READY)
-        log.info("airtalk准备好了")
-        test_ready = true
-        while test_ready do
+
+        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+        log.info("!!!")
+        if test_ready then
+            sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_REQ, "")   --测试阶段自动给一个device打
+            msg = sys.waitMsg(USER_TASK_NAME, MSG_PERSON_SPEECH_ACK)
             msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-            if test_ready then
-                sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_REQ, "")   --测试阶段自动给一个device打
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_PERSON_SPEECH_ACK)
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-                sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_REQ) 
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_SPEECH_STOP_ACK)
-            end
+            sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_REQ) 
+            msg = sys.waitMsg(USER_TASK_NAME, MSG_SPEECH_STOP_ACK)
         end
-        log.info("airtalk断线了")
+
     end
 end
 

@@ -187,7 +187,7 @@ static int l_socket_gc(lua_State *L)
 /*
 在指定网卡上申请一个socket_ctrl
 @api    socket.create(adapter, cb)
-@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
+@int 适配器序号,默认是平台自带的能上外网的适配器,通过socket.dft()可以获取和修改
 @string/function string为消息通知的taskName，function则为回调函数
 @return userdata 成功返回network_ctrl，失败返回nil
 @usage
@@ -1278,6 +1278,9 @@ socket.dft(socket.LWIP_ETH)
 -- 获取当前默认适配器编号, 及最后一个注册的适配器编号
 local id, last_id = socket.dft()
 log.info("当前默认适配器编号", id, "最后一个注册的适配器编号", last_id)
+
+-- 1. 当前的默认网卡, 可以获取, 可以设置, 就是socket.dft(id)的第一个参数, 也是第一个返回值
+-- 2. 最后注册的网卡, 可以获取, 不支持设置, 就是socket.dft()的第二个返回值
 */
 static int l_socket_default(lua_State *L) {
 	uint8_t id = 0;

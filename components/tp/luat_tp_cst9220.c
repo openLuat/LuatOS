@@ -27,7 +27,7 @@
 #define CST92XX_CONFIG_SIZE           (CST92XX_CONFIG_FRESH - CST92XX_CONFIG_REG + 1)
 #define CST92XX_POINT_INFO_NUM        (5)
 #define CST92XX_TOUCH_NUMBER_MIN      (1)
-#define CST92XX_TOUCH_NUMBER_MAX      (5)
+#define CST92XX_TOUCH_NUMBER_MAX      (2)
 
 #define CST92XX_REFRESH_RATE_MIN      (5)
 #define CST92XX_REFRESH_RATE_MAX      (20)
@@ -629,18 +629,22 @@ void cst92xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
                 off_set = read_index * CST92XX_POINT_INFO_NUM + 2;
             }
 			
-			read_id = read_index;
+			point_data_t* point_buff = &read_buf[off_set];
+			read_id = point_buff->id;
 			if (read_id >= CST92XX_POINT_INFO_NUM){
 				LLOGE("%s, touch ID %d is out range!", __func__, read_id);
 				return;
 			}
 			pre_id[read_index] = read_id;
-            point_data_t* point_buff = &read_buf[off_set];
-            LLOGD("%s, id %d switch:0x%02x z:%d", __func__, point_buff->id,point_buff->switch_,point_buff->z);
-
+            // LLOGD("%s, id %d switch:0x%02x z:%d", __func__, point_buff->id,point_buff->switch_,point_buff->z);
 			input_x = point_buff->x_h << 4 | point_buff->x_l;	/* x */
 			input_y = point_buff->y_h << 4 | point_buff->y_l;	/* y */
-			cst92xx_touch_down(buf, read_id, input_x, input_y, input_w);
+            if (point_buff->switch_ == 0){
+                cst92xx_touch_up(buf, pre_id[read_index]);
+            }else{
+                cst92xx_touch_down(buf, read_id, input_x, input_y, input_w);
+            }
+
 		}
 	}else if (pre_touch){
 		for(read_index = 0; read_index < pre_touch; read_index++){

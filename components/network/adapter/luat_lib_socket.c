@@ -206,6 +206,12 @@ param1为申请的network_ctrl
 param2为具体的消息，只能是socket.LINK, socket.ON_LINE, socket.TX_OK, socket.EVENT, socket.CLOSED等等
 param3为消息对应的参数，目前只有0和-1，0表示成功或者可能有新数据（具体消息为socket.EVENT），-1表示失败或者有异常，需要断开重连
 ]]
+
+--[[
+Air8000内核固件运行起来之后，在脚本调用socket.dft(id)之前，默认适配器编号为socket.LWIP_GP，最后一个注册的适配器编号为socket.LWIP_AP；
+Air780xx内核固件运行起来之后，在脚本调用socket.dft(id)之前，默认适配器编号为socket.LWIP_GP，最后一个注册的适配器编号为socket.LWIP_GP；
+Air8101内核固件运行起来之后，在脚本调用socket.dft(id)之前，默认适配器编号为socket.LWIP_STA，最后一个注册的适配器编号为socket.LWIP_STA；
+]]
 */
 static int l_socket_create(lua_State *L)
 {

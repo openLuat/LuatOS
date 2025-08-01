@@ -303,6 +303,10 @@ function gnss.agps()
     end
 end
 
+function gnss.openres()
+    return openFlag
+end
+
 --打开gnss，内部函数使用，不推荐给脚本层使用
 local function _open()
     if openFlag then return end

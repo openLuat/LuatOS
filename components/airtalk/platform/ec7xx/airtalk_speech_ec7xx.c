@@ -115,7 +115,6 @@ static void speech_task(void *param)
 	need_stop_play = 0;
 	wait_stop_play = 0;
 	temp_len = 0;
-	prv_speech.debug_on_off = 1;
 	while (1)
 	{
 		luat_rtos_event_recv(prv_speech.speech_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
@@ -168,14 +167,18 @@ static void speech_task(void *param)
 			if (prv_speech.decode_sync_ok)
 			{
 				lost_data = 0;
+//				LUAT_DEBUG_PRINT("%u,%u,%u,%u", prv_speech.decode_frame_cnt, decode_pos, PCM_BLOCK_LEN, PCM_BLOCK_LEN * prv_speech.decode_frame_cnt * decode_pos);
 				for(i = 0; i < prv_speech.decode_frame_cnt; i++)
 				{
+
 					if (OS_CheckFifoUsedSpace(&prv_speech.download_data_fifo))
 					{
 						data_pos = (uint32_t)(prv_speech.download_data_fifo.RPoint & prv_speech.download_data_fifo.Mask);
 						temp_len = prv_speech.amr_byte_len[(prv_speech.download_data_buffer[data_pos] >> 3) & 0x0f];
+//						LUAT_DEBUG_PRINT("%d,%d", (prv_speech.download_data_buffer[data_pos] >> 3) & 0x0f, temp_len);
 						OS_ReadFifo(&prv_speech.download_data_fifo, amr_buff, temp_len + 1);
 						u_point.pu8 = &prv_speech.play_data_buffer[PCM_BLOCK_LEN * prv_speech.decode_frame_cnt * decode_pos + i * PCM_BLOCK_LEN];
+
 						luat_audio_inter_amr_coder_decode(prv_speech.audio_handle, u_point.pu16, amr_buff, &out_len);
 					}
 					else

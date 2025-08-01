@@ -233,7 +233,7 @@ function airtalk_mqtt_task()
                     else
                         g_state = SP_T_CONNECTING
                         g_remote_id = msg[2]
-                        g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. mobile.muid()
+                        g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. mcu.tick()
                         g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic}))  -- 更新列表
                     end
                 elseif msg[1] == MSG_SPEECH_STOP_REQ then

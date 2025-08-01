@@ -48,6 +48,8 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
+-- 设置默认网卡为socket.LWIP_ETH
+socket.dft(socket.LWIP_ETH)
 
 
 --本demo测试使用的是核心板的VDD 3V3引脚对AirPHY_1000配件板进行供电

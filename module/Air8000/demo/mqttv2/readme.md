@@ -95,7 +95,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2011版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2011固件对比验证）
+2、[Air8000 V2011版本固件）](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以
 

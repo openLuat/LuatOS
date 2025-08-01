@@ -1,9 +1,9 @@
 --[[
 @module  sntp_app
-@summary sntp时间同步应用功能模块 
+@summary sntp时间同步应用功能模块
 @version 1.0
-@date    2025.07.01
-@author  朱天华
+@date    2025.07.31
+@author  mw
 @usage
 本文件为sntp时间同步应用功能模块，核心业务逻辑为：
 1、连接ntp服务器进行时间同步；
@@ -14,7 +14,7 @@
 ]]
 
 -- sntp时间同步的任务处理函数
-local function sntp_task_func() 
+local function sntp_task_func()
 
     while true do
         -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
@@ -50,12 +50,12 @@ local function sntp_task_func()
             log.info("sntp_task_func", "时间同步成功", "本地时间os.date(os.time())", os.time(t))
 
             -- 正常使用, 一小时一次, 已经足够了, 甚至1天一次也可以
-            sys.wait(3600000) 
+            sys.wait(3600000)
         --同步失败
         else
             log.info("sntp_task_func", "时间同步失败")
             -- 10秒后重新发起同步动作
-            sys.wait(10000) 
+            sys.wait(10000)
         end
     end
 end

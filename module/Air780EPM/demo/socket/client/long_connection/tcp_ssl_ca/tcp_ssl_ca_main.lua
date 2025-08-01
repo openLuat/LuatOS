@@ -1,9 +1,9 @@
 --[[
 @module  tcp_ssl_ca_main
-@summary tcp_ssl_ca client socket主应用功能模块 
+@summary tcp_ssl_ca client socket主应用功能模块
 @version 1.0
-@date    2025.07.01
-@author  朱天华
+@date    2025.07.31
+@author  mw
 @usage
 本文件为tcp_ssl_ca client socket主应用功能模块，核心业务逻辑为：
 1、创建一个tcp_ssl_ca client socket，连接server；
@@ -37,7 +37,7 @@ local function tcp_ssl_ca_main_cbfunc(msg)
 end
 
 -- tcp_ssl_ca client socket的任务处理函数
-local function tcp_ssl_ca_main_task_func() 
+local function tcp_ssl_ca_main_task_func()
 
     local socket_client
     local result, para1, para2
@@ -53,13 +53,13 @@ local function tcp_ssl_ca_main_task_func()
     local server_ca_cert = io.readFile("/luadb/baidu_parent_ca.crt")
 
     while true do
-        -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
+        -- 如果当前时间点设置的网卡还没有连接成功，一直在这里循环等待
         while not socket.adapter(socket.dft()) do
             log.warn("tcp_ssl_ca_main_task_func", "wait IP_READY", socket.dft())
-            -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+            -- 在此处阻塞等待网卡连接成功的消息"IP_READY"
             -- 或者等待1秒超时退出阻塞等待状态;
             -- 注意：此处的1000毫秒超时不要修改的更长；
-            -- 因为当使用libnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+            -- 因为当使用libnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改当前使用的网卡
             -- 当libnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
             -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
             sys.waitUntil("IP_READY", 1000)
@@ -128,7 +128,7 @@ local function tcp_ssl_ca_main_task_func()
             -- 3、socket client需要发送数据到server, 在tcp_ssl_ca_sender.lua中会发布事件socket.EVENT
 			result, para1, para2 = libnet.wait(TASK_NAME, 15000, socket_client)
             log.info("tcp_ssl_ca_main_task_func", "libnet.wait", result, para1, para2)
-			
+
 			-- 如果连接异常，则退出循环
 			if not result then
 				log.warn("tcp_ssl_ca_main_task_func", "connection exception")
@@ -137,7 +137,7 @@ local function tcp_ssl_ca_main_task_func()
         end
 
 
-        -- 出现异常    
+        -- 出现异常
         ::EXCEPTION_PROC::
 
         -- 数据发送应用模块对来不及发送的数据做清空和通知失败处理
@@ -152,7 +152,7 @@ local function tcp_ssl_ca_main_task_func()
             socket.release(socket_client)
             socket_client = nil
         end
-        
+
         -- 5秒后跳转到循环体开始位置，自动发起重连
         sys.wait(5000)
     end

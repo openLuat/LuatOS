@@ -289,6 +289,13 @@ function libnetif.set_priority_order(networkConfigs)
 
     -- 设置新优先级
     current_priority = new_priority
+    -- 此处按照用户期望的配置，先设置优先级最高的默认网卡
+    -- 防止出现以下问题：
+    -- 例如Air8000内核固件运行起来之后，默认网卡是socket.LWIP_GP，如果用户调用libnetif.set_priority_order接口配置最高优先级网卡为socket.LWIP_ETH
+    -- 在socket.LWIP_ETH网卡准备就绪之前，socket.LWIP_GP可能已经准备就绪，此时默认网卡仍然是socket.LWIP_GP；
+    -- 而网络应用层（例如socket，mqtt等）有关的demo，我们编写时，不关心具体网卡，直接使用默认网卡（这样符合正常逻辑）；
+    -- 就可能会出现“网络应用在这段时间内直接使用socket.LWIP_GP，而不是用户期望的网卡socket.LWIP_ETH来上网”的问题；
+    socket.dft(new_priority[1])
     apply_priority()
 
     return true

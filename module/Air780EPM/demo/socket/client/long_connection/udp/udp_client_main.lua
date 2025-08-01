@@ -1,9 +1,9 @@
 --[[
 @module  udp_client_receiver
-@summary udp client socket主应用功能模块 
+@summary udp client socket主应用功能模块
 @version 1.0
-@date    2025.07.01
-@author  朱天华
+@date    2025.07.31
+@author  孟伟
 @usage
 本文件为udp client socket主应用功能模块，核心业务逻辑为：
 1、创建一个udp client socket，连接server；
@@ -24,7 +24,7 @@ local udp_client_sender = require "udp_client_sender"
 -- 点击 打开UDP 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 46392
+local SERVER_PORT = 43510
 
 -- udp_client_main的任务名
 local TASK_NAME = udp_client_sender.TASK_NAME
@@ -36,7 +36,7 @@ local function udp_client_main_cbfunc(msg)
 end
 
 -- udp client socket的任务处理函数
-local function udp_client_main_task_func() 
+local function udp_client_main_task_func()
 
     local socket_client
     local result, para1, para2
@@ -44,7 +44,7 @@ local function udp_client_main_task_func()
     while true do
         -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
         while not socket.adapter(socket.dft()) do
-            log.warn("udp_client_main_task_func", "wait IP_READY", socket.dft())
+            log.warn("sntp_task_func", "wait IP_READY", socket.dft())
             -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
             -- 或者等待1秒超时退出阻塞等待状态;
             -- 注意：此处的1000毫秒超时不要修改的更长；
@@ -106,7 +106,7 @@ local function udp_client_main_task_func()
             -- 3、socket client需要发送数据到server, 在udp_client_sender.lua中会发布事件socket.EVENT
 			result, para1, para2 = libnet.wait(TASK_NAME, 15000, socket_client)
             log.info("udp_client_main_task_func", "libnet.wait", result, para1, para2)
-			
+
 			-- 如果连接异常，则退出循环
 			if not result then
 				log.warn("udp_client_main_task_func", "connection exception")
@@ -115,7 +115,7 @@ local function udp_client_main_task_func()
         end
 
 
-        -- 出现异常    
+        -- 出现异常
         ::EXCEPTION_PROC::
 
         -- 数据发送应用模块对来不及发送的数据做清空和通知失败处理
@@ -130,7 +130,7 @@ local function udp_client_main_task_func()
             socket.release(socket_client)
             socket_client = nil
         end
-        
+
         -- 5秒后跳转到循环体开始位置，自动发起重连
         sys.wait(5000)
     end

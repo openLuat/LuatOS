@@ -1,33 +1,22 @@
 --[[
 @module  netdrv_eth_spi
-@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块 
+@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
 @version 1.0
-@date    2025.07.24
-@author  朱天华
+@date    2025.07.31
+@author  mw
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
 1、打开AirETH_1000配件板供电开关；
 2、初始化spi0，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
 
-Air8101核心板和AirETH_1000配件板的硬件接线方式为:
-Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
-如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
-| Air8101核心板   |  AirETH_1000配件板 |
-| --------------- | ----------------- |
-| 59/3V3          | 3.3v              |
-| gnd             | gnd               |
-| 28/DCLK         | SCK               |
-| 54/DISP         | CSS               |
-| 55/HSYN         | SDO               |
-| 57/DE           | SDI               |
-| 14/GPIO8        | INT               |
+直接使用Air780EPM 1.3版本开发板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
 
 local function ip_ready_func()
-    log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_USER1))
+    log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
 end
 
 local function ip_lose_func()
@@ -43,20 +32,16 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
--- 设置默认网卡为socket.LWIP_USER1
-socket.dft(socket.LWIP_USER1)
+-- 设置默认网卡为socket.LWIP_ETH
+socket.dft(socket.LWIP_ETH)
 
-
---本demo测试使用的是核心板的VDD 3V3引脚对AirETH_1000配件板进行供电
---VDD 3V3引脚是Air8101内部的LDO输出引脚，最大输出电流300mA
---GPIO13在Air8101内部使能控制这个LDO的输出
---所以在此处GPIO13输出高电平打开这个LDO
-gpio.setup(13, 1, gpio.PULLUP) 
-
-
+--本demo测试使用的是Air780EPM开发板
+--GPIO20为CH390H以太网芯片的供电使能控制引脚
+gpio.setup(20, 1)  --打开lan供电
 --这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
-    -- 初始化SPI0
+    sys.wait(500)
+    -- 初始化SPI1
     local result = spi.setup(
         0,--spi_id
         nil,
@@ -68,14 +53,12 @@ local function netdrv_eth_spi_task_func()
         -- spi.master,--主模式     可选，默认主
         -- spi.full--全双工       可选，默认全双工
     )
-    log.info("netdrv_eth_spi", "spi open result", result)
+    log.info("main", "open",result)
     --返回值为0，表示打开成功
     if result ~= 0 then
-        log.error("netdrv_eth_spi", "spi open error",result)
+        log.info("main", "spi open error",result)
         return
     end
-
-    --初始化以太网卡
 
     --以太网联网成功（成功连接路由器，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
     --各个功能模块可以订阅"IP_READY"消息实时处理以太网联网成功的事件
@@ -84,14 +67,13 @@ local function netdrv_eth_spi_task_func()
     --以太网断网后，内核固件会产生一个"IP_LOSE"消息
     --各个功能模块可以订阅"IP_LOSE"消息实时处理以太网断网的事件
     --也可以在任何时刻调用socket.adapter(socket.LWIP_USER1)来获取以太网是否连接成功
-
-    -- socket.LWIP_USER1 指定网络适配器编号
+    -- 初始化指定netdrv设备,
+    -- socket.LWIP_ETH 网络适配器编号
     -- netdrv.CH390外挂CH390
-    -- SPI ID 0, 片选 GPIO15
-    netdrv.setup(socket.LWIP_USER1, netdrv.CH390, {spi=0, cs=15})
+    -- SPI ID 1, 片选 GPIO12
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8})
+    netdrv.dhcp(socket.LWIP_ETH, true)
 
-    --在以太上开启动态主机配置协议
-    netdrv.dhcp(socket.LWIP_USER1, true)
 end
 
 --创建并且启动一个task

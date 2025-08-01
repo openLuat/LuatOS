@@ -69,7 +69,9 @@ static int airtalk_mqtt_cb(luat_mqtt_ctrl_t *mqtt_ctrl, uint16_t event)
 				else
 				{
 					memcpy(prv_mqtt.net_data_cache[prv_mqtt.cache_cnt].save_data, ptr, len);
-					luat_rtos_event_send(prv_mqtt.net_ctrl->task_handle, NULL, AIRTALK_EVENT_NETWORK_DOWNLINK_DATA, (uint32_t)prv_mqtt.net_data_cache[prv_mqtt.cache_cnt].save_data, len, prv_mqtt.cache_cnt);
+					prv_mqtt.net_data_cache[prv_mqtt.cache_cnt].in_use = 1;
+					luat_rtos_event_send(prv_mqtt.net_ctrl->task_handle, AIRTALK_EVENT_NETWORK_DOWNLINK_DATA, (uint32_t)prv_mqtt.net_data_cache[prv_mqtt.cache_cnt].save_data, len, prv_mqtt.cache_cnt, 0);
+					prv_mqtt.cache_cnt = (prv_mqtt.cache_cnt + 1) & (DOWNLOAD_CACHE_MAX - 1);
 					return 1;
 				}
 

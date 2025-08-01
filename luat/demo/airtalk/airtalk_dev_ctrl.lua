@@ -121,7 +121,6 @@ local function analyze_v1(cmd, topic, obj)
         return
     end
     if cmd == "8001" then
-        log.info(obj, obj["result"], SUCC)
         if obj and obj["result"] == SUCC then
             g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0002","")  -- 更新列表
         else
@@ -224,8 +223,8 @@ function airtalk_mqtt_task()
                 auth()  --30秒鉴权无效后重新鉴权
             end
         end
+        log.info("对讲管理平台已连接")
         while online do
-            log.info("对讲管理平台已连接")
             msg = sys.waitMsg(AIRTALK_TASK_NAME)
             if type(msg) == 'table' and type(msg[1]) == "number" then
                 if msg[1] == MSG_PERSON_SPEECH_REQ then

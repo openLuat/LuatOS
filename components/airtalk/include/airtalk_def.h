@@ -5,7 +5,7 @@
 
 #define UPLOAD_CACHE_MAX (32)
 #define DOWNLOAD_CACHE_MAX (32)
-#define RECORD_DATA_MAX	(320)
+#define RECORD_DATA_MAX	(640)
 
 enum
 {
@@ -39,7 +39,6 @@ typedef struct
 	llist_head upload_cache_head;
 	llist_head download_cache_head;
 	llist_head free_cache_head;
-	record_data_struct *cur_record_node;
 	uint32_t download_cache_time;
 	luat_rtos_timer_t download_check_timer;
 	CBDataFun_t send_function;

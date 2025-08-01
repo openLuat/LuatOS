@@ -13,10 +13,10 @@ typedef struct
 	{
 		struct
 		{
-			uint8_t version:2;
-			uint8_t padding:1;
-			uint8_t extension:1;
 			uint8_t csrc_count:4;
+			uint8_t extension:1;
+			uint8_t padding:1;
+			uint8_t version:2;
 		};
 		uint8_t byte0;
 	};
@@ -24,8 +24,8 @@ typedef struct
 	{
 		struct
 		{
-			uint8_t maker:1;
 			uint8_t payload_type:7;
+			uint8_t maker:1;
 		};
 		uint8_t byte1;
 	};

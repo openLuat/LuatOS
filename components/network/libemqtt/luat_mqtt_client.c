@@ -366,8 +366,7 @@ MQTT_MSG_PUBLISH_DONE:
         }
         case MQTT_MSG_PUBACK : {
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
-			LLOGD("MQTT_MSG_PUBACK %d", msg_id);
-            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, mqtt_ctrl->mqtt_packet_buffer[4]);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
@@ -391,7 +390,7 @@ MQTT_MSG_PUBLISH_DONE:
         case MQTT_MSG_SUBACK : {
 			LLOGD("MQTT_MSG_SUBACK");
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
-			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_SUBACK, msg_id);
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_SUBACK, mqtt_ctrl->mqtt_packet_buffer[4]);
             break;
         }
 		case MQTT_MSG_UNSUBACK : {

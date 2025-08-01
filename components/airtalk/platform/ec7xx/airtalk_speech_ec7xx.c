@@ -115,6 +115,7 @@ static void speech_task(void *param)
 	need_stop_play = 0;
 	wait_stop_play = 0;
 	temp_len = 0;
+	prv_speech.debug_on_off = 1;
 	while (1)
 	{
 		luat_rtos_event_recv(prv_speech.speech_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
@@ -127,7 +128,7 @@ static void speech_task(void *param)
 			}
 			if (prv_speech.record_enable)
 			{
-				//if (prv_speech.debug_on_off)
+				if (prv_speech.debug_on_off)
 				{
 					LUAT_DEBUG_PRINT("ref point %d, record cnt %d", event.param2, event.param1);
 				}
@@ -160,7 +161,7 @@ static void speech_task(void *param)
 			}
 			current_play_cnt = (current_play_cnt + 1) & 0x3;
 			decode_pos = (current_play_cnt + 1) & 0x03;
-			//if (prv_speech.debug_on_off)
+			if (prv_speech.debug_on_off)
 			{
 				LUAT_DEBUG_PRINT("play pos %u, decode pos %u", current_play_cnt, decode_pos);
 			}
@@ -234,8 +235,8 @@ static void speech_task(void *param)
 				prv_speech.one_frame_len = 320 * (is_amr_wb + 1);
 				luat_audio_pm_request(prv_speech.multimedia_id, LUAT_AUDIO_PM_RESUME);
 				prv_speech.amr_byte_len = is_amr_wb?amr_wb_byte_len:amr_nb_byte_len;
-				memset(prv_speech.play_data_buffer, 0, sizeof(prv_speech.play_data_cache));
-				memset(prv_speech.record_data_buffer, 0, sizeof(prv_speech.record_data_cache));
+				memset(prv_speech.play_data_cache, 0, sizeof(prv_speech.play_data_cache));
+				memset(prv_speech.record_data_cache, 0, sizeof(prv_speech.record_data_cache));
 				prv_speech.record_buffer_pos = 0;
 				prv_speech.record_frame_pos = 0;
 				prv_speech.play_frame_pos = 0;
@@ -244,7 +245,6 @@ static void speech_task(void *param)
 				prv_speech.audio_handle = luat_audio_inter_amr_coder_init(is_amr_wb, 7 + is_amr_wb);
 				prv_speech.download_data_fifo.RPoint  = 0;
 				prv_speech.download_data_fifo.WPoint  = 0;
-				memset(prv_speech.play_data_cache, 0, sizeof(prv_speech.play_data_cache));
 				current_play_cnt = 0;
 
 				luat_i2s_save_old_config(audio_conf->codec_conf.i2s_id);

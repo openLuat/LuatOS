@@ -30,6 +30,7 @@ local function heart()
     end
 end
 
+--对讲开始，topic,ssrc,采样率(8K或者16K)这3个参数都有了之后就能进行对讲了，可以通过其他协议传入
 local function speech_on(mode, ssrc, sample)
     g_state = SP_T_CONNECTED
     g_s_mode = mode
@@ -40,7 +41,7 @@ local function speech_on(mode, ssrc, sample)
     sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, true) 
     sys.timerLoopStart(heart, 150000)
 end
-
+--对讲结束
 local function speech_off()
     if g_state ==  SP_T_CONNECTED then
         g_mqttc:unsubscribe(g_s_topic)

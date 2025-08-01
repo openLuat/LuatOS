@@ -1,5 +1,6 @@
 PROJECT = "startupv13"
 VERSION = "1.0.0"
+PRODUCT_KEY = "29uptfBkJMwFC7x7QeW10UPO3LecPYFu"
 
 log.info("main", PROJECT, VERSION)
 
@@ -30,10 +31,13 @@ local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
 local talk = require "talk"
 
-
+local airrecord = require "airrecord"
 local taskName = "MAIN"
 local  fota_wifi = require("fota_wifi")
 local sid = 0
+libfota2 = require "libfota2"
+
+
 
 -- 按键事件类型：
 -- "switch": 短按开机键切换菜单；  
@@ -123,7 +127,7 @@ local function main_local(x,y)
   end
 end
 
-local function handal_main(x,y)
+local function home_first_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -147,10 +151,11 @@ local function handal_main(x,y)
   end
 end
 
-local function handal_main1(x,y)
+local function home_second_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
+    cur_fun  = "airrecord"
   elseif key == 2 then
    
   elseif key == 3 then
@@ -170,7 +175,7 @@ local function handal_main1(x,y)
   end
 end
 
-local function handal_main2(x,y)
+local function home_third_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -188,7 +193,7 @@ local function handal_main2(x,y)
   end
 end
 
-local function handal_main3(x,y)
+local function home_fourth_page(x,y)
   key =  main_local(x,y) 
   log.info("tp_handal key",key)
   if key == 1 then
@@ -213,13 +218,13 @@ local function  tp_handal(tp_device,tp_data)
   end
   if tp_data[1].event == 2  and   lock_push == 0 then
     if cur_fun == "main" then
-      handal_main(tp_data[1].x,tp_data[1].y)
+      home_first_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main1" then
-      handal_main1(tp_data[1].x,tp_data[1].y)
+      home_second_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main2" then
-      handal_main2(tp_data[1].x,tp_data[1].y)
+      home_third_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "main3" then
-      handal_main3(tp_data[1].x,tp_data[1].y)
+      home_fourth_page(tp_data[1].x,tp_data[1].y)
     elseif cur_fun == "airtts" then
       airtts.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "aircamera" then
@@ -250,6 +255,8 @@ local function  tp_handal(tp_device,tp_data)
       airble.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     elseif cur_fun == "talk" then
       talk.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
+    elseif cur_fun == "airrecord" then
+      airrecord.tp_handal(tp_data[1].x,tp_data[1].y,tp_data[1].event)
     end
     lock_push = 1
   end
@@ -450,6 +457,11 @@ local function draw_talk()
   end
 end
 
+local function draw_airrecord()
+  if  airrecord.run()   then
+    cur_fun = "main"
+  end
+end
 
 local function draw()
   if cur_fun == "camshow" then
@@ -499,6 +511,8 @@ local function draw()
     draw_airble()
   elseif cur_fun == "talk" then
     draw_talk()
+  elseif cur_fun == "airrecord" then
+    draw_airrecord()
   end
   
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")
@@ -544,7 +558,46 @@ local function  wififota()
   fota_wifi.request()
 end
 
+local function fota_cb(ret)
+    log.info("fota", ret)
+    if ret == 0 then
+        log.info("升级包下载成功,重启模块")
+        rtos.reboot()
+    elseif ret == 1 then
+        log.info("连接失败", "请检查url拼写或服务器配置(是否为内网)")
+    elseif ret == 2 then
+        log.info("url错误", "检查url拼写")
+    elseif ret == 3 then
+        log.info("服务器断开", "检查服务器白名单配置")
+    elseif ret == 4 then
+        log.info("接收报文错误", "检查模块固件或升级包内文件是否正常")
+    elseif ret == 5 then
+        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
+    else
+        log.info("不是上面几种情况 ret为", ret)
+    end
+end
 
+local ota_opts = {}
+sys.taskInit(function()
+    -- 等待网络就行后开始检查升级
+    sys.waitUntil("IP_READY")
+    log.info("开始检查升级")
+    sys.wait(500)
+    libfota2.request(fota_cb, ota_opts)
+end)
+
+local  function hardware_start ()
+  gpio.setup(140, 1, gpio.PULLUP)  --  打开CH390 电源
+  sys.wait(50) -- 等待电源稳定
+  gpio.setup(12,1)--上拉ch390使用spi的cs引脚避免干扰
+  sys.wait(10)--等待稳定
+  gpio.setup(20, 1)  -- 上拉tf 卡 cs 管脚
+
+end
+-- 演示定时自动升级, 每隔4小时自动检查一次
+sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
+sysplus.taskInitEx(hardware_start,"hardware_start")
 sysplus.taskInitEx(wififota,"fota_wifi")
 sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)

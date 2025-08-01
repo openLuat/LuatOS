@@ -30,6 +30,10 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
+-- 设置默认网卡为socket.LWIP_STA
+-- 在Air8101上，内核固件运行起来之后，默认网卡就是socket.LWIP_STA
+-- 在单socket.LWIP_STA网卡使用场景下，下面这一行代码加不加都没有影响，为了和其他网卡驱动模块的代码风格保持一致，所以加上了
+socket.dft(socket.LWIP_STA)
 
 
 wlan.init()

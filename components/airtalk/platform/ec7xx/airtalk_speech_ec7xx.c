@@ -35,6 +35,7 @@ typedef struct
 	uint8_t decode_sync_ok;
 	volatile uint8_t record_buffer_pos;
 	uint8_t debug_on_off;
+	uint8_t amr_data_cahce[RECORD_DATA_MAX];
 	uint8_t download_data_buffer[1 << DOWNLOAD_CACHE_MASK];					//测试用的播放缓冲区，正常播放不要使用
 
 }speech_ctrl_t;
@@ -104,7 +105,7 @@ static void speech_task(void *param)
 	luat_event_t event;
 	uint32_t decode_pos = 0;
 	uint32_t current_play_cnt = 0;					//当前播放缓冲区，用于解码数据存入下一个缓存
-	uint32_t i;
+	uint32_t i,save_pos;
 	uint32_t data_pos;
 	PV_Union u_point;
 	uint8_t out_len, lost_data, temp_len, need_stop_record, need_stop_play, wait_stop_play,is_amr_wb;
@@ -114,7 +115,6 @@ static void speech_task(void *param)
 	need_stop_play = 0;
 	wait_stop_play = 0;
 	temp_len = 0;
-
 	while (1)
 	{
 		luat_rtos_event_recv(prv_speech.speech_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
@@ -132,15 +132,16 @@ static void speech_task(void *param)
 					LUAT_DEBUG_PRINT("ref point %d, record cnt %d", event.param2, event.param1);
 				}
 				u_point.pu8 = &prv_speech.record_data_buffer[SPEECH_ONE_CACHE_MAX * event.param1];
-				luat_airtalk_net_save_uplink_head(luat_mcu_tick64_ms());
+				save_pos = 0;
 				for(i = 0; i < prv_speech.encode_frame_cnt; i++)
 				{
 					ref_input = &prv_speech.play_data_buffer[PCM_BLOCK_LEN * event.param2 + i * PCM_BLOCK_LEN];
 					//录音时刻对应的放音数据作为回声消除的参考数据输入，可以完美消除回声
 					luat_audio_inter_amr_encode_with_ref(&u_point.pu16[(i * PCM_BLOCK_LEN) >> 1], amr_buff, &out_len, ref_input);
-					luat_airtalk_net_save_uplink_data(amr_buff, out_len);
+					memcpy(prv_speech.amr_data_cahce + save_pos, amr_buff, out_len);
+					save_pos += out_len;
 				}
-				luat_airtalk_net_uplink_once();
+				luat_airtalk_net_uplink_once(luat_mcu_tick64_ms(), prv_speech.amr_data_cahce, save_pos);
 				//如果有停止录音的请求，让MQTT上行一次终止包
 				if (need_stop_record)
 				{
@@ -166,14 +167,18 @@ static void speech_task(void *param)
 			if (prv_speech.decode_sync_ok)
 			{
 				lost_data = 0;
+//				LUAT_DEBUG_PRINT("%u,%u,%u,%u", prv_speech.decode_frame_cnt, decode_pos, PCM_BLOCK_LEN, PCM_BLOCK_LEN * prv_speech.decode_frame_cnt * decode_pos);
 				for(i = 0; i < prv_speech.decode_frame_cnt; i++)
 				{
+
 					if (OS_CheckFifoUsedSpace(&prv_speech.download_data_fifo))
 					{
 						data_pos = (uint32_t)(prv_speech.download_data_fifo.RPoint & prv_speech.download_data_fifo.Mask);
 						temp_len = prv_speech.amr_byte_len[(prv_speech.download_data_buffer[data_pos] >> 3) & 0x0f];
+//						LUAT_DEBUG_PRINT("%d,%d", (prv_speech.download_data_buffer[data_pos] >> 3) & 0x0f, temp_len);
 						OS_ReadFifo(&prv_speech.download_data_fifo, amr_buff, temp_len + 1);
 						u_point.pu8 = &prv_speech.play_data_buffer[PCM_BLOCK_LEN * prv_speech.decode_frame_cnt * decode_pos + i * PCM_BLOCK_LEN];
+
 						luat_audio_inter_amr_coder_decode(prv_speech.audio_handle, u_point.pu16, amr_buff, &out_len);
 					}
 					else
@@ -233,8 +238,8 @@ static void speech_task(void *param)
 				prv_speech.one_frame_len = 320 * (is_amr_wb + 1);
 				luat_audio_pm_request(prv_speech.multimedia_id, LUAT_AUDIO_PM_RESUME);
 				prv_speech.amr_byte_len = is_amr_wb?amr_wb_byte_len:amr_nb_byte_len;
-				memset(prv_speech.play_data_buffer, 0, sizeof(prv_speech.play_data_cache));
-				memset(prv_speech.record_data_buffer, 0, sizeof(prv_speech.record_data_cache));
+				memset(prv_speech.play_data_cache, 0, sizeof(prv_speech.play_data_cache));
+				memset(prv_speech.record_data_cache, 0, sizeof(prv_speech.record_data_cache));
 				prv_speech.record_buffer_pos = 0;
 				prv_speech.record_frame_pos = 0;
 				prv_speech.play_frame_pos = 0;
@@ -243,7 +248,6 @@ static void speech_task(void *param)
 				prv_speech.audio_handle = luat_audio_inter_amr_coder_init(is_amr_wb, 7 + is_amr_wb);
 				prv_speech.download_data_fifo.RPoint  = 0;
 				prv_speech.download_data_fifo.WPoint  = 0;
-				memset(prv_speech.play_data_cache, 0, sizeof(prv_speech.play_data_cache));
 				current_play_cnt = 0;
 
 				luat_i2s_save_old_config(audio_conf->codec_conf.i2s_id);
@@ -253,7 +257,7 @@ static void speech_task(void *param)
 				luat_airtalk_callback(LUAT_AIRTALK_CB_PLAY_START, NULL, 0);
 				if (prv_speech.record_enable)//已经请求录音了，那么就开始录音了
 				{
-//					luat_airtalk_net_uplink_start();
+//					LUAT_DEBUG_PRINT("record start!");
 					luat_airtalk_callback(LUAT_AIRTALK_CB_RECORD_START, NULL, 0);
 				}
 				luat_airtalk_callback(LUAT_AIRTALK_CB_AUDIO_START, NULL, 0);
@@ -347,6 +351,7 @@ void luat_airtalk_speech_record_switch(uint8_t on_off)
 			if (!prv_speech.record_enable)
 			{
 				prv_speech.record_enable = 1;
+				LUAT_DEBUG_PRINT("record start!");
 				luat_airtalk_callback(LUAT_AIRTALK_CB_RECORD_START, NULL, 0);
 			}
 		}

@@ -86,6 +86,8 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
+-- 设置默认网卡为socket.LWIP_USER0
+socket.dft(socket.LWIP_USER0)
 
 
 -- 初始化airlink，Air8101和4G网卡之间，在spi之上，基于airlink协议通信

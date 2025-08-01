@@ -21,9 +21,9 @@ typedef struct
 	{
 		struct
 		{
-			uint32_t amr_data_len:16;
-			uint32_t encode_type:4;
 			uint32_t unused:12;
+			uint32_t encode_type:4;
+			uint32_t amr_data_len:16;
 		};
 		uint32_t fin_param;
 	};
@@ -91,14 +91,24 @@ static void airtalk_network_task(void *param)
 		prv_network.download_cache_time = 500;
 	}
 	prv_network.record_cache_locker = luat_mutex_create();
+	luat_mutex_unlock(prv_network.record_cache_locker);
 	while(1){
 		luat_rtos_event_recv(prv_network.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
 		{
 		case AIRTALK_EVENT_NETWORK_DOWNLINK_DATA:
+			if (!prv_network.is_ready)
+			{
+				goto RX_DATA_DONE;
+			}
 			p = (uint8_t *)event.param1;
 			ret = luat_unpack_rtp_head(p, event.param2, remote_rtp_head, &remote_rtp_extern_data);
 			if (ret <= 0)
+			{
+				LUAT_DEBUG_PRINT("rtp head error! %d", ret);
+				goto RX_DATA_DONE;
+			}
+			if (prv_network.local_ssrc == remote_rtp_head->ssrc)
 			{
 				goto RX_DATA_DONE;
 			}
@@ -107,6 +117,7 @@ static void airtalk_network_task(void *param)
 			ret = luat_unpack_rtp_extern_head(p, event.param2, remote_rtp_extern, &remote_rtp_extern_data);
 			if (ret <= 0)
 			{
+				LUAT_DEBUG_PRINT("rtp ext head error!, %d", ret);
 				goto RX_DATA_DONE;
 			}
 			if (remote_rtp_extern->profile_id != 1)
@@ -146,14 +157,17 @@ static void airtalk_network_task(void *param)
 			if (!prv_network.remote_ssrc_exsit)
 			{
 				prv_network.data_sync_ok = 0;
-				net_cache = luat_heap_malloc(sizeof(net_data_struct) + event.param3);
+				net_cache = luat_heap_malloc(sizeof(net_data_struct) + extern_data.amr_data_len);
 				net_cache->total_len = extern_data.amr_data_len;
 				net_cache->remote_tamp = tamp;
 				net_cache->local_tamp = luat_mcu_tick64_ms();
 				memcpy(net_cache->amr_save_data, p, net_cache->total_len);
 				llist_add_tail(&net_cache->node, &prv_network.download_cache_head);
 				prv_network.remote_ssrc = remote_rtp_head->ssrc;
-				LUAT_DEBUG_PRINT("sync start remote %llu %llu", net_cache->remote_tamp, net_cache->local_tamp);
+				prv_network.remote_ssrc_exsit = 1;
+				LUAT_DEBUG_PRINT("sync start remote %llu %llu %x", net_cache->remote_tamp, net_cache->local_tamp, prv_network.remote_ssrc);
+				luat_start_rtos_timer(prv_network.download_check_timer, 3000, 0);
+				goto RX_DATA_DONE;
 			}
 			else
 			{
@@ -169,7 +183,7 @@ static void airtalk_network_task(void *param)
 			}
 			else
 			{
-				net_cache = luat_heap_malloc(sizeof(net_data_struct) + event.param3);
+				net_cache = luat_heap_malloc(sizeof(net_data_struct) + extern_data.amr_data_len);
 				net_cache->total_len = extern_data.amr_data_len;
 				net_cache->remote_tamp = tamp;
 				net_cache->local_tamp = luat_mcu_tick64_ms();
@@ -205,7 +219,6 @@ static void airtalk_network_task(void *param)
 					}
 				}
 			}
-			luat_airtalk_speech_start_play(prv_network.is_16k);
 			luat_start_rtos_timer(prv_network.download_check_timer, 3000, 0);
 RX_DATA_DONE:
 			prv_network.recv_function((uint8_t *)event.param1, event.param3);
@@ -213,9 +226,8 @@ RX_DATA_DONE:
 		case AIRTALK_EVENT_NETWORK_UPLINK_DATA:
 			if (prv_network.is_ready)
 			{
-TX_DATA_START:
 				record_cache = NULL;
-				luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
+				luat_mutex_lock(prv_network.record_cache_locker);
 				if(!llist_empty(&prv_network.upload_cache_head))
 				{
 					record_cache = (record_data_struct *)prv_network.upload_cache_head.next;
@@ -231,7 +243,7 @@ TX_DATA_START:
 
 					llist_add_tail(&record_cache->node, &prv_network.free_cache_head);
 				}
-				luat_rtos_mutex_unlock(prv_network.record_cache_locker);
+				luat_mutex_unlock(prv_network.record_cache_locker);
 				if (!record_cache)
 				{
 					goto TX_DATA_DONE;
@@ -247,7 +259,7 @@ TX_DATA_START:
 			}
 			else
 			{
-				luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
+				luat_mutex_lock(prv_network.record_cache_locker);
 				while(!llist_empty(&prv_network.upload_cache_head))
 				{
 					record_cache = (record_data_struct *)prv_network.upload_cache_head.next;
@@ -255,7 +267,7 @@ TX_DATA_START:
 					llist_add_tail(&record_cache->node, &prv_network.free_cache_head);
 				}
 				LUAT_DEBUG_PRINT("upload %d, free %d", llist_num(&prv_network.upload_cache_head), llist_num(&prv_network.free_cache_head));
-				luat_rtos_mutex_unlock(prv_network.record_cache_locker);
+				luat_mutex_unlock(prv_network.record_cache_locker);
 			}
 TX_DATA_DONE:
 			record_cache = NULL;
@@ -280,7 +292,7 @@ TX_DATA_DONE:
 			break;
 		case AIRTALK_EVENT_NETWORK_READY_START:
 			local_rtp_head->ssrc = prv_network.local_ssrc;
-			luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
+			luat_mutex_lock(prv_network.record_cache_locker);
 			prv_network.is_ready = 1;
 			while(!llist_empty(&prv_network.upload_cache_head))
 			{
@@ -289,7 +301,7 @@ TX_DATA_DONE:
 				llist_add_tail(&record_cache->node, &prv_network.free_cache_head);
 			}
 			LUAT_DEBUG_PRINT("upload %d, free %d", llist_num(&prv_network.upload_cache_head), llist_num(&prv_network.free_cache_head));
-			luat_rtos_mutex_unlock(prv_network.record_cache_locker);
+			luat_mutex_unlock(prv_network.record_cache_locker);
 			break;
 		case AIRTALK_EVENT_NETWORK_FORCE_SYNC:
 			LUAT_DEBUG_PRINT("sync lost resync!");
@@ -347,61 +359,23 @@ void luat_airtalk_net_force_sync_downlink(void)
 	}
 }
 
-void luat_airtalk_net_save_uplink_head(uint64_t record_time)
+void luat_airtalk_net_uplink_once(uint64_t record_time, uint8_t *data, uint32_t len)
 {
 	if (!prv_network.is_ready) return;
-	luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
-	if (!prv_network.cur_record_node)
+	luat_mutex_lock(prv_network.record_cache_locker);
+	if (llist_empty(&prv_network.free_cache_head))
 	{
-		if (llist_empty(&prv_network.free_cache_head))
-		{
-			LUAT_DEBUG_PRINT("no cache for upload!");
-			luat_rtos_mutex_unlock(prv_network.record_cache_locker);
-			return;
-		}
-		prv_network.cur_record_node = (record_data_struct *)prv_network.free_cache_head.next;
-		llist_del(&prv_network.cur_record_node->node);
-	}
-	prv_network.cur_record_node->local_tamp = record_time;
-	prv_network.cur_record_node->total_len = 0;
-	luat_rtos_mutex_unlock(prv_network.record_cache_locker);
-}
-
-void luat_airtalk_net_save_uplink_data(uint8_t *data, uint32_t len)
-{
-	if (!prv_network.is_ready) return;
-	luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
-	if (!prv_network.cur_record_node)
-	{
-		luat_rtos_mutex_unlock(prv_network.record_cache_locker);
-		LUAT_DEBUG_PRINT("no head!");
+		LUAT_DEBUG_PRINT("no cache for upload!");
+		luat_mutex_unlock(prv_network.record_cache_locker);
 		return;
 	}
-	if (prv_network.cur_record_node->total_len + len <= RECORD_DATA_MAX)
-	{
-		memcpy(prv_network.cur_record_node->save_data + prv_network.cur_record_node->total_len, data, len);
-		prv_network.cur_record_node->total_len += len;
-	}
-	else
-	{
-		LUAT_DEBUG_PRINT("no mem!");
-	}
-	luat_rtos_mutex_unlock(prv_network.record_cache_locker);
-}
-
-void luat_airtalk_net_uplink_once(void)
-{
-	if (!prv_network.is_ready) return;
-	luat_rtos_mutex_lock(prv_network.record_cache_locker, LUAT_WAIT_FOREVER);
-	if (!prv_network.cur_record_node)
-	{
-		luat_rtos_mutex_unlock(prv_network.record_cache_locker);
-		LUAT_DEBUG_PRINT("no head!");
-		return;
-	}
-	llist_add_tail(&prv_network.cur_record_node->node, &prv_network.upload_cache_head);
-	prv_network.cur_record_node = NULL;
-	luat_rtos_mutex_unlock(prv_network.record_cache_locker);
+	record_data_struct *cur_record_node = (record_data_struct *)prv_network.free_cache_head.next;
+	llist_del(&cur_record_node->node);
+	cur_record_node->local_tamp = record_time;
+	cur_record_node->total_len = len;
+	memcpy(cur_record_node->save_data, data, len);
+	llist_add_tail(&cur_record_node->node, &prv_network.upload_cache_head);
+	luat_mutex_unlock(prv_network.record_cache_locker);
 	luat_rtos_event_send(prv_network.task_handle, AIRTALK_EVENT_NETWORK_UPLINK_DATA, 0, 0, 0, 0);
 }
 

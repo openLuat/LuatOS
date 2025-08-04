@@ -641,6 +641,10 @@ static int l_lcd_draw(lua_State* L) {
 		}else{
 			x2 = luaL_checkinteger(L, 3);
 			y2 = luaL_checkinteger(L, 4);
+			if (x2-x1<zbuff->width-1 || y2-y1<zbuff->height-1) {
+				LLOGE("The display area is too small");
+				return 0;
+			}
 		}
         color = (luat_color_t *)zbuff->addr;
     }

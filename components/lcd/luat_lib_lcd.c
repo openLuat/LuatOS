@@ -625,35 +625,35 @@ lcd.draw(20,30,220,30,buff)
 static int l_lcd_draw(lua_State* L) {
     int16_t x1, y1, x2, y2;
     int ret;
-    // luat_color_t *color = NULL;
-    luat_zbuff_t *buff;
+    luat_color_t *color = NULL;
+    
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
-    x2 = luaL_checkinteger(L, 3);
-    y2 = luaL_checkinteger(L, 4);
     if (lcd_dft_conf == NULL) {
       LLOGE("lcd not init");
       return 0;
     }
-    if (lua_isinteger(L, 5)) {
-        // color = (luat_color_t *)luaL_checkstring(L, 5);
-        luat_color_t color = (luat_color_t)luaL_checkinteger(L, 1);
-        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, &color);
-    }
-    else if (lua_isuserdata(L, 5)) {
-        buff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
-        luat_color_t *color = (luat_color_t *)buff->addr;
-        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
+    if (lua_isuserdata(L, 5)) {
+        luat_zbuff_t *zbuff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
+		if (zbuff->width && zbuff->height){
+			x2 = x1+zbuff->width-1;
+			y2 = y1+zbuff->height-1;
+		}else{
+			x2 = luaL_checkinteger(L, 3);
+			y2 = luaL_checkinteger(L, 4);
+		}
+        color = (luat_color_t *)zbuff->addr;
     }
     else if(lua_isstring(L, 5)) {
-        luat_color_t *color = (luat_color_t *)luaL_checkstring(L, 5);
-        ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
+		x2 = luaL_checkinteger(L, 3);
+		y2 = luaL_checkinteger(L, 4);
+        color = (luat_color_t *)luaL_checkstring(L, 5);
     }
     else {
         return 0;
     }
+    ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
     lcd_auto_flush(lcd_dft_conf);
-    // int ret = luat_lcd_draw(lcd_dft_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -1464,24 +1464,24 @@ static int l_lcd_drawxbm(lua_State *L){
     if (len != h*w1)return 0;
     
     if (lcd_dft_conf == NULL) {
-      LLOGE("lcd not init");
-      return 0;
+        LLOGE("lcd not init");
+        return 0;
     }
     luat_color_t* color_w = luat_heap_malloc(sizeof(luat_color_t) * w);
     for (size_t b = 0; b < h; b++){
-      size_t a = 0;
-      while (a < w){
-        for (size_t c = 0; c < 8; c++){
-          if (*data&(mask<<c)){
-            color_w[a]=FORE_COLOR;
-          }else{
-            color_w[a]=BACK_COLOR;
-          }
-          a++;
-          if (a == w)break;
+        size_t a = 0;
+        while (a < w){
+            for (size_t c = 0; c < 8; c++){
+                if (*data&(mask<<c)){
+                    color_w[a]=FORE_COLOR;
+                }else{
+                    color_w[a]=BACK_COLOR;
+                }
+                a++;
+                if (a == w)break;
+            }
+            data++;
         }
-        data++;
-      }
       luat_lcd_draw(lcd_dft_conf, x, y+b, x+w-1, y+b, color_w);
     }
     luat_heap_free(color_w);
@@ -1502,8 +1502,8 @@ lcd.showImage(0,0,"/luadb/logo.jpg")
 */
 int l_lcd_showimage(lua_State *L) {
     if (lcd_dft_conf == NULL) {
-      LLOGE("lcd not init");
-      return 0;
+        LLOGE("lcd not init");
+        return 0;
     }
     size_t size = 0;
     int ret = 0;
@@ -1511,14 +1511,48 @@ int l_lcd_showimage(lua_State *L) {
     int y = luaL_checkinteger(L, 2);
     const char* input_file = luaL_checklstring(L, 3, &size);
     if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
-      ret = lcd_draw_jpeg(lcd_dft_conf, input_file, x, y);
-      lua_pushboolean(L, ret == 0 ? 1 : 0);
+        ret = lcd_draw_jpeg(lcd_dft_conf, input_file, x, y);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
     } else{
-      LLOGE("input_file not support");
-      lua_pushboolean(L, 0);
+        LLOGE("input_file not support");
+        lua_pushboolean(L, 0);
     }
     return 1;
 }
+
+int l_lcd_image2raw(lua_State *L) {
+    if (lcd_dft_conf == NULL) {
+        LLOGE("lcd not init");
+        return 0;
+    }
+    size_t size = 0;
+    int ret = 0;
+    luat_lcd_buff_info_t buff_info = {0};
+    const char* input_file = luaL_checklstring(L, 1, &size);
+    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
+        ret = lcd_jpeg_decode(lcd_dft_conf, input_file, &buff_info);
+        if(ret){
+            goto error;
+        }
+    } else{
+        LLOGE("input_file not support");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    luat_zbuff_t *zbuff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
+	memset(zbuff,0,sizeof(luat_zbuff_t));
+    zbuff->addr = buff_info.buff;
+	zbuff->len = buff_info.len;
+	zbuff->width = buff_info.width;
+	zbuff->height = buff_info.height;
+	zbuff->bit = LUAT_LCD_COLOR_DEPTH;
+	// LLOGD("addr:%p len:%d width:%d height:%d bit:%d ",zbuff->addr,zbuff->len,zbuff->width,zbuff->height,zbuff->bit);
+	luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
+    return 1;
+error:
+    return 0;
+}
+
 #endif
 
 /*
@@ -1890,6 +1924,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawUTF8",   ROREG_FUNC(l_lcd_draw_utf8)},
 #endif
 #ifdef LUAT_USE_TJPGD
+    { "image2raw",    ROREG_FUNC(l_lcd_image2raw)},
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif
 #ifdef LUAT_USE_GTFONT

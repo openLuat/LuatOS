@@ -28,8 +28,8 @@ local mqttc = nil
 
 mqtt_state = false
 
-libnetif.notify_status(function(net_type)
-    log.info("可以使用优先级更高的网络:", net_type)
+libnetif.notify_status(function(net_type, adapter)
+    log.info("可以使用优先级更高的网络:", net_type, adapter)
     sys.publish("mqtt_pub", "close")  --关闭现在的mqtt链接
 end)
 

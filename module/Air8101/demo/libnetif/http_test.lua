@@ -11,8 +11,8 @@
 ]]
 
 -- 如果打算 MQTT+HTTP 同时测试，建议注释掉下段代码，否则会重复打印（MQTT 中也会打印）。
-libnetif.notify_status(function(net_type)
-    log.info("可以使用优先级更高的网络:", net_type)
+libnetif.notify_status(function(net_type, adapter)
+    log.info("可以使用优先级更高的网络:", net_type, adapter)
 end)
 
 sys.taskInit(function()

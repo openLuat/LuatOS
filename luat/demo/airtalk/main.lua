@@ -10,7 +10,8 @@ require "audio_config"
 --errDump.config(true, 600, "airtalk_test")
 mcu.hardfault(0)
 local function key_cb()
-
+    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+    log.info("boot key press once")
 end
 
 --按下boot开始上传，再按下停止，加入了软件去抖，不需要长按了
@@ -33,17 +34,10 @@ local function user_task()
     airtalk_mqtt_init()
     local msg
     while true do
-
         msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        log.info("!!!")
-        if test_ready then
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_REQ, "")   --测试阶段自动给一个device打
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_PERSON_SPEECH_ACK)
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_REQ) 
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_SPEECH_STOP_ACK)
-        end
-
+        sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_TEST_START)   --测试阶段自动给一个device打
+        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+        sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_TEST_END)        --再按一次就自动挂断
     end
 end
 

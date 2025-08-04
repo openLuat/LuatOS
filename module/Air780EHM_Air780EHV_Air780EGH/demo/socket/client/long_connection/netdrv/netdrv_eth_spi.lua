@@ -28,8 +28,7 @@ Air780EXX核心板通过TYPE-C USB口供电（核心板背面的功耗测试开�
 
 local function ip_ready_func()
     log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
-    -- 下面这一行代码临时保留，是为了规避内核固件的一个bug，等内核固件修改bug后，demo中删掉这一行代码
-    socket.dft(socket.LWIP_ETH)
+
 end
 
 local function ip_lose_func()

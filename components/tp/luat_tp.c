@@ -44,12 +44,10 @@ void luat_tp_task_entry(void* param){
         //     last_y = tp_data->y_coordinate;
         // }
         
-
-        if (luat_tp_config->callback == NULL){
-            luat_tp_config->opts->read_done(luat_tp_config);
-        }else{
+        if (luat_tp_config->callback){
             luat_tp_config->callback(luat_tp_config,tp_data);
         }
+        luat_tp_config->opts->read_done(luat_tp_config);
     }
 }
 

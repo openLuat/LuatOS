@@ -127,18 +127,18 @@ static int l_lcd_init(lua_State* L) {
     uint8_t spi_device = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     if (conf == NULL) {
-      LLOGE("out of system memory!!!");
-      return 0;
+        LLOGE("out of system memory!!!");
+        return 0;
     }
     if (lcd_dft_conf != NULL) {
-      LLOGD("lcd was inited, skip");
-      lua_pushboolean(L, 1);
-      return 1;
+        LLOGD("lcd was inited, skip");
+        lua_pushboolean(L, 1);
+        return 1;
     }
 #if defined LUAT_USE_LCD_SERVICE
     uint8_t init_in_service = 0;
     if (lua_isboolean(L, 4)) {
-    	init_in_service = lua_toboolean(L, 4);
+        init_in_service = lua_toboolean(L, 4);
     }
 #endif
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
@@ -160,7 +160,7 @@ static int l_lcd_init(lua_State* L) {
     int16_t s_index = -1;//第几个屏幕，-1表示没匹配到
     for(int i = 0; i < 100; i++){
         if (strlen(lcd_regs[i].name) == 0)
-          break;
+            break;
         if(strcmp(lcd_regs[i].name,tp) == 0){
             s_index = i;
             break;
@@ -189,11 +189,11 @@ static int l_lcd_init(lua_State* L) {
                 }
             }
             if (spi_device == 1 && conf->port != LUAT_LCD_SPI_DEVICE) {
-              LLOGE("port is not device but find luat_spi_device_t");
-              goto end;
+                LLOGE("port is not device but find luat_spi_device_t");
+                goto end;
             }else if (spi_device == 0 && conf->port == LUAT_LCD_SPI_DEVICE){
-              LLOGE("port is device but not find luat_spi_device_t");
-              goto end;
+                LLOGE("port is device but not find luat_spi_device_t");
+                goto end;
             }
             if (conf->port < LUAT_LCD_HW_ID_0 || conf->port == LUAT_LCD_SPI_DEVICE){
                 conf->endianness_swap = 1;
@@ -357,53 +357,53 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
             if (lua_istable(L, -1)) {
-              conf->opts->init_cmds_len = lua_rawlen(L, -1);
-              conf->opts->init_cmds = luat_heap_malloc( conf->opts->init_cmds_len * sizeof(uint16_t));
-              for (size_t i = 1; i <= conf->opts->init_cmds_len; i++){
-                  lua_geti(L, -1, i);
-                  cmd = luaL_checkinteger(L, -1);
-                  conf->opts->init_cmds[i-1] = ((cmd >> 8) & 0xFF00) | (cmd & 0xFF);
-                  lua_pop(L, 1);
-              }
-            }else if(lua_isstring(L, -1)){
-              size_t  len;
-              const char *fail_name = luaL_checklstring(L, -1, &len);
-              FILE* fd = (FILE *)luat_fs_fopen(fail_name, "rb");
-              conf->opts->init_cmds_len = 0;
-              if (fd){
-                  #define INITCMD_BUFF_SIZE 128
-                  char init_cmd_buff[INITCMD_BUFF_SIZE] ;
-                  conf->opts->init_cmds = luat_heap_malloc(sizeof(uint16_t));
-                  while (1) {
-                      memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
-                      int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
-                      if (readline_len < 1)
-                          break;
-                      if (memcmp(init_cmd_buff, "#", 1)==0){
-                          continue;
-                      }
-                      char *token = strtok(init_cmd_buff, ",");
-                      if (sscanf(token,"%x",&cmd) < 1){
-                          continue;
-                      }
-                      conf->opts->init_cmds_len = conf->opts->init_cmds_len + 1;
-                      conf->opts->init_cmds = luat_heap_realloc(conf->opts->init_cmds,conf->opts->init_cmds_len * sizeof(uint16_t));
-                      conf->opts->init_cmds[conf->opts->init_cmds_len-1]=((cmd >> 8) & 0xFF00) | (cmd & 0xFF);;
-                      while( token != NULL ) {
-                          token = strtok(NULL, ",");
-                          if (sscanf(token,"%x",&cmd) < 1){
-                              break;
-                          }
-                          conf->opts->init_cmds_len = conf->opts->init_cmds_len + 1;
-                          conf->opts->init_cmds = luat_heap_realloc(conf->opts->init_cmds,conf->opts->init_cmds_len * sizeof(uint16_t));
-                          conf->opts->init_cmds[conf->opts->init_cmds_len-1]=((cmd >> 8) & 0xFF00) | (cmd & 0xFF);;
-                      }
-                  }
-                  conf->opts->init_cmds[conf->opts->init_cmds_len]= 0;
-                  luat_fs_fclose(fd);
-              }else{
-                  LLOGE("init_cmd fail open error");
-              }
+                conf->opts->init_cmds_len = lua_rawlen(L, -1);
+                conf->opts->init_cmds = luat_heap_malloc( conf->opts->init_cmds_len * sizeof(uint16_t));
+                for (size_t i = 1; i <= conf->opts->init_cmds_len; i++){
+                    lua_geti(L, -1, i);
+                    cmd = luaL_checkinteger(L, -1);
+                    conf->opts->init_cmds[i-1] = ((cmd >> 8) & 0xFF00) | (cmd & 0xFF);
+                    lua_pop(L, 1);
+                }
+                }else if(lua_isstring(L, -1)){
+                size_t  len;
+                const char *fail_name = luaL_checklstring(L, -1, &len);
+                FILE* fd = (FILE *)luat_fs_fopen(fail_name, "rb");
+                conf->opts->init_cmds_len = 0;
+                if (fd){
+                    #define INITCMD_BUFF_SIZE 128
+                    char init_cmd_buff[INITCMD_BUFF_SIZE] ;
+                    conf->opts->init_cmds = luat_heap_malloc(sizeof(uint16_t));
+                    while (1) {
+                        memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
+                        int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
+                        if (readline_len < 1)
+                            break;
+                        if (memcmp(init_cmd_buff, "#", 1)==0){
+                            continue;
+                        }
+                        char *token = strtok(init_cmd_buff, ",");
+                        if (sscanf(token,"%x",&cmd) < 1){
+                            continue;
+                        }
+                        conf->opts->init_cmds_len = conf->opts->init_cmds_len + 1;
+                        conf->opts->init_cmds = luat_heap_realloc(conf->opts->init_cmds,conf->opts->init_cmds_len * sizeof(uint16_t));
+                        conf->opts->init_cmds[conf->opts->init_cmds_len-1]=((cmd >> 8) & 0xFF00) | (cmd & 0xFF);;
+                        while( token != NULL ) {
+                            token = strtok(NULL, ",");
+                            if (sscanf(token,"%x",&cmd) < 1){
+                                break;
+                            }
+                            conf->opts->init_cmds_len = conf->opts->init_cmds_len + 1;
+                            conf->opts->init_cmds = luat_heap_realloc(conf->opts->init_cmds,conf->opts->init_cmds_len * sizeof(uint16_t));
+                            conf->opts->init_cmds[conf->opts->init_cmds_len-1]=((cmd >> 8) & 0xFF00) | (cmd & 0xFF);;
+                        }
+                    }
+                    conf->opts->init_cmds[conf->opts->init_cmds_len]= 0;
+                    luat_fs_fclose(fd);
+                }else{
+                    LLOGE("init_cmd fail open error");
+                }
             }
             lua_pop(L, 1);
         }
@@ -421,7 +421,7 @@ static int l_lcd_init(lua_State* L) {
         } else 
 #endif
         {
-        	ret = luat_lcd_init(conf);
+            ret = luat_lcd_init(conf);
         }
 
         if (ret != 0) {
@@ -630,8 +630,8 @@ static int l_lcd_draw(lua_State* L) {
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     if (lcd_dft_conf == NULL) {
-      LLOGE("lcd not init");
-      return 0;
+        LLOGE("lcd not init");
+        return 0;
     }
     if (lua_isuserdata(L, 5)) {
         luat_zbuff_t *zbuff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
@@ -639,18 +639,18 @@ static int l_lcd_draw(lua_State* L) {
 			x2 = x1+zbuff->width-1;
 			y2 = y1+zbuff->height-1;
 		}else{
-			x2 = luaL_checkinteger(L, 3);
-			y2 = luaL_checkinteger(L, 4);
-			if (x2-x1<zbuff->width-1 || y2-y1<zbuff->height-1) {
-				LLOGE("The display area is too small");
-				return 0;
-			}
-		}
+            x2 = luaL_checkinteger(L, 3);
+            y2 = luaL_checkinteger(L, 4);
+                if (x2-x1<zbuff->width-1 || y2-y1<zbuff->height-1) {
+                    LLOGE("The display area is too small");
+                    return 0;
+                }
+            }
         color = (luat_color_t *)zbuff->addr;
     }
     else if(lua_isstring(L, 5)) {
-		x2 = luaL_checkinteger(L, 3);
-		y2 = luaL_checkinteger(L, 4);
+        x2 = luaL_checkinteger(L, 3);
+        y2 = luaL_checkinteger(L, 4);
         color = (luat_color_t *)luaL_checkstring(L, 5);
     }
     else {
@@ -870,187 +870,183 @@ static uint16_t utf8_next(uint8_t b)
 {
   if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
     return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
-  if ( utf8_state == 0 )
-  {
-    if ( b >= 0xfc )  /* 6 byte sequence */
-    {
-      utf8_state = 5;
-      b &= 1;
+    if ( utf8_state == 0 ){
+        if ( b >= 0xfc )  /* 6 byte sequence */
+        {
+            utf8_state = 5;
+            b &= 1;
+        }
+        else if ( b >= 0xf8 )
+        {
+            utf8_state = 4;
+            b &= 3;
+        }
+        else if ( b >= 0xf0 )
+        {
+            utf8_state = 3;
+            b &= 7;
+        }
+        else if ( b >= 0xe0 )
+        {
+            utf8_state = 2;
+            b &= 15;
+        }
+        else if ( b >= 0xc0 )
+        {
+            utf8_state = 1;
+            b &= 0x01f;
+        }
+        else
+        {
+            /* do nothing, just use the value as encoding */
+            return b;
+        }
+        encoding = b;
+        return 0x0fffe;
+    } else {
+        utf8_state--;
+        /* The case b < 0x080 (an illegal UTF8 encoding) is not checked here. */
+        encoding<<=6;
+        b &= 0x03f;
+        encoding |= b;
+        if ( utf8_state != 0 )
+        return 0x0fffe; /* nothing to do yet */
     }
-    else if ( b >= 0xf8 )
-    {
-      utf8_state = 4;
-      b &= 3;
-    }
-    else if ( b >= 0xf0 )
-    {
-      utf8_state = 3;
-      b &= 7;
-    }
-    else if ( b >= 0xe0 )
-    {
-      utf8_state = 2;
-      b &= 15;
-    }
-    else if ( b >= 0xc0 )
-    {
-      utf8_state = 1;
-      b &= 0x01f;
-    }
-    else
-    {
-      /* do nothing, just use the value as encoding */
-      return b;
-    }
-    encoding = b;
-    return 0x0fffe;
-  }
-  else
-  {
-    utf8_state--;
-    /* The case b < 0x080 (an illegal UTF8 encoding) is not checked here. */
-    encoding<<=6;
-    b &= 0x03f;
-    encoding |= b;
-    if ( utf8_state != 0 )
-      return 0x0fffe; /* nothing to do yet */
-  }
-  return encoding;
+    return encoding;
 }
 
 static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, uint8_t dir, uint16_t color){
-  switch(dir)
-  {
+    switch(dir){
     case 0:
-      luat_lcd_draw_hline(lcd_dft_conf,x,y,len,color);
-      break;
+    luat_lcd_draw_hline(lcd_dft_conf,x,y,len,color);
+    break;
     case 1:
-      luat_lcd_draw_vline(lcd_dft_conf,x,y,len,color);
-      break;
+    luat_lcd_draw_vline(lcd_dft_conf,x,y,len,color);
+    break;
     case 2:
         luat_lcd_draw_hline(lcd_dft_conf,x-len+1,y,len,color);
-      break;
+    break;
     case 3:
-      luat_lcd_draw_vline(lcd_dft_conf,x,y-len+1,len,color);
-      break;
-  }
+    luat_lcd_draw_vline(lcd_dft_conf,x,y-len+1,len,color);
+    break;
+    }
 }
 
 static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foreground){
-  uint8_t cnt;  /* total number of remaining pixels, which have to be drawn */
-  uint8_t rem;  /* remaining pixel to the right edge of the glyph */
-  uint8_t current;  /* number of pixels, which need to be drawn for the draw procedure */
+    uint8_t cnt;  /* total number of remaining pixels, which have to be drawn */
+    uint8_t rem;  /* remaining pixel to the right edge of the glyph */
+    uint8_t current;  /* number of pixels, which need to be drawn for the draw procedure */
     /* current is either equal to cnt or equal to rem */
-  /* local coordinates of the glyph */
-  uint8_t lx,ly;
-  /* target position on the screen */
-  int16_t x, y;
-  u8g2_font_decode_t *decode = &(u8g2->font_decode);
-  cnt = len;
-  /* get the local position */
-  lx = decode->x;
-  ly = decode->y;
-  for(;;){
-    /* calculate the number of pixel to the right edge of the glyph */
-    rem = decode->glyph_width;
-    rem -= lx;
-    /* calculate how many pixel to draw. This is either to the right edge */
-    /* or lesser, if not enough pixel are left */
-    current = rem;
-    if ( cnt < rem )
-      current = cnt;
-    /* now draw the line, but apply the rotation around the glyph target position */
-    //u8g2_font_decode_draw_pixel(u8g2, lx,ly,current, is_foreground);
-    // printf("lx:%d,ly:%d,current:%d, is_foreground:%d \r\n",lx,ly,current, is_foreground);
-    /* get target position */
-    x = decode->target_x;
-    y = decode->target_y;
-    /* apply rotation */
-    x = u8g2_add_vector_x(x, lx, ly, decode->dir);
-    y = u8g2_add_vector_y(y, lx, ly, decode->dir);
-    /* draw foreground and background (if required) */
-    if ( current > 0 )		/* avoid drawing zero length lines, issue #4 */
-    {
-      if ( is_foreground )
-      {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, FORE_COLOR);
-      }
-      // else if ( decode->is_transparent == 0 )
-      // {
-	    // u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, BACK_COLOR);
-      // }
+    /* local coordinates of the glyph */
+    uint8_t lx,ly;
+    /* target position on the screen */
+    int16_t x, y;
+    u8g2_font_decode_t *decode = &(u8g2->font_decode);
+    cnt = len;
+    /* get the local position */
+    lx = decode->x;
+    ly = decode->y;
+    for(;;){
+        /* calculate the number of pixel to the right edge of the glyph */
+        rem = decode->glyph_width;
+        rem -= lx;
+        /* calculate how many pixel to draw. This is either to the right edge */
+        /* or lesser, if not enough pixel are left */
+        current = rem;
+        if ( cnt < rem )
+            current = cnt;
+        /* now draw the line, but apply the rotation around the glyph target position */
+        //u8g2_font_decode_draw_pixel(u8g2, lx,ly,current, is_foreground);
+        // printf("lx:%d,ly:%d,current:%d, is_foreground:%d \r\n",lx,ly,current, is_foreground);
+        /* get target position */
+        x = decode->target_x;
+        y = decode->target_y;
+        /* apply rotation */
+        x = u8g2_add_vector_x(x, lx, ly, decode->dir);
+        y = u8g2_add_vector_y(y, lx, ly, decode->dir);
+        /* draw foreground and background (if required) */
+        if ( current > 0 )		/* avoid drawing zero length lines, issue #4 */
+        {
+            if ( is_foreground )
+            {
+                u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, FORE_COLOR);
+            }
+            // else if ( decode->is_transparent == 0 )
+            // {
+                // u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, BACK_COLOR);
+            // }
+        }
+        /* check, whether the end of the run length code has been reached */
+        if ( cnt < rem )
+            break;
+        cnt -= rem;
+        lx = 0;
+        ly++;
     }
-    /* check, whether the end of the run length code has been reached */
-    if ( cnt < rem )
-      break;
-    cnt -= rem;
-    lx = 0;
-    ly++;
-  }
-  lx += cnt;
-  decode->x = lx;
-  decode->y = ly;
+    lx += cnt;
+    decode->x = lx;
+    decode->y = ly;
 }
 static void u8g2_font_setup_decode(u8g2_t *u8g2, const uint8_t *glyph_data)
 {
-  u8g2_font_decode_t *decode = &(u8g2->font_decode);
-  decode->decode_ptr = glyph_data;
-  decode->decode_bit_pos = 0;
+    u8g2_font_decode_t *decode = &(u8g2->font_decode);
+    decode->decode_ptr = glyph_data;
+    decode->decode_bit_pos = 0;
 
-  /* 8 Nov 2015, this is already done in the glyph data search procedure */
-  /*
-  decode->decode_ptr += 1;
-  decode->decode_ptr += 1;
-  */
+    /* 8 Nov 2015, this is already done in the glyph data search procedure */
+    /*
+    decode->decode_ptr += 1;
+    decode->decode_ptr += 1;
+    */
 
-  decode->glyph_width = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_char_width);
-  decode->glyph_height = u8g2_font_decode_get_unsigned_bits(decode,u8g2->font_info.bits_per_char_height);
+    decode->glyph_width = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_char_width);
+    decode->glyph_height = u8g2_font_decode_get_unsigned_bits(decode,u8g2->font_info.bits_per_char_height);
 
 }
 static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
-  uint8_t a, b;
-  int8_t x, y;
-  int8_t d;
-  int8_t h;
-  u8g2_font_decode_t *decode = &(u8g2->font_decode);
-  u8g2_font_setup_decode(u8g2, glyph_data);
-  h = u8g2->font_decode.glyph_height;
-  x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
-  y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
-  d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
+    uint8_t a, b;
+    int8_t x, y;
+    int8_t d;
+    int8_t h;
+    u8g2_font_decode_t *decode = &(u8g2->font_decode);
+    u8g2_font_setup_decode(u8g2, glyph_data);
+    h = u8g2->font_decode.glyph_height;
+    x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
+    y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
+    d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
 
-  if ( decode->glyph_width > 0 )
-  {
-    decode->target_x = u8g2_add_vector_x(decode->target_x, x, -(h+y), decode->dir);
-    decode->target_y = u8g2_add_vector_y(decode->target_y, x, -(h+y), decode->dir);
-    //u8g2_add_vector(&(decode->target_x), &(decode->target_y), x, -(h+y), decode->dir);
-    /* reset local x/y position */
-    decode->x = 0;
-    decode->y = 0;
-    /* decode glyph */
-    for(;;){
-      a = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_0);
-      b = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_1);
-      do{
-        u8g2_font_decode_len(u8g2, a, 0);
-        u8g2_font_decode_len(u8g2, b, 1);
-      } while( u8g2_font_decode_get_unsigned_bits(decode, 1) != 0 );
-      if ( decode->y >= h )
-        break;
+    if ( decode->glyph_width > 0 )
+    {
+        decode->target_x = u8g2_add_vector_x(decode->target_x, x, -(h+y), decode->dir);
+        decode->target_y = u8g2_add_vector_y(decode->target_y, x, -(h+y), decode->dir);
+        //u8g2_add_vector(&(decode->target_x), &(decode->target_y), x, -(h+y), decode->dir);
+        /* reset local x/y position */
+        decode->x = 0;
+        decode->y = 0;
+        /* decode glyph */
+        for(;;){
+        a = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_0);
+        b = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_1);
+        do{
+            u8g2_font_decode_len(u8g2, a, 0);
+            u8g2_font_decode_len(u8g2, b, 1);
+        } while( u8g2_font_decode_get_unsigned_bits(decode, 1) != 0 );
+        if ( decode->y >= h )
+            break;
+        }
     }
-  }
-  return d;
+    return d;
 }
 const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
 static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t encoding){
-  int16_t dx = 0;
-  u8g2->font_decode.target_x = x;
-  u8g2->font_decode.target_y = y;
-  const uint8_t *glyph_data = u8g2_font_get_glyph_data(u8g2, encoding);
-  if ( glyph_data != NULL ){
-    dx = u8g2_font_decode_glyph(u8g2, glyph_data);
-  }
-  return dx;
+    int16_t dx = 0;
+    u8g2->font_decode.target_x = x;
+    u8g2->font_decode.target_y = y;
+    const uint8_t *glyph_data = u8g2_font_get_glyph_data(u8g2, encoding);
+    if ( glyph_data != NULL ){
+        dx = u8g2_font_decode_glyph(u8g2, glyph_data);
+    }
+    return dx;
 }
 extern void luat_u8g2_set_ascii_indentation(uint8_t value);
 /*
@@ -1073,25 +1069,25 @@ lcd.drawStr(40,40,"drawStr测试")
 */
 static int l_lcd_set_font(lua_State *L) {
     if (!lua_islightuserdata(L, 1)) {
-      LLOGE("only font pointer is allow");
-      return 0;
+        LLOGE("only font pointer is allow");
+        return 0;
     }
     const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);
     if (ptr == NULL) {
-      LLOGE("only font pointer is allow");
-      return 0;
+        LLOGE("only font pointer is allow");
+        return 0;
     }
 
     if (lcd_dft_conf == NULL) {
-      LLOGE("lcd not init");
-      return 0;
+        LLOGE("lcd not init");
+        return 0;
     }
 
     luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), ptr);
     if (lua_isinteger(L, 2)) {
         int indentation = luaL_checkinteger(L, 2);
-    	  luat_u8g2_set_ascii_indentation(indentation);
+        luat_u8g2_set_ascii_indentation(indentation);
     }
     lua_pushboolean(L, 1);
     return 1;
@@ -1124,8 +1120,8 @@ static int l_lcd_draw_str(lua_State* L) {
     if (sz == 0)
         return 0;
     if (lcd_dft_conf == NULL) {
-      LLOGE("lcd not init");
-      return 0;
+        LLOGE("lcd not init");
+        return 0;
     }
     uint16_t e;
     int16_t delta;
@@ -1196,7 +1192,7 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
 	int y = luaL_checkinteger(L, 4);
     FORE_COLOR = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
     // BACK_COLOR = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
-  
+
     if (lcd_dft_conf == NULL) {
         LLOGE("lcd not init");
         return 0;
@@ -1404,7 +1400,7 @@ static int l_lcd_set_default(lua_State *L) {
 
 static int l_lcd_get_default(lua_State *L) {
     if (lcd_dft_conf == NULL)
-      return 0;
+        return 0;
     lua_pushlightuserdata(L, lcd_dft_conf);
     return 1;
 }
@@ -1418,23 +1414,23 @@ static int l_lcd_get_default(lua_State *L) {
 log.info("lcd", "size", lcd.getSize())
 */
 static int l_lcd_get_size(lua_State *L) {
-  if (lua_gettop(L) == 1) {
-    luat_lcd_conf_t * conf = lua_touserdata(L, 1);
-    if (conf) {
-      lua_pushinteger(L, conf->w);
-      lua_pushinteger(L, conf->h);
-      return 2;
+    if (lua_gettop(L) == 1) {
+        luat_lcd_conf_t * conf = lua_touserdata(L, 1);
+        if (conf) {
+            lua_pushinteger(L, conf->w);
+            lua_pushinteger(L, conf->h);
+            return 2;
+        }
     }
-  }
-  if (lcd_dft_conf == NULL) {
-    lua_pushinteger(L, 0);
-    lua_pushinteger(L, 0);
-  }
-  else {
-    lua_pushinteger(L, lcd_dft_conf->w);
-    lua_pushinteger(L, lcd_dft_conf->h);
-  }
-  return 2;
+    if (lcd_dft_conf == NULL) {
+        lua_pushinteger(L, 0);
+        lua_pushinteger(L, 0);
+    }
+    else {
+        lua_pushinteger(L, lcd_dft_conf->w);
+        lua_pushinteger(L, lcd_dft_conf->h);
+    }
+    return 2;
 }
 
 /*
@@ -1486,7 +1482,7 @@ static int l_lcd_drawxbm(lua_State *L){
             }
             data++;
         }
-      luat_lcd_draw(lcd_dft_conf, x, y+b, x+w-1, y+b, color_w);
+        luat_lcd_draw(lcd_dft_conf, x, y+b, x+w-1, y+b, color_w);
     }
     luat_heap_free(color_w);
     lcd_auto_flush(lcd_dft_conf);
@@ -1610,41 +1606,41 @@ static int l_lcd_flush(lua_State* L) {
 lcd.setupBuff()
 */
 static int l_lcd_setup_buff(lua_State* L) {
-  luat_lcd_conf_t * conf = NULL;
-  if (lua_gettop(L) == 1) {
-    conf = lua_touserdata(L, 1);
-  }
-  else {
-    conf = lcd_dft_conf;
-  }
-  if (conf == NULL) {
-    LLOGW("lcd not init");
-    return 0;
-  }
-  if (conf->buff != NULL && conf->buff_ex != NULL) {
-    LLOGI("lcd buff is aready exist");
-    return 0;
-  }
-  if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
-    luat_lcd_setup_buff(conf);
-  }
-  else {
-    conf->buff = lua_newuserdata(L, sizeof(luat_color_t) * conf->w * conf->h);
-    if (conf->buff) {
-      conf->buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    luat_lcd_conf_t * conf = NULL;
+    if (lua_gettop(L) == 1) {
+        conf = lua_touserdata(L, 1);
     }
-  }
-  if (conf->buff == NULL) {
-    LLOGE("lcd buff malloc fail, out of memory? size %d", sizeof(luat_color_t) * conf->w * conf->h);
-    return 0;
-  }
-  // 先设置为不需要的区间
-  conf->flush_y_min = conf->h;
-  conf->flush_y_max = 0;
-  // luat_lcd_clear 会将区域扩展到整个屏幕
-  luat_lcd_clear(lcd_dft_conf, BACK_COLOR);
-  lua_pushboolean(L, 1);
-  return 1;
+    else {
+        conf = lcd_dft_conf;
+    }
+    if (conf == NULL) {
+        LLOGW("lcd not init");
+        return 0;
+    }
+    if (conf->buff != NULL && conf->buff_ex != NULL) {
+        LLOGI("lcd buff is aready exist");
+        return 0;
+    }
+    if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
+        luat_lcd_setup_buff(conf);
+    }
+    else {
+        conf->buff = lua_newuserdata(L, sizeof(luat_color_t) * conf->w * conf->h);
+        if (conf->buff) {
+        conf->buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    if (conf->buff == NULL) {
+        LLOGE("lcd buff malloc fail, out of memory? size %d", sizeof(luat_color_t) * conf->w * conf->h);
+        return 0;
+    }
+    // 先设置为不需要的区间
+    conf->flush_y_min = conf->h;
+    conf->flush_y_max = 0;
+    // luat_lcd_clear 会将区域扩展到整个屏幕
+    luat_lcd_clear(lcd_dft_conf, BACK_COLOR);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /*
@@ -1658,14 +1654,14 @@ lcd.autoFlush(false)
 -- 禁止自动更新后, 需要使用 lcd.flush() 主动刷新数据到屏幕
 */
 static int l_lcd_auto_flush(lua_State* L) {
-  luat_lcd_conf_t * conf = lcd_dft_conf;
-  if (conf == NULL) {
-    LLOGW("lcd not init");
-    return 0;
-  }
-  conf->auto_flush = lua_toboolean(L, 1);
-  lua_pushboolean(L, conf->auto_flush);
-  return 1;
+    luat_lcd_conf_t * conf = lcd_dft_conf;
+    if (conf == NULL) {
+        LLOGW("lcd not init");
+        return 0;
+    }
+    conf->auto_flush = lua_toboolean(L, 1);
+    lua_pushboolean(L, conf->auto_flush);
+    return 1;
 }
 
 /*
@@ -1699,36 +1695,36 @@ local green = lcd.rgb565(0x00, 0xFF, 0x00, true)
 local blue = lcd.rgb565(0x00, 0x00, 0xFF, true)
 */
 static int l_lcd_rgb565(lua_State* L) {
-  uint8_t r =0,g =0,b = 0;
-  uint8_t swap = 0;
-  uint16_t dst = 0;
-  int top = 0 ;
-  uint32_t rgb = 0;
-  top = lua_gettop(L);
-  if (top == 1 || top == 2) {
-    rgb = luaL_checkinteger(L, 1);
-    r = (uint8_t)((rgb >> 16 ) & 0xFF);
-    g = (uint8_t)((rgb >> 8 ) & 0xFF);
-    b = (uint8_t)((rgb >> 0 ) & 0xFF);
-    swap = (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) ? 0U : 1U;
-  }
-  else if (top == 3 || top == 4) {
-    r = (uint8_t)luaL_checkinteger(L, 1);
-    g = (uint8_t)luaL_checkinteger(L, 2);
-    b = (uint8_t)luaL_checkinteger(L, 3);
-    swap = (lua_isboolean(L, 4) && !lua_toboolean(L, 4)) ? 0U : 1U;
-  }
-  else {
-    LLOGW("unkown args count %d", top);
-    dst = 0;
-  }
-  dst = (uint16_t)((r&0xF8)<<8) | (uint16_t)((g&0xFC)<<3) | (uint16_t)(b>>3);
+    uint8_t r =0,g =0,b = 0;
+    uint8_t swap = 0;
+    uint16_t dst = 0;
+    int top = 0 ;
+    uint32_t rgb = 0;
+    top = lua_gettop(L);
+    if (top == 1 || top == 2) {
+        rgb = luaL_checkinteger(L, 1);
+        r = (uint8_t)((rgb >> 16 ) & 0xFF);
+        g = (uint8_t)((rgb >> 8 ) & 0xFF);
+        b = (uint8_t)((rgb >> 0 ) & 0xFF);
+        swap = (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) ? 0U : 1U;
+    }
+    else if (top == 3 || top == 4) {
+        r = (uint8_t)luaL_checkinteger(L, 1);
+        g = (uint8_t)luaL_checkinteger(L, 2);
+        b = (uint8_t)luaL_checkinteger(L, 3);
+        swap = (lua_isboolean(L, 4) && !lua_toboolean(L, 4)) ? 0U : 1U;
+    }
+    else {
+        LLOGW("unkown args count %d", top);
+        dst = 0;
+    }
+    dst = (uint16_t)((r&0xF8)<<8) | (uint16_t)((g&0xFC)<<3) | (uint16_t)(b>>3);
 
-  if (swap) {
-    dst = ((dst >> 8) & 0xFF) + ((dst & 0xFF) << 8);
-  }
-  lua_pushinteger(L, dst);
-  return 1;
+    if (swap) {
+        dst = ((dst >> 8) & 0xFF) + ((dst & 0xFF) << 8);
+    }
+    lua_pushinteger(L, dst);
+    return 1;
 }
 #ifdef LUAT_USE_UFONT
 #include "luat_ufont.h"
@@ -1750,8 +1746,8 @@ static const int l_lcd_draw_utf8(lua_State *L) {
     // 字体指针
     lv_font_t* lfont = (lv_font_t*)lua_touserdata(L, 4);
     if (lfont == NULL) {
-       LLOGW("draw without font");
-       return 0;
+        LLOGW("draw without font");
+        return 0;
     }
     luat_font_header_t* font = (luat_font_header_t*)lfont->dsc;
     // 是否填充背景
@@ -1759,24 +1755,24 @@ static const int l_lcd_draw_utf8(lua_State *L) {
 
     // 没内容, 不需要画了
     if (sz == 0) {
-      // 直接返回原坐标
-      lua_pushinteger(L, x);
-      return 1;
+        // 直接返回原坐标
+        lua_pushinteger(L, x);
+        return 1;
     }
 
     // 没字体, 不需要画了
     if (font == NULL) {
-      LLOGD("NULL font, skip draw");
-      // 直接返回原坐标
-      lua_pushinteger(L, x);
-      return 1;
+        LLOGD("NULL font, skip draw");
+        // 直接返回原坐标
+        lua_pushinteger(L, x);
+        return 1;
     }
     // 超边界了没? 超了就没必要绘制了
     if (lcd_dft_conf->h < y || lcd_dft_conf->w < x) {
-      //LLOGD("draw y %d h % font->line_height %d", y, lcd_dft_conf->h, font->line_height);
-      // 直接返回原坐标
-      lua_pushinteger(L, x);
-      return 1;
+        //LLOGD("draw y %d h % font->line_height %d", y, lcd_dft_conf->h, font->line_height);
+        // 直接返回原坐标
+        lua_pushinteger(L, x);
+        return 1;
     }
 
     luat_color_t* buff = NULL;
@@ -1812,27 +1808,26 @@ static const int l_lcd_draw_utf8(lua_State *L) {
         draw_x = x + draw_offset;
         draw_offset += desc.char_w;
         if (draw_x >= 0 &&  draw_x + desc.char_w <= lcd_dft_conf->w) {
-          //if (lcd_dft_conf->buff == NULL) {
+            //if (lcd_dft_conf->buff == NULL) {
             for (size_t j = 0; j < font->line_height; j++)
             {
               //LLOGD("draw char pix line %d", i);
-              for (size_t k = 0; k < desc.char_w; k++)
-              {
-                if ((desc.data[offset / 8] >> (7 - (offset % 8))) & 0x01) {
-                  color = FORE_COLOR;
-                  if (buff)
-                    buff[offset] = FORE_COLOR;
-                  else
-                    luat_lcd_draw_point(lcd_dft_conf, draw_x + k, y + j, FORE_COLOR);
-                  //LLOGD("draw char pix mark %d", offset);
+                for (size_t k = 0; k < desc.char_w; k++)
+                {
+                    if ((desc.data[offset / 8] >> (7 - (offset % 8))) & 0x01) {
+                        color = FORE_COLOR;
+                        if (buff)
+                            buff[offset] = FORE_COLOR;
+                        else
+                            luat_lcd_draw_point(lcd_dft_conf, draw_x + k, y + j, FORE_COLOR);
+                        //LLOGD("draw char pix mark %d", offset);
+                    }else {
+                        if (buff)
+                            buff[offset] = BACK_COLOR;
+                        //LLOGD("draw char pix offset %d color %04X", offset, FORE_COLOR);
+                    }
+                    offset ++;
                 }
-                else {
-                  if (buff)
-                    buff[offset] = BACK_COLOR;
-                  //LLOGD("draw char pix offset %d color %04X", offset, FORE_COLOR);
-                }
-                offset ++;
-              }
             }
             //LLOGD("luat_lcd_draw %d %d %d %d", draw_x, y, draw_x + desc.char_w, y + font->line_height);
             luat_lcd_draw(lcd_dft_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
@@ -1843,7 +1838,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
         }
     }
     if (buff)
-      luat_heap_free(buff);
+        luat_heap_free(buff);
 
     lcd_auto_flush(lcd_dft_conf);
     lua_pushinteger(L, draw_x + desc.char_w);
@@ -1892,7 +1887,7 @@ static int l_lcd_user_ctrl_done(lua_State* L)
 	lcd_dft_conf->is_init_done = 1;
 	if (LUAT_LCD_IM_QSPI_MODE == lcd_dft_conf->interface_mode) {
 		if (luat_lcd_qspi_is_no_ram(lcd_dft_conf)) {
-		    luat_lcd_qspi_auto_flush_on_off(lcd_dft_conf, 1);
+            luat_lcd_qspi_auto_flush_on_off(lcd_dft_conf, 1);
 		}
 	}
 	return 0;
@@ -2082,7 +2077,7 @@ static const rotable_Reg_t reg_lcd[] =
 	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
 	//@const 8080_MODE 8080模式
 	{ "8080_MODE",                ROREG_INT(LUAT_LCD_IM_8080_MODE)},
-	  {NULL, ROREG_INT(0)}
+	{NULL, ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_lcd( lua_State *L ) {

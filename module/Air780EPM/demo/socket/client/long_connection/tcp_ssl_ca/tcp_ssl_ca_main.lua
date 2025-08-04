@@ -3,7 +3,7 @@
 @summary tcp_ssl_ca client socket主应用功能模块
 @version 1.0
 @date    2025.07.31
-@author  mw
+@author  孟伟
 @usage
 本文件为tcp_ssl_ca client socket主应用功能模块，核心业务逻辑为：
 1、创建一个tcp_ssl_ca client socket，连接server；

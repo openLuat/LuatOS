@@ -3,7 +3,7 @@
 @summary 多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 @version 1.0
 @date    2025.07.31
-@author  mw
+@author  孟伟
 @usage
 本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用libnetif.set_priority_order配置多网卡的控制参数以及优先级；

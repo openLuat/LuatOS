@@ -3,7 +3,7 @@
 @summary udp client socket数据发送应用功能模块
 @version 1.0
 @date    2025.07.31
-@author  mw
+@author  孟伟
 @usage
 本文件为udp client socket数据发送应用功能模块，核心业务逻辑为：
 1、sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)订阅"SEND_DATA_REQ"消息，将其他应用模块需要发送的数据存储到队列send_queue中；

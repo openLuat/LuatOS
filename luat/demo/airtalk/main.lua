@@ -1,15 +1,17 @@
 PROJECT = "airtalk_demo"
 VERSION = "1.0.1"
 PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+_G.sys=require"sys"
 log.style(1)
 require "demo_define"
-require "airtalk_net_ctrl"
+require "airtalk_dev_ctrl"
 require "audio_config"
 
-errDump.config(true, 600, "airtalk_test")
-
+--errDump.config(true, 600, "airtalk_test")
+mcu.hardfault(0)
 local function key_cb()
-
+    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+    log.info("boot key press once")
 end
 
 --按下boot开始上传，再按下停止，加入了软件去抖，不需要长按了
@@ -32,20 +34,10 @@ local function user_task()
     airtalk_mqtt_init()
     local msg
     while true do
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_READY)
-        log.info("airtalk准备好了")
-        test_ready = true
-        while test_ready do
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-            if test_ready then
-                sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_REQ, "")   --测试阶段自动给一个device打
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_PERSON_SPEECH_ACK)
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-                sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_REQ) 
-                msg = sys.waitMsg(USER_TASK_NAME, MSG_SPEECH_STOP_ACK)
-            end
-        end
-        log.info("airtalk断线了")
+        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+        sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_TEST_START)   --测试阶段自动给一个device打
+        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+        sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_TEST_END)        --再按一次就自动挂断
     end
 end
 
@@ -54,7 +46,7 @@ sys.taskInitEx(user_task, USER_TASK_NAME, task_cb)
 --定期检查ram使用情况，及时发现内存泄露
 sys.taskInit(function()
     while true do
-        sys.wait(5000)
+        sys.wait(500000)
         log.info("time", os.time())
         log.info("lua", rtos.meminfo("lua"))
         log.info("sys", rtos.meminfo("sys"))

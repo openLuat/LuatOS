@@ -33,7 +33,7 @@ static const tp_reg_t tp_regs[] = {
 	{"jd9261t_inited",  &tp_config_jd9261t_inited},
 	{"ft3x68", &tp_config_ft3x68},
     {"cst820", &tp_config_cst820},
-    // {"cst9220", &tp_config_cst820},
+    {"cst9220", &tp_config_cst92xx},
     {"", NULL}
 };
 
@@ -77,20 +77,19 @@ static int l_tp_handler(lua_State* L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
-    luat_tp_config->opts->read_done(luat_tp_config);
     return 0;
 }
 
 int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data){
-	for(uint8_t i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
+	uint8_t i = 0;
+    for(i = 0; i < LUAT_TP_TOUCH_MAX; i++) {
 		if (luat_tp_data[i].event != TP_EVENT_TYPE_NONE) {
-		    rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
-		    luat_msgbus_put(&msg, 1);
-		    return 0;
-		}
-	}
-    luat_tp_config->opts->read_done(luat_tp_config);
-	return -1;
+            rtos_msg_t msg = {.handler = l_tp_handler, .ptr=luat_tp_config, .arg1=luat_tp_data};
+            luat_msgbus_put(&msg, 1);
+            return 0;
+        }
+    }
+    return -1;
 }
 
 /*

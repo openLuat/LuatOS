@@ -13,10 +13,11 @@
 #define CST820_CHIP_ID               (0xA7)
 #define CST820_STATUS                (0x02)
 #define CST820_POINT1_REG            (0x03)
+#define CST820_NORSCANPER_REG        (0xEE)
 
 #define CST820_POINT_INFO_NUM        (4)
 #define CST820_TOUCH_NUMBER_MIN      (1)
-#define CST820_TOUCH_NUMBER_MAX      (2)
+#define CST820_TOUCH_NUMBER_MAX      (1)
 
 #define CST820_REFRESH_RATE_MIN      (5)
 #define CST820_REFRESH_RATE_MAX      (20)
@@ -41,14 +42,6 @@ typedef struct luat_touch_info{
 }luat_tp_info_t;
 
 static uint8_t cst820_init_state = 0;
-
-int tp_cst820_clear_status(luat_tp_config_t* luat_tp_config){
-	if (tp_i2c_write_reg16(luat_tp_config, CST820_STATUS, (uint8_t[]){0x00}, 1)){
-		LLOGE("write status reg fail!");
-		return -1;
-	}
-	return 0;
-}
 
 static int tp_cst820_detect(luat_tp_config_t* luat_tp_config){
     uint8_t chip_id = 0;
@@ -104,6 +97,8 @@ static int tp_cst820_init(luat_tp_config_t* luat_tp_config){
     }
 
     luat_rtos_task_sleep(20);
+	tp_i2c_write_reg8(luat_tp_config, CST820_NORSCANPER_REG, (uint8_t[]){0x02}, 1);
+
     luat_tp_config->int_type = Luat_GPIO_FALLING;
 
     luat_gpio_t gpio = {0};
@@ -138,16 +133,17 @@ static void tp_cst820_read_done(luat_tp_config_t * luat_tp_config){
 // cst820 get tp info.
 typedef struct {
     uint8_t x_h : 4;
-    uint8_t : 4;
+    uint8_t : 2;
+    uint8_t event: 2;
     uint8_t x_l;
     uint8_t y_h : 4;
-    uint8_t : 4;
+    uint8_t id : 4;
     uint8_t y_l;
 } point_data_t;
 
-static int16_t pre_x[CST820_TOUCH_NUMBER_MAX] = {-1, -1};
-static int16_t pre_y[CST820_TOUCH_NUMBER_MAX] = {-1, -1};
-static int16_t pre_w[CST820_TOUCH_NUMBER_MAX] = {-1, -1};
+static int16_t pre_x[CST820_TOUCH_NUMBER_MAX] = {-1};
+static int16_t pre_y[CST820_TOUCH_NUMBER_MAX] = {-1};
+static int16_t pre_w[CST820_TOUCH_NUMBER_MAX] = {-1};
 static uint8_t s_tp_down[CST820_TOUCH_NUMBER_MAX];
 
 static uint8_t read_buff[CST820_POINT_INFO_NUM * CST820_TOUCH_NUMBER_MAX];
@@ -229,13 +225,14 @@ void cst820_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 		uint8_t off_set;
 		for (read_index = 0; read_index < touch_num; read_index++){
 			off_set = read_index * CST820_POINT_INFO_NUM;
-			read_id = read_index;
+            point_data_t* point_buff = &read_buf[off_set];
+			read_id = point_buff->id;
 			if (read_id >= CST820_POINT_INFO_NUM){
 				LLOGE("%s, touch ID %d is out range!\r\n", __func__, read_id);
 				return;
 			}
 			pre_id[read_index] = read_id;
-            point_data_t* point_buff = &read_buf[off_set];
+            // LLOGD("%s, id %d event:%d ", __func__, point_buff->id,point_buff->event);
 			input_x = point_buff->x_h << 8 | point_buff->x_l;	/* x */
 			input_y = point_buff->y_h << 8 | point_buff->y_l;	/* y */
 			cst820_touch_down(buf, read_id, input_x, input_y, input_w);
@@ -252,21 +249,11 @@ static int tp_cst820_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat
     uint8_t touch_num=0;
     tp_i2c_read_reg8(luat_tp_config, CST820_STATUS, &touch_num, 1, 0);
     
-    // tp_cst820_read_status(luat_tp_config, &point_status);
-    // if (point_status == 0){           /* no data */
-    //     goto exit_;
-    // }
-    // if ((point_status & 0x80) == 0){   /* data is not ready */
-    //     goto exit_;
-    // }
-    // touch_num = point_status & 0x0F;  /* get point num */
     // LLOGD("touch_num = %d",touch_num);
     if (touch_num > CST820_TOUCH_NUMBER_MAX) {/* point num is not correct */
         touch_num = 0;
         goto exit_;
     }
-    
-    // LLOGD("tp_cst820_read touch_num:%d",touch_num);
 
     memset(read_buff, 0x00, sizeof(read_buff));
     
@@ -277,7 +264,6 @@ static int tp_cst820_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat
     cst820_read_point(read_buff, luat_tp_data, touch_num);
     
 exit_:
-    // tp_cst820_clear_status(luat_tp_config);
     return touch_num;
 }
 

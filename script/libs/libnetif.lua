@@ -94,13 +94,17 @@ local function setup_eth(config)
     log.info("初始化以太网")
     available[socket.LWIP_ETH] = connection_states.OPENED
     -- 打开CH390供电
-    gpio.setup(config.pwrpin, 1, gpio.PULLUP)
+    if config.pwrpin then
+        gpio.setup(config.pwrpin, 1, gpio.PULLUP)
+    end
     sys.wait(100)
     if config.tp == nil then
         log.info("8101以太网")
         if netdrv.setup(socket.LWIP_ETH) == false then
             log.error("以太网初始化失败")
-            gpio.close(config.pwrpin)
+            if config.pwrpin then
+                gpio.close(config.pwrpin)
+            end
             return false
         end      
     else
@@ -115,7 +119,9 @@ local function setup_eth(config)
         log.info("main", "open spi", result)
         if result ~= 0 then -- 返回值为0，表示打开成功
             log.info("main", "spi open error", result)
-            gpio.close(config.pwrpin)
+            if config.pwrpin then
+                gpio.close(config.pwrpin)
+            end
             return false
         end
         -- 初始化指定netdrv设备,
@@ -124,7 +130,9 @@ local function setup_eth(config)
         -- SPI ID 1, 片选 GPIO12
         if netdrv.setup(socket.LWIP_ETH, config.tp, config.opts) == false then
             log.error("以太网初始化失败")
-            gpio.close(config.pwrpin)
+            if config.pwrpin then
+                gpio.close(config.pwrpin)
+            end
             return false
         end    
     end
@@ -145,7 +153,9 @@ local function setup_eth_user1(config)
     log.info("初始化以太网")
     available[socket.LWIP_USER1] = connection_states.OPENED
     -- 打开CH390供电
-    gpio.setup(config.pwrpin, 1, gpio.PULLUP)
+    if config.pwrpin then
+        gpio.setup(config.pwrpin, 1, gpio.PULLUP)        
+    end
     sys.wait(100)
     log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
     -- 配置SPI和初始化网络驱动
@@ -158,7 +168,9 @@ local function setup_eth_user1(config)
     log.info("main", "open spi", result)
     if result ~= 0 then     -- 返回值为0，表示打开成功
         log.info("main", "spi open error", result)
-        gpio.close(config.pwrpin)
+        if config.pwrpin then
+                gpio.close(config.pwrpin)
+            end
         return false
     end
     -- 初始化指定netdrv设备,
@@ -167,7 +179,9 @@ local function setup_eth_user1(config)
     -- SPI ID 1, 片选 GPIO12
     if netdrv.setup(socket.LWIP_USER1, config.tp, config.opts) == false then
         log.error("以太网初始化失败")
-        gpio.close(config.pwrpin)
+        if config.pwrpin then
+                gpio.close(config.pwrpin)
+            end
         return false
     end
     
@@ -203,7 +217,7 @@ end
 --[[
 设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
 @api libnetif.set_priority_order(new_priority)
-@table 网络优先级列表
+@table 网络优先级列表,优先级从高到低对应table中的第一个参数到最后一个参数
 @return boolean 成功返回true，失败返回false
 @usage
 libnetif.set_priority_order({
@@ -289,13 +303,20 @@ function libnetif.set_priority_order(networkConfigs)
 
     -- 设置新优先级
     current_priority = new_priority
+    -- 此处按照用户期望的配置，先设置优先级最高的默认网卡
+    -- 防止出现以下问题：
+    -- 例如Air8000内核固件运行起来之后，默认网卡是socket.LWIP_GP，如果用户调用libnetif.set_priority_order接口配置最高优先级网卡为socket.LWIP_ETH
+    -- 在socket.LWIP_ETH网卡准备就绪之前，socket.LWIP_GP可能已经准备就绪，此时默认网卡仍然是socket.LWIP_GP；
+    -- 而网络应用层（例如socket，mqtt等）有关的demo，我们编写时，不关心具体网卡，直接使用默认网卡（这样符合正常逻辑）；
+    -- 就可能会出现“网络应用在这段时间内直接使用socket.LWIP_GP，而不是用户期望的网卡socket.LWIP_ETH来上网”的问题；
+    socket.dft(new_priority[1])
     apply_priority()
 
     return true
 end
 
 --[[
-设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。返回值为:1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
+设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。回调函数的输入参数: 1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
 @api libnetif.notify_status(cb_fnc)
 @function 回调函数
 @usage
@@ -356,7 +377,9 @@ end
 function libnetif.setproxy(adapter, main_adapter, other_configs)
     if adapter == socket.LWIP_ETH then
         log.info("ch390", "打开LDO供电", other_configs.ethpower_en)
-        gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        if other_configs.ethpower_en then
+            gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        end
         -- 打开LAN功能
         -- 配置 SPI 参数，Air8000 使用 SPI 接口与以太网模块进行通信。
         if other_configs.tp then
@@ -371,7 +394,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为 0，表示打开成功
                 log.error("main", "spi open error", result)
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
         end
@@ -379,7 +404,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
         if netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end
         log.info("netdrv", "等待以太网就绪")
@@ -392,7 +419,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         while netdrv.ready(socket.LWIP_ETH) ~= true do
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
             count = count + 1
@@ -439,7 +468,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         end
     elseif adapter == socket.LWIP_USER1 then
         log.info("ch390", "打开LDO供电", other_configs.ethpower_en)
-        gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        if other_configs.ethpower_en then
+            gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        end
         -- 打开LAN功能
         -- 配置 SPI 参数，Air8101 使用 SPI 接口与以太网模块进行通信。
         log.info("netdrv spi挂载以太网", "初始化LAN功能")
@@ -453,14 +484,18 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         log.info("main", "open spi", result)
         if result ~= 0 then     -- 返回值为 0，表示打开成功
             log.error("main", "spi open error", result)
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
         log.info("netdrv", "初始化以太网", other_configs.tp, other_configs.opts)
         if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end
         log.info("netdrv", "等待以太网就绪")
@@ -473,7 +508,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         while netdrv.ready(socket.LWIP_USER1) ~= true do
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
             count = count + 1
@@ -498,13 +535,17 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         log.info("ch390", "打开LDO供电", other_configs.ethpower_en)
         available[socket.LWIP_ETH] = connection_states.OPENED
         -- 打开CH390供电
-        gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        if other_configs.ethpower_en then
+            gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        end
         sys.wait(100)
         if other_configs.tp == nil then
             log.info("8101以太网")
             if netdrv.setup(socket.LWIP_ETH) == false then
             log.error("以太网初始化失败")
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end  
         else
@@ -519,14 +560,18 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为0，表示打开成功
                 log.info("main", "spi open error", result)
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
             -- 初始化指定netdrv设备,
             local success = netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts)
             if not success then
                 log.error("以太网初始化失败")
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
         end
@@ -537,7 +582,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
             if ip and ip ~= "0.0.0.0" then break end
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
             sys.wait(100)
@@ -546,7 +593,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
     elseif main_adapter == socket.LWIP_USER1 and available[socket.LWIP_USER1] == connection_states.DISCONNECTED then
         log.info("初始化以太网")
         -- 打开CH390供电
-        gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        if other_configs.ethpower_en then
+            gpio.setup(other_configs.ethpower_en, 1, gpio.PULLUP)
+        end
         sys.wait(100)
         log.info("config.opts.spi", other_configs.opts.spi, ",config.type", other_configs.tp)
         available[socket.LWIP_USER1] = connection_states.OPENED
@@ -560,7 +609,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         log.info("main", "open spi", result)
         if result ~= 0 then -- 返回值为0，表示打开成功
             log.info("main", "spi open error", result)
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end
         -- 初始化指定netdrv设备,
@@ -569,7 +620,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
         -- SPI ID 1, 片选 GPIO12
         if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
             log.error("以太网初始化失败")
-            gpio.close(other_configs.ethpower_en)
+            if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
             return false
         end
         netdrv.dhcp(socket.LWIP_USER1, true)
@@ -580,7 +633,9 @@ function libnetif.setproxy(adapter, main_adapter, other_configs)
             if ip and ip ~= "0.0.0.0" then break end
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
-                gpio.close(other_configs.ethpower_en)
+                if other_configs.ethpower_en then
+                    gpio.close(other_configs.ethpower_en)
+                end
                 return false
             end
             sys.wait(100)

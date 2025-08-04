@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的五种网卡(单wifi网卡，单rmii以太网卡，单spi以太网卡，单4g网卡，多网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
 
 3、tcp文件夹：tcp client连接以及数据收发处理逻辑；
 
@@ -100,7 +100,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2011版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2011固件对比验证）
+2、[Air8000 V2011版本固件）](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 

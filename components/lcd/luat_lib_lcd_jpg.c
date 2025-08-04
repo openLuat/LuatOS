@@ -122,4 +122,91 @@ LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, 
     }
 }
 
+static unsigned int decode_file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
+    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;   /* Device identifier for the session (5th argument of jd_prepare function) */
+    if (buff) {
+        /* Read bytes from input stream */
+        return luat_fs_fread(buff, 1, nbyte, (FILE*)(buff_info->userdata));
+    } else {
+        /* Remove bytes from input stream */
+        return luat_fs_fseek((FILE*)(buff_info->userdata), nbyte, SEEK_CUR) ? 0 : nbyte;
+    }
+}
+
+static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
+    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;
+    uint16_t* tmp = (uint16_t*)bitmap;
+
+    // rgb高低位swap
+    // uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
+    // for (size_t i = 0; i < count; i++){
+    //     if (lcd_dft_conf->endianness_swap)
+    //         buff_info->buff[buff_info->offset] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
+    //     else
+    //         buff_info->buff[buff_info->offset] = tmp[i];
+	// 	buff_info->offset++;
+    // }
+	uint16_t idx = 0;
+	for (size_t y = rect->top; y <= rect->bottom; y++){
+		uint16_t offset = y*buff_info->width + rect->left;
+		for (size_t x = rect->left; x <= rect->right; x++){
+			if (lcd_dft_conf->endianness_swap)
+				buff_info->buff[offset] = ((tmp[idx] >> 8) & 0xFF)+ ((tmp[idx] << 8) & 0xFF00);
+			else
+				buff_info->buff[offset] = tmp[idx];
+			offset++;idx++;
+		}
+	}
+	
+    // LLOGD("jpeg seg %dx%d %dx%d", rect->left, rect->top, rect->right, rect->bottom);
+    // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
+    return 1;    /* Continue to decompress */
+}
+LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
+    JRESULT res;      /* Result code of TJpgDec API */
+    JDEC jdec;        /* Decompression object */
+    void *work = NULL;       /* Pointer to the decompressor work area */
+#if JD_FASTDECODE == 2
+    size_t sz_work = 3500 * 3; /* Size of work area */
+#else
+    size_t sz_work = 3500; /* Size of work area */
+#endif
+    FILE* fd = luat_fs_fopen(path, "r");
+    if (fd == NULL) {
+        LLOGW("no such file %s", path);
+		goto error;
+    }
+	buff_info->userdata = fd;
+	work = luat_heap_malloc(sz_work);
+	if (work == NULL) {
+		LLOGE("out of memory when malloc jpeg decode workbuff");
+		goto error;
+	}
+    res = jd_prepare(&jdec, decode_file_in_func, work, sz_work, buff_info);
+    if (res != JDR_OK) {
+        LLOGW("jd_prepare file %s error %d", path, res);
+        goto error;
+    }
+    buff_info->width = jdec.width;
+    buff_info->height = jdec.height;
+	buff_info->len = jdec.width*jdec.height*sizeof(luat_color_t);
+	buff_info->buff = luat_heap_malloc(buff_info->len);
+    res = jd_decomp(&jdec, decode_out_func, 0);
+    if (res != JDR_OK) {
+        LLOGW("jd_decomp file %s error %d", path, res);
+        goto error;
+    }
+    luat_heap_free(work);
+    luat_fs_fclose(fd);
+	return 0;
+error:
+	if (work){
+		luat_heap_free(work);
+	}
+	if (fd){
+		luat_fs_fclose(fd);
+	}
+	return -1;
+}
+
 #endif

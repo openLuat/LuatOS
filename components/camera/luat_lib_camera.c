@@ -59,7 +59,7 @@ int l_camera_handler(lua_State *L, void* ptr) {
 /*
 初始化摄像头
 @api    camera.init(InitReg_or_cspi_id, cspi_speed, mode, is_msb, rx_bit, seq_type, is_ddr, only_y, scan_mode, w, h)
-@table/integer 如果是table,则是DVP摄像头的配置见demo/camera/AIR105,同时忽略后续参数;如果是数字,则是camera spi总线序号
+@table/integer 如果是table,则是DVP摄像头的配置见demo/camera/dvp_camera,同时忽略后续参数;如果是数字,则是camera spi总线序号
 @int camera spi总线速度
 @int camera spi模式,0~3
 @int 字节的bit顺序是否是msb,0否1是
@@ -290,11 +290,18 @@ static int l_camera_init(lua_State *L){
 @function 回调方法
 @return nil 无返回值
 @usage
-camera.on(0, "scanned", function(id, str)
+camera.on(0, "scanned", function(id, event)
 --id int camera id
---str 多种类型 false 摄像头没有正常工作，true 拍照模式下拍照成功并保存完成， int 原始数据模式下本次返回的数据大小， string 扫码模式下扫码成功后的解码值
-    print(id, str)
+--event 多种类型，详见下表
+    print(id, event)
 end)
+--[[
+event可能出现的值有
+  boolean型 false   摄像头没有正常工作，检查硬件和软件配置
+  boolean型 true    拍照模式下拍照成功并保存完成，可以读取照片文件数据进一步处理，比如读出数据上传
+  int型 原始图像大小 RAW模式下，采集完一帧图像后回调，回调值为图像数据大小，可以对传入的zbuff做进一步处理，比如读出数据上传
+  string型  扫码结果 扫码模式下扫码成功一次，并且回调解码值，可以对回调值做进一步处理，比如打印到LCD上
+]]
 */
 static int l_camera_on(lua_State *L) {
     int camera_id = luaL_checkinteger(L, 1);
@@ -505,7 +512,7 @@ static int l_camera_get_raw(lua_State *L) {
 }
 
 /**
-启停camera预览功能，直接输出到LCD上，只有硬件支持的SOC可以运行
+启停camera预览功能，直接输出到LCD上，只有硬件支持的SOC可以运行，启动预览前必须调用lcd.int等api初始化LCD，预览时自动选择已经初始化过的lcd。
 @api camera.preview(id, onoff)
 @int camera id,例如0
 @boolean true开启，false停止

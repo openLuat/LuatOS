@@ -87,7 +87,6 @@ static int l_airtalk_config(lua_State *L)
 		luat_airtalk_net_set_mqtt_ctrl(mqtt_ctrl);
 		luat_airtalk_speech_audio_param_config(0, audio_pm_mode_when_stop);
 		luat_airtalk_speech_set_one_block_frame_cnt(decode_cnt, encode_cnt);
-		luat_airtalk_net_mqtt_init();
 		break;
 	default:
 		LLOGE("protocol %d no support!", airtalk_protocol);
@@ -206,11 +205,13 @@ static int l_airtalk_speech(lua_State *L)
 		{
 		case LUAT_AIRTALK_SPEECH_MODE_PERSON:
 			luat_airtalk_use_16k(sample == 16000);
+			//luat_airtalk_speech_start_play(sample == 16000);
 			luat_airtalk_net_transfer_start(mode);
 			luat_airtalk_speech_record_switch(1);
 			break;
 		case LUAT_AIRTALK_SPEECH_MODE_GROUP:
 			luat_airtalk_use_16k(sample == 16000);
+			//luat_airtalk_speech_start_play(sample == 16000);
 			luat_airtalk_net_transfer_start(mode);
 			break;
 		}

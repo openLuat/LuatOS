@@ -17,9 +17,7 @@ void luat_airtalk_net_debug_switch(uint8_t on_off);
 void luat_airtalk_net_set_ssrc(uint32_t ssrc);
 void luat_airtalk_net_transfer_start(uint8_t work_mode);
 void luat_airtalk_net_transfer_stop(void);
-void luat_airtalk_net_save_uplink_head(uint64_t record_time);
-void luat_airtalk_net_save_uplink_data(uint8_t *data, uint32_t len);
-void luat_airtalk_net_uplink_once(void);
+void luat_airtalk_net_uplink_once(uint64_t record_time, uint8_t *data, uint32_t len);
 void luat_airtalk_net_uplink_end(void);
 
 void luat_airtalk_net_force_sync_downlink(void);

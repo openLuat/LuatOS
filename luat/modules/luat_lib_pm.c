@@ -378,7 +378,7 @@ static int l_pm_power_ctrl(lua_State *L) {
 }
 
 /**
-IO高电平电压控制
+IO高电平和对外输出LDO的电压控制
 @api pm.ioVol(id, val)
 @int 电平id,目前只有pm.IOVOL_ALL_GPIO
 @int 电平值,单位毫伏
@@ -497,6 +497,8 @@ static const rotable_Reg_t reg_pm[] =
     { "IOVOL_SDIO", ROREG_INT(LUAT_PM_LDO_TYPE_VMMC)},
 	//@const IOVL number VLCD电压域IO
     { "IOVOL_LCD", ROREG_INT(LUAT_PM_LDO_TYPE_VLCD)},
+	//@const IOVL number WPA输出电压
+    { "VOL_WPA", ROREG_INT(LUAT_PM_LDO_TYPE_WPA)},
     //@const ID_NATIVE number PM控制的ID, 主芯片, 任意芯片的默认值就是它
     { "ID_NATIVE",      ROREG_INT(1)},
     //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用

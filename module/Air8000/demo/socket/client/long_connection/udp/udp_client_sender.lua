@@ -13,7 +13,7 @@
 
 本文件的对外接口有3个：
 1、sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)：订阅"SEND_DATA_REQ"消息；
-   其他应用模块如果需要发送数据，直接sys.publish这个消息即可，将需要发送的数据以及回调函数和毁掉参数一起publish出去；
+   其他应用模块如果需要发送数据，直接sys.publish这个消息即可，将需要发送的数据以及回调函数和回调参数一起publish出去；
    本demo项目中uart_app.lua和timer_app.lua中publish了这个消息；
 2、udp_client_sender.proc：数据发送应用逻辑处理入口，在udp_client_main.lua中调用；
 3、udp_client_sender.exception_proc：数据发送应用逻辑异常处理入口，在udp_client_main.lua中调用；
@@ -128,7 +128,7 @@ function udp_client_sender.exception_proc()
 end
 
 -- 订阅"SEND_DATA_REQ"消息；
--- 其他应用模块如果需要发送数据，直接sys.publish这个消息即可，将需要发送的数据以及回调函数和毁掉参数一起publish出去；
+-- 其他应用模块如果需要发送数据，直接sys.publish这个消息即可，将需要发送的数据以及回调函数和回调参数一起publish出去；
 -- 本demo项目中uart_app.lua和timer_app.lua中publish了这个消息；
 sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 

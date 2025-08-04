@@ -1,6 +1,6 @@
 /*
 @module  little_flash
-@summary LITTLE FLASH 软件包
+@summary flash驱动 软件包(同时支持驱动nor flash和nand flash设备)
 @version 1.0
 @date    2024.05.11
 @demo little_flash

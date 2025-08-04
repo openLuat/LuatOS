@@ -55,9 +55,10 @@ end
 gnss=require("gnss")    
 
 
-normal=require("normal")
+-- normal=require("normal")
 -- lowpower=require("lowpower")
 -- psm=require("psm")
+da221gnss=require("da221gnss")
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -44,5 +44,16 @@ sys.taskInit(function()
         }
     })
     --设置多网融合功能
-    -- libnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, "test", "HZ88888888", 13)
+    if  libnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
+        ssid = "test2",                -- WiFi名称(string)，网卡包含wifi时填写
+        password = "HZ88888888",        -- WiFi密码(string)，网卡包含wifi时填写
+        ethpower_en = 13,               -- 以太网模块的pwrpin引脚(gpio编号)
+        -- tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+        -- opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+        -- adapter_addr = "192.168.2.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
+        -- adapter_gw= { 192, 168, 2, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
+    }) then
+        log.info("libnetif", "setproxy success")
+    end
+    
 end)

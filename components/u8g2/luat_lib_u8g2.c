@@ -64,6 +64,7 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64,I2C
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
     {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
+    {.name="sh1107_128x128",  .w=128, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_sh1107_i2c_128x128_f},       // sh1107 64x128
     {.name="sh1108",  .w=160, .h=160, .spi_i2c=0, .devcb=u8g2_Setup_sh1108_i2c_160x160_f},          // sh1108 160x160
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
     {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701

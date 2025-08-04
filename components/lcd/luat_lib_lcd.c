@@ -614,8 +614,8 @@ lcd颜色填充
 @api lcd.draw(x1, y1, x2, y2,color)
 @int 左上边缘的X位置.
 @int 左上边缘的Y位置.
-@int 右下边缘的X位置.
-@int 右下边缘的Y位置.
+@int 右下边缘的X位置(color传入framebuff的zbuff时可选，默认为x+图片宽度).
+@int 右下边缘的Y位置(color传入framebuff的zbuff时可选，默认为y+图片高度).
 @string 字符串或zbuff对象
 @usage
 -- lcd颜色填充
@@ -1519,7 +1519,15 @@ int l_lcd_showimage(lua_State *L) {
     }
     return 1;
 }
-
+/*
+解码图片,当前只支持jpg,jpeg
+@api lcd.image2raw(file)
+@string 文件路径
+@return userdata 颜色zbuff
+@usage
+lcd_zbuff = lcd.image2raw("/luadb/logo.jpg")
+lcd.draw(0, 0, 80, 80, lcd_zbuff)
+*/
 int l_lcd_image2raw(lua_State *L) {
     if (lcd_dft_conf == NULL) {
         LLOGE("lcd not init");

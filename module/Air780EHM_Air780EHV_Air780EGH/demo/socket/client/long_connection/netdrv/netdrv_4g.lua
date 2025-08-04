@@ -3,7 +3,7 @@
 @summary “4G网卡”驱动模块
 @version 1.0
 @date    2025.07.31
-@author  mw
+@author  孟伟
 @usage
 本文件为4G网卡驱动模块，核心业务逻辑为：
 1、监听"IP_READY"和"IP_LOSE"，在日志中进行打印；

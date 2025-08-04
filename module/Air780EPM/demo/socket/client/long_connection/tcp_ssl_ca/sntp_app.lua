@@ -3,7 +3,7 @@
 @summary sntp时间同步应用功能模块
 @version 1.0
 @date    2025.07.31
-@author  mw
+@author  孟伟
 @usage
 本文件为sntp时间同步应用功能模块，核心业务逻辑为：
 1、连接ntp服务器进行时间同步；

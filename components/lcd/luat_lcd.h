@@ -113,6 +113,15 @@ typedef struct luat_lcd_conf {
     u8g2_t luat_lcd_u8g2 ;
 } luat_lcd_conf_t;
 
+typedef struct luat_lcd_buff_info {
+	luat_color_t * buff;
+    size_t len;
+    uint32_t width;
+    uint32_t height;
+	// size_t offset;
+	void* userdata;
+}luat_lcd_buff_info_t;
+
 typedef struct luat_lcd_opts {
     const char* name;
     uint8_t sleep_cmd;
@@ -193,9 +202,11 @@ int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, l
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf, int16_t x0, int16_t y0, uint8_t r, luat_color_t color);
 int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction);
-#ifdef LUAT_USE_TJPGD
+
+// weak函数 可bsp单独适配硬件加速实现
 int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
-#endif
+int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
+
 /*
  * csdk适配用
  */

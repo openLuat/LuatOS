@@ -142,6 +142,7 @@ static int l_lcd_init(lua_State* L) {
     }
 #endif
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
+    conf->acc_hw = 0xFF;
     conf->bpp = 16;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
@@ -1864,8 +1865,7 @@ lcd.qspi(0xde, 0xde, nil, 0x61, 0xde, 0x60)
 -- CO5300驱动ic所需的qspi配置
 lcd.qspi(0x02, 0x32, 0x12)
 */
-static int l_lcd_qspi_config(lua_State* L)
-{
+static int l_lcd_qspi_config(lua_State* L){
 	luat_lcd_qspi_conf_t qspi_config = {0};
 	qspi_config.write_1line_cmd = luaL_optinteger(L, 1, 0x02);
 	qspi_config.write_4line_cmd = luaL_optinteger(L, 2, 0x32);
@@ -1882,8 +1882,7 @@ static int l_lcd_qspi_config(lua_State* L)
 @api lcd.user_done()
 @return nil
 */
-static int l_lcd_user_ctrl_done(lua_State* L)
-{
+static int l_lcd_user_ctrl_done(lua_State* L){
 	lcd_dft_conf->is_init_done = 1;
 	if (LUAT_LCD_IM_QSPI_MODE == lcd_dft_conf->interface_mode) {
 		if (luat_lcd_qspi_is_no_ram(lcd_dft_conf)) {
@@ -1892,6 +1891,40 @@ static int l_lcd_user_ctrl_done(lua_State* L)
 	}
 	return 0;
 }
+
+/*
+开启/关闭硬件加速(lcd.init后默认开启所有支持的硬件加速,当使用存在问题时可使用此接口进行开关指定的硬件加速)
+@api lcd.setAcchw(type,enable)
+@number type 支持的类型, 可选,默认全部类型 目前支持 lcd.ACC_HW_JPEG lcd.ACC_HW_ALL
+@bool enable 开关, 可选 默认关闭 ture开启 false关闭
+@return nil
+@usage
+    lcd.setAcchw(lcd.ACC_HW_JPEG,false) -- 关闭硬件加速的jpeg解码功能
+    lcd.setAcchw(lcd.ACC_HW_ALL,false) -- 关闭所有硬件加速
+*/
+static int l_lcd_set_acc_hw(lua_State* L){
+    luat_lcd_conf_t * conf = lcd_dft_conf;
+    uint8_t type = luaL_optinteger(L, 1, LUAT_LCD_ACC_HW_ALL);
+    uint8_t enable = 0;
+    if (lua_isboolean(L, 2)) {
+        enable = lua_toboolean(L, 2);
+    }
+    if (type == LUAT_LCD_ACC_HW_ALL){
+        if (enable){
+            conf->acc_hw = LUAT_LCD_ACC_HW_ALL;
+        }else{
+            conf->acc_hw = 0;
+        }
+    }else if(type == LUAT_LCD_ACC_HW_JPEG){
+        if (enable){
+            conf->acc_hw = 1;
+        }else{
+            conf->acc_hw = 0;
+        }
+    }
+	return 0;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
@@ -1927,6 +1960,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "rgb565",     ROREG_FUNC(l_lcd_rgb565)},
 	{ "qspi",		ROREG_FUNC(l_lcd_qspi_config)},
 	{ "user_done",		ROREG_FUNC(l_lcd_user_ctrl_done)},
+    { "setAcchw",    ROREG_FUNC(l_lcd_set_acc_hw)},
 #ifdef LUAT_USE_UFONT
     { "drawUTF8",   ROREG_FUNC(l_lcd_draw_utf8)},
 #endif
@@ -2077,6 +2111,12 @@ static const rotable_Reg_t reg_lcd[] =
 	{ "QSPI_MODE",                ROREG_INT(LUAT_LCD_IM_QSPI_MODE)},
 	//@const 8080_MODE 8080模式
 	{ "8080_MODE",                ROREG_INT(LUAT_LCD_IM_8080_MODE)},
+
+    //@const ACC_HW_JPEG JPEG硬件加速
+    {"ACC_HW_JPEG", ROREG_INT(LUAT_LCD_ACC_HW_JPEG)},
+    //@const ACC_HW_ALL 所有硬件加速
+    {"ACC_HW_ALL", ROREG_INT(LUAT_LCD_ACC_HW_ALL)},
+
 	{NULL, ROREG_INT(0)}
 };
 

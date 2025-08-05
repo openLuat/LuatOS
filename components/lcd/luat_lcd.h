@@ -62,6 +62,11 @@ enum{
 	LUAT_LCD_IM_8080_MODE = 0x30,
 };
 
+enum{
+	LUAT_LCD_ACC_HW_JPEG = 0x01,
+    LUAT_LCD_ACC_HW_ALL = 0xFF,
+};
+
 typedef struct
 {
 	uint8_t write_4line_cmd;  //address 1线 data4线
@@ -77,38 +82,45 @@ typedef struct luat_lcd_conf {
     uint8_t pin_dc;
     uint8_t pin_pwr;
     uint8_t pin_rst;
-    int16_t w;
-    int16_t h;
-    uint32_t buffer_size;
-    uint32_t dc_delay_us;
+    uint8_t lcd_cs_pin;		//注意不用的时候写0xff
+    uint8_t is_init_done;
+    uint8_t interface_mode;	// LUAT_LCD_IM_XXX
+    uint8_t bpp;			//颜色bit，默认是RGB565 16bit，预留兼容ARGB888 32bit
     uint8_t xoffset;//偏移
     uint8_t yoffset;//偏移
     uint8_t auto_flush;
     uint8_t direction;//方向
-    // buff 相关
-    int buff_ref;
-    int16_t flush_y_min;
-    int16_t flush_y_max;
-    uint8_t is_init_done;
-    uint8_t interface_mode;	// LUAT_LCD_IM_XXX
-    uint8_t lcd_cs_pin;		//注意不用的时候写0xff
-    uint8_t bpp;			//颜色bit，默认是RGB565 16bit，预留兼容ARGB888 32bit
-    uint32_t flush_rate;	//刷新率，针对no ram的屏幕起效
-    uint32_t bus_speed;
+    uint8_t endianness_swap;	// 大小端转换
+    uint8_t lcd_use_lvgl;
+    union {
+        struct {
+            uint8_t acc_hw_jpeg:1;
+            uint8_t :7;
+        };
+        uint8_t acc_hw;
+    };
+    uint8_t reserved;
+    int16_t w;
+    int16_t h;
     uint16_t hbp;
     uint16_t hspw;
     uint16_t hfp;
     uint16_t vbp;
     uint16_t vspw;
     uint16_t vfp;
+    int16_t flush_y_min;
+    int16_t flush_y_max;
+    uint32_t buffer_size;
+    uint32_t dc_delay_us;
+    uint32_t flush_rate;	//刷新率，针对no ram的屏幕起效
+    uint32_t bus_speed;
     luat_color_t* buff;
     luat_color_t* buff_ex;
     luat_color_t* buff_draw;
     struct luat_lcd_opts* opts;
     luat_spi_device_t* lcd_spi_device;
+    int buff_ref;
     int lcd_spi_ref;
-    int lcd_use_lvgl;
-    int endianness_swap;
     void* userdata;
     u8g2_t luat_lcd_u8g2 ;
 } luat_lcd_conf_t;

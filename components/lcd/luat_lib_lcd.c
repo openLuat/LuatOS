@@ -1917,9 +1917,9 @@ static int l_lcd_set_acc_hw(lua_State* L){
         }
     }else if(type == LUAT_LCD_ACC_HW_JPEG){
         if (enable){
-            conf->acc_hw = 1;
+            conf->acc_hw_jpeg = 1;
         }else{
-            conf->acc_hw = 0;
+            conf->acc_hw_jpeg = 0;
         }
     }
 	return 0;

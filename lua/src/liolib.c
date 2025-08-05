@@ -953,6 +953,89 @@ static int f_fill(lua_State *L) {
 }
 #endif
 
+/*
+获取文件系统信息
+@api    io.fsstat(path)
+@string 路径,默认"/",可选
+@return boolean 获取成功返回true,否则返回false
+@return int 总的block数量
+@return int 已使用的block数量
+@return int block的大小,单位字节
+@return string 文件系统类型,例如lfs代表littlefs
+@usage
+-- 打印根分区的信息
+log.info("fsstat", io.fsstat("/"))
+*/
+static int l_fs_fsstat(lua_State *L) {
+    const char* path = luaL_optstring(L, 1, "/");
+    luat_fs_info_t info = {0};
+    if (luat_fs_info(path, &info) == 0) {
+        lua_pushboolean(L, 1);
+        lua_pushinteger(L, info.total_block);
+        lua_pushinteger(L, info.block_used);
+        lua_pushinteger(L, info.block_size);
+        lua_pushstring(L, info.filesystem);
+        return 5;
+    } else {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+}
+
+/*
+获取文件大小
+@api    io.fsize(path)
+@string 文件路径
+@return int 文件大小,若获取失败会返回0
+@usage
+-- 打印main.luac的大小
+log.info("fsize", io.fsize("/main.luac"))
+*/
+static int l_fs_fsize(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_fsize(path));
+    return 1;
+}
+
+//---- 其他API尚不完善,暂不注释
+
+static int l_fs_mkdir(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_mkdir(path));
+    return 1;
+}
+
+static int l_fs_rmdir(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_rmdir(path));
+    return 1;
+}
+
+static int l_fs_mkfs(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.busname = (char*)luaL_checkstring(L, 1);
+    conf.filesystem = (char*)luaL_checkstring(L, 2);
+    lua_pushinteger(L, luat_fs_mkfs(&conf));
+    return 1;
+}
+
+static int l_fs_mount(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.busname = (char*)luaL_checkstring(L, 1);
+    conf.filesystem = (char*)luaL_checkstring(L, 2);
+    conf.mount_point = (char*)luaL_checkstring(L, 3);
+    conf.type = (char*)luaL_checkstring(L, 4);
+    lua_pushinteger(L, luat_fs_mount(&conf));
+    return 1;
+}
+
+static int l_fs_umount(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.mount_point = (char*)luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_umount(&conf));
+    return 1;
+}
+
 static int io_mkfs (lua_State *L);
 static int io_mkdir (lua_State *L);
 static int io_rmdir (lua_State *L);
@@ -986,6 +1069,16 @@ static const rotable_Reg_t iolib[] = {
   {"lsdir",     ROREG_FUNC(io_lsdir)},
   {"mkfs",      ROREG_FUNC(io_mkfs)},
   {"lsmount",   ROREG_FUNC(io_lsmount)},
+
+// 从fs库迁移函数
+    { "fsstat",      ROREG_FUNC(l_fs_fsstat)},
+    { "fsize",       ROREG_FUNC(l_fs_fsize )},
+    { "mkdir",       ROREG_FUNC(l_fs_mkdir )},
+    { "rmdir",       ROREG_FUNC(l_fs_rmdir )},
+    { "mkfs",        ROREG_FUNC(l_fs_mkfs  )},
+    { "mount",       ROREG_FUNC(l_fs_mount )},
+    { "umount",      ROREG_FUNC(l_fs_umount)},
+
 
   {"FILE",      ROREG_INT(0)},
   {"DIR",       ROREG_INT(1)},

@@ -1,0 +1,3947 @@
+{
+    "fonts": [
+    ],
+    "images": [
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B6.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B6.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/temp.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/temp.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C6.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C6.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/cloudyday.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/cloudyday.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B4.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B4.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/next.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/next.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/stop.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/stop.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C9.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C9.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choosed2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choosed2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A8.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A8.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A6.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A6.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/signal4.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/signal4.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C7.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C7.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B5.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B5.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/Lkeyboard.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/Lkeyboard.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/rain.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/rain.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/D1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/D1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A5.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A5.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/input_topic.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/input_topic.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/Skeyboard.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/Skeyboard.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C5.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C5.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/power4.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/power4.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/signal2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/signal2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/power2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/power2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/humidity.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/humidity.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C4.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C4.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/cloudy.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/cloudy.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/power3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/power3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/wind.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/wind.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choose3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choose3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choose2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choose2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/cancel.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/cancel.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/P1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/P1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/signal0.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/signal0.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/power1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/power1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A9.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A9.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B7.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B7.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B8.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B8.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/signal3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/signal3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/snow.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/snow.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choosed1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choosed1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/Ukeyboard.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/Ukeyboard.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A4.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A4.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/ok.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/ok.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choose1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choose1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C8.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C8.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/start.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/start.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/signal1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/signal1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/D9.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/D9.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/default.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/default.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/choosed3.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/choosed3.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/back.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/back.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/Lbottom.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/Lbottom.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C1.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C1.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/D7.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/D7.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/A7.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/A7.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/B9.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/B9.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/C2.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/C2.jpg"
+        },
+        {
+            "abso_filename": "C:/Users/luatTest/Pictures/airui_img/air8000_img/sunny.jpg",
+            "colorFormat": "RGBA",
+            "rela_filename": "img/sunny.jpg"
+        }
+    ],
+    "pages": [
+        {
+            "children": [
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_1",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "signal4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 64,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_2",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "power4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 128,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_3",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "temp",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 192,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_4",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "humidity",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 256,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_5",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "sunny",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_6",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A1",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_7",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A2",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_8",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A3",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_9",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_10",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A5",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_11",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A6",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_12",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A7",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_1#Clicked#bind_script#tts_click",
+                        "Event_2#Long_Pressed#bind_script#tts_longpress"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_13",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A8",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_3#Clicked#bind_script#mainpage_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_14",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "A9",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 32,
+                        "width": 320,
+                        "x": 0,
+                        "y": 448
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_15",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "Lbottom",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 480,
+                "width": 320,
+                "x": 0,
+                "y": 0
+            },
+            "name": "mainpage",
+            "styles": [
+                {
+                    "bg_color": "0x55aaff",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        },
+        {
+            "children": [
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_16",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "signal4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 64,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_17",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "power4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 128,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_18",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "temp",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 192,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_19",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "humidity",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 256,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_20",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "sunny",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_21",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B1",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_22",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B2",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_23",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B3",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_24",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_25",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B5",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_26",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B6",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_4#Clicked#bind_script#second_1_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_27",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B7",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_28",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B8",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_5#Clicked#bind_script#second_2_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_29",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "B9",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 32,
+                        "width": 320,
+                        "x": 0,
+                        "y": 448
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_30",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "Lbottom",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 480,
+                "width": 320,
+                "x": 0,
+                "y": 0
+            },
+            "name": "second_page",
+            "styles": [
+                {
+                    "bg_color": "0x55aaff",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        },
+        {
+            "children": [
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_31",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "signal4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 64,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_32",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "power4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 128,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_33",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "temp",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 192,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_34",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "humidity",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 256,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_35",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "sunny",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_36",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C1",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_37",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C2",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_38",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C3",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_39",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_40",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C5",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 216
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_41",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C6",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_6#Clicked#bind_script#third_1_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_42",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C7",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_43",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C8",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_7#Clicked#bind_script#third_2_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_44",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "C9",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 32,
+                        "width": 320,
+                        "x": 0,
+                        "y": 448
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_45",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "Lbottom",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 480,
+                "width": 320,
+                "x": 0,
+                "y": 0
+            },
+            "name": "third_page",
+            "styles": [
+                {
+                    "bg_color": "0x55aaff",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        },
+        {
+            "children": [
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_46",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "signal4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 64,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_47",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "power4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 128,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_48",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "temp",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 192,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_49",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "humidity",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 256,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_50",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "sunny",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 100
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_51",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "D1",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_8#Clicked#bind_script#forth_1_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 20,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_52",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "D7",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_9#Clicked#bind_script#forth_2_click"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 220,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_53",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "D9",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 32,
+                        "width": 320,
+                        "x": 0,
+                        "y": 448
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_54",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "Lbottom",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 480,
+                "width": 320,
+                "x": 0,
+                "y": 0
+            },
+            "name": "forth_page",
+            "styles": [
+                {
+                    "bg_color": "0x55aaff",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        },
+        {
+            "children": [
+                {
+                    "class": "lv_textarea",
+                    "click": true,
+                    "cursor_blink_time": 144,
+                    "cursor_pos": 302,
+                    "drag": false,
+                    "edge_flash": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 185,
+                        "width": 284,
+                        "x": 19,
+                        "y": 86
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "max_length": 0,
+                    "name": "text_area_1",
+                    "one_line_mode": false,
+                    "password_mode": false,
+                    "placeholder": "",
+                    "scroll_propagation": false,
+                    "scrollbar_mode": 2,
+                    "styles": [
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "Background": {
+                                "bg_opa": 0
+                            },
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 0,
+                            "state": 6
+                        },
+                        {
+                            "part": 1,
+                            "state": 0
+                        },
+                        {
+                            "part": 1,
+                            "state": 1
+                        },
+                        {
+                            "part": 1,
+                            "state": 2
+                        },
+                        {
+                            "part": 1,
+                            "state": 3
+                        },
+                        {
+                            "part": 1,
+                            "state": 4
+                        },
+                        {
+                            "part": 1,
+                            "state": 5
+                        },
+                        {
+                            "part": 1,
+                            "state": 6
+                        },
+                        {
+                            "part": 2,
+                            "state": 0
+                        },
+                        {
+                            "part": 2,
+                            "state": 1
+                        },
+                        {
+                            "part": 2,
+                            "state": 2
+                        },
+                        {
+                            "part": 2,
+                            "state": 3
+                        },
+                        {
+                            "part": 2,
+                            "state": 4
+                        },
+                        {
+                            "part": 2,
+                            "state": 5
+                        },
+                        {
+                            "part": 2,
+                            "state": 6
+                        },
+                        {
+                            "part": 3,
+                            "state": 0
+                        },
+                        {
+                            "part": 3,
+                            "state": 1
+                        },
+                        {
+                            "part": 3,
+                            "state": 2
+                        },
+                        {
+                            "part": 3,
+                            "state": 3
+                        },
+                        {
+                            "part": 3,
+                            "state": 4
+                        },
+                        {
+                            "part": 3,
+                            "state": 5
+                        },
+                        {
+                            "part": 3,
+                            "state": 6
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 0
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 1
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 2
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 3
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 4
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 5
+                        },
+                        {
+                            "Text": {
+                                "text_font": "UNSCII 8"
+                            },
+                            "part": 4,
+                            "state": 6
+                        }
+                    ],
+                    "text": "Supports 4G, satellite positioning, WIFI， Bluetooth 5-second high-speed networking\n\n51 programmable IO/4 UART/4 general-purpose ADC/1 CAN interface\n\nSupport LuatOS secondary development, open source code, rich routines\n\nSupports 485/232/charging/Ethernet driver/multi network convergence/VoLTE calling\n",
+                    "text_align": 0,
+                    "type": "Text area"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": true,
+                    "drag": false,
+                    "events": [
+                        "Event_10#Clicked#bind_script#tts_click_back"
+                    ],
+                    "geometry": {
+                        "height": 80,
+                        "width": 80,
+                        "x": 120,
+                        "y": 332
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_55",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "back",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_56",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "signal4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 64,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_57",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "power4",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 128,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_58",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "temp",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 192,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_59",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "humidity",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 64,
+                        "width": 64,
+                        "x": 256,
+                        "y": 0
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_60",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "sunny",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                },
+                {
+                    "auto_size": true,
+                    "class": "lv_img",
+                    "click": false,
+                    "drag": false,
+                    "events": [
+                    ],
+                    "geometry": {
+                        "height": 32,
+                        "width": 320,
+                        "x": 0,
+                        "y": 448
+                    },
+                    "hidden": false,
+                    "locked": false,
+                    "name": "image_61",
+                    "offset": {
+                        "x": 0,
+                        "y": 0
+                    },
+                    "source": "Lbottom",
+                    "styles": [
+                        {
+                            "part": 0,
+                            "state": 0
+                        },
+                        {
+                            "part": 0,
+                            "state": 1
+                        },
+                        {
+                            "part": 0,
+                            "state": 2
+                        },
+                        {
+                            "part": 0,
+                            "state": 3
+                        },
+                        {
+                            "part": 0,
+                            "state": 4
+                        },
+                        {
+                            "part": 0,
+                            "state": 5
+                        },
+                        {
+                            "part": 0,
+                            "state": 6
+                        }
+                    ],
+                    "type": "Image"
+                }
+            ],
+            "events": [
+            ],
+            "geometry": {
+                "height": 480,
+                "width": 320,
+                "x": 0,
+                "y": 0
+            },
+            "name": "tts_text",
+            "styles": [
+                {
+                    "bg_color": "0x55aaff",
+                    "disable": false,
+                    "part": 0,
+                    "state": 0
+                }
+            ],
+            "type": "screen",
+            "visible": true
+        }
+    ],
+    "project_name": "air8000_zhengji_demo",
+    "project_settings": {
+        "color_depth": 32,
+        "keyBoard": {
+            "chinese_input": false,
+            "chinese_library": "mini",
+            "display_kb": false,
+            "keyboard_font_size": 18,
+            "keyboard_font_type": "SourceHanSerifSC_Regular"
+        },
+        "resolution": {
+            "height": 480,
+            "width": 320
+        },
+        "screen_retated": 90
+    },
+    "ui_version": "7.11.0",
+    "version": "1.0.0"
+}

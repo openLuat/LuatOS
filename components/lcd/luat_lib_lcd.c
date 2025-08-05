@@ -868,8 +868,8 @@ static uint8_t utf8_state;
 static uint16_t encoding;
 static uint16_t utf8_next(uint8_t b)
 {
-  if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
-    return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
+    if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
+        return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
     if ( utf8_state == 0 ){
         if ( b >= 0xfc )  /* 6 byte sequence */
         {

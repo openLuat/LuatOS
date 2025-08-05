@@ -5,6 +5,12 @@
 @date    2022.12.16
 @author  luatos
 @usage
+-- lbsloc 是异步回调接口，
+-- lbsloc2 是是同步接口。
+-- lbsloc比lbsloc2多了一个请求地址文本的功能。
+-- lbsloc 和 lbsloc2 都是免费LBS定位的实现方式；
+-- airlbs 扩展库是收费 LBS 的实现方式。
+
 --注意:因使用了sys.wait()所有api需要在协程中使用
 --用法实例
 --注意：此处的PRODUCT_KEY仅供演示使用，不能用于生产环境

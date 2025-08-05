@@ -982,15 +982,7 @@ static int l_fs_fsstat(lua_State *L) {
     }
 }
 
-/*
-获取文件大小
-@api    io.fsize(path)
-@string 文件路径
-@return int 文件大小,若获取失败会返回0
-@usage
--- 打印main.luac的大小
-log.info("fsize", io.fsize("/main.luac"))
-*/
+#if 0
 static int l_fs_fsize(lua_State *L) {
     const char* path = luaL_checkstring(L, 1);
     lua_pushinteger(L, luat_fs_fsize(path));
@@ -998,7 +990,6 @@ static int l_fs_fsize(lua_State *L) {
 }
 
 //---- 其他API尚不完善,暂不注释
-
 static int l_fs_mkdir(lua_State *L) {
     const char* path = luaL_checkstring(L, 1);
     lua_pushinteger(L, luat_fs_mkdir(path));
@@ -1035,6 +1026,7 @@ static int l_fs_umount(lua_State *L) {
     lua_pushinteger(L, luat_fs_umount(&conf));
     return 1;
 }
+#endif
 
 static int io_mkfs (lua_State *L);
 static int io_mkdir (lua_State *L);
@@ -1072,13 +1064,14 @@ static const rotable_Reg_t iolib[] = {
 
 // 从fs库迁移函数
     { "fsstat",      ROREG_FUNC(l_fs_fsstat)},
-    { "fsize",       ROREG_FUNC(l_fs_fsize )},
+    { "fsize",       ROREG_FUNC(io_fileSize )},
+#if 0
     { "mkdir",       ROREG_FUNC(l_fs_mkdir )},
     { "rmdir",       ROREG_FUNC(l_fs_rmdir )},
     { "mkfs",        ROREG_FUNC(l_fs_mkfs  )},
     { "mount",       ROREG_FUNC(l_fs_mount )},
     { "umount",      ROREG_FUNC(l_fs_umount)},
-
+#endif
 
   {"FILE",      ROREG_INT(0)},
   {"DIR",       ROREG_INT(1)},

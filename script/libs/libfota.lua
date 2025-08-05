@@ -131,7 +131,7 @@ fota升级
 @number ota_port 可选,请求端口,默认80
 @number libfota_timeout 可选,请求超时时间,单位毫秒,默认30000毫秒
 @string server_cert 可选,服务器ca证书数据
-@string client_cert 可选,客户端ca证书数据
+@string client_cert 可选,客户端证书数据
 @string client_key 可选,客户端私钥加密数据
 @string client_password 可选,客户端私钥口令数据
 @boolean show_otaurl 可选,是否从日志中输出打印OTA升级包的URL路径，默认会打印

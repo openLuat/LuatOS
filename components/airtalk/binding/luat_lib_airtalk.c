@@ -233,22 +233,22 @@ static int l_airtalk_speech(lua_State *L)
 }
 
 
-/*
-airtalk上行控制
-@api airtalk.uplink(on_off)
-@boolean  录音上行控制，true开始，false停止
-@return nil
-@usage
---开始录音
-airtalk.uplink(true)
---停止录音
-airtalk.uplink(false)
-*/
-static int l_airtalk_uplink(lua_State *L)
-{
-	luat_airtalk_speech_record_switch(lua_toboolean(L, 1));
-    return 0;
-}
+///*
+//airtalk上行控制
+//@api airtalk.uplink(on_off)
+//@boolean  录音上行控制，true开始，false停止
+//@return nil
+//@usage
+//--开始录音
+//airtalk.uplink(true)
+//--停止录音
+//airtalk.uplink(false)
+//*/
+//static int l_airtalk_uplink(lua_State *L)
+//{
+//	luat_airtalk_speech_record_switch(lua_toboolean(L, 1));
+//    return 0;
+//}
 
 /*
 airtalk的详细调试信息开关
@@ -273,7 +273,7 @@ static const rotable_Reg_t reg_airtalk[] =
     { "start",      ROREG_FUNC(l_airtalk_start)},
 	{ "set_ssrc",      ROREG_FUNC(l_airtalk_set_ssrc)},
 	{ "set_topic",      ROREG_FUNC(l_airtalk_set_mqtt_topic)},
-    { "uplink",      ROREG_FUNC(l_airtalk_uplink)},
+//    { "uplink",      ROREG_FUNC(l_airtalk_uplink)},
 	{ "debug",      ROREG_FUNC(l_airtalk_debug)},
 	//@const PROTOCOL_MQTT number 语音数据用MQTT传输
     { "PROTOCOL_MQTT",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_MQTT)},

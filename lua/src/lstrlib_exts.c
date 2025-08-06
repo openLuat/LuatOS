@@ -79,7 +79,7 @@ size_t luat_str_fromhex_ex(const char* str, size_t len, char* buff) {
 }
 
 void luat_str_ucs2_to_char(char* source, size_t size, char* dst2, size_t* outlen) {
-    char buff[size + 2];
+    char *buff = (char *)luat_heap_malloc(size + 2);
     memset(buff, 0, size + 2);
     luat_str_fromhex(source, size, buff);
     uint16_t* tmp = (uint16_t*)buff;
@@ -109,6 +109,7 @@ void luat_str_ucs2_to_char(char* source, size_t size, char* dst2, size_t* outlen
         break;
     }
     *outlen = dstlen;
+    luat_heap_free(buff);
 }
 
 int luat_str_utf8_to_ucs2(char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen) {

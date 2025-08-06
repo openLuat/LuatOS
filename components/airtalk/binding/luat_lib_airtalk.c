@@ -189,8 +189,10 @@ airtalk对讲工作启动/停止
 @usage
 --1对1对讲开始
 airtalk.speech(true,airtalk.MODE_PERSON,16000)
---1对多对讲开始
-airtalk.speech(true,airtalk.MODE_GROUP,16000)
+--作为发起方，进行1对多对讲
+airtalk.speech(true,airtalk.MODE_GROUP_SPEAKER,16000)
+--作为接收方，进行1对多对讲
+airtalk.speech(true,airtalk.MODE_GROUP_LISTENER,16000)
 --对讲停止
 airtalk.speech(false)
 */
@@ -209,9 +211,14 @@ static int l_airtalk_speech(lua_State *L)
 			luat_airtalk_net_transfer_start(mode);
 			luat_airtalk_speech_record_switch(1);
 			break;
-		case LUAT_AIRTALK_SPEECH_MODE_GROUP:
+		case LUAT_AIRTALK_SPEECH_MODE_GROUP_SPEAKER:
 			luat_airtalk_use_16k(sample == 16000);
-			//luat_airtalk_speech_start_play(sample == 16000);
+			luat_airtalk_speech_record_switch(1);
+			luat_airtalk_net_transfer_start(mode);
+			break;
+		case LUAT_AIRTALK_SPEECH_MODE_GROUP_LISTENER:
+			luat_airtalk_use_16k(sample == 16000);
+			luat_airtalk_speech_start_play(sample == 16000);
 			luat_airtalk_net_transfer_start(mode);
 			break;
 		}
@@ -272,8 +279,11 @@ static const rotable_Reg_t reg_airtalk[] =
     { "PROTOCOL_MQTT",        ROREG_INT(LUAT_AIRTALK_PROTOCOL_MQTT)},
 	//@const MODE_PERSON number 对讲工作模式1对1
     { "MODE_PERSON",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_PERSON)},
-	//@const MODE_GROUP number 对讲工作模式多人
-    { "MODE_GROUP",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP)},
+	//@const MODE_GROUP_SPEAKER number 对讲工作模式1对多的发起者，录音上行，不播放
+    { "MODE_GROUP_SPEAKER",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP_SPEAKER)},
+	//@const MODE_GROUP_LISTENER number 对讲工作模式1对多的接收者，下行播放，不录音
+    { "MODE_GROUP_LISTENER",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP_LISTENER)},
+
 	//@const EVENT_OFF_LINE number airtalk离线
     { "EVENT_OFF_LINE",       ROREG_INT(LUAT_AIRTALK_CB_ON_LINE_IDLE)},
 	//@const EVENT_ON_LINE_IDLE number airtalk在线处于空闲状态

@@ -97,6 +97,10 @@ static void airtalk_network_task(void *param)
 		switch(event.id)
 		{
 		case AIRTALK_EVENT_NETWORK_DOWNLINK_DATA:
+			if (LUAT_AIRTALK_SPEECH_MODE_GROUP_SPEAKER == prv_network.work_mode)
+			{
+				goto RX_DATA_DONE;
+			}
 			if (!prv_network.is_ready)
 			{
 				goto RX_DATA_DONE;

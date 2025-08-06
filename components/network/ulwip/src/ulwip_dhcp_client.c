@@ -101,7 +101,7 @@ on_check:
     //     tx_msg_buf.Data[0], tx_msg_buf.Data[1], tx_msg_buf.Data[2], tx_msg_buf.Data[3]);
     p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
     if (p == NULL) {
-        LLOGE("pbuf_alloc error");
+        LLOGE("pbuf_alloc error %d", tx_msg_buf.Pos);
         return -1;
     }
     char* data = (char*)tx_msg_buf.Data;
@@ -114,24 +114,27 @@ on_check:
     // ip_addr_set_any(0, &s_ulwip_dhcp->local_ip);
     memcpy(&s_ulwip_dhcp->local_ip, &netif->ip_addr, sizeof(ip_addr_t));    // 本地地址设为netif的ip地址
     result = udp_sendto_if(s_ulwip_dhcp, p, IP_ADDR_BROADCAST, 67, netif);
+    pbuf_free(p);
     if (result != ERR_OK) {
         LLOGE("dhcp udp_sendto_if error %d", result);
     }
-    pbuf_free(p);
     return 0;
 }
 
 static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
-    if (addr == NULL || port != 67 || pcb == NULL) {
-        return 0;
-    }
+    LWIP_UNUSED_ARG(arg);
+    LWIP_UNUSED_ARG(pcb);
+    LWIP_UNUSED_ARG(port);
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     u16_t total_len = p->tot_len;
     char* ptr = luat_heap_malloc(total_len);
     if (!ptr) {
+        pbuf_free(p);
         return ERR_OK;
     }
     pbuf_copy_partial(p, ptr, total_len, 0);
+    pbuf_free(p);
+    p = NULL; // 防止重复释放
 
     // 解析DHCP数据包中的mac地址
     uint8_t received_mac[6];

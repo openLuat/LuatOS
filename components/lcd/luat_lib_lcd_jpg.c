@@ -76,7 +76,7 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     return 1;    /* Continue to decompress */
 }
 
-LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
+int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
     void *work;       /* Pointer to the decompressor work area */
@@ -87,7 +87,7 @@ LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, 
 #endif
     IODEV devid;      /* User defined device identifier */
 
-    FILE* fd = luat_fs_fopen(path, "r");
+    FILE* fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
         LLOGW("no such file %s", path);
     return -1;
@@ -138,14 +138,6 @@ static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     uint16_t* tmp = (uint16_t*)bitmap;
 
     // rgb高低位swap
-    // uint16_t count = (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1);
-    // for (size_t i = 0; i < count; i++){
-    //     if (lcd_dft_conf->endianness_swap)
-    //         buff_info->buff[buff_info->offset] = ((tmp[i] >> 8) & 0xFF)+ ((tmp[i] << 8) & 0xFF00);
-    //     else
-    //         buff_info->buff[buff_info->offset] = tmp[i];
-	// 	buff_info->offset++;
-    // }
 	uint16_t idx = 0;
 	for (size_t y = rect->top; y <= rect->bottom; y++){
 		uint16_t offset = y*buff_info->width + rect->left;
@@ -162,7 +154,7 @@ static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     // LLOGD("jpeg seg size %d %d %d", rect->right - rect->left + 1, rect->bottom - rect->top + 1, (rect->right - rect->left + 1) * (rect->bottom - rect->top + 1));
     return 1;    /* Continue to decompress */
 }
-LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
+int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
     void *work = NULL;       /* Pointer to the decompressor work area */
@@ -171,7 +163,7 @@ LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_
 #else
     size_t sz_work = 3500; /* Size of work area */
 #endif
-    FILE* fd = luat_fs_fopen(path, "r");
+    FILE* fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
         LLOGW("no such file %s", path);
 		goto error;
@@ -207,6 +199,14 @@ error:
 		luat_fs_fclose(fd);
 	}
 	return -1;
+}
+
+LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
+    return lcd_draw_jpeg_default(conf, path, x, y);
+}
+
+LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
+    return lcd_jpeg_decode_default(conf, path, buff_info);
 }
 
 #endif

@@ -5,26 +5,11 @@
 @date    2024.11.01
 @author  Dozingfiretruck
 @usage
---注意:因使用了sys.wait()所有api需要在协程中使用
---注意:使用前需同步时间
--- 用法实例
-local airlbs = require "airlbs"
-
-sys.taskInit(function()
-    sys.waitUntil("IP_READY")
-
-    socket.sntp()
-    sys.waitUntil("NTP_UPDATE", 1000)
-
-    while 1 do
-        local result , data = airlbs.request({project_id = "xxx",project_key = 'xxx',timeout = 1000})
-        if result then
-            print("airlbs", json.encode(data))
-        end
-        sys.wait(20000)
-    end
-
-end)
+-- lbsloc 是异步回调接口，
+-- lbsloc2 是是同步接口。
+-- lbsloc比lbsloc2多了一个请求地址文本的功能。
+-- lbsloc 和 lbsloc2 都是免费LBS定位的实现方式；
+-- airlbs 扩展库是收费 LBS 的实现方式。
 ]] 
 
 
@@ -98,20 +83,35 @@ end
 --[[
 获取定位数据
 @api airlbs.request(param)
-@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 timeout:超时时间,单位毫秒 默认15000
+@param table 参数(联系销售获取id与key) project_id:项目ID project_key:项目密钥 timeout:超时时间,单位毫秒 默认15000 adapter: 网络适配器id,可选,默认是平台自带的网络协议栈
 @return bool 成功返回true,失败会返回false
 @return table 定位成功生效，成功返回定位数据
 @usage
-local result , data = airlbs.request({project_id = airlbs_project_id,project_key = airlbs_project_key})
-if result then
-    print("airlbs", json.encode(data))
-end
--- 2025.4.10 新增adapter参数
-local result , data = airlbs.request({
-    project_id = airlbs_project_id,
-    project_key = airlbs_project_key,
-    adapter = socket.LWIP_STA
-})
+--注意:函数内因使用了sys.waitUntil阻塞接口，所以api需要在协程中使用
+--注意:使用前需同步时间
+
+local airlbs = require "airlbs"
+
+sys.taskInit(function()
+    -- 等待网络就绪
+    sys.waitUntil("IP_READY")
+    -- 执行时间同步
+    socket.sntp()
+    sys.waitUntil("NTP_UPDATE", 10000)
+    while 1 do
+        -- airlbs请求定位
+        local result ,data = airlbs.request({
+            project_id = airlbs_project_id,
+            project_key = airlbs_project_key,
+            timeout = 10000, 
+            adapter = socket.LWIP_STA
+            })
+        if result then
+            log.info("airlbs", json.encode(data))
+        end
+        sys.wait(20000)
+    end
+end)
 ]]
 function airlbs.request(param)
     if not param or param.project_id == nil or param.project_key == nil then

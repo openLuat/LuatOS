@@ -22,7 +22,7 @@ local is_ssl = flase -- 非ssl加密连接
 
 -- local ssl_encrypt = {
 --     server_cert = "/luadb/server_cert.cert",--服务器ca证书数据
---     client_cert = "/luadb/client_cert.cert",--客户端ca证书数据
+--     client_cert = "/luadb/client_cert.cert",--客户端证书数据
 --     client_key = "/luadb/client_key",-- 客户端私钥加密数据
 --     client_password = "naovswoivbfpfvjwpojv[pawjb[dsfjb]]"--客户端私钥口令数据
 -- }

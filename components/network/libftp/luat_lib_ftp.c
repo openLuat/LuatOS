@@ -55,7 +55,7 @@ FTP客户端
 @string port 端口,默认21
 @string username 用户名
 @string password 密码
-@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
+@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
 @return bool/string 成功返回true 失败返回string
 @usage
 ftp_login = ftp.login(nil,"xxx")

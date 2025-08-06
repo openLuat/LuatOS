@@ -134,7 +134,7 @@ const char* luat_lcd_name(luat_lcd_conf_t* conf) {
     return conf->opts->name;
 }
 
-LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
+int luat_lcd_init_default(luat_lcd_conf_t* conf) {
 	conf->is_init_done = 0;
 
     if (conf->w == 0)
@@ -153,13 +153,13 @@ LUAT_WEAK int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     }
-	if (conf->opts->user_ctrl_init) {
-		int res = conf->opts->user_ctrl_init(conf);
-		if (res > 0) {
-			goto INIT_NOT_DONE;
-		}
-		goto INIT_DONE;
-	}
+    if (conf->opts->user_ctrl_init) {
+        int res = conf->opts->user_ctrl_init(conf);
+        if (res > 0) {
+            goto INIT_NOT_DONE;
+        }
+        goto INIT_DONE;
+    }
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_rtos_task_sleep(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
@@ -196,15 +196,15 @@ INIT_NOT_DONE:
     return -1;
 }
 
-LUAT_WEAK int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
-	if (conf->buff) {
-		LLOGE("lcd buff已经分配过了");
-		return 0;
-	}
+int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
+    if (conf->buff) {
+        LLOGE("lcd buff已经分配过了");
+        return 0;
+    }
     conf->buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
     if (conf->buff == NULL) {
-      LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
-      conf->buff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
+        conf->buff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
     }
     if (conf->buff == NULL) {
         LLOGE("分配 lcd buff失败");
@@ -212,8 +212,8 @@ LUAT_WEAK int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
     }
     conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
     if (conf->buff_ex == NULL) {
-      LLOGW("psram 分配 lcd buff_ex失败, 尝试在sram分配");
-      conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        LLOGW("psram 分配 lcd buff_ex失败, 尝试在sram分配");
+        conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
     }
     if (conf->buff_ex == NULL) {
         LLOGE("分配 lcd buff_ex失败");

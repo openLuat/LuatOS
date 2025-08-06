@@ -13,6 +13,7 @@
 #define CST820_CHIP_ID               (0xA7)
 #define CST820_STATUS                (0x02)
 #define CST820_POINT1_REG            (0x03)
+#define CST820_NORSCANPER_REG        (0xEE)
 
 #define CST820_POINT_INFO_NUM        (4)
 #define CST820_TOUCH_NUMBER_MIN      (1)
@@ -96,6 +97,8 @@ static int tp_cst820_init(luat_tp_config_t* luat_tp_config){
     }
 
     luat_rtos_task_sleep(20);
+	tp_i2c_write_reg8(luat_tp_config, CST820_NORSCANPER_REG, (uint8_t[]){0x02}, 1);
+
     luat_tp_config->int_type = Luat_GPIO_FALLING;
 
     luat_gpio_t gpio = {0};

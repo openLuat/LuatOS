@@ -79,7 +79,7 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
     memcpy(phone, sms->phone_address, strlen(sms->phone_address));
     if (strlen(phone) > 4 && phone[0] == '0' && phone[1] == '0' && strlen(phone) % 2 == 0) {
         // 看来是ucs编码了
-        ucs2char(sms->phone_address, strlen(sms->phone_address), phone, &outlen);
+        luat_str_ucs2_to_char(sms->phone_address, strlen(sms->phone_address), phone, &outlen);
         phone[outlen] = 0x00;
     }
     lua_pushstring(L, phone);
@@ -147,7 +147,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
     }
     else {
-        ucs2char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);
+        luat_str_ucs2_to_char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);
         dst[dstlen] = 0;
     }
 
@@ -388,7 +388,7 @@ static int l_sms_send(lua_State *L) {
     }
     memset(ucs2_buf, 0x00, payload_len * 3);
 
-    ret = utf82ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
+    ret = luat_str_utf8_to_ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
 
     if (ret) {
         LLOGE("utf82ucs2 encode fail");
@@ -497,7 +497,7 @@ static int l_long_sms_send(lua_State *L) {
 
     memset(ucs2_buf, 0x00, payload_len * 3);
 
-    int ret = utf82ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
+    int ret = luat_str_utf8_to_ucs2(payload, payload_len, ucs2_buf, payload_len * 3, &outlen);
 
     if (ret) {
         LLOGE("utf8 to ucs2 fail ret");

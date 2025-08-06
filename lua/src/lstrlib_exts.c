@@ -78,6 +78,78 @@ size_t luat_str_fromhex_ex(const char* str, size_t len, char* buff) {
 	return out_len;
 }
 
+void luat_str_ucs2_to_char(char* source, size_t size, char* dst2, size_t* outlen) {
+    char buff[size + 2];
+    memset(buff, 0, size + 2);
+    luat_str_fromhex(source, size, buff);
+    uint16_t* tmp = (uint16_t*)buff;
+    char* dst = dst2;
+    uint16_t unicode = 0;
+    size_t dstlen = 0;
+    while (1) {
+        unicode = *tmp ++;
+        unicode = ((unicode >> 8) & 0xFF) + ((unicode & 0xFF) << 8);
+        if (unicode == 0)
+            break; // 终止了
+        if (unicode <= 0x0000007F) {
+            dst[dstlen++] = (unicode & 0x7F);
+            continue;
+        }
+        if (unicode <= 0x000007FF) {
+            dst[dstlen++]	= ((unicode >> 6) & 0x1F) | 0xC0;
+		    dst[dstlen++] 	= (unicode & 0x3F) | 0x80;
+            continue;
+        }
+        if (unicode <= 0x0000FFFF) {
+            dst[dstlen++]	= ((unicode >> 12) & 0x0F) | 0xE0;
+		    dst[dstlen++]	= ((unicode >>  6) & 0x3F) | 0x80;
+		    dst[dstlen++]	= (unicode & 0x3F) | 0x80;
+            continue;
+        }
+        break;
+    }
+    *outlen = dstlen;
+}
+
+int luat_str_utf8_to_ucs2(char* source, size_t source_len, char* dst, size_t dstlen, size_t* outlen) {
+    uint16_t unicode = 0;
+    size_t tmplen = 0;
+    for (size_t i = 0; i < source_len; i++)
+    {
+        if(tmplen >= dstlen) {
+            return -1;
+        }
+        // 首先是不是单字节
+        if (source[i] & 0x80) {
+            // 非ASCII编码
+            if (source[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+                unicode = ((source[i] & 0x0F) << 12) + ((source[i+1] & 0x3F) << 6) + (source[i+2] & 0x3F);
+                dst[tmplen++] = (unicode >> 8) & 0xFF;
+                dst[tmplen++] = unicode & 0xFF;
+                i+=2;
+                continue;
+            }
+            if (source[i] & 0xC0) { // 110xxxxx 10xxxxxx
+                unicode = ((source[i] & 0x1F) << 6) + (source[i+1] & 0x3F);
+                dst[tmplen++] = (unicode >> 8) & 0xFF;
+                dst[tmplen++] = unicode & 0xFF;
+                i++;
+                continue;
+            }
+            return -1;
+        }
+        // 单个ASCII字符, 但需要扩展到2位
+        else {
+            // ASCII编码
+            dst[tmplen++] = 0x00;
+            dst[tmplen++] = source[i];
+            continue;
+        }
+    }
+    *outlen = tmplen;
+    return 0;
+}
+
 /*
 将字符串转成HEX
 @api string.toHex(str, separator)

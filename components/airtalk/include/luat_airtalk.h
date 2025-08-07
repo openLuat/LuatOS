@@ -24,7 +24,9 @@ enum
 	LUAT_AIRTALK_CB_RECORD_END,
 	LUAT_AIRTALK_CB_AUDIO_START,
 	LUAT_AIRTALK_CB_AUDIO_END,
-	LUAT_AIRTALK_CB_ERROR
+	LUAT_AIRTALK_CB_ERROR,
+
+	LUAT_AIRTALL_ERR_LONG_TIME_NO_DATA = 0,
 };
 void luat_airtalk_callback(uint32_t event, void *param, uint32_t param_len);
 

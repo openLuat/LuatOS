@@ -58,7 +58,7 @@ sys.taskInitEx(user_task, USER_TASK_NAME, task_cb)
 --定期检查ram使用情况，及时发现内存泄露
 sys.taskInit(function()
     while true do
-        sys.wait(5000)
+        sys.wait(60000)
         log.info("time", os.time())
         log.info("lua", rtos.meminfo("lua"))
         log.info("sys", rtos.meminfo("sys"))

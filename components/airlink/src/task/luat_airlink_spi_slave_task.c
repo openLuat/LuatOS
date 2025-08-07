@@ -115,6 +115,9 @@ static void slave_irq_mode_startup(airlink_link_data_t* link) {
     gpio.pull = LUAT_GPIO_PULLUP;
     gpio.output_level = 1;
     ret = luat_gpio_open(&gpio);
+    if (ret != 0) {
+        LLOGE("IRQ模式开启失败, GPIO %d %d", gpio.pin, ret);
+    }
     // LLOGD("IRQ模式开启, GPIO %d %d", gpio.pin, ret);
     // s_irq_pin = gpio.pin;
     // is_irq_mode = 1;
@@ -124,7 +127,7 @@ static void spi_gpio_setup(void)
 {
     // LLOGD("spi_gpio_setup");
     // LLOGD("g_airlink_spi_conf %p", &g_airlink_spi_conf);
-    int ret = 0;
+    // int ret = 0;
     if (g_airlink_spi_conf.cs_pin == 0)
     {
         // if (g_airlink_spi_conf.spi_id == 0) {
@@ -242,6 +245,9 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
         // print_tm("执行luat_rtos_event_recv");
 
         ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), LUAT_WAIT_FOREVER);
+        if (ret) {
+            // nop
+        }
         // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         // print_tm("执行完luat_rtos_event_recv");
         int cs_level = luat_gpio_get(AIRLINK_SPI_CS_PIN);

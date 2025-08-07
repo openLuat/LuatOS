@@ -48,8 +48,8 @@ static void airtalk_full_stop(void)
 
 static void download_check_timer(void *param)
 {
-	LUAT_DEBUG_PRINT("broadcast long time no data!");
-	luat_rtos_event_send(prv_network.task_handle, AIRTALK_EVENT_NETWORK_FORCE_STOP, 0, 0, 0, 0);
+	luat_airtalk_callback(LUAT_AIRTALK_CB_ERROR, NULL, LUAT_AIRTALL_ERR_LONG_TIME_NO_DATA);
+//	luat_rtos_event_send(prv_network.task_handle, AIRTALK_EVENT_NETWORK_FORCE_STOP, 0, 0, 0, 0);
 }
 
 
@@ -170,7 +170,7 @@ static void airtalk_network_task(void *param)
 				prv_network.remote_ssrc = remote_rtp_head->ssrc;
 				prv_network.remote_ssrc_exsit = 1;
 				LUAT_DEBUG_PRINT("sync start remote %llu %llu %x", net_cache->remote_tamp, net_cache->local_tamp, prv_network.remote_ssrc);
-				luat_start_rtos_timer(prv_network.download_check_timer, 3000, 0);
+				luat_start_rtos_timer(prv_network.download_check_timer, 3000, 1);
 				goto RX_DATA_DONE;
 			}
 			else
@@ -223,7 +223,7 @@ static void airtalk_network_task(void *param)
 					}
 				}
 			}
-			luat_start_rtos_timer(prv_network.download_check_timer, 3000, 0);
+			luat_start_rtos_timer(prv_network.download_check_timer, 3000, 1);
 RX_DATA_DONE:
 			prv_network.recv_function((uint8_t *)event.param1, event.param3);
 			break;

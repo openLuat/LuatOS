@@ -106,6 +106,11 @@ static int l_airtalk_config(lua_State *L)
 airtalk.on(function(event, param)
     log.info("airtalk event", event, param)
 end)
+--[[
+event具体见EVENT_XXX
+param说明:
+目前只有EVENT_ERROR会有param值，为ERROR_XXX
+]]
 */
 static int l_airtalk_on(lua_State *L) {
 	if (l_airtalk_cb)
@@ -285,7 +290,7 @@ static const rotable_Reg_t reg_airtalk[] =
     { "MODE_GROUP_LISTENER",        ROREG_INT(LUAT_AIRTALK_SPEECH_MODE_GROUP_LISTENER)},
 
 	//@const EVENT_OFF_LINE number airtalk离线
-    { "EVENT_OFF_LINE",       ROREG_INT(LUAT_AIRTALK_CB_ON_LINE_IDLE)},
+    { "EVENT_OFF_LINE",       ROREG_INT(LUAT_AIRTALK_CB_OFF_LINE)},
 	//@const EVENT_ON_LINE_IDLE number airtalk在线处于空闲状态
     { "EVENT_ON_LINE_IDLE",       ROREG_INT(LUAT_AIRTALK_CB_ON_LINE_IDLE)},
 	//@const EVENT_PLAY_START number airtalk下行播放开始
@@ -302,7 +307,8 @@ static const rotable_Reg_t reg_airtalk[] =
     { "EVENT_AUDIO_END",       ROREG_INT(LUAT_AIRTALK_CB_AUDIO_END)},
 	//@const EVENT_ERROR number airtalk发生异常，后续param为异常值
     { "EVENT_ERROR",       ROREG_INT(LUAT_AIRTALK_CB_ERROR)},
-
+	//@const EVENT_ERROR number airtalk发生异常，长时间没有收到音频数据
+    { "ERROR_NO_DATA",       ROREG_INT(LUAT_AIRTALL_ERR_LONG_TIME_NO_DATA)},
     { NULL,         ROREG_INT(0) }
 };
 

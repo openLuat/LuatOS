@@ -50,13 +50,14 @@ static int l_airtalk_handler(lua_State *L, void* ptr) {
 
 /*
 配置airtalk参数
-@api airtalk.config(protocol,netc,cache_time,encode_cnt,decode_cnt,audio_pm_mode_when_stop)
+@api airtalk.config(protocol,netc,cache_time,encode_cnt,decode_cnt,audio_pm_mode_when_stop,no_data_to)
 @int 语音数据传输协议类型，见airtalk.PROTOCOL_XXX
 @userdata network_ctrl或者mqtt客户端，如果协议是mqtt类型，传入mqtt.create返回值，如果是其他类型，传入socket.create的返回值
 @int 缓冲时间，单位ms，默认500ms，值越小，delay越小，抗网络波动能力越差
 @int 单次编码帧数，默认值5，不能低于2，不能高于5
 @int 单次解码帧数，如果缓冲没有足够的帧数，自动补0，默认值5，不能低于2，不能高于10，不能低于encode_cnt, decode_cnt * 4 必须是 encode_cnt的整数倍
 @int 对讲停止后，audio的pm状态，默认是audio.SHUTDOWN
+@int 多长时间判定对端长时间无数据发送，超过这个时间会上报event_error，用户决定接下来的操作。默认5000ms，单位ms
 @return nil
 @usage
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
@@ -69,6 +70,8 @@ static int l_airtalk_config(lua_State *L)
 	int encode_cnt = luaL_optinteger(L, 4, 5);
 	int decode_cnt = luaL_optinteger(L, 5, 5);
 	int audio_pm_mode_when_stop = luaL_optinteger(L, 6, LUAT_AUDIO_PM_SHUTDOWN);
+	int to = luaL_optinteger(L, 7, 5000);
+
 	luat_mqtt_ctrl_t * mqtt_ctrl;
 	switch (airtalk_protocol)
 	{
@@ -83,7 +86,7 @@ static int l_airtalk_config(lua_State *L)
 			LLOGE("protocol %d no mqttc", airtalk_protocol);
 			return 0;
 		}
-		luat_airtalk_net_param_config(airtalk_protocol, cache_time);
+		luat_airtalk_net_param_config(airtalk_protocol, cache_time, to);
 		luat_airtalk_net_set_mqtt_ctrl(mqtt_ctrl);
 		luat_airtalk_speech_audio_param_config(0, audio_pm_mode_when_stop);
 		luat_airtalk_speech_set_one_block_frame_cnt(decode_cnt, encode_cnt);

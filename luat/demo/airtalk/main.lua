@@ -24,7 +24,7 @@ end
 gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 gpio.setup(gpio.PWR_KEY, power_key_cb, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(0, 200, 1)
+gpio.debounce(gpio.PWR_KEY, 200, 1)
 
 local test_ready = false
 local function task_cb(msg)
@@ -58,7 +58,7 @@ sys.taskInitEx(user_task, USER_TASK_NAME, task_cb)
 --定期检查ram使用情况，及时发现内存泄露
 sys.taskInit(function()
     while true do
-        sys.wait(500000)
+        sys.wait(5000)
         log.info("time", os.time())
         log.info("lua", rtos.meminfo("lua"))
         log.info("sys", rtos.meminfo("sys"))

@@ -17,7 +17,6 @@ local function airtalk_event_cb(event, param)
     log.info("airtalk event", event, param)
 end
 
-
 local function auth()
     if g_state == SP_T_NO_READY then
         g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0001", json.encode({["key"] = PRODUCT_KEY, ["device_type"] = 1}))
@@ -40,6 +39,7 @@ local function speech_on(ssrc, sample)
     airtalk.speech(true, g_s_mode, sample)
     sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, true) 
     sys.timerLoopStart(heart, 150000)
+    sys.timerStopAll(wait_speech_to)
     log.info("对讲接通，可以说话了")
 end
 --对讲结束
@@ -52,6 +52,12 @@ local function speech_off()
     g_state = SP_T_IDLE
     sys.timerStopAll(heart)
     log.info("对讲断开了")
+end
+
+local function wait_speech_to()
+    log.info("主动请求对讲超时无应答")
+    g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0004", json.encode({["to"] = g_remote_id}))
+    speech_off()
 end
 
 local function analyze_v1(cmd, topic, obj)
@@ -67,6 +73,7 @@ local function analyze_v1(cmd, topic, obj)
                 speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
                 return
             else
+                log.info(obj["result"], obj["topic"], g_s_topic)
                 sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, false)   --有异常，无法对讲
             end
             
@@ -192,6 +199,8 @@ local function mqtt_cb(mqttc, event, topic, payload)
         speech_off()
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_CONNECT_OFF_IND) 
         sys.timerStopAll(auth)
+        sys.timerStopAll(heart)
+        sys.timerStopAll(wait_speech_to)
         g_state = SP_T_NO_READY
     elseif event == "error" then
 
@@ -258,7 +267,9 @@ local function airtalk_mqtt_task()
                             g_remote_id = res
                             g_s_mode = airtalk.MODE_PERSON
                             g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
+                            log.info(g_s_topic, "ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "one-on-one"}))
                             g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "one-on-one"}))
+                            sys.timerStart(wait_speech_to, 15000)
                         else
                             log.info("找不到有效的设备ID")
                         end
@@ -268,10 +279,13 @@ local function airtalk_mqtt_task()
                         log.info("正在对讲无法开始")
                     else
                         log.info("测试一下1对多对讲功能")
+                        g_remote_id = "all"
                         g_state = SP_T_CONNECTING
                         g_s_mode = airtalk.MODE_GROUP_SPEAKER
                         g_s_topic = "audio/" .. g_local_id .. "/all/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
+                        log.info(g_s_topic, "ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "broadcast"}))
                         g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "broadcast"}))
+                        sys.timerStart(wait_speech_to, 15000)
                     end
                 elseif msg[1] == MSG_SPEECH_STOP_TEST_END then
                     if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then

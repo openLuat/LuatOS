@@ -20,6 +20,7 @@ void luat_msgbus_init(void) {
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
     if (xQueue == NULL)
         return 1;
+    #if 0
     if (luat_rtos_get_ipsr())
 	{
         BaseType_t pxHigherPriorityTaskWoken;
@@ -32,6 +33,9 @@ uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
     {
         return xQueueSend(xQueue, msg, NULL) == pdTRUE ? 0 : 1;
     }
+    #else
+    return xQueueSendFromISR(xQueue, msg, NULL) == pdTRUE ? 0 : 1;
+    #endif
 }
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
     if (xQueue == NULL)

@@ -24,7 +24,7 @@ local power_time_delay = 600    -- 音频播放完毕时，PA与DAC关闭的时�
 local taskName = "task_tts"
 
 local play_string = "降功耗，找合宙"
-local voice_vol = 60        -- 喇叭音量
+local voice_vol = 55        -- 喇叭音量
 local mic_vol = 80          -- 麦克风音量
 
 function audio_setup()

@@ -40,7 +40,7 @@ static int pin_rdy_state;
 static int is_irq_mode;
 static uint32_t irq_counter; // 中断计数
 
-static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
+static uint8_t basic_info[1024];
 static inline luat_airlink_dev_info_t * self_devinfo(void) {
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     return (luat_airlink_dev_info_t *)(cmd->data);
@@ -221,10 +221,6 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
     airlink_link_data_t* link = NULL;
     luat_event_t event = {0};
 
-    luat_rtos_task_sleep(5); // 等5ms
-    s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-    s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     cmd->cmd = 0x10;
     cmd->len = 128;
@@ -233,9 +229,11 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
     devinfo->tp = 0x01;
 
     // // 执行主循环
-    self_ready = 1;
     g_airlink_link_data_cb = link_data_cb;
     g_airlink_newdata_notify_cb = on_newdata_notify;
+
+    // 告知已经就绪
+    self_ready = 1;
     // // bk_spi_dma_duplex_init(SLAVE_SPI_ID);
     start_spi_trans();
     while (1) {   
@@ -298,9 +296,11 @@ void luat_airlink_start_slave(void)
         LLOGE("SPI从机任务已经启动过了!!!");
         return;
     }
+    s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     spi_gpio_setup();
 
-    luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
-    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi_slave", spi_slave_task, NULL, 1024);
+    luat_rtos_queue_create(&evt_queue, 2 * 1024, sizeof(luat_event_t));
+    luat_rtos_task_create(&spi_task_handle, 16 * 1024, 50, "spi_slave", spi_slave_task, NULL, 0);
 }
 #endif

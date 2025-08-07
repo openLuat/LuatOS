@@ -8,7 +8,6 @@
 使用Air8000核心板，外接GPS天线，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
 模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
 ]]
-gnss=require("gnss")
 pm.power(pm.WORK_MODE, 0) 
 local lat,lng
 
@@ -104,6 +103,11 @@ local function gnss_fnc()
         -- uartbaud=115200,    --串口波特率，780EGH和8000默认115200
         -- bind=1, --绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号
         -- rtc=false    --定位成功后自动设置RTC true开启，flase关闭
+         ----因为GNSS使用辅助定位的逻辑，是模块下载星历文件，然后把数据发送给GNSS芯片，
+        ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
+        ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把agps_autoopen设置成false
+        ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
+        -- agps_autoopen=false 
     }
     gnss.setup(gnssotps)
     gnss.open(gnss.TIMERORSUC,{tag="MODE1",val=60,cb=mode1_cb})

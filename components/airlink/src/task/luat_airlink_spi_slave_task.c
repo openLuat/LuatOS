@@ -195,11 +195,11 @@ __USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
     airlink_queue_item_t item = {0};
     // print_tm("准备执行luat_airlink_cmd_recv_simple");
     luat_airlink_cmd_recv_simple(&item);
-    LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
+    // LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
     if (item.len > 0 && item.cmd != NULL) {
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
         luat_airlink_data_pack(item.cmd, item.len, s_txbuff);
-        LLOGD("执行完luat_airlink_cmd_recv_simplecmd %p len %d --- ", item.cmd, item.len);
+        // LLOGD("执行完luat_airlink_cmd_recv_simplecmd %p len %d --- ", item.cmd, item.len);
         luat_airlink_cmd_free(item.cmd);
     }
     else {
@@ -291,13 +291,20 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
 void luat_airlink_start_slave(void)
 {
     LLOGE("luat_airlink_start_slave!!!");
-    if (s_txbuff)
+    if (spi_task_handle != NULL)
     {
         LLOGE("SPI从机任务已经启动过了!!!");
         return;
     }
-    s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-    s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    
+    if (s_rxbuff == NULL) {
+        // 分配内存
+        s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    }
+    if (s_txbuff == NULL) {
+        // 分配内存给s_rxbuff
+        s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    }
     spi_gpio_setup();
 
     luat_rtos_queue_create(&evt_queue, 2 * 1024, sizeof(luat_event_t));

@@ -1215,14 +1215,14 @@ static uint32_t BytesGetLe32(const void *ptr)
 }
 
 /**
-按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
+按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，且填写了isbigend参数，则根据isbigend,issigned,isfloat转换成浮点或者整形
 @api buff:query(offset,length,isbigend,issigned,isfloat)
 @int 数据的起始位置（起始位置为0）
 @int 数据的长度
-@boolean 是否是大端格式，如果为nil，则不会转换，直接字节流输出
+@boolean 是否是大端格式，如果为nil，则不会转换，直接字节流输出，false为小端格式，true为大端格式
 @boolean 是否是有符号的，默认为false
 @boolean 是否是浮点型，默认为false
-@return string 读出来的数据
+@return string 读出来的数据，如果取出数据是1,2,4,8字节，且isbigend填写了true或者false，则输出浮点或者整形
 @usage
 local s = buff:query(0,5)--读取开头的五个字节数据
  */
@@ -1344,7 +1344,8 @@ static int l_zbuff_query(lua_State *L)
     		}
     		break;
     	default:
-    		lua_pushnil(L);
+    		lua_pushlstring(L, (const char*)(buff->addr + start), len);
+    		break;
     	}
     	return 1;
     }

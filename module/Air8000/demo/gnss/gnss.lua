@@ -153,6 +153,9 @@ sys.subscribe("GNSS_STATE", function(event)
     if event == "FIXED" then
         gnss.saveloc()
         tid=sys.timerLoopStart(gnss.saveloc,600000)
+        if gnss.opts.rtc==true then
+            sys.publish("NTP_UPDATE")
+        end
     elseif event == "LOSE" or event == "CLOSE" then
         -- log.info("libagps","libagps is close")
         sys.timerStop(tid)
@@ -168,7 +171,12 @@ local function _agps()
     --如果直接关闭gnss会导致gnss芯片的星历没有解析完毕，会影响下一次的定位为冷启动
     --如果对功耗有需求，需要定位快，可以每次都使用agps，不需要这句，直接屏蔽掉即可
     --代价是每次定位都会进行基站定位，
-    -- gnss.open(gnss.TIMER,{tag="libagps",val=20}) 
+    if gnss.opts.agps_autoopen~= false then
+        log.info("libagps","libagps is open")
+        gnss.open(gnss.TIMER,{tag="libagps",val=20}) 
+    else
+
+    end
     -- 判断星历时间和下载星历   
     local now = os.time()
     local agps_time = tonumber(io.readFile("/hxxt_tm") or "0") or 0

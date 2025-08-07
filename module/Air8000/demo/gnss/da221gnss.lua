@@ -20,7 +20,6 @@ local function mode1_cb(tag)
     tcp.latlngfnc(rmc.lat,rmc.lng)
 end
 local function timer1()
-    log.info("timer1")
     gnss.close(gnss.DEFAULT,{tag="MODE1"})
     sys.timerStop(tid)
 end
@@ -51,19 +50,19 @@ local function gnss_fnc()
         -- uartbaud=115200,    --串口波特率，780EGH和8000默认115200
         -- bind=1, --绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号
         -- rtc=false    --定位成功后自动设置RTC true开启，flase关闭
+        ----因为GNSS使用辅助定位的逻辑，是模块下载星历文件，然后把数据发送给GNSS芯片，
+        ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
+        ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把agps_autoopen设置成false
+        ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
+        -- agps_autoopen=false 
     }
     gnss.setup(gnssotps)
     --1、静态/微动检测，使用场景：微振动检测、手势识别；
     --2、常规运动监测，使用场景：运动监测、车载设备；
     --3、高动态冲击检测，使用场景：碰撞检测、工业冲击
     da221.open(1)
-    -- gpio.debounce(intPin, 100)
-    -- gpio.setup(intPin, ind)
-    while true do
-       local x,y,z =  da221.read_xyz()      --读取x，y，z轴的数据
-        log.info("x", x..'g', "y", y..'g', "z", z..'g')
-        sys.wait(500)
-    end
+    gpio.debounce(intPin, 100)
+    gpio.setup(intPin, ind)
 
 end
 

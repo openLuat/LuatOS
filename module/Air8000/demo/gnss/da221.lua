@@ -37,13 +37,14 @@ local z_msb_reg = 0x07 -- Z轴MSB寄存器地址
 local active_state = 0x0b -- 激活状态寄存器地址
 local active_state_data
 
-
-local function logF(...)
-    if logSwitch then
-        log.info(moduleName, ...)
-    end
-end
-
+--[[
+    获取da221的xyz轴数据
+@api da221.read_xyz()
+@return number x轴数据，number y轴数据，number z轴数据
+@usage
+    local x,y,z =  da221.read_xyz()      --读取x，y，z轴的数据
+        log.info("x", x..'g', "y", y..'g', "z", z..'g')
+]]
 function da221.read_xyz()
     -- da221是LSB在前，MSB在后，每个寄存器都是1字节数据，每次读取都是6个寄存器数据一起获取
     -- 因此直接从X轴LSB寄存器(0x02)开始连续读取6字节数据(X/Y/Z各2字节)，避免出现数据撕裂问题

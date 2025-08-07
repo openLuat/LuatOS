@@ -50,7 +50,9 @@ local function speech_off()
         g_s_topic = nil
     end
     g_state = SP_T_IDLE
+    sys.timerStopAll(auth)
     sys.timerStopAll(heart)
+    sys.timerStopAll(wait_speech_to)
     log.info("对讲断开了")
 end
 
@@ -198,9 +200,6 @@ local function mqtt_cb(mqttc, event, topic, payload)
     elseif event == "disconnect" then
         speech_off()
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_CONNECT_OFF_IND) 
-        sys.timerStopAll(auth)
-        sys.timerStopAll(heart)
-        sys.timerStopAll(wait_speech_to)
         g_state = SP_T_NO_READY
     elseif event == "error" then
 
@@ -267,7 +266,6 @@ local function airtalk_mqtt_task()
                             g_remote_id = res
                             g_s_mode = airtalk.MODE_PERSON
                             g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
-                            log.info(g_s_topic, "ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "one-on-one"}))
                             g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "one-on-one"}))
                             sys.timerStart(wait_speech_to, 15000)
                         else
@@ -283,7 +281,6 @@ local function airtalk_mqtt_task()
                         g_state = SP_T_CONNECTING
                         g_s_mode = airtalk.MODE_GROUP_SPEAKER
                         g_s_topic = "audio/" .. g_local_id .. "/all/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
-                        log.info(g_s_topic, "ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "broadcast"}))
                         g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = "broadcast"}))
                         sys.timerStart(wait_speech_to, 15000)
                     end

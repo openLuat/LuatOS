@@ -833,13 +833,29 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
       luaL_error(L, "'__tostring' must return a string");
   }
   else {
+    lua_Integer i;
+    lua_Number n;
+    char buff[64] = {0};
     switch (lua_type(L, idx)) {
       case LUA_TNUMBER: {
+        #if 0
         if (lua_isinteger(L, idx))
           lua_pushfstring(L, "%I", (LUAI_UACINT)lua_tointeger(L, idx));
         else
           lua_pushfstring(L, "%f", (LUAI_UACNUMBER)lua_tonumber(L, idx));
+        #else
+        if (lua_isinteger(L, idx)) {
+          i = (LUAI_UACINT)lua_tointeger(L, idx);
+          sprintf_(buff, "%" LUA_INTEGER_FRMLEN "d", i);
+          lua_pushstring(L, buff);
+        }
+        else {
+          n = (LUAI_UACNUMBER)lua_tonumber(L, idx);
+          sprintf_(buff, "%9g", n);
+          lua_pushstring(L, buff);
+        }
         break;
+        #endif
       }
       case LUA_TSTRING:
         lua_pushvalue(L, idx);

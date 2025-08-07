@@ -54,11 +54,27 @@ sys.taskInit(function()
         log.info("json.null", json.decode("{\"abc\":null}").abc == json.null)
         log.info("json.null", json.decode("{\"abc\":null}").abc == nil)
 
+        -- 测试浮点数的解码和编码
+        local tmp = "{\"abc\":3.5}"
+        local abc, err = json.decode(tmp)
+        log.info("json浮点数测试", abc, err, abc.abc, abc.abc == 3.5)
+        log.info("json浮点数测试", json.encode({abc=3.5}, "1f"))
+        log.info("json浮点数测试", json.encode(abc, "1f"))
+        log.info("json浮点数测试", string.format("%1f", abc.abc))
+        log.info("json浮点数测试", string.format("%7g", abc.abc))
+        -- log.info("json浮点数测试", string.format("%d", abc.abc))
+        local tmp = abc.abc
+        local tmp3 = 3.5
+        local tmp2 = tostring(tmp)
+        log.info("json浮点数测试", abc, err, abc.abc, tmp, tmp2, tostring(tmp3))
+
         -- 以下代码仅64bit固件可正确运行
         local tmp = [[{ "timestamp": 1691998307973}]]
         local abc, err = json.decode(tmp)
         log.info("json", abc, err)
         log.info("json", abc and abc.timestamp)
+
+        break
     end
 end)
 

@@ -424,7 +424,7 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 
 	ret = luat_websocket_send_packet(websocket_ctrl, dst, offset + pkg->plen);
 	luat_heap_free(dst);
-	return ret;
+	return ret > 0 ? 0 : -8;
 }
 
 static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)

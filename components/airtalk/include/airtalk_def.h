@@ -40,6 +40,7 @@ typedef struct
 	llist_head download_cache_head;
 	llist_head free_cache_head;
 	uint32_t download_cache_time;
+	uint32_t download_no_data_time;
 	luat_rtos_timer_t download_check_timer;
 	CBDataFun_t send_function;
 	CBDataFun_t recv_function;
@@ -47,6 +48,7 @@ typedef struct
 	uint32_t remote_ssrc;
 	uint32_t local_ssrc;
 	uint8_t remote_ssrc_exsit;
+	uint8_t new_data_flag;
 	uint8_t data_sync_ok;
 	uint8_t is_ready;
 	uint8_t audio_data_protocl;

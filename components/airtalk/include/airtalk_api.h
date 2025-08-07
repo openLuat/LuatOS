@@ -12,7 +12,7 @@
 
 void luat_airtalk_net_init(void);
 void *luat_airtalk_net_common_init(CBDataFun_t send_function, CBDataFun_t recv_function);
-void luat_airtalk_net_param_config(uint8_t audio_data_protocl, uint32_t download_cache_time);
+void luat_airtalk_net_param_config(uint8_t audio_data_protocl, uint32_t download_cache_time, uint32_t no_data_time);
 void luat_airtalk_net_debug_switch(uint8_t on_off);
 void luat_airtalk_net_set_ssrc(uint32_t ssrc);
 void luat_airtalk_net_transfer_start(uint8_t work_mode);

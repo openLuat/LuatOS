@@ -72,7 +72,7 @@ static int32_t l_long_sms_send_callback(lua_State *L, void* ptr){
 }
 
 
-static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, size_t dstlen) {
+static void push_sms_args(lua_State* L, luat_sms_recv_msg_t* sms, char* dst, size_t dstlen) {
     char phone[strlen(sms->phone_address) * 3 + 1];
     memset(phone, 0, strlen(sms->phone_address) * 3 + 1);
     size_t outlen = 0;
@@ -135,7 +135,7 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
 
 
 static int l_sms_recv_handler(lua_State* L, void* ptr) {
-    LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)ptr);
+    luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)ptr);
     // char buff[280+2] = {0};
     size_t dstlen = strlen(sms->sms_buffer);
     char tmpbuff[140*3+2] = {0};
@@ -243,17 +243,17 @@ exit:
 
 void luat_sms_recv_cb(uint32_t event, void *param)
 {
-    LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)param);
+    luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)param);
     rtos_msg_t msg = {0};
     if (event != 0) {
         return;
     }
-    LUAT_SMS_RECV_MSG_T* tmp = luat_heap_malloc(sizeof(LUAT_SMS_RECV_MSG_T));
+    luat_sms_recv_msg_t* tmp = luat_heap_malloc(sizeof(luat_sms_recv_msg_t));
     if (tmp == NULL) {
         LLOGE("out of memory when malloc sms content");
         return;
     }
-    memcpy(tmp, sms, sizeof(LUAT_SMS_RECV_MSG_T));
+    memcpy(tmp, sms, sizeof(luat_sms_recv_msg_t));
     msg.handler = l_sms_recv_handler;
     msg.ptr = tmp;
     luat_msgbus_put(&msg, 0);

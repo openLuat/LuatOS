@@ -47,8 +47,8 @@
 #define LUAT_SMS_CODE_UCS2 8
 
 
-typedef void (*LUAT_SMS_HANDLE_CB)(uint8_t event, void* param);
-typedef void (*LUAT_SMS_HANDLE_SEND_CB)(int ret);
+typedef void (*luat_sms_handle_recv_cb)(uint8_t event, void* param);
+typedef void (*luat_sms_handle_send_cb)(int ret);
 
 typedef enum
 {
@@ -79,13 +79,13 @@ typedef enum
     SMS_INVALID_DATA  = 550,
     SMS_UNSUPPORT_TEXT_WITH_CHINESE = 555,
     SMS_MAX_ERROR = 0xFFFF
-}LUAT_SMS_SEND_RET_CODE_E;
+}luat_sms_send_ret_code_e;
 
 typedef struct
 {
-    LUAT_SMS_HANDLE_CB cb;
-    LUAT_SMS_HANDLE_SEND_CB send_cb;
-}LUAT_SMS_MAIN_CFG_T;
+    luat_sms_handle_recv_cb cb;
+    luat_sms_handle_send_cb send_cb;
+}luat_sms_cb_cfg_t;
 
 typedef struct
 {
@@ -97,7 +97,7 @@ typedef struct
     uint8_t   second;
     uint8_t   tz;         /* time zone */
     uint8_t   tz_sign;     /* '+'/'-' */
-}LUAT_SMS_RECV_MSG_TIME_T;
+}luat_sms_recv_msg_time_t;
 
 typedef struct
 {
@@ -106,15 +106,15 @@ typedef struct
     uint8_t  alpha_bet;
     uint8_t  indication;
     uint8_t  dcs;
-}LUAT_SMS_RECV_MSG_DCS_T;
+}luat_sms_recv_msg_dcs_t;
 
 //接受的短信信息结构体
 typedef struct
 {
     uint16_t pdu_length;//PDU 长度
     uint16_t sms_length;//TEXT 的长度
-    LUAT_SMS_RECV_MSG_TIME_T time;//时间
-    LUAT_SMS_RECV_MSG_DCS_T dcs_info;//Data Coding Scheme
+    luat_sms_recv_msg_time_t time;//时间
+    luat_sms_recv_msg_dcs_t dcs_info;//Data Coding Scheme
     char pdu_data[LUAT_SMS_MAX_TXT_SIZE + 1];//PDU 数据
     uint8_t sms_buffer[LUAT_SMS_MAX_TXT_SIZE + 1];//TEXT 数据
     uint8_t sc_address[LUAT_MSG_MAX_ADDR_LEN + 1];//中心地址
@@ -122,7 +122,7 @@ typedef struct
     uint8_t refNum;
     uint8_t maxNum;
     uint8_t seqNum;
-}LUAT_SMS_RECV_MSG_T;
+}luat_sms_recv_msg_t;
 
 
 typedef struct 
@@ -165,14 +165,14 @@ int luat_sms_send_msg_v2(uint8_t *pdu_data, size_t pdu_len);
  * @brief 接受短信回调
  * @param callback_fun    回调函数
  */
-void luat_sms_recv_msg_register_handler(LUAT_SMS_HANDLE_CB callback_fun);
+void luat_sms_recv_msg_register_handler(luat_sms_handle_recv_cb callback_fun);
 
 
 /**
  * @brief 发送短信回调
  * @param callback_fun    回调函数
  */
-void luat_sms_send_msg_register_handler(LUAT_SMS_HANDLE_SEND_CB callback_fun);
+void luat_sms_send_msg_register_handler(luat_sms_handle_send_cb callback_fun);
 
 /**
  * @brief 打包pdu数据
@@ -184,7 +184,7 @@ uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length);
 
 uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst, uint16_t dst_len, uint16_t shift_bits);
 
-void luat_sms_pdu_message_unpack(LUAT_SMS_RECV_MSG_T *msg_info, uint8_t *pdu_data, int pdu_len)
+void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
 
 /**@}*/
 #endif

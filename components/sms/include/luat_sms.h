@@ -42,6 +42,11 @@
 #define LUAT_SMS_LONG_MSG_PDU_SIZE (134)
 
 
+#define LUAT_SMS_CODE_7BIT 0
+#define LUAT_SMS_CODE_8BIT 4
+#define LUAT_SMS_CODE_UCS2 8
+
+
 typedef void (*LUAT_SMS_HANDLE_CB)(uint8_t event, void* param);
 typedef void (*LUAT_SMS_HANDLE_SEND_CB)(int ret);
 
@@ -174,6 +179,12 @@ void luat_sms_send_msg_register_handler(LUAT_SMS_HANDLE_SEND_CB callback_fun);
  * @param packet    
  */
 int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet);
+
+uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length);
+
+uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst, uint16_t dst_len, uint16_t shift_bits);
+
+void luat_sms_pdu_message_unpack(LUAT_SMS_RECV_MSG_T *msg_info, uint8_t *pdu_data, int pdu_len)
 
 /**@}*/
 #endif

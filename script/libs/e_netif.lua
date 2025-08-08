@@ -1,6 +1,6 @@
 --[[
-@module libnetif
-@summary libnetif 控制网络优先级（以太网->WIFI->4G）根据优先级选择上网的网卡。简化开启多网融合的操作，4G作为数据出口给WIFI,以太网设备上网，以太网作为数据出口给WIFI,Air8000上网，WIFI作为数据出口给Air8000,以太网上网。
+@module e_netif
+@summary e_netif 控制网络优先级（以太网->WIFI->4G）根据优先级选择上网的网卡。简化开启多网融合的操作，4G作为数据出口给WIFI,以太网设备上网，以太网作为数据出口给WIFI,Air8000上网，WIFI作为数据出口给Air8000,以太网上网。
 @version 1.0
 @date    2025.06.26
 @author  wjq
@@ -11,7 +11,7 @@
 3、libnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、libnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
-local libnetif = {}
+local e_netif = {}
 
 dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
@@ -216,11 +216,11 @@ end
 
 --[[
 设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
-@api libnetif.set_priority_order(new_priority)
+@api e_netif.set_priority_order(new_priority)
 @table 网络优先级列表,优先级从高到低对应table中的第一个参数到最后一个参数
 @return boolean 成功返回true，失败返回false
 @usage
-libnetif.set_priority_order({
+e_netif.set_priority_order({
     { -- 最高优先级网络
         WIFI = { -- WiFi配置
             ssid = "your_ssid",       -- WiFi名称(string)
@@ -259,7 +259,7 @@ libnetif.set_priority_order({
     }
 })
 ]]
-function libnetif.set_priority_order(networkConfigs)
+function e_netif.set_priority_order(networkConfigs)
     --判断表中数据个数
     if #networkConfigs <2 then
         log.error("请至少添加两个网络")
@@ -317,14 +317,14 @@ end
 
 --[[
 设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。回调函数的输入参数: 1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
-@api libnetif.notify_status(cb_fnc)
+@api e_netif.notify_status(cb_fnc)
 @function 回调函数
 @usage
-    libnetif.notify_status(function(net_type,adapter)
+    e_netif.notify_status(function(net_type,adapter)
     log.info("可以使用优先级更高的网络:", net_type,adapter)
     end)
 ]]
-function libnetif.notify_status(cb_fnc)
+function e_netif.notify_status(cb_fnc)
     log.info("notify_status", type(cb_fnc))
     if type(cb_fnc) ~= "function" then
         log.error("notify_status设置错误，请传入一个函数")
@@ -335,14 +335,14 @@ end
 
 --[[
 设置多网融合模式，例如4G作为数据出口给WIFI或以太网设备上网(需要在task中调用)
-@api libnetif.setproxy(adapter, main_adapter,other_configs)
+@api e_netif.setproxy(adapter, main_adapter,other_configs)
 @adapter 需要使用网络的网卡，例如socket.LWIP_ETH
 @adapter 提供网络的网卡，例如socket.LWIP_GP
 @table 其他设置参数(选填参数)，
 @usage
     --典型应用：
     -- 4G作为出口供WiFi和以太网设备上网
-    libnetif.setproxy(socket.LWIP_AP, socket.LWIP_GP, {
+    e_netif.setproxy(socket.LWIP_AP, socket.LWIP_GP, {
         ssid = "Hotspot",                -- WiFi名称(string)，网卡包含wifi时填写
         password = "password123",        -- WiFi密码(string)，网卡包含wifi时填写
         adapter_addr = "192.168.5.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
@@ -352,7 +352,7 @@ end
         max_conn = 4 },                  -- 最大客户端数量, 默认4
         channel=6                        -- AP建立的通道, 默认6
     })
-    libnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
+    e_netif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
@@ -360,7 +360,7 @@ end
         adapter_gw= { 192, 168, 5, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
     })
     -- 以太网作为出口供WiFi设备上网
-    libnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
+    e_netif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
         ssid = "Hotspot",                -- WiFi名称(string)，网卡包含wifi时填写
         password = "password123",        -- WiFi密码(string)，网卡包含wifi时填写
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
@@ -368,13 +368,13 @@ end
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
     })
     -- 4G作为出口供以太网设备上网
-    libnetif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
+    e_netif.setproxy(socket.LWIP_ETH, socket.LWIP_GP, {
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = { spi = 1, cs = 12},      -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
     })
 ]]
-function libnetif.setproxy(adapter, main_adapter, other_configs)
+function e_netif.setproxy(adapter, main_adapter, other_configs)
     if adapter == socket.LWIP_ETH then
         log.info("ch390", "打开LDO供电", other_configs.ethpower_en)
         if other_configs.ethpower_en then
@@ -759,10 +759,10 @@ local interval_time = nil
 
 --[[
 对正常状态的网卡进行ping测试
-@api libnetif.check_network_status(interval),
+@api e_netif.check_network_status(interval),
 @int 检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
 ]]
-function libnetif.check_network_status(interval)
+function e_netif.check_network_status(interval)
     if interval ~= nil then
         interval_time = interval
     end
@@ -778,7 +778,7 @@ sys.taskInit(function()
     while true do
         if interval_time ~= nil then
             sys.wait(interval_time)
-            libnetif.check_network_status()
+            e_netif.check_network_status()
         end
         sys.wait(1000)
     end
@@ -793,4 +793,4 @@ end)
 -- 订阅网络状态变化的消息
 sys.subscribe("IP_READY", ip_ready_handle)
 sys.subscribe("IP_LOSE", ip_lose_handle)
-return libnetif
+return e_netif

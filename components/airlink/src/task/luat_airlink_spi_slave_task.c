@@ -40,7 +40,7 @@ static int pin_rdy_state;
 static int is_irq_mode;
 static uint32_t irq_counter; // 中断计数
 
-static uint8_t basic_info[1024];
+static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
 static inline luat_airlink_dev_info_t * self_devinfo(void) {
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     return (luat_airlink_dev_info_t *)(cmd->data);
@@ -229,7 +229,12 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
     cmd->len = 128;
     
     luat_airlink_dev_info_t *devinfo = self_devinfo();
-    devinfo->tp = 0x01;
+    devinfo->tp = 0x02;
+    // uint32_t fw_version = 3;
+    // memcpy(devinfo->cat1.version, &fw_version, sizeof(uint32_t));
+
+    // luat_mobile_event_register_handler(cat1_evt_handler);
+
 
     // // 执行主循环
     g_airlink_link_data_cb = link_data_cb;

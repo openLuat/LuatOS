@@ -155,7 +155,7 @@ uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst,
     return out_len;
 }
 
-void luat_sms_pdu_message_unpack(LUAT_SMS_RECV_MSG_T *msg_info, uint8_t *pdu_data, int pdu_len)
+void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len)
 {
     uint16_t pos = 0;
     uint8_t sca_len = pdu_data[pos];

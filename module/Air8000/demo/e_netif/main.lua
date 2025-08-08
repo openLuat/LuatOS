@@ -21,7 +21,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "libnetif"
+PROJECT = "e_netif"
 VERSION = "001.000.000"
 
 
@@ -64,11 +64,13 @@ end
 
 
 -- 网络管理，设置网络优先级和多网融合功能
-require "netif_app"
+require "net_app"
 -- 测试http
 -- require "http_test"
 -- 测试mqtt
 require "mqtt_test"
+
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -11,11 +11,11 @@
 2、设置多网融合功能，以太网给wifi_ap提供网络
 本文件没有对外接口，直接在main.lua中require "net_app"就可以加载运行；
 ]]
-libnetif = require "libnetif"
+e_netif = require "e_netif"
 sys.taskInit(function()
     sys.wait(5000)
     --设置网络优先级
-    libnetif.set_priority_order({
+    e_netif.set_priority_order({
         {
             ETHERNET = {
                 pwrpin = 140,             -- 供电使能引脚(number)
@@ -38,7 +38,7 @@ sys.taskInit(function()
     })
     sys.wait(5000)
     --设置多网融合功能
-    -- if  libnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
+    -- if  e_netif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
     --     ssid = "test2",                -- WiFi名称(string)，网卡包含wifi时填写
     --     password = "HZ88888888",        -- WiFi密码(string)，网卡包含wifi时填写
     --     ethpower_en = 140,               -- 以太网模块的pwrpin引脚(gpio编号)
@@ -47,6 +47,6 @@ sys.taskInit(function()
     --     -- adapter_addr = "192.168.2.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
     --     -- adapter_gw= { 192, 168, 2, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
     -- }) then
-    --     log.info("libnetif", "setproxy success")
+    --     log.info("e_netif", "setproxy success")
     -- end
 end)

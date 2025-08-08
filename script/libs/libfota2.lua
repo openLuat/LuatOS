@@ -26,7 +26,7 @@ function libfota_cb(result)
     end
 end
 
---下方示例为合宙iot平台,地址:http://iot.openluat.com 
+--下方示例为合宙iot平台,地址:http://iot.openluat.com
 libfota2.request(libfota_cb)
 
 --如使用自建服务器,自行更换url
@@ -123,8 +123,8 @@ end
 --[[
 fota升级
 @api libfota2.request(cbFnc, opts)
-@table fota参数, 后面有详细描述
 @function cbFnc 用户回调函数，回调函数的调用形式为：cbFnc(result) , 必须传
+@table fota参数, 后面有详细描述
 @return nil 无返回值
 @usaga
 

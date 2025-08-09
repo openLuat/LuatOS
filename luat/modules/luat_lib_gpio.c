@@ -243,7 +243,7 @@ static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf = {0};
     conf.pin = luaL_checkinteger(L, 1);
     if (conf.pin >= LUAT_GPIO_PIN_MAX) {
-        LLOGW("MUST pin < %d", LUAT_GPIO_PIN_MAX);
+        LLOGW("id shall < %d but %d", LUAT_GPIO_PIN_MAX, conf.pin);
         return 0;
     }
     //conf->mode = luaL_checkinteger(L, 2);
@@ -687,7 +687,7 @@ log.info("irq cnt", gpio.count(10))
 static int l_gpio_get_count(lua_State *L) {
     uint8_t pin = luaL_checkinteger(L, 1);
     if (pin >= LUAT_GPIO_PIN_MAX) {
-        LLOGW("MUST pin < %d", LUAT_GPIO_PIN_MAX);
+        LLOGW("id shall < %d but %d", LUAT_GPIO_PIN_MAX, pin);
         lua_pushinteger(L, 0);
         return 1;
     }

@@ -1503,8 +1503,11 @@ int w5500_reset(void)
 
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin)
 {
-	// uint8_t *uid;
-	size_t i;
+#ifndef LUAT_USE_MOBILE
+	uint8_t *uid = NULL;
+	size_t t = 0;
+#endif
+	size_t i = 0;
 	if (!prv_w5500_ctrl)
 	{
 		w5500_ctrl_t *w5500 = malloc(sizeof(w5500_ctrl_t));

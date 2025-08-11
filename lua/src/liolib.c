@@ -982,51 +982,22 @@ static int l_fs_fsstat(lua_State *L) {
     }
 }
 
-#if 0
-static int l_fs_fsize(lua_State *L) {
-    const char* path = luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_fs_fsize(path));
-    return 1;
+
+/*
+判断目录是否存在
+@api io.dexist(path)
+@string 目录路径
+@return bool 存在返回true,否则返回false
+@usage
+log.info("io", "dir dexist", io.dexist("/boottime"))
+ */
+static int io_dexist (lua_State *L) {
+  const char *dirname = luaL_checkstring(L, 1);
+  int ret = luat_fs_dexist(dirname);
+  lua_pushboolean(L,ret?1:0);
+  return 1;
 }
 
-//---- 其他API尚不完善,暂不注释
-static int l_fs_mkdir(lua_State *L) {
-    const char* path = luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_fs_mkdir(path));
-    return 1;
-}
-
-static int l_fs_rmdir(lua_State *L) {
-    const char* path = luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_fs_rmdir(path));
-    return 1;
-}
-
-static int l_fs_mkfs(lua_State *L) {
-    luat_fs_conf_t conf = {0};
-    conf.busname = (char*)luaL_checkstring(L, 1);
-    conf.filesystem = (char*)luaL_checkstring(L, 2);
-    lua_pushinteger(L, luat_fs_mkfs(&conf));
-    return 1;
-}
-
-static int l_fs_mount(lua_State *L) {
-    luat_fs_conf_t conf = {0};
-    conf.busname = (char*)luaL_checkstring(L, 1);
-    conf.filesystem = (char*)luaL_checkstring(L, 2);
-    conf.mount_point = (char*)luaL_checkstring(L, 3);
-    conf.type = (char*)luaL_checkstring(L, 4);
-    lua_pushinteger(L, luat_fs_mount(&conf));
-    return 1;
-}
-
-static int l_fs_umount(lua_State *L) {
-    luat_fs_conf_t conf = {0};
-    conf.mount_point = (char*)luaL_checkstring(L, 1);
-    lua_pushinteger(L, luat_fs_umount(&conf));
-    return 1;
-}
-#endif
 
 static int io_mkfs (lua_State *L);
 static int io_mkdir (lua_State *L);
@@ -1061,17 +1032,10 @@ static const rotable_Reg_t iolib[] = {
   {"lsdir",     ROREG_FUNC(io_lsdir)},
   {"mkfs",      ROREG_FUNC(io_mkfs)},
   {"lsmount",   ROREG_FUNC(io_lsmount)},
-
+  {"dexist",   ROREG_FUNC(io_dexist)},
 // 从fs库迁移函数
-    { "fsstat",      ROREG_FUNC(l_fs_fsstat)},
-    { "fsize",       ROREG_FUNC(io_fileSize )},
-#if 0
-    { "mkdir",       ROREG_FUNC(l_fs_mkdir )},
-    { "rmdir",       ROREG_FUNC(l_fs_rmdir )},
-    { "mkfs",        ROREG_FUNC(l_fs_mkfs  )},
-    { "mount",       ROREG_FUNC(l_fs_mount )},
-    { "umount",      ROREG_FUNC(l_fs_umount)},
-#endif
+  { "fsstat",      ROREG_FUNC(l_fs_fsstat)},
+  { "fsize",       ROREG_FUNC(io_fileSize )},
 
   {"FILE",      ROREG_INT(0)},
   {"DIR",       ROREG_INT(1)},
@@ -1293,7 +1257,6 @@ static int io_lsdir (lua_State *L) {
 
   return 0;
 }
-
 
 /*
 列出所有挂载点

@@ -155,6 +155,9 @@ LUAMOD_API int luaopen_bit64( lua_State *L );
 
 LUAMOD_API int luaopen_repl( lua_State *L );
 
+// fft
+LUAMOD_API int luaopen_fft( lua_State *L );
+
 
 LUAMOD_API int luaopen_fastlz( lua_State *L );
 

@@ -13,6 +13,7 @@ if errDump then
 end
 
 -- 默认上报到合宙服务器 dev_msg1.openluat.com 端口 12425
+-- 查看上报的数据，登录iot.openluat.com，选择调试日志，输入IMEI，选择好时间段，点搜索
 */
 #include "luat_base.h"
 #include "luat_sys.h"

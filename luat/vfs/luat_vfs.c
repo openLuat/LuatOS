@@ -354,6 +354,24 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
     return ret;
 }
 
+int luat_fs_dexist(const char *_DirName){
+    // LLOGD("dexist? %s", _DirName);
+    luat_vfs_mount_t *mount = getmount(_DirName);
+    if (mount == NULL) {
+        LLOGD("no such mount");
+        return 0;
+    }
+    if (mount->fs->opts.opendir == NULL) {
+        LLOGD("such mount not support opendir");
+        return 0;
+    }
+    void* dir = mount->fs->opts.opendir(mount->userdata, _DirName + strlen(mount->prefix));
+    // LLOGD("opendir dir:%p",dir);
+    mount->fs->opts.closedir(mount->userdata,dir);
+    return dir == NULL ? 0 : -1;
+}
+
+
 void* luat_fs_mmap(FILE* stream) {
     luat_vfs_fd_t* fd = getfd(stream);
     if (fd == NULL)
@@ -386,5 +404,7 @@ int luat_fs_fflush(FILE *stream) {
     }
     return -1;
 }
+
+
 
 #endif

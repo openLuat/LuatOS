@@ -245,6 +245,28 @@ int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) 
     return 0;
 }
 
+void* luat_vfs_fatfs_opendir(void* userdata, const char *_DirName) {
+    DIR *dp = (DIR*)luat_heap_malloc(sizeof(DIR));
+    if (dp == NULL) {
+        LLOGD("out of memory when open file %s", dp);
+        return NULL;
+    }
+    memset(dp, 0, sizeof(DIR));
+    FRESULT ret = f_opendir(dp, _DirName);
+    if (ret != FR_OK) {
+        luat_heap_free(dp);
+        return NULL;
+    }
+    return (void*)dp;
+}
+
+int luat_vfs_fatfs_closedir(void* userdata, void* dir) {
+    DIR* dp = (DIR*)dir;
+    f_closedir(dp);
+    if (dp)luat_heap_free(dp);
+    return 0;
+}
+
 #define T(name) .name = luat_vfs_fatfs_##name
 const struct luat_vfs_filesystem vfs_fs_fatfs = {
     .name = "fatfs",
@@ -259,7 +281,9 @@ const struct luat_vfs_filesystem vfs_fs_fatfs = {
         T(rename),
         T(fsize),
         T(fexist),
-        T(info)
+        T(info),
+        T(opendir),
+        T(closedir)
     },
     .fopts = {
         T(fopen),

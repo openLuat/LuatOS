@@ -25,9 +25,8 @@ Rand Public API
 	rand_bytes
 
 */
-extern int luat_crypto_trng(char* buff, size_t len);
-#define rand_bytes(x, y) luat_crypto_trng((char*)x, y)
-// _gmssl_export int rand_bytes(uint8_t *buf, size_t buflen);
+extern int luat_gmssl_rand_bytes(uint8_t *buf, size_t len);
+#define rand_bytes luat_gmssl_rand_bytes
 
 
 #ifdef __cplusplus

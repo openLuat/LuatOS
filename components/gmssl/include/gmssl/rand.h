@@ -25,8 +25,8 @@ Rand Public API
 	rand_bytes
 
 */
-
-_gmssl_export int rand_bytes(uint8_t *buf, size_t buflen);
+extern int luat_gmssl_rand_bytes(uint8_t *buf, size_t len);
+#define rand_bytes luat_gmssl_rand_bytes
 
 
 #ifdef __cplusplus

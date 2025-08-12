@@ -361,7 +361,7 @@ int luat_fs_dexist(const char *_DirName){
         LLOGD("no such mount");
         return 0;
     }
-    if (strlen(mount->prefix) == 0 || strlen(mount->prefix) == strlen(_DirName)){
+    if (strlen(mount->prefix) == strlen(_DirName)){
         return 1;
     }
     if (mount->fs->opts.opendir == NULL) {

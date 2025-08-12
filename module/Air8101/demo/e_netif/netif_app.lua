@@ -11,11 +11,11 @@
 2、设置多网融合功能，以太网给wifi_ap提供网络
 本文件没有对外接口，直接在main.lua中require "netif_app"就可以加载运行；
 ]]
-e_netif = require "e_netif"
+exnetif = require "exnetif"
 sys.taskInit(function()
     sys.wait(5000)
     --设置网络优先级
-    e_netif.set_priority_order({
+    exnetif.set_priority_order({
     -- Air8101 支持 MAC接口 与 SPI接口 两种方式外挂以太网，程序中默认使用MAC接口，请根据实际情况选择。
         -- Air8101 MAC接口 外挂以太网的配置代码：
         {
@@ -44,7 +44,7 @@ sys.taskInit(function()
         }
     })
     --设置多网融合功能
-    if  e_netif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
+    if  exnetif.setproxy(socket.LWIP_AP, socket.LWIP_ETH, {
         ssid = "test2",                -- WiFi名称(string)，网卡包含wifi时填写
         password = "HZ88888888",        -- WiFi密码(string)，网卡包含wifi时填写
         ethpower_en = 13,               -- 以太网模块的pwrpin引脚(gpio编号)
@@ -53,7 +53,7 @@ sys.taskInit(function()
         -- adapter_addr = "192.168.2.1",    -- adapter网卡的ip地址(选填),需要自定义ip和网关ip时填写
         -- adapter_gw= { 192, 168, 2, 1 },   -- adapter网卡的网关地址(选填),需要自定义ip和网关ip时填写
     }) then
-        log.info("e_netif", "setproxy success")
+        log.info("exnetif", "setproxy success")
     end
     
 end)

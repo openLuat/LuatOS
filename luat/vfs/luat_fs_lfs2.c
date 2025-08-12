@@ -309,6 +309,27 @@ int luat_vfs_lfs2_truncate(void* userdata, const char *filename, size_t len) {
     return ret;
 }
 
+void* luat_vfs_lfs2_opendir(void* userdata, const char *_DirName) {
+    lfs_dir_t *dir = (lfs_dir_t*)luat_heap_malloc(sizeof(lfs_dir_t));
+    if (dir == NULL) {
+        LLOGD("out of memory when open file %s", dir);
+        return NULL;
+    }
+    memset(dir, 0, sizeof(lfs_dir_t));
+    int ret = lfs_dir_open((lfs_t*)userdata, dir, _DirName);
+    if (ret < 0) {
+        luat_heap_free(dir);
+        return NULL;
+    }
+    return (void*)dir;
+}
+
+int luat_vfs_lfs2_closedir(void* userdata, void* dir) {
+    lfs_dir_close((lfs_t*)userdata, (lfs_dir_t *)dir);
+    if (dir)luat_heap_free(dir);
+    return 0;
+}
+
 #define T(name) .name = luat_vfs_lfs2_##name
 
 const struct luat_vfs_filesystem vfs_fs_lfs2 = {
@@ -325,7 +346,9 @@ const struct luat_vfs_filesystem vfs_fs_lfs2 = {
         T(fsize),
         T(fexist),
         T(info),
-        T(truncate)
+        T(truncate),
+        T(opendir),
+        T(closedir)
     },
     .fopts = {
         T(fopen),

@@ -53,7 +53,7 @@ Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发�
 ]]
 
 
-local e_netif = require "e_netif"
+local exnetif = require "exnetif"
 
 -- 网卡状态变化通知回调函数
 -- 当libnetif中检测到网卡切换或者所有网卡都断网时，会触发调用此回调函数
@@ -77,7 +77,7 @@ end
 
 local function netdrv_multiple_task_func()
     --设置网卡优先级
-    e_netif.set_priority_order(
+    exnetif.set_priority_order(
         {
             -- “通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）”的以太网卡，可以使用Air8101核心板+AirPHY_1000配件板验证
             {
@@ -134,7 +134,7 @@ local function netdrv_multiple_task_func()
 end
 
 -- 设置网卡状态变化通知回调函数netdrv_multiple_notify_cbfunc
-e_netif.notify_status(netdrv_multiple_notify_cbfunc)
+exnetif.notify_status(netdrv_multiple_notify_cbfunc)
 
 -- 如果存在udp网络应用，并且udp网络应用中，根据应用层的心跳能够判断出来udp数据通信出现了异常；
 -- 可以在判断出现异常的位置，调用一次libnetif.check_network_status()接口，强制对当前正式使用的网卡进行一次连通性检测；

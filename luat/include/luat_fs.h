@@ -187,7 +187,6 @@ typedef struct luat_fs_dirent
     size_t d_size;
 }luat_fs_dirent_t;
 
-
 /**
  * @brief 创建文件夹
  * @param _DirName[IN] 文件夹路径
@@ -212,6 +211,12 @@ int luat_fs_rmdir(char const* _DirName);
 
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
 
+/**
+ * @brief 文件夹是否存在
+ * @param dir[IN] 文件夹名称
+ * @return int =0不存在,否则存在
+ */
+int luat_fs_dexist(const char *_DirName);
 
 /**
  * @brief 文件截断
@@ -220,12 +225,7 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
  * @return int =>0读取到文件个数,否则失败
  */
 int luat_fs_truncate(const char* filename, size_t len);
-/**
- * @brief 文件夹是否存在
- * @param dir[IN] 文件夹名称
- * @return int =0不存在,否则存在
- */
-int luat_fs_dexist(const char *dir);
+
 /** @}*/
 #ifdef LUAT_USE_FS_VFS
 
@@ -269,6 +269,10 @@ struct luat_vfs_filesystem_opts {
     int (*mkdir)(void* fsdata, char const* _DirName);
     int (*rmdir)(void* fsdata, char const* _DirName);
     int (*lsdir)(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
+
+    void* (*opendir)(void* fsdata, char const* _DirName);
+    int (*closedir)(void* fsdata, void* dir);
+    // readdir
 
     int (*truncate)(void* fsdata, char const* _DirName, size_t nsize);
 };

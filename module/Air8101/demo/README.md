@@ -39,7 +39,7 @@
 
 [lcd](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8101/demo/lcd)：本demo演示LuatOS的LCD显示功能，适用于需要进行图形界面显示的设备。
 
-[e_netif](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8101/demo/e_netif)：本demo演示LuatOS的多网自动切换和多网融合功能，适用于多种网络承载方式连接外网和一种承载连接外网，多种承载连接内网，外网转内网的场景。
+[exnetif](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8101/demo/exnetif)：本demo演示LuatOS的多网自动切换和多网融合功能，适用于多种网络承载方式连接外网和一种承载连接外网，多种承载连接内网，外网转内网的场景。
 
 [log](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8101/demo/log)：本demo演示LuatOS的日志记录功能，适用于需要进行日志记录和分析的场景。
 

@@ -1559,6 +1559,9 @@ int l_lcd_image2raw(lua_State *L) {
 	luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
     return 1;
 error:
+    if (buff_info.buff) {
+        luat_heap_free(buff_info.buff);
+    }
     return 0;
 }
 

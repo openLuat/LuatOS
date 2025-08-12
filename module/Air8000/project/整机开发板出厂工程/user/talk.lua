@@ -46,7 +46,7 @@ local function init_talk()
     client_id = mobile.imei()
 
     mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, {rxSize = 4096})
-    airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_8K, mqttc, 200) -- 缓冲至少200ms播放
+    airtalk.config(airtalk.PROTOCOL_DEMO_MQTT_16K, mqttc, 200) -- 缓冲至少200ms播放
     airtalk.on(airtalk_event_cb)
     airtalk.start(client_id, speech_topic)
 
@@ -92,11 +92,11 @@ end
 
 
 function talk.run()
-    log.info("talk.run")
+    log.info("talk.run",airtalk.PROTOCOL_DEMO_MQTT_16K)
     lcd.setFont(lcd.font_opposansm12_chinese)
     run_state = true
     
-    speech_topic = fskv.get("talk_channel")
+    speech_topic = "toy/device/SXD7250500000001/amrPackage"
     log.info("get  speech_topic",speech_topic)
     if  speech_topic   then
         sys.taskInit(init_talk)

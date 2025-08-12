@@ -12,15 +12,20 @@ function audio_init()
     --air8000 core开发版+音频小板配置
     local voice_vol = 60 --音频小板喇叭太容易失真了，不能太大
     local i2c_id = 0
-    local pa_pin = 26
+    local pa_pin = 162           -- 喇叭pa功放脚
     local pa_on_level = 1
     local pa_delay = 200
-    local dac_power_pin = 28
+    local dac_power_pin = 164
     local dac_power_on_level = 1
     local dac_power_off_delay = 600
     gpio.setup(24, 1)   --air8000的I2C0需要拉高gpio24才能用
     gpio.setup(26, 0)
     i2c.setup(0, i2c.FAST)
+    gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
+    sys.wait(100)
+    gpio.setup(dac_power_pin, 1, gpio.PULLUP)   -- 打开音频编解码供电
+    gpio.setup(pa_pin, 1, gpio.PULLUP)      -- 打开音频放大器
+    audio.on(0, audio_callback)
 
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
 

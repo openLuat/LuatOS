@@ -361,6 +361,9 @@ int luat_fs_dexist(const char *_DirName){
         LLOGD("no such mount");
         return 0;
     }
+    if (strlen(mount->prefix) == 0 || strlen(mount->prefix) == strlen(_DirName)){
+        return 1;
+    }
     if (mount->fs->opts.opendir == NULL) {
         LLOGD("such mount not support opendir");
         return 0;
@@ -368,7 +371,7 @@ int luat_fs_dexist(const char *_DirName){
     void* dir = mount->fs->opts.opendir(mount->userdata, _DirName + strlen(mount->prefix));
     // LLOGD("opendir dir:%p",dir);
     mount->fs->opts.closedir(mount->userdata,dir);
-    return dir == NULL ? 0 : -1;
+    return dir == NULL ? 0 : 1;
 }
 
 

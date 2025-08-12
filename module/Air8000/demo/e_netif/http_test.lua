@@ -10,7 +10,7 @@
 本文件没有对外接口，直接在main.lua中require "http_test"就可以加载运行；
 ]]
 -- 如果打算 MQTT+HTTP 同时测试，建议注释掉下段代码，否则会重复打印（MQTT 中也会打印）。
-e_netif.notify_status(function(net_type, adapter)
+exnetif.notify_status(function(net_type, adapter)
     log.info("可以使用优先级更高的网络:", net_type, adapter)
 end)
 

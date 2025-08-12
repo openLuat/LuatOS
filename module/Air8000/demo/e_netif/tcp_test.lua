@@ -14,7 +14,7 @@ local tx_buff = zbuff.create(1024)      -- 发送至tcp服务器的数据
 local rx_buff = zbuff.create(1024)      -- 从tcp服务器接收到的数据
 
 
-e_netif.notifyStatus(function(net_type)
+exnetif.notifyStatus(function(net_type)
     log.info("可以使用优先级更高的网络:", net_type)
     connect_state = false
 end)

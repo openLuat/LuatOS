@@ -579,15 +579,15 @@ static int l_gpio_toggle(lua_State *L) {
 }
 
 /*
-在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前.
+在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前，高低电平时间均是由delay决定
 @api gpio.pulse(pin,level,len,delay)
 @int gpio号
 @int/string 数值或者字符串.
 @int len 长度 单位是bit, 高位在前.
-@int delay 延迟,当前无固定时间单位
+@int delay 高低电平延迟时间, 用的软件while来delay, 这里的delay值是while循环次数, 具体delay时间必须实际调试才知道
 @return nil 无返回值
 @usage
--- 通过PB06脚输出输出8个电平变化.
+-- 通过PB06脚输出输出8个电平变化，while循环次数是0
 gpio.pulse(pin.PB06,0xA9, 8, 0)
 */
 static int l_gpio_pulse(lua_State *L) {

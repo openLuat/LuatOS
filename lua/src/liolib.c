@@ -989,7 +989,8 @@ static int l_fs_fsstat(lua_State *L) {
 @string 目录路径
 @return bool 存在返回true,否则返回false
 @usage
-log.info("io", "dir dexist", io.dexist("/boottime"))
+-- 本函数于2025.8.12新增
+log.info("io", "dir存在吗?", io.dexist("/sd/myf"))
  */
 static int io_dexist (lua_State *L) {
   const char *dirname = luaL_checkstring(L, 1);

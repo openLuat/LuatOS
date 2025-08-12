@@ -1,52 +1,52 @@
 --[[
-@module e_chg
-@summary e_chg扩展库
+@module exchg
+@summary exchg扩展库
 @version 1.0
 @date    2025.08.08
 @author  王世豪
 @usage
 -- 应用场景
 本扩展库适用于Air8000/Air7000/Air6000等集成了内置电池充电方案的模组型号；
-Air8000/Air7000/Air6000内置的充电IC为YHM2712，e_chg扩展库基于本充电IC进行设计；
+Air8000/Air7000/Air6000内置的充电IC为YHM2712，exchg扩展库基于本充电IC进行设计；
 
 -- 用法实例
 本扩展库对外提供了以下5个接口：
-1）开启充电 e_chg.start()
-2）关闭充电 e_chg.stop()
-3）设置电池的充电截止电压,电池容量,充电电流 e_chg.setup(v_battery, cap_battery, i_charge)
-4）获取充电系统状态信息 e_chg.status()
-5）注册事件回调函数 e_chg.on(func)
+1）开启充电 exchg.start()
+2）关闭充电 exchg.stop()
+3）设置电池的充电截止电压,电池容量,充电电流 exchg.setup(v_battery, cap_battery, i_charge)
+4）获取充电系统状态信息 exchg.status()
+5）注册事件回调函数 exchg.on(func)
 
-其中，开启充电 e_chg.start() 和 关闭充电 e_chg.stop() 默认自动执行，用户可以不用操作；
+其中，开启充电 exchg.start() 和 关闭充电 exchg.stop() 默认自动执行，用户可以不用操作；
 当碰到某些需要手动关闭或开启充电功能的场景时，大家可以自行控制，当前仅为预留；
 
-以下为e_chg扩展库四个函数的详细说明及代码实现：
+以下为exchg扩展库四个函数的详细说明及代码实现：
 
 1、开启充电
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@api e_chg.start()
+@api exchg.start()
 @return boolean: true=成功, false=失败
 
 2、关闭充电
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@api e_chg.stop()
+@api exchg.stop()
 @return boolean: true=成功, false=失败
 
 3、设置电池的充电截止电压,电池容量,充电电流
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@api e_chg.setup(v_battery, cap_battery, i_charge)
+@api exchg.setup(v_battery, cap_battery, i_charge)
 @param number v_battery: 电池充电截止电压(单位：mV), 取值范围：4200或4350可选, 必须传入。
 @param number cap_battery: 电池容量(单位：mAh), 取值范围：>= 100，必须传入。
-@param string i_charge: 充电电流, 取值范围：e_chg.CCMIN(最小电流) 或 e_chg.CCDEFAULT(默认电流) 或 e_chg.CCMAX()，三个可选参数，不传入时默认值为e_chg.CCDEFAULT。
+@param string i_charge: 充电电流, 取值范围：exchg.CCMIN(最小电流) 或 exchg.CCDEFAULT(默认电流) 或 exchg.CCMAX()，三个可选参数，不传入时默认值为exchg.CCDEFAULT。
 @return boolean: true=成功, false=失败
 @usage
-    e_chg.setup(4200, 400, e_chg.CCMIN) -- 设置电池充电截止电压为4.2V, 电池容量为400mAh, 充电电流为最小电流
+    exchg.setup(4200, 400, exchg.CCMIN) -- 设置电池充电截止电压为4.2V, 电池容量为400mAh, 充电电流为最小电流
 
 4、获取充电系统状态信息
 必须在task中运行，最大阻塞时间(包括超时重试时间)大概为20s。
 该函数用于获取当前充电系统的完整状态，包括电池电压、充电阶段、充电状态、电池在位状态、充电器在位状态以及IC过热状态等信息。
 其中充电器是否在位，中断触发，触发回调事件为CHARGER_STATE_EVENT，附带的参数 true表示充电器在位，false表示充电器不在位。
-@api e_chg.status()
+@api exchg.status()
 @return table 状态信息表
 {
     result = boolean,       -- true: 成功, false: 失败
@@ -71,27 +71,27 @@ Air8000/Air7000/Air6000内置的充电IC为YHM2712，e_chg扩展库基于本充�
 }
 
 5、注册事件回调函数
-@api e_chg.on(func)
-@function: 回调方法，回调时传入参数有e_chg.OVERHEAT, e_chg.CHARGER_IN, e_chg.CHARGER_OUT
+@api exchg.on(func)
+@function: 回调方法，回调时传入参数有exchg.OVERHEAT, exchg.CHARGER_IN, exchg.CHARGER_OUT
 @return nil 无返回值
 @usage
-    local function e_chg_callback(event)
-        if event == e_chg.OVERHEAT then
+    local function exchg_callback(event)
+        if event == exchg.OVERHEAT then
             log.info("警告：设备温度过高！")
-        elseif event == e_chg.CHARGER_IN then
+        elseif event == exchg.CHARGER_IN then
             log.info("充电器已插入")
-        elseif event == e_chg.CHARGER_OUT then
+        elseif event == exchg.CHARGER_OUT then
             log.info("充电器已拔出")
         end
     end
     -- 注册回调
-    e_chg.on(e_chg_callback)
+    exchg.on(exchg_callback)
     
 示例：
-local function e_chg_task_func()
-    e_chg.setup(4200, 400)
+local function exchg_task_func()
+    exchg.setup(4200, 400)
     while true do
-        local status = e_chg.status()
+        local status = exchg.status()
         if status.result then
             log.info("电池电压:", status.voltage, 
                     "充电阶段:", status.charge_stage, 
@@ -105,21 +105,21 @@ local function e_chg_task_func()
 end
 
 -- 事件回调函数
-local function e_chg_callback(event)
-    if event == e_chg.OVERHEAT then
+local function exchg_callback(event)
+    if event == exchg.OVERHEAT then
         log.info("警告：设备温度过高！")
-    elseif event == e_chg.CHARGER_IN then
+    elseif event == exchg.CHARGER_IN then
         log.info("充电器已插入")
-    elseif event == e_chg.CHARGER_OUT then
+    elseif event == exchg.CHARGER_OUT then
         log.info("充电器已拔出")
     end
 end
 -- 注册回调
-e_chg.on(e_chg_callback)
+exchg.on(exchg_callback)
 
-sys.taskInit(e_chg_task_func)
+sys.taskInit(exchg_task_func)
 ]]
-local e_chg = {}
+local exchg = {}
 -- yhm2712 cmd引脚
 local gpio_pin = 152
 --yhm2712芯片地址
@@ -176,47 +176,47 @@ local AVR_MAX = 10
 local callback = nil
 
 -- 充电电流常量
-e_chg.CCMIN = "MIN"     -- 恒流充电MIN电流模式
-e_chg.CCMAX = "MAX"    -- 恒流充电MAX电流模式
-e_chg.CCDEFAULT = "DEFAULT" -- 恒流充电默认电流模式，电流大小处于Min和Max之间
+exchg.CCMIN = "MIN"     -- 恒流充电MIN电流模式
+exchg.CCMAX = "MAX"    -- 恒流充电MAX电流模式
+exchg.CCDEFAULT = "DEFAULT" -- 恒流充电默认电流模式，电流大小处于Min和Max之间
 -- 定义事件常量
-e_chg.OVERHEAT = 1      -- 温度过热事件
-e_chg.CHARGER_IN = 2    -- 充电器插入事件
-e_chg.CHARGER_OUT = 3   -- 充电器拔出事件
+exchg.OVERHEAT = 1      -- 温度过热事件
+exchg.CHARGER_IN = 2    -- 充电器插入事件
+exchg.CHARGER_OUT = 3   -- 充电器拔出事件
 
 -- 使用表格存储不同容量和模式下的电流值
 local current_table = {
-    [100] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 50, [e_chg.CCMAX] = 50},
-    [200] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 125, [e_chg.CCMAX] = 125},
-    [300] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 175, [e_chg.CCMAX] = 175},
-    [400] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 225, [e_chg.CCMAX] = 225},
-    [500] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 250, [e_chg.CCMAX] = 250},
-    [600] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 250, [e_chg.CCMAX] = 375},
-    [700] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 375, [e_chg.CCMAX] = 500},
-    [800] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 375, [e_chg.CCMAX] = 500},
-    [900] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 375, [e_chg.CCMAX] = 500},
-    [1000] = {[e_chg.CCMIN] = 50, [e_chg.CCDEFAULT] = 500, [e_chg.CCMAX] = 750}
+    [100] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 50, [exchg.CCMAX] = 50},
+    [200] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 125, [exchg.CCMAX] = 125},
+    [300] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 175, [exchg.CCMAX] = 175},
+    [400] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 225, [exchg.CCMAX] = 225},
+    [500] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 250, [exchg.CCMAX] = 250},
+    [600] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 250, [exchg.CCMAX] = 375},
+    [700] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 375, [exchg.CCMAX] = 500},
+    [800] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 375, [exchg.CCMAX] = 500},
+    [900] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 375, [exchg.CCMAX] = 500},
+    [1000] = {[exchg.CCMIN] = 50, [exchg.CCDEFAULT] = 500, [exchg.CCMAX] = 750}
 }
 
 --[[
-注册e_chg事件回调
-@api e_chg.on(func)
-@function: 回调方法，回调时传入参数有e_chg.OVERHEAT, e_chg.CHARGER_IN, e_chg.CHARGER_OUT
+注册exchg事件回调
+@api exchg.on(func)
+@function: 回调方法，回调时传入参数有exchg.OVERHEAT, exchg.CHARGER_IN, exchg.CHARGER_OUT
 @return nil 无返回值
 @usage
-    local function e_chg_callback(event)
-        if event == e_chg.OVERHEAT then
+    local function exchg_callback(event)
+        if event == exchg.OVERHEAT then
             log.info("警告：设备温度过高！")
-        elseif event == e_chg.CHARGER_IN then
+        elseif event == exchg.CHARGER_IN then
             log.info("充电器已插入")
-        elseif event == e_chg.CHARGER_OUT then
+        elseif event == exchg.CHARGER_OUT then
             log.info("充电器已拔出")
         end
     end
     -- 注册回调
-    e_chg.on(e_chg_callback)
+    exchg.on(exchg_callback)
 --]]
-function e_chg.on(cb)
+function exchg.on(cb)
     callback = cb
 end
 
@@ -239,24 +239,24 @@ end
 --[[
 设置电池充电截止电压,电池容量,充电电流
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@api e_chg.setup(v_battery, cap_battery, i_charge)
+@api exchg.setup(v_battery, cap_battery, i_charge)
 @param number v_battery: 电池充电截止电压, 取值范围：4200或4350可选, 单位(mV), 必须传入。
 @param number cap_battery: 电池容量, 取值范围：>= 100, 单位(mAh)，必须传入。
-@param string i_charge: 充电电流, 取值范围：e_chg.CCMIN(最小电流) 或 e_chg.CCDEFAULT(默认电流) 或 e_chg.CCMAX()，三个可选参数，不传入时默认值为e_chg.CCDEFAULT。
+@param string i_charge: 充电电流, 取值范围：exchg.CCMIN(最小电流) 或 exchg.CCDEFAULT(默认电流) 或 exchg.CCMAX()，三个可选参数，不传入时默认值为exchg.CCDEFAULT。
 @return boolean: true=成功, false=失败
 @usage
-    e_chg.setup(4200, 400, e_chg.CCMIN) -- 设置电池充电截止电压为4.2V, 电池容量为400mAh, 充电电流为最小电流
+    exchg.setup(4200, 400, exchg.CCMIN) -- 设置电池充电截止电压为4.2V, 电池容量为400mAh, 充电电流为最小电流
 ]]
-function e_chg.setup(v_battery, cap_battery, i_charge)
+function exchg.setup(v_battery, cap_battery, i_charge)
     -- 验证电池电压
     if v_battery ~= 4200 and v_battery ~= 4350 then
-        log.error("e_chg", "无效的电池电压，必须是 4200 (4.20V) 或 4350 (4.35V)")
+        log.error("exchg", "无效的电池电压，必须是 4200 (4.20V) 或 4350 (4.35V)")
         return false
     end
 
     -- 验证电池容量范围
     if type(cap_battery) ~= "number" or cap_battery < 100 then
-        log.error("e_chg", "电池容量过低, 小于100mAh")
+        log.error("exchg", "电池容量过低, 小于100mAh")
         return false
     end
 
@@ -264,12 +264,12 @@ function e_chg.setup(v_battery, cap_battery, i_charge)
     local closest_capacity = get_closest_capacity(cap_battery)
 
     -- 处理充电电流参数，默认为CCDEFAULT
-    local charge_current = i_charge or e_chg.CCDEFAULT
+    local charge_current = i_charge or exchg.CCDEFAULT
 
     -- 验证充电电流参数
-    if i_charge ~= nil and charge_current ~= e_chg.CCMIN and charge_current ~= e_chg.CCDEFAULT and charge_current ~= e_chg.CCMAX then
-        log.error("e_chg", "无效的充电电流参数，必须是 e_chg.CCMIN、e_chg.CCDEFAULT 或 e_chg.CCMAX，已使用默认值")
-        charge_current = e_chg.CCDEFAULT  -- 重置为默认值
+    if i_charge ~= nil and charge_current ~= exchg.CCMIN and charge_current ~= exchg.CCDEFAULT and charge_current ~= exchg.CCMAX then
+        log.error("exchg", "无效的充电电流参数，必须是 exchg.CCMIN、exchg.CCDEFAULT 或 exchg.CCMAX，已使用默认值")
+        charge_current = exchg.CCDEFAULT  -- 重置为默认值
     end
 
     -- 获取电流值，如果容量超过1000mAh，则使用1000mAh的配置
@@ -279,26 +279,26 @@ function e_chg.setup(v_battery, cap_battery, i_charge)
     -- 根据实际电流值获取对应的十六进制参数
     local current_register_value = current_to_register[actual_current]
     if not current_register_value then
-        log.error("e_chg", "未找到对应电流值的寄存器参数: " .. actual_current)
+        log.error("exchg", "未找到对应电流值的寄存器参数: " .. actual_current)
         return false
     end
     -- 读取芯片ID，验证通信是否正常
     local result, data = yhm27xx.cmd(gpio_pin, sensor_addr, id_register)
     if not result then
-        log.error("e_chg", "无法读取芯片ID, 通信失败")
+        log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
     end
     -- 设置电池充电截止电压
     local voltage_setting = v_battery == 4200 and set_4V2 or set_4V35
     result,data = yhm27xx.cmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
     if not result then
-        log.error("e_chg", "设置电池充电截止电压失败")
+        log.error("exchg", "设置电池充电截止电压失败")
         return false
     end
     -- 设置充电电流
     result,data = yhm27xx.cmd(gpio_pin, sensor_addr, I_ctrl_register, current_register_value)
     if not result then
-        log.error("e_chg", "设置电池充电电流失败")
+        log.error("exchg", "设置电池充电电流失败")
         return false
     end
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
@@ -312,11 +312,11 @@ function e_chg.setup(v_battery, cap_battery, i_charge)
         if V_value == voltage_setting and I_value == current_register_value then
             return true
         else
-            log.warn("e_chg.setup未生效, 请检查是否支持yhm27xx")
+            log.warn("exchg.setup未生效, 请检查是否支持yhm27xx")
             return false
         end
     else
-        log.error("e_chg.setup" .. "0x04寄存器数据获取失败")
+        log.error("exchg.setup" .. "0x04寄存器数据获取失败")
         return false
     end
 end
@@ -324,16 +324,16 @@ end
 --[[
 开始充电
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@function e_chg.start()
+@function exchg.start()
 @return boolean: true=成功, false=失败
 @usage
-    e_chg.start() -- 开始充电
+    exchg.start() -- 开始充电
 ]]
-function e_chg.start()
+function exchg.start()
     -- 读取芯片ID，验证通信是否正常
     local result, data = yhm27xx.cmd(gpio_pin, sensor_addr, id_register)
     if not result then
-        log.error("e_chg", "无法读取芯片ID, 通信失败")
+        log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
     end
 
@@ -343,7 +343,7 @@ function e_chg.start()
     yhm27xx.reqinfo(gpio_pin, sensor_addr)
     result, data = sys.waitUntil("YHM27XX_REG", 500)
     if not result or not data or #data < 6 then
-        log.error("e_chg.start1" .. "0x04寄存器数据获取失败")
+        log.error("exchg.start1" .. "0x04寄存器数据获取失败")
         return false
     end
     
@@ -352,14 +352,14 @@ function e_chg.start()
     -- 过热标志位为0，表示温度<120℃
     local overheat = (data:byte(6) & 0x08) ~= 0
     if overheat then
-        log.error("e_chg.start" .. "ic温度过高,不执行充电功能")
+        log.error("exchg.start" .. "ic温度过高,不执行充电功能")
         return false
     end
 
     -- 开始充电
     result = yhm27xx.cmd(gpio_pin, sensor_addr, mode_register, 0xA8)
     if not result then
-        log.error("e_chg.start", "开始充电失败")
+        log.error("exchg.start", "开始充电失败")
         return false
     end
 
@@ -370,14 +370,14 @@ function e_chg.start()
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 160 then
-            log.info("e_chg.start 生效")
+            log.info("exchg.start 生效")
             return true
         else
-            log.warn("e_chg.start 未生效, 请检查是否支持yhm27xx")
+            log.warn("exchg.start 未生效, 请检查是否支持yhm27xx")
             return false
         end
     else
-        log.error("e_chg.start2" .. "0x04寄存器数据获取失败")
+        log.error("exchg.start2" .. "0x04寄存器数据获取失败")
         return false
     end
 end
@@ -385,21 +385,21 @@ end
 --[[
 停止充电
 必须在task中运行，最大阻塞时间大概为700ms, 阻塞主要由sys.waitUntil("YHM27XX_REG", 500)和sys.wait(200)产生。
-@function e_chg.stop()
+@function exchg.stop()
 @return boolean: true=成功, false=失败
 @usage
-    e_chg.stop() -- 停止充电
+    exchg.stop() -- 停止充电
 ]]
-function e_chg.stop()
+function exchg.stop()
     -- 读取芯片ID，验证通信是否正常
     local result = yhm27xx.cmd(gpio_pin, sensor_addr, id_register)
     if not result then
-        log.error("e_chg", "无法读取芯片ID, 通信失败")
+        log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
     end
     result = yhm27xx.cmd(gpio_pin, sensor_addr, mode_register, 0xF8)
     if not result then
-        log.error("e_chg.stop", "停止充电失败")
+        log.error("exchg.stop", "停止充电失败")
         return false
     end
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
@@ -408,14 +408,14 @@ function e_chg.stop()
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 240 then
-            log.info("e_chg.stop 生效")
+            log.info("exchg.stop 生效")
             return true
         else
-            log.warn("e_chg.stop 未生效, 请检查是否支持yhm27xx")
+            log.warn("exchg.stop 未生效, 请检查是否支持yhm27xx")
             return false
         end
     else
-        log.error("e_chg.stop" .. "0x04寄存器数据获取失败")
+        log.error("exchg.stop" .. "0x04寄存器数据获取失败")
         return false
     end
 end
@@ -563,8 +563,8 @@ local function check_over_heat()
 
     if overheat then
         -- 充电IC过热, 大于120℃, 停止充电！
-        e_chg.stop()
-        notify_event(e_chg.OVERHEAT)
+        exchg.stop()
+        notify_event(exchg.OVERHEAT)
 
         -- 如果已有定时器在运行，先停止
         if overheat_check_timer then
@@ -580,7 +580,7 @@ local function check_over_heat()
             sys.timerStop(overheat_check_timer) 
             overheat_check_timer = nil 
             -- 重新启动充电
-            e_chg.start() 
+            exchg.start() 
         end 
     end
     
@@ -677,12 +677,12 @@ local function check_charger()
     if gpio.get(vbus_pin) == 0 then
         if isCharge then
             isCharge = false
-            notify_event(e_chg.CHARGER_OUT)
+            notify_event(exchg.CHARGER_OUT)
         end
     else
         if not isCharge then
             isCharge = true
-            notify_event(e_chg.CHARGER_IN)
+            notify_event(exchg.CHARGER_IN)
         end
     end
 end
@@ -760,7 +760,7 @@ end
 必须在task中运行，最大阻塞时间(包括超时重试时间)大概为20s。
 该函数用于获取当前充电系统的完整状态，包括电池电压、充电阶段、充电状态、电池在位状态、充电器在位状态以及IC过热状态等信息。
 其中充电器是否在位，中断触发，触发回调事件为CHARGER_STATE_EVENT，附带的参数 true表示充电器在位，false表示充电器不在位。
-@api e_chg.status()
+@api exchg.status()
 @return table 状态信息表
 {
     result = boolean,       -- true: 成功, false: 失败
@@ -784,7 +784,7 @@ end
     ic_overheat = boolean     -- true: 充电IC过热, false: 充电IC未过热
 }
 @usage
-    local status = e_chg.status()
+    local status = exchg.status()
     if status.result then
         log.info("电池电压:", status.vbat_voltage, 
                 "充电阶段:", status.charge_stage, 
@@ -794,7 +794,7 @@ end
                 "IC过热:", status.ic_overheat)
     end 
 --]]
-function e_chg.status()
+function exchg.status()
     -- 初始化所有状态
     local status = {
         result = true,
@@ -895,4 +895,4 @@ end
 --     end
 -- end)
 
-return e_chg
+return exchg

@@ -1,5 +1,3 @@
-# readme.md：AirFONT_1000+Air8000 核心板 demo
-
 ## 一、演示功能概述
 
 AirFONT_1000 是合宙设计生产的一款 SPI 接口支持 16-192 矢量字体读取的配件板；
@@ -40,7 +38,30 @@ Air8000 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字�
 
 **1、Air8000 核心板与 AirFONT_1000 配件板**
 
+| Air8000核心板 | AirFONT_1000配件板 |
+| --- | --- |
+| VDD_EXT | 3V3 |
+| GND | GND |
+| SPI1_MOSI | MOSI |
+| SPI1_MISO | MISO |
+| SPI1_CS | CS |
+| SPI1_SCLK | CLK |
+
+
 **2、Air8000 核心板与 AirLCD_1060 屏幕**
+
+| Air8000核心板 | AirLCD_1060触摸屏 |
+| --- | --- |
+| VBAT | VBAT |
+| GND | GND |
+| LCD_RST | LCD_RST |
+| LCD_SDA | LCD_SDA |
+| LCD_RS | LCD_RS |
+| LCD_CS | LCD_CS |
+| LCD_CLK | LCD_CLK |
+| WAKEUP6 | TP_INT |
+| I2C0_SDA | I2C0_SDA |
+| I2C0_SCL | I2C0_SCL |
 
 ## 四、演示软件环境
 

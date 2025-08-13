@@ -1,8 +1,9 @@
 #include "fft_core_q15.h"
+#include "luat_base.h"
 // 去除浮点依赖
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__
+#ifndef __LUAT_C_CODE_IN_RAM__
+#define __LUAT_C_CODE_IN_RAM__
 #endif
 
 static inline int16_t q15_saturate(int32_t x)
@@ -23,14 +24,14 @@ static inline int16_t q15_mul(int16_t a, int16_t b)
 }
 
 // 占位：不再提供浮点生成（使用绑定层的整型 LUT 生成）
-__USER_FUNC_IN_RAM__ void luat_fft_generate_twiddles_q15(int16_t* Wc, int16_t* Ws, int N)
+__LUAT_C_CODE_IN_RAM__ void luat_fft_generate_twiddles_q15(int16_t* Wc, int16_t* Ws, int N)
 {
     (void)Wc;
     (void)Ws;
     (void)N;
 }
 
-__USER_FUNC_IN_RAM__ int luat_fft_inplace_q15(int16_t* real, int16_t* imag, int N, int inverse,
+__LUAT_C_CODE_IN_RAM__ int luat_fft_inplace_q15(int16_t* real, int16_t* imag, int N, int inverse,
     const int16_t* Wc, const int16_t* Ws,
     int block_scaling_mode, int* out_scale_exp)
 {

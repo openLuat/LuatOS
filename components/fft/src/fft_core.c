@@ -7,11 +7,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__
+#ifndef __LUAT_C_CODE_IN_RAM__
+#define __LUAT_C_CODE_IN_RAM__
 #endif
 
-__USER_FUNC_IN_RAM__ static inline int reverse_bits(int x, int bits)
+__LUAT_C_CODE_IN_RAM__ static inline int reverse_bits(int x, int bits)
 {
     int y = 0;
     for (int i = 0; i < bits; i++) {
@@ -21,7 +21,7 @@ __USER_FUNC_IN_RAM__ static inline int reverse_bits(int x, int bits)
     return y;
 }
 
-__USER_FUNC_IN_RAM__ void luat_fft_generate_twiddles(int N, float* Wc, float* Ws)
+__LUAT_C_CODE_IN_RAM__ void luat_fft_generate_twiddles(int N, float* Wc, float* Ws)
 {
     for (int k = 0; k < N / 2; k++) {
         float angle = (float)(-2.0 * M_PI * (double)k / (double)N);
@@ -30,7 +30,7 @@ __USER_FUNC_IN_RAM__ void luat_fft_generate_twiddles(int N, float* Wc, float* Ws
     }
 }
 
-__USER_FUNC_IN_RAM__ static void fft_inplace_core(float* real, float* imag, int N, int inverse,
+__LUAT_C_CODE_IN_RAM__ static void fft_inplace_core(float* real, float* imag, int N, int inverse,
     const float* Wc, const float* Ws)
 {
     // bit-reverse permutation 位逆序置换
@@ -105,13 +105,13 @@ __USER_FUNC_IN_RAM__ static void fft_inplace_core(float* real, float* imag, int 
     }
 }
 
-__USER_FUNC_IN_RAM__ void luat_fft_run_inplace(float* real, float* imag, int N,
+__LUAT_C_CODE_IN_RAM__ void luat_fft_run_inplace(float* real, float* imag, int N,
     const float* Wc, const float* Ws)
 {
     fft_inplace_core(real, imag, N, 0, Wc, Ws);
 }
 
-__USER_FUNC_IN_RAM__ void luat_ifft_run_inplace(float* real, float* imag, int N,
+__LUAT_C_CODE_IN_RAM__ void luat_ifft_run_inplace(float* real, float* imag, int N,
     const float* Wc, const float* Ws)
 {
     fft_inplace_core(real, imag, N, 1, Wc, Ws);
@@ -123,7 +123,7 @@ __USER_FUNC_IN_RAM__ void luat_ifft_run_inplace(float* real, float* imag, int N,
     }
 }
 
-__USER_FUNC_IN_RAM__ void luat_fft_integral_inplace(float* xr, float* xi, int n, float df)
+__LUAT_C_CODE_IN_RAM__ void luat_fft_integral_inplace(float* xr, float* xi, int n, float df)
 {
     // 计算角频率步长 Calculate angular frequency step
     const float two_pi_df = (float)(2.0 * M_PI) * df;

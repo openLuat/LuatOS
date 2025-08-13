@@ -86,7 +86,7 @@
 #define SD_CMD_READ_OCR               58  /* CMD55 = 0x79 */
 #define SD_DEFAULT_BLOCK_SIZE (512)
 
-#define SPI_TF_WRITE_TO_MS	(FATFS_WRITE_TO)
+#define SPI_TF_WRITE_TO_MS	((uint64_t)FATFS_WRITE_TO)
 #define SPI_TF_READ_TO_MS	(100)
 
 typedef struct

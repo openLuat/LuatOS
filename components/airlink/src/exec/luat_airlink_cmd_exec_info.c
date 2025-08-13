@@ -20,7 +20,7 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-luat_airlink_dev_info_t g_airlink_ext_dev_info;
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 __USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_airlink_dev_info_t* dev = cmd->data;

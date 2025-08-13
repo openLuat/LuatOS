@@ -10,7 +10,7 @@
 #include "luat_mem.h"
 #include "luat_airlink.h"
 
-#if defined(LUAT_USE_DRV_MOBILE)
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
 #include "luat_mobile.h"
 
 #define LUAT_LOG_TAG "airlink"

@@ -42,27 +42,38 @@ sys.subscribe("IP_READY", function(id, ip)
 end)
 
 local function spi_slave_task()
+    local suc_request_num, fail_request_num = 0, 0
     sys.wait(100)
-
     -- 初始化airlink
     airlink.init()
     -- 注册网卡
-    netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
-    sys.wait(100)
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 启动airlink从机模式
     airlink.start(0)
 
     -- 配置网关ip
-    netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
-    -- sys.waitUntil("IP_READY")
+    -- netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.2", "255.255.255.0", "192.168.111.1")
+    sys.wait(100)
+    sys.waitUntil("IP_READY", 10000)
+    netdrv.napt(socket.LWIP_GP)
+    -- 设置DNS代理。
+    dnsproxy.setup(socket.LWIP_GP_GW, socket.LWIP_GP)
 
     while 1 do
         sys.wait(1000)
-        log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
-        airlink.statistics()
-        log.info("执行http请求")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_USER0,timeout=3000}).wait()
-        log.info("http执行结果", code, code, headers, body)
+        -- log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
+        -- airlink.statistics()
+        -- log.info("执行http请求")
+        -- local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP,timeout=3000}).wait()
+        -- local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_USER0,timeout=3000}).wait()
+        -- log.info("http执行结果", code, code, headers, body)
+        -- if code == 200 then
+        --     suc_request_num = suc_request_num + 1
+        -- else
+        --     fail_request_num = fail_request_num + 1
+        -- end
+        -- log.info("当前成功请求次数", suc_request_num, "失败请求次数", fail_request_num)
     end
 end
 
@@ -71,31 +82,34 @@ local function spi_master_task()
     -- 初始化airlink
     airlink.init()
     log.info("创建桥接网络设备")
-    netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 启动底层线程, 主机模式
     airlink.start(1)
 
-    netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
-    sys.wait(100)
-    sys.waitUntil("IP_READY", 10000)
-    netdrv.napt(socket.LWIP_GP)
-    -- 设置DNS代理。
-    dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
+    -- netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
+    -- sys.wait(100)
+    -- sys.waitUntil("IP_READY", 10000)
+    -- netdrv.napt(socket.LWIP_GP)
+    -- -- 设置DNS代理。
+    -- dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
     -- airlink.test(1000)
     while 1 do
         sys.wait(1000)
-        log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
-        airlink.statistics()
-        -- log.info("执行http请求")
-        -- local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP,timeout=3000}).wait()
+        log.info("airlink", "从机固件版本号", airlink.sver())
+        -- log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
+        -- airlink.statistics()
+        log.info("执行http请求")
+        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {adapter=socket.LWIP_GP_GW,timeout=3000}).wait()
         -- log.info("http执行结果", code, code, headers, body)
     end
 end
 
 sys.taskInit(function()
-    sys.wait(2000)
+    sys.wait(300)
     log.info("main", rtos_bsp)
-    -- 测试使用Air780EHM模块作为从机延时，如果使用其他模块测试，修改下面的代码。
+    -- netdrv.debug(0, true)
+    -- 测试使用Air780EHM模块作为从机演示，如果使用其他模块测试，修改下面的代码。
     if string.find(rtos_bsp, "780EHM") then
         mode = "slave"
     else
@@ -111,7 +125,7 @@ sys.taskInit(function()
     end
 end)
 
--- sys.taskInit(airlink_sdata_MOBILE)
+-- sys.taskInit(airlink_sdata_MOBILE) 
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

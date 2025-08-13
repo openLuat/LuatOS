@@ -558,6 +558,12 @@ int luat_airlink_has_wifi(void) {
 
 uint32_t luat_airlink_sversion(void) {
     uint32_t version = 0;
-    memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+
+    if (g_airlink_ext_dev_info.tp == 0x01) {
+        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    }
+    else if (g_airlink_ext_dev_info.tp == 0x02) {
+        memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
+    }
     return version;
 }

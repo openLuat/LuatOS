@@ -91,12 +91,12 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, luat_netdrv_netif_input_main);
 
     // 网卡设置成半可用状态
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
     }
     else {
         netif_set_up(netdrv->netif);
     }
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
         cfg->dhcp = 1;
         cfg->ulwip.dhcp_enable = 1;
     }

@@ -10,7 +10,7 @@ extern "C" {
 // 生成 Q15 旋转因子表（长度 N/2）：
 // Wc[k] = cos(2πk/N) 的 Q15 表示；
 // Ws[k] = -sin(2πk/N) 的 Q15 表示（前向FFT用负号）
-void fft_generate_twiddles_q15(int16_t* Wc, int16_t* Ws, int N);
+void luat_fft_generate_twiddles_q15(int16_t* Wc, int16_t* Ws, int N);
 
 // Q15 原地FFT/IFFT
 // 参数：
@@ -20,14 +20,12 @@ void fft_generate_twiddles_q15(int16_t* Wc, int16_t* Ws, int N);
 // - block_scaling_mode: 0=每级固定右移1位；1=条件缩放（按级最大值）
 // - out_scale_exp: 输出累计右移的位数（用于幅值/单位还原）
 // 返回：0 成功，<0 表示参数错误
-int fft_inplace_q15(int16_t* real, int16_t* imag, int N, int inverse,
-                    const int16_t* Wc, const int16_t* Ws,
-                    int block_scaling_mode, int* out_scale_exp);
+int luat_fft_inplace_q15(int16_t* real, int16_t* imag, int N, int inverse,
+    const int16_t* Wc, const int16_t* Ws,
+    int block_scaling_mode, int* out_scale_exp);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif // LUAT_FFT_CORE_Q15_H
-
-

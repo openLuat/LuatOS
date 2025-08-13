@@ -10,6 +10,6 @@
 #include "luat_mobile.h"
 
 
-int luat_airlink_drv_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
+int luat_airlink_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
 
 #endif

@@ -1579,8 +1579,8 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
         break;
 	}
 #endif
-#if defined LUAT_USE_AIRLINK
-    luat_airlink_drv_mobile_event_callback(event, index, status, ptr);
+#if defined LUAT_USE_AIRLINK_EXEC_MOBILE
+    luat_airlink_mobile_event_callback(event, index, status, ptr);
 #endif
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,

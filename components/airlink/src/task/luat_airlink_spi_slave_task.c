@@ -3,7 +3,9 @@
 #include "luat_airlink.h"
 
 #include "luat_rtos.h"
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
 #include "luat_mobile.h"
+#endif
 #include "luat_network_adapter.h"
 #include "luat_debug.h"
 #include "luat_spi.h"
@@ -189,7 +191,7 @@ static void spi_gpio_setup(void) {
         pin_rdy_state = 1;
     }
 }
-
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
 extern luat_airlink_mobile_evt_cb g_airlink_mobile_evt_cb;
 static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
     // luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
@@ -200,21 +202,6 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
 	case LUAT_MOBILE_EVENT_CFUN:
 		break;
 	case LUAT_MOBILE_EVENT_SIM:
-/*
-@sys_pub mobile
-sim卡状态变化
-SIM_IND
-@usage
-sys.subscribe("SIM_IND", function(status, value)
-    -- status的取值有:
-    -- RDY SIM卡就绪, value为nil
-    -- NORDY 无SIM卡, value为nil
-    -- SIM_PIN 需要输入PIN, value为nil
-    -- GET_NUMBER 获取到电话号码(不一定有值), value为nil
-    -- SIM_WC SIM卡的写入次数统计,掉电归0, value为统计值
-    log.info("sim status", status, value)
-end)
-*/
         LLOGD("SIM_IND -> status %d", status);
         devinfo->cat1.sim_state = status;
         switch (status)
@@ -247,30 +234,8 @@ end)
         switch (status)
         {
         case LUAT_MOBILE_CELL_INFO_UPDATE:
-/*
-@sys_pub mobile
-基站数据已更新
-CELL_INFO_UPDATE
-@usage
--- 订阅式
-sys.subscribe("CELL_INFO_UPDATE", function()
-    log.info("cell", json.encode(mobile.getCellInfo()))
-end)
-*/
-
 		    break;
         case LUAT_MOBILE_SERVICE_CELL_UPDATE:
-/*
-@sys_pub mobile
-服务小区额外信息更新
-SCELL_INFO
-@usage
--- 订阅式
-sys.subscribe("SCELL_INFO", function()
-    log.info("service cell", mobile.scell()))
-end)
-*/
-
         default:
             break;
         }
@@ -282,66 +247,23 @@ end)
 		switch (status)
 		{
 		case LUAT_MOBILE_NETIF_LINK_ON: {
-        devinfo->cat1.cat_state = 1;
-        send_devinfo_update_evt();
-        LLOGD("NETIF_LINK_ON -> IP_READY cat1.cat_state %d ipv4 %d.%d.%d.%d", devinfo->cat1.cat_state, devinfo->cat1.ipv4[0], devinfo->cat1.ipv4[1], devinfo->cat1.ipv4[2], devinfo->cat1.ipv4[3]);
-/*
-@sys_pub mobile
-已联网
-IP_READY
-@usage
--- 联网后会发一次这个消息
-sys.subscribe("IP_READY", function(ip, adapter)
-    log.info("mobile", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP)
-end)
-*/
+            devinfo->cat1.cat_state = 1;
+            send_devinfo_update_evt();
+            LLOGD("NETIF_LINK_ON -> IP_READY cat1.cat_state %d ipv4 %d.%d.%d.%d", devinfo->cat1.cat_state, devinfo->cat1.ipv4[0], devinfo->cat1.ipv4[1], devinfo->cat1.ipv4[2], devinfo->cat1.ipv4[3]);
 			break;
         }
         case LUAT_MOBILE_NETIF_LINK_OFF:
-        devinfo->cat1.cat_state = 0;
-        send_devinfo_update_evt();
-        LLOGD("NETIF_LINK_OFF -> IP_LOSE cat1.cat_state %d", devinfo->cat1.cat_state); 
-/*
-@sys_pub mobile
-已断网
-IP_LOSE
-@usage
--- 断网后会发一次这个消息
-sys.subscribe("IP_LOSE", function(adapter)
-    log.info("mobile", "IP_LOSE", (adapter or -1) == socket.LWIP_GP)
-end)
-*/
+            devinfo->cat1.cat_state = 0;
+            send_devinfo_update_evt();
+            LLOGD("NETIF_LINK_OFF -> IP_LOSE cat1.cat_state %d", devinfo->cat1.cat_state); 
             break;
 		default:
 			break;
 		}
 		break;
 	case LUAT_MOBILE_EVENT_TIME_SYNC:
-/*
-@sys_pub mobile
-时间已经同步
-NTP_UPDATE
-@usage
--- 对于电信/移动的卡, 联网后,基站会下发时间,但联通卡不会,务必留意
-sys.subscribe("NTP_UPDATE", function()
-    log.info("mobile", "time", os.date())
-end)
-*/
-
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
-//		LLOGD("CSCON %d", status);
-/*
-@sys_pub mobile
-RRC状态
-CSCON
-@usage
--- state 1 CONNECT 0 IDLE
-sys.subscribe("CSCON", function(state)
-	log.info("mobile", "CSCON", state)
-end)
-*/
-
 		break;
 	case LUAT_MOBILE_EVENT_BEARER:
 		LLOGD("bearer act %d, result %d",status, index);
@@ -365,15 +287,6 @@ end)
 		break;
     case LUAT_MOBILE_EVENT_CC:
         LLOGD("LUAT_MOBILE_EVENT_CC status %d",status);
-/*
-@sys_pub mobile
-通话状态变化
-CC_IND
-@usage
-sys.subscribe("CC_IND", function(status, value)
-    log.info("cc status", status, value)
-end)
-*/
         switch(status){
         case LUAT_MOBILE_CC_READY:
             LLOGD("LUAT_MOBILE_CC_READY");
@@ -417,6 +330,8 @@ end)
     return 0;
 }
 
+#endif
+
 __USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
     // 首先, 把rxbuff填0, 不要收到老数据的干扰
     // LLOGD("执行start_spi_trans");
@@ -458,14 +373,18 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
     devinfo->tp = 0x02;
     uint32_t fw_version = 3;
     memcpy(devinfo->cat1.version, &fw_version, sizeof(uint32_t));   // 版本
+    #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     luat_mobile_get_sn(devinfo->cat1.unique_id, 32);                // 唯一ID
     luat_mobile_get_imei(0, devinfo->cat1.imei, 16);                // IMEI
+    #endif
 
 
     // // 执行主循环
     g_airlink_link_data_cb = link_data_cb;
     g_airlink_newdata_notify_cb = on_newdata_notify;
+    #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     g_airlink_mobile_evt_cb = mobile_evt_handler;
+    #endif
 
     // 告知已经就绪
     self_ready = 1;

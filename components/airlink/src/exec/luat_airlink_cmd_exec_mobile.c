@@ -8,11 +8,13 @@
 #include "luat_spi.h"
 #include "luat_pm.h"
 #include "luat_gpio.h"
-#include "luat_airlink.h"
+
+#ifdef LUAT_USE_AIRLINK_EXEC_MOBILE
 #include "luat_mobile.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
+
 
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
@@ -68,3 +70,5 @@ int luat_airlink_cmd_exec_mobile_muid(luat_airlink_cmd_t* cmd, void* userdata) {
 
     return 0;
 }
+
+#endif

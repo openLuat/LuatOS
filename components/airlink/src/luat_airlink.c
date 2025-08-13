@@ -81,7 +81,7 @@ int luat_airlink_start(int id)
         LLOGE("当前固件不支持 UART模式");
         #endif
     }
-    LLOGD("luat_airlink_start %d queue %p %p", id, airlink_cmd_queue, airlink_ippkg_queue);
+    LLOGD("mode %d ret %d queue %p %p", id, ret, airlink_cmd_queue, airlink_ippkg_queue);
     return 0;
 }
 

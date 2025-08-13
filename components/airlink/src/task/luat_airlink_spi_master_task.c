@@ -112,7 +112,7 @@ static void spi_gpio_setup(void)
         .CPHA = 1,
         .CPOL = 1,
         .dataw = 8,
-        .bit_dict = 0,
+        .bit_dict = 1, // MSB, 大部分平台也只支持MSB
         .master = 1,
         .mode = 1, // mode设置为1，全双工
         .bandrate = g_airlink_spi_conf.speed > 0 ? g_airlink_spi_conf.speed : 31000000,

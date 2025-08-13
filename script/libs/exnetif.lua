@@ -733,7 +733,9 @@ end
 -- 网卡下线回调函数
 local function ip_lose_handle(adapter)
     log.info("ip_lose_handle", type_to_string(adapter))
-    available[adapter] = connection_states.OPENED
+    if available[adapter] ~= connection_states.DISCONNECTED then
+        available[adapter] = connection_states.OPENED
+    end
     if current_active == adapter then
         log.info(type_to_string(adapter) .. " 失效，切换到其他网络")
         apply_priority()

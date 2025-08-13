@@ -89,6 +89,9 @@ typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
 
 typedef int (*luat_airlink_link_data_cb)(airlink_link_data_t* link);
 
+#include "luat_mobile.h"
+typedef void (*luat_airlink_mobile_evt_cb)(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
+
 typedef struct luat_airlink_cmd_reg
 {
     uint16_t id;
@@ -151,7 +154,7 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t version[4];
     uint8_t fw_type[4];
     uint8_t unique_id_len;
-    uint8_t unique_id[24];
+    uint8_t unique_id[32];
 }luat_airlink_dev_wifi_cat_t;
 
 typedef struct luat_airlink_dev_info
@@ -263,6 +266,10 @@ int luat_airlink_drv_uart_setup(luat_uart_t* uart);
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length);
 int luat_airlink_drv_uart_read(int uart_id, void* buffer, size_t length);
 int luat_airlink_drv_uart_close(int uart_id);
+
+// mobile类
+#include "luat_mobile.h"
+int luat_airlink_drv_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
 
 extern uint32_t g_airlink_debug;
 

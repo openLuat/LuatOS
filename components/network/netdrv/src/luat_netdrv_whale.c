@@ -91,12 +91,12 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, luat_netdrv_netif_input_main);
 
     // 网卡设置成半可用状态
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
     }
     else {
         netif_set_up(netdrv->netif);
     }
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
         cfg->dhcp = 1;
         cfg->ulwip.dhcp_enable = 1;
     }
@@ -157,6 +157,7 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         if (msg->arg2 == 0) {
+            LLOGD("IP_LOSE %d", netdrv->id);
             lua_pushstring(L, "IP_LOSE");
             lua_pushinteger(L, netdrv->id);
             lua_call(L, 2, 0);

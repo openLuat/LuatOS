@@ -36,6 +36,10 @@ log.info("simid", mobile.simid())
 #include "luat_log.h"
 extern void luat_cc_start_speech(uint32_t param);
 extern void luat_cc_play_tone(uint32_t param);
+
+#ifdef LUAT_USE_AIRLINK
+#include "luat_airlink.h"
+#endif
 /**
 获取IMEI
 @api mobile.imei(index)
@@ -1574,6 +1578,9 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
     default:
         break;
 	}
+#endif
+#if defined LUAT_USE_AIRLINK
+    luat_airlink_drv_mobile_event_callback(event, index, status, ptr);
 #endif
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,

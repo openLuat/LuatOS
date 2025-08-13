@@ -320,7 +320,7 @@ static int fatfs_debug_mode(lua_State *L) {
  */
 static int fatfs_config(lua_State *L) {
 	FATFS_NO_CRC_CHECK = luaL_optinteger(L, 1, 0);
-	FATFS_WRITE_TO = luaL_optinteger(L, 1, 100);
+	FATFS_WRITE_TO = luaL_optinteger(L, 2, 100);
 	return 0;
 }
 

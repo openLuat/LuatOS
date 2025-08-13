@@ -3,10 +3,12 @@
 #include "luat_mcu.h"
 #include "luat_mem.h"
 #ifdef LUAT_USE_DNS
-#include "platform_def.h"
+#include "luat_network_adapter.h"
 #include "dns_def.h"
 #include "ctype.h"
-#include "luat_network_adapter.h"
+#undef malloc
+#undef free
+#include "platform_def.h"
 #define dnsONE_QUESTION                 0x0001
 #define dnsFLAG_QUERY_RESPONSE_BIT      0x8000
 #define dnsFLAG_OPERATION_CODE_BITS     0x7800

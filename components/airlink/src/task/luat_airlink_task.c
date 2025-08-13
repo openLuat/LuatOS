@@ -57,6 +57,13 @@ __USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
         return;
     }
     #endif
+    #ifdef LUAT_USE_DRV_MOBILE
+    luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
+    if (cmd->cmd >= 0x800) {
+        LLOGD("收到指令/回复 cmd %d len %d", cmd->cmd, cmd->len);
+        return;
+    }
+    #endif
     void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {
         LLOGE("airlink分配内存失败!!! %d", len);
@@ -95,6 +102,11 @@ __USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
                 if (g_airlink_ext_dev_info.tp == 0x01) {
                     uint32_t tmpv = 0;
                     memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
+                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv);
+                }
+                else if (g_airlink_ext_dev_info.tp == 0x02) {
+                    uint32_t tmpv = 0;
+                    memcpy(&tmpv, g_airlink_ext_dev_info.cat1.version, 4);
                     LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv);
                 }
                 else {

@@ -553,7 +553,12 @@ log.info("airlink", "从机固件版本号", airlink.sver())
 */
 static int l_airlink_sversion(lua_State *L) {
     uint32_t version = 0;
-    memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    if (g_airlink_ext_dev_info.tp == 0x01) {
+        memcpy(&version, g_airlink_ext_dev_info.wifi.version, 4);
+    }
+    else if (g_airlink_ext_dev_info.tp == 0x02) {
+        memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
+    }
     lua_pushinteger(L, version);
     return 1;
 }

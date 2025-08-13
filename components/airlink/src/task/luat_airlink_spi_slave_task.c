@@ -301,7 +301,7 @@ __USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
 #ifndef __BK72XX__
 void luat_airlink_start_slave(void)
 {
-    LLOGE("luat_airlink_start_slave!!!");
+    LLOGD("luat_airlink_start_slave!!!");
     if (spi_task_handle != NULL)
     {
         LLOGE("SPI从机任务已经启动过了!!!");

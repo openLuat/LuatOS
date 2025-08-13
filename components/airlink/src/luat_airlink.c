@@ -28,7 +28,7 @@ luat_rtos_queue_t airlink_ippkg_queue;
 
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
-extern void luat_airlink_start_uart(void);
+extern int luat_airlink_start_uart(void);
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
@@ -46,6 +46,7 @@ int luat_airlink_init(void)
 
 int luat_airlink_start(int id)
 {
+    int ret = -255;
     if (airlink_cmd_queue == NULL)
     {
         luat_rtos_queue_create(&airlink_cmd_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
@@ -58,25 +59,29 @@ int luat_airlink_start(int id)
     {
         #ifdef LUAT_USE_AIRLINK_SPI_SLAVE
         g_airlink_spi_task_mode = 0;
-        luat_airlink_start_slave();
-        return 0;
+        ret = luat_airlink_start_slave();
+        #else
+        LLOGE("当前固件不支持 SPI从机模式");
         #endif
     }
     else if (id == 1)
     {
         #ifdef LUAT_USE_AIRLINK_SPI_MASTER
         g_airlink_spi_task_mode = 1;
-        luat_airlink_start_master();
-        return 0;
+        ret = luat_airlink_start_master();
+        #else
+        LLOGE("当前固件不支持 SPI主机模式");
         #endif
     }
     else if (id == 2) {
         #ifdef LUAT_USE_AIRLINK_UART
         g_airlink_spi_task_mode = 2;
-        luat_airlink_start_uart();
-        return 0;
+        ret = luat_airlink_start_uart();
+        #else
+        LLOGE("当前固件不支持 UART模式");
         #endif
     }
+    LLOGD("luat_airlink_start %d queue %p %p", id, airlink_cmd_queue, airlink_ippkg_queue);
     return 0;
 }
 

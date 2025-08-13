@@ -335,7 +335,8 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
         }
     }
 }
-void luat_airlink_start_uart(void)
+
+int luat_airlink_start_uart(void)
 {
     int ret = 0;
     
@@ -354,6 +355,8 @@ void luat_airlink_start_uart(void)
 
     luat_airlink_uart_transfer_task();
     luat_airlink_uart_receive_task();
+
+    return ret;
 }
 
 static void luat_airlink_uart_transfer_task(void)

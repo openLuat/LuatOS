@@ -541,6 +541,7 @@ local function UITask()
     log.info("合宙 8000 startup v11111")
     -- aircamera.init()
     airlcd.lcd_init("AirLCD_1001")
+    lcd.setAcchw(lcd.ACC_HW_ALL,false)
     sys.subscribe("TP",tp_handal)
     while 1 do
       update()
@@ -596,6 +597,7 @@ local  function hardware_start ()
 
 end
 -- 演示定时自动升级, 每隔4小时自动检查一次
+
 sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
 sysplus.taskInitEx(hardware_start,"hardware_start")
 sysplus.taskInitEx(wififota,"fota_wifi")

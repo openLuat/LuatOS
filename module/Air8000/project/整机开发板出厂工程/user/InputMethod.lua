@@ -186,7 +186,7 @@ local function refresh_input_text()
     
     -- 绘制文本（使用字体指针）
 
-    lcd.setFont(font_ptr)
+    -- lcd.setFont(font_ptr)
     lcd.fill(19,14,228,52,0xFFFFF)
     lcd.drawStr(TEXT_X, TEXT_Y, display_text)
 

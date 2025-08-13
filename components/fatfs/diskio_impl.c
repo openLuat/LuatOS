@@ -24,6 +24,8 @@
 uint16_t FATFS_POWER_DELAY = 1;
 BYTE FATFS_DEBUG = 0; // debug log, 0 -- disable , 1 -- enable
 BYTE FATFS_POWER_PIN = 0xff;
+uint8_t FATFS_NO_CRC_CHECK = 0;
+uint16_t FATFS_WRITE_TO = 100;
 
 static block_disk_t disks[FF_VOLUMES+1] = {0};
 

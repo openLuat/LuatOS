@@ -28,6 +28,8 @@ static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 extern BYTE FATFS_POWER_PIN;
 extern uint16_t FATFS_POWER_DELAY;
+extern uint8_t FATFS_NO_CRC_CHECK;
+extern uint16_t FATFS_WRITE_TO;
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
 DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
@@ -301,11 +303,24 @@ static int fatfs_getfree(lua_State *L)
 /**
 设置调试模式
 @api fatfs.debug(value)
-@bool 是否进入调试模式,true代表进入调试模式,增加调试日志
+@int 是否进入调试模式,1代表进入调试模式,增加调试日志
 @return nil 无返回值
  */
 static int fatfs_debug_mode(lua_State *L) {
 	FATFS_DEBUG = luaL_optinteger(L, 1, 1);
+	return 0;
+}
+
+/**
+设置fatfs一些特殊参数，大部分卡无需配置，部分不能正常读写的卡，经过配置后可能能读写成功
+@api fatfs.config(crc_check, write_to)
+@int 读取时是否跳过CRC检查,1跳过不检查CRC,0不跳过检查CRC,默认不跳过,除非TF卡不支持CRC校验,否则不应该跳过!
+@int 单次写入超时时间,单位ms,默认100ms。
+@return nil 无返回值
+ */
+static int fatfs_config(lua_State *L) {
+	FATFS_NO_CRC_CHECK = luaL_optinteger(L, 1, 0);
+	FATFS_WRITE_TO = luaL_optinteger(L, 1, 100);
 	return 0;
 }
 
@@ -634,7 +649,7 @@ static const rotable_Reg_t reg_fatfs[] =
   { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
   { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
   { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
-
+  { "config",		ROREG_FUNC(fatfs_config)}, //初始化,挂载, 别名方法
   { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
 #if 0
   { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!

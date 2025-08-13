@@ -86,7 +86,7 @@
 #define SD_CMD_READ_OCR               58  /* CMD55 = 0x79 */
 #define SD_DEFAULT_BLOCK_SIZE (512)
 
-#define SPI_TF_WRITE_TO_MS	(100)
+#define SPI_TF_WRITE_TO_MS	(FATFS_WRITE_TO)
 #define SPI_TF_READ_TO_MS	(100)
 
 typedef struct
@@ -196,7 +196,6 @@ typedef struct
 	uint8_t SpiID;
 	uint8_t SDHCState;
 	uint8_t IsInitDone;
-	uint8_t IsCRCCheck;
 	uint8_t SDHCError;
 	uint8_t SPIError;
 	uint8_t ExternResult[64];
@@ -208,6 +207,8 @@ typedef struct
 
 #define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
 
+extern uint8_t FATFS_NO_CRC_CHECK;
+extern uint16_t FATFS_WRITE_TO;
 static luat_spitf_ctrl_t g_s_spitf;
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
 
@@ -488,7 +489,11 @@ READ_REST_DATA:
 		luat_spi_transfer(spitf->SpiID, (const char *)pBuf, RemainingLen, (char *)pBuf, RemainingLen);
 		memset(spitf->TempData, 0xff, 2);
 		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 2, (char *)spitf->TempData, 2);
-//		if (spitf->IsCRCCheck)
+		if (FATFS_NO_CRC_CHECK)
+		{
+
+		}
+		else
 		{
 			crc16 = CRC16Cal(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__, 0, CRC16_CCITT_GEN, 0);
 			crc16_check = BytesGetBe16(spitf->TempData);

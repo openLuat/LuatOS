@@ -157,6 +157,7 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         if (msg->arg2 == 0) {
+            LLOGD("IP_LOSE %d", netdrv->id);
             lua_pushstring(L, "IP_LOSE");
             lua_pushinteger(L, netdrv->id);
             lua_call(L, 2, 0);

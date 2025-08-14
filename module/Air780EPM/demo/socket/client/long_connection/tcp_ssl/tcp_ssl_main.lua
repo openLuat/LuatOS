@@ -47,8 +47,8 @@ local function tcp_ssl_main_task_func()
             -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
             -- 或者等待1秒超时退出阻塞等待状态;
             -- 注意：此处的1000毫秒超时不要修改的更长；
-            -- 因为当使用libnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
-            -- 当libnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+            -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+            -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
             -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
             sys.waitUntil("IP_READY", 1000)
         end

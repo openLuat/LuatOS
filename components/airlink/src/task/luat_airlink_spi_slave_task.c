@@ -43,7 +43,7 @@ static uint32_t irq_counter; // 中断计数
 
 extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 
-static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
+static uint8_t basic_info[512];
 static inline luat_airlink_dev_info_t * self_devinfo(void) {
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     return (luat_airlink_dev_info_t *)(cmd->data);

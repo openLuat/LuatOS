@@ -36,6 +36,10 @@ extern uint32_t g_airlink_pause;
 static uint8_t thread_rdy;
 static luat_rtos_task_handle spi_task_handle;
 
+
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+extern luat_airlink_dev_info_t g_airlink_self_dev_info;
+#endif
 static uint8_t basic_info[256];
 
 // static uint32_t is_waiting_queue = 0;
@@ -313,6 +317,9 @@ __AIRLINK_CODE_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     else
     {
         // LLOGD("填充PING数据");
+        #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+        memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+        #endif
         luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
         queue_emtry_counter ++;
     }
@@ -326,11 +333,27 @@ __AIRLINK_CODE_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* lin
     }
 }
 
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+static void send_devinfo_update_evt(void) {
+    airlink_queue_item_t item = {0};
+    // 发送空消息, 会自动转为devinfo消息
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item); 
+}
+#endif
 
 __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
 {
     // int i;
     // luat_event_t event = {0};
+    #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
+    cmd->cmd = 0x10;
+    cmd->len = 128;
+
+    extern void luat_airlink_devinfo_init();
+    luat_airlink_devinfo_init(send_devinfo_update_evt);
+    #endif
+
     luat_rtos_task_sleep(5); // 等5ms
     spi_gpio_setup();
     thread_rdy = 1;

@@ -164,6 +164,7 @@ log.info("bluetooth mac", mac:toHex())
 static int l_bluetooth_get_mac(lua_State *L){
 	uint8_t mac[6] = {0};
     luat_bluetooth_get_mac(NULL, mac);
+    luat_bluetooth_mac_swap(mac);
 	lua_pushlstring(L, (const char*)mac, 6);
 	return 1;
 }

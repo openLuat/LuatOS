@@ -33,14 +33,14 @@ local talk = require "talk"
 
 local airrecord = require "airrecord"
 local taskName = "MAIN"
-local  fota_wifi = require("fota_wifi")
+local  exfotawifi = require("exfotawifi")
 local sid = 0
 libfota2 = require "libfota2"
 
 
 
 -- 按键事件类型：
--- "switch": 短按开机键切换菜单；  
+-- "switch": 短按开机键切换菜单；
 -- "enter"： 长按开机键进入功能菜单或者退出功能菜单
 
 -- 当前功能界面
@@ -128,7 +128,7 @@ local function main_local(x,y)
 end
 
 local function home_first_page(x,y)
-  key =  main_local(x,y) 
+  key =  main_local(x,y)
   log.info("tp_handal key",key)
   if key == 1 then
     cur_fun  = "airgps"
@@ -152,12 +152,12 @@ local function home_first_page(x,y)
 end
 
 local function home_second_page(x,y)
-  key =  main_local(x,y) 
+  key =  main_local(x,y)
   log.info("tp_handal key",key)
   if key == 1 then
     cur_fun  = "airrecord"
   elseif key == 2 then
-   
+
   elseif key == 3 then
     cur_fun  = "airtf"
   elseif key == 4 then
@@ -176,7 +176,7 @@ local function home_second_page(x,y)
 end
 
 local function home_third_page(x,y)
-  key =  main_local(x,y) 
+  key =  main_local(x,y)
   log.info("tp_handal key",key)
   if key == 1 then
     cur_fun  = "multi_network"
@@ -194,7 +194,7 @@ local function home_third_page(x,y)
 end
 
 local function home_fourth_page(x,y)
-  key =  main_local(x,y) 
+  key =  main_local(x,y)
   log.info("tp_handal key",key)
   if key == 1 then
     cur_fun  = "talk"
@@ -285,11 +285,11 @@ end
 --画九宫格界面
 local function draw_main()
   local i = 0
-  local j = 0 
+  local j = 0
   local x,y
   local fname
   local sel = 0
-  
+
   for i = 1,3 do
     for j = 1,3 do
       x = 64 + (i-1)*128 + 24
@@ -299,16 +299,16 @@ local function draw_main()
       -- log.info("fname：", fname, x,y,sel,cur_sel)
       lcd.showImage(y,x,fname)
     end
-  end      
+  end
 end
 
 local function draw_main1()
   local i = 0
-  local j = 0 
+  local j = 0
   local x,y
   local fname
   local sel = 0
-  
+
   for i = 1,3 do
     for j = 1,3 do
       x = 64 + (i-1)*128 + 24
@@ -318,16 +318,16 @@ local function draw_main1()
       -- log.info("fname：", fname, x,y,sel,cur_sel)
       lcd.showImage(y,x,fname)
     end
-  end      
+  end
 end
 
 local function draw_main2()
   local i = 0
-  local j = 0 
+  local j = 0
   local x,y
   local fname
   local sel = 0
-  
+
   for i = 1,3 do
     for j = 1,3 do
       x = 64 + (i-1)*128 + 24
@@ -337,16 +337,16 @@ local function draw_main2()
       -- log.info("fname：", fname, x,y,sel,cur_sel)
       lcd.showImage(y,x,fname)
     end
-  end      
+  end
 end
 
 local function draw_main3()
   local i = 0
-  local j = 0 
+  local j = 0
   local x,y
   local fname
   local sel = 0
-  
+
   for i = 1,3 do
     for j = 1,3 do
       x = 64 + (i-1)*128 + 24
@@ -356,7 +356,7 @@ local function draw_main3()
       -- log.info("fname：", fname, x,y,sel,cur_sel)
       lcd.showImage(y,x,fname)
     end
-  end      
+  end
 end
 
 
@@ -469,10 +469,10 @@ local function draw()
   end
 
 
-  lcd.clear(_G.bkcolor)    
-  
+  lcd.clear(_G.bkcolor)
+
   draw_statusbar()
-  
+
   if cur_fun == "main" then
     draw_main()
   elseif cur_fun == "main1" then
@@ -506,7 +506,7 @@ local function draw()
   elseif cur_fun == "airpower" then
     draw_power()
   elseif cur_fun == "multi_network" then
-    draw_multi_network()    
+    draw_multi_network()
   elseif cur_fun == "airble" then
     draw_airble()
   elseif cur_fun == "talk" then
@@ -514,7 +514,7 @@ local function draw()
   elseif cur_fun == "airrecord" then
     draw_airrecord()
   end
-  
+
   lcd.showImage(0,448,"/luadb/Lbottom.jpg")
   lcd.flush()
 end
@@ -533,7 +533,7 @@ function ip_ready_handle(ip, adapter)
     sysplus.taskInitEx(update_airstatus, "update_airstatus")
   end
 
-  
+
 end
 
 local function UITask()
@@ -556,7 +556,7 @@ local function UITask()
 
 end
 local function  wififota()
-  fota_wifi.request()
+  exfotawifi.request()
 end
 
 local function fota_cb(ret)
@@ -600,7 +600,7 @@ end
 
 sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
 sysplus.taskInitEx(hardware_start,"hardware_start")
-sysplus.taskInitEx(wififota,"fota_wifi")
+sysplus.taskInitEx(wififota,"exfotawifi")
 sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 

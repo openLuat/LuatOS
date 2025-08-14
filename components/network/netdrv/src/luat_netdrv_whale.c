@@ -101,7 +101,6 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         // 通过devinfo等途径, 通知对端netif的开启与关闭
         #if defined(LUAT_USE_MOBILE) && !defined(LUAT_USE_DRV_MOBILE)
         netif_set_up(netdrv->netif);
-        g_airlink_self_dev_info.cat1.netif_enable = 1;
         #endif
     }
     else {
@@ -210,7 +209,6 @@ static void _luat_netdrv_whale_ipevent(tmpptr_t* ptr) {
     }
     else {
         luat_netdrv_netif_set_down(drv->netif);
-        g_airlink_self_dev_info.cat1.netif_enable = 0;
         if (cfg->dhcp) {
             // LLOGD("dhcp停止");
             ip_addr_set_ip4_u32(&cfg->ulwip.netif->ip_addr, 0);

@@ -15,7 +15,7 @@ extern const luat_airlink_cmd_reg_t airlink_cmds[];
 
 extern int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata);
 
-__USER_FUNC_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
+__AIRLINK_CODE_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
     const luat_airlink_cmd_reg_t* cmd_reg = NULL;
             // 真正的处理逻辑
             // if (ptr->cmd != 0x10) {
@@ -44,7 +44,7 @@ __USER_FUNC_IN_RAM__ static void exec_cmd(luat_airlink_cmd_t* ptr) {
             // }
 }
 
-__USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
+__AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     #ifdef __BK72XX__
     luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
     if (cmd->cmd == 0x100) {
@@ -73,7 +73,7 @@ __USER_FUNC_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len) {
     luat_rtos_event_send(airlink_task_handle, 1, (uint32_t)ptr, len, 0, 0);
 }
 
-__USER_FUNC_IN_RAM__ static int luat_airlink_task(void *param) {
+__AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
     // LLOGD("处理线程启动");
     luat_event_t event = {0};
     luat_airlink_cmd_t* ptr = NULL;

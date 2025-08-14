@@ -82,7 +82,7 @@ static int link_data_cb(airlink_link_data_t* link) {
     return 0;
 }
 
-__USER_FUNC_IN_RAM__ static void on_newdata_notify(void) {
+__AIRLINK_CODE_IN_RAM__ static void on_newdata_notify(void) {
     if (is_irq_mode) {
         // LLOGD("is_irq_mode %d pin %d count %ld", is_irq_mode, s_irq_pin, irq_counter);
         luat_gpio_set(AIRLINK_SPI_IRQ_PIN, 0);
@@ -97,7 +97,7 @@ static void send_devinfo_update_evt(void) {
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item); 
 }
 
-__USER_FUNC_IN_RAM__ static int spi_slave_irq(void* param) {
+__AIRLINK_CODE_IN_RAM__ static int spi_slave_irq(void* param) {
     if (self_ready == 0) {
         return 0;
     }
@@ -191,7 +191,7 @@ static void spi_gpio_setup(void) {
     }
 }
 
-__USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
+__AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     // 首先, 把rxbuff填0, 不要收到老数据的干扰
     // LLOGD("执行start_spi_trans");
     memset(s_rxbuff, 0, TEST_BUFF_SIZE);
@@ -218,7 +218,7 @@ __USER_FUNC_IN_RAM__ static void start_spi_trans(void) {
     pin_rdy_state = 0;
 }
 
-__USER_FUNC_IN_RAM__ static void spi_slave_task(void *param)
+__AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
 {
     // LLOGE("spi_slave_task!!!");
     int ret = 0;

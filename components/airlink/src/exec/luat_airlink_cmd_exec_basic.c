@@ -15,7 +15,7 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-__USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_nop(luat_airlink_cmd_t *cmd, void *userdata)
+__AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_nop(luat_airlink_cmd_t *cmd, void *userdata)
 {
     return 0;
 }

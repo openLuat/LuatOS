@@ -19,7 +19,7 @@
 
 extern airlink_statistic_t g_airlink_statistic;
 
-__USER_FUNC_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
+__AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_ip_pkg(luat_airlink_cmd_t* cmd, void* userdata) {
     uint8_t adapter_id = cmd->data[0];
     g_airlink_statistic.rx_ip.total += 1;
     g_airlink_statistic.rx_bytes.total += cmd->len - 1;

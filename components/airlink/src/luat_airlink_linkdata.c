@@ -18,7 +18,7 @@ airlink数据打包解包,数据链路层
 static uint32_t next_pkg_id;
 luat_airlink_link_data_cb g_airlink_link_data_cb;
 
-__USER_FUNC_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len)
+__AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff, size_t len)
 {
     size_t tlen = 0;
     uint16_t crc16 = 0;
@@ -62,7 +62,7 @@ __USER_FUNC_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *buff
     return NULL;
 }
 
-__USER_FUNC_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
+__AIRLINK_CODE_IN_RAM__ void luat_airlink_data_pack(uint8_t *buff, size_t len, uint8_t *dst)
 {
     // 先写入magic
     airlink_link_data_t* data = dst;

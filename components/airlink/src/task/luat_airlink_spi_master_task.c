@@ -28,10 +28,6 @@
 #include "platform_def.h"
 #endif
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__
-#endif
-
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 
@@ -52,7 +48,7 @@ extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
-__USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
+__AIRLINK_CODE_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 {
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(evt_queue, &len);
@@ -69,7 +65,7 @@ __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
     return 0;
 }
 
-__USER_FUNC_IN_RAM__ static int wakeup_irq_cb(void *data, void *args)
+__AIRLINK_CODE_IN_RAM__ static int wakeup_irq_cb(void *data, void *args)
 {
     // g_airlink_wakeup_irq_ctx.enable = 0;
     LLOGI("触发唤醒wifi wakeup_irq_cb");
@@ -77,7 +73,7 @@ __USER_FUNC_IN_RAM__ static int wakeup_irq_cb(void *data, void *args)
 }
 
 
-__USER_FUNC_IN_RAM__ static void on_newdata_notify(void)
+__AIRLINK_CODE_IN_RAM__ static void on_newdata_notify(void)
 {
     luat_event_t evt = {.id = 3};
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
@@ -150,7 +146,7 @@ static void spi_gpio_setup(void)
     }
 }
 
-__USER_FUNC_IN_RAM__ static void record_statistic(luat_event_t event)
+__AIRLINK_CODE_IN_RAM__ static void record_statistic(luat_event_t event)
 {
     switch (event.id)
     {
@@ -176,7 +172,7 @@ static uint64_t tnow = 0;
 extern void airlink_sfota_exec();
 static uint8_t slave_is_irq_ready = 0;
 
-__USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff)
+__AIRLINK_CODE_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff)
 {
     // 清除link
     memset(&s_link, 0, sizeof(airlink_link_data_t));
@@ -205,7 +201,7 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
     }
 }
 
-__USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
+__AIRLINK_CODE_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
 {
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 0); // 拉低片选, 等待从机就绪
     int tmpval = 0;
@@ -234,7 +230,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
 
 static int queue_emtry_counter; // 上一个循环里, 是否待发送的数据, 如果有, 则需要立即发送
 
-__USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
+__AIRLINK_CODE_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
 {
     luat_event_t event = {0};
     airlink_queue_item_t item = {0};
@@ -322,7 +318,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
 }
 
-__USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
+__AIRLINK_CODE_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
     memset(&link->flags, 0, sizeof(uint32_t));
     if (g_airlink_irq_ctx.enable) {
         link->flags.irq_ready = 1;
@@ -331,7 +327,7 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
 }
 
 
-__USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
+__AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
 {
     // int i;
     // luat_event_t event = {0};

@@ -321,8 +321,12 @@ typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
 #include "platform_def.h"
 #endif
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__ 
+#ifndef __AIRLINK_CODE_IN_RAM__
+#ifdef __LUAT_C_CODE_IN_RAM__
+#define __AIRLINK_CODE_IN_RAM__ __LUAT_C_CODE_IN_RAM__
+#else
+#define __AIRLINK_CODE_IN_RAM__
+#endif
 #endif
 
 #endif

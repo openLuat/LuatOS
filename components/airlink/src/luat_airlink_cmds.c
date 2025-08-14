@@ -91,7 +91,7 @@ CMD_DEFINE(mobile_imsi);
 CMD_DEFINE(mobile_iccid);
 CMD_DEFINE(mobile_muid);
 
-__USER_FUNC_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
+__AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x100, ip_pkg),

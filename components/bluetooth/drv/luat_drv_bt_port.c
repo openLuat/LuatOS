@@ -5,6 +5,7 @@
 2. 一律打包luat_drv_ble_msg_t
 */
 #include "luat_base.h"
+#include "luat_bluetooth.h"
 #include "luat_ble.h"
 #include "luat_drv_ble.h"
 #include "luat_airlink.h"
@@ -54,6 +55,9 @@ int luat_bluetooth_deinit(void* args) {
 
 int luat_bluetooth_get_mac(void* args, uint8_t *addr) {
     memcpy(addr, g_airlink_ext_dev_info.wifi.bt_mac, 6);
+    // 注意, 因为bt_mac是大端存储的, 需要转换成小端
+    // 而按照luat_bluetooth_get_mac的定义, 返回的是小端格式
+    luat_bluetooth_mac_swap(addr);
     return 0;
 }
 

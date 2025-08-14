@@ -1038,7 +1038,7 @@ static int l_ble_scanning_stop(lua_State *L){
 
 /*
 BLE连接
-@api ble.connect()
+@api ble.connect(mac, addr_type)
 @string mac 地址
 @int 地址类型 ble.PUBLIC ble.RANDOM
 @return boolean 是否成功

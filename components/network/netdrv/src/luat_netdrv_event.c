@@ -9,10 +9,6 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__ 
-#endif
-
 netdrv_tcpevt_reg_t g_netdrv_tcpevt_regs[NW_ADAPTER_QTY] = {0};
 
 void luat_netdrv_register_tcp_event_cb(uint8_t id, uint8_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata) {
@@ -32,7 +28,7 @@ void luat_netdrv_register_tcp_event_cb(uint8_t id, uint8_t flags, luat_netdrv_tc
 }
 
 
-__USER_FUNC_IN_RAM__ void luat_netdrv_fire_tcp_event(netdrv_tcp_evt_t* evt) {
+__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_tcp_event(netdrv_tcp_evt_t* evt) {
     if (evt == NULL || evt->id >= NW_ADAPTER_QTY) {
         LLOGE("TCP事件网络适配器ID无效 %d", evt ? evt->id : -1);
         return;

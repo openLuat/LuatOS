@@ -116,4 +116,12 @@ void luat_netdrv_netif_set_link_down(struct netif* netif);
 
 extern uint32_t g_netdrv_debug_enable;
 
+#ifndef __NETDRV_CODE_IN_RAM__
+#ifdef __LUAT_C_CODE_IN_RAM__
+#define __NETDRV_CODE_IN_RAM__ __LUAT_C_CODE_IN_RAM__
+#else
+#define __NETDRV_CODE_IN_RAM__
+#endif
+#endif
+
 #endif

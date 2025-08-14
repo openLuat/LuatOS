@@ -11,10 +11,6 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__ 
-#endif
-
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 uint32_t g_netdrv_debug_enable;
@@ -129,7 +125,7 @@ void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
 
 #define NAPT_CHKSUM_16BIT_LEN        sizeof(uint16_t)
 
-__USER_FUNC_IN_RAM__ uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
+__NETDRV_CODE_IN_RAM__ uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = 0;
 
@@ -150,7 +146,7 @@ __USER_FUNC_IN_RAM__ uint32_t alg_hdr_16bitsum(const uint16_t *buff, uint16_t le
     return sum;
 }
 
-__USER_FUNC_IN_RAM__ uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
+__NETDRV_CODE_IN_RAM__ uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = alg_hdr_16bitsum(buff, len);
 
@@ -160,7 +156,7 @@ __USER_FUNC_IN_RAM__ uint16_t alg_iphdr_chksum(const uint16_t *buff, uint16_t le
     return (uint16_t)(~sum);
 }
 
-__USER_FUNC_IN_RAM__ uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len)
+__NETDRV_CODE_IN_RAM__ uint16_t alg_tcpudphdr_chksum(uint32_t src_addr, uint32_t dst_addr, uint8_t proto, const uint16_t *buff, uint16_t len)
 {
     uint32_t sum = 0;
 

@@ -46,10 +46,6 @@ luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 #define NAPT_CHKSUM_16BIT_LEN        sizeof(u16)
 
-#ifndef __USER_FUNC_IN_RAM__
-#define __USER_FUNC_IN_RAM__ 
-#endif
-
 static void check_it(const char* tag, luat_netdrv_napt_llist_t* it, luat_netdrv_napt_llist_t* prev, size_t id) {
     uint32_t tmp = (uint32_t)it;
     if (tmp == 0 || tmp > 0xc300000) {
@@ -58,11 +54,11 @@ static void check_it(const char* tag, luat_netdrv_napt_llist_t* it, luat_netdrv_
 }
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
-__USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
     return 0;
 }
 #else
-__USER_FUNC_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
     if (s_gw_adapter_id < 0) {
         // LLOGD("NAPT 未开启");
         return 0; // NAPT没有开启
@@ -245,7 +241,7 @@ void luat_netdrv_napt_enable(int adapter_id) {
     }
     s_gw_adapter_id = adapter_id;
 }
-__USER_FUNC_IN_RAM__ static size_t luat_napt_tcp_port_alloc(luat_netdrv_napt_ctx_t *napt_ctx) {
+__NETDRV_CODE_IN_RAM__ static size_t luat_napt_tcp_port_alloc(luat_netdrv_napt_ctx_t *napt_ctx) {
     size_t offset;
     size_t soffset;
     for (size_t i = 0; i <= NAPT_PORT_RANGE_END - NAPT_PORT_RANGE_START; i++) {
@@ -274,7 +270,7 @@ static void print_item(const char* tag, luat_netdrv_napt_tcpudp_t* it) {
     LLOGD("%s %s:%d -> %s:%d local %d", tag, buff2, it->wnet_port, buff, it->inet_port, it->wnet_local_port);
 }
 
-__USER_FUNC_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_ctx) {
+__NETDRV_CODE_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_ctx) {
     uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t* it = NULL;
     uint64_t tdiff = 0;
@@ -334,7 +330,7 @@ __USER_FUNC_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_ct
 }
 
 
-__USER_FUNC_IN_RAM__ static void update_tcp_stat_wnet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
+__NETDRV_CODE_IN_RAM__ static void update_tcp_stat_wnet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
     if ((TCPH_FLAGS(tcphdr) & (TCP_SYN|TCP_ACK)) == (TCP_SYN|TCP_ACK)) {
       t->synack = 1;
     //   LLOGD("收到TCP SYN ACK, 连接已建立");
@@ -352,7 +348,7 @@ __USER_FUNC_IN_RAM__ static void update_tcp_stat_wnet(struct tcp_hdr *tcphdr, lu
 //   LLOGD("TCP链路状态 synack %d fin1 %d finack2 %d rst %d", t->synack, t->fin1, t->finack2, t->rst);
 }
 
-__USER_FUNC_IN_RAM__ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
+__NETDRV_CODE_IN_RAM__ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, luat_netdrv_napt_tcpudp_t* t) {
     if ((TCPH_FLAGS(tcphdr) & TCP_FIN))
         t->fin2 = 1;
     if (t->fin1 && (TCPH_FLAGS(tcphdr) & TCP_ACK))
@@ -363,7 +359,7 @@ __USER_FUNC_IN_RAM__ static void update_tcp_stat_inet(struct tcp_hdr *tcphdr, lu
 }
 
 // 外网到内网
-__USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
     int ret = -1;
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     // struct ip_hdr* ip_hdr = ctx->iphdr;
@@ -411,7 +407,7 @@ __USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netd
 }
 
 // 内网到外网
-__USER_FUNC_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
+__NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx) {
     int ret = -1;
     luat_netdrv_napt_tcpudp_t* it = NULL;
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;

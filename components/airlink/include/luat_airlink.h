@@ -153,8 +153,6 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t fw_type[4];
     uint8_t unique_id_len;
     uint8_t unique_id[32];
-
-    uint8_t netif_enable; // 网络接口是否启用
 }luat_airlink_dev_wifi_cat_t;
 
 typedef struct luat_airlink_dev_info

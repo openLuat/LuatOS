@@ -130,7 +130,6 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                 // 网卡掉线了哦
                 LLOGD("4G网卡掉线了");
                 luat_netdrv_whale_ipevent(drv, 0);
-                g_airlink_self_dev_info.cat1.netif_enable = 0; // 关闭状态
             }
         }
         else {
@@ -139,7 +138,6 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                 // 网卡上线了哦
                 LLOGD("4G网卡上线了");
                 luat_netdrv_whale_ipevent(drv, 1);
-                g_airlink_self_dev_info.cat1.netif_enable = 1;  // 开启状态
             }
         }
     }

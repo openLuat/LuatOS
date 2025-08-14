@@ -6,7 +6,7 @@
 @author  朱天华
 @usage
 本文件为多网卡驱动模块 ，核心业务逻辑为：
-1、调用libnetif.set_priority_order配置多网卡的控制参数以及优先级；
+1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
 
 通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡：
@@ -56,7 +56,7 @@ Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发�
 local exnetif = require "exnetif"
 
 -- 网卡状态变化通知回调函数
--- 当libnetif中检测到网卡切换或者所有网卡都断网时，会触发调用此回调函数
+-- 当exnetif中检测到网卡切换或者所有网卡都断网时，会触发调用此回调函数
 -- 当网卡切换切换时：
 --     net_type：string类型，表示当前使用的网卡字符串
 --     adapter：number类型，表示当前使用的网卡id
@@ -85,11 +85,11 @@ local function netdrv_multiple_task_func()
                     -- 供电使能GPIO，此demo使用的59脚3V3供电，受GPIO13控制
                     pwrpin = 13,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
-                    -- 如果没有传入此参数，libnetif会使用默认值10秒
+                    -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
 
                     -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，libnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
+                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
                     -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
                     -- ping_ip = "填入可靠的并且可以ping通的ip地址",                   
                 }
@@ -101,11 +101,11 @@ local function netdrv_multiple_task_func()
             --         -- 供电使能GPIO，此demo使用的59脚3V3供电，受GPIO13控制
             --         pwrpin = 13,
             --         -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
-            --         -- 如果没有传入此参数，libnetif会使用默认值10秒
+            --         -- 如果没有传入此参数，exnetif会使用默认值10秒
             --         ping_time = 3000, 
 
             --         -- 连通性检测ip(选填参数)；
-            --         -- 如果没有传入ip地址，libnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
+            --         -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
             --         -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
             --         -- ping_ip = "填入可靠的并且可以ping通的ip地址",
 
@@ -124,7 +124,7 @@ local function netdrv_multiple_task_func()
                     password = "Air123456", 
 
                     -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，libnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
+                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
                     -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
                     -- ping_ip = "填入可靠的并且可以ping通的ip地址",
                 }
@@ -137,11 +137,11 @@ end
 exnetif.notify_status(netdrv_multiple_notify_cbfunc)
 
 -- 如果存在udp网络应用，并且udp网络应用中，根据应用层的心跳能够判断出来udp数据通信出现了异常；
--- 可以在判断出现异常的位置，调用一次libnetif.check_network_status()接口，强制对当前正式使用的网卡进行一次连通性检测；
--- 如果存在tcp网络应用，不需要用户调用libnetif.check_network_status()接口去控制，libnetif会在tcp网络应用通信异常时自动对当前使用的网卡进行连通性检测。
+-- 可以在判断出现异常的位置，调用一次exnetif.check_network_status()接口，强制对当前正式使用的网卡进行一次连通性检测；
+-- 如果存在tcp网络应用，不需要用户调用exnetif.check_network_status()接口去控制，exnetif会在tcp网络应用通信异常时自动对当前使用的网卡进行连通性检测。
 
 
 -- 启动一个task，task的处理函数为netdrv_multiple_task_func
--- 在处理函数中调用libnetif.set_priority_order设置网卡优先级
--- 因为libnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
+-- 在处理函数中调用exnetif.set_priority_order设置网卡优先级
+-- 因为exnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
 sys.taskInit(netdrv_multiple_task_func)

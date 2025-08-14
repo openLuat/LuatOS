@@ -91,12 +91,20 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
     netif_add(netdrv->netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, netdrv, luat_netif_init, luat_netdrv_netif_input_main);
 
     // 网卡设置成半可用状态
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+        // 默认是down的就行
+    }
+    else if (netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
+        // 这里要分情况, 如果本身带4G模块, 那么就up, 否则就是down
+        // 通过devinfo等途径, 通知对端netif的开启与关闭
+        #if defined(LUAT_USE_MOBILE) && !defined(LUAT_USE_DRV_MOBILE)
+        netif_set_up(netdrv->netif);
+        #endif
     }
     else {
         netif_set_up(netdrv->netif);
     }
-    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA || netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
+    if (netdrv->id == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
         cfg->dhcp = 1;
         cfg->ulwip.dhcp_enable = 1;
     }

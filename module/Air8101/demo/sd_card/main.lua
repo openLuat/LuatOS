@@ -38,7 +38,7 @@ local function fatfs_spi_pin()
 end
 
 sys.taskInit(function()
-    gpio.setup(13,1)
+    gpio.setup(13,1)--gpio13为8101开发板上TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
     sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 

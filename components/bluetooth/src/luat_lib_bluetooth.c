@@ -155,11 +155,12 @@ static int l_bluetooth_create_ble(lua_State* L) {
 
 /*
 获取蓝牙MAC
-@api bluetooth.getMac()
+@api bluetooth.mac()
 @return string 当前的MAC
 @usage
-local mac = bluetooth.getMac()
-log.info("bluetooth mac", mac:toHex())
+-- 本函数于2025.8.14新增
+local mac = bluetooth.mac()
+log.info("bluetooth mac", mac and mac:toHex())
 */
 static int l_bluetooth_get_mac(lua_State *L){
 	uint8_t mac[6] = {0};
@@ -182,7 +183,7 @@ void luat_bluetooth_struct_init(lua_State *L) {
 static const rotable_Reg_t reg_bluetooth[] = {
 	{"init",                        ROREG_FUNC(l_bluetooth_init)},
     {"ble",                         ROREG_FUNC(l_bluetooth_create_ble)},
-    {"getMac",                      ROREG_FUNC(l_bluetooth_get_mac)},
+    {"mac",                         ROREG_FUNC(l_bluetooth_get_mac)},
 	{ NULL,                         ROREG_INT(0)}
 };
 

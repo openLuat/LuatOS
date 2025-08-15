@@ -534,8 +534,9 @@ static const rotable_Reg_t reg_codec[] =
 	{ "AMR",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)},
 	//@const AMR_WB number AMR-WB格式
 	{ "AMR_WB",          ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB)},
-
+	//@const VDDA_3V3 number codec 电压: 3.3V
 	{ "VDDA_3V3",        ROREG_INT(LUAT_CODEC_VDDA_3V3)},
+	//@const VDDA_1V8 number codec 电压: 1.8V
 	{ "VDDA_1V8",        ROREG_INT(LUAT_CODEC_VDDA_1V8)},
 
 	{ NULL,              ROREG_INT(0)}

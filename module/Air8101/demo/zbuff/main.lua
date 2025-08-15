@@ -1,69 +1,64 @@
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "zbuffdemo"
-VERSION = "1.0.0"
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 003.000.000
+@date    2025.08.08
+@author  王棚嶙
+@usage
+本 Demo 完整覆盖了 zbuff 的核心到高级操作，包括：
+​基础​：创建、读写、指针控制、元信息查询
+​进阶​：结构化数据打包/解包、类型化操作、浮点处理
+​内存管理​：动态调整、块操作、数据比对、Base64 编码
+适用于嵌入式开发中高效处理二进制数据流、协议解析、内存优化等场景。
 
-log.info("main", PROJECT, VERSION)
+]]
 
-sys.taskInit(function()
-    sys.wait(3000)
-    -- zbuff可以理解为char[], char*, uint8_t*
-    -- 为了与lua更好的融合, zbuff带长度,带指针位置,可动态扩容
-    local buff = zbuff.create(1024)
-    -- 可当成数组直接赋值和取值
-    buff[0] = 0xAE
-    log.info("zbuff", "buff[0]", buff[0])
-
-    -- 以io形式操作
-    
-    -- 写数据write, 操作之后指针会移动,跟文件句柄一样
-    buff:write("123") -- 字符串
-    buff:write(0x12, 0x13, 0x13, 0x33) -- 直接写数值也可以
-    
-    -- 设置指针位置, seek
-    buff:seek(5, zbuff.SEEK_CUR) -- 指针位置+5
-    buff:seek(0)                 -- 绝对地址
-
-    -- 读数据read, 指针也会移动
-    local data = buff:read(3)
-    log.info("zbuff", "data", data)
-
-    -- 清除全部数据,但指针位置不变
-    buff:clear() -- 默认填0
-    buff:clear(0xA5) -- 也可以指定填充的内容
-
-    -- 支持以pack库的形式写入或读取数据
-    buff:seek(0)
-    buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg")
-    buff:seek(0)
-    local cnt,a,b,c,s = buff:unpack(">IIHA10")
-
-    -- 也可以直接按类型读写数据
-    local len = buff:writeI8(10)
-    local len = buff:writeU32(1024)
-    local i8data = buff:readI8()
-    local u32data = buff:readU32()
-
-    -- 取出指定区间的数据
-    local fz = buff:toStr(0,5)
-
-    -- 获取其长度
-    log.info("zbuff", "len", buff:len())
-    -- 获取其指针位置
-    log.info("zbuff", "len", buff:used())
-
-    -- 测试writeF32, 注意, EC618系列(Air780E等), V1106会死机, 在V1107修复
-    buff:seek(0, zbuff.SEEK_SET)
-    buff:writeF32(1.2)
-    buff:seek(0, zbuff.SEEK_SET)
-    log.info("buff", "rw", "f32", buff:readF32())
-
-    -- 更多用法请查阅api文档
-
-    log.info("zbuff", "demo done")
-end)
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "zbuff"
+VERSION = "003.000.000"
+log.info("main", "项目启动", PROJECT, VERSION)
 
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+--示例：
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
+
+
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+--示例：
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+-- 加载zbuff应用功能模块
+require "zbuff_core"
+require "zbuff_advanced"
+require "zbuff_memory"
+
+-- 启动系统调度
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

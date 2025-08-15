@@ -22,8 +22,8 @@ PROJECT = "spi_camera_demo"
 VERSION = "1.0.0"
 -- 实际使用时选1个就行
 -- require "bf30a2"
-require "gc0310"
--- require "gc032a"
+-- require "gc0310"
+require "gc032a"
 sys = require("sys")
 sysplus = require("sysplus")
 
@@ -73,8 +73,8 @@ local function device_init()
     gpio.setup(153, 0) -- PD拉低
     sys.wait(500)
     -- return bf30a2Init(cspiId,i2cId,25500000,TEST_MODE,TEST_MODE)
-    return gc0310Init(cspiId, i2cId, 25500000, TEST_MODE, TEST_MODE)
-    -- return gc032aInit(cspiId, i2cId, 24000000, TEST_MODE, TEST_MODE)
+    -- return gc0310Init(cspiId, i2cId, 25500000, TEST_MODE, TEST_MODE)
+    return gc032aInit(cspiId, i2cId, 24000000, TEST_MODE, TEST_MODE)
 end
 
 local function main_task()
@@ -126,15 +126,40 @@ local function main_task()
                     if done_with_close then
                         camera_id = device_init()
                     end
-                    camera.capture(camera_id, rawbuff, 1) -- 2和3需要非常多非常多的psram,尽量不要用
+                    -- 先保存到文件，再上传
+                    local save_path = "/ram/capture.jpg"
+                    camera.capture(camera_id, save_path, 95)
                     result, data = sys.waitUntil("capture done", 30000)
-                    log.info(rawbuff:used())
                     if done_with_close then
                         camera.close(camera_id)
                     else
                         camera.stop(camera_id)
                     end
-                    uart.tx(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
+
+                    -- 上传服务器
+                    local httpplus = require("httpplus")
+                    local opts = {
+                        url = "http://upload.air32.cn/api/upload/jpg", -- 必选, 目标URL
+                        method = "POST", -- 可选,默认GET, 如果有body,files,forms参数,会设置成POST
+                        headers = {}, -- 可选,自定义的额外header
+                        body = io.readFile("/ram/capture.jpg"), -- 将原始缓冲区中已使用的数据转换为字符串，作为HTTP请求的body内容
+                        forms = {}, -- 可选,表单参数,若存在本参数,如果不存在files,按application/x-www-form-urlencoded上传
+                        debug = false, -- 可选,打开调试日志,默认false
+                        try_ipv6 = false, -- 可选,是否优先尝试ipv6地址,默认是false
+                        adapter = nil, -- 可选,网络适配器编号, 默认是自动选
+                        timeout = 30, -- 可选,读取服务器响应的超时时间,单位秒,默认30
+                    }
+                    local code, resp = httpplus.request(opts)
+                    if code >= 200 and code < 300 then
+                        -- headers, 是个table
+                        log.info("http", "headers", json.encode(resp.headers))
+                        -- body, 是个zbuff
+                        -- 通过query函数可以转为lua的string
+                        log.info("http", "headers", resp.body:query())
+                        log.info("发送完毕，图片在： https://www.air32.cn/upload/data/jpg/ 中查看")
+                    else
+                        log.error("上传失败，http code:", code)
+                    end
                     rawbuff:resize(60 * 1024)
                     log.info(rtos.meminfo("sys"))
                     log.info(rtos.meminfo("psram"))

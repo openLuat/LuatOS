@@ -45,7 +45,13 @@ typedef enum
 	LUAT_PIN_CAMERA_DATA0,
 	LUAT_PIN_CAMERA_DATA1,
 	LUAT_PIN_CAMERA_QTY,
-
+	LUAT_PIN_QSPI_DATA0 = 0,
+	LUAT_PIN_QSPI_DATA1,
+	LUAT_PIN_QSPI_DATA2,
+	LUAT_PIN_QSPI_DATA3,
+	LUAT_PIN_QSPI_CLK,
+	LUAT_PIN_QSPI_CS,
+	LUAT_PIN_QSPI_QTY,
 
 	LUAT_PIN_ONLY_ONE_QTY = 1,
 	LUAT_PIN_FUNCTION_MAX = LUAT_PIN_SDIO_QTY,
@@ -118,6 +124,11 @@ typedef struct
 {
 	luat_pin_iomux_info pin_list[LUAT_PIN_CAMERA_QTY];
 }luat_camera_pin_iomux_t;
+
+typedef struct
+{
+	luat_pin_iomux_info pin_list[LUAT_PIN_QSPI_QTY];
+}luat_qspi_pin_iomux_t;
 
 /**
  * @brief 获取某种外设的全部pin复用信息

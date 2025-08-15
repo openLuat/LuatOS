@@ -756,11 +756,11 @@ static int l_audio_mic_vol(lua_State *L) {
 @api audio.setBus(id, bus_type)
 @int 音频通道,例如0
 @int 总线类型, 例如 audio.BUS_SOFT_DAC, audio.BUS_I2S
-@table codec配置参数, 当总线类型为audio.BUS_I2S时生效,table中包括以下字段: <br>chip codec型号,当前支持"es8311"<br>i2cid codec的硬件i2c id<br>i2sid codec的硬件i2s id<br>voltage i2cid codec的初始voltage
+@table codec配置参数, 当总线类型为audio.BUS_I2S时生效,table中包括以下字段: <br>chip codec型号,当前支持"es8311"<br>i2cid codec的硬件i2c id<br>i2sid codec的硬件i2s id<br>voltage i2cid codec的电压,可选 codec.VDDA_3V3 codec.VDDA_1V8
 @return nil 无返回值
 @usage
 audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软件DAC
-audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S
+audio.setBus(0, audio.BUS_I2S,{chip="es8311",i2cid=0,i2sid=0,voltage=codec.VDDA_3V3})	--通道0的硬件输出通道设置为I2S
 */
 static int l_audio_set_output_bus(lua_State *L) {
     size_t len;

@@ -40,6 +40,11 @@ enum{
 	LUAT_MULTIMEDIA_CB_RECORD_DONE,			//录音完成
 };
 
+enum{
+	LUAT_CODEC_VDDA_3V3,
+	LUAT_CODEC_VDDA_1V8,
+};
+
 #include <stddef.h>
 #include <stdio.h>
 

@@ -123,7 +123,7 @@ int luat_str_utf8_to_ucs2(char* source, size_t source_len, char* dst, size_t dst
         // 首先是不是单字节
         if (source[i] & 0x80) {
             // 非ASCII编码
-            if (source[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+            if (source[i] & 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
                 unicode = ((source[i] & 0x0F) << 12) + ((source[i+1] & 0x3F) << 6) + (source[i+2] & 0x3F);
                 dst[tmplen++] = (unicode >> 8) & 0xFF;
                 dst[tmplen++] = unicode & 0xFF;

@@ -190,8 +190,32 @@ typedef struct {
         };
         uint32_t pt10;
     };
+    union{
+        struct {
+            uint32_t Page_Program_Time_Multiplier:4;        /**< Multiplier from typical time to max time for Page or byte program*/
+            uint32_t Page_Size:4;                           /**< Page Size */
+            uint32_t Page_Program_Type_1_Time:6;            /**< Page Program Typical time */
+            uint32_t Page_Program_Type_2_Time:5;            /**< Byte Program Typical time, first byte */
+            uint32_t Page_Program_Type_3_Time:5;            /**< Byte Program Typical time, additional byte */
+            uint32_t Erase_Chip_Type_Time:7;                /**< Chip Erase, Typical time */
+            uint32_t :1;
+        };
+        uint32_t pt11;
+    };
     // ...
-
+    uint32_t pt12;
+    uint32_t pt13;
+    uint32_t pt14;
+    uint32_t pt15;
+    uint32_t pt16;
+    uint32_t pt17;
+    uint32_t pt18;
+    uint32_t pt19;
+    uint32_t pt20;
+    uint32_t pt21;
+    uint32_t pt22;
+    uint32_t pt23;
+    // ...
 }little_flash_sfdp_pt_t;
 
 typedef struct {

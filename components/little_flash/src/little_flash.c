@@ -196,6 +196,10 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     }
     LF_DEBUG("Parameter Header is OK. The Parameter ID is 0x%04X, Revision is V%d.%d, Length is %d,Parameter Table Pointer is 0x%06lX.",
             sfdp.parameter_id, recv_data[1],recv_data[2],sfdp.parameter_length, sfdp.parameter_pointer);
+    if (sfdp.parameter_length * 4>sizeof(little_flash_sfdp_pt_t)){
+        LF_ERROR("Table Revision %d.%d is not supported", sfdp.parameter_major_rev, sfdp.parameter_minor_rev);
+        return LF_ERR_SFDP_PARAMETER;
+    }
     uint8_t parameter_table[sfdp.parameter_length * 4];
     little_flash_sfdp_read(lf, sfdp.parameter_pointer, parameter_table, sfdp.parameter_length);
 

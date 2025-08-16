@@ -775,17 +775,6 @@ function exnetif.check_network_status(interval)
     end
 end
 
---[[
-双网口，以太网wan->以太网lan
-@api exnetif.ethernet_routing(config),
-@table 配置表
-]]
-
---[[
-APSTA模式,wifi STA->AP热点
-@api exnetif.wifi_routing(config),
-@int 检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
-]]
 
 --循环ping检测任务，默认不启用
 sys.taskInit(function()

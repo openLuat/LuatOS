@@ -216,6 +216,8 @@ typedef struct {
     uint32_t pt22;
     uint32_t pt23;
     // ...
+    uint32_t reserved[8];
+    // ...
 }little_flash_sfdp_pt_t;
 
 typedef struct {

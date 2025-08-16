@@ -25,6 +25,10 @@ typedef struct little_flash little_flash_t;
 #define LF_INFO(...)  LF_PRINTF(__VA_ARGS__)
 #endif
 
+#ifndef LF_WARNING
+#define LF_WARNING(...)  LF_PRINTF(__VA_ARGS__)
+#endif
+
 #ifndef LF_ERROR
 #define LF_ERROR(...)  LF_PRINTF(__VA_ARGS__)
 #endif
@@ -215,8 +219,6 @@ typedef struct {
     uint32_t pt21;
     uint32_t pt22;
     uint32_t pt23;
-    // ...
-    uint32_t reserved[8];
     // ...
 }little_flash_sfdp_pt_t;
 

@@ -287,5 +287,7 @@ int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_le
 
 
 int luat_lcd_conf_add(luat_lcd_conf_t* conf);
+
+void luat_lcd_service_debug(void);
 #endif
 

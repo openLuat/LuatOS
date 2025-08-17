@@ -262,6 +262,8 @@ void luat_netdrv_debug_set(int id, int enable) {
 #include "netif/ethernet.h"
 // #include "luat_netdrv_etharp.h"
 extern err_t luat_netdrv_ethernet_input(struct pbuf *p, struct netif *netif);
+extern void luat_netdrv_etharp_cleanup_netif(struct netif *netif);
+
 err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp)
 {
 //   LWIP_ASSERT_CORE_LOCKED();
@@ -307,7 +309,6 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
     #if LWIP_IPV4 && LWIP_ARP
     #ifdef LUAT_USE_NETDRV_LWIP_ARP
     if (netif->flags & NETIF_FLAG_ETHARP) {
-        extern void luat_netdrv_etharp_cleanup_netif(struct netif *netif);
         luat_netdrv_etharp_cleanup_netif(netif);
     }
     #endif

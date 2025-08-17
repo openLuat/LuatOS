@@ -1,6 +1,6 @@
 # LuatOS 的PC模拟器
 
-当前提供 windows 下的版本, 请按需下载, 解压使用
+当前提供 windows 下的版本, 使用LuaTools的"资源下载"功能进行
 
 # 使用方法
 

@@ -8,7 +8,7 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
-sys.taskInit(function()
+function test_os_date()
     sys.wait(1000)
 
     -- 获取本地时间字符串
@@ -33,6 +33,34 @@ sys.taskInit(function()
     -- 时间戳, 但lua下的精度只能到秒
     log.info("UTC时间戳", os.time())
     log.info("自定义时间戳", os.time({year=2000, mon=1, day=1, hour=0, min=0, sec=0}))
+end
+
+sys.taskInit(function()
+    if socket == nil or socket.sntp == nil then
+        log.info("socket.sntp", "socket.sntp not found, skip sntp test")
+        return
+    end
+    test_os_date() -- 先执行一次, 打印初始值
+
+    -- 然后尝试联网
+    sys.wait(1000)
+    if wlan and wlan.connect then
+        wlan.init()
+        wlan.connect("luatos1234", "12341234", 1)
+    end
+
+    -- 等待联网成功
+    sys.waitUntil("IP_READY", 10000)
+    sys.wait(1000)
+    socket.sntp() -- 执行对时
+    sys.wait(500)
+
+    -- 周期性测试
+    log.info("os_date_time", "开始周期性测试")
+    while 1 do
+        test_os_date()
+        sys.wait(5000)  -- 每10秒测试一次
+    end
 end)
 
 

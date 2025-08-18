@@ -598,9 +598,9 @@ error:
 
 lf_err_t little_flash_erase_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
     lf_err_t result = LF_ERR_OK;
-    result = sfud_erase(lf, addr, len);
+    result = little_flash_erase(lf, addr, len);
     if (result == LF_ERR_OK) {
-        result = sfud_write(lf, addr, data, len);
+        result = little_flash_write(lf, addr, data, len);
     }
     return result;
 }

@@ -78,7 +78,7 @@ int luat_ws28128_send_gpio(luat_ws2812_t *ctx)
 #ifdef LUAT_WS2812B_MAX_CNT
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
   uint32_t frame_cnt = ctx->args[4];
-  luat_gpio_driver_ws2812b(pin, send_buff, len, frame_cnt, 10, 0, 10, 0);
+  luat_gpio_driver_ws2812b(pin, send_buff, len, frame_cnt, ctx->args[0], ctx->args[1], ctx->args[2], ctx->args[3]);
 #else
   volatile uint32_t t0h_temp,t0h = ctx->args[0];
   volatile uint32_t t0l_temp,t0l = ctx->args[1];

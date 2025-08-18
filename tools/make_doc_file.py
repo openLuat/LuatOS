@@ -122,6 +122,11 @@ def make(path,modules,index_text):
 
         
         for api in module["api"]:
+            # 忽略部分函数
+            if api["api"].startswith("mobile.rtime"):
+                print("ignore mobile.rtime")
+                continue  # rtime是一个特殊的函数,忽略
+
             mdoc.write("## "+api["api"]+"\n\n")
 
             #支持的芯片

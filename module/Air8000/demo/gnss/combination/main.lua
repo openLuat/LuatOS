@@ -7,7 +7,7 @@
 @author  李源龙
 @usage
 本demo演示的功能为：
-使用Air780GH核心板，通过gnss.lua扩展库，开启GNSS定位，展示模块的三种功耗模式：正常模式，低功耗模式，PSM+模式 
+使用Air8000整机开发板，通过exgnss扩展库，开启GNSS定位，展示模块的三种功耗模式：正常模式，低功耗模式，PSM+模式 
 ]]
 
 --[[
@@ -52,13 +52,14 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-gnss=require("gnss")    
+exgnss=require("exgnss")    
 
+--以下功能每次只能打开一个用于测试，选择对应的功能进行测试
 
-normal=require("normal")
--- lowpower=require("lowpower")
--- psm=require("psm")
--- da221gnss=require("da221gnss")
+require"normal"  --正常模式，搭配GNSS定时开启发送经纬度数据到服务器，不进入任何低功耗模式
+-- require"lowpower"    -- 低功耗模式，搭配GNSS定时开启发送经纬度数据到服务器，定位成功之后关闭GNSS进入低功耗模式
+-- require"psm"     -- PSM+模式，唤醒开启GNSS定位，定位成功之后发送经纬度数据到服务器，然后关闭GNSS进入PSM+模式
+-- require"vibration"  -- 振动检测模式，搭配GNSS触发震动检测之后，持续发送经纬度数据到服务器
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -5,16 +5,19 @@
 @date    2025.07.27
 @author  李源龙
 @usage
-使用Air8000核心板，外接GPS天线，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
+使用Air8000整机开发板，外接GPS天线，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
 模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
 ]]
 pm.power(pm.WORK_MODE, 0) 
 local lat,lng
 
-
+-- 电脑访问：https://netlab.luatos.com/
+-- 点击 打开TCP 按钮，会创建一个TCP server
+-- 将server的地址和端口赋值给下面这两个变量
 local server_ip = "112.125.89.8" 
-local server_port = 47523 -- 换成自己的
-local period = 3 * 60 * 60 * 1000 -- 3小时唤醒一次
+local server_port = 43706 -- 换成自己的
+
+local period = 3 * 60 * 60 * 1000 -- 定时器唤醒时间，3小时唤醒一次
 
 local reason, slp_state = pm.lastReson() -- 获取唤醒原因
 log.info("wakeup state", pm.lastReson())
@@ -25,8 +28,10 @@ local function netCB(msg)
     log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
+
 local function testTask(ip, port)
     local txData
+    --拼接处理定位数据和唤醒原因
     if reason == 0 then
         txData = "normal wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
     elseif reason == 1 then
@@ -40,20 +45,33 @@ local function testTask(ip, port)
         mobile.flymode(0, false) -- 退出飞行模式，进入psm+前进入飞行模式，唤醒后需要主动退出
     end
 
-
     local netc, needBreak
     local result, param, is_err
+    -- 创建socket client对象
     netc = socket.create(nil, d1Name)
+    --关闭debug信息
     socket.debug(netc, false)
+    -- 配置socket client对象为netc
     socket.config(netc) 
     local retry = 0
+    --这边会尝试连接服务器并且发送，最多处理3次，如果3次都不行就退出，发送成功就直接退出
     while retry < 3 do
+        while not socket.adapter(socket.dft()) do
+            log.warn("tcp_client_main_task_func", "wait IP_READY")
+            -- 在此处阻塞等待联网成功成功的消息"IP_READY"
+            -- 或者等待30秒超时退出阻塞等待状态
+            sys.waitUntil("IP_READY", 30000)
+        end
+
         log.info(rtos.meminfo("sys"))
-        result = libnet.waitLink(d1Name, 0, netc)
+        -- 连接server
         result = libnet.connect(d1Name, 5000, netc, ip, port)
+
         if result then
             log.info("服务器连上了")
+            --连接成功发送数据
             result, param = libnet.tx(d1Name, 15000, netc, txData)
+            --如果发送失败就直接退出
             if not result then
                 log.info("服务器断开了", result, param)
                 break
@@ -63,17 +81,20 @@ local function testTask(ip, port)
         else
             log.info("服务器连接失败")
         end
+        --关闭socket
         libnet.close(d1Name, 5000, netc)
         retry = retry + 1
+        --如果发送成功结束循环
         if needBreak then
             break
         end
     end
+    socket.release(netc)
 
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
     
     -- 配置GPIO以达到最低功耗的目的
-	-- gpio.close(23) --此脚为gnss备电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高
+	-- gpio.close(24) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
 
     pm.dtimerStart(3, period) -- 启动深度休眠定时器
 
@@ -87,8 +108,8 @@ end
 
 local function mode1_cb(tag)
     log.info("TAGmode1_cb+++++++++",tag)
-    local  rmc=gnss.getRmc(0)
-    log.info("nmea", "rmc", json.encode(gnss.getRmc(0)))
+    local  rmc=exgnss.rmc(0)
+    log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     lat,lng=rmc.lat,rmc.lng
     sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
 end
@@ -109,8 +130,8 @@ local function gnss_fnc()
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
         -- agps_autoopen=false 
     }
-    gnss.setup(gnssotps)
-    gnss.open(gnss.TIMERORSUC,{tag="MODE1",val=60,cb=mode1_cb})
+    exgnss.setup(gnssotps)
+    exgnss.open(exgnss.TIMERORSUC,{tag="MODE1",val=60,cb=mode1_cb})
 end
 
 sys.taskInit(gnss_fnc)

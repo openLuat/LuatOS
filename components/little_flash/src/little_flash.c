@@ -473,7 +473,6 @@ error:
     return LF_ERR_READ;
 }
 
-
 lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
 #ifdef LF_USE_HEAP
     uint8_t* cmd_data = (uint8_t*)lf->malloc(4+lf->chip_info.prog_size);
@@ -597,7 +596,14 @@ error:
     return LF_ERR_WRITE;
 }
 
-
+lf_err_t little_flash_erase_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
+    lf_err_t result = LF_ERR_OK;
+    result = little_flash_erase(lf, addr, len);
+    if (result == LF_ERR_OK) {
+        result = little_flash_write(lf, addr, data, len);
+    }
+    return result;
+}
 
 lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *data, uint32_t len){
     uint8_t cmd_data[4];

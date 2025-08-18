@@ -120,14 +120,6 @@ static int hyn_wr_reg(luat_tp_config_t* luat_tp_config, uint32_t reg_addr, uint8
     return ret;
 }
 
-int tp_cst92xx_clear_status(luat_tp_config_t* luat_tp_config){
-	if (tp_i2c_write_reg16(luat_tp_config, CST92XX_STATUS, (uint8_t[]){0x00}, 1)){
-		LLOGE("write status reg fail!");
-		return -1;
-	}
-	return 0;
-}
-
 static int tp_cst92xx_detect(luat_tp_config_t* luat_tp_config){
     struct tp_info *ic = &hyn_92xxdata.hw_info;
     // LLOGD("module_id: 0x%04x", ic->fw_chip_type);
@@ -654,15 +646,6 @@ void cst92xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 	pre_touch = touch_num;
 }
 
-int tp_cst92xx_read_status(luat_tp_config_t* luat_tp_config, uint8_t *status){
-	if (tp_i2c_read_reg16(luat_tp_config, CST92XX_STATUS, status, 1, 1)){
-		LLOGE("read status reg fail!\r\n");
-		return -1;
-	}
-	// LLOGD("status=0x%02X\r\n", *status); // 调试需要看!!!
-	return 0;
-}
-
 
 static int tp_cst92xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
     uint8_t touch_num=0, point_status=0;
@@ -711,7 +694,7 @@ static int tp_cst92xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
     cst92xx_read_point(read_buff, luat_tp_data, touch_num);
     
 exit_:
-    // tp_cst92xx_clear_status(luat_tp_config);
+
     return touch_num;
 }
 

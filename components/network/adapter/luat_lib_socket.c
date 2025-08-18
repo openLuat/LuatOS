@@ -5,6 +5,15 @@
 @date    2022.11.13
 @demo socket
 @tag LUAT_USE_NETWORK
+@usage
+-- 本库用于网络通信, 支持TCP, UDP, 也支持TLS加密传输
+-- 支持加密传输版本有 TLS 1.0/1.1/1.2/1.3, DTLS 1.0/1.2, 当前不支持TLS 1.3
+-- 不支持 SSL 3.0, 该协议已经被废弃, 也不安全
+-- 支持的加密算法有 RSA, ECC, AES, 3DES, SHA1, SHA256, MD5 等等
+-- 完整的加密套件列表, 可通过 crypto.cipher_suites() 获取
+
+-- 本库的函数, 除非特别说明, 都是立即返回的非阻塞函数
+-- 这意味着, 函数调用成功, 并不代表网络操作成功, 只代表网络操作已经开始
 */
 #include "luat_base.h"
 #include "luat_mem.h"
@@ -31,7 +40,7 @@ network_adapter_info* network_adapter_fetch(int id, void** userdata);
 /*
 获取本地ip
 @api    socket.localIP(adapter)
-@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
+@int 适配器序号, 默认是平台自带的能上外网的适配器,通过socket.dft()可以获取和修改
 @return string 通常是内网ip, 也可能是外网ip, 取决于运营商的分配
 @return string 网络掩码
 @return string 网关IP

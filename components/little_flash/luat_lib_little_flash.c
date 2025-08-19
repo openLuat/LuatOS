@@ -218,13 +218,13 @@ static int luat_little_flash_mount(lua_State *L) {
     size_t maxsize = luaL_optinteger(L, 4, 0);
     lfs_t* lfs = flash_lfs_lf(flash, offset, maxsize);
     if (lfs) {
-	    luat_fs_conf_t conf = {
-		    .busname = (char*)lfs,
-		    .type = "lfs2",
-		    .filesystem = "lfs2",
-		    .mount_point = mount_point,
-	    };
-	    int ret = luat_fs_mount(&conf);
+        luat_fs_conf_t conf = {
+            .busname = (char*)lfs,
+            .type = "lfs2",
+            .filesystem = "lfs2",
+            .mount_point = mount_point,
+        };
+        int ret = luat_fs_mount(&conf);
         LLOGD("vfs mount %s ret %d", mount_point, ret);
         lua_pushboolean(L, 1);
     }

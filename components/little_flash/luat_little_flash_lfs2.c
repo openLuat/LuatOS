@@ -17,22 +17,24 @@ static size_t lf_offset = 0;
 // Read a block
 static int lf_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     little_flash_t* flash = (little_flash_t*)cfg->context;
+    // LLOGD("lf_block_device_read block:%d off:%d size:%d", block, off, size);
     return little_flash_read(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LLOGD("lf_block_device_read ret %d", ret);
+    // LLOGD("lf_block_device_read ret:%d", ret);
     // return LFS_ERR_OK;
 }
 
 static int lf_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     little_flash_t* flash = (little_flash_t*)cfg->context;
+    // LLOGD("lf_block_device_prog block:%d off:%d size:%d", block, off, size);
     return little_flash_write(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LLOGD("lf_block_device_prog ret %d", ret);
+    // LLOGD("lf_block_device_prog ret:%d", ret);
     // return LFS_ERR_OK;
 }
 
 static int lf_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     little_flash_t* flash = (little_flash_t*)cfg->context;
     return little_flash_erase(flash, lf_offset + block * flash->chip_info.erase_size, flash->chip_info.erase_size);
-    // LLOGD("lf_block_device_erase ret %d", ret);
+    // LLOGD("lf_block_device_erase ret:%d block:%d", ret, block);
     // return LFS_ERR_OK;
 }
 
@@ -40,9 +42,13 @@ static int lf_block_device_sync(const struct lfs_config *cfg) {
     return LFS_ERR_OK;
 }
 
+#define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 typedef struct LFS2 {
     lfs_t lfs;
     struct lfs_config cfg;
+    uint8_t* lookahead_buffer[LFS_BLOCK_DEVICE_LOOK_AHEAD];
+    uint8_t* read_buffer;
+    uint8_t* prog_buffer;
 }LFS2_t;
 
 lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
@@ -54,6 +60,7 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     if (_lfs == NULL)
         return NULL;
     memset(_lfs, 0, sizeof(LFS2_t));
+
     lf_offset = offset;
     lfs_t *lfs = &_lfs->lfs;
     struct lfs_config *lfs_cfg = &_lfs->cfg;
@@ -70,10 +77,16 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     lfs_cfg->prog_size = flash->chip_info.prog_size;
     lfs_cfg->block_size = flash->chip_info.erase_size;
     lfs_cfg->block_count = (maxsize > 0 ? maxsize : (flash->chip_info.capacity - offset)) / flash->chip_info.erase_size;
-    lfs_cfg->block_cycles = 400;
+    lfs_cfg->block_cycles = 200;
     lfs_cfg->cache_size = flash->chip_info.prog_size;
-    lfs_cfg->lookahead_size = flash->chip_info.prog_size;
+    lfs_cfg->lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;
 
+    _lfs->read_buffer = luat_heap_malloc(flash->chip_info.prog_size);
+    _lfs->prog_buffer = luat_heap_malloc(flash->chip_info.prog_size);
+
+    lfs_cfg->read_buffer = _lfs->read_buffer;
+    lfs_cfg->prog_buffer = _lfs->prog_buffer;
+    lfs_cfg->lookahead_buffer = _lfs->lookahead_buffer;
     lfs_cfg->name_max = 63;
     lfs_cfg->file_max = 0;
     lfs_cfg->attr_max = 0;
@@ -85,7 +98,7 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
 
     // ------
     int err = lfs_mount(lfs, lfs_cfg);
-    // LLOGD("lfs_mount %d",err);
+    LLOGD("lfs_mount %d",err);
     if (err)
     {
         err = lfs_format(lfs, lfs_cfg);

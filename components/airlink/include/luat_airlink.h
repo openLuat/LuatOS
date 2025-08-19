@@ -79,7 +79,7 @@ void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
 void luat_airlink_on_data_recv(uint8_t *data, size_t len);
 
-void airlink_wait_for_slave_ready(size_t timeout_ms);
+void airlink_wait_for_slave_reply(size_t timeout_ms);
 void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff);
 void airlink_wait_and_prepare_data(uint8_t *txbuff);
 

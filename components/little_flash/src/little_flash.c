@@ -279,6 +279,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     uint8_t recv_data[4]={0};
     result = lf->spi.transfer(lf,(uint8_t[]){LF_CMD_JEDEC_ID}, 1, recv_data, sizeof(recv_data));
     if(result) return result;
+    // LF_DEBUG("recv_data [0]:0x%02X [1]:0x%02X [2]:0x%02X [3]:0x%02X",recv_data[0],recv_data[1],recv_data[2],recv_data[3]);
 
     // nor flash?
     manufacturer_id = recv_data[0];
@@ -439,22 +440,28 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
 
     if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
     cmd_data[0] = lf->chip_info.erase_cmd;
-    while (len){
-        uint32_t page_addr = addr/lf->chip_info.prog_size;
-        cmd_data[1] = page_addr >> 16;
-        cmd_data[2] = page_addr >> 8;
-        cmd_data[3] = page_addr;
+    uint32_t erase_off = addr % lf->chip_info.erase_size;
+    uint32_t erase_addr = addr / lf->chip_info.erase_size * lf->chip_info.erase_size;
+    uint32_t erase_len = len - erase_off;
+    while (erase_off || erase_len){
+        cmd_data[1] = erase_addr >> 16;
+        cmd_data[2] = erase_addr >> 8;
+        cmd_data[3] = erase_addr;
         lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
 
         lf->wait_ms(lf->chip_info.erase_times);
 
         if(little_flash_cheak_erase(lf)) goto error;
 
-        addr += lf->chip_info.erase_size;
-        if (len<=lf->chip_info.erase_size){
+        if (erase_len == 0){
             break;
+        }
+        
+        erase_addr += lf->chip_info.erase_size;
+        if (erase_len<=lf->chip_info.erase_size){
+            erase_len = 0;
         }else{
-            len -= lf->chip_info.erase_size;
+            erase_len -= lf->chip_info.erase_size;
         }
     }
 
@@ -470,7 +477,7 @@ error:
     if (lf->unlock) {
         lf->unlock(lf);
     }
-    return LF_ERR_READ;
+    return LF_ERR_ERASE;
 }
 
 lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
@@ -623,8 +630,8 @@ lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *dat
         }
     }else{
         while (len){
-            uint32_t page_addr = addr/lf->chip_info.prog_size;
-            uint16_t column_addr = addr%lf->chip_info.prog_size;
+            uint32_t page_addr = addr/lf->chip_info.read_size;
+            uint16_t column_addr = addr%lf->chip_info.read_size;
 
             cmd_data[0] = LF_NANDFLASH_PAGE_DATA_READ;
             cmd_data[1] = page_addr >> 16;
@@ -639,22 +646,22 @@ lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *dat
             cmd_data[2] = column_addr;
             cmd_data[3] = 0;
             if (column_addr){
-                if ((column_addr+len)<=lf->chip_info.prog_size){
+                if ((column_addr+len)<=lf->chip_info.read_size){
                     lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],len);
                     break;
                 }else{
-                    lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],lf->chip_info.prog_size-column_addr);
-                    len -= (lf->chip_info.prog_size-column_addr);
-                    addr += (lf->chip_info.prog_size-column_addr);
+                    lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],lf->chip_info.read_size-column_addr);
+                    len -= (lf->chip_info.read_size-column_addr);
+                    addr += (lf->chip_info.read_size-column_addr);
                 }
             }else{
-                if (len<=lf->chip_info.prog_size){
+                if (len<=lf->chip_info.read_size){
                     lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],len);
                     break;
                 }else{
-                    lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],lf->chip_info.prog_size);
-                    len -= lf->chip_info.prog_size;
-                    addr += lf->chip_info.prog_size;
+                    lf->spi.transfer(lf,cmd_data, 4,&data[addr-base_addr],lf->chip_info.read_size);
+                    len -= lf->chip_info.read_size;
+                    addr += lf->chip_info.read_size;
                 }
             }
         }

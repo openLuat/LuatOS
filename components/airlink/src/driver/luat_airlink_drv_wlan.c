@@ -18,6 +18,9 @@
 #undef LLOGD
 #define LLOGD(...) 
 
+luat_airlink_wlan_evt_cb g_airlink_wlan_evt_cb;
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+
 int luat_airlink_drv_wlan_init(luat_wlan_config_t* args) {
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
@@ -217,5 +220,18 @@ int luat_airlink_drv_wlan_scan_result_cb(void) {
     item.cmd->data[0] = (uint8_t)luat_wlan_scan_get_result(scan_result, MAX_SCAN_RESULT_SIZE);;
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
 
+    return 0;
+}
+
+extern void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb);
+int luat_airlink_drv_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) {
+    luat_airlink_devinfo_init(cb);
+    return 0;
+}
+
+int luat_airlink_wlan_event_callback(void *arg, luat_event_module_t event_module, int event_id, void *event_data) {
+	if (g_airlink_wlan_evt_cb) {
+		g_airlink_wlan_evt_cb(arg, event_module, event_id, event_data);
+	}
     return 0;
 }

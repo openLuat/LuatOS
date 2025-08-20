@@ -105,9 +105,9 @@ static int hyn_wr_reg(luat_tp_config_t* luat_tp_config, uint32_t reg_addr, uint8
     }
 
     if (luat_tp_config->soft_i2c != NULL){
-        ret = i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)wbuf, reg_len, rlen?0:1);
+        ret = i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)wbuf, reg_len, 1);
     }else{
-        ret = luat_i2c_send(luat_tp_config->i2c_id, luat_tp_config->address, wbuf, reg_len, rlen?0:1);
+        ret = luat_i2c_send(luat_tp_config->i2c_id, luat_tp_config->address, wbuf, reg_len, 1);
     }
     if(rlen){
         if (luat_tp_config->soft_i2c != NULL){
@@ -628,9 +628,10 @@ void cst92xx_read_point(uint8_t *input_buff, void *buf, uint8_t touch_num){
 				return;
 			}
 			pre_id[read_index] = read_id;
-            // LLOGD("%s, id %d switch:0x%02x z:%d", __func__, point_buff->id,point_buff->switch_,point_buff->z);
+
 			input_x = point_buff->x_h << 4 | point_buff->x_l;	/* x */
 			input_y = point_buff->y_h << 4 | point_buff->y_l;	/* y */
+            // LLOGD("%s, id %d switch:0x%02x x:%d y:%d z:%d", __func__, point_buff->id,point_buff->switch_,input_x,input_y,point_buff->z);
             if (point_buff->switch_ == 0){
                 cst92xx_touch_up(buf, pre_id[read_index]);
             }else{
@@ -660,7 +661,7 @@ static int tp_cst92xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
         goto exit_;
     }   
 
-    luat_rtos_task_sleep(8);
+    // luat_rtos_task_sleep(8);
     // for (size_t i = 0; i < sizeof(read_buff); i++){
     //     LLOGD("read_buff[%d] = 0x%02X", i, read_buff[i]);
     // }

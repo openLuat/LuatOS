@@ -105,7 +105,7 @@ local function gnss_state(event, ticks)
     -- event取值有
     -- "FIXED"：string类型 定位成功
     -- "LOSE"： string类型 定位丢失
-    -- "CLOSE": string类型 GNSS关闭，仅配合使用gnss.lua有效
+    -- "CLOSE": string类型 GNSS关闭，仅配合使用exgnss.lua有效
 
     -- ticks number类型 是事件发生的时间,一般可以忽略
     log.info("exgnss", "state", event)

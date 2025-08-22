@@ -24,7 +24,8 @@ local tid   --获取定时打开的定时器id
 local num=0 --计数器 
 local ticktable={0,0,0,0,0} --存放5次中断的tick值，用于做有效震动对比
 local eff=false --有效震动标志位，用于判断是否触发定位
-
+gpio.setup(164, 1, gpio.PULLUP) -- air8000整机板需要打开该供电使能脚
+gpio.setup(147, 1, gpio.PULLUP) -- air8000整机板需要打开camera的供电使能脚
 
 local function vib_cb(tag)
     log.info("TAGmode1_cb+++++++++",tag)

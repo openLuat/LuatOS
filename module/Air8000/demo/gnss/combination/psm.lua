@@ -9,6 +9,7 @@
 模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
 ]]
 pm.power(pm.WORK_MODE, 0) 
+
 local lat,lng
 
 -- 电脑访问：https://netlab.luatos.com/
@@ -106,7 +107,7 @@ local function testTask(ip, port)
     rtos.reboot()
 end
 
-local function mode1_cb(tag)
+local function psm_cb(tag)
     log.info("TAGmode1_cb+++++++++",tag)
     local  rmc=exgnss.rmc(0)
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
@@ -128,10 +129,10 @@ local function gnss_fnc()
         ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把agps_autoopen设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
-        -- agps_autoopen=false 
+        auto_open=false  
     }
     exgnss.setup(gnssotps)
-    exgnss.open(exgnss.TIMERORSUC,{tag="MODE1",val=60,cb=mode1_cb})
+    exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})
 end
 
 sys.taskInit(gnss_fnc)

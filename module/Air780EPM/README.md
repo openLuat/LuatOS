@@ -4,7 +4,7 @@
 
 本代码库 是 合宙 Air780EPM 模组的代码中心, 包括演示代码demo, 案例代码project等
 
-如需查阅文档, 请访问合宙文档中心的[Air780EPM模块文档中心](https://docs.openluat.com/air780epm/){:target="_blank"}
+如需查阅文档, 请访问合宙文档中心的[Air780EPM模块文档中心](https://docs.openluat.com/air780epm/)
 
 ## 目录说明
 
@@ -13,7 +13,7 @@
 
 ## 固件说明
 
-[Air780EPM固件版本说明](https://docs.openluat.com/air780epm/luatos/firmware/version/){:target="_blank"}
+[Air780EPM固件版本说明](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 
 ## demo使用说明
 

@@ -41,12 +41,6 @@
 
 固件X 只能差分升级为固件X。
 
-![输入图片说明](LuatOS%E5%A4%9A%E5%9B%BA%E4%BB%B6%E7%AD%96%E7%95%A5%E8%AF%B4%E6%98%8E.png)
-
-![输入图片说明](LuatOS%E5%A4%9A%E5%9B%BA%E4%BB%B6%E5%8A%9F%E8%83%BD%E5%8C%BA%E5%88%AB.png)
-
-![输入图片说明](LuatOS%E6%89%A9%E5%B1%95%E5%BA%93%E7%AE%80%E8%A6%81%E8%AF%B4%E6%98%8E.png)
-
 ## demo使用说明
 
 [**JT808**]：本demo演示使用string.pack与unpack函数，实现JT808 终端注册协议数据生成与解析，适用于车辆定位和监控系统。

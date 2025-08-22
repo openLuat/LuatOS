@@ -4,7 +4,7 @@
 
 本代码库 是 合宙 Air780EPM 模组的代码中心, 包括演示代码demo, 案例代码project等
 
-如需查阅文档, 请访问合宙文档中心的[Air780EPM模块文档中心](https://docs.openluat.com/air780epm/)
+如需查阅文档, 请访问合宙文档中心的[Air780EPM模块文档中心](https://docs.openluat.com/air780epm/){:target="_blank"}
 
 ## 目录说明
 
@@ -13,33 +13,7 @@
 
 ## 固件说明
 
-1. Air780EPM 支持2种32位固件，2种64位固件；
-
-2. Air780EHM，Air780EHV，Air780EGH 当前有26种固件，32位和64位各13种;
-
-3. 关于差分升级的相关说明；
-
-差分升级只能在同类固件之间进行，
-
-固件1 只能差分升级为固件1，
-
-固件2 只能差分升级为固件2，
-
-固件X 只能差分升级为固件X。## 固件说明
-
-1. Air780EPM 只有1种32位固件，没有64位固件；
-
-2. Air780EHM，Air780EHV，Air780EGH 当前有22种固件，32位和64位各11种;
-
-3. 关于差分升级的相关说明；
-
-差分升级只能在同类固件之间进行，
-
-固件1 只能差分升级为固件1，
-
-固件2 只能差分升级为固件2，
-
-固件X 只能差分升级为固件X。
+[Air780EPM固件版本说明](https://docs.openluat.com/air780epm/luatos/firmware/version/){:target="_blank"}
 
 ## demo使用说明
 

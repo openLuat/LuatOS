@@ -1,24 +1,62 @@
+--[[
+@module  main.lua
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.08.13
+@author  王城钧
+@usage
+本功能模块演示的内容为：
+使用Air780EPM开发板来演示lbsloc2“单基站”定位功能
 
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "lbsLoc2demo"
-VERSION = "1.0.0"
+更多说明参考本目录下的readme.md文件
+]]
 
-local lbsLoc2 = require("lbsLoc2")
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 
-sys.taskInit(function()
-    sys.waitUntil("IP_READY", 30000)
-    -- mobile.reqCellInfo(60)
-    -- sys.wait(1000)
-    while mobile do -- 没有mobile库就没有基站定位
-        mobile.reqCellInfo(15)--进行基站扫描
-        sys.waitUntil("CELL_INFO_UPDATE", 3000)--等到扫描成功，超时时间3S
-        local lat, lng, t = lbsLoc2.request(5000)--仅需要基站定位给出的经纬度
-        --local lat, lng, t = lbsLoc2.request(5000,nil,nil,true)--需要经纬度和当前时间
-        --(时间格式{"year":2024,"min":56,"month":11,"day":12,"sec":44,"hour":14})
-        log.info("lbsLoc2", lat, lng, (json.encode(t or {})))
-        sys.wait(60000)
-    end
-end)
+PROJECT = "LBSLOC2_DEMO"
+VERSION = "001.000.000"
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", "project name is ", PROJECT, "version is ", VERSION)
+
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
+
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
+
+
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
+
+-- 加载lbsloc2单基站定位功能模块
+require "lbsloc2_app"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

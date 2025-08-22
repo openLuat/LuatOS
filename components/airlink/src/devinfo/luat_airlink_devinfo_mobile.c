@@ -155,8 +155,7 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
     return 0;
 }
 
-void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) 
-{
+void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) {
     send_devinfo_update_evt = cb;
     g_airlink_self_dev_info.tp = 0x02;
     uint32_t fw_version = 3;

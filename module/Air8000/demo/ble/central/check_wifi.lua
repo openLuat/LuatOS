@@ -1,4 +1,17 @@
--- 用于检查当前模组中WiFi是否是最新版本，如果不是最新版本则启动升级。
+--[[
+@module  check_wifi
+@summary 远程升级wifi固件模块
+@version 1.0
+@date    2025.08.20
+@author  王世豪
+@usage
+检查WiFi版本并自动升级
+功能：检查当前Air8000模组的WiFi固件是否为最新版本，若不是则自动启动升级（需插入可联网的SIM卡）。
+说明：Air8000的蓝牙功能依赖WiFi协处理器，需确保WiFi固件为最新版本。
+
+本文件没有对外接口，直接在main.lua中require ""check_wifi"就可以加载运行。
+]]
+
 local exfotawifi = require("exfotawifi")
 
 local function wifi_fota_task_func()
@@ -21,5 +34,5 @@ local function wait_ip_ready()
     end
 end
 
--- 在设备启动时检查网络状态
+-- 在设备启动时检查SIM卡状态
 sys.taskInit(wait_ip_ready)

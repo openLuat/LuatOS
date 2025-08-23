@@ -2,12 +2,15 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.07.01
+@date    2025.08.20
 @author  wangshihao
 @usage
 本demo演示的核心功能为：
-演示了Air8000核心板作为BLE Master的核心功能。
-主要功能是扫描周围的BLE设备，当发现设备名称中包含"LuatOS"的设备时，自动连接该设备，然后进行GATT操作（如开启通知、写入数据、读取数据）等。
+演示了Air8000核心板作为BLE Central(中心设备)的核心功能：
+1、ble中心设备扫描并连接指定外围设备；
+2、ble中心设备连接成功后，开始定时读取外围设备特征值UUID数据， 定时发送数据给外围设备；
+3、ble中心设备收到外围设备特征值UUID的notify数据后，通过uart发送到pc端串口工具；
+4、pc端串口工具收到数据后，打印到串口工具窗口；
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -22,7 +25,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "ble_master"
+PROJECT = "ble_central"
 VERSION = "001.000.000"
 
 log.info("main", "project name is ", PROJECT, "version is ", VERSION)
@@ -58,11 +61,17 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 如果需要升级WIFI固件，请打开下面注释
-require "check_wifi"
+-- Air8000蓝牙依赖WiFi协处理器，需更新WiFi固件（默认自动更新，需插入联网SIM卡）
+require "check_wifi" ---- 自动检查并更新WiFi固件
 
--- 加载 master 蓝牙功能模块
-require "ble_master"
+-- 加载BLE Central(中心设备)主控制模块
+require "ble_client_main"
+
+-- 加载串口应用功能模块
+require "ble_uart_app"
+
+-- 加载定时器应用功能模块
+require "ble_timer_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

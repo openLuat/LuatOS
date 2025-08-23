@@ -175,6 +175,9 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
         }
     }
     if (ptr) {
+        // 如果没有找到匹配的网络接口, 释放ptr
+        LLOGI("dhcp data not for us len=%d mac %02X%02X%02X%02X%02X%02X", total_len, 
+            received_mac[0], received_mac[1], received_mac[2], received_mac[3], received_mac[4], received_mac[5]);
         luat_heap_free(ptr);
         ptr = NULL;
     }

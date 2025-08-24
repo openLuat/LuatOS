@@ -359,7 +359,9 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
+#ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_netdrv_mreport)},
+#endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},

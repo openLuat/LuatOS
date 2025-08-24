@@ -3,7 +3,7 @@
 @summary ssl mutual ca client 主应用功能模块
 @version 1.0
 @date    2025.07.28
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为mqtts mutual ca client 主应用功能模块，核心业务逻辑为：
 1、创建一个mqtts mutual ca client，连接server；

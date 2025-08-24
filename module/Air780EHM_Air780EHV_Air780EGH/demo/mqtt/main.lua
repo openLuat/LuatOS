@@ -3,7 +3,7 @@
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.07.28
-@author  朱天华
+@author  马梦阳
 @usage
 本demo演示的核心功能为：
 1、创建四路mqtt连接，详情如下

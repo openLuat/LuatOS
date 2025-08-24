@@ -1,141 +1,108 @@
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "mqttdemo"
-VERSION = "1.0.0"
-
 --[[
-本demo需要mqtt库,
-mqtt也是内置库, 无需require
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.07.28
+@author  朱天华
+@usage
+本demo演示的核心功能为：
+1、创建四路mqtt连接，详情如下
+- 创建一个mqtt client，连接mqtt server；
+- 创建一个mqtt ssl client，连接mqtt ssl server，不做证书校验；
+- 创建一个mqtt ssl client，连接mqtt ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
+- 创建一个mqtt ssl client，连接mqtt ssl server，client校验server的证书，server校验client的证书和密钥文件；
+2、每一路mqtt连接出现异常后，自动重连；
+3、每一路mqtt连接，client按照以下几种逻辑发送数据给server
+- 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后，使用wlan.getMac().."/uart/up"主题，发送给server；
+- 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后，使用wlan.getMac().."/timer/up"主题，发送给server；
+4、每一路mqtt连接，client收到server数据后，将数据增加recv from mqtt/mqtt ssl/mqtt ssl ca/mqtt ssl mutual ca（四选一）server: 前缀后，通过uart1发送出去；
+5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
+   (1) netdrv_4g：通过SPI外挂4G模组的4G网卡
+   (2) netdrv_wifi：WIFI STA网卡
+   (3) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+   (4) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (5) netdrv_multiple：支持以上(2)、(3)、(4)三种网卡，可以配置三种网卡的优先级
+
+更多说明参考本目录下的readme.md文件
 ]]
 
 
---根据自己的服务器修改以下参数
-local mqtt_host = "lbsmqtt.airm2m.com"
-local mqtt_port = 1884
-local mqtt_isssl = false
-local ca_file = false
-
-local client_id = "mqttx_b55c41b7"
-local user_name = "user"
-local password = "password"
-
-local pub_topic = ""-- .. (mcu.unique_id():toHex())
-local sub_topic = ""-- .. (mcu.unique_id():toHex())
-
-local mqttc = nil
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "MQTT"
+VERSION = "001.000.000"
 
 
-
-sys.taskInit(function()
-    -----------------------------
-    -- 统一联网函数, 可自行删减
-    ----------------------------
-    if wlan and wlan.connect then
-        -- wifi 联网, Air8101系列均支持
-        local ssid = "Xiaomi_1100"
-        local password = "1234567890"
-        log.info("wifi", ssid, password)
-
-        wlan.init()
-        wlan.setMode(wlan.STATION)
-        wlan.connect(ssid, password, 1)
-        --等待WIFI联网结果，WIFI联网成功后，内核固件会产生一个"IP_READY"消息
-        local result, data = sys.waitUntil("IP_READY")
-        log.info("wlan", "IP_READY", result, data)
-        device_id = wlan.getMac()
-
-    else
-         -- 其他不认识的bsp, 循环提示一下吧
-         while 1 do
-            sys.wait(1000)
-            log.info("bsp", "本bsp可能未适配网络层, 请查证")
-        end
-    end
-    log.info("已联网")
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
 
-    sys.publish("net_ready")
-end)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
 
-sys.taskInit(function()
-    -- 等待联网
-    sys.waitUntil("net_ready")
-    local device_id = "1001001"
 
-    client_id = device_id
-    pub_topic = device_id .. "/up"  -- 设备发布的主题，开发者可自行修改
-    sub_topic = device_id .. "/down" -- 设备订阅的主题，开发者可自行修改
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    -- 打印一下上报(pub)和下发(sub)的topic名称
-    -- 上报: 设备 ---> 服务器
-    -- 下发: 设备 <--- 服务器
-    -- 可使用mqtt.x等客户端进行调试
-    log.info("mqtt", "pub", pub_topic)
-    log.info("mqtt", "sub", sub_topic)
 
-    -- 打印一下支持的加密套件, 通常来说, 固件已包含常见的99%的加密套件
-    -- if crypto.cipher_suites then
-    --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
-    -- end
-    if mqtt == nil then
-        while 1 do
-            sys.wait(1000)
-            log.info("bsp", "本bsp未适配mqtt库, 请查证")
-        end
-    end
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-    -------------------------------------
-    -------- MQTT 演示代码 --------------
-    -------------------------------------
 
-    mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, ca_file)
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
-    -- mqttc:keepalive(240) -- 默认值240s
-    mqttc:autoreconn(true, 3000) -- 自动重连机制
+-- 加载网络环境检测看门狗功能模块
+require "network_watchdog"
 
-    mqttc:on(function(mqtt_client, event, data, payload)
-        -- 用户自定义代码
-        log.info("mqtt", "event", event, mqtt_client, data, payload)
-        if event == "conack" then
-            -- 联上了
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
-            sys.publish("mqtt_conack")
-            mqtt_client:subscribe(sub_topic)--单主题订阅
-            -- mqtt_client:subscribe({[topic1]=1,[topic2]=1,[topic3]=1})--多主题订阅
-        elseif event == "recv" then
-            log.info("mqtt", "downlink", "topic", data, "payload:", payload)
-            log.info("mqtt", "uplink", "topic", pub_topic, "payload:", payload)
-            sys.publish("mqtt_pub", pub_topic, payload)  --将收到的数据，通过发布主题目，进行发送
-        elseif event == "sent" then
-            log.info("mqtt", "sent", "pkgid", data)
-        elseif event == "disconnect" then
+-- 加载串口应用功能模块
+require "uart_app"
+-- 加载定时器应用功能模块
+require "timer_app"
 
-            -- 非自动重连时,按需重启mqttc
-            -- mqtt_client:connect()
-            log.info("mqtt", "disconnect")
-        end
-    end)
+-- 加载mqtt client 主应用功能模块
+require "mqtt_main"
 
-    -- mqttc自动处理重连, 除非自行关闭
-    mqttc:connect()
-    sys.waitUntil("mqtt_conack")
-    while true do
-        -- 演示等待其他task发送过来的上报信息
-        local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 300000)
-        if ret then
-            -- 提供关闭本while循环的途径, 不需要可以注释掉
-            if topic == "close" then break end
-            mqttc:publish(topic, data, qos)
-        end
+-- 加载mqtt ssl client 主应用功能模块（mqtt ssl 无证书校验）
+-- require "mqtts_main"
 
-        -- 如果没有其他task上报, 可以写个空等待
-        --sys.wait(6000)
-    end
-    mqttc:close()
-    mqttc = nil
-end)
+-- 加载mqtt ssl ca client 主应用功能模块（mqtt ssl 单向证书校验）
+-- require "mqtts_ca_main"
+
+-- 加载mqtt ssl mutual ca client 主应用功能模块（mqtt ssl 双向证书校验）
+-- require "mqtts_m_ca_main"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

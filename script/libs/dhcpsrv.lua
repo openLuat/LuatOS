@@ -302,12 +302,16 @@ dhcpsrv.create({adapter=socket.LWIP_AP})
 local dhcpsrv_opts = {
     adapter=socket.LWIP_AP, -- 监听哪个网卡, 必须填写
     mark = {255, 255, 255, 0}, -- 网络掩码, 默认 255.255.255.0
-    gw = {192, 168, 4, 1}, -- 网关, 默认 192.168.4.1
+    gw = {192, 168, 4, 1}, -- 网关, 默认自动获取网卡IP，如果获取失败则使用 192.168.4.1
     ip_start = 100, -- ip起始地址, 默认100
     ip_end = 200, -- ip结束地址, 默认200
     ack_cb = function(ip, mac) end, -- ack回调, 有客户端连接上来时触发, ip和mac地址会传进来
 }
 dhcpsrv.create(dhcpsrv_opts)
+
+-- 自动功能说明：
+-- 如果不指定gw参数，系统会自动获取网卡IP作为网关地址
+-- 这样可以确保DHCP分配的IP与网卡IP在同一网段
 ]]
 function dhcpsrv.create(opts)
     local srv = {}
@@ -315,16 +319,50 @@ function dhcpsrv.create(opts)
         opts = {}
     end
     srv.udp_topic = "dhcpd_inc"
+
+    -- 自动获取网卡IP地址的函数
+    local function get_adapter_ip()
+        if not opts.adapter then
+            return nil
+        end
+
+        -- 获取网卡IP地址
+        local ip = netdrv.ipv4(opts.adapter)
+        if not ip or ip == "0.0.0.0" then
+            return nil
+        end
+
+        -- 简单解析IP地址：192.168.4.1 -> {192, 168, 4, 1}
+        local a, b, c, d = ip:match("(%d+)%.(%d+)%.(%d+)%.(%d+)")
+        if a and b and c and d then
+            return {tonumber(a), tonumber(b), tonumber(c), tonumber(d)}
+        end
+
+        return nil
+    end
+
     -- 补充参数
     if not opts.mark then
         opts.mark = {255, 255, 255, 0}
     end
+
+    -- 如果没有指定网关，则自动获取网卡IP作为网关
     if not opts.gw then
-        opts.gw = {192, 168, 4, 1}
+        local adapter_ip = get_adapter_ip()
+        if adapter_ip then
+            opts.gw = adapter_ip
+            log.info(TAG, "自动获取网卡IP作为网关", string.format("%d.%d.%d.%d", adapter_ip[1], adapter_ip[2], adapter_ip[3], adapter_ip[4]))
+        else
+            opts.gw = {192, 168, 4, 1}
+            log.warn(TAG, "无法获取网卡IP，使用默认网关", string.format("%d.%d.%d.%d", opts.gw[1], opts.gw[2], opts.gw[3], opts.gw[4]))
+        end
     end
+
     if not opts.dns then
         opts.dns = opts.gw
     end
+
+    -- 根据网关IP自动设置IP分配范围
     if not opts.ip_start then
         opts.ip_start = 100
     end

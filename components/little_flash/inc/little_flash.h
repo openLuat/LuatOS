@@ -27,6 +27,8 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf);
 
 lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len);
 
+lf_err_t little_flash_erase_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len);
+
 lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *data, uint32_t len);
 
 lf_err_t little_flash_write_status(const little_flash_t *lf, uint8_t address, uint8_t status);

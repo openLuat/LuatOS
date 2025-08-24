@@ -72,7 +72,12 @@ sys.taskInit(function()
         -- 其他情况就是找不到了
         return 404, {}, "Not Found" .. uri
     end, socket.LWIP_AP)
-    log.info("web", "pls open url http://192.168.4.1/")
+    if netdrv then
+        local ip = netdrv.ipv4(socket.LWIP_AP)
+        log.info("web", "pls open url http://" .. (ip or "192.168.4.1") .. "/")
+    else
+        log.info("web", "pls open url http://192.168.4.1/")
+    end
 end)
 
 -- wifi扫描成功后, 会有WLAN_SCAN_DONE消息, 读取即可
@@ -101,6 +106,14 @@ sys.subscribe("IP_READY", function()
         local code = http.request("GET", "http://rtkv.air32.cn/api/rtkv/set?" .. params, {timeout=3000}).wait()
         log.info("上报结果", code)
     end)
+end)
+
+-- wifi的AP相关事件
+sys.subscribe("WLAN_AP_INC", function(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的新STA的MAC地址
+    -- 当evt=DISCONNECTED, data是断开与AP连接的STA的MAC地址
+    log.info("收到AP事件", evt, data and data:toHex())
 end)
 
 -- 用户代码已结束---------------------------------------------

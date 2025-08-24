@@ -974,6 +974,11 @@ static int l_mobile_config(lua_State* L) {
 @usage
 local buff = zbuff.create(40)
 mobile.getBand(buff) --输出当前使用的band，band号放在buff内，buff[0]，buff[1]，buff[2] .. buff[buff:used() - 1]
+log.info("当前使用的band:")
+--轮训方式打印所用band
+for i=0,band:used()-1 do
+    log.info("band", band[i])
+end
  */
 static int l_mobile_get_band(lua_State* L) {
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));

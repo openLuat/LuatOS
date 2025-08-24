@@ -464,6 +464,8 @@ static void ch390_task_main(void* args) {
     (void)args;
     int ret = 0;
     uint32_t count = 0;
+    // 延时30ms，等待CH390H芯片完全启动，避免直接初始化导致异常
+    luat_rtos_task_sleep(30);
     while (1) {
         count ++;
         if (count % 10 == 0) {

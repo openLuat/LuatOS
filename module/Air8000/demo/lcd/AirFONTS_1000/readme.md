@@ -6,7 +6,7 @@ AirFONT_1000 是合宙设计生产的一款 SPI 接口支持 16-192 矢量字体
 
 Air8000 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字体的显示；
 
-![](static/ZNDPbQJ69os91Gxzlmecxtd5nMc.jpg)
+![](image/ZNDPbQJ69os91Gxzlmecxtd5nMc.jpg)
 
 ## 二、核心板 + 配件板资料
 
@@ -16,7 +16,7 @@ Air8000 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字�
 
 ### 1、接线图片
 
-![](static/YMInbqkyNolu63x1M6KcIcwynxf.jpg)
+![](image/YMInbqkyNolu63x1M6KcIcwynxf.jpg)
 
 ### **2、物料清单**
 
@@ -30,7 +30,7 @@ Air8000 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字�
 
 5、Air8000 核心板和 AirFONT_1000 配件板的硬件接线方式为
 
-- Air8000 核心板通过 TYPE-C USB 口供电（核心板背面的功耗测试开关拨到 OFF 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirFONT_1000 配件板供电；
+- Air8000 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 供电 一端，核心板背面的功耗测试开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirFONT_1000 配件板供电；
 - 为了演示方便，所以 Air8000 核心板上电后直接通过 vbat 引脚给 AirFONT_1000 配件板提供了 3.3V 的供电；
 - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
@@ -96,4 +96,4 @@ Air8000 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字�
 
 5、屏幕出现以下显示，就表示测试正常
 
-![](static/DJM7bIVCPo4Aa1xcUZhcNNhwnud.jpg)
+![](image/DJM7bIVCPo4Aa1xcUZhcNNhwnud.jpg)

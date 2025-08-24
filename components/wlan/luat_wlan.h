@@ -49,6 +49,79 @@ enum LUAT_WLAN_ENCRYPT_MODE {
     LUAT_WLAN_ENCRYPT_WPA2
 };
 
+typedef enum LUAT_EVENT_MODULE {
+	LUAT_WLAN_EVENT_MOD_WIFI_INTERNAL,   /**< WiFi internal event */
+	LUAT_WLAN_EVENT_MOD_WIFI,            /**< WiFi public event */
+	LUAT_WLAN_EVENT_MOD_NETIF,           /**< Netif event */
+	LUAT_WLAN_EVENT_MOD_COUNT,           /**< Event module count */
+} luat_event_module_t;
+
+/**
+ * @brief WiFi public event type
+ */
+typedef enum LUAT_WIFI_EVENT {
+	LUAT_WLAN_EVENT_WIFI_SCAN_DONE = 0,      /**< WiFi scan done event */
+	LUAT_WLAN_EVENT_WIFI_CSI_DATA_IND,
+	LUAT_WLAN_EVENT_WIFI_CSI_ALG_IND,
+
+	LUAT_WLAN_EVENT_WIFI_STA_CONNECTED,      /**< The BK STA is connected */
+	LUAT_WLAN_EVENT_WIFI_STA_DISCONNECTED,   /**< The BK STA is disconnected */
+
+	LUAT_WLAN_EVENT_WIFI_AP_CONNECTED,       /**< A STA is connected to the BK AP */
+	LUAT_WLAN_EVENT_WIFI_AP_DISCONNECTED,    /**< A STA is disconnected from the BK AP */
+
+	LUAT_WLAN_EVENT_WIFI_NETWORK_FOUND,      /**< The BK STA find target AP */
+	LUAT_WLAN_EVENT_WIFI_COUNT,              /**< WiFi event count */
+} luat_wifi_event_t;
+
+typedef enum LUAT_WIFI_COUNTRY_POLICY {
+	LUAT_WLAN_WIFI_COUNTRY_POLICY_AUTO,   /**< Country policy is auto, use the country info of AP to which the station is connected */
+	LUAT_WLAN_WIFI_COUNTRY_POLICY_MANUAL, /**< Country policy is manual, always use the configured country info */
+} luat_wifi_country_policy_t;     
+
+typedef struct luat_wifi_country
+{
+	char                  cc[3];          /**< country code string */
+	uint8_t               schan;          /**< start channel */
+	uint8_t               nchan;          /**< total channel number */
+	int8_t                max_tx_power;   /**< maximum tx power */
+	luat_wifi_country_policy_t policy;         /**< country policy */
+} luat_wifi_country_t;
+
+typedef struct luat_wifi_event_scan_done
+{
+	uint32_t scan_id; /**< Scan ID */
+	uint32_t scan_use_time;/**< scan time. us */
+} luat_wifi_event_scan_done_t;
+
+typedef struct luat_wifi_event_network_found
+{
+	char    ssid[33];      /**< SSID found to be connected */
+	uint8_t bssid[6];        /**< BSSID found to be connected */
+} luat_wifi_event_network_found_t;
+
+typedef struct luat_wifi_event_sta_connected
+{
+	char    ssid[33];      /**< SSID of connected AP */
+	uint8_t bssid[6];        /**< BSSID of connected AP*/
+} luat_wifi_event_sta_connected_t;
+
+typedef struct luat_wifi_event_sta_disconnected
+{
+	int disconnect_reason;                /**< Disconnect reason of BK STA */
+	uint8_t local_generated;                 /**< if disconnect is request by local */
+} luat_wifi_event_sta_disconnected_t;
+
+typedef struct luat_wifi_event_ap_connected
+{
+	uint8_t mac[6];            /**< MAC of the STA connected to the BK AP */
+} luat_wifi_event_ap_connected_t;
+
+typedef struct luat_wifi_event_ap_disconnected
+{
+	uint8_t mac[6];            /**< MAC of the STA disconnected from the BK AP */
+} luat_wifi_event_ap_disconnected_t;
+
 typedef struct luat_wlan_scan_result
 {
     char ssid[33];

@@ -92,10 +92,10 @@ function testAdc.dotest()
             log.debug("adc", "adc" .. tostring(adc_pin_3), adc.get(adc_pin_3))
         end
         if adc_pin_temp and adc_pin_temp ~= 255 then
-            log.debug("adc", "CPU TEMP", adc.get(adc_pin_temp))
+            log.debug("adc", "CPU TEMP", adc.get(adc_pin_temp), "单位0.001摄氏度")
         end
         if adc_pin_vbat and adc_pin_vbat ~= 255 then
-            log.debug("adc", "VBAT", adc.get(adc_pin_vbat))
+            log.debug("adc", "VBAT", adc.get(adc_pin_vbat), "单位毫伏(mV)")
         end
         sys.wait(1000)
     end

@@ -964,12 +964,13 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
-	// luat_ip_addr_t addr = {0};
+	// ip_addr_t addr = {0};
 	dns_client_t *dns_client = prvlwip.dns_client[adapter_index];
 	dhcp_client_info_t* dhcpc = prvlwip.dhcpc[adapter_index];
 	// char ip_string[64] = {0};
-	if (prvlwip.lwip_netif[adapter_index] == NULL)
+	if (prvlwip.lwip_netif[adapter_index] == NULL) {
 		return;
+	}
 	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr)
 		&& netif_is_link_up(prvlwip.lwip_netif[adapter_index])
 		&& netif_is_up(prvlwip.lwip_netif[adapter_index]);
@@ -985,9 +986,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	}
 	else
 	{
-		NET_DBG("network ready %d", adapter_index);
-		// uint32_t tmp = adapter_index;
-		// luat_ip_addr_t addr = {0};
+		NET_DBG("network ready %d, setup dns server", adapter_index);
 		uint8_t dns0_set = 0;
 		uint8_t dns1_set = 0;
 		// LLOGD("开始设置DNS服务器 %d static? %d %d %d %d", adapter_index, dns_client->is_static_dns[0], dns_client->is_static_dns[1], prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[0] : 0, prvlwip.dhcpc[adapter_index] ? prvlwip.dhcpc[adapter_index]->dns_server[1] : 0);
@@ -995,7 +994,8 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 			if (dhcpc && dhcpc->dns_server[0]) {
 				network_set_ip_ipv4(&dns_client->dns_server[0], dhcpc->dns_server[0]);
 				dns0_set = 1;
-				// LLOGD("使用DHCP分配的DNS服务器作为首选DNS服务器");
+				// ipaddr_ntoa_r(&dns_client->dns_server[0], ip_string, sizeof(ip_string));
+				// LLOGD("使用DHCP分配的DNS服务器作为首选DNS服务器 %d %s", adapter_index, ip_string);
 			}
 		}
 		else {
@@ -1005,7 +1005,8 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 			if (dhcpc && dhcpc->dns_server[1]) {
 				network_set_ip_ipv4(&dns_client->dns_server[1], dhcpc->dns_server[1]);
 				dns1_set = 1;
-				// LLOGD("使用DHCP分配的DNS服务器作为次选DNS服务器");
+				// ipaddr_ntoa_r(&dns_client->dns_server[1], ip_string, sizeof(ip_string));
+				// LLOGD("使用DHCP分配的DNS服务器作为次选DNS服务器 %d %s", adapter_index, ip_string);
 			}
 		}
 		else {
@@ -1013,15 +1014,24 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		}
 
 		if (dns0_set == 0) {
-			// LLOGD("使用网关作为首选DNS服务器");
-			memcpy(&dns_client->dns_server[0], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
+			if (ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
+				// 如果网关地址是0.0.0.0, 就不设置DNS服务器
+			}
+			else {
+				memcpy(&dns_client->dns_server[0], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
+				// ipaddr_ntoa_r(&dns_client->dns_server[0], ip_string, sizeof(ip_string));
+				// LLOGD("使用网关作为首选DNS服务器 %d %s", adapter_index, ip_string);
+			}
 		}
 		else {
-			// LLOGI("首选DNS服务器 %s", ipaddr_ntoa(&prvlwip.dns_client[adapter_index]->dns_server[0]));
+			// ipaddr_ntoa_r(&dns_client->dns_server[0], ip_string, sizeof(ip_string));
+			// LLOGI("首选DNS服务器 %d %s", adapter_index, ip_string);
 		}
 		
 		if (dns1_set == 0) {
 			network_set_ip_ipv4(&dns_client->dns_server[1], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
+			// ipaddr_ntoa_r(&dns_client->dns_server[1], ip_string, sizeof(ip_string));
+			// LLOGD("使用默认DNS服务器 %d %s", adapter_index, ip_string);
 		}
 		net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
 	}

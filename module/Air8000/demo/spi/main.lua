@@ -8,6 +8,7 @@ sys = require("sys")
 --spi编号，请按实际情况修改！
 local spiId = 0
 --cs脚，请按需修改！
+--spi 多路复用的时候所有cs 都要拉高
 local cs = 8 -- CS使用GPIO8
 local cspin = gpio.setup(cs, 1)  --配置CS为输出
 

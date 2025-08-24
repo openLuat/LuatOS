@@ -20,6 +20,7 @@ httpdns = require("httpdns")
 local wifi_ping_ip
 local eth_ping_ip
 local local_network_mode
+local need_ping = true
 
 local ping_time = 10000
 -- 连接状态
@@ -87,6 +88,9 @@ local function setup_eth(config)
     if config.local_network_mode then
         local_network_mode = true
     end
+    if config.need_ping~=nil then
+        need_ping = config.need_ping
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -146,6 +150,9 @@ local function setup_eth_user1(config)
     if config.local_network_mode then
         local_network_mode = true
     end
+    if config.need_ping~=nil then
+        need_ping = config.need_ping
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -195,6 +202,9 @@ local function set_wifi_info(config)
     if config.local_network_mode then
         local_network_mode = true
     end
+    if config.need_ping~=nil then
+        need_ping = config.need_ping
+    end
     wifi_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -225,6 +235,11 @@ exnetif.set_priority_order({
         WIFI = { -- WiFi配置
             ssid = "your_ssid",       -- WiFi名称(string)
             password = "your_pwd",    -- WiFi密码(string)
+            need_ping = true,         -- 是否需要通过ping来测试网络的连通性
+                                      -- 在没有ping测试环境的项目中，需要将这个参数设置为false，表示不需要ping测试网络连通，
+                                      -- 仅根据IP READY消息（即获取到了ip地址）来判断网络环境准备就绪，是否网络连通性则无法保证
+                                      -- 如果没有设置此参数，默认为true
+                                      -- 在有ping测试环境的项目中，建议不要将这个参数设置为true
             local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，exnetif会自动将ping_ip设置为网卡的网关ip。
                                       -- 用户不需要传入ping_ip参数，即使传入了，也无效。
                                       -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
@@ -240,6 +255,11 @@ exnetif.set_priority_order({
     { -- 次优先级网络
         ETHERNET = { -- 以太网配置
             pwrpin = 140,             -- 供电使能引脚(number)
+            need_ping = true,         -- 是否需要通过ping来测试网络的连通性
+                                      -- 在没有ping测试环境的项目中，需要将这个参数设置为false，表示不需要ping测试网络连通，
+                                      -- 仅根据IP READY消息（即获取到了ip地址）来判断网络环境准备就绪，是否网络连通性则无法保证
+                                      -- 如果没有设置此参数，默认为true
+                                      -- 在有ping测试环境的项目中，建议不要将这个参数设置为true
             local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，exnetif会自动将ping_ip设置为网卡的网关ip。
                                       -- 用户不需要传入ping_ip参数，即使传入了，也无效。
                                       -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
@@ -682,33 +702,38 @@ local function http_dnstest(adaptertest)
 end
 -- ping操作
 local function ping_request(adaptertest)
-    log.info("dns_request",type_to_string(adaptertest))
-    if adaptertest == socket.LWIP_ETH or adaptertest == socket.LWIP_USER1 then
-        if eth_ping_ip == nil then
-           http_dnstest(adaptertest)
-        else
-            icmp.setup(adaptertest)
-            icmp.ping(adaptertest, eth_ping_ip)
-        end
-    end
-    if adaptertest == socket.LWIP_STA then
-        if wifi_ping_ip == nil then
+    log.info("dns_request",type_to_string(adaptertest),need_ping)
+    if need_ping then
+        if adaptertest == socket.LWIP_ETH or adaptertest == socket.LWIP_USER1 then
+            if eth_ping_ip == nil then
             http_dnstest(adaptertest)
-        else
-            icmp.setup(adaptertest)
-            icmp.ping(adaptertest, wifi_ping_ip)
+            else
+                icmp.setup(adaptertest)
+                icmp.ping(adaptertest, eth_ping_ip)
+            end
         end
-    end
-    if adaptertest == socket.LWIP_GP then
-        if eth_ping_ip ~= nil then
-            icmp.setup(adaptertest)
-            icmp.ping(adaptertest, eth_ping_ip)
-        elseif wifi_ping_ip ~= nil then
-            icmp.setup(adaptertest)
-            icmp.ping(adaptertest, wifi_ping_ip)
-        else
-            http_dnstest(adaptertest)
+        if adaptertest == socket.LWIP_STA then
+            if wifi_ping_ip == nil then
+                http_dnstest(adaptertest)
+            else
+                icmp.setup(adaptertest)
+                icmp.ping(adaptertest, wifi_ping_ip)
+            end
         end
+        if adaptertest == socket.LWIP_GP then
+            if eth_ping_ip ~= nil then
+                icmp.setup(adaptertest)
+                icmp.ping(adaptertest, eth_ping_ip)
+            elseif wifi_ping_ip ~= nil then
+                icmp.setup(adaptertest)
+                icmp.ping(adaptertest, wifi_ping_ip)
+            else
+                http_dnstest(adaptertest)
+            end
+        end
+    else
+        log.info(type_to_string(adaptertest) .. "配置了不需要ping，直接切换为CONNECTED状态")
+        available[adaptertest] = connection_states.CONNECTED
     end
     apply_priority()
 end

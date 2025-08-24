@@ -319,6 +319,32 @@ static int l_netdrv_debug(lua_State *L) {
     return 0;
 }
 
+/*
+设置遥测功能（还未实现全部功能）
+@api netdrv.mreport(config, value)
+@string 配置项
+@boolean 设置功能开关
+@return boolean 成功与否
+@usage
+-- 设置开启与关闭
+netdrv.mreport("enable", true)
+netdrv.mreport("enable", false)
+
+-- 立即上报一次, 无参数的方式调用
+netdrv.mreport()
+
+-- 设置自定义数据
+netdrv.mreport("custom", {abc=1234})
+-- 清除自定义数据
+netdrv.mreport("custom")
+*/
+static int l_netdrv_mreport(lua_State *L) {
+    char* config = luaL_checkstring(L, 1);
+    int value = lua_toboolean(L, 2);
+    luat_netdrv_mreport(config, value);
+    return 0;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
@@ -333,6 +359,7 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
+    { "mreport",        ROREG_FUNC(l_netdrv_mreport)},
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},

@@ -25,23 +25,21 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
 	case LUAT_MOBILE_EVENT_CFUN:
 		break;
 	case LUAT_MOBILE_EVENT_SIM:
-        LLOGD("SIM_IND -> status %d", status);
+        // LLOGD("SIM_IND -> status %d", status);
         devinfo->cat1.sim_state = status;
         switch (status)
         {
         case LUAT_MOBILE_SIM_READY:
             luat_mobile_get_iccid(0, (char*)devinfo->cat1.iccid, 20);
             luat_mobile_get_imsi(0, (char*)devinfo->cat1.imsi, 16);
-            LLOGD("SIM_READY -> ICCID %s", devinfo->cat1.iccid);
-            LLOGD("SIM_READY -> IMSI %s", devinfo->cat1.imsi);
+            // LLOGD("SIM_READY -> ICCID %s", devinfo->cat1.iccid);
+            // LLOGD("SIM_READY -> IMSI %s", devinfo->cat1.imsi);
             send_devinfo_update_evt();
-            // TODO 发送SIM_STATE消息
             break;
         case LUAT_MOBILE_NO_SIM:
             memset(devinfo->cat1.iccid, 0, 20);
             memset(devinfo->cat1.imsi, 0, 16);
             send_devinfo_update_evt();
-            // TODO 发送SIM_STATE消息
             break;
         case LUAT_MOBILE_SIM_NEED_PIN:
             break;
@@ -74,13 +72,13 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
 		case LUAT_MOBILE_NETIF_LINK_ON: {
             devinfo->cat1.cat_state = 1;
             send_devinfo_update_evt();
-            LLOGD("NETIF_LINK_ON -> IP_READY cat1.cat_state %d ipv4 %d.%d.%d.%d", devinfo->cat1.cat_state, devinfo->cat1.ipv4[0], devinfo->cat1.ipv4[1], devinfo->cat1.ipv4[2], devinfo->cat1.ipv4[3]);
+            // LLOGD("NETIF_LINK_ON -> IP_READY cat1.cat_state %d ipv4 %d.%d.%d.%d", devinfo->cat1.cat_state, devinfo->cat1.ipv4[0], devinfo->cat1.ipv4[1], devinfo->cat1.ipv4[2], devinfo->cat1.ipv4[3]);
 			break;
         }
         case LUAT_MOBILE_NETIF_LINK_OFF:
             devinfo->cat1.cat_state = 0;
             send_devinfo_update_evt();
-            LLOGD("NETIF_LINK_OFF -> IP_LOSE cat1.cat_state %d", devinfo->cat1.cat_state); 
+            // LLOGD("NETIF_LINK_OFF -> IP_LOSE cat1.cat_state %d", devinfo->cat1.cat_state); 
             break;
 		default:
 			break;
@@ -111,10 +109,10 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
         LLOGD("ims reg state %d", status);
 		break;
     case LUAT_MOBILE_EVENT_CC:
-        LLOGD("LUAT_MOBILE_EVENT_CC status %d",status);
+        // LLOGD("LUAT_MOBILE_EVENT_CC status %d",status);
         switch(status){
         case LUAT_MOBILE_CC_READY:
-            LLOGD("LUAT_MOBILE_CC_READY");
+            // LLOGD("LUAT_MOBILE_CC_READY");
             break;
         case LUAT_MOBILE_CC_INCOMINGCALL:
             break;

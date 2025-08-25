@@ -129,6 +129,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     u16_t total_len = p->tot_len;
     char* ptr = luat_heap_malloc(total_len);
     if (!ptr) {
+        LLOGE("malloc fail when parse dhcp packet %d", p->tot_len);
         pbuf_free(p);
         return ERR_OK;
     }

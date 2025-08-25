@@ -57,7 +57,7 @@ socket.dft(socket.LWIP_ETH)
 
 -- 这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
-    -- 初始化SPI1
+    -- 初始化SPI0
     local result = spi.setup(
         0,--spi_id
         nil,

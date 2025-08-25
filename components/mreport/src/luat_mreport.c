@@ -7,6 +7,9 @@
 #include "luat_mcu.h"
 #include "luat_mem.h"
 #include "luat_mobile.h"
+#include "luat_hmeta.h"
+#include "luat_pm.h"
+#include "luat_adc.h"
 #include "luat_str.h"
 #include "cJSON.h"
 
@@ -20,6 +23,17 @@
 
 static struct udp_pcb* mreport_pcb;
 static luat_rtos_timer_t mreport_timer;
+
+static inline uint16_t u162bcd(uint16_t src) {
+    uint8_t high = (src >> 8) & 0xFF;
+    uint8_t low  = src & 0xFF;
+    uint16_t dst = 0;
+    dst += (low & 0x0F) + (low >> 4) * 10;
+    dst += ((high & 0x0F) + (high >> 4) * 10) * 100;
+    //LLOGD("src %04X dst %d", src, dst);
+    return dst;
+}
+
 // 模块的基础信息
 void luat_mreport_mobile(cJSON* mreport_data) {
     // IMEI
@@ -41,7 +55,7 @@ void luat_mreport_mobile(cJSON* mreport_data) {
     cJSON_AddStringToObject(mreport_data, "unique_id", buff);
 
     // 版本号
-    cJSON_AddStringToObject(mreport_data, "fw", luat_version_str());
+    cJSON_AddStringToObject(mreport_data, "bspver", luat_version_str());
 
     // 模组型号
     char model_name[20] = {0};
@@ -51,10 +65,14 @@ void luat_mreport_mobile(cJSON* mreport_data) {
     // 硬件版本
     char hwversion[20] = {0};
     luat_hmeta_hwversion(hwversion);
-    cJSON_AddStringToObject(mreport_data, "hw", hwversion);
+    cJSON_AddStringToObject(mreport_data, "hwver", hwversion);
 
     // sdk固件类型 0:luatos 1:
     cJSON_AddNumberToObject(mreport_data, "sdk", 0);
+
+
+    // cJSON_AddStringToObject(mreport_data, "pver", "1.0.0");
+    // cJSON_AddStringToObject(mreport_data, "proj", "air8000_wifi");
 }
 
 // 网络信息
@@ -66,19 +84,25 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     iccid[23] = '\0';   // 防止iccid为空时，导致字符串结束符丢失
     cJSON_AddStringToObject(mreport_data, "iccid", iccid);
 
+    // IMSI
+    char imsi[16] = {0};
+    luat_mobile_get_imsi(0, imsi, 16);
+    cJSON_AddStringToObject(mreport_data, "imsi", imsi);
+
     // VSIM
     cJSON_AddNumberToObject(mreport_data, "vsim", 0);
 
     // 信号强度
     luat_mobile_signal_strength_info_t info = {0};
     if (luat_mobile_get_signal_strength_info(&info) == 0) {
+        cJSON_AddNumberToObject(mreport_data, "rssi", info.lte_signal_strength.rssi);
         cJSON_AddNumberToObject(mreport_data, "rsrq", info.lte_signal_strength.rsrq);
         cJSON_AddNumberToObject(mreport_data, "rsrp", info.lte_signal_strength.rsrp);
         cJSON_AddNumberToObject(mreport_data, "snr", info.lte_signal_strength.snr);
     }
 
     // 基站/小区
-    luat_mobile_get_cell_info_async(15);
+    luat_mobile_get_cell_info_async(5);
     luat_mobile_cell_info_t* cell_info = luat_heap_malloc(sizeof(luat_mobile_cell_info_t));
     if (cell_info == NULL) {
         LLOGE("out of memory when malloc cell_info");
@@ -90,8 +114,16 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
         }
         else {
             cJSON_AddNumberToObject(mreport_data, "cid", cell_info->lte_service_info.cid);
+            cJSON_AddNumberToObject(mreport_data, "pci", cell_info->lte_service_info.pci);
             cJSON_AddNumberToObject(mreport_data, "tac", cell_info->lte_service_info.tac);
             cJSON_AddNumberToObject(mreport_data, "band", cell_info->lte_service_info.band);
+            cJSON_AddNumberToObject(mreport_data, "earfcn", cell_info->lte_service_info.earfcn);
+            cJSON_AddNumberToObject(mreport_data, "mcc", u162bcd(cell_info->lte_service_info.mcc));
+            cJSON_AddNumberToObject(mreport_data, "mnc", u162bcd(cell_info->lte_service_info.mnc));
+            uint32_t eci;
+            if (luat_mobile_get_service_cell_identifier(&eci) == 0) {
+                cJSON_AddNumberToObject(mreport_data, "eci", eci);
+            }
             
             if (cell_info->lte_neighbor_info_num > 0) {
                 for (size_t i = 0; i < cell_info->lte_neighbor_info_num; i++) {
@@ -112,7 +144,7 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
 
     // ip地址
     cJSON_AddStringToObject(mreport_data, "ipv4", ip4addr_ntoa(&netif->ip_addr));
-    cJSON_AddStringToObject(mreport_data, "ipv6", ip6addr_ntoa(&netif->ip6_addr));
+    // cJSON_AddStringToObject(mreport_data, "ipv6", ip6addr_ntoa(&netif->ip6_addr));
 
     // 当前使用的apn
     char buff[64] = {0};
@@ -159,6 +191,14 @@ void luat_mreport_send(void) {
         return;
     }
 
+    // 时间戳
+    struct tm* ts;
+	time_t t;
+	time(&t);
+    localtime_r(&t, &ts);
+    time_t timestamp = mktime(&ts);
+    cJSON_AddNumberToObject(mreport_data, "localtime", timestamp);
+
     // 模组信息
     luat_mreport_mobile(mreport_data);
 
@@ -171,21 +211,53 @@ void luat_mreport_send(void) {
     cJSON_AddNumberToObject(mreport_data, "usb", 1);
     // vbus
     cJSON_AddNumberToObject(mreport_data, "vbus", 1);
-
-    cJSON_AddNumberToObject(mreport_data, "earfcn", 0);
-    cJSON_AddNumberToObject(mreport_data, "vbat", 0);
-    cJSON_AddNumberToObject(mreport_data, "cputemp", 0);
+    
+    // adc-vbat
+    if (luat_adc_open(LUAT_ADC_CH_VBAT, NULL) == 0) {
+        int val = 0xFF;
+        int val2 = 0xFF;
+        if (luat_adc_read(LUAT_ADC_CH_VBAT, &val, &val2) == 0) {
+            cJSON_AddNumberToObject(mreport_data, "vbat", val2);
+        }
+    }
+    // adc-cpu
+    if (luat_adc_open(LUAT_ADC_CH_CPU, NULL) == 0) {
+        int val = 0xFF;
+        int val2 = 0xFF;
+        if (luat_adc_read(LUAT_ADC_CH_CPU, &val, &val2) == 0) {
+            cJSON_AddNumberToObject(mreport_data, "cputemp", val2);
+        }
+    }
 
     // 开机原因
     cJSON_AddNumberToObject(mreport_data, "powerreson", luat_pm_get_poweron_reason());
-    // 当前剩余内存
+    // 当前内存状态
     size_t total = 0;
     size_t used = 0;
     size_t max_used = 0;
-    // luat_meminfo_opt_sys(LUAT_HEAP_SRAM, &total, &used, &max_used);
-    // luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+    cJSON* meminfo_sram = cJSON_CreateArray();
+    luat_meminfo_opt_sys(LUAT_HEAP_SRAM, &total, &used, &max_used);
+    cJSON_AddItemToArray(meminfo_sram, cJSON_CreateNumber(total));
+    cJSON_AddItemToArray(meminfo_sram, cJSON_CreateNumber(used));
+    cJSON_AddItemToArray(meminfo_sram, cJSON_CreateNumber(max_used));
+    cJSON_AddItemToObject(mreport_data, "mem_sram", meminfo_sram);
+    
+    cJSON* meminfo_psram = cJSON_CreateArray();
+    luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+    cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(total));
+    cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(used));
+    cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(max_used));
+    cJSON_AddItemToObject(mreport_data, "mem_sys", meminfo_psram);
+    cJSON_AddItemToObject(mreport_data, "mem_psram", meminfo_psram);
+
+    cJSON* meminfo_luavm = cJSON_CreateArray();
     luat_meminfo_luavm(&total, &used, &max_used);
+    cJSON_AddItemToArray(meminfo_luavm, cJSON_CreateNumber(total));
+    cJSON_AddItemToArray(meminfo_luavm, cJSON_CreateNumber(used));
+    cJSON_AddItemToArray(meminfo_luavm, cJSON_CreateNumber(max_used));
+    cJSON_AddItemToObject(mreport_data, "mem_lua", meminfo_luavm);
     cJSON_AddNumberToObject(mreport_data, "memfree", total - used);
+
     // 开机次数
     cJSON_AddNumberToObject(mreport_data, "bootc", 1);
 
@@ -198,7 +270,7 @@ void luat_mreport_send(void) {
 
     // 结束 转换成json字符串
     char* json = cJSON_PrintUnformatted(mreport_data);
-    LLOGE("json len --- %d\r\n%s", strlen(json), json);
+    LLOGE("mreport json --- len: %d\r\n%s", strlen(json), json);
 
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, strlen(json), PBUF_RAM);
     if (p == NULL) {
@@ -229,6 +301,7 @@ void luat_mreport_start(void) {
     if (ret) {
         LLOGE("luat_rtos_timer_start %d", ret);
     }
+    luat_mreport_send();    // 启动后立即发送一次
 }
 
 void luat_mreport_stop(void) {

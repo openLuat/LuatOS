@@ -135,7 +135,7 @@ void luat_mreport_send(void) {
 
     luat_netdrv_t* netdrv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_GPRS);
     if (netdrv == NULL || netdrv->netif == NULL) {
-        return 0;
+        return;
     }
 
     struct netif *netif = netdrv->netif;

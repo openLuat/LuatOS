@@ -3,7 +3,7 @@
 @summary mqtts mutual ca cient数据接收处理应用功能模块
 @version 1.0
 @date    2025.07.29
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为mqtts mutual ca client 数据接收应用功能模块，核心业务逻辑为：
 处理接收到的publish数据，同时将数据发送给其他应用功能模块做进一步处理；

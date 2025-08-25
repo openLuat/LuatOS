@@ -29,7 +29,7 @@ sys.taskInit(function()
     netdrv.dhcp(socket.LWIP_ETH, true)
     -- sys.wait(3000)
     while 1 do
-        local ipv4ip, aaa, bbb = netdrv.ipv4(socket.LWIP_ETH, "", "", "")
+        local ipv4ip, aaa, bbb = netdrv.ipv4(socket.LWIP_ETH)
         log.info("ipv4地址,掩码,网关为", ipv4ip, aaa, bbb)
         local netdrv_start = netdrv.ready(socket.LWIP_ETH)
         if netdrv_start and ipv4ip and ipv4ip ~= "0.0.0.0" then

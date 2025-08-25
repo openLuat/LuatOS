@@ -26,7 +26,7 @@ sys.taskInit(function()
     netdrv.dhcp(socket.LWIP_ETH, true)
     -- sys.wait(3000)
     while 1 do
-        local ipv4ip, aaa, bbb = netdrv.ipv4(socket.LWIP_ETH, "", "", "")
+        local ipv4ip, aaa, bbb = netdrv.ipv4(socket.LWIP_ETH)
         log.info("ipv4地址,掩码,网关为", ipv4ip, aaa, bbb)
         local netdrv_start = netdrv.ready(socket.LWIP_ETH)
         if netdrv_start and ipv4ip and ipv4ip ~= "0.0.0.0" then
@@ -54,7 +54,7 @@ end
 
 -- 读取证书和私钥
 local ca_server = read_file("/luadb/ca.crt") -- 服务器 CA 证书数据
-local ca_client = read_file("/luadb/client.crt") -- 客户端 CA 证书数据
+local ca_client = read_file("/luadb/client.crt") -- 客户端 证书数据
 local client_private_key_encrypts_data = read_file("/luadb/client.key") -- 客户端私钥
 local client_private_key_password = "123456789" -- 客户端私钥口令
 

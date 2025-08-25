@@ -1,13 +1,13 @@
 #include "luat_base.h"
 #include "luat_netdrv.h"
 #include "luat_network_adapter.h"
-#include "luat_netdrv_napt.h"
 #include "lwip/pbuf.h"
 #include "lwip/ip.h"
 #include "lwip/udp.h"
 #include "luat_mcu.h"
 #include "luat_mem.h"
 #include "luat_mobile.h"
+#include "luat_str.h"
 #include "cJSON.h"
 
 #define LUAT_LOG_TAG "netdrv.napt.mreport"
@@ -57,6 +57,7 @@ void luat_mreport_mobile(cJSON* mreport_data) {
     cJSON_AddNumberToObject(mreport_data, "sdk", 0);
 }
 
+// 网络信息
 void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     cJSON* cells = cJSON_CreateArray();
     // ICCID
@@ -90,6 +91,7 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
         else {
             cJSON_AddNumberToObject(mreport_data, "cid", cell_info->lte_service_info.cid);
             cJSON_AddNumberToObject(mreport_data, "tac", cell_info->lte_service_info.tac);
+            cJSON_AddNumberToObject(mreport_data, "band", cell_info->lte_service_info.band);
             
             if (cell_info->lte_neighbor_info_num > 0) {
                 for (size_t i = 0; i < cell_info->lte_neighbor_info_num; i++) {
@@ -132,6 +134,10 @@ void luat_mreport_send(void) {
     cJSON* mreport_data = cJSON_CreateObject();
 
     luat_netdrv_t* netdrv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_GPRS);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+
     struct netif *netif = netdrv->netif;
     if (netif == NULL || ip_addr_isany(&netif->ip_addr)) {
         // LLOGD("还没联网");
@@ -192,7 +198,7 @@ void luat_mreport_send(void) {
 
     // 结束 转换成json字符串
     char* json = cJSON_PrintUnformatted(mreport_data);
-    LLOGE("json len --- %d", strlen(json));
+    LLOGE("json len --- %d\r\n%s", strlen(json), json);
 
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, strlen(json), PBUF_RAM);
     if (p == NULL) {
@@ -219,7 +225,7 @@ void luat_mreport_start(void) {
         LLOGE("luat_rtos_timer_create %d", ret);
         return;
     }
-    ret = luat_rtos_timer_start(mreport_timer, 3*60*1000, 1, mreport_timer_cb, NULL);
+    ret = luat_rtos_timer_start(mreport_timer, 1*60*1000, 1, mreport_timer_cb, NULL);
     if (ret) {
         LLOGE("luat_rtos_timer_start %d", ret);
     }
@@ -231,4 +237,27 @@ void luat_mreport_stop(void) {
         luat_rtos_timer_delete(mreport_timer);
         mreport_timer = NULL;
     }
+}
+
+void luat_mreport_config(const char* config, int val) {
+    LLOGD("luat_netdrv_mreport %s %d", config, val);
+    if (strcmp(config, "enable") == 0) {
+        if (val == 0) {
+            luat_mreport_stop();
+        }
+        else if (val == 1){
+            luat_mreport_start();
+        }
+        else
+        {
+            LLOGE("luat_netdrv_mreport enable %d error", val);
+        }
+    }
+}
+
+int l_mreport_config(lua_State *L) {
+    char* config = luaL_checkstring(L, 1);
+    int value = lua_toboolean(L, 2);
+    luat_mreport_config(config, value);
+    return 0;
 }

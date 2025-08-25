@@ -338,13 +338,7 @@ netdrv.mreport("custom", {abc=1234})
 -- 清除自定义数据
 netdrv.mreport("custom")
 */
-static int l_netdrv_mreport(lua_State *L) {
-    char* config = luaL_checkstring(L, 1);
-    int value = lua_toboolean(L, 2);
-    luat_netdrv_mreport(config, value);
-    return 0;
-}
-
+extern int l_mreport_config(lua_State* L);
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
@@ -360,7 +354,7 @@ static const rotable_Reg_t reg_netdrv[] =
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
 #ifdef LUAT_USE_MREPORT
-    { "mreport",        ROREG_FUNC(l_netdrv_mreport)},
+    { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信

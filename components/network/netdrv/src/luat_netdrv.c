@@ -318,19 +318,3 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
     nd6_cleanup_netif(netif);
     #endif /* LWIP_IPV6 */
 }
-
-void luat_netdrv_mreport(const char* config, int val) {
-    LLOGD("luat_netdrv_mreport %s %d", config, val);
-    if (strcmp(config, "enable") == 0) {
-        if (val == 0) {
-            luat_mreport_stop();
-        }
-        else if (val == 1){
-            luat_mreport_start();
-        }
-        else
-        {
-            LLOGE("luat_netdrv_mreport enable %d error", val);
-        }
-    }
-}

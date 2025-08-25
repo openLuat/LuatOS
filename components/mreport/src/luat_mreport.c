@@ -180,6 +180,7 @@ void luat_mreport_send(void) {
         mreport_pcb = udp_new();
         if (mreport_pcb == NULL) {
             LLOGE("创建udp pcb 失败, 内存不足?");
+            cJSON_Delete(mreport_data);
             return;
         }
     }
@@ -188,16 +189,14 @@ void luat_mreport_send(void) {
     ret = udp_connect(mreport_pcb, &host, MREPORT_PORT);
     if (ret) {
         LLOGD("udp_connect %d", ret);
+        cJSON_Delete(mreport_data);
         return;
     }
 
     // 时间戳
-    struct tm* ts;
 	time_t t;
 	time(&t);
-    localtime_r(&t, &ts);
-    time_t timestamp = mktime(&ts);
-    cJSON_AddNumberToObject(mreport_data, "localtime", timestamp);
+    cJSON_AddNumberToObject(mreport_data, "localtime", t);
 
     // 模组信息
     luat_mreport_mobile(mreport_data);
@@ -219,6 +218,7 @@ void luat_mreport_send(void) {
         if (luat_adc_read(LUAT_ADC_CH_VBAT, &val, &val2) == 0) {
             cJSON_AddNumberToObject(mreport_data, "vbat", val2);
         }
+        luat_adc_close(LUAT_ADC_CH_VBAT);
     }
     // adc-cpu
     if (luat_adc_open(LUAT_ADC_CH_CPU, NULL) == 0) {
@@ -227,6 +227,7 @@ void luat_mreport_send(void) {
         if (luat_adc_read(LUAT_ADC_CH_CPU, &val, &val2) == 0) {
             cJSON_AddNumberToObject(mreport_data, "cputemp", val2);
         }
+        luat_adc_close(LUAT_ADC_CH_CPU);
     }
 
     // 开机原因
@@ -280,6 +281,8 @@ void luat_mreport_send(void) {
     pbuf_take(p, json, strlen(json));
     ret = udp_sendto_if(mreport_pcb, p, &host, MREPORT_PORT, netif);
     pbuf_free(p);
+    free(json);
+    cJSON_Delete(mreport_data);
     LLOGD("ret %d", ret);
     if (ret) {
         LLOGD("ret %d", ret);

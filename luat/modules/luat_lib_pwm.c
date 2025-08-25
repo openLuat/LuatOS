@@ -5,6 +5,25 @@
 @date    2020.07.03
 @demo pwm
 @tag LUAT_USE_PWM
+@usage
+-- 本库支持2套API风格
+-- 1. 传统API, open和close
+-- 2. 新的API(推荐使用), setup,start,stop,setDuty,setFreq
+
+-- 传统API
+pwm.open(1, 1000, 50) -- 打开PWM1, 频率1kHz, 占空比50%
+sys.wait(5000) -- 等待5秒
+pwm.close(1) -- 关闭PWM1
+
+-- 新API
+pwm.setup(1, 1000, 50) -- 设置PWM1, 频率1kHz, 占空比50%
+pwm.start(1) -- 启动PWM1
+sys.wait(5000) -- 等待5秒
+pwm.setFreq(1, 2000) -- 设置PWM1频率2kHz
+sys.wait(5000) -- 等待5秒
+pwm.setDuty(1, 25) -- 设置PWM1占空比25%
+sys.wait(5000) -- 等待5秒
+pwm.stop(1) -- 关闭PWM1
 */
 #include "luat_base.h"
 #include "luat_pwm.h"
@@ -17,7 +36,7 @@
 开启指定的PWM通道
 @api pwm.open(channel, period, pulse, pnum, precision)
 @int PWM通道
-@int 频率, 1-1000000hz
+@int 频率, 1-N,单位Hz. N受限于具体硬件能力
 @int 占空比 0-分频精度
 @int 输出周期 0为持续输出, 1为单次输出, 其他为指定脉冲数输出
 @int 分频精度, 100/256/1000, 默认为100, 若设备不支持会有日志提示
@@ -86,6 +105,19 @@ static int l_pwm_capture(lua_State *L) {
 // 新的API系列, 封装老的版本, bsp层暂时不改
 static luat_pwm_conf_t* confs[6];
 
+/*
+初始化指定的PWM通道
+@api pwm.setup(channel, period, pulse, pnum, precision)
+@int PWM通道
+@int 频率, 1-N,单位Hz. N受限于具体硬件能力
+@int 占空比 0-分频精度
+@int 输出周期 0为持续输出, 1为单次输出, 其他为指定脉冲数输出
+@int 分频精度, 100/256/1000, 默认为100, 若设备不支持会有日志提示
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- 设置PWM5, 频率1kHz, 占空比50%
+pwm.setup(5, 1000, 50)
+*/
 static int l_pwm_setup(lua_State *L) {
     luat_pwm_conf_t conf = {
         .pnum = 0,
@@ -127,6 +159,15 @@ static int check_channel(lua_State *L) {
     return channel;
 }
 
+/*
+启动指定的PWM通道
+@api pwm.start(channel)
+@int PWM通道
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- 启动PWM1
+pwm.start(1)
+*/
 static int l_pwm_start(lua_State *L) {
     int channel = check_channel(L);
     if (channel < 0) {
@@ -136,6 +177,16 @@ static int l_pwm_start(lua_State *L) {
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
+
+/*
+停止指定的PWM通道
+@api pwm.stop(channel)
+@int PWM通道
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- 停止PWM1
+pwm.stop(1)
+*/
 static int l_pwm_stop(lua_State *L) {
     int channel = check_channel(L);
     if (channel < 0) {
@@ -147,6 +198,17 @@ static int l_pwm_stop(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
 }
+
+/*
+设置指定PWM通道的占空比
+@api pwm.setDuty(channel, duty)
+@int PWM通道
+@int 占空比
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- 设置PWM1占空比25%
+pwm.setDuty(1, 25)
+*/
 static int l_pwm_set_duty(lua_State *L) {
     int channel = check_channel(L);
     if (channel < 0) {
@@ -157,6 +219,17 @@ static int l_pwm_set_duty(lua_State *L) {
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
+
+/*
+设置指定PWM通道的频率
+@api pwm.setFreq(channel, freq)
+@int PWM通道
+@int 频率, 1-N,单位Hz. N受限于具体硬件能力
+@return boolean 处理结果,成功返回true,失败返回false
+@usage
+-- 设置PWM5频率2kHz
+pwm.setFreq(5, 2000)
+*/
 static int l_pwm_set_freq(lua_State *L) {
     int channel = check_channel(L);
     if (channel < 0) {

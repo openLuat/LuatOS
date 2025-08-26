@@ -272,7 +272,7 @@ static int l_spi_soft(lua_State *L) {
 @int SPI号,例如0
 @return int 成功返回0,否则返回其他值
 @usage
--- 初始化spi
+-- 关闭spi0
 spi.close(0)
 */
 static int l_spi_close(lua_State *L) {

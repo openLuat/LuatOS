@@ -339,15 +339,20 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
         LLOGD("such mount not support lsdir");
         return 0;
     }
-    //LLOGD("luat_fs_lsdir _DirName:%s mount->prefix:%s dir:%s", _DirName,mount->prefix,_DirName + strlen(mount->prefix));
+    // LLOGD("luat_fs_lsdir _DirName:%s mount->prefix:%s dir:%s", _DirName,mount->prefix,_DirName + strlen(mount->prefix));
     int ret = mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
 
     char file_path[256] = {0};
-    memcpy(file_path, _DirName, strlen(_DirName) + 1);
+    size_t file_path_len = strlen(_DirName);
+    memcpy(file_path, _DirName, file_path_len + 1);
+    if (strlen(_DirName + strlen(mount->prefix))!=1){
+        file_path[file_path_len] = '/';
+        file_path[file_path_len + 1] = 0;
+        file_path_len++;
+    }
     for (size_t i = 0; i < ret; i++){
         if (ents[i].d_type==0){
-            memcpy(file_path+strlen(_DirName), ents[i].d_name, strlen(ents[i].d_name) + 1);
-            file_path[strlen(_DirName) + strlen(ents[i].d_name)] = 0;
+            memcpy(file_path+file_path_len, ents[i].d_name, strlen(ents[i].d_name) + 1);
             ents[i].d_size = luat_fs_fsize(file_path);
         }
     }

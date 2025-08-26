@@ -506,8 +506,11 @@ static uint8_t get_default_yhm27xx_pin(void)
 {
     char model[32] = {0};
     luat_hmeta_model_name(model);
-    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000G\0", model, 9) == 0) {
+    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000XB\0", model, 10) == 0) {
         return 152;
+    }
+    if (memcmp("Air8000G\0", model, 9) == 0) {
+        return 22;
     }
     return 0;
 }
@@ -622,11 +625,11 @@ static const rotable_Reg_t reg_pm[] =
     { "wakeupPin",      ROREG_FUNC(l_pm_wakeup_pin)},
     // yhm27xxx
     #ifdef LUAT_USE_YHM27XX
-    { "chgcmd",    ROREG_FUNC(l_pm_chgcmd)},
+    { "chgcmd",         ROREG_FUNC(l_pm_chgcmd)},
     //@const CHG_CMD_READWRITE number 读写寄存器
-    { "CHG_CMD_RW", ROREG_INT(YHM27XX_CMD_READWRITE)},
+    { "CHG_CMD_RW",     ROREG_INT(YHM27XX_CMD_READWRITE)},
     //@const CHG_CMD_REQINFO number 请求所有寄存器信息
-    { "CHG_CMD_REQINFO",   ROREG_INT(YHM27XX_CMD_REQINFO)},
+    { "CHG_CMD_REQINFO",ROREG_INT(YHM27XX_CMD_REQINFO)},
     #endif
 
     //@const NONE number 不休眠模式

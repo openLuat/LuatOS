@@ -3,7 +3,7 @@
 @summary “通过SPI接口外挂4G模组(Air780EHM/Air780EHV/Air780EGH/Air780EPM)的4G网卡”驱动模块
 @version 1.0
 @date    2025.07.27
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为 “通过SPI接口外挂4G模组(Air780EHM/Air780EHV/Air780EGH/Air780EPM)的4G网卡”驱动模块，核心业务逻辑为：
 1、初始化和外部4G网卡的配置（初始化AirLINK、配置桥接网络、配置SPI、静态配置IP地址/子网掩码/网关）；

@@ -3,7 +3,7 @@
 @summary 定时器应用功能模块
 @version 1.0
 @date    2025.07.01
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为定时器应用功能模块，核心业务逻辑为：
 创建一个5秒的循环定时器，每次产生一段数据，通知四个mqtt client进行处理；

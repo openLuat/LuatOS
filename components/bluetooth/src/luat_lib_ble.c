@@ -906,8 +906,8 @@ end_error:
 }
 
 /*
-开关监听
-@api ble.notify_enable(opts, value)
+开关通知监听
+@api ble.notify_enable(opts, enable)
 @table 特征值的描述信息
 @boolean enable 开/关 可选,默认开
 @return boolean 是否成功
@@ -968,6 +968,19 @@ end_error:
     return 0;
 }
 
+/*
+开关指示监听
+@api ble.indicate_enable(opts, enable)
+@table 特征值的描述信息
+@boolean enable 开/关 可选,默认开
+@return boolean 是否成功
+@usage
+-- 写入特征值,填充预设值,被动读取
+ble_device:indicate_enable({
+    uuid_service = "FA00", -- 服务的UUID, 可以是16位、32位或128位
+    uuid_characteristic = "EA01", -- 特征的UUID值, 可以是16位、32位或128位
+}, true) -- 开/关
+*/
 static int l_ble_indicate_enable(lua_State *L){
     uint16_t ret = 0;
     const char *service_uuid = NULL;

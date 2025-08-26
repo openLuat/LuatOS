@@ -16,7 +16,9 @@
 #define LUAT_PM_POWER_MODE_HIGH_PERFORMANCE (1)	///< 尽可能保持性能，兼顾低功耗，使用LUAT_PM_SLEEP_MODE_LIGHT
 #define LUAT_PM_POWER_MODE_BALANCED (2) ///< 性能和功耗平衡，使用LUAT_PM_SLEEP_MODE_LIGHT
 #define LUAT_PM_POWER_MODE_POWER_SAVER (3) ///< 超低功耗，使用LUAT_PM_SLEEP_MODE_STANDBY，进入PSM模式
-
+// 定义命令类型常量
+#define LUAT_PM_YHM27XX_CMD_READWRITE 0  // 读写单个寄存器
+#define LUAT_PM_YHM27XX_CMD_REQINFO   1  // 请求所有寄存器信息
 
 /**
  * @brief 开机原因
@@ -201,5 +203,18 @@ int luat_pm_get_last_req_mode(void);
  * @return uint32_t 0xffffffff失败，其他是剩余时间
  */
 uint32_t luat_pm_dtimer_remain(int id);
+/**
+ * @brief yhm27xx充电管理芯片命令接口
+ * @param pin yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+ * @param chip_id 芯片ID
+ * @param cmd_tyoe 命令类型(可选): 0-读写寄存器(默认), 1-请求所有寄存器信息
+ * @param reg_addr 读写寄存器地址，cmd_type=0时有效
+ * @param reg_data 要写入的数据，cmd_type=0时有效，若不传入则为读取操作
+ * @return boolean 成功返回true,失败返回false
+ * @return int 当cmd_type=0且为读取操作时返回寄存器值
+ */
+#ifdef LUAT_USE_YHM27XX
+int l_pm_chgcmd(lua_State *L);
+#endif
 /** @}*/
 #endif

@@ -73,9 +73,6 @@ extern uint32_t g_airlink_pause;
 #ifdef LUAT_USE_DRV_GPIO
 #include "luat/drv_gpio.h"
 #endif
-// 定义命令类型常量
-#define YHM27XX_CMD_READWRITE 0  // 读写单个寄存器
-#define YHM27XX_CMD_REQINFO   1  // 请求所有寄存器信息
 
 static uint8_t yhm27xx_reg_infos[9] = {0};
 #endif
@@ -506,7 +503,7 @@ static uint8_t get_default_yhm27xx_pin(void)
 {
     char model[32] = {0};
     luat_hmeta_model_name(model);
-    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000XB\0", model, 10) == 0) {
+    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
         return 152;
     }
     if (memcmp("Air8000G\0", model, 9) == 0) {
@@ -518,11 +515,11 @@ static uint8_t get_default_yhm27xx_pin(void)
 /**
 充电芯片命令控制
 @api    pm.chgcmd(pin, chip_id, cmd_type, reg, data)
-@int    gpio端口号(可选,若传入nil则根据模组型号自动选择)
+@int    yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
 @int    芯片ID
 @int    命令类型(可选): 0-读写寄存器(默认), 1-请求所有寄存器信息
-@int    寄存器地址(当cmd_type=0时需要)
-@int    要写入的数据(可选,当cmd_type=0且需要写入时提供, 如果没有提供, 则为读取操作)
+@int    读写寄存器地址，cmd_type=0 时有效
+@int    要写入的数据，cmd_type=0 时有效，若不传入则为读取操作
 @return boolean 成功返回true,失败返回false
 @return int 当cmd_type=0且为读取操作时返回寄存器值
 @usage
@@ -533,10 +530,10 @@ local ret = pm.chgcmd(pin, chip_id, 0, 0x01, 0x55)
 -- 请求所有寄存器信息
 local ret = pm.chgcmd(pin, chip_id, 1)
 */
-static int l_pm_chgcmd(lua_State *L)
+int l_pm_chgcmd(lua_State *L)
 {
     uint8_t pin = 0;
-    // 第一个参数可选，若不传入则根据模组型号自动选择
+    // 第一个参数可选，若传入nil则根据模组型号自动选择
     if (!lua_isnoneornil(L, 1))
     {
         pin = luaL_checkinteger(L, 1);
@@ -556,7 +553,7 @@ static int l_pm_chgcmd(lua_State *L)
         cmd_type = luaL_checkinteger(L, 3);
     }
 
-    if (cmd_type == YHM27XX_CMD_REQINFO)
+    if (cmd_type == LUAT_PM_YHM27XX_CMD_REQINFO)
     {
         // 请求所有寄存器信息
         #ifdef LUAT_USE_DRV_GPIO
@@ -626,10 +623,10 @@ static const rotable_Reg_t reg_pm[] =
     // yhm27xxx
     #ifdef LUAT_USE_YHM27XX
     { "chgcmd",         ROREG_FUNC(l_pm_chgcmd)},
-    //@const CHG_CMD_READWRITE number 读写寄存器
-    { "CHG_CMD_RW",     ROREG_INT(YHM27XX_CMD_READWRITE)},
-    //@const CHG_CMD_REQINFO number 请求所有寄存器信息
-    { "CHG_CMD_REQINFO",ROREG_INT(YHM27XX_CMD_REQINFO)},
+    //@const CHG_CMD_RW number yhm27xx读写寄存器
+    { "CHG_CMD_RW",     ROREG_INT(LUAT_PM_YHM27XX_CMD_READWRITE)},
+    //@const CHG_CMD_REQINFO number yhm27xx请求所有寄存器信息
+    { "CHG_CMD_REQINFO",ROREG_INT(LUAT_PM_YHM27XX_CMD_REQINFO)},
     #endif
 
     //@const NONE number 不休眠模式

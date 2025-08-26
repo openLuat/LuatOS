@@ -270,6 +270,19 @@ static int drv_ble_notify_enable(luat_drv_ble_msg_t *msg) {
     return ret;
 }
 
+static int drv_ble_indicate_enable(luat_drv_ble_msg_t *msg) {
+    // 从数据中解析出参数, 重新组装
+    luat_ble_rw_req_t write = {0};
+    uint16_t sizeof_write = 0;
+    uint8_t enable = 0;
+    memcpy(&sizeof_write, msg->data, 2);
+    memcpy(&write, msg->data + 2, sizeof(luat_ble_rw_req_t));
+    memcpy(&enable, msg->data + 2 + sizeof_write, 1);
+    int ret = luat_ble_indicate_enable(&write.service, &write.characteristic, enable);
+    LLOGD("ble indicate enable %d ret %d", enable, ret);
+    return ret;
+}
+
 static void drv_bt_task(void *param) {
     luat_drv_ble_msg_t *msg = NULL;
     LLOGD("bt task start ...");
@@ -384,6 +397,10 @@ static void drv_bt_task(void *param) {
                 // 通知使能
                 ret = drv_ble_notify_enable(msg);
                 LLOGD("ble notify enable ret %d", ret);
+                break;
+            case LUAT_DRV_BT_CMD_BLE_INDICATE_ENABLE:
+                ret = drv_ble_indicate_enable(msg);
+                LLOGD("ble indicate enable ret %d", ret);
                 break;
             default:
                 LLOGD("unknow bt cmd id %d", msg->cmd_id);

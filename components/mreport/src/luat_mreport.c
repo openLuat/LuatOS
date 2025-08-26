@@ -12,8 +12,9 @@
 #include "luat_adc.h"
 #include "luat_str.h"
 #include "cJSON.h"
+#include "luat_airlink.h"
 
-#define LUAT_LOG_TAG "netdrv.napt.mreport"
+#define LUAT_LOG_TAG "mreport"
 #include "luat_log.h"
 
 #define MREPORT_DOMAIN "47.94.236.172"
@@ -21,8 +22,11 @@
 // #define MREPORT_DOMAIN "112.125.89.8"
 // #define MREPORT_PORT (42919)
 
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 static struct udp_pcb* mreport_pcb;
 static luat_rtos_timer_t mreport_timer;
+const char *project_name = "unkonw";             // luatos项目名称
+const char *project_version = "";                   // luatos项目版本号
 
 static inline uint16_t u162bcd(uint16_t src) {
     uint8_t high = (src >> 8) & 0xFF;
@@ -70,9 +74,6 @@ void luat_mreport_mobile(cJSON* mreport_data) {
     // sdk固件类型 0:luatos 1:
     cJSON_AddNumberToObject(mreport_data, "sdk", 0);
 
-
-    // cJSON_AddStringToObject(mreport_data, "pver", "1.0.0");
-    // cJSON_AddStringToObject(mreport_data, "proj", "air8000_wifi");
 }
 
 // 网络信息
@@ -159,6 +160,38 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     cJSON_AddNumberToObject(mreport_data, "downlink", downlink);
 }
 
+// adc信息
+void luat_mreport_adc(cJSON* mreport_data) {
+    // adc-vbat
+    if (luat_adc_open(LUAT_ADC_CH_VBAT, NULL) == 0) {
+        int val = 0xFF;
+        int val2 = 0xFF;
+        if (luat_adc_read(LUAT_ADC_CH_VBAT, &val, &val2) == 0) {
+            cJSON_AddNumberToObject(mreport_data, "vbat", val2);
+        }
+        luat_adc_close(LUAT_ADC_CH_VBAT);
+    }
+    // adc-cpu
+    if (luat_adc_open(LUAT_ADC_CH_CPU, NULL) == 0) {
+        int val = 0xFF;
+        int val2 = 0xFF;
+        if (luat_adc_read(LUAT_ADC_CH_CPU, &val, &val2) == 0) {
+            cJSON_AddNumberToObject(mreport_data, "cputemp", val2);
+        }
+        luat_adc_close(LUAT_ADC_CH_CPU);
+    }
+}
+
+// wifi信息
+void luat_mreport_wifi(cJSON* mreport_data) {
+    // wifi版本
+    uint32_t wifi_version = 0;
+    if (g_airlink_ext_dev_info.tp == 0x01) {
+        memcpy(&wifi_version, g_airlink_ext_dev_info.wifi.version, 4);
+    }
+    cJSON_AddNumberToObject(mreport_data, "wifiver", wifi_version);
+}
+
 void luat_mreport_send(void) {
     ip_addr_t host = {0};
     int ret = 0;
@@ -198,11 +231,21 @@ void luat_mreport_send(void) {
 	time(&t);
     cJSON_AddNumberToObject(mreport_data, "localtime", t);
 
+    // luatos项目信息
+    cJSON_AddStringToObject(mreport_data, "proj", project_name);
+    cJSON_AddStringToObject(mreport_data, "pver", project_version);
+
     // 模组信息
     luat_mreport_mobile(mreport_data);
 
     // sim卡和网络相关
     luat_mreport_sim_network(mreport_data, netif);
+
+    // adc信息
+    luat_mreport_adc(mreport_data);
+
+    // wifi信息
+    luat_mreport_wifi(mreport_data);
 
     // rndis
     cJSON_AddNumberToObject(mreport_data, "rndis", 0);
@@ -210,25 +253,6 @@ void luat_mreport_send(void) {
     cJSON_AddNumberToObject(mreport_data, "usb", 1);
     // vbus
     cJSON_AddNumberToObject(mreport_data, "vbus", 1);
-    
-    // adc-vbat
-    if (luat_adc_open(LUAT_ADC_CH_VBAT, NULL) == 0) {
-        int val = 0xFF;
-        int val2 = 0xFF;
-        if (luat_adc_read(LUAT_ADC_CH_VBAT, &val, &val2) == 0) {
-            cJSON_AddNumberToObject(mreport_data, "vbat", val2);
-        }
-        luat_adc_close(LUAT_ADC_CH_VBAT);
-    }
-    // adc-cpu
-    if (luat_adc_open(LUAT_ADC_CH_CPU, NULL) == 0) {
-        int val = 0xFF;
-        int val2 = 0xFF;
-        if (luat_adc_read(LUAT_ADC_CH_CPU, &val, &val2) == 0) {
-            cJSON_AddNumberToObject(mreport_data, "cputemp", val2);
-        }
-        luat_adc_close(LUAT_ADC_CH_CPU);
-    }
 
     // 开机原因
     cJSON_AddNumberToObject(mreport_data, "powerreson", luat_pm_get_poweron_reason());
@@ -283,7 +307,6 @@ void luat_mreport_send(void) {
     pbuf_free(p);
     free(json);
     cJSON_Delete(mreport_data);
-    LLOGD("ret %d", ret);
     if (ret) {
         LLOGD("ret %d", ret);
     }
@@ -291,7 +314,7 @@ void luat_mreport_send(void) {
 
 static void mreport_timer_cb(void* params) {
     luat_mreport_send();
-    LLOGD("mreport定时器回调");
+    // LLOGD("mreport定时器回调");
 }
 
 void luat_mreport_start(void) {
@@ -316,17 +339,16 @@ void luat_mreport_stop(void) {
 }
 
 void luat_mreport_config(const char* config, int val) {
-    LLOGD("luat_netdrv_mreport %s %d", config, val);
+    LLOGD("luat_mreport_config %s %d", config, val);
     if (strcmp(config, "enable") == 0) {
         if (val == 0) {
             luat_mreport_stop();
         }
-        else if (val == 1){
+        else if (val == 1) {
             luat_mreport_start();
         }
-        else
-        {
-            LLOGE("luat_netdrv_mreport enable %d error", val);
+        else {
+            LLOGE("luat_mreport enable %d error", val);
         }
     }
 }
@@ -334,6 +356,18 @@ void luat_mreport_config(const char* config, int val) {
 int l_mreport_config(lua_State *L) {
     char* config = luaL_checkstring(L, 1);
     int value = lua_toboolean(L, 2);
+    lua_getglobal(L, "PROJECT");
+    size_t version_len, project_len;
+    if (LUA_TSTRING == lua_type(L, -1))
+    {
+    	project_name = luaL_tolstring(L, -1, &project_len);
+    }
+    lua_getglobal(L, "VERSION");
+    if (LUA_TSTRING == lua_type(L, -1))
+    {
+    	project_version = luaL_tolstring(L, -1, &version_len);
+    }
+
     luat_mreport_config(config, value);
     return 0;
 }

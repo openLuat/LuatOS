@@ -930,7 +930,7 @@ static int l_ble_notify_enable(lua_State *L){
         if (lua_isboolean(L, 3)) {
             enable = lua_toboolean(L, 3);
         }
-
+        
         lua_pushstring(L, "uuid_service");
         if (LUA_TSTRING == lua_gettable(L, 2)){
             service_uuid = luaL_checklstring(L, -1, &tmp);
@@ -967,6 +967,57 @@ end_error:
     LLOGE("error param");
     return 0;
 }
+
+static int l_ble_indicate_enable(lua_State *L){
+    uint16_t ret = 0;
+    const char *service_uuid = NULL;
+    const char *characteristic_uuid = NULL;
+    luat_ble_uuid_t service = {0};
+    luat_ble_uuid_t characteristic = {0};
+    size_t tmp = 0;
+    if (1){
+        uint8_t enable = 1;
+        if (lua_isboolean(L, 3)) {
+            enable = lua_toboolean(L, 3);
+        }
+        
+        lua_pushstring(L, "uuid_service");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            service_uuid = luaL_checklstring(L, -1, &tmp);
+            service.uuid_type = tmp;
+            memcpy(service.uuid, service_uuid, service.uuid_type);
+            // LLOGD("uuid_service: %02X %02X", service.uuid[0], service.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_service 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "uuid_characteristic");
+        if (LUA_TSTRING == lua_gettable(L, 2)){
+            characteristic_uuid = luaL_checklstring(L, -1, &tmp);
+            characteristic.uuid_type = tmp;
+            memcpy(characteristic.uuid, characteristic_uuid, characteristic.uuid_type);
+            // LLOGD("uuid_characteristic: %02X %02X", characteristic.uuid[0], characteristic.uuid[1]);
+        }
+        else{
+            LLOGW("缺失 uuid_characteristic 参数");
+            goto end_error;
+        }
+        lua_pop(L, 1);
+
+        ret = luat_ble_indicate_enable(&service, &characteristic, enable);
+        
+        // LLOGD("luat_ble_write_value ret %d", ret);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+        return 1;
+    }
+end_error:
+    LLOGE("error param");
+    return 0;
+}
+
 
 /*
 创建一个BLE扫描
@@ -1153,6 +1204,8 @@ static const rotable_Reg_t reg_ble[] = {
     {"read_value", ROREG_FUNC(l_ble_read_value)},
 
     {"notify_enable", ROREG_FUNC(l_ble_notify_enable)},
+    {"indicate_enable", ROREG_FUNC(l_ble_indicate_enable)},
+    
     // scanning
     {"scan_create", ROREG_FUNC(l_ble_scanning_create)},
     {"scan_start", ROREG_FUNC(l_ble_scanning_start)},

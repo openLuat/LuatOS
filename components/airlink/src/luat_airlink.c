@@ -553,6 +553,9 @@ int luat_airlink_has_wifi(void) {
     if (memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
         return 1;
     }
+    if (memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000DB\0", model, 10) == 0) {
+        return 1;
+    }
     return 0;
 }
 

@@ -487,11 +487,7 @@ static void luat_gpio_driver_yhm27xx_reqinfo(uint8_t pin, uint8_t chip_id)
 {
     for (uint8_t i = 0; i < 9; i++)
     {
-        #ifdef LUAT_USE_DRV_GPIO
-        luat_drv_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(yhm27xx_reg_infos[i]));
-        #else
         luat_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(yhm27xx_reg_infos[i]));
-        #endif
     }
     rtos_msg_t msg = {0};
     msg.handler = l_yhm_27xx_cb;
@@ -513,22 +509,19 @@ static uint8_t get_default_yhm27xx_pin(void)
 }
 
 /**
-充电芯片命令控制
-@api    pm.chgcmd(pin, chip_id, cmd_type, reg, data)
+单总线命令读写YHM27XX
+@api    pm.chgcmd(pin, chip_id, reg, data)
 @int    yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
 @int    芯片ID
-@int    命令类型(可选): 0-读写寄存器(默认), 1-请求所有寄存器信息
-@int    读写寄存器地址，cmd_type=0 时有效
-@int    要写入的数据，cmd_type=0 时有效，若不传入则为读取操作
+@int    读写寄存器地址
+@int    要写入的数据，如果没填，则表示从寄存器读取数据
 @return boolean 成功返回true,失败返回false
-@return int 当cmd_type=0且为读取操作时返回寄存器值
+@return int 读取成功返回寄存器值，写入成功无返回
 @usage
 -- 读取寄存器0x01的值
-local ret = pm.chgcmd(pin, chip_id, 0, 0x01)
+local ret = pm.chgcmd(pin, chip_id, 0x01)
 -- 写入寄存器0x01的值为0x55
-local ret = pm.chgcmd(pin, chip_id, 0, 0x01, 0x55)
--- 请求所有寄存器信息
-local ret = pm.chgcmd(pin, chip_id, 1)
+local ret = pm.chgcmd(pin, chip_id, 0x01, 0x55)
 */
 int l_pm_chgcmd(lua_State *L)
 {
@@ -545,59 +538,71 @@ int l_pm_chgcmd(lua_State *L)
     }
 
     uint8_t chip_id = luaL_checkinteger(L, 2);
-
-    // 命令类型，默认为0(读写寄存器)
-    uint8_t cmd_type = 0;
-    if (!lua_isnone(L, 3))
+    uint8_t reg = luaL_checkinteger(L, 3);
+    uint8_t data = 0;
+    uint8_t is_read = 1;
+    int ret = 0;
+    if (!lua_isnone(L, 4))
     {
-        cmd_type = luaL_checkinteger(L, 3);
+        is_read = 0;
+        data = luaL_checkinteger(L, 4);
     }
-
-    if (cmd_type == LUAT_PM_YHM27XX_CMD_REQINFO)
+    #ifdef LUAT_USE_DRV_GPIO
+    ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+    #else
+    ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+    #endif
+    if (ret != 0)
     {
-        // 请求所有寄存器信息
-        #ifdef LUAT_USE_DRV_GPIO
-        if (pin >= 128)
-        {
-            luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
-            lua_pushboolean(L, 1);
-            return 1;
-        }
-        #endif
-        luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
-        lua_pushboolean(L, 1);
+        lua_pushboolean(L, 0);
         return 1;
+    }
+    lua_pushboolean(L, 1);
+    if (is_read)
+    {
+        lua_pushinteger(L, data);
+        return 2;
+    }
+    return 1;
+}
+
+/*
+获取最新的寄存器信息(异步)
+@api    pm.chginfo(pin, chip_id)
+@int    yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+@int    芯片ID
+@return nil 无返回值
+@usage
+sys.subscribe("YHM27XX_REG", function(data)
+    -- 注意, 会一次性读出0-9,总共8个寄存器值
+    log.info("yhm27xx", data and data:toHex())
+end)
+yhm27xx.reqinfo(24, 0x04)
+*/
+int l_pm_chginfo(lua_State *L)
+{
+    uint8_t pin = 0;
+    // 第一个参数可选，若传入nil则根据模组型号自动选择
+    if (!lua_isnoneornil(L, 1))
+    {
+        pin = luaL_checkinteger(L, 1);
     }
     else
     {
-        // 读写单个寄存器
-        uint8_t reg = luaL_checkinteger(L, 4);
-        uint8_t data = 0;
-        uint8_t is_read = 1;
-        int ret = 0;
-        if (!lua_isnone(L, 5))
-        {
-            is_read = 0;
-            data = luaL_checkinteger(L, 5);
-        }
-        #ifdef LUAT_USE_DRV_GPIO
-        ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
-        #else
-        ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
-        #endif
-        if (ret != 0)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-        lua_pushboolean(L, 1);
-        if (is_read)
-        {
-            lua_pushinteger(L, data);
-            return 2;
-        }
-        return 1;
+        // 根据模组型号设置默认值
+        pin = get_default_yhm27xx_pin();
     }
+
+    uint8_t chip_id = luaL_checkinteger(L, 2);
+    #ifdef LUAT_USE_DRV_GPIO
+    if (pin >= 128)
+    {
+        luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+        return 0;
+    }
+    #endif
+    luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+    return 0;
 }
 #endif
 
@@ -620,13 +625,10 @@ static const rotable_Reg_t reg_pm[] =
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
     { "ioVol",          ROREG_FUNC(l_pm_iovolt_ctrl)},
     { "wakeupPin",      ROREG_FUNC(l_pm_wakeup_pin)},
-    // yhm27xxx
+    // yhm27xx
     #ifdef LUAT_USE_YHM27XX
     { "chgcmd",         ROREG_FUNC(l_pm_chgcmd)},
-    //@const CHG_CMD_RW number yhm27xx读写寄存器
-    { "CHG_CMD_RW",     ROREG_INT(LUAT_PM_YHM27XX_CMD_READWRITE)},
-    //@const CHG_CMD_REQINFO number yhm27xx请求所有寄存器信息
-    { "CHG_CMD_REQINFO",ROREG_INT(LUAT_PM_YHM27XX_CMD_REQINFO)},
+    { "chginfo",        ROREG_FUNC(l_pm_chginfo)},
     #endif
 
     //@const NONE number 不休眠模式

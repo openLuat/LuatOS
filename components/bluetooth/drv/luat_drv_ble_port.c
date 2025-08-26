@@ -676,7 +676,7 @@ int luat_ble_notify_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_
 
 int luat_ble_indicate_enable(luat_ble_uuid_t* uuid_service, luat_ble_uuid_t* uuid_characteristic, uint8_t enable) {
     LLOGD("执行luat_ble_indicate_enable %d", enable);
-    if (get_ble_version() < 16) {
+    if (get_ble_version() < 15) {
         LLOGE("ble:indicate_enable not support, ble version is %d", get_ble_version());
         return -1;
     }

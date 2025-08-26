@@ -28,7 +28,8 @@ local connection_states = {
     DISCONNECTED = 0,
     CONNECTING = 1,
     CONNECTED = 2,
-    OPENED = 3
+    OPENED = 3,
+    SINGLE_NETWORK=4
 }
 
 -- 状态回调函数
@@ -96,7 +97,11 @@ local function setup_eth(config)
         ping_time = config.ping_time
     end
     log.info("初始化以太网")
-    available[socket.LWIP_ETH] = connection_states.OPENED
+    if not config.single_network then
+        available[socket.LWIP_ETH] = connection_states.OPENED
+    else
+        available[socket.LWIP_ETH] = connection_states.SINGLE_NETWORK
+    end
     -- 打开CH390供电
     if config.pwrpin then
         gpio.setup(config.pwrpin, 1, gpio.PULLUP)
@@ -158,7 +163,11 @@ local function setup_eth_user1(config)
         ping_time = config.ping_time
     end
     log.info("初始化以太网")
-    available[socket.LWIP_USER1] = connection_states.OPENED
+    if not config.single_network then
+        available[socket.LWIP_USER1] = connection_states.OPENED
+    else
+        available[socket.LWIP_USER1] = connection_states.SINGLE_NETWORK
+    end
     -- 打开CH390供电
     if config.pwrpin then
         gpio.setup(config.pwrpin, 1, gpio.PULLUP)        
@@ -213,7 +222,11 @@ local function set_wifi_info(config)
     log.info("密码     :", config.password)
     log.info("ping_ip  :", config.ping_ip)
     wlan.init()
-    available[socket.LWIP_STA] = connection_states.OPENED
+    if not config.single_network then
+        available[socket.LWIP_STA] = connection_states.OPENED
+    else
+        available[socket.LWIP_STA] = connection_states.SINGLE_NETWORK
+    end
     -- 尝试连接Wi-Fi，并处理可能出现的错误
     local success = wlan.connect(config.ssid, config.password)
     if not success then
@@ -230,6 +243,7 @@ end
 @table 网络优先级列表,优先级从高到低对应table中的第一个参数到最后一个参数
 @return boolean 成功返回true，失败返回false
 @usage
+多网优先级模式：
 exnetif.set_priority_order({
     { -- 最高优先级网络
         WIFI = { -- WiFi配置
@@ -278,11 +292,33 @@ exnetif.set_priority_order({
         LWIP_GP = true  -- 启用4G网络
     }
 })
+单网络模式：
+-- 单网络模式下只使用WIFI网络
+    exnetif.set_priority_order({
+        { -- 单网络，打开wifi
+            WIFI = { -- WiFi配置
+                ssid = "test",       -- WiFi名称(string)
+                password = "HZ88888888",    -- WiFi密码(string)
+                single_network = true,    -- 是否单网络模式, 默认false, 单网络模式下只使用WIFI网络
+            }
+        }
+    })
+-- 单网络模式下只使用以太网网络
+    exnetif.set_priority_order({
+        {
+            ETHERNET = { -- 以太网配置
+                pwrpin = 140, -- 供电使能引脚(number)
+                tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+                opts = {spi = 1, cs = 12}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+                single_network = true -- 是否单网络模式, 默认false, 单网络模式下只使用以太网
+            }
+        }
+    })
 ]]
 function exnetif.set_priority_order(networkConfigs)
     --判断表中数据个数
-    if #networkConfigs <2 then
-        log.error("请至少添加两个网络")
+    if #networkConfigs <1 then
+        log.error("网络配置为空")
         return false
     end
     local new_priority = {}

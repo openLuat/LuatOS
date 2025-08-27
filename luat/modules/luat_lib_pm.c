@@ -53,6 +53,7 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 #include "luat_base.h"
 #include "luat_pm.h"
 #include "luat_msgbus.h"
+#include "luat_hmeta.h"
 
 #define LUAT_LOG_TAG "pm"
 #include "luat_log.h"
@@ -63,6 +64,20 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 
 extern uint32_t g_airlink_pause;
 #endif
+
+#ifdef LUAT_USE_YHM27XX
+#include "luat_gpio.h"
+#include "luat_zbuff.h"
+#include "luat_msgbus.h"
+#include "luat_gpio.h"
+#ifdef LUAT_USE_DRV_GPIO
+#include "luat/drv_gpio.h"
+#endif
+
+static uint8_t yhm27xx_reg_infos[9] = {0};
+#endif
+
+
 
 // static int lua_event_cb = 0;
 /*
@@ -444,6 +459,153 @@ static int l_pm_wakeup_pin(lua_State *L) {
     return 1;
 }
 
+// yhm27xx
+#ifdef LUAT_USE_YHM27XX
+/* 
+@sys_pub pm 
+YHM27XX芯片寄存器信息更新回调
+YHM27XX_REG
+@usage 
+sys.subscribe("YHM27XX_REG", function(data)
+    -- 注意, 会一次性读出0-9,总共8个寄存器值
+    log.info("yhm27xx", data and data:toHex())
+end)
+*/
+static int l_yhm_27xx_cb(lua_State *L, void *ptr)
+{
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1))
+    {
+        lua_pushstring(L, "YHM27XX_REG");
+        lua_pushlstring(L, (const char *)yhm27xx_reg_infos, 9);
+        lua_call(L, 2, 0);
+    }
+    return 0;
+}
+
+static void luat_gpio_driver_yhm27xx_reqinfo(uint8_t pin, uint8_t chip_id)
+{
+    for (uint8_t i = 0; i < 9; i++)
+    {
+        luat_gpio_driver_yhm27xx(pin, chip_id, i, 1, &(yhm27xx_reg_infos[i]));
+    }
+    rtos_msg_t msg = {0};
+    msg.handler = l_yhm_27xx_cb;
+    luat_msgbus_put(&msg, 0);
+}
+
+// 根据模组型号匹配YHM27XX引脚
+static uint8_t get_default_yhm27xx_pin(void)
+{
+    char model[32] = {0};
+    luat_hmeta_model_name(model);
+    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
+        return 152;
+    }
+    if (memcmp("Air8000G\0", model, 9) == 0) {
+        return 22;
+    }
+    return 0;
+}
+
+/**
+单总线命令读写YHM27XX
+@api    pm.chgcmd(pin, chip_id, reg, data)
+@int    yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+@int    芯片ID
+@int    读写寄存器地址
+@int    要写入的数据，如果没填，则表示从寄存器读取数据
+@return boolean 成功返回true,失败返回false
+@return int 读取成功返回寄存器值，写入成功无返回
+@usage
+-- 读取寄存器0x01的值
+local ret = pm.chgcmd(pin, chip_id, 0x01)
+-- 写入寄存器0x01的值为0x55
+local ret = pm.chgcmd(pin, chip_id, 0x01, 0x55)
+*/
+int l_pm_chgcmd(lua_State *L)
+{
+    uint8_t pin = 0;
+    // 第一个参数可选，若传入nil则根据模组型号自动选择
+    if (!lua_isnoneornil(L, 1))
+    {
+        pin = luaL_checkinteger(L, 1);
+    }
+    else
+    {
+        // 根据模组型号设置默认值
+        pin = get_default_yhm27xx_pin();
+    }
+
+    uint8_t chip_id = luaL_checkinteger(L, 2);
+    uint8_t reg = luaL_checkinteger(L, 3);
+    uint8_t data = 0;
+    uint8_t is_read = 1;
+    int ret = 0;
+    if (!lua_isnone(L, 4))
+    {
+        is_read = 0;
+        data = luaL_checkinteger(L, 4);
+    }
+    #ifdef LUAT_USE_DRV_GPIO
+    ret = luat_drv_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+    #else
+    ret = luat_gpio_driver_yhm27xx(pin, chip_id, reg, is_read, &data);
+    #endif
+    if (ret != 0)
+    {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    lua_pushboolean(L, 1);
+    if (is_read)
+    {
+        lua_pushinteger(L, data);
+        return 2;
+    }
+    return 1;
+}
+
+/*
+获取最新的寄存器信息(异步)
+@api    pm.chginfo(pin, chip_id)
+@int    yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+@int    芯片ID
+@return nil 无返回值
+@usage
+sys.subscribe("YHM27XX_REG", function(data)
+    -- 注意, 会一次性读出0-9,总共8个寄存器值
+    log.info("yhm27xx", data and data:toHex())
+end)
+yhm27xx.reqinfo(24, 0x04)
+*/
+int l_pm_chginfo(lua_State *L)
+{
+    uint8_t pin = 0;
+    // 第一个参数可选，若传入nil则根据模组型号自动选择
+    if (!lua_isnoneornil(L, 1))
+    {
+        pin = luaL_checkinteger(L, 1);
+    }
+    else
+    {
+        // 根据模组型号设置默认值
+        pin = get_default_yhm27xx_pin();
+    }
+
+    uint8_t chip_id = luaL_checkinteger(L, 2);
+    #ifdef LUAT_USE_DRV_GPIO
+    if (pin >= 128)
+    {
+        luat_drv_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+        return 0;
+    }
+    #endif
+    luat_gpio_driver_yhm27xx_reqinfo(pin, chip_id);
+    return 0;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pm[] =
 {
@@ -463,7 +625,11 @@ static const rotable_Reg_t reg_pm[] =
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
     { "ioVol",          ROREG_FUNC(l_pm_iovolt_ctrl)},
     { "wakeupPin",      ROREG_FUNC(l_pm_wakeup_pin)},
-
+    // yhm27xx
+    #ifdef LUAT_USE_YHM27XX
+    { "chgcmd",         ROREG_FUNC(l_pm_chgcmd)},
+    { "chginfo",        ROREG_FUNC(l_pm_chginfo)},
+    #endif
 
     //@const NONE number 不休眠模式
     { "NONE",           ROREG_INT(LUAT_PM_SLEEP_MODE_NONE)},

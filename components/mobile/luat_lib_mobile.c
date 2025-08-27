@@ -1256,10 +1256,10 @@ LUAMOD_API int luaopen_mobile( lua_State *L ) {
 }
 
 static int l_mobile_event_handle(lua_State* L, void* ptr) {
-    LUAT_MOBILE_EVENT_E event;
-    uint8_t index;
-    uint8_t status;
-    // int ret;
+    LUAT_MOBILE_EVENT_E event = {0};
+    uint8_t index = 0;
+    uint8_t status = 0;
+    int ret = 0;
 
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -1388,7 +1388,7 @@ end)
             luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
             #ifdef LUAT_USE_LWIP
 	        ipv6.type = 0xff;
-	        int ret = network_get_full_local_ip_info(NULL, NW_ADAPTER_INDEX_LWIP_GPRS, &local_ip, &net_mask, &gate_way, &ipv6);
+	        ret = network_get_full_local_ip_info(NULL, NW_ADAPTER_INDEX_LWIP_GPRS, &local_ip, &net_mask, &gate_way, &ipv6);
             #else
 	        void* userdata = NULL;
 	        network_adapter_info* info = network_adapter_fetch(NW_ADAPTER_INDEX_LWIP_GPRS, &userdata);

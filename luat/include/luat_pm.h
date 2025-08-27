@@ -17,7 +17,6 @@
 #define LUAT_PM_POWER_MODE_BALANCED (2) ///< 性能和功耗平衡，使用LUAT_PM_SLEEP_MODE_LIGHT
 #define LUAT_PM_POWER_MODE_POWER_SAVER (3) ///< 超低功耗，使用LUAT_PM_SLEEP_MODE_STANDBY，进入PSM模式
 
-
 /**
  * @brief 开机原因
  */
@@ -201,5 +200,25 @@ int luat_pm_get_last_req_mode(void);
  * @return uint32_t 0xffffffff失败，其他是剩余时间
  */
 uint32_t luat_pm_dtimer_remain(int id);
+
+#ifdef LUAT_USE_YHM27XX
+/**
+ * @brief 单总线命令读写YHM27XX
+ * @param pin yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+ * @param chip_id 芯片ID
+ * @param reg_addr 读写寄存器地址
+ * @param reg_data 要写入的数据，如果没填，则表示从寄存器读取数据
+ * @return boolean 成功返回true,失败返回false
+ * @return int 读取成功返回寄存器值，写入成功无返回
+ */
+int l_pm_chgcmd(lua_State *L);
+/**
+ * @brief 获取最新的寄存器信息(异步)
+ * @param pin yhm27xx_CMD引脚(可选,若传入nil则根据模组型号自动选择)
+ * @param chip_id 芯片ID
+ * @return nil 无返回值
+ */
+int l_pm_chginfo(lua_State *L);
+#endif
 /** @}*/
 #endif

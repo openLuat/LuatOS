@@ -10,6 +10,7 @@
 -- 请查阅demo/yhm27xx
 */
 
+#include "luat_pm.h"
 #include "luat_base.h"
 #include "luat_timer.h"
 #include "luat_mem.h"
@@ -124,10 +125,11 @@ static int l_yhm27xx_reqinfo(lua_State *L)
   return 0;
 }
 
+#ifdef LUAT_USE_YHM27XX
 #include "rotable2.h"
 static const rotable_Reg_t reg_yhm27xx[] = {
-        {"cmd",     ROREG_FUNC(l_yhm27xx_cmd)},
-        {"reqinfo", ROREG_FUNC(l_yhm27xx_reqinfo)},
+        {"cmd",     ROREG_FUNC(l_pm_chgcmd)},
+        {"reqinfo", ROREG_FUNC(l_pm_chginfo)},
         {NULL,          ROREG_INT(0)}
 };
 
@@ -136,3 +138,4 @@ LUAMOD_API int luaopen_yhm27xx(lua_State *L)
   luat_newlib2(L, reg_yhm27xx);
   return 1;
 }
+#endif

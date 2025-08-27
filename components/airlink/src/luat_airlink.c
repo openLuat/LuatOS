@@ -310,8 +310,8 @@ void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len) {
 }
 
 void luat_airlink_hexdump(const char* tag, uint8_t* buff, uint16_t len) {
-    if (len > 256) {
-        len = 256;
+    if (len > 500) {
+        len = 500;
     }
     uint8_t* tmp = luat_heap_opt_zalloc(AIRLINK_MEM_TYPE, len * 2 + 1);
     if (tmp == NULL) {

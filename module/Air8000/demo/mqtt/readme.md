@@ -1,3 +1,8 @@
+## 总体设计框图
+![](https://docs.openluat.com/air8000/luatos/app/socket/mqtt/image/block_diagram.png)
+
+
+
 ## 功能模块介绍
 
 1、main.lua：主程序入口；

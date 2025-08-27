@@ -1,14 +1,14 @@
 
 -- netlab.luatos.com上打开TCP 有测试服务器
 local server_ip = "112.125.89.8"
-local server_port = 47523
+local server_port = 43667
 local is_udp = false --用户根据自己实际情况选择
 
 --是UDP服务器就赋值为true，是TCP服务器就赋值为flase
 --UDP服务器比TCP服务器功耗低
 --如果用户对数据的丢包率有极为苛刻的要求，最好选择TCP
 
-local Heartbeat_interval = 5 -- 发送数据的间隔时间，单位分钟
+local Heartbeat_interval = 1 -- 发送数据的间隔时间，单位分钟
 
 -- 数据内容  
 local heart_data = string.rep("1234567890", 10)
@@ -79,8 +79,9 @@ function socketDemo()
      --进入低功耗长连接模式
     pm.power(pm.WORK_MODE, 1)
 
+    -- pm.dtimerStart(0, 120 * 1000)
     sys.taskInit(socketTask)
-
+    pm.dtimerStart(0, 120 * 1000)
 end
 
 sys.taskInit(socketDemo)

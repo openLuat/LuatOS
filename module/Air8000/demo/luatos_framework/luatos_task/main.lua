@@ -63,7 +63,7 @@ end
 -- end, 3000)
 
 -- 加载“task调度”演示功能模块
--- require "scheduling"
+require "scheduling"
 
 -- 加载“task访问共享资源”演示功能模块
 -- require "shared_resource"
@@ -102,7 +102,7 @@ end
 -- require "timer"
 
 -- 加载“task内外部运行环境典型错误”演示功能模块
-require "task_inout_env_err"
+-- require "task_inout_env_err"
 
 
 -- 用户代码已结束---------------------------------------------

@@ -19,7 +19,7 @@ end
 
 local function loop_timer_cbfunc()
     log.info("loop_timer_cbfunc")
-    sysplus.waitMsg("SEND_MSG_TASK", "UNKNOWN_MSG", 1000)
+    sys.waitMsg("SEND_MSG_TASK", "UNKNOWN_MSG", 1000)
 end
 
 local function send_targeted_msg_task_func()
@@ -33,5 +33,5 @@ end
 -- task的任务处理函数为send_targeted_msg_task_func
 -- task的名称为SEND_TASK_NAME
 -- 运行这个task的任务处理函数send_targeted_msg_task_func
-sysplus.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")
+sys.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")
 sys.timerLoopStart(loop_timer_cbfunc, 1000)

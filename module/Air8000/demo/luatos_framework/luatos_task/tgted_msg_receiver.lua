@@ -10,7 +10,7 @@ local function mqtt_client_main_task_func()
     -- 连接、断开连接、订阅、取消订阅、异常等各种事件的处理调度逻辑
     while true do
         -- 等待"MQTT_EVENT"消息
-        msg = sysplus.waitMsg(TASK_NAME, "MQTT_EVENT")
+        msg = sys.waitMsg(TASK_NAME, "MQTT_EVENT")
         log.info("mqtt_client_main_task_func waitMsg", msg[2], msg[3], msg[4])
 
         -- connect连接结果
@@ -68,7 +68,7 @@ local function send_non_targeted_msg_task_func()
         -- 向TASK_NAME这个任务发送一条消息
         -- 消息名称为"UNKNOWN_EVENT"
         -- 消息携带一个number类型的参数count
-        sysplus.sendMsg(TASK_NAME, "UNKNOWN_EVENT", count)
+        sys.sendMsg(TASK_NAME, "UNKNOWN_EVENT", count)
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -84,7 +84,7 @@ local function send_targeted_msg_task_func()
         -- 第一个参数为"CONNECT"
         -- 第二个参数为true
         -- 这条消息的意思是MQTT连接成功
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -96,7 +96,7 @@ local function send_targeted_msg_task_func()
         -- 第二个参数为true
         -- 第三个参数为0
         -- 这条消息的意思是MQTT订阅成功，qos为0
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", true, 0)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", true, 0)
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -105,7 +105,7 @@ local function send_targeted_msg_task_func()
         -- 消息名称为"MQTT_EVENT"
         -- 消息携带一个参数"DISCONNECTED"
         -- 这条消息的意思是MQTT连接被动断开
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -117,7 +117,7 @@ end
 -- task的名称为TASK_NAME变量的值"MQTT_CLINET_MAIN"
 -- task的非目标消息回调函数为mqtt_client_main_cbfunc
 -- 运行这个task的任务处理函数mqtt_client_main_task_func
-sysplus.taskInitEx(mqtt_client_main_task_func, TASK_NAME, mqtt_client_main_cbfunc)
+sys.taskInitEx(mqtt_client_main_task_func, TASK_NAME, mqtt_client_main_cbfunc)
 
 
 -- 创建并且启动一个基础task
@@ -128,4 +128,4 @@ sys.taskInit(send_non_targeted_msg_task_func)
 -- task的任务处理函数为send_targeted_msg_task_func
 -- task的名称为SEND_TASK_NAME
 -- 运行这个task的任务处理函数send_targeted_msg_task_func
-sysplus.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")
+sys.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")

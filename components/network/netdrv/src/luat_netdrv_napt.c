@@ -25,7 +25,7 @@
 
 #define ICMP_MAP_SIZE (32)
 #define UDP_MAP_TIMEOUT (60 * 1000)
-
+#define NAPT_MAX_PACKET_SIZE (1520)
 /* napt icmp id range: 3000-65535 */
 #define NAPT_ICMP_ID_RANGE_START     0xBB8
 #define NAPT_ICMP_ID_RANGE_END       0xFFFF
@@ -180,7 +180,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, siz
 static uint8_t* napt_buff;
 err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     size_t len = p->tot_len;
-    if (len > 1500 || len < 24) {
+    if (len > NAPT_MAX_PACKET_SIZE || len < 24) {
         return 1;
     }
     if (napt_buff == NULL) {
@@ -198,7 +198,7 @@ err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
 
 // 辅助函数
 int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
-    if (p == NULL || p->tot_len > 1500) {
+    if (p == NULL || p->tot_len > NAPT_MAX_PACKET_SIZE) {
         return 0;
     }
     // LLOGD("pbuf情况 total %d len %d", p->tot_len, p->len);

@@ -82,7 +82,7 @@ sm2算法加密
 @string 公钥y,必选. HEX字符串
 @string 待计算的数据,必选,最长32字节, 非HEX字符串
 @boolean 输出模式,默认false. false-GMSSL默认格式DER, true-网站兼容模式
-@boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际
+@boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际. 仅"网站兼容模式"时有效
 @return string 加密后的字符串, 原样输出,未经HEX转换. 若加密失败会返回nil或空字符串
 @usage
 -- 提示 mode/mode2 参数是 2023.10.17 新增
@@ -674,6 +674,46 @@ static int l_sm2_verify(lua_State *L)
     return 1;
 }
 
+/*
+SM2密钥生成
+@api sm.sm2keygen()
+@return string 公钥X, HEX字符串
+@return string 公钥Y, HEX字符串
+@return string 私钥, HEX字符串
+@usage
+-- 本函数于2025.8.27新增
+-- 注意返回值是HEX字符串, 传递给sm2系列函数可以直接使用
+-- 如果传递给服务器, 按格式需要, 可能需要 fromHex 操作
+local pkx, pky, private = gmssl.sm2keygen()
+local originStr = "32wrniosadnfvnadsio;fasiow"
+local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
+log.info("sm2默认模式", "加密后", encodeStr and  string.toHex(encodeStr))
+if encodeStr then
+    log.info("sm2默认模式", "解密后", gmssl.sm2decrypt(private,encodeStr))
+end
+
+-- 提醒, 生成的密钥对请妥善保管
+-- 一定要看 gmssl.sm2encrypt 的文档和demo
+*/
+static int l_sm2_keygen(lua_State *L)
+{
+    int ret = 0;
+    SM2_SIGN_CTX ctx = {0};
+    ret = sm2_key_generate(&ctx.key);
+    if (ret != 1) {
+        LLOGW("sm2_keygen %d", ret);
+        return 0;
+    }
+    char tmp[128] = {0};
+    luat_str_tohex((const char*)ctx.key.public_key.x, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)ctx.key.public_key.y, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    luat_str_tohex((const char*)ctx.key.private_key, 32, tmp);
+    lua_pushlstring(L, tmp, 64);
+    return 3;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
@@ -686,6 +726,7 @@ static const rotable_Reg_t reg_gmssl[] =
     { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},
     { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
     { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
+    { "sm2keygen",       ROREG_FUNC(l_sm2_keygen)},
 
 	{ NULL,             ROREG_INT(0) }
 };

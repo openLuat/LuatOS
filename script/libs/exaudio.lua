@@ -71,6 +71,13 @@ end
 local function audio_setup()
     local result,data
     sys.wait(100)
+    
+    if audio_setup_param.pa_ctrl >128 then
+        gpio.setup(audio_setup_param.pa_ctrl, 1, gpio.PULLUP)            -- 打开es8311 的电源脚
+    end
+    if audio_setup_param.dac_ctrl >128 then
+        gpio.setup(audio_setup_param.dac_ctrl, 1, gpio.PULLUP)
+    end
 
     i2c.setup(audio_setup_param.i2c_id,i2c.FAST)
     
@@ -86,7 +93,7 @@ local function audio_setup()
     audio.micVol(multimedia_id, mic_vol)
 
     sys.wait(100)
-    audio.on(audio_setup_param, audio_callback)
+    audio.on(multimedia_id, audio_callback)
     return result
 end
 
@@ -94,10 +101,6 @@ end
 
 
 function exaudio.setup(audioConfigs)
-    if #audioConfigs <1 then
-        log.error("音频配置为空")
-        return false
-    end
     if audioConfigs.model == nil  and (audioConfigs.model ~= "es8311"  or audioConfigs.model ~= "es8211") then   -- codec 名称必现写
         log.error("没有填写codec 名称,或者不是es8311,es8211")
         return false      
@@ -105,8 +108,8 @@ function exaudio.setup(audioConfigs)
         audio_setup_param.model = audioConfigs.model
     end
 
-    if model  == "es8311"  then
-        if  ( audioConfigs.i2c_id == nil  or type(audioConfigs.i2c_id) ~= "int"  )then   
+    if audioConfigs.model  == "es8311"  then
+        if  ( audioConfigs.i2c_id == nil  or type(audioConfigs.i2c_id) ~= "number"  )then   
              -- 如果是8311 ，则必须写出i2c 地址
             log.error("当前使用8311 codec, 但没有填写i2c id")
             return false
@@ -115,7 +118,7 @@ function exaudio.setup(audioConfigs)
         end
     end
 
-    if audioConfigs.pa_ctrl == nil then   -- pa_ctrl 必须填写
+    if audioConfigs.pa_ctrl == nil then   -- pa_ctrl PA 的控制管脚必须填写
         log.error("pa 控制为空")
         return false
     else
@@ -123,28 +126,28 @@ function exaudio.setup(audioConfigs)
     end
 
 
-    if audioConfigs.dac_ctrl ~= nil  and type(audioConfigs.dac_ctrl) == "int" then   -- pa_ctrl 必现填写
+    if audioConfigs.dac_ctrl ~= nil  and type(audioConfigs.dac_ctrl) == "number" then   -- 编解码芯片控制管脚不需要必填
         audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
     end
 
-    if audioConfigs.dac_delay ~= nil  and type(audioConfigs.dac_delay) == "int" then   -- pa_ctrl 必现填写
+    if audioConfigs.dac_delay ~= nil  and type(audioConfigs.dac_delay) == "number" then   -- 在DAC启动前插入的冗余时间 ，非必填
         audio_setup_param.dac_delay = audioConfigs.dac_delay
     end
 
-    if audioConfigs.pa_delay ~= nil  and type(audioConfigs.pa_delay) == "int" then   -- pa_ctrl 必现填写
+    if audioConfigs.pa_delay ~= nil  and type(audioConfigs.pa_delay) == "number" then   -- 在DAC启动后，延迟多长时间打开PA ，非必填
         audio_setup_param.pa_delay = audioConfigs.padelay
     end
 
 
-    if audioConfigs.dac_time_delay ~= nil  and type(audioConfigs.dac_time_delay) == "int" then  
+    if audioConfigs.dac_time_delay ~= nil  and type(audioConfigs.dac_time_delay) == "number" then   
         audio_setup_param.dac_time_delay = audioConfigs.dac_time_delay
     end
 
-    if audioConfigs.bits_per_sample ~= nil  and type(audioConfigs.bits_per_sample) == "int" then   
+    if audioConfigs.bits_per_sample ~= nil  and type(audioConfigs.bits_per_sample) == "number" then   
         audio_setup_param.bits_per_sample = audioConfigs.bits_per_sample
     end
     
-    if audioConfigs.pa_on_level ~= nil  and type(audioConfigs.pa_on_level) == "int" then  
+    if audioConfigs.pa_on_level ~= nil  and type(audioConfigs.pa_on_level) == "number" then  
         audio_setup_param.pa_on_level = audioConfigs.pa_on_level
     end
 
@@ -152,14 +155,14 @@ function exaudio.setup(audioConfigs)
 end
 
 function exaudio.play_start(playConfigs)
-    if playConfigs.type == nil  and type(playConfigs.type)  ~= "int" then   
+    if playConfigs.type == nil  and type(playConfigs.type)  ~= "number" then   
         log.error("type 必须填写,也必须为数值,0:播放文件,1: 播放TTS,2:流式播放")
         return false      
     else
         audio_play_param.type = playConfigs.type
     end
 
-    if playConfigs.priority ~= nil and type(playConfigs.priority) == "int" then  -- 如果当前的播放优先级比历史优先级高，则停止之前的播放
+    if playConfigs.priority ~= nil and type(playConfigs.priority) == "number" then  -- 如果当前的播放优先级比历史优先级高，则停止之前的播放
         if playConfigs.priority >= audio_play_param.priority then   
             audio.stop(multimedia_id)
             sys.wait(100)
@@ -200,11 +203,11 @@ function exaudio.play_start(playConfigs)
             log.error("当type 为2 时,则表示流式播放,playConfigs.content 必须为function 类型")
             return false    
         end
-        if playConfigs.sampling_Rate == nil or type(playConfigs.sampling_Rate) ~= "int"  then
+        if playConfigs.sampling_Rate == nil or type(playConfigs.sampling_Rate) ~= "number"  then
             log.error("当type 为2 时,则表示流式播放,sampling_Rate(采样率)必须为int 类型")
             return false    
         end
-        if playConfigs.sampling_Depth == nil or type(playConfigs.sampling_Depth) ~= "int"  then
+        if playConfigs.sampling_Depth == nil or type(playConfigs.sampling_Depth) ~= "number"  then
             log.error("当type 为2 时,则表示流式播放,sampling_Depth(采样位深)必须为int 类型")
             return false    
         end
@@ -218,8 +221,6 @@ function exaudio.play_start(playConfigs)
     if audio_play_param.cbFnc ~= nil and type(audio_play_param.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
         audio_play_param.cbFnc = playConfigs.cbFnc
     end
-
-
     
 end
 

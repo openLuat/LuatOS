@@ -30,11 +30,7 @@ FILE* luat_vfs_inline_fopen(void* userdata, const char *filename, const char *mo
     file = luat_inline2_libs_source;
 #else
 #ifdef LUAT_CONF_VM_64bit
-    #if defined(LUA_USE_LINUX) || (defined(LUA_USE_WINDOWS) && defined(__XMAKE_BUILD__))
-    file = luat_inline2_libs_64bit_size64;
-    #else
     file = luat_inline2_libs_64bit_size32;
-    #endif
 #else
     file = luat_inline2_libs;
 #endif

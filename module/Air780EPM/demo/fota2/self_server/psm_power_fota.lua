@@ -60,7 +60,7 @@ end
 
 -- 使用合宙iot平台进行升级, 支持自定义参数, 也可以不配置，如果要配置参数可以参考此链接https://docs.openluat.com/osapi/ext/libfota2/
 local opts = {
-    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin_20250623184110381812",
+    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin",
     -- 合宙IOT平台的默认升级URL, 不填就是这个默认值
     -- 如果是自建的OTA服务器, 则需要填写正确的URL, 例如 http://192.168.1.5:8000/update
     -- 如果自建OTA服务器,且url包含全部参数,不需要额外添加参数, 请在url前面添加 ###

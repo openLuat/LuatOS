@@ -11,22 +11,23 @@ local audio_setup_param ={
     -- bits_per_sample = 16,  -- codec 采样位数
     -- pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
 }
-local  index = 1024         --  
-local f = io.open("/luadb/test.pcm", "rb")
+local  index = 4352         --  每次播放的数据长度不能小于1024,并且除去最后一包数据，数据长度都要为1024 的倍数
+local f = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 local function audio_need_more_data()
     if f then 
         local data = f:read(index)
         -- print("-------------")
         if  data  then
-            audio.write(0, data)            
+            exaudio.write_datablock(data)     
         end
         -- sys.wait(100)
     end
 end 
 
-local function cbFnc()
-    
-
+local function play_end(event)
+    if event == exaudio.PLAY_DONE then
+        log.info("播放完成")
+    end
 end 
 
 local audio_play_param ={
@@ -37,7 +38,7 @@ local audio_play_param ={
     content = audio_need_more_data,          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
                             -- 如果播放tts 则填入要播放的内容。
                             -- 如果为2，流式播放，则填入音频回调函数
-    cbFnc = cbFnc,            -- 播放完毕回调函数，返回值有如下的参数
+    cbFnc = play_end,            -- 播放完毕回调函数
     --                         --  0-播放成功结束
     --                         --  1-播放出错
     --                         --  2-播放优先级不够，没有播放
@@ -63,13 +64,3 @@ local function audio_task()
 end
 
 sysplus.taskInitEx(audio_task, taskName)
-
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
-
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
-sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

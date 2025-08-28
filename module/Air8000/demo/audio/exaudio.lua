@@ -18,6 +18,7 @@ local multimedia_id = 0         -- 音频通道 0
 local voice_vol = 55
 local mic_vol = 80
 local power_on_level = 1
+exaudio.PLAY_DONE = 1
 
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
@@ -39,7 +40,7 @@ local audio_play_param ={
     content = nil,          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
                             -- 如果播放tts 则填入要播放的内容。
                             -- 如果为2，流式播放，则填入音频回调函数
-    cbFnc = nil,            -- 播放完毕回调函数，返回值有如下的参数
+    cbFnc = nil,            -- 播放完毕回调函数
                             --  0-播放成功结束
                             --  1-播放出错
                             --  2-播放优先级不够，没有播放
@@ -62,9 +63,13 @@ local audio_record_param ={
 }
 
 local function audio_callback(id, event)
-    log.info("audio_callback,event:",event,audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE)
+    -- log.info("audio_callback,event:",event,audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE)
     if event  == audio.MORE_DATA then
         audio_play_param.content()
+    elseif audio.DONE  then
+        if audio_play_param.cbFnc ~= nil  then
+            audio_play_param.cbFnc(exaudio.PLAY_DONE)
+        end
     end
 end
 
@@ -148,6 +153,12 @@ function exaudio.setup(audioConfigs)
 end
 
 function exaudio.write_datablock(data)
+    -- local block_lens = 256
+    -- if #data % block_lens  ~= 0 then
+    --     log.info("write_datablock0",#data,block_lens - #data % block_lens)
+    --     data = data .. string.rep("\255", block_lens - #data % block_lens) 
+    --     log.info("write_datablock1",#data)
+    -- end
     audio.write(multimedia_id,data)    
 end
 
@@ -213,10 +224,11 @@ function exaudio.play_start(playConfigs)
         end
         audio_play_param.content = playConfigs.content
         audio.start(multimedia_id, audio.PCM, 1, playConfigs.sampling_Rate, playConfigs.sampling_Depth, audio_play_param.signed_or_Unsigned)
-        audio.write(0, string.rep("\0", 512))
+        audio.write(0, string.rep("\0", 512))  -- 流式播放前需要先发一下数据
     end
 
-    if audio_play_param.cbFnc ~= nil and type(audio_play_param.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
+
+    if playConfigs.cbFnc ~= nil and type(playConfigs.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
         audio_play_param.cbFnc = playConfigs.cbFnc
     end
     

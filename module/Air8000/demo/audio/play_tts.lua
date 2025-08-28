@@ -10,12 +10,20 @@ local audio_setup_param ={
     -- dac_time_delay = 600,    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms
     -- pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
 }
+local function play_end(event)
+    if event == exaudio.PLAY_DONE then
+        log.info("播放完成")
+    end
+end 
+
 local audio_play_param ={
     type= 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则Sampling_Rate, Sampling_Depth,Signed_or_Unsigned 必填写
     content = "支付宝到账,12345元",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
+    cbFnc = play_end,            -- 播放完毕回调函数
+
 }
 local taskName = "task_audio"
 local function audio_task()

@@ -38,7 +38,7 @@ local function fota_cb(ret)
     log.info("fota", ret)
     if ret == 0 then
         log.info("升级包下载成功,重启模块")
-        rtos.reboot()
+        -- rtos.reboot()
     elseif ret == 1 then
         log.info("连接失败", "请检查url拼写或服务器配置(是否为内网)")
     elseif ret == 2 then
@@ -76,7 +76,7 @@ end
 -- 13. opts.body string 额外添加的请求body,默认不需要
 ]]
 local opts = {
-    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin_20250623184110381812",
+    url = "###http://39.99.172.18:9000/wind-sentry/firmware/1960903188228354048/wind_project_2012.001.005_LuatOS-SoC_Air780EPM.bin",
     -- 合宙IOT平台的默认升级URL, 不填就是这个默认值
     -- 如果是自建的OTA服务器, 则需要填写正确的URL, 例如 http://192.168.1.5:8000/update
     -- 如果自建OTA服务器,且url包含全部参数,不需要额外添加参数, 请在url前面添加 ###

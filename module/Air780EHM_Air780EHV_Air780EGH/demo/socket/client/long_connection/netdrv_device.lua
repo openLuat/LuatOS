@@ -20,11 +20,11 @@
 -- 根据自己的项目需求，只需要require以下四种中的一种即可；
 
 -- 加载“4G网卡”驱动模块
-require "netdrv_4g"
+-- require "netdrv_4g"
 
 
 -- 加载“通过SPI外挂CH390H芯片的以太网卡”驱动模块
 -- require "netdrv_eth_spi"
 
 -- 加载“可以配置优先级的多种网卡”驱动模块
--- require "netdrv_multiple"
+require "netdrv_multiple"

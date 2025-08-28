@@ -125,6 +125,7 @@ static int l_yhm27xx_reqinfo(lua_State *L)
   return 0;
 }
 
+#ifdef LUAT_USE_YHM27XX
 #include "rotable2.h"
 static const rotable_Reg_t reg_yhm27xx[] = {
         {"cmd",     ROREG_FUNC(l_pm_chgcmd)},
@@ -137,3 +138,4 @@ LUAMOD_API int luaopen_yhm27xx(lua_State *L)
   luat_newlib2(L, reg_yhm27xx);
   return 1;
 }
+#endif

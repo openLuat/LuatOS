@@ -162,7 +162,7 @@ local function aircamera_ui()
 end
 
 function aircamera.run()
-    log.info("aircamera.run")
+    log.info("aircamera.run")   
     while true do
         if aircamera_ui() then
             return true

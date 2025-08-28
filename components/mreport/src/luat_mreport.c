@@ -38,8 +38,40 @@ static inline uint16_t u162bcd(uint16_t src) {
     return dst;
 }
 
-// 模块的基础信息
-void luat_mreport_mobile(cJSON* mreport_data) {
+// 基础信息
+static void luat_mreport_sys_basic(cJSON* mreport_data) {
+    // 时间戳
+	time_t t;
+	time(&t);
+    cJSON_AddNumberToObject(mreport_data, "localtime", t);
+
+    // luatos项目信息
+    cJSON_AddStringToObject(mreport_data, "proj", project_name);
+    cJSON_AddStringToObject(mreport_data, "pver", project_version);
+    
+    // rndis
+    cJSON_AddNumberToObject(mreport_data, "rndis", 0);
+    // usb
+    cJSON_AddNumberToObject(mreport_data, "usb", 1);
+    // vbus
+    cJSON_AddNumberToObject(mreport_data, "vbus", 1);
+
+    // 开机原因
+    cJSON_AddNumberToObject(mreport_data, "powerreson", luat_pm_get_poweron_reason());
+
+    // 开机次数
+    cJSON_AddNumberToObject(mreport_data, "bootc", 1);
+
+    // 开机时长
+    uint64_t tick64 = luat_mcu_tick64();
+    uint64_t tmms = tick64 / 1000000;
+    uint64_t tms = tick64 % 1000000;
+    cJSON_AddNumberToObject(mreport_data, "tmms", tmms);
+    cJSON_AddNumberToObject(mreport_data, "tms", tms);
+}
+
+// 模块的信息
+static void luat_mreport_mobile(cJSON* mreport_data) {
     // IMEI
     char imei[16] = {0};
     luat_mobile_get_imei(0, imei, 16);                  
@@ -77,7 +109,7 @@ void luat_mreport_mobile(cJSON* mreport_data) {
 }
 
 // 网络信息
-void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
+static void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     cJSON* cells = cJSON_CreateArray();
     // ICCID
     char iccid[24] = {0};
@@ -142,6 +174,9 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
             }
         }
     }
+    if (cell_info != NULL) {
+        luat_heap_free(cell_info);
+    }
 
     // ip地址
     cJSON_AddStringToObject(mreport_data, "ipv4", ip4addr_ntoa(&netif->ip_addr));
@@ -161,7 +196,7 @@ void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
 }
 
 // adc信息
-void luat_mreport_adc(cJSON* mreport_data) {
+static void luat_mreport_adc(cJSON* mreport_data) {
     // adc-vbat
     if (luat_adc_open(LUAT_ADC_CH_VBAT, NULL) == 0) {
         int val = 0xFF;
@@ -183,79 +218,38 @@ void luat_mreport_adc(cJSON* mreport_data) {
 }
 
 // wifi信息
-void luat_mreport_wifi(cJSON* mreport_data) {
+static void luat_mreport_wifi(cJSON* mreport_data) {
     // wifi版本
     uint32_t wifi_version = 0;
     if (g_airlink_ext_dev_info.tp == 0x01) {
         memcpy(&wifi_version, g_airlink_ext_dev_info.wifi.version, 4);
     }
-    cJSON_AddNumberToObject(mreport_data, "wifiver", wifi_version);
+    cJSON_AddNumberToObject(mreport_data, "wifi_ver", wifi_version);
+
+    // wifi mac
+    char mac[18] = {0};
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", g_airlink_ext_dev_info.wifi.sta_mac[0], g_airlink_ext_dev_info.wifi.sta_mac[1], g_airlink_ext_dev_info.wifi.sta_mac[2], g_airlink_ext_dev_info.wifi.sta_mac[3], g_airlink_ext_dev_info.wifi.sta_mac[4], g_airlink_ext_dev_info.wifi.sta_mac[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_sta_mac", mac);
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", g_airlink_ext_dev_info.wifi.ap_mac[0], g_airlink_ext_dev_info.wifi.ap_mac[1], g_airlink_ext_dev_info.wifi.ap_mac[2], g_airlink_ext_dev_info.wifi.ap_mac[3], g_airlink_ext_dev_info.wifi.ap_mac[4], g_airlink_ext_dev_info.wifi.ap_mac[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_ap_mac", mac);
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", g_airlink_ext_dev_info.wifi.bt_mac[0], g_airlink_ext_dev_info.wifi.bt_mac[1], g_airlink_ext_dev_info.wifi.bt_mac[2], g_airlink_ext_dev_info.wifi.bt_mac[3], g_airlink_ext_dev_info.wifi.bt_mac[4], g_airlink_ext_dev_info.wifi.bt_mac[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_bt_mac", mac);
+
+    // wifi状态
+    cJSON_AddNumberToObject(mreport_data, "wifi_sta_state", g_airlink_ext_dev_info.wifi.sta_state);
+    cJSON_AddNumberToObject(mreport_data, "wifi_ap_state", g_airlink_ext_dev_info.wifi.ap_state);
+
+    // wifi connect ap bssid/rssi/channel
+    if (g_airlink_ext_dev_info.wifi.sta_state == 1) {
+        sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", g_airlink_ext_dev_info.wifi.sta_ap_bssid[0], g_airlink_ext_dev_info.wifi.sta_ap_bssid[1], g_airlink_ext_dev_info.wifi.sta_ap_bssid[2], g_airlink_ext_dev_info.wifi.sta_ap_bssid[3], g_airlink_ext_dev_info.wifi.sta_ap_bssid[4], g_airlink_ext_dev_info.wifi.sta_ap_bssid[5]);
+        cJSON_AddStringToObject(mreport_data, "wifi_bssid", mac);
+        cJSON_AddNumberToObject(mreport_data, "wifi_rssi", g_airlink_ext_dev_info.wifi.sta_ap_rssi);
+        cJSON_AddNumberToObject(mreport_data, "wifi_channel", g_airlink_ext_dev_info.wifi.sta_ap_channel);
+    }
 }
 
-void luat_mreport_send(void) {
-    ip_addr_t host = {0};
-    int ret = 0;
-    size_t olen = 0;
-    cJSON* mreport_data = cJSON_CreateObject();
-
-    luat_netdrv_t* netdrv = luat_netdrv_get(NW_ADAPTER_INDEX_LWIP_GPRS);
-    if (netdrv == NULL || netdrv->netif == NULL) {
-        return;
-    }
-
-    struct netif *netif = netdrv->netif;
-    if (netif == NULL || ip_addr_isany(&netif->ip_addr)) {
-        // LLOGD("还没联网");
-        return;
-    }
-
-    if (mreport_pcb == NULL) {
-        mreport_pcb = udp_new();
-        if (mreport_pcb == NULL) {
-            LLOGE("创建udp pcb 失败, 内存不足?");
-            cJSON_Delete(mreport_data);
-            return;
-        }
-    }
-    // ipaddr_aton("47.94.236.172", &host);
-    ipaddr_aton(MREPORT_DOMAIN, &host);
-    ret = udp_connect(mreport_pcb, &host, MREPORT_PORT);
-    if (ret) {
-        LLOGD("udp_connect %d", ret);
-        cJSON_Delete(mreport_data);
-        return;
-    }
-
-    // 时间戳
-	time_t t;
-	time(&t);
-    cJSON_AddNumberToObject(mreport_data, "localtime", t);
-
-    // luatos项目信息
-    cJSON_AddStringToObject(mreport_data, "proj", project_name);
-    cJSON_AddStringToObject(mreport_data, "pver", project_version);
-
-    // 模组信息
-    luat_mreport_mobile(mreport_data);
-
-    // sim卡和网络相关
-    luat_mreport_sim_network(mreport_data, netif);
-
-    // adc信息
-    luat_mreport_adc(mreport_data);
-
-    // wifi信息
-    luat_mreport_wifi(mreport_data);
-
-    // rndis
-    cJSON_AddNumberToObject(mreport_data, "rndis", 0);
-    // usb
-    cJSON_AddNumberToObject(mreport_data, "usb", 1);
-    // vbus
-    cJSON_AddNumberToObject(mreport_data, "vbus", 1);
-
-    // 开机原因
-    cJSON_AddNumberToObject(mreport_data, "powerreson", luat_pm_get_poweron_reason());
+// 内存信息
+static void luat_mreport_meminfo(cJSON* mreport_data) {
     // 当前内存状态
     size_t total = 0;
     size_t used = 0;
@@ -272,7 +266,6 @@ void luat_mreport_send(void) {
     cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(total));
     cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(used));
     cJSON_AddItemToArray(meminfo_psram, cJSON_CreateNumber(max_used));
-    cJSON_AddItemToObject(mreport_data, "mem_sys", meminfo_psram);
     cJSON_AddItemToObject(mreport_data, "mem_psram", meminfo_psram);
 
     cJSON* meminfo_luavm = cJSON_CreateArray();
@@ -282,27 +275,81 @@ void luat_mreport_send(void) {
     cJSON_AddItemToArray(meminfo_luavm, cJSON_CreateNumber(max_used));
     cJSON_AddItemToObject(mreport_data, "mem_lua", meminfo_luavm);
     cJSON_AddNumberToObject(mreport_data, "memfree", total - used);
+}
 
-    // 开机次数
-    cJSON_AddNumberToObject(mreport_data, "bootc", 1);
+void luat_mreport_send(void) {
+    ip_addr_t host = {0};
+    int ret = 0;
+    size_t olen = 0;
+    cJSON* mreport_data = cJSON_CreateObject();
 
-    // 开机时长
-    uint64_t tick64 = luat_mcu_tick64();
-    uint64_t tmms = tick64 / 1000000;
-    uint64_t tms = tick64 % 1000000;
-    cJSON_AddNumberToObject(mreport_data, "tmms", tmms);
-    cJSON_AddNumberToObject(mreport_data, "tms", tms);
+    int adapter_index = network_register_get_default();
+	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+		LLOGE("尚无已注册的网络适配器");
+		return;
+	}
+    luat_netdrv_t* netdrv = luat_netdrv_get(adapter_index);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return;
+    }
+
+    struct netif *netif = netdrv->netif;
+    if (ip_addr_isany(&netif->ip_addr)) {
+        LLOGD("还没联网");
+        return;
+    }
+
+    if (mreport_pcb == NULL) {
+        mreport_pcb = udp_new();
+        if (mreport_pcb == NULL) {
+            LLOGE("创建,mreport udp pcb 失败, 内存不足?");
+            cJSON_Delete(mreport_data);
+            return;
+        }
+    }
+    // ipaddr_aton("47.94.236.172", &host);
+    ipaddr_aton(MREPORT_DOMAIN, &host);
+    ret = udp_connect(mreport_pcb, &host, MREPORT_PORT);
+    if (ret) {
+        LLOGD("udp_connect %d", ret);
+        cJSON_Delete(mreport_data);
+        return;
+    }
+
+    // 基础信息
+    luat_mreport_sys_basic(mreport_data);
+    // 模组信息
+    luat_mreport_mobile(mreport_data);
+    // sim卡和网络相关
+    luat_mreport_sim_network(mreport_data, netif);
+    // adc信息
+    luat_mreport_adc(mreport_data);
+    // wifi信息
+#ifdef LUAT_USE_DRV_WLAN
+    luat_mreport_wifi(mreport_data);
+#endif
+    // 内存信息
+    luat_mreport_meminfo(mreport_data);
 
     // 结束 转换成json字符串
     char* json = cJSON_PrintUnformatted(mreport_data);
+    if (json == NULL) {
+        LLOGE("拼接转换为json数据格式, 失败");
+        cJSON_Delete(mreport_data);
+        return;
+    }
     LLOGE("mreport json --- len: %d\r\n%s", strlen(json), json);
 
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, strlen(json), PBUF_RAM);
     if (p == NULL) {
         LLOGE("获取pbuf失败 %d", strlen(json));
+        free(json);
+        cJSON_Delete(mreport_data);
         return;
     }
+
     pbuf_take(p, json, strlen(json));
+    memcpy(&mreport_pcb->local_ip, &netif->ip_addr, sizeof(ip_addr_t));
     ret = udp_sendto_if(mreport_pcb, p, &host, MREPORT_PORT, netif);
     pbuf_free(p);
     free(json);

@@ -11,9 +11,9 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 
 
--- require "play_file"     --  播放文件
+require "play_file"     --  播放文件
 
-require "play_tts"      -- 播放tts
+-- require "play_tts"      -- 播放tts
 
 -- require "play_steam"        -- 流式播放
 

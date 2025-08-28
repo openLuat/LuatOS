@@ -18,6 +18,7 @@ local multimedia_id = 0         -- 音频通道 0
 local voice_vol = 55
 local mic_vol = 80
 local power_on_level = 1
+local MSG_PD = "playDone"   -- 播放完成所有数据
 exaudio.PLAY_DONE = 1
 
 local audio_setup_param ={
@@ -63,13 +64,15 @@ local audio_record_param ={
 }
 
 local function audio_callback(id, event)
-    -- log.info("audio_callback,event:",event,audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE)
+    log.info("audio_callback,event:",event,audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE)
     if event  == audio.MORE_DATA then
         audio_play_param.content()
     elseif audio.DONE  then
         if audio_play_param.cbFnc ~= nil  then
             audio_play_param.cbFnc(exaudio.PLAY_DONE)
         end
+        sys.publish(MSG_PD)
+        log.error("audio_callback 1111")
     end
 end
 
@@ -172,8 +175,12 @@ function exaudio.play_start(playConfigs)
 
     if playConfigs.priority ~= nil and type(playConfigs.priority) == "number" then  -- 如果当前的播放优先级比历史优先级高，则停止之前的播放
         if playConfigs.priority >= audio_play_param.priority then   
-            audio.stop(multimedia_id)
-            sys.wait(100)
+            log.error("playConfigs.priority 插入高优先级音频")
+            audio.play(multimedia_id)
+            log.error("playConfigs.priority 插入高优先级音频 1111")
+            sys.waitUntil(MSG_PD)
+            log.error("playConfigs.priority 插入高优先级音频 after 1111")
+            sys.wait(500)
         end
     end
 
@@ -200,7 +207,7 @@ function exaudio.play_start(playConfigs)
 
     if audio_play_param.type == 1 then        -- 播放tts 处理
         if playConfigs.content == nil or type(playConfigs.content) ~= "string"  then
-            log.error("当type 为1 时,则表示播放tts,playConfigs.content 必须为string 类型")
+            log.error("当type 为1 时,表示播放tts,playConfigs.content 必须为string 类型")
             return false    
         end
         audio_play_param.content = playConfigs.content
@@ -208,15 +215,15 @@ function exaudio.play_start(playConfigs)
     end
     if audio_play_param.type == 2 then        -- 流式播放处理
         if playConfigs.content == nil or type(playConfigs.content) ~= "function"  then
-            log.error("当type 为2 时,则表示流式播放,playConfigs.content 必须为function 类型")
+            log.error("当type 为2 时,表示流式播放,playConfigs.content 必须为function 类型")
             return false    
         end
         if playConfigs.sampling_Rate == nil or type(playConfigs.sampling_Rate) ~= "number"  then
-            log.error("当type 为2 时,则表示流式播放,sampling_Rate(采样率)必须为int 类型")
+            log.error("当type 为2 时,表示流式播放,sampling_Rate(采样率)必须为int 类型")
             return false    
         end
         if playConfigs.sampling_Depth == nil or type(playConfigs.sampling_Depth) ~= "number"  then
-            log.error("当type 为2 时,则表示流式播放,sampling_Depth(采样位深)必须为int 类型")
+            log.error("当type 为2 时,表示流式播放,sampling_Depth(采样位深)必须为int 类型")
             return false    
         end
         if playConfigs.signed_or_Unsigned == nil and type(playConfigs.signed_or_Unsigned) == "boolean"  then
@@ -231,19 +238,19 @@ function exaudio.play_start(playConfigs)
     if playConfigs.cbFnc ~= nil and type(playConfigs.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
         audio_play_param.cbFnc = playConfigs.cbFnc
     end
-    
+    return true    
 end
 
 function exaudio.play_stop()
-    
+    return audio.stop(multimedia_id)
 end
 
 function exaudio.isEnd()
-    
+    return audio.isEnd()
 end
 
 function exaudio.getError()
-    
+    return audio.getError()
 end
 
 function exaudio.record()

@@ -136,6 +136,7 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (pin != LUAT_GPIO_NONE){
+            luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, level);
             audio_conf->power_pin = pin;
             audio_conf->power_on_level = level;
             audio_conf->power_off_delay_time = dac_off_delay_time;

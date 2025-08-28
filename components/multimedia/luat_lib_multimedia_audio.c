@@ -423,7 +423,7 @@ static int l_audio_record_stop(lua_State *L) {
 /**
 往一个多媒体通道写入音频数据
 @api audio.write(id, data)
-@string or zbuff 音频数据
+@string/zbuff 音频数据
 @return boolean 成功返回true,否则返回false
 @usage
 audio.write(0, "xxxxxx")

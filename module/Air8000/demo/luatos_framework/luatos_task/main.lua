@@ -6,7 +6,8 @@
 @author  朱天华
 @usage
 本demo演示的核心功能为：
-每隔一秒钟通过日志输出一次Hello, LuatOS
+基于sys核心库提供的api，演示LuatOS框架（task，msg，timer，调度器）如何使用
+
 更多说明参考本目录下的readme.md文件
 ]]
 
@@ -63,15 +64,12 @@ end
 -- end, 3000)
 
 -- 加载“task调度”演示功能模块
--- require "scheduling"
+require "scheduling"
 
 -- 加载“task访问共享资源”演示功能模块
 -- require "shared_resource"
 
--- 加载“task创建”演示功能模块
--- require "create"
-
--- 加载“用户可用ram信息”演示功能模块
+-- 加载“查看用户可用ram信息”演示功能模块
 -- require "memory_valid"
 
 -- 加载“单个task占用的ram资源”演示功能模块
@@ -80,7 +78,7 @@ end
 -- 加载“创建task的数量”演示功能模块
 -- require "task_count"
 
--- 加载“task_func参数”演示功能模块
+-- 加载“task任务处理函数”演示功能模块
 -- require "task_func"
 
 -- 加载“task创建时的可变参数”演示功能模块
@@ -102,7 +100,7 @@ end
 -- require "timer"
 
 -- 加载“task内外部运行环境典型错误”演示功能模块
-require "task_inout_env_err"
+-- require "task_inout_env_err"
 
 
 -- 用户代码已结束---------------------------------------------

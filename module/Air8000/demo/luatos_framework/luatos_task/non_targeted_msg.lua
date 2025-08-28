@@ -1,21 +1,21 @@
 --[[
-@module  create
-@summary task调度演示 
+@module  non_targeted_msg
+@summary “非目标消息回调函数”演示功能模块 
 @version 1.0
 @date    2025.08.12
 @author  朱天华
 @usage
-本文件为task_scheduling应用功能模块，用来演示task调度，核心业务逻辑为：
-1、创建两个task，task1和task2；
-2、在task1的任务处理函数中，每隔500毫秒，task1的计数器加1，并且通过日志打印task1计数器的值；
-3、在task2的任务处理函数中，每隔300毫秒，task2的计数器加1，并且通过日志打印task2计数器的值；
+本文件为non_targeted_msg应用功能模块，用来演示“非目标消息回调函数”如何使用，核心业务逻辑为：
+1、创建一个高级task，task名称为"MQTT_CLINET_MAIN"，task的非目标消息回调函数为mqtt_client_main_cbfunc；
+2、创建一个基础task，每隔一秒向名称为"MQTT_CLINET_MAIN"的高级task发送一条非目标消息；
+3、创建一个高级task，task名称为"SEND_MSG_TASK"，每隔一秒向名称为"MQTT_CLINET_MAIN"的高级task发送一条目标消息；
 
-本文件没有对外接口，直接在main.lua中require "create"就可以加载运行；
+本文件没有对外接口，直接在main.lua中require "non_targeted_msg"就可以加载运行；
 ]]
 
 
--- tcp_client_main的任务名
-local TASK_NAME = "TCP_CLINET_MAIN"
+-- mqtt_client_main的任务名
+local TASK_NAME = "MQTT_CLINET_MAIN"
 
 
 -- 非目标消息回调函数
@@ -28,7 +28,7 @@ local function mqtt_client_main_task_func()
     -- 连接、断开连接、订阅、取消订阅、异常等各种事件的处理调度逻辑
     while true do
         -- 等待"MQTT_EVENT"消息
-        msg = sysplus.waitMsg(TASK_NAME, "MQTT_EVENT")
+        msg = sys.waitMsg(TASK_NAME, "MQTT_EVENT")
         log.info("mqtt_client_main_task_func waitMsg", msg[2], msg[3], msg[4])
 
         -- connect连接结果
@@ -77,22 +77,6 @@ local function send_non_targeted_msg_task_func()
     end
 end
 
-local function send_non_targeted_msg_task_func()
-    local count = 0
-
-    while true do
-        count = count+1
-
-        -- 向TASK_NAME这个任务发送一条消息
-        -- 消息名称为"UNKNOWN_EVENT"
-        -- 消息携带一个number类型的参数count
-        sysplus.sendMsg(TASK_NAME, "UNKNOWN_EVENT", count)
-
-        -- 延时等待1秒
-        sys.wait(1000)
-    end
-end
-
 
 local function send_targeted_msg_task_func()
     while true do
@@ -102,7 +86,7 @@ local function send_targeted_msg_task_func()
         -- 第一个参数为"CONNECT"
         -- 第二个参数为true
         -- 这条消息的意思是MQTT连接成功
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -114,7 +98,7 @@ local function send_targeted_msg_task_func()
         -- 第二个参数为true
         -- 第三个参数为0
         -- 这条消息的意思是MQTT订阅成功，qos为0
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", true, 0)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", true, 0)
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -123,7 +107,7 @@ local function send_targeted_msg_task_func()
         -- 消息名称为"MQTT_EVENT"
         -- 消息携带一个参数"DISCONNECTED"
         -- 这条消息的意思是MQTT连接被动断开
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
 
         -- 延时等待1秒
         sys.wait(1000)
@@ -135,7 +119,7 @@ end
 -- task的名称为TASK_NAME变量的值"MQTT_CLINET_MAIN"
 -- task的非目标消息回调函数为mqtt_client_main_cbfunc
 -- 运行这个task的任务处理函数mqtt_client_main_task_func
-sysplus.taskInitEx(mqtt_client_main_task_func, TASK_NAME, mqtt_client_main_cbfunc)
+sys.taskInitEx(mqtt_client_main_task_func, TASK_NAME, mqtt_client_main_cbfunc)
 
 
 -- 创建并且启动一个基础task
@@ -146,4 +130,4 @@ sys.taskInit(send_non_targeted_msg_task_func)
 -- task的任务处理函数为send_targeted_msg_task_func
 -- task的名称为SEND_TASK_NAME
 -- 运行这个task的任务处理函数send_targeted_msg_task_func
-sysplus.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")
+sys.taskInitEx(send_targeted_msg_task_func, "SEND_MSG_TASK")

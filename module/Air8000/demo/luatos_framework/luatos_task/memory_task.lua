@@ -1,16 +1,16 @@
 --[[
-@module  create
-@summary task调度演示 
+@module  memory_task
+@summary “单个task占用的ram资源”演示功能模块 
 @version 1.0
 @date    2025.08.12
 @author  朱天华
 @usage
-本文件为task_scheduling应用功能模块，用来演示task调度，核心业务逻辑为：
-1、创建两个task，task1和task2；
-2、在task1的任务处理函数中，每隔500毫秒，task1的计数器加1，并且通过日志打印task1计数器的值；
-3、在task2的任务处理函数中，每隔300毫秒，task2的计数器加1，并且通过日志打印task2计数器的值；
+本文件为memory_task应用功能模块，用来演示“单个task占用的ram资源”，核心业务逻辑为：
+1、在创建一个task前，打印下当前的ram信息；
+2、创建并且启动一个task；
+3、在创建并且启动这个task后，打印下当前的ram信息；
 
-本文件没有对外接口，直接在main.lua中require "create"就可以加载运行；
+本文件没有对外接口，直接在main.lua中require "memory_task"就可以加载运行；
 ]]
 
 local function print_mem_info()
@@ -41,6 +41,7 @@ local function led_task_func()
 end
 
 log.info("before led task")
+-- 在创建一个task之前，打印下当前的ram信息
 print_mem_info()
 
 -- 创建并启动一个led task
@@ -48,5 +49,6 @@ print_mem_info()
 sys.taskInit(led_task_func)
 
 log.info("after led task")
+-- 在创建一个task之后，打印下当前的ram信息
 print_mem_info()
 

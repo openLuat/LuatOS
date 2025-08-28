@@ -5,7 +5,7 @@
 @date    2025.08.15
 @author  朱天华
 @usage
-本文件为shared_resource应用功能模块，用来演示多个task访问共享资源，核心业务逻辑为：
+本文件为shared_resource应用功能模块，用来演示多个task访问共享资源的功能，核心业务逻辑为：
 1、创建一个全局共享变量global_shared_variable，变量值初始化为0；
 2、创建两个task，task1和task2；
 2、在task1的任务处理函数中：

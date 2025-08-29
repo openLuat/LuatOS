@@ -431,7 +431,13 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
         airlink_transfer_and_exec(s_txbuff, s_rxbuff);
         
         // 发送完成后，等待从机的响应/确认
-        airlink_wait_for_slave_reply(1000); // 最多等1秒
+        if (0 == g_airlink_last_cmd_timestamp) {
+            airlink_wait_for_slave_reply(5); // 开机要快速检测
+        }
+        else {
+            airlink_wait_for_slave_reply(1000); // 最多等1秒
+        }
+        
 
         memset(s_rxbuff, 0, TEST_BUFF_SIZE);
         // start = 0;

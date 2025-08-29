@@ -19,7 +19,14 @@ local voice_vol = 55
 local mic_vol = 80
 local power_on_level = 1
 local MSG_PD = "playDone"   -- 播放完成所有数据
+
 exaudio.PLAY_DONE = 1
+exaudio.AMR = 0
+exaudio.AMR_WB = 1
+exaudio.PCM_8000 = 2
+exaudio.PCM_16000 = 3 
+exaudio.PCM_24000 = 4
+exaudio.PCM_32000 = 5
 
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
@@ -32,6 +39,7 @@ local audio_setup_param ={
     bits_per_sample = 16,  -- codec 采样位数
     pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
 }
+ 
 
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
@@ -56,8 +64,10 @@ local audio_play_param ={
     signed_or_Unsigned = true  -- PCM 的数据是否有符号，仅为流式播放起作用
 }
 
+
+
 local audio_record_param ={
-    format= 0,              -- 录制格式，有AMR,AMR_WB,PCM_8000,PCM_16000,PCM_24000,PCM_32000
+    format= 0,              -- 录制格式，有exaudio.AMR,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,               -- 录制时间,单位(秒)
     path = nil,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
                             -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内
@@ -146,10 +156,14 @@ function exaudio.setup(audioConfigs)
 
     if audioConfigs.bits_per_sample ~= nil  and type(audioConfigs.bits_per_sample) == "number" then   
         audio_setup_param.bits_per_sample = audioConfigs.bits_per_sample
+    else
+        audio_setup_param.bits_per_sample = 16
     end
     
     if audioConfigs.pa_on_level ~= nil  and type(audioConfigs.pa_on_level) == "number" then  
         audio_setup_param.pa_on_level = audioConfigs.pa_on_level
+    else
+        audio_setup_param.pa_on_level = 1  
     end
 
     return audio_setup()    -- 返回初始化结果
@@ -177,7 +191,7 @@ function exaudio.play_start(playConfigs)
         if playConfigs.priority >= audio_play_param.priority then   
             audio.play(multimedia_id)
             sys.waitUntil(MSG_PD)
-            sys.wait(500)
+            audio_play_param.priority = playConfigs.priority
         end
     end
 
@@ -234,6 +248,8 @@ function exaudio.play_start(playConfigs)
 
     if playConfigs.cbFnc ~= nil and type(playConfigs.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
         audio_play_param.cbFnc = playConfigs.cbFnc
+    else
+        audio_play_param.cbFnc = nil
     end
     return true    
 end
@@ -250,20 +266,60 @@ function exaudio.getError()
     return audio.getError()
 end
 
-function exaudio.record()
+function exaudio.record(recodConfigs)
+    local record_type ,amr_quailty,recod_format
+    if recodConfigs.format == nil and type(recodConfigs.format) ~= "number" and recodConfigs.format > 5  then   -- 录音格式必须填写
+        log.error("必须填写录制的音频格式(format),格式内容有exaudio.AMR,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000")
+        audio_record_param.format = recodConfigs.format
+        return false      
+    end
+    if recodConfigs.time ~= nil and type(recodConfigs.time) == "number"  then   -- 录音时间
+        audio_record_param.time  = recodConfigs.time
+    else
+        audio_record_param.time = 0
+    end
+    if recodConfigs.path ~= nil then
+        audio_record_param.path  = recodConfigs.path
+        if type(recodConfigs.path) == "string"  then   -- 录音保存位置
+            record_type = recodConfigs.path
+        elseif type(recodConfigs.path) == "function"  then
+            record_type = nil
+        end
+    else
+        log.error("必须填入路径,或者用于流式录音的回调函数")
+        return  false
+    end
     
+    if audio_record_param.format  == exaudio.AMR  then
+        recod_format = exaudio.AMR
+        amr_quailty = 7
+    elseif audio_record_param.format  == exaudio.AMR_WB then
+        recod_format = exaudio.AMR_WB
+        amr_quailty = 8
+    elseif audio_record_param.format  == exaudio.PCM_8000 then
+        recod_format = 8000
+    elseif audio_record_param.format  == exaudio.PCM_16000 then
+        recod_format = 16000
+    elseif audio_record_param.format  == exaudio.PCM_24000 then
+        recod_format = 24000
+    elseif audio_record_param.format  == exaudio.PCM_32000 then
+        recod_format = 32000
+    end
+
+    return audio.record(multimedia_id, recod_format, audio_record_param.time, amr_quailty, record_type, 1)
+ 
 end
 
 function exaudio.record_stop()
-    
+    audio.recordStop(multimedia_id)
 end
 
-function exaudio.vol()
-    
+function exaudio.vol(number)
+    audio.vol(multimedia_id, number)
 end
 
-function exaudio.micVol()
-    
+function exaudio.micVol(number)
+    udio.micVol(multimedia_id, number)
 end
 
 return exaudio

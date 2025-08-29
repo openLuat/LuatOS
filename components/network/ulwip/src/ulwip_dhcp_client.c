@@ -23,6 +23,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     PV_Union uIP;
     // 检查dhcp的状态
     dhcp_client_info_t* dhcp = ctx->dhcp_client;
+    u8_t adapter_index = ctx->adapter_index;
     struct netif* netif = ctx->netif;
 
     Buffer_Struct rx_msg_buf = {0,0,0};
@@ -31,7 +32,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     int result = 0;
 
     if (!netif_is_up(netif) || !netif_is_link_up(netif)) {
-        LLOGD("网卡未就绪,不发送dhcp请求 %d", ctx->adapter_index);
+        LLOGD("网卡未就绪,不发送dhcp请求 %d", adapter_index);
         if (rxbuff) {
             luat_heap_free(rxbuff);
             rxbuff = NULL;
@@ -49,20 +50,20 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     if (DHCP_STATE_CHECK == dhcp->state) {
 on_check:
         uIP.u32 = dhcp->ip;
-		LLOGD("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("adapter %d ip %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = dhcp->submask;
-		LLOGD("子网掩码:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("adapter %d mask %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = dhcp->gateway;
-		LLOGD("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		LLOGD("租约时间:%u秒", dhcp->lease_time);
+		LLOGD("adapter %d gateway %d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("adapter %d lease_time %us", adapter_index, dhcp->lease_time);
 
         if (dhcp->dns_server[0] != 0) {
             uIP.u32 = dhcp->dns_server[0];
-            LLOGD("DNS服务器1:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+            LLOGD("adapter %d DNS1:%d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
         }
         if (dhcp->dns_server[1] != 0) {
             uIP.u32 = dhcp->dns_server[1];
-            LLOGD("DNS服务器2:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+            LLOGD("adapter %d DNS2:%d.%d.%d.%d", adapter_index, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
         }
 
         // 设置到netif
@@ -77,6 +78,9 @@ on_check:
         ulwip_netif_ip_event(ctx);
         luat_rtos_timer_stop(ctx->dhcp_timer);
         luat_rtos_timer_start(ctx->dhcp_timer, 60000, 1, dhcp_client_timer_cb, ctx);
+        if (ctx->event_cb) {
+            ctx->event_cb(LUAT_ULWIP_DHCP_EVENT_GOT_IP, ctx);
+        }
         return 0;
     }
     result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
@@ -85,7 +89,10 @@ on_check:
         rxbuff = NULL;
     }
     if (result) {
-        LLOGE("ip4_dhcp_run error %d", result);
+        LLOGE("adapter %d ip4_dhcp_run error %d", adapter_index, result);
+        if (ctx->event_cb) {
+            ctx->event_cb(LUAT_ULWIP_DHCP_EVENT_TIMEOUT, ctx);
+        }
         return 0;
     }
     if (!tx_msg_buf.Pos) {
@@ -110,13 +117,13 @@ on_check:
         data += q->len;
     }
     data = p->payload;
-    LLOGI("dhcp payload len %d adapter %d", p->tot_len, ctx->adapter_index);
+    LLOGI("adapter %d dhcp payload len %d", adapter_index, p->tot_len);
     // ip_addr_set_any(0, &s_ulwip_dhcp->local_ip);
     memcpy(&s_ulwip_dhcp->local_ip, &netif->ip_addr, sizeof(ip_addr_t));    // 本地地址设为netif的ip地址
     result = udp_sendto_if(s_ulwip_dhcp, p, IP_ADDR_BROADCAST, 67, netif);
     pbuf_free(p);
     if (result != ERR_OK) {
-        LLOGE("dhcp udp_sendto_if error %d", result);
+        LLOGE("adapter %d dhcp udp_sendto_if error %d", adapter_index, result);
     }
     return 0;
 }

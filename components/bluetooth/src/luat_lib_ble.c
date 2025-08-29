@@ -1191,6 +1191,25 @@ static int l_ble_adv_decode(lua_State *L) {
     return 1;
 }
 
+
+/*
+获取蓝牙MAC
+@api ble.mac()
+@return string 当前的MAC
+@usage
+-- 本函数于2025.8.29新增
+local mac = ble.mac()
+log.info("ble mac", mac and mac:toHex())
+*/
+static int l_ble_get_mac(lua_State *L){
+	uint8_t mac[6] = {0};
+    luat_bluetooth_get_mac(NULL, mac);
+    luat_bluetooth_mac_swap(mac);
+	lua_pushlstring(L, (const char*)mac, 6);
+	return 1;
+}
+
+
 static int _ble_struct_newindex(lua_State *L);
 
 void luat_ble_struct_init(lua_State *L){
@@ -1203,30 +1222,32 @@ void luat_ble_struct_init(lua_State *L){
 #include "rotable2.h"
 static const rotable_Reg_t reg_ble[] = {
     // advertise
-    {"adv_create", ROREG_FUNC(l_ble_advertising_create)},
-    {"adv_start", ROREG_FUNC(l_ble_advertising_start)},
-    {"adv_stop", ROREG_FUNC(l_ble_advertising_stop)},
-    {"adv_decode", ROREG_FUNC(l_ble_adv_decode)},
+    {"adv_create",      ROREG_FUNC(l_ble_advertising_create)},
+    {"adv_start",       ROREG_FUNC(l_ble_advertising_start)},
+    {"adv_stop",        ROREG_FUNC(l_ble_advertising_stop)},
+    {"adv_decode",      ROREG_FUNC(l_ble_adv_decode)},
 
     // gatt
     // slaver
-    {"gatt_create", ROREG_FUNC(l_ble_gatt_create)},
-    {"write_notify", ROREG_FUNC(l_ble_write_notify)},
-    {"write_indicate", ROREG_FUNC(l_ble_write_indicate)},
-    {"write_value", ROREG_FUNC(l_ble_write_value)},
-    {"read_value", ROREG_FUNC(l_ble_read_value)},
+    {"gatt_create",      ROREG_FUNC(l_ble_gatt_create)},
+    {"write_notify",     ROREG_FUNC(l_ble_write_notify)},
+    {"write_indicate",   ROREG_FUNC(l_ble_write_indicate)},
+    {"write_value",      ROREG_FUNC(l_ble_write_value)},
+    {"read_value",       ROREG_FUNC(l_ble_read_value)},
 
-    {"notify_enable", ROREG_FUNC(l_ble_notify_enable)},
-    {"indicate_enable", ROREG_FUNC(l_ble_indicate_enable)},
+    {"notify_enable",    ROREG_FUNC(l_ble_notify_enable)},
+    {"indicate_enable",  ROREG_FUNC(l_ble_indicate_enable)},
     
     // scanning
-    {"scan_create", ROREG_FUNC(l_ble_scanning_create)},
-    {"scan_start", ROREG_FUNC(l_ble_scanning_start)},
-    {"scan_stop", ROREG_FUNC(l_ble_scanning_stop)},
+    {"scan_create",      ROREG_FUNC(l_ble_scanning_create)},
+    {"scan_start",       ROREG_FUNC(l_ble_scanning_start)},
+    {"scan_stop",        ROREG_FUNC(l_ble_scanning_stop)},
 
-    {"connect", ROREG_FUNC(l_ble_connect)},
-    {"disconnect", ROREG_FUNC(l_ble_disconnect)},
+    {"connect",          ROREG_FUNC(l_ble_connect)},
+    {"disconnect",       ROREG_FUNC(l_ble_disconnect)},
 
+    // 获取蓝牙MAC
+    {"mac",             ROREG_FUNC(l_ble_get_mac)},
 
     // BLE_EVENT
     {"EVENT_NONE", ROREG_INT(LUAT_BLE_EVENT_NONE)},

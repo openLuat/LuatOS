@@ -29,6 +29,11 @@
 
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
 
+typedef void (*ulwip_event_cb)(int32_t event, void* ctx);
+
+#define LUAT_ULWIP_DHCP_EVENT_GOT_IP 1
+#define LUAT_ULWIP_DHCP_EVENT_TIMEOUT 2
+
 typedef struct ulwip_ctx
 {
     int output_lua_ref;
@@ -44,7 +49,7 @@ typedef struct ulwip_ctx
     uint8_t hwaddr[ETH_HWADDR_LEN];
     dhcp_client_info_t *dhcp_client;
     luat_rtos_timer_t dhcp_timer;
-    // struct udp_pcb *dhcp_pcb;
+    ulwip_event_cb event_cb;
 }ulwip_ctx_t;
 
 typedef struct netif_cb_ctx {

@@ -153,15 +153,7 @@ static int l_bluetooth_create_ble(lua_State* L) {
     return 1;
 }
 
-/*
-获取蓝牙MAC
-@api bluetooth.mac()
-@return string 当前的MAC
-@usage
--- 本函数于2025.8.14新增
-local mac = bluetooth.mac()
-log.info("bluetooth mac", mac and mac:toHex())
-*/
+// 隐藏这个函数
 static int l_bluetooth_get_mac(lua_State *L){
 	uint8_t mac[6] = {0};
     luat_bluetooth_get_mac(NULL, mac);

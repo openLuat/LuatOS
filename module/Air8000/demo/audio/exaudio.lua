@@ -175,11 +175,8 @@ function exaudio.play_start(playConfigs)
 
     if playConfigs.priority ~= nil and type(playConfigs.priority) == "number" then  -- 如果当前的播放优先级比历史优先级高，则停止之前的播放
         if playConfigs.priority >= audio_play_param.priority then   
-            log.error("playConfigs.priority 插入高优先级音频")
             audio.play(multimedia_id)
-            log.error("playConfigs.priority 插入高优先级音频 1111")
             sys.waitUntil(MSG_PD)
-            log.error("playConfigs.priority 插入高优先级音频 after 1111")
             sys.wait(500)
         end
     end

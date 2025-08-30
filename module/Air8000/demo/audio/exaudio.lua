@@ -17,13 +17,16 @@ local i2s_channel_bits = 16     -- 声道的BCLK数量
 local multimedia_id = 0         -- 音频通道 0
 local voice_vol = 55
 local mic_vol = 80
+local pcm_buff0 = nil
+local pcm_buff1 = nil
 local power_on_level = 1
 local MSG_PD = "playDone"   -- 播放完成所有数据
 -- ES8311 的 I2C 地址和芯片 ID 寄存器
 local ES8311_ADDR = 0x18  -- 7位地址，根据实际情况调整
 local CHIP_ID_REG = 0x00  -- 芯片 ID 寄存器地址，需查阅数据手册确认
 exaudio.PLAY_DONE = 1
-exaudio.AMR = 0
+exaudio.RECODE_DONE = 1
+exaudio.AMR_NB = 0
 exaudio.AMR_WB = 1
 exaudio.PCM_8000 = 2
 exaudio.PCM_16000 = 3 
@@ -73,18 +76,30 @@ local audio_record_param ={
     time = 5,               -- 录制时间,单位(秒)
     path = nil,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
                             -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内
+    cbFnc = nil,            -- 录音完毕回调函数 
 }
 
-local function audio_callback(id, event)
+local function audio_callback(id, event,point)
     log.info("audio_callback,event:",event,audio.MORE_DATA,audio.DONE,audio.RECORD_DATA,audio.RECORD_DONE)
     if event  == audio.MORE_DATA then
         audio_play_param.content()
-    elseif audio.DONE  then
-        if audio_play_param.cbFnc ~= nil  then
+    elseif event  ==  audio.DONE  then
+        if audio_play_param.cbFnc ~= nil and  type(audio_play_param.cbFnc) == "function" then
             audio_play_param.cbFnc(exaudio.PLAY_DONE)
         end
         sys.publish(MSG_PD)
-        log.error("audio_callback 1111")
+    elseif event  ==  audio.RECORD_DATA then
+        if audio_record_param.path ~= nil and  type(audio_record_param.path) == "function" then
+            if point == 0 then
+                audio_record_param.path(pcm_buff0,pcm_buff0:used())
+            else
+                audio_record_param.path(pcm_buff1,pcm_buff1:used())
+            end
+        end
+    elseif event  ==  audio.RECORD_DONE then
+        if audio_record_param.cbFnc ~= nil and  type(audio_record_param.cbFnc) == "function" then
+            audio_record_param.cbFnc(exaudio.RECODE_DONE)
+        end
     end
 end
 local function read_es8311_id()
@@ -291,7 +306,7 @@ end
 function exaudio.record_start(recodConfigs)
     local record_type ,amr_quailty,recod_format
     if recodConfigs.format == nil and type(recodConfigs.format) ~= "number" and recodConfigs.format > 5  then   -- 录音格式必须填写
-        log.error("必须填写录制的音频格式(format),格式内容有exaudio.AMR,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000")
+        log.error("必须填写录制的音频格式(format),格式内容有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000")
         audio_record_param.format = recodConfigs.format
         return false      
     end
@@ -311,24 +326,40 @@ function exaudio.record_start(recodConfigs)
         log.error("必须填入路径,或者用于流式录音的回调函数")
         return  false
     end
+
     
-    if audio_record_param.format  == exaudio.AMR  then
-        recod_format = exaudio.AMR
+    
+    if recodConfigs.format  == exaudio.AMR_NB  then
+        recod_format = audio.AMR_NB
         amr_quailty = 7
-    elseif audio_record_param.format  == exaudio.AMR_WB then
-        recod_format = exaudio.AMR_WB
+    elseif recodConfigs.format  == exaudio.AMR_WB then
+        recod_format = audio.AMR_WB
         amr_quailty = 8
-    elseif audio_record_param.format  == exaudio.PCM_8000 then
+    elseif recodConfigs.format  == exaudio.PCM_8000 then
         recod_format = 8000
-    elseif audio_record_param.format  == exaudio.PCM_16000 then
+    elseif recodConfigs.format  == exaudio.PCM_16000 then
         recod_format = 16000
-    elseif audio_record_param.format  == exaudio.PCM_24000 then
+    elseif recodConfigs.format  == exaudio.PCM_24000 then
         recod_format = 24000
-    elseif audio_record_param.format  == exaudio.PCM_32000 then
+    elseif recodConfigs.format  == exaudio.PCM_32000 then
         recod_format = 32000
     end
 
-    return audio.record(multimedia_id, recod_format, audio_record_param.time, amr_quailty, record_type, 1)
+    if recodConfigs.cbFnc ~= nil and type(recodConfigs.cbFnc) == "function" then -- 如果填了回调函数，则保存回调韩函数，播放完毕调用回调函数
+        audio_record_param.cbFnc = recodConfigs.cbFnc
+    else
+        audio_record_param.cbFnc = nil
+    end
+
+    if record_type == "string" then
+        return audio.record(multimedia_id, recod_format, audio_record_param.time, amr_quailty, record_type)
+    else
+        if pcm_buff0 == nil  and pcm_buff1 == nil then
+            pcm_buff0 = zbuff.create(16000)
+            pcm_buff1 = zbuff.create(16000)
+        end
+        return audio.record(multimedia_id, recod_format, audio_record_param.time, amr_quailty, record_type, 3,pcm_buff0,pcm_buff1)
+    end
  
 end
 

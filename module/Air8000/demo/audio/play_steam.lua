@@ -58,9 +58,9 @@ local taskName = "task_audio"
 local function audio_task()
     log.info("开始播报")
 
-    exaudio.setup(audio_setup_param)
-    exaudio.play_start(audio_play_param)
-    
+    if exaudio.setup(audio_setup_param) then
+        exaudio.play_start(audio_play_param)
+    end
 end
 
 sysplus.taskInitEx(audio_task, taskName)

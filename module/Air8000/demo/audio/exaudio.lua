@@ -19,7 +19,9 @@ local voice_vol = 55
 local mic_vol = 80
 local power_on_level = 1
 local MSG_PD = "playDone"   -- 播放完成所有数据
-
+-- ES8311 的 I2C 地址和芯片 ID 寄存器
+local ES8311_ADDR = 0x18  -- 7位地址，根据实际情况调整
+local CHIP_ID_REG = 0x00  -- 芯片 ID 寄存器地址，需查阅数据手册确认
 exaudio.PLAY_DONE = 1
 exaudio.AMR = 0
 exaudio.AMR_WB = 1
@@ -85,6 +87,19 @@ local function audio_callback(id, event)
         log.error("audio_callback 1111")
     end
 end
+local function read_es8311_id()
+    -- 发送要读取的寄存器地址
+    i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
+    -- 读取 1 个字节的数据
+    local data = i2c.recv(audio_setup_param.i2c_id, ES8311_ADDR, 1)
+    
+    if data and #data == 1 then
+        -- 将读取到的字节转换为十六进制
+        return true
+    else
+        return false
+    end
+end
 
 local function audio_setup()
     local result,data
@@ -92,6 +107,7 @@ local function audio_setup()
 
     i2c.setup(audio_setup_param.i2c_id,i2c.FAST)
     
+
     result,data= i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, audio_setup_param.bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
     if not result then     --  设置音频参数错误
         return result
@@ -104,6 +120,12 @@ local function audio_setup()
     audio.micVol(multimedia_id, mic_vol)
     audio.pm(multimedia_id,audio.RESUME)
     sys.wait(100)
+    if not read_es8311_id() then
+        log.error("编解码芯片(8311)通讯失败，请检查硬件")
+        return false
+    end
+
+    
     audio.on(multimedia_id, audio_callback)
     return result
 end
@@ -266,7 +288,7 @@ function exaudio.getError()
     return audio.getError()
 end
 
-function exaudio.record(recodConfigs)
+function exaudio.record_start(recodConfigs)
     local record_type ,amr_quailty,recod_format
     if recodConfigs.format == nil and type(recodConfigs.format) ~= "number" and recodConfigs.format > 5  then   -- 录音格式必须填写
         log.error("必须填写录制的音频格式(format),格式内容有exaudio.AMR,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000")

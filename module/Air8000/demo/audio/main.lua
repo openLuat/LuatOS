@@ -11,11 +11,12 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 
 
-require "play_file"     --  播放文件
-
+-- require "play_file"     --  播放文件
 -- require "play_tts"      -- 播放tts
-
 -- require "play_steam"        -- 流式播放
+require "record_file"        -- 录音到文件
+-- require "record_steam"        -- 流式录音
+
 
 sys.timerLoopStart(function()
     log.info("mem.lua", rtos.meminfo())

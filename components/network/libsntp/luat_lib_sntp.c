@@ -77,10 +77,10 @@ end)
 
 /*
 sntp时间同步
-@api    socket.sntp(sntp_server)
+@api    socket.sntp(sntp_server, adapter)
 @tag LUAT_USE_SNTP
 @string/table sntp服务器地址 选填
-@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
+@int 适配器序号， socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
 @usage
 socket.sntp()
 --socket.sntp("ntp.aliyun.com") --自定义sntp服务器地址

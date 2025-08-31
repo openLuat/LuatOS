@@ -49,16 +49,17 @@ static void luat_ftp_cb(luat_ftp_ctrl_t *luat_ftp_ctrl, FTP_SUCCESS_STATE_e even
 
 /*
 FTP客户端
-@api ftp.login(adapter,ip_addr,port,username,password)
+@api ftp.login(adapter,ip_addr,port,username,password, use_ssl)
 @int 适配器序号, 如果不填,会选择平台自带的方式,然后是最后一个注册的适配器,可选值请查阅socket库的常量表
-@string ip_addr 地址
+@string ip_addr 地址,支持IP和域名
 @string port 端口,默认21
-@string username 用户名
-@string password 密码
-@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
+@string username 用户名,默认空
+@string password 密码, 默认空
+@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密
 @return bool/string 成功返回true 失败返回string
 @usage
-ftp_login = ftp.login(nil,"xxx")
+-- 使用默认适配器连接ftp服务器
+ftpc = ftp.login(nil,"www.ftp.com.cn").wait()
 */
 static int l_ftp_login(lua_State *L) {
 	int result = 0;

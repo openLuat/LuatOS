@@ -6,17 +6,13 @@ local audio_setup_param ={
     pa_ctrl = 162,         -- 音频放大器电源控制管脚
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚
     bits_per_sample = 16  -- 录音的位深，可选8,16,24 位，但是当选择音频格式为AMR_NB,自动调节为8位,当音频格式为AMR_WB,自动调节为16位
-    -- dac_delay = 3,        -- 在DAC启动前插入的冗余时间，单位100ms,控制pop 音
-    -- pa_delay = 100,      -- 在DAC启动后，延迟多长时间打开PA，单位1ms,控制pop 音
-    -- dac_time_delay = 600,    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms,控制pop 音
-    -- pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
 }
 
 local function  recode_data_callback(addr,data_len)
     log.info("收到音频流,地址为:",addr,"有效数据长度为:",data_len)
 end
 local function record_end(event)
-    if event == exaudio.RECODE_DONE then
+    if event == exaudio.RECORD_DONE then
         log.info("录音完成")
     end
 end 

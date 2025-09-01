@@ -43,6 +43,13 @@ end
 
 #define LUAT_WEBSOCKET_CTRL_TYPE "WS*"
 
+static const char *error_string[WEBSOCKET_MSG_ERROR_MAX - WEBSOCKET_MSG_ERROR_CONN + 1] ={
+		"connect",
+		"tx",
+		"rx",
+		"other"
+};
+
 static luat_websocket_ctrl_t *get_websocket_ctrl(lua_State *L)
 {
 	if (luaL_testudata(L, 1, LUAT_WEBSOCKET_CTRL_TYPE))
@@ -147,6 +154,24 @@ int l_websocket_callback(lua_State *L, void *ptr)
 				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
 				lua_pushstring(L, "disconnect");
 				lua_call(L, 2, 0);
+			}
+		}
+		break;
+	}
+	case WEBSOCKET_MSG_ERROR_CONN : 
+	case WEBSOCKET_MSG_ERROR_TX : 
+	case WEBSOCKET_MSG_ERROR_RX : 
+	{
+		if (websocket_ctrl->websocket_cb_id)
+		{
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
+			if (lua_isfunction(L, -1))
+			{
+				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
+				lua_pushstring(L, "error");
+				lua_pushstring(L, error_string[msg->arg1 - WEBSOCKET_MSG_ERROR_CONN]);
+				lua_pushinteger(L, msg->arg2);
+				lua_call(L, 4, 0);
 			}
 		}
 		break;

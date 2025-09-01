@@ -31,6 +31,23 @@ static void print_pkg(const char *tag, char *buff, luat_websocket_pkg_t *pkg)
 
 static int32_t luat_websocket_callback(void *data, void *param);
 
+#ifdef __LUATOS__
+int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2);
+#endif
+static int luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2){
+#ifdef __LUATOS__
+    l_luat_websocket_msg_cb(websocket_ctrl,arg1,arg2);
+#else
+	if (websocket_ctrl->websocket_cb){
+		luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
+		websocket_cb(websocket_ctrl, arg1,arg2);
+	}else{
+        LLOGE("websocket need set cb\n");
+    }
+#endif
+	return 0;
+}
+
 int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 {
 	uint32_t pkg_len = 0;
@@ -94,6 +111,7 @@ int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int 
 	if (ret < 0)
 	{
 		LLOGI("network_tx %d , close socket", ret);
+		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_TX, 0);
 		luat_websocket_close_socket(websocket_ctrl);
 		return 0;
 	}
@@ -135,24 +153,6 @@ int luat_websocket_set_cb(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_
 	websocket_ctrl->websocket_cb = websocket_cb;
 	return 0;
 }
-
-#ifdef __LUATOS__
-int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2);
-#endif
-static int luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2){
-#ifdef __LUATOS__
-    l_luat_websocket_msg_cb(websocket_ctrl,arg1,arg2);
-#else
-	if (websocket_ctrl->websocket_cb){
-		luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
-		websocket_cb(websocket_ctrl, arg1,arg2);
-	}else{
-        LLOGE("websocket need set cb\n");
-    }
-#endif
-	return 0;
-}
-
 
 LUAT_RT_RET_TYPE luat_websocket_timer_callback(LUAT_RT_CB_PARAM)
 {
@@ -610,6 +610,7 @@ static int32_t luat_websocket_callback(void *data, void *param)
 		if (event->Param1 == 0) {
 			ret = websocket_connect(websocket_ctrl);
 			if (ret < 0) {
+				luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_CONN, 0);
 				return 0; // 发送失败, 那么
 			}
 		}
@@ -623,6 +624,7 @@ static int32_t luat_websocket_callback(void *data, void *param)
 		{
 			ret = luat_websocket_read_packet(websocket_ctrl);
 			if (ret < 0) {
+				luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_RX, 0);
 				luat_websocket_close_socket(websocket_ctrl);
 				return ret;
 			}

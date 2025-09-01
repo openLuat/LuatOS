@@ -193,10 +193,10 @@ lora初始化
 lora.init("llcc68",
     {
         id = 0,           -- SPI id
-        cs = pin.PB04,    -- SPI 片选的GPIO号,如果没有pin库,填GPIO数字编号就行
-        res = pin.PB00,   -- 复位脚连接的GPIO号,如果没有pin库,填GPIO数字编号就行
-        busy = pin.PB01,  -- 忙检测脚的GPIO号
-        dio1 = pin.PB06,  -- 数据输入中断脚
+        cs = 8,    -- SPI 片选的GPIO号,如果没有pin库,填GPIO数字编号就行
+        res = 20,   -- 复位脚连接的GPIO号,如果没有pin库,填GPIO数字编号就行
+        busy = 21,  -- 忙检测脚的GPIO号
+        dio1 = 25,  -- 数据输入中断脚
         lora_init = true  -- 是否发送初始化命令. 如果是唤醒后直接读取, 就传false
     }
 )

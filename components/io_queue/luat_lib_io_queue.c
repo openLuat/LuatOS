@@ -113,8 +113,8 @@ static int l_io_queue_delay(lua_State *L) {
 @int 初始输出电平
 @return 无
 @usage
-ioqueue.setgpio(0,pin.PB01,true,gpio.PULLUP,0) --PB01设置成上拉输入
-ioqueue.setgpio(0,pin.PB01,false,0,1)--PB01设置成默认上下拉输出高电平
+ioqueue.setgpio(0,17,true,gpio.PULLUP,0) --GPIO17设置成上拉输入
+ioqueue.setgpio(0,17,false,0,1)--GPIO17设置成默认上下拉输出高电平
 */
 static int l_io_queue_set_gpio(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);
@@ -138,7 +138,8 @@ static int l_io_queue_set_gpio(lua_State *L) {
 @int pin
 @return 无
 @usage
-ioqueue.input(0,pin.PB01)
+--- 对GPIO17进行输入读取
+ioqueue.input(0, 17)
 
 */
 static int l_io_queue_gpio_input(lua_State *L) {
@@ -156,7 +157,8 @@ static int l_io_queue_gpio_input(lua_State *L) {
 @int 输出电平
 @return 无
 @usage
-ioqueue.output(0,pin.PB01,0)
+-- 对GPIO17输出低电平
+ioqueue.output(0, 17, 0)
 */
 static int l_io_queue_gpio_output(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);
@@ -176,7 +178,8 @@ static int l_io_queue_gpio_output(lua_State *L) {
 @int 定时器最大计时时间 考虑到lua是int类型，最小0x10000, 最大值为0x7fffffff，默认为最大值
 @return 无
 @usage
-ioqueue.setcap(0,pin.PB01,gpio.PULLUP,gpio.FALLING,48000000)
+-- 捕获指令
+ioqueue.setcap(0, 17, gpio.PULLUP, gpio.FALLING, 48000000)
 */
 static int l_io_queue_set_capture(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);
@@ -213,7 +216,8 @@ static int l_io_queue_capture_pin(lua_State *L) {
 @int  pin
 @return 无
 @usage
-ioqueue.capend(0,pin.PB01)
+-- 结束捕获
+ioqueue.capend(0, 17)
 */
 static int l_io_queue_capture_end(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);
@@ -334,8 +338,9 @@ static int l_io_queue_is_done(lua_State *L) {
 @boolean  开关，默认是false关
 @return 无
 @usage
-ioqueue.exti(pin.PB01, gpio.PULLUP, gpio.BOTH, true)
-ioqueue.exti(pin.PB01)
+-- 对GPIO17进行外部中断捕获
+ioqueue.exti(17, gpio.PULLUP, gpio.BOTH, true)
+ioqueue.exti(17)
 */
 static int l_io_queue_exti(lua_State *L) {
 	uint8_t pin = luaL_checkinteger(L, 1);

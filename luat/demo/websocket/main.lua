@@ -74,6 +74,8 @@ sys.taskInit(function()
         if event == "conack" then -- 连接websocket服务后, 会有这个事件
             wsc:send((json.encode({action="echo", device_id=device_id})))
             sys.publish("wsc_conack")
+        elseif event=="error" then
+            log.info("wsc", "error", data)
         end
     end)
     wsc:connect()

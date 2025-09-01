@@ -58,6 +58,33 @@ local function type_to_string(net_type)
     return type_map[net_type] or "Unknown"
 end
 
+-- 状态更改后重新设置默认网卡
+local function apply_priority()
+    local usable = false
+    -- 查找优先级最高的可用网络
+    for _, net_type in ipairs(current_priority) do
+        -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
+        if available[net_type] == connection_states.CONNECTED then
+            usable = true
+            -- 设置优先级高的网卡
+            if current_active ~= net_type then
+                log.info("设置网卡", type_to_string(net_type))
+                states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
+                socket.dft(net_type)
+                current_active = net_type
+            end
+            break
+        end
+    end
+
+    -- 从存在可用网卡到没有可用网卡，才通知回调
+    if usable == false and  current_active ~= nil then
+        --避免重复通知
+        current_active = nil
+        states_cbfnc(nil, -1)
+    end
+end
+
 
 --httpdns域名解析测试
 local function http_dnstest(adaptertest)
@@ -155,32 +182,6 @@ function exnetif.check_network_status(interval)
     end
 end
 
--- 状态更改后重新设置默认网卡
-local function apply_priority()
-    local usable = false
-    -- 查找优先级最高的可用网络
-    for _, net_type in ipairs(current_priority) do
-        -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
-        if available[net_type] == connection_states.CONNECTED then
-            usable = true
-            -- 设置优先级高的网卡
-            if current_active ~= net_type then
-                log.info("设置网卡", type_to_string(net_type))
-                states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
-                socket.dft(net_type)
-                current_active = net_type
-            end
-            break
-        end
-    end
-
-    -- 从存在可用网卡到没有可用网卡，才通知回调
-    if usable == false and  current_active ~= nil then
-        --避免重复通知
-        current_active = nil
-        states_cbfnc(nil, -1)
-    end
-end
 
 --打开以太网Wan功能
 local function setup_eth(config)

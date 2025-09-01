@@ -73,6 +73,8 @@ function ws_task(my_name)
             log.error("wsc_conack." .. my_name, "CONACK 事件!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
             wsc:send((json.encode({action="echo", device_id=device_id})))
             sys.publish("wsc_conack." .. my_name)
+        elseif event=="error" then
+            log.info("wsc", "error", data)
         end
     end)
     wsc:connect()

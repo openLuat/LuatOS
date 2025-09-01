@@ -293,6 +293,7 @@ event的值有:
 	recv   收到服务器下发的信息, data, payload 不为nil
 	sent   send函数发送的消息,服务器在TCP协议层已确认收到
 	disconnect 服务器连接已断开
+	error  发生错误, data为错误类型, payload为错误码
 
 其中 sent/disconnect 事件在 2023.04.01 新增
 ]]

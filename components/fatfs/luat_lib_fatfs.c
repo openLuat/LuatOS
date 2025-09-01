@@ -62,7 +62,7 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
         8,--数据宽度
         400*1000  -- 初始化时使用较低的频率
     )
-    local TF_CS = pin.PB3
+    local TF_CS = 8
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 	-- 提醒, 若TF/SD模块带电平转换, 通常不支持10M以上的波特率!!

@@ -692,8 +692,8 @@ static int l_audio_play_get_last_error(lua_State *L) {
 @int 外部dac打开时，电源控制IO的电平，默认拉高
 @int 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms，默认0ms
 @usage
-audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这个配置就可以用了
-audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了
+--下面的配置是Air780E云喇叭板的配置
+audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开
 */
 static int l_audio_config(lua_State *L) {
     uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);

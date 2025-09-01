@@ -35,7 +35,7 @@ static uint64_t max30102_idp;
 @int int引脚
 @return bool 成功返回true, 否则返回nil或者false
 @usage
-if max30102.init(0,pin.PC05) then
+if max30102.init(0,25) then
     log.info("max30102", "init ok")
 else
     log.info("max30102", "init fail")

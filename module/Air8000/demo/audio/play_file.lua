@@ -19,9 +19,6 @@ local audio_play_param ={
     content = "/luadb/1.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbFnc = play_end,            -- 播放完毕回调函数
 }
-
-
-
 local taskName = "task_audio"
 local function audio_task()
     log.info("开始播放音频文件")
@@ -32,5 +29,4 @@ local function audio_task()
     end
     
 end
-
 sysplus.taskInitEx(audio_task, taskName)

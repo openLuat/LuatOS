@@ -286,27 +286,27 @@ function exchg.setup(v_battery, cap_battery, i_charge)
         return false
     end
     -- 读取芯片ID，验证通信是否正常
-    local result, data = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result, data = pm.chgcmd(nil, sensor_addr, id_register)
     if not result then
         log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
     end
     -- 设置电池充电截止电压
     voltage_setting = v_battery == 4200 and set_4V2 or set_4V35
-    result,data = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
+    result,data = pm.chgcmd(nil, sensor_addr, V_ctrl_register, voltage_setting)
     if not result then
         log.error("exchg", "设置电池充电截止电压失败")
         return false
     end
     -- 设置充电电流
-    result,data = pm.chgcmd(gpio_pin, sensor_addr, I_ctrl_register, current_register_value)
+    result,data = pm.chgcmd(nil, sensor_addr, I_ctrl_register, current_register_value)
     if not result then
         log.error("exchg", "设置电池充电电流失败")
         return false
     end
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
     -- 请求寄存器数据
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         local V_value = reg_data:byte(1)
@@ -333,7 +333,7 @@ exchg.start() -- 开始充电
 ]]
 function exchg.start()
     -- 读取芯片ID，验证通信是否正常
-    local result, data = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result, data = pm.chgcmd(nil, sensor_addr, id_register)
     if not result then
         log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
@@ -342,7 +342,7 @@ function exchg.start()
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
 
     -- 开启充电前先查询ic温度，如果过热，则不执行开启充电功能
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     result, data = sys.waitUntil("YHM27XX_REG", 500)
     if not result or not data or #data < 6 then
         log.error("exchg.start1" .. "0x04寄存器数据获取失败")
@@ -359,7 +359,7 @@ function exchg.start()
     end
 
     -- 开始充电
-    result = pm.chgcmd(gpio_pin, sensor_addr, mode_register, 0xA8)
+    result = pm.chgcmd(nil, sensor_addr, mode_register, 0xA8)
     if not result then
         log.error("exchg.start", "开始充电失败")
         return false
@@ -368,7 +368,7 @@ function exchg.start()
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
 
     -- 请求寄存器数据
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 160 then
@@ -393,19 +393,19 @@ exchg.stop() -- 停止充电
 ]]
 function exchg.stop()
     -- 读取芯片ID，验证通信是否正常
-    local result = pm.chgcmd(gpio_pin, sensor_addr, id_register)
+    local result = pm.chgcmd(nil, sensor_addr, id_register)
     if not result then
         log.error("exchg", "无法读取芯片ID, 通信失败")
         return false
     end
-    result = pm.chgcmd(gpio_pin, sensor_addr, mode_register, 0xF8)
+    result = pm.chgcmd(nil, sensor_addr, mode_register, 0xF8)
     if not result then
         log.error("exchg.stop", "停止充电失败")
         return false
     end
     sys.wait(200) -- 写入命令之后等待200ms再去读取寄存器数据，必须要等待，否则会有读取寄存器失败的可能。
     -- 请求寄存器数据
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     local reg_result, reg_data = sys.waitUntil("YHM27XX_REG", 500)
     if reg_result and reg_data then
         if reg_data:byte(3) == 240 then
@@ -431,7 +431,7 @@ local function check_battery_exists()
     for loop_count = 1, total_loops do
         -- log.debug("当前循环", loop_count, "/", total_loops)
         -- 发送读取请求
-        pm.chginfo(gpio_pin, sensor_addr)
+        pm.chginfo(nil, sensor_addr)
         local result, data = sys.waitUntil("YHM27XX_REG", 200)
         -- 存储解析后的寄存器数据
         local Data_reg = {}
@@ -494,7 +494,7 @@ end
 --     7 (111): 充电完成       
 ]]
 local function get_charge_status()
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     local result, data = sys.waitUntil("YHM27XX_REG", 500)
 
     -- 存储解析后的寄存器数据
@@ -519,7 +519,7 @@ end
 -- 查询充电ic是否过热
 local overheat_check_timer = nil
 local function check_over_heat()
-    pm.chginfo(gpio_pin, sensor_addr)
+    pm.chginfo(nil, sensor_addr)
     local result, data = sys.waitUntil("YHM27XX_REG", 500)
     
     if not result or not data or #data < 6 then
@@ -573,7 +573,7 @@ function set_sys_track(enable)
 
     -- 读取当前寄存器值
     while retry_count <= max_retry do
-        pm.chginfo(gpio_pin, sensor_addr)
+        pm.chginfo(nil, sensor_addr)
         local result, data = sys.waitUntil("YHM27XX_REG", 500)
         local Data_reg={}
 
@@ -616,7 +616,7 @@ function set_sys_track(enable)
     -- 写入新值
     retry_count = 0
     while retry_count <= max_retry do
-        local result, data = pm.chgcmd(gpio_pin, sensor_addr, reg_addr, reg_value)
+        local result, data = pm.chgcmd(nil, sensor_addr, reg_addr, reg_value)
         if result then
             -- log.info("set_sys_track: SYS_TRACK" .. (enable and "启用" or "禁用") .. "成功")
             return true
@@ -783,7 +783,7 @@ function exchg.status()
     -- 4. 在特定阶段测量电池电压
     if status.battery_present then
         if charger_only then
-            local result = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, voltage_setting)
+            local result = pm.chgcmd(nil, sensor_addr, V_ctrl_register, voltage_setting)
             charger_only = false
         end
         -- 预充电或涓流充电阶段不测量电压
@@ -821,7 +821,7 @@ function exchg.status()
         end
     elseif status.charger_present then
         -- 充电器在位，电池不在位, Vreg设置为4V，这样Vsys=1.03*4.0V=4.1V, 在模组的电压舒适区
-        local result = pm.chgcmd(gpio_pin, sensor_addr, V_ctrl_register, set_4V)
+        local result = pm.chgcmd(nil, sensor_addr, V_ctrl_register, set_4V)
         if not result then
             log.warn("仅充电器在位时, Vreg设置为4V失败")
             status.result = false

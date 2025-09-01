@@ -577,7 +577,7 @@ sys.subscribe("YHM27XX_REG", function(data)
     -- 注意, 会一次性读出0-9,总共8个寄存器值
     log.info("yhm27xx", data and data:toHex())
 end)
-yhm27xx.reqinfo(24, 0x04)
+pm.chginfo(nil, 0x04)
 */
 int l_pm_chginfo(lua_State *L)
 {

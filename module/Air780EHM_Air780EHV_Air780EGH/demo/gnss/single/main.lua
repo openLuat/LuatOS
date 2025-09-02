@@ -7,7 +7,7 @@
 @author  李源龙
 @usage
 本demo演示的功能为：
-使用Air780GH核心板，通过gnss.lua扩展库，开启GNSS定位，展示模块的三种功耗模式：正常模式，低功耗模式，PSM+模式 
+使用Air780EGH开发板，通过exgnss.lua扩展库，开启GNSS定位，展示模块的三种应用状态
 ]]
 
 --[[
@@ -52,13 +52,11 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-gnss=require("gnss")    
+exgnss=require("exgnss")    
 
 
--- normal=require("normal")
--- lowpower=require("lowpower")
--- psm=require("psm")
-da221gnss=require("da221gnss")
+require"gnss"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

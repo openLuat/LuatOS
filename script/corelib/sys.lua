@@ -488,6 +488,10 @@ local taskList = {}
 -- @return co  返回该任务的线程号
 -- @usage sys.taskInitEx(task1,'a',callback)
 function sys.taskInitEx(fun, taskName, cbFun, ...)
+    if taskName == nil then
+        log.error("sys", "taskName is nil", fun)
+        return
+    end
     taskList[taskName]={msgQueue={}, To=false, cb=cbFun}
     return sys.taskInit(fun, ...)
 end
@@ -513,7 +517,7 @@ end
 -- @usage sys.waitMsg('a', 'b', 1000)
 function sys.waitMsg(taskName, target, ms)
     if taskList[taskName] == nil then
-        log.error("sysplus", "sys.taskInitEx启动的task才能使用waitMsg")
+        log.error("sys", "sys.taskInitEx启动的task才能使用waitMsg")
         return false
     end
     local msg = false

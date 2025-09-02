@@ -1,6 +1,23 @@
--- ==========================
--- HTTP服务器模块
--- ==========================
+--[[
+@module  http_server
+@summary http_server 启动功能模块
+@version 1.0
+@date    2025.09.02
+@author  拓毅恒
+@usage
+用法实例：
+
+启动 http_server 服务
+- 运行 http_server_start_task 任务，来执行开启 httpsrv 的操作。
+- 浏览器输入 http://192.168.4.1 访问文件管理系统
+
+文件下载方式：
+- 通过文件管理界面点击下载按钮
+- 直接通过URL访问文件：http://192.168.4.1/filename.ext
+- 访问SD卡文件：http://192.168.4.1/sd/filename.ext
+
+本文件没有对外接口，直接在 main.lua 中 require "http_server" 即可加载运行。
+]]
 
 -- 配置参数
 local SERVER_PORT = 80

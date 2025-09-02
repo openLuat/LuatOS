@@ -11,22 +11,20 @@ local audio_setup_param ={
     -- bits_per_sample = 16,  -- codec 采样位数
     -- pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
 }
-local  index = 4352         --  每次播放的数据长度不能小于1024,并且除去最后一包数据，数据长度都要为1024 的倍数
+local  index = 4096         --  每次播放的数据长度不能小于1024,并且除去最后一包数据，数据长度都要为1024 的倍数
 local f = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
 local function audio_need_more_data()
     if f then 
-        local data = f:read(index)
-        -- print("-------------")
-        if  data  then
-            exaudio.write_datablock(data)     
-        end
-        -- sys.wait(100)
+        return   f:read(index)
     end
 end 
 
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成")
+        if f then 
+            return   f:close()
+        end
     end
 end 
 
@@ -56,8 +54,7 @@ local audio_play_param ={
 
 local taskName = "task_audio"
 local function audio_task()
-    log.info("开始播报")
-
+    log.info("开始流式播报")
     if exaudio.setup(audio_setup_param) then
         exaudio.play_start(audio_play_param)
     end

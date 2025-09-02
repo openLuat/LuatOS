@@ -1,4 +1,5 @@
 exaudio = require("exaudio")
+local taskName = "task_audio"
 
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
@@ -19,13 +20,35 @@ local audio_play_param ={
     content = "/luadb/1.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbFnc = play_end,            -- 播放完毕回调函数
 }
-local taskName = "task_audio"
+
+local function boot_key_cb()
+    log.info("停止播放")
+    sys.sendMsg(taskName, MSG_KEY_PRESS, "STOP_AUDIO")
+end
+--按下boot 停止播放
+gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
+gpio.debounce(0, 200, 1)
+
+local function power_key_cb()
+    sys.sendMsg(taskName, MSG_KEY_PRESS, "NEXT_AUDIO")
+end
+
+--按下powerkey 打断播放，播放优先级更高的音频
+gpio.setup(gpio.PWR_KEY, power_key_cb, gpio.PULLUP, gpio.FALLING)
+gpio.debounce(gpio.PWR_KEY, 200, 1)
+
+
+
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
-        exaudio.play_start(audio_play_param)
-        sys.wait(2000)
-        exaudio.play_start({type= 0,content = "/luadb/1.mp3",priority = 1})     -- 高优先级播放,可对之前的播放进行打断并播放新的文件
+        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
+         msg = sys.waitMsg(audio_task, MSG_KEY_PRESS)
+        if msg[2] ==  "NEXT_AUDIO" then  -- true powerkey false boot key
+            
+        elseif msg[2] ==  "STOP_AUDIO" then
+           exaudio.play_stop()
+        end 
     end
     
 end

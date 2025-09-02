@@ -12,11 +12,11 @@ local exaudio = {}
 local I2S_ID = 0
 local I2S_MODE = 0          -- 0:主机 1:从机
 local I2S_SAMPLE_RATE = 16000
-local I2S_CHANNEL_FORMAT = i2s.MONO_R  -- 0:左声道, 1:右声道, 2:立体声
+local I2S_CHANNEL_FORMAT = i2s.MONO_R  
 local I2S_COMM_FORMAT = i2s.MODE_LSB   -- 可选MODE_I2S, MODE_LSB, MODE_MSB
 local I2S_CHANNEL_BITS = 16
 local MULTIMEDIA_ID = 0
-local MSG_PLAY_DONE = "playDone"
+local EX_MSG_PLAY_DONE = "playDone"
 local ES8311_ADDR = 0x18    -- 7位地址
 local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
 
@@ -85,14 +85,16 @@ local function audio_callback(id, event, point)
 
     if event == audio.MORE_DATA then
         if type(audio_play_param.content) == "function" then
-            audio_play_param.content()
+            local data = audio_play_param.content() 
+            if data ~= nil and  type(data) == "string" then
+                audio.write(MULTIMEDIA_ID,data)
+            end
         end
-        
     elseif event == audio.DONE then
         if type(audio_play_param.cbFnc) == "function" then
             audio_play_param.cbFnc(exaudio.PLAY_DONE)
         end
-        sys.publish(MSG_PLAY_DONE)
+        sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
         if type(audio_record_param.path) == "function" then
@@ -131,8 +133,6 @@ end
 
 -- 音频硬件初始化
 local function audio_setup()
-    sys.wait(100)
-
     -- I2C配置
     if not i2c.setup(audio_setup_param.i2c_id, i2c.FAST) then
         log.error("I2C初始化失败")
@@ -182,7 +182,6 @@ local function audio_setup()
     audio.micVol(MULTIMEDIA_ID, mic_vol)
     audio.pm(MULTIMEDIA_ID, audio.RESUME)
     
-    sys.wait(100)
     -- 检查芯片连接
     if audio_setup_param.model == "es8311" and not read_es8311_id() then
         log.error("ES8311通讯失败，请检查硬件")
@@ -248,15 +247,6 @@ function exaudio.setup(audioConfigs)
     return audio_setup()
 end
 
--- 模块接口：写入音频数据块
-function exaudio.write_datablock(data)
-    if not data or type(data) ~= "string" then
-        log.error("写入的数据必须为字符串类型")
-        return false
-    end
-    return audio.write(MULTIMEDIA_ID, data)
-end
-
 -- 模块接口：开始播放
 function exaudio.play_start(playConfigs)
     if not playConfigs or type(playConfigs) ~= "table" then
@@ -274,9 +264,11 @@ function exaudio.play_start(playConfigs)
     -- 处理优先级
     if playConfigs.priority ~= nil then
         if check_param(playConfigs.priority, "number", "priority") then
-            if playConfigs.priority >= audio_play_param.priority then
-                audio.play(MULTIMEDIA_ID)
-                sys.waitUntil(MSG_PLAY_DONE)
+            if playConfigs.priority > audio_play_param.priority then
+                if audio.play(MULTIMEDIA_ID) ~= true then
+                    return false
+                end
+                sys.waitUntil(EX_MSG_PLAY_DONE)
                 audio_play_param.priority = playConfigs.priority
             end
         else
@@ -306,7 +298,9 @@ function exaudio.play_start(playConfigs)
         end
 
         audio_play_param.content = playConfigs.content
-        audio.play(MULTIMEDIA_ID, audio_play_param.content)
+        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
+            return false
+        end
 
     elseif play_type == 1 then  -- TTS播放
         if not check_param(playConfigs.content, "string", "content") then
@@ -314,7 +308,9 @@ function exaudio.play_start(playConfigs)
             return false
         end
         audio_play_param.content = playConfigs.content
-        audio.tts(MULTIMEDIA_ID, audio_play_param.content)
+        if audio.tts(MULTIMEDIA_ID, audio_play_param.content)  ~= true  then
+            return false
+        end
 
     elseif play_type == 2 then  -- 流式播放
         if not check_param(playConfigs.content, "function", "content") then
@@ -345,7 +341,9 @@ function exaudio.play_start(playConfigs)
             audio_play_param.signed_or_Unsigned
         )
         -- 发送初始数据
-        audio.write(MULTIMEDIA_ID, string.rep("\0", 512))
+        if audio.write(MULTIMEDIA_ID, string.rep("\0", 512)) ~= true then
+            return false
+        end
     end
 
     -- 处理回调函数
@@ -364,16 +362,16 @@ end
 
 -- 模块接口：停止播放
 function exaudio.play_stop()
-    return audio.stop(MULTIMEDIA_ID)
+    return audio.play(MULTIMEDIA_ID)
 end
 
 -- 模块接口：检查播放是否结束
-function exaudio.isEnd()
+function exaudio.is_end()
     return audio.isEnd()
 end
 
 -- 模块接口：获取错误信息
-function exaudio.getError()
+function exaudio.get_error()
     return audio.getError()
 end
 
@@ -469,7 +467,7 @@ end
 
 -- 模块接口：停止录音
 function exaudio.record_stop()
-    audio.recordStop(MULTIMEDIA_ID)
+    return audio.recordStop(MULTIMEDIA_ID)
 end
 
 -- 模块接口：设置音量
@@ -482,7 +480,7 @@ function exaudio.vol(number)
 end
 
 -- 模块接口：设置麦克风音量
-function exaudio.micVol(number)
+function exaudio.mic_vol(number)
     if check_param(number, "number", "麦克风音量值") then
         mic_vol = number
         return audio.micVol(MULTIMEDIA_ID, number)  

@@ -532,7 +532,11 @@ static int handle_static_file(client_socket_ctx_t *client) {
         // 太长就不支持了
         return 0;
     }
-    char path[64] = {0};
+    char path[256] = {0};
+    if (strlen(client->uri) > 200) {
+        LLOGD("path too long [%s] > 200", client->uri);
+        return 0;
+    }
     uint8_t is_gz = 0;
     sprintf(path, "/luadb%s", strlen(client->uri) == 1 ? "/index.html" : client->uri);
     size_t fz = luat_fs_fsize(path);

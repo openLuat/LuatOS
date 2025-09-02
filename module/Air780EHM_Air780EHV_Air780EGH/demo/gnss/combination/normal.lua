@@ -9,7 +9,7 @@
 起一个60s定位一次的定时器，模块60s一定位，然后定位成功获取到经纬度发送到服务器上面
 ]]
 
--- tcp_client_main=require("tcp_client_main")
+tcp_client_main=require("tcp_client_main")
 
 local function normal_cb(tag)
     log.info("TAGmode1_cb+++++++++",tag)

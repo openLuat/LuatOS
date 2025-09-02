@@ -18,7 +18,6 @@ local function lowpower_cb(tag)
     local data=string.format('{"lat":%5f,"lng":%5f}', rmc.lat, rmc.lng)
     sys.publish("SEND_DATA_REQ", "gnsslowpower", data) --发送数据到服务器
     pm.power(pm.WORK_MODE, 1)--进入低功耗模式
-    pm.power(pm.WORK_MODE,1,1)--wifi进入低功耗模式
 end
 
 local function lower_open()
@@ -45,7 +44,7 @@ local function gnss_fnc()
     exgnss.setup(gnssotps)  --配置GNSS参数
     exgnss.open(exgnss.TIMERORSUC,{tag="lowpower",val=60,cb=lowpower_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
     sys.timerLoopStart(lower_open,60000)       --每60s开启一次GNSS
-    -- gpio.close(24)--此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
+    -- gpio.close(23)--此脚为gnss备电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高10ua左右
     -- --关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
     pm.power(pm.USB, false)
 end

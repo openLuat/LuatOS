@@ -95,7 +95,7 @@ local function testTask(ip, port)
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
     
     -- 配置GPIO以达到最低功耗的目的
-	-- gpio.close(24) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
+	-- gpio.close(23) --此脚为gnss备电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高10ua左右
 
     pm.dtimerStart(3, period) -- 启动深度休眠定时器
 

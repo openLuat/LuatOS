@@ -7,8 +7,6 @@ VERSION = "1.0.0"
 本demo可直接在Air8000整机开发板上运行
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
 
 
 require "play_file"     --  播放文件

@@ -9,9 +9,9 @@ VERSION = "1.0.0"
 
 
 
--- require "play_file"     --  播放文件
+require "play_file"     --  播放文件
 -- require "play_tts"      -- 播放tts
-require "play_stream"        -- 流式播放
+-- require "play_stream"        -- 流式播放
 -- require "record_file"        -- 录音到文件
 -- require "record_stream"        -- 流式录音   
 

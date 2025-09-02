@@ -196,6 +196,10 @@ end
 -- 模块接口：初始化
 function exaudio.setup(audioConfigs)
     -- 检查必要参数
+    if not  audio  then
+        log.error("不支持audio 库,请选择支持audio 的core")
+        return false
+    end
     if not audioConfigs or type(audioConfigs) ~= "table" then
         log.error("配置参数必须为table类型")
         return false
@@ -265,10 +269,13 @@ function exaudio.play_start(playConfigs)
     if playConfigs.priority ~= nil then
         if check_param(playConfigs.priority, "number", "priority") then
             if playConfigs.priority > audio_play_param.priority then
-                if audio.play(MULTIMEDIA_ID) ~= true then
-                    return false
+                log.error("是否完成播放",audio.isEnd(MULTIMEDIA_ID))
+                if not audio.isEnd(MULTIMEDIA_ID) then
+                    if audio.play(MULTIMEDIA_ID) ~= true then
+                        return false
+                    end
+                    sys.waitUntil(EX_MSG_PLAY_DONE)
                 end
-                sys.waitUntil(EX_MSG_PLAY_DONE)
                 audio_play_param.priority = playConfigs.priority
             end
         else
@@ -303,6 +310,10 @@ function exaudio.play_start(playConfigs)
         end
 
     elseif play_type == 1 then  -- TTS播放
+        if not audio.tts then
+            log.error("本固件不支持TTS,请更换支持TTS 的固件")
+            return false
+        end
         if not check_param(playConfigs.content, "string", "content") then
             log.error("TTS播放content必须为字符串")
             return false

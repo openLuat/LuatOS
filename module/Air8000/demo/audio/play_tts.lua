@@ -33,4 +33,4 @@ local function audio_task()
     end
 end
 
-sysplus.taskInitEx(audio_task, taskName)
+sys.taskInitEx(audio_task, taskName)

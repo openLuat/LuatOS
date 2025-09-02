@@ -513,7 +513,7 @@ end
 -- @usage sys.waitMsg('a', 'b', 1000)
 function sys.waitMsg(taskName, target, ms)
     if taskList[taskName] == nil then
-        log.error("sysplus", "sys.taskInitEx启动的task才能使用waitMsg")
+        log.error("sys", "sys.taskInitEx启动的task才能使用waitMsg")
         return false
     end
     local msg = false

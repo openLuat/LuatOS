@@ -10,6 +10,7 @@ local audio_setup_param ={
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成")
+        exaudio.play_stop()
     end
 end 
 local audio_play_param ={
@@ -30,6 +31,7 @@ gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 
 local function power_key_cb()
+    log.info("切换播放")
     sys.sendMsg(taskName, MSG_KEY_PRESS, "NEXT_AUDIO")
 end
 
@@ -39,17 +41,27 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)
 
 
 
+local index_number = 1
+local audio_path = nil
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
         exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
-         msg = sys.waitMsg(audio_task, MSG_KEY_PRESS)
-        if msg[2] ==  "NEXT_AUDIO" then  -- true powerkey false boot key
-            
-        elseif msg[2] ==  "STOP_AUDIO" then
-           exaudio.play_stop()
-        end 
+        while true do
+            local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)
+            if msg[2] ==  "NEXT_AUDIO" then  -- true powerkey false boot key
+                if index_number %2 == 0 then
+                    audio_path = "/luadb/1.mp3"
+                else
+                    audio_path = "/luadb/10.amr"
+                end
+                exaudio.play_start({type= 0, content = audio_path,cbFnc = play_end,priority = index_number})
+                index_number= index_number +1 
+            elseif msg[2] ==  "STOP_AUDIO" then
+                exaudio.play_stop()
+            end 
+        end
     end
     
 end
-sysplus.taskInitEx(audio_task, taskName)
+sys.taskInitEx(audio_task, taskName)

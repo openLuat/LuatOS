@@ -12,6 +12,7 @@ typedef struct luat_httpsrv_ctx
     uint8_t adapter_id;
     struct netif* netif;
     struct tcp_pcb* pcb;
+    uint8_t allpath;
 }luat_httpsrv_ctx_t;
 
 
@@ -40,25 +41,6 @@ typedef struct ct_reg
     const char* suff;
     const char* value;
 }ct_reg_t;
-
-static const ct_reg_t ct_regs[] = {
-    {"html",    "text/html; charset=utf-8"},
-    {"txt",     "text/txt; charset=utf-8"},
-    {"xml",     "text/xml; charset=utf-8"},
-    {"jpg",      "image/jpeg"},
-    {"png",     "image/png"},
-    {"gif",     "image/gif"},
-    {"svg",     "svg+xml"},
-    {"json",    "application/json; charset=utf-8"},
-    {"js",      "application/javascript; charset=utf-8"},
-    {"css",     "text/css"},
-    {"wav",     "audio/wave"},
-    {"ogg",     "audio/ogg"},
-    {"wav",     "audio/wave"},
-    {"webm",    "video/webm"},
-    {"mp4",     "video/mpeg4"},
-    {"bin",     "application/octet-stream"},
-};
 
 luat_httpsrv_ctx_t* luat_httpsrv_malloc(int port, int adapter_index);
 int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);

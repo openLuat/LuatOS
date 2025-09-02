@@ -78,6 +78,27 @@ static const struct http_parser_settings hp_settings = {
 };
 //================================
 
+
+
+static const ct_reg_t ct_regs[] = {
+    {"html",    "text/html; charset=utf-8"},
+    {"txt",     "text/txt; charset=utf-8"},
+    {"xml",     "text/xml; charset=utf-8"},
+    {"jpg",      "image/jpeg"},
+    {"png",     "image/png"},
+    {"gif",     "image/gif"},
+    {"svg",     "svg+xml"},
+    {"json",    "application/json; charset=utf-8"},
+    {"js",      "application/javascript; charset=utf-8"},
+    {"css",     "text/css"},
+    {"wav",     "audio/wave"},
+    {"ogg",     "audio/ogg"},
+    {"wav",     "audio/wave"},
+    {"webm",    "video/webm"},
+    {"mp4",     "video/mpeg4"},
+    {"bin",     "application/octet-stream"},
+};
+
 static int client_write(client_socket_ctx_t* client, const char* buff, size_t len) {
     if (len == 0)
         return 0;
@@ -503,6 +524,19 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
             }
         }
     }
+    // 根据path判断一下文件后缀, 如果不是 html/htm/js/css就当文件下载
+    size_t plen = strlen(path);
+    if (strcmp(path + plen - 5, ".html") == 0 || strcmp(path + plen - 4, ".htm") == 0
+        || strcmp(path + plen - 3, ".js") == 0 || strcmp(path + plen - 4, ".css") == 0
+        || strcmp(path + plen - 3, ".gz") == 0 ) {
+        // nop
+        LLOGD("普通文件模式 %s", path);
+    }
+    else {
+        LLOGD("启用文件下载模式 %s", path);
+        sprintf(buff, "Content-Disposition: attachment; filename=\"%s\"\r\n", strrchr(path, '/') + 1);
+    }
+
     if (buff[0] == 0) {
         client_write(client, "Content-Type: application/octet-stream\r\n", strlen("Content-Type: application/octet-stream\r\n"));
     }
@@ -528,15 +562,12 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
 
 static int handle_static_file(client_socket_ctx_t *client) {
     //处理静态文件
-    if (strlen(client->uri) < 1 || strlen(client->uri) > 20) {
+    if (strlen(client->uri) < 1 || strlen(client->uri) > 200) {
         // 太长就不支持了
-        return 0;
-    }
-    char path[256] = {0};
-    if (strlen(client->uri) > 200) {
         LLOGD("path too long [%s] > 200", client->uri);
         return 0;
     }
+    char path[256] = {0};
     uint8_t is_gz = 0;
     sprintf(path, "/luadb%s", strlen(client->uri) == 1 ? "/index.html" : client->uri);
     size_t fz = luat_fs_fsize(path);

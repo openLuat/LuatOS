@@ -160,9 +160,11 @@ int luat_lcd_init_default(luat_lcd_conf_t* conf) {
         }
         goto INIT_DONE;
     }
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
+    luat_lcd_set_reset_pin_level(conf, Luat_GPIO_LOW);
+//    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_rtos_task_sleep(100);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
+    luat_lcd_set_reset_pin_level(conf, Luat_GPIO_HIGH);
+//    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(120);
     luat_lcd_wakeup(conf);
     luat_rtos_task_sleep(120);
@@ -327,7 +329,7 @@ int luat_lcd_flush_default(luat_lcd_conf_t* conf) {
         //LLOGD("luat_lcd_flush no need");
         return 0;
     }
-    if (conf->opts->lcd_draw) {
+    if ((conf->port != LUAT_LCD_SPI_DEVICE) && conf->opts->lcd_draw) {
     	//LLOGD("luat_lcd_flush user flush");
     	if (conf->opts->no_ram_mode)
     	{
@@ -372,7 +374,7 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
     if (conf->buff == NULL) {
         // 常规数据, 整体传输
         if (x1 >= 0 && y1 >= 0 && x2 <= conf->w && y2 <= conf->h) {
-            if (conf->opts->lcd_draw) {
+            if ((conf->port != LUAT_LCD_SPI_DEVICE) && conf->opts->lcd_draw) {
             	conf->opts->lcd_draw(conf, x1, y1, x2, y2, color);
             } else {
 				uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
@@ -409,7 +411,7 @@ int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t
                     lsize -= (x2 - conf->w);
                     tmp_x2 = conf->w;
                 }
-                if (conf->opts->lcd_draw) {
+                if ((conf->port != LUAT_LCD_SPI_DEVICE) && conf->opts->lcd_draw) {
                     conf->opts->lcd_draw(conf, tmp_x1, i, tmp_x2, i, line);
                 } else {
                 // LLOGD("action draw %dx%d %dx%d %d", tmp_x1, i, tmp_x2, i, lsize);
@@ -497,8 +499,27 @@ int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
     return 0;
 }
 
+int luat_lcd_set_reset_pin_level(luat_lcd_conf_t* conf, uint8_t level){
+	if (conf->opts->reset_ctrl)
+	{
+		return conf->opts->reset_ctrl(conf, level);
+	}
+	else
+	{
+	    if (conf->pin_rst != LUAT_GPIO_NONE) {
+	        luat_gpio_set(conf->pin_rst, level);
+	    }
+
+	}
+    return 0;
+}
+
 int luat_lcd_draw_fill(luat_lcd_conf_t* conf,int16_t x1,int16_t y1,int16_t x2,int16_t y2, luat_color_t color) {          
 	int16_t i;
+	if ((conf->port != LUAT_LCD_SPI_DEVICE) && conf->opts->lcd_fill)
+	{
+		return conf->opts->lcd_fill(conf, x1, y1, x2, y2 - 1, color);
+	}
 	for(i=y1;i<y2;i++)
 	{
 		luat_lcd_draw_line(conf, x1, i, x2, i, color);

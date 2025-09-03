@@ -104,6 +104,7 @@ luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
         return NULL;
     }
     luat_icmp_ctx_t* ctx = ctxs[adapter_id];
+    memset(ctx, 0, sizeof(luat_icmp_ctx_t));
     ctx->netif = netdrv->netif;
     ctx->pcb = raw_new(IP_PROTO_ICMP);
     if (ctx->pcb == NULL) {

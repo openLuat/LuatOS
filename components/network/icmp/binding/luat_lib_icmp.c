@@ -119,6 +119,7 @@ int l_icmp_ping(lua_State *L) {
             LLOGW("icmp初始化失败");
             return 0;
         }
+        ctx->cb = l_icmp_cb;
     }
     const char* ip = luaL_checkstring(L, 2);
     ctx->len = luaL_optinteger(L, 3, 128);

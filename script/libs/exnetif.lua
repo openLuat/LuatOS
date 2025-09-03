@@ -401,13 +401,23 @@ exnetif.set_priority_order({
             }
         }
     })
--- 单网络模式下只使用SPI以太网网络
+-- Air8000系列和780EXX系列单网络模式下只使用SPI以太网网络
     exnetif.set_priority_order({
         {
             ETHERNET = { -- 以太网配置
                 pwrpin = 140, -- 供电使能引脚(number)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                 opts = {spi = 1, cs = 12}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            }
+        }
+    })
+-- Air8101单网络模式下只使用SPI以太网网络
+    exnetif.set_priority_order({
+        {
+            ETHUSER1 = { -- 以太网配置
+                pwrpin = 13, -- 供电使能引脚(number)
+                tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+                opts = {spi = 0, cs = 15}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
             }
         }
     })

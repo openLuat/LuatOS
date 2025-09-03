@@ -22,23 +22,34 @@ local audio_play_param ={
     cbFnc = play_end,            -- 播放完毕回调函数
 }
 
-local function boot_key_cb()
+
+---------------------------------
+---通过BOOT 按键进行播放停止操作---
+---------------------------------
+local function stop_audio()
     log.info("停止播放")
     sys.sendMsg(taskName, MSG_KEY_PRESS, "STOP_AUDIO")
 end
 --按下boot 停止播放
-gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
+gpio.setup(0, stop_audio, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 
-local function power_key_cb()
+---------------------------------
+---通过POWERKEY按键进行音频切换---
+---------------------------------
+
+local function next_audio()
     log.info("切换播放")
     sys.sendMsg(taskName, MSG_KEY_PRESS, "NEXT_AUDIO")
 end
 
 --按下powerkey 打断播放，播放优先级更高的音频
-gpio.setup(gpio.PWR_KEY, power_key_cb, gpio.PULLUP, gpio.FALLING)
+gpio.setup(gpio.PWR_KEY, next_audio, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(gpio.PWR_KEY, 200, 1)
 
+---------------------------------
+---------------主task------------
+---------------------------------
 
 
 local index_number = 1
@@ -48,13 +59,15 @@ local function audio_task()
     if exaudio.setup(audio_setup_param) then
         exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
         while true do
-            local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)
-            if msg[2] ==  "NEXT_AUDIO" then  -- true powerkey false boot key
-                if index_number %2 == 0 then
+            local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发
+            if msg[2] ==  "NEXT_AUDIO" then  
+                
+                if index_number %2 == 0 then     --  切换音频路径
                     audio_path = "/luadb/1.mp3"
                 else
                     audio_path = "/luadb/10.amr"
                 end
+
                 exaudio.play_start({type= 0, content = audio_path,cbFnc = play_end,priority = index_number})
                 index_number= index_number +1 
             elseif msg[2] ==  "STOP_AUDIO" then

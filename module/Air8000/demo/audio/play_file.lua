@@ -7,12 +7,14 @@ local audio_setup_param ={
     pa_ctrl = 162,         -- 音频放大器电源控制管脚
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
 }
+
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
-        log.info("播放完成")
-        exaudio.play_stop()
+        log.info("播放完成",exaudio.is_end())
     end
-end 
+end
+
+
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -32,7 +34,7 @@ local function stop_audio()
 end
 --按下boot 停止播放
 gpio.setup(0, stop_audio, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 200, 1)
+gpio.debounce(0, 200, 1) -- 防抖，防止频繁触发
 
 ---------------------------------
 ---通过POWERKEY按键进行音频切换---
@@ -45,7 +47,8 @@ end
 
 --按下powerkey 打断播放，播放优先级更高的音频
 gpio.setup(gpio.PWR_KEY, next_audio, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)
+gpio.debounce(gpio.PWR_KEY, 200, 1) -- 防抖，防止频繁触发
+
 
 ---------------------------------
 ---------------主task------------

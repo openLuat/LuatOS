@@ -7,12 +7,14 @@ local audio_setup_param ={
     pa_ctrl = 162,         -- 音频放大器电源控制管脚
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
 }
+
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
-        log.info("播放完成")
+        log.info("播放完成",exaudio.is_end())
         exaudio.play_stop()
     end
 end 
+
 local audio_play_param ={
     type= 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -45,7 +47,8 @@ end
 
 --按下powerkey 打断播放，播放优先级更高的音频
 gpio.setup(gpio.PWR_KEY, next_audio, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)
+gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 防抖，防止频繁触发
+
 
 ---------------------------------------------------------------------------------------------------
 ---------------主task------------------------------------------------------------------------------
@@ -62,7 +65,6 @@ local function audio_task()
         while true do
             local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发
             if msg[2] ==  "NEXT_AUDIO" then      
-                
                 if index_number %5 == 0 then     --  切换播报音色
                     audio_path = "[m51]支付宝到账,1千万元"   -- 女声1
                 elseif index_number %5 == 1 then

@@ -11,7 +11,6 @@ local recordPath = "/record.amr"
 
 local function record_end(event)
     if event == exaudio.RECORD_DONE then
-        log.info("录音完成")
         log.info("录音后文件大小",io.fileSize(recordPath))
     end
 end 
@@ -24,6 +23,33 @@ local audio_record_param ={
                                       -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
     cbFnc = record_end,            -- 录音完毕回调函数
 }
+
+
+---------------------------------
+---通过BOOT 按键增大录音---
+---------------------------------
+local volume_number = 50 
+local function add_volume()
+    volume_number = volume_number + 20
+    log.info("增大录音音量",volume_number)
+    exaudio.mic_vol(volume_number)
+end
+--按下boot 停止播放
+gpio.setup(0, add_volume, gpio.PULLDOWN, gpio.RISING)
+gpio.debounce(0, 200, 1)
+
+---------------------------------
+---通过POWERKEY按键减小录音---
+---------------------------------
+
+local function down_volume()
+    volume_number = volume_number - 15
+    log.info("减小录音音量",volume_number)
+    exaudio.mic_vol(volume_number)
+end
+
+gpio.setup(gpio.PWR_KEY, down_volume, gpio.PULLUP, gpio.FALLING)
+gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 
 
 

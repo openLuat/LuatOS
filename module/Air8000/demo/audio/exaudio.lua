@@ -378,12 +378,12 @@ end
 
 -- 模块接口：检查播放是否结束
 function exaudio.is_end()
-    return audio.isEnd()
+    return audio.isEnd(MULTIMEDIA_ID)
 end
 
 -- 模块接口：获取错误信息
 function exaudio.get_error()
-    return audio.getError()
+    return audio.getError(MULTIMEDIA_ID)
 end
 
 -- 模块接口：开始录音

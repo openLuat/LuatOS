@@ -16,7 +16,7 @@ end
 
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
-        log.info("播放完成")
+        log.info("播放完成",exaudio.is_end())
         if f then 
             return   f:close()
         end
@@ -37,7 +37,36 @@ local audio_play_param ={
     signed_or_Unsigned = true  -- PCM 的数据是否有符号，仅为流式播放起作用
 }
 
+---------------------------------
+---通过BOOT 按键增大音量---
+---------------------------------
+local volume_number = 50 
+local function add_volume()
+    volume_number = volume_number + 20
+    log.info("增大音量",volume_number)
+    exaudio.vol(volume_number)
+end
+--按下boot 停止播放
+gpio.setup(0, add_volume, gpio.PULLDOWN, gpio.RISING)
+gpio.debounce(0, 200, 1)
 
+---------------------------------
+---通过POWERKEY按键减小音量---
+---------------------------------
+
+local function down_volume()
+    volume_number = volume_number - 15
+    log.info("减小音量",volume_number)
+    exaudio.vol(volume_number)
+end
+
+gpio.setup(gpio.PWR_KEY, down_volume, gpio.PULLUP, gpio.FALLING)
+gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
+
+
+---------------------------------
+---通过主task---
+---------------------------------
 local taskName = "task_audio"
 local function audio_task()
     log.info("开始流式播报")

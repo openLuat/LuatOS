@@ -1,6 +1,17 @@
--- ==========================
--- AP配置模块
--- ==========================
+--[[
+@module  ap_init
+@summary ap_init AP启动功能模块
+@version 1.0
+@date    2025.09.02
+@author  拓毅恒
+@usage
+用法实例：
+
+启动 AP 服务
+- 运行 create_ap 任务，来执行开启 AP 的操作，并返回设置的SSID和PASSWD。
+
+本文件没有对外接口，直接在 main.lua 中 require "ap_init" 即可加载运行。
+]]
 
 -- 配置参数
 local AP_SSID       = "Air8000_FileHub"

@@ -1,6 +1,22 @@
--- ==========================
--- SD卡初始化模块
--- ==========================
+--[[
+@module  spi_sdcard_init
+@summary spi_sdcard_init 功能模块
+@version 1.0
+@date    2025.09.02
+@author  拓毅恒
+@usage
+用法实例：
+- 在main.lua中添加：require "spi_sdcard_init"
+- 系统会自动启动SD卡初始化任务
+- 初始化完成后，可以通过文件系统API访问SD卡文件
+
+注意事项：
+- 使用时请确保正确连接SD卡硬件
+- SD卡需为FAT32格式
+- 开发板上TF和以太网是同一个SPI，使用TF时必须要将以太网拉高
+
+本文件没有对外接口，直接在 main.lua 中 require "spi_sdcard_init" 即可加载运行。
+]]
 
 local ETH3V3_EN =140--以太网供电
 local SPI_TF_CS = 20--SD卡片选

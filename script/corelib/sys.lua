@@ -488,6 +488,10 @@ local taskList = {}
 -- @return co  返回该任务的线程号
 -- @usage sys.taskInitEx(task1,'a',callback)
 function sys.taskInitEx(fun, taskName, cbFun, ...)
+    if taskName == nil then
+        log.error("sys", "taskName is nil", fun)
+        return
+    end
     taskList[taskName]={msgQueue={}, To=false, cb=cbFun}
     return sys.taskInit(fun, ...)
 end

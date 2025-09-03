@@ -433,7 +433,14 @@ LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
 @int 芯片的ID, 默认是0, 大部分型号都只有0
 @return boolean 处理结果
 @usage
+-- 本函数仅Air8101有效
 pm.wakeupPin(8, gpio.RISING)
+-- 对Air780xx系列, Air8000, Air72x系列均无效
+-- 对于这些系列，使用gpio.setup即可, 例如使用 WAKEUP0引脚实现唤醒操作
+gpio.setup(gpio.WAKEUP0, function() end, gpio.PULLUP, gpio.RISING)
+-- 注意, 对于PSM+休眠, 唤醒相当于重启, 回调函数是不会执行的
+-- 对于PRO休眠, 回调函数会执行
+-- 唤醒原因, 可以通过 pm.lastReson()获取
  */
 static int l_pm_wakeup_pin(lua_State *L) {
     int level = luaL_optinteger(L, 2,0);
@@ -577,7 +584,7 @@ sys.subscribe("YHM27XX_REG", function(data)
     -- 注意, 会一次性读出0-9,总共8个寄存器值
     log.info("yhm27xx", data and data:toHex())
 end)
-yhm27xx.reqinfo(24, 0x04)
+pm.chginfo(nil, 0x04)
 */
 int l_pm_chginfo(lua_State *L)
 {

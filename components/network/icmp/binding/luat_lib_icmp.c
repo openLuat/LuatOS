@@ -77,7 +77,7 @@ static void l_icmp_cb(void* _ctx, uint32_t tused) {
 -- 初始化4G网络的icmp, 要等4G联网后才能调用
 icmp.setup(socket.LWIP_GP)
 */
-static int l_icmp_setup(lua_State *L) {
+int l_icmp_setup(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     luat_icmp_ctx_t* ctx = luat_icmp_init(id);
     if (ctx != NULL) {
@@ -110,7 +110,7 @@ sys.subscribe("PING_RESULT", function(id, time, dst)
     log.info("ping", id, time, dst);
 end)
 */
-static int l_icmp_ping(lua_State *L) {
+int l_icmp_ping(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     luat_icmp_ctx_t* ctx = luat_icmp_get(id);
     if (ctx == NULL) {
@@ -119,6 +119,7 @@ static int l_icmp_ping(lua_State *L) {
             LLOGW("icmp初始化失败");
             return 0;
         }
+        ctx->cb = l_icmp_cb;
     }
     const char* ip = luaL_checkstring(L, 2);
     ctx->len = luaL_optinteger(L, 3, 128);

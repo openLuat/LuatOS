@@ -340,6 +340,33 @@ netdrv.mreport("custom")
 */
 extern int l_mreport_config(lua_State* L);
 
+
+/*
+发起ping(异步的)
+@api netdrv.ping(id, ip, len)
+@int 网络适配器的id
+@string 目标ip地址,不支持域名!!
+@int ping包大小,默认128字节,可以不传
+@return bool 成功与否, 仅代表发送与否,不代表服务器已经响应
+@usage
+sys.taskInit(function()
+    -- 要等联网了才能ping
+    sys.waitUntil("IP_READY")
+    sys.wait(1000)
+    while 1 do
+        -- 必须指定使用哪个网卡
+        netdrv.ping(socket.LWIP_GP, "121.14.77.221")
+        sys.waitUntil("PING_RESULT", 3000)
+        sys.wait(3000)
+    end
+end)
+
+sys.subscribe("PING_RESULT", function(id, time, dst)
+    log.info("ping", id, time, dst);
+end)
+*/
+extern int l_icmp_ping(lua_State *L);
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {
@@ -355,6 +382,9 @@ static const rotable_Reg_t reg_netdrv[] =
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
+#endif
+#ifdef LUAT_USE_ICMP
+    { "ping",           ROREG_FUNC(l_icmp_ping)},
 #endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信

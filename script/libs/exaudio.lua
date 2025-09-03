@@ -48,7 +48,7 @@ local audio_play_param ={
                             --  5-调用audio.stop接口主动停止
     priority = 0,           -- 音频优先级，数值越大，优先级越高
                             -- 优先级高的播放请求会终止优先级低的播放
-                            -- 相同优先级的播放请求，播放策略参考：audio.setStrategy接口
+                            -- 相同优先级的播放请求，
     sampling_Rate = 16000,  -- 采样率,仅为流式播放起作用
     sampling_Depth =  16,   -- 采样位位深,仅流式播放的时候才有作用
     signed_or_Unsigned = true  -- PCM 的数据是否有符号，仅为流式播放起作用

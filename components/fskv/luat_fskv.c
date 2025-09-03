@@ -7,15 +7,9 @@
 #define LUAT_LOG_TAG "fskv"
 #include "luat_log.h"
 
-#ifdef TYPE_EC718HM
 #define LFS_BLOCK_DEVICE_READ_SIZE (256)
 #define LFS_BLOCK_DEVICE_PROG_SIZE (256)
 #define LFS_BLOCK_DEVICE_CACHE_SIZE (256)
-#else
-#define LFS_BLOCK_DEVICE_READ_SIZE (4)
-#define LFS_BLOCK_DEVICE_PROG_SIZE (4)
-#define LFS_BLOCK_DEVICE_CACHE_SIZE (4096)
-#endif
 #define LFS_BLOCK_DEVICE_ERASE_SIZE (4096) // one sector 4KB
 //#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (64 * 1024)
 #define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
@@ -227,7 +221,7 @@ int luat_fskv_init(void)
                 LLOGE("fskv init failed");
                 return -1;
             }
-            LLOGE("fskv addr and len %d %d", start_address, len);
+            LLOGE("fskv addr and len 0x%08X 0x%08X", start_address, len);
             luat_fskv_lfs_init(start_address, len);
         }
         if (fskv_lfs == NULL) {

@@ -1,21 +1,20 @@
 exaudio = require("exaudio")
+local taskName = "task_audio"
 
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     pa_ctrl = 162,         -- 音频放大器电源控制管脚
-    dac_ctrl = 165,        --  音频编解码芯片电源控制管脚
-    -- dac_delay = 3,        -- 在DAC启动前插入的冗余时间，单位100ms,控制pop 音
-    -- pa_delay = 100,      -- 在DAC启动后，延迟多长时间打开PA，单位1ms,控制pop 音
-    -- dac_time_delay = 600,    -- 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms,控制pop 音
-    -- pa_on_level = 1,           -- PA打开电平 1 高电平 0 低电平        
+    dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
 }
+
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
-        log.info("播放完成")
-        
+        log.info("播放完成",exaudio.is_end())
     end
-end 
+end
+
+
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -26,16 +25,59 @@ local audio_play_param ={
 }
 
 
+---------------------------------
+---通过BOOT 按键进行播放停止操作---
+---------------------------------
+local function stop_audio()
+    log.info("停止播放")
+    sys.sendMsg(taskName, MSG_KEY_PRESS, "STOP_AUDIO")
+end
+--按下boot 停止播放
+gpio.setup(0, stop_audio, gpio.PULLDOWN, gpio.RISING)
+gpio.debounce(0, 200, 1) -- 防抖，防止频繁触发
 
-local taskName = "task_audio"
+---------------------------------
+---通过POWERKEY按键进行音频切换---
+---------------------------------
+
+local function next_audio()
+    log.info("切换播放")
+    sys.sendMsg(taskName, MSG_KEY_PRESS, "NEXT_AUDIO")
+end
+
+--按下powerkey 打断播放，播放优先级更高的音频
+gpio.setup(gpio.PWR_KEY, next_audio, gpio.PULLUP, gpio.FALLING)
+gpio.debounce(gpio.PWR_KEY, 200, 1) -- 防抖，防止频繁触发
+
+
+---------------------------------
+---------------主task------------
+---------------------------------
+
+
+local index_number = 1
+local audio_path = nil
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
-        exaudio.play_start(audio_play_param)
-        sys.wait(2000)
-        --exaudio.play_start({type= 0,content = "/luadb/1.mp3",priority = 1})     -- 可对之前的播放进行打断
+        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
+        while true do
+            local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发
+            if msg[2] ==  "NEXT_AUDIO" then  
+                
+                if index_number %2 == 0 then     --  切换音频路径
+                    audio_path = "/luadb/1.mp3"
+                else
+                    audio_path = "/luadb/10.amr"
+                end
+
+                exaudio.play_start({type= 0, content = audio_path,cbFnc = play_end,priority = index_number})
+                index_number= index_number +1 
+            elseif msg[2] ==  "STOP_AUDIO" then
+                exaudio.play_stop()
+            end 
+        end
     end
     
 end
-
-sysplus.taskInitEx(audio_task, taskName)
+sys.taskInitEx(audio_task, taskName)

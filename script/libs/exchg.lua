@@ -120,8 +120,8 @@ exchg.on(exchg_callback)
 sys.taskInit(exchg_task_func)
 ]]
 local exchg = {}
--- yhm2712 cmd引脚
-local gpio_pin = 152
+-- yhm2712 cmd引脚, 传入nil表示根据模组型号自动选择
+local gpio_pin = nil
 --yhm2712芯片地址
 local sensor_addr = 0x04
 --电压控制寄存器地址

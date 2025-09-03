@@ -19,6 +19,15 @@
 #include "interf_enc.h"
 #include "interf_dec.h"
 #endif
+
+#ifdef LUAT_USE_AUDIO_G711
+#include "g711_codec/g711_codec.h"
+#endif
+
+#ifndef G711_PCM_SAMPLES
+#define G711_PCM_SAMPLES 160
+#endif
+
 #ifndef MINIMP3_MAX_SAMPLES_PER_FRAME
 #define MINIMP3_MAX_SAMPLES_PER_FRAME (2*1152)
 #endif
@@ -60,6 +69,17 @@ static int l_codec_create(lua_State *L) {
             		return 1;
             	}
             	break;
+#ifdef LUAT_USE_AUDIO_G711
+         	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
+         	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
+             	// 使用专门的g711_codec字段存储G711解码器
+             	coder->g711_codec = g711_decoder_create(type);
+             	if (!coder->g711_codec) {
+             		lua_pushnil(L);
+             		return 1;
+             	}
+             	break;
+ #endif
         	}
 
     	}
@@ -89,8 +109,19 @@ static int l_codec_create(lua_State *L) {
             		lua_pushnil(L);
             		return 1;
             	}
-            	break;
+            	        		break;
 #endif
+#endif
+#ifdef LUAT_USE_AUDIO_G711
+         	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
+         	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
+             	// 使用专门的g711_codec字段存储G711编码器
+             	coder->g711_codec = g711_encoder_create(type);
+             	if (!coder->g711_codec) {
+             		lua_pushnil(L);
+             		return 1;
+             	}
+             	break;
 #endif
 
         	default:
@@ -209,6 +240,17 @@ static int l_codec_get_audio_info(lua_State *L) {
 				LLOGD("head error");
 			}
 			break;
+#ifdef LUAT_USE_AUDIO_G711
+		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
+		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
+			// G711固定参数：8kHz采样率, 单声道, 8位深度
+			sample_rate = 8000;
+			num_channels = 1;
+			bits_per_sample = 8;
+			audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
+			result = 1;
+			break;
+#endif
 		default:
 			break;
 		}
@@ -341,6 +383,41 @@ GET_MP3_DATA:
 			}
 
 			break;
+#ifdef LUAT_USE_AUDIO_G711
+		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
+		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
+			// 动态分配缓冲区
+			if (!coder->buff.addr) {
+				coder->buff.addr = luat_heap_malloc(G711_PCM_SAMPLES);  // G711每帧160字节
+				coder->buff.len = G711_PCM_SAMPLES;
+				coder->buff.used = 0;
+			}
+
+			// 读取G711数据
+			if (coder->buff.used < G711_PCM_SAMPLES) {
+				read_len = luat_fs_fread((void*)(coder->buff.addr + coder->buff.used),
+									G711_PCM_SAMPLES, 1, coder->fd);
+				if (read_len > 0) {
+					coder->buff.used += read_len;
+				} else {
+					is_not_end = 0;
+				}
+			}
+
+			// 解码G711数据为PCM
+ 			if (coder->buff.used >= G711_PCM_SAMPLES) {
+ 				result = g711_decoder_get_data(coder->g711_codec, coder->buff.addr,
+ 											coder->buff.used, (int16_t*)out_buff->addr + out_buff->used,
+ 											&out_len, &used);
+				if (result > 0) {
+					out_buff->used += out_len;
+				}
+				// 移动缓冲区数据
+				memmove(coder->buff.addr, coder->buff.addr + used, coder->buff.used - used);
+				coder->buff.used -= used;
+			}
+			break;
+#endif
 		default:
 			break;
 		}
@@ -373,11 +450,75 @@ static int l_codec_encode_audio_data(lua_State *L) {
 		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
 	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB) || coder->is_decoder)
+	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_ULAW && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_ALAW) || coder->is_decoder)
 	{
 		lua_pushboolean(L, 0);
 		return 1;
 	}
+#ifdef LUAT_USE_AUDIO_G711
+	if (coder->type == LUAT_MULTIMEDIA_DATA_TYPE_ULAW || coder->type == LUAT_MULTIMEDIA_DATA_TYPE_ALAW) {
+		// G711编码处理 - 使用栈上分配的临时缓冲区，避免长期占用堆内存
+		uint8_t outbuf[G711_PCM_SAMPLES];  // 栈上分配，用完即释放
+		int16_t *pcm = (int16_t *)in_buff->addr;
+		uint32_t total_len = in_buff->used >> 1;  // 16位PCM转字节数
+		uint32_t done_len = 0;
+		uint32_t frame_size = G711_PCM_SAMPLES;  // G711每帧160个PCM样本
+		uint32_t out_len;
+
+		// 处理完整的160样本帧
+		while ((total_len - done_len) >= frame_size) {
+			// 编码一帧PCM数据为G711
+			int result = g711_encoder_get_data(coder->g711_codec, &pcm[done_len], frame_size,
+											 outbuf, &out_len);
+
+			if (result > 0 && out_len > 0) {
+				// 检查输出缓冲区空间
+				if ((out_buff->len - out_buff->used) < out_len) {
+					if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len)) {
+						lua_pushboolean(L, 0);
+						return 1;
+					}
+				}
+				// 复制编码后的数据到输出缓冲区
+				memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
+				out_buff->used += out_len;
+			} else {
+
+			}
+			done_len += frame_size;
+		}
+
+		// 处理剩余的PCM样本（不足160个样本的部分）
+		uint32_t remaining_len = total_len - done_len;
+		if (remaining_len > 0) {
+
+			// 用零填充到160个样本
+			int16_t padded_frame[G711_PCM_SAMPLES] = {0};
+			memcpy(padded_frame, &pcm[done_len], remaining_len * sizeof(int16_t));
+
+			int result = g711_encoder_get_data(coder->g711_codec, padded_frame, frame_size,
+											 outbuf, &out_len);
+
+			if (result > 0 && out_len > 0) {
+				// 检查输出缓冲区空间
+				if ((out_buff->len - out_buff->used) < out_len) {
+					if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len)) {
+						lua_pushboolean(L, 0);
+						return 1;
+					}
+				}
+				// 复制编码后的数据到输出缓冲区
+				memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
+				out_buff->used += out_len;
+			}
+		}
+
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+#endif
+
+	// AMR编码处理
 	uint8_t outbuf[128];
 	int16_t *pcm = (int16_t *)in_buff->addr;
 	uint32_t total_len = in_buff->used >> 1;
@@ -503,6 +644,21 @@ static int l_codec_gc(lua_State *L)
 		break;
 #endif
 #endif
+#ifdef LUAT_USE_AUDIO_G711
+ 	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
+ 	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
+ 		if (coder->g711_codec) {
+ 			if (coder->is_decoder) {
+ 				// 清理G711解码器
+ 				g711_decoder_destroy(coder->g711_codec);
+ 			} else {
+ 				// 清理G711编码器
+ 				g711_encoder_destroy(coder->g711_codec);
+ 			}
+ 			coder->g711_codec = NULL;
+ 		}
+ 		break;
+#endif
 	}
     return 0;
 }
@@ -538,6 +694,10 @@ static const rotable_Reg_t reg_codec[] =
 	{ "VDDA_3V3",        ROREG_INT(LUAT_CODEC_VDDA_3V3)},
 	//@const VDDA_1V8 number codec 电压: 1.8V
 	{ "VDDA_1V8",        ROREG_INT(LUAT_CODEC_VDDA_1V8)},
+	//@const ULAW number G711 μ-law格式
+	{ "ULAW",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ULAW)},
+	//@const ALAW number G711 A-law格式
+	{ "ALAW",            ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_ALAW)},
 
 	{ NULL,              ROREG_INT(0)}
 };

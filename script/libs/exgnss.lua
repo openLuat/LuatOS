@@ -131,6 +131,8 @@ local taskFlag=false
 
 local agpsFlag=false
 
+local timeres=false
+
 --保存经纬度到文件区
 local function save_loc(lat,lng)
     if not lat or not lng then
@@ -147,24 +149,35 @@ local function save_loc(lat,lng)
         -- log.info("gnss", "保存GPS位置", locStr)
         io.writeFile("/hxxtloc", locStr)
     end
-    local now = os.time()
-    io.writeFile("/hxxt_tm", tostring(now))
-    -- log.info("now", now)
+    if timeres then
+        local now = os.time()
+        io.writeFile("/hxxt_tm", tostring(now))
+        timeres=false
+        -- log.info("now", now)
+    end
 end
 
 local tid
+local timetid
+local function timer_fnc()
+    timeres=true
+    local now = os.time()
+    io.writeFile("/hxxt_tm", tostring(now))
+end
 
 sys.subscribe("GNSS_STATE", function(event)
     -- log.info("libagps","libagps is "..event)
     if event == "FIXED" then
         save_loc()
         tid=sys.timerLoopStart(save_loc,600000)
+        timetid=sys.timerStart(timer_fnc,10000)
         if exgnss.opts.rtc==true then
             sys.publish("NTP_UPDATE")
         end
     elseif event == "LOSE" or event == "CLOSE" then
         -- log.info("libagps","libagps is close")
         sys.timerStop(tid)
+        sys.timerStop(timetid)
     end
 end)
 
@@ -380,6 +393,7 @@ local function fnc_close()
     uart.close(uart_id)
     openFlag = false
     fixFlag = false
+    timeres=false
     sys.publish("GNSS_STATE","CLOSE",fixFlag)    
     log.info("exgnss._close")
     libgnss.clear()

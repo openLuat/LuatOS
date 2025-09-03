@@ -17,6 +17,8 @@
 
 #define MP3_MAX_CODED_FRAME_SIZE 1792
 
+#define G711_PCM_SAMPLES 160
+
 enum{
 	LUAT_MULTIMEDIA_DATA_TYPE_NONE,
 	LUAT_MULTIMEDIA_DATA_TYPE_PCM,
@@ -57,6 +59,7 @@ typedef struct{
 		void *mp3_decoder;
 		uint32_t read_len;
 		void *amr_coder;
+		void *g711_codec;
 	};
 	FILE* fd;
 #ifdef __LUATOS__
@@ -77,6 +80,18 @@ void mp3_decoder_init(void *decoder);
 void mp3_decoder_set_debug(void *decoder, uint8_t onoff);
 int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel);
 int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t len, int16_t *pcm, uint32_t *out_len, uint32_t *hz, uint32_t *used);
+
+void* g711_decoder_create(uint8_t type);
+void g711_decoder_destroy(void* decoder);
+int g711_decoder_get_data(void* decoder, const uint8_t* input, uint32_t len,
+                          int16_t* pcm, uint32_t* out_len, uint32_t* used);
+void* g711_encoder_create(uint8_t type);
+void g711_encoder_destroy(void* encoder);
+int g711_encoder_get_data(void* encoder, const int16_t* pcm, uint32_t len,
+                          uint8_t* output, uint32_t* out_len);
+void g711_get_stats(void* codec, uint32_t* sample_rate, uint32_t* frame_count);
+void g711_reset_stats(void* codec);
+void g711_set_sample_rate(void* codec, uint32_t sample_rate);
 
 #ifdef __LUATOS__
 int l_multimedia_raw_handler(lua_State *L, void* ptr);

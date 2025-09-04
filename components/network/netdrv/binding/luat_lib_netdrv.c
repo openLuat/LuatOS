@@ -349,6 +349,7 @@ extern int l_mreport_config(lua_State* L);
 @int ping包大小,默认128字节,可以不传
 @return bool 成功与否, 仅代表发送与否,不代表服务器已经响应
 @usage
+-- 本功能在2025.9.3新增
 sys.taskInit(function()
     -- 要等联网了才能ping
     sys.waitUntil("IP_READY")

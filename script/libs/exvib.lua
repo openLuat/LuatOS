@@ -165,6 +165,7 @@ function exvib.read_xyz()
     -- MSB数据格式为: D[11] D[10] D[9] D[8] D[7] D[6] D[5] D[4]
     -- 数据位为12位，需要将MSB数据左移4位，LSB数据右移4位，最后进行或运算
     -- 解析X轴数据 (LSB在前，MSB在后)
+
     local x_data = (string.byte(recv_data, 2) << 4) | (string.byte(recv_data, 1) >> 4)
 
     -- 解析Y轴数据 (LSB在前，MSB在后)
@@ -172,6 +173,7 @@ function exvib.read_xyz()
 
     -- 解析Z轴数据 (LSB在前，MSB在后)
     local z_data = (string.byte(recv_data, 6) << 4) | (string.byte(recv_data, 5) >> 4)
+
 
     -- 转换为12位有符号整数
     -- 判断X轴数据是否大于2047，若大于则表示数据为负数
@@ -185,17 +187,17 @@ function exvib.read_xyz()
 
     -- 转换为加速度值（单位：g）
     
-    if rangemode == 0 then
+    if rangemode == 1 then
         x_accel = x_data / 1024
         y_accel = y_data / 1024
         z_accel = z_data / 1024
 
-    elseif rangemode == 1 then
+    elseif rangemode == 2 then
         x_accel = x_data / 512
         y_accel = y_data / 512
         z_accel = z_data / 512
 
-    elseif rangemode == 2 then
+    elseif rangemode == 3 then
         x_accel = x_data / 256
         y_accel = y_data / 256
         z_accel = z_data / 256
@@ -268,13 +270,15 @@ function exvib.open(mode)
         active_dur_addr = {0x27, 0x01}    -- 设置激活时间
     elseif mode==2 or tonumber(mode)==2 then
         --常规检测
+		log.info("运动检测")
         rangeaddr = {0x0f, 0x01}          -- 设置加速度量程，默认4g
         active_ths_addr = {0x28, 0x26}    -- 设置激活阈值
         odr_addr = {0x10, 0x08}           -- 设置采样率 250Hz
         active_dur_addr = {0x27, 0x14}    -- 设置激活时间
     elseif mode==3 or tonumber(mode)==3 then
+        log.info("高动态检测")
         --高动态检测
-        rangeaddr = {0x0f, 0x10}          -- 设置加速度量程，默认8g
+        rangeaddr = {0x0f, 0x02}          -- 设置加速度量程，默认8g
         active_ths_addr = {0x28, 0x80}    -- 设置激活阈值
         odr_addr = {0x10, 0x0F}           -- 设置采样率 1000Hz
         active_dur_addr = {0x27, 0x04}    -- 设置激活时间

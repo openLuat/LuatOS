@@ -143,6 +143,10 @@ local z_msb_reg = 0x07 -- Z轴MSB寄存器地址
 local active_state = 0x0b -- 激活状态寄存器地址
 local active_state_data
 
+local rangemode=1
+local x_accel
+local y_accel
+local z_accel
 --[[
     获取da221的xyz轴数据
 @api exvib.read_xyz()
@@ -180,9 +184,26 @@ function exvib.read_xyz()
     if z_data > 2047 then z_data = z_data - 4096 end
 
     -- 转换为加速度值（单位：g）
-    local x_accel = x_data / 1024
-    local y_accel = y_data / 1024
-    local z_accel = z_data / 1024
+    
+    if rangemode == 0 then
+        x_accel = x_data / 1024
+        y_accel = y_data / 1024
+        z_accel = z_data / 1024
+
+    elseif rangemode == 1 then
+        x_accel = x_data / 512
+        y_accel = y_data / 512
+        z_accel = z_data / 512
+
+    elseif rangemode == 2 then
+        x_accel = x_data / 256
+        y_accel = y_data / 256
+        z_accel = z_data / 256
+    else
+        x_accel = x_data / 1024
+        y_accel = y_data / 1024
+        z_accel = z_data / 1024
+    end
 
     -- 输出加速度值（单位：g）
     return x_accel, y_accel, z_accel
@@ -237,6 +258,7 @@ end
     exvib.open(1)
 ]]
 function exvib.open(mode)
+    rangemode=mode
     if mode==1 or tonumber(mode)==1 then
         --轻微检测
         log.info("轻微检测")

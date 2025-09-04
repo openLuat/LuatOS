@@ -40,15 +40,15 @@
 
 ## 演示功能概述
 
-1、创建四路socket连接，详情如下
+1、创建四路socket连接，在目录中对应四个文件夹详情如下
 
-- 创建一个tcp client，连接tcp server；
+- TCP文件夹功能为创建一个tcp client，连接tcp server；
 
-- 创建一个udp client，连接udp server；
+- UDP文件夹功能为创建一个udp client，连接udp server；
 
-- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
+- TCP_SSL文件夹功能为创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
 
-- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
+- TCP_SSL_CA文件夹功能为创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
 
 2、每一路socket连接出现异常后，自动重连；
 

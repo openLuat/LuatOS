@@ -46,7 +46,7 @@ local function add_volume()
     log.info("增大音量",volume_number)
     exaudio.vol(volume_number)
 end
---按下boot 停止播放
+
 gpio.setup(0, add_volume, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 

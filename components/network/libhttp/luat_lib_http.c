@@ -6,10 +6,8 @@
 @demo    http
 @tag LUAT_USE_NETWORK
 @usage
--- 使用http库,需要引入sysplus库, 且需要在task内使用
-require "sys"
-require "sysplus"
 
+-- http 客户端示例, 详细示例请参考demo
 sys.taskInit(function()
 	sys.wait(1000)
 	local code,headers,body = http.request("GET", "http://www.example.com/abc").wait()

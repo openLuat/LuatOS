@@ -516,7 +516,7 @@ int luat_lcd_set_reset_pin_level(luat_lcd_conf_t* conf, uint8_t level){
 
 int luat_lcd_draw_fill(luat_lcd_conf_t* conf,int16_t x1,int16_t y1,int16_t x2,int16_t y2, luat_color_t color) {          
 	int16_t i;
-	if ((conf->port != LUAT_LCD_SPI_DEVICE) && conf->opts->lcd_fill)
+	if ((conf->port != LUAT_LCD_SPI_DEVICE) && !conf->buff && conf->opts->lcd_fill)
 	{
 		return conf->opts->lcd_fill(conf, x1, y1, x2, y2 - 1, color);
 	}

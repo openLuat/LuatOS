@@ -1,13 +1,13 @@
 --[[
-@module  ble_client_sender
-@summary BLE client 数据发送应用功能模块
+@module  ble_server_sender
+@summary BLE server 数据发送应用功能模块
 @version 1.0
-@date    2025.08.20
+@date    2025.08.29
 @author  王世豪
 @usage
-本文件为BLE client 数据发送应用功能模块，核心业务逻辑为：
+本文件为BLE server 数据发送应用功能模块，核心业务逻辑为：
 1、订阅"SEND_DATA_REQ"消息，将其他应用模块需要发送的数据存储到队列send_queue中；
-2、BLE_client_sender task接收"CONNECT_OK"、"SEND_REQ"、两种类型的"BLE_EVENT"消息，处理队列中的数据；
+2、BLE_server_sender task接收"CONNECT_OK"、"SEND_REQ"、两种类型的"BLE_EVENT"消息，处理队列中的数据；
 3、接收"DISCONNECTED"类型的"BLE_EVENT"消息，清空发送队列；
 4、数据发送完成后通过回调函数通知发送方。
 
@@ -17,7 +17,7 @@
     本demo项目中ble_timer_app.lua中publish了这个消息；
 ]]
 
-local ble_client_sender = {}
+local ble_server_sender = {}
 
 --[[
 数据发送队列，数据结构为：
@@ -28,24 +28,31 @@ local ble_client_sender = {}
 service_uuid: BLE服务UUID，string类型，必须存在；
 char_uuid: BLE特征值UUID，string类型，必须存在；
 data: 要发送的数据，string类型，必须存在；
+send_type: 发送类型，string类型，可选，默认值为"write"，可选值为"notify"；
 cb.func: 数据发送结果的用户回调函数，可以不存在；
 cb.para: 数据发送结果的用户回调函数参数，可以不存在；
 ]]
 
 local send_queue = {}
 
--- BLE client的任务名前缀
-ble_client_sender.TASK_NAME_PREFIX = "ble_client_"
+-- BLE server的任务名前缀
+ble_server_sender.TASK_NAME_PREFIX = "ble_server_"
 
 -- ble_client_sender的任务名
-ble_client_sender.TASK_NAME = ble_client_sender.TASK_NAME_PREFIX.."sender"
+ble_server_sender.TASK_NAME = ble_server_sender.TASK_NAME_PREFIX.."sender"
 
 -- "SEND_DATA_REQ"消息的处理函数
-local function send_data_req_proc_func(tag, service_uuid, char_uuid, data, cb)
+local function send_data_req_proc_func(tag, service_uuid, char_uuid, data, send_type, cb)
     -- 将数据插入到发送队列send_queue中
-    table.insert(send_queue, {service_uuid=service_uuid, char_uuid=char_uuid, data="send from " .. tag .. ": " .. data, cb=cb})
+    table.insert(send_queue, {
+        service_uuid = service_uuid, 
+        char_uuid = char_uuid, 
+        data = data, 
+        send_type = send_type or "write",
+        cb = cb,
+    })
     -- 发送消息通知 BLE sender task，有新数据等待发送
-    sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "SEND_REQ")
+    sys.sendMsg(ble_server_sender.TASK_NAME, "BLE_EVENT", "SEND_REQ")
 end
 
 -- 按照顺序发送send_queue中的数据
@@ -60,12 +67,22 @@ local function send_item_func(ble_device)
         item = table.remove(send_queue, 1)
 
         -- 发送数据
-        local write_params = {
+        local params = {
             uuid_service = string.fromHex(item.service_uuid),
             uuid_characteristic = string.fromHex(item.char_uuid)
         }
         local data = item.data
-        local result = ble_device:write_value(write_params, data)
+        local result = false
+        local send_type = string.lower(item.send_type or "write")
+
+        -- notify方式：主动向中心设备推送数据（需中心设备先开启notify订阅）
+        if send_type == "notify" then
+            result = ble_device:write_notify(params, data)
+            log.info("ble_server_sender", "使用notify方式发送数据")
+        else -- 默认使用write方式，更新特征值数据，中心设备需要主动读取特征值获取最新数据
+            result = ble_device:write_value(params, data)
+            log.info("ble_server_sender", "使用write方式发送数据")
+        end
 
         -- 发送接口调用成功
         if result then
@@ -91,15 +108,14 @@ local function send_item_cbfunc(item, result)
     end
 end
 
--- BLE client sender的任务处理函数
-local function ble_client_sender_task_func()
+-- BLE server sender的任务处理函数
+local function ble_server_sender_task_func()
     local ble_device
     local send_item
     local result, msg
 
     while true do
-        -- 等待"BLE_EVENT"消息
-        msg = sys.waitMsg(ble_client_sender.TASK_NAME, "BLE_EVENT")
+        msg = sys.waitMsg(ble_server_sender.TASK_NAME, "BLE_EVENT")
 
         -- BLE连接成功
         -- msg[3]表示ble_device对象
@@ -107,7 +123,6 @@ local function ble_client_sender_task_func()
             ble_device = msg[3]
             -- 发送send_queue中的数据
             send_item = send_item_func(ble_device)
-
         -- BLE发送数据请求
         elseif msg[2] == "SEND_REQ" then
             -- 如果ble_device对象存在，发送send_queue中的数据
@@ -115,15 +130,6 @@ local function ble_client_sender_task_func()
                 send_item_cbfunc(send_item, true)
                 send_item = send_item_func(ble_device)
             end
-
-        -- -- BLE发送完成(待完善......)
-        -- elseif msg[2] == "SEND_OK" then
-        --     -- send完成，执行回调并继续发送
-        --     send_item_cbfunc(send_item, true)
-        --     -- 发送send_queue中的下一条数据
-        --     send_item = send_item_func(ble_device)
-
-        -- BLE断开连接
         elseif msg[2] == "DISCONNECTED" then
             -- 清空ble_device对象
             ble_device = nil
@@ -148,9 +154,7 @@ end
 -- 参数: tag(标签), service_uuid(服务UUID), char_uuid(特征值UUID), data(数据), cb(回调函数和参数)
 sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 
---创建并且启动一个task
---运行这个task的处理函数ble_client_sender_task_func
-sys.taskInitEx(ble_client_sender_task_func, ble_client_sender.TASK_NAME)
+-- 启动任务
+sys.taskInitEx(ble_server_sender_task_func, ble_server_sender.TASK_NAME)
 
-return ble_client_sender
-
+return ble_server_sender

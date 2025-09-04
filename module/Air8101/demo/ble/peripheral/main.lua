@@ -6,8 +6,8 @@
 @author  王世豪
 @usage
 本demo演示的核心功能为：
-演示了Air8000核心板作为BLE peripheral(外围设备)的功能:
-1. Air8000作为外围设备开启广播，被动等待中心设备发起连接；
+演示了Air8101核心板作为BLE peripheral(外围设备)的功能:
+1. Air8101作为外围设备开启广播，被动等待中心设备发起连接；
 2. 建立连接成功后，外围设备定期向中心设备发送数据；
 3. 外围设备收到中心设备的写入数据后，通过uart发送到pc端串口工具；
 4. pc端串口工具收到数据后，打印到串口工具窗口。
@@ -60,10 +60,6 @@ end
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
-
-
--- Air8000蓝牙依赖WiFi协处理器，需更新WiFi固件（默认自动更新，需插入联网SIM卡）
-require "check_wifi" ---- 自动检查并更新WiFi固件
 
 -- 加载BLE peripheral(外围设备)主控制模块
 require "ble_server_main"

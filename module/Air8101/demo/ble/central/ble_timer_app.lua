@@ -19,7 +19,7 @@
     --   cb.func为回调函数(可以为空，如果为空，表示不关心ble client发送数据成功还是失败)
     --   cb.para为回调函数的第二个参数(可以为空)，回调函数的第一个参数为发送结果(true表示成功，false表示失败)
 
-2、sysplus.sendMsg(BLE_TASK_NAME,"BLE_EVENT","READ_REQ",server_uuid,read_char_uuid), 发送读取外围设备特征值UUID数据请求，在ble_client_main文件中处理，携带的参数为：
+2、sys.sendMsg(BLE_TASK_NAME,"BLE_EVENT","READ_REQ",server_uuid,read_char_uuid), 发送读取外围设备特征值UUID数据请求，在ble_client_main文件中处理，携带的参数为：
     -- msg[2]: "READ_REQ" --消息类型
     -- msg[3]: server_uuid --服务UUID
     -- msg[4]: read_char_uuid --特征值UUID
@@ -55,7 +55,7 @@ local function read_data_req_timer_cbfunc()
     -- msg[2]: "READ_REQ" --消息类型
     -- msg[3]: server_uuid --服务UUID
     -- msg[4]: read_char_uuid --特征值UUID
-    sysplus.sendMsg(BLE_TASK_NAME,"BLE_EVENT","READ_REQ",server_uuid,read_char_uuid)
+    sys.sendMsg(BLE_TASK_NAME,"BLE_EVENT","READ_REQ",server_uuid,read_char_uuid)
 end
 
 -- 启动5秒的循环定时器用于发送数据

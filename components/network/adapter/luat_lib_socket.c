@@ -1063,7 +1063,7 @@ static int l_socket_release(lua_State *L)
 /*
 设置DNS服务器
 @api    socket.setDNS(adapter_index, dns_index, ip)
-@int 适配器序号， 只能是socket.ETH0，socket.STA，socket.AP，如果不填，会选择最后一个注册的适配器
+@int 适配器序号,请参考socket库的常量表
 @int dns服务器序号，从1开始
 @string or int dns，如果是IPV4，可以是大端格式的int值
 @return boolean 成功返回true，失败返回false

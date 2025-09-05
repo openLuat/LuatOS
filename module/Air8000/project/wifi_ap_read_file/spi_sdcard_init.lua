@@ -22,7 +22,8 @@ local ETH3V3_EN =140--以太网供电
 local SPI_TF_CS = 20--SD卡片选
 local SPI_ETH_CS = 12--以太网片选
 
--- 注：开发板上TF和以太网是同一个SPI，使用TF时必须要将以太网拉高
+-- 注：开发板上TF和以太网是同一个SPI，使用Air8000开发板时必须要将以太网拉高
+-- 如果使用其他硬件，需要根据硬件原理图来决定是否需要次操作
 -- 配置以太网供电引脚，设置为输出模式，并启用上拉电阻
 gpio.setup(ETH3V3_EN, 1,gpio.PULLUP)
 -- 配置以太网片选引脚，设置为输出模式，并启用上拉电阻
@@ -55,16 +56,8 @@ function sdcard_init()
         log.info("fatfs", "err", err)
     end
 
-    -- 列出SD卡根目录下的文件和文件夹，最多列出50个（系统限制），从第0个开始
-    local ret, data = io.lsdir("/sd/", 50, 0)
-
     log.info("SDCARD", "SD卡初始化完成")
 end
 
 -- 启动SD卡配置任务
 sys.taskInit(sdcard_init)
-
-return {
-    sdcard_init = sdcard_init,
-    SPI_TF_CS = SPI_TF_CS
-}

@@ -10,35 +10,30 @@
 启动 AP 服务
 - 运行 create_ap 任务，来执行开启 AP 的操作，并返回设置的SSID和PASSWD。
 
-本文件没有对外接口，直接在 main.lua 中 require "ap_init" 即可加载运行。
+本文件在其余文件中用到了其中的变量，可直接在所需文件中 require "ap_init" 来加载运行。
 ]]
 
+dhcpsrv = require("dhcpsrv")
 -- 配置参数
 local AP_SSID       = "Air8000_FileHub"
 local AP_PASSWORD   = "12345678"
 
 -- 创建AP热点
-function create_ap()
+local function create_ap()
     log.info("WIFI", "创建AP热点: " .. AP_SSID)
-    local exnetif = require("exnetif")
-    exnetif.setproxy(socket.LWIP_AP, socket.LWIP_GP, {
-        ssid = AP_SSID,
-        password = AP_PASSWORD,
-        adapter_addr = "192.168.4.1",
-        adapter_gw = { 192, 168, 4, 1 },
-        ap_opts = {
-            hidden = false,
-            max_conn = 4,
-            channel = 6
-        }
-    })
+    wlan.createAP(AP_SSID, AP_PASSWORD)
+    netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "192.168.4.1")
+    while netdrv.ready(socket.LWIP_AP) ~= true do
+        sys.wait(100)
+    end
+    dhcpsrv.create({adapter=socket.LWIP_AP})
+    sys.publish("AP_CREATE_OK")
 end
 
 -- 启动AP配置任务
 sys.taskInit(create_ap)
 
 return {
-    create_ap = create_ap,
     AP_SSID = AP_SSID,
     AP_PASSWORD = AP_PASSWORD,
 }

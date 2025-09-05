@@ -45,7 +45,7 @@ local att_db = {
         ble.NOTIFY | ble.READ | ble.WRITE
     }, { -- Characteristic 2 (Write)
         string.fromHex(config.char_uuid2),
-        ble.WRITE
+        ble.WRITE | ble.WRITE_CMD -- ble.WRITE_CMD表示支持Write Without Response写入
     }, { -- Characteristic 3 (Read)
         string.fromHex(config.char_uuid3),
         ble.READ

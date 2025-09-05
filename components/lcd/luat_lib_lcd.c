@@ -612,11 +612,11 @@ static int l_lcd_set_direction(lua_State* L) {
 
 /*
 控制lcd reset pin拉高或者拉低,2025/9/5启用
-@api lcd.reset(level)
+@api lcd.reset_pin(level)
 @int reset脚电平，1高电平，0低电平
 @usage
 -- lcd reset脚高电平
-lcd.reset(1)
+lcd.reset_pin(1)
 */
 static int l_lcd_set_reset_pin(lua_State* L) {
     luat_lcd_set_reset_pin_level(lcd_dft_conf, luaL_optinteger(L, 1, 1));
@@ -2091,7 +2091,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
-	{ "reset",  ROREG_FUNC(l_lcd_set_reset_pin)},
+	{ "reset_pin",  ROREG_FUNC(l_lcd_set_reset_pin)},
     //@const direction_0 int 0°方向命令
     { "direction_0",    ROREG_INT(LUAT_LCD_ROTATE_0)},
     //@const direction_90 int 90°方向命令

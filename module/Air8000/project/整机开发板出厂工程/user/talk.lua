@@ -210,9 +210,9 @@ local function analyze_v1(cmd, topic, obj)
     if cmd == "8002" then
         if obj and obj["result"] == SUCC then   --收到设备列表更新应答，才能认为相关网络服务准备好了
             g_dev_list = obj["dev_list"]
-            -- for i=1,#g_dev_list do
-            --     log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
-            -- end
+            for i=1,#g_dev_list do
+                log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
+            end
             g_state = SP_T_IDLE
             sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, true)  --完整登录流程结束
         else

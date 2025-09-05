@@ -221,14 +221,19 @@ function exaudio.setup(audioConfigs)
 
     -- 检查功率放大器控制管脚
     if audioConfigs.pa_ctrl == nil then
-        log.error("pa_ctrl(功率放大器控制管脚)为必填项")
-        return false
+        log.warn("pa_ctrl(功率放大器控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
     end
     audio_setup_param.pa_ctrl = audioConfigs.pa_ctrl
 
+    -- 检查功率放大器控制管脚
+    if audioConfigs.dac_ctrl == nil then
+        log.warn("dac_ctrl(音频编解码控制管脚)是控制pop 音的重要管脚,建议硬件设计加上")
+    end
+    audio_setup_param.dac_ctrl = audioConfigs.dac_ctrl
+
+
     -- 处理可选参数
     local optional_params = {
-        {name = "dac_ctrl", type = "number"},
         {name = "dac_delay", type = "number"},
         {name = "pa_delay", type = "number"},
         {name = "dac_time_delay", type = "number"},

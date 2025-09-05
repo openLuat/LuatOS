@@ -30,6 +30,12 @@ MSG_READY = 10
 MSG_NOT_READY = 11
 MSG_TYPE = 12
 
+-- 新增消息类型
+MSG_ADDRESS_LIST_OPEN = 30
+MSG_ADDRESS_LIST_BACK = 31
+MSG_ADDRESS_LIST_PREV = 32
+MSG_ADDRESS_LIST_NEXT = 33
+MSG_ADDRESS_LIST_SELECT = 34
 
 
 SP_T_NO_READY = 0           -- 离线状态无法对讲
@@ -58,9 +64,13 @@ local g_remote_id                 --对端ID
 local g_s_type                  --对讲的模式，字符串形式的
 local g_s_topic                 --对讲用的topic
 local g_s_mode                  --对讲的模式
-local g_dev_list                --对讲列表
+local g_dev_list = {}           --对讲列表
 
-
+-- 新增通讯录相关变量
+local address_list_page = 1     -- 通讯录当前页码
+local address_list_max_page = 1 -- 通讯录最大页码
+local current_page = "main"     -- 当前页面状态
+local contacts_per_page = 8     -- 每页显示的联系人数量
 
 local function auth()
     if g_state == SP_T_NO_READY then
@@ -189,6 +199,11 @@ local function analyze_v1(cmd, topic, obj)
     if cmd == "0101" then                        --更新设备列表
         if obj then
             g_dev_list = obj["dev_list"]
+            -- 计算通讯录最大页码
+            address_list_max_page = math.ceil(#g_dev_list / contacts_per_page)
+            if address_list_max_page == 0 then
+                address_list_max_page = 1
+            end
             -- for i=1,#g_dev_list do
             --     log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
             -- end
@@ -210,6 +225,11 @@ local function analyze_v1(cmd, topic, obj)
     if cmd == "8002" then
         if obj and obj["result"] == SUCC then   --收到设备列表更新应答，才能认为相关网络服务准备好了
             g_dev_list = obj["dev_list"]
+            -- 计算通讯录最大页码
+            address_list_max_page = math.ceil(#g_dev_list / contacts_per_page)
+            if address_list_max_page == 0 then
+                address_list_max_page = 1
+            end
             for i=1,#g_dev_list do
                 log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
             end
@@ -445,6 +465,58 @@ local function submit_callback(input_text)
     end
 end
 
+-- 绘制通讯录页面
+local function draw_address_list()
+    lcd.clear(_G.bkcolor)
+    
+    -- 绘制返回按钮 (左上角)
+    lcd.showImage(10, 10, "/luadb/back.jpg")
+    
+    -- 绘制标题 (居中)
+    lcd.drawStr(120, 30, "通讯录")
+    
+    -- 计算当前页的联系人起始和结束索引
+    local start_index = (address_list_page - 1) * contacts_per_page + 1
+    local end_index = math.min(start_index + contacts_per_page - 1, #g_dev_list)
+    
+    -- 绘制联系人列表
+    local y_pos = 78
+    for i = start_index, end_index do
+        local contact = g_dev_list[i]
+        
+        -- 绘制ID
+        lcd.drawStr(10, y_pos, "ID: " .. (contact["id"] or ""))
+        
+        -- 绘制名称
+        lcd.drawStr(10, y_pos + 15, "名称: " .. (contact["name"] or "未知"))
+        
+        -- 绘制分隔线
+        lcd.drawLine(5, y_pos + 35-12, 315, y_pos + 35-12)
+        
+        y_pos = y_pos + 40  -- 每个联系人占40像素高度
+    end
+    
+    -- 绘制翻页按钮 (底部居中)
+    local page_btn_y = 412
+    if address_list_page > 1 then
+        lcd.drawStr(50, page_btn_y, "上一页")
+    end
+    
+    if address_list_page < address_list_max_page then
+        lcd.drawStr(220, page_btn_y, "下一页")
+    end
+    
+    -- 绘制页码信息 (底部居中)
+    lcd.drawStr(140, page_btn_y, address_list_page .. "/" .. address_list_max_page)
+    
+    -- 如果正在通话，绘制停止按钮 (底部居中)
+    if g_state == SP_T_CONNECTED then
+        lcd.fill(120, 435, 200, 465,0xF061)  -- 绘制停止按钮边框
+        lcd.drawStr(130, 462, "停止通话")
+    end
+    
+    lcd.flush()
+end
 
 function talk.run()
     log.info("talk.run",airtalk.PROTOCOL_DEMO_MQTT_16K)
@@ -461,36 +533,42 @@ function talk.run()
         if input_method.is_active() then
             input_method.periodic_refresh()
         else
-            lcd.clear(_G.bkcolor) 
-            if  speech_topic  == nil then
-                lcd.drawStr(0, 80, "输入任意手机号,并保证所有终端/平台一致")
-                lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
-                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
-                lcd.drawStr(0, 140, "本机ID:" .. g_local_id)
-                lcd.showImage(130, 250, "/luadb/input_topic.jpg")
-                lcd.showImage(130, 350, "/luadb/broadcast.jpg")
-                lcd.showImage(130, 397, "/luadb/stop.jpg")
+            if current_page == "main" then
+                lcd.clear(_G.bkcolor) 
+                if  speech_topic  == nil then
+                    lcd.drawStr(0, 80, "输入任意手机号,并保证所有终端/平台一致")
+                    lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
+                    lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
+                    lcd.drawStr(0, 140, "本机ID:" .. g_local_id)
+                    lcd.showImage(32, 250, "/luadb/input_topic.jpg")
+                    lcd.showImage(32, 350, "/luadb/broadcast.jpg")
+                    lcd.showImage(104, 400, "/luadb/stop.jpg")
+                    
+                else
+                    lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
+                    lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
+                    lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
+                    lcd.drawStr(0, 140, "所有终端或者网页都要使用同一个topic")
+                    lcd.drawStr(0, 160, talk_state)
+                    lcd.drawStr(0, 180, "事件:" .. event)
+                    lcd.drawStr(0, 200, "本机ID:" .. g_local_id)
+                    -- 显示输入法入口按钮
+                    lcd.showImage(32, 250, "/luadb/input_topic.jpg")
+                    lcd.showImage(175, 300, "/luadb/datacall.jpg")
+                    lcd.showImage(32, 300, "/luadb/broadcast.jpg")
+                    lcd.showImage(104, 400, "/luadb/stop.jpg")
+                    lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
+                end
                 
-            else
-                lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
-                lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
-                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
-                lcd.drawStr(0, 140, "所有终端或者网页都要使用同一个topic")
-                lcd.drawStr(0, 160, talk_state)
-                lcd.drawStr(0, 180, "事件:" .. event)
-                lcd.drawStr(0, 200, "本机ID:" .. g_local_id)
-                -- 显示输入法入口按钮
-                lcd.showImage(130, 250, "/luadb/input_topic.jpg")
-                lcd.showImage(130, 300, "/luadb/datacall.jpg")
-                lcd.showImage(130, 350, "/luadb/broadcast.jpg")
-                lcd.showImage(130, 397, "/luadb/stop.jpg")
-                lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
-                -- log.info("flush ui") 
+                -- 显示通讯录按钮 (位置x10,y250)
+                lcd.showImage(175, 250, "/luadb/addresslist.jpg")
+                
+                lcd.showImage(0,0,"/luadb/back.jpg")
+                lcd.flush()
+            elseif current_page == "address_list" then
+                draw_address_list()
             end
-            lcd.showImage(20,360,"/luadb/back.jpg")
-            lcd.flush()
         end
-
 
         if not run_state then
             return true
@@ -521,26 +599,88 @@ local function start_input()
     input_method.init(false, "talk", submit_callback)  -- 直接传递函数
 end
 
+-- 打开通讯录
+local function open_address_list()
+    current_page = "address_list"
+    address_list_page = 1
+end
 
+-- 返回主页面
+local function back_to_main()
+    current_page = "main"
+end
+
+-- 选择联系人
+local function select_contact(index)
+    local contact_index = (address_list_page - 1) * contacts_per_page + index
+    if contact_index <= #g_dev_list then
+        local contact = g_dev_list[contact_index]
+        if contact and contact["id"] then
+            speech_topic = contact["id"]
+            fskv.set("talk_number", speech_topic)
+            start_talk()
+            -- 保持在通讯录页面，但显示停止按钮
+        end
+    end
+end
+
+-- 处理通讯录页面的触摸事件
+local function handle_address_list_touch(x, y)
+    -- 返回按钮区域 (左上角)
+    if x > 10 and x < 50 and y > 10 and y < 50 then
+        back_to_main()
+        return
+    end
+    
+    -- 上一页按钮区域 (底部左侧)
+    if address_list_page > 1 and x > 40 and x < 90 and y > 390 and y < 420 then
+        address_list_page = address_list_page - 1
+        return
+    end
+    
+    -- 下一页按钮区域 (底部右侧)
+    if address_list_page < address_list_max_page and x > 210 and x < 260 and y > 390 and y < 420 then
+        address_list_page = address_list_page + 1
+        return
+    end
+    
+    -- 停止通话按钮区域 (底部居中)
+    if g_state == SP_T_CONNECTED and x > 120 and x < 200 and y > 435 and y < 465 then
+        stop_talk()
+        return
+    end
+    
+    -- 联系人选择区域 (60-380像素高度)
+    if y >= 60 and y <= 380 then
+        local contact_index = math.floor((y - 60) / 40) + 1
+        if contact_index >= 1 and contact_index <= contacts_per_page then
+            select_contact(contact_index)
+        end
+    end
+end
 
 function talk.tp_handal(x, y, event)
     if input_key then
         input_method.process_touch(x, y)
     else
-        if x > 20 and x < 100 and y > 360 and y < 440 then
-            run_state = false 
-        elseif x > 130 and x < 230 and y > 250 and y < 300 then
-            sysplus.taskInitEx(start_input,"start_input")
-        elseif x > 130 and x < 230 and y > 300 and y < 345 then
-            sysplus.taskInitEx(start_talk, "start_talk")
-        elseif x > 130 and x < 230 and y > 350 and y < 397 then
-            sysplus.taskInitEx(start_broadcast, "start_broadcast")
-        elseif x > 130 and x < 230 and y > 397 and y < 444 then
-            sysplus.taskInitEx(stop_talk, "stop_talk")
+        if current_page == "main" then
+            if x > 0 and x < 80 and y > 0 and y < 80 then
+                run_state = false 
+            elseif x > 32 and x < 133 and y > 250 and y < 295 then
+                sysplus.taskInitEx(start_input,"start_input")
+            elseif x > 173 and x < 284 and y > 300 and y < 345 then
+                sysplus.taskInitEx(start_talk, "start_talk")
+            elseif x > 32 and x < 133 and y > 300 and y < 345 then
+                sysplus.taskInitEx(start_broadcast, "start_broadcast")
+            elseif x > 104 and x < 215 and y > 397 and y < 444 then
+                sysplus.taskInitEx(stop_talk, "stop_talk")
+            elseif x > 175 and x < 286 and y > 250 and y < 295 then  -- 通讯录按钮
+                sysplus.taskInitEx(open_address_list, "open_address_list")
+            end
+        elseif current_page == "address_list" then
+            handle_address_list_touch(x, y)
         end
     end
 end
-
-
 
 return talk

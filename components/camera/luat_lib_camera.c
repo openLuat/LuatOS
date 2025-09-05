@@ -33,6 +33,16 @@ int l_camera_handler(lua_State *L, void* ptr) {
     {
         camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
     }
+#if (defined TYPE_EC718) || (defined TYPE_EC718M)
+    if (camera_cbs[0].scanned)
+    {
+    	camera_id = 0;
+    }
+    else if (camera_cbs[1].scanned)
+    {
+    	camera_id = 1;
+    }
+#endif
     if (camera_cbs[camera_id].scanned) {
         lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].scanned);
         if (lua_isfunction(L, -1)) {

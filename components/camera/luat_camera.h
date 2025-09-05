@@ -209,5 +209,8 @@ int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer);
 
 int luat_camera_config(int id, int key, int value);
 
+int luat_camera_reset_pin(int id, uint8_t level);
+
+int luat_camera_pwdn_pin(int id, uint8_t level);
 /** @}*/
 #endif

@@ -1,13 +1,26 @@
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
-@version 1.0
-@date    2025.07.02
-@author  李源龙
+@version 001.000.000
+@date    2025.08.25
+@author  王棚嶙
 @usage
-本demo演示的功能为：
-使用Air780EHM核心板通过fatfs库和io库实现对tf卡的高效操作，并可以挂载fatfs文件系统，通过文件系统相关接口去操作fatfs文件系统中的文件，并演示文件的读写、删除、追加以及HTTP服务器下载到SD卡等操作。
+本 Demo 完整覆盖了 TF 卡操作的核心到高级流程，HTTP下载功能包括：
+1. 基础操作：
+   - CH390 供电控制
+   - 看门狗守护机制 
+2. 挂载及文件操作：
+   - 文件系统挂载/卸载
+   - TF卡空间信息查询
+   - 文件创建/读写/追加
+   - 目录创建/删除
+   - 文件重命名/删除
+   - 文件存在性检查与大小获取
+3. 下载功能：
+   - 网络检测与HTTP文件下载
+更多说明参考本目录下的readme.md文件
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -19,18 +32,22 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "tftest"
+        
+PROJECT = "tfcard"
 VERSION = "001.000.000"
+
+
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
+
 
 --添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000)--初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
-
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
 -- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
@@ -55,8 +72,20 @@ end
 -- end, 3000)
 
 
---加载SFUD测试应用模块
-require "tf_test"
+
+-- 加载ch390控制模块，
+-- 在使用Air780EHM/EHV/EGH开发板时，打开这个功能模块。
+-- 在使用Air780E/EHV/EGH核心板时，关闭这个功能模块。                  
+--require "ch390_manager"
+
+--[[在加载以下两个功能时，建议分别打开进行测试，因为文件操作和http下载功能是异步操作。
+放到一个项目中，如果加载的时间点是随机的，就会出现tfcard_app在spi.setup和fatfs挂载文件系统之后，
+还没有释放资源，然后http_download_file又去重复spi.setup和fatfs挂载文件系统了，不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
+
+--加载tf卡测试应用模块
+require "tfcard_app"
+--加载HTTP下载存入TF卡功能演示模块
+--require "http_download_file"
 
 
 -- 用户代码已结束---------------------------------------------

@@ -611,7 +611,7 @@ static int l_lcd_set_direction(lua_State* L) {
 }
 
 /*
-控制lcd reset pin拉高或者拉低
+控制lcd reset pin拉高或者拉低,2025/9/5启用
 @api lcd.reset(level)
 @int reset脚电平，1高电平，0低电平
 @usage

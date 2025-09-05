@@ -66,7 +66,7 @@ local result = uart.setup(uartid, -- 串口id
     1 -- 停止位
 )
 
-camera.on(0, "scanned", function(id, str)
+local function cb(id, str)
     if type(str) == 'string' then
         log.info("扫码结果", str)
     elseif str == false then
@@ -75,7 +75,8 @@ camera.on(0, "scanned", function(id, str)
         log.info("摄像头数据", str)
         sys.publish("capture done", true)
     end
-end)
+end
+
 
 local function press_key()
     log.info("boot press")
@@ -108,7 +109,7 @@ sys.taskInit(function()
     i2c.setup(i2cId, i2c.FAST)
     gpio.setup(5, 0) -- PD拉低
     camera_id = device_init()
-    
+	camera.on(camera_id, "scanned", cb)
     if DONE_WITH_CLOSE then
         camera.close(camera_id)
     else

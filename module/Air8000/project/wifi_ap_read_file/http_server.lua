@@ -24,7 +24,6 @@ local SERVER_PORT = 80
 
 -- 导入必要的模块
 local ap_init = require "ap_init"
-local sdcard = require "spi_sdcard_init"
 
 -- 登录配置
 local login_config = {
@@ -35,13 +34,6 @@ local login_config = {
 -- 会话管理
 local authenticated_sessions = {}
 
--- 文件存在检查
-local function file_exists(path)
-    local f = io.open(path, "r")
-    if f then f:close(); return true end
-    return false
-end
-
 -- 获取文件信息
 local function get_file_info(path)
     log.info("FILE_INFO", "获取文件信息: " .. path)
@@ -50,7 +42,7 @@ local function get_file_info(path)
     local filename = path:match("([^/]+)$") or ""
 
     -- 检查文件是否存在
-    if not file_exists(path) then
+    if not io.exists(path) then
         log.info("FILE_INFO", "文件不存在: " .. path)
         return {
             name = filename,
@@ -63,23 +55,8 @@ local function get_file_info(path)
     local file = io.open(path, "rb")
     if file then
         -- 尝试获取文件大小
-        local file_size = 0
-        local size_success, size_result = pcall(function()
-            if io.fileSize then
-                local size = io.fileSize(path)
-                if size then
-                    file_size = size
-                end
-            else
-                -- 如果没有fileSize函数，尝试通过移动文件指针获取大小
-                local current_pos = file:seek()
-                file_size = file:seek("end")
-                file:seek("set", current_pos)
-            end
-        end)
-
+        local file_size = io.fileSize(path)
         file:close()
-
         log.info("FILE_INFO", "成功获取文件信息: " .. filename .. ", 大小: " .. file_size .. " 字节")
         return {
             name = filename,
@@ -96,6 +73,57 @@ local function get_file_info(path)
     end
 end
 
+-- 使用io.lsdir函数扫描目录
+local function scan_with_lsdir(path, files)
+    log.info("LIST_DIR", "开始扫描目录")
+        -- 如果路径不以/结尾，添加/确保路径格式正确
+        local scan_path = path
+        if not scan_path:match("/$" ) then
+            scan_path = scan_path .. (scan_path == "" and "" or "/")
+        end
+
+        log.info("LIST_DIR", "开始扫描路径: " .. scan_path)
+
+        -- 扫描目录，最多列出50个文件，从第0个开始
+        local ret, data = io.lsdir(scan_path, 50, 0)
+
+        if ret then
+            log.info("LIST_DIR", "成功获取目录内容，文件数量: " .. #data)
+            log.info("LIST_DIR", "目录内容: " .. json.encode(data))
+
+            -- 遍历目录内容
+            for i = 1, #data do
+                local entry = data[i]
+                log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. (entry.type == 0 and "文件" or "目录"))
+
+                local full_path = scan_path .. entry.name
+
+                -- 使用get_file_info获取文件信息
+                local info = get_file_info(full_path)
+                if info then
+                    info.path = full_path
+                    info.isDirectory = (entry.type ~= 0)
+                    table.insert(files, info)
+                    log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. ": " .. entry.name .. ", 大小: " .. info.size)
+                else
+                    -- 如果get_file_info失败，使用默认值
+                    local default_info = {
+                        name = entry.name,
+                        size = entry.type == 0 and (entry.size or 0) or 0,
+                        isDirectory = (entry.type ~= 0),
+                        path = full_path
+                    }
+                    table.insert(files, default_info)
+                    log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. "(默认信息): " .. entry.name)
+                end
+            end
+            return true
+        else
+            log.info("LIST_DIR", "io.lsdir扫描失败: " .. (data or "未知错误"))
+        end
+    return false
+end
+
 -- 列出目录
 local function list_directory(path)
     -- 初始化文件列表
@@ -103,89 +131,15 @@ local function list_directory(path)
 
     log.info("LIST_DIR", "开始处理目录请求: " .. path)
 
-    local scan_methods = {
-        function()
-            log.info("LIST_DIR", "尝试使用io.lsdir函数扫描目录")
-            if io and io.lsdir then
-                log.info("LIST_DIR", "找到io.lsdir函数")
+    -- 扫描方法表
+    local scan_success = scan_with_lsdir(path, files)
 
-                -- 如果路径不以/结尾，添加/确保路径格式正确
-                local scan_path = path
-                if not scan_path:match("/$") then
-                    scan_path = scan_path .. (scan_path == "" and "" or "/")
-                end
-
-                log.info("LIST_DIR", "开始扫描路径: " .. scan_path)
-
-                -- 使用io.lsdir扫描目录，最多列出50个文件，从第0个开始
-                local ret, data = io.lsdir(scan_path, 50, 0)
-
-                if ret then
-                    log.info("LIST_DIR", "成功获取目录内容，文件数量: " .. #data)
-                    log.info("LIST_DIR", "目录内容: " .. json.encode(data))
-
-                    -- 遍历目录内容
-                    for i = 1, #data do
-                        local entry = data[i]
-                        log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. (entry.type == 0 and "文件" or "目录"))
-
-                        local full_path = scan_path .. entry.name
-
-                        -- 使用get_file_info获取文件信息
-                        local info = get_file_info(full_path)
-                        if info then
-                            info.path = full_path
-                            info.isDirectory = (entry.type ~= 0)
-                            table.insert(files, info)
-                            log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. ": " .. entry.name .. ", 大小: " .. info.size)
-                        else
-                            -- 如果get_file_info失败，使用默认值
-                            local default_info = {
-                                name = entry.name,
-                                size = entry.type == 0 and (entry.size or 0) or 0,
-                                isDirectory = (entry.type ~= 0),
-                                path = full_path
-                            }
-                            table.insert(files, default_info)
-                            log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. "(默认信息): " .. entry.name)
-                        end
-                    end
-                    return true
-                else
-                    log.info("LIST_DIR", "io.lsdir扫描失败: " .. (data or "未知错误"))
-                end
-            else
-                log.info("LIST_DIR", "io模块不可用或没有lsdir函数")
-            end
-            return false
-        end
-    }
-
-    -- 依次尝试所有扫描方法，直到成功
-    local scan_success = false
-    for i, scan_method in ipairs(scan_methods) do
-        log.info("LIST_DIR", "尝试扫描方法 #" .. i)
-        local success = scan_method()
-        if success then
-            scan_success = true
-            log.info("LIST_DIR", "扫描方法 #" .. i .. " 成功")
-            break
-        end
+    -- 记录扫描结果
+    if scan_success then
+        log.info("LIST_DIR", "扫描方法成功")
+    else
+        log.info("LIST_DIR", "扫描方法失败")
     end
-
-    -- -- 如果没有找到任何文件，添加假数据确保总是有内容显示
-    -- if #files == 0 then
-    --     log.info("LIST_DIR", "所有扫描方法失败，添加假数据")
-    --     -- 添加假数据：名称456.txt，大小5446，确保总是有数据返回
-    --     local fake_file = {
-    --         name = "456.txt",
-    --         size = 5446,
-    --         isDirectory = false,
-    --         path = path .. (path == "/" and "" or "/") .. "456.txt",
-    --         isFake = true -- 标记为假数据
-    --     }
-    --     table.insert(files, fake_file)
-    --     log.info("LIST_DIR", "添加假数据文件: 456.txt")
 
     log.info("LIST_DIR", "目录扫描完成，总共找到文件数量: " .. #files)
     return files
@@ -372,7 +326,6 @@ local function handle_http_request(fd, method, uri, headers, body)
                 log.info("SCAN", "io模块不可用或没有lsdir函数")
             end
 
-            -- 同时尝试使用list_directory函数作为备选
             local list_files = list_directory(mount_point)
             if list_files then
                 for _, file in ipairs(list_files) do
@@ -382,14 +335,14 @@ local function handle_http_request(fd, method, uri, headers, body)
                         local file_path = file.path or (mount_point .. (mount_point == "/" and "" or "/") .. file.name)
 
                         -- 检查文件是否已添加
-                        local exists = false
+                        local is_exists = false
                         for _, f in ipairs(found_files) do
                             if f.name == file.name and f.path == file_path then
-                                exists = true
+                                is_exists = true
                                 break
                             end
                         end
-                        if not exists then
+                        if not is_exists then
                             table.insert(found_files, {
                                 name = file.name,
                                 size = file.size,
@@ -460,8 +413,8 @@ local function handle_http_request(fd, method, uri, headers, body)
         end)
         log.info("HTTP", "解码后的文件列表路径: " .. path)
 
-        -- 调用list_directory函数并打印调用信息
-        log.info("HTTP", "准备调用list_directory函数")
+        -- 调用list_directory函数扫描目录
+        log.info("HTTP", "开始扫描目录")
         local files = list_directory(path)
 
         -- 记录传给页面的文件数据
@@ -516,7 +469,7 @@ local function handle_http_request(fd, method, uri, headers, body)
         end)
 
         -- 检查文件是否存在
-        if not file_exists(path) then
+        if not io.exists(path) then
             log.info("DOWNLOAD", "文件不存在: " .. path)
             return 404, {["Content-Type"] = "text/plain"}, "文件不存在"
         end
@@ -532,20 +485,7 @@ local function handle_http_request(fd, method, uri, headers, body)
         local filename = path:match("([^/]+)$")
 
         -- 获取文件大小
-        local file_size = 0
-        local size_success, size_result = pcall(function()
-            if io.fileSize then
-                local size = io.fileSize(path)
-                if size then
-                    file_size = size
-                end
-            else
-                -- 通过移动文件指针获取大小
-                local current_pos = file:seek()
-                file_size = file:seek("end")
-                file:seek("set", current_pos)
-            end
-        end)
+        local file_size = io.fileSize(path)
 
         -- 关闭文件
         file:close()
@@ -614,7 +554,7 @@ local function handle_http_request(fd, method, uri, headers, body)
         path = path:gsub("%%(%x%x)", function(hex)
             return string.char(tonumber(hex, 16))
         end)
-        if not file_exists(path) then
+        if not io.exists(path) then
             return 200, {["Content-Type"] = "application/json"},
                    json.encode({success = false, message = "文件不存在"})
         end
@@ -669,7 +609,7 @@ local function handle_http_request(fd, method, uri, headers, body)
         log.info("DIRECT_ACCESS", "解析后的实际文件路径: " .. file_path)
 
         -- 检查文件是否存在
-        if not file_exists(file_path) then
+        if not io.exists(file_path) then
             log.info("DIRECT_ACCESS", "文件不存在: " .. file_path)
             return 404, {["Content-Type"] = "text/plain"}, "文件不存在"
         end
@@ -706,10 +646,10 @@ end
 
 -- HTTP服务器启动任务
 local function http_server_start_task()
-    -- 等待一段时间，确保AP和SD卡初始化完成
-    sys.wait(2000)
+    -- 等待AP初始化完成
+    sys.waitUntil("AP_CREATE_OK")
 
-    -- 再次确认SD卡是否挂载成功
+    -- 确认SD卡是否挂载成功
     local retry_count = 0
     local max_retries = 3
 

@@ -21,8 +21,8 @@ local ES8311_ADDR = 0x18    -- 7位地址
 local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
 
 -- 模块常量
-exaudio.PLAY_DONE = 1
-exaudio.RECORD_DONE = 1
+exaudio.PLAY_DONE = 1         --   音频播放完毕的事件之一
+exaudio.RECORD_DONE = 1         
 exaudio.AMR_NB = 0
 exaudio.AMR_WB = 1
 exaudio.PCM_8000 = 2
@@ -54,7 +54,7 @@ local audio_play_param = {
 }
 
 local audio_record_param = {
-    format = 0,               -- 录制格式
+    format = 0,               -- 录制格式，支持exaudio.AMR_NB，exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,                 -- 录制时间(秒)
     path = nil,               -- 文件路径或流式回调
     cbFnc = nil               -- 录音完毕回调

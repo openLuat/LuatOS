@@ -33,12 +33,39 @@ function airLCD.lcd_init(sn)
         wakecmd = 0x11,           -- LCD唤醒命令
     
     }
+
+    spi.deviceSetup(
+            lcd.HWID_0,  -- LCD端口号
+            nil,         -- CS片选脚，可选
+            0,           -- CPHA=0
+            0,           -- CPOL=0
+            8,           -- 8位数据宽度
+            20000000,    -- 20MHz波特率
+            spi.MSB,     -- 高位先传
+            1,           -- 主机模式
+            1            -- 全双工模式
+        )
     gpio.setup(164, 1, gpio.PULLUP)
     gpio.setup(141, 1, gpio.PULLUP)
-    sys.wait(1000)
-    lcd.init(lcd_ic,lcd_param)
+    -- 设置DC和RST引脚为输出模式，并启用上拉电阻
+    gpio.setup(lcd_param.pin_dc, 1, gpio.PULLUP)
+    gpio.setup(lcd_param.pin_rst, 1, gpio.PULLUP)
+    
+    -- 设置DC引脚为高电平(数据模式)
+    gpio.set(lcd_param.pin_dc, 1)
+
+    -- 执行复位序列
+    gpio.set(lcd_param.pin_rst, 0)  -- 拉低复位引脚
+    sys.wait(20)                    -- 等待20ms(ST7796复位拉低大于10ms生效)
+    gpio.set(lcd_param.pin_rst, 1)  -- 拉高复位引脚
+    sys.wait(150)                   -- 等待150ms(ST7796复位拉高大于120ms重置)
+    
+    -- 初始化ST7796显示芯片
+    lcd.init(lcd_ic, lcd_param)
+
     lcd.setupBuff(nil, true)        -- 设置缓冲区大小，使用系统内存
     lcd.autoFlush(false)            -- 自动刷新LCD
+
     if sn == "AirLCD_1001"  then
         log.info("tp", "tp init")
         local function tp_callBack(tp_device,tp_data)

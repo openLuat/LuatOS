@@ -18,7 +18,7 @@ local function record_end(event)
 end 
 
 local audio_record_param ={
-    format= exaudio.AMR_NB,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
+    format= exaudio.PCM_16000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,               -- 录制时间,单位(秒)
     path = recode_data_callback,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
                             -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度

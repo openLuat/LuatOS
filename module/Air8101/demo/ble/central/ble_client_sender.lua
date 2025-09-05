@@ -45,7 +45,7 @@ local function send_data_req_proc_func(tag, service_uuid, char_uuid, data, cb)
     -- 将数据插入到发送队列send_queue中
     table.insert(send_queue, {service_uuid=service_uuid, char_uuid=char_uuid, data="send from " .. tag .. ": " .. data, cb=cb})
     -- 发送消息通知 BLE sender task，有新数据等待发送
-    sysplus.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "SEND_REQ")
+    sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "SEND_REQ")
 end
 
 -- 按照顺序发送send_queue中的数据
@@ -99,7 +99,7 @@ local function ble_client_sender_task_func()
 
     while true do
         -- 等待"BLE_EVENT"消息
-        msg = sysplus.waitMsg(ble_client_sender.TASK_NAME, "BLE_EVENT")
+        msg = sys.waitMsg(ble_client_sender.TASK_NAME, "BLE_EVENT")
 
         -- BLE连接成功
         -- msg[3]表示ble_device对象
@@ -150,7 +150,7 @@ sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 
 --创建并且启动一个task
 --运行这个task的处理函数ble_client_sender_task_func
-sysplus.taskInitEx(ble_client_sender_task_func, ble_client_sender.TASK_NAME)
+sys.taskInitEx(ble_client_sender_task_func, ble_client_sender.TASK_NAME)
 
 return ble_client_sender
 

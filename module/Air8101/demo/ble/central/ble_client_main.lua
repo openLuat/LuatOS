@@ -63,19 +63,19 @@ end
 local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 仅表示连接成功，后续读/写/订阅 需等待GATT_DONE事件
     if ble_event == ble.EVENT_CONN then
-        sysplus.sendMsg(TASK_NAME, "BLE_EVENT", "CONNECT", ble_param)
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "CONNECT", ble_param)
     -- 连接断开
     elseif ble_event == ble.EVENT_DISCONN then
-        sysplus.sendMsg(TASK_NAME, "BLE_EVENT", "DISCONNECTED", ble_param.reason)
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "DISCONNECTED", ble_param.reason)
     -- 扫描报告
     elseif ble_event == ble.EVENT_SCAN_REPORT then
-        sysplus.sendMsg(TASK_NAME, "BLE_EVENT", "SCAN_REPORT", ble_param)
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "SCAN_REPORT", ble_param)
     -- GATT项处理
     elseif ble_event == ble.EVENT_GATT_ITEM then
         log.info("ble", "gatt item", ble_param)
     -- GATT操作完成,可进行读/写/订阅操作
     elseif ble_event == ble.EVENT_GATT_DONE then
-        sysplus.sendMsg(TASK_NAME, "BLE_EVENT", "GATT_DONE", ble_param)
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "GATT_DONE", ble_param)
 
         -- 开启Notify监听,监听外围设备指定服务和特征值的通知,默认打开
         local notify_params = {
@@ -145,7 +145,7 @@ local function ble_client_main_task_func()
                 timeout = nil
             end
 
-            msg = sysplus.waitMsg(TASK_NAME, "BLE_EVENT", timeout)
+            msg = sys.waitMsg(TASK_NAME, "BLE_EVENT", timeout)
 
             if not msg then
                 log.error("ble_client_main_task_func", "waitMsg timeout")
@@ -161,7 +161,7 @@ local function ble_client_main_task_func()
                 -- 连接成功且服务发现完成，后续可执行业务操作（读/写/订阅）
                 -- 通知sender模块连接成功
                 log.info("BLE", "GATT服务发现完成")
-                sysplus.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "CONNECT_OK", ble_device)
+                sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "CONNECT_OK", ble_device)
                 last_operation = nil
             elseif msg[2] == "DISCONNECTED" then
                 log.info("BLE", "设备断开连接，原因: " .. msg[3])
@@ -188,7 +188,7 @@ local function ble_client_main_task_func()
                     log.info("ble", "扫描次数超过100次, 停止扫描, 10秒后重新开始")
                     scan_count = 0
                     ble_device:scan_stop()
-                    sysplus.sendMsg(TASK_NAME, "BLE_EVENT", "RESTART_SCAN")
+                    sys.sendMsg(TASK_NAME, "BLE_EVENT", "RESTART_SCAN")
                 end
             elseif msg[2] == "RESTART_SCAN" then
                 -- 5s后重新开始扫描
@@ -214,10 +214,10 @@ local function ble_client_main_task_func()
         log.error("ble_client_main_task_func", "异常退出, 5秒后重新扫描连接")
 
         -- 清空此task绑定的消息队列中的未处理的消息
-        sysplus.cleanMsg(TASK_NAME)
+        sys.cleanMsg(TASK_NAME)
 
         -- 通知ble sender数据发送应用模块的task，ble连接已经断开
-        sysplus.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "DISCONNECTED")
+        sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "DISCONNECTED")
 
         -- 5秒后跳转到循环体开始位置，自动发起重连
         sys.wait(5000)
@@ -225,4 +225,4 @@ local function ble_client_main_task_func()
 end
 
 -- 启动主任务
-sysplus.taskInitEx(ble_client_main_task_func, TASK_NAME)
+sys.taskInitEx(ble_client_main_task_func, TASK_NAME)

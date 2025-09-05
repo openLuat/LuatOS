@@ -2,11 +2,15 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.07.01
-@author  wangshihao
+@date    2025.08.29
+@author  王世豪
 @usage
 本demo演示的核心功能为：
-Air8000的BLE从机模式，通过示例演示了如何发送通知，以及如何通过手机对从机设备进行读写操作。
+演示了Air8000核心板作为BLE peripheral(外围设备)的功能:
+1. Air8000作为外围设备开启广播，被动等待中心设备发起连接；
+2. 建立连接成功后，外围设备定期向中心设备发送数据；
+3. 外围设备收到中心设备的写入数据后，通过uart发送到pc端串口工具；
+4. pc端串口工具收到数据后，打印到串口工具窗口。
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -57,11 +61,18 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 如果需要升级WIFI固件，请打开下面注释
-require "check_wifi"
 
--- 加载 peripheral 蓝牙功能模块
-require "ble_peripheral"
+-- Air8000蓝牙依赖WiFi协处理器，需更新WiFi固件（默认自动更新，需插入联网SIM卡）
+require "check_wifi" ---- 自动检查并更新WiFi固件
+
+-- 加载BLE peripheral(外围设备)主控制模块
+require "ble_server_main"
+
+-- 加载串口应用功能模块
+require "ble_uart_app"
+
+-- 加载定时器应用功能模块
+require "ble_timer_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

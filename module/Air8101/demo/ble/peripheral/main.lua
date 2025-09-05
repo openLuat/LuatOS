@@ -1,16 +1,20 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.07.14
-@author  wjq
+@date    2025.08.29
+@author  王世豪
 @usage
 本demo演示的核心功能为：
-1.设置网络优先级功能，根据优先级自动切换可用网络
-2.验证网络是否正常切换，http功能是否可用
-3.设置多网融合模式，例如以太网作为数据出口给WIFI设备上网
+演示了Air8101核心板作为BLE peripheral(外围设备)的功能:
+1. Air8101作为外围设备开启广播，被动等待中心设备发起连接；
+2. 建立连接成功后，外围设备定期向中心设备发送数据；
+3. 外围设备收到中心设备的写入数据后，通过uart发送到pc端串口工具；
+4. pc端串口工具收到数据后，打印到串口工具窗口。
+
 更多说明参考本目录下的readme.md文件
 ]]
+
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -21,13 +25,10 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "exnetif"
+PROJECT = "ble_peripheral"
 VERSION = "001.000.000"
 
-
--- 在日志中打印项目名和项目版本号
-log.info("main", PROJECT, VERSION)
-
+log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
@@ -37,7 +38,6 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -53,7 +53,6 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
-
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
@@ -62,15 +61,14 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 加载BLE peripheral(外围设备)主控制模块
+require "ble_server_main"
 
--- 网络管理，设置网络优先级和多网融合功能
-require "net_app"
--- 测试http
--- require "http_test"
--- 测试mqtt
-require "mqtt_test"
+-- 加载串口应用功能模块
+require "ble_uart_app"
 
-
+-- 加载定时器应用功能模块
+require "ble_timer_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

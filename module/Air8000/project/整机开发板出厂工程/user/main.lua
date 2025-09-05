@@ -37,7 +37,7 @@ local  exfotawifi = require("exfotawifi")
 local sid = 0
 libfota2 = require "libfota2"
 
-
+log.style(2)
 
 -- 按键事件类型：
 -- "switch": 短按开机键切换菜单；

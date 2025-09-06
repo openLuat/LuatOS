@@ -19,9 +19,9 @@ local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
-                            -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则Sampling_Rate, Sampling_Depth,Signed_or_Unsigned 必填写
+                            -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     content = "/luadb/1.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
-    cbFnc = play_end,            -- 播放完毕回调函数
+    cbfnc = play_end,            -- 播放完毕回调函数
 }
 
 
@@ -71,7 +71,7 @@ local function audio_task()
                     audio_path = "/luadb/10.amr"
                 end
 
-                exaudio.play_start({type= 0, content = audio_path,cbFnc = play_end,priority = index_number})
+                exaudio.play_start({type= 0, content = audio_path,cbfnc = play_end,priority = index_number})
                 index_number= index_number +1 
             elseif msg[2] ==  "STOP_AUDIO" then
                 exaudio.play_stop()

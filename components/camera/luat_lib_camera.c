@@ -425,6 +425,15 @@ LUAT_WEAK int luat_camera_config(int id, int key, int value) {
     return -1;
 }
 
+LUAT_WEAK void luat_camera_pwdn_pin(int id, uint8_t level) {
+    LLOGD("not support yet");
+    return;
+}
+
+LUAT_WEAK void luat_camera_reset_pin(int id, uint8_t level) {
+    LLOGD("not support yet");
+    return;
+}
 /**
 camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)
@@ -562,6 +571,33 @@ static int l_camera_config(lua_State *L) {
     return 1;
 }
 
+/*
+对于无法用GPIO控制camera pwdn脚的平台，手动控制camera pwdn脚拉高或者拉低,2025/9/6启用
+@api camera.pwdn_pin(level)
+@int camera id,例如0
+@int pwdn脚电平，1高电平，0低电平
+@usage
+-- camera pwdn脚低电平
+camera.pwdn_pin(camera_id, 0)
+*/
+static int l_camera_set_pwdn_pin(lua_State* L) {
+	luat_camera_pwdn_pin(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0));
+    return 0;
+}
+
+/*
+对于无法用GPIO控制camera reset脚的平台，手动控制camera reset脚拉高或者拉低,2025/9/6启用
+@api camera.reset_pin(level)
+@int camera id,例如0
+@int reset脚电平，1高电平，0低电平
+@usage
+-- camera reset脚高电平
+camera.reset_pin(camera_id, 1)
+*/
+static int l_camera_set_reset_pin(lua_State* L) {
+	luat_camera_reset_pin(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 1));
+    return 0;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
@@ -577,7 +613,8 @@ static const rotable_Reg_t reg_camera[] =
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
     { "config",      ROREG_FUNC(l_camera_config)},
-
+    { "pwdn_pin",      ROREG_FUNC(l_camera_set_pwdn_pin)},
+    { "reset_pin",      ROREG_FUNC(l_camera_set_reset_pin)},
     //@const AUTO number 摄像头工作在自动模式
 	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量

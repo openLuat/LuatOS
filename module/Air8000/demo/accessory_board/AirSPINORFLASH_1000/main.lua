@@ -70,10 +70,10 @@ end
 
 
 -- 加载AirSPINORFLASH_1000功能模块
---require "AirSPINORFLASH_1000"
+require "AirSPINORFLASH_1000"
 
 -- 加载LITTLE_FLASH_NOR功能模块
-require"LITTLE_FLASH_NOR"
+--require"LITTLE_FLASH_NOR"
 
 
 -- 用户代码已结束---------------------------------------------

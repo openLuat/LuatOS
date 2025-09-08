@@ -16,6 +16,8 @@
 exaudio = require("exaudio")
 local taskName = "task_audio"
 
+
+--  音频初始化配置
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
@@ -23,13 +25,14 @@ local audio_setup_param ={
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
 }
 
+--  播放结束回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
     end
 end
 
-
+--  音频播放的配置
 local audio_play_param ={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -66,7 +69,7 @@ gpio.debounce(gpio.PWR_KEY, 200, 1) -- 防抖，防止频繁触发
 
 
 ---------------------------------
----------------主task------------
+-----主task,处理播放音频---------
 ---------------------------------
 
 

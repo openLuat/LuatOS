@@ -17,14 +17,15 @@
 
 exaudio = require("exaudio")
 
-local audio_buff
-local write_seek = 0
-local read_seek = 0
+local audio_buff       -- 存储音频数据的zbuff,使用方法见https://docs.openluat.com/osapi/core/zbuff/
+local write_seek = 0   -- 写入zbuff 的指针位置
+local read_seek = 0    -- 驱动zbuff 的指针位置
 
 local zbuff_size = 61440      -- 申请内存的最大值，需要1024的倍数
 local read_size = 4096        -- 除了最后一包数据，读写zbuff  都要按照1024倍数进行 
-local file = nil
+local file = nil              -- 文件句柄，打开文件后，将会被赋值
 
+--  音频初始化配置参数
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
@@ -32,6 +33,7 @@ local audio_setup_param ={
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚 
 }
 
+--  当前音频快播完的时候，产生的回调，返回数据后，exaudio会将音频传入core,此回调函数不可加入延迟代码
 local function audio_need_more_data()
     if read_seek >= write_seek then     -- 读指针，赶上了写指针，播放完成
         log.info("播放完了")
@@ -48,12 +50,14 @@ local function audio_need_more_data()
     end
 end 
 
+-- 播放完成回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
     end
 end 
 
+-- 流式播放音频播放的配置
 local audio_play_param ={
     type= 2,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式

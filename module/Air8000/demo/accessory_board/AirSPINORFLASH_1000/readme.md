@@ -1,13 +1,13 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释。
+1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释.
 2. AirSPINORFLASH_1000
 
-        SPI 驱动 flash,通过 flash 指令对 flash 模块进行读写数据操作，详细逻辑请看 AirSPINORFLASH_1000.lua 文件
+        SPI 驱动 flash,通过 flash 指令对 flash 模块进行读写数据操作，详细逻辑请看 AirSPINORFLASH_1000.lua 文件.
 
 3. LITTLE_FLASH_NOR
 
-        SPI 驱动 flash，通过 little_flash 库挂载 flash 为文件系统，以文件系统的方式进行读写数据操作，详细逻辑请看 LITTLE_FLASH_NOR.lua 文件
+        SPI 驱动 flash，通过 little_flash 库挂载 flash 为文件系统，以文件系统的方式进行读写数据操作，详细逻辑请看 LITTLE_FLASH_NOR.lua 文件.
 
 ## 演示功能概述：
 

@@ -1,26 +1,17 @@
+
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
-@version 1.0
-@date    2025.09.01
-@author  拓毅恒
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 001.000.000
+@date    2025.9.05
+@author  马亚丹
 @usage
-演示功能概述
-1.1 HTTPSVR 文件管理系统概述
-HTTPSVR 文件管理系统是一种基于Air8000模组的轻量级文件服务器解决方案，通过AP创建WiFi热点并提供HTTP服务，
-使用户可以通过浏览器方便地浏览、管理和下载设备内部存储及SD卡中的文件。
-1.2 系统工作原理
-设备启动后，自动创建AP热点，并初始化SD卡挂载。同时启动HTTP服务器，提供文件列表浏览、文件下载等功能。
-用户只需连接到设备的WiFi热点，通过浏览器访问指定IP地址，即可查看和管理设备中的文件。
-1.3 核心功能特性
-- **AP热点创建**：设备自动创建名为`Air8000_FileHub`的WiFi热点，供用户连接
-- **SD卡管理**：自动挂载SD卡，支持浏览和下载SD卡中的文件
-- **文件浏览**：通过浏览器查看设备内部存储和SD卡中的文件列表
-- **文件下载**：支持直接通过URL下载文件，支持大文件下载
-- **用户认证**：提供简单的用户名密码认证机制，保护文件安全
+本demo是演示合宙AirSPINORFLASH_1000配件版的功能使用，可通过以下两种方式挂载flash模块，任选一种即可。
+1. AirSPINORFLASH_1000
+SPI驱动flash,通过flash指令对flash模块进行读写数据操作，详细逻辑请看AirSPINORFLASH_1000.lua 文件
+2. LITTLE_FLASH_NOR
+SPI驱动flash，通过little_flash库挂载flash为文件系统，以文件系统的方式进行读写数据操作，详细逻辑请看LITTLE_FLASH_NOR.lua 文件
 
-本示例基于合宙 Air8000 模组，演示 **AP + 文件服务器** 的完整实现流程。用户连接到设备WiFi热点后，通过浏览器即可访问文件管理系统，实现文件的浏览和下载功能。
-更多说明参考本目录下的readme.md文件
 ]]
 
 
@@ -34,7 +25,8 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "WIFI_AP_READ_FILE"
+
+PROJECT = "Air8000_SPI_NOR"
 VERSION = "001.000.000"
 
 
@@ -75,10 +67,16 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 引入任务控制模块
-require"task_control"
 
--- 用户代码已结束--------------------------------------------
+
+-- 加载AirSPINORFLASH_1000功能模块
+--require "AirSPINORFLASH_1000"
+
+-- 加载LITTLE_FLASH_NOR功能模块
+require"LITTLE_FLASH_NOR"
+
+
+-- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

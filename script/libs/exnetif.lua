@@ -205,7 +205,7 @@ local function setup_eth(config)
     if config.pwrpin then
         gpio.setup(config.pwrpin, 1, gpio.PULLUP)
     end
-    sys.wait(100) -- 等待以太网模块上电稳定
+    -- sys.wait(100) -- 等待以太网模块上电稳定
     if config.tp == nil then
         log.info("8101以太网")
         if netdrv.setup(socket.LWIP_ETH) == false then
@@ -271,7 +271,7 @@ local function setup_eth_user1(config)
     if config.pwrpin then
         gpio.setup(config.pwrpin, 1, gpio.PULLUP)        
     end
-    sys.wait(100)-- 等待以太网模块上电稳定
+    -- sys.wait(100)-- 等待以太网模块上电稳定
     log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
     -- 配置SPI和初始化网络驱动
     local result = spi.setup(config.opts.spi,     -- spi id
@@ -429,7 +429,7 @@ exnetif.set_priority_order({
             }
         }
     })
--- 单网络4G时不需要调用接口，直接运行业务代码即可
+-- 4G单网模式下，不需要require "exnetif"，减少不必要的功能模块加载
 ]]
 function exnetif.set_priority_order(networkConfigs)
     -- 判断表中数据个数
@@ -629,7 +629,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if other_configs.main_adapter.ethpower_en then
             gpio.setup(other_configs.main_adapter.ethpower_en, 1, gpio.PULLUP)
         end
-        sys.wait(100) -- 等待以太网模块上电稳定
+        -- sys.wait(100) -- 等待以太网模块上电稳定
         if other_configs.main_adapter.tp == nil then
             log.info("8101以太网")
             if netdrv.setup(socket.LWIP_ETH) == false then
@@ -687,7 +687,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if other_configs.main_adapter.ethpower_en then
             gpio.setup(other_configs.main_adapter.ethpower_en, 1, gpio.PULLUP)
         end
-        sys.wait(100) -- 等待以太网模块上电稳定
+        -- sys.wait(100) -- 等待以太网模块上电稳定
         log.info("config.opts.spi", other_configs.main_adapter.opts.spi, ",config.type", other_configs.main_adapter.tp)
         available[socket.LWIP_USER1] = connection_states.OPENED
         -- 配置SPI和初始化网络驱动

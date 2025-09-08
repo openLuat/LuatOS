@@ -40,15 +40,15 @@
 
 ## 演示功能概述
 
-1、创建四路socket连接，详情如下
+1、创建四路socket连接，在目录中对应四个文件夹详情如下
 
-- 创建一个tcp client，连接tcp server；
+- TCP文件夹功能为创建一个tcp client，连接tcp server；
 
-- 创建一个udp client，连接udp server；
+- UDP文件夹功能为创建一个udp client，连接udp server；
 
-- 创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
+- TCP_SSL文件夹功能为创建一个tcp ssl client，连接tcp ssl server，不做证书校验；
 
-- 创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
+- TCP_SSL_CA文件夹功能为创建一个tcp ssl client，连接tcp ssl server，client仅单向校验server的证书，server不校验client的证书和密钥文件；
 
 2、每一路socket连接出现异常后，自动重连；
 
@@ -178,7 +178,7 @@
 
 - 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 
-- 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
+- 如果需要外挂方式的4G网卡，打开require "netdrv_4g"，其余注释掉
 
 - 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
@@ -217,4 +217,4 @@ recv from udp server: 123456798012345678901234567830
 recv from tcp_ssl server: 123456789901234
 ```
 
-12、注意：第四路连接，连接的是baidu的https网站，连接成功后，Air8101每隔一段时间发数据给服务器，因为发送的不是http合法格式的数据，所以每隔一段时间服务器都会主动断开连接，断开连接后，Air8000会自动重连，如此循环，属于正常现象。
+12、注意：第四路连接，连接的是baidu的https网站，连接成功后，Air8101每隔一段时间发数据给服务器，因为发送的不是http合法格式的数据，所以每隔一段时间服务器都会主动断开连接，断开连接后，Air8101会自动重连，如此循环，属于正常现象。

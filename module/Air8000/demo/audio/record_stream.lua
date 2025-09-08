@@ -1,5 +1,19 @@
+--[[
+@module  record_stream
+@summary 流式录音
+@version 1.0
+@date    2025.09.08
+@author  梁健
+@usage
+
+流式录音(仅支持PCM)，核心业务逻辑为：
+1、主程序录音进行流式录音
+2、录音过程中不断的进行recode_data_callback回调，回调内容为音频流的地址和长度
+本文件没有对外接口，直接在main.lua中require "record_stream"就可以加载运行；
+]]
 exaudio = require("exaudio")
 
+-- 
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
@@ -18,11 +32,12 @@ local function record_end(event)
 end 
 
 local audio_record_param ={
-    format= exaudio.AMR_NB,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
+    format= exaudio.PCM_16000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,               -- 录制时间,单位(秒)
     path = recode_data_callback,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
-                            -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
-    cbFnc = record_end,            -- 录音完毕回调函数
+                                        -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
+                                        -- 如果是流式录音，则仅支持PCM 格式 
+    cbfnc = record_end,            -- 录音完毕回调函数
 }
 
 

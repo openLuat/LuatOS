@@ -119,9 +119,13 @@ static int l_httpsrv_start(lua_State *L) {
 
 /*
 停止http服务
-@api httpsrv.stop(port)
+@api httpsrv.stop(port，no_used, adapter)
 @int 端口号
-@return nil 当前无返回值
+@nil 固定写nil
+@int 网络适配器编号, 默认是平台自带的网络协议栈
+@return bool 成功返回true, 否则返回false
+@usage
+httpsrv.stop(SERVER_PORT,nil,socket.LWIP_AP)
 */
 static int l_httpsrv_stop(lua_State *L) {
     int port = luaL_checkinteger(L, 1);
@@ -133,7 +137,7 @@ static int l_httpsrv_stop(lua_State *L) {
                 srvs[i].port = 0;
                 srvs[i].adapter = 0;
                 srvs[i].status = 0;
-
+                
                 if (srvs[i].ctx->lua_ref_id != LUA_NOREF) {
                     luaL_unref(L, LUA_REGISTRYINDEX, srvs[i].ctx->lua_ref_id);
                     srvs[i].ctx->lua_ref_id = LUA_NOREF;

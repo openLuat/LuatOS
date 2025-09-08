@@ -21,8 +21,8 @@ local ES8311_ADDR = 0x18    -- 7位地址
 local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
 
 -- 模块常量
-exaudio.PLAY_DONE = 1
-exaudio.RECORD_DONE = 1
+exaudio.PLAY_DONE = 1         --   音频播放完毕的事件之一
+exaudio.RECORD_DONE = 1       --   音频录音完毕的事件之一  
 exaudio.AMR_NB = 0
 exaudio.AMR_WB = 1
 exaudio.PCM_8000 = 2
@@ -46,18 +46,18 @@ local audio_setup_param = {
 local audio_play_param = {
     type = 0,                 -- 0:文件 1:TTS 2:流式
     content = nil,            -- 内容/回调函数
-    cbFnc = nil,              -- 播放完毕回调
+    cbfnc = nil,              -- 播放完毕回调
     priority = 0,             -- 优先级(数值越大越高)
-    sampling_Rate = 16000,    -- 采样率(仅流式)
-    sampling_Depth = 16,      -- 采样位深(仅流式)
-    signed_or_Unsigned = true -- PCM是否有符号(仅流式)
+    sampling_rate = 16000,    -- 采样率(仅流式)
+    sampling_depth = 16,      -- 采样位深(仅流式)
+    signed_or_unsigned = true -- PCM是否有符号(仅流式)
 }
 
 local audio_record_param = {
-    format = 0,               -- 录制格式
+    format = 0,               -- 录制格式，支持exaudio.AMR_NB，exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,                 -- 录制时间(秒)
     path = nil,               -- 文件路径或流式回调
-    cbFnc = nil               -- 录音完毕回调
+    cbfnc = nil               -- 录音完毕回调
 }
 
 -- 内部变量
@@ -91,8 +91,8 @@ local function audio_callback(id, event, point)
             end
         end
     elseif event == audio.DONE then
-        if type(audio_play_param.cbFnc) == "function" then
-            audio_play_param.cbFnc(exaudio.PLAY_DONE)
+        if type(audio_play_param.cbfnc) == "function" then
+            audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
         sys.publish(EX_MSG_PLAY_DONE)
         
@@ -104,8 +104,8 @@ local function audio_callback(id, event, point)
         end
         
     elseif event == audio.RECORD_DONE then
-        if type(audio_record_param.cbFnc) == "function" then
-            audio_record_param.cbFnc(exaudio.RECORD_DONE)
+        if type(audio_record_param.cbfnc) == "function" then
+            audio_record_param.cbfnc(exaudio.RECORD_DONE)
         end
     end
 end
@@ -333,28 +333,28 @@ function exaudio.play_start(playConfigs)
             log.error("流式播放content必须为回调函数")
             return false
         end
-        if not check_param(playConfigs.sampling_Rate, "number", "sampling_Rate") then
+        if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
             return false
         end
-        if not check_param(playConfigs.sampling_Depth, "number", "sampling_Depth") then
+        if not check_param(playConfigs.sampling_depth, "number", "sampling_depth") then
             return false
         end
 
         audio_play_param.content = playConfigs.content
-        audio_play_param.sampling_Rate = playConfigs.sampling_Rate
-        audio_play_param.sampling_Depth = playConfigs.sampling_Depth
+        audio_play_param.sampling_rate = playConfigs.sampling_rate
+        audio_play_param.sampling_depth = playConfigs.sampling_depth
         
-        if playConfigs.signed_or_Unsigned ~= nil then
-            audio_play_param.signed_or_Unsigned = playConfigs.signed_or_Unsigned
+        if playConfigs.signed_or_unsigned ~= nil then
+            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
         end
 
         audio.start(
             MULTIMEDIA_ID, 
             audio.PCM, 
             1, 
-            playConfigs.sampling_Rate, 
-            playConfigs.sampling_Depth, 
-            audio_play_param.signed_or_Unsigned
+            playConfigs.sampling_rate, 
+            playConfigs.sampling_depth, 
+            audio_play_param.signed_or_unsigned
         )
         -- 发送初始数据
         if audio.write(MULTIMEDIA_ID, string.rep("\0", 512)) ~= true then
@@ -363,14 +363,14 @@ function exaudio.play_start(playConfigs)
     end
 
     -- 处理回调函数
-    if playConfigs.cbFnc ~= nil then
-        if check_param(playConfigs.cbFnc, "function", "cbFnc") then
-            audio_play_param.cbFnc = playConfigs.cbFnc
+    if playConfigs.cbfnc ~= nil then
+        if check_param(playConfigs.cbfnc, "function", "cbfnc") then
+            audio_play_param.cbfnc = playConfigs.cbfnc
         else
             return false
         end
     else
-        audio_play_param.cbFnc = nil
+        audio_play_param.cbfnc = nil
     end
 
     return true
@@ -441,14 +441,14 @@ function exaudio.record_start(recodConfigs)
     end
 
     -- 处理回调函数
-    if recodConfigs.cbFnc ~= nil then
-        if check_param(recodConfigs.cbFnc, "function", "cbFnc") then
-            audio_record_param.cbFnc = recodConfigs.cbFnc
+    if recodConfigs.cbfnc ~= nil then
+        if check_param(recodConfigs.cbfnc, "function", "cbfnc") then
+            audio_record_param.cbfnc = recodConfigs.cbfnc
         else
             return false
         end
     else
-        audio_record_param.cbFnc = nil
+        audio_record_param.cbfnc = nil
     end
     -- 开始录音
     local path_type = type(audio_record_param.path)
@@ -487,19 +487,17 @@ function exaudio.record_stop()
 end
 
 -- 模块接口：设置音量
-function exaudio.vol(number)
-    if check_param(number, "number", "音量值") then
-        voice_vol = number
-        return audio.vol(MULTIMEDIA_ID, number)
+function exaudio.vol(play_volume)
+    if check_param(play_volume, "number", "音量值") then
+        return audio.vol(MULTIMEDIA_ID, play_volume)
     end
     return false
 end
 
 -- 模块接口：设置麦克风音量
-function exaudio.mic_vol(number)
-    if check_param(number, "number", "麦克风音量值") then
-        mic_vol = number
-        return audio.micVol(MULTIMEDIA_ID, number)  
+function exaudio.mic_vol(record_volume)
+    if check_param(record_volume, "number", "麦克风音量值") then
+        return audio.micVol(MULTIMEDIA_ID, record_volume)  
     end
     return false
 end

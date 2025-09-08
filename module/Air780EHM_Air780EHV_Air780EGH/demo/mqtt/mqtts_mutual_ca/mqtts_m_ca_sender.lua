@@ -45,7 +45,7 @@ local function send_data_req_proc_func(tag, topic, payload, qos, cb)
     -- 将原始数据增加前缀，然后插入到发送队列send_queue中
     table.insert(send_queue, {topic=topic, payload="send from "..tag..": "..payload, qos=qos or 0, cb=cb})
     -- 发送消息通知 mqtts mutual ca sender task，有新数据等待发送
-    sysplus.sendMsg(mqtts_m_ca_sender.TASK_NAME, "MQTT_EVENT", "PUBLISH_REQ")
+    sys.sendMsg(mqtts_m_ca_sender.TASK_NAME, "MQTT_EVENT", "PUBLISH_REQ")
 end
 
 -- 按照顺序发送send_queue中的数据
@@ -96,7 +96,7 @@ local function mqtts_m_ca_client_sender_task_func()
 
     while true do
         -- 等待"MQTT_EVENT"消息
-        msg = sysplus.waitMsg(mqtts_m_ca_sender.TASK_NAME, "MQTT_EVENT")
+        msg = sys.waitMsg(mqtts_m_ca_sender.TASK_NAME, "MQTT_EVENT")
 
         -- mqtt连接成功
         -- msg[3]表示mqtt client对象
@@ -146,6 +146,6 @@ sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 
 --创建并且启动一个task
 --运行这个task的处理函数mqtts_m_ca_client_sender_task_func
-sysplus.taskInitEx(mqtts_m_ca_client_sender_task_func, mqtts_m_ca_sender.TASK_NAME)
+sys.taskInitEx(mqtts_m_ca_client_sender_task_func, mqtts_m_ca_sender.TASK_NAME)
 
 return mqtts_m_ca_sender

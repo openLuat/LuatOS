@@ -1,3 +1,17 @@
+--[[
+@module  record_file
+@summary 录音到文件
+@version 1.0
+@date    2025.09.08
+@author  梁健
+@usage
+
+录音到文件，核心业务逻辑为：
+1、主程序录音到/record.amr 文件
+2、使用powerkey 按键进行录音音量减小
+3、点击boot 按键进行录音音量增加
+本文件没有对外接口，直接在main.lua中require "record_file"就可以加载运行；
+]]
 exaudio = require("exaudio")
 
 local audio_setup_param ={
@@ -17,11 +31,13 @@ end
 
 
 local audio_record_param ={
-    format= exaudio.AMR_WB,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
+    format= exaudio.PCM_32000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
+                                  -- 如果选择exaudio.AMR_WB,则需要固件支持volte 功能
     time = 5,               -- 录制时间,单位(秒)
     path = recordPath,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
-                                      -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
-    cbFnc = record_end,            -- 录音完毕回调函数
+                                   -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
+                                   -- 如果是流式录音，则仅支持PCM 格式 
+    cbfnc = record_end,            -- 录音完毕回调函数
 }
 
 

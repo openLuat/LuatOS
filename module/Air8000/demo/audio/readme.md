@@ -47,7 +47,7 @@
 
 3、play_stream.lua 流式播放PCM,使用test.pcm 模拟音频来源，通过流式传输不断填入播放的音频，使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
 
-4、record_file.lua 录音到文件(仅支持PCM),演示了pcm 录音到文件，使用powerkey 按键进行录音音量减小，点击boot 按键进行录音音量增加
+4、record_file.lua 录音到文件,演示了pcm 录音到文件，使用powerkey 按键进行录音音量减小，点击boot 按键进行录音音量增加
 
 5、record_stream.lua 流式录音(仅支持PCM),不断输出录音的数据地址和录音长度，供给应用层调用
 

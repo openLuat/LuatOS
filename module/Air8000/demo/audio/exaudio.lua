@@ -22,7 +22,7 @@ local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
 
 -- 模块常量
 exaudio.PLAY_DONE = 1         --   音频播放完毕的事件之一
-exaudio.RECORD_DONE = 1         
+exaudio.RECORD_DONE = 1       --   音频录音完毕的事件之一  
 exaudio.AMR_NB = 0
 exaudio.AMR_WB = 1
 exaudio.PCM_8000 = 2

@@ -1,3 +1,18 @@
+--[[
+@module  play_stream
+@summary 流式播放
+@version 1.0
+@date    2025.09.08
+@author  梁健
+@usage
+
+本文件为流式播放应用功能模块，核心业务逻辑为：
+1、使用test.pcm 模拟音频来源
+2、通过流式传输不断填入播放的音频
+3、使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
+本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
+]]
+
 exaudio = require("exaudio")
 
 local audio_setup_param ={

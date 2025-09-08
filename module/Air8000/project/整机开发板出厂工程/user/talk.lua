@@ -371,7 +371,6 @@ local function airtalk_mqtt_task()
                     if g_state ~= SP_T_IDLE then
                         log.info("正在对讲无法开始")
                     else
-                        log.info("测试一下1对多对讲功能")
                         g_remote_id = "all"
                         g_state = SP_T_CONNECTING
                         g_s_mode = airtalk.MODE_GROUP_SPEAKER
@@ -536,22 +535,24 @@ function talk.run()
             if current_page == "main" then
                 lcd.clear(_G.bkcolor) 
                 if  speech_topic  == nil then
-                    lcd.drawStr(0, 80, "输入任意手机号,并保证所有终端/平台一致")
+                    lcd.drawStr(0, 80, "输入设备号,并保证所有终端/平台一致")
                     lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
                     lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
                     lcd.drawStr(0, 140, "本机ID:" .. g_local_id)
                     lcd.showImage(32, 250, "/luadb/input_topic.jpg")
-                    lcd.showImage(32, 350, "/luadb/broadcast.jpg")
+                    lcd.showImage(32, 300, "/luadb/broadcast.jpg")
                     lcd.showImage(104, 400, "/luadb/stop.jpg")
                     
                 else
-                    lcd.drawStr(0, 80, "对讲测试,测试topic:"..speech_topic )
+                    lcd.drawStr(0, 80, "对端ID:"..speech_topic )
                     lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
                     lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
                     lcd.drawStr(0, 140, "所有终端或者网页都要使用同一个topic")
                     lcd.drawStr(0, 160, talk_state)
                     lcd.drawStr(0, 180, "事件:" .. event)
                     lcd.drawStr(0, 200, "本机ID:" .. g_local_id)
+                    lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/talk/", 82)
+                    lcd.drawStr(185, 242, "扫码进入网页端",0x0000)
                     -- 显示输入法入口按钮
                     lcd.showImage(32, 250, "/luadb/input_topic.jpg")
                     lcd.showImage(175, 300, "/luadb/datacall.jpg")
@@ -619,7 +620,8 @@ local function select_contact(index)
             speech_topic = contact["id"]
             fskv.set("talk_number", speech_topic)
             start_talk()
-            -- 保持在通讯录页面，但显示停止按钮
+            -- 对讲开始后返回到主页面
+            back_to_main()
         end
     end
 end

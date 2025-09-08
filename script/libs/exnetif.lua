@@ -429,7 +429,7 @@ exnetif.set_priority_order({
             }
         }
     })
--- 单网络4G时不需要调用接口，直接运行业务代码即可
+-- 4G单网模式下，不需要require "exnetif"，减少不必要的功能模块加载
 ]]
 function exnetif.set_priority_order(networkConfigs)
     -- 判断表中数据个数

@@ -1,3 +1,17 @@
+--[[
+@module  play_tts
+@summary 文字转语音
+@version 1.0
+@date    2025.09.08
+@author  梁健
+@usage
+
+本文件为流式播放应用功能模块，核心业务逻辑为：
+1、播放一个TTS
+2、点powerkey 按键进行tts 的音色切换
+3、点击boot 按键停止音频播放
+本文件没有对外接口，直接在main.lua中require "play_tts"就可以加载运行；
+]]
 exaudio = require("exaudio")
 local taskName = "task_audio"
 
@@ -18,7 +32,7 @@ end
 local audio_play_param ={
     type= 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
-                            -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
+                            -- 如果是tts,内容格式见:https://docs.openluat.com/air780epm/common/tts/
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
     content = "支付宝到账,1千万元",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbfnc = play_end,            -- 播放完毕回调函数
@@ -52,7 +66,7 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 防抖，防止频繁触发
 
 ---------------------------------------------------------------------------------------------------
 ---------------主task------------------------------------------------------------------------------
---- 关于TTS 音色设置请见: https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
+--- 关于TTS 音色设置请见: https://docs.openluat.com/air780epm/common/tts/
 ---------------------------------------------------------------------------------------------------
 
 
@@ -66,11 +80,11 @@ local function audio_task()
             local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发
             if msg[2] ==  "NEXT_AUDIO" then      
                 if index_number %5 == 0 then     --  切换播报音色
-                    audio_path = "[m51]支付宝到账,1千万元"   -- 女声1
+                    audio_path = "[m51]支付宝到账,1千万元"   -- 许久
                 elseif index_number %5 == 1 then
-                    audio_path = "[m52]支付宝到账,1千万元"   -- 男声1
+                    audio_path = "[m52]支付宝到账,1千万元"   -- 许多
                 elseif index_number %5 == 2 then
-                    audio_path = "[m53]支付宝到账,1千万元"   -- 女声2
+                    audio_path = "[m53]支付宝到账,1千万元"   -- 晓萍
                 elseif index_number %5 == 3 then                    
                     audio_path = "[m54]支付宝到账,1千万元"   -- 唐老鸭
                 elseif index_number %5 == 4 then                    

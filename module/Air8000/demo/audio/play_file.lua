@@ -1,3 +1,18 @@
+--[[
+@module  play_file
+@summary 播放文件
+@version 1.0
+@date    2025.09.08
+@author  梁健
+@usage
+
+本文件为播放文件的应用功能模块，核心业务逻辑为：
+1、自动播放一个1.mp3音乐,
+2、点powerkey 按键进行音频切换，点击boot 按键停止音频播放
+3、点击boot 按键停止音频播放
+本文件没有对外接口，直接在main.lua中require "play_file"就可以加载运行；
+]]
+
 exaudio = require("exaudio")
 local taskName = "task_audio"
 

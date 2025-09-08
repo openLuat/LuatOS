@@ -71,14 +71,12 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
     size_t rh = y2 - y1 + 1;
 
     uint32_t *tmp = fb;
-    lv_color_t c;
     for (size_t i = 0; i < rh; i++)
     {
         for (size_t j = 0; j < rw; j++)
         {
-            // *tmp = luat_color_565to8888(*color_p);
-            c.full = *color_p;
-            *tmp = lv_color_to32(c);
+            // 输入为 RGB565，SDL 纹理为 ARGB8888，这里做明确转换
+            *tmp = luat_color_565to8888(*color_p);
             tmp ++;
             color_p ++;
         }

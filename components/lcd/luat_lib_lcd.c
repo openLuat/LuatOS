@@ -78,7 +78,10 @@ luat_lcd_conf_t *lcd_dft_conf = NULL;
 
 // 所有绘图相关的函数都应该调用本函数
 void lcd_auto_flush(luat_lcd_conf_t *conf) {
-#ifndef LUAT_USE_LCD_SDL2
+#ifdef LUAT_USE_LCD_SDL2
+  if (conf == NULL || conf->auto_flush == 0)
+    return;
+#else
   if (conf == NULL || conf->buff == NULL || conf->auto_flush == 0)
     return;
 #endif

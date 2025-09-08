@@ -172,6 +172,10 @@ int luat_lcd_init_default(luat_lcd_conf_t* conf) {
     // 发送初始化命令
     if (conf->opts->init){
         conf->opts->init(conf);
+        // 在SDL2仿真模式下，不再继续发送硬件命令，直接完成初始化
+        if (conf->opts && conf->opts->name && strcmp(conf->opts->name, "sdl2") == 0) {
+            goto INIT_DONE;
+        }
     }else{
         luat_lcd_execute_cmds(conf);
         if(strcmp(conf->opts->name,"custom") == 0){
@@ -240,6 +244,9 @@ int luat_lcd_close(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_display_off(luat_lcd_conf_t* conf) {
+    if (conf && conf->opts && conf->opts->name && strcmp(conf->opts->name, "sdl2") == 0) {
+        return 0;
+    }
     if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     }
@@ -250,6 +257,9 @@ int luat_lcd_display_off(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_display_on(luat_lcd_conf_t* conf) {
+    if (conf && conf->opts && conf->opts->name && strcmp(conf->opts->name, "sdl2") == 0) {
+        return 0;
+    }
     if (conf->pin_pwr != LUAT_GPIO_NONE) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     }
@@ -272,6 +282,9 @@ int luat_lcd_sleep(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
+    if (conf && conf->opts && conf->opts->name && strcmp(conf->opts->name, "sdl2") == 0) {
+        return 0;
+    }
     if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     luat_rtos_task_sleep(5);

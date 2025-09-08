@@ -342,7 +342,9 @@ static int l_spi_transfer(lua_State *L) {
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
+        luat_spi_lock(id);
         int ret = luat_spi_transfer(id, send_buff, send_length, recv_buff, recv_length);
+        luat_spi_unlock(id);
         if (ret > 0) {
             lua_pushlstring(L, recv_buff, ret);
             luat_heap_free(recv_buff);
@@ -430,14 +432,18 @@ static int l_spi_recv(lua_State *L) {
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
+        luat_spi_lock(id);
         ret = luat_spi_recv(id, recv_buff, len);
+        luat_spi_unlock(id);
         b.n = ret;
     }
     else if (lua_isuserdata(L, 1))
     {
         luat_spi_device_t *spi_device = (luat_spi_device_t *)luaL_testudata(L, 1, META_SPI);
         if (spi_device){
+            luat_spi_lock(spi_device->bus_id);
             luat_spi_device_recv(spi_device, recv_buff, len);
+            luat_spi_unlock(spi_device->bus_id);
             ret = len;
         }
         else {
@@ -501,7 +507,10 @@ static int l_spi_send(lua_State *L) {
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
-        lua_pushinteger(L, luat_spi_send(id, send_buff, len));
+        luat_spi_lock(id);
+        int ret = luat_spi_send(id, send_buff, len);
+        luat_spi_unlock(id);
+        lua_pushinteger(L, ret);
     }
     else
     {
@@ -627,7 +636,9 @@ static int l_spi_device_transfer(lua_State *L) {
         if(recv_buff == NULL)
             return 0;
     }
+    luat_spi_lock(spi_device->bus_id);
     int ret = luat_spi_device_transfer(spi_device, send_buff, send_length, recv_buff, recv_length);
+    luat_spi_unlock(spi_device->bus_id);
     if (send_mode == LUA_TTABLE){
         luat_heap_free(send_buff);
     }
@@ -659,11 +670,15 @@ static int l_spi_device_send(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t len = 0;
     char* send_buff = NULL;
+    int ret = 0;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         send_buff = (char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
-        lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+        luat_spi_lock(spi_device->bus_id);
+        ret = luat_spi_device_send(spi_device, send_buff, len);
+        luat_spi_unlock(spi_device->bus_id);
+        lua_pushinteger(L, ret);
     }else if (lua_istable(L, 2)){
         len = lua_rawlen(L, 2); //返回数组的长度
         send_buff = (char*)luat_heap_malloc(len);
@@ -672,7 +687,10 @@ static int l_spi_device_send(lua_State *L) {
             send_buff[i] = (char)lua_tointeger(L, -1);
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
-        lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+        luat_spi_lock(spi_device->bus_id);
+        ret = luat_spi_device_send(spi_device, send_buff, len);
+        luat_spi_unlock(spi_device->bus_id);
+        lua_pushinteger(L, ret);
         luat_heap_free(send_buff);
     }else if(lua_isstring(L, 2)){
         send_buff = (char*)luaL_checklstring(L, 2, &len);
@@ -700,7 +718,9 @@ static int l_spi_device_recv(lua_State *L) {
     int len = luaL_optinteger(L, 2,1);
     char* recv_buff = luat_heap_malloc(len);
     if(recv_buff == NULL) return 0;
+    luat_spi_lock(spi_device->bus_id);
     int ret = luat_spi_device_recv(spi_device, recv_buff, len);
+    luat_spi_unlock(spi_device->bus_id);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
         luat_heap_free(recv_buff);
@@ -712,7 +732,7 @@ static int l_spi_device_recv(lua_State *L) {
 
 static int _spi_struct_gc(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-    LLOGI("spi_device对象正在被回收,相关内存将释放 %p , spi id=%d", spi_device, spi_device->bus_id);
+    LLOGW("spi_device对象正在被回收,相关内存将释放 %p , spi id=%d", spi_device, spi_device->bus_id);
     return 0;
 }
 

@@ -1,14 +1,14 @@
 --[[
 @module  netdrv_multiple
-@summary 多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
+@summary 多网卡（4G网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 @version 1.0
 @date    2025.07.24
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为多网卡驱动模块，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-直接使用Air8000开发板硬件测试即可；
+直接使用Air780EPM V1.3版本开发板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
@@ -37,11 +37,11 @@ local function netdrv_multiple_task_func()
     --设置网卡优先级
     exnetif.set_priority_order(
         {
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air8000开发板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EPM V1.3版本开发板验证
             {
                 ETHERNET = {
                     -- 供电使能GPIO
-                    pwrpin = 140,
+                    pwrpin = 20,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
@@ -53,22 +53,7 @@ local function netdrv_multiple_task_func()
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390,
-                    opts = {spi=1, cs=12}
-                }
-            },
-
-            -- WIFI STA网卡
-            {
-                WIFI = {
-                    -- 要连接的WIFI路由器名称
-                    ssid = "茶室-降功耗,找合宙!",
-                    -- 要连接的WIFI路由器密码
-                    password = "Air123456",
-
-                    -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
-                    -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
-                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+                    opts = {spi=0, cs=8}
                 }
             },
 

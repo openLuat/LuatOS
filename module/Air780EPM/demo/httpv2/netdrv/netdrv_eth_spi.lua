@@ -3,14 +3,14 @@
 @summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
 @version 1.0
 @date    2025.07.24
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
 2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
 
-直接使用Air8000开发板硬件测试即可；
+直接使用Air780EPM V1.3版本开发板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
@@ -39,15 +39,15 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 socket.dft(socket.LWIP_ETH)
 
 
--- 本demo测试使用的是Air8000开发板
--- GPIO140为CH390H以太网芯片的供电使能控制引脚
-gpio.setup(140, 1, gpio.PULLUP)
+-- 本demo测试使用的是Air780EPM V1.3版本开发板
+-- GPIO20为CH390H以太网芯片的供电使能控制引脚
+gpio.setup(20, 1, gpio.PULLUP)
 
 -- 这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
     -- 初始化SPI1
     local result = spi.setup(
-        1,--spi_id
+        0,--spi_id
         nil,
         0,--CPHA
         0,--CPOL
@@ -76,8 +76,8 @@ local function netdrv_eth_spi_task_func()
 
     -- socket.LWIP_ETH 指定网络适配器编号
     -- netdrv.CH390外挂CH390
-    -- SPI ID 1, 片选 GPIO12
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1, cs=12})
+    -- SPI ID 0, 片选 GPIO8
+    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0, cs=8})
 
     -- 在以太网上开启动态主机配置协议
     netdrv.dhcp(socket.LWIP_ETH, true)

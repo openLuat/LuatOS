@@ -75,14 +75,8 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载ap_init应用功能模块
-require "ap_init"
-
--- 加载spi_sdcard_init应用功能模块
-require "spi_sdcard_init"
-
--- 加载http_server应用功能模块
-require "http_server"
+-- 引入任务控制模块
+require"task_control"
 
 -- 用户代码已结束--------------------------------------------
 -- 结尾总是这一句

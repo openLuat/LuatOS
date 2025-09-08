@@ -15,6 +15,7 @@
 - 通过文件管理界面点击下载按钮
 - 直接通过URL访问文件：http://192.168.4.1/filename.ext
 - 访问SD卡文件：http://192.168.4.1/sd/filename.ext
+- 注：SD卡目录下文件夹名称不能为中文，否则会识别失败，无法下载文件夹中文件
 
 本文件没有对外接口，直接在 main.lua 中 require "http_server" 即可加载运行。
 ]]
@@ -40,6 +41,41 @@ local function get_file_info(path)
 
     -- 获取文件名
     local filename = path:match("([^/]+)$") or ""
+    
+    -- 获取大小
+    local direct_size = io.fileSize(path)
+    if direct_size and direct_size > 0 then
+        log.info("FILE_INFO", "获取文件大小成功: " .. direct_size .. " 字节")
+        return {
+            name = filename,
+            size = direct_size,
+            isDirectory = false,
+            path = path
+        }
+    end
+    
+    -- 检查文件是否存在，避免对文件进行错误的目录判断
+    if not io.exists(path) then
+        log.info("FILE_INFO", "文件不存在: " .. path)
+        return {
+            name = filename,
+            size = 0,
+            isDirectory = false,
+            path = path
+        }
+    end
+    
+    -- 尝试判断是否为目录
+    local ret, data = io.lsdir(path, 1, 0)
+    if ret and data and type(data) == "table" and #data > 0 then
+        log.info("FILE_INFO", "路径是一个目录: " .. path)
+        return {
+            name = filename,
+            size = 0,
+            isDirectory = true,
+            path = path
+        }
+    end
 
     -- 检查文件是否存在
     if not io.exists(path) then
@@ -47,7 +83,8 @@ local function get_file_info(path)
         return {
             name = filename,
             size = 0,
-            isDirectory = false
+            isDirectory = false,
+            path = path
         }
     end
 
@@ -56,19 +93,24 @@ local function get_file_info(path)
     if file then
         -- 尝试获取文件大小
         local file_size = io.fileSize(path)
+        
+        -- 如果返回0或nil，尝试通过读取文件内容获取大小
+        if not file_size or file_size == 0 then
+            log.info("FILE_INFO", "获取文件大小，尝试读取文件内容")
+            local content = file:read("*a")
+            file_size = #content
+            log.info("FILE_INFO", "使用文件内容长度获取大小: " .. file_size .. " 字节")
+        else
+            log.info("FILE_INFO", "获取文件大小成功: " .. file_size .. " 字节")
+        end
+        
         file:close()
         log.info("FILE_INFO", "成功获取文件信息: " .. filename .. ", 大小: " .. file_size .. " 字节")
         return {
             name = filename,
             size = file_size,
-            isDirectory = false
-        }
-    else
-        log.info("FILE_INFO", "无法打开文件获取详细信息: " .. path)
-        return {
-            name = filename,
-            size = 0,
-            isDirectory = false
+            isDirectory = false,
+            path = path
         }
     end
 end
@@ -76,11 +118,32 @@ end
 -- 使用io.lsdir函数扫描目录
 local function scan_with_lsdir(path, files)
     log.info("LIST_DIR", "开始扫描目录")
-        -- 如果路径不以/结尾，添加/确保路径格式正确
+        -- 确保路径格式正确，处理多层目录和编码问题
         local scan_path = path
-        if not scan_path:match("/$" ) then
-            scan_path = scan_path .. (scan_path == "" and "" or "/")
+        log.info("LIST_DIR", "原始路径: " .. scan_path)
+        
+        -- 规范化路径，处理URL编码残留问题
+        scan_path = scan_path:gsub("%%(%x%x)", function(hex)
+            return string.char(tonumber(hex, 16))
+        end)
+        log.info("LIST_DIR", "解码后路径: " .. scan_path)
+        
+        -- 移除多余的斜杠
+        scan_path = scan_path:gsub("//+", "/")
+        log.info("LIST_DIR", "去重斜杠后路径: " .. scan_path)
+        
+        -- 规范化路径，移除可能的尾部斜杠
+        scan_path = scan_path:gsub("/*$", "")
+        log.info("LIST_DIR", "移除尾部斜杠后路径: " .. scan_path)
+        
+        -- 确保路径以/开头
+        if not scan_path:match("^/") then
+            scan_path = "/" .. scan_path
         end
+        log.info("LIST_DIR", "确保以/开头后路径: " .. scan_path)
+        
+        -- 确保路径以/结尾
+        scan_path = scan_path .. (scan_path == "" and "" or "/")
 
         log.info("LIST_DIR", "开始扫描路径: " .. scan_path)
 
@@ -94,27 +157,41 @@ local function scan_with_lsdir(path, files)
             -- 遍历目录内容
             for i = 1, #data do
                 local entry = data[i]
-                log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. (entry.type == 0 and "文件" or "目录"))
+                local is_dir = (entry.type ~= 0)
+                local entry_type = is_dir and "目录" or "文件"
+                log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. entry_type)
 
                 local full_path = scan_path .. entry.name
-
-                -- 使用get_file_info获取文件信息
-                local info = get_file_info(full_path)
-                if info then
-                    info.path = full_path
-                    info.isDirectory = (entry.type ~= 0)
-                    table.insert(files, info)
-                    log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. ": " .. entry.name .. ", 大小: " .. info.size)
+                
+                -- 处理目录和文件的不同逻辑
+                if is_dir then
+                    -- 对于目录，直接构造信息
+                local dir_info = {
+                    name = entry.name,
+                    size = 0,
+                    isDirectory = true,
+                    path = full_path
+                }
+                table.insert(files, dir_info)
+                log.info("LIST_DIR", "添加目录: " .. entry.name .. ", 路径: " .. full_path)
                 else
-                    -- 如果get_file_info失败，使用默认值
-                    local default_info = {
-                        name = entry.name,
-                        size = entry.type == 0 and (entry.size or 0) or 0,
-                        isDirectory = (entry.type ~= 0),
-                        path = full_path
-                    }
-                    table.insert(files, default_info)
-                    log.info("LIST_DIR", "添加" .. (entry.type == 0 and "文件" or "目录") .. "(默认信息): " .. entry.name)
+                    -- 对于文件，调用get_file_info获取详细信息
+                    local file_info = get_file_info(full_path)
+                    if file_info and file_info.size ~= nil then
+                    file_info.isDirectory = false
+                    table.insert(files, file_info)
+                    log.info("LIST_DIR", "添加文件: " .. entry.name .. ", 大小: " .. file_info.size .. " 字节, 路径: " .. file_info.path)
+                    else
+                        -- 如果get_file_info失败，使用默认值
+                        local default_info = {
+                            name = entry.name,
+                            size = entry.size or 0,
+                            isDirectory = false,
+                            path = full_path
+                        }
+                        table.insert(files, default_info)
+                        log.info("LIST_DIR", "添加文件(默认信息): " .. entry.name .. ", 大小: " .. (entry.size or 0) .. " 字节")
+                    end
                 end
             end
             return true
@@ -494,11 +571,11 @@ local function handle_http_request(fd, method, uri, headers, body)
 
         -- 使用httpsrv下载，直接重定向URL
         -- 如需要下载文件系统中123.mp3，直接重定向到URL:http://192.168.4.1/123.mp3
-        -- 如果路径以/sd/开头，则保留sd路径前缀
+        -- 如果路径以/sd/开头，则保留完整的sd路径
         local redirect_url = "/" .. filename
         if string_starts_with(path, "/sd/") then
-            -- 保留sd路径前缀，以便直接访问sd卡文件
-            redirect_url = "/sd/" .. filename
+            -- 保留完整的sd路径，以便直接访问sd卡文件及其子目录
+            redirect_url = path
         end
 
         log.info("DOWNLOAD", "开始下载文件：" .. redirect_url)

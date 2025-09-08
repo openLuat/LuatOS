@@ -17,7 +17,7 @@ exaudio = require("exaudio")
 local taskName = "task_audio"
 
 
---  音频初始化配置
+-- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚

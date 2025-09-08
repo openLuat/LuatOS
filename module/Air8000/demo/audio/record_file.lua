@@ -14,6 +14,7 @@
 ]]
 exaudio = require("exaudio")
 
+-- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
@@ -23,13 +24,14 @@ local audio_setup_param ={
 }
 local recordPath = "/record.amr"
 
+-- 录音完成回调
 local function record_end(event)
     if event == exaudio.RECORD_DONE then
         log.info("录音后文件大小",io.fileSize(recordPath))
     end
 end 
 
-
+-- 录音配置参数,exaudio.record_start 的入参
 local audio_record_param ={
     format= exaudio.PCM_32000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
                                   -- 如果选择exaudio.AMR_WB,则需要固件支持volte 功能
@@ -55,7 +57,7 @@ gpio.setup(0, add_volume, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 
 ---------------------------------
----通过POWERKEY按键减小录音---
+---通过POWERKEY按键减小录音-------
 ---------------------------------
 
 local function down_volume()
@@ -67,8 +69,9 @@ end
 gpio.setup(gpio.PWR_KEY, down_volume, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 
-
-
+---------------------------------
+---音频 task 初始化函数-----------
+---------------------------------
 local taskName = "task_audio"
 local function audio_task()
     sys.wait(100)

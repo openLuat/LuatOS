@@ -13,7 +13,7 @@
 ]]
 exaudio = require("exaudio")
 
--- 
+-- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
@@ -22,6 +22,7 @@ local audio_setup_param ={
     bits_per_sample = 16  -- 录音的位深，可选8,16,24 位，但是当选择音频格式为AMR_NB,自动调节为8位,当音频格式为AMR_WB,自动调节为16位
 }
 
+-- 录音的数据流回调函数，注意不可以在回调函数中加入耗时和延迟的操作
 local function  recode_data_callback(addr,data_len)
     log.info("收到音频流,地址为:",addr,"有效数据长度为:",data_len)
 end
@@ -31,6 +32,7 @@ local function record_end(event)
     end
 end 
 
+-- 录音配置参数,exaudio.record_start 的入参
 local audio_record_param ={
     format= exaudio.PCM_16000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
     time = 5,               -- 录制时间,单位(秒)

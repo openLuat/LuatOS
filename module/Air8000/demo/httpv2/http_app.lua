@@ -108,8 +108,8 @@ local function http_app_get()
         json.encode(headers or {}), 
         body and (body:len()>512 and body:len() or body) or "nil")
 
-    -- https get请求https://www.luatos.com/网页内容
-    -- 请求超时时间为3秒，用户自己写代码时，不要照抄10秒，根据自己业务逻辑的需要设置合适的超时时间
+    -- https get请求https://www.luatos.com/网页内容，超时时间为10秒
+    -- 请求超时时间为10秒，用户自己写代码时，不要照抄10秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get2"
     -- 如果请求成功，请求的数据保存到body中
     code, headers, body = http.request("GET", "https://www.luatos.com/", nil, nil, {timeout=10000, userdata="http_app_get2", callback=http_cbfunc}).wait()
@@ -134,7 +134,7 @@ end
 
 -- http get下载压缩数据的功能演示
 local function http_app_get_gzip()
-    -- https get请求https://devapi.qweather.com/v7/weather/now?location=101010100&key=0e8c72015e2b4a1dbff1688ad54053de网页内容，超时时间为3秒
+    -- https get请求https://devapi.qweather.com/v7/weather/now?location=101010100&key=0e8c72015e2b4a1dbff1688ad54053de网页内容
     -- 如果请求成功，请求的数据保存到body中
     local code, headers, body = http.request("GET", "https://devapi.qweather.com/v7/weather/now?location=101010100&key=0e8c72015e2b4a1dbff1688ad54053de").wait()
     log.info("http_app_get_gzip", 
@@ -218,7 +218,7 @@ local function http_app_get_file()
 
     file_path = download_dir.."get_file2.html"
     -- https get请求https://www.luatos.com/网页内容
-    -- 请求超时时间为3秒，用户自己写代码时，不要照抄10秒，根据自己业务逻辑的需要设置合适的超时时间
+    -- 请求超时时间为10秒，用户自己写代码时，不要照抄10秒，根据自己业务逻辑的需要设置合适的超时时间
     -- 回调函数为http_cbfunc，回调函数使用的第三个回调参数为"http_app_get_file2"
     -- 如果请求成功，请求的数据保存到文件file_path中
     code, headers, body_size = http.request("GET", "https://www.luatos.com/", nil, nil, {dst=file_path, timeout=10000, userdata="http_app_get_file2", callback=http_cbfunc}).wait()

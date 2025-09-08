@@ -9,7 +9,7 @@
 1、创建一个mqtts ca client，连接server；
 2、处理连接/订阅/取消订阅/异常逻辑，出现异常后执行重连动作；
 3、调用mqtts_ca_receiver的外部接口mqtts_ca_receiver.proc，对接收到的publish数据进行处理；
-4、调用sysplus.sendMsg接口，发送"CONNECT OK"、"PUBLISH OK"和"DISCONNECTED"三种类型的"MQTT_EVENT"消息到mqtts_ca_sender的task，控制publish数据发送逻辑；
+4、调用sys.sendMsg接口，发送"CONNECT OK"、"PUBLISH OK"和"DISCONNECTED"三种类型的"MQTT_EVENT"消息到mqtts_ca_sender的task，控制publish数据发送逻辑；
 5、收到MQTT心跳应答后，执行sys.publish("FEED_NETWORK_WATCHDOG") 对网络环境检测看门狗功能模块进行喂狗；
 
 本文件没有对外接口，直接在main.lua中require "mqtts_ca_main"就可以加载运行；
@@ -46,11 +46,11 @@ local function mqtts_ca_client_event_cbfunc(mqtt_client, event, data, payload, m
 
     -- mqtt连接成功
     if event == "conack" then
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", true)
         -- 订阅单主题
         -- 第二个参数表示qos，取值范围为0,1,2，如果不设置，默认为0
         if not mqtt_client:subscribe(TOPIC_PREFIX .. "/down") then
-            sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", false, -1)
+            sys.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", false, -1)
         end
         -- 订阅多主题，如果有需要，打开注释
         -- 表中的每一个订阅主题的格式为[topic]=qos
@@ -60,7 +60,7 @@ local function mqtts_ca_client_event_cbfunc(mqtt_client, event, data, payload, m
         --             [(TOPIC_PREFIX .. "/cmd"]=1
         --         }
         -- ) then
-        --     sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", false, -1)
+        --     sys.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", false, -1)
         -- end
 
     -- 订阅结果
@@ -68,12 +68,12 @@ local function mqtts_ca_client_event_cbfunc(mqtt_client, event, data, payload, m
     -- payload：number类型；成功时表示qos，取值范围为0,1,2；失败时表示失败码，一般是0x80
     elseif event == "suback" then
         -- 发送消息通知 mqtts ca main task
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", data, payload)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "SUBSCRIBE", data, payload)
 
     -- 取消订阅成功
     elseif event == "unsuback" then
         -- 发送消息通知 mqtts ca main task
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "UNSUBSCRIBE", true)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "UNSUBSCRIBE", true)
 
     -- 接收到服务器下发的publish数据
     -- data：string类型，表示topic
@@ -93,12 +93,12 @@ local function mqtts_ca_client_event_cbfunc(mqtt_client, event, data, payload, m
     -- data：number类型，表示message id
     elseif event == "sent" then
         -- 发送消息通知 mqtts ca sender task
-        sysplus.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "PUBLISH_OK", data)
+        sys.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "PUBLISH_OK", data)
 
     -- 服务器断开mqtt连接
     elseif event == "disconnect" then
         -- 发送消息通知 mqtts ca main task
-        sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED", false)
+        sys.sendMsg(TASK_NAME, "MQTT_EVENT", "DISCONNECTED", false)
 
     -- 收到服务器的心跳应答
     elseif event == "pong" then
@@ -114,10 +114,10 @@ local function mqtts_ca_client_event_cbfunc(mqtt_client, event, data, payload, m
     elseif event == "error" then
         if data == "connect" or data == "conack" then
             -- 发送消息通知 mqtts ca main task，连接失败
-            sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", false)
+            sys.sendMsg(TASK_NAME, "MQTT_EVENT", "CONNECT", false)
         elseif data == "other" or data == "tx" then
             -- 发送消息通知 mqtts ca main task，出现异常
-            sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "ERROR")
+            sys.sendMsg(TASK_NAME, "MQTT_EVENT", "ERROR")
         end
     end
 end
@@ -153,7 +153,7 @@ local function mqtts_ca_client_main_task_func()
         log.info("mqtts_ca_client_main_task_func", "recv IP_READY", socket.dft())
 
         -- 清空此task绑定的消息队列中的未处理的消息
-        sysplus.cleanMsg(TASK_NAME)
+        sys.cleanMsg(TASK_NAME)
 
         -- 创建mqtt client对象，ssl连接，单向证书校验
         -- client仅单向校验server的证书，server不校验client的证书和密钥文件
@@ -203,7 +203,7 @@ local function mqtts_ca_client_main_task_func()
         -- 连接、断开连接、订阅、取消订阅、异常等各种事件的处理调度逻辑
         while true do
             -- 等待"MQTT_EVENT"消息
-            msg = sysplus.waitMsg(TASK_NAME, "MQTT_EVENT")
+            msg = sys.waitMsg(TASK_NAME, "MQTT_EVENT")
             log.info("mqtts_ca_client_main_task_func waitMsg", msg[2], msg[3], msg[4])
 
             -- connect连接结果
@@ -213,7 +213,7 @@ local function mqtts_ca_client_main_task_func()
                 if msg[3] then
                     log.info("mqtts_ca_client_main_task_func", "connect success")
                     -- 通知数据发送应用模块，MQTT连接成功
-                    sysplus.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "CONNECT_OK", mqtt_client)
+                    sys.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "CONNECT_OK", mqtt_client)
                 -- mqtt连接失败
                 else
                     log.info("mqtts_ca_client_main_task_func", "connect error")
@@ -243,7 +243,7 @@ local function mqtts_ca_client_main_task_func()
                 log.info("mqtts_ca_client_main_task_func", "unsubscribe success")
 
             -- 需要主动关闭mqtt连接
-            -- 用户需要主动关闭mqtt连接时，可以调用sysplus.sendMsg(TASK_NAME, "MQTT_EVENT", "CLOSE")
+            -- 用户需要主动关闭mqtt连接时，可以调用sys.sendMsg(TASK_NAME, "MQTT_EVENT", "CLOSE")
             elseif msg[2] == "CLOSE" then
                 -- 主动断开mqtt client连接
                 mqtt_client:disconnect()
@@ -267,10 +267,10 @@ local function mqtts_ca_client_main_task_func()
         ::EXCEPTION_PROC::
 
         -- 清空此task绑定的消息队列中的未处理的消息
-        sysplus.cleanMsg(TASK_NAME)
+        sys.cleanMsg(TASK_NAME)
 
         -- 通知mqtts ca sender数据发送应用模块的task，MQTT连接已经断开
-        sysplus.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
+        sys.sendMsg(mqtts_ca_sender.TASK_NAME, "MQTT_EVENT", "DISCONNECTED")
 
         -- 如果存在mqtt client对象
         if mqtt_client then
@@ -286,4 +286,4 @@ end
 
 --创建并且启动一个task
 --运行这个task的处理函数mqtts_ca_client_main_task_func
-sysplus.taskInitEx(mqtts_ca_client_main_task_func, TASK_NAME)
+sys.taskInitEx(mqtts_ca_client_main_task_func, TASK_NAME)

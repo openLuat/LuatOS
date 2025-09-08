@@ -488,7 +488,7 @@ end
 
 -- 模块接口：设置音量
 function exaudio.vol(play_volume)
-    if check_param(number, "number", "音量值") then
+    if check_param(play_volume, "number", "音量值") then
         return audio.vol(MULTIMEDIA_ID, play_volume)
     end
     return false
@@ -496,7 +496,7 @@ end
 
 -- 模块接口：设置麦克风音量
 function exaudio.mic_vol(record_volume)
-    if check_param(number, "number", "麦克风音量值") then
+    if check_param(record_volume, "number", "麦克风音量值") then
         return audio.micVol(MULTIMEDIA_ID, record_volume)  
     end
     return false

@@ -9,7 +9,8 @@
 1.设置多网融合功能，以太网提供网络供wifi和以太网设备上网
 2、http测试以太网网络
 本文件没有对外接口，直接在main.lua中require "netif_app"就可以加载运行；
-]] exnetif = require "exnetif"
+]] 
+exnetif = require "exnetif"
 
 function netif_app_task_func()
     local res

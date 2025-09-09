@@ -10,6 +10,8 @@ Air8000系列：Air8000 Air8000A Air8000W Air8000T Air8000G Air8000D
 
 Air8101系列：Air8101 Air8101A
 
+SPEC: LuatOS 涉及到的各类规范，报文协议等。
+
 每个模组型号的文件夹，至少包含如下内容：
 
 core：描述改模组型号的LuatOS内核固件(.soc)的下载地址

@@ -98,9 +98,9 @@ local httpplus = require "httpplus"
 -- timeout可以设置超时时间
 local function httpplus_app_get()
     local body
-    -- https get请求https://www.air32.cn/网页内容
+    -- https get请求https://httpbin.air32.cn/get
     -- 如果请求成功，请求的数据保存到response.body中
-    local code, response = httpplus.request({url="https://www.air32.cn/"})
+    local code, response = httpplus.request({url="https://httpbin.air32.cn/get"})
     log.info("httpplus_app_get1", code==200 and "success" or "error", code)
     if code==200 then
         log.info("httpplus_app_get1 headers", json.encode(response.headers or {}))

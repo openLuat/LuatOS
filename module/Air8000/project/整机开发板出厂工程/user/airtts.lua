@@ -61,9 +61,6 @@ end
 
 local function audio_task()
     airaudio.init()
-    if fonts.list then
-        log.info("fonts", "u8g2", json.encode(fonts.list("u8g2")))
-    end
     audio_play()
 end
 

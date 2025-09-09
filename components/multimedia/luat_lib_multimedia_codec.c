@@ -52,6 +52,23 @@ static int l_codec_create(lua_State *L) {
     if (lua_isboolean(L, 2)) {
     	is_decoder = lua_toboolean(L, 2);
     }
+
+#ifdef LUAT_SUPPORT_AMR
+#ifdef LUAT_USE_INTER_AMR
+	uint8_t encode_level = 7;
+	switch (type) {
+		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+			encode_level = luaL_optinteger(L, 3, 7);
+			break;
+		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+			encode_level = luaL_optinteger(L, 3, 8);
+			break;
+		default:
+			break;
+	}
+#endif
+#endif
+
     luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_newuserdata(L, sizeof(luat_multimedia_codec_t));
     if (coder == NULL) {
     	lua_pushnil(L);
@@ -89,14 +106,14 @@ static int l_codec_create(lua_State *L) {
 #ifdef LUAT_SUPPORT_AMR
 #ifdef LUAT_USE_INTER_AMR
         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-            	coder->amr_coder = luat_audio_inter_amr_coder_init(0, luaL_optinteger(L, 3, 7));
+            	coder->amr_coder = luat_audio_inter_amr_coder_init(0, encode_level);
             	if (!coder->amr_coder) {
             		lua_pushnil(L);
             		return 1;
             	}
             	break;
         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-        		coder->amr_coder = luat_audio_inter_amr_coder_init(1, luaL_optinteger(L, 3, 8));
+        		coder->amr_coder = luat_audio_inter_amr_coder_init(1, encode_level);
             	if (!coder->amr_coder) {
             		lua_pushnil(L);
             		return 1;
@@ -109,7 +126,7 @@ static int l_codec_create(lua_State *L) {
             		lua_pushnil(L);
             		return 1;
             	}
-            	        		break;
+            	break;
 #endif
 #endif
 #ifdef LUAT_USE_AUDIO_G711

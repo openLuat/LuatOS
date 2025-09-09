@@ -17,7 +17,7 @@ SPI1_MISO          DO,主机输入,从机输出
 --使用SPI1，硬件SPI CS接在gpio12上
 
 运行核心逻辑：
-1.以对象的防止配置参数，初始化启用SPI，返回SPI对象
+1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
 2.用SPI对象初始化flash设备，返回flash设备对象
 3.用lf库挂载flash设备对象为文件系统
 4.读取文件系统的信息，以确认内存足够用于文件操作
@@ -25,56 +25,23 @@ SPI1_MISO          DO,主机输入,从机输出
 
 ]]
 
--- LuaTools需要PROJECT和VERSION这两个信息
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "little_flash_demo"
-VERSION = "1.0.0"  -- 版本升级（功能模块化重构）
-
-log.info("main", "启动", PROJECT, "v" .. VERSION)
-
-sys = require("sys")
-sysplus = require("sysplus")
+-- SPI配置参数
+local SPI_ID = 1        -- SPI总线ID，根据实际情况修改
+local CS_PIN = 12       -- CS引脚，根据实际情况修改
+local CPHA = 0          -- 时钟相位
+local CPOL = 0          -- 时钟极性
+local data_Width = 8    -- 数据宽度(位)
+local bandrate = 2000000 -- 波特率(Hz)，初始化为2MHz
 
 
+-- 1. 以对象方式设置并启用 SPI，返回设备对象
+local function spiDev_init_func()
+    log.info("lf_fs", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
 
--- 1. 获取SPI配置
-local function get_spi_config()
-    local bsp = rtos.bsp()
-    local configs = {       
-        EC618 = {spi_id = 0, cs_pin = 8},
-        Air8000 = {spi_id = 1, cs_pin = 12},
-        AIR780EPM = {spi_id = 0, cs_pin = 8},  -- 直接写模组名称
-    }
-    
-    -- 优先精确匹配，再模糊匹配
-    if configs[bsp] then
-        return configs[bsp].spi_id, configs[bsp].cs_pin
-    elseif string.find(bsp, "Air8000") then
-        return configs.Air8000.spi_id, configs.Air8000.cs_pin
-    else
-        log.error("get_spi_config", "不支持的硬件:", bsp)
-        return nil, nil
-    end
-end
+    --以对象的方式初始化spi，高位在前，主模式，全双工模式
+    local spi_device = spi.deviceSetup(SPI_ID, CS_PIN, CPHA, CPOL, data_Width, bandrate, spi.MSB, 1, 0)
 
--- 2. 初始化SPI设备，返回设备对象
-local function init_spi_device(spi_id, cs_pin)
-    log.info("SPI初始化", "ID:", spi_id, "CS引脚:", cs_pin)
-    sys.wait(100)  -- 短暂等待SPI引脚稳定
-    
-    -- 
-    local spi_device = spi.deviceSetup(
-        spi_id,     --SPI的id号
-        cs_pin,     --CS引脚
-        0,          -- 模式0
-        0,          -- 空闲电平低
-        8,          -- 8位数据
-        20*1000*1000,  -- 20MHz时钟
-        spi.MSB,    -- 高位在前
-        1,          -- 片选有效低电平
-        0           -- 不使用DMA
-    )
-    
+    log.info("硬件spi", "初始化，波特率:", spi_device, bandrate)
     if not spi_device then
         log.error("SPI初始化", "失败")
         return nil
@@ -83,7 +50,8 @@ local function init_spi_device(spi_id, cs_pin)
     return spi_device
 end
 
--- 3. 初始化Flash设备，返回设备对象
+
+-- 2. 初始化Flash设备，返回设备对象
 local function init_flash_device(spi_device)
     log.info("Flash初始化", "开始")
     local flash_device = lf.init(spi_device)
@@ -95,19 +63,19 @@ local function init_flash_device(spi_device)
     return flash_device
 end
 
--- 4. 挂载文件系统
+-- 3. 挂载文件系统
 local function mount_filesystem(flash_device, mount_point)
     log.info("文件系统", "开始挂载:", mount_point)
-    
+
     -- 检查是否支持挂载功能
     if not lf.mount then
         log.error("文件系统", "lf模块不支持挂载功能")
         return false
     end
-    
+
     -- 尝试挂载
     local mount_ok = lf.mount(flash_device, mount_point)
-    if not mount_ok then        
+    if not mount_ok then
         log.warn("文件系统lf", "挂载失败，尝试重新挂载...")
         mount_ok = lf.mount(flash_device, mount_point)
         if not mount_ok then
@@ -115,16 +83,16 @@ local function mount_filesystem(flash_device, mount_point)
             return false
         end
     end
-    
+
     log.info("文件系统", "挂载成功:", mount_point)
     return true
 end
 
--- 5. 打印文件系统信息
+-- 4. 打印文件系统信息
 local function print_filesystem_info(mount_point)
     log.info("文件系统信息", "开始查询:", mount_point)
-    
-    -- 方式1：获取详细信息（总块数/已用块数等）
+
+    -- 获取文件系统详细信息，总块数/已用块数等
     local ok, total_blocks, used_blocks, block_size, fs_type = fs.fsstat(mount_point)
     if ok then
         log.info("  总block数:", total_blocks)
@@ -134,18 +102,12 @@ local function print_filesystem_info(mount_point)
     else
         log.warn("  无法获取详细信息")
     end
-    
-    -- 方式2：获取根分区信息（对比参考）
-    local root_info = fs.fsstat("/")
-    if root_info then
-        log.info("文件系统根分区信息:", fs.fsstat("/"))
-    end
 end
 
--- 6. 执行文件操作测试
+-- 5. 执行文件操作测试
 local function test_file_operations(mount_point)
     log.info("文件操作测试", "开始")
-    
+
     -- 测试写入文件
     local test_file = mount_point .. "/test.txt"
     local f, err = io.open(test_file, "w")
@@ -157,7 +119,7 @@ local function test_file_operations(mount_point)
     f:write(write_data)
     f:close()
     log.info("  写入成功", test_file, "内容:", write_data)
-    
+
     -- 测试读取文件
     local read_data, read_err = io.readFile(test_file)
     if not read_data then
@@ -165,17 +127,17 @@ local function test_file_operations(mount_point)
         return false
     end
     log.info("  读取成功", test_file, "内容:", read_data)
-    
+
     -- 验证内容一致性
     if read_data ~= write_data then
         log.warn("  内容不一致", "写入:", write_data, "读取:", read_data)
     end
-    
+
     -- 测试文件追加
     local append_file = mount_point .. "/append.txt"
-    os.remove(append_file)  -- 清除旧文件
-    io.writeFile(append_file, "LuatOS 测试")  -- 初始写入
-    
+    os.remove(append_file) -- 清除旧文件
+    io.writeFile(append_file, "LuatOS 测试") -- 初始写入
+
     local f_append, append_err = io.open(append_file, "a+")
     if not f_append then
         log.error("  追加失败", append_file, "错误:", append_err)
@@ -183,63 +145,55 @@ local function test_file_operations(mount_point)
     end
     local append_data = " - 追加时间: " .. os.date()
     f_append:write(append_data)
+    -- 执行完操作后,一定要关掉文件
     f_append:close()
-    
+
     local final_data = io.readFile(append_file)
     log.info("  追加后内容:", final_data)
-    
+
     log.info("文件操作测试", "完成")
+
     return true
 end
 
+-- 7. 关闭SPI设备，成功返回0
+local function spi_close_func()    
+    log.info("关闭spi", spi_device:close())
+end
 
 -- 主任务函数：按流程调用各功能函数
-local function spinand_test_func()
-    -- -- 流程1：等待硬件就绪
-    -- if not wait_for_hardware_ready() then
-    --     return
-    -- end
-    
-    -- 流程1：获取SPI配置
-    local spi_id, cs_pin = get_spi_config()
-    if not spi_id or not cs_pin then
-        log.error("主流程", "获取SPI配置失败，终止")
-        return
-    end
-    
-    -- 流程2：初始化SPI设备
-    local spi_device = init_spi_device(spi_id, cs_pin)
+local function spinor_test_func()
+    --1.判断SPI初始化
+    spi_device = spiDev_init_func()
     if not spi_device then
         log.error("主流程", "SPI初始化失败，终止")
         return
     end
-    
-    -- 流程3：初始化Flash设备
+
+    -- 流程2：初始化Flash设备
     local flash_device = init_flash_device(spi_device)
     if not flash_device then
         log.error("主流程", "Flash初始化失败，终止")
         return
     end
-    
-    -- 流程5：挂载文件系统
+
+    -- 流程3：挂载文件系统
     local mount_point = "/little_flash"
     if not mount_filesystem(flash_device, mount_point) then
         log.error("主流程", "文件系统挂载失败，终止")
         return
     end
-    
-    -- 流程5：打印文件系统信息
+
+    -- 流程4：打印文件系统信息
     print_filesystem_info(mount_point)
-    
-    -- 流程6：执行文件操作测试
+
+    -- 流程5：执行文件操作测试
     if not test_file_operations(mount_point) then
         log.warn("主流程", "文件操作测试部分失败")
     end
-    
-   
+
+     -- 6.关闭SPI设备
+    spi_close_func()
 end
 
-sys.taskInit(spinand_test_func)   
-
-
-
+sys.taskInit(spinor_test_func)

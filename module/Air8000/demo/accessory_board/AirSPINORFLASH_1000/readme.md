@@ -1,17 +1,17 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释.
-2. AirSPINORFLASH_1000
+1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释。
+2. ram_spi：
 
-        SPI 驱动 flash,通过 flash 指令对 flash 模块进行读写数据操作，详细逻辑请看 AirSPINORFLASH_1000.lua 文件.
+        通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
 
-3. LITTLE_FLASH_NOR
-
-        SPI 驱动 flash，通过 little_flash 库挂载 flash 为文件系统，以文件系统的方式进行读写数据操作，详细逻辑请看 LITTLE_FLASH_NOR.lua 文件.
+3. lf_fs：
+   
+   通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
 ## 演示功能概述：
 
-### AirSPINORFLASH_1000：
+### ram_spi：
 
 1.初始化并启用 spi,如果初始化失败，退出程序
 
@@ -25,9 +25,9 @@
 
 6.关闭写使能并关闭 SPI。
 
-### LITTLE_FLASH_NOR：
+### lf_fs：
 
-1.以对象的防止配置参数，初始化启用 SPI，返回 SPI 对象
+1.以对象的方式配置参数，初始化启用 SPI，返回 SPI 对象
 
 2.用 SPI 对象初始化 flash 设备，返回 flash 设备对象
 
@@ -78,18 +78,7 @@
 
 2. 固件版本：LuatOS-SoC_V2014_Air8000_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air8000/luatos/firmware/](https://docs.openluat.com/air8000/luatos/firmware/)
 
-3. 脚本文件： 
-   main.lua
-   
-   
-
-        AirSPINORFLASH_1000.lua
-
-
-
-        LITTLE_FLASH_NOR.lua
-
-4. pc 系统 win11（win10 及以上）
+3. pc 系统 win11（win10 及以上）
 
 ## 演示核心步骤：
 
@@ -97,52 +86,56 @@
 2. main.lua 中加载需要用的功能模块，两个功能模块同时只能选择一个使用，另一个注释。
 3. Luatools 烧录内核固件和修改后的 demo 脚本代码
 4. 烧录成功后，代码会自动运行，查看打印日志，如果正常运行，会打印相关信息，spi 初始化，数据读写，文件操作等。
-5. AirSPINORFLASH_1000.lua 如下 log 显示：
+5. ram_spi.lua 如下 log 显示：
 
 ```bash
-[2025-09-05 16:11:30.689][000000001.371]I/user.AirSPINORFLASH_1000 SPI_ID 1 CS_PIN 12
-[2025-09-05 16:11:30.699][000000001.371] SPI_HWInit 552:spi1 speed 2000000,1994805,154
-[2025-09-05 16:11:30.705][000000001.372] I/user.硬件spi 初始化，波特率: SPI*: 0C7F61C8 2000000
-[2025-09-05 16:11:30.712][000000001.373] I/user.spi 芯片ID: 0x%02X 0x%02X 0x%02X 239 64 23
-[2025-09-05 16:11:30.718][000000001.373] I/user.spi 寄存器状态为: 0x%02X 0
-[2025-09-05 16:11:30.728][000000001.373] I/user.spi 擦除扇区 0x000000...
-[2025-09-05 16:11:30.766][000000001.434] I/user.spi 擦除后数据: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 32
-[2025-09-05 16:11:30.772][000000001.435] I/user.spi 写入数据: Hello, SPI Flash! 
-[2025-09-05 16:11:30.861][000000001.536] I/user.spi 正在验证数据...
-[2025-09-05 16:11:30.866][000000001.537] I/user.spi 数据验证成功!,读取到数据为：Hello, SPI Flash! 
-[2025-09-05 16:11:30.872][000000001.537] I/user.spi 设备已关闭
+[2025-09-09 17:50:50.800][000000000.363] I/user.main Air8000_SPI_NOR 001.000.000
+[2025-09-09 17:50:50.823][000000000.376] I/user.ram_spi SPI_ID 1 CS_PIN 12
+[2025-09-09 17:50:50.839][000000000.377] SPI_HWInit 552:spi1 speed 2000000,1994805,154
+[2025-09-09 17:50:50.855][000000000.377] I/user.硬件spi 初始化，波特率: 0 2000000
+[2025-09-09 17:50:50.870][000000000.378] I/user.spi 芯片ID: 0x%02X 0x%02X 0x%02X 239 64 23
+[2025-09-09 17:50:50.884][000000000.379] I/user.spi 寄存器状态为: 0x%02X 0
+[2025-09-09 17:50:50.902][000000000.379] I/user.spi 擦除扇区 0x000000...
+[2025-09-09 17:50:50.958][000000000.441] I/user.spi 擦除后数据: FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF 32
+[2025-09-09 17:50:50.989][000000000.442] I/user.spi 写入数据: Hello, SPI Flash! 
+[2025-09-09 17:50:51.006][000000000.447] I/user.spi 正在验证数据...
+[2025-09-09 17:50:51.031][000000000.448] I/user.spi 数据验证成功!,读取到数据为：Hello, SPI Flash! 
+[2025-09-09 17:50:51.044][000000000.448] I/user.关闭spi 0
+
 ```
 
-6. LITTLE_FLASH_NOR.lua 如下 log 显示：
+6. lf_fs.lua 如下 log 显示：
 
 ```bash
-[2025-09-05 16:30:36.312][000000000.371] I/user.main 启动 little_flash_demo v1.0.0
-[2025-09-05 16:30:36.322][000000000.372] I/user.SPI初始化 ID: 1 CS引脚: 12
-[2025-09-05 16:30:36.336][000000000.472] SPI_HWInit 552:spi1 speed 20000000,20480000,15
-[2025-09-05 16:30:36.347][000000000.473] I/user.SPI初始化 成功，波特率:20MHz
-[2025-09-05 16:30:36.364][000000000.473] I/user.Flash初始化 开始
-[2025-09-05 16:30:36.373][000000000.473] I/little_flash Welcome to use little flash V0.0.1 .
-[2025-09-05 16:30:36.380][000000000.473] I/little_flash Github Repositories https://github.com/Dozingfiretruck/little_flash .
-[2025-09-05 16:30:36.387][000000000.473] I/little_flash Gitee Repositories https://gitee.com/Dozingfiretruck/little_flash .
-[2025-09-05 16:30:36.397][000000000.474] I/little_flash Found SFDP Header. The Revision is V1.5, NPN is 0, Access Protocol is 0xFF.
-[2025-09-05 16:30:36.408][000000000.474] I/little_flash Parameter Header is OK. The Parameter ID is 0xFF00, Revision is V5.1, Length is 16,Parameter Table Pointer is 0x000080.
-[2025-09-05 16:30:36.415][000000000.474] I/little_flash Found a flash chip. Size is 8388608 bytes.
-[2025-09-05 16:30:36.432][000000000.525] I/user.Flash初始化 成功，设备: userdata: 0C0F9DA0
-[2025-09-05 16:30:36.442][000000000.525] I/user.文件系统 开始挂载: /little_flash
-[2025-09-05 16:30:36.449][000000000.530] D/little_flash lfs_mount 0
-[2025-09-05 16:30:36.457][000000000.530] D/little_flash vfs mount /little_flash ret 0
-[2025-09-05 16:30:36.465][000000000.531] I/user.文件系统 挂载成功: /little_flash
-[2025-09-05 16:30:36.476][000000000.531] I/user.文件系统信息 开始查询: /little_flash
-[2025-09-05 16:30:36.490][000000000.536] I/user.  总block数: 2048
-[2025-09-05 16:30:36.500][000000000.536] I/user.  已用block数: 2
-[2025-09-05 16:30:36.508][000000000.536] I/user.  block大小: 4096 字节
-[2025-09-05 16:30:36.520][000000000.536] I/user.  文件系统类型: lfs
-[2025-09-05 16:30:36.528][000000000.548] I/user.文件系统根分区信息: true 192 4 4096 lfs
-[2025-09-05 16:30:36.535][000000000.549] I/user.文件操作测试 开始
-[2025-09-05 16:30:36.541][000000000.553] I/user.  写入成功 /little_flash/test.txt 内容: 当前时间: Sun Jan  0 08:00:00 1900
-[2025-09-05 16:30:36.548][000000000.557] I/user.  读取成功 /little_flash/test.txt 内容: 当前时间: Sun Jan  0 08:00:00 1900
-[2025-09-05 16:30:36.552][000000000.576] I/user.  追加后内容: LuatOS 测试 - 追加时间: Sun Jan  0 08:00:00 1900
-[2025-09-05 16:30:36.559][000000000.576] I/user.文件操作测试 完成
+[2025-09-09 17:52:05.601][000000000.366] I/user.main Air8000_SPI_NOR 001.000.000
+[2025-09-09 17:52:05.679][000000000.379] I/user.lf_fs SPI_ID 1 CS_PIN 12
+[2025-09-09 17:52:05.754][000000000.380] SPI_HWInit 552:spi1 speed 2000000,1994805,154
+[2025-09-09 17:52:05.874][000000000.380] I/user.硬件spi 初始化，波特率: SPI*: 0C7F5BB0 2000000
+[2025-09-09 17:52:05.936][000000000.380] I/user.SPI初始化 成功，波特率:20MHz
+[2025-09-09 17:52:05.983][000000000.381] I/user.Flash初始化 开始
+[2025-09-09 17:52:06.022][000000000.382] I/little_flash Welcome to use little flash V0.0.1 .
+[2025-09-09 17:52:06.052][000000000.382] I/little_flash Github Repositories https://github.com/Dozingfiretruck/little_flash .
+[2025-09-09 17:52:06.090][000000000.383] I/little_flash Gitee Repositories https://gitee.com/Dozingfiretruck/little_flash .
+[2025-09-09 17:52:06.116][000000000.383] I/little_flash Found SFDP Header. The Revision is V1.5, NPN is 0, Access Protocol is 0xFF.
+[2025-09-09 17:52:06.134][000000000.384] I/little_flash Parameter Header is OK. The Parameter ID is 0xFF00, Revision is V5.1, Length is 16,Parameter Table Pointer is 0x000080.
+[2025-09-09 17:52:06.156][000000000.384] I/little_flash Found a flash chip. Size is 8388608 bytes.
+[2025-09-09 17:52:06.176][000000000.435] I/user.Flash初始化 成功，设备: userdata: 0C0F9D2C
+[2025-09-09 17:52:06.192][000000000.435] I/user.文件系统 开始挂载: /little_flash
+[2025-09-09 17:52:06.213][000000000.507] D/little_flash lfs_mount 0
+[2025-09-09 17:52:06.230][000000000.508] D/little_flash vfs mount /little_flash ret 0
+[2025-09-09 17:52:06.265][000000000.508] I/user.文件系统 挂载成功: /little_flash
+[2025-09-09 17:52:06.291][000000000.508] I/user.文件系统信息 开始查询: /little_flash
+[2025-09-09 17:52:06.320][000000000.568] I/user.  总block数: 2048
+[2025-09-09 17:52:06.339][000000000.568] I/user.  已用block数: 2
+[2025-09-09 17:52:06.358][000000000.568] I/user.  block大小: 4096 字节
+[2025-09-09 17:52:06.374][000000000.568] I/user.  文件系统类型: lfs
+[2025-09-09 17:52:06.393][000000000.568] I/user.文件操作测试 开始
+[2025-09-09 17:52:06.673][000000001.078] I/user.  写入成功 /little_flash/test.txt 内容: 当前时间: Sun Jan  0 08:00:00 1900
+[2025-09-09 17:52:06.688][000000001.085] I/user.  读取成功 /little_flash/test.txt 内容: 当前时间: Sun Jan  0 08:00:00 1900
+[2025-09-09 17:52:06.702][000000001.136] I/user.  追加后内容: LuatOS 测试 - 追加时间: Sun Jan  0 08:00:01 1900
+[2025-09-09 17:52:06.711][000000001.136] I/user.文件操作测试 完成
+[2025-09-09 17:52:06.725][000000001.136] I/user.关闭spi true
+
 ```
 
 # 

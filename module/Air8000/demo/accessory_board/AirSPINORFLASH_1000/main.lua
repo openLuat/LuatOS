@@ -7,10 +7,10 @@
 @author  马亚丹
 @usage
 本demo是演示合宙AirSPINORFLASH_1000配件版的功能使用，可通过以下两种方式挂载flash模块，任选一种即可。
-1. AirSPINORFLASH_1000
-SPI驱动flash,通过flash指令对flash模块进行读写数据操作，详细逻辑请看AirSPINORFLASH_1000.lua 文件
-2. LITTLE_FLASH_NOR
-SPI驱动flash，通过little_flash库挂载flash为文件系统，以文件系统的方式进行读写数据操作，详细逻辑请看LITTLE_FLASH_NOR.lua 文件
+1. ram_spi
+通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
+2. lf_fs
+通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
 ]]
 
@@ -69,11 +69,11 @@ end
 
 
 
--- 加载AirSPINORFLASH_1000功能模块
---require "AirSPINORFLASH_1000"
+-- 加载ram_spi功能模块
+--require "ram_spi"
 
--- 加载LITTLE_FLASH_NOR功能模块
-require"LITTLE_FLASH_NOR"
+-- 加载lf_fs功能模块
+require"lf_fs"
 
 
 -- 用户代码已结束---------------------------------------------

@@ -265,7 +265,7 @@
             .then(data => {
                 console.log('扫描响应:', data);
                 if (data && data.success) {
-                    alert('文件扫描完成！已扫描到 ' + data.foundFiles + ' 个文件。');
+                    alert('文件扫描完成！已扫描到 ' + data.foundFiles + ' 个文件，显示扫描到的用户文件。');
                     // 重新加载文件列表
                     loadFiles(currentPath);
                 } else {

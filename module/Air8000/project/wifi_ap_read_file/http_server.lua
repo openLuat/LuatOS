@@ -19,7 +19,6 @@
 
 本文件没有对外接口，直接在 main.lua 中 require "http_server" 即可加载运行。
 ]]
-
 -- 配置参数
 local SERVER_PORT = 80
 
@@ -41,7 +40,7 @@ local function get_file_info(path)
 
     -- 获取文件名
     local filename = path:match("([^/]+)$") or ""
-    
+
     -- 获取大小
     local direct_size = io.fileSize(path)
     if direct_size and direct_size > 0 then
@@ -53,7 +52,7 @@ local function get_file_info(path)
             path = path
         }
     end
-    
+
     -- 检查文件是否存在，避免对文件进行错误的目录判断
     if not io.exists(path) then
         log.info("FILE_INFO", "文件不存在: " .. path)
@@ -64,7 +63,7 @@ local function get_file_info(path)
             path = path
         }
     end
-    
+
     -- 尝试判断是否为目录
     local ret, data = io.lsdir(path, 1, 0)
     if ret and data and type(data) == "table" and #data > 0 then
@@ -93,7 +92,7 @@ local function get_file_info(path)
     if file then
         -- 尝试获取文件大小
         local file_size = io.fileSize(path)
-        
+
         -- 如果返回0或nil，尝试通过读取文件内容获取大小
         if not file_size or file_size == 0 then
             log.info("FILE_INFO", "获取文件大小，尝试读取文件内容")
@@ -103,7 +102,7 @@ local function get_file_info(path)
         else
             log.info("FILE_INFO", "获取文件大小成功: " .. file_size .. " 字节")
         end
-        
+
         file:close()
         log.info("FILE_INFO", "成功获取文件信息: " .. filename .. ", 大小: " .. file_size .. " 字节")
         return {
@@ -115,72 +114,105 @@ local function get_file_info(path)
     end
 end
 
--- 使用io.lsdir函数扫描目录
+-- 扫描目录
 local function scan_with_lsdir(path, files)
     log.info("LIST_DIR", "开始扫描目录")
-        -- 确保路径格式正确，处理多层目录和编码问题
-        local scan_path = path
-        log.info("LIST_DIR", "原始路径: " .. scan_path)
-        
-        -- 规范化路径，处理URL编码残留问题
-        scan_path = scan_path:gsub("%%(%x%x)", function(hex)
-            return string.char(tonumber(hex, 16))
-        end)
-        log.info("LIST_DIR", "解码后路径: " .. scan_path)
-        
-        -- 移除多余的斜杠
-        scan_path = scan_path:gsub("//+", "/")
-        log.info("LIST_DIR", "去重斜杠后路径: " .. scan_path)
-        
-        -- 规范化路径，移除可能的尾部斜杠
-        scan_path = scan_path:gsub("/*$", "")
-        log.info("LIST_DIR", "移除尾部斜杠后路径: " .. scan_path)
-        
-        -- 确保路径以/开头
-        if not scan_path:match("^/") then
-            scan_path = "/" .. scan_path
-        end
-        log.info("LIST_DIR", "确保以/开头后路径: " .. scan_path)
-        
-        -- 确保路径以/结尾
-        scan_path = scan_path .. (scan_path == "" and "" or "/")
+    -- 确保路径格式正确，处理多层目录和编码问题
+    local scan_path = path
+    log.info("LIST_DIR", "原始路径: " .. scan_path)
 
-        log.info("LIST_DIR", "开始扫描路径: " .. scan_path)
+    -- 规范化路径，处理URL编码残留问题
+    scan_path = scan_path:gsub("%%(%x%x)", function(hex)
+        return string.char(tonumber(hex, 16))
+    end)
+    log.info("LIST_DIR", "解码后路径: " .. scan_path)
 
-        -- 扫描目录，最多列出50个文件，从第0个开始
-        local ret, data = io.lsdir(scan_path, 50, 0)
+    -- 移除多余的斜杠
+    scan_path = scan_path:gsub("//+", "/")
+    log.info("LIST_DIR", "去重斜杠后路径: " .. scan_path)
 
-        if ret then
-            log.info("LIST_DIR", "成功获取目录内容，文件数量: " .. #data)
-            log.info("LIST_DIR", "目录内容: " .. json.encode(data))
+    -- 规范化路径，移除可能的尾部斜杠
+    scan_path = scan_path:gsub("/*$", "")
+    log.info("LIST_DIR", "移除尾部斜杠后路径: " .. scan_path)
 
-            -- 遍历目录内容
-            for i = 1, #data do
-                local entry = data[i]
-                local is_dir = (entry.type ~= 0)
-                local entry_type = is_dir and "目录" or "文件"
-                log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. entry_type)
+    -- 确保路径以/开头
+    if not scan_path:match("^/") then
+        scan_path = "/" .. scan_path
+    end
+    log.info("LIST_DIR", "确保以/开头后路径: " .. scan_path)
 
-                local full_path = scan_path .. entry.name
-                
-                -- 处理目录和文件的不同逻辑
-                if is_dir then
-                    -- 对于目录，直接构造信息
+    -- 确保路径以/结尾
+    scan_path = scan_path .. (scan_path == "" and "" or "/")
+
+    log.info("LIST_DIR", "开始扫描路径: " .. scan_path)
+
+    -- 扫描目录，最多列出50个文件，从第0个开始
+    local ret, data = io.lsdir(scan_path, 50, 0)
+
+    if ret then
+        log.info("LIST_DIR", "成功获取目录内容，文件数量: " .. #data)
+        log.info("LIST_DIR", "目录内容: " .. json.encode(data))
+
+        -- 遍历目录内容
+        for i = 1, #data do
+            local entry = data[i]
+            local is_dir = (entry.type ~= 0)
+            local entry_type = is_dir and "目录" or "文件"
+            log.info("LIST_DIR", "找到条目: " .. entry.name .. ", 类型: " .. entry_type)
+
+            local full_path = scan_path .. entry.name
+
+            -- 处理目录和文件的不同逻辑
+            if is_dir then
+                -- 对于目录，直接构造信息
                 local dir_info = {
                     name = entry.name,
                     size = 0,
                     isDirectory = true,
                     path = full_path
                 }
-                table.insert(files, dir_info)
-                log.info("LIST_DIR", "添加目录: " .. entry.name .. ", 路径: " .. full_path)
-                else
+                -- 过滤sd卡系统文件夹目录
+                if entry.name ~= "System Volume Information" then
+                    table.insert(files, dir_info)
+                    log.info("LIST_DIR", "添加目录: " .. entry.name .. ", 路径: " .. full_path)
+                end
+            else
+                -- 定义系统文件的规则（系统文件不显示）
+                local function is_system_file(filename)
+                    -- 系统文件扩展名列表
+                    local system_extensions = {".luac", ".html", ".md"}
+                    -- 特殊系统文件名
+                    local special_system_files = {".airm2m_all_crc#.bin"}
+
+                    -- 检查文件名是否匹配特殊系统文件名
+                    for _, sys_file in ipairs(special_system_files) do
+                        if filename == sys_file then
+                            return true
+                        end
+                    end
+
+                    -- 检查文件扩展名是否为系统文件扩展名
+                    for _, ext in ipairs(system_extensions) do
+                        if filename:sub(-#ext) == ext then
+                            return true
+                        end
+                    end
+
+                    return false
+                end
+
+                -- 检查是否为用户文件
+                local is_user_file = not is_system_file(entry.name)
+
+                -- 只有用户文件才会被添加到列表中
+                if is_user_file then
                     -- 对于文件，调用get_file_info获取详细信息
                     local file_info = get_file_info(full_path)
                     if file_info and file_info.size ~= nil then
-                    file_info.isDirectory = false
-                    table.insert(files, file_info)
-                    log.info("LIST_DIR", "添加文件: " .. entry.name .. ", 大小: " .. file_info.size .. " 字节, 路径: " .. file_info.path)
+                        file_info.isDirectory = false
+                        table.insert(files, file_info)
+                        log.info("LIST_DIR", "添加文件: " .. entry.name .. ", 大小: " .. file_info.size ..
+                            " 字节, 路径: " .. file_info.path)
                     else
                         -- 如果get_file_info失败，使用默认值
                         local default_info = {
@@ -190,14 +222,16 @@ local function scan_with_lsdir(path, files)
                             path = full_path
                         }
                         table.insert(files, default_info)
-                        log.info("LIST_DIR", "添加文件(默认信息): " .. entry.name .. ", 大小: " .. (entry.size or 0) .. " 字节")
+                        log.info("LIST_DIR", "添加文件(默认信息): " .. entry.name .. ", 大小: " ..
+                            (entry.size or 0) .. " 字节")
                     end
                 end
             end
-            return true
-        else
-            log.info("LIST_DIR", "io.lsdir扫描失败: " .. (data or "未知错误"))
         end
+        return true
+    else
+        log.info("LIST_DIR", "扫描失败: " .. (data or "未知错误"))
+    end
     return false
 end
 
@@ -281,10 +315,17 @@ local function handle_http_request(fd, method, uri, headers, body)
             return 200, {
                 ["Content-Type"] = "application/json",
                 ["Set-Cookie"] = "session_id=" .. session_id .. "; Path=/; Max-Age=3600"
-            }, json.encode({success = true, session_id = session_id})
+            }, json.encode({
+                success = true,
+                session_id = session_id
+            })
         else
-            return 200, {["Content-Type"] = "application/json"},
-                   json.encode({success = false, message = "用户名或密码错误"})
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "用户名或密码错误"
+            })
         end
     end
 
@@ -294,13 +335,18 @@ local function handle_http_request(fd, method, uri, headers, body)
         for session_id in cookie:gmatch("session_id=([^;]+)") do
             authenticated_sessions[session_id] = nil
         end
-        return 200, {["Set-Cookie"] = "session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"}, ""
+        return 200, {
+            ["Set-Cookie"] = "session_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+        }, ""
     end
 
     -- 检查认证
     if uri == "/check-auth" then
-        return 200, {["Content-Type"] = "application/json"},
-               json.encode({authenticated = validate_session(headers)})
+        return 200, {
+            ["Content-Type"] = "application/json"
+        }, json.encode({
+            authenticated = validate_session(headers)
+        })
     end
 
     -- 扫描文件接口
@@ -335,8 +381,12 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 如果认证仍然失败，返回未授权访问
         if not is_authenticated then
             log.info("HTTP", "未授权访问文件扫描功能")
-            return 401, {["Content-Type"] = "application/json"},
-                   json.encode({success = false, message = "未授权访问"})
+            return 401, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "未授权访问"
+            })
         end
 
         -- 执行文件扫描
@@ -352,55 +402,52 @@ local function handle_http_request(fd, method, uri, headers, body)
 
             -- 如果路径不以/结尾，添加/确保路径格式正确
             local scan_path = mount_point
-            if not scan_path:match("/$" ) then
+            if not scan_path:match("/$") then
                 scan_path = scan_path .. (scan_path == "" and "" or "/")
             end
 
-            -- 使用io.lsdir扫描目录
-            if io and io.lsdir then
-                log.info("SCAN", "使用io.lsdir扫描路径: " .. scan_path)
+            -- 扫描目录
+            log.info("SCAN", "开始扫描路径: " .. scan_path)
+            -- 尝试列出目录内容，最多列出50个文件
+            local ret, data = io.lsdir(scan_path, 50, 0)
 
-                -- 尝试列出目录内容，最多列出50个文件
-                local ret, data = io.lsdir(scan_path, 50, 0)
+            if ret then
+                log.info("SCAN", "成功获取目录内容，文件数量: " .. #data)
+                log.info("SCAN", "目录内容: " .. json.encode(data))
 
-                if ret then
-                    log.info("SCAN", "成功获取目录内容，文件数量: " .. #data)
-                    log.info("SCAN", "目录内容: " .. json.encode(data))
+                -- 遍历目录内容
+                for i = 1, #data do
+                    local entry = data[i]
+                    local full_path = scan_path .. entry.name
 
-                    -- 遍历目录内容
-                    for i = 1, #data do
-                        local entry = data[i]
-                        local full_path = scan_path .. entry.name
-
-                        -- 如果是文件（type == 0），添加到文件列表
-                        if entry.type == 0 then
-                            local info = get_file_info(full_path)
-                            if info then
-                                table.insert(found_files, {
-                                    name = entry.name,
-                                    size = info.size,
-                                    path = full_path
-                                })
-                                log.info("SCAN", "找到文件: " .. entry.name .. ", 大小: " .. info.size .. " 字节, 路径: " .. full_path)
-                            else
-                                -- 如果get_file_info失败，使用io.lsdir返回的大小
-                                table.insert(found_files, {
-                                    name = entry.name,
-                                    size = entry.size or 0,
-                                    path = full_path
-                                })
-                                log.info("SCAN", "找到文件: " .. entry.name .. ", 大小: " .. (entry.size or 0) .. " 字节, 路径: " .. full_path)
-                            end
+                    -- 如果是文件（type == 0），添加到文件列表
+                    if entry.type == 0 then
+                        local info = get_file_info(full_path)
+                        if info then
+                            table.insert(found_files, {
+                                name = entry.name,
+                                size = info.size,
+                                path = full_path
+                            })
+                            log.info("SCAN", "找到文件: " .. entry.name .. ", 大小: " .. info.size ..
+                                " 字节, 路径: " .. full_path)
                         else
-                            -- 如果是目录，记录但不添加到文件列表
-                            log.info("SCAN", "找到目录: " .. entry.name .. ", 路径: " .. full_path)
+                            -- 如果get_file_info失败，使用io.lsdir返回的大小
+                            table.insert(found_files, {
+                                name = entry.name,
+                                size = entry.size or 0,
+                                path = full_path
+                            })
+                            log.info("SCAN", "找到文件: " .. entry.name .. ", 大小: " .. (entry.size or 0) ..
+                                " 字节, 路径: " .. full_path)
                         end
+                    else
+                        -- 如果是目录，记录但不添加到文件列表
+                        log.info("SCAN", "找到目录: " .. entry.name .. ", 路径: " .. full_path)
                     end
-                else
-                    log.info("SCAN", "io.lsdir扫描失败: " .. (data or "未知错误"))
                 end
             else
-                log.info("SCAN", "io模块不可用或没有lsdir函数")
+                log.info("SCAN", "扫描失败: " .. (data or "未知错误"))
             end
 
             local list_files = list_directory(mount_point)
@@ -425,7 +472,9 @@ local function handle_http_request(fd, method, uri, headers, body)
                                 size = file.size,
                                 path = file_path
                             })
-                            log.info("SCAN", "从list_directory添加文件: " .. file.name .. ", 大小: " .. file.size .. " 字节, 路径: " .. file_path)
+                            log.info("SCAN",
+                                "从list_directory添加文件: " .. file.name .. ", 大小: " .. file.size ..
+                                    " 字节, 路径: " .. file_path)
                         end
                     end
                 end
@@ -437,17 +486,19 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 扫描完成后，打印详细的文件列表
         log.info("SCAN", "文件扫描完成，总共找到文件数量: " .. #found_files)
         for i, file in ipairs(found_files) do
-            log.info("SCAN", "文件[" .. i .. "]: " .. file.name .. ", 大小: " .. file.size .. " 字节, 路径: " .. file.path)
+            log.info("SCAN", "文件[" .. i .. "]: " .. file.name .. ", 大小: " .. file.size .. " 字节, 路径: " ..
+                file.path)
         end
 
         -- 返回扫描结果
-        return 200, {["Content-Type"] = "application/json"},
-               json.encode({
-                   success = true,
-                   foundFiles = #found_files,
-                   files = found_files,
-                   message = "文件扫描完成"
-               })
+        return 200, {
+            ["Content-Type"] = "application/json"
+        }, json.encode({
+            success = true,
+            foundFiles = #found_files,
+            files = found_files,
+            message = "文件扫描完成"
+        })
     end
 
     -- 文件列表
@@ -481,7 +532,9 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 如果认证仍然失败，返回未授权访问
         if not is_authenticated then
             log.info("HTTP", "未授权访问文件列表")
-            return 401, {["Content-Type"] = "text/plain"}, "未授权访问"
+            return 401, {
+                ["Content-Type"] = "text/plain"
+            }, "未授权访问"
         end
         local path = uri:match("path=([^&]+)") or "/luadb"
         log.info("HTTP", "请求的文件列表路径: " .. path)
@@ -500,8 +553,12 @@ local function handle_http_request(fd, method, uri, headers, body)
             log.info("HTTP", "文件[" .. i .. "]: " .. file.name .. ", 大小: " .. file.size)
         end
 
-        return 200, {["Content-Type"] = "application/json"},
-               json.encode({success = true, files = files})
+        return 200, {
+            ["Content-Type"] = "application/json"
+        }, json.encode({
+            success = true,
+            files = files
+        })
     end
 
     -- 文件下载
@@ -536,7 +593,9 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 如果认证仍然失败，返回未授权访问
         if not is_authenticated then
             log.info("HTTP", "未授权访问文件下载")
-            return 401, {["Content-Type"] = "text/plain"}, "未授权访问"
+            return 401, {
+                ["Content-Type"] = "text/plain"
+            }, "未授权访问"
         end
 
         -- 获取请求的文件路径
@@ -548,14 +607,18 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 检查文件是否存在
         if not io.exists(path) then
             log.info("DOWNLOAD", "文件不存在: " .. path)
-            return 404, {["Content-Type"] = "text/plain"}, "文件不存在"
+            return 404, {
+                ["Content-Type"] = "text/plain"
+            }, "文件不存在"
         end
 
         -- 尝试打开文件以确认可访问性并获取文件信息
         local file = io.open(path, "rb")
         if not file then
             log.info("DOWNLOAD", "文件无法打开: " .. path)
-            return 404, {["Content-Type"] = "text/plain"}, "文件无法打开"
+            return 404, {
+                ["Content-Type"] = "text/plain"
+            }, "文件无法打开"
         end
 
         -- 获取文件名
@@ -624,25 +687,41 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 如果认证仍然失败，返回未授权访问
         if not is_authenticated then
             log.info("HTTP", "未授权访问文件删除")
-            return 401, {["Content-Type"] = "application/json"},
-                   json.encode({success = false, message = "未授权访问"})
+            return 401, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "未授权访问"
+            })
         end
         local path = uri:match("path=([^&]+)") or ""
         path = path:gsub("%%(%x%x)", function(hex)
             return string.char(tonumber(hex, 16))
         end)
         if not io.exists(path) then
-            return 200, {["Content-Type"] = "application/json"},
-                   json.encode({success = false, message = "文件不存在"})
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "文件不存在"
+            })
         end
         -- 尝试删除文件
         local ok, err = os.remove(path)
         if ok then
-            return 200, {["Content-Type"] = "application/json"},
-                   json.encode({success = true, message = "文件删除成功"})
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = true,
+                message = "文件删除成功"
+            })
         else
-            return 200, {["Content-Type"] = "application/json"},
-                   json.encode({success = false, message = "删除失败: " .. (err or "未知错误")})
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "删除失败: " .. (err or "未知错误")
+            })
         end
     end
 
@@ -652,20 +731,18 @@ local function handle_http_request(fd, method, uri, headers, body)
         if html_file then
             local content = html_file:read("*a")
             html_file:close()
-            return 200, {["Content-Type"] = "text/html"}, content
+            return 200, {
+                ["Content-Type"] = "text/html"
+            }, content
         end
     end
 
     -- 直接文件路径访问
     -- 检查是否是API路径，如果不是，则尝试作为文件路径访问
-    local is_api_path = string_starts_with(uri, "/login") or
-                       string_starts_with(uri, "/logout") or
-                       string_starts_with(uri, "/check-auth") or
-                       string_starts_with(uri, "/scan-files") or
-                       string_starts_with(uri, "/list") or
-                       string_starts_with(uri, "/download") or
-                       string_starts_with(uri, "/delete") or
-                       uri == "/"
+    local is_api_path = string_starts_with(uri, "/login") or string_starts_with(uri, "/logout") or
+                            string_starts_with(uri, "/check-auth") or string_starts_with(uri, "/scan-files") or
+                            string_starts_with(uri, "/list") or string_starts_with(uri, "/download") or
+                            string_starts_with(uri, "/delete") or uri == "/"
 
     if not is_api_path then
         log.info("DIRECT_ACCESS", "尝试直接访问文件: " .. uri)
@@ -688,14 +765,18 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 检查文件是否存在
         if not io.exists(file_path) then
             log.info("DIRECT_ACCESS", "文件不存在: " .. file_path)
-            return 404, {["Content-Type"] = "text/plain"}, "文件不存在"
+            return 404, {
+                ["Content-Type"] = "text/plain"
+            }, "文件不存在"
         end
 
         -- 尝试打开文件
         local file = io.open(file_path, "rb")
         if not file then
             log.info("DIRECT_ACCESS", "文件无法打开: " .. file_path)
-            return 404, {["Content-Type"] = "text/plain"}, "文件无法打开"
+            return 404, {
+                ["Content-Type"] = "text/plain"
+            }, "文件无法打开"
         end
 
         -- 获取文件名
@@ -718,7 +799,9 @@ local function handle_http_request(fd, method, uri, headers, body)
         return 200, response_headers, content
     end
 
-    return 404, {["Content-Type"] = "text/plain"}, "页面未找到"
+    return 404, {
+        ["Content-Type"] = "text/plain"
+    }, "页面未找到"
 end
 
 -- HTTP服务器启动任务

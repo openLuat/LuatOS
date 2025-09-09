@@ -1,4 +1,15 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.08.05
+@author  魏健强
+@usage
+本demo演示的核心功能为：
+1.设置多网融合功能，4G提供网络供wifi和以太网设备上网
+更多说明参考本目录下的readme.md文件
+]]
+--[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
         可以随便定义，只要不使用,就行
@@ -7,26 +18,13 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-本demo演示的功能是:
-1. 创建AP, 提供wifi设备, 通过4G上网
-2. 创建以太网, 为局域网内的设备, 通过4G上网
 ]]
-PROJECT = "Air8000_wifi_ap_eth_lan"
+PROJECT = "4g_out_ethernet_in_wifi_in"
 VERSION = "001.000.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
--- 加载必须用到的sys功能模块
--- sys功能模块是LuatOS运行框架的基础模块
-_G.sys = require("sys")
-
-
--- 加载大部分情况下会用到的sysplus功能模块
--- sysplus功能模块是sys功能模块的强力补充
--- 如果项目脚本中用到了sysplus的接口，则打开此处的注释
--- _G.sysplus = require("sysplus")
 
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
@@ -60,13 +58,14 @@ end
 -- sys.timerLoopStart(function()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
---  end, 3000)
+-- end, 3000)
 
--- 加载应用模块
-require "Air8000_ap_lan"
 
+
+-- 开启多网融合功能
+require "netif_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

@@ -1,6 +1,6 @@
 --[[
-@module  LITTLE_FLASh_NOR
-@summary LITTLE_FLASh_NOR测试功能模块
+@module  lf_fs
+@summary lf_fs测试功能模块
 @version 1.0
 @date    2025.9.05
 @author  马亚丹

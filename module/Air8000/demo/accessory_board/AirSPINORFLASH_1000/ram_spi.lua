@@ -1,6 +1,6 @@
 --[[
-@module  AirSPINORFLASH_1000
-@summary AirSPINORFLASH_1000测试功能模块
+@module  ram_spi
+@summary ram_spi测试功能模块
 @version 1.0
 @date    2025.9.05
 @author  马亚丹

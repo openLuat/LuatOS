@@ -156,7 +156,7 @@ local function test_file_operations(mount_point)
     return true
 end
 
--- 7. 关闭SPI设备，成功返回0
+-- 7. 关闭SPI设备对象，成功返回true
 local function spi_close_func()    
     log.info("关闭spi", spi_device:close())
 end

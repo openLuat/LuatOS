@@ -87,7 +87,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2011版本固件）](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air8000 V2011版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
 
 
 

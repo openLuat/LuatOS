@@ -1249,14 +1249,39 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
     // LLOGD("tmphost:%s",tmphost);
 	// LLOGD("tmpauth:%s", tmpauth);
 	// LLOGD("tmpuri:%s",tmpuri);
-
-    for (size_t i = 1; i < strlen(tmphost); i++){
-		if (tmphost[i] == ':') {
-			tmphost[i] = '\0';
-			http_ctrl->remote_port = atoi(tmphost + i + 1);
-			break;
+	if(tmphost[0] != '[')
+	{
+		for (size_t i = 1; i < strlen(tmphost); i++){
+			if (tmphost[i] == ':') {
+				tmphost[i] = '\0';
+				http_ctrl->remote_port = atoi(tmphost + i + 1);
+				break;
+			}
+    	}
+	}
+	else
+	{
+		// ipv6地址
+		uint16_t offset = 0;
+		for (size_t i = 1; i < strlen(tmphost); i++){
+			if (tmphost[i] == ']') {
+				offset = i;
+				break;
+			}
+	    }
+		if (offset > 0) {
+			for (size_t i = offset; i < strlen(tmphost); i++){
+				if (tmphost[i] == ':') {
+					tmphost[i] = '\0';
+					http_ctrl->remote_port = atoi(tmphost + i + 1);
+					break;
+				}
+		    }
+			memmove(tmphost, tmphost + 1, offset - 1);
+			tmphost[offset - 1] = 0x00;
 		}
-    }
+	}
+
     if (http_ctrl->remote_port <= 0) {
         if (http_ctrl->is_tls)
             http_ctrl->remote_port = 443;

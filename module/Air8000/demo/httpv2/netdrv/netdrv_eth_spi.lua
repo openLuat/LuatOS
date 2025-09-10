@@ -1,11 +1,11 @@
 --[[
 @module  netdrv_eth_spi
-@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块 
+@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
 @version 1.0
 @date    2025.07.24
 @author  朱天华
 @usage
-本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
+本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
 2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
@@ -15,19 +15,22 @@
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
 
-local function ip_ready_func()
-    log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+local function ip_ready_func(ip, adapter)
+    if adapter == socket.LWIP_ETH then
+        log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+    end
 end
 
-local function ip_lose_func()
-    log.warn("netdrv_eth_spi.ip_lose_func", "IP_LOSE")
+local function ip_lose_func(adapter)
+    if adapter == socket.LWIP_ETH then
+        log.warn("netdrv_eth_spi.ip_lose_func", "IP_LOSE")
+    end
 end
 
 
-
---此处订阅"IP_READY"和"IP_LOSE"两种消息
---在消息的处理函数中，仅仅打印了一些信息，便于实时观察“通过SPI外挂CH390H芯片的以太网卡”的连接状态
---也可以根据自己的项目需求，在消息处理函数中增加自己的业务逻辑控制，例如可以在连网状态发生改变时更新网络图标
+-- 此处订阅"IP_READY"和"IP_LOSE"两种消息
+-- 在消息的处理函数中，仅仅打印了一些信息，便于实时观察“通过SPI外挂CH390H芯片的以太网卡”的连接状态
+-- 也可以根据自己的项目需求，在消息处理函数中增加自己的业务逻辑控制，例如可以在连网状态发生改变时更新网络图标
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
@@ -36,11 +39,11 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 socket.dft(socket.LWIP_ETH)
 
 
---本demo测试使用的是Air8000开发板
---GPIO140为CH390H以太网芯片的供电使能控制引脚
+-- 本demo测试使用的是Air8000开发板
+-- GPIO140为CH390H以太网芯片的供电使能控制引脚
 gpio.setup(140, 1, gpio.PULLUP)
 
---这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
+-- 这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
     -- 初始化SPI1
     local result = spi.setup(
@@ -76,10 +79,10 @@ local function netdrv_eth_spi_task_func()
     -- SPI ID 1, 片选 GPIO12
     netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1, cs=12})
 
-    --在以太上开启动态主机配置协议
+    -- 在以太网上开启动态主机配置协议
     netdrv.dhcp(socket.LWIP_ETH, true)
 end
 
---创建并且启动一个task
---task的处理函数为netdrv_eth_spi_task_func
+-- 创建并且启动一个task
+-- task的处理函数为netdrv_eth_spi_task_func
 sys.taskInit(netdrv_eth_spi_task_func)

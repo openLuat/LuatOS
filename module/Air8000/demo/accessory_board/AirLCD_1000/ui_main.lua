@@ -1,5 +1,3 @@
-------------------------------------------以下为使用说明------------------------------------------
-
 --[[
 @module  ui_main
 @summary UI子模块的主程序
@@ -7,38 +5,37 @@
 @date    2025.09.04
 @author  江访
 @usage
---------------------------------------以下为核心业务逻辑说明--------------------------------------
-1、依据显示屏配置参数初始化显示屏
-2、循环显示配置的内容
-3、设置背光亮度
-4、屏幕休眠和唤醒
+
+本demo演示的核心功能为：
+1、依据显示屏配置参数初始化显示屏，点亮AirLCD_1000屏幕
+2、循环显示显示图片、字符、色块等内容
+3、通过接口设置背光亮度和对屏幕进行休眠和唤醒。
+4、本demo使用的背光引脚,既是GPIO_1也是PWM_0引脚
+5、背光引脚通过切换到PWM模式，通过调节占空比实现背光亮度调节
+6、背光引脚通过切换到GPIO模式，再调用休眠/唤醒接口使屏幕进入休眠/唤醒
 ]]
 
---------------------------------------------以下为代码--------------------------------------------
-local ui_main = {}
 
--- 加载UI子模块
-local screen_data = require "screen_data_table"     -- 显示屏配置参数
-local AirLCD_1000 = require "AirLCD_1000"             -- 显示初始化执行程序
+-- 加载AirLCD_1000驱动模块
+local AirLCD_1000 = require "AirLCD_1000"           -- 显示初始化执行程序
 
+-- 配置AirLCD_1000接线引脚
+local LCD_MODEL = "AirLCD_1000" -- 显示屏型号
+local lcd_vcc = 141             -- 屏幕供电引脚GPIO号
+local lcd_pin_rst = 36          -- 复位引脚GPIO号
+local lcd_pin_pwr = 1           -- 背光引脚GPIO号
+local lcd_pwm_id = 0            -- 背光引脚PWM端口号
 
--- UI主协程，所有UI相关的代码都会通过该协程进行调度
-sys.taskInit(function()
-    -- 初始化显示屏
-    -- 使用screen_data配置表中的参数初始化LCD，在配置表中修改即可
-    local lcd_init_success  = AirLCD_1000.lcd_init()
+-- UI主task，所有UI相关的代码都会通过该task进行调度
+local function ui_main()
 
-    -- 检查LCD初始化是否成功
-    if not lcd_init_success then
-        log.error("ui_main", "LCD初始化失败")
-        return  -- 初始化失败，退出任务
-    end
+    AirLCD_1000.lcd_init(LCD_MODEL, lcd_vcc, lcd_pin_rst, lcd_pin_pwr,lcd_pwm_id)
 
     -- 设置字体为模组自带的opposansm12中文字体
     lcd.setFont(lcd.font_opposansm12_chinese)
 
     -- 清除屏幕显示
-    lcd.clear()
+    -- lcd.clear()
 
     -- 主循环
     while true do
@@ -133,38 +130,39 @@ sys.taskInit(function()
         lcd.flush()
         sys.wait(5000)
         --------------------------------------------以下为背光亮度设置--------------------------------------------
-        -- 背光引脚使用PWM引脚控制，且screen_data_table{}内pwm_id正确配置后可以实现背光控制
+        -- 背光引脚使用PWM模式控制，pwm_id正确配置后可以实现背光控制
         -- 参数 level: 亮度级别(0-100)
-        AirLCD_1000.setBacklight(5)  -- 设置背光为5%
+        AirLCD_1000.set_backlight(5)  -- 设置背光为5%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(10)  -- 设置背光为10%
+        AirLCD_1000.set_backlight(10)  -- 设置背光为10%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(20)  -- 设置背光为20%
+        AirLCD_1000.set_backlight(20)  -- 设置背光为20%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(30)  -- 设置背光为30%
+        AirLCD_1000.set_backlight(30)  -- 设置背光为30%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(40)  -- 设置背光为40%
+        AirLCD_1000.set_backlight(40)  -- 设置背光为40%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(50)  -- 设置背光为50%
+        AirLCD_1000.set_backlight(50)  -- 设置背光为50%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(60)  -- 设置背光为60%
+        AirLCD_1000.set_backlight(60)  -- 设置背光为60%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(70)  -- 设置背光为70%
+        AirLCD_1000.set_backlight(70)  -- 设置背光为70%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(80)  -- 设置背光为80%
+        AirLCD_1000.set_backlight(80)  -- 设置背光为80%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(90)  -- 设置背光为90%
+        AirLCD_1000.set_backlight(90)  -- 设置背光为90%
         sys.wait(5000)
-        AirLCD_1000.setBacklight(100)  -- 设置背光为100%
+        AirLCD_1000.set_backlight(100)  -- 设置背光为100%
 
         --------------------------------------------以下为屏幕休眠设置--------------------------------------------
-        -- 背光引脚使用GPIO引脚控制，且screen_data_table{}内pin_pwr正确配置可以实现背光控制
+        -- 背光引脚使用GPIO模式控制，pin_pwr正确配置可以实现背光控制
 
         -- 进入休眠，功耗13ma
-        AirLCD_1000.setSleep(true)    -- 进入休眠状态，此时屏幕供电需要稳定，若不稳定，唤醒后需要重新初始化屏幕
+        AirLCD_1000.set_sleep(true)    -- 进入休眠状态，此时屏幕供电需要稳定，若不稳定，唤醒后需要重新初始化屏幕
+        pm.power(pm.WORK_MODE, 1)
         sys.wait(10000)
-
-        AirLCD_1000.setSleep(false)   -- 唤醒屏幕，自动恢复之前的背光设置
+        pm.power(pm.WORK_MODE, 0)
+        AirLCD_1000.set_sleep(false)   -- 唤醒屏幕，自动恢复之前的背光设置
 
         -- 主动刷新数据到屏幕
         lcd.flush()
@@ -183,6 +181,7 @@ sys.taskInit(function()
         -- lcd.flush()
         -- sys.wait(50)
     end
-end)
+end
 
-return ui_main
+-- 创建UI主循环ui_main的task
+sys.taskInit(ui_main)

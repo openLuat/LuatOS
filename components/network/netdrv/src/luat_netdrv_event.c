@@ -56,12 +56,12 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
         strncpy(evt.domain_name, ctrl->domain_name, sizeof(evt.domain_name) - 1);
         evt.domain_name[sizeof(evt.domain_name) - 1] = 0;
     }
-    if (ctrl->online_ip) {
-        evt.remote_ip = *ctrl->online_ip;
-    }
-    else {
-        evt.remote_ip = ctrl->remote_ip;
-    }
+    // if (ctrl->online_ip) {
+    //     evt.remote_ip = *ctrl->online_ip;
+    // }
+    // else {
+    evt.remote_ip = ctrl->remote_ip;
+    // }
     evt.local_port = ctrl->local_port;
     evt.remote_port = ctrl->remote_port;
     evt.userdata = ctrl->user_data;

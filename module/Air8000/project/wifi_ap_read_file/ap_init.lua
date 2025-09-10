@@ -28,6 +28,7 @@ local function create_ap()
     while netdrv.ready(socket.LWIP_AP) ~= true do
         sys.wait(100)
     end
+    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     sys.publish("AP_CREATE_OK")
 end

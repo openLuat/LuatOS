@@ -54,7 +54,7 @@ local function config_services()
     if AUTO_START then
         start_services()
     else
-        log.info("main", "系统已就绪，等待powerkey按键触发")
+        log.info("main", "系统已就绪，等待boot按键触发")
     end
 
     while 1 do

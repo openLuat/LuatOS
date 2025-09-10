@@ -170,7 +170,7 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
 }
 
 
-static err_t netif_output(struct netif *netif, struct pbuf *p) {
+err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
     // LLOGD("lwip待发送数据 %p %d", p, p->tot_len);
     ch390h_t* ch = NULL;
 
@@ -189,30 +189,6 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
-static err_t luat_netif_init(struct netif *netif) {
-    ch390h_t* ch = (ch390h_t*)netif->state;
-    netif->linkoutput = netif_output;
-    netif->output     = luat_netdrv_etharp_output;
-    #if ENABLE_PSIF
-    netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
-    #endif
-    #if LWIP_IPV6
-    netif->output_ip6 = ethip6_output;
-    #if ENABLE_PSIF
-    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
-    #endif
-    #endif
-    netif->mtu        = 1460;
-    netif->flags      = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
-    memcpy(netif->hwaddr, ch->hwaddr, ETH_HWADDR_LEN);
-    netif->hwaddr_len = ETH_HWADDR_LEN;
-    net_lwip2_set_netif(ch->adapter_id, ch->netif);
-    net_lwip2_register_adapter(ch->adapter_id);
-    netif_set_up(ch->netif);
-    ch->status++;
-    LLOGD("luat_netif_init 执行完成 %d", ch->status);
-    return 0;
-}
 
 static void netdrv_netif_input(void* args) {
     netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
@@ -290,9 +266,10 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
         // TODO 判断mac是否合法
         memcpy(ch->hwaddr, buff, 6);
-        netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, luat_netif_init, luat_netdrv_netif_input_main);
-        ch->status++;
+        memcpy(ch->netif->hwaddr, buff, 6);
+        ch->status = 2;
         ch->netdrv->dataout = ch390h_dataout;
+        netif_set_up(ch->netif);
         luat_ch390h_basic_config(ch);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);

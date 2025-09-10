@@ -4,6 +4,9 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
+
 #include "luat_netdrv_event.h"
 
 #define LUAT_LOG_TAG "netdrv"
@@ -11,29 +14,56 @@
 
 netdrv_tcpevt_reg_t g_netdrv_tcpevt_regs[NW_ADAPTER_QTY] = {0};
 
-void luat_netdrv_register_tcp_event_cb(uint8_t id, uint8_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata) {
+void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_netdrv_tcp_evt_cb cb, void* userdata) {
     if (id >= NW_ADAPTER_QTY) {
         LLOGE("无效的TCP事件注册ID %d", id);
         return;
     }
-    if (flags == 0) {
+    if (evt_flags == 0) {
         g_netdrv_tcpevt_regs[id].cb = NULL;
         g_netdrv_tcpevt_regs[id].userdata = NULL;
         return;
     }
-    g_netdrv_tcpevt_regs[id].flags = flags;
+    g_netdrv_tcpevt_regs[id].flags = evt_flags;
     g_netdrv_tcpevt_regs[id].cb = cb;
     g_netdrv_tcpevt_regs[id].userdata = userdata;
-    LLOGD("注册TCP事件回调 %d, flags=0x%02X", id, flags);
+    // LLOGD("socket event cb adapter %d, flags=0x%02X userdata=%p", id, evt_flags, userdata);
 }
 
-
-__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_tcp_event(netdrv_tcp_evt_t* evt) {
-    if (evt == NULL || evt->id >= NW_ADAPTER_QTY) {
-        LLOGE("TCP事件网络适配器ID无效 %d", evt ? evt->id : -1);
+__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl) {
+    uint8_t adapter_id = ctrl->adapter_index;
+    //LLOGD("fire tcp event %08X for adapter %d", event_id, adapter_id);
+    if (event_id < EV_NW_RESET || event_id == EV_NW_SOCKET_TX_OK || event_id == EV_NW_SOCKET_RX_NEW) {
+        return; // 其他事件无视
+    }
+    if (g_netdrv_tcpevt_regs[adapter_id].cb == NULL) {
+        //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
-    if ((g_netdrv_tcpevt_regs[evt->id].flags & evt->flags) && g_netdrv_tcpevt_regs[evt->id].cb) {
-        g_netdrv_tcpevt_regs[evt->id].cb(evt, g_netdrv_tcpevt_regs[evt->id].userdata);
+    if (ctrl == NULL || adapter_id >= NW_ADAPTER_QTY || adapter_id <= 0) {
+        LLOGW("TCP事件网络适配器ID无效 %d", adapter_id);
+        return;
     }
+    event_id -= EV_NW_RESET;
+    if ((g_netdrv_tcpevt_regs[adapter_id].flags & event_id) == 0) {
+        //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
+        return;
+    }
+    netdrv_tcp_evt_t evt = {0};
+    evt.id = adapter_id;
+    evt.flags = event_id;
+    if (ctrl->domain_name && ctrl->domain_name_len > 0) {
+        strncpy(evt.domain_name, ctrl->domain_name, sizeof(evt.domain_name) - 1);
+        evt.domain_name[sizeof(evt.domain_name) - 1] = 0;
+    }
+    if (ctrl->online_ip) {
+        evt.remote_ip = *ctrl->online_ip;
+    }
+    else {
+        evt.remote_ip = ctrl->remote_ip;
+    }
+    evt.local_port = ctrl->local_port;
+    evt.remote_port = ctrl->remote_port;
+    evt.userdata = ctrl->user_data;
+    g_netdrv_tcpevt_regs[adapter_id].cb(&evt, g_netdrv_tcpevt_regs[adapter_id].userdata);
 }

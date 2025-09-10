@@ -670,6 +670,10 @@ static const rotable_Reg_t reg_pm[] =
     { "IOVOL_SDIO", ROREG_INT(LUAT_PM_LDO_TYPE_VMMC)},
 	//@const IOVOL_LCD number VLCD电压域IO
     { "IOVOL_LCD", ROREG_INT(LUAT_PM_LDO_TYPE_VLCD)},
+	//@const IOVOL_CAMA number camera模拟电压
+    { "IOVOL_CAMA", ROREG_INT(LUAT_PM_LDO_TYPE_CAMA)},
+	//@const IOVOL_CAMD number camera数字电压
+    { "IOVOL_CAMD", ROREG_INT(LUAT_PM_LDO_TYPE_CAMD)},
     //@const ID_NATIVE number PM控制的ID, 主芯片, 任意芯片的默认值就是它
     { "ID_NATIVE",      ROREG_INT(1)},
     //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用

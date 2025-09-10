@@ -237,6 +237,7 @@ int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const ui
 int luat_lcd_IF_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 int luat_lcd_IF_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 int luat_lcd_IF_fill(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
+int luat_lcd_IF_show_camera(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t data_address);
 int luat_lcd_IF_sleep(luat_lcd_conf_t* conf, uint8_t on_off);
 /**
  * @brief luat_lcd_init放到service里跑，避免luat_lcd_init里漫长的delay带来的影响
@@ -292,5 +293,7 @@ int luat_lcd_run_api_in_service(luat_lcd_api api, void *param, uint32_t param_le
 int luat_lcd_conf_add(luat_lcd_conf_t* conf);
 
 void luat_lcd_service_debug(void);
+
+
 #endif
 

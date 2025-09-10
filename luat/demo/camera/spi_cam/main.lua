@@ -4,6 +4,7 @@ VERSION = "1.0.0"
 require "bf30a2"
 require "gc032a"
 require "gc0310"
+require "gc2145"
 sys = require("sys")
 log.style(1)
 
@@ -12,6 +13,10 @@ local scan_pause = true
 local getRawStart = false
 local RAW_MODE = 0 -- 写1演示获取原始图像
 local DONE_WITH_CLOSE = false
+local MIPI_MODE = false
+if hmeta.chip() == "UIS8910" then
+    MIPI_MODE = true
+end
 -- SCAN_MODE和RAW_MODE都没有写1就是拍照
 
 -- 根据不同的BSP返回不同的值
@@ -21,6 +26,8 @@ local function lcd_pin()
     local chip_type = hmeta.chip()
     if string.find(rtos_bsp,"EC718") or string.find(chip_type,"EC718") then
         return lcd.HWID_0, 36, 0xff, 0xff, 0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
+    elseif string.find(chip_type,"UIS8910") then
+        return lcd.HWID_0, 0xff, 0xff, 0xff, 0xff
     else
         log.info("main", "bsp not support")
         return
@@ -82,11 +89,22 @@ local function press_key()
     log.info("boot press")
     sys.publish("PRESS", true)
 end
-gpio.setup(0, press_key, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 100, 1)
+if hmeta.chip() == "UIS8910" then
+    gpio.setup(9, press_key, gpio.PULLDOWN, gpio.RISING)
+    gpio.debounce(9, 100, 1)
+else
+    gpio.setup(0, press_key, gpio.PULLDOWN, gpio.RISING)
+    gpio.debounce(0, 100, 1)
+end
+
 local rawbuff, err
 if RAW_MODE ~= 1 then
-    rawbuff, err = zbuff.create(60 * 1024, 0, zbuff.HEAP_AUTO)
+    if MIPI_MODE then
+        rawbuff, err = zbuff.create(400 * 1024, 0, zbuff.HEAP_AUTO) -- gc2145
+    else
+        rawbuff, err = zbuff.create(60 * 1024, 0, zbuff.HEAP_AUTO)
+    end
+
 else
     rawbuff, err = zbuff.create(640 * 480 * 2, 0, zbuff.HEAP_AUTO) -- gc032a
     -- local rawbuff = zbuff.create(240 * 320 * 2, zbuff.HEAP_AUTO)  --bf302a
@@ -96,20 +114,62 @@ if rawbuff == nil then
 end
 
 local function device_init()
-    local cspiId, i2cId = 1,0
-    -- return bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-    return gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
-    -- return gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
+    local cspiId, i2cId
+    if hmeta.chip() == "UIS8910" then
+        cspiId, i2cId = 0,1
+        i2c.setup(i2cId, i2c.FAST)
+        if MIPI_MODE then
+            gpio.setup(11, 1) -- 722 mipi camera reset ctrl by gpio11
+            return gc2145Init(cspiId, i2cId, 24000000, SCAN_MODE, SCAN_MODE)
+        else
+            return gc0310Init(cspiId, i2cId, 25000000, SCAN_MODE, SCAN_MODE)
+        end
+    else
+        cspiId, i2cId = 1,0
+        i2c.setup(i2cId, i2c.FAST)
+        -- return bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+        -- return gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
+        return gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
+    end
+    
+
+
+end
+
+local function pdwn(level)
+    if hmeta.chip() == "UIS8910" then
+        camera.pwdn_pin(level)
+    else
+        gpio.setup(5, level) -- PD拉低
+    end
+end
+local tx_buff = zbuff.create(16384)
+local function send_to_pc(uart_id, buff)
+    
+    local pos = 0
+    log.info("需要发送", buff:used(), "byte")
+    while pos < buff:used() do
+        if buff:used() - pos > 16384 then
+            tx_buff:copy(0, buff, pos, 16384)
+            pos = pos + 16384
+        else
+            tx_buff:copy(0, buff, pos, buff:used() - pos)
+            pos = buff:used()
+        end
+        log.info("发送", tx_buff:used(), "byte")
+        uart.tx(uart_id, tx_buff)
+        tx_buff:del()
+        sys.wait(5)
+    end
 end
 
 sys.taskInit(function()
     log.info("摄像头启动")
-    local i2cId = 0
-    local camera_id
-    i2c.setup(i2cId, i2c.FAST)
-    gpio.setup(5, 0) -- PD拉低
-    camera_id = device_init()
+
+
+    local camera_id = device_init()
 	camera.on(camera_id, "scanned", cb)
+    pdwn(0)
     if DONE_WITH_CLOSE then
         camera.close(camera_id)
     else
@@ -167,7 +227,8 @@ sys.taskInit(function()
                 log.info("摄像头捕获原始图像完成")
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
-                -- uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
+                send_to_pc(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG    
+                rawbuff:del()
             else
                 log.debug("摄像头拍照")
                 if DONE_WITH_CLOSE then
@@ -181,8 +242,8 @@ sys.taskInit(function()
                 else
                     camera.stop(camera_id)
                 end
-                --uart.tx(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
-                rawbuff:resize(60 * 1024)
+                send_to_pc(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
+                rawbuff:del()
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
             end

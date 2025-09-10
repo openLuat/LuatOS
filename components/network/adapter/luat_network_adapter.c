@@ -1522,6 +1522,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	if (local_port)
 	{
 		OS_LOCK;
+		#if 0
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
 			if (&adapter->ctrl_table[i] != ctrl)
@@ -1534,6 +1535,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 			}
 
 		}
+		#endif
 		ctrl->local_port = local_port;
 		OS_UNLOCK;
 		return 0;

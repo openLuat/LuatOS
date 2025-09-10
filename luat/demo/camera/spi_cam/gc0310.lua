@@ -319,7 +319,14 @@ local reg_table = {
 }
 
 function gc0310Init(cspiId,i2cId,speed,scanMode,onlyY)
-	local id = camera.init(cspiId,speed,1,1,2,1,0x00010101,onlyY,scanMode,640,480)
+        local id
+        if hmeta.chip() == "UIS8910" then
+                id = camera.init(cspiId,speed,1,1,2,1,0x00000401,onlyY,scanMode,640,480)
+                camera.reset_pin(1)
+                sys.wait(1)
+        else
+                id = camera.init(cspiId,speed,1,1,2,1,0x00010101,onlyY,scanMode,640,480)
+        end
 	for i=1,#reg_table do
 		i2c.send(i2cId,0x21,reg_table[i],1)
 	end

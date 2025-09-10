@@ -82,11 +82,18 @@ local function press_key()
     log.info("boot press")
     sys.publish("PRESS", true)
 end
-gpio.setup(0, press_key, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 100, 1)
+if hmeta.chip() == "UIS8910" then
+    gpio.setup(9, press_key, gpio.PULLDOWN, gpio.RISING)
+    gpio.debounce(9, 100, 1)
+else
+    gpio.setup(0, press_key, gpio.PULLDOWN, gpio.RISING)
+    gpio.debounce(0, 100, 1)
+end
+
 local rawbuff, err
 if RAW_MODE ~= 1 then
     rawbuff, err = zbuff.create(60 * 1024, 0, zbuff.HEAP_AUTO)
+    -- rawbuff, err = zbuff.create(400 * 1024, 0, zbuff.HEAP_AUTO) -- gc2145
 else
     rawbuff, err = zbuff.create(640 * 480 * 2, 0, zbuff.HEAP_AUTO) -- gc032a
     -- local rawbuff = zbuff.create(240 * 320 * 2, zbuff.HEAP_AUTO)  --bf302a
@@ -102,14 +109,41 @@ local function device_init()
     -- return gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
 end
 
+local function pdwn(level)
+    if hmeta.chip() == "UIS8910" then
+        camera.pdwn_pin(level)
+    else
+        gpio.setup(5, level) -- PD拉低
+    end
+end
+
+local function send_to_pc(uart_id, buff)
+    local tx_buff = zbuff.create(16384)
+    local pos = 0
+    log.info("需要发送", buff:used(), "byte")
+    while pos < buff:used() do
+        if buff:used() - pos > 16384 then
+            tx_buff:copy(0, buff, pos, 16384)
+            pos = pos + 16384
+        else
+            tx_buff:copy(0, buff, pos, buff:used() - pos)
+            pos = buff:used()
+        end
+        uart.tx(uart_id, tx_buff)
+        tx_buff:del()
+        sys.wait(5)
+    end
+end
+
 sys.taskInit(function()
     log.info("摄像头启动")
     local i2cId = 0
     local camera_id
     i2c.setup(i2cId, i2c.FAST)
-    gpio.setup(5, 0) -- PD拉低
+
     camera_id = device_init()
 	camera.on(camera_id, "scanned", cb)
+    pdwn(0)
     if DONE_WITH_CLOSE then
         camera.close(camera_id)
     else
@@ -167,7 +201,7 @@ sys.taskInit(function()
                 log.info("摄像头捕获原始图像完成")
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
-                -- uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
+                send_to_pc(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
             else
                 log.debug("摄像头拍照")
                 if DONE_WITH_CLOSE then
@@ -181,8 +215,9 @@ sys.taskInit(function()
                 else
                     camera.stop(camera_id)
                 end
-                --uart.tx(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
+                send_to_pc(uartid, rawbuff) -- 找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
                 rawbuff:resize(60 * 1024)
+                -- rawbuff:resize(400 * 1024) -- gc2145 200W
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
             end

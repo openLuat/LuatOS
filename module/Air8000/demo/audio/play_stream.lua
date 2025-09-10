@@ -33,23 +33,6 @@ local audio_setup_param ={
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚 
 }
 
---  当前音频快播完的时候，产生的回调，返回数据后，exaudio会将音频传入core,注意不可以在回调函数中加入耗时和延迟的操作
-local function audio_need_more_data()
-    if read_seek >= write_seek then     -- 读指针，赶上了写指针，播放完成
-        log.info("播放完了")
-        return nil
-    else
-        if write_seek - read_seek <  read_size then      --当写指针和读指针的位置小于4096 字节的时候，以差值读取
-            read_size = write_seek - read_seek
-        end
-        audio_buff:seek(read_seek)                      -- 复位读指针位置
-        local read_data = audio_buff:read(read_size)    -- 读取zbuff位置
-        log.info("获取音频",read_seek,#read_data)
-        read_seek = read_seek +  #read_data     --  写指针位置修改
-        return   read_data
-    end
-end 
-
 -- 播放完成回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
@@ -63,9 +46,6 @@ local audio_play_param ={
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
-    content = audio_need_more_data,          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
-                            -- 如果播放tts 则填入要播放的内容。
-                            -- 如果为2，流式播放，则填入音频回调函数
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用
     sampling_depth =  16,   -- 采样位位深,仅流式播放的时候才有作用
@@ -105,17 +85,13 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 local function audio_get_data()
     log.info("开始流式获取音频数据")
     file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
-    audio_buff  = zbuff.create(zbuff_size)
     while true do
-        log.info("存入音频",write_seek)
         local read_data = file:read(read_size)  --  读取文件，模拟流式音频源
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
             break
         end
-        audio_buff:seek(write_seek)     -- 复位写指针位置
-        audio_buff:write(read_data)     --  模拟网页端获取音频数据
-        write_seek = write_seek +  #read_data     --  写指针位置修改
+        exaudio.stream_play_write(read_data)  -- 流式写入音频数据
         sys.wait(100)                   -- 写数据需要留出事件给其他task 运行代码
     end
 end

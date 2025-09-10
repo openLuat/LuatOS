@@ -446,7 +446,7 @@ static int l_audio_write_raw(lua_State *L) {
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
     }
-	lua_pushboolean(L, !luat_audio_write_raw(multimedia_id, (uint8_t*)	, len));
+	lua_pushboolean(L, !luat_audio_write_raw(multimedia_id, (uint8_t*)buf, len));
     return 1;
 }
 

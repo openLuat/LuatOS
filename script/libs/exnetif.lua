@@ -244,7 +244,13 @@ local function setup_eth(config)
             return false
         end    
     end
-    netdrv.dhcp(socket.LWIP_ETH, true)
+    if config.static_ip then
+        sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
+        log.info("netdrv", "自定义以太网IP地址", config.static_ip.ipv4)
+        log.info("静态ip",netdrv.ipv4(socket.LWIP_ETH, config.static_ip.ipv4,config.static_ip.mark,config.static_ip.gw))
+    else
+        netdrv.dhcp(socket.LWIP_ETH, true)
+    end
     log.info("以太网初始化完成")
     return true
 end
@@ -299,8 +305,14 @@ local function setup_eth_user1(config)
             end
         return false
     end
-    
-    netdrv.dhcp(socket.LWIP_USER1, true)
+    if config.static_ip then
+        sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
+        log.info("netdrv", "自定义以太网IP地址", config.static_ip.ipv4)
+        log.info("静态ip",netdrv.ipv4(socket.LWIP_USER1, config.static_ip.ipv4, config.static_ip.mark, config.static_ip.gw))
+    else
+        netdrv.dhcp(socket.LWIP_USER1, true)
+    end
+
     log.info("以太网初始化完成")
     return true
 end
@@ -367,24 +379,29 @@ exnetif.set_priority_order({
     },
     { -- 次优先级网络
         ETHERNET = { -- 以太网配置
-            pwrpin = 140,             -- 供电使能引脚(number)
-            need_ping = true,         -- 是否需要通过ping来测试网络的连通性
-                                      -- 在没有ping测试环境的项目中，需要将这个参数设置为false，表示不需要ping测试网络连通，
-                                      -- 仅根据IP READY消息（即获取到了ip地址）来判断网络环境准备就绪，是否网络连通性则无法保证
-                                      -- 如果没有设置此参数，默认为true
-                                      -- 在有ping测试环境的项目中，建议不要将这个参数设置为true
-            local_network_mode = true,-- 局域网模式(选填参数)，设置为true时，exnetif会自动将ping_ip设置为网卡的网关ip。
-                                      -- 用户不需要传入ping_ip参数，即使传入了，也无效。
-                                      -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
-            ping_ip = "112.125.89.8", -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
-                                      -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
-                                      -- 所以需要根据网络环境填写内网或者外网ip,
-                                      -- 填写外网ip的话要保证外网ip始终可用，
-                                      -- 填写局域网ip的话要确保相应ip固定且能够被ping通
-            ping_time = 10000         -- 填写ping_ip且未ping通时的检测间隔(ms, 可选,默认为10秒)
-                                      -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
-            tp = netdrv.CH390         -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
-            opts = { spi = 1, cs = 12 }   -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            pwrpin = 140,                   -- 供电使能引脚(number)
+            need_ping = true,               -- 是否需要通过ping来测试网络的连通性
+                                            -- 在没有ping测试环境的项目中，需要将这个参数设置为false，表示不需要ping测试网络连通，
+                                            -- 仅根据IP READY消息（即获取到了ip地址）来判断网络环境准备就绪，是否网络连通性则无法保证
+                                            -- 如果没有设置此参数，默认为true
+                                            -- 在有ping测试环境的项目中，建议不要将这个参数设置为true
+            local_network_mode = true,      -- 局域网模式(选填参数)，设置为true时，exnetif会自动将ping_ip设置为网卡的网关ip。
+                                            -- 用户不需要传入ping_ip参数，即使传入了，也无效。
+                                            -- 这个模式的使用场景，仅适用于局域网环境；可以访问外网时，不要使用
+            ping_ip = "112.125.89.8",       -- 连通性检测IP(选填参数),默认使用httpdns获取baidu.com的ip作为判断条件，
+                                            -- 注：如果填写ip，则ping通作为判断网络是否可用的条件，
+                                            -- 所以需要根据网络环境填写内网或者外网ip,
+                                            -- 填写外网ip的话要保证外网ip始终可用，
+                                            -- 填写局域网ip的话要确保相应ip固定且能够被ping通
+            ping_time = 10000,              -- 填写ping_ip且未ping通时的检测间隔(ms, 可选,默认为10秒)
+                                            -- 定时ping将会影响模块功耗，使用低功耗模式的话可以适当延迟间隔时间
+            tp = netdrv.CH390,              -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+            opts = { spi = 1, cs = 12 },    -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+            static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
+                ipv4 = "192.168.5.100",     -- ip地址(string)
+                mark = "255.255.255.0",     -- 子网掩码(string)
+                gw = "192.168.5.1"          -- 网关地址(string)
+            }
         }
     },
     { -- 最低优先级网络
@@ -418,6 +435,11 @@ exnetif.set_priority_order({
                 pwrpin = 13, -- 供电使能引脚(number)
                 tp = netdrv.CH390, -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                 opts = {spi = 0, cs = 15}, -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
+                static_ip = {                   -- 静态ip配置(选填参数)，不填写则使用dhcp获取ip
+                    ipv4 = "192.168.5.100",     -- ip地址(string)
+                    mark = "255.255.255.0",     -- 子网掩码(string)
+                    gw = "192.168.5.1"          -- 网关地址(string)
+                }
             }
         }
     })

@@ -81,6 +81,24 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_mqtt_ping(mqtt_ctrl);
 			break;
 		}
+		case MQTT_MSG_CONN_TIMEOUT: {
+			LLOGW("connect timeout %s %d!! expect conack in %ds", mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->conn_timeout);
+			#ifdef LUAT_USE_NETDRV
+			luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, mqtt_ctrl->netc);
+			#endif
+			if (mqtt_ctrl->mqtt_ref) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "error");
+					lua_pushstring(L, "timeout");
+					lua_pushinteger(L, msg->arg2);
+					lua_call(L, 4, 0);
+				}
+            }
+			luat_mqtt_close_socket(mqtt_ctrl);
+			break;
+		}
 		case MQTT_MSG_PINGRESP : {
 			if (mqtt_ctrl->mqtt_cb) {
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
@@ -352,7 +370,7 @@ mqtt客户端创建
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据 <br>verify 是否强制校验 0不校验/1可选校验/2强制校验 默认2
-@table  mqtt扩展参数, ipv6 是否为ipv6, rxSize 接收缓冲区大小
+@table  mqtt扩展参数
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -372,6 +390,10 @@ mqttc = mqtt.create(nil,"120.55.137.106", 8883, {
 					client_key=io.readFile("/luadb/client.key"),
 					client_password="123456",
 					})
+-- opts参数说明
+-- ipv6 = true, -- 是否为ipv6连接,默认false
+-- rxSize = 4096, -- mqtt接收缓冲区大小,单位字节,默认32k
+-- conn_timeout = 15, -- 连接超时时间,按收到conack为止,单位秒, 默认30秒
 */
 static int l_mqtt_create(lua_State *L) {
 	int ret = 0;
@@ -464,6 +486,16 @@ static int l_mqtt_create(lua_State *L) {
 			uint32_t len = luaL_checknumber(L, -1);
 			if(len > 0)
 				luat_mqtt_set_rxbuff_size(mqtt_ctrl, len);
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "conn_timeout");
+		if (LUA_TNUMBER == lua_gettable(L, 5)) {
+			opts.conn_timeout = luaL_checknumber(L, -1);
+			if (opts.conn_timeout < 5)
+				opts.conn_timeout = 5;
+			else if (opts.conn_timeout > 120)
+				opts.conn_timeout = 120;
 		}
 		lua_pop(L, 1);
 	}

@@ -13,6 +13,11 @@
 #define LWIP_NUM_SOCKETS 8
 #endif
 
+#ifdef LUAT_USE_NETDRV
+#include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
+#endif
+
 typedef struct
 {
 #ifdef LUAT_USE_LWIP
@@ -1089,6 +1094,13 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	int i;
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
 
+	// 插入几个事件回调
+	if (event->ID != 0 && ctrl) {
+		#ifdef LUAT_USE_NETDRV
+		luat_netdrv_fire_socket_event_netctrl(event->ID, ctrl);
+		#endif
+	}
+
 	if (event->ID > EV_NW_TIMEOUT)
 	{
 		if (ctrl && ((event->ID == EV_NW_DNS_RESULT) || (ctrl->tag == cb_param->tag)))
@@ -1384,6 +1396,12 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 	}
 	OS_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter no more ctrl!");}
+	#ifdef LUAT_USE_NETDRV
+	if (ctrl) {
+		extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
+		luat_netdrv_fire_socket_event_netctrl(0x81 + EV_NW_RESET, ctrl);
+	}
+	#endif // LUAT_USE_NETDRV
 	return ctrl;
 }
 
@@ -1400,6 +1418,10 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 	{
 		if (&adapter->ctrl_table[i] == ctrl)
 		{
+			#ifdef LUAT_USE_NETDRV
+			extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
+			luat_netdrv_fire_socket_event_netctrl(0x82 + EV_NW_RESET, ctrl);
+			#endif
 			network_deinit_tls(ctrl);
 			if (ctrl->timer)
 			{
@@ -1577,6 +1599,10 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 		local_port += 50000 + adapter->port + offset * 10;
 		DBG("network %d local port auto select %u",offset, local_port);
 	}
+	#ifdef LUAT_USE_NETDRV
+	extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
+	luat_netdrv_fire_socket_event_netctrl(0x83 + EV_NW_RESET, ctrl);
+	#endif
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }
 

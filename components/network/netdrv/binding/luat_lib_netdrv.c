@@ -368,6 +368,171 @@ end)
 */
 extern int l_icmp_ping(lua_State *L);
 
+static int s_socket_evt_ref[NW_ADAPTER_QTY] = {0};
+
+static int l_socket_evt_cb(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    netdrv_tcp_evt_t* evt = (netdrv_tcp_evt_t*)ptr;
+    int ref = s_socket_evt_ref[evt->id];
+    if (ref == 0) {
+        LLOGW("socket evt cb no lua ref");
+        luat_heap_free(ptr);
+        return 0;
+    }
+    // LLOGD("socket evt cb %d %d lua function %d", evt->id, evt->flags, ref);
+    // 取出函数
+    lua_geti(L, LUA_REGISTRYINDEX, ref);
+    if (!lua_isfunction(L, -1)) {
+        LLOGW("socket evt cb ref not function");
+        lua_pop(L, 1);
+        luat_heap_free(ptr);
+        return 0;
+    }
+    lua_pushinteger(L, evt->id);
+    switch (evt->flags)
+    {
+    case 0x81:
+        lua_pushstring(L, "create");
+        break;
+    case 0x82:
+        lua_pushstring(L, "release");
+        break;
+    case 0x83:
+        lua_pushstring(L, "connecting");
+        break;
+    case EV_NW_TIMEOUT - EV_NW_RESET:
+        lua_pushstring(L, "timeout");
+        break;
+    case EV_NW_SOCKET_CLOSE_OK - EV_NW_RESET:
+        lua_pushstring(L, "closed");
+        break;
+    case EV_NW_SOCKET_CONNECT_OK - EV_NW_RESET:
+        lua_pushstring(L, "connected");
+        break;
+    case EV_NW_SOCKET_REMOTE_CLOSE - EV_NW_RESET:
+        lua_pushstring(L, "remote_close");
+        break;
+    case EV_NW_SOCKET_ERROR - EV_NW_RESET:
+        lua_pushstring(L, "error");
+        break;
+    case EV_NW_DNS_RESULT - EV_NW_RESET:
+        lua_pushstring(L, "dns_result");
+        break;
+    
+    default:
+        lua_pushstring(L, "unknown");
+        break;
+    }
+    lua_newtable(L);
+    // 填充参数表, 远端ip, 远端端口, 本地ip, 本地端口
+    char buff[32] = {0};
+    char* p = ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
+    lua_pushstring(L, p);
+    lua_setfield(L, -2, "remote_ip");
+
+    lua_pushinteger(L, evt->remote_port);
+    lua_setfield(L, -2, "remote_port");
+
+    // p = ipaddr_ntoa_r(&evt->local_ip, buff, 32);
+    // lua_pushstring(L, p);
+    // lua_setfield(L, -2, "local_ip");
+
+    // lua_pushinteger(L, evt->local_port);
+    // lua_setfield(L, -2, "local_port");
+
+    if (evt->domain_name[0]) {
+        lua_pushstring(L, evt->domain_name);
+        lua_setfield(L, -2, "domain_name");
+    }
+
+    lua_call(L, 3, 0);
+    // 释放内存
+    luat_heap_free(ptr);
+
+    return 0;
+}
+
+static void luat_socket_evt_cb(netdrv_tcp_evt_t* evt, void* userdata) {
+    rtos_msg_t msg = {0};
+    msg.handler = l_socket_evt_cb;
+    msg.ptr = luat_heap_malloc(sizeof(netdrv_tcp_evt_t));
+    if (msg.ptr == NULL) {
+        LLOGE("socket evt cb no mem");
+        return;
+    }
+    memcpy(msg.ptr, evt, sizeof(netdrv_tcp_evt_t));
+    luat_msgbus_put(&msg, 0);
+}
+
+// 监听socket事件
+/*
+订阅网络事件
+@api netdrv.event_subscribe(adapter_id, event_type, callback)
+@int 网络适配器的id
+@int 事件总类型, 当前支持 netdrv.EVT_SOCKET
+@function 回调函数 function(id, event, params)
+@return bool 成功与否,成功返回true,否则返回nil
+@usage
+-- 订阅socket连接状态变化事件
+netdrv.event_subscribe(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
+    -- id 是网络适配器id
+    -- event是事件id, 字符串类型, 
+        - create 创建socket对象
+        - release 释放socket对象
+        - connecting 正在连接
+        - connected 连接成功
+        - closed 连接关闭
+        - remote_close 远程关闭
+        - error 错误,包括一切异常错误
+        - dns_result dns解析结果, 如果remote_ip为0.0.0.0,表示解析失败
+    -- params是参数表
+        - remote_ip 远端ip地址
+        - remote_port 远端端口
+        - domain_name 远端域名,如果是通过域名连接的话, release时没有这个值, create时也没有
+    log.info("netdrv", "socket event", id, event, json.encode(params or {}))
+    if params then
+        -- params里会有remote_ip, remote_port等信息, 可按需获取
+        local remote_ip = params.remote_ip
+        local remote_port = params.remote_port
+        local domain_name = params.domain_name
+        log.info("netdrv", "socket event", "remote_ip", remote_ip, "remote_port", remote_port, "domain_name", domain_name)
+    end
+end)
+*/
+static int l_netdrv_event_subscribe(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    if (id < 0) {
+        return 0; // 非法id
+    }
+    luat_netdrv_t* netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    int event_id = luaL_checkinteger(L, 2);
+    if (event_id == 0) {
+        if (s_socket_evt_ref[id]) {
+            luaL_unref(L, LUA_REGISTRYINDEX, s_socket_evt_ref[id]);
+            s_socket_evt_ref[id] = 0;
+        }
+        luat_netdrv_register_socket_event_cb(id, 0, NULL, NULL);
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    else if (event_id == 1) {
+        if (!lua_isfunction(L, 3)) {
+            return 0;
+        }
+        lua_pushvalue(L, 3);
+        s_socket_evt_ref[id] = luaL_ref(L, LUA_REGISTRYINDEX);
+        // LLOGD("register socket event cb %d", s_socket_evt_ref[id]);
+        luat_netdrv_register_socket_event_cb(id, 0xFF, luat_socket_evt_cb, NULL);
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    LLOGW("not support event type %d", event_id);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_netdrv[] =
 {
@@ -381,6 +546,7 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
+    { "event_subscribe",ROREG_FUNC(l_netdrv_event_subscribe)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif
@@ -401,15 +567,8 @@ static const rotable_Reg_t reg_netdrv[] =
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H
     { "RESET_SOFT",     ROREG_INT(0x102)},
 
-    { "EVENT_TCP",      ROREG_INT(LUAT_NETDRV_EVENT_TCP)},
-    { "EVENT_UDP",      ROREG_INT(LUAT_NETDRV_EVENT_UDP)},
-    { "EVENT_DNS",      ROREG_INT(LUAT_NETDRV_EVENT_DNS)},
-
-    { "EVT_TCP_FLAG_CREATE", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CREATE)},
-    { "EVT_TCP_FLAG_CONNECT", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CREATE)},
-    { "EVT_TCP_FLAG_DISCONNECT", ROREG_INT(NETDRV_EVENT_TCP_FLAG_DISCONNECT)},
-    { "EVT_UDP_FLAG_CLOSE", ROREG_INT(NETDRV_EVENT_TCP_FLAG_CLOSE)},
-    { "EVT_TCP_FLAG_ERROR", ROREG_INT(NETDRV_EVENT_TCP_FLAG_ERROR)},
+    //@const EVT_SOCKET number 事件类型-socket事件
+    { "EVT_SOCKET",     ROREG_INT(1)}, // socket事件
 
 	{ NULL,             ROREG_INT(0) }
 };

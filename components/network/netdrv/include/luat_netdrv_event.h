@@ -12,12 +12,6 @@ enum {
     LUAT_NETDRV_EVENT_LINK = 0x40, // 网卡连接状态变化事件
 };
 
-// TCP连接事件标志
-#define NETDRV_EVENT_TCP_FLAG_CREATE (1 << 0) // TCP连接创建
-#define NETDRV_EVENT_TCP_FLAG_CLOSE (1 << 1) // TCP连接关闭
-#define NETDRV_EVENT_TCP_FLAG_CONNECT (1 << 2) // TCP连接成功
-#define NETDRV_EVENT_TCP_FLAG_DISCONNECT (1 << 3) // TCP连接断开
-#define NETDRV_EVENT_TCP_FLAG_ERROR (1 << 4) // TCP的其他错误
 
 typedef struct netdrv_tcp_evt {
     uint8_t id; // 网络适配器ID
@@ -27,6 +21,7 @@ typedef struct netdrv_tcp_evt {
     ip_addr_t remote_ip; // 远程IP地址
     uint16_t local_port; // 本地端口
     uint16_t remote_port; // 远程端口
+    char domain_name[256]; // 解析的域名, DNS事件有效
     void* userdata; // 用户数据, 可用于回调时传递额外信息
 }netdrv_tcp_evt_t;
 
@@ -40,8 +35,8 @@ typedef struct netdrv_tcpevt_reg {
     void* userdata; // 用户数据, 可用于回调时传递额外信息
 }netdrv_tcpevt_reg_t;
 
-void luat_netdrv_fire_tcp_event(netdrv_tcp_evt_t* evt);
+void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);
 
-void luat_netdrv_register_tcp_event_cb(uint8_t id, uint8_t flags, luat_netdrv_tcp_evt_cb cb, void* userdata);
+void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
 
 #endif

@@ -52,6 +52,13 @@ sys.taskInit(function()
         return 404, {}, "Not Found" .. uri
     end, socket.LWIP_ETH)
     iperf.server(socket.LWIP_ETH)
+    if netdrv.event_subscribe then
+        netdrv.event_subscribe(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
+            log.info("netdrv", "socket event", id, event, json.encode(params or {}))
+        end)
+    else
+        log.warn("netdrv", "not support event_subscribe")
+    end
     while 1 do
         sys.wait(6000)
         local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait()

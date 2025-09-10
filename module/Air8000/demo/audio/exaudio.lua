@@ -407,7 +407,7 @@ function exaudio.play_start(playConfigs)
 end
 
 -- 模块接口：流式播放数据写入
-function exaudio.stream_play_write(data)
+function exaudio.play_stream_write(data)
     audio_play_queue_push(data)
     return true
 end

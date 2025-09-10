@@ -9,7 +9,7 @@
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
 2、创建一个模拟获取流式音频的task（audio_get_data）
-3、此task通过流式传输不断向exaudio.stream_play_write填入播放的音频
+3、此task通过流式传输不断向exaudio.play_stream_write填入播放的音频
 4、播放task 不断播放传入流式音频
 5、使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
 本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
@@ -85,7 +85,7 @@ local function audio_get_data()
             file:close()                -- 模拟音频获取完毕，关闭音频文件
             break
         end
-        exaudio.stream_play_write(read_data)  -- 流式写入音频数据
+        exaudio.play_stream_write(read_data)  -- 流式写入音频数据
         sys.wait(100)                   -- 写数据需要留出事件给其他task 运行代码
     end
 end

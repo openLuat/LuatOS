@@ -8,13 +8,29 @@
 此库适用于滚珠震动传感器BL_2529,主要目的是对振动中断进行过滤，识别有效震动
 对于一些震动传感器的中断管脚算法处理，也可以用做参考。
 
+实现的功能：
+1. GPIO 中断检测：通过 GPIO 引脚检测震动传感器产生的脉冲信号
+2. 双重消抖机制：
+  - io中断消抖  gpio.debounce()
+  - 脉冲内部消抖 (debounce_pulse)
+3. 时间窗口检测：在指定时间窗口(time_window)内统计脉冲数量
+4. 阈值触发：当脉冲数超过设定阈值(pulse_threshold)时触发回调
+
+状态机工作流程：
+- IDLE状态：等待第一个有效脉冲
+- DETECTING状态：进入检测窗口，统计脉冲数量
+- 触发条件：
+时间窗口结束
+脉冲空闲时间超过设定超时
+- 结果判断：脉冲数≥阈值则调用用户回调
+
 -- 用法实例
 本扩展库对外提供了以下2个接口：
 1）启动震动检测功能 exvib1.open(opts)
 2）停止震动检测功能 exvib1.close()
 
---示例
-local exvib1= require "exvib1"-- 自定义配置启动
+--加载exvib1扩展库
+local exvib1= require "exvib1"
 
 -- 震动事件回调
 local function vibration_cb(pulse_cnt)
@@ -27,7 +43,7 @@ exvib1.open({
 })
 
 
-以下为exchg扩展库四个函数的详细说明及代码实现：
+以下为exvib1扩展库两个函数的详细说明及代码实现：
 ]]
 
 local exvib1 = {}
@@ -78,6 +94,13 @@ local function fsm()
     -- 如果当前状态不是检测状态，则直接返回
     if st.state ~= "DETECTING" then return end
     local now = mcu.ticks()
+    -- 处理时间戳溢出情况
+    if now < st.detect_t0 or now < st.last_valid then
+        st.detect_t0 = 0
+        st.last_valid = 0
+        return -- 等待下次调用重新判断
+    end
+
     -- 计算从检测开始到现在经过的时间
     local elapsed = now - st.detect_t0
     -- 判断是否脉冲空闲时间过长
@@ -118,6 +141,40 @@ end
 exvib1.open({
     gpio_pin = 24,
     on_event = vibration_cb,
+})
+--不同场景下的参数配置可参考下面的示例
+--高灵敏度，响应快，误触可能高
+exvib1.open({
+    gpio_pin = 24,
+    on_event = vibration_cb,
+    time_window     = 300, -- 检测窗口(ms)
+    pulse_threshold = 1,    -- 触发阈值
+    pulse_timeout   = 100,  -- 脉冲超时(ms)
+})
+--默认配置，较高灵敏度
+exvib1.open({
+    gpio_pin = 24,
+    on_event = vibration_cb,
+    time_window     = 1000, -- 检测窗口(ms)
+    pulse_threshold = 3,    -- 触发阈值
+    pulse_timeout   = 200,  -- 脉冲超时(ms)
+})
+
+--中等灵敏度，
+exvib1.open({
+    gpio_pin = 24,
+    on_event = vibration_cb,
+    time_window     = 2000, -- 检测窗口(ms)
+    pulse_threshold = 3,    -- 触发阈值
+    pulse_timeout   = 300,  -- 脉冲超时(ms)
+})
+--低灵敏度，减少误报
+exvib1.open({
+    gpio_pin = 24,
+    on_event = vibration_cb,
+    time_window     = 3000, -- 检测窗口(ms)
+    pulse_threshold = 10,    -- 触发阈值
+    pulse_timeout   = 500,  -- 脉冲超时(ms)
 })
 ]]
 -- 启动震动检测功能

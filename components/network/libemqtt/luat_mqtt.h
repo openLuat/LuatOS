@@ -14,6 +14,7 @@
 #define MQTT_MSG_TX_ERROR 		6
 #define MQTT_MSG_CONACK_ERROR 	7
 #define MQTT_MSG_NET_ERROR 		8
+#define MQTT_MSG_CONN_TIMEOUT   9	/**< mqtt 连接超时回调消息 */
 
 #define MQTT_ERROR_STATE_SOCKET		-1
 #define MQTT_ERROR_STATE_DISCONNECT	-2
@@ -59,7 +60,9 @@ typedef struct{
 	uint32_t reconnect_time;    /**< mqtt重连时间 单位ms*/
 	void* reconnect_timer;		/**< mqtt重连定时器*/
 	void* ping_timer;			/**< mqtt_ping定时器*/
+	void* conn_timer;			/**< mqtt连接超时定时器*/
 	int mqtt_ref;				/**<  强制引用自身避免被GC*/
+	uint16_t conn_timeout;		/**< 连接超时时间，单位秒，默认15秒*/
 	void* userdata;				/**< userdata */
 }luat_mqtt_ctrl_t;
 
@@ -89,6 +92,7 @@ typedef struct luat_mqtt_connopts
     size_t client_key_len;
     const char* client_password;
     size_t client_password_len;
+	uint16_t conn_timeout; /**< 连接超时时间，单位秒，默认15秒*/
 }luat_mqtt_connopts_t;
 
 typedef void (*luat_mqtt_cb_t)(luat_mqtt_ctrl_t *luat_mqtt_ctrl, uint16_t event);
@@ -120,7 +124,7 @@ int32_t luat_mqtt_callback(void *data, void *param);
 /**
  *@brief MQTT定时器内部回调(用户无需关心)
  */
-LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM);
+// LUAT_RT_RET_TYPE ping_timer_callback(LUAT_RT_CB_PARAM);
 // int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl);
 /**
  *@brief MQTT报文发送(用户无需关心)

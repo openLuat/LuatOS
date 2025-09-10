@@ -9,21 +9,14 @@
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
 2、创建一个模拟获取流式音频的task（audio_get_data）
-3、此task通过流式传输不断向audio_buff(zbuff)填入播放的音频
-4、播放task 不断播放audio_buff(zbuff)的音频内容
+3、此task通过流式传输不断向exaudio.stream_play_write填入播放的音频
+4、播放task 不断播放传入流式音频
 5、使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
 本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
 ]]
 
 exaudio = require("exaudio")
 
-local audio_buff       -- 存储音频数据的zbuff,使用方法见https://docs.openluat.com/osapi/core/zbuff/
-local write_seek = 0   -- 写入zbuff 的指针位置
-local read_seek = 0    -- 驱动zbuff 的指针位置
-
-local zbuff_size = 61440      -- 申请内存的最大值，需要1024的倍数
-local read_size = 4096        -- 除了最后一包数据，读写zbuff  都要按照1024倍数进行 
-local file = nil              -- 文件句柄，打开文件后，将会被赋值
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
@@ -37,6 +30,7 @@ local audio_setup_param ={
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
+
     end
 end 
 
@@ -84,9 +78,9 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 ---------------------------------
 local function audio_get_data()
     log.info("开始流式获取音频数据")
-    file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
+    local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
     while true do
-        local read_data = file:read(read_size)  --  读取文件，模拟流式音频源
+        local read_data = file:read(4096)  --  读取文件，模拟流式音频源,需要1024 的倍数
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
             break
@@ -99,7 +93,6 @@ end
 sys.taskInitEx(audio_get_data, "audio_get_data")
 
 
-
 ---------------------------------
 ------------通过主task------------
 ---------------------------------
@@ -107,8 +100,8 @@ local taskName = "task_audio"
 local function audio_task()
     log.info("开始流式播报")
     if exaudio.setup(audio_setup_param) then
-        
         exaudio.play_start(audio_play_param)
+        log.info("播放状态",exaudio.is_end())
     end
 end
 

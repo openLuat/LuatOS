@@ -32,7 +32,7 @@ mb_slave1 = modbus.add_slave(mb_tcp, 1, "192.168.4.100", 6000)
 -- mb_slave2 = modbus.add_slave(mb_tcp, 2, "192.168.4.100", 6001)
 
 
--- 为从站1创建数据存储区，并创建通讯消息，默认为自动loop模式
+-- 为从站1创建数据存储区，并创建通讯消息，读取寄存器，默认为自动loop模式
 slave1_msg1_buf = zbuff.create(1)
 mb_slave1_msg1 = modbus.create_msg(mb_tcp, mb_slave1, modbus.REGISTERS, modbus.READ, 0, 10, slave1_msg1_buf)
 slave1_msg1_buf:clear()
@@ -42,9 +42,9 @@ slave1_msg1_buf:clear()
 -- mb_slave1_msg1 = modbus.create_msg(mb_tcp, mb_slave1, modbus.REGISTERS, modbus.READ, 0, 10, slave1_msg1_buf,1,modbus.EXEC)
 -- slave1_msg1_buf:clear()
 
--- 为从站2创建数据存储区，并创建通讯消息
+-- -- 为从站2创建数据存储区，并创建通讯消息,写入寄存器
 -- slave2_msg1_buf = zbuff.create(1)
--- mb_slave2_msg1 = modbus.create_msg(mb_tcp, mb_slave2, modbus.REGISTERS, modbus.WRITE, 0, 10, slave2_msg1_buf)
+-- mb_slave2_msg1 = modbus.create_msg(mb_rtu, mb_slave2, modbus.REGISTERS, modbus.WRITE, 0, 10, slave2_msg1_buf)
 -- slave2_msg1_buf:clear()
 
 

@@ -321,6 +321,8 @@ local reg_table = {
 function gc0310Init(cspiId,i2cId,speed,scanMode,onlyY)
         local id
         if hmeta.chip() == "UIS8910" then
+                pm.ioVol(pm.IOVOL_CAMA, 2800)
+                pm.ioVol(pm.IOVOL_CAMD, 1800)
                 id = camera.init(cspiId,speed,1,1,2,1,0x00000401,onlyY,scanMode,640,480)
                 camera.reset_pin(1)
                 sys.wait(1)

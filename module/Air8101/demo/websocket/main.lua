@@ -2,25 +2,23 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.28
-@author  马梦阳
+@date    2025.07.01
+@author  朱天华
 @usage
 本demo演示的核心功能为：
-1、分别使用http核心库和httpplus扩展库，演示以下几种应用场景的使用方式
-   (1) 普通的http get请求功能演示；
-   (2) http get下载压缩数据的功能演示；
-   (3) http get下载数据保存到文件中的功能演示；(仅http核心库支持，httpplus扩展库不支持)
-   (4) http post提交表单数据功能演示；
-   (5) http post提交json数据功能演示；
-   (6) http post提交纯文本数据功能演示；
-   (7) http post提交xml数据功能演示；
-   (8) http post提交原始二进制数据功能演示；
-   (9) http post文件上传功能演示；
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-   (1) netdrv_4g：4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+1、创建一个WebSocket连接，连接WebSocket server；
+2、WebSocket连接出现异常后，自动重连；
+3、WebSocket连接，client按照以下几种逻辑发送数据给server
+- 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
+- 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
+4、WebSocket连接，client收到server数据后，将数据增加recv from websocket server: 前缀后，通过uart1发送出去；
+5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
+   (1)netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
+   (2) netdrv_ethernet_rmii：socket.LWIP_ETH，通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡；
+   (3)netdrv_ethernet_spi：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
+   (4)netdrv_4g：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
+   (5)netdrv_multi_network：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -36,23 +34,20 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "HTTP"
+PROJECT = "WEBSOCKET_LONG_CONNECTION"
 VERSION = "001.000.000"
-
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
-
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then
-    --配置喂狗超时时间为9秒钟
+     --配置喂狗超时时间为9秒钟
     wdt.init(9000)
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -77,15 +72,26 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 加载网络环境检测看门狗功能模块
+require "network_watchdog"
+
 -- 加载网络驱动设备功能模块
 require "netdrv_device"
 
--- 加载http应用功能模块
-require "http_app"
--- 加载httpplus应用功能模块
-require "httpplus_app"
+-- 加载串口应用功能模块
+require "uart_app"
+
+-- 加载时间同步应用功能模块
+-- 当客户端发送一个特定的"echo"命令，会构造一个包含当前时间的JSON消息发送到服务器；
+-- WebSocket测试服务器（echo.websocket.org）是一个回环服务器，它会将收到的消息原样返回;
+-- 时间同步可以避免因设备本地时钟不准而导致发送的时间与日志时间不一致的问题。
+require "sntp_app"
+
+-- 加载定时器应用功能模块
+require "timer_app"
+
+-- 加载WebSocket client主应用功能模块
+require "websocket_main"
 
 -- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

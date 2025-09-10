@@ -3,7 +3,7 @@
 @summary httpplus应用功能模块 
 @version 1.0
 @date    2025.08.06
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为httpplus应用功能模块，核心业务逻辑为：基于不同的应用场景，演示httpplus扩展库的使用方式；
 http核心库和httpplus扩展库的区别如下：
@@ -98,7 +98,7 @@ local httpplus = require "httpplus"
 -- timeout可以设置超时时间
 local function httpplus_app_get()
     local body
-    -- https get请求https://httpbin.air32.cn/get
+    -- https get请求https://httpbin.air32.cn/get网页内容
     -- 如果请求成功，请求的数据保存到response.body中
     local code, response = httpplus.request({url="https://httpbin.air32.cn/get"})
     log.info("httpplus_app_get1", code==200 and "success" or "error", code)

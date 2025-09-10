@@ -3,7 +3,7 @@
 @summary “WIFI STA网卡”驱动模块
 @version 1.0
 @date    2025.07.01
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为WIFI STA网卡驱动模块，核心业务逻辑为：
 1、初始化WIFI网络；

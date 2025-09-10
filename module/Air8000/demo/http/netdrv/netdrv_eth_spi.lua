@@ -3,7 +3,7 @@
 @summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
 @version 1.0
 @date    2025.07.24
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
@@ -64,15 +64,15 @@ local function netdrv_eth_spi_task_func()
         return
     end
 
-    --初始化以太网卡
+    -- 初始化以太网卡
 
-    --以太网联网成功（成功连接路由器，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
-    --各个功能模块可以订阅"IP_READY"消息实时处理以太网联网成功的事件
-    --也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
+    -- 以太网联网成功（成功连接路由器，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
+    -- 各个功能模块可以订阅"IP_READY"消息实时处理以太网联网成功的事件
+    -- 也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
 
-    --以太网断网后，内核固件会产生一个"IP_LOSE"消息
-    --各个功能模块可以订阅"IP_LOSE"消息实时处理以太网断网的事件
-    --也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
+    -- 以太网断网后，内核固件会产生一个"IP_LOSE"消息
+    -- 各个功能模块可以订阅"IP_LOSE"消息实时处理以太网断网的事件
+    -- 也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
 
     -- socket.LWIP_ETH 指定网络适配器编号
     -- netdrv.CH390外挂CH390

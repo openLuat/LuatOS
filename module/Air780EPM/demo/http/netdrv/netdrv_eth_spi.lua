@@ -7,7 +7,7 @@
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
-2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
+2、初始化spi0，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
 
 直接使用Air780EPM V1.3版本开发板硬件测试即可；
@@ -45,7 +45,7 @@ gpio.setup(20, 1, gpio.PULLUP)
 
 -- 这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
-    -- 初始化SPI1
+    -- 初始化SPI0
     local result = spi.setup(
         0,--spi_id
         nil,

@@ -1,358 +1,91 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "httpdemo"
-VERSION = "1.0.0"
-
 --[[
-本demo需要http库, 大部分能联网的设备都具有这个库
-http也是内置库, 无需require
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.07.28
+@author  马梦阳
+@usage
+本demo演示的核心功能为：
+1、分别使用http核心库和httpplus扩展库，演示以下几种应用场景的使用方式
+   (1) 普通的http get请求功能演示；
+   (2) http get下载压缩数据的功能演示；
+   (3) http get下载数据保存到文件中的功能演示；(仅http核心库支持，httpplus扩展库不支持)
+   (4) http post提交表单数据功能演示；
+   (5) http post提交json数据功能演示；
+   (6) http post提交纯文本数据功能演示；
+   (7) http post提交xml数据功能演示；
+   (8) http post提交原始二进制数据功能演示；
+   (9) http post文件上传功能演示；
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+   (1) netdrv_4g：4G网卡
+   (2) netdrv_wifi：WIFI STA网卡
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 
-如需上传大文件,请使用 httpplus 库, 对应demo/httpplus
+更多说明参考本目录下的readme.md文件
 ]]
 
 
--- 网络任务
-sys.taskInit(function()
-    local result,data
-    -----------------------------
-    -- 统一联网函数, 可自行删减
-    ----------------------------
-    -- 设置wifi网络名称(ssid)和密码(password)
-    local ssid = "ChinaNet-7jU2"
-    local password = "xnceqvkr"
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "HTTP"
+VERSION = "001.000.000"
 
-    if wlan and wlan.connect then
-        -- wifi 联网, ssid表示wifi网络名称，password为网络密码
-        --输出wifi的用户名称、密码及硬件库名称
-        log.info("wifi", ssid, password, rtos.bsp() )
-        -- LED = gpio.setup(12, 0, gpio.PULLUP)
-        -- 网络初始化
-        wlan.init()
-        -- 运行模式为 工作站/客户端
-        wlan.setMode(wlan.STATION)
-    end
 
-    ----- time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-    while true do
-    ----- /time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-        if wlan and wlan.connect then
-            -- 连接网络
-            wlan.connect(ssid, password, 1)
-            -- 在网络连接成功时，会发布一个系统消息 IP_READY，而
-            -- sys.waitUntil 订阅此消息，能在设置的时间内收到此消息
-            -- 即表示网络连接成功。
-            result, data = sys.waitUntil("IP_READY", 30000)
-            log.info("wlan", "IP_READY", result, data)
-            -- 取得网络Mac
-            device_id = wlan.getMac()
-        else
-            while 1 do
-                sys.wait(1000)
-                log.info("http", "当前固件未包含http库")
-            end
-        end
-        if result == true then
-            log.info("已联网")
-            sys.publish("net_ready")
-        end
-    ----- time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-        while wlan and wlan.ready() do
-            sys.wait(1000)
-        end
-    ----- /time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-    end
-end)
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
--- GET 请求
-function demo_http_get()
-    -- 最普通的Http GET请求
-    local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
-    log.info("http.get", code, headers, body)
 
-    sys.wait(100)
-
-    local code, headers, body = http.request("GET", "https://www.luatos.com/").wait()
-    log.info("http.get", code, headers, body)
-
-    -- 按需打印
-    -- code 响应值, 若大于等于 100 为服务器响应, 小于的均为错误代码
-    -- headers是个table, 一般作为调试数据存在
-    -- body是字符串. 注意lua的字符串是带长度的byte[]/char*, 是可以包含不可见字符的
-    -- log.info("http", code, json.encode(headers or {}), #body > 512 and #body or body)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
--- 数据类型 application/json 演示
-function demo_http_post_json()
-    -- POST request 演示
 
-    local req_headers = {}
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    req_headers={
-        ["Authorization"] = "Basic NkZhbXFsRmZTVmQ4OHNHejpLemt0SW8yUTNXcFhmbXRJTEtqME1mc3dsbHF0cTV0aldQM1BPUFU2d1M2M0E5VVlYOHJ1SFZCSVRaejlBak5w",
-        ["Content-Type"] = "application/json",
-        ["Connection"] = "keep-alive"
-    }
-    
-    local body = json.encode( 
-        {
-            --query_date 是日期，如果操作时返回日期错误，则可以调整参数再试。
-            --iccids 可以登录该网站，查询卡片信息得到，具体的数据，本数据亦可使用该网站上该用户下的其它卡片号码。
-            ["query_date"] = "20241212",            
-            ["iccids"] = "89860403102080512138"
-        }
-    )
 
-    local code, headers, body = http.request("POST","http://api.taoyuan-tech.com/api/open/iotcard/usagelog", 
-            req_headers,
-            body -- POST请求所需要的body, string, zbuff, file均可
-    ).wait()
-    log.info("http.post", code, headers, body)
-end
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
--- 数据类型 x-www-form-urlencoded 演示
-function demo_http_post_form()
-    -- POST request 演示
-    local req_headers = {}
-    req_headers["Content-Type"] = "application/x-www-form-urlencoded"
-    local params = {
-        ABC = "123",
-        DEF = "345"
-    }
-    local body = ""
-    for k, v in pairs(params) do
-        body = body .. tostring(k) .. "=" .. tostring(v):urlEncode() .. "&"
-    end
-    local code, headers, body = http.request("POST","http://httpbin.air32.cn/post", 
-            req_headers,
-            body -- POST请求所需要的body, string, zbuff, file均可
-    ).wait()
-    log.info("http.post.form", code, headers, body)
-end
 
--- GET方法的文件下载
-function demo_http_download()
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    --http.request("GET","http://zuoye.free.fr/files/flag.png",nil,nil,nil,nil,cbFnc)
-    --关于http文件下载的演示，由于服务器比较难找，因而使用了http://zuoye.free.fr网站，如果下面的文件
-    --演示失败，请试着打开上面的链接，查看文件是否存在，或者更换文件测试。如果该网站不存在了，那还请大
-    --家谅解一二。或者大家也可以使用自己知道的网站资源来对http的下载功能进行测试。
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
-    --有关post方法的文件下载，原demo倒是有，但测试一直不成功，可能是网站原因
-    
-    local code, headers, body = http.request("GET","http://zuoye.free.fr/files/flag.png",
-            {}, -- 请求所添加的 headers, 可以是nil
-            "", 
-            nil
-    ).wait()
-    log.info("http.get", code, headers, string.toHex(body)) -- 只返回code和headers
-end
-
--- POST方法的文件下载
-function demo_http_download_post()
-
-    -- POST and download, task内的同步操作
-    local opts = {}                 -- 额外的配置项
-    opts["dst"] = "/data.bin"       -- 下载路径,可选
-    opts["timeout"] = 30000         -- 超时时长,单位ms,可选
-    -- opts["adapter"] = socket.ETH0  -- 使用哪个网卡,可选
-    -- opts["callback"] = http_download_callback
-    -- opts["userdata"] = http_userdata
-
-    for k, v in pairs(opts) do
-        print("opts",k,v)
-    end
-    
-    local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date",
-            {}, -- 请求所添加的 headers, 可以是nil
-            "", 
-            opts
-    ).wait()
-    log.info("http.post", "code ="..code.." headers = ",headers, " body= "..body) -- 只返回code和headers
-
-    --大家也可以依具体发问对文件进行操作处理
-    local f = io.open("/data.bin", "rb")
-    if f then
-        local data = f:read("*a")
-        log.info("fs", "data", data, data:toHex())
-    end
-    
-    -- GET request, 开个task让它自行执行去吧, 不管执行结果了
-    sys.taskInit(http.request("GET","http://site0.cn/api/httptest/simple/time").wait)
-end
-
--- 普通方式的文件上传
----- MultipartForm上传文件
--- url string 请求URL地址
--- req_headers table 请求头
--- params table 需要传输的数据参数
-function postMultipartFormData(url, params)
-    local boundary = "----WebKitFormBoundary"..os.time()
-    local req_headers = {
-        ["Content-Type"] = "multipart/form-data; boundary="..boundary,
-    }
-    local body = {}
-
-    --log.info("postMultipart_params=",url.."----"..params.."------")
-    -- 解析拼接 body
-    for k,v in pairs(params) do
-        if k=="texts" then
-            local bodyText = ""
-            for kk,vv in pairs(v) do
-                print(kk,vv)
-                bodyText = bodyText.."--"..boundary.."\r\nContent-Disposition: form-data; name=\""..kk.."\"\r\n\r\n"..vv.."\r\n"
-            end
-            table.insert(body, bodyText)
-        elseif k=="files" then
-            local contentType =
-            {
-                txt = "text/plain",             -- 文本
-                jpg = "image/jpeg",             -- JPG 格式图片
-                jpeg = "image/jpeg",            -- JPEG 格式图片
-                png = "image/png",              -- PNG 格式图片   
-                gif = "image/gif",              -- GIF 格式图片
-                html = "image/html",            -- HTML
-                json = "application/json"       -- JSON
-            }
-            
-            for kk,vv in pairs(v) do
-                if type(vv) == "table" then
-                    for i=1, #vv do
-                        print(kk,vv[i])
-                        table.insert(body, "--"..boundary.."\r\nContent-Disposition: form-data; name=\""..kk.."\"; filename=\""..vv[i]:match("[^%/]+%w$").."\"\r\nContent-Type: "..contentType[vv[i]:match("%.(%w+)$")].."\r\n\r\n")
-                        table.insert(body, io.readFile(vv[i]))
-                        table.insert(body, "\r\n")
-                    end
-                else
-                    print(kk,vv)
-                    table.insert(body, "--"..boundary.."\r\nContent-Disposition: form-data; name=\""..kk.."\"; filename=\""..vv:match("[^%/]+%w$").."\"\r\nContent-Type: "..contentType[vv:match("%.(%w+)$")].."\r\n\r\n")
-                    table.insert(body, io.readFile(vv))
-                    table.insert(body, "\r\n")
-                end
-            end
-        end
-    end 
-    table.insert(body, "--"..boundary.."--\r\n")
-    body = table.concat(body)
-    log.info("headers: ", "\r\n" .. json.encode(req_headers), type(body))
-    log.info("body: " .. body:len() .. "\r\n" .. body)
-    local code, headers, body = http.request("POST",url,
-            req_headers,
-            body
-    ).wait()   
-    log.info("http.post", code, headers, body)
-end
-
--- 虚拟内存的文件上传
-function demo_http_post_file()
-        -- -- POST multipart/form-data模式 上传文件---手动拼接
-        local boundary = "----WebKitFormBoundary"..os.time()
-        local req_headers = {
-            ["Content-Type"] = "multipart/form-data; boundary="..boundary,
-        }
-        local body = "--"..boundary.."\r\n"..
-                     "Content-Disposition: form-data; name=\"uploadFile\"; filename=\"luatos_uploadFile_TEST01.txt\""..
-                     "\r\nContent-Type: text/plain\r\n\r\n"..
-                     "1111http_测试一二三四654zacc\r\n"..
-                     "--"..boundary
-
-        log.info("headers: ", "\r\n"..json.encode(req_headers))
-        log.info("body: ", "\r\n"..body)
-        local code, headers, body = http.request("POST","http://airtest.openluat.com:2900/uploadFileToStatic",
-                req_headers,
-                body -- POST请求所需要的body, string, zbuff, file均可
-        ).wait()
-        log.info("http.post", code, headers, body)
-end
-
--- 解压缩的演示
-local function demo_http_get_gzip()
-    -- 这里用 和风天气 的API做演示
-    -- 这个API的响应, 总会gzip压缩过, 需要配合miniz库进行解压
-    local code, headers, body = http.request("GET", "https://devapi.qweather.com/v7/weather/now?location=101010100&key=0e8c72015e2b4a1dbff1688ad54053de").wait()
-    log.info("http.gzip", code)
-    if code == 200 then
-        local re = miniz.uncompress(body:sub(11), 0)
-        log.info("和风天气", re)
-        if re then
-            local jdata = json.decode(re)
-            log.info("jdata", jdata)
-            if jdata then
-                log.info("和风天气", jdata.code)
-                if jdata.now then
-                    log.info("和风天气", "天气", jdata.now.text)
-                    log.info("和风天气", "温度", jdata.now.temp)
-                end
-            end
-        end
-    end
-end
-
-sys.taskInit(function()
-    sys.wait(100)
-    -- 打印一下支持的加密套件, 通常来说, 固件已包含常见的99%的加密套件
-    -- if crypto.cipher_suites then
-    --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
-    -- end
-
-    -------------------------------------
-    -------- HTTP 演示代码 --------------
-    -------------------------------------
-    sys.waitUntil("net_ready") -- 等联网
-
-    while 1 do
-        -- 大家可以在下面的演示函数中，选择需要进行操作的功能，去掉注释符，
-        -- 保存后下载到开发板进行测试演示
-
-        -- 演示GET请求
-        -- demo_http_get()
-        -- 表单提交
-        -- demo_http_post_form()
-        -- POST一个json字符串
-        --  demo_http_post_json()
-        -- 上传文件, mulitform形式
-        -- demo_http_post_file()
-        --[[
-
-         postMultipartFormData(
-            "http://airtest.openluat.com:2900/uploadFileToStatic",
-            {
-                -- texts = 
-                -- {
-                --     ["imei"] = "862991234567890",
-                --     ["time"] = "20180802180345"
-                -- },
-                
-                files =
-                {
-                    ["uploadFile"] = "/luadb/luatos_uploadFile.txt",
-                }
-            }
-        )
-
-        ]]
-        -- POST方法文件下载
-        -- demo_http_download_post()
-        -- GET方法文件下载
-        --demo_http_download()
-        -- gzip压缩的响应, 以和风天气为例
-        demo_http_get_gzip()
-
-        sys.wait(1000)
-        -- 打印一下内存状态
-        log.info("sys", rtos.meminfo("sys"))
-        log.info("lua", rtos.meminfo("lua"))
-        --sys.wait(600000)
-        sys.wait(10000)
-    ----- time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-    while wlan and wlan.ready() == false do
-            log.info("http demo","wifi_disconnected")
-            sys.waitUntil("net_ready",10000) -- 等联网  
-        end
-    end
-    ----- /time 为修复网络时间过长而修订为 while主体，增加网络状态判断        
-end)
+-- 加载http应用功能模块
+require "http_app"
+-- 加载httpplus应用功能模块
+require "httpplus_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

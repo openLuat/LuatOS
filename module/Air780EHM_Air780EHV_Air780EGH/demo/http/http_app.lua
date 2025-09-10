@@ -3,7 +3,7 @@
 @summary http应用功能模块 
 @version 1.0
 @date    2025.08.01
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为http应用功能模块，核心业务逻辑为：基于不同的应用场景，演示http核心库的使用方式；
 http核心库和httpplus扩展库的区别如下：

@@ -13,11 +13,12 @@
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
 4、WebSocket连接，client收到server数据后，将数据增加recv from websocket server: 前缀后，通过uart1发送出去；
 5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
-6、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
-   (1) netdrv_4g：4G网卡
-   (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (3) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-   
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
+   (1)netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
+   (2) netdrv_ethernet_rmii：socket.LWIP_ETH，通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡；
+   (3)netdrv_ethernet_spi：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
+   (4)netdrv_4g：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
+   (5)netdrv_multi_network：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -79,6 +80,12 @@ require "netdrv_device"
 
 -- 加载串口应用功能模块
 require "uart_app"
+
+-- 加载时间同步应用功能模块
+-- 当客户端发送一个特定的"echo"命令，会构造一个包含当前时间的JSON消息发送到服务器；
+-- WebSocket测试服务器（echo.websocket.org）是一个回环服务器，它会将收到的消息原样返回;
+-- 时间同步可以避免因设备本地时钟不准而导致发送的时间与日志时间不一致的问题。
+require "sntp_app"
 
 -- 加载定时器应用功能模块
 require "timer_app"

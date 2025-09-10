@@ -483,6 +483,7 @@ netdrv.event_subscribe(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, p
         - connected 连接成功
         - closed 连接关闭
         - remote_close 远程关闭
+        - timeout dns解析超时,或者tcp连接超时
         - error 错误,包括一切异常错误
         - dns_result dns解析结果, 如果remote_ip为0.0.0.0,表示解析失败
     -- params是参数表

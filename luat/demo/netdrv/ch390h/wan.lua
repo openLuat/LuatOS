@@ -61,9 +61,16 @@ sys.taskInit(function()
     end
     while 1 do
         sys.wait(6000)
+        -- 正常请求
         local code, headers, body = http.request("GET", "http://httpbin.air32.cn/bytes/4096", nil, nil, {adapter=socket.LWIP_ETH}).wait()
         log.info("http", code, headers, body and #body)
-        log.info("lua", rtos.meminfo())
-        log.info("sys", rtos.meminfo("sys"))
+        -- 故意失败1
+        local code, headers, body = http.request("GET", "http://httpbin.air323.cn/status/404", nil, nil, {adapter=socket.LWIP_ETH, timeout=5000}).wait()
+        log.info("http", code, headers, body and #body)
+        -- 故意失败2
+        local code, headers, body = http.request("GET", "http://112.125.89.8:40000/status/404", nil, nil, {adapter=socket.LWIP_ETH, timeout=5000}).wait()
+        log.info("http", code, headers, body and #body)
+        -- log.info("lua", rtos.meminfo())
+        -- log.info("sys", rtos.meminfo("sys"))
     end
 end)

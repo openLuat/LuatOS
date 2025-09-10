@@ -45,7 +45,7 @@ slave1_msg1_buf:clear()
 
 -- -- 为从站2创建数据存储区，并创建通讯消息,写入寄存器
 -- slave2_msg1_buf = zbuff.create(1)
--- mb_slave2_msg1 = modbus.create_msg(mb_rtu, mb_slave2, modbus.REGISTERS, modbus.WRITE, 0, 10, slave2_msg1_buf)
+-- mb_slave2_msg1 = modbus.create_msg(mb_ascii, mb_slave2, modbus.REGISTERS, modbus.WRITE, 0, 10, slave2_msg1_buf)
 -- slave2_msg1_buf:clear()
 
 

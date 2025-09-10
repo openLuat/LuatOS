@@ -46,6 +46,11 @@
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
 
+#ifdef LUAT_USE_NETDRV
+#include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
+#endif
+
 static const char *error_string[MQTT_MSG_NET_ERROR - MQTT_MSG_CON_ERROR + 1] =
 {
 		"connect",

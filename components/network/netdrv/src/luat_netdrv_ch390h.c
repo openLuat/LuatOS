@@ -18,6 +18,16 @@
 
 ch390h_t* ch390h_drvs[MAX_CH390H_NUM]; // 最多支持5个CH390H同时操作
 
+#ifdef LUAT_USE_NETDRV_LWIP_ARP
+extern err_t luat_netdrv_netif_input_main(struct pbuf *p, struct netif *inp);
+extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
+#else
+#define luat_netdrv_netif_input_main netif_input
+#define luat_netdrv_etharp_output ulwip_etharp_output
+#endif
+
+extern err_t ch390_netif_output(struct netif *netif, struct pbuf *p);
+
 static int ch390h_dhcp(luat_netdrv_t* drv, void* userdata, int enable) {
     ch390h_t* ch = (ch390h_t*)userdata;
     ch->dhcp = (uint8_t)enable;
@@ -48,6 +58,36 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
             return 0;
     }
     return 0;
+}
+
+
+static err_t ch390_netif_init(struct netif *netif) {
+    ch390h_t* ch = (ch390h_t*)netif->state;
+    netif->linkoutput = ch390_netif_output;
+    netif->output     = luat_netdrv_etharp_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv4_cid = LWIP_PS_INVALID_CID;
+    #endif
+    #if LWIP_IPV6
+    netif->output_ip6 = ethip6_output;
+    #if ENABLE_PSIF
+    netif->primary_ipv6_cid = LWIP_PS_INVALID_CID;
+    #endif
+    #endif
+    netif->mtu        = 1460;
+    netif->flags      = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+    memcpy(netif->hwaddr, ch->hwaddr, ETH_HWADDR_LEN);
+    netif->hwaddr_len = ETH_HWADDR_LEN;
+    net_lwip2_set_netif(ch->adapter_id, ch->netif);
+    net_lwip2_register_adapter(ch->adapter_id);
+    ch->status = 0;
+    LLOGD("netif init ok %d", ch->adapter_id);
+    return 0;
+}
+
+static void ch390_lwip_init(void* args) {
+    ch390h_t* ch = (ch390h_t*)args;
+    netif_add(ch->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, ch, ch390_netif_init, luat_netdrv_netif_input_main);
 }
 
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
@@ -98,6 +138,7 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
         drv->dhcp = ch390h_dhcp;
         drv->ctrl = ch390h_ctrl;
         ch->netdrv = drv;
+        tcpip_callback_with_block((tcpip_callback_fn)ch390_lwip_init, ch, 1);
         extern void luat_ch390h_task_start(void);
         luat_ch390h_task_start();
         LLOGD("ch390注册完成");

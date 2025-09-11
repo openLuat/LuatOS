@@ -63,7 +63,7 @@ require "netdrv_device"
 --下面三种情况只能打开一种，根据自己需求进行选择，不能同时打开，手动读取的errdump_read.lua中可以选择是通过串口传输还是通过tcp协议传输
 -- 加载errdump测试模块
 --自动上报异常日志到IOT平台
-require "auto_dump_udp_srv"
+require "auto_dump_air_srv"
 
 --自动上报异常日志到自建UDP平台
 -- require "auto_dump_udp_srv"

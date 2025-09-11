@@ -524,7 +524,7 @@ local function update_airstatus()
   airstatus.get_weather()
 end
 
-wdtInit()
+wdtInit() 
 
 
 function ip_ready_handle(ip, adapter)

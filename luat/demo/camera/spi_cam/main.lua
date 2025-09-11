@@ -14,8 +14,9 @@ local getRawStart = false
 local RAW_MODE = 0 -- 写1演示获取原始图像
 local DONE_WITH_CLOSE = false
 local MIPI_MODE = false
-if hmeta.chip() == "UIS8910" then
+if hmeta.chip() == "UIS8910" then   --Air722测试要把VLCD电压拉高到3.2V
     MIPI_MODE = true
+    pm.ioVol(pm.IOVOL_LCD, 3200)
 end
 -- SCAN_MODE和RAW_MODE都没有写1就是拍照
 
@@ -53,17 +54,32 @@ end
 -- lcd.invoff()
 -- 如果显示依旧不正常，可以尝试老版本的板子的驱动
 -- lcd.init("st7735s",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
-lcd.init("gc9306x", {
-    port = port,
-    pin_dc = pin_dc,
-    pin_pwr = bl,
-    pin_rst = pin_reset,
-    direction = 0,
-    w = 240,
-    h = 320,
-    xoffset = 0,
-    yoffset = 0
-}, spi_lcd, true)
+if MIPI_MODE then
+    lcd.init("st7796", {
+        port = port,
+        pin_dc = pin_dc,
+        pin_pwr = bl,
+        pin_rst = pin_reset,
+        direction = 0,
+        w = 320,
+        h = 480,
+        xoffset = 0,
+        yoffset = 0
+    }, spi_lcd, true)
+    log.info("init st7796")
+else
+    lcd.init("gc9306x", {
+        port = port,
+        pin_dc = pin_dc,
+        pin_pwr = bl,
+        pin_rst = pin_reset,
+        direction = 0,
+        w = 240,
+        h = 320,
+        xoffset = 0,
+        yoffset = 0
+    }, spi_lcd, true)
+end
 
 local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
 -- 初始化

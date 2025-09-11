@@ -67,7 +67,6 @@ local pcm_buff1 = nil
 local voice_vol = 55
 local mic_vol = 80
 
-
 -- 定义全局队列表
 local audio_play_queue = {
     data = {},       -- 存储字符串的数组
@@ -97,6 +96,15 @@ local function audio_play_queue_pop()
     end
     return nil
 end
+-- 清空队列中所有数据
+function audio_queue_clear()
+    -- 清空数组
+    audio_play_queue.data = {}
+    -- 重置顺序索引
+    audio_play_queue.sequenceIndex = 1
+    return true
+end
+
 -- 工具函数：参数检查
 local function check_param(param, expected_type, name)
     if type(param) ~= expected_type then
@@ -120,6 +128,7 @@ local function audio_callback(id, event, point)
         if type(audio_play_param.cbfnc) == "function" then
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
+        audio_queue_clear()  -- 清空流式播放数据队列
         sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
@@ -394,13 +403,13 @@ function exaudio.play_start(playConfigs)
     else
         audio_play_param.cbfnc = nil
     end
-
     return true
 end
 
 -- 模块接口：流式播放数据写入
-function exaudio.stream_play_write(data)
+function exaudio.play_stream_write(data)
     audio_play_queue_push(data)
+    return true
 end
 
 -- 模块接口：停止播放

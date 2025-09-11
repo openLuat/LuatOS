@@ -186,7 +186,7 @@ typedef struct
 	uint32_t domain_name_len;
 	luat_ip_addr_t remote_ip;
 	luat_dns_ip_result *dns_ip;	//动态生成的，需要在close的时候释放
-	luat_ip_addr_t *online_ip;	//指向某个ip，无需释放
+	luat_ip_addr_t online_ip;	//指向某个ip，无需释放
 	uint16_t remote_port;
 	uint16_t local_port;
 	uint8_t *cache_data;	//动态生成的，需要在close的时候释放

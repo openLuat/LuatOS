@@ -30,6 +30,7 @@ exaudio.PCM_16000 = 3
 exaudio.PCM_24000 = 4
 exaudio.PCM_32000 = 5
 
+
 -- 默认配置参数
 local audio_setup_param = {
     model = "es8311",         -- dac类型: "es8311","es8211"
@@ -45,7 +46,7 @@ local audio_setup_param = {
 
 local audio_play_param = {
     type = 0,                 -- 0:文件 1:TTS 2:流式
-    content = nil,            -- 内容/回调函数
+    content = nil,            -- 播放内容
     cbfnc = nil,              -- 播放完毕回调
     priority = 0,             -- 优先级(数值越大越高)
     sampling_rate = 16000,    -- 采样率(仅流式)
@@ -66,6 +67,44 @@ local pcm_buff1 = nil
 local voice_vol = 55
 local mic_vol = 80
 
+-- 定义全局队列表
+local audio_play_queue = {
+    data = {},       -- 存储字符串的数组
+    sequenceIndex = 1  -- 用于跟踪插入顺序的索引
+}
+
+-- 向队列中添加字符串（按调用顺序插入）
+local function audio_play_queue_push(str)
+    if type(str) == "string" then
+        -- 存储格式: {index = 顺序索引, value = 字符串值}
+        table.insert(audio_play_queue.data, {
+            index = audio_play_queue.sequenceIndex,
+            value = str
+        })
+        audio_play_queue.sequenceIndex = audio_play_queue.sequenceIndex + 1
+        return true
+    end
+    return false
+end
+
+-- 从队列中取出最早插入的字符串（按顺序取出）
+local function audio_play_queue_pop()
+    if #audio_play_queue.data > 0 then
+        -- 取出并移除第一个元素
+        local item = table.remove(audio_play_queue.data, 1)
+        return item.value  -- 返回值
+    end
+    return nil
+end
+-- 清空队列中所有数据
+function audio_queue_clear()
+    -- 清空数组
+    audio_play_queue.data = {}
+    -- 重置顺序索引
+    audio_play_queue.sequenceIndex = 1
+    return true
+end
+
 -- 工具函数：参数检查
 local function check_param(param, expected_type, name)
     if type(param) ~= expected_type then
@@ -84,16 +123,12 @@ local function audio_callback(id, event, point)
     --         "RECORD_DONE:", audio.RECORD_DONE)
 
     if event == audio.MORE_DATA then
-        if type(audio_play_param.content) == "function" then
-            local data = audio_play_param.content() 
-            if data ~= nil and  type(data) == "string" then
-                audio.write(MULTIMEDIA_ID,data)
-            end
-        end
+        audio.write(MULTIMEDIA_ID,audio_play_queue_pop())
     elseif event == audio.DONE then
         if type(audio_play_param.cbfnc) == "function" then
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
+        audio_queue_clear()  -- 清空流式播放数据队列
         sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
@@ -329,10 +364,6 @@ function exaudio.play_start(playConfigs)
         end
 
     elseif play_type == 2 then  -- 流式播放
-        if not check_param(playConfigs.content, "function", "content") then
-            log.error("流式播放content必须为回调函数")
-            return false
-        end
         if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
             return false
         end
@@ -372,7 +403,12 @@ function exaudio.play_start(playConfigs)
     else
         audio_play_param.cbfnc = nil
     end
+    return true
+end
 
+-- 模块接口：流式播放数据写入
+function exaudio.play_stream_write(data)
+    audio_play_queue_push(data)
     return true
 end
 

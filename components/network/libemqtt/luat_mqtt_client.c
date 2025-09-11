@@ -54,7 +54,7 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 	return 0;
 }
 
-LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
+static LUAT_RT_RET_TYPE ping_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TIMER_PING, 0);
 }
@@ -62,6 +62,11 @@ LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
 static LUAT_RT_RET_TYPE reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
 	l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_RECONNECT, 0);
+}
+
+static LUAT_RT_RET_TYPE conn_timer_callback(LUAT_RT_CB_PARAM){
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_CONN_TIMEOUT, 0);
 }
 
 int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl) {
@@ -98,7 +103,8 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
 	mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
-	mqtt_ctrl->ping_timer = luat_create_rtos_timer(luat_mqtt_timer_callback, mqtt_ctrl, NULL);
+	mqtt_ctrl->ping_timer = luat_create_rtos_timer(ping_timer_callback, mqtt_ctrl, NULL);
+	mqtt_ctrl->conn_timer = luat_create_rtos_timer(conn_timer_callback, mqtt_ctrl, NULL);
     return 0;
 }
 
@@ -150,6 +156,7 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 
     mqtt_ctrl->broker.socket_info = mqtt_ctrl;
     mqtt_ctrl->broker.send = luat_mqtt_send_packet;
+	mqtt_ctrl->conn_timeout = opts->conn_timeout ? opts->conn_timeout : 30;
     return 0;
 }
 
@@ -165,11 +172,12 @@ void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->mqtt_state){
 		mqtt_ctrl->mqtt_state = 0;
 		mqtt_ctrl->buffer_offset = 0;
+		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+		luat_stop_rtos_timer(mqtt_ctrl->conn_timer);
 		if (mqtt_ctrl->netc){
 			network_force_close_socket(mqtt_ctrl->netc);
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, mqtt_ctrl->error_state==0?MQTT_ERROR_STATE_SOCKET:mqtt_ctrl->error_state);
 		}
-		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 		if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time > 0){
 			luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
 		}else{
@@ -184,6 +192,10 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->ping_timer){
 		luat_release_rtos_timer(mqtt_ctrl->ping_timer);
     	mqtt_ctrl->ping_timer = NULL;
+	}
+	if (mqtt_ctrl->conn_timer){
+		luat_release_rtos_timer(mqtt_ctrl->conn_timer);
+		mqtt_ctrl->conn_timer = NULL;
 	}
 	if (mqtt_ctrl->reconnect_timer){
 		luat_release_rtos_timer(mqtt_ctrl->reconnect_timer);
@@ -324,6 +336,10 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             }
 			mqtt_ctrl->mqtt_state = MQTT_STATE_READY;
             l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_CONNACK, 0);
+			luat_stop_rtos_timer(mqtt_ctrl->reconnect_timer);
+			luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+			luat_stop_rtos_timer(mqtt_ctrl->conn_timer);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
             break;
         }
         case MQTT_MSG_PUBLISH : {
@@ -448,7 +464,11 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 		mqtt_ctrl->mqtt_state = MQTT_STATE_MQTT;
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
 		if(ret==1){
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
+			// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
+		}
+		else {
+			LLOGI("mqtt_connect ret=%d\n", ret);
+			luat_mqtt_close_socket(mqtt_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){
@@ -522,6 +542,8 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
         return -1;
     }
 	mqtt_ctrl->mqtt_state = MQTT_STATE_SCONNECT;
+	// 启动连接超时定时器
+	luat_start_rtos_timer(mqtt_ctrl->conn_timer, mqtt_ctrl->conn_timeout * 1000, 0);
     return 0;
 }
 

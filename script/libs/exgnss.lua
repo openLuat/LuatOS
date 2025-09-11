@@ -351,9 +351,6 @@ local function fnc_open()
     if exgnss.opts.debug==true then
         log.info("debug开启")
         libgnss.debug(true)
-    elseif exgnss.opts.debug==false then
-        log.info("debug关闭")
-        libgnss.debug(false)
     end
     if type(exgnss.opts.bind)=="number"  then
         log.info("绑定bind事件")
@@ -364,9 +361,6 @@ local function fnc_open()
     if exgnss.opts.rtc==true then
         log.info("rtc开启")
         libgnss.rtcAuto(true)
-    elseif exgnss.opts.rtc==false then
-        log.info("rtc关闭")
-        libgnss.rtcAuto(false)
     end
     if exgnss.opts.agps_enable==true then
         log.info("agps开启")
@@ -819,7 +813,7 @@ log.info("nmea", "gsv", json.encode(exgnss.gsv()))
 -- }
 ]]
 function exgnss.gsv() 
-    return libgnss.gsv() 
+    return libgnss.getGsv() 
 end
 
 
@@ -853,7 +847,7 @@ log.info("nmea", "gsa", json.encode(exgnss.gsa()))
 ]]
 
 function exgnss.gsa(data_mode)
-    return libgnss.gsa(data_mode)
+    return libgnss.getGsa(data_mode)
 end
 
 
@@ -879,7 +873,7 @@ log.info("nmea", "vtg", exgnss.vtg(3))
 -- 提醒: 在速度<5km/h时, 不会返回方向角
 ]]
 function exgnss.vtg(data_mode)
-    return  libgnss.vtg(data_mode)
+    return  libgnss.getVtg(data_mode)
 end
 
 --获取原始ZDA时间和日期信息
@@ -902,7 +896,7 @@ log.info("nmea", "zda", json.encode(exgnss.zda()))
 -- }
 ]]
 function exgnss.zda()
-    return  libgnss.zda()
+    return  libgnss.getZda()
 end
 
 --[[
@@ -953,7 +947,7 @@ end
 $GNGGA,131241.000,3434.81372,N,11350.39930,E,1,05,4.924,165.5,M,-15.2,M,,*6D\r
 ]]
 function exgnss.gga(lnglat_mode)
-    return  libgnss.gga(lnglat_mode)
+    return  libgnss.getGga(lnglat_mode)
 end
 
 --[[
@@ -1000,7 +994,7 @@ end
 {"longitude":114.3199081,"sec":14,"min":32,"mode":"A","hour":6,"us":0,"status":"A","latitude":34.7978172}
 ]]
 function exgnss.gll(data_mode)
-    return  libgnss.gll(data_mode)
+    return  libgnss.getGll(data_mode)
 end
 --[[
 获取最后的经纬度数据

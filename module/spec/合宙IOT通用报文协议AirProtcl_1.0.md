@@ -251,14 +251,38 @@ TCP server 在接受了 socket 连接后，等待设备的鉴权请求，如果�
 
 ## 5.2 MQTT
 
+### 5.2.1 MQTT 角色
+
 ```
 有三个角色： 设备，Broker，ServClient。
+```
 
+## 5.2.2 MQTT 主题
+
+```
 ServClient 订阅所有主题，设备只订阅跟自己相关的主题。
 
-设备和Broker建立MQTT 连接后，首先发起鉴权，Broker把鉴权请求转发给ServClient，ServClient审核后，回复鉴权通过或者鉴权失败。
+设备的主题名字为： /AirPro/DeviceID/ServType
+```
 
-如果回复的是鉴权失败，ServClent需要通知Broker，把发起鉴权的设备进行断链处理。
+其中， AirPro 是固定字符串；
+
+DeviceID 是设备的 ID， 内容和消息头的 设备 ID 相同；
+
+ServType 包括两种：
+
+（1）auth
+
+（2）all
+
+其中， auth 是指鉴权报文， all 是指所有其他报文。
+
+## 5.2.3 鉴权
+
+```
+设备和Broker建立MQTT 连接后，首先设备要发起鉴权，Broker把鉴权请求转发给ServClient，ServClient审核后，回复鉴权通过或者鉴权失败。
+
+如果回复的是鉴权失败，ServClent需要在10秒钟之内通知Broker，把发起鉴权的设备进行断链处理。
 
 如果设备超时没有发起鉴权，ServClient也要通知Broker，把设备断链。
 ```

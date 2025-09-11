@@ -39,6 +39,17 @@ typedef struct luat_netdrv_conf
     uint8_t irqpin;
     uint16_t mtu;
     uint8_t flags;
+    // Wireguard相关参数
+    #ifdef LUAT_USE_NETDRV_WG
+    const char* wg_private_key;
+    uint16_t wg_listen_port;
+    uint16_t wg_keepalive;
+    const char* wg_preshared_key;
+    
+    const char* wg_endpoint_key;
+    const char* wg_endpoint_ip;
+    uint16_t wg_endpoint_port;
+    #endif
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item

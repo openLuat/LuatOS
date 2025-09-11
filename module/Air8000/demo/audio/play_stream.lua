@@ -9,21 +9,14 @@
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
 2、创建一个模拟获取流式音频的task（audio_get_data）
-3、此task通过流式传输不断向audio_buff(zbuff)填入播放的音频
-4、播放task 不断播放audio_buff(zbuff)的音频内容
+3、此task通过流式传输不断向exaudio.play_stream_write填入播放的音频
+4、播放task 不断播放传入流式音频
 5、使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
 本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
 ]]
 
 exaudio = require("exaudio")
 
-local audio_buff       -- 存储音频数据的zbuff,使用方法见https://docs.openluat.com/osapi/core/zbuff/
-local write_seek = 0   -- 写入zbuff 的指针位置
-local read_seek = 0    -- 驱动zbuff 的指针位置
-
-local zbuff_size = 61440      -- 申请内存的最大值，需要1024的倍数
-local read_size = 4096        -- 除了最后一包数据，读写zbuff  都要按照1024倍数进行 
-local file = nil              -- 文件句柄，打开文件后，将会被赋值
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
@@ -33,27 +26,11 @@ local audio_setup_param ={
     dac_ctrl = 164,        --  音频编解码芯片电源控制管脚 
 }
 
---  当前音频快播完的时候，产生的回调，返回数据后，exaudio会将音频传入core,注意不可以在回调函数中加入耗时和延迟的操作
-local function audio_need_more_data()
-    if read_seek >= write_seek then     -- 读指针，赶上了写指针，播放完成
-        log.info("播放完了")
-        return nil
-    else
-        if write_seek - read_seek <  read_size then      --当写指针和读指针的位置小于4096 字节的时候，以差值读取
-            read_size = write_seek - read_seek
-        end
-        audio_buff:seek(read_seek)                      -- 复位读指针位置
-        local read_data = audio_buff:read(read_size)    -- 读取zbuff位置
-        log.info("获取音频",read_seek,#read_data)
-        read_seek = read_seek +  #read_data     --  写指针位置修改
-        return   read_data
-    end
-end 
-
 -- 播放完成回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
+
     end
 end 
 
@@ -63,9 +40,6 @@ local audio_play_param ={
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
-    content = audio_need_more_data,          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
-                            -- 如果播放tts 则填入要播放的内容。
-                            -- 如果为2，流式播放，则填入音频回调函数
     cbfnc = play_end,            -- 播放完毕回调函数
     sampling_rate = 16000,  -- 采样率,仅为流式播放起作用
     sampling_depth =  16,   -- 采样位位深,仅流式播放的时候才有作用
@@ -104,24 +78,19 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 ---------------------------------
 local function audio_get_data()
     log.info("开始流式获取音频数据")
-    file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
-    audio_buff  = zbuff.create(zbuff_size)
+    local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
     while true do
-        log.info("存入音频",write_seek)
-        local read_data = file:read(read_size)  --  读取文件，模拟流式音频源
+        local read_data = file:read(4096)  --  读取文件，模拟流式音频源,需要1024 的倍数
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
             break
         end
-        audio_buff:seek(write_seek)     -- 复位写指针位置
-        audio_buff:write(read_data)     --  模拟网页端获取音频数据
-        write_seek = write_seek +  #read_data     --  写指针位置修改
+        exaudio.play_stream_write(read_data)  -- 流式写入音频数据
         sys.wait(100)                   -- 写数据需要留出事件给其他task 运行代码
     end
 end
 
 sys.taskInitEx(audio_get_data, "audio_get_data")
-
 
 
 ---------------------------------
@@ -131,8 +100,8 @@ local taskName = "task_audio"
 local function audio_task()
     log.info("开始流式播报")
     if exaudio.setup(audio_setup_param) then
-        
         exaudio.play_start(audio_play_param)
+        log.info("播放状态",exaudio.is_end())
     end
 end
 

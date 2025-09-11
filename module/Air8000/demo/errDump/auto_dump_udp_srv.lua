@@ -25,7 +25,7 @@ local function test_user_log()
         sys.waitUntil("IP_READY", 1000)
     end
     -- 下面演示自动发送异常日志到自建udp服务器，如果是系统异常日志，则会在重启后自动上报，如果是用户写入调试日志，则周期性上报。
-    errDump.config(true,600,nil,nil,"112.125.89.8",47539)
+    errDump.config(true,600,nil,nil,"112.125.89.8",47250)
     while true do
         sys.wait(15000)
         -- 上报用户调试日志

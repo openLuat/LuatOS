@@ -509,6 +509,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 		OS_InitBuffer(&msg_buf, p->tot_len);
 		pbuf_copy_partial(p, msg_buf.Data, p->tot_len, 0);
 		pbuf_free(p);
+		p = NULL;
 		dns_run(prvlwip.dns_client[adapter_index], &msg_buf, NULL, &i);
 		OS_DeInitBuffer(&msg_buf);
 		llist_traversal(&prvlwip.dns_client[adapter_index]->require_head, net_lwip2_dns_check_result, NULL);
@@ -519,7 +520,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				out_p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
 				if (out_p && NULL != tx_msg_buf.Data)
 				{
-					pbuf_take(p, tx_msg_buf.Data, tx_msg_buf.Pos);
+					pbuf_take(out_p, tx_msg_buf.Data, tx_msg_buf.Pos);
 					memcpy(&prvlwip.dns_udp[adapter_index]->local_ip, &prvlwip.lwip_netif[adapter_index]->ip_addr, sizeof(ip_addr_t));
 					ipaddr_ntoa_r(&prvlwip.dns_client[adapter_index]->dns_server[i], ip_string, sizeof(ip_string));
 					ipaddr_ntoa_r(&prvlwip.dns_udp[adapter_index]->local_ip, ipstr2, sizeof(ipstr2));

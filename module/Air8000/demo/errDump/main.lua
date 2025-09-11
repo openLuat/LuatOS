@@ -66,11 +66,11 @@ require "netdrv_device"
 -- require "auto_dump_air_srv"
 
 --自动上报异常日志到自建UDP平台
-require "auto_dump_udp_srv"
+-- require "auto_dump_udp_srv"
 
 --手动读取异常日志并通过串口和TCP传输
 --加载手动读取异常日志模块
--- require "errdump_read"
+require "errdump_read"
 
 
 -- 用户代码已结束---------------------------------------------

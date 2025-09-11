@@ -321,8 +321,10 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     if (!netif_is_link_up(ch->netif)) {
         LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
         netif_set_link_up(ch->netif);
+        luat_rtos_task_sleep(20); // 等待50ms
         ulwip_netif_ip_event(&ch->ulwip);
         if (ch->dhcp) {
+            luat_rtos_task_sleep(30); // 等待30ms再启动dhcp
             // 启动dhcp定时器
             ulwip_dhcp_client_start(&ch->ulwip);
         }

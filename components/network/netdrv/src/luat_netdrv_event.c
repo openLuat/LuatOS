@@ -12,7 +12,7 @@
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
-netdrv_tcpevt_reg_t g_netdrv_tcpevt_regs[NW_ADAPTER_QTY] = {0};
+static netdrv_tcpevt_reg_t s_tcpevt_regs[NW_ADAPTER_QTY] = {0};
 
 void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_netdrv_tcp_evt_cb cb, void* userdata) {
     if (id >= NW_ADAPTER_QTY) {
@@ -20,13 +20,13 @@ void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_n
         return;
     }
     if (evt_flags == 0) {
-        g_netdrv_tcpevt_regs[id].cb = NULL;
-        g_netdrv_tcpevt_regs[id].userdata = NULL;
+        s_tcpevt_regs[id].cb = NULL;
+        s_tcpevt_regs[id].userdata = NULL;
         return;
     }
-    g_netdrv_tcpevt_regs[id].flags = evt_flags;
-    g_netdrv_tcpevt_regs[id].cb = cb;
-    g_netdrv_tcpevt_regs[id].userdata = userdata;
+    s_tcpevt_regs[id].flags = evt_flags;
+    s_tcpevt_regs[id].cb = cb;
+    s_tcpevt_regs[id].userdata = userdata;
     // LLOGD("socket event cb adapter %d, flags=0x%02X userdata=%p", id, evt_flags, userdata);
 }
 
@@ -36,7 +36,7 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     if (event_id < EV_NW_RESET || event_id == EV_NW_SOCKET_TX_OK || event_id == EV_NW_SOCKET_RX_NEW) {
         return; // 其他事件无视
     }
-    if (g_netdrv_tcpevt_regs[adapter_id].cb == NULL) {
+    if (s_tcpevt_regs[adapter_id].cb == NULL) {
         //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
@@ -45,7 +45,7 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
         return;
     }
     event_id -= EV_NW_RESET;
-    if ((g_netdrv_tcpevt_regs[adapter_id].flags & event_id) == 0) {
+    if ((s_tcpevt_regs[adapter_id].flags & event_id) == 0) {
         //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
@@ -65,5 +65,5 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     evt.local_port = ctrl->local_port;
     evt.remote_port = ctrl->remote_port;
     evt.userdata = ctrl->user_data;
-    g_netdrv_tcpevt_regs[adapter_id].cb(&evt, g_netdrv_tcpevt_regs[adapter_id].userdata);
+    s_tcpevt_regs[adapter_id].cb(&evt, s_tcpevt_regs[adapter_id].userdata);
 }

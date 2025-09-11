@@ -467,14 +467,14 @@ static void luat_socket_evt_cb(netdrv_tcp_evt_t* evt, void* userdata) {
 // 监听socket事件
 /*
 订阅网络事件
-@api netdrv.event_subscribe(adapter_id, event_type, callback)
+@api netdrv.on(adapter_id, event_type, callback)
 @int 网络适配器的id
 @int 事件总类型, 当前支持 netdrv.EVT_SOCKET
 @function 回调函数 function(id, event, params)
 @return bool 成功与否,成功返回true,否则返回nil
 @usage
 -- 订阅socket连接状态变化事件
-netdrv.event_subscribe(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
+netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
     -- id 是网络适配器id
     -- event是事件id, 字符串类型, 
         - create 创建socket对象
@@ -500,7 +500,7 @@ netdrv.event_subscribe(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, p
     end
 end)
 */
-static int l_netdrv_event_subscribe(lua_State *L) {
+static int l_netdrv_on(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (id < 0) {
         return 0; // 非法id
@@ -547,7 +547,7 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
-    { "event_subscribe",ROREG_FUNC(l_netdrv_event_subscribe)},
+    { "on",ROREG_FUNC(l_netdrv_on)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif

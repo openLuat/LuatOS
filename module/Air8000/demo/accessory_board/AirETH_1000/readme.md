@@ -14,11 +14,13 @@
 
 ## 演示硬件环境
 
-1、Air8000核心板一块+可上网的sim卡一张+网线一根+AirETH_1000板子一个：
+1、Air8000核心板一块+可上网的sim卡一张+网线一根+AirETH_1000板子一个;
 
 [](https://docs.openluat.com/air8000/luatos/app/image/lan.jpg)
 
-2、TYPE-C USB数据线一根 + 杜邦线若干：
+![lan](E:\文档池\新建文件夹\luatos-doc-pool\docs\root\docs\air8000\luatos\app\image\lan.jpg)
+
+2、TYPE-C USB数据线一根 + 杜邦线若干;
 
 * Air8000核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
 
@@ -48,8 +50,6 @@
 ## 演示核心步骤
 
 1、搭建好硬件环境，按接线图连接硬件。
-
-[https://docs.openluat.com/air8000/luatos/app/image/lan.jpg]()
 
 2、烧录内核固件和本项目的Lua脚本：main.lua：主程序入口(需要在main.lua文件中打开require"lan")，lan.lua：模组连接4G网络通过以太网口传输给其他设备供网。
 

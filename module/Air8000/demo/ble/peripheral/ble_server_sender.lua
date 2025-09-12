@@ -120,6 +120,7 @@ local function ble_server_sender_task_func()
         -- BLE连接成功
         -- msg[3]表示ble_device对象
         if msg[2] == "CONNECT_OK" then
+            sys.publish("BLE_CONNECT_STATUS", true)
             ble_device = msg[3]
             -- 发送send_queue中的数据
             send_item = send_item_func(ble_device)
@@ -131,6 +132,7 @@ local function ble_server_sender_task_func()
                 send_item = send_item_func(ble_device)
             end
         elseif msg[2] == "DISCONNECTED" then
+            sys.publish("BLE_CONNECT_STATUS", false)
             -- 清空ble_device对象
             ble_device = nil
             -- 如果存在正在等待发送结果的发送项，执行回调函数通知发送方失败

@@ -13,10 +13,9 @@
 - 初始化项目信息和版本号
 - 初始化看门狗，并定时喂狗
 - 启动一个循环定时器，每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况方便分析内存使用是否有异常
-- 加载ch390_manager模块（通过require "ch390_manager"）。
 - 加载tfcard_app模块（通过require "tfcard_app"）
 - 加载http_download_file模块（通过require "http_download_file"）
-- 最后运行sys.run()。
+- 最后运行sys.run()
 
 ### 2、TF卡核心演示模块（tfcard_app.lua）
 

@@ -13,6 +13,7 @@
 本文件在其余文件中用到了其中的变量，可直接在所需文件中 require "ap_init" 来加载运行。
 ]]
 
+dnsproxy = require("dnsproxy")
 dhcpsrv = require("dhcpsrv")
 -- 配置参数
 local AP_SSID       = "Air8000_FileHub"

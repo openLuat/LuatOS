@@ -21,11 +21,14 @@ local AP_PASSWORD   = "12345678"
 -- 创建AP热点
 local function create_ap()
     log.info("WIFI", "创建AP热点: " .. AP_SSID)
+    wlan.init()
+    sys.wait(100)
     wlan.createAP(AP_SSID, AP_PASSWORD)
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "192.168.4.1")
     while netdrv.ready(socket.LWIP_AP) ~= true do
         sys.wait(100)
     end
+    dnsproxy.setup(socket.LWIP_AP, socket.LWIP_GP)
     dhcpsrv.create({adapter=socket.LWIP_AP})
     sys.publish("AP_CREATE_OK")
 end

@@ -228,7 +228,7 @@ static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t l
 		}
 		else
 		{
-			result = network_socket_send(ctrl, data, len, flags, ctrl->online_ip, ctrl->remote_port);
+			result = network_socket_send(ctrl, data, len, flags, &ctrl->online_ip, ctrl->remote_port);
 		}
 	}
 	if (result >= 0)
@@ -355,7 +355,7 @@ TLS_RECV:
 	{
 		if (!ctrl->is_tcp)
 		{
-			if ((remote_port == ctrl->remote_port) && network_check_ip_same(&remote_ip, ctrl->online_ip))
+			if ((remote_port == ctrl->remote_port) && network_check_ip_same(&remote_ip, &ctrl->online_ip))
 			{
 				goto TLS_RECV;
 			}
@@ -1578,7 +1578,7 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->is_server_mode = 0;
-	ctrl->online_ip = remote_ip;
+	ctrl->online_ip = *remote_ip;
 	uint16_t local_port = ctrl->local_port;
 	if (!local_port)
 	{

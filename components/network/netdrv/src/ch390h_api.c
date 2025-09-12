@@ -195,8 +195,6 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
 
 int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
     uint8_t tmp[4] = {0};
-    // 写入下一个数据
-    luat_ch390h_write(ch, 0x78, len, buff);
     
     luat_ch390h_read(ch, 0x02, 1, tmp);
     uint8_t TCR = tmp[0];
@@ -229,6 +227,8 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
         }
         // return 1;
     }
+    // 写入下一个数据
+    luat_ch390h_write(ch, 0x78, len, buff);
     // TCR == 0之后, 才能写入长度
     luat_ch390h_write_reg(ch, 0x7C, len & 0xFF);
     luat_ch390h_write_reg(ch, 0x7D, (len >> 8) & 0xFF);

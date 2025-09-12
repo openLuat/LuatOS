@@ -28,31 +28,26 @@ local function test_user_log()
         sys.publish("ERRDUMP_DATA_SEND_UART", err_buff:toStr(0, err_buff:used()))
         -- 将读取到的系统异常日志通过"SEND_DATA_REQ"消息publish给tcp发送出去
         sys.publish("SEND_DATA_REQ", err_buff:toStr(0, err_buff:used()))
-    end
-    --手动读取的话需要手动删除日志，否则下次读取会继续读取上次的日志
-    --  errDump.dumpf返回值：true表示本次读取前并没有写入数据，false反之，在删除日志前，最好再读一下确保没有新的数据写入了
-    new_flag = errDump.dump(err_buff, errDump.TYPE_SYS)
-    if not new_flag then
-        log.info("没有新数据了，删除系统错误日志")
+        --手动读取的话需要手动删除日志，否则下次读取会继续读取上次的日志
+        log.info("读取完系统错误日志，删除系统错误日志")
         errDump.dump(nil, errDump.TYPE_SYS, true)
     end
     -- 开机读取完系统异常日志后循环读取用户调试日志
     while true do
         local new_flag = errDump.dump(err_buff, errDump.TYPE_USR)
-        if new_flag then
+        if err_buff:used() > 0 then
             log.info("errBuff", err_buff:toStr(0, err_buff:used()))
             -- 将数据data通过"ERRDUMP_DATA_SEND_UART"消息publish给串口发送出去
             sys.publish("ERRDUMP_DATA_SEND_UART", err_buff:toStr(0, err_buff:used()))
             -- 将读取到的用户调试日志通过"SEND_DATA_REQ"消息publish给tcp发送出去
             sys.publish("SEND_DATA_REQ", err_buff:toStr(0, err_buff:used()))
-        end
-        new_flag = errDump.dump(err_buff, errDump.TYPE_USR)
-        if not new_flag then
-            log.info("没有新数据了，删除用户调试日志")
+            --手动读取的话需要手动删除日志，否则下次读取会继续读取上次的日志
+            log.info("读取完用户调试日志，删除用户调试日志")
             errDump.dump(nil, errDump.TYPE_USR, true)
         end
         sys.wait(15000)
-        errDump.record("测试一下用户的调试日志记录功能") --写入用户的调试日志，注意最大只有4KB，超过部分新的覆盖旧的
+        --写入用户的调试日志测试，注意最大只有4KB，超过部分新的覆盖旧的
+        errDump.record("测试一下用户的调试日志记录功能")
     end
 end
 

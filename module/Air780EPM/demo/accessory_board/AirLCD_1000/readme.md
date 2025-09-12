@@ -165,9 +165,8 @@
 -- 配置接口参数
 local lcd_param = {
         port = lcd.HWID_0,        -- 使用的spi id 号
+        pin_dc = 0xff,            -- 命令选择引脚
         pin_rst = 36,             -- 复位引脚
-        pin_dc = 0xff,            -- 命令选择硬件，不设置
-        pin_rst = 2,              -- 屏幕reset 管脚  
         direction = 0,            -- 屏幕方向
         w = width,                -- 屏幕宽度
         h = height,               -- 屏幕高度

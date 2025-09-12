@@ -349,24 +349,28 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             }
         }
         else {
-            ret = luat_fs_fread(ctx->sbuff, 1400, 1, ctx->fd);
-            if (ret < 1) {
-                luat_fs_fclose(ctx->fd);
-                ctx->fd = NULL;
-                // tcp_err(ctx->pcb, NULL);
-                // tcp_sent(ctx->pcb, NULL);
-                // tcp_close(ctx->pcb);
-                // client_cleanup(ctx);
-                ctx->write_done = 1;
-            }
-            else {
-                ctx->sbuff_offset = ret;
-                ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
-                if (ret == 0) {
-                    // ctx->send_size += ctx->sbuff_offset;
+            while (tcp_sndbuf(tpcb) > 1400)
+            {
+                ret = luat_fs_fread(ctx->sbuff, 1400, 1, ctx->fd);
+                if (ret < 1) {
+                    luat_fs_fclose(ctx->fd);
+                    ctx->fd = NULL;
+                    // tcp_err(ctx->pcb, NULL);
+                    // tcp_sent(ctx->pcb, NULL);
+                    // tcp_close(ctx->pcb);
+                    // client_cleanup(ctx);
+                    ctx->write_done = 1;
+                    break;
+                }
+                else {
+                    ctx->sbuff_offset = ret;
+                    ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
+                    if (ret == 0) {
+                        // ctx->send_size += ctx->sbuff_offset;
+                        ctx->sbuff_offset = 0;
+                    }
                     ctx->sbuff_offset = 0;
                 }
-                ctx->sbuff_offset = 0;
             }
         }
     }

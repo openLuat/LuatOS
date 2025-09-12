@@ -287,7 +287,7 @@ static int l_zbuff_clear(lua_State *L)
 
 /**
 zbuff设置光标位置（可能与当前指针位置有关；执行后指针会被设置到指定位置）
-@api buff:seek(base,offset)
+@api buff:seek(offset, base)
 @int 偏移长度
 @int where, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
 @return int 设置光标后从buff开头计算起的光标的位置

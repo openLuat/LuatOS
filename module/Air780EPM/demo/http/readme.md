@@ -83,15 +83,9 @@
 
 ## 演示软件环境
 
-1\. 烧录工具：[Luatools 下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
+1、Luatools下载调试工具
 
-2\. 内核固件：[Air780EPM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，2025年8月10日之后发布的固件都可以）
-
-3\. 脚本文件：[Air780EPM HTTP 脚本文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EPM/demo/http)
-
-4\. LuatOS 运行所需要的 lib 文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件。
-
-准备好软件环境之后，接下来查看[Air780EPM产品手册](https://docs.openluat.com/air780epm/product/shouce/)中“Air780EPM开发板使用手册 -> 使用说明”，将本篇文章中演示使用的项目文件烧录到 Air780EPM 开发板中。
+2、[Air780EPM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，2025年8月10日之后发布的固件都可以）
 
 
 

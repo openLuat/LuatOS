@@ -50,9 +50,11 @@ static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
 }
 
 typedef struct iperf_start_ctx {
-    luat_netdrv_t* drv;
+    uint8_t adapter_index;
     uint8_t mode;
-    const ip_addr_t* remote_ip;
+    luat_netdrv_t* drv;
+    ip_addr_t remote_ip;
+    uint16_t port;
 }iperf_start_ctx_t;
 
 static void iperf_start_cb(void* args) {
@@ -61,48 +63,49 @@ static void iperf_start_cb(void* args) {
     iperf_start_ctx_t* ctx = (iperf_start_ctx_t*)args;
     uint8_t is_server = ctx->mode;
     luat_netdrv_t* drv = ctx->drv;
-    const ip_addr_t* remote_ip = ctx->remote_ip;
+    const ip_addr_t* remote_ip = &ctx->remote_ip;
     ipaddr_ntoa_r(&drv->netif->ip_addr, buff, sizeof(buff));
-    LLOGD("启动iperf %s %p", is_server ? "server" : "client", remote_ip);
+    // LLOGD("mode %s addr %s:%d", is_server ? "server" : "client", buff, ctx->port);
     if (is_server) {
-        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, 5001, iperf_report_cb, NULL);
-        LLOGD("iperf listen %s:5001", buff);
+        iperf_session = luat_lwiperf_start_tcp_server(&drv->netif->ip_addr, ctx->port, iperf_report_cb, NULL);
+        LLOGD("server listen %s:%d", buff, ctx->port);
     }
     else {
-        luat_lwiperf_start_tcp_client(remote_ip, 5001, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
+        luat_lwiperf_start_tcp_client(remote_ip, ctx->port, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
         ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
-        LLOGD("iperf connect %s --> %s:5001", buff, buff2);
+        LLOGD("client connect %s --> %s:%d", buff, buff2, ctx->port);
     }
 }
 
-static int start_gogogo(int adpater_id, int is_server, const ip_addr_t* remote_ip) {
-    if (adpater_id < 0 || adpater_id >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+static int start_gogogo(iperf_start_ctx_t* ctx) {
+    uint8_t adapter_index = ctx->adapter_index;
+    uint8_t is_server = ctx->mode;
+    if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
         // 必须明确指定合法的索引号
-        LLOGE("非法的网络适配器索引号 %d", adpater_id);
+        LLOGE("非法的网络适配器索引号 %d", adapter_index);
         return 0;
     }
     // 首先, 通过netdrv获取对应的网络设备的netif
-    luat_netdrv_t* drv = luat_netdrv_get(adpater_id);
+    luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
     if (drv == NULL || drv->netif == NULL) {
-        LLOGE("非法的网络适配器索引号 %d", adpater_id);
+        LLOGE("该网络(%d)不支持iperf, 无法启动", adapter_index);
         return 0;
     }
     if (!netif_is_up(drv->netif) || !netif_is_link_up(drv->netif) || ip_addr_isany(&drv->netif->ip_addr)) {
-        LLOGE("该网络还没就绪, 无法启动");
+        LLOGE("该网络(%d)还没就绪, 无法启动", adapter_index);
         return 0;
     }
-    iperf_start_ctx_t ctx = {
-        .drv = drv,
-        .mode = is_server,
-        .remote_ip = remote_ip
-    };
-    tcpip_callback_with_block(iperf_start_cb, &ctx, 1);
+    ctx->drv = drv;
+    if (is_server) {
+        ctx->remote_ip = drv->netif->ip_addr;
+    }
+    tcpip_callback_with_block(iperf_start_cb, ctx, 1);
     return iperf_session != NULL;
 }
 
 /*
 启动server模式
-@api iperf.server(id)
+@api iperf.server(id, port)
 @int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH0
 @return boolean 成功返回true, 失败返回false
 @usage
@@ -122,8 +125,11 @@ static int l_iperf_server(lua_State *L) {
         LLOGE("已经启动了server或者client,要先关掉才能启动新的");
         return 0;
     }
-    int adpater_id = luaL_checkinteger(L, 1);
-    if (start_gogogo(adpater_id, 1, NULL)) {
+    iperf_start_ctx_t ctx = {0};
+    ctx.adapter_index = luaL_checkinteger(L, 1);
+    ctx.mode = 1; // server模式
+    ctx.port = luaL_optinteger(L, 2, 5001);
+    if (start_gogogo(&ctx)) {
         lua_pushboolean(L, 1);
         return 1;
     }
@@ -132,7 +138,7 @@ static int l_iperf_server(lua_State *L) {
 
 /*
 启动client模式
-@api iperf.client(id)
+@api iperf.client(id, ip, port)
 @int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH0
 @string 远程服务器的ip, 只能是ipv4地址,不支持域名!!! 必须填值
 @return boolean 成功返回true, 失败返回false
@@ -154,18 +160,24 @@ sys.subscribe("IPERF_REPORT", function(bytes, ms_duration, bandwidth)
 end)
 */
 static int l_iperf_client(lua_State *L) {
-    ip_addr_t remote_ip = {0};
     if (iperf_session != NULL) {
         LLOGE("已经启动了server或者client,要先关掉才能启动新的");
         return 0;
     }
-    int adpater_id = luaL_checkinteger(L, 1);
+    
+    iperf_start_ctx_t ctx = {0};
+    int adapter_index = luaL_checkinteger(L, 1);
     const char* ip = luaL_checkstring(L, 2);
-    if (ipaddr_aton(ip, &remote_ip) == 0) {
+    if (ipaddr_aton(ip, &ctx.remote_ip) == 0) {
         LLOGE("非法的ip地址 %s", ip);
         return 0;
     }
-    if (start_gogogo(adpater_id, 0, &remote_ip)) {
+    ctx.adapter_index = adapter_index;
+    ctx.port = luaL_optinteger(L, 3, 5001);
+    ctx.drv = luat_netdrv_get(adapter_index);
+    ctx.mode = 0; // client模式
+    // LLOGD("client connect to %s:%d", ip, ctx.port);
+    if (start_gogogo(&ctx)) {
         lua_pushboolean(L, 1);
         return 1;
     }

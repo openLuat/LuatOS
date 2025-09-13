@@ -1,4 +1,4 @@
-# 合宙 IOT 通用报文协议 AirProtcl -- 1.0
+# 合宙 IOT 通用报文协议 airCloud -- 1.0
 
 # 一、背景
 
@@ -92,7 +92,7 @@ bit5：    是否携带鉴权 key
 <tr>
 <td>消息头<br/></td><td>流水号<br/></td><td>2<br/></td><td><br/></td></tr>
 <tr>
-<td>消息头<br/></td><td>消息长度<br/></td><td>2<br/></td><td>从版本标识开始的消息长度，最长不能大于 1400字节。<br/></td></tr>
+<td>消息头<br/></td><td>消息长度<br/></td><td>2<br/></td><td>从消息标识开始的消息长度，最长不能大于 1400字节。<br/></td></tr>
 <tr>
 <td>消息头<br/></td><td>消息标识<br/></td><td>4<br/></td><td>bit0-3： 协议版本号；<br/>bit4：    是否需要回复<br/>bit5：    是否携带鉴权 key<br/>其余26个bit 为0.<br/></td></tr>
 <tr>
@@ -187,6 +187,8 @@ bit5：    是否携带鉴权 key
 
 263 - CPU 温度/环境温度
 
+264 - 电量计量
+
 #### 3.2.2.2 资产管理类 512-767
 
 512- GNSS 经度
@@ -259,11 +261,11 @@ bit5：    是否携带鉴权 key
 
 1281 - 无意义数据
 
-# 四、AirProtcl 和遥测的关系
+# 四、airCloud 和遥测的关系
 
 遥测的目的是检测设备的 mobile 信息，证明设备还活着，还具备通信能力；
 
-AirProtcl 协议，目的是合宙设备驱动的业务，都有被记录到数据库的机会。
+airCloud 协议，目的是合宙设备驱动的业务，都有被记录到数据库的机会。
 
 # 五、支持的通信承载
 
@@ -313,7 +315,7 @@ ServType 包括两种：
 
 ## 5.3 UDP
 
-AirProtcl 当前不推荐 UDP 协议。
+airCloud 当前不推荐 UDP 协议。
 
 如果必须要用 UDP 的话，需要在消息标识的第 6 个 bit 设为 1， 并在消息头和 TLV 中间，放置 64 字节的 key。
 
@@ -321,7 +323,7 @@ AirProtcl 当前不推荐 UDP 协议。
 
 ## 5.4 HTTP
 
-AirProtcl 当前不支持 HTTP UDP 协议。
+airCloud 当前不支持 HTTP UDP 协议。
 
 # 六、云端后台实现
 
@@ -351,7 +353,7 @@ AirProtcl 当前不支持 HTTP UDP 协议。
 
 ### 7.1.2 合宙批量挂测
 
-合宙的量产小板，用 airProtcl 批量挂测，做压力测试。
+合宙的量产小板，用 airCloud 批量挂测，做压力测试。
 
 ## 7.2 客户收费标准
 

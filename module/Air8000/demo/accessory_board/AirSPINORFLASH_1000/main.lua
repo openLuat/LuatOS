@@ -26,7 +26,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 
-PROJECT = "Air8000_SPI_NOR"
+PROJECT = "AirSPINORFLASH_1000"
 VERSION = "001.000.000"
 
 

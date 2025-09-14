@@ -70,10 +70,10 @@ end
 
 
 -- 加载ram_spi功能模块
-require "ram_spi"
+--require "ram_spi"
 
 -- 加载lf_fs功能模块
---require"lf_fs"
+require"lf_fs"
 
 
 -- 用户代码已结束---------------------------------------------

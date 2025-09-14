@@ -114,6 +114,30 @@ local function get_file_info(path)
     end
 end
 
+-- 定义系统文件的规则（系统文件不显示）
+local function is_system_file(filename)
+    -- 系统文件扩展名列表
+    local system_extensions = {".luac", ".html", ".md"}
+    -- 特殊系统文件名
+    local special_system_files = {".airm2m_all_crc#.bin"}
+
+    -- 检查文件名是否匹配特殊系统文件名
+    for _, sys_file in ipairs(special_system_files) do
+        if filename == sys_file then
+            return true
+        end
+    end
+
+    -- 检查文件扩展名是否为系统文件扩展名
+    for _, ext in ipairs(system_extensions) do
+        if filename:sub(-#ext) == ext then
+            return true
+        end
+    end
+
+    return false
+end
+
 -- 扫描目录
 local function scan_with_lsdir(path, files)
     log.info("LIST_DIR", "开始扫描目录")
@@ -177,30 +201,6 @@ local function scan_with_lsdir(path, files)
                     log.info("LIST_DIR", "添加目录: " .. entry.name .. ", 路径: " .. full_path)
                 end
             else
-                -- 定义系统文件的规则（系统文件不显示）
-                local function is_system_file(filename)
-                    -- 系统文件扩展名列表
-                    local system_extensions = {".luac", ".html", ".md"}
-                    -- 特殊系统文件名
-                    local special_system_files = {".airm2m_all_crc#.bin"}
-
-                    -- 检查文件名是否匹配特殊系统文件名
-                    for _, sys_file in ipairs(special_system_files) do
-                        if filename == sys_file then
-                            return true
-                        end
-                    end
-
-                    -- 检查文件扩展名是否为系统文件扩展名
-                    for _, ext in ipairs(system_extensions) do
-                        if filename:sub(-#ext) == ext then
-                            return true
-                        end
-                    end
-
-                    return false
-                end
-
                 -- 检查是否为用户文件
                 local is_user_file = not is_system_file(entry.name)
 

@@ -7,6 +7,7 @@
 @tag LUAT_USE_IPERF
 @usage
 -- 支持server模式, 也支持client模式
+-- 注意, 支持的是 iperf2, 不支持 iperf3
 */
 
 #include "luat_base.h"
@@ -41,6 +42,13 @@ static int l_iperf_report_handle(lua_State*L, void* ptr) {
 static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
     const ip_addr_t* local_addr, u16_t local_port, const ip_addr_t* remote_addr, u16_t remote_port,
     u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
+
+    if (report_type != LWIPERF_TCP_DONE_CLIENT && report_type != LWIPERF_TCP_DONE_SERVER) {
+        LLOGW("iperf异常结束, type %d", report_type);
+    }
+    else {
+        LLOGD("iperf正常结束, type %d", report_type);
+    }
     rtos_msg_t msg = {0};
     msg.arg1 = bytes_transferred;
     msg.arg2 = ms_duration;

@@ -1270,7 +1270,7 @@ static const rotable_Reg_t reg_eink[] =
 
     { "qrcode",         ROREG_FUNC(l_eink_qrcode)},
     { "bat",            ROREG_FUNC(l_eink_bat)},
-    #ifdef LUAT_USE_EINK_FULL
+    #ifndef LUAT_USE_EINK_LITE
     { "weather_icon",   ROREG_FUNC(l_eink_weather_icon)},
     #endif
 

@@ -52,8 +52,8 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     netdrv_tcp_evt_t evt = {0};
     evt.id = adapter_id;
     evt.flags = event_id;
-    if (proto == 0) {
-        proto = ctrl->is_tcp ? 1 : 2;
+    if (proto == 0 && event_id != (0x81)) {
+        evt.proto = ctrl->is_tcp ? 1 : 2;
     }
     else {
         evt.proto = proto;

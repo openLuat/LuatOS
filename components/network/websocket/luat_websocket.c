@@ -29,6 +29,10 @@ static void print_pkg(const char *tag, char *buff, luat_websocket_pkg_t *pkg)
 #define print_pkg(...)
 #endif
 
+#ifdef LUAT_USE_NETDRV
+extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl, uint8_t proto);
+#endif
+
 static int32_t luat_websocket_callback(void *data, void *param);
 
 #ifdef __LUATOS__
@@ -110,7 +114,7 @@ int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int 
 	int ret = network_tx(websocket_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
 	if (ret < 0)
 	{
-		LLOGI("network_tx %d , close socket", ret);
+		LLOGI("send pkg err %d , close socket", ret);
 		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_TX, 0);
 		luat_websocket_close_socket(websocket_ctrl);
 		return 0;
@@ -588,7 +592,7 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 		}
 	}
 	if (WEBSOCKET_RECV_BUF_LEN_MAX + 8 < websocket_ctrl->buffer_offset) {
-		LLOGD("pkg maybe too large");
+		LLOGD("pkg maybe too large %d", websocket_ctrl->buffer_offset);
 		return -1;
 	}
 	return 0;
@@ -648,6 +652,7 @@ static int32_t luat_websocket_callback(void *data, void *param)
 	if (event->Param1)
 	{
 		LLOGW("websocket_callback param1 %d, closing socket", event->Param1);
+		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_CONN, 0);
 		luat_websocket_close_socket(websocket_ctrl);
 		return 0;
 	}
@@ -655,6 +660,7 @@ static int32_t luat_websocket_callback(void *data, void *param)
 	if (ret < 0)
 	{
 		LLOGW("network_wait_event ret %d, closing socket", ret);
+		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_CONN, 0);
 		luat_websocket_close_socket(websocket_ctrl);
 		return -1;
 	}
@@ -672,6 +678,7 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	LLOGD("network_connect ret %d", ret);
 	if (ret < 0)
 	{
+		luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_ERROR_CONN, 0);
 		network_close(websocket_ctrl->netc, 0);
 		return -1;
 	}

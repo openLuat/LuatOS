@@ -441,6 +441,29 @@ static int l_socket_evt_cb(lua_State *L, void* ptr) {
     lua_pushinteger(L, evt->remote_port);
     lua_setfield(L, -2, "remote_port");
 
+    switch (evt->proto)
+    {
+    case 1:
+        lua_pushstring(L, "tcp");
+        break;
+    case 2:
+        lua_pushstring(L, "udp");
+        break;
+    case 3:
+        lua_pushstring(L, "http");
+        break;
+    case 4:
+        lua_pushstring(L, "mqtt");
+        break;
+    case 5:
+        lua_pushstring(L, "websocket");
+        break;
+    default:
+        lua_pushstring(L, "unknown");
+        break;
+    }
+    lua_setfield(L, -2, "proto");
+
     // p = ipaddr_ntoa_r(&evt->local_ip, buff, 32);
     // lua_pushstring(L, p);
     // lua_setfield(L, -2, "local_ip");

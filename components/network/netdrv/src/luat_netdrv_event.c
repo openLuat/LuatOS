@@ -30,7 +30,7 @@ void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_n
     // LLOGD("socket event cb adapter %d, flags=0x%02X userdata=%p", id, evt_flags, userdata);
 }
 
-__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl) {
+__NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl, uint8_t proto) {
     uint8_t adapter_id = ctrl->adapter_index;
     //LLOGD("fire tcp event %08X for adapter %d", event_id, adapter_id);
     if (event_id < EV_NW_RESET || event_id == EV_NW_SOCKET_TX_OK || event_id == EV_NW_SOCKET_RX_NEW) {
@@ -52,6 +52,12 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     netdrv_tcp_evt_t evt = {0};
     evt.id = adapter_id;
     evt.flags = event_id;
+    if (proto == 0) {
+        proto = ctrl->is_tcp ? 1 : 2;
+    }
+    else {
+        evt.proto = proto;
+    }
     if (ctrl->domain_name && ctrl->domain_name_len > 0) {
         strncpy(evt.domain_name, ctrl->domain_name, sizeof(evt.domain_name) - 1);
         evt.domain_name[sizeof(evt.domain_name) - 1] = 0;

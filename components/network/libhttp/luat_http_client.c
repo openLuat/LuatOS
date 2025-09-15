@@ -187,7 +187,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < http_ctrl->retry_cnt_max){
 		#ifdef LUAT_USE_NETDRV
-		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc);
+		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc, 3);
 		#endif
 		http_ctrl->re_request_count++;
 		network_close(http_ctrl->netc, 0);
@@ -198,7 +198,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 		}
 	}else if (http_ctrl->close_state==0){
 		#ifdef LUAT_USE_NETDRV
-		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc);
+		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc, 3);
 		#endif
 error:
 		http_ctrl->close_state=1;

@@ -7,6 +7,7 @@
 @tag LUAT_USE_IPERF
 @usage
 -- 支持server模式, 也支持client模式
+-- 注意, 支持的是 iperf2, 不支持 iperf3
 */
 
 #include "luat_base.h"
@@ -41,6 +42,13 @@ static int l_iperf_report_handle(lua_State*L, void* ptr) {
 static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
     const ip_addr_t* local_addr, u16_t local_port, const ip_addr_t* remote_addr, u16_t remote_port,
     u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
+
+    if (report_type != LWIPERF_TCP_DONE_CLIENT && report_type != LWIPERF_TCP_DONE_SERVER) {
+        LLOGW("iperf异常结束, type %d", report_type);
+    }
+    else {
+        LLOGD("iperf正常结束, type %d", report_type);
+    }
     rtos_msg_t msg = {0};
     msg.arg1 = bytes_transferred;
     msg.arg2 = ms_duration;
@@ -106,7 +114,8 @@ static int start_gogogo(iperf_start_ctx_t* ctx) {
 /*
 启动server模式
 @api iperf.server(id, port)
-@int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH0
+@int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH
+@int 监听的端口, 可选, 默认5001
 @return boolean 成功返回true, 失败返回false
 @usage
 -- 启动server模式, 监听5001端口
@@ -141,6 +150,7 @@ static int l_iperf_server(lua_State *L) {
 @api iperf.client(id, ip, port)
 @int 网络适配器的id, 必须填, 例如 socket.LWIP_ETH0
 @string 远程服务器的ip, 只能是ipv4地址,不支持域名!!! 必须填值
+@int 远程服务器的端口, 可选, 默认5001
 @return boolean 成功返回true, 失败返回false
 @usage
 -- 启动client模式, 连接服务器的5001端口

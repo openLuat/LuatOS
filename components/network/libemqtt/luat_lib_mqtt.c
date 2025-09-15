@@ -89,7 +89,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 		case MQTT_MSG_CONN_TIMEOUT: {
 			LLOGW("connect timeout %s %d!! expect conack in %ds", mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->conn_timeout);
 			#ifdef LUAT_USE_NETDRV
-			luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, mqtt_ctrl->netc);
+			luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, mqtt_ctrl->netc, 4);
 			#endif
 			if (mqtt_ctrl->mqtt_ref) {
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
@@ -272,6 +272,9 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 					lua_call(L, 4, 0);
 				}
             }
+			#ifdef LUAT_USE_NETDRV
+			luat_netdrv_fire_socket_event_netctrl(EV_NW_SOCKET_ERROR, mqtt_ctrl->netc, 4);
+			#endif
 			break;
 		default : {
 			LLOGD("l_mqtt_callback error arg1:%d",msg->arg1);

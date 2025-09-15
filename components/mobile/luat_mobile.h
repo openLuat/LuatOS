@@ -532,6 +532,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_IMS_REGISTER_STATUS, /**< IMS注册状态，volte必须在注册成功情况下使用*/
 	LUAT_MOBILE_EVENT_CC,	/**< 通话相关消息*/
 	LUAT_MOBILE_EVENT_USB_ETH_ON,
+	LUAT_MOBILE_EVENT_RRC,
 	LUAT_MOBILE_EVENT_FATAL_ERROR = 0xff,/**< 网络遇到严重故障*/
 }LUAT_MOBILE_EVENT_E;
 
@@ -648,6 +649,12 @@ typedef enum LUAT_MOBILE_CC_PLAY_IND
 	LUAT_MOBILE_CC_PLAY_CALL_INCOMINGCALL_RINGING, /**< 播放来电铃声*/
 }LUAT_MOBILE_CC_PLAY_IND_E;
 
+typedef enum LUAT_MOBILE_RRC_IND
+{
+	LUAT_MOBILE_RRC_DRX_CYCLE_UPDATED,
+	LUAT_MOBILE_RRC_IDLE_MEAS_THRESHOLD,
+	LUAT_MOBILE_RRC_IDLE_MEAS_ACTION,
+}LUAT_MOBILE_RRC_IND_E;
 /**
  * @brief 获取当前SIM卡状态
  *
@@ -734,6 +741,8 @@ void luat_mobile_rrc_auto_release_pause(uint8_t onoff);
  * @note 没有在Air724上使用过AT*RTIME的，或者不明白RRC的含义，请不要使用RRC相关API
  */
 void luat_mobile_rrc_release_once(void);
+
+void luat_mobile_rrc_get_idle_meas_threshold(int16_t *sIntraSearchP, int16_t *sNonIntraSearchP, int16_t *sIntraSearchQ, int16_t *sNonIntraSearchQ);
 
 /**
  * @brief 获取当前与基站的RRC状态，等于AT+CSCON

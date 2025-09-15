@@ -1421,10 +1421,11 @@ static int l_zbuff_equal(lua_State *L)
 /**
 将当前zbuff数据转base64,输出到下一个zbuff中
 @api buff:toBase64(dst)
-@userdata zbuff指针, 必须大于目标长度, 即buff:used() * 1.35
-@return int 转换后的长度
+@userdata zbuff指针
+@return int 转换后的实际长度
 @usage
-buff:toBase64(dst) -- dst:len必须大于buff:used() * 1.35
+-- dst:len必须大于buff:used() * 1.35 + 3, 确保有足够空间存放base64数据
+buff:toBase64(dst)
 */
 #include "luat_str.h"
 static int l_zbuff_to_base64(lua_State *L) {

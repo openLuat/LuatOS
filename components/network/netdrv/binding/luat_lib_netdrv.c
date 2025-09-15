@@ -424,14 +424,45 @@ static int l_socket_evt_cb(lua_State *L, void* ptr) {
         break;
     }
     lua_newtable(L);
-    // 填充参数表, 远端ip, 远端端口, 本地ip, 本地端口
+    // 填充参数表 远端ip, 远端端口, 本地ip, 本地端口
     char buff[32] = {0};
-    char* p = ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
-    lua_pushstring(L, p);
-    lua_setfield(L, -2, "remote_ip");
+    if (!ip_addr_isany(&evt->remote_ip)) {
+        ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
+        lua_pushstring(L, buff);
+        lua_setfield(L, -2, "remote_ip");
+    }
+
+    if (!ip_addr_isany(&evt->online_ip)) {
+        ipaddr_ntoa_r(&evt->online_ip, buff, 32);
+        lua_pushstring(L, buff);
+        lua_setfield(L, -2, "online_ip");
+    }
 
     lua_pushinteger(L, evt->remote_port);
     lua_setfield(L, -2, "remote_port");
+
+    switch (evt->proto)
+    {
+    case 1:
+        lua_pushstring(L, "tcp");
+        break;
+    case 2:
+        lua_pushstring(L, "udp");
+        break;
+    case 3:
+        lua_pushstring(L, "http");
+        break;
+    case 4:
+        lua_pushstring(L, "mqtt");
+        break;
+    case 5:
+        lua_pushstring(L, "websocket");
+        break;
+    default:
+        lua_pushstring(L, "unknown");
+        break;
+    }
+    lua_setfield(L, -2, "proto");
 
     // p = ipaddr_ntoa_r(&evt->local_ip, buff, 32);
     // lua_pushstring(L, p);
@@ -479,16 +510,16 @@ netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
     -- event是事件id, 字符串类型, 
         - create 创建socket对象
         - release 释放socket对象
-        - connecting 正在连接
-        - connected 连接成功
+        - connecting 正在连接, 域名解析成功后出现
+        - connected 连接成功, TCP三次握手成功后出现
         - closed 连接关闭
-        - remote_close 远程关闭
+        - remote_close 远程关闭, 网络中断,或者服务器主动断开
         - timeout dns解析超时,或者tcp连接超时
         - error 错误,包括一切异常错误
-        - dns_result dns解析结果, 如果remote_ip为0.0.0.0,表示解析失败
     -- params是参数表
-        - remote_ip 远端ip地址
-        - remote_port 远端端口
+        - remote_ip 远端ip地址,未必存在
+        - remote_port 远端端口,未必存在
+        - online_ip 实际连接的ip地址,未必存在
         - domain_name 远端域名,如果是通过域名连接的话, release时没有这个值, create时也没有
     log.info("netdrv", "socket event", id, event, json.encode(params or {}))
     if params then

@@ -85,6 +85,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
+    luat_tp_config->opts->read_done(luat_tp_config);
     return 0;
 }
 

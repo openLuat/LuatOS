@@ -1095,7 +1095,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
 
 	// 插入几个事件回调
-	if (event->ID != 0 && ctrl) {
+	if (event->ID != 0 && event->ID != EV_NW_DNS_RESULT && ctrl) {
 		#ifdef LUAT_USE_NETDRV
 		luat_netdrv_fire_socket_event_netctrl(event->ID, ctrl);
 		#endif

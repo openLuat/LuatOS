@@ -61,6 +61,7 @@ __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event
     // }
     // else {
     evt.remote_ip = ctrl->remote_ip;
+    evt.online_ip = ctrl->online_ip;
     // }
     evt.local_port = ctrl->local_port;
     evt.remote_port = ctrl->remote_port;

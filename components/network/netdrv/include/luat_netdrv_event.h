@@ -19,6 +19,7 @@ typedef struct netdrv_tcp_evt {
     uint16_t re; // 保留字段, 目前未使用
     ip_addr_t local_ip; // 本地IP地址
     ip_addr_t remote_ip; // 远程IP地址
+    ip_addr_t online_ip; // 连接上的IP地址, DNS事件无效
     uint16_t local_port; // 本地端口
     uint16_t remote_port; // 远程端口
     char domain_name[256]; // 解析的域名, DNS事件有效

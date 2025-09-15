@@ -56,11 +56,23 @@ function send_write_data_timer_cbfunc()
     sys.publish("SEND_DATA_REQ", "timer", config.service_uuid, config.char_uuid3, write_data, "write", {func = send_data_cbfunc, para="timer "..write_data})
 end
 
--- 启动5秒的循环定时器用于通过notify方式发送数据
-sys.timerLoopStart(send_notify_data_timer_cbfunc, 5000)
-log.info("ble_timer_app", "已启动notify发送定时器, 间隔: 5000ms")
+local function ble_connect_status_handler(status)
+    if status then
+        -- 蓝牙连接成功，启动定时器
+        sys.timerLoopStart(send_notify_data_timer_cbfunc, 5000)
+        log.info("ble_timer_app", "已启动notify发送定时器, 间隔: 5000ms")
 
--- 启动6秒的循环定时器用于通过write方式发送数据
-sys.timerLoopStart(send_write_data_timer_cbfunc, 6000)
-log.info("ble_timer_app", "已启动write发送定时器, 间隔: 6000ms")
+        sys.timerLoopStart(send_write_data_timer_cbfunc, 6000)
+        log.info("ble_timer_app", "已启动write发送定时器, 间隔: 6000ms")
+    else
+        -- 蓝牙断开连接，停止定时器
+        sys.timerStop(send_notify_data_timer_cbfunc)
+        log.info("ble_timer_app", "已停止notify发送定时器")
 
+        sys.timerStop(send_write_data_timer_cbfunc)
+        log.info("ble_timer_app", "已停止write发送定时器")
+    end
+end
+
+-- 订阅BLE_CONNECT_STATUS事件
+sys.subscribe("BLE_CONNECT_STATUS", ble_connect_status_handler)

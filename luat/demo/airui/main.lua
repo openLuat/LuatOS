@@ -81,17 +81,49 @@ function tp_init()
     end
 end
 
+
+local num = 10
+local username = "张三"
+-- 用户数据，可以自定义，要和airui.json中的控件设置文本中格式匹配
+-- 例如当前的例子：label的文本中就使用为 {{person.name}} 和 {{person.age}}
+local appdata = {
+    person = {
+        name = username,
+        age = num
+    }
+}
+
+-- 自定义的回调函数
+local function event_handler(obj, event)
+    if (event == lvgl.EVENT_CLICKED) then
+        appdata.person.age = appdata.person.age + 1
+        airui.refresh_text("text_area_2", appdata)
+        log.info("button clicked age=", appdata.person.age)
+    end
+end
+
+-- 用户自定义函数，要和airui.json中的控件下的events字段对应
+local appfuncs = {
+    update_age = event_handler
+}
+
 sys.taskInit(function()
-    local uiJson = io.open("/luadb/ui.json")
+    -- local uiJson = io.open("/luadb/ui.json")
+    -- local ui_path = "/luadb/ui.json"
+    local ui_path = "/luadb/demo_2.json"
+    local uiJson = io.open(ui_path)
     local ui = json.decode(uiJson:read("*a"))
     log.info("ui", ui, ui.pages[1].children[1].name)
-
+    
     lcd_init()
     log.info("初始化lvgl", lvgl.init(ui.project_settings.resolution.width, ui.project_settings.resolution.height))
     tp_init()
     
-    airui.init("/luadb/ui.json")
-end)
+    airui.init(ui_path, {data = appdata, funcs = appfuncs})
 
+    local button = airui.get_widget("button_2")     -- 获得名称为 button_2 的按钮控件对象
+    -- sys.wait(5000)  -- 等待5s
+    -- airui.del_widget(button) -- 删除按钮
+end)
 
 sys.run()

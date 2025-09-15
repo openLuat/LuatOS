@@ -172,7 +172,25 @@ LUAMOD_API int luaopen_pins( lua_State *L ) {
 	char buff[64] = {0};
 	char name[40] = {0};
 	luat_hmeta_model_name(name);
+	// 需要兼容2种命名风格, 严格模组命名, 或者全小写命名
+	// 首先, 找pins_Air780EPM.json
+	// 不存在的话, 找 pins_air780epm.json
 	snprintf(buff, sizeof(buff), "/luadb/pins_%s.json", name);
+	if (luat_fs_fexist(buff) == 0) {
+		int size = strlen(name);
+    	int j;
+    
+    	for( int i = 0; i < size - 1 ; i++){
+        	for (int j = 97; j < 123; j ++){
+            	if (name[i] == j){
+                	j = j - 32;
+                	name[i] = j;
+                	break;
+            	}
+        	}
+    	}
+		snprintf(buff, sizeof(buff), "/luadb/pins_%s.json", name);
+	}
 	
 	int ret = luat_pins_load_from_file(buff);
 	if (ret == 0) {

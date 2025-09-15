@@ -58,10 +58,25 @@ local function read_data_req_timer_cbfunc()
     sys.sendMsg(BLE_TASK_NAME,"BLE_EVENT","READ_REQ",server_uuid,read_char_uuid)
 end
 
--- 启动5秒的循环定时器用于发送数据
-sys.timerLoopStart(send_data_req_timer_cbfunc, 5000)
-log.info("TIMER_APP", "已启动发送数据循环定时器，间隔: 5000ms")
+local function ble_connect_status_handler(status)
+    if status then
+        -- 蓝牙连接成功，启动定时器
+        -- 启动5秒的循环定时器用于发送数据
+        sys.timerLoopStart(send_data_req_timer_cbfunc, 5000)
+        log.info("TIMER_APP", "已启动发送数据循环定时器，间隔: 5000ms")
 
--- 启动5秒的循环定时器用于读取数据
-sys.timerLoopStart(read_data_req_timer_cbfunc, 5000)
-log.info("TIMER_APP", "已启动读取数据循环定时器，间隔: 5000ms")
+        -- 启动5秒的循环定时器用于读取数据
+        sys.timerLoopStart(read_data_req_timer_cbfunc, 5000)
+        log.info("TIMER_APP", "已启动读取数据循环定时器，间隔: 5000ms")
+    else
+        -- 蓝牙断开连接，停止定时器
+        sys.timerStop(send_data_req_timer_cbfunc)
+        log.info("TIMER_APP", "已停止发送数据循环定时器")
+
+        sys.timerStop(read_data_req_timer_cbfunc)
+        log.info("TIMER_APP", "已停止读取数据循环定时器")
+    end
+end
+
+-- 订阅BLE_CONNECT_STATUS事件
+sys.subscribe("BLE_CONNECT_STATUS", ble_connect_status_handler)

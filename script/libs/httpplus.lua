@@ -17,6 +17,9 @@
 -- 与http库的差异
 --   1. 不支持文件下载
 --   2. 不支持fota
+
+-- 支持  http 1.0 和 http 1.1, 不支持http2.0
+-- 支持 GET/POST/PUT/DELETE/HEAD 等常用方法
 ]]
 
 

@@ -18,6 +18,10 @@
 #include "luat_netdrv_event.h"
 #endif
 
+#ifdef LUAT_USE_NETDRV
+extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl, uint8_t proto);
+#endif
+
 typedef struct
 {
 #ifdef LUAT_USE_LWIP
@@ -811,6 +815,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 				#else
     			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
 				#endif
+				DBG_Printf("TLS handshake failed %d !!\n", -result);
     			ctrl->need_close = 1;
     			return -1;
     		}
@@ -1095,9 +1100,9 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
 
 	// 插入几个事件回调
-	if (event->ID != 0 && ctrl) {
+	if (event->ID != 0 && event->ID != EV_NW_DNS_RESULT && ctrl) {
 		#ifdef LUAT_USE_NETDRV
-		luat_netdrv_fire_socket_event_netctrl(event->ID, ctrl);
+		luat_netdrv_fire_socket_event_netctrl(event->ID, ctrl, 0);
 		#endif
 	}
 
@@ -1398,8 +1403,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter no more ctrl!");}
 	#ifdef LUAT_USE_NETDRV
 	if (ctrl) {
-		extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
-		luat_netdrv_fire_socket_event_netctrl(0x81 + EV_NW_RESET, ctrl);
+		luat_netdrv_fire_socket_event_netctrl(0x81 + EV_NW_RESET, ctrl, 0);
 	}
 	#endif // LUAT_USE_NETDRV
 	return ctrl;
@@ -1419,8 +1423,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 		if (&adapter->ctrl_table[i] == ctrl)
 		{
 			#ifdef LUAT_USE_NETDRV
-			extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
-			luat_netdrv_fire_socket_event_netctrl(0x82 + EV_NW_RESET, ctrl);
+			luat_netdrv_fire_socket_event_netctrl(0x82 + EV_NW_RESET, ctrl, 0);
 			#endif
 			network_deinit_tls(ctrl);
 			if (ctrl->timer)
@@ -1602,8 +1605,7 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 		DBG("network %d local port auto select %u",offset, local_port);
 	}
 	#ifdef LUAT_USE_NETDRV
-	extern void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl);
-	luat_netdrv_fire_socket_event_netctrl(0x83 + EV_NW_RESET, ctrl);
+	luat_netdrv_fire_socket_event_netctrl(0x83 + EV_NW_RESET, ctrl, 0);
 	#endif
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }

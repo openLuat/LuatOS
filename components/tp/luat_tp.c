@@ -44,16 +44,17 @@ void luat_tp_task_entry(void* param){
         //     last_y = tp_data->y_coordinate;
         // }
         
-        if (luat_tp_config->callback){
+        if (luat_tp_config->callback == NULL){
+            luat_tp_config->opts->read_done(luat_tp_config);
+        }else{
             luat_tp_config->callback(luat_tp_config,tp_data);
         }
-        luat_tp_config->opts->read_done(luat_tp_config);
     }
 }
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
     if (g_s_tp_task_handle == NULL){
-        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 10, "tp", luat_tp_task_entry, NULL, 32);
+        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 80, "tp", luat_tp_task_entry, NULL, 32);
         if (ret){
             g_s_tp_task_handle = NULL;
             LLOGE("tp task create failed!");

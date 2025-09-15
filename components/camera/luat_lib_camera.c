@@ -248,7 +248,14 @@ static int l_camera_init(lua_State *L){
         lua_pop(L, 1);
         result = luat_camera_init(&conf);
         if (result < 0) {
-            lua_pushboolean(L, 0);
+            if (conf.async) {
+                camera_idp = luat_pushcwait(L);
+                lua_pushboolean(L, 0);
+                luat_pushcwait_error(L,1);
+            }
+            else {
+                lua_pushboolean(L, 0);
+            }
         } else {
             if (conf.async) {
                 camera_idp = luat_pushcwait(L);

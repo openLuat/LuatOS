@@ -1565,7 +1565,7 @@ end)
 		LLOGD("LUAT_MOBILE_EVENT_RRC status %d",status);
 /*
 @sys_pub mobile
-通话状态变化,2025/9/15启用
+RRC部分信息上报,2025/9/15启用
 RRC_IND
 @usage
 sys.subscribe("RRC_IND", function(event, value, ...)

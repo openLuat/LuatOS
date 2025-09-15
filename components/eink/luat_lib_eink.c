@@ -919,14 +919,6 @@ static int l_eink_bat(lua_State *L)
     return 0;
 }
 
-/**
-缓冲区绘制天气图标
-@api eink.weather_icon(x, y, code)
-@int x坐标
-@int y坐标
-@int 天气代号
-@return nil 无返回值
-*/
 static int l_eink_weather_icon(lua_State *L)
 {
     size_t len;
@@ -1278,7 +1270,9 @@ static const rotable_Reg_t reg_eink[] =
 
     { "qrcode",         ROREG_FUNC(l_eink_qrcode)},
     { "bat",            ROREG_FUNC(l_eink_bat)},
+    #ifdef LUAT_USE_EINK_FULL
     { "weather_icon",   ROREG_FUNC(l_eink_weather_icon)},
+    #endif
 
     { "model",          ROREG_FUNC(l_eink_model)},
     { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},

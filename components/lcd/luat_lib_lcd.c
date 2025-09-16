@@ -6,6 +6,12 @@
 @date    2021.06.16
 @demo lcd
 @tag LUAT_USE_LCD
+@usage
+--提醒:
+-- 1. 本模块需要硬件支持, 请确认你的设备有lcd屏幕
+-- 2. 本功能支持 SPI QSPI RGB等多种接口的lcd屏幕, 取决于具体的模组硬件
+-- 3. 对于Air780EHM/Air8000 系列, 默认开启JPG硬件解码, JPG图片的长宽都需要是16的倍数, 否则会出现画面拉伸的现象
+-- 4. 大部分API都只能在lcd.init()成功后使用
 */
 #include "luat_base.h"
 #include "luat_lcd.h"

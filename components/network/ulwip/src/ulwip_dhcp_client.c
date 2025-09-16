@@ -67,9 +67,10 @@ on_check:
         }
 
         // 设置到netif
-        ip_addr_set_ip4_u32(&netif->ip_addr, dhcp->ip);
-        ip_addr_set_ip4_u32(&netif->netmask, dhcp->submask);
-        ip_addr_set_ip4_u32(&netif->gw,      dhcp->gateway);
+        ip4_addr_t ipaddr = {.addr=dhcp->ip};
+        ip4_addr_t netmask = {.addr=dhcp->submask};
+        ip4_addr_t gw = {.addr=dhcp->gateway};
+        netif_set_addr(netif, &ipaddr, &netmask, &gw);
         dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
         if (rxbuff) {
             luat_heap_free(rxbuff);
@@ -247,9 +248,12 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         luat_rtos_timer_create(&ctx->dhcp_timer);
         s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
     }
-    ip_addr_set_any(0, &ctx->netif->ip_addr);
-    ip_addr_set_any(0, &ctx->netif->ip_addr);
-    ip_addr_set_any(0, &ctx->netif->netmask);
+    ip4_addr_t ipaddr = {0};
+    ip4_addr_t netmask = {0};
+    ip4_addr_t gw = {0};
+    if (ctx->netif) {
+        netif_set_addr(ctx->netif, &ipaddr, &netmask, &gw);
+    }
     ctx->dhcp_client->state = DHCP_STATE_DISCOVER;
     ctx->dhcp_client->discover_cnt = 0;
     if (!luat_rtos_timer_is_active(ctx->dhcp_timer))
@@ -271,9 +275,10 @@ void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
             reset_dhcp_client(ctx);
         }
         if (ctx->netif) {
-            ip_addr_set_any(0, &ctx->netif->ip_addr);
-            ip_addr_set_any(0, &ctx->netif->ip_addr);
-            ip_addr_set_any(0, &ctx->netif->netmask);
+            ip4_addr_t ipaddr = {0};
+            ip4_addr_t netmask = {0};
+            ip4_addr_t gw = {0};
+            netif_set_addr(ctx->netif, &ipaddr, &netmask, &gw);
         }
     }
 }

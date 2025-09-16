@@ -31,6 +31,11 @@ log.info("httpdns", "air32.cn", ip)
 ]]
 function httpdns.ali(n, opts)
     if n == nil then return end
+    if opts == nil then
+        opts = {timeout=3000}
+    elseif opts.timeout == nil then
+        opts.timeout = 3000
+    end
     local code, _, body = http.request("GET", "http://223.5.5.5/resolve?short=1&name=" .. tostring(n), nil, nil, opts).wait()
     if code == 200 and body and #body > 2 then
         local jdata = json.decode(body)
@@ -57,6 +62,11 @@ log.info("httpdns", "air32.cn", ip)
 ]]
 function httpdns.tx(n, opts)
     if n == nil then return end
+    if opts == nil then
+        opts = {timeout=3000}
+    elseif opts.timeout == nil then
+        opts.timeout = 3000
+    end
     local code, _, body = http.request("GET", "http://119.29.29.29/d?dn=" .. tostring(n), nil, nil, opts).wait()
     if code == 200 and body and #body > 2 then
         local tmp = body:split(",")

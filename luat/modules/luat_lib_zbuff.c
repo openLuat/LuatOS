@@ -1432,9 +1432,15 @@ static int l_zbuff_to_base64(lua_State *L) {
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
     luat_zbuff_t *buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     size_t olen = 0;
-    luat_str_base64_encode(buff2->addr, buff2->len, &olen, buff->addr, buff->used);
-    buff2->used = olen;
-    lua_pushinteger(L, olen);
+    int ret = luat_str_base64_encode(buff2->addr, buff2->len, &olen, buff->addr, buff->used);
+    if (ret) {
+        LLOGE("zbuff toBase64 failed %d", ret);
+        lua_pushinteger(L, 0);
+    }
+    else {
+        buff2->used = olen;
+        lua_pushinteger(L, olen);
+    }
     return 1;
 };
 

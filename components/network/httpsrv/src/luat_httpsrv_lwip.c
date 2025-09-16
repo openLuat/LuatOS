@@ -35,6 +35,7 @@ typedef struct client_socket_ctx
     uint32_t recv_done;
     char *buff;
     size_t buff_offset;
+    size_t buff_size;
     struct tcp_pcb* pcb;
     size_t send_size;
     size_t sent_size;
@@ -282,22 +283,33 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         tcp_abort(tpcb);
         return ERR_ABRT;
     }
-    // LLOGD("tpcb %p p %p len %d err %d", tpcb, p, p->len, err);
+    LLOGD("tpcb %p p %p len %d err %d", tpcb, p, p->tot_len, err);
     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
     if (ctx->buff == NULL) {
-        ctx->buff = luat_heap_malloc(4096);
+        ctx->buff = luat_heap_malloc(p->tot_len);
         if (ctx->buff == NULL) {
-            LLOGD("out of memory when malloc client buff");
+            LLOGW("out of memory when malloc client buff %d", p->tot_len);
             // pbuf_free(p); // 需要吗?
             tcp_abort(tpcb);
             return ERR_ABRT;
         }
         ctx->buff_offset = 0;
+        ctx->buff_size = p->tot_len;
     }
-    memcpy(ctx->buff + ctx->buff_offset, p->payload, p->len);
-    ctx->buff_offset += p->len;
+    if (ctx->buff_offset + p->tot_len > ctx->buff_size) {
+        char* ptr = luat_heap_realloc(ctx->buff, ctx->buff_offset + p->tot_len);
+        if (ptr == NULL) {
+            LLOGW("out of memory when realloc client buff %d", ctx->buff_offset + p->tot_len);
+            tcp_abort(tpcb);
+            return ERR_ABRT;
+        }
+        ctx->buff = ptr;
+        ctx->buff_size = ctx->buff_offset + p->tot_len;
+    }
+    pbuf_copy_partial(p, ctx->buff + ctx->buff_offset, p->tot_len, 0);
+    ctx->buff_offset += p->tot_len;
     //LLOGD("request %.*s", p->len, p->payload);
-    tcp_recved(tpcb, p->len);
+    tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
 
     ctx->parser.data = ctx;
@@ -629,7 +641,7 @@ static int my_on_message_complete(http_parser* parser) {
 static int my_on_url(http_parser* parser, const char *at, size_t length) {
     LLOGD("on_header_url %p %d", at, length);
     if (length > 1024) {
-        LLOGW("request URL is too long!!!");
+        LLOGW("request URL is too long!!! %d", length);
         return HPE_INVALID_URL;
     }
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
@@ -675,15 +687,16 @@ static int my_on_body(http_parser* parser, const char *at, size_t length) {
         }
     }
     else {
-        char* tmp = luat_heap_realloc(client->body, client->body_size + length);
+        // TODO 做成链表
+        char* tmp = luat_heap_realloc(client->body, length);
         if (tmp == NULL) {
-            LLOGE("realloc body FAIL!!!");
+            LLOGE("realloc body FAIL!!! %d", length);
             return HPE_INVALID_STATUS;
         }
         client->body = tmp;
     }
-    memcpy(client->body + client->body_size, at, length);
-    client->body_size += length;
+    memcpy(client->body, at, length);
+    client->body_size = length;
     return 0;
 }
 

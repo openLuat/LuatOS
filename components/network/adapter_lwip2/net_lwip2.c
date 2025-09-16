@@ -759,7 +759,7 @@ static void net_lwip2_task(void *param)
 		}
 		p_ip = (ip_addr_t *)event.Param2;
 		ipaddr_ntoa_r(p_ip, ip_string, 64);
-		LLOGD("connect %s:%d %s", ip_string, prvlwip.socket[socket_id].remote_port, prvlwip.socket[socket_id].is_tcp ? "TCP" : "UDP");
+		LLOGD("adapter %d connect %s:%d %s", adapter_index, ip_string, prvlwip.socket[socket_id].remote_port, prvlwip.socket[socket_id].is_tcp ? "TCP" : "UDP");
 		local_ip = NULL;
 		#if LWIP_IPV6
 		if (p_ip->type == IPADDR_TYPE_V4)

@@ -6,6 +6,23 @@
 @demo spi
 @video https://www.bilibili.com/video/BV1VY411M7YH
 @tag LUAT_USE_SPI
+@usage
+-- 本库支持2套API风格
+-- 1. 老的API,spi.xxx 方式,需要自己控制软件cs引脚，不同设备要手动重新配置spi参数
+-- 2. 新的API(推荐使用), spidevice对象方式,不需要手动控制cs引脚，不同设备也无需重复配置参数,设备内部自动管理
+
+
+-- 老API
+spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+local result = spi.send(0, "123")--发送123
+local recv = spi.recv(0, 4)--接收4字节数据
+spi.close(0)
+-- 新API
+local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local result = spi_device:send("123")--发送123
+local recv = spi_device:recv(4)--接收4字节数据
+spi_device:close()
+
 */
 #include "luat_base.h"
 #include "luat_log.h"
@@ -571,7 +588,7 @@ static int l_spi_device_setup(lua_State *L) {
 @return int 成功返回0,否则返回其他值
 @usage
 -- 初始化spi
-spi_device.close()
+spi_device:close()
 */
 static int l_spi_device_close(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);

@@ -428,7 +428,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
             }
         }
         else if (uart_app_recvs[uart_id] == NULL) {
-            LLOGD("uart%ld no received callback", uart_id);
+            //LLOGD("uart%ld no received callback", uart_id);
         }
     }
 

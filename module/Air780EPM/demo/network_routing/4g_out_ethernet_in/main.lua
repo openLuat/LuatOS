@@ -6,7 +6,7 @@
 @author  魏健强
 @usage
 本demo演示的核心功能为：
-1.设置多网融合功能，4G提供网络供wifi和以太网设备上网
+1.设置多网融合功能，4G提供网络供以太网设备上网
 更多说明参考本目录下的readme.md文件
 ]]
 --[[
@@ -19,7 +19,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "4g_out_ethernet_in_wifi_in"
+PROJECT = "4g_out_ethernet_in"
 VERSION = "001.000.000"
 
 

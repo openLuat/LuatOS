@@ -48,6 +48,7 @@ netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8,irq=20})
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
+    size_t len = 0;
     conf.id = luaL_checkinteger(L, 1);
     conf.impl = luaL_optinteger(L, 2, 0);
     conf.irqpin = 255; // 默认无效
@@ -75,6 +76,44 @@ static int l_netdrv_setup(lua_State *L) {
             conf.flags = luaL_checkinteger(L, -1);
         };
         lua_pop(L, 1);
+
+        #ifdef LUAT_USE_NETDRV_WG
+        // WG的配置参数比较多, 放在这里面传递
+        // 需要的参数有, private_key, public_key, endpoint, port, address, dns, mtu
+        if (lua_getfield(L, 3, "wg_private_key") == LUA_TSTRING) {
+            conf.wg_private_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        // 本地端口
+        if (lua_getfield(L, 3, "wg_listen_port") == LUA_TNUMBER) {
+            conf.wg_listen_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        // keepalive时长
+        if (lua_getfield(L, 3, "wg_keepalive") == LUA_TNUMBER) {
+            conf.wg_keepalive = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        // 预分享密钥
+        if (lua_getfield(L, 3, "wg_preshared_key") == LUA_TSTRING) {
+            conf.wg_preshared_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+
+        // 对端信息, 公钥, IP地址, 端口
+        if (lua_getfield(L, 3, "wg_endpoint_key") == LUA_TSTRING) {
+            conf.wg_endpoint_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "wg_endpoint_ip") == LUA_TSTRING) {
+            conf.wg_endpoint_ip = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
+            conf.wg_endpoint_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        #endif
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
@@ -589,6 +628,9 @@ static const rotable_Reg_t reg_netdrv[] =
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},
     { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
+    #ifdef LUAT_USE_NETDRV_WG
+    { "WG",             ROREG_INT(32)}, // Wireguard VPN网卡
+    #endif
     //@const WHALE number 虚拟网卡
     { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
 

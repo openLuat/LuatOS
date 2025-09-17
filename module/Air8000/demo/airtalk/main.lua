@@ -3,15 +3,49 @@
 --按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
 PROJECT = "airtalk_demo"
 VERSION = "1.0.1"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+PRODUCT_KEY = "29uptfBkJMwFC7x7QeW10UPO3LecPYFu" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 _G.sys=require"sys"
 log.style(1)
-require "demo_define"
-require "airtalk_dev_ctrl"
-require "audio_config"
+extalk = require("extalk")
+exaudio = require("exaudio")
+local USER_TASK_NAME = "user"
+local MSG_READY = 10
+local MSG_NOT_READY = 11
+local MSG_KEY_PRESS = 12
+local g_dev_list
+-- 音频初始化设置参数,exaudio.setup 传入参数
+local audio_setup_param ={
+    model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
+    i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
+    pa_ctrl = 162,         -- 音频放大器电源控制管脚
+    dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
+}
 
---errDump.config(true, 600, "airtalk_test")
-mcu.hardfault(0)
+
+local function contact_list(dev_list)
+    g_dev_list = dev_list
+    for i=1,#dev_list do
+        log.info("联系人ID:",dev_list[i]["id"],"名称:",dev_list[i]["name"])
+    end
+end
+
+local function state(event)
+    if event  == extalk.START then
+        log.info("对讲开始")
+    elseif  event  == extalk.STOP then
+        log.info("对讲结束")
+    elseif  event  == extalk.UNRESPONSIVE then
+        log.info("对端未响应")
+    end
+end
+
+local extalk_configs = {
+    key = PRODUCT_KEY,               -- 项目key，一般来说需要和main 的PRODUCT_KEY保持一致
+    heart_break_time = 120,  -- 心跳间隔(单位秒)
+    contact_list_cbfnc = contact_list, -- 联系人回调函数，回调信息含设备号和昵称
+    state_cbfnc = state,  --状态回调，分为对讲开始，对讲结束，未响应
+}
+
 local function boot_key_cb()
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)
 end
@@ -38,18 +72,26 @@ local function task_cb(msg)
 end
 
 local function user_task()
-    audio_init()
-    airtalk_mqtt_init()
-    local msg
-    while true do
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        if msg[2] then  -- true powerkey false boot key
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_GROUP_SPEECH_TEST_START)   --测试阶段自动给一个device打
-        else
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_TEST_START)   --测试阶段自动给一个device打
-        end 
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_TEST_END)        --再按一次就自动挂断
+    local msg,res
+    if exaudio.setup(audio_setup_param) then      --  音频初始化
+        extalk.setup(extalk_configs)              -- airtalk 初始化
+        while true do
+            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+            log.info("收到按键消息1",msg)
+            if msg[2] then  -- true powerkey false boot key
+                for i=1,#g_dev_list do
+                    res = g_dev_list[i]["id"]
+                    if res and res ~= mobile.imei() then     -- 不能本机和本机通话
+                        break
+                    end
+                end
+                extalk.start(res)     -- 开始一对一对讲
+            else
+                extalk.start()        -- 开始对群组广播
+            end 
+            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)   -- 再按一次就关闭对讲
+            extalk.stop()       -- 停止对讲
+        end
     end
 end
 

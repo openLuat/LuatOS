@@ -1,3 +1,44 @@
+--[[
+@module extalk
+@summary extalk扩展库
+@version 1.1
+@date    2025.09.17
+@author  梁健
+@usage
+]]
+local extalk = {}
+
+-- 模块常量
+extalk.START = 1     --  通话开始
+extalk.STOP = 2      -- 通话结束
+extalk.UNRESPONSIVE 	 = 3  --  未响应
+
+local AIRTALK_TASK_NAME = "airtalk_task"
+
+
+local MSG_CONNECT_ON_IND = 0
+local MSG_CONNECT_OFF_IND = 1
+local MSG_AUTH_IND = 2
+local MSG_SPEECH_ON_IND = 3
+local MSG_SPEECH_OFF_IND = 4
+local MSG_SPEECH_CONNECT_TO = 5
+
+local MSG_PERSON_SPEECH_TEST_START = 20
+local MSG_GROUP_SPEECH_TEST_START = 21
+local MSG_SPEECH_STOP_TEST_END = 22
+
+
+
+local SP_T_NO_READY = 0           -- 离线状态无法对讲
+local SP_T_IDLE = 1               -- 对讲空闲状态
+local SP_T_CONNECTING = 2         -- 主动发起对讲
+local SP_T_CONNECTED = 3          -- 对讲中
+
+
+local SUCC = "success"
+
+
+
 local g_state = SP_T_NO_READY   --device状态
 local g_mqttc = nil             --mqtt客户端
 local g_local_id                  --本机ID
@@ -9,10 +50,19 @@ local g_dev_list                --对讲列表
 
 
 
+local extalk_configs_local = {
+    key = 0,               -- 项目key，一般来说需要和main 的PRODUCT_KEY保持一致
+    heart_break_time = 0,  -- 心跳间隔(单位秒)
+    contact_list_cbfnc = nil, -- 联系人回调函数，回调信息含设备号和昵称
+    state_cbfnc = nil,  --状态回调，分为对讲开始，对讲结束，未响应
+}
+
+
+
 
 local function auth()
     if g_state == SP_T_NO_READY then
-        g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0001", json.encode({["key"] = PRODUCT_KEY, ["device_type"] = 1}))
+        g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0001", json.encode({["key"] = extalk_configs_local.key, ["device_type"] = 1}))
     end
 end
 
@@ -36,7 +86,7 @@ local function speech_on(ssrc, sample)
     log.info("对讲模式", g_s_mode)
     airtalk.speech(true, g_s_mode, sample)
     sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, true) 
-    sys.timerLoopStart(heart, 150000)
+    sys.timerLoopStart(heart, extalk_configs_local.heart_break_time*1000)
     sys.timerStopAll(wait_speech_to)
     log.info("对讲接通，可以说话了")
 end
@@ -71,9 +121,11 @@ local function analyze_v1(cmd, topic, obj)
             return
         else
             if obj and obj["result"] == SUCC and g_s_topic == obj["topic"]then  --完全正确，开始对讲
+                extalk_configs_local.state_cbfnc(extalk.START)
                 speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
                 return
             else
+                extalk_configs_local.state_cbfnc(extalk.UNRESPONSIVE)
                 log.info(obj["result"], obj["topic"], g_s_topic)
                 sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, false)   --有异常，无法对讲
             end
@@ -125,6 +177,7 @@ local function analyze_v1(cmd, topic, obj)
             if obj and obj["type"] == g_s_type then
                 new_obj = {["result"] = SUCC, ["info"] = ""}
                 speech_off(false, true)
+                extalk_configs_local.state_cbfnc(extalk.STOP)
             else
                 new_obj = {["result"] = "failed", ["info"] = "type mismatch"}
             end
@@ -160,6 +213,7 @@ local function analyze_v1(cmd, topic, obj)
             -- for i=1,#g_dev_list do
             --     log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
             -- end
+            extalk_configs_local.contact_list_cbfnc(g_dev_list)
             g_state = SP_T_IDLE
             sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, true)  --完整登录流程结束
         else
@@ -268,43 +322,30 @@ local function airtalk_mqtt_task()
             msg = sys.waitMsg(AIRTALK_TASK_NAME)
             if type(msg) == 'table' and type(msg[1]) == "number" then
                 if msg[1] == MSG_PERSON_SPEECH_TEST_START then
-                    if g_state ~= SP_T_IDLE then
-                        log.info("正在对讲无法开始")
-                    else
-                        log.info("测试一下主动1对1对讲功能，找一个有效的IMEI")
+                    -- if g_state ~= SP_T_IDLE then
+                    --     log.info("正在对讲无法开始")
+                    -- else
+                    --     log.info("测试一下主动1对1对讲功能，找一个有效的IMEI")
 
-                        for i=1,#g_dev_list do
-                            res = string.match(g_dev_list[i]["id"], "(%w%w%w%w%w%w%w%w%w%w%w%w%w%w%w)")
-                            if res and res ~= g_local_id then
-                                break
-                            end
-                        end
-                        if res then
-                            log.info("向", res, "主动发起对讲")
-                            g_state = SP_T_CONNECTING
-                            g_remote_id = res
-                            g_s_mode = airtalk.MODE_PERSON
-                            g_s_type = "one-on-one"
-                            g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
-                            g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
-                            sys.timerStart(wait_speech_to, 15000)
-                        else
-                            log.info("找不到有效的设备ID")
-                        end
-                    end
+                    --     for i=1,#g_dev_list do
+                    --         res = string.match(g_dev_list[i]["id"], "(%w%w%w%w%w%w%w%w%w%w%w%w%w%w%w)")
+                    --         if res and res ~= g_local_id then
+                    --             break
+                    --         end
+                    --     end
+                    --     if res then
+                          
+                    --     else
+                    --         log.info("找不到有效的设备ID")
+                    --     end
+                    -- end
                 elseif msg[1] == MSG_GROUP_SPEECH_TEST_START then
-                    if g_state ~= SP_T_IDLE then
-                        log.info("正在对讲无法开始")
-                    else
-                        log.info("测试一下1对多对讲功能")
-                        g_remote_id = "all"
-                        g_state = SP_T_CONNECTING
-                        g_s_mode = airtalk.MODE_GROUP_SPEAKER
-                        g_s_type = "broadcast"
-                        g_s_topic = "audio/" .. g_local_id .. "/all/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
-                        g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
-                        sys.timerStart(wait_speech_to, 15000)
-                    end
+                    -- if g_state ~= SP_T_IDLE then
+                    --     log.info("正在对讲无法开始")
+                    -- else
+                    --     log.info("测试一下1对多对讲功能")
+                        
+                    -- end
                 elseif msg[1] == MSG_SPEECH_STOP_TEST_END then
                     if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then
                         log.info("没有对讲", g_state)
@@ -332,8 +373,88 @@ local function airtalk_mqtt_task()
     end
 end
 
-function airtalk_mqtt_init()
+
+
+
+
+-- 工具函数：参数检查
+local function check_param(param, expected_type, name)
+    if type(param) ~= expected_type then
+        log.error(string.format("参数错误: %s 应为 %s 类型", name, expected_type))
+        return false
+    end
+    return true
+end
+
+function extalk.setup(extalk_configs)
+    if not extalk_configs or type(extalk_configs) ~= "table" then
+        log.error("AirTalk配置必须为table类型")
+        return false
+    end
+
+    -- 检查key值
+    if not check_param(extalk_configs.key, "string", "key") then
+        log.error("key必须为字符串")
+        return false
+    end
+    extalk_configs_local.key = extalk_configs.key
+
+    -- 检查heart_break_time值
+    if not check_param(extalk_configs.heart_break_time, "number", "heart_break_time") then
+        log.error("心跳时间字段必须为number类型(单位秒)")
+        return false
+    end
+
+    extalk_configs_local.heart_break_time = extalk_configs.heart_break_time
+
+    -- 检查contact_list_cbfnc值
+    if not check_param(extalk_configs.contact_list_cbfnc, "function", "contact_list_cbfnc") then
+        log.error("联系人回调函数字段必须为function")
+        return false
+    end
+
+    extalk_configs_local.contact_list_cbfnc = extalk_configs.contact_list_cbfnc
+    -- 检查state_cbfnc值
+    if not check_param(extalk_configs.state_cbfnc, "function", "state_cbfnc") then
+        log.error("状态回调，联系人回调字段必须为function")
+        return false
+    end
+    extalk_configs_local.state_cbfnc = extalk_configs.state_cbfnc
     sys.taskInitEx(airtalk_mqtt_task, AIRTALK_TASK_NAME, task_cb)
+
+end
+
+function extalk.start(id)
+    if g_state ~= SP_T_IDLE then
+        log.warn("正在对讲无法开始")
+    end
+    if id == nil then
+        g_remote_id = "all"
+        g_state = SP_T_CONNECTING
+        g_s_mode = airtalk.MODE_GROUP_SPEAKER
+        g_s_type = "broadcast"
+        g_s_topic = "audio/" .. g_local_id .. "/all/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
+        g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
+        sys.timerStart(wait_speech_to, 15000)
+    else
+        log.info("向", id, "主动发起对讲")
+        g_state = SP_T_CONNECTING
+        g_remote_id = id
+        g_s_mode = airtalk.MODE_PERSON
+        g_s_type = "one-on-one"
+        g_s_topic = "audio/" .. g_local_id .. "/" .. g_remote_id .. "/" .. (string.sub(tostring(mcu.ticks()), -4, -1))
+        g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0003", json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
+        sys.timerStart(wait_speech_to, 15000)
+    end
+end
+function extalk.stop()
+    if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then
+        log.info("没有对讲", g_state)
+    end
+
+    log.info("主动断开对讲")
+    speech_off(true, false)
 end
 
 
+return extalk

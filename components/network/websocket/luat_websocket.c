@@ -37,6 +37,10 @@ int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int
 static int luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2){
 #ifdef __LUATOS__
     l_luat_websocket_msg_cb(websocket_ctrl,arg1,arg2);
+    if (websocket_ctrl->websocket_cb){
+        luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
+        websocket_cb(websocket_ctrl, arg1,arg2);
+    }
 #else
 	if (websocket_ctrl->websocket_cb){
 		luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;

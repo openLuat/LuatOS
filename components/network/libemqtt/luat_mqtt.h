@@ -1,6 +1,7 @@
 #ifndef LUAT_MQTT_H
 #define LUAT_MQTT_H
 #include "luat_network_adapter.h"
+#include "luat_websocket.h"
 /**
  * @defgroup luatos_MQTT  MQTT相关接口
  * @{
@@ -61,6 +62,11 @@ typedef struct{
 	void* ping_timer;			/**< mqtt_ping定时器*/
 	int mqtt_ref;				/**<  强制引用自身避免被GC*/
 	void* userdata;				/**< userdata */
+	/* MQTT over WebSocket 扩展字段 */
+	uint8_t ws_mode; 					/**< 0: TCP/MQTTS, 1: MQTT over WebSocket */
+	luat_websocket_ctrl_t ws_ctrl; 		/**< WebSocket 控制块 */
+	char ws_url[256]; 					/**< 完整 ws(s)://url 路径 */
+	char* ws_headers; 					/**< 额外 WebSocket 握手头部(以\r\n结尾) */
 }luat_mqtt_ctrl_t;
 
 typedef struct{

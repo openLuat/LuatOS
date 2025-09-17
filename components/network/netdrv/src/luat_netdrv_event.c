@@ -31,17 +31,20 @@ void luat_netdrv_register_socket_event_cb(uint8_t id, uint32_t evt_flags, luat_n
 }
 
 __NETDRV_CODE_IN_RAM__ void luat_netdrv_fire_socket_event_netctrl(uint32_t event_id, network_ctrl_t* ctrl, uint8_t proto) {
-    uint8_t adapter_id = ctrl->adapter_index;
-    //LLOGD("fire tcp event %08X for adapter %d", event_id, adapter_id);
     if (event_id < EV_NW_RESET || event_id == EV_NW_SOCKET_TX_OK || event_id == EV_NW_SOCKET_RX_NEW) {
         return; // 其他事件无视
     }
-    if (s_tcpevt_regs[adapter_id].cb == NULL) {
-        //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
+    if (ctrl == NULL) {
         return;
     }
-    if (ctrl == NULL || adapter_id >= NW_ADAPTER_QTY || adapter_id <= 0) {
-        LLOGW("TCP事件网络适配器ID无效 %d", adapter_id);
+    uint8_t adapter_id = ctrl->adapter_index;
+    //LLOGD("fire tcp event %08X for adapter %d", event_id, adapter_id);
+    if (adapter_id >= NW_ADAPTER_QTY || adapter_id <= 0) {
+        LLOGW("adapter %d is valid, but socket event id is %d", adapter_id, event_id);
+        return;
+    }
+    if (s_tcpevt_regs[adapter_id].cb == NULL) {
+        //LLOGD("TCP事件网络适配器ID无效 %d", adapter_id);
         return;
     }
     event_id -= EV_NW_RESET;

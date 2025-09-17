@@ -1562,7 +1562,7 @@ end)
         }
         break;
 	case LUAT_MOBILE_EVENT_RRC:
-		LLOGD("LUAT_MOBILE_EVENT_RRC status %d",status);
+		// LLOGD("LUAT_MOBILE_EVENT_RRC status %d",status);
 /*
 @sys_pub mobile
 RRC部分信息上报,2025/9/15启用

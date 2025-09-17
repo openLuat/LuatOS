@@ -131,6 +131,8 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
         memcpy(mqtt_ctrl->ws_url, opts->host, strlen(opts->host));
         /* 初始化 WebSocket 控制块 */
         luat_websocket_init(&mqtt_ctrl->ws_ctrl, mqtt_ctrl->adapter_index);
+        /* 强制无效IP，避免传入0.0.0.0 导致直连失败，走域名解析 */
+        network_set_ip_invaild(&mqtt_ctrl->ws_ctrl.ip_addr);
         luat_websocket_connopts_t ws_opts = {0};
         ws_opts.url = mqtt_ctrl->ws_url;
         ws_opts.keepalive = 60;

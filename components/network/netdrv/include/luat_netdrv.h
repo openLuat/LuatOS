@@ -2,6 +2,7 @@
 #define LUAT_NETDRV_H
 
 #include "lwip/pbuf.h"
+#include "luat_ulwip.h"
 
 struct luat_netdrv;
 
@@ -68,6 +69,7 @@ typedef struct luat_netdrv_statics
 typedef struct luat_netdrv {
     int32_t id;
     struct netif* netif;
+    ulwip_ctx_t* ulwip;
     luat_netdrv_dataout_cb dataout;
     luat_netdrv_bootup_cb boot;
     luat_netdrv_ready_cb ready;
@@ -124,6 +126,8 @@ void luat_netdrv_debug_set(int id, int enable);
 void luat_netdrv_netif_set_down(struct netif* netif);
 
 void luat_netdrv_netif_set_link_down(struct netif* netif);
+
+int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable);
 
 extern uint32_t g_netdrv_debug_enable;
 

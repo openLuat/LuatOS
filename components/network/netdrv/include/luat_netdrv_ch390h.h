@@ -21,10 +21,8 @@ typedef struct ch390h
     uint8_t intpin;
     uint8_t adapter_id;
     uint8_t status;
-    uint8_t dhcp;
-    uint8_t hwaddr[6];
-    struct netif* netif;
-    ulwip_ctx_t ulwip;
+    uint8_t init_done;
+    uint8_t init_step;
     luat_netdrv_t* netdrv;
     uint8_t rxbuff[1600];
     uint8_t txbuff[1600];

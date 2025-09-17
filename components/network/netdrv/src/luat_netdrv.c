@@ -318,3 +318,26 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
     nd6_cleanup_netif(netif);
     #endif /* LWIP_IPV6 */
 }
+
+// DHCP操作
+
+int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
+    if (drv->ulwip == NULL) {
+        return -1;
+    }
+    if (drv->ulwip->dhcp_enable == enable) {
+        return 0;
+    }
+    // cfg->dhcp = (uint8_t)enable;
+    drv->ulwip->dhcp_enable = enable;
+    if (drv->ulwip->netif == NULL) {
+        return 0;
+    }
+    if (enable) {
+        ulwip_dhcp_client_start(drv->ulwip);
+    }
+    else {
+        ulwip_dhcp_client_stop(drv->ulwip);
+    }
+    return 0;
+}

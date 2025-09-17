@@ -16,6 +16,7 @@
 #include "lwip/pbuf.h"
 #include "lwip/ip_addr.h"
 #include "luat_netdrv_whale.h"
+#include "luat_netdrv_event.h"
 
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
@@ -61,18 +62,21 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                 drv->netif->hwaddr_len = 6;
 
                 // STA网络状态对吗?
+                // LLOGD("sta station %d  netif link is %d", dev->wifi.sta_state, netif_is_link_up(drv->netif));
                 if (dev->wifi.sta_state == 0) {
-                    if (netif_is_up(drv->netif)) {
+                    if (netif_is_link_up(drv->netif)) {
                         // 网卡掉线了哦
                         LLOGD("wifi sta掉线了");
-                        luat_netdrv_whale_ipevent(drv, 0);
+                        // luat_netdrv_whale_ipevent(drv, 0);
+                        luat_netdrv_set_link_updown(drv, 0);
                     }
                 }
                 else {
-                    if (netif_is_up(drv->netif) == 0) {
+                    if (netif_is_link_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         LLOGD("wifi sta上线了");
-                        luat_netdrv_whale_ipevent(drv, 1);
+                        // luat_netdrv_whale_ipevent(drv, 1);
+                        luat_netdrv_set_link_updown(drv, 1);
                     }
                 }
                 break;
@@ -96,18 +100,20 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
                 }
                 // AP网络状态对吗?
                 if (dev->wifi.ap_state == 0) {
-                    if (netif_is_up(drv->netif)) {
+                    if (netif_is_link_up(drv->netif)) {
                         // 网卡掉线了哦
                         LLOGD("wifi ap已关闭");
-                        luat_netdrv_whale_ipevent(drv, 0);
+                        // luat_netdrv_whale_ipevent(drv, 0);
+                        luat_netdrv_set_link_updown(drv, 0);
                     }
                 }
                 else {
-                    if (netif_is_up(drv->netif) == 0) {
+                    if (netif_is_link_up(drv->netif) == 0) {
                         // 网卡上线了哦
                         ipaddr_ntoa_r(&drv->netif->ip_addr, buff, 32);
-                        LLOGD("wifi ap已开启 %s", buff);
-                        luat_netdrv_whale_ipevent(drv, 1);
+                        LLOGD("wifi ap已开启 %s %p", buff, drv->netif);
+                        // luat_netdrv_whale_ipevent(drv, 1);
+                        luat_netdrv_set_link_updown(drv, 1);
                     }
                 }
                 break;
@@ -126,18 +132,20 @@ __AIRLINK_CODE_IN_RAM__ int luat_airlink_cmd_exec_dev_info(luat_airlink_cmd_t* c
         // 1是已注册, 5是漫游且已注册
         if (dev->cat1.cat_state != 1 && dev->cat1.cat_state != 5) {
             // 掉线了
-            if (netif_is_up(drv->netif)) {
+            if (netif_is_link_up(drv->netif)) {
                 // 网卡掉线了哦
-                LLOGD("4G网卡掉线了");
-                luat_netdrv_whale_ipevent(drv, 0);
+                LLOGD("4G代理网卡掉线了");
+                // luat_netdrv_whale_ipevent(drv, 0);
+                luat_netdrv_set_link_updown(drv, 0);
             }
         }
         else {
             // 上线了
-            if (netif_is_up(drv->netif) == 0) {
+            if (netif_is_link_up(drv->netif) == 0) {
                 // 网卡上线了哦
-                LLOGD("4G网卡上线了");
-                luat_netdrv_whale_ipevent(drv, 1);
+                LLOGD("4G代理网卡上线了");
+                // luat_netdrv_whale_ipevent(drv, 1);
+                luat_netdrv_set_link_updown(drv, 1);
             }
         }
     }

@@ -18,6 +18,7 @@
 #include "luat_wdt.h"
 
 #include "luat_rtos.h"
+#include "luat_netdrv_event.h"
 
 #define LUAT_LOG_TAG "netdrv.ch390x"
 #include "luat_log.h"
@@ -63,7 +64,7 @@ static int ch390h_irq_cb(void *data, void *args) {
 }
 
 static int ch390h_bootup(ch390h_t* ch) {
-    if (ch->ulwip.netif != NULL) {
+    if (ch->init_done) {
         return 0;
     }
     // 初始化SPI设备, 由外部代码初始化, 因为不同bsp的速度不一样, 就不走固定值了
@@ -93,9 +94,7 @@ static int ch390h_bootup(ch390h_t* ch) {
         // LLOGI("enable pull mode, use pool mode");
     }
 
-    // 初始化dhcp相关资源
-    ch->ulwip.netif = ch->netif;
-    ch->ulwip.adapter_index = ch->adapter_id;
+    ch->init_done = 1;
     return 0;
 }
 
@@ -180,7 +179,7 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         if (ch == NULL) {
             continue;
         }
-        if (ch->netif != netif) {
+        if (ch->netdrv->netif != netif) {
             continue;
         }
         ch390h_dataout_pbuf(ch, p);
@@ -265,11 +264,9 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         
         LLOGD("初始化MAC %02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
         // TODO 判断mac是否合法
-        memcpy(ch->hwaddr, buff, 6);
-        memcpy(ch->netif->hwaddr, buff, 6);
+        memcpy(ch->netdrv->netif->hwaddr, buff, 6);
         ch->status = 2;
         ch->netdrv->dataout = ch390h_dataout;
-        netif_set_up(ch->netif);
         luat_ch390h_basic_config(ch);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
@@ -306,28 +303,16 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         // LLOGD("PHY状态 %02X", buff[0]);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
-        if (netif_is_link_up(ch->netif)) {
-            LLOGI("link is down %d %d", ch->spiid, ch->cspin);
-            luat_netdrv_netif_set_link_down(ch->netif);
-            ulwip_netif_ip_event(&ch->ulwip);
-            if (ch->dhcp) {
-                // 停止dhcp定时器
-                ulwip_dhcp_client_stop(&ch->ulwip);
-            }
+        if (netif_is_link_up(ch->netdrv->netif)) {
+            LLOGI("link is down %d %d %p", ch->spiid, ch->cspin, ch->netdrv->netif);
+            luat_netdrv_set_link_updown(ch->netdrv, 0);
         }
         return 0; // 网络断了, 没那么快恢复的, 等吧
     }
 
-    if (!netif_is_link_up(ch->netif)) {
+    if (!netif_is_link_up(ch->netdrv->netif)) {
         LLOGI("link is up %d %d %s", ch->spiid, ch->cspin, (NSR & (1<<7)) ? "10M" : "100M");
-        netif_set_link_up(ch->netif);
-        luat_rtos_task_sleep(20); // 等待50ms
-        ulwip_netif_ip_event(&ch->ulwip);
-        if (ch->dhcp) {
-            luat_rtos_task_sleep(30); // 等待30ms再启动dhcp
-            // 启动dhcp定时器
-            ulwip_dhcp_client_start(&ch->ulwip);
-        }
+        luat_netdrv_set_link_updown(ch->netdrv, 1);
     }
 
     if (cs) {
@@ -366,7 +351,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             }
             else {
                 // 如果返回值是0, 那就是继续处理, 输入到netif
-                ret = luat_netdrv_netif_input_proxy(ch->netif, ch->rxbuff, len - 4);
+                ret = luat_netdrv_netif_input_proxy(ch->netdrv->netif, ch->rxbuff, len - 4);
                 if (ret) {
                     LLOGE("luat_netdrv_netif_input_proxy 返回错误!!! ret %d", ret);
                     return 1;
@@ -396,7 +381,7 @@ static int task_loop(ch390h_t *ch, luat_ch390h_cstring_t* cs) {
     int ret = 0;
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
-        if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->netif != NULL) {
+        if (ch390h_drvs[i] != NULL && ch390h_drvs[i]->init_step) {
             ret += task_loop_one(ch390h_drvs[i], ch == ch390h_drvs[i] ? cs : NULL);
         }
     }

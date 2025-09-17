@@ -3,6 +3,11 @@
 #include "luat_ulwip.h"
 #include "luat_crypto.h"
 
+#ifdef LUAT_USE_NETDRV
+#include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
+#endif
+
 #define LUAT_LOG_TAG "ulwip"
 #include "luat_log.h"
 
@@ -76,7 +81,18 @@ on_check:
             luat_heap_free(rxbuff);
             rxbuff = NULL;
         }
+        #ifndef LUAT_USE_NETDRV
         ulwip_netif_ip_event(ctx);
+        #else
+        luat_netdrv_t* drv = luat_netdrv_get(adapter_index);
+        if (drv == NULL || drv->netif == NULL) {
+            LLOGE("adapter %d netdrv not found", adapter_index);
+        }
+        else {
+            net_lwip2_set_link_state(adapter_index, 1);
+            luat_netdrv_send_ip_event(drv, 1);
+        }
+        #endif
         luat_rtos_timer_stop(ctx->dhcp_timer);
         luat_rtos_timer_start(ctx->dhcp_timer, 60000, 1, dhcp_client_timer_cb, ctx);
         if (ctx->event_cb) {
@@ -229,7 +245,7 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
 }
 
 void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
-    // LLOGD("dhcp start netif %p", ctx->netif);
+    LLOGD("adapter %d dhcp start netif %p", ctx->adapter_index, ctx->netif);
     if (ctx->netif == NULL) {
         LLOGE("ctx->netif is NULL!!!!");
         return;
@@ -245,6 +261,7 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
     if (!ctx->dhcp_client) {
         ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
         reset_dhcp_client(ctx);
+        net_lwip2_set_dhcp_client(ctx->adapter_index, ctx->dhcp_client);
         luat_rtos_timer_create(&ctx->dhcp_timer);
         s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
     }

@@ -8,12 +8,10 @@
 
 typedef struct luat_netdrv_whale {
     uint8_t id;
-    void* userdata;
     uint8_t flags;
     uint16_t mtu;
+    void* userdata;
     uint8_t mac[6];
-    uint8_t dhcp;
-    ulwip_ctx_t ulwip;
 }luat_netdrv_whale_t;
 
 

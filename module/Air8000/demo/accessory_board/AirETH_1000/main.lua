@@ -52,16 +52,16 @@ end
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
 -- 加载网络驱动设备功能模块
-require "netdrv_device"
+-- require "netdrv_device"
 
 -- 开启多网融合功能,4G提供网络供以太网和wifi设备上网
--- require "4g-eth-wifi"
+require "4g-eth-wifi"
 
 -- 开启多网融合功能,WIFI提供网络供以太网和wifi设备上网 
 -- require "wifi-eth-wifi"
 
 -- 加载http应用功能模块
-require "http_app"
+-- require "http_app"
 
 -- 用户代码已结束
 -- 结尾总是这一句

@@ -45,6 +45,7 @@ typedef struct luat_uart_cb {
 } luat_uart_cb_t;
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
+static luat_uart_sent_callback_t uart_app_sents[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 #ifdef LUAT_USE_SOFT_UART
 #ifndef __LUAT_C_CODE_IN_RAM__
 #define __LUAT_C_CODE_IN_RAM__
@@ -346,6 +347,21 @@ void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
 	}
 }
 
+void luat_uart_set_app_sent(int id, luat_uart_sent_callback_t cb) {
+	#ifdef LUAT_USE_DRV_UART
+	if (luat_drv_uart_exist(id))
+	#else
+    if (luat_uart_exist(id))
+	#endif
+	{
+        uart_app_sents[id] = cb;
+        luat_setup_cb(id, 1, 1); // 暂时覆盖
+    }
+	else {
+		LLOGW("not exist uart id=%d", id);
+	}
+}
+
 int l_vuart_state_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -385,6 +401,9 @@ int l_uart_handler(lua_State *L, void* ptr) {
     // sent event
     if (msg->arg2 == 0) {
         // LLOGD("uart%ld sent callback", uart_id);
+		if (uart_app_sents[uart_id]) {
+            uart_app_sents[uart_id](uart_id, (void *)msg->arg2);
+        }
         if (uart_cbs[uart_id].sent) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
             if (lua_isfunction(L, -1)) {
@@ -409,7 +428,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
             }
         }
         else if (uart_app_recvs[uart_id] == NULL) {
-            LLOGD("uart%ld no received callback", uart_id);
+            //LLOGD("uart%ld no received callback", uart_id);
         }
     }
 

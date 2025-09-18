@@ -759,7 +759,7 @@ static void net_lwip2_task(void *param)
 		}
 		p_ip = (ip_addr_t *)event.Param2;
 		ipaddr_ntoa_r(p_ip, ip_string, 64);
-		LLOGD("connect %s:%d %s", ip_string, prvlwip.socket[socket_id].remote_port, prvlwip.socket[socket_id].is_tcp ? "TCP" : "UDP");
+		LLOGD("adapter %d connect %s:%d %s", adapter_index, ip_string, prvlwip.socket[socket_id].remote_port, prvlwip.socket[socket_id].is_tcp ? "TCP" : "UDP");
 		local_ip = NULL;
 		#if LWIP_IPV6
 		if (p_ip->type == IPADDR_TYPE_V4)
@@ -925,13 +925,10 @@ static void net_lwip2_task(void *param)
 			luat_heap_free(ips);
 			break;
 		}
-		// ipaddr_ntoa_r(&ips[0], ip_string, 64);
-		// LLOGI("设置IP啊 %s", ip_string);
-		// ipaddr_ntoa_r(&ips[1], ip_string, 64);
-		// LLOGI("设置MARK啊 %s", ip_string);
-		// ipaddr_ntoa_r(&ips[2], ip_string, 64);
-		// LLOGI("设置GW啊 %s", ip_string);
-		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ips[0], &ips[1], &ips[2]);
+		ip4_addr_t ip4 = {.addr=ip_addr_get_ip4_u32(&ips[0])};
+		ip4_addr_t netmask4 = {.addr=ip_addr_get_ip4_u32(&ips[1])};
+		ip4_addr_t gw4 = {.addr=ip_addr_get_ip4_u32(&ips[2])};
+		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ip4, &netmask4, &gw4);
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);
 		break;

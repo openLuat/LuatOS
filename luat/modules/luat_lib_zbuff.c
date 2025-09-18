@@ -395,6 +395,15 @@ buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg") -- 按格式写入几个数�
 -- < 小端
 -- > 大端
 -- = 默认大小端
+
+-- 例子
+buff:pack(
+">IIHA", -- 格式字符串：大端序，依次为[4字节无符号整型, 4字节无符号整型, 2字节无符号短整型, 字符串]
+0x1234, -- 参数1：整数值，写入为4字节（大端：00 00 12 34）
+0x4567, -- 参数2：整数值，写入为4字节（大端：00 00 45 67）
+0x12, -- 参数3：整数值，写入为2字节（大端：00 12）
+"abcdefg" -- 参数4：字符串，写入7字节ASCII码（61 62 63 64 65 66 67）
+)
  */
 #define PACKNUMBER(OP, T)                                    \
     case OP:                                                 \
@@ -1421,19 +1430,26 @@ static int l_zbuff_equal(lua_State *L)
 /**
 将当前zbuff数据转base64,输出到下一个zbuff中
 @api buff:toBase64(dst)
-@userdata zbuff指针, 必须大于目标长度, 即buff:used() * 1.35
-@return int 转换后的长度
+@userdata zbuff指针
+@return int 转换后的实际长度
 @usage
-buff:toBase64(dst) -- dst:len必须大于buff:used() * 1.35
+-- dst:len必须大于buff:used() * 1.35 + 3, 确保有足够空间存放base64数据
+buff:toBase64(dst)
 */
 #include "luat_str.h"
 static int l_zbuff_to_base64(lua_State *L) {
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
     luat_zbuff_t *buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     size_t olen = 0;
-    luat_str_base64_encode(buff2->addr, buff2->len, &olen, buff->addr, buff->used);
-    buff2->used = olen;
-    lua_pushinteger(L, olen);
+    int ret = luat_str_base64_encode(buff2->addr, buff2->len, &olen, buff->addr, buff->used);
+    if (ret) {
+        LLOGE("zbuff toBase64 failed %d", ret);
+        lua_pushinteger(L, 0);
+    }
+    else {
+        buff2->used = olen;
+        lua_pushinteger(L, olen);
+    }
     return 1;
 };
 

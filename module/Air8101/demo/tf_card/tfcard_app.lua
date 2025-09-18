@@ -302,11 +302,11 @@ local function tfcard_main_task()
     log.info("文件操作", "===== 文件操作完成 =====")
 
     -- ########## 功能: 收尾功能演示##########
-    -- 卸载文件系统和关闭SPI
+    -- 卸载文件系统
     ::resource_cleanup::
 
     log.info("结束", "开始执行关闭操作...")  
-    -- 如已挂载需先卸载文件系统，未挂载直接关闭SPI
+    -- 如已挂载需先卸载文件系统
     if mount_ok then
         if fatfs.unmount("/sd") then
             log.info("文件系统", "卸载成功")

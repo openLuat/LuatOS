@@ -785,6 +785,10 @@ int8_t u8g2_font_2x_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data)
   return d*2;
 }
 
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+#include "luat_fs.h"
+#include "luat_mem.h"
+#endif
 /*
   Description:
     Find the starting point of the glyph data.
@@ -796,6 +800,77 @@ int8_t u8g2_font_2x_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data)
 const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
 {
   const uint8_t *font = u8g2->font;
+    uint8_t font_data[4] = {0};
+    // luat_fs_fread(font_info, 1, 21, u8g2->font_file);
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+    if (u8g2->font_file){
+        luat_fs_fseek(u8g2->font_file, U8G2_FONT_DATA_STRUCT_SIZE, SEEK_SET);
+        if ( encoding <= 255 ){
+            if ( encoding >= 'a' ){
+                luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_lower_a, SEEK_CUR);
+            } else if ( encoding >= 'A' ){
+                luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_upper_A, SEEK_CUR);
+            }
+            for(;;){
+                font_data[1] = 0;
+                luat_fs_fread(font_data, 1, 2, u8g2->font_file);
+                if (font_data[1] == 0) break;
+                if (font_data[0] == encoding ){
+                    if(u8g2->font){
+                        u8g2->font = luat_heap_realloc(u8g2->font, font_data[1] - 2);
+                    }else{
+                        u8g2->font = luat_heap_malloc(font_data[1] - 2);
+                    }
+                    luat_fs_fread(u8g2->font, 1, font_data[1] - 2, u8g2->font_file);
+                    return u8g2->font;
+                }
+                luat_fs_fseek(u8g2->font_file, font_data[1] - 2, SEEK_CUR);
+            }
+        }
+        #ifdef U8G2_WITH_UNICODE
+            else{
+                uint16_t e;
+                const uint8_t *unicode_lookup_table;
+                // font += u8g2->font_info.start_pos_unicode;
+                luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_unicode, SEEK_CUR);
+                unicode_lookup_table = font; 
+                /* issue 596: search for the glyph start in the unicode lookup table */
+                // do{
+                //     font += u8g2_font_get_word(unicode_lookup_table, 0);
+                //     e = u8g2_font_get_word(unicode_lookup_table, 2);
+                //     unicode_lookup_table+=4;
+                // } while( e < encoding );
+                for(;;){
+                    // e = u8x8_pgm_read( font );
+                    // e <<= 8;
+                    // e |= u8x8_pgm_read( font + 1 );
+                    // if ( e == 0 )
+                    //     break;
+                    // if ( e == encoding ){
+                    //     return font+3;	/* skip encoding and glyph size */
+                    // }
+                    // font += u8x8_pgm_read( font + 2 );
+
+                    luat_fs_fread(font_data, 1, 3, u8g2->font_file);
+                    e = font_data[0]<<8 | font_data[1];
+                    if ( e == 0 )
+                        break;
+                    if ( e == encoding ){
+                        if(u8g2->font){
+                            u8g2->font = luat_heap_realloc(u8g2->font, font_data[2] - 3);
+                        }else{
+                            u8g2->font = luat_heap_malloc(font_data[2] - 3);
+                        }
+                        luat_fs_fread(u8g2->font, 1, font_data[2] - 3, u8g2->font_file);
+                        return u8g2->font;
+                    }
+                    luat_fs_fseek(u8g2->font_file, font_data[2] - 3, SEEK_CUR);
+                }  
+            }
+        #endif
+        return NULL;
+    }
+#endif
   font += U8G2_FONT_DATA_STRUCT_SIZE;
 
   
@@ -1294,14 +1369,24 @@ void u8g2_SetFontPosCenter(u8g2_t *u8g2)
 
 void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
 {
-  if ( u8g2->font != font )
+  if ( u8g2->font != font || font == NULL)
   {
 //#ifdef  __unix__
 //	u8g2->last_font_data = NULL;
 //	u8g2->last_unicode = 0x0ffff;
 //#endif 
     u8g2->font = font;
-    u8g2_read_font_info(&(u8g2->font_info), font);
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+    if(font == NULL){
+        uint8_t font_info[U8G2_FONT_DATA_STRUCT_SIZE] = {0};
+        luat_fs_fseek(u8g2->font_file, 0, SEEK_SET);
+        luat_fs_fread(font_info, 1, U8G2_FONT_DATA_STRUCT_SIZE, u8g2->font_file);
+        u8g2_read_font_info(&(u8g2->font_info), font_info);
+    }else
+#endif
+    {
+        u8g2_read_font_info(&(u8g2->font_info), font);
+    }
     u8g2_UpdateRefHeight(u8g2);
     /* u8g2_SetFontPosBaseline(u8g2); */ /* removed with issue 195 */
 #if (defined __LUATOS__) || defined (__USER_CODE__)

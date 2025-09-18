@@ -123,6 +123,19 @@ sys.subscribe("SIM_IND", function(status, value)
     end
 end)
 
+sys.subscribe("RRC_IND", function(event, v1, v2, v3, v4)
+	log.info("rrc status", event)
+	if event == "DRX" then
+		log.info("drx周期", v1, "ms")
+	end
+	if event == "IDLE_MEAS_THRESHOLD" then
+		log.info("sIntraSearchP", v1)
+		log.info("sNonIntraSearchP", v2)
+		log.info("sIntraSearchQ", v3)
+		log.info("sNonIntraSearchQ", v4)
+	end
+end)
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

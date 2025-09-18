@@ -50,6 +50,11 @@ static const char *error_string[WEBSOCKET_MSG_ERROR_MAX - WEBSOCKET_MSG_ERROR_CO
 		"other"
 };
 
+#ifdef LUAT_USE_NETDRV
+#include "luat_netdrv.h"
+#include "luat_netdrv_event.h"
+#endif
+
 static luat_websocket_ctrl_t *get_websocket_ctrl(lua_State *L)
 {
 	if (luaL_testudata(L, 1, LUAT_WEBSOCKET_CTRL_TYPE))
@@ -174,6 +179,9 @@ int l_websocket_callback(lua_State *L, void *ptr)
 				lua_call(L, 4, 0);
 			}
 		}
+		#ifdef LUAT_USE_NETDRV
+		luat_netdrv_fire_socket_event_netctrl(EV_NW_SOCKET_ERROR, websocket_ctrl->netc, 5);
+		#endif
 		break;
 	}
 	default:

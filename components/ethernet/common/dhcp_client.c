@@ -267,7 +267,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	*remote_ip = 0xffffffff;
 	int result = 0;
 	uint64_t tnow = luat_mcu_tick64_ms();
-	LLOGD("dhcp state %d %lld %lld %lld", dhcp->state, tnow, dhcp->lease_p1_time, dhcp->lease_p2_time);
+	LLOGD("dhcp state %d tnow %lld p1 %lld p2 %lld", dhcp->state, tnow, dhcp->lease_p1_time, dhcp->lease_p2_time);
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);

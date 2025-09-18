@@ -223,6 +223,9 @@ void luat_uart_soft_sleep_enable(uint8_t is_enable);
 
 int luat_uart_wait_485_tx_done(int uartid);
 void luat_uart_patch(int *param);
+
+void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
+void luat_uart_set_app_sent(int id, luat_uart_sent_callback_t cb);
 /** @}*/
 /** @}*/
 #endif

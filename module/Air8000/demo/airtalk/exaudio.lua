@@ -111,7 +111,7 @@ local function check_param(param, expected_type, name)
         log.error(string.format("参数错误: %s 应为 %s 类型", name, expected_type))
         return false
     end
-    return true 
+    return true
 end
 
 -- 音频回调处理

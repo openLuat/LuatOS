@@ -18,25 +18,33 @@ uint32_t g_netdrv_debug_enable;
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
 luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
 luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
+luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *conf);
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
-    if (conf->id < 0 || conf->id >= NW_ADAPTER_QTY) {
+    int id = conf->id;
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
         return NULL;
     }
     int ret = 0;
-    if (drvs[conf->id] == NULL) {
+    if (drvs[id] == NULL) {
         // 注册新的设备?
         #ifdef __LUATOS__
         #ifdef LUAT_USE_NETDRV_CH390H
         if (conf->impl == 1) { // CH390H
-            drvs[conf->id] = luat_netdrv_ch390h_setup(conf);
-            return drvs[conf->id];
+            drvs[id] = luat_netdrv_ch390h_setup(conf);
+            return drvs[id];
         }
         #endif
         #ifdef LUAT_USE_AIRLINK
         if (conf->impl == 64) { // WHALE
-            drvs[conf->id] = luat_netdrv_whale_setup(conf);
-            return drvs[conf->id];
+            drvs[id] = luat_netdrv_whale_setup(conf);
+            return drvs[id];
+        }
+        #endif
+        #ifdef LUAT_USE_NETDRV_WG
+        if (conf->impl == 32) { // WG
+            drvs[id] = luat_netdrv_wg_setup(conf);
+            return drvs[id];
         }
         #endif
         #endif
@@ -317,4 +325,27 @@ void luat_netdrv_netif_set_link_down(struct netif* netif) {
     #if LWIP_IPV6
     nd6_cleanup_netif(netif);
     #endif /* LWIP_IPV6 */
+}
+
+// DHCP操作
+
+int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
+    if (drv->ulwip == NULL) {
+        return -1;
+    }
+    if (drv->ulwip->dhcp_enable == enable) {
+        return 0;
+    }
+    // cfg->dhcp = (uint8_t)enable;
+    drv->ulwip->dhcp_enable = enable;
+    if (drv->ulwip->netif == NULL) {
+        return 0;
+    }
+    if (enable) {
+        ulwip_dhcp_client_start(drv->ulwip);
+    }
+    else {
+        ulwip_dhcp_client_stop(drv->ulwip);
+    }
+    return 0;
 }

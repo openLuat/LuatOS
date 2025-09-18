@@ -77,7 +77,7 @@ local extalk_configs = {
 
 local function init_talk()
     log.info("init_call")
-    airaudio.init() 
+    airaudio.init()                           -- 初始化音频
     extalk.setup(extalk_configs)              -- airtalk 初始化
 end
 
@@ -206,8 +206,9 @@ end
 
 
 local function start_talk()
-    talk_state = "一对一通话开始"
-    extalk.start(speech_topic)
+    if extalk.start(speech_topic) then
+        talk_state = "发起一对一通话中...."
+    end
 end
 
 local function start_broadcast()

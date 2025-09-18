@@ -12,6 +12,8 @@ local extalk = {}
 extalk.START = 1     --  通话开始
 extalk.STOP = 2      -- 通话结束
 extalk.UNRESPONSIVE 	 = 3  --  未响应
+extalk.ONE_ON_ONE 	 = 5  --  一对一来电
+extalk.BROADCAST= 6 -- 广播
 
 local AIRTALK_TASK_NAME = "airtalk_task"
 
@@ -23,8 +25,7 @@ local MSG_SPEECH_ON_IND = 3
 local MSG_SPEECH_OFF_IND = 4
 local MSG_SPEECH_CONNECT_TO = 5
 
-local MSG_PERSON_SPEECH_TEST_START = 20
-local MSG_GROUP_SPEECH_TEST_START = 21
+
 local MSG_SPEECH_STOP_TEST_END = 22
 
 
@@ -72,10 +73,6 @@ local function heart()
     end
 end
 
-local function wait_speech_to()
-    log.info("主动请求对讲超时无应答")
-    speech_off(true, false)
-end
 
 --对讲开始，topic,ssrc,采样率(8K或者16K)这3个参数都有了之后就能进行对讲了，可以通过其他协议传入
 local function speech_on(ssrc, sample)
@@ -88,7 +85,6 @@ local function speech_on(ssrc, sample)
     sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, true) 
     sys.timerLoopStart(heart, extalk_configs_local.heart_break_time*1000)
     sys.timerStopAll(wait_speech_to)
-    log.info("对讲接通，可以说话了")
 end
 --对讲结束
 local function speech_off(need_upload, need_ind)
@@ -101,13 +97,16 @@ local function speech_off(need_upload, need_ind)
     sys.timerStopAll(auth)
     sys.timerStopAll(heart)
     sys.timerStopAll(wait_speech_to)
-    log.info("对讲断开了")
     if need_upload then
         g_mqttc:publish("ctrl/uplink/" .. g_local_id .."/0004", json.encode({["to"] = g_remote_id}))
     end
-    if need_ind then
-        sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_OFF_IND, true)
-    end
+
+    sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_OFF_IND, true)
+end
+
+local function wait_speech_to()
+    log.info("主动请求对讲超时无应答")
+    speech_off(true, false)
 end
 
 
@@ -121,11 +120,10 @@ local function analyze_v1(cmd, topic, obj)
             return
         else
             if obj and obj["result"] == SUCC and g_s_topic == obj["topic"]then  --完全正确，开始对讲
-                extalk_configs_local.state_cbfnc(extalk.START)
+                
                 speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
                 return
             else
-                extalk_configs_local.state_cbfnc(extalk.UNRESPONSIVE)
                 log.info(obj["result"], obj["topic"], g_s_topic)
                 sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, false)   --有异常，无法对讲
             end
@@ -143,7 +141,7 @@ local function analyze_v1(cmd, topic, obj)
                 new_obj = {["result"] = "failed", ["topic"] = obj["topic"], ["info"] = "device is busy"}
             else
                 if obj["type"] == "one-on-one" then -- 1对1对讲
-                    local from = string.match(obj["topic"], "audio/.*/(.*)/.*")
+                    local from = string.match(obj["topic"], "audio/(.*)/.*/.*")
                     if from then
                         log.info("remote id ", from)
                         g_s_topic = obj["topic"]
@@ -151,16 +149,21 @@ local function analyze_v1(cmd, topic, obj)
                         new_obj = {["result"] = SUCC, ["topic"] = obj["topic"], ["info"] = ""}
                         g_s_type = "one-on-one"
                         g_s_mode = airtalk.MODE_PERSON
+                        extalk_configs_local.state_cbfnc({state = extalk.ONE_ON_ONE , id  = from })
                         speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
                     else
                         new_obj = {["result"] = "failed", ["topic"] = obj["topic"], ["info"] = "topic error"}
                     end
                 elseif obj["type"] == "broadcast" then  -- 1对多对讲
                     g_s_topic = obj["topic"]
-                    new_obj = {["result"] = SUCC, ["topic"] = obj["topic"], ["info"] = ""}
-                    g_s_mode = airtalk.MODE_GROUP_LISTENER
-                    g_s_type = "broadcast"
-                    speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
+                    local from = string.match(obj["topic"], "audio/(.*)/.*/.*")
+                    if from then
+                        new_obj = {["result"] = SUCC, ["topic"] = obj["topic"], ["info"] = ""}
+                        g_s_mode = airtalk.MODE_GROUP_LISTENER
+                        g_s_type = "broadcast"
+                        extalk_configs_local.state_cbfnc({state = extalk.BROADCAST , id  = from })
+                        speech_on(obj["ssrc"], obj["audio_code"] == "amr-nb" and 8000 or 16000)
+                    end
                 end
             end
         else
@@ -174,10 +177,10 @@ local function analyze_v1(cmd, topic, obj)
         if g_state == SP_T_IDLE then
             new_obj = {["result"] = "failed", ["info"] = "no speech"}
         else
+            log.info("0103", obj, obj["type"], g_s_type)
             if obj and obj["type"] == g_s_type then
                 new_obj = {["result"] = SUCC, ["info"] = ""}
                 speech_off(false, true)
-                extalk_configs_local.state_cbfnc(extalk.STOP)
             else
                 new_obj = {["result"] = "failed", ["info"] = "type mismatch"}
             end
@@ -189,9 +192,6 @@ local function analyze_v1(cmd, topic, obj)
     if cmd == "0101" then                        --更新设备列表
         if obj then
             g_dev_list = obj["dev_list"]
-            -- for i=1,#g_dev_list do
-            --     log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
-            -- end
             new_obj = {["result"] = SUCC, ["info"] = ""}
         else
             new_obj = {["result"] = "failed", ["info"] = "json info error"}
@@ -210,9 +210,6 @@ local function analyze_v1(cmd, topic, obj)
     if cmd == "8002" then
         if obj and obj["result"] == SUCC then   --收到设备列表更新应答，才能认为相关网络服务准备好了
             g_dev_list = obj["dev_list"]
-            -- for i=1,#g_dev_list do
-            --     log.info(g_dev_list[i]["id"],g_dev_list[i]["name"])
-            -- end
             extalk_configs_local.contact_list_cbfnc(g_dev_list)
             g_state = SP_T_IDLE
             sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, true)  --完整登录流程结束
@@ -280,7 +277,7 @@ local function airtalk_event_cb(event, param)
 end
 
 local function airtalk_mqtt_task()
-    local msg,data,obj,online,num,res
+    local msg,online,
     --g_local_id也可以自己设置
     g_local_id = mobile.imei()
     g_dl_topic = "ctrl/downlink/" .. g_local_id .. "/(%w%w%w%w)"
@@ -321,44 +318,20 @@ local function airtalk_mqtt_task()
         while online do
             msg = sys.waitMsg(AIRTALK_TASK_NAME)
             if type(msg) == 'table' and type(msg[1]) == "number" then
-                if msg[1] == MSG_PERSON_SPEECH_TEST_START then
-                    -- if g_state ~= SP_T_IDLE then
-                    --     log.info("正在对讲无法开始")
-                    -- else
-                    --     log.info("测试一下主动1对1对讲功能，找一个有效的IMEI")
-
-                    --     for i=1,#g_dev_list do
-                    --         res = string.match(g_dev_list[i]["id"], "(%w%w%w%w%w%w%w%w%w%w%w%w%w%w%w)")
-                    --         if res and res ~= g_local_id then
-                    --             break
-                    --         end
-                    --     end
-                    --     if res then
-                          
-                    --     else
-                    --         log.info("找不到有效的设备ID")
-                    --     end
-                    -- end
-                elseif msg[1] == MSG_GROUP_SPEECH_TEST_START then
-                    -- if g_state ~= SP_T_IDLE then
-                    --     log.info("正在对讲无法开始")
-                    -- else
-                    --     log.info("测试一下1对多对讲功能")
-                        
-                    -- end
-                elseif msg[1] == MSG_SPEECH_STOP_TEST_END then
+                if msg[1] == MSG_SPEECH_STOP_TEST_END then
                     if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then
                         log.info("没有对讲", g_state)
                     else
-                        log.info("主动断开对讲")
                         speech_off(true, false)
                     end
                 elseif msg[1] == MSG_SPEECH_ON_IND then
                     if msg[2] then
-                        log.info("对讲接通")
+                        extalk_configs_local.state_cbfnc({state = extalk.START})
                     else
-                        log.info("对讲断开")
+                        extalk_configs_local.state_cbfnc({state = extalk.UNRESPONSIVE})
                     end
+                elseif msg[1] == MSG_SPEECH_OFF_IND then
+                    extalk_configs_local.state_cbfnc({state = extalk.STOP})
                 elseif msg[1] == MSG_CONNECT_OFF_IND then
                     log.info("connect", msg[2])
                     online = msg[2]

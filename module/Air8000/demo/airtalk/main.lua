@@ -23,7 +23,6 @@ local MSG_KEY_PRESS = 12  -- 按键消息
 -- 全局状态变量
 local g_dev_list = nil    -- 设备列表
 local g_speech_active = false  -- 对讲状态标记
-local g_speech_type = nil      -- 对讲类型: "one_on_one" 或 "broadcast"
 
 -- 音频初始化参数
 local audio_setup_param = {
@@ -57,14 +56,11 @@ local function speech_state_callback(event_table)
     elseif event_table.state == extalk.STOP then
         log.info("对讲结束")
         g_speech_active = false
-        g_speech_type = nil
     elseif event_table.state == extalk.UNRESPONSIVE then
         log.info("对端未响应")
         g_speech_active = false
-        g_speech_type = nil
     elseif event_table.state == extalk.ONE_ON_ONE then
         g_speech_active = true
-        g_speech_type = "one_on_one"
         
         local dev_name = "未知设备"
         if g_dev_list then
@@ -78,7 +74,6 @@ local function speech_state_callback(event_table)
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
         g_speech_active = true
-        g_speech_type = "broadcast"
         
         local dev_name = "未知设备"
         if g_dev_list then
@@ -148,20 +143,17 @@ local function handle_key_press(is_power_key)
         log.info("结束当前对讲")
         extalk.stop()
         g_speech_active = false
-        g_speech_type = nil
     else
         -- 当前未在对讲，根据按键类型开始不同对讲
         if is_power_key then
             -- Power键：开始一对多广播
             log.info("开始一对多广播")
-            g_speech_type = "broadcast"
             extalk.start()  -- 不带参数表示广播
         else
             -- Boot键：开始一对一对讲
             log.info("开始一对一对讲")
             local remote_id = find_first_remote_device()
             if remote_id then
-                g_speech_type = "one_on_one"
                 extalk.start(remote_id)
             else
                 log.error("无法开始一对一对讲，没有找到可用设备")

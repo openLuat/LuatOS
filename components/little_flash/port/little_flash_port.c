@@ -8,7 +8,6 @@
 static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len){
     lf_err_t result = LF_ERR_OK;
     luat_spi_device_t *spi_dev = (luat_spi_device_t*)lf->spi.user_data;
-    luat_spi_lock(spi_dev->spi_config.id);
     if (tx_len && rx_len) {
         if (luat_spi_device_transfer(spi_dev , (const char*)tx_buf, tx_len, (char*)rx_buf, rx_len) <= 0) {
             result = LF_ERR_TRANSFER;
@@ -22,7 +21,6 @@ static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_b
             result = LF_ERR_READ;
         }
     }
-    luat_spi_unlock(spi_dev->spi_config.id);
     return result;
 }
 

@@ -59,7 +59,7 @@
 #define U8G2_H
 
 #include "u8x8.h"
-
+#include "stdio.h"
 /*
   The following macro enables 16 Bit mode. 
   Without defining this macro all calculations are done with 8 Bit (1 Byte) variables.
@@ -382,7 +382,9 @@ struct u8g2_struct
 					
 	// the following variable should be renamed to is_buffer_auto_clear
   uint8_t is_auto_page_clear; 		/* set to 0 to disable automatic clear of the buffer in firstPage() and nextPage() */
-  
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+  FILE* font_file;
+#endif
 };
 
 #define u8g2_GetU8x8(u8g2) ((u8x8_t *)(u8g2))

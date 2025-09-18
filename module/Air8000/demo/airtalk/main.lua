@@ -29,13 +29,27 @@ local function contact_list(dev_list)
     end
 end
 
-local function state(event)
-    if event  == extalk.START then
-        log.info("对讲开始")
-    elseif  event  == extalk.STOP then
+local function state(event_table)
+    if event_table.state  == extalk.START then
+        log.info("对讲开始，可以说话了")
+    elseif  event_table.state  == extalk.STOP then
         log.info("对讲结束")
-    elseif  event  == extalk.UNRESPONSIVE then
+    elseif  event_table.state  == extalk.UNRESPONSIVE then
         log.info("对端未响应")
+    elseif  event_table.state  == extalk.ONE_ON_ONE then
+        for i=1,#g_dev_list do
+            if g_dev_list[i]["id"] == event_table.id then
+                log.info(g_dev_list[i]["name"],",来电话了")
+                break
+            end
+        end
+    elseif  event_table.state  == extalk.BROADCAST then
+        for i=1,#g_dev_list do
+            if g_dev_list[i]["id"] == event_table.id then
+                log.info(g_dev_list[i]["name"],"开始广播")
+                break
+            end
+        end
     end
 end
 

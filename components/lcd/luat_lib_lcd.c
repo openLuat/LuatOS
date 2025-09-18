@@ -1115,6 +1115,24 @@ static int l_lcd_set_font(lua_State *L) {
     return 1;
 }
 
+static int l_lcd_set_fontfile(lua_State *L) {
+    if (lcd_dft_conf == NULL) {
+        LLOGE("lcd not init");
+        return 0;
+    }
+    size_t sz;
+    const uint8_t* font_filename = (const uint8_t*)luaL_checklstring(L, 1, &sz);
+    lcd_dft_conf->luat_lcd_u8g2.font_file = luat_fs_fopen(font_filename, "rb");
+    luat_u8g2_set_ascii_indentation(0xff);
+    u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), NULL);
+    if (lua_isinteger(L, 2)) {
+        int indentation = luaL_checkinteger(L, 2);
+        luat_u8g2_set_ascii_indentation(indentation);
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /*
 显示字符串
 @api lcd.drawStr(x,y,str,fg_color)
@@ -1966,6 +1984,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},
     { "autoFlush",  ROREG_FUNC(l_lcd_auto_flush)},
     { "setFont",    ROREG_FUNC(l_lcd_set_font)},
+    { "setFontfile",    ROREG_FUNC(l_lcd_set_fontfile)},
     { "setDefault", ROREG_FUNC(l_lcd_set_default)},
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},

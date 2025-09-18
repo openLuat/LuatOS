@@ -1116,6 +1116,39 @@ static int l_lcd_set_font(lua_State *L) {
 }
 
 /*
+设置使用文件系统中的字体文件
+@api lcd.setFontfile(font, indentation)
+@string filename 字体文件
+@int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
+@usage
+-- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
+
+-- 若提示 "only font pointer is allow" , 则代表当前固件不含对应字体, 可使用云编译服务免费定制
+-- 云编译文档: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
+
+lcd.setFontfile("/sd/u8g2_font_opposansm12.bin")
+lcd.drawStr(40,10,"drawStr")
+sys.wait(2000)
+*/
+static int l_lcd_set_fontfile(lua_State *L) {
+    if (lcd_dft_conf == NULL) {
+        LLOGE("lcd not init");
+        return 0;
+    }
+    size_t sz;
+    const uint8_t* font_filename = (const uint8_t*)luaL_checklstring(L, 1, &sz);
+    lcd_dft_conf->luat_lcd_u8g2.font_file = luat_fs_fopen(font_filename, "rb");
+    luat_u8g2_set_ascii_indentation(0xff);
+    u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), NULL);
+    if (lua_isinteger(L, 2)) {
+        int indentation = luaL_checkinteger(L, 2);
+        luat_u8g2_set_ascii_indentation(indentation);
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/*
 显示字符串
 @api lcd.drawStr(x,y,str,fg_color)
 @int x 横坐标
@@ -1966,6 +1999,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},
     { "autoFlush",  ROREG_FUNC(l_lcd_auto_flush)},
     { "setFont",    ROREG_FUNC(l_lcd_set_font)},
+    { "setFontfile",    ROREG_FUNC(l_lcd_set_fontfile)},
     { "setDefault", ROREG_FUNC(l_lcd_set_default)},
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},

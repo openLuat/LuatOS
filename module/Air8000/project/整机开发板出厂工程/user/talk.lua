@@ -220,8 +220,13 @@ end
 
 -- 打开通讯录
 local function open_address_list()
-    current_page = "address_list"
-    address_list_page = 1
+    if g_dev_list == nil or  #g_dev_list  == 0 then
+        talk_state = "没有建立群组"
+        return false
+    else 
+        current_page = "address_list"
+        address_list_page = 1
+    end
 end
 
 -- 返回主页面

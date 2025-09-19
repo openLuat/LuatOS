@@ -217,7 +217,12 @@ __AIRLINK_CODE_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t 
     // 拉低片选, 准备发送数据
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 0);
     // 发送数据
+    #ifdef TYPE_EC718M
+    extern void SPI_FastTransfer(uint8_t SpiID, const uint8_t *TxData, uint8_t *RxData, uint32_t Len);
+    SPI_FastTransfer(MASTER_SPI_ID, txbuff, rxbuff, TEST_BUFF_SIZE);
+    #else
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
+    #endif
     // 拉高片选, 结束发送
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 1);
     //luat_spi_unlock(MASTER_SPI_ID);
@@ -463,7 +468,12 @@ void luat_airlink_start_master(void)
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     // 创建专门的RDY事件队列 (id=6)
     luat_rtos_queue_create(&rdy_evt_queue, 1, sizeof(luat_event_t));
-    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+    #ifdef TYPE_EC718M
+    #define AIRLINK_TASK_PRIORITY 150
+    #else
+    #define AIRLINK_TASK_PRIORITY 80
+    #endif
+    luat_rtos_task_create(&spi_task_handle, 8 * 1024, AIRLINK_TASK_PRIORITY, "spi", spi_master_task, NULL, 0);
 }
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {

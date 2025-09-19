@@ -1116,7 +1116,7 @@ static int l_lcd_set_font(lua_State *L) {
 }
 
 /*
-设置使用文件系统中的字体文件
+设置使用文件系统中的字体文件 字体文件制作工具: https://gitee.com/Dozingfiretruck/u8g2_font_tool
 @api lcd.setFontfile(font, indentation)
 @string filename 字体文件
 @int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效

@@ -1,110 +1,213 @@
---演示airtalk基本功能
---按一次boot，开始1对1对讲，再按一次boot，结束对讲
---按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
+--[[
+    演示airtalk基本功能
+    按一次boot，开始1对1对讲，再按一次boot，结束对讲
+    按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
+]]
+
 PROJECT = "airtalk_demo"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 PRODUCT_KEY = "29uptfBkJMwFC7x7QeW10UPO3LecPYFu" -- 到 iot.openluat.com 创建项目,获取正确的项目id
-_G.sys=require"sys"
+
+-- 引入必要模块
+
+local extalk = require "extalk"
+local exaudio = require "exaudio"
+
+-- 配置日志格式
 log.style(1)
-extalk = require("extalk")
-exaudio = require("exaudio")
-local USER_TASK_NAME = "user"
-local MSG_READY = 10
-local MSG_NOT_READY = 11
-local MSG_KEY_PRESS = 12
-local g_dev_list
--- 音频初始化设置参数,exaudio.setup 传入参数
-local audio_setup_param ={
-    model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
-    i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
-    pa_ctrl = 162,         -- 音频放大器电源控制管脚
-    dac_ctrl = 164,        --  音频编解码芯片电源控制管脚    
+
+-- 常量定义
+local USER_TASK_NAME = "user_task"
+local MSG_KEY_PRESS = 12  -- 按键消息
+
+-- 全局状态变量
+local g_dev_list = nil    -- 设备列表
+local g_speech_active = false  -- 对讲状态标记
+
+-- 音频初始化参数
+local audio_setup_param = {
+    model = "es8311",       -- 音频编解码类型,可填入"es8311","es8211"
+    i2c_id = 0,             -- i2c_id,可填入0，1 并使用pins工具配置对应的管脚
+    pa_ctrl = 162,          -- 音频放大器电源控制管脚
+    dac_ctrl = 164,         -- 音频编解码芯片电源控制管脚    
 }
 
-
-local function contact_list(dev_list)
+-- 联系人列表回调函数
+local function contact_list_callback(dev_list)
     g_dev_list = dev_list
-    for i=1,#dev_list do
-        log.info("联系人ID:",dev_list[i]["id"],"名称:",dev_list[i]["name"])
+    if dev_list and #dev_list > 0 then
+        log.info("联系人列表更新:")
+        for i = 1, #dev_list do
+            log.info(string.format("  %d. ID: %s, 名称: %s", 
+                i, dev_list[i]["id"], dev_list[i]["name"] or "未知"))
+        end
+    else
+        log.info("联系人列表为空")
     end
 end
 
-local function state(event)
-    if event  == extalk.START then
-        log.info("对讲开始")
-    elseif  event  == extalk.STOP then
+-- 对讲状态回调函数
+local function speech_state_callback(event_table)
+    if not event_table then return end
+    
+    if event_table.state == extalk.START then
+        log.info("对讲开始，可以说话了")
+        g_speech_active = true
+    elseif event_table.state == extalk.STOP then
         log.info("对讲结束")
-    elseif  event  == extalk.UNRESPONSIVE then
+        g_speech_active = false
+    elseif event_table.state == extalk.UNRESPONSIVE then
         log.info("对端未响应")
+        g_speech_active = false
+    elseif event_table.state == extalk.ONE_ON_ONE then
+        g_speech_active = true
+        
+        local dev_name = "未知设备"
+        if g_dev_list then
+            for i = 1, #g_dev_list do
+                if g_dev_list[i]["id"] == event_table.id then
+                    dev_name = g_dev_list[i]["name"] or "未知设备"
+                    break
+                end
+            end
+        end
+        log.info(string.format("%s 来电", dev_name))
+    elseif event_table.state == extalk.BROADCAST then
+        g_speech_active = true
+        
+        local dev_name = "未知设备"
+        if g_dev_list then
+            for i = 1, #g_dev_list do
+                if g_dev_list[i]["id"] == event_table.id then
+                    dev_name = g_dev_list[i]["name"] or "未知设备"
+                    break
+                end
+            end
+        end
+        log.info(string.format("%s 开始广播", dev_name))
     end
 end
 
+-- extalk配置参数
 local extalk_configs = {
-    key = PRODUCT_KEY,               -- 项目key，一般来说需要和main 的PRODUCT_KEY保持一致
+    key = PRODUCT_KEY,
     heart_break_time = 120,  -- 心跳间隔(单位秒)
-    contact_list_cbfnc = contact_list, -- 联系人回调函数，回调信息含设备号和昵称
-    state_cbfnc = state,  --状态回调，分为对讲开始，对讲结束，未响应
+    contact_list_cbfnc = contact_list_callback,
+    state_cbfnc = speech_state_callback,
 }
 
-local function boot_key_cb()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)
+-- 按键回调函数 - Boot键
+local function boot_key_callback()
+    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)  -- false表示Boot键
 end
 
-local function power_key_cb()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)
+-- 按键回调函数 - Power键
+local function power_key_callback()
+    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)   -- true表示Power键
 end
 
---按下boot开始上传，再按下停止，加入了软件去抖，不需要长按了
-gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 200, 1)
-gpio.setup(gpio.PWR_KEY, power_key_cb, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)
+-- 初始化按键
+local function init_buttons()
+    -- 配置Boot键 (GPIO0)
+    gpio.setup(0, boot_key_callback, gpio.PULLDOWN, gpio.RISING)
+    gpio.debounce(0, 200, 1)  -- 200ms去抖
+    
+    -- 配置Power键
+    gpio.setup(gpio.PWR_KEY, power_key_callback, gpio.PULLUP, gpio.FALLING)
+    gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 200ms去抖
+end
 
-local test_ready = false
-local function task_cb(msg)
-    log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
-    if msg[1] == MSG_SPEECH_IND then
-
-    elseif msg[1] == MSG_NOT_READY then
-        test_ready = false
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+-- 查找第一个可用的对端设备ID
+local function find_first_remote_device()
+    if not g_dev_list or #g_dev_list == 0 then
+        log.warn("没有找到可用的设备")
+        return nil
     end
+    
+    local local_id = mobile.imei()
+    for i = 1, #g_dev_list do
+        local dev_id = g_dev_list[i]["id"]
+        if dev_id and dev_id ~= local_id then
+            return dev_id
+        end
+    end
+    
+    log.warn("没有找到其他可用设备")
+    return nil
 end
 
-local function user_task()
-    local msg,res
-    if exaudio.setup(audio_setup_param) then      --  音频初始化
-        extalk.setup(extalk_configs)              -- airtalk 初始化
-        while true do
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-            log.info("收到按键消息1",msg)
-            if msg[2] then  -- true powerkey false boot key
-                for i=1,#g_dev_list do
-                    res = g_dev_list[i]["id"]
-                    if res and res ~= mobile.imei() then     -- 不能本机和本机通话
-                        break
-                    end
-                end
-                extalk.start(res)     -- 开始一对一对讲
+-- 处理按键消息
+local function handle_key_press(is_power_key)
+    if g_speech_active then
+        -- 当前正在对讲，按任何键都结束对讲
+        log.info("结束当前对讲")
+        extalk.stop()
+        g_speech_active = false
+    else
+        -- 当前未在对讲，根据按键类型开始不同对讲
+        if is_power_key then
+            -- Power键：开始一对多广播
+            log.info("开始一对多广播")
+            extalk.start()  -- 不带参数表示广播
+        else
+            -- Boot键：开始一对一对讲
+            log.info("开始一对一对讲")
+            local remote_id = find_first_remote_device()
+            if remote_id then
+                extalk.start(remote_id)
             else
-                extalk.start()        -- 开始对群组广播
-            end 
-            msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)   -- 再按一次就关闭对讲
-            extalk.stop()       -- 停止对讲
+                log.error("无法开始一对一对讲，没有找到可用设备")
+            end
         end
     end
 end
 
-sys.taskInitEx(user_task, USER_TASK_NAME, task_cb)
 
---定期检查ram使用情况，及时发现内存泄露
+
+-- 用户主任务
+local function user_main_task()
+    -- 初始化音频
+    local audio_init_ok = exaudio.setup(audio_setup_param)
+    if not audio_init_ok then
+        log.error("音频初始化失败")
+        return
+    end
+    log.info("音频初始化成功")
+    
+    -- 初始化extalk
+    local extalk_init_ok = extalk.setup(extalk_configs)
+    if not extalk_init_ok then
+        log.error("extalk初始化失败")
+        return
+    end
+    log.info("extalk初始化成功")
+    
+    -- 等待按键消息并处理
+    while true do
+        local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
+        if msg and msg[1] == MSG_KEY_PRESS then
+            handle_key_press(msg[2])  -- msg[2]区分是Power键(true)还是Boot键(false)
+        end
+    end
+end
+
+-- 初始化按键
+init_buttons()
+
+-- 启动用户任务
+sys.taskInitEx(user_main_task, USER_TASK_NAME)
+
+-- 内存监控任务
 sys.taskInit(function()
     while true do
-        sys.wait(60000)
-        log.info("time", os.time())
-        log.info("lua", rtos.meminfo("lua"))
-        log.info("sys", rtos.meminfo("sys"))
-        log.info("psram", rtos.meminfo("psram"))
+        sys.wait(60000)  -- 每分钟检查一次
+        log.info("系统状态监控:")
+        log.info("  时间:", os.time())
+        log.info("  Lua内存:", rtos.meminfo("lua"))
+        log.info("  系统内存:", rtos.meminfo("sys"))
+        log.info("  PSRAM内存:", rtos.meminfo("psram"))
     end
 end)
+
+-- 启动系统
 sys.run()

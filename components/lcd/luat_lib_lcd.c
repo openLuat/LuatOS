@@ -1115,6 +1115,21 @@ static int l_lcd_set_font(lua_State *L) {
     return 1;
 }
 
+/*
+设置使用文件系统中的字体文件
+@api lcd.setFontfile(font, indentation)
+@string filename 字体文件
+@int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
+@usage
+-- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
+
+-- 若提示 "only font pointer is allow" , 则代表当前固件不含对应字体, 可使用云编译服务免费定制
+-- 云编译文档: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
+
+lcd.setFontfile("/sd/u8g2_font_opposansm12.bin")
+lcd.drawStr(40,10,"drawStr")
+sys.wait(2000)
+*/
 static int l_lcd_set_fontfile(lua_State *L) {
     if (lcd_dft_conf == NULL) {
         LLOGE("lcd not init");

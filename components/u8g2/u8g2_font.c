@@ -830,10 +830,10 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
         #ifdef U8G2_WITH_UNICODE
             else{
                 uint16_t e;
-                const uint8_t *unicode_lookup_table;
+                // const uint8_t *unicode_lookup_table;
                 // font += u8g2->font_info.start_pos_unicode;
                 luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_unicode, SEEK_CUR);
-                unicode_lookup_table = font; 
+                // unicode_lookup_table = font; 
                 /* issue 596: search for the glyph start in the unicode lookup table */
                 // do{
                 //     font += u8g2_font_get_word(unicode_lookup_table, 0);

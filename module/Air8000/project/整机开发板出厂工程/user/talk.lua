@@ -175,7 +175,6 @@ function talk.run()
                     lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/talk/", 82)
                     lcd.drawStr(185, 242, "扫码进入网页端",0x0000)
                     -- 显示输入法入口按钮
-                    lcd.showImage(32, 250, "/luadb/input_topic.jpg")
                     lcd.showImage(175, 300, "/luadb/datacall.jpg")
                     lcd.showImage(32, 300, "/luadb/broadcast.jpg")
                     lcd.showImage(104, 400, "/luadb/stop.jpg")

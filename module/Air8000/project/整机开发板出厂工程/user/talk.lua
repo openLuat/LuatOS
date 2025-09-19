@@ -8,7 +8,7 @@ httpplus = require("httpplus")
 local run_state = false
 local input_method = require "InputMethod" 
 local input_key = false
-local g_dev_list
+local g_dev_list = {}
 local airaudio  = require "airaudio"
 extalk = require("extalk")
 local local_id 
@@ -58,7 +58,7 @@ local function state(event_table)
         for i=1,#g_dev_list do
             if g_dev_list[i]["id"] == event_table.id then
                 log.info(g_dev_list[i]["name"],"开始广播")
-                talk_state = g_dev_list[i]["name"],"开始广播"
+                talk_state = g_dev_list[i]["name"].."开始广播"
                 break
             end
         end

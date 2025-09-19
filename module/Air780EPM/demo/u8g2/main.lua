@@ -81,7 +81,7 @@ sys.taskInit(function()
     end
 
     if chinese then
-    log.info("在显示屏显示中文", u8g2.DrawUTF8("中文测试", 40, 38)) -- 若中文不显示或乱码,代表所刷固件不带这个字号的字体数据, 可自行云编译一份. wiki.luatos.com 有文档.
+    log.info("在显示屏显示中文", u8g2.DrawUTF8("中文测试", 40, 38)) -- 若中文不显示或乱码,代表所刷固件不带这个字号的字体数据
         
     end
     log.info("将存储器帧缓冲区的内容发送到显示器", u8g2.SendBuffer())

@@ -1079,8 +1079,7 @@ extern void luat_u8g2_set_ascii_indentation(uint8_t value);
 @usage
 -- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
 
--- 若提示 "only font pointer is allow" , 则代表当前固件不含对应字体, 可使用云编译服务免费定制
--- 云编译文档: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
+-- 若提示 "only font pointer is allow" , 则代表当前固件不含对应字体
 
 -- lcd库的默认字体均以 lcd.font_ 开头
 lcd.setFont(lcd.font_opposansm12)

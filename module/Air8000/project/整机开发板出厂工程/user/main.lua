@@ -29,7 +29,7 @@ local airble = require "airble"
 local airtestwlan = require "test_wlan"
 local airbuzzer = require "airbuzzer"
 local multi_network = require "multi_network"
-local talk = require "module.Air8000.demo.airtalk.airtalk"
+local talk = require "talk"
 
 local airrecord = require "airrecord"
 local taskName = "MAIN"

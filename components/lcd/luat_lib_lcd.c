@@ -1116,28 +1116,37 @@ static int l_lcd_set_font(lua_State *L) {
 }
 
 /*
-设置使用文件系统中的字体文件 字体文件制作工具: https://gitee.com/Dozingfiretruck/u8g2_font_tool
-@api lcd.setFontfile(font, indentation)
+设置使用文件系统中的字体文件 
+@api lcd.setFontFile(font, indentation)
 @string filename 字体文件
 @int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
+@return boolean 成功返回true, 失败返回nil
 @usage
+-- 字体文件制作工具: https://gitee.com/Dozingfiretruck/u8g2_font_tool
 -- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
 
--- 若提示 "only font pointer is allow" , 则代表当前固件不含对应字体, 可使用云编译服务免费定制
--- 云编译文档: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
-
-lcd.setFontfile("/sd/u8g2_font_opposansm12.bin")
+lcd.setFontFile("/sd/u8g2_font_opposansm12.bin")
 lcd.drawStr(40,10,"drawStr")
-sys.wait(2000)
 */
 static int l_lcd_set_fontfile(lua_State *L) {
     if (lcd_dft_conf == NULL) {
         LLOGE("lcd not init");
         return 0;
     }
-    size_t sz;
+    if (lcd_dft_conf->luat_lcd_u8g2.font_file) {
+        luat_fs_fclose(lcd_dft_conf->luat_lcd_u8g2.font_file);
+        lcd_dft_conf->luat_lcd_u8g2.font_file = NULL;
+    }
+    size_t sz = 0;
+    if (lua_isnil(L, 1)) {
+        return 0;
+    }
     const uint8_t* font_filename = (const uint8_t*)luaL_checklstring(L, 1, &sz);
     lcd_dft_conf->luat_lcd_u8g2.font_file = luat_fs_fopen((const char*)font_filename, "rb");
+    if (lcd_dft_conf->luat_lcd_u8g2.font_file == NULL) {
+        LLOGE("open font file fail %s", font_filename);
+        return 0;
+    }
     luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), NULL);
     if (lua_isinteger(L, 2)) {
@@ -1999,7 +2008,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},
     { "autoFlush",  ROREG_FUNC(l_lcd_auto_flush)},
     { "setFont",    ROREG_FUNC(l_lcd_set_font)},
-    { "setFontfile",    ROREG_FUNC(l_lcd_set_fontfile)},
+    { "setFontFile",ROREG_FUNC(l_lcd_set_fontfile)},
     { "setDefault", ROREG_FUNC(l_lcd_set_default)},
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},

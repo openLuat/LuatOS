@@ -1,68 +1,58 @@
---演示airtalk基本功能
---按一次boot，开始1对1对讲，再按一次boot，结束对讲
---按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
-PROJECT = "airtalk_demo"
-VERSION = "1.0.1"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" -- 到 iot.openluat.com 创建项目,获取正确的项目id
-_G.sys=require"sys"
-log.style(1)
-require "demo_define"
-require "airtalk_dev_ctrl"
-require "audio_config"
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.09.19
+@author  梁健
+@usage
+本demo演示的核心功能为：
 
---errDump.config(true, 600, "airtalk_test")
-mcu.hardfault(0)
-local function boot_key_cb()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)
+airtalk.lua： 进行airtalk 对讲业务,相关使用说明，请见https://docs.openluat.com/value/airtalk/
+
+更多说明参考本目录下的readme.md文件
+]]
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+
+--[[
+本demo可直接在Air8000整机开发板上运行
+]]
+
+PROJECT = "audio"
+VERSION = "1.0.0"
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
-local function power_key_cb()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)
-end
 
---按下boot开始上传，再按下停止，加入了软件去抖，不需要长按了
-gpio.setup(0, boot_key_cb, gpio.PULLDOWN, gpio.RISING)
-gpio.debounce(0, 200, 1)
-gpio.setup(gpio.PWR_KEY, power_key_cb, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)
+require "talk"            --  启动airtalk
 
-local test_ready = false
-local function task_cb(msg)
-    log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
-    if msg[1] == MSG_SPEECH_IND then
+-- 音频对内存影响较大，不断的打印内存，用于判断是否异常
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+ end, 3000)
 
-    elseif msg[1] == MSG_NOT_READY then
-        test_ready = false
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-    end
-end
-
-local function user_task()
-    audio_init()
-    airtalk_mqtt_init()
-    local msg
-    while true do
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        if msg[2] then  -- true powerkey false boot key
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_GROUP_SPEECH_TEST_START)   --测试阶段自动给一个device打
-        else
-            sys.sendMsg(AIRTALK_TASK_NAME, MSG_PERSON_SPEECH_TEST_START)   --测试阶段自动给一个device打
-        end 
-        msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_TEST_END)        --再按一次就自动挂断
-    end
-end
-
-sys.taskInitEx(user_task, USER_TASK_NAME, task_cb)
-
---定期检查ram使用情况，及时发现内存泄露
-sys.taskInit(function()
-    while true do
-        sys.wait(60000)
-        log.info("time", os.time())
-        log.info("lua", rtos.meminfo("lua"))
-        log.info("sys", rtos.meminfo("sys"))
-        log.info("psram", rtos.meminfo("psram"))
-    end
-end)
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!
+

@@ -286,7 +286,7 @@ void luat_sms_send_cb(int ret)
         }
         return;
     }
-    LLOGE("long sms callback seqNum = %d", g_s_sms_pdu_packet.seqNum);
+    LLOGI("long sms callback seqNum = %d", g_s_sms_pdu_packet.seqNum);
     // 全部短信发送完成
     if (g_s_sms_pdu_packet.seqNum == g_s_sms_pdu_packet.maxNum) {
         if (long_sms_send_idp) {
@@ -421,7 +421,7 @@ static int l_sms_send(lua_State *L) {
     g_s_sms_send.payload_len = outlen;
 
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
-    LLOGW("pdu len %d", len);
+    LLOGD("pdu len %d", len);
     ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
     if (!ret) {
         lua_pushboolean(L, ret == 0);

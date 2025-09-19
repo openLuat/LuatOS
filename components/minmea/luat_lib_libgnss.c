@@ -67,8 +67,6 @@ static int gnss_txt_cb = 0;
 // static int gnss_rmc_cb = 0;
 static int gnss_other_cb = 0;
 
-void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
-
 static inline void push_gnss_value(lua_State *L, struct minmea_float *f, int mode) {
     if (f->value == 0) {
         lua_pushinteger(L, 0);

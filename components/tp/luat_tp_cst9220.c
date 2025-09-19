@@ -36,6 +36,9 @@
 #define U8TO32(x1,x2,x3,x4) ((((x1)&0xFF)<<24)|(((x2)&0xFF)<<16)|(((x3)&0xFF)<<8)|((x4)&0xFF))
 #define U16REV(x)  ((((x)<<8)&0xFF00)|(((x)>>8)&0x00FF))
 
+#define DISABLE (0)
+#define ENABLE  (1)
+
 enum work_mode{
     NOMAL_MODE = 0,
     GESTURE_MODE = 1,
@@ -212,7 +215,7 @@ static int tp_cst92xx_updata_tpinfo(luat_tp_config_t* luat_tp_config){
     uint8_t buf[30] = {0};
     struct tp_info *ic = &hyn_92xxdata.hw_info;
 
-    tp_cst92xx_set_workmode(luat_tp_config, 0xff,0);
+    tp_cst92xx_set_workmode(luat_tp_config, 0xff,DISABLE);
     if(hyn_wr_reg(luat_tp_config,0xD101,2,buf,0)){
         return -1;
     }
@@ -241,7 +244,7 @@ static int tp_cst92xx_updata_tpinfo(luat_tp_config_t* luat_tp_config){
 
     LLOGD("IC_info project_id:%04x ictype:%04x fw_ver:%x checksum:%#x",ic->fw_project_id,ic->fw_chip_type,ic->fw_ver,ic->ic_fw_checksum);
 
-    tp_cst92xx_set_workmode(luat_tp_config,NOMAL_MODE,1);
+    tp_cst92xx_set_workmode(luat_tp_config,NOMAL_MODE,ENABLE);
     return 0;
 }
 
@@ -449,17 +452,8 @@ static int tp_cst92xx_gpio_init(luat_tp_config_t* luat_tp_config){
     luat_gpio_mode(luat_tp_config->pin_int, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
     luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
     luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(10);
-    return 0;
-}
-
-static int tp_cst92xx_init(luat_tp_config_t* luat_tp_config){
-    int ret = 0;
-    luat_rtos_task_sleep(100);
-    tp_cst92xx_gpio_init(luat_tp_config);
 
     luat_tp_config->int_type = Luat_GPIO_FALLING;
-
     luat_gpio_t gpio = {0};
     gpio.pin = luat_tp_config->pin_int;
     gpio.mode = Luat_GPIO_IRQ;
@@ -468,7 +462,16 @@ static int tp_cst92xx_init(luat_tp_config_t* luat_tp_config){
     gpio.irq_cb = luat_tp_irq_cb;
     gpio.irq_args = luat_tp_config;
     luat_gpio_setup(&gpio);
+
+    luat_rtos_task_sleep(10);
+    return 0;
+}
+
+static int tp_cst92xx_init(luat_tp_config_t* luat_tp_config){
+    int ret = 0;
+    luat_rtos_task_sleep(50);
     luat_tp_config->address = CST92XX_ADDRESS;
+    tp_cst92xx_gpio_init(luat_tp_config);
     tp_cst92xx_hw_reset(luat_tp_config);
     luat_rtos_task_sleep(40);
 
@@ -500,7 +503,7 @@ static int tp_cst92xx_init(luat_tp_config_t* luat_tp_config){
         return ret;
     }
     ret |= tp_cst92xx_set_workmode(luat_tp_config, NOMAL_MODE,0);
-    luat_rtos_task_sleep(20);
+    luat_rtos_task_sleep(10);
     cst92xx_init_state = 1;
     return ret;
 }

@@ -2,7 +2,7 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.09.12
+@date    2025.09.17
 @author  王城钧
 @usage
 本demo演示的核心功能为：
@@ -51,16 +51,19 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
--- 开启WAN功能(以太网提供网络供模组上网)
--- require "wan"
+-- 加载网络驱动设备功能模块
+-- require "netdrv_device"
 
--- 开启LAN功能(设置模组连接4G网络通过以太网口传输给其他设备)
-require "lan"
+-- 开启多网融合功能,4G提供网络供以太网和wifi设备上网
+require "4g-eth-wifi"
 
--- 开启多网融合功能(以太网提供网络供wifi和以太网设备上网)
--- require "netif_app"
+-- 开启多网融合功能,WIFI提供网络供以太网和wifi设备上网 
+-- require "wifi-eth-wifi"
 
--- 用户代码已结束---------------------------------------------
+-- 加载http应用功能模块
+-- require "http_app"
+
+-- 用户代码已结束
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!

@@ -352,9 +352,11 @@ local function draw_main3()
       x = 64 + (i-1)*128 + 24
       y = (j-1)*106 + 13
       sel = j+(i-1)*3
-      fname = "/luadb/" .. "D" .. sel .. ".jpg"
-      -- log.info("fname：", fname, x,y,sel,cur_sel)
-      lcd.showImage(y,x,fname)
+      if sel == 1 or sel == 7 or sel == 9 then
+        fname = "/luadb/" .. "D" .. sel .. ".jpg"
+        -- log.info("fname：", fname, x,y,sel,cur_sel)
+        lcd.showImage(y,x,fname)
+      end
     end
   end
 end

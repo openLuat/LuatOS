@@ -102,7 +102,8 @@ int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
     lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
     if (!lua_isnil(L, -1)) {
         lua_pushinteger(L, gpios[pin].latest_state);
-        lua_call(L, 1, 0);
+        lua_pushinteger(L, pin);
+        lua_call(L, 2, 0);
     }
     return 0;
 }

@@ -48,6 +48,7 @@ netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8,irq=20})
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
+    size_t len = 0;
     conf.id = luaL_checkinteger(L, 1);
     conf.impl = luaL_optinteger(L, 2, 0);
     conf.irqpin = 255; // 默认无效
@@ -75,6 +76,44 @@ static int l_netdrv_setup(lua_State *L) {
             conf.flags = luaL_checkinteger(L, -1);
         };
         lua_pop(L, 1);
+
+        #ifdef LUAT_USE_NETDRV_WG
+        // WG的配置参数比较多, 放在这里面传递
+        // 需要的参数有, private_key, public_key, endpoint, port, address, dns, mtu
+        if (lua_getfield(L, 3, "wg_private_key") == LUA_TSTRING) {
+            conf.wg_private_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        // 本地端口
+        if (lua_getfield(L, 3, "wg_listen_port") == LUA_TNUMBER) {
+            conf.wg_listen_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        // keepalive时长
+        if (lua_getfield(L, 3, "wg_keepalive") == LUA_TNUMBER) {
+            conf.wg_keepalive = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        // 预分享密钥
+        if (lua_getfield(L, 3, "wg_preshared_key") == LUA_TSTRING) {
+            conf.wg_preshared_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+
+        // 对端信息, 公钥, IP地址, 端口
+        if (lua_getfield(L, 3, "wg_endpoint_key") == LUA_TSTRING) {
+            conf.wg_endpoint_key = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "wg_endpoint_ip") == LUA_TSTRING) {
+            conf.wg_endpoint_ip = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
+            conf.wg_endpoint_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        #endif
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
@@ -424,14 +463,45 @@ static int l_socket_evt_cb(lua_State *L, void* ptr) {
         break;
     }
     lua_newtable(L);
-    // 填充参数表, 远端ip, 远端端口, 本地ip, 本地端口
+    // 填充参数表 远端ip, 远端端口, 本地ip, 本地端口
     char buff[32] = {0};
-    char* p = ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
-    lua_pushstring(L, p);
-    lua_setfield(L, -2, "remote_ip");
+    if (!ip_addr_isany(&evt->remote_ip)) {
+        ipaddr_ntoa_r(&evt->remote_ip, buff, 32);
+        lua_pushstring(L, buff);
+        lua_setfield(L, -2, "remote_ip");
+    }
+
+    if (!ip_addr_isany(&evt->online_ip)) {
+        ipaddr_ntoa_r(&evt->online_ip, buff, 32);
+        lua_pushstring(L, buff);
+        lua_setfield(L, -2, "online_ip");
+    }
 
     lua_pushinteger(L, evt->remote_port);
     lua_setfield(L, -2, "remote_port");
+
+    switch (evt->proto)
+    {
+    case 1:
+        lua_pushstring(L, "tcp");
+        break;
+    case 2:
+        lua_pushstring(L, "udp");
+        break;
+    case 3:
+        lua_pushstring(L, "http");
+        break;
+    case 4:
+        lua_pushstring(L, "mqtt");
+        break;
+    case 5:
+        lua_pushstring(L, "websocket");
+        break;
+    default:
+        lua_pushstring(L, "unknown");
+        break;
+    }
+    lua_setfield(L, -2, "proto");
 
     // p = ipaddr_ntoa_r(&evt->local_ip, buff, 32);
     // lua_pushstring(L, p);
@@ -479,16 +549,16 @@ netdrv.on(socket.LWIP_ETH, netdrv.EVT_SOCKET, function(id, event, params)
     -- event是事件id, 字符串类型, 
         - create 创建socket对象
         - release 释放socket对象
-        - connecting 正在连接
-        - connected 连接成功
+        - connecting 正在连接, 域名解析成功后出现
+        - connected 连接成功, TCP三次握手成功后出现
         - closed 连接关闭
-        - remote_close 远程关闭
+        - remote_close 远程关闭, 网络中断,或者服务器主动断开
         - timeout dns解析超时,或者tcp连接超时
         - error 错误,包括一切异常错误
-        - dns_result dns解析结果, 如果remote_ip为0.0.0.0,表示解析失败
     -- params是参数表
-        - remote_ip 远端ip地址
-        - remote_port 远端端口
+        - remote_ip 远端ip地址,未必存在
+        - remote_port 远端端口,未必存在
+        - online_ip 实际连接的ip地址,未必存在
         - domain_name 远端域名,如果是通过域名连接的话, release时没有这个值, create时也没有
     log.info("netdrv", "socket event", id, event, json.encode(params or {}))
     if params then
@@ -558,6 +628,9 @@ static const rotable_Reg_t reg_netdrv[] =
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
     { "CH390",          ROREG_INT(1)},
     { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
+    #ifdef LUAT_USE_NETDRV_WG
+    { "WG",             ROREG_INT(32)}, // Wireguard VPN网卡
+    #endif
     //@const WHALE number 虚拟网卡
     { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
 

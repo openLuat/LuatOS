@@ -208,15 +208,19 @@ static uint8_t slave_is_irq_ready = 0;
 
 __AIRLINK_CODE_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff)
 {
-    // 拉低片选, 准备发送数据
-    luat_gpio_set(AIRLINK_SPI_CS_PIN, 0);
     // 清除link
     memset(&s_link, 0, sizeof(airlink_link_data_t));
     airlink_link_data_t *link = NULL;
 
     g_airlink_statistic.tx_pkg.total++;
+    //luat_spi_lock(MASTER_SPI_ID);
+    // 拉低片选, 准备发送数据
+    luat_gpio_set(AIRLINK_SPI_CS_PIN, 0);
+    // 发送数据
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
+    // 拉高片选, 结束发送
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 1);
+    //luat_spi_unlock(MASTER_SPI_ID);
     // luat_airlink_print_buff("RX", rxbuff, 32);
     // 对接收到的数据进行解析
     link = luat_airlink_data_unpack(rxbuff, TEST_BUFF_SIZE);

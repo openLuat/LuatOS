@@ -22,7 +22,7 @@
 
 ![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/spi1.jpg)
 
-![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/norflash.jpg)
+![](https://docs.openluat.com/accessory/AirSPINAND_1000/image/nand.jpg)
 
 1. 合宙 Air8000 核心板一块
 
@@ -34,11 +34,11 @@
 - TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
-    Air8000 核心板与 AIRSPINAND_1000AIRSPINAND_1000 按以下方式接线：
+    Air8000 核心板与 AIRSPINAND_1000 按以下方式接线：
 
 <table>
 <tr>
-<td>Air8000核心板<br/></td><td>AirSPINORFLASH_1000配件版<br/></td></tr>
+<td>Air8000核心板<br/></td><td>AirSPINAND_1000配件版<br/></td></tr>
 <tr>
 <td>GND(任意)          <br/></td><td>GND<br/></td></tr>
 <tr>
@@ -107,5 +107,3 @@
 ```
 
 # 
-
-

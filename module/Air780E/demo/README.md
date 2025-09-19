@@ -19,7 +19,6 @@
 |------|----|-------|-----------|----|
 |[adc](https://gitee.com/openLuat/LuatOS/tree/master/demo/adc/)|模数转换|adc|所有||
 |[camera](https://gitee.com/openLuat/LuatOS/tree/master/demo/camera/)|摄像头|camera|air105||
-|[coremark](https://gitee.com/openLuat/LuatOS/tree/master/demo/coremark/)|跑分|coremark|所有|生产固件均不带该库,可自行编译或云编译|
 |[crypto](https://gitee.com/openLuat/LuatOS/tree/master/demo/crypto/)|加解密|crypto|所有||
 |[dht12](https://gitee.com/openLuat/LuatOS/tree/master/demo/dht12/)|温湿度传感器|i2c|所有||
 |[eink](https://gitee.com/openLuat/LuatOS/tree/master/demo/eink/)|电子墨水屏|eink|所有||

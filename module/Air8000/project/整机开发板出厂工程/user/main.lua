@@ -33,7 +33,7 @@ local talk = require "talk"
 
 local airrecord = require "airrecord"
 local taskName = "MAIN"
-local  exfotawifi = require("exfotawifi")
+local  exfotawifi = require("exfotawifi") --升级WiFi固件版本
 local sid = 0
 libfota2 = require "libfota2"
 
@@ -557,9 +557,6 @@ local function UITask()
     end
 
 end
-local function  wififota()
-  exfotawifi.request()
-end
 
 local function fota_cb(ret)
     log.info("fota", ret)
@@ -602,7 +599,6 @@ end
 
 sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
 sysplus.taskInitEx(hardware_start,"hardware_start")
-sysplus.taskInitEx(wififota,"exfotawifi")
 sys.subscribe("IP_READY", ip_ready_handle)
 sysplus.taskInitEx(UITask, taskName)
 

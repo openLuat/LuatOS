@@ -1137,7 +1137,7 @@ static int l_lcd_set_fontfile(lua_State *L) {
     }
     size_t sz;
     const uint8_t* font_filename = (const uint8_t*)luaL_checklstring(L, 1, &sz);
-    lcd_dft_conf->luat_lcd_u8g2.font_file = luat_fs_fopen(font_filename, "rb");
+    lcd_dft_conf->luat_lcd_u8g2.font_file = luat_fs_fopen((const char*)font_filename, "rb");
     luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(lcd_dft_conf->luat_lcd_u8g2), NULL);
     if (lua_isinteger(L, 2)) {

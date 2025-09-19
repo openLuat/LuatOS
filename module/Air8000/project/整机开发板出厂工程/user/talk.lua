@@ -221,7 +221,8 @@ end
 -- 打开通讯录
 local function open_address_list()
     if g_dev_list == nil or  #g_dev_list  == 0 then
-        talk_state = "没有建立群组"
+        talk_state = "联系人列表获取失败,检测key和群组是否建立"
+        log.info("联系人列表获取失败,检测key和群组是否建立")
         return false
     else 
         current_page = "address_list"

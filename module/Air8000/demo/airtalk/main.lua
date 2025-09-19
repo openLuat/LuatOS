@@ -1,213 +1,58 @@
 --[[
-    演示airtalk基本功能
-    按一次boot，开始1对1对讲，再按一次boot，结束对讲
-    按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.09.19
+@author  梁健
+@usage
+本demo演示的核心功能为：
+
+airtalk.lua： 进行airtalk 对讲业务,相关使用说明，请见https://docs.openluat.com/value/airtalk/
+
+更多说明参考本目录下的readme.md文件
 ]]
 
-PROJECT = "airtalk_demo"
-VERSION = "1.0.2"
-PRODUCT_KEY = "29uptfBkJMwFC7x7QeW10UPO3LecPYFu" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 
--- 引入必要模块
+--[[
+本demo可直接在Air8000整机开发板上运行
+]]
 
-local extalk = require "extalk"
-local exaudio = require "exaudio"
+PROJECT = "audio"
+VERSION = "1.0.0"
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
--- 配置日志格式
-log.style(1)
 
--- 常量定义
-local USER_TASK_NAME = "user_task"
-local MSG_KEY_PRESS = 12  -- 按键消息
-
--- 全局状态变量
-local g_dev_list = nil    -- 设备列表
-local g_speech_active = false  -- 对讲状态标记
-
--- 音频初始化参数
-local audio_setup_param = {
-    model = "es8311",       -- 音频编解码类型,可填入"es8311","es8211"
-    i2c_id = 0,             -- i2c_id,可填入0，1 并使用pins工具配置对应的管脚
-    pa_ctrl = 162,          -- 音频放大器电源控制管脚
-    dac_ctrl = 164,         -- 音频编解码芯片电源控制管脚    
-}
-
--- 联系人列表回调函数
-local function contact_list_callback(dev_list)
-    g_dev_list = dev_list
-    if dev_list and #dev_list > 0 then
-        log.info("联系人列表更新:")
-        for i = 1, #dev_list do
-            log.info(string.format("  %d. ID: %s, 名称: %s", 
-                i, dev_list[i]["id"], dev_list[i]["name"] or "未知"))
-        end
-    else
-        log.info("联系人列表为空")
-    end
-end
-
--- 对讲状态回调函数
-local function speech_state_callback(event_table)
-    if not event_table then return end
-    
-    if event_table.state == extalk.START then
-        log.info("对讲开始，可以说话了")
-        g_speech_active = true
-    elseif event_table.state == extalk.STOP then
-        log.info("对讲结束")
-        g_speech_active = false
-    elseif event_table.state == extalk.UNRESPONSIVE then
-        log.info("对端未响应")
-        g_speech_active = false
-    elseif event_table.state == extalk.ONE_ON_ONE then
-        g_speech_active = true
-        
-        local dev_name = "未知设备"
-        if g_dev_list then
-            for i = 1, #g_dev_list do
-                if g_dev_list[i]["id"] == event_table.id then
-                    dev_name = g_dev_list[i]["name"] or "未知设备"
-                    break
-                end
-            end
-        end
-        log.info(string.format("%s 来电", dev_name))
-    elseif event_table.state == extalk.BROADCAST then
-        g_speech_active = true
-        
-        local dev_name = "未知设备"
-        if g_dev_list then
-            for i = 1, #g_dev_list do
-                if g_dev_list[i]["id"] == event_table.id then
-                    dev_name = g_dev_list[i]["name"] or "未知设备"
-                    break
-                end
-            end
-        end
-        log.info(string.format("%s 开始广播", dev_name))
-    end
-end
-
--- extalk配置参数
-local extalk_configs = {
-    key = PRODUCT_KEY,
-    heart_break_time = 120,  -- 心跳间隔(单位秒)
-    contact_list_cbfnc = contact_list_callback,
-    state_cbfnc = speech_state_callback,
-}
-
--- 按键回调函数 - Boot键
-local function boot_key_callback()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)  -- false表示Boot键
-end
-
--- 按键回调函数 - Power键
-local function power_key_callback()
-    sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)   -- true表示Power键
-end
-
--- 初始化按键
-local function init_buttons()
-    -- 配置Boot键 (GPIO0)
-    gpio.setup(0, boot_key_callback, gpio.PULLDOWN, gpio.RISING)
-    gpio.debounce(0, 200, 1)  -- 200ms去抖
-    
-    -- 配置Power键
-    gpio.setup(gpio.PWR_KEY, power_key_callback, gpio.PULLUP, gpio.FALLING)
-    gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 200ms去抖
-end
-
--- 查找第一个可用的对端设备ID
-local function find_first_remote_device()
-    if not g_dev_list or #g_dev_list == 0 then
-        log.warn("没有找到可用的设备")
-        return nil
-    end
-    
-    local local_id = mobile.imei()
-    for i = 1, #g_dev_list do
-        local dev_id = g_dev_list[i]["id"]
-        if dev_id and dev_id ~= local_id then
-            return dev_id
-        end
-    end
-    
-    log.warn("没有找到其他可用设备")
-    return nil
-end
-
--- 处理按键消息
-local function handle_key_press(is_power_key)
-    if g_speech_active then
-        -- 当前正在对讲，按任何键都结束对讲
-        log.info("结束当前对讲")
-        extalk.stop()
-        g_speech_active = false
-    else
-        -- 当前未在对讲，根据按键类型开始不同对讲
-        if is_power_key then
-            -- Power键：开始一对多广播
-            log.info("开始一对多广播")
-            extalk.start()  -- 不带参数表示广播
-        else
-            -- Boot键：开始一对一对讲
-            log.info("开始一对一对讲")
-            local remote_id = find_first_remote_device()
-            if remote_id then
-                extalk.start(remote_id)
-            else
-                log.error("无法开始一对一对讲，没有找到可用设备")
-            end
-        end
-    end
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
 
+require "talk"            --  启动airtalk
 
--- 用户主任务
-local function user_main_task()
-    -- 初始化音频
-    local audio_init_ok = exaudio.setup(audio_setup_param)
-    if not audio_init_ok then
-        log.error("音频初始化失败")
-        return
-    end
-    log.info("音频初始化成功")
-    
-    -- 初始化extalk
-    local extalk_init_ok = extalk.setup(extalk_configs)
-    if not extalk_init_ok then
-        log.error("extalk初始化失败")
-        return
-    end
-    log.info("extalk初始化成功")
-    
-    -- 等待按键消息并处理
-    while true do
-        local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)
-        if msg and msg[1] == MSG_KEY_PRESS then
-            handle_key_press(msg[2])  -- msg[2]区分是Power键(true)还是Boot键(false)
-        end
-    end
-end
+-- 音频对内存影响较大，不断的打印内存，用于判断是否异常
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+ end, 3000)
 
--- 初始化按键
-init_buttons()
-
--- 启动用户任务
-sys.taskInitEx(user_main_task, USER_TASK_NAME)
-
--- 内存监控任务
-sys.taskInit(function()
-    while true do
-        sys.wait(60000)  -- 每分钟检查一次
-        log.info("系统状态监控:")
-        log.info("  时间:", os.time())
-        log.info("  Lua内存:", rtos.meminfo("lua"))
-        log.info("  系统内存:", rtos.meminfo("sys"))
-        log.info("  PSRAM内存:", rtos.meminfo("psram"))
-    end
-end)
-
--- 启动系统
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!
+

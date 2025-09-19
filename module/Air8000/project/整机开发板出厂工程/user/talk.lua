@@ -201,7 +201,7 @@ end
 
 local function stop_talk()
     talk_state = "停止对讲"
-    sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_STOP_TEST_END)  -- 停止对讲
+    extalk.stop()     --   停止对讲
 end
 
 

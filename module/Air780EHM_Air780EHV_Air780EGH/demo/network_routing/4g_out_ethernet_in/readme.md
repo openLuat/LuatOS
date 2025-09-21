@@ -55,17 +55,13 @@
 
 1、搭建好硬件环境，按接线图连接硬件,
 
-2、按需修改WiFi热点配置（在netif_app.lua中）：
-ssid = "AP热点名称"
-password = "AP热点密码"
+2、烧录内核固件和本项目的Lua脚本：main.lua：主程序入口，netif_app.lua：网络管理模块
 
-4、烧录内核固件和本项目的Lua脚本：main.lua：主程序入口，netif_app.lua：网络管理模块
-
-5、启动设备，观察日志输出：
+3、启动设备，观察日志输出：
 
 ``` lua
 [INFO] exnetif setproxy success
 [INFO] http执行结果 200 ... 
 ```
 
-6、其他设备通过以太网接入780EXX，其他设备都能正常上网，则表示验证成功。
+4、其他设备通过以太网接入780EXX，其他设备都能正常上网，则表示验证成功。

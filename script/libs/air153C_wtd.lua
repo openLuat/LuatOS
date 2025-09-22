@@ -19,7 +19,7 @@ air153C_wtd={}
 初始化引脚
 @api air153C_wtd.init(watchdogPin)
 @int 看门狗控制引脚
-@return nil
+@return nil 无返回值
 @usage
 air153C_wtd.init(28)
 ]]
@@ -34,7 +34,7 @@ end
 调用此函数进行喂狗
 @api air153C_wtd.feed_dog(watchdogPin)
 @int watchdogPin设置看门狗控制引脚
-@return nil
+@return nil 无返回值
 @usage
 air153C_wtd.feed_dog(28)
 ]]
@@ -47,7 +47,7 @@ end
 调用此函数关闭喂狗，谨慎使用!
 @api air153C_wtd.close_watch_dog(watchdogPin)
 @int watchdogPin设置看门狗控制引脚
-@return nil
+@return nil 无返回值
 @usage
 air153C_wtd.close_watch_dog(28)
 ]]

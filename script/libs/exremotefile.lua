@@ -948,7 +948,7 @@ end
 @table ap_opts 可选，AP配置选项表
 @table sdcard_opts 可选，TF/SD卡挂载配置选项表
 @table server_opts 可选，服务器配置选项表
-@return 无
+@return 无 无返回值
 @usage
 -- 一、使用默认参数创建server服务器
 -- 启动后连接默认AP热点，直接访问日志中默认的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
@@ -1060,7 +1060,7 @@ end
 --[[
 关闭文件管理系统，包括停止HTTP文件服务器、取消TF/SD卡挂载和停止AP热点
 @api exremotefile.close()
-@return 无
+@return 无 无返回值
 @usage
 -- 关闭文件管理系统
 -- exremotefile.close()

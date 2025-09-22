@@ -42,14 +42,21 @@ local function contact_list_callback(dev_list)
     end
 end
 
+local gpio_number = 20 -- air8000 核心板上的23 管脚
+
+LED = gpio.setup(gpio_number, 1) -- 设置GPIO20为输出模式
+
+
 -- 对讲状态回调函数
 local function speech_state_callback(event_table)
     if not event_table then return end
     
     if event_table.state == extalk.START then
         log.info("对讲开始，可以说话了")
+        LED(1)
         g_speech_active = true
     elseif event_table.state == extalk.STOP then
+        LED(0)
         log.info("对讲结束")
         g_speech_active = false
     elseif event_table.state == extalk.UNRESPONSIVE then
@@ -57,7 +64,7 @@ local function speech_state_callback(event_table)
         g_speech_active = false
     elseif event_table.state == extalk.ONE_ON_ONE then
         g_speech_active = true
-        
+        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -70,7 +77,7 @@ local function speech_state_callback(event_table)
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
         g_speech_active = true
-        
+        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -94,11 +101,13 @@ local extalk_configs = {
 
 -- 按键回调函数 - Boot键
 local function boot_key_callback()
+    log.info("boot_key_callback++++++")
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)  -- false表示Boot键
 end
 
 -- 按键回调函数 - Power键
 local function power_key_callback()
+    log.info("power_key_callback++++++")
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)   -- true表示Power键
 end
 
@@ -162,13 +171,13 @@ end
 
 -- 用户主任务
 local function user_main_task()
-    -- 初始化音频
-    local audio_init_ok = exaudio.setup(audio_setup_param)
-    if not audio_init_ok then
-        log.error("音频初始化失败")
-        return
-    end
-    log.info("音频初始化成功")
+    -- -- 初始化音频
+    -- local audio_init_ok = exaudio.setup(audio_setup_param)
+    -- if not audio_init_ok then
+    --     log.error("音频初始化失败")
+    --     return
+    -- end
+    -- log.info("音频初始化成功")
     
     -- 初始化extalk
     local extalk_init_ok = extalk.setup(extalk_configs)
@@ -177,7 +186,7 @@ local function user_main_task()
         return
     end
     log.info("extalk初始化成功")
-    
+    LED(0)
     -- 等待按键消息并处理
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

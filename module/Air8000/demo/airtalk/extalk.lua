@@ -76,6 +76,23 @@ local function check_param(param, expected_type, name)
     return true
 end
 
+-- MQTT消息发布函数，集中处理所有发布操作并打印日志
+local function publish_message(topic, payload)
+    if g_mqttc then
+        log.info("MQTT发布 - 主题:", topic, "内容:", payload)
+        g_mqttc:publish(topic, payload)
+    else
+        log.error("MQTT客户端未初始化，无法发布消息")
+    end
+end
+
+
+-- 对讲超时处理
+local function wait_speech_to()
+    log.info("主动请求对讲超时无应答")
+    speech_off(true, false)
+end
+
 -- 发送鉴权消息
 local function auth()
     if g_state == SP_T_NO_READY and g_mqttc then
@@ -84,7 +101,7 @@ local function auth()
             ["key"] = extalk_configs_local.key, 
             ["device_type"] = 1
         })
-        g_mqttc:publish(topic, payload)
+        publish_message(topic, payload)
     end
 end
 
@@ -96,7 +113,7 @@ local function heart()
             ["from"] = g_local_id, 
             ["to"] = g_remote_id
         })
-        g_mqttc:publish(topic, payload)
+        publish_message(topic, payload)
     end
 end
 
@@ -124,11 +141,12 @@ local function speech_off(need_upload, need_ind)
     g_state = SP_T_IDLE
     sys.timerStopAll(auth)
     sys.timerStopAll(heart)
+    log.info("wait_speech_to",wait_speech_to)
     sys.timerStopAll(wait_speech_to)
     
     if need_upload and g_mqttc then
         local topic = string.format("ctrl/uplink/%s/0004", g_local_id)
-        g_mqttc:publish(topic, json.encode({["to"] = g_remote_id}))
+        publish_message(topic, json.encode({["to"] = g_remote_id}))
     end
 
     if need_ind then
@@ -136,11 +154,6 @@ local function speech_off(need_upload, need_ind)
     end
 end
 
--- 对讲超时处理
-local function wait_speech_to()
-    log.info("主动请求对讲超时无应答")
-    speech_off(true, false)
-end
 
 -- 命令处理：请求对讲应答
 local function handle_speech_response(obj)
@@ -171,7 +184,7 @@ local function handle_incoming_call(obj)
             ["topic"] = obj and obj["topic"] or "", 
             ["info"] = "无效的请求参数"
         }
-        g_mqttc:publish(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
+        publish_message(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
         return
     end
 
@@ -183,7 +196,7 @@ local function handle_incoming_call(obj)
             ["topic"] = obj["topic"], 
             ["info"] = "device is busy"
         }
-        g_mqttc:publish(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
+        publish_message(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
         return
     end
 
@@ -197,7 +210,7 @@ local function handle_incoming_call(obj)
             ["topic"] = obj["topic"], 
             ["info"] = "topic error"
         }
-        g_mqttc:publish(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
+        publish_message(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
         return
     end
 
@@ -242,7 +255,7 @@ local function handle_incoming_call(obj)
     end
 
     -- 发送响应
-    g_mqttc:publish(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
+    publish_message(string.format("ctrl/uplink/%s/8102", g_local_id), json.encode(response))
 end
 
 -- 命令处理：对端挂断
@@ -261,7 +274,7 @@ local function handle_remote_hangup(obj)
         end
     end
     
-    g_mqttc:publish(string.format("ctrl/uplink/%s/8103", g_local_id), json.encode(response))
+    publish_message(string.format("ctrl/uplink/%s/8103", g_local_id), json.encode(response))
 end
 
 -- 命令处理：更新设备列表
@@ -274,13 +287,13 @@ local function handle_device_list_update(obj)
         response = {["result"] = "failed", ["info"] = "json info error"}
     end
     
-    g_mqttc:publish(string.format("ctrl/uplink/%s/8101", g_local_id), json.encode(response))
+    publish_message(string.format("ctrl/uplink/%s/8101", g_local_id), json.encode(response))
 end
 
 -- 命令处理：鉴权结果
 local function handle_auth_result(obj)
     if obj and obj["result"] == SUCC then
-        g_mqttc:publish(string.format("ctrl/uplink/%s/0002", g_local_id), "")  -- 更新列表
+        publish_message(string.format("ctrl/uplink/%s/0002", g_local_id), "")  -- 更新列表
     else
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, false, 
             "鉴权失败" .. (obj and obj["info"] or "")) 
@@ -520,7 +533,7 @@ function extalk.start(id)
         g_s_topic = string.format("audio/%s/all/%s", 
             g_local_id, string.sub(tostring(mcu.ticks()), -4, -1))
         
-        g_mqttc:publish(string.format("ctrl/uplink/%s/0003", g_local_id), 
+        publish_message(string.format("ctrl/uplink/%s/0003", g_local_id), 
             json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
         sys.timerStart(wait_speech_to, 15000)
     else
@@ -538,7 +551,7 @@ function extalk.start(id)
         g_s_topic = string.format("audio/%s/%s/%s", 
             g_local_id, id, string.sub(tostring(mcu.ticks()), -4, -1))
         
-        g_mqttc:publish(string.format("ctrl/uplink/%s/0003", g_local_id), 
+        publish_message(string.format("ctrl/uplink/%s/0003", g_local_id), 
             json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
         sys.timerStart(wait_speech_to, 15000)
     end

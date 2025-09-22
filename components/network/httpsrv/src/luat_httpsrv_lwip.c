@@ -444,8 +444,12 @@ static void srv_stop_cb(void* arg) {
         return;
     }
     if (ctx->pcb) {
-        tcp_abort(ctx->pcb);
-        tcp_close(ctx->pcb);
+        tcp_recv(ctx->pcb, NULL);
+        tcp_sent(ctx->pcb, NULL);
+        if(tcp_close(ctx->pcb))
+        {
+            tcp_abort(ctx->pcb);
+        }
         ctx->pcb = NULL;
     }
     luat_httpsrv_free(ctx);

@@ -73,7 +73,7 @@ end
 
 
 
--- 加载AIRSPINAND_1000功能模块
+-- 加载AirSPINAND_1000功能模块
 require "AirSPINAND_1000"
 
 

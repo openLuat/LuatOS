@@ -14,9 +14,9 @@
 
 1、Air780EPM核心板一块+可上网的sim卡一张+网线一根+AirETH_1000板子一个;
 
-[](https://docs.openLuat.com/cdn/image/AirETH_1000.jpg)
+[](https://docs.openLuat.com/cdn/image/780EPM_AirETH1000.jpg)
 
-![lan](E:\文档池\新建文件夹\luatos-doc-pool\docs\root\docs\air780EPM\luatos\app\image\lan.jpg)
+<img title="" src="https://docs.openLuat.com/cdn/image/780EPM_AirETH1000.jpg" alt="lan" style="zoom:25%;">
 
 2、TYPE-C USB数据线一根 + 杜邦线若干;
 

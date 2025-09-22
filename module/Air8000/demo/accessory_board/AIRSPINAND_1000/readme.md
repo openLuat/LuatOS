@@ -34,7 +34,7 @@
 - TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
-    Air8000 核心板与 AIRSPINAND_1000 按以下方式接线：
+    Air8000 核心板与 AirSPINAND_1000 按以下方式接线：
 
 <table>
 <tr>

@@ -41,7 +41,6 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 socket.dft(socket.LWIP_ETH)
 
 
--- 本demo测试使用的是Air780EPM V1.3版本开发板
 -- GPIO20为CH390H以太网芯片的供电使能控制引脚
 gpio.setup(20, 1, gpio.PULLUP)
 

@@ -11,7 +11,6 @@
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
    (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
    (2) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
 更多说明参考本目录下的readme.md文件
 ]]
 

@@ -255,7 +255,7 @@ end
 @number da221模式设置，1，微小震动检测，用于检测轻微震动的场景，例如用手敲击桌面；加速度量程2g；
                         2，运动检测，用于电动车或汽车行驶时的检测和人行走和跑步时的检测；加速度量程4g；
                         3，跌倒检测，用于人或物体瞬间跌倒时的检测；加速度量程8g；
-@return nil
+@return nil 无返回值
 @usage
     exvib.open(1)
 ]]
@@ -289,7 +289,7 @@ end
 --[[
     关闭da221
 @api exvib.close()
-@return nil
+@return nil 无返回值
 @usage
     exvib.close()
 ]]

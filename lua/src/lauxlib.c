@@ -851,7 +851,7 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
         }
         else {
           n = (LUAI_UACNUMBER)lua_tonumber(L, idx);
-          sprintf_(buff, "%9g", n);
+          sprintf_(buff, LUA_NUMBER_FMT, n);
           lua_pushstring(L, buff);
         }
         break;

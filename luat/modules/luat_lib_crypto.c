@@ -13,21 +13,11 @@
 #include "luat_str.h"
 #include <time.h>
 #include "luat_zbuff.h"
-// #include "mbedtls/md.h"
+#include "luat_str.h"
 
 #define LUAT_LOG_TAG "crypto"
 #define LUAT_CRYPTO_TYPE "crypto"
 #include "luat_log.h"
-
-static const unsigned char hexchars[] = "0123456789ABCDEF";
-static void fixhex(const char* source, char* dst, size_t len) {
-    for (size_t i = 0; i < len; i++)
-    {
-        char ch = *(source+i);
-        dst[i*2] = hexchars[(unsigned char)ch >> 4];
-        dst[i*2+1] = hexchars[(unsigned char)ch & 0xF];
-    }
-}
 
 /**
 计算md5值
@@ -44,7 +34,7 @@ static int l_crypto_md5(lua_State *L) {
     char tmp[32] = {0};
     char dst[32] = {0};
     if (luat_crypto_md5_simple(str, size, tmp) == 0) {
-        fixhex(tmp, dst, 16);
+        luat_str_tohex(tmp, 16, dst);
         lua_pushlstring(L, dst, 32);
         return 1;
     }
@@ -69,7 +59,7 @@ static int l_crypto_hmac_md5(lua_State *L) {
     char tmp[32] = {0};
     char dst[32] = {0};
     if (luat_crypto_hmac_md5_simple(str, str_size, key, key_size, tmp) == 0) {
-        fixhex(tmp, dst, 16);
+        luat_str_tohex(tmp, 16, dst);
         lua_pushlstring(L, dst, 32);
         return 1;
     }
@@ -91,7 +81,7 @@ static int l_crypto_sha1(lua_State *L) {
     char tmp[40] = {0};
     char dst[40] = {0};
     if (luat_crypto_sha1_simple(str, size, tmp) == 0) {
-        fixhex(tmp, dst, 20);
+        luat_str_tohex(tmp, 20, dst);
         lua_pushlstring(L, dst, 40);
         return 1;
     }
@@ -116,7 +106,7 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     char tmp[40] = {0};
     char dst[40] = {0};
     if (luat_crypto_hmac_sha1_simple(str, str_size, key, key_size, tmp) == 0) {
-        fixhex(tmp, dst, 20);
+        luat_str_tohex(tmp, 20, dst);
         lua_pushlstring(L, dst, 40);
         return 1;
     }
@@ -139,7 +129,7 @@ static int l_crypto_sha256(lua_State *L) {
     char tmp[64] = {0};
     char dst[64] = {0};
     if (luat_crypto_sha256_simple(str, size, tmp) == 0) {
-        fixhex(tmp, dst, 32);
+        luat_str_tohex(tmp, 32, dst);
         lua_pushlstring(L, dst, 64);
         return 1;
     }
@@ -171,7 +161,7 @@ static int l_crypto_hmac_sha256(lua_State *L) {
     }
 
     if (luat_crypto_hmac_sha256_simple(str, str_size, key, key_size, tmp) == 0) {
-        fixhex(tmp, dst, 32);
+        luat_str_tohex(tmp, 32, dst);
         lua_pushlstring(L, dst, 64);
         return 1;
     }
@@ -195,7 +185,7 @@ static int l_crypto_sha512(lua_State *L) {
     char tmp[128] = {0};
     char dst[128] = {0};
     if (luat_crypto_sha512_simple(str, size, tmp) == 0) {
-        fixhex(tmp, dst, 64);
+        luat_str_tohex(tmp, 64, dst);
         lua_pushlstring(L, dst, 128);
         return 1;
     }
@@ -227,7 +217,7 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     }
 
     if (luat_crypto_hmac_sha512_simple(str, str_size, key, key_size, tmp) == 0) {
-        fixhex(tmp, dst, 64);
+        luat_str_tohex(tmp, 64, dst);
         lua_pushlstring(L, dst, 128);
         return 1;
     }
@@ -322,11 +312,11 @@ static int l_crypto_crc16(lua_State *L)
     }else{
         inputData = (const unsigned char*)lua_tolstring(L,2,&inputlen);
     }
-    uint16_t poly = luaL_optnumber(L,3,0x0000);
-    uint16_t initial = luaL_optnumber(L,4,0x0000);
-    uint16_t finally = luaL_optnumber(L,5,0x0000);
-    uint8_t inReverse = luaL_optnumber(L,6,0);
-    uint8_t outReverse = luaL_optnumber(L,7,0);
+    uint16_t poly = (uint16_t)luaL_optnumber(L,3,0x0000);
+    uint16_t initial = (uint16_t)luaL_optnumber(L,4,0x0000);
+    uint16_t finally = (uint16_t)luaL_optnumber(L,5,0x0000);
+    uint8_t inReverse = (uint8_t)luaL_optnumber(L,6,0);
+    uint8_t outReverse = (uint8_t)luaL_optnumber(L,7,0);
     lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputlen,poly,initial,finally,inReverse,outReverse));
     return 1;
 }
@@ -347,7 +337,7 @@ static int l_crypto_crc16_modbus(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-    uint16_t crc_init = luaL_optinteger(L, 2, 0xFFFF);
+    uint16_t crc_init = (uint16_t)luaL_optinteger(L, 2, 0xFFFF);
 
     lua_pushinteger(L, calcCRC16_modbus(inputData, len, crc_init));
     return 1;
@@ -371,9 +361,9 @@ static int l_crypto_crc32(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-	uint32_t start = luaL_optinteger(L, 2, 0xffffffff);
-	uint32_t poly = luaL_optinteger(L, 3, 0x04C11DB7);
-	uint32_t end = luaL_optinteger(L, 4, 0xffffffff);
+	uint32_t start = (uint32_t)luaL_optinteger(L, 2, 0xffffffff);
+	uint32_t poly = (uint32_t)luaL_optinteger(L, 3, 0x04C11DB7);
+	uint32_t end = (uint32_t)luaL_optinteger(L, 4, 0xffffffff);
     lua_pushinteger(L, luat_crc32(inputData, len, start, poly) ^ end);
     return 1;
 }
@@ -398,36 +388,17 @@ static int l_crypto_crc8(lua_State *L)
     if (!lua_isinteger(L, 2)) {
         lua_pushinteger(L, calcCRC8(inputData, len));
     } else {
-    	uint8_t poly = lua_tointeger(L, 2);
-    	uint8_t start = luaL_optinteger(L, 3, 0);
+    	uint8_t poly = (uint8_t)lua_tointeger(L, 2);
+    	uint8_t start = (uint8_t)luaL_optinteger(L, 3, 0);
     	uint8_t is_rev = 0;
     	if (lua_isboolean(L, 4)) {
-    		is_rev = lua_toboolean(L, 4);
+    		is_rev = (uint8_t)lua_toboolean(L, 4);
     	}
 		lua_pushinteger(L, luat_crc8(inputData, len, start, poly, is_rev));
     }
     return 1;
 }
 
-
-
-static inline unsigned char crc7(const unsigned char* message, int length, unsigned char CRCPoly, unsigned char CRC)
-{
-    // unsigned char CRCPoly = 0xe5;
-    unsigned char CRCTable[256];
-    // unsigned char CRC = 0x00;
-    for (int i = 0; i < 256; i++){
-        CRCTable[i] = (i & 0x80) ? i ^ CRCPoly : i;
-        for (int j = 1; j < 8; j++){
-            CRCTable[i] <<= 1;
-            if (CRCTable[i] & 0x80)
-                CRCTable[i] ^= CRCPoly;
-        }
-    }
-    for (int i = 0; i < length; i++)
-        CRC = CRCTable[(CRC << 1) ^ message[i]];
-    return CRC<< 1;
-}
 
 /**
 计算crc7值
@@ -444,9 +415,9 @@ local crc = crypto.crc7(data, 0x31, 0xff)
 static int l_crypto_crc7(lua_State* L) {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-    unsigned char poly = luaL_optinteger(L, 2, 0xe5);
-    unsigned char start = luaL_optinteger(L, 3, 0);
-    unsigned char result = crc7(inputData, len, poly, start);
+    unsigned char poly = (unsigned char)luaL_optinteger(L, 2, 0xe5);
+    unsigned char start = (unsigned char)luaL_optinteger(L, 3, 0);
+    unsigned char result = luat_crc7(inputData, len, poly, start);
     lua_pushinteger(L, result);
     return 1;
 }
@@ -647,7 +618,7 @@ static int l_crypto_md_file(lua_State *L) {
         return 0;
     }
 
-    fixhex(output, buff, ret);
+    luat_str_tohex(output, ret, buff);
     lua_pushlstring(L, buff, ret *2);
     return 1;
 }
@@ -683,12 +654,13 @@ static int l_crypto_md(lua_State *L) {
     char buff[128] = {0};
     char output[64];
 
-    int ret = luat_crypto_md(md, data, data_size, output, key, key_len);
+    int ret = luat_crypto_md_v2(md, data, data_size, output, key, key_len);
     if (ret < 1) {
+        LLOGE("luat_crypto_md return %d", ret);
         return 0;
     }
 
-    fixhex(output, buff, ret);
+    luat_str_tohex(output, ret, buff);
     lua_pushlstring(L, buff, ret *2);
     return 1;
 }
@@ -736,7 +708,7 @@ static int l_crypt_hash_init(lua_State *L) {
 @api crypto.hash_update(stream, data)
 @userdata crypto.hash_init()创建的stream, 必选
 @string 待计算的数据,必选
-@return 无
+@return nil 无返回值
 @usage
 crypto.hash_update(stream, "OK")
 */
@@ -765,7 +737,7 @@ static int l_crypt_hash_finish(lua_State *L) {
     if (ret < 1) {
         return 0;
     }
-    fixhex(output, buff, ret);
+    luat_str_tohex(output, ret, buff);
     lua_pushlstring(L, buff, ret * 2);
     return 1;
 }

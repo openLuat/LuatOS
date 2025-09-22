@@ -58,7 +58,7 @@ static int l_airtalk_handler(lua_State *L, void* ptr) {
 @int 单次解码帧数，如果缓冲没有足够的帧数，自动补0，默认值5，不能低于2，不能高于10，不能低于encode_cnt, decode_cnt * 4 必须是 encode_cnt的整数倍
 @int 对讲停止后，audio的pm状态，默认是audio.SHUTDOWN
 @int 多长时间判定对端长时间无数据发送，超过这个时间会上报event_error，用户决定接下来的操作。默认5000ms，单位ms
-@return nil
+@return nil 无返回值
 @usage
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
 airtalk.config(airtalk.PROTOCOL_MQTT, mqttc)
@@ -131,7 +131,7 @@ static int l_airtalk_on(lua_State *L) {
 /*
 airtalk启动
 @api airtalk.start()
-@return nil
+@return nil 无返回值
 @usage
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
 airtalk.config(airtalk.PROTOCOL_MQTT, mqttc)
@@ -150,7 +150,7 @@ static int l_airtalk_start(lua_State *L)
 配置airtalk RTP协议中的SSRC
 @api airtalk.set_ssrc(ssrc)
 @int/string ssrc，可以是int也是可以8字节string
-@return nil
+@return nil 无返回值
 @usage
 
 */
@@ -175,7 +175,7 @@ static int l_airtalk_set_ssrc(lua_State *L)
 配置airtalk mqtt类型语音数据的专用topic
 @api airtalk.set_topic(topic)
 @string topic
-@return nil
+@return nil 无返回值
 @usage
 airtalk.set_topic("xxxxxxxxxx")
 */
@@ -193,7 +193,7 @@ airtalk对讲工作启动/停止
 @boolean 启停控制，true开始，false停止
 @int 工作模式，见airtalk.MODE_XXX
 @int 音频采样率，目前只有8000和16000，默认16000
-@return nil
+@return nil 无返回值
 @usage
 --1对1对讲开始
 airtalk.speech(true,airtalk.MODE_PERSON,16000)
@@ -245,7 +245,7 @@ static int l_airtalk_speech(lua_State *L)
 //airtalk上行控制
 //@api airtalk.uplink(on_off)
 //@boolean  录音上行控制，true开始，false停止
-//@return nil
+//@return nil 无返回值
 //@usage
 //--开始录音
 //airtalk.uplink(true)
@@ -262,7 +262,7 @@ static int l_airtalk_speech(lua_State *L)
 airtalk的详细调试信息开关
 @api airtalk.debug(on_off)
 @boolean 调试信息开关，true打开，false关闭
-@return nil
+@return nil 无返回值
 */
 static int l_airtalk_debug(lua_State *L)
 {

@@ -6,6 +6,7 @@
 @author  拓毅恒
 @usage
 注：使用时在中直接调用 require"exfotawifi" 即可开始执行WiFi升级任务
+升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
 
 -- 用法实例
 local exfotawifi = require("exfotawifi")

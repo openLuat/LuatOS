@@ -11,12 +11,16 @@
 本文件没有对外接口，直接在其他功能模块中require "netdrv_4g"就可以加载运行；
 ]]
 
-local function ip_ready_func()
-    log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_GP))
+local function ip_ready_func(ip, adapter)    
+    if adapter == socket.LWIP_GP then
+        log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_GP))
+    end
 end
 
-local function ip_lose_func()
-    log.warn("netdrv_4g.ip_lose_func", "IP_LOSE")
+local function ip_lose_func(adapter)    
+    if adapter == socket.LWIP_GP then
+        log.warn("netdrv_4g.ip_lose_func", "IP_LOSE")
+    end
 end
 
 
@@ -27,7 +31,5 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
--- 设置默认网卡为socket.LWIP_GP
 -- 在Air8000上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
--- 在单4G网卡使用场景下，下面这一行代码加不加都没有影响，为了和其他网卡驱动模块的代码风格保持一致，所以加上了
-socket.dft(socket.LWIP_GP)
+

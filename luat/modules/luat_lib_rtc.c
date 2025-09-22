@@ -22,8 +22,8 @@ void LUAT_WEAK luat_rtc_set_tamp32(uint32_t tamp) {
 
 /*
 设置时钟
-@api rtc.set(tab)
-@table or int 时钟参数,见示例
+@api rtc.set(val)
+@table/int 时钟参数,见示例
 @return bool 成功返回true,否则返回nil或false
 @usage
 rtc.set({year=2021,mon=8,day=31,hour=17,min=8,sec=43})
@@ -277,6 +277,7 @@ static int l_rtc_timer_stop(lua_State *L){
 @api rtc.setBaseYear(Base_year)
 @int 基准年Base_year,通常1900
 @usage
+-- 本函数已经废弃, 不要使用
 rtc.setBaseYear(1900)
 */
 static int l_rtc_set_base_year(lua_State *L){
@@ -288,7 +289,7 @@ static int l_rtc_set_base_year(lua_State *L){
 读取或设置时区
 @api rtc.timezone(tz)
 @int 时区值,注意单位是1/4时区.例如东八区是 32,而非8. 可以不传
-@return 当前/设置后的时区值
+@return int 当前/设置后的时区值
 @usage
 -- 设置为东8区
 rtc.timezone(32)

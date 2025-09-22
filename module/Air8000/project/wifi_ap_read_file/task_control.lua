@@ -3,6 +3,8 @@
 -- 1. 设置为true: 开机自动创建ap热点，初始化sd卡，创建http 文件服务器
 -- 2. 设置为false: 默认不创建ap热点，不初始化sd卡，不创建http 文件服务器；通过短按boot按键控制开关
 
+-- 导入exremotefile库
+local exremotefile = require "exremotefile"
 local AUTO_START = false -- 默认使用boot按键控制方式
 
 -- 系统状态变量
@@ -13,11 +15,10 @@ local is_running = false -- 标记系统是否正在运行
 local function start_services()
     if not is_running then
         log.info("main", "启动系统服务")
-
-        -- 加载并初始化各个功能模块
-        require "ap_init"
-        require "spi_sdcard_init"
-        http_server = require "http_server"
+        
+        -- 自定义参数启动（使用8000开发板）
+        -- 启动后连接默认AP热点，访问日志中的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
+        exremotefile.open(nil, {is_8000_development_board = true})
 
         is_running = true
         log.info("main", "系统服务启动完成")
@@ -29,12 +30,8 @@ local function stop_services()
     if is_running then
         log.info("main", "停止系统服务")
 
-        -- 停止HTTP服务器
-        httpsrv.stop(http_server.SERVER_PORT,nil,socket.LWIP_AP)
-        -- 取消挂载SD
-        fatfs.unmount("/sd")
-        -- 断开AP
-        wlan.stopAP()
+        -- 关闭远程文件管理系统
+        exremotefile.close()
 
         is_running = false
         log.info("main", "系统服务已停止")

@@ -1,0 +1,191 @@
+--[[
+@module  sms_forward
+@summary 短信信息转发驱动模块
+@version 1.0
+@date    2025.9.15
+@author  马亚丹
+@usage
+本文件为来电信息转发驱动模块，核心业务逻辑为：
+1、配置飞书，钉钉，企业微信机器人的webhook和secret（加签）。
+2、send_sms()，发送短信的功能函数，等待CC_IND消息后，手机卡可以进行收发短信。
+3、receive_sms()，接收短信处理的功能函数，收到短信后获取来信号码和短信内容，通过回调函数sms_handler(num, txt)转发到指定的机器人。
+
+直接使用Air8000核心板板硬件测试即可；
+
+本文件没有对外接口，直接在main.lua中require "sms_forward"就可以加载运行；
+]]
+--------------------------------------------------------------------------------------
+-- webhook_feishu和secret_feishu要换成你自己机器人的值
+-- webhook_feishu是钉钉分配给机器人的URL
+-- secret_feishu是选取 "加签", 自动生成的密钥
+-- 下面的给一个测试群发消息, 随时可能关掉, 请换成你自己的值
+local webhook_feishu = "https://open.feishu.cn/open-apis/bot/v2/hook/bb089165-4b73-4f80-9ed0-da0c908b44e5"
+local secret_feishu = "dp9w8i5IZrrZQpLW0bTcI"
+
+local webhook_dingding =
+"https://oapi.dingtalk.com/robot/send?access_token=03f4753ec6aa6f0524fb85907c94b17f3fa0fed3107d4e8f4eee1d4a97855f4d"
+local secret_dingding = "SECac5b455d6b567f64073a456e91feec6ad26c0f8f7dcca85dd2ce6c23ea466c52"
+
+--local webhook_weixin = "https://work.weixin.qq.com/wework_admin/common/openBotProfile/24caa08b3a985454055047454d883fc98f"
+local webhook_weixin = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=36648707-4eba-4d21-9d3a-2244e1e9bc3b"
+-- 飞书关于机器人的文档 https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN
+
+
+--1.功能函数：短信转发到飞书
+local function feishu_post_sms(num, rctxt)
+    local rheaders = {}
+    rheaders["Content-Type"] = "application/json"
+
+    -- LuatOS的时间戳只到秒,飞书也只需要秒
+    local timestamp = tostring(os.time())
+    local sign = crypto.hmac_sha256("", timestamp .. "\n" .. secret_feishu):fromHex():toBase64()
+    log.info("timestamp", timestamp)
+    log.info("sign", sign)
+    -- 注意, 这里的参数跟钉钉不同, 钉钉有个access_token参数, 飞书没有
+    local url = webhook_feishu
+    log.info("url", url)
+    -- json格式也需要按飞书的来
+    local data = { msg_type = "text" }
+    data["timestamp"] = timestamp
+    data["sign"] = sign
+    -- text就是要发送的文本内容, 其他格式按飞书的要求拼接table就好了
+    local text = "我的id是" ..
+        tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp() .. ",    " .. num .. "发来短信，内容是:" .. rctxt
+    data["content"] = { text = text }
+    local rbody = (json.encode(data))
+    log.info("feishu", rbody)
+    local code, headers, body = http.request("POST", url, rheaders, rbody).wait()
+    -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
+    -- 其他错误, 一般是密钥错了, 仔细检查吧
+    log.info("feishu", code, body, "当前网络：", socket.adapter(socket.LWIP_STA))
+end
+
+--2.功能函数：短信转发到叮叮
+local function dingding_post(num, rctxt)
+    local rheaders = {}
+    rheaders["Content-Type"] = "application/json"
+    -- LuatOS的时间戳只到秒,但钉钉需要毫秒，补3个零
+    local timestamp = tostring(os.time()) .. "000"
+    local sign = crypto.hmac_sha256(timestamp .. "\n" .. secret_dingding, secret_dingding):fromHex():toBase64()
+        :urlEncode()
+    log.info("timestamp", timestamp)
+    log.info("sign", sign)
+    local url = webhook_dingding .. "&timestamp=" .. timestamp .. "&sign=" .. sign
+    log.info("url", url)
+    local data = { msgtype = "text" }
+    -- content就是要发送的文本内容, 其他格式按钉钉的要求拼接table就好了
+    local content = "我的id是" ..
+        tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp() .. ",    " .. num .. "发来短信，内容是:" .. rctxt
+    data["text"] = { content = content }
+    local rbody = (json.encode(data))
+    log.info("dingding", rbody)
+    local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
+    -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
+    -- 其他错误, 一般是密钥错了, 仔细检查吧
+    log.info("dingding", code, body, "当前网络：", socket.adapter(socket.LWIP_STA))
+end
+
+--3.功能函数：短信转发到企业微信
+local function weixin_post(num, rctxt)
+    local rheaders = {}
+    rheaders["Content-Type"] = "application/json"
+
+    local timestamp = tostring(os.time()) .. "000"
+    log.info("timestamp", timestamp)
+    local url = webhook_weixin .. "&timestamp=" .. timestamp
+    log.info("url", url)
+    local data = { msgtype = "text" }
+    -- content就是要发送的文本内容, 其他格式按钉钉的要求拼接table就好了
+    local content = "我的id是" ..
+        tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp() .. ",    " .. num .. "发来短信，内容是:" .. rctxt
+    data["text"] = { content = content }
+    local rbody = (json.encode(data))
+    log.info("weixin", rbody)
+    local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
+    -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
+    -- 其他错误, 一般是密钥错了, 仔细检查吧
+    log.info("weixin", code, body, "当前网络：", socket.adapter(socket.LWIP_STA), socket.adapter())
+end
+
+
+
+
+
+--4.功能函数：接收短信的回调函数
+local function sms_handler(num, txt)
+    -- num 给我发短信的手机号码
+    -- txt 收到的短信文本内容
+
+
+    log.info("转发到飞书")
+    feishu_post_sms(num, txt)
+
+
+    sys.wait(1000)
+    log.info("转发到钉钉")
+    dingding_post(num, txt)
+
+    sys.wait(1000)
+    log.info("转发到微信")
+    weixin_post(num, txt)
+end
+
+
+--------------------------------------------------------------------
+--5. 功能函数：接收短信, 支持多种方式, 选一种就可以了
+-----5.1. 设置回调函数
+--sms.setNewSmsCb(sms_handler)
+-----5.2. 订阅系统消息
+--sys.subscribe("SMS_INC", sms_handler)
+-- 5.3. 在task里等着
+local function receive_sms()
+    while 1 do
+        local ret, num, txt = sys.waitUntil("SMS_INC", 300000)
+        if num then
+            log.info("num是", num)
+            log.info("收到来自" .. num .. "的短信：" .. txt)
+
+            --local isReady1, index1 = socket.adapter()
+            log.info("当前网络", socket.adapter())
+            log.info("当前wifi网络情况", socket.adapter(socket.LWIP_STA))
+
+            sms_handler(num, txt)
+        end
+    end
+end
+
+-------------------------------------------------------------------
+-- 6.功能函数：发送短信, 直接调用sms.send就行, 是不是task无所谓
+local function send_sms()
+    --系统消息CC_IND到了才能收发短信
+    sys.waitUntil("CC_IND")
+    log.info("发送短信前wait CC_IND")
+    -- 如果是联网卡, 这里是需要sntp的, 否则时间不对
+    log.info("时间同步", socket.sntp())
+    sys.waitUntil("NTP_UPDATE", 5000)
+    local cont = 1
+    while 1 do
+        log.info("现在可以收发短信")
+
+        --获取本机号码，如果卡商没写入会返回nil
+        log.info("mobile.number(id) = ", mobile.number())
+
+        log.info("mobile.iccid(id) = ", mobile.iccid())
+
+        log.info("mobile.simid(id) = ", mobile.simid())
+
+        log.info("mobile.imsi(index) = ", mobile.imsi())
+        --电信卡查话费
+        log.info("给10001发送查询短信", "这是第" .. cont .. "次发送", sms.send("10001", "102"))
+        --给自己发短信
+        --log.info("给159发送查询短信1", "这是第" .. cont .. "次发送", sms.send("1593868****", "test"))
+        cont = cont + 1
+        sys.wait(10 * 60 * 1000)
+    end
+end
+
+
+--发送短信
+sys.taskInit(send_sms)
+--接收短信
+sys.taskInit(receive_sms)

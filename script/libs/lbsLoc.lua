@@ -272,7 +272,7 @@ end
 @string productKey IOT网站上的产品KEY，如果在main.lua中定义了PRODUCT_KEY变量，则此参数可以传nil
 @string host 服务器域名, 默认 "bs.openluat.com" ,可选备用服务器(不保证可用) "bs.air32.cn"
 @string port 服务器端口，默认"12411",一般不需要设置
-@return nil
+@return nil 无返回值
 @usage
 -- 提醒: 返回的坐标值, 是WGS84坐标系
 ]]

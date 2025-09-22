@@ -79,8 +79,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载升级WIFI固件功能模块(Air8000系列可用)
-require "check_wifi"
+-- 使用蓝牙配网功能需要WIFI版本≥14
+-- 如果模组中WiFi版本<14，则需要打开此功能启动升级
+-- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
+-- require "exfotawifi" 
 
 -- 加载 ble_config_wifi 主应用功能模块
 require "ble_config_wifi"

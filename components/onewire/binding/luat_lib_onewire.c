@@ -21,7 +21,7 @@
 初始化单总线
 @api onewire.init(id)
 @int id, 硬件单总线编号,如果只有一条则随意填写
-@return nil
+@return nil 无返回值
 @usage
 onewire.init(0) --初始化硬件单总线
 */
@@ -46,7 +46,7 @@ static int l_onewire_init(lua_State *L)
 @int tLOW1, start信号到允许写的时间
 @int tRDV, start信号到允许读的时间
 @int tREC, 通信结束前恢复时间
-@return nil
+@return nil 无返回值
 @usage
 onewire.timing(0, false, 0, 500, 500, 15, 240, 65, 1, 15, 15, 2) --配置单总线时序匹配DS18B20，保留了点余量
 */
@@ -262,7 +262,7 @@ static int l_onewire_rx(lua_State *L)
 @api onewire.debug(id, onoff)
 @int id, GPIO模式对应GPIO编号,HW模式是硬件单总线编号,如果只有一条则随意填写
 @boolean onoff, true打开,false关闭
-@return nil
+@return nil 无返回值
 @usage
 onewire.debug(0, true)
 */
@@ -276,7 +276,7 @@ static int l_onewire_debug(lua_State *L)
 关闭单总线
 @api onewire.deinit(id)
 @int id, 硬件单总线编号,如果只有一条则随意填写
-@return nil
+@return nil 无返回值
 @usage
 onewire.deinit(0) --初始化硬件单总线
 */

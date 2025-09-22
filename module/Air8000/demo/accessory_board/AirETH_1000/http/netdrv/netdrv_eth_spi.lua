@@ -2,8 +2,8 @@
 @module  netdrv_eth_spi
 @summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
 @version 1.0
-@date    2025.07.24
-@author  马梦阳
+@date    2025.09.19
+@author  王城钧
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
@@ -14,6 +14,8 @@
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
+
+exnetif = require "exnetif"
 
 local function ip_ready_func(ip, adapter)
     if adapter == socket.LWIP_ETH then
@@ -45,24 +47,26 @@ gpio.setup(140, 1, gpio.PULLUP)
 
 -- 这个task的核心业务逻辑是：初始化SPI，初始化以太网卡，并在以太网卡上开启动态主机配置协议
 local function netdrv_eth_spi_task_func()
-    -- 初始化SPI1
-    local result = spi.setup(
-        1,--spi_id
-        nil,
-        0,--CPHA
-        0,--CPOL
-        8,--数据宽度
-        25600000--,--频率
-        -- spi.MSB,--高低位顺序    可选，默认高位在前
-        -- spi.master,--主模式     可选，默认主
-        -- spi.full--全双工       可选，默认全双工
-    )
-    log.info("netdrv_eth_spi", "spi open result", result)
-    --返回值为0，表示打开成功
-    if result ~= 0 then
-        log.error("netdrv_eth_spi", "spi open error",result)
-        return
-    end
+    local result = exnetif.set_priority_order({
+    {
+        ETHUSER1 = {
+                    -- 供电使能GPIO
+                    pwrpin = 140,
+                    -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
+                    -- 如果没有传入此参数，exnetif会使用默认值10秒
+                    ping_time = 3000,
+
+                    -- 连通性检测ip(选填参数)；
+                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
+                    -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
+                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+
+                    -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
+                    tp = netdrv.CH390,
+                    opts = {spi=1, cs=12}
+        }
+    }
+})
 
     -- 初始化以太网卡
 

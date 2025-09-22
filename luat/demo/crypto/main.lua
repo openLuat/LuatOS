@@ -232,6 +232,23 @@ sys.taskInit(function()
         log.info("crypto", "当前固件不支持crypto.crc7")
     end
 
+    
+    -- crypto.md测试, 要测试输出长度
+    log.info("crypto.md测试")
+    log.info("md5", crypto.md("MD5", "1234567890"))
+    log.info("sha1", crypto.md("SHA1", "1234567890"))
+    log.info("sha224", crypto.md("SHA224", "1234567890"))
+    log.info("sha256", crypto.md("SHA256", "1234567890"))
+    log.info("sha384", crypto.md("SHA384", "1234567890"))
+    log.info("sha512", crypto.md("SHA512", "1234567890"))
+    -- 还有hmac形式
+    log.info("hmac_md5", crypto.md("MD5", "1234567890", "1234567890"))
+    log.info("hmac_sha1", crypto.md("SHA1", "1234567890", "1234567890"))
+    log.info("hmac_sha224", crypto.md("SHA224", "1234567890", "1234567890"))
+    log.info("hmac_sha256", crypto.md("SHA256", "1234567890", "1234567890"))
+    log.info("hmac_sha384", crypto.md("SHA384", "1234567890", "1234567890"))
+    log.info("hmac_sha512", crypto.md("SHA512", "1234567890", "1234567890"))
+
     log.info("crypto", "ALL Done")
     sys.wait(100000)
 end)

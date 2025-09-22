@@ -4,9 +4,7 @@
 
 2、netdrv_device.lua：加载网络驱动设备功能模块；
 
-3、4g-eth-wifi.lua：模组通过4G提供网络供以太网和wifi设备上网；
-
-4、wifi-eth-wifi: 模组通过WIFI提供网络供以太网和wifi设备上网；
+3、http_app.lua：加载http应用功能模块；
 
 ## 演示功能概述
 

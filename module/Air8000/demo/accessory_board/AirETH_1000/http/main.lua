@@ -6,21 +6,11 @@
 @author  王城钧
 @usage
 本demo演示的核心功能为：
-1、分别使用http核心库和httpplus扩展库，演示以下几种应用场景的使用方式
+1、分别使用http核心库和httpplus扩展库，演示以下一种应用场景的使用方式
    (1) 普通的http get请求功能演示；
-   (2) http get下载压缩数据的功能演示；
-   (3) http get下载数据保存到文件中的功能演示；(仅http核心库支持，httpplus扩展库不支持)
-   (4) http post提交表单数据功能演示；
-   (5) http post提交json数据功能演示；
-   (6) http post提交纯文本数据功能演示；
-   (7) http post提交xml数据功能演示；
-   (8) http post提交原始二进制数据功能演示；
-   (9) http post文件上传功能演示；
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-   (1) netdrv_4g：4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
+   (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (2) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 
 更多说明参考本目录下的readme.md文件
 ]]

@@ -149,7 +149,7 @@ static int l_napt_rebuild(lua_State *L) {
 /*
 检查和清理NAT表
 @api napt.check()
-@return nil
+@return nil 无返回值
 @usage
 -- 两次check之间没有数据包的映射记录,会被清理
 */

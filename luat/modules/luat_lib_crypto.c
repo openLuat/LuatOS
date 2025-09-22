@@ -708,7 +708,7 @@ static int l_crypt_hash_init(lua_State *L) {
 @api crypto.hash_update(stream, data)
 @userdata crypto.hash_init()创建的stream, 必选
 @string 待计算的数据,必选
-@return 无
+@return nil 无返回值
 @usage
 crypto.hash_update(stream, "OK")
 */

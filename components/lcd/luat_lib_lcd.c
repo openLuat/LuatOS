@@ -552,7 +552,7 @@ lcd命令
 @int lcd命令模式下的命令值
 @int/zbuff lcd命令模式下的参数值，如果只有1个参数，可以用int，如果有多个，使用zbuff传入
 @int 参数长度，如果上一个参数是int，则忽略长度
-@return boolean
+@return boolean 成功与否
 @usage
 -- lcd命令
 lcd.cmd(0x21)
@@ -1921,7 +1921,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
 @int 帧同步时的地址值，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
 @int 行同步时的指令，一般情况和命令模式下的指令一致，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
 @int 行同步时的地址值，只有无ram的屏幕需要，如果能用0x2c发送数据则不需要这个参数
-@return nil
+@return nil 无返回值
 @usage
 -- sh8601z驱动ic所需的qspi配置
 lcd.qspi(0x02, 0x32, 0x12)
@@ -1945,7 +1945,7 @@ static int l_lcd_qspi_config(lua_State* L){
 /*
 用户使用脚本初始化LCD完成后，必须调用本API
 @api lcd.user_done()
-@return nil
+@return nil 无返回值
 */
 static int l_lcd_user_ctrl_done(lua_State* L){
 	lcd_dft_conf->is_init_done = 1;
@@ -1962,7 +1962,7 @@ static int l_lcd_user_ctrl_done(lua_State* L){
 @api lcd.setAcchw(type,enable)
 @number type 支持的类型, 可选,默认全部类型 目前支持 lcd.ACC_HW_JPEG lcd.ACC_HW_ALL
 @bool enable 开关, 可选 默认关闭 ture开启 false关闭
-@return nil
+@return nil 无返回值
 @usage
     lcd.setAcchw(lcd.ACC_HW_JPEG,false) -- 关闭硬件加速的jpeg解码功能
     lcd.setAcchw(lcd.ACC_HW_ALL,false) -- 关闭所有硬件加速

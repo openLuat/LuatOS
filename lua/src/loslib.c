@@ -219,7 +219,7 @@ static int os_getenv (lua_State *L) {
 /*
 返回程序使用的按秒计 CPU 时间的近似值
 @api os.clock()
-@return 时间戳
+@return int 时间戳
 @usage
 -- 不推荐使用本API
 -- 如需要获取 时间戳, 请使用 os.time()
@@ -407,7 +407,7 @@ static int os_date (lua_State *L) {
 时间戳函数
 @api os.time(mytime)
 @table 日期时间的table
-@return 时间戳
+@return int 时间戳
 @usage
 -- 注意注意, 这个函数返回的是UTC时间戳
 -- 时间戳, 但lua下的精度只能到秒

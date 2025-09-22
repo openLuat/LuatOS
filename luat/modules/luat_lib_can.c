@@ -458,7 +458,7 @@ static int l_can_deinit(lua_State *L)
 CAN debug开关，打开后有更详细的打印
 @api can.debug(on_off)
 @boolean true打开，false关闭
-@return nil
+@return nil 无返回值
 @usage
 can.debug(true)
 */

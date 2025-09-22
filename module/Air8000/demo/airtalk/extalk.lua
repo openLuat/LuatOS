@@ -88,10 +88,11 @@ end
 
 
 -- 对讲超时处理
-local function wait_speech_to()
+function extalk.wait_speech_to()
     log.info("主动请求对讲超时无应答")
-    speech_off(true, false)
+    extalk.speech_off(true, false)
 end
+
 
 -- 发送鉴权消息
 local function auth()
@@ -107,11 +108,14 @@ end
 
 -- 发送心跳消息
 local function heart()
-    if g_state == SP_T_CONNECTED and g_mqttc then
+    if  g_mqttc then
+        adc.open(adc.CH_VBAT)
+        local vbat = adc.get(adc.CH_VBAT)
+        adc.close(adc.CH_VBAT)
         local topic = string.format("ctrl/uplink/%s/0005", g_local_id)
         local payload = json.encode({
-            ["from"] = g_local_id, 
-            ["to"] = g_remote_id
+            ["csq"] = mobile.csq(), 
+            ["battery"] = vbat
         })
         publish_message(topic, payload)
     end
@@ -126,12 +130,12 @@ local function speech_on(ssrc, sample)
     log.info("对讲模式", g_s_mode)
     airtalk.speech(true, g_s_mode, sample)
     sys.sendMsg(AIRTALK_TASK_NAME, MSG_SPEECH_ON_IND, true) 
-    sys.timerLoopStart(heart, extalk_configs_local.heart_break_time * 1000)
-    sys.timerStopAll(wait_speech_to)
+    -- sys.timerLoopStart(heart, extalk_configs_local.heart_break_time * 1000)
+    sys.timerStopAll(extalk.wait_speech_to)
 end
 
 -- 结束对讲
-local function speech_off(need_upload, need_ind)
+function extalk.speech_off(need_upload, need_ind)
     if g_state == SP_T_CONNECTED then
         g_mqttc:unsubscribe(g_s_topic)
         airtalk.speech(false)
@@ -140,9 +144,8 @@ local function speech_off(need_upload, need_ind)
     
     g_state = SP_T_IDLE
     sys.timerStopAll(auth)
-    sys.timerStopAll(heart)
-    log.info("wait_speech_to",wait_speech_to)
-    sys.timerStopAll(wait_speech_to)
+
+    sys.timerStopAll(extalk.wait_speech_to)
     
     if need_upload and g_mqttc then
         local topic = string.format("ctrl/uplink/%s/0004", g_local_id)
@@ -268,7 +271,7 @@ local function handle_remote_hangup(obj)
         log.info("0103", obj, obj["type"], g_s_type)
         if obj and obj["type"] == g_s_type then
             response = {["result"] = SUCC, ["info"] = ""}
-            speech_off(false, true)
+            extalk.speech_off(false, true)
         else
             response = {["result"] = "failed", ["info"] = "type mismatch"}
         end
@@ -294,6 +297,7 @@ end
 local function handle_auth_result(obj)
     if obj and obj["result"] == SUCC then
         publish_message(string.format("ctrl/uplink/%s/0002", g_local_id), "")  -- 更新列表
+        sys.timerLoopStart(heart, extalk_configs_local.heart_break_time * 1000)   --  发起心跳
     else
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, false, 
             "鉴权失败" .. (obj and obj["info"] or "")) 
@@ -357,7 +361,7 @@ local function mqtt_cb(mqttc, event, topic, payload)
                     "订阅失败" .. "ctrl/downlink/" .. g_local_id .. "/#") 
             end
         elseif g_state == SP_T_CONNECTED and not topic then
-            speech_off(false, true)
+            extalk.speech_off(false, true)
         end
     elseif event == "recv" then
         local result = string.match(topic, g_dl_topic)
@@ -366,7 +370,7 @@ local function mqtt_cb(mqttc, event, topic, payload)
             analyze_v1(result, topic, obj)
         end
     elseif event == "disconnect" then
-        speech_off(false, true)
+        extalk.speech_off(false, true)
         g_state = SP_T_NO_READY
     elseif event == "error" then
         log.error("MQTT错误发生")
@@ -376,7 +380,7 @@ end
 -- 任务消息处理
 local function task_cb(msg)
     if msg[1] == MSG_SPEECH_CONNECT_TO then
-        speech_off(true, false)
+        extalk.speech_off(true, false)
     else
         log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
     end
@@ -388,7 +392,7 @@ local function airtalk_event_cb(event, param)
     if event == airtalk.EVENT_ERROR then
         if param == airtalk.ERROR_NO_DATA then
             log.error("长时间没有收到音频数据")
-            speech_off(true, true)
+            extalk.speech_off(true, true)
         end
     end
 end
@@ -458,7 +462,7 @@ local function airtalk_mqtt_task()
                     if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then
                         log.info("没有对讲", g_state)
                     else
-                        speech_off(true, false)
+                        extalk.speech_off(true, false)
                     end
                 elseif msg[1] == MSG_SPEECH_ON_IND then
                     if extalk_configs_local.state_cbfnc then
@@ -535,7 +539,7 @@ function extalk.start(id)
         
         publish_message(string.format("ctrl/uplink/%s/0003", g_local_id), 
             json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
-        sys.timerStart(wait_speech_to, 15000)
+        sys.timerStart(extalk.wait_speech_to, 15000)
     else
         -- 一对一模式
         log.info("向", id, "主动发起对讲")
@@ -553,7 +557,7 @@ function extalk.start(id)
         
         publish_message(string.format("ctrl/uplink/%s/0003", g_local_id), 
             json.encode({["topic"] = g_s_topic, ["type"] = g_s_type}))
-        sys.timerStart(wait_speech_to, 15000)
+        sys.timerStart(extalk.wait_speech_to, 15000)
     end
     
     return true
@@ -567,7 +571,7 @@ function extalk.stop()
     end
 
     log.info("主动断开对讲")
-    speech_off(true, false)
+    extalk.speech_off(true, false)
     return true
 end
 

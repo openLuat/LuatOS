@@ -43,31 +43,31 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
-exnetif.set_priority_order({ { -- 次优先级：WiFi
-    WIFI = {
+-- exnetif.set_priority_order({ { -- 次优先级：WiFi
+--     WIFI = {
 
-        ssid = "机房-降功耗,找合宙!",
+--         ssid = "机房-降功耗,找合宙!",
 
-        password = "Air123456", 
+--         password = "Air123456", 
 
-    }
-}})
+--     }
+-- }})
 
--- 设置网络状态回调
+-- -- 设置网络状态回调
 
-exnetif.notify_status(function(net_type, adapter)
+-- exnetif.notify_status(function(net_type, adapter)
 
-    log.info("网络切换至:", net_type)
+--     log.info("网络切换至:", net_type)
 
-end)
+-- end)
 
--- wifi的STA相关事件
-sys.subscribe("WLAN_STA_INC", function(evt, data)
-    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
-    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
-    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
-    log.info("收到STA事件", evt, data)
-end)
+-- -- wifi的STA相关事件
+-- sys.subscribe("WLAN_STA_INC", function(evt, data)
+--     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+--     -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+--     -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+--     log.info("收到STA事件", evt, data)
+-- end)
 
 require "talk"            --  启动airtalk
 

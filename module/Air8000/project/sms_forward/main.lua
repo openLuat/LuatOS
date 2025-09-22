@@ -6,7 +6,7 @@
 @author  马亚丹
 @usage
 1. 详细逻辑请看cc_forward文件和sms_forward文件
-2. netdrv_wifi：设置WIFI STA网卡
+2. netdrv_multiple：设置WIFI STA网卡和4G网卡优先级
 
 ]]
 

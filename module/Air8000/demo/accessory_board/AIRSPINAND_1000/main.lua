@@ -1,3 +1,35 @@
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 001.000.000
+@date    2025.9.05
+@author  马亚丹
+@usage
+本demo演示的功能为：使用Air8000核心板实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
+以 Air8000核心板为例, 接线如下:
+Air8000       AirSPINAND_1000配件版
+GND(任意)          GND
+VDD_EXT            VCC
+GPIO12/SPI1_CS     CS,片选
+SPI1_SLK           CLK,时钟
+SPI1_MOSI          DI,主机输出,从机输入
+SPI1_MISO          DO,主机输入,从机输出
+--使用SPI1，硬件SPI CS接在gpio12上
+直接require "AirSPINAND_1000" 加载AirSPINAND_1000功能模块，烧录运行即可。
+详细逻辑请看AirSPINAND_1000.lua 文件
+
+]]
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 PROJECT = "Air8000_SPI_lf_NAND"
 VERSION = "001.000.000"
 
@@ -42,7 +74,7 @@ end
 
 
 -- 加载AIRSPINAND_1000功能模块
-require "AIRSPINAND_1000"
+require "AirSPINAND_1000"
 
 
 

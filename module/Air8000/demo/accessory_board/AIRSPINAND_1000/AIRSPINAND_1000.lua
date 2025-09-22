@@ -20,7 +20,7 @@ SPI1_MISO          DO,主机输入,从机输出
 1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
 2.用SPI对象初始化flash设备，返回flash设备对象
 3.用lf库挂载flash设备对象为文件系统
-4.读取文件系统的信息，以确认内存足够用于文件操作
+4.读取文件系统的信息，以确认内存情况
 5.操作文件读写，并验证写入一致性，追加文件等。
 
 ]]
@@ -174,6 +174,7 @@ local function spinand_test_func()
     local flash_device = init_flash_device(spi_device)
     if not flash_device then
         log.error("主流程", "Flash初始化失败，终止")
+        spi_close_func()
         return
     end
 
@@ -181,6 +182,7 @@ local function spinand_test_func()
     local mount_point = "/little_flash"
     if not mount_filesystem(flash_device, mount_point) then
         log.error("主流程", "文件系统挂载失败，终止")
+        spi_close_func()
         return
     end
 

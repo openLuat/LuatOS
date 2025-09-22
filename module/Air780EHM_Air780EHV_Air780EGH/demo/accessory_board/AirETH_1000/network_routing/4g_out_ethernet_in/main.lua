@@ -2,11 +2,11 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.09.17
+@date    2025.09.22
 @author  王城钧
 @usage
 本demo演示的核心功能为：
-1.设置三种以太网小板工作模式，一种为以太网提供网络供模组上网,一种为设置模组连接4G网络通过以太网口传输给其他设备，一种为以太网提供网络供wifi和以太网设备上网
+1.设置多网融合功能，4G提供网络供以太网设备上网
 更多说明参考本目录下的readme.md文件
 ]]
 --[[
@@ -19,7 +19,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air_ETH1000"
+PROJECT = "4g_out_ethernet_in"
 VERSION = "001.000.000"
 
 
@@ -51,19 +51,21 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
--- 加载网络驱动设备功能模块
--- require "netdrv_device"
 
--- 开启多网融合功能,4G提供网络供以太网和wifi设备上网
-require "4g-eth-wifi"
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
--- 开启多网融合功能,WIFI提供网络供以太网和wifi设备上网 
--- require "wifi-eth-wifi"
 
--- 加载http应用功能模块
--- require "http_app"
 
--- 用户代码已结束
+-- 开启多网融合功能
+require "netif_app"
+
+-- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!

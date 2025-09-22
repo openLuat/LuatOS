@@ -111,7 +111,10 @@ int luat_crypto_base64_decode( unsigned char *dst, size_t dlen, size_t *olen, co
 int luat_crypto_cipher_list(const char** list, size_t* len);
 int luat_crypto_cipher_suites(const char** list, size_t* len);
 
+// 返回是 0 或者 -1
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len);
+// 返回值是 -1 或者 hash长度
+int luat_crypto_md_v2(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len);
 int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t key_len, const char* path);
 
 int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream);
@@ -172,4 +175,6 @@ uint32_t luat_crc32(const void *data, uint32_t len, uint32_t start, uint32_t pol
 
 // 快速modbus crc16算法
 uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t len);
+
+uint8_t luat_crc7(const uint8_t* message, int length, uint8_t CRCPoly, uint8_t CRC);
 #endif

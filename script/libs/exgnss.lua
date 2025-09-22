@@ -552,7 +552,7 @@ uart:GNSS串口配置，780EGH和8000默认为uart2，可不填
 uartbaud:GNSS串口波特率，780EGH和8000默认为115200，可不填
 bind:绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号，不需要转发可不填
 rtc:定位成功后自动设置RTC true开启，flase关闭，默认为flase，不需要可不填
-@return nil
+@return nil 无返回值
 @usage
 local gnssotps={
         gnssmode=1, --1为卫星全定位，2为单北斗
@@ -594,7 +594,7 @@ end
 @api exgnss.open(mode,para)
 @number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
 @param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，单位：秒，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
-@return nil
+@return nil 无返回值
 @usage
 -- “gnss应用”：指的是使用gnss功能的一个应用
 -- 例如，假设有如下3种需求，要打开gnss，则一共有3个“gnss应用”：
@@ -639,7 +639,7 @@ end
 @api exgnss.close()
 @number mode gnss应用模式，支持gnss.DEFAULT，gnss.TIMERORSUC，gnss.TIMER三种
 @param para table类型，gnss应用参数,para.tag：string类型，gnss应用标记,para.val：number类型，gnss应用开启最大时长，单位：秒，mode参数为gnss.TIMERORSUC或者gnss.TIMER时，此值才有意义；使用close接口时，不需要传入此参数,para.cb：gnss应用结束时的回调函数，回调函数的调用形式为para.cb(para.tag)；使用close接口时，不需要传入此参数
-@return nil
+@return nil 无返回值
 @usage
 exgnss.open(exgnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
 exgnss.close(exgnss.TIMER,{tag="MODE1"})
@@ -662,7 +662,7 @@ end
 --[[
 关闭所有“gnss应用”
 @api exgnss.close_all()
-@return nil
+@return nil 无返回值
 @usage
 exgnss.open(exgnss.TIMER,{tag="MODE1",val=60,cb=mode1_cb})
 exgnss.open(exgnss.DEFAULT,{tag="MODE2",cb=mode2_cb})

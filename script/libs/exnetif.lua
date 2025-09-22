@@ -58,6 +58,28 @@ local function type_to_string(net_type)
     return type_map[net_type] or "Unknown"
 end
 
+local function socket_state_detection(adapter)
+    if netdrv.on then
+        log.info("netdrv", "订阅socket连接状态变化事件", type_to_string(adapter))
+        -- 订阅socket连接状态变化事件
+        netdrv.on(adapter, netdrv.EVT_SOCKET, function(id, event, params)
+            if event == "timeout" or event == "error" then
+                if available[adapter] == connection_states.CONNECTED then
+                    available[adapter] = connection_states.CONNECTING
+                end
+            end
+            -- log.info("netdrv", "socket event", id, event, json.encode(params or {}))
+            -- if params then
+            --     -- params里会有remote_ip, remote_port等信息, 可按需获取
+            --     local remote_ip = params.remote_ip
+            --     local remote_port = params.remote_port
+            --     local domain_name = params.domain_name
+            --     log.info("netdrv", "socket event", "remote_ip", remote_ip, "remote_port", remote_port, "domain_name", domain_name)
+            -- end
+        end)
+    end
+end
+
 -- 状态更改后重新设置默认网卡
 local function apply_priority()
     local usable = false
@@ -222,7 +244,7 @@ local function setup_eth(config)
         nil, 0, -- CPHA
         0, -- CPOL
         8, -- 数据宽度
-        51200000 -- ,--波特率
+        25600000 -- ,--波特率
         )
         log.info("main", "open spi", result)
         if result ~= 0 then -- 返回值为0，表示打开成功
@@ -252,6 +274,7 @@ local function setup_eth(config)
         netdrv.dhcp(socket.LWIP_ETH, true)
     end
     log.info("以太网初始化完成")
+    socket_state_detection(socket.LWIP_ETH)
     return true
 end
 
@@ -284,7 +307,7 @@ local function setup_eth_user1(config)
         nil, 0,                                   -- CPHA
         0,                                        -- CPOL
         8,                                        -- 数据宽度
-        51200000                                  -- ,--波特率
+        25600000                                  -- ,--波特率
     )
     log.info("main", "open spi", result)
     if result ~= 0 then     -- 返回值为0，表示打开成功
@@ -314,6 +337,7 @@ local function setup_eth_user1(config)
     end
 
     log.info("以太网初始化完成")
+    socket_state_detection(socket.LWIP_USER1)
     return true
 end
 
@@ -345,6 +369,7 @@ local function set_wifi_info(config)
         return false
     end
     log.info("WiFi STA初始化完成")
+    socket_state_detection(socket.LWIP_STA)
     return true
 end
 
@@ -668,7 +693,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
                 nil, 0,                                      -- CPHA
                 0,                                           -- CPOL
                 8,                                           -- 数据宽度
-                51200000                                     -- ,--波特率
+                25600000                                     -- ,--波特率
             )
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为0，表示打开成功
@@ -717,7 +742,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
             nil, 0,                               -- CPHA
             0,                                    -- CPOL
             8,                                    -- 数据宽度
-            51200000                              -- ,--波特率
+            25600000                              -- ,--波特率
         )
         log.info("main", "open spi", result)
         if result ~= 0 then -- 返回值为0，表示打开成功
@@ -793,7 +818,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
                 nil, 0,                 -- CPHA
                 0,                      -- CPOL
                 8,                      -- 数据宽度
-                51200000                -- ,--波特率
+                25600000                -- ,--波特率
             )
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为 0，表示打开成功
@@ -882,7 +907,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
             nil, 0,                     -- CPHA
             0,                          -- CPOL
             8,                          -- 数据宽度
-            51200000                    -- ,--波特率
+            25600000                    -- ,--波特率
         )
         log.info("main", "open spi", result)
         if result ~= 0 then     -- 返回值为 0，表示打开成功

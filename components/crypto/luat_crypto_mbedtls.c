@@ -199,6 +199,7 @@ _error_exit:
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
+        LLOGW("no such message digest %s", md);
         return -1;
     }
     if (key_len < 1) {
@@ -208,6 +209,21 @@ int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_p
         mbedtls_md_hmac(info, (const unsigned char*)key, key_len, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
     }
     return 0;
+}
+
+int luat_crypto_md_v2(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        LLOGW("no such message digest %s", md);
+        return -1;
+    }
+    if (key_len < 1) {
+        mbedtls_md(info, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
+    }
+    else {
+        mbedtls_md_hmac(info, (const unsigned char*)key, key_len, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
+    }
+    return mbedtls_md_get_size(info);
 }
 
 int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t key_len, const char* path) {

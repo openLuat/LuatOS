@@ -6,6 +6,10 @@
 @date    2021.01.25
 @demo u8g2
 @tag LUAT_USE_U8G2
+@usage
+-- 注意, 本库只支持普通SPI, 不支持LCD专用SPI
+-- 请确保已经正确连接了屏幕, 连接方式请参考demo
+-- OLED屏幕, 正确驱动才会显示内容, 不然就是黑屏的
 */
 #include "luat_base.h"
 #include "luat_mem.h"

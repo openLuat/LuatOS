@@ -581,6 +581,9 @@ static int l_eink_set_font(lua_State *L) {
 @int 颜色, 可以是0或者1, 默认是0
 @return nil 无返回值
 @usage
+-- 注意, 本库只支持普通SPI, 不支持LCD专用SPI
+-- 请确保已经正确连接了屏幕, 连接方式请参考demo
+
 -- 先设置字体, 然后写字
 -- 可用字体取决于具体的固件, 如果没有你想要的大小, 请联系销售人员定制
 -- font_opposansm8_chinese

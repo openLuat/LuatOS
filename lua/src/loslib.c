@@ -226,7 +226,7 @@ static int os_getenv (lua_State *L) {
 -- 如需获取系统运行时长, 请使用 mcu.ticks()
 */
 static int os_clock (lua_State *L) {
-  lua_pushnumber(L, ((lua_Number)clock())/(lua_Number)CLOCKS_PER_SEC);
+  lua_pushinteger(L, ((lua_Integer)clock())/(lua_Integer)CLOCKS_PER_SEC);
   return 1;
 }
 

@@ -813,6 +813,9 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"STATE_MQTT",  	ROREG_INT(MQTT_STATE_MQTT)},
 	//@const STATE_READY number mqtt mqtt已连接
 	{"STATE_READY",  	ROREG_INT(MQTT_STATE_READY)},
+    /* TLS verify constants */
+    {"VERIFY_NONE",     ROREG_INT(0)},
+    {"VERIFY_REQUIRED", ROREG_INT(1)},
 	{ NULL,             ROREG_INT(0)}
 };
 

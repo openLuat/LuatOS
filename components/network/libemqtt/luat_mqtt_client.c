@@ -137,6 +137,16 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
         ws_opts.url = mqtt_ctrl->ws_url;
         ws_opts.keepalive = 60;
         ws_opts.use_ipv6 = opts->is_ipv6;
+        /* 透传 TLS 选项 */
+        ws_opts.verify = opts->verify;
+        ws_opts.server_cert = opts->server_cert;
+        ws_opts.server_cert_len = opts->server_cert_len;
+        ws_opts.client_cert = opts->client_cert;
+        ws_opts.client_cert_len = opts->client_cert_len;
+        ws_opts.client_key = opts->client_key;
+        ws_opts.client_key_len = opts->client_key_len;
+        ws_opts.client_password = opts->client_password;
+        ws_opts.client_password_len = opts->client_password_len;
         luat_websocket_set_connopts(&mqtt_ctrl->ws_ctrl, &ws_opts);
         /* 增加子协议头 */
         static const char proto_hdr[] = "Sec-WebSocket-Protocol: mqtt\r\n";

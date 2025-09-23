@@ -11,7 +11,7 @@ httpplus = require("httpplus")
 
 -- 如果无法使用此功能，可以开启此功能升级WiFi固件版本后再次尝试
 -- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
--- local exfotawifi = require("exfotawifi") 
+-- require "check_wifi" 
 
 -- 初始化LED灯, 这里演示控制Air8000核心板蓝灯，其他开发板请查看硬件原理图自行修改(如果使用整机开发板可以用GPIO146)
 local LEDA = gpio.setup(20, 0, gpio.PULLUP)

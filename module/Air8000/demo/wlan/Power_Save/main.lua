@@ -8,7 +8,7 @@ dhcpsrv = require("dhcpsrv")
 
 -- 如果无法使用此功能，可以开启此功能升级WiFi固件版本后再次尝试
 -- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
--- local exfotawifi = require("exfotawifi") 
+-- require "check_wifi" 
 
 -- 通过boot按键方便刷Air8000S
 function PWR8000S(val)

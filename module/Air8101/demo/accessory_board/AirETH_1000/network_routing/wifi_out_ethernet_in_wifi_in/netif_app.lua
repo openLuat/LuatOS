@@ -12,7 +12,6 @@
 ]] 
 exnetif = require "exnetif"
 
--- gpio.setup(13, 1, gpio.PULLUP)
 function netif_app_task_func()
     local res
     -- 设置多网融合功能，wifi提供网络供wifi设备上网

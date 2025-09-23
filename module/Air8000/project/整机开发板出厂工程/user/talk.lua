@@ -155,31 +155,22 @@ function talk.run()
         else
             if current_page == "main" then
                 lcd.clear(_G.bkcolor) 
-                if  speech_topic  == nil then
-                    lcd.drawStr(0, 80, "所有要对讲的设备，要保持在线")
-                    lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
-                    lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
-                    lcd.drawStr(0, 140, "本机ID:" .. local_id)
-                    lcd.showImage(32, 250, "/luadb/input_topic.jpg")
-                    lcd.showImage(32, 300, "/luadb/broadcast.jpg")
-                    lcd.showImage(104, 400, "/luadb/stop.jpg")
-                    
-                else
-                    -- lcd.drawStr(0, 80, "对端ID:"..speech_topic )
-                    lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
-                    lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
-                    lcd.drawStr(0, 140, "所有要对讲的设备，要保持在线")
-                    lcd.drawStr(0, 160, talk_state)
-                    lcd.drawStr(0, 180, "事件:" .. event)
-                    lcd.drawStr(0, 200, "本机ID:" .. local_id)
-                    lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/talk/", 82)
-                    lcd.drawStr(185, 242, "扫码进入网页端",0x0000)
-                    -- 显示输入法入口按钮
+                if  speech_topic   then
                     lcd.showImage(175, 300, "/luadb/datacall.jpg")
-                    lcd.showImage(32, 300, "/luadb/broadcast.jpg")
-                    lcd.showImage(104, 400, "/luadb/stop.jpg")
-                    lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
                 end
+                lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
+                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
+                lcd.drawStr(0, 140, "所有要对讲的设备，要保持在线")
+                lcd.drawStr(0, 160, talk_state)
+                lcd.drawStr(0, 180, "事件:" .. event)
+                lcd.drawStr(0, 200, "本机ID:" .. local_id)
+                lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/talk/", 82)
+                lcd.drawStr(185, 242, "扫码进入网页端",0x0000)
+                -- 显示输入法入口按钮
+                
+                lcd.showImage(32, 300, "/luadb/broadcast.jpg")
+                lcd.showImage(104, 400, "/luadb/stop.jpg")
+                lcd.showImage(0, 448, "/luadb/Lbottom.jpg")
                 
                 -- 显示通讯录按钮 (位置x10,y250)
                 lcd.showImage(175, 250, "/luadb/addresslist.jpg")

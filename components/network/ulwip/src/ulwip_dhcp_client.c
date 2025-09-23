@@ -228,6 +228,8 @@ static void dhcp_client_timer_cb(void *arg) {
 }
 
 static void reset_dhcp_client(ulwip_ctx_t *ctx) {
+    char tmp[32] = {0};
+    memcpy(tmp, ctx->dhcp_client.name, 32);
     memset(&ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
     memcpy(&ctx->dhcp_client.mac, ctx->netif->hwaddr, 6);
     ctx->ip_ready = 0;
@@ -237,10 +239,12 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
         strncpy(ctx->dhcp_client.name, ctx->netif->hostname, strlen(ctx->dhcp_client.name) + 1);
     }
     #endif
-    if (ctx->dhcp_client.name[0] == 0) {
+    if (tmp[0] == 0) {
         sprintf_(ctx->dhcp_client.name, "LuatOS_%02X%02X%02X%02X%02X%02X",
                 ctx->dhcp_client.mac[0],ctx->dhcp_client.mac[1], ctx->dhcp_client.mac[2],
                 ctx->dhcp_client.mac[3],ctx->dhcp_client.mac[4], ctx->dhcp_client.mac[5]);
+    } else {
+        memcpy(ctx->dhcp_client.name, tmp, 32);
     }
 }
 

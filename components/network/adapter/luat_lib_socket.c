@@ -801,7 +801,7 @@ static int l_socket_rx(lua_State *L)
 }
 
 /*
-读取数据(非zbuff版本)
+读取数据(非zbuff版本,已废弃)
 @api socket.read(netc, len)
 @userdata socket.create得到的ctrl
 @int        限制读取数据长度,可选,不传就是读出全部

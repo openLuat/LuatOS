@@ -37,7 +37,7 @@ static int luat_little_flash_init(lua_State *L){
         LLOGW("little_flash init spi_device is nil");
         return 0;
     }
-    little_flash_init();
+    // little_flash_init();
     lf_err_t re = little_flash_device_init(lf_flash);
     if (re == LF_ERR_OK){
         lua_pushlightuserdata(L, lf_flash);

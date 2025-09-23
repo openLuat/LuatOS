@@ -444,8 +444,12 @@ static void srv_stop_cb(void* arg) {
         return;
     }
     if (ctx->pcb) {
-        tcp_abort(ctx->pcb);
-        tcp_close(ctx->pcb);
+        tcp_recv(ctx->pcb, NULL);
+        tcp_sent(ctx->pcb, NULL);
+        if(tcp_close(ctx->pcb))
+        {
+            tcp_abort(ctx->pcb);
+        }
         ctx->pcb = NULL;
     }
     luat_httpsrv_free(ctx);
@@ -566,8 +570,12 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 发送body
     FILE*  fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
-        tcp_abort(client->pcb);
-        tcp_close(client->pcb);
+        tcp_recv(client->pcb, NULL);
+        tcp_sent(client->pcb, NULL);
+        if(tcp_close(client->pcb))
+        {
+            tcp_abort(client->pcb);
+        }
         LLOGE("open %s FAIL!!", path);
         return 1;
     }

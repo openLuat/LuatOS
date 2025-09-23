@@ -48,7 +48,7 @@ int l_io_queue_capture_handler(lua_State *L, void* ptr)
 @int  硬件定时器id，默认用0，根据实际MCU确定，air105为0~5，与pwm共用，同一个通道号不能同时为pwm和ioqueue
 @int  一个完整周期需要的命令，可以比实际的多
 @int  重复次数,默认是1，如果写0则表示无限次数循环
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.init(0,10,5) --以timer0为时钟源初始化一个io操作队列，有10个有效命令，循环5次
 */
@@ -68,7 +68,7 @@ static int l_io_queue_init(lua_State *L) {
 @int  延时微调时间,0~255tick,总的延时时间是time_us * 1us_tick + time_tick
 @boolean 是否连续是连续延时，默认否，如果是，定时器在时间到后不会停止而是重新计时，
 从而实现在下一个setdelay命令前，每次调用delay都会重复相同时间延时，提高连续定时的精度
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.setdelay(0,10,0) --延时10us+0个tick
 ioqueue.setdelay(0,9,15,true) --延时9us+15个tick,在之后遇到delay命令时，会延时9us+15个tick
@@ -90,7 +90,7 @@ static int l_io_queue_set_delay(lua_State *L) {
 对io操作队列增加一次重复延时，在前面必须有setdelay且是连续延时
 @api  ioqueue.delay(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.setdelay(0,9,15,true) --延时9us+15个tick,在之后遇到delay命令时，会延时9us+15个tick
 ioqueue.delay(0)
@@ -111,7 +111,7 @@ static int l_io_queue_delay(lua_State *L) {
 @boolean  是否是输入
 @int 上下拉模式,只能是0,gpio.PULLUP,gpio.PULLDOWN
 @int 初始输出电平
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.setgpio(0,17,true,gpio.PULLUP,0) --GPIO17设置成上拉输入
 ioqueue.setgpio(0,17,false,0,1)--GPIO17设置成默认上下拉输出高电平
@@ -136,7 +136,7 @@ static int l_io_queue_set_gpio(lua_State *L) {
 @api  ioqueue.input(hwtimer_id,pin)
 @int  硬件定时器id
 @int pin
-@return 无
+@return nil 无返回值
 @usage
 --- 对GPIO17进行输入读取
 ioqueue.input(0, 17)
@@ -155,7 +155,7 @@ static int l_io_queue_gpio_input(lua_State *L) {
 @int  硬件定时器id
 @int pin
 @int 输出电平
-@return 无
+@return nil 无返回值
 @usage
 -- 对GPIO17输出低电平
 ioqueue.output(0, 17, 0)
@@ -176,7 +176,7 @@ static int l_io_queue_gpio_output(lua_State *L) {
 @int 上下拉模式,只能是0,gpio.PULLUP,gpio.PULLDOWN
 @int 中断模式,只能是gpio.BOTH,gpio.RISING,gpio.FALLING
 @int 定时器最大计时时间 考虑到lua是int类型，最小0x10000, 最大值为0x7fffffff，默认为最大值
-@return 无
+@return nil 无返回值
 @usage
 -- 捕获指令
 ioqueue.setcap(0, 17, gpio.PULLUP, gpio.FALLING, 48000000)
@@ -199,7 +199,7 @@ static int l_io_queue_set_capture(lua_State *L) {
 对io操作队列增加捕获一次IO状态命令
 @api  ioqueue.capture(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.capture(0)
 */
@@ -214,7 +214,7 @@ static int l_io_queue_capture_pin(lua_State *L) {
 @api  ioqueue.capend(hwtimer_id,pin)
 @int  硬件定时器id
 @int  pin
-@return 无
+@return nil 无返回值
 @usage
 -- 结束捕获
 ioqueue.capend(0, 17)
@@ -257,7 +257,7 @@ static int l_io_queue_get(lua_State *L) {
 启动io操作队列
 @api  ioqueue.start(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.start(0)
 */
@@ -291,7 +291,7 @@ static int l_io_queue_stop(lua_State *L) {
 释放io操作队列的资源，下次使用必须重新init
 @api  ioqueue.release(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.clear(0)
 */
@@ -305,7 +305,7 @@ static int l_io_queue_release(lua_State *L) {
 清空io操作队列
 @api  ioqueue.clear(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return nil 无返回值
 @usage
 ioqueue.clear(0)
 */
@@ -336,7 +336,7 @@ static int l_io_queue_is_done(lua_State *L) {
 @int 上下拉模式,只能是0,gpio.PULLUP,gpio.PULLDOWN
 @int 中断模式,只能是gpio.BOTH,gpio.RISING,gpio.FALLING
 @boolean  开关，默认是false关
-@return 无
+@return nil 无返回值
 @usage
 -- 对GPIO17进行外部中断捕获
 ioqueue.exti(17, gpio.PULLUP, gpio.BOTH, true)

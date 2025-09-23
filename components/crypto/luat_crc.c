@@ -279,3 +279,22 @@ __USER_FUNC_IN_RAM__ uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t le
 
 	return crc;
 }
+
+// CRC7算法
+uint8_t luat_crc7(const uint8_t* message, int length, uint8_t CRCPoly, uint8_t CRC)
+{
+    // unsigned char CRCPoly = 0xe5;
+    unsigned char CRCTable[256];
+    // unsigned char CRC = 0x00;
+    for (int i = 0; i < 256; i++){
+        CRCTable[i] = (i & 0x80) ? i ^ CRCPoly : i;
+        for (int j = 1; j < 8; j++){
+            CRCTable[i] <<= 1;
+            if (CRCTable[i] & 0x80)
+                CRCTable[i] ^= CRCPoly;
+        }
+    }
+    for (int i = 0; i < length; i++)
+        CRC = CRCTable[(CRC << 1) ^ message[i]];
+    return CRC<< 1;
+}

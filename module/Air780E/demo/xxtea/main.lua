@@ -12,7 +12,7 @@ sys.taskInit(function()
         while true do
             sys.wait(1000)
             -- 每隔1秒打印一条信息
-            log.info("testCrypto.xxteaTest","xxtea库不存在,请云编译一份最新版固件,并选上xxtea库")
+            log.info("testCrypto.xxteaTest","xxtea库不存在")
         end
     end
     while true do

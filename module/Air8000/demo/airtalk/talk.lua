@@ -24,8 +24,8 @@ local g_speech_active = false  -- 对讲状态标记
 local audio_setup_param = {
     model = "es8311",       -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,             -- i2c_id,可填入0，1 并使用pins工具配置对应的管脚
-    pa_ctrl = 162,          -- 音频放大器电源控制管脚
-    dac_ctrl = 164,         -- 音频编解码芯片电源控制管脚    
+    pa_ctrl = gpio.AUDIOPA_EN,          -- 音频放大器电源控制管脚
+    dac_ctrl = 20,         -- 音频编解码芯片电源控制管脚    
 }
 
 -- 联系人列表回调函数
@@ -42,14 +42,21 @@ local function contact_list_callback(dev_list)
     end
 end
 
+local gpio_number = 20 -- air8000 核心板上的23 管脚
+
+LED = gpio.setup(gpio_number, 1) -- 设置GPIO20为输出模式
+
+
 -- 对讲状态回调函数
 local function speech_state_callback(event_table)
     if not event_table then return end
     
     if event_table.state == extalk.START then
         log.info("对讲开始，可以说话了")
+        LED(1)
         g_speech_active = true
     elseif event_table.state == extalk.STOP then
+        LED(0)
         log.info("对讲结束")
         g_speech_active = false
     elseif event_table.state == extalk.UNRESPONSIVE then
@@ -57,7 +64,7 @@ local function speech_state_callback(event_table)
         g_speech_active = false
     elseif event_table.state == extalk.ONE_ON_ONE then
         g_speech_active = true
-        
+        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -70,7 +77,7 @@ local function speech_state_callback(event_table)
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
         g_speech_active = true
-        
+        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -94,11 +101,13 @@ local extalk_configs = {
 
 -- 按键回调函数 - Boot键
 local function boot_key_callback()
+    log.info("boot_key_callback++++++")
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)  -- false表示Boot键
 end
 
 -- 按键回调函数 - Power键
 local function power_key_callback()
+    log.info("power_key_callback++++++")
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, true)   -- true表示Power键
 end
 
@@ -159,6 +168,16 @@ local function handle_key_press(is_power_key)
 end
 
 
+local function lower_enter()     -- 如果需要进入低功耗，请在task 中调用此函数
+    -- WiFi模组进入低功耗模式
+    pm.power(pm.WORK_MODE, 1, 1)
+    -- 同时4G进入低功耗模式
+    pm.power(pm.WORK_MODE, 1)
+    sys.wait(20)
+    -- 暂停airlink通信，进一步降低功耗
+    airlink.pause(1)
+    
+end
 
 -- 用户主任务
 local function user_main_task()
@@ -177,7 +196,8 @@ local function user_main_task()
         return
     end
     log.info("extalk初始化成功")
-    
+    LED(0)
+    -- lower_enter()               -- 如果需要进入低功耗，请打开此函数
     -- 等待按键消息并处理
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

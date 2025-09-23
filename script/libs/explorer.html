@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuatOS 文件管理系统</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .login-form {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .file-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .file-list th, .file-list td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .file-list th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .file-list tr:hover {
+            background-color: #f5f5f5;
+        }
+        .download-btn {
+            background-color: #27ae60;
+            color: white;
+            padding: 5px 10px;
+            text-decoration: none;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        .download-btn:hover {
+            background-color: #219a52;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+        .breadcrumb {
+            padding: 10px 0;
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #3498db;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .hidden {
+            display: none;
+        }
+        .error {
+            color: #e74c3c;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 登录页面 -->
+        <div id="loginPage" class="login-form">
+            <h2>LuatOS 文件管理系统登录</h2>
+            <div class="form-group">
+                <label for="username">用户名:</label>
+                <input type="text" id="username">
+            </div>
+            <div class="form-group">
+                <label for="password">密码:</label>
+                <input type="password" id="password">
+            </div>
+            <button onclick="login()">登录</button>
+            <div id="loginError" class="error hidden"></div>
+        </div>
+
+        <!-- 文件管理页面 -->
+        <div id="filePage" class="hidden">
+            <div class="header">
+                <h1>LuatOS 文件管理系统</h1>
+                <div>
+                    <button onclick="scanFiles()" style="margin-right: 10px;">扫描文件</button>
+                    <button onclick="logout()">退出登录</button>
+                </div>
+            </div>
+
+            <div class="breadcrumb" id="breadcrumb">
+                <a onclick="navigateTo('/')">根目录</a>
+                <span> | </span>
+                <a onclick="navigateTo('/sd')">TF/SD目录</a>
+            </div>
+
+            <table class="file-list">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>大小</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="fileListBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let currentPath = '/';
+        let isLoggedIn = false;
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include', // 确保发送和接收cookies
+                body: JSON.stringify({username: username, password: password})
+            })
+            .then(response => {
+                // 打印所有响应头，查看Cookie设置
+                console.log('登录响应头:', response.headers);
+                return response.json();
+            })
+            .then(data => {
+                console.log('登录响应数据:', data);
+                if (data.success) {
+                    isLoggedIn = true;
+                    // 存储session_id到localStorage作为备用认证方式
+                    if (data.session_id) {
+                        localStorage.setItem('session_id', data.session_id);
+                        console.log('已存储SessionID到localStorage:', data.session_id);
+                    }
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('filePage').classList.remove('hidden');
+                    loadFiles('/luadb');
+                } else {
+                    document.getElementById('loginError').textContent = data.message || '登录失败';
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('登录请求错误:', error);
+                document.getElementById('loginError').textContent = '登录请求失败';
+                document.getElementById('loginError').classList.remove('hidden');
+            });
+        }
+
+        function logout() {
+            fetch('/logout', {
+                method: 'POST',
+                credentials: 'include' // 确保发送cookies
+            })
+            .then(() => {
+                isLoggedIn = false;
+                // 清除localStorage中的session_id
+                localStorage.removeItem('session_id');
+                document.getElementById('filePage').classList.add('hidden');
+                document.getElementById('loginPage').classList.remove('hidden');
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('loginError').classList.add('hidden');
+            });
+        }
+
+        // 扫描文件函数
+        function scanFiles() {
+            if (!isLoggedIn) return;
+
+            // 获取用户名和密码用于URL参数认证
+            const username = document.getElementById('username')?.value || 'admin';
+            const password = document.getElementById('password')?.value || '123456';
+
+            // 构建带认证参数的扫描请求URL
+            const url = '/scan-files?username=' + encodeURIComponent(username) +
+                       '&password=' + encodeURIComponent(password);
+
+            console.log('发送文件扫描请求，URL:', url);
+
+            // 显示扫描提示
+            alert('开始扫描文件，请查看系统日志了解扫描进度...');
+
+            fetch(url, {
+                method: 'GET',
+                credentials: 'include'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('扫描请求错误: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('扫描响应:', data);
+                if (data && data.success) {
+                    alert('文件扫描完成！已扫描到 ' + data.foundFiles + ' 个文件，显示扫描到的用户文件。');
+                    // 重新加载文件列表
+                    loadFiles(currentPath);
+                } else {
+                    alert('文件扫描失败: ' + (data.message || '未知错误'));
+                }
+            })
+            .catch(error => {
+                console.error('扫描文件请求错误:', error);
+                alert('扫描文件请求失败');
+            });
+        }
+
+        function loadFiles(path) {
+            if (!isLoggedIn) return;
+
+            // 准备请求头
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+
+            // 由于传统认证方式不可靠，我们使用URL参数认证
+            // 获取用户名和密码用于URL参数认证
+            const username = document.getElementById('username')?.value || 'admin';
+            const password = document.getElementById('password')?.value || '123456';
+
+            // 构建带认证参数的URL
+            const url = '/list?path=' + encodeURIComponent(path) +
+                        '&username=' + encodeURIComponent(username) +
+                        '&password=' + encodeURIComponent(password);
+
+            console.log('使用URL参数认证，请求URL:', url);
+
+            fetch(url, {
+                credentials: 'include', // 确保发送cookies
+                headers: headers
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应错误: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('文件列表数据:', data);
+
+                // 只使用服务器返回的数据
+                if (data && data.success && Array.isArray(data.files)) {
+                    displayFiles(data.files, path);
+                } else {
+                    // 如果数据无效，显示空列表
+                    displayFiles([], path);
+                }
+
+                updateBreadcrumb(path);
+            })
+            .catch(error => {
+                console.error('加载文件列表错误:', error);
+                // 发生错误时显示空列表
+                displayFiles([], path);
+                updateBreadcrumb(path);
+            });
+        }
+
+        function displayFiles(files, path) {
+            const tbody = document.getElementById('fileListBody');
+            tbody.innerHTML = '';
+
+            // 确保files是数组
+            if (!Array.isArray(files)) {
+                files = [];
+            }
+
+            console.log('显示文件数量:', files.length);
+
+            files.forEach(file => {
+                // 确保文件对象有必要的属性
+                const safeFile = {
+                    name: file.name || "未知文件名",
+                    size: file.size || 0,
+                    isDirectory: file.isDirectory || false,
+                    path: file.path || (path + '/' + (file.name || "未知文件名"))
+                };
+
+                const row = document.createElement('tr');
+                let nameCell, actionCell;
+
+                if (safeFile.isDirectory) {
+                    nameCell = `<td><a href="#" onclick="navigateTo('${encodeURIComponent(path + '/' + safeFile.name)}')">${safeFile.name}/</a></td>`;
+                    actionCell = '<td></td>';
+                } else {
+                    nameCell = `<td>${safeFile.name}</td>`;
+                    // 为下载链接添加URL参数认证
+                    const username = document.getElementById('username')?.value || 'admin';
+                    const password = document.getElementById('password')?.value || '123456';
+                    const downloadUrl = '/download?path=' + encodeURIComponent(safeFile.path) +
+                                        '&username=' + encodeURIComponent(username) +
+                                        '&password=' + encodeURIComponent(password);
+
+                    // 添加下载和删除按钮
+                    actionCell = `<td>
+                        <a href="${downloadUrl}" class="download-btn" style="margin-right: 5px;">下载</a>
+                        <button class="delete-btn" onclick="deleteFile('${encodeURIComponent(safeFile.path)}')">删除</button>
+                    </td>`;
+                }
+
+                row.innerHTML = `
+                    ${nameCell}
+                    <td>${formatSize(safeFile.size)}</td>
+                    ${actionCell}
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 删除文件函数
+        function deleteFile(filePath) {
+            if (confirm('确定要删除这个文件吗？')) {
+                // 获取用户名和密码用于URL参数认证
+                const username = document.getElementById('username')?.value || 'admin';
+                const password = document.getElementById('password')?.value || '123456';
+
+                // 构建带认证参数的删除请求URL
+                const url = '/delete?path=' + filePath +
+                            '&username=' + encodeURIComponent(username) +
+                            '&password=' + encodeURIComponent(password);
+
+                console.log('使用URL参数认证进行删除操作，请求URL:', url);
+
+                fetch(url, {
+                    method: 'POST',
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 删除成功后重新加载文件列表
+                        loadFiles(currentPath);
+                    } else {
+                        alert('删除失败: ' + (data.message || '未知错误'));
+                    }
+                })
+                .catch(error => {
+                    alert('删除请求失败');
+                });
+            }
+        }
+
+        function updateBreadcrumb(path) {
+            const breadcrumb = document.getElementById('breadcrumb');
+
+            // 先设置根目录和TF/SD目录链接
+            breadcrumb.innerHTML = '<a onclick="navigateTo(\'\')">根目录</a><span> | </span><a onclick="navigateTo(\'/sd\')">TF/SD目录</a>';
+
+            // 然后添加当前路径的层次结构（如果不是根目录）
+            if (path !== '/' && path !== '/sd') {
+                const parts = path.split('/').filter(p => p);
+                let current = '';
+
+                // 仅在非根目录和非SD目录时添加分隔符
+                breadcrumb.innerHTML += ' > ';
+
+                parts.forEach((part, index) => {
+                    current += '/' + part;
+                    if (index > 0) {
+                        breadcrumb.innerHTML += ' > ';
+                    }
+                    breadcrumb.innerHTML += '<a onclick="navigateTo(\'' + current + '\')">' + part + '</a>';
+                });
+            }
+        }
+
+        function navigateTo(path) {
+            currentPath = path;
+            loadFiles(path);
+        }
+
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化日期函数已移除
+
+        // 启动后检查认证状态
+        window.onload = function() {
+            fetch('/check-auth', {
+                credentials: 'include' // 确保发送cookies
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    isLoggedIn = true;
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('filePage').classList.remove('hidden');
+                    loadFiles('/luadb');
+                }
+            });
+        };
+    </script>
+</body>
+</html>

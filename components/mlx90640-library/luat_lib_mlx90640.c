@@ -331,7 +331,7 @@ static int l_mlx90640_average_temp(lua_State *L) {
 /*
 获取vdd
 @api mlx90640.get_vdd()
-@return number vdd
+@return number 当前vdd
 */
 static int l_mlx90640_get_vdd(lua_State *L) {
     lua_pushnumber(L, vdd);

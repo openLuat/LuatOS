@@ -20,7 +20,6 @@ end
 
 sys.taskInit(function()
     sys.wait(500)
-    -- 如果没有这个库, 就云编译一份吧: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
     if not protobuf then
         log.info("protobuf", "this demo need protobuf lib")
         return

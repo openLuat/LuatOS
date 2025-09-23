@@ -29,9 +29,10 @@ VERSION：项目版本号，ascii string类型
 
 PROJECT = "audio"
 VERSION = "1.0.0"
+PRODUCT_KEY =  "NrkXcjWwjcc5EFdCrrYnvypBCyJlEaIO"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
+exnetif = require("exnetif")
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
@@ -41,7 +42,6 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
 
 require "talk"            --  启动airtalk
 

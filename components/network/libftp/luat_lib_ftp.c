@@ -1,6 +1,6 @@
 /*
 @module  ftp
-@summary ftp 客户端
+@summary ftp 客户端 (服务器推荐使用vsftpd,其他暂不做支持)
 @version 1.0
 @date    2022.09.05
 @demo    ftp

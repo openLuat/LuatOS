@@ -22,27 +22,10 @@ local result = false -- 用于保存结果
 local data = nil -- 用于保存定位请求数据
 local wifiList = {} -- 用于保存扫描到的wifi信息
 local requestParam = {} -- 用于保存定位请求参数
-local exfotawifi = require("exfotawifi")
 
-local function wifi_fota_task_func()
-    local result = exfotawifi.request()
-    if result then
-        log.info("exfotawifi", "升级任务执行成功")
-    else
-        log.info("exfotawifi", "升级任务执行失败")
-    end
-end
-
--- 判断网络是否正常
-local function wait_ip_ready()
-    local result, ip, adapter = sys.waitUntil("IP_READY", 30000)
-    if result then
-        log.info("exfotawifi", "开始执行升级任务")
-        sys.taskInit(wifi_fota_task_func)
-    else
-        log.error("当前正在升级WIFI&蓝牙固件，请插入可以上网的SIM卡")
-    end
-end
+-- 如果无法定位，可以开启此功能升级WiFi固件版本后再次尝试
+-- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
+-- local exfotawifi = require("exfotawifi") 
 
 local airlbs = require "airlbs"
 

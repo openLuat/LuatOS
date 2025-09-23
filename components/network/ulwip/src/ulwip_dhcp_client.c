@@ -234,7 +234,7 @@ static void reset_dhcp_client(ulwip_ctx_t *ctx) {
     luat_crypto_trng((char*)&ctx->dhcp_client.xid, sizeof(ctx->dhcp_client.xid));
     #if LWIP_NETIF_HOSTNAME
     if (ctx->netif && ctx->netif->hostname) {
-        strncpy(ctx->dhcp_client->name, ctx->netif->hostname, strlen(ctx->dhcp_client->name) + 1);
+        strncpy(ctx->dhcp_client.name, ctx->netif->hostname, strlen(ctx->dhcp_client.name) + 1);
     }
     #endif
     if (ctx->dhcp_client.name[0] == 0) {

@@ -436,6 +436,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
             LLOGD("SPI从机已就绪");
             break;   
         }
+        luat_rtos_task_sleep(10);
     }
 
     while (1)

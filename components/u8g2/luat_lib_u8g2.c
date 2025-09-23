@@ -38,6 +38,8 @@ static uint8_t spi_id;
 static uint8_t spi_res;
 static uint8_t spi_dc;
 static uint8_t spi_cs;
+static uint8_t spi_clk;
+static uint8_t spi_mosi;
 
 static const char* mode_strs[] = {
     "i2c_sw",
@@ -236,6 +238,21 @@ static int l_u8g2_begin(lua_State *L) {
             spi_cs = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+
+        lua_pushliteral(L, "spi_clk");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            spi_clk = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "spi_mosi");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            spi_mosi = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
         
         lua_pushliteral(L, "x_offset");
         lua_gettable(L, 1);
@@ -1251,6 +1268,22 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, spi_res);
+    } else if (pinType == 3) {
+        devreg->devcb(u8g2, conf->direction, u8x8_byte_3wire_sw_spi, u8x8_luat_gpio_and_delay_default);
+        LLOGD("setup disp 3wire_sw_spi  spi_clk=%d spi_mosi=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_clk,spi_mosi,spi_dc,spi_cs,spi_res);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, spi_res);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_SPI_CLOCK, spi_clk);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_SPI_DATA, spi_mosi);
+    } else if (pinType == 4) {
+        devreg->devcb(u8g2, conf->direction, u8x8_byte_4wire_sw_spi, u8x8_luat_gpio_and_delay_default);
+        LLOGD("setup disp 4wire_sw_spi  spi_clk=%d spi_mosi=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_clk,spi_mosi,spi_dc,spi_cs,spi_res);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, spi_res);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_SPI_CLOCK, spi_clk);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_SPI_DATA, spi_mosi);
     } else {
         LLOGI("no such u8g2 mode!!");
         return -1;

@@ -391,7 +391,7 @@ end
 local function airtalk_event_cb(event, param)
     log.info("airtalk event", event, param)
     if event == airtalk.EVENT_ERROR then
-        if param == airtalk.ERROR_NO_DATA then
+        if param == airtalk.ERROR_NO_DATA  and g_s_mode == airtalk.MODE_PERSON then
             log.error("长时间没有收到音频数据")
             extalk.speech_off(true, true)
         end

@@ -301,6 +301,7 @@ local function handle_auth_result(obj)
     else
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, false, 
             "鉴权失败" .. (obj and obj["info"] or "")) 
+        log.error("鉴权失败,可能是没有修改PRODUCT_KEY")
     end
 end
 
@@ -390,7 +391,7 @@ end
 local function airtalk_event_cb(event, param)
     log.info("airtalk event", event, param)
     if event == airtalk.EVENT_ERROR then
-        if param == airtalk.ERROR_NO_DATA then
+        if param == airtalk.ERROR_NO_DATA  and g_s_mode == airtalk.MODE_PERSON then
             log.error("长时间没有收到音频数据")
             extalk.speech_off(true, true)
         end

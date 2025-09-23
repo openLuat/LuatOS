@@ -10,7 +10,7 @@ VERSION：项目版本号，ascii string类型
 
 AirSHT30_1000是合宙设计生产的一款I2C接口的SHT30温湿度传感器配件板；
 本demo演示的核心功能为：
-Air780EHV核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
+Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 更多说明参考本目录下的readme.md文件
 ]]
 PROJECT = "AirSHT30_1000"

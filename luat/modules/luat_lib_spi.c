@@ -550,7 +550,7 @@ static int l_spi_send(lua_State *L) {
 @return userdata spi_device
 @usage
 -- 初始化spi
-local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
+spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spi_device_setup(lua_State *L) {
     int bus_id = luaL_checkinteger(L, 1);
@@ -597,7 +597,7 @@ static int l_spi_device_close(lua_State *L) {
 
 /**
 传输SPI数据(对象方式)
-@api spi_device:transfer(send_data[, len])
+@api spi_device:transfer(send_data, send_len, recv_len)
 @userdata spi_device
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度
@@ -605,7 +605,7 @@ static int l_spi_device_close(lua_State *L) {
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
-local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local recv = spi_device:transfer("123")--发送123,并读取数据
 local result = spi_device:transfer({0x00,0x01})--发送0x00,0x01,并读取数据
 
@@ -672,7 +672,7 @@ static int l_spi_device_transfer(lua_State *L) {
 @return int 发送结果
 @usage
 -- 初始化spi
-local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local result = spi_device:send("123")--发送123
 local result = spi_device:send({0x00,0x01})--发送0x00,0x01
 
@@ -719,7 +719,7 @@ static int l_spi_device_send(lua_State *L) {
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
-local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 local recv = spi_device:recv(4)--接收4字节数据
 */
 static int l_spi_device_recv(lua_State *L) {

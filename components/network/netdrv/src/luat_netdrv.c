@@ -3,6 +3,8 @@
 #include "luat_network_adapter.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#include "lwip/ip.h"
+#include "lwip/tcpip.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -342,10 +344,10 @@ int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
         return 0;
     }
     if (enable) {
-        ulwip_dhcp_client_start(drv->ulwip);
+        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 1);
     }
     else {
-        ulwip_dhcp_client_stop(drv->ulwip);
+        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 1);
     }
     return 0;
 }

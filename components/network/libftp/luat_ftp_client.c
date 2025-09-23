@@ -436,8 +436,10 @@ static int pasv_recv(void)
 		return -1;
 	}
 	//主动关闭掉接收
-	if (g_s_ftp.network->data_netc_online && g_s_ftp.network->data_netc) {
-		network_close(g_s_ftp.network->data_netc, 0);
+	if (g_s_ftp.network->data_netc_online && g_s_ftp.network->data_netc){
+		network_force_close_socket(g_s_ftp.network->data_netc);
+		network_release_ctrl(g_s_ftp.network->data_netc);
+		g_s_ftp.network->data_netc = NULL;
 	}
 	return 0;
 }

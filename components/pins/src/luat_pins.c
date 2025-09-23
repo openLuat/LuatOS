@@ -39,7 +39,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 	size_t org_len = len;
 	size_t offset = 0;
 	const char *peripheral_names[LUAT_MCU_PERIPHERAL_QTY] = {
-			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD"
+			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD","ETH","QSPI","USIM"
 	};
 	const char *function0_names[3] = {
 			"RX","SCL","MOSI"
@@ -53,11 +53,11 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 	const char *function3_names[3] = {
 			"CTS","CS","LRCLK"
 	};
-	const char *function4_names[2] = {
-			"MCLK","CMD"
+	const char *function4_names[4] = {
+			"MCLK","CMD","IO","DAT"
 	};
-	const char *function5_names[1] = {
-			"SCLK"
+	const char *function5_names[2] = {
+			"SCLK","RST"
 	};
 	description.code = 0;
 	for(description.peripheral_type = 0; description.peripheral_type < LUAT_MCU_PERIPHERAL_QTY; description.peripheral_type++)
@@ -250,6 +250,27 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 				if (!string[0])
 				{
 					description.function_id = 0;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				break;
+			case LUAT_MCU_PERIPHERAL_SIM:
+				if (description.peripheral_id) description.peripheral_id = 1;
+				function_id = search(string, len, function2_names, sizeof(function2_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 1;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function4_names, sizeof(function4_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 0;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function5_names, sizeof(function5_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 2;
 					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 				}
 				break;

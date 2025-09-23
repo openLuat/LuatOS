@@ -398,7 +398,7 @@ static int pasv_recv(void)
 		LLOGE("pasv_recv %s error:%d", g_s_ftp.network->cmd_recv_data, ret);
 		return -1;
 	}
-	LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
+	LLOGD("%s %d %.*s",__FUNCTION__ ,__LINE__ ,g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
 	g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
 	if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3) && memcmp(g_s_ftp.network->cmd_recv_data, FTP_DATA_CON_OPEN, 3)){
 		return -1;
@@ -414,15 +414,15 @@ static int pasv_recv(void)
 			rx_finish = 1;
 		}
 	}
-	// LLOGD("rx_finish:%d data_netc_online:%d Pos:%d ", rx_finish, g_s_ftp.network->data_netc_online, g_s_ftp.result_buffer.Pos);
-	while(!rx_finish)	//data通道未断开或者已经接收到数据了
+	LLOGD("%s %d rx_finish:%d data_netc_online:%d Pos:%d ",__FUNCTION__ ,__LINE__ ,rx_finish, g_s_ftp.network->data_netc_online, g_s_ftp.result_buffer.Pos);
+    while(!rx_finish)	//data通道未断开或者已经接收到数据了
 	{
 		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-		if (ret){
-			LLOGD("rx error!%d", ret);
+		if (ret<0){
+			LLOGD("%s %d rx error!%d",__FUNCTION__ ,__LINE__ , ret);
 			return -1;
 		} else if (!ret) {
-			LLOGD("%.*s", g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
+			LLOGD("%s %d %.*s",__FUNCTION__ ,__LINE__ , g_s_ftp.network->cmd_recv_len, g_s_ftp.network->cmd_recv_data);
 			if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT, 3)){
 				return -1;
 			}
@@ -435,17 +435,11 @@ static int pasv_recv(void)
 		LLOGD("???");
 		return -1;
 	}
-	//等服务器关闭接收通道
-	if (g_s_ftp.network->data_netc_online) {
-		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,1000);
-		if (ret) {
-			LLOGE("pasv_recv %s error:%d", g_s_ftp.network->cmd_recv_data, ret);
-			return -1;
-		}
-	}
 	//主动关闭掉接收
-	if (g_s_ftp.network->data_netc_online && g_s_ftp.network->data_netc) {
-		network_close(g_s_ftp.network->data_netc, 0);
+	if (g_s_ftp.network->data_netc_online && g_s_ftp.network->data_netc){
+		network_force_close_socket(g_s_ftp.network->data_netc);
+		network_release_ctrl(g_s_ftp.network->data_netc);
+		g_s_ftp.network->data_netc = NULL;
 	}
 	return 0;
 }

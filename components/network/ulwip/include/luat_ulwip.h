@@ -47,7 +47,7 @@ typedef struct ulwip_ctx
     uint16_t use_zbuff_out;
     uint16_t mtu;
     uint8_t hwaddr[ETH_HWADDR_LEN];
-    dhcp_client_info_t *dhcp_client;
+    dhcp_client_info_t dhcp_client;
     luat_rtos_timer_t dhcp_timer;
     ulwip_event_cb event_cb;
 }ulwip_ctx_t;

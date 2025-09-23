@@ -76,6 +76,11 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 使用文件管理系统功能需要WIFI版本≥14
+-- 如果模组中WiFi版本<14，则需要打开此功能启动升级
+-- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
+-- require "check_wifi" 
+
 -- 引入任务控制模块
 require"task_control"
 

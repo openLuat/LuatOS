@@ -1,4 +1,15 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.09.22
+@author  王城钧
+@usage
+本demo演示的核心功能为：
+1.设置多网融合功能，wifi提供网络供wifi和以太网设备上网
+更多说明参考本目录下的readme.md文件
+]]
+--[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
         可以随便定义，只要不使用,就行
@@ -7,18 +18,14 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-AirPHY_1000是合宙设计生产的一款搭载LAN8720Ai芯片的以太网配件板；
-本demo演示的核心功能为：
-Air8101核心板+AirPHY_1000配件板，使用配件板上的以太网口通过网线连接路由器，演示以太网数传功能；
-更多说明参考本目录下的readme.md文件
 ]]
-PROJECT = "AirPHY_1000"
+PROJECT = "wifi_out_ethernet_in_wifi_in"
 VERSION = "001.000.000"
 
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
+
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
@@ -51,15 +58,14 @@ end
 -- sys.timerLoopStart(function()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
---  end, 3000)
+-- end, 3000)
 
--- 加载以太网连接管理功能模块
-require "phy_app"
--- 加载http get应用的功能模块
-require "http_app"
 
+
+-- 开启多网融合功能
+require "netif_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

@@ -51,6 +51,7 @@ local SUCC = "success"
 local g_state = SP_T_NO_READY   -- 设备状态
 local g_mqttc = nil             -- mqtt客户端
 local g_local_id                -- 本机ID
+local g_stask_start = false                -- 本机ID
 local g_remote_id               -- 对端ID
 local g_s_type                  -- 对讲的模式，字符串形式
 local g_s_topic                 -- 对讲用的topic
@@ -301,6 +302,7 @@ local function handle_auth_result(obj)
     else
         sys.sendMsg(AIRTALK_TASK_NAME, MSG_AUTH_IND, false, 
             "鉴权失败" .. (obj and obj["info"] or "")) 
+        log.error("鉴权失败,可能是没有修改PRODUCT_KEY")
     end
 end
 
@@ -373,7 +375,7 @@ local function mqtt_cb(mqttc, event, topic, payload)
         extalk.speech_off(false, true)
         g_state = SP_T_NO_READY
     elseif event == "error" then
-        log.error("MQTT错误发生")
+        log.error("MQTT错误发生",topic,payload)
     end
 end
 
@@ -390,7 +392,7 @@ end
 local function airtalk_event_cb(event, param)
     log.info("airtalk event", event, param)
     if event == airtalk.EVENT_ERROR then
-        if param == airtalk.ERROR_NO_DATA then
+        if param == airtalk.ERROR_NO_DATA  and g_s_mode == airtalk.MODE_PERSON then
             log.error("长时间没有收到音频数据")
             extalk.speech_off(true, true)
         end
@@ -399,6 +401,12 @@ end
 
 -- MQTT任务主循环
 local function airtalk_mqtt_task()
+    if g_stask_start  then
+        log.info("airtalk task 已经初始化了")
+        return true
+    end
+    
+    g_stask_start = true
     local msg, online = nil, false
     
     -- 初始化本地ID
@@ -490,6 +498,7 @@ end
 
 -- 模块初始化
 function extalk.setup(extalk_configs)
+
     if not extalk_configs or type(extalk_configs) ~= "table" then
         log.error("AirTalk配置必须为table类型")
         return false
@@ -523,6 +532,7 @@ end
 
 -- 开始对讲
 function extalk.start(id)
+
     if g_state ~= SP_T_IDLE then
         log.warn("正在对讲无法开始，当前状态:", g_state)
         return false

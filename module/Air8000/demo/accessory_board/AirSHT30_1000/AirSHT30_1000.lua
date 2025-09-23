@@ -1,4 +1,4 @@
---本文件中的主机是指I2C主机，具体指Air780EHV
+--本文件中的主机是指I2C主机，具体指Air8000
 --本文件中的从机是指I2C从机，具体指AirSHT30_1000配件板上的sht30温湿度传感器芯片
 
 local AirSHT30_1000 = 
@@ -8,11 +8,6 @@ local AirSHT30_1000 =
 
 -- 从机地址为0x44
 local slave_addr = 0x44
-
---电平设为3.3v
-pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
---设置gpio2输出,给camera_sda、camera_scl引脚提供上拉
-gpio.setup(2, 1)
 
 -- 计算数据表data中所有数据元素的crc8校验值
 local function crc8(data)

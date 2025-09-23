@@ -1,15 +1,20 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.01
-@author  wangshihao
+@date    2025.09.22
+@author  王城钧
 @usage
 本demo演示的核心功能为：
-Air8000的BLE的观察者模式(SCAN)，通过示例演示了如何开启蓝牙设备的观察者模式(SCAN)，扫描附近的蓝牙设备信息并打印出来。
+1、分别使用http核心库和httpplus扩展库，演示以下一种应用场景的使用方式
+   (1) 普通的http get请求功能演示；；
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 
 更多说明参考本目录下的readme.md文件
 ]]
+
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -21,10 +26,13 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "ble_scan"
+PROJECT = "HTTP"
 VERSION = "001.000.000"
 
-log.info("main", "project name is ", PROJECT, "version is ", VERSION)
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
@@ -34,6 +42,7 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -49,6 +58,7 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
+
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
@@ -57,14 +67,13 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- Air8000蓝牙依赖WiFi协处理器，如果蓝牙功能使用异常需要打开此注释更新WiFi固件
--- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
--- require "check_wifi" 
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
--- 加载 scan 蓝牙功能模块
-require "ble_scan"
+-- 加载http应用功能模块
+require "http_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

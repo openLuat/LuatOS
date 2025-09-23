@@ -64,7 +64,7 @@ end
 
 -- Air8000蓝牙依赖WiFi协处理器，如果蓝牙功能使用异常需要打开此注释更新WiFi固件
 -- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
--- require "exfotawifi" 
+-- require "check_wifi" 
 
 -- 加载BLE peripheral(外围设备)主控制模块
 require "ble_server_main"

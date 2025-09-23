@@ -27,7 +27,7 @@ static ulwip_ctx_t* s_ctxs[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     PV_Union uIP;
     // 检查dhcp的状态
-    dhcp_client_info_t* dhcp = ctx->dhcp_client;
+    dhcp_client_info_t* dhcp = (&ctx->dhcp_client);
     u8_t adapter_index = ctx->adapter_index;
     struct netif* netif = ctx->netif;
 
@@ -174,7 +174,7 @@ static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const
     for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
     {
         ctx = s_ctxs[i];
-        if (ctx == NULL || ctx->dhcp_client == NULL || ctx->netif == NULL) {
+        if (ctx == NULL || ctx->netif == NULL) {
             continue;
         }
 
@@ -217,7 +217,7 @@ static void ulwip_dhcp_client_run_proxy(void* ctx) {
 static void dhcp_client_timer_cb(void *arg) {
     ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
     // 简单防御一下
-    if (ctx->dhcp_client == NULL || ctx->dhcp_enable == 0) {
+    if (ctx->dhcp_enable == 0) {
         return;
     }
     #if NO_SYS
@@ -228,19 +228,23 @@ static void dhcp_client_timer_cb(void *arg) {
 }
 
 static void reset_dhcp_client(ulwip_ctx_t *ctx) {
-    memset(ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
-    memcpy(ctx->dhcp_client->mac, ctx->netif->hwaddr, 6);
+    char tmp[32] = {0};
+    memcpy(tmp, ctx->dhcp_client.name, 32);
+    memset(&ctx->dhcp_client, 0, sizeof(dhcp_client_info_t));
+    memcpy(&ctx->dhcp_client.mac, ctx->netif->hwaddr, 6);
     ctx->ip_ready = 0;
-    luat_crypto_trng((char*)&ctx->dhcp_client->xid, sizeof(ctx->dhcp_client->xid));
+    luat_crypto_trng((char*)&ctx->dhcp_client.xid, sizeof(ctx->dhcp_client.xid));
     #if LWIP_NETIF_HOSTNAME
     if (ctx->netif && ctx->netif->hostname) {
-        strncpy(ctx->dhcp_client->name, ctx->netif->hostname, strlen(ctx->dhcp_client->name) + 1);
+        strncpy(ctx->dhcp_client.name, ctx->netif->hostname, strlen(ctx->dhcp_client.name) + 1);
     }
     #endif
-    if (ctx->dhcp_client->name[0] == 0) {
-        sprintf_(ctx->dhcp_client->name, "LuatOS_%02X%02X%02X%02X%02X%02X",
-                ctx->dhcp_client->mac[0],ctx->dhcp_client->mac[1], ctx->dhcp_client->mac[2],
-                ctx->dhcp_client->mac[3],ctx->dhcp_client->mac[4], ctx->dhcp_client->mac[5]);
+    if (tmp[0] == 0) {
+        sprintf_(ctx->dhcp_client.name, "LuatOS_%02X%02X%02X%02X%02X%02X",
+                ctx->dhcp_client.mac[0],ctx->dhcp_client.mac[1], ctx->dhcp_client.mac[2],
+                ctx->dhcp_client.mac[3],ctx->dhcp_client.mac[4], ctx->dhcp_client.mac[5]);
+    } else {
+        memcpy(ctx->dhcp_client.name, tmp, 32);
     }
 }
 
@@ -258,21 +262,21 @@ void ulwip_dhcp_client_start(ulwip_ctx_t *ctx) {
         udp_connect(s_ulwip_dhcp, IP4_ADDR_ANY, 67);
         udp_recv(s_ulwip_dhcp, ulwip_dhcp_recv, ctx);
     }
-    if (!ctx->dhcp_client) {
-        ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
-        reset_dhcp_client(ctx);
-        net_lwip2_set_dhcp_client(ctx->adapter_index, ctx->dhcp_client);
-        luat_rtos_timer_create(&ctx->dhcp_timer);
-        s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
-    }
+    // if (!ctx->dhcp_client) {
+        // ctx->dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
+    reset_dhcp_client(ctx);
+    net_lwip2_set_dhcp_client(ctx->adapter_index, &ctx->dhcp_client);
+    luat_rtos_timer_create(&ctx->dhcp_timer);
+    s_ctxs[ctx->adapter_index] = ctx; // 保存到全局数组中
+    // }
     ip4_addr_t ipaddr = {0};
     ip4_addr_t netmask = {0};
     ip4_addr_t gw = {0};
     if (ctx->netif) {
         netif_set_addr(ctx->netif, &ipaddr, &netmask, &gw);
     }
-    ctx->dhcp_client->state = DHCP_STATE_DISCOVER;
-    ctx->dhcp_client->discover_cnt = 0;
+    ctx->dhcp_client.state = DHCP_STATE_DISCOVER;
+    ctx->dhcp_client.discover_cnt = 0;
     if (!luat_rtos_timer_is_active(ctx->dhcp_timer))
     {
         luat_rtos_timer_start(ctx->dhcp_timer, 1000, 1, dhcp_client_timer_cb, ctx);
@@ -287,10 +291,10 @@ void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx) {
         
     }
     if (ctx->dhcp_enable) {
-        if (ctx->dhcp_client) {
+        // if (ctx->dhcp_client) {
             // 重置dhcp客户端
-            reset_dhcp_client(ctx);
-        }
+        reset_dhcp_client(ctx);
+        // }
         if (ctx->netif) {
             ip4_addr_t ipaddr = {0};
             ip4_addr_t netmask = {0};

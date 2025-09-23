@@ -9,6 +9,7 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
+static luat_rtos_queue_t evt_queue;
 static luat_rtos_task_handle airlink_task_handle;
 
 extern const luat_airlink_cmd_reg_t airlink_cmds[];
@@ -70,7 +71,15 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len
         return;
     }
     memcpy(ptr, data, len);
-    luat_rtos_event_send(airlink_task_handle, 1, (uint32_t)ptr, len, 0, 0);
+    
+    luat_event_t event = {0};
+    event.id = 1;
+    event.param1 = ptr;
+    int res = luat_rtos_queue_send(evt_queue, &event, sizeof(event), 0);
+    if (res != 0) {
+        LLOGE("airlink发送消息失败!!! %d", res);
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);
+    }
 }
 
 __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
@@ -81,7 +90,7 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
     luat_rtos_task_sleep(2);
     while (1) {
         event.id = 0;
-        luat_rtos_event_recv(airlink_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
+        luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), LUAT_WAIT_FOREVER);
         if (event.id == 1) { // 收到数据了, 马上处理
             // 处理数据
             ptr = (void*)event.param1;
@@ -126,6 +135,16 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
 }
 
 void luat_airlink_task_start(void) {
+    // 单独创建个队列处理消息，不然task的quest超过512个会卡死
+    if (evt_queue == NULL) {
+        #ifdef TYPE_EC718M
+        luat_rtos_queue_create(&evt_queue, 5 * 1024, sizeof(luat_event_t));
+        #elif __BK72XX__
+        luat_rtos_queue_create(&evt_queue, 1 * 1024, sizeof(luat_event_t));
+        #else
+        luat_rtos_queue_create(&evt_queue, 2 * 1024, sizeof(luat_event_t));
+        #endif
+    }
     if (airlink_task_handle == NULL) {
         luat_rtos_task_create(&airlink_task_handle, 16 * 1024, 50, "airlink", luat_airlink_task, NULL, 1024);
     }

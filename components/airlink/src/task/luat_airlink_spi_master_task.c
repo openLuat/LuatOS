@@ -427,6 +427,17 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
     thread_rdy = 1;
     g_airlink_newdata_notify_cb = on_newdata_notify;
     g_airlink_link_data_cb = on_link_data_notify;
+
+    // 等待RDY就绪，防止从机未准备好就发送数据
+    while (1)
+    {
+        int cs_level = luat_gpio_get(AIRLINK_SPI_RDY_PIN);
+        if (cs_level == 1) {
+            LLOGD("SPI从机已就绪");
+            break;   
+        }
+    }
+
     while (1)
     {
         if (g_airlink_fota != NULL && g_airlink_fota->state == 1) {

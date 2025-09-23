@@ -279,8 +279,8 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_webs
 
     if (is_tls)
     {
-        /* 仅支持 0(不校验) 与 1(严格校验) */
-        uint8_t verify = (opts->verify == 1) ? 1 : 0;
+        /* 支持 0(不校验)/1(可选校验)/2(严格校验) */
+        uint8_t verify = opts->verify;
         if (network_init_tls(websocket_ctrl->netc, verify)){
             return -1;
         }

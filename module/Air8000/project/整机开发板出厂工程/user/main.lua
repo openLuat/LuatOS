@@ -1,6 +1,6 @@
 PROJECT = "startupv13"
 VERSION = "1.0.0"
-PRODUCT_KEY = "29uptfBkJMwFC7x7QeW10UPO3LecPYFu"
+PRODUCT_KEY = "NrkXcjWwjcc5EFdCrrYnvypBCyJlEaIO"
 
 log.info("main", PROJECT, VERSION)
 

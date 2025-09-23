@@ -168,6 +168,16 @@ local function handle_key_press(is_power_key)
 end
 
 
+local function lower_enter()     -- 如果需要进入低功耗，请在task 中调用此函数
+    -- WiFi模组进入低功耗模式
+    pm.power(pm.WORK_MODE, 1, 1)
+    -- 同时4G进入低功耗模式
+    pm.power(pm.WORK_MODE, 1)
+    sys.wait(20)
+    -- 暂停airlink通信，进一步降低功耗
+    airlink.pause(1)
+    
+end
 
 -- 用户主任务
 local function user_main_task()
@@ -187,6 +197,7 @@ local function user_main_task()
     end
     log.info("extalk初始化成功")
     LED(0)
+    -- lower_enter()               -- 如果需要进入低功耗，请打开此函数
     -- 等待按键消息并处理
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

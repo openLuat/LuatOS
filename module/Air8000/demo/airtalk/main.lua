@@ -43,32 +43,6 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
--- exnetif.set_priority_order({ { -- 次优先级：WiFi
---     WIFI = {
-
---         ssid = "机房-降功耗,找合宙!",
-
---         password = "Air123456", 
-
---     }
--- }})
-
--- -- 设置网络状态回调
-
--- exnetif.notify_status(function(net_type, adapter)
-
---     log.info("网络切换至:", net_type)
-
--- end)
-
--- -- wifi的STA相关事件
--- sys.subscribe("WLAN_STA_INC", function(evt, data)
---     -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
---     -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
---     -- 当evt=DISCONNECTED, data断开的原因, 整数类型
---     log.info("收到STA事件", evt, data)
--- end)
-
 require "talk"            --  启动airtalk
 
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常

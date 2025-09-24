@@ -429,15 +429,15 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
     g_airlink_link_data_cb = on_link_data_notify;
 
     // 等待RDY就绪，防止从机未准备好就发送数据
+    luat_event_t event = {0};
     while (1)
     {
-        int cs_level = luat_gpio_get(AIRLINK_SPI_RDY_PIN);
-        if (cs_level == 1) {
-            LLOGD("SPI从机已就绪");
-            break;   
-        }
-        luat_rtos_task_sleep(10);
+        // bk的从机task在开机的时候会塞一包数据(只有0x72)，这个时候会拉低RDY，以此触发中断
+        int ret = luat_rtos_queue_recv(rdy_evt_queue, &event, sizeof(luat_event_t), 10);
+        if (ret == 0 && event.id == 6)
+            break;
     }
+    LLOGD("airlink slave ready");
 
     while (1)
     {

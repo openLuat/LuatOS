@@ -57,6 +57,16 @@ typedef struct luat_websocket_connopts
 	const char *url;
 	uint16_t keepalive;
 	uint8_t use_ipv6;
+    /* TLS options for wss:// */
+    uint8_t verify;                 /* 0:不校验 1:可选 2:严格校验 */
+    const char* server_cert;        /* CA/根证书数据 */
+    size_t server_cert_len;
+    const char* client_cert;        /* 客户端证书 */
+    size_t client_cert_len;
+    const char* client_key;         /* 客户端私钥 */
+    size_t client_key_len;
+    const char* client_password;    /* 私钥口令 */
+    size_t client_password_len;
 } luat_websocket_connopts_t;
 
 typedef struct luat_websocket_pkg

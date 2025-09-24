@@ -5,6 +5,8 @@
 #include "luat_rtos.h"
 #include "luat_mem.h"
 #include "luat_mqtt.h"
+#include "luat_websocket.h"
+#include <stddef.h>
 
 #define LUAT_LOG_TAG "mqtt"
 #include "luat_log.h"
@@ -19,6 +21,8 @@
 #endif
 
 static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
+static void mqtt_ws_on_event(luat_websocket_ctrl_t *ws_ctrl, int arg1, int arg2);
+static int luat_mqtt_ws_send_packet(void* socket_info, const void* buf, unsigned int count);
 
 #ifdef __LUATOS__
 #include "luat_msgbus.h"
@@ -125,34 +129,78 @@ int luat_mqtt_set_auto_connect(luat_mqtt_ctrl_t *mqtt_ctrl, uint8_t auto_connect
 }
 
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts) {
+    if (opts == NULL || opts->host == NULL) return -1;
+    /* 检测是否为 WebSocket URL */
+    if (!memcmp(opts->host, "ws://", 5) || !memcmp(opts->host, "wss://", 6)) {
+        mqtt_ctrl->ws_mode = 1;
+        memset(mqtt_ctrl->ws_url, 0, sizeof(mqtt_ctrl->ws_url));
+        memcpy(mqtt_ctrl->ws_url, opts->host, strlen(opts->host));
+        /* 初始化 WebSocket 控制块 */
+        luat_websocket_init(&mqtt_ctrl->ws_ctrl, mqtt_ctrl->adapter_index);
+        /* 强制无效IP，避免传入0.0.0.0 导致直连失败，走域名解析 */
+        network_set_ip_invaild(&mqtt_ctrl->ws_ctrl.ip_addr);
+        luat_websocket_connopts_t ws_opts = {0};
+        ws_opts.url = mqtt_ctrl->ws_url;
+        ws_opts.keepalive = 60;
+        ws_opts.use_ipv6 = opts->is_ipv6;
+        /* 透传 TLS 选项 */
+        ws_opts.verify = opts->verify;
+        ws_opts.server_cert = opts->server_cert;
+        ws_opts.server_cert_len = opts->server_cert_len;
+        ws_opts.client_cert = opts->client_cert;
+        ws_opts.client_cert_len = opts->client_cert_len;
+        ws_opts.client_key = opts->client_key;
+        ws_opts.client_key_len = opts->client_key_len;
+        ws_opts.client_password = opts->client_password;
+        ws_opts.client_password_len = opts->client_password_len;
+        luat_websocket_set_connopts(&mqtt_ctrl->ws_ctrl, &ws_opts);
+        /* 增加子协议头 */
+        static const char proto_hdr[] = "Sec-WebSocket-Protocol: mqtt\r\n";
+        char *hdr = (char*)luat_heap_malloc(sizeof(proto_hdr));
+        if (hdr) {
+            LLOGD("WebSocket header allocation successful, size: %d", sizeof(proto_hdr));
+            memcpy(hdr, proto_hdr, sizeof(proto_hdr));
+        } else {
+            LLOGW("WebSocket header allocation failed, size: %d", sizeof(proto_hdr));
+			return -1;
+        }
+        luat_websocket_set_headers(&mqtt_ctrl->ws_ctrl, hdr);
+        /* 绑定回调，切换发送函数 */
+        luat_websocket_set_cb(&mqtt_ctrl->ws_ctrl, (luat_websocket_cb_t)mqtt_ws_on_event);
+        mqtt_ctrl->broker.socket_info = mqtt_ctrl;
+        mqtt_ctrl->broker.send = luat_mqtt_ws_send_packet;
+        return 0;
+    }
+
+    /* 常规 TCP/MQTTS */
     memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
     mqtt_ctrl->remote_port = opts->port;
-	if (opts->is_tls){
-		if (network_init_tls(mqtt_ctrl->netc, opts->verify)){
-			LLOGE("初始化tls失败");
-			return -1;
-		}
-		if (opts->server_cert){
-			if (network_set_server_cert(mqtt_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len+1)){
-				LLOGE("network_set_server_cert error");
-				return -1;
-			}
-		}
-		if (opts->client_cert){
-			if (network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len+1,
-					(const unsigned char*)opts->client_key, opts->client_key_len+1,
-					(const unsigned char*)opts->client_password, opts->client_password_len+1)){
-				LLOGE("network_set_client_cert error");
-				return -1;
-			}
-		}
-	} else {
-		network_deinit_tls(mqtt_ctrl->netc);
-	}
+    if (opts->is_tls){
+        if (network_init_tls(mqtt_ctrl->netc, opts->verify)){
+            LLOGE("初始化tls失败");
+            return -1;
+        }
+        if (opts->server_cert){
+            if (network_set_server_cert(mqtt_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len+1)){
+                LLOGE("network_set_server_cert error");
+                return -1;
+            }
+        }
+        if (opts->client_cert){
+            if (network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len+1,
+                    (const unsigned char*)opts->client_key, opts->client_key_len+1,
+                    (const unsigned char*)opts->client_password, opts->client_password_len+1)){
+                LLOGE("network_set_client_cert error");
+                return -1;
+            }
+        }
+    } else {
+        network_deinit_tls(mqtt_ctrl->netc);
+    }
 
-	if (opts->is_ipv6) {
-		network_connect_ipv6_domain(mqtt_ctrl->netc, 1);
-	}
+    if (opts->is_ipv6) {
+        network_connect_ipv6_domain(mqtt_ctrl->netc, 1);
+    }
 
     mqtt_ctrl->broker.socket_info = mqtt_ctrl;
     mqtt_ctrl->broker.send = luat_mqtt_send_packet;
@@ -174,10 +222,15 @@ void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		mqtt_ctrl->buffer_offset = 0;
 		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 		luat_stop_rtos_timer(mqtt_ctrl->conn_timer);
-		if (mqtt_ctrl->netc){
-			network_force_close_socket(mqtt_ctrl->netc);
-			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, mqtt_ctrl->error_state==0?MQTT_ERROR_STATE_SOCKET:mqtt_ctrl->error_state);
-		}
+
+		if (mqtt_ctrl->ws_mode) {
+            luat_websocket_close_socket(&mqtt_ctrl->ws_ctrl);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, mqtt_ctrl->error_state==0?MQTT_ERROR_STATE_SOCKET:mqtt_ctrl->error_state);
+        } else if (mqtt_ctrl->netc){
+            network_force_close_socket(mqtt_ctrl->netc);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, mqtt_ctrl->error_state==0?MQTT_ERROR_STATE_SOCKET:mqtt_ctrl->error_state);
+        }
+
 		if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time > 0){
 			luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
 		}else{
@@ -206,10 +259,13 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		luat_heap_free(mqtt_ctrl->broker.will_data);
 		mqtt_ctrl->broker.will_data = NULL;
 	}
-	if (mqtt_ctrl->netc){
-		network_release_ctrl(mqtt_ctrl->netc);
-    	mqtt_ctrl->netc = NULL;
-	}
+    if (mqtt_ctrl->ws_mode){
+        luat_websocket_release_socket(&mqtt_ctrl->ws_ctrl);
+    }
+    if (mqtt_ctrl->netc){
+        network_release_ctrl(mqtt_ctrl->netc);
+        mqtt_ctrl->netc = NULL;
+    }
 	if (mqtt_ctrl->mqtt_packet_buffer) {
 		luat_heap_free(mqtt_ctrl->mqtt_packet_buffer);
 		mqtt_ctrl->mqtt_packet_buffer = NULL;
@@ -358,11 +414,11 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			uint32_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
-			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
-            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
-            mqtt_msg->message_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
-            mqtt_msg->flags = mqtt_ctrl->mqtt_packet_buffer[0];
-            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
+				mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
+	            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
+	            mqtt_msg->message_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
+	            mqtt_msg->flags = mqtt_ctrl->mqtt_packet_buffer[0];
+	            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
 #else
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
 #endif
@@ -502,8 +558,66 @@ int32_t luat_mqtt_callback(void *data, void *param) {
     return 0;
 }
 
+/* WebSocket 回调：握手成功后发起 MQTT CONNECT；收到数据则喂入 mqtt_parse */
+static void mqtt_ws_on_event(luat_websocket_ctrl_t *ws_ctrl, int arg1, int arg2) {
+    luat_mqtt_ctrl_t *mqtt_ctrl = (luat_mqtt_ctrl_t *)((char*)ws_ctrl - offsetof(luat_mqtt_ctrl_t, ws_ctrl));
+    if (arg1 == WEBSOCKET_MSG_CONNACK) {
+        mqtt_ctrl->mqtt_state = MQTT_STATE_MQTT;
+        int ret = mqtt_connect(&(mqtt_ctrl->broker));
+        if (ret == 1) {
+            luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
+        }
+    } else if (arg1 == WEBSOCKET_MSG_PUBLISH) {
+        /* arg2 指向的是复制的帧头+payload；解析出 MQTT 负载数据区域并追加到 mqtt_packet_buffer */
+        uint8_t *frame = (uint8_t *)arg2;
+        if (!frame) return;
+        uint16_t plen = 0;
+        if ((frame[1] & 0x7F) == 126) {
+            plen = (frame[2] << 8) | frame[3];
+            frame += 4;
+        } else {
+            plen = (frame[1] & 0x7F);
+            frame += 2;
+        }
+        if (plen == 0) return;
+        if (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset < plen) {
+            LLOGW("mqtt rx buffer not enough for ws payload %d", plen);
+            return;
+        }
+        memcpy(mqtt_ctrl->mqtt_packet_buffer + mqtt_ctrl->buffer_offset, frame, plen);
+        mqtt_ctrl->buffer_offset += plen;
+        /* 循环解析 */
+        while (mqtt_parse(mqtt_ctrl) == 1) {
+            if (mqtt_ctrl->buffer_offset == 0) break;
+        }
+    } else if (arg1 == WEBSOCKET_MSG_DISCONNECT || arg1 >= WEBSOCKET_MSG_ERROR_CONN) {
+        mqtt_ctrl->error_state = MQTT_ERROR_STATE_SOCKET;
+        luat_mqtt_close_socket(mqtt_ctrl);
+    } else if (arg1 == WEBSOCKET_MSG_SENT) {
+        /* no-op */
+    } else if (arg1 == WEBSOCKET_MSG_TIMER_PING) {
+        /* WS 层心跳已在 websocket 管理，这里无需处理 */
+    }
+}
+
+/* 通过 WebSocket 发送 MQTT 报文 */
+static int luat_mqtt_ws_send_packet(void* socket_info, const void* buf, unsigned int count) {
+    luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
+    luat_websocket_pkg_t pkg = {0};
+    pkg.FIN = 1;
+    pkg.OPT_CODE = WebSocket_OP_BINARY;
+    pkg.plen = (uint16_t)count;
+    pkg.payload = (const char*)buf;
+    int ret = luat_websocket_send_frame(&mqtt_ctrl->ws_ctrl, &pkg);
+    if (ret < 0) return 0;
+    return count;
+}
+
 int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count){
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
+    if (mqtt_ctrl->ws_mode) {
+        return luat_mqtt_ws_send_packet(socket_info, buf, count);
+    }
 	uint32_t tx_len = 0;
 	int ret = network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
 	if (ret < 0) {
@@ -530,21 +644,32 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		return -1;
 	}
 	memset(mqtt_ctrl->mqtt_packet_buffer, 0, mqtt_ctrl->rxbuff_size+4);
-    const char *hostname = mqtt_ctrl->host;
-    uint16_t port = mqtt_ctrl->remote_port;
     uint16_t keepalive = mqtt_ctrl->keepalive;
-    LLOGD("host %s port %d keepalive %d", hostname, port, keepalive);
     mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
+    if (mqtt_ctrl->ws_mode) {
+        /* 通过 WebSocket 发起连接，完成握手后再 mqtt_connect */
+        int r = luat_websocket_connect(&mqtt_ctrl->ws_ctrl);
+        if (r < 0) {
+            return -1;
+        }
+        mqtt_ctrl->mqtt_state = MQTT_STATE_SCONNECT;
+        return 0;
+    } 
+	else {
+	const char *hostname = mqtt_ctrl->host;
+	uint16_t port = mqtt_ctrl->remote_port;
+	LLOGD("host %s port %d keepalive %d", hostname, port, keepalive);
 	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), NULL, port, 0) < 0;
 	LLOGD("network_connect ret %d", ret);
 	if (ret < 0) {
-        network_close(mqtt_ctrl->netc, 0);
-        return -1;
-    }
+		network_close(mqtt_ctrl->netc, 0);
+		return -1;
+	}
 	mqtt_ctrl->mqtt_state = MQTT_STATE_SCONNECT;
 	// 启动连接超时定时器
 	luat_start_rtos_timer(mqtt_ctrl->conn_timer, mqtt_ctrl->conn_timeout * 1000, 0);
-    return 0;
+        return 0;
+    }
 }
 
 int luat_mqtt_set_will(luat_mqtt_ctrl_t *mqtt_ctrl, const char* topic, 

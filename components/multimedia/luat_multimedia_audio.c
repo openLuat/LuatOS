@@ -147,7 +147,7 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
 }
 
 static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
-    uint8_t multimedia_id = (uint8_t)param;
+    uint8_t multimedia_id = (uint8_t)(uint32_t)param;
     luat_audio_pa(multimedia_id,1, 0);
 }
 
@@ -157,7 +157,7 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
         if (!audio_conf->pa_is_control_enable) return;
         
         if (audio_conf->pa_delay_timer!=NULL&&delay>0){
-            luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)multimedia_id);
+            luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)(uint32_t)multimedia_id);
         }
         else{
         #ifdef LUAT_USE_DRV_GPIO

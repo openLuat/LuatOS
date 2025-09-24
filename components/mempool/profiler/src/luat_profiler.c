@@ -45,13 +45,15 @@ void* luat_profiler_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
 }
 
 int luat_profiler_start(void) {
-    size_t total; size_t max_used;
+    size_t total; size_t used; size_t max_used;
     LLOGD("start profiler");
     memset(&ctx, 0, sizeof(luat_profiler_ctx_t));
     ctx.tag = 1;
-    luat_meminfo_luavm(&total, &ctx.lua_heap_begin_used, &max_used);
+    luat_meminfo_luavm(&total, &used, &max_used);
+    ctx.lua_heap_begin_used = used;
     LLOGD("%s luavm %ld %ld %ld", "profiler start", total, ctx.lua_heap_begin_used, max_used);
-    luat_meminfo_sys(&total, &ctx.sys_heap_begin_used, &max_used);
+    luat_meminfo_sys(&total, &used, &max_used);
+    ctx.sys_heap_begin_used = used;
     LLOGD("%s sys   %ld %ld %ld", "profiler start", total, ctx.sys_heap_begin_used, max_used);
     return 0;
 }

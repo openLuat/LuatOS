@@ -55,7 +55,7 @@ static uint64_t long_sms_send_idp = 0;
 
 
 
-static int32_t l_long_sms_send_callback(lua_State *L, void* ptr){
+static int l_long_sms_send_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if (msg->arg1)
     {

@@ -93,7 +93,7 @@ local function exchg_task_func()
     while true do
         local status = exchg.status()
         if status.result then
-            log.info("电池电压:", status.voltage, 
+            log.info("电池电压:", status.vbat_voltage, 
                     "充电阶段:", status.charge_stage, 
                     "充电是否完成:", status.charge_complete, 
                     "电池在位:", status.battery_present, 

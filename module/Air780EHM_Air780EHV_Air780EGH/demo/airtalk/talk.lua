@@ -1,7 +1,10 @@
 --[[
     演示airtalk基本功能
+    1.  按键操作
     按一次boot，开始1对1对讲，再按一次boot，结束对讲
     按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
+    2. 指示灯
+    当收到对讲信息的时候，LED灯常亮，关闭对讲的时候LED 灯灭，Air780XX 系列需要外接LED 灯
 ]]
 
 -- 引入必要模块
@@ -24,9 +27,10 @@ local g_speech_active = false  -- 对讲状态标记
 local audio_setup_param = {
     model = "es8311",       -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,             -- i2c_id,可填入0，1 并使用pins工具配置对应的管脚
-    pa_ctrl = 162,          -- 音频放大器电源控制管脚
-    dac_ctrl = 164,         -- 音频编解码芯片电源控制管脚    
+    pa_ctrl = gpio.AUDIOPA_EN,          -- 音频放大器电源控制管脚
+    dac_ctrl = 20,         -- 音频编解码芯片电源控制管脚    
 }
+
 
 -- 联系人列表回调函数
 local function contact_list_callback(dev_list)
@@ -42,9 +46,9 @@ local function contact_list_callback(dev_list)
     end
 end
 
-local gpio_number = 20 -- air8000 核心板上的23 管脚
+local gpio_number = 20 -- 如果开发板上有灯，可以修改此处为需要的灯
 
-LED = gpio.setup(gpio_number, 1) -- 设置GPIO20为输出模式
+LED = gpio.setup(gpio_number, 1) -- 设置为LED输出模式，用于指示对讲功能
 
 
 -- 对讲状态回调函数
@@ -52,7 +56,7 @@ local function speech_state_callback(event_table)
     if not event_table then return end
     
     if event_table.state == extalk.START then
-        log.info("对讲开始，可以说话了")
+        log.info("对讲开始")
         LED(1)
         g_speech_active = true
     elseif event_table.state == extalk.STOP then
@@ -147,6 +151,7 @@ local function handle_key_press(is_power_key)
         -- 当前正在对讲，按任何键都结束对讲
         log.info("结束当前对讲")
         extalk.stop()
+        LED(0)       -- 关闭LED 灯
         g_speech_active = false
     else
         -- 当前未在对讲，根据按键类型开始不同对讲
@@ -168,6 +173,16 @@ local function handle_key_press(is_power_key)
 end
 
 
+local function lower_enter()     -- 如果需要进入低功耗，请在task 中调用此函数
+    -- WiFi模组进入低功耗模式
+    pm.power(pm.WORK_MODE, 1, 1)
+    -- 同时4G进入低功耗模式
+    pm.power(pm.WORK_MODE, 1)
+    sys.wait(20)
+    -- 暂停airlink通信，进一步降低功耗
+    airlink.pause(1)
+    
+end
 
 -- 用户主任务
 local function user_main_task()
@@ -187,6 +202,7 @@ local function user_main_task()
     end
     log.info("extalk初始化成功")
     LED(0)
+    -- lower_enter()               -- 需要进入低功耗，请打开此函数
     -- 等待按键消息并处理
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

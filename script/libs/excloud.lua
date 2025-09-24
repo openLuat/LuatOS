@@ -149,7 +149,6 @@ end)
 ]]
 local excloud = {}
 
--- 内部状态变量
 local config = {
     device_type = 1,           -- 默认设备类型: 4G
     device_id = "",            -- 设备ID
@@ -165,11 +164,26 @@ local config = {
     timeout = 30,              -- 连接超时时间(秒)
     qos = 0,                   -- MQTT QoS等级
     -- retain = false,            -- MQTT retain标志
-    -- clean_session = true,      -- MQTT clean session标志
+    clean_session = true,      -- MQTT clean session标志
     ssl = false,               -- 是否使用SSL
     username = nil,            -- MQTT用户名
     password = nil,            -- MQTT密码
     udp_auth_key = nil,        -- UDP鉴权密钥
+
+    -- 新增socket配置参数
+    local_port = nil,      -- 本地端口号，nil表示自动分配
+    keep_idle = nil,       -- TCP keepalive idle时间(秒)
+    keep_interval = nil,   -- TCP keepalive 探测间隔(秒)
+    keep_cnt = nil,        -- TCP keepalive 探测次数
+    server_cert = nil,     -- 服务器CA证书数据
+    client_cert = nil,     -- 客户端证书数据
+    client_key = nil,      -- 客户端私钥数据
+    client_password = nil, -- 客户端私钥口令
+
+    -- MQTT扩展参数
+    -- mqtt_rx_size = 32 * 1024, -- MQTT接收缓冲区大小，默认32K
+    -- mqtt_conn_timeout = 30, -- MQTT连接超时时间
+    -- mqtt_ipv6 = false, -- 是否使用IPv6连接
 }
 
 local callback_func = nil         -- 回调函数
@@ -274,7 +288,7 @@ local function from_big_endian(data, start, length)
     for i = start, start + length - 1 do
         value = value * 256 + data:byte(i)
     end
-    log.info("from_big_endian", value)
+    -- log.info("from_big_endian", value)
     return value
 end
 
@@ -450,7 +464,7 @@ local function build_tlv(field_meaning, data_type, value)
     end
     local length = #value_encoded
     -- 字段类型（字段含义 + 数据类型）
-    local head          = (field_meaning & 0x0FFF) | (data_type << 12) -- 2 字节头
+    local head   = (field_meaning & 0x0FFF) | (data_type << 12)        -- 2 字节头
     return to_big_endian(head, 2) ..
         to_big_endian(length, 2) ..
         value_encoded
@@ -474,11 +488,11 @@ local function parse_header(header)
     local is_udp_transport = (flags % 64) >= 32
 
     -- 打印解析结果，方便调试
-    log.info("消息头解析结果",
-        string.format(
-            "device_id: %s, sequence_num: %d, msg_length: %d, protocol_version: %d, need_reply: %s, is_udp_transport: %s",
-            string.toHex(device_id), seq_num, msg_length, protocol_version,
-            tostring(need_reply), tostring(is_udp_transport)))
+    -- log.info("消息头解析结果",
+    --     string.format(
+    --         "device_id: %s, sequence_num: %d, msg_length: %d, protocol_version: %d, need_reply: %s, is_udp_transport: %s",
+    --         string.toHex(device_id), seq_num, msg_length, protocol_version,
+    --         tostring(need_reply), tostring(is_udp_transport)))
 
     return {
         device_id = string.toHex(device_id),
@@ -509,7 +523,7 @@ local function parse_tlv(data, startPos)
     local data_type = fieldType >> 12        -- 取高4位作为数据类型
 
     local decoded_value = decode_value(data_type, value)
-    log.info("消息体解析结果", field_meaning, data_type, decoded_value)
+    -- log.info("消息体解析结果", field_meaning, data_type, decoded_value)
     return {
         field = field_meaning,
         type = data_type,
@@ -548,7 +562,7 @@ local function parse_message(data)
     while pos < end_pos do
         local tlv, new_pos, err = parse_tlv(data, pos)
         if not tlv then
-            return nil, "Failed to parse TLV at position " .. pos
+            return nil, "Failed to parse TLV at position " .. err
         end
         table.insert(tlvs, tlv)
         -- 更新解析位置为解析完当前TLV字段后的新位置，以便继续解析后续的TLV字段
@@ -569,9 +583,9 @@ local function send_auth_request()
     end
     local auth_data
     --  auth_data = config.auth_key .. "-" .. config.device_id .. "-" .. "323B131815B0DFC9"
-   --设备实测时打开
+    --设备实测时打开
     if config.device_type == 1 then
-        auth_data = config.auth_key .. "-" .. mobile.imei() .. "-" ..mobile.muid()
+        auth_data = config.auth_key .. "-" .. mobile.imei() .. "-" .. mobile.muid()
     elseif config.device_type == 2 then
         auth_data = config.auth_key .. "-" .. wlan.getMac(nil, true) .. "-" .. mobile.muid():toHex()
     else
@@ -585,7 +599,7 @@ local function send_auth_request()
             value = auth_data
         }
     }
-    log.info("send auth request", message,message[1].value,message[1].data_type,message[1].field_meaning)
+    -- log.info("send auth request", message,message[1].value,message[1].data_type,message[1].field_meaning)
     return excloud.send(message, true, true) -- 鉴权消息需要设置 is_auth_msg 为 true
 end
 
@@ -644,7 +658,7 @@ end
 -- 重连  AAA
 local function schedule_reconnect()
     if reconnect_count >= config.max_reconnect then
-        log.info("Max reconnection attempts reached")
+        log.info("到达最大重连次数 " .. reconnect_count)
         if callback_func then
             callback_func("reconnect_failed", { count = reconnect_count })
         end
@@ -656,13 +670,14 @@ local function schedule_reconnect()
 
     -- 使用定时器安排重连
     reconnect_timer = sys.timerStart(function()
-        log.info("Attempting to reconnect...")
+        log.info("等待重连")
         excloud.open()
     end, config.reconnect_interval * 1000)
 end
+
 -- TCP socket事件回调函数
 local function tcp_socket_callback(netc, event, param)
-    log.info("111111socket", netc, event, param)
+    log.info("socket cb", netc, event, param)
     -- 取消连接超时定时器
     if connect_timeout_timer then
         sys.timerStop(connect_timeout_timer)
@@ -689,8 +704,8 @@ local function tcp_socket_callback(netc, event, param)
         return
     end
     if event == socket.LINK then
-        -- -- 网络连接成功
-        -- log.info("socket", "网络连接成功")
+        -- 网络连接成功
+        log.info("socket", "网络连接成功")
     elseif event == socket.ON_LINE then
         -- TCP连接成功
         log.info("socket", "TCP连接成功")
@@ -698,13 +713,11 @@ local function tcp_socket_callback(netc, event, param)
 
         -- 重置重连计数，如果是重连的话，连接上服务器给重连计数重置为0
         reconnect_count = 0
-
-
-        -- 发送认证请求
-        send_auth_request()
         if callback_func then
             callback_func("connect_result", { success = true })
         end
+        -- 发送认证请求
+        send_auth_request()
     elseif event == socket.EVENT then
         -- 有数据到达
         socket.rx(netc, rxbuff)
@@ -728,7 +741,7 @@ end
 -- mqtt client的事件回调函数
 local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
     log.info("mqtt_client_event_cbfunc", connected, event, data, payload, json.encode(metas))
-    -- 取消连接超时定时器（如果连接成功或失败）
+    -- 取消连接超时定时器
     if connect_timeout_timer then
         sys.timerStop(connect_timeout_timer)
         connect_timeout_timer = nil
@@ -741,18 +754,19 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
         -- 重置重连计数，如果是重连的话，连接上服务器给重连计数重置为0
         reconnect_count = 0
         -- 订阅主题
-        local auth_topic = "/AirCloud/" .. config.device_id .. "/auth"
-        local all_topic = "/AirCloud/" .. config.device_id .. "/all"
+        local auth_topic = "/AirCloud/down/" .. config.device_id .. "/auth"
+        local all_topic = "/AirCloud/down/" .. config.device_id .. "/all"
         log.info("mqtt_client_event_cbfunc", "订阅主题", auth_topic, all_topic)
         connection:subscribe(auth_topic, 0)
         connection:subscribe(all_topic, 0)
 
-        -- 发送认证请求
-        send_auth_request()
-
         if callback_func then
             callback_func("connect_result", { success = true })
         end
+        -- 发送认证请求
+        send_auth_request()
+
+
 
         -- 订阅成功
     elseif event == "suback" then
@@ -807,7 +821,6 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
         connection:disconnect()
         local error_msg = "Unknown MQTT error"
 
-        -- 根据错误类型提供更详细的错误信息
         if data == "connect" then
             error_msg = "TCP connection failed"
         elseif data == "tx" then
@@ -832,9 +845,6 @@ end
 
 
 
-
-
-
 -- 设置配置参数
 function excloud.setup(params)
     if is_open then
@@ -847,20 +857,18 @@ function excloud.setup(params)
     end
 
     -- 验证必要参数
-    -- if not config.device_id or config.device_id == "" then
-    --     return false, "Device ID is required"
-    -- end
-
     if config.device_type == 1 then
         config.device_id = mobile.imei()
     elseif config.device_type == 2 then
         config.device_id = wlan.getMac(nil, true)
-    --以太网设备
+        --以太网设备
     elseif config.device_type == 4 then
         config.device_id = netdrv.mac(socket.LWIP_ETH)
     else
-        return false, "未知设备类型"
+        log.info("未知设备类型", config.device_type)
+        config.device_id = "unknown"
     end
+
     -- 打包设备id
     device_id_binary = packDeviceInfo(config.device_type, config.device_id)
 
@@ -889,8 +897,6 @@ function excloud.open()
         return false, "excloud 没有初始化，请先调用setup"
     end
 
-
-
     -- 根据传输协议创建连接
     if config.transport == "tcp" then
         -- 创建接收缓冲区
@@ -901,9 +907,40 @@ function excloud.open()
         if not connection then
             return false, "Failed to create socket"
         end
-        -- 配置socket
-        socket.config(connection)      -- 开启TCP保活，防止长时间无数据交互被运营商断线
-        socket.debug(connection, true) -- 开启调试
+
+        -- 准备SSL配置参数
+        local ssl_config = nil
+        if config.ssl then
+            if type(config.ssl) == "table" then
+                -- 使用详细的SSL配置
+                ssl_config = config.ssl
+            else
+                -- 简单的SSL启用
+                ssl_config = true
+            end
+        end
+
+        -- 配置socket参数
+        local config_success = socket.config(
+            connection,
+            config.local_port,                               -- 本地端口号
+            false,                                           -- 是否是UDP，TCP连接为false
+            ssl_config and true or false,                    -- 是否是加密传输
+            config.keep_idle,                                -- keepalive idle时间
+            config.keep_interval,                            -- keepalive 探测间隔
+            config.keep_cnt,                                 -- keepalive 探测次数
+            ssl_config and ssl_config.server_cert or nil,    -- 服务器CA证书
+            ssl_config and ssl_config.client_cert or nil,    -- 客户端证书
+            ssl_config and ssl_config.client_key or nil,     -- 客户端私钥
+            ssl_config and ssl_config.client_password or nil -- 客户端私钥口令
+        )
+        if not config_success then
+            socket.release(connection)
+            connection = nil
+            return false, "Socket config failed"
+        end
+
+        socket.debug(connection, true)
 
         -- 设置连接超时定时器
         connect_timeout_timer = sys.timerStart(function()
@@ -928,27 +965,47 @@ function excloud.open()
         end, config.timeout * 1000)
 
         -- 连接到服务器
-        local ok, err = socket.connect(connection, config.host, config.port)
-        log.info("TCP连接结果", ok, err)
+        local ok, result = socket.connect(connection, config.host, config.port, config.mqtt_ipv6)
+        log.info("TCP连接结果", ok, result)
         if not ok then
             --发生异常，强制close
             socket.close(connection)
             --释放资源
             socket.release(connection)
             connection = nil
-            -- 首次连接失败尝试重连
-            if config.auto_reconnect and is_open then
+
+            if config.auto_reconnect then
                 is_open = false
                 schedule_reconnect()
             end
-            return false,  err
+            return false, result
         end
     elseif config.transport == "mqtt" then
+        -- 准备MQTT SSL配置
+        local ssl_config = nil
+        if config.ssl then
+            if type(config.ssl) == "table" then
+                ssl_config = config.ssl
+            else
+                ssl_config = true -- 简单SSL启用
+            end
+        end
+        local mqtt_opts = nil
+        -- 准备MQTT扩展参数
+        -- local mqtt_opts = {
+        --     rxSize = config.mqtt_rx_size,
+        --     conn_timeout = config.mqtt_conn_timeout,
+        --     ipv6 = config.mqtt_ipv6
+        -- }
+
         -- 创建MQTT客户端
-        connection = mqtt.create(nil, config.host, config.port, config.ssl)
+        connection = mqtt.create(nil, config.host, config.port, ssl_config, mqtt_opts)
+        if not connection then
+            return false, "Failed to create MQTT client"
+        end
 
         -- 设置认证信息
-        connection:auth(config.device_id, config.username, config.password)
+        connection:auth(config.device_id, config.username, config.password, config.clean_session)
 
         -- 注册事件回调
         connection:on(mqtt_client_event_cbfunc)
@@ -959,6 +1016,9 @@ function excloud.open()
         connect_timeout_timer = sys.timerStart(function()
             if not is_connected then
                 log.error("MQTT connection timeout")
+                if connection then
+                    connection:disconnect()
+                end
 
                 if callback_func then
                     callback_func("connect_result", { success = false, error = "Connection timeout" })
@@ -978,17 +1038,18 @@ function excloud.open()
             --连接失败，释放资源
             connection:disconnect()
             -- 发起连接失败，尝试重连
-            if config.auto_reconnect and is_open then
+            if config.auto_reconnect then
                 is_open = false
                 schedule_reconnect()
             end
-            return false
+            return false, "MQTT connect failed"
         end
     else
         return false, "Unsupported transport: " .. config.transport
     end
 
     is_open = true
+    reconnect_count = 0
     log.info("excloud service started")
 
     return true
@@ -1009,7 +1070,7 @@ function excloud.send(data, need_reply, is_auth_msg)
                 error_msg = "Invalid data parameter: table expected"
             })
         end
-        return false,"Invalid data parameter: table expected"
+        return false, "Invalid data parameter: table expected"
     end
 
     -- 检查服务是否开启
@@ -1084,12 +1145,12 @@ function excloud.send(data, need_reply, is_auth_msg)
             success, err_msg = socket.tx(connection, full_message)
         end
     elseif config.transport == "mqtt" then
-         -- 根据是否为鉴权消息选择不同的topic
+        -- 根据是否为鉴权消息选择不同的topic
         local topic
         if is_auth_msg then
-            topic = "/AirCloud/" .. config.device_id .. "/auth"
+            topic = "/AirCloud/up/" .. config.device_id .. "/auth"
         else
-            topic = "/AirCloud/" .. config.device_id .. "/all"
+            topic = "/AirCloud/up/" .. config.device_id .. "/all"
         end
         log.info("发布主题", topic, #full_message, full_message:toHex())
         success = connection:publish(topic, full_message, config.qos, config.retain)
@@ -1157,8 +1218,6 @@ function excloud.status()
         pending_messages = #pending_messages,
     }
 end
-
-
 
 -- 导出常量
 excloud.DATA_TYPES = DATA_TYPES

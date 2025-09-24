@@ -1333,7 +1333,7 @@ static int l_socket_close_all(lua_State *L) {
 		lua_pushboolean(L, 0);
 		return 1;
 	}
-	network_close_adapter_all(id, 0);
+	network_close_all_ctrl_by_adapter(id, 0);
 	lua_pushboolean(L, 1);
 	return 1;
 }

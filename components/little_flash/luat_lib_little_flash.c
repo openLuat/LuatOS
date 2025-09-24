@@ -66,7 +66,7 @@ static int luat_little_flash_erase(lua_State *L){
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = luaL_checkinteger(L, 3);
     lf_err_t ret = little_flash_erase(flash,addr,size);
-    lua_pushboolean(L, ret ? 1 : 0);
+    lua_pushboolean(L, ret ? 0 : 1);
     return 1;
 }
 
@@ -85,7 +85,7 @@ static int luat_little_flash_chip_erase(lua_State *L){
         return 0;
     }
     lf_err_t ret = little_flash_chip_erase(flash);
-    lua_pushboolean(L, ret ? 1 : 0);
+    lua_pushboolean(L, ret ? 0 : 1);
     return 1;
 }
 
@@ -138,7 +138,7 @@ static int luat_little_flash_write(lua_State *L){
     size_t size = 0;
     const char* data = luaL_checklstring(L, 3, &size);
     lf_err_t ret = little_flash_write(flash, addr, (const uint8_t*)data, size);
-    lua_pushboolean(L, ret ? 1 : 0);
+    lua_pushboolean(L, ret ? 0 : 1);
     return 1;
 }
 
@@ -162,7 +162,7 @@ static int luat_little_flash_erase_write(lua_State *L){
     size_t size = 0;
     const char* data = luaL_checklstring(L, 3, &size);
     lf_err_t ret = little_flash_erase_write(flash, addr, (const uint8_t*)data, size);
-    lua_pushboolean(L, ret ? 1 : 0);
+    lua_pushboolean(L, ret ? 0 : 1);
     return 1;
 }
 

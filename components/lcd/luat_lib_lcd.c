@@ -2048,10 +2048,10 @@ static const rotable_Reg_t reg_lcd[] =
     //@const font_opposansm12 font 12号字体
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
-    //@const font_unifont_t_symbols font 符号字体
+    #ifndef LUAT_CONF_FONT_SYMBOLS_DISABLE
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
-    //@const font_open_iconic_weather_6x_t font 天气字体
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
+    #endif
 
     //@const font_opposansm16 font 16号字体
     //@const font_opposansm18 font 18号字体

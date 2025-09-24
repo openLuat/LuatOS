@@ -145,7 +145,7 @@ static int l_netdrv_dhcp(lua_State *L) {
         if(((len + 1) > 32) || (drv == NULL) || (drv->ulwip == NULL)) {
             LLOGD("dhcp name set fail");
             lua_pushboolean(L, 0);
-            return -1;
+            return 1;
         }
         if(0 == len){
             memset(drv->ulwip->dhcp_client.name, 0x00, 32);

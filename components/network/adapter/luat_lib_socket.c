@@ -1310,6 +1310,33 @@ static int l_socket_default(lua_State *L) {
 	return 2;
 }
 
+/*
+断开指定网卡的所有数据链接（实验性支持）
+@api socket.close_all(id)
+@int 适配器编号
+@return bool 执行结果
+@usage
+-- 本函数于 2025.9.24 新增
+
+-- 断开WIFI网卡上的所有数据链接
+socket.close_all(socket.LWIP_STA)
+
+*/
+static int l_socket_close_all(lua_State *L) {
+	uint8_t id = 0;
+	if (lua_type(L, 1) != LUA_TNUMBER) {
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	id = (uint8_t)luaL_checkinteger(L, 1);
+	if (id >= NW_ADAPTER_QTY) {
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	network_close_all_ctrl_by_adapter(id, 0);
+	lua_pushboolean(L, 1);
+	return 1;
+}
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
@@ -1334,6 +1361,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
 	{"adapter",				ROREG_FUNC(l_socket_adapter)},
 	{"dft",                 ROREG_FUNC(l_socket_default)},
+	{"close_all",           ROREG_FUNC(l_socket_close_all)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         		ROREG_FUNC(l_sntp_get)},
 	{"ntptm",           	ROREG_FUNC(l_sntp_tm)},

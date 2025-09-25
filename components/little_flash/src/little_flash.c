@@ -157,9 +157,9 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     sfdp.nph=recv_data[6];
     sfdp.access_protocol=recv_data[7];
     if (sfdp.access_protocol == 0xFA || (sfdp.access_protocol >= 0xFC && sfdp.access_protocol <= 0xFF)){
-        lf->chip_info.type |= LF_DRIVER_NOR_FLASH;
+        lf->chip_info.type = LF_DRIVER_NOR_FLASH;
     }else if((sfdp.access_protocol >= 0xF1 && sfdp.access_protocol <= 0xF7)){
-        lf->chip_info.type |= LF_DRIVER_NAND_FLASH;
+        lf->chip_info.type = LF_DRIVER_NAND_FLASH;
     }else{
         LF_ERROR("Error: Access protocol 0x%02X is not supported.", sfdp.access_protocol);
         return LF_ERR_SFDP_PARAMETER;
@@ -196,12 +196,12 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     }
     LF_DEBUG("Parameter Header is OK. The Parameter ID is 0x%04X, Revision is V%d.%d, Length is %d,Parameter Table Pointer is 0x%06lX.",
             sfdp.parameter_id, recv_data[1],recv_data[2],sfdp.parameter_length, sfdp.parameter_pointer);
-    if (sfdp.parameter_length * 4 > sizeof(little_flash_sfdp_pt_t)){
-        LF_WARNING("Table Revision %d.%d parameter_length is too long", sfdp.parameter_major_rev, sfdp.parameter_minor_rev);
-        sfdp.parameter_length = sizeof(little_flash_sfdp_pt_t) / 4;
+
+    if (sfdp.parameter_length < sizeof(little_flash_sfdp_pt_t)/4){
+        LF_WARNING("Table Revision %d.%d parameter_length %d is too short", sfdp.parameter_major_rev, sfdp.parameter_minor_rev,sfdp.parameter_length);
+        return LF_ERR_SFDP_PARAMETER;
     }
-    uint8_t parameter_table[sfdp.parameter_length * 4];
-    little_flash_sfdp_read(lf, sfdp.parameter_pointer, parameter_table, sfdp.parameter_length);
+    little_flash_sfdp_read(lf, sfdp.parameter_pointer, &sfdp.pt, sizeof(little_flash_sfdp_pt_t));
 
     //      [1] = 0xE5    0x20    0xF1    0xFF
     //      [2] = 0xFF    0xFF    0xFF    0x07
@@ -213,7 +213,6 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     //      [8] = 0x01    0x00    0x00    0x00
     //      [9] = 0x09    0x00    0x00    0x00
 
-    memcpy(&sfdp.pt, parameter_table, sfdp.parameter_length*4);
     // LF_DEBUG("sfdp.pt Flash_Memory_Density 0x%08X",sfdp.pt.Flash_Memory_Density);
 
     if (sfdp.pt.Flash_Memory_Density & 0x80000000){
@@ -286,7 +285,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     device_id = recv_data[1]<<8|recv_data[2];
     for (size_t i = 0; i < sizeof(little_flash_table)/sizeof(little_flash_table[0]); i++){
         if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
-            memcpy(&lf->chip_info.name,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
+            memcpy(&lf->chip_info,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
             LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
             LF_DEBUG("little flash fonud flash %s",lf->chip_info.name);
             result = little_flash_reset(lf);
@@ -298,7 +297,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     device_id = recv_data[2]<<8|recv_data[3];
     for (size_t i = 0; i < sizeof(little_flash_table)/sizeof(little_flash_table[0]); i++){
         if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
-            memcpy(&lf->chip_info.name,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
+            memcpy(&lf->chip_info,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
             LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
             LF_DEBUG("little flash fonud flash %s",lf->chip_info.name);
             result = little_flash_reset(lf);
@@ -425,6 +424,7 @@ error:
 
 lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t len){
     uint8_t cmd_data[4]={0};
+    uint32_t erase_off = 0, erase_addr = 0, erase_len = 0;
     if (addr + len > lf->chip_info.capacity) {
         LF_ERROR("Error: Flash address is out of bound.");
         return LF_ERR_BAD_ADDRESS;
@@ -440,9 +440,15 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
 
     if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
     cmd_data[0] = lf->chip_info.erase_cmd;
-    uint32_t erase_off = addr % lf->chip_info.erase_size;
-    uint32_t erase_addr = addr / lf->chip_info.erase_size * lf->chip_info.erase_size;
-    uint32_t erase_len = len - erase_off;
+
+    if(lf->chip_info.type==LF_DRIVER_NAND_FLASH){
+        erase_off = addr % lf->chip_info.read_size;
+        erase_addr = addr / lf->chip_info.read_size;
+    }else{
+        erase_off = addr % lf->chip_info.erase_size;
+        erase_addr = addr / lf->chip_info.erase_size;
+    }
+    erase_len = len - erase_off;
     while (erase_off || erase_len){
         cmd_data[1] = erase_addr >> 16;
         cmd_data[2] = erase_addr >> 8;
@@ -456,10 +462,12 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         if (erase_len == 0){
             break;
         }
-        
-        erase_addr += lf->chip_info.erase_size;
+        erase_addr++;
         if (erase_len<=lf->chip_info.erase_size){
             erase_len = 0;
+            if (erase_off <= lf->chip_info.erase_size){
+                erase_off = 0;
+            }
         }else{
             erase_len -= lf->chip_info.erase_size;
         }

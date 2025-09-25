@@ -523,7 +523,7 @@ static int l_mobile_eci(lua_State* L) {
 -- 本API于 2023.7.9 新增
  */
 static int l_mobile_tac(lua_State* L) {
-    uint32_t tac;
+    uint16_t tac;
     if (luat_mobile_get_service_tac_or_lac(&tac) == 0) {
         lua_pushinteger(L, tac);
     }
@@ -603,7 +603,7 @@ static int l_mobile_scell_extern_info(lua_State* L) {
 
     // 基站相关
     uint32_t eci = 0;
-    uint32_t tac = 0;
+    uint16_t tac = 0;
     luat_mobile_get_service_cell_identifier(&eci);
     lua_pushinteger(L, eci);
     lua_setfield(L, -2, "eci");

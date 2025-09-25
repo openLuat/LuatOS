@@ -458,11 +458,17 @@ extern void luat_u8g2_set_ascii_indentation(uint8_t value);
 /*
 设置字体
 @api u8g2.SetFont(font, indentation)
-@userdata font, u8g2.font_opposansm8 为纯英文8号字体,还有font_opposansm10 font_opposansm12 font_opposansm16 font_opposansm18 font_opposansm20 font_opposansm22 font_opposansm24 font_opposansm32 可选 u8g2.font_opposansm12_chinese 为12x12全中文,还有 font_opposansm16_chinese font_opposansm24_chinese font_opposansm32_chinese 可选, u8g2.font_unifont_t_symbols 为符号.
+@userdata font, u8g2.font_opposansm8 为纯英文8号字体
 @int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
 @usage
 -- 设置为中文字体,对之后的drawStr有效
 u8g2.SetFont(u8g2.font_opposansm12)
+-- font参数，根据模组的固件的不同，可能的取值有
+-- 英文类 
+-- font_opposansm10 font_opposansm12 font_opposansm16 
+-- font_opposansm18 font_opposansm20 font_opposansm22 font_opposansm24 font_opposansm32
+-- 中文类 u8g2.font_opposansm12_chinese 为12x12全中文
+-- font_opposansm16_chinese font_opposansm24_chinese font_opposansm32_chinese 可选
 */
 static int l_u8g2_SetFont(lua_State *L) {
     if (conf == NULL) {
@@ -691,16 +697,7 @@ static int l_u8g2_DrawRFrame(lua_State *L){
     return 0;
 }
 
-/*
-绘制一个图形字符。字符放置在指定的像素位置x和y.
-@api u8g2.DrawGlyph(x,y,encoding)
-@int 字符在显示屏上的位置
-@int 字符在显示屏上的位置
-@int 字符的Unicode值
-@usage
-u8g2.SetFont(u8g2_font_unifont_t_symbols)
-u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman
-*/
+// 废弃该函数
 static int l_u8g2_DrawGlyph(lua_State *L){
     if (conf == NULL) return 0;
     u8g2_DrawGlyph(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3));
@@ -1086,8 +1083,10 @@ static const rotable_Reg_t reg_u8g2[] =
     { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
+    #ifndef LUAT_CONF_FONT_SYMBOLS_DISABLE
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
+    #endif
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},
     { "font_opposansm18", ROREG_PTR((void*)u8g2_font_opposansm18)},
     { "font_opposansm20", ROREG_PTR((void*)u8g2_font_opposansm20)},

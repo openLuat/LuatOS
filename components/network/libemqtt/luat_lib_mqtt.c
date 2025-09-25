@@ -8,7 +8,7 @@
 @usage
 -- 具体用法请查看demo
 -- 本库只支持 mqtt 3.1.1, 其他版本例如3.1 或 5 均不支持!!!
--- 只支持纯MQTT/MQTTS通信, 不支持 mqtt over websocket
+-- 现已支持 MQTT over WebSocket（ws/wss），--曾帅 2025-09-23
 
 -- 几个大前提:
 -- 本库是基于TCP链接的, 支持加密TCP和非加密TCP
@@ -439,7 +439,19 @@ static int l_mqtt_create(lua_State *L) {
 		// TODO 判断 host的长度,超过191就不行了
 	}
 
-	opts.port = luaL_checkinteger(L, 3);
+    int is_ws_url = 0;
+    if (opts.host && (0==memcmp(opts.host, "ws://", 5) || 0==memcmp(opts.host, "wss://", 6))) {
+        is_ws_url = 1;
+    }
+    if (is_ws_url) {
+        if (lua_isinteger(L, 3)) {
+            opts.port = luaL_checkinteger(L, 3);
+        } else {
+            opts.port = 0; // 由 URL 指定端口或默认端口
+        }
+    } else {
+        opts.port = luaL_checkinteger(L, 3);
+    }
 
 	// 加密相关
 	if (lua_isboolean(L, 4)){
@@ -841,6 +853,10 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"STATE_MQTT",  	ROREG_INT(MQTT_STATE_MQTT)},
 	//@const STATE_READY number mqtt mqtt已连接
 	{"STATE_READY",  	ROREG_INT(MQTT_STATE_READY)},
+    /* TLS verify constants */
+    {"VERIFY_NONE",     ROREG_INT(0)},
+    {"VERIFY_OPTION",   ROREG_INT(1)},
+    {"VERIFY_REQUIRED", ROREG_INT(2)},
 	{ NULL,             ROREG_INT(0)}
 };
 

@@ -812,5 +812,13 @@ network_adapter_info* network_adapter_fetch(int id, void** userdata);
 
 // 获取真正的最后一个注册的网卡适配器序号, network_get_last_register_adapter用的地方太多了,已经改不了
 int network_get_last_register_adapter_real(void);
+
+/**
+ * 断开指定网卡的所有数据链接（实验性支持）
+ * @param adapter_index 网卡适配器序号 NW_ADAPTER_INDEX_XXX
+ * @param timeout_ms 超时时间
+ * @return 成功返回0，其他失败
+ */
+int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms);
 #endif
 // #endif

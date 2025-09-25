@@ -1,7 +1,10 @@
 --[[
     演示airtalk基本功能
+    1.  按键操作
     按一次boot，开始1对1对讲，再按一次boot，结束对讲
     按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
+    2. 指示灯
+    当收到对讲信息的时候，LED灯常亮，关闭对讲的时候LED 灯灭
 ]]
 
 -- 引入必要模块
@@ -28,6 +31,38 @@ local audio_setup_param = {
     dac_ctrl = 20,         -- 音频编解码芯片电源控制管脚    
 }
 
+--  因为8000,8000A,8000W,支持Wifi ,可以使用WIFI 来联网
+local function use_wifi()
+    exnetif = require("exnetif")
+
+    exnetif.set_priority_order({ { -- 次优先级：WiFi
+        WIFI = {
+
+            ssid = "机房-降功耗,找合宙!",
+
+            password = "Air123456", 
+
+        }
+    }})
+
+    -- 设置网络状态回调
+
+    exnetif.notify_status(function(net_type, adapter)
+
+        log.info("网络切换至:", net_type)
+
+    end)
+
+    -- wifi的STA相关事件
+    sys.subscribe("WLAN_STA_INC", function(evt, data)
+        -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+        -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+        -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+        log.info("收到STA事件", evt, data)
+    end)
+
+end
+
 -- 联系人列表回调函数
 local function contact_list_callback(dev_list)
     g_dev_list = dev_list
@@ -44,7 +79,7 @@ end
 
 local gpio_number = 20 -- air8000 核心板上的23 管脚
 
-LED = gpio.setup(gpio_number, 1) -- 设置GPIO20为输出模式
+LED = gpio.setup(gpio_number, 1) -- 设置为LED输出模式，用于指示对讲功能
 
 
 -- 对讲状态回调函数
@@ -52,7 +87,7 @@ local function speech_state_callback(event_table)
     if not event_table then return end
     
     if event_table.state == extalk.START then
-        log.info("对讲开始，可以说话了")
+        log.info("对讲开始")
         LED(1)
         g_speech_active = true
     elseif event_table.state == extalk.STOP then
@@ -147,6 +182,7 @@ local function handle_key_press(is_power_key)
         -- 当前正在对讲，按任何键都结束对讲
         log.info("结束当前对讲")
         extalk.stop()
+        LED(0)       -- 关闭LED 灯
         g_speech_active = false
     else
         -- 当前未在对讲，根据按键类型开始不同对讲
@@ -197,7 +233,8 @@ local function user_main_task()
     end
     log.info("extalk初始化成功")
     LED(0)
-    -- lower_enter()               -- 如果需要进入低功耗，请打开此函数
+    -- use_wifi()                  -- 使用wifi 方式联网
+    -- lower_enter()               -- 需要进入低功耗，请打开此函数
     -- 等待按键消息并处理
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

@@ -2852,4 +2852,18 @@ int network_register_get_default(void) {
 	return prv_network.last_adapter_index; 
 }
 
+int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms)
+{
+#ifdef LUAT_USE_LWIP
+	for (int i = 0; i < LWIP_NUM_SOCKETS; i++)
+	{
+		if (prv_network.lwip_ctrl_table[i].adapter_index == adapter_index && prv_network.lwip_ctrl_table[i].socket_id >= 0)
+		{
+			network_close(&prv_network.lwip_ctrl_table[i], timeout_ms);
+		}
+	}
+#endif
+	return 0;
+}
+
 #endif

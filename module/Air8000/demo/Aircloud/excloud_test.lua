@@ -77,37 +77,37 @@ sys.taskInit(function()
     end
     sys.wait(1000)
     -- 配置excloud参数
-    -- local ok, err_msg = excloud.setup({
-    --     -- device_id = "862419074073247",   -- 设备ID (IMEI前14位)
-    --     device_type = 1,                 -- 设备类型: 4G
-    --     host = "112.125.89.8",         -- 服务器地址
-    --     port = 33316,                     -- 服务器端口
-    --     auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi", -- 鉴权密钥
-    --     transport = "tcp",               -- 使用TCP传输
-    --     auto_reconnect = true,           -- 自动重连
-    --     reconnect_interval = 10,         -- 重连间隔(秒)
-    --     max_reconnect = 5,               -- 最大重连次数
-    --     timeout = 30,                    -- 超时时间(秒)
-    -- })
-    -- 配置MQTT连接参数
     local ok, err_msg = excloud.setup({
-        device_type = 1,             -- 设备类型: 4G设备
-        transport = "mqtt",          -- 使用MQTT传输协议
-        host = "airtest.openluat.com",   -- MQTT服务器地址
-        port = 1883,                 -- MQTT服务器端口
-        auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi", -- 鉴权密钥(请替换为实际密钥)
-        username = "root",    -- MQTT用户名(可选)
-        password = "Luat123456", -- MQTT密码(可选)
-        keepalive = 300,             -- 心跳间隔(秒)
-        -- auto_reconnect = true,       -- 自动重连
-        reconnect_interval = 10,     -- 重连间隔(秒)
-        max_reconnect = 5,           -- 最大重连次数
-        timeout = 30,                -- 超时时间(秒)
-        qos = 1,                     -- MQTT QoS等级(0/1/2)
-        -- retain = false,              -- MQTT retain标志
-        -- clean_session = true,        -- MQTT clean session
-        ssl = false                  -- 不使用SSL
+        -- device_id = "862419074073247",   -- 设备ID (IMEI前14位)
+        device_type = 1,                 -- 设备类型: 4G
+        host = "124.71.128.165",         -- 服务器地址
+        port = 9108,                     -- 服务器端口
+        auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi", -- 鉴权密钥
+        transport = "tcp",               -- 使用TCP传输
+        auto_reconnect = true,           -- 自动重连
+        reconnect_interval = 10,         -- 重连间隔(秒)
+        max_reconnect = 5,               -- 最大重连次数
+        timeout = 30,                    -- 超时时间(秒)
     })
+    -- 配置MQTT连接参数
+    -- local ok, err_msg = excloud.setup({
+    --     device_type = 1,             -- 设备类型: 4G设备
+    --     transport = "mqtt",          -- 使用MQTT传输协议
+    --     host = "airtest.openluat.com",   -- MQTT服务器地址
+    --     port = 1883,                 -- MQTT服务器端口
+    --     auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi", -- 鉴权密钥(请替换为实际密钥)
+    --     username = "root",    -- MQTT用户名(可选)
+    --     password = "Luat123456", -- MQTT密码(可选)
+    --     keepalive = 300,             -- 心跳间隔(秒)
+    --     -- auto_reconnect = true,       -- 自动重连
+    --     reconnect_interval = 10,     -- 重连间隔(秒)
+    --     max_reconnect = 5,           -- 最大重连次数
+    --     timeout = 30,                -- 超时时间(秒)
+    --     qos = 1,                     -- MQTT QoS等级(0/1/2)
+    --     -- retain = false,              -- MQTT retain标志
+    --     -- clean_session = true,        -- MQTT clean session
+    --     ssl = false                  -- 不使用SSL
+    -- })
 
     if not ok then
         log.info("初始化失败: " .. err_msg)
@@ -133,7 +133,7 @@ sys.taskInit(function()
         -- else
         local ok, err_msg = excloud.send({
             {
-                field_meaning = excloud.FIELD_MEANINGS.LOCATION_METHOD,
+                field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE,
                 data_type = excloud.DATA_TYPES.INTEGER,
                 value = 22     -- 随机温度值
             },

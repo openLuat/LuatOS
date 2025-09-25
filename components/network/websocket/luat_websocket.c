@@ -41,6 +41,10 @@ int l_luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int
 static int luat_websocket_msg_cb(luat_websocket_ctrl_t *websocket_ctrl, int arg1, int arg2){
 #ifdef __LUATOS__
     l_luat_websocket_msg_cb(websocket_ctrl,arg1,arg2);
+    if (websocket_ctrl->websocket_cb){
+        luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
+        websocket_cb(websocket_ctrl, arg1,arg2);
+    }
 #else
 	if (websocket_ctrl->websocket_cb){
 		luat_websocket_cb_t websocket_cb = websocket_ctrl->websocket_cb;
@@ -277,16 +281,33 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_webs
 	// memcpy(websocket_ctrl->uri, uri, strlen(uri) + 1);
 	LLOGD("host %s port %d uri %s", websocket_ctrl->host, port, websocket_ctrl->uri);
 
-	if (is_tls)
-	{
-		if (network_init_tls(websocket_ctrl->netc, 0)){
-			return -1;
-		}
-	}
-	else
-	{
-		network_deinit_tls(websocket_ctrl->netc);
-	}
+    if (is_tls)
+    {
+        /* 支持 0(不校验)/1(可选校验)/2(严格校验) */
+        uint8_t verify = opts->verify;
+        if (network_init_tls(websocket_ctrl->netc, verify)){
+            return -1;
+        }
+        if (opts->server_cert && opts->server_cert_len > 0) {
+            if (network_set_server_cert(websocket_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len + 1)){
+                LLOGE("network_set_server_cert error");
+                return -1;
+            }
+        }
+        if (opts->client_cert && opts->client_key) {
+            if (network_set_client_cert(websocket_ctrl->netc,
+                    (const unsigned char*)opts->client_cert, opts->client_cert_len + 1,
+                    (const unsigned char*)opts->client_key, opts->client_key_len + 1,
+                    (const unsigned char*)opts->client_password, opts->client_password_len + 1)){
+                LLOGE("network_set_client_cert error");
+                return -1;
+            }
+        }
+    }
+    else
+    {
+        network_deinit_tls(websocket_ctrl->netc);
+    }
 	
 	if (opts->keepalive > 0) {
 		websocket_ctrl->keepalive = opts->keepalive;

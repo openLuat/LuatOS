@@ -104,8 +104,7 @@ static int l_fota_init(lua_State* L)
 /**
 等待底层fota流程准备好
 @api fota.wait()
-@boolean 是否完整走完流程，true 表示正确走完流程了
-@return boolean 准备好返回true
+@return boolean 是否完整走完流程，true 表示正确走完流程了
 @usage
 local isDone = fota.wait()
 */

@@ -446,7 +446,7 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         erase_addr = addr / lf->chip_info.read_size;
     }else{
         erase_off = addr % lf->chip_info.erase_size;
-        erase_addr = addr / lf->chip_info.erase_size;
+        erase_addr = addr / lf->chip_info.erase_size * lf->chip_info.erase_size;
     }
     erase_len = len - erase_off;
     while (erase_off || erase_len){
@@ -462,12 +462,11 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         if (erase_len == 0){
             break;
         }
-        erase_addr++;
+
+        erase_addr += (lf->chip_info.type==LF_DRIVER_NAND_FLASH)?lf->chip_info.erase_size/lf->chip_info.read_size:lf->chip_info.erase_size;
+
         if (erase_len<=lf->chip_info.erase_size){
             erase_len = 0;
-            if (erase_off <= lf->chip_info.erase_size){
-                erase_off = 0;
-            }
         }else{
             erase_len -= lf->chip_info.erase_size;
         }

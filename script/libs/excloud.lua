@@ -258,6 +258,8 @@ local FIELD_MEANINGS = {
     WAKE_INTERVAL = 779,   -- 定时唤醒间隔
     NETWORK_IP_TYPE = 780, -- 设备入网的IP类型
     NETWORK_TYPE = 781,    -- 当前联网方式
+    SIGNAL_STRENGTH_4G  =782   ,      --4G信号强度
+    SIM_ICCID = 783,       -- SIM卡ICCID
 
     -- 软件数据类 (1024-1279)
     LUA_CORE_ERROR = 1024,   -- Lua核心库错误上报

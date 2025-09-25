@@ -196,12 +196,12 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     }
     LF_DEBUG("Parameter Header is OK. The Parameter ID is 0x%04X, Revision is V%d.%d, Length is %d,Parameter Table Pointer is 0x%06lX.",
             sfdp.parameter_id, recv_data[1],recv_data[2],sfdp.parameter_length, sfdp.parameter_pointer);
-    if (sfdp.parameter_length * 4 > sizeof(little_flash_sfdp_pt_t)){
-        LF_WARNING("Table Revision %d.%d parameter_length is too long", sfdp.parameter_major_rev, sfdp.parameter_minor_rev);
-        sfdp.parameter_length = sizeof(little_flash_sfdp_pt_t) / 4;
+
+    if (sfdp.parameter_length < sizeof(little_flash_sfdp_pt_t)/4){
+        LF_WARNING("Table Revision %d.%d parameter_length %d is too short", sfdp.parameter_major_rev, sfdp.parameter_minor_rev,sfdp.parameter_length);
+        return LF_ERR_SFDP_PARAMETER;
     }
-    uint8_t parameter_table[sfdp.parameter_length * 4];
-    little_flash_sfdp_read(lf, sfdp.parameter_pointer, parameter_table, sfdp.parameter_length);
+    little_flash_sfdp_read(lf, sfdp.parameter_pointer, &sfdp.pt, sizeof(little_flash_sfdp_pt_t));
 
     //      [1] = 0xE5    0x20    0xF1    0xFF
     //      [2] = 0xFF    0xFF    0xFF    0x07
@@ -213,7 +213,6 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     //      [8] = 0x01    0x00    0x00    0x00
     //      [9] = 0x09    0x00    0x00    0x00
 
-    memcpy(&sfdp.pt, parameter_table, sfdp.parameter_length*4);
     // LF_DEBUG("sfdp.pt Flash_Memory_Density 0x%08X",sfdp.pt.Flash_Memory_Density);
 
     if (sfdp.pt.Flash_Memory_Density & 0x80000000){

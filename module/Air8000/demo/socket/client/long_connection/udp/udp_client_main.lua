@@ -74,7 +74,7 @@ local function udp_client_main_task_func()
         end
 
         -- 连接server
-        result = libnet.connect(TASK_NAME, 15000, socket_client, SERVER_ADDR, SERVER_PORT)
+        result = libnet.connect(TASK_NAME, 30000, socket_client, SERVER_ADDR, SERVER_PORT)
         -- 如果连接server失败
         if not result then
             log.error("udp_client_main_task_func", "libnet.connect error")

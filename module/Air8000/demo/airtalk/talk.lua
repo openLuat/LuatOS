@@ -27,8 +27,8 @@ local g_speech_active = false  -- 对讲状态标记
 local audio_setup_param = {
     model = "es8311",       -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 0,             -- i2c_id,可填入0，1 并使用pins工具配置对应的管脚
-    pa_ctrl = gpio.AUDIOPA_EN,          -- 音频放大器电源控制管脚
-    dac_ctrl = 20,         -- 音频编解码芯片电源控制管脚    
+    pa_ctrl = 162,         -- 音频放大器电源控制管脚
+    dac_ctrl = 164,        --  音频编解码芯片电源控制管脚   
 }
 
 --  因为8000,8000A,8000W,支持Wifi ,可以使用WIFI 来联网

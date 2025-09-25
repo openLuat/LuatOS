@@ -19,7 +19,19 @@
 --   2. 不支持fota
 
 -- 支持  http 1.0 和 http 1.1, 不支持http2.0
--- 支持 GET/POST/PUT/DELETE/HEAD 等常用方法
+-- 支持 GET/POST/PUT/DELETE/HEAD 等常用方法,也支持自定义method
+-- 支持 HTTP 和 HTTPS 协议
+-- 支持 IPv4 和 IPv6
+-- 支持 HTTP 鉴权
+-- 支持 multipart/form-data 上传文件和表单
+-- 支持 application/x-www-form-urlencoded 上传表单
+-- 支持 application/json 上传json数据
+-- 支持 自定义 body 上传任意数据
+-- 支持 自定义 headers
+-- 支持 大文件上传,不限大小
+-- 支持 zbuff 作为 body 上传和响应返回
+-- 支持 bodyfile 直接把文件内容作为body上传
+-- 支持 上传时使用自定义缓冲区, 2025.9.25 新增
 ]]
 
 
@@ -461,7 +473,22 @@ local function http_exec(opts)
     -- 然后是body
     local rbody = ""
     local write_counter = 0
-    local fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 根据psram状态来选
+    local fbuf = nil
+    if opts.upload_buff then
+        fbuf = opts.upload_buff
+    else
+        if rtos.bsp():startsWith("Air8000") or rtos.bsp():startsWith("Air780EHM") then
+            fbuf = zbuff.create(1024 * 128, 0, zbuff.HEAP_PSRAM) -- 718hm可以128k的,放手去用
+        else
+            fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 其他模组就是小的用吧
+        end
+    end
+    if fbuf == nil then
+        fbuf = zbuff.create(1024 * 8, 0, zbuff.HEAP_PSRAM) -- 创建一个小的,作为防御
+        if fbuf == nil then
+            fbuf = zbuff.create(1500, 0, zbuff.HEAP_PSRAM) -- 创建一个最小的,最后防御
+        end
+    end
     if opts.mp and #opts.mp > 0 then
         opts.log(TAG, "执行mulitpart上传模式")
         for k, v in pairs(opts.mp) do
@@ -577,7 +604,8 @@ local opts = {
     try_ipv6 = false, -- 可选,是否优先尝试ipv6地址,默认是false
     adapter = nil,    -- 可选,网络适配器编号, 默认是自动选
     timeout = 30,     -- 可选,读取服务器响应的超时时间,单位秒,默认30
-    bodyfile = "xxx"  -- 可选,直接把文件内容作为body上传, 优先级高于body参数
+    bodyfile = "xxx", -- 可选,直接把文件内容作为body上传, 优先级高于body参数
+    upload_buff = zbuff.create(1024*64) -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
 }
 
 local code, resp = httpplus.request({url="https://httpbin.air32.cn/get"})

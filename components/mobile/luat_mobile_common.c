@@ -39,7 +39,7 @@ void luat_mobile_init_auto_apn_by_plmn(void)
 	INIT_LLIST_HEAD(&luat_auto_apn.dynamic_list);
 }
 
-static int luat_mobile_find_apn(void *node, void *param)
+static int32_t luat_mobile_find_apn(void *node, void *param)
 {
 	apn_node_t *apn = (apn_node_t *)node;
 	if (apn->plmn.p == param)

@@ -448,8 +448,8 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         erase_off = addr % lf->chip_info.erase_size;
         erase_addr = addr / lf->chip_info.erase_size * lf->chip_info.erase_size;
     }
-    erase_len = len - erase_off;
-    while (erase_off || erase_len){
+    erase_len = len + erase_off;// 修正擦除长度,长度对齐擦除起始位置
+    while (erase_len){
         cmd_data[1] = erase_addr >> 16;
         cmd_data[2] = erase_addr >> 8;
         cmd_data[3] = erase_addr;
@@ -459,14 +459,11 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
 
         if(little_flash_cheak_erase(lf)) goto error;
 
-        if (erase_len == 0){
-            break;
-        }
-
         erase_addr += (lf->chip_info.type==LF_DRIVER_NAND_FLASH)?lf->chip_info.erase_size/lf->chip_info.read_size:lf->chip_info.erase_size;
 
         if (erase_len<=lf->chip_info.erase_size){
             erase_len = 0;
+            break;
         }else{
             erase_len -= lf->chip_info.erase_size;
         }

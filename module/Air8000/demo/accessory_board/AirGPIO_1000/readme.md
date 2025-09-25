@@ -67,6 +67,7 @@ Air8000核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
    (3) 通过观察Luatools的运行日志，首先打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0， 再隔一秒打印  P04_int_cbfunc 4 1      P14_int_cbfunc 20 1，再隔一秒打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0，如此循环输出，表示GPIO中断测试正常；
 
+```
 [2025-09-24 16:15:09.221][000000054.571] I/user.air_gpio.get(0x11) 1
 [2025-09-24 16:15:09.223][000000054.572] I/user.AirGPIO_1000.set enter 16 0
 [2025-09-24 16:15:09.223][000000054.573] I/user.AirGPIO_1000.set output 3 255 254
@@ -93,3 +94,5 @@ Air8000核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 [2025-09-24 16:15:10.308][000000055.643] I/user.P14_int_cbfunc 20 1
 [2025-09-24 16:15:11.190][000000056.534] I/user.AirGPIO_1000.set enter 0 0
 [2025-09-24 16:15:11.200][000000056.535] I/user.AirGPIO_1000.set output 2 255 254
+```
+

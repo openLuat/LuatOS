@@ -137,7 +137,10 @@ int luat_fs_umount(luat_fs_conf_t *conf) {
             continue;
         if (strcmp(vfs.mounted[j].prefix, conf->mount_point) == 0) {
             // TODO 关闭对应的FD
-            return vfs.mounted[j].fs->opts.umount(vfs.mounted[j].userdata, conf);
+            int ret = vfs.mounted[j].fs->opts.umount(vfs.mounted[j].userdata, conf);
+            vfs.mounted[j].fs = NULL;
+            vfs.mounted[j].ok = 0;
+            return ret;
         }
     }
     LLOGE("no such mount point %s", conf->mount_point);

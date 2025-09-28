@@ -352,7 +352,7 @@ local function resp_parse(opts)
         -- 解析body
         -- 有Content-Length就好办
         if opts.resp.headers["Content-Length"] then
-            opts.log(TAG, "有长度, 标准的咯")
+            opts.log(TAG, "有Content-Length", opts.resp.headers["Content-Length"])
             opts.resp.body = opts.rx_buff
         elseif opts.resp.headers["Transfer-Encoding"] == "chunked" then
             -- log.info(TAG, "数据是chunked编码", opts.rx_buff[0], opts.rx_buff[1])
@@ -474,21 +474,25 @@ local function http_exec(opts)
     local rbody = ""
     local write_counter = 0
     local fbuf = nil
-    if opts.upload_buff then
-        fbuf = opts.upload_buff
-    else
-        if rtos.bsp():startsWith("Air8000") or rtos.bsp():startsWith("Air780EHM") then
-            fbuf = zbuff.create(1024 * 128, 0, zbuff.HEAP_PSRAM) -- 718hm可以128k的,放手去用
+    if (opts.mp and #opts.mp > 0) or opts.bodyfile or (opts.body and type(opts.body) == "userdata" and opts.body:used() > 4*1024) then
+        if opts.upload_file_buff then
+            fbuf = opts.upload_file_buff
         else
-            fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 其他模组就是小的用吧
+            if hmeta and hmeta.chip and hmeta.chip() == "EC718HM" then
+                fbuf = zbuff.create(1024 * 128, 0, zbuff.HEAP_PSRAM) -- 718hm可以128k的,放手去用
+            else
+                fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 其他模组就是小的用吧
+            end
         end
-    end
-    if fbuf == nil then
-        fbuf = zbuff.create(1024 * 8, 0, zbuff.HEAP_PSRAM) -- 创建一个小的,作为防御
         if fbuf == nil then
-            fbuf = zbuff.create(1500, 0, zbuff.HEAP_PSRAM) -- 创建一个最小的,最后防御
+            fbuf = zbuff.create(1024 * 8, 0, zbuff.HEAP_PSRAM) -- 创建一个小的,作为防御
+            if fbuf == nil then
+                fbuf = zbuff.create(1500, 0, zbuff.HEAP_PSRAM) -- 创建一个最小的,最后防御
+            end
         end
+        opts.log(TAG, "上传使用缓冲区", fbuf:len())
     end
+    
     if opts.mp and #opts.mp > 0 then
         opts.log(TAG, "执行mulitpart上传模式")
         for k, v in pairs(opts.mp) do
@@ -550,21 +554,28 @@ local function http_exec(opts)
             socket.tx(netc, opts.body)
             write_counter = write_counter + #opts.body
         elseif type(opts.body) == "userdata" then
+            opts.log(TAG, "使用zbuff上传数据", opts.body:used())
             write_counter = write_counter + opts.body:used()
-            if opts.body:used() < 4*1024 then
+            if opts.body:used() <= 4*1024 then
                 socket.tx(netc, opts.body)
             else
                 local offset = 0
                 local tmpbuff = opts.body
                 local tsize = tmpbuff:used()
                 while offset < tsize do
+                    -- TODO 应该使用fbuf来做缓冲区，而不是toStr
                     opts.log(TAG, "body(zbuff)分段写入", offset, tsize)
-                    if tsize - offset > 4096 then
-                        socket.tx(netc, tmpbuff:toStr(offset, 4096))
-                        offset = offset + 4096
+                    fbuf:seek(0)
+                    if tsize - offset > fbuf:len() then
+                        fbuf:copy(0, tmpbuff, offset, fbuf:len())
+                        fbuf:seek(fbuf:len())
+                        socket.tx(netc, fbuf)
+                        offset = offset + fbuf:len()
                         sys.waitUntil(opts.topic, 300)
                     else
-                        socket.tx(netc, tmpbuff:toStr(offset, tsize - offset))
+                        fbuf:copy(0, tmpbuff, offset, tsize - offset)
+                        fbuf:seek(tsize - offset)
+                        socket.tx(netc, fbuf)
                         break
                     end
                 end
@@ -605,7 +616,7 @@ local opts = {
     adapter = nil,    -- 可选,网络适配器编号, 默认是自动选
     timeout = 30,     -- 可选,读取服务器响应的超时时间,单位秒,默认30
     bodyfile = "xxx", -- 可选,直接把文件内容作为body上传, 优先级高于body参数
-    upload_buff = zbuff.create(1024*64) -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
+    upload_file_buff = zbuff.create(1024*64) -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
 }
 
 local code, resp = httpplus.request({url="https://httpbin.air32.cn/get"})
@@ -621,6 +632,12 @@ if code >= 100 then
     -- 也可以通过uart.tx等支持zbuff的函数转发出去
     -- uart.tx(1, resp.body)
 end
+-- 情况2, code < 0 时, resp会是个错误信息字符串
+
+-- 对upload_file_buff参数的说明
+--   1. 如果上传的文件比较大,建议传入这个参数,避免每次都创建和销毁缓冲区
+--   2. 如果不传入这个参数,本库会根据不同的模组型号创建一个合适的缓冲区
+--   3. 多个同时执行的httpplus请求,不可以共用同一个缓冲区
 ]]
 function httpplus.request(opts)
     -- 参数解析

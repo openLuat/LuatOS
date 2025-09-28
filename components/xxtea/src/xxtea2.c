@@ -92,6 +92,13 @@ typedef unsigned __int32 uint32_t;
     for (i = 0; (i < 16) && (fixed_key[i] != 0); ++i);\
     for (++i; i < 16; ++i) fixed_key[i] = 0;\
 
+#include "luat_mem.h"
+#undef free
+#undef malloc
+#undef calloc
+#define free luat_heap_free
+#define malloc luat_heap_malloc
+#define calloc luat_heap_calloc
 
 static uint32_t * xxtea_to_uint_array(const uint8_t * data, size_t len, int inc_len, size_t * out_len) {
     uint32_t *out;

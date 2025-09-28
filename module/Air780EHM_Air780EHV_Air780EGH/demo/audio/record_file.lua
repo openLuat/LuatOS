@@ -18,8 +18,8 @@ exaudio = require("exaudio")
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
-    pa_ctrl = 162,         -- 音频放大器电源控制管脚
-    dac_ctrl = 164,        --  音频编解码芯片电源控制管脚
+    pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
+    dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
     bits_per_sample = 16  -- 录音的位深，可选8,16,24 位，但是当选择音频格式为AMR_NB,自动调节为8位,当音频格式为AMR_WB,自动调节为16位
 }
 local recordPath = "/record.amr"

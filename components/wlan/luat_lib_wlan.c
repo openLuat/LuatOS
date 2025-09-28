@@ -143,7 +143,7 @@ static int l_wlan_connect(lua_State* L){
     const char* password = luaL_optstring(L, 2, "");
     size_t len = 0;
     luat_wlan_conninfo_t info = {0};
-    info.auto_reconnection = 1;
+    info.auto_reconnection = luaL_optinteger(L, 3, 1);
     memcpy(info.ssid, ssid, strlen(ssid));
     memcpy(info.password, password, strlen(password));
     const char* bssid = luaL_optlstring(L, 4, "", &len);

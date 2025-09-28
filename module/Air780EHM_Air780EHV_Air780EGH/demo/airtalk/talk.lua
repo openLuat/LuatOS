@@ -3,8 +3,6 @@
     1.  按键操作
     按一次boot，开始1对1对讲，再按一次boot，结束对讲
     按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
-    2. 指示灯
-    当收到对讲信息的时候，LED灯常亮，关闭对讲的时候LED 灯灭，Air780XX 系列需要外接LED 灯
 ]]
 
 -- 引入必要模块
@@ -46,9 +44,6 @@ local function contact_list_callback(dev_list)
     end
 end
 
-local gpio_number = 20 -- 如果开发板上有灯，可以修改此处为需要的灯
-
-LED = gpio.setup(gpio_number, 1) -- 设置为LED输出模式，用于指示对讲功能
 
 
 -- 对讲状态回调函数
@@ -57,10 +52,8 @@ local function speech_state_callback(event_table)
     
     if event_table.state == extalk.START then
         log.info("对讲开始")
-        LED(1)
         g_speech_active = true
     elseif event_table.state == extalk.STOP then
-        LED(0)
         log.info("对讲结束")
         g_speech_active = false
     elseif event_table.state == extalk.UNRESPONSIVE then
@@ -68,7 +61,6 @@ local function speech_state_callback(event_table)
         g_speech_active = false
     elseif event_table.state == extalk.ONE_ON_ONE then
         g_speech_active = true
-        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -81,7 +73,6 @@ local function speech_state_callback(event_table)
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
         g_speech_active = true
-        LED(1)
         local dev_name = "未知设备"
         if g_dev_list then
             for i = 1, #g_dev_list do
@@ -151,7 +142,6 @@ local function handle_key_press(is_power_key)
         -- 当前正在对讲，按任何键都结束对讲
         log.info("结束当前对讲")
         extalk.stop()
-        LED(0)       -- 关闭LED 灯
         g_speech_active = false
     else
         -- 当前未在对讲，根据按键类型开始不同对讲
@@ -201,7 +191,6 @@ local function user_main_task()
         return
     end
     log.info("extalk初始化成功")
-    LED(0)
     -- lower_enter()               -- 需要进入低功耗，请打开此函数
     -- 等待按键消息并处理
     while true do

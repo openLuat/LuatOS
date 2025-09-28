@@ -18,7 +18,7 @@ AIRTALK_TASK_NAME = "airtalk_task"
 USER_TASK_NAME = "user"
 
 SUCC = "success"
-local speech_topic = nil
+local speech_topic = "867920075013921"
 local event = ""
 local talk_state = ""
 
@@ -145,7 +145,7 @@ function talk.run()
     run_state = true
     local_id = mobile.imei()
     sys.taskInitEx(init_talk, USER_TASK_NAME)
-    speech_topic = fskv.get("talk_number")
+    speech_topic = "867920075013921"
     log.info("get  speech_topic",speech_topic)
 
     while run_state do

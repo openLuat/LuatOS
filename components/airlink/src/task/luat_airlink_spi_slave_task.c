@@ -160,7 +160,7 @@ static void spi_gpio_setup(void) {
         .CPOL = 1,
         .CPHA = 1,
         .dataw = 8,
-        .bit_dict = 0,
+        .bit_dict = 1,  // MSB=1, LSB=0
         .master = 0,    // 1 主模式; 0 从模式
         .mode = 1, // mode设置为1，全双工
         .bandrate = 31000000,

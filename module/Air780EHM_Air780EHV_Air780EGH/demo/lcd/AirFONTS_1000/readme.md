@@ -7,7 +7,7 @@ AirFONT_1000 是合宙设计生产的一款 SPI 接口支持 16-192 矢量字体
 Air780EHV 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色字体的显示；
 本demo Air780EHM/EHV/EGH通用
 
-![](image/Kun6bl2hKohZ2Hx4k7rcSHfvn1d.jpg)
+![](image/2.jpg)
 
 ## 二、核心板 + 配件板资料
 
@@ -17,7 +17,7 @@ Air780EHV 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色�
 
 ### 1、接线图片
 
-![](image/LKk4bAmVPo3Vv9xqiXPcbqHanWb.jpg)
+![](image/1.jpg)
 
 ### **2、物料清单**
 
@@ -90,4 +90,4 @@ Air780EHV 核心板 +AirFONT_1000 配件板，从 16-192 矢量字体各颜色�
 
 5、屏幕出现以下显示，就表示测试正常
 
-![](image/A86XbptlPo17HRxU0cycvuuDnle.jpg)
+![](image/3.jpg)

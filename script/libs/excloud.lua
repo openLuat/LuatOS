@@ -212,64 +212,66 @@ local DATA_TYPES = {
 -- 字段含义定义
 local FIELD_MEANINGS = {
     -- 控制信令类型 (16-255)
-    AUTH_REQUEST = 16,     -- 鉴权请求
-    AUTH_RESPONSE = 17,    -- 鉴权回复
-    REPORT_RESPONSE = 18,  -- 上报回应
-    CONTROL_COMMAND = 19,  -- 控制命令
-    CONTROL_RESPONSE = 20, -- 控制回应
-    IRTU_DOWN = 21,        -- iRTU下行命令
-    IRTU_UP = 22,          -- iRTU上行回复
+    AUTH_REQUEST       = 16, -- 鉴权请求
+    AUTH_RESPONSE      = 17, -- 鉴权回复
+    REPORT_RESPONSE    = 18, -- 上报回应
+    CONTROL_COMMAND    = 19, -- 控制命令
+    CONTROL_RESPONSE   = 20, -- 控制回应
+    IRTU_DOWN          = 21, -- iRTU下行命令
+    IRTU_UP            = 22, -- iRTU上行回复
 
     -- 传感类 (256-511)
-    TEMPERATURE = 256,     -- 温度
-    HUMIDITY = 257,        -- 湿度
-    PARTICULATE = 258,     -- 颗粒数
-    ACIDITY = 259,         -- 酸度
-    ALKALINITY = 260,      -- 碱度
-    ALTITUDE = 261,        -- 海拔
-    WATER_LEVEL = 262,     -- 水位
-    ENV_TEMPERATURE = 263, -- 环境温度
-    POWER_METERING = 264,  -- 电量计量
+    TEMPERATURE        = 256, -- 温度
+    HUMIDITY           = 257, -- 湿度
+    PARTICULATE        = 258, -- 颗粒数
+    ACIDITY            = 259, -- 酸度
+    ALKALINITY         = 260, -- 碱度
+    ALTITUDE           = 261, -- 海拔
+    WATER_LEVEL        = 262, -- 水位
+    ENV_TEMPERATURE    = 263, -- CPU温度/环境温度
+    POWER_METERING     = 264, -- 电量计量
 
     -- 资产管理类 (512-767)
-    GNSS_LONGITUDE = 512,     -- GNSS经度
-    GNSS_LATITUDE = 513,      -- GNSS纬度
-    SPEED = 514,              -- 行驶速度
-    GNSS_CN = 515,            -- 最强的4颗GNSS卫星的CN
-    SATELLITES_TOTAL = 516,   -- 搜到的所有卫星数
+    GNSS_LONGITUDE     = 512, -- GNSS经度
+    GNSS_LATITUDE      = 513, -- GNSS纬度
+    SPEED              = 514, -- 行驶速度
+    GNSS_CN            = 515, -- 最强的4颗GNSS卫星的CN
+    SATELLITES_TOTAL   = 516, -- 搜到的所有卫星数
     SATELLITES_VISIBLE = 517, -- 可见卫星数
-    HEADING = 518,            -- 航向角
-    LOCATION_METHOD = 519,    -- 基站定位/GNSS定位标识
-    GNSS_INFO = 520,          -- GNSS芯片型号和固件版本号
-    DIRECTION = 521,          -- 方向
+    HEADING            = 518, -- 航向角
+    LOCATION_METHOD    = 519, -- 基站定位/GNSS定位标识
+    GNSS_INFO          = 520, -- GNSS芯片型号和固件版本号
+    DIRECTION          = 521, -- 方向
 
     -- 设备参数类 (768-1023)
-    HEIGHT = 768,          -- 高度
-    WIDTH = 769,           -- 宽度
-    ROTATION_SPEED = 770,  -- 转速
-    BATTERY_LEVEL = 771,   -- 电量(mV)
-    SERVING_CELL = 772,    -- 驻留小区
-    CELL_INFO = 773,       -- 驻留小区和邻区
-    COMPONENT_MODEL = 774, -- 元器件型号
-    GPIO_LEVEL = 775,      -- GPIO高低电平
-    BOOT_REASON = 776,     -- 开机原因
-    BOOT_COUNT = 777,      -- 开机次数
-    SLEEP_MODE = 778,      -- 休眠模式
-    WAKE_INTERVAL = 779,   -- 定时唤醒间隔
-    NETWORK_IP_TYPE = 780, -- 设备入网的IP类型
-    NETWORK_TYPE = 781,    -- 当前联网方式
+    HEIGHT             = 768, -- 高度
+    WIDTH              = 769, -- 宽度
+    ROTATION_SPEED     = 770, -- 转速
+    BATTERY_LEVEL      = 771, -- 电量(mV)
+    SERVING_CELL       = 772, -- 驻留频段
+    CELL_INFO          = 773, -- 驻留小区和邻区
+    COMPONENT_MODEL    = 774, -- 元器件型号
+    GPIO_LEVEL         = 775, -- GPIO高低电平
+    BOOT_REASON        = 776, -- 开机原因
+    BOOT_COUNT         = 777, -- 开机次数
+    SLEEP_MODE         = 778, -- 休眠模式
+    WAKE_INTERVAL      = 779, -- 定时唤醒间隔
+    NETWORK_IP_TYPE    = 780, -- 设备入网的IP类型
+    NETWORK_TYPE       = 781, -- 当前联网方式
+    SIGNAL_STRENGTH_4G = 782, --4G信号强度
+    SIM_ICCID          = 783, -- SIM卡ICCID
 
     -- 软件数据类 (1024-1279)
-    LUA_CORE_ERROR = 1024,   -- Lua核心库错误上报
-    LUA_EXT_ERROR = 1025,    -- Lua扩展卡错误上报
-    LUA_APP_ERROR = 1026,    -- Lua业务错误上报
-    FIRMWARE_VERSION = 1027, -- 固件版本号
-    SMS_FORWARD = 1028,      -- SMS转发
-    CALL_FORWARD = 1029,     -- 来电转发
+    LUA_CORE_ERROR     = 1024, -- Lua核心库错误上报
+    LUA_EXT_ERROR      = 1025, -- Lua扩展卡错误上报
+    LUA_APP_ERROR      = 1026, -- Lua业务错误上报
+    FIRMWARE_VERSION   = 1027, -- 固件版本号
+    SMS_FORWARD        = 1028, -- SMS转发
+    CALL_FORWARD       = 1029, -- 来电转发
 
     -- 设备无关数据类 (1280-1535)
-    TIMESTAMP = 1280,  -- 时间
-    RANDOM_DATA = 1281 -- 无意义数据
+    TIMESTAMP          = 1280, -- 时间
+    RANDOM_DATA        = 1281  -- 无意义数据
 }
 
 -- 将数字转换为大端字节序列
@@ -358,56 +360,37 @@ function packDeviceInfo(deviceType, deviceId)
     return table.concat(result)
 end
 
--- 编码数据值
+-- -- 编码数据值
 local function encode_value(data_type, value)
+    -- 添加参数类型检查
+    if  data_type == nil or value == nil then
+        log.info("Data type or value is nil")
+        return ""
+    end
     if data_type == DATA_TYPES.INTEGER then
-        if type(value) == "number" then
-            return to_big_endian(math.floor(value), 4)
-        else
-            log.info("Integer value expected")
-            return nil
+        -- 验证value是否为数字
+        if type(value) ~= "number" then
+            log.info("Integer value must be a number")
+            return ""
         end
+        return to_big_endian(math.floor(value), 4)
     elseif data_type == DATA_TYPES.FLOAT then
-        if type(value) == "number" then
-            -- 简化处理：将浮点数转换为整数，乘以1000以保留三位小数
-            -- 然后调用to_big_endian函数将其转换为4字节的大端字节序列
-            return to_big_endian(math.floor(value * 1000), 4)
-        else
-            log.info("Number value expected")
-            return nil
+        -- 验证value是否为数字
+        if type(value) ~= "number" then
+            log.info("Float value must be a number")
+            return ""
         end
+        -- 简化处理：将浮点数转换为整数，乘以1000以保留三位小数
+        return to_big_endian(math.floor(value * 1000), 4)
     elseif data_type == DATA_TYPES.BOOLEAN then
-        if type(value) == "boolean" then
-            return value and "\1" or "\0"
-        else
-            log.info("Boolean value expected")
-            return nil
-        end
-    elseif data_type == DATA_TYPES.ASCII then
-        if type(value) == "string" then
-            return value
-        else
-            log.info("String value expected")
-            return nil
-        end
-    elseif data_type == DATA_TYPES.BINARY then
-        if type(value) == "string" then
-            return value
-        else
-            log.info("String value expected")
-            return nil
-        end
-    elseif data_type == DATA_TYPES.UNICODE then
-        if type(value) == "string" then
-            -- 简化处理：直接使用字符串（实际应转换为UTF-16）
-            return value
-        else
-            log.info("String value expected")
-            return nil
-        end
+        return value and "\1" or "\0"
+    elseif data_type == DATA_TYPES.ASCII or data_type == DATA_TYPES.BINARY or data_type == DATA_TYPES.UNICODE then
+        -- 确保value是字符串类型
+        return tostring(value)
     else
-        log.info("Unsupported data type: " .. data_type)
-        return nil
+        log.info("Unsupported data type: " .. tostring(data_type))
+        -- 返回空字符串而不是nil，避免后续处理出错
+        return ""
     end
 end
 
@@ -457,15 +440,20 @@ end
 
 -- 构建TLV字段
 local function build_tlv(field_meaning, data_type, value)
+    if field_meaning == nil or data_type == nil or value == nil then
+        log.info("构建tlv参数不能为空")
+        return false
+    end
     local value_encoded = encode_value(data_type, value)
     if value_encoded == nil then
         log.info("构建tlv打包数据时长度为0")
-        return nil
+        -- 添加空字符串作为默认值，避免后续获取长度时出错
+        value_encoded = ""
     end
     local length = #value_encoded
     -- 字段类型（字段含义 + 数据类型）
-    local head   = (field_meaning & 0x0FFF) | (data_type << 12)        -- 2 字节头
-    return to_big_endian(head, 2) ..
+    local head   = (field_meaning & 0x0FFF) | (data_type << 12) -- 2 字节头
+    return true, to_big_endian(head, 2) ..
         to_big_endian(length, 2) ..
         value_encoded
 end
@@ -1063,25 +1051,23 @@ end
 function excloud.send(data, need_reply, is_auth_msg)
     -- 检查参数是否为table
     if type(data) ~= "table" then
-        -- 通过回调返回错误
-        if callback_func then
-            callback_func("send_result", {
-                success = false,
-                error_msg = "Invalid data parameter: table expected"
-            })
-        end
-        return false, "Invalid data parameter: table expected"
+        return false, "data must be table"
     end
-
+    if need_reply == nil then
+        return false, "need_reply cannot be nil"
+    end
+    if is_auth_msg == nil then
+        is_auth_msg = false
+    end
     -- 检查服务是否开启
     if not is_open then
         if callback_func then
             callback_func("send_result", {
                 success = false,
-                error_msg = "excloud service not open"
+                error_msg = "excloud not open"
             })
         end
-        return false, "excloud service not open"
+        return false, "excloud not open"
     end
 
     -- 检查是否已连接
@@ -1089,21 +1075,24 @@ function excloud.send(data, need_reply, is_auth_msg)
         if callback_func then
             callback_func("send_result", {
                 success = false,
-                error_msg = "Not connected to server"
+                error_msg = "excloud not connected"
             })
         end
-        return false, "Not connected to server"
+        return false, "excloud not connected"
     end
 
     -- 保存当前序列号用于回调
     local current_sequence = sequence_num
-
+    local success
     -- 构建消息体
     local message_body = ""
     for _, item in ipairs(data) do
         log.info("发送数据333", item.field_meaning, item.data_type, item.value, message_body)
-
-        message_body = message_body .. build_tlv(item.field_meaning, item.data_type, item.value)
+        local success, tlv = build_tlv(item.field_meaning, item.data_type, item.value)
+        if not success then
+            return false, "excloud.send data is failed"
+        end
+        message_body = message_body .. tlv
     end
 
     -- 检查消息长度
@@ -1136,7 +1125,7 @@ function excloud.send(data, need_reply, is_auth_msg)
 
     log.info("发送消息长度", #header, #message_body, #full_message, full_message:toHex())
 
-    local success, err_code, err_msg
+    local success, err_msg
     if config.transport == "tcp" then
         if not connection then
             err_msg = "TCP connection not available"
@@ -1170,7 +1159,7 @@ function excloud.send(data, need_reply, is_auth_msg)
         return true
     else
         log.error("数据发送失败", err_msg)
-        return false, err_code, err_msg
+        return false, err_msg
     end
 end
 

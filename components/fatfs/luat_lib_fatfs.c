@@ -44,7 +44,7 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 @int fatfs模式,可选fatfs.SPI,fatfs.SDIO,fatfs.RAM,fatfs.USB
 @string 虚拟文件系统的挂载点, 默认是 /fatfs
 @int 传入spi device指针,或者spi的id,或者sdio的id
-@int 片选脚的GPIO 号, spi模式有效. 特别约定,若前一个参数传的是spi device,这个参数要跳过,不能传参.
+@int 片选脚的GPIO 号, spi模式有效. 特别约定,若前一个参数传的是spi device,这个参数要传SPI最高速度, 就是传2个"SPI最高速度", 也可以两个都填nil.
 @int SPI最高速度,默认10M.
 @int TF卡电源控制脚,TF卡初始前先拉低复位再拉高,如果没有,或者是内置电源控制方式,这个参数就不需要传
 @int TF卡电源复位过程时间,单位ms,默认值是1
@@ -211,7 +211,8 @@ static int fatfs_mount(lua_State *L)
 @string 虚拟文件系统的挂载点, 默认是 fatfs,必须与fatfs.mount一致
 @return int 成功返回0, 否则返回失败码
 @usage
-fatfs.mount("SD")
+-- 注意, 取消挂载, 在 2025.9.29 之后编译的固件才真正支持
+fatfs.mount("/sd")
 */
 static int fatfs_unmount(lua_State *L) {
 

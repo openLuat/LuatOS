@@ -537,7 +537,7 @@ void luat_airlink_wait_ready(void) {
         uint64_t tnow = luat_mcu_tick64_ms();
 	    #define AIRLINK_WAIT_MS (5)
         extern uint64_t g_airlink_last_cmd_timestamp;
-	    while (g_airlink_last_cmd_timestamp == 0 && count < 200) {
+	    while (g_airlink_last_cmd_timestamp == 0 && count < 500) {
 		    luat_rtos_task_sleep(AIRLINK_WAIT_MS);
 		    count += AIRLINK_WAIT_MS;
 	    }

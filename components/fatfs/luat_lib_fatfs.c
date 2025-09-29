@@ -44,8 +44,8 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 @int fatfs模式,可选fatfs.SPI,fatfs.SDIO,fatfs.RAM,fatfs.USB
 @string 虚拟文件系统的挂载点, 默认是 /fatfs
 @int 传入spi device指针,或者spi的id,或者sdio的id
-@int 片选脚的GPIO 号, spi模式有效,若前一个参数传的是spi device,这个参数就不需要传
-@int SPI最高速度,默认10M, 若前2个参数传的是spi device,这个参数就不需要传
+@int 片选脚的GPIO 号, spi模式有效. 特别约定,若前一个参数传的是spi device,这个参数要跳过,不能传参.
+@int SPI最高速度,默认10M.
 @int TF卡电源控制脚,TF卡初始前先拉低复位再拉高,如果没有,或者是内置电源控制方式,这个参数就不需要传
 @int TF卡电源复位过程时间,单位ms,默认值是1
 @bool 挂载失败是否尝试格式化,默认是true,即自动格式化. 本参数在2023.8.16添加
@@ -66,14 +66,20 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 	-- 提醒, 若TF/SD模块带电平转换, 通常不支持10M以上的波特率!!
-    fatfs.mount(fatfs.SPI,"SD", spiId, TF_CS, 24000000)
-    local data, err = fatfs.getfree("SD")
+    fatfs.mount(fatfs.SPI,"/sd", spiId, TF_CS, 24000000)
+    local data, err = fatfs.getfree("/sd")
     if data then
         log.info("fatfs", "getfree", json.encode(data))
     else
         log.info("fatfs", "err", err)
     end
 	-- 往下的操作, 使用 io.open("/sd/xxx", "w+") 等io库的API就可以了
+-- 方法2, 使用spi device方式
+	local spiId = 2
+	local TF_CS = 8
+	-- 选一个合适的全局变量名
+	tf_spi_dev = spi.device_setup(spiId, TF_CS, 0, 8, 20*1000*1000)
+	fatfs.mount(fatfs.SPI,"/sd", tf_spi_dev)
 */
 static int fatfs_mount(lua_State *L)
 {
@@ -100,7 +106,7 @@ static int fatfs_mount(lua_State *L)
 		luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
 		if (spit == NULL) {
 			lua_pushboolean(L, 0);
-				LLOGD("out of memory when malloc luat_fatfs_spi_t");
+			LLOGD("out of memory when malloc luat_fatfs_spi_t");
 			lua_pushstring(L, "out of memory when malloc luat_fatfs_spi_t");
 			return 2;
 		}
@@ -109,6 +115,12 @@ static int fatfs_mount(lua_State *L)
 		if (lua_type(L, 3) == LUA_TUSERDATA){
 			spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
 			spit->fast_speed = luaL_optinteger(L, 4, 10000000);
+			if (lua_isinteger(L, 5)) {
+				spit->fast_speed = luaL_optinteger(L, 5, 10000000);
+			}
+			if (spit->fast_speed < 5*1000*1000) {
+				spit->fast_speed = 5*1000*1000;
+			}
 			spit->type = 1;
 			diskio_open_spitf(0, (void*)spit);
 		} else {

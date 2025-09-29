@@ -681,7 +681,8 @@ static int l_mobile_sync_time(lua_State* L) {
 -- 7:仅SMS可用,且漫游状态
 -- 8:仅紧急呼叫. 注意, 国内不支持此状态,模块也不支持紧急呼叫
 
--- 不推荐使用本API判断联网状态, 建议使用socket.localIP()来判断
+-- 当不是1或者5的时候，无法通过蜂窝移动网络上网
+-- 不能使用本API判断联网状态, 可联网状态应该以连上目标服务器为准
  */
 static int l_mobile_status(lua_State* L) {
     int LUAT_MOBILE_REGISTER_STATUS_E = luat_mobile_get_register_status();

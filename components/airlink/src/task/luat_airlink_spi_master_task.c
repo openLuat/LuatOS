@@ -61,8 +61,10 @@ static volatile uint8_t rdy_ready_flag = 0;           // RDY就绪标志
 __AIRLINK_CODE_IN_RAM__ static int rdy_pin_irq_handler(void* param)
 {
     // 设置RDY就绪标志
+    if (rdy_evt_queue == NULL) {
+        return 0;
+    }
     rdy_ready_flag = 1;
-    
     // 发送通知事件，告知任务RDY已就绪
     luat_event_t evt = {.id = 6};
     luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
@@ -299,8 +301,7 @@ __AIRLINK_CODE_IN_RAM__ void airlink_wait_for_slave_reply(size_t timeout_ms)
     g_airlink_statistic.wait_rdy.total++;
     if (remaining_timeout == 0) {
         g_airlink_statistic.wait_rdy.err++;
-        LLOGW("等待RDY超时: timeout=%dms, flag=%d", 
-              (int)timeout_ms, rdy_ready_flag);
+        LLOGW("等待RDY超时: timeout=%dms, flag=%d", (int)timeout_ms, rdy_ready_flag);
     }
 }
 

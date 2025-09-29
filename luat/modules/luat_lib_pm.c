@@ -24,7 +24,9 @@
 #include "luat_base.h"
 #include "luat_pm.h"
 #include "luat_msgbus.h"
+#ifdef LUAT_USE_HMETA
 #include "luat_hmeta.h"
+#endif
 
 #define LUAT_LOG_TAG "pm"
 #include "luat_log.h"

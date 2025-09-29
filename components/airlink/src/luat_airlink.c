@@ -37,6 +37,7 @@ uint32_t g_airlink_spi_task_mode;
 uint64_t g_airlink_last_cmd_timestamp;
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
+uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
 {
@@ -533,33 +534,44 @@ void luat_airlink_wait_ready(void) {
     if (luat_airlink_has_wifi()) {
         // LLOGD("等待Air8000s启动");
 	    size_t count = 0;
+        uint64_t tnow = luat_mcu_tick64_ms();
 	    #define AIRLINK_WAIT_MS (5)
         extern uint64_t g_airlink_last_cmd_timestamp;
 	    while (g_airlink_last_cmd_timestamp == 0 && count < 200) {
 		    luat_rtos_task_sleep(AIRLINK_WAIT_MS);
 		    count += AIRLINK_WAIT_MS;
 	    }
+        tnow = luat_mcu_tick64_ms() - tnow;
         if (g_airlink_last_cmd_timestamp > 0) {
             // 启动完成, 把wifi的GPIO24设置为高电平, 防止充电ic被关闭
             luat_gpio_mode(24 + 128, Luat_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+            LLOGD("Air8000s启动完成, 等待了 %ld ms", (uint32_t)tnow);
         }
-        // LLOGD("等待Air8000s结束");
+        else {
+            LLOGW("Air8000s启动超时, 等待了 %ld ms", (uint32_t)tnow);
+        }
     }
 }
 
+static uint32_t has_wifi = 0;
+static char model[32] = {0};
 int luat_airlink_has_wifi(void) {
-    char model[32] = {0};
-    luat_hmeta_model_name(model);
-    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0 || memcmp("Air8000A\0", model, 9) == 0) {
-        return 1;
+    if (model[0] == 0) {
+        luat_hmeta_model_name(model);
+        if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000W\0", model, 9) == 0 || memcmp("Air8000A\0", model, 9) == 0) {
+            has_wifi = 1;
+            return 1;
+        }
+        if (memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
+            has_wifi = 1;
+            return 1;
+        }
+        if (memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000DB\0", model, 10) == 0) {
+            has_wifi = 1;
+            return 1;
+        }
     }
-    if (memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
-        return 1;
-    }
-    if (memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000DB\0", model, 10) == 0) {
-        return 1;
-    }
-    return 0;
+    return has_wifi;
 }
 
 uint32_t luat_airlink_sversion(void) {

@@ -34,6 +34,7 @@ extern uint32_t g_airlink_pause;
 // static uint8_t start;
 // static uint8_t slave_rdy;
 static uint8_t thread_rdy;
+static uint8_t spi_init_done = 0;
 static luat_rtos_task_handle spi_task_handle;
 
 
@@ -101,8 +102,10 @@ __AIRLINK_CODE_IN_RAM__ static void on_newdata_notify(void)
     luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
 }
 
-static void spi_gpio_setup(void)
+void luat_airlink_spi_master_pin_setup(void)
 {
+    if (spi_init_done)
+        return;
     if (g_airlink_spi_conf.cs_pin == 0)
     {
         // if (g_airlink_spi_conf.spi_id == 0) {
@@ -135,7 +138,7 @@ static void spi_gpio_setup(void)
         .mode = 1, // mode设置为1，全双工
         .bandrate = g_airlink_spi_conf.speed > 0 ? g_airlink_spi_conf.speed : 31000000,
         .cs = 255};
-    luat_pm_iovolt_ctrl(0, 3300);
+    // luat_pm_iovolt_ctrl(0, 3300);
 
     luat_spi_setup(&spi_conf);
     luat_gpio_cfg_t gpio_cfg = {0};
@@ -178,6 +181,7 @@ static void spi_gpio_setup(void)
         gpio_cfg.irq_cb = slave_irq_cb;
         luat_gpio_open(&gpio_cfg);
     }
+    spi_init_done = 1;
 }
 
 __AIRLINK_CODE_IN_RAM__ static void record_statistic(luat_event_t event)
@@ -423,30 +427,17 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
     #endif
 
     luat_rtos_task_sleep(5); // 等5ms
-    spi_gpio_setup();
-    thread_rdy = 1;
+    luat_airlink_spi_master_pin_setup();
     g_airlink_newdata_notify_cb = on_newdata_notify;
     g_airlink_link_data_cb = on_link_data_notify;
+    thread_rdy = 1;
 
-    uint32_t start_wait_time = luat_mcu_tick64_ms();
-    uint32_t rdy_timeout_ms = 1000;
-    // 等待RDY就绪，防止从机未准备好就发送数据
-    luat_event_t event = {0};
-    while (1)
-    {
-        // bk的从机task在开机的时候会塞一包数据(只有0x72)，这个时候会拉低RDY，以此触发中断
-        int ret = luat_rtos_queue_recv(rdy_evt_queue, &event, sizeof(luat_event_t), 10);
-        if (ret == 0 && event.id == 6) {
-            LLOGI("从机RDY就绪");
-            break;
-        }
-
-        if (luat_mcu_tick64_ms() - start_wait_time > rdy_timeout_ms) {
-            LLOGE("等待从机RDY超时");
-            break;
-        }
+    uint64_t tnow = luat_mcu_tick64_ms();
+    extern uint64_t g_airlink_wifi_boot_time;
+    if (g_airlink_wifi_boot_time != 0 && g_airlink_wifi_boot_time + 130 > tnow) {
+        // Air8000开机时间还没到150ms, 等够150ms再继续
+        luat_rtos_task_sleep((uint32_t)(g_airlink_wifi_boot_time + 130 - tnow));
     }
-
     while (1)
     {
         if (g_airlink_fota != NULL && g_airlink_fota->state == 1) {
@@ -461,7 +452,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
         
         // 发送完成后，等待从机的响应/确认
         if (0 == g_airlink_last_cmd_timestamp) {
-            airlink_wait_for_slave_reply(5); // 开机要快速检测
+            airlink_wait_for_slave_reply(20); // 开机要快速检测
         }
         else {
             airlink_wait_for_slave_reply(1000); // 最多等1秒

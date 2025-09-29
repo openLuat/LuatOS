@@ -146,7 +146,7 @@ void luat_airlink_task_start(void) {
         #endif
     }
     if (airlink_task_handle == NULL) {
-        luat_rtos_task_create(&airlink_task_handle, 16 * 1024, 50, "airlink", luat_airlink_task, NULL, 1024);
+        luat_rtos_task_create(&airlink_task_handle, 16 * 1024, 50, "airlink", luat_airlink_task, NULL, 0);
     }
     else {
         LLOGD("airlink task 已经启动过了");

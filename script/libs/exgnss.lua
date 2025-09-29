@@ -736,7 +736,7 @@ log.info("nmea", "loc", exgnss.int_location(2))
 log.info("nmea", "loc", exgnss.int_location(3))
 ]]
 function exgnss.int_location(speed_type)
-    return libgnss.int_location(speed_type)
+    return libgnss.getIntLocation(speed_type)
 end
 
 

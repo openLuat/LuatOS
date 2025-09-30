@@ -43,6 +43,18 @@ if fd then
 
   -- 执行完操作后,一定要关掉文件
   fd:close()
+
+  -- 2025.9.30 新增file:write支持zbuff参数
+  local zbuff = zbuff.create(1024)
+  zbuff:write("hello zbuff")
+  local f = io.open("/test_zbuff.bin", "wb+")
+  f:write(zbuff)
+  f:close()
+  -- 读出数据
+  local f = io.open("/test_zbuff.bin", "rb")
+  local data = f:read("*a")
+  f:close()
+  log.info("data", data)
 end
 */
 
@@ -270,7 +282,6 @@ static int aux_close (lua_State *L) {
   return (*cf)(L);  /* close it */
 }
 
-
 static int f_close (lua_State *L) {
   tofile(L);  /* make sure argument is an open stream */
   return aux_close(L);
@@ -293,6 +304,13 @@ static int f_gc (lua_State *L) {
 }
 
 
+
+/*
+关闭文件句柄
+@api file:close()
+@userdata 文件句柄, io.open返回的值
+@return nil 无返回值
+*/
 /*
 ** function to close regular files
 */
@@ -317,7 +335,44 @@ static void opencheck (lua_State *L, const char *fname, const char *mode) {
     luaL_error(L, "cannot open file '%s' (%d)", fname, errno);
 }
 
+/*
+打开文件,返回句柄
+@api io.open(path, mode)
+@string 文件路径
+@string 打开模式
+@see http://www.lua.org/manual/5.3/manual.html#pdf-io.open
+@return userdata 文件句柄,失败返回nil
+@usage
+-- 只读模式, 打开文件
+local fd = io.open("/xxx.txt", "rb")
+-- 读写默认,打开文件
+local fd = io.open("/xxx.txt", "wb")
+-- 写入文件,且截断为0字节
+local fd = io.open("/xxx.txt", "wb+")
+-- 追加模式
+local fd = io.open("/xxx.txt", "a")
+-- 若文件打开成功, fd不为nil,否则就是失败了
+if fd then
+  -- 读取指定字节数,如果数据不足,就只返回实际长度的数据
+  local data = fd:read(12)
 
+  -- 数据写入, 仅w或a模式可调用
+  -- 数据需要是字符串, lua的字符串是带长度的,可以包含任何二进制数据
+  fd:write("xxxx") 
+  -- 以下是写入0x12, 0x13
+  fd:write(string.char(0x12, 0x13))
+
+  -- 移动句柄,绝对坐标
+  fd:seek(1024, io.SEEK_SET)
+  -- 移动句柄,相对坐标
+  fd:seek(1024, io.SEEK_CUR)
+  -- 移动句柄,反向绝对坐标,从文件结尾往文件头部算
+  fd:seek(124, io.SEEK_END)
+
+  -- 执行完操作后,一定要关掉文件
+  fd:close()
+end
+*/
 static int io_open (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "r");
@@ -561,6 +616,7 @@ typedef struct {
 
 
 static int test_eof (lua_State *L, FILE *f) {
+  (void)L;
   return feof(f);
   // int c = getc(f);
   // ungetc(c, f);  /* no-op when c == EOF */
@@ -709,10 +765,12 @@ static int io_readline (lua_State *L) {
 
 /* }====================================================== */
 
-
+#include "luat_zbuff.h"
 static int g_write (lua_State *L, FILE *f, int arg) {
   int nargs = lua_gettop(L) - arg;
   int status = 1;
+  size_t l;
+  const char *s;
   for (; nargs--; arg++) {
     // if (lua_type(L, arg) == LUA_TNUMBER) {
     //   /* optimization: could be done exactly as for strings */
@@ -724,10 +782,14 @@ static int g_write (lua_State *L, FILE *f, int arg) {
     //   status = status && (len > 0);
     // }
     // else {
-      size_t l;
-      const char *s = luaL_checklstring(L, arg, &l);
+    if (lua_type(L, arg) == LUA_TUSERDATA) {
+      luat_zbuff_t*buff = (luat_zbuff_t *)luaL_checkudata(L, arg, LUAT_ZBUFF_TYPE);
+      status = status && (fwrite(buff->addr, sizeof(char), buff->used, f) == buff->used);
+    }
+    else {
+      s = luaL_checklstring(L, arg, &l);
       status = status && (fwrite(s, sizeof(char), l, f) == l);
-    // }
+    }
   }
   if (status) return 1;  /* file handle already on stack top */
   else return luaL_fileresult(L, status, NULL);
@@ -739,7 +801,29 @@ static int io_write (lua_State *L) {
 }
 #endif
 
-
+/*
+将数据写入文件
+@api file:write(data)
+@string/zbuff 数据
+@return boolean 成功返回true,否则返回nil和错误信息
+@usage
+local fd = io.open("/xxx.txt", "wb+")
+if fd then
+  -- 数据需要是字符串, lua的字符串是带长度的,可以包含任何二进制数据
+  local ret, err = fd:write("xxxx") 
+  if not ret then
+    log.error("io", "write error", err)
+  end
+  -- 2025.9.30 新增file:write支持zbuff参数
+  local zbuff = zbuff.create(1024)
+  zbuff:write("hello zbuff")
+  local ret, err = fd:write(zbuff)
+  if not ret then
+    log.error("io", "write error", err)
+  end
+  fd:close()
+end
+*/
 static int f_write (lua_State *L) {
   FILE *f = tofile(L);
   lua_pushvalue(L, 1);  /* push file at the stack top (to be returned) */
@@ -747,6 +831,22 @@ static int f_write (lua_State *L) {
 }
 
 
+/*
+移动文件指针
+@api file:seek(whence, offset)
+@string whence 定位方式, 可选值有 "set", "cur", "end", 默认 "cur"
+@int offset 偏移值, 默认0
+@return int 成功返回当前文件指针位置,否则返回nil和错误信息
+@usage
+local fd = io.open("/xxx.txt", "rb")
+if fd then
+  local pos = fd:seek("set", 0)
+  if not pos then
+    log.error("io", "seek error", err)
+  end
+  fd:close()
+end
+*/
 static int f_seek (lua_State *L) {
   static const int mode[] = {SEEK_SET, SEEK_CUR, SEEK_END};
   static const char *const modenames[] = {"set", "cur", "end", NULL};
@@ -881,12 +981,16 @@ static int io_readFile (lua_State *L) {
 
 /**
 将数据写入文件
-@api io.writeFile(path, data)
+@api io.writeFile(path, data, mode)
 @string 文件路径
 @string 数据
+@string 写入模式, 默认 "wb+"
 @return boolean 成功返回true, 否则返回false
 @usage
+-- 将数据写入到文件, 默认是"wb+"模式, 即完全覆写,原有文件数据全部删除, 文件不存在就新建
 io.writeFile("/bootime", "1")
+-- 以"ab+"模式打开文件, 追加数据到文件末尾
+io.writeFile("/bootime", "2", "ab+")
  */
 static int io_writeFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
@@ -1256,7 +1360,7 @@ static int io_lsdir (lua_State *L) {
     return 2;
   }
 
-  return 0;
+  // return 0;
 }
 
 /*

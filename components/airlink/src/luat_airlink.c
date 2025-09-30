@@ -532,6 +532,11 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
 void luat_airlink_wait_ready(void) {
     // Air8000硬等最多200ms, 梁健要加的, 有问题找他
     if (luat_airlink_has_wifi()) {
+        #if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
+	    LLOGD("open airlink for air8000s");
+	    extern void luat_airlink_master_autostart(void);
+	    luat_airlink_master_autostart();
+        #endif
         // LLOGD("等待Air8000s启动");
 	    size_t count = 0;
         uint64_t tnow = luat_mcu_tick64_ms();
@@ -584,4 +589,31 @@ uint32_t luat_airlink_sversion(void) {
         memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
     }
     return version;
+}
+
+static void netdrv_airlink_setup(void* params) {
+	(void)params;
+	// 自动新增STA和AP的netdrv
+	// 自动新增STA和AP的netdrv
+	luat_netdrv_conf_t conf = {0};
+	conf.impl = 64;
+	// 注册STA
+	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+	luat_netdrv_setup(&conf);
+
+	// 然后注册AP
+	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+	luat_netdrv_setup(&conf);
+}
+
+void luat_airlink_master_autostart(void) {
+	if (!luat_airlink_has_wifi()){
+		return;
+	}
+	
+	tcpip_callback_with_block(netdrv_airlink_setup, NULL, 1);
+	// 初始化AirLink
+	luat_airlink_init();
+	luat_airlink_task_start();
+	luat_airlink_start(1); // SPI master模式
 }

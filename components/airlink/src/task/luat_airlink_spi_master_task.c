@@ -341,9 +341,12 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     // luat_event_t event = {0};
     luat_rtos_task_sleep(5); // 等5ms
     luat_airlink_spi_master_pin_setup();
-    thread_rdy = 1;
     g_airlink_newdata_notify_cb = on_newdata_notify;
     g_airlink_link_data_cb = on_link_data_notify;
+    thread_rdy = 1;
+    while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) == 1) {
+        luat_rtos_task_sleep(10);
+    }
     while (1)
     {
         if (g_airlink_fota != NULL && g_airlink_fota->state == 1) {

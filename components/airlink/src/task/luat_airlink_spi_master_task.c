@@ -55,7 +55,7 @@ luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 // RDY引脚中断等待相关变量
-// static volatile uint8_t rdy_ready_flag = 0;           // RDY就绪标志
+static volatile uint8_t rdy_ready_flag = 0;           // RDY就绪标志
 
 // RDY引脚下降沿中断处理函数，设置就绪标志并发送事件
 __AIRLINK_CODE_IN_RAM__ static int rdy_pin_irq_handler(void* param)
@@ -64,7 +64,7 @@ __AIRLINK_CODE_IN_RAM__ static int rdy_pin_irq_handler(void* param)
     if (rdy_evt_queue == NULL) {
         return 0;
     }
-    // rdy_ready_flag = 1;
+    rdy_ready_flag = 1;
     // 发送通知事件，告知任务RDY已就绪
     luat_event_t evt = {.id = 6};
     luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
@@ -233,11 +233,12 @@ __AIRLINK_CODE_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t 
     size_t qlen = 0;
     luat_rtos_queue_get_cnt(rdy_evt_queue, &qlen);
     if (qlen > 0) {
-        LLOGW("发送数据后发现有%d个RDY事件未处理", (int)qlen);
+        // LLOGW("发送数据后发现有%d个RDY事件未处理", (int)qlen);
         // 清除掉这些冗余的RDY事件
         luat_event_t evt = {0};
         luat_rtos_queue_recv(rdy_evt_queue, &evt, sizeof(evt), 0);
     }
+    rdy_ready_flag = 0;
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 1);
     //luat_spi_unlock(MASTER_SPI_ID);
     // luat_airlink_print_buff("RX", rxbuff, 32);
@@ -256,61 +257,20 @@ __AIRLINK_CODE_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t 
     else
     {
         g_airlink_statistic.tx_pkg.err++;
-        // LLOGE("接收到数据不正确, 丢弃");
+        LLOGE("接收到数据不正确, 丢弃");
     }
 }
 
 __AIRLINK_CODE_IN_RAM__ void airlink_wait_for_slave_reply(size_t timeout_ms)
 {
-    // 低速发送情况下：直接检查RDY flag
-    // if (rdy_ready_flag) {
-    //     rdy_ready_flag = 0;  // 使用完后清除标志
-    //     // LLOGD("RDY已就绪，快速通过");
-    //     return;
-    // }
-
-    // 高速发送情况下：RDY flag未就绪，使用事件等待机制等待RDY flag好了
-    uint32_t start_time = luat_mcu_tick64_ms();
-    uint32_t remaining_timeout = timeout_ms;
-    
-    while (remaining_timeout > 0) {
-        // 等待RDY就绪事件
-        luat_event_t event = {0};
-        int ret = luat_rtos_queue_recv(rdy_evt_queue, &event, sizeof(luat_event_t), remaining_timeout);
-        
-        if (ret == 0 && event.id == 6) {
-            // 收到RDY事件，检查flag（中断中已设置）
-            // if (rdy_ready_flag) {
-            //     rdy_ready_flag = 0;  // 使用完后清除标志
-            //     uint32_t elapsed = luat_mcu_tick64_ms() - start_time;
-            //     if (elapsed > 1) {
-            //         // 等待时间超过1ms, 计入统计
-            //         g_airlink_statistic.wait_rdy.total++;
-            //     }
-            //     // LLOGD("RDY事件触发，flag已就绪");
-            //     return;
-            // } else {
-            //     if (g_airlink_debug) {
-            //         // 一般是之前慢速接收没有消耗队列信息, 导致RDY事件没有被处理，会在这里被消耗掉，然后等待真正有效的rdy时刻
-            //         LLOGW("收到RDY事件但flag未设置，继续等待");
-            //     }
-            // }
+    luat_event_t event = {0};
+    while (1)
+    {
+        event.id = 0;
+        luat_rtos_queue_recv(rdy_evt_queue, &event, sizeof(luat_event_t), 10);
+        if (event.id != 0) {
             break;
         }
-        
-        // 更新剩余超时时间
-        uint32_t elapsed = luat_mcu_tick64_ms() - start_time;
-        if (elapsed >= timeout_ms) {
-            break;
-        }
-        remaining_timeout = timeout_ms - elapsed;
-    }
-    
-    // 超时处理
-    g_airlink_statistic.wait_rdy.total++;
-    if (remaining_timeout == 0) {
-        g_airlink_statistic.wait_rdy.err++;
-        // LLOGW("等待RDY超时: timeout=%dms, flag=%d", (int)timeout_ms, rdy_ready_flag);
     }
 }
 
@@ -451,15 +411,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
     tnow = luat_mcu_tick64_ms();
     while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) != 0)
     {
-        // 等待RDY脚变低
         luat_rtos_task_sleep(10);
-        if (luat_mcu_tick64_ms() - tnow > 1000)
-        {
-            // 等待1秒还没好, 说明有问题
-            LLOGW("等待RDY脚就绪超时");
-            break;
-        }
-
     }
     while (1)
     {
@@ -472,18 +424,10 @@ __AIRLINK_CODE_IN_RAM__ static void spi_master_task(void *param)
         
         // 立即发送数据给从机
         airlink_transfer_and_exec(s_txbuff, s_rxbuff);
+        memset(s_rxbuff, 0, TEST_BUFF_SIZE);
         
         // 发送完成后，等待从机的响应/确认
-        if (0 == g_airlink_last_cmd_timestamp) {
-            airlink_wait_for_slave_reply(20); // 开机要快速检测
-        }
-        else {
-            airlink_wait_for_slave_reply(1000); // 最多等1秒
-        }
-        
-
-        memset(s_rxbuff, 0, TEST_BUFF_SIZE);
-        // start = 0;
+        airlink_wait_for_slave_reply(5000);
     }
 }
 
@@ -503,7 +447,7 @@ void luat_airlink_start_master(void)
     // 创建专门的RDY事件队列 (id=6)
     luat_rtos_queue_create(&rdy_evt_queue, 1, sizeof(luat_event_t));
     #ifdef TYPE_EC718M
-    #define AIRLINK_TASK_PRIORITY 150
+    #define AIRLINK_TASK_PRIORITY 90
     #else
     #define AIRLINK_TASK_PRIORITY 80
     #endif

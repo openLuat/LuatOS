@@ -103,11 +103,10 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
                 goto clean;
             }
 
-            exec_cmd(ptr);
-            
+            // 更新最后通讯时间
             if (g_airlink_last_cmd_timestamp == 0) {
                 g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
-                extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+                
                 if (g_airlink_ext_dev_info.tp == 0x01) {
                     uint32_t tmpv = 0;
                     memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
@@ -126,6 +125,9 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
             else {
                 g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
             }
+
+            exec_cmd(ptr);
+
             clean:
             // 处理完成, 释放内存
             luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);

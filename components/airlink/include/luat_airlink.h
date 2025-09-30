@@ -318,6 +318,8 @@ int luat_airlink_has_wifi(void);
 
 uint32_t luat_airlink_sversion(void);
 
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+
 typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
 
 #ifdef TYPE_EC718M

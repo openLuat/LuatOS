@@ -16,8 +16,6 @@
 // #undef LLOGD
 // #define LLOGD(...) 
 
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
-
 int luat_drv_wlan_init(luat_wlan_config_t *conf) {
     return luat_airlink_drv_wlan_init(conf);
 }

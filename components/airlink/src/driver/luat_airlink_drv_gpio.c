@@ -54,7 +54,6 @@ int luat_airlink_drv_gpio_set(int pin, int level) {
 
 luat_rtos_semaphore_t g_drv_gpio_sem;
 uint64_t g_drv_gpio_input_level = 0;
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 int luat_airlink_drv_gpio_get(int pin, int* val) {
     int ret = 0;
     if (pin >= 128) {

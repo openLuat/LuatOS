@@ -22,7 +22,6 @@
 // #define MREPORT_DOMAIN "112.125.89.8"
 // #define MREPORT_PORT (42919)
 
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 static struct udp_pcb* mreport_pcb;
 static luat_rtos_timer_t mreport_timer;
 const char *project_name = "unkonw";             // luatos项目名称

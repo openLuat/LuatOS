@@ -9,7 +9,6 @@
 #include "luat_log.h"
 
 luat_airlink_fota_t *g_airlink_fota;
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 int luat_airlink_fota_init(luat_airlink_fota_t *ctx)
 {

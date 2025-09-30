@@ -76,15 +76,17 @@ end
 --加载ch390控制模块，仅限于AIR8000整机开发板系列
 require "ch390_manager"
 
---[[在加载以下两个功能时，建议分别打开进行测试，因为文件操作和http下载功能是异步操作。
+--[[在加载以下三个功能时，建议分别打开进行测试，因为文件操作，http下载功能和http大文件上传功能是异步操作。
 放到一个项目中，如果加载的时间点是随机的，就会出现tfcard_app在spi.setup和fatfs挂载文件系统之后，
-还没有释放资源，然后http_download_file又去重复spi.setup和fatfs挂载文件系统了，不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
+还没有释放资源，然后http_download_file或http_upload_file又去重复spi.setup和fatfs挂载文件系统了，
+不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
 
 --加载tf卡测试应用模块
-require "tfcard_app"
+-- require "tfcard_app"
 --加载HTTP下载存入TF卡功能演示模块
 --require "http_download_file"
-
+--加载HTTP上传文件到服务器的功能演示模块
+require "http_upload_file"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

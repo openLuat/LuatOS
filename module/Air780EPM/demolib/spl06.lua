@@ -79,11 +79,11 @@ local function i2cReadTwoData(i2caddr,regaddr)
         msb = 0
         lsb = 0
         log.info("spl06 two data","the data is null")
-        return msb256+lsb
+        return msb*256+lsb
     else
     --log.info("spl06 two data","msb:"..msb.." lsb:"..lsb)
         if regaddr ==0x10 then
-            return msb16 + bit.rshift((lsb&0xF0),4)
+            return msb*16 + bit.rshift((lsb&0xF0),4)
         elseif regaddr ==0x11 then
             return (msb&0x0f)*256 + lsb
         else
@@ -106,7 +106,7 @@ local function chip_check()
         if revData:byte() ~= nil then
             SPL06_ADDRESS_ADR = SPL06_ADDRESS_ADR_LOW
         else
-            log.info("i2c", "Can't find adxl34x device")
+            log.info("i2c", "Can't find SPL06 device")
             return false
         end
     end
@@ -130,7 +130,7 @@ spl06初始化
 @usage
 spl06.init(0)
 ]]
-function spl06.init(i2cid)
+function spl06.init(i2c_id)
     i2cid = i2c_id
     sys.wait(20)--20 毫秒等待设备稳定
     if chip_check() then

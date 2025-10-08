@@ -25,7 +25,7 @@ local requestParam = {} -- 用于保存定位请求参数
 
 -- 如果无法定位，可以开启此功能升级WiFi固件版本后再次尝试
 -- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
--- local exfotawifi = require("exfotawifi") 
+-- require "check_wifi" 
 
 local airlbs = require "airlbs"
 
@@ -88,9 +88,6 @@ sys.taskInit(function()
         airlink.statistics()
     end
 end)
-
--- 在设备启动时检查网络状态
-sys.taskInit(wait_ip_ready)
 
 sysplus.taskInitEx(wlan_location_task, taskName)
 

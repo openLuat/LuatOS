@@ -31,17 +31,14 @@ function scan_done_handle()
 end
 
 --  每隔6秒打印一次airlink统计数据, 调试用
-sys.taskInit(function()
-    while 1 do
-        sys.wait(6000)
-        airlink.statistics()
-    end
-end)
+-- sys.taskInit(function()
+--     while 1 do
+--         sys.wait(6000)
+--         airlink.statistics()
+--     end
+-- end)
 
 sys.subscribe("WLAN_SCAN_DONE", scan_done_handle)
-
--- 在设备启动时检查网络状态
-sys.taskInit(wait_ip_ready)
 
 sys.taskInit(function()
     -- 稍微缓一下

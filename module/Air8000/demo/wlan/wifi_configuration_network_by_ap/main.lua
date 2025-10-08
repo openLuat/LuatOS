@@ -91,9 +91,6 @@ function main_task()
 
 end
 
--- 在设备启动时检查网络状态
-sys.taskInit(wait_ip_ready)
-
 sys.subscribe("WLAN_SCAN_DONE", scan_done_handle)
 sys.subscribe("IP_READY", ip_ready_handle)
 sys.taskInit(main_task)

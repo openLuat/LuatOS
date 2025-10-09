@@ -80,14 +80,16 @@ local sfud_device = sfud.getDevice(1)
 */
 static int luat_sfud_get_device(lua_State *L){
     sfud_flash *flash = sfud_get_device(luaL_checkinteger(L, 1));
-    lua_pushlightuserdata(L, flash);
-    return 1;
+    if (flash){
+        lua_pushlightuserdata(L, flash);
+        return 1;
+    }
 }
 
 /*
 获取flash设备信息表
 @api  sfud.getDeviceTable()
-@return userdata 成功返回一个数据结构,否则返回nil
+@return userdata 成功返回一个数据结构,sfud flash tables地址
 @usage
 local sfud_device = sfud.getDeviceTable()
 */

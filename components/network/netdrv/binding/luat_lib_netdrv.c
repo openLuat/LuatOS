@@ -220,6 +220,7 @@ static int l_netdrv_ipv4(lua_State *L) {
     int ret = 0;
     luat_netdrv_t* netdrv = luat_netdrv_get(id);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGW("对应的netdrv不存在或未就绪 %d %p", id, netdrv);
         return 0;
     }
     if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {

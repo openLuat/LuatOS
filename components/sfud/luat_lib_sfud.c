@@ -84,6 +84,7 @@ static int luat_sfud_get_device(lua_State *L){
         lua_pushlightuserdata(L, flash);
         return 1;
     }
+    return 0;
 }
 
 /*

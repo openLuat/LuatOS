@@ -5,6 +5,15 @@
 
 // #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
 #define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)
+#ifndef NAPT_TCP_MAP_ITEM_MAX
+#if defined(TYPE_EC718HM)
+#define NAPT_TCP_MAP_ITEM_MAX (8*1024)
+#elif defined(TYPE_EC718PM)
+#define NAPT_TCP_MAP_ITEM_MAX (4*1024)
+#else
+#define NAPT_TCP_MAP_ITEM_MAX (2*1024)
+#endif
+#endif
 
 typedef struct luat_netdrv_napt_icmp
 {
@@ -62,7 +71,7 @@ typedef struct luat_netdrv_napt_ctx{
     size_t clean_tm;
     size_t item_max;
     size_t item_last;
-    luat_netdrv_napt_tcpudp_t items[2048];
+    luat_netdrv_napt_tcpudp_t items[NAPT_TCP_MAP_ITEM_MAX];
     luat_rtos_mutex_t lock;
     uint32_t *port_used;
 }luat_netdrv_napt_ctx_t;

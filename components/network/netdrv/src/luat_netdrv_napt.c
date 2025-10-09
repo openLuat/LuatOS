@@ -38,7 +38,7 @@ luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
 // 端口分配
 #define NAPT_PORT_RANGE_START     0x1BBC
-#define NAPT_PORT_RANGE_END       0x5AAA
+#define NAPT_PORT_RANGE_END       0x6AAA
 
 #define u32 uint32_t
 #define u16 uint16_t
@@ -222,7 +222,7 @@ static int ctx_init(luat_netdrv_napt_ctx_t** ctx_ptrptr) {
     ctx->port_used = luat_heap_malloc(port_len + 8);
     memset(ctx->port_used, 0, port_len + 8);
     ctx->clean_tm = 1;
-    ctx->item_max = 2048;
+    ctx->item_max = NAPT_TCP_MAP_ITEM_MAX;
 
     *ctx_ptrptr = ctx;
     return 0;
@@ -460,7 +460,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
     }
     while (ret != 0) {
         if (napt_ctx->item_max == 0) {
-            napt_ctx->item_max = 2048;
+            napt_ctx->item_max = NAPT_TCP_MAP_ITEM_MAX;
         }
         if (napt_ctx->item_last >= napt_ctx->item_max) {
             LLOGE("TCP映射关系已经用完");

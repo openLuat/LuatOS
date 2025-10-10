@@ -4,6 +4,8 @@
 @version 1.0
 @date    2020.03.30
 @tag LUAT_USE_TIMER
+@usage
+-- 本库通常不需要使用, 除非你很清楚会发生什么
 */
 #include "luat_base.h"
 #include "luat_log.h"

@@ -73,24 +73,24 @@ function TCP_TASK()
     socket.debug(netCB, true)                -- 打开调试日志
     socket.config(netCB, nil, protocol, ssl)      -- 此配置为TCP连接，无SSL加密
 
+    -- 收取数据会触发回调, 这里的"receive" 是固定值不要修改。
+    uart.on(uartid, "receive", function(id, len)
+        while true do
+            local len = uart.rx(id, uart_rx_buff)   -- 接收串口收到的数据，并赋值到uart_rx_buff
+            if len <= 0 then    -- 接收到的字节长度为0 则退出
+                break
+            end
+            -- 如果已经在线了，则发送socket.EVENT消息来打断任务里的阻塞等待状态，让任务循环继续
+            if connect_state then
+                sys_send(taskName, socket.EVENT, 0)
+            end
+        end
+    end)
+
     -- 串口和TCP服务器的交互逻辑
     while true do
         -- 连接服务器，返回是否连接成功
         result = libnet.connect(taskName, 15000, netCB, ip, port)
-
-        -- 收取数据会触发回调, 这里的"receive" 是固定值不要修改。
-        uart.on(uartid, "receive", function(id, len)
-            while true do
-                local len = uart.rx(id, uart_rx_buff)   -- 接收串口收到的数据，并赋值到uart_rx_buff
-                if len <= 0 then    -- 接收到的字节长度为0 则退出
-                    break
-                end
-                -- 如果已经在线了，则发送socket.EVENT消息来打断任务里的阻塞等待状态，让任务循环继续
-                if connect_state then
-                    sys_send(taskName, socket.EVENT, 0)
-                end
-            end
-        end)
 
         -- 如果连接成功，则改变连接状态参数，并且随便发一条数据到服务器，看服务器能不能收到
         if result then

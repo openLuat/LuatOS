@@ -303,28 +303,28 @@ int l_str_toValue (lua_State *L) {
 }
 
 /*
-  将字符串进行url编码转换
-  @api string.urlEncode("123 abc")
-  @string 需要转换的字符串
-  @int	mode:url编码的转换标准,
-  			-1:自定义标准.为-1时,才会有后面的space和str_check
-  			 0:默认标准php
-  			 1:RFC3986标准,和默认的相比就是' '的转换方式不一样
-  			 这个参数不存在,按0:默认标准php处理
-  @int	space:' '空格的处理方式
-  			 0:' '转化为'+'
-  			 1:' '转换为"%20"
-  @string	str_check:不需要转换的字符,组成的字符串
-  @return string 返回转换后的字符串
-  @usage
-  -- 将字符串进行url编码转换
-  log.info(string.urlEncode("123 abc+/"))			-->> "123+abc%2B%2F"
+将字符串进行url编码转换
+@api string.urlEncode(data,mode,space,str_check)
+@string 需要转换的字符串,必须填
+@int url编码的转换标准,默认0, PHP标准, 1是RFC3986标准, -1是自定义标准
+@int 空格的处理方式 0:' '转化为'+' 1:' '转换为"%20". 仅mode为-1时有效
+@string	str_check:不需要转换的字符,组成的字符串. 仅mode为-1时有效
+@return string 返回转换后的字符串
+@usage
+-- mode可选值
+  -1 :自定义标准.为-1时,才会有后面的space和str_check
+  0 :默认标准php
+  1 :RFC3986标准,和默认的相比就是' '的转换方式不一样
+这个参数不存在,按0:默认标准php处理
 
-  log.info(string.urlEncode("123 abc+/",1))			-->> "123%20abc%2B%2F"
+-- 将字符串进行url编码转换
+log.info(string.urlEncode("123 abc+/"))			-->> "123+abc%2B%2F"
 
-  log.info(string.urlEncode("123 abc+/",-1,1,"/"))	-->> "123%20abc%2B/"
-  log.info(string.urlEncode("123 abc+/",-1,0,"/"))	-->> "123+abc%2B/"
-  log.info(string.urlEncode("123 abc+/",-1,0,"/ "))	-->> "123 abc%2B/"
+log.info(string.urlEncode("123 abc+/",1))			-->> "123%20abc%2B%2F"
+
+log.info(string.urlEncode("123 abc+/",-1,1,"/"))	-->> "123%20abc%2B/"
+log.info(string.urlEncode("123 abc+/",-1,0,"/"))	-->> "123+abc%2B/"
+log.info(string.urlEncode("123 abc+/",-1,0,"/ "))	-->> "123 abc%2B/"
 */
 int l_str_urlEncode (lua_State *L) {
   int argc = lua_gettop(L);

@@ -58,9 +58,10 @@ CMD_DEFINE(wlan_set_ps);
 CMD_DEFINE(gpio_setup);
 CMD_DEFINE(gpio_set);
 CMD_DEFINE(gpio_get);
-CMD_DEFINE(gpio_get_result);
 CMD_DEFINE(gpio_driver_yhm27xx);
 CMD_DEFINE(gpio_driver_yhm27xx_reqinfo);
+
+CMD_DEFINE(gpio_get_result);
 CMD_DEFINE(gpio_irq_cb);
 
 // UART指令, 0x400开始
@@ -136,8 +137,8 @@ __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     CMD_REG(0x305, gpio_driver_yhm27xx_reqinfo),
 #endif
 #ifdef LUAT_USE_AIRLINK_EXEC_GPIO_RESP
-    CMD_REG(0x310, gpio_get_result),
-    // CMD_REG(0x311, gpio_irq_cb),
+    CMD_REG(0x310, gpio_get_result), //  注册命令0x310，回调函数为gpio_get_result，用于获取GPIO操作结果
+    CMD_REG(0x311, gpio_irq_cb),
 #endif
 
 #ifdef LUAT_USE_AIRLINK_EXEC_UART

@@ -216,15 +216,6 @@ static int os_getenv (lua_State *L) {
 }
 #endif
 
-/*
-返回程序使用的按秒计 CPU 时间的近似值
-@api os.clock()
-@return int 时间戳
-@usage
--- 不推荐使用本API
--- 如需要获取 时间戳, 请使用 os.time()
--- 如需获取系统运行时长, 请使用 mcu.ticks()
-*/
 static int os_clock (lua_State *L) {
   lua_pushinteger(L, ((lua_Integer)clock())/(lua_Integer)CLOCKS_PER_SEC);
   return 1;

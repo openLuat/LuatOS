@@ -272,14 +272,6 @@ static int l_rtc_timer_stop(lua_State *L){
     return 1;
 }
 
-/*
-设置RTC基准年,不推荐
-@api rtc.setBaseYear(Base_year)
-@int 基准年Base_year,通常1900
-@usage
--- 本函数已经废弃, 不要使用
-rtc.setBaseYear(1900)
-*/
 static int l_rtc_set_base_year(lua_State *L){
     Base_year = luaL_checkinteger(L, 1);
     return 0;

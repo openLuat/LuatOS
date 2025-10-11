@@ -46,7 +46,7 @@ int gf128_equ_hex(gf128_t a, const char *s)
 	gf128_to_bytes(a, bin2);
 	return memcmp(bin1, bin2, sizeof(bin1)) == 0;
 }
-
+#if 0
 void gf128_print_bits(gf128_t a)
 {
 	int i;
@@ -74,7 +74,7 @@ int gf128_print(FILE *fp, int fmt, int ind, const char *label, gf128_t a)
 	printf("\n");
 	return 1;
 }
-
+#endif
 static uint64_t reverse_bits(uint64_t a)
 {
 	uint64_t r = 0;

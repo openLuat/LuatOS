@@ -20,8 +20,6 @@
 #define LLOGD(...) 
 luat_airlink_mobile_evt_cb g_airlink_mobile_evt_cb;
 
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
-
 int luat_airlink_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
 	if (g_airlink_mobile_evt_cb) {
 		g_airlink_mobile_evt_cb(event, index, status, ptr);

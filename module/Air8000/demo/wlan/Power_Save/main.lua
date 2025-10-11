@@ -123,9 +123,6 @@ end)
 --     end
 -- end)
 
--- 在设备启动时检查网络状态
-sys.taskInit(wait_ip_ready)
-
 sys.taskInit(function()
     log.info("新的Air8000脚本...")
 

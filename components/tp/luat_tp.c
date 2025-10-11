@@ -14,11 +14,11 @@ static luat_rtos_task_handle g_s_tp_task_handle = NULL;
 void luat_tp_task_entry(void* param){
     uint32_t message_id = 0;
     luat_tp_config_t *luat_tp_config = NULL;
+    luat_rtos_task_sleep(2);
+    while (!g_s_tp_task_handle){
+        luat_rtos_task_sleep(2);
+    }
     while (1){
-        while (!g_s_tp_task_handle){
-            luat_rtos_task_sleep(1);
-        }
-
         luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
 
         luat_tp_data_t* tp_data = luat_tp_config->tp_data;

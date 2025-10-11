@@ -99,34 +99,38 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
                 LLOGW("空指令!");
                 continue;
             }
-            if (ptr->cmd == 0) {
-                goto clean;
+            if (ptr->cmd == 0x10) {
+                exec_cmd(ptr);
             }
 
-            exec_cmd(ptr);
-            
+            // 更新最后通讯时间
             if (g_airlink_last_cmd_timestamp == 0) {
                 g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
-                extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
+                extern uint64_t g_airlink_wifi_boot_time;
+                uint64_t t_used = g_airlink_last_cmd_timestamp - g_airlink_wifi_boot_time;
+                uint32_t tmpv = 0;
                 if (g_airlink_ext_dev_info.tp == 0x01) {
-                    uint32_t tmpv = 0;
                     memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
-                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv);
+                    LLOGI("AIRLINK_READY %ld version %ld t %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv, (uint32_t)t_used);
                 }
                 else if (g_airlink_ext_dev_info.tp == 0x02) {
-                    uint32_t tmpv = 0;
                     memcpy(&tmpv, g_airlink_ext_dev_info.cat1.version, 4);
-                    LLOGI("AIRLINK_READY %ld version %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv);
+                    LLOGI("AIRLINK_READY %ld version %ld t %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv, (uint32_t)t_used);
                 }
                 else {
-                    LLOGI("AIRLINK_READY %ld", (uint32_t)g_airlink_last_cmd_timestamp);
+                    LLOGI("AIRLINK_READY %ld t %ld", (uint32_t)g_airlink_last_cmd_timestamp, (uint32_t)t_used);
                 }
                 // TODO 发个系统消息
             }
             else {
                 g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
             }
-            clean:
+
+            
+            if (ptr->cmd && ptr->cmd != 0x10) {
+                exec_cmd(ptr);
+            }
+
             // 处理完成, 释放内存
             luat_heap_opt_free(AIRLINK_MEM_TYPE, ptr);
         }

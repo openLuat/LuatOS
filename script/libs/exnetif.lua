@@ -22,6 +22,7 @@ local eth_ping_ip
 local local_network_mode
 local need_ping = true
 local single_network_mode = false
+local auto_socket_switch = true
 
 local ping_time = 10000
 -- 连接状态
@@ -93,6 +94,9 @@ local function apply_priority()
                 log.info("设置网卡", type_to_string(net_type))
                 states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
                 socket.dft(net_type)
+                if auto_socket_switch then
+                    socket.close_all(current_active)
+                end
                 current_active = net_type
             end
             break
@@ -213,6 +217,10 @@ local function setup_eth(config)
     if config.need_ping~=nil then
         need_ping = config.need_ping
     end
+    if config.auto_socket_switch ~=nil then
+        auto_socket_switch = config.auto_socket_switch
+        -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -286,6 +294,10 @@ local function setup_eth_user1(config)
     if config.need_ping~=nil then
         need_ping = config.need_ping
     end
+    if config.auto_socket_switch ~=nil then
+        auto_socket_switch = config.auto_socket_switch
+        -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+    end
     eth_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
         ping_time = config.ping_time
@@ -348,6 +360,10 @@ local function set_wifi_info(config)
     end
     if config.need_ping~=nil then
         need_ping = config.need_ping
+    end
+    if config.auto_socket_switch ~=nil then
+        auto_socket_switch = config.auto_socket_switch
+        -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
     wifi_ping_ip = config.ping_ip
     if type(config.ping_time) == "number" then
@@ -560,6 +576,10 @@ function exnetif.set_priority_order(networkConfigs)
             -- 开启4G
             table.insert(new_priority, socket.LWIP_GP)
             available[socket.LWIP_GP] = connection_states.CONNECTING
+            if config.auto_socket_switch ~=nil then
+                auto_socket_switch = config.auto_socket_switch
+                -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+            end
         end
     end
 

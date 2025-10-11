@@ -29,7 +29,6 @@ luat_rtos_queue_t airlink_ippkg_queue;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern int luat_airlink_start_uart(void);
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
@@ -532,12 +531,17 @@ int luat_airlink_result_send(uint8_t* buff, size_t len) {
 void luat_airlink_wait_ready(void) {
     // Air8000硬等最多200ms, 梁健要加的, 有问题找他
     if (luat_airlink_has_wifi()) {
+        #if defined(LUAT_USE_AIRLINK) && defined(LUAT_USE_AIRLINK_AUTO_MASTER)
+	    LLOGD("open airlink for air8000s");
+	    extern void luat_airlink_master_autostart(void);
+	    luat_airlink_master_autostart();
+        #endif
         // LLOGD("等待Air8000s启动");
 	    size_t count = 0;
         uint64_t tnow = luat_mcu_tick64_ms();
 	    #define AIRLINK_WAIT_MS (5)
         extern uint64_t g_airlink_last_cmd_timestamp;
-	    while (g_airlink_last_cmd_timestamp == 0 && count < 200) {
+	    while (g_airlink_last_cmd_timestamp == 0 && count < 500) {
 		    luat_rtos_task_sleep(AIRLINK_WAIT_MS);
 		    count += AIRLINK_WAIT_MS;
 	    }
@@ -584,4 +588,31 @@ uint32_t luat_airlink_sversion(void) {
         memcpy(&version, g_airlink_ext_dev_info.cat1.version, 4);
     }
     return version;
+}
+
+static void netdrv_airlink_setup(void* params) {
+	(void)params;
+	// 自动新增STA和AP的netdrv
+	// 自动新增STA和AP的netdrv
+	luat_netdrv_conf_t conf = {0};
+	conf.impl = 64;
+	// 注册STA
+	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
+	luat_netdrv_setup(&conf);
+
+	// 然后注册AP
+	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
+	luat_netdrv_setup(&conf);
+}
+
+void luat_airlink_master_autostart(void) {
+	if (!luat_airlink_has_wifi()){
+		return;
+	}
+	
+	tcpip_callback_with_block(netdrv_airlink_setup, NULL, 1);
+	// 初始化AirLink
+	luat_airlink_init();
+	luat_airlink_task_start();
+	luat_airlink_start(1); // SPI master模式
 }

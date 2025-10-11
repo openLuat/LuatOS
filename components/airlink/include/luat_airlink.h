@@ -79,7 +79,7 @@ void luat_airlink_task_start(void);
 void luat_airlink_print_buff(const char* tag, uint8_t* buff, size_t len);
 void luat_airlink_on_data_recv(uint8_t *data, size_t len);
 
-void airlink_wait_for_slave_reply(size_t timeout_ms);
+void airlink_wait_for_slave_ready(size_t timeout_ms);
 void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rxbuff);
 void airlink_wait_and_prepare_data(uint8_t *txbuff);
 
@@ -317,6 +317,8 @@ int luat_airlink_wakeup_irqmode(luat_airlink_irq_ctx_t *ctx);
 int luat_airlink_has_wifi(void);
 
 uint32_t luat_airlink_sversion(void);
+
+extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
 

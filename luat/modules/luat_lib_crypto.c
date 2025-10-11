@@ -288,21 +288,25 @@ int l_crypto_cipher_decrypt(lua_State *L) {
 计算CRC16
 @api crypto.crc16(method, data, poly, initial, finally, inReversem outReverse)
 @string CRC16模式（"IBM","MAXIM","USB","MODBUS","CCITT","CCITT-FALSE","X25","XMODEM","DNP","USER-DEFINED"）
-@string 字符串
-@int poly值
-@int initial值
-@int finally值
+@string 字符串或者zbuff对象
+@int poly值,默认0x0000,范围0-0xFFFF
+@int initial值,默认0x0000,范围0-0xFFFF
+@int finally值,默认0x0000,范围0-0xFFFF
 @int 输入反转,1反转,默认0不反转
-@int 输入反转,1反转,默认0不反转
+@int 输出反转,1反转,默认0不反转
 @return int 对应的CRC16值
 @usage
--- 计算CRC16
-local crc = crypto.crc16("")
+-- 计算字符串的CRC16
+local crc = crypto.crc16("dfadfasfdsafdasf")
+-- 使用zbuff时,会计算used之后的全部数据,建议使用前seek(0)
+local zbuff = zbuff.create("dfadfasfdsafdasf")
+zbuff:seek(0)
+crc = crypto.crc16(zbuff)
  */
 static int l_crypto_crc16(lua_State *L)
 {
-    size_t inputlen;
-    const unsigned char *inputData;
+    size_t inputlen = 0;
+    const unsigned char *inputData = NULL;
     const char  *inputmethod = (const char*)luaL_checkstring(L, 1);
     if(lua_isuserdata(L, 2))
     {

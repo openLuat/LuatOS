@@ -9,7 +9,7 @@
 #include "luat_lvgl.h"
 #include "lvgl.h"
 #include "luat_mem.h"
-
+#include "luat_fs.h"
 #include "luat_lvgl_fonts.h"
 #include "luat_spi.h"
 
@@ -89,7 +89,7 @@ int luat_lv_font_get(lua_State *L) {
 }
 
 /*
-从文件系统加载字体
+从文件系统加载字体(lvgl官方bin和高通矢量字库芯片使用,lvgl官方bin需要完整加载占用ram极大)
 @api lvgl.font_load(path/spi_device,size,bpp,thickness,cache_size,sty_zh,sty_en)
 @string/userdata 字体路径/spi_device (spi_device为使用外置高通矢量字库芯片)
 @number size 可选,字号 16-192 默认16(使用高通矢量字库)
@@ -172,6 +172,61 @@ int luat_lv_font_free(lua_State *L) {
     if (font) {
         if (lv_font_is_gt(font)) lv_font_del_gt(font);
         else lv_font_free(font);
+    }
+    return 0;
+}
+
+
+/*
+从文件系统加载字体(lvgl_conv_tool制作的字体文件,占用ram小,无需完整加载)
+@api lvgl.font_load_ex(path)
+@string 字体路径
+@return userdata lvgl字体指针
+@usage
+-- 使用lvgl_conv_tool制作的字体文件
+-- github: https://github.com/Dozingfiretruck/lvgl_conv_tool
+-- gitee: https://gitee.com/Dozingfiretruck/lvgl_conv_tool
+
+local font = lvgl.font_load_ex("/font_32.bin")
+*/
+int luat_lv_font_load_ex(lua_State *L) {
+    lv_font_t *font = NULL;
+    if (lua_isstring(L, 1)) {
+        const char* font_path = luaL_checkstring(L, 1);
+        FILE* font_file = luat_fs_fopen(font_path, "rb");
+        if (font_file == NULL) {
+            LLOGE("open font file fail %s", font_path);
+            return 0;
+        }
+        extern lv_font_t* custom_get_font(FILE* font_file);
+        font = custom_get_font(font_file);
+        if (!font) {
+            LLOGE("从文件加载lvgl字体 %s 失败", font_path);
+        }
+    }
+    if (font) {
+        lua_pushlightuserdata(L, font);
+        return 1;
+    }
+    return 0;
+}
+
+/*
+释放字体,慎用!!!仅通过font_load_ex加载的字体允许卸载,通过font_get获取的字体不允许卸载
+@api lvgl.font_load_ex(font)
+@string 字体路径
+@return userdata 字体指针
+@usage
+local font = lvgl.font_load_ex("/font_32.bin")
+-- N N N N 操作
+-- 确定字体不被使用,不被引用,且内存紧张需要释放
+lvgl.font_free_ex(font)
+*/
+int luat_lv_font_free_ex(lua_State *L) {
+    lv_font_t* font = lua_touserdata(L, 1);
+    if (font) {
+        extern void custom_free_font(lv_font_t* custom_font);
+        custom_free_font(font);
     }
     return 0;
 }

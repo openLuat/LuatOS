@@ -13,8 +13,6 @@
 #define LUAT_LOG_TAG "drv.bt"
 #include "luat_log.h"
 
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
-
 int luat_bluetooth_init(void* args) {
     LLOGD("执行luat_bluetooth_init");
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();

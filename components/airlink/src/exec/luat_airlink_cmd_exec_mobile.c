@@ -15,9 +15,6 @@
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
-
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
-
 int luat_airlink_cmd_exec_mobile_imei(luat_airlink_cmd_t* cmd, void* userdata) {
     int ret = 0;
     uint8_t index = cmd->data[8];

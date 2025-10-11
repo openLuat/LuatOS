@@ -33,7 +33,6 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_spi_task_mode;
 extern uint32_t g_airlink_pause;
-extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 /*

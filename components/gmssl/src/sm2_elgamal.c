@@ -105,7 +105,7 @@ int sm2_elgamal_solve_ecdlp(const SM2_PRE_COMPUTE table[1<<16], const SM2_POINT 
 		}
 		sm2_jacobian_point_add(&P, &P, &Q);
 	}
-	printf("gaint steps failed\n");
+	//printf("gaint steps failed\n");
 
 ok:
 	i = j = 0;

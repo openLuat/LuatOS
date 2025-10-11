@@ -71,7 +71,7 @@ end
 
 -- 下载升级文件，支持断点续传
 local function download_file(url)
-    local file_path = "/ram/fotawifi.bin"
+    local file_path = "/luadb/fotawifi.bin"
     local downloaded_size = 0
 
     -- 检查文件是否存在，获取已下载的大小

@@ -87,7 +87,7 @@
 
 2、TYPE-C USB数据线一根
 
-3、AirMICROSD_1000模块一个和SD卡一张
+3、AirMICROSD_1010模块一个和SD卡一张
 
 4、Air780EHM/780EGH/780EHV核心板和数据线的硬件接线方式为
 
@@ -95,16 +95,16 @@
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-5、Air780EHM核心板和AirMICROSD_1000模块接线方式
+5、Air780EHM核心板和AirMICROSD_1010模块接线方式
 
-|   Air780EHM     |    AirMICROSD_1000    |
+|   Air780EHM     |    AirMICROSD_1010    |
 | --------------- | --------------------- |
 |  GND(任意)      |          GND          |
-|  VDD_EXT        |          VCC          |
-|  GPIO8/SPI0_CS  |        CS,片选        |
-|  SPI0_SLK       |        CLK,时钟       |
-|  SPI0_MOSI      |  MOSI,主机输出,从机输入|
-|  SPI0_MISO      |  MISO,主机输入,从机输出|
+|  VDD_EXT        |          3V3         |
+|  GPIO8/SPI0_CS  |        spi_cs       |
+|  SPI0_SLK       |        spi_clk,时钟       |
+|  SPI0_MOSI      |  spi_mosi,主机输出,从机输入|
+|  SPI0_MISO      |  spi_miso,主机输入,从机输出|
 
 ### 2、Air780EHM开发板演示环境
 
@@ -112,7 +112,7 @@
 
 2、TYPE-C USB数据线一根
 
-3、AirMICROSD_1000模块一个和SD卡一张
+3、AirMICROSD_1010模块一个和SD卡一张
 
 4、Air780EHM/780EGH/780EHV开发板和数据线的硬件接线方式为
 
@@ -120,16 +120,15 @@
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-5、Air780EHM开发板和AirMICROSD_1000模块接线方式
-
-|   Air780EHM     |    AirMICROSD_1000    |
+5、Air780EHM开发板和AirMICROSD_1010模块接线方式
+|   Air780EHM     |    AirMICROSD_1010    |
 | --------------- | --------------------- |
 |  GND(任意)      |          GND          |
-|  VDD_EXT        |          VCC          |
-|  GPIO16/SPI0_CS  |        CS,片选        |
-|  SPI0_SLK       |        CLK,时钟       |
-|  SPI0_MOSI      |  MOSI,主机输出,从机输入|
-|  SPI0_MISO      |  MISO,主机输入,从机输出|
+|  VDD_EXT        |          3V3         |
+|  GPIO16/SPI0_CS  |        spi_cs       |
+|  SPI0_SLK       |        spi_clk,时钟       |
+|  SPI0_MOSI      |  spi_mosi,主机输出,从机输入|
+|  SPI0_MISO      |  spi_miso,主机输入,从机输出|
 
 ## 演示软件环境
 

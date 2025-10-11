@@ -135,11 +135,10 @@ log.info("adxl34x_data", "adxl34x_data.x"..(adxl34x_data.x),"adxl34x_data.y"..(a
 function adxl34x.get_data()
     local accel={x=nil,y=nil,z=nil}
     i2c.send(i2cid, ADXL34X_ADDRESS_ADR,ADXL34X_DATAX0)
-    _,accel.x = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
-    i2c.send(i2cid, ADXL34X_ADDRESS_ADR,ADXL34X_DATAY0)
-    _,accel.y = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
-    i2c.send(i2cid, ADXL34X_ADDRESS_ADR,ADXL34X_DATAZ0)
-    _,accel.z = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
+    local rcvData = i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 6)
+    if rcvData ~= nil and #rcvData == 6 then
+        accel.x, accel.y, accel.z = string.unpack("<hhh", rcvData)
+    end
     return accel
 end
 

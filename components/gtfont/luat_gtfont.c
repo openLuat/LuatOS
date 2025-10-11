@@ -27,9 +27,7 @@ unsigned char r_dat_bat(unsigned long address,unsigned long DataLen,unsigned cha
         (uint8_t)((address)>>8),
         (uint8_t)(address)
     };
-    luat_spi_lock(gt_spi_dev->bus_id);
     luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)pBuff, DataLen);
-    luat_spi_unlock(gt_spi_dev->bus_id);
     #if LUAT_GT_DEBUG
     LLOGD("r_dat_bat addr %08X len %d pBuff %X", address, DataLen,*pBuff);
     for(int i = 0; i < DataLen;i++){
@@ -51,9 +49,7 @@ unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned long byt
         (uint8_t)((address)>>8),
         (uint8_t)(address)
     };
-    luat_spi_lock(gt_spi_dev->bus_id);
     luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)p_arr, byte_long);
-    luat_spi_unlock(gt_spi_dev->bus_id);
     // return p_arr[0];
     return 1;
 }
@@ -62,9 +58,7 @@ unsigned char gt_read_data(unsigned char* sendbuf , unsigned char sendlen , unsi
 {
     if (gt_spi_dev == NULL)
         return 0;
-    luat_spi_lock(gt_spi_dev->bus_id);
     luat_spi_device_transfer(gt_spi_dev, (const char *)sendbuf, sendlen,(char *)receivebuf, receivelen);
-    luat_spi_unlock(gt_spi_dev->bus_id);
     #if LUAT_GT_DEBUG
     LLOGD("gt_read_data sendlen:%d receivelen:%d",sendlen,receivelen);
     for(int i = 0; i < sendlen;i++){

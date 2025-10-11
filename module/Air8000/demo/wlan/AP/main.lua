@@ -39,11 +39,6 @@ sys.subscribe("WLAN_AP_INC", function(evt, data)
     log.info("收到AP事件", evt, data and data:toHex())
 end)
 
-
-
--- 在设备启动时检查网络状态
-sys.taskInit(wait_ip_ready)
-
 sys.taskInit(function()
     log.info("开始AP 测试...")
     wlan.init()

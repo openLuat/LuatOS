@@ -68,5 +68,7 @@ void luat_mcu_set_hardfault_mode(int mode);
  * @return 无
  */
 void luat_mcu_xtal_ref_output(uint8_t main_enable, uint8_t slow_32k_enable);
+
+int luat_mcu_muid(char* buf);
 #endif
 

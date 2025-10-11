@@ -13,17 +13,10 @@
 - 初始化项目信息和版本号
 - 初始化看门狗，并定时喂狗
 - 启动一个循环定时器，每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况方便分析内存使用是否有异常
-- 加载ch390_manager模块（通过require "ch390_manager"）。
 - 加载tfcard_app模块（通过require "tfcard_app"）
 - 加载http_download_file模块（通过require "http_download_file"）
 - 最后运行sys.run()。
 
-### 2、CH390控制模块（ch390_manager.lua）
-
-在Air780EHM/EHV/EGH开发板上，spi0上同时外挂了tf卡和ch390h以太网芯片两种spi从设备，这两种外设通过不同的cs引脚区分；
-测试tf功能前，需要将ch390h的cs引脚拉高，这样可以保证ch390h不会干扰到tf功能；
-- 控制CH390供电引脚（GPIO20）的开关
-- 控制CH390片选引脚（GPIO8）的电平状态
 
 
 ### 3、TF卡核心演示模块（tfcard_app.lua）
@@ -106,29 +99,6 @@
 |  SPI0_MOSI      |  spi_mosi,主机输出,从机输入|
 |  SPI0_MISO      |  spi_miso,主机输入,从机输出|
 
-### 2、Air780EHM开发板演示环境
-
-1、Air780EHM开发板一块(Air780EHM/780EGH/780EHV三种模块的开发板接线方式相同，这里以Air780EHM为例)
-
-2、TYPE-C USB数据线一根
-
-3、AirMICROSD_1010模块一个和SD卡一张
-
-4、Air780EHM/780EGH/780EHV开发板和数据线的硬件接线方式为
-
-- Air780EHM开发板通过TYPE-C USB口供电；（开发板USB旁边的开关拨到USB供电一端）
-
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-
-5、Air780EHM开发板和AirMICROSD_1010模块接线方式
-|   Air780EHM     |    AirMICROSD_1010    |
-| --------------- | --------------------- |
-|  GND(任意)      |          GND          |
-|  VDD_EXT        |          3V3         |
-|  GPIO16/SPI0_CS  |        spi_cs       |
-|  SPI0_SLK       |        spi_clk,时钟       |
-|  SPI0_MOSI      |  spi_mosi,主机输出,从机输入|
-|  SPI0_MISO      |  spi_miso,主机输入,从机输出|
 
 ## 演示软件环境
 

@@ -1,4 +1,3 @@
-
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
@@ -11,7 +10,8 @@
 通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
 2. lf_fs
 通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
-
+3. sfud_test
+通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud.lua 文件
 ]]
 
 
@@ -75,7 +75,8 @@ end
 -- 加载lf_fs功能模块
 require"lf_fs"
 
-
+-- 加载sfud功能模块
+--require"sfud_test"
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

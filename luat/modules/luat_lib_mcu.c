@@ -327,7 +327,6 @@ static int l_mcu_alt_ctrl(lua_State* L)
 @api mcu.ticks2(mode)
 @int 模式, 看后面的用法说明
 @return int 根据mode的不同,返回值的含义不同
-@return int 根据mode的不同,返回值的含义不同
 @usage
 -- 本函数于2024.5.7新增
 -- 与mcu.ticks()的区别是,底层计数器是64bit的, 在可预计的将来不会溢出
@@ -400,6 +399,14 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
     return 0;
 }
 
+static int l_mcu_muid(lua_State* L) {
+	char muid[20];
+	luat_mcu_muid(muid);
+	// LLOGD("mcu muid %s", muid);
+	lua_pushstring(L, muid);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
@@ -422,6 +429,7 @@ static const rotable_Reg_t reg_mcu[] =
 #endif
     { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
 	{ "XTALRefOutput",         ROREG_FUNC(l_mcu_xtal_ref_output)},
+	{ "muid",         	ROREG_FUNC(l_mcu_muid)},
 // #endif
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },

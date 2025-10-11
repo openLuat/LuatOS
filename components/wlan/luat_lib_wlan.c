@@ -481,7 +481,7 @@ static int l_wlan_ap_start(lua_State *L) {
 /**
 关闭AP功能
 @api wlan.stopAP()
-@return bool 成功创建返回true,否则返回false
+@return bool 成功返回true,否则返回false
 @usage
 wlan.stopAP()
 */

@@ -576,6 +576,10 @@ function exnetif.set_priority_order(networkConfigs)
             -- 开启4G
             table.insert(new_priority, socket.LWIP_GP)
             available[socket.LWIP_GP] = connection_states.CONNECTING
+            if config.auto_socket_switch ~=nil then
+                auto_socket_switch = config.auto_socket_switch
+                -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+            end
         end
     end
 

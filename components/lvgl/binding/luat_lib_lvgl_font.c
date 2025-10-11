@@ -9,7 +9,7 @@
 #include "luat_lvgl.h"
 #include "lvgl.h"
 #include "luat_mem.h"
-
+#include "luat_fs.h"
 #include "luat_lvgl_fonts.h"
 #include "luat_spi.h"
 
@@ -172,6 +172,37 @@ int luat_lv_font_free(lua_State *L) {
     if (font) {
         if (lv_font_is_gt(font)) lv_font_del_gt(font);
         else lv_font_free(font);
+    }
+    return 0;
+}
+
+int luat_lv_font_load_ex(lua_State *L) {
+    lv_font_t *font = NULL;
+    if (lua_isstring(L, 1)) {
+        const char* font_path = luaL_checkstring(L, 1);
+        FILE* font_file = luat_fs_fopen(font_path, "rb");
+        if (font_file == NULL) {
+            LLOGE("open font file fail %s", font_path);
+            return 0;
+        }
+        extern lv_font_t* custom_get_font(FILE* font_file);
+        font = custom_get_font(font_file);
+        if (!font) {
+            LLOGE("从文件加载lvgl字体 %s 失败", font_path);
+        }
+    }
+    if (font) {
+        lua_pushlightuserdata(L, font);
+        return 1;
+    }
+    return 0;
+}
+
+int luat_lv_font_free_ex(lua_State *L) {
+    lv_font_t* font = lua_touserdata(L, 1);
+    if (font) {
+        extern void custom_free_font(lv_font_t* custom_font);
+        custom_free_font(font);
     }
     return 0;
 }

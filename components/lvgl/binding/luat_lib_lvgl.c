@@ -1339,6 +1339,9 @@ LUAT_LV_EX_RLT
 {"font_load", ROREG_FUNC(luat_lv_font_load)},
 {"font_free", ROREG_FUNC(luat_lv_font_free)},
 
+{"font_load_ex", ROREG_FUNC(luat_lv_font_load_ex)},
+{"font_free_ex", ROREG_FUNC(luat_lv_font_free_ex)},
+
 // 结构体
 #if LV_USE_ANIMATION
 {"anim_t", ROREG_FUNC(luat_lv_struct_anim_t)},

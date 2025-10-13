@@ -234,7 +234,6 @@ LUAT_WEAK void luat_mcu_set_hardfault_mode(int mode) {;}
 LUAT_WEAK void luat_mcu_xtal_ref_output(uint8_t main_enable, uint8_t slow_32k_enable) {;}
 LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){return -1;}
 LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){return -1;}
-LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
 #endif
 /*
 mcu死机时处理模式
@@ -401,6 +400,7 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
     return 0;
 }
 
+LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
 static int l_mcu_muid(lua_State* L) {
 	char muid[20];
 	luat_mcu_muid(muid);

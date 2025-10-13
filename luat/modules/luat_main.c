@@ -37,8 +37,8 @@ static luat_rtos_timer_t luar_error_timer;
 static char model[32] = {0};
 
 static LUAT_RT_RET_TYPE l_timer_error_cb(LUAT_RT_CB_PARAM) {
-  LLOGE("未找到main.lua,请刷入脚本以运行程序,luatos快速入门教程: https://wiki.luatos.com/boardGuide/roadmap.html");
-  LLOGE("The main.lua not found, please flash the script to run the program, luatos quick start: https://wiki.luatos.com/boardGuide/roadmap.html");
+  LLOGE("未找到main.lua,请刷入脚本以运行程序,luatos快速入门教程: https://docs.openluat.com");
+  LLOGE("The main.lua not found, please flash the script to run the program, luatos quick start: https://docs.openluat.com");
 }
 
 int luat_search_module(const char* name, char* filename);

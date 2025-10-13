@@ -49,7 +49,7 @@ static int check_init(void) {
 /*
 eink显示屏初始化
 @api eink.init(tp, args,spi_device)
-@number eink类型，当前支持：https://wiki.luatos.com/api/eink.html#id1
+@number eink类型，当前支持型号请查阅常量定义
 @table 附加参数,与具体设备有关：<br>pin_busy（busy）<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：eink数据/命令选择引脚<br>pin_rst：eink复位引脚
 @userdata spi设备,当port = "device"时有效
 @usage

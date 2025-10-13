@@ -55,7 +55,6 @@ sys.taskInit(function()
     -- lcd.autoFlush(false)
     while 1 do
         lcd.clear() --全局刷屏
-        log.info("wiki API 文档", "https://wiki.luatos.com/api/lcd.html")
         if lcd.showImage then
             -- 注意, jpg需要是常规格式, 不能是渐进式JPG
             -- 如果无法解码, 可以用画图工具另存为,新文件就能解码了

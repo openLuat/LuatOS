@@ -24,7 +24,6 @@ local function lcd_task()
     while 1 do
         lcd.clear()
         log.info("合宙 Air8000 LCD演示")
-        -- API 文档 https://wiki.luatos.com/api/lcd.html
         if io.exists(show_picture) ~= true then
             log.info("picture.jpg 不存在，请检查下载的文件")
             sys.wait(100)

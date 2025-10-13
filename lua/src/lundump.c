@@ -420,8 +420,10 @@ static void checkliteral (LoadState *S, const char *s, const char *msg) {
 
 
 static void fchecksize (LoadState *S, size_t size, const char *tname) {
-  if (LoadByte(S) != size)
+  if (LoadByte(S) != size) {
+    LLOGD("固件和脚本的bit位不匹配,请连同底层固件重新下载");
     error(S, luaO_pushfstring(S->L, "%s size mismatch in", tname));
+  }
 }
 
 

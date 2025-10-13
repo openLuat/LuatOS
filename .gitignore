@@ -93,3 +93,10 @@ bsp/win32/build/
 bsp/win32/release/
 bsp/pico/build/
 bsp/linux/build/
+
+
+build/
+*.bat
+cmd.lnk
+
+luat/demo/

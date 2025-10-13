@@ -50,13 +50,19 @@ static int check_init(void) {
 eink显示屏初始化
 @api eink.init(tp, args,spi_device)
 @number eink类型，当前支持型号请查阅常量定义
-@table 附加参数,与具体设备有关：<br>pin_busy（busy）<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：eink数据/命令选择引脚<br>pin_rst：eink复位引脚
+@table 附加参数
 @userdata spi设备,当port = "device"时有效
 @usage
 -- 初始化spi0的eink.MODEL_4in2bc) 注意:eink初始化之前需要先初始化spi
 spi_eink = spi.deviceSetup(0,20,0,0,8,20000000,spi.MSB,1,1)
 log.info("eink.init",
 eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
+-- args参数说明
+-- port：spi端口,例如0,1,2...如果为device方式则为字符串"device"
+-- pin_dc：eink数据/命令选择引脚
+-- pin_rst：eink复位引脚
+-- pin_busy：eink忙引脚
+-- mode：1全屏模式,0局部刷新模式,可选,默认全屏模式
 */
 static int l_eink_init(lua_State* L) {
     if (lua_type(L, 3) == LUA_TUSERDATA){

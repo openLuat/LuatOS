@@ -1,6 +1,0 @@
-{
-    "pins" : [
-        [16, "PWM4"]
-    ],
-    "pins_debug" : true
-}

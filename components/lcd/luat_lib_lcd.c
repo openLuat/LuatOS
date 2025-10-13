@@ -1260,7 +1260,7 @@ static int l_lcd_draw_gtfont_gbk(lua_State *L) {
         LLOGE("lcd not init");
         return 0;
     }
-    int buff_size = size*size/8;
+    int buff_size = size*size/8+512;
     unsigned char* buf = luat_heap_malloc(buff_size);
     if (buf == NULL){
         LLOGE("malloc error");

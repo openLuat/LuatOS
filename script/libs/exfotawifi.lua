@@ -71,7 +71,13 @@ end
 
 -- 下载升级文件，支持断点续传
 local function download_file(url)
-    local file_path = "/luadb/fotawifi.bin"
+    local download_dir = "/http_download/"
+    local result, reason = io.mkdir(download_dir)
+    if not result then
+        log.error("download_file","io.mkdir error", reason)
+    end
+
+    local file_path = download_dir.."fotawifi.bin"
     local downloaded_size = 0
 
     -- 检查文件是否存在，获取已下载的大小

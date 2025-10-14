@@ -45,8 +45,10 @@ function ble_ibeacon()
         intv_max = 120, -- 广播间隔最大值, 单位为0.625ms, 最小值为20, 最大值为10240
         adv_data = { -- 支持表格形式, 也支持字符串形式(255字节以内)
             {ble.FLAGS, string.char(0x06)}, 
+            {ble.COMPLETE_LOCAL_NAME, "LuatOS"}, -- 广播本地名称
             {ble.MANUFACTURER_SPECIFIC_DATA, adv_data} 
-        }
+        },
+        adv_type = ble.ADV_TYPE_EXTENDED
     })
 
     sys.wait(100)

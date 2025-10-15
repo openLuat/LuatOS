@@ -285,16 +285,19 @@ void luat_mreport_send(void) {
     int adapter_index = network_register_get_default();
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		LLOGE("尚无已注册的网络适配器");
+        cJSON_Delete(mreport_data);
 		return;
 	}
     luat_netdrv_t* netdrv = luat_netdrv_get(adapter_index);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        cJSON_Delete(mreport_data);
         return;
     }
 
     struct netif *netif = netdrv->netif;
     if (ip_addr_isany(&netif->ip_addr)) {
         LLOGD("还没联网");
+        cJSON_Delete(mreport_data);
         return;
     }
 

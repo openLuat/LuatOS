@@ -166,7 +166,7 @@ function exfotawifi.request()
             log.warn("exfotawifi", "升级任务正在执行中，请勿重复调用")
             return false
         end
-        
+
         is_request = true
         fota_result = false
 
@@ -176,7 +176,9 @@ function exfotawifi.request()
         local version = is_nil(airlink.sver()) and "未知版本" or airlink.sver()
         local muid = is_nil(mobile.muid()) and "未知muid" or mobile.muid()
         local hw = is_nil(hmeta.hwver()) and "未知硬件版本" or hmeta.hwver()
-        local request_url = string.format("%s?imei=%s&version=%s&muid=%s&hw=%s", url, imei, version, muid, hw)
+        local coreversion = is_nil(rtos.version()) and "未知4G固件版本" or rtos.version()
+        local model = is_nil(hmeta.model()) and "未知4G设备型号" or hmeta.model()
+        local request_url = string.format("%s?imei=%s&version=%s&muid=%s&hw=%s&coreversion=%s&model=%s", url, imei, version, muid, hw, coreversion, model)
 
         log.info("exfotawifi", "正在请求升级信息, URL:", request_url)
 

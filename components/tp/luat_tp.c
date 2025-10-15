@@ -58,7 +58,7 @@ void luat_tp_task_entry(void* param){
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
     if (g_s_tp_task_handle == NULL){
-        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 80, "tp", luat_tp_task_entry, NULL, 32);
+        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 27, "tp", luat_tp_task_entry, NULL, 32);
         if (ret){
             g_s_tp_task_handle = NULL;
             LLOGE("tp task create failed!");

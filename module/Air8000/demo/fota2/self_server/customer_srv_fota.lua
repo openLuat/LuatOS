@@ -97,7 +97,7 @@ local opts = {
 
     -- 请求的版本号, 合宙IOT有一套版本号体系,不传就是合宙规则, 自建服务器的话当然是自行约定版本号了
     version = ""
-    -- 其他更多参数, 请查阅libfota2的文档 https://wiki.luatos.com/api/libs/libfota2.html
+    -- 其他更多参数, 请查阅libfota2的文档 https://docs.openluat.com/osapi/ext/libfota2/
 }
 
 

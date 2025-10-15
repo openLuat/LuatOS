@@ -1,15 +1,31 @@
 --[[
 @module exfotawifi
 @summary 用于Air8000/8000A/8000W型号模组自动升级WIFI
-@version 1.0.2
-@date    2025.9.16
+@version 1.0.3
+@date    2025.9.23
 @author  拓毅恒
 @usage
-注：使用时在中直接调用 require"exfotawifi" 即可开始执行WiFi升级任务
+注：使用时在创建的一个task处理函数中直接调用exfotawifi.request()即可开始执行WiFi升级任务
 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
 
 -- 用法实例
 local exfotawifi = require("exfotawifi")
+
+local function fota_wifi_task()
+    -- ...此处省略很多代码
+
+    local result = exfotawifi.request()
+    if result then
+        log.info("exfotawifi", "升级任务执行成功")
+    else
+        log.info("exfotawifi", "升级任务执行失败")
+    end
+
+    -- ...此处省略很多代码
+end
+
+-- 启动WiFi自动更新任务
+sys.taskInit(fota_wifi_task)
 ]]
 local exfotawifi = {}
 local is_request = false -- 标记是否正在执行request任务
@@ -55,7 +71,13 @@ end
 
 -- 下载升级文件，支持断点续传
 local function download_file(url)
-    local file_path = "/ram/fotawifi.bin"
+    local download_dir = "/http_download/"
+    local result, reason = io.mkdir(download_dir)
+    if not result then
+        log.error("download_file","io.mkdir error", reason)
+    end
+
+    local file_path = download_dir.."fotawifi.bin"
     local downloaded_size = 0
 
     -- 检查文件是否存在，获取已下载的大小
@@ -144,7 +166,7 @@ function exfotawifi.request()
             log.warn("exfotawifi", "升级任务正在执行中，请勿重复调用")
             return false
         end
-        
+
         is_request = true
         fota_result = false
 
@@ -154,7 +176,9 @@ function exfotawifi.request()
         local version = is_nil(airlink.sver()) and "未知版本" or airlink.sver()
         local muid = is_nil(mobile.muid()) and "未知muid" or mobile.muid()
         local hw = is_nil(hmeta.hwver()) and "未知硬件版本" or hmeta.hwver()
-        local request_url = string.format("%s?imei=%s&version=%s&muid=%s&hw=%s", url, imei, version, muid, hw)
+        local coreversion = is_nil(rtos.version()) and "未知4G固件版本" or rtos.version()
+        local model = is_nil(hmeta.model()) and "未知4G设备型号" or hmeta.model()
+        local request_url = string.format("%s?imei=%s&version=%s&muid=%s&hw=%s&coreversion=%s&model=%s", url, imei, version, muid, hw, coreversion, model)
 
         log.info("exfotawifi", "正在请求升级信息, URL:", request_url)
 
@@ -201,8 +225,5 @@ function exfotawifi.request()
     is_request = false
     return fota_result
 end
-
--- 启动WiFi fota任务
-sys.taskInit(exfotawifi.request)
 
 return exfotawifi

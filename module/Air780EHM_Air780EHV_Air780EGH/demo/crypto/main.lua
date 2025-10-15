@@ -45,7 +45,7 @@ sys.taskInit(function()
 	local data_decrypt = crypto.cipher_decrypt("AES-128-ECB", "ZERO", data_encrypt, "HZBIT@WLW/YSBKEY")
 	log.info("AES", "aes-128-ecb", data_decrypt)
 
-    -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
+    -- AES加密, 未经Hex编码. AES-128-ECB 算法
     local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456", "1234567890123456")
     local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > 123456", "1234567890123456", "1234567890666666")
     log.info("AES", "aes-128-ecb", data_encrypt:toHex())

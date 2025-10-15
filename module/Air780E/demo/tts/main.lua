@@ -42,8 +42,6 @@ VERSION = "2.0.0"
 以780E开发板为例, 需要1.5版本或以上,团购版本均为1.5或以上.
 1.4版本SPI分布有所不同, 注意区分.
 
-https://wiki.luatos.com/chips/air780e/board.html
-
  xx脚指开发板pinout图上的顺序编号, 非GPIO编号
 
 Flash -- 开发板

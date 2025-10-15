@@ -13,9 +13,7 @@ TLS 1.0 支持
 TLS 1.1 支持
 TLS 1.2 支持
 TLS 1.3 默认未开启, 未测试
-SSL 3.0, 默认禁用
 
-加密套件请查询：https://wiki.luatos.com/chips/air780e/network.html#tls
 
 如需使用ipv6, 请查阅 demo/ipv6, 本demo只涉及ipv4
 ]]

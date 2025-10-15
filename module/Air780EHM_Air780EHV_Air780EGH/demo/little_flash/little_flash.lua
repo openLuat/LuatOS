@@ -42,7 +42,7 @@ function little_flash_func()
             log.info("fsstat", fs.fsstat("/little_flash"))
 
             -- 挂载成功后，可以像操作文件一样操作
-            --以写模式打开文件，并返回文件句柄，io接口含义可参考lua5.3手册https://wiki.luatos.com/_static/lua53doc/contents.html
+            --以写模式打开文件，并返回文件句柄
             local f = io.open("/little_flash/test", "w")
             local write_str = os.date()
             log.info("/little_flash/test文件写入数据",write_str)

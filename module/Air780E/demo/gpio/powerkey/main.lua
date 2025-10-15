@@ -9,7 +9,7 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 local function pinx()
-    -- AIR780E                          -- 35是虚拟GPIO，见https://wiki.luatos.com/chips/air780e/iomux.html#id1
+    -- AIR780E                          -- 35是虚拟GPIO
     return 35
 end
 

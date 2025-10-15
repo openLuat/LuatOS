@@ -44,7 +44,7 @@ else
         end
         pm.power(pm.USB, false)-- 如果是插着USB测试，需要关闭USB
         pm.force(pm.LIGHT)
-        -- 如果要测试保持网络连接状态下的功耗，需要iotpower来测试 https://wiki.luatos.com/iotpower/power/index.html 购买链接 https://item.taobao.com/item.htm?id=679899121798
+        -- 如果要测试保持网络连接状态下的功耗，需要iotpower来测试
         -- 如果只是看普通休眠状态下的底电流，需要进入飞行模式
         -- log.info("普通休眠测试，进入飞行模式来保持稳定的电流")
         -- mobile.flymode(0, true)

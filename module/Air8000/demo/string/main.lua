@@ -91,9 +91,6 @@ sys.taskInit(function ()
     tmp = str:split("/", true) 
     log.info("str.split", #tmp, json.encode(tmp))								--日志输出：6	["","tmp","","def","1234",""]
 
-    -- 更多资料
-    -- https://wiki.luatos.com/develop/hex_string.html
-    -- https://wiki.luatos.com/_static/lua53doc/manual.html#3.4
 end)
 -- 这里演示4G模块上网后，会自动点亮网络灯，方便用户判断模块是否正常开机
 sys.taskInit(function()

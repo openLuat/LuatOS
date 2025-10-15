@@ -3,7 +3,7 @@
 @summary netif_app 网络管理模块,开启多网融合功能，wifi提供网络供wifi和以太网设备上网
 @version 1.0
 @date    2025.09.17
-@author  魏健强
+@author  王城钧
 @usage
 本文件为网络管理模块，核心业务逻辑为：
 1.设置多网融合功能，wifi提供网络供wifi和以太网设备上网

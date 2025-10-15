@@ -327,6 +327,7 @@ static int l_mcu_alt_ctrl(lua_State* L)
 @api mcu.ticks2(mode)
 @int 模式, 看后面的用法说明
 @return int 根据mode的不同,返回值的含义不同
+@return int 根据mode的不同,返回值的含义不同
 @usage
 -- 本函数于2024.5.7新增
 -- 与mcu.ticks()的区别是,底层计数器是64bit的, 在可预计的将来不会溢出
@@ -399,6 +400,7 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
     return 0;
 }
 
+LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
 static int l_mcu_muid(lua_State* L) {
 	char muid[20];
 	luat_mcu_muid(muid);

@@ -83,9 +83,6 @@ sys.taskInit(function ()
     tmp = str:split("/", true) 
     log.info("str.split", #tmp, json.encode(tmp))
 
-    -- 更多资料
-    -- https://wiki.luatos.com/develop/hex_string.html
-    -- https://wiki.luatos.com/_static/lua53doc/manual.html#3.4
 end)
 
 -- 用户代码已结束---------------------------------------------

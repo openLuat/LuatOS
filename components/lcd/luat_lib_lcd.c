@@ -1157,11 +1157,12 @@ static int l_lcd_set_fontfile(lua_State *L) {
 }
 
 /*
-获取字符串宽度
+获取字符串宽度 
 @api lcd.getStrWidth(str)
 @string str 要测量的字符串
 @return int 字符串的像素宽度
 @usage
+-- 2025-10-15 zengshuai添加
 -- 设置字体
 lcd.setFont(lcd.font_opposansm12_chinese)
 -- 获取字符串宽度

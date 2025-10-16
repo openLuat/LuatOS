@@ -12,33 +12,31 @@
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection.jpg)
 
-![](https://docs.openluat.com/air8101/product/file/AirPHY_1000/hw_connection1.jpg)
+
+![](https://docs.openLuat.com/cdn/image/8101_AirETH1000.jpg)
 
 1、Air8101核心板
 
-2、AirPHY_1000配件板
+2、AirETH_1000配件板
 
 3、公对母的杜邦线11根（连接核心板和配件板）
 
 4、网线1根（一端接配件板，一端接路由器）
 
-5、Air8101核心板和AirPHY_1000配件板的硬件接线方式为
+5、Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
 - Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
 
-Air8101核心板和AirETH_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirETH_1000配件板 |
-| ---------- | -------------- |
-| 59/3V3     | 3.3v           |
-| gnd        | gnd            |
-| 28/DCLK    | SCK            |
-| 54/DISP    | CSS            |
-| 55/HSYN    | SDO            |
-| 57/DE      | SDI            |
-| 14/GPIO8   | INT            |
+| Air8101核心板 | AirETH_1000配件板                   |
+| ---------- | -------------------------------- |
+| 59/3V3     | 3.3v |
+| gnd        | gnd                              |
+| 28/DCLK    | SCK                              |
+| 54/DISP    | CSS                              |
+| 55/HSYN    | SDO                              |
+| 57/DE      | SDI                              |
+| 14/GPIO8   | INT                              |
 
 ## 演示软件环境
 

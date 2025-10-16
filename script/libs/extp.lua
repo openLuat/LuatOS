@@ -2,8 +2,8 @@
 --[[
 @module  extp
 @summary 触摸系统拓展库
-@version 1.0
-@date    2025.09.17
+@version 1.0.5
+@date    2025.10.16
 @author  江访
 @usage
 核心业务逻辑为：
@@ -33,7 +33,6 @@
 3、按下至抬手像素移动超过滑动判定阈值，
    如果时间小于500ms判定为单击，按下至抬手的时间大于500ms判定为长按
 
-
 本文件的对外接口有5个：
 1、extp.init(args)                      -- 触摸设备初始化函数
 2、extp.setPublishEnabled(msg_type, enabled) -- 设置消息发布状态
@@ -43,42 +42,41 @@
 
 所有触摸事件均通过sys.publish("baseTouchEvent", event_type, ...)发布
 ]]
+
 local extp = {}
 
 -- 触摸状态变量
-local state = "IDLE"            -- 当前状态：IDLE(空闲), DOWN(按下), MOVE(移动)
-local touch_down_x = 0          -- 按下时的X坐标
-local touch_down_y = 0          -- 按下时的Y坐标
-local touch_down_time = 0       -- 按下时的时间戳
-local slide_threshold = 45      -- 滑动判定阈值（像素）
+local state = "IDLE"             -- 当前状态：IDLE(空闲), DOWN(按下), MOVE(移动)
+local touch_down_x = 0           -- 按下时的X坐标
+local touch_down_y = 0           -- 按下时的Y坐标
+local touch_down_time = 0        -- 按下时的时间戳
+local slide_threshold = 45       -- 滑动判定阈值（像素）
 local long_press_threshold = 500 -- 长按判定阈值（毫秒）
-local slide_direction = nil     -- 滑动方向（用于MOVE状态）
+local slide_direction = nil      -- 滑动方向（用于MOVE状态）
 
 -- 消息发布控制表，默认全部打开
 local publish_control = {
-    RAW_DATA = true,            -- 原始触摸数据
-    TOUCH_DOWN = true,          -- 按下事件
-    MOVE_X = true,              -- 水平移动
-    MOVE_Y = true,              -- 垂直移动
-    SWIPE_LEFT = true,          -- 向左滑动
-    SWIPE_RIGHT = true,         -- 向右滑动
-    SWIPE_UP = true,            -- 向上滑动
-    SWIPE_DOWN = true,          -- 向下滑动
-    SINGLE_TAP = true,          -- 单击
-    LONG_PRESS = true           -- 长按
+    RAW_DATA = true,    -- 原始触摸数据
+    TOUCH_DOWN = true,  -- 按下事件
+    MOVE_X = true,      -- 水平移动
+    MOVE_Y = true,      -- 垂直移动
+    SWIPE_LEFT = true,  -- 向左滑动
+    SWIPE_RIGHT = true, -- 向右滑动
+    SWIPE_UP = true,    -- 向上滑动
+    SWIPE_DOWN = true,  -- 向下滑动
+    SINGLE_TAP = true,  -- 单击
+    LONG_PRESS = true   -- 长按
 }
 
 -- 定义支持的触摸芯片配置
 local tp_configs = {
     cst820 = { i2c_speed = i2c.FAST, tp_model = "cst820" },
-    cst9220 = { i2c_speed = i2c.SLOW, tp_model = "cst9220" },
-    gt9157 = { i2c_speed = i2c.SLOW, tp_model = "gt9157" },
+    gt9157 = { i2c_speed = i2c.FAST, tp_model = "gt9157" },
+    jd9261t = { i2c_speed = i2c.FAST, tp_model = "jd9261t" },
     AirLCD_1001 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
-    AirLCD_1020 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
     Air780EHM_LCD_3 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
     Air780EHM_LCD_4 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
-    jd9261t = { i2c_speed = i2c.SLOW, tp_model = "jd9261t" },
-    jd9261t_inited = { i2c_speed = i2c.SLOW, tp_model = "jd9261t_inited" },
+    AirLCD_1020 = { i2c_speed = i2c.SLOW, tp_model = "gt911" }
 }
 
 -- 设置消息发布状态
@@ -103,16 +101,17 @@ function extp.setPublishEnabled(msg_type, enabled)
 end
 
 -- 获取消息发布状态
--- @param msg_type 消息类型 ("RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
--- @return boolean|table 发布状态 (true/false) 或所有状态表（当msg_type为nil时）
+-- @param msg_type 消息类型 ("all", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
+-- @return boolean|table 发布状态 (true/false) 或所有状态表（当msg_type为"all"时）
 function extp.getPublishEnabled(msg_type)
-    if msg_type == nil then
+    if msg_type == "all" then
+        -- 返回完整的发布控制表
         return publish_control
     elseif publish_control[msg_type] ~= nil then
         return publish_control[msg_type]
     else
         log.error("extp", "未知的消息类型:", msg_type)
-        return false
+        return nil
     end
 end
 
@@ -149,9 +148,10 @@ end
 local function tp_callback(tp_device, tp_data)
     -- 发布原始数据（如果启用）
     if publish_control.RAW_DATA then
-        sys.publish("TP", tp_device, tp_data)  --当前消息
-        -- sys.publish("baseTouchEvent", "RAW_DATA", tp_device, tp_data)
+        sys.publish("TP", tp_device, tp_data) --当前消息
+        -- sys.publish("baseTouchEvent", "RAW_DATA", moveX, 0) 统一格式可以适配此条消息
     end
+
     -- 兼容多种数据结构：数组[1]或直接单点表；字段名兼容 x/x_coordinate, y/y_coordinate
     local p = nil
     if type(tp_data) == "table" then
@@ -162,12 +162,11 @@ local function tp_callback(tp_device, tp_data)
     local event_type = p.event or p.type or p.evt
     local x = p.x or p.x_coordinate or 0
     local y = p.y or p.y_coordinate or 0
-    local ms_h,times = mcu.ticks2(1)
-    local timestamp = times or p.ts or 0
+    local ms_h, ms_l = mcu.ticks2(1)
+    local timestamp = ms_l or p.timestamp or p.ts or 0
     if not event_type then return end
-    
 
-    if event_type == 2 then  -- 抬手事件
+    if event_type == 2 then -- 抬手事件
         if state == "DOWN" or state == "MOVE" then
             local moveX = x - touch_down_x
             local moveY = y - touch_down_y
@@ -205,7 +204,7 @@ local function tp_callback(tp_device, tp_data)
             end
             state = "IDLE"
         end
-    elseif event_type == 1 or event_type == 3 then  -- 按下或移动事件
+    elseif event_type == 1 or event_type == 3 then -- 按下或移动事件
         if state == "IDLE" and event_type == 1 then
             -- 从空闲状态接收到按下事件
             state = "DOWN"
@@ -259,7 +258,7 @@ end
 
 -- 初始化触摸功能
 -- @param args table 初始化参数表，包含以下字段：
---   TP_MODEL: string 触摸芯片型号 ("cst820", "cst9220", "gt9157", "jd9261t", "AirLCD_1001", "Air780EHM_LCD_3", "Air780EHM_LCD_4")
+--   TP_MODEL: string 触摸芯片型号 ("cst820", "gt9157", "jd9261t", "AirLCD_1001", "Air780EHM_LCD_3", "Air780EHM_LCD_4")
 --   i2c_id: number I2C总线ID
 --   pin_rst: number 复位引脚
 --   pin_int: number 中断引脚
@@ -286,12 +285,11 @@ function extp.init(args)
     end
 
     -- 统一初始化流程
-    if type(tp_i2c_id) ~= "userdata" and  config.i2c_speed ~= nil then
+    if type(tp_i2c_id) ~= "userdata" and config.i2c_speed ~= nil then
         i2c.setup(tp_i2c_id, config.i2c_speed)
     end
-
-    local tp_device = tp.init(config.tp_model, {port=tp_i2c_id, pin_rst=tp_pin_rst, pin_int=tp_pin_int,w =  1000,h =  800}, tp_callback)
-    log.info("tp_device",tp_device)
+    local tp_device = tp.init(config.tp_model, { port = tp_i2c_id, pin_rst = tp_pin_rst, pin_int = tp_pin_int },
+    tp_callback)
     if tp_device ~= nil then return true end
 
     -- 若硬件触摸初始化失败，尝试PC触摸回退

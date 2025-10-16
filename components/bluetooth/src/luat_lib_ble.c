@@ -461,7 +461,7 @@ static int l_ble_advertising_create(lua_State *L){
         .intv_min = 120,
         .intv_max = 160,
         .adv_type = LUAT_BLE_ADV_TYPE_LEGACY,
-        .adv_prop = LUAT_BLE_ADV_PROP_CONNECTABLE,
+        .adv_prop = LUAT_BLE_ADV_PROP_CONNECTABLE|LUAT_BLE_ADV_PROP_SCANNABLE,
     };
 
     lua_pushstring(L, "addr_mode");

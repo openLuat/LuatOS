@@ -55,7 +55,8 @@ local function airlbs_multi_cells_task_func()
         else
             log.warn("请检查project_id和project_key")
         end
-        sys.wait(20000) -- 循环20S一次多基站定位
+        sys.wait(60000) 
+        -- 循环60S一次多基站定位，此处设置定位请求间隔为60S非必须，请求频率可根据自己所购买的套餐进行计算，超过频次的定位请求均会返回定位失败。返回错误码，不包含位置信息。
     end
 end
 
@@ -105,9 +106,9 @@ local function airlbs_multi_cells_wifi_task_func()
         else        
             log.warn("请检查project_id和project_key")-- 打印提示信息
         end
-        sys.wait(20000) -- 循环20S一次基站+wifi定位
+        sys.wait(60000) 
+        -- 循环60S一次基站+wifi定位，此处设置定位请求间隔为60S非必须，请求频率可根据自己所购买的套餐进行计算，超过频次的定位请求均会返回定位失败。返回错误码，不包含位置信息。
     end
-
 end
 
 --多基站定位

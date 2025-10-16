@@ -205,7 +205,7 @@ typedef struct{
 	uint32_t max_earfcn;
 }earfcn_to_band_t;
 
-const earfcn_to_band_t g_band_list[] = {
+static const earfcn_to_band_t g_band_list[] = {
 	{1, 0, 599},
 	{2, 600, 1199},
 	{3, 1200, 1949},

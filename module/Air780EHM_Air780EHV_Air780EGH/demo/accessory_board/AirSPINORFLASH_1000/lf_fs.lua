@@ -176,6 +176,7 @@ local function spinor_test_func()
     local flash_device = init_flash_device(spi_device)
     if not flash_device then
         log.error("主流程", "Flash初始化失败，终止")
+        spi_close_func()
         return
     end
 
@@ -183,6 +184,7 @@ local function spinor_test_func()
     local mount_point = "/little_flash"
     if not mount_filesystem(flash_device, mount_point) then
         log.error("主流程", "文件系统挂载失败，终止")
+        spi_close_func()
         return
     end
 

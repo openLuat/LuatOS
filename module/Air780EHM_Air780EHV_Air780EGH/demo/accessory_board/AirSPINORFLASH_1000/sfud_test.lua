@@ -200,6 +200,7 @@ local function spinor_test_func()
     local mount_point = "/sfud_flash"
     if not mount_filesystem(sfud_device, mount_point) then
         log.error("主流程", "文件系统挂载失败，终止")
+        spi_close_func()
         return
     end
 

@@ -894,6 +894,12 @@ int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc);
  */
 int luat_mobile_get_plmn_from_imsi(char *imsi, uint16_t *mcc, uint8_t *mnc);
 
+/**
+ * @brief 通过DL EARFCN查找对应频段
+ * @param earfcn 下行频点
+ * @return >0为对应频段，=0未找到对应频段
+ */
+int luat_mobile_get_band_from_earfcn(uint32_t earfcn);
 
 /**
  * @brief 获取最近一次来电号码

@@ -15,6 +15,9 @@ static int jd9261t_inited_init(luat_lcd_conf_t* conf)
     	conf->flush_y_min = conf->h;
     	conf->flush_y_max = 0;
     }
+	if (!conf->buff_ex)
+		conf->buff_ex = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, conf->w * conf->h * ((conf->bpp <= 16)?2:4));
+
 	luat_lcd_qspi_conf_t auto_flush =
 	{
 			.write_4line_cmd = 0xde,

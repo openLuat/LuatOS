@@ -601,6 +601,10 @@ static int l_mobile_scell_extern_info(lua_State* L) {
     lua_pushinteger(L, info.pci);
     lua_setfield(L, -2, "pci");
 
+    ret = luat_mobile_get_band_from_earfcn(info.earfcn);
+    lua_pushinteger(L, ret);
+    lua_setfield(L, -2, "band");
+
     // 基站相关
     uint32_t eci = 0;
     uint16_t tac = 0;

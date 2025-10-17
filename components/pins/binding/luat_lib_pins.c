@@ -179,17 +179,25 @@ LUAMOD_API int luaopen_pins( lua_State *L ) {
 	if (luat_fs_fexist(buff) == 0) {
 		int size = strlen(name);
     	int j;
-    
-    	for( int i = 0; i < size - 1 ; i++){
-        	for (int j = 97; j < 123; j ++){
-            	if (name[i] == j){
-                	j = j - 32;
-                	name[i] = j;
-                	break;
-            	}
-        	}
+
+		// 为了兼容性,先找大写的
+		for( int i = 0; i < size - 1 ; i++){
+        	// 转大写
+			if (name[i] >= 'a' && name[i] <= 'z'){
+				name[i] = name[i] - 32;
+			}
     	}
 		snprintf(buff, sizeof(buff), "/luadb/pins_%s.json", name);
+    
+		if (luat_fs_fexist(buff) == 0) {
+    		for( int i = 0; i < size ; i++){
+        		// 转小写
+				if (name[i] >= 'A' && name[i] <= 'Z'){
+					name[i] = name[i] + 32;
+				}
+    		}
+			snprintf(buff, sizeof(buff), "/luadb/pins_%s.json", name);
+		}
 	}
 	
 	int ret = luat_pins_load_from_file(buff);

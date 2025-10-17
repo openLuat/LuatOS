@@ -30,30 +30,30 @@ AirKEY_1000是合宙设计生产的一款支持8个独立按键的配件板；
 
 本demo演示的核心功能为：
 
-Air780EHV核心板+AirKEY_1000配件板，使用Air780EHV核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
+Air780EPM核心板+AirKEY_1000配件板，使用Air780EPM核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
 
 
 ## 核心板+配件板资料
 
-[Air780EHV核心板+配件板相关资料](https://docs.openluat.com/air780ehv/product/shouce/)
+[Air780EPM核心板+配件板相关资料](https://docs.openluat.com/Air780EPM/product/shouce/)
 
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/accessory/AirKEY_1000/image/Air780EHV_connection.jpg)
+![](https://docs.openluat.com/accessory/AirKEY_1000/image/Air780EPM_connect.jpg)
 
-1、Air780EHV核心板
+1、Air780EPM核心板
 
 2、AirKEY_1000配件板
 
 3、母对母的杜邦线9根
 
-4、Air780EHV核心板和AirKEY_1000配件板的硬件接线方式为
+4、Air780EPM核心板和AirKEY_1000配件板的硬件接线方式为
 
-- Air780EHV核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
+- Air780EPM核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
 - 核心板正面的 ON/OFF 拨动开关 拨到ON一端；
 
-| Air780EHV核心板 |  AirKEY_1000配件板 |
+| Air780EPM核心板 |  AirKEY_1000配件板 |
 | ------------ | ------------------ |
 |    25/GPIO26    |         K1         |
 |    107/GPIO21    |         K2         |
@@ -70,7 +70,7 @@ Air780EHV核心板+AirKEY_1000配件板，使用Air780EHV核心板的GPIO中断�
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、[Air780EHV 最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+2、[Air780EPM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 
 
 ## 演示操作步骤
@@ -100,18 +100,19 @@ Air780EHV核心板+AirKEY_1000配件板，使用Air780EHV核心板的GPIO中断�
    (8) 按键8按下时，Luatools的运行日志输出 key8 pressdown，表示按键8测试正常；
 
 ```
-[2025-10-13 16:02:17.979][000000051.317] I/user.key1_int_cbfunc pressup 26 1
-[2025-10-13 16:02:19.372][000000052.697] I/user.key2_int_cbfunc pressup 21 1
-[2025-10-13 16:02:21.084][000000054.412] I/user.key3_int_cbfunc pressup 24 1
-[2025-10-13 16:02:22.541][000000055.870] I/user.key4_int_cbfunc pressup 22 1
-[2025-10-13 16:02:23.897][000000057.236] I/user.key5678_int_cbfunc 23 0
-[2025-10-13 16:02:23.903][000000057.236] I/user.key5 pressdown
-[2025-10-13 16:02:25.714][000000059.047] I/user.key5678_int_cbfunc 25 0
-[2025-10-13 16:02:25.720][000000059.047] I/user.key6 pressdown
-[2025-10-13 16:02:27.056][000000060.394] I/user.key5678_int_cbfunc 28 0
-[2025-10-13 16:02:27.062][000000060.394] I/user.key7 pressdown
-[2025-10-13 16:02:28.457][000000061.795] I/user.key5678_int_cbfunc 27 0
-[2025-10-13 16:02:28.463][000000061.795] I/user.key8 pressdown
-
+[2025-10-17 17:11:50.721][000000017.690] I/user.key1_int_cbfunc pressup 26 1
+[2025-10-17 17:11:51.867][000000018.832] I/user.key2_int_cbfunc pressup 21 1
+[2025-10-17 17:11:53.408][000000020.378] I/user.key3_int_cbfunc pressup 24 1
+[2025-10-17 17:11:54.785][000000021.744] I/user.key4_int_cbfunc pressup 22 1
+[2025-10-17 17:11:56.077][000000023.043] I/user.key5678_int_cbfunc 23 0
+[2025-10-17 17:11:56.082][000000023.043] I/user.key5 pressdown
+[2025-10-17 17:11:56.244][000000023.213] I/user.key5678_int_cbfunc 23 0
+[2025-10-17 17:11:56.249][000000023.213] I/user.key5 pressdown
+[2025-10-17 17:11:58.053][000000025.013] I/user.key5678_int_cbfunc 25 0
+[2025-10-17 17:11:58.053][000000025.013] I/user.key6 pressdown
+[2025-10-17 17:11:59.426][000000026.394] I/user.key5678_int_cbfunc 28 0
+[2025-10-17 17:11:59.428][000000026.394] I/user.key7 pressdown
+[2025-10-17 17:12:00.847][000000027.816] I/user.key5678_int_cbfunc 27 0
+[2025-10-17 17:12:00.854][000000027.816] I/user.key8 pressdown
 ```
 

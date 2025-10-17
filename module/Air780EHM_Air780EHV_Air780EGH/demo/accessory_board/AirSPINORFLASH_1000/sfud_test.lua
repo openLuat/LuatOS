@@ -1,6 +1,6 @@
 --[[
-@module  sfud_nor
-@summary sfud_nor测试功能模块
+@module  sfud_test
+@summary sfud_test测试功能模块
 @version 1.0
 @date    2025.10.11
 @author  马亚丹

@@ -54,7 +54,7 @@
 
 ![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/norflash.jpg)
 
-1. 合宙 Air780EHV 核心板一块
+1. 合宙 Air780EPM 核心板一块
 
 2. 合宙 AirSPINORFLASH_1000 一块
 
@@ -64,11 +64,11 @@
 - TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
-    Air780EHV 核心板与 AirSPINORFLASH_1000 按以下方式接线：
+    Air780EPM 核心板与 AirSPINORFLASH_1000 按以下方式接线：
 
 <table>
 <tr>
-<td>Air780EHV核心板<br/></td><td>AirSPINORFLASH_1000配件版<br/></td></tr>
+<td>Air780EPM核心板<br/></td><td>AirSPINORFLASH_1000配件版<br/></td></tr>
 <tr>
 <td>GND(任意)          <br/></td><td>GND<br/></td></tr>
 <tr>
@@ -87,7 +87,7 @@
 
 1. Luatools 下载调试工具
 
-2. 固件版本：LuatOS-SoC_V2014_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehv/luatos/firmware/version/]
+2. 固件版本：LuatOS-SoC_V2014_Air780EPM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/Air780EPM/luatos/firmware/version/]
 
 3. pc 系统 win11（win10 及以上）
 

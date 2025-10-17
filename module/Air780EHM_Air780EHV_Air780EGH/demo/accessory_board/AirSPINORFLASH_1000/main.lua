@@ -6,13 +6,16 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo是演示合宙AirSPINORFLASH_1000配件版的功能使用，可通过以下两种方式挂载flash模块，任选一种即可。
+本demo是演示合宙AirSPINORFLASH_1000配件版的功能使用，可通过以下三种方式驱动flash模块，任选一种即可。
 1. ram_spi
 通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
 2. lf_fs
 通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
-
+3. sfud_test
+通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud.lua 文件
 ]]
+
+
 
 
 --[[

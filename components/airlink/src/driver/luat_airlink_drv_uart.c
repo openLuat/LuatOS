@@ -37,22 +37,48 @@ int luat_airlink_drv_uart_setup(luat_uart_t* conf) {
 }
 
 int luat_airlink_drv_uart_write(int uart_id, void* data, size_t length) {
-    // LLOGD("执行uart write %d %p %d", uart_id, data, length);
-    uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
-    size_t total_len = length + sizeof(luat_airlink_cmd_t) + 8 + 1;
-    airlink_queue_item_t item = {.len = total_len};
-    luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, length + 1 + 8);
-    if (cmd == NULL) {
-        LLOGE("内存分配失败!!");
-        return 0;
+    if(length <= 1536) {
+        // LLOGD("执行uart write %d %p %d", uart_id, data, length);
+        uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
+        size_t total_len = length + sizeof(luat_airlink_cmd_t) + 8 + 1;
+        airlink_queue_item_t item = {.len = total_len};
+        luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x401, length + 1 + 8);
+        if (cmd == NULL) {
+            LLOGE("内存分配失败!!");
+            return 0;
+        }
+        memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
+        uint8_t tmp = (uint8_t)uart_id;
+        memcpy(cmd->data + 8, &tmp, 1);
+        memcpy(cmd->data + 9, data, length);
+        item.cmd = cmd;
+        int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
+        return ret == 0 ? length : 0;
+    } else {
+        // 如果数据长度大于1536，分段发送
+        size_t segment_size = 1535;  // 使用1535避免无限递归
+        const char* segment_data = (const char*)data;
+        size_t remaining = length;
+        size_t sent_total = 0;
+
+        while (remaining > 0) {
+            size_t current_segment = (remaining > segment_size) ? segment_size : remaining;
+
+            int ret = luat_airlink_drv_uart_write(uart_id, (void*)segment_data, current_segment);
+            if (ret <= 0) {
+                return sent_total;
+            }
+            sent_total += ret;
+            segment_data += ret;
+            remaining -= ret;
+
+            if (ret < current_segment) {
+                break;
+            }
+        }
+
+        return sent_total;
     }
-    memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
-    uint8_t tmp = (uint8_t)uart_id;
-    memcpy(cmd->data + 8, &tmp, 1);
-    memcpy(cmd->data + 9, data, length);
-    item.cmd = cmd;
-    int ret = luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return ret == 0 ? length : 0;
 }
 
 int luat_airlink_drv_uart_close(int uart_id) {

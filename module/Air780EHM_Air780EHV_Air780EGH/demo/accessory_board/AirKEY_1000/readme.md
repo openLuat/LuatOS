@@ -2,9 +2,9 @@
 
 1、main.lua：主程序入口；
 
-2、key_app.lua：使用核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
+2、sht30_app.lua：每隔1秒读取一次温湿度数据；
 
-3、AirKEY_1000.lua：配置主机和AirKEY_1000之间的控制参数；
+3、AirSHT30_1000.lua：AirSHT30_1000驱动文件；
 
 ## 用户消息介绍
 

@@ -26,7 +26,7 @@ require "test_gzip"
 
 
 sys.taskInit(function()
-    sys.wait(100)
+    -- sys.wait(100)
 
     -------------------------------------
     -------- HTTP 演示代码 --------------

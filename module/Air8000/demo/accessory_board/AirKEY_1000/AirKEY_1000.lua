@@ -1,0 +1,52 @@
+--本文件中的主机是指Air8000核心板
+--AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
+
+local AirKEY_1000 = {}
+
+
+--配置主机和AirKEY_1000之间的控制参数；
+
+--key_id：number类型；
+--        AirKEY_1000的按键ID；
+--        取值范围：1到8；
+--        必须传入，不允许为空；
+--gpio_id：number类型；
+--         主机使用的中断引脚GPIO ID；
+--         AirKEY_1000上的一个按键引脚，和主机上的一个GPIO中断引脚相连；
+--         AirKEY_1000上的按键按下或者弹起，主机上的GPIO中断引脚输入电平发生变化，从而产生中断；
+--int_mode：number类型；
+--          表示主机GPIO中断触发类型；
+--          取值范围：gpio.RISING表示上升沿触发，gpio.FALLING表示下降沿触发；
+--          如果没有传入此参数，则默认为gpio.FALLING；
+--int_cbfunc：function类型；
+--          表示中断处理函数，函数的定义格式如下：
+--                           function cb_func(level, gpio_id)
+--                               --level：表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
+--                               --gpio_id：表示触发中断的主机中断引脚的GPIO ID；
+--                           end
+--          中断函数中不要直接执行耗时较长的动作，例如写fskv，写文件，延时等，可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
+--          必须传入，不允许为空；
+
+--返回值：成功返回true，失败返回false
+function AirKEY_1000.setup(key_id, gpio_id, int_mode, int_cbfunc) 
+    --开启防抖，模式0-冷却，中断后马上上报，但200ms内只上报一次
+    gpio.debounce(gpio_id, 200)
+
+    if not (int_mode==gpio.RISING or int_mode==gpio.FALLING) then
+        log.error("AirKEY_1000.setup error", "invalid int_mode", int_mode)
+        return false
+    end
+
+    if type(int_cbfunc)~="function" then
+        log.error("AirKEY_1000.setup error", "invalid int_cbfunc", type(int_cbfunc))
+        return false
+    end
+
+    -- gpio.setup(gpio_id, int_cbfunc, int_mode==gpio.RISING and gpio.PULLDOWN or gpio.PULLUP, int_mode)
+    gpio.setup(gpio_id, int_cbfunc, gpio.PULLUP, int_mode)
+
+    return true
+end
+
+
+return AirKEY_1000

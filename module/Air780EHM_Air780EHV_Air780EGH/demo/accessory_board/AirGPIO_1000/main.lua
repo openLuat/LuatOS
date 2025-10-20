@@ -10,7 +10,7 @@ VERSION：项目版本号，ascii string类型
 
 AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板；
 本demo演示的核心功能为：
-Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
+Air780EHV核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 分输出、输入和中断三种应用场景来演示；
 更多说明参考本目录下的readme.md文件
 ]]

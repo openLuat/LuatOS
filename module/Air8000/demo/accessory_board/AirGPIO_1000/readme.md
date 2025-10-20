@@ -1,3 +1,10 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、gpio_app.lua：AirGPIO_1000扩展GPIO输出测试，输入测试，GPIO中断测试；
+
+3、AirGPIO_1000.lua：AirGPIO_1000驱动配置文件；
 
 ## 演示功能概述
 

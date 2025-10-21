@@ -237,7 +237,16 @@ static int l_wlan_scan_result(lua_State* L) {
     }
     memset(results, 0, sizeof(luat_wlan_scan_result_t) * ap_limit);
     #ifdef LUAT_USE_DRV_WLAN
-    int len = luat_drv_wlan_scan_get_result(results, ap_limit);
+    int len = 0;
+    #ifdef LUAT_USE_AIRLINK
+    if (luat_airlink_has_wifi()) {
+        len = luat_drv_wlan_scan_get_result(results, ap_limit);
+    }
+    else
+    {
+        len = luat_wlan_scan_get_result(results, ap_limit);
+    }
+    #endif
     #else
     int len = luat_wlan_scan_get_result(results, ap_limit);
     #endif

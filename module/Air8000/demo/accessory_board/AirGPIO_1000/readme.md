@@ -21,7 +21,7 @@ Air8000核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 [Air8000核心板](https://docs.openluat.com/air8000/product/shouce/)
 
-[配件板相关资料](https://docs.openluat.com/accessory/AirGPIO_1000/)
+[AirGPIO_1000配件板相关资料](https://docs.openluat.com/accessory/AirGPIO_1000/)
 
 
 ## 演示硬件环境

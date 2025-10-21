@@ -19,7 +19,9 @@ Air8000核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数�
 
 ## 核心板+配件板资料
 
-[Air8000核心板+配件板相关资料]([硬件手册和证书 - product@air8000 - 合宙模组资料中心](https://docs.openluat.com/air8000/product/shouce/#air8000_1))
+[Air8000核心板]([硬件手册和证书 - product@air8000 - 合宙模组资料中心](https://docs.openluat.com/air8000/product/shouce/#air8000_1))
+
+[AirVOC_1000配件板相关资料](https://docs.openluat.com/accessory/AirVOC_1000/)
 
 
 ## 演示硬件环境

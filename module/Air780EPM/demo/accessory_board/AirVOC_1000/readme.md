@@ -19,7 +19,9 @@ Air780EPM开发板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量�
 
 ## 核心板+配件板资料
 
-[Air780EPM开发板+配件板相关资料](https://docs.openluat.com/air780epm/product/shouce/)
+[Air780EPM开发板](https://docs.openluat.com/air780epm/product/shouce/)
+
+[AirVOC_1000配件板相关资料](https://docs.openluat.com/accessory/AirVOC_1000/)
 
 
 ## 演示硬件环境

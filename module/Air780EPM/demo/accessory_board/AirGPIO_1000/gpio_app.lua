@@ -5,7 +5,7 @@
 @date    2025.10.21
 @author  沈园园
 @usage
-本文件为gpio_app驱动配置文件，核心业务逻辑为：
+本文件为gpio_app应用功能模块，核心业务逻辑为：
 1、初始化Air780EHV和AirGPIO_1000之间的通信参数
 2、GPIO输出测试，输入测试，GPIO中断测试
 

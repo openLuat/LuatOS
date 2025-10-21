@@ -5,8 +5,8 @@
 @date    2025.10.21
 @author  沈园园
 @usage
-本文件为gpio_app驱动配置文件，核心业务逻辑为：
-1、初始化Air780EHV和AirGPIO_1000之间的通信参数
+本文件为gpio_app应用功能模块，核心业务逻辑为：
+1、初始化Air780EHM/Air780EHV/Air780EGH和AirGPIO_1000之间的通信参数
 2、GPIO输出测试，输入测试，GPIO中断测试
 
 本文件没有对外接口，直接在main.lua中require "gpio_app"就可以加载运行；
@@ -88,11 +88,11 @@ local function gpio_int_task_func()
 end
 
 
---初始化Air780EHV和AirGPIO_1000之间的通信参数
---使用Air780EHV的I2C1
---使用Air780EHV的GPIO2做为中断引脚
---Air780EHV核心板和AirGPIO_1000配件板的接线方式如下
---Air780EHV核心板             AirGPIO_1000配件板
+--初始化Air780EHM/Air780EHV/Air780EGH和AirGPIO_1000之间的通信参数
+--使用Air780EHM/Air780EHV/Air780EGH的I2C1
+--使用Air780EHM/Air780EHV/Air780EGH的GPIO2做为中断引脚
+--Air780EHM/Air780EHV/Air780EGH核心板和AirGPIO_1000配件板的接线方式如下
+--Air780EHM/Air780EHV/Air780EGH核心板             AirGPIO_1000配件板
 --      3V3-----------------3V3
 --       GND-----------------GND
 --     66/I2C1SDA-----------------SDA

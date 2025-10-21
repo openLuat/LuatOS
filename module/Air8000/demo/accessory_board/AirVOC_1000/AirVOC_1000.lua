@@ -1,4 +1,18 @@
---本文件中的主机是指I2C主机，具体指Air780EHV
+--[[
+@module  AirVOC_1000
+@summary AirVOC_1000应用功能模块 
+@version 1.0
+@date    2025.10.21
+@author  沈园园
+@usage
+本文件为AirVOC_1000驱动配置文件，核心业务逻辑为：
+1、打开AirVOC_1000；
+2、读取TVOC的空气质量等级；
+
+本文件没有对外接口，直接require "AirVOC_1000"就可以加载运行；
+]]
+
+--本文件中的主机是指I2C主机，具体指Air8000
 --本文件中的从机是指I2C从机，具体指AirVOC_1000配件板上的ags02ma VOC(挥发性有机化合物)气体传感器芯片
 
 local AirVOC_1000 = 

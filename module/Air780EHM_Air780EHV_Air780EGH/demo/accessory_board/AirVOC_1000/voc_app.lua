@@ -1,3 +1,17 @@
+--[[
+@module  voc_app
+@summary voc_app应用功能模块 
+@version 1.0
+@date    2025.10.21
+@author  沈园园
+@usage
+本文件为voc_app应用功能模块，核心业务逻辑为：
+1、每隔1秒读取一次TVOC数据空气质量数据；
+
+本文件没有对外接口，直接在main.lua中require "voc_app"就可以加载运行；
+]]
+
+
 --加载AirVOC_1000驱动文件
 local air_voc = require "AirVOC_1000"
 

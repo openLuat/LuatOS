@@ -17,9 +17,11 @@ Air780EPM核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 分输出、输入和中断三种应用场景来演示；
 
 
-## 开发板+配件板资料
+## 核心板+配件板资料
 
-[Air780EPM核心板+配件板相关资料](https://docs.openluat.com/air780epm/product/shouce/)
+[Air780EPM核心板](https://docs.openluat.com/air780epm/product/shouce/)
+
+[配件板相关资料](https://docs.openluat.com/accessory/AirGPIO_1000/)
 
 
 ## 演示硬件环境
@@ -32,7 +34,7 @@ Air780EPM核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 3、母对母的杜邦线8根
 
-4、Air780EPM开发板和AirGPIO_1000配件板的硬件接线方式为
+4、Air780EPM核心板和AirGPIO_1000配件板的硬件接线方式为
 
 | Air780EPM核心板 | AirGPIO_1000配件板 |
 | ------------ | ------------------ |

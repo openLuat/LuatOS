@@ -1,3 +1,17 @@
+--[[
+@module  gpio_app
+@summary gpio_app应用功能模块 
+@version 1.0
+@date    2025.10.21
+@author  沈园园
+@usage
+本文件为gpio_app驱动配置文件，核心业务逻辑为：
+1、初始化Air780EHV和AirGPIO_1000之间的通信参数
+2、GPIO输出测试，输入测试，GPIO中断测试
+
+本文件没有对外接口，直接在main.lua中require "gpio_app"就可以加载运行；
+]]
+
 --加载AirGPIO_1000驱动文件
 local air_gpio = require "AirGPIO_1000"
 

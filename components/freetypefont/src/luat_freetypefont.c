@@ -1,347 +1,442 @@
 #include "luat_freetypefont.h"
+
+#include "ttf_parser.h"
 #include "luat_lcd.h"
-#include "luat_fs.h"
 #include "luat_mem.h"
-#include "ttf_rasterizer.h"
-#include <stdio.h>
-#include <stdlib.h>
+
+#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
-#define LUAT_LOG_TAG "freetype"
+#define LUAT_LOG_TAG "freetypefont"
 #include "luat_log.h"
 
-// 字体缓存结构
+#define FREETYPE_FONT_PATH_MAX   260
+#define FREETYPE_ADVANCE_RATIO   0.4f
+#define FREETYPE_ASCENT_RATIO    0.80f
+
 typedef struct {
-    struct TTF_Font *cached_font;     // 缓存的字体结构
-    uint8_t *font_data;        // TTF文件数据缓存
-    size_t font_size;          // 字体文件大小
-    char *font_path;           // 当前字体路径
-    uint8_t is_loaded;         // 加载状态
-} luat_freetypefont_cache_t;
+    luat_freetypefont_state_t state;
+    TtfFont font;
+    char font_path[FREETYPE_FONT_PATH_MAX];
+} freetypefont_ctx_t;
 
-// 全局缓存实例
-static luat_freetypefont_cache_t g_ft_cache = {0};
+typedef struct {
+    TtfBitmap bitmap;
+    uint32_t advance;
+    uint8_t has_bitmap;
+} glyph_render_t;
 
-// 当前状态
-static luat_freetypefont_state_t g_ft_state = LUAT_FREETYPEFONT_STATE_UNINIT;
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} rgb24_t;
 
-// 返回值缓存（用于 get_char_gray）
-static unsigned int g_gray_result[2] = {0, 0};
+static freetypefont_ctx_t g_ft_ctx = {
+    .state = LUAT_FREETYPEFONT_STATE_UNINIT
+};
 
-// 内联辅助函数
-static inline uint32_t min_u32(uint32_t a, uint32_t b) { return a < b ? a : b; }
-static inline uint32_t max_u32(uint32_t a, uint32_t b) { return a > b ? a : b; }
+extern luat_lcd_conf_t *lcd_dft_conf;
+extern luat_color_t BACK_COLOR;
 
-// 设置 1bpp 位图的位
-static inline void set_bit_1bpp(uint8_t* buf, uint32_t w, uint32_t x, uint32_t y) {
-    uint32_t bytes_per_row = (w + 7) / 8;
-    uint32_t byte_index = y * bytes_per_row + (x / 8);
-    uint8_t bit_pos = 7 - (x % 8);
-    buf[byte_index] |= (uint8_t)(1u << bit_pos);
+static uint32_t freetype_calc_fallback_advance(unsigned char font_size) {
+    float adv = (float)font_size * FREETYPE_ADVANCE_RATIO;
+    if (adv < 1.0f) {
+        adv = 1.0f;
+    }
+    return (uint32_t)ceilf(adv);
 }
 
-// UTF-8 解码
-static uint32_t utf8_next_char(const char** str) {
-    const uint8_t* s = (const uint8_t*)*str;
-    uint32_t code = 0;
-    
-    if (s[0] == 0) {
-        return 0xFFFFFFFF;
+static uint32_t freetype_default_ascent(unsigned char font_size) {
+    float asc = (float)font_size * FREETYPE_ASCENT_RATIO;
+    if (asc < 1.0f) {
+        asc = 1.0f;
     }
-    
-    if (s[0] < 0x80) {
-        code = s[0];
-        *str += 1;
-    } else if ((s[0] & 0xE0) == 0xC0) {
-        code = ((s[0] & 0x1F) << 6) | (s[1] & 0x3F);
-        *str += 2;
-    } else if ((s[0] & 0xF0) == 0xE0) {
-        code = ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
-        *str += 3;
-    } else if ((s[0] & 0xF8) == 0xF0) {
-        code = ((s[0] & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F);
-        *str += 4;
-    } else {
-        *str += 1;
-        return 0xFFFD; // 替换字符
-    }
-    
-    return code;
+    return (uint32_t)ceilf(asc);
 }
 
-// 初始化 FreeType 字体库
-int luat_freetypefont_init(const char* ttf_path) {
-    if (g_ft_state == LUAT_FREETYPEFONT_STATE_INITED) {
-        LLOGD("FreeType already initialized, deinit first");
-        luat_freetypefont_deinit();
-    }
-    
-    if (!ttf_path) {
-        LLOGE("TTF path is NULL");
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
+static int utf8_decode_next(const unsigned char **cursor, const unsigned char *end, uint32_t *codepoint) {
+    const unsigned char *ptr = *cursor;
+    if (ptr >= end) {
         return 0;
     }
-    
-    // 检查文件是否存在
-    FILE* fp = luat_fs_fopen(ttf_path, "rb");
-    if (!fp) {
-        LLOGE("Cannot open TTF file: %s", ttf_path);
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
-        return 0;
+    unsigned char c0 = *ptr++;
+    if (c0 < 0x80) {
+        *codepoint = c0;
+        *cursor = ptr;
+        return 1;
     }
-    
-    // 获取文件大小
-    luat_fs_fseek(fp, 0, SEEK_END);
-    long file_size = luat_fs_ftell(fp);
-    luat_fs_fseek(fp, 0, SEEK_SET);
-    
-    if (file_size <= 0) {
-        LLOGE("Invalid TTF file size: %s", ttf_path);
-        luat_fs_fclose(fp);
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
-        return 0;
+    if ((c0 & 0xE0) == 0xC0) {
+        if (ptr < end) {
+            unsigned char c1 = *ptr;
+            if ((c1 & 0xC0) == 0x80) {
+                *codepoint = ((uint32_t)(c0 & 0x1F) << 6) | (uint32_t)(c1 & 0x3F);
+                *cursor = ptr + 1;
+                return 1;
+            }
+        }
+    } else if ((c0 & 0xF0) == 0xE0) {
+        if (ptr + 1 < end) {
+            unsigned char c1 = ptr[0];
+            unsigned char c2 = ptr[1];
+            if (((c1 & 0xC0) == 0x80) && ((c2 & 0xC0) == 0x80)) {
+                *codepoint = ((uint32_t)(c0 & 0x0F) << 12) |
+                             ((uint32_t)(c1 & 0x3F) << 6) |
+                             (uint32_t)(c2 & 0x3F);
+                *cursor = ptr + 2;
+                return 1;
+            }
+        }
+    } else if ((c0 & 0xF8) == 0xF0) {
+        if (ptr + 2 < end) {
+            unsigned char c1 = ptr[0];
+            unsigned char c2 = ptr[1];
+            unsigned char c3 = ptr[2];
+            if (((c1 & 0xC0) == 0x80) && ((c2 & 0xC0) == 0x80) && ((c3 & 0xC0) == 0x80)) {
+                *codepoint = ((uint32_t)(c0 & 0x07) << 18) |
+                             ((uint32_t)(c1 & 0x3F) << 12) |
+                             ((uint32_t)(c2 & 0x3F) << 6) |
+                             (uint32_t)(c3 & 0x3F);
+                *cursor = ptr + 3;
+                return 1;
+            }
+        }
     }
-    
-    // 分配内存并缓存文件内容
-    g_ft_cache.font_size = (size_t)file_size;
-    g_ft_cache.font_data = (uint8_t*)luat_heap_malloc(g_ft_cache.font_size);
-    if (!g_ft_cache.font_data) {
-        LLOGE("Failed to allocate memory for font data");
-        luat_fs_fclose(fp);
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
-        return 0;
-    }
-    
-    // 读取文件内容
-    size_t bytes_read = luat_fs_fread(g_ft_cache.font_data, 1, g_ft_cache.font_size, fp);
-    luat_fs_fclose(fp);
-    
-    if (bytes_read != g_ft_cache.font_size) {
-        LLOGE("Failed to read complete TTF file");
-        luat_heap_free(g_ft_cache.font_data);
-        g_ft_cache.font_data = NULL;
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
-        return 0;
-    }
-    
-    // 解析字体数据
-    TTF_Result result = ttf_load_font_from_memory(g_ft_cache.font_data, g_ft_cache.font_size, &g_ft_cache.cached_font);
-    if (result != TTF_OK) {
-        LLOGE("Failed to parse TTF file: %d", (int)result);
-        luat_heap_free(g_ft_cache.font_data);
-        g_ft_cache.font_data = NULL;
-        g_ft_state = LUAT_FREETYPEFONT_STATE_ERROR;
-        return 0;
-    }
-    
-    // 保存字体路径
-    size_t path_len = strlen(ttf_path);
-    g_ft_cache.font_path = (char*)luat_heap_malloc(path_len + 1);
-    if (g_ft_cache.font_path) {
-        memcpy(g_ft_cache.font_path, ttf_path, path_len + 1);
-    }
-    
-    g_ft_cache.is_loaded = 1;
-    g_ft_state = LUAT_FREETYPEFONT_STATE_INITED;
-    
-    LLOGI("FreeType initialized with font: %s (size: %d bytes)", ttf_path, (int)file_size);
+    *codepoint = '?';
+    *cursor = ptr;
     return 1;
 }
 
-// 反初始化
-void luat_freetypefont_deinit(void) {
-    if (g_ft_cache.cached_font) {
-        ttf_unload_font(g_ft_cache.cached_font);
-        g_ft_cache.cached_font = NULL;
-    }
-    
-    if (g_ft_cache.font_data) {
-        luat_heap_free(g_ft_cache.font_data);
-        g_ft_cache.font_data = NULL;
-    }
-    
-    if (g_ft_cache.font_path) {
-        luat_heap_free(g_ft_cache.font_path);
-        g_ft_cache.font_path = NULL;
-    }
-    
-    memset(&g_ft_cache, 0, sizeof(g_ft_cache));
-    g_ft_state = LUAT_FREETYPEFONT_STATE_UNINIT;
-    
-    LLOGD("FreeType deinitialized");
+static void rgb_from_rgb565(uint16_t color, uint8_t *r, uint8_t *g, uint8_t *b) {
+    *r = (uint8_t)(((color >> 11) & 0x1F) * 255 / 31);
+    *g = (uint8_t)(((color >> 5) & 0x3F) * 255 / 63);
+    *b = (uint8_t)((color & 0x1F) * 255 / 31);
 }
 
-// 获取当前状态
-luat_freetypefont_state_t luat_freetypefont_get_state(void) {
-    return g_ft_state;
+static uint16_t rgb565_from_rgb(uint8_t r, uint8_t g, uint8_t b) {
+    uint16_t rr = (uint16_t)((r * 31 + 127) / 255) << 11;
+    uint16_t gg = (uint16_t)((g * 63 + 127) / 255) << 5;
+    uint16_t bb = (uint16_t)((b * 31 + 127) / 255);
+    return (uint16_t)(rr | gg | bb);
 }
 
-// 获取字符位图（1bpp单色）
-unsigned int luat_freetypefont_get_char(
-    unsigned char *pBits,
-    unsigned char sty,
-    unsigned long fontCode,
-    unsigned char width,
-    unsigned char height,
-    unsigned char thick
-) {
-    (void)sty; (void)thick;
-    
-    if (!pBits || width == 0 || height == 0 || g_ft_state != LUAT_FREETYPEFONT_STATE_INITED) {
+static rgb24_t freetype_decode_input_color(uint32_t color) {
+    rgb24_t out;
+    if (color <= 0xFFFFu) {
+        rgb_from_rgb565((uint16_t)color, &out.r, &out.g, &out.b);
+    } else if (color <= 0xFFFFFFu) {
+        out.r = (uint8_t)((color >> 16) & 0xFF);
+        out.g = (uint8_t)((color >> 8) & 0xFF);
+        out.b = (uint8_t)(color & 0xFF);
+    } else {
+        out.r = (uint8_t)((color >> 16) & 0xFF);
+        out.g = (uint8_t)((color >> 8) & 0xFF);
+        out.b = (uint8_t)(color & 0xFF);
+    }
+    return out;
+}
+
+static rgb24_t freetype_decode_luat_color(const luat_lcd_conf_t *conf, luat_color_t color) {
+    rgb24_t out = {255, 255, 255};
+    if (!conf) {
+        return out;
+    }
+    switch (conf->bpp) {
+    case 16:
+        rgb_from_rgb565((uint16_t)color, &out.r, &out.g, &out.b);
+        break;
+    case 24:
+    case 32:
+        out.r = (uint8_t)((color >> 16) & 0xFF);
+        out.g = (uint8_t)((color >> 8) & 0xFF);
+        out.b = (uint8_t)(color & 0xFF);
+        break;
+    default:
+        rgb_from_rgb565((uint16_t)color, &out.r, &out.g, &out.b);
+        break;
+    }
+    return out;
+}
+
+static luat_color_t freetype_encode_color(const luat_lcd_conf_t *conf, uint8_t r, uint8_t g, uint8_t b) {
+    if (!conf) {
+        return rgb565_from_rgb(r, g, b);
+    }
+    switch (conf->bpp) {
+    case 16:
+        return rgb565_from_rgb(r, g, b);
+    case 24:
+        return (luat_color_t)((r << 16) | (g << 8) | b);
+    case 32:
+        return (luat_color_t)(0xFF000000u | (uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b);
+    default:
+        return rgb565_from_rgb(r, g, b);
+    }
+}
+
+static luat_color_t freetype_coverage_to_color(uint8_t coverage, const luat_lcd_conf_t *conf,
+                                               const rgb24_t *fg, const rgb24_t *bg) {
+    if (coverage == 0) {
         return 0;
     }
-    
-    const uint32_t w = width;
-    const uint32_t h = height;
-    memset(pBits, 0, ((w + 7) / 8) * h);
-    
-    // 使用缓存的字体数据
-    TTF_Bitmap bitmap;
-    TTF_Result result = ttf_load_glyph_bitmap_cached(g_ft_cache.cached_font, fontCode, (float)h, &bitmap);
-    
-    if (result != TTF_OK) {
-        // 字符不存在，尝试显示替换字符
-        if (fontCode != 0xFFFD) {
-            result = ttf_load_glyph_bitmap_cached(g_ft_cache.cached_font, 0xFFFD, (float)h, &bitmap);
+    uint32_t inv = 255u - (uint32_t)coverage;
+    uint32_t rr = ((uint32_t)fg->r * coverage + (uint32_t)bg->r * inv) / 255u;
+    uint32_t gg = ((uint32_t)fg->g * coverage + (uint32_t)bg->g * inv) / 255u;
+    uint32_t bb = ((uint32_t)fg->b * coverage + (uint32_t)bg->b * inv) / 255u;
+    return freetype_encode_color(conf, (uint8_t)rr, (uint8_t)gg, (uint8_t)bb);
+}
+
+int luat_freetypefont_init(const char *ttf_path) {
+    if (!ttf_path || ttf_path[0] == 0) {
+        LLOGE("invalid ttf path");
+        return 0;
+    }
+    if (g_ft_ctx.state == LUAT_FREETYPEFONT_STATE_READY) {
+        LLOGE("font already initialized");
+        return 0;
+    }
+
+    memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
+    int rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
+    if (rc != TTF_OK) {
+        LLOGE("load font fail rc=%d", rc);
+        ttf_unload(&g_ft_ctx.font);
+        g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_ERROR;
+        return 0;
+    }
+    strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+    g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+    g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_READY;
+    LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
+    return 1;
+}
+
+void luat_freetypefont_deinit(void) {
+    if (g_ft_ctx.state == LUAT_FREETYPEFONT_STATE_UNINIT) {
+        return;
+    }
+    ttf_unload(&g_ft_ctx.font);
+    memset(&g_ft_ctx, 0, sizeof(g_ft_ctx));
+    g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_UNINIT;
+}
+
+luat_freetypefont_state_t luat_freetypefont_get_state(void) {
+    return g_ft_ctx.state;
+}
+
+static uint32_t glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {
+    if (!glyph || glyph->pointCount == 0 || glyph->contourCount == 0) {
+        return 0;
+    }
+    float widthF = (glyph->maxX - glyph->minX) * scale + 2.0f;
+    if (widthF < 1.0f) {
+        widthF = 1.0f;
+    }
+    return (uint32_t)ceilf(widthF);
+}
+
+uint32_t luat_freetypefont_get_str_width(const char *utf8, unsigned char font_size) {
+    if (!utf8 || font_size == 0 || g_ft_ctx.state != LUAT_FREETYPEFONT_STATE_READY) {
+        return 0;
+    }
+    if (g_ft_ctx.font.unitsPerEm == 0) {
+        return 0;
+    }
+
+    const unsigned char *cursor = (const unsigned char *)utf8;
+    const unsigned char *end = cursor + strlen(utf8);
+    uint32_t total = 0;
+    float scale = (float)font_size / (float)g_ft_ctx.font.unitsPerEm;
+    if (scale <= 0.0f) {
+        scale = 1.0f;
+    }
+
+    while (cursor < end) {
+        uint32_t cp = 0;
+        if (!utf8_decode_next(&cursor, end, &cp)) {
+            break;
         }
-        if (result != TTF_OK) {
-            return 0;
+        if (cp == '\r' || cp == '\n') {
+            continue;
+        }
+        uint16_t glyph_index = 0;
+        if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
+            if (cp != ' ' && cp != '\t') {
+                LLOGW("missing glyph cp=%lu", (unsigned long)cp);
+            }
+            total += freetype_calc_fallback_advance(font_size);
+            continue;
+        }
+
+        TtfGlyph glyph;
+        int rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
+        if (rc != TTF_OK) {
+            total += freetype_calc_fallback_advance(font_size);
+            continue;
+        }
+        uint32_t width = glyph_estimate_width_px(&glyph, scale);
+        ttf_free_glyph(&glyph);
+        if (width == 0) {
+            width = freetype_calc_fallback_advance(font_size);
+        }
+        total += width;
+    }
+    return total;
+}
+
+static void freetype_release_glyphs(glyph_render_t *glyphs, size_t count) {
+    if (!glyphs) {
+        return;
+    }
+    for (size_t i = 0; i < count; i++) {
+        if (glyphs[i].bitmap.pixels) {
+            ttf_free_bitmap(&glyphs[i].bitmap);
         }
     }
-    
-    // 转换为 1bpp 格式（基线对齐）
-    int off_x = 0;
-    int off_y = 0;
-    int asc_px = height - (height / 4); // 简单的基线估算
-    if (asc_px < 0) asc_px = 0;
-    if (asc_px > (int)h) asc_px = (int)h;
-    off_y = asc_px - bitmap.top;
-    
-    // 渲染到位图
-    for (int yy = 0; yy < bitmap.height; yy++) {
-        int dy = off_y + yy;
-        if (dy < 0 || dy >= (int)h) continue;
-        for (int xx = 0; xx < bitmap.width; xx++) {
-            int dx = off_x + xx;
-            if (dx < 0 || dx >= (int)w) continue;
-            uint8_t val = bitmap.pixels[yy * bitmap.width + xx];
-            if (val > 127) {  // 阈值
-                set_bit_1bpp(pBits, w, (uint32_t)dx, (uint32_t)dy);
+    luat_heap_free(glyphs);
+}
+
+int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color) {
+    if (!utf8 || font_size == 0) {
+        return -1;
+    }
+    if (g_ft_ctx.state != LUAT_FREETYPEFONT_STATE_READY) {
+        LLOGE("font not ready");
+        return -2;
+    }
+    if (!lcd_dft_conf) {
+        LLOGE("lcd not init");
+        return -3;
+    }
+    size_t utf8_len = strlen(utf8);
+    if (utf8_len == 0) {
+        return 0;
+    }
+
+    glyph_render_t *glyphs = (glyph_render_t *)luat_heap_malloc(utf8_len * sizeof(glyph_render_t));
+    if (!glyphs) {
+        LLOGE("oom glyph cache");
+        return -4;
+    }
+    memset(glyphs, 0, utf8_len * sizeof(glyph_render_t));
+
+    const unsigned char *cursor = (const unsigned char *)utf8;
+    const unsigned char *end = cursor + utf8_len;
+    size_t glyph_count = 0;
+    uint32_t baseline_above = 0;
+    while (cursor < end && glyph_count < utf8_len) {
+        uint32_t cp = 0;
+        if (!utf8_decode_next(&cursor, end, &cp)) {
+            break;
+        }
+        if (cp == '\r' || cp == '\n') {
+            continue;
+        }
+
+        glyph_render_t *slot = &glyphs[glyph_count];
+        slot->advance = freetype_calc_fallback_advance(font_size);
+        slot->has_bitmap = 0;
+        memset(&slot->bitmap, 0, sizeof(slot->bitmap));
+
+        uint16_t glyph_index = 0;
+        if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
+            glyph_count++;
+            continue;
+        }
+
+        TtfGlyph glyph;
+        int rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
+        if (rc != TTF_OK) {
+            glyph_count++;
+            continue;
+        }
+        rc = ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &slot->bitmap);
+        ttf_free_glyph(&glyph);
+        if (rc != TTF_OK) {
+            glyph_count++;
+            continue;
+        }
+
+        if (slot->bitmap.width > 0 && slot->bitmap.height > 0 && slot->bitmap.pixels) {
+            slot->has_bitmap = 1;
+            slot->advance = slot->bitmap.width;
+            if (slot->advance == 0) {
+                slot->advance = freetype_calc_fallback_advance(font_size);
+            }
+            uint32_t above = slot->bitmap.originY;
+            if (above > baseline_above) {
+                baseline_above = above;
+            }
+        } else {
+            uint32_t fallback_above = freetype_default_ascent(font_size);
+            if (fallback_above > baseline_above) {
+                baseline_above = fallback_above;
             }
         }
+        glyph_count++;
     }
-    
-    // 计算字符宽度
-    uint32_t adv = (uint32_t)(bitmap.advance + 0.5f);
-    if (adv > w) adv = w;
-    if (adv < (uint32_t)bitmap.width) adv = (uint32_t)bitmap.width;
-    if (adv == 0) adv = (uint32_t)bitmap.width;
-    
-    ttf_free_bitmap(&bitmap);
-    return adv;
-}
 
-// 获取字符位图（灰度）- 简化版，不支持
-unsigned int* luat_freetypefont_get_char_gray(
-    unsigned char *pBits,
-    unsigned char sty,
-    unsigned long fontCode,
-    unsigned char fontSize,
-    unsigned char thick
-) {
-    (void)sty; (void)thick; (void)pBits; (void)fontCode;
-    
-    // freetype_mini 不支持灰度，返回默认值
-    g_gray_result[0] = fontSize;
-    g_gray_result[1] = 1; // 1bpp
-    
-    if (g_ft_state != LUAT_FREETYPEFONT_STATE_INITED) {
-        return g_gray_result;
+    if (baseline_above == 0) {
+        baseline_above = freetype_default_ascent(font_size);
     }
-    
-    return g_gray_result;
-}
+    rgb24_t fg = freetype_decode_input_color(color);
+    rgb24_t bg = freetype_decode_luat_color(lcd_dft_conf, BACK_COLOR);
 
-// 获取UTF-8字符串宽度
-unsigned int luat_freetypefont_get_str_width(
-    const char* str,
-    unsigned char fontSize
-) {
-    if (!str || fontSize == 0 || g_ft_state != LUAT_FREETYPEFONT_STATE_INITED) {
-        return 0;
-    }
-    
-    unsigned int total_width = 0;
-    const char* p = str;
-    
-    while (*p) {
-        uint32_t code = utf8_next_char(&p);
-        if (code == 0xFFFFFFFF) break;
-        
-        TTF_Bitmap bitmap;
-        TTF_Result result = ttf_load_glyph_bitmap_cached(g_ft_cache.cached_font, code, (float)fontSize, &bitmap);
-        
-        if (result == TTF_OK) {
-            total_width += (unsigned int)(bitmap.advance + 0.5f);
-            ttf_free_bitmap(&bitmap);
+    int pen_x = x;
+    uint32_t baseline_offset = baseline_above;
+
+    for (size_t i = 0; i < glyph_count; i++) {
+        glyph_render_t *slot = &glyphs[i];
+        if (!slot->has_bitmap) {
+            pen_x += (int)slot->advance;
+            continue;
         }
-    }
-    
-    return total_width;
-}
+        int draw_x = pen_x;
+        int draw_y_base = y + (int)baseline_offset - (int)slot->bitmap.originY;
 
-// 绘制UTF-8字符串到LCD
-int luat_freetypefont_draw_utf8(
-    int x,
-    int y,
-    const char* str,
-    unsigned char fontSize,
-    uint32_t color
-) {
-    if (!str || g_ft_state != LUAT_FREETYPEFONT_STATE_INITED) {
-        return -1;
-    }
-    
-    // 获取LCD设备指针
-    extern luat_lcd_conf_t* lcd_dft_conf;
-    if (!lcd_dft_conf) {
-        LLOGE("LCD not initialized");
-        return -1;
-    }
-    
-    int current_x = x;
-    const char* p = str;
-    
-    while (*p) {
-        uint32_t code = utf8_next_char(&p);
-        if (code == 0xFFFFFFFF) break;
-        
-        TTF_Bitmap bitmap;
-        TTF_Result result = ttf_load_glyph_bitmap_cached(g_ft_cache.cached_font, code, (float)fontSize, &bitmap);
-        
-        if (result == TTF_OK) {
-            // 基线对齐
-            int asc_px = fontSize - (fontSize / 4);
-            if (asc_px < 0) asc_px = 0;
-            int off_y = asc_px - bitmap.top;
-            
-            // 绘制到LCD
-            for (int yy = 0; yy < bitmap.height; yy++) {
-                int dy = y + off_y + yy;
-                for (int xx = 0; xx < bitmap.width; xx++) {
-                    uint8_t val = bitmap.pixels[yy * bitmap.width + xx];
-                    if (val > 127) {
-                        int dx = current_x + xx;
-                        luat_lcd_draw_point(lcd_dft_conf, dx, dy, color);
-                    }
+        size_t row_buf_capacity = (size_t)slot->bitmap.width;
+        if (row_buf_capacity == 0) {
+            pen_x += (int)slot->advance;
+            continue;
+        }
+        luat_color_t *row_buf = (luat_color_t *)luat_heap_malloc(row_buf_capacity * sizeof(luat_color_t));
+        if (!row_buf) {
+            freetype_release_glyphs(glyphs, glyph_count);
+            LLOGE("oom row buffer");
+            return -5;
+        }
+
+        for (uint32_t row = 0; row < slot->bitmap.height; row++) {
+            const uint8_t *row_pixels = slot->bitmap.pixels + row * slot->bitmap.width;
+            uint32_t col = 0;
+            while (col < slot->bitmap.width) {
+                while (col < slot->bitmap.width && row_pixels[col] == 0) {
+                    col++;
+                }
+                if (col >= slot->bitmap.width) {
+                    break;
+                }
+                uint32_t run_start = col;
+                size_t run_len = 0;
+                while (col < slot->bitmap.width && row_pixels[col] != 0) {
+                    row_buf[run_len++] = freetype_coverage_to_color(row_pixels[col], lcd_dft_conf, &fg, &bg);
+                    col++;
+                }
+                if (run_len > 0) {
+                    int y_draw = draw_y_base + (int)row;
+                    int x_start = draw_x + (int)run_start;
+                    int x_end = x_start + (int)run_len - 1;
+                    luat_lcd_draw(lcd_dft_conf, (int16_t)x_start, (int16_t)y_draw, (int16_t)x_end, (int16_t)y_draw, row_buf);
                 }
             }
-            
-            // 更新X位置
-            current_x += (int)(bitmap.advance + 0.5f);
-            ttf_free_bitmap(&bitmap);
         }
+
+        luat_heap_free(row_buf);
+        pen_x += (int)slot->advance;
     }
-    
+
+    freetype_release_glyphs(glyphs, glyph_count);
     return 0;
 }

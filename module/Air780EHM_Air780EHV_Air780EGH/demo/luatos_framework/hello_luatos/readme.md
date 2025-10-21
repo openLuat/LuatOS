@@ -8,13 +8,13 @@
 
 ## 演示硬件环境
 
-1、Air780EXX核心板一块
+1、Air780EHM/Air780EHV/Air780EGH核心板一块
 
 2、TYPE-C USB数据线一根
 
-3、Air780EXX核心板和数据线的硬件接线方式为
+3、Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为
 
-- Air780EXX核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
+- Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
 - 核心板正面的 ON/OFF 拨动开关 拨到ON一端；
 
 

@@ -6,6 +6,11 @@
 #include <string.h>
 
 #include "luat_fs.h"
+#define LUAT_LOG_TAG "ttf"
+#include "luat_log.h"
+static int g_ttf_debug = 1;
+int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
+int ttf_get_debug(void) { return g_ttf_debug; }
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
@@ -50,23 +55,52 @@ static int ensure_range(const TtfFont *font, uint32_t offset, uint32_t length) {
     return 1;
 }
 
+/* 1.0: 统一的按需读取封装（支持 data 整读或 file 流式） */
+static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length, uint8_t *out) {
+    if (!font || !out || length == 0) {
+        return 0;
+    }
+    if (!ensure_range(font, offset, length)) {
+        return 0;
+    }
+    if (font->data) {
+        memcpy(out, font->data + offset, length);
+        return 1;
+    }
+    if (font->file) {
+        if (luat_fs_fseek((FILE*)font->file, (long)offset, SEEK_SET) != 0) {
+            return 0;
+        }
+        size_t n = luat_fs_fread(out, 1, length, (FILE*)font->file);
+        return n == length;
+    }
+    return 0;
+}
+
 typedef struct {
     uint32_t offset;
     uint32_t length;
 } TableRecord;
 
 static int find_table(const TtfFont *font, uint32_t tag, TableRecord *out) {
-    if (!font || !font->data || font->size < 12) {
+    if (!font || font->size < 12) {
         return 0;
     }
-    uint16_t numTables = read_u16(font->data + 4);
+    uint8_t header[12];
+    if (!ttf_read_range(font, 0, 12, header)) {
+        return 0;
+    }
+    uint16_t numTables = read_u16(header + 4);
     size_t directorySize = 12u + (size_t)numTables * 16u;
     if (directorySize > font->size) {
         return 0;
     }
-    const uint8_t *records = font->data + 12;
     for (uint16_t i = 0; i < numTables; ++i) {
-        const uint8_t *rec = records + i * 16;
+        uint8_t rec[16];
+        uint32_t recOff = 12u + (uint32_t)i * 16u;
+        if (!ttf_read_range(font, recOff, 16, rec)) {
+            return 0;
+        }
         uint32_t recTag = read_u32(rec);
         if (recTag == tag) {
             uint32_t offset = read_u32(rec + 8);
@@ -88,42 +122,10 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     }
     memset(font, 0, sizeof(*font));
 
-    uint8_t *buffer = NULL;
-    size_t size_read = 0;
-
-    do {
-        FILE *vfp = luat_fs_fopen(path, "rb");
-        if (!vfp) {
-            break; // fallback to stdio
-        }
-        if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
-            luat_fs_fclose(vfp);
-            return TTF_ERR_IO;
-        }
-        long vsize = luat_fs_ftell(vfp);
-        if (vsize <= 0) {
-            luat_fs_fclose(vfp);
-            return TTF_ERR_IO;
-        }
-        if (luat_fs_fseek(vfp, 0, SEEK_SET) != 0) {
-            luat_fs_fclose(vfp);
-            return TTF_ERR_IO;
-        }
-        buffer = (uint8_t *)malloc((size_t)vsize);
-        if (!buffer) {
-            luat_fs_fclose(vfp);
-            return TTF_ERR_OOM;
-        }
-        size_read = luat_fs_fread(buffer, 1, (size_t)vsize, vfp);
-        luat_fs_fclose(vfp);
-        if (size_read != (size_t)vsize) {
-            free(buffer);
-            buffer = NULL;
-            return TTF_ERR_IO;
-        }
-    } while (0);
-
-    if (!buffer) {
+    /* 1.0: 默认开启流式读取以节省内存（不整读），若需要可切换到整读模式 */
+    FILE *vfp = luat_fs_fopen(path, "rb");
+    if (!vfp) {
+        /* 回退标准 fopen */
         FILE *fp = fopen(path, "rb");
         if (!fp) {
             return TTF_ERR_IO;
@@ -141,28 +143,56 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
             fclose(fp);
             return TTF_ERR_IO;
         }
-        buffer = (uint8_t *)malloc((size_t)fileSize);
-        if (!buffer) {
+        font->data = (uint8_t*)malloc((size_t)fileSize);
+        if (!font->data) {
             fclose(fp);
             return TTF_ERR_OOM;
         }
-        size_read = fread(buffer, 1, (size_t)fileSize, fp);
+        size_t n = fread(font->data, 1, (size_t)fileSize, fp);
         fclose(fp);
-        if (size_read != (size_t)fileSize) {
-            free(buffer);
+        if (n != (size_t)fileSize) {
+            free(font->data);
+            memset(font, 0, sizeof(*font));
             return TTF_ERR_IO;
         }
+        font->size = (size_t)fileSize;
+        font->file = NULL;
+        font->fileSize = (size_t)fileSize;
+        font->streaming = 0;
+    } else {
+        if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        long vsize = luat_fs_ftell(vfp);
+        if (vsize <= 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        if (luat_fs_fseek(vfp, 0, SEEK_SET) != 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        font->data = NULL;            /* 不整读 */
+        font->size = (size_t)vsize;
+        font->file = vfp;             /* 保存 VFS 句柄 */
+        font->fileSize = (size_t)vsize;
+        font->streaming = 1;
     }
-
-    font->data = buffer;
-    font->size = size_read;
 
     if (font->size < 12) {
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
-    uint32_t scalerType = read_u32(buffer);
+    uint8_t hdr4[4];
+    if (!ttf_read_range(font, 0, 4, hdr4)) {
+        if (g_ttf_debug) LLOGE("ttf read header failed");
+        ttf_unload(font);
+        return TTF_ERR_IO;
+    }
+    uint32_t scalerType = read_u32(hdr4);
     if (scalerType != 0x00010000 && scalerType != TTF_TAG('O', 'T', 'T', 'O')) {
+        if (g_ttf_debug) LLOGE("unsupported scalerType 0x%08X", (unsigned)scalerType);
         ttf_unload(font);
         return TTF_ERR_UNSUPPORTED;
     }
@@ -173,25 +203,39 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
         !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
         !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
+        if (g_ttf_debug) LLOGE("find table failed cmap=%u glyf=%u loca=%u head=%u maxp=%u",
+            (unsigned)(cmap.length>0), (unsigned)(glyf.length>0), (unsigned)(loca.length>0), (unsigned)(head.length>0), (unsigned)(maxp.length>0));
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
 
-    const uint8_t *headPtr = font->data + head.offset;
+    uint8_t headBuf[54];
     if (head.length < 54) {
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
-    font->unitsPerEm = read_u16(headPtr + 18);
-    font->indexToLocFormat = read_u16(headPtr + 50);
+    if (!ttf_read_range(font, head.offset, 54, headBuf)) {
+        if (g_ttf_debug) LLOGE("read head failed at %u", (unsigned)head.offset);
+        ttf_unload(font);
+        return TTF_ERR_IO;
+    }
+    font->unitsPerEm = read_u16(headBuf + 18);
+    font->indexToLocFormat = read_u16(headBuf + 50);
     font->headOffset = head.offset;
 
-    const uint8_t *maxpPtr = font->data + maxp.offset;
+    uint8_t maxpBuf[6];
     if (maxp.length < 6) {
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
-    font->numGlyphs = read_u16(maxpPtr + 4);
+    if (!ttf_read_range(font, maxp.offset, 6, maxpBuf)) {
+        if (g_ttf_debug) LLOGE("read maxp failed at %u", (unsigned)maxp.offset);
+        ttf_unload(font);
+        return TTF_ERR_IO;
+    }
+    font->numGlyphs = read_u16(maxpBuf + 4);
+    if (g_ttf_debug) LLOGI("font loaded streaming=%d size=%u units_per_em=%u glyphs=%u indexToLocFormat=%u",
+        (int)font->streaming, (unsigned)font->size, (unsigned)font->unitsPerEm, (unsigned)font->numGlyphs, (unsigned)font->indexToLocFormat);
 
     font->cmapOffset = cmap.offset;
     font->cmapLength = cmap.length;
@@ -205,60 +249,68 @@ void ttf_unload(TtfFont *font) {
     if (!font) {
         return;
     }
-    free(font->data);
+    if (font->data) free(font->data);
+    if (font->file) luat_fs_fclose((FILE*)font->file);
+    if (font->cmapBuf) free(font->cmapBuf);
     memset(font, 0, sizeof(*font));
 }
 
 typedef struct {
-    const uint8_t *table;
-    uint32_t length;
+    uint32_t offset; /* 绝对偏移：font->cmapOffset + subtableOffset */
+    uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
 } CmapSubtable;
+
+static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
+    uint8_t b[2];
+    if (!ttf_read_range(font, absOff, 2, b)) return 0;
+    *out = read_u16(b);
+    return 1;
+}
+static int read_u32_at(const TtfFont *font, uint32_t absOff, uint32_t *out) {
+    uint8_t b[4];
+    if (!ttf_read_range(font, absOff, 4, b)) return 0;
+    *out = read_u32(b);
+    return 1;
+}
 
 static int find_cmap_format12(const TtfFont *font, CmapSubtable *out) {
     if (!font || !font->data) {
-        return 0;
+        /* 支持 streaming：用 ttf_read_range 读取 */
     }
     if (font->cmapLength < 4) {
         return 0;
     }
-    const uint8_t *cmap = font->data + font->cmapOffset;
-    uint16_t numTables = read_u16(cmap + 2);
+    uint32_t cmapBase = font->cmapOffset;
+    uint16_t numTables = 0;
+    if (!read_u16_at(font, cmapBase + 2, &numTables)) return 0;
     uint32_t recordsSize = 4u + (uint32_t)numTables * 8u;
     if (font->cmapLength < recordsSize) {
         return 0;
     }
-    const uint8_t *record = cmap + 4;
     CmapSubtable chosen = {0};
     for (uint16_t i = 0; i < numTables; ++i) {
-        uint16_t platformID = read_u16(record);
-        uint16_t encodingID = read_u16(record + 2);
-        uint32_t offset = read_u32(record + 4);
-        if (offset >= font->cmapLength) {
-            record += 8;
-            continue;
-        }
-        const uint8_t *sub = cmap + offset;
-        if (font->cmapLength - offset < 6) {
-            record += 8;
-            continue;
-        }
-        uint16_t format = read_u16(sub);
+        uint32_t recOff = cmapBase + 4u + (uint32_t)i * 8u;
+        uint16_t platformID = 0, encodingID = 0;
+        uint32_t subOffRel = 0;
+        if (!read_u16_at(font, recOff, &platformID)) return 0;
+        if (!read_u16_at(font, recOff + 2, &encodingID)) return 0;
+        if (!read_u32_at(font, recOff + 4, &subOffRel)) return 0;
+        if (subOffRel >= font->cmapLength) continue;
+        uint32_t subAbs = cmapBase + subOffRel;
+        uint16_t format = 0;
+        if (!read_u16_at(font, subAbs, &format)) continue;
         if (format == 12) {
-            if (font->cmapLength - offset < 16) {
-                record += 8;
-                continue;
-            }
-            if (!chosen.table || (platformID == 3 && encodingID == 10) || (platformID == 0)) {
-                chosen.table = sub;
-                chosen.length = font->cmapLength - offset;
+            if (font->cmapLength - subOffRel < 16) continue;
+            if (!chosen.offset || (platformID == 3 && encodingID == 10) || (platformID == 0)) {
+                chosen.offset = subAbs;
+                chosen.length = font->cmapLength - subOffRel;
                 if (platformID == 3 && encodingID == 10) {
                     break;
                 }
             }
         }
-        record += 8;
     }
-    if (!chosen.table) {
+    if (!chosen.offset) {
         return 0;
     }
     *out = chosen;
@@ -267,64 +319,61 @@ static int find_cmap_format12(const TtfFont *font, CmapSubtable *out) {
 
 static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     if (!font || !font->data) {
-        return 0;
+        /* 支持 streaming：用 ttf_read_range 读取 */
     }
     if (font->cmapLength < 4) {
         return 0;
     }
-    const uint8_t *cmap = font->data + font->cmapOffset;
-    uint16_t numTables = read_u16(cmap + 2);
+    uint32_t cmapBase = font->cmapOffset;
+    uint16_t numTables = 0;
+    if (!read_u16_at(font, cmapBase + 2, &numTables)) return 0;
     uint32_t recordsSize = 4u + (uint32_t)numTables * 8u;
     if (font->cmapLength < recordsSize) {
         return 0;
     }
-    const uint8_t *record = cmap + 4;
     CmapSubtable chosen = {0};
     for (uint16_t i = 0; i < numTables; ++i) {
-        uint16_t platformID = read_u16(record);
-        uint16_t encodingID = read_u16(record + 2);
-        uint32_t offset = read_u32(record + 4);
-        if (offset >= font->cmapLength) {
-            record += 8;
-            continue;
-        }
-        const uint8_t *sub = cmap + offset;
-        if (font->cmapLength - offset < 2) {
-            record += 8;
-            continue;
-        }
-        uint16_t format = read_u16(sub);
+        uint32_t recOff = cmapBase + 4u + (uint32_t)i * 8u;
+        uint16_t platformID = 0, encodingID = 0;
+        uint32_t subOffRel = 0;
+        if (!read_u16_at(font, recOff, &platformID)) return 0;
+        if (!read_u16_at(font, recOff + 2, &encodingID)) return 0;
+        if (!read_u32_at(font, recOff + 4, &subOffRel)) return 0;
+        if (subOffRel >= font->cmapLength) continue;
+        uint32_t subAbs = cmapBase + subOffRel;
+        uint16_t format = 0;
+        if (!read_u16_at(font, subAbs, &format)) continue;
         if (format == 4) {
-            if (!chosen.table || (platformID == 3 && (encodingID == 1 || encodingID == 10))) {
-                chosen.table = sub;
-                chosen.length = font->cmapLength - offset;
+            if (!chosen.offset || (platformID == 3 && (encodingID == 1 || encodingID == 10))) {
+                chosen.offset = subAbs;
+                chosen.length = font->cmapLength - subOffRel;
                 if (platformID == 3 && encodingID == 1) {
                     break;
                 }
             }
         }
-        record += 8;
     }
-    if (!chosen.table || chosen.length < 16) {
+    if (!chosen.offset || chosen.length < 16) {
         return 0;
     }
     *out = chosen;
     return 1;
 }
 
-static int cmap_format12_lookup(const CmapSubtable *cmap, uint32_t codepoint, uint16_t numGlyphs, uint16_t *glyphIndex) {
-    if (!cmap || !cmap->table || !glyphIndex) {
+static int cmap_format12_lookup(const TtfFont *font, const CmapSubtable *cmap, uint32_t codepoint, uint16_t numGlyphs, uint16_t *glyphIndex) {
+    if (!cmap || !glyphIndex) {
         return TTF_ERR_RANGE;
     }
-    const uint8_t *data = cmap->table;
     if (cmap->length < 16) {
         return TTF_ERR_FORMAT;
     }
-    uint32_t length = read_u32(data + 4);
+    uint32_t length = 0;
+    if (!read_u32_at(font, cmap->offset + 4, &length)) return TTF_ERR_IO;
     if (length > cmap->length) {
         return TTF_ERR_FORMAT;
     }
-    uint32_t nGroups = read_u32(data + 12);
+    uint32_t nGroups = 0;
+    if (!read_u32_at(font, cmap->offset + 12, &nGroups)) return TTF_ERR_IO;
     if (nGroups == 0) {
         return TTF_ERR_RANGE;
     }
@@ -332,14 +381,14 @@ static int cmap_format12_lookup(const CmapSubtable *cmap, uint32_t codepoint, ui
     if (required > cmap->length) {
         return TTF_ERR_FORMAT;
     }
-    const uint8_t *groups = data + 16;
     uint32_t lo = 0;
     uint32_t hi = nGroups;
     while (lo < hi) {
         uint32_t mid = lo + (hi - lo) / 2u;
-        const uint8_t *group = groups + (size_t)mid * 12u;
-        uint32_t startCode = read_u32(group);
-        uint32_t endCode = read_u32(group + 4);
+        uint32_t groupOff = cmap->offset + 16u + mid * 12u;
+        uint32_t startCode = 0, endCode = 0;
+        if (!read_u32_at(font, groupOff, &startCode)) return TTF_ERR_IO;
+        if (!read_u32_at(font, groupOff + 4, &endCode)) return TTF_ERR_IO;
         if (codepoint < startCode) {
             hi = mid;
             continue;
@@ -348,7 +397,8 @@ static int cmap_format12_lookup(const CmapSubtable *cmap, uint32_t codepoint, ui
             lo = mid + 1u;
             continue;
         }
-        uint32_t startGlyphId = read_u32(group + 8);
+        uint32_t startGlyphId = 0;
+        if (!read_u32_at(font, groupOff + 8, &startGlyphId)) return TTF_ERR_IO;
         uint64_t glyph = (uint64_t)startGlyphId + (uint64_t)(codepoint - startCode);
         if (glyph >= numGlyphs || glyph > 0xFFFFu) {
             return TTF_ERR_RANGE;
@@ -366,7 +416,7 @@ int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *gl
 
     CmapSubtable cmap12 = {0};
     if (find_cmap_format12(font, &cmap12)) {
-        int rc = cmap_format12_lookup(&cmap12, codepoint, font->numGlyphs, glyphIndex);
+        int rc = cmap_format12_lookup(font, &cmap12, codepoint, font->numGlyphs, glyphIndex);
         if (rc == TTF_OK) {
             return TTF_OK;
         }
@@ -379,50 +429,54 @@ int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *gl
     if (!find_cmap_format4(font, &cmap4)) {
         return TTF_ERR_UNSUPPORTED;
     }
-    const uint8_t *data = cmap4.table;
-    uint16_t length = read_u16(data + 2);
+    uint16_t length = 0;
+    if (!read_u16_at(font, cmap4.offset + 2, &length)) return TTF_ERR_IO;
     if (length > cmap4.length || length < 24) {
         return TTF_ERR_FORMAT;
     }
-    uint16_t segCountX2 = read_u16(data + 6);
+    uint16_t segCountX2 = 0;
+    if (!read_u16_at(font, cmap4.offset + 6, &segCountX2)) return TTF_ERR_IO;
     if (segCountX2 == 0 || 14 + segCountX2 * 2 > length) {
         return TTF_ERR_FORMAT;
     }
     uint16_t segCount = segCountX2 / 2;
-    const uint8_t *endCodes = data + 14;
-    const uint8_t *startCodes = endCodes + segCount * 2 + 2;
-    const uint8_t *idDeltas = startCodes + segCount * 2;
-    const uint8_t *idRangeOffsets = idDeltas + segCount * 2;
-    const uint8_t *glyphIdArray = idRangeOffsets + segCount * 2;
-    if ((size_t)(glyphIdArray - data) > cmap4.length) {
+    uint32_t endCodes = cmap4.offset + 14;
+    uint32_t startCodes = endCodes + segCount * 2 + 2;
+    uint32_t idDeltas = startCodes + segCount * 2;
+    uint32_t idRangeOffsets = idDeltas + segCount * 2;
+    uint32_t glyphIdArray = idRangeOffsets + segCount * 2;
+    if ((glyphIdArray - cmap4.offset) > cmap4.length) {
         return TTF_ERR_FORMAT;
     }
 
     for (uint16_t i = 0; i < segCount; ++i) {
-        uint16_t endCode = read_u16(endCodes + i * 2);
-        uint16_t startCode = read_u16(startCodes + i * 2);
-        if (codepoint < startCode || codepoint > endCode) {
+        uint16_t endCode = 0, startCodeV = 0;
+        if (!read_u16_at(font, endCodes + i * 2, &endCode)) return TTF_ERR_IO;
+        if (!read_u16_at(font, startCodes + i * 2, &startCodeV)) return TTF_ERR_IO;
+        if (codepoint < startCodeV || codepoint > endCode) {
             continue;
         }
-        uint16_t idDelta = read_u16(idDeltas + i * 2);
-        uint16_t idRangeOffset = read_u16(idRangeOffsets + i * 2);
-        if (idRangeOffset == 0) {
-            *glyphIndex = (uint16_t)((codepoint + idDelta) & 0xFFFF);
+        uint16_t idDeltaV = 0, idRangeOffsetV = 0;
+        if (!read_u16_at(font, idDeltas + i * 2, &idDeltaV)) return TTF_ERR_IO;
+        if (!read_u16_at(font, idRangeOffsets + i * 2, &idRangeOffsetV)) return TTF_ERR_IO;
+        if (idRangeOffsetV == 0) {
+            *glyphIndex = (uint16_t)((codepoint + idDeltaV) & 0xFFFF);
             if (*glyphIndex >= font->numGlyphs) {
                 return TTF_ERR_RANGE;
             }
             return TTF_OK;
         }
-        const uint8_t *p = idRangeOffsets + i * 2 + idRangeOffset + 2u * (codepoint - startCode);
-        if (p + 2 > data + cmap4.length) {
+        uint32_t p = idRangeOffsets + i * 2 + idRangeOffsetV + 2u * (codepoint - startCodeV);
+        if ((p + 2) > (cmap4.offset + cmap4.length)) {
             return TTF_ERR_FORMAT;
         }
-        uint16_t glyphId = read_u16(p);
+        uint16_t glyphId = 0;
+        if (!read_u16_at(font, p, &glyphId)) return TTF_ERR_IO;
         if (glyphId == 0) {
             *glyphIndex = 0;
             return TTF_OK;
         }
-        *glyphIndex = (uint16_t)((glyphId + idDelta) & 0xFFFF);
+        *glyphIndex = (uint16_t)((glyphId + idDeltaV) & 0xFFFF);
         if (*glyphIndex >= font->numGlyphs) {
             return TTF_ERR_RANGE;
         }
@@ -435,26 +489,27 @@ static int get_glyph_offset(const TtfFont *font, uint16_t glyphIndex, uint32_t *
     if (!font || glyphIndex > font->numGlyphs) {
         return 0;
     }
-    const uint8_t *loca = font->data + font->locaOffset;
+    /* 1.0: loca 支持按需读取 */
     uint32_t glyphOffset = 0;
     uint32_t nextOffset = 0;
     if (font->indexToLocFormat == 0) {
-        uint32_t entryOffset = glyphIndex * 2;
-        uint32_t entryNext = (glyphIndex + 1) * 2;
-        if (!ensure_range(font, font->locaOffset + entryNext, 0)) {
-            return 0;
-        }
-        glyphOffset = (uint32_t)read_u16(loca + entryOffset) * 2;
-        nextOffset = (uint32_t)read_u16(loca + entryNext) * 2;
+        uint32_t entryOffset = font->locaOffset + glyphIndex * 2;
+        uint32_t entryNext = font->locaOffset + (glyphIndex + 1) * 2;
+        uint8_t buf[4];
+        if (!ttf_read_range(font, entryOffset, 2, buf)) return 0;
+        if (!ttf_read_range(font, entryNext, 2, buf + 2)) return 0;
+        glyphOffset = (uint32_t)read_u16(buf) * 2;
+        nextOffset = (uint32_t)read_u16(buf + 2) * 2;
     } else {
-        uint32_t entryOffset = glyphIndex * 4;
-        uint32_t entryNext = (glyphIndex + 1) * 4;
-        if (!ensure_range(font, font->locaOffset + entryNext, 0)) {
-            return 0;
-        }
-        glyphOffset = read_u32(loca + entryOffset);
-        nextOffset = read_u32(loca + entryNext);
+        uint32_t entryOffset = font->locaOffset + glyphIndex * 4;
+        uint32_t entryNext = font->locaOffset + (glyphIndex + 1) * 4;
+        uint8_t buf[8];
+        if (!ttf_read_range(font, entryOffset, 4, buf)) return 0;
+        if (!ttf_read_range(font, entryNext, 4, buf + 4)) return 0;
+        glyphOffset = read_u32(buf);
+        nextOffset = read_u32(buf + 4);
     }
+    if (g_ttf_debug) LLOGD("loca gid=%u off=%u len=%u", (unsigned)glyphIndex, (unsigned)glyphOffset, (unsigned)(nextOffset - glyphOffset));
     if (glyphOffset > nextOffset) {
         return 0;
     }
@@ -561,8 +616,18 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         return TTF_ERR_FORMAT;
     }
 
-    const uint8_t *ptr = font->data + offset;
-    const uint8_t *end = ptr + length;
+    /* 1.0: 按需把 glyph 数据读入临时缓冲 */
+    uint8_t *tmp = (uint8_t*)malloc(length);
+    if (!tmp) {
+        return TTF_ERR_OOM;
+    }
+    if (!ttf_read_range(font, offset, length, tmp)) {
+        if (g_ttf_debug) LLOGE("read glyf failed gid=%u off=%u len=%u", (unsigned)glyphIndex, (unsigned)offset, (unsigned)length);
+        free(tmp);
+        return TTF_ERR_IO;
+    }
+    const uint8_t *ptr = tmp;
+    const uint8_t *end = tmp + length;
     int16_t numberOfContours = read_s16(ptr);
     glyph->minX = read_s16(ptr + 2);
     glyph->minY = read_s16(ptr + 4);
@@ -589,12 +654,14 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         const uint8_t *instructionPtr = contourPtr + glyph->contourCount * 2 + 2;
         if (instructionPtr + instructionLength > end) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_FORMAT;
         }
         const uint8_t *flagsPtr = instructionPtr + instructionLength;
 
         if (glyph->contourEnds[glyph->contourCount - 1] >= 0xFFFFu) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_FORMAT;
         }
         glyph->pointCount = glyph->contourEnds[glyph->contourCount - 1] + 1;
@@ -605,6 +672,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         uint8_t *flags = (uint8_t *)malloc(glyph->pointCount);
         if (!flags) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_OOM;
         }
         const uint8_t *cursor = flagsPtr;
@@ -613,6 +681,8 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
             if (cursor >= end) {
                 free(flags);
                 ttf_free_glyph(glyph);
+                free(flags);
+                free(tmp);
                 return TTF_ERR_FORMAT;
             }
             uint8_t flag = *cursor++;
@@ -621,12 +691,14 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
                 if (cursor >= end) {
                     free(flags);
                     ttf_free_glyph(glyph);
+                    free(tmp);
                     return TTF_ERR_FORMAT;
                 }
                 uint8_t repeatCount = *cursor++;
                 if (flagIndex + repeatCount > glyph->pointCount) {
                     free(flags);
                     ttf_free_glyph(glyph);
+                    free(tmp);
                     return TTF_ERR_FORMAT;
                 }
                 for (uint8_t r = 0; r < repeatCount; ++r) {
@@ -695,7 +767,8 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         }
 
         free(flags);
-        return TTF_OK;
+            free(tmp);
+            return TTF_OK;
     }
 
 
@@ -704,6 +777,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
     do {
         if (cursor + 4 > end) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_FORMAT;
         }
         flags = read_u16(cursor);
@@ -738,6 +812,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
             dy = (float)arg2;
         } else {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_UNSUPPORTED;
         }
 
@@ -748,6 +823,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         if (flags & 0x0008) {
             if (cursor + 2 > end) {
                 ttf_free_glyph(glyph);
+                free(tmp);
                 return TTF_ERR_FORMAT;
             }
             float scale = read_f2dot14(cursor);
@@ -757,6 +833,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         } else if (flags & 0x0040) {
             if (cursor + 4 > end) {
                 ttf_free_glyph(glyph);
+                free(tmp);
                 return TTF_ERR_FORMAT;
             }
             m00 = read_f2dot14(cursor);
@@ -783,12 +860,16 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
         if (rc != TTF_OK) {
             ttf_free_glyph(&componentGlyph);
             ttf_free_glyph(glyph);
+            if (g_ttf_debug) LLOGE("load component glyph rc=%d", rc);
+            free(tmp);
             return rc;
         }
         rc = append_component_glyph(glyph, &componentGlyph, m00, m01, m10, m11, dx, dy);
         ttf_free_glyph(&componentGlyph);
         if (rc != TTF_OK) {
             ttf_free_glyph(glyph);
+            if (g_ttf_debug) LLOGE("append component rc=%d", rc);
+            free(tmp);
             return rc;
         }
     } while (flags & 0x0020);
@@ -796,17 +877,20 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
     if (flags & 0x0100) {
         if (cursor + 2 > end) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_FORMAT;
         }
         uint16_t instructionLength = read_u16(cursor);
         cursor += 2;
         if (cursor + instructionLength > end) {
             ttf_free_glyph(glyph);
+            free(tmp);
             return TTF_ERR_FORMAT;
         }
         cursor += instructionLength;
     }
 
+    free(tmp);
     return TTF_OK;
 }
 

@@ -26,6 +26,13 @@ typedef struct {
     uint32_t glyfOffset;
     uint32_t locaOffset;
     uint32_t headOffset;
+    /* 1.0 内存优化新增：流式读取支持与小表缓存 */
+    void *file;           /* VFS 文件句柄 (luat_fs_fopen 返回的 FILE*)，无数据整读时有效 */
+    size_t fileSize;      /* 字体文件大小 */
+    uint8_t streaming;    /* 1 表示未整读，仅按需读取 */
+    uint8_t *cmapBuf;     /* 常驻内存的 cmap 子表数据（按需加载） */
+    uint32_t cmapBufLen;  /* cmapBuf 长度 */
+    uint16_t cmapFormat;  /* 4 或 12，标记当前常驻的 cmap 子表格式 */
 } TtfFont;
 
 typedef struct {
@@ -56,6 +63,10 @@ typedef struct {
 
 int ttf_load_from_file(const char *path, TtfFont *font);
 void ttf_unload(TtfFont *font);
+
+/* 调试开关：1 开启详细日志，0 关闭 */
+int ttf_set_debug(int enable);
+int ttf_get_debug(void);
 
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex);
 int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph);

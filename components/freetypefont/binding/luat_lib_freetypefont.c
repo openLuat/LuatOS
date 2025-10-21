@@ -21,6 +21,7 @@ lcd.drawfreefontUtf8(10, 50, "Hello世界", 24, 0xFFFFFF)
 
 #include "luat_base.h"
 #include "luat_freetypefont.h"
+#include "ttf_parser.h"
 #include "luat_lcd.h"
 
 #define LUAT_LOG_TAG "freetypefont"
@@ -140,12 +141,26 @@ static int l_freetypefont_draw_utf8(lua_State* L) {
     return 1;
 }
 
+/**
+调试开关
+@api freetypefont.debug(enable)
+@boolean enable true 开启，false 关闭
+@return boolean 总是返回true
+*/
+static int l_freetypefont_debug(lua_State* L) {
+    int enable = lua_toboolean(L, 1);
+    (void)ttf_set_debug(enable);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 static const rotable_Reg_t reg_freetypefont[] = {
     { "init",        ROREG_FUNC(l_freetypefont_init)},
     { "deinit",      ROREG_FUNC(l_freetypefont_deinit)},
     { "state",       ROREG_FUNC(l_freetypefont_state)},
     { "getStrWidth", ROREG_FUNC(l_freetypefont_get_str_width)},
     { "drawUtf8",    ROREG_FUNC(l_freetypefont_draw_utf8)},
+    { "debug",       ROREG_FUNC(l_freetypefont_debug)},
     { NULL,          ROREG_INT(0)}
 };
 

@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "luat_fs.h"
+
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
 #define TTF_ENABLE_SUPERSAMPLING
@@ -86,38 +88,74 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     }
     memset(font, 0, sizeof(*font));
 
-    FILE *fp = fopen(path, "rb");
-    if (!fp) {
-        return TTF_ERR_IO;
-    }
-    if (fseek(fp, 0, SEEK_END) != 0) {
-        fclose(fp);
-        return TTF_ERR_IO;
-    }
-    long fileSize = ftell(fp);
-    if (fileSize <= 0) {
-        fclose(fp);
-        return TTF_ERR_IO;
-    }
-    if (fseek(fp, 0, SEEK_SET) != 0) {
-        fclose(fp);
-        return TTF_ERR_IO;
-    }
+    uint8_t *buffer = NULL;
+    size_t size_read = 0;
 
-    uint8_t *buffer = (uint8_t *)malloc((size_t)fileSize);
+    do {
+        FILE *vfp = luat_fs_fopen(path, "rb");
+        if (!vfp) {
+            break; // fallback to stdio
+        }
+        if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        long vsize = luat_fs_ftell(vfp);
+        if (vsize <= 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        if (luat_fs_fseek(vfp, 0, SEEK_SET) != 0) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_IO;
+        }
+        buffer = (uint8_t *)malloc((size_t)vsize);
+        if (!buffer) {
+            luat_fs_fclose(vfp);
+            return TTF_ERR_OOM;
+        }
+        size_read = luat_fs_fread(buffer, 1, (size_t)vsize, vfp);
+        luat_fs_fclose(vfp);
+        if (size_read != (size_t)vsize) {
+            free(buffer);
+            buffer = NULL;
+            return TTF_ERR_IO;
+        }
+    } while (0);
+
     if (!buffer) {
+        FILE *fp = fopen(path, "rb");
+        if (!fp) {
+            return TTF_ERR_IO;
+        }
+        if (fseek(fp, 0, SEEK_END) != 0) {
+            fclose(fp);
+            return TTF_ERR_IO;
+        }
+        long fileSize = ftell(fp);
+        if (fileSize <= 0) {
+            fclose(fp);
+            return TTF_ERR_IO;
+        }
+        if (fseek(fp, 0, SEEK_SET) != 0) {
+            fclose(fp);
+            return TTF_ERR_IO;
+        }
+        buffer = (uint8_t *)malloc((size_t)fileSize);
+        if (!buffer) {
+            fclose(fp);
+            return TTF_ERR_OOM;
+        }
+        size_read = fread(buffer, 1, (size_t)fileSize, fp);
         fclose(fp);
-        return TTF_ERR_OOM;
-    }
-    size_t readCount = fread(buffer, 1, (size_t)fileSize, fp);
-    fclose(fp);
-    if (readCount != (size_t)fileSize) {
-        free(buffer);
-        return TTF_ERR_IO;
+        if (size_read != (size_t)fileSize) {
+            free(buffer);
+            return TTF_ERR_IO;
+        }
     }
 
     font->data = buffer;
-    font->size = (size_t)fileSize;
+    font->size = size_read;
 
     if (font->size < 12) {
         ttf_unload(font);

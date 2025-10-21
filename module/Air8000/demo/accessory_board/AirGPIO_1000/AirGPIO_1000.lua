@@ -1,3 +1,17 @@
+--[[
+@module  AirGPIO_1000
+@summary AirGPIO_1000应用功能模块 
+@version 1.0
+@date    2025.10.21
+@author  沈园园
+@usage
+本文件为AirGPIO_1000驱动配置文件，核心业务逻辑为：
+1、配置主机和AirGPIO_1000之间的通信参数；
+2、配置AirGPIO_1000上的扩展GPIO管脚功能；支持配置为输出，输入和中断三种模式；
+
+本文件没有对外接口，直接require "AirGPIO_1000"就可以加载运行；
+]]
+
 --本文件中的主机是指I2C主机，具体指Air8000
 --本文件中的从机是指I2C从机，具体指AirGPIO_1000配件板上的IO扩展芯片
 

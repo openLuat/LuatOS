@@ -1,3 +1,10 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、gpio_app.lua：AirGPIO_1000扩展GPIO输出测试，输入测试，GPIO中断测试；
+
+3、AirGPIO_1000.lua：AirGPIO_1000驱动配置文件；
 
 ## 演示功能概述
 
@@ -12,7 +19,9 @@ Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 ## 核心板+配件板资料
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+[Air8101核心板](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+[AirGPIO_1000配件板相关资料](https://docs.openluat.com/accessory/AirGPIO_1000/)
 
 
 ## 演示硬件环境
@@ -70,5 +79,4 @@ Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
    (2) 通过观察Luatools的运行日志，首先打印 air_gpio.get(0x11) 0， 再隔一秒打印 air_gpio.get(0x11) 1，再隔一秒打印 air_gpio.get(0x11) 0，如此循环输出，表示GPIO输入测试正常；
 
    (3) 通过观察Luatools的运行日志，首先打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0， 再隔一秒打印  P04_int_cbfunc 4 1      P14_int_cbfunc 20 1，再隔一秒打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0，如此循环输出，表示GPIO中断测试正常；
-   
 

@@ -8,19 +8,17 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 
-AirVOC_1000是合宙设计生产的一款I2C接口的VOC(挥发性有机化合物)气体传感器配件板；
-主要用于检测甲醛、一氧化碳、可燃气体、酒精、氨气、硫化物、苯系蒸汽、烟雾、其它有害气体的监测；
+AirKEY_1000是合宙设计生产的一款支持8个独立按键的配件板；
 本demo演示的核心功能为：
-Air780EHM/Air780EHV/Air780EGH核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
+Air780EHV核心板+AirKEY_1000配件板，使用Air780EHV核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
 更多说明参考本目录下的readme.md文件
 ]]
-PROJECT = "AirVOC_1000"
+PROJECT = "AirKEY_1000"
 VERSION = "001.000.000"
 
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
@@ -55,8 +53,8 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 --  end, 3000)
 
- -- 加载voc应用模块
- require "voc_app"
+ -- 加载KEY应用模块
+ require "key_app"
 
 
 -- 用户代码已结束---------------------------------------------

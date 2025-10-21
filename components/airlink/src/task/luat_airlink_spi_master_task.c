@@ -41,17 +41,40 @@ static uint8_t thread_rdy;
 static uint8_t spi_rdy;
 static luat_rtos_task_handle spi_task_handle;
 
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+extern luat_airlink_dev_info_t g_airlink_self_dev_info;
+#endif
 static uint8_t basic_info[256];
 
 // static uint32_t is_waiting_queue = 0;
 
 static luat_rtos_queue_t evt_queue;
+static luat_rtos_queue_t rdy_evt_queue;  // 专门用于RDY事件(id=6)的队列
 
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
 luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
+
+// RDY引脚中断等待相关变量
+static volatile uint8_t rdy_ready_flag = 0;           // RDY就绪标志
+
+// RDY引脚下降沿中断处理函数，设置就绪标志并发送事件
+__USER_FUNC_IN_RAM__ static int rdy_pin_irq_handler(void* param)
+{
+    // 设置RDY就绪标志
+    if (rdy_evt_queue == NULL) {
+        return 0;
+    }
+    rdy_ready_flag = 1;
+    // 发送通知事件，告知任务RDY已就绪
+    luat_event_t evt = {.id = 6};
+    luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
+    
+    // LLOGD("RDY中断触发，设置就绪标志");
+    return 0;
+}
 
 __USER_FUNC_IN_RAM__ static int slave_irq_cb(void *data, void *args)
 {
@@ -116,22 +139,31 @@ void luat_airlink_spi_master_pin_setup(void)
         .CPHA = 1,
         .CPOL = 1,
         .dataw = 8,
-        .bit_dict = 0,
+        .bit_dict = 1, // MSB, 大部分平台也只支持MSB
         .master = 1,
         .mode = 1, // mode设置为1，全双工
         .bandrate = g_airlink_spi_conf.speed > 0 ? g_airlink_spi_conf.speed : 31000000,
         .cs = 255};
-    luat_pm_iovolt_ctrl(0, 3300);
+    // luat_pm_iovolt_ctrl(0, 3300);
 
     luat_spi_setup(&spi_conf);
     luat_gpio_cfg_t gpio_cfg = {0};
 
     // 从机准备好脚
+    // luat_gpio_set_default_cfg(&gpio_cfg);
+    // gpio_cfg.pin = AIRLINK_SPI_RDY_PIN;
+    // gpio_cfg.mode = LUAT_GPIO_INPUT;
+    // gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
+    // gpio_cfg.pull = 0;
+    // luat_gpio_open(&gpio_cfg);
+
+    // 设置RDY引脚中断，
     luat_gpio_set_default_cfg(&gpio_cfg);
     gpio_cfg.pin = AIRLINK_SPI_RDY_PIN;
-    gpio_cfg.mode = LUAT_GPIO_INPUT;
-    gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
-    gpio_cfg.pull = 0;
+    gpio_cfg.mode = LUAT_GPIO_IRQ;
+    gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;  // 下降沿中断
+    gpio_cfg.pull = LUAT_GPIO_PULLUP;
+    gpio_cfg.irq_cb = rdy_pin_irq_handler;
     luat_gpio_open(&gpio_cfg);
 
     // CS片选脚
@@ -187,7 +219,21 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
     airlink_link_data_t *link = NULL;
 
     g_airlink_statistic.tx_pkg.total++;
+    // 拉低片选, 准备发送数据
+    luat_gpio_set(AIRLINK_SPI_CS_PIN, 0);
+    // 发送数据
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
+    // 拉高片选之前，先检查一下是否有RDY事件未处理，如果有，则全部清除
+    size_t qlen = 0;
+    luat_rtos_queue_get_cnt(rdy_evt_queue, &qlen);
+    if (qlen > 0) {
+        // LLOGW("发送数据后发现有%d个RDY事件未处理", (int)qlen);
+        // 清除掉这些冗余的RDY事件
+        luat_event_t evt = {0};
+        luat_rtos_queue_recv(rdy_evt_queue, &evt, sizeof(evt), 0);
+    }
+    rdy_ready_flag = 0;
+    // 拉高片选, 数据发送完毕
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 1);
     // luat_airlink_print_buff("RX", rxbuff, 32);
     // 对接收到的数据进行解析
@@ -209,30 +255,16 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
     }
 }
 
-__USER_FUNC_IN_RAM__ void airlink_wait_for_slave_ready(size_t timeout_ms)
+__USER_FUNC_IN_RAM__ void airlink_wait_for_slave_reply(size_t timeout_ms)
 {
-    luat_gpio_set(AIRLINK_SPI_CS_PIN, 0); // 拉低片选, 等待从机就绪
-    int tmpval = 0;
-    for (size_t i = 0; i < timeout_ms; i++)
+    luat_event_t event = {0};
+    while (1)
     {
-        tmpval = luat_gpio_get(AIRLINK_SPI_RDY_PIN);
-        if (tmpval == 1)
-        {
-            g_airlink_statistic.wait_rdy.total++;
-            if (g_airlink_debug)
-            {
-                tnow = luat_mcu_tick64_ms();
-                if (tnow - warn_slave_no_ready > 1000)
-                {
-                    warn_slave_no_ready = tnow;
-                    LLOGD("从机未就绪,等1ms");
-                }
-            }
-            luat_rtos_task_sleep(1);
-            continue;
+        event.id = 0;
+        luat_rtos_queue_recv(rdy_evt_queue, &event, sizeof(luat_event_t), 10);
+        if (event.id != 0) {
+            break;
         }
-        // LLOGD("从机已就绪!! %s %s", __DATE__, __TIME__);
-        break;
     }
 }
 
@@ -321,6 +353,9 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     else
     {
         // LLOGD("填充PING数据");
+        #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+        memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+        #endif
         luat_airlink_data_pack(basic_info, sizeof(basic_info), txbuff);
         queue_emtry_counter ++;
     }
@@ -334,11 +369,27 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
     }
 }
 
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+static void send_devinfo_update_evt(void) {
+    airlink_queue_item_t item = {0};
+    // 发送空消息, 会自动转为devinfo消息
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item); 
+}
+#endif
 
 __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
     // int i;
     // luat_event_t event = {0};
+    #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+    luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
+    cmd->cmd = 0x10;
+    cmd->len = 128;
+
+    extern void luat_airlink_devinfo_init();
+    luat_airlink_devinfo_init(send_devinfo_update_evt);
+    #endif
+
     luat_rtos_task_sleep(5); // 等5ms
     luat_airlink_spi_master_pin_setup();
     g_airlink_newdata_notify_cb = on_newdata_notify;
@@ -355,13 +406,13 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 
         memset(s_txbuff, 0, TEST_BUFF_SIZE);
         airlink_wait_and_prepare_data(s_txbuff);
-        // slave_rdy = 0;
-        airlink_wait_for_slave_ready(1000); // 最多等1秒
 
+        // 立即发送数据给从机
         airlink_transfer_and_exec(s_txbuff, s_rxbuff);
-
         memset(s_rxbuff, 0, TEST_BUFF_SIZE);
-        // start = 0;
+
+        // 发送完成后，等待从机的响应/确认
+        airlink_wait_for_slave_reply(5000);
     }
 }
 
@@ -376,7 +427,10 @@ void luat_airlink_start_master(void)
     s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
 
+    // 创建通用事件队列 (id=2,3等)
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
+    // 创建专门的RDY事件队列 (id=6)
+    luat_rtos_queue_create(&rdy_evt_queue, 1, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
 }
 

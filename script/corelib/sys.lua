@@ -329,7 +329,11 @@ function sys.unsubscribe(id, callback)
         for _, v in pairs(id) do sys.unsubscribe(v, callback) end
         return
     end
-    if subscribers[id] then subscribers[id][callback] = nil end
+    if subscribers[id] then
+        subscribers[id][callback] = nil
+    else
+        return
+    end
     -- 判断消息是否无其他订阅
     for k, _ in pairs(subscribers[id]) do
         return
@@ -489,7 +493,7 @@ local taskList = {}
 -- @usage sys.taskInitEx(task1,'a',callback)
 function sys.taskInitEx(fun, taskName, cbFun, ...)
     if taskName == nil then
-        log.error("sys", "taskName is nil", fun)
+        log.error("sys", "taskName is nil", debug.traceback())
         return
     end
     taskList[taskName]={msgQueue={}, To=false, cb=cbFun}

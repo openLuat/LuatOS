@@ -1,3 +1,17 @@
+--[[
+@module  gpio_app
+@summary gpio_app应用功能模块 
+@version 1.0
+@date    2025.10.21
+@author  沈园园
+@usage
+本文件为gpio_app应用功能模块，核心业务逻辑为：
+1、初始化Air780EHV和AirGPIO_1000之间的通信参数
+2、GPIO输出测试，输入测试，GPIO中断测试
+
+本文件没有对外接口，直接在main.lua中require "gpio_app"就可以加载运行；
+]]
+
 --加载AirGPIO_1000驱动文件
 local air_gpio = require "AirGPIO_1000"
 
@@ -74,10 +88,10 @@ end
 
 
 --初始化Air8000和AirGPIO_1000之间的通信参数
---使用Air8101的I2C0
---使用Air8101的GPIO2做为中断引脚
---Air8101核心板和AirGPIO_1000配件板的接线方式如下
---Air8101核心板             AirGPIO_1000配件板
+--使用Air8000的I2C0
+--使用Air8000的GPIO2做为中断引脚
+--Air8000核心板和AirGPIO_1000配件板的接线方式如下
+--Air8000核心板             AirGPIO_1000配件板
 --VDD_EXT(3.3V)-----------------3V3
 --       GND-----------------GND
 --     I2C1_SDA-----------------SDA

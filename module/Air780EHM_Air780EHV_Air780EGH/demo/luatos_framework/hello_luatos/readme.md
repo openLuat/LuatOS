@@ -8,19 +8,19 @@
 
 ## 演示硬件环境
 
-1、Air780EXX核心板一块
+1、Air780EHM/Air780EHV/Air780EGH核心板一块
 
 2、TYPE-C USB数据线一根
 
-3、Air780EXX核心板和数据线的硬件接线方式为
+3、Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为
 
-- Air780EXX核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
+- Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
 - 核心板正面的 ON/OFF 拨动开关 拨到ON一端；
 
 
 ## 演示软件环境
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
+1、[Luatools下载调试工具](https://docs.openluat.com/air780ehv/luatos/common/download/)
 
 2、[Air780EHM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 

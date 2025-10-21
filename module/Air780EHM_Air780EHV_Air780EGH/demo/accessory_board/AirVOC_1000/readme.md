@@ -1,3 +1,10 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、voc_app.lua：每隔1秒读取一次TVOC数据；
+
+3、AirVOC_1000.lua：AirVOC_1000驱动文件；
 
 ## 演示功能概述
 
@@ -7,27 +14,29 @@ AirVOC_1000是合宙设计生产的一款I2C接口的VOC(挥发性有机化合�
 
 本demo演示的核心功能为：
 
-Air780EHV核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
+Air780EHM/Air780EHV/Air780EGH核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
 
 
 ## 核心板+配件板资料
 
-[Air780EHV核心板+配件板相关资料](https://docs.openluat.com/air780ehv/product/shouce/)
+[Air780EHM/Air780EHV/Air780EGH核心板](https://docs.openluat.com/air780ehv/product/shouce/)
+
+[AirVOC_1000配件板相关资料](https://docs.openluat.com/accessory/AirVOC_1000/)
 
 
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/accessory/AirVOC_1000/image/connect_Air780ehv.jpg)
 
-1、Air780EHV核心板
+1、Air780EHM/Air780EHV/Air780EGH核心板
 
 2、AirVOC_1000配件板
 
 3、母对母的杜邦线4根
 
-4、Air780EHV核心板和AirVOC_1000配件板的硬件接线方式为
+4、Air780EHM/Air780EHV/Air780EGH核心板和AirVOC_1000配件板的硬件接线方式为
 
-| Air780EHV核心板 | AirVOC_1000配件板  |
+| Air780EHM/Air780EHV/Air780EGH核心板 | AirVOC_1000配件板  |
 | ------------ | ------------------ |
 |     3V3     |         3V3        |
 |     GND   |         GND        |

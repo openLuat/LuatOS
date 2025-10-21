@@ -26,8 +26,8 @@ typedef struct
 {
 #ifdef LUAT_USE_LWIP
 	network_ctrl_t lwip_ctrl_table[LWIP_NUM_SOCKETS];
-	HANDLE network_mutex;
 #endif
+	HANDLE network_mutex;
 	int last_adapter_index;
 	int default_adapter_index;
 	llist_head dns_cache_head;

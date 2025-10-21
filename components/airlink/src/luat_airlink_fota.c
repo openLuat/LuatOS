@@ -60,7 +60,7 @@ static void pack_and_send(uint16_t cmd_id, uint8_t *data, size_t len)
     luat_airlink_data_pack(cmd, sizeof(luat_airlink_cmd_t) + len, s_airlink_fota_txbuff);
     // LLOGD("发送sFOTA %d %d", cmd->cmd, cmd->len);
     airlink_transfer_and_exec(s_airlink_fota_txbuff, s_airlink_fota_rxbuff);
-    airlink_wait_for_slave_ready(5000); // 等待从机回复完成接收
+    airlink_wait_for_slave_reply(5000); // 等待从机回复完成接收
 
     memset(s_airlink_fota_txbuff, 0, AIRLINK_SFOTA_BUFF_SIZE);
 }

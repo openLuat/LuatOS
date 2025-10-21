@@ -9,14 +9,6 @@
 ]]
 
 function xxtea_fnc()
-    --判断xxtea库是否存在
-    if not xxtea then
-        while true do
-            sys.wait(1000)
-            -- 每隔1秒打印一条信息
-            log.info("testCrypto.xxteaTest","xxtea库不存在,请选择带xxtea的固件")
-        end
-    end
     while true do
         sys.wait(1000)
         --代加密数据

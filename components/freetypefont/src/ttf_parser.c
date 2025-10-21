@@ -7,6 +7,16 @@
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
+#define TTF_ENABLE_SUPERSAMPLING
+
+#ifndef TTF_SUPERSAMPLE_RATE
+#ifdef TTF_ENABLE_SUPERSAMPLING
+#define TTF_SUPERSAMPLE_RATE 4
+#else
+#define TTF_SUPERSAMPLE_RATE 1
+#endif
+#endif
+
 static uint16_t read_u16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
 }
@@ -17,6 +27,15 @@ static int16_t read_s16(const uint8_t *p) {
 
 static uint32_t read_u32(const uint8_t *p) {
     return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
+}
+
+static float read_f2dot14(const uint8_t *p) {
+    int16_t value = read_s16(p);
+    return (float)value / 16384.0f;
+}
+
+static int32_t round_to_int32(float value) {
+    return (int32_t)(value >= 0.0f ? value + 0.5f : value - 0.5f);
 }
 
 static int ensure_range(const TtfFont *font, uint32_t offset, uint32_t length) {
@@ -157,6 +176,57 @@ typedef struct {
     uint32_t length;
 } CmapSubtable;
 
+static int find_cmap_format12(const TtfFont *font, CmapSubtable *out) {
+    if (!font || !font->data) {
+        return 0;
+    }
+    if (font->cmapLength < 4) {
+        return 0;
+    }
+    const uint8_t *cmap = font->data + font->cmapOffset;
+    uint16_t numTables = read_u16(cmap + 2);
+    uint32_t recordsSize = 4u + (uint32_t)numTables * 8u;
+    if (font->cmapLength < recordsSize) {
+        return 0;
+    }
+    const uint8_t *record = cmap + 4;
+    CmapSubtable chosen = {0};
+    for (uint16_t i = 0; i < numTables; ++i) {
+        uint16_t platformID = read_u16(record);
+        uint16_t encodingID = read_u16(record + 2);
+        uint32_t offset = read_u32(record + 4);
+        if (offset >= font->cmapLength) {
+            record += 8;
+            continue;
+        }
+        const uint8_t *sub = cmap + offset;
+        if (font->cmapLength - offset < 6) {
+            record += 8;
+            continue;
+        }
+        uint16_t format = read_u16(sub);
+        if (format == 12) {
+            if (font->cmapLength - offset < 16) {
+                record += 8;
+                continue;
+            }
+            if (!chosen.table || (platformID == 3 && encodingID == 10) || (platformID == 0)) {
+                chosen.table = sub;
+                chosen.length = font->cmapLength - offset;
+                if (platformID == 3 && encodingID == 10) {
+                    break;
+                }
+            }
+        }
+        record += 8;
+    }
+    if (!chosen.table) {
+        return 0;
+    }
+    *out = chosen;
+    return 1;
+}
+
 static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     if (!font || !font->data) {
         return 0;
@@ -204,17 +274,76 @@ static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     return 1;
 }
 
+static int cmap_format12_lookup(const CmapSubtable *cmap, uint32_t codepoint, uint16_t numGlyphs, uint16_t *glyphIndex) {
+    if (!cmap || !cmap->table || !glyphIndex) {
+        return TTF_ERR_RANGE;
+    }
+    const uint8_t *data = cmap->table;
+    if (cmap->length < 16) {
+        return TTF_ERR_FORMAT;
+    }
+    uint32_t length = read_u32(data + 4);
+    if (length > cmap->length) {
+        return TTF_ERR_FORMAT;
+    }
+    uint32_t nGroups = read_u32(data + 12);
+    if (nGroups == 0) {
+        return TTF_ERR_RANGE;
+    }
+    uint64_t required = 16u + (uint64_t)nGroups * 12u;
+    if (required > cmap->length) {
+        return TTF_ERR_FORMAT;
+    }
+    const uint8_t *groups = data + 16;
+    uint32_t lo = 0;
+    uint32_t hi = nGroups;
+    while (lo < hi) {
+        uint32_t mid = lo + (hi - lo) / 2u;
+        const uint8_t *group = groups + (size_t)mid * 12u;
+        uint32_t startCode = read_u32(group);
+        uint32_t endCode = read_u32(group + 4);
+        if (codepoint < startCode) {
+            hi = mid;
+            continue;
+        }
+        if (codepoint > endCode) {
+            lo = mid + 1u;
+            continue;
+        }
+        uint32_t startGlyphId = read_u32(group + 8);
+        uint64_t glyph = (uint64_t)startGlyphId + (uint64_t)(codepoint - startCode);
+        if (glyph >= numGlyphs || glyph > 0xFFFFu) {
+            return TTF_ERR_RANGE;
+        }
+        *glyphIndex = (uint16_t)glyph;
+        return TTF_OK;
+    }
+    return TTF_ERR_RANGE;
+}
+
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex) {
     if (!font || !glyphIndex) {
         return TTF_ERR_RANGE;
     }
-    CmapSubtable cmap = {0};
-    if (!find_cmap_format4(font, &cmap)) {
+
+    CmapSubtable cmap12 = {0};
+    if (find_cmap_format12(font, &cmap12)) {
+        int rc = cmap_format12_lookup(&cmap12, codepoint, font->numGlyphs, glyphIndex);
+        if (rc == TTF_OK) {
+            return TTF_OK;
+        }
+        if (rc != TTF_ERR_RANGE) {
+            return rc;
+        }
+    }
+
+    CmapSubtable cmap4 = {0};
+    if (!find_cmap_format4(font, &cmap4)) {
         return TTF_ERR_UNSUPPORTED;
     }
-    const uint8_t *data = cmap.table;
+    const uint8_t *data = cmap4.table;
     uint16_t length = read_u16(data + 2);
-    if (length > cmap.length || length < 24) {
+    if (length > cmap4.length || length < 24) {
         return TTF_ERR_FORMAT;
     }
     uint16_t segCountX2 = read_u16(data + 6);
@@ -223,31 +352,31 @@ int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *gl
     }
     uint16_t segCount = segCountX2 / 2;
     const uint8_t *endCodes = data + 14;
-    const uint8_t *startCodes = endCodes + segCount * 2 + 2; // +2 reservedPad
+    const uint8_t *startCodes = endCodes + segCount * 2 + 2;
     const uint8_t *idDeltas = startCodes + segCount * 2;
     const uint8_t *idRangeOffsets = idDeltas + segCount * 2;
     const uint8_t *glyphIdArray = idRangeOffsets + segCount * 2;
-    if ((size_t)(glyphIdArray - data) > cmap.length) {
+    if ((size_t)(glyphIdArray - data) > cmap4.length) {
         return TTF_ERR_FORMAT;
     }
 
     for (uint16_t i = 0; i < segCount; ++i) {
         uint16_t endCode = read_u16(endCodes + i * 2);
         uint16_t startCode = read_u16(startCodes + i * 2);
-        if (codepoint < startCode) {
-            continue;
-        }
-        if (codepoint > endCode) {
+        if (codepoint < startCode || codepoint > endCode) {
             continue;
         }
         uint16_t idDelta = read_u16(idDeltas + i * 2);
         uint16_t idRangeOffset = read_u16(idRangeOffsets + i * 2);
         if (idRangeOffset == 0) {
             *glyphIndex = (uint16_t)((codepoint + idDelta) & 0xFFFF);
+            if (*glyphIndex >= font->numGlyphs) {
+                return TTF_ERR_RANGE;
+            }
             return TTF_OK;
         }
-        const uint8_t *p = idRangeOffsets + i * 2 + idRangeOffset + 2 * (codepoint - startCode);
-        if (p + 2 > data + cmap.length) {
+        const uint8_t *p = idRangeOffsets + i * 2 + idRangeOffset + 2u * (codepoint - startCode);
+        if (p + 2 > data + cmap4.length) {
             return TTF_ERR_FORMAT;
         }
         uint16_t glyphId = read_u16(p);
@@ -256,6 +385,9 @@ int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *gl
             return TTF_OK;
         }
         *glyphIndex = (uint16_t)((glyphId + idDelta) & 0xFFFF);
+        if (*glyphIndex >= font->numGlyphs) {
+            return TTF_ERR_RANGE;
+        }
         return TTF_OK;
     }
     return TTF_ERR_RANGE;
@@ -305,9 +437,77 @@ void ttf_free_glyph(TtfGlyph *glyph) {
     memset(glyph, 0, sizeof(*glyph));
 }
 
-int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
+static int append_component_glyph(TtfGlyph *dest, const TtfGlyph *src,
+                                 float m00, float m01, float m10, float m11,
+                                 float dx, float dy) {
+    if (!dest || !src) {
+        return TTF_ERR_RANGE;
+    }
+    if (src->pointCount == 0 || src->contourCount == 0) {
+        return TTF_OK;
+    }
+    uint32_t newPointCount = (uint32_t)dest->pointCount + (uint32_t)src->pointCount;
+    if (newPointCount > 0xFFFFu) {
+        return TTF_ERR_FORMAT;
+    }
+    uint32_t newContourCount = (uint32_t)dest->contourCount + (uint32_t)src->contourCount;
+    if (newContourCount > 0xFFFFu) {
+        return TTF_ERR_FORMAT;
+    }
+
+    TtfPoint *points = (TtfPoint *)realloc(dest->points, newPointCount * sizeof(TtfPoint));
+    if (!points) {
+        return TTF_ERR_OOM;
+    }
+    dest->points = points;
+
+    uint16_t *contours = (uint16_t *)realloc(dest->contourEnds, newContourCount * sizeof(uint16_t));
+    if (!contours) {
+        return TTF_ERR_OOM;
+    }
+    dest->contourEnds = contours;
+
+    uint16_t basePoint = dest->pointCount;
+    uint16_t baseContour = dest->contourCount;
+    for (uint16_t i = 0; i < src->pointCount; ++i) {
+        float x = (float)src->points[i].x;
+        float y = (float)src->points[i].y;
+        float tx = x * m00 + y * m01 + dx;
+        float ty = x * m10 + y * m11 + dy;
+        int32_t ix = round_to_int32(tx);
+        int32_t iy = round_to_int32(ty);
+        if (ix < -32768) {
+            ix = -32768;
+        } else if (ix > 32767) {
+            ix = 32767;
+        }
+        if (iy < -32768) {
+            iy = -32768;
+        } else if (iy > 32767) {
+            iy = 32767;
+        }
+        dest->points[basePoint + i].x = (int16_t)ix;
+        dest->points[basePoint + i].y = (int16_t)iy;
+        dest->points[basePoint + i].onCurve = src->points[i].onCurve;
+    }
+    for (uint16_t c = 0; c < src->contourCount; ++c) {
+        uint32_t end = (uint32_t)basePoint + (uint32_t)src->contourEnds[c];
+        if (end > 0xFFFFu) {
+            return TTF_ERR_FORMAT;
+        }
+        dest->contourEnds[baseContour + c] = (uint16_t)end;
+    }
+    dest->pointCount = (uint16_t)newPointCount;
+    dest->contourCount = (uint16_t)newContourCount;
+    return TTF_OK;
+}
+
+static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph, int depth) {
     if (!font || !glyph) {
         return TTF_ERR_RANGE;
+    }
+    if (depth > 16) {
+        return TTF_ERR_UNSUPPORTED;
     }
     memset(glyph, 0, sizeof(*glyph));
 
@@ -324,111 +524,100 @@ int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
     }
 
     const uint8_t *ptr = font->data + offset;
+    const uint8_t *end = ptr + length;
     int16_t numberOfContours = read_s16(ptr);
     glyph->minX = read_s16(ptr + 2);
     glyph->minY = read_s16(ptr + 4);
     glyph->maxX = read_s16(ptr + 6);
     glyph->maxY = read_s16(ptr + 8);
 
-    if (numberOfContours < 0) {
-        return TTF_ERR_UNSUPPORTED; // composite glyphs not supported yet
-    }
-    if (numberOfContours == 0) {
-        return TTF_OK;
-    }
+    if (numberOfContours >= 0) {
+        glyph->contourCount = (uint16_t)numberOfContours;
+        uint32_t headerBytes = 10u + (uint32_t)glyph->contourCount * 2u + 2u;
+        if (length < headerBytes) {
+            return TTF_ERR_FORMAT;
+        }
 
-    glyph->contourCount = (uint16_t)numberOfContours;
-    uint32_t headerBytes = 10u + (uint32_t)glyph->contourCount * 2u + 2u;
-    if (length < headerBytes) {
-        return TTF_ERR_FORMAT;
-    }
+        glyph->contourEnds = (uint16_t *)calloc(glyph->contourCount, sizeof(uint16_t));
+        if (!glyph->contourEnds) {
+            return TTF_ERR_OOM;
+        }
+        const uint8_t *contourPtr = ptr + 10;
+        for (uint16_t i = 0; i < glyph->contourCount; ++i) {
+            glyph->contourEnds[i] = read_u16(contourPtr + i * 2);
+        }
 
-    glyph->contourEnds = (uint16_t *)calloc(glyph->contourCount, sizeof(uint16_t));
-    if (!glyph->contourEnds) {
-        return TTF_ERR_OOM;
-    }
-    const uint8_t *contourPtr = ptr + 10;
-    for (uint16_t i = 0; i < glyph->contourCount; ++i) {
-        glyph->contourEnds[i] = read_u16(contourPtr + i * 2);
-    }
-
-    uint16_t instructionLength = read_u16(contourPtr + glyph->contourCount * 2);
-    const uint8_t *instructionPtr = contourPtr + glyph->contourCount * 2 + 2;
-    if (instructionPtr + instructionLength > ptr + length) {
-        ttf_free_glyph(glyph);
-        return TTF_ERR_FORMAT;
-    }
-    const uint8_t *flagsPtr = instructionPtr + instructionLength;
-
-    if (glyph->contourEnds[glyph->contourCount - 1] >= 0xFFFFu) {
-        ttf_free_glyph(glyph);
-        return TTF_ERR_FORMAT;
-    }
-    glyph->pointCount = glyph->contourEnds[glyph->contourCount - 1] + 1;
-    if (glyph->pointCount == 0) {
-        return TTF_OK;
-    }
-
-    uint8_t *flags = (uint8_t *)malloc(glyph->pointCount);
-    if (!flags) {
-        ttf_free_glyph(glyph);
-        return TTF_ERR_OOM;
-    }
-    const uint8_t *cursor = flagsPtr;
-    uint16_t flagIndex = 0;
-    while (flagIndex < glyph->pointCount) {
-        if (cursor >= ptr + length) {
-            free(flags);
+        uint16_t instructionLength = read_u16(contourPtr + glyph->contourCount * 2);
+        const uint8_t *instructionPtr = contourPtr + glyph->contourCount * 2 + 2;
+        if (instructionPtr + instructionLength > end) {
             ttf_free_glyph(glyph);
             return TTF_ERR_FORMAT;
         }
-        uint8_t flag = *cursor++;
-        flags[flagIndex++] = flag;
-        if (flag & 0x08) {
-            if (cursor >= ptr + length) {
+        const uint8_t *flagsPtr = instructionPtr + instructionLength;
+
+        if (glyph->contourEnds[glyph->contourCount - 1] >= 0xFFFFu) {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_FORMAT;
+        }
+        glyph->pointCount = glyph->contourEnds[glyph->contourCount - 1] + 1;
+        if (glyph->pointCount == 0) {
+            return TTF_OK;
+        }
+
+        uint8_t *flags = (uint8_t *)malloc(glyph->pointCount);
+        if (!flags) {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_OOM;
+        }
+        const uint8_t *cursor = flagsPtr;
+        uint16_t flagIndex = 0;
+        while (flagIndex < glyph->pointCount) {
+            if (cursor >= end) {
                 free(flags);
                 ttf_free_glyph(glyph);
                 return TTF_ERR_FORMAT;
             }
-            uint8_t repeatCount = *cursor++;
-            if (flagIndex + repeatCount > glyph->pointCount) {
-                free(flags);
-                ttf_free_glyph(glyph);
-                return TTF_ERR_FORMAT;
-            }
-            for (uint8_t r = 0; r < repeatCount; ++r) {
-                flags[flagIndex++] = flag;
+            uint8_t flag = *cursor++;
+            flags[flagIndex++] = flag;
+            if (flag & 0x08) {
+                if (cursor >= end) {
+                    free(flags);
+                    ttf_free_glyph(glyph);
+                    return TTF_ERR_FORMAT;
+                }
+                uint8_t repeatCount = *cursor++;
+                if (flagIndex + repeatCount > glyph->pointCount) {
+                    free(flags);
+                    ttf_free_glyph(glyph);
+                    return TTF_ERR_FORMAT;
+                }
+                for (uint8_t r = 0; r < repeatCount; ++r) {
+                    flags[flagIndex++] = flag;
+                }
             }
         }
-    }
 
-    glyph->points = (TtfPoint *)calloc(glyph->pointCount, sizeof(TtfPoint));
-    if (!glyph->points) {
-        free(flags);
-        ttf_free_glyph(glyph);
-        return TTF_ERR_OOM;
-    }
+        glyph->points = (TtfPoint *)calloc(glyph->pointCount, sizeof(TtfPoint));
+        if (!glyph->points) {
+            free(flags);
+            ttf_free_glyph(glyph);
+            return TTF_ERR_OOM;
+        }
 
-    int16_t x = 0;
-    for (uint16_t i = 0; i < glyph->pointCount; ++i) {
-        uint8_t flag = flags[i];
-        if (flag & 0x02) {
-            if (cursor >= ptr + length) {
-                free(flags);
-                ttf_free_glyph(glyph);
-                return TTF_ERR_FORMAT;
-            }
-            uint8_t dx = *cursor++;
-            if (flag & 0x10) {
-                x += dx;
-            } else {
-                x -= dx;
-            }
-        } else {
-            if (flag & 0x10) {
-                // same as previous
-            } else {
-                if (cursor + 1 >= ptr + length) {
+        int16_t x = 0;
+        flagIndex = 0;
+        while (flagIndex < glyph->pointCount) {
+            uint8_t flag = flags[flagIndex++];
+            if (flag & 0x02) {
+                if (cursor >= end) {
+                    free(flags);
+                    ttf_free_glyph(glyph);
+                    return TTF_ERR_FORMAT;
+                }
+                uint8_t dx = *cursor++;
+                x += (flag & 0x10) ? dx : -(int16_t)dx;
+            } else if (!(flag & 0x10)) {
+                if (cursor + 1 >= end) {
                     free(flags);
                     ttf_free_glyph(glyph);
                     return TTF_ERR_FORMAT;
@@ -437,30 +626,23 @@ int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
                 cursor += 2;
                 x += dx;
             }
+            glyph->points[flagIndex - 1].x = x;
         }
-        glyph->points[i].x = x;
-    }
 
-    int16_t y = 0;
-    for (uint16_t i = 0; i < glyph->pointCount; ++i) {
-        uint8_t flag = flags[i];
-        if (flag & 0x04) {
-            if (cursor >= ptr + length) {
-                free(flags);
-                ttf_free_glyph(glyph);
-                return TTF_ERR_FORMAT;
-            }
-            uint8_t dy = *cursor++;
-            if (flag & 0x20) {
-                y += dy;
-            } else {
-                y -= dy;
-            }
-        } else {
-            if (flag & 0x20) {
-                // same as previous
-            } else {
-                if (cursor + 1 >= ptr + length) {
+        int16_t y = 0;
+        flagIndex = 0;
+        while (flagIndex < glyph->pointCount) {
+            uint8_t flag = flags[flagIndex];
+            if (flag & 0x04) {
+                if (cursor >= end) {
+                    free(flags);
+                    ttf_free_glyph(glyph);
+                    return TTF_ERR_FORMAT;
+                }
+                uint8_t dy = *cursor++;
+                y += (flag & 0x20) ? dy : -(int16_t)dy;
+            } else if (!(flag & 0x20)) {
+                if (cursor + 1 >= end) {
                     free(flags);
                     ttf_free_glyph(glyph);
                     return TTF_ERR_FORMAT;
@@ -469,13 +651,129 @@ int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
                 cursor += 2;
                 y += dy;
             }
+            glyph->points[flagIndex].y = y;
+            glyph->points[flagIndex].onCurve = (flags[flagIndex] & 0x01) ? 1 : 0;
+            ++flagIndex;
         }
-        glyph->points[i].y = y;
-        glyph->points[i].onCurve = (flags[i] & 0x01) ? 1 : 0;
+
+        free(flags);
+        return TTF_OK;
     }
 
-    free(flags);
+
+    const uint8_t *cursor = ptr + 10;
+    uint16_t flags = 0;
+    do {
+        if (cursor + 4 > end) {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_FORMAT;
+        }
+        flags = read_u16(cursor);
+        cursor += 2;
+        uint16_t componentIndex = read_u16(cursor);
+        cursor += 2;
+
+        int16_t arg1 = 0;
+        int16_t arg2 = 0;
+        if (flags & 0x0001) {
+            if (cursor + 4 > end) {
+                ttf_free_glyph(glyph);
+                return TTF_ERR_FORMAT;
+            }
+            arg1 = read_s16(cursor);
+            arg2 = read_s16(cursor + 2);
+            cursor += 4;
+        } else {
+            if (cursor + 2 > end) {
+                ttf_free_glyph(glyph);
+                return TTF_ERR_FORMAT;
+            }
+            arg1 = (int8_t)cursor[0];
+            arg2 = (int8_t)cursor[1];
+            cursor += 2;
+        }
+
+        float dx = 0.0f;
+        float dy = 0.0f;
+        if (flags & 0x0002) {
+            dx = (float)arg1;
+            dy = (float)arg2;
+        } else {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_UNSUPPORTED;
+        }
+
+        float m00 = 1.0f;
+        float m01 = 0.0f;
+        float m10 = 0.0f;
+        float m11 = 1.0f;
+        if (flags & 0x0008) {
+            if (cursor + 2 > end) {
+                ttf_free_glyph(glyph);
+                return TTF_ERR_FORMAT;
+            }
+            float scale = read_f2dot14(cursor);
+            cursor += 2;
+            m00 = scale;
+            m11 = scale;
+        } else if (flags & 0x0040) {
+            if (cursor + 4 > end) {
+                ttf_free_glyph(glyph);
+                return TTF_ERR_FORMAT;
+            }
+            m00 = read_f2dot14(cursor);
+            m11 = read_f2dot14(cursor + 2);
+            cursor += 4;
+        } else if (flags & 0x0080) {
+            if (cursor + 8 > end) {
+                ttf_free_glyph(glyph);
+                return TTF_ERR_FORMAT;
+            }
+            m00 = read_f2dot14(cursor);
+            m01 = read_f2dot14(cursor + 2);
+            m10 = read_f2dot14(cursor + 4);
+            m11 = read_f2dot14(cursor + 6);
+            cursor += 8;
+        }
+        if (flags & 0x0800) {
+            dx *= m00;
+            dy *= m11;
+        }
+
+        TtfGlyph componentGlyph;
+        int rc = load_glyph_internal(font, componentIndex, &componentGlyph, depth + 1);
+        if (rc != TTF_OK) {
+            ttf_free_glyph(&componentGlyph);
+            ttf_free_glyph(glyph);
+            return rc;
+        }
+        rc = append_component_glyph(glyph, &componentGlyph, m00, m01, m10, m11, dx, dy);
+        ttf_free_glyph(&componentGlyph);
+        if (rc != TTF_OK) {
+            ttf_free_glyph(glyph);
+            return rc;
+        }
+    } while (flags & 0x0020);
+
+    if (flags & 0x0100) {
+        if (cursor + 2 > end) {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_FORMAT;
+        }
+        uint16_t instructionLength = read_u16(cursor);
+        cursor += 2;
+        if (cursor + instructionLength > end) {
+            ttf_free_glyph(glyph);
+            return TTF_ERR_FORMAT;
+        }
+        cursor += instructionLength;
+    }
+
     return TTF_OK;
+}
+
+int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
+    return load_glyph_internal(font, glyphIndex, glyph, 0);
 }
 
 typedef struct {
@@ -676,12 +974,27 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_FORMAT;
     }
 
+    const int supersampleRate = TTF_SUPERSAMPLE_RATE;
+    const int sampleCount = supersampleRate * supersampleRate;
     for (uint32_t y = 0; y < height; ++y) {
         for (uint32_t x = 0; x < width; ++x) {
-            float px = (float)x + 0.5f;
-            float py = (float)y + 0.5f;
-            if (point_inside(&segments, px, py)) {
-                pixels[y * width + x] = 255;
+            int insideHits = 0;
+            if (supersampleRate == 1) {
+                float px = (float)x + 0.5f;
+                float py = (float)y + 0.5f;
+                insideHits = point_inside(&segments, px, py);
+            } else {
+                for (int sy = 0; sy < supersampleRate; ++sy) {
+                    for (int sx = 0; sx < supersampleRate; ++sx) {
+                        float px = (float)x + ((float)sx + 0.5f) / (float)supersampleRate;
+                        float py = (float)y + ((float)sy + 0.5f) / (float)supersampleRate;
+                        insideHits += point_inside(&segments, px, py);
+                    }
+                }
+            }
+            if (insideHits > 0) {
+                uint8_t value = (uint8_t)((insideHits * 255 + sampleCount / 2) / sampleCount);
+                pixels[y * width + x] = value;
             }
         }
     }

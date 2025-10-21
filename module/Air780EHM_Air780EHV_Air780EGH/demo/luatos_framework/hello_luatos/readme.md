@@ -20,7 +20,7 @@
 
 ## 演示软件环境
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
+1、[Luatools下载调试工具](https://docs.openluat.com/air780ehv/luatos/common/download/)
 
 2、[Air780EHM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 

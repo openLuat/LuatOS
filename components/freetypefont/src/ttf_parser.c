@@ -24,6 +24,10 @@ int ttf_get_debug(void) { return g_ttf_debug; }
 #endif
 #endif
 
+#define TTF_FIXED_SHIFT 8
+#define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
+#define TTF_FIXED_HALF  (1 << (TTF_FIXED_SHIFT - 1))
+
 static uint16_t read_u16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
 }
@@ -904,6 +908,11 @@ typedef struct {
     size_t capacity;
 } SegmentList;
 
+typedef struct {
+    int32_t *data;
+    size_t count;
+} FixedSegmentList;
+
 static int append_segment(SegmentList *segments, float x0, float y0, float x1, float y1) {
     if (!segments) {
         return 0;
@@ -930,6 +939,45 @@ static int append_segment(SegmentList *segments, float x0, float y0, float x1, f
     dest[3] = y1;
     segments->count += 1;
     return 1;
+}
+
+static inline int32_t float_to_fixed(float value) {
+    float scaled = value * (float)TTF_FIXED_ONE;
+    return (int32_t)lrintf(scaled);
+}
+
+static int convert_segments_to_fixed(const SegmentList *src, FixedSegmentList *dst) {
+    if (!dst) {
+        return 0;
+    }
+    dst->data = NULL;
+    dst->count = 0;
+    if (!src || src->count == 0) {
+        return 1;
+    }
+    size_t total = src->count * 4;
+    int32_t *buf = (int32_t *)malloc(total * sizeof(int32_t));
+    if (!buf) {
+        return 0;
+    }
+    for (size_t i = 0; i < src->count; ++i) {
+        buf[i * 4 + 0] = float_to_fixed(src->data[i * 4 + 0]);
+        buf[i * 4 + 1] = float_to_fixed(src->data[i * 4 + 1]);
+        buf[i * 4 + 2] = float_to_fixed(src->data[i * 4 + 2]);
+        buf[i * 4 + 3] = float_to_fixed(src->data[i * 4 + 3]);
+    }
+    dst->data = buf;
+    dst->count = src->count;
+    return 1;
+}
+
+static void free_fixed_segments(FixedSegmentList *segments) {
+    if (!segments) {
+        return;
+    }
+    free(segments->data);
+    segments->data = NULL;
+    segments->count = 0;
 }
 
 static int flatten_quadratic(SegmentList *segments, float x0, float y0, float cx, float cy, float x1, float y1, int steps) {
@@ -1033,14 +1081,17 @@ static int build_segments(const TtfGlyph *glyph, float scale, float offsetX, flo
     return 1;
 }
 
-static int point_inside(const SegmentList *segments, float px, float py) {
+static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int32_t py) {
+    if (!segments || segments->count == 0) {
+        return 0;
+    }
     int winding = 0;
     for (size_t i = 0; i < segments->count; ++i) {
-        float x0 = segments->data[i * 4 + 0];
-        float y0 = segments->data[i * 4 + 1];
-        float x1 = segments->data[i * 4 + 2];
-        float y1 = segments->data[i * 4 + 3];
-        if (fabsf(y0 - y1) < 1e-6f) {
+        int32_t x0 = segments->data[i * 4 + 0];
+        int32_t y0 = segments->data[i * 4 + 1];
+        int32_t x1 = segments->data[i * 4 + 2];
+        int32_t y1 = segments->data[i * 4 + 3];
+        if (y0 == y1) {
             continue;
         }
         int upward = (y0 <= py && y1 > py);
@@ -1048,12 +1099,19 @@ static int point_inside(const SegmentList *segments, float px, float py) {
         if (!(upward || downward)) {
             continue;
         }
-        float t = (py - y0) / (y1 - y0);
-        if (t < 0.0f || t > 1.0f) {
+        int32_t dy = y1 - y0;
+        if (dy == 0) {
             continue;
         }
-        float x = x0 + t * (x1 - x0);
-        if (x > px) {
+        int64_t num = (int64_t)(py - y0) * (int64_t)(x1 - x0);
+        int64_t den = (int64_t)dy;
+        if (den > 0) {
+            num += den / 2;
+        } else if (den < 0) {
+            num -= (-den) / 2;
+        }
+        int64_t x = (int64_t)x0 + num / den;
+        if (x > (int64_t)px) {
             winding ^= 1;
         }
     }
@@ -1096,21 +1154,33 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_FORMAT;
     }
 
+    FixedSegmentList fixedSegments = {0};
+    if (!convert_segments_to_fixed(&segments, &fixedSegments)) {
+        free(pixels);
+        free(segments.data);
+        return TTF_ERR_OOM;
+    }
+    free(segments.data);
+
     const int supersampleRate = TTF_SUPERSAMPLE_RATE;
     const int sampleCount = supersampleRate * supersampleRate;
+    int32_t step = (supersampleRate > 0) ? (TTF_FIXED_ONE / supersampleRate) : TTF_FIXED_ONE;
+    int32_t subOffset = step / 2;
     for (uint32_t y = 0; y < height; ++y) {
+        int32_t baseY = ((int32_t)y << TTF_FIXED_SHIFT);
         for (uint32_t x = 0; x < width; ++x) {
+            int32_t baseX = ((int32_t)x << TTF_FIXED_SHIFT);
             int insideHits = 0;
             if (supersampleRate == 1) {
-                float px = (float)x + 0.5f;
-                float py = (float)y + 0.5f;
-                insideHits = point_inside(&segments, px, py);
+                int32_t px = baseX + TTF_FIXED_HALF;
+                int32_t py = baseY + TTF_FIXED_HALF;
+                insideHits = point_inside_fixed(&fixedSegments, px, py);
             } else {
                 for (int sy = 0; sy < supersampleRate; ++sy) {
+                    int32_t py = baseY + sy * step + subOffset;
                     for (int sx = 0; sx < supersampleRate; ++sx) {
-                        float px = (float)x + ((float)sx + 0.5f) / (float)supersampleRate;
-                        float py = (float)y + ((float)sy + 0.5f) / (float)supersampleRate;
-                        insideHits += point_inside(&segments, px, py);
+                        int32_t px = baseX + sx * step + subOffset;
+                        insideHits += point_inside_fixed(&fixedSegments, px, py);
                     }
                 }
             }
@@ -1121,7 +1191,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         }
     }
 
-    free(segments.data);
+    free_fixed_segments(&fixedSegments);
     bitmap->width = width;
     bitmap->height = height;
     bitmap->pixels = pixels;

@@ -14,7 +14,7 @@ int ttf_get_debug(void) { return g_ttf_debug; }
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
-#define TTF_ENABLE_SUPERSAMPLING
+// #define TTF_ENABLE_SUPERSAMPLING
 
 #ifndef TTF_SUPERSAMPLE_RATE
 #ifdef TTF_ENABLE_SUPERSAMPLING

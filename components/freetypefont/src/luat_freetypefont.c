@@ -3,6 +3,7 @@
 #include "ttf_parser.h"
 #include "luat_lcd.h"
 #include "luat_mem.h"
+#include "luat_mcu.h"
 
 #include <math.h>
 #include <stddef.h>
@@ -22,10 +23,25 @@ typedef struct {
     char font_path[FREETYPE_FONT_PATH_MAX];
 } freetypefont_ctx_t;
 
+typedef enum {
+    FREETYPE_GLYPH_OK = 0,
+    FREETYPE_GLYPH_LOOKUP_FAIL,
+    FREETYPE_GLYPH_LOAD_FAIL,
+    FREETYPE_GLYPH_RASTER_FAIL,
+    FREETYPE_GLYPH_DRAW_FAIL
+} freetype_glyph_status_t;
+
 typedef struct {
     TtfBitmap bitmap;
     uint32_t advance;
+    uint32_t codepoint;
+    uint32_t glyph_index;
+    uint32_t time_lookup_us;
+    uint32_t time_load_us;
+    uint32_t time_raster_us;
+    uint32_t time_draw_us;
     uint8_t has_bitmap;
+    uint8_t status;
 } glyph_render_t;
 
 typedef struct {
@@ -40,6 +56,65 @@ static freetypefont_ctx_t g_ft_ctx = {
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
+
+#define FREETYPE_TIMING_THRESHOLD_US 3000
+
+static uint64_t freetype_now_us(void) {
+    int period = luat_mcu_us_period();
+    if (period <= 0) {
+        return luat_mcu_tick64_ms() * 1000ULL;
+    }
+    return luat_mcu_tick64() / (uint64_t)period;
+}
+
+static uint32_t freetype_elapsed_from(uint64_t start) {
+    if (start == 0) {
+        return 0;
+    }
+    uint64_t now = freetype_now_us();
+    if (now <= start) {
+        return 0;
+    }
+    uint64_t diff = now - start;
+    if (diff > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (uint32_t)diff;
+}
+
+static uint32_t freetype_elapsed_step(uint64_t *stamp) {
+    if (!stamp || *stamp == 0) {
+        return 0;
+    }
+    uint64_t now = freetype_now_us();
+    uint64_t diff = (now > *stamp) ? (now - *stamp) : 0;
+    *stamp = now;
+    if (diff > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (uint32_t)diff;
+}
+
+static const char *freetype_status_text(uint8_t status) {
+    switch (status) {
+    case FREETYPE_GLYPH_OK:
+        return "ok";
+    case FREETYPE_GLYPH_LOOKUP_FAIL:
+        return "lookup_fail";
+    case FREETYPE_GLYPH_LOAD_FAIL:
+        return "load_fail";
+    case FREETYPE_GLYPH_RASTER_FAIL:
+        return "raster_fail";
+    case FREETYPE_GLYPH_DRAW_FAIL:
+        return "draw_fail";
+    default:
+        return "unknown";
+    }
+}
+
+static uint32_t freetype_clamp_u32(uint64_t value) {
+    return value > UINT32_MAX ? UINT32_MAX : (uint32_t)value;
+}
 
 static uint32_t freetype_calc_fallback_advance(unsigned char font_size) {
     float adv = (float)font_size * FREETYPE_ADVANCE_RATIO;
@@ -315,6 +390,20 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         return 0;
     }
 
+    int timing_enabled = ttf_get_debug();
+    uint64_t func_start_ts = timing_enabled ? freetype_now_us() : 0;
+    uint64_t sum_lookup_us = 0;
+    uint64_t sum_load_us = 0;
+    uint64_t sum_raster_us = 0;
+    uint64_t sum_draw_us = 0;
+    uint64_t sum_total_us = 0;
+    uint64_t sum_rendered_total_us = 0;
+    size_t rendered_count = 0;
+    size_t profiled_glyphs = 0;
+    size_t max_slot_index = (size_t)-1;
+    uint32_t max_glyph_total_us = 0;
+    int result = 0;
+
     glyph_render_t *glyphs = (glyph_render_t *)luat_heap_malloc(utf8_len * sizeof(glyph_render_t));
     if (!glyphs) {
         LLOGE("oom glyph cache");
@@ -339,25 +428,54 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         slot->advance = freetype_calc_fallback_advance(font_size);
         slot->has_bitmap = 0;
         memset(&slot->bitmap, 0, sizeof(slot->bitmap));
+        slot->codepoint = cp;
+        slot->glyph_index = 0;
+        slot->time_lookup_us = 0;
+        slot->time_load_us = 0;
+        slot->time_raster_us = 0;
+        slot->time_draw_us = 0;
+        slot->status = FREETYPE_GLYPH_LOOKUP_FAIL;
+
+        uint64_t glyph_stamp = timing_enabled ? freetype_now_us() : 0;
 
         uint16_t glyph_index = 0;
-        if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
-            glyph_count++;
-            continue;
+        int rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
+        if (timing_enabled) {
+            slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+            sum_lookup_us += slot->time_lookup_us;
         }
-
-        TtfGlyph glyph;
-        int rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
         if (rc != TTF_OK) {
             glyph_count++;
             continue;
         }
+
+        slot->glyph_index = glyph_index;
+        slot->status = FREETYPE_GLYPH_LOAD_FAIL;
+
+        TtfGlyph glyph;
+        rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
+        if (timing_enabled) {
+            slot->time_load_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+            sum_load_us += slot->time_load_us;
+        }
+        if (rc != TTF_OK) {
+            glyph_count++;
+            continue;
+        }
+
+        slot->status = FREETYPE_GLYPH_RASTER_FAIL;
         rc = ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &slot->bitmap);
+        if (timing_enabled) {
+            slot->time_raster_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+            sum_raster_us += slot->time_raster_us;
+        }
         ttf_free_glyph(&glyph);
         if (rc != TTF_OK) {
             glyph_count++;
             continue;
         }
+
+        slot->status = FREETYPE_GLYPH_OK;
 
         if (slot->bitmap.width > 0 && slot->bitmap.height > 0 && slot->bitmap.pixels) {
             slot->has_bitmap = 1;
@@ -390,22 +508,38 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
     for (size_t i = 0; i < glyph_count; i++) {
         glyph_render_t *slot = &glyphs[i];
         if (!slot->has_bitmap) {
+            if (timing_enabled) {
+                slot->time_draw_us = 0;
+            }
             pen_x += (int)slot->advance;
-            continue;
+            goto glyph_timing_update;
         }
+
+        uint64_t draw_stamp = timing_enabled ? freetype_now_us() : 0;
         int draw_x = pen_x;
         int draw_y_base = y + (int)baseline_offset - (int)slot->bitmap.originY;
 
         size_t row_buf_capacity = (size_t)slot->bitmap.width;
         if (row_buf_capacity == 0) {
+            if (timing_enabled && draw_stamp) {
+                slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+                sum_draw_us += slot->time_draw_us;
+            }
             pen_x += (int)slot->advance;
-            continue;
+            goto glyph_timing_update;
         }
+
         luat_color_t *row_buf = (luat_color_t *)luat_heap_malloc(row_buf_capacity * sizeof(luat_color_t));
         if (!row_buf) {
-            freetype_release_glyphs(glyphs, glyph_count);
+            if (timing_enabled && draw_stamp) {
+                slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+                sum_draw_us += slot->time_draw_us;
+            }
+            slot->status = FREETYPE_GLYPH_DRAW_FAIL;
+            pen_x += (int)slot->advance;
+            result = -5;
             LLOGE("oom row buffer");
-            return -5;
+            goto glyph_timing_update;
         }
 
         for (uint32_t row = 0; row < slot->bitmap.height; row++) {
@@ -434,9 +568,86 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         }
 
         luat_heap_free(row_buf);
+        if (timing_enabled && draw_stamp) {
+            slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+            sum_draw_us += slot->time_draw_us;
+        }
         pen_x += (int)slot->advance;
+        rendered_count++;
+
+glyph_timing_update:
+        if (timing_enabled) {
+            uint64_t glyph_total64 = (uint64_t)slot->time_lookup_us +
+                                     (uint64_t)slot->time_load_us +
+                                     (uint64_t)slot->time_raster_us +
+                                     (uint64_t)slot->time_draw_us;
+            sum_total_us += glyph_total64;
+            if (slot->has_bitmap && slot->status == FREETYPE_GLYPH_OK) {
+                sum_rendered_total_us += glyph_total64;
+            }
+            uint32_t glyph_total32 = freetype_clamp_u32(glyph_total64);
+            if (glyph_total32 > max_glyph_total_us) {
+                max_glyph_total_us = glyph_total32;
+                max_slot_index = i;
+            }
+            if (glyph_total32 >= FREETYPE_TIMING_THRESHOLD_US || slot->status != FREETYPE_GLYPH_OK) {
+                LLOGI("glyph[%u] cp=U+%04lX idx=%u status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
+                      (unsigned)i,
+                      (unsigned long)slot->codepoint,
+                      (unsigned)slot->glyph_index,
+                      freetype_status_text(slot->status),
+                      (unsigned long)glyph_total32,
+                      (unsigned long)slot->time_lookup_us,
+                      (unsigned long)slot->time_load_us,
+                      (unsigned long)slot->time_raster_us,
+                      (unsigned long)slot->time_draw_us);
+            }
+            profiled_glyphs++;
+        }
+        if (result != 0) {
+            break;
+        }
+    }
+
+finalize:
+    if (timing_enabled) {
+        uint32_t total_us = freetype_elapsed_from(func_start_ts);
+        uint32_t sum_lookup32 = freetype_clamp_u32(sum_lookup_us);
+        uint32_t sum_load32 = freetype_clamp_u32(sum_load_us);
+        uint32_t sum_raster32 = freetype_clamp_u32(sum_raster_us);
+        uint32_t sum_draw32 = freetype_clamp_u32(sum_draw_us);
+        uint32_t avg_all_us = profiled_glyphs ? freetype_clamp_u32(sum_total_us / profiled_glyphs) : 0;
+        uint32_t avg_rendered_us = rendered_count ? freetype_clamp_u32(sum_rendered_total_us / rendered_count) : 0;
+        LLOGI("timing total=%luus glyphs=%u profiled=%u rendered=%u avg_all=%lu avg_render=%lu lookup=%lu load=%lu raster=%lu draw=%lu result=%d",
+              (unsigned long)total_us,
+              (unsigned)glyph_count,
+              (unsigned)profiled_glyphs,
+              (unsigned)rendered_count,
+              (unsigned long)avg_all_us,
+              (unsigned long)avg_rendered_us,
+              (unsigned long)sum_lookup32,
+              (unsigned long)sum_load32,
+              (unsigned long)sum_raster32,
+              (unsigned long)sum_draw32,
+              result);
+        if (max_slot_index != (size_t)-1 && max_slot_index < glyph_count) {
+            glyph_render_t *max_slot = &glyphs[max_slot_index];
+            uint32_t glyph_total32 = freetype_clamp_u32((uint64_t)max_slot->time_lookup_us +
+                                                        (uint64_t)max_slot->time_load_us +
+                                                        (uint64_t)max_slot->time_raster_us +
+                                                        (uint64_t)max_slot->time_draw_us);
+            LLOGI("timing max glyph idx=%u cp=U+%04lX status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
+                  (unsigned)max_slot_index,
+                  (unsigned long)max_slot->codepoint,
+                  freetype_status_text(max_slot->status),
+                  (unsigned long)glyph_total32,
+                  (unsigned long)max_slot->time_lookup_us,
+                  (unsigned long)max_slot->time_load_us,
+                  (unsigned long)max_slot->time_raster_us,
+                  (unsigned long)max_slot->time_draw_us);
+        }
     }
 
     freetype_release_glyphs(glyphs, glyph_count);
-    return 0;
+    return result;
 }

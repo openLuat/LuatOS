@@ -1,7 +1,15 @@
 --[[
-本功能模块演示的内容为：
-使用Air780EPM核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态
-AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
+@module  key_app
+@summary key_app应用功能模块 
+@version 1.0
+@date    2025.10.22
+@author  沈园园
+@usage
+本文件为key_app应用功能模块，核心业务逻辑为：
+1、使用Air780EPM核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态
+2、AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
+
+本文件没有对外接口，直接在main.lua中require "key_app"就可以加载运行；
 ]]
 
 

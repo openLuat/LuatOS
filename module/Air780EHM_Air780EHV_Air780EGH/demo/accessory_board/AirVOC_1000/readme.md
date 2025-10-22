@@ -46,9 +46,13 @@ Air780EHM/Air780EHV/Air780EGH核心板+AirVOC_1000配件板，每隔1秒读取1�
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Luatools下载调试工具](https://docs.openluat.com/air780ehv/luatos/common/download/)
 
-2、[Air780EHV最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+2、[Air780EHM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+
+3、[Air780EHV 最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+4、[Air780EGH 最新版本的内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 
 ## 演示操作步骤

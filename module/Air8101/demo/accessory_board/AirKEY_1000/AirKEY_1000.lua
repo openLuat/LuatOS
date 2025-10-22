@@ -1,3 +1,17 @@
+--[[
+@module  AirKEY_1000
+@summary AirKEY_1000应用功能模块 
+@version 1.0
+@date    2025.10.22
+@author  沈园园
+@usage
+本文件为AirKEY_1000驱动配置文件，核心业务逻辑为：
+1、配置主机和AirKEY_1000之间的控制参数；
+
+本文件没有对外接口，直接require "AirKEY_1000"就可以加载运行；
+]]
+
+
 --本文件中的主机是指Air8101核心板
 --AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
 

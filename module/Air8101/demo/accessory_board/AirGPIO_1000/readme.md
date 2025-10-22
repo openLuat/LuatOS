@@ -80,3 +80,43 @@ Air8101核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
    (3) 通过观察Luatools的运行日志，首先打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0， 再隔一秒打印  P04_int_cbfunc 4 1      P14_int_cbfunc 20 1，再隔一秒打印 P04_int_cbfunc 4 0      P14_int_cbfunc 20 0，如此循环输出，表示GPIO中断测试正常；
 
+```
+[2025-10-22 09:29:46.624] I/user.air_gpio.get(0x11)	0
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	enter	16	1
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	output	3	246	247
+[2025-10-22 09:29:46.624] I/user.gpio_int_callback
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	enter	3	1
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	output	2	247	255
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	enter	19	1
+[2025-10-22 09:29:46.624] I/user.AirGPIO_1000.set	output	3	247	255
+[2025-10-22 09:29:46.624] I/user.gpio_int_callback
+[2025-10-22 09:29:46.624] I/user.P04_int_cbfunc	4	1
+[2025-10-22 09:29:46.643] I/user.P14_int_cbfunc	20	1
+[2025-10-22 09:29:47.631] I/user.AirGPIO_1000.set	enter	0	0
+[2025-10-22 09:29:47.631] I/user.AirGPIO_1000.set	output	2	255	254
+[2025-10-22 09:29:47.631] I/user.air_gpio.get(0x11)	1
+[2025-10-22 09:29:47.631] I/user.AirGPIO_1000.set	enter	16	0
+[2025-10-22 09:29:47.631] I/user.AirGPIO_1000.set	output	3	255	254
+[2025-10-22 09:29:47.631] I/user.gpio_int_callback
+[2025-10-22 09:29:47.645] I/user.AirGPIO_1000.set	enter	3	0
+[2025-10-22 09:29:47.645] I/user.AirGPIO_1000.set	output	2	254	246
+[2025-10-22 09:29:47.645] I/user.AirGPIO_1000.set	enter	19	0
+[2025-10-22 09:29:47.645] I/user.AirGPIO_1000.set	output	3	254	246
+[2025-10-22 09:29:47.645] I/user.gpio_int_callback
+[2025-10-22 09:29:47.645] I/user.P04_int_cbfunc	4	0
+[2025-10-22 09:29:47.645] I/user.P14_int_cbfunc	20	0
+[2025-10-22 09:29:48.619] I/user.AirGPIO_1000.set	enter	0	1
+[2025-10-22 09:29:48.619] I/user.AirGPIO_1000.set	output	2	246	247
+[2025-10-22 09:29:48.637] I/user.air_gpio.get(0x11)	0
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	enter	16	1
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	output	3	246	247
+[2025-10-22 09:29:48.637] I/user.gpio_int_callback
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	enter	3	1
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	output	2	247	255
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	enter	19	1
+[2025-10-22 09:29:48.637] I/user.AirGPIO_1000.set	output	3	247	255
+[2025-10-22 09:29:48.637] I/user.gpio_int_callback
+[2025-10-22 09:29:48.637] I/user.P04_int_cbfunc	4	1
+[2025-10-22 09:29:48.637] I/user.P14_int_cbfunc	20	1
+```
+

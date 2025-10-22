@@ -6,7 +6,7 @@
 @author  沈园园
 @usage
 本文件为gpio_app应用功能模块，核心业务逻辑为：
-1、初始化Air780EHV和AirGPIO_1000之间的通信参数
+1、初始化Air780EPM和AirGPIO_1000之间的通信参数
 2、GPIO输出测试，输入测试，GPIO中断测试
 
 本文件没有对外接口，直接在main.lua中require "gpio_app"就可以加载运行；
@@ -97,9 +97,6 @@ end
 --     66/I2C1SDA-----------------SDA
 --     67/I2C1SCL-----------------SCL
 --  23/GPIO2-----------------INT
-
---电平设为3.3v
-pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
 
 air_gpio.init(1, 2)
 

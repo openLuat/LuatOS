@@ -9,8 +9,6 @@
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
 static int g_ttf_debug = 1;
-int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
-int ttf_get_debug(void) { return g_ttf_debug; }
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
@@ -27,6 +25,10 @@ int ttf_get_debug(void) { return g_ttf_debug; }
 #define TTF_FIXED_SHIFT 8
 #define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
 #define TTF_FIXED_HALF  (1 << (TTF_FIXED_SHIFT - 1))
+
+int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
+int ttf_get_debug(void) { return g_ttf_debug; }
+int ttf_get_supersample_rate(void) { return TTF_SUPERSAMPLE_RATE; }
 
 static uint16_t read_u16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);

@@ -35,7 +35,9 @@ Air8000核心板+AirKEY_1000配件板，使用Air8000核心板的GPIO中断检�
 
 ## 核心板+配件板资料
 
-[Air8000核心板+配件板相关资料](https://docs.openluat.com/Air8000/product/shouce/)
+[Air8000核心板](https://docs.openluat.com/Air8000/product/shouce/)
+
+[AirKEY_1000配件板相关资料](https://docs.openluat.com/accessory/AirKEY_1000/)
 
 
 ## 演示硬件环境

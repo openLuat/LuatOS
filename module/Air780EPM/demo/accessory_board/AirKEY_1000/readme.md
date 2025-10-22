@@ -35,7 +35,9 @@ Air780EPM核心板+AirKEY_1000配件板，使用Air780EPM核心板的GPIO中断�
 
 ## 核心板+配件板资料
 
-[Air780EPM核心板+配件板相关资料](https://docs.openluat.com/Air780EPM/product/shouce/)
+[Air780EPM核心板](https://docs.openluat.com/Air780EPM/product/shouce/)
+
+[AirKEY_1000配件板相关资料](https://docs.openluat.com/accessory/AirKEY_1000/)
 
 
 ## 演示硬件环境

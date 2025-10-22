@@ -17,7 +17,9 @@ Air8101核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 ## 核心板+配件板资料
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+[Air8101核心板](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+[AirSHT30_1000配件板相关资料](https://docs.openluat.com/accessory/AirSHT30_1000/)
 
 
 ## 演示硬件环境

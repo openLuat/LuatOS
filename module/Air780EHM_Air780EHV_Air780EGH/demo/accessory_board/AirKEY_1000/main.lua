@@ -10,7 +10,7 @@ VERSION：项目版本号，ascii string类型
 
 AirKEY_1000是合宙设计生产的一款支持8个独立按键的配件板；
 本demo演示的核心功能为：
-Air780EHV核心板+AirKEY_1000配件板，使用Air780EHV核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
+Air780EHM/Air780EHV/Air780EGH核心板+AirKEY_1000配件板，使用Air780EHM/Air780EHV/Air780EGH核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
 更多说明参考本目录下的readme.md文件
 ]]
 PROJECT = "AirKEY_1000"

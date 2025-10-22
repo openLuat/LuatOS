@@ -14,9 +14,7 @@
 
 1、Air8000核心板一块+可上网的sim卡一张+网线一根+AirETH_1000板子一个;
 
-[](https://docs.openLuat.com/cdn/image/AirETH_1000.jpg)
-
-![lan](E:\文档池\新建文件夹\luatos-doc-pool\docs\root\docs\air8000\luatos\app\image\lan.jpg)
+![](https://docs.openLuat.com/cdn/image/AirETH_1000.jpg)
 
 2、TYPE-C USB数据线一根 + 杜邦线若干;
 

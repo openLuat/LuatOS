@@ -8,7 +8,7 @@
 
 ## 演示功能概述
 
-1、模组连接4G网络通过以太网口传输给其他设备供网 
+模组通过AirETH_1000接入以太网然后通过请求http测试网络连通性 
 
 ## 演示硬件环境
 
@@ -16,7 +16,7 @@
 
 [](https://docs.openLuat.com/cdn/image/AirETH_1000.jpg)
 
-![lan](E:\文档池\新建文件夹\luatos-doc-pool\docs\root\docs\air8000\luatos\app\image\lan.jpg)
+![](https://docs.openLuat.com/cdn/image/AirETH_1000.jpg)
 
 2、TYPE-C USB数据线一根 + 杜邦线若干;
 
@@ -38,8 +38,7 @@
 | spi1_mosi  | SDI            |
 | gpio21     | INT            |
 
-演示软件环境
-------
+## 演示软件环境
 
 1、Luatools下载调试工具
 

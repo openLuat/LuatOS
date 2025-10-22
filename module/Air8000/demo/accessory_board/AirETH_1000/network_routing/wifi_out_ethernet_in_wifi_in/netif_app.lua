@@ -20,8 +20,8 @@ function netif_app_task_func()
         tp = netdrv.CH390,               -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
         opts = { spi = 1, cs = 12 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         main_adapter = {                 -- 提供网络的网卡开启参数
-            ssid = "test",               
-            password = "HZ88888888"
+            ssid = "iPhone",               
+            password = "xiaoshuai"
         }
     })
     -- 设置多网融合功能，wifi提供网络供wifi设备上网

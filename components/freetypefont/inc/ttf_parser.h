@@ -33,6 +33,7 @@ typedef struct {
     uint8_t *cmapBuf;     /* 常驻内存的 cmap 子表数据（按需加载） */
     uint32_t cmapBufLen;  /* cmapBuf 长度 */
     uint16_t cmapFormat;  /* 4 或 12，标记当前常驻的 cmap 子表格式 */
+    uint32_t cmapBufOffset; /* 缓存子表的绝对偏移，便于快速判断是否命中 */
 } TtfFont;
 
 typedef struct {

@@ -17,6 +17,9 @@
 #define FREETYPE_ADVANCE_RATIO   0.4f
 #define FREETYPE_ASCENT_RATIO    0.80f
 
+// 位图缓存容量
+#define FREETYPE_CACHE_CAPACITY 100
+
 typedef struct {
     luat_freetypefont_state_t state;
     TtfFont font;
@@ -54,8 +57,6 @@ typedef struct {
 static freetypefont_ctx_t g_ft_ctx = {
     .state = LUAT_FREETYPEFONT_STATE_UNINIT
 };
-
-#define FREETYPE_CACHE_CAPACITY 64
 
 typedef struct {
     uint16_t glyph_index;

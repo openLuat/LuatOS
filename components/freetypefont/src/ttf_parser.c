@@ -12,11 +12,12 @@ static int g_ttf_debug = 1;
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
-// #define TTF_ENABLE_SUPERSAMPLING
+#define TTF_ENABLE_SUPERSAMPLING
 
 #ifndef TTF_SUPERSAMPLE_RATE
 #ifdef TTF_ENABLE_SUPERSAMPLING
-#define TTF_SUPERSAMPLE_RATE 4
+// 超采样率 目前推荐2或者4
+#define TTF_SUPERSAMPLE_RATE 2
 #else
 #define TTF_SUPERSAMPLE_RATE 1
 #endif
@@ -29,6 +30,10 @@ static int g_ttf_debug = 1;
 int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
 int ttf_get_debug(void) { return g_ttf_debug; }
 int ttf_get_supersample_rate(void) { return TTF_SUPERSAMPLE_RATE; }
+
+#define TTF_CMAP_CACHE_MAX   (512u * 1024u)
+
+static void ttf_cache_cmap_subtable(TtfFont *font);
 
 static uint16_t read_u16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
@@ -248,6 +253,8 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     font->glyfOffset = glyf.offset;
     font->locaOffset = loca.offset;
 
+    ttf_cache_cmap_subtable(font);
+
     return TTF_OK;
 }
 
@@ -268,12 +275,24 @@ typedef struct {
 
 static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
     uint8_t b[2];
+    if (font && font->cmapBuf && absOff >= font->cmapBufOffset &&
+        absOff + 2 <= font->cmapBufOffset + font->cmapBufLen) {
+        const uint8_t *ptr = font->cmapBuf + (absOff - font->cmapBufOffset);
+        *out = read_u16(ptr);
+        return 1;
+    }
     if (!ttf_read_range(font, absOff, 2, b)) return 0;
     *out = read_u16(b);
     return 1;
 }
 static int read_u32_at(const TtfFont *font, uint32_t absOff, uint32_t *out) {
     uint8_t b[4];
+    if (font && font->cmapBuf && absOff >= font->cmapBufOffset &&
+        absOff + 4 <= font->cmapBufOffset + font->cmapBufLen) {
+        const uint8_t *ptr = font->cmapBuf + (absOff - font->cmapBufOffset);
+        *out = read_u32(ptr);
+        return 1;
+    }
     if (!ttf_read_range(font, absOff, 4, b)) return 0;
     *out = read_u32(b);
     return 1;
@@ -364,6 +383,48 @@ static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     }
     *out = chosen;
     return 1;
+}
+
+static void ttf_cache_cmap_subtable(TtfFont *font) {
+    if (!font) {
+        return;
+    }
+    if (font->cmapBuf) {
+        return;
+    }
+    CmapSubtable chosen = {0};
+    uint16_t format = 0;
+    if (find_cmap_format12(font, &chosen)) {
+        format = 12;
+    } else if (find_cmap_format4(font, &chosen)) {
+        format = 4;
+    } else {
+        return;
+    }
+    if (chosen.length == 0 || chosen.length > TTF_CMAP_CACHE_MAX) {
+        return;
+    }
+    uint8_t *buf = (uint8_t *)malloc(chosen.length);
+    if (!buf) {
+        if (g_ttf_debug) {
+            LLOGW("cmap cache malloc fail len=%u", (unsigned)chosen.length);
+        }
+        return;
+    }
+    if (!ttf_read_range(font, chosen.offset, chosen.length, buf)) {
+        free(buf);
+        if (g_ttf_debug) {
+            LLOGW("cmap cache read fail off=%u len=%u", (unsigned)chosen.offset, (unsigned)chosen.length);
+        }
+        return;
+    }
+    font->cmapBuf = buf;
+    font->cmapBufLen = chosen.length;
+    font->cmapBufOffset = chosen.offset;
+    font->cmapFormat = format;
+    if (g_ttf_debug) {
+        LLOGI("cmap cached format=%u size=%u", (unsigned)format, (unsigned)chosen.length);
+    }
 }
 
 static int cmap_format12_lookup(const TtfFont *font, const CmapSubtable *cmap, uint32_t codepoint, uint16_t numGlyphs, uint16_t *glyphIndex) {

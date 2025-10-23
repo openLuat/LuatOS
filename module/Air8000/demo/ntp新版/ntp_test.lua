@@ -67,10 +67,11 @@ local function print_time_details()
     log.info("sntp", "结构时间转时间戳", os.time(local_struct_time))
 end
 
--- 打印高精度时间戳（如果支持）
+-- 打印高精度时间戳
 local function print_high_precision_time()
     if not socket.ntptm then
-        return -- 不支持则跳过
+        -- 不支持则跳过
+        return 
     end
     local ntp_time = socket.ntptm()
     if ntp_time and ntp_time.tsec then
@@ -85,13 +86,14 @@ end
 -- SNTP同步主逻辑
 local function sntp_sync_loop()
     -- 等待网络就绪（IP获取成功）
-    if not sys.waitUntil("IP_READY", 30000) then -- 30秒超时，避免无限等待
+    -- 30秒超时，避免无限等待
+    if not sys.waitUntil("IP_READY", 30000) then 
         log.error("sntp", "网络未就绪，退出同步")
         return
     end
     log.info("sntp", "网络就绪，开始时间同步流程")
-
-    local fail_retry_count = 0 -- 失败重试计数，用于动态调整间隔
+    -- 失败重试计数，用于动态调整间隔
+    local fail_retry_count = 0 
 
     while true do
         -- 执行SNTP同步，使用自定义服务器列表
@@ -116,8 +118,9 @@ local function sntp_sync_loop()
             -- 同步失败：累加失败计数，动态调整重试间隔
             fail_retry_count = fail_retry_count + 1
             local retry_interval = math.min(
-                CONFIG.fail_retry_interval * (2 ^ (fail_retry_count - 1)), -- 指数递增
-                CONFIG.max_retry_backoff                                   -- 不超过最大间隔
+                CONFIG.fail_retry_interval * (2 ^ (fail_retry_count - 1)),
+                -- 不超过最大间隔
+                CONFIG.max_retry_backoff                                   
             )
             log.warn("sntp", "时间同步失败", "重试次数：", fail_retry_count, "下次重试间隔(ms)：", retry_interval)
             sys.wait(retry_interval)
@@ -125,7 +128,7 @@ local function sntp_sync_loop()
     end
 end
 
--- 订阅NTP错误消息，补充错误日志
+-- 订阅NTP错误消息
 sys.subscribe("NTP_ERROR", function(err_info)
     log.error("sntp", "同步过程发生错误", err_info or "未知错误")
 end)

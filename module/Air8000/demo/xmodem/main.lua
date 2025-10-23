@@ -1,12 +1,16 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.10.14
-@author  沈园园
+@author  李源龙
 @usage
 本demo演示的核心功能为：
-演示在 32 位系统上对 64 位数据的基本算术运算和逻辑运算
+用Air8000核心板利用xmodem协议，将模块内的文件从串口发送到对端
+主要提供了两种方式：
+1、文件存到脚本区里面，通过xmodem协议，把脚本区文件发给对端
+2、通过http下载文件到文件系统区，通过xmodem协议，把文件系统区文件发给对端
+
 更多说明参考本目录下的readme.md文件
 ]]
 
@@ -21,7 +25,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "luatos_bit64_app"
+PROJECT = "xmodem_demo"
 VERSION = "001.000.000"
 
 
@@ -62,8 +66,8 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载bit64_app应用功能模块
-require "bit64_app"
+-- 加载网络环境检测看门狗功能模块
+require "xmodem_demo"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

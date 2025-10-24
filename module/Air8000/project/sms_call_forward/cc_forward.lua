@@ -171,19 +171,18 @@ local function cc_forward()
     log.info(" 来电号码转发到飞书")
     feishu_post_cc(phone_num)
 
-    --sys.wait(1000)
+   
     log.info("来电号码转发到钉钉")
     dingding_post_cc(phone_num)
 
-    --sys.wait(1000)
+    
     log.info("来电号码转发到微信")
     weixin_post_cc(phone_num)
 end
 
 --6.来电判断
 local function cc_state(state)
-    if state == "READY" then
-        --sys.publish("CC_READY")
+    if state == "READY" then        
         log.info("通话准备完成，可以拨打电话或者呼入电话了")
         --有电话呼入
     elseif state == "INCOMINGCALL" then
@@ -201,7 +200,7 @@ local function cc_state(state)
             --自动接听
             --cc.accept(0)
 
-            --响3声以后自动自动挂断
+            --响4声以后自动自动挂断
             cc.hangUp()
             cnt = 0
         end

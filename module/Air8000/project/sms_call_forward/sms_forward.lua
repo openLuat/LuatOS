@@ -121,11 +121,11 @@ local function sms_handler(num, txt)
     feishu_post_sms(num, txt)
 
 
-    --sys.wait(1000)
+    
     log.info("转发到钉钉")
     dingding_post(num, txt)
 
-    --sys.wait(1000)
+    
     log.info("转发到微信")
     weixin_post(num, txt)
 end

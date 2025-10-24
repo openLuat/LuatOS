@@ -15,12 +15,6 @@
 --加载AirSHT30_1000驱动文件
 local air_sht30 = require "AirSHT30_1000"
 
---如果使用的是Air780EPM核心板，则需要注释掉下面这行代码；
---如果使用的是Air780EPM开发板，则需要打开下面这行代码；
---这行代码的作用是：
---因为Air780EPM开发板上I2C内部没上拉,需要外部加上拉
---所以设置gpio2输出高电平,给camera_sda、camera_scl引脚提供上拉
-gpio.setup(2, 1)
 
 --每隔1秒读取一次温湿度数据
 local function read_sht30_task_func()

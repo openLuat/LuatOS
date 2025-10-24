@@ -12,12 +12,12 @@ AirSHT30_1000是合宙设计生产的一款I2C接口的SHT30温湿度传感器�
 
 本demo演示的核心功能为：
 
-Air780EPM开发板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
+Air780EPM核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 
-## 开发板+配件板资料
+## 核心板+配件板资料
 
-[Air780EPM开发板](https://docs.openluat.com/air780epm/product/shouce/)
+[Air780EPM核心板](https://docs.openluat.com/air780epm/product/shouce/)
 
 [AirSHT30_1000配件板相关资料](https://docs.openluat.com/accessory/AirSHT30_1000/)
 
@@ -26,18 +26,18 @@ Air780EPM开发板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据�
 
 ![](https://docs.openluat.com/accessory/AirSHT30_1000/image/connect_780epm.png)
 
-1、Air780EPM开发板
+1、Air780EPM核心板
 
 2、AirSHT30_1000配件板
 
 3、母对母的杜邦线4根
 
-| Air780EPM开发板 | AirSHT30_1000配件板|
+| Air780EPM核心板 | AirSHT30_1000配件板|
 | ------------ | ------------------ |
-|     3V3（VDD_EXT）     |         3V3        |
+|     3V3     |         3V3        |
 |     GND   |         GND        |
-|  I2C1_SDA（CAMERA_SDA）  |         SDA        |
-| I2C1_SCL（CAMERA_SCL） |         SCL        |
+|  66/I2C1SDA  |         SDA        |
+| 67/I2C1SCL |         SCL        |
 
 
 ## 演示软件环境

@@ -96,7 +96,6 @@ static const ct_reg_t ct_regs[] = {
     {"css",     "text/css"},
     {"wav",     "audio/wave"},
     {"ogg",     "audio/ogg"},
-    {"wav",     "audio/wave"},
     {"webm",    "video/webm"},
     {"mp4",     "video/mpeg4"},
     {"bin",     "application/octet-stream"},

@@ -153,7 +153,6 @@ end
 --        AirGPIO_1000可以扩展出来16个GPIO，这些GPIO支持配置为输入；
 --        AirGPIO_1000上的任意一个输入GPIO的状态发生上升沿或者下降沿变化时，会通过INT引脚通知到主机的int_id中断引脚；
 --        此时主机可以通过I2C接口立即读取AirGPIO_1000上配置为输入模式的扩展GPIO的电平状态，从而判断是哪些扩展GPIO的输入电平发生了变化；
---        取值范围：nil或者空，或者0到9，或者12到55，注意不要使用已经复用为其他功能的引脚；nil或者空时，表示不使用中断通知功能；
 --        如果没有传入此参数，则默认为空，表示不使用中断通知功能；
 
 --返回值：成功返回true，失败返回false
@@ -161,11 +160,6 @@ function AirGPIO_1000.init(i2c_id, gpio_int_id)
     --检查参数的合法性
     if not (i2c_id == 0 or i2c_id == 1) then
         log.error("AirGPIO_1000.init", "invalid i2c_id", i2c_id)
-        return false
-    end
-
-    if not (gpio_int_id==nil or gpio_int_id>=0 and gpio_int_id<=9 or gpio_int_id>=12 and gpio_int_id<=55) then
-        log.error("AirGPIO_1000.init", "invalid gpio_int_id", gpio_int_id)
         return false
     end
 

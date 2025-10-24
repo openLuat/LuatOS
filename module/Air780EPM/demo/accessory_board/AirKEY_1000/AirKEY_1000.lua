@@ -43,16 +43,6 @@ local AirKEY_1000 = {}
 
 --返回值：成功返回true，失败返回false
 function AirKEY_1000.setup(key_id, gpio_id, int_mode, int_cbfunc)
-    if not (key_id>=1 and key_id<=8) then
-        log.error("AirKEY_1000.setup error", "invalid key_id", key_id)
-        return false
-    end
-
-    if not (gpio_id>=0 and gpio_id<=9 or gpio_id>=12 and gpio_id<=55) then
-        log.error("AirKEY_1000.setup error", "invalid gpio_id", gpio_id)
-        return false
-    end
-
     if not (int_mode==gpio.RISING or int_mode==gpio.FALLING) then
         log.error("AirKEY_1000.setup error", "invalid int_mode", int_mode)
         return false

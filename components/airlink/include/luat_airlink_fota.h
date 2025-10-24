@@ -3,6 +3,13 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 
+#define AIRLINK_FOTA_SUCCESS            (0)
+#define AIRLINK_FOTA_NO_MEM             (1)
+#define AIRLINK_FOTA_OPEN_FILE_FAIL     (2)
+
+
+
+
 typedef struct luat_airlink_fota {
     uint32_t state;
     size_t total_size;

@@ -5,10 +5,10 @@
 @date    2025.10.15
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8000核心板，演示动态修改管脚复用
+本demo演示的功能为：使用Air8000核心板，演示动态修改管脚复用功能
 核心逻辑：
 1.加载自定义的管脚配置文件
-2.修改管脚复用功能，这里演示SPI管脚复用为串口
+2.动态修改管脚复用功能，这里演示SPI管脚pin41脚即SPI1_CS复用为UART2_RX，pin40脚即SPI1_MOSI复用为UART2_TX
 3.演示复用的串口管脚的功能，通过串口工具收发数据。
 
 ]]
@@ -20,11 +20,16 @@
 --如果打开debug后需要关闭debug,在任何需要的地方添加这一行
 --log.info ("打开debug",pins.debug(false))
 
--- 也可以打开下面这行加载配置文件，如果烧录了pins_$model.json文件，就会自动加载，不需要pins.loadjson再设置加载
+--方式1 ：打开下面这行加载配置文件，如果烧录了pins_$model.json文件，就会自动加载，不需要pins.loadjson再设置加载
 -- 其中 $model是模组型号, 例如 Air8000, 默认加载的是 luadb/pins_Air8000.json，其他格式的不会自动加载
 --log.info ("加载luatIO生成的配置文件",pins.loadjson("/luadb/pins_Air8000.json"))
 
---自定义配置文件要通过pins.loadjson加载
+
+
+--方式2 ：自定义配置文件要通过pins.loadjson加载
+--如果烧录了pins_Air8000.json，在内核固件运行时，已经自动加载pins_Air8000.json，并且按照pins_Air8000.json的配置初始化所有io引脚功能，
+--此处再加载my.json文件，会覆盖pins_Air8000.json中配置的所有io引脚功能，按照my.json的配置再次初始化所有io引脚功能
+--烧录多个.json文件时以最后一个文件的配置初始化所有io引脚功能
 log.info ("加载自定义的配置文件",pins.loadjson("/luadb/my.json"))
 
 --=======配置管脚复用=========--
@@ -46,8 +51,7 @@ uart.setup(
     1--停止位
 )
 
--- 收取数据会触发回调, 这里的 "receive" 是固定值不要修改。
-uart.on(uartid, "receive", function(id, len)
+local function ur_rec(id, len)
     local s = ""
     repeat
         s = uart.read(id, 128)
@@ -59,7 +63,10 @@ uart.on(uartid, "receive", function(id, len)
             log.info("uart", "receive(hex)", id, #s, s:toHex())  
         end
     until s == ""
-end)
+end
+-- 收取数据会触发回调, 这里的 "receive" 是固定值不要修改。
+uart.on(uartid, "receive", ur_rec)
+
 
 --向串口发送数据
 local function uart_test()    

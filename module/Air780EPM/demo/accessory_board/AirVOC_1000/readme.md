@@ -14,12 +14,12 @@ AirVOC_1000是合宙设计生产的一款I2C接口的VOC(挥发性有机化合�
 
 本demo演示的核心功能为：
 
-Air780EPM开发板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
+Air780EPM核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
 
 
 ## 核心板+配件板资料
 
-[Air780EPM开发板](https://docs.openluat.com/air780epm/product/shouce/)
+[Air780EPM核心板](https://docs.openluat.com/air780epm/product/shouce/)
 
 [AirVOC_1000配件板相关资料](https://docs.openluat.com/accessory/AirVOC_1000/)
 
@@ -28,20 +28,20 @@ Air780EPM开发板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量�
 
 ![](https://docs.openluat.com/accessory/AirVOC_1000/image/connect_Air780EPM.png)
 
-1、Air780EPM开发板
+1、Air780EPM核心板
 
 2、AirVOC_1000配件板
 
 3、母对母的杜邦线4根
 
-4、Air780EPM开发板和AirVOC_1000配件板的硬件接线方式为
+4、Air780EPM核心板和AirVOC_1000配件板的硬件接线方式为
 
-| Air780EPM开发板 | AirVOC_1000配件板  |
+| Air780EPM核心板 | AirVOC_1000配件板  |
 | ------------ | ------------------ |
-|     3V3（VDD_EXT）     |         3V3        |
+|     3V3     |         3V3        |
 |     GND   |         GND        |
-| I2C1_SDA（CAMERA_SDA） |         SDA        |
-| I2C1_SCL（CAMERA_SCL） |         SCL        |
+| 66/I2C1SDA |         SDA        |
+| 67/I2C1SCL |         SCL        |
 
 
 ## 演示软件环境

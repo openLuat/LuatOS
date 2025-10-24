@@ -18,7 +18,9 @@
 #define FREETYPE_ASCENT_RATIO    0.80f
 
 // 位图缓存容量
-#define FREETYPE_CACHE_CAPACITY 100
+#define FREETYPE_CACHE_CAPACITY 128
+// 码点 -> glyph index 缓存槽位（需为 2 的幂以便快速哈希）
+#define FREETYPE_CODEPOINT_CACHE_SIZE 256
 
 typedef struct {
     luat_freetypefont_state_t state;
@@ -69,6 +71,15 @@ typedef struct {
 
 static freetype_cache_entry_t g_ft_cache[FREETYPE_CACHE_CAPACITY];
 static uint32_t g_ft_cache_stamp = 0;
+
+typedef struct {
+    uint32_t codepoint;
+    uint16_t glyph_index;
+    uint8_t in_use;
+    uint32_t last_used;
+} freetype_cp_cache_entry_t;
+
+static freetype_cp_cache_entry_t g_ft_cp_cache[FREETYPE_CODEPOINT_CACHE_SIZE];
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
@@ -132,6 +143,18 @@ static uint32_t freetype_clamp_u32(uint64_t value) {
     return value > UINT32_MAX ? UINT32_MAX : (uint32_t)value;
 }
 
+static uint32_t freetype_next_stamp(void) {
+    g_ft_cache_stamp++;
+    if (g_ft_cache_stamp == 0) {
+        g_ft_cache_stamp = 1;
+    }
+    return g_ft_cache_stamp;
+}
+
+static void freetype_cp_cache_clear(void) {
+    memset(g_ft_cp_cache, 0, sizeof(g_ft_cp_cache));
+}
+
 static void freetype_cache_clear(void) {
     for (size_t i = 0; i < FREETYPE_CACHE_CAPACITY; ++i) {
         freetype_cache_entry_t *entry = &g_ft_cache[i];
@@ -142,6 +165,7 @@ static void freetype_cache_clear(void) {
             memset(entry, 0, sizeof(*entry));
         }
     }
+    freetype_cp_cache_clear();
     g_ft_cache_stamp = 0;
 }
 
@@ -149,10 +173,7 @@ static void freetype_cache_touch(freetype_cache_entry_t *entry) {
     if (!entry) {
         return;
     }
-    entry->last_used = ++g_ft_cache_stamp;
-    if (g_ft_cache_stamp == 0) {
-        g_ft_cache_stamp = 1;
-    }
+    entry->last_used = freetype_next_stamp();
 }
 
 static freetype_cache_entry_t *freetype_cache_find(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
@@ -219,6 +240,62 @@ static freetype_cache_entry_t *freetype_cache_insert(uint16_t glyph_index, uint8
     entry->in_use = 1;
     freetype_cache_touch(entry);
     return entry;
+}
+
+static freetype_cp_cache_entry_t *freetype_cp_cache_lookup(uint32_t codepoint) {
+    if (FREETYPE_CODEPOINT_CACHE_SIZE == 0) {
+        return NULL;
+    }
+    uint32_t mask = FREETYPE_CODEPOINT_CACHE_SIZE - 1u;
+    uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
+    for (uint32_t probe = 0; probe < FREETYPE_CODEPOINT_CACHE_SIZE; ++probe) {
+        freetype_cp_cache_entry_t *entry = &g_ft_cp_cache[(start + probe) & mask];
+        if (!entry->in_use) {
+            return NULL;
+        }
+        if (entry->codepoint == codepoint) {
+            entry->last_used = freetype_next_stamp();
+            return entry;
+        }
+    }
+    return NULL;
+}
+
+static void freetype_cp_cache_insert(uint32_t codepoint, uint16_t glyph_index) {
+    if (FREETYPE_CODEPOINT_CACHE_SIZE == 0) {
+        return;
+    }
+    uint32_t mask = FREETYPE_CODEPOINT_CACHE_SIZE - 1u;
+    uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
+    freetype_cp_cache_entry_t *empty_slot = NULL;
+    for (uint32_t probe = 0; probe < FREETYPE_CODEPOINT_CACHE_SIZE; ++probe) {
+        freetype_cp_cache_entry_t *entry = &g_ft_cp_cache[(start + probe) & mask];
+        if (!entry->in_use) {
+            empty_slot = entry;
+            break;
+        }
+        if (entry->codepoint == codepoint) {
+            entry->glyph_index = glyph_index;
+            entry->last_used = freetype_next_stamp();
+            return;
+        }
+    }
+    freetype_cp_cache_entry_t *target = empty_slot;
+    if (!target) {
+        uint32_t oldest = UINT32_MAX;
+        size_t oldest_idx = 0;
+        for (size_t i = 0; i < FREETYPE_CODEPOINT_CACHE_SIZE; ++i) {
+            if (g_ft_cp_cache[i].last_used < oldest) {
+                oldest = g_ft_cp_cache[i].last_used;
+                oldest_idx = i;
+            }
+        }
+        target = &g_ft_cp_cache[oldest_idx];
+    }
+    target->codepoint = codepoint;
+    target->glyph_index = glyph_index;
+    target->in_use = 1;
+    target->last_used = freetype_next_stamp();
 }
 
 static uint32_t freetype_calc_fallback_advance(unsigned char font_size) {
@@ -547,14 +624,25 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         uint64_t glyph_stamp = timing_enabled ? freetype_now_us() : 0;
 
         uint16_t glyph_index = 0;
-        int rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
-        if (timing_enabled) {
-            slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
-            sum_lookup_us += slot->time_lookup_us;
-        }
-        if (rc != TTF_OK) {
-            glyph_count++;
-            continue;
+        int rc = TTF_OK;
+        freetype_cp_cache_entry_t *cp_entry = freetype_cp_cache_lookup(cp);
+        if (cp_entry) {
+            glyph_index = cp_entry->glyph_index;
+            if (timing_enabled) {
+                slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                sum_lookup_us += slot->time_lookup_us;
+            }
+        } else {
+            rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
+            if (timing_enabled) {
+                slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                sum_lookup_us += slot->time_lookup_us;
+            }
+            if (rc != TTF_OK) {
+                glyph_count++;
+                continue;
+            }
+            freetype_cp_cache_insert(cp, glyph_index);
         }
 
         slot->glyph_index = glyph_index;

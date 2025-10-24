@@ -1,4 +1,4 @@
-#include "luat_freetypefont.h"
+#include "luat_hzfont.h"
 
 #include "ttf_parser.h"
 #include "luat_lcd.h"
@@ -10,31 +10,31 @@
 #include <stdint.h>
 #include <string.h>
 
-#define LUAT_LOG_TAG "freetypefont"
+#define LUAT_LOG_TAG "hzfont"
 #include "luat_log.h"
 
-#define FREETYPE_FONT_PATH_MAX   260
-#define FREETYPE_ADVANCE_RATIO   0.4f
-#define FREETYPE_ASCENT_RATIO    0.80f
+#define HZFONT_FONT_PATH_MAX   260
+#define HZFONT_ADVANCE_RATIO   0.4f
+#define HZFONT_ASCENT_RATIO    0.80f
 
 // 位图缓存容量
-#define FREETYPE_CACHE_CAPACITY 128
+#define HZFONT_CACHE_CAPACITY 128
 // 码点 -> glyph index 缓存槽位（需为 2 的幂以便快速哈希）
-#define FREETYPE_CODEPOINT_CACHE_SIZE 256
+#define HZFONT_CODEPOINT_CACHE_SIZE 256
 
 typedef struct {
-    luat_freetypefont_state_t state;
+    luat_hzfont_state_t state;
     TtfFont font;
-    char font_path[FREETYPE_FONT_PATH_MAX];
-} freetypefont_ctx_t;
+    char font_path[HZFONT_FONT_PATH_MAX];
+} hzfont_ctx_t;
 
 typedef enum {
-    FREETYPE_GLYPH_OK = 0,
-    FREETYPE_GLYPH_LOOKUP_FAIL,
-    FREETYPE_GLYPH_LOAD_FAIL,
-    FREETYPE_GLYPH_RASTER_FAIL,
-    FREETYPE_GLYPH_DRAW_FAIL
-} freetype_glyph_status_t;
+    HZFONT_GLYPH_OK = 0,
+    HZFONT_GLYPH_LOOKUP_FAIL,
+    HZFONT_GLYPH_LOAD_FAIL,
+    HZFONT_GLYPH_RASTER_FAIL,
+    HZFONT_GLYPH_DRAW_FAIL
+} hzfont_glyph_status_t;
 
 typedef struct {
     TtfBitmap bitmap;
@@ -56,8 +56,8 @@ typedef struct {
     uint8_t b;
 } rgb24_t;
 
-static freetypefont_ctx_t g_ft_ctx = {
-    .state = LUAT_FREETYPEFONT_STATE_UNINIT
+static hzfont_ctx_t g_ft_ctx = {
+    .state = LUAT_HZFONT_STATE_UNINIT
 };
 
 typedef struct {
@@ -67,26 +67,26 @@ typedef struct {
     uint8_t in_use;
     uint32_t last_used;
     TtfBitmap bitmap;
-} freetype_cache_entry_t;
+} hzfont_cache_entry_t;
 
-static freetype_cache_entry_t g_ft_cache[FREETYPE_CACHE_CAPACITY];
-static uint32_t g_ft_cache_stamp = 0;
+static hzfont_cache_entry_t g_hzfont_cache[HZFONT_CACHE_CAPACITY];
+static uint32_t g_hzfont_cache_stamp = 0;
 
 typedef struct {
     uint32_t codepoint;
     uint16_t glyph_index;
     uint8_t in_use;
     uint32_t last_used;
-} freetype_cp_cache_entry_t;
+} hzfont_cp_cache_entry_t;
 
-static freetype_cp_cache_entry_t g_ft_cp_cache[FREETYPE_CODEPOINT_CACHE_SIZE];
+static hzfont_cp_cache_entry_t g_hzfont_cp_cache[HZFONT_CODEPOINT_CACHE_SIZE];
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
 
-#define FREETYPE_TIMING_THRESHOLD_US 3000
+#define HZFONT_TIMING_THRESHOLD_US 3000
 
-static uint64_t freetype_now_us(void) {
+static uint64_t hzfont_now_us(void) {
     int period = luat_mcu_us_period();
     if (period <= 0) {
         return luat_mcu_tick64_ms() * 1000ULL;
@@ -94,11 +94,11 @@ static uint64_t freetype_now_us(void) {
     return luat_mcu_tick64() / (uint64_t)period;
 }
 
-static uint32_t freetype_elapsed_from(uint64_t start) {
+static uint32_t hzfont_elapsed_from(uint64_t start) {
     if (start == 0) {
         return 0;
     }
-    uint64_t now = freetype_now_us();
+    uint64_t now = hzfont_now_us();
     if (now <= start) {
         return 0;
     }
@@ -109,11 +109,11 @@ static uint32_t freetype_elapsed_from(uint64_t start) {
     return (uint32_t)diff;
 }
 
-static uint32_t freetype_elapsed_step(uint64_t *stamp) {
+static uint32_t hzfont_elapsed_step(uint64_t *stamp) {
     if (!stamp || *stamp == 0) {
         return 0;
     }
-    uint64_t now = freetype_now_us();
+    uint64_t now = hzfont_now_us();
     uint64_t diff = (now > *stamp) ? (now - *stamp) : 0;
     *stamp = now;
     if (diff > UINT32_MAX) {
@@ -122,42 +122,42 @@ static uint32_t freetype_elapsed_step(uint64_t *stamp) {
     return (uint32_t)diff;
 }
 
-static const char *freetype_status_text(uint8_t status) {
+static const char *hzfont_status_text(uint8_t status) {
     switch (status) {
-    case FREETYPE_GLYPH_OK:
+    case HZFONT_GLYPH_OK:
         return "ok";
-    case FREETYPE_GLYPH_LOOKUP_FAIL:
+    case HZFONT_GLYPH_LOOKUP_FAIL:
         return "lookup_fail";
-    case FREETYPE_GLYPH_LOAD_FAIL:
+    case HZFONT_GLYPH_LOAD_FAIL:
         return "load_fail";
-    case FREETYPE_GLYPH_RASTER_FAIL:
+    case HZFONT_GLYPH_RASTER_FAIL:
         return "raster_fail";
-    case FREETYPE_GLYPH_DRAW_FAIL:
+    case HZFONT_GLYPH_DRAW_FAIL:
         return "draw_fail";
     default:
         return "unknown";
     }
 }
 
-static uint32_t freetype_clamp_u32(uint64_t value) {
+static uint32_t hzfont_clamp_u32(uint64_t value) {
     return value > UINT32_MAX ? UINT32_MAX : (uint32_t)value;
 }
 
-static uint32_t freetype_next_stamp(void) {
-    g_ft_cache_stamp++;
-    if (g_ft_cache_stamp == 0) {
-        g_ft_cache_stamp = 1;
+static uint32_t hzfont_next_stamp(void) {
+    g_hzfont_cache_stamp++;
+    if (g_hzfont_cache_stamp == 0) {
+        g_hzfont_cache_stamp = 1;
     }
-    return g_ft_cache_stamp;
+    return g_hzfont_cache_stamp;
 }
 
-static void freetype_cp_cache_clear(void) {
-    memset(g_ft_cp_cache, 0, sizeof(g_ft_cp_cache));
+static void hzfont_cp_cache_clear(void) {
+    memset(g_hzfont_cp_cache, 0, sizeof(g_hzfont_cp_cache));
 }
 
-static void freetype_cache_clear(void) {
-    for (size_t i = 0; i < FREETYPE_CACHE_CAPACITY; ++i) {
-        freetype_cache_entry_t *entry = &g_ft_cache[i];
+static void hzfont_cache_clear(void) {
+    for (size_t i = 0; i < HZFONT_CACHE_CAPACITY; ++i) {
+        hzfont_cache_entry_t *entry = &g_hzfont_cache[i];
         if (entry->in_use) {
             if (entry->bitmap.pixels) {
                 ttf_free_bitmap(&entry->bitmap);
@@ -165,20 +165,20 @@ static void freetype_cache_clear(void) {
             memset(entry, 0, sizeof(*entry));
         }
     }
-    freetype_cp_cache_clear();
-    g_ft_cache_stamp = 0;
+    hzfont_cp_cache_clear();
+    g_hzfont_cache_stamp = 0;
 }
 
-static void freetype_cache_touch(freetype_cache_entry_t *entry) {
+static void hzfont_cache_touch(hzfont_cache_entry_t *entry) {
     if (!entry) {
         return;
     }
-    entry->last_used = freetype_next_stamp();
+    entry->last_used = hzfont_next_stamp();
 }
 
-static freetype_cache_entry_t *freetype_cache_find(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
-    for (size_t i = 0; i < FREETYPE_CACHE_CAPACITY; ++i) {
-        freetype_cache_entry_t *entry = &g_ft_cache[i];
+static hzfont_cache_entry_t *hzfont_cache_find(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
+    for (size_t i = 0; i < HZFONT_CACHE_CAPACITY; ++i) {
+        hzfont_cache_entry_t *entry = &g_hzfont_cache[i];
         if (entry->in_use &&
             entry->glyph_index == glyph_index &&
             entry->font_size == font_size &&
@@ -189,29 +189,29 @@ static freetype_cache_entry_t *freetype_cache_find(uint16_t glyph_index, uint8_t
     return NULL;
 }
 
-static freetype_cache_entry_t *freetype_cache_get(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
-    freetype_cache_entry_t *entry = freetype_cache_find(glyph_index, font_size, supersample);
+static hzfont_cache_entry_t *hzfont_cache_get(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
+    hzfont_cache_entry_t *entry = hzfont_cache_find(glyph_index, font_size, supersample);
     if (entry) {
-        freetype_cache_touch(entry);
+        hzfont_cache_touch(entry);
     }
     return entry;
 }
 
-static freetype_cache_entry_t *freetype_cache_allocate_slot(void) {
-    for (size_t i = 0; i < FREETYPE_CACHE_CAPACITY; ++i) {
-        if (!g_ft_cache[i].in_use) {
-            return &g_ft_cache[i];
+static hzfont_cache_entry_t *hzfont_cache_allocate_slot(void) {
+    for (size_t i = 0; i < HZFONT_CACHE_CAPACITY; ++i) {
+        if (!g_hzfont_cache[i].in_use) {
+            return &g_hzfont_cache[i];
         }
     }
     uint32_t oldest = UINT32_MAX;
     size_t oldest_index = 0;
-    for (size_t i = 0; i < FREETYPE_CACHE_CAPACITY; ++i) {
-        if (g_ft_cache[i].last_used < oldest) {
-            oldest = g_ft_cache[i].last_used;
+    for (size_t i = 0; i < HZFONT_CACHE_CAPACITY; ++i) {
+        if (g_hzfont_cache[i].last_used < oldest) {
+            oldest = g_hzfont_cache[i].last_used;
             oldest_index = i;
         }
     }
-    freetype_cache_entry_t *entry = &g_ft_cache[oldest_index];
+    hzfont_cache_entry_t *entry = &g_hzfont_cache[oldest_index];
     if (entry->in_use && entry->bitmap.pixels) {
         ttf_free_bitmap(&entry->bitmap);
     }
@@ -219,14 +219,14 @@ static freetype_cache_entry_t *freetype_cache_allocate_slot(void) {
     return entry;
 }
 
-static freetype_cache_entry_t *freetype_cache_insert(uint16_t glyph_index, uint8_t font_size,
+static hzfont_cache_entry_t *hzfont_cache_insert(uint16_t glyph_index, uint8_t font_size,
                                                      uint8_t supersample, TtfBitmap *bitmap) {
     if (!bitmap || !bitmap->pixels) {
         return NULL;
     }
-    freetype_cache_entry_t *entry = freetype_cache_find(glyph_index, font_size, supersample);
+    hzfont_cache_entry_t *entry = hzfont_cache_find(glyph_index, font_size, supersample);
     if (!entry) {
-        entry = freetype_cache_allocate_slot();
+        entry = hzfont_cache_allocate_slot();
     } else {
         if (entry->bitmap.pixels) {
             ttf_free_bitmap(&entry->bitmap);
@@ -238,76 +238,76 @@ static freetype_cache_entry_t *freetype_cache_insert(uint16_t glyph_index, uint8
     entry->supersample = supersample;
     entry->bitmap = *bitmap;
     entry->in_use = 1;
-    freetype_cache_touch(entry);
+    hzfont_cache_touch(entry);
     return entry;
 }
 
-static freetype_cp_cache_entry_t *freetype_cp_cache_lookup(uint32_t codepoint) {
-    if (FREETYPE_CODEPOINT_CACHE_SIZE == 0) {
+static hzfont_cp_cache_entry_t *hzfont_cp_cache_lookup(uint32_t codepoint) {
+    if (HZFONT_CODEPOINT_CACHE_SIZE == 0) {
         return NULL;
     }
-    uint32_t mask = FREETYPE_CODEPOINT_CACHE_SIZE - 1u;
+    uint32_t mask = HZFONT_CODEPOINT_CACHE_SIZE - 1u;
     uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
-    for (uint32_t probe = 0; probe < FREETYPE_CODEPOINT_CACHE_SIZE; ++probe) {
-        freetype_cp_cache_entry_t *entry = &g_ft_cp_cache[(start + probe) & mask];
+    for (uint32_t probe = 0; probe < HZFONT_CODEPOINT_CACHE_SIZE; ++probe) {
+        hzfont_cp_cache_entry_t *entry = &g_hzfont_cp_cache[(start + probe) & mask];
         if (!entry->in_use) {
             return NULL;
         }
         if (entry->codepoint == codepoint) {
-            entry->last_used = freetype_next_stamp();
+            entry->last_used = hzfont_next_stamp();
             return entry;
         }
     }
     return NULL;
 }
 
-static void freetype_cp_cache_insert(uint32_t codepoint, uint16_t glyph_index) {
-    if (FREETYPE_CODEPOINT_CACHE_SIZE == 0) {
+static void hzfont_cp_cache_insert(uint32_t codepoint, uint16_t glyph_index) {
+    if (HZFONT_CODEPOINT_CACHE_SIZE == 0) {
         return;
     }
-    uint32_t mask = FREETYPE_CODEPOINT_CACHE_SIZE - 1u;
+    uint32_t mask = HZFONT_CODEPOINT_CACHE_SIZE - 1u;
     uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
-    freetype_cp_cache_entry_t *empty_slot = NULL;
-    for (uint32_t probe = 0; probe < FREETYPE_CODEPOINT_CACHE_SIZE; ++probe) {
-        freetype_cp_cache_entry_t *entry = &g_ft_cp_cache[(start + probe) & mask];
+    hzfont_cp_cache_entry_t *empty_slot = NULL;
+    for (uint32_t probe = 0; probe < HZFONT_CODEPOINT_CACHE_SIZE; ++probe) {
+        hzfont_cp_cache_entry_t *entry = &g_hzfont_cp_cache[(start + probe) & mask];
         if (!entry->in_use) {
             empty_slot = entry;
             break;
         }
         if (entry->codepoint == codepoint) {
             entry->glyph_index = glyph_index;
-            entry->last_used = freetype_next_stamp();
+            entry->last_used = hzfont_next_stamp();
             return;
         }
     }
-    freetype_cp_cache_entry_t *target = empty_slot;
+    hzfont_cp_cache_entry_t *target = empty_slot;
     if (!target) {
         uint32_t oldest = UINT32_MAX;
         size_t oldest_idx = 0;
-        for (size_t i = 0; i < FREETYPE_CODEPOINT_CACHE_SIZE; ++i) {
-            if (g_ft_cp_cache[i].last_used < oldest) {
-                oldest = g_ft_cp_cache[i].last_used;
+        for (size_t i = 0; i < HZFONT_CODEPOINT_CACHE_SIZE; ++i) {
+            if (g_hzfont_cp_cache[i].last_used < oldest) {
+                oldest = g_hzfont_cp_cache[i].last_used;
                 oldest_idx = i;
             }
         }
-        target = &g_ft_cp_cache[oldest_idx];
+        target = &g_hzfont_cp_cache[oldest_idx];
     }
     target->codepoint = codepoint;
     target->glyph_index = glyph_index;
     target->in_use = 1;
-    target->last_used = freetype_next_stamp();
+    target->last_used = hzfont_next_stamp();
 }
 
-static uint32_t freetype_calc_fallback_advance(unsigned char font_size) {
-    float adv = (float)font_size * FREETYPE_ADVANCE_RATIO;
+static uint32_t hzfont_calc_fallback_advance(unsigned char font_size) {
+    float adv = (float)font_size * HZFONT_ADVANCE_RATIO;
     if (adv < 1.0f) {
         adv = 1.0f;
     }
     return (uint32_t)ceilf(adv);
 }
 
-static uint32_t freetype_default_ascent(unsigned char font_size) {
-    float asc = (float)font_size * FREETYPE_ASCENT_RATIO;
+static uint32_t hzfont_default_ascent(unsigned char font_size) {
+    float asc = (float)font_size * HZFONT_ASCENT_RATIO;
     if (asc < 1.0f) {
         asc = 1.0f;
     }
@@ -379,7 +379,7 @@ static uint16_t rgb565_from_rgb(uint8_t r, uint8_t g, uint8_t b) {
     return (uint16_t)(rr | gg | bb);
 }
 
-static rgb24_t freetype_decode_input_color(uint32_t color) {
+static rgb24_t hzfont_decode_input_color(uint32_t color) {
     rgb24_t out;
     if (color <= 0xFFFFu) {
         rgb_from_rgb565((uint16_t)color, &out.r, &out.g, &out.b);
@@ -395,7 +395,7 @@ static rgb24_t freetype_decode_input_color(uint32_t color) {
     return out;
 }
 
-static rgb24_t freetype_decode_luat_color(const luat_lcd_conf_t *conf, luat_color_t color) {
+static rgb24_t hzfont_decode_luat_color(const luat_lcd_conf_t *conf, luat_color_t color) {
     rgb24_t out = {255, 255, 255};
     if (!conf) {
         return out;
@@ -417,7 +417,7 @@ static rgb24_t freetype_decode_luat_color(const luat_lcd_conf_t *conf, luat_colo
     return out;
 }
 
-static luat_color_t freetype_encode_color(const luat_lcd_conf_t *conf, uint8_t r, uint8_t g, uint8_t b) {
+static luat_color_t hzfont_encode_color(const luat_lcd_conf_t *conf, uint8_t r, uint8_t g, uint8_t b) {
     if (!conf) {
         return rgb565_from_rgb(r, g, b);
     }
@@ -433,7 +433,7 @@ static luat_color_t freetype_encode_color(const luat_lcd_conf_t *conf, uint8_t r
     }
 }
 
-static luat_color_t freetype_coverage_to_color(uint8_t coverage, const luat_lcd_conf_t *conf,
+static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_conf_t *conf,
                                                const rgb24_t *fg, const rgb24_t *bg) {
     if (coverage == 0) {
         return 0;
@@ -442,50 +442,50 @@ static luat_color_t freetype_coverage_to_color(uint8_t coverage, const luat_lcd_
     uint32_t rr = ((uint32_t)fg->r * coverage + (uint32_t)bg->r * inv) / 255u;
     uint32_t gg = ((uint32_t)fg->g * coverage + (uint32_t)bg->g * inv) / 255u;
     uint32_t bb = ((uint32_t)fg->b * coverage + (uint32_t)bg->b * inv) / 255u;
-    return freetype_encode_color(conf, (uint8_t)rr, (uint8_t)gg, (uint8_t)bb);
+    return hzfont_encode_color(conf, (uint8_t)rr, (uint8_t)gg, (uint8_t)bb);
 }
 
-int luat_freetypefont_init(const char *ttf_path) {
+int luat_hzfont_init(const char *ttf_path) {
     if (!ttf_path || ttf_path[0] == 0) {
         LLOGE("invalid ttf path");
         return 0;
     }
-    if (g_ft_ctx.state == LUAT_FREETYPEFONT_STATE_READY) {
+    if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         LLOGE("font already initialized");
         return 0;
     }
 
-    freetype_cache_clear();
+    hzfont_cache_clear();
     memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
     int rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
     if (rc != TTF_OK) {
         LLOGE("load font fail rc=%d", rc);
         ttf_unload(&g_ft_ctx.font);
-        g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_ERROR;
+        g_ft_ctx.state = LUAT_HZFONT_STATE_ERROR;
         return 0;
     }
     strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
     g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
-    g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_READY;
+    g_ft_ctx.state = LUAT_HZFONT_STATE_READY;
     LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
     return 1;
 }
 
-void luat_freetypefont_deinit(void) {
-    if (g_ft_ctx.state == LUAT_FREETYPEFONT_STATE_UNINIT) {
+void luat_hzfont_deinit(void) {
+    if (g_ft_ctx.state == LUAT_HZFONT_STATE_UNINIT) {
         return;
     }
     ttf_unload(&g_ft_ctx.font);
     memset(&g_ft_ctx, 0, sizeof(g_ft_ctx));
-    g_ft_ctx.state = LUAT_FREETYPEFONT_STATE_UNINIT;
-    freetype_cache_clear();
+    g_ft_ctx.state = LUAT_HZFONT_STATE_UNINIT;
+    hzfont_cache_clear();
 }
 
-luat_freetypefont_state_t luat_freetypefont_get_state(void) {
+luat_hzfont_state_t luat_hzfont_get_state(void) {
     return g_ft_ctx.state;
 }
 
-static uint32_t glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {
+static uint32_t hzfont_glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {
     if (!glyph || glyph->pointCount == 0 || glyph->contourCount == 0) {
         return 0;
     }
@@ -496,8 +496,8 @@ static uint32_t glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {
     return (uint32_t)ceilf(widthF);
 }
 
-uint32_t luat_freetypefont_get_str_width(const char *utf8, unsigned char font_size) {
-    if (!utf8 || font_size == 0 || g_ft_ctx.state != LUAT_FREETYPEFONT_STATE_READY) {
+uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
+    if (!utf8 || font_size == 0 || g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
         return 0;
     }
     if (g_ft_ctx.font.unitsPerEm == 0) {
@@ -525,27 +525,27 @@ uint32_t luat_freetypefont_get_str_width(const char *utf8, unsigned char font_si
             if (cp != ' ' && cp != '\t') {
                 LLOGW("missing glyph cp=%lu", (unsigned long)cp);
             }
-            total += freetype_calc_fallback_advance(font_size);
+            total += hzfont_calc_fallback_advance(font_size);
             continue;
         }
 
         TtfGlyph glyph;
         int rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
         if (rc != TTF_OK) {
-            total += freetype_calc_fallback_advance(font_size);
+            total += hzfont_calc_fallback_advance(font_size);
             continue;
         }
-        uint32_t width = glyph_estimate_width_px(&glyph, scale);
+        uint32_t width = hzfont_glyph_estimate_width_px(&glyph, scale);
         ttf_free_glyph(&glyph);
         if (width == 0) {
-            width = freetype_calc_fallback_advance(font_size);
+            width = hzfont_calc_fallback_advance(font_size);
         }
         total += width;
     }
     return total;
 }
 
-static void freetype_release_glyphs(glyph_render_t *glyphs, size_t count) {
+static void hzfont_release_glyphs(glyph_render_t *glyphs, size_t count) {
     if (!glyphs) {
         return;
     }
@@ -557,11 +557,11 @@ static void freetype_release_glyphs(glyph_render_t *glyphs, size_t count) {
     luat_heap_free(glyphs);
 }
 
-int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color) {
+int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color) {
     if (!utf8 || font_size == 0) {
         return -1;
     }
-    if (g_ft_ctx.state != LUAT_FREETYPEFONT_STATE_READY) {
+    if (g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
         LLOGE("font not ready");
         return -2;
     }
@@ -575,7 +575,7 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
     }
 
     int timing_enabled = ttf_get_debug();
-    uint64_t func_start_ts = timing_enabled ? freetype_now_us() : 0;
+    uint64_t func_start_ts = timing_enabled ? hzfont_now_us() : 0;
     uint64_t sum_lookup_us = 0;
     uint64_t sum_load_us = 0;
     uint64_t sum_raster_us = 0;
@@ -609,7 +609,7 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         }
 
         glyph_render_t *slot = &glyphs[glyph_count];
-        slot->advance = freetype_calc_fallback_advance(font_size);
+        slot->advance = hzfont_calc_fallback_advance(font_size);
         slot->has_bitmap = 0;
         memset(&slot->bitmap, 0, sizeof(slot->bitmap));
         slot->codepoint = cp;
@@ -619,46 +619,46 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         slot->time_raster_us = 0;
         slot->time_draw_us = 0;
         slot->from_cache = 0;
-        slot->status = FREETYPE_GLYPH_LOOKUP_FAIL;
+        slot->status = HZFONT_GLYPH_LOOKUP_FAIL;
 
-        uint64_t glyph_stamp = timing_enabled ? freetype_now_us() : 0;
+        uint64_t glyph_stamp = timing_enabled ? hzfont_now_us() : 0;
 
         uint16_t glyph_index = 0;
         int rc = TTF_OK;
-        freetype_cp_cache_entry_t *cp_entry = freetype_cp_cache_lookup(cp);
+        hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(cp);
         if (cp_entry) {
             glyph_index = cp_entry->glyph_index;
             if (timing_enabled) {
-                slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                slot->time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
                 sum_lookup_us += slot->time_lookup_us;
             }
         } else {
             rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
             if (timing_enabled) {
-                slot->time_lookup_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                slot->time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
                 sum_lookup_us += slot->time_lookup_us;
             }
             if (rc != TTF_OK) {
                 glyph_count++;
                 continue;
             }
-            freetype_cp_cache_insert(cp, glyph_index);
+            hzfont_cp_cache_insert(cp, glyph_index);
         }
 
         slot->glyph_index = glyph_index;
-        slot->status = FREETYPE_GLYPH_LOAD_FAIL;
+        slot->status = HZFONT_GLYPH_LOAD_FAIL;
 
         uint8_t supersample = (uint8_t)ttf_get_supersample_rate();
-        freetype_cache_entry_t *cache_entry = freetype_cache_get(glyph_index, (uint8_t)font_size, supersample);
+        hzfont_cache_entry_t *cache_entry = hzfont_cache_get(glyph_index, (uint8_t)font_size, supersample);
         if (cache_entry) {
             slot->bitmap = cache_entry->bitmap;
             slot->from_cache = 1;
-            slot->status = FREETYPE_GLYPH_OK;
+            slot->status = HZFONT_GLYPH_OK;
         } else {
             TtfGlyph glyph;
             rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
             if (timing_enabled) {
-                slot->time_load_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                slot->time_load_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
                 sum_load_us += slot->time_load_us;
             }
             if (rc != TTF_OK) {
@@ -666,10 +666,10 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
                 continue;
             }
 
-            slot->status = FREETYPE_GLYPH_RASTER_FAIL;
+            slot->status = HZFONT_GLYPH_RASTER_FAIL;
             rc = ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &slot->bitmap);
             if (timing_enabled) {
-                slot->time_raster_us = glyph_stamp ? freetype_elapsed_step(&glyph_stamp) : 0;
+                slot->time_raster_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
                 sum_raster_us += slot->time_raster_us;
             }
             ttf_free_glyph(&glyph);
@@ -678,8 +678,8 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
                 continue;
             }
 
-            slot->status = FREETYPE_GLYPH_OK;
-            freetype_cache_entry_t *new_entry = freetype_cache_insert(glyph_index, (uint8_t)font_size, supersample, &slot->bitmap);
+            slot->status = HZFONT_GLYPH_OK;
+            hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, (uint8_t)font_size, supersample, &slot->bitmap);
             if (new_entry) {
                 slot->from_cache = 1;
                 slot->bitmap = new_entry->bitmap;
@@ -690,14 +690,14 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
             slot->has_bitmap = 1;
             slot->advance = slot->bitmap.width;
             if (slot->advance == 0) {
-                slot->advance = freetype_calc_fallback_advance(font_size);
+                slot->advance = hzfont_calc_fallback_advance(font_size);
             }
             uint32_t above = slot->bitmap.originY;
             if (above > baseline_above) {
                 baseline_above = above;
             }
         } else {
-            uint32_t fallback_above = freetype_default_ascent(font_size);
+            uint32_t fallback_above = hzfont_default_ascent(font_size);
             if (fallback_above > baseline_above) {
                 baseline_above = fallback_above;
             }
@@ -706,10 +706,10 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
     }
 
     if (baseline_above == 0) {
-        baseline_above = freetype_default_ascent(font_size);
+        baseline_above = hzfont_default_ascent(font_size);
     }
-    rgb24_t fg = freetype_decode_input_color(color);
-    rgb24_t bg = freetype_decode_luat_color(lcd_dft_conf, BACK_COLOR);
+    rgb24_t fg = hzfont_decode_input_color(color);
+    rgb24_t bg = hzfont_decode_luat_color(lcd_dft_conf, BACK_COLOR);
 
     int pen_x = x;
     uint32_t baseline_offset = baseline_above;
@@ -724,14 +724,14 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
             goto glyph_timing_update;
         }
 
-        uint64_t draw_stamp = timing_enabled ? freetype_now_us() : 0;
+        uint64_t draw_stamp = timing_enabled ? hzfont_now_us() : 0;
         int draw_x = pen_x;
         int draw_y_base = y + (int)baseline_offset - (int)slot->bitmap.originY;
 
         size_t row_buf_capacity = (size_t)slot->bitmap.width;
         if (row_buf_capacity == 0) {
             if (timing_enabled && draw_stamp) {
-                slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+                slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
                 sum_draw_us += slot->time_draw_us;
             }
             pen_x += (int)slot->advance;
@@ -741,10 +741,10 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
         luat_color_t *row_buf = (luat_color_t *)luat_heap_malloc(row_buf_capacity * sizeof(luat_color_t));
         if (!row_buf) {
             if (timing_enabled && draw_stamp) {
-                slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+                slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
                 sum_draw_us += slot->time_draw_us;
             }
-            slot->status = FREETYPE_GLYPH_DRAW_FAIL;
+            slot->status = HZFONT_GLYPH_DRAW_FAIL;
             pen_x += (int)slot->advance;
             result = -5;
             LLOGE("oom row buffer");
@@ -764,7 +764,7 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
                 uint32_t run_start = col;
                 size_t run_len = 0;
                 while (col < slot->bitmap.width && row_pixels[col] != 0) {
-                    row_buf[run_len++] = freetype_coverage_to_color(row_pixels[col], lcd_dft_conf, &fg, &bg);
+                    row_buf[run_len++] = hzfont_coverage_to_color(row_pixels[col], lcd_dft_conf, &fg, &bg);
                     col++;
                 }
                 if (run_len > 0) {
@@ -778,7 +778,7 @@ int luat_freetypefont_draw_utf8(int x, int y, const char *utf8, unsigned char fo
 
         luat_heap_free(row_buf);
         if (timing_enabled && draw_stamp) {
-            slot->time_draw_us = freetype_elapsed_from(draw_stamp);
+            slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
             sum_draw_us += slot->time_draw_us;
         }
         pen_x += (int)slot->advance;
@@ -791,20 +791,20 @@ glyph_timing_update:
                                      (uint64_t)slot->time_raster_us +
                                      (uint64_t)slot->time_draw_us;
             sum_total_us += glyph_total64;
-            if (slot->has_bitmap && slot->status == FREETYPE_GLYPH_OK) {
+            if (slot->has_bitmap && slot->status == HZFONT_GLYPH_OK) {
                 sum_rendered_total_us += glyph_total64;
             }
-            uint32_t glyph_total32 = freetype_clamp_u32(glyph_total64);
+            uint32_t glyph_total32 = hzfont_clamp_u32(glyph_total64);
             if (glyph_total32 > max_glyph_total_us) {
                 max_glyph_total_us = glyph_total32;
                 max_slot_index = i;
             }
-            if (glyph_total32 >= FREETYPE_TIMING_THRESHOLD_US || slot->status != FREETYPE_GLYPH_OK) {
+            if (glyph_total32 >= HZFONT_TIMING_THRESHOLD_US || slot->status != HZFONT_GLYPH_OK) {
                 LLOGI("glyph[%u] cp=U+%04lX idx=%u status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
                       (unsigned)i,
                       (unsigned long)slot->codepoint,
                       (unsigned)slot->glyph_index,
-                      freetype_status_text(slot->status),
+                      hzfont_status_text(slot->status),
                       (unsigned long)glyph_total32,
                       (unsigned long)slot->time_lookup_us,
                       (unsigned long)slot->time_load_us,
@@ -820,13 +820,13 @@ glyph_timing_update:
 
 finalize:
     if (timing_enabled) {
-        uint32_t total_us = freetype_elapsed_from(func_start_ts);
-        uint32_t sum_lookup32 = freetype_clamp_u32(sum_lookup_us);
-        uint32_t sum_load32 = freetype_clamp_u32(sum_load_us);
-        uint32_t sum_raster32 = freetype_clamp_u32(sum_raster_us);
-        uint32_t sum_draw32 = freetype_clamp_u32(sum_draw_us);
-        uint32_t avg_all_us = profiled_glyphs ? freetype_clamp_u32(sum_total_us / profiled_glyphs) : 0;
-        uint32_t avg_rendered_us = rendered_count ? freetype_clamp_u32(sum_rendered_total_us / rendered_count) : 0;
+        uint32_t total_us = hzfont_elapsed_from(func_start_ts);
+        uint32_t sum_lookup32 = hzfont_clamp_u32(sum_lookup_us);
+        uint32_t sum_load32 = hzfont_clamp_u32(sum_load_us);
+        uint32_t sum_raster32 = hzfont_clamp_u32(sum_raster_us);
+        uint32_t sum_draw32 = hzfont_clamp_u32(sum_draw_us);
+        uint32_t avg_all_us = profiled_glyphs ? hzfont_clamp_u32(sum_total_us / profiled_glyphs) : 0;
+        uint32_t avg_rendered_us = rendered_count ? hzfont_clamp_u32(sum_rendered_total_us / rendered_count) : 0;
         LLOGI("timing total=%luus glyphs=%u profiled=%u rendered=%u avg_all=%lu avg_render=%lu lookup=%lu load=%lu raster=%lu draw=%lu result=%d",
               (unsigned long)total_us,
               (unsigned)glyph_count,
@@ -841,14 +841,14 @@ finalize:
               result);
         if (max_slot_index != (size_t)-1 && max_slot_index < glyph_count) {
             glyph_render_t *max_slot = &glyphs[max_slot_index];
-            uint32_t glyph_total32 = freetype_clamp_u32((uint64_t)max_slot->time_lookup_us +
+            uint32_t glyph_total32 = hzfont_clamp_u32((uint64_t)max_slot->time_lookup_us +
                                                         (uint64_t)max_slot->time_load_us +
                                                         (uint64_t)max_slot->time_raster_us +
                                                         (uint64_t)max_slot->time_draw_us);
             LLOGI("timing max glyph idx=%u cp=U+%04lX status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
                   (unsigned)max_slot_index,
                   (unsigned long)max_slot->codepoint,
-                  freetype_status_text(max_slot->status),
+                  hzfont_status_text(max_slot->status),
                   (unsigned long)glyph_total32,
                   (unsigned long)max_slot->time_lookup_us,
                   (unsigned long)max_slot->time_load_us,
@@ -857,6 +857,6 @@ finalize:
         }
     }
 
-    freetype_release_glyphs(glyphs, glyph_count);
+    hzfont_release_glyphs(glyphs, glyph_count);
     return result;
 }

@@ -28,7 +28,7 @@ libfota2 = require "libfota2"
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
+--   5缺少必要的PROJECT_KEY参数
 local function fota_cb(ret)
     log.info("fota", ret)
     --升级结束，触发升级回调，发布消息升级结束，可以进入休眠模式
@@ -49,7 +49,7 @@ local function fota_cb(ret)
             "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n"..
             "3) 已经是最新版本，无需升级" )
     elseif ret == 5 then
-        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
+        log.info("缺少必要的PROJECT_KEY参数")
     else
         log.info("不是上面几种情况 ret为", ret)
     end

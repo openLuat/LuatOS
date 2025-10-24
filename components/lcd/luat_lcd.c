@@ -566,6 +566,18 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2,
     int incx, incy, row, col;
     if (x1 == x2 || y1 == y2) // 直线
     {
+        if (x1 > x2)
+        {
+            int16_t tmp = x1;
+            x1 = x2;
+            x2 = tmp;
+        }
+        if (y1 > y2)
+        {
+            int16_t tmp = y1;
+            y1 = y2;
+            y2 = tmp;
+        }
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
         if (conf->endianness_swap)

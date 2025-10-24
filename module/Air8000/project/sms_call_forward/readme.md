@@ -56,11 +56,13 @@
 
 main.lua
 
-netdrv_multiple.lua：
+netdrv_device.lua：
 
 sms_forward.lua：
 
 cc_forward.lua：
+
+netdrv文件夹
 
 4、 pc 系统 win11（win10 及以上）
 

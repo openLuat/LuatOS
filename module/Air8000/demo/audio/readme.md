@@ -6,13 +6,13 @@
 
 3、play_tts: 支持文字转普通话输出需要固件支持
 
-4、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+4、play_stream: 流式播放音频，仅支持PCM 格式
 
 5、record_file: 录音到文件，仅支持PCM 格式
 
-6、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
+6、record_stream:  流式录音，仅支持PCM。
 
-7、1.mp3: 用于测试本地mp3文件播放
+7、sample-6s.mp3/10.amr: 用于测试本地mp3文件播放
 
 8、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
@@ -35,7 +35,7 @@
 
 ## 演示功能概述
 
-1、play_flie.lua 自动播放一个1.mp3音乐,点powerkey 按键进行音频切换，点击boot 按键停止音频播放
+1、play_flie.lua 自动播放一个sample-6s.mp3音乐,点powerkey 按键进行音频切换，播放10.amr文件，点击boot 按键停止音频播放
 
 2、play_tts.lua 播放一个TTS,点powerkey 按键进行tts 的音色切换，点击boot 按键停止音频播放
 
@@ -47,22 +47,46 @@
 
 
 ## 演示硬件环境
+1、Air8000开发板一块+喇叭
 
-![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
+![]( https://docs.openLuat.com/cdn//image/Air8000%E5%BC%80%E5%8F%91%E6%9D%BF.jpg)
 
-1、Air8000开发板一块
+或者Air8000核心板+AirAUDIO_1010 音频扩展板+喇叭
 
-2、喇叭一个
+![alt text]( https://docs.openLuat.com/cdn/image/Air8000%E6%A0%B8%E5%BF%83%E6%9D%BF+1010.jpg)
 
-2、插入喇叭到开发板中
+Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
+
+|  Air8000核心板   | AirAUDIO_1010配件板 |
+| --------------- | -----------------   |
+| 22/I2S_MCLK     | I2S_MCLK            |
+| 18/I2S_BCK      | I2S_BCK             |
+| 19/I2S_LRCK     | I2S_LRCK            |
+| 20/I2S_DIN      | I2S_DIN             |
+| 21/I2S_DOUT     | I2S_DOUT            |
+| 80/I2C_SCL      | I2C_SCL             |
+| 81/I2C_SDA      | I2C_SDA             |
+| 82/GPIO17       | PA_EN               |
+| 83/GPIO16       | 8311_EN             |
+| VDD_EXT         | VCC                 |
+| GND             | GND                 |
+
+
+2、YPE-C USB数据线一根
+- Air8000开发板/核心板通过 TYPE-C USB 口供电；
+- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2014版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air8000 V2016版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以），选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考Air8000 LuatOS固件版本。
 
+3、 luatos需要的脚本和资源文件
+- 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/audio)
+- lib脚本文件：使用Luatools烧录时，勾选 添加默认lib 选项，使用默认lib脚本文件；
+- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air8000核心板](https://docs.openluat.com/air8000/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air8000开发板/核心板中。
 
 ## 演示核心步骤
 

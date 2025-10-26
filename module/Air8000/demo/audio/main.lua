@@ -17,7 +17,7 @@
 
 5、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
 
-6、1.mp3: 用于测试本地mp3文件播放
+6、sample-6s: 用于测试本地mp3文件播放
 
 7、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
@@ -56,10 +56,10 @@ if wdt then
 end
 
 
-require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
+ require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
 -- require "play_tts"      -- 支持文字转普通话输出需要固件支持
 -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
--- require "record_file"        -- 录音到文件
+--require "record_file"        -- 录音到文件
 -- require "record_stream"        -- 流式录音   
 
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常

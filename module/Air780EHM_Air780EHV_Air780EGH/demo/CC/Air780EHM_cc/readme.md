@@ -41,7 +41,7 @@
 3、可选AirAudio_1010 配件板一块，Air780EHM核心板和AirAudio_1010 配件板的硬件接线方式为:
 |  Air780EHM核心板 | AirAUDIO_1010配件板 |
 | --------------- | -----------------   |
-| 33/I2S_MCLK     | I2S_MCLK            |
+| 26/I2S_MCLK     | I2S_MCLK            |
 | 30/I2S_BCK      | I2S_BCK             |
 | 31/I2S_LRCK     | I2S_LRCK            |
 | 32/I2S_DIN      | I2S_DIN             |
@@ -65,7 +65,7 @@
 ## 相关软件资料
 1、cc库   https://docs.openluat.com/osapi/core/cc/
 
-2、audio - 多媒体-音频 https://docs.openluat.com/osapi/core/audio/#audiopmidpm_mode
+2、exaudio - 音频扩展库  https://docs.openluat.com/osapi/ext/exaudio/
 
 3、CC_IND -- 通话状态变化
 

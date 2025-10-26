@@ -28,7 +28,7 @@
 
 ## 演示硬件环境
  
- 或者Air780EHM核心板+AirAUDIO_1010 音频扩展板+喇叭
+ Air780EHM核心板+AirAUDIO_1010 音频扩展板+喇叭
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EHM+Airaudio1010.jpg)
 
@@ -39,7 +39,7 @@
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 3、可选AirAudio_1010 配件板一块，Air780EHM核心板和AirAudio_1010 配件板的硬件接线方式为:
-|  Air780EHM核心板   | AirAUDIO_1010配件板 |
+|  Air780EHM核心板 | AirAUDIO_1010配件板 |
 | --------------- | -----------------   |
 | 33/I2S_MCLK     | I2S_MCLK            |
 | 30/I2S_BCK      | I2S_BCK             |
@@ -54,11 +54,11 @@
 | GND             | GND                 |
 
 ## 演示软件环境
-1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
+1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、Air780EHM V2014版本固件（理论上，2025年7月26日之后发布的固件都可以）），选择支持Volte功能的1、2、13或101、102、113号固件。不同版本区别请见https://docs.openluat.com/air780epm/luatos/firmware/version/
+2、Air780EHM V2016版本固件（理论上，2025年7月26日之后发布的固件都可以）），选择支持Volte功能的1、2、13或101、102、113号固件。不同版本区别请见https://docs.openluat.com/air780epm/luatos/firmware/version/
 
-3、合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明  https://docs.openluat.com/air780epm/common/luatio/
+3、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明] (https://docs.openluat.com/air780epm/common/luatio/)
 
 4、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 

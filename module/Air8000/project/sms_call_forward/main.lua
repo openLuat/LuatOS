@@ -1,15 +1,18 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
-@version 1.0
-@date    2025.10.24
-@author  沈园园
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 001.000.000
+@date    2025.9.10
+@author  马亚丹
 @usage
-AirVOC_1000是合宙设计生产的一款I2C接口的VOC(挥发性有机化合物)气体传感器配件板；
-主要用于检测甲醛、一氧化碳、可燃气体、酒精、氨气、硫化物、苯系蒸汽、烟雾、其它有害气体的监测；
-本demo演示的核心功能为：
-Air780EPM核心板+AirVOC_1000配件板，每隔1秒读取1次TVOC空气质量数据；
-更多说明参考本目录下的readme.md文件
+1. 详细逻辑请看cc_forward文件和sms_forward文件
+2. netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+   (1) netdrv_4g：4G网卡
+   (2) netdrv_wifi：WIFI STA网卡
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+   (5) netdrv_pc：pc模拟器上的网卡
+
 ]]
 
 
@@ -23,10 +26,10 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "AirVOC_1000"
+PROJECT = "cc_sms_forward"
 VERSION = "001.000.000"
 
-
+require "sys"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
@@ -39,7 +42,6 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -62,13 +64,20 @@ end
 -- sys.timerLoopStart(function()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
---  end, 3000)
-
- -- 加载voc应用模块
- require "voc_app"
+-- end, 3000)
 
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+--加载cc_forward功能模块
+require "cc_forward"
+
+--加载sms_forward功能模块
+require "sms_forward"
+
+-- 加载网络驱动设备功能模块，在该文件中修改自己使用的联网方式
+require"netdrv_device"
+
+
+
+
+-- 启动系统调度（必须放在最后）
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

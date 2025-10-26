@@ -8,6 +8,46 @@
 #define LUAT_LOG_TAG "airlink.fota"
 #include "luat_log.h"
 
+#ifdef __LUATOS__
+#include "luat_msgbus.h"
+/*
+@sys_pub airlink
+AIRLINK升级结束消息 2025/10/24启用
+AIRLINK_SFOTA_DONE
+@bool result, 升级成功为true，否则为false
+@string reason, 失败原因，当前取值有"no_memory" 内存不足, "file_error" 文件打开异常, "upgrading" 升级中
+@usage
+-- 订阅式
+sys.subscribe("AIRLINK_SFOTA_DONE", function(result, reason)
+    log.info("airlink fota", result, reason)
+end)
+*/
+static int airlink_sfota_lua_cb(lua_State *L, void *ptr)
+{
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    lua_pushstring(L, "AIRLINK_SFOTA_DONE");
+    lua_pushboolean(L, msg->arg1 == AIRLINK_FOTA_SUCCESS ? 1 : 0);
+    switch (msg->arg1)
+    {
+    case AIRLINK_FOTA_SUCCESS:
+        lua_call(L, 2, 0);
+        break;
+    case AIRLINK_FOTA_NO_MEM:
+        lua_pushstring(L, "no_memory");
+        lua_call(L, 3, 0);
+        break;
+    case AIRLINK_FOTA_OPEN_FILE_FAIL:
+        lua_pushstring(L, "file_error");
+        lua_call(L, 3, 0);
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+#endif
+
 luat_airlink_fota_t *g_airlink_fota;
 
 int luat_airlink_fota_init(luat_airlink_fota_t *ctx)
@@ -69,6 +109,7 @@ void airlink_sfota_exec(void)
 {
     size_t wait_timeout = 0;
     int ret = 0;
+    uint8_t fota_ret = AIRLINK_FOTA_SUCCESS;
     g_airlink_fota->total_size = luat_fs_fsize(g_airlink_fota->path);
     LLOGI("开始执行sFOTA file size %ld", g_airlink_fota->total_size);
     uint32_t tmpv = 0;
@@ -77,6 +118,7 @@ void airlink_sfota_exec(void)
     if (fd == NULL)
     {
         LLOGE("打开sFOTA文件失败 %s", g_airlink_fota->path);
+        fota_ret = AIRLINK_FOTA_OPEN_FILE_FAIL;
         goto clean;
     }
     if (s_airlink_fota_txbuff == NULL)
@@ -87,6 +129,7 @@ void airlink_sfota_exec(void)
         if (s_airlink_fota_txbuff == NULL || s_airlink_fota_rxbuff == NULL || s_airlink_fota_cmdbuff == NULL)
         {
             LLOGE("申请sFOTA内存失败");
+            fota_ret = AIRLINK_FOTA_NO_MEM;
             goto clean;
         }
         memset(s_airlink_fota_txbuff, 0, AIRLINK_SFOTA_BUFF_SIZE);
@@ -187,6 +230,8 @@ void airlink_sfota_exec(void)
     luat_rtos_task_sleep(wait_timeout);
     LLOGI("FOTA执行完毕");
 
+
+
 clean:
     g_airlink_fota->state = 0;
     if (fd)
@@ -208,5 +253,15 @@ clean:
         luat_heap_opt_free(AIRLINK_MEM_TYPE, s_airlink_fota_cmdbuff);
         s_airlink_fota_cmdbuff = NULL;
     }
+
+#ifdef __LUATOS__
+    rtos_msg_t msg = {
+        .handler = airlink_sfota_lua_cb,
+        .arg1 = fota_ret,
+        .arg2 = 0,
+        .ptr = NULL
+    };
+    luat_msgbus_put(&msg, 0);
+#endif
     return;
 }

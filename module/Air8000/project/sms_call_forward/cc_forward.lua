@@ -11,7 +11,7 @@
 3、cc_state(state)，电话状态判断并获取来电号码，来电或者挂断等不同情况做不同处理。
 4、cc_forward()，来电号码信息转发到指定机器人
 
-直接使用Air8000核心板板硬件测试即可；
+直接使用Air8000开发板硬件测试即可；
 
 本文件没有对外接口，直接在main.lua中require "cc_forward"就可以加载运行；
 ]]
@@ -27,8 +27,8 @@ local webhook_dingding =
 "https://oapi.dingtalk.com/robot/send?access_token=03f4753ec6aa6f0524fb85907c94b17f3fa0fed3107d4e8f4eee1d4a97855f4d"
 local secret_dingding = "SECac5b455d6b567f64073a456e91feec6ad26c0f8f7dcca85dd2ce6c23ea466c52"
 
---local webhook_weixin = "https://work.weixin.qq.com/wework_admin/common/openBotProfile/24caa08b3a985454055047454d883fc98f"
-local webhook_weixin = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=36648707-4eba-4d21-9d3a-2244e1e9bc3b"
+
+local webhook_weixin = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=71017f82-e027-4c5d-a618-eb4ee01750e9"
 -- 飞书关于机器人的文档 https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN
 
 
@@ -87,7 +87,7 @@ local function feishu_post_cc(num)
     local code, headers, body = http.request("POST", url, rheaders, rbody).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("feishu", code, body, socket.adapter(socket.LWIP_STA), socket.adapter())
+    log.info("feishu", code, body)
 end
 
 --2.功能函数：来电转发到钉钉
@@ -112,7 +112,7 @@ local function dingding_post_cc(num)
     local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("dingding", code, body, socket.adapter(socket.LWIP_STA), socket.adapter())
+    log.info("dingding", code, body)
 end
 
 --3.功能函数：来电转发到企业微信
@@ -134,7 +134,7 @@ local function weixin_post_cc(num)
     local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("weixin", code, body, socket.adapter(socket.LWIP_STA), socket.adapter())
+    log.info("weixin", code, body)
 end
 
 
@@ -142,7 +142,21 @@ end
 
 --4.初始化cc
 local function cc_setup()
-    sys.waitUntil("IP_READY")
+    --查看网卡适配器的联网状态是否IP_READY,true表示已经准备好可以联网了,false暂时不可以联网
+    while not socket.adapter(socket.dft()) do
+        log.warn("cc", "wait IP_READY", socket.dft())
+        -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+        -- 或者等待1秒超时退出阻塞等待状态;
+        -- 注意：此处的1000毫秒超时不要修改的更长；
+        -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+        -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+        -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+        sys.waitUntil("IP_READY", 1000)
+    end
+
+    -- 检测到了IP_READY消息，设置默认网络适配器编号
+    log.info("cc", "recv IP_READY", socket.dft())
+
     --初始化电话功能
     local cc_int = cc.init(multimedia_id)
     if cc_int then
@@ -157,19 +171,19 @@ local function cc_forward()
     log.info(" 来电号码转发到飞书")
     feishu_post_cc(phone_num)
 
-    sys.wait(1000)
+   
     log.info("来电号码转发到钉钉")
     dingding_post_cc(phone_num)
 
-    sys.wait(1000)
+    
     log.info("来电号码转发到微信")
     weixin_post_cc(phone_num)
 end
 
 --6.来电判断
 local function cc_state(state)
-    if state == "READY" then
-        sys.publish("CC_READY")
+    if state == "READY" then        
+        log.info("通话准备完成，可以拨打电话或者呼入电话了")
         --有电话呼入
     elseif state == "INCOMINGCALL" then
         if cnt == 0 then
@@ -186,8 +200,9 @@ local function cc_state(state)
             --自动接听
             --cc.accept(0)
 
-            --响3声以后自动自动挂断
+            --响4声以后自动自动挂断
             cc.hangUp()
+            cnt = 0
         end
     end
 end

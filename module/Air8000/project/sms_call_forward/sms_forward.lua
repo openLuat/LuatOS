@@ -10,7 +10,7 @@
 2、send_sms()，发送短信的功能函数，等待CC_IND消息后，手机卡可以进行收发短信。
 3、receive_sms()，接收短信处理的功能函数，收到短信后获取来信号码和短信内容，通过回调函数sms_handler(num, txt)转发到指定的机器人。
 
-直接使用Air8000核心板板硬件测试即可；
+直接使用Air8000开发板板硬件测试即可；
 
 本文件没有对外接口，直接在main.lua中require "sms_forward"就可以加载运行；
 ]]
@@ -26,8 +26,8 @@ local webhook_dingding =
 "https://oapi.dingtalk.com/robot/send?access_token=03f4753ec6aa6f0524fb85907c94b17f3fa0fed3107d4e8f4eee1d4a97855f4d"
 local secret_dingding = "SECac5b455d6b567f64073a456e91feec6ad26c0f8f7dcca85dd2ce6c23ea466c52"
 
---local webhook_weixin = "https://work.weixin.qq.com/wework_admin/common/openBotProfile/24caa08b3a985454055047454d883fc98f"
-local webhook_weixin = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=36648707-4eba-4d21-9d3a-2244e1e9bc3b"
+
+local webhook_weixin = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=71017f82-e027-4c5d-a618-eb4ee01750e9"
 -- 飞书关于机器人的文档 https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN
 
 
@@ -57,10 +57,10 @@ local function feishu_post_sms(num, rctxt)
     local code, headers, body = http.request("POST", url, rheaders, rbody).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("feishu", code, body, "当前网络：", socket.adapter(socket.LWIP_STA))
+    log.info("feishu", code, body)
 end
 
---2.功能函数：短信转发到叮叮
+--2.功能函数：短信转发到钉钉
 local function dingding_post(num, rctxt)
     local rheaders = {}
     rheaders["Content-Type"] = "application/json"
@@ -82,7 +82,7 @@ local function dingding_post(num, rctxt)
     local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("dingding", code, body, "当前网络：", socket.adapter(socket.LWIP_STA))
+    log.info("dingding", code, body)
 end
 
 --3.功能函数：短信转发到企业微信
@@ -104,7 +104,7 @@ local function weixin_post(num, rctxt)
     local code, headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
     -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
     -- 其他错误, 一般是密钥错了, 仔细检查吧
-    log.info("weixin", code, body, "当前网络：", socket.adapter(socket.LWIP_STA), socket.adapter())
+    log.info("weixin", code, body)
 end
 
 
@@ -121,11 +121,11 @@ local function sms_handler(num, txt)
     feishu_post_sms(num, txt)
 
 
-    sys.wait(1000)
+    
     log.info("转发到钉钉")
     dingding_post(num, txt)
 
-    sys.wait(1000)
+    
     log.info("转发到微信")
     weixin_post(num, txt)
 end
@@ -145,10 +145,6 @@ local function receive_sms()
             log.info("num是", num)
             log.info("收到来自" .. num .. "的短信：" .. txt)
 
-            --local isReady1, index1 = socket.adapter()
-            log.info("当前网络", socket.adapter())
-            log.info("当前wifi网络情况", socket.adapter(socket.LWIP_STA))
-
             sms_handler(num, txt)
         end
     end
@@ -160,7 +156,7 @@ local function send_sms()
     --系统消息CC_IND到了才能收发短信
     sys.waitUntil("CC_IND")
     log.info("发送短信前wait CC_IND")
-    -- 如果是联网卡, 这里是需要sntp的, 否则时间不对
+    -- 时间同步，以免转发时携带的时间不对
     log.info("时间同步", socket.sntp())
     sys.waitUntil("NTP_UPDATE", 5000)
     local cont = 1
@@ -169,16 +165,26 @@ local function send_sms()
 
         --获取本机号码，如果卡商没写入会返回nil
         log.info("mobile.number(id) = ", mobile.number())
-
+        --获取本机iccid，失败返回nil
         log.info("mobile.iccid(id) = ", mobile.iccid())
-
+        --获取本机simid，失败返回-1
         log.info("mobile.simid(id) = ", mobile.simid())
-
+        --获取本机imsi，失败返回nil
         log.info("mobile.imsi(index) = ", mobile.imsi())
-        --电信卡查话费
-        log.info("给10001发送查询短信", "这是第" .. cont .. "次发送", sms.send("10001", "102"))
+
         --给自己发短信
-        --log.info("给159发送查询短信1", "这是第" .. cont .. "次发送", sms.send("1593868****", "test"))
+        --local result = sms.send("1593868****", "test")
+
+        --电信卡给10001发送“102”查话费
+        local result = sms.send("10001", "102")
+        if result then
+            --sms.send 的同步结果仅表示任务启动成功，
+            --最终发送状态需通过异步事件 "SMS_SEND_RESULT" 获取；
+            sys.waitUntil("SMS_SEND_RESULT")
+            log.info("给10001发送查询短信", "这是第" .. cont .. "次发送", " 发送结果：", result)
+        else
+            log.warn("sms", "短信发送失败")
+        end
         cont = cont + 1
         sys.wait(10 * 60 * 1000)
     end

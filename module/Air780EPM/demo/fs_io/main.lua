@@ -2,14 +2,21 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 001.000.000
-@date    2025.9.10
-@author  马亚丹
+@date    2025.09.23
+@author  王棚嶙
 @usage
-1. 详细逻辑请看cc_forward文件和sms_forward文件
-2. netdrv_multiple：设置WIFI STA网卡和4G网卡优先级
-
+本 Demo 演示了在Air780EPM内置Flash文件系统中的完整操作流程：
+1. 基础操作：看门狗守护机制
+2. 文件系统操作：
+   - 文件系统信息查询( io.fsstat)
+   - 文件大小获取(io.fileSize)
+   - 文件创建/读写/追加
+   - 目录创建/删除
+   - 文件重命名/删除
+   - 文件存在性检查
+3. 下载功能：
+   - 网络检测与HTTP文件下载到内置Flash
 ]]
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -21,23 +28,20 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "cc_sms_forward"
+
+PROJECT = "flash_fs_io_demo"
 VERSION = "001.000.000"
 
-require "sys"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
-
--- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
--- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+-- 添加硬狗防止程序卡死
 if wdt then
-    --配置喂狗超时时间为9秒钟
+    -- 初始化watchdog设置为9s
     wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
-    sys.timerLoopStart(wdt.feed, 3000)
+    -- 3s喂一次狗 
+    sys.timerLoopStart(wdt.feed, 3000) 
 end
-
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
 -- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
@@ -61,18 +65,14 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+--[[在加载以下两个功能时，建议分别打开进行测试，因为文件操作和http下载功能是异步操作。放到一个项目中，如果加载的时间点是随机的，就会出现哪个任务先抢到CPU时间片，哪个就先执行，不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
 
---加载cc_forward功能模块
-require "cc_forward"
+-- 加载内置Flash文件系统操作演示模块
+require "flash_fs_io"
+-- 加载HTTP下载存入内置Flash功能演示模块
+-- require "http_download_flash"
 
---加载sms_forward功能模块
-require "sms_forward"
-
---加载网络驱动设备功能模块netdrv_multiple
-require "netdrv_multiple"
-
-
-
-
--- 启动系统调度（必须放在最后）
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
+-- sys.run()之后后面不要加任何语句!!!!!
 sys.run()

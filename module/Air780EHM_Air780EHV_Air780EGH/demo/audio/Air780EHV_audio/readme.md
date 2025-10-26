@@ -6,18 +6,18 @@
 
 3、play_tts: 支持文字转普通话输出需要固件支持
 
-4、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+4、play_stream: 流式播放音频，仅支持PCM 格式
 
 5、record_file: 录音到文件，仅支持PCM 格式
 
-6、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
+6、record_stream:  流式录音，仅支持PCM。
 
-7、1.mp3: 用于测试本地mp3文件播放
+7、sample-6s.mp3/10.amr: 用于测试本地mp3文件播放
 
 8、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
 
-
+**注意:目前不支持录音和放音同时进行**
 
 
 ## 常量的介绍
@@ -35,7 +35,7 @@
 
 ## 演示功能概述
 
-1、play_flie.lua 自动播放一个1.mp3音乐,点powerkey 按键进行音频切换，点击boot 按键停止音频播放
+1、play_flie.lua 自动播放一个sample-6s.mp3音乐,点powerkey 按键进行音频切换，播放10.amr文件，点击boot 按键停止音频播放
 
 2、play_tts.lua 播放一个TTS,点powerkey 按键进行tts 的音色切换，点击boot 按键停止音频播放
 
@@ -47,21 +47,35 @@
 
 
 ## 演示硬件环境
+1、Air780EHV核心板+AirAUDIO_1000配件板+喇叭
 
-![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
+![alt text](https://docs.openLuat.com/cdn/image/Air780EHV+Airaudio1000.jpg)
 
-1、Air8000开发板一块
+Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 
-2、喇叭一个
+| Air780EHV核心板 | AirAUDIO_1000配件板 |
+| ---------------| -----------------   |
+| 3/MIC+         |     MIC+            |
+| 4/MIC-         |     MIC-            |
+| 5/SPK+         |     SPK+            |
+| 6/SPK-         |     SPK-            |
+| 19/GPIO22      |     PA_EN           |
+| 3V3            |     VCC             |
+| GND            |     GND             |
 
-2、插入喇叭到开发板中
-
+2、YPE-C USB数据线一根
+- Air780EHM核心板通过 TYPE-C USB 口供电；
+- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/) 
 
-2、[Air8000 V2014版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、Air780EHV V2016版本固件（理论上，2025年7月26日之后发布的固件都可以）。[不同版本区别请见](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+3、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明] (https://docs.openluat.com/air780epm/common/luatio/)
+
+4、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
 
 ## 演示核心步骤

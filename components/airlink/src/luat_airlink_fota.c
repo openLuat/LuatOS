@@ -15,7 +15,7 @@
 AIRLINK升级结束消息 2025/10/24启用
 AIRLINK_SFOTA_DONE
 @bool result, 升级成功为true，否则为false
-@string reason, 失败原因，当前取值有"no_memory" 内存不足, "file_error" 文件打开异常, "upgrading" 升级中
+@string reason, 失败原因，当前取值有"no_memory" 内存不足, "file_error" 文件打开异常
 @usage
 -- 订阅式
 sys.subscribe("AIRLINK_SFOTA_DONE", function(result, reason)

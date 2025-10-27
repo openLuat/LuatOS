@@ -94,7 +94,7 @@ local function apply_priority()
                 log.info("设置网卡", type_to_string(net_type))
                 states_cbfnc(type_to_string(net_type), net_type) -- 默认网卡改变的回调函数
                 socket.dft(net_type)
-                if auto_socket_switch then
+                if auto_socket_switch and socket.close_all then
                     socket.close_all(current_active)
                 end
                 current_active = net_type

@@ -19,7 +19,10 @@
 -- 根据自己的项目需求，只需要require以下其中的一种即可；
 
 -- 加载“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块
--- require "netdrv_eth_rmii"
+require "netdrv_eth_rmii"
 
 -- 加载“可以配置优先级的多种网卡”驱动模块
-require "netdrv_multiple"
+-- require "netdrv_multiple"
+
+-- 加载“WIFI STA网卡”驱动模块
+-- require "netdrv_wifi"

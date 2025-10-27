@@ -54,20 +54,31 @@ static uint8_t ref_idx = 254;
 static uint64_t long_sms_send_idp = 0;
 
 
-
 static int l_long_sms_send_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    if (msg->arg1)
+
+    if (long_sms_send_idp)
     {
-        lua_pushboolean(L, 0);
+        lua_pushboolean(L, msg->arg1 == 0 ? 0 : 1);
+        luat_cbcwait(L, long_sms_send_idp, 1);
+        long_sms_send_idp = 0;
     }
-    else
-    {
-        lua_pushboolean(L, 1);
-    }
-    luat_cbcwait(L, long_sms_send_idp, 1);
-    long_sms_send_idp = 0;
-    g_s_sms_pdu_packet.maxNum = 0;             // 通过sms.sendLong发送的短信，需要在回调里确定发送结束
+
+/*
+@sys_pub sms
+短信发送结果
+SMS_SENT
+@result boolean 发送结果，成功为true, 失败为false
+@usage
+sys.subscribe("SMS_SENT", function(result)
+    log.info("sms send result", result)
+end)
+*/
+    lua_getglobal(L, "sys_pub");
+    lua_pushliteral(L, "SMS_SENT");
+    lua_pushboolean(L, msg->arg1 == 0 ? 0 : 1);
+    lua_call(L, 2, 0);
+    g_s_sms_pdu_packet.maxNum = 0;
     return 0;
 }
 
@@ -259,77 +270,59 @@ void luat_sms_recv_cb(uint32_t event, void *param)
     luat_msgbus_put(&msg, 0);
 }
 
+static void luat_sms_send_done(uint8_t is_success)
+{
+    rtos_msg_t msg = {
+        .handler = l_long_sms_send_callback,
+        .arg1 = is_success,
+        .arg2 = 0
+    };
+    luat_msgbus_put(&msg, 0);
+    if (g_s_sms_send.payload != NULL) {
+        luat_heap_free(g_s_sms_send.payload);
+        g_s_sms_send.payload = NULL;
+    }
+}
+
+
 void luat_sms_send_cb(int ret)
 {
     // 当前没有短信在发送，应该不会产生这个回调吧?
     if (!g_s_sms_pdu_packet.maxNum) {
         return;
     }
-    rtos_msg_t msg = {
-        .handler = l_long_sms_send_callback,
-        .arg1 = 0,
-        .arg2 = 0
-    };
+
     // 发送失败
     if (ret) {
-        // 长短信发送失败
-        if (long_sms_send_idp) {
-            msg.arg1 = 1;
-            luat_msgbus_put(&msg, 0);
-        } else {
-            // 通过sms.send发送的短信，这里可以直接判断发送结束
-            g_s_sms_pdu_packet.maxNum = 0;
-        }
-        if (g_s_sms_send.payload != NULL) {
-            luat_heap_free(g_s_sms_send.payload);
-            g_s_sms_send.payload = NULL;
-        }
+        luat_sms_send_done(0);
         return;
     }
-    LLOGI("long sms callback seqNum = %d", g_s_sms_pdu_packet.seqNum);
+    LLOGD("long sms callback seqNum = %d", g_s_sms_pdu_packet.seqNum);
     // 全部短信发送完成
     if (g_s_sms_pdu_packet.seqNum == g_s_sms_pdu_packet.maxNum) {
-        if (long_sms_send_idp) {
-            msg.arg1 = 0;
-            luat_msgbus_put(&msg, 0);
-        } else {
-            g_s_sms_pdu_packet.maxNum = 0;
-        }
-
-        if (g_s_sms_send.payload != NULL) {
-            luat_heap_free(g_s_sms_send.payload);
-            g_s_sms_send.payload = NULL;
-        }
+        luat_sms_send_done(1);
         return;
     }
 
     // 长短信继续发送
     g_s_sms_pdu_packet.seqNum++;
+    uint8_t packet_len = g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE;
+    uint32_t addr = g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE;
     // 最后一包
-    if (g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE <= LUAT_SMS_LONG_MSG_PDU_SIZE) {
-        memcpy(g_s_sms_pdu_packet.payload_buf, g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE, g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE);
-        g_s_sms_pdu_packet.payload_len = g_s_sms_send.payload_len - (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE ;
+    if (packet_len <= LUAT_SMS_LONG_MSG_PDU_SIZE) {
+        memcpy(g_s_sms_pdu_packet.payload_buf, (void *)addr, packet_len);
+        g_s_sms_pdu_packet.payload_len = packet_len;
     } else {
         // 继续发送
-        memcpy(g_s_sms_pdu_packet.payload_buf, g_s_sms_send.payload + (g_s_sms_pdu_packet.seqNum - 1) * LUAT_SMS_LONG_MSG_PDU_SIZE, LUAT_SMS_LONG_MSG_PDU_SIZE);
+        memcpy(g_s_sms_pdu_packet.payload_buf, (void *)addr, LUAT_SMS_LONG_MSG_PDU_SIZE);
         g_s_sms_pdu_packet.payload_len = LUAT_SMS_LONG_MSG_PDU_SIZE;
     }
     
     int len = luat_sms_pdu_packet(&g_s_sms_pdu_packet);
     ret = luat_sms_send_msg_v2(g_s_sms_pdu_packet.pdu_buf, len);
-    // 发送失败了
+    // 发送失败
     if (ret) {
-        // 长短信接口
-        if(long_sms_send_idp) {
-            msg.arg1 = 0;
-            luat_msgbus_put(&msg, 0);
-        } else {
-            g_s_sms_pdu_packet.maxNum = 0;
-        }
-        if (g_s_sms_send.payload != NULL) {
-            luat_heap_free(g_s_sms_send.payload);
-            g_s_sms_send.payload = NULL;
-        }
+        luat_sms_send_done(0);
     }
     return;
 }
@@ -547,7 +540,6 @@ static int l_long_sms_send(lua_State *L) {
     if (!ret) {
         return 1;
     }
-    LLOGE("sms send task create failed");
 SMS_FAIL:
     long_sms_send_idp = 0;
     g_s_sms_pdu_packet.maxNum = 0;

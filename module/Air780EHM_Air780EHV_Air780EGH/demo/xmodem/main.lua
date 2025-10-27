@@ -66,7 +66,7 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载网络环境检测看门狗功能模块
+-- 加载xmodem_demo模块
 require "xmodem_demo"
 
 -- 用户代码已结束---------------------------------------------

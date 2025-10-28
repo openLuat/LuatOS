@@ -561,7 +561,12 @@ static void hzfont_release_glyphs(glyph_render_t *glyphs, size_t count) {
     luat_heap_free(glyphs);
 }
 
-int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color) {
+static inline int hzfont_pick_antialias_auto(unsigned char font_size) {
+    /* 规则：<=12 无抗锯齿 ，>12 用2x2超采样抗锯齿 */
+    return (font_size <= 12) ? 1 : 2;
+}
+
+int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias) {
     if (!utf8 || font_size == 0) {
         return -1;
     }
@@ -579,6 +584,26 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     }
 
     int timing_enabled = ttf_get_debug();
+    // 处理抗锯齿（antialias）方式的选择与设置
+    // antialias < 0   ：自动选择（根据字体大小决定抗锯齿等级，见hzfont_pick_antialias_auto）
+    // antialias <= 1  ：关闭抗锯齿（1x，即无抗锯齿）
+    // antialias == 2  ：2x2超采样抗锯齿
+    // antialias > 2   ：4x4超采样抗锯齿
+    int prev_rate = ttf_get_supersample_rate();
+    int new_rate = prev_rate;
+    if (antialias < 0) {
+        // 自动选择AA等级
+        new_rate = hzfont_pick_antialias_auto(font_size);
+    } else if (antialias <= 1) {
+        new_rate = 1;
+    } else if (antialias == 2) {
+        new_rate = 2;
+    } else {
+        new_rate = 4;
+    }
+    if (new_rate != prev_rate) {
+        (void)ttf_set_supersample_rate(new_rate);
+    }
     uint64_t func_start_ts = timing_enabled ? hzfont_now_us() : 0;
     uint64_t sum_lookup_us = 0;
     uint64_t sum_load_us = 0;
@@ -823,6 +848,10 @@ glyph_timing_update:
     }
 
 finalize:
+    /* 恢复超采样率，避免影响外部绘制 */
+    if (new_rate != prev_rate) {
+        (void)ttf_set_supersample_rate(prev_rate);
+    }
     if (timing_enabled) {
         uint32_t total_us = hzfont_elapsed_from(func_start_ts);
         uint32_t sum_lookup32 = hzfont_clamp_u32(sum_lookup_us);

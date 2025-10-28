@@ -71,6 +71,8 @@ void ttf_unload(TtfFont *font);
 int ttf_set_debug(int enable);
 int ttf_get_debug(void);
 int ttf_get_supersample_rate(void);
+/* 运行时设置超采样率：仅允许 1(无AA)、2(2x2)、4(4x4)，非法值将被修正到最近的允许值 */
+int ttf_set_supersample_rate(int rate);
 
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex);
 int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph);

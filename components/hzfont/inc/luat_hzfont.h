@@ -18,7 +18,8 @@ int luat_hzfont_init(const char *ttf_path);
 void luat_hzfont_deinit(void);
 luat_hzfont_state_t luat_hzfont_get_state(void);
 uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
-int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color);
+/* antialias = -1(自动), 1(无AA), 2(2x2), 4(4x4) */
+int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
 #ifdef __cplusplus
 }

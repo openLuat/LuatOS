@@ -9,19 +9,12 @@
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
 static int g_ttf_debug = 0;
+/* 运行时可调的超采样率，默认取编译期宏 */
+static int g_ttf_supersample_rate = 0;
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 
-#define TTF_ENABLE_SUPERSAMPLING
-
-#ifndef TTF_SUPERSAMPLE_RATE
-#ifdef TTF_ENABLE_SUPERSAMPLING
-// 超采样率 目前推荐2或者4
-#define TTF_SUPERSAMPLE_RATE 2
-#else
-#define TTF_SUPERSAMPLE_RATE 1
-#endif
-#endif
+/* 仅运行时控制超采样，不再依赖编译期宏 */
 
 #define TTF_FIXED_SHIFT 8
 #define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
@@ -29,7 +22,27 @@ static int g_ttf_debug = 0;
 
 int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
 int ttf_get_debug(void) { return g_ttf_debug; }
-int ttf_get_supersample_rate(void) { return TTF_SUPERSAMPLE_RATE; }
+static inline int ttf_supersample_default(void) {
+#ifdef TTF_SUPERSAMPLE_RATE
+    return TTF_SUPERSAMPLE_RATE;
+#else
+    return 1;
+#endif
+}
+int ttf_get_supersample_rate(void) {
+    if (g_ttf_supersample_rate == 0) {
+        g_ttf_supersample_rate = ttf_supersample_default();
+    }
+    return g_ttf_supersample_rate;
+}
+int ttf_set_supersample_rate(int rate) {
+    int newRate;
+    if (rate <= 1) newRate = 1;
+    else if (rate <= 2) newRate = 2;
+    else newRate = 4; /* 3或更大按4x4 */
+    g_ttf_supersample_rate = newRate;
+    return g_ttf_supersample_rate;
+}
 
 #define TTF_CMAP_CACHE_MAX   (512u * 1024u)
 
@@ -1288,7 +1301,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     }
     free(segments.data);
 
-    const int supersampleRate = TTF_SUPERSAMPLE_RATE;
+    const int supersampleRate = ttf_get_supersample_rate();
     const int sampleCount = supersampleRate * supersampleRate;
     int32_t step = (supersampleRate > 0) ? (TTF_FIXED_ONE / supersampleRate) : TTF_FIXED_ONE;
     int32_t subOffset = step / 2;

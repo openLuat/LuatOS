@@ -82,18 +82,25 @@ static int l_hzfont_get_str_width(lua_State* L) {
 
 /**
 绘制UTF-8字符串到LCD
-@api hzfont.drawUtf8(x, y, str, fontSize, color)
+@api hzfont.drawUtf8(x, y, str, fontSize, [color], [antialias])
 @int x X坐标
 @int y Y坐标（左下角为基准）
 @string str UTF-8字符串
 @int fontSize 字体大小（像素）
-@int color 颜色值（RGB565格式）
+@int color 颜色值（RGB565，缺省为黑色0x000000）
+@int antialias 可选，抗锯齿级别（整数）：
+-- -1：自动（≤12号字 无抗锯齿，>12号字 2x2超采样来抗锯齿）
+-- 1：无抗锯齿
+-- 2：2x2 超采样抗锯齿（首次加载较慢）
+-- 4：4x4 超采样抗锯齿（首次加载更慢）
 @return boolean 成功返回true，失败返回false
 @usage
--- 绘制白色文本
-hzfont.drawUtf8(10, 50, "Hello世界", 24, 0xFFFF)
--- 绘制红色文本
-hzfont.drawUtf8(10, 80, "红色文本", 24, 0xF800)
+-- 省略颜色，默认黑色（自动抗锯齿）
+hzfont.drawUtf8(10, 50, "Hello世界", 24)
+-- 指定颜色与2x2 超采样抗锯齿
+hzfont.drawUtf8(10, 80, "红色文本", 24, 0xF800, 2)
+-- 省略颜色但指定抗锯齿（颜色位用 nil 占位）
+hzfont.drawUtf8(10, 110, "锐利输出", 14, nil, 1)
 */
 static int l_hzfont_draw_utf8(lua_State* L) {
     int x = luaL_checkinteger(L, 1);
@@ -101,15 +108,30 @@ static int l_hzfont_draw_utf8(lua_State* L) {
     size_t len = 0;
     const char* str = luaL_checklstring(L, 3, &len);
     int fontSize = luaL_checkinteger(L, 4);
-    uint32_t color = luaL_checkinteger(L, 5);
-    
+    uint32_t color = 0x000000; /* 默认黑色 */
+    if (!lua_isnoneornil(L, 5)) {
+        color = (uint32_t)luaL_checkinteger(L, 5);
+    }
+    int antialias = -1; /* -1 表示自动 */
+    if (!lua_isnoneornil(L, 6)) {
+        if (lua_isinteger(L, 6) || lua_isnumber(L, 6)) {
+            int v = (int)luaL_checkinteger(L, 6);
+            if (v == -1) antialias = -1;
+            else if (v <= 1) antialias = 1;
+            else if (v <= 2) antialias = 2;
+            else antialias = 4;
+        } else {
+            /* 非数字类型一律按自动处理 */
+            antialias = -1;
+        }
+    }
+
     if (fontSize <= 0 || fontSize > 255) {
         LLOGE("Invalid font size: %d", fontSize);
         lua_pushboolean(L, 0);
         return 1;
     }
-    
-    int result = luat_hzfont_draw_utf8(x, y, str, (unsigned char)fontSize, color);
+    int result = luat_hzfont_draw_utf8(x, y, str, (unsigned char)fontSize, color, antialias);
     lua_pushboolean(L, result == 0 ? 1 : 0);
     return 1;
 }

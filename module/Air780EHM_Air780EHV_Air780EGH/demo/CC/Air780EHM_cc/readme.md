@@ -1,13 +1,13 @@
 # CC_DEMO 项目说明
 
 ## 项目概述
-本项目是基于 Air780EHM 的语音通信演示demo，实现了基本的语音通话功能，包括音频设备初始化、通话建立、通话管理等核心功能。
+本项目是基于 Air780EHM/Air780EGH 的语音通信演示demo，实现了基本的语音通话功能，包括音频设备初始化、通话建立、通话管理等核心功能。
 
 ## 文件结构
 - main.lua: 主程序入口，仅加载初始化模块
 - audio_device.lua: 管理音频设备初始化与控制
 - cc_app.lua: 实现完整通话业务逻辑
-- pins_Air780EHM.json: IO复用描述文件，由LuatIO工具自动生成
+- pins_Air780EHM.json/pins_Air780EGH.json: IO复用描述文件，由LuatIO工具自动生成
 
 ## 功能说明
 1. **音频设备初始化与控制**：配置并管理ES8311音频编解码芯片和扬声器功放，包括I2C、I2S接口设置及音量控制。
@@ -28,9 +28,12 @@
 
 ## 演示硬件环境
  
- Air780EHM核心板+AirAUDIO_1010 音频扩展板+喇叭
+ Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010 音频扩展板+喇叭
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EHM+Airaudio1010.jpg)
+
+
+![alt text]( https://docs.openLuat.com/cdn/image/Air780EGH-AIRAUDIO_1010.jpg)
 
 - 具备volte功能的电话卡插入开发板/核心板的sim卡槽
 
@@ -38,25 +41,28 @@
 - Air780EHM核心板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
-3、可选AirAudio_1010 配件板一块，Air780EHM核心板和AirAudio_1010 配件板的硬件接线方式为:
-|  Air780EHM核心板 | AirAUDIO_1010配件板 |
-| --------------- | -----------------   |
-| 26/I2S_MCLK     | I2S_MCLK            |
-| 30/I2S_BCK      | I2S_BCK             |
-| 31/I2S_LRCK     | I2S_LRCK            |
-| 32/I2S_DIN      | I2S_DIN             |
-| 33/I2S_DOUT     | I2S_DOUT            |
-| 67/I2C1_SCL     | I2C_SCL             |
-| 66/I2C1_SDA     | I2C_SDA             |
-| 25/GPIO26       | PA_EN               |
-| 23/GPIO2        | 8311_EN             |
-| VDD_EXT         | VCC                 |
-| GND             | GND                 |
+3、可Air780EHM核心板/Air780EGH核心板和AirAudio_1010 扩展板的硬件接线方式为:
+|  Air780EHM核心板/Air780EGH核心板 | AirAUDIO_1010扩展板 |
+| ---------------                 | -----------------   |
+| 33/I2S_MCLK                     | I2S_MCLK            |
+| 30/I2S_BCK                      | I2S_BCK             |
+| 31/I2S_LRCK                     | I2S_LRCK            |
+| 32/I2S_DIN                      | I2S_DIN             |
+| 33/I2S_DOUT                     | I2S_DOUT            |
+| 67/I2C1_SCL                     | I2C_SCL             |
+| 66/I2C1_SDA                     | I2C_SDA             |
+| 25/GPIO26                       | PA_EN               |
+| 23/GPIO2                        | 8311_EN             |
+| VDD_EXT                         | VCC                 |
+| GND                             | GND                 |
 
 ## 演示软件环境
 1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、Air780EHM V2016版本固件（理论上，2025年7月26日之后发布的固件都可以）），选择支持Volte功能的1、2、13或101、102、113号固件。不同版本区别请见https://docs.openluat.com/air780epm/luatos/firmware/version/
+2、[Air780EHM V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EHM/LuatOS-SoC_V2016_Air780EHM.zip)，选择支持Volte功能的1、2、13或101、102、113号固件。不同版本区别请见[Air780EHM LuatOS固件版本](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+
+
+ [Air780EGH V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EGH/LuatOS-SoC_V2016_Air780EGH.zip)选择支持Volte功能的1、2、13或101、102、113号固件。不同版本区别参考[Air780EGH LuatOS固件版本](https://docs.openluat.com/air780egh/luatos/firmware/version/)。
 
 3、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明] (https://docs.openluat.com/air780epm/common/luatio/)
 

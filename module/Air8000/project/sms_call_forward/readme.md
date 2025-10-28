@@ -34,17 +34,21 @@
 
 ## 演示硬件环境：
 
-![8000w](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/8000w.jpg)
+![8000w](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
 
-1、Air8000W 开发板一块 + 正常手机卡一张（三大运营商的都可以）+4g 天线一根 +wifi 天线一根
+1、Air8000开发板一块+可上网的sim卡一张+4g天线一根+wifi天线一根+网线一根：
 
-- sim 卡插入开发板的 sim 卡槽
-- 天线装到开发板上
+* sim卡插入开发板的sim卡槽
 
-2、TYPE-C USB 数据线一根 ，Air8000W 开发板和数据线的硬件接线方式为：
+* 天线装到开发板上
 
-- Air8000 开发板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
-- TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
+* 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+
+2、TYPE-C USB数据线一根 ，Air8000开发板和数据线的硬件接线方式为：
+
+* Air8000开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+
+* TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 ## 演示软件环境：
 
@@ -72,13 +76,23 @@ netdrv文件夹
 
 1、搭建好硬件环境
 
-2、demo 脚本代码 netdrv_multiple.lua 中，ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时 wifi 热点的名称和密码；注意：仅支持 2.4G 的 wifi，不支持 5G 的 wifi
+2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
+
+* 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
+
+* 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+
+* 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
+
+* 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
 3、[https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN](https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN) 参考此教程，获取飞书，钉钉，企业微信的 webhook 和 secret（加签），在 cc_forward.lua 和 sms_forward.lua 脚本中找到 local webhook_feishu，secret_feishu，webhook_dingding，secret_dingding，webhook_weixin 的参数定义，修改为自己的参数。
 
 4、Luatools 烧录内核固件和修改后的 demo 脚本代码
 
-5、此处演示设置了优先使用 以太网，其次wifi 网络，最低优先级使用 4G 网络.
+5、此处打开netdrv_device.lua中require "netdrv_multiple"来演示多网卡，优先使用 以太网，其次wifi 网络，最低优先级使用 4G 网络.
+
+注意，netdrv_device.lua中默认使用require "netdrv_4g"，即单4G网卡。
 
 烧录成功后，代码会自动运行，log 日志打印以太网信息， wif 网络信息、CC_READY 等消息，log 日志打印如下：
 

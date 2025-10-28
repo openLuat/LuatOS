@@ -1,33 +1,31 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口,总体调度应用逻辑
 @version 1.0
-@date    2025.10.14
-@author  李源龙
+@date    2025.10.21
+@author  孟伟
 @usage
-本demo演示的核心功能为：
-用Air8000核心板利用xmodem协议，将模块内的文件从串口发送到对端
-主要提供了两种方式：
-1、文件存到脚本区里面，通过xmodem协议，把脚本区文件发给对端
-2、通过http下载文件到文件系统区，通过xmodem协议，把文件系统区文件发给对端
-
-更多说明参考本目录下的readme.md文件
+本demo演示的功能为：
+    MCU死机时的处理模式设置
+    唯一ID获取与显示
+    系统tick计数功能测试
+    64位tick计数和差值计算
+    微秒、毫秒、秒级别的时间计数
+    16进制字符串转换输出
 ]]
-
-
 --[[
-必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
-PROJECT：项目名，ascii string类型
-        可以随便定义，只要不使用,就行
-VERSION：项目版本号，ascii string类型
-        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
-            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
-            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
-        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+必须定义PROJECT和VERSION变量,Luatools工具会用到这两个变量,远程升级功能也会用到这两个变量
+PROJECT：项目名,ascii string类型
+        可以随便定义,只要不使用,就行
+VERSION：项目版本号,ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级,必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字,三个X表示的数字可以相同,也可以不同,同理三个Y和三个Z表示的数字也是可以相同,可以不同
+            因为历史原因,YYY这三位数字必须存在,但是没有任何用处,可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级,根据自己项目的需求,自定义格式即可
 ]]
-PROJECT = "xmodem_demo"
-VERSION = "001.000.000"
 
+PROJECT = "mcu_demo"
+VERSION = "001.000.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -66,10 +64,11 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载xmodem_demo模块
-require "xmodem_demo"
+-- 加载mcu功能模块
+require "mcu_test"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

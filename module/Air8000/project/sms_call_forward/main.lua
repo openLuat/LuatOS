@@ -76,6 +76,8 @@ require "sms_forward"
 -- 加载网络驱动设备功能模块，在该文件中修改自己使用的联网方式
 require"netdrv_device"
 
+-- 加载sntp时间同步应用功能模块（转发短信是携带时间参数，socket需要时间同步功能）
+require "sntp_app"
 
 
 

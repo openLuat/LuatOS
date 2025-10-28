@@ -154,11 +154,12 @@ end
 -- 6.功能函数：发送短信, 直接调用sms.send就行, 是不是task无所谓
 local function send_sms()
     --系统消息CC_IND到了才能收发短信
+    --按照规范的做法，这里应该等待"SMS_READY"消息，
+    --目前内核固件正在开发支持"SMS_READY"消息功能，
+    --等开发好了之后，再使用"SMS_READY"消息，
+    --当前阶段，先使用"CC_IND"替代
     sys.waitUntil("CC_IND")
-    log.info("发送短信前wait CC_IND")
-    -- 时间同步，以免转发时携带的时间不对
-    log.info("时间同步", socket.sntp())
-    sys.waitUntil("NTP_UPDATE", 5000)
+    log.info("发送短信前wait CC_IND")    
     local cont = 1
     while 1 do
         log.info("现在可以收发短信")
@@ -180,7 +181,9 @@ local function send_sms()
         if result then
             --sms.send 的同步结果仅表示任务启动成功，
             --最终发送状态需通过异步事件 "SMS_SEND_RESULT" 获取；
-            sys.waitUntil("SMS_SEND_RESULT")
+            --目前内核固件正在开发支持"SMS_SEND_RESULT"消息功能
+            --当前阶段，sys.waitUntil等不到这个消息，最终5秒超时退出。
+            sys.waitUntil("SMS_SEND_RESULT",5*1000)
             log.info("给10001发送查询短信", "这是第" .. cont .. "次发送", " 发送结果：", result)
         else
             log.warn("sms", "短信发送失败")

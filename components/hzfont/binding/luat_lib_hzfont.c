@@ -55,34 +55,6 @@ static int l_hzfont_init(lua_State* L) {
 }
 
 /**
-反初始化HzFont字体库
-@api hzfont.deinit()
-@usage
-hzfont.deinit()
-*/
-static int l_hzfont_deinit(lua_State* L) {
-    (void)L;
-    luat_hzfont_deinit();
-    return 0;
-}
-
-/**
-获取当前初始化状态
-@api hzfont.state()
-@return int 状态值：0-未初始化，1-已初始化，2-错误
-@usage
-local state = hzfont.state()
-if state == 1 then
-    print("HzFont已初始化")
-end
-*/
-static int l_hzfont_state(lua_State* L) {
-    luat_hzfont_state_t state = luat_hzfont_get_state();
-    lua_pushinteger(L, (int)state);
-    return 1;
-}
-
-/**
 获取UTF-8字符串宽度
 @api hzfont.getStrWidth(str, fontSize)
 @string str UTF-8字符串
@@ -157,8 +129,6 @@ static int l_hzfont_debug(lua_State* L) {
 
 static const rotable_Reg_t reg_hzfont[] = {
     { "init",        ROREG_FUNC(l_hzfont_init)},
-    { "deinit",      ROREG_FUNC(l_hzfont_deinit)},
-    { "state",       ROREG_FUNC(l_hzfont_state)},
     { "getStrWidth", ROREG_FUNC(l_hzfont_get_str_width)},
     { "drawUtf8",    ROREG_FUNC(l_hzfont_draw_utf8)},
     { "debug",       ROREG_FUNC(l_hzfont_debug)},

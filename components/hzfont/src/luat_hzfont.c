@@ -18,7 +18,7 @@
 #define HZFONT_ASCENT_RATIO    0.80f
 
 // 位图缓存容量
-#define HZFONT_CACHE_CAPACITY 128
+#define HZFONT_CACHE_CAPACITY 256
 // 码点 -> glyph index 缓存槽位（需为 2 的幂以便快速哈希）
 #define HZFONT_CODEPOINT_CACHE_SIZE 256
 
@@ -487,20 +487,6 @@ int luat_hzfont_init(const char *ttf_path) {
     g_ft_ctx.state = LUAT_HZFONT_STATE_READY;
     LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
     return 1;
-}
-
-void luat_hzfont_deinit(void) {
-    if (g_ft_ctx.state == LUAT_HZFONT_STATE_UNINIT) {
-        return;
-    }
-    ttf_unload(&g_ft_ctx.font);
-    memset(&g_ft_ctx, 0, sizeof(g_ft_ctx));
-    g_ft_ctx.state = LUAT_HZFONT_STATE_UNINIT;
-    hzfont_cache_clear();
-}
-
-luat_hzfont_state_t luat_hzfont_get_state(void) {
-    return g_ft_ctx.state;
 }
 
 static uint32_t hzfont_glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {

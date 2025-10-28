@@ -8,7 +8,7 @@
 #include "luat_fs.h"
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
-static int g_ttf_debug = 1;
+static int g_ttf_debug = 0;
 
 #define TTF_TAG(a, b, c, d) (((uint32_t)(a) << 24) | ((uint32_t)(b) << 16) | ((uint32_t)(c) << 8) | (uint32_t)(d))
 

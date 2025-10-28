@@ -1531,6 +1531,89 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 
 #endif // LUAT_USE_GTFONT
 
+/* HzFont 接口（受 LUAT_USE_HZFONT 控制） */
+#ifdef LUAT_USE_HZFONT
+#include "luat_hzfont.h"
+/**
+使用HzFont绘制UTF-8字符串
+@api lcd.drawHzfontUtf8(x, y, str, fontSize, [color], [antialias])
+@int x 横坐标
+@int y 纵坐标（左下角为基准）
+@string str UTF-8字符串
+@int fontSize 字体大小（像素）
+@int color 颜色值（RGB565，缺省为黑色0x000000）
+@int antialias 抗锯齿级别（整数，可选）：
+-- -1：自动（≤12号字 无抗锯齿，>12号字 2x2超采样）
+-- 1：无抗锯齿
+-- 2：2x2 超采样
+-- 4：4x4 超采样
+@return nil 无返回值
+@usage
+-- 默认黑色，自动抗锯齿
+lcd.drawHzfontUtf8(10, 50, "Hello世界", 24)
+-- 指定红色与2x2抗锯齿
+lcd.drawHzfontUtf8(10, 80, "Red文本", 24, 0xF800, 2)
+-- 仅指定抗锯齿（颜色位用nil占位）
+lcd.drawHzfontUtf8(10, 110, "锐利输出", 14, nil, 1)
+*/
+static int l_lcd_draw_hzfont_utf8(lua_State *L) {
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    size_t len = 0;
+    const char* str = luaL_checklstring(L, 3, &len);
+    int fontSize = luaL_checkinteger(L, 4);
+    uint32_t color = 0x000000; /* 默认黑色 */
+    if (!lua_isnoneornil(L, 5)) {
+        color = (uint32_t)luaL_checkinteger(L, 5);
+    }
+    int antialias = -1; /* -1 表示自动 */
+    if (!lua_isnoneornil(L, 6)) {
+        if (lua_isinteger(L, 6) || lua_isnumber(L, 6)) {
+            int v = (int)luaL_checkinteger(L, 6);
+            if (v == -1) antialias = -1;
+            else if (v <= 1) antialias = 1;
+            else if (v <= 2) antialias = 2;
+            else antialias = 4;
+        } else {
+            antialias = -1;
+        }
+    }
+    if (fontSize <= 0 || fontSize > 255) {
+        LLOGE("Invalid font size: %d", fontSize);
+        return 0;
+    }
+    if (lcd_dft_conf == NULL) {
+        LLOGE("lcd not init");
+        return 0;
+    }
+    (void)luat_hzfont_draw_utf8(x, y, str, (unsigned char)fontSize, color, antialias);
+    lcd_auto_flush(lcd_dft_conf);
+    return 0;
+}
+
+/**
+获取HzFont渲染下的UTF-8字符串宽度
+@api lcd.getHzFontStrWidth(str, fontSize)
+@string str UTF-8字符串
+@int fontSize 字体大小（像素）
+@return int 宽度（像素）
+@usage
+local w = lcd.getHzFontStrWidth("Hello世界", 24)
+*/
+static int l_lcd_get_hzfont_str_width(lua_State *L) {
+    size_t len = 0;
+    const char* str = luaL_checklstring(L, 1, &len);
+    int fontSize = luaL_checkinteger(L, 2);
+    if (fontSize <= 0 || fontSize > 255) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    unsigned int width = luat_hzfont_get_str_width(str, (unsigned char)fontSize);
+    lua_pushinteger(L, width);
+    return 1;
+}
+#endif /* LUAT_USE_HZFONT */
+
 static int l_lcd_set_default(lua_State *L) {
     if (lua_gettop(L) == 1) {
         lcd_dft_conf = lua_touserdata(L, 1);
@@ -2168,6 +2251,10 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
+#ifdef LUAT_USE_HZFONT
+    { "drawHzfontUtf8", ROREG_FUNC(l_lcd_draw_hzfont_utf8)},
+    { "getHzFontStrWidth", ROREG_FUNC(l_lcd_get_hzfont_str_width)},
+#endif // LUAT_USE_HZFONT
 #ifdef LUAT_USE_FREETYPEFONT
     { "drawfreefontUtf8", ROREG_FUNC(l_lcd_draw_freefont_utf8)},
 #endif // LUAT_USE_FREETYPEFONT

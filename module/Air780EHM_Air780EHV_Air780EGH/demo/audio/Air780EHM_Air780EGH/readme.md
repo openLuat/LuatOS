@@ -77,9 +77,9 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010 扩展板的硬件接线�
 
 1、Luatools下载调试工具
 
-2、[Air780EHM V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EHM/LuatOS-SoC_V2016_Air780EHM.zip)（理论上，2025年7月26日之后发布的固件都可以），选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考[Air780EHM LuatOS固件版本](https://docs.openluat.com/air780epm/luatos/firmware/version/)。
+2、[Air780EHM V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EHM/LuatOS-SoC_V2016_Air780EHM.zip)，选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考[Air780EHM LuatOS固件版本](https://docs.openluat.com/air780epm/luatos/firmware/version/)。
 
- [Air780EGH V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EGH/LuatOS-SoC_V2016_Air780EGH.zip)（理论上，2025年7月26日之后发布的固件都可以），选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考[Air780EGH LuatOS固件版本](https://docs.openluat.com/air780egh/luatos/firmware/version/)。
+ [Air780EGH V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EGH/LuatOS-SoC_V2016_Air780EGH.zip)，选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考[Air780EGH LuatOS固件版本](https://docs.openluat.com/air780egh/luatos/firmware/version/)。
 
 3、 luatos需要的脚本和资源文件
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/audio)

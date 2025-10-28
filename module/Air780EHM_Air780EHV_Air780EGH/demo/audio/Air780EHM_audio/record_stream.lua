@@ -16,13 +16,9 @@ exaudio = require("exaudio")
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- dac类型,可填入"es8311","es8211"
-    i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
-    --Air8000开发板配置pa_ctrl 和dac_ctrl 
-    pa_ctrl = 162,            -- 音频放大器电源控制管脚
-    dac_ctrl = 164,           -- 音频编解码芯片电源控制管脚
-    --Air8000核心板配置pa_ctrl 和dac_ctrl 
-    -- pa_ctrl = 17,            -- 音频放大器电源控制管脚
-    -- dac_ctrl = 16,           -- 音频编解码芯片电源控制管脚  
+    i2c_id = 1,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
+    pa_ctrl = 26,         -- 音频放大器电源控制管脚
+    dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
     bits_per_sample = 16  -- 录音的位深，可选8,16,24 位，但是当选择音频格式为AMR_NB,自动调节为8位,当音频格式为AMR_WB,自动调节为16位
 }
 

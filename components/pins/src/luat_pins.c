@@ -322,6 +322,12 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		return 1;
 	}
 	#endif
+	#ifdef __BK72XX__
+	if (pin == 26 || pin == 27){	// air8101的26/27不支持配置,只能作为uart0调试串口
+		LLOGE("pin%d不支持修改", pin);
+		goto LUAT_PIN_SETUP_DONE;
+	}
+	#endif
 	if (func_name != NULL)
 	{
 		if (name_len < 2)

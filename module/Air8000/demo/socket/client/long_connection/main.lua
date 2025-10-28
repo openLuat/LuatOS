@@ -18,11 +18,11 @@
 4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
 5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
 6、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-   (1) netdrv_4g：4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
+    (1) netdrv_4g：4G网卡
+    (2) netdrv_wifi：WIFI STA网卡
+    (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+    (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+    (5) netdrv_pc: pc模拟器网卡
 更多说明参考本目录下的readme.md文件
 ]]
 

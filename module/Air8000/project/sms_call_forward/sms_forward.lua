@@ -159,10 +159,7 @@ local function send_sms()
     --等开发好了之后，再使用"SMS_READY"消息，
     --当前阶段，先使用"CC_IND"替代
     sys.waitUntil("CC_IND")
-    log.info("发送短信前wait CC_IND")
-    -- -- 时间同步，以免转发时携带的时间不对
-    -- log.info("时间同步", socket.sntp())
-    -- sys.waitUntil("NTP_UPDATE", 5000)
+    log.info("发送短信前wait CC_IND")    
     local cont = 1
     while 1 do
         log.info("现在可以收发短信")

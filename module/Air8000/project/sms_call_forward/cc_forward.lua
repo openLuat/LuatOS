@@ -171,18 +171,18 @@ local function cc_forward()
     log.info(" 来电号码转发到飞书")
     feishu_post_cc(phone_num)
 
-   
+
     log.info("来电号码转发到钉钉")
     dingding_post_cc(phone_num)
 
-    
+
     log.info("来电号码转发到微信")
     weixin_post_cc(phone_num)
 end
 
 --6.来电判断
 local function cc_state(state)
-    if state == "READY" then        
+    if state == "READY" then
         log.info("通话准备完成，可以拨打电话或者呼入电话了")
         --有电话呼入
     elseif state == "INCOMINGCALL" then
@@ -204,6 +204,9 @@ local function cc_state(state)
             cc.hangUp()
             cnt = 0
         end
+        --电话被对方挂断
+    elseif state == "DISCONNECTED" then
+        cnt = 0
     end
 end
 

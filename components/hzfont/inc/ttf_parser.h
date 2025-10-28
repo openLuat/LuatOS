@@ -30,6 +30,7 @@ typedef struct {
     void *file;           /* VFS 文件句柄 (luat_fs_fopen 返回的 FILE*)，无数据整读时有效 */
     size_t fileSize;      /* 字体文件大小 */
     uint8_t streaming;    /* 1 表示未整读，仅按需读取 */
+    uint8_t ownsData;     /* 1 表示 data 由解析器分配并在 unload 释放；0 表示外部内存（不可释放） */
     uint8_t *cmapBuf;     /* 常驻内存的 cmap 子表数据（按需加载） */
     uint32_t cmapBufLen;  /* cmapBuf 长度 */
     uint16_t cmapFormat;  /* 4 或 12，标记当前常驻的 cmap 子表格式 */
@@ -63,6 +64,7 @@ typedef struct {
 } TtfBitmap;
 
 int ttf_load_from_file(const char *path, TtfFont *font);
+int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font);
 void ttf_unload(TtfFont *font);
 
 /* 调试开关：1 开启详细日志，0 关闭 */

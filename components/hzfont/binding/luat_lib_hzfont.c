@@ -31,22 +31,24 @@ lcd.drawfreefontUtf8(10, 50, "Hello世界", 24, 0xFFFFFF)
 
 /**
 初始化HzFont字体库
-@api hzfont.init(ttf_path)
-@string ttf_path TTF字体文件路径
+@api hzfont.init([ttf_path])
+@string ttf_path TTF字体文件路径，可选；留空则回退到内置字库（若启用）
 @return boolean 成功返回true，失败返回false
 @usage
+-- 从文件加载
 hzfont.init("/sd/font.ttf")
+-- 回退内置字库（启用 USE_HZFONT_BUILTIN_TTF 时生效）
+hzfont.init()
 */
 static int l_hzfont_init(lua_State* L) {
+    const char* ttf_path = NULL;
     size_t len = 0;
-    const char* ttf_path = luaL_checklstring(L, 1, &len);
-    
-    if (!ttf_path || len == 0) {
-        LLOGE("TTF path is empty");
-        lua_pushboolean(L, 0);
-        return 1;
+    if (!lua_isnoneornil(L, 1)) {
+        ttf_path = luaL_checklstring(L, 1, &len);
+        if (len == 0) {
+            ttf_path = NULL;
+        }
     }
-    
     int result = luat_hzfont_init(ttf_path);
     lua_pushboolean(L, result);
     return 1;

@@ -22,6 +22,11 @@
 // 码点 -> glyph index 缓存槽位（需为 2 的幂以便快速哈希）
 #define HZFONT_CODEPOINT_CACHE_SIZE 256
 
+#ifdef USE_HZFONT_BUILTIN_TTF
+extern const unsigned char hzfont_builtin_ttf[];
+extern const unsigned int hzfont_builtin_ttf_len;
+#endif
+
 typedef struct {
     luat_hzfont_state_t state;
     TtfFont font;
@@ -446,10 +451,6 @@ static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_co
 }
 
 int luat_hzfont_init(const char *ttf_path) {
-    if (!ttf_path || ttf_path[0] == 0) {
-        LLOGE("invalid ttf path");
-        return 0;
-    }
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         LLOGE("font already initialized");
         return 0;
@@ -457,15 +458,32 @@ int luat_hzfont_init(const char *ttf_path) {
 
     hzfont_cache_clear();
     memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
-    int rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
+
+    int rc = TTF_ERR_RANGE;
+    if (ttf_path && ttf_path[0]) {
+        rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
+        if (rc == TTF_OK) {
+            strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+            g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+        }
+    } else {
+#ifdef USE_HZFONT_BUILTIN_TTF
+        rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+        if (rc == TTF_OK) {
+            g_ft_ctx.font_path[0] = '\0';
+        }
+#else
+        LLOGE("empty ttf path and no builtin ttf");
+        rc = TTF_ERR_RANGE;
+#endif
+    }
+
     if (rc != TTF_OK) {
         LLOGE("load font fail rc=%d", rc);
         ttf_unload(&g_ft_ctx.font);
         g_ft_ctx.state = LUAT_HZFONT_STATE_ERROR;
         return 0;
     }
-    strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
-    g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
     g_ft_ctx.state = LUAT_HZFONT_STATE_READY;
     LLOGI("font loaded units_per_em=%u glyphs=%u", g_ft_ctx.font.unitsPerEm, g_ft_ctx.font.numGlyphs);
     return 1;

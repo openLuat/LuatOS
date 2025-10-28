@@ -170,6 +170,7 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->file = NULL;
         font->fileSize = (size_t)fileSize;
         font->streaming = 0;
+        font->ownsData = 1;
     } else {
         if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
             luat_fs_fclose(vfp);
@@ -189,6 +190,7 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->file = vfp;             /* 保存 VFS 句柄 */
         font->fileSize = (size_t)vsize;
         font->streaming = 1;
+        font->ownsData = 0;
     }
 
     if (font->size < 12) {
@@ -258,11 +260,72 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     return TTF_OK;
 }
 
+int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
+    if (!data || !font || size < 12) {
+        return TTF_ERR_RANGE;
+    }
+    memset(font, 0, sizeof(*font));
+    font->data = (uint8_t*)data; /* 外部常量内存，不复制，不释放 */
+    font->size = size;
+    font->file = NULL;
+    font->fileSize = size;
+    font->streaming = 0;
+    font->ownsData = 0;
+
+    uint8_t hdr4[4];
+    if (!ttf_read_range(font, 0, 4, hdr4)) {
+        return TTF_ERR_IO;
+    }
+    uint32_t scalerType = read_u32(hdr4);
+    if (scalerType != 0x00010000 && scalerType != TTF_TAG('O', 'T', 'T', 'O')) {
+        return TTF_ERR_UNSUPPORTED;
+    }
+
+    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0};
+    if (!find_table(font, TTF_TAG('c', 'm', 'a', 'p'), &cmap) ||
+        !find_table(font, TTF_TAG('g', 'l', 'y', 'f'), &glyf) ||
+        !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
+        !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
+        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
+        return TTF_ERR_FORMAT;
+    }
+
+    uint8_t headBuf[54];
+    if (head.length < 54) {
+        return TTF_ERR_FORMAT;
+    }
+    if (!ttf_read_range(font, head.offset, 54, headBuf)) {
+        return TTF_ERR_IO;
+    }
+    font->unitsPerEm = read_u16(headBuf + 18);
+    font->indexToLocFormat = read_u16(headBuf + 50);
+    font->headOffset = head.offset;
+
+    uint8_t maxpBuf[6];
+    if (maxp.length < 6) {
+        return TTF_ERR_FORMAT;
+    }
+    if (!ttf_read_range(font, maxp.offset, 6, maxpBuf)) {
+        return TTF_ERR_IO;
+    }
+    font->numGlyphs = read_u16(maxpBuf + 4);
+
+    font->cmapOffset = cmap.offset;
+    font->cmapLength = cmap.length;
+    font->glyfOffset = glyf.offset;
+    font->locaOffset = loca.offset;
+
+    ttf_cache_cmap_subtable(font);
+    if (g_ttf_debug) LLOGI("font loaded from memory size=%u units_per_em=%u glyphs=%u indexToLocFormat=%u",
+        (unsigned)font->size, (unsigned)font->unitsPerEm, (unsigned)font->numGlyphs, (unsigned)font->indexToLocFormat);
+    return TTF_OK;
+}
+
 void ttf_unload(TtfFont *font) {
     if (!font) {
         return;
     }
-    if (font->data) free(font->data);
+    if (font->data && font->ownsData) free(font->data);
     if (font->file) luat_fs_fclose((FILE*)font->file);
     if (font->cmapBuf) free(font->cmapBuf);
     memset(font, 0, sizeof(*font));

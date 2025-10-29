@@ -2104,51 +2104,6 @@ static int l_lcd_qspi_config(lua_State* L){
 	return 0;
 }
 
-#ifdef LUAT_USE_FREETYPEFONT
-/*
-使用FreeType字体绘制UTF-8字符串
-@api lcd.drawfreefontUtf8(x, y, str, fontSize, color)
-@int x 横坐标
-@int y 纵坐标（左下角为基准）
-@string str UTF-8字符串
-@int fontSize 字体大小（像素）
-@int color 颜色值（RGB565格式）
-@return nil 无返回值
-@usage
--- 先初始化FreeType字体
-freetypefont.init("/sd/font.ttf")
-
--- 绘制文本
-lcd.drawfreefontUtf8(10, 50, "Hello世界", 24, 0xFFFF)
-*/
-static int l_lcd_draw_freefont_utf8(lua_State *L) {
-    int x = luaL_checkinteger(L, 1);
-    int y = luaL_checkinteger(L, 2);
-    size_t len;
-    const char* str = luaL_checklstring(L, 3, &len);
-    int fontSize = luaL_checkinteger(L, 4);
-    uint32_t color = luaL_checkinteger(L, 5);
-    
-    if (lcd_dft_conf == NULL) {
-        LLOGE("LCD not initialized");
-        return 0;
-    }
-    
-    if (fontSize <= 0 || fontSize > 255) {
-        LLOGE("Invalid font size: %d", fontSize);
-        return 0;
-    }
-    
-    int result = luat_freetypefont_draw_utf8(x, y, str, (unsigned char)fontSize, color);
-    if (result != 0) {
-        LLOGE("Failed to draw UTF-8 string");
-    }
-    
-    lcd_auto_flush(lcd_dft_conf);
-    return 0;
-}
-#endif // LUAT_USE_FREETYPEFONT
-
 /*
 用户使用脚本初始化LCD完成后，必须调用本API
 @api lcd.user_done()
@@ -2255,9 +2210,6 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawHzfontUtf8", ROREG_FUNC(l_lcd_draw_hzfont_utf8)},
     { "getHzFontStrWidth", ROREG_FUNC(l_lcd_get_hzfont_str_width)},
 #endif // LUAT_USE_HZFONT
-#ifdef LUAT_USE_FREETYPEFONT
-    { "drawfreefontUtf8", ROREG_FUNC(l_lcd_draw_freefont_utf8)},
-#endif // LUAT_USE_FREETYPEFONT
     // 默认只带英文12号字体
     //@const font_opposansm12 font 12号字体
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},

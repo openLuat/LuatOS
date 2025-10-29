@@ -11,7 +11,9 @@
 #define LUAT_LOG_TAG "cst92xx"
 #include "luat_log.h"
 
-#define HYN_POWER_ON_UPDATA           (0) //touch fw updata
+#define HYN_POWER_ON_UPDATA           (0) //touch fw updata  //! ！！！目前这里的升级还有点问题，不要随便开，小心变砖！！！
+#define HYNITRON_PROGRAM_PAGE_SIZE    (128)
+#define RW_REG_LEN   (2)
 
 #define CST92XX_ADDRESS               (0x5A)
 
@@ -72,8 +74,11 @@ typedef struct hyn_ts_data {
     struct tp_info hw_info;
     int boot_is_pass;
     int need_updata_fw;
+    int fw_updata_process;
 }hyn_ts_data_t;
 
+static int tp_cst92xx_enter_boot(luat_tp_config_t* luat_tp_config);
+static uint32_t cst92xx_read_checksum(luat_tp_config_t* luat_tp_config);
 static hyn_ts_data_t hyn_92xxdata = {0};
 
 typedef struct luat_touch_info{
@@ -107,19 +112,20 @@ static int hyn_wr_reg(luat_tp_config_t* luat_tp_config, uint32_t reg_addr, uint8
         reg_addr >>= 8;
     }
 
-    if (luat_tp_config->soft_i2c != NULL){
-        ret = i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)wbuf, reg_len, 1);
-    }else{
-        ret = luat_i2c_send(luat_tp_config->i2c_id, luat_tp_config->address, wbuf, reg_len, 1);
-    }
-    if(rlen){
+    if (rlen){
         if (luat_tp_config->soft_i2c != NULL){
+            ret = i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)wbuf, reg_len, 1);
             ret |= i2c_soft_recv(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)rbuf, rlen);
         }else{
-            ret |= luat_i2c_recv(luat_tp_config->i2c_id, luat_tp_config->address, rbuf, rlen);
+            ret = luat_i2c_transfer(luat_tp_config->i2c_id, luat_tp_config->address, wbuf, reg_len, rbuf, rlen);
+        }
+    }else{
+        if (luat_tp_config->soft_i2c != NULL){
+            ret = i2c_soft_send(luat_tp_config->soft_i2c, luat_tp_config->address, (char *)wbuf, reg_len, 1);
+        }else{
+            ret = luat_i2c_send(luat_tp_config->i2c_id, luat_tp_config->address, wbuf, reg_len, 1);
         }
     }
-
     return ret;
 }
 
@@ -251,10 +257,213 @@ static int tp_cst92xx_updata_tpinfo(luat_tp_config_t* luat_tp_config){
 static int tp_cst92xx_hw_reset(luat_tp_config_t* luat_tp_config){
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_LOW);
-        luat_rtos_task_sleep(8);
+        luat_rtos_task_sleep(1);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
     }
     return 0;
+}
+
+static int erase_all_mem(luat_tp_config_t* luat_tp_config)
+{
+    int ok = -1,t;
+    uint8_t i2c_buf[8];
+
+	//erase_all_mem
+    ok = hyn_wr_reg(luat_tp_config, 0xA0140000, 4, NULL, 0);
+    if (ok){
+        return -1;
+    }
+    ok = hyn_wr_reg(luat_tp_config, 0xA00C807F, 4, NULL, 0);
+    if (ok){
+        return -1;
+    }
+    ok = hyn_wr_reg(luat_tp_config, 0xA004EC, 3, NULL, 0);
+    if (ok){
+        return -1;
+    }
+        
+    luat_rtos_task_sleep(300);
+    for (t = 0;; t += 10) {
+        if (t >= 1000) {
+           return -1;
+        }
+
+        luat_rtos_task_sleep(10);
+
+        ok = hyn_wr_reg(luat_tp_config, 0xA005, 2, i2c_buf, 1);
+        if (ok) {
+            continue;
+        }
+
+        if (i2c_buf[0] == 0x88) {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static int write_mem_page(luat_tp_config_t* luat_tp_config, uint16_t addr, uint8_t *buf, uint16_t len)
+{
+    int ok = -1,t;
+    uint8_t i2c_buf[1024+2] = {0};
+    uint32_t write_data;
+
+    i2c_buf[0] = 0xA0;
+    i2c_buf[1] = 0x0C;
+    i2c_buf[2] = len;
+    i2c_buf[3] = len >> 8;
+    write_data = i2c_buf[0] << 24 + i2c_buf[1] << 16 + i2c_buf[2] << 8 + i2c_buf[3];    
+    //ok = hyn_i2c_write_r16(HYN_BOOT_I2C_ADDR, 0xA00C, i2c_buf, 2);
+    ok = tp_i2c_write(luat_tp_config, i2c_buf, 4, NULL, 0);
+    // ok = hyn_write_data(luat_tp_config, i2c_buf,RW_REG_LEN, 4);
+    if(ok){
+         return -1;
+    }
+
+
+    i2c_buf[0] = 0xA0;
+    i2c_buf[1] = 0x14;
+    i2c_buf[2] = addr;
+    i2c_buf[3] = addr >> 8;
+    ok = tp_i2c_write(luat_tp_config, i2c_buf, 4, NULL, 0);
+    // ok = hyn_write_data(luat_tp_config, i2c_buf,RW_REG_LEN, 4);
+    if(ok) {
+        return -1;
+    }
+
+
+    i2c_buf[0] = 0xA0;
+    i2c_buf[1] = 0x18;
+    memcpy(i2c_buf + 2, buf, len);         
+    ok = tp_i2c_write(luat_tp_config, i2c_buf, len+2, NULL, 0);   
+    // ok = hyn_write_data(luat_tp_config, i2c_buf,RW_REG_LEN, len+2);
+    if(ok){
+        return -1;
+    }
+
+
+    ok =  hyn_wr_reg(luat_tp_config,0xA004EE,3,NULL,0);
+    if(ok){
+        return -1;
+    }
+
+    for (t = 0;; t += 10) {
+        if (t >= 1000) {
+            return -1;
+        }
+
+        luat_rtos_task_sleep(5);
+
+        ok =  hyn_wr_reg(luat_tp_config,0xA005,2,i2c_buf,1);
+        if(ok){
+            continue;
+        }        
+
+        if (i2c_buf[0] == 0x55) {
+            break;
+        }
+    }
+
+    return 0;
+}
+
+static int write_code(luat_tp_config_t* luat_tp_config, uint8_t *bin_addr,uint8_t retry)
+{
+    uint8_t data[HYNITRON_PROGRAM_PAGE_SIZE+4];//= (uint8_t *)bin_addr;
+    uint16_t addr = 0;
+    uint16_t remain_len = CST92XX_BIN_SIZE;
+    int ret;
+   
+    while (remain_len > 0) {
+        uint16_t cur_len = remain_len;
+        if (cur_len > HYNITRON_PROGRAM_PAGE_SIZE) {
+            cur_len = HYNITRON_PROGRAM_PAGE_SIZE;
+        }
+        
+        memcpy(data, bin_addr + addr, HYNITRON_PROGRAM_PAGE_SIZE);
+        //HYN_INFO("write_code addr 0x%x 0x%x",addr,*data);
+        if (write_mem_page(luat_tp_config, addr, data, cur_len) ==  -1) {
+             return -1;
+        }
+        //data += cur_len;
+        addr += cur_len;
+        remain_len -= cur_len;
+    }
+    return 0;
+}
+
+static int cst92xx_updata_fw(luat_tp_config_t* luat_tp_config, uint8_t *bin_addr, uint16_t len)
+{ 
+    #define CHECKSUM_OFFECT  (0x7F6C)
+    int retry = 0;
+    int ok_copy = 0;
+    int ok = -1;
+    uint8_t i2c_buf[4];
+
+    uint32_t fw_checksum=0;
+
+    if(len < CST92XX_BIN_SIZE){
+        LLOGE("len = %d",len);
+        goto UPDATA_END;
+    }
+    if(len > CST92XX_BIN_SIZE) len = CST92XX_BIN_SIZE;
+
+    fw_checksum = U8TO32(bin_addr[CHECKSUM_OFFECT+3],bin_addr[CHECKSUM_OFFECT+2],bin_addr[CHECKSUM_OFFECT+1],bin_addr[CHECKSUM_OFFECT+0]);
+    LLOGD("updating fw checksum:0x%04x",fw_checksum);
+
+    luat_tp_irq_enable(luat_tp_config, 0);
+    
+    LLOGD("updata_fw start");
+    for(retry = 1; retry<5; retry++){
+        hyn_92xxdata.fw_updata_process = 0;
+        ok = tp_cst92xx_enter_boot(luat_tp_config);
+        if (ok){
+            continue;
+        }
+        hyn_92xxdata.fw_updata_process = 10;
+        ok = erase_all_mem(luat_tp_config);
+        if (ok){
+            continue;
+        }
+        hyn_92xxdata.fw_updata_process = 20;
+        ok = write_code(luat_tp_config,bin_addr,retry);
+        if (ok){
+            continue;
+        }
+        hyn_92xxdata.fw_updata_process = 30;
+        hyn_92xxdata.hw_info.ic_fw_checksum = cst92xx_read_checksum(luat_tp_config);
+        if(fw_checksum != hyn_92xxdata.hw_info.ic_fw_checksum){
+            LLOGD("out data fw checksum err:0x%04x",hyn_92xxdata.hw_info.ic_fw_checksum);
+            hyn_92xxdata.fw_updata_process |= 0x80;
+            continue;
+        }
+        hyn_92xxdata.fw_updata_process = 100;   
+        if(retry>=5){
+            ok_copy = -1;
+            break;
+        }
+        break;
+    }
+
+    hyn_wr_reg(luat_tp_config,0xA006EE,3,NULL,0); //exit boot
+    luat_rtos_task_sleep(2);
+
+UPDATA_END:   
+    tp_cst92xx_hw_reset(luat_tp_config);
+    luat_rtos_task_sleep(50);
+
+    if(ok_copy == 0){
+        tp_cst92xx_updata_tpinfo(luat_tp_config);
+        LLOGD("updata_fw success");
+    }
+    else{
+        LLOGD("updata_fw failed");
+    }
+
+    luat_tp_irq_enable(luat_tp_config, 1);
+
+    return ok_copy;
 }
 
 static int16_t read_word_from_mem(luat_tp_config_t* luat_tp_config, uint8_t type, uint16_t addr, uint32_t *value){
@@ -486,7 +695,10 @@ static int tp_cst92xx_init(luat_tp_config_t* luat_tp_config){
         LLOGE("cst92xx_updata_tpinfo failed");
         return ret;
     }
-    cst92xx_updata_judge(luat_tp_config,(uint8_t*)fw_bin,CST92XX_BIN_SIZE);
+    ret = cst92xx_updata_judge(luat_tp_config,(uint8_t*)fw_bin,CST92XX_BIN_SIZE);
+    //! ！！！目前这里的升级还有点问题，不要开！！！
+    // if(ret == -1)
+    //     cst92xx_updata_fw(luat_tp_config, (uint8_t*)fw_bin, CST92XX_BIN_SIZE);
     tp_cst92xx_hw_reset(luat_tp_config);
     luat_rtos_task_sleep(40);
 #endif
@@ -659,10 +871,19 @@ static int tp_cst92xx_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *lua
     if (hyn_wr_reg(luat_tp_config, 0xD000,2,read_buff,sizeof(read_buff))){
         goto exit_;
     }   
-        
-    if (hyn_wr_reg(luat_tp_config, 0xD000AB,3,read_buff,0)){
-        goto exit_;
-    }   
+    
+    if (read_buff[0] & 0x0F)
+    {
+        if (hyn_wr_reg(luat_tp_config, 0xD000AB,3,read_buff,0)){
+            goto exit_;
+        }
+    }
+    else
+    {
+        if (hyn_wr_reg(luat_tp_config, 0xD000CC,3,read_buff,0)){
+            goto exit_;
+        }
+    }
 
     // luat_rtos_task_sleep(8);
     // for (size_t i = 0; i < sizeof(read_buff); i++){

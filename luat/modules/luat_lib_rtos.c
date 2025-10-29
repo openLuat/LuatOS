@@ -248,6 +248,15 @@ local luatos_version = rtos.version()
 */
 static int l_rtos_version(lua_State *L) {
     lua_pushstring(L, luat_version_str());
+    // 当多传入一个参数时,且值为true,则返回数字版本号
+    if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
+        #ifdef LUAT_CONF_FIRMWARE_TYPE_NUM
+        lua_pushinteger(L, LUAT_CONF_FIRMWARE_TYPE_NUM);
+        #else
+        lua_pushinteger(L, 0);
+        #endif
+        return 2;
+    }
     return 1;
 }
 

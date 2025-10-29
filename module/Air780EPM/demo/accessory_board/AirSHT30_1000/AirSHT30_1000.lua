@@ -1,3 +1,18 @@
+--[[
+@module  AirSHT30_1000
+@summary AirSHT30_1000应用功能模块 
+@version 1.0
+@date    2025.10.22
+@author  沈园园
+@usage
+本文件为AirSHT30_1000驱动配置文件，核心业务逻辑为：
+1、打开AirSHT30_1000；
+2、读取温湿度数据；
+
+本文件没有对外接口，直接require "AirSHT30_1000"就可以加载运行；
+]]
+
+
 --本文件中的主机是指I2C主机，具体指Air780EPM
 --本文件中的从机是指I2C从机，具体指AirSHT30_1000配件板上的sht30温湿度传感器芯片
 
@@ -8,11 +23,6 @@ local AirSHT30_1000 =
 
 -- 从机地址为0x44
 local slave_addr = 0x44
-
---电平设为3.3v
-pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
---设置gpio2输出,给camera_sda、camera_scl引脚提供上拉
-gpio.setup(2, 1)
 
 -- 计算数据表data中所有数据元素的crc8校验值
 local function crc8(data)

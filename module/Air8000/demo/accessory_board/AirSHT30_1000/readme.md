@@ -1,3 +1,10 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、sht30_app.lua：每隔1秒读取一次温湿度数据；
+
+3、AirSHT30_1000.lua：AirSHT30_1000驱动文件；
 
 ## 演示功能概述
 
@@ -5,12 +12,14 @@ AirSHT30_1000是合宙设计生产的一款I2C接口的SHT30温湿度传感器�
 
 本demo演示的核心功能为：
 
-Air8000开发板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
+Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 
 ## 核心板+配件板资料
 
-[Air8000开发板+配件板相关资料](https://docs.openluat.com/air8000/product/shouce/#air8000_1)
+[Air8000核心板](https://docs.openluat.com/air8000/product/shouce/#air8000_1)
+
+[AirSHT30_1000配件板相关资料](https://docs.openluat.com/accessory/AirSHT30_1000/)
 
 
 ## 演示硬件环境
@@ -19,13 +28,13 @@ Air8000开发板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 ![](https://docs.openluat.com/accessory/AirSHT30_1000/image/8000.png)
 
-1、Air8000开发板
+1、Air8000核心板
 
 2、AirSHT30_1000配件板
 
 3、母对母的杜邦线4根
 
-| Air8000开发板 | AirSHT30_1000配件板|
+| Air8000核心板 | AirSHT30_1000配件板|
 | ------------ | ------------------ |
 |     VDD_EXT     |         3V3        |
 |     GND   |         GND        |

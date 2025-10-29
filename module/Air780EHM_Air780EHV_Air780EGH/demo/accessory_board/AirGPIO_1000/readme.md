@@ -12,28 +12,29 @@ AirGPIO_1000是合宙设计生产的一款I2C转16路扩展GPIO的配件板；
 
 本demo演示的核心功能为：
 
-Air780EHV核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
+Air780EHM/Air780EHV/Air780EGH核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 分输出、输入和中断三种应用场景来演示；
 
-
 ## 核心板+配件板资料
 
-[Air780EHV核心板+配件板相关资料](https://docs.openluat.com/air780ehv/product/shouce/)
+[Air780EHM/Air780EHV/Air780EGH](https://docs.openluat.com/air780ehv/product/shouce/)
+
+[AirGPIO_1000配件板相关资料](https://docs.openluat.com/accessory/AirGPIO_1000/)
 
 ## 演示硬件环境
 
 ![](https://docs.openluat.com/accessory/AirGPIO_1000/image/connect_Air780EHV.jpg)
 
-1、Air780EHV核心板
+1、Air780EHM/Air780EHV/Air780EGH核心板
 
 2、AirGPIO_1000配件板
 
 3、母对母的杜邦线8根
 
-4、Air780EHV核心板和AirGPIO_1000配件板的硬件接线方式为
+4、Air780EHM/Air780EHV/Air780EGH核心板和AirGPIO_1000配件板的硬件接线方式为
 
-| Air780EHV核心板 | AirGPIO_1000配件板 |
+| Air780EHM/Air780EHV/Air780EGH核心板 | AirGPIO_1000配件板 |
 | ------------ | ------------------ |
 |     3V3     |         3V3        |
 |     GND   |         GND        |
@@ -50,9 +51,13 @@ Air780EHV核心板+AirGPIO_1000配件板，演示I2C扩展16路GPIO功能；
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Luatools下载调试工具](https://docs.openluat.com/air780ehv/luatos/common/download/)
 
-2、[Air780EHV最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+2、[Air780EHM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+
+3、[Air780EHV 最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+4、[Air780EGH 最新版本的内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 
 ## 演示操作步骤

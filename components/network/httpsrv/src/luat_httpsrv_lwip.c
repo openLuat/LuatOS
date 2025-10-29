@@ -32,6 +32,8 @@ typedef struct client_socket_ctx
     char *body;
 
     size_t body_size;
+    size_t expect_body_size;
+    int next_header_value_is_content_length;
     uint32_t recv_done;
     char *buff;
     size_t buff_offset;
@@ -58,8 +60,8 @@ static int my_on_message_complete(http_parser* parser);
 // static int my_on_chunk_complete(http_parser* parser);
 static int my_on_url(http_parser* parser, const char *at, size_t length);
 // static int my_on_status(http_parser* parser, const char *at, size_t length);
-// static int my_on_header_field(http_parser* parser, const char *at, size_t length);
-// static int my_on_header_value(http_parser* parser, const char *at, size_t length);
+static int my_on_header_field(http_parser* parser, const char *at, size_t length);
+static int my_on_header_value(http_parser* parser, const char *at, size_t length);
 static int my_on_body(http_parser* parser, const char *at, size_t length);
 
 //================================
@@ -69,8 +71,8 @@ static const struct http_parser_settings hp_settings = {
     // .on_message_begin = my_on_message_begin,
     .on_url = my_on_url,
     // .on_status = my_on_status,
-    // .on_header_field = my_on_header_field,
-    // .on_header_value = my_on_header_value,
+    .on_header_field = my_on_header_field,
+    .on_header_value = my_on_header_value,
     // .on_headers_complete = my_on_headers_complete,
     .on_body = my_on_body,
     .on_message_complete = my_on_message_complete,
@@ -94,7 +96,6 @@ static const ct_reg_t ct_regs[] = {
     {"css",     "text/css"},
     {"wav",     "audio/wave"},
     {"ogg",     "audio/ogg"},
-    {"wav",     "audio/wave"},
     {"webm",    "video/webm"},
     {"mp4",     "video/mpeg4"},
     {"bin",     "application/octet-stream"},
@@ -170,10 +171,9 @@ static void client_resp(void* arg) {
         LLOGD("send body %d", body_size);
         client_write(client, client->body, body_size);
     }
-    // client_cleanup(client);
-    // tcp_output(pcb);
-    // tcp_close(pcb);
     client->write_done = 1;
+    LLOGD("resp done, total send %d", client->send_size);
+    tcp_output(client->pcb);
 }
 
 //================================
@@ -405,11 +405,12 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     return ERR_OK;
 }
 static void client_err_cb(void *arg, err_t err) {
-    LLOGD("client cb %d", err);
+    LLOGD("client_err_cb %d", err);
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
     if(ERR_RST == err)
     {
         tcp_err(client->pcb, NULL);
+        tcp_sent(client->pcb, NULL);
     }
     client_cleanup(client);
 }
@@ -632,6 +633,10 @@ static int handle_static_file(client_socket_ctx_t *client) {
 static int my_on_message_complete(http_parser* parser) {
     LLOGD("on_message_complete");
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    if (client->expect_body_size > 0 && client->body_size < client->expect_body_size) {
+        LLOGD("body size not match expect %d/%d", client->body_size, client->expect_body_size);
+        return HPE_INVALID_CONTENT_LENGTH;
+    }
     client->recv_done = 1;
     return 0;
 }
@@ -671,23 +676,39 @@ static int my_on_url(http_parser* parser, const char *at, size_t length) {
 //     return 0;
 // }
 
-// static int my_on_header_field(http_parser* parser, const char *at, size_t length) {
-//     // LLOGD("on_header_field %p %d", at, length);
-//     return 0;
-// }
+static int my_on_header_field(http_parser* parser, const char *at, size_t length) {
+    // LLOGI("on_header_field %.*s", (int)length, at);
+    if (length == 14 && !memcmp(at, "Content-Length", 14)) {
+        client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+        client->next_header_value_is_content_length = 1;
+    }
+    else {
+        client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+        client->next_header_value_is_content_length = 0;
+    }
+    return 0;
+}
 
-// static int my_on_header_value(http_parser* parser, const char *at, size_t length) {
-//     // LLOGD("on_header_value %p %d", at, length);
-//     return 0;
-// }
+static int my_on_header_value(http_parser* parser, const char *at, size_t length) {
+    // LLOGI("on_header_value %.*s", (int)length, at);
+    client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    if (client->next_header_value_is_content_length) {
+        client->expect_body_size = atoi(at);
+        client->next_header_value_is_content_length = 0;
+    }
+    return 0;
+}
 
 static int my_on_body(http_parser* parser, const char *at, size_t length) {
     LLOGD("on_body %p %d", at, length);
     if (length == 0)
         return 0;
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
+    if (client->expect_body_size > 0 && length < client->expect_body_size) {
+        return 0; // 等数据
+    }
     if (client->body == NULL) {
-        client->body = luat_heap_malloc(length);
+        client->body = luat_heap_malloc(client->expect_body_size > 0 ? client->expect_body_size : length);
         //client->body_size = length;
         if (client->body == NULL) {
             LLOGE("malloc body FAIL!!!");

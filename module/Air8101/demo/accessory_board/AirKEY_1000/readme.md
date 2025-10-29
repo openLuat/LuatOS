@@ -35,7 +35,9 @@ Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检�
 
 ## 核心板+配件板资料
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+[Air8101核心板](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+[AirKEY_1000配件板相关资料](https://docs.openluat.com/accessory/AirKEY_1000/)
 
 
 ## 演示硬件环境
@@ -97,4 +99,19 @@ Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检�
    (1) 按键7按下时，Luatools的运行日志输出 key7 pressdown，表示按键7测试正常；
 
    (1) 按键8按下时，Luatools的运行日志输出 key8 pressdown，表示按键8测试正常；
+
+```
+[2025-10-22 11:03:40.391] I/user.key1_int_cbfunc pressup	49	1
+[2025-10-22 11:03:44.260] I/user.key2_int_cbfunc pressup	23	1
+[2025-10-22 11:03:45.336] I/user.key3_int_cbfunc pressup	21	1
+[2025-10-22 11:03:46.089] I/user.key4_int_cbfunc pressup	19	1
+[2025-10-22 11:03:47.278] I/user.key5678_int_cbfunc	51	0
+[2025-10-22 11:03:47.278] I/user.key5 pressdown
+[2025-10-22 11:03:48.207] I/user.key5678_int_cbfunc	41	0
+[2025-10-22 11:03:48.207] I/user.key6 pressdown
+[2025-10-22 11:03:49.854] I/user.key5678_int_cbfunc	26	0
+[2025-10-22 11:03:49.854] I/user.key7 pressdown
+[2025-10-22 11:03:51.042] I/user.key5678_int_cbfunc	24	0
+[2025-10-22 11:03:51.042] I/user.key8 pressdown
+```
 

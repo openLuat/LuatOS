@@ -6,12 +6,11 @@
 @author  王城钧
 @usage
 本demo演示的核心功能为：
-1、分别使用http核心库和httpplus扩展库，演示以下一种应用场景的使用方式
-   (1) 普通的http get请求功能演示；；
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
+1、http_app：普通的http get请求功能演示
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（三选一）
+    (1) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+    (2) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+    (3) netdrv_wifi：WIFI STA网卡
 更多说明参考本目录下的readme.md文件
 ]]
 

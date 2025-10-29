@@ -63,9 +63,12 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
---加载"netLed_test"功能模块
-require"netLed_test"
+--加载"Lte_test"功能模块
+--require"Lte_test"
 
+
+--加载"Led_test"功能模块
+require"Led_test"
 
 
 

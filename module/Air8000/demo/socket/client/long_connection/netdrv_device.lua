@@ -12,14 +12,14 @@
 4、netdrv_multiple：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 5、netdrv_pc：pc模拟器上的网卡
 
-根据自己的项目需求，只需要require以上四种中的一种即可；
+根据自己的项目需求，只需要require以上五种中的一种即可；
 
 
 本文件没有对外接口，直接在main.lua中require "netdrv_device"就可以加载运行；
 ]]
 
 
--- 根据自己的项目需求，只需要require以下四种中的一种即可；
+-- 根据自己的项目需求，只需要require以下五种中的一种即可；
 
 -- 加载“4G网卡”驱动模块
 require "netdrv_4g"

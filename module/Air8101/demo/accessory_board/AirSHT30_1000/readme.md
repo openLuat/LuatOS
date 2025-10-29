@@ -1,3 +1,10 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、sht30_app.lua：每隔1秒读取一次温湿度数据；
+
+3、AirSHT30_1000.lua：AirSHT30_1000驱动文件；
 
 ## 演示功能概述
 
@@ -10,7 +17,9 @@ Air8101核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 ## 核心板+配件板资料
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+[Air8101核心板](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+[AirSHT30_1000配件板相关资料](https://docs.openluat.com/accessory/AirSHT30_1000/)
 
 
 ## 演示硬件环境

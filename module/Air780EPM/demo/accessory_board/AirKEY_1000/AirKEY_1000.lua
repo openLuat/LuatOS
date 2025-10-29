@@ -1,3 +1,17 @@
+--[[
+@module  AirKEY_1000
+@summary AirKEY_1000应用功能模块 
+@version 1.0
+@date    2025.10.22
+@author  沈园园
+@usage
+本文件为AirKEY_1000驱动配置文件，核心业务逻辑为：
+1、配置主机和AirKEY_1000之间的控制参数；
+
+本文件没有对外接口，直接require "AirKEY_1000"就可以加载运行；
+]]
+
+
 --本文件中的主机是指Air780EPM核心板
 --AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
 
@@ -29,16 +43,6 @@ local AirKEY_1000 = {}
 
 --返回值：成功返回true，失败返回false
 function AirKEY_1000.setup(key_id, gpio_id, int_mode, int_cbfunc)
-    if not (key_id>=1 and key_id<=8) then
-        log.error("AirKEY_1000.setup error", "invalid key_id", key_id)
-        return false
-    end
-
-    if not (gpio_id>=0 and gpio_id<=9 or gpio_id>=12 and gpio_id<=55) then
-        log.error("AirKEY_1000.setup error", "invalid gpio_id", gpio_id)
-        return false
-    end
-
     if not (int_mode==gpio.RISING or int_mode==gpio.FALLING) then
         log.error("AirKEY_1000.setup error", "invalid int_mode", int_mode)
         return false

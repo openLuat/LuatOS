@@ -37,7 +37,7 @@ end)
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
+--   5缺少必要的PROJECT_KEY参数
 local function fota_cb(ret)
     log.info("fota", ret)
     if ret == 0 then
@@ -52,7 +52,7 @@ local function fota_cb(ret)
     elseif ret == 4 then
         log.info("接收报文错误", "检查模块固件或升级包内文件是否正常")
     elseif ret == 5 then
-        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
+        log.info("缺少必要的PROJECT_KEY参数")
     else
         log.info("不是上面几种情况 ret为", ret)
     end

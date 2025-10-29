@@ -1334,8 +1334,8 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->width = width;
     bitmap->height = height;
     bitmap->pixels = pixels;
-    bitmap->originX = (int32_t)floorf(glyph->minX * scale);
-    bitmap->originY = (int32_t)floorf(glyph->maxY * scale);
+    bitmap->originX = (int32_t)lrintf(glyph->minX * scale);
+    bitmap->originY = (int32_t)lrintf(glyph->maxY * scale);
     bitmap->scale = scale;
     return TTF_OK;
 }

@@ -10,10 +10,6 @@
 
 -- 初始化字体
 hzfont.init("/sd/font.ttf")
-
--- 获取字符串宽度
-local width = hzfont.getStrWidth("Hello世界", 24)
-print("字符串宽度:", width)
 */
 
 #include "luat_base.h"
@@ -35,6 +31,8 @@ print("字符串宽度:", width)
 @usage
 -- 从文件加载
 hzfont.init("/sd/font.ttf")
+-- 从luadb文件系统加载
+hzfont.init("/luadb/font.ttf")
 -- 回退内置字库（启用 固件配置项 LUAT_CONF_USE_HZFONT_BUILTIN_TTF 时生效）
 hzfont.init()
 */

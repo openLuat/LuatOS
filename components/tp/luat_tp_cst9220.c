@@ -307,13 +307,13 @@ static int write_mem_page(luat_tp_config_t* luat_tp_config, uint16_t addr, uint8
 {
     int ok = -1,t;
     uint8_t i2c_buf[1024+2] = {0};
-    uint32_t write_data;
+    // uint32_t write_data;
 
     i2c_buf[0] = 0xA0;
     i2c_buf[1] = 0x0C;
     i2c_buf[2] = len;
     i2c_buf[3] = len >> 8;
-    write_data = i2c_buf[0] << 24 + i2c_buf[1] << 16 + i2c_buf[2] << 8 + i2c_buf[3];    
+    // write_data = (i2c_buf[0] << 24) + (i2c_buf[1] << 16) + (i2c_buf[2] << 8) + i2c_buf[3];
     //ok = hyn_i2c_write_r16(HYN_BOOT_I2C_ADDR, 0xA00C, i2c_buf, 2);
     ok = tp_i2c_write(luat_tp_config, i2c_buf, 4, NULL, 0);
     // ok = hyn_write_data(luat_tp_config, i2c_buf,RW_REG_LEN, 4);

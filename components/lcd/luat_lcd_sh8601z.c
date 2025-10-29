@@ -29,6 +29,8 @@ static int sh8601z_inited_init(luat_lcd_conf_t* conf)
     lcd_write_cmd_data(conf,0x53, &temp, 1);
     temp = 0xff;
     lcd_write_cmd_data(conf,0x51, &temp, 1);
+//    temp = 0x00;
+//    lcd_write_cmd_data(conf,0x36, &temp, 1);
 //    luat_lcd_clear(conf,LCD_BLACK);
     luat_lcd_display_on(conf);
     return 0;

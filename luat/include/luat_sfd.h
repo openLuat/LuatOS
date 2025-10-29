@@ -5,7 +5,9 @@
 #include "luat_base.h"
 
 #include "luat_spi.h"
+#ifdef __LUATOS__
 #include "luat_zbuff.h"
+#endif
 
 typedef struct sdf_opts {
     int (*initialize) (void* userdata);
@@ -25,7 +27,9 @@ typedef struct sfd_drv {
             int id;
             int cs;
         } spi;
+#ifdef __LUATOS__
         luat_zbuff_t* zbuff;
+#endif
     } cfg;
     size_t sector_size;
     size_t sector_count;

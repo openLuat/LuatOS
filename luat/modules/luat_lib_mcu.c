@@ -402,7 +402,7 @@ static int l_mcu_xtal_ref_output(lua_State* L) {
 
 LUAT_WEAK int luat_mcu_muid(char* buf) {return -1;}
 static int l_mcu_muid(lua_State* L) {
-	char muid[20];
+	char muid[32];
 	luat_mcu_muid(muid);
 	// LLOGD("mcu muid %s", muid);
 	lua_pushstring(L, muid);

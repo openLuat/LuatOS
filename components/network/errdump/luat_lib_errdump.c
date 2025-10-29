@@ -75,6 +75,7 @@ typedef struct luat_errdump_conf
 	char custom_id[49];
 	char custom_domain_host[49];
 	uint16_t custom_domain_port;
+	int adapter_id;
 }luat_errdump_conf_t;
 
 static luat_errdump_conf_t econf;
@@ -236,13 +237,17 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
 	uint32_t dummy_len;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     const char *ok_result = "{\"r\": 1}";
+	int adapter_id = econf.adapter_id;
+	if (adapter_id <= 0) {
+		adapter_id = network_register_get_default();
+	}
     switch(msg->arg1)
     {
     case LUAT_ERRDUMP_CONNECT:
-    	econf.netc = network_alloc_ctrl(network_register_get_default());
+    	econf.netc = network_alloc_ctrl(adapter_id);
     	if (!econf.netc)
     	{
-    		LLOGE("no socket, errdump fail, after %d second retry", econf.upload_period);
+    		LLOGE("no socket, errdump fail, after %d second retry, adapter %d", econf.upload_period, adapter_id);
     		econf.is_uploading = 0;
     		luat_rtos_timer_start(econf.upload_timer, econf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
     		OS_DeInitBuffer(&econf.tx_buf);
@@ -635,13 +640,14 @@ static int l_errdump_record(lua_State *L) {
 
 /*
 配置关键日志上传IOT平台，这里的日志包括引起luavm异常退出的日志和用户通过record写入的日志，类似于air的errDump
-@api    errDump.config(enable, period, user_flag, custom_id, host, port)
+@api    errDump.config(enable, period, user_flag, custom_id, host, port, adapter)
 @boolean  是否启用记录功能，false的话将不会记录任何日志
 @int     定时上传周期，单位秒，默认600秒，这个是自动上传时候后的重试时间时间，在开机后或者有record操作后会很快尝试上传到合宙IOT平台一次，如果为0，则不会上传，由用户dump后自己上传自己的平台
 @string 用户的特殊标识，可以为空
 @string 设备识别号, 4G设备默认是imei,wifi设备默认STA的MAC,其他设备默认是mcu.unique_id
 @string 服务器域名,默认dev_msg1.openluat.com
-@int    服务器端口,默认
+@int    服务器端口,默认12425
+@int    网络适配器,默认-1,一般不需要设置. 2025.10.22 新增
 @return nil 无返回值
 @usage
 errDump.config(true, 3600, "12345678")	--一个小时尝试上次一次，上传时会在imei后附加上12345678
@@ -690,6 +696,9 @@ static int l_errdump_upload_config(lua_State *L) {
 				econf.custom_domain_port = LUAT_ERRDUMP_PORT;
 			}
 			LLOGD("自定义服务器 %s %d", econf.custom_domain_host, econf.custom_domain_port);
+		}
+		if (LUA_TNUMBER == lua_type(L, 7)) {
+			econf.adapter_id = lua_tointeger(L, 7);
 		}
 	}
 	return 0;

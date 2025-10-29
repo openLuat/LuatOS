@@ -176,16 +176,15 @@ local function http_app_get_file()
 
     -- 创建/http_download目录，用来存放通过http下载的文件
     -- 重复创建目录会返回失败
-    -- 在创建目录之前可以使用api判断下目录是否存在
-    -- 不过只有最新版本的内核固件才支持判断目录是否存在的api
-    -- 在编写本demo时还没有这个api
-    -- 如果Luatools烧录软件时，没有勾选 清除FS分区，此处日志有可能输出error
-    -- 如果输出error，不用理会，不会影响后续逻辑的执行
-    -- 等后续的新版本内核固件支持 判断目录是否存在 的api之后，再加上api判断
+    -- 在创建目录之前可以使用io.dexist判断下目录是否存在
+    -- io.dexist接口仅新版本支持（Air8000系列需要使用V2014及以上固件）
+    -- 若有报错提示，请检查是否是因为使用了旧版本的内核固件
     local download_dir = "/http_download/"
-    local result, reason = io.mkdir(download_dir)
-    if not result then
-        log.error("http_app_get_file io.mkdir error", reason)
+    if not io.dexist(download_dir) then
+        local result, reason = io.mkdir(download_dir)
+        if not result then
+            log.error("http_app_get_file io.mkdir error", reason)
+        end
     end
 
     

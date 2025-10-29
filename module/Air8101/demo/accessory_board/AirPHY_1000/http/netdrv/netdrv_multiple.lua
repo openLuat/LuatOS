@@ -3,7 +3,7 @@
 @summary 多网卡（WIFI STA网卡、通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡）驱动模块
 @version 1.0
 @date    2025.07.24
-@author  马梦阳
+@author  王城钧
 @usage
 本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
@@ -79,7 +79,7 @@ local function netdrv_multiple_task_func()
                     -- 要连接的WIFI路由器名称
                     ssid = "iPhone",
                     -- 要连接的WIFI路由器密码
-                    password = "xiaoshuai", 
+                    password = "HZ88888888", 
 
                     -- 连通性检测ip(选填参数)；
                     -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；

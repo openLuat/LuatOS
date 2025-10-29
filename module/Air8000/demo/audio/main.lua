@@ -17,7 +17,7 @@
 
 5、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
 
-6、1.mp3: 用于测试本地mp3文件播放
+6、sample-6s、10.amr: 用于测试本地mp3文件播放
 
 7、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
@@ -55,11 +55,28 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+
+ require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
 -- require "play_tts"      -- 支持文字转普通话输出需要固件支持
 -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
--- require "record_file"        -- 录音到文件
+--require "record_file"        -- 录音到文件
 -- require "record_stream"        -- 流式录音   
 
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常

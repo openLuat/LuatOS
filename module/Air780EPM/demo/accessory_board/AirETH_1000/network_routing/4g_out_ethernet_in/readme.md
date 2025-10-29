@@ -12,7 +12,7 @@
 
 ## 演示硬件环境
 
-![](%20https://docs.openLuat.com/cdn/image/780EPM_adc.jpg)
+![](https://docs.openLuat.com/cdn/image/780EPM_AirETH1000.jpg)
 
 1、Air780EPM 核心板一块+可上网的sim卡一张+网线一根：
 

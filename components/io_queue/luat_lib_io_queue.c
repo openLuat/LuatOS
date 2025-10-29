@@ -211,13 +211,13 @@ static int l_io_queue_capture_pin(lua_State *L) {
 
 /*
 对io操作队列增加结束捕获某个IO命令
-@api  ioqueue.capend(hwtimer_id,pin)
+@api  ioqueue.cap_done(hwtimer_id,pin)
 @int  硬件定时器id
 @int  pin
 @return nil 无返回值
 @usage
 -- 结束捕获
-ioqueue.capend(0, 17)
+ioqueue.cap_done(0, 17)
 */
 static int l_io_queue_capture_end(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);

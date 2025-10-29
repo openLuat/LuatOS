@@ -26,8 +26,8 @@ typedef struct
 {
 #ifdef LUAT_USE_LWIP
 	network_ctrl_t lwip_ctrl_table[LWIP_NUM_SOCKETS];
-//	HANDLE network_mutex;
 #endif
+	HANDLE network_mutex;
 	int last_adapter_index;
 	int default_adapter_index;
 	llist_head dns_cache_head;
@@ -154,8 +154,8 @@ network_adapter_info* network_adapter_fetch(int id, void** userdata) {
 #endif
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
-//#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-//#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#define G_LOCK		platform_lock_mutex(prv_network.network_mutex)
+#define G_UNLOCK	platform_unlock_mutex(prv_network.network_mutex)
 static int tls_random( void *p_rng,
         unsigned char *output, size_t output_len );
 
@@ -1356,7 +1356,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	prv_adapter_table[adapter_index].port = 0;
 	if (!prv_network.is_init)
 	{
-		//prv_network.network_mutex = platform_create_mutex();
+		prv_network.network_mutex = platform_create_mutex();
 		INIT_LLIST_HEAD(&prv_network.dns_cache_head);
 		prv_network.default_adapter_index = -1;
 		prv_network.last_adapter_index = -1;
@@ -1385,7 +1385,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 		return NULL;
 	}
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	OS_LOCK;
+	G_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (!adapter->ctrl_busy[i])
@@ -1399,7 +1399,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			break;
 		}
 	}
-	OS_UNLOCK;
+	G_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter no more ctrl!");}
 	#ifdef LUAT_USE_NETDRV
 	if (ctrl) {
@@ -1417,7 +1417,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 	int i;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	NW_UNLOCK;
-	OS_LOCK;
+	G_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (&adapter->ctrl_table[i] == ctrl)
@@ -1453,7 +1453,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 			break;
 		}
 	}
-	OS_UNLOCK;
+	G_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter index maybe error!, %d, %x", ctrl->adapter_index, ctrl);}
 
 }
@@ -1524,7 +1524,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (local_port)
 	{
-		OS_LOCK;
+		// G_LOCK;
 		#if 0
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
@@ -1532,7 +1532,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 			{
 				if (adapter->ctrl_table[i].local_port == local_port)
 				{
-					OS_UNLOCK;
+					G_UNLOCK;
 					return -1;
 				}
 			}
@@ -1540,7 +1540,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 		}
 		#endif
 		ctrl->local_port = local_port;
-		OS_UNLOCK;
+		// G_UNLOCK;
 		return 0;
 	}
 	else
@@ -1552,14 +1552,14 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 			ctrl->local_port = 0;
 			return 0;
 		}
-		OS_LOCK;
+		G_LOCK;
 		adapter->port++;
 		if (adapter->port < 60000)
 		{
 			adapter->port = 60000;
 		}
 		ctrl->local_port = adapter->port;
-		OS_UNLOCK;
+		G_UNLOCK;
 #endif
 		return 0;
 	}
@@ -1801,7 +1801,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
 	network_ctrl_t *ctrl;
 	list = malloc(adapter->opt->max_socket_num * sizeof(int));
-	OS_LOCK;
+	G_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		ctrl = &adapter->ctrl_table[i];
@@ -1816,7 +1816,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 		}
 		DBG("%d,%d", i, list[i]);
 	}
-	OS_UNLOCK;
+	G_UNLOCK;
 	adapter->opt->socket_clean(list, adapter->opt->max_socket_num, adapter->user_data);
 	free(list);
 }

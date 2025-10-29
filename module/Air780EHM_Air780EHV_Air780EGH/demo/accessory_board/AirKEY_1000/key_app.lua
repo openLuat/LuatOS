@@ -1,14 +1,22 @@
 --[[
-本功能模块演示的内容为：
-使用Air780EHV核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态
-AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
+@module  key_app
+@summary key_app应用功能模块 
+@version 1.0
+@date    2025.10.22
+@author  沈园园
+@usage
+本文件为key_app应用功能模块，核心业务逻辑为：
+1、使用Air780EHM/Air780EHV/Air780EGH核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态
+2、AirKEY_1000是合宙设计生产的一款8路独立按键的配件板
+
+本文件没有对外接口，直接在main.lua中require "key_app"就可以加载运行；
 ]]
 
 
 --加载AirKEY_1000驱动文件
 local air_key = require "AirKEY_1000"
 
---AirKEY_1000上8个按键对应的Air780EHV的GPIO ID
+--AirKEY_1000上8个按键对应的Air780EHM/Air780EHV/Air780EGH的GPIO ID
 local KEY1_GPIO_ID = 26
 local KEY2_GPIO_ID = 21
 local KEY3_GPIO_ID = 24
@@ -21,7 +29,7 @@ local KEY8_GPIO_ID = 27
 
 --按键1的中断处理函数
 --int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
---gpio_id：number类型，air_key.setup函数配置按键1时，对应的Air780EHV上的GPIO ID
+--gpio_id：number类型，air_key.setup函数配置按键1时，对应的Air780EHM/Air780EHV/Air780EGH上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
 local function key1_int_cbfunc(int_level, gpio_id)
@@ -34,7 +42,7 @@ end
 
 --按键2的中断处理函数
 --int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
---gpio_id：number类型，air_key.setup函数配置按键2时，对应的Air780EHV上的GPIO ID
+--gpio_id：number类型，air_key.setup函数配置按键2时，对应的Air780EHM/Air780EHV/Air780EGH上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
 local function key2_int_cbfunc(int_level, gpio_id)
@@ -47,7 +55,7 @@ end
 
 --按键3的中断处理函数
 --int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
---gpio_id：number类型，air_key.setup函数配置按键3时，对应的Air780EHV上的GPIO ID
+--gpio_id：number类型，air_key.setup函数配置按键3时，对应的Air780EHM/Air780EHV/Air780EGH上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
 local function key3_int_cbfunc(int_level, gpio_id)
@@ -60,7 +68,7 @@ end
 
 --按键4的中断处理函数
 --int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
---gpio_id：number类型，air_key.setup函数配置按键4时，对应的Air780EHV上的GPIO ID
+--gpio_id：number类型，air_key.setup函数配置按键4时，对应的Air780EHM/Air780EHV/Air780EGH上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
 local function key4_int_cbfunc(int_level, gpio_id)
@@ -74,7 +82,7 @@ end
 
 --按键5、6、7、8的中断处理函数
 --int_level：number类型，表示触发中断后，某一时刻引脚的电平，1为高电平，0为低电平，并不一定是触发中断时的电平
---gpio_id：number类型，air_key.setup函数配置按键5、6、7、8时，对应的Air780EHV上的GPIO ID
+--gpio_id：number类型，air_key.setup函数配置按键5、6、7、8时，对应的Air780EHM/Air780EHV/Air780EGH上的GPIO ID
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
 --可以publish消息给其他协程或者给订阅消息的处理函数去执行耗时动作
 local function key5678_int_cbfunc(int_level, gpio_id)
@@ -99,8 +107,8 @@ end
 
 
 
---本demo中，Air780EHV核心板和AirKEY_1000配件板的接线方式如下
---Air780EHV核心板             AirKEY_1000配件板
+--本demo中，Air780EHM/Air780EHV/Air780EGH核心板和AirKEY_1000配件板的接线方式如下
+--Air780EHM/Air780EHV/Air780EGH核心板             AirKEY_1000配件板
 --     25/GPIO26-----------------K1
 --     107/GPIO21-----------------K2
 --     20/GPIO24-----------------K3
@@ -114,7 +122,7 @@ end
 
 
 --AirKEY_1000上的1、2、3、4，四个按键的引脚
---分别和Air780EHV的KEY1_GPIO_ID、KEY2_GPIO_ID、KEY3_GPIO_ID、KEY4_GPIO_ID四个引脚相连
+--分别和Air780EHM/Air780EHV/Air780EGH的KEY1_GPIO_ID、KEY2_GPIO_ID、KEY3_GPIO_ID、KEY4_GPIO_ID四个引脚相连
 --GPIO配置为上升沿触发中断，可以实时检测到按键弹起的动作
 --按键弹起时，会执行对应的中断处理函数key1_int_cbfunc、key2_int_cbfunc、key3_int_cbfunc、key4_int_cbfunc
 --在中断处理函数中，不要直接执行耗时较长的动作，例如写fskv，写文件，延时等
@@ -125,7 +133,7 @@ air_key.setup(3, KEY3_GPIO_ID, gpio.RISING, key3_int_cbfunc)
 air_key.setup(4, KEY4_GPIO_ID, gpio.RISING, key4_int_cbfunc)
 
 --AirKEY_1000上的5、6、7、8，四个按键的引脚
---分别和Air780EHV的KEY5_GPIO_ID、KEY6_GPIO_ID、KEY7_GPIO_ID、KEY8_GPIO_ID四个引脚相连
+--分别和Air780EHM/Air780EHV/Air780EGH的KEY5_GPIO_ID、KEY6_GPIO_ID、KEY7_GPIO_ID、KEY8_GPIO_ID四个引脚相连
 --GPIO配置为下降沿触发中断，可以实时检测到按键按下的动作
 --按键按下时，会执行对应的中断处理函数key5678_int_cbfunc
 --这四个按键共用了同一个中断处理函数，可以通过函数传入的GPIO ID来区分是哪一个按键被按下

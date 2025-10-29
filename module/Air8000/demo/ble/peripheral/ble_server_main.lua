@@ -98,7 +98,7 @@ local function ble_init()
         intv_min = 120, -- 广播间隔最小值, 单位为0.625ms, 最小值为20, 最大值为10240
         intv_max = 120, -- 广播间隔最大值, 单位为0.625ms, 最小值为20, 最大值为10240
         adv_data = {    -- 支持表格形式, 也支持字符串形式(255字节以内)
-            {ble.FLAGS, string.char(0x06)}, -- 广播标志位, 0x06: 支持LE Limited Discoverable Mode, 0x04: 支持LE General Discoverable Mode
+            {ble.FLAGS, string.char(0x06)}, -- 广播标志位
             {ble.COMPLETE_LOCAL_NAME, config.device_name}, -- 广播本地名称
         },
         adv_prop = ble.ADV_PROP_CONNECTABLE | ble.ADV_PROP_SCANNABLE -- 广播属性, ble.ADV_PROP_CONNECTABLE(可被连接), ble.ADV_PROP_SCANNABLE(可被扫描)

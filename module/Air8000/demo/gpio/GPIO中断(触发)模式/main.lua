@@ -15,7 +15,7 @@ end
 
 -- 配置gpio27为中断模式，上升沿(gpio.RISING)和下降沿(gpio.FALLING)均触发(gpio.BOTH)
 -- 请根据实际需求更改gpio编号和触发模式
-local gpio_pin = 27
+local gpio_pin = 153
 gpio.debounce(gpio_pin, 100)
 gpio.setup(gpio_pin, function()
     log.info("gpio", gpio_pin, "被触发")

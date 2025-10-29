@@ -7,7 +7,7 @@
 @usage
 本demo演示的功能为：使用Air8000核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
-Air8000       AirSPINAND_1000配件版
+Air8000       AirSPINORFLASH_1000配件版
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO12/SPI1_CS     CS,片选
@@ -46,7 +46,7 @@ local function spiDev_init_func()
         log.error("SPI初始化", "失败")
         return nil
     end
-    log.info("SPI初始化", "成功，波特率:20MHz")
+    log.info("SPI初始化", "成功，波特率：",bandrate)
     return spi_device
 end
 
@@ -174,6 +174,7 @@ local function spinor_test_func()
     local flash_device = init_flash_device(spi_device)
     if not flash_device then
         log.error("主流程", "Flash初始化失败，终止")
+        spi_close_func()
         return
     end
 

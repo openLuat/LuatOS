@@ -36,7 +36,7 @@ static const tp_reg_t tp_regs[] = {
 	{"jd9261t_inited",  &tp_config_jd9261t_inited},
 	{"ft3x68", &tp_config_ft3x68},
     {"cst820", &tp_config_cst820},
-    {"cst9220", &tp_config_cst92xx},
+    // {"cst9220", &tp_config_cst92xx},
     #endif
 #endif
 #ifdef LUAT_USE_TP_PC
@@ -85,7 +85,7 @@ static int l_tp_handler(lua_State* L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
-    luat_tp_config->opts->read_done(luat_tp_config);
+    // luat_tp_config->opts->read_done(luat_tp_config);
     return 0;
 }
 

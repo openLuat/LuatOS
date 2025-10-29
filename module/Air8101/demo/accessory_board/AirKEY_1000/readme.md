@@ -1,3 +1,28 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、key_app.lua：使用核心板的GPIO中断检测AirKEY_1000配件板上8个独立按键的按下或者弹起状态；
+
+3、AirKEY_1000.lua：配置主机和AirKEY_1000之间的控制参数；
+
+## 用户消息介绍
+
+1、"KEY1_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+2、"KEY2_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+3、"KEY3_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+4、"KEY4_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+5、"KEY5_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+6、"KEY5_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+7、"KEY7_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
+
+8、"KEY8_PRESSUP_IND"：按键消息，publish该消息给其他协程或者给订阅消息的处理函数去执行耗时动作；
 
 ## 演示功能概述
 
@@ -10,7 +35,9 @@ Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检�
 
 ## 核心板+配件板资料
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+[Air8101核心板](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+
+[AirKEY_1000配件板相关资料](https://docs.openluat.com/accessory/AirKEY_1000/)
 
 
 ## 演示硬件环境
@@ -72,5 +99,19 @@ Air8101核心板+AirKEY_1000配件板，使用Air8101核心板的GPIO中断检�
    (1) 按键7按下时，Luatools的运行日志输出 key7 pressdown，表示按键7测试正常；
 
    (1) 按键8按下时，Luatools的运行日志输出 key8 pressdown，表示按键8测试正常；
-   
+
+```
+[2025-10-22 11:03:40.391] I/user.key1_int_cbfunc pressup	49	1
+[2025-10-22 11:03:44.260] I/user.key2_int_cbfunc pressup	23	1
+[2025-10-22 11:03:45.336] I/user.key3_int_cbfunc pressup	21	1
+[2025-10-22 11:03:46.089] I/user.key4_int_cbfunc pressup	19	1
+[2025-10-22 11:03:47.278] I/user.key5678_int_cbfunc	51	0
+[2025-10-22 11:03:47.278] I/user.key5 pressdown
+[2025-10-22 11:03:48.207] I/user.key5678_int_cbfunc	41	0
+[2025-10-22 11:03:48.207] I/user.key6 pressdown
+[2025-10-22 11:03:49.854] I/user.key5678_int_cbfunc	26	0
+[2025-10-22 11:03:49.854] I/user.key7 pressdown
+[2025-10-22 11:03:51.042] I/user.key5678_int_cbfunc	24	0
+[2025-10-22 11:03:51.042] I/user.key8 pressdown
+```
 

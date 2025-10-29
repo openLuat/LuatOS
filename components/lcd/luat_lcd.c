@@ -205,27 +205,35 @@ INIT_NOT_DONE:
 int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
     if (conf->buff) {
         LLOGE("lcd buff已经分配过了");
-        return 0;
     }
-    conf->buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    if (conf->buff == NULL) {
-        LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
-        conf->buff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    }
-    if (conf->buff == NULL) {
-        LLOGE("分配 lcd buff失败");
-        return -1;
-    }
-    conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    if (conf->buff_ex == NULL) {
-        LLOGW("psram 分配 lcd buff_ex失败, 尝试在sram分配");
-        conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
-    }
-    if (conf->buff_ex == NULL) {
-        LLOGE("分配 lcd buff_ex失败");
-        return -1;
+    else
+    {
+        conf->buff = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        if (conf->buff == NULL) {
+            LLOGW("psram 分配 lcd buff失败, 尝试在sram分配");
+            conf->buff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        }
+        if (conf->buff == NULL) {
+            LLOGE("分配 lcd buff失败");
+            return -1;
+        }
     }
 
+    if (conf->buff_ex) {
+        LLOGE("lcd buff_ex已经分配过了");
+    }
+    else
+    {
+        conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        if (conf->buff_ex == NULL) {
+            LLOGW("psram 分配 lcd buff_ex失败, 尝试在sram分配");
+            conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
+        }
+        if (conf->buff_ex == NULL) {
+            LLOGE("分配 lcd buff_ex失败");
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -558,6 +566,18 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2,
     int incx, incy, row, col;
     if (x1 == x2 || y1 == y2) // 直线
     {
+        if (x1 > x2)
+        {
+            int16_t tmp = x1;
+            x1 = x2;
+            x2 = tmp;
+        }
+        if (y1 > y2)
+        {
+            int16_t tmp = y1;
+            y1 = y2;
+            y2 = tmp;
+        }
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
         if (conf->endianness_swap)

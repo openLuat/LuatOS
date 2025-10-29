@@ -40,6 +40,52 @@ extern void luat_cc_play_tone(uint32_t param);
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
 #endif
+
+extern int appSetEcSIMSleepSync(int allowSleep);
+
+extern int appSetCSIMSync(unsigned short cmdApduStrLen,
+                   unsigned char *cmdApduStr,
+                   unsigned short rspApduBufSize,
+                   unsigned short *rspApduStrLen,
+                   unsigned char *rspApduStr);
+
+/**
+发送APDU指令到SIM卡,等效AT+CSIM
+@api mobile.sendApdu(cmdApduStr)
+@string APDU指令内容
+@return string 响应内容, 若失败返回nil
+*/
+static int l_mobile_send_apdu(lua_State* L) {
+    size_t cmd_len = 0;
+    const char* cmd = luaL_checklstring(L, 1, &cmd_len);
+    if (cmd_len == 0) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    unsigned char rsp[10240] = {0};
+    unsigned short rsp_len = 0;
+    int ret = appSetCSIMSync((unsigned short)cmd_len, (unsigned char*)cmd, sizeof(rsp), &rsp_len, rsp);
+    if (ret == 0 && rsp_len > 0) {
+        lua_pushlstring(L, (const char*)rsp, rsp_len);
+    }
+    else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+/**
+设置SIM卡休眠状态
+@api mobile.setSimSleep(allowSleep)
+@boolean 是否允许SIM休眠,true允许,false禁止
+@return boolean 设置是否成功
+*/
+static int l_mobile_set_sim_sleep(lua_State* L) {
+    int allowSleep = lua_toboolean(L, 1);
+    int ret = appSetEcSIMSleepSync(allowSleep);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
 /**
 获取IMEI
 @api mobile.imei(index)
@@ -1155,6 +1201,8 @@ static int l_mobile_print_apn_table(lua_State* L) {
 }
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
+    {"sendApdu",        ROREG_FUNC(l_mobile_send_apdu)},
+    {"setSimSleep",     ROREG_FUNC(l_mobile_set_sim_sleep)},
     {"status",          ROREG_FUNC(l_mobile_status)},
     {"imei",            ROREG_FUNC(l_mobile_imei)},
     {"imsi",            ROREG_FUNC(l_mobile_imsi)},

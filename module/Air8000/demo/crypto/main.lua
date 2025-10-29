@@ -63,7 +63,8 @@ end
 -- end, 3000)
 
 -- 加载crypto_app应用功能模块
-require "crypto_app"
+-- require "crypto_app"
+require "crc_crypto_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

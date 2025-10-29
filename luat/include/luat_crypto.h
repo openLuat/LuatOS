@@ -161,7 +161,7 @@ uint8_t luat_crc8(const void *data, uint32_t len, uint8_t start, uint8_t poly, u
  * @param is_reverse 是否逆序计算，顺序从MSB算到LSB，逆序从LSB算到MSB，不清楚的2个都试试
  * @return 输出值
  */
-uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t poly, uint8_t is_reverse);
+uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t final, uint16_t poly, uint8_t is_reverse);
 
 /**
  * @brief crc32常用算法

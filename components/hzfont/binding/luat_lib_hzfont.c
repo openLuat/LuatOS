@@ -14,8 +14,6 @@ hzfont.init("/sd/font.ttf")
 -- 获取字符串宽度
 local width = hzfont.getStrWidth("Hello世界", 24)
 print("字符串宽度:", width)
-
-lcd.drawfreefontUtf8(10, 50, "Hello世界", 24, 0xFFFFFF)
 */
 
 #include "luat_base.h"
@@ -37,7 +35,7 @@ lcd.drawfreefontUtf8(10, 50, "Hello世界", 24, 0xFFFFFF)
 @usage
 -- 从文件加载
 hzfont.init("/sd/font.ttf")
--- 回退内置字库（启用 USE_HZFONT_BUILTIN_TTF 时生效）
+-- 回退内置字库（启用 固件配置项 LUAT_CONF_USE_HZFONT_BUILTIN_TTF 时生效）
 hzfont.init()
 */
 static int l_hzfont_init(lua_State* L) {

@@ -22,7 +22,7 @@
 // 码点 -> glyph index 缓存槽位（需为 2 的幂以便快速哈希）
 #define HZFONT_CODEPOINT_CACHE_SIZE 256
 
-#ifdef USE_HZFONT_BUILTIN_TTF
+#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
 extern const unsigned char hzfont_builtin_ttf[];
 extern const unsigned int hzfont_builtin_ttf_len;
 #endif
@@ -467,7 +467,7 @@ int luat_hzfont_init(const char *ttf_path) {
             g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
         }
     } else {
-#ifdef USE_HZFONT_BUILTIN_TTF
+#ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
         rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
         if (rc == TTF_OK) {
             g_ft_ctx.font_path[0] = '\0';

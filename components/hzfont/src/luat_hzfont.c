@@ -627,7 +627,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + utf8_len;
     size_t glyph_count = 0;
-    uint32_t baseline_above = 0;
+    uint32_t default_ascent = hzfont_default_ascent(font_size);
     while (cursor < end && glyph_count < utf8_len) {
         uint32_t cp = 0;
         if (!utf8_decode_next(&cursor, end, &cp)) {
@@ -721,31 +721,25 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
             if (slot->advance == 0) {
                 slot->advance = hzfont_calc_fallback_advance(font_size);
             }
-            uint32_t above = slot->bitmap.originY;
-            if (above > baseline_above) {
-                baseline_above = above;
-            }
         } else {
-            uint32_t fallback_above = hzfont_default_ascent(font_size);
-            if (fallback_above > baseline_above) {
-                baseline_above = fallback_above;
-            }
+            slot->bitmap.originY = (int32_t)default_ascent;
         }
         glyph_count++;
     }
 
-    if (baseline_above == 0) {
-        baseline_above = hzfont_default_ascent(font_size);
-    }
     rgb24_t fg = hzfont_decode_input_color(color);
     rgb24_t bg = hzfont_decode_luat_color(lcd_dft_conf, BACK_COLOR);
 
     int pen_x = x;
-    uint32_t baseline_offset = baseline_above;
 
     for (size_t i = 0; i < glyph_count; i++) {
         glyph_render_t *slot = &glyphs[i];
+        uint32_t advance = slot->advance;
+        slot->advance = advance;
         if (!slot->has_bitmap) {
+            if (slot->bitmap.originY == 0) {
+                slot->bitmap.originY = (int32_t)default_ascent;
+            }
             if (timing_enabled) {
                 slot->time_draw_us = 0;
             }
@@ -755,7 +749,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
 
         uint64_t draw_stamp = timing_enabled ? hzfont_now_us() : 0;
         int draw_x = pen_x;
-        int draw_y_base = y + (int)baseline_offset - (int)slot->bitmap.originY;
+        int draw_y_base = y - (int)slot->bitmap.originY;
 
         size_t row_buf_capacity = (size_t)slot->bitmap.width;
         if (row_buf_capacity == 0) {

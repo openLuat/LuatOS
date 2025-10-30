@@ -414,9 +414,7 @@ local function http_app_ca_get()
     -- 在有效期之前，baidu会更换server证书，如果server证书更换后，此处验证使用的baidu_parent_ca.crt也可能需要更换
     -- 使用电脑上的网页浏览器访问https://www.baidu.com，可以实时看到baidu的server证书以及baidu_parent_ca.crt
     -- 如果你使用的是自己的server，要替换为自己server证书对应的ca证书文件
-    -- local server_ca_cert = io.readFile("/luadb/baidu_parent_ca.crt")
-    local server_ca_cert = io.readFile("/luadb/openluat_root_ca.crt")
-
+    local server_ca_cert = io.readFile("/luadb/baidu_parent_ca.crt")
 
     -- https get请求https://www.bidu.cn/网页内容
     -- 如果请求成功，请求的数据保存到body中

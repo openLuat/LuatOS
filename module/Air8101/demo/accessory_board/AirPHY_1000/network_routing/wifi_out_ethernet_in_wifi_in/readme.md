@@ -59,15 +59,13 @@ Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
 ssid = "WIFI名称"
 password = "WiFi密码"
 
-3、如果使用spi方式外挂网卡，打开SPI方式外挂网卡的代码，注释掉RMII方式外挂网卡的代码
+3、内核固件和本项目的Lua脚本：main.lua：主程序入口，netif_app.lua：网络管理模块
 
-4、内核固件和本项目的Lua脚本：main.lua：主程序入口，netif_app.lua：网络管理模块
-
-5、启动设备，观察日志输出：
+4、启动设备，观察日志输出：
 
 ```lua
 [INFO] exnetif setproxy success
 [INFO] http执行结果 200 ... 
 ```
 
-6、其他设备通过wifi或以太网接入Air8101，其他设备都能正常上网，则表示验证成功。
+5、其他设备通过wifi或以太网接入Air8101，其他设备都能正常上网，则表示验证成功。

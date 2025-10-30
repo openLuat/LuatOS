@@ -10,6 +10,7 @@
 2、netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
 3、netdrv_ethernet_spi：socket.LWIP_ETH，通过SPI外挂CH390H芯片的以太网卡；
 4、netdrv_multiple：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
+5、netdrv_pc：pc模拟器上的网卡
 
 根据自己的项目需求，只需要require以上四种中的一种即可；
 
@@ -31,3 +32,6 @@ require "netdrv_4g"
 
 -- 加载“可以配置优先级的多种网卡”驱动模块
 -- require "netdrv_multiple"
+
+-- 加载“pc模拟器网卡”驱动模块
+-- require "netdrv_pc"

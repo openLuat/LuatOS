@@ -210,6 +210,7 @@ typedef struct
     uint8_t state;
     uint8_t is_debug;
     uint8_t domain_ipv6;
+	uint8_t listen_multi_client; // 作为server时，是否支持一对多连接
 }network_ctrl_t;
 
 typedef struct

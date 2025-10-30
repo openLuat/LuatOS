@@ -2202,16 +2202,13 @@ int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	if (NW_STATE_LISTEN == ctrl->state)
 	{
 		DBG("socket %d is listen", ctrl->socket_id);
+		if (network_accept_enable(ctrl)) {
+			return 1;
+		}
 		return 0;
 	}
 	if (ctrl->socket_id >= 0)
 	{
-		if (network_accept_enable(ctrl))
-		{
-			DBG("socket %d is accept enable", ctrl->socket_id);
-			return 1;
-		}
-		DBG_ERR("listen but socket_id(%d) >= 0, state %d", ctrl->socket_id, ctrl->state);
 		return -1;
 	}
 	NW_LOCK;

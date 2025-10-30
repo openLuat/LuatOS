@@ -418,6 +418,11 @@ static err_t net_lwip2_tcp_fast_accept_cb(void *arg, struct tcp_pcb *newpcb, err
 		net_lwip2_tcp_error(adapter_index, socket_id);
 		return 0;
 	}
+	if (prvlwip.socket[socket_id].pcb.tcp != NULL) {
+		LLOGE("accept fail, srv socket busy. from %s:%d", ipaddr_ntoa(&newpcb->remote_ip), newpcb->remote_port);
+		tcp_close(newpcb);
+		return ERR_OK;
+	}
 	prvlwip.socket[socket_id].pcb.tcp = newpcb;
 	// prvlwip.socket[socket_id].pcb.tcp->sockid = socket_id;
 	prvlwip.socket[socket_id].rx_wait_size = 0;

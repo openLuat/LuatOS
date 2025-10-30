@@ -21,7 +21,7 @@ local function serTask(port, adapter)
 	local buff = zbuff.create(1024)
 	while true do
 		log.info("开始监听客户端连接, 无限时长")
-		sys.wait(1000)
+		-- sys.wait(1000)
 		result, code = libnet.listen(dName, 0, netc)
 		log.info("监听结果", result, code)
 		if result then
@@ -40,8 +40,11 @@ local function serTask(port, adapter)
 			    log.info("客户端连上了", client, "发送个问候")
 			    log.info("发送数据", socket.tx(client, "helloworld"))
             end
+		else
+			log.info("监听失败或超时", result, code)
+			break
 		end
-		sys.wait(1000)
+		--sys.wait(1000)
 	end
 	libnet.close(dName, 5000, netc)
 	log.info("服务器关闭了")

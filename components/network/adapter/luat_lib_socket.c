@@ -931,17 +931,30 @@ static int l_socket_wait(lua_State *L)
 
 /*
 作为服务端开始监听
-@api socket.listen(ctrl)
+@api socket.listen(ctrl, multi_client)
 @user_data socket.create得到的ctrl
+@boolean multi_client 是否支持1对多客户端连接，true支持，false不支持，默认false不支持
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
 @usage 
 local succ, result = socket.listen(ctrl)
+-- 注意, 当目标适配器不支持1对多时,multi_client参数无效,并返回错误
 */
 static int l_socket_listen(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	L_CTRL_CHECK;
+	if (lua_isboolean(L, 2))
+	{
+		l_ctrl->netc->listen_multi_client = lua_toboolean(L, 2);
+		if (!network_accept_enable(l_ctrl->netc))
+		{
+			LLOGE("目标适配器不支持1对多客户端连接模式");
+			lua_pushboolean(L, 0);
+			lua_pushboolean(L, 0);
+			return 2;
+		}
+	}
 	int result = network_listen(l_ctrl->netc, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);

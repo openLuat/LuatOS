@@ -1627,13 +1627,23 @@ uint8_t network_accept_enable(network_ctrl_t *ctrl)
 int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	if (adapter->opt->no_accept)
+	if (adapter->opt == NULL) {
+		DBG_ERR("adapter %d not register!", ctrl->adapter_index);
+		return -1;
+	}
+	if (adapter->opt->no_accept || accept_ctrl == NULL)
 	{
 //		DBG("%x,%d,%llu,%x,%x,%x",adapter->opt->socket_accept, ctrl->socket_id, ctrl->tag, &ctrl->remote_ip, &ctrl->remote_port, adapter->user_data);
 		adapter->opt->socket_accept(ctrl->socket_id, ctrl->tag, &ctrl->remote_ip, &ctrl->remote_port, adapter->user_data);
 		return 0;
 	}
-	accept_ctrl->socket_id = adapter->opt->socket_accept(ctrl->socket_id, ctrl->tag, &accept_ctrl->remote_ip, &accept_ctrl->remote_port, adapter->user_data);
+	if (adapter->opt->socket_accept == NULL)
+	{
+		DBG_ERR("adapter %d not support accept multiple", ctrl->adapter_index);
+		return -1;
+	}
+	DBG_ERR("执行accept操作 %p %p", adapter, accept_ctrl, adapter->opt->socket_accept);
+	accept_ctrl->socket_id = adapter->opt->socket_accept(ctrl->socket_id, 0, &accept_ctrl->remote_ip, &accept_ctrl->remote_port, accept_ctrl);
 	if (accept_ctrl->socket_id < 0)
 	{
 		return -1;
@@ -1648,6 +1658,10 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		accept_ctrl->tcp_timeout_ms = ctrl->tcp_timeout_ms;
 		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
+		DBG_ERR("accept_ctrl %p tag: %llu", accept_ctrl, accept_ctrl->tag);
+		// 将srv恢复到可接收的状态
+		ctrl->state = NW_STATE_LISTEN;
+		ctrl->wait_target_state = NW_WAIT_ON_LINE;
 		return 0;
 	}
 }
@@ -2192,6 +2206,12 @@ int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	}
 	if (ctrl->socket_id >= 0)
 	{
+		if (network_accept_enable(ctrl))
+		{
+			DBG("socket %d is accept enable", ctrl->socket_id);
+			return 1;
+		}
+		DBG_ERR("listen but socket_id(%d) >= 0, state %d", ctrl->socket_id, ctrl->state);
 		return -1;
 	}
 	NW_LOCK;

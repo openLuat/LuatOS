@@ -945,24 +945,29 @@ static int l_socket_listen(lua_State *L)
 	int result = network_listen(l_ctrl->netc, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
+	if (result < 0) {
+		LLOGE("listen fail %d", result);
+	}
 	return 2;
 }
 
 /*
-作为服务端接收到一个新的客户端，注意，如果是类似W5500的硬件协议栈不支持1对多，则不需要第二个参数
-@api socket.accept(ctrl)
+作为服务端接收到一个新的客户端
+@api socket.accept(ctrl, args)
 @user_data socket.create得到的ctrl，这里是服务器端
 @string or function or nil string为消息通知的taskName，function则为回调函数，和socket.create参数一致
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
 @usage 
 local succ, new_netc = socket.accept(ctrl, cb)
+-- 注意, 当目标适配器不支持1对多时,new_netc会是nil, 第二个参数无效
+-- 当第二个参数为nil时, 固定为一对一模式, new_netc也会是nil
 */
 static int l_socket_accept(lua_State *L)
 {
 	luat_socket_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
 	if (!old_ctrl) return 0;
-	if (network_accept_enable(old_ctrl->netc))
+	if ((lua_isfunction(L, 2) || lua_isstring(L, 2)) && network_accept_enable(old_ctrl->netc))
 	{
 		luat_socket_ctrl_t *new_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));
 		if (!new_ctrl)
@@ -997,19 +1002,27 @@ static int l_socket_accept(lua_State *L)
 			memset(new_ctrl->task_name, 0, len + 1);
 			memcpy(new_ctrl->task_name, buf, len);
 		}
-		if (network_socket_accept(old_ctrl, new_ctrl))
+		else {
+			LLOGE("accept模式必须传入回调函数或taskName");
+			network_release_ctrl(new_ctrl->netc);
+			new_ctrl->netc = NULL;
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		if (network_socket_accept(old_ctrl->netc, new_ctrl->netc))
 		{
+			network_release_ctrl(new_ctrl->netc);
+			new_ctrl->netc = NULL;
 			lua_pushboolean(L, 0);
 			lua_pushnil(L);
 			return 2;
 		}
-		else
-		{
-			lua_pushboolean(L, 1);
-			luaL_setmetatable(L, LUAT_NW_CTRL_TYPE);
-			return 2;
-		}
-
+		// 恢复到可监听状态
+		LLOGD("accept success %p", new_ctrl->netc);
+		luaL_setmetatable(L, LUAT_NW_CTRL_TYPE);
+		lua_pushboolean(L, 1);
+		lua_pushvalue(L, -2);
+		return 2;
 	}
 	else
 	{

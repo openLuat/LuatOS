@@ -25,7 +25,28 @@
 static struct udp_pcb* mreport_pcb;
 static luat_rtos_timer_t mreport_timer;
 const char *project_name = "unkonw";             // luatos项目名称
-const char *project_version = "";                   // luatos项目版本号
+const char *project_version = "0.0.0";                   // luatos项目版本号
+static int s_adapter_index = -1;                     // 网络适配器索引
+
+static void luat_mreport_init(lua_State *L) {
+    if (strcmp(project_name, "unkonw") == 0) {
+        lua_getglobal(L, "PROJECT");
+        if (LUA_TSTRING == lua_type(L, -1))
+        {
+            size_t project_len;
+            project_name = luaL_tolstring(L, -1, &project_len);
+        }
+    }
+
+    if (strcmp(project_version, "0.0.0") == 0) {
+        lua_getglobal(L, "VERSION");
+        if (LUA_TSTRING == lua_type(L, -1))
+        {
+            size_t version_len;
+            project_version = luaL_tolstring(L, -1, &version_len);
+        }
+    }
+}
 
 static inline uint16_t u162bcd(uint16_t src) {
     uint8_t high = (src >> 8) & 0xFF;
@@ -281,22 +302,28 @@ void luat_mreport_send(void) {
     int ret = 0;
     size_t olen = 0;
     cJSON* mreport_data = cJSON_CreateObject();
+    int adapter_id = 0;
 
-    int adapter_index = network_register_get_default();
-	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+    if (s_adapter_index == -1) 
+        adapter_id = network_register_get_default();
+    else
+        adapter_id = s_adapter_index;
+
+	if (adapter_id < 0 || adapter_id >= NW_ADAPTER_QTY){
 		LLOGE("尚无已注册的网络适配器");
         cJSON_Delete(mreport_data);
 		return;
 	}
-    luat_netdrv_t* netdrv = luat_netdrv_get(adapter_index);
+    luat_netdrv_t* netdrv = luat_netdrv_get(adapter_id);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGE("当前使用的网络适配器id:%d, 还没初始化", adapter_id);
         cJSON_Delete(mreport_data);
         return;
     }
 
     struct netif *netif = netdrv->netif;
     if (ip_addr_isany(&netif->ip_addr)) {
-        LLOGD("还没联网");
+        LLOGE("当前使用的网络适配器id:%d, 还没分配到ip地址", adapter_id);
         cJSON_Delete(mreport_data);
         return;
     }
@@ -400,23 +427,35 @@ void luat_mreport_config(const char* config, int val) {
             LLOGE("luat_mreport enable %d error", val);
         }
     }
+    else if (strcmp(config, "adapter_id") == 0) {
+        if (val >= 0 && val < NW_ADAPTER_QTY) {
+			s_adapter_index = val;
+		}
+        else {
+            LLOGE("luat_mreport adapter_id %d error", val);
+            s_adapter_index = network_register_get_default(); // 默认使用默认网络适配器
+        }
+    }
 }
 
 int l_mreport_config(lua_State *L) {
-    char* config = luaL_checkstring(L, 1);
-    int value = lua_toboolean(L, 2);
-    lua_getglobal(L, "PROJECT");
-    size_t version_len, project_len;
-    if (LUA_TSTRING == lua_type(L, -1))
-    {
-    	project_name = luaL_tolstring(L, -1, &project_len);
+    int num_args = lua_gettop(L);
+    if (num_args == 0) {
+        luat_mreport_send();
     }
-    lua_getglobal(L, "VERSION");
-    if (LUA_TSTRING == lua_type(L, -1))
-    {
-    	project_version = luaL_tolstring(L, -1, &version_len);
+    else if (num_args == 2) {
+        char* config = luaL_checkstring(L, 1);
+        int value = -1;
+        if (lua_isboolean(L, 2))
+        {
+            value = lua_toboolean(L, 2);
+        }
+        else if (lua_isnumber(L, 2))
+        {
+            value = lua_tonumber(L, 2);
+        }
+        luat_mreport_init(L);
+        luat_mreport_config(config, value);
     }
-
-    luat_mreport_config(config, value);
     return 0;
 }

@@ -526,8 +526,23 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
         }
         uint16_t glyph_index = 0;
         if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
-            if (cp != ' ' && cp != '\t') {
-                LLOGW("missing glyph cp=%lu", (unsigned long)cp);
+            if (cp == ' ' || cp == '\t') {
+                total += hzfont_calc_fallback_advance(font_size);
+                continue;
+            }
+            uint16_t star_index = 0;
+            if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
+                TtfGlyph star_glyph;
+                int rc2 = ttf_load_glyph(&g_ft_ctx.font, star_index, &star_glyph);
+                if (rc2 == TTF_OK) {
+                    uint32_t width = hzfont_glyph_estimate_width_px(&star_glyph, scale);
+                    ttf_free_glyph(&star_glyph);
+                    if (width == 0) {
+                        width = hzfont_calc_fallback_advance(font_size);
+                    }
+                    total += width;
+                    continue;
+                }
             }
             total += hzfont_calc_fallback_advance(font_size);
             continue;
@@ -668,10 +683,17 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
                 sum_lookup_us += slot->time_lookup_us;
             }
             if (rc != TTF_OK) {
-                glyph_count++;
-                continue;
+                uint16_t star_index = 0;
+                if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
+                    glyph_index = star_index;
+                    // 不把原cp写入codepoint缓存，避免误缓存
+                } else {
+                    glyph_count++;
+                    continue;
+                }
+            } else {
+                hzfont_cp_cache_insert(cp, glyph_index);
             }
-            hzfont_cp_cache_insert(cp, glyph_index);
         }
 
         slot->glyph_index = glyph_index;

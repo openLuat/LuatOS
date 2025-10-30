@@ -12,4 +12,4 @@
 
 (2)wifi_out_ethernet_in_wifi_in
 
-使用网络路由功能，以太网提供网络供以太网和wifi设备上网
+使用网络路由功能，模组连接外部wifi提供网络供以太网和wifi设备上网

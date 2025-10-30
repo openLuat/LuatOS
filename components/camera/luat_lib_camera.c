@@ -580,7 +580,7 @@ static int l_camera_config(lua_State *L) {
 
 /*
 对于无法用GPIO控制camera pwdn脚的平台，手动控制camera pwdn脚拉高或者拉低,2025/9/6启用
-@api camera.pwdn_pin(level)
+@api camera.pwdn_pin(id, level)
 @int camera id,例如0
 @int pwdn脚电平，1高电平，0低电平
 @usage

@@ -390,7 +390,7 @@ static int l_netdrv_debug(lua_State *L) {
 netdrv.mreport("enable", true)
 netdrv.mreport("enable", false)
 
--- 设置使用的网络适配器
+-- 设置使用的网络适配器，2025/10/30启用
 netdrv.mreport("adapter_id", socket.LWIP_GP)
 netdrv.mreport("adapter_id", socket.LWIP_STA)
 netdrv.mreport("adapter_id", socket.LWIP_ETH)

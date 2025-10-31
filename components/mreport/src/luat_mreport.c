@@ -19,13 +19,53 @@
 
 #define MREPORT_DOMAIN "47.94.236.172"
 #define MREPORT_PORT (12388)
-// #define MREPORT_DOMAIN "112.125.89.8"
-// #define MREPORT_PORT (42919)
 
-static struct udp_pcb* mreport_pcb;
-static luat_rtos_timer_t mreport_timer;
-const char *project_name = "unkonw";             // luatos项目名称
-const char *project_version = "";                   // luatos项目版本号
+typedef struct mreport_ctx {
+    struct udp_pcb* mreport_pcb;
+    luat_rtos_timer_t mreport_timer;
+    char project_name[64];             // luatos项目名称
+    char project_version[32];          // luatos项目版本号
+    int s_adapter_index;                  // 网络适配器索引
+} mreport_ctx_t;
+
+static mreport_ctx_t* s_mreport_ctx;
+
+static void luat_mreport_init(lua_State *L) {
+    if (s_mreport_ctx == NULL) {
+        s_mreport_ctx = (mreport_ctx_t*)luat_heap_malloc(sizeof(mreport_ctx_t));
+        if (s_mreport_ctx == NULL) {
+            LLOGE("mreport malloc ctx failed");
+            return;
+        }
+        memset(s_mreport_ctx, 0, sizeof(mreport_ctx_t));
+        memcpy(s_mreport_ctx->project_name, "unkonw", 6);
+        memcpy(s_mreport_ctx->project_version, "0.0.0", 6);
+        s_mreport_ctx->s_adapter_index = 0;
+    }
+    if (strcmp(s_mreport_ctx->project_name, "unkonw") == 0) {
+        lua_getglobal(L, "PROJECT");
+        if (LUA_TSTRING == lua_type(L, -1))
+        {
+            size_t project_len;
+            const char *project_name = luaL_tolstring(L, -1, &project_len);
+            size_t copy_len = project_len < sizeof(s_mreport_ctx->project_version) - 1  ? project_len : sizeof(s_mreport_ctx->project_version) - 1;
+            memcpy(s_mreport_ctx->project_name, project_name, copy_len);
+            s_mreport_ctx->project_name[copy_len] = '\0';
+        }
+    }
+
+    if (strcmp(s_mreport_ctx->project_version, "0.0.0") == 0) {
+        lua_getglobal(L, "VERSION");
+        if (LUA_TSTRING == lua_type(L, -1))
+        {
+            size_t version_len;
+            const char *project_version = luaL_tolstring(L, -1, &version_len);
+            size_t copy_len = version_len < sizeof(s_mreport_ctx->project_version) - 1  ? version_len : sizeof(s_mreport_ctx->project_version) - 1;
+            memcpy(s_mreport_ctx->project_version, project_version, version_len);
+            s_mreport_ctx->project_version[copy_len] = '\0';
+        }
+    }
+}
 
 static inline uint16_t u162bcd(uint16_t src) {
     uint8_t high = (src >> 8) & 0xFF;
@@ -45,8 +85,8 @@ static void luat_mreport_sys_basic(cJSON* mreport_data) {
     cJSON_AddNumberToObject(mreport_data, "localtime", t);
 
     // luatos项目信息
-    cJSON_AddStringToObject(mreport_data, "proj", project_name);
-    cJSON_AddStringToObject(mreport_data, "pver", project_version);
+    cJSON_AddStringToObject(mreport_data, "proj", s_mreport_ctx->project_name);
+    cJSON_AddStringToObject(mreport_data, "pver", s_mreport_ctx->project_version);
     
     // rndis
     cJSON_AddNumberToObject(mreport_data, "rndis", 0);
@@ -78,7 +118,7 @@ static void luat_mreport_mobile(cJSON* mreport_data) {
 
     // MUID
     char muid[33] = {0};
-    luat_mobile_get_muid(muid, 32);
+    luat_mobile_get_muid(muid, 32); // TODO 如果不是cat1,要从mcu库取.
     muid[32] = '\0';
     cJSON_AddStringToObject(mreport_data, "muid", muid);
 
@@ -134,47 +174,21 @@ static void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     }
 
     // 基站/小区
-    luat_mobile_get_cell_info_async(5);
-    luat_mobile_cell_info_t* cell_info = luat_heap_malloc(sizeof(luat_mobile_cell_info_t));
-    if (cell_info == NULL) {
-        LLOGE("out of memory when malloc cell_info");
-    }
-    else {
-        int ret = luat_mobile_get_last_notify_cell_info(cell_info);
-        if (ret != 0) {
-            LLOGI("none cell info found %d", ret);
-        }
-        else {
-            cJSON_AddNumberToObject(mreport_data, "cid", cell_info->lte_service_info.cid);
-            cJSON_AddNumberToObject(mreport_data, "pci", cell_info->lte_service_info.pci);
-            cJSON_AddNumberToObject(mreport_data, "tac", cell_info->lte_service_info.tac);
-            cJSON_AddNumberToObject(mreport_data, "band", cell_info->lte_service_info.band);
-            cJSON_AddNumberToObject(mreport_data, "earfcn", cell_info->lte_service_info.earfcn);
-            cJSON_AddNumberToObject(mreport_data, "mcc", u162bcd(cell_info->lte_service_info.mcc));
-            cJSON_AddNumberToObject(mreport_data, "mnc", u162bcd(cell_info->lte_service_info.mnc));
-            uint32_t eci;
-            if (luat_mobile_get_service_cell_identifier(&eci) == 0) {
-                cJSON_AddNumberToObject(mreport_data, "eci", eci);
-            }
-            
-            if (cell_info->lte_neighbor_info_num > 0) {
-                for (size_t i = 0; i < cell_info->lte_neighbor_info_num; i++) {
-                    cJSON * cell = cJSON_CreateObject();
-                    // 邻近小区的信息
-	                cJSON_AddNumberToObject(cell, "cid", cell_info->lte_info[i].cid);
-                    cJSON_AddNumberToObject(cell, "pci", cell_info->lte_info[i].pci);
-                    cJSON_AddNumberToObject(cell, "rsrp", cell_info->lte_info[i].rsrp);
-                    cJSON_AddNumberToObject(cell, "rsrq", cell_info->lte_info[i].rsrq);
-                    cJSON_AddNumberToObject(cell, "snr", cell_info->lte_info[i].snr);
-                    cJSON_AddNumberToObject(cell, "tac", cell_info->lte_info[i].tac);
-                    cJSON_AddItemToArray(cells, cell);
-                }
-                cJSON_AddItemToObject(mreport_data, "cells", cells);
-            }
-        }
-    }
-    if (cell_info != NULL) {
-        luat_heap_free(cell_info);
+    luat_mobile_scell_extern_info_t scell_info = {0};
+    if (luat_mobile_get_extern_service_cell_info(&scell_info) == 0) {
+        int band = 0;
+        uint32_t eci = 0;
+        uint16_t tac = 0;
+        band = luat_mobile_get_band_from_earfcn(scell_info.earfcn);
+        luat_mobile_get_service_cell_identifier(&eci);
+        luat_mobile_get_service_tac_or_lac(&tac);
+        cJSON_AddNumberToObject(mreport_data, "cid", eci);
+        cJSON_AddNumberToObject(mreport_data, "pci", scell_info.pci);
+        cJSON_AddNumberToObject(mreport_data, "tac", tac);
+        cJSON_AddNumberToObject(mreport_data, "band", band);
+        cJSON_AddNumberToObject(mreport_data, "earfcn", scell_info.earfcn);
+        cJSON_AddNumberToObject(mreport_data, "mcc", u162bcd(scell_info.mcc));
+        cJSON_AddNumberToObject(mreport_data, "mnc", u162bcd(scell_info.mnc));
     }
 
     // ip地址
@@ -281,29 +295,35 @@ void luat_mreport_send(void) {
     int ret = 0;
     size_t olen = 0;
     cJSON* mreport_data = cJSON_CreateObject();
+    int adapter_id = 0;
 
-    int adapter_index = network_register_get_default();
-	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+    if (s_mreport_ctx->s_adapter_index == 0) 
+        adapter_id = network_register_get_default();
+    else
+        adapter_id = s_mreport_ctx->s_adapter_index;
+
+	if (adapter_id < 0 || adapter_id >= NW_ADAPTER_QTY){
 		LLOGE("尚无已注册的网络适配器");
         cJSON_Delete(mreport_data);
 		return;
 	}
-    luat_netdrv_t* netdrv = luat_netdrv_get(adapter_index);
+    luat_netdrv_t* netdrv = luat_netdrv_get(adapter_id);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGE("当前使用的网络适配器id:%d, 还没初始化", adapter_id);
         cJSON_Delete(mreport_data);
         return;
     }
 
     struct netif *netif = netdrv->netif;
     if (ip_addr_isany(&netif->ip_addr)) {
-        LLOGD("还没联网");
+        LLOGE("当前使用的网络适配器id:%d, 还没分配到ip地址", adapter_id);
         cJSON_Delete(mreport_data);
         return;
     }
 
-    if (mreport_pcb == NULL) {
-        mreport_pcb = udp_new();
-        if (mreport_pcb == NULL) {
+    if (s_mreport_ctx->mreport_pcb == NULL) {
+        s_mreport_ctx->mreport_pcb = udp_new();
+        if (s_mreport_ctx->mreport_pcb == NULL) {
             LLOGE("创建,mreport udp pcb 失败, 内存不足?");
             cJSON_Delete(mreport_data);
             return;
@@ -311,7 +331,7 @@ void luat_mreport_send(void) {
     }
     // ipaddr_aton("47.94.236.172", &host);
     ipaddr_aton(MREPORT_DOMAIN, &host);
-    ret = udp_connect(mreport_pcb, &host, MREPORT_PORT);
+    ret = udp_connect(s_mreport_ctx->mreport_pcb, &host, MREPORT_PORT);
     if (ret) {
         LLOGD("udp_connect %d", ret);
         cJSON_Delete(mreport_data);
@@ -320,9 +340,9 @@ void luat_mreport_send(void) {
 
     // 基础信息
     luat_mreport_sys_basic(mreport_data);
-    // 模组信息
+    // 模组信息, TODO 有mobile库的才添加
     luat_mreport_mobile(mreport_data);
-    // sim卡和网络相关
+    // sim卡和网络相关, TODO 有mobile库的才添加
     luat_mreport_sim_network(mreport_data, netif);
     // adc信息
     luat_mreport_adc(mreport_data);
@@ -340,24 +360,24 @@ void luat_mreport_send(void) {
         cJSON_Delete(mreport_data);
         return;
     }
-    LLOGE("mreport json --- len: %d\r\n%s", strlen(json), json);
+    // LLOGE("mreport json --- len: %d\r\n%s", strlen(json), json);
 
     struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, strlen(json), PBUF_RAM);
     if (p == NULL) {
         LLOGE("获取pbuf失败 %d", strlen(json));
-        free(json);
+        luat_heap_free(json);
         cJSON_Delete(mreport_data);
         return;
     }
 
     pbuf_take(p, json, strlen(json));
-    memcpy(&mreport_pcb->local_ip, &netif->ip_addr, sizeof(ip_addr_t));
-    ret = udp_sendto_if(mreport_pcb, p, &host, MREPORT_PORT, netif);
+    memcpy(&s_mreport_ctx->mreport_pcb->local_ip, &netif->ip_addr, sizeof(ip_addr_t));
+    ret = udp_sendto_if(s_mreport_ctx->mreport_pcb, p, &host, MREPORT_PORT, netif);
     pbuf_free(p);
-    free(json);
+    luat_heap_free(json);
     cJSON_Delete(mreport_data);
     if (ret) {
-        LLOGD("ret %d", ret);
+        LLOGE("send fail ret %d", ret);
     }
 }
 
@@ -367,12 +387,12 @@ static void mreport_timer_cb(void* params) {
 }
 
 void luat_mreport_start(void) {
-    int ret = luat_rtos_timer_create(&mreport_timer);
+    int ret = luat_rtos_timer_create(&s_mreport_ctx->mreport_timer);
     if (ret) {
         LLOGE("luat_rtos_timer_create %d", ret);
         return;
     }
-    ret = luat_rtos_timer_start(mreport_timer, 1*60*1000, 1, mreport_timer_cb, NULL);
+    ret = luat_rtos_timer_start(s_mreport_ctx->mreport_timer, 1*60*1000, 1, mreport_timer_cb, NULL);
     if (ret) {
         LLOGE("luat_rtos_timer_start %d", ret);
     }
@@ -380,15 +400,15 @@ void luat_mreport_start(void) {
 }
 
 void luat_mreport_stop(void) {
-    if (mreport_timer) {
-        luat_stop_rtos_timer(mreport_timer);
-        luat_rtos_timer_delete(mreport_timer);
-        mreport_timer = NULL;
+    if (s_mreport_ctx->mreport_timer) {
+        luat_stop_rtos_timer(s_mreport_ctx->mreport_timer);
+        luat_rtos_timer_delete(s_mreport_ctx->mreport_timer);
+        s_mreport_ctx->mreport_timer = NULL;
     }
 }
 
 void luat_mreport_config(const char* config, int val) {
-    LLOGD("luat_mreport_config %s %d", config, val);
+    // LLOGD("luat_mreport_config %s %d", config, val);
     if (strcmp(config, "enable") == 0) {
         if (val == 0) {
             luat_mreport_stop();
@@ -400,23 +420,35 @@ void luat_mreport_config(const char* config, int val) {
             LLOGE("luat_mreport enable %d error", val);
         }
     }
+    else if (strcmp(config, "adapter_id") == 0) {
+        if (val >= 0 && val < NW_ADAPTER_QTY) {
+			s_mreport_ctx->s_adapter_index = val;
+		}
+        else {
+            LLOGE("luat_mreport adapter_id %d error", val);
+            s_mreport_ctx->s_adapter_index = network_register_get_default(); // 默认使用默认网络适配器
+        }
+    }
 }
 
 int l_mreport_config(lua_State *L) {
-    char* config = luaL_checkstring(L, 1);
-    int value = lua_toboolean(L, 2);
-    lua_getglobal(L, "PROJECT");
-    size_t version_len, project_len;
-    if (LUA_TSTRING == lua_type(L, -1))
-    {
-    	project_name = luaL_tolstring(L, -1, &project_len);
+    int num_args = lua_gettop(L);
+    if (num_args == 0) {
+        luat_mreport_send();
     }
-    lua_getglobal(L, "VERSION");
-    if (LUA_TSTRING == lua_type(L, -1))
-    {
-    	project_version = luaL_tolstring(L, -1, &version_len);
+    else if (num_args == 2) {
+        char* config = luaL_checkstring(L, 1);
+        int value = -1;
+        if (lua_isboolean(L, 2))
+        {
+            value = lua_toboolean(L, 2);
+        }
+        else if (lua_isnumber(L, 2))
+        {
+            value = lua_tonumber(L, 2);
+        }
+        luat_mreport_init(L);
+        luat_mreport_config(config, value);
     }
-
-    luat_mreport_config(config, value);
     return 0;
 }

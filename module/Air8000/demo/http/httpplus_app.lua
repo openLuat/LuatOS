@@ -22,74 +22,6 @@ http核心库和httpplus扩展库的区别如下：
 ]]
 
 
---[[
-此处先详细解释下httpplus.request接口的使用方法
-
-接口定义：
-    httpplus.request(opts)
-
-使用方法：
-    local code, response = httpplus.request(opts)
-    只能在task中使用
-    发送http请求到服务器，等待服务器的http应答，此处会阻塞当前task，等待整个过程成功结束或者出现错误异常结束或者超时结束
-
-参数定义：
-    opts，table类型，表示HTTP请求参数，包含以下内容
-    {
-        url        -- string类型，必须包含此参数，表示HTTP请求URL地址，支持HTTP、HTTPS，支持域名、IP地址，支持自定义端口，标准的HTTP URL格式都支持
-        method     -- stirng或者nil类型，可选包含此参数，表示HTTP请求方法，支持"GET"、"POST"、"HEAD"等所有HTTP请求方法，如果没有传入此参数或者传入了nil类型，则使用默认值，默认值分为以下两种情况：
-                   -- 如果没有设置files，forms，body，bodyfile参数，则默认为"GET"
-                   -- 如果至少设置了files，forms，body，bodyfile中的一种参数，则默认为"POST"
-        headers    -- table或者nil类型，可选包含此参数，表示自定义的一个或者多个HTTP请求头，例如 {["self_defined_key1"] = "self_defined_value1", ["self_defined_key2"] = "self_defined_value2"}
-        timeout    -- number或者nil类型，单位秒，可选包含此参数，表示从发送请求到读取到服务器响应整个过程的超时时间，如果传入0，表示永久等待；如果没有传入此参数或者传入nil，则使用默认值30秒
-        files      -- table或者nil类型，可选包含此参数，表示POST上传的一个或者多个文件列表，键值对的形式，若存在本参数，会自动强制以multipart/form-data形式上传；例如
-                   -- {
-                   --     ["uploadFile"] = "/luadb/logo.jpg",
-                   --     ["logo1.jpg"] = "/luadb/logo.jpg",
-                   -- }
-
-        forms      -- table或者nil类型，可选包含此参数，表示POST上传的一个或者多个表单参数列表，键值对的形式
-                   -- 若存在本参数并且不存在files参数，会自动强制以application/x-www-form-urlencoded形式上传
-                   -- 若存在本参数并且存在files参数，会自动强制以multipart/form-data形式上传，也就是说支持同时上传文件和表单参数
-                   -- 例如：
-                   -- {
-                   --     ["username"] = "LuatOS",
-                   --     ["password"] = "123456",
-                   -- } 
-        body       -- string，zbuff，table或者nil类型，可选包含此参数，表示自定义的body内容, 不能与files或者forms同时存在
-        bodyfile   -- string或者nil类型，可选包含此参数，表示要上传的一个文件的路径，会自动读取文件中的内容进行上传
-                   -- 不能与files或者forms同时存在
-                   -- 可以与body同时存在，与body同时存在时, 优先级高于body参数，也就是说，bodyfile对应的文件路径中的内容在body参数对应的内容之前
-        debug      -- bool或者nil类型，可选包含此参数，表示调试开关，true表示打开debug调试信息日志，false表示关闭debug调试信息日志，如果没有传入此参数或者传入了nil类型，则使用默认值false
-        try_ipv6   -- bool或者nil类型，可选包含此参数，表示是否优先尝试ipv6地址，true表示优先尝试使用ipv6，false表示不尝试使用ipv6，如果没有传入此参数或者传入了nil类型，则使用默认值false
-        adapter    -- number或者nil类型，可选包含此参数，表示使用的网卡ID，例如4G网卡，SPI外挂以太网卡，WIFI网卡等；如果没有传入此参数，内核固件会自动选择当前时间点其他功能模块设置的默认网卡
-                   -- 除非你HTTP请求时，一定要使用某一种网卡，才设置此参数；如果没什么特别要求，不要使用此参数，使用系统中设置的默认网卡即可
-                   -- 这个参数和本demo中的netdrv_device.lua关系比较大，netdrv_device会设置默认网卡，此处http不要设置adapter参数，直接使用netdrv_device设置的默认网卡就行
-    }
-
-返回值定义：
-    httpplus.request(opts)有两个返回值code，response
-    code表示执行结果，number类型，有以下两种含义：
-        1、code大于等于100时，表示服务器返回的HTTP状态码，例如200表示成功，详细说明可以通过搜索引擎搜索“HTTP状态码”自行了解
-        2、code小于0时，表示内核固件中检测到通信异常，有如下几种:
-            -1 HTTP_ERROR_STATE 错误的状态, 一般是底层异常,请报issue
-            -2 HTTP_ERROR_HEADER 错误的响应头部, 通常是服务器问题
-            -3 HTTP_ERROR_BODY 错误的响应体,通常是服务器问题
-            -4 HTTP_ERROR_CONNECT 连接服务器失败, 未联网,地址错误,域名错误
-            -5 HTTP_ERROR_CLOSE 提前断开了连接, 网络或服务器问题
-            -6 HTTP_ERROR_RX 接收数据报错, 网络问题
-            -7 HTTP_ERROR_DOWNLOAD 下载文件过程报错, 网络问题或下载路径问题
-            -8 HTTP_ERROR_TIMEOUT 超时, 包括连接超时,读取数据超时
-            -9 HTTP_ERROR_FOTA fota功能报错,通常是更新包不合法     
-    response有以下两种含义
-        1、当code的返回值大于等于100时，response为table类型，包含以下两项内容
-           {
-               headers = {},    -- table类型，一个或者多个应答头，键值对的形式，可以使用json.encode(response.headers)在日志中打印
-               body = ,         -- zbuff类型，应答体数据；通过zbuff的query函数，可以转化为string类型：response.body:query()；也可以通过uart.tx等支持zbuff的函数直接使用，例如uart.tx(1, response.body)
-           }
-        2、当code的返回值小于0时，response为nil
-]]
-
 local httpplus = require "httpplus"
 
 
@@ -312,7 +244,6 @@ local function httpplus_app_post_file()
         log.info("httpplus_app_post_file body", body and (body:len()>512 and body:len() or body) or "nil")
     end
 end
-
 
 
 -- http app task 的任务处理函数

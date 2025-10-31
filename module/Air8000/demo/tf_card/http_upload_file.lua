@@ -43,7 +43,7 @@ local function http_upload_task()
 
     -- 阶段3: 检查要上传的文件是否存在
     -- 替换为实际的文件路径
-    local upload_file_path = "/sd/30M_test.txt" 
+    local upload_file_path = "/sd/3_23MB.bin" 
     if not io.exists(upload_file_path) then
         log.error("HTTP上传", "要上传的文件不存在", upload_file_path)
         fatfs.unmount("/sd")

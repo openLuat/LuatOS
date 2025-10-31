@@ -221,8 +221,11 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
     g_airlink_statistic.tx_pkg.total++;
     // 拉低片选, 准备发送数据
     luat_gpio_set(AIRLINK_SPI_CS_PIN, 0);
+    
+    luat_spi_lock(MASTER_SPI_ID);
     // 发送数据
     luat_spi_transfer(MASTER_SPI_ID, (const char *)txbuff, TEST_BUFF_SIZE, (char *)rxbuff, TEST_BUFF_SIZE);
+    luat_spi_unlock(MASTER_SPI_ID);
     // 拉高片选之前，先检查一下是否有RDY事件未处理，如果有，则全部清除
     size_t qlen = 0;
     luat_rtos_queue_get_cnt(rdy_evt_queue, &qlen);

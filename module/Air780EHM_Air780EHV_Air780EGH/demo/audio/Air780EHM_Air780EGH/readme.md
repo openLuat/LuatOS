@@ -47,15 +47,15 @@
 
 
 ## 演示硬件环境
-1、Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010 音频扩展板+喇叭
+1、Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010 音频配件板+喇叭
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EHM+Airaudio1010.jpg)
 
 
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EGH-AIRAUDIO_1010.jpg)
 
-Air780EHM核心板/Air780EGH核心板和AirAudio_1010 扩展板的硬件接线方式为:
-|  Air780EHM核心板/Air780EGH核心板 | AirAUDIO_1010扩展板 |
+Air780EHM核心板/Air780EGH核心板和AirAudio_1010 配件板的硬件接线方式为:
+|  Air780EHM核心板/Air780EGH核心板 | AirAUDIO_1010配件板 |
 | ---------------                 | -----------------   |
 | 33/I2S_MCLK                     | I2S_MCLK            |
 | 30/I2S_BCK                      | I2S_BCK             |
@@ -104,7 +104,7 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010 扩展板的硬件接线�
 
 - 如果需要测试录音频到文件，则选择record_file 文件
 
-- 如果需要测试流式录音，则选择record_stream 文件
+- 如果需要测试流式录音，则选择record_stream 文
 
 
 3、Luatools烧录内核固件和修改后的demo脚本代码

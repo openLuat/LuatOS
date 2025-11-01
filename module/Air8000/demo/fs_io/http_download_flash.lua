@@ -33,7 +33,7 @@ local function http_download_flash_task()
 
     -- 核心下载操作开始
     local code, headers, body_size = http.request("GET",
-                                    "https://gitee.com/openLuat/LuatOS/raw/master/module/Air780EHM_Air780EHV_Air780EGH/demo/audio/sample-6s.mp3",
+                                    "https://www.air32.cn/demo/sample-6s.mp3",
                                     nil, nil, {dst = download_dir .. "/sample-6s.mp3"}).wait()
 
     -- 阶段3: 记录下载结果

@@ -709,7 +709,7 @@ static int l_crypto_md(lua_State *L) {
 
 /*
 创建流式hash用的stream
-@api crypto.hash_init(tp)
+@api crypto.hash_init(tp, hmac)
 @string hash类型, 大写字母, 例如 "MD5" "SHA1" "SHA256"
 @string hmac值，可选
 @return userdata 成功返回一个数据结构,否则返回nil

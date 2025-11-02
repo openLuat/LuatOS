@@ -292,7 +292,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 
 /**
 decoder从文件中解析出原始音频数据，比如从MP3文件里解析出PCM数据，这里的文件路径已经在codec.info传入，不需要再次传入
-@api codec.data(decoder, out_buff)
+@api codec.data(decoder, out_buff, size)
 @userdata 解码用的decoder
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
 @int   最少解码出多少字节的音频数据,默认16384

@@ -307,7 +307,7 @@ static const crc16method crc16method_table[] =
 };
 /**
 计算CRC16
-@api crypto.crc16(method, data, poly, initial, finally, inReversem outReverse)
+@api crypto.crc16(method, data, poly, initial, finally, inReversem, outReverse)
 @string CRC16模式（"IBM","MAXIM","USB","MODBUS","CCITT","CCITT-FALSE","X25","XMODEM","DNP","USER-DEFINED"）
 @string 字符串或者zbuff对象
 @int poly值,默认0x0000,范围0-0xFFFF

@@ -86,7 +86,7 @@ static void ir_nec_send(int pin, uint8_t code)
 
 /**
 发送NEC数据
-@api ir.sendNEC(pin, addr, cmd, repeat, disablePWM)
+@api ir.sendNEC(pin, addr, cmd, repeats, disablePWM)
 @int 使用的GPIO引脚编号
 @int 用户码（大于0xff则采用Extended NEC模式）
 @int 数据码

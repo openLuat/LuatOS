@@ -2076,7 +2076,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
 
 /*
 硬件lcd qspi接口配置，需要在lcd.init前配置好
-@api lcd.qspi(1_wire_command, 1_wire_command, 1_wire_command_4_wire_data, 4_wire_command_4_wire_data, vsync_reg, hsync_cmd, hsync_reg)
+@api lcd.qspi(1_wire_command, 1_wire_command_4_wire_data, 4_wire_command_4_wire_data, vsync_reg, hsync_cmd, hsync_reg)
 @int lcd命令模式下的qspi指令
 @int lcd数据模式下，1线地址，4线数据的qspi指令，
 @int lcd数据模式下，4线地址，4线数据的qspi指令，可以留空，如果存在，发送数据时优先使用这个模式

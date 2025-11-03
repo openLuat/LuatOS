@@ -2,11 +2,11 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.10.28
+@date    2025.10.29
 @author  沈园园
 @usage
 本demo演示的核心功能为：
-演示如何对数据压缩解压
+演示有关gmssl国密算法的功能包含SM2，SM3，SM4
 更多说明参考本目录下的readme.md文件
 ]]
 
@@ -21,7 +21,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "luatos_miniz_app"
+PROJECT = "luatos_gmssl_app"
 VERSION = "001.000.000"
 
 
@@ -62,8 +62,15 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载miniz_app应用功能模块
-require "miniz_app"
+
+-- 加载sm2算法, 含密钥生成应用功能模块
+require "gmssl_sm2"
+-- 加载sm3算法应用功能模块
+require "gmssl_sm3"
+-- 加载sm4算法应用功能模块
+require "gmssl_sm4"
+-- 加载sm2签名和验签应用功能模块
+require "gmssl_sm2sign"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

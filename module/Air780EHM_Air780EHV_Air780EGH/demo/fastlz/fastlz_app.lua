@@ -1,17 +1,28 @@
 --[[
-@module  fastlz_test
-@summary fastlz压缩与解压缩测试功能模块
+@module  fastlz_app
+@summary fastlz_app 
 @version 1.0
-@date    2025.07.01
-@author  孟伟
+@date    2025.10.28
+@author  沈园园
 @usage
-使用Air780EHM演示压缩与解压缩的流程。
+本文件为fastlz应用功能模块，核心业务逻辑为：
+1、演示压缩与解压缩的流程；
+
+本文件没有对外接口，直接在main.lua中require "fastlz_app"就可以加载运行；
 ]]
 
-function test_fastlz_func()
-    sys.wait(1000)
+
+function fastlz_compress_uncompress_func(mode)
     -- 原始数据
-    local originStr = io.readFile("/luadb/test.txt") or "q309pura;dsnf;asdouyf89q03fonaewofhaeop;fhiqp02398ryhai;ofinap983fyua0weo;ifhj3p908fhaes;iofaw789prhfaeiwop;fhaesp98fadsjklfhasklfsjask;flhadsfk"
+    local originStr
+    if mode == 1 then
+        log.info("原始数据文件读取2K数据")
+        originStr = io.readFile("/luadb/test.txt")          
+    else
+        log.info("原始数据108长度字符串")
+        originStr = "abcd1234567890efghijklmnopqrstuvwxyzabcd1234567890efghijklmnopqrstuvwxyzabcd1234567890efghijklmnopqrstuvwxyz"            
+    end
+    
     local maxOut = #originStr
     log.info("原始数据长度", #originStr)
 
@@ -29,8 +40,6 @@ function test_fastlz_func()
         log.info("压缩等级1：解压后的数据与原始数据不同")
     end
 
-    sys.wait(1000)
-
     -- 以压缩等级2 进行压缩
     local L2 = fastlz.compress(originStr, 2)
     log.info("压缩等级2：压缩后的数据长度", #L2)
@@ -44,8 +53,16 @@ function test_fastlz_func()
         log.info("压缩等级2：解压后的数据与原始数据相同")
     else
         log.info("压缩等级2：解压后的数据与原始数据不同")
-    end
+    end     
 end
---创建并且启动一个task
---运行这个task的主函数test_fastlz_func
-sys.taskInit(test_fastlz_func)
+
+function fastlz_task_func()
+    -- 原始数据108长度字符串
+    fastlz_compress_uncompress_func()
+    -- 原始数据文件读取2K数据
+    fastlz_compress_uncompress_func(1)   
+end
+
+
+--创建一个task，并且运行task的主函数fastlz_task_func
+sys.taskInit(fastlz_task_func)

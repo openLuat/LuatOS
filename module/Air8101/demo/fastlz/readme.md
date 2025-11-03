@@ -13,27 +13,23 @@
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV2.png)
+![](https://docs.openluat.com/air8101/luatos/common/hwenv/image/Air8101.png)
 
-1、Air780EHM/Air780EHV/Air780EGH核心板一块
+1、Air8101核心板一块
 
 2、TYPE-C USB数据线一根
 
-3、Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为
+3、Air8101核心板和数据线的硬件接线方式为
 
-- Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
-- 核心板正面的 ON/OFF 拨动开关 拨到ON一端；
+- Air8101核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
+- Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
 
 
 ## 演示软件环境
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air780ehv/luatos/common/download/)
+1、[Luatools下载调试工具](https://docs.openluat.com/air8101/luatos/common/download/)
 
-2、[Air780EHM 最新版本的内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
-
-3、[Air780EHV 最新版本的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
-
-4、[Air780EGH 最新版本的内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
+2、[Air8101 最新版本的内核固件](https://docs.openluat.com/air8101/luatos/firmware/)
 
 
 ## 演示核心步骤

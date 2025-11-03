@@ -227,6 +227,7 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
         }
         // return 1;
     }
+    luat_ch390h_write_reg(ch, 0x55, 2);     // 发数据之前重置一下tx的内存指针
     // 写入下一个数据
     luat_ch390h_write(ch, 0x78, len, buff);
     // TCR == 0之后, 才能写入长度

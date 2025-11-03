@@ -2,8 +2,8 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.01
-@author  杨鹏
+@date    2025.10.27
+@author  李源龙
 @usage
 本demo演示的核心功能为：
 使用Air780EHM核心板的UART1连接PC端的串口调试仿真工具SecureCRT，通过Ymodem协议接收文件。

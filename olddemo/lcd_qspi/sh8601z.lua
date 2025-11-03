@@ -8,20 +8,18 @@ function sh8601z_init(lcd_cfg)
     sys.wait(50)
     lcd.wakeup()
     sys.wait(100)
-    -- 演示一下用zbuff传参数，和下面的直接传参数是等效的
-    local param = zbuff.create(1)
-    param[0] = 0x00
-    lcd.cmd(0x36, param, 1) --方向
-    param[0] = 0x55
-    lcd.cmd(0x3a, param, 1)
-    param[0] = 0x20
-    lcd.cmd(0x53, param, 1)
-    param[0] = 0xff
-    lcd.cmd(0x51, param, 1)
 
-    -- lcd.cmd(0x36, 0x00) --方向
-    -- lcd.cmd(0x3a, 0x55)
-    -- lcd.cmd(0x53, 0x20)
-    -- lcd.cmd(0x51, 0xff)
+    local param = zbuff.create(2)
+
+    lcd.cmd(0x36, 0x00) --方向
+    lcd.cmd(0x3a, 0x55)
+    lcd.cmd(0x53, 0x20)
+    lcd.cmd(0x51, 0xff)
+	param[0] = 0x5a
+	param[1] = 0x5a
+	lcd.cmd(0xc0, param, 2) --2个字节以上的参数必须用zbuff
+	lcd.cmd(0xc1, param, 2)
+	lcd.cmd(0xb0, 0x33)
+	lcd.cmd(0xb1, 0x02)
     lcd.cmd(0x29)
 end

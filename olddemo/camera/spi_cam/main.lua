@@ -152,9 +152,9 @@ local function device_init()
 
 end
 
-local function pdwn(level)
+local function pdwn(id, level)
     if hmeta.chip() == "UIS8910" then
-        camera.pwdn_pin(level)
+        camera.pwdn_pin(id, level)
     else
         gpio.setup(5, level) -- PD拉低
     end
@@ -185,7 +185,7 @@ sys.taskInit(function()
 
     local camera_id = device_init()
 	camera.on(camera_id, "scanned", cb)
-    pdwn(0)
+    pdwn(camera_id, 0)
     if DONE_WITH_CLOSE then
         camera.close(camera_id)
     else

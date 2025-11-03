@@ -24,7 +24,7 @@ function netif_app_task_func()
         },                              -- 最大客户端数量, 默认4
         channel = 6,                    -- AP建立的通道, 默认6
         main_adapter = {                -- 提供网络的网卡开启参数
-            ssid = "iPhone", 
+            ssid = "iPhone",            -- WIFI的名称和密码根据实际修改
             password = "xiaoshuai"
         }
     })
@@ -32,7 +32,7 @@ function netif_app_task_func()
     res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_STA, {
         ethpower_en = 13,               -- 以太网模块的pwrpin引脚(gpio编号)
         main_adapter = {                -- 提供网络的网卡开启参数
-            ssid = "iPhone", 
+            ssid = "iPhone",            -- WIFI的名称和密码根据实际修改
             password = "xiaoshuai"
         }
     })

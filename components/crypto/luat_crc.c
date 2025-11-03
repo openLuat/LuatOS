@@ -62,10 +62,12 @@ uint8_t luat_crc8(const void *data, uint32_t len, uint8_t start, uint8_t poly, u
 /************************************************************************/
 /*  CRC16                                                                */
 /************************************************************************/
-uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t poly, uint8_t is_reverse)
+
+uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start,uint16_t final, uint16_t poly, uint8_t is_reverse)
 {
 	uint32_t i;
 	uint16_t CRC16 = start;
+	uint16_t CRC16_out = final;
 	uint16_t wTemp = poly;
 	uint8_t *Src = (uint8_t *)data;
 	if (is_reverse)
@@ -123,7 +125,7 @@ uint16_t luat_crc16(const void *data, uint32_t len, uint16_t start, uint16_t pol
 		}
 	}
 
-	return CRC16;
+	return (uint16_t)(CRC16^CRC16_out);
 }
 
 

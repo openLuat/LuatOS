@@ -283,10 +283,31 @@ int l_crypto_cipher_decrypt(lua_State *L) {
 }
 
 #include "crc.h"
+typedef struct{
+const char *name;   //参数模型
+uint16_t crc16_polynomial;   //多项式
+uint16_t initial_value;  //初始值
+uint16_t finally_data;  //结果异或值
+uint8_t input_reverse; //输入数据反转
+uint8_t output_reverse; //输出数据反转
+} crc16method;
 
+static const crc16method crc16method_table[] = 
+{
+    {(const char*)"IBM", 0x8005, 0x0000, 0x0000, 1, 1},
+    {(const char*)"MAXIM", 0x8005, 0x0000, 0xffff, 1, 1}, 
+    {(const char*)"USB", 0x8005, 0xffff, 0xffff, 1, 1}, 
+    {(const char*)"MODBUS", 0x8005, 0xffff, 0x0000, 1, 1}, 
+    {(const char*)"CCITT", 0x1021, 0x0000, 0x0000, 1, 1}, 
+    {(const char*)"CCITT-FALSE", 0x1021, 0xffff, 0x0000, 0, 0}, 
+    {(const char*)"X25", 0x1021, 0xffff, 0xffff, 1, 1}, 
+    {(const char*)"XMODEM", 0x1021, 0x0000,0x0000, 0, 0}, 
+    {(const char*)"DNP", 0x3D65, 0x0000, 0xffff, 1, 1},
+    {(const char*)"USER-DEFINED", 0x0000, 0x0000,0x0000, 0, 0},
+};
 /**
 计算CRC16
-@api crypto.crc16(method, data, poly, initial, finally, inReversem outReverse)
+@api crypto.crc16(method, data, poly, initial, finally, inReversem, outReverse)
 @string CRC16模式（"IBM","MAXIM","USB","MODBUS","CCITT","CCITT-FALSE","X25","XMODEM","DNP","USER-DEFINED"）
 @string 字符串或者zbuff对象
 @int poly值,默认0x0000,范围0-0xFFFF
@@ -308,6 +329,11 @@ static int l_crypto_crc16(lua_State *L)
     size_t inputlen = 0;
     const unsigned char *inputData = NULL;
     const char  *inputmethod = (const char*)luaL_checkstring(L, 1);
+    uint16_t poly_default = 0x0000;
+    uint16_t initial_default = 0x0000;
+    uint16_t finally_default = 0x0000;
+    uint16_t in_reverse = 0;
+    uint16_t out_reverse = 0;
     if(lua_isuserdata(L, 2))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
@@ -315,13 +341,25 @@ static int l_crypto_crc16(lua_State *L)
         inputData = (const unsigned char *)(buff->addr + buff->cursor);
     }else{
         inputData = (const unsigned char*)lua_tolstring(L,2,&inputlen);
+    }    
+    for (int i = 0; i < sizeof(crc16method_table)/sizeof(crc16method_table[0]); i++)
+    {
+        if (strcmp(crc16method_table[i].name, inputmethod) == 0)
+        {
+            poly_default = crc16method_table[i].crc16_polynomial;
+            initial_default = crc16method_table[i].initial_value;
+            finally_default = crc16method_table[i].finally_data;
+            in_reverse = crc16method_table[i].input_reverse;
+            out_reverse = crc16method_table[i].output_reverse;
+        }
     }
-    uint16_t poly = (uint16_t)luaL_optnumber(L,3,0x0000);
-    uint16_t initial = (uint16_t)luaL_optnumber(L,4,0x0000);
-    uint16_t finally = (uint16_t)luaL_optnumber(L,5,0x0000);
-    uint8_t inReverse = (uint8_t)luaL_optnumber(L,6,0);
-    uint8_t outReverse = (uint8_t)luaL_optnumber(L,7,0);
-    lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputlen,poly,initial,finally,inReverse,outReverse));
+    uint16_t poly = (uint16_t)luaL_optnumber(L,3,poly_default);
+    uint16_t initial = (uint16_t)luaL_optnumber(L,4,initial_default);
+    uint16_t finally = (uint16_t)luaL_optnumber(L,5,finally_default);
+    uint8_t inReverse = (uint8_t)luaL_optnumber(L,6,in_reverse);
+    uint8_t outReverse = (uint8_t)luaL_optnumber(L,7,out_reverse);
+    
+    lua_pushinteger(L, luat_crc16(inputData, inputlen, initial, finally, poly, inReverse));
     return 1;
 }
 
@@ -343,7 +381,7 @@ static int l_crypto_crc16_modbus(lua_State *L)
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
     uint16_t crc_init = (uint16_t)luaL_optinteger(L, 2, 0xFFFF);
 
-    lua_pushinteger(L, calcCRC16_modbus(inputData, len, crc_init));
+    lua_pushinteger(L, luat_crc16_modbus(inputData, len));
     return 1;
 }
 
@@ -387,10 +425,10 @@ local crc = crypto.crc8(data, 0x31, 0xff, false)
  */
 static int l_crypto_crc8(lua_State *L)
 {
-    size_t len = 0;
+    size_t len = 0; 
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
     if (!lua_isinteger(L, 2)) {
-        lua_pushinteger(L, calcCRC8(inputData, len));
+        lua_pushinteger(L, luat_crc8(inputData, len, 0x00, 0x07, 0));//poly默认值0x0000
     } else {
     	uint8_t poly = (uint8_t)lua_tointeger(L, 2);
     	uint8_t start = (uint8_t)luaL_optinteger(L, 3, 0);
@@ -400,7 +438,7 @@ static int l_crypto_crc8(lua_State *L)
     	}
 		lua_pushinteger(L, luat_crc8(inputData, len, start, poly, is_rev));
     }
-    return 1;
+    return 1; 
 }
 
 
@@ -671,7 +709,7 @@ static int l_crypto_md(lua_State *L) {
 
 /*
 创建流式hash用的stream
-@api crypto.hash_init(tp)
+@api crypto.hash_init(tp, hmac)
 @string hash类型, 大写字母, 例如 "MD5" "SHA1" "SHA256"
 @string hmac值，可选
 @return userdata 成功返回一个数据结构,否则返回nil

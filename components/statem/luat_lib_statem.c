@@ -14,7 +14,7 @@
 
 /*
 创建一个新的状态机.
-@api statem.create(count, repeat)
+@api statem.create(count, repeats)
 @int 指令条数,默认32条
 @int 重复执行的次数, 0 代表不重复, 正整数代表具体重复执行的次数. 暂不支持永续执行
 @return some 若成功,返回状态机指针,否则返回nil

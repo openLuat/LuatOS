@@ -203,6 +203,7 @@ static void net_lwip2_callback_to_nw_task(uint8_t adapter_index, uint32_t event_
 		prvlwip.socket_busy &= ~(1 << param1);
 		break;
 	}
+	LLOGD("socket_cb event_id %08X param.tag %d param3 %ld", event_id, param.tag, param3);
 	prvlwip.socket_cb(&event, &param);
 }
 
@@ -411,10 +412,16 @@ static err_t net_lwip2_tcp_fast_accept_cb(void *arg, struct tcp_pcb *newpcb, err
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
+	LLOGD("adapter %d socket %d new client", adapter_index, socket_id);
 	if (err || !newpcb)
 	{
 		net_lwip2_tcp_error(adapter_index, socket_id);
 		return 0;
+	}
+	if (prvlwip.socket[socket_id].pcb.tcp != NULL) {
+		LLOGE("accept fail, srv socket busy. from %s:%d", ipaddr_ntoa(&newpcb->remote_ip), newpcb->remote_port);
+		tcp_close(newpcb);
+		return ERR_OK;
 	}
 	prvlwip.socket[socket_id].pcb.tcp = newpcb;
 	// prvlwip.socket[socket_id].pcb.tcp->sockid = socket_id;
@@ -840,6 +847,11 @@ static void net_lwip2_task(void *param)
 		// LLOGD("event dns query 3");
 		break;
 	case EV_LWIP_SOCKET_LISTEN:
+		if (prvlwip.socket[socket_id].listen_tcp) {
+			// 已经在监听了, 不需要重复操作, 发送事件就行
+			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_LISTEN, socket_id, 0, 0);
+			break;
+		}
 		if (!prvlwip.socket[socket_id].in_use || !prvlwip.socket[socket_id].pcb.ip)
 		{
 			NET_DBG("adapter %d socket %d cannot use! %d,%x", adapter_index, socket_id, prvlwip.socket[socket_id].in_use, prvlwip.socket[socket_id].pcb.ip);
@@ -1038,9 +1050,18 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 static int net_lwip2_check_socket(void *user_data, int socket_id, uint64_t tag)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
-	if (socket_id >= MAX_SOCK_NUM) return -1;
-	if (prvlwip.socket[socket_id].tag != tag) return -1;
-	if (!prvlwip.socket[socket_id].in_use || prvlwip.socket[socket_id].state) return -1;
+	if (socket_id >= MAX_SOCK_NUM) {
+		LLOGD("socket id 超出范围 %d", socket_id);
+		return -1;
+	}
+	if (prvlwip.socket[socket_id].tag != tag) {
+		LLOGD("socket tag 不匹配 %llx != %llx", prvlwip.socket[socket_id].tag, tag);
+		return -1;
+	}
+	if (!prvlwip.socket[socket_id].in_use || prvlwip.socket[socket_id].state) {
+		LLOGD("socket 状态不正确 %d,%d,%d", socket_id, prvlwip.socket[socket_id].in_use, prvlwip.socket[socket_id].state);
+		return -1;
+	}
 	return 0;
 }
 
@@ -1156,14 +1177,9 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 	}
 }
 
-static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, uint8_t is_ipv6, void *user_data)
-{
-	// uint8_t index = (uint32_t)user_data;
-	uint8_t adapter_index = (uint32_t)user_data;
-	if ((uint32_t)adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
-	int i, socket_id;
-	socket_id = -1;
-	// OS_LOCK;
+static int gen_next_socket_id() {
+	int socket_id = -1;
+	int i;
 	if (!prvlwip.socket[prvlwip.next_socket_index].in_use)
 	{
 		socket_id = prvlwip.next_socket_index;
@@ -1185,6 +1201,16 @@ static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, u
 	{
 		prvlwip.next_socket_index = 0;
 	}
+	return socket_id;
+}
+
+static int net_lwip2_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, uint8_t is_ipv6, void *user_data)
+{
+	// uint8_t index = (uint32_t)user_data;
+	uint8_t adapter_index = (uint32_t)user_data;
+	if ((uint32_t)adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
+	int socket_id = gen_next_socket_id();
+	// OS_LOCK;
 	if (socket_id >= 0)
 	{
 		LWIP_ASSERT("socket must free before create", !prvlwip.socket[socket_id].pcb.ip);
@@ -1239,14 +1265,68 @@ static int net_lwip2_socket_listen(int socket_id, uint64_t tag,  uint16_t local_
 	return 0;
 }
 //作为server接受一个client
-static int net_lwip2_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
+static int net_lwip2_socket_accept(int srv_socket_id, uint64_t srv_tag,  luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
 {
-	int result = net_lwip2_check_socket(user_data, socket_id, tag);
-	if (result) return result;
-	uint8_t adapter_index = (uint32_t)user_data;
-	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
-	*remote_ip = prvlwip.socket[socket_id].pcb.tcp->remote_ip;
-	*remote_port = prvlwip.socket[socket_id].pcb.tcp->remote_port;
+	if (srv_tag == 0) {
+		uint64_t tag = 0;
+		LLOGD("accept tag 0, one to many");
+		if (prvlwip.socket[srv_socket_id].pcb.tcp == NULL) {
+			LLOGE("accept fail, srv socket not in wait-accept state");
+			return -1;
+		}
+		// 首先,分配新的socket id
+		int socket_id = gen_next_socket_id();
+		if (socket_id < 0) {
+			LLOGE("accept fail, too many socket");
+			return -1;
+		}
+		network_ctrl_t* accept_ctrl = (network_ctrl_t*)user_data;
+		// 然后, 把新的socket和老的socket绑定在一起
+		prvlwip.socket_busy &= (1 << socket_id);
+		prvlwip.socket_connect &= (1 << socket_id);
+		prvlwip.socket_tag++;
+		tag = prvlwip.socket_tag;
+		accept_ctrl->tag = tag;
+		prvlwip.socket[socket_id].in_use = 1;
+		prvlwip.socket[socket_id].tag = tag;
+		prvlwip.socket[socket_id].param = accept_ctrl;
+		prvlwip.socket[socket_id].is_tcp = 1;
+
+		LLOGI("accept new socket %d from srv socket %d", socket_id, srv_socket_id);
+		LLOGD("accept srv tag %llx, new tag %llx accept_ctrl->tag %llx", srv_tag, tag, accept_ctrl->tag);
+
+		//--------------------
+		// 把srv暂存的pcb给新的socket
+		prvlwip.socket[socket_id].pcb.tcp = prvlwip.socket[srv_socket_id].pcb.tcp;
+		prvlwip.socket[srv_socket_id].pcb.tcp = NULL; // 恢复成老的监听状态
+		prvlwip.socket[srv_socket_id].rx_wait_size = 0;
+		prvlwip.socket[srv_socket_id].tx_wait_size = 0;
+		//--------------------
+
+		PV_Union uPV;
+        uPV.u16[0] = socket_id;
+        uPV.u16[1] = accept_ctrl->adapter_index;
+		prvlwip.socket[socket_id].pcb.tcp->callback_arg = uPV.p;
+		llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, net_lwip2_del_data_cache, NULL);
+		llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip2_del_data_cache, NULL);
+		llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip2_del_data_cache, NULL);
+		*remote_ip = prvlwip.socket[socket_id].pcb.tcp->remote_ip;
+		*remote_port = prvlwip.socket[socket_id].pcb.tcp->remote_port;
+
+		// 把srv_socket_id的对应的状态恢复好
+
+		return socket_id;
+	}
+	else {
+		// 一对一的情况, 兼容老的
+		int socket_id = srv_socket_id;
+		int result = net_lwip2_check_socket(user_data, socket_id, srv_tag);
+		if (result) return result;
+		uint8_t adapter_index = (uint32_t)user_data;
+		if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
+		*remote_ip = prvlwip.socket[socket_id].pcb.tcp->remote_ip;
+		*remote_port = prvlwip.socket[socket_id].pcb.tcp->remote_port;
+	}
 	return 0;
 }
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
@@ -1364,6 +1444,7 @@ static int net_lwip2_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 static int net_lwip2_socket_send(int socket_id, uint64_t tag, const uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)
 {
 	int result = net_lwip2_check_socket(user_data, socket_id, tag);
+	// LLOGD("net_lwip2_socket_send check result %d socket %d", result, socket_id);
 	if (result) return result;
 	
 	uint8_t adapter_index = (uint32_t)user_data;
@@ -1372,6 +1453,7 @@ static int net_lwip2_socket_send(int socket_id, uint64_t tag, const uint8_t *buf
 	uint32_t save_len = 0;
 	uint32_t dummy_len = 0;
 	socket_data_t *p;
+	// LLOGD("socket %d send len %d", socket_id, len);
 	if (prvlwip.socket[socket_id].is_tcp)
 	{
 		while(save_len < len)
@@ -1614,7 +1696,7 @@ static const network_adapter_info prv_net_lwip2_adapter =
 		.socket_set_callback = net_lwip2_socket_set_callback,
 		.name = "lwip",
 		.max_socket_num = MAX_SOCK_NUM,
-		.no_accept = 1,
+		.no_accept = 0,
 		.is_posix = 1,
 		.check_ack = net_lwip2_check_ack
 };

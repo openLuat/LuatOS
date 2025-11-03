@@ -39,19 +39,19 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 	size_t org_len = len;
 	size_t offset = 0;
 	const char *peripheral_names[LUAT_MCU_PERIPHERAL_QTY] = {
-			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD","ETH","QSPI","USIM"
+			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD","ETH","QSPI","USIM","ENET"
 	};
-	const char *function0_names[3] = {
-			"RX","SCL","MOSI"
+	const char *function0_names[4] = {
+			"RX","SCL","MOSI","PHY_INT"
 	};
-	const char *function1_names[3] = {
-			"TX","SDA","MISO"
+	const char *function1_names[4] = {
+			"TX","SDA","MISO","MDC"
 	};
-	const char *function2_names[3] = {
-			"RTS","CLK","BCLK"
+	const char *function2_names[4] = {
+			"RTS","CLK","BCLK","MDIO"
 	};
-	const char *function3_names[3] = {
-			"CTS","CS","LRCLK"
+	const char *function3_names[4] = {
+			"CTS","CS","LRCLK","REF_CLK"
 	};
 	const char *function4_names[4] = {
 			"MCLK","CMD","IO","DAT"
@@ -268,6 +268,60 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 				}
 				function_id = search(string, len, function5_names, sizeof(function5_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 2;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				break;
+			case LUAT_MCU_PERIPHERAL_ENET:
+				LLOGD("ENET %.*s, %d", len, string, len);
+				if (strnstr(string, "_RXD", len))
+				{
+					if (string[4] == 'V')
+					{
+						description.function_id = 4;
+						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+					}
+					else if (string[5] == '0' || string[5] == '1')
+					{
+						description.function_id = string[5] - '0' + 5;
+						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+					}
+				}
+				if (strnstr(string, "_TXD", len))
+				{
+					if (string[5] == '0' || string[5] == '1')
+					{
+						description.function_id = string[5] - '0' + 7;
+						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+					}
+				}
+				if (strnstr(string, "_TXEN", len))
+				{
+					description.function_id = 9;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				
+				function_id = search(string, len, function0_names, sizeof(function0_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 0;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function1_names, sizeof(function1_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 1;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function3_names, sizeof(function3_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 3;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function2_names, sizeof(function2_names)/4);
 				if (function_id >= 0)
 				{
 					description.function_id = 2;

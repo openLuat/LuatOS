@@ -58,6 +58,18 @@ typedef enum
 	LUAT_PIN_SIM_RST,
 	LUAT_PIN_SIM_QTY,
 
+	LUAT_PIN_ENET_PHY_INT = 0,
+	LUAT_PIN_ENET_MDC,
+	LUAT_PIN_ENET_MDIO,
+	LUAT_PIN_ENET_RXD0,
+	LUAT_PIN_ENET_RXD1,
+	LUAT_PIN_ENET_RXDV,
+	LUAT_PIN_ENET_TXD0,
+	LUAT_PIN_ENET_TXD1,
+	LUAT_PIN_ENET_TXEN,
+	LUAT_PIN_ENET_REF_CLK,
+	LUAT_PIN_ENET_QTY,
+
 	LUAT_PIN_ONLY_ONE_QTY = 1,
 	LUAT_PIN_FUNCTION_MAX = LUAT_PIN_SDIO_QTY,
 	LUAT_PIN_ALT_FUNCTION_MAX = 9,
@@ -139,6 +151,11 @@ typedef struct
 {
 	luat_pin_iomux_info pin_list[LUAT_PIN_SIM_QTY];
 }luat_sim_pin_iomux_t;
+
+typedef struct
+{
+	luat_pin_iomux_info pin_list[LUAT_PIN_ENET_QTY];
+}luat_enet_pin_iomux_t;
 /**
  * @brief 获取某种外设的全部pin复用信息
  * @param type 外设类型，见LUAT_MCU_PERIPHERAL_E

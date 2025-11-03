@@ -138,7 +138,7 @@ local function enCellInfo(s)
         for k,v in pairs(t) do
             ret = ret .. pack.pack(">HHb",v.lac,v.mcc,v.mnc)
             for m,n in pairs(v.rssici) do
-                cntrssi = bit.bor(bit.lshift(((m == 1) and (#v.rssici-1) or 0),5),n.rssi)
+                cntrssi = bit.bor(bit.lshift(((m == 1) and (#v.rssici-1) or 0),5),n.rssi or n.rsrp)
                 ret = ret .. pack.pack(">bi",cntrssi,n.ci)
             end
         end

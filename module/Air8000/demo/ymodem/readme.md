@@ -1,25 +1,25 @@
 
 ## 演示功能概述
 本demo演示的核心功能为：
-使用Air780EHM核心板的UART1连接PC端的串口调试仿真工具SecureCRT，通过Ymodem协议接收文件。
+使用Air8000核心板的UART1连接PC端的串口调试仿真工具SecureCRT，通过Ymodem协议接收文件。
 
 ## 演示硬件环境
 
-1、Air780EHM核心板一块
+1、Air8000核心板一块
 
 2、TYPE-C USB数据线一根
 
 3、USB转串口线数据线一根
 
-4、Air780EHM核心板和数据线的硬件接线方式为
+4、Air8000核心板和数据线的硬件接线方式为
 
-- Air780EHM核心板通过TYPE-C USB口供电；
+- Air8000核心板通过TYPE-C USB口供电；（核心板背面的功耗测试开关拨到ON一端）
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 - USB转串口数据线，一般来说，UART_RX连接核心板的UART1_TXD，UART1_TX连接核心板的UART1_RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
-| Air780EHM核心板  | USB转串口数据线 |
+| Air8000核心板  | USB转串口数据线 |
 | -------------- | --------------|
 | UART1_TXD      | UART_RX       |
 | UART1_RXD      | UART_TX       |
@@ -29,7 +29,7 @@
 
 1、Luatools下载调试工具
 
-2、[Air780EHM最新版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+2、[Air8000最新版本固件](https://docs.openluat.com/air8000/luatos/firmware/)
 
 3、PC端的串口仿真工具SecureCRT：[下载链接](https://www.vandyke.com/download/index.html)
 
@@ -44,7 +44,7 @@
 
 4、烧录成功后，自动开机运行
 
-5、电脑上打开SecureCRT，连接上Air780EHM UATR1端口，等待窗口接收到Air780EHM发送的字符"C" 表示准备接收数据，选择.bin文件发送，代码里面初始化ymodem是保存为.bin文件，如果需要其他文件可以自行修改后缀，文件大小不可以大于模块本身的文件系统区域，等待传输完成，传输完成后，Luatools的运行日志输出：
+5、电脑上打开SecureCRT，连接上Air8000 UATR1端口，等待窗口接收到Air8000发送的字符"C" 表示准备接收数据，选择.bin文件发送，代码里面初始化ymodem是保存为.bin文件，如果需要其他文件可以自行修改后缀，文件大小不可以大于模块本身的文件系统区域，等待传输完成，传输完成后，Luatools的运行日志输出：
 ``` lua
 [2025-06-25 11:28:30.664][000000185.351] I/main.lua:41	1029
 [2025-06-25 11:28:30.665][000000185.353] D/ymodem save.bin,1024,1

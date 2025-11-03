@@ -6,7 +6,7 @@
 @author  李源龙
 @usage
 本demo演示的核心功能为：
-使用Air780EHM核心板的UART1连接PC端的串口调试仿真工具SecureCRT，通过Ymodem协议接收文件。
+使用Air8000核心板的UART1连接PC端的串口调试仿真工具SecureCRT，通过Ymodem协议接收文件。
 更多说明参考本目录下的readme.md文件
 ]]
 

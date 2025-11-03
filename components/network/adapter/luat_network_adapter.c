@@ -977,6 +977,9 @@ static int network_state_listen(network_ctrl_t *ctrl, OS_EVENT *event, network_a
 		break;
 	case EV_NW_SOCKET_NEW_CONNECT:
 	case EV_NW_SOCKET_CONNECT_OK:
+		if (ctrl->is_server_mode && ctrl->max_wait_accept > 0) {
+			return 0; // 对于多客户的tcpserver模式, 保持listen状态
+		}
 		ctrl->state = NW_STATE_ONLINE;
 		return 0;
 	default:
@@ -1659,9 +1662,6 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
 		DBG_ERR("accept_ctrl %p tag: %llu", accept_ctrl, accept_ctrl->tag);
-		// 将srv恢复到可接收的状态
-		ctrl->state = NW_STATE_LISTEN;
-		ctrl->wait_target_state = NW_WAIT_ON_LINE;
 		return 0;
 	}
 }
@@ -2209,6 +2209,7 @@ int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	}
 	if (ctrl->socket_id >= 0)
 	{
+		DBG("socket %d busy, state %d", ctrl->socket_id, ctrl->state);
 		return -1;
 	}
 	NW_LOCK;

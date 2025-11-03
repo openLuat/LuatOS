@@ -22,11 +22,11 @@ local function serTask(port, adapter)
 	while true do
 		log.info("开始监听客户端连接, 无限时长")
 		-- sys.wait(1000)
-		result, code = libnet.listen(dName, 0, netc)
+		result, code = libnet.listen(dName, 0, netc, 8)  -- 支持最多8个等待accept的客户端
 		log.info("监听结果", result, code)
 		if result then
 			log.info("有客户端连接请求到来, 接受连接")
-            result, client = socket.accept(netc, function(client, event, param)
+            result, client, ip, port = socket.accept(netc, function(client, event, param)
 				log.info("客户端事件", client, event, params)
 				if event == socket.EVENT then
 					local result = socket.rx(client, buff)
@@ -34,6 +34,7 @@ local function serTask(port, adapter)
 					buff:seek(0)
 				end
 			end)
+			log.info("accept结果", result, client, ip, port)
 			socket.debug(client, true)
             if result then
 				table.insert(clients, client)

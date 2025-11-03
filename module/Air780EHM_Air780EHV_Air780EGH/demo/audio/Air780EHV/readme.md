@@ -76,7 +76,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 3、 luatos需要的脚本和资源文件
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS_demo_v2_temp/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/audio/Air780EHV_audio)
 
-- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air780EHV核心板](https://docs.openluat.com/air8000/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air780EHV核心板中。
+- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air780EXX核心板](https://docs.openluat.com/air780epm/luatos/common/download/)， 将本篇文章中演示使用的项目文件烧录到Air780EHV核心板中。
 
 4、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明](https://docs.openluat.com/air780epm/common/luatio/)
 

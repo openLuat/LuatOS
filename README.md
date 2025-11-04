@@ -49,7 +49,9 @@ tools文件夹，辅助工具
 
 ## 资料大全
 
-* [docs@luatos](https://docs.openluat.com/osapi/luatos_framework/)
+* [docs@luatos](https://docs.openluat.com/)
+* 第三方工具 - LuatOS IDE Helper (https://gitee.com/tianyiw/LuatOS-ide-helper)
+
 
 ## 授权协议
 

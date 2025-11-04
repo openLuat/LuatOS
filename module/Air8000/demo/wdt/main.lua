@@ -1,18 +1,13 @@
 --[[
 @module  main
-@summary LuatOS字符串操作示例主入口，负责加载功能模块
+@summary LuatOS语音通话应用主入口，负责加载功能模块
 @version 1.0
-@date    2025.10.30
+@date    2025.10.25
 @author  陈媛媛
 @usage
 本demo演示的核心功能为：
-1、字符串十六进制编码/解码
-2、字符串分割处理
-3、数值转换操作
-4、Base64/Base32编码解码
-5、URL编码处理
-6、字符串前后缀判断
-7、字符串裁剪处理
+1、内部看门狗正常和异常场景演示
+2、外部硬件看门狗Air153C正常和异常场景演示
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -28,21 +23,11 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "VOICE_CALL_DEMO"
+PROJECT = "wdt_DEMO"
 VERSION = "001.000.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
-
--- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
--- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
-if wdt then
-    --配置喂狗超时时间为9秒钟
-    wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
-    sys.timerLoopStart(wdt.feed, 3000)
-end
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -68,8 +53,9 @@ end
 -- end, 3000)
 
 
--- 仅加载必要的功能模块
-require "string_demo"  ---- 加载字符串操作演示模块
+-- 仅加载必要的功能模块，有选择的打开以下两个lua文件中的一个
+require "internal_wdt"  -- 内部看门狗演示模块
+--require "air153c_wdt"    -- 外部看门狗演示模块
 
 -- 用户代码已结束---------------------------------------------
 sys.run()

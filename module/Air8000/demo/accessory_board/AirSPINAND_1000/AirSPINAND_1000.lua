@@ -1,11 +1,11 @@
 --[[
-@module  LITTLE_FLASh_NAND
-@summary LITTLE_FLASh_NAND测试功能模块
+@module  AirSPINAND_1000
+@summary AirSPINAND_1000测试功能模块
 @version 1.0
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8000核心板通过SPI库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
+本demo演示的功能为：使用Air8000核心板通过SPI库和little_flash库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
 Air8000       AirSPINAND_1000配件版
 GND(任意)          GND
@@ -14,6 +14,7 @@ GPIO12/SPI1_CS     CS,片选
 SPI1_SLK           CLK,时钟
 SPI1_MOSI          DI,主机输出,从机输入
 SPI1_MISO          DO,主机输入,从机输出
+
 --使用SPI1，硬件SPI CS接在gpio12上
 
 运行核心逻辑：
@@ -46,7 +47,7 @@ local function spiDev_init_func()
         log.error("SPI初始化", "失败")
         return nil
     end
-    log.info("SPI初始化", "成功，波特率:20MHz")
+    log.info("SPI初始化", "成功，波特率",bandrate)
     return spi_device
 end
 

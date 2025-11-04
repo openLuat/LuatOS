@@ -1,49 +1,84 @@
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.10.31
+@author  马梦阳
+@usage
 
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "iotauthdemo"
-VERSION = "1.0.0"
+本demo演示的核心功能为：
+1. 为 阿里云 生成 MQTT 三元组参数
+2. 为 中移OneNet 生成 MQTT 三元组参数
+3. 为 华为云IoTDA 生成 MQTT 三元组参数
+4. 为 腾讯云 生成 MQTT 三元组参数
+5. 为 涂鸦云 生成 MQTT 三元组参数
+6. 为 百度云 生成 MQTT 三元组参数
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+注意事项：
+1. iotauth 库及该示例代码仅供参考，目前已不再提供维护和技术支持服务
+2. 该示例代码存放于：https://gitee.com/openLuat/LuatOS/tree/master/olddemo/iotauth
+3. 在烧录底层固件时需要选择支持 64 位的固件版本
+    Air7xxx、Air8000 系列模组选择版本号为 101-199 的固件
+    Air8101 系列模组选择版本号为 V2xxx 的固件（目前 V2xxx 版本固件还没有第一版）
 
+更多说明参考本目录下的 readme.md 文件；
+]]
+
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "iotauth"
+VERSION = "001.000.000"
+
+
+-- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
 
--- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
-if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
-    pm.power(pm.PWK_MODE, false)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
-sys.taskInit(function()
-    sys.wait(2000)
-    -- 以下演示的, 均为 mqtt 所需的密钥计算, 可配合demo/socket 或 demo/mqtt 下的示例一起使用
 
-    -- 中移动OneNet
-    local client_id,user_name,password = iotauth.onenet("qDPGh8t81z", "45463968338A185E", "MTIzNDU2")
-    log.info("onenet",client_id,user_name,password)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    -- 华为云
-    local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789")
-    log.info("iotda",client_id,user_name,password)
 
-    -- 涂鸦
-    local client_id,user_name,password = iotauth.tuya(" 6c95875d0f5ba69607nzfl","fb803786602df760")
-    log.info("tuya",client_id,user_name,password)
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-    -- 百度云服务
-    local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrEt0I1M2jkl")
-    log.info("baidu",client_id,user_name,password)
 
-    -- 腾讯云
-    local client_id,user_name,password = iotauth.qcloud("LD8S5J1L07","test","acyv3QDJrRa0fW5UE58KnQ==")
-    log.info("qcloud",client_id,user_name,password)
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    -- 阿里云
-    local client_id,user_name,password = iotauth.aliyun("123456789","abcdefg","Y877Bgo8X5owd3lcB5wWDjryNPoB")
-    log.info("aliyun",client_id,user_name,password)
 
-end)
-
+-- 加载 iotauth 应用模块
+require "iotauth_app"
 
 
 -- 用户代码已结束---------------------------------------------

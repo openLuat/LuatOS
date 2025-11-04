@@ -150,7 +150,7 @@ function airlbs.request(param)
             lbs_data.cells[k][2] = v.mnc
             lbs_data.cells[k][3] = v.tac
             lbs_data.cells[k][4] = v.cid
-            lbs_data.cells[k][5] = v.rssi
+            lbs_data.cells[k][5] = v.rssi or v.rsrp
             lbs_data.cells[k][6] = v.snr
             lbs_data.cells[k][7] = v.pci
             lbs_data.cells[k][8] = v.rsrp

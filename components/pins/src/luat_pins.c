@@ -39,7 +39,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 	size_t org_len = len;
 	size_t offset = 0;
 	const char *peripheral_names[LUAT_MCU_PERIPHERAL_QTY] = {
-			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD","ETH","QSPI","USIM","ENET"
+			"UART","I2C","SPI","PWM","CAN","GPIO","I2S","SDIO","LCD","CAMERA","ONEWIRE","KEYBORAD","ETH","QSPI","USIM"
 	};
 	const char *function0_names[4] = {
 			"RX","SCL","MOSI","PHY_INT"
@@ -253,29 +253,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 				}
 				break;
-			case LUAT_MCU_PERIPHERAL_SIM:
-				if (description.peripheral_id) description.peripheral_id = 1;
-				function_id = search(string, len, function2_names, sizeof(function2_names)/4);
-				if (function_id >= 0)
-				{
-					description.function_id = 1;
-					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
-				}
-				function_id = search(string, len, function4_names, sizeof(function4_names)/4);
-				if (function_id >= 0)
-				{
-					description.function_id = 0;
-					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
-				}
-				function_id = search(string, len, function5_names, sizeof(function5_names)/4);
-				if (function_id >= 0)
-				{
-					description.function_id = 2;
-					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
-				}
-				break;
-			case LUAT_MCU_PERIPHERAL_ENET:
-				LLOGD("ENET %.*s, %d", len, string, len);
+			case LUAT_MCU_PERIPHERAL_ETH:
 				if (strnstr(string, "_RXD", len))
 				{
 					if (string[4] == 'V')
@@ -322,6 +300,27 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 				}
 				function_id = search(string, len, function2_names, sizeof(function2_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 2;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				break;
+			case LUAT_MCU_PERIPHERAL_SIM:
+				if (description.peripheral_id) description.peripheral_id = 1;
+				function_id = search(string, len, function2_names, sizeof(function2_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 1;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function4_names, sizeof(function4_names)/4);
+				if (function_id >= 0)
+				{
+					description.function_id = 0;
+					goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
+				}
+				function_id = search(string, len, function5_names, sizeof(function5_names)/4);
 				if (function_id >= 0)
 				{
 					description.function_id = 2;
@@ -378,8 +377,15 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 	#endif
 	#ifdef __BK72XX__
 	if (pin == 26 || pin == 27){	// air8101的26/27不支持配置,只能作为uart0调试串口
-		LLOGE("pin%d不支持修改", pin);
+		LLOGE("pin%d 是UART0功能, 不支持修改", pin);
 		goto LUAT_PIN_SETUP_DONE;
+	}
+	if (memcmp("DVP_", func_name, 4) == 0 
+		|| memcmp("QSPI", func_name, 4) == 0 
+		|| memcmp("RGB_", func_name, 4) == 0 
+		|| memcmp("SWCLK", func_name, 5) == 0 
+		|| memcmp("SWDIO", func_name, 5) == 0){
+		return 1;
 	}
 	#endif
 	if (func_name != NULL)

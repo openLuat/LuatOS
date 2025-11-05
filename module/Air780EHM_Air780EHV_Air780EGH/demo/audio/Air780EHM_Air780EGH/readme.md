@@ -104,10 +104,10 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010 配件板的硬件接线�
 
 - 如果需要测试录音频到文件，则选择record_file 文件
 
-- 如果需要测试流式录音，则选择record_stream 文
+- 如果需要测试流式录音，则选择record_stream 文件
 
 
-3、Luatools烧录内核固件和修改后的demo脚本代码
+3、Luatools烧录内核固件和demo脚本代码
 
 4、 在测试播放音频文件的时候，点powerkey 按键进行音频切换，切换内容是MP3,AMR格式，切换是通过播放优先级进行区分的，注意音频格式仅仅支持:MP3,WAV,AMR,点击boot 按键停止音频播放
 

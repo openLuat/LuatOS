@@ -77,10 +77,7 @@ int airlink_gpio_irq_cb(int pin, void* args) {
     event.param1 = params[0];
     event.param2 = params[1];
     // res = luat_rtos_event_send(airlink_gpio_irq_cb_handle, 1, event.param1, event.param2, 0, 0);
-    luat_rtos_queue_send(evt_queue, &event, sizeof(event), LUAT_WAIT_FOREVER);
-    if (res != 0) {
-        LLOGW("airlink发送消息失败!!! %d", res);
-    }
+    res = luat_rtos_queue_send(evt_queue, &event, sizeof(event), 0);
     return res;
 }
 

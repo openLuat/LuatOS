@@ -1,62 +1,69 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "LOG"
-VERSION = "2.0.0"
-
 --[[
-本demo演示 string字符串的基本操作
-1. lua的字符串是带长度, 这意味着, 它不依赖0x00作为结束字符串, 可以包含任意数据
-2. lua的字符串是不可变的, 就不能直接修改字符串的一个字符, 修改字符会返回一个新的字符串
+@module  main
+@summary LuatOS pack API演示主入口，负责加载功能模块
+@version 1.0
+@date    2025.10.27
+@author  陈媛媛
+@usage
+本demo演示的核心功能为：
+1、pack.pack API的各种格式演示
+2、pack.unpack API的各种用法演示
+3、大小端编码、字符串格式、数值类型等完整示例
+
+更多说明参考本目录下的readme.md文件
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
-sysplus = require("sysplus")
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "PACK_DEMO"
+VERSION = "001.000.000"
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
 
-local netLed = require("netLed")
---GPIO18配置为输出，默认输出低电平，可通过setGpio18Fnc(0或者1)设置输出电平
-local LEDA= gpio.setup(27, 0, gpio.PULLUP)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-sys.taskInit(function ()
-    sys.wait(1000) -- 免得看不到日志
-    local tmp
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-	--实验1：以小端方式编码
-	local data = string.pack("<I", 0xAABBCCDD)      --‘<’表示以小端方式编码，'I'表示，unsigned int , 4字节
-	log.info("pack:", 	string.format("%02X", data:byte(1)), 	--输出小端编码后的数据
-						string.format("%02X", data:byte(2)), 
-						string.format("%02X", data:byte(3)), 
-						string.format("%02X", data:byte(4)))
-	
-	--实验2：以大端方式编码
-	local data = string.pack(">I", 0xAABBCCDD)
-	log.info("pack:", 	string.format("%02X", data:byte(1)),   --输出大端编码后的数据
-						string.format("%02X", data:byte(2)), 
-						string.format("%02X", data:byte(3)), 
-						string.format("%02X", data:byte(4)))
-						
-	--实验3：对上面已经完成的大端编码，再次进行解包为每个字节					
-	local byte1,byte2,byte3,byte4 = string.unpack(">BBBB", data)  --将32位数据拆成4个8位字节数据
-    --log.info("Unpack", byte1,byte2,byte3,byte4)		
-	log.info("Unpack:", string.format("%02X", byte1),   --以十六进制形式输出拆解后的4个字节数据
-						string.format("%02X", byte2), 
-						string.format("%02X", byte3), 
-						string.format("%02X", byte4))
-end)
--- 这里演示4G模块上网后，会自动点亮网络灯，方便用户判断模块是否正常开机
-sys.taskInit(function()
-    while true do
-        sys.wait(6000)
-                if mobile.status() == 1 then
-                        gpio.set(27, 1)  
-                else
-                        gpio.set(27, 0) 
-                        mobile.reset()
-        end
-    end
-end)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+-- 仅加载必要的功能模块
+require "pack_demo"  -- pack API演示模块
+
 -- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!

@@ -39,8 +39,8 @@ function ble_ibeacon()
                                 0xC0) -- Signal Power（1字节）
 
     ble_device:adv_create({
-        addr_mode = ble.PUBLIC, -- 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
-        channel_map = ble.CHNLS_ALL, -- 广播的通道, 可选值: ble.CHNLS_37, ble.CHNLS_38, ble.CHNLS_39, ble.CHNLS_ALL
+        addr_mode = ble.PUBLIC, -- 广播地址模式, 仅支持: ble.PUBLIC
+        channel_map = ble.CHNLS_ALL, -- 广播的通道, 可选值: ble.CHNL_37, ble.CHNL_38, ble.CHNL_39, ble.CHNLS_ALL
         intv_min = 120, -- 广播间隔最小值, 单位为0.625ms, 最小值为20, 最大值为10240
         intv_max = 120, -- 广播间隔最大值, 单位为0.625ms, 最小值为20, 最大值为10240
         adv_data = { -- 支持表格形式, 也支持字符串形式(255字节以内)

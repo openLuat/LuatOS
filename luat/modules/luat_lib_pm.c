@@ -479,7 +479,12 @@ static uint8_t get_default_yhm27xx_pin(void)
 {
     char model[32] = {0};
     luat_hmeta_model_name(model);
-    if (memcmp("Air8000\0", model, 8) == 0 || memcmp("Air8000XB\0", model, 10) == 0 || memcmp("Air8000U\0", model, 9) == 0 || memcmp("Air8000N\0", model, 9) == 0) {
+    if (memcmp("Air8000\0", model, 8) == 0 || 
+        memcmp("Air8000XB\0", model, 10) == 0 || 
+        memcmp("Air8000AB\0", model, 10) == 0 || 
+        memcmp("Air8000U\0", model, 9) == 0 || 
+        memcmp("Air8000N\0", model, 9) == 0
+    ) {
         return 152;
     }
     if (memcmp("Air8000G\0", model, 9) == 0) {

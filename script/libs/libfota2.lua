@@ -161,6 +161,7 @@ function libfota2.request(cbFnc, opts)
     if not opts.url then
         opts.url = "http://iot.openluat.com/api/site/firmware_upgrade?"
     end
+    local query = ""
     if opts.url:sub(1, 3) ~= "###" and not opts.url_done then
         -- 补齐project_key函数
         if not opts.project_key then
@@ -180,7 +181,6 @@ function libfota2.request(cbFnc, opts)
         if not opts.firmware_name then
             opts.firmware_name = _G.PROJECT .. "_LuatOS-SoC_" .. rtos.bsp()
         end
-        local query = ""
         -- 补齐imei参数
         if not opts.imei then
             if mobile then
@@ -209,7 +209,7 @@ function libfota2.request(cbFnc, opts)
         opts.method = "GET"
     end
     log.info("fota.url", opts.method, opts.url)
-    log.info("fota.imei", opts.imei)
+    log.info("fota.imei/mac/uid", query)
     log.info("fota.project_key", opts.project_key)
     log.info("fota.firmware_name", opts.firmware_name)
     log.info("fota.version", opts.version)

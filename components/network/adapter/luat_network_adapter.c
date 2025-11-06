@@ -1645,7 +1645,7 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		DBG_ERR("adapter %d not support accept multiple", ctrl->adapter_index);
 		return -1;
 	}
-	DBG_ERR("执行accept操作 %p %p", adapter, accept_ctrl, adapter->opt->socket_accept);
+	DBG("do accept %p %p", adapter, accept_ctrl, adapter->opt->socket_accept);
 	accept_ctrl->socket_id = adapter->opt->socket_accept(ctrl->socket_id, 0, &accept_ctrl->remote_ip, &accept_ctrl->remote_port, accept_ctrl);
 	if (accept_ctrl->socket_id < 0)
 	{
@@ -1661,7 +1661,7 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		accept_ctrl->tcp_timeout_ms = ctrl->tcp_timeout_ms;
 		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
-		DBG_ERR("accept_ctrl %p tag: %llu", accept_ctrl, accept_ctrl->tag);
+		DBG("accept_ctrl %p tag: %llu", accept_ctrl, accept_ctrl->tag);
 		return 0;
 	}
 }

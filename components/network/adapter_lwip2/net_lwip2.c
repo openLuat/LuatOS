@@ -203,7 +203,7 @@ static void net_lwip2_callback_to_nw_task(uint8_t adapter_index, uint32_t event_
 		prvlwip.socket_busy &= ~(1 << param1);
 		break;
 	}
-	LLOGD("socket_cb event_id %08X param.tag %d param3 %ld", event_id, param.tag, param3);
+	//LLOGD("socket_cb event_id %08X param.tag %d param3 %ld", event_id, param.tag, param3);
 	prvlwip.socket_cb(&event, &param);
 }
 
@@ -412,12 +412,12 @@ static err_t net_lwip2_tcp_fast_accept_cb(void *arg, struct tcp_pcb *newpcb, err
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
-	LLOGD("adapter %d socket %d new client", adapter_index, socket_id);
 	if (err || !newpcb)
 	{
 		net_lwip2_tcp_error(adapter_index, socket_id);
 		return 0;
 	}
+	LLOGD("adapter %d socket %d new client from %s:%d", adapter_index, socket_id, ipaddr_ntoa(&newpcb->remote_ip), newpcb->remote_port);
 	if (prvlwip.socket[socket_id].pcb.tcp != NULL) {
 		LLOGE("accept fail, srv socket busy. from %s:%d", ipaddr_ntoa(&newpcb->remote_ip), newpcb->remote_port);
 		tcp_close(newpcb);

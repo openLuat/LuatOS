@@ -74,11 +74,11 @@ end
 
 
 -- 加载AirSPINAND_1000功能模块
--- require "AirSPINAND_1000"
+require "AirSPINAND_1000"
 
 
 -- 加载ram_spi功能模块
-require "ram_spi"
+-- require "ram_spi"
 
 
 

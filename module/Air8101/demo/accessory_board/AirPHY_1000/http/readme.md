@@ -16,7 +16,7 @@
 
 [](https://docs.openLuat.com/cdn/image/8101_AirPHY1000.jpg)
 
-![lan](https://docs.openLuat.com/cdn/image/8101_AirPHY1000.jpg)
+![lan](https://docs.openLuat.com/cdn/image/8101_AirPHY1000.jpg)
 
 2、TYPE-C USB数据线一根 + 杜邦线若干;
 

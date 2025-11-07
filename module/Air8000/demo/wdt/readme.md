@@ -47,7 +47,8 @@
 
 2、Air8000 V2016版本固件。不同版本区别请见https://docs.openluat.com/air8000/luatos/firmware/
 
-3、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+3、脚本和资源文件：[点我,查看demo链接](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/wdt)
+  lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
 4、准备好软件环境之后，接下来查看[如何烧录项目文件到 Air8000核心板中](https://docs.openluat.com/air8000/luatos/common/download/)。
 

@@ -408,7 +408,7 @@ static int l_ble_gatt_create(lua_State *L){
                 if (LUA_TNUMBER == lua_gettable(L, -2)){
                     characteristics[characteristics_num].max_size = (uint16_t)luaL_optnumber(L, -1, 0);
                 }else{
-                    characteristics[characteristics_num].max_size = 256;
+                    characteristics[characteristics_num].max_size = 0xFF;
                 }
                 lua_pop(L, 1);
                 characteristics_num++;

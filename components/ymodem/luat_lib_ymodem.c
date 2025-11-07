@@ -124,7 +124,12 @@ static int l_ymodem_receive(lua_State *L){
 	}
 	else
 	{
-		LLOGE("%x,%x", handler, handler->ctrl);
+		if (handler == NULL) {
+			LLOGE("handler is nil!!!");
+		}
+		else {
+			LLOGE("handler->ctrl is nil!!!");
+		}
 		lua_pushboolean(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);

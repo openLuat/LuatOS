@@ -51,7 +51,7 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 			"RTS","CLK","BCLK","MDIO"
 	};
 	const char *function3_names[4] = {
-			"CTS","CS","LRCLK","REF_CLK"
+			"CTS","CS","LRCLK","REFCLK"
 	};
 	const char *function4_names[4] = {
 			"MCLK","CMD","IO","DAT"
@@ -261,17 +261,17 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 						description.function_id = 4;
 						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 					}
-					else if (string[5] == '0' || string[5] == '1')
+					else if (string[4] == '0' || string[4] == '1')
 					{
-						description.function_id = string[5] - '0' + 5;
+						description.function_id = string[4] - '0' + 5;
 						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 					}
 				}
 				if (strnstr(string, "_TXD", len))
 				{
-					if (string[5] == '0' || string[5] == '1')
+					if (string[4] == '0' || string[4] == '1')
 					{
-						description.function_id = string[5] - '0' + 7;
+						description.function_id = string[4] - '0' + 7;
 						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 					}
 				}

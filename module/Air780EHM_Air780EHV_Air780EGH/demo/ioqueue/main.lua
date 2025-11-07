@@ -1,23 +1,15 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
-@version 001.000.000
-@date    2025.9.05
-@author  马亚丹
+@summary LuatOS用户应用脚本文件入口,总体调度应用逻辑
+@version 1.0
+@date    2025.10.17
+@author  孟伟
 @usage
-本demo演示的功能为：使用Air8000核心板实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
-以 Air8000核心板为例, 接线如下:
-Air8000       AirSPINAND_1000配件版
-GND(任意)          GND
-VDD_EXT            VCC
-GPIO12/SPI1_CS     CS,片选
-SPI1_SLK           CLK,时钟
-SPI1_MOSI          DI,主机输出,从机输入
-SPI1_MISO          DO,主机输入,从机输出
---使用SPI1，硬件SPI CS接在gpio12上
-直接require "AirSPINAND_1000" 加载AirSPINAND_1000功能模块，烧录运行即可。
-详细逻辑请看AirSPINAND_1000.lua 文件
-
+本demo演示的功能为：
+IO队列功能测试，包括：
+   DHT11温湿度传感器数据读取
+   高精度固定间隔脉冲输出
+   高精度可变间隔脉冲输出
 ]]
 
 --[[
@@ -30,9 +22,8 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air8000_SPI_NAND"
+PROJECT = "ioqueue_demo"
 VERSION = "001.000.000"
-
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -71,18 +62,15 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-
-
--- 加载AirSPINAND_1000功能模块
-require "AirSPINAND_1000"
-
-
--- 加载ram_spi功能模块
--- require "ram_spi"
-
+-- 加载dht11功能模块
+require "dht11_capture"
+-- 加载高精度可变间隔脉冲输出功能模块
+require "var_pulse_output"
+-- 加载高精度固定间隔脉冲输出功能模块
+require "fix_pulse_output"
 
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

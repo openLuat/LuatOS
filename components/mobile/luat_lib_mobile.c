@@ -987,7 +987,7 @@ end
  */
 static int l_mobile_get_band(lua_State* L) {
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
-    uint8_t total_num;
+    uint8_t total_num = 0;
     int re;
     if (buff->len < 40)
     {

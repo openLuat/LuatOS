@@ -48,7 +48,7 @@ Air780EGH核心板
 
 
 3、TYPE-C USB数据线一根
-- AAir780EHM/Air780EHV/Air780EGH核心板通过 TYPE-C USB 口供电；
+- Air780EHM/Air780EHV/Air780EGH核心板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 
@@ -62,9 +62,7 @@ Air780EGH核心板
 
 - LuatOS-SoC_V2016_Air780EGH 版本固件。不同版本区别请见 https://docs.openluat.com/air780egh/luatos/firmware/version/
 
-3、脚本和资源文件：[点我,查看demo链接](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/wdt)
-
-  lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+3、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
 4、准备好软件环境之后，接下来查看
 

@@ -1,110 +1,76 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "strtest"
-VERSION = "2.0.0"
-
 --[[
-本demo演示 string字符串的基本操作
-1. lua的字符串是带长度, 这意味着, 它不依赖0x00作为结束字符串, 可以包含任意数据
-2. lua的字符串是不可变的, 就不能直接修改字符串的一个字符, 修改字符会返回一个新的字符串
+@module  main
+@summary LuatOS字符串操作示例主入口，负责加载功能模块
+@version 1.0
+@date    2025.10.30
+@author  陈媛媛
+@usage
+本demo演示的核心功能为：
+1、字符串十六进制编码/解码
+2、字符串分割处理
+3、数值转换操作
+4、Base64/Base32编码解码
+5、URL编码处理
+6、字符串前后缀判断
+7、字符串裁剪处理
+
+更多说明参考本目录下的readme.md文件
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
 
-sys.taskInit(function ()
-    sys.wait(1000) -- 免得看不到日志
-    local tmp
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "VOICE_CALL_DEMO"
+VERSION = "001.000.000"
 
-    ----------------------------------------------
-    --================================================
-    -- 字符串的声明和生成
-    --================================================
-
-    -- 常量声明
-    local str = "123455" 
-    log.info("str", str)														--日志输出：123455
-
-    -- 合成式
-    str = string.char(0x31, 0x32, 0x33, 0x34)  --0x31为字符 1的ASCII码
-    log.info("str", str)           												--日志输出：1234                   
-    -- lua的字符串可以包含任意数据, 包括 0x00
-    str = string.char(0x12, 0x00, 0xF1, 0x3A)
-    log.info("str", str:toHex()) -- 注意, 这里用toHex(), 因为包含了不可见字符   --日志输出：1200F13A	8（其中8为输出字符串长度）
-    -- 使用转义字符
-    str = "\x00\x12ABC"			 -- 字符串中的\x表示十六进制转义序列								
-    log.info("str", str:toHex()) -- 注意, 这里用toHex(), 因为包含了不可见字符   --日志输出：0012414243	10 （其中41，42，43分别分字符 ABC的ASCII值的十六进制形式，10为输出字符串长度）
-    str = "ABC\r\n\t"
-    log.info("str", str:toHex()) -- 注意, 这里用toHex(), 因为包含了不可见字符   --日志输出：4142430D0A09	12（其中0D为\r回车键值的ASCII值的十六进制形式，
-	                                                                            --0A为\n换行键值的ASCII值的十六进制形式，\t 是一个转义字符，表示一个水平制表符（Tab））
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
 
-
-    -- 解析生成
-    str = string.fromHex("AABB00EE")											
-    log.info("str", str:toHex())												--日志输出：AABB00EE	8
-    str = string.fromHex("393837363433")       --将字符串转换为十六进制形式
-    log.info("str", #str, str)												    --日志输出：6	987643（其中6为输出字符长度，987643为输出字符串）
-
-    -- 连接字符串, 操作符 ".."
-    str = "123" .. "," .. "ABC"  --将3段字符串连接起来
-    log.info("str", #str, str)												    --日志输出：7	123,ABC（其中7为输出字符长度，123,ABC为连接后的字符串）
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
 
 
-    -- 格式化生成
-    str = string.format("%s,%d,%f", "123", 45678, 1.5)		--格式化输出，	%s为字符串输出，%d为十进制输出，%f为浮点形式输出			
-    log.info("str", #str, str)													--日志输出：18	123,45678,1.500000
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
 
-    --================================================
-    -- 字符串的解析与处理
-    --================================================
-    -- 获取长度
-    str = "1234567"
-    log.info("str", #str)														--日志输出：7为字符串长度
-    -- 获取字符串的HEX字符串显示
-    log.info("str", str:toHex())												--日志输出：31323334353637	14（用字符格式输出十六进制）
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-    -- 获取指定位置的值, 注意lua的下标是1开始的
-    str = "123ddss"
-    log.info("str[1]", str:byte(1))                                             --日志输出：49	 （字符1，对应十进制ASCII值）
-    log.info("str[4]", str:byte(4))												--日志输出: 100	 （字符d，对应十进制ASCII值）
-    log.info("str[1]", string.byte(str, 1))										--日志输出：49   （str位置1的字符，也是数字1）
-    log.info("str[4]", string.byte(str, 4))										--日志输出: 100	 （str位置4的字符，也是数字d）
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-    -- 按字符串分割
-    str = "12,2,3,4,5"
-    tmp = str:split(",")
-    log.info("str.split", #tmp, tmp[1], tmp[3])									--日志输出：5	12	3
-    tmp = string.split(str, ",") -- 与前面的等价
-    log.info("str.split", #tmp, tmp[1], tmp[3])                                 --日志输出：5	12	3
-    str = "/tmp//def/1234/"
-    tmp = str:split("/")
-    log.info("str.split", #tmp, json.encode(tmp))								--日志输出：3	["tmp","def","1234"]
 
-    -- 2023.04.11新增的, 可以保留空的分割片段
-	--在 Lua 中，str:split("/", true) 语句表示将字符串 str 按照字符 "/" 进行分割，并且 true 参数通常用于表示保留空字符串（这取决于具体的 split 函数实现，因为 Lua 标准库中没有内置的 split 函数）。根据你的描述，输出结果是 6 ["","tmp","","def","1234",""]。这是因为：
-    --假设 str 是 "/tmp//def/1234/"，在这种情况下，字符串以 "/" 开头和结尾，并且有连续的 "/"。
-    --split 函数将字符串分割成多个部分，每个 "/" 都会作为一个分割符。
-    --因为 true 参数表示保留空字符串，所以在分割过程中，连续的 "/" 和开头、结尾的 "/" 都会导致空字符串被保留。
+-- 仅加载必要的功能模块
+require "string_demo"  ---- 加载字符串操作演示模块
 
-    tmp = str:split("/", true) 
-    log.info("str.split", #tmp, json.encode(tmp))								--日志输出：6	["","tmp","","def","1234",""]
-
-end)
--- 这里演示4G模块上网后，会自动点亮网络灯，方便用户判断模块是否正常开机
-sys.taskInit(function()
-    while true do
-        sys.wait(6000)
-                if mobile.status() == 1 then
-                        gpio.set(27, 1)  
-                else
-                        gpio.set(27, 0) 
-                        mobile.reset()
-        end
-    end
-end)
 -- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!

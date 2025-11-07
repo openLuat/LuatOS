@@ -1,7 +1,7 @@
 # wdt_DEMO 项目说明
 
 ## 项目概述
-本项目是基于 Air780EPM开发板/Air780EHM核心板，演示了两种看门狗(WDT)功能的使用。
+本项目是基于 Air780EPM开发板，演示了两种看门狗(WDT)功能的使用。
 
 - 内部看门狗 - 使用芯片内置的硬件看门狗
 
@@ -30,39 +30,27 @@
  - 硬件复位：外部看门狗超时后通过硬件复位系统
 
 ## 演示硬件环境
-1、Air780EPM开发板/Air780EHM核心板
+1、Air780EPM开发板
  
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EPM开发板.jpg)
 
-![alt text]( https://docs.openLuat.com/cdn/image/Air780EHM核心板.jpg)
-
 2、Air153C配件版（待补充图片和接线图）
 
-
 3、TYPE-C USB数据线一根
-- Air8000开发板/核心板通过 TYPE-C USB 口供电；
+- Air780EPM开发板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 
 ## 演示软件环境
 1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
 
-2、固件版本：
-- LuatOS-SoC_V2016_Air780EPM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
-
-- LuatOS-SoC_V2016_Air780EHM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
-
+2、固件版本LuatOS-SoC_V2016_Air780EPM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
 
 3、脚本和资源文件：[点我,查看demo链接](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EPM/demo/wdt)
 
    lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
-4、准备好软件环境之后，接下来查看
-
-- [如何烧录项目文件到 Air780EPM开发板中](https://docs.openluat.com/air780ehv/luatos/common/download/)
-
-- [如何烧录项目文件到 Air780EHM核心板中](https://docs.openluat.com/air780egh/luatos/common/download/)  
-将本篇文章中演示使用的项目文件烧录到相应的核心板中。
+4、准备好软件环境之后，接下来查看[如何烧录项目文件到 Air780EPM开发板中](https://docs.openluat.com/air780ehv/luatos/common/download/)将本篇文章中演示使用的项目文件烧录到相应的核心板中。
 
 ## 相关软件资料
 wdt 核心库文档：https://docs.openluat.com/osapi/core/wdt/

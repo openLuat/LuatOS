@@ -1,13 +1,13 @@
 --[[
-@module  AirSPINAND_1000
-@summary AirSPINAND_1000测试功能模块
+@module  lf_fs
+@summary lf_fs测试功能模块
 @version 1.0
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8000核心板通过SPI库和little_flash库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
+本demo演示的功能为：使用Air8000核心板通过SPI核心库/lf核心库/io核心库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
-Air8000       AirSPINAND_1000配件版
+Air8000       lf_fs配件版
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO12/SPI1_CS     CS,片选
@@ -20,7 +20,7 @@ SPI1_MISO          DO,主机输入,从机输出
 运行核心逻辑：
 1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
 2.用SPI对象初始化flash设备，返回flash设备对象
-3.用lf库挂载flash设备对象为文件系统
+3.用lf库挂载flash设备对象为LittleFS文件系统
 4.读取文件系统的信息，以确认内存情况
 5.操作文件读写，并验证写入一致性，追加文件等。
 

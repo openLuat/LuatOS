@@ -7,7 +7,7 @@
 @usage
 本demo演示的功能为：使用Air8000核心板实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
-Air8000       AirSPINAND_1000配件版
+Air8000       lf_fs配件版
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO12/SPI1_CS     CS,片选
@@ -15,8 +15,8 @@ SPI1_SLK           CLK,时钟
 SPI1_MOSI          DI,主机输出,从机输入
 SPI1_MISO          DO,主机输入,从机输出
 --使用SPI1，硬件SPI CS接在gpio12上
-直接require "AirSPINAND_1000" 加载AirSPINAND_1000功能模块，烧录运行即可。
-详细逻辑请看AirSPINAND_1000.lua 文件
+直接require "lf_fs" 加载lf_fs功能模块，烧录运行即可。
+详细逻辑请看lf_fs.lua 文件
 
 ]]
 
@@ -73,8 +73,8 @@ end
 
 
 
--- 加载AirSPINAND_1000功能模块
-require "AirSPINAND_1000"
+-- 加载lf_fs功能模块
+require "lf_fs"
 
 
 -- 加载ram_spi功能模块

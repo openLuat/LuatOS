@@ -5,7 +5,7 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8000核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
+本demo演示的功能为：使用Air8000核心板通过SPI核心库/lf核心库/io核心库/实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
 Air8000       AirSPINORFLASH_1000配件版
 GND(任意)          GND
@@ -19,7 +19,7 @@ SPI1_MISO          DO,主机输入,从机输出
 运行核心逻辑：
 1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
 2.用SPI对象初始化flash设备，返回flash设备对象
-3.用lf库挂载flash设备对象为文件系统
+3.用lf库挂载flash设备对象为LittleFS文件系统
 4.读取文件系统的信息，以确认内存足够用于文件操作
 5.操作文件读写，并验证写入一致性，追加文件等。
 
@@ -182,6 +182,7 @@ local function spinor_test_func()
     local mount_point = "/little_flash"
     if not mount_filesystem(flash_device, mount_point) then
         log.error("主流程", "文件系统挂载失败，终止")
+        spi_close_func()
         return
     end
 

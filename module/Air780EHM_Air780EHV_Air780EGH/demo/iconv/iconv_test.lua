@@ -10,6 +10,8 @@
 2. Unicode大端(ucs2be)与GB2312编码互转
 3. Unicode小端(ucs2)与UTF8编码互转
 4. Unicode大端(ucs2be)与UTF8编码互转
+5. GB2312 编码与 UTF-8 编码之间的转换。
+
 
 
 本文件没有对外接口，直接在main.lua中require "iconv_test"就可以加载运行；

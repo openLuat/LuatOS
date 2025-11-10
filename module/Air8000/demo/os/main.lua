@@ -1,16 +1,14 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
-@version 003.000.000
-@date    2025.08.08
+@summary LuatOS os核心库演示入口文件，总体调度应用逻辑
+@version 001.000.000
+@date    2025.10.23
 @author  王棚嶙
 @usage
-本 Demo 完整覆盖了 zbuff 的核心到高级操作，包括：
-​基础​：创建、读写、指针控制、元信息查询
-​进阶​：结构化数据打包/解包、类型化操作、浮点处理
-​内存管理​：动态调整、块操作、数据比对、Base64 编码
-适用于嵌入式开发中高效处理二进制数据流、协议解析、内存优化等场景。
-
+本 Demo 演示了LuatOS os核心库的官方标准功能，包括：
+1. 时间日期处理：os.date、os.time、os.difftime
+2. 文件操作：os.remove、os.rename
+本演示采用单函数顺序执行结构，通过sys.taskInit自动启动演示流程
 ]]
 
 --[[
@@ -23,17 +21,25 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "zbuff"
-VERSION = "003.000.000"
-log.info("main", "项目启动", PROJECT, VERSION)
 
+PROJECT = "os_core_demo"
+VERSION = "001.000.000"
 
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+-- 添加硬狗防止程序卡死
+if wdt then
+    -- 初始化watchdog设置为9s
+    wdt.init(9000)
+    -- 3s喂一次狗 
+    sys.timerLoopStart(wdt.feed, 3000) 
+end
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
 -- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
 -- 启动errDump日志存储并且上传功能，600秒上传一次
---示例：
 -- if errDump then
 --     errDump.config(true, 600)
 -- end
@@ -48,17 +54,14 @@ log.info("main", "项目启动", PROJECT, VERSION)
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
---示例：
 -- sys.timerLoopStart(function()
 --     log.info("mem.lua", rtos.meminfo())
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
+-- 加载os核心库功能演示模块
+require "os_core_demo"
 
-
--- 加载zbuff应用功能模块
-require "zbuff_core"
-require "zbuff_advanced"
-require "zbuff_memory"
-
--- 启动系统调度
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
+-- sys.run()之后后面不要加任何语句!!!!!
 sys.run()

@@ -282,7 +282,7 @@ int l_crypto_cipher_decrypt(lua_State *L) {
     return l_crypto_cipher_xxx(L, 0);
 }
 
-#include "crc.h"
+
 typedef struct{
 const char *name;   //参数模型
 uint16_t crc16_polynomial;   //多项式

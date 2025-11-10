@@ -18,6 +18,10 @@
 -- mobile.simid(2)
 mobile.simid(2,true)--优先用SIM0
 
+-- 设置默认APN
+-- 注意：APN 必须在入网前就设置好；在国内公网卡基本上都不需要设置APN, 专网卡才需要设置
+mobile.apn(0,1,"","","",nil,0)
+
 -- 基站数据的查询
 -- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
 local function sub_cell_info_task()
@@ -41,6 +45,12 @@ end
 -- 获取sim卡的状态
 local function get_sim_status_task(status, value)
     log.info("sim status", status)
+    if status == 'RDY' then
+        log.info("sim", "sim OK", value)
+    end
+    if status == 'NORDY' then
+        log.info("sim", "NO sim", value)
+    end
     if status == 'GET_NUMBER' then
         log.info("number", mobile.number(0))
     end
@@ -53,12 +63,9 @@ sys.subscribe("SIM_IND", get_sim_status_task)
 
 -- 定义测试band和移动网络信息的函数
 local function mobileinfo_task()
-    -- 设置默认APN 
-    -- 注意：在国内公网卡基本上都不需要设置APN, 专网卡才需要设置
-    mobile.apn(0,1,"cmiot","","",nil,0)
     -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
     mobile.setAuto(10000,30000, 5) -- 此函数仅需要配置一次
-    
+
     log.info("************开始测试band************")
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)

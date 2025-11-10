@@ -120,7 +120,7 @@ local function init_sdcard(sdcard_opts)
         -- 挂载SD卡到文件系统，指定挂载点为"/sd"
         mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     else
-        mount_result = fatfs.mount(fatfs.SDIO, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
+        mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     end
     log.info("SDCARD", "挂载SD卡结果:", mount_result)
     
@@ -963,7 +963,7 @@ exremotefile.open({
 }, 
 {
     spi_id = 1,                 -- SPI编号
-    spi_cs = 12，               -- CS片选引脚
+    spi_cs = 12,               -- CS片选引脚
     is_8000_development_board = false, -- 是否使用8000开发板
     is_sdio = false             -- 是否使用sdio挂载
 }, 

@@ -29,11 +29,13 @@ mobile.apnTableAdd(0x460,0x1,3,0,"3gnet")
 mobile.apnTablePrint(0x202,0x01)
 
 sys.taskInit(function()
-
+	log.info(rtos.bsp(), hmeta.chip())
 	if rtos.bsp() == "UIS8850BM" then
 		sys.wait(2000)
 	end
-
+	if hmeta.chip() == "UIS8910" then
+		sys.wait(1000)
+	end
 	log.info("status", mobile.status())
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)

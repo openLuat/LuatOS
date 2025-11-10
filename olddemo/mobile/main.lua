@@ -20,7 +20,13 @@ end
 -- 但是, 这样SIM1所在管脚就强制复用为SIM功能, 不可以再复用为GPIO
 -- mobile.simid(2)
 mobile.simid(2,true)--优先用SIM0
-
+-- 启动全球APN功能，如果SIM对应的运营商已经在固件里，到这里就结束
+mobile.apnTableInit()
+-- 如果SIM对应的运营商没有在固件里，使用下面的方法手动添加对应的APN信息
+mobile.apnTableAdd(0x460,0x00,3,0,"cmiot")
+mobile.apnTableAdd(0x460,0x1,3,0,"3gnet")
+-- 这里打印一下固件内置的一个国外运营商信息，用于和实际信息比对，如果有出入可以用上面的方法手动添加
+mobile.apnTablePrint(0x202,0x01)
 
 sys.taskInit(function()
 

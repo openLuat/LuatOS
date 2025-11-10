@@ -58,7 +58,7 @@ end
 -- end, 3000)
 
 -- 加载 gpio 输出功能模块
-require "gpio_output_task"
+-- require "gpio_output_task"
 
 -- 加载 gpio  输入功能模块
 -- require "gpio_input_task"
@@ -67,7 +67,7 @@ require "gpio_output_task"
 -- require "gpio_pull_task"
 
 -- 加载 gpio 中断功能模块
--- require "gpio_irq_task"
+require "gpio_irq_task"
 
 -- 加载 gpio 中断计数功能模块
 -- require "gpio_irqcount_task"

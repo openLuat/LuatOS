@@ -1,122 +1,67 @@
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.10.23
+@author  拓毅恒
+@usage
+本demo演示的核心功能为：
+移动网络功能测试，包括SIM卡管理、基站数据查询、频段(Band)测试和修改、移动网络信息获取(IMEI/IMSI/信号强度等)以及SIM卡状态监控。
+通过加载mobile_test模块来运行相关测试功能。
 
--- LuaTools需要PROJECT和VERSION这两个信息
+更多说明参考本目录下的readme.md文件
+]]
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 PROJECT = "mobiledemo"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
-log.info("main", PROJECT, VERSION)
+log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
--- sys库是标配
-_G.sys = require("sys")
-
-
-
--- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
-if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
-    pm.power(pm.PWK_MODE, false)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
--- 对于双卡的设备, 可以设置为自动选sim卡
--- 但是, 这样SIM1所在管脚就强制复用为SIM功能, 不可以再复用为GPIO
--- mobile.simid(2)
-mobile.simid(2,true)--优先用SIM0
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
-sys.taskInit(function()
-
-	log.info("status", mobile.status())
-    local band = zbuff.create(40)
-    local band1 = zbuff.create(40)
-    mobile.getBand(band)
-    log.info("当前使用的band:")
-    for i=0,band:used()-1 do
-        log.info("band", band[i])
-    end
-    band1[0] = 38
-    band1[1] = 39
-    band1[2] = 40
-    mobile.setBand(band1, 3)    --改成使用38,39,40
-    band1:clear()
-    mobile.getBand(band1)
-    log.info("修改后使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-    mobile.setBand(band, band:used())    --改回原先使用的band，也可以下载的时候选择清除fs
-
-    mobile.getBand(band1)
-    log.info("修改回默认使用的band:")
-    for i=0,band1:used()-1 do
-        log.info("band", band1[i])
-    end
-	-- mobile.vsimInit()
-	-- mobile.flymode(nil,true)
-	-- mobile.vsimOnOff(true)
-	-- mobile.flymode(nil,false)
-    -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
-    -- mobile.rtime(3) -- 在无数据交互时，RRC 3秒后自动释放
-    -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了
-    -- mobile.setAuto(10000,30000, 5) -- SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
-	log.info("status", mobile.status())
-    sys.wait(2000)
-    while 1 do
-        log.info("imei", mobile.imei())
-        log.info("imsi", mobile.imsi())
-        local sn = mobile.sn()
-        if sn then
-            log.info("sn",   sn:toHex())
-        end
-		log.info("status", mobile.status())
-        
-
-        log.info("iccid", mobile.iccid())
-        log.info("csq", mobile.csq()) -- 4G模块的CSQ并不能完全代表强度
-        log.info("rssi", mobile.rssi()) -- 需要综合rssi/rsrq/rsrp/snr一起判断
-        log.info("rsrq", mobile.rsrq())
-        log.info("rsrp", mobile.rsrp())
-        log.info("snr", mobile.snr())
-        log.info("simid", mobile.simid()) -- 这里是获取当前SIM卡槽
-        log.info("apn", mobile.apn(0,1))
-        log.info("ip", socket.localIP())
-		log.info("lua", rtos.meminfo())
-        -- sys内存
-        log.info("sys", rtos.meminfo("sys"))
-        sys.wait(15000)
-    end
-end)
-
--- 基站数据的查询
-
--- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
-sys.subscribe("CELL_INFO_UPDATE", function()
-    log.info("cell", json.encode(mobile.getCellInfo()))
-end)
-
--- 轮询式, 包含临近小区信息，这是手动搜索，和上面的自动搜索冲突，开启一个就行
-sys.taskInit(function()
-    sys.wait(5000)
-	mobile.config(mobile.CONF_SIM_WC_MODE, 2)
-    while 1 do
-        mobile.reqCellInfo(10)
-        sys.wait(11000)
-        log.info("cell", json.encode(mobile.getCellInfo()))
-		mobile.config(mobile.CONF_SIM_WC_MODE, 2)
-    end
-end)
-
--- 获取sim卡的状态
-
-sys.subscribe("SIM_IND", function(status, value)
-    log.info("sim status", status)
-    if status == 'GET_NUMBER' then
-        log.info("number", mobile.number(0))
-    end
-	if status == "SIM_WC" then
-        log.info("sim", "write counter", value)
-    end
-end)
+-- 加载 mobile_test 功能模块
+require "mobile_test"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
+

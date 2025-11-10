@@ -55,6 +55,9 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 加载spi以太网卡驱动模块
+require "netdrv_eth_spi"
+
 -- 加载 iperf 服务器测试模块
 require "iperf_server"
 

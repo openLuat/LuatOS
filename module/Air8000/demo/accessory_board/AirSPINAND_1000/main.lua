@@ -9,7 +9,7 @@
 1. ram_spi
 通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
 2. lf_fs
-通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
+通过littleFS文件系统,对nand flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
 
 ]]

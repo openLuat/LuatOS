@@ -206,6 +206,13 @@ int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
         // LLOGD("其实就是单个pbuf");
         return luat_netdrv_napt_pkg_input(id, p->payload, p->tot_len);
     }
+    uint8_t* tmp = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, p->tot_len);
+    if (tmp) {
+        pbuf_copy_partial(p, tmp, p->tot_len, 0);
+        int ret = luat_netdrv_napt_pkg_input(id, tmp, p->tot_len);
+        luat_heap_free(tmp);
+        return ret;
+    }
     return 0; // lwip继续处理 
 }
 

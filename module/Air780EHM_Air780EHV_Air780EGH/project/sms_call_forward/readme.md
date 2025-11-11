@@ -78,6 +78,7 @@ LuatOS-SoC_V2016_Air780EHM_1，固件地址，如有最新固件请用最新 [ht
 
 
 LuatOS-SoC_V2016_Air780EGH_1，固件地址，如有最新固件请用最新 [[https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)]
+
 3、 脚本文件：
 
 main.lua

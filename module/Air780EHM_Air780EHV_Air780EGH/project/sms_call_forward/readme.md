@@ -12,7 +12,7 @@
 
 5、sntp_app.lua：时间同步应用功能模块
 
-6、netdrv_pc：pc模拟器上的网卡
+
 
 ## 演示功能概述：
 
@@ -38,7 +38,7 @@
 
 ![8000w](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV.png)
 
-1、Air780EHV核心板一块+支持短信和电话功能的手机sim卡一张+网线一根：
+1、Air780EHV/EHM/EGH核心板一块+支持短信和电话功能的手机sim卡一张+网线一根：
 
 * sim卡插入开发板的sim卡槽
 
@@ -46,15 +46,15 @@
 
 * 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
-2、TYPE-C USB数据线一根 ，Air780EHV核心板和数据线的硬件接线方式为：
+2、TYPE-C USB数据线一根 ，Air780EHV/EHM/EGH核心板和数据线的硬件接线方式为：
 
-Air780EHV核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+Air780EHV/EHM/EGH核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
 
 TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-3、可选 AirETH_1000 配件板一块，Air780EHV 核心板和 AirETH_1000 配件板的硬件接线方式为:
+3、可选 AirETH_1000 配件板一块，Air780EHV/EHM/EGH 核心板和 AirETH_1000 配件板的硬件接线方式为:
 
-| **Air780EHV核心板** | **AirETH_1000配件板** |
+| **Air780EHV/EHM/EGH核心板** | **AirETH_1000配件板** |
 | ---------------- |:------------------:|
 | 3V3              | 3.3v               |
 | GND              | GND                |
@@ -64,14 +64,20 @@ TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接
 | 85/SPI0MOSI      | SDI                |
 | 107/GPIO21       | INT                |
 
-4、Air780EHV核心板购买链接：[商品详情](https://item.taobao.com/item.htm?id=943253206359&spm=a1z10.3-c-s.w4002-24045920836.11.52ca6ee5XT5zBv)
+
+
 
 ## 演示软件环境：
 
 1、 Luatools 下载调试工具
 
-2、 固件版本：LuatOS-SoC_V2014_Air780EHV_1.soc；参考[项目使用的内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)；如有更新可以使用最新固件。](https://docs.openluat.com/air8000/luatos/firmware/)
+2、固件版本：
+LuatOS-SoC_V2016_Air780EHV_1，固件地址，如有最新固件请用最新 [[https://docs.openluat.com/air780ehv/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)]
 
+LuatOS-SoC_V2016_Air780EHM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/Air780EHM/luatos/firmware/](https://docs.openluat.com/Air780EHM/luatos/firmware/)
+
+
+LuatOS-SoC_V2016_Air780EGH_1，固件地址，如有最新固件请用最新 [[https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)]
 3、 脚本文件：
 
 main.lua

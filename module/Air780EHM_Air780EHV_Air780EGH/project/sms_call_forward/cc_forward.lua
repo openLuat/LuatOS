@@ -11,7 +11,7 @@
 3、cc_state(state)，电话状态判断并获取来电号码，来电或者挂断等不同情况做不同处理。
 4、cc_forward()，来电号码信息转发到指定机器人
 
-直接使用Air780EHV核心板硬件测试即可；
+直接使用Air780EHV/EHM/EGH核心板硬件测试即可；
 
 本文件没有对外接口，直接在main.lua中require "cc_forward"就可以加载运行；
 ]]

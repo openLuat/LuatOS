@@ -10,7 +10,7 @@
 2、send_sms()，发送短信的功能函数，等待CC_IND消息后，手机卡可以进行收发短信。
 3、receive_sms()，接收短信处理的功能函数，收到短信后获取来信号码和短信内容，通过回调函数sms_handler(num, txt)转发到指定的机器人。
 
-直接使用Air780EHV核心板板硬件测试即可；
+直接使用Air780EHV/EHM/EGH核心板板硬件测试即可；
 
 本文件没有对外接口，直接在main.lua中require "sms_forward"就可以加载运行；
 ]]

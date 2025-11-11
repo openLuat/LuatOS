@@ -26,8 +26,8 @@ local function rtc_task1()
     local result = rtc.timezone(32) -- 设置时区为东八区
     log.info("rtc.timezone()", result) -- 打印时区信息
     rtc.set({ year = 2025, mon = 10, day = 28, hour = 8, min = 10, sec = 53 }) -- 设置日期和时间
+    -- local t1 =rtc.set(1761610253) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
     local t1 = rtc.get()
-    -- local t1 =rtc.set(1761649853) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
     log.info("rtc初始时间", json.encode(t1)) -- 打印当前日期和时间
     log.info("rtc设置后的本地时间", os.date()) -- 打印当前日期和时间    
     while 1 do

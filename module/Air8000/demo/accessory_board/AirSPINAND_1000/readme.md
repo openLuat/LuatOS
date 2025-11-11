@@ -38,7 +38,7 @@
 
 ![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/spi1.jpg)
 
-![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/nand.jpg)
+![](https://docs.openluat.com/accessory/AirSPINAND_1000/image/nand.jpg)
 
 1. 合宙 Air8000 核心板一块
 

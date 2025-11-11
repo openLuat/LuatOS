@@ -1,20 +1,20 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口
+1. main.lua：主程序入口，以下两个脚本按自己的需求选择其一使用即可，另外一个注释
 
-2. AirSPINAND_1000：通过littleFS文件系统,对nand flash模块以文件系统的方式进行读写数据操作，详细逻辑请看AirSPINAND_1000.lua 文件
+2. lf_fs：通过littleFS文件系统,对nand flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
 3. ram_spi：通过原始spi接口对nand flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
 
 ## 演示功能概述：
 
-### AirSPINAND_1000：
+### lf_fs：
 
 1.以对象的方式配置参数，初始化启用 SPI，返回 SPI 对象
 
 2.用 SPI 对象初始化 flash 设备，返回 flash 设备对象
 
-3.用 lf 库挂载 flash 设备对象为文件系统
+3.用 lf 库挂载 flash 设备对象为LittleFS文件系统
 
 4.读取文件系统的信息，以确认内存情况
 
@@ -28,7 +28,7 @@
 
 3.验证nand flash芯片后读取寄存器状态，确认芯片就绪
 
-4.验证是都是坏块并擦除块区，为写入数据做准备
+4.验证是否是坏块，非坏块擦除块区，为写入数据做准备
 
 5.擦除块区后，写数据到块区，并读取块区数据与写入数据进行验证
 
@@ -36,13 +36,13 @@
 
 ## 演示硬件环境：
 
-![](https://docs.openluat.com/root/docs/accessory/AirSPINORFLASH_1000/image/spi1.jpg)
+![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/spi1.jpg)
 
-![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/nand.jpg)
+![](https://docs.openluat.com/accessory/AirSPINAND_1000/image/nand.jpg)
 
 1. 合宙 Air8000 核心板一块
 
-2. 合宙 AirSPINAND_1000 一块
+2. 合宙 AirSPINAND配件板 一块
 
 3. TYPE-C USB 数据线一根 ，Air8000 核心板和数据线的硬件接线方式为：
 - Air8000 核心板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
@@ -50,11 +50,11 @@
 - TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
-    Air8000 核心板与 AirSPINAND_1000 按以下方式接线：
+    Air8000 核心板与 AirSPINAND配件板 按以下方式接线：
 
 <table>
 <tr>
-<td>Air8000核心板<br/></td><td>AirSPINAND_1000配件版<br/></td></tr>
+<td>Air8000核心板<br/></td><td>AirSPINAND配件板<br/></td></tr>
 <tr>
 <td>GND(任意)          <br/></td><td>GND<br/></td></tr>
 <tr>
@@ -81,13 +81,13 @@
 
 1. 搭建好硬件环境
 
-2. main.lua 中加载AirSPINAND_1000功能模块或者ram_spi功能模块，二者使用其一
+2. main.lua 中加载lf_fs功能模块或者ram_spi功能模块，二者使用其一
 
 3. Luatools 烧录内核固件和 修改后的 demo 脚本
 
 4. 烧录成功后，代码会自动运行，查看打印日志，如果正常运行，会打印相关信息，spi 初始化，数据读写，文件操作等。
 
-5. AirSPINAND_1000.lua 如下 log 显示：
+5. lf_fs.lua 如下 log 显示：
 
 ```bash
 [2025-09-18 14:50:09.757][000000000.358] I/user.main Air8000_SPI_lf_NAND 001.000.000
@@ -127,7 +127,6 @@
 华邦W25N01GV，手册说明块0~7出厂保证为有效块，可直接跳过检测。块取值0~1023
 
 nand flash中块编码大于块7的操作演示：
-
     [2025-11-03 16:37:38.913][000000000.626] D/airlink Air8000s启动完成, 等待了 14 ms
     [2025-11-03 16:37:38.916][000000000.662] I/user.main Air8000_SPI_NAND 001.000.000
     [2025-11-03 16:37:38.959][000000000.694] I/user.W25N01GV 初始化SPI1...
@@ -145,7 +144,6 @@ nand flash中块编码大于块7的操作演示：
     [2025-11-03 16:37:41.229][000000003.070] D/mobile TIME_SYNC 0
 
 nand flash中块编码小于块7的操作演示：
-
     [2025-11-03 17:02:50.355][000000000.623] D/airlink Air8000s启动完成, 等待了 10 ms
     [2025-11-03 17:02:50.361][000000000.658] I/user.main Air8000_SPI_NAND 001.000.000
     [2025-11-03 17:02:50.367][000000000.673] I/user.W25N01GV 初始化SPI1...
@@ -160,7 +158,3 @@ nand flash中块编码小于块7的操作演示：
     [2025-11-03 17:02:52.589][000000002.985] D/mobile bearer act 0, result 0
     [2025-11-03 17:02:52.594][000000002.986] D/mobile NETIF_LINK_ON -> IP_READY
     [2025-11-03 17:02:52.602][000000003.017] D/mobile TIME_SYNC 0
-    
-    
-
-

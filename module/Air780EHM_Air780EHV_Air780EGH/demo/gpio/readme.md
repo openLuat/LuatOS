@@ -1,67 +1,137 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口，负责初始化系统并启动各个GPIO功能任务；
+
+2、gpio_output_task.lua：GPIO输出模式功能模块，演示GPIO输出控制方法；
+
+3、gpio_input_task.lua：GPIO输入模式功能模块，演示GPIO输入读取方法；
+
+4、gpio_pull_task.lua：GPIO上拉下拉模式功能模块，演示GPIO上拉下拉配置；
+
+5、gpio_irq_task.lua：GPIO中断(触发)模式功能模块，演示GPIO中断触发、回调处理及按键短按长按检测；
+
+6、gpio_irqcount_task.lua：GPIO中断(计数)模式功能模块，演示GPIO中断计数功能；
+
+7、agpio_task.lua：AGPIO功能模块，演示低功耗GPIO在休眠模式下的特性；
+
+8、gpio_toggle_task.lua：GPIO翻转测速功能模块，演示GPIO脉冲输出功能；
+
+
 
 ## 演示功能概述
 
-本demo使用Air780EGH核心板，演示GPIO接口功能测试，包括GPIO的输入输出，中断检测/中断计数，翻转速度，上下拉测试与AGPIO测试
+1、gpio_output_task：GPIO输出模式功能演示
+- 配置GPIO26为输出模式，通过GPIO26输出高低电平
+- 可使用万用表测量验证GPIO26的电平变化
+- 以1000ms间隔切换电平状态，便于观察
+- 演示gpio.setup的输出模式配置和状态控制方法
+
+2、gpio_input_task：GPIO输入模式功能演示
+- 配置GPIO24为输入模式，配置GPIO26为输出模式
+- 实现输入信号读取，并将读取到的电平状态同步控制GPIO26
+- 演示gpio.debounce防抖功能的使用
+- 展示如何通过输入GPIO的状态控制输出GPIO
+
+3、gpio_pull_task：GPIO上拉下拉模式功能演示
+- 配置GPIO2为上拉输入模式，GPIO26为下拉输入模式
+- 演示gpio.debounce防抖功能在不同上下拉模式下的应用
+- 通过定时任务周期性读取并打印GPIO的当前电平状态
+- 展示如何使用gpio.get函数获取GPIO的实时状态
+
+4、gpio_irq_task：GPIO中断(触发)模式功能演示
+- 配置GPIO24为中断模式，支持上升沿和下降沿触发（双边沿触发）
+- 实现中断触发时的回调函数，打印触发信息
+- 演示gpio.debounce防抖功能在中断模式下的应用
+- 实现按键短按(小于3秒)和长按(大于等于3秒)的检测功能
+- 可连接按键或直接用杜邦线轻触GND进行测试
+
+5、gpio_irqcount_task：GPIO中断(计数)模式功能演示
+- 配置GPIO24为中断计数模式，用于统计信号触发次数
+- 配置PWM4输出1kHz、占空比50%的方波作为计数信号源
+- 实现周期性（1秒）统计和打印中断触发次数
+- 展示gpio.count函数在计数模式下的使用方法
+
+6、agpio_task：AGPIO功能演示
+- 演示普通GPIO和AGPIO在进入休眠模式前后的区别
+- 普通GPIO（GPIO1）在休眠后会掉电，而AGPIO（GPIO26）可保持电平状态
+- 演示如何通过pm.power控制系统进入低功耗模式
+- 展示休眠前后GPIO电平状态的变化情况
+
+7、gpio_toggle_task：GPIO翻转测速功能演示
+- 配置GPIO26为输出模式，初始电平为低电平
+- 演示gpio.pulse函数生成指定模式的电平变化序列
+- 输出8组电平变化（0xA9，即二进制10101001）
+- 展示如何通过快速电平翻转实现特定信号模式的输出
 
 ## 演示硬件环境
 
-1、Air780EHM核心板一块，TYPE-C USB数据线一根
+1、Air780EHM/Air780EHV/Air780EGH核心板一块：
+- 确保核心板正常供电
 
-2、LED模块一个，独立按键模块一个，杜邦线若干
+2、TYPE-C USB数据线一根，Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为：
+- Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口供电；
+- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-3、合宙IOTpower 或 Air9000功耗分析仪 一台
-
-4、逻辑分析仪 或 示波器 一台
-
-5、万用表一台
-
-4、不同测试的引脚硬件连接介绍
-
-1）GPIO输出测试(gpio_output_test)：(PIN16)GPIO27 外接LED模块
-
-2）GPIO输入测试(gpio_input_test): (PIN16)GPIO27 外接LED模块, (PIN20)GPIO24 杜邦线连接电源3.3V或GND
-
-3）GPIO中断输入测试(gpio_irq_test): (PIN20)GPIO24 杜邦线连接电源3.3V或GND
-
-4）GPIO中断计数测试(gpio_irq_count_test): (PIN16)PWM4 通过杜邦线与(PIN20)GPIO24相连接
-
-5）GPIO翻转速度测试(gpio_toggle_test): (PIN16)GPIO27 连接示波器或逻辑分析仪
-
-6）GPIO上拉下拉测试(gpio_pullupdown_test): (PIN56)GPIO07用于上拉输入，(PIN16)GPIO27用于下拉输入
-
-7）AGPIO测试(apio_test):  (PIN22)GPIO01, (PIN16)GPIO27 测试时分别连接示波器，核心板USB旁边的开关拨到off一端, Vbat连接合宙IOTpower或Air9000的"+", GND连接合宙IOTpower或Air9000的"-",合宙IOTpower或Air9000设置3.8V供电打开
+3、可选硬件（根据需要）：
+- 外部按键或信号源：用于GPIO输入模式和中断模式的信号输入测试
+- 面包板、杜邦线：用于连接外部信号源和核心板GPIO
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EHM V2007版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2007固件对比验证）
+2、固件获取地址：
+
+[Air780EHM 固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)
+
+[Air780EHV 固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+[Air780EGH 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 ## 演示核心步骤
 
-1、搭建好硬件环境
+在main.lua中，可以根据需要启用或禁用特定的GPIO功能任务：
+- 通过注释或取消注释相应的require语句来控制功能模块的加载
+- 每个功能模块作为独立的任务运行，可以单独测试或组合测试
 
-2、通过Luatools将demo与固件烧录到核心板中
+### 1、GPIO输出模式
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "gpio_output_task"`这一行
+3. 将代码下载到核心板并运行
+4. **演示效果**：GPIO26将按照设定的时间间隔交替输出高电平和低电平，可使用万用表测量验证
 
-3、烧录好后，不同测试结果描述如下，具体详见相关文档 [Air780EGH GPIO](https://docs.openluat.com/air780egh/luatos/app/driver/gpio/)
+### 2、GPIO输入模式
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "gpio_input_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：当GPIO24输入为高电平时，GPIO26会输出高电平；当GPIO24输入为低电平时，GPIO26会输出低电平
 
-1）GPIO输出测试(gpio_output_test)：LED模块500ms输出高电平点亮LED，500ms输出低电平熄灭LED，循环执行这个流程
+### 3、GPIO上拉下拉模式
+1. 搭建好硬件环境
+2. 打开main.lua，确保只保留`require "gpio_pull_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：串口日志中会周期性显示GPIO2（上拉输入）和GPIO26（下拉输入）的当前电平状态
 
-2）GPIO输入测试(gpio_input_test): 获取GPIO24电平状态，为高则LED点亮，为低则LED熄灭
+### 4、GPIO中断(触发)模式
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "gpio_irq_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：当GPIO24的电平发生变化时，会触发中断并检测按键动作，在串口日志中打印短按(小于3秒)或长按(大于等于3秒)事件
 
-3）GPIO中断输入测试(gpio_irq_test): GPIO24杜邦线连接电源3.3V或GND，luatools中都会打印 "被触发" 的字段
+### 5、GPIO中断(计数)模式
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "gpio_irqcount_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：PWM4输出方波信号到GPIO24，串口日志中每秒显示一次中断触发的计数值
 
-4）GPIO中断计数测试(gpio_irq_count_test): luatools中会打印测试结果
+### 6、AGPIO功能
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "agpio_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：系统进入低功耗模式后，普通GPIO（GPIO1）电平会掉电，而AGPIO（GPIO26）可以保持其电平状态，通过示波器或逻辑分析仪等工具可以查看示例效果展示
 
-> I/user irq count 2000  
-> I/user irq count 1999  
-> I/user irq count 2001  
-
-5）GPIO翻转速度测试(gpio_toggle_test): 逻辑分析仪或示波器测量(PIN16)GPIO27的IO高低电平变化 40-50ns左右
-
-6）GPIO上拉下拉测试(gpio_pullupdown_test): luatools中会打印测试结果
-
-> I/user GPIO  7 电平 1  
-> I/user GPIO  27 电平 0  
-
-7）AGPIO测试(apio_test):  正常工作模式，万用表测量(PIN22)GPIO01、(PIN16)GPIO27电平都为3.0V，进入低功耗模式时万用表测量(PIN22)GPIO01为0V, (PIN16)GPIO27保持3.0V不变
+### 7、GPIO翻转测速
+1. 搭建好硬件环境
+2. 打开main.lua，确保保留`require "gpio_toggle_task"`这一行语句
+3. 将代码下载到核心板并运行
+4. **演示效果**：GPIO26会根据gpio.pulse函数的配置快速输出特定模式的电平变化序列（二进制10101001），通过示波器或逻辑分析仪等工具可以查看示例效果展示

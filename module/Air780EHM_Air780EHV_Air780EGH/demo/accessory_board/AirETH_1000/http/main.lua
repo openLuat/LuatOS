@@ -7,11 +7,12 @@
 @usage
 本demo演示的核心功能为：
 1、分别使用http核心库和httpplus扩展库，演示以下这种应用场景的使用方式
-   (1) 普通的http get请求功能演示；
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
-   (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (2) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
+    (1) 普通的http get请求功能演示；
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+    (1) netdrv_4g：socket.LWIP_GP，4G网卡；
+    (2) netdrv_ethernet_spi：socket.LWIP_ETH，通过SPI外挂CH390H芯片的以太网卡；
+    (3) netdrv_multiple：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
+    (4) netdrv_pc：pc模拟器上的网卡
 更多说明参考本目录下的readme.md文件
 ]]
 

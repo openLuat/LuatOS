@@ -82,7 +82,7 @@ end
 -- require "check_wifi" 
 
 -- 引入任务控制模块
-require"task_control"
+require "task_control"
 
 -- 用户代码已结束--------------------------------------------
 -- 结尾总是这一句

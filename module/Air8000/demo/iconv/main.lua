@@ -11,6 +11,7 @@
 2. Unicode大端(ucs2be)与GB2312编码互转
 3. Unicode小端(ucs2)与UTF8编码互转
 4. Unicode大端(ucs2be)与UTF8编码互转
+5. GB2312 编码与 UTF-8 编码之间的转换。
 
 更多说明参考本目录下的readme.md文件
 

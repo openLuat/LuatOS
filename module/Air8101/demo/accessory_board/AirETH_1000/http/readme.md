@@ -14,9 +14,7 @@
 
 1、Air8101核心板一块+可上网的sim卡一张+网线一根+AirETH_1000板子一个;
 
-[](https://docs.openLuat.com/cdn/image/8101_AirETH1000.jpg)
-
-![lan](https://docs.openLuat.com/cdn/image/8101_AirETH1000.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_AirETH1000.jpg)
 
 2、TYPE-C USB数据线一根 + 杜邦线若干;
 

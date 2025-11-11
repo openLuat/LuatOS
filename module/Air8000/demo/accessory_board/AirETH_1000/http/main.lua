@@ -7,7 +7,7 @@
 @usage
 本demo演示的核心功能为：
 1、http_app：普通的http get请求功能演示
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
     (1) netdrv_4g：socket.LWIP_GP，4G网卡；
     (2) netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
     (3) netdrv_ethernet_spi：socket.LWIP_ETH，通过SPI外挂CH390H芯片的以太网卡；

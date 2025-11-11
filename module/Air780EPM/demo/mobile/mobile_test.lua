@@ -61,6 +61,24 @@ end
 
 sys.subscribe("SIM_IND", get_sim_status_task)
 
+-- SIM 卡热插拔功能，通过gpio中断通过上下边沿电平触发中断
+-- 设置防抖，使用wakeup2脚，常量为gpio.WAKEUP2
+-- 自己设计其他gpio热插拔只需要替换对应的gpio即可
+gpio.debounce(gpio.WAKEUP2,500)
+-- 设置中断触发，拔卡进入飞行模式，插卡进出飞行模式，val值为上升沿或者下降沿触发0/1
+local function sim_hot_plug(val)
+    if val==0 then
+        log.info("插卡")
+        mobile.flymode(0,true)
+        mobile.flymode(0,false)
+    else
+        log.info("拔卡")
+        mobile.flymode(0,true)
+    end
+end
+
+gpio.setup(gpio.WAKEUP2,sim_hot_plug)
+
 -- 定义测试band和移动网络信息的函数
 local function mobileinfo_task()
     -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息

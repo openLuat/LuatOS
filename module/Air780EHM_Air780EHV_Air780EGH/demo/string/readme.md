@@ -63,6 +63,7 @@ Air780EGH核心板
 string 核心库文档：https://docs.openluat.com/osapi/core/string/
 
 ## 演示核心步骤
+
 1、搭建好硬件环境
 
 2、Luatools烧录内核固件和demo脚本代码

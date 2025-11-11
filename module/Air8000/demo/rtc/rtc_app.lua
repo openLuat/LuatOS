@@ -23,7 +23,7 @@
 -- RTC时钟演示(测试环境为无网络环境)
 local function rtc_task1()
     rtc.setBaseYear(1900) -- 设置基准年为1900年
-    -- local result = rtc.timezone(32) -- 设置时区为东八区
+    local result = rtc.timezone(32) -- 设置时区为东八区
     log.info("rtc.timezone()", result) -- 打印时区信息
     -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 8, min = 10, sec = 53 }) -- 设置日期和时间
     rtc.set(1761639053) -- 设置时间戳(与上一行的设置效果相同，二选一即可)

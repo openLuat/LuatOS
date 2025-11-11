@@ -25,9 +25,11 @@ local function rtc_task1()
     rtc.setBaseYear(1900) -- 设置基准年为1900年
     local result = rtc.timezone(32) -- 设置时区为东八区
     log.info("rtc.timezone()", result) -- 打印时区信息
-    -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 19, min = 10, sec = 53 }) -- 设置日期和时间
-    rtc.set(1761649853) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
-    log.info("rtc设置后时间", os.date()) -- 打印当前日期和时间
+    rtc.set({ year = 2025, mon = 10, day = 28, hour = 8, min = 10, sec = 53 }) -- 设置日期和时间
+    local t1 = rtc.get()
+    -- local t1 =rtc.set(1761649853) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
+    log.info("rtc初始时间", json.encode(t1)) -- 打印当前日期和时间
+    log.info("rtc设置后的本地时间", os.date()) -- 打印当前日期和时间    
     while 1 do
         log.info("os.date()", os.date()) -- 打印RTC时钟时间
         local t = rtc.get() -- 获取rtc时间
@@ -41,7 +43,7 @@ local function rtc_task2()
     rtc.setBaseYear(1900) -- 设置基准年为1900年
     local result = rtc.timezone(32) -- 设置时区为东八区
     log.info("rtc.timezone()", result) -- 打印时区信息
-    -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 19, min = 10, sec = 53 }) -- 设置日期和时间
+    -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 8, min = 10, sec = 53 }) -- 设置日期和时间
     rtc.set(1761649853) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
     log.info("rtc设置后时间", os.date()) -- 打印当前日期和时间
     while not socket.adapter(socket.dft()) do
@@ -68,7 +70,7 @@ end
 -- 注意：以下两个任务每次测试时只能选择其一进行测试
 
 -- 无网络情况下的rtc时间演示
--- sys.taskInit(rtc_task1)
+sys.taskInit(rtc_task1)
 
 -- 获取基站和 NTP授时成功后的rtc时间
-sys.taskInit(rtc_task2)
+-- sys.taskInit(rtc_task2)

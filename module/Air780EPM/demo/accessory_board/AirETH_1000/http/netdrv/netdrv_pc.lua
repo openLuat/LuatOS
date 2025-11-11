@@ -3,7 +3,7 @@
 @summary “pc模拟器网卡”驱动模块 
 @version 1.0
 @date    2025.07.01
-@author  朱天华
+@author  王城钧
 @usage
 本文件为pc模拟器网卡驱动模块，核心业务逻辑为：
 1、监听"IP_READY"和"IP_LOSE"，在日志中进行打印；

@@ -7,14 +7,14 @@
 @usage
 本demo演示的核心功能为：
 1、分别使用http核心库和httpplus扩展库，演示以下这种应用场景的使用方式
-   (1) 普通的http get请求功能演示；
+    (1) 普通的http get请求功能演示；
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（二选一）
-   (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (2) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
+    (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+    (2)netdrv_4g：socket.LWIP_GP，4G网卡；
+    (3)netdrv_multiple：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
+    (4)netdrv_pc：socket.LWIP_PC，PC模拟器网卡；
 更多说明参考本目录下的readme.md文件
 ]]
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -26,6 +26,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
+
 PROJECT = "HTTP"
 VERSION = "001.000.000"
 

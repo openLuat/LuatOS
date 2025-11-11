@@ -43,7 +43,7 @@ local function rtc_task2()
     rtc.setBaseYear(1900) -- 设置基准年为1900年
     local result = rtc.timezone(32) -- 设置时区为东八区
     log.info("rtc.timezone()", result) -- 打印时区信息
-    -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 8, min = 10, sec = 53 }) -- 设置日期和时间
+    -- rtc.set({ year = 2025, mon = 10, day = 28, hour = 19, min = 10, sec = 53 }) -- 设置日期和时间
     rtc.set(1761649853) -- 设置时间戳(与上一行的设置效果相同，二选一即可)
     log.info("rtc设置后时间", os.date()) -- 打印当前日期和时间
     while not socket.adapter(socket.dft()) do

@@ -4,7 +4,7 @@
 
 1、main.lua：主程序入口文件，加载以下 4个文件运行。
 
-2、netdrv_multiple.lua：网卡驱动配置文件，可以配置以太网卡,wifi 网卡,单 4g 网卡三种网卡的使用优先级
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
 
 3、sms_forward.lua： 短信转发功能模块文件
 

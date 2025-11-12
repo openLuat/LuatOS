@@ -1,124 +1,67 @@
+--[[
+@module  main
+@summary LuatOS os核心库演示入口文件，总体调度应用逻辑
+@version 001.000.000
+@date    2025.10.23
+@author  王棚嶙
+@usage
+本 Demo 演示了LuatOS os核心库的官方标准功能，包括：
+1. 时间日期处理：os.date、os.time、os.difftime
+2. 文件操作：os.remove、os.rename
+本演示采用单函数顺序执行结构，通过sys.taskInit自动启动演示流程
+]]
 
-PROJECT = "os_test"
-VERSION = "1.0.0"
-local function test_os_remove()
-    log.info("os.remove", "测试开始")
-    -- 先创建一个测试文件
-    local testFile = "/test_remove.txt"
-    local f = io.open(testFile, "w")
-    if f then
-        f:write("test content")
-        f:close()
-        log.info("os.remove", "测试文件创建成功")
-    else
-        log.error("os.remove", "无法创建测试文件")
-        return
-    end
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 
-    -- 测试删除文件
-    local result, err = os.remove(testFile)
-    if result then
-        log.info("os.remove", "文件删除成功")
-    else
-        log.error("os.remove", "文件删除失败", err)
-    end
+PROJECT = "os_core_demo"
+VERSION = "001.000.000"
 
-    -- 测试删除不存在的文件
-    result, err = os.remove("/nonexistent.txt")
-    if not result then
-        log.info("os.remove", "删除不存在文件返回预期结果", err)
-    end
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+-- 添加硬狗防止程序卡死
+if wdt then
+    -- 初始化watchdog设置为9s
+    wdt.init(9000)
+    -- 3s喂一次狗 
+    sys.timerLoopStart(wdt.feed, 3000) 
 end
 
--- 测试 os.rename() 文件重命名功能
-local function test_os_rename()
-    log.info("os.rename", "测试开始")
-    -- 创建源文件
-    local srcFile = "/test_rename_src.txt"
-    local f = io.open(srcFile, "w")
-    if f then
-        f:write("test content")
-        f:close()
-        log.info("os.rename", "源文件创建成功")
-    else
-        log.error("os.rename", "无法创建源文件")
-        return
-    end
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-    -- 目标文件路径
-    local dstFile = "/test_rename_dst.txt"
 
-    -- 测试重命名
-    local result, err = os.rename(srcFile, dstFile)
-    if result then
-        log.info("os.rename", "文件重命名成功")
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-        -- 验证新文件是否存在
-        if io.open(dstFile, "r") then
-            log.info("os.rename", "验证新文件存在")
-            os.remove(dstFile)
-        end
-    else
-        log.error("os.rename", "文件重命名失败", err)
-        os.remove(srcFile)
-    end
 
-    -- 测试重命名不存在的文件
-    result, err = os.rename("/nonexistent_src.txt", "/nonexistent_dst.txt")
-    if not result then
-        log.info("os.rename", "重命名不存在文件返回预期结果", err)
-    end
-end
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+-- 加载os核心库功能演示模块
+require "os_core_demo"
 
--- 测试 os.date() 和 os.time() 功能
-local function test_os_date_time()
-    log.info("os.date/time", "测试开始")
-
-    -- 获取当前时间戳
-    local currentTimestamp = os.time()
-    log.info("os.time", "当前时间戳", currentTimestamp)
-
-    -- 测试 os.date() 各种格式
-    log.info("os.date", "默认格式本地时间", os.date())
-    log.info("os.date", "默认格式UTC时间", os.date("!%c"))
-    log.info("os.date", "自定义格式本地时间", os.date("%Y-%m-%d %H:%M:%S"))
-    log.info("os.date", "自定义格式UTC时间", os.date("!%Y-%m-%d %H:%M:%S"))
-
-    -- 测试特定时间
-    local testTime = {year=2000, mon=1, day=1, hour=0, min=0, sec=0}
-    local testTimestamp = os.time(testTime)
-    log.info("os.time", "2000-01-01 00:00:00 时间戳", testTimestamp)
-    log.info("os.date", "格式化特定时间", os.date("!%Y-%m-%d %H:%M:%S", testTimestamp))
-
-    -- 测试获取时间表
-    local localTimeTable = os.date("*t")
-    log.info("os.date", "本地时间表", json.encode(localTimeTable))
-    local utcTimeTable = os.date("!*t")
-    log.info("os.date", "UTC时间表", json.encode(utcTimeTable))
-
-    -- 测试 os.difftime()
-    local time1 = os.time()
-    sys.wait(1000) -- 等待1秒
-    local time2 = os.time()
-    local diff = os.difftime(time2, time1)
-    log.info("os.difftime", "时间差(应该约等于1)", diff)
-end
-
--- 主测试函数
-local function test_all()
-    log.info("OS接口测试", "===== 开始测试 =====")
-    test_os_remove()
-    test_os_rename()
-    test_os_date_time()
-    log.info("OS接口测试", "===== 测试完成 =====")
-end
-
--- 启动测试
-sys.taskInit(function()
-    sys.wait(1000) -- 等待系统初始化
-    test_all()
-end)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
-sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
+sys.run()

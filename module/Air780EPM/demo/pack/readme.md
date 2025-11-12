@@ -28,7 +28,7 @@
 ![alt text]( https://docs.openLuat.com/cdn/image/Air780EPM开发板.jpg)
 
 2、TYPE-C USB数据线一根
-- Air780EPM核心板通过 TYPE-C USB 口供电；
+- Air780EPM开发板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 

@@ -465,6 +465,14 @@ uint8_t u8x8_d_sh1107_hjr_oel1m0201_96x96(u8x8_t *u8x8, uint8_t msg, uint8_t arg
 /*==================================================*/
 /* 128x128 OLED: this display has a very strange x offset */
 
+/* 
+6 Feb 2025: 
+There is an issue 
+https://github.com/olikraus/u8g2/issues/2581#issuecomment-2628394758 
+Looks like there are displays where the x offset must be 0
+*/
+
+
 /* sequence taken over from 64x128 sequence, because it seems to work mostly */
 static const uint8_t u8x8_d_sh1107_128x128_init_seq[] = {
     
@@ -516,8 +524,8 @@ static const u8x8_display_info_t u8x8_sh1107_128x128_display_info =
   /* write_pulse_width_ns = */ 150,	/* sh1107: cycle time is 300ns, so use 300/2 = 150 */
   /* tile_width = */ 16,
   /* tile_height = */ 16,
-  /* default_x_offset = */ 0,
-  /* flipmode_x_offset = */ 0,
+  /* default_x_offset = */ 96,
+  /* flipmode_x_offset = */ 96,
   /* pixel_width = */ 128,
   /* pixel_height = */ 128
 };

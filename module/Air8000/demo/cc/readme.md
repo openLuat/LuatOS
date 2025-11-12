@@ -40,7 +40,10 @@
 - Air8000开发板/核心板通过 TYPE-C USB 口供电；
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
-3、可选AirAudio_1010 配件板一块，Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
+3、可选AirAudio_1010 配件板一块
+
+Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
+
 |  Air8000核心板   | AirAUDIO_1010配件板 |
 | --------------- | -----------------   |
 | 22/I2S_MCLK     | I2S_MCLK            |

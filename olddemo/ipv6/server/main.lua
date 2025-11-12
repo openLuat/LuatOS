@@ -31,10 +31,10 @@ HTTP_200_EMTRY = "HTTP/1.0 200 OK\r\nServer: LuatOS\r\nConnection: close\r\nCont
 
 -- 演示task
 function ipv6test()
-    -- 仅EC618系列支持, 例如Air780E/Air600E/Air780UG/Air700E
-    if rtos.bsp() ~= "EC618" and not string.find(rtos.bsp(),"EC718")  then
+    -- 4G模组均支持, 简单判断一下完事
+    if mobile == nil then
         while 1 do
-            log.info("ipv6", "only Air780E/Air600E/Air780UG/Air700E/Air780EP supported")
+            log.info("ipv6", "当前仅4G模组的4G网络支持ipv6功能")
             sys.wait(1000)
         end
     end

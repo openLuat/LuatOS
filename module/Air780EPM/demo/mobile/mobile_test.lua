@@ -18,6 +18,10 @@
 -- mobile.simid(2)
 mobile.simid(2,true)--优先用SIM0
 
+-- 设置默认APN
+-- 注意：APN 必须在入网前就设置好；在国内公网卡基本上都不需要设置APN, 专网卡才需要设置
+mobile.apn(0,1,"","","",nil,0)
+
 -- 基站数据的查询
 -- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
 local function sub_cell_info_task()
@@ -41,6 +45,12 @@ end
 -- 获取sim卡的状态
 local function get_sim_status_task(status, value)
     log.info("sim status", status)
+    if status == 'RDY' then
+        log.info("sim", "sim OK", value)
+    end
+    if status == 'NORDY' then
+        log.info("sim", "NO sim", value)
+    end
     if status == 'GET_NUMBER' then
         log.info("number", mobile.number(0))
     end
@@ -51,14 +61,29 @@ end
 
 sys.subscribe("SIM_IND", get_sim_status_task)
 
+-- SIM 卡热插拔功能，通过gpio中断通过上下边沿电平触发中断
+-- 设置防抖，使用wakeup2脚，常量为gpio.WAKEUP2
+-- 自己设计其他gpio热插拔只需要替换对应的gpio即可
+gpio.debounce(gpio.WAKEUP2,500)
+-- 设置中断触发，拔卡进入飞行模式，插卡进出飞行模式，val值为上升沿或者下降沿触发0/1
+local function sim_hot_plug(val)
+    if val==0 then
+        log.info("插卡")
+        mobile.flymode(0,true)
+        mobile.flymode(0,false)
+    else
+        log.info("拔卡")
+        mobile.flymode(0,true)
+    end
+end
+
+gpio.setup(gpio.WAKEUP2,sim_hot_plug)
+
 -- 定义测试band和移动网络信息的函数
 local function mobileinfo_task()
-    -- 设置默认APN 
-    -- 注意：在国内公网卡基本上都不需要设置APN, 专网卡才需要设置
-    mobile.apn(0,1,"cmiot","","",nil,0)
     -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
     mobile.setAuto(10000,30000, 5) -- 此函数仅需要配置一次
-    
+
     log.info("************开始测试band************")
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)

@@ -14,14 +14,13 @@
 4. 启动BLE广播功能
 ]]
 
--- 广播本地名称
-local device_name = "LuatOS"
 -- 广播状态
 local adv_state = false
 
 -- 配置ibeacon广播数据包
 local ibeacon_data = string.char(0x4C, 0x00, -- Manufacturer ID（2字节）
-                            0x02, 0x15, -- ibeacon数据类型（2字节）
+                            0x02, -- ibeacon数据类型（1字节）
+                            0x15, -- ibeacon数据长度（1字节）
                             0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, -- UUID（16字节）
                             0x00, 0x01, -- Major（2字节）
                             0x00, 0x02, -- Minor（2字节）
@@ -55,6 +54,7 @@ function ble_ibeacon_task_func()
         end
 
         -- 设置广播内容
+        -- 由于没有 "COMPLETE_LOCAL_NAME" ,故仅安卓可用
         adv_create = adv_create or ble_device:adv_create({
             addr_mode = ble.PUBLIC, -- 广播地址模式, 仅支持: ble.PUBLIC
             channel_map = ble.CHNLS_ALL, -- 广播的通道, 可选值: ble.CHNL_37, ble.CHNL_38, ble.CHNL_39, ble.CHNLS_ALL

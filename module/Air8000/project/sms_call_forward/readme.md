@@ -4,7 +4,7 @@
 
 1、main.lua：主程序入口文件，加载以下 4个文件运行。
 
-2、netdrv_multiple.lua：网卡驱动配置文件，可以配置以太网卡,wifi 网卡,单 4g 网卡三种网卡的使用优先级
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
 
 3、sms_forward.lua： 短信转发功能模块文件
 
@@ -33,6 +33,22 @@
 3、cc_state(state)，电话状态判断并获取来电号码，来电或者挂断等不同情况做不同处理。
 
 4、cc_forward()，来电号码信息转发到指定机器人
+
+**netdrv_device：**
+
+短信通过http转发到企业微信/钉钉/飞书平台时，配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+
+(1) netdrv_4g：4G网卡
+
+(2) netdrv_wifi：WIFI STA网卡
+
+(3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+
+(4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+
+
+
+
 
 ## 演示硬件环境：
 
@@ -352,5 +368,3 @@ netdrv文件夹
 [2025-10-24 18:55:23.764][000000078.694] D/mobile LUAT_MOBILE_EVENT_CC status 10
 
 ```
-
-

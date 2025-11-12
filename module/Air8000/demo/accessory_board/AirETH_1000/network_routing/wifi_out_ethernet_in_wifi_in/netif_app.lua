@@ -21,7 +21,7 @@ function netif_app_task_func()
         opts = { spi = 1, cs = 12 },     -- 外挂方式,需要额外的参数(选填参数)，仅spi方式外挂以太网时需要填写。
         main_adapter = {                 -- 提供网络的网卡开启参数
             ssid = "iPhone",               
-            password = "xiaoshuai"
+            password = "hz88888888"
         }
     })
     -- 设置多网融合功能，wifi提供网络供wifi设备上网
@@ -33,8 +33,8 @@ function netif_app_task_func()
         --     max_conn = 4 },              -- 最大客户端数量, 默认4
         -- channel = 6,                     -- AP建立的通道, 默认6
         main_adapter = {                    -- 提供网络的网卡开启参数
-            ssid = "test",
-            password = "HZ88888888"
+            ssid = "iPhone",
+            password = "hz88888888"
         }
     })
 

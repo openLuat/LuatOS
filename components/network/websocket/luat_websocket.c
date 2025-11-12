@@ -137,12 +137,14 @@ void luat_websocket_ping(luat_websocket_ctrl_t *websocket_ctrl)
 	luat_websocket_send_frame(websocket_ctrl, &pkg);
 }
 
-void luat_websocket_pong(luat_websocket_ctrl_t *websocket_ctrl)
+void luat_websocket_pong(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t* _pkg)
 {
 	luat_websocket_pkg_t pkg = {
 		.FIN = 1,
 		.OPT_CODE = WebSocket_OP_PONG,
-		.plen = 0};
+		.plen = _pkg->plen,
+		.payload = _pkg->payload
+	};
 	luat_websocket_send_frame(websocket_ctrl, &pkg);
 }
 
@@ -523,7 +525,8 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 		return -1;
 	case 0x09:
 		// ping->pong
-		luat_websocket_pong(websocket_ctrl);
+		LLOGD("server say PING %d %.*s", pkg.plen, pkg.plen > 4 ? 4 : pkg.plen, pkg.payload);
+		luat_websocket_pong(websocket_ctrl, &pkg);
 		break;
 	case 0x0A:
 		break;

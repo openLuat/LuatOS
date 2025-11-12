@@ -7,7 +7,7 @@
 @usage
 本demo演示的功能为：使用Air8000核心板通过SPI核心库/lf核心库/io核心库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
-Air8000       lf_fs配件版
+Air8000       AirSPINAND_1000配件板
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO12/SPI1_CS     CS,片选

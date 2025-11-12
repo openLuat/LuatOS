@@ -34,6 +34,22 @@
 
 4、cc_forward()，来电号码信息转发到指定机器人
 
+**netdrv_device：**
+
+短信通过http转发到企业微信/钉钉/飞书平台时，配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+
+(1) netdrv_4g：4G网卡
+
+(2) netdrv_wifi：WIFI STA网卡
+
+(3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+
+(4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+
+
+
+
+
 ## 演示硬件环境：
 
 ![8000w](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
@@ -352,5 +368,3 @@ netdrv文件夹
 [2025-10-24 18:55:23.764][000000078.694] D/mobile LUAT_MOBILE_EVENT_CC status 10
 
 ```
-
-

@@ -298,9 +298,10 @@ void mui_Init(mui_t *ui, void *graphics_data, fds_t *fds, muif_t *muif_tlist, si
   ui->muif_tlist = muif_tlist;
   ui->muif_tcnt = muif_tcnt;
   ui->graphics_data = graphics_data;
+  ui->last_form_stack_pos = -1;
 }
 
-int mui_find_uif(mui_t *ui, uint8_t id0, uint8_t id1)
+static int mui_find_uif(mui_t *ui, uint8_t id0, uint8_t id1)
 {
   size_t i;
   for( i = 0; i < ui->muif_tcnt; i++ )
@@ -460,7 +461,7 @@ static void mui_loop_over_form(mui_t *ui, uint8_t (*task)(mui_t *ui))
 /*
   n is the form number
 */
-fds_t *mui_find_form(mui_t *ui, uint8_t n)
+static fds_t *mui_find_form(mui_t *ui, uint8_t n)
 {
   fds_t *fds = ui->root_fds;
   uint8_t cmd;
@@ -487,20 +488,20 @@ fds_t *mui_find_form(mui_t *ui, uint8_t n)
 /* === task procedures (arguments for mui_loop_over_form) === */
 /* ui->fds contains the current field */
 
-uint8_t mui_task_draw(mui_t *ui)
+static uint8_t mui_task_draw(mui_t *ui)
 {
   //printf("mui_task_draw fds=%p uif=%p text=%s\n", ui->fds, ui->uif, ui->text);
   muif_get_cb(ui->uif)(ui, MUIF_MSG_DRAW);
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_form_start(mui_t *ui)
+static uint8_t mui_task_form_start(mui_t *ui)
 {
   muif_get_cb(ui->uif)(ui, MUIF_MSG_FORM_START);
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_form_end(mui_t *ui)
+static uint8_t mui_task_form_end(mui_t *ui)
 {
   muif_get_cb(ui->uif)(ui, MUIF_MSG_FORM_END);
   return 0;     /* continue with the loop */
@@ -516,7 +517,7 @@ static uint8_t mui_uif_is_cursor_selectable(mui_t *ui)
   return 0;
 }
 
-uint8_t mui_task_find_prev_cursor_uif(mui_t *ui)
+static uint8_t mui_task_find_prev_cursor_uif(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -531,7 +532,7 @@ uint8_t mui_task_find_prev_cursor_uif(mui_t *ui)
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_find_first_cursor_uif(mui_t *ui)
+static uint8_t mui_task_find_first_cursor_uif(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -545,7 +546,7 @@ uint8_t mui_task_find_first_cursor_uif(mui_t *ui)
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_find_last_cursor_uif(mui_t *ui)
+static uint8_t mui_task_find_last_cursor_uif(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -556,7 +557,7 @@ uint8_t mui_task_find_last_cursor_uif(mui_t *ui)
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_find_next_cursor_uif(mui_t *ui)
+static uint8_t mui_task_find_next_cursor_uif(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -575,7 +576,7 @@ uint8_t mui_task_find_next_cursor_uif(mui_t *ui)
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_get_current_cursor_focus_position(mui_t *ui)
+static uint8_t mui_task_get_current_cursor_focus_position(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -587,7 +588,8 @@ uint8_t mui_task_get_current_cursor_focus_position(mui_t *ui)
   return 0;     /* continue with the loop */
 }
 
-uint8_t mui_task_read_nth_selectable_field(mui_t *ui)
+#ifdef OBSOLETE
+static uint8_t mui_task_read_nth_selectable_field(mui_t *ui)
 {
   //if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_CURSOR_SELECTABLE )
   if ( mui_uif_is_cursor_selectable(ui) )
@@ -598,8 +600,9 @@ uint8_t mui_task_read_nth_selectable_field(mui_t *ui)
   }
   return 0;     /* continue with the loop */
 }
+#endif
 
-uint8_t mui_task_find_execute_on_select_field(mui_t *ui)
+static uint8_t mui_task_find_execute_on_select_field(mui_t *ui)
 {
   if ( muif_get_cflags(ui->uif) & MUIF_CFLAG_IS_EXECUTE_ON_SELECT )
   {
@@ -651,7 +654,7 @@ void mui_Draw(mui_t *ui)
   mui_loop_over_form(ui, mui_task_draw);
 }
 
-void mui_next_field(mui_t *ui)
+static void mui_next_field(mui_t *ui)
 {
   mui_loop_over_form(ui, mui_task_find_next_cursor_uif);
   // ui->cursor_focus_position++;
@@ -677,36 +680,46 @@ void mui_next_field(mui_t *ui)
 */
 uint8_t mui_GetSelectableFieldTextOption(mui_t *ui, fds_t *fds, uint8_t nth_token)
 {
-  fds_t *fds_backup = ui->fds;                                // backup the current fds, so that this function can be called inside a task loop 
-  int len = ui->len;          // backup length of the current command, 26 sep 2021: probably this is not required any more
-  uint8_t is_found;
-  
-  ui->fds = fds;
-  // at this point ui->fds contains the field which contains the tokens  
-  // now get the opion string out of the text field. nth_token can be 0 if this is no opion string
-  is_found = mui_fds_get_nth_token(ui, nth_token);          // return value is ignored here
-  
-  ui->fds = fds_backup;                        // restore the previous fds position
-  ui->len = len;
-  // result is stored in ui->text
-  return is_found;
+  if ( fds != NULL )
+  {
+    fds_t *fds_backup = ui->fds;                                // backup the current fds, so that this function can be called inside a task loop 
+    int len = ui->len;          // backup length of the current command, 26 sep 2021: probably this is not required any more
+    uint8_t is_found;
+    
+    ui->fds = fds;
+    // at this point ui->fds contains the field which contains the tokens  
+    // now get the opion string out of the text field. nth_token can be 0 if this is no opion string
+    is_found = mui_fds_get_nth_token(ui, nth_token);          // return value is ignored here
+    
+    ui->fds = fds_backup;                        // restore the previous fds position
+    ui->len = len;
+    // result is stored in ui->text
+    return is_found;
+  }
+  ui->text[0] = '\0';
+  return 0;
 }
 
 uint8_t mui_GetSelectableFieldOptionCnt(mui_t *ui, fds_t *fds)
 {
-  fds_t *fds_backup = ui->fds;                                // backup the current fds, so that this function can be called inside a task loop 
-  int len = ui->len;          // backup length of the current command   26 sep 2021: probably this is not required any more
-  uint8_t cnt = 0;
-  
-  ui->fds = fds;
-  // at this point ui->fds contains the field which contains the tokens  
-  // now get the opion string out of the text field. nth_token can be 0 if this is no opion string
-  cnt = mui_fds_get_token_cnt(ui); 
-  
-  ui->fds = fds_backup;                        // restore the previous fds position
-  ui->len = len;
-  // result is stored in ui->text
-  return cnt;
+  if ( fds != NULL )
+  {
+    fds_t *fds_backup = ui->fds;                                // backup the current fds, so that this function can be called inside a task loop 
+    int len = ui->len;          // backup length of the current command   26 sep 2021: probably this is not required any more
+    uint8_t cnt = 0;
+    
+    ui->fds = fds;
+    // at this point ui->fds contains the field which contains the tokens  
+    // now get the opion string out of the text field. nth_token can be 0 if this is no opion string
+    cnt = mui_fds_get_token_cnt(ui); 
+    
+    ui->fds = fds_backup;                        // restore the previous fds position
+    ui->len = len;
+    // result is stored in ui->text
+    return cnt;
+  }
+  ui->text[0] = '\0';
+  return 0;
 }
 
 
@@ -793,39 +806,91 @@ uint8_t mui_GotoForm(mui_t *ui, uint8_t form_id, uint8_t initial_cursor_position
   return 1;
 }
 
-void mui_SaveForm(mui_t *ui)
+/* 
+  Save current form+cursor position. Used together with mui_RestoreForm 
+*/
+void mui_SaveFormWithCursorPosition(mui_t *ui, uint8_t cursor_pos)
 {
   if ( mui_IsFormActive(ui) == 0 )
     return;
   
-  ui->last_form_fds = ui->cursor_focus_fds;
-  ui->last_form_id = mui_get_fds_char(ui->current_form_fds+1);
-  ui->last_form_cursor_focus_position = mui_GetCurrentCursorFocusPosition(ui);
+  if ( ui->last_form_stack_pos < MUI_MENU_LAST_FORM_STACK_SIZE-1 )
+    ui->last_form_stack_pos++;
+  else  // discard the oldes entry
+  {
+    uint8_t i;
+    for( i = 0; i < ui->last_form_stack_pos; i++ )
+    {
+      ui->last_form_id[i] = ui->last_form_id[i+1];
+      ui->last_form_cursor_focus_position[i] = ui->last_form_cursor_focus_position[i+1];
+    }
+  }
+  
+  ui->last_form_fds = ui->cursor_focus_fds;             // 25 Aug 2024: I think this is not required, u8g2 data function will store the value manually in last_form_fds
+  ui->last_form_id[ui->last_form_stack_pos] = mui_get_fds_char(ui->current_form_fds+1);
+  ui->last_form_cursor_focus_position[ui->last_form_stack_pos] = cursor_pos;
 }
 
-/*
-  if called from a field function, then the current field variables are destroyed, so that call should be the last call in the field callback.
+/* 
+  Save current form+cursor position. Simplified version, which will not work with pseudo scrolling forms
 */
-void mui_RestoreForm(mui_t *ui)
+void mui_SaveForm(mui_t *ui)
 {
-  mui_GotoForm(ui, ui->last_form_id, ui->last_form_cursor_focus_position);
+  mui_SaveFormWithCursorPosition(ui, mui_GetCurrentCursorFocusPosition(ui));
+}
+
+
+/*
+  Restore previous saved form and cursor position.
+  if called from a field function, then the current field variables are destroyed, so that call should be the last call in the field callback.
+  returns 0 if there is no form to restore
+*/
+uint8_t mui_RestoreForm(mui_t *ui)
+{
+  MUI_DEBUG("mui_RestoreForm last_form_stack_pos=%d\n", ui->last_form_stack_pos);
+  if ( ui->last_form_stack_pos >= 0 )
+  {
+    uint8_t form_id = ui->last_form_id[ui->last_form_stack_pos];
+    uint8_t focus = ui->last_form_cursor_focus_position[ui->last_form_stack_pos];
+    ui->last_form_stack_pos--;
+    return mui_GotoForm(ui, form_id, focus);
+    //ui->last_form_fds = NULL;
+  }
+  return 0;
 }
 
 /*
   Save a cursor position for mui_GotoFormAutoCursorPosition command
-  Two such positions is stored.
 */
 void mui_SaveCursorPosition(mui_t *ui, uint8_t cursor_position)
 {
   uint8_t form_id = mui_get_fds_char(ui->current_form_fds+1);
+  uint8_t i;
   MUI_DEBUG("mui_SaveCursorPosition form_id=%d cursor_position=%d\n", form_id, cursor_position);
   
+  for( i = 0; i < MUI_MENU_CACHE_CNT; i++ )
+  {
+    if ( form_id == ui->menu_form_id[i] )
+    {
+      ui->menu_form_last_added = i;
+      break;
+    }
+  }
+  if ( i >= MUI_MENU_CACHE_CNT )
+  {
+      ui->menu_form_last_added++ ;
+      if ( ui->menu_form_last_added >= MUI_MENU_CACHE_CNT )
+        ui->menu_form_last_added = 0;
+  }
+    
+  /*
   if ( form_id == ui->menu_form_id[0] )
     ui->menu_form_last_added = 0;
   else if ( form_id == ui->menu_form_id[1] )
     ui->menu_form_last_added = 1;
   else 
     ui->menu_form_last_added ^= 1;
+  */
   ui->menu_form_id[ui->menu_form_last_added] = form_id;
   ui->menu_form_cursor_focus_position[ui->menu_form_last_added] = cursor_position;
   MUI_DEBUG("mui_SaveCursorPosition ui->menu_form_last_added=%d \n", ui->menu_form_last_added);

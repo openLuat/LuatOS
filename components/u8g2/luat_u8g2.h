@@ -21,6 +21,8 @@ typedef struct luat_u8g2_conf
     void* userdata;
 } luat_u8g2_conf_t;
 
+uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+
 int luat_u8g2_setup(luat_u8g2_conf_t *conf);
 
 int luat_u8g2_close(luat_u8g2_conf_t *conf);

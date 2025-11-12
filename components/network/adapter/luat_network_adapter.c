@@ -1589,23 +1589,26 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	if (!local_port)
 	{
 		local_port = ctrl->adapter_index;
-		local_port *= 640;
-		uint32_t offset = ctrl - adapter->ctrl_table;
-		if (offset >= sizeof(network_ctrl_t))
-		{
-			offset /= sizeof(network_ctrl_t);
-		}
-		if (offset >= adapter->opt->max_socket_num)
-		{
-			offset = adapter->opt->max_socket_num;
-		}
+		local_port *= 1000;
+		G_LOCK;
 		adapter->port++;
-		if (adapter->port >= 10)
+		if (adapter->port >= 500)
 		{
 			adapter->port = 0;
 		}
-		local_port += 50000 + adapter->port + offset * 10;
-		DBG("network %d local port auto select %u",offset, local_port);
+		local_port += 50000 + adapter->port;
+		G_UNLOCK;
+//		local_port += 50000 + adapter->port + offset * 10;
+//		DBG("network %d local port auto select %u",offset, local_port);
+		if (ctrl->is_debug)
+		{
+			uint32_t offset = ctrl - adapter->ctrl_table;
+			if (offset >= sizeof(network_ctrl_t))
+			{
+				offset /= sizeof(network_ctrl_t);
+			}
+			DBG("network %d-%d local port auto select %u",ctrl->adapter_index,offset, local_port);
+		}
 	}
 	#ifdef LUAT_USE_NETDRV
 	luat_netdrv_fire_socket_event_netctrl(0x83 + EV_NW_RESET, ctrl, 0);

@@ -4,7 +4,7 @@
 
 1、main.lua：主程序入口文件，加载以下 4个文件运行。
 
-2、netdrv_multiple.lua：网卡驱动配置文件，可以配置以太网卡,wifi 网卡,单 4g 网卡，pc模拟器网卡，多网卡五种网卡的使用优先级
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
 
 3、sms_forward.lua： 短信转发功能模块文件
 
@@ -34,6 +34,18 @@
 
 4、cc_forward()，来电号码信息转发到指定机器人
 
+**netdrv_device：**
+
+短信通过http转发到企业微信/钉钉/飞书平台时，配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+
+(1) netdrv_4g：4G网卡
+
+(2) netdrv_wifi：WIFI STA网卡
+
+(3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+
+(4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+
 ## 演示硬件环境：
 
 ![8000w](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV.png)
@@ -55,15 +67,14 @@ TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接
 3、可选 AirETH_1000 配件板一块，Air780EHV/EHM/EGH 核心板和 AirETH_1000 配件板的硬件接线方式为:
 
 | **Air780EHV/EHM/EGH核心板** | **AirETH_1000配件板** |
-| ---------------- |:------------------:|
-| 3V3              | 3.3v               |
-| GND              | GND                |
-| 86/SPI0CLK       | SCK                |
-| 83/SPI0CS        | CSS                |
-| 84/SPI0MISO      | SDO                |
-| 85/SPI0MOSI      | SDI                |
-| 107/GPIO21       | INT                |
-
+| ------------------------ |:------------------:|
+| 3V3                      | 3.3v               |
+| GND                      | GND                |
+| 86/SPI0CLK               | SCK                |
+| 83/SPI0CS                | CSS                |
+| 84/SPI0MISO              | SDO                |
+| 85/SPI0MOSI              | SDI                |
+| 107/GPIO21               | INT                |
 
 
 
@@ -75,7 +86,6 @@ TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接
 LuatOS-SoC_V2016_Air780EHV_1，固件地址，如有最新固件请用最新 [[https://docs.openluat.com/air780ehv/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)]
 
 LuatOS-SoC_V2016_Air780EHM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/Air780EHM/luatos/firmware/](https://docs.openluat.com/Air780EHM/luatos/firmware/)
-
 
 LuatOS-SoC_V2016_Air780EGH_1，固件地址，如有最新固件请用最新 [[https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)]
 

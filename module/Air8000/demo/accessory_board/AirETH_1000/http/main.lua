@@ -10,7 +10,7 @@
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
     (1) netdrv_4g：socket.LWIP_GP，4G网卡；
     (2) netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
-    (3) netdrv_ethernet_spi：socket.LWIP_ETH，通过SPI外挂CH390H芯片的以太网卡；
+    (3) netdrv_eth_spi：socket.LWIP_ETH，通过SPI外挂CH390H芯片的以太网卡；
     (4) netdrv_multiple：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
     (5) netdrv_pc：pc模拟器上的网卡
 更多说明参考本目录下的readme.md文件

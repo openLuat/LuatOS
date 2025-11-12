@@ -2173,6 +2173,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "setDefault", ROREG_FUNC(l_lcd_set_default)},
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},
+    { "getStrWidth",ROREG_FUNC(l_lcd_get_str_width)},
     { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
     { "close",      ROREG_FUNC(l_lcd_close)},
     { "on",         ROREG_FUNC(l_lcd_display_on)},

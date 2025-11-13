@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh">
+<header>
+    <meta charset="utf-8" />
+    <title>Air8000 控制中心</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h2, h4 {
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .control-panel {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .status {
+            font-weight: bold;
+            margin-top: 10px;
+            color: #27ae60;
+        }
+        .led-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .led-buttons button {
+            flex: 1;
+        }
+        #sendBtn {
+            background-color: #27ae60;
+        }
+        #sendBtn:hover {
+            background-color: #229954;
+        }
+        #scanBtn {
+            background-color: #9b59b6;
+        }
+        #scanBtn:hover {
+            background-color: #8e44ad;
+        }
+        #wifiResults {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f9f9f9;
+        }
+        #wifiResults ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #wifiResults li {
+            padding: 8px;
+            margin: 2px 0;
+            background-color: white;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+        .ssid {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .rssi-strong {
+            color: #27ae60;
+        }
+        .rssi-medium {
+            color: #f39c12;
+        }
+        .rssi-weak {
+            color: #e74c3c;
+        }
+    </style>
+    <script type="text/javascript">
+        function led(key) {
+            fetch("/led/" + key)
+                .then(function(resp) {
+                    if (resp.status == 200) {
+                        document.getElementById("status").textContent = "LED已" + (key == 1 ? "开启" : "关闭");
+                    }
+                })
+        }
+        function sendText() {
+            var text = document.getElementById("inputText").value;
+            if (text.trim() === "") {
+                alert("请输入文本内容");
+                return;
+            }
+            
+            // 添加调试日志
+            console.log("发送文本:", text);
+            
+            fetch("/send/text", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain"
+                },
+                body: text
+            }).then(function(resp) {
+                console.log("响应状态:", resp.status);
+                if (resp.status == 200) {
+                    document.getElementById("status").textContent = "文本已发送至设备日志";
+                    document.getElementById("inputText").value = "";
+                } else {
+                    document.getElementById("status").textContent = "发送失败: " + resp.status;
+                }
+            }).catch(function(error) {
+                console.error("发送错误:", error);
+                document.getElementById("status").textContent = "发送出错: " + error.message;
+            });
+        }
+        
+        // 按下回车键时发送文本
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                sendText();
+            }
+        }
+        
+        // WiFi扫描功能
+        function scanWifi() {
+            document.getElementById("status").textContent = "正在扫描WiFi...";
+            document.getElementById("wifiResults").innerHTML = "";
+            
+            fetch("/scan/go")
+                .then(function(resp) {
+                    if (resp.status == 200) {
+                        document.getElementById("status").textContent = "扫描已开始，正在获取结果...";
+                        // 等待1秒后获取扫描结果
+                        setTimeout(getWifiResults, 1000);
+                    } else {
+                        document.getElementById("status").textContent = "扫描失败: " + resp.status;
+                    }
+                })
+                .catch(function(error) {
+                    console.error("扫描错误:", error);
+                    document.getElementById("status").textContent = "扫描出错: " + error.message;
+                });
+        }
+        
+        // 获取WiFi扫描结果
+        function getWifiResults() {
+            fetch("/scan/list")
+                .then(function(resp) {
+                    if (resp.status == 200) {
+                        return resp.json();
+                    } else {
+                        throw new Error("获取结果失败: " + resp.status);
+                    }
+                })
+                .then(function(data) {
+                    const resultsDiv = document.getElementById("wifiResults");
+                    if (data && data.data && data.data.length > 0) {
+                        let html = "<ul>";
+                        data.data.forEach(function(ap) {
+                            let rssiClass = "rssi-weak";
+                            if (ap.rssi > -70) rssiClass = "rssi-strong";
+                            else if (ap.rssi > -85) rssiClass = "rssi-medium";
+                            
+                            html += `<li><span class="ssid">${ap.ssid}</span> <span class="${rssiClass}">信号: ${ap.rssi} dBm</span></li>`;
+                        });
+                        html += "</ul>";
+                        resultsDiv.innerHTML = html;
+                        document.getElementById("status").textContent = "扫描完成，共发现 " + data.data.length + " 个WiFi网络";
+                    } else {
+                        resultsDiv.innerHTML = "未发现WiFi网络";
+                        document.getElementById("status").textContent = "扫描完成，未发现WiFi网络";
+                    }
+                })
+                .catch(function(error) {
+                    console.error("获取结果错误:", error);
+                    document.getElementById("status").textContent = "获取结果出错: " + error.message;
+                });
+        }
+    </script>
+</header>
+<body>
+    <div class="container">
+        <h2>Air8000 控制中心</h2>
+        
+        <!-- 文本发送功能 -->
+        <div class="control-panel">
+            <h4>文本发送</h4>
+            <label for="inputText">输入文本:</label>
+            <input type="text" id="inputText" placeholder="请输入要发送到设备日志的文本" onkeypress="handleKeyPress(event)">
+            <button id="sendBtn" onclick="sendText()">发送文本</button>
+        </div>
+        
+        <!-- LED控制功能 -->
+        <div class="control-panel">
+            <h4>LED控制</h4>
+            <div class="led-buttons">
+                <button onclick="led(1)">开启LED</button>
+                <button onclick="led(0)">关闭LED</button>
+            </div>
+        </div>
+        
+        <!-- WiFi扫描功能 -->
+        <div class="control-panel">
+            <h4>WiFi扫描</h4>
+            <button id="scanBtn" onclick="scanWifi()">扫描WiFi网络</button>
+            <div id="wifiResults">请点击上方按钮开始扫描</div>
+        </div>
+        
+        <!-- 状态显示 -->
+        <div class="status" id="status">就绪</div>
+    </div>
+</body>
+</html>

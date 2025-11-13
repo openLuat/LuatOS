@@ -39,12 +39,12 @@ typedef struct ping_result
 
 static int l_icmp_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_icmp_ctx_t* ctx = (luat_icmp_ctx_t*)msg->ptr;
     lua_getglobal(L, "sys_pub");
-    uint32_t addr = msg->arg2;
-    char buff[32] = {0};
-    ip_addr_t ip = {0};
-    ip_addr_set_ip4_u32(&ip, addr);
-    ipaddr_ntoa_r(&ip, buff, 32);
+    char buff[64] = {0};
+    if (ctx) {
+        ipaddr_ntoa_r(&ctx->dst, buff, sizeof(buff));
+    }
     if (lua_isfunction(L, -1)) {
         lua_pushstring(L, "PING_RESULT");
         lua_pushinteger(L, (msg->arg1 >> 16) & 0xFFFF);
@@ -62,8 +62,9 @@ static void l_icmp_cb(void* _ctx, uint32_t tused) {
     luat_icmp_ctx_t* ctx = (luat_icmp_ctx_t*)_ctx;
     rtos_msg_t msg = {
         .handler = l_icmp_handler,
+        .ptr = ctx,
         .arg1 = ctx->adapter_id << 16 | (tused & 0xFFFF),
-        .arg2 = ip_addr_get_ip4_u32(&ctx->dst)
+        .arg2 = 0
     };
     luat_msgbus_put(&msg, 0);
 }

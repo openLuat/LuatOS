@@ -831,11 +831,11 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
 #ifdef U8G2_WITH_UNICODE
         else{
             uint16_t e;
-            uint16_t unicode_lookup_pos = 0;
             // const uint8_t *unicode_lookup_table;
             // font += u8g2->font_info.start_pos_unicode;
             luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_unicode, SEEK_CUR);
             uint16_t pos_unicode = 0;
+            uint16_t unicode_lookup_pos = 0;
             // unicode_lookup_table = font; 
             /* issue 596: search for the glyph start in the unicode lookup table */
             // do{
@@ -843,15 +843,15 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
             //     e = u8g2_font_get_word(unicode_lookup_table, 2);
             //     unicode_lookup_table+=4;
             // } while( e < encoding );
-            do{
-                luat_fs_fread(font_data, 1, 4, u8g2->font_file);
-                // uint16_t pos = font_data[0]<<8 | font_data[1];
-                pos_unicode += font_data[0]<<8 | font_data[1];
-                e = font_data[2]<<8 | font_data[3];
-                unicode_lookup_pos+=4;
-                // printf("0: unicode e=%02X\n", e);
-            } while( e < encoding );
-            luat_fs_fseek(u8g2->font_file, pos_unicode - unicode_lookup_pos, SEEK_CUR);
+            // do{
+            //     luat_fs_fread(font_data, 1, 4, u8g2->font_file);
+            //     // uint16_t pos = font_data[0]<<8 | font_data[1];
+            //     pos_unicode += font_data[0]<<8 | font_data[1];
+            //     e = font_data[2]<<8 | font_data[3];
+            //     unicode_lookup_pos+=4;
+            //     // printf("0: unicode e=%02X\n", e);
+            // } while( e < encoding );
+            // luat_fs_fseek(u8g2->font_file, pos_unicode - unicode_lookup_pos, SEEK_CUR);
             // printf("1: pos_unicode %d\n", pos_unicode);
             // printf("1: unicode e=%02X\n", e);
             // return NULL;

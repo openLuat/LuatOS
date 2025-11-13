@@ -178,7 +178,8 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
 #ifdef LUAT_USE_FOTA
-	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA){
+	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA && http_ctrl->close_state == 0){
+		http_ctrl->close_state = 1;
 		luat_fota_end(0);
 		luat_http_client_onevent(http_ctrl, error_code, 0);
 		return;

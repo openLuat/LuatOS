@@ -62,11 +62,78 @@ static inline uint32_t luat_color_565to8888(luat_color_t color) {
 }
 
 int luat_lcd_flush(luat_lcd_conf_t* conf) {
+    if (!conf) {
+        return 0;
+    }
+    if (conf->buff == NULL || conf->flush_y_max < conf->flush_y_min) {
+        luat_sdl2_flush();
+        return 0;
+    }
+
+    int16_t y_min = conf->flush_y_min < 0 ? 0 : conf->flush_y_min;
+    int16_t y_max = conf->flush_y_max >= conf->h ? (conf->h - 1) : conf->flush_y_max;
+    size_t width = conf->w;
+    size_t height = y_max - y_min + 1;
+
+    luat_color_t* src = conf->buff + y_min * conf->w;
+    uint32_t* tmp = fb;
+    for (size_t row = 0; row < height; row++) {
+        for (size_t col = 0; col < width; col++) {
+            tmp[row * width + col] = luat_color_565to8888(src[col]);
+        }
+        src += conf->w;
+    }
+    luat_sdl2_draw(0, y_min, conf->w - 1, y_max, fb);
     luat_sdl2_flush();
+
+    conf->flush_y_max = 0;
+    conf->flush_y_min = conf->h;
     return 0;
 }
 
 int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color_p) {
+    if (!conf) {
+        return 0;
+    }
+
+    if (conf->buff) {
+        int16_t src_w = x2 - x1 + 1;
+        int16_t src_h = y2 - y1 + 1;
+        if (src_w <= 0 || src_h <= 0) {
+            return 0;
+        }
+        for (int16_t row = 0; row < src_h; row++) {
+            int16_t dst_y = y1 + row;
+            luat_color_t* src = color_p + row * src_w;
+            if (dst_y < 0 || dst_y >= conf->h) {
+                continue;
+            }
+            int16_t dst_x = x1;
+            int16_t start_offset = 0;
+            int16_t copy_len = src_w;
+            if (dst_x < 0) {
+                start_offset = -dst_x;
+                copy_len -= start_offset;
+                dst_x = 0;
+            }
+            if (dst_x + copy_len > conf->w) {
+                copy_len = conf->w - dst_x;
+            }
+            if (copy_len <= 0) {
+                continue;
+            }
+            luat_color_t* dst = conf->buff + dst_y * conf->w + dst_x;
+            memcpy(dst, src + start_offset, copy_len * sizeof(luat_color_t));
+        }
+        if (y1 < conf->flush_y_min) {
+            conf->flush_y_min = (y1 < 0) ? 0 : y1;
+        }
+        if (y2 > conf->flush_y_max) {
+            conf->flush_y_max = (y2 >= conf->h) ? (conf->h - 1) : y2;
+        }
+        return 0;
+    }
+
     size_t rw = x2 - x1 + 1;
     size_t rh = y2 - y1 + 1;
 

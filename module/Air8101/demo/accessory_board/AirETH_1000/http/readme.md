@@ -26,15 +26,15 @@
 
 3、Air8101核心板和AirETH_1000配件板的硬件接线方式为：
 
-| Air8101核心板 | AirETH_1000配件板 |
-| ---------- | -------------- |
-| vdd        | 3.3v           |
-| gnd        | gnd            |
-| spi1_sclk  | SCK            |
-| spi1_cs    | CSS            |
-| spi1_miso  | SDO            |
-| spi1_mosi  | SDI            |
-| gpio21     | INT            |
+| Air8101核心板 | AirETH_1000配件板                  |
+| ---------- | ------------------------------- |
+| 59/3V3     | 3.3v                            |
+| gnd        | gnd                             |
+| 28/DCLK    | SCK                             |
+| 54/DISP    | CSS                             |
+| 55/HSYN    | SDO                             |
+| 57/DE      | SDI                             |
+| 14/GPIO8   | INT |
 
 演示软件环境
 
@@ -76,5 +76,3 @@
 
 
 ```
-
-

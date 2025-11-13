@@ -41,7 +41,7 @@ function netif_app_task_func()
     --     local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil,
     --         { adapter = socket.LWIP_GP, timeout = 5000, debug = false }).wait()
     --     log.info("http执行结果", code, headers, body and #body)
-    --     sys.wait(10000)
+    --     sys.wait(5000)
     -- end
 end
 

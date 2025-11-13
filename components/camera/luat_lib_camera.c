@@ -634,6 +634,8 @@ static const rotable_Reg_t reg_camera[] =
     { "ROTATE_0",    ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_0)},
     //@const ROTATE_90 number 摄像头预览，画面旋转90度
     { "ROTATE_90",   ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_90)},
+    //@const ROTATE_180 number 摄像头预览，画面旋转180度
+    { "ROTATE_180",  ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_180)},
     //@const ROTATE_270 number 摄像头预览，画面旋转270度
     { "ROTATE_270",  ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_270)},
 

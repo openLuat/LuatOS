@@ -25,17 +25,9 @@ function netif_app_task_func()
         channel = 6,                    -- AP建立的通道, 默认6
         main_adapter = {                -- 提供网络的网卡开启参数
             ssid = "iPhone", 
-            password = "HZ88888888"
+            password = "hz88888888"
         }
     })
-    -- 设置多网融合功能，wifi提供网络供以太网设备上网,RMII方式外挂
-    -- res = exnetif.setproxy(socket.LWIP_ETH, socket.LWIP_STA, {
-    --     ethpower_en = 13,               -- 以太网模块的pwrpin引脚(gpio编号)
-    --     main_adapter = {                -- 提供网络的网卡开启参数
-    --         ssid = "test", 
-    --         password = "HZ88888888"
-    --     }
-    -- })
     -- 设置多网融合功能，wifi提供网络供以太网设备上网,SPI方式外挂
     res = exnetif.setproxy(socket.LWIP_USER1, socket.LWIP_STA, {
         ethpower_en = 13,            -- 以太网模块的pwrpin引脚(gpio编号)
@@ -46,7 +38,7 @@ function netif_app_task_func()
         },
         main_adapter = {                -- 提供网络的网卡开启参数
             ssid = "iPhone", 
-            password = "HZ88888888"
+            password = "hz88888888"
         }
     })
 

@@ -37,7 +37,7 @@ local fota_running = false
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5缺少必要的PROJECT_KEY参数
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
 local function fota_cb(ret)
     log.info("fota", ret)
     -- fota结束，无论成功还是失败，都释放fota_running标志
@@ -59,7 +59,7 @@ local function fota_cb(ret)
             "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n" ..
             "3) 已经是最新版本，无需升级")
     elseif ret == 5 then
-        log.info("缺少必要的PROJECT_KEY参数")
+        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
     else
         log.info("不是上面几种情况 ret为", ret)
     end
@@ -97,7 +97,7 @@ local opts = {
 
     -- 请求的版本号, 合宙IOT有一套版本号体系,不传就是合宙规则, 自建服务器的话当然是自行约定版本号了
     version = ""
-    -- 其他更多参数, 请查阅libfota2的文档 https://docs.openluat.com/osapi/ext/libfota2/
+    -- 其他更多参数, 请查阅libfota2的文档 https://wiki.luatos.com/api/libs/libfota2.html
 }
 
 

@@ -2128,7 +2128,7 @@ function excloud.send(data, need_reply, is_auth_msg)
         callback_func("send_result", {
             success = success,
             error_msg = success and "Send successful" or err_msg,
-            sequence_num = current_sequence
+            sequence_num = current_sequence,
         })
     end
 

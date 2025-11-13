@@ -1,7 +1,7 @@
 
 -- netlab.luatos.com上打开TCP 有测试服务器
 local server_ip = "112.125.89.8"
-local server_port = 43890
+local server_port = 33670
 local is_udp = false --用户根据自己实际情况选择
 
 --是UDP服务器就赋值为true，是TCP服务器就赋值为flase
@@ -97,7 +97,6 @@ function socketDemo()
     log.info("开始测试低功耗模式")
     sys.wait(2000)
     --配置GPIO以达到最低功耗的目的
-    gpio.setup(23, nil)
     gpio.close(33) -- 如果功耗偏高，开始尝试关闭WAKEUPPAD1
     gpio.close(35) -- 这里pwrkey接地才需要，不接地通过按键控制的不需要
 

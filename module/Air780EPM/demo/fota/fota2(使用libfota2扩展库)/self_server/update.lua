@@ -33,7 +33,7 @@ sys.timerLoopStart(get_version, 3000)
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5缺少必要的PROJECT_KEY参数
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
 local function fota_cb(ret)
     log.info("fota", ret)
     if ret == 0 then
@@ -52,7 +52,7 @@ local function fota_cb(ret)
             "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n"..
             "3) 已经是最新版本，无需升级" )
     elseif ret == 5 then
-        log.info("缺少必要的PROJECT_KEY参数")
+        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
     else
         log.info("不是上面几种情况 ret为", ret)
     end
@@ -76,7 +76,7 @@ end
 -- 13. opts.body string 额外添加的请求body,默认不需要
 ]]
 local opts = {
-    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin",
+    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin_20250623184110381812",
     -- 合宙IOT平台的默认升级URL, 不填就是这个默认值
     -- 如果是自建的OTA服务器, 则需要填写正确的URL, 例如 http://192.168.1.5:8000/update
     -- 如果自建OTA服务器,且url包含全部参数,不需要额外添加参数, 请在url前面添加 ###
@@ -89,7 +89,7 @@ local opts = {
 
     -- 请求的版本号, 合宙IOT有一套版本号体系,不传就是合宙规则, 自建服务器的话当然是自行约定版本号了
     -- version = ""
-    -- 其他更多参数, 请查阅libfota2的文档 https://docs.openluat.com/osapi/ext/libfota2/
+    -- 其他更多参数, 请查阅libfota2的文档 https://wiki.luatos.com/api/libs/libfota2.html
 }
 
 function fota_task_func()

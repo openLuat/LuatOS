@@ -132,7 +132,7 @@ local function draw_address_list()
     -- 如果正在通话，绘制停止按钮 (底部居中)
     if g_state == SP_T_CONNECTED then
         lcd.fill(120, 435, 200, 465,0xF061)  -- 绘制停止按钮边框
-        lcd.drawStr(130, 462, "停止通话")
+        lcd.drawStr(135, 453, "停止通话")
     end
     
     lcd.flush()
@@ -159,12 +159,12 @@ function talk.run()
                     lcd.showImage(175, 300, "/luadb/datacall.jpg")
                 end
                 lcd.drawStr(0, 100, "方案介绍:airtalk.luatos.com")
-                lcd.drawStr(0, 120, "平台端网址:airtalk.openluat.com/talk/")
+                lcd.drawStr(0, 120, "平台端网址:iot.luatos.com")
                 lcd.drawStr(0, 140, "所有要对讲的设备，要保持在线")
                 lcd.drawStr(0, 160, talk_state)
                 lcd.drawStr(0, 180, "事件:" .. event)
                 lcd.drawStr(0, 200, "本机ID:" .. local_id)
-                lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/talk/", 82)
+                lcd.drawQrcode(185, 148, "https://airtalk.openluat.com/", 82)
                 lcd.drawStr(185, 242, "扫码进入网页端",0x0000)
                 -- 显示输入法入口按钮
                 

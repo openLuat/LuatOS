@@ -43,7 +43,11 @@
 
 1、Luatools下载调试工具
 
-2、[Air780EHM V2012版本固件]([固件版本 - luatos@air780epm - 合宙模组资料中心](https://docs.openluat.com/air780epm/luatos/firmware/version/))、[Air780EHV V2012版本固件]([固件版本 - luatos@air780ehv - 合宙模组资料中心](https://docs.openluat.com/air780ehv/luatos/firmware/version/))、[Air780EGH V2012版本固件]([固件版本 - luatos@air780egh - 合宙模组资料中心](https://docs.openluat.com/air780egh/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air780EHM V2012版本固件]([固件版本 - luatos@air780epm - 合宙模组资料中心](https://docs.openluat.com/air780epm/luatos/firmware/version/))、
+
+[Air780EHV V2012版本固件]([固件版本 - luatos@air780ehv - 合宙模组资料中心](https://docs.openluat.com/air780ehv/luatos/firmware/version/))、
+
+[Air780EGH V2012版本固件]([固件版本 - luatos@air780egh - 合宙模组资料中心](https://docs.openluat.com/air780egh/luatos/firmware/version/))（理论上，2025年7月26日之后发布的固件都可以）
 
 ## 演示核心步骤
 

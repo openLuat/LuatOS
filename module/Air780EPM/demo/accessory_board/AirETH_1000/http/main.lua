@@ -6,8 +6,7 @@
 @author  王城钧
 @usage
 本demo演示的核心功能为：
-1、分别使用http核心库和httpplus扩展库，演示以下这种应用场景的使用方式
-    (1) 普通的http get请求功能演示；
+1、http_app: 普通的http get请求功能演示；
 2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
     (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
     (2)netdrv_4g：socket.LWIP_GP，4G网卡；

@@ -109,17 +109,28 @@ static int l_ws2812_set(lua_State* L) {
 
 /*
 发送数据到设备
-@api ws2812.send(leds)
+@api ws2812.send(leds, fast_mode)
 @userdata 通过ws2812.create获取到的上下文
+@boolean GPIO模式下是否使用快速发送模式，默认不使用，其他模式均强制不使用。仅适用少量灯使用，灯数量不能超过os-tick时间/1个灯数据帧发送最长时间
 @return boolean 设置成功返回true,否则返回nil
+@return int 快速发送模式下数据帧发送总消耗时间，不包括起始帧，单位us。非快速发送模式下，是随机值
 @usage
--- 没有更多参数, 发就完事了
-ws2812.send(leds)
+ws2812.send(leds)	--普通模式发送，无需处理返回值
+local _,t = ws2812.send(leds, true) --快速模式下，需要对消耗时间进行判断，超过理论时间太多说明被中断打断过，需要重发
 */
 static int l_ws2812_send(lua_State* L) {
     luat_ws2812_t* ctx = lua_touserdata(L, 1);
+    if (lua_isboolean(L, 2))
+    {
+    	ctx->fast_mode = lua_toboolean(L, 2);
+    }
+    else
+    {
+    	ctx->fast_mode = 0;
+    }
     int ret = luat_ws2812_send(ctx);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
+    lua_pushinteger(L, ctx->us);
     return 0;
 }
 

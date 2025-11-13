@@ -141,6 +141,7 @@ void luat_gpio_iomux(int pin, int new_pad, uint8_t alt);
  */
 int luat_gpio_driver_ws2812b(int pin, uint8_t *data, uint32_t len, uint32_t frame_cnt, uint8_t bit0h, uint8_t bit0l, uint8_t bit1h, uint8_t bit1l);
 
+uint32_t luat_gpio_driver_ws2812b_no_stop_isr(int pin, uint8_t *data, uint32_t len, uint8_t bit0h, uint8_t bit0l, uint8_t bit1h, uint8_t bit1l);
 /**
  * @brief gpio方式驱动yhm27xx,short mode操作1个寄存器读写
  * @param pin GPIO号

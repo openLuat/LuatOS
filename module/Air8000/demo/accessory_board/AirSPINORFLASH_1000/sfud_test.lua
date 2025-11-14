@@ -43,7 +43,8 @@ local data = "testdata"
 local function spiDev_init_func()
     log.info("sfud", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
 
-    --以对象的方式初始化spi，高位在前，主模式，全双工模式
+    --以对象的方式初始化spi，高位在前，主模式，半双工模式
+    --spi flash只能半双工模式
     spi_device = spi.deviceSetup(SPI_ID, CS_PIN, CPHA, CPOL, data_Width, bandrate, spi.MSB, 1, 0)    
     log.info("硬件spi", "初始化，波特率:", spi_device, bandrate)
     if not spi_device then

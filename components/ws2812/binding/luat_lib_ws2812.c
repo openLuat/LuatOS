@@ -131,7 +131,7 @@ static int l_ws2812_send(lua_State* L) {
     int ret = luat_ws2812_send(ctx);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ctx->us);
-    return 0;
+    return 2;
 }
 
 /*

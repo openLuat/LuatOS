@@ -82,11 +82,11 @@ require "ch390_manager"
 不符合正常的业务逻辑，用户在参考编程的时候也要注意。]]
 
 --加载tf卡测试应用模块
--- require "tfcard_app"
+require "tfcard_app"
 --加载HTTP下载存入TF卡功能演示模块
---require "http_download_file"
+-- require "http_download_file"
 --加载HTTP上传文件到服务器的功能演示模块
-require "http_upload_file"
+-- require "http_upload_file"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

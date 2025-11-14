@@ -47,11 +47,11 @@ local function http_download_file_task()
     log.info("HTTP下载", "开始下载任务")
 
     -- 核心下载操作开始 (支持http和https)
-    -- local code, headers, body = http.request("GET", "...", nil, nil, {dst = "/sd/1.mp3"}).wait()
+    --local code, headers, body = http.request("GET", "...", nil, nil, {dst = "/sd/3_23MB.bin"}).wait()
     -- 其中 "..."为url地址, 支持 http和https, 支持域名, 支持自定义端口。
     local code, headers, body_size = http.request("GET",
-                                    "https://gitee.com/openLuat/LuatOS/raw/master/module/Air780EHM_Air780EHV_Air780EGH/demo/audio/1.mp3",
-                                    nil, nil, {dst = "/sd/1.mp3"}).wait()
+                                   "https://cdn.openluat-erp.openluat.com/erp_site_file/product_file/AirM2M_780EHT_V2017_LTE_AT.dfota.bin",
+                                    nil, nil, {dst = "/sd/3_23MB.bin"}).wait()
     -- 阶段3: 记录下载结果
     log.info("HTTP下载", "下载完成", 
         code==200 and "success" or "error", 
@@ -63,7 +63,7 @@ local function http_download_file_task()
         
     if code == 200 then
         -- 获取实际文件大小
-        local actual_size = io.fileSize("/sd/1.mp3")
+        local actual_size = io.fileSize("/sd/3_23MB.bin")
         log.info("HTTP下载", "文件大小验证", "预期:", body_size, "实际:", actual_size)
         
         if actual_size~= body_size then

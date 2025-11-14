@@ -26,11 +26,14 @@ local function http_upload_task()
     -- 检测到了IP_READY消息
     log.info("HTTP上传", "网络已就绪", socket.dft())
 
-    -- 阶段2: TF卡文件系统初始化
-    local spi_id, pin_cs = 1, 12
+    -- 在Air780EHM/EHV/EGH核心板上TF卡的的pin_cs为gpio8，spi_id为0.请根据实际硬件修改
+    spi_id, pin_cs = 0, 8
     spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    -- 初始化后拉高pin_cs,准备开始挂载TF卡
     gpio.setup(pin_cs, 1)
     
+
+    -- 挂载文件系统
     local mount_ok = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
     if not mount_ok then
         log.error("HTTP上传", "文件系统挂载失败")

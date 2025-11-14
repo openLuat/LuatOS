@@ -47,7 +47,7 @@ local function http_download_file_task()
     log.info("HTTP下载", "开始下载任务")
 
     -- 核心下载操作开始 (支持http和https)
-    -- local code, headers, body = http.request("GET", "...", nil, nil, {dst = "/sd/1.mp3"}).wait()
+    -- local code, headers, body = http.request("GET", "...", nil, nil, {dst = "/sd/3_23MB.bin"}).wait()
     -- 其中 "..."为url地址, 支持 http和https, 支持域名, 支持自定义端口。
     local code, headers, body_size = http.request("GET",
                                     "https://cdn.openluat-erp.openluat.com/erp_site_file/product_file/AirM2M_780EHT_V2017_LTE_AT.dfota.bin",

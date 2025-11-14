@@ -118,6 +118,7 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 			// LLOGD("luat_ftp_data_callback network_rx ret:%d rx_len:%d",ret,rx_len);
 			if (!ret && rx_len > 0)
 			{
+                g_s_ftp.network->download_file_size += rx_len;
 				if (g_s_ftp.fd)
 				{
 					luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_WRITE_FILE, (uint32_t)rx_buffer, rx_len, 0, LUAT_WAIT_FOREVER);
@@ -409,7 +410,7 @@ static int pasv_recv(void)
 		memmove(g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_data + pos, g_s_ftp.network->cmd_recv_len - pos);
 		g_s_ftp.network->cmd_recv_len -= pos;
 		g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
-		if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT))
+		if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT) && g_s_ftp.network->remote_file_size == )
 		{
 			rx_finish = 1;
 		}
@@ -503,6 +504,19 @@ static void ftp_task(void *param){
 		case FTP_EVENT_LOGIN:
 			break;
 		case FTP_EVENT_PULL:
+			g_s_ftp.network->remote_file_size = 0;
+            g_s_ftp.network->download_file_size = 0;
+            memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
+			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "SIZE %s\r\n",g_s_ftp.network->remote_name);
+			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
+			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+			if (!ret){
+                if (!memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS, 3)){
+                    g_s_ftp.network->remote_file_size = string2int(g_s_ftp.network->cmd_recv_data+4,g_s_ftp.network->cmd_recv_len-4);
+                }
+			}
+            // LLOGD("remote_file_size:%d",g_s_ftp.network->remote_file_size);
+
 			if (g_s_ftp.network->data_netc){
 				network_force_close_socket(g_s_ftp.network->data_netc);
 				network_release_ctrl(g_s_ftp.network->data_netc);
@@ -522,22 +536,15 @@ static void ftp_task(void *param){
 			l_ftp_cb(ftp_state);
 			break;
 		case FTP_EVENT_PUSH:
+			if (g_s_ftp.network->data_netc){
+				network_force_close_socket(g_s_ftp.network->data_netc);
+				network_release_ctrl(g_s_ftp.network->data_netc);
+				g_s_ftp.network->data_netc = NULL;
+			}
 			if(luat_ftp_pasv_connect(&g_s_ftp,FTP_SOCKET_TIMEOUT)){
 				LLOGD("ftp pasv_connect fail");
 				goto operation_failed;
 			}
-			g_s_ftp.network->remote_file_size = 0;
-            memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "SIZE %s\r\n",g_s_ftp.network->remote_name);
-			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
-			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-			if (!ret){
-                if (!memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS, 3)){
-                    g_s_ftp.network->remote_file_size = string2int(g_s_ftp.network->cmd_recv_data+5,g_s_ftp.network->cmd_recv_len-5);
-                }
-			}
-            LLOGD("remote_file_size:%d",g_s_ftp.network->remote_file_size);
-
 			memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
 			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "STOR %s\r\n",g_s_ftp.network->remote_name);
 			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);

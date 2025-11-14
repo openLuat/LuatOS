@@ -25,10 +25,9 @@
 function tfcard_main_task() -- 开始进行主测试流程。
 
     -- ##########  SPI初始化 ##########
-    -- Air8000整机核心板上TF卡的的pin_cs为gpio20，spi_id为1.请根据实际硬件修改
+    -- Air8000核心板上TF卡的的pin_cs为gpio12，spi_id为1.请根据实际硬件修改
     spi_id, pin_cs = 1, 12
     spi.setup(spi_id, nil, 0, 0, 400 * 1000)
-    --设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
     gpio.setup(pin_cs, 1)
 
     -- ########## 开始进行tf卡挂载 ##########

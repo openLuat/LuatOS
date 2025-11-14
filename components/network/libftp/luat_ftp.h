@@ -81,6 +81,8 @@ typedef struct{
 	char remote_name[64];//去掉？
     size_t upload_done_size;
 	size_t local_file_size;
+    size_t download_file_size;
+    size_t remote_file_size;
 	uint8_t cmd_send_data[FTP_CMD_SEND_MAX];
 	uint32_t cmd_send_len;
 	uint8_t cmd_recv_data[FTP_CMD_RECV_MAX];

@@ -444,6 +444,24 @@ static int pasv_recv(void)
 	return 0;
 }
 
+static int string2int(char *str,size_t len){
+    if(len==0) return 0;
+    char flag = '+';
+    int res = 0;
+    size_t count = 0;
+    if(*str=='-'){ 
+        ++str;
+        flag = '-';
+    }  
+    while(*str>=48 && *str<=57 && count<len){
+        res = 10*res+  *str++-48;
+        count++;
+    } 
+    if(flag == '-')
+        res = -res;
+    return res;
+}
+
 static void ftp_task(void *param){
 	FTP_SUCCESS_STATE_e ftp_state = FTP_SUCCESS_NO_DATE;
 	int ret;
@@ -485,8 +503,7 @@ static void ftp_task(void *param){
 		case FTP_EVENT_LOGIN:
 			break;
 		case FTP_EVENT_PULL:
-			if (g_s_ftp.network->data_netc)
-			{
+			if (g_s_ftp.network->data_netc){
 				network_force_close_socket(g_s_ftp.network->data_netc);
 				network_release_ctrl(g_s_ftp.network->data_netc);
 				g_s_ftp.network->data_netc = NULL;
@@ -509,6 +526,17 @@ static void ftp_task(void *param){
 				LLOGD("ftp pasv_connect fail");
 				goto operation_failed;
 			}
+			g_s_ftp.network->remote_file_size = 0;
+            memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
+			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "SIZE %s\r\n",g_s_ftp.network->remote_name);
+			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
+			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+			if (!ret){
+                if (!memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS, 3)){
+                    g_s_ftp.network->remote_file_size = string2int(g_s_ftp.network->cmd_recv_data+5,g_s_ftp.network->cmd_recv_len-5);
+                }
+			}
+            LLOGD("remote_file_size:%d",g_s_ftp.network->remote_file_size);
 
 			memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
 			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "STOR %s\r\n",g_s_ftp.network->remote_name);
@@ -587,6 +615,10 @@ static void ftp_task(void *param){
 					}
 				}else if(memcmp(g_s_ftp.network->cmd_send_data, "TYPE", 4)==0){
 					if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_COMMAND_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+                }else if(memcmp(g_s_ftp.network->cmd_send_data, "SIZE", 4)==0){
+					if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS, 3)){
 						LLOGD("ftp COMMAND wrong");
 					}
 				}else if(memcmp(g_s_ftp.network->cmd_send_data, "SYST", 4)==0){
@@ -757,6 +789,8 @@ int luat_ftp_command(const char * command){
 		LLOGD("command: DELE");
 	}else if(memcmp(command, "TYPE", 4)==0){
 		LLOGD("command: TYPE");
+    }else if(memcmp(command, "SIZE", 4)==0){
+		LLOGD("command: SIZE");
 	}else if(memcmp(command, "LIST", 4)==0){
 		LLOGD("command: LIST");
 	}else{

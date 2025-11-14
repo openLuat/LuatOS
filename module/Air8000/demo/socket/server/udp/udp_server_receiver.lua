@@ -19,8 +19,6 @@ local udp_server_receiver = {}
 
 -- 客户端信息
 local client_info = {}
--- 标记是否已经通知过客户端信息更新
-local client_info_notified = false
 
 -- 获取客户端信息
 function udp_server_receiver.get_client_info()
@@ -31,8 +29,6 @@ end
 function udp_server_receiver.reset_client_info()
     client_info.ip = nil
     client_info.port = nil
-    -- 重置通知标记，以便下次收到客户端信息时可以重新通知
-    client_info_notified = false
 end
 
 -- 初始化客户端信息
@@ -61,16 +57,8 @@ udp_server_receiver.proc(data, remote_ip, remote_port)
 function udp_server_receiver.proc(data, remote_ip, remote_port)
     log.info("udp_server_receiver.proc", "收到数据", data, "来自", remote_ip, remote_port)
     
-    -- -- 更新客户端信息
-    -- local info_changed = (client_info.ip ~= remote_ip or client_info.port ~= remote_port)
     client_info.ip = remote_ip
     client_info.port = remote_port
-    -- -- 在客户端信息发生变化时发布通知
-    -- if info_changed and not client_info_notified then
-    --     -- 发布消息通知其他模块客户端信息已更新
-    --     sys.publish("UDP_CLIENT_INFO_UPDATED")
-    --     client_info_notified = true
-    -- end
 
     log.info("client_info", client_info.ip, client_info.port)
 

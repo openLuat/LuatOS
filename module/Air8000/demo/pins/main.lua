@@ -6,7 +6,10 @@
 @author  马亚丹
 @usage
 本demo是演示合宙pins核心库接口功能，
-通过pins核心库设置模组管脚功能，详细逻辑请看pins_test.lua 文件
+通过pins核心库设置模组管脚功能，
+在main.lua中加载以下两个文件其一，按自己的需求选择即可，另外一个注释。
+1.pins_default :功能应用模块 ，演示加载pins_AirXXX.json以及串口数据收发功能，详细逻辑请看pins_default.lua 文件
+2.pins_dynamic 功能应用模块，演示加载my.json、pins.setup动态配置、串口数据收发功能， 详细逻辑请看pins_dynamic.lua 文件
 
 ]]
 
@@ -66,8 +69,11 @@ end
 
 
 
---加载"pins_test"功能模块
-require"pins_test"
+--加载"pins_default"功能模块
+-- require"pins_default"
+
+--加载"pins_dynamic"功能模块
+require"pins_dynamic"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

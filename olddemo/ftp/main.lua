@@ -29,8 +29,10 @@ local is_ssl = flase -- 非ssl加密连接
 
 -- local is_ssl = ssl_encrypt --如果是带证书的加密，请将上述ssl_encrypt内的文件名换成自己的
 
-local local_name = "/123.txt" -- 模块内部文件名及其路径
-local remote_name = "/12222.txt" -- 服务器上的文件名及其路径
+-- 这里使用模块唯一ID来生成文件名，避免多个模块使用同一ftp服务器时文件名冲突
+local self_id = mcu.unique_id():toHex()
+local local_name = "/" .. self_id .. ".txt" -- 模块内部文件名及其路径
+local remote_name = "/" .. self_id .. "_srv.txt" -- 服务器上的文件名及其路径
 
 sys.taskInit(function()
     -----------------------------
@@ -62,50 +64,85 @@ end)
 ]]
 local function ftp_test()
     sys.waitUntil("net_ready") -- 死等到联网成功
+    local result = false
+    local adapter = nil -- 自动选择网络适配器
     while true do
         sys.wait(1000)
         log.info("ftp 启动")
 
-        log.info("登陆FTP服务器",
-            ftp.login(nil, server_ip, server_port, server_username, server_password, is_ssl).wait())
+        log.info("登陆FTP服务器", server_ip, server_port, server_username, server_password, is_ssl)
+        result = ftp.login(adapter, server_ip, server_port, server_username, server_password, is_ssl).wait()
+        log.info("ftp 登陆结果", result)
+
 
         log.info("空操作，防止连接断掉", ftp.command("NOOP").wait())
         log.info("报告远程系统的操作系统类型", ftp.command("SYST").wait())
 
+        -- TYPE A: ASCII模式传输, TYPE I: 二进制模式传输, 必须指定
         log.info("指定文件类型", ftp.command("TYPE I").wait())
+
+        -- 显示当前工作目录名, 非必须的操作
         log.info("显示当前工作目录名", ftp.command("PWD").wait())
+
+        -- 演示创建和删除目录, 非必须的操作
         log.info("创建一个目录 目录名为QWER", ftp.command("MKD QWER").wait())
         log.info("改变当前工作目录为QWER", ftp.command("CWD /QWER").wait())
 
         log.info("返回上一层目录", ftp.command("CDUP").wait())
         log.info("删除名为QWER的目录", ftp.command("RMD QWER").wait())
 
+        -- 演示获取当前工作目录下的文件列表, 非必须的操作
         log.info("获取当前工作目录下的文件名列表", ftp.command("LIST").wait())
-
+        
+        -- 生成一段随机数据, 确保每次是新数据, 保证测试的可用性
+        local test_data = crypto.trng(128)
+        -- 把数据写到本地目录
         log.info("在本地创建一个文件", "文件名及其目录为" .. local_name)
-        io.writeFile(local_name, "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
-        --[[如果下载失败，部分服务器可能会直接断开本次连接，如果遇到下述打印
-            net_lwip_tcp_err_cb 662:adapter 1 socket 20 not closing, but error -14
-            是正常的，此处打印服务器主动断开客户端时会出现
-        ]]
-        log.info("下载服务器上的" .. remote_name, ftp.pull(remote_name, remote_name).wait())
+        io.writeFile(local_name, test_data)
+        
+        -- 把文件上传到服务器去
+        log.info("上传本地的" .. local_name, "到服务器上并且更名为" .. remote_name)
+        result = ftp.push(local_name, remote_name).wait()
+        log.info("上传结果是", result)
 
-        local f = io.open(remote_name, "r") -- 只读的方式打开服务器上下载的文件
-        if f then
-            local data = f:read("*a")
-            f:close()
-            log.info("ftp", "下载的文件" .. remote_name .. "内容是", data)
+        -- 从服务器上下载刚才上传的文件
+        log.info("下载服务器上的" .. remote_name, "存放在" .. remote_name)
+        result = ftp.pull(remote_name, remote_name).wait()
+        log.info("下载结果是", result)
+
+        -- 比较一下上传和下载的数据是否一致
+        local downloaded_data = io.readFile(remote_name)
+        if downloaded_data == test_data then
+            log.info("上传和下载的数据一致性验证通过")
         else
-            log.info("fs", "打开下载的文件失败")
+            log.error("上传和下载的数据一致性验证失败")
         end
+
+        -- 删除服务器上的测试文件
         sys.wait(1000) -- 等一秒 防止删除失败
-        log.info("删除FTP服务器当前目录下的" .. remote_name, ftp.command("DELE " .. remote_name).wait())
-        sys.wait(1000) -- 等一秒 防止覆盖失败
-        log.info("上传本地的" .. local_name, "到服务器上并且更名为" .. remote_name,
-            ftp.push(local_name, remote_name).wait())
+        log.info("删除FTP服务器当前目录下的" .. remote_name)
+        result = ftp.command("DELE " .. remote_name).wait()
+        log.info("删除结果是", result)
+
+        -- 结束测试，关闭和服务器的连接
         sys.wait(1000) -- 等一秒 防止关闭失败
-        log.info("关闭本次和服务器之间链接", ftp.close().wait())
-        log.info("meminfo", rtos.meminfo("sys"))
+        log.info("关闭本次和服务器之间链接")
+        result = ftp.close().wait()
+        log.info("ftp 结束", result)
+
+        -- 把本地的临时文件都删掉
+        log.info("删除本地的临时文件", local_name, remote_name)
+        os.remove(local_name)
+        os.remove(remote_name)
+
+        -- 最后, 打印一下内存状态
+        log.info("打印内存状态")
+        log.info("meminfo", "lua", rtos.meminfo("lua"))
+        log.info("meminfo", "sys", rtos.meminfo("sys"))
+
+
+        -- 等15秒, 继续下一轮测试
+        log.info("等待15秒，继续下一轮测试")
         sys.wait(15000)
     end
 end

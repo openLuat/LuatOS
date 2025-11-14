@@ -16,7 +16,10 @@ typedef struct luat_icmp_ctx
 {
     uint8_t adapter_id;
     struct netif *netif;
-    struct raw_pcb *pcb;
+    struct raw_pcb *pcb_v4;
+#if LWIP_IPV6
+    struct raw_pcb *pcb_v6;
+#endif
     ip_addr_t dst;
     ip_addr_t tmpdst;
     size_t len;

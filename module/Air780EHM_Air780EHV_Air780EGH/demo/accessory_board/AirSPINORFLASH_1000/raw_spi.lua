@@ -1,6 +1,6 @@
 --[[
-@module  ram_spi
-@summary ram_spi测试功能模块
+@module  raw_spi
+@summary raw_spi测试功能模块
 @version 1.0
 @date    2025.9.05
 @author  马亚丹
@@ -42,7 +42,7 @@ local cspin = gpio.setup(CS_PIN, 1) --CS脚置于高电平
 
 -- 1. 设置并启用 SPI
 local function spiDev_init_func()
-    log.info("ram_spi", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
+    log.info("raw_spi", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
     local spiDevice = spi.setup(SPI_ID,nil, CPHA,CPOL,data_Width,bandrate
     -- spi.MSB,--高低位顺序    可选，默认高位在前
     -- spi.master,--主模式     可选，默认主

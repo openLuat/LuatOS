@@ -2,7 +2,7 @@
 
 1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释。
 
-2. ram_spi：通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看ram_spi.lua 文件
+2. raw_spi：通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看raw_spi.lua 文件
 
 3. lf_fs：通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
@@ -10,7 +10,7 @@
 
 ## 演示功能概述：
 
-### ram_spi：
+### raw_spi：
 
 1.初始化并启用 spi,如果初始化失败，退出程序
 
@@ -87,9 +87,15 @@
 
 1. Luatools 下载调试工具
 
-2. 固件版本：LuatOS-SoC_V2014_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehv/luatos/firmware/version/]
 
-3. pc 系统 win11（win10 及以上）
+2. 固件版本：LuatOS-SoC_V2018_Air780EHM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehm/luatos/firmware/version/](https://docs.openluat.com/air780ehm/luatos/firmware/version/)
+
+3. 固件版本：LuatOS-SoC_V2018_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehv/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+4. 固件版本：LuatOS-SoC_V2018_Air780EGH_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)
+
+
+5. pc 系统 win11（win10 及以上）
 
 ## 演示核心步骤：
 
@@ -97,11 +103,11 @@
 2. main.lua 中加载需要用的功能模块，三个功能模块同时只能选择一个使用，另两个注释。
 3. Luatools 烧录内核固件和修改后的 demo 脚本代码
 4. 烧录成功后，代码会自动运行，查看打印日志，如果正常运行，会打印相关信息，spi 初始化，数据读写，文件操作等。
-5. ram_spi.lua 如下 log 显示：
+5. raw_spi.lua 如下 log 显示：
 
 ```bash
 [2025-09-11 12:12:04.093][000000000.249] I/user.main AirSPINORFLASH_1000 001.000.000
-[2025-09-11 12:12:04.097][000000000.257] I/user.ram_spi SPI_ID 0 CS_PIN 8
+[2025-09-11 12:12:04.097][000000000.257] I/user.raw_spi SPI_ID 0 CS_PIN 8
 [2025-09-11 12:12:04.101][000000000.257] SPI_HWInit 552:spi0 speed 2000000,1994805,154
 [2025-09-11 12:12:04.105][000000000.257] I/user.硬件spi 初始化，波特率: 0 2000000
 [2025-09-11 12:12:04.109][000000000.258] I/user.spi 芯片ID: 0x%02X 0x%02X 0x%02X 239 64 23

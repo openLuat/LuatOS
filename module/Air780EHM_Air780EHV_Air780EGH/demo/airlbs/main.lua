@@ -7,11 +7,10 @@
 @usage
 本demo演示的核心功能为：
 1、airlbs“多基站”、“多基站+多wifi”两种应用场景的定位演示。
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-   (1) netdrv_4g：4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
+    (1) netdrv_4g：4G网卡
+    (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+    (3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
 
 此服务为收费服务，需自行联系销售申请或者在 https://iot.openluat.com/finance/order 购买
 更多说明参考本目录下的readme.md文件

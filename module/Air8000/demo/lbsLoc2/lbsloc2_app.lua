@@ -33,13 +33,12 @@ local function lbsloc2_task_func()
     log.info("lbsloc2_task_func", "recv IP_READY", socket.dft())
 
     while true do 
-        mobile.reqCellInfo(15) --进行基站扫描，超时时间为15s
-        sys.waitUntil("CELL_INFO_UPDATE", 3000) --等到扫描成功，超时时间3S
-        log.info("扫描出的基站信息", json.encode(mobile.getCellInfo())) -- 打印基站信息
-        local lat, lng, t = lbsLoc2.request(5000) --仅需要基站定位给出的经纬度
-        -- local lat, lng, t = lbsLoc2.request(5000,nil,nil,true) --需要经纬度和当前时间
+        mobile.reqCellInfo(15)--进行基站扫描，超时时间为15s
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)--等到扫描成功，超时时间3S
+        -- local lat, lng = lbsLoc2.request(5000)--仅需要基站定位给出的经纬度
+        local lat, lng, t = lbsLoc2.request(5000,nil,nil,true)--需要经纬度和当前时间
         --(时间格式{"year":2024,"min":56,"month":11,"day":12,"sec":44,"hour":14})
-        log.info("lbsLoc2", lat, lng, (json.encode(t or {}))) --打印经纬度和时间
+        log.info("lbsLoc2", lat, lng, (json.encode(t or {})))--打印经纬度和时间
         sys.wait(60000) -- 1分钟定位一次
     end
 end

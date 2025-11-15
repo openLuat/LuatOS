@@ -12,13 +12,13 @@
 
 1、lbsloc2“单基站”定位演示。
 
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
 
 (1) netdrv_4g：4G网卡
 
 (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
-(3) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+(3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
 
 本功能为免费服务，由于单基站定位技术本身的原因，无法提供相对精准的定位服务。
 
@@ -32,32 +32,33 @@
 
 2、TYPE-C USB数据线一根
 
-3、USB转串口数据线一根
-
-4、Air780EXX核心板和数据线的硬件接线方式为
+3、Air780EXX核心板和数据线的硬件接线方式为
 
 - Air780EXX核心板通过TYPE-C USB口供电；
-- 如果测试发现软件频繁重启，重启原因值为：poweron reason 0，可能是供电不足，此时再通过直流稳压电源对核心板的vbat管脚进行4V供电，或者5V管脚进行5V供电；
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-- USB转串口数据线，一般来说，白线连接核心板的18/U1TXD，绿线连接核心板的17/U1RXD，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
-5、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
+- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
+
+4、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air780EXX核心板 | AirETH_1000配件板 |
-| --------------- | ----------------- |
-| 3V3             | 3.3v              |
-| gnd             | gnd               |
-| 86/SPI0CLK      | SCK               |
-| 83/SPI0CS       | CSS               |
-| 84/SPI0MISO     | SDO               |
-| 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| ------------ | -------------- |
+| 3V3          | 3.3v           |
+| gnd          | gnd            |
+| 86/SPI0CLK   | SCK            |
+| 83/SPI0CS    | CSS            |
+| 84/SPI0MISO  | SDO            |
+| 85/SPI0MOSI  | SDI            |
+| 107/GPIO21   | INT            |
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EPM V2012版本固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780epm%2Fluatos%2Ffirmware%2Fversion%2F)（理论上，2025年8月10日之后发布的固件都可以）
+2、[Air780EHM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，2025年8月10日之后发布的固件都可以）
+
+[Air780EGH V2012版本固件]((https://docs.openluat.com/air780egh/luatos/firmware/version/))（理论上，2025年8月10日之后发布的固件都可以）
+
+[Air780EHV V2012版本固件]((https://docs.openluat.com/air780ehv/luatos/firmware/version/))（理论上，2025年8月10日之后发布的固件都可以）
 
 ## 演示核心步骤
 

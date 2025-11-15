@@ -12,13 +12,13 @@
 
 1、airlbs“多基站”、“多基站+多wifi”两种应用场景的定位演示。
 
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
 
 (1) netdrv_4g：4G网卡
 
 (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
-(3) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+(3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
 
 本功能为收费项目，相对于免费的单 LBS 定位服务来说，定位精度更高，缴费地址[合宙云平台](https://iot.openluat.com/finance/order)。
 
@@ -30,33 +30,36 @@
 
 1、Air780EXX核心板一块+可上网的sim卡一张+4g天线一根+网线一根：
 
-- sim卡插入开发板的sim卡槽
-- 天线装到开发板上
-- 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
+- sim卡插入核心板的sim卡槽
 
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EXX核心板和数据线的硬件接线方式为：
+- 网线一端插入核心板网口，另外一端连接可以上外网的路由器网口
 
-- Air780EXX核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+2、TYPE-C USB数据线一根，Air780EXX核心板和数据线的硬件接线方式为：
+
+- Air780EXX核心板通过TYPE-C USB口供电；（ 供电拨动开关 拨到 ON一端）
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接核心板的GND，另外一端连接电脑USB口；
 
-3、5、可选AirPHY_1000配件板一块，Air780EXX核心板和AirPHY_1000配件板的硬件接线方式为:
+3、可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air780EXX核心板 | AirETH_1000配件板 |
-| --------------- | ----------------- |
-| 3V3             | 3.3v              |
-| gnd             | gnd               |
-| 86/SPI0CLK      | SCK               |
-| 83/SPI0CS       | CSS               |
-| 84/SPI0MISO     | SDO               |
-| 85/SPI0MOSI     | SDI               |
-| 107/GPIO21      | INT               |
+| ------------ | -------------- |
+| 3V3          | 3.3v           |
+| gnd          | gnd            |
+| 86/SPI0CLK   | SCK            |
+| 83/SPI0CS    | CSS            |
+| 84/SPI0MISO  | SDO            |
+| 85/SPI0MOSI  | SDI            |
+| 107/GPIO21   | INT            |
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EHM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)、[Air780EHV V2012版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)、[Air780EGH V2012版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air780EHM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+
+[Air780EHV V2012版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+[Air780EGH V2012版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 ## 演示核心步骤
 
@@ -135,7 +138,6 @@
 
 
 ```
-
 
 
 

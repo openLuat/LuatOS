@@ -12,13 +12,13 @@
 
 1、airlbs“多基站”、“多基站+多wifi”两种应用场景的定位演示。
 
-2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
 
 (1) netdrv_4g：4G网卡
 
 (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
-(3) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
+(3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
 
 本功能为收费项目，相对于免费的单 LBS 定位服务来说，定位精度更高，缴费地址[合宙云平台](https://iot.openluat.com/finance/order)。
 
@@ -31,19 +31,22 @@
 1、Air780EPM V1.3版本开发板一块+可上网的sim卡一张+4g天线一根+网线一根：
 
 - sim卡插入开发板的sim卡槽
+
 - 天线装到开发板上
+
 - 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
 2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EPM V1.3版本开发板和数据线的硬件接线方式为：
 
 - Air780EPM V1.3版本开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air780EPM V2012版本固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780epm%2Fluatos%2Ffirmware%2Fversion%2F)（理论上，2025年8月10日之后发布的固件都可以）
+2、[Air780EPM V2012版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，2025年8月10日之后发布的固件都可以）
 
 ## 演示核心步骤
 

@@ -1,87 +1,78 @@
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "smsdemo"
-VERSION = "1.0.0"
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 001.000.000
+@date    2025.10.15
+@author  王城钧
+@usage
+1. sms_app：加载短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块
+2. netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+    (1) netdrv_4g：4G网卡
+    (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+    (3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
+    (4) netdrv_pc: pc模拟器网卡
+3. sntp_app：启动sntp时间同步功能模块，同步网络时间
+]]
 
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "sms_app"
+VERSION = "001.000.000"
+
+-- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 引入必要的库文件(lua编写), 内部库不需要require
-sys = require("sys")
-require "sysplus" -- http库需要这个sysplus
 
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then
-    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
-end
-log.info("main", "sms demo")
-
--- 辅助发送http请求, 因为http库需要在task里运行
-function http_post(url, headers, body)
-    sys.taskInit(function()
-        local code, headers, body = http.request("POST", url, headers, body).wait()
-        log.info("resp", code)
-    end)
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
-function sms_handler(num, txt)
-    -- num 手机号码
-    -- txt 文本内容
-    log.info("sms", num, txt, txt:toHex())
-
-    -- http演示1, 发json
-    local body = json.encode({phone=num, txt=txt})
-    local headers = {}
-    headers["Content-Type"] = "application/json"
-    log.info("json", body)
-    http_post("http://www.luatos.com/api/sms/blackhole", headers, body)
-    -- http演示2, 发表单的
-    headers = {}
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    local body = string.format("phone=%s&txt=%s", num:urlEncode(), txt:urlEncode())
-    log.info("params", body)
-    http_post("http://www.luatos.com/api/sms/blackhole", headers, body)
-    -- http演示3, 不需要headers,直接发
-    http_post("http://www.luatos.com/api/sms/blackhole", nil, num .. "," .. txt)
-    -- 如需发送到钉钉, 参考 demo/dingding
-    -- 如需发送到飞书, 参考 demo/feishu
-end
-
---------------------------------------------------------------------
--- 接收短信, 支持多种方式, 选一种就可以了
--- 1. 设置回调函数
---sms.setNewSmsCb(sms_handler)
--- 2. 订阅系统消息
---sys.subscribe("SMS_INC", sms_handler)
--- 3. 在task里等着
-sys.taskInit(function()
-    while 1 do
-        local ret, num, txt = sys.waitUntil("SMS_INC", 300000)
-        if num then
-            -- 方案1, 交给自定义函数处理
-            sms_handler(num, txt)
-            -- 方案2, 因为这里是task内, 可以直接调用http.request
-            -- local body = json.encode({phone=num, txt=txt})
-            -- local headers = {}
-            -- headers["Content-Type"] = "application/json"
-            -- log.info("json", body)
-            -- local code, headers, body = http.request("POST", "http://www.luatos.com/api/sms/blackhole", headers, body).wait()
-            -- log.info("resp", code)
-        end
-    end
-end)
-
--------------------------------------------------------------------
--- 发送短信, 直接调用sms.send就行, 是不是task无所谓
-sys.taskInit(function()
-    sys.wait(10000)
-    -- 中移动卡查短信
-    -- sms.send("+8610086", "301")
-    -- 联通卡查话费
-     sms.send("10010", "101")
-end)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+-- 加载sms应用功能模块
+require "sms_app"
+
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
+
+-- 加载sntp时间同步应用功能模块
+require "sntp_app"
+
+-- 启动系统调度（必须放在最后）
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

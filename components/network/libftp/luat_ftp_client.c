@@ -493,7 +493,7 @@ static void ftp_task(void *param){
 			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (!ret){
                 if (!memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS, 3)){
-                    g_s_ftp.network->remote_file_size = string2int(g_s_ftp.network->cmd_recv_data+4,g_s_ftp.network->cmd_recv_len-4);
+                    g_s_ftp.network->remote_file_size = string2int((char*)(g_s_ftp.network->cmd_recv_data+4),g_s_ftp.network->cmd_recv_len-4);
                 }
 			}
             // LLOGD("remote_file_size:%d",g_s_ftp.network->remote_file_size);

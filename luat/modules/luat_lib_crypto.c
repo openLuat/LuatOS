@@ -284,12 +284,12 @@ int l_crypto_cipher_decrypt(lua_State *L) {
 
 
 typedef struct{
-const char *name;   //参数模型
-uint16_t crc16_polynomial;   //多项式
-uint16_t initial_value;  //初始值
-uint16_t finally_data;  //结果异或值
-uint8_t input_reverse; //输入数据反转
-uint8_t output_reverse; //输出数据反转
+    const char *name;   //参数模型
+    uint16_t crc16_polynomial;   //多项式
+    uint16_t initial_value;  //初始值
+    uint16_t finally_data;  //结果异或值
+    uint8_t input_reverse; //输入数据反转
+    uint8_t output_reverse; //输出数据反转
 } crc16method;
 
 static const crc16method crc16method_table[] = 
@@ -305,6 +305,20 @@ static const crc16method crc16method_table[] =
     {(const char*)"DNP", 0x3D65, 0x0000, 0xffff, 1, 1},
     {(const char*)"USER-DEFINED", 0x0000, 0x0000,0x0000, 0, 0},
 };
+
+static inline void InvertUint16(uint16_t *dBuf,uint16_t *srcBuf)  
+{  
+    int i;  
+    uint16_t tmp[4];  
+    tmp[0] = 0;  
+    for(i=0;i< 16;i++)  
+    {  
+      if(srcBuf[0]& (1 << i))  
+        tmp[0]|=1<<(15 - i);  
+    }  
+    dBuf[0] = tmp[0];  
+} 
+
 /**
 计算CRC16
 @api crypto.crc16(method, data, poly, initial, finally, inReversem, outReverse)
@@ -359,7 +373,14 @@ static int l_crypto_crc16(lua_State *L)
     uint8_t inReverse = (uint8_t)luaL_optnumber(L,6,in_reverse);
     uint8_t outReverse = (uint8_t)luaL_optnumber(L,7,out_reverse);
     
-    lua_pushinteger(L, luat_crc16(inputData, inputlen, initial, finally, poly, inReverse));
+    uint16_t crc16 = luat_crc16(inputData, inputlen, initial, finally, poly, inReverse);
+    if (outReverse)
+    {
+        uint16_t out = 0;
+        InvertUint16(&out, &crc16);
+        crc16 = out;
+    }
+    lua_pushinteger(L, crc16);
     return 1;
 }
 
@@ -379,7 +400,7 @@ static int l_crypto_crc16_modbus(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
-    uint16_t crc_init = (uint16_t)luaL_optinteger(L, 2, 0xFFFF);
+    // uint16_t crc_init = (uint16_t)luaL_optinteger(L, 2, 0xFFFF);
 
     lua_pushinteger(L, luat_crc16_modbus(inputData, len));
     return 1;

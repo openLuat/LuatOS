@@ -1,4 +1,3 @@
-
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
@@ -6,16 +5,14 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo是演示合宙AirSPINORFLASH_1000配件版的功能使用，可通过以下三种方式驱动flash模块，任选一种即可。
+本demo是演示合宙AirSPINAND_1000配件版的功能使用，可通过以下两种方式驱动nand flash模块，任选一种即可。
 1. raw_spi
 通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看raw_spi.lua 文件
 2. lf_fs
-通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
+通过littleFS文件系统,对nand flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
+
 
 ]]
-
-
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -27,8 +24,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-
-PROJECT = "AirSPINORFLASH_1000"
+PROJECT = "SPI_NAND"
 VERSION = "001.000.000"
 
 
@@ -71,11 +67,12 @@ end
 
 
 
+-- 加载lf_fs功能模块
+require "lf_fs"
+
+
 -- 加载raw_spi功能模块
 -- require "raw_spi"
-
--- 加载lf_fs功能模块
-require"lf_fs"
 
 
 

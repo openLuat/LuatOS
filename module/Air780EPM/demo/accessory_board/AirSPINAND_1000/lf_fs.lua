@@ -5,10 +5,9 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air780EPM核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
-以Air780EPM核心板为例, 接线如下:
-
-Air780EPM核心板    AirSPINORFLASH_1000配件版
+本demo演示的功能为：使用Air780EPM核心板通过SPI核心库/lf核心库/io核心库实现对 NAND Flash的操作，演示读数据写数据、删除数据等操作。
+以 Air780EPM核心板为例, 接线如下:
+Air780EPM       AirSPINAND_1000配件板
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO8/SPI0_CS     CS,片选
@@ -21,19 +20,19 @@ SPI0_MISO          DO,主机输入,从机输出
 运行核心逻辑：
 1.以对象的方式配置参数，初始化启用SPI，返回SPI对象
 2.用SPI对象初始化flash设备，返回flash设备对象
-3.用lf库挂载flash设备对象为文件系统
-4.读取文件系统的信息，以确认内存足够用于文件操作
+3.用lf库挂载flash设备对象为LittleFS文件系统
+4.读取文件系统的信息，以确认内存情况
 5.操作文件读写，并验证写入一致性，追加文件等。
 
 ]]
 
 -- SPI配置参数
 local SPI_ID = 0        -- SPI总线ID，根据实际情况修改
-local CS_PIN = 8        -- CS引脚，根据实际情况修改
+local CS_PIN = 8       -- CS引脚，根据实际情况修改
 local CPHA = 0          -- 时钟相位
 local CPOL = 0          -- 时钟极性
 local data_Width = 8    -- 数据宽度(位)
-local bandrate = 2000000 -- 波特率(Hz)，初始化为2MHz
+local bandrate = 2*1000*1000 -- 波特率(Hz)，初始化为2MHz
 
 
 -- 1. 以对象方式设置并启用 SPI，返回设备对象
@@ -41,7 +40,7 @@ local function spiDev_init_func()
     log.info("lf_fs", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
 
     --以对象的方式初始化spi，高位在前，主模式，半双工模式
-    --spi  flash只支持半双工模式
+    --spi nand flash只支持半双工模式
     local spi_device = spi.deviceSetup(SPI_ID, CS_PIN, CPHA, CPOL, data_Width, bandrate, spi.MSB, 1, 0)
 
     log.info("硬件spi", "初始化，波特率:", spi_device, bandrate)
@@ -49,7 +48,7 @@ local function spiDev_init_func()
         log.error("SPI初始化", "失败")
         return nil
     end
-    log.info("SPI初始化", "成功，波特率:",bandrate)
+    log.info("SPI初始化", "成功，波特率",bandrate)
     return spi_device
 end
 
@@ -159,13 +158,13 @@ local function test_file_operations(mount_point)
     return true
 end
 
--- 7. 关闭SPI设备对象，成功返回true
+-- 7. 关闭SPI设备，成功返回0
 local function spi_close_func()    
     log.info("关闭spi", spi_device:close())
 end
 
 -- 主任务函数：按流程调用各功能函数
-local function spinor_test_func()
+local function spinand_test_func()
     --1.判断SPI初始化
     spi_device = spiDev_init_func()
     if not spi_device then
@@ -176,7 +175,7 @@ local function spinor_test_func()
     -- 流程2：初始化Flash设备
     local flash_device = init_flash_device(spi_device)
     if not flash_device then
-        log.error("主流程", "Flash初始化失败，终止")
+        log.error("主流程", "Flash初始化失败，终止")        
         spi_close_func()
         return
     end
@@ -201,4 +200,4 @@ local function spinor_test_func()
     spi_close_func()
 end
 
-sys.taskInit(spinor_test_func)
+sys.taskInit(spinand_test_func)

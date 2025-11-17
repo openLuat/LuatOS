@@ -98,6 +98,12 @@ end
 --开启ymodem接收，主要包括串口初始化，zbuff初始化，ymodem初始化等，初始化完毕之后开始发送'C'，等待发送端发送数据
 local function ymodem_open()
 
+    --  创建一个缓冲区，大小为1024 + 32，接收数据为1k，32为剩下的协议数据，可能不到32，保险起见，留足够的大小
+    rxbuff = zbuff.create(1024 + 32) 
+
+    --  创建一个ymodem处理程序，保存路径为"/"，文件名为"save.bin"
+    ymodem_handler = ymodem.create("/","save.bin")
+    
     --初始化
     uart.setup(
     uartid,--串口id
@@ -110,12 +116,6 @@ local function ymodem_open()
 
     --  监听串口发送事件
     uart.on(uartid, "sent", uart_sent_cb)
-
-    --  创建一个缓冲区，大小为1024 + 32，接收数据为1k，32为剩下的协议数据，可能不到32，保险起见，留足够的大小
-    rxbuff = zbuff.create(1024 + 32) 
-
-    --  创建一个ymodem处理程序，保存路径为"/"，文件名为"save.bin"
-    ymodem_handler = ymodem.create("/","save.bin")
     
     while not ymodem_result do
         --  如果ymodem协议没有在运行，则发送请求；并重置ymodem处理程序

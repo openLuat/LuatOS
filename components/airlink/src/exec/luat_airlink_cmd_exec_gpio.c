@@ -27,7 +27,6 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_gpio_irq_cb_task(void *param) {
     //先接收
     // LLOGD("处理线程启动");
     luat_event_t event = {0};
-    luat_airlink_cmd_t* ptr = NULL;
     // size_t len = 0;
     luat_rtos_task_sleep(2);
     while (1) {
@@ -39,12 +38,6 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_gpio_irq_cb_task(void *param) {
 
             int pin = event.param1;
             int args = event.param2;
-            ptr = (void*)event.param1;
-            // len = event.param2;
-            if (ptr == NULL) {
-                LLOGW("空指令!");
-                continue;
-            }
 
             //再发送
             uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();

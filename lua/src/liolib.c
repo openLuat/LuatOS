@@ -35,12 +35,11 @@ if fd then
   fd:write(string.char(0x12, 0x13))
 
   -- 移动句柄,绝对坐标
-  fd:seek(1024, io.SEEK_SET)
+  fd:seek("set", 1024)
   -- 移动句柄,相对坐标
-  fd:seek(1024, io.SEEK_CUR)
+  fd:seek("cur", 1024)
   -- 移动句柄,反向绝对坐标,从文件结尾往文件头部算
-  fd:seek(124, io.SEEK_END)
-
+  fd:seek("end", 124)
   -- 执行完操作后,一定要关掉文件
   fd:close()
 
@@ -363,12 +362,11 @@ if fd then
   fd:write(string.char(0x12, 0x13))
 
   -- 移动句柄,绝对坐标
-  fd:seek(1024, io.SEEK_SET)
+  fd:seek("set", 1024)
   -- 移动句柄,相对坐标
-  fd:seek(1024, io.SEEK_CUR)
+  fd:seek("cur", 1024)
   -- 移动句柄,反向绝对坐标,从文件结尾往文件头部算
-  fd:seek(124, io.SEEK_END)
-
+  fd:seek("end", 124)
   -- 执行完操作后,一定要关掉文件
   fd:close()
 end

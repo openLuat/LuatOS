@@ -59,7 +59,7 @@ if fd then
     local firstLine = fd:read("*l")
     log.info("io_test", "第一行内容:", firstLine)
     -- 测试seek
-    -- fd:seek(1024, io.SEEK_SET)
+    -- fd:seek("set", 1024)
     local first5Bytes = fd:read(5)
     log.info("io_test", "前5字节:", first5Bytes)
     

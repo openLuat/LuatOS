@@ -13,14 +13,15 @@
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer: 前缀后发送给client；
 
 4、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
-        (1) netdrv_wifi_ap：WIFI AP网卡
-        (2) netdrv_wifi_sta：WIFI STA网卡
+        (1) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+        (2) netdrv_wifi：WIFI STA网卡
         (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 注意：
 一个tcp server仅支持一路client连接；
 UDP 协议本身是无连接的，这意味着任何在同一局域网下的客户端都可以向服务器的 IP 和端口发送数据包；
 目前只能支持局域网内的client连接，不支持公网ip连接。
+
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -77,6 +78,7 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+
 -- -- 加载网络驱动设备功能模块
 require "netdrv_device"
 
@@ -87,10 +89,10 @@ require "uart_app"
 require "timer_app"
 
 -- -- 加载tcp server socket主应用功能模块
--- require "tcp_server_main"
+require "tcp_server_main"
 
 -- -- 加载udp server socket主应用功能模块
-require "udp_server_main"
+-- require "udp_server_main"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

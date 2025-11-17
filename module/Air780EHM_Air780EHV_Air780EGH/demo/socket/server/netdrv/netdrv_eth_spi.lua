@@ -6,11 +6,22 @@
 @author  王世豪
 @usage
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
-1、打开CH390H芯片供电开关；
-2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
+1、打开AirETH_1000配件板供电开关；
+2、初始化spi0，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
 
-直接使用Air8000开发板硬件测试即可；
+Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
+Air780EXX核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
+| Air780EXX核心板  |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 107/GPIO21      | INT               |
+
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
@@ -51,16 +62,15 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 
 
 -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
--- 本demo使用Air8000开发板测试，开发板上的硬件配置为：
--- GPIO140为CH390H以太网芯片的供电使能控制引脚
--- 使用spi1，片选引脚使用GPIO12
--- 如果使用的硬件不是Air8000开发板，根据自己的硬件配置修改以下参数
+-- 本demo使用Air780EXX核心板+AirETH_1000配件板测试，核心板上的硬件配置为：
+-- 使用spi0，片选引脚使用GPIO8
+-- 本demo测试使用的是核心板的VDD 3V3引脚对AirETH_1000配件板进行供电
+-- 3V3管脚是核心板LDO，3.3V输出，供测试用的，仅在使用DCDC供电时有输出,默认打开,无需控制
 exnetif.set_priority_order({
     {
         ETHERNET = {
-            pwrpin = 140, 
             tp = netdrv.CH390,
-            opts = {spi = 1, cs = 12}
+            opts = {spi = 0, cs = 8}
         }
     }
 })

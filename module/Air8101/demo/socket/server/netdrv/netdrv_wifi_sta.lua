@@ -40,6 +40,7 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
+
 -- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
 -- ssid为要连接的WiFi路由器名称；
 -- password为要连接的WiFi路由器密码；

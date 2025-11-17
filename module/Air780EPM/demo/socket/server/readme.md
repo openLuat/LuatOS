@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡(单wifi ap网卡，单wifi sta网卡，单spi以太网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的单spi以太网卡；
 
 3、tcp文件夹：tcp server以及数据收发处理逻辑；
 
@@ -44,39 +44,32 @@
 
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给client；
 
-3、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
+3、netdrv_device：配置连接外网使用的网卡，目前支持以下一种选择
 
-   (1) netdrv_wifi_ap：WIFI AP网卡
-
-   (2) netdrv_wifi_sta：WIFI STA网卡
-
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
+![](https://docs.openluat.com/air780epm/luatos/app/driver/eth/image/RFSvb75NRoEWqYxfCRVcVrOKnsf.jpg)
 
-1、Air8000开发板一块+wifi天线一根+网线一根：
-
-- 天线装到开发板上
+1、Air780EPM V1.3版本开发板一块+网线一根：
 
 - 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air8000开发板和数据线的硬件接线方式为：
+2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EPM V1.3版本开发板和数据线的硬件接线方式为：
 
-- Air8000开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+- Air780EPM V1.3版本开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
 
-- TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
+- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接开发板的GND，另外一端连接电脑USB口；
-
+- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接核心板的GND，另外一端连接电脑USB口；
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2016版本固件](https://docs.openluat.com/air8000/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air780EPM V2016版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上，2025年8月10日之后发布的固件都可以）
 
 3、PC端的串口工具，建议使用SSCOM（SSCOM可以创建TCP客户端或UDP客户端，测试TCP/UDP 通信功能）
 
@@ -84,14 +77,7 @@
 
 1、搭建好硬件环境
 
-2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
-
-- 如果需要单WIFI AP网卡，打开require "netdrv_wifi_ap"，其余注释掉；同时netdrv_wifi_ap.lua中的wlan.createAP("LuatOS" .. mobile.imei(), "12345678")，表示创建wifi的名称和密码，根据自己需求改动即可；
-
-- 如果需要单WIFI STA网卡，打开require "netdrv_wifi_sta"，其余注释掉；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-- 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
-
+2、demo脚本代码netdrv_device.lua中，打开require "netdrv_eth_spi" （默认打开）
 
 3、demo脚本代码中，测试TCP server和UDP server时，需要修改的地方如下：
 
@@ -107,20 +93,18 @@
 
 （1）根据烧录日志，找到TCP server的ip，此外 port 在示例代码中默认是50003
 
-ip获取方式，是在每个netdrv网卡文件中的 ip_ready_func接口中，此处演示WIFI_STA网卡的情况下，如何找到创建的TCP server的ip
+ip获取方式，是在每个netdrv网卡文件中的 ip_ready_func接口中，此处演示以太网卡的情况下，如何找到创建的TCP server的ip
 
 ```lua
-local function ip_ready_func(ip, adapter)
-    if adapter == socket.LWIP_STA then
-        log.info("netdrv_wifi.ip_ready_func", "IP_READY: ", ip, json.encode(wlan.getInfo()))
-    end
+local function ip_ready_func()
+    log.info("netdrv_eth_spi.ip_ready_func", "IP_READY: ", socket.localIP(socket.LWIP_ETH))
 end
 ```
 luatools日志打印如下：
 
-![image](https://docs.openLuat.com/cdn/image/socket/tcp_ip_ready.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_tcp_ip_ready.png)
 
-（2）PC 端打开一个TCP客户端，连接到Air8000开发板创建的TCP server （本例使用SSCOM打开一个TCP客户端）:
+（2）PC 端打开一个TCP客户端，连接到Air780EPM开发板创建的TCP server （本例使用SSCOM打开一个TCP客户端）:
 
 端口号：选择TCPCLient
 
@@ -128,17 +112,17 @@ luatools日志打印如下：
 
 本地：填写本地PC端的IP地址
 
-![image](https://docs.openLuat.com/cdn/image/socket/tcp_client.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_tcp_client.png)
 
 成功连接之后，即可收到TCP server主动发送的第一条消息：
 
-![image](https://docs.openLuat.com/cdn/image/socket/tcp_client1.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_tcp_client1.png)
 
-（3）另外再打开一个PC端的串口工具连接到Air8000开发板的uart1, 做串口收发，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位
+（3）另外再打开一个PC端的串口工具连接到Air780EPM开发板的uart1, 做串口收发，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位
 
 （4）PC端的串口工具输入一段数据 "hello client!"，点击发送，在作为TCP客户端的SSCOM上可以收到此数据；在作为TCP 客户端的SSCOM输入一段数据 "i am tcp client"，点击发送，在PC端的串口工具上可以收到此数据，如下所示：
 
-![image](https://docs.openLuat.com/cdn/image/socket/tcp_client2.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_tcp_client2.png)
 
 
 7、UDP演示：
@@ -148,17 +132,15 @@ luatools日志打印如下：
 ip获取方式，是在每个netdrv网卡文件中的 ip_ready_func接口中，此处演示WIFI_STA网卡的情况下，如何找到创建的UDP server的ip
 
 ```lua
-local function ip_ready_func(ip, adapter)
-    if adapter == socket.LWIP_STA then
-        log.info("netdrv_wifi.ip_ready_func", "IP_READY: ", ip, json.encode(wlan.getInfo()))
-    end
+local function ip_ready_func()
+    log.info("netdrv_eth_spi.ip_ready_func", "IP_READY: ", socket.localIP(socket.LWIP_ETH))
 end
 ```
 luatools日志打印如下：
 
-![image](https://docs.openLuat.com/cdn/image/socket/udp_ip_ready.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_udp_ip_ready.png)
 
-（2）PC 端打开一个UDP客户端，连接到Air8000开发板创建的UDP server （本例使用SSCOM打开一个UDP客户端）:
+（2）PC 端打开一个UDP客户端，连接到Air780EPM开发板创建的UDP server （本例使用SSCOM打开一个UDP客户端）:
 
 端口号：选择UDP
 
@@ -166,17 +148,17 @@ luatools日志打印如下：
 
 本地：填写本地PC端的IP地址, 本例填写的port是50000
 
-![image](https://docs.openLuat.com/cdn/image/socket/udp_client.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_udp_client.png)
 
 成功连接之后，即可收到UDP server主动发送的第一条消息：
 
-![image](https://docs.openLuat.com/cdn/image/socket/udp_client1.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_udp_client1.png)
 
-（3）另外再打开一个PC端的串口工具连接到Air8000开发板的uart1, 做串口收发，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位
+（3）另外再打开一个PC端的串口工具连接到Air780EPM开发板的uart1, 做串口收发，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位
 
 （4）PC端的串口工具输入一段数据 "hello udp server!"，点击发送，在作为UDP客户端的SSCOM上可以收到此数据；在作为UDP 客户端的SSCOM输入一段数据 "i am udp client"，点击发送，在PC端的串口工具上可以收到此数据，如下所示： 
 
-![image](https://docs.openLuat.com/cdn/image/socket/udp_client2.png)
+![image](https://docs.openLuat.com/cdn/image/socket/Air780EPM_udp_client2.png)
 
 8、注意事项
 

@@ -12,10 +12,8 @@
 - 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给client；
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer: 前缀后发送给client；
 
-4、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
-        (1) netdrv_wifi_ap：WIFI AP网卡
-        (2) netdrv_wifi_sta：WIFI STA网卡
-        (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+4、netdrv_device：配置连接外网使用的网卡，目前支持以下一种选择
+        (1) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 注意：
 一个tcp server仅支持一路client连接；

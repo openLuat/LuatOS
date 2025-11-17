@@ -50,7 +50,7 @@ local function netdrv_wifi_ap_task_func()
     -- wlan初始化
     wlan.init()
     -- 创建热点，SSID=LuatOS+IMEI，密码=12345678
-    wlan.createAP("LuatOS" .. mobile.imei(), "12345678")
+    wlan.createAP("LuatOS" .. wlan.getMac(), "12345678")
     -- 为AP网卡分配静态IPv4地址、子网掩码、网关
     netdrv.ipv4(socket.LWIP_AP, "192.168.4.1", "255.255.255.0", "0.0.0.0")
 

@@ -1,6 +1,6 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外一个注释。
+1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外两个注释。
 
 2. raw_spi：通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看raw_spi.lua 文件
 
@@ -54,21 +54,21 @@
 
 ![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/norflash.jpg)
 
-1. 合宙 Air780EHV 核心板一块
+1. 合宙 Air780EHV/EHM/EGH 核心板一块
 
 2. 合宙 AirSPINORFLASH_1000 一块
 
-3. TYPE-C USB 数据线一根 ，Air8000 核心板和数据线的硬件接线方式为：
-- Air8000 核心板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
+3. TYPE-C USB 数据线一根 ，Air780EHV/EHM/EGH 核心板和数据线的硬件接线方式为：
+- Air780EHV/EHM/EGH 核心板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
 
 - TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
-    Air780EHV 核心板与 AirSPINORFLASH_1000 按以下方式接线：
+    Air780EHV/EHM/EGH 核心板与 AirSPINORFLASH_1000 按以下方式接线：
 
 <table>
 <tr>
-<td>Air780EHV核心板<br/></td><td>AirSPINORFLASH_1000配件版<br/></td></tr>
+<td>Air780EHV/EHM/EGH核心板<br/></td><td>AirSPINORFLASH_1000配件版<br/></td></tr>
 <tr>
 <td>GND(任意)          <br/></td><td>GND<br/></td></tr>
 <tr>
@@ -90,7 +90,7 @@
 
 2. 固件版本：LuatOS-SoC_V2018_Air780EHM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehm/luatos/firmware/version/](https://docs.openluat.com/air780ehm/luatos/firmware/version/)
 
-3. 固件版本：LuatOS-SoC_V2018_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehv/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+3. 固件版本：LuatOS-SoC_V2018_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/Air780EHV/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
 
 4. 固件版本：LuatOS-SoC_V2018_Air780EGH_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 

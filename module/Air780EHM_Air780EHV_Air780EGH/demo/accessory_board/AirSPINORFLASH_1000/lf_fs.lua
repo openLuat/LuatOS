@@ -5,10 +5,10 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air780EHV核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
-以Air780EHV核心板为例, 接线如下:
+本demo演示的功能为：使用Air780EHM/EHV/EGH核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
+以Air780EHM/EHV/EGH核心板为例, 接线如下:
 
-Air780EHV核心板    AirSPINORFLASH_1000配件版
+Air780EHM/EHV/EGH核心板    AirSPINORFLASH_1000配件版
 GND(任意)          GND
 VDD_EXT            VCC
 GPIO8/SPI0_CS     CS,片选
@@ -40,7 +40,8 @@ local bandrate = 2000000 -- 波特率(Hz)，初始化为2MHz
 local function spiDev_init_func()
     log.info("lf_fs", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
 
-    --以对象的方式初始化spi，高位在前，主模式，全双工模式
+    --以对象的方式初始化spi，高位在前，主模式，半双工模式
+    --spi  flash只支持半双工模式
     local spi_device = spi.deviceSetup(SPI_ID, CS_PIN, CPHA, CPOL, data_Width, bandrate, spi.MSB, 1, 0)
 
     log.info("硬件spi", "初始化，波特率:", spi_device, bandrate)

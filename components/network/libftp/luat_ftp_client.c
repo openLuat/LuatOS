@@ -126,9 +126,6 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 			ret = network_rx(g_s_ftp.network->data_netc, rx_buffer, rx_len, 0, NULL, NULL, &rx_len);
 			// LLOGD("luat_ftp_data_callback network_rx ret:%d rx_len:%d",ret,rx_len);
 			if (!ret && rx_len > 0){
-                if (g_s_ftp.network->remote_file_size){
-                    g_s_ftp.network->download_file_size += rx_len;
-                }
 				if (g_s_ftp.fd){
 					luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_WRITE_FILE, (uint32_t)rx_buffer, rx_len, 0, LUAT_WAIT_FOREVER);
 					rx_buffer = NULL;
@@ -172,6 +169,7 @@ static int32_t ftp_task_cb(void *pdata, void *param){
 	switch(event->ID){
 	case FTP_EVENT_DATA_WRITE_FILE:
 		if (g_s_ftp.fd){
+            g_s_ftp.network->download_file_size += event->Param2;
 			luat_fs_fwrite((void*)event->Param1, event->Param2, 1, g_s_ftp.fd);
 			luat_heap_free((void*)event->Param1);
 		}
@@ -403,7 +401,7 @@ static int pasv_recv(void){
 	LLOGD("%s %d rx_finish:%d data_netc_online:%d Pos:%d ",__FUNCTION__ ,__LINE__ ,rx_finish, g_s_ftp.network->data_netc_online, g_s_ftp.result_buffer.Pos);
     while(!rx_finish || ((g_s_ftp.network->remote_file_size && (g_s_ftp.network->remote_file_size != g_s_ftp.network->download_file_size))))	//data通道未断开或者已经接收到数据了
 	{
-		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/10);
 		if (ret<0){
 			LLOGD("%s %d rx error!%d",__FUNCTION__ ,__LINE__ , ret);
 			return -1;

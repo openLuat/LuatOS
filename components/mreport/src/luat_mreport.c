@@ -298,9 +298,13 @@ void luat_mreport_send(void) {
     int adapter_id = 0;
 
     if (s_mreport_ctx->s_adapter_index == 0) 
+    {
         adapter_id = network_register_get_default();
+    }
     else
+    {
         adapter_id = s_mreport_ctx->s_adapter_index;
+    }
 
 	if (adapter_id < 0 || adapter_id >= NW_ADAPTER_QTY){
 		LLOGE("尚无已注册的网络适配器");

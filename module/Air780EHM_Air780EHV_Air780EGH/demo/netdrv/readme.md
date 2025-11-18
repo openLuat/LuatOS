@@ -16,7 +16,7 @@
 
 ## 演示硬件环境
 
-![](image/780EHM双网口.png)
+![](https://docs.openluat.com/air780epm/luatos/app/network_routing/ethernet_out_ethernet_in/image/780EHM%E5%8F%8C%E7%BD%91%E5%8F%A3.png)
 
 2.2.1 Air780EHM/Air780EHV/Air780EGH 核心板一块 + 可上网的 sim 卡一张 +4g 天线一根 + 网线两根：
 

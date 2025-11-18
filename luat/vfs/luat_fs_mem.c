@@ -8,6 +8,7 @@
 #if 1
 
 #define BLOCK_SIZE 4096
+#define MEMFS_MAX_FILE_NAME 63
 
 typedef struct ram_file_block
 {
@@ -18,7 +19,7 @@ typedef struct ram_file_block
 typedef struct ram_file
 {
     size_t size;     // 当前文件大小
-    char name[32];   // 文件名称
+    char name[MEMFS_MAX_FILE_NAME + 1];   // 文件名称
     ram_file_block_t* head; // 链表头指针
 } ram_file_t;
 
@@ -37,8 +38,9 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
 FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode) {
     (void)userdata;
     // LLOGD("ram fs open %s %s", filename, mode);
-    if (filename == NULL || mode == NULL || strlen(filename) > 31)
+    if (filename == NULL || mode == NULL || strlen(filename) > MEMFS_MAX_FILE_NAME) {
         return NULL;
+    }
     // 读文件
     if (!strcmp("r", mode) || !strcmp("rb", mode)) {
         for (size_t i = 0; i < RAM_FILE_MAX; i++)

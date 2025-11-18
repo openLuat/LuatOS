@@ -1,14 +1,14 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.01
-@author  Jensen
+@date    2025.10.20
+@author  魏健强
 @usage
-本demo演示的功能为：
-实现使用Air780EGH结合netdrv库实现以太网模块CH390H的网络功能包括LAN和WAN通信测试
-WAN通信测试为通过以太网模块CH390H连接路由器LAN口，在路由器DHCP获取IP地址后可以访问互联网
-LAN通信测试为4G网络转以太网功能，通过网线将以太网模块CH390H与电脑以太网口连接，电脑可以4G网络访问互联网
+本demo演示的核心功能为：
+1.开启以太网功能
+2.开启多网融合功能
+更多说明参考本目录下的readme.md文件
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -19,18 +19,24 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-
 ]]
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "NETDRV_CH390H_TEST"
+PROJECT = "netdrv"
 VERSION = "001.000.000"
 
---添加硬狗防止程序卡死
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -55,17 +61,18 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
---log.info("ch390", "打开LDO供电")
---gpio.setup(20, 1)  --打开LDO供电, 对于核心板外接CH390H模块时可以不需要配置
 
--- 以下功能测试模块，测试时一次加载一个测试模块
--- wan功能通信测试
-require "wan"
--- lan功能通信测试
---require "lan"
+-- 开启以太网wan
+-- require "netdrv_eth_wan"
+-- 开启以太网lan
+-- require "netdrv_eth_lan"
+-- 4G连接外部网络，支持以太网lan模式为其他以太网设备提供接入 
+-- require "netdrv_4g_multiple"
+-- 双网口模式，以太网wan连接外部网络,以太网lan口为其他以太网设备提供接入
+require "netdrv_eth_multiple"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
-

@@ -2,7 +2,7 @@ PROJECT = "candemo"
 VERSION = "1.0.0"
 sys = require("sys")
 log.style(1)
-local SELF_TEST_FLAG = false --自测模式标识，写true就进行自收自发模式，写false就进行正常收发模式
+local SELF_TEST_FLAG = true --自测模式标识，写true就进行自收自发模式，写false就进行正常收发模式
 local node_a = true   -- A节点写true, B节点写false
 local can_id = 0
 local rx_id
@@ -16,6 +16,7 @@ else
     tx_id = 0x12345678
 end
 local test_cnt = 0
+gpio.setup(23,1) --要手动打开，否则无法使用CAN芯片不能正常工作
 local tx_buf = zbuff.create(8)  --创建zbuff
 local function can_cb(id, cb_type, param)
     if cb_type == can.CB_MSG then
@@ -60,7 +61,7 @@ end
 gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
 can.init(can_id, 128)            -- 初始化CAN，参数为CAN ID，接收缓存消息数的最大值
 can.on(can_id, can_cb)            -- 注册CAN的回调函数
-can.timing(can_id, 1000000, 5, 4, 3, 2)     --CAN总线配置时序
+can.timing(can_id, 1000000, 6, 6, 4, 2)     --CAN总线配置时序
 if SELF_TEST_FLAG then
 	can.node(can_id, tx_id, can.EXT)	-- 测试模式下，允许接收的ID和发送ID一致才会有新数据提醒
 	can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK

@@ -8,17 +8,14 @@
 本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
 1、开启以太网lan；
 
-直接使用Air780EPM V1.3开发板硬件测试即可；
+直接使用Air780EHM/Air780EHV/Air780EGH 核心板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_lan"就可以加载运行；
 ]] 
 dhcps = require "dhcpsrv"
 
 local function eth_lan_setup()
-    -- 本demo使用Air8000开发板测试，开发板上的硬件配置为：
-    -- GPIO140为CH390H以太网芯片的供电使能控制引脚
-    -- 使用spi1，片选引脚使用GPIO12
-    -- 如果使用的硬件不是Air8000开发板，根据自己的硬件配置修改以下参数
+
     log.info("ch390", "打开LDO供电")
     gpio.setup(20, 1, gpio.PULLUP) -- 打开ch390供电
     local result = spi.setup(0, -- spi_id

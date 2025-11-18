@@ -2,7 +2,7 @@
 @module  ble_ibeacon
 @summary Air8101演示ibeacon功能模块
 @version 1.0
-@date    2025.10.21
+@date    2025.11.18
 @author  wangshihao
 @usage
 本文件为Air8101核心板演示ibeacon功能的代码示例，核心业务逻辑为：

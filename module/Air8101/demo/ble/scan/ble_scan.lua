@@ -2,7 +2,7 @@
 @module  ble_ibeacon
 @summary Air8101演示scan功能模块
 @version 1.0
-@date    2025.10.21
+@date    2025.11.18
 @author  王世豪
 @usage
 本文件为Air8101核心板演示scan功能的代码示例，核心业务逻辑为：
@@ -24,13 +24,13 @@ local scan_state = false
 
 -- 处理扫描报告事件
 local function handle_scan_report(ble_device, ble_param)
-    -- 基础设备信息
+    -- 1. 打印基础设备信息
     log.info("ble_scan", "发现设备", 
             "RSSI:", ble_param.rssi, 
             "地址:", ble_param.adv_addr:toHex(),
             "数据:", ble_param.data:toHex())
     
-    -- -- 解析广播数据
+    -- -- 2. 打印解析的广播数据
     -- local adv_data = ble_device:adv_decode(ble_param.data)
     
     -- if adv_data then

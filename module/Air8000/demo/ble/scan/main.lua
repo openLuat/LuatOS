@@ -2,8 +2,8 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.07.01
-@author  wangshihao
+@date    2025.11.18
+@author  王世豪
 @usage
 本demo演示的核心功能为：
 Air8000的BLE的观察者模式(SCAN)，通过示例演示了如何开启蓝牙设备的观察者模式(SCAN)，扫描附近的蓝牙设备信息并打印出来。

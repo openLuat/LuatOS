@@ -49,6 +49,7 @@ local upgrade_active = false  -- 升级是否激活标志
 
 -- 按键回调函数 - Power键
 local function power_key_callback()
+    log.info("FOTA_UART", "Power键按下")
     if not upgrade_active then
         log.info("FOTA_UART", "Power键按下，启动串口升级模式")
         -- 初始化串口和缓冲区
@@ -68,7 +69,7 @@ end
 
 -- 配置Power键
 gpio.setup(gpio.PWR_KEY, power_key_callback, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 200ms去抖
+gpio.debounce(gpio.PWR_KEY, 200)   -- 200ms去抖
 
 -- 清理资源的函数
 local function cleanup_resources()

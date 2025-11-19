@@ -204,8 +204,8 @@ static int l_eink_setup(lua_State *L) {
     luat_gpio_mode(econf.pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
     if (lua_type(L, 7) == LUA_TUSERDATA){
-        //LLOGD("luat_spi_device_send");
-        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+        // LLOGD("eink_spi_device");
+        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 7);
         econf.port = LUAT_EINK_SPI_DEVICE;
 
         status = 0;

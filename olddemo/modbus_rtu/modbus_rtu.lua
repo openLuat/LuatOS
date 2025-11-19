@@ -1,21 +1,20 @@
 --[[
 @module modbus_rtu
-@summary modbus_rtu MODBUS_RTU协议 
-@version 1.0
+@summary modbus_rtu MODBUS_RTU协议库
+@version 1.1
 @date    2025.01.10
 @author  HH
 @usage
---注意:
---注意:
 -- 用法实例
 local modbus_rtu = require "modbus_rtu"
 
 -- 初始化modbus_rtu
 modbus_rtu.init({
-    uartid = 1, -- 接收/发送数据的串口id
+    uartid = 1,      -- 接收/发送数据的串口id
     baudrate = 4800, -- 波特率
-    gpio_485 = 25, -- 转向GPIO编号
+    gpio_485 = 25,   -- 转向GPIO编号
     tx_delay = 50000 -- 转向延迟时间，单位us
+})
 
 -- 定义modbus_rtu数据接收回调
 local function on_modbus_rtu_receive(frame)
@@ -23,7 +22,6 @@ local function on_modbus_rtu_receive(frame)
     if frame.fun == 0x03 then -- 功能码0x03表示读取保持寄存器
         local byte = frame.byte
         local payload = frame.payload
-        -- log.info("modbus_rtu payload (hex):", payload:toHex())
 
         -- 解析数据(假设数据为16位寄存器值)
         local values_big = {} -- 大端序解析结果
@@ -54,7 +52,6 @@ local function on_modbus_rtu_receive(frame)
             for index, value in ipairs(values_big) do
                 log.info(string.format("寄存器 %d: %d (大端序)", index, value))
             end
-
         end
     else
         log.info("功能码不是03")
@@ -67,38 +64,31 @@ modbus_rtu.set_receive_callback(1, on_modbus_rtu_receive)
 local function send_modbus_rtu_command()
     local addr = 0x01 -- 设备地址,此处填客户自己的
     local fun = 0x03 -- 功能码（03为读取保持寄存器），此处填客户自己的
-    local data = string.char(0x00, 0x00, 0x00, 0x02) -- 起始地址和寄存器数量(此处填客户自己的起始地址进而寄存器数量)
+    local data = string.char(0x00, 0x00, 0x00, 0x02) -- 起始地址和寄存器数量
 
-    -- modbus_rtu.send_command(1, addr, fun, data) -- 只发送一次命令并等待响应处理
     modbus_rtu.send_command(1, addr, fun, data, 5000) -- 循环5S发送一次
-
 end
 
 sys.taskInit(function()
     sys.wait(5000)
     send_modbus_rtu_command()
-
 end)
-
-]]
-
-
-
+]] 
 
 local modbus_rtu = {}
 
 -- 默认配置
 local DEFAULT_CONFIG = {
-    uartid = 1,          -- 串口ID
-    baudrate = 4800,     -- 波特率
-    databits = 8,        -- 数据位
-    stopbits = 1,        -- 停止位
-    parity = uart.None,  -- 校验位
+    uartid = 1, -- 串口ID
+    baudrate = 4800, -- 波特率
+    databits = 8, -- 数据位
+    stopbits = 1, -- 停止位
+    parity = uart.None, -- 校验位
     endianness = uart.LSB, -- 字节序
-    buffer_size = 1024,  -- 缓冲区大小
-    gpio_485 = 25,       -- 485转向GPIO
-    rx_level = 0,        -- 485模式下RX的GPIO电平
-    tx_delay = 10000,    -- 485模式下TX向RX转换的延迟时间（us）
+    buffer_size = 1024, -- 缓冲区大小
+    gpio_485 = 25, -- 485转向GPIO
+    rx_level = 0, -- 485模式下RX的GPIO电平
+    tx_delay = 10000 -- 485模式下TX向RX转换的延迟时间（us）
 }
 
 --[[
@@ -128,19 +118,31 @@ modbus_rtu.init(config)
 -- 初始化modbus_rtu
 function modbus_rtu.init(config)
     config = config or {}
-     -- 遍历 DEFAULT_CONFIG，为缺省的参数赋值
-     for key, default_value in pairs(DEFAULT_CONFIG) do
+    
+    -- 参数验证
+    if not config.uartid then
+        log.error("modbus_rtu", "缺少必要的uartid参数")
+        return false
+    end
+    
+    -- 遍历 DEFAULT_CONFIG，为缺省的参数赋值
+    for key, default_value in pairs(DEFAULT_CONFIG) do
         if config[key] == nil then
             config[key] = default_value
         end
     end
+    
     -- 初始化UART
-    uart.setup(
-        config.uartid, config.baudrate, config.databits, config.stopbits,
-        config.parity, config.endianness, config.buffer_size,
-        config.gpio_485, config.rx_level, config.tx_delay
-    )
-    log.info("modbus_rtu 当前串口初始化配置为:", json.encode(config))
+    local result = uart.setup(config.uartid, config.baudrate, config.databits, config.stopbits, config.parity, config.endianness,
+        config.buffer_size, config.gpio_485, config.rx_level, config.tx_delay)
+    
+    if result then
+        log.info("modbus_rtu", "串口初始化成功，配置为:", json.encode(config))
+        return true
+    else
+        log.error("modbus_rtu", "串口初始化失败")
+        return false
+    end
 end
 
 --[[
@@ -159,7 +161,6 @@ function modbus_rtu.crc16(data)
     return crc16_data
 end
 
-
 --[[
 对下位机返回过来的数据进行modbus_rtu解析
 @api  modbus_rtu.parse_frame()
@@ -172,25 +173,40 @@ log.info("crc16_data", crc16_data.addr,crc16_data.fun,crc16_data.byte,crc16_data
 
 function modbus_rtu.parse_frame(data)
     local str = data or ""
-    local addr = str:byte(1) or"" -- 地址位
-    local fun = str:byte(2) or ""  -- 功能码
-    local byte = str:byte(3)or "" -- 有效字节数
-    local payload = str:sub(4, 4 + byte - 1)or"" -- 数据部分(根据有效字节数动态截取)
-    local crc_data = str:sub(-2, -1) or ""
-    local idx,crc = pack.unpack(crc_data, "H")  -- CRC校验值
+    
+    -- 数据长度验证
+    if #str < 4 then
+        log.error("modbus_rtu", "数据帧长度不足")
+        return nil, "Frame too short"
+    end
+    
+    local addr = str:byte(1) -- 地址位
+    local fun = str:byte(2) -- 功能码
+    local byte = str:byte(3) -- 有效字节数
+    
+    -- 验证数据长度
+    if #str < byte + 5 then -- 地址(1) + 功能码(1) + 字节数(1) + 数据(byte) + CRC(2)
+        log.error("modbus_rtu", "数据帧长度与字节数不匹配")
+        return nil, "Frame length mismatch"
+    end
+    
+    local payload = str:sub(4, 4 + byte - 1) -- 数据部分
+    local crc_data = str:sub(-2, -1)
+    local idx, crc = pack.unpack(crc_data, "H") -- CRC校验值
 
     -- 校验CRC
-    if crc == modbus_rtu.crc16(str:sub(1, -3)) then
-        log.info("modbus_rtu CRC校验成功")
+    local calculated_crc = modbus_rtu.crc16(str:sub(1, -3))
+    if crc == calculated_crc then
+        log.info("modbus_rtu", "CRC校验成功")
         return {
             addr = addr,
             fun = fun,
             byte = byte,
             payload = payload,
-            crc = crc,
+            crc = crc
         }
     else
-        log.info("modbus_rtu CRC校验失败",crc)
+        log.error("modbus_rtu", "CRC校验失败，期望:", calculated_crc, "实际:", crc)
         return nil, "CRC error"
     end
 end
@@ -224,10 +240,10 @@ function modbus_rtu.send_command(uartid, addr, fun, data, interval)
     local cmd = modbus_rtu.build_frame(addr, fun, data)
     if interval then
         -- 如果传入了interval，则启用循环发送
-        sys.timerLoopStart(function ()
-            -- log.info("每隔"..interval.."秒发一次指令",cmd:toHex())
-            uart.write(uartid,cmd)
-        end,interval)
+        sys.timerLoopStart(function()
+            log.info("每隔" .. interval .. "秒发一次指令", cmd:toHex())
+            uart.write(uartid, cmd)
+        end, interval)
         -- sys.timerLoopStart(uart.write, interval, uartid, cmd)
         -- log.info("modbus_rtu 循环发送的间隔时间为", interval, "ms",cmd:toHex())
     else
@@ -242,7 +258,7 @@ function modbus_rtu.set_receive_callback(uartid, callback)
     uart.on(uartid, "receive", function(id, len)
         local s = ""
         repeat
-            s = uart.read(id, 128)
+            s = uart.read(id, len)
             if #s > 0 then
                 log.info("modbus_rtu 收到的下位机回复:", s:toHex())
                 local frame, err = modbus_rtu.parse_frame(s)
@@ -260,8 +276,11 @@ end
 function modbus_rtu.set_sent_callback(uartid, callback)
     uart.on(uartid, "sent", function(id)
         log.info("modbus_rtu 数据发送:", id)
-        if callback then callback(id) end
+        if callback then
+            callback(id)
+        end
     end)
 end
 
 return modbus_rtu
+

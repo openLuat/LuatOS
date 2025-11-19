@@ -5,7 +5,7 @@
 @date    2025.10.11
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air780EHM/EHV/EGH核心板通过SPI库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
+本demo演示的功能为：使用Air780EHM/EHV/EGH核心板通过SPI核心库/sfud核心库实现对 NOR Flash的操作，演示读数据写数据、删除数据等操作。
 以Air780EHM/EHV/EGH核心板为例, 接线如下:
 
 Air780EHM/EHV/EGH核心板    AirSPINORFLASH_1000配件版

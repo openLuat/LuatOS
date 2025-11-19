@@ -492,7 +492,6 @@ int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
             size_t needed_blocks = (nsize + BLOCK_SIZE - 1) / BLOCK_SIZE;
             size_t idx = 0;
             ram_file_block_t* block = files[i]->head;
-            ram_file_block_t* prev = NULL;
             while (block) {
                 idx++;
                 if (idx == needed_blocks) {
@@ -510,7 +509,6 @@ int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
                     }
                     break;
                 }
-                prev = block;
                 block = block->next;
             }
             // 如果需要块为0, 释放所有

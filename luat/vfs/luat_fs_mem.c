@@ -260,47 +260,52 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
         LLOGW("readonly fd %d!! path %s", fd->fid, files[fd->fid]->name);
         return 0;
     }
+    // 原文件大小与本次写入后所需的大小
+    size_t old_size = files[fd->fid]->size;
+    size_t needed_size = fd->offset + write_size; // 仅覆盖时可能小于 old_size
 
-    // 计算最终需要的总大小
-    size_t total_size = fd->offset + write_size;
-//    size_t current_size = files[fd->fid]->size; // 当前文件大小
-
-    // 先补齐block
-    ram_file_block_t* block = files[fd->fid]->head;
-    size_t block_offset = 0; // 当前block的偏移量
-
-    // 遍历现有的block，直到block_offset达到total_size
-    while (block != NULL && block_offset < total_size) {
-        block_offset += BLOCK_SIZE;
-        block = block->next;
-    }
-
-    // 如果block_offset小于total_size，继续分配新的block
-    while (block_offset < total_size) {
-        block = luat_heap_malloc(sizeof(ram_file_block_t));
-        if (block == NULL) {
-            LLOGW("out of memory when malloc ram_file_block_t");
-            return 0;
-        }
-        memset(block, 0, sizeof(ram_file_block_t));
-        block->next = NULL;
-
-        // 将新分配的block链接到链表末尾
-        if (files[fd->fid]->head == NULL) {
-            files[fd->fid]->head = block;
+    // 只在需要扩展时才分配新块, 避免覆盖写导致截断
+    if (needed_size > old_size) {
+        size_t old_blocks = (old_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        size_t needed_blocks = (needed_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        // 找到最后一个块
+        ram_file_block_t* last = files[fd->fid]->head;
+        if (last == NULL) {
+            // 还没有任何块, 分配第一个
+            last = luat_heap_malloc(sizeof(ram_file_block_t));
+            if (last == NULL) {
+                LLOGW("out of memory when malloc ram_file_block_t");
+                return 0;
+            }
+            memset(last, 0, sizeof(ram_file_block_t));
+            last->next = NULL;
+            files[fd->fid]->head = last;
+            old_blocks = 1; // 更新块数量
         } else {
-            ram_file_block_t* last = files[fd->fid]->head;
+            // 跳到最后一个现有块
+            size_t idx = 1;
             while (last->next) {
                 last = last->next;
+                idx ++;
             }
-            last->next = block;
+            // idx 应等于 old_blocks, 不匹配也不影响后续逻辑
         }
-
-        block_offset += BLOCK_SIZE;
+        // 追加缺少的块
+        for (size_t b = old_blocks; b < needed_blocks; b++) {
+            ram_file_block_t* nb = luat_heap_malloc(sizeof(ram_file_block_t));
+            if (nb == NULL) {
+                LLOGW("out of memory when malloc ram_file_block_t");
+                return 0;
+            }
+            memset(nb, 0, sizeof(ram_file_block_t));
+            nb->next = NULL;
+            last->next = nb;
+            last = nb;
+        }
     }
 
     // 现在偏移到offset对应的block
-    block = files[fd->fid]->head;
+    ram_file_block_t* block = files[fd->fid]->head;
     size_t offset = fd->offset;
     while (block != NULL && offset >= BLOCK_SIZE) {
         offset -= BLOCK_SIZE;
@@ -324,8 +329,10 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
     }
 
     fd->offset += (size_t)(src - (const uint8_t*)ptr);
-    // 更新文件大小
-    files[fd->fid]->size = total_size;
+    // 仅当写入越过原末尾时更新大小, 避免覆盖写截断
+    if (needed_size > old_size) {
+        files[fd->fid]->size = needed_size;
+    }
     // 打印一下写入的数据
     // LLOGD("write data %s", (char*)ptr);
     return (size_t)(src - (const uint8_t*)ptr);

@@ -53,7 +53,7 @@ eink显示屏初始化
 @table 附加参数
 @userdata spi设备,当port = "device"时有效
 @usage
--- 初始化spi0的eink.MODEL_4in2bc) 注意:eink初始化之前需要先初始化spi
+-- 初始化spi0的eink.MODEL_4in2bc 注意:eink初始化之前需要先初始化spi
 spi_eink = spi.deviceSetup(0,20,0,0,8,20000000,spi.MSB,1,1)
 log.info("eink.init",
 eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
@@ -191,7 +191,7 @@ end:
 */
 static int l_eink_setup(lua_State *L) {
     int status = 0;
-    econf.full_mode = luaL_optinteger(L, 1, 1);
+    econf.full_mode = luaL_optinteger(L, 1, 0);
     econf.port = luaL_optinteger(L, 2, 0);
 
     econf.pin_busy = luaL_checkinteger(L, 3);

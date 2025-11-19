@@ -363,7 +363,7 @@ int luat_vfs_ram_rename(void* userdata, const char *old_filename, const char *ne
     (void)userdata;
     if (old_filename == NULL || new_filename == NULL)
         return -1;
-    if (strlen(old_filename) > 31 || strlen(new_filename) > 31)
+    if (strlen(old_filename) > MEMFS_MAX_FILE_NAME || strlen(new_filename) > MEMFS_MAX_FILE_NAME)
         return -2;
     for (size_t i = 0; i < RAM_FILE_MAX; i++)
     {
@@ -477,7 +477,7 @@ int luat_vfs_ram_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     
     conf->type = 0;
     conf->total_block = 64;
-    conf->block_used = (ftotal + BLOCK_SIZE) / BLOCK_SIZE;
+    conf->block_used = (ftotal + BLOCK_SIZE - 1) / BLOCK_SIZE;
     conf->block_size = BLOCK_SIZE;
     return 0;
 }
@@ -488,14 +488,40 @@ int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
         if (files[i] == NULL)
             continue;
         if (!strcmp(files[i]->name, path)) {
+            // 计算需要保留的块数量
+            size_t needed_blocks = (nsize + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            size_t idx = 0;
             ram_file_block_t* block = files[i]->head;
-            size_t offset = 0;
+            ram_file_block_t* prev = NULL;
             while (block) {
-                if (offset + BLOCK_SIZE > nsize) {
-                    memset(block->data + (nsize - offset), 0, BLOCK_SIZE - (nsize - offset));
+                idx++;
+                if (idx == needed_blocks) {
+                    // 清零最后一个块多余部分
+                    if (nsize % BLOCK_SIZE) {
+                        memset(block->data + (nsize % BLOCK_SIZE), 0, BLOCK_SIZE - (nsize % BLOCK_SIZE));
+                    }
+                    // 释放后续块
+                    ram_file_block_t* next = block->next;
+                    block->next = NULL;
+                    while (next) {
+                        ram_file_block_t* nn = next->next;
+                        luat_heap_free(next);
+                        next = nn;
+                    }
+                    break;
                 }
-                offset += BLOCK_SIZE;
+                prev = block;
                 block = block->next;
+            }
+            // 如果需要块为0, 释放所有
+            if (needed_blocks == 0) {
+                block = files[i]->head;
+                while (block) {
+                    ram_file_block_t* nn = block->next;
+                    luat_heap_free(block);
+                    block = nn;
+                }
+                files[i]->head = NULL;
             }
             files[i]->size = nsize;
             return 0;

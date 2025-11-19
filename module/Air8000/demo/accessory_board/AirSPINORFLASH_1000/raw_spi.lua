@@ -5,7 +5,7 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air8000核心板通过SPI库实现对Flash的操作，演示读数据写数据、删除数据等操作。
+本demo演示的功能为：使用Air8000核心板通过SPI核心库实现对Flash的操作，演示读数据写数据、删除数据等操作。
 以 Air8000核心板为例, 接线如下:
 Air8000       AirSPINORFLASH_1000
 GND(任意)          GND
@@ -34,17 +34,17 @@ local CPHA = 0                     -- 时钟相位
 local CPOL = 0                     -- 时钟极性
 local data_Width = 8               -- 数据宽度(位)
 local bandrate = 2000000           -- 波特率(Hz)，初始化为2MHz
-local timeout = 500                -- 操作超时时间(ms)
+local timeout = 1000                -- 操作超时时间(ms)
 local cspin = gpio.setup(CS_PIN, 1) --CS脚置于高电平
 
 
 -- 1. 设置并启用 SPI
 local function spiDev_init_func()
     log.info("raw_spi", "SPI_ID", SPI_ID, "CS_PIN", CS_PIN)
-    local spiDevice = spi.setup(SPI_ID,nil, CPHA,CPOL,data_Width,bandrate
-    -- spi.MSB,--高低位顺序    可选，默认高位在前
-    -- spi.master,--主模式     可选，默认主
-    -- spi.full--全双工       可选，默认全双工
+    local spiDevice = spi.setup(SPI_ID,nil, CPHA,CPOL,data_Width,bandrate,
+    spi.MSB,   --高低位顺序    可选，默认高位在前
+    spi.master,--主模式     可选，默认主
+    spi.half   --半双工      spi flash只支持半双工
     )
 
     log.info("硬件spi", "初始化，波特率:", spiDevice, bandrate)

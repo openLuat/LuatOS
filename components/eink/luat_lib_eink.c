@@ -75,8 +75,8 @@ static int l_eink_init(lua_State* L) {
         econf.port = LUAT_EINK_SPI_DEVICE;
     }
     if (econf.async){
-      luat_rtos_task_create(&econf.eink_task_handle, 1024, 50, "eink", EPD_Task, NULL, 0);
-      luat_rtos_queue_create(&econf.eink_queue_handle, 5, sizeof(uint8_t));
+        luat_rtos_queue_create(&econf.eink_queue_handle, 5, sizeof(uint8_t));
+        luat_rtos_task_create(&econf.eink_task_handle, 1024, 50, "eink", EPD_Task, NULL, 0);
     }
     EPD_Model(luaL_checkinteger(L, 1));
 

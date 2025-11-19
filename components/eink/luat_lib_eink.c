@@ -206,6 +206,10 @@ static int l_eink_setup(lua_State *L) {
     if (lua_type(L, 7) == LUA_TUSERDATA){
         // LLOGD("eink_spi_device");
         econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 7);
+        lua_pushvalue(L, 7);
+        // 所以, 直接引用之外, 再加上强制引用, 避免被GC
+        // 鉴于LCD不太可能重复初始化, 引用也没什么问题
+        econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
 
         status = 0;

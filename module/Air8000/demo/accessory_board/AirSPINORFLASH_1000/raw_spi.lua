@@ -33,7 +33,7 @@ local CS_PIN = 12                  -- CS引脚，根据实际情况修改
 local CPHA = 0                     -- 时钟相位
 local CPOL = 0                     -- 时钟极性
 local data_Width = 8               -- 数据宽度(位)
-local bandrate = 2000000           -- 波特率(Hz)，初始化为2MHz
+local bandrate = 2*1000*1000       -- 波特率(Hz)，初始化为2MHz
 local timeout = 1000                -- 操作超时时间(ms)
 local cspin = gpio.setup(CS_PIN, 1) --CS脚置于高电平
 

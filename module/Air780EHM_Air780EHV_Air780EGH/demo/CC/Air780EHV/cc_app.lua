@@ -31,7 +31,7 @@ local audio_drv = require "audio_drv"
 -- 设置当前激活的场景（1-4），注释掉不需要的场景
 -- local ACTIVE_SCENARIO = 1  -- 场景1：呼入立即挂断
 -- local ACTIVE_SCENARIO = 2  -- 场景2：呼入自动接听，10秒后主动挂断
---local ACTIVE_SCENARIO = 3  -- 场景3：呼入自动接听，等待对方挂断
+ local ACTIVE_SCENARIO = 3  -- 场景3：呼入自动接听，等待对方挂断
 -- local ACTIVE_SCENARIO = 4  -- 场景4：主动呼出，等待对方挂断
 
 -- 全局状态变量

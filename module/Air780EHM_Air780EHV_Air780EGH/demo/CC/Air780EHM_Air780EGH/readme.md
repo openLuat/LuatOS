@@ -53,7 +53,7 @@
 | 66/I2C1_SDA                     | I2C_SDA             |
 | 25/GPIO26                       | PA_EN               |
 | 23/GPIO2                        | 8311_EN             |
-| VDD_EXT                         | VCC                 |
+| 3V3                             | VCC                 |
 | GND                             | GND                 |
 
 ## 演示软件环境

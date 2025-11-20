@@ -8,7 +8,7 @@
     local extalk = require "extalk"
     -- 配置并初始化
     extalk.setup({
-        key = "your_product_key",
+        key = "7PLlICqqGtVlVwNwvOjLxrEdfBNHFx1E",
         heart_break_time = 30,
         contact_list_cbfnc = function(dev_list) end,
         state_cbfnc = function(state) end

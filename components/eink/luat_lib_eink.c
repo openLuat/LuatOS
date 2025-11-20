@@ -74,6 +74,7 @@ static int l_eink_init(lua_State* L) {
         // 鉴于LCD不太可能重复初始化, 引用也没什么问题
         econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
+        econf.pin_cs = econf.eink_spi_device->spi_config.cs;
     }
     if (econf.async){
         luat_rtos_queue_create(&econf.eink_queue_handle, 5, sizeof(uint8_t));

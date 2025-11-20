@@ -64,19 +64,21 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 | GND            |     GND             |
 
 2、TYPE-C USB数据线一根
+
 - Air780EHM核心板通过 TYPE-C USB 口供电；
+
 - TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/) 
 
-2、[Air780EHV V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air780EHV/LuatOS-SoC_V2016_Air780EHV.zip)（理论上，2025年7月26日之后发布的固件都可以）选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。[不同版本区别请见](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+2、Air780EHV V2016版本固件,选择支持TTS功能的固件。[不同版本区别请见](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
 
 3、 luatos需要的脚本和资源文件
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS_demo_v2_temp/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/audio/Air780EHV_audio)
 
-- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air780EXX核心板](https://docs.openluat.com/air780epm/luatos/common/download/)， 将本篇文章中演示使用的项目文件烧录到Air780EHV核心板中。
+- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air780EXX核心板](https://docs.openluat.com/air780ehv/luatos/common/download/)， 将本篇文章中演示使用的项目文件烧录到Air780EHV核心板中。
 
 4、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明](https://docs.openluat.com/air780epm/common/luatio/)
 

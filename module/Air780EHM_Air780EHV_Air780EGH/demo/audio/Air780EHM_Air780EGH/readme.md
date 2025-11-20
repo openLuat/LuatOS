@@ -66,7 +66,7 @@ Air780EHM核心板/Air780EGH核心板和AirAudio_1010 配件板的硬件接线�
 | 66/I2C1_SDA                     | I2C_SDA             |
 | 25/GPIO26                       | PA_EN               |
 | 23/GPIO2                        | 8311_EN             |
-| VDD_EXT                         | VCC                 |
+| 3V3                             | VCC                 |
 | GND                             | GND                 |
 
 2、TYPE-C USB数据线一根

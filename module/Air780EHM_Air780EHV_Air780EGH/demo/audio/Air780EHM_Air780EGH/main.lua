@@ -74,7 +74,7 @@ end
 
 
 
-require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
+ require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
 -- require "play_tts"      -- 支持文字转普通话输出需要固件支持
 -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
 -- require "record_file"        -- 录音到文件

@@ -212,5 +212,7 @@ int luat_camera_config(int id, int key, int value);
 void luat_camera_reset_pin(int id, uint8_t level);
 
 void luat_camera_pwdn_pin(int id, uint8_t level);
+
+extern int32_t g_camera_log_level;
 /** @}*/
 #endif

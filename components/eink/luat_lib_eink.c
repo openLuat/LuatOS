@@ -65,6 +65,7 @@ eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 
 -- mode：1全屏模式,0局部刷新模式,可选,默认全屏模式
 */
 static int l_eink_init(lua_State* L) {
+    econf.full_mode = 1;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
         econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);

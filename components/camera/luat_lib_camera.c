@@ -654,6 +654,11 @@ static const rotable_Reg_t reg_camera[] =
     //@const CONF_PREVIEW_ROTATE number 摄像头预览画面的旋转角度
     { "CONF_PREVIEW_ROTATE",        ROREG_INT(LUAT_CAMERA_CONF_PREVIEW_ROTATE)},
 
+    //@const CONF_UVC_FPS number 设置USB摄像头的帧率
+    { "CONF_UVC_FPS",               ROREG_INT(LUAT_CAMERA_CONF_UVC_FPS)},
+    //@const CONF_LOG_LEVEL number 设置摄像头日志级别
+    { "CONF_LOG_LEVEL",             ROREG_INT(LUAT_CAMERA_CONF_LOG_LEVEL)},
+
 	{ NULL,          ROREG_INT(0)}
 };
 

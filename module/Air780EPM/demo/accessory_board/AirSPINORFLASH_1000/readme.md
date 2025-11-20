@@ -29,7 +29,7 @@
 
 2.用 SPI 对象初始化 flash 设备，返回 flash 设备对象
 
-3.用 lf 库挂载 flash 设备对象为文件系统
+3.用 lf 库挂载 flash 设备对象为LittleFS文件系统
 
 4.读取文件系统的信息
 

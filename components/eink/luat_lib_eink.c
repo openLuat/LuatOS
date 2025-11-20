@@ -53,7 +53,7 @@ eink显示屏初始化
 @table 附加参数
 @userdata spi设备,当port = "device"时有效
 @usage
--- 初始化spi0的eink.MODEL_4in2bc) 注意:eink初始化之前需要先初始化spi
+-- 初始化spi0的eink.MODEL_4in2bc 注意:eink初始化之前需要先初始化spi
 spi_eink = spi.deviceSetup(0,20,0,0,8,20000000,spi.MSB,1,1)
 log.info("eink.init",
 eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
@@ -65,6 +65,7 @@ eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 
 -- mode：1全屏模式,0局部刷新模式,可选,默认全屏模式
 */
 static int l_eink_init(lua_State* L) {
+    econf.full_mode = 1;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
         econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
@@ -73,10 +74,11 @@ static int l_eink_init(lua_State* L) {
         // 鉴于LCD不太可能重复初始化, 引用也没什么问题
         econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
+        econf.pin_cs = econf.eink_spi_device->spi_config.cs;
     }
     if (econf.async){
-      luat_rtos_task_create(&econf.eink_task_handle, 1024, 50, "eink", EPD_Task, NULL, 0);
-      luat_rtos_queue_create(&econf.eink_queue_handle, 5, sizeof(uint8_t));
+        luat_rtos_queue_create(&econf.eink_queue_handle, 5, sizeof(uint8_t));
+        luat_rtos_task_create(&econf.eink_task_handle, 1024*2, 50, "eink", EPD_Task, NULL, 0);
     }
     EPD_Model(luaL_checkinteger(L, 1));
 
@@ -191,7 +193,7 @@ end:
 */
 static int l_eink_setup(lua_State *L) {
     int status = 0;
-    econf.full_mode = luaL_optinteger(L, 1, 1);
+    econf.full_mode = luaL_optinteger(L, 1, 0);
     econf.port = luaL_optinteger(L, 2, 0);
 
     econf.pin_busy = luaL_checkinteger(L, 3);
@@ -204,8 +206,12 @@ static int l_eink_setup(lua_State *L) {
     luat_gpio_mode(econf.pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
     if (lua_type(L, 7) == LUA_TUSERDATA){
-        //LLOGD("luat_spi_device_send");
-        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+        // LLOGD("eink_spi_device");
+        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 7);
+        lua_pushvalue(L, 7);
+        // 所以, 直接引用之外, 再加上强制引用, 避免被GC
+        // 鉴于LCD不太可能重复初始化, 引用也没什么问题
+        econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
 
         status = 0;

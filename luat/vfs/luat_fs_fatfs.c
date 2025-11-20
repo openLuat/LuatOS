@@ -16,27 +16,27 @@ FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mod
     //FATFS *fs = (FATFS*)userdata;
     FIL* fp = luat_heap_malloc(sizeof(FIL));
     int flag = 0;
-    for (size_t i = 0; i < strlen(mode); i++)
-    {
-        char m = *(mode + i);
-        switch (m)
-        {
-        case 'r':
-            flag |= FA_READ;
-            break;
-        case 'w':
-            flag |= FA_WRITE | FA_CREATE_ALWAYS;
-            break;
-        case 'a':
-            flag |= FA_OPEN_APPEND | FA_WRITE;
-            break;
-        case '+':
-            flag |= FA_OPEN_APPEND;
-            break;
-        
-        default:
-            break;
-        }
+    if (!strcmp("r+", mode) || !strcmp("r+b", mode) || !strcmp("rb+", mode)) {
+        flag = FA_READ | FA_WRITE | FA_OPEN_ALWAYS;
+    }
+    else if(!strcmp("w+", mode) || !strcmp("w+b", mode) || !strcmp("wb+", mode)) {
+        flag = FA_READ | FA_WRITE | FA_CREATE_ALWAYS;
+    }
+    else if(!strcmp("a+", mode) || !strcmp("a+b", mode) || !strcmp("ab+", mode)) {
+        flag = FA_READ | FA_WRITE | FA_OPEN_APPEND;
+    }
+    else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
+        flag = FA_WRITE | FA_READ;
+    }
+    else if(!strcmp("r", mode) || !strcmp("rb", mode)) {
+        flag = FA_READ;
+    }
+    else if(!strcmp("a", mode) || !strcmp("ab", mode)) {
+        flag = FA_WRITE | FA_OPEN_APPEND;
+    }
+    else {
+        LLOGW("bad file open mode %s, fallback to 'r'", mode);
+        flag = FA_READ;
     }
     FRESULT ret = f_open(fp, filename, flag);
     if (ret != FR_OK) {

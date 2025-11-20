@@ -6,7 +6,7 @@
 
 3. lf_fs：通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
-4. sfud_test:通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud_test.lua 
+4. sfud_test:通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud_test.lua 文件
 
 ## 演示功能概述：
 

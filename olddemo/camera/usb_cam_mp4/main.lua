@@ -15,8 +15,8 @@ local camera_id = camera.USB
 
 local usb_camera_table = {
     id = camera_id,
-    sensor_width = 1280,
-    sensor_height = 720,
+    sensor_width = 640,
+    sensor_height = 480,
     usb_port = 1
 }
 
@@ -41,6 +41,8 @@ local function fatfs_spi_pin()
     elseif string.find(rtos_bsp,"EC718") then
         return 0, 8
     elseif string.find(rtos_bsp,"Air810") then
+        gpio.setup(13, 1, gpio.PULLUP)
+        gpio.setup(28, 1, gpio.PULLUP)
         return 0, 3, fatfs.SDIO
     else
         log.info("main", "bsp not support")
@@ -52,7 +54,8 @@ sys.taskInit(function()
     sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 
-    -- 此为spi方式
+
+    -- -- 此为spi方式
     local spi_id, pin_cs,tp = fatfs_spi_pin()
     if tp and tp == fatfs.SPI then
         -- 仅SPI方式需要自行初始化spi, sdio不需要
@@ -74,23 +77,26 @@ sys.taskInit(function()
         log.info("fatfs", "err", err)
     end
 
-
+    sys.wait(1000)
 
     --初始化摄像头
-    result=camera.init(usb_camera_table)
-    log.info("摄像头初始化", result)
-    if(result==0) then
-        camera.start(camera_id)
-        --开始mp4录制
-        camera.capture(camera_id, "/sd/abc.mp4", 1)
-        sys.wait(25000)
+    while 1 do
+        result=camera.init(usb_camera_table)
+        log.info("摄像头初始化", result)
+        if(result==0) then
+            camera.start(camera_id)
+            --开始mp4录制
+            camera.capture(camera_id, "/sd/abc.mp4", 1)
+            sys.wait(15000)
 
-        --结束MP4录制
-        camera.stop(camera_id)
+            --结束MP4录制
+            camera.stop(camera_id)
 
-        log.info("保存成功")
+            log.info("保存成功")
+        end
+        camera.close(camera_id)
+        sys.wait(2000)
     end
-    camera.close(camera_id)
     -- #################################################
 
 end)

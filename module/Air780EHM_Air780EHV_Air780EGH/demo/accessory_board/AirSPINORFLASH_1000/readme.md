@@ -1,12 +1,12 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口,以下两个脚本按自己的需求选择其一使用即可，另外两个注释。
+1. main.lua：主程序入口,以下三个脚本按自己的需求选择其一使用即可，另外两个注释。
 
 2. raw_spi：通过原始spi接口对flash模块进行读写数据操作，详细逻辑请看raw_spi.lua 文件
 
 3. lf_fs：通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
-4. sfud_test:通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud.lua 文件
+4. sfud_test:通过sfud核心库和io文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看sfud_test.lua 文件
 
 ## 演示功能概述：
 
@@ -87,13 +87,11 @@
 
 1. Luatools 下载调试工具
 
-
 2. 固件版本：LuatOS-SoC_V2018_Air780EHM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780ehm/luatos/firmware/version/](https://docs.openluat.com/air780ehm/luatos/firmware/version/)
 
 3. 固件版本：LuatOS-SoC_V2018_Air780EHV_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/Air780EHV/luatos/firmware/version/](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
 
 4. 固件版本：LuatOS-SoC_V2018_Air780EGH_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780egh/luatos/firmware/version/](https://docs.openluat.com/air780egh/luatos/firmware/version/)
-
 
 5. pc 系统 win11（win10 及以上）
 
@@ -195,4 +193,3 @@
 
 
 ```
-

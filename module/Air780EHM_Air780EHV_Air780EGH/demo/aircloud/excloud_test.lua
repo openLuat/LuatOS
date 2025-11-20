@@ -112,8 +112,8 @@ function excloud_task_func()
         reconnect_interval = 10, -- 重连间隔(秒)
         max_reconnect = 5,       -- 最大重连次数
         mtn_log_enabled = true,  -- 启用运维日志
-        mtn_log_blocks = 2,      -- 日志文件块数
-        mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式
+        mtn_log_blocks = 1,      -- 日志文件块数
+        mtn_log_write_way = excloud.MTN_LOG_ADD_WRITE  -- 缓存写入方式
     })
 
 
@@ -131,7 +131,7 @@ function excloud_task_func()
     --     mtn_log_enabled = true                         -- 启用运维日志
     -- })
 
-    -- -- 配置excloud参数，虚拟设备链接
+    -- 配置excloud参数，虚拟设备链接
     -- local ok, err_msg = excloud.setup({
     --     use_getip = true, --使用getip服务
     --     device_type = 9,
@@ -242,8 +242,8 @@ function mtnlog_test_task()
     local test_count = 0
     while true do
         test_count = test_count + 1
-
-        excloud.mtn_log("mtn_test", test_count)
+        
+        excloud.mtn_log("info", "mtn_test", test_count)
         -- 每30秒记录一次
         sys.wait(1000)
     end

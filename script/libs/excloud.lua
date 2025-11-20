@@ -554,7 +554,7 @@ end
 
 --             -- 记录认证结果到运维日志
 --             if config.aircloud_mtn_log_enabled then
---                 exmtn.log("auth", "认证结果", "success", success, "message", tlv.value)
+--                 exmtn.log("info", "aircloud","auth", "认证结果", "success", success, "message", tlv.value)
 --             end
 
 
@@ -770,7 +770,7 @@ local function upload_mtn_log_files(log_files)
 
                 -- 记录上传成功的运维日志
                 if config.aircloud_mtn_log_enabled then
-                    exmtn.log("mtn_upload", "文件上传成功", "file", log_file.name, "size", log_file.size)
+                    exmtn.log("info", "aircloud", "mtn_upload", "文件上传成功", "file", log_file.name, "size", log_file.size)
                 end
             else
                 -- 发送上传失败状态
@@ -780,7 +780,7 @@ local function upload_mtn_log_files(log_files)
 
                 -- 记录上传失败的运维日志
                 if config.aircloud_mtn_log_enabled then
-                    exmtn.log("mtn_upload_error", "文件上传失败", "file", log_file.name, "error", err_msg)
+                    exmtn.log("info", "aircloud","mtn_upload_error", "文件上传失败", "file", log_file.name, "error", err_msg)
                 end
             end
 
@@ -806,7 +806,7 @@ local function upload_mtn_log_files(log_files)
 
         -- 记录上传完成日志
         if config.aircloud_mtn_log_enabled then
-            exmtn.log("mtn_upload", "运维日志上传完成", "success", success_count, "failed", failed_count, "total", total_files)
+            exmtn.log("info", "aircloud","mtn_upload", "运维日志上传完成", "success", success_count, "failed", failed_count, "total", total_files)
         end
         -- 通知上传完成
         if callback_func then
@@ -825,7 +825,7 @@ local function handle_mtn_log_upload_request()
     local latest_index = total_files > 0 and log_files[#log_files].index or 0
 
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("cloud_cmd", "收到运维日志上传请求", "file_count", total_files)
+        exmtn.log("info", "aircloud","cloud_cmd", "收到运维日志上传请求", "file_count", total_files)
     end
 
     log.info("开始处理运维日志上传请求", "文件总数:", total_files, "最新序号:", latest_index)
@@ -1322,11 +1322,23 @@ function excloud.upload_audio(file_path, file_name)
 end
 
 -- 记录运维日志
-function excloud.mtn_log(tag, ...)
+--[[
+输出运维日志并写入文件
+@api excloud.mtn_log(level, tag, ...)
+@string level 日志级别，必须是 "info", "warn", 或 "error"
+@string tag 日志标识，必须是字符串
+@... 需打印的参数
+@return boolean 成功返回true，失败返回false
+@usage
+excloud.mtn_log("info", "message", 123)
+excloud.mtn_log("warn", "message", 456)
+excloud.mtn_log("error", "message", 789)
+]]
+function excloud.mtn_log(level,tag, ...)
     if not config.aircloud_mtn_log_enabled then
         return false, "运维日志功能已禁用" -- 禁用时返回失败
     end
-    exmtn.log(tag, ...)
+    exmtn.log(level,tag, ...)
     return true
 end
 
@@ -1458,11 +1470,11 @@ local function tcp_socket_callback(netc, event, param)
     -- 记录连接状态变化的运维日志
     if config.aircloud_mtn_log_enabled then
         if event == socket.LINK then
-            exmtn.log("net_conn", "网络连接成功")
+            exmtn.log("info", "aircloud","net_conn", "网络连接成功")
         elseif event == socket.ON_LINE then
-            exmtn.log("net_conn", "TCP连接成功", "host", config.host, "port", config.port)
+            exmtn.log("info", "aircloud","net_conn", "TCP连接成功", "host", config.host, "port", config.port)
         elseif event == socket.CLOSED then
-            exmtn.log("net_conn", "TCP连接断开", "param", param)
+            exmtn.log("info", "aircloud","net_conn", "TCP连接断开", "param", param)
         end
     end
 
@@ -1532,11 +1544,11 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
     -- 记录MQTT状态变化的运维日志
     if config.aircloud_mtn_log_enabled then
         if event == "conack" then
-            exmtn.log("mqtt_conn", "MQTT连接成功", "host", config.host)
+            exmtn.log("info", "aircloud","mqtt_conn", "MQTT连接成功", "host", config.host)
         elseif event == "disconnect" then
-            exmtn.log("mqtt_conn", "MQTT连接断开")
+            exmtn.log("info", "aircloud","mqtt_conn", "MQTT连接断开")
         elseif event == "error" then
-            exmtn.log("mqtt_error", "MQTT错误", "type", data, "code", payload)
+            exmtn.log("info", "aircloud","mqtt_error", "MQTT错误", "type", data, "code", payload)
         end
     end
 
@@ -1990,7 +2002,7 @@ function excloud.open()
 
     -- 记录服务启动日志
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("system", "excloud服务启动", "transport", config.transport, "host", config.host, "port", config.port)
+        exmtn.log("info", "aircloud","system", "excloud服务启动", "transport", config.transport, "host", config.host, "port", config.port)
     end
 
     log.info("[excloud]excloud service started")
@@ -2128,7 +2140,7 @@ function excloud.send(data, need_reply, is_auth_msg)
         callback_func("send_result", {
             success = success,
             error_msg = success and "Send successful" or err_msg,
-            sequence_num = current_sequence,
+            sequence_num = current_sequence
         })
     end
 
@@ -2173,7 +2185,7 @@ function excloud.close()
 
     -- 记录服务关闭日志
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("system", "excloud服务关闭")
+        exmtn.log("info", "aircloud","system", "excloud服务关闭")
     end
 
     -- 重置状态

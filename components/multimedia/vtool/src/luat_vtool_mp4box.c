@@ -28,6 +28,9 @@ static int buffered_init(mp4_ctx_t* ctx, size_t size) {
 
 static int buffered_flush(mp4_ctx_t* ctx) {
     int size = ctx->box_buff_offset;
+    if (size == 0) {
+        return 0;
+    }
     LLOGI("start flush buffer %d bytes %p", size, ctx->box_buff);
     if (ctx->box_buff && ctx->box_buff_offset > 0) {
         // 每次最多写入64KB
@@ -891,8 +894,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
             ret = -1;
             goto clean;
         }
-        // 一次性写入moov
-        // 保证文件指针在末尾且缓冲为空
+        // 一次性写入moov,保证文件指针在末尾且缓冲为空
         buffered_flush(ctx);
         luat_fs_fseek(ctx->fd, 0, SEEK_END);
         int w = luat_fs_fwrite(moov_buf, 1, moov_len, ctx->fd);

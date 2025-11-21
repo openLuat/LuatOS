@@ -451,7 +451,7 @@ __USER_FUNC_IN_RAM__ static void spi_irq_task(void *param)
             // LLOGD("从机通知IRQ中断");
             // 发送通知事件，告知任务RDY已就绪
             luat_event_t evt = {.id = 6};
-            int res = luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
+            luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
         }
     }
 }
@@ -473,7 +473,7 @@ void luat_airlink_start_master(void)
     luat_rtos_queue_create(&rdy_evt_queue, 10, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
     // 创建专门用于处理从机通知中断的任务
-    luat_rtos_task_create(&spi_irq_task_handle,  4 * 1024, 40, "spi_irq", spi_irq_task, NULL, 0);
+    luat_rtos_task_create(&spi_irq_task_handle,  4 * 1024, 80, "spi_irq", spi_irq_task, NULL, 0);
     luat_rtos_queue_create(&rdy_task_evt_queue, 1, sizeof(luat_event_t));
 }
 

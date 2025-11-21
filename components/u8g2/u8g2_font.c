@@ -834,8 +834,6 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
             // const uint8_t *unicode_lookup_table;
             // font += u8g2->font_info.start_pos_unicode;
             luat_fs_fseek(u8g2->font_file, u8g2->font_info.start_pos_unicode, SEEK_CUR);
-            uint16_t pos_unicode = 0;
-            uint16_t unicode_lookup_pos = 0;
             // unicode_lookup_table = font; 
             /* issue 596: search for the glyph start in the unicode lookup table */
             // do{
@@ -843,6 +841,8 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
             //     e = u8g2_font_get_word(unicode_lookup_table, 2);
             //     unicode_lookup_table+=4;
             // } while( e < encoding );
+            // uint16_t pos_unicode = 0;
+            // uint16_t unicode_lookup_pos = 0;
             // do{
             //     luat_fs_fread(font_data, 1, 4, u8g2->font_file);
             //     // uint16_t pos = font_data[0]<<8 | font_data[1];

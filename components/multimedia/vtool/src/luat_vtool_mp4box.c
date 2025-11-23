@@ -595,8 +595,6 @@ mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t
     ctx->fd = fd;
     memcpy(ctx->path, path, strlen(path)+1);
 
-    luat_rtos_mutex_create(&ctx->lock);
-
     prepare_box_tree(ctx);
 
     // 初始化256KB写缓冲
@@ -792,6 +790,11 @@ int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
         }
         else if (nalu_tp == 1 || nalu_tp == 5) {
             // 如果是I帧P帧, 保存起来
+            // LLOGD("append frame tp %d len %d", nalu_tp, nalu_len);
+            ctx->last_frame_tms = luat_mcu_tick64_ms();
+            if (ctx->frame_id == 0) {
+                ctx->first_frame_tms = ctx->last_frame_tms;
+            }
             ret = append_frame(ctx, nalu, nalu_len);
         }
         else {
@@ -809,12 +812,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         LLOGE("ctx is NULL");
         return -1;
     }
-    if (ctx->lock == NULL) {
-        LLOGE("ctx lock is NULL");
-        ret = -3;
-        goto clean;
-    }
-    // luat_rtos_mutex_lock(ctx->lock, LUAT_WAIT_FOREVER);
+    LLOGI("开始关闭mp4文件 %s", ctx->path);
     // 刷新缓冲，确保文件大小正确
     buffered_flush(ctx);
     // 然后, 把文件关掉, 重新打开
@@ -905,7 +903,8 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
             goto clean;
         }
         luat_fs_fflush(ctx->fd);
-        LLOGI("总帧数 %d, 关键帧数 %d", ctx->frame_id, ctx->iframe_id_index);
+        LLOGI("总帧数 %d, 关键帧数 %d 总耗时 %dms 平均帧率 %d fps", ctx->frame_id, ctx->iframe_id_index, 
+            (uint32_t)(ctx->last_frame_tms - ctx->first_frame_tms), (uint32_t)(ctx->frame_id * 1000 / (ctx->last_frame_tms - ctx->first_frame_tms)));
     }
 
 clean:
@@ -968,10 +967,6 @@ clean:
         ctx->box_buff = NULL;
         ctx->box_buff_size = 0;
         ctx->box_buff_offset = 0;
-    }
-    if (ctx->lock) {
-        luat_rtos_mutex_delete(ctx->lock);
-        ctx->lock = NULL;
     }
     clean_box(&ctx->box_moov);
     luat_heap_free(ctx);

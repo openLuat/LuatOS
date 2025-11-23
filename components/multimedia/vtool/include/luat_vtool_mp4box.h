@@ -84,7 +84,8 @@ typedef struct mp4_ctx {
     size_t box_buff_size;
     size_t box_buff_offset;
 
-    luat_rtos_mutex_t lock;
+    uint64_t first_frame_tms; // 第一帧的时间戳, 单位ms
+    uint64_t last_frame_tms; // 最后一帧的时间戳, 单位ms
 }mp4_ctx_t;
 
 mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps);

@@ -640,7 +640,7 @@ static const rotable_Reg_t reg_camera[] =
     { "ROTATE_270",  ROREG_INT(LUAT_CAMERA_PREVIEW_ROTATE_270)},
 
     //@const CONF_H264_QP_INIT number H264编码器初始化QP值
-    { "CONF_H264_QP_INIT",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_INIT)},
+    { "CONF_H264_QP_INIT",          ROREG_INT(LUAT_CAMERA_CONF_H264_QP_INIT)},
     //@const CONF_H264_QP_I_MAX number H264编码器I的最大QP值
     { "CONF_H264_QP_I_MAX",         ROREG_INT(LUAT_CAMERA_CONF_H264_QP_I_MAX)},
     //@const CONF_H264_QP_P_MAX number H264编码器P的最大QP值
@@ -649,6 +649,8 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_H264_IMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_IMB_BITS)},
     //@const CONF_H264_PMB_BITS number H264编码器PMB_BITS值
     { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
+    //@const CONF_H264_PFRAME_NUMS number H264编码器P帧数量
+    { "CONF_H264_PFRAME_NUMS",      ROREG_INT(LUAT_CAMERA_CONF_H264_PFRAME_NUMS)},
     //@const CONF_PREVIEW_ENABLE number 是否启动摄像头预览功能，默认开启
     { "CONF_PREVIEW_ENABLE",        ROREG_INT(LUAT_CAMERA_CONF_PREVIEW_ENABLE)},
     //@const CONF_PREVIEW_ROTATE number 摄像头预览画面的旋转角度

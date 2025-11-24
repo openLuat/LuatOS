@@ -187,6 +187,18 @@
 #define LV_FONT_OPPOSANS_M_16
 
 //---------------------
+
+#if defined(LUAT_USE_LVGL9)
+// LVGL 9
+#define LUAT_USE_EASYLVGL 1
+#define LUAT_USE_LVGL_SDL2 1
+#define LV_CONF_INCLUDE_SIMPLE
+
+// TP 模块与PC触摸驱动
+#define LUAT_USE_TP 1
+#define LUAT_USE_TP_PC 1
+
+#else
 // LVGL
 // 主推的UI库, 功能强大但API繁琐
 #define LUAT_USE_LVGL      1
@@ -236,6 +248,8 @@
 #define LUAT_USE_LVGL_WIN   //窗口 依赖容器CONT 按钮BTN 标签LABEL 图片IMG 页面PAGE
 
 // #define LUAT_USE_AIRUI 1
+#endif
+
 #endif
 
 

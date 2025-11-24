@@ -86,8 +86,8 @@ local config = {
     virtual_serial_num = 0,     -- 序列号（0-999）
 
     -- 运维日志配置
-    mtn_log_enabled = false,                -- 是否启用运维日志
-    aircloud_mtn_log_enabled = false,       -- 是否启用aircloud运维日志：true-开启，false-关闭；开启后设备认证/重连等关键事件会自动记录到运维日志文件，便于云端统一收集分析
+    mtn_log_enabled = false,               -- 是否启用运维日志
+    aircloud_mtn_log_enabled = false,      -- 是否启用aircloud运维日志：true-开启，false-关闭；开启后设备认证/重连等关键事件会自动记录到运维日志文件，便于云端统一收集分析
     mtn_log_blocks = 1,                    -- 每个文件的块数
     mtn_log_write_way = exmtn.CACHE_WRITE, -- 写入方式
 
@@ -780,7 +780,7 @@ local function upload_mtn_log_files(log_files)
 
                 -- 记录上传失败的运维日志
                 if config.aircloud_mtn_log_enabled then
-                    exmtn.log("info", "aircloud","mtn_upload_error", "文件上传失败", "file", log_file.name, "error", err_msg)
+                    exmtn.log("info", "aircloud", "mtn_upload_error", "文件上传失败", "file", log_file.name, "error", err_msg)
                 end
             end
 
@@ -806,7 +806,8 @@ local function upload_mtn_log_files(log_files)
 
         -- 记录上传完成日志
         if config.aircloud_mtn_log_enabled then
-            exmtn.log("info", "aircloud","mtn_upload", "运维日志上传完成", "success", success_count, "failed", failed_count, "total", total_files)
+            exmtn.log("info", "aircloud", "mtn_upload", "运维日志上传完成", "success", success_count, "failed", failed_count,
+                "total", total_files)
         end
         -- 通知上传完成
         if callback_func then
@@ -825,7 +826,7 @@ local function handle_mtn_log_upload_request()
     local latest_index = total_files > 0 and log_files[#log_files].index or 0
 
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("info", "aircloud","cloud_cmd", "收到运维日志上传请求", "file_count", total_files)
+        exmtn.log("info", "aircloud", "cloud_cmd", "收到运维日志上传请求", "file_count", total_files)
     end
 
     log.info("开始处理运维日志上传请求", "文件总数:", total_files, "最新序号:", latest_index)
@@ -922,11 +923,6 @@ function excloud.getip(getip_type)
     local key = config.auth_key .. "-" .. config.device_id
     log.info("[excloud]excloud.getip", "类型:", getip_type, "key:", key)
 
-    -- 构建请求数据
-    local request_data = {
-        key = key,
-        type = getip_type
-    }
     -- 执行HTTP请求
     local code, response = httpplus.request(
         {
@@ -1059,7 +1055,7 @@ function excloud.getip(getip_type)
         log.warn("[excloud]未获取到有效的连接信息，将使用原有配置")
     end
 
-    return true, response_json
+    return true, config.current_conninfo
 end
 
 -- 带重试的getip请求
@@ -1070,7 +1066,7 @@ function excloud.getip_with_retry(getip_type)
 
     while retry_count < max_retry do
         success, result = excloud.getip(getip_type)
-        if success and result.conninfo then
+        if success and result then
             log.info("[excloud]excloud.getip", "成功:", success, "结果:", json.encode(result))
             config.getip_retry_count = 0
             return true, result
@@ -1334,11 +1330,11 @@ excloud.mtn_log("info", "message", 123)
 excloud.mtn_log("warn", "message", 456)
 excloud.mtn_log("error", "message", 789)
 ]]
-function excloud.mtn_log(level,tag, ...)
+function excloud.mtn_log(level, tag, ...)
     if not config.mtn_log_enabled then
         return false, "运维日志功能已禁用" -- 禁用时返回失败
     end
-    exmtn.log(level,tag, ...)
+    exmtn.log(level, tag, ...)
     return true
 end
 
@@ -1380,7 +1376,9 @@ local function schedule_reconnect()
     -- 检查是否达到最大重连次数
     if reconnect_count >= config.max_reconnect then
         log.info("[excloud]到达最大重连次数 " .. reconnect_count .. "/" .. config.max_reconnect)
-
+        -- 执行紧急内存清理
+        collectgarbage("collect")
+        pending_messages = {}
         -- 根据use_getip决定是否重新获取服务器信息
         if config.use_getip then
             log.info("[excloud]TCP连接多次失败，重新获取服务器信息...")
@@ -1404,6 +1402,8 @@ local function schedule_reconnect()
                 -- 使用新的服务器信息重新连接
                 sys.timerStart(function()
                     log.info("[excloud]使用新服务器信息重新连接")
+                    excloud.close() -- 确保完全关闭
+                    sys.wait(200)
                     excloud.open()
                 end, config.reconnect_interval * 1000)
             else
@@ -1446,7 +1446,24 @@ local function schedule_reconnect()
             log.info("[excloud]服务已关闭，取消重连")
             return
         end
+        -- 先执行内存清理
+        collectgarbage("collect")
+        -- 如果连接对象存在但连接已断开，先清理
+        if connection and not is_connected then
+            log.info("[excloud]清理残留的连接对象")
+            if config.transport == "tcp" then
+                socket.close(connection)
+                socket.release(connection)
+            elseif config.transport == "mqtt" then
+                connection:disconnect()
+                connection:close()
+            end
+            connection = nil
+        end
 
+        -- 重置连接状态但保持服务开启状态
+        is_connected = false
+        is_authenticated = false
         -- 执行重连
         local success, err = excloud.open()
         if not success then
@@ -1470,11 +1487,11 @@ local function tcp_socket_callback(netc, event, param)
     -- 记录连接状态变化的运维日志
     if config.aircloud_mtn_log_enabled then
         if event == socket.LINK then
-            exmtn.log("info", "aircloud","net_conn", "网络连接成功")
+            exmtn.log("info", "aircloud", "net_conn", "网络连接成功")
         elseif event == socket.ON_LINE then
-            exmtn.log("info", "aircloud","net_conn", "TCP连接成功", "host", config.host, "port", config.port)
+            exmtn.log("info", "aircloud", "net_conn", "TCP连接成功", "host", config.host, "port", config.port)
         elseif event == socket.CLOSED then
-            exmtn.log("info", "aircloud","net_conn", "TCP连接断开", "param", param)
+            exmtn.log("info", "aircloud", "net_conn", "TCP连接断开", "param", param)
         end
     end
 
@@ -1528,6 +1545,8 @@ local function tcp_socket_callback(netc, event, param)
         log.info("[excloud]socket", "发送完成")
     elseif event == socket.CLOSED then
         -- 连接错误或关闭
+        socket.release(connection)
+        connection = nil
         log.info("[excloud]socket", "主动断开链接")
     end
 end
@@ -1544,11 +1563,11 @@ local function mqtt_client_event_cbfunc(connected, event, data, payload, metas)
     -- 记录MQTT状态变化的运维日志
     if config.aircloud_mtn_log_enabled then
         if event == "conack" then
-            exmtn.log("info", "aircloud","mqtt_conn", "MQTT连接成功", "host", config.host)
+            exmtn.log("info", "aircloud", "mqtt_conn", "MQTT连接成功", "host", config.host)
         elseif event == "disconnect" then
-            exmtn.log("info", "aircloud","mqtt_conn", "MQTT连接断开")
+            exmtn.log("info", "aircloud", "mqtt_conn", "MQTT连接断开")
         elseif event == "error" then
-            exmtn.log("info", "aircloud","mqtt_error", "MQTT错误", "type", data, "code", payload)
+            exmtn.log("info", "aircloud", "mqtt_error", "MQTT错误", "type", data, "code", payload)
         end
     end
 
@@ -1740,11 +1759,17 @@ end
 
 -- 开启excloud服务
 function excloud.open()
-    -- 检查是否已打开
-    if is_open then
-        return false, "excloud is already open"
+    -- 如果之前连接异常断开，但状态未重置，先清理
+    if is_open and not is_connected then
+        log.warn("[excloud]检测到状态不一致，先清理残留状态")
+        excloud.close()
+        sys.wait(100) -- 短暂等待确保资源释放
     end
-
+    -- 检查是否已打开
+    if is_open and is_connected then
+        return false, "excloud is already open and connected"
+    end
+    reconnect_count = 0
     -- 判断是否初始化
     if not device_id_binary then
         return false, "excloud 没有初始化，请先调用setup"
@@ -1998,11 +2023,12 @@ function excloud.open()
     end
 
     is_open = true
-    reconnect_count = 0
+
 
     -- 记录服务启动日志
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("info", "aircloud","system", "excloud服务启动", "transport", config.transport, "host", config.host, "port", config.port)
+        exmtn.log("info", "aircloud", "system", "excloud服务启动", "transport", config.transport, "host", config.host, "port",
+            config.port)
     end
 
     log.info("[excloud]excloud service started")
@@ -2061,16 +2087,24 @@ function excloud.send(data, need_reply, is_auth_msg)
 
     -- 保存当前序列号用于回调
     local current_sequence = sequence_num
-    local success
     -- 构建消息体
     local message_body = ""
+    local parts = {}
     for _, item in ipairs(data) do
         log.info("[excloud]构建发送数据", item.field_meaning, item.data_type, item.value, message_body)
         local success, tlv = build_tlv(item.field_meaning, item.data_type, item.value)
         if not success then
             return false, "excloud.send data is failed"
         end
-        message_body = message_body .. tlv
+        table.insert(parts, tlv)
+        -- message_body = message_body .. tlv
+    end
+    if #parts > 0 then
+        message_body = table.concat(parts)
+        parts = {}
+    else
+        log.warn("[excloud]没有有效的TLV数据可发送")
+        -- return false, "No valid TLV data to send"
     end
 
     -- 检查消息长度
@@ -2143,7 +2177,7 @@ function excloud.send(data, need_reply, is_auth_msg)
             sequence_num = current_sequence
         })
     end
-
+    collectgarbage("collect")
     if success then
         log.info("[excloud]数据发送成功", #full_message, "字节")
         return true
@@ -2182,10 +2216,16 @@ function excloud.close()
         end
         connection = nil
     end
-
+    -- 释放缓冲区
+    if rxbuff then
+        rxbuff = nil
+    end
+    -- 清空队列
+    pending_messages = {}
+    callback_func = nil
     -- 记录服务关闭日志
     if config.aircloud_mtn_log_enabled then
-        exmtn.log("info", "aircloud","system", "excloud服务关闭")
+        exmtn.log("info", "aircloud", "system", "excloud服务关闭")
     end
 
     -- 重置状态
@@ -2196,6 +2236,7 @@ function excloud.close()
     rxbuff = nil
     reconnect_count = 0
     is_heartbeat_running = false
+    collectgarbage("collect")
     log.info("[excloud]excloud service stopped")
     return true
 end

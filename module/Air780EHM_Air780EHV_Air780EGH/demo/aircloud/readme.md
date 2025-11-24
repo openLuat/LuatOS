@@ -23,7 +23,7 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air780epm/luatos/app/driver/eth/image/RFSvb75NRoEWqYxfCRVcVrOKnsf.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/common/hwenv/image/Air780EHV.png)
 
 1、Air780EHM_Air780EHV_Air780EGH 核心板一块+可上网的sim卡一张+4g天线一根：
 

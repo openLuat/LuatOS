@@ -23,18 +23,23 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8000/luatos/common/hwenv/image/Air8000_core_board1.jpg)
+![](https://docs.openluat.com/air8000/luatos/common/hwenv/image/Air8000_whole_board1.jpg)
 
-1、Air8000 开发板一块+可上网的sim卡一张+4g天线一根+网线一根：
+1、Air8000开发板一块+可上网的sim卡一张+4g天线一根+wifi天线一根+网线一根：
 
 - sim卡插入开发板的sim卡槽
+
 - 天线装到开发板上
+
 - 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
-2、TYPE-C USB数据线一根 ，Air8000 开发板和数据线的硬件接线方式为：
+2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air8000开发板和数据线的硬件接线方式为：
 
-- Air8000 开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+- Air8000开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+
 - TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
+
+- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接开发板的GND，另外一端连接电脑USB口；
 
 ## 演示软件环境
 

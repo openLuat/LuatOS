@@ -36,10 +36,10 @@
 #define LWIP_ERRNO_STDINCLUDE	1
 #define LWIP_NO_LIMITS_H 1
 #define LWIP_NO_UNISTD_H 1
-#define LWIP_SOCKET_EXTERNAL_HEADERS 1
-#define LWIP_SOCKET_EXTERNAL_HEADER_INET_H "inaddr.h"
 
 #ifdef _MSC_VER
+#define LWIP_SOCKET_EXTERNAL_HEADERS 1
+#define LWIP_SOCKET_EXTERNAL_HEADER_INET_H "inaddr.h"
 #pragma warning (disable: 4127) /* conditional expression is constant */
 #pragma warning (disable: 4996) /* 'strncpy' was declared deprecated */
 #pragma warning (disable: 4103) /* structure packing changed by including file */

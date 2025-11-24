@@ -87,7 +87,7 @@ local config = {
 
     -- 运维日志配置
     mtn_log_enabled = false,                -- 是否启用运维日志
-    aircloud_mtn_log_enabled = false,       -- 是否启用aircloud运维日志
+    aircloud_mtn_log_enabled = false,       -- 是否启用aircloud运维日志：true-开启，false-关闭；开启后设备认证/重连等关键事件会自动记录到运维日志文件，便于云端统一收集分析
     mtn_log_blocks = 1,                    -- 每个文件的块数
     mtn_log_write_way = exmtn.CACHE_WRITE, -- 写入方式
 
@@ -527,7 +527,7 @@ local function send_auth_request()
     if config.device_type == 1 then
         auth_data = config.auth_key .. "-" .. mobile.imei() .. "-" .. mobile.muid()
     elseif config.device_type == 2 then
-        auth_data = config.auth_key .. "-" .. wlan.getMac(nil, true) .. "-" .. mobile.muid():toHex()
+        auth_data = config.auth_key .. "-" .. wlan.getMac(nil, true) .. "-" .. mcu.unique_id():toHex()
     elseif config.device_type == 9 then --虚拟设备
         auth_data = config.auth_key .. "-" .. config.device_id
     else
@@ -582,7 +582,7 @@ end
 
 -- 初始化运维日志模块
 local function init_mtn_log()
-    if not config.aircloud_mtn_log_enabled then
+    if not config.mtn_log_enabled then
         log.info("[excloud]aircloud运维日志功能已禁用")
         return true
     end
@@ -1335,7 +1335,7 @@ excloud.mtn_log("warn", "message", 456)
 excloud.mtn_log("error", "message", 789)
 ]]
 function excloud.mtn_log(level,tag, ...)
-    if not config.aircloud_mtn_log_enabled then
+    if not config.mtn_log_enabled then
         return false, "运维日志功能已禁用" -- 禁用时返回失败
     end
     exmtn.log(level,tag, ...)
@@ -1344,7 +1344,7 @@ end
 
 -- 获取运维日志状态
 function excloud.get_mtn_log_status()
-    if not config.aircloud_mtn_log_enabled then
+    if not config.mtn_log_enabled then
         return {
             enabled = false,
             message = "运维日志功能已禁用"

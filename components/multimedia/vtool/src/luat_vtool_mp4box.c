@@ -28,6 +28,9 @@ static int buffered_init(mp4_ctx_t* ctx, size_t size) {
 
 static int buffered_flush(mp4_ctx_t* ctx) {
     int size = ctx->box_buff_offset;
+    if (size == 0) {
+        return 0;
+    }
     LLOGI("start flush buffer %d bytes %p", size, ctx->box_buff);
     if (ctx->box_buff && ctx->box_buff_offset > 0) {
         // 每次最多写入64KB
@@ -592,8 +595,6 @@ mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t
     ctx->fd = fd;
     memcpy(ctx->path, path, strlen(path)+1);
 
-    luat_rtos_mutex_create(&ctx->lock);
-
     prepare_box_tree(ctx);
 
     // 初始化256KB写缓冲
@@ -619,7 +620,7 @@ mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t
     write_box(ctx, &free);
     // 记录mdat头部写入位置（逻辑偏移）
     ctx->mdat_offset = (uint32_t)buffered_tell(ctx);
-    LLOGD("mdat offset 0x%08X", ctx->mdat_offset);
+    // LLOGD("mdat offset 0x%08X", ctx->mdat_offset);
 
     // 写入mdat的头部信息
     mp4box_t mdat = {.tp = "mdat", .len = 8, .data = NULL, .self_data_len = 0};
@@ -789,6 +790,11 @@ int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len) {
         }
         else if (nalu_tp == 1 || nalu_tp == 5) {
             // 如果是I帧P帧, 保存起来
+            // LLOGD("append frame tp %d len %d", nalu_tp, nalu_len);
+            ctx->last_frame_tms = luat_mcu_tick64_ms();
+            if (ctx->frame_id == 0) {
+                ctx->first_frame_tms = ctx->last_frame_tms;
+            }
             ret = append_frame(ctx, nalu, nalu_len);
         }
         else {
@@ -806,12 +812,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         LLOGE("ctx is NULL");
         return -1;
     }
-    if (ctx->lock == NULL) {
-        LLOGE("ctx lock is NULL");
-        ret = -3;
-        goto clean;
-    }
-    // luat_rtos_mutex_lock(ctx->lock, LUAT_WAIT_FOREVER);
+    LLOGI("开始关闭mp4文件 %s", ctx->path);
     // 刷新缓冲，确保文件大小正确
     buffered_flush(ctx);
     // 然后, 把文件关掉, 重新打开
@@ -825,7 +826,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     LLOGI("文件当前长度 %d", ret);
     long int pos = ctx->mdat_offset;
     size_t mdat_len = ret - ctx->mdat_offset;
-    LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
+    // LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
     ret = luat_fs_fseek(ctx->fd, pos, SEEK_SET); // fypt头部的数据长度是固定的
     if (ret != 0) {
         LLOGE("seek mdat offset failed %d", ret);
@@ -844,18 +845,18 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     tmp[2] = (mdat_len >> 8) & 0xff;
     tmp[3] = (mdat_len >> 0) & 0xff;
     ret = luat_fs_fwrite(tmp, 1, 4, ctx->fd);
-    LLOGI("写入mdat长度结果 %d", ret);
+    // LLOGI("写入mdat长度结果 %d", ret);
     if (ret != 4) {
         LLOGE("更新mdat长度失败 %d", ret);
         ret = -1;
         goto clean;
     }
     ret = luat_fs_ftell(ctx->fd);
-    LLOGD("当前fd偏移量位置 %d", ret);
+    // LLOGD("当前fd偏移量位置 %d", ret);
     // 回归到原本的位置, 读出来进行判断
     luat_fs_fseek(ctx->fd, ctx->mdat_offset, SEEK_SET);
     ret = luat_fs_fread(tmp2, 1, 4, ctx->fd);
-    LLOGI("读回mdat长度结果 %d", ret);
+    // LLOGI("读回mdat长度结果 %d", ret);
     // 数据对比判断
     if (tmp2[0] != tmp[0] || tmp2[1] != tmp[1] || tmp2[2] != tmp[2] || tmp2[3] != tmp[3]) {
         LLOGE("mdat长度写入后读回数据不对!!!");
@@ -863,7 +864,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         goto clean;
     }
     else {
-        LLOGI("mdat长度写入后读回数据正确");
+        // LLOGI("mdat长度写入后读回数据正确");
         luat_fs_fflush(ctx->fd);
     }
     // 切换到文件末尾, 准备写入moov box
@@ -891,8 +892,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
             ret = -1;
             goto clean;
         }
-        // 一次性写入moov
-        // 保证文件指针在末尾且缓冲为空
+        // 一次性写入moov,保证文件指针在末尾且缓冲为空
         buffered_flush(ctx);
         luat_fs_fseek(ctx->fd, 0, SEEK_END);
         int w = luat_fs_fwrite(moov_buf, 1, moov_len, ctx->fd);
@@ -903,7 +903,8 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
             goto clean;
         }
         luat_fs_fflush(ctx->fd);
-        LLOGI("总帧数 %d, 关键帧数 %d", ctx->frame_id, ctx->iframe_id_index);
+        LLOGI("总帧数 %d, 关键帧数 %d 总耗时 %dms 平均帧率 %d fps", ctx->frame_id, ctx->iframe_id_index, 
+            (uint32_t)(ctx->last_frame_tms - ctx->first_frame_tms), (uint32_t)(ctx->frame_id * 1000 / (ctx->last_frame_tms - ctx->first_frame_tms)));
     }
 
 clean:
@@ -966,10 +967,6 @@ clean:
         ctx->box_buff = NULL;
         ctx->box_buff_size = 0;
         ctx->box_buff_offset = 0;
-    }
-    if (ctx->lock) {
-        luat_rtos_mutex_delete(ctx->lock);
-        ctx->lock = NULL;
     }
     clean_box(&ctx->box_moov);
     luat_heap_free(ctx);

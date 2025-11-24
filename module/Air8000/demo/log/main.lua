@@ -1,59 +1,65 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "LOG"
-VERSION = "2.0.0"
-
 --[[
-本demo演示 string字符串的基本操作
-1. lua的字符串是带长度, 这意味着, 它不依赖0x00作为结束字符串, 可以包含任意数据
-2. lua的字符串是不可变的, 就不能直接修改字符串的一个字符, 修改字符会返回一个新的字符串
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.11.19
+@author  王世豪
+@usage
+本demo演示的核心功能为：
+日志功能测试，包括log.info、log.error、log.debug、log.warn等日志等级的测试。
+通过加载log_test模块来运行相关测试功能。
+
+更多说明参考本目录下的readme.md文件
 ]]
 
--- sys库是标配
-_G.sys = require("sys")
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "logdemo"
+VERSION = "001.000.000"
 
+log.info("main", "project name is ", PROJECT, "version is ", VERSION)
 
-local netLed = require("netLed")
---GPIO18配置为输出，默认输出低电平，可通过setGpio18Fnc(0或者1)设置输出电平
-local LEDA= gpio.setup(27, 0, gpio.PULLUP)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
 
-sys.taskInit(function ()
-    sys.wait(1000) -- 免得看不到日志
-    local tmp
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-	--实验1：输出四个等级的日志，日志等级排序从低到高为 debug < info < warn < error
-	log.debug(PROJECT, "debug message")
-	log.info(PROJECT, "info message")
-	log.warn(PROJECT, "warn message")
-	log.error(PROJECT, "error message")
-	
-	
-	--实验2：输出INFO及更高级别日志，即debug日志不输出
-	log.setLevel("INFO")
-	print(log.getLevel())
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-	-- 这条debug级别的日志不会输出
-	log.debug(PROJECT, "debug message")
-	log.info(PROJECT, "info message")
-	log.warn(PROJECT, "warn message")
-	log.error(PROJECT, "error message")
-	
-	--实验3：通过日志输出变量内容
-	local myInteger = 42
-    log.info("Integer", myInteger)
-end)
--- 这里演示4G模块上网后，会自动点亮网络灯，方便用户判断模块是否正常开机
-sys.taskInit(function()
-    while true do
-        sys.wait(6000)
-                if mobile.status() == 1 then
-                        gpio.set(27, 1)  
-                else
-                        gpio.set(27, 0) 
-                        mobile.reset()
-        end
-    end
-end)
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+-- 加载 log_test 功能模块
+require "log_test"
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

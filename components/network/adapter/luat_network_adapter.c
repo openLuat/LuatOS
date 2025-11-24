@@ -148,7 +148,7 @@ network_adapter_info* network_adapter_fetch(int id, void** userdata) {
 }
 
 #ifdef LUAT_USE_LWIP
-#include "../lwip/port/net_lwip.h"
+#include "net_lwip_port.h"
 #else
 #include "dhcp_def.h"
 #endif

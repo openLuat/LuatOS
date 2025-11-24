@@ -433,6 +433,7 @@ local function http_socket_cb(opts, event)
 end
 
 local function http_exec(opts)
+    local fail_check = true
     local netc = socket.create(opts.adapter, function(sc, event)
         if opts.netc then
             return http_socket_cb(opts, event)
@@ -480,6 +481,10 @@ local function http_exec(opts)
         else
             if hmeta and hmeta.chip and hmeta.chip() == "EC718HM" then
                 fbuf = zbuff.create(1024 * 128, 0, zbuff.HEAP_PSRAM) -- 718hm可以128k的,放手去用
+            elseif hmeta and hmeta.chip and hmeta.chip() == "EC718PM" then
+                fbuf = zbuff.create(1024 * 64, 0, zbuff.HEAP_PSRAM) -- Air8101/7258可以128k的,放手去用
+            elseif hmeta and hmeta.chip and hmeta.chip() == "BK7258" then
+                fbuf = zbuff.create(1024 * 128, 0, zbuff.HEAP_PSRAM) -- Air8101/7258可以128k的,放手去用
             else
                 fbuf = zbuff.create(1024 * 24, 0, zbuff.HEAP_PSRAM) -- 其他模组就是小的用吧
             end
@@ -496,7 +501,7 @@ local function http_exec(opts)
     if opts.mp and #opts.mp > 0 then
         opts.log(TAG, "执行mulitpart上传模式")
         for k, v in pairs(opts.mp) do
-            socket.tx(netc, v[2])
+            fail_check = socket.tx(netc, v[2])
             write_counter = write_counter + #v[2]
             if v[3] == "file" then
                 -- log.info("写入文件数据头", v[2])
@@ -511,7 +516,11 @@ local function http_exec(opts)
                         end
                         fbuf:seek(flen)
                         -- log.info("写入文件数据", "长度", #fdata)
-                        socket.tx(netc, fbuf)
+                        if socket.tx(netc, fbuf) == false then
+                            log.warn(TAG, "socket.tx返回错误了, 传送失败!!!!")
+                            fail_check = false
+                            break
+                        end
                         write_counter = write_counter + flen
                         -- 注意, 这里要等待TX_OK事件
                         sys.waitUntil(opts.topic, 300)
@@ -542,7 +551,11 @@ local function http_exec(opts)
                 end
                 fbuf:seek(flen)
                 -- log.info("写入文件数据", "长度", #fdata)
-                socket.tx(netc, fbuf)
+                if socket.tx(netc, fbuf) == false then
+                    log.warn(TAG, "socket.tx返回错误了, 传送失败!!!!")
+                    fail_check = false
+                    break
+                end
                 write_counter = write_counter + flen
                 -- 注意, 这里要等待TX_OK事件
                 sys.waitUntil(opts.topic, 300)
@@ -557,7 +570,7 @@ local function http_exec(opts)
             opts.log(TAG, "使用zbuff上传数据", opts.body:used())
             write_counter = write_counter + opts.body:used()
             if opts.body:used() <= 4*1024 then
-                socket.tx(netc, opts.body)
+                fail_check = socket.tx(netc, opts.body)
             else
                 local offset = 0
                 local tmpbuff = opts.body
@@ -569,13 +582,17 @@ local function http_exec(opts)
                     if tsize - offset > fbuf:len() then
                         fbuf:copy(0, tmpbuff, offset, fbuf:len())
                         fbuf:seek(fbuf:len())
-                        socket.tx(netc, fbuf)
+                        if socket.tx(netc, fbuf) == false then
+                            log.warn(TAG, "socket.tx返回错误了, 传送失败!!!!")
+                            fail_check = false
+                            break
+                        end
                         offset = offset + fbuf:len()
                         sys.waitUntil(opts.topic, 300)
                     else
                         fbuf:copy(0, tmpbuff, offset, tsize - offset)
                         fbuf:seek(tsize - offset)
-                        socket.tx(netc, fbuf)
+                        fail_check = socket.tx(netc, fbuf)
                         break
                     end
                 end
@@ -584,6 +601,11 @@ local function http_exec(opts)
     end
     -- log.info("写入长度", "期望", opts.body_len, "实际", write_counter)
     -- log.info("hex", rbody)
+    if not fail_check then
+        log.warn(TAG, "发送数据失败, 终止请求")
+        opts.resp_code = -199
+        return
+    end
 
     -- 处理响应信息
     while not opts.is_closed and opts.timeout > 0 do

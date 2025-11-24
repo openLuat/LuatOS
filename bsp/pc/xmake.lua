@@ -22,7 +22,7 @@ set_languages("gnu11")
 -- 核心宏定义
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 -- mbedtls使用本地自定义配置
-add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
+-- add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
 -- coremark配置迭代数量
 add_defines("ITERATIONS=300000")
 
@@ -46,6 +46,12 @@ if is_host("windows") then
     add_defines("_CRT_SECURE_NO_WARNINGS")
     add_cflags("/utf-8")
     add_includedirs("win32/include")
+    add_syslinks(
+        "bcrypt",
+        "ws2_32",
+        "crypt32",
+        "advapi32"
+    )
 elseif is_host("linux") then
     add_defines("LUA_USE_LINUX")
     add_cflags("-ffunction-sections -fdata-sections")
@@ -131,8 +137,10 @@ target("luatos-lua")
     add_files(luatos.."components/fft/src/*.c")
     add_files(luatos.."components/fft/binding/*.c")
     -- mbedtls
-    add_files(luatos.."components/mbedtls/library/*.c")
-    add_includedirs(luatos.."components/mbedtls/include")
+    add_files(luatos.."components/mbedtls3/library/*.c")
+    add_includedirs(luatos.."components/mbedtls3/include")
+    -- add_files(luatos.."components/mbedtls/library/*.c")
+    -- add_includedirs(luatos.."components/mbedtls/include")
     -- iotauth
     add_includedirs(luatos.."components/iotauth")
     add_files(luatos.."components/iotauth/*.c")

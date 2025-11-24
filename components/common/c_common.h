@@ -244,6 +244,7 @@ enum
 #define CRC16_CCITT_SEED		(0x1D0F)
 #ifndef HANDLE
 #define HANDLE			void *
+#undef INVALID_HANDLE_VALUE
 #define INVALID_HANDLE_VALUE  ((void *)0xffffffff)
 #define INVALID_PARAM  (0xffffffff)
 #endif

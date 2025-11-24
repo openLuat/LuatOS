@@ -2,9 +2,9 @@
 // 内存优化：使用动态分配查找表
 // 支持μ-law和A-law编解码
 
-#include "../../luat/include/luat_base.h"
-#include "../luat_multimedia_codec.h"
-#include "../../luat/include/luat_mem.h"
+#include "luat_base.h"
+#include "luat_multimedia_codec.h"
+#include "luat_mem.h"
 #include <stdbool.h>
 
 #define LUAT_LOG_TAG "g711"

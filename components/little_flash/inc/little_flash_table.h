@@ -15,11 +15,15 @@ extern "C" {
     name | manufacturer ID |device ID | falsh type | capacity | erase cmd | erase size
 */
 
-#define LITTLE_FLASH_CHIP_TABLE                                                                              \
-{                                                                                                            \
-    {.name="W25Q128FVSG",  .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0x4018, .type=LF_DRIVER_NOR_FLASH,  .capacity=16L*1024L*1024L,  .erase_cmd=0x20, .erase_size=4096L     },  \
+#define LITTLE_FLASH_CHIP_TABLE                                                                                                                                                     \
+{                                                                                                                                                                                   \
+    /* NOR FLASH */                                                                                                                                                                 \
+    {.name="W25Q128FVSG",  .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0x4018, .type=LF_DRIVER_NOR_FLASH , .capacity=16L*1024L*1024L , .erase_cmd=0x20, .erase_size=4096L     },  \
+    /* NAND FLASH */                                                                                                                                                                \
     {.name="W25N01GVZEIG", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA21, .type=LF_DRIVER_NAND_FLASH, .capacity=128L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
-    {.name="W25N01GVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAE21, .type=LF_DRIVER_NAND_FLASH, .capacity=128L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
+    {.name="W25N01KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAE21, .type=LF_DRIVER_NAND_FLASH, .capacity=128L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
+    {.name="W25N02KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA22, .type=LF_DRIVER_NAND_FLASH, .capacity=256L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
+    {.name="W25N04KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA23, .type=LF_DRIVER_NAND_FLASH, .capacity=512L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
 }
 
 #ifdef __cplusplus

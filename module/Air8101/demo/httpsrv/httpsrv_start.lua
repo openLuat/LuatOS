@@ -52,7 +52,9 @@ local function get_current_adapter()
     elseif netdrv and netdrv.ready(socket.LWIP_STA) then
         return socket.LWIP_STA, "STA"
     elseif netdrv and netdrv.ready(socket.LWIP_ETH) then
-        return socket.LWIP_ETH, "ETH"
+        return socket.LWIP_ETH, "AirPHY_1000-以太网"
+    elseif netdrv and netdrv.ready(socket.LWIP_USER1) then
+        return socket.LWIP_USER1, "AirETH_1000-以太网"
     end
 end
 

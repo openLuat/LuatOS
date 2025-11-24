@@ -620,7 +620,7 @@ mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t
     write_box(ctx, &free);
     // 记录mdat头部写入位置（逻辑偏移）
     ctx->mdat_offset = (uint32_t)buffered_tell(ctx);
-    LLOGD("mdat offset 0x%08X", ctx->mdat_offset);
+    // LLOGD("mdat offset 0x%08X", ctx->mdat_offset);
 
     // 写入mdat的头部信息
     mp4box_t mdat = {.tp = "mdat", .len = 8, .data = NULL, .self_data_len = 0};
@@ -826,7 +826,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     LLOGI("文件当前长度 %d", ret);
     long int pos = ctx->mdat_offset;
     size_t mdat_len = ret - ctx->mdat_offset;
-    LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
+    // LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
     ret = luat_fs_fseek(ctx->fd, pos, SEEK_SET); // fypt头部的数据长度是固定的
     if (ret != 0) {
         LLOGE("seek mdat offset failed %d", ret);
@@ -845,18 +845,18 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     tmp[2] = (mdat_len >> 8) & 0xff;
     tmp[3] = (mdat_len >> 0) & 0xff;
     ret = luat_fs_fwrite(tmp, 1, 4, ctx->fd);
-    LLOGI("写入mdat长度结果 %d", ret);
+    // LLOGI("写入mdat长度结果 %d", ret);
     if (ret != 4) {
         LLOGE("更新mdat长度失败 %d", ret);
         ret = -1;
         goto clean;
     }
     ret = luat_fs_ftell(ctx->fd);
-    LLOGD("当前fd偏移量位置 %d", ret);
+    // LLOGD("当前fd偏移量位置 %d", ret);
     // 回归到原本的位置, 读出来进行判断
     luat_fs_fseek(ctx->fd, ctx->mdat_offset, SEEK_SET);
     ret = luat_fs_fread(tmp2, 1, 4, ctx->fd);
-    LLOGI("读回mdat长度结果 %d", ret);
+    // LLOGI("读回mdat长度结果 %d", ret);
     // 数据对比判断
     if (tmp2[0] != tmp[0] || tmp2[1] != tmp[1] || tmp2[2] != tmp[2] || tmp2[3] != tmp[3]) {
         LLOGE("mdat长度写入后读回数据不对!!!");
@@ -864,7 +864,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         goto clean;
     }
     else {
-        LLOGI("mdat长度写入后读回数据正确");
+        // LLOGI("mdat长度写入后读回数据正确");
         luat_fs_fflush(ctx->fd);
     }
     // 切换到文件末尾, 准备写入moov box

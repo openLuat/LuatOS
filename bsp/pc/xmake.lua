@@ -46,12 +46,6 @@ if is_host("windows") then
     add_defines("_CRT_SECURE_NO_WARNINGS")
     add_cflags("/utf-8")
     add_includedirs("win32/include")
-    add_syslinks(
-        "bcrypt",
-        "ws2_32",
-        "crypt32",
-        "advapi32"
-    )
 elseif is_host("linux") then
     add_defines("LUA_USE_LINUX")
     add_cflags("-ffunction-sections -fdata-sections")

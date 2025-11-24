@@ -10,7 +10,7 @@
 
 ## 演示功能概述
 
-使用Air8000 核心板测试aircloud功能
+使用Air8000 开发板测试aircloud功能
 
 AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提供设备连接、数据上报、远程控制和文件上传等核心功能。excloud 扩展库是 AirCloud 协议的实现，通过该库设备可以快速接入云服务平台，实现远程监控和管理。
 
@@ -25,16 +25,16 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 ![](https://docs.openluat.com/air8000/luatos/common/hwenv/image/Air8000_core_board1.jpg)
 
-1、Air8000 核心板一块+可上网的sim卡一张+4g天线一根+网线一根：
+1、Air8000 开发板一块+可上网的sim卡一张+4g天线一根+网线一根：
 
 - sim卡插入开发板的sim卡槽
 - 天线装到开发板上
 - 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
-2、TYPE-C USB数据线一根 ，Air8000 核心板和数据线的硬件接线方式为：
+2、TYPE-C USB数据线一根 ，Air8000 开发板和数据线的硬件接线方式为：
 
-- Air8000 核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
+- Air8000 开发板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+- TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 ## 演示软件环境
 

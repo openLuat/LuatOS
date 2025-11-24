@@ -2825,6 +2825,8 @@
 #include MBEDTLS_USER_CONFIG_FILE
 #endif
 
-#include "mbedtls/check_config.h"
+#define MBEDTLS_SHA384_C
+
+// #include "mbedtls/check_config.h"
 
 #endif /* MBEDTLS_CONFIG_H */

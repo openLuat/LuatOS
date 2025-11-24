@@ -22,7 +22,7 @@ set_languages("gnu11")
 -- 核心宏定义
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 -- mbedtls使用本地自定义配置
--- add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
+add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
 -- coremark配置迭代数量
 add_defines("ITERATIONS=300000")
 

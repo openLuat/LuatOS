@@ -244,6 +244,7 @@ static int tp_gt911_gpio_init(luat_tp_config_t* luat_tp_config){
         luat_rtos_task_sleep(2);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
     }
+    luat_rtos_task_sleep(100);
     return 0;
 }
 

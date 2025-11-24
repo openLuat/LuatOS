@@ -113,7 +113,7 @@ function excloud_task_func()
         max_reconnect = 5,       -- 最大重连次数
         mtn_log_enabled = true,  -- 启用运维日志
         mtn_log_blocks = 1,      -- 日志文件块数
-        mtn_log_write_way = excloud.MTN_LOG_ADD_WRITE  -- 缓存写入方式
+        mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式
     })
 
 
@@ -242,7 +242,7 @@ function mtnlog_test_task()
     local test_count = 0
     while true do
         test_count = test_count + 1
-        
+
         excloud.mtn_log("info", "mtn_test", test_count)
         -- 每30秒记录一次
         sys.wait(1000)

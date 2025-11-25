@@ -38,7 +38,7 @@
 
 3、Air780EPM 核心板通过SPI接口与lora模块连接并进行通信，具体接线如下：
 
-![image](https://docs.openLuat.com/cdn/image/Air780EXX_lora2.jpg)
+![image](https://docs.openLuat.com/cdn/image/Air780EPM_lora.jpg)
 
 | Air780EPM核心板  |  lora模块          |
 | --------------- | ----------------- |
@@ -49,8 +49,8 @@
 | 84/SPI0MISO     | MISO              |
 | 83/SPI0CS       | CSS               |
 | 22/GPIO1        | RST               |
-| 32/GPIO31       | BUSY              |
-| 33/GPIO32       | DIO1              |
+| 97/GPIO16       | BUSY              |
+| 100/GPIO17       | DIO1              |
 
 硬件连接注意事项：
 
@@ -60,9 +60,9 @@
 2. 控制信号连接：
    - RST引脚：连接至核心板的GPIO1，用于lora模块复位控制
   
-   - BUSY引脚：连接至核心板的GPIO31，用于lora模块忙状态指示
+   - BUSY引脚：连接至核心板的GPIO16，用于lora模块忙状态指示
   
-   - DIO1引脚：连接至核心板的GPIO32，用于lora模块中断信号接收
+   - DIO1引脚：连接至核心板的GPIO17，用于lora模块中断信号接收
   
 
 3. 连接确认：

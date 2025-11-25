@@ -1376,59 +1376,61 @@ local function schedule_reconnect()
     -- 检查是否达到最大重连次数
     if reconnect_count >= config.max_reconnect then
         log.info("[excloud]到达最大重连次数 " .. reconnect_count .. "/" .. config.max_reconnect)
-        -- 执行紧急内存清理
-        collectgarbage("collect")
-        pending_messages = {}
-        -- 根据use_getip决定是否重新获取服务器信息
-        if config.use_getip then
-            log.info("[excloud]TCP连接多次失败，重新获取服务器信息...")
-            local getip_type = config.transport == "tcp" and 3 or
-                config.transport == "udp" and 4 or
-                config.transport == "mqtt" and 5 or 3
 
-            -- 清除当前连接信息，强制重新获取
-            config.current_conninfo = nil
+        -- 使用协程执行复杂的重连逻辑
+        sys.taskInit(function()
+            -- 执行紧急内存清理
+            collectgarbage("collect")
+            pending_messages = {}
 
-            local ok, result = excloud.getip_with_retry(getip_type)
-            if ok then
-                log.info("[excloud]重新获取服务器信息成功，重置重连计数",
-                    "host:", config.host,
-                    "port:", config.port,
-                    "transport:", config.transport)
+            -- 根据use_getip决定是否重新获取服务器信息
+            if config.use_getip then
+                log.info("[excloud]TCP连接多次失败，重新获取服务器信息...")
+                local getip_type = config.transport == "tcp" and 3 or
+                    config.transport == "udp" and 4 or
+                    config.transport == "mqtt" and 5 or 3
 
-                -- 重置重连计数，因为获得了新的服务器信息
-                reconnect_count = 0
+                -- 清除当前连接信息，强制重新获取
+                config.current_conninfo = nil
 
-                -- 使用新的服务器信息重新连接
-                sys.timerStart(function()
-                    log.info("[excloud]使用新服务器信息重新连接")
+                local ok, result = excloud.getip_with_retry(getip_type)
+                if ok then
+                    log.info("[excloud]重新获取服务器信息成功，重置重连计数",
+                        "host:", config.host,
+                        "port:", config.port,
+                        "transport:", config.transport)
+
+                    -- 重置重连计数
+                    reconnect_count = 0
+
+                    -- 使用新的服务器信息重新连接（先关闭再打开）
                     excloud.close() -- 确保完全关闭
-                    sys.wait(200)
-                    excloud.open()
-                end, config.reconnect_interval * 1000)
+                    sys.wait(200)   -- 在协程中可以安全使用 wait
+                    excloud.open()  -- 重新打开
+                else
+                    log.error("[excloud]重新获取服务器信息失败，停止重连")
+                    if callback_func then
+                        callback_func("reconnect_failed", {
+                            count = reconnect_count,
+                            max_reconnect = config.max_reconnect,
+                            getip_failed = true
+                        })
+                    end
+                    -- 彻底停止重连
+                    is_open = false
+                end
             else
-                log.error("[excloud]重新获取服务器信息失败，停止重连")
+                -- 不使用getip，直接停止重连
+                log.info("[excloud]达到最大重连次数，停止重连")
                 if callback_func then
                     callback_func("reconnect_failed", {
                         count = reconnect_count,
-                        max_reconnect = config.max_reconnect,
-                        getip_failed = true
+                        max_reconnect = config.max_reconnect
                     })
                 end
-                -- 彻底停止重连
                 is_open = false
             end
-        else
-            -- 不使用getip，直接停止重连
-            log.info("[excloud]达到最大重连次数，停止重连")
-            if callback_func then
-                callback_func("reconnect_failed", {
-                    count = reconnect_count,
-                    max_reconnect = config.max_reconnect
-                })
-            end
-            is_open = false
-        end
+        end)
         return
     end
 
@@ -1437,41 +1439,47 @@ local function schedule_reconnect()
     log.info("[excloud]安排第 " ..
         reconnect_count .. "/" .. config.max_reconnect .. " 次重连，等待 " .. config.reconnect_interval .. " 秒")
 
-    -- 使用定时器安排重连
+    -- 使用定时器安排重连，在协程中执行
     reconnect_timer = sys.timerStart(function()
-        log.info("[excloud]执行第 " .. reconnect_count .. "/" .. config.max_reconnect .. " 次重连")
+        sys.taskInit(function()
+            log.info("[excloud]执行第 " .. reconnect_count .. "/" .. config.max_reconnect .. " 次重连")
 
-        -- 在重连前检查服务状态
-        if not is_open then
-            log.info("[excloud]服务已关闭，取消重连")
-            return
-        end
-        -- 先执行内存清理
-        collectgarbage("collect")
-        -- 如果连接对象存在但连接已断开，先清理
-        if connection and not is_connected then
-            log.info("[excloud]清理残留的连接对象")
-            if config.transport == "tcp" then
-                socket.close(connection)
-                socket.release(connection)
-            elseif config.transport == "mqtt" then
-                connection:disconnect()
-                connection:close()
+            -- 在重连前检查服务状态
+            if not is_open then
+                log.info("[excloud]服务已关闭，取消重连")
+                return
             end
-            connection = nil
-        end
 
-        -- 重置连接状态但保持服务开启状态
-        is_connected = false
-        is_authenticated = false
-        -- 执行重连
-        local success, err = excloud.open()
-        if not success then
-            log.error("[excloud]重连失败:", err)
-            -- 重连失败会再次触发schedule_reconnect
-        else
-            log.info("[excloud]重连操作已发起")
-        end
+            -- 先执行内存清理
+            collectgarbage("collect")
+
+            -- 如果连接对象存在但连接已断开，先清理
+            if connection and not is_connected then
+                log.info("[excloud]清理残留的连接对象")
+                if config.transport == "tcp" then
+                    socket.close(connection)
+                    socket.release(connection)
+                elseif config.transport == "mqtt" then
+                    connection:disconnect()
+                    connection:close()
+                end
+                connection = nil
+                sys.wait(50) -- 在协程中安全等待
+            end
+
+            -- 重置连接状态但保持服务开启状态
+            is_connected = false
+            is_authenticated = false
+
+            -- 执行重连
+            local success, err = excloud.open()
+            if not success then
+                log.error("[excloud]重连失败:", err)
+                -- 重连失败会再次触发schedule_reconnect
+            else
+                log.info("[excloud]重连操作已发起")
+            end
+        end)
     end, config.reconnect_interval * 1000)
 end
 
@@ -1763,7 +1771,6 @@ function excloud.open()
     if is_open and not is_connected then
         log.warn("[excloud]检测到状态不一致，先清理残留状态")
         excloud.close()
-        sys.wait(100) -- 短暂等待确保资源释放
     end
     -- 检查是否已打开
     if is_open and is_connected then

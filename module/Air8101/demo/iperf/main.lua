@@ -11,6 +11,9 @@ iperf是一种网络性能测试工具，支持服务器模式和客户端模式
 本demo提供了两个独立的测试用例：
 1、iperf服务器模式 - 设备作为服务器等待客户端连接
 2、iperf客户端模式 - 设备作为客户端主动连接服务器
+3、netdrv_device：配置连接外网使用的网卡，目前支持以下两种选择（二选一）
+   (1) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+   (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -55,8 +58,8 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载spi以太网卡驱动模块
-require "netdrv_eth_spi"
+-- 加载网络驱动设备功能模块
+require "netdrv_device"
 
 -- 加载 iperf 服务器测试模块
 require "iperf_server"

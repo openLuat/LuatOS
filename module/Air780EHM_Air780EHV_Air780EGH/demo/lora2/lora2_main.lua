@@ -2,7 +2,7 @@
 @module  lora2_main
 @summary lora2功能测试主模块
 @version 1.0
-@date    2025.11.20
+@date    2025.11.24
 @author  王世豪
 @usage
 本功能模块演示的内容为：
@@ -26,6 +26,7 @@ local pin_cs = 8 -- 片选引脚
 local pin_reset = 1 -- 复位控制引脚
 local pin_busy = 16 -- 忙状态指示引脚
 local pin_dio1 = 17 -- DIO1引脚
+
 
 local RECEIVE_TIMEOUT = 3000  -- 接收超时时间3秒
 

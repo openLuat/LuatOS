@@ -2,7 +2,7 @@
 @module  lora2_main
 @summary lora2功能测试主模块
 @version 1.0
-@date    2025.11.20
+@date    2025.11.23
 @author  王世豪
 @usage
 本功能模块演示的内容为：
@@ -21,11 +21,11 @@ local lora2_receiver = require "lora2_receiver"
 
 local TASK_NAME = "lora2_task"
 
-local spi_id = 0 -- SPI接口ID
-local pin_cs = 8 -- 片选引脚
-local pin_reset = 1 -- 复位控制引脚
-local pin_busy = 16 -- 忙状态指示引脚
-local pin_dio1 = 17 -- DIO1引脚
+local spi_id = 1 -- SPI接口ID
+local pin_cs = 3 -- 片选引脚
+local pin_reset = 6 -- 复位控制引脚
+local pin_busy = 7 -- 忙状态指示引脚
+local pin_dio1 = 8 -- DIO1引脚
 
 local RECEIVE_TIMEOUT = 3000  -- 接收超时时间3秒
 

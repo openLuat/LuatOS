@@ -180,8 +180,23 @@ static int l_easylvgl_label_get_text(lua_State *L) {
     return 1;
 }
 
+/**
+ * LVGL 任务处理函数，需要定期调用以驱动LVGL的渲染和事件处理
+ * @api easylvgl.handler()
+ * @return int 下次调用的建议间隔时间(ms)
+ * @usage
+ * -- 在主循环中定期调用
+ * sys.timerLoopStart(easylvgl.handler, 5)
+ */
+static int l_easylvgl_handler(lua_State *L) {
+    uint32_t time_till_next = lv_timer_handler();
+    lua_pushinteger(L, time_till_next);
+    return 1;
+}
+
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
+    {"handler", ROREG_FUNC(l_easylvgl_handler)},
     {"button", ROREG_FUNC(l_easylvgl_button)},
     {"button_set_callback", ROREG_FUNC(l_easylvgl_button_set_callback)},
     {"label", ROREG_FUNC(l_easylvgl_label)},

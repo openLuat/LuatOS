@@ -49,6 +49,12 @@ typedef struct {
 int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode);
 
 /**
+ * 反初始化 EasyLVGL
+ * 释放所有资源，包括显示对象、缓冲区和 SDL2 资源（如果启用）
+ */
+void easylvgl_deinit(void);
+
+/**
  * 显示刷新回调（LVGL 9 格式）
  * @param disp 显示对象
  * @param area 刷新区域

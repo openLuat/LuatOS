@@ -23,6 +23,8 @@ extern "C" {
  */
 #define EASYLVGL_BUTTON_MT "easylvgl.button"
 #define EASYLVGL_LABEL_MT "easylvgl.label"
+#define EASYLVGL_IMAGE_MT "easylvgl.image"
+#define EASYLVGL_WIN_MT "easylvgl.win"
 
 /**********************
  *      TYPEDEFS
@@ -101,6 +103,23 @@ void easylvgl_button_set_text(lv_obj_t *btn, const char *text);
  * @param L Lua 状态指针
  */
 void easylvgl_set_lua_state(lua_State *L);
+
+/**
+ * 根据 Lua 配置创建标签对象
+ * @param L Lua 状态
+ * @param table_index 参数表索引
+ */
+lv_obj_t *easylvgl_label_create_from_config(lua_State *L, int table_index);
+
+/**
+ * 根据 Lua 配置创建 image 对象
+ */
+lv_obj_t *easylvgl_image_create_from_config(lua_State *L, int table_index);
+
+/**
+ * 根据 Lua 配置创建 window 对象
+ */
+lv_obj_t *easylvgl_win_create_from_config(lua_State *L, int table_index);
 
 /**
  * 创建标签对象

@@ -6,19 +6,19 @@
 @date    2025.11.11
 @author  江访
 @usage
-核心业务逻辑为：
+本文件为LCD显示拓展库，核心业务逻辑为：
 1、初始化LCD显示屏，支持多种显示芯片
 2、管理屏幕背光亮度及开关状态
 3、提供屏幕状态管理功能
 4、支持根据lcd_model自动配置参数
 
-本文件的对外接口有3个：
-1、exlcd.init(param)   -- LCD初始化函数
-2、exlcd.set_bl(level)   -- 设置背光亮度接口,level 亮度级别(0-100)
-3、exlcd.get_bl()  -- 当前设置背光亮度级别查询
-4、exlcd.sleep()      -- 屏幕休眠
-5、exlcd.wakeup()     -- 屏幕唤醒
-6、exlcd.get_sleep()  -- 休眠状态查询
+本文件的对外接口有6个：
+1、exlcd.init(param)：LCD初始化函数
+2、exlcd.set_bl(level)：设置背光亮度接口，level为亮度级别(0-100)
+3、exlcd.get_bl()：当前设置背光亮度级别查询
+4、exlcd.sleep()：屏幕休眠
+5、exlcd.wakeup()：屏幕唤醒
+6、exlcd.get_sleep()：休眠状态查询
 ]]
 
 local exlcd = {}
@@ -100,9 +100,27 @@ local predefined_configs = {
     }
 }
 
--- LCD初始化函数
--- @param param LCD参数配置表
--- @return 初始化成功状态
+--[[
+初始化LCD显示屏
+@api exlcd.init(param)
+@table param LCD配置参数，参考库的说明及demo用法
+@return bool 初始化成功返回true，失败返回false
+@usage
+-- 使用预定义配置初始化
+exlcd.init({lcd_model = "Air780EHM_LCD_4"})
+
+-- 自定义参数初始化
+exlcd.init({
+    lcd_model = "st7796",
+    port = lcd.HWID_0,
+    pin_rst = 36,
+    pin_pwr = 25,
+    pin_pwm = 2,
+    w = 480,
+    h = 320,
+    direction = 0
+})
+]]
 function exlcd.init(param)
     if type(param) ~= "table" then
         log.error("exlcd", "参数必须为表")
@@ -198,9 +216,18 @@ function exlcd.init(param)
     return lcd_init
 end
 
--- 设置背光亮度接口
--- 使用背光PWM模式控制亮度
--- @param level 亮度级别(0-100)
+--[[
+设置背光亮度
+@api exlcd.set_bl(level)
+@number level 亮度级别，0-100，0表示关闭背光
+@return bool 设置成功返回true，失败返回false
+@usage
+-- 设置50%亮度
+exlcd.set_bl(50)
+
+-- 关闭背光
+exlcd.set_bl(0)
+]]
 
 function exlcd.set_bl(level)
     -- 检查PWM配置
@@ -225,11 +252,24 @@ function exlcd.set_bl(level)
     return true
 end
 
+--[[
+获取当前背光亮度
+@api exlcd.get_bl()
+@return number 当前背光亮度级别(0-100)
+@usage
+local brightness = exlcd.get_bl()
+log.info("当前背光亮度", brightness)
+]]
 function exlcd.get_bl()
     return screen_state.last_brightness
 end
 
--- 屏幕休眠
+--[[
+屏幕进入休眠状态
+@api exlcd.sleep()
+@usage
+exlcd.sleep()
+]]
 function exlcd.sleep()
     if not screen_state.is_sleeping then
         -- 关闭PWM背光 (如果配置了)
@@ -250,7 +290,12 @@ function exlcd.sleep()
     end
 end
 
--- 屏幕唤醒
+--[[
+屏幕从休眠状态唤醒
+@api exlcd.wakeup()
+@usage
+exlcd.wakeup()
+]]
 function exlcd.wakeup()
     if screen_state.is_sleeping then
         -- 开启背光电源 (如果配置了)
@@ -273,7 +318,15 @@ function exlcd.wakeup()
     end
 end
 
--- 获取当前休眠状态
+--[[
+获取屏幕休眠状态
+@api exlcd.get_sleep()
+@return bool true表示屏幕处于休眠状态，false表示屏幕处于工作状态
+@usage
+if exlcd.get_sleep() then
+    log.info("屏幕处于休眠状态")
+end
+]]
 function exlcd.get_sleep()
     return screen_state.is_sleeping
 end

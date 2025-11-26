@@ -1,5 +1,5 @@
 set_project("luac")
-set_xmakever("2.8.2")
+set_xmakever("3.0.4")
 
 set_version("1.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")

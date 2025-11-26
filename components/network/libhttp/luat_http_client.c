@@ -56,9 +56,6 @@ static void http_close_nw(luat_http_ctrl_t *http_ctrl) {
 	LLOGI("http close nw %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
-		network_force_close_socket(http_ctrl->netc);
-		network_release_ctrl(http_ctrl->netc);
-		http_ctrl->netc = NULL;
 	}
 	if (http_ctrl->timeout_timer){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);

@@ -6,6 +6,9 @@
 
 #include "lvgl.h"
 
+#define LUAT_LOG_TAG "ui_sdl2"
+#include "luat_log.h"
+
 static uint32_t* fb;
 
 static inline uint32_t luat_color_565to8888(luat_color_t color);
@@ -16,7 +19,22 @@ static int sdl2_init(luat_lcd_conf_t* conf) {
         .height = conf->h
     };
     luat_sdl2_init(&sdl2_conf);
-    fb = luat_heap_malloc(sizeof(uint32_t) * conf->w * conf->h);
+    size_t fb_size = sizeof(uint32_t) * conf->w * conf->h;
+    fb = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, fb_size);
+    if (fb == NULL) {
+        fb = luat_heap_opt_malloc(LUAT_HEAP_SRAM, fb_size);
+    }
+    if (fb == NULL) {
+        LLOGE("sdl2_init fb alloc fail");
+        return -1;
+    }
+    if (conf->buff == NULL) {
+        if (luat_lcd_setup_buff(conf) != 0) {
+            LLOGE("sdl2_init setup buff fail");
+            return -1;
+        }
+    }
+    LLOGD("sdl2_init conf->buff %p, conf->opts %p fb %p", conf->buff, conf->opts, fb);
     luat_lcd_clear(conf, LCD_WHITE);
     // printf("ARGB8888 0xFFFF %08X\n", luat_color_565to8888(0xFFFF));
     // printf("ARGB8888 0X001F %08X\n", luat_color_565to8888(0X001F));

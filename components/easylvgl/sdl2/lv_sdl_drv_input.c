@@ -158,24 +158,13 @@ void set_quit_event(quit_event_t quit)
  */
 lv_indev_t *lv_sdl_init_input(void)
 {
-    LLOGD("[LVGL][SDL] 初始化输入设备驱动\n");
-
-    if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER) != 0) {
-        LLOGD("SDL_InitSubSystem failed: %s\n", SDL_GetError());
-    } else {
-        LLOGD("[LVGL][SDL] SDL_INIT_GAMECONTROLLER 成功\n");
-    }
+    SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER);
 
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
     int num_joysticks = SDL_NumJoysticks();
-    LLOGD("[LVGL][SDL] 可用手柄数: %d\n", num_joysticks);
     for (int i = 0; i < num_joysticks; i++)
     {
-        if (SDL_GameControllerOpen(i)) {
-            LLOGD("[LVGL][SDL] 打开手柄 #%d 成功\n", i);
-        } else {
-            LLOGD("[LVGL][SDL] 打开手柄 #%d 失败: %s\n", i, SDL_GetError());
-        }
+        SDL_GameControllerOpen(i);
     }
 
     // 创建键盘输入设备
@@ -183,9 +172,6 @@ lv_indev_t *lv_sdl_init_input(void)
     if (keypad_indev != NULL) {
         lv_indev_set_type(keypad_indev, LV_INDEV_TYPE_KEYPAD);
         lv_indev_set_read_cb(keypad_indev, sdl_input_read);
-        LLOGD("[LVGL][SDL] 创建键盘输入设备成功\n");
-    } else {
-        LLOGD("[LVGL][SDL] 创建键盘输入设备失败\n");
     }
 
     // 创建指针输入设备（鼠标/触摸）
@@ -193,12 +179,8 @@ lv_indev_t *lv_sdl_init_input(void)
     if (pointer_indev != NULL) {
         lv_indev_set_type(pointer_indev, LV_INDEV_TYPE_POINTER);
         lv_indev_set_read_cb(pointer_indev, sdl_input_read);
-        LLOGD("[LVGL][SDL] 创建指针输入设备成功\n");
-    } else {
-        LLOGD("[LVGL][SDL] 创建指针输入设备失败\n");
     }
 
-    LLOGD("[LVGL][SDL] 输入设备初始化完毕\n");
     return pointer_indev;  // 返回指针设备作为主要输入设备
 }
 

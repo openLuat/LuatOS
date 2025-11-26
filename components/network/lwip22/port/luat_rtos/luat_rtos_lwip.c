@@ -3,10 +3,13 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_rtos.h"
+#include "luat_crypto.h"
+
 #include "dns_def.h"
 #include "lwip/tcpip.h"
 #include "luat_network_adapter.h"
 #include "net_lwip_port.h"
+
 #define LUAT_LOG_TAG "lwip"
 #include "luat_log.h"
 

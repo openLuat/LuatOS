@@ -623,7 +623,10 @@ static void net_lwip2_task(void *param)
 {
 	// luat_network_cb_param_t cb_param;
 	OS_EVENT event = *((OS_EVENT *)param);
+#ifdef LUAT_LWIP_USE_EVENT
+#else
 	luat_heap_free(param);
+#endif
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	// HANDLE cur_task = luat_get_current_task();
 	socket_data_t *p = NULL;
@@ -956,7 +959,17 @@ static void net_lwip2_task(void *param)
 	// LLOGD("End of lwip task");
 }
 
-
+#ifdef LUAT_LWIP_USE_EVENT
+extern int luat_lwip_event_send(uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
+static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
+{
+	luat_lwip_event_send(id, param1, param2, param3);
+}
+void luat_lwip_event_run(void *p)
+{
+	net_lwip2_task(p);
+}
+#else
 static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
 	OS_EVENT *event = luat_heap_zalloc(sizeof(OS_EVENT));
@@ -970,6 +983,7 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 	tcpip_callback_with_block(net_lwip2_task, event, 1);
 	#endif
 }
+#endif
 
 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)

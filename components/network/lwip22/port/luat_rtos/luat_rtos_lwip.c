@@ -7,6 +7,7 @@
 
 #include "dns_def.h"
 #include "lwip/tcpip.h"
+#include "lwip/init.h"
 #include "luat_network_adapter.h"
 #include "net_lwip_port.h"
 

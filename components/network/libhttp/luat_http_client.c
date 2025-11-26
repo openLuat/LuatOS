@@ -51,8 +51,23 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl);
 static int32_t luat_lib_http_callback(void *data, void *param);
 
 int strncasecmp(const char *string1, const char *string2, size_t count);
+
+static void http_close_nw(luat_http_ctrl_t *http_ctrl) {
+	LLOGI("http close nw %p", http_ctrl);
+	if (http_ctrl->netc){
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
+		network_release_ctrl(http_ctrl->netc);
+		http_ctrl->netc = NULL;
+	}
+	if (http_ctrl->timeout_timer){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+		luat_release_rtos_timer(http_ctrl->timeout_timer);
+    	http_ctrl->timeout_timer = NULL;
+	}
+}
 int http_close(luat_http_ctrl_t *http_ctrl){
-	LLOGD("http close %p", http_ctrl);
+	LLOGI("http close %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
@@ -178,8 +193,9 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
 #ifdef LUAT_USE_FOTA
-	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA && http_ctrl->close_state == 0){
+	if (http_ctrl->isfota && error_code == HTTP_ERROR_FOTA && http_ctrl->close_state == 0){
 		http_ctrl->close_state = 1;
+		http_close_nw(http_ctrl);
 		luat_fota_end(0);
 		luat_http_client_onevent(http_ctrl, error_code, 0);
 		return;
@@ -354,7 +370,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	#ifdef LUAT_USE_FOTA
 		else if(http_ctrl->isfota && (parser->status_code == 200 || parser->status_code == 206)){
 			if (luat_fota_write((uint8_t*)at, length) < 0){
-				luat_fota_end(0);
+				// luat_fota_end(0);
 				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
 				return -1;
 			}
@@ -443,13 +459,13 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 						return -1;
 					}
 				}else{
-					luat_fota_end(0);
+					// luat_fota_end(0);
 					http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
 					return -1;
 				}
 			}else{
-				luat_fota_end(0);
-				http_ctrl->close_state = 1;
+				// luat_fota_end(0);
+				// http_ctrl->close_state = 1;
 				// network_close(http_ctrl->netc, 0);
 				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
 				return -1;

@@ -1,34 +1,62 @@
 /*
 @module  easylvgl
 @summary EasyLVGL图像库 (LVGL 9.4)
-@version 0.0.2
-@date    2024.11.07
+@version 0.0.3
+@date    2025.11.26
 @tag     LUAT_USE_EASYLVGL
 @usage
 -- 初始化 EasyLVGL
 easylvgl.init(480, 320)
 
--- 创建按钮
-local btn = easylvgl.button()
-easylvgl.button_set_callback(btn, function(obj)
-    print("Button clicked!")
-end)
+-- 组件化创建按钮
+local btn = easylvgl.button({
+    text = "LuatOS!",
+    x = 20, y = 80, w = 160, h = 48,
+    on_click = function(self)
+        log.info("Button clicked")
+    end
+})
 
--- 创建标签
-local label = easylvgl.label()
-easylvgl.label_set_text(label, "Hello EasyLVGL!")
+-- 调用组件方法
+btn:set_text("更新后的文本")
+
+-- 创建标签并设置文本
+local label = easylvgl.label({
+    text = "Hello EasyLVGL!",
+    x = 10, y = 150
+})
+label:set_text("新的文字")
 */
 
 #include "luat_base.h"
 #include "luat_mem.h"
 #include "luat_log.h"
 #include "rotable2.h"
+#include "lua.h"
+#include "lauxlib.h"
 #include "../inc/easylvgl.h"
+#include "../inc/easylvgl_component.h"
+#include "../lvgl9/src/widgets/button/lv_button.h"
 
 #define LUAT_LOG_TAG "easylvgl"
 #include "luat_log.h"
 
 static lua_State *g_L = NULL;
+
+static int l_easylvgl_init(lua_State *L);
+static int l_easylvgl_button(lua_State *L);
+static int l_easylvgl_label(lua_State *L);
+static int l_easylvgl_handler(lua_State *L);
+static void register_button_meta(lua_State *L);
+static void register_label_meta(lua_State *L);
+static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt);
+static lv_obj_t *check_component(lua_State *L, int index, const char *mt);
+static int l_button_set_text(lua_State *L);
+static int l_button_set_on_click(lua_State *L);
+static int l_button_gc(lua_State *L);
+static int l_label_set_text(lua_State *L);
+static int l_label_get_text(lua_State *L);
+static int l_label_gc(lua_State *L);
 
 /**
  * 初始化 EasyLVGL
@@ -61,133 +89,28 @@ static int l_easylvgl_init(lua_State *L) {
     return 1;
 }
 
-/**
- * 创建按钮对象
- * @api easylvgl.button(parent)
- * @userdata 父对象,可选,默认使用屏幕
- * @return userdata 按钮对象指针
- */
 static int l_easylvgl_button(lua_State *L) {
-    lv_obj_t *parent = NULL;
-    
-    if (lua_isuserdata(L, 1)) {
-        parent = (lv_obj_t *)lua_touserdata(L, 1);
-    }
-    
-    lv_obj_t *btn = easylvgl_button_create(parent);
+    lv_obj_t *btn = easylvgl_button_create_from_config(L, 1);
     if (btn == NULL) {
         lua_pushnil(L);
         return 1;
     }
-    
-    lua_pushlightuserdata(L, btn);
+
+    push_component_userdata(L, btn, EASYLVGL_BUTTON_MT);
     return 1;
 }
 
-/**
- * 设置按钮点击回调
- * @api easylvgl.button_set_callback(btn, callback)
- * @userdata 按钮对象
- * @function 回调函数,接收按钮对象作为参数
- * @return nil
- */
-static int l_easylvgl_button_set_callback(lua_State *L) {
-    if (!lua_isuserdata(L, 1)) {
-        luaL_error(L, "expect userdata for button");
-        return 0;
-    }
-    
-    if (!lua_isfunction(L, 2)) {
-        luaL_error(L, "expect function for callback");
-        return 0;
-    }
-    
-    lv_obj_t *btn = (lv_obj_t *)lua_touserdata(L, 1);
-    
-    // 将回调函数保存到注册表
-    int callback_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    
-    easylvgl_button_set_callback(btn, callback_ref);
-    
-    return 0;
-}
-
-/**
- * 创建标签对象
- * @api easylvgl.label(parent)
- * @userdata 父对象,可选,默认使用屏幕
- * @return userdata 标签对象指针
- */
 static int l_easylvgl_label(lua_State *L) {
-    lv_obj_t *parent = NULL;
-    
-    if (lua_isuserdata(L, 1)) {
-        parent = (lv_obj_t *)lua_touserdata(L, 1);
-    }
-    
-    lv_obj_t *label = easylvgl_label_create(parent);
+    lv_obj_t *label = easylvgl_label_create_from_config(L, 1);
     if (label == NULL) {
         lua_pushnil(L);
         return 1;
     }
-    
-    lua_pushlightuserdata(L, label);
+
+    push_component_userdata(L, label, EASYLVGL_LABEL_MT);
     return 1;
 }
 
-/**
- * 设置标签文本
- * @api easylvgl.label_set_text(label, text)
- * @userdata 标签对象
- * @string 文本内容
- * @return nil
- */
-static int l_easylvgl_label_set_text(lua_State *L) {
-    if (!lua_isuserdata(L, 1)) {
-        luaL_error(L, "expect userdata for label");
-        return 0;
-    }
-    
-    const char *text = luaL_checkstring(L, 2);
-    lv_obj_t *label = (lv_obj_t *)lua_touserdata(L, 1);
-    
-    easylvgl_label_set_text(label, text);
-    
-    return 0;
-}
-
-/**
- * 获取标签文本
- * @api easylvgl.label_get_text(label)
- * @userdata 标签对象
- * @return string 文本内容
- */
-static int l_easylvgl_label_get_text(lua_State *L) {
-    if (!lua_isuserdata(L, 1)) {
-        luaL_error(L, "expect userdata for label");
-        return 0;
-    }
-    
-    lv_obj_t *label = (lv_obj_t *)lua_touserdata(L, 1);
-    const char *text = easylvgl_label_get_text(label);
-    
-    if (text == NULL) {
-        lua_pushnil(L);
-    } else {
-        lua_pushstring(L, text);
-    }
-    
-    return 1;
-}
-
-/**
- * LVGL 任务处理函数，需要定期调用以驱动LVGL的渲染和事件处理
- * @api easylvgl.handler()
- * @return int 下次调用的建议间隔时间(ms)
- * @usage
- * -- 在主循环中定期调用
- * sys.timerLoopStart(easylvgl.handler, 5)
- */
 static int l_easylvgl_handler(lua_State *L) {
     uint32_t time_till_next = lv_timer_handler();
     lua_pushinteger(L, time_till_next);
@@ -198,15 +121,121 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"handler", ROREG_FUNC(l_easylvgl_handler)},
     {"button", ROREG_FUNC(l_easylvgl_button)},
-    {"button_set_callback", ROREG_FUNC(l_easylvgl_button_set_callback)},
     {"label", ROREG_FUNC(l_easylvgl_label)},
-    {"label_set_text", ROREG_FUNC(l_easylvgl_label_set_text)},
-    {"label_get_text", ROREG_FUNC(l_easylvgl_label_get_text)},
     {NULL, ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_easylvgl(lua_State *L) {
+    register_button_meta(L);
+    register_label_meta(L);
     luat_newlib2(L, reg_easylvgl);
     return 1;
 }
 
+static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt) {
+    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)lua_newuserdata(L, sizeof(easylvgl_component_ud_t));
+    ud->obj = obj;
+    luaL_getmetatable(L, mt);
+    lua_setmetatable(L, -2);
+}
+
+static lv_obj_t *check_component(lua_State *L, int index, const char *mt) {
+    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, index, mt);
+    if (ud == NULL || ud->obj == NULL) {
+        luaL_error(L, "invalid %s object", mt);
+    }
+    return ud->obj;
+}
+
+static int l_button_set_text(lua_State *L) {
+    lv_obj_t *btn = check_component(L, 1, EASYLVGL_BUTTON_MT);
+    const char *text = luaL_checkstring(L, 2);
+    easylvgl_button_set_text(btn, text);
+    return 0;
+}
+
+static int l_button_set_on_click(lua_State *L) {
+    lv_obj_t *btn = check_component(L, 1, EASYLVGL_BUTTON_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    easylvgl_button_set_callback(btn, ref);
+    return 0;
+}
+
+static int l_button_gc(lua_State *L) {
+    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_BUTTON_MT);
+    if (ud != NULL && ud->obj != NULL) {
+        lv_obj_t *btn = ud->obj;
+        int *callback_ref = (int *)lv_obj_get_user_data(btn);
+        if (callback_ref != NULL) {
+            if (g_L != NULL && *callback_ref != LUA_NOREF) {
+                luaL_unref(g_L, LUA_REGISTRYINDEX, *callback_ref);
+            }
+            luat_heap_free(callback_ref);
+            lv_obj_set_user_data(btn, NULL);
+        }
+        lv_obj_del(btn);
+        ud->obj = NULL;
+    }
+    return 0;
+}
+
+static int l_label_set_text(lua_State *L) {
+    lv_obj_t *label = check_component(L, 1, EASYLVGL_LABEL_MT);
+    const char *text = luaL_checkstring(L, 2);
+    easylvgl_label_set_text(label, text);
+    return 0;
+}
+
+static int l_label_get_text(lua_State *L) {
+    lv_obj_t *label = check_component(L, 1, EASYLVGL_LABEL_MT);
+    const char *text = easylvgl_label_get_text(label);
+    if (text == NULL) {
+        lua_pushnil(L);
+    } else {
+        lua_pushstring(L, text);
+    }
+    return 1;
+}
+
+static int l_label_gc(lua_State *L) {
+    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_LABEL_MT);
+    if (ud != NULL && ud->obj != NULL) {
+        lv_obj_del(ud->obj);
+        ud->obj = NULL;
+    }
+    return 0;
+}
+
+static void register_button_meta(lua_State *L) {
+    if (luaL_newmetatable(L, EASYLVGL_BUTTON_MT)) {
+        luaL_Reg methods[] = {
+            {"set_text", l_button_set_text},
+            {"set_on_click", l_button_set_on_click},
+            {NULL, NULL}
+        };
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
+        luaL_setfuncs(L, methods, 0);
+        lua_pushcfunction(L, l_button_gc);
+        lua_setfield(L, -2, "__gc");
+    }
+    lua_pop(L, 1);
+}
+
+static void register_label_meta(lua_State *L) {
+    if (luaL_newmetatable(L, EASYLVGL_LABEL_MT)) {
+        luaL_Reg methods[] = {
+            {"set_text", l_label_set_text},
+            {"get_text", l_label_get_text},
+            {NULL, NULL}
+        };
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
+        luaL_setfuncs(L, methods, 0);
+        lua_pushcfunction(L, l_label_gc);
+        lua_setfield(L, -2, "__gc");
+    }
+    lua_pop(L, 1);
+}

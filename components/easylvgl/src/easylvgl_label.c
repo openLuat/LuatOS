@@ -6,8 +6,10 @@
 
 #include "easylvgl.h"
 #include "luat_log.h"
+#include "lua.h"
 #include "../lvgl9/lvgl.h"
 #include "../lvgl9/src/widgets/label/lv_label.h"
+#include "../inc/easylvgl_component.h"
 
 #define LUAT_LOG_TAG "easylvgl_label"
 #include "luat_log.h"
@@ -53,5 +55,29 @@ const char *easylvgl_label_get_text(lv_obj_t *label) {
     }
     
     return lv_label_get_text(label);
+}
+
+lv_obj_t *easylvgl_label_create_from_config(lua_State *L, int table_index) {
+    lv_obj_t *parent = NULL;
+    if (lua_istable(L, table_index)) {
+        parent = easylvgl_component_get_parent_from_table(L, table_index);
+    } else {
+        parent = easylvgl_component_get_lv_obj_from_value(L, table_index);
+    }
+
+    lv_obj_t *label = easylvgl_label_create(parent);
+    if (label == NULL) {
+        return NULL;
+    }
+
+    if (lua_istable(L, table_index)) {
+        const char *text = easylvgl_component_get_string_field(L, table_index, "text");
+        if (text != NULL) {
+            easylvgl_label_set_text(label, text);
+        }
+        easylvgl_component_apply_geometry(L, table_index, label);
+    }
+
+    return label;
 }
 

@@ -18,6 +18,12 @@ extern "C" {
  *      DEFINES
  *********************/
 
+/**
+ * 用于 Lua userdata 的元表名称
+ */
+#define EASYLVGL_BUTTON_MT "easylvgl.button"
+#define EASYLVGL_LABEL_MT "easylvgl.label"
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -70,11 +76,25 @@ void easylvgl_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_
 lv_obj_t *easylvgl_button_create(lv_obj_t *parent);
 
 /**
+ * 根据 Lua 配置创建按钮对象
+ * @param L Lua 状态
+ * @param table_index 参数表索引
+ */
+lv_obj_t *easylvgl_button_create_from_config(lua_State *L, int table_index);
+
+/**
  * 设置按钮点击回调
  * @param btn 按钮对象
  * @param callback Lua 回调函数引用
  */
 void easylvgl_button_set_callback(lv_obj_t *btn, int callback_ref);
+
+/**
+ * 设置按钮文本内容
+ * @param btn 按钮对象
+ * @param text 文本
+ */
+void easylvgl_button_set_text(lv_obj_t *btn, const char *text);
 
 /**
  * 设置全局 Lua 状态（用于回调）
@@ -88,6 +108,13 @@ void easylvgl_set_lua_state(lua_State *L);
  * @return 标签对象指针
  */
 lv_obj_t *easylvgl_label_create(lv_obj_t *parent);
+
+/**
+ * 根据 Lua 配置创建标签对象
+ * @param L Lua 状态
+ * @param table_index 参数表索引
+ */
+lv_obj_t *easylvgl_label_create_from_config(lua_State *L, int table_index);
 
 /**
  * 设置标签文本

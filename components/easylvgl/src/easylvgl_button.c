@@ -8,8 +8,12 @@
 #include "luat_base.h"
 #include "luat_mem.h"
 #include "luat_log.h"
+#include "lua.h"
+#include "lauxlib.h"
 #include "../lvgl9/lvgl.h"
 #include "../lvgl9/src/widgets/button/lv_button.h"
+#include "../lvgl9/src/widgets/label/lv_label.h"
+#include "../inc/easylvgl_component.h"
 
 #define LUAT_LOG_TAG "easylvgl_button"
 #include "luat_log.h"
@@ -118,5 +122,46 @@ void easylvgl_button_set_callback(lv_obj_t *btn, int callback_ref) {
     
     // 设置新的引用
     *old_ref = callback_ref;
+}
+
+void easylvgl_button_set_text(lv_obj_t *btn, const char *text) {
+    if (btn == NULL || text == NULL) {
+        return;
+    }
+
+    lv_obj_t *label = lv_obj_get_child(btn, 0);
+    if (label == NULL) {
+        label = lv_label_create(btn);
+        lv_obj_center(label);
+    }
+    lv_label_set_text(label, text);
+}
+
+lv_obj_t *easylvgl_button_create_from_config(lua_State *L, int table_index) {
+    lv_obj_t *parent = NULL;
+    if (lua_istable(L, table_index)) {
+        parent = easylvgl_component_get_parent_from_table(L, table_index);
+    } else {
+        parent = easylvgl_component_get_lv_obj_from_value(L, table_index);
+    }
+
+    lv_obj_t *btn = easylvgl_button_create(parent);
+    if (btn == NULL) {
+        return NULL;
+    }
+
+    if (lua_istable(L, table_index)) {
+        const char *text = easylvgl_component_get_string_field(L, table_index, "text");
+        if (text != NULL) {
+            easylvgl_button_set_text(btn, text);
+        }
+        easylvgl_component_apply_geometry(L, table_index, btn);
+        int callback_ref = easylvgl_component_capture_callback(L, table_index, "on_click");
+        if (callback_ref != LUA_NOREF) {
+            easylvgl_button_set_callback(btn, callback_ref);
+        }
+    }
+
+    return btn;
 }
 

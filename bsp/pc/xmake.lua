@@ -335,7 +335,7 @@ target("luatos-lua")
         -- gtfont PC simulator core
         add_includedirs(luatos.."components/gtfont")
         add_includedirs(luatos.."components/eink")
-        -- add_files(luatos.."components/gtfont/*.c")
+        add_files(luatos.."components/gtfont/*.c")
         
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")

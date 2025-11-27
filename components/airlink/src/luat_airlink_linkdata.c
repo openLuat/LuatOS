@@ -25,6 +25,7 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
     uint16_t crc16_data = 0;
     if (len < 12)
     {
+        LLOGD("数据长度异常 %d", len);
         return NULL;
     }
     airlink_link_data_t *link = NULL;
@@ -50,12 +51,13 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
                 else
                 {
                     LLOGD("crc16校验失败 %d %d", crc16_data, crc16);
-                    link = NULL;
+                    return NULL;
                 }
             }
             else
             {
                 LLOGD("数据长度错误 %d %d", tlen, len);
+                return NULL;
             }
         }
     }

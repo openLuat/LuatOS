@@ -71,6 +71,11 @@ void easylvgl_deinit(void);
 void easylvgl_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map);
 
 /**
+ * 初始化面向 LuatOS 文件系统的 LVGL 9 文件驱动，注册后通过 `L:/` 或 `/` 调用 LVGL fs。
+ */
+void easylvgl_fs_init(void);
+
+/**
  * 创建按钮对象
  * @param parent 父对象
  * @return 按钮对象指针

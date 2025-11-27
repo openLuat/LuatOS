@@ -277,6 +277,9 @@ int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode) {
         return -1;
     }
 #endif
+
+    // 初始化 EasyLVGL 面向 LuatOS 文件系统的 LVGL 9 文件驱动。
+    easylvgl_fs_init();
     
     LLOGD("EasyLVGL initialized: %dx%d, buf_size=%d, mode=0x%02x", 
           w, h, (int)buf_size_bytes, buff_mode);

@@ -3,8 +3,11 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_rtos.h"
+#include "luat_crypto.h"
 #include "dns_def.h"
 #include "lwip/tcpip.h"
+#include "lwip/init.h"
+
 #include "luat_network_adapter.h"
 #include "net_lwip_port.h"
 #define LUAT_LOG_TAG "lwip"
@@ -107,14 +110,14 @@ enum
 unsigned int lwip_port_rand(void)
 {
 	PV_Union uPV;
-	luat_crypto_trng(uPV.u8, 4);
+	luat_crypto_trng((char *)uPV.u8, 4);
 	return uPV.u32;
 }
 
 uint32_t net_lwip_rand()
 {
 	PV_Union uPV;
-	luat_crypto_trng(uPV.u8, 4);
+	luat_crypto_trng((char *)uPV.u8, 4);
 	return uPV.u32;
 }
 
@@ -142,12 +145,12 @@ int luat_lwip_api_run(uint32_t func, uint32_t param)
 
 err_t  tcpip_try_callback(tcpip_callback_fn function, void *ctx)
 {
-	return luat_lwip_api_run(function, ctx);
+	return luat_lwip_api_run((uint32_t)function, (uint32_t)ctx);
 }
 
 err_t  tcpip_callback(tcpip_callback_fn function, void *ctx)
 {
-	return luat_lwip_api_run(function, ctx);
+	return luat_lwip_api_run((uint32_t)function, (uint32_t)ctx);
 }
 
 LUAT_WEAK void luat_lwip_event_run(void *p)
@@ -159,14 +162,14 @@ static void luat_lwip_task(void *param)
 //	luat_network_cb_param_t cb_param;
 	TaskFun_t cb;
 	lwip_timer_t *user_timer;
-	OS_EVENT event;
+	luat_event_t event;
 	HANDLE cur_task = luat_get_current_task();
-	struct tcp_pcb *pcb, *dpcb;
+//	struct tcp_pcb *pcb, *dpcb;
 	struct netif *netif;
 //	ip_addr_t *p_ip, *local_ip;
 //	struct pbuf *out_p;
-	int error, i;
-	PV_Union uPV;
+	int error;
+//	PV_Union uPV;
 //	uint8_t socket_id;
 //	uint8_t adapter_index;
 	while(1)
@@ -191,27 +194,27 @@ static void luat_lwip_task(void *param)
 		}
 //		socket_id = event.Param1;
 //		adapter_index = event.Param3;
-		switch(event.ID)
+		switch(event.id)
 		{
 		case EV_LWIP_NETIF_INPUT:
-			netif = (struct netif *)event.Param3;
-			error = netif->input((struct pbuf *)event.Param1, netif);
+			netif = (struct netif *)event.param3;
+			error = netif->input((struct pbuf *)event.param1, netif);
 			if(error != ERR_OK)
 			{
 				LLOGD("%d", error);
-				pbuf_free((struct pbuf *)event.Param1);
+				pbuf_free((struct pbuf *)event.param1);
 			}
 			break;
 		case EV_LWIP_API_RUN:
-			cb = (TaskFun_t)event.Param1;
-			cb((void *)event.Param2);
+			cb = (TaskFun_t)event.param1;
+			cb((void *)event.param2);
 			break;
 		case EV_LWIP_SYS_TIMEOUT:
-			LLOGD("sys timer%d", event.Param1);
-			prv_lwip_timer_list[event.Param1].handler();
+			//LLOGD("sys timer%d", event.param1);
+			prv_lwip_timer_list[event.param1].handler();
 			break;
 		case EV_LWIP_TIMEOUT:
-			user_timer = (lwip_timer_t *)event.Param1;
+			user_timer = (lwip_timer_t *)event.param1;
 			user_timer->handler(user_timer->args);
 			luat_release_rtos_timer(user_timer->timer);
 			luat_heap_free(user_timer);
@@ -233,7 +236,7 @@ void luat_lwip_init(void)
 	}
 	tcp_ticks = luat_mcu_tick64_ms() / TCP_SLOW_INTERVAL;
 	prvlwip.last_sleep_ms = luat_mcu_tick64_ms();
-	luat_rtos_task_create(&prvlwip.task_handle, 16 * 1024, 120, "lwip", luat_lwip_task, NULL, 64);
+	luat_rtos_task_create(&prvlwip.task_handle, 16 * 1024, 110, "lwip", luat_lwip_task, NULL, 64);
 	lwip_init();
 	for(i = 1; i < LWIP_SYS_TIMER_CNT; i++)
 	{
@@ -244,12 +247,8 @@ void luat_lwip_init(void)
 	}
 }
 
-static void
-tcpip_tcp_timer(void *arg)
+void tcp_timer_needed(void)
 {
-  /* call TCP timer handler */
-	tcp_tmr();
-	/* timer still needed? */
 	if (tcp_active_pcbs || tcp_tw_pcbs) {
     /* restart timer */
 		if (!prvlwip.tcpip_tcp_timer_active)
@@ -261,16 +260,6 @@ tcpip_tcp_timer(void *arg)
 		/* disable timer */
 		prvlwip.tcpip_tcp_timer_active = 0;
 		luat_stop_rtos_timer(prvlwip.sys_cyclic_timer[0]);
-	}
-}
-
-
-void tcp_timer_needed(void)
-{
-	if (!prvlwip.tcpip_tcp_timer_active && (tcp_active_pcbs || tcp_tw_pcbs)) {
-		luat_start_rtos_timer(prvlwip.sys_cyclic_timer[0], TCP_TMR_INTERVAL, 1);
-		prvlwip.tcpip_tcp_timer_active = 1;
-		LLOGD("tcp timer start");
 	}
 }
 

@@ -4,6 +4,7 @@
 #ifdef __USE_SDK_LWIP__
 #else
 #include "stdlib.h"
+#include "luat_mem.h"
 #if defined(__SOC_BSP__)
 #include "bsp_common.h"
 #else
@@ -28,10 +29,11 @@
 //mem管理
 #define MEM_ALIGNMENT                   4
 #define MEMP_MEM_MALLOC 1
-//#define MEM_LIBC_MALLOC 1
-//#define mem_clib_free luat_heap_free
-//#define mem_clib_malloc luat_heap_malloc
-//#define mem_clib_calloc luat_heap_calloc
+#define MEM_LIBC_MALLOC 0
+#define MEM_CUSTOM_ALLOCATOR	1
+#define MEM_CUSTOM_FREE luat_heap_free
+#define MEM_CUSTOM_MALLOC luat_heap_malloc
+#define MEM_CUSTOM_CALLOC luat_heap_calloc
 //#define MEM_USE_POOLS	1
 //#define MEMP_NUM_RAW_PCB                4
 //#define MEMP_NUM_UDP_PCB 				16

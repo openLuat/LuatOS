@@ -161,7 +161,7 @@ static void http_network_error(luat_http_ctrl_t *http_ctrl)
 
 	if (network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0)
 	{
-		LLOGD("http can not connect!");
+		LLOGW("can't connect! %s:%d", http_ctrl->host, http_ctrl->remote_port);
 		http_ctrl->state = HTTP_STATE_IDLE;
 		http_ctrl->error_code = HTTP_ERROR_CONNECT;
 		network_close(http_ctrl->netc, 0);

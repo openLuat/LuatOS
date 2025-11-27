@@ -163,7 +163,7 @@ static void spi_gpio_setup(void) {
         .bit_dict = 1,  // MSB=1, LSB=0
         .master = 0,    // 1 主模式; 0 从模式
         .mode = 1, // mode设置为1，全双工
-        .bandrate = 31000000,
+        .bandrate = 60000000,
         .cs = 255};
     
     luat_spi_setup(&spi_conf);
@@ -199,21 +199,6 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
     airlink_queue_item_t item = {0};
     // print_tm("准备执行luat_airlink_cmd_recv_simple");
     luat_airlink_cmd_recv_simple(&item);
-#ifdef __BK72XX__
-    s_txbuff[0] = 0x00;
-    // LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
-    if (item.len > 0 && item.cmd != NULL) {
-        // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
-        luat_airlink_data_pack(item.cmd, item.len, s_txbuff+1);
-        // LLOGD("执行完luat_airlink_cmd_recv_simplecmd %p len %d --- ", item.cmd, item.len);
-        luat_airlink_cmd_free(item.cmd);
-    }
-    else {
-        // LLOGD("填充PING数据");
-        memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
-        luat_airlink_data_pack(basic_info, sizeof(basic_info), s_txbuff+1);
-    }
-#else
     // LLOGD("执行完luat_airlink_cmd_recv_simple cmd %p len %d", item.cmd, item.len);
     if (item.len > 0 && item.cmd != NULL) {
         // LLOGD("发送待传输的数据, 塞入SPI的FIFO %d", item.len);
@@ -226,7 +211,6 @@ __AIRLINK_CODE_IN_RAM__ static void start_spi_trans(void) {
         memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
         luat_airlink_data_pack(basic_info, sizeof(basic_info), s_txbuff);
     }
-#endif
     luat_spi_slave_transfer(SLAVE_SPI_ID, (const char*)s_txbuff, (char*)s_rxbuff, TEST_BUFF_SIZE);
 
     // 通知主机已经准备好了

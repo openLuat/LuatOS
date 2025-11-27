@@ -13,7 +13,9 @@
 #include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_fs.h"
-
+#ifdef __BK72XX__
+#include <os/os.h>
+#endif
 #define LUAT_LOG_TAG "airlink"
 #include "luat_log.h"
 
@@ -41,6 +43,10 @@ static uint8_t thread_rdy;
 static uint8_t spi_rdy;
 static luat_rtos_task_handle spi_task_handle;
 static luat_rtos_task_handle spi_irq_task_handle;
+#if defined(__BK72XX__) && defined(CONFIG_FREERTOS_SMP)
+static beken_thread_t bk_spi_task_handle = NULL;
+static beken_thread_t bk_spi_irq_task_handle = NULL;
+#endif
 
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
 extern luat_airlink_dev_info_t g_airlink_self_dev_info;
@@ -66,12 +72,18 @@ static volatile uint8_t rdy_ready_flag = 0;           // RDY就绪标志
 __USER_FUNC_IN_RAM__ static int rdy_pin_irq_handler(void* param)
 {
     // 设置RDY就绪标志
-    if (rdy_task_evt_queue == NULL) {
+    if (rdy_evt_queue == NULL) {
         return 0;
     }
     rdy_ready_flag = 1;
+    // 发送通知事件，告知任务RDY已就绪
+#ifdef __BK72XX__
     luat_event_t evt = {.id = 2};
     luat_rtos_queue_send(rdy_task_evt_queue, &evt, sizeof(evt), 0);
+#else
+    luat_event_t evt = {.id = 6};
+    luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
+#endif
     // LLOGD("RDY中断触发，设置就绪标志");
     return 0;
 }
@@ -439,6 +451,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     }
 }
 
+#ifdef __BK72XX__
 __USER_FUNC_IN_RAM__ static void spi_irq_task(void *param)
 {
     while (1)
@@ -455,6 +468,7 @@ __USER_FUNC_IN_RAM__ static void spi_irq_task(void *param)
         }
     }
 }
+#endif
 
 void luat_airlink_start_master(void)
 {
@@ -471,10 +485,15 @@ void luat_airlink_start_master(void)
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     // 创建专门的RDY事件队列 (id=6)
     luat_rtos_queue_create(&rdy_evt_queue, 10, sizeof(luat_event_t));
-    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+#if defined(__BK72XX__) && defined(CONFIG_FREERTOS_SMP)
+// luat_rtos_task_create(&spi_irq_task_handle,  4 * 1024, 95, "spi_irq", spi_irq_task, NULL, 0);
+    rtos_core0_create_thread((beken_thread_t *)bk_spi_task_handle, BEKEN_APPLICATION_PRIORITY, "spi", (beken_thread_function_t)spi_master_task, 8 * 1024, 0);
+    rtos_core0_create_thread((beken_thread_t *)bk_spi_irq_task_handle, 10, "spi_irq", (beken_thread_function_t)spi_irq_task, 4 * 1024, 0);
     // 创建专门用于处理从机通知中断的任务
-    luat_rtos_task_create(&spi_irq_task_handle,  4 * 1024, 80, "spi_irq", spi_irq_task, NULL, 0);
     luat_rtos_queue_create(&rdy_task_evt_queue, 1, sizeof(luat_event_t));
+#else
+    luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+#endif
 }
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {

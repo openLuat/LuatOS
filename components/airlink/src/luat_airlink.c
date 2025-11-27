@@ -603,16 +603,17 @@ static void netdrv_airlink_setup(void* params) {
 	// 然后注册AP
 	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_AP;
 	luat_netdrv_setup(&conf);
+
+	// 初始化AirLink
+	luat_airlink_init();
+	luat_airlink_task_start();
+	luat_airlink_start(1); // SPI master模式
 }
 
 void luat_airlink_master_autostart(void) {
 	if (!luat_airlink_has_wifi()){
 		return;
 	}
-	
+
 	tcpip_callback_with_block(netdrv_airlink_setup, NULL, 1);
-	// 初始化AirLink
-	luat_airlink_init();
-	luat_airlink_task_start();
-	luat_airlink_start(1); // SPI master模式
 }

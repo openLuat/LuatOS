@@ -34,10 +34,9 @@ end)
 #ifndef LUAT_HTTP_DEBUG
 #define LUAT_HTTP_DEBUG 0
 #endif
-#if LUAT_HTTP_DEBUG == 0
 #undef LLOGD
-#define LLOGD(...)
-#endif
+#define LLOGD(...) if (http_ctrl->debug_onoff) LLOGI(__VA_ARGS__)
+
 
 int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);

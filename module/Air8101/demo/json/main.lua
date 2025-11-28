@@ -1,69 +1,91 @@
--- main.lua文件
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "json_demo"
-VERSION = "1.0.0"
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.11.05
+@author  马梦阳
+@usage
 
+本demo演示的核心功能为：
+1.将 Lua 对象 转为 JSON 字符串：
+    示例一：Lua string 转为 JSON string；
+    示例二：Lua number 转为 JSON string；
+    示例三：Lua boolean 转为 JSON string；
+    示例四：Lua table 转为 JSON string；
+    示例五：Lua nil 转为 JSON string；
+    序列化失败示例和指定浮点数示例；
+2.将 JSON 字符串 转为 Lua 对象：
+    示例一：JSON string 转为 Lua string；
+    示例二：JSON number 转为 Lua number；
+    示例三：JSON boolean 转为 Lua boolean；
+    示例四：JSON table 转为 Lua table；
+    示例五：JSON nil 转为 Lua nil；
+    反序列化失败示例；
+    空表（empty table）转换为 JSON 时的说明；
+    字符串中包含控制字符（如 \r\n）的 JSON 序列化与反序列化说明；
+    json.null 的语义与比较行为说明：
+
+更多说明参考本目录下的 readme.md 文件；
+]]
+
+
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "json"
+VERSION = "001.000.000"
+
+
+-- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- json库支持将 table 转为 字符串, 或者反过来, 字符串 转 table
--- 若转换失败, 会返回nil值, 强烈建议在使用时添加额外的判断
-sys.taskInit(function()
 
-        sys.wait(1000)
-        -- table 转为 字符串
-        local t = {abc=123, def="123", ttt=true}
-        local jdata = json.encode(t)
-        log.info("json", jdata)                     --日志输出：{"ttt":true,"def":"123","abc":123}
-
-        -- 字符串转table
-        local str = "{\"abc\":1234545}" -- 字符串可以来源于任何地方,网络,文本,用户输入,都可以
-        local t = json.decode(str)
-        if t then
-                        -- 若解码成功，t不为nil
-                        log.info("json", "decode", t.abc) --日志输出：decode        1234545
-                else
-                        -- 若解码失败，t为nil
-                        log.info("json", "decode failed")
-                end
-
-        -- lua中的table是 数组和hashmap的混合体
-        -- 这对json来说会有一些困扰, 尤其是空的table
-        local t = {abc={}}
-        -- 假设从业务上需要输出 {"abc":[]}
-        -- 实际会输出 {"abc": {}} , 空table是优先输出 hashmap （即字典模式）形式, 而非数组形式，Lua语言中数组优先级低于hashmap优先级
-        log.info("json", "encode", json.encode(t))  --日志输出：encode        {"abc":{}}
-        -- 混合场景, json场景应避免使用
-        t.abc.def = "123"
-        t.abc[1] = 345
-        -- 输出的内容是 {"abc":{"1":345,"def":"123"}}
-        log.info("json", "encode2", json.encode(t)) --日志输出：encode2        {"abc":{"1":345,"def":"123"}}
-
-        -- 浮点数演示
-        log.info("json", json.encode({abc=1234.300}))--日志输出：{"abc":1234.300}
-        -- 限制小数点到1位
-        log.info("json", json.encode({abc=1234.300}, "1f")) --日志输出：{"abc":1234.3}
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
 
 
-        local tmp = "ABC\r\nDEF\r\n"
-        local tmp2 = json.encode({str=tmp}) --在JSON中，\r\n 被保留为字符串的一部分
-        log.info("json", tmp2)              --日志输出：{"str":"ABC\r\nDEF\r\n"}
-        local tmp3 = json.decode(tmp2)
-        log.info("json", "tmp3", tmp3.str, tmp3.str == tmp) --日志输出：tmp3        ABC
-                                                            --DEF
-                                                            --                true  注：true前存在一个TAB长度（这个TAB原因未知，但不影响使用）
-        -- break
-
-        log.info("json.null", json.encode({name=json.null}))                --日志输出：{}  为空对象
-        log.info("json.null", json.decode("{\"abc\":null}").abc == json.null) --日志输出：false    在 Lua 中，nil 是一种特殊类型，用于表示“无值”或“未定义”。它与任何其他值（包括自定义的 json.null）都不相等
-        log.info("json.null", json.decode("{\"abc\":null}").abc == nil)       --日志输出：false
-
-end)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
 
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+-- 加载 json 应用模块
+require "json_app"
 
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!
-

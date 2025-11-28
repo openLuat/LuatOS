@@ -20,11 +20,8 @@
     新风格 PWM 接口支持在运行中动态调整占空比和信号频率
 
 注意事项：
-1. 本 demo 演示所使用的是 Air780EHM/EHV/EGH 模组的 PWM4 通道（GPIO27，PIN16）；
-2. 该引脚需要通过 LuatIO 工具进行复用配置：
-    pins_Air780EHM.json 为 Air780EHM 模组的复用配置文件；
-    pins_Air780EHV.json 为 Air780EHV 模组的复用配置文件；
-    pins_Air780EGH.json 为 Air780EGH 模组的复用配置文件；
+1. 本 demo 演示所使用的是 Air780EPM 模组的 PWM4 通道（GPIO27，PIN16）；
+2. 该引脚需要通过 LuatIO 工具进行复用配置，pins_Air780EPM.json 文件即复用配置后生成的文件；
 3. 关于 LuatIO 工具的使用介绍以及如何生成 json 文件，请参考 https://docs.openluat.com/air780epm/common/luatio/；
 3. 将通过 LuatIO 工具配置好复用关系后生成的 json 文件与脚本文件一同烧录到模组中即可实现 PWM 输出功能；
 

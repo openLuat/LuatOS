@@ -4,18 +4,14 @@
 
 2、pwm_app.lua：PWM 输出功能模块；
 
-3、pins_Air780EHM.json：用于配置 Air780EHM 模组管脚复用功能的 json 文件；
-
-4、pins_Air780EHV.json：用于配置 Air780EHV 模组管脚复用功能的 json 文件；
-
-5、pins_Air780EGH.json：用于配置 Air780EGH 模组管脚复用功能的 json 文件；
+3、pins_Air8000.json：用于配置管脚复用功能的 json 文件；
 
 - 关于如何生成 json 文件参考：https://docs.openluat.com/air780epm/common/luatio/；
-- 示例代码中使用的是 Air780EHM/EHV/EGH 模组的 PWM4 通道（GPIO27，PIN16），参考完上述文档后通过 LuatIO 工具配置好并保存，最后将对应模组的 json 文件与脚本代码一同烧录到对应模组中即可实现 PWM 输出功能；
+- 示例代码中使用的是 Air8000 模组的 PWM4 通道（GPIO21，PIN24），参考完上述文档后通过 LuatIO 工具配置好并保存，最后连同脚本一起烧录到 Air8000 模组中即可实现 PWM 输出功能；
 
 ## 演示功能概述
 
-使用 Air780EHM/EHV/EGH 核心板搭配 PWM 库演示 PWM 输出功能；
+使用 Air8000 核心板搭配 PWM 库演示 PWM 输出功能；
 
 PWM 库目前有两套 API 风格：
 
@@ -35,7 +31,7 @@ PWM 库目前有两套 API 风格：
 
 ## 演示硬件环境
 
-1、Air780EHM/EHV/EGH 核心板一块
+1、Air8000 核心板一块
 
 2、TYPE-C USB数据线一根
 
@@ -43,17 +39,13 @@ PWM 库目前有两套 API 风格：
 
 4、逻辑分析仪或者示波器，用于观察 PWM 输出的波形
 
-5、代码中选用的 PWM 通道是 Air780EHM/EHV/EGH 模组的 PWM4（GPIO27，PIN16）
+5、代码中选用的 PWM 通道是 Air8000 模组的 PWM4（GPIO21）
 
 ## 演示软件环境
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
 
-2、[Air780EHM V2016 版本](https://docs.openluat.com/air780epm/luatos/firmware/version/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2016-1 固件对比验证）
-
-3、[Air780EHV V2016 版本](https://docs.openluat.com/air780ehv/luatos/firmware/version/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2016-1 固件对比验证）
-
-4、[Air780EGH V2016 版本](https://docs.openluat.com/air780egh/luatos/firmware/version/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2016-1 固件对比验证）
+2、[Air8000 V2016 版本](https://docs.openluat.com/air8000/luatos/common/download/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2016-1 固件对比验证）
 
 ## 演示核心步骤
 

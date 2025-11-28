@@ -127,7 +127,7 @@
 
 5. 如需切换 demo 内的演示内容，可打开下载脚本文件中的 mian.lua 文件，将需要演示 demo 的 require 前面--去掉，将不需要演示 demo 的 require 前面加上--。注释掉 require 的其他 demo 文件后，再点击模拟器运行，就会出现所 require 的 demo 对应的界面仿真。
    - 比如：需要演示下拉框组件，将-- require("win_combo_box") 改为 require("win_combo_box") ，并把其他加载的组件改为注释状态。
-     ![](https://docs.openLuat.com/cdn/image/PC模拟器使用_2.png)
+     ![](https://docs.openLuat.com/cdn/image/exeasyui加载组件演示模块.png)
 
 
 ## 五、真实设备演示硬件环境

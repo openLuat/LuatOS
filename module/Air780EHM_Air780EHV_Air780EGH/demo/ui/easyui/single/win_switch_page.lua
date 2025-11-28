@@ -43,7 +43,7 @@ local function msgbox_page()
                 title = "提示",
                 message = "这是一条消息",
                 buttons = { "确定", "取消" },
-                onResult = function()
+                on_result = function()
                     -- 处理按钮点击逻辑
                 end
             })

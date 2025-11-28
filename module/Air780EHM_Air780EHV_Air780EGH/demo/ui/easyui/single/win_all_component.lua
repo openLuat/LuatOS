@@ -29,7 +29,7 @@ local function ui_main()
     local page1 = ui.window({ background_color = ui.COLOR_WHITE })
     page1:enable_scroll({
         direction = "vertical",
-        content_h = 1000,
+        content_height = 1000,
         threshold = 8
     })
 
@@ -134,7 +134,7 @@ local function ui_main()
         x = 20, y = 360,
         text = "选项A",
         checked = false,
-        onChange = function(checked)
+        on_change = function(checked)
             log.info("checkbox", "选项A:", checked)
         end
     })
@@ -143,7 +143,7 @@ local function ui_main()
         x = 120, y = 360,
         text = "选项B",
         checked = true,
-        onChange = function(checked)
+        on_change = function(checked)
             log.info("checkbox", "选项B:", checked)
         end
     })

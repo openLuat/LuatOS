@@ -656,8 +656,8 @@ function BaseWidget:get_absolute_position()
         x = x + (parent.x or 0)
         y = y + (parent.y or 0)
         if parent._scroll then
-            x = x + (parent._scroll.offsetX or 0)
-            y = y + (parent._scroll.offsetY or 0)
+            x = x + (parent._scroll.offset_x or 0)
+            y = y + (parent._scroll.offset_y or 0)
         end
         parent = parent.parent
     end
@@ -2034,8 +2034,8 @@ function keyboard:new(opts)
 end
 
 function keyboard:build_key_layout()
-    local startX = self.x + 30 -- 左侧预留30px（用于未来音节选择区）
-    local startY = self.y + 95 -- 顶部控制栏50px + 候选区50px
+    local start_x = self.x + 30 -- 左侧预留30px（用于未来音节选择区）
+    local start_y = self.y + 95 -- 顶部控制栏50px + 候选区50px
     local keySize = self.keySize
     local keyGap = self.keyGap
 
@@ -2047,8 +2047,8 @@ function keyboard:build_key_layout()
         for col = 0, 2 do
             if keyIndex <= #self.keyMappings then
                 local key = {
-                    x = startX + col * (keySize + keyGap),
-                    y = startY + row * (keySize + keyGap),
+                    x = start_x + col * (keySize + keyGap),
+                    y = start_y + row * (keySize + keyGap),
                     w = keySize,
                     h = keySize,
                     text = self.keyMappings[keyIndex].text,
@@ -2896,11 +2896,11 @@ function keyboard:handle_candidate_panel_touch(evt, x, y)
     local candidateHeight = 50
     local candidateBtnSize = 30
     local arrowW = candidateBtnSize
-    local candidateStartX = self.x + arrowW
+    local candidatestart_x = self.x + arrowW
 
     for i = 1, 8 do
         local idx = (self.candidatePageIndex - 1) * 8 + i
-        local btnX = candidateStartX + (i - 1) * candidateBtnSize
+        local btnX = candidatestart_x + (i - 1) * candidateBtnSize
         local btnY = candidateY + (candidateHeight - candidateBtnSize) // 2
 
         if idx <= #self.pinyinCandidates and
@@ -2932,10 +2932,10 @@ function keyboard:handle_syllable_panel_touch(evt, x, y)
     local syllableBtnSize = 30
     local syllableAreaX = self.x
     local syllableAreaY = self.y + 95
-    local startY = syllableAreaY
+    local start_y = syllableAreaY
 
     -- 上一页按钮（第一个小格子）
-    local topBtnY = startY
+    local topBtnY = start_y
     if x >= syllableAreaX and x < syllableAreaX + syllableBtnSize and
         y >= topBtnY and y < topBtnY + syllableBtnSize then
         if evt == "SINGLE_TAP" then
@@ -2949,10 +2949,10 @@ function keyboard:handle_syllable_panel_touch(evt, x, y)
     end
 
     -- 中间10个音节按钮（从第二个小格子开始）
-    local syllableStartY = startY + syllableBtnSize
+    local syllablestart_y = start_y + syllableBtnSize
     for i = 1, 10 do
         local idx = (self.syllablePageIndex - 1) * 10 + i
-        local btnY = syllableStartY + (i - 1) * syllableBtnSize
+        local btnY = syllablestart_y + (i - 1) * syllableBtnSize
 
         if idx <= #self.syllableCandidates and
             x >= syllableAreaX and x < syllableAreaX + syllableBtnSize and
@@ -2978,7 +2978,7 @@ function keyboard:handle_syllable_panel_touch(evt, x, y)
     end
 
     -- 下一页按钮（第12个小格子）
-    local bottomBtnY = startY + 11 * syllableBtnSize
+    local bottomBtnY = start_y + 11 * syllableBtnSize
     if x >= syllableAreaX and x < syllableAreaX + syllableBtnSize and
         y >= bottomBtnY and y < bottomBtnY + syllableBtnSize then
         if evt == "SINGLE_TAP" then
@@ -3016,10 +3016,10 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
     local presse_dbg_color  = COLOR_GRAY
 
     -- 12个小格子，每个30px，总共360px，正好等于4个大格子的高度
-    local startY = syllableAreaY
+    local start_y = syllableAreaY
 
     -- 1. 最上面的上一页切换按键（↑）- 第一个大格子的第一个小格子位置
-    local topBtnY = startY
+    local topBtnY = start_y
     ctx:fill_rect(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, bg_color )
     ctx:stroke_rect(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, border_color)
     -- 使用 draw_arrow_icon 绘制箭头图标
@@ -3028,10 +3028,10 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
     -- 2. 中间10个音节选择按键
     -- 从第二个小格子开始，每3个小格子对应一个大格子
     -- 索引1是上一页，索引2-11是10个音节，索引12是下一页
-    local syllableStartY = startY + syllableBtnSize -- 从第二个小格子开始
+    local syllablestart_y = start_y + syllableBtnSize -- 从第二个小格子开始
     for i = 1, 10 do
         local idx = (self.syllablePageIndex - 1) * 10 + i
-        local btnY = syllableStartY + (i - 1) * syllableBtnSize
+        local btnY = syllablestart_y + (i - 1) * syllableBtnSize
 
         if idx <= #self.syllableCandidates then
             local syllable = self.syllableCandidates[idx]
@@ -3062,7 +3062,7 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
     end
 
     -- 3. 最下面的下一页切换按键（↓）- 第4个大格子的第3个小格子位置（最后一个）
-    local bottomBtnY = startY + 11 * syllableBtnSize -- 第12个小格子（索引12）
+    local bottomBtnY = start_y + 11 * syllableBtnSize -- 第12个小格子（索引12）
     ctx:fill_rect(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, bg_color )
     ctx:stroke_rect(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, border_color)
     draw_arrow_icon(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, "down", text_color)
@@ -3099,10 +3099,10 @@ function keyboard:draw_pinyin_candidates(ctx, ax, ay)
     draw_arrow_icon(rightArrowX, rightArrowY, arrowW, candidateBtnSize, "right", text_color)
 
     -- 候选按键固定8个（居中区域，从 ax + arrowW 开始）
-    local candidateStartX = ax + arrowW
+    local candidatestart_x = ax + arrowW
     for i = 1, 8 do
         local idx = (self.candidatePageIndex - 1) * 8 + i
-        local btnX = candidateStartX + (i - 1) * candidateBtnSize
+        local btnX = candidatestart_x + (i - 1) * candidateBtnSize
         local btnY = candidateY + (candidateHeight - candidateBtnSize) // 2
 
         if idx <= #self.pinyinCandidates then
@@ -3182,11 +3182,11 @@ function message_box:_layout_buttons()
     local btnW = 80
     local gap = 12
     local total = count * btnW + (count - 1) * gap
-    local startX = (self.w - total) // 2
+    local start_x = (self.w - total) // 2
     local btnY = self.h - 12 - 36
     for i = 1, count do
         local label = tostring(self.buttons[i])
-        local btn = button:new({ x = startX, y = btnY, w = btnW, h = 36, text = label })
+        local btn = button:new({ x = start_x, y = btnY, w = btnW, h = 36, text = label })
         btn.on_click = function()
             if self.on_result then
                 local ok, err = pcall(self.on_result, label, self)
@@ -3198,15 +3198,15 @@ function message_box:_layout_buttons()
         end
         self:add(btn)
         self._buttons[#self._buttons + 1] = btn
-        startX = startX + btnW + gap
+        start_x = start_x + btnW + gap
     end
 end
 
 function message_box:_layout_message()
     self._msgPadding = 10
-    self._msgStartY = 36
+    self._msgstart_y = 36
     local reserved = (#self.buttons > 0) and (12 + 36) or 10
-    self._msgHeight = self.h - reserved - self._msgStartY
+    self._msgHeight = self.h - reserved - self._msgstart_y
     self._msgWidth = self.w - self._msgPadding * 2
     if self.word_wrap then
         self._messageLines = wrap_text_lines(self.message, self._msgWidth, self.text_style)
@@ -3247,16 +3247,16 @@ function message_box:draw(ctx)
     ctx:draw_text(self.title, ax + 10, ay + 8, self.text_color, self.text_style)
     local style = self.text_style
     local lh = ctx:line_height(style)
-    local startY = ay + self._msgStartY
+    local start_y = ay + self._msgstart_y
     if self.word_wrap then
         local lines = self._messageLines or wrap_text_lines(self.message, self._msgWidth, style)
         local limit = math.min(#lines, self._maxLines or #lines)
         for i = 1, limit do
-            ctx:draw_text(lines[i], ax + self._msgPadding, startY + (i - 1) * lh, self.text_color, style)
+            ctx:draw_text(lines[i], ax + self._msgPadding, start_y + (i - 1) * lh, self.text_color, style)
         end
     else
         local text = fit_text_to_width(self.message, self._msgWidth, style, { ellipsis = true })
-        ctx:draw_text(text, ax + self._msgPadding, startY, self.text_color, style)
+        ctx:draw_text(text, ax + self._msgPadding, start_y, self.text_color, style)
     end
 end
 
@@ -3473,16 +3473,16 @@ local function window_snap_axis(self, axis, mode)
     if not sc then return false end
     local pageSize, contentSize, offsetField
     if axis == "x" then
-        pageSize = sc.pageWidth or self.w
-        contentSize = sc.contentWidth or self.w
-        offsetField = "offsetX"
+        pageSize = sc.page_width or self.w
+        contentSize = sc.content_width or self.w
+        offsetField = "offset_x"
         if not (sc.direction == "horizontal" or sc.direction == "both") then
             return false
         end
     else
-        pageSize = sc.pageHeight or self.h
-        contentSize = sc.contentHeight or self.h
-        offsetField = "offsetY"
+        pageSize = sc.page_height or self.h
+        contentSize = sc.content_height or self.h
+        offsetField = "offset_y"
         if not (sc.direction == "vertical" or sc.direction == "both") then
             return false
         end
@@ -3581,8 +3581,8 @@ end
 function window:_scroll_bounds()
     local sc = self._scroll
     if not sc then return 0, 0, 0, 0 end
-    local cw = sc.contentWidth or self.w
-    local ch = sc.contentHeight or self.h
+    local cw = sc.content_width or self.w
+    local ch = sc.content_height or self.h
     local minX = math.min(0, self.w - cw)
     local maxX = 0
     local minY = math.min(0, self.h - ch)
@@ -3598,35 +3598,35 @@ function window:_handle_scroll_gesture(evt, x, y)
     if evt == "TOUCH_DOWN" then
         sc.active = self:contains_point(x, y)
         sc.dragging = false
-        sc.startX = x
-        sc.startY = y
-        sc.baseOffsetX = sc.offsetX
-        sc.baseOffsetY = sc.offsetY
+        sc.start_x = x
+        sc.start_y = y
+        sc.base_offset_x = sc.offset_x
+        sc.base_offset_y = sc.offset_y
         sc.snapped = false
         return false
     elseif evt == "MOVE_X" or evt == "MOVE_Y" then
         if not sc.active then return false end
         sc.dragging = true
-        local dx = x - (sc.startX or x)
-        local dy = y - (sc.startY or y)
+        local dx = x - (sc.start_x or x)
+        local dy = y - (sc.start_y or y)
         local minX, maxX, minY, maxY = self:_scroll_bounds()
         local changed = false
-        local snap_horizontal = sc.snapToPage and (sc.direction == "horizontal" or sc.direction == "both")
-        local snap_vertical = sc.snapToPage and (sc.direction == "vertical" or sc.direction == "both")
+        local snap_horizontal = sc.snap_to_page and (sc.direction == "horizontal" or sc.direction == "both")
+        local snap_vertical = sc.snap_to_page and (sc.direction == "vertical" or sc.direction == "both")
         if sc.direction == "horizontal" or sc.direction == "both" then
             if not snap_horizontal then
-                local nx = clamp((sc.baseOffsetX or 0) + dx, minX, maxX)
-                if nx ~= sc.offsetX then
-                    sc.offsetX = nx
+                local nx = clamp((sc.base_offset_x or 0) + dx, minX, maxX)
+                if nx ~= sc.offset_x then
+                    sc.offset_x = nx
                     changed = true
                 end
             end
         end
         if sc.direction == "vertical" or sc.direction == "both" then
             if not snap_vertical then
-                local ny = clamp((sc.baseOffsetY or 0) + dy, minY, maxY)
-                if ny ~= sc.offsetY then
-                    sc.offsetY = ny
+                local ny = clamp((sc.base_offset_y or 0) + dy, minY, maxY)
+                if ny ~= sc.offset_y then
+                    sc.offset_y = ny
                     changed = true
                 end
             end
@@ -3640,14 +3640,14 @@ function window:_handle_scroll_gesture(evt, x, y)
         sc.active = false
         sc.dragging = false
         if was_dragging then
-            if sc.snapToPage then
+            if sc.snap_to_page then
                 window_snap_axis(self, "x")
                 window_snap_axis(self, "y")
             end
             return true
         end
     elseif evt == "SWIPE_LEFT" or evt == "SWIPE_RIGHT" then
-        if sc.snapToPage and (sc.direction == "horizontal" or sc.direction == "both") then
+        if sc.snap_to_page and (sc.direction == "horizontal" or sc.direction == "both") then
             local mode = (evt == "SWIPE_LEFT") and "increment" or "decrement"
             window_snap_axis(self, "x", mode)
             sc.active = false
@@ -3656,7 +3656,7 @@ function window:_handle_scroll_gesture(evt, x, y)
             return true
         end
     elseif evt == "SWIPE_UP" or evt == "SWIPE_DOWN" then
-        if sc.snapToPage and (sc.direction == "vertical" or sc.direction == "both") then
+        if sc.snap_to_page and (sc.direction == "vertical" or sc.direction == "both") then
             local mode = (evt == "SWIPE_DOWN") and "increment" or "decrement"
             window_snap_axis(self, "y", mode)
             sc.active = false
@@ -3673,19 +3673,19 @@ function window:enable_scroll(opts)
     self._scroll = {
         enabled = true,
         direction = opts.direction or "vertical",
-        contentWidth = opts.contentWidth or opts.content_w or self.w,
-        contentHeight = opts.contentHeight or opts.content_h or self.h,
-        offsetX = 0,
-        offsetY = 0,
-        startX = 0,
-        startY = 0,
-        baseOffsetX = 0,
-        baseOffsetY = 0,
+        content_width = opts.content_width or opts.contentWidth or self.w,
+        content_height = opts.content_height or opts.contentHeight or self.h,
+        offset_x = 0,
+        offset_y = 0,
+        start_x = 0,
+        start_y = 0,
+        base_offset_x = 0,
+        base_offset_y = 0,
         active = false,
         dragging = false,
-        pageWidth = opts.pageWidth or self.w,
-        pageHeight = opts.pageHeight or self.h,
-        snapToPage = opts.snapToPage or false,
+        page_width = opts.page_width or self.w,
+        page_height = opts.page_height or self.h,
+        snap_to_page = opts.snap_to_page or false,
         snapped = false
     }
 end
@@ -3694,8 +3694,8 @@ function window:set_content_size(w, h)
     if not self._scroll then
         self:enable_scroll({})
     end
-    if w then self._scroll.contentWidth = w end
-    if h then self._scroll.contentHeight = h end
+    if w then self._scroll.content_width = w end
+    if h then self._scroll.content_height = h end
 end
 
 -- 启用子页面管理

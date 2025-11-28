@@ -29,22 +29,22 @@ local function ui_main()
     local win = ui.window({ background_color = ui.COLOR_WHITE })
 
     -- 启用横向滚动，将两页内容并排布置
-    local pageW, pageH = 320, 480
-    local totalW = pageW * 2
+    local page_w, page_h = 320, 480
+    local totalW = page_w * 2
 
     -- 创建横向滑动窗口
     win:enable_scroll({ 
         direction = "horizontal", 
-        contentWidth = totalW, 
+        content_width = totalW, 
         threshold = 8, 
-        pageWidth = pageW 
+        page_width = page_w 
     })
 
     -- 创建网格按钮函数
-    local function makeGrid(offsetX, labelPrefix)
+    local function makeGrid(offset_x, label_prefix)
         local cols, rows = 3, 3
         local bw, bh = 90, 80
-        local mx, my = 20 + offsetX, 60
+        local mx, my = 20 + offset_x, 60
         local gapx, gapy = 10, 10
         local n = 1
         for r = 0, rows - 1 do
@@ -54,7 +54,7 @@ local function ui_main()
                 local btn = ui.button({ 
                     x = x, y = y, 
                     w = bw, h = bh, 
-                    text = string.format("%s-%d", labelPrefix, n) 
+                    text = string.format("%s-%d", label_prefix, n) 
                 })
                 win:add(btn)
                 n = n + 1
@@ -64,7 +64,7 @@ local function ui_main()
 
     -- 创建左页和右页内容
     makeGrid(0, "P1")  -- 第一页
-    makeGrid(pageW, "P2")  -- 第二页
+    makeGrid(page_w, "P2")  -- 第二页
 
     -- 注册窗口到UI系统
     ui.add(win)

@@ -29,33 +29,33 @@ local function ui_main()
     local win = ui.window({ background_color = ui.COLOR_WHITE })
 
     -- 启用纵向分页滚动，将两页内容上下排布
-    local pageW, pageH = 320, 480
-    local totalH = pageH * 2
+    local page_w, page_h = 320, 480
+    local total_h = page_h * 2
 
     -- 创建纵向滑动窗口
     win:enable_scroll({ 
         direction = "vertical", 
-        content_h = totalH, 
+        content_height = total_h, 
         threshold = 10, 
-        pageHeight = pageH 
+        page_height = page_h 
     })
 
     -- 创建按钮布局函数
-    local function makebuttons(offsetY, labelPrefix)
+    local function makebuttons(offset_y, label_prefix)
         -- 竖直等间距排列：1列3行，水平居中
         local cols, rows = 1, 3
         local bw, bh = 90, 80
-        local mx = math.floor((pageW - bw) / 2) -- 居中
-        local gap = math.floor((pageH - rows * bh) / (rows + 1))
+        local mx = math.floor((page_w - bw) / 2) -- 居中
+        local gap = math.floor((page_h - rows * bh) / (rows + 1))
         if gap < 8 then gap = 8 end
         local n = 1
         for r = 0, rows - 1 do
             local x = mx
-            local y = offsetY + gap + r * (bh + gap)
+            local y = offset_y + gap + r * (bh + gap)
             local btn = ui.button({ 
                 x = x, y = y, 
                 w = bw, h = bh, 
-                text = string.format("%s-%d", labelPrefix, n) 
+                text = string.format("%s-%d", label_prefix, n) 
             })
             win:add(btn)
             n = n + 1
@@ -64,7 +64,7 @@ local function ui_main()
 
     -- 创建上页和下页内容
     makebuttons(0, "P1")  -- 第一页
-    makebuttons(pageH, "P2")  -- 第二页
+    makebuttons(page_h, "P2")  -- 第二页
 
     -- 注册窗口到UI系统
     ui.add(win)

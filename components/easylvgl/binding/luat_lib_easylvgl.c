@@ -12,6 +12,7 @@
 #include "lauxlib.h"
 #include "rotable2.h"
 #include "../inc/easylvgl.h"
+#include "luat_lcd.h"
 #include "../inc/easylvgl_component.h"
 #include "../lvgl9/src/widgets/button/lv_button.h"
 #include "../lvgl9/src/widgets/label/lv_label.h"
@@ -87,7 +88,11 @@ static int l_easylvgl_init(lua_State *L) {
     if (lua_isinteger(L, 4)) {
         buff_mode = luaL_checkinteger(L, 4);
     }
-    int ret = easylvgl_init_internal(w, h, buf_size, buff_mode);
+    luat_lcd_conf_t *lcd_conf = NULL;
+    if (lua_isuserdata(L, 5)) {
+        lcd_conf = (luat_lcd_conf_t *)lua_touserdata(L, 5);
+    }
+    int ret = easylvgl_init_internal(w, h, buf_size, buff_mode, lcd_conf);
     lua_pushboolean(L, ret == 0);
     return 1;
 }

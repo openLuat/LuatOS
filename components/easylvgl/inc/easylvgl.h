@@ -12,6 +12,7 @@ extern "C" {
 #endif
 
 #include "luat_base.h"
+#include "luat_lcd.h"
 #include "../lvgl9/lvgl.h"
 
 /*********************
@@ -52,9 +53,10 @@ typedef struct {
  * @param h 屏幕高度
  * @param buf_size 缓冲区大小（像素数，不含色深）
  * @param buff_mode 缓冲模式 bit0:是否使用lcdbuff bit1:buff1 bit2:buff2 bit3:是否使用lua heap
+ * @param lcd_conf 可选的 LCD 配置，传入后 LVGL 会直接往这个 LCD 输出
  * @return 成功返回0，失败返回-1
  */
-int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode);
+int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode, luat_lcd_conf_t* lcd_conf);
 
 /**
  * 反初始化 EasyLVGL

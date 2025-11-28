@@ -7,7 +7,10 @@
 #include "easylvgl.h"
 #include "luat_mem.h"
 #include "luat_log.h"
+#include "luat_lcd.h"
+#include <stdbool.h>
 #include "../lvgl9/lvgl.h"
+#include "easylvgl_component.h"
 
 #define LUAT_LOG_TAG "easylvgl"
 #include "luat_log.h"
@@ -21,8 +24,29 @@ static lv_indev_t *g_sdl2_indev = NULL;  // SDL2 输入设备
 #endif
 
 static easylvgl_display_t g_display = {0};
-static lua_State *g_L = NULL;
 static lv_timer_t *g_tick_timer = NULL;
+static luat_lcd_conf_t *g_lcd_conf = NULL;
+static bool g_buf1_owned = false;
+static bool g_buf2_owned = false;
+static bool g_lcd_output = false;
+
+static void *alloc_lv_buffer(lua_State *L, size_t size, int *ref, bool *owned, bool use_lua_heap) {
+    if (size == 0) {
+        return NULL;
+    }
+    if (use_lua_heap && L != NULL) {
+        void *buf = lua_newuserdata(L, size);
+        if (buf != NULL) {
+            *ref = luaL_ref(L, LUA_REGISTRYINDEX);
+            return buf;
+        }
+    }
+    void *buf = luat_heap_malloc(size);
+    if (buf != NULL && owned != NULL) {
+        *owned = true;
+    }
+    return buf;
+}
 
 /**
  * LVGL tick 更新定时器回调
@@ -133,13 +157,22 @@ void easylvgl_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_
         // 执行最终的刷新操作
         luat_sdl2_flush();
     }
-    
 #else
-    // 非 SDL2 模式：这里可以调用实际的嵌入式显示驱动
+    #ifdef LUAT_USE_LCD
+    if (g_lcd_conf != NULL) {
+        luat_color_t *color_p = (luat_color_t *)px_map;
+        luat_lcd_draw(g_lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+        if (lv_display_flush_is_last(disp)) {
+            g_lcd_conf->buff_draw = color_p;
+            luat_lcd_flush(g_lcd_conf);
+        }
+        lv_display_flush_ready(disp);
+        return;
+    }
+    #endif
     (void)w;
     (void)h;
     (void)px_map;
-    // 例如：调用 LCD 驱动的 flush 函数
 #endif
     
     // 通知 LVGL 刷新完成
@@ -149,19 +182,81 @@ void easylvgl_disp_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_
 /**
  * 初始化 EasyLVGL
  */
-int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode) {
+int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode, luat_lcd_conf_t* lcd_conf) {
     if (g_display.display != NULL) {
         LLOGE("EasyLVGL already initialized");
         return -1;
     }
-    
-    // 初始化 LVGL
+
     if (!lv_is_initialized()) {
         lv_init();
     }
-    
+
+    lua_State *L = easylvgl_get_lua_state();
+    g_display.buf1_ref = LUA_NOREF;
+    g_display.buf2_ref = LUA_NOREF;
+    g_buf1_owned = false;
+    g_buf2_owned = false;
+    g_lcd_output = false;
+
+#ifdef LUAT_USE_LCD
+    if (lcd_conf == NULL) {
+        lcd_conf = luat_lcd_get_default();
+    }
+    g_lcd_conf = lcd_conf;
+    if (g_lcd_conf != NULL) {
+        g_lcd_conf->lcd_use_lvgl = 1;
+        if (w == 0) {
+            w = g_lcd_conf->w;
+        }
+        if (h == 0) {
+            h = g_lcd_conf->h;
+        }
+    }
+    LLOGD("lcd_conf: %p, w: %d, h: %d", g_lcd_conf, w, h);
+#else
+    (void)lcd_conf;
+    g_lcd_conf = NULL;
+#endif
+
+    #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS)
+    if (w == 0) w = 800;
+    if (h == 0) h = 640;
+    #else
+    if (w == 0 || h == 0) {
+        LLOGE("setup lcd first!!");
+        return -1;
+    }
+    #endif
+
+    if (buf_size == 0) {
+        buf_size = w * 10;
+    }
+
+#ifdef LUAT_USE_LCD
+    bool use_lcd_buffer = false;
+    if (g_lcd_conf != NULL && g_lcd_conf->buff != NULL && (buff_mode & 0x01) == 0) {
+        buff_mode |= 0x01;
+    }
+    if ((buff_mode & 0x01) && g_lcd_conf != NULL && g_lcd_conf->buff != NULL) {
+        use_lcd_buffer = true;
+        buf_size = (size_t)w * h;
+    }
+#else
+    bool use_lcd_buffer = false;
+#endif
+
+    size_t fbuff_pixels = buf_size;
+    size_t buf_size_bytes = fbuff_pixels * sizeof(lv_color_t);
+    bool need_buf1 = (buff_mode & 0x02) != 0;
+    bool need_buf2 = (buff_mode & 0x04) != 0;
+    if (!need_buf1) {
+        need_buf1 = true;
+    }
+    bool use_lua_heap = (buff_mode & 0x08) != 0;
+    int result = -1;
+
 #ifdef LUAT_USE_LVGL_SDL2
-    // 初始化 SDL2 显示
     luat_sdl2_conf_t conf = {
         .width = w,
         .height = h,
@@ -173,93 +268,59 @@ int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode) {
     }
     LLOGD("SDL2 initialized: %dx%d", w, h);
 #endif
-    
-    // 创建显示对象（必须在输入设备之前创建！）
+
     g_display.display = lv_display_create(w, h);
     if (g_display.display == NULL) {
         LLOGE("Failed to create display");
-        return -1;
+        goto cleanup;
     }
-    
-    // 设置颜色格式为 RGB565（16位）
+
     lv_display_set_color_format(g_display.display, LV_COLOR_FORMAT_RGB565);
-    
-    // 计算缓冲区大小（字节）
-    if (buf_size == 0) {
-        buf_size = w * 10;  // 默认 10 行
-    }
-    
-    // 每个像素 2 字节（RGB565）
-    size_t buf_size_bytes = buf_size * sizeof(lv_color_t);
-    
-    // 分配缓冲区
-    if (buff_mode & 0x08) {
-        // 使用 Lua heap
-        if (buff_mode & 0x02) {
-            g_display.buf1 = luat_heap_malloc(buf_size_bytes);
-            if (g_display.buf1 == NULL) {
-                LLOGE("Failed to allocate buf1");
-                lv_display_delete(g_display.display);
-                g_display.display = NULL;
-                return -1;
-            }
+
+    if (need_buf1) {
+#ifdef LUAT_USE_LCD
+        if (use_lcd_buffer && g_lcd_conf != NULL) {
+            g_display.buf1 = g_lcd_conf->buff;
+            g_lcd_output = true;
+        } else
+#endif
+        {
+            g_display.buf1 = alloc_lv_buffer(L, buf_size_bytes, &g_display.buf1_ref, &g_buf1_owned, use_lua_heap);
         }
-        if (buff_mode & 0x04) {
-            g_display.buf2 = luat_heap_malloc(buf_size_bytes);
-            if (g_display.buf2 == NULL) {
-                LLOGE("Failed to allocate buf2");
-                if (g_display.buf1) {
-                    luat_heap_free(g_display.buf1);
-                    g_display.buf1 = NULL;
-                }
-                lv_display_delete(g_display.display);
-                g_display.display = NULL;
-                return -1;
-            }
-        }
-    } else {
-        // 使用系统 heap
-        if (buff_mode & 0x02) {
-            g_display.buf1 = luat_heap_malloc(buf_size_bytes);
-            if (g_display.buf1 == NULL) {
-                LLOGE("Failed to allocate buf1");
-                lv_display_delete(g_display.display);
-                g_display.display = NULL;
-                return -1;
-            }
-        }
-        if (buff_mode & 0x04) {
-            g_display.buf2 = luat_heap_malloc(buf_size_bytes);
-            if (g_display.buf2 == NULL) {
-                LLOGE("Failed to allocate buf2");
-                if (g_display.buf1) {
-                    luat_heap_free(g_display.buf1);
-                    g_display.buf1 = NULL;
-                }
-                lv_display_delete(g_display.display);
-                g_display.display = NULL;
-                return -1;
-            }
+        if (g_display.buf1 == NULL) {
+            LLOGE("Failed to allocate buf1");
+            goto cleanup;
         }
     }
-    
+
+    if (need_buf2) {
+#ifdef LUAT_USE_LCD
+        if (use_lcd_buffer && g_lcd_conf != NULL && g_lcd_conf->buff_ex != NULL) {
+            g_display.buf2 = g_lcd_conf->buff_ex;
+            g_lcd_output = true;
+        } else
+#endif
+        {
+            g_display.buf2 = alloc_lv_buffer(L, buf_size_bytes, &g_display.buf2_ref, &g_buf2_owned, use_lua_heap);
+        }
+        if (g_display.buf2 == NULL) {
+            LLOGE("Failed to allocate buf2");
+            goto cleanup;
+        }
+    }
+
     g_display.buf_size = buf_size_bytes;
-    
-    // 设置缓冲区（使用 PARTIAL 渲染模式）
-    lv_display_set_buffers(g_display.display, 
-                          g_display.buf1, 
-                          g_display.buf2, 
+
+    lv_display_set_buffers(g_display.display,
+                          g_display.buf1,
+                          g_display.buf2,
                           buf_size_bytes,
                           LV_DISPLAY_RENDER_MODE_PARTIAL);
-    
-    // 设置刷新回调
+
     lv_display_set_flush_cb(g_display.display, easylvgl_disp_flush);
-    
-    // 设置为默认显示
     lv_display_set_default(g_display.display);
-    
+
 #ifdef LUAT_USE_LVGL_SDL2
-    // 初始化 SDL2 输入设备（必须在显示设备创建并设为默认之后！）
     g_sdl2_indev = lv_sdl_init_input();
     if (g_sdl2_indev != NULL) {
         LLOGD("SDL2 input initialized");
@@ -267,66 +328,83 @@ int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode) {
 #endif
 
 #ifndef LUAT_USE_LVGL_SDL2
-    // 在非 PC 模拟器平台上，创建 tick 定时器（每 5ms 调用一次）
-    // PC 模拟器上由 C 层 libuv 定时器处理 tick 更新
     g_tick_timer = lv_timer_create(easylvgl_tick_timer_cb, 5, NULL);
     if (g_tick_timer == NULL) {
         LLOGE("Failed to create tick timer");
-        lv_display_delete(g_display.display);
-        g_display.display = NULL;
-        return -1;
+        goto cleanup;
     }
 #endif
 
-    // 初始化 EasyLVGL 面向 LuatOS 文件系统的 LVGL 9 文件驱动。
     easylvgl_fs_init();
-    
-    LLOGD("EasyLVGL initialized: %dx%d, buf_size=%d, mode=0x%02x", 
+
+    LLOGD("EasyLVGL initialized: %dx%d, buf_size=%d, mode=0x%02x",
           w, h, (int)buf_size_bytes, buff_mode);
-    
-    return 0;
+
+    result = 0;
+
+cleanup:
+    if (result != 0) {
+        easylvgl_deinit();
+    }
+    return result;
 }
 
 /**
  * 反初始化 EasyLVGL
  */
 void easylvgl_deinit(void) {
-    // 删除定时器
+    lua_State *L = easylvgl_get_lua_state();
     if (g_tick_timer != NULL) {
         lv_timer_delete(g_tick_timer);
         g_tick_timer = NULL;
     }
-    
-    // 释放缓冲区
-    if (g_display.buf1 != NULL) {
+
+    if (g_display.buf1_ref != LUA_NOREF && L != NULL) {
+        luaL_unref(L, LUA_REGISTRYINDEX, g_display.buf1_ref);
+    }
+    if (g_display.buf2_ref != LUA_NOREF && L != NULL) {
+        luaL_unref(L, LUA_REGISTRYINDEX, g_display.buf2_ref);
+    }
+    g_display.buf1_ref = LUA_NOREF;
+    g_display.buf2_ref = LUA_NOREF;
+
+    if (g_buf1_owned && g_display.buf1 != NULL) {
         luat_heap_free(g_display.buf1);
-        g_display.buf1 = NULL;
     }
-    if (g_display.buf2 != NULL) {
+    if (g_buf2_owned && g_display.buf2 != NULL) {
         luat_heap_free(g_display.buf2);
-        g_display.buf2 = NULL;
     }
-    
-    // 删除显示对象
+
+    g_display.buf1 = NULL;
+    g_display.buf2 = NULL;
+    g_display.buf_size = 0;
+    g_buf1_owned = false;
+    g_buf2_owned = false;
+    g_lcd_output = false;
+
     if (g_display.display != NULL) {
         lv_display_delete(g_display.display);
         g_display.display = NULL;
     }
-    
+
+#ifdef LUAT_USE_LCD
+    if (g_lcd_conf != NULL) {
+        g_lcd_conf->lcd_use_lvgl = 0;
+        g_lcd_conf = NULL;
+    }
+#endif
+
 #ifdef LUAT_USE_LVGL_SDL2
-    // 释放 SDL2 帧缓冲区
     if (g_sdl2_fb != NULL) {
         luat_heap_free(g_sdl2_fb);
         g_sdl2_fb = NULL;
         g_sdl2_fb_size = 0;
     }
-    // 反初始化 SDL2 输入设备
     lv_sdl_deinit_input();
     g_sdl2_indev = NULL;
-    // 反初始化 SDL2
     luat_sdl2_deinit(NULL);
 #endif
-    
+
     LLOGD("EasyLVGL deinitialized");
 }
 

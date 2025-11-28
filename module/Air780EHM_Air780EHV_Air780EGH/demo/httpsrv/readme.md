@@ -1,0 +1,114 @@
+## 功能模块介绍
+
+1、main.lua：主程序入口；
+
+2、httpsrv_start.lua：HTTP服务器实现模块，包含服务器初始化、路由处理、文本发送和WiFi扫描功能；
+
+3、index.html：Web控制界面，提供LED控制按钮、文本发送输入框和WiFi扫描功能；
+
+4、netdrv_eth_spi.lua：网络驱动设备功能模块，通过以太网SPI网卡驱动，SPI接口连接CH390H芯片实现有线网络连接；
+
+## 演示功能概述
+
+1、HTTP服务器：创建Web服务器，提供Web控制界面
+
+- 支持以太网SPI模式
+- HTTP服务器监听80端口，通过网线连接网络，IP地址由路由器DHCP分配
+- 支持访问Web控制界面
+
+2、文本发送功能：通过Web界面发送文本数据
+
+- 提供文本发送（/send/text）接口
+- 支持在Web界面的输入框中输入文本并发送
+- 发送的文本会在设备日志中显示
+
+3、WiFi扫描功能：搜索周围可用的WiFi热点
+
+- 提供开始扫描（/scan/go）接口
+- 提供获取扫描结果（/scan/list）接口
+- Web界面上有扫描按钮，点击后显示周围WiFi热点列表
+- 显示WiFi的SSID和信号强度信息
+
+## 演示硬件环境
+
+1、Air780EHM/Air780EHV/Air780EGH核心板一块+AirETH_1000配件板+可上网的sim卡一张+wifi天线一根：
+
+2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为：
+
+- Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
+  
+3、AirETH_1000配件板一块，Air780EHM/Air780EHV/Air780EGH核心板和AirETH_1000配件板的硬件接线方式为:
+
+| Air780EHM/Air780EHV/Air780EGH核心板  |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 107/GPIO21      | INT               |
+
+## 演示软件环境
+
+1、Luatools下载调试工具
+
+2、固件获取地址：
+
+[Air780EHM 固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)
+
+[Air780EHV 固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+[Air780EGH 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
+
+## 演示核心步骤
+
+### 以太网SPI模式
+
+1、按照选择网卡模式的说明，配置为以太网SPI模式
+
+2、确保AirETH_1000配件板正确连接到Air780EHM/Air780EHV/Air780EGH核心板
+
+3、使用网线将AirETH_1000配件板连接到路由器或网络交换机
+
+4、使用Luatools烧录内核固件和demo脚本代码
+
+5、烧录成功后，设备自动开机运行并尝试通过AirETH_1000配件板连接到网络
+
+6、通过Luatools日志查看设备获取的IP地址（例如：192.168.1.101）
+
+7、确保你的电脑连接到同一路由器或网络
+
+8、在浏览器中输入设备的IP地址（如http://192.168.1.101），访问Web控制界面
+
+## Web控制界面功能
+
+在浏览器访问Web控制界面后，你可以使用以下功能：
+
+- 发送文本消息（会显示在设备日志中）
+- 点击WiFi扫描按钮，查看周围可用的WiFi热点列表
+
+```lua
+[2025-11-28 13:31:17.997][000000000.201] I/user.main project name is  httpsrv_testdemo version is  001.000.000
+[2025-11-28 13:31:17.999][000000000.207] change from 1 to 4
+[2025-11-28 13:31:18.000][000000000.207] SPI_HWInit 552:spi0 speed 25600000,25600000,12
+[2025-11-28 13:31:18.002][000000000.208] I/user.netdrv_eth_spi spi open result 0
+[2025-11-28 13:31:18.003][000000000.208] D/ch390h 注册CH390H设备(4) SPI id 0 cs 8 irq 255
+[2025-11-28 13:31:18.006][000000000.209] D/ch390h adapter 4 netif init ok
+[2025-11-28 13:31:25.657][000000008.223] D/DHCP DHCP get ip ready
+[2025-11-28 13:31:25.659][000000008.223] D/ulwip adapter 4 ip 192.168.1.2
+[2025-11-28 13:31:25.661][000000008.223] D/ulwip adapter 4 mask 255.255.255.0
+[2025-11-28 13:31:25.662][000000008.223] D/ulwip adapter 4 gateway 192.168.1.1
+[2025-11-28 13:31:25.663][000000008.223] D/ulwip adapter 4 lease_time 86400s
+[2025-11-28 13:31:25.665][000000008.224] D/ulwip adapter 4 DNS1:192.168.1.1
+[2025-11-28 13:31:25.667][000000008.224] D/net network ready 4, setup dns server
+[2025-11-28 13:31:25.668][000000008.225] D/netdrv IP_READY 4 192.168.1.2
+[2025-11-28 13:31:25.670][000000008.226] I/user.netdrv_eth_spi.ip_ready_func IP_READY 192.168.1.2 255.255.255.0 192.168.1.1 nil
+[2025-11-28 13:31:25.671][000000008.227] I/httpsrv http listen at 192.168.1.2:80
+[2025-11-28 13:31:25.674][000000008.227] I/user.HTTP 文件服务器已启动，使用AirETH_1000-以太网模式
+[2025-11-28 13:31:25.676][000000008.228] I/user.HTTP 访问地址: http://192.168.1.2
+
+```
+
+通过Luatools工具，可以查看设备的运行日志，包括收到的文本消息和WiFi扫描结果

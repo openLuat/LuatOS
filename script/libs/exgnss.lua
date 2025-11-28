@@ -304,10 +304,14 @@ local function is_agps()
     -- 如果不是强制写入AGPS信息, 而且是已经定位成功的状态,那就没必要了
     if libgnss.isFix() then return end
     -- 先判断一下时间
-    while not socket.adapter() do
-        log.warn("gnss_agps", "wait IP_READY")
-        -- 在此处阻塞等待WIFI连接成功的消息"IP_READY"
-        -- 或者等待30秒超时退出阻塞等待状态
+    while not socket.adapter(socket.dft()) do
+        log.warn("airlbs_multi_cells_wifi_func", "wait IP_READY", socket.dft())
+        -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+        -- 或者等待1秒超时退出阻塞等待状态;
+        -- 注意：此处的1000毫秒超时不要修改的更长；
+        -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+        -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+        -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
         local result=sys.waitUntil("IP_READY", 30000)
         if result == false then
             log.warn("gnss_agps", "wait IP_READY timeout")
@@ -338,6 +342,7 @@ local function fnc_open()
     uart.setup(uart_id, uart_baudrate)
     -- pm.power(pm.GPS, false)
     pm.power(pm.GPS, true)
+    openFlag = true
     if exgnss.opts.gnssmode==1 then
         --默认全开启
         log.info("全卫星开启")
@@ -374,7 +379,6 @@ local function fnc_open()
      sys.timerStart(function()
         uart.write(uart_id,"$CFGMSG,0,6,1,1\r\n")
     end,900)
-    openFlag = true
     sys.publish("GNSS_STATE","OPEN")
     log.info("exgnss._open")
 end

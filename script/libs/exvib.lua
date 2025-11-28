@@ -111,9 +111,11 @@ sys.taskInit(vib_fnc)
 
 ]]
 local exvib={}
-
-local i2cId = 0
-
+local i2cId=0
+local bsp=rtos.bsp()
+if bsp:find("780") then
+    i2cId = 1
+end
 local da221Addr = 0x27
 local soft_reset = {0x00, 0x24}         -- 软件复位地址
 local chipid_addr = 0x01                -- 芯片ID地址
@@ -213,7 +215,11 @@ end
 
 --初始化da221
 local function da221_init()
-    gpio.setup(24, 1, gpio.PULLUP)  -- gsensor 开关
+    if bsp:find("780") then
+        gpio.setup(23, 1, gpio.PULLUP)  -- gsensor 开关
+    else
+        gpio.setup(24, 1, gpio.PULLUP)  -- gsensor 开关
+    end
     --关闭i2c
     i2c.close(i2cId)
     --重新打开i2c,i2c速度设置为低速
@@ -294,6 +300,11 @@ end
     exvib.close()
 ]]
 function exvib.close()
+    if bsp:find("780") then
+        gpio.close(23)  -- gsensor供电关闭
+    else
+        gpio.close(24)  -- gsensor供电关闭
+    end
     gpio.close(24)  -- gsensor供电关闭
     log.info("exvib close..")
 end

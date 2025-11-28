@@ -2,12 +2,12 @@
 @module exchg
 @summary exchg扩展库
 @version 1.0
-@date    2025.08.08
+@date    2025.11.25
 @author  王世豪
 @usage
 -- 应用场景
-本扩展库适用于Air8000/Air7000/Air6000等集成了内置电池充电方案的模组型号；
-Air8000/Air7000/Air6000内置的充电IC为YHM2712，exchg扩展库基于本充电IC进行设计；
+本扩展库适用于Air8000/8000G/8000XB/8000GB等集成了内置电池充电方案的模组型号；
+Air8000/8000G/8000XB/8000GB内置的充电IC为YHM2712，exchg扩展库基于本充电IC进行设计；
 
 -- 用法实例
 本扩展库对外提供了以下5个接口：

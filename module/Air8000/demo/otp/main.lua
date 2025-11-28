@@ -5,8 +5,8 @@
 @date    2025.9.05
 @author  马亚丹
 @usage
-本demo演示的功能为：使用Air780EPM核心板演示fskv核心库API 的用法，
-详细逻辑请看fskv_test.lua文件
+本demo演示的功能为：使用Air8000核心板演示otp核心库API 的用法，
+详细逻辑请看otp_test.lua文件
 
 
 ]]
@@ -21,7 +21,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air780EPM_fskv"
+PROJECT = "Air8000_otp"
 VERSION = "001.000.000"
 
 
@@ -65,8 +65,8 @@ end
 
 
 
--- 加载fskv_test功能模块
-require "fskv_test"
+-- 加载otp_test功能模块
+require "otp_test"
 
 
 

@@ -24,6 +24,8 @@ sys.wait(5000) -- 等待5秒
 pwm.setDuty(1, 25) -- 设置PWM1占空比25%
 sys.wait(5000) -- 等待5秒
 pwm.stop(1) -- 关闭PWM1
+
+-- 提醒: pwm.setFreq和pwm.setDuty的, 仅在start/open状态下立即生效, stop/close状态是不会生效的
 */
 #include "luat_base.h"
 #include "luat_pwm.h"
@@ -31,6 +33,9 @@ pwm.stop(1) -- 关闭PWM1
 
 #define LUAT_LOG_TAG "pwm"
 #include "luat_log.h"
+
+static uint32_t s_state = 0;
+static luat_pwm_conf_t* confs[12];
 
 /**
 开启指定的PWM通道
@@ -62,6 +67,9 @@ static int l_pwm_open(lua_State *L) {
         conf.precision = luaL_checkinteger(L, 5);
     }
     int ret = luat_pwm_setup(&conf);
+    if (ret == 0) {
+        s_state |= (1 << conf.channel);
+    }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -76,7 +84,9 @@ static int l_pwm_open(lua_State *L) {
 pwm.close(5)
  */
 static int l_pwm_close(lua_State *L) {
-    luat_pwm_close(luaL_checkinteger(L, 1));
+    int channel = luaL_checkinteger(L, 1);
+    luat_pwm_close(channel);
+    s_state &= ~(1 << channel);
     return 0;
 }
 
@@ -103,7 +113,6 @@ static int l_pwm_capture(lua_State *L) {
 }
 
 // 新的API系列, 封装老的版本, bsp层暂时不改
-static luat_pwm_conf_t* confs[6];
 
 /*
 初始化指定的PWM通道
@@ -149,7 +158,7 @@ static int l_pwm_setup(lua_State *L) {
 
 static int check_channel(lua_State *L) {
     int channel = luaL_checkinteger(L, 1);
-    if (channel > 5 || channel < 0) {
+    if (channel >= 12 || channel < 0) {
         return -1;
     }
     if (confs[channel] == NULL) {
@@ -173,8 +182,10 @@ static int l_pwm_start(lua_State *L) {
     if (channel < 0) {
         return 0;
     }
-    luat_pwm_conf_t conf = *confs[channel];
-    int ret = luat_pwm_setup(&conf);
+    int ret = luat_pwm_setup(confs[channel]);
+    if (ret == 0) {
+        s_state |= (1 << channel);
+    }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -196,6 +207,7 @@ static int l_pwm_stop(lua_State *L) {
     luat_pwm_close(channel);
     luat_heap_free(confs[channel]);
     confs[channel] = NULL;
+    s_state &= ~(1 << channel);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -217,8 +229,14 @@ static int l_pwm_set_duty(lua_State *L) {
     }
     confs[channel]->pulse = luaL_checkinteger(L, 2);
     luat_pwm_conf_t conf = *confs[channel];
-    int ret = luat_pwm_setup(&conf);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    // 如果已经是打开状态, 需要重新setup一下
+    if (s_state & (1 << channel)) {
+        int ret = luat_pwm_setup(&conf);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    }
+    else {
+        lua_pushboolean(L, 1);
+    }
     return 1;
 }
 
@@ -239,8 +257,14 @@ static int l_pwm_set_freq(lua_State *L) {
     }
     confs[channel]->period = luaL_checkinteger(L, 2);
     luat_pwm_conf_t conf = *confs[channel];
-    int ret = luat_pwm_setup(&conf);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    // 如果已经是打开状态, 需要重新setup一下
+    if (s_state & (1 << channel)) {
+        int ret = luat_pwm_setup(&conf);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    }
+    else {
+        lua_pushboolean(L, 1);
+    }
     return 1;
 }
 

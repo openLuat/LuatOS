@@ -39,7 +39,6 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-- USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
 5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
 
@@ -70,28 +69,6 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 | 57/DE         | SDI               |
 | 14/GPIO8      | INT               |
 
-7、可选Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板一块，Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式为:
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | 83/SPI0CS                                     |
-| 55/HSYN       | 84/SPI0MISO                                   |
-| 57/DE         | 85/SPI0MOSI                                   |
-| 28/DCLK       | 86/SPI0CLK                                    |
-| 43/R2         | 19/GPIO22                                     |
-| 75/GPIO28     | 22/GPIO1                                      |
-
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM开发板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | SPI_CS                                        |
-| 55/HSYN       | SPI_MISO                                      |
-| 57/DE         | SPI_MOSI                                      |
-| 28/DCLK       | SPI_CLK                                       |
-| 43/R2         | GPIO22                                        |
-| 75/GPIO28     | GPIO1                                         |
 
 ## 演示软件环境
 

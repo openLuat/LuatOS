@@ -52,7 +52,7 @@ int luat_airlink_cmd_exec_fota_write(luat_airlink_cmd_t *cmd, void *userdata)
 {
     // LLOGD("收到FOTA数据, len=%ld %02X%02X%02X%02X", cmd->len, cmd->data[0], cmd->data[1], cmd->data[2], cmd->data[3]);
     int ret = luat_fota_write(cmd->data, cmd->len);
-    if (ret) {
+    if (ret < 0) {
         LLOGD("fota_write ret %d", ret);
     }
     return 0;

@@ -24,7 +24,7 @@ int luat_fota_init(uint32_t start_address, uint32_t len, luat_spi_device_t* spi_
 /// @brief 用于向本地 Flash 中写入升级包数据
 /// @param data 升级包数据
 /// @param len 升级包数据长度
-/// @return int =0成功，其他失败
+/// @return int >=0成功，其他失败
 int luat_fota_write(uint8_t *data, uint32_t len);
 
 /// @brief 用于结束升级包下载

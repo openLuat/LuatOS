@@ -472,7 +472,7 @@ __USER_FUNC_IN_RAM__ static void spi_irq_task(void *param)
 
 void luat_airlink_start_master(void)
 {
-    if (spi_task_handle != NULL)
+    if (s_txbuff != NULL)
     {
         LLOGE("SPI主机任务已经启动过了!!!");
         return;

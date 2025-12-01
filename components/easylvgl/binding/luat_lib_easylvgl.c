@@ -29,6 +29,7 @@ static int l_easylvgl_label(lua_State *L);
 static int l_easylvgl_image(lua_State *L);
 static int l_easylvgl_win(lua_State *L);
 static int l_easylvgl_handler(lua_State *L);
+static int l_easylvgl_indev_drv_register(lua_State *L);
 
 static void register_button_meta(lua_State *L);
 static void register_label_meta(lua_State *L);
@@ -60,6 +61,7 @@ static int l_win_gc(lua_State *L);
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"handler", ROREG_FUNC(l_easylvgl_handler)},
+    {"indev_drv_register", ROREG_FUNC(l_easylvgl_indev_drv_register)},
     {"button", ROREG_FUNC(l_easylvgl_button)},
     {"label", ROREG_FUNC(l_easylvgl_label)},
     {"image", ROREG_FUNC(l_easylvgl_image)},
@@ -140,6 +142,20 @@ static int l_easylvgl_win(lua_State *L) {
 static int l_easylvgl_handler(lua_State *L) {
     uint32_t time_till_next = lv_timer_handler();
     lua_pushinteger(L, time_till_next);
+    return 1;
+}
+
+static int l_easylvgl_indev_drv_register(lua_State *L) {
+    const char *type = luaL_checkstring(L, 1);
+    const char *dtype = luaL_checkstring(L, 2);
+    int ok = 0;
+    if (!strcmp(type, "pointer") && !strcmp(dtype, "touch")) {
+        if (lua_isuserdata(L, 3)) {
+            luat_tp_config_t *tp_config = (luat_tp_config_t *)lua_touserdata(L, 3);
+            ok = easylvgl_indev_tp_register(tp_config) == 0;
+        }
+    }
+    lua_pushboolean(L, ok);
     return 1;
 }
 

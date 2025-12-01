@@ -152,9 +152,12 @@ void easylvgl_label_set_text(lv_obj_t *label, const char *text);
 /**
  * 获取标签文本
  * @param label 标签对象
- * @return 文本内容指针
+ * @return 文本内容
  */
 const char *easylvgl_label_get_text(lv_obj_t *label);
+
+typedef struct luat_tp_config luat_tp_config_t;
+int easylvgl_indev_tp_register(luat_tp_config_t* luat_tp_config);
 
 #ifdef __cplusplus
 } /*extern "C"*/

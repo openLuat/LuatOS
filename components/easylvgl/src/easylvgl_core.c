@@ -8,6 +8,7 @@
 #include "luat_mem.h"
 #include "luat_log.h"
 #include "luat_lcd.h"
+#include "luat_timer.h"
 #include <stdbool.h>
 #include "../lvgl9/lvgl.h"
 #include "easylvgl_component.h"
@@ -18,13 +19,19 @@
 #ifdef LUAT_USE_LVGL_SDL2
 #include "luat_sdl2.h"
 #include "../sdl2/lv_sdl_drv_input.h"
+#endif
+
+#define EASYLVGL_TICK_TIMER_ID 0xE5E5
+
+#ifdef LUAT_USE_LVGL_SDL2
 static uint32_t *g_sdl2_fb = NULL;       // SDL2 临时帧缓冲区（用于转换为 ARGB8888）
 static size_t g_sdl2_fb_size = 0;        // SDL2 帧缓冲区大小
 static lv_indev_t *g_sdl2_indev = NULL;  // SDL2 输入设备
 #endif
 
 static easylvgl_display_t g_display = {0};
-static lv_timer_t *g_tick_timer = NULL;
+static luat_timer_t g_tick_timer = {0};
+static bool g_tick_timer_registered = false;
 static luat_lcd_conf_t *g_lcd_conf = NULL;
 static bool g_buf1_owned = false;
 static bool g_buf2_owned = false;
@@ -48,12 +55,11 @@ static void *alloc_lv_buffer(lua_State *L, size_t size, int *ref, bool *owned, b
     return buf;
 }
 
-/**
- * LVGL tick 更新定时器回调
- */
-static void easylvgl_tick_timer_cb(lv_timer_t *timer) {
-    (void)timer;
+static int easylvgl_tick_timer_msg_handler(lua_State *L, void *ptr) {
+    (void)L;
+    (void)ptr;
     lv_tick_inc(5);  // 5ms tick
+    return 0;
 }
 
 /**
@@ -328,11 +334,16 @@ int easylvgl_init_internal(int w, int h, size_t buf_size, uint8_t buff_mode, lua
 #endif
 
 #ifndef LUAT_USE_LVGL_SDL2
-    g_tick_timer = lv_timer_create(easylvgl_tick_timer_cb, 5, NULL);
-    if (g_tick_timer == NULL) {
-        LLOGE("Failed to create tick timer");
+    g_tick_timer.id = EASYLVGL_TICK_TIMER_ID;
+    g_tick_timer.timeout = 5;
+    g_tick_timer.repeat = -1;
+    g_tick_timer.func = easylvgl_tick_timer_msg_handler;
+    g_tick_timer.type = 0;
+    if (luat_timer_start(&g_tick_timer) != 0) {
+        LLOGE("Failed to start tick timer");
         goto cleanup;
     }
+    g_tick_timer_registered = true;
 #endif
 
     easylvgl_fs_init();
@@ -354,10 +365,12 @@ cleanup:
  */
 void easylvgl_deinit(void) {
     lua_State *L = easylvgl_get_lua_state();
-    if (g_tick_timer != NULL) {
-        lv_timer_delete(g_tick_timer);
-        g_tick_timer = NULL;
+    #ifndef LUAT_USE_LVGL_SDL2
+    if (g_tick_timer_registered) {
+        luat_timer_stop(&g_tick_timer);
+        g_tick_timer_registered = false;
     }
+    #endif
 
     if (g_display.buf1_ref != LUA_NOREF && L != NULL) {
         luaL_unref(L, LUA_REGISTRYINDEX, g_display.buf1_ref);

@@ -31,9 +31,9 @@
 
 ## 演示硬件环境
 
-1、Air780EHM/Air780EHV/Air780EGH核心板一块+AirETH_1000配件板+可上网的sim卡一张+wifi天线一根：
+1、Air780EHM/Air780EHV/Air780EGH核心板一块+AirETH_1000配件板：
 
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为：
+2、TYPE-C USB数据线一根，Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为：
 
 - Air780EHM/Air780EHV/Air780EGH核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
@@ -66,9 +66,7 @@
 
 ### 以太网SPI模式
 
-1、按照选择网卡模式的说明，配置为以太网SPI模式
-
-2、确保AirETH_1000配件板正确连接到Air780EHM/Air780EHV/Air780EGH核心板
+1、确保AirETH_1000配件板正确连接到Air780EHM/Air780EHV/Air780EGH核心板
 
 3、使用网线将AirETH_1000配件板连接到路由器或网络交换机
 

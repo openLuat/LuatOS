@@ -44,7 +44,7 @@ wlan.init()
 -- Air8101仅支持2.4G的WIFI，不支持5G的WIFI
 -- 此处前两个参数表示WIFI热点名称以及密码，更换为自己测试时的真实参数即可
 -- 第三个参数1表示WIFI连接异常时，内核固件会自动重连
-wlan.connect("vivox200", "00000008", 1)
+wlan.connect("vivo x200", "123456780", 1)
 
 -- WIFI联网成功（做为STATION成功连接AP，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
 -- 各个功能模块可以订阅"IP_READY"消息实时处理WIFI联网成功的事件

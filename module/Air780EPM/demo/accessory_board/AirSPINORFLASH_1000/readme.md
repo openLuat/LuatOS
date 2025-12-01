@@ -6,7 +6,6 @@
 
 3. lf_fs：通过littleFS文件系统,对flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
 
-
 ## 演示功能概述：
 
 ### raw_spi：
@@ -35,7 +34,6 @@
 
 5.操作文件读写，并验证写入一致性，追加文件等。
 
-
 ## 演示硬件环境：
 
 ![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/780EPM.jpg)
@@ -47,9 +45,9 @@
 2. 合宙 AirSPINORFLASH_1000 一块
 
 3. TYPE-C USB 数据线一根 ，Air780EPM 核心板和数据线的硬件接线方式为：
-- Air780EPM 核心板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
+- Air780EPM 核心板通过 TYPE-C USB 口供电；（USB的拨码开关off/on,拨到on）
 
-- TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
+- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 4. 杜邦线 6 根
 
     Air780EPM 核心板与 AirSPINORFLASH_1000 按以下方式接线：
@@ -74,7 +72,6 @@
 ## 演示软件环境：
 
 1. Luatools 下载调试工具
-
 
 2. 固件版本：LuatOS-SoC_V2018_Air780EPM_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air780epm/luatos/firmware/version/](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 
@@ -148,7 +145,5 @@
 
 
 ```
-
-
 
 

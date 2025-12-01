@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单spi以太网卡，单pc模拟器网卡，多网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡(单spi以太网卡，单pc模拟器网卡，多网卡)中的任何一种网卡；
 
 3、excloud.lua： aircloud的实现库
 
@@ -85,8 +85,6 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 - 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
 
 - 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
-
-- 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
 
 - 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 

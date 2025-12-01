@@ -10,8 +10,7 @@
 2、添加静态标签组件显示"hello exEasyUI"文本；
 3、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local function ui_main()

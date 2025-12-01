@@ -10,12 +10,10 @@
 2、添加静态图片显示组件；
 3、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local function ui_main()
-    sys.wait(500)
 
     -- 显示触摸初始化
     hw_font_drv.init()

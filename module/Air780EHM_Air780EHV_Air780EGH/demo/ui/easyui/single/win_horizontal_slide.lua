@@ -12,12 +12,10 @@
 4、实现横向滑动切换页面效果；
 5、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local function ui_main()
-    sys.wait(500)
 
     -- 显示触摸初始化
     hw_font_drv.init()

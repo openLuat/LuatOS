@@ -23,22 +23,7 @@
 @return nil
 
 @usage
--- 使用默认字体初始化硬件
-hw_font_drv.init()
 
--- 使用HzFont矢量字体初始化硬件
-hw_font_drv.init({
-    type = "hzfont",
-    size = 24,
-    antialias = -1
-})
-
--- 使用GTFont矢量字体初始化硬件
-hw_font_drv.init({
-    type = "gtfont",
-    spi = { id = 0, cs = 8 },
-    size = 32
-})
 ]]
 
 local hw_font_drv = {}
@@ -86,7 +71,7 @@ local hw_config = {
     tp_config = {
         tp_model = "AirLCD_1010", -- 触摸芯片/设备型号
         i2c_id = 1,               -- I2C总线ID
-        pin_rst = 0xFF,           -- 触摸芯片复位引脚(非必须)
+        pin_rst = 0xFF,           -- 触摸芯片复位引脚(AirLCD_1010上没有引出该引脚)
         pin_int = 22,             -- 触摸芯片中断引脚
         -- @param message_enabled 消息类型 ("ALL", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
         message_enabled = {

@@ -12,20 +12,18 @@
 4、演示抗锯齿渲染和智能缓存功能；
 5、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local function ui_main()
-    sys.wait(500)
-    
+
     -- 启用14号固件内置HzFont矢量字体方式驱动
     hw_font_drv.init({
         type = "hzfont",
         size = 32,
         antialias = -1  -- 自动抗锯齿
     })
-    
+
     -- 设置主题
     ui.init({ theme = "light" })
 

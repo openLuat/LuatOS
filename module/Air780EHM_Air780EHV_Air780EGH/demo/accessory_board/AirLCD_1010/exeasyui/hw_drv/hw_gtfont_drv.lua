@@ -5,9 +5,9 @@
 @date    2025.11.25
 @author  江访
 @usage
-本文件为GTFont矢量字体驱动功能模块，核心业务逻辑为：
+本文件为GTFont矢量字体、lcd和tp驱动模块，核心业务逻辑为：
 1、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板；
-2、初始化exEasyUI硬件显示系统，配置SPI接口和字体大小参数；
+2、根据配置的字体、lcd和tp参数，初始化exEasyUI默认使用的字体、硬件显示和触摸；
 3、提供高质量矢量字体显示能力；
 
 本文件的对外接口有0个：
@@ -22,22 +22,7 @@
 @return nil
 
 @usage
--- 使用GTFont矢量字体初始化硬件
-ui.hw_init({
-    font_config = { type = "gtfont", spi = { id = 0, cs = 8 }, size = 32 },
-    lcd_config = {
-        lcd_model = "AirLCD_1010",
-        pin_rst = 36,
-        direction = 0,
-        w = 320,
-        h = 480
-    },
-    tp_config = {
-        tp_model = "AirLCD_1010",
-        i2c_id = 1,
-        pin_int = 22
-    }
-})
+
 ]]
 
 -- 使用gtfont矢量字库初始化exEasyUI硬件
@@ -85,7 +70,7 @@ ui.hw_init({
     tp_config = {
         tp_model = "AirLCD_1010", -- 触摸芯片/设备型号
         i2c_id = 1,               -- I2C总线ID
-        pin_rst = 0xFF,           -- 触摸芯片复位引脚(非必须)
+        pin_rst = 0xFF,           -- 触摸芯片复位引脚(AirLCD_1010上没有引出该引脚)
         pin_int = 22,             -- 触摸芯片中断引脚
         -- @param message_enabled 消息类型 ("ALL", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
         message_enabled = {

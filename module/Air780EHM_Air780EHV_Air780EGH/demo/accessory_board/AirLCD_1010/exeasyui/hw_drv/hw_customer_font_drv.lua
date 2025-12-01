@@ -1,1 +1,1 @@
--- customer_font_drv是用户外部自定义外部点阵字体驱动功能模块，目前exeasyui自定义字体功能正在开发中。
+-- hw_customer_font_drv是用户外部自定义外部点阵字体、lcd显示驱动配置和tp触摸驱动配置的驱动配置文件，目前exeasyui自定义字体功能正在开发中。

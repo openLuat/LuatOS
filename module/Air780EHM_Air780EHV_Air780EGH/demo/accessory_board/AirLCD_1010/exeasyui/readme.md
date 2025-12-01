@@ -5,7 +5,7 @@
 ### 1.1 核心主程序模块
 
 1. **main.lua** - 主程序入口，负责系统初始化和任务调度
-2. **ui_main.lua** - 用户界面主控模块，管理页面切换和事件分发
+2. **ui_main.lua** - exeasyui 主程序，负责执行exeasyui的任务调度
 
 ### 1.2 显示页面模块
 
@@ -15,15 +15,16 @@
 4. **gtfont_page.lua** - GTFont 矢量字体演示模块
 5. **hzfont_page.lua** - HZFont 矢量字体演示模块
 
-### 1.3 驱动模块
+### 1.3 硬件驱动模块
 
-1. **hw_default_font__drv.lua** - 显示驱动、触摸驱动和默认字体驱动模块，使用内置 12 号点阵字体
-2. **hw_gtfont_drv.lua** - 显示驱动、触摸驱动和GTFont 矢量字库驱动模块
-3. **hw_hzfont_drv.lua** - 显示驱动、触摸驱动和HZFont 矢量字体驱动模块
-4. **hw_customer_font_drv.lua** - 显示驱动、触摸驱动和自定义外部字体驱动模块（开发中）
+1. **hw_default_font_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和默认字体驱动模块，使用内置 12 号点阵字体
+2. **hw_gtfont_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和GTFont 矢量字库驱动模块
+3. **hw_hzfont_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和HZFont 矢量字体驱动模块
+4. **hw_customer_font_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和自定义外部字体驱动模块（开发中）
 
-   - 当前演示的exeasyui V1.7.0版本还不支持，仅支持选择一种字体初始化，同时启用多种字体功能正在开发中
-   - 使用 HZfont 需要使用 V2020 版本以上的 14 号固件，且 14 号固件仅支持 HZfont
+当前演示的exeasyui V1.7.0版本还不支持同时启用多种字体，仅支持选择一种字体初始化，同时启用多种字体功能正在开发中
+
+使用 HZfont 需要使用 V2020 版本以上的 14 号或者114号固件，且 14 号或114号固件仅支持 HZfont，不支持内置12号中文字体和GTfont核心库
 
 ## 二、演示效果
 
@@ -47,7 +48,7 @@
 - Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板以及 AirFONT_1000 配件板的硬件接线方式为
 
   - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板背面的功耗测试开关拨到 OFF 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板和 AirFONT_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 vbat 引脚给 AirLCD_1010 配件板和 AirFONT_1000 配件板提供了 3.3V 的供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电，通过3V3引脚给 AirFONT_1000 配件板供电；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 3.2 接线配置
@@ -93,8 +94,11 @@
 <tr>
 <td>86/SPI0_CLK<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>24/VDD_EXT<br/></td><td>VCC<br/></td></tr>
+<td>3V3<br/></td><td>VCC<br/></td></tr>
 </table>
+
+### 3.3 实际接线图
+![](https://docs.openLuat.com/cdn/image/Air780EHV_AirLCD_10010_AirFONTS_1000接线图.jpg)
 
 ## 四、演示软件环境
 
@@ -108,8 +112,8 @@
 - [点击下载 Air780EHV 系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780ehv%2Fluatos%2Ffirmware%2Fversion%2F)
 - [点击下载 Air780EGH 系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780egh%2Fluatos%2Ffirmware%2Fversion%2F)
 
-  - 使用 HZfont 需要使用 V2020 版本以上的 14 号固件，且 14 号固件仅支持 HZfont
-  - 使用其他字体，demo 所使用的是 LuatOS-SoC_V2018 1 号固件
+使用 HZfont 需要使用 V2020 版本以上的 14 号固件或114号固件，且 14 号固件或114号固件仅支持 HZfont
+使用其他字体，demo 所使用的是 LuatOS-SoC_V2018 1 号固件
 
 ## 五、演示核心步骤
 
@@ -128,14 +132,14 @@
 -- 必须加载才能启用exeasyui的功能
 ui = require("exeasyui")
 
--- 加载字库驱动管理功能模块，有以下四种：
--- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font__drv
--- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua
--- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua
+-- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
+-- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
+-- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
 -- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
--- 最新情况可查看模组选型手册固件列表内支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
--- 目前exeasyui V1.7.0版本支持使用已经实现的三种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
-require("hw_default_font__drv")
+-- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
+-- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+require("hw_default_font_drv")
 -- require("hw_hzfont_drv")
 -- require("hw_gtfont_drv")
 -- require("hw_customer_font_drv")开发中
@@ -150,18 +154,18 @@ require("ui_main")
 
 在对应的驱动文件中根据实际硬件调整硬件参数：
 
-- hw_default_font__drv.lua - 默认字体驱动配置
-
-- hw_gtfont_drv.lua - 外置SP接口GTFont矢量字体驱动配置
-
-- hw_hzfont_drv.lua - 14号固件内置HZFont矢量字体驱动配置
+- **hw_default_font_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和默认字体驱动模块，使用内置 12 号点阵字体
+- **hw_gtfont_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和GTFont 矢量字库驱动模块
+- **hw_hzfont_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和HZFont 矢量字体驱动模块
+- **hw_customer_font_drv.lua** - lcd显示驱动配置、tp触摸驱动配置和自定义外部字体驱动模块（开发中）
 
 ### 5.4 软件烧录
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载并烧录本项目所有脚本文件
-3. 将字体文件和图片文件随脚本文件一起烧录到脚本分区或者单独烧录到文件系统
+3. 将图片文件随脚本文件一起烧录到脚本分区
 4. 设备自动重启后开始运行
+5. [点击查看Luatools 下载和详细使用](https://docs.openluat.com/air780epm/common/Luatools/)
 
 ### 5.5 功能测试
 

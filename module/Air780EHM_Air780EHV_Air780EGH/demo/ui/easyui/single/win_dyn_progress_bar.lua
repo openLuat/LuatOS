@@ -12,15 +12,13 @@
 4、实现进度条往复动画效果；
 5、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local direction = 1 
 local current = 0
 
 local function ui_main()
-    sys.wait(500)
 
     -- 显示触摸初始化
     hw_font_drv.init()

@@ -12,12 +12,10 @@
 4、演示中英混排显示效果；
 5、启动UI渲染循环持续刷新显示；
 
-本文件的对外接口有1个：
-1、返回主函数供main.lua调用；
+本文件没有对外接口；
 ]]
 
 local function ui_main()
-    sys.wait(500)
 
     -- 启用GTFont矢量字体方式进行硬件初始化
     hw_font_drv.init({ 

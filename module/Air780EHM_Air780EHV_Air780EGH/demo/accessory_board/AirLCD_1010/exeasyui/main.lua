@@ -7,10 +7,10 @@
 @usage
 本demo演示的核心功能为：
 1、加载exeasyui扩展库；
-2、按screen_data_table.lua参数和选择字体类型，初始化显示、触摸硬件以及默认字体；
-3、字库驱动管理，支持外部矢量字库、内部软件矢量字库和外部自定义点阵字库；
-4、用户界面主循环，实现多页面切换和触摸事件处理；
-5、系统看门狗配置，确保系统稳定运行；
+2、根据选择的字体类型驱动，进行显示、触摸硬件以及字体的初始化，
+   支持默认字体、外部矢量字库、内部软件矢量字库和外部自定义点阵字库四选一；
+3、用户界面主循环，实现多页面切换和触摸事件处理；
+4、系统看门狗配置，确保系统稳定运行；
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -76,14 +76,14 @@ end
 ui = require("exeasyui")
 
 
--- 加载字库驱动管理功能模块，有以下四种：
--- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font__drv
--- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua
--- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua
+-- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
+-- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
+-- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
 -- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
--- 最新情况可查看模组选型手册固件列表内支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
--- 目前exeasyui V1.7.0版本支持使用已经实现的三种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
-require("hw_default_font__drv")
+-- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
+-- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+require("hw_default_font_drv")
 -- require("hw_hzfont_drv")
 -- require("hw_gtfont_drv")
 -- require("hw_customer_font_drv")开发中

@@ -148,6 +148,11 @@
             <div class="header">
                 <h1>LuatOS 文件管理系统</h1>
                 <div>
+                    <label for="uploadTarget" style="margin-right: 10px; color: white;">上传目标:</label>
+                    <select id="uploadTarget" style="margin-right: 10px; padding: 5px;">
+                        <option value="/luadb">内存</option>
+                        <option value="/sd">SD卡</option>
+                    </select>
                     <button onclick="scanFiles()" style="margin-right: 10px;">扫描文件</button>
                     <button onclick="logout()">退出登录</button>
                 </div>
@@ -157,6 +162,22 @@
                 <a onclick="navigateTo('/')">根目录</a>
                 <span> | </span>
                 <a onclick="navigateTo('/sd')">TF/SD目录</a>
+            </div>
+            
+            <!-- 文件上传区域 -->
+            <div style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-radius: 5px;">
+                <div class="form-group">
+                    <label for="fileUpload">选择文件 (最大200KB):</label>
+                    <input type="file" id="fileUpload" accept="*/*">
+                </div>
+                <button onclick="uploadFile()" id="uploadBtn">上传文件</button>
+                <div id="uploadError" class="error hidden"></div>
+                <div id="uploadProgress" style="display: none; margin-top: 10px;">
+                    <div style="width: 100%; background-color: #ddd; border-radius: 4px;">
+                        <div id="progressBar" style="width: 0%; height: 20px; background-color: #4CAF50; border-radius: 4px; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="progressText" style="text-align: center; margin-top: 5px;">0%</div>
+                </div>
             </div>
 
             <table class="file-list">
@@ -450,7 +471,105 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // 格式化日期函数已移除
+        // 文件上传函数
+        function uploadFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const uploadTarget = document.getElementById('uploadTarget').value;
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadError = document.getElementById('uploadError');
+            const uploadProgress = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            // 重置错误信息
+            uploadError.textContent = '';
+            uploadError.classList.add('hidden');
+
+            // 检查是否选择了文件
+            if (!fileInput.files || fileInput.files.length === 0) {
+                uploadError.textContent = '请先选择要上传的文件';
+                uploadError.classList.remove('hidden');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            
+            // 检查文件大小（200KB限制）
+            if (file.size > 200 * 1024) {
+                uploadError.textContent = '文件大小超过200KB限制';
+                uploadError.classList.remove('hidden');
+                return;
+            }
+
+            // 获取用户名和密码用于URL参数认证
+            const username = document.getElementById('username')?.value || 'admin';
+            const password = document.getElementById('password')?.value || '123456';
+
+            // 构建上传URL
+            const url = '/upload?path=' + encodeURIComponent(uploadTarget) +
+                        '&filename=' + encodeURIComponent(file.name) +
+                        '&username=' + encodeURIComponent(username) +
+                        '&password=' + encodeURIComponent(password);
+
+            // 显示进度条
+            uploadProgress.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            uploadBtn.disabled = true;
+
+            // 创建FormData对象
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 使用XMLHttpRequest以便监控上传进度
+            const xhr = new XMLHttpRequest();
+
+            // 监听上传进度
+            xhr.upload.addEventListener('progress', function(event) {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    progressBar.style.width = percentComplete + '%';
+                    progressText.textContent = percentComplete + '%';
+                }
+            });
+
+            // 监听上传完成
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.success) {
+                            alert('文件上传成功！');
+                            // 重新加载当前路径的文件列表
+                            loadFiles(uploadTarget);
+                            // 重置文件选择
+                            fileInput.value = '';
+                        } else {
+                            uploadError.textContent = '上传失败: ' + (response.message || '未知错误');
+                            uploadError.classList.remove('hidden');
+                        }
+                    } catch (e) {
+                        uploadError.textContent = '上传成功但解析响应失败';
+                        uploadError.classList.remove('hidden');
+                    }
+                } else {
+                    uploadError.textContent = '上传失败: 服务器响应错误';
+                    uploadError.classList.remove('hidden');
+                }
+                uploadBtn.disabled = false;
+            });
+
+            // 监听上传错误
+            xhr.addEventListener('error', function() {
+                uploadError.textContent = '上传失败: 网络错误';
+                uploadError.classList.remove('hidden');
+                uploadBtn.disabled = false;
+            });
+
+            // 发送请求
+            xhr.open('POST', url);
+            xhr.send(formData);
+        }
 
         // 启动后检查认证状态
         window.onload = function() {

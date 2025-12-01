@@ -129,8 +129,8 @@ static lf_err_t little_flash_write_enabled(const little_flash_t *lf, uint8_t ena
 
 lf_err_t little_flash_init(void){
     LF_INFO("Welcome to use little flash V%s .", LF_SW_VERSION);
-    LF_INFO("Github Repositories https://github.com/Dozingfiretruck/little_flash .");
-    LF_INFO("Gitee Repositories https://gitee.com/Dozingfiretruck/little_flash .");
+    LF_INFO("Github Repositories https://github.com/PeakRacing/little_flash .");
+    LF_INFO("Gitee Repositories https://gitee.com/PeakRacing/little_flash .");
     return LF_ERR_OK;
 }
 

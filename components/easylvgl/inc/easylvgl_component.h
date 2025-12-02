@@ -1,54 +1,197 @@
+/**
+ * @file easylvgl_component.h
+ * @summary EasyLVGL 组件基类接口
+ * @responsible 组件元数据、事件绑定、配置表解析
+ */
+
 #ifndef EASYLVGL_COMPONENT_H
 #define EASYLVGL_COMPONENT_H
 
-#include "lua.h"
-#include "lauxlib.h"
-#include "luat_base.h"
-#include "luat_mem.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "easylvgl.h"
-#include <stdbool.h>
-#include <stdint.h>
 
-typedef struct {
-    int callback_ref;
-    lv_obj_t *title;
-    lv_obj_t *content;
-    uint8_t flags;
-} easylvgl_component_meta_t;
+/*********************
+ *      DEFINES
+ *********************/
 
-#define EASYLVGL_COMPONENT_FLAG_CLICK (1 << 0)
-#define EASYLVGL_COMPONENT_FLAG_CLOSE (1 << 1)
+/** 组件类型 */
+typedef enum {
+    EASYLVGL_COMPONENT_BUTTON = 1,
+    EASYLVGL_COMPONENT_LABEL,
+    EASYLVGL_COMPONENT_IMAGE,
+    EASYLVGL_COMPONENT_WIN
+} easylvgl_component_type_t;
 
-typedef struct {
-    lv_obj_t *obj;
-} easylvgl_component_ud_t;
+/** 事件类型 */
+typedef enum {
+    EASYLVGL_EVENT_CLICKED = 0,
+    EASYLVGL_EVENT_PRESSED,
+    EASYLVGL_EVENT_RELEASED,
+    EASYLVGL_EVENT_VALUE_CHANGED,
+    EASYLVGL_EVENT_CLOSE,
+    EASYLVGL_EVENT_MAX
+} easylvgl_event_type_t;
 
-void easylvgl_set_lua_state(lua_State *L);
-lua_State *easylvgl_get_lua_state(void);
+/**********************
+ *      TYPEDEFS
+ *********************/
 
-easylvgl_component_meta_t *easylvgl_component_get_meta(lv_obj_t *obj);
-easylvgl_component_meta_t *easylvgl_component_ensure_meta(lv_obj_t *obj);
-void easylvgl_component_release_meta(lv_obj_t *obj);
+/**
+ * 组件元数据
+ */
+struct easylvgl_component_meta {
+    lv_obj_t *obj;                      /**< LVGL 对象指针 */
+    easylvgl_ctx_t *ctx;                /**< 上下文引用 */
+    
+    // 回调引用（Lua registry）
+    int callback_refs[EASYLVGL_CALLBACK_MAX];  /**< 事件回调引用数组 */
+    
+    // 组件类型
+    uint8_t component_type;
+    
+    // 私有数据
+    void *user_data;
+};
 
-void easylvgl_component_set_callback_ref(lv_obj_t *obj, int callback_ref);
-void easylvgl_component_call_callback(lv_obj_t *obj);
+/**********************
+ * GLOBAL PROTOTYPES
+ **********************/
 
-void easylvgl_component_attach_click_event(lv_obj_t *obj);
-void easylvgl_component_attach_win_close_event(lv_obj_t *win, lv_obj_t *target);
+/**
+ * 分配组件元数据
+ * @param ctx 上下文指针
+ * @param obj LVGL 对象指针
+ * @param component_type 组件类型
+ * @return 元数据指针，失败返回 NULL
+ */
+easylvgl_component_meta_t *easylvgl_component_meta_alloc(
+    easylvgl_ctx_t *ctx,
+    lv_obj_t *obj,
+    easylvgl_component_type_t component_type);
 
-void easylvgl_component_set_title(lv_obj_t *obj, lv_obj_t *title);
-lv_obj_t *easylvgl_component_get_title(lv_obj_t *obj);
-void easylvgl_component_set_content(lv_obj_t *obj, lv_obj_t *content);
-lv_obj_t *easylvgl_component_get_content(lv_obj_t *obj);
+/**
+ * 释放组件元数据
+ * @param meta 元数据指针
+ * @pre-condition meta 必须非空
+ * @post-condition 元数据及关联资源已释放
+ */
+void easylvgl_component_meta_free(easylvgl_component_meta_t *meta);
 
-bool easylvgl_component_get_integer_field(lua_State *L, int table_index, const char *key, int *out);
-bool easylvgl_component_get_bool_field(lua_State *L, int table_index, const char *key, bool *out);
-bool easylvgl_component_get_pivot(lua_State *L, int table_index, lv_point_t *out);
-const char *easylvgl_component_get_string_field(lua_State *L, int table_index, const char *key);
-lv_obj_t *easylvgl_component_get_parent_from_table(lua_State *L, int table_index);
-lv_obj_t *easylvgl_component_get_lv_obj_from_value(lua_State *L, int index);
-void easylvgl_component_apply_geometry(lua_State *L, int table_index, lv_obj_t *obj);
-int easylvgl_component_capture_callback(lua_State *L, int table_index, const char *key);
+/**
+ * 捕获配置表中的回调函数
+ * @param L Lua 状态
+ * @param idx 配置表在栈中的索引
+ * @param key 回调函数键名（如 "on_click"）
+ * @return Lua registry 引用，未找到返回 LUA_NOREF
+ */
+int easylvgl_component_capture_callback(void *L, int idx, const char *key);
 
-#endif /*EASYLVGL_COMPONENT_H*/
+/**
+ * 调用 Lua 回调函数
+ * @param meta 组件元数据
+ * @param event_type 事件类型
+ * @param L Lua 状态
+ * @pre-condition meta 必须非空
+ */
+void easylvgl_component_call_callback(
+    easylvgl_component_meta_t *meta,
+    easylvgl_event_type_t event_type,
+    void *L);
+
+/**
+ * 绑定组件事件
+ * @param meta 组件元数据
+ * @param event_type 事件类型
+ * @param callback_ref Lua 回调引用
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_component_bind_event(
+    easylvgl_component_meta_t *meta,
+    easylvgl_event_type_t event_type,
+    int callback_ref);
+
+/**
+ * 释放组件所有回调引用
+ * @param meta 组件元数据
+ * @param L Lua 状态
+ */
+void easylvgl_component_release_callbacks(easylvgl_component_meta_t *meta, void *L);
+
+/**
+ * 从配置表读取整数字段
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param default_value 默认值
+ * @return 整数值
+ */
+int easylvgl_marshal_integer(void *L, int idx, const char *key, int default_value);
+
+/**
+ * 从配置表读取布尔字段
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param default_value 默认值
+ * @return 布尔值
+ */
+bool easylvgl_marshal_bool(void *L, int idx, const char *key, bool default_value);
+
+/**
+ * 从配置表读取字符串字段
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param default_value 默认值
+ * @return 字符串指针（内部字符串，不需要释放），未找到返回 default_value
+ */
+const char *easylvgl_marshal_string(void *L, int idx, const char *key, const char *default_value);
+
+/**
+ * 从配置表读取父对象
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return LVGL 父对象指针，未指定返回 NULL
+ */
+lv_obj_t *easylvgl_marshal_parent(void *L, int idx);
+
+/**
+ * 从 LVGL 对象获取元数据
+ * @param obj LVGL 对象指针
+ * @return 元数据指针，未找到返回 NULL
+ */
+easylvgl_component_meta_t *easylvgl_component_meta_get(lv_obj_t *obj);
+
+/**
+ * Button 组件：从配置表创建
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return LVGL 对象指针
+ */
+lv_obj_t *easylvgl_button_create_from_config(void *L, int idx);
+
+/**
+ * Button 组件：设置文本
+ * @param btn Button 对象指针
+ * @param text 文本内容
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_button_set_text(lv_obj_t *btn, const char *text);
+
+/**
+ * Button 组件：设置点击回调
+ * @param btn Button 对象指针
+ * @param callback_ref Lua 回调引用
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_button_set_on_click(lv_obj_t *btn, int callback_ref);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* EASYLVGL_COMPONENT_H */
 

@@ -132,6 +132,11 @@
 
 #ifdef LUAT_USE_GUI
 //---------------------
+
+// TP 模块与PC触摸驱动
+#define LUAT_USE_TP 1
+#define LUAT_USE_TP_PC 1
+
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
@@ -191,17 +196,13 @@
 #if defined(LUAT_USE_LVGL9)
 // LVGL 9
 #define LUAT_USE_EASYLVGL 1
-#define LUAT_USE_LVGL_SDL2 1
-#define LV_CONF_INCLUDE_SIMPLE
-
-// TP 模块与PC触摸驱动
-#define LUAT_USE_TP 1
-#define LUAT_USE_TP_PC 1
+#define LUAT_USE_EASYLVGL_SDL2 1
 
 #else
 // LVGL
 // 主推的UI库, 功能强大但API繁琐
 #define LUAT_USE_LVGL      1
+#define LUAT_USE_TJPGD 1
 
 #define LUAT_USE_LVGL_JPG 1 // 启用JPG解码支持
 #define LUAT_USE_LVGL_PNG 1 // 启用PNG解码支持

@@ -316,7 +316,8 @@ target("luatos-lua")
         -- LVGL 版本选择
         if os.getenv("LUAT_USE_LVGL9") == "y" then
             -- LVGL 9.4 + EasyLVGL - 最基础组件编译
-            -- LVGL 9 源码路径
+            -- LVGL 9 源码路径（支持 #include "lvgl9/lvgl.h" 格式）
+            add_includedirs(luatos.."components/easylvgl")
             add_includedirs(luatos.."components/easylvgl/lvgl9")
             add_includedirs(luatos.."components/easylvgl/lvgl9/src")
             
@@ -358,18 +359,37 @@ target("luatos-lua")
             -- 7. 保留主题编译（主题需要控件的类定义）
             -- 主题文件会自动编译（没有被排除）
             
-            -- EasyLVGL 核心代码
+            -- EasyLVGL 重构架构配置
+            -- 1. 公共头文件
             add_includedirs(luatos.."components/easylvgl/inc")
-            add_includedirs(luatos.."components/easylvgl/src")
-            add_files(luatos.."components/easylvgl/src/*.c")
             
-            -- EasyLVGL Lua 绑定
+            -- 2. 核心层（core）
+            add_includedirs(luatos.."components/easylvgl/src/core")
+            add_files(luatos.."components/easylvgl/src/core/*.c")
+            
+            -- 3. 组件基类（components/base）
+            add_includedirs(luatos.."components/easylvgl/src/components/base")
+            add_files(luatos.."components/easylvgl/src/components/base/*.c")
+            
+            -- 4. 组件实现（components/widgets）
+            add_includedirs(luatos.."components/easylvgl/src/components/widgets")
+            add_files(luatos.."components/easylvgl/src/components/widgets/*.c")
+            
+            -- 5. SDL 平台驱动（platform/sdl）
+            add_includedirs(luatos.."components/easylvgl/src/platform/sdl")
+            add_files(luatos.."components/easylvgl/src/platform/sdl/*.c")
+            
+            -- 6. LVGL 专职任务（task）
+            add_includedirs(luatos.."components/easylvgl/src/task")
+            add_files(luatos.."components/easylvgl/src/task/*.c")
+            
+            -- 7. Lua 绑定层（binding）
             add_includedirs(luatos.."components/easylvgl/binding")
             add_files(luatos.."components/easylvgl/binding/*.c")
             
-            -- EasyLVGL SDL2 驱动
-            add_includedirs(luatos.."components/easylvgl/sdl2")
-            add_files(luatos.."components/easylvgl/sdl2/*.c")
+            -- 8. 宏定义：启用 EasyLVGL 和 SDL2 平台
+            add_defines("LUAT_USE_EASYLVGL=1")
+            add_defines("LUAT_USE_EASYLVGL_SDL2=1")
         else
             -- LVGL 7.13 (原有配置)
             add_includedirs(luatos.."components/lvgl")

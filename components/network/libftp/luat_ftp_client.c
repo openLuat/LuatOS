@@ -737,7 +737,7 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 		}
 	}
 	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
-	int result = luat_rtos_task_create(&g_s_ftp.task_handle, 2*1024, 10, "ftp", ftp_task, NULL, 16);
+	int result = luat_rtos_task_create(&g_s_ftp.task_handle, 8*1024, 10, "ftp", ftp_task, NULL, 16);
 	if (result) {
 		LLOGE("创建ftp task失败!! %d", result);
 		return result;

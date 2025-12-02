@@ -355,7 +355,7 @@ static int on_headers_complete(http_parser* parser){
 static int on_body(http_parser* parser, const char *at, size_t length){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	if (length > 128) {
-		LLOGD("on_body first 512byte:%.*s", 128, at);
+		LLOGD("on_body first 128byte:%.*s", 128, at);
 	} else {
 		LLOGD("on_body:%.*s",length,at);
 	}
@@ -435,7 +435,11 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	}
 	if (http_ctrl->resp_content_len > 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
 		http_ctrl->http_body_is_finally = 1;
-		LLOGI("http body recv done by content_length");
+		LLOGD("http body recv done by content_length");
+		http_close_nw(http_ctrl);
+	}
+	else if (http_ctrl->http_body_is_finally) {
+		LLOGD("http body recv done by chunked end");
 		http_close_nw(http_ctrl);
 	}
     return 0;
@@ -500,10 +504,11 @@ static int on_message_complete(http_parser* parser){
 
 static int on_chunk_header(http_parser* parser){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	LLOGD("on_chunk_header");
-	LLOGD("content_length:%lld",parser->content_length);
-	// luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	// http_ctrl->is_chunk = 1;
+	LLOGD("on_chunk_header content_length:%lld",parser->content_length);
+	if (parser->content_length == 0){
+		http_ctrl->http_body_is_finally = 1;
+		http_close_nw(http_ctrl);
+	}
     return 0;
 }
 

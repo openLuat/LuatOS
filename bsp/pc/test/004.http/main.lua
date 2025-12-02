@@ -46,8 +46,8 @@ sys.taskInit(function()
     local code, headers, body = http.request("GET", "http://httpbin.air32.cn/range/1024", nil, nil, {debug=false}).wait()
     log.info("http3", code, json.encode(headers), body)
 
-    -- local code, resp = httpplus.request({url="http://quan.suning.com/getSysTime.do"})
-    -- log.info("http", code, resp.body:query())
+    local code, headers = http.request("GET", "http://httpbin.air32.cn/stream-bytes/20", nil, nil, {debug=true}).wait()
+    log.info("http4", code, headers, body)
 end)
 
 sys.run()

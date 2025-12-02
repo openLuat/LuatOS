@@ -483,7 +483,7 @@ exit:
 }
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
-	LLOGI("luat_http_client_onevent %p %d", http_ctrl, error_code);
+	LLOGD("luat_http_client_onevent %p %d", http_ctrl, error_code);
 	if (!http_ctrl->luatos_mode) return;
 	if (http_ctrl->timeout_timer && error_code != HTTP_CALLBACK){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);

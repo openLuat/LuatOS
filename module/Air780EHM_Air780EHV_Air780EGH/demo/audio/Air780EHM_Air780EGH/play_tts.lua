@@ -23,8 +23,6 @@ local audio_setup_param ={
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }
 
-exaudio.vol(70)            -- 喇叭音量
-
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
@@ -66,18 +64,18 @@ end
 gpio.setup(gpio.PWR_KEY, next_audio, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 防抖，防止频繁触发
 
-
 ---------------------------------------------------------------------------------------------------
 ---------------主task------------------------------------------------------------------------------
 --- 关于TTS 音色设置请见: https://docs.openluat.com/air780epm/common/tts/
 ---------------------------------------------------------------------------------------------------
-
 
 local index_number = 1
 local audio_path = nil
 local function audio_task()
     log.info("开始播放TTS")
     if exaudio.setup(audio_setup_param) then
+        --设置音量
+        exaudio.vol(70)    -- 默认音量，范围0-100
         exaudio.play_start(audio_play_param) 
         while true do
             local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发

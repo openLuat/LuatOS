@@ -25,8 +25,6 @@ local audio_setup_param ={
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }
 
-exaudio.vol(70)            -- 喇叭音量
-
 --  播放结束回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
@@ -43,7 +41,6 @@ local audio_play_param ={
     content = "/luadb/sample-6s.mp3",          -- 如果播放类型为0时，则填入string 是播放单个音频文件,如果是表则是播放多段音频文件。
     cbfnc = play_end,            -- 播放完毕回调函数
 }
-
 
 ---------------------------------
 ---通过BOOT 按键进行播放停止操作---

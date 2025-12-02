@@ -23,6 +23,8 @@ local audio_setup_param ={
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }
 
+exaudio.vol(70)            -- 喇叭音量
+
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
@@ -76,7 +78,7 @@ local audio_path = nil
 local function audio_task()
     log.info("开始播放TTS")
     if exaudio.setup(audio_setup_param) then
-        exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
+        exaudio.play_start(audio_play_param) 
         while true do
             local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发
             if msg[2] ==  "NEXT_AUDIO" then      

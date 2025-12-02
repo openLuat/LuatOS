@@ -25,6 +25,8 @@ local audio_setup_param ={
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }
 
+exaudio.vol(70)            -- 喇叭音量
+
 --  播放结束回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then

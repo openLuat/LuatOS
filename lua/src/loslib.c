@@ -221,7 +221,8 @@ static int os_clock (lua_State *L) {
   lua_pushinteger(L, (lua_Integer)luat_mcu_tick64_ms()/1000);
 #else
   extern long luat_mcu_ticks(void);
-  lua_pushinteger(L, (lua_Integer)luat_mcu_ticks()/1000);
+  extern uint32_t luat_mcu_hz(void);
+  lua_pushinteger(L, (lua_Integer)luat_mcu_ticks()/luat_mcu_hz());
 #endif // LUAT_CONF_VM_64bit
 #else
   lua_pushinteger(L, 0);

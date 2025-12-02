@@ -51,7 +51,8 @@
 1. **基本图形绘制** - 展示点、线、矩形、圆形等基本图形绘制功能
 2. **图片显示** - 支持外部图片文件显示
 3. **二维码生成** - 动态生成并显示二维码
-4. **颜色示例** - 展示多种颜色显示效果
+4. **xbm格式位图示例** - 显示16*16 xbm点阵
+5. **中文、英文字体示例** - 显示12号中文字体和英文字体
 
 ### 4.2 GTFont矢量字体演示
 1. **矢量字体显示** - 使用AirFONTS_1000矢量字库小板显示平滑字体
@@ -97,6 +98,9 @@
 <table> 
 <tr> <td>Air780EHM/Air780EHV/Air780EGH 核心板</td><td>AirFONT_1000配件板</td></tr> <tr> <td>83/SPI0_CS</td><td>CS</td></tr> <tr> <td>84/SPI0_MISO</td><td>MISO</td></tr> <tr> <td>85/SPI0_MOSI</td><td>MOSI</td></tr> <tr> <td>86/SPI0_CLK</td><td>CLK</td></tr> <tr> <td>24/VDD_EXT</td><td>VCC</td></tr> 
 </table>
+
+#### 5.2.3 接线图
+![](https://docs.openLuat.com/cdn/image/Air780EHV_AirLCD_10010_AirFONTS_1000接线图.jpg)
 
 ## 六、演示软件环境
 
@@ -185,7 +189,7 @@ require "ui_main"
 1. 查看基本图形绘制示例（点、线、矩形、圆形）
 2. 查看图片显示区域（显示logo图片）
 3. 查看二维码区域（合宙文档二维码）
-4. 查看颜色填充示例展示
+4. 查看位图和字体示例
 5. 点击"返回"按钮回到主页
 
 #### 7.4.3 GTFont演示页面

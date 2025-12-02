@@ -17,6 +17,11 @@
 
 local home_page = {}
 
+-- 屏幕尺寸
+local width, height = lcd.getSize()
+
+local center_x = width / 2
+
 -- 按钮区域定义
 local buttons = {
     lcd_page = { x1 = 10, y1 = 350, x2 = 100, y2 = 420 },
@@ -39,19 +44,20 @@ function home_page.draw()
     lcd.clear()
     lcd.setColor(0xFFFF, 0x0000)
     lcd.setFont(lcd.font_opposansm12_chinese)
-    
+
     -- 显示标题
-    -- 后续会新增lcd.getStrWidth(title)接口获取文本宽度，对齐，居中，换行可使用
+    -- 后续V2020版本以上支持lcd核心库的固件会新增lcd.getStrWidth(title)接口获取文本宽度，对齐、居中、换行可使用
+    -- lcd.drawStr(center_x - lcd.getStrWidth(title) / 2, 50, title, 0x0000) -- 自动居中
     lcd.drawStr(106, 50, title, 0x0000)
 
     -- 显示说明文字
     lcd.drawStr(46, 68, content1, 0x0000)
-    
+
     -- 绘制LCD演示按钮
     lcd.fill(buttons.lcd_page.x1, buttons.lcd_page.y1,
         buttons.lcd_page.x2, buttons.lcd_page.y2, 0x001F)
     lcd.drawStr(15, 390, "lcd核心库演示", 0xFFFF)
-    
+
     -- 绘制GTFont演示按钮
     lcd.fill(buttons.gtfont_page.x1, buttons.gtfont_page.y1,
         buttons.gtfont_page.x2, buttons.gtfont_page.y2, 0xF800)
@@ -69,7 +75,7 @@ end
 
 @api home_page.handle_touch(x, y, switch_page)
 @number x 触摸点X坐标，范围0-319
-@number y 触摸点Y坐标，范围0-479  
+@number y 触摸点Y坐标，范围0-479
 @function switch_page 页面切换回调函数
 @return boolean 事件处理成功返回true，否则返回false
 ]]

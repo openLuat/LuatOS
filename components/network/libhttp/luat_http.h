@@ -147,7 +147,9 @@ typedef struct{
 	uint8_t new_data;
 	uint8_t context_len_vaild;
 	uint8_t luatos_mode;
-
+	// TCP连接是否已经关闭
+	uint8_t tcp_closed;
+	uint8_t http_body_is_finally;
 }luat_http_ctrl_t;
 
 //下面2个API是luatos内部使用，csdk不使用

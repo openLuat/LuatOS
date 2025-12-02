@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 
 xmake clean -a
 set VM_64bit=1
-set LUAT_USE_GUI=n
+set LUAT_USE_GUI=y
 xmake g --pkg_searchdirs=%cd%\pkgs
 if !errorlevel! neq 0 exit /b !errorlevel!
 xmake f -a x86 -y

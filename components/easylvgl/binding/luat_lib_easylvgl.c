@@ -11,9 +11,9 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "rotable2.h"
-#include "../inc/easylvgl.h"
-#include "../inc/easylvgl_component.h"
-#include "../inc/easylvgl_task.h"
+#include "../inc/luat_easylvgl.h"
+#include "../inc/luat_easylvgl_component.h"
+#include "../inc/luat_easylvgl_task.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "easylvgl"

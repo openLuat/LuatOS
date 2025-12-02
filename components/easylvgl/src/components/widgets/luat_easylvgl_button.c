@@ -1,10 +1,10 @@
 /**
- * @file button.c
+ * @file luat_easylvgl_button.c
  * @summary Button 组件实现
  * @responsible Button 组件创建、属性设置、事件绑定
  */
 
-#include "easylvgl_component.h"
+#include "luat_easylvgl_component.h"
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/core/lv_obj.h"

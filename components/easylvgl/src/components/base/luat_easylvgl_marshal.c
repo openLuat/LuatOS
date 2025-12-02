@@ -1,10 +1,10 @@
 /**
- * @file marshal.c
+ * @file luat_easylvgl_marshal.c
  * @summary 配置表字段读取工具
  * @responsible 从 Lua 配置表中读取各种类型的字段
  */
 
-#include "easylvgl_component.h"
+#include "luat_easylvgl_component.h"
 #include "lua.h"
 #include "lauxlib.h"
 

@@ -1,11 +1,11 @@
 /**
- * @file easylvgl_task.c
+ * @file luat_easylvgl_task.c
  * @summary EasyLVGL 专职任务实现
  * @responsible LVGL 消息队列、单线程串行化、lv_timer_handler 循环
  */
 
-#include "easylvgl.h"
-#include "easylvgl_task.h"
+#include "luat_easylvgl.h"
+#include "luat_easylvgl_task.h"
 #include "luat_rtos.h"
 #include "luat_timer.h"
 #include "luat_log.h"

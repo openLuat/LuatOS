@@ -1,12 +1,12 @@
 /**
- * @file platform_sdl.c
+ * @file luat_easylvgl_platform_sdl.c
  * @summary SDL2 平台驱动 ops 导出
  * @responsible 导出 SDL2 平台驱动操作接口集合
  */
 
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 
 // 声明各驱动操作接口获取函数
 extern const easylvgl_display_ops_t *easylvgl_platform_sdl2_get_display_ops(void);

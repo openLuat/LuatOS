@@ -1,12 +1,12 @@
 /**
- * @file input_sdl.c
+ * @file luat_easylvgl_input_sdl.c
  * @summary SDL2 输入驱动实现
  * @responsible SDL2 鼠标/触摸输入处理
  */
 
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,12 +1,12 @@
 /**
- * @file display_sdl.c
+ * @file luat_easylvgl_display_sdl.c
  * @summary SDL2 显示驱动实现
  * @responsible SDL2 显示初始化、flush、vsync
  */
 
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 #include <SDL2/SDL.h>
 #include <string.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 /**
- * @file easylvgl_component.h
+ * @file luat_easylvgl_component.h
  * @summary EasyLVGL 组件基类接口
  * @responsible 组件元数据、事件绑定、配置表解析
  */
@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 
 /*********************
  *      DEFINES

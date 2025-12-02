@@ -1,10 +1,10 @@
 /**
- * @file error.c
+ * @file luat_easylvgl_error.c
  * @summary EasyLVGL 错误码转换
  * @responsible 错误码到字符串的转换
  */
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 
 /**
  * 错误码转字符串

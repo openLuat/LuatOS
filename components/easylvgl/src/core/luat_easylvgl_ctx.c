@@ -1,12 +1,12 @@
 /**
- * @file ctx.c
+ * @file luat_easylvgl_ctx.c
  * @summary EasyLVGL 上下文生命周期管理
  * @responsible 上下文创建、初始化、清理
  */
 
-#include "easylvgl.h"
-#include "easylvgl_component.h"
-#include "easylvgl_task.h"
+#include "luat_easylvgl.h"
+#include "luat_easylvgl_component.h"
+#include "luat_easylvgl_task.h"
 #include <string.h>
 #include <assert.h>
 

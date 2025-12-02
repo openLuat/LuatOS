@@ -1,5 +1,5 @@
 /**
- * @file easylvgl.h
+ * @file luat_easylvgl.h
  * @summary EasyLVGL 主头文件：上下文、平台操作接口、错误码
  * @responsible EasyLVGL 核心数据结构定义与平台抽象接口
  */

@@ -24,7 +24,7 @@ uv_timer_t lvgl_timer;
 
 #ifdef LUAT_USE_EASYLVGL
 uv_timer_t easylvgl_timer;
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 #include "../../../components/easylvgl/lvgl9/lvgl.h"
 #endif
 

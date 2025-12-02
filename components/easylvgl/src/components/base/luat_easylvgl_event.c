@@ -1,10 +1,10 @@
 /**
- * @file event.c
+ * @file luat_easylvgl_event.c
  * @summary 组件事件绑定与回调调用
  * @responsible 事件绑定、Lua 回调调用、GC 处理
  */
 
-#include "easylvgl_component.h"
+#include "luat_easylvgl_component.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "lvgl9/src/widgets/button/lv_button.h"

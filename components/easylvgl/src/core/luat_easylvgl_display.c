@@ -1,10 +1,10 @@
 /**
- * @file display.c
+ * @file luat_easylvgl_display.c
  * @summary EasyLVGL 显示抽象封装
  * @responsible 封装 lv_display_set_buffers，缓冲模式配置
  */
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 
 /**
  * 设置显示缓冲

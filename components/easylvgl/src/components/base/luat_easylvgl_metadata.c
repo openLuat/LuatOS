@@ -1,10 +1,10 @@
 /**
- * @file metadata.c
+ * @file luat_easylvgl_metadata.c
  * @summary 组件元数据管理
  * @responsible metadata 分配/释放，Lua callback ref 管理
  */
 
-#include "easylvgl_component.h"
+#include "luat_easylvgl_component.h"
 #include <stdlib.h>
 #include <string.h>
 

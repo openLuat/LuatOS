@@ -1,12 +1,12 @@
 /**
- * @file time_sdl.c
+ * @file luat_easylvgl_time_sdl.c
  * @summary SDL2 时基实现
  * @responsible SDL2 时基获取和延时
  */
 
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 #include <SDL2/SDL.h>
 
 /**

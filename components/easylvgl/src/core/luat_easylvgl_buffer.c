@@ -1,10 +1,10 @@
 /**
- * @file buffer.c
+ * @file luat_easylvgl_buffer.c
  * @summary EasyLVGL 缓冲管理
  * @responsible 缓冲分配、所有权追踪、集中释放
  */
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 #include <stdlib.h>
 #include <string.h>
 

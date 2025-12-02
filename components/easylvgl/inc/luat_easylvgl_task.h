@@ -1,5 +1,5 @@
 /**
- * @file easylvgl_task.h
+ * @file luat_easylvgl_task.h
  * @summary EasyLVGL 专职任务接口
  * @responsible LVGL 任务启动、停止、消息发送
  */
@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#include "easylvgl.h"
+#include "luat_easylvgl.h"
 
 /** EasyLVGL 任务消息类型 */
 typedef enum {

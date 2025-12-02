@@ -146,7 +146,7 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
     // LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
     FILE* fd = fopen(filename + FILENAME_OFFSET, mode);
     if (!fd) {
-        LLOGW("fopen %s %s fail", filename + FILENAME_OFFSET, mode);
+        // LLOGW("fopen %s %s fail", filename + FILENAME_OFFSET, mode);
     }
     return fd;
 }

@@ -143,7 +143,7 @@ void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb)
 {
     send_devinfo_update_evt = cb;
     g_airlink_self_dev_info.tp = 0x01;
-    uint32_t fw_version = 17;
+    uint32_t fw_version = 18;
     memcpy(g_airlink_self_dev_info.wifi.version, &fw_version, sizeof(uint32_t));   // 版本
     g_airlink_wlan_evt_cb = wifi_evt_handler;
     send_devinfo_update_evt();

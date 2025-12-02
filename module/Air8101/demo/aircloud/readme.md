@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单spi以太网卡，单pc模拟器网卡，多网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡(单spi以太网卡，单pc模拟器网卡，多网卡)中的任何一种网卡；
 
 3、excloud.lua： aircloud的实现库
 
@@ -29,9 +29,7 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 2、TYPE-C USB数据线一根
 
-3、USB转串口数据线一根
-
-4、Air8101核心板和数据线的硬件接线方式为
+3、Air8101核心板和数据线的硬件接线方式为
 
 - Air8101核心板通过TYPE-C USB口供电；（核心板背面的功耗测试开关拨到OFF一端）
 
@@ -39,9 +37,8 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-- USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
-5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
+4、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
 
 | Air8101核心板 | AirPHY_1000配件板 |
 | ------------- | ----------------- |
@@ -58,7 +55,7 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 | 不接          | NC                |
 | 69/D7         | CLK               |
 
-6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+5、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air8101核心板 | AirETH_1000配件板 |
 | ------------- | ----------------- |
@@ -70,28 +67,6 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 | 57/DE         | SDI               |
 | 14/GPIO8      | INT               |
 
-7、可选Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板一块，Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式为:
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | 83/SPI0CS                                     |
-| 55/HSYN       | 84/SPI0MISO                                   |
-| 57/DE         | 85/SPI0MOSI                                   |
-| 28/DCLK       | 86/SPI0CLK                                    |
-| 43/R2         | 19/GPIO22                                     |
-| 75/GPIO28     | 22/GPIO1                                      |
-
-
-| Air8101核心板 | Air780EHM/Air780EHV/Air780EGH/Air780EPM开发板 |
-| ------------- | --------------------------------------------- |
-| gnd           | GND                                           |
-| 54/DISP       | SPI_CS                                        |
-| 55/HSYN       | SPI_MISO                                      |
-| 57/DE         | SPI_MOSI                                      |
-| 28/DCLK       | SPI_CLK                                       |
-| 43/R2         | GPIO22                                        |
-| 75/GPIO28     | GPIO1                                         |
 
 ## 演示软件环境
 
@@ -110,8 +85,6 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 - 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
 
 - 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
-
-- 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
 
 - 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 

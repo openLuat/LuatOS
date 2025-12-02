@@ -73,7 +73,7 @@ local function fota_task(cbFnc, opts)
     elseif code == -5 then
         ret = 3
     else
-        log.info("fota", code, body)
+        log.info("libfota2", code, body)
         ret = 4
         local hziot = "iot.openluat.com"
         local msg, json_body, result
@@ -167,7 +167,7 @@ function libfota2.request(cbFnc, opts)
         if not opts.project_key then
             opts.project_key = _G.PRODUCT_KEY
             if not opts.project_key then
-                log.error("fota", "iot.openluat.com need PRODUCT_KEY!!!")
+                log.error("libfota2", "iot.openluat.com need PRODUCT_KEY!!!")
                 cbFnc(5)
                 return
             end
@@ -208,11 +208,11 @@ function libfota2.request(cbFnc, opts)
     if not opts.method then
         opts.method = "GET"
     end
-    log.info("fota.url", opts.method, opts.url)
-    log.info("fota.imei/mac/uid", query)
-    log.info("fota.project_key", opts.project_key)
-    log.info("fota.firmware_name", opts.firmware_name)
-    log.info("fota.version", opts.version)
+    log.info("libfota2.url", opts.method, opts.url)
+    log.info("libfota2.imei/mac/uid", query)
+    log.info("libfota2.project_key", opts.project_key)
+    log.info("libfota2.firmware_name", opts.firmware_name)
+    log.info("libfota2.version", opts.version)
     sys.taskInit(fota_task, cbFnc, opts)
 end
 

@@ -5090,12 +5090,12 @@ FRESULT f_unlink (
 	const TCHAR* path		/* Pointer to the file or directory path */
 )
 {
-	FRESULT res;
-	FATFS *fs;
-	DIR dj, sdj;
+	FRESULT res = 0;
+	FATFS *fs = NULL;
+	DIR dj = {0}, sdj = {0};
 	DWORD dclst = 0;
 #if FF_FS_EXFAT
-	FFOBJID obj;
+	FFOBJID obj = {0};
 #endif
 	DEF_NAMEBUFF
 

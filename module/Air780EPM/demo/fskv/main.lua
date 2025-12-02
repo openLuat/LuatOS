@@ -1,105 +1,76 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "fskvdemo"
-VERSION = "1.0.0"
-
--- sys库是标配
-_G.sys = require("sys")
-
-sys.taskInit(function()
-    sys.wait(1000) -- 免得日志刷没了, 生产环境不需要
-
-    -- 检查一下当前固件是否支持fskv
-    if not fskv then
-        while true do
-            log.info("fskv", "this demo need fskv")
-            sys.wait(1000)
-        end
-    end
-
-    -- 初始化kv数据库
-    fskv.init()
-    log.info("fskv", "init complete")
-    -- 先放入一堆值
-    local bootime = fskv.get("boottime")
-    if bootime == nil or type(bootime) ~= "number" then
-        bootime = 0
-    else
-        bootime = bootime + 1
-    end
-    fskv.set("boottime", bootime)
-
-    fskv.set("my_bool", true)
-    fskv.set("my_int", 123)
-    fskv.set("my_number", 1.23)
-    fskv.set("my_str", "luatos")
-    fskv.set("my_table", {name="wendal",age=18})
-    
-    fskv.set("my_str_int", "123")
-    fskv.set("1", "123") -- 单字节key
-    --fskv.set("my_nil", nil) -- 会提示失败,不支持空值
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 001.000.000
+@date    2025.9.05
+@author  马亚丹
+@usage
+本demo演示的功能为：使用Air780EPM核心板演示fskv核心库API 的用法，
+详细逻辑请看fskv_test.lua文件
 
 
-    log.info("fskv", "boottime",      type(fskv.get("boottime")),    fskv.get("boottime"))
-    log.info("fskv", "my_bool",      type(fskv.get("my_bool")),    fskv.get("my_bool"))
-    log.info("fskv", "my_int",       type(fskv.get("my_int")),     fskv.get("my_int"))
-    log.info("fskv", "my_number",    type(fskv.get("my_number")),  fskv.get("my_number"))
-    log.info("fskv", "my_str",       type(fskv.get("my_str")),     fskv.get("my_str"))
-    log.info("fskv", "my_table",     type(fskv.get("my_table")),   json.encode(fskv.get("my_table")))
-    log.info("fskv", "my_str_int",     type(fskv.get("my_str_int")),   fskv.get("my_str_int"))
-    log.info("fskv", "1 byte key",     type(fskv.get("1")),   json.encode(fskv.get("1")))
+]]
 
-    -- 删除测试
-    fskv.del("my_bool")
-    local t = fskv.get("my_bool")
-    log.info("fskv", "my_bool",      type(t),    t)
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "Air780EPM_fskv"
+VERSION = "001.000.000"
 
-    -- 查询kv数据库状态
-    -- local used, total,kv_count = fskv.stat()
-    -- log.info("fdb", "kv", used,total,kv_count)
 
-    -- fskv.clr()
-    -- local used, total,kv_count = fskv.stat()
-    -- log.info("fdb", "kv", used,total,kv_count)
-    
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
-    -- 压力测试
-    -- local start = mcu.ticks()
-    -- local count = 1000
-    -- for i=1,count do
-    --     -- sys.wait(10)
-    --     -- count = count - 1
-    --     -- fskv.set("BENT1", "--" .. os.date() .. "--")
-    --     -- fskv.set("BENT2", "--" .. os.date() .. "--")
-    --     -- fskv.set("BENT3", "--" .. os.date() .. "--")
-    --     -- fskv.set("BENT4", "--" .. os.date() .. "--")
-    --     fskv.get("my_bool")
-    -- end
-    -- log.info("fskv", mcu.ticks() - start)
 
-    if fskv.sett then
-        -- 设置数据, 字符串,数值,table,布尔值,均可
-        -- 但不可以是nil, function, userdata, task
-        log.info("fdb", fskv.sett("mytable", "wendal", "goodgoodstudy"))
-        log.info("fdb", fskv.sett("mytable", "upgrade", true))
-        log.info("fdb", fskv.sett("mytable", "timer", 1))
-        log.info("fdb", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
-        
-        -- 下列语句将打印出4个元素的table
-        log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
-        -- 注意: 如果key不存在, 或者原本的值不是table类型,将会完全覆盖
-        -- 例如下列写法,最终获取到的是table,而非第一行的字符串
-        log.info("fdb", fskv.set("mykv", "123"))
-        log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
 
-        -- 删除测试
-        log.info("fdb", fskv.set("mytable", {age=18, name="wendal"}))
-        log.info("fdb", fskv.sett("mytable", "name", nil))
-        log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
-    end
-end)
+
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
+
+
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+
+
+-- 加载fskv_test功能模块
+require "fskv_test"
+
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

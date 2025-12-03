@@ -1,27 +1,13 @@
-
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.09.08
-@author  梁健
+@date    2025.11.4
+@author  王城钧
 @usage
 本demo演示的核心功能为：
-1、play_file.lua： 播放音频文件，可支持wav,amr,mp3 格式音频
-
-2、play_tts: 支持文字转普通话输出需要固件支持
-
-3、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
-
-4、record_file: 录音到文件，仅支持PCM 格式
-
-5、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
-
-6、sample-6s: 用于测试本地mp3文件播放
-
-7、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
-
-
+1、rsa_app：普通的rsa加密解密、签名验签功能演示
+2、privkey.pem 和 public.pem：公钥私钥文件
 更多说明参考本目录下的readme.md文件
 ]]
 
@@ -36,12 +22,10 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 
---[[
-本demo可使用Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010 音频扩展板+喇叭两种硬件环境演示
-]]
+PROJECT = "RSA"
+VERSION = "001.000.000"
 
-PROJECT = "audio"
-VERSION = "1.0.0"
+
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
@@ -55,6 +39,7 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
+
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
 -- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
@@ -62,6 +47,13 @@ end
 -- if errDump then
 --     errDump.config(true, 600)
 -- end
+
+
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
 
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
@@ -72,21 +64,10 @@ end
 -- end, 3000)
 
 
-
-
--- require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
- require "play_tts"      -- 支持文字转普通话输出需要固件支持
- -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
--- require "record_file"        -- 录音到文件
--- require "record_stream"        -- 流式录音   
-
--- 音频对内存影响较大，不断的打印内存，用于判断是否异常
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
+-- 加载http应用功能模块
+require "rsa_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!
+-- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

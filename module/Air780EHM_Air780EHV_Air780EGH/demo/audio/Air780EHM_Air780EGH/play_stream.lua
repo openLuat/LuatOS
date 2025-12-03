@@ -72,7 +72,6 @@ end
 gpio.setup(gpio.PWR_KEY, down_volume, gpio.PULLUP, gpio.FALLING)
 gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 
-
 ---------------------------------
 ---------模拟获取音频task---------
 ---------------------------------
@@ -91,7 +90,6 @@ local function audio_get_data()
 end
 
 sys.taskInitEx(audio_get_data, "audio_get_data")
-
 
 ---------------------------------
 ------------通过主task------------

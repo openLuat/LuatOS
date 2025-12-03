@@ -193,6 +193,13 @@ local FIELD_MEANINGS = {
     MTN_LOG_UPLOAD_STATUS_FIELD  = 791, -- 运维日志上传状态
     MTN_LOG_FILE_NAME            = 792, -- 运维日志文件名称
 
+    -- 工牌设备参数字段 (793-797) - 新增
+    BADGE_TOTAL_DISK             = 793, -- 工牌总磁盘空间
+    BADGE_AVAILABLE_DISK         = 794, -- 工牌剩余磁盘空间
+    BADGE_TOTAL_MEM              = 795, -- 工牌总内存
+    BADGE_AVAILABLE_MEM          = 796, -- 工牌剩余内存
+    BADGE_RECORD_COUNT           = 797, -- 工牌录音数量
+
     -- 软件数据类 (1024-1279)
     LUA_CORE_ERROR               = 1024, -- Lua核心库错误上报
     LUA_EXT_ERROR                = 1025, -- Lua扩展卡错误上报

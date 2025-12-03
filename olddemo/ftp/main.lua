@@ -17,7 +17,7 @@ local server_port = 21 -- 服务器端口号
 local server_username = "ftp_user" -- 服务器登陆用户名
 local server_password = "3QujbiMG" -- 服务器登陆密码
 
-local is_ssl = flase -- 非ssl加密连接
+local is_ssl = false -- 非ssl加密连接
 -- local is_ssl =true --如果是不带证书的加密打开这句话
 
 -- local ssl_encrypt = {
@@ -31,7 +31,7 @@ local is_ssl = flase -- 非ssl加密连接
 
 -- 这里使用模块唯一ID来生成文件名，避免多个模块使用同一ftp服务器时文件名冲突
 local self_id = mcu.unique_id():toHex()
-local local_name = "/" .. self_id .. ".txt" -- 模块内部文件名及其路径
+local local_name = "/ram/" .. self_id .. ".txt" -- 模块内部文件名及其路径
 local remote_name = "/" .. self_id .. "_srv.txt" -- 服务器上的文件名及其路径
 
 sys.taskInit(function()
@@ -66,6 +66,7 @@ local function ftp_test()
     sys.waitUntil("net_ready") -- 死等到联网成功
     local result = false
     local adapter = nil -- 自动选择网络适配器
+    ftp.debug(true) -- 打开调试开关, 可以看到和服务器交互的明文命令和返回值
     while true do
         sys.wait(1000)
         log.info("ftp 启动")
@@ -94,28 +95,71 @@ local function ftp_test()
         -- 演示获取当前工作目录下的文件列表, 非必须的操作
         log.info("获取当前工作目录下的文件名列表", ftp.command("LIST").wait())
         
-        -- 生成一段随机数据, 确保每次是新数据, 保证测试的可用性
-        local test_data = crypto.trng(128)
+        -- 生成至少51KB的测试数据 (52KB = 53248字节)
+        local target_size = 52*1024
+        local test_data = ""
+        
+        -- 使用循环生成足够大的数据
+        log.info("开始生成测试数据，目标大小:", target_size, "字节")
+        while #test_data < target_size do
+            -- 每次生成1KB的随机数据，直到达到目标大小
+            local chunk_size = math.min(1024, target_size - #test_data)
+            local chunk = crypto.trng(chunk_size)
+            test_data = test_data .. chunk
+            -- log.info("已生成数据:", #test_data, "/", target_size, "字节")
+        end
+        
+        log.info("测试数据生成完成，总大小:", #test_data, "字节")
+        
         -- 把数据写到本地目录
         log.info("在本地创建一个文件", "文件名及其目录为" .. local_name)
         io.writeFile(local_name, test_data)
+        log.info("本地文件大小", #test_data, "字节")
+        log.info("本地文件大小(KB)", #test_data / 1024, "KB")
         
         -- 把文件上传到服务器去
         log.info("上传本地的" .. local_name, "到服务器上并且更名为" .. remote_name)
         result = ftp.push(local_name, remote_name).wait()
         log.info("上传结果是", result)
 
+        -- 打印一下服务器当前目录下的文件列表
+        log.info("获取当前工作目录下的文件名列表", ftp.command("LIST").wait())
+
         -- 从服务器上下载刚才上传的文件
         log.info("下载服务器上的" .. remote_name, "存放在" .. remote_name)
         result = ftp.pull(remote_name, remote_name).wait()
         log.info("下载结果是", result)
 
+        -- 检查下载的文件大小
+        local downloaded_data = io.readFile(remote_name)
+        if downloaded_data then
+            log.info("下载文件实际大小", #downloaded_data, "字节")
+            log.info("下载文件实际大小(KB)", #downloaded_data / 1024, "KB")
+            log.info("期望文件大小", #test_data, "字节")
+            log.info("期望文件大小(KB)", #test_data / 1024, "KB")
+            
+            if #downloaded_data ~= #test_data then
+                log.warn("警告：下载文件大小与期望大小不一致！")
+                log.warn("期望大小:", #test_data, "字节 (", #test_data / 1024, "KB)")
+                log.warn("实际大小:", #downloaded_data, "字节 (", #downloaded_data / 1024, "KB)")
+                log.warn("大小差异:", #test_data - #downloaded_data, "字节")
+            end
+        else
+            log.error("无法读取下载的文件")
+        end
+
         -- 比较一下上传和下载的数据是否一致
         local downloaded_data = io.readFile(remote_name)
-        if downloaded_data == test_data then
+        if downloaded_data and downloaded_data == test_data then
             log.info("上传和下载的数据一致性验证通过")
         else
             log.error("上传和下载的数据一致性验证失败")
+            if downloaded_data then
+                log.info("原始数据长度:", #test_data, "字节 (", #test_data / 1024, "KB)")
+                log.info("下载数据长度:", #downloaded_data, "字节 (", #downloaded_data / 1024, "KB)")
+            else
+                log.error("无法读取下载的数据")
+            end
         end
 
         -- 删除服务器上的测试文件

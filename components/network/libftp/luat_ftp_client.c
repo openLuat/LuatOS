@@ -317,8 +317,9 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 static int ftp_login(void)
 {
 	int ret;
-	if(network_connect(g_s_ftp.network->cmd_netc, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr), NULL, g_s_ftp.network->port, FTP_SOCKET_TIMEOUT)){
-		LLOGE("ftp network_connect fail");
+	ret = network_connect(g_s_ftp.network->cmd_netc, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr), NULL, g_s_ftp.network->port, FTP_SOCKET_TIMEOUT);
+	if (ret) {
+		LLOGE("ftp network_connect fail %d", ret);
 		return -1;
 	}
 	ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
@@ -450,6 +451,7 @@ static void ftp_task(void *param){
 	OS_EVENT task_event;
 	uint8_t is_timeout = 0;
 
+	luat_rtos_task_sleep(10); // 起来就等10ms, 给调用者一点时间运行完毕
 
 	g_s_ftp.is_run = 1;
 	luat_rtos_event_recv(g_s_ftp.task_handle, FTP_EVENT_LOGIN, &task_event, NULL, LUAT_WAIT_FOREVER);
@@ -691,6 +693,7 @@ wait_event_and_out:
 
 
 int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls,luat_ftp_cb_t ftp_cb){
+	int result = 0;
 	if (g_s_ftp.network){
 		LLOGE("ftp already login, please close first");
 		return FTP_ERROR_STATE;
@@ -709,23 +712,47 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 		LLOGE("bad network adapter index %d", g_s_ftp.network->adapter_index);
 		return FTP_ERROR_STATE;
 	}
+	LLOGD("ftp adapter %d host %s port %d", g_s_ftp.network->adapter_index, ip_addr, port);
 	g_s_ftp.network->cmd_netc = network_alloc_ctrl(g_s_ftp.network->adapter_index);
 	if (!g_s_ftp.network->cmd_netc){
 		LLOGE("cmd_netc create fail");
 		return FTP_ERROR_NO_MEM;
 	}
 	g_s_ftp.network->port = port;
-	if (strlen(ip_addr) > 0 && strlen(ip_addr) < 64)
+
+	if (strlen(ip_addr) > 0 && strlen(ip_addr) < 64) {
 		memcpy(g_s_ftp.network->addr, ip_addr, strlen(ip_addr) + 1);
-	if (strlen(username) > 0 && strlen(username) < 64)
+	}
+	else {
+		LLOGE("invalid ip address length %d", strlen(ip_addr));
+		result = -20;
+		goto error;
+	}
+	if (strlen(username) > 0 && strlen(username) < 64) {
 		memcpy(g_s_ftp.network->username, username, strlen(username) + 1);
-	if (strlen(password) > 0 && strlen(password) < 64)
+	}
+	else {
+		LLOGE("invalid username length %d", strlen(username));
+		result = -21;
+		goto error;
+	}
+	if (strlen(password) > 0 && strlen(password) < 64) {
 		memcpy(g_s_ftp.network->password, password, strlen(password) + 1);
+	}
+	else {
+		LLOGE("invalid password length %d", strlen(password));
+		result = -22;
+		goto error;
+	}
+
 	if (luat_ftp_tls == NULL){
 		network_deinit_tls(g_s_ftp.network->cmd_netc);
-	}else{
+	}
+	else {
 		if (network_init_tls(g_s_ftp.network->cmd_netc, (luat_ftp_tls->server_cert || luat_ftp_tls->client_cert)?2:0)){
-			return FTP_ERROR_CLOSE;
+			LLOGE("ftp tls init fail");
+			result = -23;
+			goto error;
 		}
 		if (luat_ftp_tls->server_cert){
 			network_set_server_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)luat_ftp_tls->server_cert, strlen(luat_ftp_tls->server_cert)+1);
@@ -736,17 +763,30 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 					(const unsigned char *)luat_ftp_tls->client_password, strlen(luat_ftp_tls->client_password)+1);
 		}
 	}
-	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
-	int result = luat_rtos_task_create(&g_s_ftp.task_handle, 8*1024, 10, "ftp", ftp_task, NULL, 16);
+
+	// task会主动等10ms
+	result = luat_rtos_task_create(&g_s_ftp.task_handle, 8*1024, 10, "ftp", ftp_task, NULL, 16);
 	if (result) {
 		LLOGE("创建ftp task失败!! %d", result);
-		return result;
+		goto error;
 	}
+	
+	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
 	network_init_ctrl(g_s_ftp.network->cmd_netc,g_s_ftp.task_handle, ftp_task_cb, NULL);
 	network_set_base_mode(g_s_ftp.network->cmd_netc, 1, 30000, 0, 0, 0, 0);
 	network_set_local_port(g_s_ftp.network->cmd_netc, 0);
+	// g_s_ftp.network->cmd_netc->is_debug = 1;
+
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);
 	return 0;
+error:
+	// 清理资源
+	if (g_s_ftp.network->cmd_netc) {
+		network_force_close_socket(g_s_ftp.network->cmd_netc);
+		network_release_ctrl(g_s_ftp.network->cmd_netc);
+		g_s_ftp.network->cmd_netc = NULL;
+	}
+	return result;
 }
 
 int luat_ftp_command(const char * command){
@@ -838,4 +878,9 @@ int luat_ftp_push(const char * local_name,const char * remote_name){
 	return 0;
 }
 
-void luat_ftp_debug(uint8_t on_off) {g_s_ftp.debug_onoff = on_off;}
+void luat_ftp_debug(uint8_t on_off) {
+	g_s_ftp.debug_onoff = on_off;
+	if (NULL != g_s_ftp.network && g_s_ftp.network->cmd_netc) {
+		g_s_ftp.network->cmd_netc->is_debug = on_off;
+	}
+}

@@ -26,7 +26,7 @@ FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mod
         flag = FA_READ | FA_WRITE | FA_OPEN_APPEND;
     }
     else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
-        flag = FA_WRITE | FA_READ;
+        flag = FA_WRITE | FA_READ | FA_CREATE_ALWAYS;
     }
     else if(!strcmp("r", mode) || !strcmp("rb", mode)) {
         flag = FA_READ;

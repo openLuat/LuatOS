@@ -30,29 +30,45 @@ static bool sdl_input_read_pointer(easylvgl_ctx_t *ctx, lv_indev_data_t *data)
         return false;
     }
     
-    sdl_input_data_t *input_data = (sdl_input_data_t *)ctx->platform_data;
+    // platform_data 被显示驱动使用，存储的是 sdl_display_data_t
+    // 我们需要通过它来访问 SDL 窗口
+    // 注意：这里需要与 luat_easylvgl_display_sdl.c 中的结构体定义保持一致
+    typedef struct {
+        SDL_Window *window;
+        SDL_Renderer *renderer;
+        SDL_Texture *texture;
+        uint16_t width;
+        uint16_t height;
+        lv_color_format_t color_format;
+    } sdl_display_data_t;
+    
+    sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
+    
+    // 输入数据存储在静态变量中（因为 platform_data 已被显示驱动使用）
+    static sdl_input_data_t input_data = {0};
     
     // 处理 SDL 事件
     SDL_Event event;
     bool has_event = false;
+    int32_t sdl_x = 0, sdl_y = 0;
     
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_MOUSEMOTION) {
-            input_data->last_x = event.motion.x;
-            input_data->last_y = event.motion.y;
+            sdl_x = event.motion.x;
+            sdl_y = event.motion.y;
             has_event = true;
         } else if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
-                input_data->left_button_down = true;
-                input_data->last_x = event.button.x;
-                input_data->last_y = event.button.y;
+                input_data.left_button_down = true;
+                sdl_x = event.button.x;
+                sdl_y = event.button.y;
                 has_event = true;
             }
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             if (event.button.button == SDL_BUTTON_LEFT) {
-                input_data->left_button_down = false;
-                input_data->last_x = event.button.x;
-                input_data->last_y = event.button.y;
+                input_data.left_button_down = false;
+                sdl_x = event.button.x;
+                sdl_y = event.button.y;
                 has_event = true;
             }
         } else if (event.type == SDL_QUIT) {
@@ -61,10 +77,47 @@ static bool sdl_input_read_pointer(easylvgl_ctx_t *ctx, lv_indev_data_t *data)
         }
     }
     
+    if (has_event) {
+        // 获取 SDL 窗口的实际大小（逻辑大小，考虑高 DPI 缩放）
+        int window_w = 0, window_h = 0;
+        if (display_data->window != NULL) {
+            SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+        }
+        
+        // 如果无法获取窗口大小，使用显示驱动的存储值
+        if (window_w == 0 || window_h == 0) {
+            window_w = display_data->width;
+            window_h = display_data->height;
+        }
+        
+        // 将 SDL 坐标转换为 LVGL 逻辑坐标
+        // LVGL 的逻辑分辨率存储在 ctx->width 和 ctx->height
+        int32_t lvgl_x, lvgl_y;
+        
+        if (window_w > 0 && window_h > 0 && ctx->width > 0 && ctx->height > 0) {
+            // 按比例缩放坐标
+            lvgl_x = (int32_t)((int64_t)sdl_x * ctx->width / window_w);
+            lvgl_y = (int32_t)((int64_t)sdl_y * ctx->height / window_h);
+            
+            // 限制坐标范围
+            if (lvgl_x < 0) lvgl_x = 0;
+            if (lvgl_x >= ctx->width) lvgl_x = ctx->width - 1;
+            if (lvgl_y < 0) lvgl_y = 0;
+            if (lvgl_y >= ctx->height) lvgl_y = ctx->height - 1;
+        } else {
+            // 如果无法转换，直接使用 SDL 坐标（兼容性处理）
+            lvgl_x = sdl_x;
+            lvgl_y = sdl_y;
+        }
+        
+        input_data.last_x = (int16_t)lvgl_x;
+        input_data.last_y = (int16_t)lvgl_y;
+    }
+    
     // 填充输入数据
-    data->point.x = input_data->last_x;
-    data->point.y = input_data->last_y;
-    data->state = input_data->left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    data->point.x = input_data.last_x;
+    data->point.y = input_data.last_y;
+    data->state = input_data.left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
     
     return has_event;
 }

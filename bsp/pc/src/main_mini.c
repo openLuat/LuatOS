@@ -22,12 +22,6 @@ uv_timer_t lvgl_timer;
 #include "lvgl.h"
 #endif
 
-#ifdef LUAT_USE_EASYLVGL
-uv_timer_t easylvgl_timer;
-#include "luat_easylvgl.h"
-#include "../../../components/easylvgl/lvgl9/lvgl.h"
-#endif
-
 extern char *luadb_ptr;
 extern const uint8_t luadb_mod[];
 
@@ -57,11 +51,6 @@ uv_mutex_t timer_lock;
 int luat_cmd_parse(int argc, char** argv);
 static int luat_lvg_handler(lua_State* L, void* ptr);
 static void lvgl_timer_cb(uv_timer_t* lvgl_timer);
-
-#ifdef LUAT_USE_EASYLVGL
-static int luat_easylvgl_handler(lua_State* L, void* ptr);
-static void easylvgl_timer_cb(uv_timer_t* timer);
-#endif
 
 int32_t luatos_pc_climode;
 
@@ -144,12 +133,6 @@ int main(int argc, char** argv) {
     uv_timer_start(&lvgl_timer, lvgl_timer_cb, 25, 25);
     #endif
 
-    #ifdef LUAT_USE_EASYLVGL
-    // EasyLVGL 使用独立的定时器，每10ms触发一次
-    uv_timer_init(main_loop, &easylvgl_timer);
-    uv_timer_start(&easylvgl_timer, easylvgl_timer_cb, 10, 10);
-    #endif
-
     #ifdef LUAT_USE_LWIP
     //LLOGD("初始化lwip");
     luat_lwip_init();
@@ -185,30 +168,6 @@ static int luat_lvg_handler(lua_State* L, void* ptr) {
 static void lvgl_timer_cb(uv_timer_t* lvgl_timer) {
     rtos_msg_t msg = {
         .handler = luat_lvg_handler
-    };
-    luat_msgbus_put(&msg, 0);
-}
-#endif
-
-#ifdef LUAT_USE_EASYLVGL
-static int luat_easylvgl_handler(lua_State* L, void* ptr) {
-    (void)L;
-    (void)ptr;
-    // 检查 LVGL 9 是否已初始化
-    if (!lv_is_initialized()) {
-        return 0;
-    }
-    // 更新 LVGL 9 时钟（10ms）
-    // 注意：必须在这里调用 lv_tick_inc()，因为 LVGL 定时器依赖时钟来判断触发时机
-    lv_tick_inc(10);
-    // 处理 LVGL 9 定时器任务（包括输入读取和屏幕刷新）
-    lv_timer_handler();
-    return 0;
-}
-static void easylvgl_timer_cb(uv_timer_t* timer) {
-    (void)timer;
-    rtos_msg_t msg = {
-        .handler = luat_easylvgl_handler
     };
     luat_msgbus_put(&msg, 0);
 }

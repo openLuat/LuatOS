@@ -17,6 +17,9 @@
 #ifndef LV_CONF_H
 #define LV_CONF_H
 
+/* Include platform-specific configuration */
+#include "luat_easylvgl_conf.h"
+
 /* If you need to include anything here, do it inside the `__ASSEMBLY__` guard */
 #if  0 && defined(__ASSEMBLY__)
 #include "my_include.h"
@@ -107,10 +110,12 @@
  * - LV_OS_MQX
  * - LV_OS_SDL2
  * - LV_OS_CUSTOM */
-#define LV_USE_OS   LV_OS_NONE
+#ifndef LV_USE_OS
+    #define LV_USE_OS   LV_OS_NONE  /* Default: no OS */
+#endif
 
 #if LV_USE_OS == LV_OS_CUSTOM
-    #define LV_OS_CUSTOM_INCLUDE <stdint.h>
+    #define LV_OS_CUSTOM_INCLUDE "luat_easylvgl_os.h"
 #endif
 #if LV_USE_OS == LV_OS_FREERTOS
     /*
@@ -410,7 +415,9 @@
  *-----------*/
 
 /** Enable log module */
-#define LV_USE_LOG 1
+#ifndef LV_USE_LOG
+    #define LV_USE_LOG 0
+#endif
 #if LV_USE_LOG
     /** Set value to one of the following levels of logging detail:
      *  - LV_LOG_LEVEL_TRACE    Log detailed information.
@@ -419,7 +426,9 @@
      *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
      *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
      *  - LV_LOG_LEVEL_NONE     Do not log anything. */
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    #ifndef LV_LOG_LEVEL
+        #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
+    #endif
 
     /** - 1: Print log with 'printf';
      *  - 0: User needs to register a callback with `lv_log_register_print_cb()`. */

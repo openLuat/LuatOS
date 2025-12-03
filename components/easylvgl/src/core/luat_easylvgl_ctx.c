@@ -7,8 +7,15 @@
 #include "luat_easylvgl.h"
 #include "luat_easylvgl_component.h"
 #include "luat_easylvgl_task.h"
+#include "luat_rtos.h"
 #include <string.h>
 #include <assert.h>
+
+#define LUAT_LOG_TAG "easylvgl.ctx"
+#include "luat_log.h"
+
+// LVGL Tick 定时器句柄（全局静态变量，用于在 deinit 中清理）
+static luat_rtos_timer_t g_lv_tick_timer = NULL;
 
 // 平台驱动声明（编译时选择）
 #if defined(LUAT_USE_EASYLVGL_SDL2)
@@ -49,6 +56,17 @@ static void input_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
     if (ctx->ops->input_ops->read_pointer) {
         ctx->ops->input_ops->read_pointer(ctx, data);
     }
+}
+
+/**
+ * LVGL Tick 定时器回调（每5ms调用 lv_tick_inc(5)）
+ */
+static void easylvgl_lv_tick_timer_handler(void *param)
+{
+    (void)param;
+    
+    // 直接更新 LVGL tick
+    lv_tick_inc(5);  // 5ms tick
 }
 
 /**
@@ -101,7 +119,7 @@ int easylvgl_ctx_create(easylvgl_ctx_t *ctx, const easylvgl_platform_ops_t *ops)
  * @param color_format 颜色格式
  * @return 0 成功，<0 失败
  */
-int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format)
+int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format, uint32_t buff_size, uint8_t buff_mode)
 {
     if (ctx == NULL || ctx->ops == NULL) {
         return EASYLVGL_ERR_INVALID_PARAM;
@@ -115,7 +133,9 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     ctx->height = height;
     
     // 初始化 LVGL
-    lv_init();
+    if (!lv_is_initialized()) {
+        lv_init();
+    }
     
     // 创建显示设备
     ctx->display = lv_display_create(width, height);
@@ -139,6 +159,9 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     
     // 设置 flush 回调
     lv_display_set_flush_cb(ctx->display, display_flush_cb);
+    
+    // 设置 display 的颜色格式（要和平台 driver 传入的一致）
+    lv_display_set_color_format(ctx->display, color_format);
     
     // 分配显示缓冲（双缓冲模式）
     uint32_t buf_size = width * height * lv_color_format_get_size(color_format);
@@ -166,13 +189,31 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     
     // 文件系统驱动初始化（可选）
     // TODO: 阶段一暂不实现文件系统驱动
+
+    // 创建 LVGL tick 定时器（每5ms触发一次，用于更新 lv_tick_inc(5)）
+    ret = luat_rtos_timer_create(&g_lv_tick_timer);
+    if (ret != 0) {
+        LLOGE("failed to create lv tick timer: %d", ret);
+        return EASYLVGL_ERR_INIT_FAILED;
+    }
+    
+    // 启动定时器：5ms 超时，重复执行
+    ret = luat_rtos_timer_start(g_lv_tick_timer, 5, 1, easylvgl_lv_tick_timer_handler, NULL);
+    if (ret != 0) {
+        LLOGE("failed to start lv tick timer: %d", ret);
+        luat_rtos_timer_delete(g_lv_tick_timer);
+        g_lv_tick_timer = NULL;
+        return EASYLVGL_ERR_INIT_FAILED;
+    }
+    
+    LLOGD("lv tick timer started successfully");
     
     // 启动 LVGL 专职任务
-    ret = easylvgl_task_start(ctx);
-    if (ret != 0) {
-        easylvgl_deinit(ctx);
-        return ret;
-    }
+    // ret = easylvgl_task_start(ctx);
+    // if (ret != 0) {
+    //     easylvgl_deinit(ctx);
+    //     return ret;
+    // }
     
     return EASYLVGL_OK;
 }
@@ -185,6 +226,14 @@ void easylvgl_deinit(easylvgl_ctx_t *ctx)
 {
     if (ctx == NULL) {
         return;
+    }
+    
+    // 停止并删除 LVGL tick 定时器
+    if (g_lv_tick_timer != NULL) {
+        luat_rtos_timer_stop(g_lv_tick_timer);
+        luat_rtos_timer_delete(g_lv_tick_timer);
+        g_lv_tick_timer = NULL;
+        LLOGD("lv tick timer stopped");
     }
     
     // 停止 LVGL 专职任务

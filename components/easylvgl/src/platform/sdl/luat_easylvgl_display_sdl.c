@@ -7,9 +7,14 @@
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
 #include "luat_easylvgl.h"
+#include "lvgl9/src/draw/lv_draw_buf.h"
+#include "luat_log.h"
 #include <SDL2/SDL.h>
 #include <string.h>
 #include <stdlib.h>
+
+#define LUAT_LOG_TAG "easylvgl.sdl"
+#include "luat_log.h"
 
 /** SDL 显示驱动私有数据 */
 typedef struct {
@@ -116,36 +121,71 @@ static void sdl_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const 
         return;
     }
     
-    // 锁定纹理
-    void *pixels;
-    int pitch;
-    if (SDL_LockTexture(data->texture, NULL, &pixels, &pitch) != 0) {
+    
+    // 边界检查
+    int32_t hor_res = lv_display_get_horizontal_resolution(ctx->display);
+    int32_t ver_res = lv_display_get_vertical_resolution(ctx->display);
+    
+    if (area->x2 < 0 || area->y2 < 0 || area->x1 > hor_res - 1 || area->y1 > ver_res - 1) {
         return;
     }
+    
     
     // 计算区域大小
     uint32_t w = lv_area_get_width(area);
     uint32_t h = lv_area_get_height(area);
     uint32_t bytes_per_pixel = lv_color_format_get_size(data->color_format);
     
-    // 复制像素数据（简化实现：直接复制整个区域）
-    // 注意：这里需要根据颜色格式进行转换，阶段一先简化处理
-    uint8_t *dst = (uint8_t *)pixels + area->y1 * pitch + area->x1 * bytes_per_pixel;
-    const uint8_t *src = px_map;
+    // 使用 SDL_UpdateTexture 更新部分区域（类似重构前的 luat_sdl2_draw）
+    // 这比 LockTexture + memcpy + UnlockTexture 更高效
+    SDL_Rect rect = {
+        .x = area->x1,
+        .y = area->y1,
+        .w = (int)w,
+        .h = (int)h
+    };
     
-    for (uint32_t y = 0; y < h; y++) {
-        memcpy(dst, src, w * bytes_per_pixel);
-        dst += pitch;
-        src += w * bytes_per_pixel;
+    // 计算 px_map 的实际 stride
+    // 在 PARTIAL 模式下，px_map 的数据可能是紧密打包的（区域宽度），
+    // 但为了安全，我们使用 LockTexture + 逐行复制的方式
+    uint32_t px_map_stride = lv_draw_buf_width_to_stride(w, data->color_format);  // 区域宽度的 stride
+    uint32_t px_map_line_bytes = w * bytes_per_pixel;  // 每行实际数据字节数
+    
+    
+    // 使用 LockTexture + 逐行复制的方式（更安全，可以处理对齐的 stride）
+    void *texture_pixels;
+    int texture_pitch;
+    if (SDL_LockTexture(data->texture, &rect, &texture_pixels, &texture_pitch) != 0) {
+        const char *error = SDL_GetError();
+        return;
     }
     
-    // 解锁纹理
+    // 逐行复制数据
+    const uint8_t *src = px_map;
+    uint8_t *dst = (uint8_t *)texture_pixels;
+
+    for (uint32_t y = 0; y < h; y++) {
+        memcpy(dst, src, px_map_line_bytes);
+        src += px_map_stride;  // 使用区域宽度的 stride
+        dst += texture_pitch;  // 使用纹理的 pitch
+    }
+    
     SDL_UnlockTexture(data->texture);
     
-    // 渲染到窗口
-    SDL_RenderClear(data->renderer);
-    SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
-    SDL_RenderPresent(data->renderer);
+    // 关键：只在最后一块区域时才刷新到屏幕
+    // 这样可以避免在 PARTIAL 模式下频繁 Present，提高性能并避免闪烁
+    bool is_last = lv_display_flush_is_last(ctx->display);
+
+    if (is_last) {
+        // 渲染到窗口（不清除，直接复制整个纹理）
+        // 注意：不要调用 SDL_RenderClear，因为这会清除之前的内容
+        if (SDL_RenderCopy(data->renderer, data->texture, NULL, NULL) != 0) {
+            const char *error = SDL_GetError();
+            return;
+        }
+        SDL_RenderPresent(data->renderer);
+    }
+    // 注意：lv_display_flush_ready() 已经在 display_flush_cb 中调用了
 }
 
 /**

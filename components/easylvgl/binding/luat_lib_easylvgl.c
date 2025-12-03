@@ -33,6 +33,7 @@ typedef struct {
 // 函数声明
 static int l_easylvgl_init(lua_State *L);
 static int l_easylvgl_deinit(lua_State *L);
+static int l_easylvgl_refresh(lua_State *L);
 static int l_easylvgl_button(lua_State *L);
 static void register_button_meta(lua_State *L);
 static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt);
@@ -45,6 +46,7 @@ static int l_button_gc(lua_State *L);
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"deinit", ROREG_FUNC(l_easylvgl_deinit)},
+    {"refresh", ROREG_FUNC(l_easylvgl_refresh)},
     {"button", ROREG_FUNC(l_easylvgl_button)},
     {NULL, ROREG_INT(0)}
 };
@@ -126,6 +128,25 @@ static int l_easylvgl_deinit(lua_State *L) {
         lua_pushnil(L);
         lua_setfield(L, LUA_REGISTRYINDEX, "easylvgl_ctx");
     }
+    
+    return 0;
+}
+
+/**
+ * 刷新 LVGL 显示（执行定时器处理）
+ * @api easylvgl.refresh()
+ * @return nil
+ */
+static int l_easylvgl_refresh(lua_State *L) {
+    (void)L;
+    
+    if (g_ctx == NULL) {
+        luaL_error(L, "easylvgl not initialized, call easylvgl.init() first");
+        return 0;
+    }
+    
+    // 执行 LVGL 定时器处理（处理重绘、动画、事件等）
+    lv_timer_handler();
     
     return 0;
 }

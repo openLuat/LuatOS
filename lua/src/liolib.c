@@ -14,7 +14,7 @@ local fd = io.open("/xxx.txt", "rb")
 -- 读写默认,打开文件
 local fd = io.open("/xxx.txt", "wb")
 -- 写入文件,且截断为0字节
-local fd = io.open("/xxx.txt", "wb+")
+local fd = io.open("/xxx.txt", "w+b")
 -- 追加模式
 local fd = io.open("/xxx.txt", "a")
 

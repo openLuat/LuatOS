@@ -107,7 +107,7 @@ function excloud_task_func()
         use_getip = true, -- 使用getip服务
         device_type = 1,   -- 4G设备
         auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi",
-        transport = "mqtt",       -- 使用TCP传输
+        transport = "tcp",       -- 使用TCP传输
         auto_reconnect = true,   -- 自动重连
         reconnect_interval = 10, -- 重连间隔(秒)
         max_reconnect = 5,       -- 最大重连次数

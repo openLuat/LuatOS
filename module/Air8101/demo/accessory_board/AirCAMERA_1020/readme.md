@@ -1,77 +1,98 @@
+# AirCAMERA_1020 DEMO
 
 ## 演示功能概述
 
-AirCAMERA_1020是合宙设计生产的一款DVP摄像头配件板；
+本示例主要是展示 AirCAMERA_1020 的使用，本地拍摄照片后通过 httpplus 扩展库将图片上传至 air32.com
 
-本demo演示的核心功能为：
+1、main.lua：主程序入口
 
-Air8101核心板+AirCAMERA_1020配件板，演示DVP摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
+2、take_photo_http_post.lua：执行拍照后上传照片至 air32.com
 
+3、netdrv_wifi.lua：连接 WIFI
 
-## 核心板+配件板资料
+## 演示功能概述
 
-[Air8101核心板+配件板相关资料](https://docs.openluat.com/air8101/product/shouce/#air8101_1)
+### 1、主程序入口模块（main.lua）
 
+- 初始化项目信息和版本号
+- 初始化看门狗，并定时喂狗
+- 启动一个循环定时器，每隔 3 秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况方便分析内存使用是否有异常
+- 加载 netdrv_wifi 模块（通过 require "netdrv_wifi"）
+- 加载 take_photo_http_post 模块（通过 require "take_photo_http_post"）
+
+### 2、WIFI 连接模块（netdrv_wifi.lua）
+
+- 订阅"IP_READY"和"IP_LOSE"
+- 根据对应的网络状态执行对应的动作
+- 联网成功则配置 DNS
+- 联网失败则打印联网失败日志
+
+### 3、拍照上传核心业务模块（take_photo_http_post.lua）
+
+- 每 30 秒触发一次拍照：AirCAMERA_1020_func()
+- 每 3 秒打印一次系统和 LUA 的内存信息：memory_check()
+- 配置摄像头信息表：dvp_camera_param
+- 初始化摄像头：excamera.open()
+- 执行拍照：excamera.photo()
+- 上传照片：httpplus.request()
+- 关闭摄像头：excamera.close()
 
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8101/product/file/AirCAMERA_1020/hw_connection.jpg)
+1、Air8101 核心板一块
 
-![](https://docs.openluat.com/air8101/product/file/AirCAMERA_1020/hw_connection1.jpg)
+2、TYPE-C USB 数据线一根
 
-1、Air8101核心板
+3、合宙标准配件 AirCAMERA_1020 一块
 
-2、AirCAMERA_1020配件板（带DVP摄像头，1.8V的开关拨到ON，1.2V和1.5V的开关拨到OFF）
+4、Air8101 核心板和合宙标准配件 AirCAMERA_1020 的硬件接线方式为
 
-3、Air8101核心板和AirCAMERA_1020配件板的硬件接线方式为
+Air8101 核心板通过 TYPE-C USB 口供电；（背面功耗测试开关拨到 OFF）
 
-- Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端），此种供电方式下，vbat引脚为3.3V，可以直接给AirCAMERA_1020配件板供电；
+TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
-- 为了演示方便，所以Air8101核心板上电后直接通过vbat引脚给AirCAMERA_1020配件板提供了3.3V的供电；
-
-- 客户在设计实际项目时，一般来说，需要通过一个GPIO来控制LDO给摄像头供电，这样可以灵活地控制摄像头的供电，可以使项目的整体功耗降到最低；
-
-- AirCAMERA_1020配件板设计为了排母的形式，可以参考下表直接插到Air8101核心板的排针上
-
-| Air8101核心板 | AirCAMERA_1020配件板 |
-| ------------ | -------------------- |
-|     vbat     |          VDD         |
-|     gnd      |          GND         |
-|   11/U1RX    |          SDA         |
-|   12/U1TX    |          SCL         |
-|   73/VSY     |          VSY         |
-|    3/HSY     |          HSY         |
-|    69/D7     |           D7         |
-|    2/MCLK    |         MCLK         |
-|     7/D6     |           D6         |
-|     70/D5    |           D5         |
-|    74/PCK    |         PCLK         |
-|     6/D4     |           D4         |
-|     4/D0     |           D0         |
-|    71/D3     |           D3         |
-|    72/D1     |           D1         |
-|     5/D2     |     <font color="red">D2(错印成了D5)</font>    |
-
+AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图，请跳转至 [https://docs.openluat.com/accessory/AirCAMERA_1020/](https://docs.openluat.com/accessory/AirCAMERA_1020/)：
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、[Air8101 V1003版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V1003固件对比验证）
+2、Air8101 V1006 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
 
+## 演示核心步骤
 
-## 演示操作步骤
+1、搭建硬件环境;
 
-1、搭建好演示硬件环境
+2、修改 netdrv_wifi.lua 中的 WIFI 账号密码;
 
-2、demo脚本代码wifi_app.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
+3、烧录 DEMO 代码;
 
-3、Luatools烧录内核固件和修改后的demo脚本代码
+4、等待自动拍照完成后上传平台，LUATOOLS会有如下打印;
+```lua
+[2025-11-17 14:44:06.904] luat:U(30608):I/user.初始化状态 true
+[2025-11-17 14:44:06.904] luat:D(30608):camera:摄像头启动
+[2025-11-17 14:44:06.904] luat:U(30609):I/user.照片存储路径 /ram/test.jpg
+[2025-11-17 14:44:06.904] luat:D(30609):camera:选定的捕捉模式 0
+[2025-11-17 14:44:06.904] luat:D(30609):camera:注册frame_callback, 帧格式 4
+[2025-11-17 14:44:06.904] luat:U(30611):I/user.sys ram 175496 83600 125064
+[2025-11-17 14:44:06.904] luat:U(30612):I/user.lua ram 1572856 185496 242224
+[2025-11-17 14:44:07.375] luat:U(31148):I/user.摄像头数据 47184
+[2025-11-17 14:44:07.381] luat:D(31150):camera:执行摄像头停止操作
+[2025-11-17 14:44:07.381] luat:U(31152):I/user.拍照完成
+[2025-11-17 14:44:07.381] luat:D(31158):socket:connect to upload.air32.cn,80
+[2025-11-17 14:44:07.381] luat:D(31158):DNS:upload.air32.cn state 0 id 2 ipv6 0 use dns server0, try 0
+[2025-11-17 14:44:07.381] luat:D(31159):net:adatper 2 dns server 223.5.5.5
+[2025-11-17 14:44:07.381] luat:D(31159):net:dns udp sendto 223.5.5.5:53 from 192.168.1.119
+[2025-11-17 14:44:07.472] luat:I(31217):DNS:dns all done ,now stop
+[2025-11-17 14:44:07.472] luat:D(31218):net:connect 49.232.89.122:80 TCP
+[2025-11-17 14:44:07.593] luat:U(31352):I/user.httpplus 等待服务器完成响应
+[2025-11-17 14:44:07.855] luat:U(31623):I/user.httpplus 等待服务器完成响应
+[2025-11-17 14:44:07.855] luat:U(31625):I/user.httpplus 服务器已完成响应,开始解析响应
+[2025-11-17 14:44:07.864] luat:U(31634):I/user.http_upload_photo_task_func httpplus.request 200
+[2025-11-17 14:44:07.864] luat:D(31635):camera:执行摄像头关闭操作
+[2025-11-17 14:44:07.864] cpu1:img_serv:W(1116):img_service_close already close
+```
 
-4、烧录成功后，自动开机运行
+5、登录 https://www.air32.cn/upload/data/jpg/ 查看拍摄的照片;
 
-5、观察Luatools的运行日志，如果输出 http_upload_photo_task_func httpplus.request 200表示测试正常
-
-6、电脑上浏览器打开[https://www.air32.cn/upload/data/jpg/](https://www.air32.cn/upload/data/jpg/)，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
-   
-
+![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)

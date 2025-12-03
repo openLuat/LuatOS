@@ -1,4 +1,13 @@
 --[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@version 1.0
+@date    2025.11.09
+@author  陈取德
+@usage
+本demo主要使用AirCAMERA_1020 DVP摄像头完成一次拍照上传任务
+]]
+--[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
         可以随便定义，只要不使用,就行
@@ -7,16 +16,9 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-
-AirCAMERA_1020是合宙设计生产的一款DVP摄像头配件板；
-本demo演示的核心功能为：
-Air8101核心板+AirCAMERA_1020配件板，演示DVP摄像头100万像素拍照+http上传照片+电脑浏览器查看照片的功能；
-更多说明参考本目录下的readme.md文件
 ]]
-
-PROJECT = "AirCAMERA_1020"
+PROJECT = "AirCAMERA_1020_Demo"
 VERSION = "001.000.000"
-
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -50,19 +52,18 @@ end
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
--- 加载WIFI网络连接管理功能模块
-require "wifi_app"
--- 加载AirCAMERA_1020拍照并且通过http上传照片的功能模块
-require "http_app"
-
+-- 导入netdrv_wifi模块，连接WIFI
+require "netdrv_wifi"
+-- 导入take_photo_http_post拍照上传应用DEMO
+require "take_photo_http_post"
 
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

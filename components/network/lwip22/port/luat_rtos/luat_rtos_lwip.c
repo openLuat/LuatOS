@@ -273,7 +273,7 @@ void sys_timeout(u32_t msecs, sys_timeout_handler handler, void *arg)
 	user_timer->timer = luat_create_rtos_timer(luat_lwip_timer_cb, (void *)user_timer, NULL);
 	user_timer->handler = handler;
 	user_timer->args = arg;
-	luat_start_rtos_timer(user_timer, msecs, 0);
+	luat_start_rtos_timer(user_timer->timer, msecs, 0);
 }
 void sys_untimeout(sys_timeout_handler handler, void *arg)
 {

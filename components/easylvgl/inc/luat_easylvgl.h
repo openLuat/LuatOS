@@ -23,6 +23,10 @@ extern "C" {
 /** 回调函数类型最大数量 */
 #define EASYLVGL_CALLBACK_MAX 16
 
+/** 颜色格式常量（用于 Lua API，直接使用 LVGL 常量值） */
+#define EASYLVGL_COLOR_FORMAT_RGB565    LV_COLOR_FORMAT_RGB565     /**< RGB565 格式，16位，适用于嵌入式设备 */
+#define EASYLVGL_COLOR_FORMAT_ARGB8888  LV_COLOR_FORMAT_ARGB8888   /**< ARGB8888 格式，32位，默认格式 */
+
 /**********************
  *      TYPEDEFS
  *********************/

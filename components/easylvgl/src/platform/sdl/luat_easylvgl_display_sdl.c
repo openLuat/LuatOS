@@ -83,10 +83,21 @@ static int sdl_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
         return EASYLVGL_ERR_INIT_FAILED;
     }
     
-    // 创建 SDL 纹理（ARGB8888 格式）
+    // 根据颜色格式选择 SDL 像素格式
+    Uint32 sdl_format;
+    if (fmt == LV_COLOR_FORMAT_RGB565) {
+        sdl_format = SDL_PIXELFORMAT_RGB565;
+    } else if (fmt == LV_COLOR_FORMAT_ARGB8888) {
+        sdl_format = SDL_PIXELFORMAT_ARGB8888;
+    } else {
+        // 默认使用 ARGB8888
+        sdl_format = SDL_PIXELFORMAT_ARGB8888;
+    }
+    
+    // 创建 SDL 纹理（使用对应的格式）
     data->texture = SDL_CreateTexture(
         data->renderer,
-        SDL_PIXELFORMAT_ARGB8888,
+        sdl_format,
         SDL_TEXTUREACCESS_STREAMING,
         w,
         h

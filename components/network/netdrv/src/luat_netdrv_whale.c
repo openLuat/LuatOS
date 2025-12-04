@@ -32,7 +32,6 @@ extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 
 static err_t luat_netif_init(struct netif *netif);
 static err_t netif_output(struct netif *netif, struct pbuf *p);
-static int netif_ip_event_cb(lua_State *L, void* ptr);
 
 void luat_netdrv_whale_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     // TODO 发送到spi slave task

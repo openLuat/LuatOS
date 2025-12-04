@@ -661,6 +661,9 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 		if (ret) {
 			return; // 结束，因为on_complete里面已经上报错误了
 		}
+		if (http_ctrl->error_code == -5) {
+			http_ctrl->error_code = HTTP_OK;
+		}
 	}
 	else {
 		if (http_ctrl->error_code == 0) {

@@ -239,6 +239,9 @@ int easylvgl_win_add_content(lv_obj_t *win, lv_obj_t *child)
     lv_obj_t *content = win_data->content;
     if (content == NULL) {
         content = lv_win_get_content(win);
+        if (content == NULL) {
+            return EASYLVGL_ERR_INVALID_PARAM;
+        }
         win_data->content = content;
     }
     

@@ -88,14 +88,52 @@ static int l_win_set_title(lua_State *L) {
 static int l_win_add_content(lua_State *L) {
     lv_obj_t *win = easylvgl_check_component(L, 1, EASYLVGL_WIN_MT);
     
-    // 从 userdata 中获取子对象
-    easylvgl_component_ud_t *child_ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 2, NULL);
-    if (child_ud == NULL || child_ud->obj == NULL) {
-        luaL_error(L, "invalid child object");
+    // 检查第二个参数是否是 userdata
+    if (lua_type(L, 2) != LUA_TUSERDATA) {
+        luaL_error(L, "expected userdata as child object");
+        return 0;
+    }
+    
+    // 安全地从 userdata 中提取对象指针
+    // 所有组件都使用相同的 easylvgl_component_ud_t 结构
+    easylvgl_component_ud_t *child_ud = (easylvgl_component_ud_t *)lua_touserdata(L, 2);
+    if (child_ud == NULL) {
+        luaL_error(L, "invalid userdata");
+        return 0;
+    }
+    
+    // 验证对象指针是否有效
+    if (child_ud->obj == NULL) {
+        luaL_error(L, "child object is NULL");
         return 0;
     }
     
     easylvgl_win_add_content(win, child_ud->obj);
+    return 0;
+}
+
+/**
+ * Win:close()
+ * @api win:close()
+ * @return nil
+ */
+static int l_win_close(lua_State *L) {
+    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_WIN_MT);
+    if (ud != NULL && ud->obj != NULL) {
+        // 获取元数据并释放 Win 私有数据
+        easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
+        if (meta != NULL) {
+            // 释放 Win 私有数据
+            if (meta->user_data != NULL) {
+                free(meta->user_data);
+                meta->user_data = NULL;
+            }
+        }
+        
+        // 删除窗口对象（会触发 on_close 回调）
+        lv_obj_delete(ud->obj);
+        ud->obj = NULL;
+    }
     return 0;
 }
 
@@ -139,6 +177,7 @@ void easylvgl_register_win_meta(lua_State *L) {
     static const luaL_Reg methods[] = {
         {"set_title", l_win_set_title},
         {"add_content", l_win_add_content},
+        {"close", l_win_close},
         {NULL, NULL}
     };
     

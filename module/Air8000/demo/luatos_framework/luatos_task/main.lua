@@ -25,6 +25,10 @@ VERSION：项目版本号，ascii string类型
 PROJECT = "luatos_framework_luatos_task"
 VERSION = "001.000.000"
 
+-- 以下两行代码是为了演示：task运行异常时，不自动重启软件的功能配置
+-- _G.COROUTINE_ERROR_ROLL_BACK = false
+-- _G.COROUTINE_ERROR_RESTART = false
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -101,6 +105,9 @@ require "scheduling"
 
 -- 加载“task内外部运行环境典型错误”演示功能模块
 -- require "task_inout_env_err"
+
+-- 加载“高级task的sys.taskDel函数对内存资源释放”演示功能模块 
+-- require "memory_task_delete"
 
 
 -- 用户代码已结束---------------------------------------------

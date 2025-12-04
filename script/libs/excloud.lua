@@ -557,7 +557,7 @@ end
 --     for _, tlv in ipairs(tlvs) do
 --         if tlv.field_meaning == FIELD_MEANINGS.AUTH_RESPONSE then
 --             local success = (tlv.value == "OK" or tlv.value == "SUCCESS")
---             is_authenticated = success
+--             is_authenticated = true
 
 --             -- 记录认证结果到运维日志
 --             if config.aircloud_mtn_log_enabled then
@@ -1094,32 +1094,47 @@ end
 -- 发送文件上传开始通知
 local function send_file_upload_start(file_type, file_name, file_size)
     -- 构建子TLV数据
-    local sub_tlvs = ""
+    -- local sub_tlvs = ""
 
     -- 文件上传类型子TLV
-    local success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_UPLOAD_TYPE, DATA_TYPES.INTEGER, file_type)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
+    -- local success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_UPLOAD_TYPE, DATA_TYPES.INTEGER, file_type)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
 
     -- 文件名称子TLV
-    success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_NAME, DATA_TYPES.ASCII, file_name)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
+    -- success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_NAME, DATA_TYPES.ASCII, file_name)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
 
     -- 文件大小子TLV
-    success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_SIZE, DATA_TYPES.INTEGER, file_size)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
-
+    -- success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_SIZE, DATA_TYPES.INTEGER, file_size)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
+    local sub_tlvs = 0
     -- 主TLV（文件上传开始通知）
     local message = {
         {
             field_meaning = FIELD_MEANINGS.FILE_UPLOAD_START,
-            data_type = DATA_TYPES.BINARY,
+            data_type = DATA_TYPES.INTEGER,
             value = sub_tlvs -- 子TLV数据作为二进制值
+        },
+        {
+            field_meaning = FIELD_MEANINGS.FILE_UPLOAD_TYPE,
+            data_type = DATA_TYPES.INTEGER,
+            value = file_type
+        },
+        {
+            field_meaning = FIELD_MEANINGS.FILE_NAME,
+            data_type = DATA_TYPES.ASCII,
+            value = file_name
+        },
+        {
+            field_meaning = FIELD_MEANINGS.FILE_SIZE,
+            data_type = DATA_TYPES.INTEGER,
+            value = file_size
         }
     }
 
@@ -1127,35 +1142,55 @@ local function send_file_upload_start(file_type, file_name, file_size)
 end
 
 -- 发送文件上传完成通知
-local function send_file_upload_finish(file_type, file_name, success)
+local function send_file_upload_finish(file_type, file_name, file_success)
     -- 构建子TLV数据
-    local sub_tlvs = ""
+    -- local sub_tlvs = ""
 
-    -- 文件上传类型子TLV
-    local success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_UPLOAD_TYPE, DATA_TYPES.INTEGER, file_type)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
+    -- -- 文件上传类型子TLV
+    -- local success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_UPLOAD_TYPE, DATA_TYPES.INTEGER, file_type)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
 
     -- 文件名称子TLV
-    success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_NAME, DATA_TYPES.ASCII, file_name)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
+    -- success, tlv_data = build_tlv(FIELD_MEANINGS.FILE_NAME, DATA_TYPES.ASCII, file_name)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
 
     -- 上传结果状态子TLV
-    success, tlv_data = build_tlv(FIELD_MEANINGS.UPLOAD_RESULT_STATUS, DATA_TYPES.INTEGER, success and 0 or 1)
-    if success then
-        sub_tlvs = sub_tlvs .. tlv_data
-    end
-
+    -- success, tlv_data = build_tlv(FIELD_MEANINGS.UPLOAD_RESULT_STATUS, DATA_TYPES.INTEGER, file_success and 0 or 1)
+    -- if success then
+    --     sub_tlvs = sub_tlvs .. tlv_data
+    -- end
+    local sub_tlvs = 0
     -- 主TLV（文件上传完成通知）
     local message = {
+
         {
             field_meaning = FIELD_MEANINGS.FILE_UPLOAD_FINISH,
-            data_type = DATA_TYPES.BINARY,
+            data_type = DATA_TYPES.INTEGER,
             value = sub_tlvs -- 子TLV数据作为二进制值
+        },
+
+        {
+            field_meaning = FIELD_MEANINGS.FILE_UPLOAD_TYPE,
+            data_type = DATA_TYPES.INTEGER,
+            value = file_type
+        },
+
+        {
+            field_meaning = FIELD_MEANINGS.FILE_NAME,
+            data_type = DATA_TYPES.ASCII,
+            value = file_name
+        },
+
+        {
+            field_meaning = FIELD_MEANINGS.UPLOAD_RESULT_STATUS,
+            data_type = DATA_TYPES.INTEGER,
+            value = file_success and 0 or 1
         }
+
     }
 
     return excloud.send(message, false)
@@ -1283,6 +1318,13 @@ function excloud.upload_image(file_path, file_name)
         log.warn("[excloud]手动填写IP时不允许上传图片文件")
         return false, "手动填写IP时不允许上传图片文件"
     end
+    if not io.exists(file_path) then
+        return false, "文件不存在: " .. file_path
+    end
+    -- 没有连接时直接退出
+    if not is_connected then
+        return false, "没有连接到服务器"
+    end
     file_name = file_name or "image_" .. os.time() .. ".jpg"
 
     -- 如果没有图片上传配置，先获取
@@ -1306,6 +1348,13 @@ function excloud.upload_audio(file_path, file_name)
     if not config.use_getip then
         log.warn("[excloud]手动填写IP时不允许上传音频文件")
         return false, "手动填写IP时不允许上传音频文件"
+    end
+    if not io.exists(file_path) then
+        return false, "文件不存在: " .. file_path
+    end
+    -- 没有连接时直接退出
+    if not is_connected then
+        return false, "没有连接到服务器"
     end
     file_name = file_name or "audio_" .. os.time() .. ".mp3"
 

@@ -449,7 +449,6 @@ static void ftp_task(void *param){
 	FTP_SUCCESS_STATE_e ftp_state = FTP_SUCCESS_NO_DATE;
 	int ret;
 	int count = 0;
-	luat_rtos_task_handle task_handle = g_s_ftp.task_handle;
 	OS_EVENT task_event;
 	uint8_t is_timeout = 0;
 
@@ -462,8 +461,8 @@ static void ftp_task(void *param){
 		ftp_state = FTP_ERROR;
 		l_ftp_cb(ftp_state);
 		luat_ftp_release();
+		luat_rtos_task_delete(g_s_ftp.task_handle);
 		g_s_ftp.task_handle = NULL;
-		luat_rtos_task_delete(task_handle);
 		return;
 	}else{
 		l_ftp_cb(ftp_state);
@@ -674,8 +673,8 @@ operation_failed:
 	if (ftp_state == FTP_SUCCESS_NO_DATE) ftp_state = FTP_SUCCESS_DATE;
 	l_ftp_cb(ftp_state);
 	luat_ftp_release();
-	g_s_ftp.task_handle = NULL;
-	luat_rtos_task_delete(task_handle);
+	luat_rtos_task_delete(g_s_ftp.task_handle);
+    g_s_ftp.task_handle = NULL;
 	return;
 wait_event_and_out:
 	while(1)
@@ -686,8 +685,8 @@ wait_event_and_out:
 			luat_ftp_release();
 			ftp_state = FTP_ERROR;
 			l_ftp_cb(ftp_state);
-			g_s_ftp.task_handle = NULL;
-			luat_rtos_task_delete(task_handle);
+			luat_rtos_task_delete(g_s_ftp.task_handle);
+            g_s_ftp.task_handle = NULL;
 			return;
 		}
 	}

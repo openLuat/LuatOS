@@ -1,13 +1,23 @@
 #include "ttf_parser.h"
 
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+// #include <stdio.h>
+// #include <stdlib.h>
 #include <string.h>
 
 #include "luat_fs.h"
+#include "luat_mem.h"
+
+#define free luat_heap_free
+#define malloc luat_heap_malloc
+#define realloc luat_heap_realloc
+#define calloc luat_heap_calloc
+#define zalloc luat_heap_zalloc
+
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
+
+
 static int g_ttf_debug = 0;
 /* 运行时可调的超采样率，默认取编译期宏 */
 static int g_ttf_supersample_rate = 0;
@@ -149,6 +159,7 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     /* 1.0: 默认开启流式读取以节省内存（不整读），若需要可切换到整读模式 */
     FILE *vfp = luat_fs_fopen(path, "rb");
     if (!vfp) {
+        #ifdef LUA_USE_WINDOWS
         /* 回退标准 fopen */
         FILE *fp = fopen(path, "rb");
         if (!fp) {
@@ -184,6 +195,9 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->fileSize = (size_t)fileSize;
         font->streaming = 0;
         font->ownsData = 1;
+        #else
+        return TTF_ERR_IO;
+        #endif
     } else {
         if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
             luat_fs_fclose(vfp);
@@ -824,7 +838,6 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
             if (cursor >= end) {
                 free(flags);
                 ttf_free_glyph(glyph);
-                free(flags);
                 free(tmp);
                 return TTF_ERR_FORMAT;
             }

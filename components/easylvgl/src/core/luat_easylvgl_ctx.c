@@ -118,15 +118,22 @@ int easylvgl_ctx_create(easylvgl_ctx_t *ctx, const easylvgl_platform_ops_t *ops)
  * @param height 屏幕高度
  * @param color_format 颜色格式
  * @return 0 成功，<0 失败
+ * 
+ * 主要任务：
+ * 1. 参数验证和基础设置（宽度、高度、LVGL初始化）
+ * 2. 创建显示设备和初始化平台显示驱动
+ * 3. 分配显示缓冲（双缓冲模式）
+ * 4. 创建输入设备和tick定时器
  */
 int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format, uint32_t buff_size, uint8_t buff_mode)
 {
-    if (ctx == NULL || ctx->ops == NULL) {
-        return EASYLVGL_ERR_INVALID_PARAM;
-    }
-    
-    if (width == 0 || height == 0) {
-        return EASYLVGL_ERR_INVALID_PARAM;
+    if (ctx == NULL || ctx->ops == NULL || width == 0 || height == 0) {
+        if (ctx == NULL || ctx->ops == NULL) {
+            LLOGE("easylvgl_init failed: invalid context or ops");
+        } else {
+            LLOGE("easylvgl_init failed: invalid size %dx%d", width, height);
+        }
+        return EASYLVGL_ERR_INIT_FAILED;
     }
     
     ctx->width = width;
@@ -140,6 +147,7 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     // 创建显示设备
     ctx->display = lv_display_create(width, height);
     if (ctx->display == NULL) {
+        LLOGE("easylvgl_init failed: lv_display_create failed");
         return EASYLVGL_ERR_INIT_FAILED;
     }
     
@@ -147,11 +155,15 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     
     // 初始化平台显示驱动
     if (ctx->ops->display_ops == NULL || ctx->ops->display_ops->init == NULL) {
-        return EASYLVGL_ERR_INVALID_PARAM;
+        LLOGE("easylvgl_init failed: display_ops or init callback is NULL");
+        lv_display_delete(ctx->display);
+        ctx->display = NULL;
+        return EASYLVGL_ERR_INIT_FAILED;
     }
     
     int ret = ctx->ops->display_ops->init(ctx, width, height, color_format);
     if (ret != 0) {
+        LLOGE("easylvgl_init failed: platform display init failed, ret=%d", ret);
         lv_display_delete(ctx->display);
         ctx->display = NULL;
         return EASYLVGL_ERR_INIT_FAILED;
@@ -169,8 +181,9 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     void *buf2 = easylvgl_buffer_alloc(ctx, buf_size, EASYLVGL_BUFFER_OWNER_SYSTEM);
     
     if (buf1 == NULL || buf2 == NULL) {
+        LLOGE("easylvgl_init failed: buffer allocation failed, size=%u", buf_size);
         easylvgl_deinit(ctx);
-        return EASYLVGL_ERR_NO_MEM;
+        return EASYLVGL_ERR_INIT_FAILED;
     }
     
     // 设置缓冲
@@ -179,6 +192,7 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     // 创建输入设备
     ctx->indev = lv_indev_create();
     if (ctx->indev == NULL) {
+        LLOGE("easylvgl_init failed: lv_indev_create failed");
         easylvgl_deinit(ctx);
         return EASYLVGL_ERR_INIT_FAILED;
     }
@@ -193,20 +207,22 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     // 创建 LVGL tick 定时器（每5ms触发一次，用于更新 lv_tick_inc(5)）
     ret = luat_rtos_timer_create(&g_lv_tick_timer);
     if (ret != 0) {
-        LLOGE("failed to create lv tick timer: %d", ret);
+        LLOGE("easylvgl_init failed: create lv tick timer failed, ret=%d", ret);
+        easylvgl_deinit(ctx);
         return EASYLVGL_ERR_INIT_FAILED;
     }
     
     // 启动定时器：5ms 超时，重复执行
     ret = luat_rtos_timer_start(g_lv_tick_timer, 5, 1, easylvgl_lv_tick_timer_handler, NULL);
     if (ret != 0) {
-        LLOGE("failed to start lv tick timer: %d", ret);
+        LLOGE("easylvgl_init failed: start lv tick timer failed, ret=%d", ret);
         luat_rtos_timer_delete(g_lv_tick_timer);
         g_lv_tick_timer = NULL;
+        easylvgl_deinit(ctx);
         return EASYLVGL_ERR_INIT_FAILED;
     }
     
-    LLOGD("lv tick timer started successfully");
+    LLOGD("easylvgl_init success: %dx%d, color_format=%d", width, height, color_format);
     
     // 启动 LVGL 专职任务
     // ret = easylvgl_task_start(ctx);

@@ -202,7 +202,11 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     lv_indev_set_read_cb(ctx->indev, input_read_cb);
     
     // 文件系统驱动初始化（可选）
-    // TODO: 阶段一暂不实现文件系统驱动
+    ret = easylvgl_fs_init(ctx);
+    if (ret != 0) {
+        LLOGE("easylvgl_init failed: file system init failed, ret=%d", ret);
+        // 文件系统初始化失败不影响整体初始化，只记录错误
+    }
 
     // 创建 LVGL tick 定时器（每5ms触发一次，用于更新 lv_tick_inc(5)）
     ret = luat_rtos_timer_create(&g_lv_tick_timer);

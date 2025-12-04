@@ -212,6 +212,15 @@ void *easylvgl_buffer_alloc(easylvgl_ctx_t *ctx, size_t size, easylvgl_buffer_ow
  */
 void easylvgl_buffer_free_all(easylvgl_ctx_t *ctx);
 
+/**
+ * 初始化文件系统驱动
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ * @pre-condition ctx 必须非空且已初始化
+ * @post-condition 文件系统驱动已注册到 LVGL
+ */
+int easylvgl_fs_init(easylvgl_ctx_t *ctx);
+
 
 #ifdef __cplusplus
 }

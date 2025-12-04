@@ -23,7 +23,7 @@ local USER_TASK_NAME = "user_task"  -- 用户任务名称
 local MSG_KEY_PRESS = 12            -- 按键消息类型
 
 -- 目标设备终端ID，修改为你想要对讲的终端ID
-TARGET_DEVICE_IMEI = "78122397"  -- 请替换为实际的目标设备终端ID
+TARGET_DEVICE_ID = "78122397"  -- 请替换为实际的目标设备终端ID
 
 
 -- 全局状态变量
@@ -128,15 +128,15 @@ local function init_buttons()
 end
 
 -- 查找目标设备
--- 根据配置的目标IMEI，不自动查找其他设备
+-- 根据配置的目标ID，不自动查找其他设备
 local function find_target_device()
-    -- 优先使用配置的目标IMEI
-    if TARGET_DEVICE_IMEI and TARGET_DEVICE_IMEI ~= "" then
-        return TARGET_DEVICE_IMEI
+    -- 优先使用配置的目标ID
+    if TARGET_DEVICE_ID and TARGET_DEVICE_ID ~= "" then
+        return TARGET_DEVICE_ID
     end
     
-    -- 没有配置目标IMEI，直接返回nil，不自动查找其他设备
-    log.warn("未配置目标设备IMEI")
+    -- 没有配置目标ID，直接返回nil，不自动查找其他设备
+    log.warn("未配置目标设备ID")
     return nil
 end
 

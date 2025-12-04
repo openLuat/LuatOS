@@ -14,6 +14,7 @@
 #include "../inc/luat_easylvgl.h"
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_task.h"
+#include "../inc/luat_easylvgl_binding.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "easylvgl"
@@ -22,32 +23,21 @@
 // 全局上下文（单例模式）
 static easylvgl_ctx_t *g_ctx = NULL;
 
-// 元表名称
-#define EASYLVGL_BUTTON_MT "easylvgl.button"
-
-// 组件 userdata 结构
-typedef struct {
-    lv_obj_t *obj;
-} easylvgl_component_ud_t;
-
 // 函数声明
 static int l_easylvgl_init(lua_State *L);
 static int l_easylvgl_deinit(lua_State *L);
 static int l_easylvgl_refresh(lua_State *L);
-static int l_easylvgl_button(lua_State *L);
-static void register_button_meta(lua_State *L);
-static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt);
-static lv_obj_t *check_component(lua_State *L, int index, const char *mt);
-static int l_button_set_text(lua_State *L);
-static int l_button_set_on_click(lua_State *L);
-static int l_button_gc(lua_State *L);
+
+// Button 模块声明
+extern void easylvgl_register_button_meta(lua_State *L);
+extern int easylvgl_button_create(lua_State *L);
 
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"deinit", ROREG_FUNC(l_easylvgl_deinit)},
     {"refresh", ROREG_FUNC(l_easylvgl_refresh)},
-    {"button", ROREG_FUNC(l_easylvgl_button)},
+    {"button", ROREG_FUNC(easylvgl_button_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -55,7 +45,10 @@ static const rotable_Reg_t reg_easylvgl[] = {
 };
 
 LUAMOD_API int luaopen_easylvgl(lua_State *L) {
-    register_button_meta(L);
+    // 注册各组件元表
+    easylvgl_register_button_meta(L);
+    
+    // 注册模块函数
     luat_newlib2(L, reg_easylvgl);
     return 1;
 }
@@ -168,63 +161,9 @@ static int l_easylvgl_refresh(lua_State *L) {
 }
 
 /**
- * 创建 Button 组件
- * @api easylvgl.button(config)
- * @table config 配置表
- * @int config.x X 坐标，默认 0
- * @int config.y Y 坐标，默认 0
- * @int config.w 宽度，默认 100
- * @int config.h 高度，默认 40
- * @string config.text 文本内容，可选
- * @function config.on_click 点击回调函数，可选
- * @userdata config.parent 父对象，可选，默认当前屏幕
- * @return userdata Button 对象
+ * 推送组件 userdata（通用辅助函数）
  */
-static int l_easylvgl_button(lua_State *L) {
-    if (g_ctx == NULL) {
-        luaL_error(L, "easylvgl not initialized, call easylvgl.init() first");
-        return 0;
-    }
-    
-    luaL_checktype(L, 1, LUA_TTABLE);
-    
-    lv_obj_t *btn = easylvgl_button_create_from_config(L, 1);
-    if (btn == NULL) {
-        lua_pushnil(L);
-        return 1;
-    }
-    
-    push_component_userdata(L, btn, EASYLVGL_BUTTON_MT);
-    return 1;
-}
-
-/**
- * 注册 Button 元表
- */
-static void register_button_meta(lua_State *L) {
-    luaL_newmetatable(L, EASYLVGL_BUTTON_MT);
-    
-    // 设置元方法
-    lua_pushcfunction(L, l_button_gc);
-    lua_setfield(L, -2, "__gc");
-    
-    // 设置方法表
-    static const luaL_Reg methods[] = {
-        {"set_text", l_button_set_text},
-        {"set_on_click", l_button_set_on_click},
-        {NULL, NULL}
-    };
-    
-    luaL_newlib(L, methods);
-    lua_setfield(L, -2, "__index");
-    
-    lua_pop(L, 1);
-}
-
-/**
- * 推送组件 userdata
- */
-static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt) {
+void easylvgl_push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)lua_newuserdata(L, sizeof(easylvgl_component_ud_t));
     ud->obj = obj;
     luaL_getmetatable(L, mt);
@@ -232,63 +171,13 @@ static void push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt)
 }
 
 /**
- * 检查组件 userdata
+ * 检查组件 userdata（通用辅助函数）
  */
-static lv_obj_t *check_component(lua_State *L, int index, const char *mt) {
+lv_obj_t *easylvgl_check_component(lua_State *L, int index, const char *mt) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, index, mt);
     if (ud == NULL || ud->obj == NULL) {
         luaL_error(L, "invalid %s object", mt);
     }
     return ud->obj;
-}
-
-/**
- * Button:set_text(text)
- * @api button:set_text(text)
- * @string text 文本内容
- * @return nil
- */
-static int l_button_set_text(lua_State *L) {
-    lv_obj_t *btn = check_component(L, 1, EASYLVGL_BUTTON_MT);
-    const char *text = luaL_checkstring(L, 2);
-    easylvgl_button_set_text(btn, text);
-    return 0;
-}
-
-/**
- * Button:set_on_click(callback)
- * @api button:set_on_click(callback)
- * @function callback 回调函数
- * @return nil
- */
-static int l_button_set_on_click(lua_State *L) {
-    lv_obj_t *btn = check_component(L, 1, EASYLVGL_BUTTON_MT);
-    luaL_checktype(L, 2, LUA_TFUNCTION);
-    
-    // 保存回调函数到 registry
-    lua_pushvalue(L, 2);
-    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    
-    easylvgl_button_set_on_click(btn, ref);
-    return 0;
-}
-
-/**
- * Button GC
- */
-static int l_button_gc(lua_State *L) {
-    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_BUTTON_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        // 获取元数据并释放
-        easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            easylvgl_component_meta_free(meta);
-        }
-        
-        // 删除 LVGL 对象
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
 }
 

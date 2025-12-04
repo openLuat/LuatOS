@@ -5,6 +5,7 @@
  */
 
 #include "luat_easylvgl_component.h"
+#include "luat_easylvgl_binding.h"
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -93,7 +94,7 @@ const char *easylvgl_marshal_string(void *L, int idx, const char *key, const cha
  * 从配置表读取父对象
  * @param L Lua 状态
  * @param idx 配置表索引
- * @return LVGL 父对象指针，未指定返回 NULL（返回屏幕对象）
+ * @return LVGL 父对象指针，未指定返回当前活动屏幕
  */
 lv_obj_t *easylvgl_marshal_parent(void *L, int idx)
 {
@@ -105,10 +106,18 @@ lv_obj_t *easylvgl_marshal_parent(void *L, int idx)
     lua_getfield(L_state, idx, "parent");
     
     if (lua_type(L_state, -1) == LUA_TUSERDATA) {
-        // 从 userdata 中获取 LVGL 对象指针
-        lv_obj_t *parent = (lv_obj_t *)lua_touserdata(L_state, -1);
+        // 从 userdata 结构体中获取 LVGL 对象指针
+        // userdata 是 easylvgl_component_ud_t 结构体，需要访问其 obj 字段
+        easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)lua_touserdata(L_state, -1);
+        lv_obj_t *parent = (ud != NULL) ? ud->obj : NULL;
         lua_pop(L_state, 1);
-        return parent;
+        
+        // 如果 userdata 有效且包含有效的对象指针，返回该对象
+        if (parent != NULL) {
+            return parent;
+        }
+        // 如果 userdata 无效，回退到默认屏幕
+        return lv_scr_act();
     }
     
     lua_pop(L_state, 1);

@@ -32,12 +32,27 @@ static int l_easylvgl_refresh(lua_State *L);
 extern void easylvgl_register_button_meta(lua_State *L);
 extern int easylvgl_button_create(lua_State *L);
 
+// Label 模块声明
+extern void easylvgl_register_label_meta(lua_State *L);
+extern int easylvgl_label_create(lua_State *L);
+
+// Image 模块声明
+extern void easylvgl_register_image_meta(lua_State *L);
+extern int easylvgl_image_create(lua_State *L);
+
+// Win 模块声明
+extern void easylvgl_register_win_meta(lua_State *L);
+extern int easylvgl_win_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"deinit", ROREG_FUNC(l_easylvgl_deinit)},
     {"refresh", ROREG_FUNC(l_easylvgl_refresh)},
     {"button", ROREG_FUNC(easylvgl_button_create)},
+    {"label", ROREG_FUNC(easylvgl_label_create)},
+    {"image", ROREG_FUNC(easylvgl_image_create)},
+    {"win", ROREG_FUNC(easylvgl_win_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -47,6 +62,9 @@ static const rotable_Reg_t reg_easylvgl[] = {
 LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     // 注册各组件元表
     easylvgl_register_button_meta(L);
+    easylvgl_register_label_meta(L);
+    easylvgl_register_image_meta(L);
+    easylvgl_register_win_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_easylvgl);

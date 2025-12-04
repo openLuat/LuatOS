@@ -159,6 +159,16 @@ const char *easylvgl_marshal_string(void *L, int idx, const char *key, const cha
 lv_obj_t *easylvgl_marshal_parent(void *L, int idx);
 
 /**
+ * 从配置表读取点坐标（用于 pivot 等）
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 输出点坐标
+ * @return true 成功读取，false 未找到或格式错误
+ */
+bool easylvgl_marshal_point(void *L, int idx, const char *key, lv_point_t *out);
+
+/**
  * 从 LVGL 对象获取元数据
  * @param obj LVGL 对象指针
  * @return 元数据指针，未找到返回 NULL
@@ -188,6 +198,85 @@ int easylvgl_button_set_text(lv_obj_t *btn, const char *text);
  * @return 0 成功，<0 失败
  */
 int easylvgl_button_set_on_click(lv_obj_t *btn, int callback_ref);
+
+/**
+ * Label 组件：从配置表创建
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return LVGL 对象指针
+ */
+lv_obj_t *easylvgl_label_create_from_config(void *L, int idx);
+
+/**
+ * Label 组件：设置文本
+ * @param label Label 对象指针
+ * @param text 文本内容
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_label_set_text(lv_obj_t *label, const char *text);
+
+/**
+ * Label 组件：获取文本
+ * @param label Label 对象指针
+ * @return 文本内容指针，失败返回 NULL
+ */
+const char *easylvgl_label_get_text(lv_obj_t *label);
+
+/**
+ * Image 组件：从配置表创建
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return LVGL 对象指针
+ */
+lv_obj_t *easylvgl_image_create_from_config(void *L, int idx);
+
+/**
+ * Image 组件：设置图片源
+ * @param img Image 对象指针
+ * @param src 图片路径或符号
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_image_set_src(lv_obj_t *img, const char *src);
+
+/**
+ * Image 组件：设置缩放比例
+ * @param img Image 对象指针
+ * @param zoom 缩放比例，256 = 100%
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_image_set_zoom(lv_obj_t *img, int zoom);
+
+/**
+ * Image 组件：设置透明度
+ * @param img Image 对象指针
+ * @param opacity 透明度，0-255
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_image_set_opacity(lv_obj_t *img, int opacity);
+
+/**
+ * Win 组件：从配置表创建
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return LVGL 对象指针
+ */
+lv_obj_t *easylvgl_win_create_from_config(void *L, int idx);
+
+/**
+ * Win 组件：设置标题
+ * @param win Win 对象指针
+ * @param title 标题文本
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_win_set_title(lv_obj_t *win, const char *title);
+
+/**
+ * Win 组件：添加子组件到内容容器
+ * @param win Win 对象指针
+ * @param child 子对象指针
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_win_add_content(lv_obj_t *win, lv_obj_t *child);
 
 #ifdef __cplusplus
 }

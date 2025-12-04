@@ -941,7 +941,9 @@
 #endif
 
 /** LODEPNG decoder library */
-#define LV_USE_LODEPNG 0
+#ifndef LV_USE_LODEPNG
+    #define LV_USE_LODEPNG 0
+#endif
 
 /** PNG decoder(libpng) library */
 #define LV_USE_LIBPNG 0

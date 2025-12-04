@@ -116,3 +116,46 @@ lv_obj_t *easylvgl_marshal_parent(void *L, int idx)
     return lv_scr_act();
 }
 
+/**
+ * 从配置表读取点坐标（用于 pivot 等）
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 输出点坐标，成功返回 true，失败返回 false
+ * @return true 成功读取，false 未找到或格式错误
+ */
+bool easylvgl_marshal_point(void *L, int idx, const char *key, lv_point_t *out)
+{
+    if (L == NULL || key == NULL || out == NULL) {
+        return false;
+    }
+    
+    lua_State *L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+    
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        // 读取 x 字段
+        lua_getfield(L_state, -1, "x");
+        if (lua_type(L_state, -1) == LUA_TNUMBER) {
+            out->x = lua_tointeger(L_state, -1);
+            lua_pop(L_state, 1);
+            
+            // 读取 y 字段
+            lua_getfield(L_state, -1, "y");
+            if (lua_type(L_state, -1) == LUA_TNUMBER) {
+                out->y = lua_tointeger(L_state, -1);
+                lua_pop(L_state, 2);  // 弹出 y 和 pivot 表
+                return true;
+            }
+            lua_pop(L_state, 1);
+        } else {
+            lua_pop(L_state, 1);
+        }
+        lua_pop(L_state, 1);
+    } else {
+        lua_pop(L_state, 1);
+    }
+    
+    return false;
+}
+

@@ -27,6 +27,9 @@
      *  - LV_LOG_LEVEL_NONE     Do not log anything. */
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
+    // 打开png支持
+    #define LV_USE_LODEPNG 1
+
 
 
 

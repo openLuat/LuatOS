@@ -107,6 +107,12 @@ int easylvgl_component_bind_event(
     }
     
     // 绑定 LVGL 事件
+    // 注意：CLOSE 事件由 Win 组件自己处理，不通过通用事件系统
+    if (event_type == EASYLVGL_EVENT_CLOSE) {
+        // CLOSE 事件由组件自己处理，这里只保存回调引用
+        return EASYLVGL_OK;
+    }
+    
     lv_event_code_t lv_event_code = LV_EVENT_CLICKED;
     switch (event_type) {
         case EASYLVGL_EVENT_CLICKED:

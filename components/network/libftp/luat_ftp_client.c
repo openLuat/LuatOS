@@ -180,7 +180,8 @@ static int32_t ftp_task_cb(void *pdata, void *param){
 		g_s_ftp.network->upload_done_size = (size_t)g_s_ftp.network->data_netc->ack_size;
 		if (g_s_ftp.network->upload_done_size >= g_s_ftp.network->local_file_size){
 			LLOGD("ftp data upload done!");
-			network_close(g_s_ftp.network->data_netc, 0);
+			network_close(g_s_ftp.network->data_netc, 5*1000);
+			g_s_ftp.network->data_netc_online = 0;
 		}
 		break;
 	case FTP_EVENT_DATA_CONNECT:
@@ -539,13 +540,22 @@ static void ftp_task(void *param){
 					goto operation_failed;
 				}
 			}
-
+			size_t read_size = PUSH_BUFF_SIZE;
 			uint8_t* buff = luat_heap_malloc(PUSH_BUFF_SIZE);
+			if (buff == NULL) {
+				buff = luat_heap_malloc(4*1024);
+				if (buff == NULL) {
+					LLOGE("ftp push malloc fail");
+					goto operation_failed;
+				}
+				read_size = 4*1024;
+			}
 			int offset = 0;
 			g_s_ftp.network->upload_done_size = 0;
 			while (1) {
-				memset(buff, 0, PUSH_BUFF_SIZE);
-				int len = luat_fs_fread(buff, sizeof(uint8_t), PUSH_BUFF_SIZE, g_s_ftp.fd);
+				// TODO 应该等ACK, 然后再发下一段数据, 否则大文件无法上传
+				memset(buff, 0, read_size);
+				int len = luat_fs_fread(buff, sizeof(uint8_t), read_size, g_s_ftp.fd);
 				if (len < 1)
 					break;
 				luat_ftp_data_send(&g_s_ftp, buff, len);
@@ -669,6 +679,13 @@ operation_failed:
 			ftp_state = FTP_ERROR;
 		}
 	}
+	if (g_s_ftp.network && g_s_ftp.network->data_netc){
+		network_close(g_s_ftp.network->data_netc, 0);
+	}
+	if (g_s_ftp.network && g_s_ftp.network->cmd_netc){
+		network_close(g_s_ftp.network->cmd_netc, 0);
+	}
+	luat_rtos_task_sleep(10);
 	OS_BufferWrite(&g_s_ftp.result_buffer, g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_len);
 	if (ftp_state == FTP_SUCCESS_NO_DATE) ftp_state = FTP_SUCCESS_DATE;
 	l_ftp_cb(ftp_state);

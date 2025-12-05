@@ -3,7 +3,11 @@
 #include "luat_network_adapter.h"
 #define FTP_CMD_SEND_MAX 		(128)
 #define FTP_CMD_RECV_MAX 		(1024)
-#define PUSH_BUFF_SIZE 			(4096)
+#ifdef LUAT_USE_PSRAM
+#define PUSH_BUFF_SIZE 			(64*1024)
+#else
+#define PUSH_BUFF_SIZE 			(4*1024)
+#endif
 #define FTP_SOCKET_TIMEOUT 		(30000)
 
 #define FTP_OK 					(0)

@@ -799,7 +799,7 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 	network_init_ctrl(g_s_ftp.network->cmd_netc,g_s_ftp.task_handle, ftp_task_cb, NULL);
 	network_set_base_mode(g_s_ftp.network->cmd_netc, 1, 30000, 0, 0, 0, 0);
 	network_set_local_port(g_s_ftp.network->cmd_netc, 0);
-	// g_s_ftp.network->cmd_netc->is_debug = 1;
+	g_s_ftp.network->cmd_netc->is_debug = g_s_ftp.debug_onoff;
 
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);
 	return 0;

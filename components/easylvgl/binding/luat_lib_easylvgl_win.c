@@ -13,6 +13,7 @@
 #include "../inc/luat_easylvgl.h"
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_binding.h"
+#include "luat_malloc.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "easylvgl.win"
@@ -125,7 +126,7 @@ static int l_win_close(lua_State *L) {
         if (meta != NULL) {
             // 释放 Win 私有数据
             if (meta->user_data != NULL) {
-                free(meta->user_data);
+                luat_heap_free(meta->user_data);
                 meta->user_data = NULL;
             }
         }
@@ -148,7 +149,7 @@ static int l_win_gc(lua_State *L) {
         if (meta != NULL) {
             // 释放 Win 私有数据
             if (meta->user_data != NULL) {
-                free(meta->user_data);
+                luat_heap_free(meta->user_data);
                 meta->user_data = NULL;
             }
             

@@ -125,7 +125,7 @@ int easylvgl_ctx_create(easylvgl_ctx_t *ctx, const easylvgl_platform_ops_t *ops)
  * 3. 分配显示缓冲（双缓冲模式）
  * 4. 创建输入设备和tick定时器
  */
-int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format, uint32_t buff_size, uint8_t buff_mode)
+int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format)
 {
     if (ctx == NULL || ctx->ops == NULL || width == 0 || height == 0) {
         if (ctx == NULL || ctx->ops == NULL) {

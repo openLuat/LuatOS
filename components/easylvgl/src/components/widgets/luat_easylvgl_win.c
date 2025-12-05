@@ -13,7 +13,7 @@
 #include "lauxlib.h"
 #include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include "luat_malloc.h"
 
 /**
  * Win 组件私有数据结构
@@ -120,7 +120,7 @@ lv_obj_t *easylvgl_win_create_from_config(void *L, int idx)
     }
     
     // 分配 Win 私有数据
-    easylvgl_win_data_t *win_data = malloc(sizeof(easylvgl_win_data_t));
+    easylvgl_win_data_t *win_data = luat_heap_malloc(sizeof(easylvgl_win_data_t));
     if (win_data == NULL) {
         easylvgl_component_meta_free(meta);
         lv_obj_delete(win);

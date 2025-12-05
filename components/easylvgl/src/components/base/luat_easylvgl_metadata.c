@@ -5,7 +5,7 @@
  */
 
 #include "luat_easylvgl_component.h"
-#include <stdlib.h>
+#include "luat_malloc.h"
 #include <string.h>
 
 /**
@@ -24,7 +24,7 @@ easylvgl_component_meta_t *easylvgl_component_meta_alloc(
         return NULL;
     }
     
-    easylvgl_component_meta_t *meta = malloc(sizeof(easylvgl_component_meta_t));
+    easylvgl_component_meta_t *meta = luat_heap_malloc(sizeof(easylvgl_component_meta_t));
     if (meta == NULL) {
         return NULL;
     }
@@ -69,7 +69,7 @@ void easylvgl_component_meta_free(easylvgl_component_meta_t *meta)
     }
     
     // 释放元数据
-    free(meta);
+    luat_heap_free(meta);
 }
 
 /**

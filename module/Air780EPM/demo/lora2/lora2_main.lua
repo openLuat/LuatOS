@@ -59,7 +59,7 @@ local function lora2_init()
     end
 
     -- 初始化LORA2设备
-    -- 当前支持型号：llcc68, sx1262
+    -- 当前支持型号：llcc68, sx1268
     lora_device = lora_device or lora2.init("llcc68",{res = pin_reset,busy = pin_busy,dio1 = pin_dio1},spi_lora)
     if not lora_device then
         log.error("lora_device init failed")

@@ -11,6 +11,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "rotable2.h"
+#include "luat_malloc.h"
 #include "../inc/luat_easylvgl.h"
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_task.h"

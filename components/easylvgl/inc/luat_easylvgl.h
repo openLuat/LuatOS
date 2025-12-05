@@ -217,6 +217,22 @@ void *easylvgl_buffer_alloc(easylvgl_ctx_t *ctx, size_t size, easylvgl_buffer_ow
 void easylvgl_buffer_free_all(easylvgl_ctx_t *ctx);
 
 /**
+ * 设置显示缓冲
+ * @param ctx 上下文指针
+ * @param buf1 缓冲1指针
+ * @param buf2 缓冲2指针（可选，双缓冲时使用）
+ * @param buf_size 缓冲大小（字节）
+ * @param mode 缓冲模式
+ * @return 0 成功，<0 失败
+ */
+int easylvgl_display_set_buffers(
+    easylvgl_ctx_t *ctx,
+    void *buf1,
+    void *buf2,
+    uint32_t buf_size,
+    easylvgl_buffer_mode_t mode);
+
+/**
  * 初始化文件系统驱动
  * @param ctx 上下文指针
  * @return 0 成功，<0 失败

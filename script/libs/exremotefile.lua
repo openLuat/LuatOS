@@ -120,6 +120,8 @@ local function init_sdcard(sdcard_opts)
         -- 挂载SD卡到文件系统，指定挂载点为"/sd"
         mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     else
+        -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
+        gpio.setup(13, 1)
         mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     end
     log.info("SDCARD", "挂载SD卡结果:", mount_result)

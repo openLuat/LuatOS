@@ -15,9 +15,6 @@
 注：本demo无需额外配置，直接在 main.lua 中 require "airkiss_task" 即可加载运行。
 ]]
 
--- 初始化fskv, 用于存储配网信息
-fskv.init()
-
 -- 订阅IP_READY事件，获取IP成功后触发
 sys.subscribe("IP_READY", function(ip)
     log.info("wlan", "ip ready", ip)
@@ -30,7 +27,8 @@ sys.subscribe("SC_RESULT", function(ssid, password)
 end)
 
 local function start_airkiss()
-    sys.wait(500)
+    -- 初始化fskv, 用于存储配网信息
+    fskv.init()
     -- 初始化wifi协议栈
     wlan.init()
 

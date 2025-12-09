@@ -42,13 +42,13 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - AirLCD_1010 触摸配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONT_1000 配件板 × 1
+- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 17，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板以及 AirFONT_1000 配件板的硬件接线方式为
+- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板以及 AirFONTS_1000 配件板的硬件接线方式为
 
-  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板背面的功耗测试开关拨到 OFF 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板和 AirFONT_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电，通过3V3引脚给 AirFONT_1000 配件板供电；
+  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板和 AirFONTS_1000 配件板供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电，通过3V3引脚给 AirFONTS_1000 配件板供电；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 3.2 接线配置
@@ -84,7 +84,7 @@
 
 <table>
 <tr>
-<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONT_1000配件板<br/></td></tr>
+<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
 <tr>
 <td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
 <tr>
@@ -104,13 +104,15 @@
 
 ### 4.1 开发工具
 
-- [Luatools 下载调试工具](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780egh%2Fluatos%2Fcommon%2Fdownload%2F) - 固件烧录和代码调试
+- [Luatools下载调试工具](https://docs.openluat.com/air780egh/luatos/common/download/) - 固件烧录和代码调试
 
 ### 4.2 内核固件
 
-- [点击下载 Air780EHM 系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780epm%2Fluatos%2Ffirmware%2Fversion%2F)
-- [点击下载 Air780EHV 系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780ehv%2Fluatos%2Ffirmware%2Fversion%2F)
-- [点击下载 Air780EGH 系列最新版本内核固件](https://gitee.com/link?target=https%3A%2F%2Fdocs.openluat.com%2Fair780egh%2Fluatos%2Ffirmware%2Fversion%2F)
+- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2018_Air780EHM 1号固件
+  
+- [点击下载Air780EHV系列最新版本内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2018_Air780EHV 1号固件
+  
+- [点击下载Air780EGH系列最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2018_Air780EGH 1号固件
 
 使用 HZfont 需要使用 V2020 版本以上的 14 号固件或114号固件，且 14 号固件或114号固件仅支持 HZfont
 使用其他字体，demo 所使用的是 LuatOS-SoC_V2018 1 号固件

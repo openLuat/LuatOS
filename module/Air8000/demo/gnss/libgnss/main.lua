@@ -7,7 +7,7 @@
 @author  李源龙
 @usage
 本demo演示的功能为：
-使用Air8000整机开发板，通过exgnss.lua扩展库，开启GNSS定位，展示模块的三种应用状态
+使用Air8000整机开发板，通过libgnss核心库，实现GNSS定位功能
 ]]
 
 --[[

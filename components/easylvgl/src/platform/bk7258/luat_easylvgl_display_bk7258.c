@@ -76,14 +76,6 @@ static int bk7258_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_c
     /* 将预先绑定的 TP 配置同步到 platform_data，供输入驱动使用 */
     data->tp_config = easylvgl_platform_bk7258_get_tp_bind();
 
-    /* 为 DMA 单独分配一块缓冲，避免 LVGL 双缓冲被重用 */
-    data->dma_buf_size = (uint32_t)w * h * lv_color_format_get_size(fmt);
-    data->dma_buf = luat_heap_malloc(data->dma_buf_size);
-    if (data->dma_buf == NULL) {
-        LLOGE("bk7258 disp: dma buf alloc failed, size=%u", data->dma_buf_size);
-        return EASYLVGL_ERR_NO_MEM;
-    }
-
     return EASYLVGL_OK;
 }
 
@@ -100,25 +92,11 @@ static void bk7258_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, con
     luat_color_t *color_p = (luat_color_t *)px_map;
     luat_lcd_conf_t *lcd_conf = data->lcd_conf;
 
-    /* 如有 DMA 专用缓冲，先拷贝再刷，避免 LVGL 改写原缓冲 */
-    uint32_t area_w = lv_area_get_width(area);
-    uint32_t area_h = lv_area_get_height(area);
-    uint32_t bytes_per_pixel = lv_color_format_get_size(lv_display_get_color_format(ctx->display));
-    uint32_t copy_bytes = area_w * area_h * bytes_per_pixel;
-    const uint8_t *flush_ptr = px_map;
-
-    if (data->dma_buf && data->dma_buf_size >= copy_bytes) {
-        memcpy(data->dma_buf, px_map, copy_bytes);
-        flush_ptr = (const uint8_t *)data->dma_buf;
-        color_p = (luat_color_t *)flush_ptr;
-    }
-
     /* 直接绘制到 LCD，逐块刷新 */
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
     /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
     if (lv_display_flush_is_last(ctx->display)) {
-        lcd_conf->buff_draw = color_p;
         luat_lcd_flush(lcd_conf);
         lv_display_flush_ready(ctx->display);
     }
@@ -145,12 +123,6 @@ static void bk7258_display_deinit(easylvgl_ctx_t *ctx)
 
     if (data->lcd_conf != NULL) {
         data->lcd_conf->lcd_use_lvgl = 0;
-    }
-
-    if (data->dma_buf) {
-        luat_heap_free(data->dma_buf);
-        data->dma_buf = NULL;
-        data->dma_buf_size = 0;
     }
 
     luat_heap_free(data);

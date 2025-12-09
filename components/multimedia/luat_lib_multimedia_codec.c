@@ -18,6 +18,10 @@
 #ifdef LUAT_SUPPORT_AMR
 #include "interf_enc.h"
 #include "interf_dec.h"
+#include "dec_if.h"
+static const uint8_t  amr_nb_byte_len[16] = {12, 13, 15, 17, 19, 20, 26, 31, 5, 0, 0, 0, 0, 0, 0, 0};
+static const uint8_t  amr_wb_byte_len[16] = {17, 23, 32, 36, 40, 46, 50, 58, 60, 5,0, 0, 0, 0, 0, 0};
+typedef void (*amr_decode_fun_t)(void* state, const unsigned char* in, short* out, int bfi);
 #endif
 
 #ifdef LUAT_USE_AUDIO_G711
@@ -39,6 +43,12 @@
 @int 编码等级，部分bsp有内部编解码器，可能需要提前输入编解码等级，不知道的就填7
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
+-- 目前支持：
+-- codec.MP3 解码
+-- codec.AMR 编码+解码
+-- codec.AMR_WB 编码(部分BSP支持，例如Air780EHM,Air8000)+解码
+-- codec.WAV WAV本身就是PCM数据，无需编解码
+-- codec.ULAW codec.ALAW 编码+解码
 -- 创建解码器
 local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
 -- 创建编码器
@@ -86,6 +96,22 @@ static int l_codec_create(lua_State *L) {
             		return 1;
             	}
             	break;
+#ifdef LUAT_SUPPORT_AMR
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+        		coder->amr_coder = Decoder_Interface_init();
+            	if (!coder->amr_coder) {
+            		lua_pushnil(L);
+            		return 1;
+            	}
+         		break;
+         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+        		coder->amr_coder = D_IF_init();
+            	if (!coder->amr_coder) {
+            		lua_pushnil(L);
+            		return 1;
+            	}
+             	break;
+#endif
 #ifdef LUAT_USE_AUDIO_G711
          	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
          	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
@@ -257,6 +283,46 @@ static int l_codec_get_audio_info(lua_State *L) {
 				LLOGD("head error");
 			}
 			break;
+#ifdef LUAT_SUPPORT_AMR
+		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+			luat_fs_fread(temp, 6, 1, fd);
+			if (!memcmp(temp, "#!AMR\n", 6))
+			{
+				coder->buff.addr = luat_heap_malloc(320);
+				if (coder->buff.addr)
+				{
+					num_channels = 1;
+					sample_rate = 8000;
+					audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
+					result = 1;
+				}
+
+			}
+			else
+			{
+				result = 0;
+			}
+			break;
+		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+			luat_fs_fread(temp, 9, 1, fd);
+			if (!memcmp(temp, "#!AMR-WB\n", 9))
+			{
+				coder->buff.addr = luat_heap_malloc(640);
+				if (coder->buff.addr)
+				{
+					num_channels = 1;
+					sample_rate = 16000;
+					audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
+					result = 1;
+				}
+
+			}
+			else
+			{
+				result = 0;
+			}
+			break;
+#endif
 #ifdef LUAT_USE_AUDIO_G711
 		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
 		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
@@ -300,13 +366,20 @@ decoder从文件中解析出原始音频数据，比如从MP3文件里解析出P
 @usage
 -- 大内存设备
 local buff = zbuff.create(16*1024)
-local result = codec.data(coder, buff)
+local result = codec.data(coder, buff, 8192)
 -- 小内存设备
 local buff = zbuff.create(8*1024)
 local result = codec.data(coder, buff, 4096)
  */
 static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
+#ifdef LUAT_SUPPORT_AMR
+	amr_decode_fun_t decode_if;
+	uint32_t frame_len;
+	uint8_t *size_table;
+	uint8_t size;
+	uint8_t temp[64];
+#endif
 	uint32_t pos = 0;
 	int read_len;
 	int result = 0;
@@ -400,6 +473,47 @@ GET_MP3_DATA:
 			}
 
 			break;
+#ifdef LUAT_SUPPORT_AMR
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+         		if (coder->type == LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)
+         		{
+         			frame_len = 320;
+         			size_table = amr_nb_byte_len;
+         			decode_if = Decoder_Interface_Decode;
+         		}
+         		else
+         		{
+         			frame_len = 640;
+         			size_table = amr_wb_byte_len;
+         			decode_if = D_IF_decode;
+         		}
+
+         		while ((out_buff->used < mini_output) && is_not_end && ((out_buff->len - out_buff->used) >= frame_len))
+				{
+         			read_len = luat_fs_fread(temp, 1, 1, coder->fd);
+    				if (read_len <= 0)
+    				{
+    					is_not_end = 0;
+    					break;
+    				}
+    				size = size_table[(temp[0] >> 3) & 0x0f];
+    				if (size > 0)
+					{
+						read_len = luat_fs_fread(temp + 1, 1, size, coder->fd);
+						if (read_len <= 0)
+						{
+	    					is_not_end = 0;
+	    					break;
+						}
+					}
+    				decode_if(coder->amr_coder, temp, coder->buff.addr, 0);
+    				memcpy(out_buff->addr + out_buff->used, coder->buff.addr, frame_len);
+    				out_buff->used += frame_len;
+				}
+         		result = 1;
+             	break;
+#endif
 #ifdef LUAT_USE_AUDIO_G711
 		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
 		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
@@ -446,7 +560,7 @@ GET_MP3_DATA:
 
 
 /**
-编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能，目前只支持amr-nb编码
+编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能以外只支持amr-nb编码
 @api codec.encode(coder, in_buffer, out_buffer, mode)
 @userdata codec.create创建的编解码用的coder
 @zbuff 输入的数据,zbuff形式,从0到used
@@ -644,22 +758,41 @@ static int l_codec_gc(lua_State *L)
 		}
 		break;
 #ifdef LUAT_SUPPORT_AMR
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+		if (coder->amr_coder)
+		{
+			if (!coder->is_decoder)
+			{
 #ifdef LUAT_USE_INTER_AMR
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-		if (!coder->is_decoder && coder->amr_coder) {
-			luat_audio_inter_amr_coder_deinit(coder->amr_coder);
-			coder->amr_coder = NULL;
-		}
-		break;
+				luat_audio_inter_amr_coder_deinit(coder->amr_coder);
 #else
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-		if (!coder->is_decoder && coder->amr_coder) {
-			Encoder_Interface_exit(coder->amr_coder);
+				Encoder_Interface_exit(coder->amr_coder);
+#endif
+			}
+			else
+			{
+				Decoder_Interface_exit(coder->amr_coder);
+			}
 			coder->amr_coder = NULL;
 		}
 		break;
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+		if (coder->amr_coder)
+		{
+			if (!coder->is_decoder)
+			{
+#ifdef LUAT_USE_INTER_AMR
+				luat_audio_inter_amr_coder_deinit(coder->amr_coder);
+#else
 #endif
+			}
+			else
+			{
+				D_IF_exit(coder->amr_coder);
+			}
+			coder->amr_coder = NULL;
+		}
+		break;
 #endif
 #ifdef LUAT_USE_AUDIO_G711
  	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:

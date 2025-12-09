@@ -812,7 +812,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         LLOGE("ctx is NULL");
         return -1;
     }
-    LLOGI("开始关闭mp4文件 %s", ctx->path);
+    // LLOGI("开始关闭mp4文件 %s", ctx->path);
     // 刷新缓冲，确保文件大小正确
     buffered_flush(ctx);
     // 然后, 把文件关掉, 重新打开
@@ -823,7 +823,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
     luat_fs_fseek(ctx->fd, 0, SEEK_END);
     // 把mdat的box大小更新一下
     ret = luat_fs_ftell(ctx->fd);
-    LLOGI("文件当前长度 %d", ret);
+    LLOGI("mp4 file size before mdat %d", ret);
     long int pos = ctx->mdat_offset;
     size_t mdat_len = ret - ctx->mdat_offset;
     // LLOGI("mdat 长度更新为 %d 目标偏移量 %d sizeof(int) %d sizeof(long int) %d", mdat_len, ctx->mdat_offset, sizeof(int), sizeof(long int));
@@ -832,7 +832,7 @@ int luat_vtool_mp4box_close(mp4_ctx_t* ctx) {
         LLOGE("seek mdat offset failed %d", ret);
     }
     ret = luat_fs_ftell(ctx->fd);
-    LLOGD("当前fd偏移量位置 %d 期望 %d", ret, ctx->mdat_offset);
+    // LLOGD("当前fd偏移量位置 %d 期望 %d", ret, ctx->mdat_offset);
     if (ret != (int)ctx->mdat_offset) {
         LLOGE("seek mdat offset failed %d", ret);
         ret = -1;
@@ -915,7 +915,7 @@ clean:
             luat_fs_fseek(ctx->fd, 0, SEEK_END);
             luat_fs_fflush(ctx->fd);
             ret = luat_fs_ftell(ctx->fd);
-            LLOGI("写入完成, 文件最终长度 %d", ret);
+            LLOGI("mp4 file final size %d", ret);
             ret = 0;
             luat_fs_fclose(ctx->fd);
         }
@@ -928,7 +928,7 @@ clean:
         LLOGE("文件句柄为空!!!");
         ret = -10;
     }
-    LLOGD("释放mp4资源, 释放内存");
+    // LLOGD("释放mp4资源, 释放内存");
     // 释放全部资源
     if (ctx->sps) {
         luat_heap_free(ctx->sps);
@@ -970,6 +970,6 @@ clean:
     }
     clean_box(&ctx->box_moov);
     luat_heap_free(ctx);
-    LLOGI("mp4文件关闭完成, box写入结束, 文件已关闭");
+    LLOGI("mp4 file closed, box write finished, file closed");
     return ret;
 }

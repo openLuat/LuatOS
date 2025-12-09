@@ -403,7 +403,7 @@ end
 
 -- socket 回调函数
 local function http_socket_cb(opts, event)
-    opts.log(TAG, "tcp.event", event)
+    opts.log(TAG, "tcp.event", string.format("%08X", event))
     if event == socket.ON_LINE then
         -- TCP链接已建立, 那就可以上行了
         -- opts.state = "ON_LINE"
@@ -447,8 +447,8 @@ local function http_exec(opts)
     opts.rx_buff = zbuff.create(1024)
     opts.topic = tostring(netc)
     socket.config(netc, nil,nil, opts.is_ssl)
-    if opts.debug or httpplus.debug then
-        socket.debug(netc)
+    if opts.debug_socket then
+        socket.debug(netc, true)
     end
     if not socket.connect(netc, opts.host, opts.port, opts.try_ipv6) then
         log.warn(TAG, "调用socket.connect返回错误了")
@@ -508,6 +508,7 @@ local function http_exec(opts)
                 local fd = io.open(v[1], "rb")
                 -- log.info("写入文件数据", v[1])
                 if fd then
+                    local total = 0
                     while not opts.is_closed do
                         fbuf:seek(0)
                         local ok, flen = fd:fill(fbuf)
@@ -515,7 +516,7 @@ local function http_exec(opts)
                             break
                         end
                         fbuf:seek(flen)
-                        -- log.info("写入文件数据", "长度", #fdata)
+                        opts.log(TAG, "写入文件数据", "长度", flen, "总计", total)
                         if socket.tx(netc, fbuf) == false then
                             log.warn(TAG, "socket.tx返回错误了, 传送失败!!!!")
                             fail_check = false
@@ -523,7 +524,7 @@ local function http_exec(opts)
                         end
                         write_counter = write_counter + flen
                         -- 注意, 这里要等待TX_OK事件
-                        sys.waitUntil(opts.topic, 300)
+                        sys.waitUntil(opts.topic, 1000)
                     end
                     fd:close()
                 end
@@ -543,6 +544,7 @@ local function http_exec(opts)
         local fd = io.open(opts.bodyfile, "rb")
         -- log.info("写入文件数据", v[1])
         if fd then
+            local total = 0
             while not opts.is_closed do
                 fbuf:seek(0)
                 local ok, flen = fd:fill(fbuf)
@@ -550,7 +552,8 @@ local function http_exec(opts)
                     break
                 end
                 fbuf:seek(flen)
-                -- log.info("写入文件数据", "长度", #fdata)
+                total = total + flen
+                opts.log(TAG, "写入文件数据", "长度", flen, "总计", total)
                 if socket.tx(netc, fbuf) == false then
                     log.warn(TAG, "socket.tx返回错误了, 传送失败!!!!")
                     fail_check = false
@@ -558,7 +561,7 @@ local function http_exec(opts)
                 end
                 write_counter = write_counter + flen
                 -- 注意, 这里要等待TX_OK事件
-                sys.waitUntil(opts.topic, 300)
+                sys.waitUntil(opts.topic, 1000)
             end
             fd:close()
         end
@@ -588,7 +591,7 @@ local function http_exec(opts)
                             break
                         end
                         offset = offset + fbuf:len()
-                        sys.waitUntil(opts.topic, 300)
+                        sys.waitUntil(opts.topic, 1000)
                     else
                         fbuf:copy(0, tmpbuff, offset, tsize - offset)
                         fbuf:seek(tsize - offset)

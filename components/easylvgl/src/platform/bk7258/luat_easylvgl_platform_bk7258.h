@@ -13,6 +13,8 @@
 typedef struct {
     luat_lcd_conf_t *lcd_conf;       /**< LCD 配置指针 */
     luat_tp_config_t *tp_config;     /**< 触摸配置指针（可选） */
+    void *dma_buf;                   /**< LCD DMA 专用缓冲 */
+    uint32_t dma_buf_size;           /**< 缓冲大小（字节） */
 } bk7258_platform_data_t;
 
 /**

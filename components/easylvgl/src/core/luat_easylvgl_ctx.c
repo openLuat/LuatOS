@@ -39,8 +39,7 @@ static void display_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t 
     if (ctx->ops->display_ops->flush) {
         ctx->ops->display_ops->flush(ctx, area, px_map);
     }
-    
-    lv_display_flush_ready(disp);
+    // flush_ready 由平台驱动在实际完成时机调用
 }
 
 /**

@@ -192,11 +192,13 @@ static void sdl_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const 
         // 注意：不要调用 SDL_RenderClear，因为这会清除之前的内容
         if (SDL_RenderCopy(data->renderer, data->texture, NULL, NULL) != 0) {
             const char *error = SDL_GetError();
-            return;
+            // 即便渲染失败也要通知 LVGL 完成，避免卡死
+        } else {
+            SDL_RenderPresent(data->renderer);
         }
-        SDL_RenderPresent(data->renderer);
     }
-    // 注意：lv_display_flush_ready() 已经在 display_flush_cb 中调用了
+    // SDL 是同步的，直接标记完成
+    lv_display_flush_ready(ctx->display);
 }
 
 /**

@@ -2,19 +2,19 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.09.04
+@date    2025.12.3
 @author  江访
 @usage
-
 本demo演示的核心功能为：
-1、点亮AirLCD_1000屏幕
-2、通过屏幕显示图片、字符、色块等内容
-3、演示背光亮度5%-100%变化
-4、演示使屏幕进入休眠和唤醒屏幕
+1、加载exeasyui扩展库，初始化用户界面系统；
+2、根据选择的字体类型驱动，进行显示硬件以及字体的初始化，
+   支持默认字体、外部矢量字库、内部软件矢量字库和外部自定义点阵字库四选一；
+3、初始化按键驱动系统，实现按键控制界面导航；
+4、启动用户界面主循环，实现多页面切换和按键事件处理；
+5、配置系统看门狗，确保系统稳定运行；
 
 更多说明参考本目录下的readme.md文件
 ]]
-
 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -27,14 +27,14 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 
-
+-- main.lua - 程序入口文件
 
 -- 定义项目名称和版本号
-PROJECT = "AirLCD_1000_demo"     -- 项目名称
-VERSION = "1.0.0"                -- 版本号
+PROJECT = "ui_demo" -- 项目名称
+VERSION = "001.000.000"   -- 版本号
 
--- 打印项目名称和版本号咋看    
-log.info("AirLCD_demo", PROJECT, VERSION)
+-- 在日志中打印项目名和项目版本号
+log.info("ui_demo", PROJECT, VERSION)
 
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)
@@ -73,10 +73,32 @@ end
 -- end, 3000)
 
 
--- 加载用户界面系统主模块
-require "ui_main"
+-- 必须加载才能启用exeasyui的功能
+ui = require("exeasyui")
 
-------------------------------------------用户代码已结束------------------------------------------
--- 启动系统事件循环，这是程序的最终执行点，确保系统持续运行
+
+-- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置进行初始化
+-- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置初始化
+-- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua，并按lcd显示驱动配置初始化
+-- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
+-- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
+-- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+require("hw_default_font_drv")
+-- require("hw_hzfont_drv")
+-- require("hw_gtfont_drv")
+-- require("hw_customer_font_drv")开发中
+
+-- 加载按键驱动模块
+require("key_drv")
+
+-- 加载exeassyui扩展库实现的用户界面功能模块
+-- 实现多页面切换、触摸事件分发和界面渲染功能
+-- 包含主页、组件演示页、默认字体演示页、HZfont演示页、GTFont演示页和自定义字体演示页
+require("ui_main")
+
+
+-- 用户代码已结束
+-- 结尾总是这一句
 sys.run()
 -- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行

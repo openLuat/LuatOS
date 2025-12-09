@@ -61,24 +61,21 @@ local function agps()
         log.info("exgnss.opts", "星历不需要更新", now - agps_time)
     end
     --进行基站定位，给到gnss芯片一个大概的位置
-    if mobile then
-        lat, lng = lbsLoc2.request(5000)
-        -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
-        -- log.info("lbsLoc2", lat, lng)
-        if lat and lng then
-            lat = tonumber(lat)
-            lng = tonumber(lng)
-            log.info("lbsLoc2", lat, lng)
-            -- 转换单位
-            local lat_dd,lat_mm = math.modf(lat)
-            local lng_dd,lng_mm = math.modf(lng)
-            lat = lat_dd * 100 + lat_mm * 60
-            lng = lng_dd * 100 + lng_mm * 60
-        end
-    elseif wlan then
-        -- wlan.scan()
-        -- sys.waitUntil("WLAN_SCAN_DONE", 5000)
+
+    lat, lng = lbsLoc2.request(5000)
+    -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
+    -- log.info("lbsLoc2", lat, lng)
+    if lat and lng then
+        lat = tonumber(lat)
+        lng = tonumber(lng)
+        log.info("lbsLoc2", lat, lng)
+        -- 转换单位
+        local lat_dd,lat_mm = math.modf(lat)
+        local lng_dd,lng_mm = math.modf(lng)
+        lat = lat_dd * 100 + lat_mm * 60
+        lng = lng_dd * 100 + lng_mm * 60
     end
+
     --获取基站定位失败则使用本地之前保存的位置
     if not lat then
         -- 获取最后的本地位置

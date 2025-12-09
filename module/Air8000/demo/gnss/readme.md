@@ -1,0 +1,7 @@
+## exgnss和libgnss的区别
+exgnss：主要利用exgnss库去实现整个功能，主要包含两个目录，single和combination，single是单点定位，展示了exngss的三种模式。combination是融合了各种场景的GNSS定位，主要包括正常模式下的定时开启GNSS，定位成功把经纬度发到服务器的功能，低功耗模式下定时开启GNSS，定位成功把经纬度发到服务器的功能，以及PSM+模式下，定时唤醒模块，定位成功把经纬度发到服务器的功能，还包括了利用8000内置的三轴加速度传感器，通过震动检测来执行GNSS定位的功能。
+
+libngss:主要利用libgnss核心库实现的整个功能，主要功能包括打开GNSS，开启AGPS辅助定位，定位成功获取经纬度。
+
+## 使用推荐
+推荐使用exgnss，因为exgnss功能更完善，包含了libgnss的功能，并且还增加了其他功能，比如震动检测GNSS定位，PSM+模式下的GNSS定位等。

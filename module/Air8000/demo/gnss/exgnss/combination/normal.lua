@@ -39,8 +39,8 @@ local function gnss_fnc()
         -- auto_open=false 
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
-    exgnss.open(exgnss.TIMERORSUC,{tag="normal",val=60,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
-    sys.timerLoopStart(normal_open,60000)       --每60s开启一次GNSS
+    exgnss.open(exgnss.TIMER,{tag="normal",val=30,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
+    -- sys.timerLoopStart(normal_open,60000)       --每60s开启一次GNSS
     
 end
 

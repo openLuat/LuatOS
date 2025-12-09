@@ -921,15 +921,8 @@ end
  */
 static int io_fileSize (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
-  FILE* f = fopen(filename, "rb");
-  if(f == NULL) {
-    lua_pushinteger(L, 0);
-  }
-  else {
-    fseek(f, 0, SEEK_END);
-    lua_pushinteger(L,ftell(f));
-    fclose(f);
-  }
+  size_t len = luat_fs_fsize(filename);
+  lua_pushinteger(L, len);
   return 1;
 }
 

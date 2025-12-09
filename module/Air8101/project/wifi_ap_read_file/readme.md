@@ -89,7 +89,18 @@ HTTPSVR 文件管理系统是一种基于Air8101模组的轻量级文件服务�
 
 2、TYPE-C USB数据线一根
 
-3、AirMICROSD_1000配件板一个+micro SD卡一张（可选，用于扩展存储）
+3、AirMICROSD_1000配件板一个+micro SD卡一张
+
+4、Air8101核心板与AirMICROSD_1000配件板直插，对应管脚为
+
+| Air8101/Air6101核心板 | AirMICROSD_1000配件板 |
+| ------------- | ----------------- |
+| 59/3V3        | 3V3               |
+| gnd           | gnd               |
+| 9/GPIO6       | CD                |
+| 67/GPIO4      | D0                |
+| 66/GPIO3      | CMD               |
+| 65/GPIO2      | CLK               |
 
 ## 演示软件环境
 

@@ -16,15 +16,17 @@
 ]]
 
 -- 订阅IP_READY事件，获取IP成功后触发
-sys.subscribe("IP_READY", function(ip)
+local function get_ip_ready(ip)
     log.info("wlan", "ip ready", ip)
     -- 联网成功, 可以发起http, mqtt, 等请求了
-end)
+end
+sys.subscribe("IP_READY", get_ip_ready)
 
 -- 订阅SC_RESULT事件，配网成功后触发
-sys.subscribe("SC_RESULT", function(ssid, password)
+local function on_airkiss_success(ssid, password)
     log.info("airkiss", "配网成功", ssid, password)
-end)
+end
+sys.subscribe("SC_RESULT", on_airkiss_success)
 
 local function start_airkiss()
     -- 初始化fskv, 用于存储配网信息

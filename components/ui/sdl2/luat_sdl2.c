@@ -9,8 +9,6 @@
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture *framebuffer = NULL;
-
-static uint32_t* fb;
 static luat_sdl2_conf_t sdl_conf;
 
 static void luat_sdl2_pump_events(void) {
@@ -41,11 +39,10 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     framebuffer = SDL_CreateTexture(renderer,
-                                    SDL_PIXELFORMAT_ARGB8888,
+                                    SDL_PIXELFORMAT_RGB565,
                                     SDL_TEXTUREACCESS_STREAMING,
                                     conf->width,
                                     conf->height);
-    // fb = luat_heap_malloc(sizeof(uint32_t) * conf->width * conf->height);
     luat_sdl2_pump_events();
     return 0;
 }
@@ -70,7 +67,8 @@ void luat_sdl2_draw(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t* da
     r.w = x2 - x1 + 1;
     r.h = y2 - y1 + 1;
 
-    SDL_UpdateTexture(framebuffer, &r, data, r.w * 4);
+    // RGB565: 2 bytes per pixel
+    SDL_UpdateTexture(framebuffer, &r, data, r.w * 2);
 }
 
 void luat_sdl2_flush(void) {

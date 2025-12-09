@@ -8,14 +8,39 @@
 #include "luat_easylvgl_component.h"
 #include "luat_easylvgl_task.h"
 #include "luat_rtos.h"
+#include "lvgl9/lvgl.h"
 #include <string.h>
 #include <assert.h>
 
-#define LUAT_LOG_TAG "easylvgl.ctx"
+#define LUAT_LOG_TAG "easylvgl"
 #include "luat_log.h"
 
 // LVGL Tick 定时器句柄（全局静态变量，用于在 deinit 中清理）
 static luat_rtos_timer_t g_lv_tick_timer = NULL;
+static bool g_lv_log_cb_registered = false;
+
+/* 将 LVGL 日志映射到 LuatOS 日志 */
+static void easylvgl_lv_log_cb(lv_log_level_t level, const char * buf)
+{
+    switch (level) {
+    case LV_LOG_LEVEL_TRACE:
+        LLOGD("%s", buf);
+        break;
+    case LV_LOG_LEVEL_INFO:
+        LLOGI("%s", buf);
+        break;
+    case LV_LOG_LEVEL_WARN:
+        LLOGW("%s", buf);
+        break;
+    case LV_LOG_LEVEL_ERROR:
+        LLOGE("%s", buf);
+        break;
+    case LV_LOG_LEVEL_USER:
+    default:
+        LLOGI("%s", buf);
+        break;
+    }
+}
 
 // 平台驱动声明（编译时选择）
 #if defined(LUAT_USE_EASYLVGL_SDL2)
@@ -142,7 +167,17 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     if (!lv_is_initialized()) {
         lv_init();
     }
-    
+
+    /* 如果 LV_USE_LOG 宏定义为 1，则注册 LVGL 日志回调到 LuatOS 日志 */
+    #if LV_USE_LOG == 1
+        LLOGD("LV_USE_LOG is enabled");
+        // 注册 LVGL 日志回调到 LuatOS 日志，仅注册一次
+        if (!g_lv_log_cb_registered) {
+            lv_log_register_print_cb(easylvgl_lv_log_cb);
+            g_lv_log_cb_registered = true;
+        }
+    #endif
+
     // 创建显示设备
     ctx->display = lv_display_create(width, height);
     if (ctx->display == NULL) {

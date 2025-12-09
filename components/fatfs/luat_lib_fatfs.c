@@ -131,6 +131,7 @@ static int fatfs_mount(lua_State *L)
 			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
 			diskio_open_spitf(0, (void*)spit);
 		}
+	#ifdef LUAT_USE_SDIO
 	}else if(fatfs_mode == DISK_SDIO){
 		luat_fatfs_sdio_t *fatfs_sdio = luat_heap_malloc(sizeof(luat_fatfs_sdio_t));
 		if (fatfs_sdio == NULL) {
@@ -145,13 +146,16 @@ static int fatfs_mount(lua_State *L)
 
 		LLOGD("init FatFS at sdio");
 		diskio_open_sdio(0, (void*)fatfs_sdio);
+	#endif
+	#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 	}else if(fatfs_mode == DISK_RAM){
 		LLOGD("init ramdisk at FatFS");
 		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
+	#endif
 	}else if(fatfs_mode == DISK_USB){
 
 	}else{
-		LLOGD("fatfs_mode error");
+		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "fatfs_mode error");
 		return 2;
@@ -176,6 +180,21 @@ static int fatfs_mount(lua_State *L)
 			if (re == FR_OK) {
 				re = f_mount(fs, mount_point, 1);
 				LLOGD("remount again %d", re);
+				if (re == FR_OK) {
+					LLOGI("sd/tf mount success after auto format");
+				}
+				else {
+					LLOGE("sd/tf mount failed again %d after auto format", re);
+					lua_pushboolean(L, 0);
+					lua_pushstring(L, "mount error");
+					return 2; 
+				}
+			}
+			else {
+				LLOGE("sd/tf format failed %d", re);
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, "format error");
+				return 2;
 			}
 		}
 	}

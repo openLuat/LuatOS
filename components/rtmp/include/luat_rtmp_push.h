@@ -35,6 +35,9 @@ extern "C" {
 /** RTMP缓冲区大小(字节) - 需要足够大以容纳I帧 */
 #define RTMP_BUFFER_SIZE (512 * 1024)
 
+/** 发送帧队列最大字节数上限，超出将丢弃未发送帧（优先丢弃非关键帧） */
+#define RTMP_MAX_QUEUE_BYTES (1024 * 1024)
+
 /** RTMP握手数据大小(字节) */
 #define RTMP_HANDSHAKE_SIZE 1536
 
@@ -174,6 +177,11 @@ typedef struct {
     uint8_t *send_buf;              /**< 发送缓冲区 */
     uint32_t send_buf_size;         /**< 发送缓冲区大小 */
     uint32_t send_pos;              /**< 发送缓冲区写位置 */
+
+    /** ============ 帧发送队列 ============ */
+    struct rtmp_frame_node *frame_head; /**< 待发送帧队列头 */
+    struct rtmp_frame_node *frame_tail; /**< 待发送帧队列尾 */
+    uint32_t frame_queue_bytes;          /**< 队列占用的总字节数 */
     
     /** ============ 时间戳管理 ============ */
     uint32_t video_timestamp;       /**< 当前视频时间戳(ms) */

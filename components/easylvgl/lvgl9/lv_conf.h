@@ -199,7 +199,9 @@
     /** Set number of draw units.
      *  - > 1 requires operating system to be enabled in `LV_USE_OS`.
      *  - > 1 means multiple threads will render the screen in parallel. */
-    #define LV_DRAW_SW_DRAW_UNIT_CNT    1
+    #ifndef LV_DRAW_SW_DRAW_UNIT_CNT
+        #define LV_DRAW_SW_DRAW_UNIT_CNT    1
+    #endif
 
     /** Use Arm-2D to accelerate software (sw) rendering. */
     #define LV_USE_DRAW_ARM2D_SYNC      0
@@ -491,7 +493,10 @@
  *  - Draw overlays with different colors for each draw_unit's tasks.
  *  - Draw index number of draw unit on white background.
  *  - For layers, draws index number of draw unit on black background. */
-#define LV_USE_PARALLEL_DRAW_DEBUG 0
+
+ #ifndef LV_USE_PARALLEL_DRAW_DEBUG
+    #define LV_USE_PARALLEL_DRAW_DEBUG 0
+ #endif
 
 /*-------------
  * Others

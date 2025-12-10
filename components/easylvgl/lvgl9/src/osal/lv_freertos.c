@@ -66,16 +66,24 @@ static void prvTestAndDecrement(lv_thread_sync_t * pxCond,
  *      MACROS
  **********************/
 
-#ifdef ESP_PLATFORM
-    #define _enter_critical()   taskENTER_CRITICAL(&critSectionMux);
-    #define _exit_critical()    taskEXIT_CRITICAL(&critSectionMux);
-    #define _enter_critical_isr() taskENTER_CRITICAL_FROM_ISR();
-    #define _exit_critical_isr(x) taskEXIT_CRITICAL_FROM_ISR(x);
+#if defined(ESP_PLATFORM)
+    static portMUX_TYPE critSectionMux = portMUX_INITIALIZER_UNLOCKED;
+    #define _enter_critical()      taskENTER_CRITICAL(&critSectionMux);
+    #define _exit_critical()       taskEXIT_CRITICAL(&critSectionMux);
+    #define _enter_critical_isr()  taskENTER_CRITICAL_FROM_ISR();
+    #define _exit_critical_isr(x)  taskEXIT_CRITICAL_FROM_ISR(x);
+#elif defined(__BK72XX__)
+    /* BK7258 FreeRTOS SMP 端口也要求传入 portMUX_TYPE* */
+    static portMUX_TYPE critSectionMux = portMUX_INITIALIZER_UNLOCKED;
+    #define _enter_critical()      taskENTER_CRITICAL(&critSectionMux);
+    #define _exit_critical()       taskEXIT_CRITICAL(&critSectionMux);
+    #define _enter_critical_isr()  taskENTER_CRITICAL_FROM_ISR();
+    #define _exit_critical_isr(x)  taskEXIT_CRITICAL_FROM_ISR(x);
 #else
-    #define _enter_critical()   taskENTER_CRITICAL();
-    #define _exit_critical()    taskEXIT_CRITICAL();
-    #define _enter_critical_isr() taskENTER_CRITICAL_FROM_ISR();
-    #define _exit_critical_isr(x) taskEXIT_CRITICAL_FROM_ISR(x);
+    #define _enter_critical()      taskENTER_CRITICAL();
+    #define _exit_critical()       taskEXIT_CRITICAL();
+    #define _enter_critical_isr()  taskENTER_CRITICAL_FROM_ISR();
+    #define _exit_critical_isr(x)  taskEXIT_CRITICAL_FROM_ISR(x);
 #endif
 
 /**********************

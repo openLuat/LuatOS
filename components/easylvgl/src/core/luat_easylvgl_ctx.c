@@ -290,8 +290,8 @@ void easylvgl_deinit(easylvgl_ctx_t *ctx)
         LLOGD("lv tick timer stopped");
     }
     
-    // 停止 LVGL 专职任务
-    easylvgl_task_stop();
+    // // 停止 LVGL 专职任务
+    // easylvgl_task_stop();
     
     // 清理平台驱动
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->deinit != NULL) {

@@ -6,8 +6,8 @@ local camera_id = camera.USB
 
 local usb_camera_table = {
     id = camera_id,
-    sensor_width = 640,
-    sensor_height = 480,
+    sensor_width = 1280,
+    sensor_height = 720,
     usb_port = 1
 }
 
@@ -17,9 +17,16 @@ sys.taskInit(function()
 
     sys.waitUntil("IP_READY")
 
+    camera.config(0, camera.CONF_UVC_FPS, 15)
+    socket.sntp()
+    sys.wait(200)
+    result = camera.init(usb_camera_table)
+    log.info("摄像头初始化", result)
+    camera.start(camera_id)
+
     -- local rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
     -- local rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
-    local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5")
+    local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
     rtmpc:setCallback(function(state, ...)
         if state == rtmp.STATE_CONNECTED then
             log.info("rtmp", "已连接到推流服务器")
@@ -30,46 +37,21 @@ sys.taskInit(function()
         end
     end)
     log.info("开始连接到推流服务器...")
-    -- sys.wait(100)
+    sys.wait(100)
     rtmpc:connect()
-
-    sys.wait(500)
+    sys.wait(300)
 
     -- 开始处理
     log.info("rtmp", "开始推流...")
-    rtmpc:start()
-
-    camera.config(0, camera.CONF_UVC_FPS, 15)
-
-    socket.sntp()
-    sys.wait(200)
-
-    -- 初始化摄像头
+    rtmpc:start() -- 已自动调用 camera.capture(camera_id, "rtmp", 1)
+    
     while 1 do
-        -- if true then rtos.reboot() end
-        result = camera.init(usb_camera_table)
-        log.info("摄像头初始化", result)
-        -- log.info("lua", rtos.meminfo())
-        -- log.info("sys", rtos.meminfo("sys"))
-        -- log.info("psram", rtos.meminfo("psram"))
-        if (result == 0) then
-            camera.start(camera_id)
-            -- 开始mp4录制
-            camera.capture(camera_id, "rtmp", 1)
-            sys.wait(3000000)
-
-            -- 结束MP4录制
-            camera.stop(camera_id)
-
-            log.info("保存成功")
-        end
-        camera.close(camera_id)
         --- 打印一下内存状态
+        sys.wait(30*1000)
         log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
         log.info("psram", rtos.meminfo("psram"))
         sys.wait(2000)
-        -- rtos.reboot()
     end
     -- #################################################
 

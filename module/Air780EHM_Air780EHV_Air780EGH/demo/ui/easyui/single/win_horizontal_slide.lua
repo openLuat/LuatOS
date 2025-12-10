@@ -16,7 +16,6 @@
 ]]
 
 local function ui_main()
-
     -- 显示触摸初始化
     hw_font_drv.init()
 
@@ -27,15 +26,15 @@ local function ui_main()
     local win = ui.window({ background_color = ui.COLOR_WHITE })
 
     -- 启用横向滚动，将两页内容并排布置
-    local page_w, page_h = 320, 480
+    local page_w, page_h = lcd.getSize()
     local totalW = page_w * 2
 
     -- 创建横向滑动窗口
-    win:enable_scroll({ 
-        direction = "horizontal", 
-        content_width = totalW, 
-        threshold = 8, 
-        page_width = page_w 
+    win:enable_scroll({
+        direction = "horizontal",
+        content_width = totalW,
+        threshold = 8,
+        page_width = page_w
     })
 
     -- 创建网格按钮函数
@@ -49,10 +48,12 @@ local function ui_main()
             for c = 0, cols - 1 do
                 local x = mx + c * (bw + gapx)
                 local y = my + r * (bh + gapy)
-                local btn = ui.button({ 
-                    x = x, y = y, 
-                    w = bw, h = bh, 
-                    text = string.format("%s-%d", label_prefix, n) 
+                local btn = ui.button({
+                    x = x,
+                    y = y,
+                    w = bw,
+                    h = bh,
+                    text = string.format("%s-%d", label_prefix, n)
                 })
                 win:add(btn)
                 n = n + 1
@@ -61,8 +62,8 @@ local function ui_main()
     end
 
     -- 创建左页和右页内容
-    makeGrid(0, "P1")  -- 第一页
-    makeGrid(page_w, "P2")  -- 第二页
+    makeGrid(0, "P1")      -- 第一页
+    makeGrid(page_w, "P2") -- 第二页
 
     -- 注册窗口到UI系统
     ui.add(win)

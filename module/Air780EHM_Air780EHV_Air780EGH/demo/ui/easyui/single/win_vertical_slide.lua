@@ -27,7 +27,7 @@ local function ui_main()
     local win = ui.window({ background_color = ui.COLOR_WHITE })
 
     -- 启用纵向分页滚动，将两页内容上下排布
-    local page_w, page_h = 320, 480
+    local page_w, page_h = lcd.getSize()
     local total_h = page_h * 2
 
     -- 创建纵向滑动窗口

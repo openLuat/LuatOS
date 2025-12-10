@@ -27,7 +27,7 @@ local function ui_main()
     local win = ui.window({ background_color = ui.COLOR_WHITE })
 
     -- 启用横向滚动，将两页内容并排布置
-    local page_w, page_h = 320, 480
+    local page_w, page_h = lcd.getSize()
     local totalW = page_w * 2
 
     -- 创建横向滑动窗口

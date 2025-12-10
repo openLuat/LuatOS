@@ -25,7 +25,7 @@
   *  - LV_LOG_LEVEL_NONE     Do not log anything. */
  #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
- #define LV_MEM_SIZE (64 * 1024U)
+ #define LV_MEM_SIZE (128 * 1024U)
  
  // 打开png支持
  #define LV_USE_LODEPNG 1
@@ -66,7 +66,7 @@
     //  *  - LV_LOG_LEVEL_NONE     Do not log anything. */
     // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // #define LV_MEM_SIZE (256 * 1024U)
+    // #define LV_MEM_SIZE (128 * 1024U)
     
     // // 打开png支持
     // #define LV_USE_LODEPNG 1

@@ -1086,7 +1086,7 @@
 #endif /*LV_USE_SYSMON*/
 
 /** 1: Enable runtime performance profiler */
-#define LV_USE_PROFILER 0
+#define LV_USE_PROFILER 1
 #if LV_USE_PROFILER
     /** 1: Enable the built-in profiler */
     #define LV_USE_PROFILER_BUILTIN 1
@@ -1098,7 +1098,7 @@
     #endif
 
     /** Header to include for profiler */
-    #define LV_PROFILER_INCLUDE "lvgl/src/misc/lv_profiler_builtin.h"
+    #define LV_PROFILER_INCLUDE "lvgl9/src/misc/lv_profiler_builtin.h"
 
     /** Profiler start point function */
     #define LV_PROFILER_BEGIN    LV_PROFILER_BUILTIN_BEGIN
@@ -1113,37 +1113,37 @@
     #define LV_PROFILER_END_TAG   LV_PROFILER_BUILTIN_END_TAG
 
     /*Enable layout profiler*/
-    #define LV_PROFILER_LAYOUT 1
+    #define LV_PROFILER_LAYOUT 0
 
     /*Enable disp refr profiler*/
-    #define LV_PROFILER_REFR 1
+    #define LV_PROFILER_REFR 0
 
     /*Enable draw profiler*/
-    #define LV_PROFILER_DRAW 1
+    #define LV_PROFILER_DRAW 0
 
     /*Enable indev profiler*/
-    #define LV_PROFILER_INDEV 1
+    #define LV_PROFILER_INDEV 0
 
     /*Enable decoder profiler*/
     #define LV_PROFILER_DECODER 1
 
     /*Enable font profiler*/
-    #define LV_PROFILER_FONT 1
+    #define LV_PROFILER_FONT 0
 
     /*Enable fs profiler*/
-    #define LV_PROFILER_FS 1
+    #define LV_PROFILER_FS 0
 
     /*Enable style profiler*/
     #define LV_PROFILER_STYLE 0
 
     /*Enable timer profiler*/
-    #define LV_PROFILER_TIMER 1
+    #define LV_PROFILER_TIMER 0
 
     /*Enable cache profiler*/
-    #define LV_PROFILER_CACHE 1
+    #define LV_PROFILER_CACHE 0
 
     /*Enable event profiler*/
-    #define LV_PROFILER_EVENT 1
+    #define LV_PROFILER_EVENT 0
 #endif
 
 /** 1: Enable Monkey test */

@@ -230,6 +230,8 @@ static luat_pin_peripheral_function_description_u luat_pin_function_analyze(char
 					if (string[5] >= '0' && string[5] <= '3')
 					{
 						function_id = string[5] - '0';
+						description.function_id = function_id;
+						goto LUAT_PIN_FUNCTION_ANALYZE_DONE;
 					}
 					break;
 				}

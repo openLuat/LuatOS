@@ -26,7 +26,8 @@ sys.taskInit(function()
 
     -- local rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
     -- local rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
-    local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
+    -- local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
+    local rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
     rtmpc:setCallback(function(state, ...)
         if state == rtmp.STATE_CONNECTED then
             log.info("rtmp", "已连接到推流服务器")

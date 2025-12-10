@@ -1920,6 +1920,24 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             
             LLOGD("RTMP: Parameter - app: %s", ctx->app);
         }
+
+        // 添加 type参数
+        if (1) {
+            const char *key = "type";
+            const char *val = "nonprivate";
+            write_be16(&amf_buf[offset], strlen(key));
+            offset += 2;
+            memcpy(&amf_buf[offset], key, strlen(key));
+            offset += strlen(key);
+            
+            amf_buf[offset++] = AMF_TYPE_STRING;
+            write_be16(&amf_buf[offset], strlen(val));
+            offset += 2;
+            memcpy(&amf_buf[offset], val, strlen(val));
+            offset += strlen(val);
+            
+            LLOGD("RTMP: Parameter - type: %s", val);
+        }
         
         /* 3.2 flashVer 参数 */
         {
@@ -1958,7 +1976,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         }
         
         /* 3.4 fpad 参数 */
-        {
+        if (0) {
             const char *key = "fpad";
             write_be16(&amf_buf[offset], strlen(key));
             offset += 2;
@@ -2137,12 +2155,14 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
     const char *failed_str = "NetConnection.Connect.Failed";
     const char *result_str = "_result";
     const char *publish_start_str = "NetStream.Publish.Start";
+    const char *on_bw_done_str = "onBWDone";
 
     bool found_success = false;
     bool found_failed = false;
     bool found_on_status = false;
     bool found_result = false;
     bool found_publish_start = false;
+    bool found_on_bw_done = false;
 
     uint32_t pos = 0;
     while (pos + 12 <= ctx->recv_pos) {
@@ -2216,6 +2236,14 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
                 for (uint32_t i = 0; i + strlen(on_status_str) <= msg_len; i++) {
                     if (memcmp(&payload[i], on_status_str, strlen(on_status_str)) == 0) {
                         found_on_status = true;
+                        break;
+                    }
+                }
+            }
+            if (!found_on_bw_done && msg_len >= strlen(on_bw_done_str)) {
+                for (uint32_t i = 0; i + strlen(on_bw_done_str) <= msg_len; i++) {
+                    if (memcmp(&payload[i], on_bw_done_str, strlen(on_bw_done_str)) == 0) {
+                        found_on_bw_done = true;
                         break;
                     }
                 }
@@ -2315,6 +2343,11 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
         rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_CONNECT_FAILED);
         LLOGE("RTMP: Connection failed");
         
+    } else if (found_on_bw_done) {
+        /* 收到 onBWDone 带宽检测完成信号
+         * 服务器已完成带宽检测,可以继续发送流命令 */
+        LLOGD("RTMP: Received onBWDone (bandwidth detection complete)");
+        /* onBWDone 是通知,不需要额外响应,继续现有流程 */
     } else if (ctx->state == RTMP_STATE_CONNECTED && found_on_status) {
         /* 收到onStatus,继续等待 */
         LLOGD("RTMP: Received onStatus response");

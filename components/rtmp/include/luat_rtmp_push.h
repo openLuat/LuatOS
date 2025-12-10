@@ -29,8 +29,8 @@ extern "C" {
 
 /* ======================== RTMP常量定义 ======================== */
 
-/** RTMP块大小(字节) */
-#define RTMP_DEFAULT_CHUNK_SIZE 4096
+/** RTMP默认块大小(字节) - RTMP规范规定的默认值为128 */
+#define RTMP_DEFAULT_CHUNK_SIZE 128
 
 /** RTMP缓冲区大小(字节) - 需要足够大以容纳I帧 */
 #define RTMP_BUFFER_SIZE (512 * 1024)

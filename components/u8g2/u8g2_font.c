@@ -1402,6 +1402,10 @@ void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
     }else
 #endif
     {
+        if (u8g2->font_file) {
+            luat_fs_fclose(u8g2->font_file);
+            u8g2->font_file = NULL;
+        }
         u8g2_read_font_info(&(u8g2->font_info), font);
     }
     u8g2_UpdateRefHeight(u8g2);

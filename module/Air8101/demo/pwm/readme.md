@@ -8,7 +8,7 @@
 
 注意事项：
 
-1、本 demo 演示所使用的是 Air8101 模组的 PWM4 通道（GPIO24，PIN33）；
+1、本 demo 演示所使用的是 Air8101 模组的 PWM2 通道（GPIO24，PIN33）；
 
 2、PWM 功能需要使用 V2xxx 版本固件，固件下载链接：https://docs.openluat.com/air8101/luatos/firmware/；
 
@@ -42,7 +42,7 @@ PWM 库目前有两套 API 风格：
 
 4、逻辑分析仪或者示波器，用于观察 PWM 输出的波形
 
-5、代码中选用的 PWM 通道是 Air8101 模组的 PWM4 通道（GPIO24，PIN33）
+5、代码中选用的 PWM 通道是 Air8101 模组的 PWM2 通道（GPIO24，PIN33）
 
 ## 演示软件环境
 

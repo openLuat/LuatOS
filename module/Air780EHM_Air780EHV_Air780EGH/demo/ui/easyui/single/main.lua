@@ -36,8 +36,8 @@
 - win_horizontal_slide: 横向滑动页面演示
 - win_vertical_slide: 纵向滑动页面演示
 - win_switch_page: 页面切换演示
-- win_hzfont: 矢量字体演示
-- win_gtfont: 点阵字体演示
+- win_hzfont: 内置软件矢量字体演示
+- win_gtfont: 外置硬件矢量字体演示
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -57,7 +57,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "exEasyUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.0"         -- 项目版本号
+VERSION = "001.000.000"         -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("ui_demo", PROJECT, VERSION)
@@ -124,8 +124,8 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_horizontal_slide")  --横向滑动页面演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
--- require("win_hzfont")  --矢量字体演示
--- require("win_gtfont")  --点阵字体演示
+-- require("win_hzfont")  --内置软件矢量字体演示
+-- require("win_hzfont")  --外置硬件矢量字体演示
 
 -- 用户代码已结束
 -- 结尾总是这一句

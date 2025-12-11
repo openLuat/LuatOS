@@ -131,12 +131,26 @@ function airlbs.request(param)
     if project_id:len() ~= 6 then
         log.error("airlbs", "project_id len not 6")
     end
-    local imei = mobile.imei()
-    local muid = mobile.muid()
+    local mac1 = netdrv.mac(socket.LWIP_STA)
+    local mac = "MAC" .. mac1 
+    log.info("mac", mac)
     local timestamp = os.time()
     local project_key = param.project_key
     local nonce = crypto.trng(6)
-    local hmac_data = crypto.hmac_sha1(project_id .. imei .. muid .. timestamp .. nonce, project_key)
+    local hmac_data
+    local bsp = rtos.bsp()
+    log.info("硬件型号", rtos.bsp())
+    if bsp == "Air8101" then
+        -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
+        -- local muid =  mcu.muid() or ""
+        local muid = "12345678901234567890123456789012"
+        log.info("muid", muid)
+        hmac_data = crypto.hmac_sha1(project_id .. mac .. muid .. timestamp .. nonce, project_key)
+    else
+        local imei = mobile and mobile.imei() or ""
+        local muid = mobile and mobile.muid() or ""
+        hmac_data = crypto.hmac_sha1(project_id .. imei .. muid .. timestamp .. nonce, project_key)
+    end
     -- log.debug(lib_name,"hmac_sha1", hmac_data)
     local lbs_data = {}
     if mobile then
@@ -168,7 +182,17 @@ function airlbs.request(param)
     end
     local lbs_jdata = json.encode(lbs_data)
     log.info("扫描出的数据",lbs_jdata)
-    udp_buff:write(string.char(auth_type) .. project_id .. imei .. muid .. timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
+    local bsp = rtos.bsp()
+    if bsp == "Air8101" then
+        -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
+        -- local muid =  mcu.muid() or ""
+        local muid = "12345678901234567890123456789012"
+        udp_buff:write(string.char(auth_type) .. project_id .. mac .. muid ..  timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
+    else
+        local imei = mobile and mobile.imei() or ""
+        local muid = mobile and mobile.muid() or ""
+        udp_buff:write(string.char(auth_type) .. project_id .. imei .. muid .. timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
+    end
 
     sysplus.taskInitEx(airlbs_task, lib_name, netCB, lib_name, udp_buff, param.timeout or airlbs_timeout, param.adapter)
 

@@ -31,9 +31,10 @@ home_page.create()
 
 function home_page.create()
     -- 创建主页 - 使用全屏
+    local page_w, page_h = lcd.getSize()
     local home = ui.window({ 
         background_color = ui.COLOR_WHITE,
-        x = 0, y = 0, w = 800, h = 480  -- 全屏窗口
+        x = 0, y = 0, w = page_w, h = page_h  -- 全屏窗口
     })
     home.visible = true
 

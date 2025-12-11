@@ -231,4 +231,6 @@ LUAMOD_API int luaopen_modbus( lua_State *L );
 LUAMOD_API int luaopen_airtalk( lua_State *L );
 /** misc库*/
 LUAMOD_API int luaopen_misc(lua_State *L);
+/** rtmp推流库*/
+LUAMOD_API int luaopen_rtmp(lua_State *L);
 #endif

@@ -5,8 +5,10 @@
 #include "luat_lcd.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#include "luat_fs.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -170,6 +172,85 @@ static int hzfont_is_allowed_capacity(uint32_t cap) {
         }
     }
     return 0;
+}
+
+/* 将字体文件完整读入内存（PSRAM），用于后续内存解析 */
+static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t *out_size) {
+    if (!path || !out_data || !out_size) {
+        return TTF_ERR_RANGE;
+    }
+    *out_data = NULL;
+    *out_size = 0;
+
+    FILE *fp = luat_fs_fopen(path, "rb");
+#ifdef LUA_USE_WINDOWS
+    FILE *std_fp = NULL;
+#endif
+    if (!fp) {
+#ifdef LUA_USE_WINDOWS
+        std_fp = fopen(path, "rb");
+        if (!std_fp) {
+            return TTF_ERR_IO;
+        }
+        if (fseek(std_fp, 0, SEEK_END) != 0) {
+            fclose(std_fp);
+            return TTF_ERR_IO;
+        }
+        long fsz = ftell(std_fp);
+        if (fsz <= 0) {
+            fclose(std_fp);
+            return TTF_ERR_IO;
+        }
+        if (fseek(std_fp, 0, SEEK_SET) != 0) {
+            fclose(std_fp);
+            return TTF_ERR_IO;
+        }
+        uint8_t *buf = (uint8_t *)luat_heap_malloc((size_t)fsz);
+        if (!buf) {
+            fclose(std_fp);
+            return TTF_ERR_OOM;
+        }
+        size_t n = fread(buf, 1, (size_t)fsz, std_fp);
+        fclose(std_fp);
+        if (n != (size_t)fsz) {
+            luat_heap_free(buf);
+            return TTF_ERR_IO;
+        }
+        *out_data = buf;
+        *out_size = (size_t)fsz;
+        return TTF_OK;
+#else
+        return TTF_ERR_IO;
+#endif
+    }
+
+    if (luat_fs_fseek(fp, 0, SEEK_END) != 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    long vsize = luat_fs_ftell(fp);
+    if (vsize <= 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    if (luat_fs_fseek(fp, 0, SEEK_SET) != 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    uint8_t *buf = (uint8_t *)luat_heap_malloc((size_t)vsize);
+    if (!buf) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_OOM;
+    }
+    size_t n = luat_fs_fread(buf, 1, (size_t)vsize, fp);
+    luat_fs_fclose(fp);
+    if (n != (size_t)vsize) {
+        luat_heap_free(buf);
+        return TTF_ERR_IO;
+    }
+    *out_data = buf;
+    *out_size = (size_t)vsize;
+    return TTF_OK;
 }
 
 static void hzfont_cache_destroy(void) {
@@ -535,12 +616,11 @@ static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_co
 }
 
 /* 初始化字体库
- * What: 加载 TTF（外部/内置），建立码点与位图缓存。
- * Pre: 需要有效的 ttf_path 或启用内置字库宏；cache_size 仅允许 128/256/512/1024/2048。
+ * What: 加载 TTF（外部/内置），可选整包读入 PSRAM，建立码点与位图缓存。
+ * Pre: 需要有效的 ttf_path 或启用内置字库宏；cache_size 仅允许 128/256/512/1024/2048；load_to_psram=1 时需有足够 RAM。
  * Post: 状态置为 READY，后续方可测宽/绘制；失败时状态为 ERROR。
- * TODO: 增加 init 参数，支持选择将字库整包拷贝到 PSRAM，避免后续 IO（外部/内置均可）。
  */
-int luat_hzfont_init(const char *ttf_path, uint32_t cache_size) {
+int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         LLOGE("font already initialized");
         return 0;
@@ -555,17 +635,53 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size) {
     memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
 
     int rc = TTF_ERR_RANGE;
+    uint8_t *ram_buf = NULL;
+    size_t ram_size = 0;
     if (ttf_path && ttf_path[0]) {
-        rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
-        if (rc == TTF_OK) {
-            strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
-            g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+        if (load_to_psram) {
+            rc = hzfont_load_file_to_ram(ttf_path, &ram_buf, &ram_size);
+            if (rc == TTF_OK) {
+                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                if (rc == TTF_OK) {
+                    g_ft_ctx.font.ownsData = 1; /* 允许 ttf_unload 释放 */
+                    g_ft_ctx.font_path[0] = 0;
+                    strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+                    g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+                } else {
+                    luat_heap_free(ram_buf);
+                    ram_buf = NULL;
+                }
+            }
+        } else {
+            rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
+            if (rc == TTF_OK) {
+                strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+                g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+            }
         }
     } else {
 #ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
-        rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
-        if (rc == TTF_OK) {
-            g_ft_ctx.font_path[0] = '\0';
+        if (load_to_psram) {
+            ram_buf = (uint8_t *)luat_heap_malloc((size_t)hzfont_builtin_ttf_len);
+            if (!ram_buf) {
+                rc = TTF_ERR_OOM;
+            } else {
+                memcpy(ram_buf, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len);
+                ram_size = (size_t)hzfont_builtin_ttf_len;
+                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                if (rc == TTF_OK) {
+                    g_ft_ctx.font.ownsData = 1;
+                    g_ft_ctx.font_path[0] = '\0';
+                } else {
+                    luat_heap_free(ram_buf);
+                    ram_buf = NULL;
+                }
+            }
+        } else {
+            rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+            if (rc == TTF_OK) {
+                g_ft_ctx.font_path[0] = '\0';
+            }
         }
 #else
         LLOGE("empty ttf path and no builtin ttf");

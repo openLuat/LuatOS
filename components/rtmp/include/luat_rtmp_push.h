@@ -12,6 +12,10 @@
  * - 完整的RTMP握手和连接管理
  * - 支持FLV格式视频打包和发送
  * - C99语法,内存使用优化
+ * 
+ * 调试说明:
+ * - 在 luat_rtmp_push.c 中修改 RTMP_DEBUG_VERBOSE 宏来控制详细日志输出
+ * - 设置为 1 开启详细调试信息，设置为 0 关闭（仅保留关键日志）
  */
 
 #ifndef __LUAT_RTMP_PUSH_H__

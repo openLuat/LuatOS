@@ -183,45 +183,8 @@ static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t 
     *out_size = 0;
 
     FILE *fp = luat_fs_fopen(path, "rb");
-#ifdef LUA_USE_WINDOWS
-    FILE *std_fp = NULL;
-#endif
     if (!fp) {
-#ifdef LUA_USE_WINDOWS
-        std_fp = fopen(path, "rb");
-        if (!std_fp) {
-            return TTF_ERR_IO;
-        }
-        if (fseek(std_fp, 0, SEEK_END) != 0) {
-            fclose(std_fp);
-            return TTF_ERR_IO;
-        }
-        long fsz = ftell(std_fp);
-        if (fsz <= 0) {
-            fclose(std_fp);
-            return TTF_ERR_IO;
-        }
-        if (fseek(std_fp, 0, SEEK_SET) != 0) {
-            fclose(std_fp);
-            return TTF_ERR_IO;
-        }
-        uint8_t *buf = (uint8_t *)luat_heap_malloc((size_t)fsz);
-        if (!buf) {
-            fclose(std_fp);
-            return TTF_ERR_OOM;
-        }
-        size_t n = fread(buf, 1, (size_t)fsz, std_fp);
-        fclose(std_fp);
-        if (n != (size_t)fsz) {
-            luat_heap_free(buf);
-            return TTF_ERR_IO;
-        }
-        *out_data = buf;
-        *out_size = (size_t)fsz;
-        return TTF_OK;
-#else
         return TTF_ERR_IO;
-#endif
     }
 
     if (luat_fs_fseek(fp, 0, SEEK_END) != 0) {

@@ -14,7 +14,6 @@
 #include "luat_malloc.h"
 #include "../inc/luat_easylvgl.h"
 #include "../inc/luat_easylvgl_component.h"
-#include "../inc/luat_easylvgl_task.h"
 #include "../inc/luat_easylvgl_binding.h"
 #if defined(LUAT_USE_EASYLVGL_BK7258)
 #include "../src/platform/bk7258/luat_easylvgl_platform_bk7258.h"

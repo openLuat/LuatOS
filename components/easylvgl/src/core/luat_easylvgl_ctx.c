@@ -6,7 +6,6 @@
 
 #include "luat_easylvgl.h"
 #include "luat_easylvgl_component.h"
-#include "luat_easylvgl_task.h"
 #include "luat_rtos.h"
 #include "lvgl9/lvgl.h"
 #include <string.h>
@@ -262,13 +261,6 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
     
     LLOGD("easylvgl_init success: %dx%d, color_format=%d", width, height, color_format);
     
-    // 启动 LVGL 专职任务
-    // ret = easylvgl_task_start(ctx);
-    // if (ret != 0) {
-    //     easylvgl_deinit(ctx);
-    //     return ret;
-    // }
-    
     return EASYLVGL_OK;
 }
 
@@ -289,9 +281,6 @@ void easylvgl_deinit(easylvgl_ctx_t *ctx)
         g_lv_tick_timer = NULL;
         LLOGD("lv tick timer stopped");
     }
-    
-    // // 停止 LVGL 专职任务
-    // easylvgl_task_stop();
     
     // 清理平台驱动
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->deinit != NULL) {

@@ -2,8 +2,8 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.08.05
-@author  魏健强
+@date    2025.12.10
+@author  王城钧
 @usage
 本demo演示的核心功能为：
 1.设置多网融合功能，以太网提供网络供wifi和以太网设备上网

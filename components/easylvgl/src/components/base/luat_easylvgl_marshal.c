@@ -168,3 +168,52 @@ bool easylvgl_marshal_point(void *L, int idx, const char *key, lv_point_t *out)
     return false;
 }
 
+/**
+ * 获取表字段长度（仅支持数组）
+ */
+int easylvgl_marshal_table_length(void *L, int idx, const char *key)
+{
+    if (L == NULL || key == NULL) {
+        return 0;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+
+    if (!lua_istable(L_state, -1)) {
+        lua_pop(L_state, 1);
+        return 0;
+    }
+
+    int len = (int)lua_rawlen(L_state, -1);
+    lua_pop(L_state, 1);
+    return len;
+}
+
+/**
+ * 获取表字段中指定位置的字符串
+ */
+const char *easylvgl_marshal_table_string_at(void *L, int idx, const char *key, int position)
+{
+    if (L == NULL || key == NULL || position <= 0) {
+        return NULL;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+
+    if (!lua_istable(L_state, -1)) {
+        lua_pop(L_state, 1);
+        return NULL;
+    }
+
+    lua_rawgeti(L_state, -1, position);
+    const char *value = NULL;
+    if (lua_type(L_state, -1) == LUA_TSTRING) {
+        value = lua_tostring(L_state, -1);
+    }
+
+    lua_pop(L_state, 2);
+    return value;
+}
+

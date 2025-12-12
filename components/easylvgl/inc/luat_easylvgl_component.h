@@ -22,7 +22,10 @@ typedef enum {
     EASYLVGL_COMPONENT_BUTTON = 1,
     EASYLVGL_COMPONENT_LABEL,
     EASYLVGL_COMPONENT_IMAGE,
-    EASYLVGL_COMPONENT_WIN
+    EASYLVGL_COMPONENT_WIN,
+    EASYLVGL_COMPONENT_DROPDOWN,
+    EASYLVGL_COMPONENT_SWITCH,
+    EASYLVGL_COMPONENT_MSGBOX
 } easylvgl_component_type_t;
 
 /** 事件类型 */
@@ -31,6 +34,7 @@ typedef enum {
     EASYLVGL_EVENT_PRESSED,
     EASYLVGL_EVENT_RELEASED,
     EASYLVGL_EVENT_VALUE_CHANGED,
+    EASYLVGL_EVENT_ACTION,
     EASYLVGL_EVENT_CLOSE,
     EASYLVGL_EVENT_MAX
 } easylvgl_event_type_t;
@@ -55,6 +59,13 @@ struct easylvgl_component_meta {
     // 私有数据
     void *user_data;
 };
+
+/**
+ * Msgbox 私有数据
+ */
+typedef struct {
+    lv_timer_t *timeout_timer;
+} easylvgl_msgbox_data_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -102,6 +113,13 @@ void easylvgl_component_call_callback(
     void *L);
 
 /**
+ * 调用 Msgbox Action 回调（额外传递按钮文本）
+ */
+void easylvgl_component_call_action_callback(
+    easylvgl_component_meta_t *meta,
+    const char *action_text);
+
+/**
  * 绑定组件事件
  * @param meta 组件元数据
  * @param event_type 事件类型
@@ -129,6 +147,16 @@ void easylvgl_component_release_callbacks(easylvgl_component_meta_t *meta, void 
  * @return 整数值
  */
 int easylvgl_marshal_integer(void *L, int idx, const char *key, int default_value);
+/**
+ * 获取表字段的长度（仅支持数组）
+ */
+int easylvgl_marshal_table_length(void *L, int idx, const char *key);
+
+/**
+ * 在表字段中获取指定位置的字符串
+ */
+const char *easylvgl_marshal_table_string_at(void *L, int idx, const char *key, int position);
+
 
 /**
  * 从配置表读取布尔字段
@@ -221,6 +249,34 @@ int easylvgl_label_set_text(lv_obj_t *label, const char *text);
  * @return 文本内容指针，失败返回 NULL
  */
 const char *easylvgl_label_get_text(lv_obj_t *label);
+/**
+ * Dropdown 组件创建
+ */
+lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx);
+
+int easylvgl_dropdown_set_selected(lv_obj_t *dropdown, int index);
+int easylvgl_dropdown_get_selected(lv_obj_t *dropdown);
+int easylvgl_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref);
+
+/**
+ * Switch 组件创建
+ */
+lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx);
+int easylvgl_switch_set_state(lv_obj_t *sw, bool checked);
+bool easylvgl_switch_get_state(lv_obj_t *sw);
+int easylvgl_switch_set_on_change(lv_obj_t *sw, int callback_ref);
+
+/**
+ * Msgbox 组件创建与控制
+ */
+lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx);
+int easylvgl_msgbox_set_on_action(lv_obj_t *msgbox, int callback_ref);
+int easylvgl_msgbox_show(lv_obj_t *msgbox);
+int easylvgl_msgbox_hide(lv_obj_t *msgbox);
+/**
+ * 释放 msgbox 用户数据（定时器等）
+ */
+lv_timer_t *easylvgl_msgbox_release_user_data(easylvgl_component_meta_t *meta);
 
 /**
  * Image 组件：从配置表创建

@@ -203,3 +203,37 @@ void easylvgl_component_release_callbacks(easylvgl_component_meta_t *meta, void 
     }
 }
 
+/**
+ * 调用 Msgbox Action 回调
+ * @param meta 组件元数据
+ * @param action_text 按钮文本
+ */
+void easylvgl_component_call_action_callback(
+    easylvgl_component_meta_t *meta,
+    const char *action_text)
+{
+    if (meta == NULL || meta->ctx == NULL || meta->ctx->L == NULL) {
+        return;
+    }
+
+    int callback_ref = meta->callback_refs[EASYLVGL_EVENT_ACTION];
+    if (callback_ref == LUA_NOREF || callback_ref < 0) {
+        return;
+    }
+
+    lua_State *L_state = (lua_State *)meta->ctx->L;
+    lua_rawgeti(L_state, LUA_REGISTRYINDEX, callback_ref);
+
+    if (lua_type(L_state, -1) == LUA_TFUNCTION) {
+        lua_pushlightuserdata(L_state, meta->obj);
+        lua_pushstring(L_state, action_text != NULL ? action_text : "");
+
+        if (lua_pcall(L_state, 2, 0, 0) != LUA_OK) {
+            const char *err = lua_tostring(L_state, -1);
+            lua_pop(L_state, 1);
+        }
+    } else {
+        lua_pop(L_state, 1);
+    }
+}
+

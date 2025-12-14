@@ -145,6 +145,15 @@ typedef struct {
     uint32_t packets_sent;          /**< 已发送的包数 */
     uint32_t last_video_timestamp;  /**< 最后视频时间戳(毫秒) */
     uint32_t last_audio_timestamp;  /**< 最后音频时间戳(毫秒) */
+
+    /* 细分统计 */
+    uint32_t i_frames;              /**< 发送的I帧数量 */
+    uint32_t p_frames;              /**< 发送的P帧数量 */
+    uint32_t i_bytes;               /**< 发送的I帧字节数（NAL数据长度累加） */
+    uint32_t p_bytes;               /**< 发送的P帧字节数（NAL数据长度累加） */
+
+    uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
+    uint32_t dropped_bytes;         /**< 被丢弃的帧字节数 */
 } rtmp_stats_t;
 
 /**
@@ -196,6 +205,15 @@ typedef struct {
     uint32_t packets_sent;          /**< 已发送的包数 */
     uint32_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t command_id;            /**< 当前命令ID */
+
+    /* 帧统计 */
+    uint32_t i_frames;              /**< 发送的I帧数量 */
+    uint32_t p_frames;              /**< 发送的P帧数量 */
+    uint32_t i_bytes;               /**< 发送的I帧字节数 */
+    uint32_t p_bytes;               /**< 发送的P帧字节数 */
+    uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
+    uint32_t dropped_bytes;         /**< 被丢弃的帧字节数 */
+    uint32_t last_stats_log_ms;     /**< 上次统计日志输出时间 */
     
     /** ============ 用户数据 ============ */
     void *user_data;                /**< 用户自定义数据指针 */

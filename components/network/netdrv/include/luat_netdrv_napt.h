@@ -11,6 +11,19 @@
 #define NAPT_RET_LOCK_FAIL   -3    // 加锁失败
 #define NAPT_RET_INVALID_CTX -4    // NAPT上下文无效
 
+// 哈希表大小（用于加速查找）
+// 根据最大映射数自动调整，保持负载因子约0.5以获得最佳性能
+#ifndef NAPT_HASH_TABLE_SIZE
+#if defined(TYPE_EC718HM)
+#define NAPT_HASH_TABLE_SIZE 16384  // 对应8K映射，内存充足时使用大哈希表
+#elif defined(TYPE_EC718PM)
+#define NAPT_HASH_TABLE_SIZE 8192   // 对应4K映射
+#else
+#define NAPT_HASH_TABLE_SIZE 4096   // 对应2K映射
+#endif
+#endif
+#define NAPT_HASH_INVALID_INDEX 0xFFFF
+
 // #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
 #define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)
 #ifndef NAPT_TCP_MAP_ITEM_MAX
@@ -74,6 +87,12 @@ typedef struct luat_netdrv_napt_llist
     luat_netdrv_napt_tcpudp_t item;
 }luat_netdrv_napt_llist_t;
 
+// 哈希表项，用于加速查找
+typedef struct {
+    uint16_t item_index;  // 映射项在items数组中的索引，NAPT_HASH_INVALID_INDEX表示空槽
+    uint16_t next_index;  // 链表下一个索引（用于处理哈希冲突）
+} napt_hash_entry_t;
+
 typedef struct luat_netdrv_napt_ctx{
     uint32_t ip_tp;
     size_t clean_tm;
@@ -82,6 +101,10 @@ typedef struct luat_netdrv_napt_ctx{
     luat_netdrv_napt_tcpudp_t items[NAPT_TCP_MAP_ITEM_MAX];
     luat_rtos_mutex_t lock;
     uint32_t *port_used;
+    // 哈希表用于加速查找（WAN->LAN方向）
+    napt_hash_entry_t *hash_table_wan2lan;  // 按(wnet_ip, wnet_port, wnet_local_port)索引
+    // 哈希表用于加速查找（LAN->WAN方向）
+    napt_hash_entry_t *hash_table_lan2wan;  // 按(inet_ip, inet_port, wnet_ip, wnet_port)索引
 }luat_netdrv_napt_ctx_t;
 
 int luat_napt_icmp_handle(napt_ctx_t* ctx);

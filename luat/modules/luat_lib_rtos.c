@@ -299,13 +299,25 @@ static int l_rtos_meminfo(lua_State *L) {
     size_t max_used = 0;
     const char * str = luaL_optlstring(L, 1, "lua", &len);
     if (strcmp("sys", str) == 0) {
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(LUAT_HEAP_SRAM, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_opt_sys(LUAT_HEAP_SRAM, &total, &used, &max_used);
+        #endif
     }
     else if(strcmp("psram", str) == 0){
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(LUAT_HEAP_PSRAM, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+        #endif
     }
     else {
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(0, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_luavm(&total, &used, &max_used);
+        #endif
     }
     
     lua_pushinteger(L, total);

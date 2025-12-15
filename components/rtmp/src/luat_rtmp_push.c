@@ -541,6 +541,11 @@ rtmp_ctx_t* rtmp_create(void) {
 
     /* 统计初始化 */
     ctx->last_stats_log_ms = (uint32_t)luat_mcu_tick64_ms();
+    ctx->last_stats_bytes = 0;
+    ctx->stats_interval_ms = 10000;
+    ctx->stats_window_ms = 10000;
+    ctx->last_window_ms = ctx->last_stats_log_ms;
+    ctx->last_window_bytes = 0;
     
     RTMP_LOGV("RTMP: Context created successfully");
     g_rtmp_ctx = ctx;
@@ -1001,7 +1006,7 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     /* 更新统计 */
     ctx->video_timestamp = timestamp;
     ctx->packets_sent++;
-    ctx->bytes_sent += nalu_len;
+    ctx->bytes_sent += (uint64_t)nalu_len;
     if (is_key_frame) {
         ctx->i_frames++;
         ctx->i_bytes += nalu_len;
@@ -1029,6 +1034,63 @@ int rtmp_send_nalu_multi(rtmp_ctx_t *ctx, const uint8_t **nalus,
             return ret;
         }
     }
+    
+    return RTMP_OK;
+}
+
+/**
+ * 发送音频数据帧
+ */
+int rtmp_send_audio(rtmp_ctx_t *ctx, const uint8_t *audio_data,
+                    uint32_t audio_len, uint32_t timestamp) {
+    if (!ctx || !audio_data || audio_len == 0) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    
+    if (ctx->state != RTMP_STATE_PUBLISHING) {
+        LLOGE("RTMP: Cannot send audio, not in publishing state");
+        return RTMP_ERR_FAILED;
+    }
+    
+    /* 构建RTMP音频消息 (消息类型8=音频, 流ID=1) */
+    uint8_t *rtmp_buf = NULL;
+    uint32_t rtmp_len = 0;
+    int ret = rtmp_build_rtmp_message(ctx, RTMP_MSG_AUDIO, audio_data, audio_len, 
+                                     timestamp, ctx->audio_stream_id, 
+                                     &rtmp_buf, &rtmp_len);
+    if (ret != RTMP_OK) {
+        LLOGE("RTMP: Failed to build RTMP message for audio");
+        return ret;
+    }
+    
+    /* 创建帧节点并加入队列 */
+    rtmp_frame_node_t *node = (rtmp_frame_node_t *)luat_heap_malloc(sizeof(rtmp_frame_node_t));
+    if (!node) {
+        luat_heap_free(rtmp_buf);
+        LLOGE("RTMP: Failed to allocate frame node for audio");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    node->data = rtmp_buf;
+    node->len = rtmp_len;
+    node->sent = 0;
+    node->is_key = false; /* 音频帧不是关键帧 */
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
+    node->next = NULL;
+    
+    ret = rtmp_queue_frame(ctx, node);
+    if (ret != RTMP_OK) {
+        rtmp_free_frame_node(node);
+        LLOGE("RTMP: Failed to queue audio frame");
+        return ret;
+    }
+    
+    /* 更新音频时间戳和统计 */
+    ctx->audio_timestamp = timestamp;
+    ctx->audio_frames_sent++;
+    ctx->audio_bytes += (uint64_t)audio_len;
+    
+    RTMP_LOGV("RTMP: Audio frame queued, len=%u, ts=%u", audio_len, timestamp);
     
     return RTMP_OK;
 }
@@ -1086,18 +1148,54 @@ int rtmp_poll(rtmp_ctx_t *ctx) {
 
     /* 周期性打印统计信息（每10秒） */
     uint32_t now_ms = (uint32_t)luat_mcu_tick64_ms();
-    if (now_ms - ctx->last_stats_log_ms >= 10000) {
-        ctx->last_stats_log_ms = now_ms;
-        LLOGI("RTMP stats: bytes=%u packets=%u I=%u (%uB) P=%u (%uB) dropped=%u (%uB) queue=%u",
-              ctx->bytes_sent,
+    /* 独立刷新窗口采样 */
+    if (now_ms - ctx->last_window_ms >= ctx->stats_window_ms) {
+        ctx->last_window_ms = now_ms;
+        ctx->last_window_bytes = ctx->bytes_sent;
+    }
+
+    if (now_ms - ctx->last_stats_log_ms >= ctx->stats_interval_ms) {
+        uint32_t elapsed_ms = 0;
+        if (ctx->base_timestamp > 0 && now_ms > ctx->base_timestamp) {
+            elapsed_ms = now_ms - ctx->base_timestamp;
+        }
+        /* 平均码率(单位kbps): 总比特 / 秒 / 1000 */
+        uint32_t avg_kbps = 0;
+        if (elapsed_ms > 0) {
+            double kbps = ((double)ctx->bytes_sent * 8.0) / ((double)elapsed_ms / 1000.0) / 1000.0;
+            avg_kbps = (uint32_t)(kbps + 0.5);
+        }
+        /* 区间平均码率（最近10秒） */
+        uint32_t win_kbps = 0;
+        /* 统计窗口以 stats_window_ms 为准；若比实际间隔更长，则按实际间隔计算 */
+        uint32_t win_ms = (now_ms >= ctx->last_window_ms) ? (now_ms - ctx->last_window_ms) : 0;
+        uint64_t win_bytes = (ctx->bytes_sent >= ctx->last_window_bytes) ? (ctx->bytes_sent - ctx->last_window_bytes) : 0;
+        if (win_ms > 0 && win_bytes > 0) {
+            double wkbps = ((double)win_bytes * 8.0) / ((double)win_ms / 1000.0) / 1000.0;
+            win_kbps = (uint32_t)(wkbps + 0.5);
+        }
+        /* 以kB为单位显示总字节和各类字节（四舍五入） */
+        uint64_t total_kB = ctx->bytes_sent / 1024ULL;
+        uint64_t i_kB = ctx->i_bytes / 1024ULL;
+        uint64_t p_kB = ctx->p_bytes / 1024ULL;
+        uint64_t drop_kB = ctx->dropped_bytes / 1024ULL;
+
+        LLOGI("RTMP stats: total=%llu kB packets=%u I=%u (%llukB) P=%u (%llukB) dropped=%u (%llukB) queue=%u avg=%u kbps win=%u kbps",
+              (unsigned long long)total_kB,
               ctx->packets_sent,
               ctx->i_frames,
-              ctx->i_bytes,
+              (unsigned long long)i_kB,
               ctx->p_frames,
-              ctx->p_bytes,
+              (unsigned long long)p_kB,
               ctx->dropped_frames,
-              ctx->dropped_bytes,
-              ctx->frame_queue_bytes);
+              (unsigned long long)drop_kB,
+              ctx->frame_queue_bytes,
+              avg_kbps,
+              win_kbps);
+
+        /* 更新日志基准 */
+        ctx->last_stats_log_ms = now_ms;
+        ctx->last_stats_bytes = ctx->bytes_sent;
     }
     
     return RTMP_OK;
@@ -1139,7 +1237,7 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     stats->bytes_sent = ctx->bytes_sent;
     stats->packets_sent = ctx->packets_sent;
     stats->video_frames_sent = ctx->i_frames + ctx->p_frames;
-    stats->audio_frames_sent = 0;  // 当前仅支持视频
+    stats->audio_frames_sent = ctx->audio_frames_sent;
     stats->last_video_timestamp = ctx->video_timestamp;
     stats->last_audio_timestamp = ctx->audio_timestamp;
 
@@ -1147,6 +1245,7 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     stats->p_frames = ctx->p_frames;
     stats->i_bytes = ctx->i_bytes;
     stats->p_bytes = ctx->p_bytes;
+    stats->audio_bytes = ctx->audio_bytes;
     stats->dropped_frames = ctx->dropped_frames;
     stats->dropped_bytes = ctx->dropped_bytes;
     
@@ -1169,6 +1268,35 @@ int rtmp_set_state_callback(rtmp_ctx_t *ctx, rtmp_state_callback callback) {
     }
     
     g_state_callback = callback;
+    return RTMP_OK;
+}
+
+/**
+ * 设置统计输出间隔
+ */
+int rtmp_set_stats_interval(rtmp_ctx_t *ctx, uint32_t interval_ms) {
+    if (!ctx) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    if (interval_ms == 0) {
+        /* 防止除零/过于频繁，设定最小1000ms */
+        interval_ms = 1000;
+    }
+    ctx->stats_interval_ms = interval_ms;
+    return RTMP_OK;
+}
+
+/**
+ * 设置统计窗口长度
+ */
+int rtmp_set_stats_window(rtmp_ctx_t *ctx, uint32_t window_ms) {
+    if (!ctx) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    if (window_ms == 0) {
+        window_ms = 1000;
+    }
+    ctx->stats_window_ms = window_ms;
     return RTMP_OK;
 }
 
@@ -1441,7 +1569,7 @@ static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
     total_sent += len;
     //LLOGD("RTMP: TCP sent callback, len=%d, total_sent=%llu", len, total_sent);
     if (ctx) {
-        ctx->bytes_sent += len;
+        ctx->bytes_sent += (uint64_t)len;
         /* 继续发送队列中的数据 */
         rtmp_try_send_queue(ctx);
     }
@@ -1779,7 +1907,7 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
                 if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
                 ctx->frame_queue_bytes -= to_free->len;
                 ctx->dropped_frames++;
-                ctx->dropped_bytes += to_free->len;
+                ctx->dropped_bytes += (uint64_t)to_free->len;
                 rtmp_free_frame_node(to_free);
                 continue;
             }
@@ -1800,7 +1928,7 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
             ctx->dropped_frames++;
-            ctx->dropped_bytes += to_free->len;
+            ctx->dropped_bytes += (uint64_t)to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1818,7 +1946,7 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
             ctx->dropped_frames++;
-            ctx->dropped_bytes += to_free->len;
+            ctx->dropped_bytes += (uint64_t)to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1830,7 +1958,7 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     if (ctx->frame_queue_bytes + need_bytes > RTMP_MAX_QUEUE_BYTES) {
         LLOGE("RTMP: Drop frame, queue bytes %u exceed max %u", ctx->frame_queue_bytes + need_bytes, RTMP_MAX_QUEUE_BYTES);
         ctx->dropped_frames++;
-        ctx->dropped_bytes += node->len;
+        ctx->dropped_bytes += (uint64_t)node->len;
         return RTMP_ERR_BUFFER_OVERFLOW;
     }
 

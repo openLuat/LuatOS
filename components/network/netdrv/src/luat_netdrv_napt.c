@@ -30,8 +30,8 @@
 #define NAPT_CLEANUP_INTERVAL_SEC  (5)            // 清理周期: 5秒
 
 #define ICMP_MAP_SIZE (32)
-#define UDP_MAP_TIMEOUT (60 * 1000)
 #define NAPT_MAX_PACKET_SIZE (1520)
+#define NAPT_MUTEX_TIMEOUT_MS (2000)  // 统一锁超时时间
 /* napt icmp id range: 3000-65535 */
 #define NAPT_ICMP_ID_RANGE_START     0xBB8
 #define NAPT_ICMP_ID_RANGE_END       0xFFFF
@@ -54,24 +54,26 @@ luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 #define NAPT_CHKSUM_16BIT_LEN        sizeof(u16)
 
+#ifdef NAPT_DEBUG
 static void check_it(const char* tag, luat_netdrv_napt_llist_t* it, luat_netdrv_napt_llist_t* prev, size_t id) {
     uint32_t tmp = (uint32_t)it;
     if (tmp == 0 || tmp > 0xc300000) {
         LLOGE("why %s cur %p prev %p id %ld", tag, it, prev, id);
     }
 }
+#endif
 
 // ============ 哈希表优化函数 ============
 
 // WAN->LAN方向的哈希函数：基于(wnet_ip, wnet_port, wnet_local_port)
 __NETDRV_CODE_IN_RAM__ static inline uint32_t napt_hash_wan2lan(uint32_t wnet_ip, uint16_t wnet_port, uint16_t wnet_local_port) {
-    // 简单的FNV-1a哈希变种
+    // FNV-1a哈希 + 位运算优化（2的幂次方可用位与代替模运算）
     uint32_t hash = 2166136261U;
     hash ^= wnet_ip;
     hash *= 16777619U;
     hash ^= ((uint32_t)wnet_port << 16) | wnet_local_port;
     hash *= 16777619U;
-    return hash % NAPT_HASH_TABLE_SIZE;
+    return hash & (NAPT_HASH_TABLE_SIZE - 1);
 }
 
 // LAN->WAN方向的哈希函数：基于(inet_ip, inet_port, wnet_ip, wnet_port)
@@ -83,112 +85,115 @@ __NETDRV_CODE_IN_RAM__ static inline uint32_t napt_hash_lan2wan(uint32_t inet_ip
     hash *= 16777619U;
     hash ^= wnet_ip;
     hash *= 16777619U;
-    return hash % NAPT_HASH_TABLE_SIZE;
+    return hash & (NAPT_HASH_TABLE_SIZE - 1);
 }
 
 // 初始化哈希表
-static void napt_hash_init(luat_netdrv_napt_ctx_t *ctx) {
+static int napt_hash_init(luat_netdrv_napt_ctx_t *ctx) {
     if (ctx->hash_table_wan2lan == NULL) {
         ctx->hash_table_wan2lan = luat_heap_malloc(NAPT_HASH_TABLE_SIZE * sizeof(napt_hash_entry_t));
-        if (ctx->hash_table_wan2lan) {
-            for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
-                ctx->hash_table_wan2lan[i].item_index = NAPT_HASH_INVALID_INDEX;
-                ctx->hash_table_wan2lan[i].next_index = NAPT_HASH_INVALID_INDEX;
-            }
+        if (ctx->hash_table_wan2lan == NULL) {
+            LLOGE("哈希表wan2lan分配失败，需要 %d 字节", NAPT_HASH_TABLE_SIZE * sizeof(napt_hash_entry_t));
+            return -1;
+        }
+        for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
+            ctx->hash_table_wan2lan[i].item_index = NAPT_HASH_INVALID_INDEX;
         }
     }
     if (ctx->hash_table_lan2wan == NULL) {
         ctx->hash_table_lan2wan = luat_heap_malloc(NAPT_HASH_TABLE_SIZE * sizeof(napt_hash_entry_t));
-        if (ctx->hash_table_lan2wan) {
-            for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
-                ctx->hash_table_lan2wan[i].item_index = NAPT_HASH_INVALID_INDEX;
-                ctx->hash_table_lan2wan[i].next_index = NAPT_HASH_INVALID_INDEX;
-            }
+        if (ctx->hash_table_lan2wan == NULL) {
+            LLOGE("哈希表lan2wan分配失败，需要 %d 字节", NAPT_HASH_TABLE_SIZE * sizeof(napt_hash_entry_t));
+            luat_heap_free(ctx->hash_table_wan2lan);
+            ctx->hash_table_wan2lan = NULL;
+            return -1;
+        }
+        for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
+            ctx->hash_table_lan2wan[i].item_index = NAPT_HASH_INVALID_INDEX;
         }
     }
+    return 0;
 }
 
-// 向哈希表添加映射（WAN->LAN）
-__NETDRV_CODE_IN_RAM__ static void napt_hash_add_wan2lan(luat_netdrv_napt_ctx_t *ctx, uint16_t item_idx, luat_netdrv_napt_tcpudp_t *item) {
-    if (ctx->hash_table_wan2lan == NULL) return;
+// 向哈希表添加映射（WAN->LAN） - 纯线性探测
+__NETDRV_CODE_IN_RAM__ static int napt_hash_add_wan2lan(luat_netdrv_napt_ctx_t *ctx, uint16_t item_idx, luat_netdrv_napt_tcpudp_t *item) {
+    if (ctx->hash_table_wan2lan == NULL) return -1;
     
     uint32_t hash = napt_hash_wan2lan(item->wnet_ip, item->wnet_port, item->wnet_local_port);
-    napt_hash_entry_t *entry = &ctx->hash_table_wan2lan[hash];
     
-    if (entry->item_index == NAPT_HASH_INVALID_INDEX) {
-        // 空槽，直接放置
-        entry->item_index = item_idx;
-        entry->next_index = NAPT_HASH_INVALID_INDEX;
-    } else {
-        // 冲突，使用线性探测找下一个空槽
-        for (size_t i = 1; i < NAPT_HASH_TABLE_SIZE; i++) {
-            uint32_t probe = (hash + i) % NAPT_HASH_TABLE_SIZE;
-            if (ctx->hash_table_wan2lan[probe].item_index == NAPT_HASH_INVALID_INDEX) {
-                ctx->hash_table_wan2lan[probe].item_index = item_idx;
-                ctx->hash_table_wan2lan[probe].next_index = NAPT_HASH_INVALID_INDEX;
-                entry->next_index = probe;
-                break;
-            }
+    // 线性探测找空槽，限制最大探测次数防止满表死循环
+    for (size_t i = 0; i < NAPT_HASH_MAX_PROBE; i++) {
+        uint32_t probe = (hash + i) & (NAPT_HASH_TABLE_SIZE - 1);
+        if (ctx->hash_table_wan2lan[probe].item_index == NAPT_HASH_INVALID_INDEX) {
+            ctx->hash_table_wan2lan[probe].item_index = item_idx;
+            return 0;
         }
     }
+    LLOGE("哈希表wan2lan已满，无法添加");
+    return -1;
 }
 
-// 向哈希表添加映射（LAN->WAN）
-__NETDRV_CODE_IN_RAM__ static void napt_hash_add_lan2wan(luat_netdrv_napt_ctx_t *ctx, uint16_t item_idx, luat_netdrv_napt_tcpudp_t *item) {
-    if (ctx->hash_table_lan2wan == NULL) return;
+// 向哈希表添加映射（LAN->WAN） - 纯线性探测
+__NETDRV_CODE_IN_RAM__ static int napt_hash_add_lan2wan(luat_netdrv_napt_ctx_t *ctx, uint16_t item_idx, luat_netdrv_napt_tcpudp_t *item) {
+    if (ctx->hash_table_lan2wan == NULL) return -1;
     
     uint32_t hash = napt_hash_lan2wan(item->inet_ip, item->inet_port, item->wnet_ip, item->wnet_port);
-    napt_hash_entry_t *entry = &ctx->hash_table_lan2wan[hash];
     
-    if (entry->item_index == NAPT_HASH_INVALID_INDEX) {
-        entry->item_index = item_idx;
-        entry->next_index = NAPT_HASH_INVALID_INDEX;
-    } else {
-        for (size_t i = 1; i < NAPT_HASH_TABLE_SIZE; i++) {
-            uint32_t probe = (hash + i) % NAPT_HASH_TABLE_SIZE;
-            if (ctx->hash_table_lan2wan[probe].item_index == NAPT_HASH_INVALID_INDEX) {
-                ctx->hash_table_lan2wan[probe].item_index = item_idx;
-                ctx->hash_table_lan2wan[probe].next_index = NAPT_HASH_INVALID_INDEX;
-                entry->next_index = probe;
-                break;
-            }
+    // 线性探测找空槽，限制最大探测次数防止满表死循环
+    for (size_t i = 0; i < NAPT_HASH_MAX_PROBE; i++) {
+        uint32_t probe = (hash + i) & (NAPT_HASH_TABLE_SIZE - 1);
+        if (ctx->hash_table_lan2wan[probe].item_index == NAPT_HASH_INVALID_INDEX) {
+            ctx->hash_table_lan2wan[probe].item_index = item_idx;
+            return 0;
         }
     }
+    LLOGE("哈希表lan2wan已满，无法添加");
+    return -1;
 }
 
-// 从哈希表查找映射（WAN->LAN）
+// 从哈希表查找映射（WAN->LAN） - 纯线性探测
 __NETDRV_CODE_IN_RAM__ static int napt_hash_find_wan2lan(luat_netdrv_napt_ctx_t *ctx, uint32_t wnet_ip, uint16_t wnet_port, uint16_t wnet_local_port) {
     if (ctx->hash_table_wan2lan == NULL) return -1;
     
     uint32_t hash = napt_hash_wan2lan(wnet_ip, wnet_port, wnet_local_port);
-    napt_hash_entry_t *entry = &ctx->hash_table_wan2lan[hash];
     
-    while (entry->item_index != NAPT_HASH_INVALID_INDEX) {
-        luat_netdrv_napt_tcpudp_t *item = &ctx->items[entry->item_index];
-        if (item->wnet_ip == wnet_ip && item->wnet_port == wnet_port && item->wnet_local_port == wnet_local_port) {
-            return entry->item_index;
+    // 线性探测查找，限制最大探测次数
+    for (size_t i = 0; i < NAPT_HASH_MAX_PROBE; i++) {
+        uint32_t probe = (hash + i) & (NAPT_HASH_TABLE_SIZE - 1);
+        uint16_t idx = ctx->hash_table_wan2lan[probe].item_index;
+        
+        if (idx == NAPT_HASH_INVALID_INDEX) {
+            return -1;  // 遇到空槽说明不存在
         }
-        if (entry->next_index == NAPT_HASH_INVALID_INDEX) break;
-        entry = &ctx->hash_table_wan2lan[entry->next_index];
+        
+        luat_netdrv_napt_tcpudp_t *item = &ctx->items[idx];
+        if (item->wnet_ip == wnet_ip && item->wnet_port == wnet_port && item->wnet_local_port == wnet_local_port) {
+            return idx;
+        }
     }
     return -1;
 }
 
-// 从哈希表查找映射（LAN->WAN）
+// 从哈希表查找映射（LAN->WAN） - 纯线性探测
 __NETDRV_CODE_IN_RAM__ static int napt_hash_find_lan2wan(luat_netdrv_napt_ctx_t *ctx, uint32_t inet_ip, uint16_t inet_port, uint32_t wnet_ip, uint16_t wnet_port) {
     if (ctx->hash_table_lan2wan == NULL) return -1;
     
     uint32_t hash = napt_hash_lan2wan(inet_ip, inet_port, wnet_ip, wnet_port);
-    napt_hash_entry_t *entry = &ctx->hash_table_lan2wan[hash];
     
-    while (entry->item_index != NAPT_HASH_INVALID_INDEX) {
-        luat_netdrv_napt_tcpudp_t *item = &ctx->items[entry->item_index];
+    // 线性探测查找，限制最大探测次数
+    for (size_t i = 0; i < NAPT_HASH_MAX_PROBE; i++) {
+        uint32_t probe = (hash + i) & (NAPT_HASH_TABLE_SIZE - 1);
+        uint16_t idx = ctx->hash_table_lan2wan[probe].item_index;
+        
+        if (idx == NAPT_HASH_INVALID_INDEX) {
+            return -1;  // 遇到空槽说明不存在
+        }
+        
+        luat_netdrv_napt_tcpudp_t *item = &ctx->items[idx];
         if (item->inet_ip == inet_ip && item->inet_port == inet_port && 
             item->wnet_ip == wnet_ip && item->wnet_port == wnet_port) {
-            return entry->item_index;
+            return idx;
         }
-        if (entry->next_index == NAPT_HASH_INVALID_INDEX) break;
-        entry = &ctx->hash_table_lan2wan[entry->next_index];
     }
     return -1;
 }
@@ -198,13 +203,11 @@ static void napt_hash_rebuild(luat_netdrv_napt_ctx_t *ctx) {
     if (ctx->hash_table_wan2lan) {
         for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
             ctx->hash_table_wan2lan[i].item_index = NAPT_HASH_INVALID_INDEX;
-            ctx->hash_table_wan2lan[i].next_index = NAPT_HASH_INVALID_INDEX;
         }
     }
     if (ctx->hash_table_lan2wan) {
         for (size_t i = 0; i < NAPT_HASH_TABLE_SIZE; i++) {
             ctx->hash_table_lan2wan[i].item_index = NAPT_HASH_INVALID_INDEX;
-            ctx->hash_table_lan2wan[i].next_index = NAPT_HASH_INVALID_INDEX;
         }
     }
     
@@ -405,7 +408,12 @@ static int ctx_init(luat_netdrv_napt_ctx_t** ctx_ptrptr) {
     // 初始化哈希表
     ctx->hash_table_wan2lan = NULL;
     ctx->hash_table_lan2wan = NULL;
-    napt_hash_init(ctx);
+    if (napt_hash_init(ctx) != 0) {
+        LLOGE("哈希表初始化失败");
+        luat_heap_free(ctx->port_used);
+        luat_heap_free(ctx);
+        return -1;
+    }
 
     *ctx_ptrptr = ctx;
     return 0;
@@ -620,7 +628,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_ne
         tmp.wnet_local_port = udp_hdr->dest;
     }
 
-    luat_rtos_mutex_lock(napt_ctx->lock, 5000);
+    luat_rtos_mutex_lock(napt_ctx->lock, NAPT_MUTEX_TIMEOUT_MS);
     // 清理映射关系
     if (tsec - napt_ctx->clean_tm > NAPT_CLEANUP_INTERVAL_SEC) {
         // LLOGD("执行映射关系清理 %ld %ld", tsec, napt_ctx->clean_tm);
@@ -634,8 +642,8 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_ne
     if (idx >= 0 && idx < (int)napt_ctx->item_last) {
         it = &napt_ctx->items[idx];
         it->tm_ms = tnow;
-        memcpy(mapping, it, sizeof(luat_netdrv_napt_tcpudp_t));
         ret = NAPT_RET_OK;
+        *mapping = *it;  // 优化: 直接赋值代替memcpy
         if (napt_ctx->ip_tp == IP_PROTO_TCP) {
             update_tcp_stat_wnet(tcp_hdr, it);
         }
@@ -657,7 +665,6 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
     // size_t tmpaddr = 0;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     struct udp_hdr *udp_hdr = (struct udp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
-    size_t c_all = 0;
 
     tmp.inet_ip = ctx->iphdr->src.addr;
     tmp.wnet_ip = ctx->iphdr->dest.addr;
@@ -670,10 +677,10 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
         tmp.wnet_port = udp_hdr->dest;
     }
     
-    ret = luat_rtos_mutex_lock(napt_ctx->lock, 1000);
+    ret = luat_rtos_mutex_lock(napt_ctx->lock, NAPT_MUTEX_TIMEOUT_MS);
     if (ret) {
         LLOGE("napt加锁失败!!! ret %d", ret);
-        return -4;
+        return NAPT_RET_LOCK_FAIL;
     }
     ret = -1;
 
@@ -689,7 +696,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
         it = &napt_ctx->items[idx];
         it->tm_ms = tnow;
         ret = NAPT_RET_OK;
-        memcpy(mapping, it, sizeof(luat_netdrv_napt_tcpudp_t));
+        *mapping = *it;  // 优化: 直接赋值代替memcpy
         // 映射关系找到了,那就关联一下情况
         if (napt_ctx->ip_tp == IP_PROTO_TCP) {
             update_tcp_stat_inet(tcp_hdr, it);
@@ -726,7 +733,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
         else {
             memset(it->inet_mac, 0, 6);
         }
-        memcpy(mapping, it, sizeof(luat_netdrv_napt_tcpudp_t));
+        *mapping = *it;  // 优化: 直接赋值代替memcpy
         ret = NAPT_RET_OK;
         break;
     }

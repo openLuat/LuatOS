@@ -12,17 +12,18 @@
 #define NAPT_RET_INVALID_CTX -4    // NAPT上下文无效
 
 // 哈希表大小（用于加速查找）
-// 根据最大映射数自动调整，保持负载因子约0.5以获得最佳性能
+// 优化: 使用2的幂次方便模运算，保持负载因子约0.75平衡性能和内存
 #ifndef NAPT_HASH_TABLE_SIZE
 #if defined(TYPE_EC718HM)
-#define NAPT_HASH_TABLE_SIZE 16384  // 对应8K映射，内存充足时使用大哈希表
+#define NAPT_HASH_TABLE_SIZE 8192   // 对应8K映射，负载因子1.0 (64KB)
 #elif defined(TYPE_EC718PM)
-#define NAPT_HASH_TABLE_SIZE 8192   // 对应4K映射
+#define NAPT_HASH_TABLE_SIZE 4096   // 对应4K映射，负载因子1.0 (32KB)
 #else
-#define NAPT_HASH_TABLE_SIZE 4096   // 对应2K映射
+#define NAPT_HASH_TABLE_SIZE 2048   // 对应2K映射，负载因子1.0 (16KB)
 #endif
 #endif
 #define NAPT_HASH_INVALID_INDEX 0xFFFF
+#define NAPT_HASH_MAX_PROBE 32      // 最大探测次数，防止满表时死循环
 
 // #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
 #define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)
@@ -87,10 +88,9 @@ typedef struct luat_netdrv_napt_llist
     luat_netdrv_napt_tcpudp_t item;
 }luat_netdrv_napt_llist_t;
 
-// 哈希表项，用于加速查找
+// 哈希表项，用于加速查找（纯线性探测，无链表）
 typedef struct {
     uint16_t item_index;  // 映射项在items数组中的索引，NAPT_HASH_INVALID_INDEX表示空槽
-    uint16_t next_index;  // 链表下一个索引（用于处理哈希冲突）
 } napt_hash_entry_t;
 
 typedef struct luat_netdrv_napt_ctx{

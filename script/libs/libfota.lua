@@ -138,7 +138,7 @@ fota升级
 @return nil 无返回值
 ]]
 function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,libfota_timeout,server_cert, client_cert, client_key, client_password, show_otaurl)
-    sys.taskInit(fota_task, cbFnc,storge_location, len, param1,ota_url, ota_port,libfota_timeout or 30000,server_cert, client_cert, client_key, client_password, show_otaurl)
+    sys.taskInit(fota_task, cbFnc,storge_location, len, param1,ota_url, ota_port,libfota_timeout or 180000,server_cert, client_cert, client_key, client_password, show_otaurl)
 end
 
 return libfota

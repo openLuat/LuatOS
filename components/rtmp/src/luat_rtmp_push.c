@@ -141,6 +141,7 @@ typedef struct rtmp_frame_node {
     uint32_t len;               /* 消息总长度 */
     uint32_t sent;              /* 已发送字节数 */
     bool is_key;                /* 是否关键帧 */
+    uint32_t enqueue_ms;        /* 入队时间戳(ms) */
     struct rtmp_frame_node *next;
 } rtmp_frame_node_t;
 
@@ -537,6 +538,9 @@ rtmp_ctx_t* rtmp_create(void) {
     
     /* 初始化状态 */
     ctx->state = RTMP_STATE_IDLE;
+
+    /* 统计初始化 */
+    ctx->last_stats_log_ms = (uint32_t)luat_mcu_tick64_ms();
     
     RTMP_LOGV("RTMP: Context created successfully");
     g_rtmp_ctx = ctx;
@@ -902,6 +906,7 @@ static int rtmp_send_avc_sequence_header(rtmp_ctx_t *ctx, const uint8_t *seq_hea
     node->len = rtmp_len;
     node->sent = 0;
     node->is_key = true; /* 配置按关键帧优先处理 */
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
     node->next = NULL;
     
     ret = rtmp_queue_frame(ctx, node);
@@ -984,6 +989,7 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     node->len = rtmp_len;
     node->sent = 0;
     node->is_key = is_key_frame;
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
     node->next = NULL;
 
     ret = rtmp_queue_frame(ctx, node);
@@ -996,6 +1002,13 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     ctx->video_timestamp = timestamp;
     ctx->packets_sent++;
     ctx->bytes_sent += nalu_len;
+    if (is_key_frame) {
+        ctx->i_frames++;
+        ctx->i_bytes += nalu_len;
+    } else {
+        ctx->p_frames++;
+        ctx->p_bytes += nalu_len;
+    }
 
     return RTMP_OK;
 }
@@ -1070,6 +1083,22 @@ int rtmp_poll(rtmp_ctx_t *ctx) {
             return ret;
         }
     }
+
+    /* 周期性打印统计信息（每10秒） */
+    uint32_t now_ms = (uint32_t)luat_mcu_tick64_ms();
+    if (now_ms - ctx->last_stats_log_ms >= 10000) {
+        ctx->last_stats_log_ms = now_ms;
+        LLOGI("RTMP stats: bytes=%u packets=%u I=%u (%uB) P=%u (%uB) dropped=%u (%uB) queue=%u",
+              ctx->bytes_sent,
+              ctx->packets_sent,
+              ctx->i_frames,
+              ctx->i_bytes,
+              ctx->p_frames,
+              ctx->p_bytes,
+              ctx->dropped_frames,
+              ctx->dropped_bytes,
+              ctx->frame_queue_bytes);
+    }
     
     return RTMP_OK;
 }
@@ -1109,10 +1138,17 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     // 填充统计结构体
     stats->bytes_sent = ctx->bytes_sent;
     stats->packets_sent = ctx->packets_sent;
-    stats->video_frames_sent = (ctx->video_timestamp > 0) ? (ctx->video_timestamp / 33 + 1) : 0;  // 估计帧数(30fps约33ms)
+    stats->video_frames_sent = ctx->i_frames + ctx->p_frames;
     stats->audio_frames_sent = 0;  // 当前仅支持视频
     stats->last_video_timestamp = ctx->video_timestamp;
     stats->last_audio_timestamp = ctx->audio_timestamp;
+
+    stats->i_frames = ctx->i_frames;
+    stats->p_frames = ctx->p_frames;
+    stats->i_bytes = ctx->i_bytes;
+    stats->p_bytes = ctx->p_bytes;
+    stats->dropped_frames = ctx->dropped_frames;
+    stats->dropped_bytes = ctx->dropped_bytes;
     
     // 计算连接持续时间
     if (ctx->base_timestamp > 0 && current_time >= ctx->base_timestamp) {
@@ -1730,17 +1766,20 @@ static int rtmp_build_rtmp_message(rtmp_ctx_t *ctx, uint8_t msg_type,
 static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     if (!ctx || !node) return RTMP_ERR_INVALID_PARAM;
 
-    /* 拥堵且来了关键帧，丢弃所有未开始发送的帧（sent==0） */
+    /* 拥堵且来了关键帧，优先丢弃缓存超过1秒且未开始发送的帧（sent==0） */
     if (node->is_key && ctx->frame_head) {
+        uint32_t now_ms = (uint32_t)luat_mcu_tick64_ms();
         rtmp_frame_node_t *cur = ctx->frame_head;
         rtmp_frame_node_t *prev = NULL;
         while (cur) {
-            if (cur->sent == 0) {
+            if (cur->sent == 0 && (now_ms - cur->enqueue_ms) > 2000) {
                 rtmp_frame_node_t *to_free = cur;
                 cur = cur->next;
                 if (prev) prev->next = cur; else ctx->frame_head = cur;
                 if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
                 ctx->frame_queue_bytes -= to_free->len;
+                ctx->dropped_frames++;
+                ctx->dropped_bytes += to_free->len;
                 rtmp_free_frame_node(to_free);
                 continue;
             }
@@ -1760,6 +1799,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (prev) prev->next = cur; else ctx->frame_head = cur;
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
+            ctx->dropped_frames++;
+            ctx->dropped_bytes += to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1776,6 +1817,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (prev) prev->next = cur; else ctx->frame_head = cur;
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
+            ctx->dropped_frames++;
+            ctx->dropped_bytes += to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1786,6 +1829,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     /* 仍然超限，则放弃当前帧 */
     if (ctx->frame_queue_bytes + need_bytes > RTMP_MAX_QUEUE_BYTES) {
         LLOGE("RTMP: Drop frame, queue bytes %u exceed max %u", ctx->frame_queue_bytes + need_bytes, RTMP_MAX_QUEUE_BYTES);
+        ctx->dropped_frames++;
+        ctx->dropped_bytes += node->len;
         return RTMP_ERR_BUFFER_OVERFLOW;
     }
 

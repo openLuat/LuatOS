@@ -45,6 +45,8 @@
 #define LUAT_1_5_STOP_BITS                   0xf1   /**< 1.5 */
 
 #define LUAT_VUART_ID_0						0x20    
+#define LUAT_VUART_ID_1						0x21
+#define LUAT_VUART_ID_2						0x22
 
 #define LUAT_UART_RX_ERROR_DROP_DATA		(0xD6)
 #define LUAT_UART_DEBUG_ENABLE				(0x3E)

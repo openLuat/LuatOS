@@ -1,0 +1,34 @@
+#ifndef LUAT_USB_H
+#define LUAT_USB_H
+
+#include "luat_base.h"
+enum
+{
+	LUAT_USB_MODE_DEVICE,
+	LUAT_USB_MODE_HOST,
+	LUAT_USB_MODE_OTG,
+	LUAT_USB_CLASS_CDC_ACM = 0,
+	LUAT_USB_CLASS_AUDIO,
+	LUAT_USB_CLASS_CAMERA,
+	LUAT_USB_CLASS_HIB,
+	LUAT_USB_CLASS_MSC,
+	LUAT_USB_CLASS_WINUSB,
+
+};
+
+typedef void (*usb_callback_t)(int id, int event, uint8_t *data, uint32_t len);
+
+int luat_usb_set_vid(int id, uint16_t vid);
+int luat_usb_get_vid(int id, uint16_t *vid);
+
+int luat_usb_set_pid(int id, uint16_t pid);
+int luat_usb_get_pid(int id, uint16_t *pid);
+
+int luat_usb_set_mode(int id, uint8_t mode);
+
+int luat_usb_add_class(int id, uint8_t class, uint8_t num);
+int luat_usb_get_free_ep_num(int id);
+int luat_usb_clear_class(int id);
+
+int luat_usb_set_callback(int id, usb_callback_t callback);
+#endif

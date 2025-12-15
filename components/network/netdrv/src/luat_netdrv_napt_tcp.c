@@ -17,6 +17,13 @@
 static uint8_t *tcp_buff;
 extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 
+void luat_netdrv_napt_tcp_cleanup(void) {
+    if (tcp_buff) {
+        luat_heap_free(tcp_buff);
+        tcp_buff = NULL;
+    }
+}
+
 #define u32 uint32_t
 #define u16 uint16_t
 #define u8 uint8_t

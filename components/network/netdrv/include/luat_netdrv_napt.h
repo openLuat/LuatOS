@@ -80,6 +80,9 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx);
 int luat_napt_tcp_handle(napt_ctx_t* ctx);
 int luat_napt_udp_handle(napt_ctx_t* ctx);
 
+void luat_netdrv_napt_tcp_cleanup(void);
+void luat_netdrv_napt_udp_cleanup(void);
+
 int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len);
 
 int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p);
@@ -89,5 +92,6 @@ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* map
 int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_netdrv_napt_tcpudp_t* mapping, luat_netdrv_napt_ctx_t *napt_ctx);
 
 void luat_netdrv_napt_enable(int adapter_id);
+void luat_netdrv_napt_disable(void);
 
 #endif

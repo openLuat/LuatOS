@@ -20,6 +20,13 @@ extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 #define NAPT_ETH_HDR_LEN sizeof(struct ethhdr)
 
 static uint8_t *udp_buff;
+
+void luat_netdrv_napt_udp_cleanup(void) {
+    if (udp_buff) {
+        luat_heap_free(udp_buff);
+        udp_buff = NULL;
+    }
+}
 __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
 {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;

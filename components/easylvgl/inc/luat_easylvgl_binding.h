@@ -11,6 +11,9 @@
 #include "lauxlib.h"
 #include "lvgl9/src/core/lv_obj.h"
 
+#define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
+#define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

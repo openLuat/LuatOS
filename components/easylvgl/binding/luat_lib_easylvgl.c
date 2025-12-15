@@ -31,6 +31,7 @@ static int l_easylvgl_init(lua_State *L);
 static int l_easylvgl_deinit(lua_State *L);
 static int l_easylvgl_refresh(lua_State *L);
 static int l_easylvgl_indev_bind_touch(lua_State *L);
+static int l_easylvgl_keyboard_enable_system(lua_State *L);
 
 // Button 模块声明
 extern void easylvgl_register_button_meta(lua_State *L);
@@ -60,6 +61,14 @@ extern int easylvgl_switch_create(lua_State *L);
 extern void easylvgl_register_msgbox_meta(lua_State *L);
 extern int easylvgl_msgbox_create(lua_State *L);
 
+// Textarea 模块声明
+extern void easylvgl_register_textarea_meta(lua_State *L);
+extern int easylvgl_textarea_create(lua_State *L);
+
+// Keyboard 模块声明
+extern void easylvgl_register_keyboard_meta(lua_State *L);
+extern int easylvgl_keyboard_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
     {"init", ROREG_FUNC(l_easylvgl_init)},
@@ -73,6 +82,9 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"dropdown", ROREG_FUNC(easylvgl_dropdown_create)},
     {"switch", ROREG_FUNC(easylvgl_switch_create)},
     {"msgbox", ROREG_FUNC(easylvgl_msgbox_create)},
+    {"textarea", ROREG_FUNC(easylvgl_textarea_create)},
+    {"keyboard", ROREG_FUNC(easylvgl_keyboard_create)},
+    {"keyboard_enable_system", ROREG_FUNC(l_easylvgl_keyboard_enable_system)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -88,6 +100,8 @@ LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     easylvgl_register_dropdown_meta(L);
     easylvgl_register_switch_meta(L);
     easylvgl_register_msgbox_meta(L);
+    easylvgl_register_textarea_meta(L);
+    easylvgl_register_keyboard_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_easylvgl);
@@ -240,6 +254,25 @@ static int l_easylvgl_indev_bind_touch(lua_State *L) {
     lua_pushboolean(L, 0);
     return 1;
 #endif
+}
+
+static int l_easylvgl_keyboard_enable_system(lua_State *L) {
+    bool enable = lua_toboolean(L, 1);
+    easylvgl_ctx_t *ctx = NULL;
+    lua_getfield(L, LUA_REGISTRYINDEX, "easylvgl_ctx");
+    if (lua_type(L, -1) == LUA_TLIGHTUSERDATA) {
+        ctx = (easylvgl_ctx_t *)lua_touserdata(L, -1);
+    }
+    lua_pop(L, 1);
+
+    if (ctx == NULL) {
+        luaL_error(L, "easylvgl not initialized");
+        return 0;
+    }
+
+    int ret = easylvgl_system_keyboard_enable(ctx, enable);
+    lua_pushboolean(L, ret == EASYLVGL_OK);
+    return 1;
 }
 
 /**

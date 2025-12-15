@@ -379,15 +379,11 @@ target("luatos-lua")
             add_includedirs(luatos.."components/easylvgl/src/platform/sdl")
             add_files(luatos.."components/easylvgl/src/platform/sdl/*.c")
             
-            -- 6. LVGL 专职任务（task）
-            add_includedirs(luatos.."components/easylvgl/src/task")
-            add_files(luatos.."components/easylvgl/src/task/*.c")
-            
-            -- 7. Lua 绑定层（binding）
+            -- 6. Lua 绑定层（binding）
             add_includedirs(luatos.."components/easylvgl/binding")
             add_files(luatos.."components/easylvgl/binding/*.c")
             
-            -- 8. 宏定义：启用 EasyLVGL 和 SDL2 平台
+            -- 7. 宏定义：启用 EasyLVGL 和 SDL2 平台
             add_defines("LUAT_USE_EASYLVGL=1")
             add_defines("LUAT_USE_EASYLVGL_SDL2=1")
         else

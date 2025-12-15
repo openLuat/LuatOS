@@ -25,7 +25,9 @@ typedef enum {
     EASYLVGL_COMPONENT_WIN,
     EASYLVGL_COMPONENT_DROPDOWN,
     EASYLVGL_COMPONENT_SWITCH,
-    EASYLVGL_COMPONENT_MSGBOX
+    EASYLVGL_COMPONENT_MSGBOX,
+    EASYLVGL_COMPONENT_TEXTAREA,
+    EASYLVGL_COMPONENT_KEYBOARD
 } easylvgl_component_type_t;
 
 /** 事件类型 */
@@ -35,6 +37,7 @@ typedef enum {
     EASYLVGL_EVENT_RELEASED,
     EASYLVGL_EVENT_VALUE_CHANGED,
     EASYLVGL_EVENT_ACTION,
+    EASYLVGL_EVENT_READY,
     EASYLVGL_EVENT_CLOSE,
     EASYLVGL_EVENT_MAX
 } easylvgl_event_type_t;
@@ -66,6 +69,20 @@ struct easylvgl_component_meta {
 typedef struct {
     lv_timer_t *timeout_timer;
 } easylvgl_msgbox_data_t;
+
+/**
+ * Textarea 私有数据
+ */
+typedef struct {
+    lv_obj_t *keyboard;
+} easylvgl_textarea_data_t;
+
+/**
+ * Keyboard 私有数据
+ */
+typedef struct {
+    lv_obj_t *target;
+} easylvgl_keyboard_data_t;
 
 /**********************
  * GLOBAL PROTOTYPES
@@ -333,6 +350,27 @@ int easylvgl_win_set_title(lv_obj_t *win, const char *title);
  * @return 0 成功，<0 失败
  */
 int easylvgl_win_add_content(lv_obj_t *win, lv_obj_t *child);
+
+/**
+ * Textarea 组件创建与控制
+ */
+lv_obj_t *easylvgl_textarea_create_from_config(void *L, int idx);
+int easylvgl_textarea_set_text(lv_obj_t *textarea, const char *text);
+const char *easylvgl_textarea_get_text(lv_obj_t *textarea);
+int easylvgl_textarea_set_cursor(lv_obj_t *textarea, uint32_t pos);
+int easylvgl_textarea_set_on_text_change(lv_obj_t *textarea, int callback_ref);
+int easylvgl_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard);
+lv_obj_t *easylvgl_textarea_get_keyboard(lv_obj_t *textarea);
+
+/**
+ * Keyboard 组件创建与控制
+ */
+lv_obj_t *easylvgl_keyboard_create_from_config(void *L, int idx);
+int easylvgl_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea);
+int easylvgl_keyboard_show(lv_obj_t *keyboard);
+int easylvgl_keyboard_hide(lv_obj_t *keyboard);
+int easylvgl_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref);
+int easylvgl_keyboard_set_layout(lv_obj_t *keyboard, const char *layout);
 
 #ifdef __cplusplus
 }

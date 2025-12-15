@@ -18,6 +18,19 @@ typedef struct {
     bool left_button_down;
 } sdl_input_data_t;
 
+static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *ctx)
+{
+    if (event == NULL || ctx == NULL) {
+        return;
+    }
+
+    if (event->type == SDL_KEYDOWN) {
+        easylvgl_system_keyboard_post_key(ctx, (uint32_t)event->key.keysym.sym, true);
+    } else if (event->type == SDL_TEXTINPUT) {
+        easylvgl_system_keyboard_post_text(ctx, event->text.text);
+    }
+}
+
 /**
  * SDL2 输入驱动读取指针数据
  * @param ctx 上下文指针
@@ -74,6 +87,8 @@ static bool sdl_input_read_pointer(easylvgl_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_QUIT) {
             // 窗口关闭事件
             // TODO: 可以通过回调通知上层
+        } else if (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT) {
+            sdl_process_keyboard_event(&event, ctx);
         }
     }
     

@@ -66,6 +66,9 @@ static void lvgl_event_cb(lv_event_t *e)
         case LV_EVENT_VALUE_CHANGED:
             event_type = EASYLVGL_EVENT_VALUE_CHANGED;
             break;
+        case LV_EVENT_READY:
+            event_type = EASYLVGL_EVENT_READY;
+            break;
         default:
             return;
     }
@@ -126,6 +129,9 @@ int easylvgl_component_bind_event(
             break;
         case EASYLVGL_EVENT_VALUE_CHANGED:
             lv_event_code = LV_EVENT_VALUE_CHANGED;
+            break;
+        case EASYLVGL_EVENT_READY:
+            lv_event_code = LV_EVENT_READY;
             break;
         default:
             return EASYLVGL_ERR_INVALID_PARAM;

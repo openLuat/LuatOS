@@ -150,6 +150,8 @@ struct easylvgl_ctx {
     // 内部状态
     lv_timer_t *tick_timer;          /**< Tick 定时器（可选） */
     void *platform_data;             /**< 平台私有数据 */
+    lv_obj_t *focused_textarea;      /**< 当前聚焦的 textarea，供系统键盘使用 */
+    bool system_keyboard_enabled;    /**< 是否允许系统键盘输入 */
 };
 
 /**********************
@@ -240,6 +242,20 @@ int easylvgl_display_set_buffers(
  * @post-condition 文件系统驱动已注册到 LVGL
  */
 int easylvgl_fs_init(easylvgl_ctx_t *ctx);
+
+/**
+ * 记录当前聚焦的 textarea，用于系统键盘转发
+ */
+void easylvgl_ctx_set_focused_textarea(easylvgl_ctx_t *ctx, lv_obj_t *textarea);
+lv_obj_t *easylvgl_ctx_get_focused_textarea(easylvgl_ctx_t *ctx);
+
+/**
+ * 控制系统键盘输入
+ */
+int easylvgl_system_keyboard_enable(easylvgl_ctx_t *ctx, bool enable);
+bool easylvgl_system_keyboard_is_enabled(easylvgl_ctx_t *ctx);
+void easylvgl_system_keyboard_post_key(easylvgl_ctx_t *ctx, uint32_t key, bool pressed);
+void easylvgl_system_keyboard_post_text(easylvgl_ctx_t *ctx, const char *text);
 
 
 #ifdef __cplusplus

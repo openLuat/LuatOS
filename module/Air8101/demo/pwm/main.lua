@@ -2,7 +2,7 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.11.05
+@date    2025.12.10
 @author  马梦阳
 @usage
 
@@ -20,10 +20,8 @@
     新风格 PWM 接口支持在运行中动态调整占空比和信号频率
 
 注意事项：
-1. 本 demo 演示所使用的是 Air8101 模组的 PWM4 通道（GPIO24，PIN33）；
+1. 本 demo 演示所使用的是 Air8101 模组的 PWM2 通道（GPIO24，PIN33）；
 2. PWM 功能需要使用 V2xxx 版本固件，固件下载链接：https://docs.openluat.com/air8101/luatos/firmware/；
-
-注意！！！！pwm.setFreq() 函数目前出现一些 BUG，调用成功后无法正常输出波形，正在紧急修复，时间 2025.10.29
 
 更多说明参考本目录下的 readme.md 文件；
 ]]

@@ -294,15 +294,15 @@ typedef struct{
 
 static const crc16method crc16method_table[] = 
 {
-    {(const char*)"IBM", 0x8005, 0x0000, 0x0000, 1, 1},
-    {(const char*)"MAXIM", 0x8005, 0x0000, 0xffff, 1, 1}, 
-    {(const char*)"USB", 0x8005, 0xffff, 0xffff, 1, 1}, 
-    {(const char*)"MODBUS", 0x8005, 0xffff, 0x0000, 1, 1}, 
-    {(const char*)"CCITT", 0x1021, 0x0000, 0x0000, 1, 1}, 
+    {(const char*)"IBM", 0x8005, 0x0000, 0x0000, 1, 0},
+    {(const char*)"MAXIM", 0x8005, 0x0000, 0xffff, 1, 0}, 
+    {(const char*)"USB", 0x8005, 0xffff, 0xffff, 1, 0}, 
+    {(const char*)"MODBUS", 0x8005, 0xffff, 0x0000, 1, 0}, 
+    {(const char*)"CCITT", 0x1021, 0x0000, 0x0000, 1, 0}, 
     {(const char*)"CCITT-FALSE", 0x1021, 0xffff, 0x0000, 0, 0}, 
-    {(const char*)"X25", 0x1021, 0xffff, 0xffff, 1, 1}, 
+    {(const char*)"X25", 0x1021, 0xffff, 0xffff, 1, 0}, 
     {(const char*)"XMODEM", 0x1021, 0x0000,0x0000, 0, 0}, 
-    {(const char*)"DNP", 0x3D65, 0x0000, 0xffff, 1, 1},
+    {(const char*)"DNP", 0x3D65, 0x0000, 0xffff, 1, 0},
     {(const char*)"USER-DEFINED", 0x0000, 0x0000,0x0000, 0, 0},
 };
 

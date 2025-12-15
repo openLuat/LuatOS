@@ -15,8 +15,8 @@ local camera_id = camera.USB
 
 local usb_camera_table = {
     id = camera_id,
-    sensor_width = 640,
-    sensor_height = 480,
+    sensor_width = 1280,
+    sensor_height = 720,
     usb_port = 1
 }
 
@@ -52,8 +52,11 @@ end
 
 sys.taskInit(function()
     sys.wait(1000)
+    airlink.init()
+    airlink.start(airlink.MODE_SPI_MASTER)
+    sys.wait(1000)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
-
+    camera.config(0, camera.CONF_UVC_FPS, 30)
 
     -- -- 此为spi方式
     local spi_id, pin_cs,tp = fatfs_spi_pin()
@@ -77,17 +80,31 @@ sys.taskInit(function()
         log.info("fatfs", "err", err)
     end
 
+    wlan.init()
+    wlan.connect("luatos1234", "12341234", 1)
+
+    sys.waitUntil("IP_READY", 15000)
+    sys.wait(100)
+    socket.sntp()
     sys.wait(1000)
+    -- 打印剩余内存
+    log.info("lua", rtos.meminfo())
+    log.info("sys", rtos.meminfo("sys"))
+    log.info("psram", rtos.meminfo("psram"))
 
     --初始化摄像头
     while 1 do
+        -- if true then rtos.reboot() end
         result=camera.init(usb_camera_table)
         log.info("摄像头初始化", result)
+        log.info("lua", rtos.meminfo())
+        log.info("sys", rtos.meminfo("sys"))
+        log.info("psram", rtos.meminfo("psram"))
         if(result==0) then
             camera.start(camera_id)
             --开始mp4录制
-            camera.capture(camera_id, "/sd/abc.mp4", 1)
-            sys.wait(15000)
+            camera.capture(camera_id, "/sd/" ..  os.time() .. ".mp4", 1)
+            sys.wait(3000)
 
             --结束MP4录制
             camera.stop(camera_id)
@@ -95,7 +112,12 @@ sys.taskInit(function()
             log.info("保存成功")
         end
         camera.close(camera_id)
+        --- 打印一下内存状态
+        log.info("lua", rtos.meminfo())
+        log.info("sys", rtos.meminfo("sys"))
+        log.info("psram", rtos.meminfo("psram"))
         sys.wait(2000)
+        -- rtos.reboot()
     end
     -- #################################################
 

@@ -14,7 +14,7 @@ typedef enum {
     LUAT_HZFONT_STATE_ERROR  = 2,
 } luat_hzfont_state_t;
 
-int luat_hzfont_init(const char *ttf_path, uint32_t cache_size);
+int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram);
 void luat_hzfont_deinit(void);
 luat_hzfont_state_t luat_hzfont_get_state(void);
 uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);

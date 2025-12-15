@@ -78,6 +78,8 @@ function excamera.open(camera_param)
         -- 判断是否需要管理摄像头pwdn开关
         if type(camera_param.camera_pwdn) == "number" then
             cam_pwdn = gpio.setup(camera_param.camera_pwdn, 0)
+            -- 为8000暂时兼容，后续版本会移除
+            sys.wait(10)
         end
         -- 配置I2C接口，用于与摄像头通信
         if i2c.setup(camera_param.i2c_id, i2c.FAST) then

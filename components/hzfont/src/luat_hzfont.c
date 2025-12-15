@@ -1,11 +1,14 @@
+// 负责：TTF 字体加载、缓存与渲染（HzFont）
 #include "luat_hzfont.h"
 
 #include "ttf_parser.h"
 #include "luat_lcd.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#include "luat_fs.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -17,8 +20,10 @@
 #define HZFONT_ADVANCE_RATIO   0.4f
 #define HZFONT_ASCENT_RATIO    0.80f
 
-/* 默认缓存容量（当未显式设置或传入非法值时使用） */
+/* 默认/允许缓存容量集中定义，便于维护 */
 #define HZFONT_CACHE_DEFAULT 256u
+static const uint32_t HZFONT_CACHE_ALLOWED[] = {128u, 256u, 512u, 1024u, 2048u};
+static const size_t   HZFONT_CACHE_ALLOWED_LEN = sizeof(HZFONT_CACHE_ALLOWED) / sizeof(HZFONT_CACHE_ALLOWED[0]);
 
 #ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
 extern const unsigned char hzfont_builtin_ttf[];
@@ -85,6 +90,9 @@ typedef struct {
 
 static hzfont_cp_cache_entry_t *g_hzfont_cp_cache = NULL;
 static uint32_t g_hzfont_cp_cache_size = 0; /* 必须为 2 的幂，便于掩码寻址 */
+/* 单次告警开关，避免重复噪声 */
+static uint8_t g_warn_fontsize = 0;
+static uint8_t g_warn_cache_invalid = 0;
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
@@ -156,8 +164,56 @@ static uint32_t hzfont_next_stamp(void) {
     return g_hzfont_cache_stamp;
 }
 
+/* 判断缓存容量是否在允许列表 */
 static int hzfont_is_allowed_capacity(uint32_t cap) {
-    return (cap == 128u || cap == 256u || cap == 512u || cap == 1024u || cap == 2048u);
+    for (size_t i = 0; i < HZFONT_CACHE_ALLOWED_LEN; i++) {
+        if (cap == HZFONT_CACHE_ALLOWED[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* 将字体文件完整读入内存（PSRAM），用于后续内存解析 */
+static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t *out_size) {
+    if (!path || !out_data || !out_size) {
+        return TTF_ERR_RANGE;
+    }
+    *out_data = NULL;
+    *out_size = 0;
+
+    FILE *fp = luat_fs_fopen(path, "rb");
+    if (!fp) {
+        return TTF_ERR_IO;
+    }
+
+    if (luat_fs_fseek(fp, 0, SEEK_END) != 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    long vsize = luat_fs_ftell(fp);
+    if (vsize <= 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    if (luat_fs_fseek(fp, 0, SEEK_SET) != 0) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_IO;
+    }
+    uint8_t *buf = (uint8_t *)luat_heap_malloc((size_t)vsize);
+    if (!buf) {
+        luat_fs_fclose(fp);
+        return TTF_ERR_OOM;
+    }
+    size_t n = luat_fs_fread(buf, 1, (size_t)vsize, fp);
+    luat_fs_fclose(fp);
+    if (n != (size_t)vsize) {
+        luat_heap_free(buf);
+        return TTF_ERR_IO;
+    }
+    *out_data = buf;
+    *out_size = (size_t)vsize;
+    return TTF_OK;
 }
 
 static void hzfont_cache_destroy(void) {
@@ -183,6 +239,10 @@ static void hzfont_cache_destroy(void) {
 
 static int hzfont_setup_caches(uint32_t capacity) {
     uint32_t cap = hzfont_is_allowed_capacity(capacity) ? capacity : HZFONT_CACHE_DEFAULT;
+    if (!hzfont_is_allowed_capacity(capacity) && !g_warn_cache_invalid) {
+        LLOGW("hzfont event=init cache_size_invalid=%lu use_default=%lu", (unsigned long)capacity, (unsigned long)cap);
+        g_warn_cache_invalid = 1;
+    }
 
     if (g_hzfont_cache_capacity == cap && g_hzfont_cache && g_hzfont_cp_cache && g_hzfont_cp_cache_size == cap) {
         memset(g_hzfont_cache, 0, sizeof(hzfont_cache_entry_t) * cap);
@@ -518,7 +578,12 @@ static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_co
     return hzfont_encode_color(conf, (uint8_t)rr, (uint8_t)gg, (uint8_t)bb);
 }
 
-int luat_hzfont_init(const char *ttf_path, uint32_t cache_size) {
+/* 初始化字体库
+ * What: 加载 TTF（外部/内置），可选整包读入 PSRAM，建立码点与位图缓存。
+ * Pre: 需要有效的 ttf_path 或启用内置字库宏；cache_size 仅允许 128/256/512/1024/2048；load_to_psram=1 时需有足够 RAM。
+ * Post: 状态置为 READY，后续方可测宽/绘制；失败时状态为 ERROR。
+ */
+int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         LLOGE("font already initialized");
         return 0;
@@ -533,17 +598,53 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size) {
     memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
 
     int rc = TTF_ERR_RANGE;
+    uint8_t *ram_buf = NULL;
+    size_t ram_size = 0;
     if (ttf_path && ttf_path[0]) {
-        rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
-        if (rc == TTF_OK) {
-            strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
-            g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+        if (load_to_psram) {
+            rc = hzfont_load_file_to_ram(ttf_path, &ram_buf, &ram_size);
+            if (rc == TTF_OK) {
+                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                if (rc == TTF_OK) {
+                    g_ft_ctx.font.ownsData = 1; /* 允许 ttf_unload 释放 */
+                    g_ft_ctx.font_path[0] = 0;
+                    strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+                    g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+                } else {
+                    luat_heap_free(ram_buf);
+                    ram_buf = NULL;
+                }
+            }
+        } else {
+            rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
+            if (rc == TTF_OK) {
+                strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
+                g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+            }
         }
     } else {
 #ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
-        rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
-        if (rc == TTF_OK) {
-            g_ft_ctx.font_path[0] = '\0';
+        if (load_to_psram) {
+            ram_buf = (uint8_t *)luat_heap_malloc((size_t)hzfont_builtin_ttf_len);
+            if (!ram_buf) {
+                rc = TTF_ERR_OOM;
+            } else {
+                memcpy(ram_buf, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len);
+                ram_size = (size_t)hzfont_builtin_ttf_len;
+                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                if (rc == TTF_OK) {
+                    g_ft_ctx.font.ownsData = 1;
+                    g_ft_ctx.font_path[0] = '\0';
+                } else {
+                    luat_heap_free(ram_buf);
+                    ram_buf = NULL;
+                }
+            }
+        } else {
+            rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
+            if (rc == TTF_OK) {
+                g_ft_ctx.font_path[0] = '\0';
+            }
         }
 #else
         LLOGE("empty ttf path and no builtin ttf");
@@ -671,6 +772,10 @@ static inline int hzfont_pick_antialias_auto(unsigned char font_size) {
 
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias) {
     if (!utf8 || font_size == 0) {
+        if (!g_warn_fontsize) {
+            LLOGE("hzfont event=draw invalid_font_size=%u range=1..255", (unsigned)font_size);
+            g_warn_fontsize = 1;
+        }
         return -1;
     }
     if (g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
@@ -687,7 +792,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     }
 
     int timing_enabled = ttf_get_debug();
-    // 处理抗锯齿（antialias）方式的选择与设置
+    // 处理抗锯齿（antialias）方式的选择与设置（副作用：临时修改全局 supersample_rate，后面会恢复）
     // antialias < 0   ：自动选择（根据字体大小决定抗锯齿等级，见hzfont_pick_antialias_auto）
     // antialias <= 1  ：关闭抗锯齿（1x，即无抗锯齿）
     // antialias == 2  ：2x2超采样抗锯齿
@@ -871,6 +976,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
             goto glyph_timing_update;
         }
 
+        /* 行缓冲按行申请/复用，绘制后立即释放，避免长生命周期占用 */
         luat_color_t *row_buf = (luat_color_t *)luat_heap_malloc(row_buf_capacity * sizeof(luat_color_t));
         if (!row_buf) {
             if (timing_enabled && draw_stamp) {
@@ -953,7 +1059,10 @@ glyph_timing_update:
 
     /* 恢复超采样率，避免影响外部绘制 */
     if (new_rate != prev_rate) {
-        (void)ttf_set_supersample_rate(prev_rate);
+        int restore = ttf_set_supersample_rate(prev_rate);
+        if (restore != prev_rate) {
+            LLOGE("hzfont event=draw restore_supersample_fail prev=%d got=%d", prev_rate, restore);
+        }
     }
     if (timing_enabled) {
         uint32_t total_us = hzfont_elapsed_from(func_start_ts);

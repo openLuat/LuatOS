@@ -116,20 +116,29 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(qt, &len);
     uint64_t tm;
+    
+    // 流控背压机制
+    if (len >= 800) {
+        ch->flow_control = 1;  // 进入背压状态
+    } else if (len < 400) {
+        ch->flow_control = 0;  // 解除背压
+    }
+    
     if (len >= 1000) {
         tm = luat_mcu_tick64_ms();
         if (tm - warn_msg_tm > 1000) {
             warn_msg_tm = tm;
-            LLOGW("太多待处理消息了!!! %d", len);
+            LLOGE("队列已满，丢弃数据包 len=%d", len);
         }
+        ch->total_tx_drop++;
         luat_heap_opt_free(ch->pkg_mem_type, cs);
         return;
     }
-    if (len > 512) {
+    if (len > 600) {
         tm = luat_mcu_tick64_ms();
         if (tm - warn_msg_tm > 1000) {
             warn_msg_tm = tm;
-            LLOGD("当前消息数量 %d", len);
+            LLOGW("队列负载较高 len=%d flow_control=%d", len, ch->flow_control);
         }
     }
     
@@ -208,19 +217,35 @@ static int check_vid_pid(ch390h_t* ch) {
     uint8_t buff[6] = {0};
     luat_ch390h_read_vid_pid(ch, buff);
     if (0 == memcmp(buff, "\x00\x1C\x51\x91", 4)) {
-        return 0; // 第一次就读取成功, 那就马上返回
+        ch->vid_pid_error_count = 0;  // 成功后清零计数器
+        return 0;
     }
     // 再读一次
     luat_ch390h_read_vid_pid(ch, buff);
     if (0 != memcmp(buff, "\x00\x1C\x51\x91", 4)) {
+        ch->vid_pid_error_count++;
         uint64_t tnow = luat_mcu_tick64_ms();
         if (tnow - warn_vid_pid_tm > 2000) {
-            LLOGE("读取vid/pid失败!请检查接线!! %d %d %02X%02X%02X%02X", ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3]);
+            // 前几次用WARN，多次失败用ERROR
+            if (ch->vid_pid_error_count < 10) {
+                LLOGW("读取vid/pid失败 spi=%d cs=%d %02X%02X%02X%02X error_count=%d", 
+                      ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3], ch->vid_pid_error_count);
+            } else {
+                LLOGE("读取vid/pid持续失败!请检查接线!! spi=%d cs=%d %02X%02X%02X%02X error_count=%d", 
+                      ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3], ch->vid_pid_error_count);
+            }
             warn_vid_pid_tm = tnow;
+        }
+        // 连续多次失败后回退到初始状态
+        if (ch->vid_pid_error_count >= 20 && ch->status >= 2) {
+            LLOGE("VID/PID检查连续失败超过阈值，回退到初始状态");
+            ch->status = 0;
+            ch->init_done = 0;
+            ch->vid_pid_error_count = 0;
         }
         return -1;
     }
-    // LLOGE("读取vid/pid成功!!! %d %d %02X%02X%02X%02X", ch->spiid, ch->cspin, buff[0], buff[1], buff[2], buff[3]);
+    ch->vid_pid_error_count = 0;
     return 0;
 }
 
@@ -322,19 +347,30 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     if (NSR & 0x01) {
         ret = luat_ch390h_read_pkg(ch, ch->rxbuff, &len);
         if (ret) {
-            LLOGE("读数据包报错,立即复位模组 ret %d spi %d cs %d", ret, ch->spiid, ch->cspin);
-            luat_ch390h_write_reg(ch, 0x05, 0);
-            luat_ch390h_write_reg(ch, 0x55, 1);
-            luat_ch390h_write_reg(ch, 0x75, 0);
-            luat_rtos_task_sleep(1); // 是否真的需要呢??
-            luat_ch390h_basic_config(ch);
-            luat_ch390h_set_phy(ch, 1);
-            luat_ch390h_set_rx(ch, 1);
-            if (ch->intpin != 255) {
-                luat_ch390h_write_reg(ch, 0x7F, 1); // 开启接收中断
+            ch->rx_error_count++;
+            LLOGW("读数据包报错 ret=%d spi=%d cs=%d, error_count=%d", ret, ch->spiid, ch->cspin, ch->rx_error_count);
+            // 只有连续多次错误且距离上次复位超过3秒才执行复位
+            uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+            if (ch->rx_error_count >= 5 && (now - ch->last_reset_time > 3000)) {
+                LLOGE("连续读包错误超过阈值，执行复位");
+                luat_ch390h_write_reg(ch, 0x05, 0);
+                luat_ch390h_write_reg(ch, 0x55, 1);
+                luat_ch390h_write_reg(ch, 0x75, 0);
+                luat_rtos_task_sleep(1);
+                luat_ch390h_basic_config(ch);
+                luat_ch390h_set_phy(ch, 1);
+                luat_ch390h_set_rx(ch, 1);
+                if (ch->intpin != 255) {
+                    luat_ch390h_write_reg(ch, 0x7F, 1);
+                }
+                ch->rx_error_count = 0;
+                ch->last_reset_time = now;
+                ch->total_reset_count++;
             }
             return 0;
         }
+        // 读取成功，清除错误计数
+        ch->rx_error_count = 0;
         if (len > 0) {
             NETDRV_STAT_IN(ch->netdrv, len);
             // 收到数据, 开始后续处理

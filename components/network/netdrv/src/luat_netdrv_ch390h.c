@@ -28,6 +28,27 @@ extern err_t luat_netdrv_etharp_output(struct netif *netif, struct pbuf *q, cons
 
 extern err_t ch390_netif_output(struct netif *netif, struct pbuf *p);
 
+// 检查设备是否已注册
+static int check_device_duplicate(ch390h_t* ch) {
+    for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
+        if (ch390h_drvs[i] == NULL) continue;
+        
+        if (ch390h_drvs[i]->adapter_id == ch->adapter_id) {
+            LLOGE("已经注册过相同的adapter_id %d", ch->adapter_id);
+            return -1;
+        }
+        if (ch390h_drvs[i]->spiid == ch->spiid && ch390h_drvs[i]->cspin == ch->cspin) {
+            LLOGE("已经注册过相同的spi+cs %d %d", ch->spiid, ch->cspin);
+            return -2;
+        }
+        if (ch390h_drvs[i]->intpin != 255 && ch390h_drvs[i]->intpin == ch->intpin) {
+            LLOGE("已经注册过相同的int脚 %d", ch->intpin);
+            return -3;
+        }
+    }
+    return 0;
+}
+
 static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, size_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
     if (ch == NULL) {
@@ -96,6 +117,14 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
 
     ch->txtmp = NULL;  // 延迟分配
     ch->pkg_mem_type = LUAT_HEAP_AUTO;  // 默认使用AUTO内存
+    ch->rx_error_count = 0;
+    ch->tx_busy_count = 0;
+    ch->vid_pid_error_count = 0;
+    ch->last_reset_time = 0;
+    ch->total_reset_count = 0;
+    ch->total_tx_drop = 0;
+    ch->total_rx_drop = 0;
+    ch->flow_control = 0;
     ch->adapter_id = cfg->id;
     ch->cspin = cfg->cspin;
     ch->spiid = cfg->spiid;
@@ -107,21 +136,15 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
 
     drv->ulwip = ulwip;
 
+    // 检查设备是否重复注册
+    if (check_device_duplicate(ch) != 0) {
+        goto clean;
+    }
+
+    // 查找空位并注册设备
     for (size_t i = 0; i < MAX_CH390H_NUM; i++)
     {
         if (ch390h_drvs[i] != NULL) {
-            if (ch390h_drvs[i]->adapter_id == ch->adapter_id) {
-                LLOGE("已经注册过相同的adapter_id %d", ch->adapter_id);
-                goto clean;
-            }
-            if (ch390h_drvs[i]->spiid == ch->spiid  && ch390h_drvs[i]->cspin == ch->cspin) {
-                LLOGE("已经注册过相同的spi+cs %d %d",ch->spiid, ch->cspin);
-                goto clean;
-            }
-            if (ch390h_drvs[i]->intpin != 255 && ch390h_drvs[i]->intpin == ch->intpin) {
-                LLOGE("已经注册过相同的int脚 %d", ch->intpin);
-                goto clean;
-            }
             continue;
         }
         ch390h_drvs[i] = ch;
@@ -144,7 +167,10 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
     }
     LLOGE("已经没有CH390H空位了!!!");
 clean:
-    if (ch) luat_heap_free(ch);
+    if (ch) {
+        if (ch->txtmp) luat_heap_free(ch->txtmp);
+        luat_heap_free(ch);
+    }
     if (netif) luat_heap_free(netif);
     if (drv) luat_heap_free(drv);
     if (ulwip) luat_heap_free(ulwip);

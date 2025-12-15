@@ -112,6 +112,10 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_task(void *param) {
                 if (g_airlink_ext_dev_info.tp == 0x01) {
                     memcpy(&tmpv, g_airlink_ext_dev_info.wifi.version, 4);
                     LLOGI("AIRLINK_READY %ld version %ld t %ld", (uint32_t)g_airlink_last_cmd_timestamp, tmpv, (uint32_t)t_used);
+                    #ifdef LUAT_MODEL_AIR8000
+                    extern void luat_airlink_wifi_ready_event();
+                    luat_airlink_wifi_ready_event();
+                    #endif
                 }
                 else if (g_airlink_ext_dev_info.tp == 0x02) {
                     memcpy(&tmpv, g_airlink_ext_dev_info.cat1.version, 4);

@@ -27,6 +27,8 @@ typedef struct ch390h
     uint8_t rxbuff[1600];
     uint8_t txbuff[1600];
     luat_ch390h_cstring_t* txqueue[CH390H_MAX_TX_NUM];
+    char* txtmp;  // TX临时缓冲区，避免多设备冲突
+    int pkg_mem_type;  // 数据包内存类型，每个设备独立配置
 }ch390h_t;
 
 

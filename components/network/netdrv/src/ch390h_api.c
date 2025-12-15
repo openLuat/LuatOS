@@ -56,30 +56,33 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
     return 0;
 }
 
-static char *s_txtmp;
 int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) {
-    if (s_txtmp == NULL) {
-        // LLOGI("分配txtmp缓冲区 3k");
-        s_txtmp = luat_heap_malloc(3 * 1024);
+    if (ch->txtmp == NULL) {
+        ch->txtmp = luat_heap_malloc(3 * 1024);
+        if (ch->txtmp == NULL) {
+            LLOGE("txtmp内存分配失败");
+            return -1;
+        }
     }
     if (count > 1600) {
-        return 0; // 直接不发送
+        LLOGW("数据包过大(%d),丢弃", count);
+        return -2;
     }
     luat_spi_lock(ch->spiid);
     if (addr == 0x78) {
-        s_txtmp[0] = addr | 0x80;
-        memcpy(s_txtmp+1, buff, count);
+        ch->txtmp[0] = addr | 0x80;
+        memcpy(ch->txtmp+1, buff, count);
         luat_gpio_set(ch->cspin, 0);
-        luat_spi_send(ch->spiid, (const char* )s_txtmp, 1 + count);
+        luat_spi_send(ch->spiid, (const char* )ch->txtmp, 1 + count);
         luat_gpio_set(ch->cspin, 1);
     }
     else {
         for (size_t i = 0; i < count; i++)
         {
-            s_txtmp[0] = (addr + i) | 0x80;
-            s_txtmp[1] = buff[i];
+            ch->txtmp[0] = (addr + i) | 0x80;
+            ch->txtmp[1] = buff[i];
             luat_gpio_set(ch->cspin, 0);
-            luat_spi_send(ch->spiid, (const char* )s_txtmp, 2);
+            luat_spi_send(ch->spiid, (const char* )ch->txtmp, 2);
             luat_gpio_set(ch->cspin, 1);
         }
     }

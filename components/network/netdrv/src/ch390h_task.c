@@ -48,8 +48,6 @@ static uint64_t warn_msg_tm;
 
 static uint32_t s_ch390h_mode; // 0 -- PULL 模式, 1 == IRQ 模式
 
-static int pkg_mem_type = LUAT_HEAP_AUTO;
-
 static int ch390h_irq_cb(void *data, void *args) {
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(qt, &len);
@@ -98,13 +96,13 @@ static int ch390h_bootup(ch390h_t* ch) {
     return 0;
 }
 
-static luat_ch390h_cstring_t* new_cstring(uint16_t len) {
+static luat_ch390h_cstring_t* new_cstring(ch390h_t* ch, uint16_t len) {
     size_t total = 0;
     size_t used = 0;
     size_t max_used = 0;
-    luat_meminfo_opt_sys(pkg_mem_type, &total, &used, &max_used);
+    luat_meminfo_opt_sys(ch->pkg_mem_type, &total, &used, &max_used);
     if (total > 0 && total - used > 32*1024) { // 最少留32k给系统用
-        luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(pkg_mem_type, sizeof(luat_ch390h_cstring_t) + len - 4);
+        luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(ch->pkg_mem_type, sizeof(luat_ch390h_cstring_t) + len - 4);
         if (cs == NULL) {
             LLOGE("有剩余内存不多但分配失败! total %d used %d max_used %d len %d", total, used, max_used, len);
         }
@@ -124,7 +122,7 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             warn_msg_tm = tm;
             LLOGW("太多待处理消息了!!! %d", len);
         }
-        luat_heap_opt_free(pkg_mem_type, cs);
+        luat_heap_opt_free(ch->pkg_mem_type, cs);
         return;
     }
     if (len > 512) {
@@ -143,13 +141,13 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     int ret = luat_rtos_queue_send(qt, &evt, sizeof(pkg_evt_t), 0);
     if (ret) {
         LLOGE("消息发送失败 %d", ret);
-        luat_heap_opt_free(pkg_mem_type, cs);
+        luat_heap_opt_free(ch->pkg_mem_type, cs);
     }
 }
 
 static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
-    luat_ch390h_cstring_t* cs = new_cstring(len);
+    luat_ch390h_cstring_t* cs = new_cstring(ch, len);
     if (cs == NULL) {
         return;
     }
@@ -159,7 +157,7 @@ static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, ui
 }
 
 static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
-    luat_ch390h_cstring_t* cs = new_cstring(p->tot_len);
+    luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
         return;
     }
@@ -410,7 +408,7 @@ static int task_wait_msg(uint32_t timeout) {
         ret = task_loop(ch, cs);
         if (cs) {
             // remain_tx_size -= cs->len;
-            luat_heap_opt_free(pkg_mem_type, cs);
+            luat_heap_opt_free(ch->pkg_mem_type, cs);
             cs = NULL;
         }
         return 1; // 拿到消息, 那队列里可能还有消息, 马上执行下一轮操作
@@ -455,12 +453,16 @@ static void ch390_task_main(void* args) {
 void luat_ch390h_task_start(void) {
     int ret = 0;
     if (ch390h_task_handle == NULL) {
+        // 为所有CH390H设备初始化pkg_mem_type
         size_t total = 0;
         size_t used = 0;
         size_t max_used = 0;
         luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
-        if (total > 1024 * 512) {
-            pkg_mem_type = LUAT_HEAP_PSRAM;
+        int default_mem_type = (total > 1024 * 512) ? LUAT_HEAP_PSRAM : LUAT_HEAP_AUTO;
+        for (size_t i = 0; i < MAX_CH390H_NUM; i++) {
+            if (ch390h_drvs[i] != NULL) {
+                ch390h_drvs[i]->pkg_mem_type = default_mem_type;
+            }
         }
         ret = luat_rtos_queue_create(&qt, 1024, sizeof(pkg_evt_t));
         if (ret) {

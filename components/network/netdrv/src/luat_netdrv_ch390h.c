@@ -94,6 +94,8 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
     memset(drv, 0, sizeof(luat_netdrv_t));
     memset(ulwip, 0, sizeof(ulwip_ctx_t));
 
+    ch->txtmp = NULL;  // 延迟分配
+    ch->pkg_mem_type = LUAT_HEAP_AUTO;  // 默认使用AUTO内存
     ch->adapter_id = cfg->id;
     ch->cspin = cfg->cspin;
     ch->spiid = cfg->spiid;

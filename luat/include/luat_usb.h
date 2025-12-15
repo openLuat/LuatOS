@@ -10,10 +10,15 @@ enum
 	LUAT_USB_CLASS_CDC_ACM = 0,
 	LUAT_USB_CLASS_AUDIO,
 	LUAT_USB_CLASS_CAMERA,
-	LUAT_USB_CLASS_HIB,
+	LUAT_USB_CLASS_HID,
 	LUAT_USB_CLASS_MSC,
 	LUAT_USB_CLASS_WINUSB,
-
+	LUAT_USB_EVENT_NEW_RX	= 0,
+	LUAT_USB_EVENT_TX_DONE,
+	LUAT_USB_EVENT_CONNECT,
+	LUAT_USB_EVENT_DISCONNECT,
+	LUAT_USB_EVENT_SUSPEND,
+	LUAT_USB_EVENT_RESUME,
 };
 
 typedef void (*usb_callback_t)(int id, int event, uint8_t *data, uint32_t len);
@@ -31,4 +36,8 @@ int luat_usb_get_free_ep_num(int id);
 int luat_usb_clear_class(int id);
 
 int luat_usb_set_callback(int id, usb_callback_t callback);
+
+int luat_usb_tx(int id, uint8_t class, const void *data, uint32_t len);
+int luat_usb_hid_tx(int id, const char *string, uint32_t len);
+int luat_usb_rx(int id, uint8_t class, void *data, uint32_t len);
 #endif

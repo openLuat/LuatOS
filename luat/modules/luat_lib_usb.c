@@ -16,6 +16,8 @@ usb.mode(0, usb.DEVICE)		--usb设置成从机模式
 usb.add_class(0, usb.CDC_ACM, 1)	--使用1个CDC-ACM虚拟串口功能
 usb.add_class(0, usb.WINUSB, 1)		--使用1个WINUSB功能
 pm.power(pm.USB, true)		--USB上电初始化开始工作
+--说明
+目前设备类只有usb.HID和usb.WINUSB可以通过usb操作库api和对端通讯,usb.CDC-ACM虚拟串口直接使用uart api
 ]]
 */
 #include "luat_base.h"
@@ -27,6 +29,108 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #define LUAT_LOG_TAG "usb"
 #include "luat_log.h"
 #include "rotable2.h"
+
+#define MAX_USB_DEVICE_COUNT 2
+static int l_usb_cb[MAX_USB_DEVICE_COUNT];
+
+int l_usb_handler(lua_State *L, void* ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    int usb_id = msg->arg1 & 0x000000ff;
+    int class_id = (msg->arg1 & 0x0000ff00) >> 8;
+    if (l_usb_cb[usb_id] && usb_id < MAX_USB_DEVICE_COUNT)
+    {
+        lua_geti(L, LUA_REGISTRYINDEX, l_usb_cb[usb_id]);
+        lua_pushinteger(L, usb_id);
+        lua_pushinteger(L, msg->arg2);
+        if (class_id != 0x000000ff)
+        {
+        	lua_pushinteger(L, class_id);
+        }
+        else
+        {
+        	lua_pushnil(L);
+        }
+        lua_call(L, 3, 0);
+    }
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+
+/*
+USB发送数据,目前仅限于HID和WINUSB设备,CDC-ACM虚拟串口直接使用串口API操作
+@api usb.tx(id, data, class)
+@int 设备id,默认为0
+@zbuff or string 需要发送的数据
+@int 设备类
+@return bool 成功返回true,否则返回false,总线id填错,所填设备类不支持直接发送数据等情况下返回错误
+@usage
+-- HID上传数据
+usb.tx(0, "1234", usb.HID) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
+*/
+static int l_usb_tx(lua_State* L) {
+	int result;
+    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_WINUSB);
+    int usb_id = luaL_optinteger(L, 1, 0);
+    const char *buf;
+    luat_zbuff_t *buff = NULL;
+    if(lua_isuserdata(L, 2)) {
+        buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        result = luat_usb_tx(usb_id, class, buff->addr, buff->used);
+    } else {
+    	size_t len;
+    	buf = luaL_checklstring(L, 2, &len);
+    	if (LUAT_USB_CLASS_HID == class)
+    	{
+    		result = luat_usb_hid_tx(usb_id, buf, len);
+    	}
+    	else
+    	{
+    		result = luat_usb_tx(usb_id, class, buf, len);
+    	}
+        lua_pushboolean(L, !result);
+    }
+    return 1;
+}
+
+/*
+buff形式读接收到的数据，一次读出全部数据存入buff中，如果buff空间不够会自动扩展
+@api usb.rx(id, buff, class)
+@int 设备id,默认为0
+@zbuff zbuff对象
+@int 设备类
+@return int 返回读到的长度，并把zbuff指针后移
+@usage
+usb.rx(0, buff, usb.HID)
+*/
+static int l_usb_rx(lua_State *L)
+{
+    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_WINUSB);
+    int usb_id = luaL_optinteger(L, 1, 0);
+
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+    	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        int result = luat_usb_rx(usb_id, class, NULL, 0);	//读出当前缓存的长度
+        if (result > (buff->len - buff->used))
+        {
+        	__zbuff_resize(buff, buff->len + result);
+        }
+        result = luat_usb_rx(usb_id, class, buff->addr + buff->used, result);
+        lua_pushinteger(L, result);
+        buff->used += result;
+        return 1;
+    }
+    else
+    {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    return 1;
+}
+
 
 /*
 设置USB工作模式，必须在USB外设掉电不工作时进行设置
@@ -44,6 +148,37 @@ static int l_usb_mode(lua_State* L) {
 	lua_pushboolean(L, !result);
     return 1;
 }
+
+/*
+注册USB事件回调
+@api usb.on(id, func)
+@int usb总线id,默认0,如果芯片只有1条USB线,填0
+@function 回调方法
+@return nil 无返回值
+@usage
+usb.on(0, function(id, class, event)
+    log.info("usb", id, class, event)
+end)
+--回调参数有3个
+1、usb总线id
+2、event,见usb.EV_XXX
+3、如果event是usb.EV_RX或usb.EV_TX,则第三个参数表示哪个设备类,目前只有usb.HID和usb.WINUSB
+*/
+static int l_usb_on(lua_State *L) {
+    int usb_id = luaL_optinteger(L, 1, 0);
+    if (usb_id >= MAX_USB_DEVICE_COUNT) return 0;
+    if (l_usb_cb[usb_id])
+    {
+    	luaL_unref(L, LUA_REGISTRYINDEX, l_usb_cb[usb_id]);
+    }
+	if (lua_isfunction(L, 2)) {
+		lua_pushvalue(L, 2);
+		l_usb_cb[usb_id] = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+    return 0;
+}
+
+
 
 /*
 设置/获取USB的VID,必须在USB外设掉电不工作时进行设置,获取没有限制
@@ -161,31 +296,46 @@ static int l_usb_get_free_ep_num(lua_State* L) {
 
 static const rotable_Reg_t reg_usb[] =
 {
-	{ "mode" ,         ROREG_FUNC(l_usb_mode)},
-	{ "vid" ,         ROREG_FUNC(l_usb_vid)},
-	{ "pid" ,         ROREG_FUNC(l_usb_pid)},
-	{ "add_class" ,         ROREG_FUNC(l_usb_add_class)},
-	{ "clear_all_class" ,         ROREG_FUNC(l_usb_clear_all_class)},
-	{ "get_free_ep_num" ,         ROREG_FUNC(l_usb_get_free_ep_num)},
+	{ "tx",					ROREG_FUNC(l_usb_tx)},
+	{ "rx",					ROREG_FUNC(l_usb_rx)},
+	{ "mode",				ROREG_FUNC(l_usb_mode)},
+	{ "add_class",      	ROREG_FUNC(l_usb_add_class)},
+	{ "on",         		ROREG_FUNC(l_usb_on)},
+	{ "vid",         		ROREG_FUNC(l_usb_vid)},
+	{ "pid",         		ROREG_FUNC(l_usb_pid)},
+	{ "clear_all_class" ,   ROREG_FUNC(l_usb_clear_all_class)},
+	{ "get_free_ep_num" ,   ROREG_FUNC(l_usb_get_free_ep_num)},
 	//@const HOST number USB主机模式
-    { "HOST",        ROREG_INT(LUAT_USB_MODE_HOST)},
+    { "HOST",        		ROREG_INT(LUAT_USB_MODE_HOST)},
 	//@const DEVICE number USB从机模式
-    { "DEVICE",       ROREG_INT(LUAT_USB_MODE_DEVICE)},
+    { "DEVICE",       		ROREG_INT(LUAT_USB_MODE_DEVICE)},
 	//@const OTG number USB otg模式
-    { "OTG",       ROREG_INT(LUAT_USB_MODE_OTG)},
+    { "OTG",       			ROREG_INT(LUAT_USB_MODE_OTG)},
 	//@const CDC_ACM number cdc_acm 虚拟串口类
-    { "CDC_ACM",        ROREG_INT(LUAT_USB_CLASS_CDC_ACM)},
+    { "CDC_ACM",        	ROREG_INT(LUAT_USB_CLASS_CDC_ACM)},
 	//@const AUDIO number audio音频类
-    { "AUDIO",       ROREG_INT(LUAT_USB_CLASS_AUDIO)},
+    { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
 	//@const CAMERA number 摄像头类
-    { "CAMERA",        ROREG_INT(LUAT_USB_CLASS_CAMERA)},
+    { "CAMERA",        		ROREG_INT(LUAT_USB_CLASS_CAMERA)},
 	//@const HID number HID设备类，只支持键盘和自定义
-    { "HID",       ROREG_INT(LUAT_USB_CLASS_HIB)},
+    { "HID",       			ROREG_INT(LUAT_USB_CLASS_HID)},
 	//@const MSC number 大容量存储类，也就是U盘，TF卡
-    { "MSC",       ROREG_INT(LUAT_USB_CLASS_MSC)},
+    { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
 	//@const WINUSB number WINUSB类，透传数据
-    { "WINUSB",       ROREG_INT(LUAT_USB_CLASS_MSC)},
+    { "WINUSB",       		ROREG_INT(LUAT_USB_CLASS_WINUSB)},
 
+	//@const EV_RX number  有新的数据到来
+    { "EV_RX",       		ROREG_INT(LUAT_USB_EVENT_NEW_RX)},
+	//@const EV_TX number 所有数据都已发送
+    { "EV_TX",        		ROREG_INT(LUAT_USB_EVENT_TX_DONE)},
+	//@const EV_CONNECT number usb从机已经连接上并且枚举成功
+    { "EV_CONNECT",       	ROREG_INT(LUAT_USB_EVENT_CONNECT)},
+	//@const EV_DISCONNECT number usb从机断开
+    { "EV_DISCONNECT",      ROREG_INT(LUAT_USB_EVENT_DISCONNECT)},
+	//@const EV_SUSPEND number usb从机挂起
+    { "EV_SUSPEND",       	ROREG_INT(LUAT_USB_EVENT_SUSPEND)},
+	//@const EV_RESUME number usb从机恢复
+    { "EV_RESUME",       	ROREG_INT(LUAT_USB_EVENT_RESUME)},
     { NULL,         ROREG_INT(0) }
 };
 

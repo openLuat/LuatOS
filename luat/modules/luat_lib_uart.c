@@ -37,7 +37,7 @@
 #define MAX_DEVICE_COUNT 9
 #endif
 
-#define MAX_USB_DEVICE_COUNT 1
+#define MAX_USB_DEVICE_COUNT 3
 
 typedef struct luat_uart_cb {
     int received;//回调函数

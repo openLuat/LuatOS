@@ -12,18 +12,18 @@
 #define NAPT_RET_INVALID_CTX -4    // NAPT上下文无效
 
 // 哈希表大小（用于加速查找）
-// 优化: 使用2的幂次方便模运算，保持负载因子约0.75平衡性能和内存
+// 根据压力测试结果优化：适应高并发场景，负载因子0.5-0.6
 #ifndef NAPT_HASH_TABLE_SIZE
 #if defined(TYPE_EC718HM)
-#define NAPT_HASH_TABLE_SIZE 8192   // 对应8K映射，负载因子1.0 (64KB)
+#define NAPT_HASH_TABLE_SIZE 16384  // 8K映射，负载因子0.5 (~131KB，两表共计)
 #elif defined(TYPE_EC718PM)
-#define NAPT_HASH_TABLE_SIZE 4096   // 对应4K映射，负载因子1.0 (32KB)
+#define NAPT_HASH_TABLE_SIZE 8192   // 4K映射，负载因子0.5 (~65KB)
 #else
-#define NAPT_HASH_TABLE_SIZE 2048   // 对应2K映射，负载因子1.0 (16KB)
+#define NAPT_HASH_TABLE_SIZE 4096   // 2K映射，负载因子0.5 (~33KB)
 #endif
 #endif
 #define NAPT_HASH_INVALID_INDEX 0xFFFF
-#define NAPT_HASH_MAX_PROBE 32      // 最大探测次数，防止满表时死循环
+#define NAPT_HASH_MAX_PROBE 96      // 提高到96，应对更高的冲突率
 
 // #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
 #define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)

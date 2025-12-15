@@ -138,7 +138,7 @@ typedef struct {
  * 用于查询RTMP连接的实时统计数据
  */
 typedef struct {
-    uint32_t bytes_sent;            /**< 已发送的字节数 */
+    uint64_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t video_frames_sent;     /**< 已发送的视频帧数 */
     uint32_t audio_frames_sent;     /**< 已发送的音频帧数 */
     uint32_t connection_time;       /**< 连接持续时间(毫秒) */
@@ -149,11 +149,11 @@ typedef struct {
     /* 细分统计 */
     uint32_t i_frames;              /**< 发送的I帧数量 */
     uint32_t p_frames;              /**< 发送的P帧数量 */
-    uint32_t i_bytes;               /**< 发送的I帧字节数（NAL数据长度累加） */
-    uint32_t p_bytes;               /**< 发送的P帧字节数（NAL数据长度累加） */
+    uint64_t i_bytes;               /**< 发送的I帧字节数（NAL数据长度累加） */
+    uint64_t p_bytes;               /**< 发送的P帧字节数（NAL数据长度累加） */
 
     uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
-    uint32_t dropped_bytes;         /**< 被丢弃的帧字节数 */
+    uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
 } rtmp_stats_t;
 
 /**
@@ -203,17 +203,22 @@ typedef struct {
     
     /** ============ 统计信息 ============ */
     uint32_t packets_sent;          /**< 已发送的包数 */
-    uint32_t bytes_sent;            /**< 已发送的字节数 */
+    uint64_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t command_id;            /**< 当前命令ID */
 
     /* 帧统计 */
     uint32_t i_frames;              /**< 发送的I帧数量 */
     uint32_t p_frames;              /**< 发送的P帧数量 */
-    uint32_t i_bytes;               /**< 发送的I帧字节数 */
-    uint32_t p_bytes;               /**< 发送的P帧字节数 */
+    uint64_t i_bytes;               /**< 发送的I帧字节数 */
+    uint64_t p_bytes;               /**< 发送的P帧字节数 */
     uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
-    uint32_t dropped_bytes;         /**< 被丢弃的帧字节数 */
+    uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
     uint32_t last_stats_log_ms;     /**< 上次统计日志输出时间 */
+    uint64_t last_stats_bytes;      /**< 上次统计日志输出时的总字节数 */
+    uint32_t stats_interval_ms;     /**< 统计输出间隔(毫秒)，默认10000 */
+    uint32_t stats_window_ms;       /**< 统计窗口长度(毫秒)，默认与间隔相同 */
+    uint32_t last_window_ms;        /**< 上次窗口采样时间戳(ms) */
+    uint64_t last_window_bytes;     /**< 上次窗口采样时的总字节数 */
     
     /** ============ 用户数据 ============ */
     void *user_data;                /**< 用户自定义数据指针 */
@@ -378,6 +383,24 @@ void* rtmp_get_user_data(rtmp_ctx_t *ctx);
  * @endcode
  */
 int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats);
+
+/**
+ * 设置统计输出间隔
+ * 
+ * @param ctx RTMP上下文指针
+ * @param interval_ms 间隔毫秒数（例如10000表示10秒）
+ * @return RTMP_OK表示成功
+ */
+int rtmp_set_stats_interval(rtmp_ctx_t *ctx, uint32_t interval_ms);
+
+/**
+ * 设置统计窗口长度
+ * 
+ * @param ctx RTMP上下文指针
+ * @param window_ms 窗口毫秒数（例如10000表示10秒）
+ * @return RTMP_OK表示成功
+ */
+int rtmp_set_stats_window(rtmp_ctx_t *ctx, uint32_t window_ms);
 
 /* ======================== 回调函数定义 ======================== */
 

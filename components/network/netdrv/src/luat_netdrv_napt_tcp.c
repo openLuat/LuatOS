@@ -37,8 +37,15 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     // luat_netdrv_napt_tcpudp_t* it = NULL;
     luat_netdrv_napt_tcpudp_t* it_map = NULL;
     int ret = 0;
+    
+    // P1检查: 验证NAPT上下文初始化
+    if (g_napt_tcp_ctx == NULL) {
+        LLOGD("TCP NAPT context not initialized");
+        return NAPT_RET_SKIP;
+    }
+    
     if (gw == NULL || gw->netif == NULL) {
-        return 0;
+        return NAPT_RET_SKIP;
     }
     if (tcp_buff == NULL) {
         tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
@@ -49,7 +56,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         // 这是从外网到内网的TCP包
         // LLOGD("wnet.search dst port %d", ntohs(tcp_hdr->dest));
         ret = luat_netdrv_napt_tcp_wan2lan(ctx, &mapping, g_napt_tcp_ctx);
-        if (ret == 0) {
+        if (ret == NAPT_RET_OK) {
             // 修改目标端口
             tcp_hdr->dest = mapping.inet_port;
 
@@ -76,7 +83,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             luat_netdrv_t* dst = luat_netdrv_get(mapping.adapter_id);
             if (dst == NULL) {
                 LLOGE("能找到TCP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
-                return 1;
+                return NAPT_RET_OK;
             }
             if (dst->dataout) {
                 if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
@@ -101,10 +108,10 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             else {
                 LLOGE("能找到TCP映射关系, 但目标netdrv不支持dataout!!");
             }
-            return 1; // 全部修改完成
+            return NAPT_RET_OK; // 全部修改完成
         }
         // LLOGD("没有找到TCP映射关系, 放行给LWIP处理");
-        return 0;
+        return NAPT_RET_SKIP;
     }
     else {
         // 内网, 尝试对外网的请求吗?
@@ -114,8 +121,8 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         // 第一轮循环, 是否有已知映射
         // LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
         ret = luat_netdrv_napt_tcp_lan2wan(ctx, &mapping, g_napt_tcp_ctx);
-        if (ret != 0) {
-            return 0;
+        if (ret != NAPT_RET_OK) {
+            return NAPT_RET_SKIP;
         }
         it_map = &mapping;
 
@@ -145,7 +152,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                 }
                 else {
                     LLOGD("网关netdrv是ETH,源网卡不是ETH, 当前不支持");
-                    return 0;
+                    return NAPT_RET_SKIP;
                 }
             }
             else {
@@ -160,7 +167,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         else {
             LLOGD("TCP改写完成, 但GW不支持dataout回调?!!");
         }
-        return 1;
+        return NAPT_RET_OK;
     }
     return 0;
 }

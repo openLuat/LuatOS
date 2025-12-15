@@ -3,6 +3,14 @@
 
 #include "lwip/pbuf.h"
 
+// 返回值定义
+#define NAPT_RET_OK           0    // 转发成功
+#define NAPT_RET_SKIP         1    // 跳过处理，让LWIP继续
+#define NAPT_RET_NO_MAPPING  -1    // 未找到映射关系
+#define NAPT_RET_NO_MEMORY   -2    // 内存不足
+#define NAPT_RET_LOCK_FAIL   -3    // 加锁失败
+#define NAPT_RET_INVALID_CTX -4    // NAPT上下文无效
+
 // #define IP_NAPT_TIMEOUT_MS_TCP (30*60*1000)
 #define IP_NAPT_TIMEOUT_MS_TCP_DISCON (20*1000)
 #ifndef NAPT_TCP_MAP_ITEM_MAX

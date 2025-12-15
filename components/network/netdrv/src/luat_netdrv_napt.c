@@ -23,6 +23,12 @@
 #define LUAT_LOG_TAG "netdrv.napt"
 #include "luat_log.h"
 
+// 超时时间定义
+#define NAPT_TCP_TIMEOUT_MS        (20*60*1000)   // TCP连接超时: 20分钟
+#define NAPT_TCP_DISCON_TIMEOUT_MS (20*1000)      // TCP断开连接超时: 20秒
+#define NAPT_UDP_TIMEOUT_MS        (2*60*1000)    // UDP超时: 2分钟
+#define NAPT_CLEANUP_INTERVAL_SEC  (5)            // 清理周期: 5秒
+
 #define ICMP_MAP_SIZE (32)
 #define UDP_MAP_TIMEOUT (60 * 1000)
 #define NAPT_MAX_PACKET_SIZE (1520)
@@ -194,7 +200,8 @@ err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     pbuf_copy_partial(p, napt_buff, len, 0);
     int ret = luat_netdrv_napt_pkg_input(id, napt_buff, len);
     // LLOGD("napt_pkg_input ret %d", ret);
-    return ret == 0 ? 1 : 0;
+    // 返回: NAPT_RET_OK(0)表示已转发，其他值表示LWIP继续处理
+    return ret == NAPT_RET_OK ? NAPT_RET_OK : NAPT_RET_SKIP;
     // return 1;
 }
 
@@ -339,16 +346,16 @@ __NETDRV_CODE_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_
         it = &napt_ctx->items[i];
         tdiff = tnow - it->tm_ms;
         if (napt_ctx->ip_tp == IP_PROTO_TCP) {
-            if (tdiff > 20*60*1000) { // TCP是20分钟
+            if (tdiff > NAPT_TCP_TIMEOUT_MS) { // TCP是20分钟
                 flag = 1;
             }
-            else if ((((it->finack1 && it->finack2) || !it->synack) && tdiff > IP_NAPT_TIMEOUT_MS_TCP_DISCON)) {
+            else if ((((it->finack1 && it->finack2) || !it->synack) && tdiff > NAPT_TCP_DISCON_TIMEOUT_MS)) {
                 // print_item("TCP链接已关闭,移除", it);
                 flag = 1;
             }
         }
         else if (napt_ctx->ip_tp == IP_PROTO_UDP) {
-            if (tdiff > 2*60*1000) { // UDP 是2分钟
+            if (tdiff > NAPT_UDP_TIMEOUT_MS) { // UDP 是2分钟
                 flag = 1;
             }
         }
@@ -435,7 +442,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_wan2lan(napt_ctx_t* ctx, luat_ne
 
     luat_rtos_mutex_lock(napt_ctx->lock, 5000);
     // 清理映射关系
-    if (tsec - napt_ctx->clean_tm > 5) {
+    if (tsec - napt_ctx->clean_tm > NAPT_CLEANUP_INTERVAL_SEC) {
         // LLOGD("执行映射关系清理 %ld %ld", tsec, napt_ctx->clean_tm);
         mapping_cleanup(napt_ctx);
         napt_ctx->clean_tm = tsec;
@@ -492,7 +499,7 @@ __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_tcp_lan2wan(napt_ctx_t* ctx, luat_ne
     ret = -1;
 
     // 清理映射关系
-    if (tsec - napt_ctx->clean_tm > 5) {
+    if (tsec - napt_ctx->clean_tm > NAPT_CLEANUP_INTERVAL_SEC) {
         mapping_cleanup(napt_ctx);
         napt_ctx->clean_tm = tsec;
     }

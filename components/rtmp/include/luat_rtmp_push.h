@@ -151,6 +151,7 @@ typedef struct {
     uint32_t p_frames;              /**< 发送的P帧数量 */
     uint64_t i_bytes;               /**< 发送的I帧字节数（NAL数据长度累加） */
     uint64_t p_bytes;               /**< 发送的P帧字节数（NAL数据长度累加） */
+    uint64_t audio_bytes;           /**< 发送的音频字节数 */
 
     uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
     uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
@@ -211,6 +212,8 @@ typedef struct {
     uint32_t p_frames;              /**< 发送的P帧数量 */
     uint64_t i_bytes;               /**< 发送的I帧字节数 */
     uint64_t p_bytes;               /**< 发送的P帧字节数 */
+    uint32_t audio_frames_sent;     /**< 发送的音频帧数量 */
+    uint64_t audio_bytes;           /**< 发送的音频字节数 */
     uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
     uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
     uint32_t last_stats_log_ms;     /**< 上次统计日志输出时间 */
@@ -322,6 +325,48 @@ int rtmp_send_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
 int rtmp_send_nalu_multi(rtmp_ctx_t *ctx, const uint8_t **nalus,
                          const uint32_t *lengths, uint32_t count, 
                          uint32_t timestamp);
+
+/**
+ * 发送音频数据帧
+ * 
+ * 将音频数据打包为RTMP音频消息并发送。
+ * 支持AAC等多种音频格式。
+ * 
+ * 使用示例(AAC):
+ * @code
+ * // 发送AAC Sequence Header
+ * uint8_t aac_header[] = {0xAF, 0x00, 0x12, 0x10}; // AAC-LC, 44.1kHz, Stereo
+ * rtmp_send_audio(ctx, aac_header, sizeof(aac_header), 0);
+ * 
+ * // 发送AAC音频帧
+ * uint8_t audio_frame[256];
+ * audio_frame[0] = 0xAF; // AAC, 44.1kHz, 16bit, Stereo
+ * audio_frame[1] = 0x01; // AAC raw data
+ * memcpy(&audio_frame[2], aac_raw_data, aac_raw_len);
+ * rtmp_send_audio(ctx, audio_frame, 2 + aac_raw_len, timestamp);
+ * @endcode
+ * 
+ * 音频标签头格式(第1字节):
+ * - Bit[7:4]: SoundFormat (10=AAC, 2=MP3, 3=PCM等)
+ * - Bit[3:2]: SoundRate (0=5.5kHz, 1=11kHz, 2=22kHz, 3=44kHz)
+ * - Bit[1]: SoundSize (0=8bit, 1=16bit)
+ * - Bit[0]: SoundType (0=Mono, 1=Stereo)
+ * 
+ * AAC格式需要第2字节指定AACPacketType:
+ * - 0 = AAC sequence header (AudioSpecificConfig)
+ * - 1 = AAC raw data
+ * 
+ * @param ctx RTMP上下文指针
+ * @param audio_data 音频数据指针,应包含完整的音频标签(标签头+数据)
+ * @param audio_len 音频数据总长度
+ * @param timestamp 音频时间戳(毫秒),从0开始递增
+ * @return RTMP_OK表示发送成功,其他值表示错误
+ *         - RTMP_ERR_INVALID_PARAM: 参数无效
+ *         - RTMP_ERR_NO_MEMORY: 内存不足
+ *         - RTMP_ERR_FAILED: 发送失败
+ */
+int rtmp_send_audio(rtmp_ctx_t *ctx, const uint8_t *audio_data,
+                    uint32_t audio_len, uint32_t timestamp);
 
 /**
  * 获取当前连接状态

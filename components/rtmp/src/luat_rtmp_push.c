@@ -1039,6 +1039,63 @@ int rtmp_send_nalu_multi(rtmp_ctx_t *ctx, const uint8_t **nalus,
 }
 
 /**
+ * 发送音频数据帧
+ */
+int rtmp_send_audio(rtmp_ctx_t *ctx, const uint8_t *audio_data,
+                    uint32_t audio_len, uint32_t timestamp) {
+    if (!ctx || !audio_data || audio_len == 0) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    
+    if (ctx->state != RTMP_STATE_PUBLISHING) {
+        LLOGE("RTMP: Cannot send audio, not in publishing state");
+        return RTMP_ERR_FAILED;
+    }
+    
+    /* 构建RTMP音频消息 (消息类型8=音频, 流ID=1) */
+    uint8_t *rtmp_buf = NULL;
+    uint32_t rtmp_len = 0;
+    int ret = rtmp_build_rtmp_message(ctx, RTMP_MSG_AUDIO, audio_data, audio_len, 
+                                     timestamp, ctx->audio_stream_id, 
+                                     &rtmp_buf, &rtmp_len);
+    if (ret != RTMP_OK) {
+        LLOGE("RTMP: Failed to build RTMP message for audio");
+        return ret;
+    }
+    
+    /* 创建帧节点并加入队列 */
+    rtmp_frame_node_t *node = (rtmp_frame_node_t *)luat_heap_malloc(sizeof(rtmp_frame_node_t));
+    if (!node) {
+        luat_heap_free(rtmp_buf);
+        LLOGE("RTMP: Failed to allocate frame node for audio");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    node->data = rtmp_buf;
+    node->len = rtmp_len;
+    node->sent = 0;
+    node->is_key = false; /* 音频帧不是关键帧 */
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
+    node->next = NULL;
+    
+    ret = rtmp_queue_frame(ctx, node);
+    if (ret != RTMP_OK) {
+        rtmp_free_frame_node(node);
+        LLOGE("RTMP: Failed to queue audio frame");
+        return ret;
+    }
+    
+    /* 更新音频时间戳和统计 */
+    ctx->audio_timestamp = timestamp;
+    ctx->audio_frames_sent++;
+    ctx->audio_bytes += (uint64_t)audio_len;
+    
+    RTMP_LOGV("RTMP: Audio frame queued, len=%u, ts=%u", audio_len, timestamp);
+    
+    return RTMP_OK;
+}
+
+/**
  * 获取当前连接状态
  */
 rtmp_state_t rtmp_get_state(rtmp_ctx_t *ctx) {
@@ -1180,7 +1237,7 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     stats->bytes_sent = ctx->bytes_sent;
     stats->packets_sent = ctx->packets_sent;
     stats->video_frames_sent = ctx->i_frames + ctx->p_frames;
-    stats->audio_frames_sent = 0;  // 当前仅支持视频
+    stats->audio_frames_sent = ctx->audio_frames_sent;
     stats->last_video_timestamp = ctx->video_timestamp;
     stats->last_audio_timestamp = ctx->audio_timestamp;
 
@@ -1188,6 +1245,7 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     stats->p_frames = ctx->p_frames;
     stats->i_bytes = ctx->i_bytes;
     stats->p_bytes = ctx->p_bytes;
+    stats->audio_bytes = ctx->audio_bytes;
     stats->dropped_frames = ctx->dropped_frames;
     stats->dropped_bytes = ctx->dropped_bytes;
     

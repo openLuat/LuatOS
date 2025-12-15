@@ -292,8 +292,16 @@ static void iperf_free(size_t line, void* ptr);
    u16_t txlen_max;
    void *txptr;
    u8_t apiflags;
+   u16_t available_space;
  
    LWIP_ASSERT("conn invalid", (conn != NULL) && conn->base.tcp && (conn->base.server == 0));
+ 
+   /* 检查发送缓冲区是否有可用空间 */
+   available_space = tcp_sndbuf(conn->conn_pcb);
+   if (available_space == 0) {
+     /* 没有可用空间，等待下次调用 */
+     return ERR_OK;
+   }
  
    do {
      send_more = 0;
@@ -341,6 +349,12 @@ static void iperf_free(size_t line, void* ptr);
        apiflags = 0; /* no copying needed */
        send_more = 1;
      }
+     
+     /* 限制发送长度不超过可用缓冲区空间 */
+     if (txlen_max > available_space) {
+       txlen_max = available_space;
+     }
+     
      txlen = txlen_max;
      do {
       #if ENABLE_PSIF
@@ -360,6 +374,11 @@ static void iperf_free(size_t line, void* ptr);
  
      if (err == ERR_OK) {
        conn->bytes_transferred += txlen;
+       /* 更新剩余可用空间 */
+       available_space -= txlen;
+       if (available_space == 0) {
+         send_more = 0; /* 缓冲区已满，停止发送 */
+       }
      } else {
        send_more = 0;
      }

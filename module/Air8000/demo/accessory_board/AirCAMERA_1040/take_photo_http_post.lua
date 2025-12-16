@@ -13,7 +13,6 @@ local excamera = require "excamera"
 -- 引入httpplus扩展库模块
 local httpplus = require "httpplus"
 
-
 -- 定义照片保存方式，有三种类型：
 -- 1、ZBUFF保存，输入"ZBUFF"即可，excamera库会自动处理ZBUFF
 -- 2、保存到内存文件系统中，路径名需指向/ram/文件夹
@@ -28,16 +27,18 @@ local save_method = "ZBUFF"
 local function capture_func()
     -- 定义变量用于存储操作结果和数据
     local result, data
+    gpio.setup(24, 1)
+    gpio.setup(164, 1)
     -- 无限循环，持续等待拍照事件
     while true do
         -- 配置gc032a摄像头参数表
         local spi_camera_param = {
             id = "gc032a", -- SPI摄像头仅支持"gc032a"、"gc0310"、"bf30a2"，请带引号填写
-            i2c_id = 1, -- 模块上使用的I2C编号
+            i2c_id = 0, -- 模块上使用的I2C编号
             work_mode = 0, -- 工作模式，0为拍照模式，1为扫描模式
             save_path = save_method, -- 拍照结果存储路径，可用"ZBUFF"交由excamera库内部管理
-            camera_pwr = 2, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
-            camera_pwdn = 5, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
+            camera_pwr = 147, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
+            camera_pwdn = 153, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
             camera_light = nil -- 摄像头补光灯控制管脚，填写GPIO号即可，无则填nil
         }
         -- 等待外部触发拍照事件(ONCE_CAPTURE)

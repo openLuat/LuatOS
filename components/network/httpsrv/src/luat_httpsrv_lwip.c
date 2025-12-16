@@ -19,7 +19,20 @@
 #include "http_parser.h"
 
 #undef LLOGD
-#define LLOGD(...) 
+#define LLOGD(...)
+
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
+const http_code_str_t g_luat_http_codes[] = {
+    {200, "OK"},
+    {301, "Moved Permanently"},
+    {302, "Found"},
+    {400, "Bad Request"},
+    {401, "Unauthorized"},
+    {403, "Forbidden"},
+    {404, "Not Found"},
+    {500, "Internal Server Error"},
+    {0, ""}
+}; 
 
 typedef struct client_socket_ctx
 {
@@ -136,10 +149,10 @@ static void client_resp(void* arg) {
     size_t body_size = client->body_size;
     //struct tcp_pcb* pcb = client->pcb;
     const char* msg = "";
-    for (size_t i = 0; i < sizeof(http_codes)/sizeof(http_code_str_t); i++)
+    for (size_t i = 0; i < sizeof(g_luat_http_codes)/sizeof(http_code_str_t); i++)
     {
-        if (http_codes[i].code == code) {
-            msg = http_codes[i].msg;
+        if (g_luat_http_codes[i].code == code) {
+            msg = g_luat_http_codes[i].msg;
             break;
         }
     }
@@ -191,6 +204,10 @@ static void client_cleanup(client_socket_ctx_t *client) {
     if (client->body) {
         luat_heap_free(client->body);
         client->body = NULL;
+    }
+    if (client->buff) {
+        luat_heap_free(client->buff);
+        client->buff = NULL;
     }
     if (client->fd) {
         luat_fs_fclose(client->fd);
@@ -300,6 +317,8 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         char* ptr = luat_heap_realloc(ctx->buff, ctx->buff_offset + p->tot_len);
         if (ptr == NULL) {
             LLOGW("out of memory when realloc client buff %d", ctx->buff_offset + p->tot_len);
+            luat_heap_free(ctx->buff);
+            ctx->buff = NULL;
             tcp_abort(tpcb);
             return ERR_ABRT;
         }
@@ -510,9 +529,9 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
 
 // 静态文件的处理
 
-static int client_send_static_file(client_socket_ctx_t *client, char* path, size_t len, uint8_t is_gz) {
+static int client_send_static_file(client_socket_ctx_t *client, char* path, size_t len) {
     LLOGD("sending %s", path);
-    // 发送文件, 需要区分gz, 还得解析出content-type
+    // 发送文件, 解析出content-type
     char *buff = client->sbuff;
     // 首先, 发送状态行
     client_write(client, "HTTP/1.0 200 OK\r\n", strlen("HTTP/1.0 200 OK\r\n"));
@@ -520,10 +539,6 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     sprintf(buff, "Content-Length: %d\r\n", len);
     client_write(client, buff, strlen(buff));
     client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
-    // 如果是gz, 发送压缩头部
-    if (is_gz) {
-        client_write(client, "Content-Encoding: gzip\r\n", strlen("Content-Encoding: gzip\r\n"));
-    }
     // 解析content-type, 并发送
     size_t path_size = strlen(path);
     buff[0] = 0x00;
@@ -531,15 +546,9 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     {
         const char* suff = ct_regs[i].suff;
         size_t suff_size = strlen(suff);
-        // 判断后缀,不含.gz
+        // 判断后缀
         if (path_size > suff_size + 2) {
             if (!memcmp(path + path_size - suff_size, suff, suff_size)) {
-                sprintf(buff, "Content-Type: %s\r\n", ct_regs[i].value);
-                break;
-            }
-        }
-        if (is_gz && path_size > suff_size + 5) {
-            if (!memcmp(path + path_size - suff_size - 3, suff, suff_size)) {
                 sprintf(buff, "Content-Type: %s\r\n", ct_regs[i].value);
                 break;
             }
@@ -548,8 +557,7 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 根据path判断一下文件后缀, 如果不是 html/htm/js/css就当文件下载
     size_t plen = strlen(path);
     if (strcmp(path + plen - 5, ".html") == 0 || strcmp(path + plen - 4, ".htm") == 0
-        || strcmp(path + plen - 3, ".js") == 0 || strcmp(path + plen - 4, ".css") == 0
-        || strcmp(path + plen - 3, ".gz") == 0 ) {
+        || strcmp(path + plen - 3, ".js") == 0 || strcmp(path + plen - 4, ".css") == 0) {
         // nop
         LLOGD("普通文件模式 %s", path);
     }
@@ -592,26 +600,32 @@ static int handle_static_file(client_socket_ctx_t *client) {
         LLOGD("path too long [%s] > 200", client->uri);
         return 0;
     }
+    // 检查路径遍历攻击
+    if (strstr(client->uri, "..") != NULL) {
+        LLOGW("path traversal attack detected: %s", client->uri);
+        return 0;
+    }
     char path[256] = {0};
-    uint8_t is_gz = 0;
-    sprintf(path, "/luadb%s", strlen(client->uri) == 1 ? "/index.html" : client->uri);
+    const char* uri_to_use = strlen(client->uri) == 1 ? "/index.html" : client->uri;
+    int ret = snprintf(path, sizeof(path), "/luadb%s", uri_to_use);
+    if (ret < 0 || ret >= sizeof(path)) {
+        LLOGW("path buffer overflow prevented");
+        return 0;
+    }
     size_t fz = luat_fs_fsize(path);
     if (fz < 1) {
-        sprintf(path, "/luadb%s.gz", strlen(client->uri) == 1 ? "/index.html" : client->uri);
+        ret = snprintf(path, sizeof(path), "%s", uri_to_use);
+        if (ret < 0 || ret >= sizeof(path)) {
+            LLOGW("path buffer overflow prevented");
+            return 0;
+        }
         fz = luat_fs_fsize(path);
         if (fz < 1) {
-            sprintf(path, "%s", strlen(client->uri) == 1 ? "/index.html" : client->uri);
-            fz = luat_fs_fsize(path);
-            if (fz < 1) {
-                return 0;
-            }
-        }
-        else {
-            is_gz = 1;
+            return 0;
         }
     }
 
-    client_send_static_file(client, path, fz, is_gz);
+    client_send_static_file(client, path, fz);
     // client_cleanup(client);
     return 1;
 }

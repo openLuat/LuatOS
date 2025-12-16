@@ -79,7 +79,15 @@ static void iperf_start_cb(void* args) {
         LLOGD("server listen %s:%d", buff, ctx->port);
     }
     else {
-        luat_lwiperf_start_tcp_client(remote_ip, ctx->port, LWIPERF_CLIENT, iperf_report_cb, NULL, &drv->netif->ip_addr);
+        lwiperf_client_conf_t conf = {0};
+        conf.remote_addr = remote_ip;
+        conf.remote_port = ctx->port;
+        conf.type = LWIPERF_CLIENT;
+        conf.report_fn = iperf_report_cb;
+        conf.report_arg = NULL;
+        conf.local_addr = &drv->netif->ip_addr;
+        conf.amount = htonl((u32_t)-6000); // 默认测试60秒
+        luat_lwiperf_start_tcp_client(&conf);
         ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
         LLOGD("client connect %s --> %s:%d", buff, buff2, ctx->port);
     }

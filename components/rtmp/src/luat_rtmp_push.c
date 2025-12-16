@@ -26,6 +26,17 @@
 #define LUAT_LOG_TAG "rtmp_push"
 #include "luat_log.h"
 
+/* ======================== 调试开关 ======================== */
+
+/** 启用详细调试日志 (0=关闭, 1=开启) */
+#define RTMP_DEBUG_VERBOSE 0
+
+#if RTMP_DEBUG_VERBOSE
+    #define RTMP_LOGV(...) LLOGD(__VA_ARGS__)
+#else
+    #define RTMP_LOGV(...)
+#endif
+
 /* ======================== 内部常量定义 ======================== */
 
 /** RTMP握手客户端数据大小 */
@@ -130,6 +141,7 @@ typedef struct rtmp_frame_node {
     uint32_t len;               /* 消息总长度 */
     uint32_t sent;              /* 已发送字节数 */
     bool is_key;                /* 是否关键帧 */
+    uint32_t enqueue_ms;        /* 入队时间戳(ms) */
     struct rtmp_frame_node *next;
 } rtmp_frame_node_t;
 
@@ -474,9 +486,6 @@ static int rtmp_pack_message(rtmp_ctx_t *ctx, uint8_t msg_type,
         bytes_sent += chunk_data_size;
     }
     
-    // LLOGI("RTMP: Packed RTMP message - type=%d, payload_len=%d, chunks=%d",
-    //       msg_type, payload_len, (payload_len + chunk_size - 1) / chunk_size);
-    
     return RTMP_OK;
 }
 
@@ -529,8 +538,16 @@ rtmp_ctx_t* rtmp_create(void) {
     
     /* 初始化状态 */
     ctx->state = RTMP_STATE_IDLE;
+
+    /* 统计初始化 */
+    ctx->last_stats_log_ms = (uint32_t)luat_mcu_tick64_ms();
+    ctx->last_stats_bytes = 0;
+    ctx->stats_interval_ms = 10000;
+    ctx->stats_window_ms = 10000;
+    ctx->last_window_ms = ctx->last_stats_log_ms;
+    ctx->last_window_bytes = 0;
     
-    LLOGD("RTMP: Context created successfully");
+    RTMP_LOGV("RTMP: Context created successfully");
     g_rtmp_ctx = ctx;
     return ctx;
 }
@@ -573,7 +590,7 @@ int rtmp_destroy(rtmp_ctx_t *ctx) {
     
     luat_heap_free(ctx);
     
-    LLOGD("RTMP: Context destroyed");
+    RTMP_LOGV("RTMP: Context destroyed");
     return RTMP_OK;
 }
 
@@ -643,7 +660,7 @@ int rtmp_connect(rtmp_ctx_t *ctx) {
     }
     
     ctx->last_activity_time = rtmp_gen_timestamp();
-    LLOGD("RTMP: Connecting to %s:%d (app:%s, stream:%s)", ctx->host, ctx->port, ctx->app, ctx->stream);
+    RTMP_LOGV("RTMP: Connecting to %s:%d (app:%s, stream:%s)", ctx->host, ctx->port, ctx->app, ctx->stream);
     
     return RTMP_OK;
 }
@@ -745,29 +762,23 @@ int rtmp_send_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
             case NALU_TYPE_SPS:
                 sps_data = nalus[i].data;
                 sps_len = nalus[i].len;
-                // LLOGD("RTMP: Found SPS, len=%u", sps_len);
                 break;
             case NALU_TYPE_PPS:
                 pps_data = nalus[i].data;
                 pps_len = nalus[i].len;
-                // LLOGD("RTMP: Found PPS, len=%u", pps_len);
                 break;
             case NALU_TYPE_IDR:
                 idr_data = nalus[i].data;
                 idr_len = nalus[i].len;
-                // LLOGD("RTMP: Found IDR, len=%u", idr_len);
                 break;
             case NALU_TYPE_NON_IDR:
                 has_p_frame = true;
-                // LLOGD("RTMP: Found P-frame, len=%u", nalus[i].len);
                 break;
         }
     }
     
     /* 如果有SPS和PPS，发送AVC Sequence Header */
     if (sps_data && pps_data) {
-        // LLOGI("RTMP: Sending AVC Sequence Header (SPS+PPS)");
-        
         /* 构建AVC Sequence Header
          * 格式: [configurationVersion(1)] [AVCProfileIndication(1)] [profile_compatibility(1)] 
          *       [AVCLevelIndication(1)] [lengthSizeMinusOne(1)] [numOfSPS(1)] 
@@ -824,7 +835,6 @@ int rtmp_send_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     if (has_p_frame) {
         for (uint32_t i = 0; i < nalu_count; i++) {
             if (nalus[i].type == NALU_TYPE_NON_IDR) {
-                // LLOGI("RTMP: Sending P-frame, len=%u", nalus[i].len);
                 int ret = rtmp_send_single_nalu(ctx, nalus[i].data, nalus[i].len, timestamp);
                 if (ret != RTMP_OK) {
                     return ret;
@@ -832,8 +842,6 @@ int rtmp_send_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
             }
         }
     }
-    
-    // LLOGD("RTMP: Video frame sent, timestamp=%u, nalus=%u", timestamp, nalu_count);
     
     return RTMP_OK;
 }
@@ -903,6 +911,7 @@ static int rtmp_send_avc_sequence_header(rtmp_ctx_t *ctx, const uint8_t *seq_hea
     node->len = rtmp_len;
     node->sent = 0;
     node->is_key = true; /* 配置按关键帧优先处理 */
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
     node->next = NULL;
     
     ret = rtmp_queue_frame(ctx, node);
@@ -910,8 +919,6 @@ static int rtmp_send_avc_sequence_header(rtmp_ctx_t *ctx, const uint8_t *seq_hea
         rtmp_free_frame_node(node);
         return ret;
     }
-    
-    // LLOGI("RTMP: AVC Sequence Header queued, size=%u", rtmp_len);
     
     return RTMP_OK;
 }
@@ -987,6 +994,7 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     node->len = rtmp_len;
     node->sent = 0;
     node->is_key = is_key_frame;
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
     node->next = NULL;
 
     ret = rtmp_queue_frame(ctx, node);
@@ -998,7 +1006,14 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     /* 更新统计 */
     ctx->video_timestamp = timestamp;
     ctx->packets_sent++;
-    ctx->bytes_sent += nalu_len;
+    ctx->bytes_sent += (uint64_t)nalu_len;
+    if (is_key_frame) {
+        ctx->i_frames++;
+        ctx->i_bytes += nalu_len;
+    } else {
+        ctx->p_frames++;
+        ctx->p_bytes += nalu_len;
+    }
 
     return RTMP_OK;
 }
@@ -1019,6 +1034,63 @@ int rtmp_send_nalu_multi(rtmp_ctx_t *ctx, const uint8_t **nalus,
             return ret;
         }
     }
+    
+    return RTMP_OK;
+}
+
+/**
+ * 发送音频数据帧
+ */
+int rtmp_send_audio(rtmp_ctx_t *ctx, const uint8_t *audio_data,
+                    uint32_t audio_len, uint32_t timestamp) {
+    if (!ctx || !audio_data || audio_len == 0) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    
+    if (ctx->state != RTMP_STATE_PUBLISHING) {
+        LLOGE("RTMP: Cannot send audio, not in publishing state");
+        return RTMP_ERR_FAILED;
+    }
+    
+    /* 构建RTMP音频消息 (消息类型8=音频, 流ID=1) */
+    uint8_t *rtmp_buf = NULL;
+    uint32_t rtmp_len = 0;
+    int ret = rtmp_build_rtmp_message(ctx, RTMP_MSG_AUDIO, audio_data, audio_len, 
+                                     timestamp, ctx->audio_stream_id, 
+                                     &rtmp_buf, &rtmp_len);
+    if (ret != RTMP_OK) {
+        LLOGE("RTMP: Failed to build RTMP message for audio");
+        return ret;
+    }
+    
+    /* 创建帧节点并加入队列 */
+    rtmp_frame_node_t *node = (rtmp_frame_node_t *)luat_heap_malloc(sizeof(rtmp_frame_node_t));
+    if (!node) {
+        luat_heap_free(rtmp_buf);
+        LLOGE("RTMP: Failed to allocate frame node for audio");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    node->data = rtmp_buf;
+    node->len = rtmp_len;
+    node->sent = 0;
+    node->is_key = false; /* 音频帧不是关键帧 */
+    node->enqueue_ms = (uint32_t)luat_mcu_tick64_ms();
+    node->next = NULL;
+    
+    ret = rtmp_queue_frame(ctx, node);
+    if (ret != RTMP_OK) {
+        rtmp_free_frame_node(node);
+        LLOGE("RTMP: Failed to queue audio frame");
+        return ret;
+    }
+    
+    /* 更新音频时间戳和统计 */
+    ctx->audio_timestamp = timestamp;
+    ctx->audio_frames_sent++;
+    ctx->audio_bytes += (uint64_t)audio_len;
+    
+    RTMP_LOGV("RTMP: Audio frame queued, len=%u, ts=%u", audio_len, timestamp);
     
     return RTMP_OK;
 }
@@ -1073,6 +1145,58 @@ int rtmp_poll(rtmp_ctx_t *ctx) {
             return ret;
         }
     }
+
+    /* 周期性打印统计信息（每10秒） */
+    uint32_t now_ms = (uint32_t)luat_mcu_tick64_ms();
+    /* 独立刷新窗口采样 */
+    if (now_ms - ctx->last_window_ms >= ctx->stats_window_ms) {
+        ctx->last_window_ms = now_ms;
+        ctx->last_window_bytes = ctx->bytes_sent;
+    }
+
+    if (now_ms - ctx->last_stats_log_ms >= ctx->stats_interval_ms) {
+        uint32_t elapsed_ms = 0;
+        if (ctx->base_timestamp > 0 && now_ms > ctx->base_timestamp) {
+            elapsed_ms = now_ms - ctx->base_timestamp;
+        }
+        /* 平均码率(单位kbps): 总比特 / 秒 / 1000 */
+        uint32_t avg_kbps = 0;
+        if (elapsed_ms > 0) {
+            double kbps = ((double)ctx->bytes_sent * 8.0) / ((double)elapsed_ms / 1000.0) / 1000.0;
+            avg_kbps = (uint32_t)(kbps + 0.5);
+        }
+        /* 区间平均码率（最近10秒） */
+        uint32_t win_kbps = 0;
+        /* 统计窗口以 stats_window_ms 为准；若比实际间隔更长，则按实际间隔计算 */
+        uint32_t win_ms = (now_ms >= ctx->last_window_ms) ? (now_ms - ctx->last_window_ms) : 0;
+        uint64_t win_bytes = (ctx->bytes_sent >= ctx->last_window_bytes) ? (ctx->bytes_sent - ctx->last_window_bytes) : 0;
+        if (win_ms > 0 && win_bytes > 0) {
+            double wkbps = ((double)win_bytes * 8.0) / ((double)win_ms / 1000.0) / 1000.0;
+            win_kbps = (uint32_t)(wkbps + 0.5);
+        }
+        /* 以kB为单位显示总字节和各类字节（四舍五入） */
+        uint64_t total_kB = ctx->bytes_sent / 1024ULL;
+        uint64_t i_kB = ctx->i_bytes / 1024ULL;
+        uint64_t p_kB = ctx->p_bytes / 1024ULL;
+        uint64_t drop_kB = ctx->dropped_bytes / 1024ULL;
+
+        LLOGI("RTMP stats: total=%llu kB packets=%u I=%u (%llukB) P=%u (%llukB) dropped=%u (%llukB) queue=%u avg=%u kbps win=%u kbps",
+              (unsigned long long)total_kB,
+              ctx->packets_sent,
+              ctx->i_frames,
+              (unsigned long long)i_kB,
+              ctx->p_frames,
+              (unsigned long long)p_kB,
+              ctx->dropped_frames,
+              (unsigned long long)drop_kB,
+              ctx->frame_queue_bytes,
+              avg_kbps,
+              win_kbps);
+
+        /* 更新日志基准 */
+        ctx->last_stats_log_ms = now_ms;
+        ctx->last_stats_bytes = ctx->bytes_sent;
+    }
     
     return RTMP_OK;
 }
@@ -1112,10 +1236,18 @@ int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats) {
     // 填充统计结构体
     stats->bytes_sent = ctx->bytes_sent;
     stats->packets_sent = ctx->packets_sent;
-    stats->video_frames_sent = (ctx->video_timestamp > 0) ? (ctx->video_timestamp / 33 + 1) : 0;  // 估计帧数(30fps约33ms)
-    stats->audio_frames_sent = 0;  // 当前仅支持视频
+    stats->video_frames_sent = ctx->i_frames + ctx->p_frames;
+    stats->audio_frames_sent = ctx->audio_frames_sent;
     stats->last_video_timestamp = ctx->video_timestamp;
     stats->last_audio_timestamp = ctx->audio_timestamp;
+
+    stats->i_frames = ctx->i_frames;
+    stats->p_frames = ctx->p_frames;
+    stats->i_bytes = ctx->i_bytes;
+    stats->p_bytes = ctx->p_bytes;
+    stats->audio_bytes = ctx->audio_bytes;
+    stats->dropped_frames = ctx->dropped_frames;
+    stats->dropped_bytes = ctx->dropped_bytes;
     
     // 计算连接持续时间
     if (ctx->base_timestamp > 0 && current_time >= ctx->base_timestamp) {
@@ -1136,6 +1268,35 @@ int rtmp_set_state_callback(rtmp_ctx_t *ctx, rtmp_state_callback callback) {
     }
     
     g_state_callback = callback;
+    return RTMP_OK;
+}
+
+/**
+ * 设置统计输出间隔
+ */
+int rtmp_set_stats_interval(rtmp_ctx_t *ctx, uint32_t interval_ms) {
+    if (!ctx) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    if (interval_ms == 0) {
+        /* 防止除零/过于频繁，设定最小1000ms */
+        interval_ms = 1000;
+    }
+    ctx->stats_interval_ms = interval_ms;
+    return RTMP_OK;
+}
+
+/**
+ * 设置统计窗口长度
+ */
+int rtmp_set_stats_window(rtmp_ctx_t *ctx, uint32_t window_ms) {
+    if (!ctx) {
+        return RTMP_ERR_INVALID_PARAM;
+    }
+    if (window_ms == 0) {
+        window_ms = 1000;
+    }
+    ctx->stats_window_ms = window_ms;
     return RTMP_OK;
 }
 
@@ -1233,7 +1394,7 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
     ctx->stream = (char *)luat_heap_malloc(strlen(stream) + 1);
     strcpy(ctx->stream, stream);
     
-    LLOGD("RTMP: URL parsed - host:%s, port:%d, app:%s, stream:%s",
+    RTMP_LOGV("RTMP: URL parsed - host:%s, port:%d, app:%s, stream:%s",
                      host, ctx->port, ctx->app, ctx->stream);
     
     return RTMP_OK;
@@ -1251,7 +1412,7 @@ static err_t rtmp_tcp_connect_callback(void *arg, struct tcp_pcb *pcb, err_t err
         return err;
     }
     
-    LLOGD("RTMP: TCP connected %s:%d", ctx->host, ctx->port);
+    RTMP_LOGV("RTMP: TCP connected %s:%d", ctx->host, ctx->port);
     
     /* 执行握手 */
     int ret = rtmp_do_handshake(ctx);
@@ -1272,8 +1433,7 @@ static void rtmp_send_connect(void *arg) {
     rtmp_set_state(ctx, RTMP_STATE_HANDSHAKING, 0);
             
     /* 发送RTMP connect命令 */
-    LLOGD("RTMP: Sending connect command...");
-    LLOGD("before send buff offset=%d", ctx->send_pos);
+    RTMP_LOGV("RTMP: Sending connect command...");
     int ret = rtmp_send_command(ctx, "connect", 1, ctx->app);
     if (ret == 0) {
         rtmp_set_state(ctx, RTMP_STATE_CONNECTED, 0);
@@ -1295,7 +1455,7 @@ static err_t rtmp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb, struct pbuf 
         LLOGE("RTMP: TCP recv callback with NULL arg");
         return ERR_ARG;
     }
-    LLOGD("RTMP: TCP recv callback, err=%d, pbuf=%p len=%d", err, p, p ? p->tot_len : 0);
+    RTMP_LOGV("RTMP: TCP recv callback, err=%d, pbuf=%p len=%d", err, p, p ? p->tot_len : 0);
     if (err != ERR_OK) {
         LLOGE("RTMP: TCP recv error: %d", err);
         rtmp_set_state(ctx, RTMP_STATE_ERROR, RTMP_ERR_NETWORK);
@@ -1311,17 +1471,13 @@ static err_t rtmp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb, struct pbuf 
     /* 将数据复制到接收缓冲区 */
     uint32_t copy_len = (p->tot_len < (ctx->recv_buf_size - ctx->recv_pos)) ?
                         p->tot_len : (ctx->recv_buf_size - ctx->recv_pos);
-    LLOGI("RTMP: Copying %d bytes to recv buffer", copy_len);
     if (copy_len > 0) {
-        LLOGD("ctx->recv_buf %p", ctx->recv_buf);
-        LLOGD("ctx->recv_pos %d", ctx->recv_pos);
-        LLOGD("p %p", p);
         pbuf_copy_partial(p, &ctx->recv_buf[ctx->recv_pos], copy_len, 0);
         
         ctx->recv_pos += copy_len;
     }
     
-    LLOGI("RTMP: Received %d bytes, p->tot_len=%d", copy_len, p->tot_len);
+    RTMP_LOGV("RTMP: Received %d bytes, p->tot_len=%d", copy_len, p->tot_len);
     tcp_recved(pcb, p->tot_len);
     pbuf_free(p);
     
@@ -1365,15 +1521,15 @@ static err_t rtmp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb, struct pbuf 
                 LLOGI("RTMP: Extra data after S0+S1: %u bytes", ctx->recv_pos - required_len);
                 memmove(ctx->recv_buf, &ctx->recv_buf[required_len], ctx->recv_pos - required_len);
                 ctx->recv_pos -= required_len;
-                LLOGD("RTMP: Buffer adjusted, remaining: %u bytes", ctx->recv_pos);
+                RTMP_LOGV("RTMP: Buffer adjusted, remaining: %u bytes", ctx->recv_pos);
             } else {
                 /* 恰好接收到S0+S1，没有剩余数据 */
                 ctx->recv_pos = 0;
-                LLOGD("RTMP: No extra data after S0+S1, buffer cleared");
+                RTMP_LOGV("RTMP: No extra data after S0+S1, buffer cleared");
             }
         } else {
             /* 数据不足，继续等待 */
-            LLOGD("RTMP: Waiting for complete S0+S1... received %u/%u bytes", ctx->recv_pos, required_len);
+            RTMP_LOGV("RTMP: Waiting for complete S0+S1... received %u/%u bytes", ctx->recv_pos, required_len);
         }
     } 
     else if (ctx->handshake_state == 2) {
@@ -1413,7 +1569,7 @@ static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
     total_sent += len;
     //LLOGD("RTMP: TCP sent callback, len=%d, total_sent=%llu", len, total_sent);
     if (ctx) {
-        ctx->bytes_sent += len;
+        ctx->bytes_sent += (uint64_t)len;
         /* 继续发送队列中的数据 */
         rtmp_try_send_queue(ctx);
     }
@@ -1454,7 +1610,7 @@ static int rtmp_do_handshake(rtmp_ctx_t *ctx) {
     
     tcp_output(ctx->pcb);
     
-    LLOGD("RTMP: C0+C1 sent (%d bytes), waiting for S0+S1...", sizeof(handshake));
+    RTMP_LOGV("RTMP: C0+C1 sent (%d bytes), waiting for S0+S1...", sizeof(handshake));
     
     /* 设置握手状态为等待S0+S1 */
     ctx->handshake_state = 1;
@@ -1738,17 +1894,20 @@ static int rtmp_build_rtmp_message(rtmp_ctx_t *ctx, uint8_t msg_type,
 static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     if (!ctx || !node) return RTMP_ERR_INVALID_PARAM;
 
-    /* 拥堵且来了关键帧，丢弃所有未开始发送的帧（sent==0） */
+    /* 拥堵且来了关键帧，优先丢弃缓存超过1秒且未开始发送的帧（sent==0） */
     if (node->is_key && ctx->frame_head) {
+        uint32_t now_ms = (uint32_t)luat_mcu_tick64_ms();
         rtmp_frame_node_t *cur = ctx->frame_head;
         rtmp_frame_node_t *prev = NULL;
         while (cur) {
-            if (cur->sent == 0) {
+            if (cur->sent == 0 && (now_ms - cur->enqueue_ms) > 2000) {
                 rtmp_frame_node_t *to_free = cur;
                 cur = cur->next;
                 if (prev) prev->next = cur; else ctx->frame_head = cur;
                 if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
                 ctx->frame_queue_bytes -= to_free->len;
+                ctx->dropped_frames++;
+                ctx->dropped_bytes += (uint64_t)to_free->len;
                 rtmp_free_frame_node(to_free);
                 continue;
             }
@@ -1768,6 +1927,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (prev) prev->next = cur; else ctx->frame_head = cur;
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
+            ctx->dropped_frames++;
+            ctx->dropped_bytes += (uint64_t)to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1784,6 +1945,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
             if (prev) prev->next = cur; else ctx->frame_head = cur;
             if (to_free == ctx->frame_tail) ctx->frame_tail = prev;
             ctx->frame_queue_bytes -= to_free->len;
+            ctx->dropped_frames++;
+            ctx->dropped_bytes += (uint64_t)to_free->len;
             rtmp_free_frame_node(to_free);
             continue;
         }
@@ -1794,6 +1957,8 @@ static int rtmp_queue_frame(rtmp_ctx_t *ctx, rtmp_frame_node_t *node) {
     /* 仍然超限，则放弃当前帧 */
     if (ctx->frame_queue_bytes + need_bytes > RTMP_MAX_QUEUE_BYTES) {
         LLOGE("RTMP: Drop frame, queue bytes %u exceed max %u", ctx->frame_queue_bytes + need_bytes, RTMP_MAX_QUEUE_BYTES);
+        ctx->dropped_frames++;
+        ctx->dropped_bytes += (uint64_t)node->len;
         return RTMP_ERR_BUFFER_OVERFLOW;
     }
 
@@ -1886,7 +2051,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
     memcpy(&amf_buf[offset], command, cmd_len);
     offset += cmd_len;
     
-    LLOGD("RTMP: Command name: %s (len=%u)", command, cmd_len);
+    RTMP_LOGV("RTMP: Command name: %s (len=%u)", command, cmd_len);
     
     /* 2. 写入事务ID */
     amf_buf[offset++] = AMF_TYPE_NUMBER;
@@ -1897,7 +2062,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
     }
     
-    LLOGD("RTMP: Transaction ID: %u", transaction_id);
+    RTMP_LOGV("RTMP: Transaction ID: %u", transaction_id);
     
     /* 3. 写入命令对象或参数 */
     if (strcmp(command, "connect") == 0) {
@@ -1918,7 +2083,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             memcpy(&amf_buf[offset], ctx->app, strlen(ctx->app));
             offset += strlen(ctx->app);
             
-            LLOGD("RTMP: Parameter - app: %s", ctx->app);
+            RTMP_LOGV("RTMP: Parameter - app: %s", ctx->app);
         }
 
         // 添加 type参数
@@ -1936,7 +2101,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             memcpy(&amf_buf[offset], val, strlen(val));
             offset += strlen(val);
             
-            LLOGD("RTMP: Parameter - type: %s", val);
+            RTMP_LOGV("RTMP: Parameter - type: %s", val);
         }
         
         /* 3.2 flashVer 参数 */
@@ -1955,7 +2120,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             memcpy(&amf_buf[offset], val, strlen(val));
             offset += strlen(val);
             
-            LLOGD("RTMP: Parameter - flashVer: %s", val);
+            RTMP_LOGV("RTMP: Parameter - flashVer: %s", val);
         }
         
         /* 3.3 tcUrl 参数 */
@@ -1972,7 +2137,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             memcpy(&amf_buf[offset], ctx->url, strlen(ctx->url));
             offset += strlen(ctx->url);
             
-            LLOGD("RTMP: Parameter - tcUrl: %s", ctx->url);
+            RTMP_LOGV("RTMP: Parameter - tcUrl: %s (len=%d)", tcurl, tcurl_len);
         }
         
         /* 3.4 fpad 参数 */
@@ -1986,7 +2151,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             amf_buf[offset++] = AMF_TYPE_BOOLEAN;
             amf_buf[offset++] = 0;  /* false */
             
-            LLOGD("RTMP: Parameter - fpad: false");
+            RTMP_LOGV("RTMP: Parameter - fpad: false");
         }
         
         /* 3.5 audioCodecs 参数 */
@@ -2004,7 +2169,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
                 amf_buf[offset++] = (uint8_t)(codec_bits >> (56 - i * 8));
             }
             
-            LLOGD("RTMP: Parameter - audioCodecs: 3575.0");
+            RTMP_LOGV("RTMP: Parameter - audioCodecs: 3575.0");
         }
         
         /* 3.6 videoCodecs 参数 */
@@ -2022,7 +2187,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
                 amf_buf[offset++] = (uint8_t)(codec_bits >> (56 - i * 8));
             }
             
-            LLOGD("RTMP: Parameter - videoCodecs: 252.0");
+            RTMP_LOGV("RTMP: Parameter - videoCodecs: 252.0");
         }
         
         /* 3.7 objectEncoding 参数 */
@@ -2040,7 +2205,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
                 amf_buf[offset++] = (uint8_t)(enc_bits >> (56 - i * 8));
             }
             
-            LLOGD("RTMP: Parameter - objectEncoding: 0.0");
+            RTMP_LOGV("RTMP: Parameter - objectEncoding: 0.0");
         }
         
         /* 对象结束 */
@@ -2062,13 +2227,13 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
             memcpy(&amf_buf[offset], ctx->stream, strlen(ctx->stream));
             offset += strlen(ctx->stream);
             
-            LLOGD("RTMP: Parameter - stream: %s", ctx->stream);
+            RTMP_LOGV("RTMP: Parameter - stream: %s", ctx->stream);
         }
         
     } else if (strcmp(command, "createStream") == 0) {
         /* createStream 命令：NULL对象 */
         amf_buf[offset++] = AMF_TYPE_NULL;
-        LLOGD("RTMP: createStream with NULL object");
+        RTMP_LOGV("RTMP: createStream with NULL object");
         
     } else if (strcmp(command, "publish") == 0) {
         /* publish 命令：NULL对象 + 流名称 + 发布类型 */
@@ -2091,7 +2256,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         memcpy(&amf_buf[offset], pub_type, strlen(pub_type));
         offset += strlen(pub_type);
         
-        LLOGD("RTMP: publish - stream: %s, type: %s", ctx->stream ? ctx->stream : "NULL", pub_type);
+        RTMP_LOGV("RTMP: publish - stream: %s, type: %s", ctx->stream ? ctx->stream : "NULL", pub_type);
     }
     
     /* 检查缓冲区大小 */
@@ -2100,10 +2265,10 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         return RTMP_ERR_BUFFER_OVERFLOW;
     }
     
-    LLOGI("RTMP: AMF payload size: %u bytes", offset);
+    RTMP_LOGV("RTMP: AMF payload size: %u bytes", offset);
     
     /* 打印前64字节的hex数据用于调试 */
-    {
+    if (0) {
         uint32_t print_len = (offset > 64) ? 64 : offset;
         LLOGI("RTMP: AMF payload (first %u bytes):", print_len);
         
@@ -2113,7 +2278,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         for (uint32_t i = 0; i < print_len; i++) {
             hex_pos += snprintf(&hex_buf[hex_pos], sizeof(hex_buf) - hex_pos, "%02X ", amf_buf[i]);
             if ((i + 1) % 16 == 0 && i + 1 < print_len) {
-                LLOGD("RTMP:   %s", hex_buf);
+                RTMP_LOGV("RTMP:   %s", hex_buf);
                 hex_pos = 0;
                 memset(hex_buf, 0, sizeof(hex_buf));
             }
@@ -2136,7 +2301,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
     /* 立即发送connect命令 */
     ret = rtmp_flush_send_buffer(ctx);
     
-    LLOGI("RTMP: Connect command sent successfully: %s (tx_id=%u, payload_size=%u bytes)", 
+    LLOGI("RTMP: command sent successfully: %s (tx_id=%u, payload_size=%u bytes)", 
           command, transaction_id, offset);
     
     return ret;
@@ -2266,7 +2431,7 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
     /* 根据查找结果更新状态 */
     if (found_success) {
         /* 连接成功,开始发送发布流的控制命令 */
-        LLOGI("RTMP: Connection successful, sending publish commands...");
+        //RTMP_LOGV("RTMP: Connection successful, sending publish commands...");
         
         /* 1. 发送 setChunkSize */
         uint8_t chunk_size_msg[4];
@@ -2287,35 +2452,35 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
         /* 2. 发送 releaseStream */
         ret = rtmp_send_command(ctx, "releaseStream", 2, NULL);
         if (ret == RTMP_OK) {
-            LLOGI("RTMP: Sent releaseStream");
+            RTMP_LOGV("RTMP: Sent releaseStream");
         }
         
         /* 3. 发送 FCPublish */
         ret = rtmp_send_command(ctx, "FCPublish", 3, NULL);
         if (ret == RTMP_OK) {
-            LLOGI("RTMP: Sent FCPublish");
+            RTMP_LOGV("RTMP: Sent FCPublish");
         }
         
         /* 4. 发送 createStream */
         ret = rtmp_send_command(ctx, "createStream", 4, NULL);
         if (ret == RTMP_OK) {
-            LLOGI("RTMP: Sent createStream");
+            RTMP_LOGV("RTMP: Sent createStream");
         }
         
         /* 立即发送缓冲数据 */
         rtmp_flush_send_buffer(ctx);
         
-        LLOGI("RTMP: Sent publish control commands, waiting for createStream response");
+        RTMP_LOGV("RTMP: Sent publish control commands, waiting for createStream response");
         
     } else if (found_result && ctx->state == RTMP_STATE_CONNECTED) {
         /* 收到 _result 响应（createStream的响应）
          * 现在可以发送 publish 命令了 */
-        LLOGI("RTMP: Received createStream _result, sending publish command...");
+        RTMP_LOGV("RTMP: Received createStream _result, sending publish command...");
         
         /* 发送 publish 命令 */
         int ret = rtmp_send_command(ctx, "publish", 5, NULL);
         if (ret == RTMP_OK) {
-            LLOGI("RTMP: Sent publish command");
+            RTMP_LOGV("RTMP: Sent publish command");
             rtmp_flush_send_buffer(ctx);
         } else {
             LLOGE("RTMP: Failed to send publish command");
@@ -2324,7 +2489,7 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
     } else if (found_publish_start) {
         /* 收到 NetStream.Publish.Start 响应
          * 表示推流已成功开始，发送元数据后即可发送视频数据 */
-        LLOGI("RTMP: Publish started successfully, sending metadata");
+        RTMP_LOGV("RTMP: Publish started successfully, sending metadata");
         
         /* 发送 @setDataFrame 元数据 */
         if (rtmp_send_metadata(ctx) == RTMP_OK) {
@@ -2346,11 +2511,11 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
     } else if (found_on_bw_done) {
         /* 收到 onBWDone 带宽检测完成信号
          * 服务器已完成带宽检测,可以继续发送流命令 */
-        LLOGD("RTMP: Received onBWDone (bandwidth detection complete)");
+        RTMP_LOGV("RTMP: Received onBWDone (bandwidth detection complete)");
         /* onBWDone 是通知,不需要额外响应,继续现有流程 */
     } else if (ctx->state == RTMP_STATE_CONNECTED && found_on_status) {
         /* 收到onStatus,继续等待 */
-        LLOGD("RTMP: Received onStatus response");
+        RTMP_LOGV("RTMP: Received onStatus response");
     }
     
     return RTMP_OK;
@@ -2502,10 +2667,16 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
         ctx->base_timestamp = 0;
     }
     
-    LLOGD("RTMP: State changed from %d to %d", old_state, new_state);
+    LLOGI("RTMP: State changed from %d to %d", old_state, new_state);
     
     if (g_state_callback) {
         g_state_callback(ctx, old_state, new_state, error_code);
+    }
+
+    if (old_state == RTMP_STATE_PUBLISHING && new_state != RTMP_STATE_PUBLISHING) {
+        // 停止摄像头采集
+        extern int luat_camera_stop(int id);
+        luat_camera_stop(0);
     }
 }
 

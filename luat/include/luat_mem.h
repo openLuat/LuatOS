@@ -22,5 +22,7 @@ void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, siz
 #define LUAT_MEM_REALLOC luat_heap_realloc
 #define LUAT_MEM_CALLOC luat_heap_calloc
 
+// 查询并输出内存使用情况到日志
+void luat_meminfo_query(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, size_t* max_used, int log_out);
 
 #endif

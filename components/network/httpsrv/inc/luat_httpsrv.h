@@ -1,3 +1,6 @@
+#ifndef LUAT_HTTPSRV_H
+#define LUAT_HTTPSRV_H
+
 #include "luat_base.h"
 
 
@@ -22,18 +25,8 @@ typedef struct http_code_str
     const char* msg;
 }http_code_str_t;
 
-// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
-static const http_code_str_t http_codes[] = {
-    {200, "OK"},
-    {301, "Moved Permanently"},
-    {302, "Found"},
-    {400, "Bad Request"},
-    {401, "Unauthorized"},
-    {403, "Forbidden"},
-    {404, "Not Found"},
-    {500, "Internal Server Error"},
-    {0, ""}
-};
+// 声明http_codes数组，定义在.c文件中
+extern const http_code_str_t g_luat_http_codes[];
 
 
 typedef struct ct_reg
@@ -46,3 +39,5 @@ luat_httpsrv_ctx_t* luat_httpsrv_malloc(int port, int adapter_index);
 int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx);
 int luat_httpsrv_free(luat_httpsrv_ctx_t* ctx);
 int luat_httpsrv_stop(luat_httpsrv_ctx_t* ctx);
+
+#endif // LUAT_HTTPSRV_H

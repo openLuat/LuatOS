@@ -168,7 +168,7 @@ static void l_state_callback(rtmp_ctx_t *ctx, rtmp_state_t oldstate, rtmp_state_
     msg.arg1 = (int)newstate;
     msg.arg2 = (int)oldstate;
     LLOGD("RTMP状态(%d)回调消息入队 %p %p", (int)newstate, &msg, ctx->user_data);
-    // luat_msgbus_put(&msg, 0);
+    luat_msgbus_put(&msg, 0);
 }
 
 /**

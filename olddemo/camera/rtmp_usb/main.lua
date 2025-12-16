@@ -18,6 +18,10 @@ sys.taskInit(function()
     sys.waitUntil("IP_READY")
 
     camera.config(0, camera.CONF_UVC_FPS, 15)
+    -- camera.config(0, camera.CONF_H264_QP_INIT, 12)
+    -- camera.config(0, camera.CONF_H264_IMB_BITS, 120)
+    camera.config(0, camera.CONF_H264_PMB_BITS, 20)
+    camera.config(0, camera.CONF_H264_PFRAME_NUMS, 23)
     socket.sntp()
     sys.wait(200)
     result = camera.init(usb_camera_table)
@@ -25,16 +29,17 @@ sys.taskInit(function()
     camera.start(camera_id)
 
     -- local rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
-    -- local rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
+    local rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
     -- local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
-    local rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
+    -- local rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
     rtmpc:setCallback(function(state, ...)
+        log.info("rtmp状态变化", state, ...)
         if state == rtmp.STATE_CONNECTED then
-            log.info("rtmp", "已连接到推流服务器")
+            log.info("rtmp状态变化", "已连接到推流服务器")
         elseif state == rtmp.STATE_PUBLISHING then
-            log.info("rtmp", "已开始推流")
+            log.info("rtmp状态变化", "已开始推流")
         elseif state == rtmp.STATE_ERROR then
-            log.info("rtmp", "出错:", ...)
+            log.info("rtmp状态变化", "出错:", ...)
         end
     end)
     log.info("开始连接到推流服务器...")

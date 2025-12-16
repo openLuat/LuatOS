@@ -11,6 +11,56 @@ local usb_camera_table = {
     usb_port = 1
 }
 
+local rtmpc = nil
+-- 重连控制变量与方法
+local rtmp_reconnecting = false -- 是否正在重连
+local rtmp_retries = 0         -- 当前重连次数
+local rtmp_max_retries = 5     -- 最大重连次数
+
+-- rtmp出现问题时的重连逻辑
+function rtmp_try_reconnect()
+    while true do
+        local ret, error_id = sys.waitUntil("RECONNECT_RTMP")
+        if rtmp_reconnecting or not rtmpc then return end
+        -- if error_id > -4 and error_id ~= -1 then
+        --     -- 非重连就能解决的错误，不进行重连
+        --     log.info("rtmp", "error is not recoverable, will not reconnect", error_id)
+        --     return
+        -- end
+        rtmp_reconnecting = true
+        rtmpc:disconnect()  -- 确认断开当前连接
+        while rtmp_retries < rtmp_max_retries do
+            rtmp_retries = rtmp_retries + 1
+            local isNetReady, adapterIndex = socket.adapter()
+            log.info("rtmp", "reconnect attempt", rtmp_retries, "adapter_index: ", adapterIndex)
+            -- 检测当前网络是否就绪
+            if isNetReady then
+                local ok = rtmpc:connect()
+                if ok then
+                    -- 等待短时间以便连接完成
+                    sys.wait(1000)
+                    local st = rtmpc:getState()
+                    if st == rtmp.STATE_CONNECTED or st == rtmp.STATE_PUBLISHING then
+                        log.info("rtmp", "reconnect success")
+                        -- 恢复推流
+                        rtmpc:start()
+                        rtmp_reconnecting = false
+                        rtmp_retries = 0
+                        return
+                    end
+                end
+            else
+                -- 等待任意网卡变为就绪
+                log.info("rtmp", "waiting for IP_READY")
+                sys.waitUntil("IP_READY", 60000)
+            end
+            sys.wait(10000) -- 每次重连间隔10秒
+        end
+        log.info("rtmp", "reconnect failed after ... ", rtmp_retries)
+        rtmp_reconnecting = false
+    end
+end
+
 sys.taskInit(function()
     wlan.init()
     wlan.connect("luatos1234", "12341234", 1)
@@ -28,18 +78,25 @@ sys.taskInit(function()
     log.info("摄像头初始化", result)
     camera.start(camera_id)
 
-    -- local rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
-    local rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
-    -- local rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
-    -- local rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
+    if not rtmpc then
+        -- rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
+        rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
+        -- rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
+        -- rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
+    end
+
     rtmpc:setCallback(function(state, ...)
         log.info("rtmp状态变化", state, ...)
         if state == rtmp.STATE_CONNECTED then
             log.info("rtmp状态变化", "已连接到推流服务器")
+            rtmp_retries = 0
         elseif state == rtmp.STATE_PUBLISHING then
             log.info("rtmp状态变化", "已开始推流")
+            rtmp_retries = 0
         elseif state == rtmp.STATE_ERROR then
             log.info("rtmp状态变化", "出错:", ...)
+            -- 发生错误时尝试重连（若网络可用则立即尝试）
+            sys.publish("RECONNECT_RTMP", ...)
         end
     end)
     log.info("开始连接到推流服务器...")
@@ -62,6 +119,8 @@ sys.taskInit(function()
     -- #################################################
 
 end)
+
+sys.taskInit(rtmp_try_reconnect)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

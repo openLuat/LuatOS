@@ -2672,6 +2672,12 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
     if (g_state_callback) {
         g_state_callback(ctx, old_state, new_state, error_code);
     }
+
+    if (old_state == RTMP_STATE_PUBLISHING && new_state != RTMP_STATE_PUBLISHING) {
+        // 停止摄像头采集
+        extern int luat_camera_stop(int id);
+        luat_camera_stop(0);
+    }
 }
 
 /**

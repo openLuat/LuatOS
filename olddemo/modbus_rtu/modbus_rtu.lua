@@ -241,7 +241,7 @@ function modbus_rtu.send_command(uartid, addr, fun, data, interval)
     if interval then
         -- 如果传入了interval，则启用循环发送
         sys.timerLoopStart(function()
-            log.info("每隔" .. interval .. "秒发一次指令", cmd:toHex())
+            log.info("uart_"..uartid.."每隔" .. interval .. "秒发一次指令", cmd:toHex())
             uart.write(uartid, cmd)
         end, interval)
         -- sys.timerLoopStart(uart.write, interval, uartid, cmd)
@@ -260,12 +260,12 @@ function modbus_rtu.set_receive_callback(uartid, callback)
         repeat
             s = uart.read(id, len)
             if #s > 0 then
-                log.info("modbus_rtu 收到的下位机回复:", s:toHex())
+                log.info("modbus_rtu uart"..uartid.."收到的下位机回复:", s:toHex())
                 local frame, err = modbus_rtu.parse_frame(s)
                 if frame then
                     callback(frame)
                 else
-                    log.info("modbus_rtu 数据错误", err)
+                    log.info("modbus_rtu uart"..uartid.. "数据错误", err)
                 end
             end
         until s == ""
@@ -275,7 +275,7 @@ end
 -- 设置modbus_rtu数据发送回调
 function modbus_rtu.set_sent_callback(uartid, callback)
     uart.on(uartid, "sent", function(id)
-        log.info("modbus_rtu 数据发送:", id)
+        log.info("modbus_rtu uart"..uartid.. "数据发送:", id)
         if callback then
             callback(id)
         end

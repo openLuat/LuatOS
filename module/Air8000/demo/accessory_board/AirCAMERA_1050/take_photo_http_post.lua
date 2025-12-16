@@ -38,7 +38,7 @@ local function capture_func()
             work_mode = 0, -- 工作模式，0为拍照模式，1为扫描模式
             save_path = save_method, -- 拍照结果存储路径，可用"ZBUFF"交由excamera库内部管理
             camera_pwr = 147, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
-            camera_pwdn = 153, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
+            camera_pwdn = 5, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
             camera_light = nil -- 摄像头补光灯控制管脚，填写GPIO号即可，无则填nil
         }
         -- 等待外部触发拍照事件(ONCE_CAPTURE)

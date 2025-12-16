@@ -25,7 +25,10 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
         luat_gpio_set(ch->cspin, 0);
         ret = luat_spi_send(ch->spiid, tmp, 1);
         if (ret != 1) {
-            LLOGE("luat_spi_send 1 but ret %d", ret);
+            LLOGE("luat_spi_send失败 expect=1 ret=%d", ret);
+            luat_gpio_set(ch->cspin, 1);
+            luat_spi_unlock(ch->spiid);
+            return -1;
         }
         char* ptr = (char*)buff;
         while (count > 0) {
@@ -56,30 +59,33 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
     return 0;
 }
 
-static char *s_txtmp;
 int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) {
-    if (s_txtmp == NULL) {
-        // LLOGI("分配txtmp缓冲区 3k");
-        s_txtmp = luat_heap_malloc(3 * 1024);
+    if (ch->txtmp == NULL) {
+        ch->txtmp = luat_heap_malloc(3 * 1024);
+        if (ch->txtmp == NULL) {
+            LLOGE("txtmp内存分配失败");
+            return -1;
+        }
     }
     if (count > 1600) {
-        return 0; // 直接不发送
+        LLOGW("数据包过大(%d),丢弃", count);
+        return -2;
     }
     luat_spi_lock(ch->spiid);
     if (addr == 0x78) {
-        s_txtmp[0] = addr | 0x80;
-        memcpy(s_txtmp+1, buff, count);
+        ch->txtmp[0] = addr | 0x80;
+        memcpy(ch->txtmp+1, buff, count);
         luat_gpio_set(ch->cspin, 0);
-        luat_spi_send(ch->spiid, (const char* )s_txtmp, 1 + count);
+        luat_spi_send(ch->spiid, (const char* )ch->txtmp, 1 + count);
         luat_gpio_set(ch->cspin, 1);
     }
     else {
         for (size_t i = 0; i < count; i++)
         {
-            s_txtmp[0] = (addr + i) | 0x80;
-            s_txtmp[1] = buff[i];
+            ch->txtmp[0] = (addr + i) | 0x80;
+            ch->txtmp[1] = buff[i];
             luat_gpio_set(ch->cspin, 0);
-            luat_spi_send(ch->spiid, (const char* )s_txtmp, 2);
+            luat_spi_send(ch->spiid, (const char* )ch->txtmp, 2);
             luat_gpio_set(ch->cspin, 1);
         }
     }
@@ -201,31 +207,39 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
     uint8_t NCR = 0;
     uint8_t NSR = 0;
     if (TCR & 0x01) {
-        // busy!!
-        for (size_t i = 0; i < 16; i++)
+        // busy!! 增加重试次数
+        for (size_t i = 0; i < 100; i++)
         {
             luat_timer_us_delay(10);
             luat_ch390h_read(ch, 0x02, 1, tmp);
             TCR = tmp[0];
-            if (TCR & 0x01) {
-                continue;
+            if (!(TCR & 0x01)) {
+                ch->tx_busy_count = 0;  // 成功后清零计数器
+                break;
             }
-            break;
         }
         if (TCR & 0x01) {
-            LLOGW("tx busy, drop pkg len %d and reset ch390!!", len);
-            // 读出NCR 和 NSR
-            luat_ch390h_read(ch, 0x00, 1, tmp);
-            NCR = tmp[0];
-            luat_ch390h_read(ch, 0x01, 1, tmp);
-            NSR = tmp[0];
-            LLOGD("NCR %02X NSR %02X", NCR, NSR);
-            LLOGD("NCR->FDR %02X NSR->SPEED %02X NSR->LINKST %02X", NCR & (1<<3), NSR & (1<<7), NSR & (1<<6));
-            luat_ch390h_software_reset(ch);
-            luat_timer_mdelay(2);
-            return 0;
+            ch->tx_busy_count++;
+            LLOGW("tx busy, drop pkg len %d, busy_count=%d", len, ch->tx_busy_count);
+            // 只有连续多次TX忙且距离上次复位超过5秒才复位
+            extern uint64_t luat_mcu_tick64_ms(void);
+            uint32_t now = (uint32_t)luat_mcu_tick64_ms();
+            if (ch->tx_busy_count >= 10 && (now - ch->last_reset_time > 5000)) {
+                // 读出NCR 和 NSR
+                luat_ch390h_read(ch, 0x00, 1, tmp);
+                NCR = tmp[0];
+                luat_ch390h_read(ch, 0x01, 1, tmp);
+                NSR = tmp[0];
+                LLOGE("连续TX忙超过阈值，执行复位 NCR=%02X NSR=%02X", NCR, NSR);
+                LLOGD("NCR->FDR %02X NSR->SPEED %02X NSR->LINKST %02X", NCR & (1<<3), NSR & (1<<7), NSR & (1<<6));
+                luat_ch390h_software_reset(ch);
+                ch->tx_busy_count = 0;
+                ch->last_reset_time = now;
+                ch->total_reset_count++;
+                luat_timer_mdelay(2);
+            }
+            return -1;
         }
-        // return 1;
     }
     luat_ch390h_write_reg(ch, 0x55, 2);     // 发数据之前重置一下tx的内存指针
     // 写入下一个数据

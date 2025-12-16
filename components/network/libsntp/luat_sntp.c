@@ -358,3 +358,15 @@ int ntp_get(int adapter_index){
     }
     return ret;
 }
+
+uint64_t luat_sntp_time64_ms() {
+    uint64_t tick64 = luat_mcu_tick64();
+    uint32_t us_period = luat_mcu_us_period();
+    uint64_t ll_sec = tick64 /us_period/ 1000 / 1000;
+    uint64_t ll_ms  = (tick64 /us_period/ 1000) % 1000;
+    uint64_t tmp = ll_sec + g_sntp_ctx.sysboot_diff_sec;
+    //LLOGD("ntp sec: sec=%llu, ms=%u", tmp, ll_ms);
+    tmp *= 1000;
+    tmp += ll_ms + g_sntp_ctx.sysboot_diff_ms;
+    return tmp;
+}

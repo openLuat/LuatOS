@@ -138,13 +138,23 @@ typedef struct {
  * 用于查询RTMP连接的实时统计数据
  */
 typedef struct {
-    uint32_t bytes_sent;            /**< 已发送的字节数 */
+    uint64_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t video_frames_sent;     /**< 已发送的视频帧数 */
     uint32_t audio_frames_sent;     /**< 已发送的音频帧数 */
     uint32_t connection_time;       /**< 连接持续时间(毫秒) */
     uint32_t packets_sent;          /**< 已发送的包数 */
     uint32_t last_video_timestamp;  /**< 最后视频时间戳(毫秒) */
     uint32_t last_audio_timestamp;  /**< 最后音频时间戳(毫秒) */
+
+    /* 细分统计 */
+    uint32_t i_frames;              /**< 发送的I帧数量 */
+    uint32_t p_frames;              /**< 发送的P帧数量 */
+    uint64_t i_bytes;               /**< 发送的I帧字节数（NAL数据长度累加） */
+    uint64_t p_bytes;               /**< 发送的P帧字节数（NAL数据长度累加） */
+    uint64_t audio_bytes;           /**< 发送的音频字节数 */
+
+    uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
+    uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
 } rtmp_stats_t;
 
 /**
@@ -194,8 +204,24 @@ typedef struct {
     
     /** ============ 统计信息 ============ */
     uint32_t packets_sent;          /**< 已发送的包数 */
-    uint32_t bytes_sent;            /**< 已发送的字节数 */
+    uint64_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t command_id;            /**< 当前命令ID */
+
+    /* 帧统计 */
+    uint32_t i_frames;              /**< 发送的I帧数量 */
+    uint32_t p_frames;              /**< 发送的P帧数量 */
+    uint64_t i_bytes;               /**< 发送的I帧字节数 */
+    uint64_t p_bytes;               /**< 发送的P帧字节数 */
+    uint32_t audio_frames_sent;     /**< 发送的音频帧数量 */
+    uint64_t audio_bytes;           /**< 发送的音频字节数 */
+    uint32_t dropped_frames;        /**< 被丢弃的帧数量 */
+    uint64_t dropped_bytes;         /**< 被丢弃的帧字节数 */
+    uint32_t last_stats_log_ms;     /**< 上次统计日志输出时间 */
+    uint64_t last_stats_bytes;      /**< 上次统计日志输出时的总字节数 */
+    uint32_t stats_interval_ms;     /**< 统计输出间隔(毫秒)，默认10000 */
+    uint32_t stats_window_ms;       /**< 统计窗口长度(毫秒)，默认与间隔相同 */
+    uint32_t last_window_ms;        /**< 上次窗口采样时间戳(ms) */
+    uint64_t last_window_bytes;     /**< 上次窗口采样时的总字节数 */
     
     /** ============ 用户数据 ============ */
     void *user_data;                /**< 用户自定义数据指针 */
@@ -301,6 +327,48 @@ int rtmp_send_nalu_multi(rtmp_ctx_t *ctx, const uint8_t **nalus,
                          uint32_t timestamp);
 
 /**
+ * 发送音频数据帧
+ * 
+ * 将音频数据打包为RTMP音频消息并发送。
+ * 支持AAC等多种音频格式。
+ * 
+ * 使用示例(AAC):
+ * @code
+ * // 发送AAC Sequence Header
+ * uint8_t aac_header[] = {0xAF, 0x00, 0x12, 0x10}; // AAC-LC, 44.1kHz, Stereo
+ * rtmp_send_audio(ctx, aac_header, sizeof(aac_header), 0);
+ * 
+ * // 发送AAC音频帧
+ * uint8_t audio_frame[256];
+ * audio_frame[0] = 0xAF; // AAC, 44.1kHz, 16bit, Stereo
+ * audio_frame[1] = 0x01; // AAC raw data
+ * memcpy(&audio_frame[2], aac_raw_data, aac_raw_len);
+ * rtmp_send_audio(ctx, audio_frame, 2 + aac_raw_len, timestamp);
+ * @endcode
+ * 
+ * 音频标签头格式(第1字节):
+ * - Bit[7:4]: SoundFormat (10=AAC, 2=MP3, 3=PCM等)
+ * - Bit[3:2]: SoundRate (0=5.5kHz, 1=11kHz, 2=22kHz, 3=44kHz)
+ * - Bit[1]: SoundSize (0=8bit, 1=16bit)
+ * - Bit[0]: SoundType (0=Mono, 1=Stereo)
+ * 
+ * AAC格式需要第2字节指定AACPacketType:
+ * - 0 = AAC sequence header (AudioSpecificConfig)
+ * - 1 = AAC raw data
+ * 
+ * @param ctx RTMP上下文指针
+ * @param audio_data 音频数据指针,应包含完整的音频标签(标签头+数据)
+ * @param audio_len 音频数据总长度
+ * @param timestamp 音频时间戳(毫秒),从0开始递增
+ * @return RTMP_OK表示发送成功,其他值表示错误
+ *         - RTMP_ERR_INVALID_PARAM: 参数无效
+ *         - RTMP_ERR_NO_MEMORY: 内存不足
+ *         - RTMP_ERR_FAILED: 发送失败
+ */
+int rtmp_send_audio(rtmp_ctx_t *ctx, const uint8_t *audio_data,
+                    uint32_t audio_len, uint32_t timestamp);
+
+/**
  * 获取当前连接状态
  * 
  * @param ctx RTMP上下文指针
@@ -360,6 +428,24 @@ void* rtmp_get_user_data(rtmp_ctx_t *ctx);
  * @endcode
  */
 int rtmp_get_stats(rtmp_ctx_t *ctx, rtmp_stats_t *stats);
+
+/**
+ * 设置统计输出间隔
+ * 
+ * @param ctx RTMP上下文指针
+ * @param interval_ms 间隔毫秒数（例如10000表示10秒）
+ * @return RTMP_OK表示成功
+ */
+int rtmp_set_stats_interval(rtmp_ctx_t *ctx, uint32_t interval_ms);
+
+/**
+ * 设置统计窗口长度
+ * 
+ * @param ctx RTMP上下文指针
+ * @param window_ms 窗口毫秒数（例如10000表示10秒）
+ * @return RTMP_OK表示成功
+ */
+int rtmp_set_stats_window(rtmp_ctx_t *ctx, uint32_t window_ms);
 
 /* ======================== 回调函数定义 ======================== */
 

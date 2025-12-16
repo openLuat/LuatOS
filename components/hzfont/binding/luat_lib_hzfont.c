@@ -25,9 +25,10 @@ hzfont.init("/sd/font.ttf")
 
 /**
 初始化HzFont字体库
-@api hzfont.init([ttf_path][, cache_size])
+@api hzfont.init([ttf_path][, cache_size][, load_to_psram])
 @string ttf_path TTF字体文件路径，可选；留空则回退到内置字库（若启用）
 @int cache_size 可选，位图与码点缓存容量（支持常量 HZFONT_CACHE_128/256/512/1024/2048），默认 HZFONT_CACHE_256
+@bool load_to_psram 可选，true 时将字库整包拷贝到 PSRAM 后再解析，减少后续 IO
 @return boolean 成功返回true，失败返回false
 @usage
 -- 从文件加载，使用默认缓存 256
@@ -52,7 +53,11 @@ static int l_hzfont_init(lua_State* L) {
     if (!lua_isnoneornil(L, 2)) {
         cache_size = (uint32_t)luaL_checkinteger(L, 2);
     }
-    int result = luat_hzfont_init(ttf_path, cache_size);
+    int load_to_psram = 0;
+    if (!lua_isnoneornil(L, 3)) {
+        load_to_psram = lua_toboolean(L, 3);
+    }
+    int result = luat_hzfont_init(ttf_path, cache_size, load_to_psram);
     lua_pushboolean(L, result);
     return 1;
 }

@@ -551,6 +551,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	// 发送请求行, 主要,这里都借用了resp_buff,但这并不会与resp冲突
 	int result;
 	http_send(http_ctrl, (uint8_t *)http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
+	http_send(http_ctrl, (uint8_t*)"Connection: Close\r\n", strlen("Connection: Close\r\n"));
 	// 判断自定义headers是否有host	
 	if (http_ctrl->custom_host == 0) {
 		result = snprintf_(http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s:%d\r\n", http_ctrl->host, http_ctrl->remote_port);
@@ -646,7 +647,7 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 }
 
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
-	LLOGI("on_tcp_closed %p", http_ctrl);
+	LLOGI("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
 	http_ctrl->tcp_closed = 1;
 	if (http_ctrl->http_body_is_finally == 0) { // 当没有解析完成

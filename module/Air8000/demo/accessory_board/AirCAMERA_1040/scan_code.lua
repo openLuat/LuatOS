@@ -17,16 +17,18 @@ local excamera = require "excamera"
 local function scan_code_func()
     -- 定义变量用于存储操作结果和数据
     local result, data
+    gpio.setup(24, 1)
+    gpio.setup(164, 1)
     -- 无限循环，持续等待扫描事件
     while true do
         -- 配置gc032a摄像头参数表
         local spi_camera_param = {
             id = "gc032a", -- SPI摄像头仅支持"gc032a"、"gc0310"、"bf30a2"，请带引号填写
-            i2c_id = 1, -- 模块上使用的I2C编号
-            work_mode = 1, -- 工作模式，0为拍照模式，1为扫描模式
-            save_path = nil, -- 扫描结果为字符串返回，使用变量赋值既可
-            camera_pwr = 2, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
-            camera_pwdn = 5, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
+            i2c_id = 0, -- 模块上使用的I2C编号
+            work_mode = 0, -- 工作模式，0为拍照模式，1为扫描模式
+            save_path = nil, -- 拍照结果存储路径，可用"ZBUFF"交由excamera库内部管理
+            camera_pwr = 147, -- 摄像头使能管脚，填写GPIO号即可，无则填nil
+            camera_pwdn = 153, -- 摄像头pwdn开关脚，填写GPIO号即可，无则填nil
             camera_light = nil -- 摄像头补光灯控制管脚，填写GPIO号即可，无则填nil
         }
         -- 等待外部触发扫描事件(SCAN_CODE)
@@ -41,7 +43,7 @@ local function scan_code_func()
             result, data = excamera.scan(5000)
             -- 扫描执行完成则上传，否则关闭摄像头
             if result then
-                log.info("Scan result :", data )
+                log.info("Scan result :", data)
             end
         end
         -- 关闭摄像头，释放资源

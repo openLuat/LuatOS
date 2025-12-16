@@ -7,6 +7,8 @@
 #include "luat_easylvgl.h"
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
 #include <stdint.h>
+#define LUAT_LOG_TAG "easylvgl_input"
+#include "luat_log.h"
 
 /**
  * 设置当前聚焦的 textarea

@@ -10,6 +10,11 @@
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
+#include "lvgl9/src/widgets/label/lv_label.h"
+#include "lvgl9/src/widgets/textarea/lv_textarea.h"
+
+#define LUAT_LOG_TAG "easylvgl_input_sdl"
+#include "luat_log.h"
 
 /** SDL 输入驱动私有数据 */
 typedef struct {
@@ -24,8 +29,30 @@ static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *c
         return;
     }
 
+    if (event->type == SDL_TEXTEDITING) {
+        LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
+        return;
+    }
+
     if (event->type == SDL_KEYDOWN) {
-        easylvgl_system_keyboard_post_key(ctx, (uint32_t)event->key.keysym.sym, true);
+        uint32_t lv_key = 0;
+        switch (event->key.keysym.sym) {
+            case SDLK_BACKSPACE:
+                lv_key = LV_KEY_BACKSPACE;
+                break;
+            case SDLK_RETURN:
+            case SDLK_KP_ENTER:
+                lv_key = LV_KEY_ENTER;
+                break;
+            case SDLK_ESCAPE:
+                lv_key = LV_KEY_ESC;
+                break;
+            default:
+                break;
+        }
+        if (lv_key != 0) {
+            easylvgl_system_keyboard_post_key(ctx, lv_key, true);
+        }
     } else if (event->type == SDL_TEXTINPUT) {
         easylvgl_system_keyboard_post_text(ctx, event->text.text);
     }
@@ -163,6 +190,91 @@ static void sdl_input_calibration(easylvgl_ctx_t *ctx, int16_t *x, int16_t *y)
     (void)ctx;
     (void)x;
     (void)y;
+}
+
+/**
+ * SDL2 平台同步文本输入矩形给 SDL
+ */
+void easylvgl_platform_sdl2_set_text_input_rect(easylvgl_ctx_t *ctx, lv_obj_t *target) 
+{
+    // 基础参数和平台数据校验
+    if (ctx == NULL || target == NULL || ctx->platform_data == NULL) {
+        return;
+    }
+
+    // 复制 SDL 显示私有数据类型定义（与 display 驱动同步）
+    typedef struct {
+        SDL_Window *window;
+        SDL_Renderer *renderer;
+        SDL_Texture *texture;
+        uint16_t width;
+        uint16_t height;
+        lv_color_format_t color_format;
+    } sdl_display_data_t;
+
+    // 获取 display_data 指针并判空
+    sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
+    if (display_data == NULL || display_data->window == NULL) {
+        return;
+    }
+
+    // 获取 LVGL 对象的屏幕坐标区域
+    lv_area_t coords;
+    lv_obj_get_coords(target, &coords);
+
+    // 初始将 lvgl 区域直接转换为 SDL_Rect
+    SDL_Rect rect = {
+        .x = coords.x1,
+        .y = coords.y1,
+        .w = lv_area_get_width(&coords),
+        .h = lv_area_get_height(&coords)
+    };
+
+    // 获取窗口实际像素尺寸（窗口可缩放情况下）
+    int window_w = display_data->width;
+    int window_h = display_data->height;
+    if (display_data->window != NULL) {
+        SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+    }
+
+    // 按实际窗口尺寸缩放 LVGL 坐标
+    if (window_w > 0 && window_h > 0 && ctx->width > 0 && ctx->height > 0) {
+        rect.x = (int32_t)((int64_t)coords.x1 * window_w / ctx->width);
+        rect.y = (int32_t)((int64_t)coords.y1 * window_h / ctx->height);
+        rect.w = (int32_t)((int64_t)lv_area_get_width(&coords) * window_w / ctx->width);
+        rect.h = (int32_t)((int64_t)lv_area_get_height(&coords) * window_h / ctx->height);
+    }
+
+    // 如果是文本区域，进一步精确到光标位置
+    lv_point_t letter_pos = {0};
+    lv_obj_t *label = lv_textarea_get_label(target);
+    if (label != NULL) {
+        // 获取当前光标在 label 内的字符 id
+        uint32_t cp = lv_textarea_get_cursor_pos(target);
+        // 获取 label 区域坐标
+        lv_area_t label_coords;
+        lv_obj_get_coords(label, &label_coords);
+        // 查询某字符左上角相对 label 的偏移
+        lv_label_get_letter_pos(label, cp, &letter_pos);
+        // 用 label 区域原点 + 字符偏移指定输入法聚焦位
+        rect.x = label_coords.x1 + letter_pos.x;
+        rect.y = label_coords.y1 + letter_pos.y;
+        // 推荐一个典型大小，防止输入法候选窗太大（可微调）
+        rect.w = 24;
+        rect.h = 24;
+    }
+
+    // 防止宽/高为 0，输入法无法显示（设为最小 1）
+    if (rect.w <= 0) {
+        rect.w = 1;
+    }
+    if (rect.h <= 0) {
+        rect.h = 1;
+    }
+
+    // 日志打印最终输入法矩形，并通知 SDL
+    LLOGD("easylvgl_platform_sdl2_set_text_input_rect: rect=%d,%d,%d,%d", rect.x, rect.y, rect.w, rect.h);
+    SDL_SetTextInputRect(&rect);
 }
 
 /** SDL2 输入驱动操作接口 */

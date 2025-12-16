@@ -46,6 +46,8 @@ static int sdl_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
             return EASYLVGL_ERR_INIT_FAILED;
         }
+        // 启用 SDL 输入法 UI
+        SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
         sdl_inited = true;
     }
     

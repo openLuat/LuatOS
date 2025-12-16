@@ -11,7 +11,22 @@
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
 #include "lvgl9/src/widgets/keyboard/lv_keyboard.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/core/lv_obj.h"
 #include <string.h>
+
+#if defined(LUAT_USE_EASYLVGL_SDL2)
+/**
+ * 设置 SDL2 文本输入矩形区域,让中文输入法能够定位到焦点
+ * @param ctx EasyLVGL 上下文
+ * @param target 目标对象
+ */
+void easylvgl_platform_sdl2_set_text_input_rect(easylvgl_ctx_t *ctx, lv_obj_t *target);
+#else
+static inline void easylvgl_platform_sdl2_set_text_input_rect(easylvgl_ctx_t *ctx, lv_obj_t *target) {
+    (void)ctx;
+    (void)target;
+}
+#endif
 
 /**
  * 从 Lua 注册表获取 EasyLVGL 上下文
@@ -41,6 +56,7 @@ static void easylvgl_textarea_focus_cb(lv_event_t *e)
         return;
     }
 
+    // 获取事件目标和关联元数据
     lv_obj_t *target = lv_event_get_target(e);
     easylvgl_component_meta_t *meta = easylvgl_component_meta_get(target);
     if (meta == NULL || meta->ctx == NULL) {
@@ -49,11 +65,35 @@ static void easylvgl_textarea_focus_cb(lv_event_t *e)
 
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_FOCUSED) {
+        // 获得焦点时设置当前焦点 textarea 到上下文
         easylvgl_ctx_set_focused_textarea(meta->ctx, target);
+#if defined(LUAT_USE_EASYLVGL_SDL2)
+        easylvgl_platform_sdl2_set_text_input_rect(meta->ctx, target);
+#endif
     } else if (code == LV_EVENT_DEFOCUSED) {
+        // 失去焦点时，仅当当前焦点是本控件才置空
         if (easylvgl_ctx_get_focused_textarea(meta->ctx) == target) {
             easylvgl_ctx_set_focused_textarea(meta->ctx, NULL);
         }
+    } else if (code == LV_EVENT_PRESSED) {
+        // 按下时强制设置当前 textarea 为焦点
+        easylvgl_ctx_set_focused_textarea(meta->ctx, target);
+        if (!lv_obj_has_state(target, LV_STATE_FOCUSED)) {
+            // 如果还没有 FOCUSED 状态，则添加该状态
+            lv_obj_add_state(target, LV_STATE_FOCUSED);
+        }
+#if defined(LUAT_USE_EASYLVGL_SDL2)
+        easylvgl_platform_sdl2_set_text_input_rect(meta->ctx, target);
+#endif
+    } else if (code == LV_EVENT_CLICKED) {
+        // 点击时，如果未处于 FOCUSED 状态，主动设为 FOCUSED 并发送 LV_EVENT_FOCUSED 事件
+        if (!lv_obj_has_state(target, LV_STATE_FOCUSED)) {
+            lv_obj_add_state(target, LV_STATE_FOCUSED);
+            lv_event_send(target, LV_EVENT_FOCUSED, NULL);
+        }
+#if defined(LUAT_USE_EASYLVGL_SDL2)
+        easylvgl_platform_sdl2_set_text_input_rect(meta->ctx, target);
+#endif
     }
 }
 
@@ -117,8 +157,11 @@ lv_obj_t *easylvgl_textarea_create_from_config(void *L, int idx)
         return NULL;
     }
 
-    // 监听 focus 事件以同步系统键盘焦点
-    lv_obj_add_event_cb(textarea, easylvgl_textarea_focus_cb, LV_EVENT_FOCUSED | LV_EVENT_DEFOCUSED, NULL);
+    // 监听 focus 事件依次同步系统键盘焦点
+    lv_obj_add_event_cb(textarea, easylvgl_textarea_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(textarea, easylvgl_textarea_focus_cb, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_add_event_cb(textarea, easylvgl_textarea_focus_cb, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(textarea, easylvgl_textarea_focus_cb, LV_EVENT_CLICKED, NULL);
 
     easylvgl_textarea_data_t *data = (easylvgl_textarea_data_t *)luat_heap_malloc(sizeof(easylvgl_textarea_data_t));
     if (data == NULL) {

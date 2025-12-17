@@ -779,6 +779,7 @@ READ_CONFIG_ERROR:
 static void luat_spitf_read_blocks(luat_spitf_ctrl_t *spitf, uint8_t *Buf, uint32_t StartLBA, uint32_t BlockNums)
 {
 	uint8_t Retry = 0;
+	uint8_t err_Retry = 0;
 	uint8_t error = 1;
 	uint32_t address;
 	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
@@ -825,6 +826,22 @@ SDHC_SPIREADBLOCKS_CHECK:
 	if (error)
 	{
 		LLOGD("read error %x,%u,%u",spitf->SDHCState, spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
+        if (spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2) {
+			err_Retry++;
+            if (err_Retry > 3)
+			{
+
+				spitf->SDHCError = 1;
+				goto SDHC_SPIREADBLOCKS_ERROR;
+			}
+			else
+			{
+				spitf->SDHCError = 0;
+				spitf->IsInitDone = 1;
+				spitf->SDHCState = 0;
+			}
+			goto SDHC_SPIREADBLOCKS_START;
+		}
 	}
 	if (spitf->DataBuf.Pos != spitf->DataBuf.MaxLen)
 	{
@@ -855,6 +872,7 @@ SDHC_SPIREADBLOCKS_ERROR:
 static void luat_spitf_write_blocks(luat_spitf_ctrl_t *spitf, const uint8_t *Buf, uint32_t StartLBA, uint32_t BlockNums)
 {
 	uint8_t Retry = 0;
+	uint8_t err_Retry = 0;
 	uint32_t address;
 	Buffer_StaticInit(&spitf->DataBuf, (void *)Buf, BlockNums);
 	if (spitf->SDSC)
@@ -875,6 +893,22 @@ SDHC_SPIWRITEBLOCKS_START:
 	}
 	if (luat_spitf_cmd(spitf, CMD25, address, 0))
 	{
+		if (spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2) {
+			err_Retry++;
+            if (err_Retry > 3)
+			{
+
+				spitf->SDHCError = 1;
+				goto SDHC_SPIWRITEBLOCKS_ERROR;
+			}
+			else
+			{
+				spitf->SDHCError = 0;
+				spitf->IsInitDone = 1;
+				spitf->SDHCState = 0;
+			}
+			goto SDHC_SPIWRITEBLOCKS_START;
+		}
 		goto SDHC_SPIWRITEBLOCKS_ERROR;
 	}
 	if (luat_spitf_write_data(spitf))

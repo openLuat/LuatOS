@@ -70,6 +70,11 @@ void easylvgl_system_keyboard_set_preedit(easylvgl_ctx_t *ctx, const char *text)
     LLOGD("easylvgl_system_keyboard_set_preedit: system_keyboard_preedit_len=%d", ctx->system_keyboard_preedit_len);
 }
 
+/**
+ * 处理 SDL 键盘输入事件，将其转化为 LVGL 预编辑、按键或文本事件
+ * @param event SDL 事件指针
+ * @param ctx easylvgl 上下文
+ */
 static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *ctx)
 {
     if (event == NULL || ctx == NULL) {
@@ -78,36 +83,43 @@ static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *c
 
     LLOGD("sdl_process_keyboard_event: event->type=%d", event->type);
 
-    if (event->type == SDL_TEXTEDITING) {
-        LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
-        easylvgl_system_keyboard_set_preedit(ctx, event->edit.text);
-        ctx->system_keyboard_preedit_active = true;
-        return;
-    }
-
-    if (event->type == SDL_KEYDOWN) {
+    switch (event->type) {
+    case SDL_KEYDOWN: {
+        // 虚拟按键映射到 LVGL 键值（回车/退格/ESC）
         uint32_t lv_key = 0;
         switch (event->key.keysym.sym) {
-            case SDLK_BACKSPACE:
-                lv_key = LV_KEY_BACKSPACE;
-                break;
-            case SDLK_RETURN:
-            case SDLK_KP_ENTER:
-                lv_key = LV_KEY_ENTER;
-                break;
-            case SDLK_ESCAPE:
-                lv_key = LV_KEY_ESC;
-                break;
-            default:
-                break;
+        case SDLK_BACKSPACE:
+            lv_key = LV_KEY_BACKSPACE;
+            break;
+        case SDLK_RETURN:
+        case SDLK_KP_ENTER:
+            lv_key = LV_KEY_ENTER;
+            break;
+        case SDLK_ESCAPE:
+            lv_key = LV_KEY_ESC;
+            break;
+        default:
+            break;
         }
         if (lv_key != 0) {
             easylvgl_system_keyboard_post_key(ctx, lv_key, true);
         }
-    } else if (event->type == SDL_TEXTINPUT) {
+        break;
+    }
+    case SDL_TEXTEDITING:
+        // 进入预编辑阶段，保存 SIMD 编辑器反馈的未提交文本
+        LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
+        easylvgl_system_keyboard_set_preedit(ctx, event->edit.text);
+        ctx->system_keyboard_preedit_active = true;
+        break;
+    case SDL_TEXTINPUT:
+        // 文本输入完成，清理预编辑状态后提交最终字符串
         easylvgl_system_keyboard_clear_preedit(ctx);
         ctx->system_keyboard_preedit_active = false;
         easylvgl_system_keyboard_post_text(ctx, event->text.text);
+        break;
+    default:
+        break;
     }
 }
 
@@ -165,8 +177,11 @@ static bool sdl_input_read_pointer(easylvgl_ctx_t *ctx, lv_indev_data_t *data)
                 has_event = true;
             }
         } else if (event.type == SDL_QUIT) {
-            // 窗口关闭事件
-            // TODO: 可以通过回调通知上层
+            // 窗口关闭时 SDL 会发出 SDL_QUIT，优雅清理并退出程序
+            LLOGI("SDL_QUIT received, shutting down");
+            easylvgl_deinit(ctx);
+            SDL_Quit();
+            exit(0);
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx);
         }

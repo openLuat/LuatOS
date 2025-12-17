@@ -188,6 +188,14 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("report error(1) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
+	if (http_ctrl->fd) {
+		LLOGW("http_resp_error: closing open fd due to error %d", error_code);
+		luat_fs_fclose(http_ctrl->fd);
+		http_ctrl->fd = NULL;
+		if (http_ctrl->is_download && error_code != HTTP_OK && http_ctrl->dst) {
+			luat_fs_remove(http_ctrl->dst);
+		}
+	}
 	if (0 == http_ctrl->tcp_closed && NW_STATE_DISCONNECTING == http_ctrl->netc->state) {
 		on_tcp_closed(http_ctrl);
 		return;

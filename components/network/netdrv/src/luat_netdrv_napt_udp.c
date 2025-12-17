@@ -20,13 +20,6 @@ extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 #define NAPT_ETH_HDR_LEN sizeof(struct ethhdr)
 
 static uint8_t *udp_buff;
-
-void luat_netdrv_napt_udp_cleanup(void) {
-    if (udp_buff) {
-        luat_heap_free(udp_buff);
-        udp_buff = NULL;
-    }
-}
 __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
 {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
@@ -34,13 +27,6 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
     struct udp_hdr *udp_hdr = (struct udp_hdr *)(((uint8_t *)ctx->iphdr) + iphdr_len);
     luat_netdrv_t *gw = ctx->drv_gw;
     int ret = 0;
-    
-    // P1检查: 验证NAPT上下文初始化
-    if (g_napt_udp_ctx == NULL) {
-        LLOGD("UDP NAPT context not initialized");
-        return NAPT_RET_SKIP;
-    }
-    
     if (udp_buff == NULL)
     {
         udp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
@@ -51,7 +37,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
     {
         // 这是从外网到内网的UDP包
         ret = luat_netdrv_napt_tcp_wan2lan(ctx, &mapping, g_napt_udp_ctx);
-        if (ret == NAPT_RET_OK)
+        if (ret == 0)
         {
             // 找到映射关系了!!! 修改目标ID
             udp_hdr->dest = mapping.inet_port;
@@ -82,7 +68,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
             if (dst == NULL)
             {
                 LLOGE("能找到UDP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
-                return NAPT_RET_OK;
+                return 1;
             }
             if (dst->dataout)
             {
@@ -112,21 +98,21 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
             {
                 LLOGE("能找到UDP映射关系, 但目标netdrv不支持dataout!!");
             }
-            return NAPT_RET_OK; // 全部修改完成
+            return 1; // 全部修改完成
         }
         // LLOGD("没有找到UDP映射关系, 放行给LWIP处理");
-        return NAPT_RET_SKIP;
+        return 0;
     }
     else
     {
         // 内网, 尝试对外网的请求吗?
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr))
         {
-            return NAPT_RET_SKIP; // 对网关的UDP请求, 交给LWIP处理
+            return 0; // 对网关的UDP请求, 交给LWIP处理
         }
         ret = luat_netdrv_napt_tcp_lan2wan(ctx, &mapping, g_napt_udp_ctx);
-        if (ret != NAPT_RET_OK) {
-            return NAPT_RET_SKIP;
+        if (ret != 0) {
+            return 0;
         }
         // 2. 修改信息
         ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
@@ -160,7 +146,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
                 else
                 {
                     LLOGD("网关netdrv是ETH,源网卡不是ETH, 当前不支持");
-                    return NAPT_RET_SKIP;
+                    return 0;
                 }
             }
             else
@@ -179,7 +165,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
         {
             LLOGD("UDP改写完成, 但GW不支持dataout回调?!!");
         }
-        return NAPT_RET_OK;
+        return 1;
     }
-    return NAPT_RET_SKIP;
+    return 0;
 }

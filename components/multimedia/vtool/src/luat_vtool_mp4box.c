@@ -11,6 +11,8 @@
 // 256KB 写缓冲大小
 #define MP4BOX_WRITE_BUFFER_SIZE (256 * 1024)
 
+mp4_ctx_t* g_mp4_ctx;
+
 // 写缓冲：初始化/写入/刷新/逻辑偏移
 static int buffered_init(mp4_ctx_t* ctx, size_t size) {
     if (ctx->box_buff) {
@@ -307,9 +309,14 @@ static void prepare_box_mvhd(mp4_ctx_t* ctx) {
     write_be(data+4, 0);  // creation time
     write_be(data+8, 0);  // modification time
     write_be(data+12, 1000);  // timescale
-    uint64_t time_duration = luat_mcu_tick64_ms() - ctx->start_time;
-    if (time_duration < ctx->frame_id * (uint64_t)(1000 / ctx->frame_fps)) {
-        time_duration = ctx->frame_id * (uint64_t)(1000 / ctx->frame_fps);
+    // 使用所有帧时长的累加作为视频长度，更精确
+    uint64_t time_duration = 0;
+    for (size_t i = 0; i < ctx->frame_dur_index; i++) {
+        time_duration += ctx->frame_durs[i];
+    }
+    // 如果没有帧时长数据，使用计算值作为备选
+    if (time_duration == 0) {
+        time_duration = (uint64_t)ctx->frame_id * 1000 / ctx->frame_fps;
     }
     write_be(data+16, (uint32_t)time_duration);  // duration
     write_be(data+20, 0x00010000);  // rate (1.0)
@@ -351,7 +358,16 @@ static void prepare_box_tkhd(mp4_ctx_t* ctx) {
     write_be(data+8, 0);  // modification time
     write_be(data+12, 1);  // track ID
     write_be(data+16, 0);  // reserved
-    write_be(data+20, ctx->frame_id * (1000 / ctx->frame_fps));  // duration
+    // 使用所有帧时长的累加作为视频长度，更精确
+    uint64_t time_duration = 0;
+    for (size_t i = 0; i < ctx->frame_dur_index; i++) {
+        time_duration += ctx->frame_durs[i];
+    }
+    // 如果没有帧时长数据，使用计算值作为备选
+    if (time_duration == 0) {
+        time_duration = (uint64_t)ctx->frame_id * 1000 / ctx->frame_fps;
+    }
+    write_be(data+20, (uint32_t)time_duration);  // duration
     write_be(data+24, 0);  // reserved
     write_be(data+28, 0);  // reserved
     write_be_short(data+32, 0);  // layer
@@ -385,7 +401,16 @@ static void prepare_box_mdhd(mp4_ctx_t* ctx) {
     write_be(data+4, 0);  // creation time
     write_be(data+8, 0);  // modification time
     write_be(data+12, 1000);  // timescale
-    write_be(data+16, ctx->frame_id * (1000 / ctx->frame_fps));  // duration
+    // 使用所有帧时长的累加作为视频长度，更精确
+    uint64_t time_duration = 0;
+    for (size_t i = 0; i < ctx->frame_dur_index; i++) {
+        time_duration += ctx->frame_durs[i];
+    }
+    // 如果没有帧时长数据，使用计算值作为备选
+    if (time_duration == 0) {
+        time_duration = (uint64_t)ctx->frame_id * 1000 / ctx->frame_fps;
+    }
+    write_be(data+16, (uint32_t)time_duration);  // duration
     write_be_short(data+20, 0x55c4);  // language (und)
     write_be_short(data+22, 0);  // language (und)
 }
@@ -571,7 +596,7 @@ static int serialize_box_to_mem(mp4box_t* box, uint8_t* out, size_t cap, size_t*
     return 0;
 }
 
-mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps) {
+mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps) {
     // 防御path太长
     if (strlen(path) >= LUAT_VTOOL_MP4BOX_PATH_MAX) {
         LLOGE("path too long %s", path);
@@ -625,6 +650,7 @@ mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t
     // 写入mdat的头部信息
     mp4box_t mdat = {.tp = "mdat", .len = 8, .data = NULL, .self_data_len = 0};
     write_box(ctx, &mdat);
+    g_mp4_ctx = ctx;
     return ctx;
 }
 

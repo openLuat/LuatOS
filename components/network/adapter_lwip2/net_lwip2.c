@@ -960,6 +960,12 @@ static void net_lwip2_task(void *param)
 		ip4_addr_t ip4 = {.addr=ip_addr_get_ip4_u32(&ips[0])};
 		ip4_addr_t netmask4 = {.addr=ip_addr_get_ip4_u32(&ips[1])};
 		ip4_addr_t gw4 = {.addr=ip_addr_get_ip4_u32(&ips[2])};
+		if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+			#ifdef __BK72XX__
+			extern void luat_netdrv_sta_set_static_ip(ip_addr_t* ip, ip_addr_t* gateway, ip_addr_t* mask);
+			luat_netdrv_sta_set_static_ip(&ip4, &gw4, &netmask4);
+			#endif
+		}
 		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ip4, &netmask4, &gw4);
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);

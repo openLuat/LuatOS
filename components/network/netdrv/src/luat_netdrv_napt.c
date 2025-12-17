@@ -415,9 +415,7 @@ err_t netdrv_ip_input_cb(int id, struct pbuf *p, struct netif *inp) {
     pbuf_copy_partial(p, napt_buff, len, 0);
     int ret = luat_netdrv_napt_pkg_input(id, napt_buff, len);
     // LLOGD("napt_pkg_input ret %d", ret);
-    // 返回: NAPT_RET_OK(0)表示已转发，其他值表示LWIP继续处理
-    return ret == NAPT_RET_OK ? NAPT_RET_OK : NAPT_RET_SKIP;
-    // return 1;
+    return ret;
 }
 
 // 辅助函数

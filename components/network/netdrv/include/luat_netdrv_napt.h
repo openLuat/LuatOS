@@ -3,9 +3,9 @@
 
 #include "lwip/pbuf.h"
 
-// 返回值定义
-#define NAPT_RET_OK           0    // 转发成功
-#define NAPT_RET_SKIP         1    // 跳过处理，让LWIP继续
+// 返回值定义（对齐LWIP期望：0=交给LWIP继续，非0=已消费）
+#define NAPT_RET_SKIP         0    // 跳过处理，让LWIP继续（0）
+#define NAPT_RET_OK           1    // 已处理并转发（1）
 #define NAPT_RET_NO_MAPPING  -1    // 未找到映射关系
 #define NAPT_RET_NO_MEMORY   -2    // 内存不足
 #define NAPT_RET_LOCK_FAIL   -3    // 加锁失败

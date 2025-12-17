@@ -193,7 +193,7 @@ static int l_rtmp_connect(lua_State *L) {
     rtmp_set_state_callback(ud->rtmp, l_state_callback);
     
     int ret = tcpip_callback_with_block(rtmp_connect, (void *)ud->rtmp, 0);
-    LLOGD("RTMP连接请求: %s", ret == 0 ? "成功" : "失败");
+    LLOGD("RTMP发起连接请求: %s", ret == 0 ? "成功" : "失败");
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -212,8 +212,8 @@ static int l_rtmp_disconnect(lua_State *L) {
         return 1;
     }
     
-    int ret = rtmp_disconnect(ud->rtmp);
-    LLOGD("RTMP断开连接: %s", ret == 0 ? "成功" : "失败");
+    int ret = tcpip_callback_with_block(rtmp_disconnect, (void *)ud->rtmp, 0);
+    LLOGD("RTMP发起断开连接请求: %s", ret == 0 ? "成功" : "失败");
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

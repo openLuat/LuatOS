@@ -243,7 +243,13 @@ static int l_netdrv_ipv4(lua_State *L) {
             LLOGW("非法GW[%d] %s %d", id, tmp, ret);
             return 0;
         }
-        network_set_static_ip_info(id, &ip, &netmask, &gw, NULL);
+        ret = network_set_static_ip_info(id, &ip, &netmask, &gw, NULL);
+        LLOGI("设置IP[%d] %s %s %s ret %d", id,
+            luaL_checkstring(L, 2),
+            luaL_checkstring(L, 3),
+            luaL_checkstring(L, 4),
+            ret
+        );
     }
     char buff[16] = {0};
     char buff2[16] = {0};
@@ -342,6 +348,10 @@ static int l_netdrv_ready(lua_State *L) {
 -- 重启网卡, 仅CH390H支持, 其他网络设备暂不支持
 -- 本函数于 2025.4.14 新增
 netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_RESET, netdrv.RESET_HARD)
+
+-- 关闭CH390H通信并下电PHY，可用于降功耗；第三个参数1=关闭，0=重新启动
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 1)
+netdrv.ctrl(socket.LWIP_ETH, netdrv.CTRL_DOWN, 0)
 */
 static int l_netdrv_ctrl(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
@@ -658,6 +668,8 @@ static const rotable_Reg_t reg_netdrv[] =
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
+    //@const CTRL_DOWN number 控制类型-关闭CH390H通信并下电PHY，0重新启动，1关闭
+    { "CTRL_DOWN",      ROREG_INT(LUAT_NETDRV_CTRL_DOWN)},
     //@const RESET_HARD number 请求对网卡硬复位,当前仅支持CH390H
     { "RESET_HARD",     ROREG_INT(0x101)},
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H

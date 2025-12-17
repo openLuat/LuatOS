@@ -156,6 +156,9 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
 
 static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
     ch390h_t* ch = (ch390h_t*)userdata;
+    if (ch->status == CH390H_STATUS_STOPPED) {
+        return;
+    }
     luat_ch390h_cstring_t* cs = new_cstring(ch, len);
     if (cs == NULL) {
         return;
@@ -166,6 +169,9 @@ static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, ui
 }
 
 static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
+    if (ch->status == CH390H_STATUS_STOPPED) {
+        return;
+    }
     luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
         return;
@@ -188,6 +194,9 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
         }
         if (ch->netdrv->netif != netif) {
             continue;
+        }
+        if (ch->status == CH390H_STATUS_STOPPED) {
+            return ERR_IF;
         }
         ch390h_dataout_pbuf(ch, p);
         break;
@@ -254,6 +263,10 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     uint8_t buff[32] = {0};
     int ret = 0;
     uint16_t len = 0;
+
+    if (ch->status == CH390H_STATUS_STOPPED) {
+        return 0;
+    }
     
     // LLOGD("状态 spi %d cs %d stat %d", ch->spiid, ch->cspin, ch->status);
     // 首先, 判断设备状态

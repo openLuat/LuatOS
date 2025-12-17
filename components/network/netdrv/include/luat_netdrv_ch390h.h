@@ -39,6 +39,8 @@ typedef struct ch390h
     uint8_t flow_control;  // 流控状态：0=正常 1=背压中
 }ch390h_t;
 
+#define CH390H_STATUS_STOPPED 4
+
 
 luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
 

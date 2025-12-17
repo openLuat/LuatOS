@@ -23,14 +23,65 @@ typedef struct {
     bool left_button_down;
 } sdl_input_data_t;
 
+/**
+ * 清除当前 SDL 预编辑文本（如果存在）
+ */
+void easylvgl_system_keyboard_clear_preedit(easylvgl_ctx_t *ctx)
+{
+    if (ctx == NULL || ctx->focused_textarea == NULL || ctx->system_keyboard_preedit_len <= 0) {
+        if (ctx != NULL && ctx->focused_textarea != NULL) {
+            ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(ctx->focused_textarea);
+        }
+        return;
+    }
+
+    lv_obj_t *textarea = ctx->focused_textarea;
+    lv_textarea_set_cursor_pos(textarea, ctx->system_keyboard_preedit_pos);
+    int32_t len = ctx->system_keyboard_preedit_len;
+    ctx->system_keyboard_preedit_len = 0;
+
+    for (int32_t i = 0; i < len; ++i) {
+        lv_textarea_delete_char_forward(textarea);
+    }
+
+    ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(textarea);
+}
+
+/**
+ * 插入或更新 SDL 预编辑文本
+ */
+void easylvgl_system_keyboard_set_preedit(easylvgl_ctx_t *ctx, const char *text)
+{
+    if (ctx == NULL || ctx->focused_textarea == NULL) {
+        return;
+    }
+
+    lv_obj_t *textarea = ctx->focused_textarea;
+    // sdl完整返回预编辑文字，所以需要清空重填
+    easylvgl_system_keyboard_clear_preedit(ctx);
+
+    if (text == NULL || text[0] == '\0') {
+        return;
+    }
+
+    ctx->system_keyboard_preedit_pos = (int32_t)lv_textarea_get_cursor_pos(textarea);
+    lv_textarea_add_text(textarea, text);
+    ctx->system_keyboard_preedit_len = (int32_t)(lv_textarea_get_cursor_pos(textarea) - ctx->system_keyboard_preedit_pos);
+    LLOGD("easylvgl_system_keyboard_set_preedit: system_keyboard_preedit_len=%d", ctx->system_keyboard_preedit_len);
+}
+
 static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *ctx)
 {
     if (event == NULL || ctx == NULL) {
         return;
     }
 
+    LLOGD("sdl_process_keyboard_event: event->type=%d", event->type);
+
     if (event->type == SDL_TEXTEDITING) {
         LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
+        easylvgl_system_keyboard_set_preedit(ctx, event->edit.text);
+        ctx->system_keyboard_preedit_active = true;
         return;
     }
 
@@ -54,6 +105,8 @@ static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *c
             easylvgl_system_keyboard_post_key(ctx, lv_key, true);
         }
     } else if (event->type == SDL_TEXTINPUT) {
+        easylvgl_system_keyboard_clear_preedit(ctx);
+        ctx->system_keyboard_preedit_active = false;
         easylvgl_system_keyboard_post_text(ctx, event->text.text);
     }
 }
@@ -114,7 +167,7 @@ static bool sdl_input_read_pointer(easylvgl_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_QUIT) {
             // 窗口关闭事件
             // TODO: 可以通过回调通知上层
-        } else if (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT) {
+        } else if (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx);
         }
     }

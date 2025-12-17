@@ -152,6 +152,9 @@ struct easylvgl_ctx {
     void *platform_data;             /**< 平台私有数据 */
     lv_obj_t *focused_textarea;      /**< 当前聚焦的 textarea，供系统键盘使用 */
     bool system_keyboard_enabled;    /**< 是否允许系统键盘输入 */
+    int32_t system_keyboard_preedit_pos; /**< 上一次插入的 SDL 预编辑文本起始位置 */
+    int32_t system_keyboard_preedit_len; /**< 上一次插入的 SDL 预编辑文本长度（字符数） */
+    bool system_keyboard_preedit_active; /**< 当前是否处于 SDL 预编辑（拼音）阶段 */
 };
 
 /**********************
@@ -256,6 +259,8 @@ int easylvgl_system_keyboard_enable(easylvgl_ctx_t *ctx, bool enable);
 bool easylvgl_system_keyboard_is_enabled(easylvgl_ctx_t *ctx);
 void easylvgl_system_keyboard_post_key(easylvgl_ctx_t *ctx, uint32_t key, bool pressed);
 void easylvgl_system_keyboard_post_text(easylvgl_ctx_t *ctx, const char *text);
+void easylvgl_system_keyboard_set_preedit(easylvgl_ctx_t *ctx, const char *text);
+void easylvgl_system_keyboard_clear_preedit(easylvgl_ctx_t *ctx);
 
 
 #ifdef __cplusplus

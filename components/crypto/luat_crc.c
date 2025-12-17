@@ -285,18 +285,23 @@ __USER_FUNC_IN_RAM__ uint16_t luat_crc16_modbus( const uint8_t *buf, uint32_t le
 // CRC7算法
 uint8_t luat_crc7(const uint8_t* message, int length, uint8_t CRCPoly, uint8_t CRC)
 {
-    // unsigned char CRCPoly = 0xe5;
-    unsigned char CRCTable[256];
-    // unsigned char CRC = 0x00;
-    for (int i = 0; i < 256; i++){
-        CRCTable[i] = (i & 0x80) ? i ^ CRCPoly : i;
-        for (int j = 1; j < 8; j++){
-            CRCTable[i] <<= 1;
-            if (CRCTable[i] & 0x80)
-                CRCTable[i] ^= CRCPoly;
-        }
-    }
-    for (int i = 0; i < length; i++)
-        CRC = CRCTable[(CRC << 1) ^ message[i]];
-    return CRC<< 1;
+	uint8_t poly = CRCPoly & 0x7F; /* polynomial without implicit x^7 term */
+	if (poly == 0) {
+		poly = 0x09; /* default CRC-7 (x^7 + x^3 + 1) */
+	}
+
+	CRC &= 0x7F; /* keep accumulator to 7 bits */
+
+	for (int idx = 0; idx < length; idx++) {
+		uint8_t data = message[idx];
+		for (int bit = 0; bit < 8; bit++) {
+			uint8_t feedback = ((CRC >> 6) & 0x01) ^ ((data >> (7 - bit)) & 0x01);
+			CRC = (uint8_t)((CRC << 1) & 0x7F);
+			if (feedback) {
+				CRC ^= poly;
+			}
+		}
+	}
+
+	return CRC & 0x7F;
 }

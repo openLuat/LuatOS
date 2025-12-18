@@ -255,6 +255,145 @@ function excamera.scan(ms)
     return true, data
 end
 
+-- 录像函数：使用指定摄像头录制视频并存入tf卡中
+-- 参数：
+--   file_path - 视频保存路径，如"/sd/video.mp4"
+--   duration - 录制时长，单位毫秒
+--   fps - 可选，帧率配置
+-- 返回值：成功返回(true, 保存路径)，失败返回false
+-- 注意：在使用此函数前，需要先使用excamera.open配置摄像头
+
+-- spi_id,pin_cs
+local function fatfs_spi_pin()
+    local rtos_bsp = rtos.bsp()
+    if rtos_bsp == "AIR101" then
+        return 0, pin.PB04
+    elseif rtos_bsp == "AIR103" then
+        return 0, pin.PB04
+    elseif rtos_bsp == "AIR105" then
+        return 2, pin.PB03
+    elseif rtos_bsp == "ESP32C3" then
+        return 2, 7
+    elseif rtos_bsp == "ESP32S3" then
+        return 2, 14
+    elseif rtos_bsp == "EC618" then
+        return 0, 8
+    elseif string.find(rtos_bsp,"EC718") then
+        return 0, 8
+    elseif string.find(rtos_bsp,"Air810") then
+        gpio.setup(13, 1, gpio.PULLUP)
+        gpio.setup(28, 1, gpio.PULLUP)
+        return 0, 3, fatfs.SDIO
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+-- TF卡挂载函数
+local function mount_tf_card()
+    -- 检查TF卡是否已经挂载
+    local result = io.open("/sd/test.txt", "w")
+    if result then
+        result:close()
+        os.remove("/sd/test.txt")
+        log.info("excamera.mount_tf_card", "TF卡已经挂载")
+        return true
+    end
+    
+    -- 尝试挂载TF卡
+    local spi_id, pin_cs, tp = fatfs_spi_pin()
+    if not spi_id then
+        log.error("excamera.mount_tf_card", "不支持的平台")
+        return false
+    end
+    
+    -- SPI模式需要初始化SPI总线
+    if tp and tp == fatfs.SPI then
+        spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
+        gpio.setup(pin_cs, 1)
+    end
+    
+    -- 挂载TF卡
+    local ret = fatfs.mount(tp or fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    if ret then
+        log.info("excamera.mount_tf_card", "TF卡挂载成功")
+        -- 检查空间
+        local free_info = fatfs.getfree("/sd")
+        if free_info then
+            log.info("excamera.mount_tf_card", "剩余空间:", free_info.free_kb/1024, "MB")
+        end
+        return true
+    else
+        log.error("excamera.mount_tf_card", "TF卡挂载失败")
+        return false
+    end
+end
+
+function excamera.video(file_path, duration, fps)
+
+    if not file_path or not duration then
+        log.error("excamera.video", "参数错误")
+        return false
+    end
+    
+    if not camera_id then
+        log.error("excamera.video", "摄像头未初始化")
+        return false
+    end
+    
+    -- 如果文件路径以/sd开头，确保TF卡已挂载
+    if string.sub(file_path, 1, 4) == "/sd/" then
+        if not mount_tf_card() then
+            log.error("excamera.video", "TF卡挂载失败，无法录制视频")
+            return false
+        end
+    end
+    
+    log.info("excamera.video", "开始录制视频到", file_path)
+    
+    -- 如果指定了帧率，则设置摄像头帧率
+    if fps and fps > 0 then
+        camera.config(camera_id, camera.CONF_UVC_FPS, fps)
+    end
+    
+    -- 打印内存信息
+    log.info("excamera.video", "lua内存:", rtos.meminfo())
+    log.info("excamera.video", "sys内存:", rtos.meminfo("sys"))
+    
+    -- 1. 启动摄像头
+    if camera.start(camera_id) then
+        -- 2. 开始MP4录制
+        if camera.capture(camera_id, file_path, 1) then
+            -- 3. 等待录制时长
+            sys.wait(duration)
+            
+            -- 4. 停止录制
+            camera.stop(camera_id)
+            
+            -- 5. 关闭摄像头，释放资源
+            camera.close(camera_id)
+            
+            -- 再次打印内存信息
+            log.info("excamera.video", "lua内存:", rtos.meminfo())
+            log.info("excamera.video", "sys内存:", rtos.meminfo("sys"))
+            
+            log.info("excamera.video", "视频录制完成", file_path)
+            return true, file_path
+        else
+            -- 录制启动失败，关闭摄像头
+            camera.stop(camera_id)
+            camera.close(camera_id)
+            log.error("excamera.video", "无法开始录制")
+            return false
+        end
+    else
+        log.error("excamera.video", "无法启动摄像头")
+        camera.close(camera_id)
+        return false
+    end
+end
+
 -- 关闭函数：释放摄像头资源
 -- 参数：camera_id - 摄像头ID
 function excamera.close()

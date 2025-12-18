@@ -249,4 +249,8 @@
 #define LUAT_UART_MAX_DEVICE_COUNT 128
 #define LUAT_USE_PSRAM 1
 
+#ifndef LUAT_USE_LWIP
+#undef LUAT_USE_MOBILE
+#endif
+
 #endif

@@ -125,9 +125,9 @@ void luat_meminfo_sys(size_t *total, size_t *used, size_t *max_used) {
 
 void luat_heap_opt_init(LUAT_HEAP_TYPE_E type){
     if (type == LUAT_HEAP_PSRAM && psram_ptr == NULL) {
-        psram_ptr = malloc(2*1024*1024);
+        psram_ptr = malloc(8*1024*1024);
         luat_bget_init(&psram_bget);
-        luat_bpool(&psram_bget, psram_ptr, 2*1024*1024);
+        luat_bpool(&psram_bget, psram_ptr, 8*1024*1024);
     }
     else if (type == LUAT_HEAP_SRAM && sram_ptr == NULL) {
         sram_ptr = malloc(1024*1024);

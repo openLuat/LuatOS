@@ -17,6 +17,7 @@
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
+#include "luat_netdrv_drv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_event.h"
 #include "net_lwip2.h"
@@ -658,13 +659,16 @@ static const rotable_Reg_t reg_netdrv[] =
 #endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
-    { "CH390",          ROREG_INT(1)},
-    { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
+    { "CH390",          ROREG_INT(LUAT_NETDRV_IMPL_CH390H)},
+    { "UART",           ROREG_INT(LUAT_NETDRV_IMPL_UART)}, // UART形式的网卡, 不带MAC, 直接IP包
     #ifdef LUAT_USE_NETDRV_WG
-    { "WG",             ROREG_INT(32)}, // Wireguard VPN网卡
+    { "WG",             ROREG_INT(LUAT_NETDRV_IMPL_WG)}, // Wireguard VPN网卡
     #endif
     //@const WHALE number 虚拟网卡
-    { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
+    { "WHALE",          ROREG_INT(LUAT_NETDRV_IMPL_WHALE)}, // 通用WHALE设备
+    #ifdef LUAT_USE_NETDRV_OPENVPN
+    { "OPENVPN",        ROREG_INT(LUAT_NETDRV_IMPL_OPENVPN)}, // OpenVPN虚拟网卡
+    #endif
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},

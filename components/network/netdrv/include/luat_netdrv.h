@@ -28,7 +28,7 @@ enum {
 
 enum {
     LUAT_NETDRV_CTRL_RESET,
-    LUAT_NETDRV_CTRL_DOWN,
+    LUAT_NETDRV_CTRL_UPDOWN,
 };
 
 typedef struct luat_netdrv_conf

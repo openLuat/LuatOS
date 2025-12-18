@@ -10,6 +10,7 @@
 #include "lwip/sys.h"
 #include "net_lwip2.h"
 #include "luat_malloc.h"
+#include "luat_crypto.h"
 #include "mbedtls/md.h"
 #include "mbedtls/ssl.h"
 #include "mbedtls/x509_crt.h"
@@ -624,7 +625,7 @@ static int ovpn_tls_get_delay(void *ctx) {
     return 0;
 }
 
-static int myrand( void *rng_state, unsigned char *output, size_t len ) {
+static int tls_myrand( void *rng_state, unsigned char *output, size_t len ) {
     (void)rng_state;
     luat_crypto_trng((char*)output, len);
     return 0;
@@ -660,7 +661,7 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, 
                                 NULL, 0, mbedtls_ctr_drbg_random, &cli->drbg);
 #else
-    ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, myrand, 0);
+    ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, tls_myrand, 0);
 #endif
     if (ret != 0) {
         return ret;

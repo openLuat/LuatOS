@@ -4,7 +4,9 @@
 #include "luat_str.h"
 #include "luat_mcu.h"
 #include "luat_crypto.h"
+#ifdef LUAT_USE_LWIP
 #include "lwip/ip_addr.h"
+#endif
 
 // #define LUAT_LOG_TAG "mobile"
 
@@ -151,10 +153,12 @@ int luat_mobile_get_flymode(int index)
 {
     return 0;
 }
+#ifdef LUAT_USE_LWIP
 int luat_mobile_get_local_ip(int sim_id, int cid, ip_addr_t *ip_v4, ip_addr_t *ip_v6)
 {
     return 0;
 }
+#endif
 int luat_mobile_get_cell_info(luat_mobile_cell_info_t  *info)
 {
     return 0;

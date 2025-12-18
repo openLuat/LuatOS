@@ -128,6 +128,4 @@ int luat_netdrv_napt_init_contexts(void);
 void luat_netdrv_napt_enable(int adapter_id);
 void luat_netdrv_napt_disable(void);
 
-#define NAPT_DEBUG 1
-
 #endif

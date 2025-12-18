@@ -199,14 +199,14 @@ static void ovpn_attach_netif(ovpn_client_t *cli) {
     }
     /* lwIP 2.0/2.1/2.2 compatibility: netif_add parameters */
 #if LWIP_VERSION_MAJOR >= 2 && LWIP_VERSION_MINOR >= 1
-    netif_add(&cli->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, cli, ovpn_netif_init, tcpip_input);
+    netif_add(&cli->netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, cli, ovpn_netif_init, netif_input);
 #else
     /* lwIP 2.0: netif_add accepts ip4_addr_t* type */
     ip4_addr_t ipaddr, netmask, gw;
     ip4_addr_set_zero(&ipaddr);
     ip4_addr_set_zero(&netmask);
     ip4_addr_set_zero(&gw);
-    netif_add(&cli->netif, &ipaddr, &netmask, &gw, cli, ovpn_netif_init, tcpip_input);
+    netif_add(&cli->netif, &ipaddr, &netmask, &gw, cli, ovpn_netif_init, netif_input);
 #endif
     netif_set_up(&cli->netif);
     netif_set_link_up(&cli->netif);
@@ -680,7 +680,7 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
         return ret;
     }
     mbedtls_ssl_conf_rng(&cli->conf, mbedtls_ctr_drbg_random, &cli->drbg);
-    mbedtls_ssl_conf_min_version(&cli->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
+    //mbedtls_ssl_conf_min_version(&cli->conf, MBEDTLS_SSL_MAJOR_VERSION_3, MBEDTLS_SSL_MINOR_VERSION_3);
 
     ret = mbedtls_ssl_setup(&cli->ssl, &cli->conf);
     if (ret != 0) {

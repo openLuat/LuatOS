@@ -31,9 +31,9 @@
 /*
 初始化指定netdrv设备
 @api netdrv.setup(id, tp, opts)
-@int 网络适配器编号, 例如 socket.LWIP_ETH
-@int 实现方式,如果是设备自带的硬件,那就不需要传, 外挂设备需要传,当前支持CH390H/D
-@int 外挂方式,需要额外的参数,参考示例
+@int 网络适配器编号, 例如 socket.LWIP_ETH, socket.LWIP_USER0
+@int 实现方式,如果是设备自带的硬件,那就不需要传, 外挂设备需要传,当前支持CH390H/D/OPENVPN等
+@table 外挂方式,需要额外的参数,参考示例
 @return boolean 初始化成功与否
 @usage
 -- Air8101初始化内部以太网控制器
@@ -112,6 +112,34 @@ static int l_netdrv_setup(lua_State *L) {
         lua_pop(L, 1);
         if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
             conf.wg_endpoint_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        #endif
+
+        #ifdef LUAT_USE_NETDRV_OPENVPN
+        // OpenVPN的配置参数
+        if (lua_getfield(L, 3, "ovpn_remote_ip") == LUA_TSTRING) {
+            conf.ovpn_remote_ip = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_remote_port") == LUA_TNUMBER) {
+            conf.ovpn_remote_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_ca_cert") == LUA_TSTRING) {
+            conf.ovpn_ca_cert = luaL_checklstring(L, -1, &conf.ovpn_ca_cert_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_client_cert") == LUA_TSTRING) {
+            conf.ovpn_client_cert = luaL_checklstring(L, -1, &conf.ovpn_client_cert_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_client_key") == LUA_TSTRING) {
+            conf.ovpn_client_key = luaL_checklstring(L, -1, &conf.ovpn_client_key_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_static_key") == LUA_TSTRING) {
+            conf.ovpn_static_key = (const uint8_t *)luaL_checklstring(L, -1, &conf.ovpn_static_key_len);
         };
         lua_pop(L, 1);
         #endif

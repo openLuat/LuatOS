@@ -5,6 +5,7 @@
 #include "luat_mcu.h"
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
+#include "luat_netdrv_drv.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -16,11 +17,6 @@
 static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 uint32_t g_netdrv_debug_enable;
-
-luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *conf);
 
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     int id = conf->id;

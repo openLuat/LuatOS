@@ -660,18 +660,26 @@
  *  #define LV_FONT_CUSTOM_DECLARE   LV_FONT_DECLARE(my_font_1) LV_FONT_DECLARE(my_font_2)
  *  @endcode
  */
-#define LV_FONT_CUSTOM_DECLARE
 
+#ifndef LV_FONT_CUSTOM_DECLARE
+    #define LV_FONT_CUSTOM_DECLARE
+#endif
 /** Always set a default font */
-#define LV_FONT_DEFAULT &lv_font_montserrat_14
+#ifndef LV_FONT_DEFAULT
+    #define LV_FONT_DEFAULT &lv_font_montserrat_14
+#endif
 
 /** Enable handling large font and/or fonts with a lot of characters.
  *  The limit depends on the font size, font face and bpp.
  *  A compiler error will be triggered if a font needs it. */
-#define LV_FONT_FMT_TXT_LARGE 0
+ #ifndef LV_FONT_FMT_TXT_LARGE
+    #define LV_FONT_FMT_TXT_LARGE 0
+ #endif
 
 /** Enables/disables support for compressed fonts. */
-#define LV_USE_FONT_COMPRESSED 0
+#ifndef LV_USE_FONT_COMPRESSED
+    #define LV_USE_FONT_COMPRESSED 0
+#endif
 
 /** Enable drawing placeholders when glyph dsc is not found. */
 #define LV_USE_FONT_PLACEHOLDER 1

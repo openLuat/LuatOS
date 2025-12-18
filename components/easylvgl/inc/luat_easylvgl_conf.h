@@ -21,19 +21,21 @@
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
     #define LV_USE_LOG 1
-    /** Set value to one of the following levels of logging detail:
-     *  - LV_LOG_LEVEL_TRACE    Log detailed information.
-     *  - LV_LOG_LEVEL_INFO     Log important events.
-     *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
-     *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
-     *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
-     *  - LV_LOG_LEVEL_NONE     Do not log anything. */
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    #define LV_MEM_SIZE (256 * 1024U)
-    
     // 打开png支持
     #define LV_USE_LODEPNG 1
+    #define LV_MEM_SIZE (256 * 1024U)
+
+    // 默认字体设置
+    #define LV_FONT_FMT_TXT_LARGE 1
+    #define LV_USE_FONT_COMPRESSED 1
+    #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_20) LV_FONT_DECLARE(lv_font_misans_14)
+    
+    // #define LV_FONT_DEFAULT &lv_font_misans_20
+    #define LV_FONT_DEFAULT &lv_font_misans_14
+
+
 
 #elif defined(__BK72XX__)
     /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */

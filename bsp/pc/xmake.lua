@@ -363,27 +363,15 @@ target("luatos-lua")
             -- 1. 公共头文件
             add_includedirs(luatos.."components/easylvgl/inc")
             
-            -- 2. 核心层（core）
-            add_includedirs(luatos.."components/easylvgl/src/core")
-            add_files(luatos.."components/easylvgl/src/core/*.c")
+            -- 2. 包含 src 目录下的所有文件（递归）
+            add_includedirs(luatos.."components/easylvgl/src")
+            add_files(luatos.."components/easylvgl/src/**/*.c")
             
-            -- 3. 组件基类（components/base）
-            add_includedirs(luatos.."components/easylvgl/src/components/base")
-            add_files(luatos.."components/easylvgl/src/components/base/*.c")
-            
-            -- 4. 组件实现（components/widgets）
-            add_includedirs(luatos.."components/easylvgl/src/components/widgets")
-            add_files(luatos.."components/easylvgl/src/components/widgets/*.c")
-            
-            -- 5. SDL 平台驱动（platform/sdl）
-            add_includedirs(luatos.."components/easylvgl/src/platform/sdl")
-            add_files(luatos.."components/easylvgl/src/platform/sdl/*.c")
-            
-            -- 6. Lua 绑定层（binding）
+            -- 3. Lua 绑定层（binding，不在 src 目录下，需单独处理）
             add_includedirs(luatos.."components/easylvgl/binding")
             add_files(luatos.."components/easylvgl/binding/*.c")
             
-            -- 7. 宏定义：启用 EasyLVGL 和 SDL2 平台
+            -- 4. 宏定义：启用 EasyLVGL 和 SDL2 平台
             add_defines("LUAT_USE_EASYLVGL=1")
             add_defines("LUAT_USE_EASYLVGL_SDL2=1")
         else

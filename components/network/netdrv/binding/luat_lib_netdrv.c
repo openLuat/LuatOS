@@ -700,8 +700,8 @@ static const rotable_Reg_t reg_netdrv[] =
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
-    //@const CTRL_DOWN number 控制类型-关闭CH390H通信并下电PHY，0重新启动，1关闭
-    { "CTRL_DOWN",      ROREG_INT(LUAT_NETDRV_CTRL_DOWN)},
+    //@const CTRL_UPDOWN number 控制类型-1=启动UP，0关闭DOWN
+    { "CTRL_UPDOWN",    ROREG_INT(LUAT_NETDRV_CTRL_UPDOWN)},
     //@const RESET_HARD number 请求对网卡硬复位,当前仅支持CH390H
     { "RESET_HARD",     ROREG_INT(0x101)},
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H

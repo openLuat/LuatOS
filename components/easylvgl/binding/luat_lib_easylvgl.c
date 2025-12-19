@@ -323,10 +323,18 @@ static int l_easylvgl_font_load(lua_State *L) {
         int antialias = luaL_optinteger(L, 5, -1);
         is_default = lua_toboolean(L, 6);
         font = easylvgl_font_hzfont_create(path, size, cache_size, antialias);
+        if (font == NULL) {
+            LLOGE("font_load: failed to create hzfont");
+            return 0;
+        }
     } else if (strcmp(type, "bin") == 0) {
         const char *path = luaL_checkstring(L, 2);
         is_default = lua_toboolean(L, 3);
         font = lv_binfont_create(path);
+        if (font == NULL) {
+            LLOGE("font_load: failed to create bin font");
+            return 0;
+        }
     } else {
         LLOGE("font_load: unsupported type %s", type);
         return 0;

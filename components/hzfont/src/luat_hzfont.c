@@ -627,6 +627,7 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
         if (load_to_psram) {
             ram_buf = (uint8_t *)luat_heap_malloc((size_t)hzfont_builtin_ttf_len);
             if (!ram_buf) {
+                LLOGE("load builtin ttf to ram failed");
                 rc = TTF_ERR_OOM;
             } else {
                 memcpy(ram_buf, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len);
@@ -636,6 +637,7 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
                     g_ft_ctx.font.ownsData = 1;
                     g_ft_ctx.font_path[0] = '\0';
                 } else {
+                    LLOGE("load builtin ttf to ram failed rc=%d", rc);
                     luat_heap_free(ram_buf);
                     ram_buf = NULL;
                 }

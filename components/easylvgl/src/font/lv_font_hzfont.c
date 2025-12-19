@@ -2,11 +2,15 @@
 
 #include "lvgl9/lvgl.h"
 #include "luat_base.h"
-#include "luat_hzfont.h"
-#include "ttf_parser.h"
 
 #define LUAT_LOG_TAG "easylvgl.hzfont"
 #include "luat_log.h"
+
+#ifdef LUAT_USE_HZFONT
+
+#include "luat_hzfont.h"
+#include "ttf_parser.h"
+
 
 /** 
  * HZFont 字体描述私有数据结构 
@@ -160,7 +164,8 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
 lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias) {
     // 1. 初始化底层引擎（单例模式）
     if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
-        if (!luat_hzfont_init(path, cache_size)) {
+        if (!luat_hzfont_init(path, cache_size, 1)) // 当前默认不将hzfont加载到psram中
+        {
             LLOGE("hzfont init failed: %s", path ? path : "builtin");
             return NULL;
         }
@@ -201,3 +206,20 @@ lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32
     font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
     return font;
 }
+
+#else
+
+static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * dsc_out, uint32_t letter, uint32_t letter_next) {
+    return false;
+}
+
+static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_draw_buf_t * draw_buf) {
+    return NULL;
+}
+
+lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias) {
+    LLOGW("该固件不支持HZFont字体");
+    return NULL;
+}
+
+#endif

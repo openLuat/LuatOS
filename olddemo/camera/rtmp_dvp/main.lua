@@ -1,5 +1,5 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "usb_cam_rtmp"
+PROJECT = "dvp_cam_rtmp"
 VERSION = "1.0.0"
 
 local fota_enable = false  -- 是否启用FOTA功能
@@ -8,18 +8,19 @@ if fota_enable then
     local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
 
     -- 使用合宙iot平台时需要这个参数  客户如果使用请记得修改成自己的项目key
-    PRODUCT_KEY = "8Ram1dVPp1QPfuaHoJ6xuk5qFrBxoNRu"        -- USB摄像头推流的项目KEY
+    PRODUCT_KEY = "6XtIwnc4GRfJtcgFQqtwn0U9XnERfAgR"        -- DVP摄像头推流的项目KEY
 
     libfota2 = require "libfota2"
 end
 
-local camera_id = camera.USB
+libfota2 = require "libfota2"
 
-local usb_camera_table = {
+local camera_id = camera.DVP
+
+local dvp_camera_table = {
     id = camera_id,
     sensor_width = 1280,
-    sensor_height = 720,
-    usb_port = 1
+    sensor_height = 720
 }
 
 local rtmpc = nil
@@ -101,15 +102,12 @@ sys.taskInit(function()
     camera.config(0, camera.CONF_H264_PFRAME_NUMS, 23)
     socket.sntp()
     sys.wait(200)
-    result = camera.init(usb_camera_table)
+    result = camera.init(dvp_camera_table)
     log.info("摄像头初始化", result)
     camera.start(camera_id)
 
     if not rtmpc then
-        -- rtmpc = rtmp.create("rtmp://192.168.1.10:1935/live/abc")
-        rtmpc = rtmp.create("rtmp://180.152.6.34:1935/stream1live/1ca786f5_23e5_4d89_8b1d_2eec6932775a_0001")
         -- rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址
-        -- rtmpc = rtmp.create("rtmp://180.152.6.34:1936/live/guangzhou")
     end
 
     rtmpc:setCallback(function(state, ...)

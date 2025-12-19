@@ -20,7 +20,7 @@ local home_page = {}
 -- 屏幕尺寸
 local width, height = lcd.getSize()
 
-local center_x = width / 2
+local center_x = math.floor(width / 2)
 
 -- 按钮区域定义
 local buttons = {

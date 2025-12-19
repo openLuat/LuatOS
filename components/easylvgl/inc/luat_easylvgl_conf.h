@@ -20,7 +20,7 @@
     /* SDL2 平台配置 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
-    #define LV_USE_LOG 1
+    #define LV_USE_LOG 0
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
     // 打开png支持
@@ -33,7 +33,7 @@
     #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_20) LV_FONT_DECLARE(lv_font_misans_14)
     
     // #define LV_FONT_DEFAULT &lv_font_misans_20
-    #define LV_FONT_DEFAULT &lv_font_misans_14
+    // #define LV_FONT_DEFAULT &lv_font_misans_14
 
 
 

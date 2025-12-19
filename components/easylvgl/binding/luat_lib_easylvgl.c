@@ -302,26 +302,29 @@ lv_obj_t *easylvgl_check_component(lua_State *L, int index, const char *mt) {
 
 /**
  * 加载字体
- * @api easylvgl.font_load(type, path, ...)
- * @string type 字体类型，"hzfont" 或 "bin"
- * @string path 字体路径，对于 "hzfont"，传 nil 则使用内置字库
- * @int size 可选，TTF 字体大小，默认 16
- * @int cache_size 可选，TTF 缓存数量，默认 256
- * @int antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
- * @bool is_default 可选，是否设置为全局默认字体
+ * @api easylvgl.font_load(config)
+ * @table config 配置表
+ * @string config.type 字体类型，"hzfont" 或 "bin"
+ * @string config.path 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+ * @int config.size 可选，TTF 字体大小，默认 16
+ * @int config.cache_size 可选，TTF 缓存数量，默认 256
+ * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
  * @return userdata 字体指针
  */
 static int l_easylvgl_font_load(lua_State *L) {
-    const char *type = luaL_checkstring(L, 1);
-    bool is_default = false;
+    luaL_checktype(L, 1, LUA_TTABLE);
+    const char *type = easylvgl_marshal_string(L, 1, "type", NULL);
+    if (type == NULL) {
+        luaL_error(L, "font_load: config.type is required");
+        return 0;
+    }
     lv_font_t *font = NULL;
 
     if (strcmp(type, "hzfont") == 0) {
-        const char *path = luaL_optstring(L, 2, NULL);
-        uint16_t size = luaL_optinteger(L, 3, 16);
-        uint32_t cache_size = luaL_optinteger(L, 4, 256);
-        int antialias = luaL_optinteger(L, 5, -1);
-        is_default = lua_toboolean(L, 6);
+        const char *path = easylvgl_marshal_string(L, 1, "path", NULL);
+        uint16_t size = easylvgl_marshal_integer(L, 1, "size", 16);
+        uint32_t cache_size = easylvgl_marshal_integer(L, 1, "cache_size", 256);
+        int antialias = easylvgl_marshal_integer(L, 1, "antialias", -1);
         font = easylvgl_font_hzfont_create(path, size, cache_size, antialias);
         if (font == NULL) {
             LLOGE("font_load: failed to create hzfont");
@@ -329,7 +332,6 @@ static int l_easylvgl_font_load(lua_State *L) {
         }
     } else if (strcmp(type, "bin") == 0) {
         const char *path = luaL_checkstring(L, 2);
-        is_default = lua_toboolean(L, 3);
         font = lv_binfont_create(path);
         if (font == NULL) {
             LLOGE("font_load: failed to create bin font");
@@ -345,7 +347,11 @@ static int l_easylvgl_font_load(lua_State *L) {
         lv_obj_set_style_text_font(lv_screen_active(), font, 0);
         lua_pushlightuserdata(L, font);
         return 1;
+    }else{
+        LLOGE("font_load: failed to create font");
+        return 0;
     }
+    
     return 0;
 }
 

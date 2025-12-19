@@ -1,7 +1,7 @@
 
 ## 演示功能概述
 
-使用Air780EGH开发板，本示例主要是展示exgnss库的三种应用模式，
+使用Air780EGH核心板，本示例主要是展示exgnss库的三种应用模式，
 
 exgnss.DEFAULT模式
 
@@ -25,15 +25,15 @@ exgnss.TIMER模式
 
 ## 演示硬件环境
 
-1、Air780EGH开发板一块
+1、Air780EGH核心板一块
 
 2、TYPE-C USB数据线一根
 
 3、gnss天线一根
 
-4、Air780EGH开发板和数据线的硬件接线方式为
+4、Air780EGH核心板和数据线的硬件接线方式为
 
-- Air780EGH开发板通过TYPE-C USB口供电；（整机开发板的拨钮开关拨到USB供电）
+- Air780EGH核心板通过TYPE-C USB口供电；
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
@@ -42,7 +42,7 @@ exgnss.TIMER模式
 
 1、Luatools下载调试工具
 
-2、[Air780EGH V2012版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
+2、[Air780GH V2018版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 ## 演示核心步骤
 

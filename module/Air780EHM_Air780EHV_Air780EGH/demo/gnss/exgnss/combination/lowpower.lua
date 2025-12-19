@@ -5,7 +5,7 @@
 @date    2025.07.27
 @author  李源龙
 @usage
-使用Air780EGH开发板，外接GPS天线，起一个60s定位一次的定时器，唤醒模块60s一定位，
+使用Air780EGH核心板，外接GPS天线，起一个60s定位一次的定时器，唤醒模块60s一定位，
 然后定位成功获取到经纬度发送到服务器上面，然后进入休眠
 ]]
 
@@ -17,7 +17,8 @@ local function lowpower_cb(tag)
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     local data=string.format('{"lat":%5f,"lng":%5f}', rmc.lat, rmc.lng)
     sys.publish("SEND_DATA_REQ", "gnsslowpower", data) --发送数据到服务器
-    pm.power(pm.WORK_MODE, 1)--进入低功耗模式
+    -- pm.power(pm.WORK_MODE, 1)--进入低功耗模式
+    -- pm.power(pm.WORK_MODE,1,1)--wifi进入低功耗模式
 end
 
 local function lower_open()
@@ -39,12 +40,12 @@ local function gnss_fnc()
         ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把auto_open设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
-        auto_open=false 
+        -- auto_open=false 
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
     exgnss.open(exgnss.TIMERORSUC,{tag="lowpower",val=60,cb=lowpower_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
     sys.timerLoopStart(lower_open,60000)       --每60s开启一次GNSS
-    -- gpio.close(23)--此脚为gnss备电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高10ua左右
+    -- gpio.close(24)--此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
     -- --关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
     pm.power(pm.USB, false)
 end

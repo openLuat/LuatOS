@@ -5,7 +5,7 @@
 @date    2025.07.27
 @author  李源龙
 @usage
-使用Air780EGH开发板，外接GPS天线，定位然后发送经纬度数据给服务器，
+使用Air8000整机开发板，外接GPS天线，定位然后发送经纬度数据给服务器，
 起一个60s定位一次的定时器，模块60s一定位，然后定位成功获取到经纬度发送到服务器上面
 ]]
 
@@ -26,7 +26,7 @@ local function gnss_fnc()
     log.info("gnss_fnc111")
     local gnssotps={
         gnssmode=1, --1为卫星全定位，2为单北斗
-        -- agps_enable=true,    --是否使用AGPS，开启AGPS后定位速度更快，会访问服务器下载星历，星历时效性为北斗1小时，GPS4小时，默认下载星历的时间为1小时，即一小时内只会下载一次
+        agps_enable=true,    --是否使用AGPS，开启AGPS后定位速度更快，会访问服务器下载星历，星历时效性为北斗1小时，GPS4小时，默认下载星历的时间为1小时，即一小时内只会下载一次
         -- debug=true,    --是否输出调试信息
         -- uart=2,    --使用的串口,780EGH和8000默认串口2
         -- uartbaud=115200,    --串口波特率，780EGH和8000默认115200
@@ -39,8 +39,8 @@ local function gnss_fnc()
         -- auto_open=false 
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
-    exgnss.open(exgnss.TIMERORSUC,{tag="normal",val=60,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
-    sys.timerLoopStart(normal_open,60000)       --每60s开启一次GNSS
+    exgnss.open(exgnss.TIMER,{tag="normal",val=30,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
+    -- sys.timerLoopStart(normal_open,60000)       --每60s开启一次GNSS
     
 end
 

@@ -27,7 +27,7 @@ PROJECT = "extalk"
 VERSION = "001.000.000"
 
 --到 iot.openluat.com 创建项目，获取正确的项目key
-PRODUCT_KEY =  "5544VIDOIHH9Nv8huYVyEIGT4tCvldxI"
+PRODUCT_KEY =  "123"
 
 --在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)

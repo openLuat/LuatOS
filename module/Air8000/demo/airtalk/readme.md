@@ -86,7 +86,7 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 ``` lua
  I/talk.lua:185 音频初始化成功
  I/talk.lua:193 extalk初始化成功
- I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"5544VIDOIHH9Nv8huYVyEIGT4tCvldxI","device_type":2}
+ I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"123","device_type":2}
  I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
  I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
  I/talk.lua:37 联系人列表更新:

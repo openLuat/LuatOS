@@ -80,7 +80,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 3、main.lua 中，修改 PRODUCT_KEY 。
  ``` lua
  --到 iot.openluat.com 创建项目，获取正确的项目key
- PRODUCT_KEY =  "5544VIDOIHH9Nv8huYVyEIGT4tCvldxI"
+ PRODUCT_KEY =  "123"
   ``` 
 
 4、talk.lua 中，修改目标设备终端ID。 
@@ -111,7 +111,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
  I/talk.lua:205 extalk初始化成功
  I/talk.lua:207 对讲系统准备就绪
 ……
- I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"5544VIDOIHH9Nv8huYVyEIGT4tCvldxI","device_type":1}
+ I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"123","device_type":1}
  I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容:  
  I/talk.lua:37 联系人列表更新:
  I/talk.lua:39   1. ID: 861556079986013, 名称: 

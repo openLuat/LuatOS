@@ -659,7 +659,7 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 }
 
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
-	LLOGI("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
+	LLOGD("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
 	http_ctrl->tcp_closed = 1;
 	if (http_ctrl->http_body_is_finally == 0) { // 当没有解析完成
@@ -1287,7 +1287,9 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method) {
 	const char *tmp = url;
-	if (strcmp("POST", method) != 0 && strcmp("GET", method) != 0 && strcmp("PUT", method) != 0){
+	if (strcmp("POST", method) != 0 && strcmp("GET", method) != 0 
+		&& strcmp("PUT", method) != 0 && strcmp("DELETE", method) != 0
+		&& strcmp("PATCH", method) != 0) {
 		LLOGE("NOT SUPPORT %s",method);
 		return -1;
 	}
@@ -1300,13 +1302,13 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
         tmp += strlen("http://");
     }
     else {
-        LLOGI("only http/https supported %s", url);
+        LLOGE("only http/https supported %s", url);
         return -1;
     }
 
 	size_t tmplen = strlen(tmp);
 	if (tmplen < 5) {
-        LLOGI("url too short %s", url);
+        LLOGE("url too short %s", url);
         return -1;
     }
 	#define HOST_MAX_LEN (256)
@@ -1317,7 +1319,7 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
     for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
 			if (i > 255) {
-				LLOGI("host too long %s", url);
+				LLOGE("host too long %s", url);
 				return -1;
 			}
             tmpuri = tmp + i;
@@ -1329,7 +1331,7 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
 		tmphost[i] = tmp[i];
     }
 	if (strlen(tmphost) < 1) {
-        LLOGI("host not found %s", url);
+        LLOGE("host not found %s", url);
         return -1;
     }
     if (strlen(tmpuri) == 0) {

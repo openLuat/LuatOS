@@ -7,10 +7,13 @@
 #include "luat_easylvgl_component.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "../../inc/luat_easylvgl_binding.h"
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/dropdown/lv_dropdown.h"
 #include "lvgl9/src/misc/lv_event.h"
 #include <string.h>
+
+#define EASYLVGL_MSGBOX_MT "easylvgl.msgbox"
 
 /**
  * 捕获配置表中的回调函数
@@ -238,7 +241,7 @@ void easylvgl_component_call_action_callback(
     lua_rawgeti(L_state, LUA_REGISTRYINDEX, callback_ref);
 
     if (lua_type(L_state, -1) == LUA_TFUNCTION) {
-        lua_pushlightuserdata(L_state, meta->obj);
+        easylvgl_push_component_userdata(L_state, meta->obj, EASYLVGL_MSGBOX_MT);
         lua_pushstring(L_state, action_text != NULL ? action_text : "");
 
         if (lua_pcall(L_state, 2, 0, 0) != LUA_OK) {

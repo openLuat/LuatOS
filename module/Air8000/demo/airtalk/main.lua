@@ -29,7 +29,7 @@ VERSION：项目版本号，ascii string类型
 
 PROJECT = "audio"
 VERSION = "1.0.0"
-PRODUCT_KEY =  "NrkXcjWwjcc5EFdCrrYnvypBCyJlEaIO"
+PRODUCT_KEY =  "123"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 

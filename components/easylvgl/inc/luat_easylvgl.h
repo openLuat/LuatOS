@@ -222,6 +222,16 @@ void *easylvgl_buffer_alloc(easylvgl_ctx_t *ctx, size_t size, easylvgl_buffer_ow
 void easylvgl_buffer_free_all(easylvgl_ctx_t *ctx);
 
 /**
+ * 创建 HZFont（TTF）字体，用于 EasyLVGL
+ * @param path TTF 文件路径，为 NULL 则使用内置字库
+ * @param size 字号
+ * @param cache_size 缓存容量
+ * @param antialias 抗锯齿等级
+ * @return lv_font_t 字体对象，失败返回 NULL
+ */
+lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias);
+
+/**
  * 设置显示缓冲
  * @param ctx 上下文指针
  * @param buf1 缓冲1指针

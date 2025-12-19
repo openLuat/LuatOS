@@ -32,6 +32,7 @@ static int l_easylvgl_deinit(lua_State *L);
 static int l_easylvgl_refresh(lua_State *L);
 static int l_easylvgl_indev_bind_touch(lua_State *L);
 static int l_easylvgl_keyboard_enable_system(lua_State *L);
+static int l_easylvgl_font_load(lua_State *L);
 
 // Button 模块声明
 extern void easylvgl_register_button_meta(lua_State *L);
@@ -71,10 +72,14 @@ extern int easylvgl_keyboard_create(lua_State *L);
 
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
+    // 基础设置
     {"init", ROREG_FUNC(l_easylvgl_init)},
     {"deinit", ROREG_FUNC(l_easylvgl_deinit)},
     {"refresh", ROREG_FUNC(l_easylvgl_refresh)},
     {"indev_bind_touch", ROREG_FUNC(l_easylvgl_indev_bind_touch)},
+    {"keyboard_enable_system", ROREG_FUNC(l_easylvgl_keyboard_enable_system)},
+    {"font_load", ROREG_FUNC(l_easylvgl_font_load)},
+    // 组件注册
     {"button", ROREG_FUNC(easylvgl_button_create)},
     {"label", ROREG_FUNC(easylvgl_label_create)},
     {"image", ROREG_FUNC(easylvgl_image_create)},
@@ -84,7 +89,6 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"msgbox", ROREG_FUNC(easylvgl_msgbox_create)},
     {"textarea", ROREG_FUNC(easylvgl_textarea_create)},
     {"keyboard", ROREG_FUNC(easylvgl_keyboard_create)},
-    {"keyboard_enable_system", ROREG_FUNC(l_easylvgl_keyboard_enable_system)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -294,5 +298,46 @@ lv_obj_t *easylvgl_check_component(lua_State *L, int index, const char *mt) {
         luaL_error(L, "invalid %s object", mt);
     }
     return ud->obj;
+}
+
+/**
+ * 加载字体
+ * @api easylvgl.font_load(type, path, ...)
+ * @string type 字体类型，"hzfont" 或 "bin"
+ * @string path 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+ * @int size 可选，TTF 字体大小，默认 16
+ * @int cache_size 可选，TTF 缓存数量，默认 256
+ * @int antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
+ * @bool is_default 可选，是否设置为全局默认字体
+ * @return userdata 字体指针
+ */
+static int l_easylvgl_font_load(lua_State *L) {
+    const char *type = luaL_checkstring(L, 1);
+    bool is_default = false;
+    lv_font_t *font = NULL;
+
+    if (strcmp(type, "hzfont") == 0) {
+        const char *path = luaL_optstring(L, 2, NULL);
+        uint16_t size = luaL_optinteger(L, 3, 16);
+        uint32_t cache_size = luaL_optinteger(L, 4, 256);
+        int antialias = luaL_optinteger(L, 5, -1);
+        is_default = lua_toboolean(L, 6);
+        font = easylvgl_font_hzfont_create(path, size, cache_size, antialias);
+    } else if (strcmp(type, "bin") == 0) {
+        const char *path = luaL_checkstring(L, 2);
+        is_default = lua_toboolean(L, 3);
+        font = lv_binfont_create(path);
+    } else {
+        LLOGE("font_load: unsupported type %s", type);
+        return 0;
+    }
+
+    if (font) {
+        // 设置为全局默认字体
+        lv_obj_set_style_text_font(lv_screen_active(), font, 0);
+        lua_pushlightuserdata(L, font);
+        return 1;
+    }
+    return 0;
 }
 

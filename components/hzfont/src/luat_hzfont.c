@@ -577,6 +577,64 @@ luat_hzfont_state_t luat_hzfont_get_state(void) {
     return g_ft_ctx.state;
 }
 
+/**
+ * 用于easylvgl，获取指定 glyph 的缓存位图（如不存在则实时渲染）
+ * @param glyph_index 目标 glyph 的索引
+ * @param font_size   渲染字号
+ * @param supersample 超采样等级（1/2/4）
+ * @return 指向缓存中的 TtfBitmap，失败返回 NULL
+ * @note 本函数内部会先查 Cache 结构，未命中时调 glyph 加载 + rasterize，
+ *       渲染完成后将结果插入缓存并返回；若缓存已满或渲染失败则返回 NULL。
+ */
+TtfFont * luat_hzfont_get_ttf(void) {
+    if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
+        return &g_ft_ctx.font;
+    }
+    return NULL;
+}
+
+/**
+ * 用于easylvgl，获取指定 glyph 的缓存位图（如不存在则实时渲染）
+ * @param glyph_index 目标 glyph 的索引
+ * @param font_size   渲染字号
+ * @param supersample 超采样等级（1/2/4）
+ * @return 指向缓存中的 TtfBitmap，失败返回 NULL
+ * @note 本函数内部会先查 Cache 结构，未命中时调 glyph 加载 + rasterize，
+ *       渲染完成后将结果插入缓存并返回；若缓存已满或渲染失败则返回 NULL。
+ */
+const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
+    if (g_ft_ctx.state != LUAT_HZFONT_STATE_READY) return NULL;
+    
+    hzfont_cache_entry_t *entry = hzfont_cache_get(glyph_index, font_size, supersample);
+    if (entry) {
+        return &entry->bitmap;
+    }
+    
+    // 如果未命中，尝试加载并渲染
+    TtfGlyph glyph;
+    if (ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph) != TTF_OK) {
+        return NULL;
+    }
+    
+    TtfBitmap bitmap;
+    memset(&bitmap, 0, sizeof(TtfBitmap));
+    if (ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &bitmap) != TTF_OK) {
+        ttf_free_glyph(&glyph);
+        return NULL;
+    }
+    ttf_free_glyph(&glyph);
+    
+    hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, font_size, supersample, &bitmap);
+    if (new_entry) {
+        return &new_entry->bitmap;
+    }
+    
+    // 插入失败（可能缓存已满且无法替换），则需要释放并返回 NULL，或者直接返回临时的？
+    // 实际上 hzfont_cache_insert 会处理淘汰
+    ttf_free_bitmap(&bitmap);
+    return NULL;
+}
+
 static uint32_t hzfont_glyph_estimate_width_px(const TtfGlyph *glyph, float scale) {
     if (!glyph || glyph->pointCount == 0 || glyph->contourCount == 0) {
         return 0;

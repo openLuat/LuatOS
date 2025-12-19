@@ -334,6 +334,10 @@ static int on_headers_complete(http_parser* parser){
 		}
 	#endif
 		http_ctrl->headers_complete = 1;
+		// 如果头部解析出content_length为0，直接标记body接收完成
+		if (http_ctrl->resp_content_len == 0){
+			http_ctrl->http_body_is_finally = 1;
+		}
 		luat_http_callback(http_ctrl);
 	} else {
 		if (http_ctrl->state != HTTP_STATE_GET_HEAD){
@@ -441,7 +445,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			http_cb(HTTP_STATE_GET_BODY, (void *)at, length, http_ctrl->http_cb_userdata);
 		}
 	}
-	if (http_ctrl->resp_content_len > 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
+	if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
 		http_ctrl->http_body_is_finally = 1;
 		LLOGD("http body recv done by content_length");
 		http_close_nw(http_ctrl);
@@ -661,7 +665,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 	if (http_ctrl->http_body_is_finally == 0) { // 当没有解析完成
 		// 存在多种可能性
 		// 1. 没有content_length的情况, 又没有chunked
-		if (http_ctrl->resp_content_len == 0 && http_ctrl->headers_complete) {
+		if (http_ctrl->resp_content_len >= 0 && http_ctrl->headers_complete) {
 			http_ctrl->http_body_is_finally = 1;
 		}
 	}

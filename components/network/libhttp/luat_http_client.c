@@ -110,6 +110,7 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 		luat_heap_free(http_ctrl->req_auth);
 		http_ctrl->req_auth = NULL;
 	}
+	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 	luat_heap_free(http_ctrl);
 	return 0;
 }

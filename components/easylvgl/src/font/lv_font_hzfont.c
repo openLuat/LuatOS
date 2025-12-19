@@ -164,7 +164,7 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
 lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias) {
     // 1. 初始化底层引擎（单例模式）
     if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
-        if (!luat_hzfont_init(path, cache_size, 1)) // 当前默认不将hzfont加载到psram中
+        if (!luat_hzfont_init(path, cache_size, 0)) // 当前默认不将hzfont加载到psram中，TODO:打开会在模拟器中有问题需要后续修复
         {
             LLOGE("hzfont init failed: %s", path ? path : "builtin");
             return NULL;
@@ -201,7 +201,7 @@ lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32
     font->get_glyph_bitmap = hzfont_get_glyph_bitmap;
     uint16_t ascent = hzfont_default_ascent(size);
     // 额外增加5像素行高，防止字体显示不全
-    const int extra_leading = 5;
+    const int extra_leading = 3;
     font->line_height = size + extra_leading;
     font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
     return font;

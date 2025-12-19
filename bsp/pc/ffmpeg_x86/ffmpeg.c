@@ -1,4 +1,5 @@
-﻿#include "ffmpeg.h"
+#include "ffmpeg.h"
+#include <libavutil/opt.h>
 
 #ifdef _WIN32
 // FFmpeg DLL句柄定义 (仅Windows)
@@ -202,7 +203,12 @@ int luat_ffmpeg_play_file(const char *path) {
 
     // 确保 channel_layout 已设置
     if (!codec_ctx->channel_layout) {
+#ifdef _WIN32
         codec_ctx->channel_layout = av_get_default_channel_layout(codec_ctx->channels);
+#else
+        if (codec_ctx->channels == 1) codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
+        else codec_ctx->channel_layout = AV_CH_LAYOUT_STEREO;
+#endif
     }
 
     // 打开解码器
@@ -217,15 +223,19 @@ int luat_ffmpeg_play_file(const char *path) {
     enum AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_S16;
     int out_sample_rate = 44100;
 
-    swr_ctx = swr_alloc_set_opts(NULL,
-                                  out_ch_layout, out_sample_fmt, out_sample_rate,
-                                  codec_ctx->channel_layout, codec_ctx->sample_fmt, codec_ctx->sample_rate,
-                                  0, NULL);
+    swr_ctx = swr_alloc();
     if (!swr_ctx) {
         avcodec_free_context(&codec_ctx);
         avformat_close_input(&fmt_ctx);
         return -1;
     }
+    
+    av_opt_set_int(swr_ctx, "in_channel_layout",    codec_ctx->channel_layout, 0);
+    av_opt_set_int(swr_ctx, "in_sample_rate",       codec_ctx->sample_rate, 0);
+    av_opt_set_sample_fmt(swr_ctx, "in_sample_fmt", codec_ctx->sample_fmt, 0);
+    av_opt_set_int(swr_ctx, "out_channel_layout",   out_ch_layout, 0);
+    av_opt_set_int(swr_ctx, "out_sample_rate",      out_sample_rate, 0);
+    av_opt_set_sample_fmt(swr_ctx, "out_sample_fmt", out_sample_fmt, 0);
 
     // 初始化重采样器
     if (swr_init(swr_ctx) < 0) {

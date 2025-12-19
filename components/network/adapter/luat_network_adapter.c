@@ -625,7 +625,7 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 		if (event->Param1)
 		{
 			//更新dns cache
-			ctrl->dns_ip = event->Param2;
+			ctrl->dns_ip = (luat_dns_ip_result *)event->Param2;
 			ctrl->dns_ip_nums = event->Param1;
 #ifdef LUAT_USE_LWIP
 			for(int i = 0; i < ctrl->dns_ip_nums; i++)

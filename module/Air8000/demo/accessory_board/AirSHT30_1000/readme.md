@@ -17,7 +17,7 @@ Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 ## 核心板+配件板资料
 
-[Air8000核心板](https://docs.openluat.com/air8000/product/shouce/#air8000_1)
+[Air8000核心板/Air8000开发板](https://docs.openluat.com/air8000/product/shouce/#air8000_1)
 
 [AirSHT30_1000配件板相关资料](https://docs.openluat.com/accessory/AirSHT30_1000/)
 
@@ -26,13 +26,17 @@ Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 ![](https://docs.openluat.com/accessory/AirSHT30_1000/image/connect_8000.jpg)
 
+![](https://docs.openluat.com/accessory/AirSHT30_1000/image/connect_8000_board.jpg)
+
 ![](https://docs.openluat.com/accessory/AirSHT30_1000/image/8000.png)
 
-1、Air8000核心板
+1、Air8000核心板 或 Air8000开发板
 
 2、AirSHT30_1000配件板
 
 3、母对母的杜邦线4根
+
+Air8000核心板与AirSHT30_1000配件板连接方式如下：
 
 | Air8000核心板 | AirSHT30_1000配件板|
 | ------------ | ------------------ |
@@ -41,6 +45,14 @@ Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 | I2C1_SDA  |         SDA        |
 | I2C1_SCL |         SCL        |
 
+Air8000开发板与AirSHT30_1000配件板连接方式如下：
+
+| Air8000开发板 | AirSHT30_1000配件板 |  稳压电源  |
+|  -----------  | ------------------ | ----------- |
+|      不接     |         3V3        |     3V3     |
+|      不接     |         GND        |     GND     |
+|   I2C0_SDA    |         SDA        |     不接     |
+|   I2C0_SCL    |         SCL        |     不接     |
 
 ## 演示软件环境
 
@@ -53,7 +65,9 @@ Air8000核心板+AirSHT30_1000配件板，每隔1秒读取1次温湿度数据；
 
 1、搭建好演示硬件环境
 
-2、不需要修改demo脚本代码
+2、使用Air8000核心板不需要修改demo脚本代码
+
+3、使用Air8000开发板，需要在`sht30_app.lua`中将`air_sht30.open(0)`和`gpio.setup(164, 1, gpio.PULLUP)`打开，同时屏蔽掉`air_sht30.open(1)`
 
 3、Luatools烧录内核固件和demo脚本代码
 

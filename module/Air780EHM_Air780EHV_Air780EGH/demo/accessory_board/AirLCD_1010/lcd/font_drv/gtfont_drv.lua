@@ -12,9 +12,9 @@
 
 
 说明：
-1、gtfont核心库演示demo，是使用gtfont核心库来驱动合宙AirFONT_1000矢量字库小板
+1、gtfont核心库演示demo，是使用gtfont核心库来驱动合宙AirFONTS_1000矢量字库小板
 2、在主程序mian.lua中require "gtfont_drv"即可执行加载本demo内的演示代码
-3、通过使用gtfont_drv.init()对合宙AirFONT_1000矢量字库小板进行初始化
+3、通过使用gtfont_drv.init()对合宙AirFONTS_1000矢量字库小板进行初始化
 4、通过使用 lcd.drawGtfontUtf8Gray(str,size,gray,x,y)接口在lcd屏幕上灰度显示 UTF8 字符串，支持10-192号字体
 ]]
 

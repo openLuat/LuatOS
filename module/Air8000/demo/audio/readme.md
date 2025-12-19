@@ -49,7 +49,7 @@
 ## 演示硬件环境
 1、Air8000开发板一块+喇叭
 
-![]( https://docs.openLuat.com/cdn//image/Air8000%E5%BC%80%E5%8F%91%E6%9D%BF.jpg)
+![alt text](https://docs.openLuat.com/cdn/image/Air8000%E5%BC%80%E5%8F%91%E6%9D%BF.jpg )
 
 或者Air8000核心板+AirAUDIO_1010 音频配件板+喇叭
 
@@ -74,14 +74,14 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 2、TYPE-C USB数据线一根
 - Air8000开发板/核心板通过 TYPE-C USB 口供电；
-- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
+- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
-1、Luatools下载调试工具
+1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、[Air8000 V2016版本固件](https://cdn6.vue2.cn/Luat_tool_src/v2tools/LuatOS_Air8000/LuatOS-SoC_V2016_Air8000.zip)（理论上，2025年7月26日之后发布的固件都可以），选择支持TTS功能的1、3、5、7、13或101、103、105、107、113号固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
+2、Air8000 V2018版本固件，选择支持TTS功能的固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
 
 3、 luatos需要的脚本和资源文件
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/audio)

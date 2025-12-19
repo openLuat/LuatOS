@@ -34,10 +34,9 @@ end)
 #ifndef LUAT_HTTP_DEBUG
 #define LUAT_HTTP_DEBUG 0
 #endif
-#if LUAT_HTTP_DEBUG == 0
 #undef LLOGD
-#define LLOGD(...)
-#endif
+#define LLOGD(...) if (http_ctrl->debug_onoff) LLOGI(__VA_ARGS__)
+
 
 int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
@@ -393,12 +392,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 	uint64_t idp = http_ctrl->idp;
-	if (http_ctrl->timeout_timer){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
-		luat_release_rtos_timer(http_ctrl->timeout_timer);
-		http_ctrl->timeout_timer = NULL;
-	}
-	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
+	LLOGI("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		if (msg->arg1 == HTTP_CALLBACK){
 			lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
@@ -478,10 +472,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 exit:
 	if (http_ctrl->http_cb){
 		luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
-		http_ctrl->http_cb = 0;
+		http_ctrl->http_cb = NULL;
 		if (http_ctrl->http_cb_userdata){
 			luaL_unref(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb_userdata);
-			http_ctrl->http_cb_userdata = 0;
+			http_ctrl->http_cb_userdata = NULL;
 		}
 	}
 	http_close(http_ctrl);
@@ -489,8 +483,11 @@ exit:
 }
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
-	// network_close(http_ctrl->netc, 0);
+	LLOGD("luat_http_client_onevent %p %d", http_ctrl, error_code);
 	if (!http_ctrl->luatos_mode) return;
+	if (http_ctrl->timeout_timer && error_code != HTTP_CALLBACK){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+	}
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;

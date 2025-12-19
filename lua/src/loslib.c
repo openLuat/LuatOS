@@ -215,12 +215,18 @@ static int os_getenv (lua_State *L) {
 #endif
 
 static int os_clock (lua_State *L) {
-  #ifdef LUAT_USE_MCU
-  extern uint64_t luat_mcu_tick64(void);
-  lua_pushinteger(L, (lua_Integer)luat_mcu_tick64());
-  #else
+#ifdef LUAT_USE_MCU
+#ifdef LUAT_CONF_VM_64bit
+  extern uint64_t luat_mcu_tick64_ms(void);
+  lua_pushinteger(L, (lua_Integer)luat_mcu_tick64_ms()/1000);
+#else
+  extern long luat_mcu_ticks(void);
+  extern uint32_t luat_mcu_hz(void);
+  lua_pushinteger(L, (lua_Integer)luat_mcu_ticks()/luat_mcu_hz());
+#endif // LUAT_CONF_VM_64bit
+#else
   lua_pushinteger(L, 0);
-  #endif
+#endif
   return 1;
 }
 

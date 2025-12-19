@@ -8,6 +8,9 @@
 #include "luat_msgbus.h"
 #include "luat_luadb2.h"
 
+#include <stdlib.h>
+#include <string.h>//add for memset
+
 #define LUAT_LOG_TAG "luadb2"
 #include "luat_log.h"
 
@@ -16,7 +19,7 @@ int luat_luadb2_init(luat_luadb2_ctx_t* ctx) {
     if (ctx->dataptr) {
         return 0;
     }
-    ctx->dataptr = luat_heap_malloc(1024);
+    ctx->dataptr = malloc(1024);
     ctx->size = 1024;
     ctx->offset = 0;
 	char *tmp = ctx->dataptr;
@@ -72,7 +75,7 @@ int luat_luadb2_write(luat_luadb2_ctx_t* ctx, const char* name, const char* data
         return -1;
     }
     size_t offset = ctx->offset;
-	char *tmp = luat_heap_realloc(ctx->dataptr, offset + len + 512);
+	char *tmp = realloc(ctx->dataptr, offset + len + 512);
 	if (tmp == NULL)
 	{
         LLOGE("内存不足, 无法新增文件");

@@ -6,7 +6,7 @@
 @date    2025.11.20
 @author  江访
 @usage
-核心业务逻辑为：
+本文件为触摸系统拓展库，核心业务逻辑为：
 1、初始化触摸设备，支持多种触摸芯片
 2、处理原始触摸数据并解析为各种手势事件
 3、通过统一消息接口发布触摸事件
@@ -14,31 +14,15 @@
 5、提供滑动和长按阈值配置功能
 
 支持的触摸事件类型包括：
-1、RAW_DATA - 原始触摸数据
-2、TOUCH_DOWN - 按下事件
-3、MOVE_X - 水平移动
-4、MOVE_Y - 垂直移动
-5、SWIPE_LEFT - 向左滑动
-6、SWIPE_RIGHT - 向右滑动
-7、SWIPE_UP - 向上滑动
-8、SWIPE_DOWN - 向下滑动
-9、SINGLE_TAP - 单击
-10、LONG_PRESS - 长按
-
-触摸判断逻辑：
-1、按下至抬手只能触发事件5-10中的一个事件
-2、移动像素超过滑动判定阈值，
-   如果触发的是水平移动MOVE_X，抬手只会返回SWIPE_LEFT和SWIPE_RIGHT事件，
-   如果触发的是垂直移动MOVE_Y，抬手只会返回SWIPE_UP和SWIPE_DOWN事件，
-3、按下至抬手像素移动超过滑动判定阈值，
-   如果时间小于500ms判定为单击，按下至抬手的时间大于500ms判定为长按
+RAW_DATA、TOUCH_DOWN、MOVE_X、MOVE_Y、SWIPE_LEFT、SWIPE_RIGHT、
+SWIPE_UP、SWIPE_DOWN、SINGLE_TAP、LONG_PRESS
 
 本文件的对外接口有5个：
-1、extp.init(param)                      -- 触摸设备初始化函数
-2、extp.set_publish_enabled(msg_type, enabled) -- 设置消息发布状态
-3、extp.get_publish_enable(msg_type)          -- 获取消息发布状态
-4、extp.set_swipe_threshold(threshold)         -- 设置滑动判定阈值
-5、extp.set_long_press_threshold(threshold)     -- 设置长按判定阈值
+1、extp.init(param)：触摸设备初始化函数
+2、extp.set_publish_enabled(msg_type, enabled)：设置消息发布状态
+3、extp.get_publish_enable(msg_type)：获取消息发布状态
+4、extp.set_swipe_threshold(threshold)：设置滑动判定阈值
+5、extp.set_long_press_threshold(threshold)：设置长按判定阈值
 
 所有触摸事件均通过sys.publish("BASE_TOUCH_EVENT", event_type, ...)发布
 ]]
@@ -99,10 +83,19 @@ local special_tp_configs = {
     }
 }
 
--- 设置消息发布状态
--- @param msg_type 消息类型 ("RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS", 或 "ALL")
--- @param enabled 是否启用 (true/false)
--- @return boolean 操作是否成功
+--[[
+设置消息发布状态
+@api extp.set_publish_enabled(msg_type, enabled)
+@string msg_type 消息类型，支持"ALL"或具体事件类型
+@bool enabled 是否启用发布
+@return bool 操作成功返回true，失败返回false
+@usage
+-- 启用单击事件
+extp.set_publish_enabled("SINGLE_TAP", true)
+
+-- 禁用所有消息发布
+extp.set_publish_enabled("ALL", false)
+]]
 function extp.set_publish_enabled(msg_type, enabled)
     if msg_type == "ALL" then
         for k, _ in pairs(publish_control) do
@@ -120,9 +113,18 @@ function extp.set_publish_enabled(msg_type, enabled)
     end
 end
 
--- 获取消息发布状态
--- @param msg_type 消息类型 ("ALL", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
--- @return boolean|table 发布状态 (true/false) 或所有状态表（当msg_type为"ALL"时）
+--[[
+获取消息发布状态
+@api extp.get_publish_enable(msg_type)
+@string msg_type 消息类型，"ALL"或具体事件类型
+@return bool|table 发布状态或所有状态表
+@usage
+-- 获取单击事件状态
+local enabled = extp.get_publish_enable("SINGLE_TAP")
+
+-- 获取所有状态
+local all_status = extp.get_publish_enable("ALL")
+]]
 function extp.get_publish_enable(msg_type)
     if msg_type == "ALL" then
         -- 返回完整的发布控制表
@@ -135,9 +137,15 @@ function extp.get_publish_enable(msg_type)
     end
 end
 
--- 设置滑动判定阈值
--- @param threshold number 滑动判定阈值（像素）
--- @return boolean 操作是否成功
+--[[
+设置滑动判定阈值
+@api extp.set_swipe_threshold(threshold)
+@number threshold 滑动判定阈值（像素）
+@return bool 设置成功返回true，失败返回false
+@usage
+-- 设置滑动阈值为50像素
+extp.set_swipe_threshold(50)
+]]
 function extp.set_swipe_threshold(threshold)
     if type(threshold) == "number" and threshold > 0 then
         swipe_threshold = threshold
@@ -149,9 +157,15 @@ function extp.set_swipe_threshold(threshold)
     end
 end
 
--- 设置长按判定阈值
--- @param threshold number 长按判定阈值（毫秒）
--- @return boolean 操作是否成功
+--[[
+设置长按判定阈值
+@api extp.set_long_press_threshold(threshold)
+@number threshold 长按判定阈值（毫秒）
+@return bool 设置成功返回true，失败返回false
+@usage
+-- 设置长按阈值为800毫秒
+extp.set_long_press_threshold(800)
+]]
 function extp.set_long_press_threshold(threshold)
     if type(threshold) == "number" and threshold > 0 then
         long_press_threshold = threshold
@@ -272,15 +286,33 @@ local function tp_callback(tp_device, tp_data)
     end
 end
 
--- 初始化触摸功能
--- @param param table 初始化参数表，包含以下字段：
---   tp_model: string 触摸芯片型号 ("gt911"、"cst820"、"gt9157"、"jd9261t"、"AirLCD_1010", "AirLCD_1020", "Air780EHM_LCD_4")
---   i2c_id: number I2C总线ID
---   pin_rst: number 复位引脚
---   pin_int: number 中断引脚
---   w: number 可选，屏幕宽度
---   h: number 可选，屏幕高度
--- @return boolean 初始化是否成功
+--[[
+初始化触摸设备
+@api extp.init(param)
+@table param 触摸芯片配置参数，参考库的说明及demo用法
+@return bool 初始化成功返回true，失败返回false
+@usage
+-- 基础触摸初始化
+extp.init({
+    tp_model = "gt911",
+    i2c_id = 0,
+    pin_rst = 20,
+    pin_int = 21
+})
+
+-- 使用预定义配置
+extp.init({tp_model = "AirLCD_1010"})
+
+-- 带屏幕尺寸的初始化
+extp.init({
+    tp_model = "gt911", 
+    i2c_id = 0,
+    pin_rst = 20,
+    pin_int = 21,
+    w = 480,
+    h = 320
+})
+]]
 function extp.init(param)
     if type(param) ~= "table" then
         log.error("extp", "参数必须为表")

@@ -4,7 +4,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2011"
+#define LUAT_BSP_VERSION "V2012"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -142,9 +142,9 @@
 #define LUAT_USE_LCD
 #define LUAT_USE_TJPGD
 // GT 字库：PC 模拟器仿真启用
-// #define LUAT_USE_GTFONT 1
+#define LUAT_USE_GTFONT 1
 // 若需要直接绘制 UTF8 字符串（lcd/u8g2 的 UTF8 接口），启用
-// #define LUAT_USE_GTFONT_UTF8 1
+#define LUAT_USE_GTFONT_UTF8 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1

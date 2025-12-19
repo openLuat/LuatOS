@@ -6,7 +6,11 @@
 
 3、iperf_client.lua：iperf客户端模块，引用网络初始化模块并连接到服务器进行测试；
 
-4、netdrv_eth_spi.lua：网络初始化模块，负责CH390网卡的初始化、SPI配置和DHCP获取；
+4、netdrv_device：配置连接外网使用的网卡，目前支持以下两种选择（二选一）
+
+   (1) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+
+   (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 ## 演示功能概述
 
@@ -38,20 +42,35 @@
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-5、AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+5、AirETH_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
 
-Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；
-如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
+| Air8101核心板 | AirPHY_1000配件板 |
+| ------------- | ----------------- |
+| 59/3V3        | 3.3v              |
+| gnd           | gnd               |
+| 5/D2          | RX1               |
+| 72/D1         | RX0               |
+| 71/D3         | CRS               |
+| 4/D0          | MDIO              |
+| 6/D4          | TX0               |
+| 74/PCK        | MDC               |
+| 70/D5         | TX1               |
+| 7/D6          | TXEN              |
+| 不接          | NC                |
+| 69/D7         | CLK               |
 
-| Air8101核心板    | AirETH_1000配件板  |
-| --------------- | ----------------- |
-| 59/3V3          | 3.3v              |
-| gnd             | gnd               |
-| 28/DCLK         | SCK               |
-| 54/DISP         | CSS               |
-| 55/HSYN         | SDO               |
-| 57/DE           | SDI               |
-| 14/GPIO8        | INT               |
+6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+
+| Air8101核心板 | AirETH_1000配件板 |
+| ------------- | ----------------- |
+| 59/3V3        | 3.3v              |
+| gnd           | gnd               |
+| 28/DCLK       | SCK               |
+| 54/DISP       | CSS               |
+| 55/HSYN       | SDO               |
+| 57/DE         | SDI               |
+| 14/GPIO8      | INT               |
+
 
 ## 演示软件环境
 

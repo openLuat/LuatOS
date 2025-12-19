@@ -25,17 +25,12 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
     uint16_t crc16_data = 0;
     if (len < 12)
     {
+        LLOGD("数据长度异常 %d", len);
         return NULL;
     }
     airlink_link_data_t *link = NULL;
 
-    // bk那边接收到的老是得开头多加个0x00, 接收数据才能正常, 判断忽略一下第一个字节
-    size_t start_pos = 0;
-    if (buff[0] == 0x00)
-    {
-        start_pos = 1;
-    }
-    for (size_t i = start_pos; i < len - 12; i++)
+    for (size_t i = 0; i < len - 12; i++)
     {
         // magic = 0xA1B1CA66
         if (buff[i] == 0xA1 && buff[i + 1] == 0xB1 && buff[i + 2] == 0xCA && buff[i + 3] == 0x66)
@@ -56,12 +51,13 @@ __AIRLINK_CODE_IN_RAM__ airlink_link_data_t* luat_airlink_data_unpack(uint8_t *b
                 else
                 {
                     LLOGD("crc16校验失败 %d %d", crc16_data, crc16);
-                    link = NULL;
+                    return NULL;
                 }
             }
             else
             {
                 LLOGD("数据长度错误 %d %d", tlen, len);
+                return NULL;
             }
         }
     }

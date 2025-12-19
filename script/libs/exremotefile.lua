@@ -120,6 +120,8 @@ local function init_sdcard(sdcard_opts)
         -- 挂载SD卡到文件系统，指定挂载点为"/sd"
         mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
     else
+        -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
+        gpio.setup(13, 1)
         mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     end
     log.info("SDCARD", "挂载SD卡结果:", mount_result)
@@ -393,6 +395,210 @@ local function string_starts_with(str, prefix)
     return string.sub(str, 1, string.len(prefix)) == prefix
 end
 
+-- 解析文件上传数据
+local function parse_multipart_data(body, boundary)
+    log.info("UPLOAD", "开始解析数据，body大小: " .. #body .. " 字节")
+    
+    local result = {}
+    local parts = {}
+    local boundary_pattern = "--" .. boundary
+    
+    -- 开始解析
+    if #body > 0 then
+        log.info("UPLOAD", "使用简化解析方法处理上传数据")
+        
+        -- 首先尝试从body中提取文件名
+        local filename_match = string.match(body, 'filename="([^"]+)"')
+        if filename_match then
+            result.filename = filename_match
+            log.info("UPLOAD", "成功提取文件名: " .. filename_match)
+        end
+        
+        -- 查找内容开始位置
+        local content_start = string.find(body, "\r\n\r\n")
+        if content_start then
+            -- 提取内容部分
+            local content = string.sub(body, content_start + 4)
+            
+            -- 移除末尾可能的boundary
+            local end_pos = string.find(content, "\r\n--" .. boundary, 1, true)
+            if end_pos then
+                content = string.sub(content, 1, end_pos - 1)
+            end
+            
+            -- 清理内容
+            content = string.gsub(content, "\r\n$", "")
+            content = string.gsub(content, "\n$", "")
+            
+            if #content > 0 then
+                result.content = content
+                result.size = #content
+                log.info("UPLOAD", "解析成功，获取内容大小: " .. #content .. " 字节")
+            end
+        end
+    end
+    
+    log.info("UPLOAD", "multipart数据解析完成，" .. (result.content and (result.filename and "成功获取文件: " .. result.filename or "成功获取文件内容") or "未找到有效文件内容"))
+    return result
+end
+
+-- 写入文件，支持分包写入
+local function write_file_with_chunks(file_path, content)
+    -- 检查路径前缀
+    local storage_type = "内存"  -- 默认内存存储
+    if string.sub(file_path, 1, 4) == "/sd/" then
+        storage_type = "sdcard"
+        -- 获取SD卡可用空间
+        local data, err = fatfs.getfree("/sd")
+        if not data then
+            log.error("UPLOAD", "SD卡未挂载或不可用")
+            return false, "SD卡未挂载或不可用"
+        end
+        
+        -- 设置为sd卡可用空闲内存空间
+        local free_space = tonumber(data.free_kb)
+        
+        -- 如果无法获取有效空间值，设置默认值以跳过空间检查
+        if not free_space or free_space <= 0 then
+            log.warn("UPLOAD", "无法获取准确的SD卡可用空间，跳过空间检查")
+            free_space = #content + 1
+        end
+        
+        -- 确保free_space是数字类型
+        if type(free_space) ~= "number" then
+            log.error("UPLOAD", "无法获取有效的SD卡空间大小")
+            -- 这里可以选择跳过空间检查继续执行，或者返回错误
+            -- 为了避免崩溃，我们跳过空间检查
+        else
+            -- 检查SD卡空间是否足够
+            if free_space < #content then
+                log.error("UPLOAD", "SD卡空间不足，需要 " .. #content .. " 字节，可用 " .. free_space .. " 字节")
+                return false, "SD卡空间不足"
+            end
+        end
+    end
+    
+    log.info("UPLOAD", "开始写入文件到" .. storage_type .. ": " .. file_path)
+
+    -- 保留完整路径，不要只提取文件名
+    -- 只有当路径不是绝对路径（不以/开头）时才需要特殊处理
+    if not file_path:match("^/") then
+        -- 如果不是绝对路径，可能需要获取文件名，但保留相对路径
+        local filename = file_path:match("[^/]+$")
+        -- 保持原始路径不变，确保写入到正确位置
+        log.info("UPLOAD", "使用相对路径: " .. file_path)
+    end
+    
+    -- 根据目标存储类型调整分块大小
+    local chunk_size
+    if storage_type == "sdcard" then
+        -- SD卡写入使用较大分块以提高性能
+        chunk_size = 32 * 1024  -- 32KB
+    else
+        -- 内存写入使用较小分块以避免内存峰值
+        chunk_size = 16 * 1024  -- 16KB
+    end
+    
+    -- 安全地打开文件进行写入，使用更健壮的错误处理
+    local file, err
+    
+    -- 尝试不同的文件打开模式
+    local modes = {"wb", "w"}
+    
+    for _, mode in ipairs(modes) do
+        -- 先尝试删除可能存在的同名文件（忽略错误）
+        pcall(os.remove, file_path)
+        
+        file, err = io.open(file_path, mode)
+        if file then
+            log.info("UPLOAD", "成功以模式" .. mode .. "打开文件: " .. file_path)
+            break
+        else
+            log.warn("UPLOAD", "无法以模式" .. mode .. "打开文件: " .. file_path .. ", 错误: " .. (err or "未知错误"))
+        end
+    end
+    
+    if not file then
+        -- 尝试提取原始文件名，确保使用原始名称
+        local original_filename = file_path:match("([^/]+)$") or "upload_file"
+        
+        -- 对于内存存储
+        if storage_type == "内存" then
+            log.info("UPLOAD", "尝试使用根目录路径: /" .. original_filename)
+            file, err = io.open("/" .. original_filename, "w")
+            if file then
+                file_path = "/" .. original_filename
+            else
+                -- 如果web还是不能显示，使用随机临时文件名
+                -- 先使用原始文件名，不添加时间戳和随机数
+                local simple_filename = original_filename
+                log.info("UPLOAD", "尝试使用原始文件名: " .. simple_filename)
+                file, err = io.open(simple_filename, "w")
+                if not file then
+                    -- 添加时间戳方式显示文件名，排除因为文件名导致的无法显示
+                    simple_filename = original_filename .. "_" .. os.time()
+                    log.info("UPLOAD", "尝试使用带时间戳的文件名: " .. simple_filename)
+                    file, err = io.open(simple_filename, "w")
+                    file_path = simple_filename
+                else
+                    file_path = simple_filename
+                end
+            end
+        else
+            -- SD卡存储时的处理
+            log.info("UPLOAD", "尝试使用文件名: " .. original_filename)
+            file, err = io.open(original_filename, "w")
+            file_path = original_filename
+        end
+    end
+    
+    if not file then
+        log.error("UPLOAD", "最终无法创建文件: " .. file_path .. ", 错误: " .. (err or "未知错误"))
+        return false, "无法创建文件: " .. (err or "未知错误")
+    end
+    
+    -- 使用分块写入
+    local total_size = #content
+    local pos = 1
+    local chunks_written = 0
+    
+    -- 优化文件写入过程
+    while pos <= total_size do
+        local chunk_end = math.min(pos + chunk_size - 1, total_size)
+        local chunk = string.sub(content, pos, chunk_end)
+        local chunk_len = #chunk
+        
+        local success, write_err = file:write(chunk)
+        if not success then
+            file:close()
+            log.error("UPLOAD", "写入文件失败(块" .. chunks_written .. "): " .. file_path .. ", 错误: " .. (write_err or "未知错误"))
+            return false, "写入文件失败: " .. (write_err or "未知错误")
+        end
+        
+        -- 在SD卡写入时，每写入一个块就刷新缓冲区，避免数据丢失
+        if storage_type == "sdcard" then
+            file:flush()
+        end
+        
+        chunks_written = chunks_written + 1
+        pos = pos + chunk_size
+    end
+    
+    -- 确保所有数据都写入存储介质
+    file:flush()
+    file:close()
+    
+    -- 验证写入是否成功（尝试读取文件大小）
+    local file_info = get_file_info(file_path)
+    if file_info and file_info.size == total_size then
+        log.info("UPLOAD", "文件写入成功(" .. chunks_written .. "块): " .. file_path .. ", 大小: " .. total_size .. " 字节, 存储类型: " .. storage_type)
+        return true, nil, file_path  -- 返回实际使用的文件路径
+    else
+        log.warn("UPLOAD", "文件写入可能不完整: " .. file_path .. ", 期望大小: " .. total_size .. ", 实际大小: " .. (file_info and file_info.size or "未知"))
+        return true, "文件写入可能不完整", file_path  -- 返回实际使用的文件路径
+    end
+end
+
 -- server请求处理
 local function handle_http_request(fd, method, uri, headers, body)
     log.info("HTTP", method, uri)
@@ -640,8 +846,15 @@ local function handle_http_request(fd, method, uri, headers, body)
                 ["Content-Type"] = "text/plain"
             }, "未授权访问"
         end
+        -- 若没有获取到URI中path参数，则默认使用/luadb目录，防止文件无法上传
         local path = uri:match("path=([^&]+)") or "/luadb"
+        -- 确保路径不会被错误识别为空或根路径
+        if path == "" or path == "/" then
+            path = "/luadb"
+            log.info("HTTP", "修正默认路径为: " .. path)
+        end
         log.info("HTTP", "请求的文件列表路径: " .. path)
+        -- 将%xx格式的十六进制转义序列还原为对应字符
         path = path:gsub("%%(%x%x)", function(hex)
             return string.char(tonumber(hex, 16))
         end)
@@ -650,6 +863,30 @@ local function handle_http_request(fd, method, uri, headers, body)
         -- 调用list_directory函数扫描目录
         log.info("HTTP", "开始扫描目录")
         local files = list_directory(path)
+        
+        -- 请求根路径时，过滤系统文件
+        if path == "/" then
+            log.info("HTTP", "过滤根路径中的系统文件")
+            local filtered_files = {}
+            for _, file in ipairs(files) do
+                -- 过滤.nvm系统文件和系统配置文件
+                if not file.isDirectory and not file.name:match("%.nvm$") and file.name ~= "plat_config" then
+                    table.insert(filtered_files, file)
+                end
+            end
+            files = filtered_files
+        -- 如果是/luadb路径请求，添加根目录下的上传文件，并确保过滤系统文件
+        elseif path == "/luadb" then
+            log.info("HTTP", "扫描根目录下的上传文件")
+            local root_files = list_directory("/")
+            for _, file in ipairs(root_files) do
+                -- 只添加文件，不添加目录，过滤系统文件
+                if not file.isDirectory and not file.name:match("%.nvm$") and file.name ~= "plat_config" then
+                    table.insert(files, file)
+                    log.info("HTTP", "添加上传文件: " .. file.name .. ", 大小: " .. file.size)
+                end
+            end
+        end
 
         -- 记录传给页面的文件数据
         log.info("HTTP", "准备返回文件列表，数量: " .. #files)
@@ -761,6 +998,276 @@ local function handle_http_request(fd, method, uri, headers, body)
         ]]
     end
 
+    -- 文件上传
+    if string_starts_with(uri, "/upload") and method == "POST" then
+        log.info("UPLOAD", "收到文件上传请求")
+        
+        -- 检查传统认证方式
+        local is_authenticated = validate_session(headers)
+        
+        -- 如果传统认证失败，尝试从URL参数中获取用户名和密码
+        if not is_authenticated then
+            local url_username = uri:match("username=([^&]+)")
+            local url_password = uri:match("password=([^&]+)")
+            if url_username and url_password then
+                url_username = url_username:gsub("%%(%x%x)", function(hex)
+                    return string.char(tonumber(hex, 16))
+                end)
+                url_password = url_password:gsub("%%(%x%x)", function(hex)
+                    return string.char(tonumber(hex, 16))
+                end)
+                if url_username == user_server_opts.user_name and url_password == user_server_opts.user_pwd then
+                    log.info("AUTH", "上传请求通过URL参数认证成功")
+                    is_authenticated = true
+                else
+                    log.info("AUTH", "上传请求URL参数认证失败: 用户名或密码错误")
+                end
+            else
+                log.info("AUTH", "上传请求URL中没有找到用户名和密码参数")
+            end
+        end
+        
+        -- 如果认证仍然失败，返回未授权访问
+        if not is_authenticated then
+            log.info("HTTP", "未授权访问文件上传")
+            return 401, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "未授权访问"
+            })
+        end
+        
+        -- 获取上传参数
+        local target_path = uri:match("path=([^&]+)") or "/luadb"
+        local filename = uri:match("filename=([^&]+)")
+        
+        -- URL解码
+        target_path = target_path:gsub("%%(%x%x)", function(hex)
+            return string.char(tonumber(hex, 16))
+        end)
+        
+        if filename then
+            filename = filename:gsub("%%(%x%x)", function(hex)
+                return string.char(tonumber(hex, 16))
+            end)
+        else
+            log.error("UPLOAD", "未提供文件名")
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "未提供文件名"
+            })
+        end
+        
+        -- 验证目标路径
+        if target_path ~= "/luadb" and target_path ~= "/sd" then
+            log.error("UPLOAD", "无效的上传目标路径: " .. target_path)
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "无效的上传目标路径"
+            })
+        end
+        
+        -- 检查SD卡是否挂载（如果目标是SD卡）
+        if target_path == "/sd" then
+            local free_space = fatfs.getfree("/sd")
+            if not free_space then
+                log.error("UPLOAD", "SD卡未挂载")
+                return 200, {
+                    ["Content-Type"] = "application/json"
+                }, json.encode({
+                    success = false,
+                    message = "SD卡未挂载"
+                })
+            end
+        end
+        
+        -- 构建完整的文件路径
+        local file_path = target_path .. "/" .. filename
+        
+        -- 输出headers的完整内容，帮助诊断问题
+        if headers then
+            log.info("UPLOAD", "headers表类型: " .. type(headers))
+            local headers_str = "{ "
+            for k, v in pairs(headers) do
+                headers_str = headers_str .. k .. "=" .. tostring(v) .. ", "
+            end
+            headers_str = headers_str .. "}"
+            log.info("UPLOAD", "所有请求头: " .. headers_str)
+        else
+            log.warn("UPLOAD", "headers参数为nil")
+        end
+        
+        -- 获取Content-Type头部，尝试多种可能的键名
+        local content_type = ""
+        if headers then
+            -- 尝试标准的Content-Type键
+            content_type = headers["Content-Type"] or headers["content-type"] or headers["Content-type"] or ""
+            log.info("UPLOAD", "接收到的Content-Type: '" .. content_type .. "'")
+        end
+        
+        -- 采用正则表达式处理各种格式的boundary参数
+        -- 尝试多种格式的匹配
+        local boundary = nil
+        if content_type and content_type ~= "" then
+            boundary = 
+                -- 匹配不带引号的boundary: boundary=abc123
+                content_type:match("boundary=([^; ]+)") or
+                -- 匹配带引号的boundary: boundary="abc123"
+                content_type:match('boundary="([^"]+)"') or
+                -- 匹配带单引号的boundary: boundary='abc123'
+                content_type:match("boundary='([^']+)'")
+        end
+        
+        if not boundary then
+            log.warn("UPLOAD", "Content-Type中未找到boundary，尝试从请求体中提取")
+            
+            -- 直接从请求体中提取boundary
+            if body and body ~= "" then
+                -- 尝试匹配请求体中的第一个boundary行，通常格式为 "--xxxxxxx"
+                local body_boundary = body:match("^%-%-(.+)")
+                if body_boundary then
+                    boundary = body_boundary
+                    log.info("UPLOAD", "成功从请求体中提取boundary: ")
+                else
+                    -- 尝试匹配可能的Content-Type行
+                    local body_content_type = body:match("Content%-Type: multipart/form%-data; boundary=(.+)")
+                    if body_content_type then
+                        boundary = body_content_type
+                        log.info("UPLOAD", "成功从请求体中的Content-Type提取boundary: ")
+                    else
+                        log.error("UPLOAD", "无法解析multipart边界，Content-Type为空，请求体中也未找到")
+                        return 200, {
+                            ["Content-Type"] = "application/json"
+                        }, json.encode({
+                            success = false,
+                            message = "无法解析上传数据格式"
+                        })
+                    end
+                end
+            else
+                log.error("UPLOAD", "请求体为空，无法提取boundary")
+                return 200, {
+                    ["Content-Type"] = "application/json"
+                }, json.encode({
+                    success = false,
+                    message = "请求体为空，无法解析上传数据"
+                })
+            end
+        end
+        
+        log.info("UPLOAD", "成功解析boundary: " .. boundary)
+        
+        log.info("UPLOAD", "上传参数: 目标路径=" .. target_path .. ", 文件名=" .. filename .. ", 完整路径=" .. file_path)
+        
+        -- 解析multipart数据
+        local upload_data = parse_multipart_data(body or "", boundary)
+        
+        if not upload_data.content then
+            log.error("UPLOAD", "无法解析上传文件数据")
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "无法解析上传文件数据"
+            })
+        end
+        
+        -- 检查文件大小（200KB限制）
+        if #upload_data.content > 200 * 1024 then
+            log.error("UPLOAD", "文件大小超过限制: " .. #upload_data.content .. " 字节")
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "文件大小超过200KB限制"
+            })
+        end
+        
+        -- 检查sd容量和内存容量
+        local available_space
+        if target_path == "/luadb" then
+            -- 检查系统内存容量
+            local total_mem, used_mem, max_used_mem = rtos.meminfo("sys")
+            if total_mem and used_mem then
+                local free_mem = total_mem - used_mem
+                log.info("UPLOAD", "系统内存信息 - 总内存:", total_mem, "已用:", used_mem, "可用:", free_mem)
+                -- 设置可用空闲内存空间
+                available_space = free_mem
+            else
+                log.info("UPLOAD", "获取系统内存信息失败，无法进行上传")
+                return 200, {["Content-Type"] = "application/json"},
+                json.encode({
+                    success = false,
+                    message = "获取系统内存失败，无法进行上传"
+                })
+            end
+        elseif target_path == "/sd" then
+            -- 获取SD卡可用空间
+            local data, err = fatfs.getfree("/sd")
+            if data then
+                log.info("UPLOAD", "SD卡可用空间信息:", json.encode(data))
+                -- 设置为sd卡可用空闲内存空间
+                available_space = tonumber(data.free_kb)
+            else
+                log.info("UPLOAD", "获取SD卡空间失败:", err)
+                available_space = 1024 * 1024  -- 默认1MB
+            end
+        end
+        
+        if available_space and available_space < #upload_data.content * 2 then  -- 预留足够的空间
+            log.error("UPLOAD", "存储空间不足: 需要 " .. #upload_data.content * 2 .. " 字节, 可用 " .. available_space .. " 字节")
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "存储空间不足，需要至少 " .. (#upload_data.content * 2) .. " 字节"
+            })
+        end
+        
+        -- 写入文件，保存原始请求路径
+        local original_requested_path = file_path
+        local success, err, actual_path = write_file_with_chunks(file_path, upload_data.content)
+        
+        if success then
+            -- 日志记录
+            log.info("UPLOAD", "文件上传成功: " .. filename .. ", 大小: " .. #upload_data.content .. " 字节, 实际保存路径: " .. actual_path)
+            -- 上传成功后再次收集垃圾
+            collectgarbage()
+            
+            -- 生成响应信息
+            local message = "文件上传成功"
+            if actual_path ~= original_requested_path then
+                message = message .. ", 由于目录限制，已保存到: " .. actual_path
+            end
+            
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = true,
+                message = message,
+                filename = filename,
+                size = #upload_data.content,
+                path = actual_path,
+                original_path = original_requested_path
+            })
+        else
+            log.error("UPLOAD", "文件上传失败: " .. (err or "未知错误"))
+            -- 即使失败也尝试收集垃圾
+            collectgarbage()
+            return 200, {
+                ["Content-Type"] = "application/json"
+            }, json.encode({
+                success = false,
+                message = "文件上传失败: " .. (err or "未知错误")
+            })
+        end
+    end
+    
     -- 文件删除
     if string_starts_with(uri, "/delete") and method == "POST" then
         -- 检查传统认证方式
@@ -951,7 +1458,7 @@ end
 @return 无 无返回值
 @usage
 -- 一、使用默认参数创建server服务器
--- 启动后连接默认AP热点，直接访问日志中默认的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
+-- 启动后连接默认AP热点，直接使用日志中默认的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
 exremotefile.open()
 
 

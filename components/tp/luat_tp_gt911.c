@@ -236,14 +236,10 @@ static int tp_gt911_gpio_init(luat_tp_config_t* luat_tp_config){
     luat_gpio_set(luat_tp_config->pin_int, Luat_GPIO_LOW);
 
     if (luat_tp_config->pin_rst != LUAT_GPIO_NONE){
-
-        luat_rtos_task_sleep(1);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
-        luat_rtos_task_sleep(5);
-
         luat_rtos_task_sleep(2);
         luat_gpio_set(luat_tp_config->pin_rst, Luat_GPIO_HIGH);
-        luat_rtos_task_sleep(20);
+        luat_rtos_task_sleep(55);
     }
 
     return 0;
@@ -264,8 +260,11 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
     }
 
     uint8_t cfg_table[GT911_CONFIG_SIZE] = {0};
-    gt911_obtain_config(luat_tp_config, cfg_table, GT911_CONFIG_SIZE);
-
+    ret = gt911_obtain_config(luat_tp_config, cfg_table, GT911_CONFIG_SIZE);
+    if (ret){
+        return ret;
+    }
+    
 	// renew config parameters.
 	memcpy((uint8_t*)(&cfg_table[GT911_X_OUTPUT_MAX - GT911_CONFIG_REG]), (uint8_t*)(&luat_tp_config->w), 2);
 	memcpy((uint8_t*)(&cfg_table[GT911_Y_OUTPUT_MAX - GT911_CONFIG_REG]), (uint8_t*)(&luat_tp_config->h), 2);
@@ -323,7 +322,6 @@ static int tp_gt911_init(luat_tp_config_t* luat_tp_config){
 
     gt911_init_state = 1;
     return ret;
-
 }
 
 static int tp_gt911_deinit(luat_tp_config_t* luat_tp_config){

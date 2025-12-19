@@ -321,9 +321,9 @@ int l_rtos_standby(lua_State *L);
 /**
 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
 @api pm.power(id, onoff, chip)
-@int 电源控制id,pm.USB pm.GPS之类
-@boolean/int 开关true/1开，false/0关，默认关，部分选项支持数值
-@int 休眠芯片的ID, 默认是0, 大部分型号都只有0
+@int 电源控制id, 包括开关型pm.USB（USB电源） pm.GPS（GPS电源） pm.PWK_MODE（powerkey模式）和 数值型pm.WORK_MODE（功耗模式）
+@boolean/int 开关型控制：true/1打开供电，false/0关闭供电，默认关。pm.WORK_MODE 0~3，0完全关闭，1~2普通低功耗，3超低功耗，深度休眠
+@int 休眠芯片的ID, 默认是0, 大部分型号都只有0。1是协处理器，如air8000内的wifi芯片
 @return boolean 处理结果true成功，false失败
 @usage
 -- 关闭USB电源, 反之开启就是传true

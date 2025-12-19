@@ -38,6 +38,8 @@ DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
 extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 #endif
 
+static int s_fatfs_fmt = FM_FAT32;
+
 /*
 挂载fatfs
 @api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed, power_pin, power_on_delay, auto_format)
@@ -131,6 +133,7 @@ static int fatfs_mount(lua_State *L)
 			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
 			diskio_open_spitf(0, (void*)spit);
 		}
+	#ifdef LUAT_USE_SDIO
 	}else if(fatfs_mode == DISK_SDIO){
 		luat_fatfs_sdio_t *fatfs_sdio = luat_heap_malloc(sizeof(luat_fatfs_sdio_t));
 		if (fatfs_sdio == NULL) {
@@ -145,13 +148,16 @@ static int fatfs_mount(lua_State *L)
 
 		LLOGD("init FatFS at sdio");
 		diskio_open_sdio(0, (void*)fatfs_sdio);
+	#endif
+	#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 	}else if(fatfs_mode == DISK_RAM){
 		LLOGD("init ramdisk at FatFS");
 		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
+	#endif
 	}else if(fatfs_mode == DISK_USB){
 
 	}else{
-		LLOGD("fatfs_mode error");
+		LLOGD("fatfs_mode error %d", fatfs_mode);
 		lua_pushboolean(L, 0);
 		lua_pushstring(L, "fatfs_mode error");
 		return 2;
@@ -160,11 +166,14 @@ static int fatfs_mount(lua_State *L)
     if (re != FR_OK) {
 		if (lua_isboolean(L, 8) && lua_toboolean(L, 8) == 0) {
 			LLOGI("sd/tf mount failed %d but auto-format is disabled", re);
+			lua_pushboolean(L, 0);
+			lua_pushstring(L, "mount error");
+			return 2;
 		}
 		else {
-			LLOGD("mount failed, try auto format");
+			LLOGW("mount failed, try auto format");
 			MKFS_PARM parm = {
-				.fmt = FM_ANY, // 暂时应付一下ramdisk
+				.fmt = s_fatfs_fmt,
 				.au_size = 0,
 				.align = 0,
 				.n_fat = 0,
@@ -176,6 +185,21 @@ static int fatfs_mount(lua_State *L)
 			if (re == FR_OK) {
 				re = f_mount(fs, mount_point, 1);
 				LLOGD("remount again %d", re);
+				if (re == FR_OK) {
+					LLOGI("sd/tf mount success after auto format");
+				}
+				else {
+					LLOGE("sd/tf mount failed again %d after auto format", re);
+					lua_pushboolean(L, 0);
+					lua_pushstring(L, "mount error");
+					return 2; 
+				}
+			}
+			else {
+				LLOGE("sd/tf format failed %d", re);
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, "format error");
+				return 2;
 			}
 		}
 	}
@@ -183,8 +207,7 @@ static int fatfs_mount(lua_State *L)
 	lua_pushboolean(L, re == FR_OK);
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
-		if (FATFS_DEBUG)
-			LLOGD("[FatFS]fatfs_init success");
+		LLOGI("mount success at %s", fs->fs_type == FS_EXFAT ? "exfat" : (fs->fs_type == FS_FAT32 ? "fat32" : "fat16"));
 		#ifdef LUAT_USE_FS_VFS
               luat_fs_conf_t conf2 = {
 		            .busname = (char*)fs,
@@ -196,8 +219,7 @@ static int fatfs_mount(lua_State *L)
 		#endif
 	}
 	else {
-		if (FATFS_DEBUG)
-			LLOGD("[FatFS]fatfs_init FAIL!! re=%d", re);
+		LLOGE("[FatFS]fatfs_init FAIL!! re=%d", re);
 	}
 
 	if (FATFS_DEBUG)
@@ -230,31 +252,6 @@ static int fatfs_unmount(lua_State *L) {
 	lua_pushinteger(L, re);
 	return 1;
 }
-/*
-static int fatfs_mkfs(lua_State *L) {
-	const char *mount_point = luaL_optstring(L, 1, "");
-	// BYTE sfd = luaL_optinteger(L, 2, 0);
-	// DWORD au = luaL_optinteger(L, 3, 0);
-	BYTE work[FF_MAX_SS] = {0};
-	if (FATFS_DEBUG)
-		LLOGI("mkfs GO %d");
-	MKFS_PARM parm = {
-		.fmt = FM_ANY, // 暂时应付一下ramdisk
-		.au_size = 0,
-		.align = 0,
-		.n_fat = 0,
-		.n_root = 0,
-	};
-	if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
-		parm.fmt = FM_ANY | FM_SFD;
-	}
-	FRESULT re = f_mkfs(mount_point, &parm, work, FF_MAX_SS);
-	lua_pushinteger(L, re);
-	if (FATFS_DEBUG)
-		LLOGI("mkfs ret %d", re);
-	return 1;
-}
-*/
 
 /**
 获取可用空间信息
@@ -325,334 +322,35 @@ static int fatfs_debug_mode(lua_State *L) {
 }
 
 /**
-设置fatfs一些特殊参数，大部分卡无需配置，部分不能正常读写的卡，经过配置后可能能读写成功
-@api fatfs.config(crc_check, write_to)
+设置fatfs一些特殊参数
+@api fatfs.config(crc_check, write_to, fmt)
 @int 读取时是否跳过CRC检查,1跳过不检查CRC,0不跳过检查CRC,默认不跳过,除非TF卡不支持CRC校验,否则不应该跳过!
 @int 单次写入超时时间,单位ms,默认100ms。
+@int 文件系统格式,默认FM_FAT32, 可选值 FM_FAT32, FM_EXFAT
 @return nil 无返回值
- */
+-- 前2个配置项不建议修改
+*/
 static int fatfs_config(lua_State *L) {
-	FATFS_NO_CRC_CHECK = luaL_optinteger(L, 1, 0);
-	FATFS_WRITE_TO = luaL_optinteger(L, 2, 100);
+	if (lua_isinteger(L, 1)) {
+		FATFS_NO_CRC_CHECK = luaL_optinteger(L, 1, 0);
+	}
+	if (lua_isinteger(L, 2)) {
+		FATFS_WRITE_TO = luaL_optinteger(L, 2, 100);
+	}
+	if (lua_isinteger(L, 3)) {
+		s_fatfs_fmt = luaL_optinteger(L, 3, FM_FAT32);
+		if (s_fatfs_fmt != FM_FAT32 && s_fatfs_fmt != FM_EXFAT) {
+			s_fatfs_fmt = FM_FAT32;
+		}
+		if (s_fatfs_fmt == FM_EXFAT) {
+			LLOGI("fatfs set to exfat , when format sd/tf");
+		}
+		else {
+			LLOGI("fatfs set to fat32 , when format sd/tf");
+		}
+	}
 	return 0;
 }
-
-#if 0
-
-// ------------------------------------------------
-// ------------------------------------------------
-
-static int fatfs_mkdir(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "file path must string");
-		return 2;
-	}
-	FRESULT re = f_mkdir(lua_tostring(L, 1));
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-static int fatfs_lsdir(lua_State *L)
-{
-	//FIL Fil;			/* File object needed for each open file */
-	DIR dir;
-	FILINFO fileinfo;
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "dir must string");
-		return 2;
-	}
-	//u8 *buf;
-	size_t len;
-	const char *buf = lua_tolstring( L, 1, &len );
-	char dirname[len+1];
-	memcpy(dirname, buf, len);
-	dirname[len] = 0x00;
-	FRESULT re = f_opendir(&dir, dirname);
-	if (re != FR_OK) {
-		lua_pushinteger(L, re);
-		return 1;
-	}
-
-	lua_pushinteger(L, 0);
-	lua_newtable(L);
-	while(f_readdir(&dir, &fileinfo) == FR_OK) {
-		if(!fileinfo.fname[0]) break;
-
-		lua_pushlstring(L, fileinfo.fname, strlen(fileinfo.fname));
-		lua_newtable(L);
-		
-		lua_pushstring(L, "size");
-		lua_pushinteger(L, fileinfo.fsize);
-		lua_settable(L, -3);
-		
-		lua_pushstring(L, "date");
-		lua_pushinteger(L, fileinfo.fdate);
-		lua_settable(L, -3);
-		
-		lua_pushstring(L, "time");
-		lua_pushinteger(L, fileinfo.ftime);
-		lua_settable(L, -3);
-		
-		lua_pushstring(L, "attrib");
-		lua_pushinteger(L, fileinfo.fattrib);
-		lua_settable(L, -3);
-
-		lua_pushstring(L, "isdir");
-		lua_pushinteger(L, fileinfo.fattrib & AM_DIR);
-		lua_settable(L, -3);
-
-		lua_settable(L, -3);
-	}
-	f_closedir(&dir);
-	//LLOGD("[FatFS] lua_gettop=%d", lua_gettop(L));
-    return 2;
-}
-
-//-------------------------------------------------------------
-
-static int fatfs_stat(lua_State *L) {
-	int luaType = lua_type(L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "file path must string");
-		return 2;
-	}
-	FILINFO fileinfo;
-	const char *path = lua_tostring(L, 1);
-	FRESULT re = f_stat(path, &fileinfo);
-	lua_pushinteger(L, re);
-	if (re == FR_OK) {
-		lua_newtable(L);
-		
-		lua_pushstring(L, "size");
-		lua_pushinteger(L, fileinfo.fsize);
-		lua_rawset(L, -3);
-		
-		lua_pushstring(L, "date");
-		lua_pushinteger(L, fileinfo.fdate);
-		lua_rawset(L, -3);
-		
-		lua_pushstring(L, "time");
-		lua_pushinteger(L, fileinfo.ftime);
-		lua_rawset(L, -3);
-		
-		lua_pushstring(L, "attrib");
-		lua_pushinteger(L, fileinfo.fattrib);
-		lua_rawset(L, -3);
-
-		lua_pushstring(L, "isdir");
-		lua_pushinteger(L, fileinfo.fattrib & AM_DIR);
-		lua_rawset(L, -3);
-	}
-	else {
-		lua_pushnil(L);
-	}
-	return 2;
-}
-
-/**
- * fatfs.open("adc.txt") 
- * fatfs.open("adc.txt", 2) 
- */
-static int fatfs_open(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushnil(L);
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "file path must string");
-		return 3;
-	}
-	const char *path  = lua_tostring(L, 1);
-	int flag = luaL_optinteger(L, 2, 1); // 第二个参数
-	flag |= luaL_optinteger(L, 3, 0); // 第三个参数
-	flag |= luaL_optinteger(L, 4, 0); // 第四个参数
-
-	if (FATFS_DEBUG)
-		LLOGD("[FatFS]open %s %0X", path, flag);
-
-	FIL* fil = (FIL*)lua_newuserdata(L, sizeof(FIL));
-	FRESULT re = f_open(fil, path, (BYTE)flag);
-	if (re != FR_OK) {
-		lua_remove(L, -1);
-		lua_pushnil(L);
-		lua_pushinteger(L, re);
-		return 2;
-	}
-	return 1;
-}
-
-static int fatfs_close(lua_State *L) {
-	int luaType = lua_type(L, 1);
-	if(luaType != LUA_TUSERDATA) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "must be FIL*");
-		return 2;
-	}
-	FIL* fil = (FIL*)lua_touserdata(L, 1);
-	FRESULT re = f_close(fil);
-	//free(fil);
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-static int fatfs_seek(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TUSERDATA) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "must be FIL*");
-		return 2;
-	}
-	UINT seek = luaL_optinteger(L, 2, 0);
-	FRESULT re = f_lseek((FIL*)lua_touserdata(L, 1), seek);
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-static int fatfs_truncate(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TUSERDATA) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "must be FIL*");
-		return 2;
-	}
-	FRESULT re = f_truncate((FIL*)lua_touserdata(L, 1));
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-static int fatfs_read(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TUSERDATA) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "must be FIL*");
-		return 2;
-	}
-	UINT limit = luaL_optinteger(L, 2, 512);
-	BYTE buf[limit];
-	UINT len;
-	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile limit=%d", limit);
-	FRESULT re = f_read((FIL*)lua_touserdata(L, 1), buf, limit, &len);
-	lua_pushinteger(L, re);
-	if (re != FR_OK) {
-		return 1;
-	}
-	lua_pushlstring(L, (const char*)buf, len);
-	return 2;
-}
-
-static int fatfs_write(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TUSERDATA) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "must be FIL*");
-		return 2;
-	}
-	FIL* fil = (FIL*)lua_touserdata(L, 1);
-    luaType = lua_type( L, 2 );
-    size_t len;
-    char* buf;
-	FRESULT re = FR_OK;
-    
-    if(luaType == LUA_TSTRING )
-    {
-        buf = (char*)lua_tolstring( L, 2, &len );
-        
-        re = f_write(fil, buf, len, &len);
-    }
-    else if(luaType == LUA_TLIGHTUSERDATA)
-    {         
-         buf = lua_touserdata(L, 2);
-         len = lua_tointeger( L, 3);
-         
-         re = f_write(fil, buf, len, &len);
-    }
-    if (FATFS_DEBUG)
-		LLOGD("[FatFS]write re=%d len=%d", re, len);
-    lua_pushinteger(L, re);
-    lua_pushinteger(L, len);
-    return 2;
-}
-
-static int fatfs_remove(lua_State *L) {
-	int luaType = lua_type(L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "file path must string");
-		return 2;
-	}
-	FRESULT re = f_unlink(lua_tostring(L, 1));
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-static int fatfs_rename(lua_State *L) {
-	int luaType = lua_type(L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "source file path must string");
-		return 2;
-	}
-	luaType = lua_type(L, 2);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "dest file path must string");
-		return 2;
-	}
-	FRESULT re = f_rename(lua_tostring(L, 1), lua_tostring(L, 2));
-	lua_pushinteger(L, re);
-	return 1;
-}
-
-
-
-/**
- * fatfs.readfile("adc.txt") 
- * fatfs.readfile("adc.txt", 512, 0) 默认只读取512字节,从0字节开始读
- */
-static int fatfs_readfile(lua_State *L) {
-	int luaType = lua_type( L, 1);
-	if(luaType != LUA_TSTRING) {
-		lua_pushinteger(L, -1);
-		lua_pushstring(L, "file path must string");
-		return 2;
-	}
-	FIL fil;
-
-	FRESULT re = f_open(&fil, lua_tostring(L, 1), FA_READ);
-	if (re != FR_OK) {
-		lua_pushinteger(L, re);
-		return 1;
-	}
-
-	DWORD limit = luaL_optinteger(L, 2, 512);
-	DWORD seek = luaL_optinteger(L, 3, 0);
-	if (seek > 0) {
-		f_lseek(&fil, seek);
-	}
-
-	BYTE buf[limit];
-	size_t len;
-	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile seek=%d limit=%d", seek, limit);
-	FRESULT fr = f_read(&fil, buf, limit, &len);
-	if (fr != FR_OK) {
-		lua_pushinteger(L, -3);
-		lua_pushinteger(L, fr);
-		return 2;
-	}
-	f_close(&fil);
-	lua_pushinteger(L, 0);
-	lua_pushlstring(L, (const char*)buf, len);
-	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d", seek, limit, len);
-	return 2;
-}
-#endif
 
 // Module function map
 #include "rotable2.h"
@@ -662,32 +360,14 @@ static const rotable_Reg_t reg_fatfs[] =
   { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
   { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
   { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
-  { "config",		ROREG_FUNC(fatfs_config)}, //初始化,挂载, 别名方法
+  { "config",	ROREG_FUNC(fatfs_config)}, //初始化,挂载, 别名方法
   { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
-#if 0
-  { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!
-  //{ "test",  fatfs_test)},
+  { "SPI",      ROREG_INT(DISK_SPI)},
+  { "SDIO",     ROREG_INT(DISK_SDIO)},
+  { "RAM",      ROREG_INT(DISK_RAM)},
 
-  { "lsdir",	ROREG_FUNC(fatfs_lsdir)}, // 列举目录下的文件,名称,大小,日期,属性
-  { "mkdir",	ROREG_FUNC(fatfs_mkdir)}, // 列举目录下的文件,名称,大小,日期,属性
-
-  { "stat",		ROREG_FUNC(fatfs_stat)}, // 查询文件信息
-  { "open",		ROREG_FUNC(fatfs_open)}, // 打开一个文件句柄
-  { "close",	ROREG_FUNC(fatfs_close)}, // 关闭一个文件句柄
-  { "seek",		ROREG_FUNC(fatfs_seek)}, // 移动句柄的当前位置
-  { "truncate",	ROREG_FUNC(fatfs_truncate)}, // 缩减文件尺寸到当前seek位置
-  { "read",		ROREG_FUNC(fatfs_read)}, // 读取数据
-  { "write",	ROREG_FUNC(fatfs_write)}, // 写入数据
-  { "remove",	ROREG_FUNC(fatfs_remove)}, // 删除文件,别名方法
-  { "unlink",	ROREG_FUNC(fatfs_remove)}, // 删除文件
-  { "rename",	ROREG_FUNC(fatfs_rename)}, // 文件改名
-
-  { "readfile",	ROREG_FUNC(fatfs_readfile)}, // 读取文件的简易方法
-#endif
-  { "SPI",         ROREG_INT(DISK_SPI)},
-  { "SDIO",        ROREG_INT(DISK_SDIO)},
-  { "RAM",         ROREG_INT(DISK_RAM)},
-//  { "USB",         ROREG_INT(DISK_USB)},
+  { "FM_FAT32",         ROREG_INT(FM_FAT32)},
+  { "FM_EXFAT",         ROREG_INT(FM_EXFAT)},
 
   { NULL,		ROREG_INT(0)}
 };

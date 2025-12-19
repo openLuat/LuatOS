@@ -24,8 +24,8 @@ local TASK_NAME = "lora2_task"
 local spi_id = 0 -- SPI接口ID
 local pin_cs = 8 -- 片选引脚
 local pin_reset = 1 -- 复位控制引脚
-local pin_busy = 31 -- 忙状态指示引脚
-local pin_dio1 = 32 -- DIO1引脚
+local pin_busy = 16 -- 忙状态指示引脚
+local pin_dio1 = 17 -- DIO1引脚
 
 local RECEIVE_TIMEOUT = 3000  -- 接收超时时间3秒
 
@@ -59,7 +59,7 @@ local function lora2_init()
     end
 
     -- 初始化LORA2设备
-    -- 当前支持型号：llcc68, sx1262
+    -- 当前支持型号：llcc68, sx1268
     lora_device = lora_device or lora2.init("llcc68",{res = pin_reset,busy = pin_busy,dio1 = pin_dio1},spi_lora)
     if not lora_device then
         log.error("lora_device init failed")

@@ -108,7 +108,7 @@ static int start_gogogo(iperf_start_ctx_t* ctx) {
         ctx->remote_ip = drv->netif->ip_addr;
     }
     tcpip_callback_with_block(iperf_start_cb, ctx, 1);
-    return iperf_session != NULL;
+    return 1; // 总是成功的
 }
 
 /*

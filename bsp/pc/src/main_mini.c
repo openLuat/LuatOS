@@ -86,6 +86,8 @@ int main(int argc, char** argv) {
     luat_heap_opt_init(LUAT_HEAP_SRAM);
     
 #ifdef LUAT_USE_WINDOWS
+    extern void InitCrashDump();
+    InitCrashDump();
     // Windows平台下自动设置控制台编码
     extern void luat_console_auto_encoding(void);
     luat_console_auto_encoding();

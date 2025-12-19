@@ -138,9 +138,10 @@ static int decode_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     uint16_t* tmp = (uint16_t*)bitmap;
 
     // rgb高低位swap
-	uint16_t idx = 0;
+    uint16_t idx = 0;
 	for (size_t y = rect->top; y <= rect->bottom; y++){
-		uint16_t offset = y*buff_info->width + rect->left;
+        // 防止大图时 y*width 溢出 16bit，改用 size_t 计算偏移
+        size_t offset = (size_t)y * buff_info->width + rect->left;
 		for (size_t x = rect->left; x <= rect->right; x++){
 			if (lcd_dft_conf->endianness_swap)
 				buff_info->buff[offset] = ((tmp[idx] >> 8) & 0xFF)+ ((tmp[idx] << 8) & 0xFF00);

@@ -29,6 +29,7 @@ exaudio.PCM_8000 = 2
 exaudio.PCM_16000 = 3 
 exaudio.PCM_24000 = 4
 exaudio.PCM_32000 = 5
+exaudio.PCM_48000 = 6
 
 
 -- 默认配置参数
@@ -55,7 +56,7 @@ local audio_play_param = {
 }
 
 local audio_record_param = {
-    format = 0,               -- 录制格式，支持exaudio.AMR_NB，exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
+    format = 0,               -- 录制格式，支持exaudio.AMR_NB，exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000,exaudio.PCM_48000
     time = 5,                 -- 录制时间(秒)
     path = nil,               -- 文件路径或流式回调
     cbfnc = nil               -- 录音完毕回调
@@ -434,7 +435,7 @@ function exaudio.record_start(recodConfigs)
         return false
     end
     -- 检查录音格式
-    if recodConfigs.format == nil or type(recodConfigs.format) ~= "number" or recodConfigs.format > 5 then
+    if recodConfigs.format == nil or type(recodConfigs.format) ~= "number" or recodConfigs.format > 6 then
         log.error("请指定正确的录音格式")
         return false
     end
@@ -474,6 +475,8 @@ function exaudio.record_start(recodConfigs)
         recod_format = 24000
     elseif audio_record_param.format == exaudio.PCM_32000 then
         recod_format = 32000
+    elseif audio_record_param.format == exaudio.PCM_48000 then
+        recod_format = 48000
     end
 
     -- 处理回调函数

@@ -40,7 +40,7 @@ function lcd_drv.init()
             pin_rst = 36,                          -- 复位引脚
             pin_pwr = 1,                           -- 背光控制引脚GPIO的ID号
             port = lcd.HWID_0,                     -- 驱动端口
-            pin_dc = 0xFF,                         -- lcd数据/命令选择引脚GPIO号，默认:nil
+            -- pin_dc = 0xFF,                      -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值
             direction = 0,                         -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
             w = 320,                               -- lcd 水平分辨率
             h = 480,                               -- lcd 竖直分辨率

@@ -14,7 +14,7 @@ local fd = io.open("/xxx.txt", "rb")
 -- 读写默认,打开文件
 local fd = io.open("/xxx.txt", "wb")
 -- 写入文件,且截断为0字节
-local fd = io.open("/xxx.txt", "wb+")
+local fd = io.open("/xxx.txt", "w+b")
 -- 追加模式
 local fd = io.open("/xxx.txt", "a")
 
@@ -921,15 +921,8 @@ end
  */
 static int io_fileSize (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
-  FILE* f = fopen(filename, "rb");
-  if(f == NULL) {
-    lua_pushinteger(L, 0);
-  }
-  else {
-    fseek(f, 0, SEEK_END);
-    lua_pushinteger(L,ftell(f));
-    fclose(f);
-  }
+  size_t len = luat_fs_fsize(filename);
+  lua_pushinteger(L, len);
   return 1;
 }
 

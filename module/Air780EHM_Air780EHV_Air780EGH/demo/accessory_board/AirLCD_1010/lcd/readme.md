@@ -51,7 +51,8 @@
 1. **基本图形绘制** - 展示点、线、矩形、圆形等基本图形绘制功能
 2. **图片显示** - 支持外部图片文件显示
 3. **二维码生成** - 动态生成并显示二维码
-4. **颜色示例** - 展示多种颜色显示效果
+4. **xbm格式位图示例** - 显示16*16 xbm点阵
+5. **中文、英文字体示例** - 显示12号中文字体和英文字体
 
 ### 4.2 GTFont矢量字体演示
 1. **矢量字体显示** - 使用AirFONTS_1000矢量字库小板显示平滑字体
@@ -61,8 +62,7 @@
 
 ### 4.3 自定义字体演示
 1. **外部字体加载** - 支持加载外部自定义字体文件
-2. **GB2312编码** - 支持GB2312编码的中文字体
-3. **多颜色文字** - 支持不同颜色的文字显示
+2. **多颜色文字** - 支持不同颜色的文字显示
 
 ### 4.4 触摸交互功能
 1. **页面导航** - 支持多页面之间的切换
@@ -75,28 +75,63 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - AirLCD_1010 触摸配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONT_1000 配件板 × 1
+- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 17，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010配件板以及AirFONT_1000 配件板的硬件接线方式为
+- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板以及 AirFONTS_1000 配件板的硬件接线方式为
 
-  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板背面的功耗测试开关拨到 OFF 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010配件板和AirFONT_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 vbat 引脚给 AirLCD_1010配件板和AirFONT_1000 配件板提供了 3.3V 的供电；
+  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板和 AirFONTS_1000 配件板供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电，通过3V3引脚给 AirFONTS_1000 配件板供电；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 5.2 接线配置
 
-#### 5.2.1 LCD 显示屏接线
+#### 5.2.1 显示屏接线
 
-<table> 
-<tr> <td>Air780EHM/Air780EHV/Air780EGH 核心板</td><td>AirLCD_1010配件板</td></tr> <tr> <td>53/LCD_CLK</td><td>SCLK/CLK</td></tr> <tr> <td>52/LCD_CS</td><td>CS</td></tr> <tr> <td>49/LCD_RST</td><td>RES/RST</td></tr> <tr> <td>50/LCD_SDA</td><td>SDA/MOS</td></tr> <tr> <td>51/LCD_RS</td><td>DC/RS</td></tr> <tr> <td>22/GPIO1</td><td>BLK</td></tr> <tr> <td>24/VDD_EXT</td><td>VCC</td></tr> <tr> <td>67/I2C1_SCL</td><td>SCL</td></tr> <tr> <td>66/I2C1_SDA</td><td>SDA</td></tr> <tr> <td>19/GPIO22</td><td>INT</td></tr> 
+<table>
+<tr>
+<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirLCD_1010配件板<br/></td></tr>
+<tr>
+<td>53/LCD_CLK<br/></td><td>SCLK/CLK<br/></td></tr>
+<tr>
+<td>52/LCD_CS<br/></td><td>CS<br/></td></tr>
+<tr>
+<td>49/LCD_RST<br/></td><td>RES/RST<br/></td></tr>
+<tr>
+<td>50/LCD_SDA<br/></td><td>SDA/MOS<br/></td></tr>
+<tr>
+<td>51/LCD_RS<br/></td><td>DC/RS<br/></td></tr>
+<tr>
+<td>22/GPIO1<br/></td><td>BLK<br/></td></tr>
+<tr>
+<td>24/VDD_EXT<br/></td><td>VCC<br/></td></tr>
+<tr>
+<td>67/I2C1_SCL<br/></td><td>SCL<br/></td></tr>
+<tr>
+<td>66/I2C1_SDA<br/></td><td>SDA<br/></td></tr>
+<tr>
+<td>19/GPIO22<br/></td><td>INT<br/></td></tr>
 </table>
 
 #### 5.2.2 GTFont 字库接线
 
-<table> 
-<tr> <td>Air780EHM/Air780EHV/Air780EGH 核心板</td><td>AirFONT_1000配件板</td></tr> <tr> <td>83/SPI0_CS</td><td>CS</td></tr> <tr> <td>84/SPI0_MISO</td><td>MISO</td></tr> <tr> <td>85/SPI0_MOSI</td><td>MOSI</td></tr> <tr> <td>86/SPI0_CLK</td><td>CLK</td></tr> <tr> <td>24/VDD_EXT</td><td>VCC</td></tr> 
+<table>
+<tr>
+<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
+<tr>
+<td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
+<tr>
+<td>84/SPI0_MISO<br/></td><td>MISO<br/></td></tr>
+<tr>
+<td>85/SPI0_MOSI<br/></td><td>MOSI<br/></td></tr>
+<tr>
+<td>86/SPI0_CLK<br/></td><td>CLK<br/></td></tr>
+<tr>
+<td>3V3<br/></td><td>VCC<br/></td></tr>
 </table>
+
+### 5.3 实际接线图
+![](https://docs.openLuat.com/cdn/image/Air780EHV_AirLCD_10010_AirFONTS_1000接线图.jpg)
 
 ## 六、演示软件环境
 
@@ -185,7 +220,7 @@ require "ui_main"
 1. 查看基本图形绘制示例（点、线、矩形、圆形）
 2. 查看图片显示区域（显示logo图片）
 3. 查看二维码区域（合宙文档二维码）
-4. 查看颜色填充示例展示
+4. 查看位图和字体示例
 5. 点击"返回"按钮回到主页
 
 #### 7.4.3 GTFont演示页面

@@ -39,7 +39,7 @@ AirCloud 概述:AirCloud 是 LuatOS 物联网设备云服务通信协议，提�
 
 - TYPE-C USB数据线直接插到开发板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-- USB转串口数据线，一般来说，白线连接开发板的UART1_TX，绿线连接开发板的UART1_RX，黑线连接开发板的GND，另外一端连接电脑USB口；
+
 
 ## 演示软件环境
 

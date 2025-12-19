@@ -23,6 +23,9 @@ local function task1_func()
         log.info("task1_func", "运行中，计数:", count)
         -- 等待500ms
         sys.wait(500)  
+        
+        -- 下一行代码是为了演示：task运行过程中，出现异常错误
+        -- count = count + "hdjks"        
     end
 end
 

@@ -221,6 +221,18 @@ static int l_fota_file(lua_State* L)
     luat_heap_free(buff);
     luat_fs_fclose(fd);
 
+    if (result == 0) {
+        LLOGI("fota file write done, call fota.done()");
+        result = luat_fota_done();
+        if (result == 0) {
+            LLOGI("fota done success, call fota.end()");
+            result = luat_fota_end(1);
+        }
+        else {
+            LLOGE("fota done fail %d", result);
+        }
+    }
+
     if (result > 0)
     {
     	lua_pushboolean(L, 1);

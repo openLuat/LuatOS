@@ -1,5 +1,5 @@
 set_project("luac")
-set_xmakever("2.8.2")
+set_xmakever("3.0.4")
 
 set_version("1.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")
@@ -50,6 +50,7 @@ if is_host("windows") then
     add_defines("_CRT_SECURE_NO_WARNINGS")
     add_cflags("/utf-8")
     add_includedirs("win32/include")
+    add_files("win32/src/**.c")
 elseif is_host("linux") then
     add_defines("LUA_USE_LINUX")
     add_cflags("-ffunction-sections -fdata-sections")
@@ -135,8 +136,10 @@ target("luatos-lua")
     add_files(luatos.."components/fft/src/*.c")
     add_files(luatos.."components/fft/binding/*.c")
     -- mbedtls
-    add_files(luatos.."components/mbedtls/library/*.c")
-    add_includedirs(luatos.."components/mbedtls/include")
+    add_files(luatos.."components/mbedtls3/library/*.c")
+    add_includedirs(luatos.."components/mbedtls3/include")
+    -- add_files(luatos.."components/mbedtls/library/*.c")
+    -- add_includedirs(luatos.."components/mbedtls/include")
     -- iotauth
     add_includedirs(luatos.."components/iotauth")
     add_files(luatos.."components/iotauth/*.c")
@@ -400,7 +403,7 @@ target("luatos-lua")
         -- gtfont PC simulator core
         add_includedirs(luatos.."components/gtfont")
         add_includedirs(luatos.."components/eink")
-        -- add_files(luatos.."components/gtfont/*.c")
+        add_files(luatos.."components/gtfont/*.c")
         
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")

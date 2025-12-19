@@ -92,7 +92,7 @@ local function handle_touch_event(event, x, y)
         elseif current_page == "gtfont" then
             return gtfont_page.handle_touch(x, y, switch_page)
         elseif current_page == "customer_font_page" then
-            return gtfont_page.handle_touch(x, y, switch_page)
+            return customer_font_page.handle_touch(x, y, switch_page)
         end
     end
     return false

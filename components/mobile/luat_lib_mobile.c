@@ -1474,6 +1474,9 @@ end)
 		{
 		case LUAT_MOBILE_SMS_READY:
 			LLOGI("sim%d sms ready", index);
+            lua_pushstring(L, "SMS_READY");
+            lua_pushinteger(L, index);
+            lua_call(L, 2, 0);
 			break;
 		case LUAT_MOBILE_NEW_SMS:
 			break;
@@ -1485,6 +1488,9 @@ end)
 		break;
 	case LUAT_MOBILE_EVENT_IMS_REGISTER_STATUS:
         LLOGD("ims reg state %d", status);
+		lua_pushstring(L, "IMS_REG");
+		lua_pushinteger(L, status);
+		lua_call(L, 2, 0);
 		break;
     case LUAT_MOBILE_EVENT_CC:
         LLOGD("LUAT_MOBILE_EVENT_CC status %d",status);

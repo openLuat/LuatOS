@@ -8,6 +8,7 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include "lvgl9/src/widgets/button/lv_button.h"
+#include "lvgl9/src/widgets/dropdown/lv_dropdown.h"
 #include "lvgl9/src/misc/lv_event.h"
 #include <string.h>
 
@@ -175,9 +176,15 @@ void easylvgl_component_call_callback(
         // 推送组件 userdata（如果有）
         // TODO: 需要推送组件的 userdata，阶段一先简化
         lua_pushlightuserdata(L_state, meta->obj);
+        int arg_count = 1;
+        if (event_type == EASYLVGL_EVENT_VALUE_CHANGED &&
+            meta->component_type == EASYLVGL_COMPONENT_DROPDOWN) {
+            lua_pushinteger(L_state, lv_dropdown_get_selected(meta->obj));
+            arg_count++;
+        }
         
         // 调用回调函数
-        if (lua_pcall(L_state, 1, 0, 0) != LUA_OK) {
+        if (lua_pcall(L_state, arg_count, 0, 0) != LUA_OK) {
             // 错误处理
             const char *err = lua_tostring(L_state, -1);
             // TODO: 记录错误日志

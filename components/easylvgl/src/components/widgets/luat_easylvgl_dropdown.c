@@ -3,6 +3,7 @@
  * @summary Dropdown 组件实现
  * @responsible 解析配置表、创建 lv_dropdown、绑定事件
  */
+// 负责：构建下拉框配置并将事件与 Lua 回调关联（参考 .cursor/rules/code/RULE.md）
 
 #include "luat_easylvgl_component.h"
 #include "luat_malloc.h"
@@ -26,6 +27,12 @@ static easylvgl_ctx_t *easylvgl_binding_get_ctx(lua_State *L) {
     return ctx;
 }
 
+/**
+ * 从 Lua 配置表读取选项并拼接成 LVGL 所需字符串
+ * @param L Lua 状态
+ * @param idx 配置表在栈中的索引
+ * @return 拼接后的选项字符串（需调用方释放），失败返回 NULL
+ */
 static char *easylvgl_dropdown_build_options(lua_State *L, int idx) {
     int count = easylvgl_marshal_table_length(L, idx, "options");
     if (count <= 0) {
@@ -70,6 +77,12 @@ static char *easylvgl_dropdown_build_options(lua_State *L, int idx) {
     return buffer;
 }
 
+/**
+ * 根据 Lua 配置表创建下拉框并完成基本属性设置
+ * @param L Lua 状态
+ * @param idx 配置表在栈中的索引
+ * @return 构建成功的 LVGL 下拉框对象，失败返回 NULL
+ */
 lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx) {
     if (L == NULL) {
         return NULL;
@@ -81,6 +94,7 @@ lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx) {
         return NULL;
     }
 
+    // 读取配置（父对象、位置尺寸、默认选中）
     lv_obj_t *parent = easylvgl_marshal_parent(L, idx);
     int x = easylvgl_marshal_integer(L, idx, "x", 0);
     int y = easylvgl_marshal_integer(L, idx, "y", 0);
@@ -96,15 +110,18 @@ lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx) {
     lv_obj_set_pos(dropdown, x, y);
     lv_obj_set_size(dropdown, w, h);
 
+    // 构建 options 字符串并同步到 LVGL 下拉框
     char *options = easylvgl_dropdown_build_options(L_state, idx);
     if (options != NULL) {
         lv_dropdown_set_options(dropdown, options);
     }
 
+    // 如果指定了默认选中，立即设置
     if (default_index >= 0) {
         lv_dropdown_set_selected(dropdown, default_index);
     }
 
+    // 分配组件元数据并挂载到上下文
     easylvgl_component_meta_t *meta = easylvgl_component_meta_alloc(
         ctx, dropdown, EASYLVGL_COMPONENT_DROPDOWN);
     if (meta == NULL) {
@@ -115,8 +132,10 @@ lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx) {
         return NULL;
     }
 
+    // 将 options 字符串绑定到 user_data，方便后续回收
     meta->user_data = options;
 
+    // 捕获 Lua 回调并绑定 LVGL 事件
     int callback_ref = easylvgl_component_capture_callback(L, idx, "on_change");
     if (callback_ref != LUA_NOREF) {
         easylvgl_dropdown_set_on_change(dropdown, callback_ref);
@@ -125,6 +144,12 @@ lv_obj_t *easylvgl_dropdown_create_from_config(void *L, int idx) {
     return dropdown;
 }
 
+/** 
+ * 设置下拉框选中索引
+ * @param dropdown LVGL 下拉框对象
+ * @param index 要选中的索引
+ * @return EASYLVGL_OK 成功，其他失败 
+ */
 int easylvgl_dropdown_set_selected(lv_obj_t *dropdown, int index) {
     if (dropdown == NULL) {
         return EASYLVGL_ERR_INVALID_PARAM;
@@ -134,6 +159,11 @@ int easylvgl_dropdown_set_selected(lv_obj_t *dropdown, int index) {
     return EASYLVGL_OK;
 }
 
+/**
+ * 获取当前选中的索引
+ * @param dropdown LVGL 下拉框对象
+ * @return 当前选中索引，失败返回 -1
+ */
 int easylvgl_dropdown_get_selected(lv_obj_t *dropdown) {
     if (dropdown == NULL) {
         return -1;
@@ -142,6 +172,12 @@ int easylvgl_dropdown_get_selected(lv_obj_t *dropdown) {
     return lv_dropdown_get_selected(dropdown);
 }
 
+/**
+ * 设置下拉框选中项变化回调
+ * @param dropdown LVGL 下拉框对象
+ * @param callback_ref Lua 回调引用
+ * @return EASYLVGL_OK 成功，其他失败
+ */
 int easylvgl_dropdown_set_on_change(lv_obj_t *dropdown, int callback_ref) {
     if (dropdown == NULL) {
         return EASYLVGL_ERR_INVALID_PARAM;

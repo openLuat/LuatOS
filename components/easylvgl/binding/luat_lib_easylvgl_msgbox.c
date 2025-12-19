@@ -22,6 +22,10 @@
 
 #define EASYLVGL_MSGBOX_MT "easylvgl.msgbox"
 
+/**
+ * 清理 msgbox Lua 侧关联数据
+ * @param ud 组件用户数据
+ */
 static void easylvgl_msgbox_lua_cleanup(easylvgl_component_ud_t *ud)
 {
     if (ud == NULL || ud->obj == NULL) {
@@ -41,6 +45,19 @@ static void easylvgl_msgbox_lua_cleanup(easylvgl_component_ud_t *ud)
     ud->obj = NULL;
 }
 
+/**
+ * 创建 Msgbox 组件
+ * @api easylvgl.msgbox(config)
+ * @table config 配置表
+ * @string config.title 标题文本，可选
+ * @string config.text 内容文本，可选
+ * @boolean config.auto_center 是否自动居中，默认 true
+ * @int config.timeout 自动关闭时间（毫秒），默认 0
+ * @table config.buttons 按钮标签数组，默认 ["OK"]
+ * @function config.on_action 按钮点击回调
+ * @userdata config.parent 父对象，可选
+ * @return userdata Msgbox 对象，失败返回 nil
+ */
 static int l_easylvgl_msgbox(lua_State *L)
 {
     easylvgl_ctx_t *ctx = NULL;
@@ -66,6 +83,11 @@ static int l_easylvgl_msgbox(lua_State *L)
     return 1;
 }
 
+/**
+ * Msgbox:show()
+ * @api msgbox:show()
+ * @return nil
+ */
 static int l_msgbox_show(lua_State *L)
 {
     lv_obj_t *msgbox = easylvgl_check_component(L, 1, EASYLVGL_MSGBOX_MT);
@@ -73,6 +95,11 @@ static int l_msgbox_show(lua_State *L)
     return 0;
 }
 
+/**
+ * Msgbox:hide()
+ * @api msgbox:hide()
+ * @return nil
+ */
 static int l_msgbox_hide(lua_State *L)
 {
     lv_obj_t *msgbox = easylvgl_check_component(L, 1, EASYLVGL_MSGBOX_MT);
@@ -80,6 +107,12 @@ static int l_msgbox_hide(lua_State *L)
     return 0;
 }
 
+/**
+ * Msgbox:set_on_action(callback)
+ * @api msgbox:set_on_action(callback)
+ * @function callback 操作回调（按键 ID 传参）
+ * @return nil
+ */
 static int l_msgbox_set_on_action(lua_State *L)
 {
     lv_obj_t *msgbox = easylvgl_check_component(L, 1, EASYLVGL_MSGBOX_MT);
@@ -90,6 +123,11 @@ static int l_msgbox_set_on_action(lua_State *L)
     return 0;
 }
 
+/**
+ * Msgbox:release()
+ * @api msgbox:release()
+ * @return nil
+ */
 static int l_msgbox_release(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_MSGBOX_MT);
@@ -99,6 +137,9 @@ static int l_msgbox_release(lua_State *L)
     return 0;
 }
 
+/**
+ * Msgbox GC（Lua 垃圾回收）
+ */
 static int l_msgbox_gc(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_MSGBOX_MT);
@@ -106,6 +147,10 @@ static int l_msgbox_gc(lua_State *L)
     return 0;
 }
 
+/**
+ * 注册 Msgbox 元表
+ * @param L Lua 状态
+ */
 void easylvgl_register_msgbox_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_MSGBOX_MT);
@@ -126,6 +171,9 @@ void easylvgl_register_msgbox_meta(lua_State *L)
     lua_pop(L, 1);
 }
 
+/**
+ * Msgbox 创建函数（供主模块注册）
+ */
 int easylvgl_msgbox_create(lua_State *L)
 {
     return l_easylvgl_msgbox(L);

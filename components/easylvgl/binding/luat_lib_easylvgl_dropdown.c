@@ -21,6 +21,20 @@
 
 #define EASYLVGL_DROPDOWN_MT "easylvgl.dropdown"
 
+/**
+ * 创建 Dropdown 组件
+ * @api easylvgl.dropdown(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 140
+ * @int config.h 高度，默认 40
+ * @table config.options 选项列表（字符串数组）
+ * @int config.default_index 默认选中项索引，默认 -1
+ * @function config.on_change 选中项变化回调
+ * @userdata config.parent 父对象，可覆盖默认屏幕
+ * @return userdata Dropdown 对象，失败返回 nil
+ */
 static int l_easylvgl_dropdown(lua_State *L)
 {
     easylvgl_ctx_t *ctx = NULL;
@@ -47,6 +61,12 @@ static int l_easylvgl_dropdown(lua_State *L)
     return 1;
 }
 
+/**
+ * Dropdown:set_selected(index)
+ * @api dropdown:set_selected(index)
+ * @int index 选中项索引，0 起始
+ * @return nil
+ */
 static int l_dropdown_set_selected(lua_State *L)
 {
     lv_obj_t *dropdown = easylvgl_check_component(L, 1, EASYLVGL_DROPDOWN_MT);
@@ -55,6 +75,11 @@ static int l_dropdown_set_selected(lua_State *L)
     return 0;
 }
 
+/**
+ * Dropdown:get_selected()
+ * @api dropdown:get_selected()
+ * @return int 当前选中项索引
+ */
 static int l_dropdown_get_selected(lua_State *L)
 {
     lv_obj_t *dropdown = easylvgl_check_component(L, 1, EASYLVGL_DROPDOWN_MT);
@@ -63,6 +88,12 @@ static int l_dropdown_get_selected(lua_State *L)
     return 1;
 }
 
+/**
+ * Dropdown:set_on_change(callback)
+ * @api dropdown:set_on_change(callback)
+ * @function callback 选中项改变回调
+ * @return nil
+ */
 static int l_dropdown_set_on_change(lua_State *L)
 {
     lv_obj_t *dropdown = easylvgl_check_component(L, 1, EASYLVGL_DROPDOWN_MT);
@@ -73,6 +104,9 @@ static int l_dropdown_set_on_change(lua_State *L)
     return 0;
 }
 
+/**
+ * Dropdown GC（垃圾回收）
+ */
 static int l_dropdown_gc(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_DROPDOWN_MT);
@@ -91,6 +125,10 @@ static int l_dropdown_gc(lua_State *L)
     return 0;
 }
 
+/**
+ * 注册 Dropdown 元表
+ * @param L Lua 状态
+ */
 void easylvgl_register_dropdown_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_DROPDOWN_MT);
@@ -110,6 +148,9 @@ void easylvgl_register_dropdown_meta(lua_State *L)
     lua_pop(L, 1);
 }
 
+/**
+ * Dropdown 创建函数（供主模块注册）
+ */
 int easylvgl_dropdown_create(lua_State *L)
 {
     return l_easylvgl_dropdown(L);

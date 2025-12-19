@@ -19,6 +19,20 @@
 
 #define EASYLVGL_SWITCH_MT "easylvgl.switch"
 
+/**
+ * 创建 Switch 组件
+ * @api easylvgl.switch(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 70
+ * @int config.h 高度，默认 40
+ * @boolean config.checked 初始状态，默认 false
+ * @string config.style 预设样式，如 "danger"/"success"
+ * @function config.on_change 状态变更回调
+ * @userdata config.parent 父对象，可选
+ * @return userdata Switch 对象，失败返回 nil
+ */
 static int l_easylvgl_switch(lua_State *L)
 {
     easylvgl_ctx_t *ctx = NULL;
@@ -44,6 +58,12 @@ static int l_easylvgl_switch(lua_State *L)
     return 1;
 }
 
+/**
+ * Switch:set_state(state)
+ * @api switch:set_state(state)
+ * @boolean state 勾选状态
+ * @return nil
+ */
 static int l_switch_set_state(lua_State *L)
 {
     lv_obj_t *sw = easylvgl_check_component(L, 1, EASYLVGL_SWITCH_MT);
@@ -52,6 +72,11 @@ static int l_switch_set_state(lua_State *L)
     return 0;
 }
 
+/**
+ * Switch:get_state()
+ * @api switch:get_state()
+ * @return boolean 当前状态
+ */
 static int l_switch_get_state(lua_State *L)
 {
     lv_obj_t *sw = easylvgl_check_component(L, 1, EASYLVGL_SWITCH_MT);
@@ -60,6 +85,12 @@ static int l_switch_get_state(lua_State *L)
     return 1;
 }
 
+/**
+ * Switch:set_on_change(callback)
+ * @api switch:set_on_change(callback)
+ * @function callback 状态变化回调
+ * @return nil
+ */
 static int l_switch_set_on_change(lua_State *L)
 {
     lv_obj_t *sw = easylvgl_check_component(L, 1, EASYLVGL_SWITCH_MT);
@@ -70,6 +101,9 @@ static int l_switch_set_on_change(lua_State *L)
     return 0;
 }
 
+/**
+ * Switch GC（释放 LVGL 对象）
+ */
 static int l_switch_gc(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_SWITCH_MT);
@@ -84,6 +118,10 @@ static int l_switch_gc(lua_State *L)
     return 0;
 }
 
+/**
+ * 注册 Switch 元表
+ * @param L Lua 状态
+ */
 void easylvgl_register_switch_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_SWITCH_MT);
@@ -103,6 +141,9 @@ void easylvgl_register_switch_meta(lua_State *L)
     lua_pop(L, 1);
 }
 
+/**
+ * Switch 创建函数（供主模块注册）
+ */
 int easylvgl_switch_create(lua_State *L)
 {
     return l_easylvgl_switch(L);

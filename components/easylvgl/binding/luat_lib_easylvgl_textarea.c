@@ -22,6 +22,22 @@
  * Lua 接口定义
  ************************************************************************/
 
+/**
+ * 创建 Textarea 组件
+ * @api easylvgl.textarea(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 ctx->width - x 或 200
+ * @int config.h 高度，默认 120
+ * @int config.max_len 最大字符数，默认 256
+ * @string config.text 初始文本
+ * @string config.placeholder 占位提示
+ * @function config.on_text_change 文本变更回调
+ * @table config.keyboard 内嵌 Keyboard 配置（table）
+ * @userdata config.parent 父对象，可选
+ * @return userdata Textarea 对象，失败返回 nil
+ */
 static int l_easylvgl_textarea(lua_State *L) {
     easylvgl_ctx_t *ctx = NULL;
     lua_getfield(L, LUA_REGISTRYINDEX, "easylvgl_ctx");
@@ -46,6 +62,12 @@ static int l_easylvgl_textarea(lua_State *L) {
     return 1;
 }
 
+/**
+ * Textarea:set_text(text)
+ * @api textarea:set_text(text)
+ * @string text 文本内容
+ * @return nil
+ */
 static int l_textarea_set_text(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     const char *text = luaL_checkstring(L, 2);
@@ -53,6 +75,11 @@ static int l_textarea_set_text(lua_State *L) {
     return 0;
 }
 
+/**
+ * Textarea:get_text()
+ * @api textarea:get_text()
+ * @return string 当前文本
+ */
 static int l_textarea_get_text(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     const char *text = easylvgl_textarea_get_text(textarea);
@@ -60,6 +87,12 @@ static int l_textarea_get_text(lua_State *L) {
     return 1;
 }
 
+/**
+ * Textarea:set_cursor(pos)
+ * @api textarea:set_cursor(pos)
+ * @int pos 光标位置
+ * @return nil
+ */
 static int l_textarea_set_cursor(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     uint32_t pos = (uint32_t)luaL_checkinteger(L, 2);
@@ -67,6 +100,12 @@ static int l_textarea_set_cursor(lua_State *L) {
     return 0;
 }
 
+/**
+ * Textarea:set_on_text_change(callback)
+ * @api textarea:set_on_text_change(callback)
+ * @function callback 文本变化回调
+ * @return nil
+ */
 static int l_textarea_set_on_change(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     luaL_checktype(L, 2, LUA_TFUNCTION);
@@ -76,6 +115,12 @@ static int l_textarea_set_on_change(lua_State *L) {
     return 0;
 }
 
+/**
+ * Textarea:attach_keyboard(keyboard)
+ * @api textarea:attach_keyboard(keyboard)
+ * @userdata keyboard Keyboard 对象
+ * @return nil
+ */
 static int l_textarea_attach_keyboard(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     lv_obj_t *keyboard = easylvgl_check_component(L, 2, EASYLVGL_KEYBOARD_MT);
@@ -83,6 +128,11 @@ static int l_textarea_attach_keyboard(lua_State *L) {
     return 0;
 }
 
+/**
+ * Textarea:get_keyboard()
+ * @api textarea:get_keyboard()
+ * @return userdata|null 当前绑定的 Keyboard
+ */
 static int l_textarea_get_keyboard(lua_State *L) {
     lv_obj_t *textarea = easylvgl_check_component(L, 1, EASYLVGL_TEXTAREA_MT);
     lv_obj_t *keyboard = easylvgl_textarea_get_keyboard(textarea);
@@ -94,6 +144,9 @@ static int l_textarea_get_keyboard(lua_State *L) {
     return 1;
 }
 
+/**
+ * Textarea GC（销毁组件）
+ */
 static int l_textarea_gc(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_TEXTAREA_MT);
     if (ud != NULL && ud->obj != NULL) {
@@ -111,6 +164,10 @@ static int l_textarea_gc(lua_State *L) {
     return 0;
 }
 
+/**
+ * 注册 Textarea 元表
+ * @param L Lua 状态
+ */
 void easylvgl_register_textarea_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_TEXTAREA_MT);
 
@@ -132,6 +189,9 @@ void easylvgl_register_textarea_meta(lua_State *L) {
     lua_pop(L, 1);
 }
 
+/**
+ * Textarea 创建函数（供主模块注册）
+ */
 int easylvgl_textarea_create(lua_State *L) {
     return l_easylvgl_textarea(L);
 }

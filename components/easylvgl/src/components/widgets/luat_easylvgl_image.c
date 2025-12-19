@@ -12,6 +12,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#define LUAT_LOG_TAG "easylvgl.image"
+#include "luat_log.h"
+
+
 /**
  * 从配置表创建 Image 组件
  * @param L Lua 状态
@@ -87,9 +91,11 @@ lv_obj_t *easylvgl_image_create_from_config(void *L, int idx)
         return NULL;
     }
     
-    // 绑定点击事件
+    // 绑定点击事件（仅当用户提供回调）
     int callback_ref = easylvgl_component_capture_callback(L, idx, "on_click");
-    if (callback_ref != -1) {  // LUA_NOREF
+    if (callback_ref != LUA_NOREF) {  // LUA_NOREF
+        // 使图片成为可点击对象（默认 LVGL Image 不响应点击事件）
+        lv_obj_add_flag(img, LV_OBJ_FLAG_CLICKABLE);
         easylvgl_component_bind_event(meta, EASYLVGL_EVENT_CLICKED, callback_ref);
     }
     

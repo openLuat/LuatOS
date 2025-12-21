@@ -248,7 +248,7 @@ static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
 
 static int on_header_field(http_parser* parser, const char *at, size_t length){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-    LLOGD("on_header_field:%.*s",length,at);
+    // LLOGD("on_header_field:%.*s",length,at);
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
@@ -278,7 +278,7 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 
 	char tmp[16] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	LLOGD("on_header_value:%.*s",length,at);
+	// LLOGD("on_header_value:%.*s",length,at);
 	if (http_ctrl->headers_complete){
 		if (!http_ctrl->luatos_mode) {
 			LLOGD("state %d", http_ctrl->state);
@@ -290,7 +290,7 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 		if(http_ctrl->resp_content_len == -1){
 			memcpy(tmp, at, length);
 			http_ctrl->resp_content_len = atoi(tmp);
-			LLOGD("http_ctrl->resp_content_len:%d",http_ctrl->resp_content_len);
+			LLOGD("resp_content_len:%d",http_ctrl->resp_content_len);
 		}
 		http_ctrl->headers = luat_heap_realloc(http_ctrl->headers,http_ctrl->headers_len+length+3);
 		memcpy(http_ctrl->headers+http_ctrl->headers_len,at,length);

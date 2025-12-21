@@ -35,7 +35,7 @@ end)
 #define LUAT_HTTP_DEBUG 0
 #endif
 #undef LLOGD
-#define LLOGD(...) if (http_ctrl->debug_onoff) LLOGI(__VA_ARGS__)
+#define LLOGD(fmt, ...) if (http_ctrl->debug_onoff) LLOGI("[%llx]" fmt, http_ctrl->idp, ##__VA_ARGS__)
 
 
 int http_close(luat_http_ctrl_t *http_ctrl);
@@ -342,6 +342,7 @@ static int l_http_request(lua_State *L) {
 
 	network_set_ip_invaild(&http_ctrl->ip_addr);
 	http_ctrl->idp = luat_pushcwait(L);
+	LLOGI("http idp:%llx", http_ctrl->idp);
 
     if (luat_http_client_start_luatos(http_ctrl)) {
         goto error;
@@ -358,13 +359,13 @@ error:
 }
 
 #include "rotable2.h"
-const rotable_Reg_t reg_http[] =
+static const rotable_Reg_t reg_http[] =
 {
 	{"request",			ROREG_FUNC(l_http_request)},
 	{ NULL,             ROREG_INT(0)}
 };
 
-const rotable_Reg_t reg_http_emtry[] =
+static const rotable_Reg_t reg_http_emtry[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };
@@ -391,8 +392,13 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
+	if (http_ctrl == NULL){
+		LLOGE("http callback http_ctrl is NULL");
+		return 0;
+	}
 	uint64_t idp = http_ctrl->idp;
-	LLOGI("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
+	LLOGD("cb arg1:%d is_download:%d idp:%llx",msg->arg1,http_ctrl->is_download,idp);
+	LLOGD("cb status_code:%d resp_content_len:%d",http_ctrl->parser.status_code,http_ctrl->resp_content_len);
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		if (msg->arg1 == HTTP_CALLBACK){
 			lua_geti(L, LUA_REGISTRYINDEX, (int)http_ctrl->http_cb);
@@ -427,8 +433,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		temp = strstr(value,"\r\n")+2;
 		header_len = (uint16_t)(value-header)-1;
 		value_len = (uint16_t)(temp-value)-2;
-		LLOGD("header:%.*s",header_len,header);
-		LLOGD("value:%.*s",value_len,value);
+		LLOGD("header: [%.*s]:[%.*s]",header_len,header,value_len,value);
 		lua_pushlstring(L, header,header_len);
 		lua_pushlstring(L, value,value_len);
 		lua_settable(L, -3);
@@ -483,7 +488,7 @@ exit:
 }
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int arg) {
-	LLOGD("luat_http_client_onevent %p %d", http_ctrl, error_code);
+	LLOGD("onevent %p %d", http_ctrl, error_code);
 	if (!http_ctrl->luatos_mode) return;
 	if (http_ctrl->timeout_timer && error_code != HTTP_CALLBACK){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);

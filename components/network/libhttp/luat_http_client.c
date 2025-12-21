@@ -695,6 +695,10 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
+	if (http_ctrl == NULL){
+		LLOGE("http_ctrl is NULL");
+		return -1;
+	}
 	if (!http_ctrl->luatos_mode) {
 	    if (HTTP_STATE_IDLE == http_ctrl->state)
 	    {
@@ -708,7 +712,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	}
 
 	//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_http_callback %08X %d %p",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
+	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (event->Param1){
 		//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("error event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);

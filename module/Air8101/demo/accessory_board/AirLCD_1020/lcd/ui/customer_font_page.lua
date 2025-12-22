@@ -37,7 +37,7 @@ local back_button = { x1 = 10, y1 = 10, x2 = 80, y2 = 50 }
 function customer_font_page.draw()
 
     width, height = lcd.getSize()
-    center_x = width / 2
+    center_x = math.floor(width / 2)
     
     lcd.clear()
     lcd.setFont(lcd.font_opposansm12_chinese)

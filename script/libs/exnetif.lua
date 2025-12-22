@@ -1109,6 +1109,10 @@ function exnetif.close(type, adapter)
         if adapter == socket.LWIP_AP then
             wlan.stopAP()
         elseif adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+            if netdrv.CTRL_UPDOWN == nil then
+                log.error("当前固件不支持关闭接口,请使用最新固件测试")
+                return false
+            end
             if eth_cfg[adapter] and eth_cfg[adapter].pwrpin then
                 gpio.set(eth_cfg[adapter].pwrpin, 0)
                 gpio.close(eth_cfg[adapter].pwrpin)

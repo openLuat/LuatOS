@@ -84,7 +84,7 @@
 
 ### 4.2 内核固件
 
-- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2018_Air780EPMM 1号固件
+- [点击下载Air780EPM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2018_Air780EPMM 1号固件
 
 
 ## 五、演示核心步骤

@@ -6,15 +6,20 @@
 @author  江访
 @usage
 本文件为字体驱动配置模块，核心业务逻辑为：
-1、配置LCD显示和触摸屏参数；
-2、提供统一的硬件初始化接口；
+1、提供统一的硬件初始化接口；
+2、默认使用内置12号英文点阵字体；
+3、配置LCD显示和触摸屏参数；
 
 本文件的对外接口有1个：
-1、ui.hw_init(hw_config) - 初始化硬件系统；
+1、hw_font_drv.init(font_config) - 初始化硬件系统；
 
-@api ui.hw_init(hw_config)
+@api hw_font_drv.init(font_config)
 @summary 初始化exEasyUI硬件系统
-
+@table font_config 字体配置参数（可选），在Air780EPM模块上设置此参数无效，仅支持使用内置12号英文点阵字体
+@field type string 字体类型，支持 "hzfont"、"gtfont"
+@field size number 字体大小
+@field antialias number 抗锯齿设置
+@field spi table SPI配置（仅GTFont有效）
 @return nil
 
 @usage

@@ -440,7 +440,7 @@ local function eth_net_restart(adapter)
             return false
         end
     end
-    netdrv.ctrl(adapter, netdrv.CTRL_DOWN, 1)
+    netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 1)
 end
 
 -- ping测试循环
@@ -1115,7 +1115,7 @@ function exnetif.close(type, adapter)
             end
             -- 关闭spi
             spi.close(eth_cfg[adapter].opts.spi)
-            netdrv.ctrl(adapter, netdrv.CTRL_DOWN, 0)
+            netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 0)
             available[adapter] = connection_states.STOPED
         elseif adapter == socket.LWIP_STA then
             wlan.disconnect()

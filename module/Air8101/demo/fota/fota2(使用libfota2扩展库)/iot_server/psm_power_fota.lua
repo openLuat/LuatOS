@@ -15,7 +15,7 @@
 
 ]]
 -- 使用合宙iot平台时需要这个参数
-PRODUCT_KEY = "123" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+PRODUCT_KEY = "BnYk2BlYO30DiWra7q27wUmEarOiipHO" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 --加在libfota2扩展库
 libfota2 = require "libfota2"
 
@@ -33,7 +33,7 @@ libfota2 = require "libfota2"
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5缺少必要的PROJECT_KEY参数
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
 local function fota_cb(ret)
     log.info("fota", ret)
     --升级结束，触发升级回调，发布消息升级结束，可以进入休眠模式
@@ -54,7 +54,7 @@ local function fota_cb(ret)
             "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n" ..
             "3) 已经是最新版本，无需升级")
     elseif ret == 5 then
-        log.info("缺少必要的PROJECT_KEY参数")
+        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
     else
         log.info("不是上面几种情况 ret为", ret)
     end

@@ -1,28 +1,32 @@
 --[[
-@module  update
-@summary 远程升级功能模块
+@module  air_srv_fota
+@summary 使用自建服务器远程升级功能模块
 @version 1.0
 @date    2025.08.12
 @author  孟伟
 @usage
 实现远程升级功能，具体流程如下：
-1、判断网卡是否连接成功；
-2、初始化fota2模块；
-3、配置fota2模块的参数；
-4、调用fota2模块的升级函数；
-5、在升级结果的回调函数中，根据升级结果进行处理；
+1、接收 CUSTOMER_SRV_FOTA 系统消息，触发升级；
+2、判断网卡是否连接成功；
+3、初始化fota2模块；
+4、调用fota2模块的升级函数;
+5、根据升级结果进行处理；
 ]]
 
+
+--加在libfota2扩展库
 libfota2 = require "libfota2"
-
-
 
 -- 循环打印版本号, 方便看版本号变化, 非必须
 function get_version()
+    log.info("降功耗 找合宙")
     log.info("fota", "脚本版本号", VERSION, "core版本号", rtos.version())
 end
+
 sys.timerLoopStart(get_version, 3000)
 
+-- fota升级标志：true 表示当前正有 FOTA 流程在跑
+local fota_running = false
 
 -- 升级结果的回调函数
 -- 功能:获取fota的回调函数
@@ -33,9 +37,12 @@ sys.timerLoopStart(get_version, 3000)
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5缺少必要的PROJECT_KEY参数
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
 local function fota_cb(ret)
     log.info("fota", ret)
+    -- fota结束，无论成功还是失败，都释放fota_running标志
+    fota_running = false
+
     if ret == 0 then
         log.info("升级包下载成功,重启模块")
         rtos.reboot()
@@ -49,14 +56,15 @@ local function fota_cb(ret)
         log.error("FOTA 失败",
             "原因可能有：\n" ..
             "1) 服务器返回 200/206 但报文体为空(0 字节）—— 通常是升级包文件缺失或 URL 指向空文件；\n" ..
-            "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n"..
-            "3) 已经是最新版本，无需升级" )
+            "2) 服务器返回 4xx/5xx 等异常状态码 —— 请确认升级包已上传、URL 正确、鉴权信息有效；\n" ..
+            "3) 已经是最新版本，无需升级")
     elseif ret == 5 then
-        log.info("缺少必要的PROJECT_KEY参数")
+        log.info("版本号书写错误", "iot平台版本号需要使用xxx.yyy.zzz形式")
     else
         log.info("不是上面几种情况 ret为", ret)
     end
 end
+
 
 -- 使用第三方服务器，配置ota_opts参数
 --[[
@@ -76,7 +84,7 @@ end
 -- 13. opts.body string 额外添加的请求body,默认不需要
 ]]
 local opts = {
-    url = "###http://cdn.openluat-backend.openluat.com/upgrade_firmware/fotademo_2008.001.001_LuatOS-SoC_Air8000.bin_20250623184110381812",
+    url = "",
     -- 合宙IOT平台的默认升级URL, 不填就是这个默认值
     -- 如果是自建的OTA服务器, 则需要填写正确的URL, 例如 http://192.168.1.5:8000/update
     -- 如果自建OTA服务器,且url包含全部参数,不需要额外添加参数, 请在url前面添加 ###
@@ -88,11 +96,12 @@ local opts = {
     -- 5. opts.firmware_name string 底层版本号
 
     -- 请求的版本号, 合宙IOT有一套版本号体系,不传就是合宙规则, 自建服务器的话当然是自行约定版本号了
-    -- version = ""
-    -- 其他更多参数, 请查阅libfota2的文档 https://docs.openluat.com/osapi/ext/libfota2/
+    version = ""
+    -- 其他更多参数, 请查阅libfota2的文档 https://wiki.luatos.com/api/libs/libfota2.html
 }
 
-function fota_task_func()
+
+local function air_fota_func(data)
     -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
     while not socket.adapter(socket.dft()) do
         log.warn("fota_task_func", "wait IP_READY", socket.dft())
@@ -104,25 +113,27 @@ function fota_task_func()
         -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
         sys.waitUntil("IP_READY", 1000)
     end
-
     -- 检测到了IP_READY消息
     log.info("fota_task_func", "recv IP_READY", socket.dft())
-    ----这个判断是提醒要设置url的,且不要使用本文中的测试服务器,实际生产请删除
-    if not opts.url or string.find(opts.url,"airtest.openluat.com") then
-        while 1 do
-            sys.wait(1000)
-            log.info("fota", "当前URL",opts.url,"请修改正确的url")
+    while true do
+        -- 阻塞等待外部事件："CUSTOMER_SRV_FOTA"
+        local result, data = sys.waitUntil("CUSTOMER_SRV_FOTA")
+        if result then
+            log.info("接收到数据", "date", #data)
+
+            if fota_running then
+                log.warn("fota_task", "FOTA 正在运行，跳过本次请求")
+            else
+                -- 标记FOTA正在运行
+                -- 注意：这里只是标记，实际的FOTA流程还没有开始
+                opts.url = data.url
+                opts.version = data.version
+                fota_running = true
+                log.info("开始检查升级")
+                libfota2.request(fota_cb, opts)
+            end
         end
     end
-
-    log.info("开始检查升级")
-    libfota2.request(fota_cb, opts)
 end
-
---创建并且启动一个task
---运行这个task的主函数fota_task_func
-sys.taskInit(fota_task_func)
--- 演示定时自动升级, 每隔4小时自动检查一次
-sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, opts)
-
-
+-- 初始化FOTA任务
+sys.taskInit(air_fota_func)

@@ -285,9 +285,9 @@ typedef uint64_t LongInt;
 typedef struct
 {
 	uint32_t ID;
-	uint32_t Param1;
-	uint32_t Param2;
-	uint32_t Param3;
+	size_t Param1;
+	size_t Param2;
+	size_t Param3;
 }OS_EVENT;
 
 typedef struct

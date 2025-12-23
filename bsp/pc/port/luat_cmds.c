@@ -5,6 +5,7 @@
 #include "lundump.h"
 #include "luat_mock.h"
 #include "luat_luadb2.h"
+#include <stdlib.h>
 
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
@@ -444,7 +445,7 @@ void *check_file_path(const char *path)
 		memcpy(buff, path, strlen(path));
 		#else
 		memcpy(buff, path, strlen(path) - 1);
-		#endif;
+		#endif
 		dp = opendir(buff);
 		// LLOGD("目录打开 %p", dp);
 		if (dp != NULL)

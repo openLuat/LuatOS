@@ -92,7 +92,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, mqtt_ctrl->netc, 4);
 			#endif
 			if (mqtt_ctrl->mqtt_ref) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "error");
@@ -106,7 +106,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 		}
 		case MQTT_MSG_PINGRESP : {
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "pong");
@@ -129,7 +129,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
 			if (mqtt_ctrl->mqtt_cb) {
 //				luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "recv");
@@ -171,7 +171,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
         }
         case MQTT_MSG_CONNACK: {
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "conack");
@@ -189,7 +189,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 		case MQTT_MSG_PUBACK:
 		case MQTT_MSG_PUBCOMP: {
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "sent");
@@ -208,7 +208,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
         }
 		case MQTT_MSG_CLOSE: {
 			if (mqtt_ctrl->mqtt_ref) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "close");
@@ -219,7 +219,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
         }
 		case MQTT_MSG_DISCONNECT: {
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "disconnect");
@@ -238,7 +238,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
         }
 		case MQTT_MSG_SUBACK:
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "suback");
@@ -250,7 +250,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 			break;
 		case MQTT_MSG_UNSUBACK:
 			if (mqtt_ctrl->mqtt_cb) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "unsuback");
@@ -263,7 +263,7 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 		case MQTT_MSG_CONACK_ERROR:
 		case MQTT_MSG_NET_ERROR:
 			if (mqtt_ctrl->mqtt_ref) {
-				lua_geti(L, LUA_REGISTRYINDEX, (lua_Integer)mqtt_ctrl->mqtt_cb);
+				lua_geti(L, LUA_REGISTRYINDEX, (int)(intptr_t)mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "error");

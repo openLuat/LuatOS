@@ -6,7 +6,7 @@
 
 #define I2C_TOOLS_BUFFER_SIZE 64
 
-uint8_t strtonum(const char* str);
+uint8_t i2c_tools_strtonum(const char* str);
 
 void i2c_help(void);
 uint8_t i2c_init(const uint8_t i2c_id, int speed);

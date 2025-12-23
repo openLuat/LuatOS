@@ -117,7 +117,6 @@ local function send_item(ws_client)
                 log.info("wbs_sender", "发送成功", "长度", #item.data)
             end
             
-            -- 由于sent事件可能不会触发，我们直接认为发送成功
             if item.cb and item.cb.func then
                 item.cb.func(true, item.cb.para)
             end

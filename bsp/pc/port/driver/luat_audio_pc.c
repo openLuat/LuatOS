@@ -7,17 +7,18 @@
 #endif
 #endif
 
-#include "ffmpeg.h"
 
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
+#ifdef LUAT_USE_AUDIO
 #include "luat_audio.h"
 #include "luat_rtos.h"
 #include "luat_timer.h"
 #include "luat_fs.h"
 #include "luat_i2s.h"
 #include <string.h>
+#include "ffmpeg.h"
 
 #define LUAT_LOG_TAG "audio_pc"
 #include "luat_log.h"
@@ -280,3 +281,4 @@ int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_
     return 0;
 }
 
+#endif

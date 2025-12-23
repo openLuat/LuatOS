@@ -52,6 +52,17 @@ static uint32_t default_gpio_pull = Luat_GPIO_DEFAULT;
 // 记录GPIO电平,仅OUTPUT时可用
 static uint8_t gpio_out_levels[(LUAT_GPIO_PIN_MAX + 7) / 8];
 
+static inline int check_wifi_pwr_pin(int pin) {
+    #ifdef LUAT_MODEL_AIR8000
+    extern int luat_airlink_has_wifi(void);
+    if (23 == pin && luat_airlink_has_wifi()) {
+        LLOGW("gpio23 is wifi power pin, operation denied");
+        return 1; // wifi电源管脚禁止操作
+    }
+    #endif
+    return 0;
+}
+
 static uint8_t gpio_bit_get(int pin) {
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0;
@@ -245,6 +256,9 @@ static int l_gpio_setup(lua_State *L) {
     conf.pin = luaL_checkinteger(L, 1);
     if (conf.pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("id out of range 0 ~ %d, but %d", LUAT_GPIO_PIN_MAX, conf.pin);
+        return 0;
+    }
+    if (check_wifi_pwr_pin(conf.pin)) {
         return 0;
     }
     //conf->mode = luaL_checkinteger(L, 2);
@@ -456,6 +470,9 @@ static int l_gpio_set(lua_State *L) {
         pin = luaL_checkinteger(L, 1);
         value = luaL_checkinteger(L, 2);
     }
+    if (check_wifi_pwr_pin(pin)) {
+        return 0;
+    }
     #ifdef LUAT_USE_DRV_GPIO
     luat_drv_gpio_set(pin, value);
     #else
@@ -514,6 +531,9 @@ static int l_gpio_close(lua_State *L) {
     int pin = luaL_checkinteger(L, 1);
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0;
+    if (check_wifi_pwr_pin(pin)) {
+        return 0;
+    }
     luat_gpio_close(pin);
     if (gpios[pin].lua_ref) {
         luaL_unref(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
@@ -573,6 +593,9 @@ static int l_gpio_toggle(lua_State *L) {
         pin = luaL_checkinteger(L, 1);
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("pin id out of range (0-127)");
+        return 0;
+    }
+    if (check_wifi_pwr_pin(pin)) {
         return 0;
     }
     uint8_t value = gpio_bit_get(pin);

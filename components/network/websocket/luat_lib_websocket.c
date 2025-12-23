@@ -414,7 +414,7 @@ static int l_websocket_send(lua_State *L)
 	}
 	websocket_ctrl->frame_wait ++;
 	ret = luat_websocket_send_frame(websocket_ctrl, &pkg);
-	if (ret < 1) {
+	if (ret < 0) {
 		websocket_ctrl->frame_wait --;// 发送失败
 	}
 	lua_pushboolean(L, ret == 0 ? 1 : 0);

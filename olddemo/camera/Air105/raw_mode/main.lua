@@ -2,7 +2,7 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "camera_raw_mode"
 VERSION = "1.1"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" --换成自己的
+PRODUCT_KEY = "123" --换成自己的
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")

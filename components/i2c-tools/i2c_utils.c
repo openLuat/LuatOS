@@ -10,7 +10,7 @@
 
 static uint8_t i2c_tools_id = 0;
 
-uint8_t strtonum(const char* str){
+uint8_t i2c_tools_strtonum(const char* str){
     uint8_t data;
     if (strcmp(str, "0x")){
         data = (uint8_t)strtol(str, NULL, 0);

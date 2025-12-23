@@ -2,6 +2,17 @@
 PROJECT = "usb_cam_rtmp"
 VERSION = "1.0.0"
 
+local fota_enable = false  -- 是否启用FOTA功能
+
+if fota_enable then
+    local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
+
+    -- 使用合宙iot平台时需要这个参数  客户如果使用请记得修改成自己的项目key
+    PRODUCT_KEY = "8Ram1dVPp1QPfuaHoJ6xuk5qFrBxoNRu"        -- USB摄像头推流的项目KEY
+
+    libfota2 = require "libfota2"
+end
+
 local camera_id = camera.USB
 
 local usb_camera_table = {
@@ -61,7 +72,23 @@ function rtmp_try_reconnect()
     end
 end
 
+if fota_enable then
+    -- 升级结果的回调函数
+    local function fota_cb(ret)
+        log.info("fota result: ", ret)
+        if ret == 0 then
+            rtos.reboot()
+        end
+    end
+
+    local ota_opts = {}
+    -- 定时自动升级
+    sys.timerLoopStart(libfota2.request, fota_looptime, fota_cb, ota_opts)
+end
+
 sys.taskInit(function()
+    sys.wait(1000)
+    log.info("当前脚本版本号：", VERSION, "core版本号：", rtos.version())
     wlan.init()
     wlan.connect("luatos1234", "12341234", 1)
 

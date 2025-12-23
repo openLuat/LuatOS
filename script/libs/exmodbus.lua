@@ -39,10 +39,11 @@ exmodbus.WRITE_MULTIPLE_HOLDING_REGISTERS = 0x10 -- 写多个保持寄存器
 exmodbus.WRITE_MULTIPLE_COILS = 0x0F             -- 写多个线圈状态
 
 -- 定义响应结果常量
-exmodbus.STATUS_SUCCESS = 0      -- 收到响应数据且数据有效
-exmodbus.STATUS_DATA_INVALID = 1 -- 收到响应数据但数据损坏/校验失败
-exmodbus.STATUS_EXCEPTION = 2    -- 收到标准异常响应码
-exmodbus.STATUS_TIMEOUT = 3      -- 超时未收到响应
+exmodbus.STATUS_SUCCESS = 0       -- 收到响应数据且数据有效
+exmodbus.STATUS_DATA_INVALID = 1  -- 收到响应数据但数据损坏/校验失败
+exmodbus.STATUS_EXCEPTION = 2     -- 收到标准异常响应码
+exmodbus.STATUS_TIMEOUT = 3       -- 超时未收到响应
+exmodbus.STATUS_PARAM_INVALID = 4 -- 请求参数不正确
 
 -- 异常响应码常量
 exmodbus.ILLEGAL_FUNCTION = 0x01           -- 不支持请求的功能码

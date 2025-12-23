@@ -48,7 +48,7 @@ function home_page.draw()
     -- 显示标题
     -- 后续V2020版本以上支持lcd核心库的固件会新增lcd.getStrWidth(title)接口获取文本宽度，对齐、居中、换行可使用
     -- width, height = lcd.getSize()
-    -- center_x = width / 2
+    -- center_x = math.floor(width / 2)
     -- lcd.drawStr(center_x - lcd.getStrWidth(title) / 2, 50, title, 0x0000) -- 自动居中
     lcd.drawStr(106, 50, title, 0x0000)
 

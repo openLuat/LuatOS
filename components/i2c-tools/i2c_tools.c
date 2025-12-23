@@ -13,14 +13,14 @@ void i2c_tools(const char * data,size_t len){
     if (memcmp("send", command, 4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
         i2c_init(i2c_id,0);
-        uint8_t address = strtonum(strtok(NULL, " "));
+        uint8_t address = i2c_tools_strtonum(strtok(NULL, " "));
         uint8_t send_buff[16];
         uint8_t len = 0;
         while (1){
             char* buff = strtok(NULL, " ");
             if (buff == NULL)
                 break;
-            send_buff[len] = strtonum(buff);
+            send_buff[len] = i2c_tools_strtonum(buff);
             len++;
         }
         if(i2c_write(address, send_buff, len)!=1){
@@ -29,8 +29,8 @@ void i2c_tools(const char * data,size_t len){
     }else if(memcmp("recv",command,4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
         i2c_init(i2c_id,0);
-        uint8_t address = strtonum(strtok(NULL, " "));
-        uint8_t reg = strtonum(strtok(NULL, " "));
+        uint8_t address = i2c_tools_strtonum(strtok(NULL, " "));
+        uint8_t reg = i2c_tools_strtonum(strtok(NULL, " "));
         uint8_t len = atoi(strtok(NULL, " "));
         if (len == 0)len = 1;
         uint8_t *buffer = (uint8_t *)luat_heap_malloc(len);

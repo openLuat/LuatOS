@@ -248,8 +248,8 @@
 <table> 
 <tr> <td>Air8101 核心板</td><td>AirFONTS_1000配件板</td></tr>
  <tr> <td>66/GPIO3</td><td>CS</td></tr> 
- <tr> <td>67/GPIO4</td><td>MISO</td></tr> 
- <tr> <td>8/GPIO5</td><td>MOSI</td></tr> 
+ <tr> <td>67/GPIO4</td><td>MOSI</td></tr> 
+ <tr> <td>8/GPIO5</td><td>MISO</td></tr> 
  <tr> <td>65/GPIO2</td><td>CLK</td></tr> 
  <tr> <td>vbat</td><td>VCC</td></tr> 
 </table>

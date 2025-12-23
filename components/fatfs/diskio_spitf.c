@@ -203,6 +203,7 @@ typedef struct
 	uint8_t SDSC;
 	uint8_t ResetCnt;
 	uint8_t CmdCnt;
+	uint8_t ExtraClockNeeded; 		// 是否在发送命令前需要发送一个时钟: 0=no, 1=yes */
 }luat_spitf_ctrl_t;
 
 #define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
@@ -248,6 +249,11 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 	uint8_t i, TxLen, DummyLen;
 	int32_t Result = -ERROR_OPERATION_FAILED;
 	luat_spitf_cs(spitf, 1);
+	if (spitf->ExtraClockNeeded)
+	{
+		uint8_t _dummy = 0xff;
+		luat_spi_send(spitf->SpiID, (const char *)&_dummy, 1);
+	}
 	spitf->TempData[0] = 0x40|Cmd;
 	BytesPutBe32(spitf->TempData + 1, Arg);
 	spitf->TempData[5] = CRC7(spitf->TempData, 5);
@@ -277,6 +283,50 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 			DummyLen = TxLen - i - 1;
 			memcpy(spitf->ExternResult, &spitf->TempData[i + 1], DummyLen);
 			spitf->ExternLen = DummyLen;
+// 			if (spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2)
+// 			{
+// 				LLOGE("SD response 0x%02x on CMD%d ARG 0x%08x SDSC=%d CmdCnt=%d", spitf->SDHCState, Cmd, Arg, spitf->SDSC, spitf->CmdCnt);
+// 				DBG_HexPrintf(spitf->TempData, TxLen);
+// 				if (spitf->ExternLen) DBG_HexPrintf(spitf->ExternResult, spitf->ExternLen);
+// 			}
+			/* 如果得到0xC1/0xC2且当前未使用额外时钟，则使用额外时钟重试一次（处理总线干扰，如CH390） */
+			if ((spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2) && !(spitf->ExtraClockNeeded))
+			{
+				LLOGD("Got 0x%02x, retrying CMD%d with extra clock to check for bus interference", spitf->SDHCState, Cmd);
+				luat_spitf_cs(spitf, 0);
+				luat_spitf_cs(spitf, 1);
+				{
+					uint8_t _dummy = 0xff;
+					luat_spi_send(spitf->SpiID, (const char *)&_dummy, 1);
+				}
+
+				spitf->TempData[0] = 0x40|Cmd;
+				BytesPutBe32(spitf->TempData + 1, Arg);
+				spitf->TempData[5] = CRC7(spitf->TempData, 5);
+				TxLen = 6 + spitf->CmdCnt;
+				memset(spitf->TempData + 6, 0xff, TxLen - 6);
+				luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
+
+				for (i = 7; i < TxLen; i++)
+				{
+					if (spitf->TempData[i] != 0xff)
+					{
+						spitf->SDHCState = spitf->TempData[i];
+						DummyLen = TxLen - i - 1;
+						memcpy(spitf->ExternResult, &spitf->TempData[i + 1], DummyLen);
+						spitf->ExternLen = DummyLen;
+						if ((spitf->SDHCState == !spitf->IsInitDone) || !spitf->SDHCState)
+						{
+							Result = ERROR_NONE;
+						}
+						break;
+					}
+				}
+				if (spitf->SDHCState != 0xC1 && spitf->SDHCState != 0xC2)
+				{
+					spitf->ExtraClockNeeded = 1;
+				}
+			}
 			break;
 		}
 	}
@@ -526,6 +576,7 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 		spitf->TempData = luat_heap_malloc(__SDHC_BLOCK_LEN__ + 8);
 	}
 	luat_spi_change_speed(spitf->SpiID, 400000);
+	spitf->ExtraClockNeeded = 0; /* default */
 	spitf->IsInitDone = 0;
 	spitf->SDHCState = 0xff;
 	spitf->Info->CardCapacity = 0;
@@ -779,7 +830,6 @@ READ_CONFIG_ERROR:
 static void luat_spitf_read_blocks(luat_spitf_ctrl_t *spitf, uint8_t *Buf, uint32_t StartLBA, uint32_t BlockNums)
 {
 	uint8_t Retry = 0;
-	uint8_t err_Retry = 0;
 	uint8_t error = 1;
 	uint32_t address;
 	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
@@ -826,22 +876,7 @@ SDHC_SPIREADBLOCKS_CHECK:
 	if (error)
 	{
 		LLOGD("read error %x,%u,%u",spitf->SDHCState, spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
-        if (spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2) {
-			err_Retry++;
-            if (err_Retry > 3)
-			{
-
-				spitf->SDHCError = 1;
-				goto SDHC_SPIREADBLOCKS_ERROR;
-			}
-			else
-			{
-				spitf->SDHCError = 0;
-				spitf->IsInitDone = 1;
-				spitf->SDHCState = 0;
-			}
-			goto SDHC_SPIREADBLOCKS_START;
-		}
+		LLOGE("CMD returned 0x%02x StartLBA=%u address=0x%08x SDSC=%d", spitf->SDHCState, StartLBA, address, spitf->SDSC);
 	}
 	if (spitf->DataBuf.Pos != spitf->DataBuf.MaxLen)
 	{
@@ -893,22 +928,7 @@ SDHC_SPIWRITEBLOCKS_START:
 	}
 	if (luat_spitf_cmd(spitf, CMD25, address, 0))
 	{
-		if (spitf->SDHCState == 0xC1 || spitf->SDHCState == 0xC2) {
-			err_Retry++;
-            if (err_Retry > 3)
-			{
-
-				spitf->SDHCError = 1;
-				goto SDHC_SPIWRITEBLOCKS_ERROR;
-			}
-			else
-			{
-				spitf->SDHCError = 0;
-				spitf->IsInitDone = 1;
-				spitf->SDHCState = 0;
-			}
-			goto SDHC_SPIWRITEBLOCKS_START;
-		}
+		LLOGE("CMD25 returned 0x%02x StartLBA=%u address=0x%08x SDSC=%d", spitf->SDHCState, StartLBA, address, spitf->SDSC);
 		goto SDHC_SPIWRITEBLOCKS_ERROR;
 	}
 	if (luat_spitf_write_data(spitf))

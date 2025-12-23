@@ -7,6 +7,7 @@
 #include "luat_crypto.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_whale.h"
+#include "luat_netdrv_drv.h"
 #include "luat_mcu.h"
 #include "luat_hmeta.h"
 
@@ -595,7 +596,7 @@ static void netdrv_airlink_setup(void* params) {
 	// 自动新增STA和AP的netdrv
 	// 自动新增STA和AP的netdrv
 	luat_netdrv_conf_t conf = {0};
-	conf.impl = 64;
+	conf.impl = LUAT_NETDRV_IMPL_WHALE;
 	// 注册STA
 	conf.id = NW_ADAPTER_INDEX_LWIP_WIFI_STA;
 	luat_netdrv_setup(&conf);

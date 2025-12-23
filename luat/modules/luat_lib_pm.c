@@ -24,6 +24,7 @@
 #include "luat_base.h"
 #include "luat_pm.h"
 #include "luat_msgbus.h"
+#include "luat_gpio.h"
 #ifdef LUAT_USE_HMETA
 #include "luat_hmeta.h"
 #endif
@@ -352,6 +353,11 @@ static int l_pm_power_ctrl(lua_State *L) {
     {
     	onoff = lua_tointeger(L, 2);
     }
+    if (id == LUAT_PM_POWER_WIFI) {
+        #ifdef LUAT_MODEL_AIR8000
+        luat_gpio_set(23, onoff ? Luat_GPIO_HIGH : Luat_GPIO_LOW);
+        #endif
+    }
     #ifdef LUAT_USE_DRV_PM
     int chip = 0;
     if (lua_isinteger(L, 3)) {
@@ -653,9 +659,11 @@ static const rotable_Reg_t reg_pm[] =
 	//@const IOVOL_CAMD number camera数字电压
     { "IOVOL_CAMD", ROREG_INT(LUAT_PM_LDO_TYPE_CAMD)},
     //@const ID_NATIVE number PM控制的ID, 主芯片, 任意芯片的默认值就是它
-    { "ID_NATIVE",      ROREG_INT(1)},
+    { "ID_NATIVE",      ROREG_INT(0)},
     //@const ID_WIFI number PM控制的ID, WIFI芯片, 仅Air8000可用
     { "ID_WIFI",        ROREG_INT(1)},
+
+    { "WIFI",          ROREG_INT(LUAT_PM_POWER_WIFI)},
 
     //@const WIFI_STA_DTIM number wifi芯片控制STA模式下的DTIM间隔,单位100ms,默认值是1
     { "WIFI_STA_DTIM",  ROREG_INT(LUAT_PM_POWER_WIFI_STA_DTIM)},

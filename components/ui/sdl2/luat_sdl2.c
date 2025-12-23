@@ -11,14 +11,16 @@ static SDL_Renderer *renderer = NULL;
 static SDL_Texture *framebuffer = NULL;
 static luat_sdl2_conf_t sdl_conf;
 
-static void luat_sdl2_pump_events(void) {
+// 定时调用此函数以保持 SDL2 事件泵活跃，避免窗口无响应
+void luat_sdl2_pump_events(void) {
     SDL_Event e;
+    // 循环处理所有等待的事件
     while (SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT) {
-            // Graceful exit on window close
+            // 当用户关闭窗口时，优雅退出程序
             exit(0);
         }
-        // Other events are ignored; important is to pump to keep window responsive
+        // 其他事件不做处理，关键作用是让事件泵持续运行，防止界面假死
     }
 }
 
@@ -71,11 +73,15 @@ void luat_sdl2_draw(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t* da
     SDL_UpdateTexture(framebuffer, &r, data, r.w * 2);
 }
 
+// 刷新渲染器，将framebuffer渲染到窗口，并立即处理SDL事件
 void luat_sdl2_flush(void) {
     if (renderer && framebuffer)
     {
+        // 将framebuffer的内容拷贝到渲染目标（窗口），准备呈现
         SDL_RenderCopy(renderer, framebuffer, NULL, NULL);
+        // 实际执行呈现
         SDL_RenderPresent(renderer);
     }
+    // 画面刷新后立刻处理（pump）SDL事件，保持窗口及触摸输入活跃
     luat_sdl2_pump_events();
 }

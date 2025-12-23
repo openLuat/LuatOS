@@ -1,74 +1,74 @@
-PROJECT = "candemo"
-VERSION = "1.0.0"
-sys = require("sys")
-log.style(1)
-local SELF_TEST_FLAG = true --自测模式标识，写true就进行自收自发模式，写false就进行正常收发模式
-local node_a = true   -- A节点写true, B节点写false
-local can_id = 0
-local rx_id
-local tx_id
-local stb_pin = 28		-- stb引脚根据实际情况写，不用的话，也可以不写
-if node_a then          -- A/B节点区分，互相传输测试
-    rx_id = 0x12345678
-    tx_id = 0x12345677
-else
-    rx_id = 0x12345677
-    tx_id = 0x12345678
-end
-local test_cnt = 0
-local tx_buf = zbuff.create(8)
-local function can_cb(id, cb_type, param)
-    if cb_type == can.CB_MSG then
-        log.info("有新的消息")
-        local succ, id, id_type, rtr, data = can.rx(id)
-        while succ do
-            log.info(mcu.x32(id), #data, data:toHex())
-            succ, id, id_type, rtr, data = can.rx(id)
-        end
-    end
-    if cb_type == can.CB_TX then
-        if param then
-            log.info("发送成功")
-        else
-            log.info("发送失败")
-        end
-    end
-    if cb_type == can.CB_ERR then
-        log.info("CAN错误码", mcu.x32(param))
-    end
-    if cb_type == can.CB_STATE then
-        log.info("CAN新状态", param)
-    end
+--[[
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 1.0
+@date    2025.11.25
+@author  魏健强
+@usage
+本demo演示的核心功能为：
+演示can功能的使用：
+1. can正常工作模式
+2. can自测模式，自发自收
+3. can休眠模式
+]]
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]-- Luatools需要PROJECT和VERSION这两个信息
+PROJECT = "can"
+VERSION = "001.000.000"
+
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
 end
 
-local function can_tx_test(data)
-    if node_a then
-        log.info("node a tx")
-    else
-        log.info("node b tx")
-    end
-	test_cnt = test_cnt + 1
-	if test_cnt > 8 then
-		test_cnt = 1
-	end
-	tx_buf:set(0,test_cnt)
-	tx_buf:seek(test_cnt)
-    can.tx(can_id, tx_id, can.EXT, false, true, tx_buf)
-end
--- can.debug(true)
-gpio.setup(stb_pin,0)
--- gpio.setup(stb_pin,1)	-- 如果开发板上STB信号有逻辑取反，则要配置成输出高电平
-can.init(can_id, 128)
-can.on(can_id, can_cb)
-can.timing(can_id, 1000000, 6, 6, 4, 2)
--- can.timing(can_id, 100000, 6, 6, 3, 2)
-if SELF_TEST_FLAG then
-	can.node(can_id, tx_id, can.EXT)	-- 测试模式下，允许接收的ID和发送ID一致才会有新数据提醒
-	can.mode(can_id, can.MODE_TEST)     -- 如果只是自身测试硬件好坏，可以用测试模式来验证，如果发送成功就OK
-else
-	can.node(can_id, rx_id, can.EXT)
-	can.mode(can_id, can.MODE_NORMAL)   -- 一旦设置mode就开始正常工作了，此时不能再设置node,timing,filter等
-end
 
-sys.timerLoopStart(can_tx_test, 1000)
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
+
+
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+gpio.setup(23, 1) -- 要手动打开，否则无法使用CAN芯片不能正常工作
+
+require "can_normal"
+-- require "can_self_test"
+-- require "can_sleep"
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

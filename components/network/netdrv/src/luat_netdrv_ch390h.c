@@ -73,15 +73,15 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 return -3;
             }
             return 0;
-        case LUAT_NETDRV_CTRL_DOWN: {
-            int stop = buff ? (int)(uintptr_t)buff : 1;
-            if (stop) {
+        case LUAT_NETDRV_CTRL_UPDOWN: {
+            int updown = (int)buff;
+            if (updown == 0) {
                 ch->status = CH390H_STATUS_STOPPED;
                 ch->init_done = 0;
                 luat_ch390h_set_rx(ch, 0);
                 luat_ch390h_set_phy(ch, 0);
                 luat_netdrv_set_link_updown(drv, 0);
-                tcpip_callback_with_block((tcpip_callback_fn)ch390h_netif_down_cb, drv->netif, 1);
+                //tcpip_callback_with_block((tcpip_callback_fn)ch390h_netif_down_cb, drv->netif, 1);
                 LLOGI("adapter %d stopped and phy down", ch->adapter_id);
             }
             else {
@@ -90,8 +90,8 @@ static int ch390h_ctrl(luat_netdrv_t* drv, void* userdata, int cmd, void* buff, 
                 ch->rx_error_count = 0;
                 ch->tx_busy_count = 0;
                 ch->vid_pid_error_count = 0;
-                luat_netdrv_set_link_updown(drv, 0);
-                tcpip_callback_with_block((tcpip_callback_fn)ch390h_netif_down_cb, drv->netif, 1);
+                luat_netdrv_set_link_updown(drv, 1);
+                //tcpip_callback_with_block((tcpip_callback_fn)ch390h_netif_down_cb, drv->netif, 1);
                 LLOGI("adapter %d restart requested", ch->adapter_id);
             }
             return 0;

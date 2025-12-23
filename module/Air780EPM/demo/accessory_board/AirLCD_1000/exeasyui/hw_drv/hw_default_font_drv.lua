@@ -9,8 +9,7 @@
 1、根据配置的lcd和tp参数，初始化exEasyUI默认使用12号英文点阵字体、硬件显示和触摸；
 2、提供无需外部硬件的字体显示能力；
 
-本文件的对外接口有0个：
-1、require加载后自动执行初始化；
+本文件无对外接口，require加载后自动执行初始化；
 
 @api ui.hw_init(config)
 @summary 初始化exEasyUI硬件系统

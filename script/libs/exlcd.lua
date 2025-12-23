@@ -2,8 +2,8 @@
 --[[
 @module  exlcd
 @summary LCD显示拓展库
-@version 1.0.4
-@date    2025.11.11
+@version 1.0.5
+@date    2025.12.23
 @author  江访
 @usage
 本文件为LCD显示拓展库，核心业务逻辑为：
@@ -90,13 +90,6 @@ local predefined_configs = {
         h = 480,
         xoffset = 0,
         yoffset = 0,
-        bus_speed = 30 * 1000 * 1000,
-        hbp = 8,
-        hspw = 4,
-        hfp = 8,
-        vbp = 16,
-        vspw = 4,
-        vfp = 16,
     }
 }
 
@@ -168,7 +161,7 @@ function exlcd.init(param)
         AirLCD_1000 = "st7796",
         Air780EHM_LCD_4 = "st7796",
         AirLCD_1010 = "st7796",
-        AirLCD_1020 = "nv3052c"
+        AirLCD_1020 = "h050iwv"
     }
 
     -- 确定LCD型号

@@ -13,7 +13,7 @@
 5、在升级结果的回调函数中，根据升级结果进行处理；
 ]]
 -- 使用合宙iot平台时需要这个参数
-PRODUCT_KEY = "X1zBmxSd1H2Gy69DtAyNytmUe7dudGXm" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+PRODUCT_KEY = "123" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 
 libfota2 = require "libfota2"
 

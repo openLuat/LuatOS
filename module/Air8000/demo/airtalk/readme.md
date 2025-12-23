@@ -126,6 +126,7 @@ local WIFI_CONFIG = {
 
  luatools会打印以下日志
 ``` lua
+<<<<<<< HEAD
 I/talk.lua:428 对讲模块初始化...
 I/talk.lua:371 启动对讲系统...
 I/talk.lua:377 LED指示灯初始化完成 - GPIO146
@@ -135,6 +136,17 @@ I2C_MasterSetup 426:I2C0, Total 65 HCNT 22 LCNT 40
 D/audio codec init es8311 
 I/audio_drv.lua:43 audio_drv 音频设备初始化成功
 I/talk.lua:388 音频初始化成功
+=======
+ I/talk.lua:185 音频初始化成功
+ I/talk.lua:193 extalk初始化成功
+ I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"123","device_type":2}
+ I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
+ I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
+ I/talk.lua:37 联系人列表更新:
+ I/talk.lua:39   1. ID: 861556079986013, 名称: 
+ I/talk.lua:39   2. ID: 74959320, 名称: 866965083769676
+ I/extalk.lua:462 对讲管理平台已连接
+>>>>>>> 9a6fb53b485f93bba81406138cd8d957e03952b4
 ```
 
 9、联网配置：

@@ -17,6 +17,7 @@
 #include "luat_rtos.h"
 #include "luat_netdrv.h"
 #include "luat_netdrv_napt.h"
+#include "luat_netdrv_drv.h"
 #include "luat_network_adapter.h"
 #include "luat_netdrv_event.h"
 #include "net_lwip2.h"
@@ -30,9 +31,9 @@
 /*
 初始化指定netdrv设备
 @api netdrv.setup(id, tp, opts)
-@int 网络适配器编号, 例如 socket.LWIP_ETH
-@int 实现方式,如果是设备自带的硬件,那就不需要传, 外挂设备需要传,当前支持CH390H/D
-@int 外挂方式,需要额外的参数,参考示例
+@int 网络适配器编号, 例如 socket.LWIP_ETH, socket.LWIP_USER0
+@int 实现方式,如果是设备自带的硬件,那就不需要传, 外挂设备需要传,当前支持CH390H/D/OPENVPN等
+@table 外挂方式,需要额外的参数,参考示例
 @return boolean 初始化成功与否
 @usage
 -- Air8101初始化内部以太网控制器
@@ -111,6 +112,34 @@ static int l_netdrv_setup(lua_State *L) {
         lua_pop(L, 1);
         if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
             conf.wg_endpoint_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        #endif
+
+        #ifdef LUAT_USE_NETDRV_OPENVPN
+        // OpenVPN的配置参数
+        if (lua_getfield(L, 3, "ovpn_remote_ip") == LUA_TSTRING) {
+            conf.ovpn_remote_ip = luaL_checklstring(L, -1, &len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_remote_port") == LUA_TNUMBER) {
+            conf.ovpn_remote_port = luaL_checkinteger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_ca_cert") == LUA_TSTRING) {
+            conf.ovpn_ca_cert = luaL_checklstring(L, -1, &conf.ovpn_ca_cert_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_client_cert") == LUA_TSTRING) {
+            conf.ovpn_client_cert = luaL_checklstring(L, -1, &conf.ovpn_client_cert_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_client_key") == LUA_TSTRING) {
+            conf.ovpn_client_key = luaL_checklstring(L, -1, &conf.ovpn_client_key_len);
+        };
+        lua_pop(L, 1);
+        if (lua_getfield(L, 3, "ovpn_static_key") == LUA_TSTRING) {
+            conf.ovpn_static_key = (const uint8_t *)luaL_checklstring(L, -1, &conf.ovpn_static_key_len);
         };
         lua_pop(L, 1);
         #endif
@@ -658,18 +687,21 @@ static const rotable_Reg_t reg_netdrv[] =
 #endif
 
     //@const CH390 number 南京沁恒CH390系列,支持CH390D/CH390H, SPI通信
-    { "CH390",          ROREG_INT(1)},
-    { "UART",           ROREG_INT(16)}, // UART形式的网卡, 不带MAC, 直接IP包
+    { "CH390",          ROREG_INT(LUAT_NETDRV_IMPL_CH390H)},
+    { "UART",           ROREG_INT(LUAT_NETDRV_IMPL_UART)}, // UART形式的网卡, 不带MAC, 直接IP包
     #ifdef LUAT_USE_NETDRV_WG
-    { "WG",             ROREG_INT(32)}, // Wireguard VPN网卡
+    { "WG",             ROREG_INT(LUAT_NETDRV_IMPL_WG)}, // Wireguard VPN网卡
     #endif
     //@const WHALE number 虚拟网卡
-    { "WHALE",          ROREG_INT(64)}, // 通用WHALE设备
+    { "WHALE",          ROREG_INT(LUAT_NETDRV_IMPL_WHALE)}, // 通用WHALE设备
+    #ifdef LUAT_USE_NETDRV_OPENVPN
+    { "OPENVPN",        ROREG_INT(LUAT_NETDRV_IMPL_OPENVPN)}, // OpenVPN虚拟网卡
+    #endif
 
     //@const CTRL_RESET number 控制类型-复位,当前仅支持CH390H
     { "CTRL_RESET",     ROREG_INT(LUAT_NETDRV_CTRL_RESET)},
-    //@const CTRL_DOWN number 控制类型-关闭CH390H通信并下电PHY，0重新启动，1关闭
-    { "CTRL_DOWN",      ROREG_INT(LUAT_NETDRV_CTRL_DOWN)},
+    //@const CTRL_UPDOWN number 控制类型-1=启动UP，0关闭DOWN
+    { "CTRL_UPDOWN",    ROREG_INT(LUAT_NETDRV_CTRL_UPDOWN)},
     //@const RESET_HARD number 请求对网卡硬复位,当前仅支持CH390H
     { "RESET_HARD",     ROREG_INT(0x101)},
     //@const RESET_SOFT number 请求对网卡软复位,当前仅支持CH390H

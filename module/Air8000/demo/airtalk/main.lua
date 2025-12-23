@@ -26,10 +26,17 @@ VERSION：项目版本号，ascii string类型
 PROJECT = "extalk"
 VERSION = "001.000.000"
 
+<<<<<<< HEAD
 --到 iot.openluat.com 创建项目，获取正确的项目key
 PRODUCT_KEY =  "5544VIDOIHH9Nv8huYVyEIGT4tCvldxI"
 
 --在日志中打印项目名和项目版本号
+=======
+PROJECT = "audio"
+VERSION = "1.0.0"
+PRODUCT_KEY =  "123"
+-- 在日志中打印项目名和项目版本号
+>>>>>>> 9a6fb53b485f93bba81406138cd8d957e03952b4
 log.info("main", PROJECT, VERSION)
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理

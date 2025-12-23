@@ -16,7 +16,7 @@
 --注意：此处的PRODUCT_KEY仅供演示使用，不能用于生产环境
 --量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey,项目详情里可以查看
 --基站定位的坐标系是 WSG84
-PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
+PRODUCT_KEY = "123"
 local lbsLoc = require("lbsLoc")
 -- 功能:获取基站对应的经纬度后的回调函数
 -- 参数:-- result：number类型，0表示成功，1表示网络环境尚未就绪，2表示连接服务器失败，3表示发送数据失败，4表示接收服务器应答超时，5表示服务器返回查询失败；为0时，后面的5个参数才有意义

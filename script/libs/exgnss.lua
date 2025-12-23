@@ -340,8 +340,11 @@ local function fnc_open()
     if openFlag then return end
     libgnss.clear() -- 清空数据,兼初始化
     uart.setup(uart_id, uart_baudrate)
-    -- pm.power(pm.GPS, false)
-    pm.power(pm.GPS, true)
+    if exgnss.opts.gnss_volgpio then
+        gpio.setup(exgnss.opts.gnss_volgpio,1)
+    else
+        pm.power(pm.GPS, true)
+    end
     openFlag = true
     if exgnss.opts.gnssmode==1 then
         --默认全开启
@@ -387,7 +390,11 @@ end
 local function fnc_close()
     if not openFlag then return end
     save_loc()
-    pm.power(pm.GPS, false)
+    if exgnss.opts.gnss_volgpio then
+        gpio.setup(exgnss.opts.gnss_volgpio,0)
+    else
+        pm.power(pm.GPS, false)
+    end
     uart.close(uart_id)
     openFlag = false
     fixFlag = false

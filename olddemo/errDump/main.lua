@@ -1,6 +1,6 @@
 PROJECT = "errdump_test"
 VERSION = "1.0"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" --换成自己的
+PRODUCT_KEY = "123" --换成自己的
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")

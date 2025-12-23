@@ -131,6 +131,8 @@ can.node(can_id, rx_id, can.EXT) -- 只接收消息id为rx_id的扩展帧数据
 -- 模式
 can.mode(can_id, can.MODE_NORMAL) -- 一旦设置mode就开始正常工作了，此时不能再设置node,timing,filter等
 
+local resend_num = 5 -- 发送失败重发次数
+
 local function send_task()
     local send_item
     local result, buff_full
@@ -141,11 +143,19 @@ local function send_task()
             send_res = false
             -- 取数据发送
             send_item = table.remove(send_queue, 1)
+            local resend_cnt = 0
             while not send_res do
                 can.tx(send_item.id, send_item.msg_id, send_item.id_type, send_item.RTR, send_item.need_ack,
                     send_item.data)
                 sys.waitUntil("CAN_SEND_DATA_RES",500)
-                -- 循环发送直到发送成功
+                sys.wait(10)
+                resend_cnt = resend_cnt + 1
+                if resend_cnt >= resend_num then
+                    log.warn("can send", "重发次数到达上限，停止重发")
+                    -- 默认直接丢弃数据
+                    -- table.insert(send_queue, send_item) -- 重新插入发送队列
+                    break
+                end
             end
         end
     end

@@ -287,10 +287,12 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     airlink_queue_item_t item = {0};
     uint32_t timeout = 5;
     int ret = 0;
-    if (g_airlink_pause) {
+    uint32_t qlen = 0;
+    luat_rtos_queue_get_cnt(evt_queue, &qlen);
+    if (qlen == 0) {
         while (g_airlink_pause) {
-            //LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
-            luat_rtos_task_sleep(1000);
+            //LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期100ms");
+            luat_rtos_task_sleep(100);
         }
     }
     if (g_airlink_wakeup_irq_ctx.enable)

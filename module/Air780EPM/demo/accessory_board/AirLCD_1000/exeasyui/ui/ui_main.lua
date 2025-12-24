@@ -147,11 +147,6 @@ local function ui_main()
     -- 订阅按键事件
     sys.subscribe("KEY_EVENT", handle_key_event)
 
-    -- 主渲染循环
-    while true do
-        ui.refresh()
-        sys.wait(30)
-    end
 end
 
 sys.taskInit(ui_main)

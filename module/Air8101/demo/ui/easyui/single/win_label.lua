@@ -61,14 +61,13 @@ local function ui_main()
     -- 注册窗口到UI系统
     ui.add(page1)
 
-    -- 启动exeasyui刷新主循环
+    -- 循环刷新时间
     while true do
         -- 更新时间给文本组件
         time_label:set_text("时间: " .. os.date("%Y-%m-%d %H:%M:%S"))
-        -- 刷新显示
-        ui.refresh()
-        -- 等待30ms
-        sys.wait(30)
+
+        -- 等待300ms
+        sys.wait(300)
     end
 
 end

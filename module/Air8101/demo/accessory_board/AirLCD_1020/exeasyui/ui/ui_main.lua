@@ -26,11 +26,6 @@ local function ui_main()
     
     home_page.create()
 
-    -- 主渲染循环
-    while true do
-        ui.refresh()
-        sys.wait(30)
-    end
 end
 
 sys.taskInit(ui_main)

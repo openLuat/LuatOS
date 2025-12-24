@@ -85,7 +85,7 @@ end
 -- 1. hw_default_font_drv - LCD显示驱动和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 -- 2. hw_gtfont_drv - LCD显示驱动和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 require("hw_default_font_drv")  -- 使用内置12号中文点阵字体
--- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库，在屏幕上表现
+-- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库
 
 -- 加载按键驱动
 require("key_drv")

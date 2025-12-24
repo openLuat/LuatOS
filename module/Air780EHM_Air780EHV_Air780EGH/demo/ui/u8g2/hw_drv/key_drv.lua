@@ -45,12 +45,8 @@ end
 @api init()
 @summary 配置BOOT键和PWR键的GPIO中断
 @return bool 初始化只会返回true
-
 @usage
-local result = key_drv.init()
-if result then
-    log.info("按键驱动初始化成功")
-end
+
 ]]
 local function init()
     gpio.setup(key_boot, handle_boot_key, gpio.PULLDOWN, gpio.BOTH)

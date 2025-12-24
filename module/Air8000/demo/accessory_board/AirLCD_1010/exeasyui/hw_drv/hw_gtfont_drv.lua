@@ -70,7 +70,7 @@ ui.hw_init({
         tp_model = "AirLCD_1010", -- 触摸芯片/设备型号
         i2c_id = 1,               -- I2C总线ID
         pin_rst = 0xFF,           -- 触摸芯片复位引脚(AirLCD_1010上没有引出该引脚)
-        pin_int = 22,             -- 触摸芯片中断引脚
+        pin_int = 24,             -- 触摸芯片中断引脚
         -- @param message_enabled 消息类型 ("ALL", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
         message_enabled = {
             TOUCH_DOWN = true,      -- 启用按下检测

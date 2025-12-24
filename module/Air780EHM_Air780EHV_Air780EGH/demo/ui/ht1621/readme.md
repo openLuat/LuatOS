@@ -85,7 +85,7 @@
 <tr>
 <td>22/GPIO1<br/></td><td>WR<br/></td></tr>
 <tr>
-<td>19/GPIO22<br/></td><td>CS<br/></td></tr>
+<td>20/GPIO24<br/></td><td></td><td>CS<br/></td></tr>
 <tr>
 <td>20/GPIO24<br/></td><td>DATA<br/></td></tr>
 <tr>

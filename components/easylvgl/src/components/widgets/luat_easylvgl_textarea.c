@@ -78,7 +78,9 @@ static void easylvgl_textarea_focus_cb(lv_event_t *e)
         case LV_EVENT_DEFOCUSED:
             // 失去焦点时，仅当当前焦点是本控件才置空
             if (easylvgl_ctx_get_focused_textarea(meta->ctx) == target) {
+#if defined(LUAT_USE_EASYLVGL_SDL2)
                 easylvgl_system_keyboard_clear_preedit(meta->ctx);
+#endif
                 easylvgl_ctx_set_focused_textarea(meta->ctx, NULL);
             }
             break;

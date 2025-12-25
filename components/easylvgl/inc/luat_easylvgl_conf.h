@@ -26,6 +26,7 @@
     // 打开png支持
     #define LV_USE_LODEPNG 1
     #define LV_MEM_SIZE (256 * 1024U)
+    #define LV_USE_TJPGD 1
 
     // 默认字体设置
     #define LV_FONT_FMT_TXT_LARGE 1
@@ -40,8 +41,8 @@
 #elif defined(__BK72XX__)
     /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
     #define LV_USE_OS   LV_OS_FREERTOS
-    #define LV_DRAW_SW_DRAW_UNIT_CNT    2   // 开启2个软件渲染单元以并行绘制
-    #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
+    // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制
+    // #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
 
     #define LV_USE_LOG 1
     /** Set value to one of the following levels of logging detail:
@@ -52,11 +53,12 @@
      *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
      *  - LV_LOG_LEVEL_NONE     Do not log anything. */
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
-
-    #define LV_MEM_SIZE (128 * 1024U)
     
-    // 打开png支持
+    // 图片解码支持
     #define LV_USE_LODEPNG 1
+    #define LV_MEM_SIZE (128 * 1024U)
+
+    #define LV_USE_TJPGD 1
 
 #else
     /* 默认配置（如果未定义平台） */

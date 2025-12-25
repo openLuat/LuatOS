@@ -968,7 +968,9 @@
 
 /** JPG + split JPG decoder library.
  *  Split JPG is a custom format optimized for embedded systems. */
-#define LV_USE_TJPGD 0
+#ifndef LV_USE_TJPGD
+    #define LV_USE_TJPGD 0
+#endif
 
 /** libjpeg-turbo decoder library.
  *  - Supports complete JPEG specifications and high-performance JPEG decoding. */

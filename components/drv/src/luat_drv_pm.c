@@ -45,15 +45,15 @@ int luat_drv_pm_power_ctrl(int chip, int id, uint8_t val) {
                     luat_gpio_set(23, 1); // 打开wifi
                     s_wifi_sleep = 0;
                 }
-                g_airlink_pause = 0;
+                luat_airlink_set_pause(0);
             }
             // 然后, 如果是进入
             else {
                 s_wifi_sleep = 1;
                 luat_airlink_drv_pm_power_ctrl(id, val);
                 luat_rtos_task_sleep(10);
-                // 如果是进入休眠模式, 恢复airlink工作
-                g_airlink_pause = 1;
+                // 如果是进入休眠模式, 暂停airlink工作
+                luat_airlink_set_pause(1);
             }
         }
         #endif

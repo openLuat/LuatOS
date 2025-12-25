@@ -99,7 +99,7 @@ static int l_pm_request(lua_State *L) {
     if (lua_isinteger(L, 2)) {
         chip = luaL_checkinteger(L, 2);
         if (chip > 0) {
-            g_airlink_pause = 1;    // wifi进入休眠自动暂停airlink工作
+            luat_airlink_set_pause(1);    // wifi进入休眠自动暂停airlink工作
         }
     }
     ret = luat_drv_pm_request(chip, mode);

@@ -37,6 +37,7 @@ uint32_t g_airlink_spi_task_mode;
 uint64_t g_airlink_last_cmd_timestamp;
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
+void *g_airlink_pause_mutex = NULL;
 uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
@@ -88,6 +89,26 @@ int luat_airlink_start(int id)
     }
     return 0;
 }
+
+void luat_airlink_pause_init(void) {
+    if (g_airlink_pause_mutex == NULL)
+    {
+        g_airlink_pause_mutex = luat_mutex_create();
+    }
+}
+
+void luat_airlink_set_pause(uint32_t val) {
+    g_airlink_pause = val;
+    if (g_airlink_pause_mutex == NULL) luat_airlink_pause_init();
+    if (val) 
+    {
+        luat_mutex_lock(g_airlink_pause_mutex);
+    }
+    else 
+    {
+        luat_mutex_unlock(g_airlink_pause_mutex);
+    }
+} 
 
 int luat_airlink_stop(int id)
 {

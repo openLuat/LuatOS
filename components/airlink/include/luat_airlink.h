@@ -183,6 +183,10 @@ typedef struct luat_airlink_spi_conf
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
 extern luat_airlink_link_data_cb g_airlink_link_data_cb;
 
+extern void *g_airlink_pause_mutex;
+void luat_airlink_pause_init(void);
+void luat_airlink_set_pause(uint32_t val);
+
 uint64_t luat_airlink_get_next_cmd_id(void);
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);

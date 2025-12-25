@@ -130,11 +130,17 @@ lv_obj_t *easylvgl_win_create_from_config(void *L, int idx)
     win_data->content = NULL;
     meta->user_data = win_data;
     
-    // 设置标题
+    // 设置标题区域
     lv_obj_t *title_label = NULL;
-    if (title != NULL && strlen(title) > 0) {
+    lv_obj_t *header = lv_win_get_header(win);
+    bool has_title = (title != NULL && strlen(title) > 0);
+    if (has_title) {
         title_label = lv_win_add_title(win, title);
         win_data->title_label = title_label;
+    } else if (!close_btn) {
+        lv_obj_add_flag(header, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_height(header, 0);
+        lv_obj_set_style_pad_all(header, 0, LV_PART_MAIN);
     }
     
     // 添加关闭按钮

@@ -27,8 +27,8 @@ if seg then
 end
 ]] 
 function ht1621_drv.init()
-    -- 初始化HT1621 (CS=22, DATA=24, WR=1)
-    seg = ht1621.setup(22, 24, 1)
+    -- 初始化HT1621 (CS=20, DATA=24, WR=1)
+    seg = ht1621.setup(20, 24, 1)
     
     if not seg then
         log.error("ht1621_drv", "HT1621初始化失败")

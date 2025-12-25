@@ -66,7 +66,7 @@
 ### 5.1 硬件清单
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
-- ht1621 液晶屏 × 1 [demo所使用的ht1621屏幕购买链接](https://e.tb.cn/h.72xbNqgE6wdTQzt?tk=xmuJfuxyH4z)
+- ht1621 液晶屏 × 1：[demo所使用的型号购链接]( https://e.tb.cn/h.72xbNqgE6wdTQzt?tk=xmuJfuxyH4z)
 - 母对母杜邦线 × 6，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
 - Air780EHM/Air780EHV/Air780EGH 核心板和 ht1621 液晶屏的硬件接线方式为
@@ -85,7 +85,7 @@
 <tr>
 <td>22/GPIO1<br/></td><td>WR<br/></td></tr>
 <tr>
-<td>20/GPIO24<br/></td><td></td><td>CS<br/></td></tr>
+<td>102/GPIO20<br/></td><td>CS<br/></td></tr>
 <tr>
 <td>20/GPIO24<br/></td><td>DATA<br/></td></tr>
 <tr>

@@ -13,6 +13,7 @@
 
 #define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
 #define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
+#define EASYLVGL_CONTAINER_MT "easylvgl.container"
 
 #ifdef __cplusplus
 extern "C" {

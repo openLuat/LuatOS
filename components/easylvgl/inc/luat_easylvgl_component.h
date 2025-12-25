@@ -26,6 +26,7 @@ typedef enum {
     EASYLVGL_COMPONENT_DROPDOWN,
     EASYLVGL_COMPONENT_SWITCH,
     EASYLVGL_COMPONENT_MSGBOX,
+    EASYLVGL_COMPONENT_CONTAINER,
     EASYLVGL_COMPONENT_TEXTAREA,
     EASYLVGL_COMPONENT_KEYBOARD
 } easylvgl_component_type_t;
@@ -282,6 +283,15 @@ lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx);
 int easylvgl_switch_set_state(lv_obj_t *sw, bool checked);
 bool easylvgl_switch_get_state(lv_obj_t *sw);
 int easylvgl_switch_set_on_change(lv_obj_t *sw, int callback_ref);
+
+/**
+ * Container 组件创建
+ */
+lv_obj_t *easylvgl_container_create_from_config(void *L, int idx);
+/**
+ * Container 组件：设置背景颜色
+ */
+int easylvgl_container_set_color(lv_obj_t *container, uint32_t color);
 
 /**
  * Msgbox 组件创建与控制

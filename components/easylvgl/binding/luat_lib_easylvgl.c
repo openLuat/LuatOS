@@ -15,6 +15,7 @@
 #include "../inc/luat_easylvgl.h"
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_binding.h"
+#include "../inc/luat_easylvgl_symbol.h"
 #if defined(LUAT_USE_EASYLVGL_BK7258)
 #include "../src/platform/bk7258/luat_easylvgl_platform_bk7258.h"
 #endif
@@ -92,6 +93,8 @@ static const rotable_Reg_t reg_easylvgl[] = {
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
+    // 图标常量
+    EASYLVGL_SYMBOL_REG,
     {NULL, ROREG_INT(0)}
 };
 

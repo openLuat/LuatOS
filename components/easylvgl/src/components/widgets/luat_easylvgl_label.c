@@ -12,6 +12,9 @@
 #include <string.h>
 #include <stdint.h>
 
+#define LUAT_LOG_TAG "easylvgl_label"
+#include "luat_log.h"
+
 /**
  * 从配置表创建 Label 组件
  * @param L Lua 状态
@@ -45,6 +48,7 @@ lv_obj_t *easylvgl_label_create_from_config(void *L, int idx)
     int w = easylvgl_marshal_integer(L, idx, "w", 100);
     int h = easylvgl_marshal_integer(L, idx, "h", 40);
     const char *text = easylvgl_marshal_string(L, idx, "text", NULL);
+    const char *symbol = easylvgl_marshal_string(L, idx, "symbol", NULL);
     
     // 创建 Label 对象
     lv_obj_t *label = lv_label_create(parent);
@@ -57,8 +61,17 @@ lv_obj_t *easylvgl_label_create_from_config(void *L, int idx)
     lv_obj_set_size(label, w, h);
     
     // 设置文本
-    if (text != NULL && strlen(text) > 0) {
-        lv_label_set_text(label, text);
+    const char *display_text = NULL;
+    if (symbol != NULL && strlen(symbol) > 0) {
+        display_text = symbol;
+        LLOGI("symbol found");
+    } else if (text != NULL && strlen(text) > 0) {
+        display_text = text;
+        LLOGI("text found");
+    }
+
+    if (display_text != NULL) {
+        lv_label_set_text(label, display_text);
     }
     
     // 分配元数据
@@ -67,6 +80,12 @@ lv_obj_t *easylvgl_label_create_from_config(void *L, int idx)
     if (meta == NULL) {
         lv_obj_delete(label);
         return NULL;
+    }
+
+    int click_ref = easylvgl_component_capture_callback(L, idx, "on_click");
+    if (click_ref != LUA_NOREF) {
+        lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
+        easylvgl_component_bind_event(meta, EASYLVGL_EVENT_CLICKED, click_ref);
     }
     
     return label;

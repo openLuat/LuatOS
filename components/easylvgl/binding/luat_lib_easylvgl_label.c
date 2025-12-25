@@ -72,6 +72,35 @@ static int l_label_set_text(lua_State *L) {
     return 0;
 }
 
+static int l_label_set_symbol(lua_State *L) {
+    lv_obj_t *label = easylvgl_check_component(L, 1, EASYLVGL_LABEL_MT);
+    const char *symbol = luaL_checkstring(L, 2);
+    if (symbol == NULL) {
+        return 0;
+    }
+    lv_label_set_text(label, symbol);
+    return 0;
+}
+
+static int l_label_set_on_click(lua_State *L) {
+    lv_obj_t *label = easylvgl_check_component(L, 1, EASYLVGL_LABEL_MT);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    lua_pushvalue(L, 2);
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lv_obj_add_flag(label, LV_OBJ_FLAG_CLICKABLE);
+
+    easylvgl_component_meta_t *meta = easylvgl_component_meta_get(label);
+    if (meta != NULL) {
+        easylvgl_component_bind_event(meta, EASYLVGL_EVENT_CLICKED, ref);
+    } else {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+    }
+
+    return 0;
+}
+
 /**
  * Label:get_text()
  * @api label:get_text()
@@ -121,6 +150,8 @@ void easylvgl_register_label_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_label_set_text},
+        {"set_symbol", l_label_set_symbol},
+        {"set_on_click", l_label_set_on_click},
         {"get_text", l_label_get_text},
         {NULL, NULL}
     };

@@ -5,9 +5,11 @@
  */
 
 #include "luat_easylvgl_component.h"
+#include "lvgl9/lvgl.h"
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/core/lv_obj.h"
+#include "lvgl9/src/misc/lv_color.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include <string.h>
@@ -56,6 +58,18 @@ lv_obj_t *easylvgl_button_create_from_config(void *L, int idx)
     // 设置位置和大小
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, h);
+
+    // 默认风格：白底淡蓝边
+    lv_color_t border_color = lv_color_make(0x1e, 0x90, 0xff); // 天蓝色边框 (Dodger Blue)
+    lv_color_t normal_bg = lv_color_make(0xff, 0xff, 0xff); // 白色背景
+    lv_color_t pressed_bg = lv_color_make(0xe5, 0xed, 0xff); // 按下时蓝色背景
+    lv_color_t text_color = lv_color_make(0x11, 0x2b, 0x63); // 黑色文字
+    lv_obj_set_style_border_color(btn, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     
     // 设置文本
     if (text != NULL && strlen(text) > 0) {

@@ -389,12 +389,14 @@ target("luatos-lua")
             add_files(luatos.."components/lvgl/**.c")
             -- 默认不编译lv的demos, 节省大量的编译时间
             remove_files(luatos.."components/lvgl/lv_demos/**.c")
+
+            -- tjpgd
+            add_includedirs(luatos.."components/tjpgd")
+            add_files(luatos.."components/tjpgd/*.c")
         end
 
         -- qrcode 和 tjpgd
         add_includedirs(luatos.."components/qrcode")
-        add_includedirs(luatos.."components/tjpgd")
-        add_files(luatos.."components/tjpgd/*.c")
         add_files(luatos.."components/qrcode/*.c")
 
         add_includedirs(luatos.."components/luatfonts")

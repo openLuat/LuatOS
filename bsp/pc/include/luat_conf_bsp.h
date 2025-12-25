@@ -140,7 +140,7 @@
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
-#define LUAT_USE_TJPGD
+// #define LUAT_USE_TJPGD
 // GT 字库：PC 模拟器仿真启用
 #define LUAT_USE_GTFONT 1
 // 若需要直接绘制 UTF8 字符串（lcd/u8g2 的 UTF8 接口），启用

@@ -1,5 +1,5 @@
 
-@REM xmake clean -a
+xmake clean -a
 set VM_64bit=0
 set LUAT_USE_GUI=y
 set LUAT_USE_LVGL9=y

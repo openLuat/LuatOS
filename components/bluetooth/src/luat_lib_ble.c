@@ -1035,13 +1035,16 @@ end_error:
 /*
 创建一个BLE扫描
 @api ble.scan_create(addr_mode, scan_interval, scan_window)
-@number addr_mode 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
-@number scan_interval 扫描间隔, 单位为0.625ms, 最小值为20, 最大值为10240
-@number scan_window 扫描窗口, 单位为0.625ms, 最小值为20, 最大值为10240
+@int addr_mode 广播地址模式, 可选值: ble.PUBLIC, ble.RANDOM, ble.RPA, ble.NRPA
+@int scan_interval 扫描间隔, 单位为0.625ms, 最小值为20, 最大值为10240
+@int scan_window 扫描窗口, 单位为0.625ms, 最小值为20, 最大值为10240
+@int scan_type 扫描类型, 可选值: ble.SCAN_ACTIVE, ble.SCAN_PASSIVE, 默认 ble.SCAN_PASSIVE
 @return boolean 是否创建成功
 @usage
 -- 创建BLE扫描
 ble_device:scan_create(ble.PUBLIC, 100, 100)
+-- 注意, 创建扫描后需要调用 ble.scan_start() 才能开始扫描
+-- 2025.12.26新增参数 scan_type, 可选值: ble.SCAN_ACTIVE, ble.SCAN_PASSIVE
 */
 static int l_ble_scanning_create(lua_State *L){
     if (!lua_isuserdata(L, 1)){
@@ -1064,6 +1067,10 @@ static int l_ble_scanning_create(lua_State *L){
         if (lua_isinteger(L, 4))
         {
             cfg.scan_window = luaL_checkinteger(L, 4);
+        }
+        if (lua_isinteger(L, 5))
+        {
+            cfg.scan_type = luaL_checkinteger(L, 5);
         }
         lua_pushboolean(L, luat_ble_create_scanning(NULL, &cfg) ? 0 : 1);
         return 1;
@@ -1320,6 +1327,9 @@ static const rotable_Reg_t reg_ble[] = {
     {"ADV_PROP_ANONYMOUS", ROREG_INT(LUAT_BLE_ADV_PROP_ANONYMOUS)},
     {"ADV_PROP_LEGACY", ROREG_INT(LUAT_BLE_ADV_PROP_LEGACY)},
     {"ADV_PROP_TX_PWR", ROREG_INT(LUAT_BLE_ADV_PROP_TX_PWR)},
+
+    {"SCAN_PASSIVE", ROREG_INT(LUAT_BLE_PASSIVE_SCANNING)},
+    {"SCAN_ACTIVE", ROREG_INT(LUAT_BLE_ACTIVE_SCANNING)},
     {NULL, ROREG_INT(0)}};
 
 static int _ble_struct_newindex(lua_State *L){

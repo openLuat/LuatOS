@@ -34,11 +34,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
     add_requires("libsdl2")
     add_packages("libsdl2")
-    -- freetype 用于 PC 端 gtfont 仿真渲染（使用本地freetype）
-    -- add_requires("freetype")
-    -- add_packages("freetype")
-    -- add_requires("libsdl 2.26.2")
-    -- add_packages("libsdl 2.26.2")
 end
 
 if is_host("windows") then
@@ -206,14 +201,14 @@ target("luatos-lua")
 
     --ffmpeg
     -- add_includedirs("ffmpeg_x86/include")
-    add_includedirs("ffmpeg_x86")
-    add_files("ffmpeg_x86/ffmpeg.c")
+    -- add_includedirs("ffmpeg_x86")
+    -- add_files("ffmpeg_x86/ffmpeg.c")
 
     -- multimedia
-    add_includedirs(luatos.."components/multimedia",{public = true})
-    add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
-    add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
-    add_files(luatos.."components/multimedia/luat_audio_es8311.c")
+    -- add_includedirs(luatos.."components/multimedia",{public = true})
+    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
 
     ----------------------------------------------------------------------
     -- 网络相关

@@ -183,7 +183,8 @@ typedef struct luat_airlink_spi_conf
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
 extern luat_airlink_link_data_cb g_airlink_link_data_cb;
 
-extern void *g_airlink_pause_mutex;
+#include "luat_rtos.h"
+extern luat_rtos_mutex_t g_airlink_pause_mutex;
 void luat_airlink_pause_init(void);
 void luat_airlink_set_pause(uint32_t val);
 

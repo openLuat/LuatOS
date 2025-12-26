@@ -295,8 +295,8 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         {
             if (g_airlink_pause_mutex)
             {
-                luat_mutex_lock(g_airlink_pause_mutex);
-                luat_mutex_unlock(g_airlink_pause_mutex);   // 被unlock唤醒后, 再立即unlock一次, 防止死锁
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, 1000);
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);   // 被unlock唤醒后, 再立即unlock一次, 防止死锁
             }
             else
             {

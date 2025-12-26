@@ -4,6 +4,7 @@
 #include "luat_mem.h"
 #include "luat_fs.h"
 #include "luat_rtos.h"
+#include "luat_gpio.h"
 #include "luat_ndk.h"
 
 #define LUAT_LOG_TAG "ndk"
@@ -71,6 +72,12 @@ static void ndk_othercsr_write(luat_ndk_t *ctx, uint32_t csrno, uint32_t value) 
     case 0x138:
         ndk_log_string(ctx, value);
         break;
+    case 0x200: {
+        uint32_t pin = value & 0xFFFF;
+        uint32_t level = (value >> 16) & 0x1;
+        luat_gpio_set(pin, level);
+        break;
+    }
     default:
         break;
     }
@@ -78,6 +85,7 @@ static void ndk_othercsr_write(luat_ndk_t *ctx, uint32_t csrno, uint32_t value) 
 
 static void ndk_othercsr_read(luat_ndk_t *ctx, uint32_t csrno, uint32_t *value) {
     if (!ctx || !value) return;
+    uint32_t tmp = 0;
     switch (csrno) {
     case 0x139:
         *value = MINIRV32_RAM_IMAGE_OFFSET + ctx->exchange_offset;
@@ -87,6 +95,10 @@ static void ndk_othercsr_read(luat_ndk_t *ctx, uint32_t csrno, uint32_t *value) 
         break;
     case 0x13B:
         *value = (uint32_t)ctx->ram_size;
+        break;
+    case 0x201:
+        tmp = (*value) & 0xFFFF;
+        *value = (uint32_t)luat_gpio_get(tmp);
         break;
     default:
         *value = 0; // 未知 CSR 返回0

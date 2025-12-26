@@ -61,6 +61,7 @@ add_includedirs(luatos.."components/mbedtls3/include",{public = true})
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
+add_includedirs(luatos.."components/ndk/include",{public = true})
 -- add_includedirs("libuv/include",{public = true})
 
 
@@ -95,6 +96,7 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_timer.c"
             ,luatos.."luat/modules/luat_lib_log.c"
             ,luatos.."luat/modules/luat_lib_zbuff.c"
+            ,luatos.."components/ndk/binding/luat_lib_ndk.c"
             ,luatos.."luat/modules/luat_lib_pack.c"
             ,luatos.."luat/modules/luat_lib_crypto.c"
             ,luatos.."luat/modules/luat_lib_mcu.c"
@@ -105,9 +107,9 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
-            ,luatos.."luat/modules/luat_lib_softspi.c"
+            -- ,luatos.."luat/modules/luat_lib_softspi.c"
             ,luatos.."luat/modules/luat_lib_i2c.c"
-            ,luatos.."luat/modules/luat_lib_softi2c.c"
+            -- ,luatos.."luat/modules/luat_lib_softi2c.c"
             ,luatos.."luat/modules/luat_lib_i2s.c"
             ,luatos.."luat/modules/luat_lib_wdt.c"
             ,luatos.."luat/modules/luat_lib_pm.c"
@@ -135,6 +137,8 @@ target("luatos-lua")
     -- cjson
     add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
+    -- ndk core
+    add_files(luatos.."components/ndk/src/*.c")
     -- fft core
     add_includedirs(luatos.."components/fft/inc", {public = true})
     add_files(luatos.."components/fft/src/*.c")

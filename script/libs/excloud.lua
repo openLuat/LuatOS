@@ -612,7 +612,7 @@ local function scan_mtn_log_files()
     for i = 1, 4 do -- exmtn管理4个日志文件
         local file_path = string.format("/hzmtn%d.trc", i)
         if io.exists(file_path) then
-            local file_size = io.fileSize(file_path) or 0
+            local file_size = io.fileSize(file_path)
             if file_size > 0 then
                 table.insert(log_files, {
                     name = string.format("hzmtn%d.trc", i),
@@ -737,12 +737,13 @@ local function send_mtn_log_status(status, file_index, file_name, file_size)
     return true
 end
 -- 上传运维日志文件
-local function upload_mtn_log_files(log_files)
-    -- 使用协程执行上传，避免阻塞主线程
+local function upload_mtn_log_files()
+
     sys.taskInit(function()
-        local total_files = #log_files
+        local total_files = 4 -- 固定为4个日志文件
         local success_count = 0
         local failed_count = 0
+        local processed_count = 0
 
         -- -- 通知开始上传
         -- if callback_func then
@@ -751,86 +752,86 @@ local function upload_mtn_log_files(log_files)
         --     })
         -- end
 
-        for i, log_file in ipairs(log_files) do
-            -- 发送开始上传状态
-            send_mtn_log_status(MTN_LOG_STATUS.START, log_file.index, log_file.name, nil)
+        -- 按顺序检查并上传每个日志文件
+        for i = 1, 4 do
+            local file_path = string.format("/hzmtn%d.trc", i)
+            local file_name = string.format("/hzmtn%d.trc", i)
 
-            -- 通知上传进度
-            -- if callback_func then
-            --     callback_func("mtn_log_upload_progress", {
-            --         current_file = i,
-            --         total_files = total_files,
-            --         file_name = log_file.name,
-            --         file_size = log_file.size,
-            --         status = "start"
-            --     })
-            -- end
-            log.info("[excloud]开始上传运维日志文件", "文件:", log_file.name, "大小:", log_file.size)
-            -- 上传文件
-            local success, err_msg = excloud.upload_mtnlog(log_file.path, log_file.name)
+            -- 在上传前再次检查文件是否存在且不为空
+            local file_size = io.fileSize(file_path)
+            if file_size and file_size > 0 then
+                processed_count = processed_count + 1
 
-            if success then
-                -- 发送上传成功状态
-                send_mtn_log_status(MTN_LOG_STATUS.SUCCESS, log_file.index, nil, log_file.size)
-                success_count = success_count + 1
-                log.info("运维日志文件上传成功", "文件:", log_file.name, "大小:", log_file.size)
+                -- 发送开始上传状态
+                send_mtn_log_status(MTN_LOG_STATUS.START, i, file_name, file_size)
 
-                -- 记录上传成功的运维日志
-                if config.aircloud_mtn_log_enabled then
-                    exmtn.log("info", "aircloud", "mtn_upload", "文件上传成功", "file", log_file.name, "size", log_file.size)
+                log.info("[excloud]开始上传运维日志文件", "文件:", file_name, "大小:", file_size)
+
+                -- 上传文件
+                local success, err_msg = excloud.upload_mtnlog(file_path, file_name)
+
+                if success then
+                    -- 发送上传成功状态
+                    log.info("运维日志文件上传成功", "文件:", file_name, "大小:", file_size)
+                    send_mtn_log_status(MTN_LOG_STATUS.SUCCESS, i, file_name, file_size)
+                    success_count = success_count + 1
+
+                    -- 记录上传成功的运维日志
+                    if config.aircloud_mtn_log_enabled then
+                        exmtn.log("info", "aircloud", "mtn_upload", "文件上传成功", "file", file_name, "size", file_size)
+                    end
+                else
+                    -- 发送上传失败状态
+                    log.error("运维日志文件上传失败", "文件:", file_name, "错误:", err_msg)
+                    send_mtn_log_status(MTN_LOG_STATUS.FAILED, i, file_name, file_size)
+                    failed_count = failed_count + 1
+
+                    -- 记录上传失败的运维日志
+                    if config.aircloud_mtn_log_enabled then
+                        exmtn.log("info", "aircloud", "mtn_upload_error", "文件上传失败", "file", file_name, "error", err_msg)
+                    end
+                end
+
+                -- 通知上传进度
+                if callback_func then
+                    callback_func("mtn_log_upload_progress", {
+                        current_file = processed_count,
+                        total_files = total_files,
+                        file_name = file_name,
+                        file_size = file_size,
+                        status = success and "success" or "failed",
+                        error_msg = err_msg
+                    })
                 end
             else
-                -- 发送上传失败状态
-                send_mtn_log_status(MTN_LOG_STATUS.FAILED, log_file.index, nil, nil)
-                failed_count = failed_count + 1
-                log.error("运维日志文件上传失败", "文件:", log_file.name, "错误:", err_msg)
-
-                -- 记录上传失败的运维日志
-                if config.aircloud_mtn_log_enabled then
-                    exmtn.log("info", "aircloud", "mtn_upload_error", "文件上传失败", "file", log_file.name, "error", err_msg)
-                end
-            end
-
-            -- 通知上传进度
-            if callback_func then
-                callback_func("mtn_log_upload_progress", {
-                    current_file = i,
-                    total_files = total_files,
-                    file_name = log_file.name,
-                    file_size = log_file.size,
-                    status = success and "success" or "failed",
-                    error_msg = err_msg
-                })
-            end
-
-            -- 文件间延迟，避免同时上传多个文件
-            if i < total_files then
-                sys.wait(2000)
+                -- 文件不存在或为空，跳过上传
+                log.info("运维日志文件不存在或为空，跳过上传", "文件:", file_name)
             end
         end
 
-        log.info("运维日志上传完成", "成功:", success_count, "失败:", failed_count, "总计:", total_files)
+        log.info("运维日志上传完成", "成功:", success_count, "失败:", failed_count, "总计:", processed_count)
 
         -- 记录上传完成日志
         if config.aircloud_mtn_log_enabled then
             exmtn.log("info", "aircloud", "mtn_upload", "运维日志上传完成", "success", success_count, "failed", failed_count,
-                "total", total_files)
+                "total", processed_count)
         end
+
         -- 通知上传完成
         if callback_func then
             callback_func("mtn_log_upload_complete", {
                 success_count = success_count,
                 failed_count = failed_count,
-                total_files = total_files
+                total_files = processed_count
             })
         end
     end)
 end
+
 -- 处理运维日志上传请求
 local function handle_mtn_log_upload_request()
-    local log_files = scan_mtn_log_files()
-    local total_files = #log_files
-    local latest_index = total_files > 0 and log_files[#log_files].index or 0
+    local total_files = 4 -- 固定为4个日志文件
+    local latest_index = 4 -- 最新序号固定为4
 
     if config.aircloud_mtn_log_enabled then
         exmtn.log("info", "aircloud", "cloud_cmd", "收到运维日志上传请求", "file_count", total_files)
@@ -855,21 +856,9 @@ local function handle_mtn_log_upload_request()
     log.info("运维日志上传响应已发送", "文件总数:", total_files, "最新序号:", latest_index)
 
     -- 开始上传日志文件
-    if total_files > 0 then
-        sys.timerStart(function()
-            upload_mtn_log_files(log_files)
-        end, 100)
-    else
-        log.info("没有运维日志文件需要上传")
-
-        if callback_func then
-            callback_func("mtn_log_upload_complete", {
-                success_count = 0,
-                failed_count = 0,
-                total_files = 0
-            })
-        end
-    end
+    sys.timerStart(function()
+        upload_mtn_log_files()
+    end, 100)
 end
 
 
@@ -1215,12 +1204,13 @@ local function upload_file(file_type, file_path, file_name)
     if not upload_info.url then
         return false, "上传URL为空"
     end
-
     local file_size = io.fileSize(file_path)
     if not file_size or file_size == 0 then
+        log.info("[excloud]文件不存在或为空", "文件:", file_name,file_size)
         return false, "文件不存在或为空"
     end
 
+    log.info("[excloud]开始文件上传", "类型:", file_type, "文件:", file_path, "大小:", file_size)
     log.info("[excloud]开始文件上传", "类型:", file_type, "文件:", file_name, "大小:", file_size)
 
     -- 发送上传开始通知（运维日志不需要）
@@ -1231,42 +1221,55 @@ local function upload_file(file_type, file_path, file_name)
         end
     end
 
-    -- 执行HTTP请求
-    local code, response = httpplus.request(
-        {
-            method = "POST",
-            url = upload_info.url,
-            forms = { ["key"] = upload_info.data_param.key },
-            files = { [upload_info.data_key or "f"] = file_path }
-        })
-    -- 检查响应是否为nil
-    if not response then
-        log.error("[excloud]HTTP请求返回空响应")
-        -- 运维日志不需要发送上传完成通知
-        if file_type ~= 3 then
-            send_file_upload_finish(file_type, timestamped_filename, false)
-        end
-        return false, "HTTP请求失败: 空响应"
-    end
-    log.info("[excloud]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", response.body:query(), "Body:",
-        json.encode(response))
-
+    -- 执行HTTP请求，添加重传机制
+    local max_retries = 1
+    local retry_count = 0
+    local code, response
     local upload_success = false
     local result_msg = ""
 
-    if code == 200 then
-        local resp_data, err = json.decode(response.body:query())
-        if resp_data and resp_data.code == 0 then
-            upload_success = true
-            result_msg = "上传成功"
-            log.info("[excloud]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
+    while retry_count <= max_retries do
+        code, response = httpplus.request(
+            {
+                method = "POST",
+                url = upload_info.url,
+                forms = { ["key"] = upload_info.data_param.key },
+                files = { [upload_info.data_key or "f"] = file_path }
+            })
+
+        -- 检查响应
+        if response then
+            log.info("[excloud]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", response.body:query(), "Body:",
+                json.encode(response))
+
+            if code == 200 then
+                local resp_data, err = json.decode(response.body:query())
+                if resp_data and resp_data.code == 0 then
+                    upload_success = true
+                    result_msg = "上传成功"
+                    log.info("[excloud]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
+                    break
+                else
+                    result_msg = "服务器返回错误: " .. (resp_data and tostring(resp_data.code) or "未知")
+                    log.error("文件上传失败", result_msg, "响应:", response.body:query())
+                end
+            else
+                result_msg = "HTTP请求失败: " .. tostring(code)
+                log.error("文件上传HTTP请求失败", result_msg)
+            end
         else
-            result_msg = "服务器返回错误: " .. (resp_data and tostring(resp_data.code) or "未知")
-            log.error("文件上传失败", result_msg, "响应:", resp_body)
+            log.error("[excloud]HTTP请求返回空响应")
+            result_msg = "HTTP请求失败: 空响应"
         end
-    else
-        result_msg = "HTTP请求失败: " .. tostring(code)
-        log.error("文件上传HTTP请求失败", result_msg)
+
+        -- 如果失败且未达到最大重试次数，则重试
+        if not upload_success and retry_count < max_retries then
+            retry_count = retry_count + 1
+            log.info("[excloud]文件上传失败，开始第" .. retry_count .. "次重试")
+            sys.wait(1000) -- 等待1秒后重试
+        else
+            break
+        end
     end
 
     -- 发送上传完成通知（运维日志不需要）
@@ -1287,13 +1290,13 @@ function excloud.upload_mtnlog(file_path, file_name)
         log.warn("[excloud]手动填写IP时不允许上传文件")
         return false, "手动填写IP时不允许上传文件"
     end
-    file_name = file_name or "mtn_log_" .. os.time() .. ".trc"
+
 
     -- 检查文件是否存在
     if not io.exists(file_path) then
         return false, "文件不存在: " .. file_path
     end
-
+    log.info("[excloud]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
     -- 如果没有文件上传配置，先获取
     if not config.current_mtninfo then
         log.info("[excloud]获取运维日志上传配置...")
@@ -1307,7 +1310,7 @@ function excloud.upload_mtnlog(file_path, file_name)
             return false, "获取运维日志上传配置失败: " .. err
         end
     end
-
+    log.info("[excloud]excloud.upload_mtnlog", "文件路径:", file_path, "文件名:", file_name)
     return upload_file(3, file_path, file_name) -- 文件类型为3
 end
 

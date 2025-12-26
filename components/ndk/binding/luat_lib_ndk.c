@@ -287,7 +287,7 @@ static int l_ndk_stop(lua_State *L) {
 static int l_ndk_info(lua_State *L) {
     luat_ndk_t *ndk = ndk_check(L, 1);
     lua_newtable(L);
-    lua_pushinteger(L, ndk->ram_limit);
+    lua_pushinteger(L, ndk->ram_size);
     lua_setfield(L, -2, "mem");
     lua_pushinteger(L, ndk->exchange_size);
     lua_setfield(L, -2, "exchange");

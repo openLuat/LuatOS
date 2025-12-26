@@ -34,7 +34,7 @@ static inline bool ndk_addr_valid(luat_ndk_t *ctx, uint32_t addr, size_t len) {
     if (addr < MINIRV32_RAM_IMAGE_OFFSET) return false;
     uint64_t start = (uint64_t)(addr - MINIRV32_RAM_IMAGE_OFFSET);
     uint64_t end = start + len;
-    return end <= ctx->ram_limit && end <= ctx->ram_size;
+    return end <= ctx->ram_size;
 }
 
 static void ndk_log_string(luat_ndk_t *ctx, uint32_t guest_addr) {
@@ -43,7 +43,7 @@ static void ndk_log_string(luat_ndk_t *ctx, uint32_t guest_addr) {
     uint32_t off = guest_addr - MINIRV32_RAM_IMAGE_OFFSET;
     char tmp[NDK_MAX_LOG_STR + 1];
     size_t i = 0;
-    for (; i < NDK_MAX_LOG_STR && off + i < ctx->ram_limit; i++) {
+    for (; i < NDK_MAX_LOG_STR && off + i < ctx->ram_size; i++) {
         tmp[i] = (char)ctx->ram[off + i];
         if (tmp[i] == '\0') break;
     }
@@ -86,7 +86,7 @@ static void ndk_othercsr_read(luat_ndk_t *ctx, uint32_t csrno, uint32_t *value) 
         *value = (uint32_t)ctx->exchange_size;
         break;
     case 0x13B:
-        *value = (uint32_t)ctx->ram_limit;
+        *value = (uint32_t)ctx->ram_size;
         break;
     default:
         *value = 0; // 未知 CSR 返回0
@@ -106,49 +106,42 @@ static void ndk_reset_core(luat_ndk_t *ndk) {
     ndk->last_trap = 0;
 }
 
-static void ndk_copy_image(luat_ndk_t *ndk) {
-    memset(ndk->ram, 0, ndk->ram_size);
-    if (ndk->image_copy && ndk->image_size) {
-        memcpy(ndk->ram, ndk->image_copy, ndk->image_size);
-    }
-    if (ndk->exchange_offset < ndk->ram_size) {
-        memset(ndk->ram + ndk->exchange_offset, 0, ndk->exchange_size);
-    }
-    ndk_reset_core(ndk);
-}
-
-static int ndk_load_image(luat_ndk_t *ndk, const char *path) {
-    FILE *fd = luat_fs_fopen(path, "rb");
+static int ndk_reload_image(luat_ndk_t *ndk) {
+    if (!ndk || !ndk->image_path) return LUAT_NDK_ERR_PARAM;
+    
+    FILE *fd = luat_fs_fopen(ndk->image_path, "rb");
     if (fd == NULL) {
-        LLOGE("open %s fail", path);
+        LLOGE("open %s fail", ndk->image_path);
         return LUAT_NDK_ERR_IO;
     }
-    size_t sz = luat_fs_fsize(path);
-    if (sz == 0 || sz > ndk->exchange_offset) {
-        luat_fs_fclose(fd);
-        LLOGE("image too large %u", (unsigned int)sz);
-        return LUAT_NDK_ERR_IMAGE_TOO_LARGE;
-    }
-    ndk->image_size = sz;
-    if (ndk->image_copy) {
-        luat_heap_free(ndk->image_copy);
-        ndk->image_copy = NULL;
-    }
-    ndk->image_copy = luat_heap_malloc(ndk->image_size);
-    if (ndk->image_copy == NULL) {
-        luat_fs_fclose(fd);
-        return LUAT_NDK_ERR_NOMEM;
-    }
+    
     memset(ndk->ram, 0, ndk->ram_size);
     size_t readed = luat_fs_fread(ndk->ram, 1, ndk->image_size, fd);
     luat_fs_fclose(fd);
+    
     if (readed != ndk->image_size) {
         LLOGE("read image %u/%u", (unsigned int)readed, (unsigned int)ndk->image_size);
         return LUAT_NDK_ERR_IO;
     }
-    memcpy(ndk->image_copy, ndk->ram, ndk->image_size);
-    ndk_copy_image(ndk);
+    
+    if (ndk->exchange_offset < ndk->ram_size) {
+        memset(ndk->ram + ndk->exchange_offset, 0, ndk->exchange_size);
+    }
+    ndk_reset_core(ndk);
     return LUAT_NDK_OK;
+}
+
+static int ndk_load_image(luat_ndk_t *ndk, const char *path) {
+    if (!ndk || !path) return LUAT_NDK_ERR_PARAM;
+    
+    size_t sz = luat_fs_fsize(path);
+    if (sz == 0 || sz > ndk->exchange_offset) {
+        LLOGE("image too large %u", (unsigned int)sz);
+        return LUAT_NDK_ERR_IMAGE_TOO_LARGE;
+    }
+    ndk->image_size = sz;
+    
+    return ndk_reload_image(ndk);
 }
 
 static int ndk_exec_inner(luat_ndk_t *ndk, uint32_t step_budget, uint32_t elapsed_us, int32_t *retval) {
@@ -209,10 +202,9 @@ int luat_ndk_init(luat_ndk_t *ndk, const char *path, size_t mem_size, size_t exc
         return LUAT_NDK_ERR_PARAM;
     }
 
-    ndk->ram_limit = mem_size;
+    ndk->ram_size = mem_size;
     ndk->exchange_size = exchange_size;
     ndk->exchange_offset = mem_size - exchange_size;
-    ndk->ram_size = LUAT_NDK_MAX_RAM_SIZE;
 
     ndk->ram = luat_heap_malloc(ndk->ram_size);
     ndk->core = luat_heap_malloc(sizeof(MiniRV32IMAState));
@@ -248,10 +240,6 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
     if (ndk->worker) {
         luat_rtos_task_sleep(10);
     }
-    if (ndk->image_copy) {
-        luat_heap_free(ndk->image_copy);
-        ndk->image_copy = NULL;
-    }
     if (ndk->ram) {
         luat_heap_free(ndk->ram);
         ndk->ram = NULL;
@@ -271,9 +259,8 @@ void luat_ndk_deinit(luat_ndk_t *ndk) {
 int luat_ndk_reset(luat_ndk_t *ndk) {
     if (!ndk) return LUAT_NDK_ERR_PARAM;
     if (ndk->running) return LUAT_NDK_ERR_BUSY;
-    if (ndk->image_copy == NULL || ndk->image_size == 0) return LUAT_NDK_ERR_IO;
-    ndk_copy_image(ndk);
-    return LUAT_NDK_OK;
+    if (ndk->image_path == NULL || ndk->image_size == 0) return LUAT_NDK_ERR_IO;
+    return ndk_reload_image(ndk);
 }
 
 int luat_ndk_set_data(luat_ndk_t *ndk, const void *data, size_t len, size_t offset) {

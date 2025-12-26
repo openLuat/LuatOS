@@ -38,9 +38,7 @@ typedef struct luat_ndk {
     MiniRV32IMAState *core;
     uint8_t *ram;
     size_t ram_size;
-    size_t ram_limit;
     size_t image_size;
-    uint8_t *image_copy;
     size_t exchange_size;
     size_t exchange_offset;
     uint32_t last_mcause;

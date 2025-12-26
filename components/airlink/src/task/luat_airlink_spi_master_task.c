@@ -33,7 +33,7 @@
 
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
-extern void *g_airlink_pause_mutex;
+extern luat_rtos_mutex_t g_airlink_pause_mutex;
 
 // static uint8_t start;
 // static uint8_t slave_rdy;
@@ -295,12 +295,15 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
         {
             if (g_airlink_pause_mutex)
             {
-                luat_rtos_mutex_lock(g_airlink_pause_mutex, 1000);
-                luat_rtos_mutex_unlock(g_airlink_pause_mutex);   // 被unlock唤醒后, 再立即unlock一次, 防止死锁
+                // LLOGD("airlink entering pause, waiting on mutex");
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, LUAT_WAIT_FOREVER);
+                // LLOGD("airlink resumed from pause");
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);  // 立即释放，避免占用
             }
             else
             {
-                while (g_airlink_pause)
+                // 若未创建则轮询等待
+                while (g_airlink_pause) 
                 {
                     LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
                     luat_rtos_task_sleep(1000);

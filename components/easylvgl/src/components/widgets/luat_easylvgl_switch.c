@@ -26,6 +26,9 @@ static easylvgl_ctx_t *easylvgl_binding_get_ctx(lua_State *L) {
     return ctx;
 }
 
+/**
+ * 根据 style 指定的语义色设置开关的 checked 背景
+ */
 static void easylvgl_switch_apply_style(lv_obj_t *sw, const char *style)
 {
     if (sw == NULL || style == NULL) {
@@ -42,6 +45,9 @@ static void easylvgl_switch_apply_style(lv_obj_t *sw, const char *style)
     lv_obj_set_style_bg_color(sw, color, LV_STATE_CHECKED);
 }
 
+/**
+ * 从 Lua config 创建 Switch 对象
+ */
 lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx)
 {
     if (L == NULL) {
@@ -54,6 +60,7 @@ lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    // 读取布局与默认状态
     lv_obj_t *parent = easylvgl_marshal_parent(L, idx);
     int x = easylvgl_marshal_integer(L, idx, "x", 0);
     int y = easylvgl_marshal_integer(L, idx, "y", 0);
@@ -70,6 +77,7 @@ lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx)
     lv_obj_set_pos(sw, x, y);
     lv_obj_set_size(sw, w, h);
 
+    // 应用主题色
     if (style != NULL) {
         easylvgl_switch_apply_style(sw, style);
     }
@@ -95,6 +103,9 @@ lv_obj_t *easylvgl_switch_create_from_config(void *L, int idx)
     return sw;
 }
 
+/**
+ * 修改 Switch 的状态并派发事件
+ */
 int easylvgl_switch_set_state(lv_obj_t *sw, bool checked)
 {
     if (sw == NULL) {
@@ -111,6 +122,9 @@ int easylvgl_switch_set_state(lv_obj_t *sw, bool checked)
     return EASYLVGL_OK;
 }
 
+/**
+ * 查询 Switch 是否处于选中状态
+ */
 bool easylvgl_switch_get_state(lv_obj_t *sw)
 {
     if (sw == NULL) {
@@ -120,6 +134,9 @@ bool easylvgl_switch_get_state(lv_obj_t *sw)
     return (lv_obj_get_state(sw) & LV_STATE_CHECKED) != 0;
 }
 
+/**
+ * 绑定状态变化回调
+ */
 int easylvgl_switch_set_on_change(lv_obj_t *sw, int callback_ref)
 {
     if (sw == NULL) {

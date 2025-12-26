@@ -51,6 +51,14 @@ extern int easylvgl_image_create(lua_State *L);
 extern void easylvgl_register_container_meta(lua_State *L);
 extern int easylvgl_container_create(lua_State *L);
 
+// Table 模块声明
+extern void easylvgl_register_table_meta(lua_State *L);
+extern int easylvgl_table_create(lua_State *L);
+
+// TabView 模块声明
+extern void easylvgl_register_tabview_meta(lua_State *L);
+extern int easylvgl_tabview_create(lua_State *L);
+
 // Win 模块声明
 extern void easylvgl_register_win_meta(lua_State *L);
 extern int easylvgl_win_create(lua_State *L);
@@ -89,6 +97,8 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"label", ROREG_FUNC(easylvgl_label_create)},
     {"image", ROREG_FUNC(easylvgl_image_create)},
     {"container", ROREG_FUNC(easylvgl_container_create)},
+    {"table", ROREG_FUNC(easylvgl_table_create)},
+    {"tabview", ROREG_FUNC(easylvgl_tabview_create)},
     {"win", ROREG_FUNC(easylvgl_win_create)},
     {"dropdown", ROREG_FUNC(easylvgl_dropdown_create)},
     {"switch", ROREG_FUNC(easylvgl_switch_create)},
@@ -98,6 +108,18 @@ static const rotable_Reg_t reg_easylvgl[] = {
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
+    // 文本对齐常量
+    {"EASYLVGL_TEXT_ALIGN_LEFT", ROREG_INT(LV_TEXT_ALIGN_LEFT)},
+    {"EASYLVGL_TEXT_ALIGN_CENTER", ROREG_INT(LV_TEXT_ALIGN_CENTER)},
+    {"EASYLVGL_TEXT_ALIGN_RIGHT", ROREG_INT(LV_TEXT_ALIGN_RIGHT)},
+    // TabView 对齐常量
+    {"EASYLVGL_TABVIEW_PAD_ALL", ROREG_INT(EASYLVGL_TABVIEW_PAD_ALL)},
+    {"EASYLVGL_TABVIEW_PAD_HOR", ROREG_INT(EASYLVGL_TABVIEW_PAD_HOR)},
+    {"EASYLVGL_TABVIEW_PAD_VER", ROREG_INT(EASYLVGL_TABVIEW_PAD_VER)},
+    {"EASYLVGL_TABVIEW_PAD_TOP", ROREG_INT(EASYLVGL_TABVIEW_PAD_TOP)},
+    {"EASYLVGL_TABVIEW_PAD_BOTTOM", ROREG_INT(EASYLVGL_TABVIEW_PAD_BOTTOM)},
+    {"EASYLVGL_TABVIEW_PAD_LEFT", ROREG_INT(EASYLVGL_TABVIEW_PAD_LEFT)},
+    {"EASYLVGL_TABVIEW_PAD_RIGHT", ROREG_INT(EASYLVGL_TABVIEW_PAD_RIGHT)},
     // 图标常量
     EASYLVGL_SYMBOL_REG,
     {NULL, ROREG_INT(0)}
@@ -109,6 +131,8 @@ LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     easylvgl_register_label_meta(L);
     easylvgl_register_image_meta(L);
     easylvgl_register_container_meta(L);
+    easylvgl_register_table_meta(L);
+    easylvgl_register_tabview_meta(L);
     easylvgl_register_win_meta(L);
     easylvgl_register_dropdown_meta(L);
     easylvgl_register_switch_meta(L);

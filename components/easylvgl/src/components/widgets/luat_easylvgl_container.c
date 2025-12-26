@@ -33,6 +33,7 @@ lv_obj_t *easylvgl_container_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    // 解析布局与样式配置
     lv_obj_t *parent = easylvgl_marshal_parent(L, idx);
     int x = easylvgl_marshal_integer(L, idx, "x", 0);
     int y = easylvgl_marshal_integer(L, idx, "y", 0);
@@ -46,11 +47,13 @@ lv_obj_t *easylvgl_container_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    // 设置位置、大小与默认样式
     lv_obj_set_pos(container, x, y);
     lv_obj_set_size(container, w, h);
     lv_obj_set_style_border_width(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_radius(container, radius, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    // 设置背景颜色或透明度
     if (color_value >= 0) {
         lv_color_t bg_color = lv_color_hex((uint32_t)color_value);
         lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -78,6 +81,7 @@ int easylvgl_container_set_color(lv_obj_t *container, uint32_t color_value)
         return EASYLVGL_ERR_INVALID_PARAM;
     }
 
+    // 强制设置不透明背景
     lv_color_t bg_color = lv_color_hex(color_value);
     lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);

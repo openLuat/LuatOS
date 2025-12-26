@@ -16,6 +16,11 @@
 
 #include <string.h>
 
+/**
+ * 从注册表中获取 EasyLVGL 上下文
+ * @param L Lua 状态
+ * @return ctx 指针，失败返回 NULL
+ */
 static easylvgl_ctx_t *easylvgl_binding_get_ctx(lua_State *L) {
     if (L == NULL) {
         return NULL;
@@ -30,6 +35,9 @@ static easylvgl_ctx_t *easylvgl_binding_get_ctx(lua_State *L) {
     return ctx;
 }
 
+/**
+ * 释放 Msgbox 的用户数据结构并返回超时 timer（如果存在）
+ */
 lv_timer_t *easylvgl_msgbox_release_user_data(easylvgl_component_meta_t *meta)
 {
     if (meta == NULL || meta->user_data == NULL) {
@@ -49,6 +57,9 @@ lv_timer_t *easylvgl_msgbox_release_user_data(easylvgl_component_meta_t *meta)
     return NULL;
 }
 
+/**
+ * Msgbox 超时回调，关闭对话框并删除 timer
+ */
 static void easylvgl_msgbox_timeout_cb(lv_timer_t *timer) {
     if (timer == NULL) {
         return;
@@ -69,6 +80,9 @@ static void easylvgl_msgbox_timeout_cb(lv_timer_t *timer) {
     lv_timer_delete(timer);
 }
 
+/**
+ * 按钮点击事件回调，提取按钮文本并回调 Lua
+ */
 static void easylvgl_msgbox_button_event_cb(lv_event_t *e) {
     if (e == NULL || lv_event_get_code(e) != LV_EVENT_CLICKED) {
         return;
@@ -94,6 +108,9 @@ static void easylvgl_msgbox_button_event_cb(lv_event_t *e) {
     easylvgl_component_call_action_callback(meta, text);
 }
 
+/**
+ * 从 Lua config 创建 Msgbox，支持 title/text/button 等配置
+ */
 lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx)
 {
     if (L == NULL) {
@@ -106,6 +123,7 @@ lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    // 读取配置项
     lv_obj_t *parent = easylvgl_marshal_parent(L, idx);
     const char *title = easylvgl_marshal_string(L, idx, "title", NULL);
     const char *text = easylvgl_marshal_string(L, idx, "text", NULL);
@@ -117,10 +135,12 @@ lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    // 可选居中
     if (auto_center) {
         lv_obj_center(msgbox);
     }
 
+    // 设置标题与文本
     if (title != NULL) {
         lv_msgbox_add_title(msgbox, title);
     }
@@ -129,6 +149,7 @@ lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx)
         lv_msgbox_add_text(msgbox, text);
     }
 
+    // 按钮列表处理
     int button_count = easylvgl_marshal_table_length(L, idx, "buttons");
     if (button_count <= 0) {
         button_count = 1;
@@ -176,6 +197,9 @@ lv_obj_t *easylvgl_msgbox_create_from_config(void *L, int idx)
     return msgbox;
 }
 
+/**
+ * 为 Msgbox 绑定 action 回调
+ */
 int easylvgl_msgbox_set_on_action(lv_obj_t *msgbox, int callback_ref)
 {
     if (msgbox == NULL) {
@@ -202,6 +226,9 @@ int easylvgl_msgbox_set_on_action(lv_obj_t *msgbox, int callback_ref)
     return EASYLVGL_OK;
 }
 
+/**
+ * 显示 Msgbox 对话框
+ */
 int easylvgl_msgbox_show(lv_obj_t *msgbox)
 {
     if (msgbox == NULL) {
@@ -213,6 +240,9 @@ int easylvgl_msgbox_show(lv_obj_t *msgbox)
     return EASYLVGL_OK;
 }
 
+/**
+ * 隐藏 Msgbox 对话框
+ */
 int easylvgl_msgbox_hide(lv_obj_t *msgbox)
 {
     if (msgbox == NULL) {

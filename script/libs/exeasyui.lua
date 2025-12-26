@@ -1,5 +1,7 @@
 --[[
-exEasyUI v1.7.0 - 新架构发布版
+exEasyUI v1.7.1
+作者：曾帅、江访
+日期：2025-12-26
 ================================
 结构说明：
 1. 常量定义 - UI颜色常量和调试配置
@@ -25,7 +27,7 @@ exEasyUI v1.7.0 - 新架构发布版
 ]]
 
 local ui                              = {
-    version = "1.7.0",
+    version = "1.7.1",
     hw = {},
     runtime = {},
     render = {},
@@ -3990,14 +3992,14 @@ function ui.clear(color)
     ui.render.background(color or COLOR_BLACK)
 end
 
--- 开始设计需要兼容的刷新接口
+-- 已废除：预计1.8.0删除
 function ui.renderFrame()
-    return ui.render.present()
+    return nil -- 返回空值
 end
 
--- 后面更新的刷新页面接口
+-- 已废除：预计1.8.0删除
 function ui.refresh()
-    return ui.render.present()
+    return nil -- 返回空值
 end
 
 return ui

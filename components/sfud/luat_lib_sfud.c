@@ -49,6 +49,10 @@ static int luat_sfud_init(lua_State *L){
     }else if (lua_type(L, 1) == LUA_TUSERDATA){
         sfud_flash_tables[0].luat_sfud.luat_spi = LUAT_TYPE_SPI_DEVICE;
         sfud_spi_device_flash = (luat_spi_device_t*)lua_touserdata(L, 1);
+        if (sfud_spi_device_flash->spi_config.mode == 1){
+            LLOGW("flash need half mode, spi_device mode is full mode, change to half mode");
+            sfud_spi_device_flash->spi_config.mode = 0;
+        }
         sfud_flash_tables[0].luat_sfud.user_data = sfud_spi_device_flash;
     }
     

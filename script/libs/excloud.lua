@@ -98,6 +98,62 @@ local is_open = false              -- 服务是否开启
 local is_connected = false         -- 是否已连接
 local is_authenticated = false     -- 是否已鉴权
 local sequence_num = 1             -- 流水号
+
+-- 辅助函数：构建multipart/form-data请求体
+local function build_multipart_form_data(forms, files)
+    local boundary = "----WebKitFormBoundary" .. tostring(os.time())
+    local body = {}
+
+    -- 添加表单数据
+    if forms then
+        for k, v in pairs(forms) do
+            table.insert(body, "--" .. boundary .. "\r\n")
+            table.insert(body, string.format("Content-Disposition: form-data; name=\"%s\"\r\n\r\n", k))
+            table.insert(body, tostring(v) .. "\r\n")
+        end
+    end
+
+    -- 添加文件数据
+    if files then
+        for k, file_path in pairs(files) do
+            local fd = io.open(file_path, "rb")
+            if fd then
+                local file_content = fd:read("*a")
+                fd:close()
+
+                local file_name = file_path:match("[^/\\]+$" or "")
+                local content_type = "application/octet-stream"
+
+                -- 根据文件扩展名设置Content-Type
+                local ext = file_name:match("%.(%w+)$" or ""):lower()
+                local content_types = {
+                    txt = "text/plain",
+                    jpg = "image/jpeg",
+                    jpeg = "image/jpeg",
+                    png = "image/png",
+                    gif = "image/gif",
+                    mp3 = "audio/mpeg",
+                    wav = "audio/wav",
+                    json = "application/json",
+                    html = "text/html"
+                }
+                if content_types[ext] then
+                    content_type = content_types[ext]
+                end
+
+                table.insert(body, "--" .. boundary .. "\r\n")
+                table.insert(body, string.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\n", k, file_name))
+                table.insert(body, "Content-Type: " .. content_type .. "\r\n\r\n")
+                table.insert(body, file_content .. "\r\n")
+            end
+        end
+    end
+
+    -- 添加结束边界
+    table.insert(body, "--" .. boundary .. "--\r\n")
+
+    return table.concat(body), boundary
+end
 local connection = nil             -- 连接对象
 local device_id_binary = nil       -- 二进制格式的设备ID
 local reconnect_timer = nil        -- 重连定时器
@@ -109,6 +165,7 @@ local heartbeat_timer = nil        -- 心跳定时器
 local heartbeat_interval = 300     -- 心跳间隔(秒)，默认5分钟
 local heartbeat_data = {}          -- 心跳数据，默认空表
 local is_heartbeat_running = false -- 心跳是否正在运行
+local is_mtn_log_uploading = false -- 运维日志是否正在上传
 
 -- 数据类型定义
 local DATA_TYPES = {
@@ -740,6 +797,9 @@ end
 local function upload_mtn_log_files()
 
     sys.taskInit(function()
+        -- 设置上传标志位为true
+        is_mtn_log_uploading = true
+
         local total_files = 4 -- 固定为4个日志文件
         local success_count = 0
         local failed_count = 0
@@ -807,6 +867,10 @@ local function upload_mtn_log_files()
                 -- 文件不存在或为空，跳过上传
                 log.info("运维日志文件不存在或为空，跳过上传", "文件:", file_name)
             end
+            -- -- 文件间延迟，避免同时上传多个文件
+            -- if i < 4 then
+            --     sys.wait(2000)
+            -- end
         end
 
         log.info("运维日志上传完成", "成功:", success_count, "失败:", failed_count, "总计:", processed_count)
@@ -825,11 +889,20 @@ local function upload_mtn_log_files()
                 total_files = processed_count
             })
         end
+
+        -- 上传完成，设置标志位为false
+        is_mtn_log_uploading = false
     end)
 end
 
 -- 处理运维日志上传请求
 local function handle_mtn_log_upload_request()
+    -- 检查是否正在上传，如果是则直接返回，抛弃新请求
+    if is_mtn_log_uploading then
+        log.info("[excloud]运维日志正在上传中，抛弃新的上传请求")
+        return
+    end
+
     local total_files = 4 -- 固定为4个日志文件
     local latest_index = 4 -- 最新序号固定为4
 
@@ -1224,42 +1297,43 @@ local function upload_file(file_type, file_path, file_name)
     -- 执行HTTP请求，添加重传机制
     local max_retries = 1
     local retry_count = 0
-    local code, response
+    local code, headers, body
     local upload_success = false
     local result_msg = ""
 
     while retry_count <= max_retries do
-        code, response = httpplus.request(
-            {
-                method = "POST",
-                url = upload_info.url,
-                forms = { ["key"] = upload_info.data_param.key },
-                files = { [upload_info.data_key or "f"] = file_path }
-            })
+        -- 构建multipart/form-data请求体
+        local forms = { ["key"] = upload_info.data_param.key }
+        local files = { [upload_info.data_key or "f"] = file_path }
+        local request_body, boundary = build_multipart_form_data(forms, files)
+
+        -- 构建请求头
+        local headers = {
+            ["Content-Type"] = "multipart/form-data; boundary=" .. boundary,
+            ["Content-Length"] = tostring(#request_body)
+        }
+
+        -- 发送HTTP请求
+        log.info("[excloud]开始发送HTTP请求", "URL:", upload_info.url)
+        code, headers, body = http.request("POST", upload_info.url, headers, request_body, {timeout=30000}).wait()
 
         -- 检查响应
-        if response then
-            log.info("[excloud]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", response.body:query(), "Body:",
-                json.encode(response))
+        if code == 200 then
+            log.info("[excloud]excloud.getip文件上传响应", "HTTP Code:", code, "Body:", body and (#body > 512 and #body or body) or "nil")
 
-            if code == 200 then
-                local resp_data, err = json.decode(response.body:query())
-                if resp_data and resp_data.code == 0 then
-                    upload_success = true
-                    result_msg = "上传成功"
-                    log.info("[excloud]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
-                    break
-                else
-                    result_msg = "服务器返回错误: " .. (resp_data and tostring(resp_data.code) or "未知")
-                    log.error("文件上传失败", result_msg, "响应:", response.body:query())
-                end
+            local resp_data, err = json.decode(body)
+            if resp_data and resp_data.code == 0 then
+                upload_success = true
+                result_msg = "上传成功"
+                log.info("[excloud]文件上传成功", "URL:", resp_data.value and resp_data.value.uri or "未知")
+                break
             else
-                result_msg = "HTTP请求失败: " .. tostring(code)
-                log.error("文件上传HTTP请求失败", result_msg)
+                result_msg = "服务器返回错误: " .. (resp_data and tostring(resp_data.code) or "未知")
+                log.error("文件上传失败", result_msg, "响应:", body)
             end
         else
-            log.error("[excloud]HTTP请求返回空响应")
-            result_msg = "HTTP请求失败: 空响应"
+            result_msg = "HTTP请求失败: " .. tostring(code)
+            log.error("文件上传HTTP请求失败", result_msg, "Headers:", headers, "Body:", body)
         end
 
         -- 如果失败且未达到最大重试次数，则重试

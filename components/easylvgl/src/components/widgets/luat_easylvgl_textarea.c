@@ -13,6 +13,7 @@
 #include "lvgl9/src/misc/lv_event.h"
 #include "lvgl9/src/core/lv_obj.h"
 #include <string.h>
+#include "luat_conf_bsp.h"
 
 #define LUAT_LOG_TAG "easylvgl_textarea"
 #include "luat_log.h"

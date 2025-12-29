@@ -9,12 +9,11 @@
 #ifndef LUAT_EASYLVGL_CONF_H
 #define LUAT_EASYLVGL_CONF_H
 
+#include "luat_conf_bsp.h"
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/
- 
- // 打开png支持
- #define LV_USE_LODEPNG 1
 
 #if defined(LUAT_USE_EASYLVGL_SDL2)
     /* SDL2 平台配置 */

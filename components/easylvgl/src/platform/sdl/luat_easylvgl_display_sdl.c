@@ -4,6 +4,8 @@
  * @responsible SDL2 显示初始化、flush、vsync
  */
 
+#include "luat_conf_bsp.h"
+
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
 #include "luat_easylvgl.h"

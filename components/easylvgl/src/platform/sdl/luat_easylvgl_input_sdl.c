@@ -4,6 +4,8 @@
  * @responsible SDL2 鼠标/触摸输入处理
  */
 
+#include "luat_conf_bsp.h"
+
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
 #include "luat_easylvgl.h"

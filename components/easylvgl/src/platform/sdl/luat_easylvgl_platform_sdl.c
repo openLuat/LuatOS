@@ -4,6 +4,8 @@
  * @responsible 导出 SDL2 平台驱动操作接口集合
  */
 
+#include "luat_conf_bsp.h"
+
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 
 #include "luat_easylvgl.h"

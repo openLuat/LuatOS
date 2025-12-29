@@ -10,7 +10,7 @@
 #include "lvgl9/lvgl.h"
 #include <string.h>
 #include <assert.h>
-
+#include "luat_conf_bsp.h"
 
 #define LUAT_LOG_TAG "easylvgl"
 #include "luat_log.h"

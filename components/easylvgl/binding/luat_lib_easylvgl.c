@@ -16,6 +16,7 @@
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_binding.h"
 #include "../inc/luat_easylvgl_symbol.h"
+#include "luat_conf_bsp.h"
 #if defined(LUAT_USE_EASYLVGL_BK7258)
 #include "../src/platform/bk7258/luat_easylvgl_platform_bk7258.h"
 #endif

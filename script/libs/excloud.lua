@@ -931,7 +931,7 @@ local function handle_mtn_log_upload_request()
     -- 开始上传日志文件
     sys.timerStart(function()
         upload_mtn_log_files()
-    end, 100)
+    end, 10)
 end
 
 

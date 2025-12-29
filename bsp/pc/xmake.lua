@@ -100,9 +100,9 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
-            ,luatos.."luat/modules/luat_lib_softspi.c"
+            -- ,luatos.."luat/modules/luat_lib_softspi.c"
             ,luatos.."luat/modules/luat_lib_i2c.c"
-            ,luatos.."luat/modules/luat_lib_softi2c.c"
+            -- ,luatos.."luat/modules/luat_lib_softi2c.c"
             ,luatos.."luat/modules/luat_lib_i2s.c"
             ,luatos.."luat/modules/luat_lib_wdt.c"
             ,luatos.."luat/modules/luat_lib_pm.c"
@@ -198,11 +198,6 @@ target("luatos-lua")
     --mobile
     add_includedirs(luatos.."components/mobile")
     add_files(luatos.."components/mobile/*.c")
-
-    --ffmpeg
-    -- add_includedirs("ffmpeg_x86/include")
-    -- add_includedirs("ffmpeg_x86")
-    -- add_files("ffmpeg_x86/ffmpeg.c")
 
     -- multimedia
     -- add_includedirs(luatos.."components/multimedia",{public = true})

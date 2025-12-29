@@ -12,6 +12,7 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_easylvgl_platform_bk7258.h"
+#include <stdbool.h>
 #include <string.h>
 
 #define LUAT_LOG_TAG "easylvgl.bk.disp"
@@ -91,15 +92,20 @@ static void bk7258_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, con
 
     luat_color_t *color_p = (luat_color_t *)px_map;
     luat_lcd_conf_t *lcd_conf = data->lcd_conf;
+    bool is_last = lv_display_flush_is_last(ctx->display);
 
     /* 直接绘制到 LCD，逐块刷新 */
+    // LLOGD("bk7258_display_flush: area=(%d,%d,%d,%d) size=(%d,%d)", area->x1, area->y1, area->x2, area->y2,
+    //       area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
     /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
-    if (lv_display_flush_is_last(ctx->display)) {
+    if (is_last) {
         luat_lcd_flush(lcd_conf);
-        lv_display_flush_ready(ctx->display);
     }
+
+    /* lv_display_flush_ready 必须在每次 flush 回调结束时调用，否则 LVGL 会阻塞后续渲染 */
+    lv_display_flush_ready(ctx->display);
 }
 
 /**

@@ -1,9 +1,9 @@
 --[[
 @module  time_page
 @summary 时间显示演示模块
-@version 1.1
-@date    2025.12.18
-@author  江访  
+@version 1.0
+@date    2025.12.25
+@author  江访
 @usage
 本模块为时间显示演示功能模块，主要功能包括：
 1、使用os.date接口获取当前时间；
@@ -25,16 +25,16 @@ local time_page = {}
 
 -- 时间显示状态
 local time_state = {
-    format_index = 1,     -- 当前显示格式索引
-    last_update = 0,      -- 最后更新时间
+    format_index = 1,       -- 当前显示格式索引
+    last_update = 0,        -- 最后更新时间
     update_interval = 5000, -- 更新间隔（5秒）
-    display_formats = {   -- 时间显示格式列表
-        {name = "完整格式", format = "%Y年%m月%d日 %H:%M:%S"},
-        {name = "简洁格式", format = "%Y-%m-%d %H:%M"},
-        {name = "时间格式", format = "%H:%M:%S"},
-        {name = "日期格式", format = "%Y/%m/%d"},
-        {name = "星期格式", format = "%A %H:%M"},
-        {name = "UTC时间", format = "!%Y-%m-%d %H:%M:%S"}
+    display_formats = {     -- 时间显示格式列表
+        { name = "Full Format",  format = "%Y/%m/%d %H:%M:%S" },
+        { name = "Short Format", format = "%Y-%m-%d %H:%M" },
+        { name = "Time Only",    format = "%H:%M:%S" },
+        { name = "Date Only",    format = "%Y/%m/%d" },
+        { name = "Weekday",      format = "%A %H:%M" },
+        { name = "UTC Time",     format = "!%Y-%m-%d %H:%M:%S" }
     }
 }
 
@@ -65,35 +65,28 @@ function time_page.draw()
     eink.clear(1, true)
 
     -- 显示标题
-    eink.setFont(eink.font_opposansm12_chinese)
-    eink.rect(10, 10, 190, 45, 0, 0)     -- 标题背景框
-    eink.print(70, 30, "时间显示", 0)
+    eink.setFont(eink.font_opposansm22)
+    eink.rect(10, 10, 190, 45, 0, 0) -- 标题背景框
+    eink.print(30, 35, "Time Display", 0)
 
+    eink.setFont(eink.font_opposansm16)
     -- 显示当前时间
     local time_str = get_time_string()
 
     -- 时间显示框
-    eink.rect(20, 60, 180, 110, 0, 0)
-    
-    -- 统一使用12号中文字体显示时间
-    eink.setFont(eink.font_opposansm12_chinese)
-    
-    -- 根据字符串长度微调显示位置
-    if #time_str > 20 then
-        -- 长字符串向左偏移
-        eink.print(25, 85, time_str, 0)
-    else
-        -- 短字符串居中显示
-        eink.print(30, 85, time_str, 0)
-    end
+    eink.rect(15, 60, 185, 110, 0, 0)
 
+    -- 显示时间
+    eink.print(21, 90, time_str, 0)
+  
     -- 显示格式信息
+    eink.setFont(eink.font_opposansm12)
     local format_info = time_state.display_formats[time_state.format_index]
-    eink.print(30, 130, "当前时间格式:", 0)
+    eink.print(30, 130, "Format:", 0)
+    eink.print(110, 130, format_info.name, 0)
 
-    eink.print(130, 130, format_info.name, 0)
-            -- 显示格式索引
-    eink.print(80, 145, string.format("%d/%d",
+    -- 显示格式索引
+    eink.print(90, 145, string.format("%d/%d",
         time_state.format_index,
         #time_state.display_formats), 0)
 
@@ -101,9 +94,8 @@ function time_page.draw()
     eink.line(10, 150, 190, 150, 0)
 
     -- 显示操作提示
-    eink.print(55, 175, "BOOT键:切换格式", 0)
-    eink.print(55, 190, "PWR键:返回主页", 0)
-
+    eink.print(35, 175, "BOOT:Change Format", 0)
+    eink.print(35, 190, "PWR: Return to Home", 0)
 
     -- 刷新屏幕
     eink.show(0, 0, true)

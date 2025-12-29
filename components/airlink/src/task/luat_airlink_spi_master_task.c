@@ -113,6 +113,23 @@ void luat_airlink_spi_master_pin_setup(void)
     if (spi_rdy)
         return;
     spi_rdy = 1;
+#ifdef __BK72XX__
+    if (g_airlink_spi_conf.cs_pin == 0)
+    {
+        // if (g_airlink_spi_conf.spi_id == 0) {
+        g_airlink_spi_conf.cs_pin = 15;
+        // }
+        // else {
+        //     g_airlink_spi_conf.cs_pin = 8;
+        // }
+    }
+    if (g_airlink_spi_conf.rdy_pin == 0)
+    {
+        // if (g_airlink_spi_conf.spi_id == 0) {
+        g_airlink_spi_conf.rdy_pin = 48;
+        // }
+    }
+#else
     if (g_airlink_spi_conf.cs_pin == 0)
     {
         // if (g_airlink_spi_conf.spi_id == 0) {
@@ -128,6 +145,7 @@ void luat_airlink_spi_master_pin_setup(void)
         g_airlink_spi_conf.rdy_pin = 22;
         // }
     }
+#endif
     if (g_airlink_spi_conf.irq_pin == 0)
     {
         g_airlink_spi_conf.irq_pin = 255; // 默认禁用irq脚

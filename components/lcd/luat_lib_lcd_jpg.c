@@ -45,7 +45,7 @@ typedef struct {
 } IODEV;
 
 static unsigned int file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
-    IODEV *dev = (IODEV*)jd->device;   /* Device identifier for the session (5th argument of jd_prepare function) */
+    IODEV *dev = (IODEV*)jd->device;   /* Device identifier for the session (5th argument of luat_jd_prepare function) */
     if (buff) {
         /* Read bytes from input stream */
         return luat_fs_fread(buff, 1, nbyte, dev->fp);
@@ -99,22 +99,22 @@ int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, in
         LLOGE("out of memory when malloc jpeg decode workbuff");
         return -3;
     }
-    res = jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
+    res = luat_jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
     if (res != JDR_OK) {
         luat_heap_free(work);
         luat_fs_fclose(fd);
-        LLOGW("jd_prepare file %s error %d", path, res);
+        LLOGW("luat_jd_prepare file %s error %d", path, res);
         return -2;
     }
     devid.x = x;
     devid.y = y;
     // devid.width = jdec.width;
     // devid.height = jdec.height;
-    res = jd_decomp(&jdec, lcd_out_func, 0);
+    res = luat_jd_decomp(&jdec, lcd_out_func, 0);
     luat_heap_free(work);
     luat_fs_fclose(fd);
     if (res != JDR_OK) {
-        LLOGW("jd_decomp file %s error %d", path, res);
+        LLOGW("luat_jd_decomp file %s error %d", path, res);
         return -2;
     }else {
         lcd_auto_flush(lcd_dft_conf);
@@ -123,7 +123,7 @@ int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, in
 }
 
 static unsigned int decode_file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
-    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;   /* Device identifier for the session (5th argument of jd_prepare function) */
+    luat_lcd_buff_info_t *buff_info = (luat_lcd_buff_info_t*)jd->device;   /* Device identifier for the session (5th argument of luat_jd_prepare function) */
     if (buff) {
         /* Read bytes from input stream */
         return luat_fs_fread(buff, 1, nbyte, (FILE*)(buff_info->userdata));
@@ -175,18 +175,18 @@ int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_bu
 		LLOGE("out of memory when malloc jpeg decode workbuff");
 		goto error;
 	}
-    res = jd_prepare(&jdec, decode_file_in_func, work, sz_work, buff_info);
+    res = luat_jd_prepare(&jdec, decode_file_in_func, work, sz_work, buff_info);
     if (res != JDR_OK) {
-        LLOGW("jd_prepare file %s error %d", path, res);
+        LLOGW("luat_jd_prepare file %s error %d", path, res);
         goto error;
     }
     buff_info->width = jdec.width;
     buff_info->height = jdec.height;
 	buff_info->len = jdec.width*jdec.height*sizeof(luat_color_t);
 	buff_info->buff = luat_heap_malloc(buff_info->len);
-    res = jd_decomp(&jdec, decode_out_func, 0);
+    res = luat_jd_decomp(&jdec, decode_out_func, 0);
     if (res != JDR_OK) {
-        LLOGW("jd_decomp file %s error %d", path, res);
+        LLOGW("luat_jd_decomp file %s error %d", path, res);
         goto error;
     }
     luat_heap_free(work);

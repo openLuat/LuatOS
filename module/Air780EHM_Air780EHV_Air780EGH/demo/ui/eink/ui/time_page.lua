@@ -1,7 +1,7 @@
 --[[
 @module  time_page
 @summary 时间显示演示模块
-@version 1.1
+@version 1.0
 @date    2025.12.18
 @author  江访  
 @usage

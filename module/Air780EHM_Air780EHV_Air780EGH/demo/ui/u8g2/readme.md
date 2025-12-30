@@ -97,7 +97,7 @@
 <tr>
 <td>28/U2RXD<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>20/GPIO24<br/></td><td></td><td>RST<br/></td></tr>
+<td>20/GPIO24<br/></td><td>RST<br/></td></tr>
 <tr>
 <td>29/U2TXD<br/></td><td>SDA<br/></td></tr>
 <tr>

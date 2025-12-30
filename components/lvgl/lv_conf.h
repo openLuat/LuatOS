@@ -352,7 +352,7 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
 
 /*1: Enable the log module*/
 #ifndef LV_USE_LOG
-#define LV_USE_LOG      0
+#define LV_USE_LOG      1
 #endif
 #if LV_USE_LOG
 /* How important log should be added:
@@ -614,6 +614,7 @@ typedef void * lv_font_user_data_t;
 typedef struct luat_lv_userdata {
     int event_cb_ref;
     int signal_cb_ref;
+    void* easylvgl_component;  /* EasyLVGL component pointer */
 }luat_lv_userdata_t;
 
 typedef struct luat_lv_userdata lv_obj_user_data_t;

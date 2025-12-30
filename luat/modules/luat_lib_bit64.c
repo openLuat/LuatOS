@@ -6,6 +6,9 @@
 @tag LUAT_USE_BIT64
 @demo  bit64
 @note 64位数据用9字节string存储，byte7~byte0存数据，byte8=0表示整形，其他表示浮点
+@usage
+
+-- 注意, 本代码注意用于 32位系统上对64位数据(主要是Long Long数据)的基本算术运算和逻辑运算
 */
 #include "luat_base.h"
 #include "luat_mem.h"

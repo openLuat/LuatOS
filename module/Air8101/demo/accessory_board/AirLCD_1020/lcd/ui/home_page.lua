@@ -45,11 +45,12 @@ function home_page.draw()
     lcd.setFont(lcd.font_opposansm12_chinese)
 
     width, height = lcd.getSize()
-    center_x = width / 2
+    center_x = math.floor(width / 2)
 
     -- 显示标题（居中）
     -- 后续V2020版本以上支持lcd核心库的固件会新增lcd.getStrWidth(title)接口获取文本宽度，对齐、居中、换行可使用
     -- lcd.drawStr(center_x - lcd.getStrWidth(title) / 2, 50, title, 0x0000) -- 自动居中
+    log.info("center_x", width, height, center_x)
     lcd.drawStr(center_x - 70, 50, title, 0x0000)
 
     -- 显示说明文字

@@ -30,6 +30,10 @@ static int luat_little_flash_init(lua_State *L){
     little_flash_t* lf_flash = NULL;
     if (lua_type(L, 1) == LUA_TUSERDATA){
         little_flash_spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+        if (little_flash_spi_device->spi_config.mode == 1){
+            LLOGW("flash need half mode, spi_device mode is full mode, change to half mode");
+            little_flash_spi_device->spi_config.mode = 0;
+        }
         lf_flash = luat_heap_malloc(sizeof(little_flash_t));
         memset(lf_flash, 0, sizeof(little_flash_t));
         lf_flash->spi.user_data = little_flash_spi_device;

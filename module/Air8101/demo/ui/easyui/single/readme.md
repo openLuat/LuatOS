@@ -248,8 +248,8 @@
 <table> 
 <tr> <td>Air8101 核心板</td><td>AirFONTS_1000配件板</td></tr>
  <tr> <td>66/GPIO3</td><td>CS</td></tr> 
- <tr> <td>67/GPIO4</td><td>MISO</td></tr> 
- <tr> <td>8/GPIO5</td><td>MOSI</td></tr> 
+ <tr> <td>67/GPIO4</td><td>MOSI</td></tr> 
+ <tr> <td>8/GPIO5</td><td>MISO</td></tr> 
  <tr> <td>65/GPIO2</td><td>CLK</td></tr> 
  <tr> <td>vbat</td><td>VCC</td></tr> 
 </table>
@@ -308,7 +308,7 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
 -- require("win_hzfont")  --内置软件矢量字体演示
--- require("win_hzfont")  --外置硬件矢量字体演示
+-- require("win_gtfont")  --外置硬件矢量字体演示
 ```
 
 ### 7.3 软件烧录步骤

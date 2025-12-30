@@ -441,7 +441,8 @@ static int l_airlink_debug(lua_State *L) {
 airlink.pause(1)
 */
 static int l_airlink_pause(lua_State *L) {
-    g_airlink_pause = luaL_checkinteger(L, 1);
+    uint32_t val = luaL_checkinteger(L, 1);
+    luat_airlink_set_pause(val);
     // 配置过wakeup pin，并且airlink恢复运行时，就触发一次中断唤醒
     if (g_airlink_wakeup_irq_ctx.master_pin != 0 && !g_airlink_pause) {
         g_airlink_wakeup_irq_ctx.enable = 1;
@@ -529,12 +530,12 @@ static int l_airlink_power(lua_State *L) {
     if (luat_airlink_has_wifi()) {
         if (enable) {
             luat_gpio_set(23, 1);
-            g_airlink_pause = 0;
+            luat_airlink_set_pause(0);
             LLOGI("wifi chip power on, airlink pause=false");
         }
         else {
             luat_gpio_set(23, 0);
-            g_airlink_pause = 1;
+            luat_airlink_set_pause(1);
             LLOGI("wifi chip power off, airlink pause=true");
         }
     }

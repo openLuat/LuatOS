@@ -5,11 +5,12 @@
 @date    2025.06.26
 @author  wjq
 @usage
-本文件的对外接口有4个：
+本文件的对外接口有5个：
 1、exnetif.set_priority_order(networkConfigs)：设置网络优先级顺序并初始化对应网络(需要在task中调用)
 2、exnetif.notify_status(cb_fnc)：设置网络状态变化回调函数
 3、exnetif.setproxy(adapter, main_adapter,other_configs)：配置网络代理实现多网融合(需要在task中调用)
 4、exnetif.check_network_status(interval),检测间隔时间ms(选填)，不填时只检测一次，填写后将根据间隔时间循环检测，会提高模块功耗
+5、exnetif.close(type, adapter)：关闭指定网卡,内核固件版本号需>=2020
 ]]
 local exnetif = {}
 
@@ -19,11 +20,15 @@ httpdns = require("httpdns")
 -- 设置pingip
 local wifi_ping_ip
 local eth_ping_ip
+-- 局域网模式
 local local_network_mode
+-- 是否需要通过ping来测试网络的连通性
 local need_ping = true
+-- 使用单网卡模式
 local single_network_mode = false
+-- 是否自动关闭非当前网卡socket连接
 local auto_socket_switch = true
-
+-- ping检测间隔时间
 local ping_time = 10000
 -- 连接状态
 local connection_states = {
@@ -31,13 +36,15 @@ local connection_states = {
     CONNECTING = 1,
     CONNECTED = 2,
     OPENED = 3,
-    SINGLE_NETWORK=4
+    SINGLE_NETWORK = 4,
+    STOPED = 5
 }
 
 -- 状态回调函数
-local states_cbfnc = function(net_type) end
+local states_cbfnc = function(net_type)
+end
 -- 当前优先级
-local current_priority = { socket.LWIP_ETH, socket.LWIP_STA, socket.LWIP_GP }
+local current_priority = {socket.LWIP_ETH, socket.LWIP_STA, socket.LWIP_GP}
 -- 连接状态
 local available = {
     [socket.LWIP_STA] = connection_states.DISCONNECTED,
@@ -59,6 +66,13 @@ local function type_to_string(net_type)
     return type_map[net_type] or "Unknown"
 end
 
+-- 保存以太网网卡参数，用于关闭spi和供电使能
+local eth_cfg = {
+    [socket.LWIP_ETH] = {},
+    [socket.LWIP_USER1] = {}
+}
+
+-- 订阅socket连接状态变化事件，socket出现异常时修改网卡状态
 local function socket_state_detection(adapter)
     if netdrv.on then
         log.info("netdrv", "订阅socket连接状态变化事件", type_to_string(adapter))
@@ -104,17 +118,19 @@ local function apply_priority()
     end
 
     -- 从存在可用网卡到没有可用网卡，才通知回调
-    if usable == false and  current_active ~= nil then
-        --避免重复通知
+    if usable == false and current_active ~= nil then
+        -- 避免重复通知
         current_active = nil
         states_cbfnc(nil, -1)
     end
 end
 
-
---httpdns域名解析测试
+-- httpdns域名解析测试
 local function http_dnstest(adaptertest)
-    local ip = httpdns.ali("baidu.com", { adapter = adaptertest, timeout = 3000 })
+    local ip = httpdns.ali("baidu.com", {
+        adapter = adaptertest,
+        timeout = 3000
+    })
     if ip ~= nil then
         available[adaptertest] = connection_states.CONNECTED
         log.info(type_to_string(adaptertest) .. "网卡httpdns域名解析成功")
@@ -125,11 +141,11 @@ local function http_dnstest(adaptertest)
 end
 -- ping操作
 local function ping_request(adaptertest)
-    log.info("dns_request",type_to_string(adaptertest),need_ping)
+    log.info("dns_request", type_to_string(adaptertest), need_ping)
     if need_ping then
         if adaptertest == socket.LWIP_ETH or adaptertest == socket.LWIP_USER1 then
             if eth_ping_ip == nil then
-            http_dnstest(adaptertest)
+                http_dnstest(adaptertest)
             else
                 icmp.setup(adaptertest)
                 icmp.ping(adaptertest, eth_ping_ip)
@@ -208,16 +224,15 @@ function exnetif.check_network_status(interval)
     end
 end
 
-
---打开以太网Wan功能
+-- 打开以太网Wan功能
 local function setup_eth(config)
     if config.local_network_mode then
         local_network_mode = true
     end
-    if config.need_ping~=nil then
+    if config.need_ping ~= nil then
         need_ping = config.need_ping
     end
-    if config.auto_socket_switch ~=nil then
+    if config.auto_socket_switch ~= nil then
         auto_socket_switch = config.auto_socket_switch
         -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
@@ -244,9 +259,9 @@ local function setup_eth(config)
                 gpio.close(config.pwrpin)
             end
             return false
-        end      
+        end
     else
-        log.info("config.opts.spi",config.opts.spi,",config.type",config.tp)
+        log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
         -- 配置SPI和初始化网络驱动
         local result = spi.setup(config.opts.spi, -- spi id
         nil, 0, -- CPHA
@@ -272,12 +287,13 @@ local function setup_eth(config)
                 gpio.close(config.pwrpin)
             end
             return false
-        end    
+        end
     end
     if config.static_ip then
         sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
         log.info("netdrv", "自定义以太网IP地址", config.static_ip.ipv4)
-        log.info("静态ip",netdrv.ipv4(socket.LWIP_ETH, config.static_ip.ipv4,config.static_ip.mark,config.static_ip.gw))
+        log.info("静态ip",
+            netdrv.ipv4(socket.LWIP_ETH, config.static_ip.ipv4, config.static_ip.mark, config.static_ip.gw))
     else
         netdrv.dhcp(socket.LWIP_ETH, true)
     end
@@ -286,15 +302,15 @@ local function setup_eth(config)
     return true
 end
 
---打开8101spi以太网Wan功能
+-- 打开8101spi以太网Wan功能
 local function setup_eth_user1(config)
     if config.local_network_mode then
         local_network_mode = true
     end
-    if config.need_ping~=nil then
+    if config.need_ping ~= nil then
         need_ping = config.need_ping
     end
-    if config.auto_socket_switch ~=nil then
+    if config.auto_socket_switch ~= nil then
         auto_socket_switch = config.auto_socket_switch
         -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
@@ -310,23 +326,23 @@ local function setup_eth_user1(config)
     end
     -- 打开CH390供电
     if config.pwrpin then
-        gpio.setup(config.pwrpin, 1, gpio.PULLUP)        
+        gpio.setup(config.pwrpin, 1, gpio.PULLUP)
     end
     -- sys.wait(100)-- 等待以太网模块上电稳定
     log.info("config.opts.spi", config.opts.spi, ",config.type", config.tp)
     -- 配置SPI和初始化网络驱动
-    local result = spi.setup(config.opts.spi,     -- spi id
-        nil, 0,                                   -- CPHA
-        0,                                        -- CPOL
-        8,                                        -- 数据宽度
-        25600000                                  -- ,--波特率
+    local result = spi.setup(config.opts.spi, -- spi id
+    nil, 0, -- CPHA
+    0, -- CPOL
+    8, -- 数据宽度
+    25600000 -- ,--波特率
     )
     log.info("main", "open spi", result)
-    if result ~= 0 then     -- 返回值为0，表示打开成功
+    if result ~= 0 then -- 返回值为0，表示打开成功
         log.info("main", "spi open error", result)
         if config.pwrpin then
-                gpio.close(config.pwrpin)
-            end
+            gpio.close(config.pwrpin)
+        end
         return false
     end
     -- 初始化指定netdrv设备,
@@ -336,14 +352,15 @@ local function setup_eth_user1(config)
     if netdrv.setup(socket.LWIP_USER1, config.tp, config.opts) == false then
         log.error("以太网初始化失败")
         if config.pwrpin then
-                gpio.close(config.pwrpin)
-            end
+            gpio.close(config.pwrpin)
+        end
         return false
     end
     if config.static_ip then
         sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
         log.info("netdrv", "自定义以太网IP地址", config.static_ip.ipv4)
-        log.info("静态ip",netdrv.ipv4(socket.LWIP_USER1, config.static_ip.ipv4, config.static_ip.mark, config.static_ip.gw))
+        log.info("静态ip",
+            netdrv.ipv4(socket.LWIP_USER1, config.static_ip.ipv4, config.static_ip.mark, config.static_ip.gw))
     else
         netdrv.dhcp(socket.LWIP_USER1, true)
     end
@@ -353,15 +370,15 @@ local function setup_eth_user1(config)
     return true
 end
 
---连接wifi(STA模式)
+-- 连接wifi(STA模式)
 local function set_wifi_info(config)
     if config.local_network_mode then
         local_network_mode = true
     end
-    if config.need_ping~=nil then
+    if config.need_ping ~= nil then
         need_ping = config.need_ping
     end
-    if config.auto_socket_switch ~=nil then
+    if config.auto_socket_switch ~= nil then
         auto_socket_switch = config.auto_socket_switch
         -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
@@ -387,6 +404,77 @@ local function set_wifi_info(config)
     log.info("WiFi STA初始化完成")
     socket_state_detection(socket.LWIP_STA)
     return true
+end
+
+-- 以太网处于stop状态，重启以太网
+local function eth_net_restart(adapter)
+    log.info("以太网处于stop状态，重启下")
+    if not single_network_mode then
+        available[adapter] = connection_states.OPENED
+    else
+        available[adapter] = connection_states.SINGLE_NETWORK
+    end
+    -- 打开CH390供电
+    if eth_cfg[adapter].pwrpin then
+        log.info("打开以太网供电引脚:", eth_cfg[adapter].pwrpin)
+        gpio.setup(eth_cfg[adapter].pwrpin, 1, gpio.PULLUP)
+    end
+    -- sys.wait(100) -- 等待以太网模块上电稳定
+    if eth_cfg[adapter].tp == nil then
+        log.info("8101以太网")
+    else
+        log.info("config.opts.spi", eth_cfg[adapter].opts.spi, ",config.type", eth_cfg[adapter].tp)
+        -- 配置SPI和初始化网络驱动
+        local result = spi.setup(eth_cfg[adapter].opts.spi, -- spi id
+        nil, 0, -- CPHA
+        0, -- CPOL
+        8, -- 数据宽度
+        25600000 -- ,--波特率
+        )
+        log.info("main", "open spi", result)
+        if result ~= 0 then -- 返回值为0，表示打开成功
+            log.info("main", "spi open error", result)
+            if eth_cfg[adapter].pwrpin then
+                gpio.close(eth_cfg[adapter].pwrpin)
+            end
+            return false
+        end
+    end
+    netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 1)
+end
+
+-- ping测试循环
+local function ping_test_loop()
+    while true do
+        for _, net_type in ipairs(current_priority) do
+            -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
+            if available[net_type] == connection_states.CONNECTING then
+                log.info(type_to_string(net_type) .. "网卡开始PING")
+                ping_request(net_type)
+                sys.wait(ping_time)
+            end
+        end
+        sys.wait(1000) -- 避免死循环
+    end
+end
+
+-- 正常状态网卡的检测任务
+local function normal_network_test()
+    while true do
+        if interval_time ~= nil then
+            sys.wait(interval_time)
+            exnetif.check_network_status()
+        end
+        sys.wait(1000) -- 避免死循环
+    end
+end
+
+-- PING结果处理函数
+local function ping_res(id, time, dst)
+    log.info("ping", id, time, dst)
+    log.info(type_to_string(id) .. "网卡PING测试成功")
+    available[id] = connection_states.CONNECTED
+    apply_priority()
 end
 
 --[[
@@ -506,37 +594,12 @@ function exnetif.set_priority_order(networkConfigs)
 
     if not single_network_mode then
         -- CONNECTING的网卡需要定时ping
-        sys.taskInit(function()
-            while true do
-                for _, net_type in ipairs(current_priority) do
-                    -- log.info("网卡顺序",type_to_string(net_type),available[net_type])
-                    if available[net_type] == connection_states.CONNECTING then
-                        log.info(type_to_string(net_type) .. "网卡开始PING")
-                        ping_request(net_type)
-                        sys.wait(ping_time)
-                    end
-                end
-                sys.wait(1000)  -- 避免死循环
-            end
-        end)
+        sys.taskInit(ping_test_loop)
 
-        -- 循环ping检测任务，默认不启用
-        sys.taskInit(function()
-            while true do
-                if interval_time ~= nil then
-                    sys.wait(interval_time)
-                    exnetif.check_network_status()
-                end
-                sys.wait(1000) -- 避免死循环
-            end
-        end)
+        -- 循环ping检测正常网卡的任务，默认不启用
+        sys.taskInit(normal_network_test)
 
-        sys.subscribe("PING_RESULT", function(id, time, dst)
-            log.info("ping", id, time, dst)
-            log.info(type_to_string(id) .. "网卡PING测试成功")
-            available[id] = connection_states.CONNECTED
-            apply_priority()
-        end)
+        sys.subscribe("PING_RESULT", ping_res)
         -- 订阅网络状态变化的消息
         sys.subscribe("IP_READY", ip_ready_handle)
         sys.subscribe("IP_LOSE", ip_lose_handle)
@@ -544,39 +607,60 @@ function exnetif.set_priority_order(networkConfigs)
     end
 
     local new_priority = {}
+    -- 只有关闭状态的网卡需要初始化
     for _, config in ipairs(networkConfigs) do
         if type(config.WIFI) == "table" then
-            -- 开启wifi
-            local res = set_wifi_info(config.WIFI)
-            if res == false then
-                log.error("wifi连接失败")
-                return false
+            if available[socket.LWIP_STA] == connection_states.DISCONNECTED then
+                -- 开启wifi
+                local res = set_wifi_info(config.WIFI)
+                if res == false then
+                    log.error("wifi连接失败")
+                    return false
+                end
+            else
+                log.info("wifi不是关闭状态，跳过初始化")
             end
             table.insert(new_priority, socket.LWIP_STA)
         end
         if type(config.ETHUSER1) == "table" then
-            -- 开启以太网
-            local res = setup_eth_user1(config.ETHUSER1)
-            if res == false then
-                log.error("以太网打开失败")
-                return false
+            eth_cfg[socket.LWIP_USER1] = config.ETHUSER1
+            if available[socket.LWIP_USER1] == connection_states.DISCONNECTED then
+                -- 开启以太网
+                local res = setup_eth_user1(config.ETHUSER1)
+                if res == false then
+                    log.error("以太网打开失败")
+                    return false
+                end
+            elseif available[socket.LWIP_USER1] == connection_states.STOPED then
+                eth_net_restart(socket.LWIP_USER1)
+            else
+                log.info("8101spi以太网不是关闭状态，跳过初始化")
             end
             table.insert(new_priority, socket.LWIP_USER1)
         end
         if type(config.ETHERNET) == "table" then
-            -- 开启以太网
-            local res = setup_eth(config.ETHERNET)
-            if res == false then
-                log.error("以太网打开失败")
-                return false
+            eth_cfg[socket.LWIP_ETH] = config.ETHERNET
+            if available[socket.LWIP_ETH] == connection_states.DISCONNECTED then
+                -- 开启以太网
+                local res = setup_eth(config.ETHERNET)
+                if res == false then
+                    log.error("以太网打开失败")
+                    return false
+                end
+            elseif available[socket.LWIP_ETH] == connection_states.STOPED then
+                eth_net_restart(socket.LWIP_ETH)
+            else
+                log.info("以太网不是关闭状态，跳过初始化")
             end
             table.insert(new_priority, socket.LWIP_ETH)
         end
         if config.LWIP_GP then
+            -- 退出飞行模式
+            mobile.flymode(nil, false)
             -- 开启4G
             table.insert(new_priority, socket.LWIP_GP)
             available[socket.LWIP_GP] = connection_states.CONNECTING
-            if config.auto_socket_switch ~=nil then
+            if config.auto_socket_switch ~= nil then
                 auto_socket_switch = config.auto_socket_switch
                 -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
             end
@@ -596,7 +680,6 @@ function exnetif.set_priority_order(networkConfigs)
 
     return true
 end
-
 
 --[[
 设置网络状态变化回调函数。触发条件：网卡切换或者所有网卡都断网。回调函数的输入参数: 1. 当有可用网络的时候，返回当前使用网卡、网卡id；2. 当没有可用网络的时候，返回 nil、-1 。
@@ -700,20 +783,21 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if other_configs.main_adapter.tp == nil then
             log.info("8101以太网")
             if netdrv.setup(socket.LWIP_ETH) == false then
-            log.error("以太网初始化失败")
-            if other_configs.main_adapter.ethpower_en then
+                log.error("以太网初始化失败")
+                if other_configs.main_adapter.ethpower_en then
                     gpio.close(other_configs.main_adapter.ethpower_en)
                 end
-            return false
-        end  
+                return false
+            end
         else
-            log.info("config.opts.spi", other_configs.main_adapter.opts.spi, ",config.type", other_configs.main_adapter.tp)
+            log.info("config.opts.spi", other_configs.main_adapter.opts.spi, ",config.type",
+                other_configs.main_adapter.tp)
             -- 配置SPI和初始化网络驱动
             local result = spi.setup(other_configs.main_adapter.opts.spi, -- spi id
-                nil, 0,                                      -- CPHA
-                0,                                           -- CPOL
-                8,                                           -- 数据宽度
-                25600000                                     -- ,--波特率
+            nil, 0, -- CPHA
+            0, -- CPOL
+            8, -- 数据宽度
+            25600000 -- ,--波特率
             )
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为0，表示打开成功
@@ -724,7 +808,8 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
                 return false
             end
             -- 初始化指定netdrv设备,
-            local success = netdrv.setup(socket.LWIP_ETH, other_configs.main_adapter.tp, other_configs.main_adapter.opts)
+            local success =
+                netdrv.setup(socket.LWIP_ETH, other_configs.main_adapter.tp, other_configs.main_adapter.opts)
             if not success then
                 log.error("以太网初始化失败")
                 if other_configs.main_adapter.ethpower_en then
@@ -737,7 +822,9 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         local count = 1
         while 1 do
             local ip = netdrv.ipv4(socket.LWIP_ETH)
-            if ip and ip ~= "0.0.0.0" then break end
+            if ip and ip ~= "0.0.0.0" then
+                break
+            end
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
                 if other_configs.main_adapter.ethpower_en then
@@ -759,17 +846,17 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         available[socket.LWIP_USER1] = connection_states.OPENED
         -- 配置SPI和初始化网络驱动
         local result = spi.setup(other_configs.main_adapter.opts.spi, -- spi id
-            nil, 0,                               -- CPHA
-            0,                                    -- CPOL
-            8,                                    -- 数据宽度
-            25600000                              -- ,--波特率
+        nil, 0, -- CPHA
+        0, -- CPOL
+        8, -- 数据宽度
+        25600000 -- ,--波特率
         )
         log.info("main", "open spi", result)
         if result ~= 0 then -- 返回值为0，表示打开成功
             log.info("main", "spi open error", result)
             if other_configs.main_adapter.ethpower_en then
-                    gpio.close(other_configs.main_adapter.ethpower_en)
-                end
+                gpio.close(other_configs.main_adapter.ethpower_en)
+            end
             return false
         end
         -- 初始化指定netdrv设备,
@@ -779,8 +866,8 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if netdrv.setup(socket.LWIP_USER1, other_configs.main_adapter.tp, other_configs.main_adapter.opts) == false then
             log.error("以太网初始化失败")
             if other_configs.main_adapter.ethpower_en then
-                    gpio.close(other_configs.main_adapter.ethpower_en)
-                end
+                gpio.close(other_configs.main_adapter.ethpower_en)
+            end
             return false
         end
         netdrv.dhcp(socket.LWIP_USER1, true)
@@ -788,7 +875,9 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         local count = 1
         while 1 do
             local ip = netdrv.ipv4(socket.LWIP_USER1)
-            if ip and ip ~= "0.0.0.0" then break end
+            if ip and ip ~= "0.0.0.0" then
+                break
+            end
             if count > 600 then
                 log.error("以太网连接超时，请检查配置")
                 if other_configs.main_adapter.ethpower_en then
@@ -833,12 +922,11 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 配置 SPI 参数，Air8000 使用 SPI 接口与以太网模块进行通信。
         if other_configs.tp then
             log.info("netdrv spi挂载以太网", "初始化LAN功能")
-            local result = spi.setup(
-                other_configs.opts.spi, -- spi id
-                nil, 0,                 -- CPHA
-                0,                      -- CPOL
-                8,                      -- 数据宽度
-                25600000                -- ,--波特率
+            local result = spi.setup(other_configs.opts.spi, -- spi id
+            nil, 0, -- CPHA
+            0, -- CPOL
+            8, -- 数据宽度
+            25600000 -- ,--波特率
             )
             log.info("main", "open spi", result)
             if result ~= 0 then -- 返回值为 0，表示打开成功
@@ -854,13 +942,14 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if netdrv.setup(socket.LWIP_ETH, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
             if other_configs.ethpower_en then
-                    gpio.close(other_configs.ethpower_en)
-                end
+                gpio.close(other_configs.ethpower_en)
+            end
             return false
         end
         sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
         -- 设置以太网的 IP 地址、子网掩码、网关地址
-        log.info("netdrv", "自定义以太网IP地址", other_configs.adapter_addr, "网关地址", other_configs.adapter_gw)
+        log.info("netdrv", "自定义以太网IP地址", other_configs.adapter_addr, "网关地址",
+            other_configs.adapter_gw)
         netdrv.ipv4(socket.LWIP_ETH, other_configs.adapter_addr or "192.168.5.1", "255.255.255.0", "0.0.0.0")
         -- 获取以太网网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
         local count = 1
@@ -880,9 +969,15 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供以太网使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({ adapter = socket.LWIP_ETH, gw = other_configs.adapter_gw })
+            dhcpsrv.create({
+                adapter = socket.LWIP_ETH,
+                gw = other_configs.adapter_gw
+            })
         else
-            dhcpsrv.create({ adapter = socket.LWIP_ETH, gw = { 192, 168, 5, 1 } })
+            dhcpsrv.create({
+                adapter = socket.LWIP_ETH,
+                gw = {192, 168, 5, 1}
+            })
         end
         -- 创建 DNS 代理服务，使得以太网接口上的设备可以通过 4G 网络访问互联网。
         log.info("netdrv", "创建dns代理服务, 供以太网使用")
@@ -891,8 +986,7 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 打开AP功能，设置混合模式
         log.info("执行AP创建操作", airlink.ready(), "正常吗?")
         wlan.createAP(other_configs.ssid, other_configs.password, other_configs.adapter_addr or "192.168.4.1",
-            "255.255.255.0",
-            other_configs.channel, other_configs.ap_opts)
+            "255.255.255.0", other_configs.channel, other_configs.ap_opts)
         -- 设置 AP 的 IP 地址、子网掩码、网关地址
         netdrv.ipv4(socket.LWIP_AP, other_configs.adapter_addr or "192.168.4.1", "255.255.255.0", "0.0.0.0")
         -- 获取 WiFi AP 网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
@@ -910,9 +1004,14 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到 WiFi AP 的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供AP使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({ adapter = socket.LWIP_AP, gw = other_configs.adapter_gw })
+            dhcpsrv.create({
+                adapter = socket.LWIP_AP,
+                gw = other_configs.adapter_gw
+            })
         else
-            dhcpsrv.create({ adapter = socket.LWIP_AP })
+            dhcpsrv.create({
+                adapter = socket.LWIP_AP
+            })
         end
     elseif adapter == socket.LWIP_USER1 then
         log.info("ch390", "打开LDO供电", other_configs.ethpower_en)
@@ -922,19 +1021,18 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 打开LAN功能
         -- 配置 SPI 参数，Air8101 使用 SPI 接口与以太网模块进行通信。
         log.info("netdrv spi挂载以太网", "初始化LAN功能")
-        local result = spi.setup(
-            other_configs.opts.spi,     -- spi id
-            nil, 0,                     -- CPHA
-            0,                          -- CPOL
-            8,                          -- 数据宽度
-            25600000                    -- ,--波特率
+        local result = spi.setup(other_configs.opts.spi, -- spi id
+        nil, 0, -- CPHA
+        0, -- CPOL
+        8, -- 数据宽度
+        25600000 -- ,--波特率
         )
         log.info("main", "open spi", result)
-        if result ~= 0 then     -- 返回值为 0，表示打开成功
+        if result ~= 0 then -- 返回值为 0，表示打开成功
             log.error("main", "spi open error", result)
             if other_configs.ethpower_en then
-                    gpio.close(other_configs.ethpower_en)
-                end
+                gpio.close(other_configs.ethpower_en)
+            end
             return false
         end
         -- 初始化以太网，Air8000 指定使用 CH390 芯片。
@@ -942,13 +1040,14 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         if netdrv.setup(socket.LWIP_USER1, other_configs.tp, other_configs.opts) == false then
             log.error("初始化以太网失败")
             if other_configs.ethpower_en then
-                    gpio.close(other_configs.ethpower_en)
-                end
+                gpio.close(other_configs.ethpower_en)
+            end
             return false
         end
         sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
         -- 设置以太网的 IP 地址、子网掩码、网关地址
-        log.info("netdrv", "自定义以太网IP地址", other_configs.adapter_addr, "网关地址", other_configs.adapter_gw)
+        log.info("netdrv", "自定义以太网IP地址", other_configs.adapter_addr, "网关地址",
+            other_configs.adapter_gw)
         netdrv.ipv4(socket.LWIP_USER1, other_configs.adapter_addr or "192.168.5.1", "255.255.255.0", "0.0.0.0")
         -- 获取以太网网络状态，连接后返回 true，否则返回 false，如果不存在就返回 nil。
         local count = 1
@@ -968,9 +1067,15 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
         -- 创建 DHCP 服务器，为连接到以太网的设备分配 IP 地址。
         log.info("netdrv", "创建dhcp服务器, 供以太网使用")
         if other_configs.adapter_gw then
-            dhcpsrv.create({ adapter = socket.LWIP_USER1, gw = other_configs.adapter_gw })
+            dhcpsrv.create({
+                adapter = socket.LWIP_USER1,
+                gw = other_configs.adapter_gw
+            })
         else
-            dhcpsrv.create({ adapter = socket.LWIP_USER1, gw = { 192, 168, 5, 1 } })
+            dhcpsrv.create({
+                adapter = socket.LWIP_USER1,
+                gw = {192, 168, 5, 1}
+            })
         end
         -- 创建 DNS 代理服务，使得以太网接口上的设备可以通过 4G 网络访问互联网。
         log.info("netdrv", "创建dns代理服务, 供以太网使用")
@@ -980,4 +1085,51 @@ function exnetif.setproxy(adapter, main_adapter, other_configs)
     netdrv.napt(main_adapter)
     return true
 end
+
+--[[
+关闭网卡功能。(内核固件版本号需>=2020)
+@api exnetif.close(type,adapter)
+@param type boolean 是否为多网融合
+@param adapter number 需要关闭的网卡
+@return boolean 操作结果
+@usage
+    exnetif.close(true) --关闭多网融合功能
+    exnetif.close(false,socket.LWIP_ETH)  --关闭优先级中的以太网网卡
+]]
+function exnetif.close(type, adapter)
+    if type == true then
+        -- TODO: 目前dhcpsrv扩展库，dnsproxy扩展库和napt没有关闭接口
+    else
+        if adapter == nil then
+            log.error("请指定需要关闭的网卡")
+            return false
+        end
+        -- 处理关闭操作，以太网关闭spi和供电使能。WLAN部分AP可以关闭，STA可以断开连接。4G的话就是进出飞行模式。并设置网卡为关闭状态。
+        available[adapter] = connection_states.DISCONNECTED
+        if adapter == socket.LWIP_AP then
+            wlan.stopAP()
+        elseif adapter == socket.LWIP_ETH or adapter == socket.LWIP_USER1 then
+            if netdrv.CTRL_UPDOWN == nil then
+                log.error("当前固件不支持关闭接口,请使用最新固件测试")
+                return false
+            end
+            if eth_cfg[adapter] and eth_cfg[adapter].pwrpin then
+                gpio.set(eth_cfg[adapter].pwrpin, 0)
+                gpio.close(eth_cfg[adapter].pwrpin)
+            end
+            -- 关闭spi
+            spi.close(eth_cfg[adapter].opts.spi)
+            netdrv.ctrl(adapter, netdrv.CTRL_UPDOWN, 0)
+            available[adapter] = connection_states.STOPED
+        elseif adapter == socket.LWIP_STA then
+            wlan.disconnect()
+        elseif adapter == socket.LWIP_GP then
+            mobile.flymode(nil, true)
+        end
+        log.info("exnetif", "关闭网卡功能", type_to_string(adapter))
+        apply_priority()
+        return true
+    end
+end
+
 return exnetif

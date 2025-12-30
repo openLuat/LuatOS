@@ -28,6 +28,7 @@ enum {
 
 enum {
     LUAT_NETDRV_CTRL_RESET,
+    LUAT_NETDRV_CTRL_UPDOWN,
 };
 
 typedef struct luat_netdrv_conf
@@ -41,7 +42,7 @@ typedef struct luat_netdrv_conf
     uint16_t mtu;
     uint8_t flags;
     // Wireguard相关参数
-    #ifdef LUAT_USE_NETDRV_WG
+    #if 1
     const char* wg_private_key;
     uint16_t wg_listen_port;
     uint16_t wg_keepalive;
@@ -50,6 +51,19 @@ typedef struct luat_netdrv_conf
     const char* wg_endpoint_key;
     const char* wg_endpoint_ip;
     uint16_t wg_endpoint_port;
+    #endif
+    // OpenVPN相关参数
+    #if 1
+    const char* ovpn_remote_ip;     // VPN服务器IP地址
+    uint16_t ovpn_remote_port;      // VPN服务器端口
+    const char* ovpn_ca_cert;       // CA证书 (PEM格式)
+    size_t ovpn_ca_cert_len;
+    const char* ovpn_client_cert;   // 客户端证书 (PEM格式)
+    size_t ovpn_client_cert_len;
+    const char* ovpn_client_key;    // 客户端私钥 (PEM格式)
+    size_t ovpn_client_key_len;
+    const uint8_t* ovpn_static_key; // 静态密钥 (可选)
+    size_t ovpn_static_key_len;
     #endif
 }luat_netdrv_conf_t;
 

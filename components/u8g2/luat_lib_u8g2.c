@@ -951,13 +951,19 @@ static uint16_t utf8_next(uint8_t b)
 u8g2.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
-    unsigned char buf[128];
     size_t len;
     const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
     int x = luaL_checkinteger(L, 3);
     int y = luaL_checkinteger(L, 4);
+    int buff_size = size*size/8+512;
+    unsigned char* buf = luat_heap_malloc(buff_size);
+    if (buf == NULL){
+        LLOGE("malloc error");
+        return 0;
+    }
     for(;;){
+        memset(buf,0,buff_size);
         uint16_t e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
         break;
@@ -969,10 +975,15 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
                 LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
                 return 0;
             }
-            gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,&conf->u8g2,2);
-            x+=size;
+            unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,&conf->u8g2,2);
+            if (str==0x20){
+                x+=size/2;
+            }else{
+                x+=(str<0x80)?dw:size; 
+            }
         }
     }
+    luat_heap_free(buf);
     return 0;
 }
 

@@ -37,7 +37,7 @@
 #define MAX_DEVICE_COUNT 9
 #endif
 
-#define MAX_USB_DEVICE_COUNT 1
+#define MAX_USB_DEVICE_COUNT 3
 
 typedef struct luat_uart_cb {
     int received;//回调函数
@@ -1425,6 +1425,10 @@ static const rotable_Reg_t reg_uart[] =
 
     //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",       ROREG_INT(LUAT_VUART_ID_0)},
+    //@const VUART_1 number 虚拟串口1
+	{ "VUART_1",       ROREG_INT(LUAT_VUART_ID_1)},
+    //@const VUART_2 number 虚拟串口2
+	{ "VUART_2",       ROREG_INT(LUAT_VUART_ID_2)},
     //@const ERROR_DROP number 遇到错误时抛弃缓存的数据
 	{ "ERROR_DROP",       ROREG_INT(LUAT_UART_RX_ERROR_DROP_DATA)},
     //@const DEBUG number 开启调试功能

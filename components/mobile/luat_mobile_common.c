@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#include "luat_malloc.h"
 #include "luat_mobile.h"
 #include "luat_rtos.h"
 #include "luat_fs.h"

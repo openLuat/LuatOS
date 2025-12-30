@@ -5,6 +5,7 @@
 #include "luat_mcu.h"
 #include "lwip/ip.h"
 #include "lwip/tcpip.h"
+#include "luat_netdrv_drv.h"
 
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
@@ -17,11 +18,6 @@ static luat_netdrv_t* drvs[NW_ADAPTER_QTY];
 
 uint32_t g_netdrv_debug_enable;
 
-luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_uart_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_whale_setup(luat_netdrv_conf_t *conf);
-luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *conf);
-
 luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
     int id = conf->id;
     if (id < 0 || id >= NW_ADAPTER_QTY) {
@@ -32,20 +28,26 @@ luat_netdrv_t* luat_netdrv_setup(luat_netdrv_conf_t *conf) {
         // 注册新的设备?
         #ifdef __LUATOS__
         #ifdef LUAT_USE_NETDRV_CH390H
-        if (conf->impl == 1) { // CH390H
+        if (conf->impl == LUAT_NETDRV_IMPL_CH390H) { // CH390H
             drvs[id] = luat_netdrv_ch390h_setup(conf);
             return drvs[id];
         }
         #endif
         #ifdef LUAT_USE_AIRLINK
-        if (conf->impl == 64) { // WHALE
+        if (conf->impl == LUAT_NETDRV_IMPL_WHALE) { // WHALE
             drvs[id] = luat_netdrv_whale_setup(conf);
             return drvs[id];
         }
         #endif
         #ifdef LUAT_USE_NETDRV_WG
-        if (conf->impl == 32) { // WG
+        if (conf->impl == LUAT_NETDRV_IMPL_WG) { // WG
             drvs[id] = luat_netdrv_wg_setup(conf);
+            return drvs[id];
+        }
+        #endif
+        #ifdef LUAT_USE_NETDRV_OPENVPN
+        if (conf->impl == LUAT_NETDRV_IMPL_OPENVPN) { // OPENVPN
+            drvs[id] = luat_netdrv_openvpn_setup(conf);
             return drvs[id];
         }
         #endif

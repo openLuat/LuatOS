@@ -1,114 +1,65 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "onewiredemo"
-VERSION = "1.0.0"
-
--- sys库是标配
-sys = require("sys")
-
--- 以 log.info("ABC", "DEF", 123) 为例, 假设该代码位于main.lua的12行
--- 调试风格1, 添加额外的调试信息
--- I/main.lua:12 ABC DEF 123
-log.style(1)
-
 --[[
-接线说明:
-   DS18B20    Air8000
-1. GND    -> GND
-2. VDD    -> 3.3V
-3. DATA    -> GPIO2
-
-注意:
-1. ONEWIRE功能支持在4个引脚使用, 但硬件通道只有一个, 默认是GPIO2
-2. 如需切换到其他脚, 参考Air780EPM目录下的onewire_multi_18b20_swich_read
+@module  main
+@summary OneWire综合演示项目主文件（单传感器 + 多传感器）
+@version 001.000.000
+@date    2025.11.25
+@author  王棚嶙
+@usage
+本演示项目整合单DS18B20和多DS18B20传感器功能：
+1. 单传感器模式：GPIO2默认OneWire功能、硬件通道0模式、CRC校验、3秒间隔连续监测
+2. 多传感器模式：引脚30/98切换、PWR_KEY按键控制、电源管理、2秒间隔双路监测
+3. 完整的OneWire API接口演示、错误处理、设备检测、温度报警
 ]]
 
-local function read_ds18b20(id)
-    local tbuff = zbuff.create(10)
-    local succ,crc8c,range,t
-    local rbuff = zbuff.create(9)
-    --如果有多个DS18B20,需要带上ID
-    tbuff:write(0x55)
-    tbuff:copy(nil, id)
-    tbuff:write(0xb8)
-    --如果只有1个DS18B20,就用无ID方式
-    --tbuff:write(0xcc,0xb8)
-    while true do
-        tbuff[tbuff:used() - 1] = 0x44
-        succ = onewire.tx(0, tbuff, false, true, true)
-        if not succ then
-            return
-        end
-        while true do
-            succ = onewire.reset(0, true)
-            if not succ then
-                return
-            end
-            if onewire.bit(0) > 0 then
-                log.info("温度转换完成")
-                break
-            end
-            sys.wait(10)
-        end
-        tbuff[tbuff:used() - 1] = 0xbe
-        succ = onewire.tx(0, tbuff, false, true, true)
-        if not succ then
-            return
-        end
-        succ,rx_data = onewire.rx(0, 9, nil, rbuff, false, false, false)
-        crc8c = crypto.crc8(rbuff:toStr(0,8), 0x31, 0, true)
-        if crc8c == rbuff[8] then
-            range = (rbuff[4] >> 5) & 0x03
-            -- rbuff[0] = 0xF8
-            -- rbuff[1] = 0xFF
-            t = rbuff:query(0,2,false,true)
-            t = t * (5000 >> range)
-            t = t / 10000
-            log.info(t)
-        else
-            log.info("RAM DATA CRC校验不对",  mcu.x32(crc8c), mcu.x32(rbuff[8]))
-            return
-        end
-        sys.wait(500)
-    end
+-- 项目信息
+PROJECT = "onewire_demo"
+VERSION = "001.000.000"
+
+
+
+
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
+
+
+--添加硬狗防止程序卡死
+if wdt then
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
-local function test_ds18b20()
-    local succ,rx_data
-    local id = zbuff.create(8)
 
-    local crc8c
-    onewire.init(0)
-    onewire.timing(0, false, 0, 500, 500, 15, 240, 70, 1, 15, 10, 2)
-    while true do
-        id:set() --清空id
-        succ,rx_data = onewire.rx(0, 8, 0x33, id, false, true, true)
-        if succ then
-            if id[0] == 0x28 then
-                crc8c = crypto.crc8(id:query(0,7), 0x31, 0, true)
-                if crc8c == id[7] then
-                    log.info("探测到DS18B20", id:query(0, 7):toHex())
-                    read_ds18b20(id)
-                    log.info("DS18B20离线，重新探测")
-                else
-                    log.info("ROM ID CRC校验不对",  mcu.x32(crc8c), mcu.x32(id[7]))
-                end
-            else
-                log.info("ROM ID不正确", mcu.x32(id[0]))
-            end
-        end
-        log.info("没有检测到DS18B20, 5秒后重试")
-        sys.wait(5000)
-    end
-end
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-if onewire then
-    sys.taskInit(test_ds18b20)
-else
-    log.info("no onewire")
-end
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+-- 在加载以下两个功能的时候建议分别打开，避免同时初始化OneWire总线，导致资源冲突
+-- 单设备模式：使用GPIO2默认OneWire功能
+-- 双设备模式：GPIO2默认 + 引脚54复用
+
+-- 加载单传感器应用模块
+-- require("onewire_single_app")
+
+-- 加载多传感器应用模块
+require("onewire_multi_app")
+
+
+-- 启动系统主循环
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

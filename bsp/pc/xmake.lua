@@ -34,11 +34,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
     add_requires("libsdl2")
     add_packages("libsdl2")
-    -- freetype 用于 PC 端 gtfont 仿真渲染（使用本地freetype）
-    -- add_requires("freetype")
-    -- add_packages("freetype")
-    -- add_requires("libsdl 2.26.2")
-    -- add_packages("libsdl 2.26.2")
 end
 
 if os.getenv("LUAT_USE_LVGL9") == "y" then
@@ -61,6 +56,7 @@ elseif is_host("macos") then
 end
 
 
+add_includedirs(luatos.."components/mbedtls3/include",{public = true})
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
@@ -83,10 +79,15 @@ target("luatos-lua")
     -- add_files(luatos.."luat/modules/*.c")
 
     if is_plat("linux", "macosx") then
+        add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
         add_links("avformat", "avcodec", "avutil", "swresample")    -- FFmpeg
     end
 
+    -- i2c-tools
+    add_includedirs(luatos.."components/i2c-tools")
+    add_files(luatos.."components/i2c-tools/*.c")
+    
     add_files(luatos.."luat/modules/luat_base.c"
             ,luatos.."luat/modules/luat_lib_fs.c"
             ,luatos.."luat/modules/luat_lib_rtos.c"
@@ -103,7 +104,9 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
+            -- ,luatos.."luat/modules/luat_lib_softspi.c"
             ,luatos.."luat/modules/luat_lib_i2c.c"
+            -- ,luatos.."luat/modules/luat_lib_softi2c.c"
             ,luatos.."luat/modules/luat_lib_i2s.c"
             ,luatos.."luat/modules/luat_lib_wdt.c"
             ,luatos.."luat/modules/luat_lib_pm.c"
@@ -200,16 +203,11 @@ target("luatos-lua")
     add_includedirs(luatos.."components/mobile")
     add_files(luatos.."components/mobile/*.c")
 
-    --ffmpeg
-    add_includedirs("ffmpeg_x86/include")
-    add_includedirs("ffmpeg_x86")
-    add_files("ffmpeg_x86/ffmpeg.c")
-
     -- multimedia
-    add_includedirs(luatos.."components/multimedia",{public = true})
-    add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
-    add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
-    add_files(luatos.."components/multimedia/luat_audio_es8311.c")
+    -- add_includedirs(luatos.."components/multimedia",{public = true})
+    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
 
     ----------------------------------------------------------------------
     -- 网络相关

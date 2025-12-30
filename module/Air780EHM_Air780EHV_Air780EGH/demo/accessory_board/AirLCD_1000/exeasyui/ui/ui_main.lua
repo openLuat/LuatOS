@@ -12,8 +12,7 @@
 4、订阅按键事件并分发到按键处理器；
 5、启动UI渲染主循环，维持界面刷新；
 
-本文件的对外接口有0个：
-1、require加载后自动启动UI主任务；
+本文件无对外接口，require加载后自动执行初始化；
 ]]
 
 local home_page = require("home_page")
@@ -168,11 +167,6 @@ local function ui_main()
     -- 订阅按键事件
     sys.subscribe("KEY_EVENT", handle_key_event)
 
-    -- 主渲染循环
-    while true do
-        ui.refresh()
-        sys.wait(30)
-    end
 end
 
 sys.taskInit(ui_main)

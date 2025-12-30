@@ -110,6 +110,7 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 		luat_heap_free(http_ctrl->req_auth);
 		http_ctrl->req_auth = NULL;
 	}
+	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 	luat_heap_free(http_ctrl);
 	return 0;
 }
@@ -188,6 +189,14 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("report error(1) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
+	if (http_ctrl->fd) {
+		LLOGW("http_resp_error: closing open fd due to error %d", error_code);
+		luat_fs_fclose(http_ctrl->fd);
+		http_ctrl->fd = NULL;
+		if (http_ctrl->is_download && error_code != HTTP_OK && http_ctrl->dst) {
+			luat_fs_remove(http_ctrl->dst);
+		}
+	}
 	if (0 == http_ctrl->tcp_closed && NW_STATE_DISCONNECTING == http_ctrl->netc->state) {
 		on_tcp_closed(http_ctrl);
 		return;
@@ -239,7 +248,7 @@ static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
 
 static int on_header_field(http_parser* parser, const char *at, size_t length){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-    LLOGD("on_header_field:%.*s",length,at);
+    // LLOGD("on_header_field:%.*s",length,at);
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
@@ -269,7 +278,7 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 
 	char tmp[16] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	LLOGD("on_header_value:%.*s",length,at);
+	// LLOGD("on_header_value:%.*s",length,at);
 	if (http_ctrl->headers_complete){
 		if (!http_ctrl->luatos_mode) {
 			LLOGD("state %d", http_ctrl->state);
@@ -281,7 +290,7 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 		if(http_ctrl->resp_content_len == -1){
 			memcpy(tmp, at, length);
 			http_ctrl->resp_content_len = atoi(tmp);
-			LLOGD("http_ctrl->resp_content_len:%d",http_ctrl->resp_content_len);
+			LLOGD("resp_content_len:%d",http_ctrl->resp_content_len);
 		}
 		http_ctrl->headers = luat_heap_realloc(http_ctrl->headers,http_ctrl->headers_len+length+3);
 		memcpy(http_ctrl->headers+http_ctrl->headers_len,at,length);
@@ -326,6 +335,10 @@ static int on_headers_complete(http_parser* parser){
 		}
 	#endif
 		http_ctrl->headers_complete = 1;
+		// 如果头部解析出content_length为0，直接标记body接收完成
+		if (http_ctrl->resp_content_len == 0){
+			http_ctrl->http_body_is_finally = 1;
+		}
 		luat_http_callback(http_ctrl);
 	} else {
 		if (http_ctrl->state != HTTP_STATE_GET_HEAD){
@@ -433,7 +446,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			http_cb(HTTP_STATE_GET_BODY, (void *)at, length, http_ctrl->http_cb_userdata);
 		}
 	}
-	if (http_ctrl->resp_content_len > 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
+	if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
 		http_ctrl->http_body_is_finally = 1;
 		LLOGD("http body recv done by content_length");
 		http_close_nw(http_ctrl);
@@ -551,6 +564,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	// 发送请求行, 主要,这里都借用了resp_buff,但这并不会与resp冲突
 	int result;
 	http_send(http_ctrl, (uint8_t *)http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
+	http_send(http_ctrl, (uint8_t*)"Connection: Close\r\n", strlen("Connection: Close\r\n"));
 	// 判断自定义headers是否有host	
 	if (http_ctrl->custom_host == 0) {
 		result = snprintf_(http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s:%d\r\n", http_ctrl->host, http_ctrl->remote_port);
@@ -646,13 +660,13 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 }
 
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
-	LLOGI("on_tcp_closed %p", http_ctrl);
+	LLOGD("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
 	http_ctrl->tcp_closed = 1;
 	if (http_ctrl->http_body_is_finally == 0) { // 当没有解析完成
 		// 存在多种可能性
 		// 1. 没有content_length的情况, 又没有chunked
-		if (http_ctrl->resp_content_len == 0 && http_ctrl->headers_complete) {
+		if (http_ctrl->resp_content_len >= 0 && http_ctrl->headers_complete) {
 			http_ctrl->http_body_is_finally = 1;
 		}
 	}
@@ -681,6 +695,10 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
+	if (http_ctrl == NULL){
+		LLOGE("http_ctrl is NULL");
+		return -1;
+	}
 	if (!http_ctrl->luatos_mode) {
 	    if (HTTP_STATE_IDLE == http_ctrl->state)
 	    {
@@ -694,7 +712,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	}
 
 	//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_http_callback %08X %d %p",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
+	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (event->Param1){
 		//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("error event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
@@ -1274,7 +1292,9 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method) {
 	const char *tmp = url;
-	if (strcmp("POST", method) != 0 && strcmp("GET", method) != 0 && strcmp("PUT", method) != 0){
+	if (strcmp("POST", method) != 0 && strcmp("GET", method) != 0 
+		&& strcmp("PUT", method) != 0 && strcmp("DELETE", method) != 0
+		&& strcmp("PATCH", method) != 0) {
 		LLOGE("NOT SUPPORT %s",method);
 		return -1;
 	}
@@ -1287,13 +1307,13 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
         tmp += strlen("http://");
     }
     else {
-        LLOGI("only http/https supported %s", url);
+        LLOGE("only http/https supported %s", url);
         return -1;
     }
 
 	size_t tmplen = strlen(tmp);
 	if (tmplen < 5) {
-        LLOGI("url too short %s", url);
+        LLOGE("url too short %s", url);
         return -1;
     }
 	#define HOST_MAX_LEN (256)
@@ -1304,7 +1324,7 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
     for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
 			if (i > 255) {
-				LLOGI("host too long %s", url);
+				LLOGE("host too long %s", url);
 				return -1;
 			}
             tmpuri = tmp + i;
@@ -1316,7 +1336,7 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
 		tmphost[i] = tmp[i];
     }
 	if (strlen(tmphost) < 1) {
-        LLOGI("host not found %s", url);
+        LLOGE("host not found %s", url);
         return -1;
     }
     if (strlen(tmpuri) == 0) {

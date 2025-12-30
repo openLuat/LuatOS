@@ -144,6 +144,12 @@ static int l_zbuff_create(lua_State *L)
     }
     if (len <= 0) return 0;
 
+    if (len >= 64*1024) {
+        LLOGI("create large size: %d kbyte, trigger force GC", len / 1024);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+    }
+
     luat_zbuff_t *buff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
     if (buff == NULL) return 0;
 
@@ -154,6 +160,14 @@ static int l_zbuff_create(lua_State *L)
     }
     buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type,len);
     if (buff->addr == NULL){
+        // 尝试垃圾回收后再分配一次
+        LLOGI("create size: %d byte but memory not enough, trigger GC", len);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type,len);
+    }
+    if (buff->addr == NULL){
+        LLOGW("create size: %d byte but memory not enough!!!", len);
         lua_pushnil(L);
         lua_pushstring(L, "memory not enough");
         return 2;

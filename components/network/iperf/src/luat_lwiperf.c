@@ -292,8 +292,16 @@ static void iperf_free(size_t line, void* ptr);
    u16_t txlen_max;
    void *txptr;
    u8_t apiflags;
+   u16_t available_space;
  
    LWIP_ASSERT("conn invalid", (conn != NULL) && conn->base.tcp && (conn->base.server == 0));
+ 
+   /* 检查发送缓冲区是否有可用空间 */
+   available_space = tcp_sndbuf(conn->conn_pcb);
+   if (available_space == 0) {
+     /* 没有可用空间，等待下次调用 */
+     return ERR_OK;
+   }
  
    do {
      send_more = 0;
@@ -341,6 +349,12 @@ static void iperf_free(size_t line, void* ptr);
        apiflags = 0; /* no copying needed */
        send_more = 1;
      }
+     
+     /* 限制发送长度不超过可用缓冲区空间 */
+     if (txlen_max > available_space) {
+       txlen_max = available_space;
+     }
+     
      txlen = txlen_max;
      do {
       #if ENABLE_PSIF
@@ -360,6 +374,11 @@ static void iperf_free(size_t line, void* ptr);
  
      if (err == ERR_OK) {
        conn->bytes_transferred += txlen;
+       /* 更新剩余可用空间 */
+       available_space -= txlen;
+       if (available_space == 0) {
+         send_more = 0; /* 缓冲区已满，停止发送 */
+       }
      } else {
        send_more = 0;
      }
@@ -673,21 +692,7 @@ static void iperf_free(size_t line, void* ptr);
    lwiperf_list_add(&conn->base);
    return ERR_OK;
  }
- 
- /**
-  * @ingroup iperf
-  * Start a TCP iperf server on the default TCP port (5001) and listen for
-  * incoming connections from iperf clients.
-  *
-  * @returns a connection handle that can be used to abort the server
-  *          by calling @ref lwiperf_abort()
-  */
- void *
- luat_lwiperf_start_tcp_server_default(lwiperf_report_fn report_fn, void *report_arg)
- {
-   return luat_lwiperf_start_tcp_server(IP_ADDR_ANY, LWIPERF_TCP_PORT_DEFAULT,
-                                   report_fn, report_arg);
- }
+
  
  /**
   * @ingroup iperf
@@ -765,19 +770,6 @@ static void iperf_free(size_t line, void* ptr);
    return ERR_OK;
  }
  
- /**
-  * @ingroup iperf
-  * Start a TCP iperf client to the default TCP port (5001).
-  *
-  * @returns a connection handle that can be used to abort the client
-  *          by calling @ref lwiperf_abort()
-  */
- void*  luat_lwiperf_start_tcp_client_default(const ip_addr_t* remote_addr,
-                                lwiperf_report_fn report_fn, void* report_arg)
- {
-   return  luat_lwiperf_start_tcp_client(remote_addr, LWIPERF_TCP_PORT_DEFAULT, LWIPERF_CLIENT,
-                                   report_fn, report_arg, NULL);
- }
  
  /**
   * @ingroup iperf
@@ -786,15 +778,14 @@ static void iperf_free(size_t line, void* ptr);
   * @returns a connection handle that can be used to abort the client
   *          by calling @ref lwiperf_abort()
   */
- void*  luat_lwiperf_start_tcp_client(const ip_addr_t* remote_addr, u16_t remote_port,
-   enum lwiperf_client_type type, lwiperf_report_fn report_fn, void* report_arg, const ip_addr_t* local_addr)
+ void*  luat_lwiperf_start_tcp_client(lwiperf_client_conf_t* client_conf)
  {
    err_t ret;
    lwiperf_settings_t settings;
    lwiperf_state_tcp_t *state = NULL;
  
    memset(&settings, 0, sizeof(settings));
-   switch (type) {
+   switch (client_conf->type) {
    case LWIPERF_CLIENT:
      /* Unidirectional tx only test */
      settings.flags = 0;
@@ -814,16 +805,16 @@ static void iperf_free(size_t line, void* ptr);
    settings.num_threads = htonl(1);
    settings.remote_port = htonl(LWIPERF_TCP_PORT_DEFAULT);
    /* TODO: implement passing duration/amount of bytes to transfer */
-   settings.amount = htonl((u32_t)-1000);
+   settings.amount = client_conf->amount;
    LLOGD("准备启动iperf客户端");
-   ret = lwiperf_tx_start_impl(remote_addr, remote_port, &settings, report_fn, report_arg, NULL, &state, local_addr);
+   ret = lwiperf_tx_start_impl(client_conf->remote_addr, client_conf->remote_port, &settings, client_conf->report_fn, client_conf->report_arg, NULL, &state, client_conf->local_addr);
    if (ret == ERR_OK) {
      LWIP_ASSERT("state != NULL", state != NULL);
-     if (type != LWIPERF_CLIENT) {
+     if (client_conf->type != LWIPERF_CLIENT) {
        /* start corresponding server now */
        lwiperf_state_tcp_t *server = NULL;
        ret = lwiperf_start_tcp_server_impl(&state->conn_pcb->local_ip, LWIPERF_TCP_PORT_DEFAULT,
-         report_fn, report_arg, (lwiperf_state_base_t *)state, &server);
+         client_conf->report_fn, client_conf->report_arg, (lwiperf_state_base_t *)state, &server);
        if (ret != ERR_OK) {
          /* starting server failed, abort client */
          luat_lwiperf_abort(state);
@@ -832,7 +823,7 @@ static void iperf_free(size_t line, void* ptr);
        /* make this server accept one connection only */
        server->specific_remote = 1;
        server->remote_addr = state->conn_pcb->remote_ip;
-       if (type == LWIPERF_TRADEOFF) {
+       if (client_conf->type == LWIPERF_TRADEOFF) {
          /* tradeoff means that the remote host connects only after the client is done,
             so keep the listen pcb open until the client is done */
          server->client_tradeoff_mode = 1;

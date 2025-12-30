@@ -250,6 +250,8 @@ local luatos_version = rtos.version()
 -- 如果不是数字固件,luatos_version_num 会是0
 -- 如果是不支持的固件, luatos_version_num 会是nil
 local luatos_version, luatos_version_num = rtos.version(true)
+-- 读取底层位数, 32或者64, 2025.12.23 新增
+local luatos_version, luatos_version_num, luatos_bits = rtos.version(true)
 */
 static int l_rtos_version(lua_State *L) {
     lua_pushstring(L, luat_version_str());
@@ -260,7 +262,12 @@ static int l_rtos_version(lua_State *L) {
         #else
         lua_pushinteger(L, 0);
         #endif
-        return 2;
+        #ifdef LUAT_CONF_VM_64bit
+        lua_pushinteger(L, 64);
+        #else
+        lua_pushinteger(L, 32);
+        #endif
+        return 3;
     }
     return 1;
 }
@@ -299,13 +306,25 @@ static int l_rtos_meminfo(lua_State *L) {
     size_t max_used = 0;
     const char * str = luaL_optlstring(L, 1, "lua", &len);
     if (strcmp("sys", str) == 0) {
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(LUAT_HEAP_SRAM, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_opt_sys(LUAT_HEAP_SRAM, &total, &used, &max_used);
+        #endif
     }
     else if(strcmp("psram", str) == 0){
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(LUAT_HEAP_PSRAM, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+        #endif
     }
     else {
+        #ifdef LUAT_USE_MEM_LOGOUT
+        luat_meminfo_query(0, &total, &used, &max_used, 1);
+        #else
         luat_meminfo_luavm(&total, &used, &max_used);
+        #endif
     }
     
     lua_pushinteger(L, total);

@@ -149,7 +149,8 @@ static int l_httpsrv_stop(lua_State *L) {
             }
         }
     }
-    return 0;
+    lua_pushboolean(L, 0);
+    return 1;
 }
 
 #include "rotable2.h"

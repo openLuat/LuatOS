@@ -259,6 +259,10 @@ static void net_lwip2_tcp_close_done(uint8_t adapter_index, int socket_id, uint8
 	// LLOGD("net_lwip2_tcp_close_done 1");
 	// OS_LOCK;
 	// LLOGD("net_lwip2_tcp_close_done 2");
+	// 合法性检查，避免越界或非法socket_id
+	if (socket_id < 0 || socket_id >= MAX_SOCK_NUM) {
+		return;
+	}
 	SOCKET_LOCK(socket_id);
 	// LLOGD("net_lwip2_tcp_close_done 3");
 	cb_param.param = prvlwip.socket[socket_id].param;
@@ -296,14 +300,17 @@ static err_t net_lwip2_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 		len = p->tot_len;
 		if (net_lwip2_rx_data(socket_id, p, NULL, 0))
 		{
-			NET_DBG("no memory!");
+			NET_DBG("no memory! le=%d", len);
+			// 立即释放收到的数据缓冲，避免后续路径重复释放或遗留
+			pbuf_free(p);
 			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+			return ERR_OK;
 		}
 		else
 		{
 			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_RX_NEW, socket_id, len, 0);
+			pbuf_free(p);
 		}
-		pbuf_free(p);
 	}
 	else if (err == ERR_OK)
 	{
@@ -393,6 +400,13 @@ static err_t net_lwip2_tcp_err_cb(void *arg, err_t err)
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
+	// 边界检查，防止非法索引导致越界访问
+	if (socket_id < 0 || socket_id >= MAX_SOCK_NUM || adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
+		return 0;
+	}
+
+	// 使用互斥锁保护socket内部状态
+	SOCKET_LOCK(socket_id);
 	if (prvlwip.socket[socket_id].is_tcp)
 	{
 		if (prvlwip.socket[socket_id].pcb.tcp)
@@ -400,7 +414,10 @@ static err_t net_lwip2_tcp_err_cb(void *arg, err_t err)
 			prvlwip.socket[socket_id].pcb.tcp = NULL;
 		}
 	}
-	if (!prvlwip.socket[socket_id].state && !prvlwip.socket[socket_id].remote_close)
+	uint8_t should_report_error = (!prvlwip.socket[socket_id].state && !prvlwip.socket[socket_id].remote_close);
+	SOCKET_UNLOCK(socket_id);
+
+	if (should_report_error)
 	{
 		NET_DBG("adapter %d socket %d not closing, but error %d", adapter_index, socket_id, err);
 		net_lwip2_tcp_error(adapter_index, socket_id);
@@ -943,6 +960,12 @@ static void net_lwip2_task(void *param)
 		ip4_addr_t ip4 = {.addr=ip_addr_get_ip4_u32(&ips[0])};
 		ip4_addr_t netmask4 = {.addr=ip_addr_get_ip4_u32(&ips[1])};
 		ip4_addr_t gw4 = {.addr=ip_addr_get_ip4_u32(&ips[2])};
+		if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA) {
+			#ifdef __BK72XX__
+			extern void luat_netdrv_sta_set_static_ip(ip_addr_t* ip, ip_addr_t* gateway, ip_addr_t* mask);
+			luat_netdrv_sta_set_static_ip(&ip4, &gw4, &netmask4);
+			#endif
+		}
 		netif_set_addr(prvlwip.lwip_netif[adapter_index], &ip4, &netmask4, &gw4);
 		luat_heap_free(ips);
 		net_lwip2_check_network_ready(adapter_index);

@@ -3,6 +3,8 @@
 #include "luat_tp.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
+#include "luat_rtos.h"
+#include "luat_sdl2.h"
 
 #include "uv.h"
 
@@ -10,6 +12,8 @@
 
 #define LUAT_LOG_TAG "tp_pc"
 #include "luat_log.h"
+
+#define TP_PC_FLUSH_INTERVAL_MS 30
 
 // 前置声明
 static int luat_tp_pc_init(luat_tp_config_t* conf);
@@ -36,13 +40,41 @@ typedef struct tp_pc_state
 
     // 队列机制 - 新增
     uint8_t event_queue_size; // 事件队列大小
-    luat_tp_data_t event_queue[8]; // 事件队列，最多保存8个事件
+    luat_tp_data_t event_queue[64]; // 事件队列，最多保存64个事件
     uint8_t queue_head; // 队列头
     uint8_t queue_tail; // 队列尾
     uint8_t queue_enabled; // 是否启用队列机制
+    luat_rtos_timer_t flush_timer; // SDL 事件泵刷新定时器，PC 平台专属
 } tp_pc_state_t;
 
 static tp_pc_state_t s_tp_state;
+
+static LUAT_RT_RET_TYPE tp_flush_timer_cb(LUAT_RT_CB_PARAM) {
+    // 定时调用 SDL2 flush 保持事件泵活跃，即使界面没有新的脏区
+    luat_sdl2_pump_events();
+}
+
+// 启动 SDL 刷新定时器，保证窗口事件泵持续运行
+static void start_tp_flush_timer(void) {
+    if (s_tp_state.flush_timer) {
+        return;
+    }
+    if (luat_rtos_timer_create(&s_tp_state.flush_timer) == 0) {
+        luat_rtos_timer_start(s_tp_state.flush_timer, TP_PC_FLUSH_INTERVAL_MS, 1, tp_flush_timer_cb, NULL);
+    } else {
+        LLOGW("pc tp unable to create refresh timer");
+    }
+}
+
+// 停止并释放 SDL 刷新定时器，避免重复创建
+static void stop_tp_flush_timer(void) {
+    if (!s_tp_state.flush_timer) {
+        return;
+    }
+    luat_rtos_timer_stop(s_tp_state.flush_timer);
+    luat_rtos_timer_delete(s_tp_state.flush_timer);
+    s_tp_state.flush_timer = NULL;
+}
 
 // 队列管理函数 - 兼容原有框架
 static int enqueue_event(luat_tp_data_t* event) {
@@ -279,6 +311,9 @@ static int luat_tp_pc_init(luat_tp_config_t* conf) {
     SDL_AddEventWatch(tp_sdl_watch, conf);
     LLOGI("pc tp init ok, w=%d h=%d tp_num=%d, queue_enabled=%d, queue_size=%d",
            conf->w, conf->h, conf->tp_num, s_tp_state.queue_enabled, s_tp_state.event_queue_size);
+
+    // 启动 SDL 刷新定时器，保证窗口事件泵持续运行
+    start_tp_flush_timer();
     return 0;
 }
 
@@ -356,7 +391,9 @@ static void luat_tp_pc_deinit(luat_tp_config_t* conf) {
             s_tp_state.queue_enabled = 0;
             uv_mutex_unlock(&s_tp_state.lock);
         }
-
+        // 停止并释放 SDL 刷新定时器，避免重复创建
+        stop_tp_flush_timer();
+    
         LLOGI("pc tp deinit complete");
     }
 }

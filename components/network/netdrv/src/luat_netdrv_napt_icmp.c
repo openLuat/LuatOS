@@ -26,6 +26,25 @@ static luat_netdrv_napt_icmp_t* icmps;
 #define u8 uint8_t
 #define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
 
+// Incrementally update checksum when a 16-bit field (network order) changes.
+static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
+{
+    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
+    acc = (acc >> 16) + (acc & 0xFFFFU);
+    acc += (acc >> 16);
+    return lwip_htons((uint16_t)(~acc));
+}
+
+// Incrementally update checksum when a 32-bit field (network order) changes.
+static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
+{
+    const uint16_t *old16 = (const uint16_t *)&old_net;
+    const uint16_t *new16 = (const uint16_t *)&new_net;
+    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
+    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
+    return sum_net;
+}
+
 
 static u16 luat_napt_icmp_id_alloc(void)
 {
@@ -85,16 +104,19 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             }
             // 找到映射关系了!!!
             // LLOGD("ICMP id wnet %d inet %u", icmp_hdr->id, icmps[i].inet_id);
-            // 修改目标ID
+            // 修改目标ID并增量修正icmp checksum
+            uint16_t old_icmp_id = icmp_hdr->id;
+            uint16_t icmp_sum = icmp_hdr->chksum;
+            uint16_t ip_sum = ip_hdr->_chksum;
             icmp_hdr->id = icmps[i].inet_id;
-            // 重新计算icmp的checksum
-            icmp_hdr->chksum = 0;
-            icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
+            icmp_sum = napt_chksum_replace_u16(icmp_sum, old_icmp_id, icmp_hdr->id);
+            icmp_hdr->chksum = icmp_sum;
 
-            // 修改目标地址,并重新计算ip的checksum
+            // 修改目标地址,并增量更新ip的checksum
+            uint32_t old_dst_ip = ip_hdr->dest.addr;
             ip_hdr->dest.addr = icmps[i].inet_ip;
-            ip_hdr->_chksum = 0;
-            ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+            ip_sum = napt_chksum_replace_u32(ip_sum, old_dst_ip, icmps[i].inet_ip);
+            IPH_CHKSUM_SET(ip_hdr, ip_sum);
 
             // 如果是ETH包, 那还需要修改源MAC和目标MAC
             if (ctx->eth) {
@@ -187,14 +209,17 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             }
         }
         // 2. 修改信息
-        ip_hdr->src.addr = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
+        uint16_t old_icmp_id = icmp_hdr->id;
+        uint32_t old_src_ip = ip_hdr->src.addr;
+        uint32_t new_src_ip = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
+        uint16_t ip_sum = ip_hdr->_chksum;
+        uint16_t icmp_sum = icmp_hdr->chksum;
+        ip_hdr->src.addr = new_src_ip;
+        ip_sum = napt_chksum_replace_u32(ip_sum, old_src_ip, new_src_ip);
+        IPH_CHKSUM_SET(ip_hdr, ip_sum);
         icmp_hdr->id = it->wnet_id;
-        // 3. 重新计算checksum
-        icmp_hdr->chksum = 0;
-        icmp_hdr->chksum = alg_iphdr_chksum((u16 *)icmp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
-        // 4. 计算IP包的checksum
-        ip_hdr->_chksum = 0;
-        ip_hdr->_chksum = alg_iphdr_chksum((u16 *)ip_hdr, iphdr_len);
+        icmp_sum = napt_chksum_replace_u16(icmp_sum, old_icmp_id, icmp_hdr->id);
+        icmp_hdr->chksum = icmp_sum;
 
         // 5. 如果是ETH包, 还得修正MAC地址
         if (ctx->eth) {

@@ -24,8 +24,7 @@ gpio.setup(Agpio_number, 1)
 
 local function enterlowpower()
     sys.wait(10000)
-    -- 关闭USB电源
-    pm.power(pm.USB, false)
+    log.info("lowpower","进入PSM模式")
     -- 进入PSM+模式
     pm.power(pm.WORK_MODE, 3)
 end

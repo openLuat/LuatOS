@@ -88,9 +88,18 @@ typedef struct mp4_ctx {
     uint64_t last_frame_tms; // 最后一帧的时间戳, 单位ms
 }mp4_ctx_t;
 
-mp4_ctx_t* luat_vtool_mp4box_creare(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps);
+mp4_ctx_t* luat_vtool_mp4box_create(const char* path, uint32_t frame_w, uint32_t frame_h, uint32_t frame_fps);
 int luat_vtool_mp4box_write_frame(mp4_ctx_t* ctx, uint8_t* data, size_t len);
 int luat_vtool_mp4box_close(mp4_ctx_t* ctx);
+
+// int luat_vtool_jpeg_decoder_init(void);
+// int luat_vtool_jpeg_decoder_deinit(void);
+
+int luat_vtool_jpeg_add(const char* path);
+
+int luat_vtool_h264_encoder_init(void);
+int luat_vtool_h264_encoder_start(void);
+int luat_vtool_h264_encoder_deinit(void);
 
 #include "luat_mcu.h"
 

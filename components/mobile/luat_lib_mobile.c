@@ -1446,7 +1446,7 @@ sys.subscribe("NTP_UPDATE", function()
     log.info("mobile", "time", os.date())
 end)
 */
-        LLOGD("TIME_SYNC %d", status);
+        LLOGD("TIME_SYNC %d tm %d", status, time(NULL));
         lua_pushstring(L, "NTP_UPDATE");
         lua_call(L, 1, 0);
 		break;

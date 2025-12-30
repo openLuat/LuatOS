@@ -1,7 +1,7 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "StudentCard"
 VERSION = "1.2.0"
-PRODUCT_KEY = "epeGacglnQylV5jSKybIj1Dvqk6vm6nu"
+PRODUCT_KEY = "123"
 -- 产品信息:放学接我
 PRODUCT_VER = "0003"
 

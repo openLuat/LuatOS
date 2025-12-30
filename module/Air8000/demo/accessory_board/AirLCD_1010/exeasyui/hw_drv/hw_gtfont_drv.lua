@@ -10,8 +10,7 @@
 2、根据配置的字体、lcd和tp参数，初始化exEasyUI默认使用的字体、硬件显示和触摸；
 3、提供高质量矢量字体显示能力；
 
-本文件的对外接口有0个：
-1、require加载后自动执行初始化；
+本文件无对外接口，require加载后自动执行初始化；
 
 @api ui.hw_init(config)
 @summary 初始化exEasyUI硬件系统
@@ -71,7 +70,7 @@ ui.hw_init({
         tp_model = "AirLCD_1010", -- 触摸芯片/设备型号
         i2c_id = 1,               -- I2C总线ID
         pin_rst = 0xFF,           -- 触摸芯片复位引脚(AirLCD_1010上没有引出该引脚)
-        pin_int = 22,             -- 触摸芯片中断引脚
+        pin_int = 24,             -- 触摸芯片中断引脚
         -- @param message_enabled 消息类型 ("ALL", "RAW_DATA", "TOUCH_DOWN", "MOVE_X", "MOVE_Y", "SWIPE_LEFT", "SWIPE_RIGHT", "SWIPE_UP", "SWIPE_DOWN", "SINGLE_TAP", "LONG_PRESS")
         message_enabled = {
             TOUCH_DOWN = true,      -- 启用按下检测

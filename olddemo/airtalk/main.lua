@@ -3,7 +3,7 @@
 --按一次powerkey，开始1对多对讲，再按一次powerkey或者boot，结束对讲
 PROJECT = "airtalk_demo"
 VERSION = "1.0.1"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" -- 到 iot.openluat.com 创建项目,获取正确的项目id
+PRODUCT_KEY = "123" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 _G.sys=require"sys"
 log.style(1)
 require "demo_define"

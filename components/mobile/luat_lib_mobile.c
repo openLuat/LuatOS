@@ -1448,7 +1448,8 @@ end)
 */
         LLOGD("TIME_SYNC %d tm %d", status, time(NULL));
         lua_pushstring(L, "NTP_UPDATE");
-        lua_call(L, 1, 0);
+        lua_pushinteger(L, 1); // 代表通过移动网络同步的
+        lua_call(L, 2, 0);
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
 //		LLOGD("CSCON %d", status);

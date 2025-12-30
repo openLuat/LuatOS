@@ -57,6 +57,17 @@ static int l_container_set_color(lua_State *L) {
 }
 
 /**
+ * Container:set_hidden(hidden)
+ * @api container:set_hidden(hidden)
+ * @bool hidden 是否隐藏
+ */
+static int l_container_set_hidden(lua_State *L) {
+    lv_obj_t *container = easylvgl_check_component(L, 1, EASYLVGL_CONTAINER_MT);
+    bool hidden = lua_toboolean(L, 2);
+    easylvgl_container_set_hidden(container, hidden);
+    return 0;
+}
+/**
  * Container GC
  */
 static int l_container_gc(lua_State *L) {
@@ -82,6 +93,7 @@ void easylvgl_register_container_meta(lua_State *L) {
 
     static const luaL_Reg methods[] = {
         {"set_color", l_container_set_color},
+        {"set_hidden", l_container_set_hidden},
         {NULL, NULL}
     };
 

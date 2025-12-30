@@ -89,3 +89,15 @@ int easylvgl_container_set_color(lv_obj_t *container, uint32_t color_value)
     return EASYLVGL_OK;
 }
 
+/**
+ * 设置 Container 隐藏状态
+ */
+int easylvgl_container_set_hidden(lv_obj_t *container, bool hidden)
+{
+    if (container == NULL) {
+        return EASYLVGL_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_set_flag(container, LV_OBJ_FLAG_HIDDEN, hidden);
+    return EASYLVGL_OK;
+}

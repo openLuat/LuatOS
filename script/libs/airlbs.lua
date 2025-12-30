@@ -1,8 +1,8 @@
 --[[
 @module airlbs
 @summary airlbs 定位服务(收费服务，需自行联系销售申请)
-@version 1.0
-@date    2024.11.01
+@version 1.1
+@date    2024.12.30
 @author  Dozingfiretruck
 @usage
 -- lbsloc 是异步回调接口，
@@ -31,7 +31,7 @@ local airlbs = {}
 
 local function airlbs_task(task_name, buff, timeout, adapter)
     local netc = socket.create(nil, lib_name)
-    socket.config(netc, adapter, true) -- udp
+    socket.config(netc, nil, true) -- udp
 
     sysplus.cleanMsg(lib_name)
     local result = libnet.connect(lib_name, 15000, netc, airlbs_host, airlbs_port)

@@ -36,6 +36,10 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_packages("libsdl2")
 end
 
+if os.getenv("LUAT_USE_LVGL9") == "y" then
+    add_defines("LUAT_USE_LVGL9=1")
+end
+
 if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
@@ -309,17 +313,50 @@ target("luatos-lua")
         -- lcd
         add_includedirs(luatos.."components/lcd")
         add_files(luatos.."components/lcd/*.c")
-        -- lvgl
-        add_includedirs(luatos.."components/lvgl")
-        add_includedirs(luatos.."components/lvgl/binding")
-        add_includedirs(luatos.."components/lvgl/gen")
-        add_includedirs(luatos.."components/lvgl/src")
-        add_includedirs(luatos.."components/lvgl/font")
-        add_includedirs(luatos.."components/lvgl/src/lv_font")
-        add_includedirs(luatos.."components/lvgl/sdl2")
-        add_files(luatos.."components/lvgl/**.c")
-        -- 默认不编译lv的demos, 节省大量的编译时间
-        remove_files(luatos.."components/lvgl/lv_demos/**.c")
+        
+        -- LVGL 9.4 + EasyLVGL - 最基础组件编译
+        -- 宏定义：启用 EasyLVGL 和 SDL2 平台
+        -- add_defines("LUAT_USE_EASYLVGL=1")
+        -- add_defines("LUAT_USE_EASYLVGL_SDL2=1")
+        -- 头文件添加：lvgl9 
+        add_includedirs(luatos.."components/easylvgl")
+        add_includedirs(luatos.."components/easylvgl/lvgl9")
+        add_includedirs(luatos.."components/easylvgl/lvgl9/src")
+        
+        -- 先添加所有源文件
+        add_files(luatos.."components/easylvgl/lvgl9/src/**.c")
+        
+        -- 排除不需要的组件（按优先级排序）
+        -- 1. 硬件驱动（PC 模拟器不需要）
+        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.cpp")
+        
+        -- 2. 硬件加速绘制引擎（只保留软件渲染 SW）
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/dma2d/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/eve/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nema_gfx/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nxp/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/opengles/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/renesas/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/vg_lite/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/sdl/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/espressif/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/convert/**/*.c")
+        
+        -- 3. 库：排除不需要的库（可选功能）
+        -- remove_files(luatos.."components/easylvgl/lvgl9/src/libs/**/*.c")
+        
+        -- EasyLVGL 架构配置
+        -- 1. 公共头文件
+        add_includedirs(luatos.."components/easylvgl/inc")
+        
+        -- 2. 包含 src 目录下的所有文件（递归）
+        add_includedirs(luatos.."components/easylvgl/src")
+        add_files(luatos.."components/easylvgl/src/**/*.c")
+        
+        -- 3. Lua 绑定层（binding，不在 src 目录下，需单独处理）
+        add_includedirs(luatos.."components/easylvgl/binding")
+        add_files(luatos.."components/easylvgl/binding/*.c")
 
         -- qrcode 和 tjpgd
         add_includedirs(luatos.."components/qrcode")

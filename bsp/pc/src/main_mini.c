@@ -175,7 +175,6 @@ static void lvgl_timer_cb(uv_timer_t* lvgl_timer) {
 }
 #endif
 
-
 void sys_check_timeouts(void);
 static void timer_lwip(uv_timer_t *handle) {
     (void)handle;

@@ -317,18 +317,21 @@ TX_DATA_DONE:
 			luat_mutex_unlock(prv_network.record_cache_locker);
 			luat_start_rtos_timer(prv_network.download_check_timer, prv_network.download_no_data_time, 1);
 			prv_network.new_data_flag = 0;
+			luat_airtalk_callback(LUAT_AIRTALK_CB_DATA_START, NULL, 0);
 			break;
 		case AIRTALK_EVENT_NETWORK_FORCE_SYNC:
 			LUAT_DEBUG_PRINT("sync lost resync!");
 			sync_lost = 1;
+			luat_airtalk_callback(LUAT_AIRTALK_CB_DATA_RESYNC, NULL, 0);
 			break;
 		case AIRTALK_EVENT_NETWORK_FORCE_STOP:
 			if (prv_network.is_ready)
 			{
-				sync_lost = 1;
 				prv_network.is_ready = 0;
 				airtalk_full_stop();
 			}
+			sync_lost = 1;
+			luat_airtalk_callback(LUAT_AIRTALK_CB_DATA_STOP, NULL, 0);
 			break;
 		case AIRTALK_EVENT_NETWORK_MSG:
 			break;

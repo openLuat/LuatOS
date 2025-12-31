@@ -208,7 +208,7 @@ static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t 
         luat_fs_fclose(fp);
         return TTF_ERR_IO;
     }
-    uint8_t *buf = (uint8_t *)luat_heap_malloc((size_t)vsize);
+    uint8_t *buf = (uint8_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM,(size_t)vsize);
     if (!buf) {
         luat_fs_fclose(fp);
         return TTF_ERR_OOM;
@@ -216,7 +216,7 @@ static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t 
     size_t n = luat_fs_fread(buf, 1, (size_t)vsize, fp);
     luat_fs_fclose(fp);
     if (n != (size_t)vsize) {
-        luat_heap_free(buf);
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, buf);
         return TTF_ERR_IO;
     }
     *out_data = buf;
@@ -640,7 +640,7 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
                     strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
                     g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
                 } else {
-                    luat_heap_free(ram_buf);
+                    luat_heap_opt_free(LUAT_HEAP_PSRAM, ram_buf);
                     ram_buf = NULL;
                 }
             }
@@ -654,7 +654,7 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
     } else {
 #ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
         if (load_to_psram) {
-            ram_buf = (uint8_t *)luat_heap_malloc((size_t)hzfont_builtin_ttf_len);
+            ram_buf = (uint8_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM,(size_t)hzfont_builtin_ttf_len);
             if (!ram_buf) {
                 LLOGE("load builtin ttf to ram failed");
                 rc = TTF_ERR_OOM;
@@ -667,7 +667,7 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
                     g_ft_ctx.font_path[0] = '\0';
                 } else {
                     LLOGE("load builtin ttf to ram failed rc=%d", rc);
-                    luat_heap_free(ram_buf);
+                    luat_heap_opt_free(LUAT_HEAP_PSRAM, ram_buf);
                     ram_buf = NULL;
                 }
             }

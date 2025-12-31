@@ -5,8 +5,9 @@
 @date    2025.07.27
 @author  李源龙
 @usage
-使用Air780EGH核心板，外接GPS天线，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
+使用Air780EHV核心板，外挂Air530W开发板，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
 模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
+需要注意的是：低功耗模式模式如果把780EHV核心板上面的拨扭拨到off的话，会导致3.3V没有电，需要外部给530W开发板供电。
 ]]
 pm.power(pm.WORK_MODE, 0) 
 
@@ -16,7 +17,7 @@ local lat,lng
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local server_ip = "112.125.89.8" 
-local server_port = 43706 -- 换成自己的
+local server_port = 32137 -- 换成自己的
 
 local period = 3 * 60 * 60 * 1000 -- 定时器唤醒时间，3小时唤醒一次
 
@@ -93,9 +94,10 @@ local function testTask(ip, port)
     socket.release(netc)
 
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
-    
-    -- 配置GPIO以达到最低功耗的目的
-	-- gpio.close(24) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
+
+    -- 关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
+    pm.power(pm.USB, false)
+
 
     pm.dtimerStart(3, period) -- 启动深度休眠定时器
 
@@ -129,7 +131,8 @@ local function gnss_fnc()
         ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把agps_autoopen设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
-        auto_open=false  
+        auto_open=false,
+        gnss_volgpio=21 --设置GNSS模块的供电脚，外挂GNSS模块需要设置，4G定位二合一的模块不需要设置
     }
     exgnss.setup(gnssotps)
     exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})

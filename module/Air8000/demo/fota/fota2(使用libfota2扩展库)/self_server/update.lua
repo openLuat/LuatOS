@@ -109,7 +109,7 @@ function fota_task_func()
     log.info("fota_task_func", "recv IP_READY", socket.dft())
     ----这个判断是提醒要设置url的,且不要使用本文中的测试服务器,实际生产请删除
     if not opts.url or string.find(opts.url,"airtest.openluat.com") then
-        while 1 do
+        while true do
             sys.wait(1000)
             log.info("fota", "当前URL",opts.url,"请修改正确的url")
         end

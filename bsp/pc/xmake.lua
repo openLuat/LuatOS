@@ -36,10 +36,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_packages("libsdl2")
 end
 
-if os.getenv("LUAT_USE_LVGL9") == "y" then
-    add_defines("LUAT_USE_LVGL9=1")
-end
-
 if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
@@ -133,6 +129,10 @@ target("luatos-lua")
     -- cjson
     add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
+    -- ndk core
+    add_includedirs(luatos.."components/ndk/include",{public = true})
+    add_files(luatos.."components/ndk/src/*.c")
+    add_files(luatos.."components/ndk/binding/*.c")
     -- fft core
     add_includedirs(luatos.."components/fft/inc", {public = true})
     add_files(luatos.."components/fft/src/*.c")

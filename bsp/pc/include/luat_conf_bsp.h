@@ -120,6 +120,7 @@
 // #define LUAT_USE_WS2812 1
 #define LUAT_USE_XXTEA 1
 // #define LUAT_USE_PROFILER 1
+#define LUAT_USE_NDK 1
 
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1

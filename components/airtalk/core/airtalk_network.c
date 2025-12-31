@@ -106,6 +106,10 @@ static void airtalk_network_task(void *param)
 		switch(event.id)
 		{
 		case AIRTALK_EVENT_NETWORK_DOWNLINK_DATA:
+			if (prv_network.debug_on_off)
+			{
+				LUAT_DEBUG_PRINT("%d, %d", prv_network.work_mode, prv_network.is_ready);
+			}
 			if (LUAT_AIRTALK_SPEECH_MODE_GROUP_SPEAKER == prv_network.work_mode)
 			{
 				goto RX_DATA_DONE;
@@ -120,6 +124,10 @@ static void airtalk_network_task(void *param)
 			{
 				LUAT_DEBUG_PRINT("rtp head error! %d", ret);
 				goto RX_DATA_DONE;
+			}
+			if (prv_network.debug_on_off)
+			{
+				LUAT_DEBUG_PRINT("%x, %x", remote_rtp_head->ssrc, prv_network.local_ssrc);
 			}
 			if (prv_network.local_ssrc == remote_rtp_head->ssrc)
 			{
@@ -356,11 +364,13 @@ void luat_airtalk_net_param_config(uint8_t audio_data_protocl, uint32_t download
 
 void luat_airtalk_net_set_ssrc(uint32_t ssrc)
 {
+	LUAT_DEBUG_PRINT("%x", ssrc);
 	prv_network.local_ssrc = ssrc;
 }
 
 void luat_airtalk_net_transfer_start(uint8_t work_mode)
 {
+	LUAT_DEBUG_PRINT("%d", work_mode);
 	prv_network.work_mode = work_mode;
 	luat_rtos_event_send(prv_network.task_handle, AIRTALK_EVENT_NETWORK_READY_START, 0, 0, 0, 0);
 }
@@ -407,6 +417,11 @@ void luat_airtalk_net_uplink_end(void)
 void luat_airtalk_net_debug_switch(uint8_t on_off)
 {
 	prv_network.debug_on_off = on_off;
+}
+
+uint8_t luat_airtalk_is_debug(void)
+{
+	return prv_network.debug_on_off;
 }
 
 void luat_airtalk_net_init(void)

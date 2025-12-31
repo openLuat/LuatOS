@@ -4,7 +4,7 @@
 #include "luat_sfd.h"
 #include "luat_mem.h"
 
-#define LUAT_LOG_TAG "lfs"
+#define LUAT_LOG_TAG "sfd.lfs"
 #include "luat_log.h"
 
 luat_sfd_lfs_t* sfd_lfs;
@@ -31,11 +31,11 @@ static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
     sfd_drv_t* drv = cfg->context;
     int ret = luat_sfd_write(drv, buffer, block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
     // LLOGD("sfd write %d %d %d %d", block, off, size, ret);
-    if (ret >= 0) {
+    if (ret == size) {
         // LLOGD("block_device_prog return LFS_ERR_OK");
         return LFS_ERR_OK;
     }
-    // LLOGD("block_device_prog return LFS_ERR_IO");
+    LLOGE("write fail %d ret %d", block, ret);
     return LFS_ERR_IO;
 }
 
@@ -46,9 +46,16 @@ static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
 static int block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfd_drv_t* drv = cfg->context;
     int ret = luat_sfd_erase(drv, block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
-    // LLOGD("sfd erase %d %d", block, ret);
-    (void)ret;
-    return 0;
+    if (ret) {
+        return LFS_ERR_OK;
+    }
+    // 再试一次
+    ret = luat_sfd_erase(drv, block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
+    if (ret == 0) {
+        return LFS_ERR_OK;
+    }
+    LLOGE("erase fail %d ret %d", block, ret);
+    return LFS_ERR_IO;
 }
 
 // Sync the block device

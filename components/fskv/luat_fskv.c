@@ -32,8 +32,12 @@ static luat_kvfs_lfs_t* fskv_lfs;
 // Read a block
 static int block_device_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
-    luat_flash_read(buffer, fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
-    return LFS_ERR_OK;
+    int ret = luat_flash_read(buffer, fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
+    if (ret == size) {
+        return LFS_ERR_OK;
+    }
+    LLOGE("read err %d", ret);
+    return LFS_ERR_IO;
 }
 
 // Program a block
@@ -43,11 +47,11 @@ static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
 
 	int ret = luat_flash_write((char *)buffer, fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
-    if (ret >= 0) {
+    if (ret == size) {
         // LLOGD("block_device_prog return LFS_ERR_OK");
         return LFS_ERR_OK;
     }
-    // LLOGD("block_device_prog return LFS_ERR_IO");
+    LLOGE("write err %d !!!", ret);
     return LFS_ERR_IO;
 }
 
@@ -56,8 +60,17 @@ static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
 static int block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    luat_flash_erase(fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
-    return 0;
+    int ret = luat_flash_erase(fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
+    if (ret == 0) {
+        return LFS_ERR_OK;
+    }
+    // 再次尝试
+    ret = luat_flash_erase(fskv_lfs->fskv_address + block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
+    if (ret == 0) {
+        return LFS_ERR_OK;
+    }
+    LLOGE("erase err %d !!!", ret);
+    return LFS_ERR_IO;
 }
 
 // Sync the block device

@@ -77,10 +77,10 @@
 
 <table>
 <tr> <td>Air8000核心板</td><td>AirFONTS_1000配件板</td></tr>
-<tr> <td>SPI0_CS</td><td>CS</td></tr>
-<tr> <td>SPI0_MISO</td><td>MISO</td></tr>
-<tr> <td>SPI0_MOSI</td><td>MOSI</td></tr>
-<tr> <td>SPI0_CLK</td><td>CLK</td></tr>
+<tr> <td>SPI1_CS</td><td>CS</td></tr>
+<tr> <td>SPI1_MISO</td><td>MISO</td></tr>
+<tr> <td>SPI1_MOSI</td><td>MOSI</td></tr>
+<tr> <td>SPI1_CLK</td><td>CLK</td></tr>
 <tr> <td>VDD_EXT</td><td>VCC</td></tr>
 <tr> <td>GND</td><td>GND</td></tr>
 </table>

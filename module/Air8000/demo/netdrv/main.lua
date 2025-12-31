@@ -2,17 +2,14 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.07.17
-@author  陈取德
+@date    2025.10.20
+@author  魏健强
 @usage
 本demo演示的核心功能为：
-三种低功耗模式代码演示和功耗体验
-1、normal_power常规模式：normal_power.lua中就是常规模式的代码案例,持续向平台发送心跳数据。平均功耗：6.6mA
-2、low_power低功耗模式：low_powerr.lua中就是低功耗模式的代码案例，进入低功耗模式后向平台发送心跳包。DTIM1模式平均功耗：1.5mA。DTIM10模式平均功耗380uA。
-3、psm+_power低功耗模式：psm+_power.lua中就是PSM+模式的代码案例，定时唤醒向平台发送心跳包。平均功耗：11uA
+1.开启以太网功能
+2.开启多网融合功能
 更多说明参考本目录下的readme.md文件
 ]]
-
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -23,7 +20,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "LOWPOWER"
+PROJECT = "netdrv"
 VERSION = "001.000.000"
 
 
@@ -65,13 +62,18 @@ end
 -- end, 3000)
 
 
---选择需要体验的功耗模式，注释另外两个代码即可！快捷键Ctrl + /
--- require "normal_power"
--- require "low_power"
-require "psm+_power"
+-- 开启以太网wan
+require "netdrv_eth_wan"
+-- 开启以太网lan
+-- require "netdrv_eth_lan"
+-- 4G连接外部网络，生成WiFi热点为WiFi终端设备提供接入，支持以太网lan模式为其他以太网设备提供接入 
+-- require "netdrv_4g_multiple"
+-- 以太网连接外部网络,生成WiFi热点为WiFi终端设备提供接入 
+-- require "netdrv_eth_multiple"
+-- WIFI连接外部网络,支持以太网lan模式为其他以太网设备提供接入,支持生成WiFi热点为WiFi终端设备提供接入
+-- require "netdrv_wifi_multiple"
 
-
--- 用户代码已结束---------------------------------------------------------------
+-- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
 -- sys.run()之后后面不要加任何语句!!!!!

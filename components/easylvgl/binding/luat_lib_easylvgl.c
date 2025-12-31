@@ -36,6 +36,13 @@ static int l_easylvgl_indev_bind_touch(lua_State *L);
 static int l_easylvgl_keyboard_enable_system(lua_State *L);
 static int l_easylvgl_font_load(lua_State *L);
 
+// XML 模块声明
+extern int l_easylvgl_xml_init(lua_State *L);
+extern int l_easylvgl_xml_deinit(lua_State *L);
+extern int l_easylvgl_xml_register_from_file(lua_State *L);
+extern int l_easylvgl_xml_register_from_data(lua_State *L);
+extern int l_easylvgl_xml_create_screen(lua_State *L);
+
 // Button 模块声明
 extern void easylvgl_register_button_meta(lua_State *L);
 extern int easylvgl_button_create(lua_State *L);
@@ -93,6 +100,12 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"indev_bind_touch", ROREG_FUNC(l_easylvgl_indev_bind_touch)},
     {"keyboard_enable_system", ROREG_FUNC(l_easylvgl_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_easylvgl_font_load)},
+    // XML 模块
+    {"xml_init", ROREG_FUNC(l_easylvgl_xml_init)},
+    {"xml_deinit", ROREG_FUNC(l_easylvgl_xml_deinit)},
+    {"xml_register_from_file", ROREG_FUNC(l_easylvgl_xml_register_from_file)},
+    {"xml_register_from_data", ROREG_FUNC(l_easylvgl_xml_register_from_data)},
+    {"xml_create_screen", ROREG_FUNC(l_easylvgl_xml_create_screen)},
     // 组件注册
     {"button", ROREG_FUNC(easylvgl_button_create)},
     {"label", ROREG_FUNC(easylvgl_label_create)},

@@ -22,9 +22,10 @@
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // 打开png支持
+    #define LV_MEM_SIZE (256 * 1024U)   
+
+    // 打开图片解码器
     #define LV_USE_LODEPNG 1
-    #define LV_MEM_SIZE (256 * 1024U)
     #define LV_USE_TJPGD 1
 
     // 默认字体设置
@@ -34,6 +35,10 @@
     
     // #define LV_FONT_DEFAULT &lv_font_misans_20
     #define LV_FONT_DEFAULT &lv_font_misans_14
+
+    // 打开XML支持
+    #define LV_USE_XML 1
+    #define LV_USE_OBJ_NAME 1
 
 
 

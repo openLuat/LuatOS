@@ -1310,8 +1310,14 @@ static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int3
     }
     return winding;
 }
-
-// 将 glyph 轮廓栅格化为灰度 bitmap，支持超采样
+/**
+ * @brief 栅格化指定 glyph 到 bitmap 像素位图
+ * @param font    指向 TtfFont 对象（字体描述结构）
+ * @param glyph   指向 TtfGlyph 对象（待渲染的 glyph 信息）
+ * @param ppem    字号（以 points-per-em 指定，控制缩放比例）
+ * @param bitmap  输出参数，指向 TtfBitmap 结构体，将填充渲染后的位图数据
+ * @return TTF_OK 成功，或返回错误码（TTF_ERR_*）
+ */
 int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, TtfBitmap *bitmap) {
     if (!font || !glyph || !bitmap || ppem <= 0) {
         return TTF_ERR_RANGE;
@@ -1393,8 +1399,8 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->width = width;
     bitmap->height = height;
     bitmap->pixels = pixels;
-    bitmap->originX = (int32_t)lrintf(glyph->minX * scale);
-    bitmap->originY = (int32_t)lrintf(glyph->maxY * scale);
+    bitmap->originX = (int32_t)(glyph->minX * scale);
+    bitmap->originY = (int32_t)(glyph->maxY * scale);
     bitmap->scale = scale;
     return TTF_OK;
 }

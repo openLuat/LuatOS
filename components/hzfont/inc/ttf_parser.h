@@ -16,17 +16,18 @@ extern "C" {
 #endif
 
 typedef struct {
-    uint8_t *data;
-    size_t size;
-    uint16_t unitsPerEm;
-    uint16_t numGlyphs;
-    uint16_t indexToLocFormat;
-    uint32_t cmapOffset;
-    uint32_t cmapLength;
-    uint32_t glyfOffset;
-    uint32_t locaOffset;
-    uint32_t headOffset;
-    /* 1.0 内存优化新增：流式读取支持与小表缓存 */
+    /** 基本字体结构体核心参数说明 */
+    uint8_t *data;             // 指向字体文件内存数据的指针（全部映射或部分缓冲区）
+    size_t size;               // 字体文件（TTF/OTF）的字节数
+    uint16_t unitsPerEm;       // 字体缩放单位，每个 EM 的刻度数（通常为2048或1000）
+    uint16_t numGlyphs;        // 字体中包含的 glyph 总数
+    uint16_t indexToLocFormat; // loca 表存储格式：0=short（16位），1=long（32位）
+    uint32_t cmapOffset;       // 字体文件内 cmap 表的偏移（查 Unicode -> glyph）
+    uint32_t cmapLength;       // cmap 表的长度（字节）
+    uint32_t glyfOffset;       // 字体文件内 glyf 表的偏移（矢量定义与描述）
+    uint32_t locaOffset;       // loca 表的偏移，用于glyph查找（glyf表每个字形偏移表）
+    uint32_t headOffset;       // head 表的偏移（全局font信息，如版式/边界等）
+    /* 内存优化：流式读取支持与小表缓存 */
     void *file;           /* VFS 文件句柄 (luat_fs_fopen 返回的 FILE*)，无数据整读时有效 */
     size_t fileSize;      /* 字体文件大小 */
     uint8_t streaming;    /* 1 表示未整读，仅按需读取 */

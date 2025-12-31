@@ -18,6 +18,7 @@ static int g_ttf_debug = 0;
 static int g_ttf_supersample_rate = 0;
 
 /* 防御性释放，避免 free(NULL) 提示 */
+// 可防御性释放（NULL 安全）
 static inline void ttf_safe_free(void *p) {
     if (p) {
         luat_heap_free(p);
@@ -32,8 +33,11 @@ static inline void ttf_safe_free(void *p) {
 #define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
 #define TTF_FIXED_HALF  (1 << (TTF_FIXED_SHIFT - 1))
 
+// 设置 ttf 解析器的调试输出
 int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
+// 获取当前的调试标志
 int ttf_get_debug(void) { return g_ttf_debug; }
+// 查询编译期定义的默认超采样率
 static inline int ttf_supersample_default(void) {
 #ifdef TTF_SUPERSAMPLE_RATE
     return TTF_SUPERSAMPLE_RATE;
@@ -41,12 +45,14 @@ static inline int ttf_supersample_default(void) {
     return 1;
 #endif
 }
+// 读取当前的超采样率，未初始化时返回默认值
 int ttf_get_supersample_rate(void) {
     if (g_ttf_supersample_rate == 0) {
         g_ttf_supersample_rate = ttf_supersample_default();
     }
     return g_ttf_supersample_rate;
 }
+// 设置运行时的超采样率（自动限幅为 1/2/4）
 int ttf_set_supersample_rate(int rate) {
     int newRate;
     if (rate <= 1) newRate = 1;
@@ -60,27 +66,33 @@ int ttf_set_supersample_rate(int rate) {
 
 static void ttf_cache_cmap_subtable(TtfFont *font);
 
+// 从大端内存读取 unsigned 16
 static uint16_t read_u16(const uint8_t *p) {
     return (uint16_t)((p[0] << 8) | p[1]);
 }
 
+// 从大端内存读取 signed 16
 static int16_t read_s16(const uint8_t *p) {
     return (int16_t)((p[0] << 8) | p[1]);
 }
 
+// 从大端内存读取 unsigned 32
 static uint32_t read_u32(const uint8_t *p) {
     return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
 }
 
+// 将 F2.14 定点数转换成浮点
 static float read_f2dot14(const uint8_t *p) {
     int16_t value = read_s16(p);
     return (float)value / 16384.0f;
 }
 
+// 四舍五入浮点到 int32
 static int32_t round_to_int32(float value) {
     return (int32_t)(value >= 0.0f ? value + 0.5f : value - 0.5f);
 }
 
+// 确保请求的段在字体文件有效范围内
 static int ensure_range(const TtfFont *font, uint32_t offset, uint32_t length) {
     if (offset > font->size) {
         return 0;
@@ -92,6 +104,7 @@ static int ensure_range(const TtfFont *font, uint32_t offset, uint32_t length) {
 }
 
 /* 1.0: 统一的按需读取封装（支持 data 整读或 file 流式） */
+// 读取指定偏移段，兼容 data 内存或流式 file
 static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length, uint8_t *out) {
     if (!font || !out || length == 0) {
         return 0;
@@ -118,6 +131,7 @@ typedef struct {
     uint32_t length;
 } TableRecord;
 
+// 在字体目录中查找指定表格并返回偏移长度
 static int find_table(const TtfFont *font, uint32_t tag, TableRecord *out) {
     if (!font || font->size < 12) {
         return 0;
@@ -152,6 +166,7 @@ static int find_table(const TtfFont *font, uint32_t tag, TableRecord *out) {
     return 0;
 }
 
+// 从 VFS 文件加载 TTF（默认流式读取，兼容非 luat_fs 的 WIN 标准 fopen 回退）
 int ttf_load_from_file(const char *path, TtfFont *font) {
     if (!path || !font) {
         return TTF_ERR_RANGE;
@@ -201,6 +216,7 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         return TTF_ERR_IO;
         #endif
     } else {
+        // 如果使用 luat_fs 成功打开，则执行流式读取
         if (luat_fs_fseek(vfp, 0, SEEK_END) != 0) {
             luat_fs_fclose(vfp);
             return TTF_ERR_IO;
@@ -289,6 +305,7 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     return TTF_OK;
 }
 
+// 从已有内存数据初始化 TTF（不复制，不释放）
 int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
     if (!data || !font || size < 12) {
         return TTF_ERR_RANGE;
@@ -350,6 +367,7 @@ int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
     return TTF_OK;
 }
 
+// 彻底释放 TtfFont 使用的所有动态资源
 void ttf_unload(TtfFont *font) {
     if (!font) {
         return;
@@ -365,6 +383,7 @@ typedef struct {
     uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
 } CmapSubtable;
 
+// 从 cached cmap 或文件中读取 16 位值
 static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
     uint8_t b[2];
     if (font && font->cmapBuf && absOff >= font->cmapBufOffset &&
@@ -377,6 +396,7 @@ static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
     *out = read_u16(b);
     return 1;
 }
+// 从 cached cmap 或文件中读取 32 位值
 static int read_u32_at(const TtfFont *font, uint32_t absOff, uint32_t *out) {
     uint8_t b[4];
     if (font && font->cmapBuf && absOff >= font->cmapBufOffset &&
@@ -390,6 +410,7 @@ static int read_u32_at(const TtfFont *font, uint32_t absOff, uint32_t *out) {
     return 1;
 }
 
+// 查找 CMAP 12 格式子表并返回偏移/长度
 static int find_cmap_format12(const TtfFont *font, CmapSubtable *out) {
     if (!font || !font->data) {
         /* 支持 streaming：用 ttf_read_range 读取 */
@@ -434,6 +455,7 @@ static int find_cmap_format12(const TtfFont *font, CmapSubtable *out) {
     return 1;
 }
 
+// 查找 CMAP 4 格式子表并返回偏移/长度
 static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     if (!font || !font->data) {
         /* 支持 streaming：用 ttf_read_range 读取 */
@@ -477,6 +499,7 @@ static int find_cmap_format4(const TtfFont *font, CmapSubtable *out) {
     return 1;
 }
 
+// 缓存优先级最高的 CMAP 子表到内存，避免后续频繁读取
 static void ttf_cache_cmap_subtable(TtfFont *font) {
     if (!font) {
         return;
@@ -519,6 +542,7 @@ static void ttf_cache_cmap_subtable(TtfFont *font) {
     }
 }
 
+// 在 CMAP format 12 子表内采用二分查找得到 glyph index
 static int cmap_format12_lookup(const TtfFont *font, const CmapSubtable *cmap, uint32_t codepoint, uint16_t numGlyphs, uint16_t *glyphIndex) {
     if (!cmap || !glyphIndex) {
         return TTF_ERR_RANGE;
@@ -568,6 +592,7 @@ static int cmap_format12_lookup(const TtfFont *font, const CmapSubtable *cmap, u
     return TTF_ERR_RANGE;
 }
 
+// 查询一个 codepoint 对应的 glyph index（尝试 format12/format4）
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex) {
     if (!font || !glyphIndex) {
         return TTF_ERR_RANGE;
@@ -644,6 +669,7 @@ int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *gl
     return TTF_ERR_RANGE;
 }
 
+// 读取 loca 表获取指定 glyph 的 glyf 区段偏移与长度
 static int get_glyph_offset(const TtfFont *font, uint16_t glyphIndex, uint32_t *offset, uint32_t *length) {
     if (!font || glyphIndex > font->numGlyphs) {
         return 0;
@@ -680,6 +706,7 @@ static int get_glyph_offset(const TtfFont *font, uint16_t glyphIndex, uint32_t *
     return 1;
 }
 
+// 释放 glyph 的轮廓点与轮廓数组
 void ttf_free_glyph(TtfGlyph *glyph) {
     if (!glyph) {
         return;
@@ -689,6 +716,7 @@ void ttf_free_glyph(TtfGlyph *glyph) {
     memset(glyph, 0, sizeof(*glyph));
 }
 
+// 将复合 glyph 的组件 glyph 附加到目标 glyph，包含变换
 static int append_component_glyph(TtfGlyph *dest, const TtfGlyph *src,
                                  float m00, float m01, float m10, float m11,
                                  float dx, float dy) {
@@ -754,6 +782,7 @@ static int append_component_glyph(TtfGlyph *dest, const TtfGlyph *src,
     return TTF_OK;
 }
 
+// 从 glyf 表递归读取 glyph 轮廓（支持复合 glyph）
 static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph, int depth) {
     if (!font || !glyph) {
         return TTF_ERR_RANGE;
@@ -1052,6 +1081,7 @@ static int load_glyph_internal(const TtfFont *font, uint16_t glyphIndex, TtfGlyp
     return TTF_OK;
 }
 
+// 公开接口：载入 glyph 轮廓（内部委托递归实现）
 int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph) {
     return load_glyph_internal(font, glyphIndex, glyph, 0);
 }
@@ -1067,6 +1097,7 @@ typedef struct {
     size_t count;
 } FixedSegmentList;
 
+// 向平面线段列表追加一段（自动扩容）
 static int append_segment(SegmentList *segments, float x0, float y0, float x1, float y1) {
     if (!segments) {
         return 0;
@@ -1095,11 +1126,13 @@ static int append_segment(SegmentList *segments, float x0, float y0, float x1, f
     return 1;
 }
 
+// 将浮点坐标转换为定点值
 static inline int32_t float_to_fixed(float value) {
     float scaled = value * (float)TTF_FIXED_ONE;
     return (int32_t)lrintf(scaled);
 }
 
+// 批量将浮点段转换为定点表示（供点内查询）
 static int convert_segments_to_fixed(const SegmentList *src, FixedSegmentList *dst) {
     if (!dst) {
         return 0;
@@ -1125,6 +1158,7 @@ static int convert_segments_to_fixed(const SegmentList *src, FixedSegmentList *d
     return 1;
 }
 
+// 清理定点段列表
 static void free_fixed_segments(FixedSegmentList *segments) {
     if (!segments) {
         return;
@@ -1134,6 +1168,7 @@ static void free_fixed_segments(FixedSegmentList *segments) {
     segments->count = 0;
 }
 
+// 将二次贝塞尔曲线离散为纯线段
 static int flatten_quadratic(SegmentList *segments, float x0, float y0, float cx, float cy, float x1, float y1, int steps) {
     float prevX = x0;
     float prevY = y0;
@@ -1151,6 +1186,7 @@ static int flatten_quadratic(SegmentList *segments, float x0, float y0, float cx
     return 1;
 }
 
+// 计算两个控制点之间的中点（当缺少 on-curve 点时使用）
 static TtfPoint midpoint_point(const TtfPoint *a, const TtfPoint *b) {
     TtfPoint result;
     result.x = (int16_t)((a->x + b->x) / 2);
@@ -1159,12 +1195,14 @@ static TtfPoint midpoint_point(const TtfPoint *a, const TtfPoint *b) {
     return result;
 }
 
+// 将 glyph 中的点转换到栅格空间（含缩放与偏移）
 static void transform_point(const TtfGlyph *glyph, float scale, float offsetX, float offsetY,
                             const TtfPoint *pt, float *outX, float *outY) {
     *outX = (pt->x - glyph->minX) * scale + offsetX;
     *outY = (glyph->maxY - pt->y) * scale + offsetY;
 }
 
+// 从 glyph 轮廓构建线段列表供填充使用
 static int build_segments(const TtfGlyph *glyph, float scale, float offsetX, float offsetY, SegmentList *segments) {
     uint16_t contourStart = 0;
     for (uint16_t contour = 0; contour < glyph->contourCount; ++contour) {
@@ -1235,6 +1273,7 @@ static int build_segments(const TtfGlyph *glyph, float scale, float offsetX, flo
     return 1;
 }
 
+// 判断某点是否在 glyph 填充区域内（钟形绕组法）
 static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int32_t py) {
     if (!segments || segments->count == 0) {
         return 0;
@@ -1272,6 +1311,7 @@ static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int3
     return winding;
 }
 
+// 将 glyph 轮廓栅格化为灰度 bitmap，支持超采样
 int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, TtfBitmap *bitmap) {
     if (!font || !glyph || !bitmap || ppem <= 0) {
         return TTF_ERR_RANGE;
@@ -1282,6 +1322,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_OK;
     }
 
+    // 计算 glyph 在指定字号下的像素尺寸
     float scale = (float)ppem / (float)font->unitsPerEm;
     float widthF = (glyph->maxX - glyph->minX) * scale + 2.0f;
     float heightF = (glyph->maxY - glyph->minY) * scale + 2.0f;
@@ -1299,6 +1340,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_OOM;
     }
 
+    // 用扁平化的线段表示 glyph 轮廓
     SegmentList segments = {0};
     float offsetX = 1.0f;
     float offsetY = 1.0f;
@@ -1308,6 +1350,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_FORMAT;
     }
 
+    // 将线段转换为定点格式，便于点在轮廓内判断
     FixedSegmentList fixedSegments = {0};
     if (!convert_segments_to_fixed(&segments, &fixedSegments)) {
         ttf_safe_free(pixels);
@@ -1316,6 +1359,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     }
     ttf_safe_free(segments.data);
 
+    // 按当前超采样率采样每个像素（用于计算覆盖率）
     const int supersampleRate = ttf_get_supersample_rate();
     const int sampleCount = supersampleRate * supersampleRate;
     int32_t step = (supersampleRate > 0) ? (TTF_FIXED_ONE / supersampleRate) : TTF_FIXED_ONE;
@@ -1355,6 +1399,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     return TTF_OK;
 }
 
+// 释放 bitmap 的像素缓冲
 void ttf_free_bitmap(TtfBitmap *bitmap) {
     if (!bitmap) {
         return;

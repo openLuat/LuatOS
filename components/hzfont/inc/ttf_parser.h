@@ -63,22 +63,34 @@ typedef struct {
     uint8_t *pixels;
 } TtfBitmap;
 
+// 从文件流式加载 TTF 字体，保留文件句柄以按需读取
 int ttf_load_from_file(const char *path, TtfFont *font);
+// 从内存读取 TTF 字体（不复制内容），适合内置字库
 int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font);
+// 释放字体结构的全部资源
 void ttf_unload(TtfFont *font);
 
 /* 调试开关：1 开启详细日志，0 关闭 */
+// 设置调试日志开关
 int ttf_set_debug(int enable);
+// 查询当前调试设置
 int ttf_get_debug(void);
+// 读取当前超采样率
 int ttf_get_supersample_rate(void);
 /* 运行时设置超采样率：仅允许 1(无AA)、2(2x2)、4(4x4)，非法值将被修正到最近的允许值 */
+// 设定超采样等级（会修正为 1/2/4）
 int ttf_set_supersample_rate(int rate);
 
+// 根据码点查询 glyph 索引
 int ttf_lookup_glyph_index(const TtfFont *font, uint32_t codepoint, uint16_t *glyphIndex);
+// 载入 glyph 轮廓数据
 int ttf_load_glyph(const TtfFont *font, uint16_t glyphIndex, TtfGlyph *glyph);
+// 释放 glyph 结构内部分配的内存
 void ttf_free_glyph(TtfGlyph *glyph);
 
+// 将 glyph 栅格化成灰度 bitmap（支持超采样）
 int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, TtfBitmap *bitmap);
+// 释放 bitmap 内的像素缓冲
 void ttf_free_bitmap(TtfBitmap *bitmap);
 
 #ifdef __cplusplus

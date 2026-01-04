@@ -96,6 +96,11 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         // 默认是down的就行
     }
     else if (netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
+        // 这里要分情况, 如果本身带4G模块, 那么就up, 否则就是down
+        // 通过devinfo等途径, 通知对端netif的开启与关闭
+        #if defined(LUAT_USE_MOBILE) && !defined(LUAT_USE_DRV_MOBILE)
+        netif_set_link_up(netdrv->netif);
+        #endif
     }
     else {
         // 其他的设备, 直接设置成up和link up

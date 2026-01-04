@@ -81,6 +81,19 @@ bool easylvgl_xml_register_image(const char *name, const void *src)
 }
 
 /**
+ * 注册给 XML 使用的 lv_font_t，以便在样式或控件中通过 font 名称引用。
+ */
+bool easylvgl_xml_register_font(const char *name, const lv_font_t *font)
+{
+    if (name == NULL || font == NULL) {
+        LLOGW("xml_register_font: invalid args");
+        return false;
+    }
+    lv_result_t res = lv_xml_register_font(NULL, name, font);
+    return res == LV_RESULT_OK;
+}
+
+/**
  * 根据注册的 XML 名称创建并加载一个屏幕。
  *
  * @param name 之前注册的屏幕/组件名
@@ -164,6 +177,14 @@ bool easylvgl_xml_bind_keyboard_events(lv_obj_t *textarea, lv_event_cb_t focus_c
  */
 bool easylvgl_xml_init(void)
 {
+    LLOGW("LVGL XML disabled (LV_USE_XML=0)");
+    return false;
+}
+
+bool easylvgl_xml_register_font(const char *name, const lv_font_t *font)
+{
+    (void)name;
+    (void)font;
     LLOGW("LVGL XML disabled (LV_USE_XML=0)");
     return false;
 }

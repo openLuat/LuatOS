@@ -123,6 +123,32 @@ int l_easylvgl_xml_register_image(lua_State *L) {
 }
 
 /**
+ * 将字体注册到 XML，以便通过 font 名称引用。
+ * @api easylvgl.xml_register_font(name, font)
+ * @string name XML 中使用的 font 名称
+ * @lightuserdata font `easylvgl.font_load` 返回的字体指针
+ * @return bool 成功返回 true，否则返回 false + 错误信息。
+ */
+int l_easylvgl_xml_register_font(lua_State *L) {
+    const char *name = luaL_checkstring(L, 1);
+    const lv_font_t *font = (const lv_font_t *)lua_touserdata(L, 2);
+    if (font == NULL) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "xml_register_font: font is nil");
+        return 2;
+    }
+
+    if (!easylvgl_xml_register_font(name, font)) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "xml_register_font: registration failed");
+        return 2;
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/**
  * 创建已经注册的 XML 屏幕并返回包裹的 `easylvgl.container`。
  * @api easylvgl.xml_create_screen(name)
  * @string name `register_from_*` 时指定的名称

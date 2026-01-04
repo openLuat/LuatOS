@@ -4,6 +4,7 @@
 #include "lvgl9/src/core/lv_obj.h"
 #include "lvgl9/src/core/lv_obj_tree.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/font/lv_font.h"
 #include "lvgl9/src/others/xml/lv_xml.h"
 
 #ifdef __cplusplus
@@ -24,6 +25,8 @@ lv_obj_t *easylvgl_xml_create_screen(const char *name);
 lv_obj_t *easylvgl_xml_find_object(const char *name);
 /// 注册 XML 中使用的图片资源（支持路径或 lv_img_dsc userdata）
 bool easylvgl_xml_register_image(const char *name, const void *src);
+/// 注册供 XML 使用的字体（名字需与 XML 中 font 属性一致）
+bool easylvgl_xml_register_font(const char *name, const lv_font_t *font);
 /// 给指定对象添加事件回调，包含 delete 事件自动清理
 bool easylvgl_xml_add_event_cb(lv_obj_t *obj, lv_event_code_t code, lv_event_cb_t cb, void *user_data, lv_event_cb_t release_cb);
 /// 为 textarea 注册键盘 focus/defocus/release 事件

@@ -242,18 +242,26 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
         return 0;
     }
     luaL_pushresultsize(&buff, cctx.outlen);
-    return 1;
+    if (cctx.tag_len > 0 && (cctx.flags & 0x1)) {
+        lua_pushlstring(L, (const char*)cctx.tag, cctx.tag_len);
+        return 2;
+    }
+    else {
+        return 1;
+    }
 }
 
 /**
 对称加密
-@api crypto.cipher_encrypt(type, padding, str, key, iv)
+@api crypto.cipher_encrypt(type, padding, str, key, iv, tag)
 @string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅crypto.cipher_list()
 @string 对齐方式, 支持PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN/NONE
 @string 需要加密的数据
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
+@string GCM模式下的tag, 可选参数, 不传则不检查tag
 @return string 加密后的字符串
+@return string GCM模式下的tag值, 可选返回
 @usage
 -- 计算AES
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")

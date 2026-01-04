@@ -136,6 +136,8 @@ typedef struct luat_crypto_cipher_ctx
     size_t iv_size;
     char* outbuff;
     size_t outlen;
+    uint8_t tag[16];
+    uint8_t tag_len;
     uint8_t flags;
 }luat_crypto_cipher_ctx_t;
 

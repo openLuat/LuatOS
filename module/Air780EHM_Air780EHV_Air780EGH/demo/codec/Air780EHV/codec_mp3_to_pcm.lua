@@ -5,7 +5,13 @@
 @date 2025.11.18
 @author 陈媛媛
 
-修复goto跳入局部变量作用域的问题
+本文件为GMP3解码为PCM并流式播放演示功能模块，核心业务逻辑为：
+1、 使用exaudio流式播放原始MP3文件
+2、对MP3文件进行解码得到PCM数据
+3、将解码后的PCM数据通过exaudio流式播放
+4、等待播放完成并释放所有资源
+本文件没有对外接口，直接在main.lua中require " codec_mp3_to_pcm"就可以加载运行；
+
 ]]
 
 -- 使用exaudio库

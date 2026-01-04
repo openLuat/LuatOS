@@ -67,6 +67,9 @@ bool easylvgl_xml_register_from_data(const char *name, const char *xml_def)
     return res == LV_RESULT_OK;
 }
 
+/**
+ * 注册 XML 所需的图片资源，可配合 globals.xml 中的 image name 使用。
+ */
 bool easylvgl_xml_register_image(const char *name, const void *src)
 {
     if (name == NULL || src == NULL) {
@@ -93,10 +96,16 @@ lv_obj_t *easylvgl_xml_create_screen(const char *name)
     if (screen == NULL) {
         return NULL;
     }
+    // 直接加载屏幕保持 LVGL 运行状态一致
     lv_screen_load(screen);
     return screen;
 }
 
+/**
+ * 根据名称查找对象。
+ * @param name 对象名称
+ * @return 找到的对象，失败返回 NULL
+ */
 lv_obj_t *easylvgl_xml_find_object(const char *name)
 {
 #if LV_USE_OBJ_NAME
@@ -109,7 +118,45 @@ lv_obj_t *easylvgl_xml_find_object(const char *name)
     return NULL;
 #endif
 }
+/**
+ * 给对象添加 LVGL 事件回调，并在 delete 事件中执行 release。
+ * @param obj 目标对象
+ * @param code 事件码
+ * @param cb 回调函数
+ * @param user_data 用户数据
+ * @param release_cb 释放回调函数
+ * @return 是否成功添加
+ */
+bool easylvgl_xml_add_event_cb(lv_obj_t *obj, lv_event_code_t code, lv_event_cb_t cb, void *user_data, lv_event_cb_t release_cb)
+{
+    if (obj == NULL || cb == NULL) {
+        return false;
+    }
+    lv_obj_add_event_cb(obj, cb, code, user_data);
+    if (release_cb != NULL) {
+        lv_obj_add_event_cb(obj, release_cb, LV_EVENT_DELETE, user_data);
+    }
+    return true;
+}
 
+bool easylvgl_xml_bind_keyboard_events(lv_obj_t *textarea, lv_event_cb_t focus_cb, lv_event_cb_t defocus_cb, lv_event_cb_t release_cb, void *user_data)
+{
+    if (textarea == NULL || focus_cb == NULL) {
+        return false;
+    }
+    lv_obj_add_event_cb(textarea, focus_cb, LV_EVENT_FOCUSED, user_data);
+    if (defocus_cb != NULL) {
+        lv_obj_add_event_cb(textarea, defocus_cb, LV_EVENT_DEFOCUSED, user_data);
+    }
+    if (release_cb != NULL) {
+        lv_obj_add_event_cb(textarea, release_cb, LV_EVENT_DELETE, user_data);
+    }
+    return true;
+}
+
+/**
+ * XML 功能关闭时的辅助接口实现。
+ */
 #else
 
 /**
@@ -160,6 +207,28 @@ bool easylvgl_xml_register_image(const char *name, const void *src)
 {
     (void)name;
     (void)src;
+    LLOGW("LVGL XML disabled (LV_USE_XML=0)");
+    return false;
+}
+
+bool easylvgl_xml_add_event_cb(lv_obj_t *obj, lv_event_code_t code, lv_event_cb_t cb, void *user_data, lv_event_cb_t release_cb)
+{
+    (void)obj;
+    (void)code;
+    (void)cb;
+    (void)user_data;
+    (void)release_cb;
+    LLOGW("LVGL XML disabled (LV_USE_XML=0)");
+    return false;
+}
+
+bool easylvgl_xml_bind_keyboard_events(lv_obj_t *textarea, lv_event_cb_t focus_cb, lv_event_cb_t defocus_cb, lv_event_cb_t release_cb, void *user_data)
+{
+    (void)textarea;
+    (void)focus_cb;
+    (void)defocus_cb;
+    (void)release_cb;
+    (void)user_data;
     LLOGW("LVGL XML disabled (LV_USE_XML=0)");
     return false;
 }

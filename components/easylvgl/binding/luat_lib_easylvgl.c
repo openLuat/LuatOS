@@ -44,6 +44,7 @@ extern int l_easylvgl_xml_register_from_data(lua_State *L);
 extern int l_easylvgl_xml_create_screen(lua_State *L);
 extern int l_easylvgl_xml_bind_event(lua_State *L);
 extern int l_easylvgl_xml_register_image(lua_State *L);
+extern int l_easylvgl_xml_keyboard_bind(lua_State *L);
 
 // Button 模块声明
 extern void easylvgl_register_button_meta(lua_State *L);
@@ -110,6 +111,7 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"xml_register_image", ROREG_FUNC(l_easylvgl_xml_register_image)},
     {"xml_create_screen", ROREG_FUNC(l_easylvgl_xml_create_screen)},
     {"xml_bind_event", ROREG_FUNC(l_easylvgl_xml_bind_event)},
+    {"xml_keyboard_bind", ROREG_FUNC(l_easylvgl_xml_keyboard_bind)},
     // 组件注册
     {"button", ROREG_FUNC(easylvgl_button_create)},
     {"label", ROREG_FUNC(easylvgl_label_create)},

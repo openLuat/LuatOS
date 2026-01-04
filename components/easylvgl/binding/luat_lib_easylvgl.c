@@ -42,6 +42,8 @@ extern int l_easylvgl_xml_deinit(lua_State *L);
 extern int l_easylvgl_xml_register_from_file(lua_State *L);
 extern int l_easylvgl_xml_register_from_data(lua_State *L);
 extern int l_easylvgl_xml_create_screen(lua_State *L);
+extern int l_easylvgl_xml_bind_event(lua_State *L);
+extern int l_easylvgl_xml_register_image(lua_State *L);
 
 // Button 模块声明
 extern void easylvgl_register_button_meta(lua_State *L);
@@ -105,7 +107,9 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"xml_deinit", ROREG_FUNC(l_easylvgl_xml_deinit)},
     {"xml_register_from_file", ROREG_FUNC(l_easylvgl_xml_register_from_file)},
     {"xml_register_from_data", ROREG_FUNC(l_easylvgl_xml_register_from_data)},
+    {"xml_register_image", ROREG_FUNC(l_easylvgl_xml_register_image)},
     {"xml_create_screen", ROREG_FUNC(l_easylvgl_xml_create_screen)},
+    {"xml_bind_event", ROREG_FUNC(l_easylvgl_xml_bind_event)},
     // 组件注册
     {"button", ROREG_FUNC(easylvgl_button_create)},
     {"label", ROREG_FUNC(easylvgl_label_create)},
@@ -122,11 +126,11 @@ static const rotable_Reg_t reg_easylvgl[] = {
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
-    // 文本对齐常量
+    // 文本对齐常量 (和 lvgl 一致)
     {"EASYLVGL_TEXT_ALIGN_LEFT", ROREG_INT(LV_TEXT_ALIGN_LEFT)},
     {"EASYLVGL_TEXT_ALIGN_CENTER", ROREG_INT(LV_TEXT_ALIGN_CENTER)},
     {"EASYLVGL_TEXT_ALIGN_RIGHT", ROREG_INT(LV_TEXT_ALIGN_RIGHT)},
-    // TabView 对齐常量
+    // TabView 对齐常量 (自己定义的常量)
     {"EASYLVGL_TABVIEW_PAD_ALL", ROREG_INT(EASYLVGL_TABVIEW_PAD_ALL)},
     {"EASYLVGL_TABVIEW_PAD_HOR", ROREG_INT(EASYLVGL_TABVIEW_PAD_HOR)},
     {"EASYLVGL_TABVIEW_PAD_VER", ROREG_INT(EASYLVGL_TABVIEW_PAD_VER)},
@@ -134,6 +138,11 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"EASYLVGL_TABVIEW_PAD_BOTTOM", ROREG_INT(EASYLVGL_TABVIEW_PAD_BOTTOM)},
     {"EASYLVGL_TABVIEW_PAD_LEFT", ROREG_INT(EASYLVGL_TABVIEW_PAD_LEFT)},
     {"EASYLVGL_TABVIEW_PAD_RIGHT", ROREG_INT(EASYLVGL_TABVIEW_PAD_RIGHT)},
+    // 事件常量 (和 lvgl 一致)
+    {"EASYLVGL_EVENT_CLICKED", ROREG_INT(LV_EVENT_CLICKED)},
+    {"EASYLVGL_EVENT_PRESSED", ROREG_INT(LV_EVENT_PRESSED)},
+    {"EASYLVGL_EVENT_RELEASED", ROREG_INT(LV_EVENT_RELEASED)},
+    {"EASYLVGL_EVENT_VALUE_CHANGED", ROREG_INT(LV_EVENT_VALUE_CHANGED)},
     // 图标常量
     EASYLVGL_SYMBOL_REG,
     {NULL, ROREG_INT(0)}

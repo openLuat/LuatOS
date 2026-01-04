@@ -13,6 +13,7 @@
 #if LV_USE_XML
 
 #include "lvgl9/lvgl.h"
+#include "lvgl9/src/core/lv_obj_tree.h"
 #include "lvgl9/src/others/xml/lv_xml.h"
 
 /**
@@ -66,6 +67,16 @@ bool easylvgl_xml_register_from_data(const char *name, const char *xml_def)
     return res == LV_RESULT_OK;
 }
 
+bool easylvgl_xml_register_image(const char *name, const void *src)
+{
+    if (name == NULL || src == NULL) {
+        LLOGW("xml_register_image: invalid args");
+        return false;
+    }
+    lv_result_t res = lv_xml_register_image(NULL, name, src);
+    return res == LV_RESULT_OK;
+}
+
 /**
  * 根据注册的 XML 名称创建并加载一个屏幕。
  *
@@ -84,6 +95,19 @@ lv_obj_t *easylvgl_xml_create_screen(const char *name)
     }
     lv_screen_load(screen);
     return screen;
+}
+
+lv_obj_t *easylvgl_xml_find_object(const char *name)
+{
+#if LV_USE_OBJ_NAME
+    if (name == NULL) {
+        return NULL;
+    }
+    return lv_obj_find_by_name(NULL, name);
+#else
+    (void)name;
+    return NULL;
+#endif
 }
 
 #else
@@ -123,6 +147,21 @@ lv_obj_t *easylvgl_xml_create_screen(const char *name)
     (void)name;
     LLOGW("LVGL XML disabled (LV_USE_XML=0)");
     return NULL;
+}
+
+lv_obj_t *easylvgl_xml_find_object(const char *name)
+{
+    (void)name;
+    LLOGW("LVGL XML disabled (LV_USE_XML=0)");
+    return NULL;
+}
+
+bool easylvgl_xml_register_image(const char *name, const void *src)
+{
+    (void)name;
+    (void)src;
+    LLOGW("LVGL XML disabled (LV_USE_XML=0)");
+    return false;
 }
 
 #endif

@@ -156,11 +156,17 @@ static int l_airtalk_start(lua_State *L)
 */
 static int l_airtalk_set_ssrc(lua_State *L)
 {
+	char ssrc_temp[9] = {0};
 	if (lua_isstring(L, 1))
 	{
 		size_t len;
 	    const char *id = lua_tolstring(L, 1, &len);//取出字符串数据;
-	    uint32_t ssrc = strtol(id, NULL, 16);
+	    if (len > 8)
+	    {
+	    	len = 8;
+	    }
+	    memcpy(ssrc_temp, id, len);
+	    uint32_t ssrc = strtoul(ssrc_temp, NULL, 16);
 	    luat_airtalk_net_set_ssrc(ssrc);
 	}
 	else

@@ -445,6 +445,36 @@ static int l_pm_wakeup_pin(lua_State *L) {
     return 1;
 }
 
+/**
+应用层投票强制系统保持在正常工作模式，不允许进入任何低功耗状态，只要有1个应用投票保持，就无法进入低功耗状态
+@api pm.keep(role_id, on_off)
+@int role_id 应用ID，取值0~15，目前可以的值是pm.GPS，如果是其他值，则不做修改
+@boolean on_off true 需要系统保持在正常工作状态 false 不需要系统保持在正常工作状态
+@return int 当前投票状态，如果不是0，就说明有应用投票不允许进入任何低功耗状态
+@usage
+pm.keep(pm.GPS, true)	--GPS应用需要系统保持在正常工作状态
+pm.keep(pm.GPS, false)	--GPS应用不需要系统保持在正常工作状态
+local v = pm.keep(nil, true) --查询一下当前有没有应用投票不允许进入任何低功耗状态
+ */
+static int l_pm_keep(lua_State *L) {
+	uint8_t onoff = 0;
+    int id = luaL_optinteger(L, 1, 16);
+    if (id < 0 || id > 15)
+    {
+    	id = 16;
+    }
+    if (lua_isboolean(L, 2)) {
+    	onoff = lua_toboolean(L, 2);
+    }
+    else
+    {
+    	onoff = lua_tointeger(L, 2);
+    }
+    int ret = luat_pm_power_ctrl(id + LUAT_PM_POWER_VOTE_BASE, onoff);
+    lua_pushinteger(L, 1);
+    return 1;
+}
+
 // yhm27xx
 #ifdef LUAT_USE_YHM27XX
 /* 
@@ -616,6 +646,7 @@ static const rotable_Reg_t reg_pm[] =
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
     { "ioVol",          ROREG_FUNC(l_pm_iovolt_ctrl)},
     { "wakeupPin",      ROREG_FUNC(l_pm_wakeup_pin)},
+	{ "keep",      ROREG_FUNC(l_pm_keep)},
     // yhm27xx
     #ifdef LUAT_USE_YHM27XX
     { "chgcmd",         ROREG_FUNC(l_pm_chgcmd)},
@@ -664,7 +695,6 @@ static const rotable_Reg_t reg_pm[] =
     { "ID_WIFI",        ROREG_INT(1)},
 
     { "WIFI",          ROREG_INT(LUAT_PM_POWER_WIFI)},
-
     //@const WIFI_STA_DTIM number wifi芯片控制STA模式下的DTIM间隔,单位100ms,默认值是1
     { "WIFI_STA_DTIM",  ROREG_INT(LUAT_PM_POWER_WIFI_STA_DTIM)},
     { "WIFI_AP_DTIM",   ROREG_INT(LUAT_PM_POWER_WIFI_AP_DTIM)},

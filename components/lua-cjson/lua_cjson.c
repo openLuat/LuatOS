@@ -337,7 +337,7 @@ static const char*  char2escape(unsigned char c) {
     case 0x1e: return "\\u001e";
     case 0x1f: return "\\u001f";
     case '\"': return "\\\"";
-    case '/' : return "\\/";
+    // case '/' : return "\\/";
     case '\\': return "\\\\";
     case 0x7f: return "\\u007f";
 

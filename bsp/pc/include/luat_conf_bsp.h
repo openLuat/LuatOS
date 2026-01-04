@@ -119,7 +119,8 @@
 // #define LUAT_USE_ONEWIRE 1
 // #define LUAT_USE_WS2812 1
 #define LUAT_USE_XXTEA 1
-#define LUAT_USE_PROFILER 1
+// #define LUAT_USE_PROFILER 1
+#define LUAT_USE_NDK 1
 
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1
@@ -142,9 +143,9 @@
 #define LUAT_USE_LCD
 // #define LUAT_USE_TJPGD
 // GT 字库：PC 模拟器仿真启用
-#define LUAT_USE_GTFONT 1
+// #define LUAT_USE_GTFONT 1
 // 若需要直接绘制 UTF8 字符串（lcd/u8g2 的 UTF8 接口），启用
-#define LUAT_USE_GTFONT_UTF8 1
+// #define LUAT_USE_GTFONT_UTF8 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1
@@ -160,7 +161,7 @@
 #define LUAT_USE_U8G2
 
 /**************FONT*****************/
-#define LUAT_USE_FONTS
+// #define LUAT_USE_FONTS
 /**********U8G2&LCD&EINK FONT*************/
 #define USE_U8G2_OPPOSANSM_ENGLISH 1
 #define USE_U8G2_OPPOSANSM8_CHINESE

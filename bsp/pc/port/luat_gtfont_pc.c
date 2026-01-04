@@ -1,5 +1,7 @@
 #ifdef LUAT_USE_GUI
 
+#include "luat_conf_bsp.h"
+#ifdef LUAT_USE_GTFONT_PC
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -1497,6 +1499,8 @@ void Gray_Process(unsigned char *OutPutData ,int width,int High,unsigned char Gr
 unsigned long U2G(unsigned int unicode) {
     return (unsigned long)unicode;
 }
+
+#endif // LUAT_USE_GTFONT_PC
 
 #endif // LUAT_USE_GUI
 

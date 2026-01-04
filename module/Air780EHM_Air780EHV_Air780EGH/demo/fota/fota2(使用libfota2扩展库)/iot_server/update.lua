@@ -82,7 +82,7 @@ function fota_task_func()
 
     -- 这个判断是提醒要设置PRODUCT_KEY的,实际生产请删除
     if "123" == _G.PRODUCT_KEY  then
-        while 1 do
+        while true do
             sys.wait(1000)
             log.info("fota", "请修改正确的PRODUCT_KEY")
         end

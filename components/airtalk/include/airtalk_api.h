@@ -38,4 +38,5 @@ void luat_airtalk_speech_save_downlink_data(uint8_t *data, uint32_t len);
 
 void luat_airtalk_use_16k(uint8_t on_off);
 uint8_t luat_airtalk_is_16k(void);
+uint8_t luat_airtalk_is_debug(void);
 #endif /* AIRTALK_INCLUDE_AIRTALK_API_H_ */

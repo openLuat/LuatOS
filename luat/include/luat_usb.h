@@ -13,6 +13,7 @@ enum
 	LUAT_USB_CLASS_HID,
 	LUAT_USB_CLASS_MSC,
 	LUAT_USB_CLASS_WINUSB,
+	LUAT_USB_CLASS_QTY,
 	LUAT_USB_EVENT_NEW_RX	= 0,
 	LUAT_USB_EVENT_TX_DONE,
 	LUAT_USB_EVENT_CONNECT,
@@ -40,4 +41,6 @@ int luat_usb_set_callback(int id, usb_callback_t callback);
 int luat_usb_tx(int id, uint8_t class, const void *data, uint32_t len);
 int luat_usb_hid_tx(int id, const char *string, uint32_t len);
 int luat_usb_rx(int id, uint8_t class, void *data, uint32_t len);
+
+int luat_usb_power_on_off(int id, uint8_t on_off);
 #endif

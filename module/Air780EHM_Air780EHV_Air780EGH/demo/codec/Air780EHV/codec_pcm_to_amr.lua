@@ -6,8 +6,11 @@
 @author  梁健
 @usage
 本文件为PCM编码为AMR_WB功能模块，核心业务逻辑为：
-1、将PCM文件编码为AMR_WB格式
-2、播放编码后的AMR_WB文件
+1、使用exaudio播放原始PCM文件
+2、 对PCM文件进行AMR_WB编码并保存
+3、播放编码后的AMR_WB文件
+4、等待播放完成并释放所有资源
+
 本文件没有对外接口，直接在main.lua中require "codec_pcm_to_amr"就可以加载运行；
 ]]
 

@@ -12,8 +12,6 @@
 
 6、test.pcm: 用于G711编解码和PCM编码为AMR并播放演示的音频文件
 
-7、pins_Air8000.json：管脚配置文件,本演示程序使用默认的管脚功能。当IO复用为非默认功能时，使用合宙 Luatools 工具中的"管脚配置"生成此文件。系统底层将自动加载该配置文件，完成相应的管脚功能初始化。
-
 ## 常量的介绍
 
 1、codec.MP3 : MP3音频格式，仅支持解码功能，用于将MP3文件解码为PCM数据
@@ -72,7 +70,7 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 1、Luatools下载调试工具
 
-2、Air8000 V2018及以上版本固件，选择支持Volte或者对讲功能的固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
+2、Air8000 V2018及以上版本固件，选择支持codec或者对讲功能的固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
 
 3、 luatos需要的脚本和资源文件
 
@@ -80,9 +78,7 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 - 准备好软件环境之后，接下来查看[如何烧录项目文件到Air8000核心板中](https://docs.openluat.com/air8000/luatos/common/download/) 或者查看 [Air8000 产品手册](https://docs.openluat.com/air8000/product/shouce/) 中“Air8000 整机开发板使用手册 -> 使用说明”，将本篇文章中演示使用的项目文件烧录到 Air8000 开发板中。
 
-4、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明](https://docs.openluat.com/air780epm/common/luatio/)
-
-5、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
 ## 演示核心步骤
 

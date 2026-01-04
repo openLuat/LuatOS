@@ -1,6 +1,10 @@
 
 _G.sys = require("sys")
 
+sys.subscribe("NTP_UPDATE", function(source)
+    log.info("sntp", "时间同步成功", source)
+end)
+
 sys.taskInit(function()
     sys.waitUntil("IP_READY")
     while 1 do

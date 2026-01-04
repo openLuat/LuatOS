@@ -1,0 +1,141 @@
+--[[
+@module  psm
+@summary gnss使用psm测试功能模块
+@version 1.0
+@date    2025.07.27
+@author  李源龙
+@usage
+使用Air780EHV核心板，外挂Air530W开发板，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
+模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
+需要注意的是：低功耗模式模式如果把780EHV核心板上面的拨扭拨到off的话，会导致3.3V没有电，需要外部给530W开发板供电。
+]]
+pm.power(pm.WORK_MODE, 0) 
+
+local lat,lng
+
+-- 电脑访问：https://netlab.luatos.com/
+-- 点击 打开TCP 按钮，会创建一个TCP server
+-- 将server的地址和端口赋值给下面这两个变量
+local server_ip = "112.125.89.8" 
+local server_port = 32137 -- 换成自己的
+
+local period = 3 * 60 * 60 * 1000 -- 定时器唤醒时间，3小时唤醒一次
+
+local reason, slp_state = pm.lastReson() -- 获取唤醒原因
+log.info("wakeup state", pm.lastReson())
+local libnet = require "libnet"
+
+local d1Name = "D1_TASK"
+local function netCB(msg)
+    log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
+end
+
+
+local function testTask(ip, port)
+    local txData
+    --拼接处理定位数据和唤醒原因
+    if reason == 0 then
+        txData = "normal wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 1 then
+        txData = "timer wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 2 then
+        txData = "pad wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 3 then
+        txData = "uart1 wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    end
+    if slp_state > 0 then
+        mobile.flymode(0, false) -- 退出飞行模式，进入psm+前进入飞行模式，唤醒后需要主动退出
+    end
+
+    local netc, needBreak
+    local result, param, is_err
+    -- 创建socket client对象
+    netc = socket.create(nil, d1Name)
+    --关闭debug信息
+    socket.debug(netc, false)
+    -- 配置socket client对象为netc
+    socket.config(netc) 
+    local retry = 0
+    --这边会尝试连接服务器并且发送，最多处理3次，如果3次都不行就退出，发送成功就直接退出
+    while retry < 3 do
+        while not socket.adapter(socket.dft()) do
+            log.warn("tcp_client_main_task_func", "wait IP_READY")
+            -- 在此处阻塞等待联网成功成功的消息"IP_READY"
+            -- 或者等待30秒超时退出阻塞等待状态
+            sys.waitUntil("IP_READY", 30000)
+        end
+
+        log.info(rtos.meminfo("sys"))
+        -- 连接server
+        result = libnet.connect(d1Name, 5000, netc, ip, port)
+
+        if result then
+            log.info("服务器连上了")
+            --连接成功发送数据
+            result, param = libnet.tx(d1Name, 15000, netc, txData)
+            --如果发送失败就直接退出
+            if not result then
+                log.info("服务器断开了", result, param)
+                break
+            else
+                needBreak = true
+            end
+        else
+            log.info("服务器连接失败")
+        end
+        --关闭socket
+        libnet.close(d1Name, 5000, netc)
+        retry = retry + 1
+        --如果发送成功结束循环
+        if needBreak then
+            break
+        end
+    end
+    socket.release(netc)
+
+    uart.setup(1, 9600) -- 配置uart1，外部唤醒用
+
+    -- 关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
+    pm.power(pm.USB, false)
+
+
+    pm.dtimerStart(3, period) -- 启动深度休眠定时器
+
+    mobile.flymode(0, true) -- 启动飞行模式，规避可能会出现的网络问题
+    pm.power(pm.WORK_MODE, 3) -- 进入极致功耗模式
+
+    sys.wait(15000) -- demo演示唤醒时间是三十分钟，如果15s后模块重启，则说明进入极致功耗模式失败，
+    log.info("进入极致功耗模式失败，尝试重启")
+    rtos.reboot()
+end
+
+local function psm_cb(tag)
+    log.info("TAGmode1_cb+++++++++",tag)
+    local  rmc=exgnss.rmc(0)
+    log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
+    lat,lng=rmc.lat,rmc.lng
+    sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
+end
+
+local function gnss_fnc()
+    log.info("gnss_fnc111")
+    local gnssotps={
+        gnssmode=1, --1为卫星全定位，2为单北斗
+        agps_enable=true,    --是否使用AGPS，开启AGPS后定位速度更快，会访问服务器下载星历，星历时效性为北斗1小时，GPS4小时，默认下载星历的时间为1小时，即一小时内只会下载一次
+        -- debug=true,    --是否输出调试信息
+        -- uart=2,    --使用的串口,780EGH和8000默认串口2
+        -- uartbaud=115200,    --串口波特率，780EGH和8000默认115200
+        -- bind=1, --绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号
+        -- rtc=false    --定位成功后自动设置RTC true开启，flase关闭
+         ----因为GNSS使用辅助定位的逻辑，是模块下载星历文件，然后把数据发送给GNSS芯片，
+        ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
+        ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把agps_autoopen设置成false
+        ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
+        auto_open=false,
+        gnss_volgpio=21 --设置GNSS模块的供电脚，外挂GNSS模块需要设置，4G定位二合一的模块不需要设置
+    }
+    exgnss.setup(gnssotps)
+    exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})
+end
+
+sys.taskInit(gnss_fnc)

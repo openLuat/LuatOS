@@ -36,10 +36,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_packages("libsdl2")
 end
 
-if os.getenv("LUAT_USE_LVGL9") == "y" then
-    add_defines("LUAT_USE_LVGL9=1")
-end
-
 if is_host("windows") then
     add_defines("LUAT_USE_WINDOWS")
     add_defines("_CRT_SECURE_NO_WARNINGS")
@@ -81,7 +77,6 @@ target("luatos-lua")
     if is_plat("linux", "macosx") then
         add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
-        add_links("avformat", "avcodec", "avutil", "swresample")    -- FFmpeg
     end
 
     -- i2c-tools
@@ -134,6 +129,10 @@ target("luatos-lua")
     -- cjson
     add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
+    -- ndk core
+    add_includedirs(luatos.."components/ndk/include",{public = true})
+    add_files(luatos.."components/ndk/src/*.c")
+    add_files(luatos.."components/ndk/binding/*.c")
     -- fft core
     add_includedirs(luatos.."components/fft/inc", {public = true})
     add_files(luatos.."components/fft/src/*.c")
@@ -179,8 +178,8 @@ target("luatos-lua")
     add_files(luatos.."components/ymodem/*.c")
 
     -- profiler
-    add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
-    add_files(luatos.."components/mempool/profiler/**.c")
+    -- add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
+    -- add_files(luatos.."components/mempool/profiler/**.c")
 
     -- fastlz
     add_includedirs(luatos.."components/fastlz",{public = true})
@@ -195,9 +194,9 @@ target("luatos-lua")
     add_files(luatos.."components/coremark/*.c")
 
     -- sqlite3
-    add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    add_files(luatos.."components/sqlite3/src/*.c")
-    add_files(luatos.."components/sqlite3/binding/*.c")
+    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    -- add_files(luatos.."components/sqlite3/src/*.c")
+    -- add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")
@@ -248,17 +247,17 @@ target("luatos-lua")
     add_files(luatos.."components/network/errdump/*.c")
 
     -- ercoap
-    add_includedirs(luatos.."components/network/ercoap/include",{public = true})
-    add_files(luatos.."components/network/ercoap/src/*.c")
-    add_files(luatos.."components/network/ercoap/binding/*.c")
+    -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
+    -- add_files(luatos.."components/network/ercoap/src/*.c")
+    -- add_files(luatos.."components/network/ercoap/binding/*.c")
 
     -- ws2812
-    add_includedirs(luatos.."components/ws2812/include",{public = true})
-    add_files(luatos.."components/ws2812/src/*.c")
-    add_files(luatos.."components/ws2812/binding/*.c")
+    -- add_includedirs(luatos.."components/ws2812/include",{public = true})
+    -- add_files(luatos.."components/ws2812/src/*.c")
+    -- add_files(luatos.."components/ws2812/binding/*.c")
 
     -- onewire
-    add_includedirs(luatos.."components/onewire/include",{public = true})
+    -- add_includedirs(luatos.."components/onewire/include",{public = true})
     -- add_files(luatos.."components/onewire/src/*.c")
     -- add_files(luatos.."components/onewire/binding/*.c")
 
@@ -364,13 +363,13 @@ target("luatos-lua")
         add_files(luatos.."components/tjpgd/*.c")
         add_files(luatos.."components/qrcode/*.c")
 
-        add_includedirs(luatos.."components/luatfonts")
-        add_files(luatos.."components/luatfonts/**.c")
+        -- add_includedirs(luatos.."components/luatfonts")
+        -- add_files(luatos.."components/luatfonts/**.c")
 
         -- gtfont PC simulator core
-        add_includedirs(luatos.."components/gtfont")
-        add_includedirs(luatos.."components/eink")
-        add_files(luatos.."components/gtfont/*.c")
+        -- add_includedirs(luatos.."components/gtfont")
+        -- add_includedirs(luatos.."components/eink")
+        -- add_files(luatos.."components/gtfont/*.c")
         
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")

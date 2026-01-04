@@ -53,7 +53,18 @@ static bool sdl_input_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
                 data->point.y = e.button.y;
             }
         }
-
+        else if (e.type == SDL_MOUSEMOTION) {
+            // 处理鼠标移动事件，支持拖动检测
+            if (e.motion.state & SDL_BUTTON_LMASK) {
+                // 左键按下时的移动，设置为按下状态
+                data->state = LV_INDEV_STATE_PR;
+            } else {
+                // 左键未按下时的移动，设置为释放状态
+                data->state = LV_INDEV_STATE_REL;
+            }
+            data->point.x = e.motion.x;
+            data->point.y = e.motion.y;
+        }
         if (e.type == SDL_CONTROLLERBUTTONDOWN || e.type == SDL_KEYDOWN)
             data->state = LV_INDEV_STATE_PR;
         if (e.type == SDL_CONTROLLERBUTTONUP || e.type == SDL_KEYUP)

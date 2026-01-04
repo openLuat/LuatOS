@@ -12,13 +12,11 @@
 
 6、test.pcm: 用于G711编解码和PCM编码为AMR并播放演示的音频文件
 
-7、pins_Air8000.json：管脚配置文件
-
 ## 常量的介绍
 
 1、codec.MP3 : MP3音频格式，仅支持解码功能，用于将MP3文件解码为PCM数据
 
-2、codec.AMR : AMR_WB格式（窄带AMR），支持编码和解码
+2、codec.AMR : AMR_NB格式（窄带AMR），支持编码和解码
 
 3、codec.AMR_WB : AMR_WB格式（宽带AMR），仅在支持VoLTE的固件上支持编解码
 
@@ -28,7 +26,7 @@
 
 ## 演示功能概述
 
-1、codec_mp3_to_pcm：将MP3文件解码为PCM数据，并使用exaudio进行流式播放，自动识别MP3文件的采样率和位深度，使用单声道播放。
+1、codec_mp3_to_pcm：将MP3文件解码为PCM数据，并使用exaudio进行流式播放。
 
 2、codec_g711_pcm：演示G711编解码功能，将PCM文件进行G711编码，然后解码并播放。
 
@@ -63,24 +61,24 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 
 2、TYPE-C USB数据线一根
-- Air8000开发板/核心板通过 TYPE-C USB 口供电；
-- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
+- Air8000开发板/核心板通过 TYPE-C USB 口供电；
+
+- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、Air8000 V2016版本固件，选择支持Volte或者对讲功能的固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
+2、Air8000 V2018及以上版本固件，选择支持codec或者对讲功能的固件。不同版本区别参考[Air8000 LuatOS固件版本](https://docs.openluat.com/air8000/luatos/firmware/)。
 
 3、 luatos需要的脚本和资源文件
-- 脚本和资源文件[点我浏览所有文件](待补充链接)
 
-- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air8000核心板](https://docs.openluat.com/air8000/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air8000开发板/核心板中。
+- 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/codec)
 
-4、[合宙 LuatIO 工具(GPIO 复用初始化配置)使用说明](https://docs.openluat.com/air780epm/common/luatio/)
+- 准备好软件环境之后，接下来查看[如何烧录项目文件到Air8000核心板中](https://docs.openluat.com/air8000/luatos/common/download/) 或者查看 [Air8000 产品手册](https://docs.openluat.com/air8000/product/shouce/) 中“Air8000 整机开发板使用手册 -> 使用说明”，将本篇文章中演示使用的项目文件烧录到 Air8000 开发板中。
 
-5、 lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
 
 ## 演示核心步骤
 

@@ -24,6 +24,7 @@ extern "C" {
     {.name="W25N01KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAE21, .type=LF_DRIVER_NAND_FLASH, .capacity=128L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
     {.name="W25N02KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA22, .type=LF_DRIVER_NAND_FLASH, .capacity=256L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
     {.name="W25N04KVZEIR", .manufacturer_id=LF_MF_ID_WINBOND, .device_id=0xAA23, .type=LF_DRIVER_NAND_FLASH, .capacity=512L*1024L*1024L, .erase_cmd=0xD8, .erase_size=64L*2048L },  \
+    {.name="MX35LF512"   , .manufacturer_id=LF_MF_ID_MXIC   , .device_id=0x12C2, .type=LF_DRIVER_NAND_FLASH, .capacity=64L*1024L*1024L , .erase_cmd=0xD8, .erase_size=64L*2048L },  \
 }
 
 #ifdef __cplusplus

@@ -11,6 +11,10 @@
 
 #include "luat_conf_bsp.h"
 
+#if defined(__BK72XX__)
+    #include "luat_conf_bsp_air8101.h"
+#endif
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/
@@ -42,7 +46,7 @@
 
 
 
-#elif defined(__BK72XX__)
+#elif defined(LUAT_USE_EASYLVGL_BK7258)
     /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
     #define LV_USE_OS   LV_OS_FREERTOS
     // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制
@@ -63,6 +67,10 @@
     #define LV_MEM_SIZE (128 * 1024U)
 
     #define LV_USE_TJPGD 1
+
+    // 打开XML支持
+    #define LV_USE_XML 1
+    #define LV_USE_OBJ_NAME 1
 
 #else
     /* 默认配置（如果未定义平台） */

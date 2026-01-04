@@ -471,7 +471,7 @@ static int l_pm_keep(lua_State *L) {
     	onoff = lua_tointeger(L, 2);
     }
     int ret = luat_pm_power_ctrl(id + LUAT_PM_POWER_VOTE_BASE, onoff);
-    lua_pushinteger(L, 1);
+    lua_pushinteger(L, ret);
     return 1;
 }
 

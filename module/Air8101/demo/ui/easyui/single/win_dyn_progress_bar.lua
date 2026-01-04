@@ -78,11 +78,9 @@ local function ui_main()
         
         pb:set_progress(current)
         value_label:set_text("进度: " .. current .. "%")
-        
-        -- 刷新显示
-        ui.refresh()
-        -- 等待30ms
+
         sys.wait(30)
+
     end
 end
 

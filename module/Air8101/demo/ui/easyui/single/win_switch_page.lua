@@ -191,11 +191,6 @@ local function ui_main()
     -- 注册主页面到UI系统
     ui.add(home)
 
-    -- 启动exeasyui刷新主循环
-    while true do
-        ui.refresh()
-        sys.wait(30)
-    end
 end
 
 sys.taskInit(ui_main)

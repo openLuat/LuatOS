@@ -121,6 +121,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_COREMARK
   {"coremark", luaopen_coremark},
 #endif
+#ifdef LUAT_USE_NDK
+  {"ndk", luaopen_ndk},
+#endif
 #ifdef LUAT_USE_NETWORK
   {"socket", luaopen_socket_adapter},
   {"http", luaopen_http},
@@ -151,6 +154,9 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
+#endif
+#ifdef LUAT_USE_EASYLVGL
+  {"easylvgl", luaopen_easylvgl},
 #endif
 #ifdef LUAT_USE_LCD
   {"lcd",    luaopen_lcd},

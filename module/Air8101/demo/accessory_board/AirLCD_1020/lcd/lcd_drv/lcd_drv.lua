@@ -35,7 +35,7 @@ end
 ]]
 
 function lcd_drv.init()
-    local result = lcd.init("nv3052c",
+    local result = lcd.init("h050iwv",
         {
             pin_pwr = 8,              -- 背光控制引脚GPIO端口号
             port = lcd.RGB,           -- 驱动端口
@@ -44,13 +44,6 @@ function lcd_drv.init()
             h = 480,                  -- lcd 竖直分辨率
             xoffset = 0,              -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,              -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
-            bus_speed = 30 * 1000 * 1000, -- SPI总线速度,不填默认50M，若速率要求更高需要进行设置
-            hbp = 8,                  -- 水平后廊
-            hspw = 4,                 -- 水平同步脉冲宽度
-            hfp = 8,                  -- 水平前廊
-            vbp = 16,                 -- 垂直后廊
-            vspw = 4,                 -- 垂直同步脉冲宽度
-            vfp = 16,                 -- 垂直前廊
         })
 
     log.info("lcd.init", result)

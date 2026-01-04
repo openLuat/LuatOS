@@ -50,7 +50,7 @@ function extp_drv.init()
         return false
     end
 
-    result = extp.init({tp_model = "AirLCD_1010", i2c_id = 1, pin_rst = 0xFF, pin_int = 22, w = 320, h = 480})
+    result = extp.init({tp_model = "AirLCD_1010", i2c_id = 1, pin_rst = 0xFF, pin_int = 24, w = 320, h = 480})
 
     log.info("extp.init", result)
 

@@ -97,7 +97,7 @@
 <tr>
 <td>28/U2RXD<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>19/GPIO22<br/></td><td>RST<br/></td></tr>
+<td>20/GPIO24<br/></td><td>RST<br/></td></tr>
 <tr>
 <td>29/U2TXD<br/></td><td>SDA<br/></td></tr>
 <tr>
@@ -140,7 +140,7 @@
 
 ### 6.2 内核固件
 
-- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780epm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2014_Air780EHM 1号固件
+- [点击下载Air780EHM系列最新版本内核固件](https://docs.openluat.com/air780ehm/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2014_Air780EHM 1号固件
   
 - [点击下载Air780EHV系列最新版本内核固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)，demo所使用的是LuatOS-SoC_V2014_Air780EHV 1号固件
   
@@ -161,7 +161,7 @@
 -- 1. hw_default_font_drv - LCD显示驱动和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 -- 2. hw_gtfont_drv - LCD显示驱动和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 require("hw_default_font_drv")  -- 使用内置12号中文点阵字体
--- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库，在屏幕上表现
+-- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库
 
 -- 加载按键驱动
 require("key_drv")

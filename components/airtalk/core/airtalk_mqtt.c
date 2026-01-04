@@ -98,4 +98,5 @@ void luat_airtalk_net_set_mqtt_topic(const void *data, uint32_t len)
 {
 	OS_ReInitBuffer(&prv_mqtt.topic, len);
 	OS_BufferWrite(&prv_mqtt.topic, data, len);
+	LUAT_DEBUG_PRINT("%.*s", prv_mqtt.topic.Pos, prv_mqtt.topic.Data);
 }

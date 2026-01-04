@@ -1,4 +1,4 @@
-**本文演示Air780EPM的excamera接口的两种使用方式：**
+**本文演示Air780EPM使用excamera扩展库控制两款摄像头配件板实现拍照上传的功能：**
 
 1. Air780EPM开发板挂载SPI接口的AirCAMERA _1040摄像头配件板，实现本地拍摄照片并上传服务器功能，详细demo请查看
    [AirCAMERA_1040](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EPM/demo/accessory_board/AirCAMERA_1040)

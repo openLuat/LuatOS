@@ -53,8 +53,6 @@ local function ui_main()
         
         pb:set_progress(current)
         
-        -- 刷新显示
-        ui.refresh()
         -- 等待30ms
         sys.wait(30)
     end

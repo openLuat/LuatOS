@@ -183,6 +183,11 @@ typedef struct luat_airlink_spi_conf
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
 extern luat_airlink_link_data_cb g_airlink_link_data_cb;
 
+#include "luat_rtos.h"
+extern luat_rtos_mutex_t g_airlink_pause_mutex;
+void luat_airlink_pause_init(void);
+void luat_airlink_set_pause(uint32_t val);
+
 uint64_t luat_airlink_get_next_cmd_id(void);
 
 luat_airlink_cmd_t* luat_airlink_cmd_new(uint16_t cmd, uint16_t data_len);
@@ -269,12 +274,10 @@ int luat_airlink_drv_uart_read(int uart_id, void* buffer, size_t length);
 int luat_airlink_drv_uart_close(int uart_id);
 
 // mobile类
-#if defined(LUAT_USE_DRV_MOBILE) || defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
-#include "luat_mobile.h"
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
+#include "luat_mobile.h"
 typedef void (*luat_airlink_mobile_evt_cb)(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
 int luat_airlink_mobile_event_callback(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr);
-#endif
 #endif
 
 extern uint32_t g_airlink_debug;

@@ -34,11 +34,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
     add_requires("libsdl2")
     add_packages("libsdl2")
-    -- freetype 用于 PC 端 gtfont 仿真渲染（使用本地freetype）
-    -- add_requires("freetype")
-    -- add_packages("freetype")
-    -- add_requires("libsdl 2.26.2")
-    -- add_packages("libsdl 2.26.2")
 end
 
 if is_host("windows") then
@@ -82,7 +77,6 @@ target("luatos-lua")
     if is_plat("linux", "macosx") then
         add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
-        add_links("avformat", "avcodec", "avutil", "swresample")    -- FFmpeg
     end
 
     -- i2c-tools
@@ -105,9 +99,9 @@ target("luatos-lua")
             ,luatos.."luat/modules/luat_lib_rtc.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
             ,luatos.."luat/modules/luat_lib_spi.c"
-            ,luatos.."luat/modules/luat_lib_softspi.c"
+            -- ,luatos.."luat/modules/luat_lib_softspi.c"
             ,luatos.."luat/modules/luat_lib_i2c.c"
-            ,luatos.."luat/modules/luat_lib_softi2c.c"
+            -- ,luatos.."luat/modules/luat_lib_softi2c.c"
             ,luatos.."luat/modules/luat_lib_i2s.c"
             ,luatos.."luat/modules/luat_lib_wdt.c"
             ,luatos.."luat/modules/luat_lib_pm.c"
@@ -135,6 +129,10 @@ target("luatos-lua")
     -- cjson
     add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
+    -- ndk core
+    add_includedirs(luatos.."components/ndk/include",{public = true})
+    add_files(luatos.."components/ndk/src/*.c")
+    add_files(luatos.."components/ndk/binding/*.c")
     -- fft core
     add_includedirs(luatos.."components/fft/inc", {public = true})
     add_files(luatos.."components/fft/src/*.c")
@@ -180,8 +178,8 @@ target("luatos-lua")
     add_files(luatos.."components/ymodem/*.c")
 
     -- profiler
-    add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
-    add_files(luatos.."components/mempool/profiler/**.c")
+    -- add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
+    -- add_files(luatos.."components/mempool/profiler/**.c")
 
     -- fastlz
     add_includedirs(luatos.."components/fastlz",{public = true})
@@ -196,24 +194,19 @@ target("luatos-lua")
     add_files(luatos.."components/coremark/*.c")
 
     -- sqlite3
-    add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    add_files(luatos.."components/sqlite3/src/*.c")
-    add_files(luatos.."components/sqlite3/binding/*.c")
+    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    -- add_files(luatos.."components/sqlite3/src/*.c")
+    -- add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")
     add_files(luatos.."components/mobile/*.c")
 
-    --ffmpeg
-    -- add_includedirs("ffmpeg_x86/include")
-    add_includedirs("ffmpeg_x86")
-    add_files("ffmpeg_x86/ffmpeg.c")
-
     -- multimedia
-    add_includedirs(luatos.."components/multimedia",{public = true})
-    add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
-    add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
-    add_files(luatos.."components/multimedia/luat_audio_es8311.c")
+    -- add_includedirs(luatos.."components/multimedia",{public = true})
+    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
+    -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
 
     ----------------------------------------------------------------------
     -- 网络相关
@@ -254,17 +247,17 @@ target("luatos-lua")
     add_files(luatos.."components/network/errdump/*.c")
 
     -- ercoap
-    add_includedirs(luatos.."components/network/ercoap/include",{public = true})
-    add_files(luatos.."components/network/ercoap/src/*.c")
-    add_files(luatos.."components/network/ercoap/binding/*.c")
+    -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
+    -- add_files(luatos.."components/network/ercoap/src/*.c")
+    -- add_files(luatos.."components/network/ercoap/binding/*.c")
 
     -- ws2812
-    add_includedirs(luatos.."components/ws2812/include",{public = true})
-    add_files(luatos.."components/ws2812/src/*.c")
-    add_files(luatos.."components/ws2812/binding/*.c")
+    -- add_includedirs(luatos.."components/ws2812/include",{public = true})
+    -- add_files(luatos.."components/ws2812/src/*.c")
+    -- add_files(luatos.."components/ws2812/binding/*.c")
 
     -- onewire
-    add_includedirs(luatos.."components/onewire/include",{public = true})
+    -- add_includedirs(luatos.."components/onewire/include",{public = true})
     -- add_files(luatos.."components/onewire/src/*.c")
     -- add_files(luatos.."components/onewire/binding/*.c")
 
@@ -319,17 +312,50 @@ target("luatos-lua")
         -- lcd
         add_includedirs(luatos.."components/lcd")
         add_files(luatos.."components/lcd/*.c")
-        -- lvgl
-        add_includedirs(luatos.."components/lvgl")
-        add_includedirs(luatos.."components/lvgl/binding")
-        add_includedirs(luatos.."components/lvgl/gen")
-        add_includedirs(luatos.."components/lvgl/src")
-        add_includedirs(luatos.."components/lvgl/font")
-        add_includedirs(luatos.."components/lvgl/src/lv_font")
-        add_includedirs(luatos.."components/lvgl/sdl2")
-        add_files(luatos.."components/lvgl/**.c")
-        -- 默认不编译lv的demos, 节省大量的编译时间
-        remove_files(luatos.."components/lvgl/lv_demos/**.c")
+        
+        -- LVGL 9.4 + EasyLVGL - 最基础组件编译
+        -- 宏定义：启用 EasyLVGL 和 SDL2 平台
+        -- add_defines("LUAT_USE_EASYLVGL=1")
+        -- add_defines("LUAT_USE_EASYLVGL_SDL2=1")
+        -- 头文件添加：lvgl9 
+        add_includedirs(luatos.."components/easylvgl")
+        add_includedirs(luatos.."components/easylvgl/lvgl9")
+        add_includedirs(luatos.."components/easylvgl/lvgl9/src")
+        
+        -- 先添加所有源文件
+        add_files(luatos.."components/easylvgl/lvgl9/src/**.c")
+        
+        -- 排除不需要的组件（按优先级排序）
+        -- 1. 硬件驱动（PC 模拟器不需要）
+        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.cpp")
+        
+        -- 2. 硬件加速绘制引擎（只保留软件渲染 SW）
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/dma2d/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/eve/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nema_gfx/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nxp/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/opengles/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/renesas/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/vg_lite/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/sdl/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/espressif/**/*.c")
+        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/convert/**/*.c")
+        
+        -- 3. 库：排除不需要的库（可选功能）
+        -- remove_files(luatos.."components/easylvgl/lvgl9/src/libs/**/*.c")
+        
+        -- EasyLVGL 架构配置
+        -- 1. 公共头文件
+        add_includedirs(luatos.."components/easylvgl/inc")
+        
+        -- 2. 包含 src 目录下的所有文件（递归）
+        add_includedirs(luatos.."components/easylvgl/src")
+        add_files(luatos.."components/easylvgl/src/**/*.c")
+        
+        -- 3. Lua 绑定层（binding，不在 src 目录下，需单独处理）
+        add_includedirs(luatos.."components/easylvgl/binding")
+        add_files(luatos.."components/easylvgl/binding/*.c")
 
         -- qrcode 和 tjpgd
         add_includedirs(luatos.."components/qrcode")
@@ -337,13 +363,13 @@ target("luatos-lua")
         add_files(luatos.."components/tjpgd/*.c")
         add_files(luatos.."components/qrcode/*.c")
 
-        add_includedirs(luatos.."components/luatfonts")
-        add_files(luatos.."components/luatfonts/**.c")
+        -- add_includedirs(luatos.."components/luatfonts")
+        -- add_files(luatos.."components/luatfonts/**.c")
 
         -- gtfont PC simulator core
-        add_includedirs(luatos.."components/gtfont")
-        add_includedirs(luatos.."components/eink")
-        add_files(luatos.."components/gtfont/*.c")
+        -- add_includedirs(luatos.."components/gtfont")
+        -- add_includedirs(luatos.."components/eink")
+        -- add_files(luatos.."components/gtfont/*.c")
         
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")

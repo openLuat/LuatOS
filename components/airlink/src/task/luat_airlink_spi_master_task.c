@@ -33,6 +33,7 @@
 
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
+extern luat_rtos_mutex_t g_airlink_pause_mutex;
 
 // static uint8_t start;
 // static uint8_t slave_rdy;
@@ -112,6 +113,23 @@ void luat_airlink_spi_master_pin_setup(void)
     if (spi_rdy)
         return;
     spi_rdy = 1;
+#ifdef __BK72XX__
+    if (g_airlink_spi_conf.cs_pin == 0)
+    {
+        // if (g_airlink_spi_conf.spi_id == 0) {
+        g_airlink_spi_conf.cs_pin = 15;
+        // }
+        // else {
+        //     g_airlink_spi_conf.cs_pin = 8;
+        // }
+    }
+    if (g_airlink_spi_conf.rdy_pin == 0)
+    {
+        // if (g_airlink_spi_conf.spi_id == 0) {
+        g_airlink_spi_conf.rdy_pin = 48;
+        // }
+    }
+#else
     if (g_airlink_spi_conf.cs_pin == 0)
     {
         // if (g_airlink_spi_conf.spi_id == 0) {
@@ -127,6 +145,7 @@ void luat_airlink_spi_master_pin_setup(void)
         g_airlink_spi_conf.rdy_pin = 22;
         // }
     }
+#endif
     if (g_airlink_spi_conf.irq_pin == 0)
     {
         g_airlink_spi_conf.irq_pin = 255; // 默认禁用irq脚
@@ -265,7 +284,6 @@ __USER_FUNC_IN_RAM__ int airlink_wait_for_slave_reply(size_t timeout_ms)
 {
     uint64_t timeout = 0;
     luat_event_t event = {0};
-    size_t qlen = 0;
     while (timeout < timeout_ms)
     {
         event.id = 0;
@@ -287,10 +305,28 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     airlink_queue_item_t item = {0};
     uint32_t timeout = 5;
     int ret = 0;
-    if (g_airlink_pause) {
-        while (g_airlink_pause) {
-            //LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
-            luat_rtos_task_sleep(1000);
+    uint32_t qlen = 0;
+    luat_rtos_queue_get_cnt(evt_queue, &qlen);
+    if (qlen == 0)
+    {
+        if (g_airlink_pause)
+        {
+            if (g_airlink_pause_mutex)
+            {
+                // LLOGD("airlink entering pause, waiting on mutex");
+                luat_rtos_mutex_lock(g_airlink_pause_mutex, LUAT_WAIT_FOREVER);
+                // LLOGD("airlink resumed from pause");
+                luat_rtos_mutex_unlock(g_airlink_pause_mutex);  // 立即释放，避免占用
+            }
+            else
+            {
+                // 若未创建则轮询等待
+                while (g_airlink_pause) 
+                {
+                    LLOGD("airlink spi 交互暂停中,允许主控休眠, 监测周期1000ms");
+                    luat_rtos_task_sleep(1000);
+                }
+            }
         }
     }
     if (g_airlink_wakeup_irq_ctx.enable)

@@ -49,11 +49,6 @@ local function ui_main()
     -- 注册窗口到UI系统
     ui.add(win)
 
-    -- 启动exeasyui刷新主循环
-    while true do
-        ui.refresh()
-        sys.wait(200)
-    end
 end
 
 sys.taskInit(ui_main)

@@ -56,7 +56,9 @@ end)
 */
     case NTP_UPDATE:
         lua_pushstring(L, "NTP_UPDATE");
-        break;
+        lua_pushinteger(L, 0); // 0代表通过socket.sntp同步的
+        lua_call(L, 2, 0);
+        return 0;
 /*
 @sys_pub socket
 时间同步失败

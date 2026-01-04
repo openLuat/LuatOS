@@ -44,7 +44,7 @@ local function http_opts_parse(opts)
         return -100, "opts不能为nil"
     end
     if not opts.url or #opts.url < 5 then
-        log.error(TAG, "URL不存在或者太短了", url)
+        log.error(TAG, "URL不存在或者太短了", opts.url)
         return -100, "URL不存在或者太短了"
     end
     if not opts.headers then
@@ -86,7 +86,7 @@ local function http_opts_parse(opts)
     end
     -- log.info("http分解阶段2", is_ssl, tmp, uri)
     if tmp == nil or #tmp == 0 then
-        log.error(TAG, "非法的URL", url)
+        log.error(TAG, "非法的URL", opts.url)
         return -101, "非法的URL"
     end
     -- 有无鉴权信息
@@ -115,7 +115,11 @@ local function http_opts_parse(opts)
     end
     -- 收尾工作
     if not opts.headers["Host"] then
-        opts.headers["Host"] = string.format("%s:%d", host, port)
+        if (is_ssl and port == 443) or ((not is_ssl) and port == 80) then
+            opts.headers["Host"] = host
+        else
+            opts.headers["Host"] = string.format("%s:%d", host, port)
+        end
     end
     -- Connection 必须关闭
     opts.headers["Connection"] = "Close"
@@ -147,9 +151,9 @@ local function http_opts_parse(opts)
             if not opts.headers["Content-Type"] then
                 opts.headers["Content-Type"] = "application/x-www-form-urlencoded;charset=UTF-8"
             end
-            local buff = zbuff.create(120)
+            local buff = zbuff.create(256)
             for kk, vv in pairs(opts.forms) do
-                buff:copy(nil, kk)
+                buff:copy(nil, string.urlEncode(tostring(kk)))
                 buff:copy(nil, "=")
                 buff:copy(nil, string.urlEncode(tostring(vv)))
                 buff:copy(nil, "&")
@@ -173,7 +177,7 @@ local function http_opts_parse(opts)
             jpeg = "image/jpeg",            -- JPEG 格式图片
             png = "image/png",              -- PNG 格式图片   
             gif = "image/gif",              -- GIF 格式图片
-            html = "image/html",            -- HTML
+            html = "text/html",             -- HTML
             json = "application/json",      -- JSON
             mp4 = "video/mp4",              -- MP4 格式视频
             mp3 = "audio/mp3",              -- MP3 格式音频
@@ -181,7 +185,7 @@ local function http_opts_parse(opts)
         }
         for kk, vv in pairs(opts.files) do
             local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
-            local fname = vv:match("[^%/]+%w$")
+            local fname = vv:match("([^/\\]+)$") or vv
             local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
             -- log.info("文件传输头", tmp)
             table.insert(opts.mp, {vv, tmp, "file"})
@@ -329,7 +333,7 @@ local function resp_parse(opts)
     opts.rx_buff:del(0, state_line_offset + 2)
     -- opts.log(TAG, "剩余的响应体", opts.rx_buff:query())
 
-    -- 解析headers
+    -- 解析headers（仅按首个冒号拆分，保留值中的冒号）
     while 1 do
         local offset = zbuff_find(opts.rx_buff, "\r\n")
         if not offset then
@@ -343,9 +347,15 @@ local function resp_parse(opts)
         end
         local line = opts.rx_buff:query(0, offset)
         opts.rx_buff:del(0, offset + 2)
-        local tmp2 = line:split(":")
-        opts.log(TAG, tmp2[1]:trim(), tmp2[2]:trim())
-        opts.resp.headers[tmp2[1]:trim()] = tmp2[2]:trim()
+        local name, value = line:match("^([^:]+):%s*(.*)$")
+        if name and value then
+            name = name:trim()
+            value = value:trim()
+            opts.log(TAG, name, value)
+            opts.resp.headers[name] = value
+        else
+            opts.log(TAG, "忽略非法header行", line)
+        end
     end
 
     -- if opts.resp_code < 299 then
@@ -353,45 +363,57 @@ local function resp_parse(opts)
         -- 有Content-Length就好办
         if opts.resp.headers["Content-Length"] then
             opts.log(TAG, "有Content-Length", opts.resp.headers["Content-Length"])
-            opts.resp.body = opts.rx_buff
-        elseif opts.resp.headers["Transfer-Encoding"] == "chunked" then
-            -- log.info(TAG, "数据是chunked编码", opts.rx_buff[0], opts.rx_buff[1])
-            -- log.info(TAG, "数据是chunked编码", opts.rx_buff:query(0, 4):toHex())
-            local coffset = 0
-            local crun = true
-            while crun and coffset < opts.rx_buff:used() do
-                -- 从当前offset读取长度, 长度总不会超过8字节吧?
-                local flag = true
-                -- local coffset = zbuff_find(opts.rx_buff, "\r\n")
-                -- if not coffset then
-                    
-                -- end
-                for i = 1, 8, 1 do
-                    if opts.rx_buff[coffset+i] == 0x0D and opts.rx_buff[coffset+i+1] == 0x0A then
-                        local ctmp = opts.rx_buff:query(coffset, i)
-                        -- opts.log(TAG, "chunked分片长度", ctmp, ctmp:toHex())
-                        local clen = tonumber(ctmp, 16)
-                        -- opts.log(TAG, "chunked分片长度2", clen)
-                        if clen == nil or clen == 0 then
-                            -- 末尾了
-                            opts.rx_buff:resize(coffset)
-                            crun = false
-                        else
-                            -- 先删除chunked块
-                            opts.rx_buff:del(coffset, i+2)
-                            coffset = coffset + clen
-                        end
-                        flag = false
-                        break
-                    end
-                end
-                -- 肯定能搜到chunked
-                if flag then
-                    log.error("非法的chunked块")
-                    break
-                end
+            local declared = tonumber(opts.resp.headers["Content-Length"]) or 0
+            if declared > 0 and opts.rx_buff:used() >= declared then
+                opts.rx_buff:resize(declared)
             end
             opts.resp.body = opts.rx_buff
+        elseif opts.resp.headers["Transfer-Encoding"] == "chunked" then
+            -- 解析 chunked 编码：长度行（可含分号扩展）+ 数据 + CRLF，末块长度为0
+            local function zbuff_find_from(buff, str, start_off)
+                local used = buff:used()
+                if used - start_off < #str then return end
+                local maxoff = used - #str
+                local tmp2 = zbuff.create(#str)
+                tmp2:write(str)
+                for i = start_off, maxoff, 1 do
+                    local ok = true
+                    for j = 0, #str - 1, 1 do
+                        if buff[i+j] ~= tmp2[j] then ok = false; break end
+                    end
+                    if ok then return i end
+                end
+            end
+            local body = zbuff.create(opts.rx_buff:used())
+            local pos = 0
+            while true do
+                local line_end = zbuff_find_from(opts.rx_buff, "\r\n", pos)
+                if not line_end then
+                    log.error(TAG, "非法的chunk长度行")
+                    break
+                end
+                local len_line = opts.rx_buff:query(pos, line_end - pos)
+                local semi = len_line:find(";")
+                local hex = semi and len_line:sub(1, semi - 1) or len_line
+                local clen = tonumber(hex, 16)
+                if not clen then
+                    log.error(TAG, "非法的chunk长度值", len_line)
+                    break
+                end
+                pos = line_end + 2
+                if clen == 0 then
+                    -- 末块：忽略后续 trailers
+                    break
+                end
+                if pos + clen > opts.rx_buff:used() then
+                    log.error(TAG, "chunk数据长度不足")
+                    break
+                end
+                local chunk = opts.rx_buff:query(pos, clen)
+                body:copy(nil, chunk)
+                pos = pos + clen + 2 -- 跳过数据及其后的CRLF
+            end
+            opts.resp.body = body
         end
     -- end
 
@@ -416,7 +438,7 @@ local function http_socket_cb(opts, event)
         -- 收到数据或者链接断开了, 这里总需要读取一次才知道
         local succ, data_len = socket.rx(opts.netc, opts.rx_buff)
         if succ and data_len > 0 then
-            opts.log(TAG, "收到数据", data_len, "总长", #opts.rx_buff)
+            opts.log(TAG, "收到数据", data_len, "总长", opts.rx_buff:used())
             -- opts.log(TAG, "数据", opts.rx_buff:query())
         else
             if not opts.is_closed then

@@ -37,6 +37,7 @@ uint32_t g_airlink_spi_task_mode;
 uint64_t g_airlink_last_cmd_timestamp;
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
+luat_rtos_mutex_t g_airlink_pause_mutex = NULL;
 uint64_t g_airlink_wifi_boot_time;
 
 int luat_airlink_init(void)
@@ -56,6 +57,8 @@ int luat_airlink_start(int id)
     {
         luat_rtos_queue_create(&airlink_ippkg_queue, AIRLINK_QUEUE_SIZE, sizeof(airlink_queue_item_t));
     }
+    // 初始化 pause 信号量，持久化创建一次，初始为空用于阻塞等待
+    luat_airlink_pause_init();
     if (id == 0)
     {
         #ifdef LUAT_USE_AIRLINK_SPI_SLAVE
@@ -87,6 +90,50 @@ int luat_airlink_start(int id)
         return -1;
     }
     return 0;
+}
+
+void luat_airlink_pause_init(void)
+{
+    if (g_airlink_pause_mutex == NULL)
+    {
+        if (luat_rtos_mutex_create(&g_airlink_pause_mutex) != 0)
+        {
+            LLOGW("airlink create pause mutex failed");
+        }
+    }
+}
+
+void luat_airlink_set_pause(uint32_t val)
+{
+    g_airlink_pause = val;
+    if (g_airlink_pause)
+    {
+        // LLOGD("airlink pause requested, attempting to acquire pause mutex");
+        if (g_airlink_pause_mutex == NULL)
+            luat_airlink_pause_init();
+        if (g_airlink_pause_mutex)
+        {
+            // 非阻塞尝试锁定，若失败再做短时重试，避免调用者被长时间阻塞
+            if (luat_rtos_mutex_lock(g_airlink_pause_mutex, 0) != 0)
+            {
+                for (int i = 0; i < 50; i++)
+                {
+                    if (luat_rtos_mutex_lock(g_airlink_pause_mutex, 20) == 0)
+                        break;
+                    luat_rtos_task_sleep(2);
+                }
+            }
+        }
+    }
+    else
+    {
+        // LLOGD("airlink resume requested, releasing pause mutex");
+        if (g_airlink_pause_mutex)
+        {
+            // 释放 mutex，唤醒等待
+            luat_rtos_mutex_unlock(g_airlink_pause_mutex);
+        }
+    }
 }
 
 int luat_airlink_stop(int id)

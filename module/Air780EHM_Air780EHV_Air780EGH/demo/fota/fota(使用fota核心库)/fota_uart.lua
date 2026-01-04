@@ -95,7 +95,7 @@ function uart_cbfun(id, len)
         uart_zbuff:del()
     end
 
-    while 1 do
+    while true do
         local len = uart.rx(id, uart_zbuff)
         if len <= 0 then
             break
@@ -113,7 +113,7 @@ end
 local function uartUpgradeTask()
     local fota_state = 0 -- 0还没开始, 1进行中
 
-    while 1 do
+    while true do
         -- 等待升级启动信号
         sys.waitUntil("UART_UPGRADE_START")
         log.info("FOTA_UART", "升级任务已启动，等待数据...")

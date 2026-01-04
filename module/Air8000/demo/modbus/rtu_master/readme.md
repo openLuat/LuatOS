@@ -122,15 +122,15 @@ local config = {
 
 > 此处购买链接仅为推荐，如有问题请直接联系店家
 
-- 购买链接：https://e.tb.cn/h.7YHZDX57ex5G68h?tk=AvE4fsurFy8
+- 购买链接：[4路RS-485，TYPEC接口 不含USB线](https://item.taobao.com/item.htm?app=chrome&bxsign=scdJP32y4DuiSo5k5D89Yse5PsbQ6EIYXNIPNkzmMi6zdQszLdrZrUy6-Nw96m51cCA5oz67QzXT9StIYyW8C2WWDa9P6CTUC4Imox3bONGK_FgAw8bQ8lYY0rnL7cRpNsG&cpp=1&id=608773837508&price=2.5&shareUniqueId=34323628624&share_crt_v=1&shareurl=true&short_name=h.7YHZDX57ex5G68h&skuId=5692060399621&sourceType=item&sp_tk=QXZFNGZzdXJGeTg%3D&spm=a2159r.13376460.0.0&suid=97525605-306d-4a26-8181-c6a5e5ac1449&tbSocialPopKey=shareItem&tk=AvE4fsurFy8&un=7a6477372f5d73d28011994573a7abfb&un_site=0&ut_sk=1.ZjZmtV%2FpLDkDACz9psyM0ajN_21646297_1765329298678.Copy.1&wxsign=tbwqCWYZys39IqYxa6fkQJ4fSCqNnxJegN9tEYlbjtUm1rAZyDddEbbohCLQnFZUojPMaKxNICvdbp1uAgV6d03jf7_X0hLeyUaHbuddZUTcL_y45R5fClnUqq9IfXXAxNG)
 
 4、气体浓度变送器（RS485 版）
 
 > 如果你是小白，建议直接购买同款变送器，由于不同型号的温湿度模块默认的参数也会有所区别
 
-- 购买链接：https://e.tb.cn/h.71oGcXUfrc46J83?tk=RJ1WfsuBfuY
+- 购买链接：[空气质量+温湿度+RS485](https://item.taobao.com/item.htm?app=chrome&bxsign=scdFu-qKg8ZXJ1xjQqlalAwji8TFl1rnWrARQlKI_RJiN6UHRZGAJbKyD-u91Id7rHVdhRGgc1Qz_dP3NaVPGvuOvxnqRK8Ue2_4iWjUqc88zgv0p4m-UtvX8C8Oo6ie3zT&cpp=1&id=845163274010&price=40&shareUniqueId=34323863342&share_crt_v=1&shareurl=true&short_name=h.71oGcXUfrc46J83&skuId=5623949684515&sourceType=item&sp_tk=UkoxV2ZzdUJmdVk%3D&spm=a2159r.13376460.0.0&suid=5bc5312a-35fd-42d4-8a70-01d4f0634912&tbSocialPopKey=shareItem&tk=RJ1WfsuBfuY&un=7a6477372f5d73d28011994573a7abfb&un_site=0&ut_sk=1.ZjZmtV%2FpLDkDACz9psyM0ajN_21646297_1765329298678.Copy.1&wxsign=tbwCFryRbuO3rOk8mETON_dt0pgE9dS7hbxK6Bcm0UJlzwzAbizoHUbY78zKnYm0DkkItxxjmYLA-BAD5i3Efxa1_QbpFAksRNHi4GETTmGVBH4KDIUrzeLBSbPiLKvpHsq)
 
-Air8000 与 USB-RS385 串口板接线图如下：
+Air8000 与 USB-RS485 串口板接线图如下：
 
 ![](https://docs.openluat.com/cdn/image/Air8000_rs485.png)
 

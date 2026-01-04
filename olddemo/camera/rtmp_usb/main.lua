@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "usb_cam_rtmp"
-VERSION = "1.0.0"
+VERSION = "1.0.2"
 
 local fota_enable = false  -- 是否启用FOTA功能
 
@@ -87,7 +87,7 @@ if fota_enable then
 end
 
 sys.taskInit(function()
-    sys.wait(1000)
+    gpio.setup(28, 1, gpio.PULLUP)
     log.info("当前脚本版本号：", VERSION, "core版本号：", rtos.version())
     wlan.init()
     wlan.connect("luatos1234", "12341234", 1)
@@ -95,10 +95,12 @@ sys.taskInit(function()
     sys.waitUntil("IP_READY")
 
     camera.config(0, camera.CONF_UVC_FPS, 15)
-    -- camera.config(0, camera.CONF_H264_QP_INIT, 12)
-    -- camera.config(0, camera.CONF_H264_IMB_BITS, 120)
-    camera.config(0, camera.CONF_H264_PMB_BITS, 20)
-    camera.config(0, camera.CONF_H264_PFRAME_NUMS, 23)
+    camera.config(0, camera.CONF_H264_QP_INIT, 40)
+    camera.config(0, camera.CONF_H264_QP_I_MAX, 40)
+    camera.config(0, camera.CONF_H264_QP_P_MAX, 25)
+    camera.config(0, camera.CONF_H264_IMB_BITS, 8)
+    camera.config(0, camera.CONF_H264_PMB_BITS, 4)
+    camera.config(0, camera.CONF_H264_PFRAME_NUMS, 29)
     socket.sntp()
     sys.wait(200)
     result = camera.init(usb_camera_table)

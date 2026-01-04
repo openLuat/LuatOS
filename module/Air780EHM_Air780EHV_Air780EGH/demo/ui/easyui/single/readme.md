@@ -178,7 +178,7 @@
 <tr>
 <td>66/I2C1_SDA<br/></td><td>SDA<br/></td></tr>
 <tr>
-<td>19/GPIO22<br/></td><td>INT<br/></td></tr>
+<td>20/GPIO24<br/></td><td></td><td>INT<br/></td></tr>
 </table>
 
 #### 5.2.2 GTFont 字库接线
@@ -259,7 +259,7 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
 -- require("win_hzfont")  --内置软件矢量字体演示
--- require("win_hzfont")  --外置硬件矢量字体演示
+-- require("win_gtfont")  --外置硬件矢量字体演示
 ```
 
 ### 7.3 软件烧录步骤

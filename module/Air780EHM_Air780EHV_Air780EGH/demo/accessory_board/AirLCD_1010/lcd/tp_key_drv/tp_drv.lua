@@ -59,7 +59,7 @@ function tp_drv.init()
         return false
     end
 
-    result = tp.init("gt911", {port = 1, pin_rst = 0xFF, pin_int = 22, w = 320, h = 480}, tp_callback)
+    result = tp.init("gt911", {port = 1, pin_rst = 0xFF, pin_int = 24, w = 320, h = 480}, tp_callback)
 
     log.info("tp.init", result)
 

@@ -355,7 +355,13 @@ static int l_pm_power_ctrl(lua_State *L) {
     }
     if (id == LUAT_PM_POWER_WIFI) {
         #ifdef LUAT_MODEL_AIR8000
-        luat_gpio_set(23, onoff ? Luat_GPIO_HIGH : Luat_GPIO_LOW);
+        if(onoff) {
+            luat_gpio_mode(23, LUAT_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+        } else {
+            luat_gpio_close(23);
+        }
+        lua_pushboolean(L, 1);
+        return 1;
         #endif
     }
     #ifdef LUAT_USE_DRV_PM

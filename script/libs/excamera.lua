@@ -145,27 +145,30 @@ function excamera.open(camera_param)
 
     -- 处理图像保存路径，支持内存缓冲区(ZBUFF)或文件路径
     if camera_param.save_path == "ZBUFF" then
-        -- 根据摄像头型号设置图像分辨率
-        if camera_param.id == "bf30a2" then
-            h, w = 240, 320 -- BF30A2摄像头分辨率
-        elseif camera_param.id == "gc032a" or "gc0310" then
-            h, w = 640, 480 -- GC032A/GC0310摄像头分辨率
-        elseif camera_param.id == camera.USB or camera.DVP then
-            -- USB或DVP摄像头使用传入的分辨率参数
-            h, w = camera_param.sensor_height, camera_param.sensor_width
-        end
-
-        -- 创建ZBUFF内存缓冲区，用于存储图像数据
-        -- 参数1: 缓冲区大小（宽*高*2，2字节/像素）
-        -- 参数2: 对齐方式
-        camera_buff = zbuff.create(h * w * 2, 0)
         if camera_buff == nil then
-            -- 缓冲区创建失败
-            log.info("ZBUFF创建失败")
-            return false
-        else
-            -- 缓冲区创建成功，保存到path变量
-            path = camera_buff
+            -- 根据摄像头型号设置图像分辨率
+            if camera_param.id == "bf30a2" then
+                h, w = 240, 320 -- BF30A2摄像头分辨率
+            elseif camera_param.id == "gc032a" or "gc0310" then
+                h, w = 640, 480 -- GC032A/GC0310摄像头分辨率
+            elseif camera_param.id == camera.USB or camera.DVP then
+                -- USB或DVP摄像头使用传入的分辨率参数
+                h, w = camera_param.sensor_height, camera_param.sensor_width
+            end
+
+
+            -- 创建ZBUFF内存缓冲区，用于存储图像数据
+            -- 参数1: 缓冲区大小（宽*高*2，2字节/像素）
+            -- 参数2: 对齐方式
+            camera_buff = zbuff.create(h * w * 2, 0)
+            if camera_buff == nil then
+                -- 缓冲区创建失败
+                log.info("ZBUFF创建失败")
+                return false
+            else
+                -- 缓冲区创建成功，保存到path变量
+                path = camera_buff
+            end
         end
     else
         -- 如果是文件路径则赋值到path，便于后面调用
@@ -396,7 +399,7 @@ end
 
 -- 关闭函数：释放摄像头资源
 -- 参数：camera_id - 摄像头ID
-function excamera.close()
+function excamera.close(remain_zbuff)
     if camera_id then
         -- 关闭摄像头，释放摄像头硬件资源
         camera.close(camera_id)
@@ -411,7 +414,7 @@ function excamera.close()
     -- 保护执行摄像头开关关闭，如果上面没有配置摄像头开关管脚，该函数也不会报错
     pcall(cam_pwdn, 1)
     -- 如果使用了内存缓冲区，释放相关资源
-    if type(path) == "userdata" then
+    if type(path) == "userdata" and not remain_zbuff then
         -- 置空缓冲区引用，便于垃圾回收
         camera_buff:free()
         camera_buff = nil
@@ -419,7 +422,7 @@ function excamera.close()
         -- 记录当前系统剩余内存情况
         log.info("剩余内存", rtos.meminfo("sys"))
     end
-    return
+    camera_id = nil
 end
 
 return excamera

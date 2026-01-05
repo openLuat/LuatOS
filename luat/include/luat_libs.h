@@ -238,5 +238,8 @@ LUAMOD_API int luaopen_misc(lua_State *L);
 LUAMOD_API int luaopen_rtmp(lua_State *L);
 /** rtsp推流库*/
 LUAMOD_API int luaopen_rtsp(lua_State *L);
+/** NDK */
+LUAMOD_API int luaopen_ndk(lua_State *L);
+
 
 #endif

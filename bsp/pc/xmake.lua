@@ -5,6 +5,8 @@ set_version("1.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")
 
 local luatos = "../../"
+-- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
+local mbedtls_version = 3
 
 add_requires("libuv v1.49.2")
 add_packages("libuv")
@@ -22,7 +24,11 @@ set_languages("gnu11")
 -- 核心宏定义
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 -- mbedtls使用本地自定义配置
-add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
+if mbedtls_version == 2 then
+    add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls218.h\"")
+else
+    add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls3.h\"")
+end
 -- coremark配置迭代数量
 add_defines("ITERATIONS=300000")
 
@@ -34,10 +40,6 @@ if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
     add_requires("libsdl2")
     add_packages("libsdl2")
-end
-
-if os.getenv("LUAT_USE_LVGL9") == "y" then
-    add_defines("LUAT_USE_LVGL9=1")
 end
 
 if is_host("windows") then
@@ -55,8 +57,6 @@ elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
 end
 
-
-add_includedirs(luatos.."components/mbedtls3/include",{public = true})
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
@@ -81,7 +81,6 @@ target("luatos-lua")
     if is_plat("linux", "macosx") then
         add_linkdirs("/opt/homebrew/lib", "/usr/local/lib")
         add_links("pthread", "m", "dl")
-        add_links("avformat", "avcodec", "avutil", "swresample")    -- FFmpeg
     end
 
     -- i2c-tools
@@ -134,15 +133,23 @@ target("luatos-lua")
     -- cjson
     add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
+    -- ndk core
+    add_includedirs(luatos.."components/ndk/include",{public = true})
+    add_files(luatos.."components/ndk/src/*.c")
+    add_files(luatos.."components/ndk/binding/*.c")
     -- fft core
     add_includedirs(luatos.."components/fft/inc", {public = true})
     add_files(luatos.."components/fft/src/*.c")
     add_files(luatos.."components/fft/binding/*.c")
     -- mbedtls
-    add_files(luatos.."components/mbedtls3/library/*.c")
-    add_includedirs(luatos.."components/mbedtls3/include")
-    -- add_files(luatos.."components/mbedtls/library/*.c")
-    -- add_includedirs(luatos.."components/mbedtls/include")
+    if mbedtls_version == 2 then
+        add_files(luatos.."components/mbedtls/library/*.c")
+        add_includedirs(luatos.."components/mbedtls/include")
+    else
+        add_files(luatos.."components/mbedtls3/library/*.c")
+        add_includedirs(luatos.."components/mbedtls3/include")
+    end
+
     -- iotauth
     add_includedirs(luatos.."components/iotauth")
     add_files(luatos.."components/iotauth/*.c")
@@ -179,8 +186,8 @@ target("luatos-lua")
     add_files(luatos.."components/ymodem/*.c")
 
     -- profiler
-    add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
-    add_files(luatos.."components/mempool/profiler/**.c")
+    -- add_includedirs(luatos.."components/mempool/profiler/include",{public = true})
+    -- add_files(luatos.."components/mempool/profiler/**.c")
 
     -- fastlz
     add_includedirs(luatos.."components/fastlz",{public = true})
@@ -195,9 +202,9 @@ target("luatos-lua")
     add_files(luatos.."components/coremark/*.c")
 
     -- sqlite3
-    add_includedirs(luatos.."components/sqlite3/include",{public = true})
-    add_files(luatos.."components/sqlite3/src/*.c")
-    add_files(luatos.."components/sqlite3/binding/*.c")
+    -- add_includedirs(luatos.."components/sqlite3/include",{public = true})
+    -- add_files(luatos.."components/sqlite3/src/*.c")
+    -- add_files(luatos.."components/sqlite3/binding/*.c")
     
     --mobile
     add_includedirs(luatos.."components/mobile")
@@ -248,17 +255,17 @@ target("luatos-lua")
     add_files(luatos.."components/network/errdump/*.c")
 
     -- ercoap
-    add_includedirs(luatos.."components/network/ercoap/include",{public = true})
-    add_files(luatos.."components/network/ercoap/src/*.c")
-    add_files(luatos.."components/network/ercoap/binding/*.c")
+    -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
+    -- add_files(luatos.."components/network/ercoap/src/*.c")
+    -- add_files(luatos.."components/network/ercoap/binding/*.c")
 
     -- ws2812
-    add_includedirs(luatos.."components/ws2812/include",{public = true})
-    add_files(luatos.."components/ws2812/src/*.c")
-    add_files(luatos.."components/ws2812/binding/*.c")
+    -- add_includedirs(luatos.."components/ws2812/include",{public = true})
+    -- add_files(luatos.."components/ws2812/src/*.c")
+    -- add_files(luatos.."components/ws2812/binding/*.c")
 
     -- onewire
-    add_includedirs(luatos.."components/onewire/include",{public = true})
+    -- add_includedirs(luatos.."components/onewire/include",{public = true})
     -- add_files(luatos.."components/onewire/src/*.c")
     -- add_files(luatos.."components/onewire/binding/*.c")
 
@@ -364,13 +371,13 @@ target("luatos-lua")
         add_files(luatos.."components/tjpgd/*.c")
         add_files(luatos.."components/qrcode/*.c")
 
-        add_includedirs(luatos.."components/luatfonts")
-        add_files(luatos.."components/luatfonts/**.c")
+        -- add_includedirs(luatos.."components/luatfonts")
+        -- add_files(luatos.."components/luatfonts/**.c")
 
         -- gtfont PC simulator core
-        add_includedirs(luatos.."components/gtfont")
-        add_includedirs(luatos.."components/eink")
-        add_files(luatos.."components/gtfont/*.c")
+        -- add_includedirs(luatos.."components/gtfont")
+        -- add_includedirs(luatos.."components/eink")
+        -- add_files(luatos.."components/gtfont/*.c")
         
         -- hzfont component
         add_includedirs(luatos.."components/hzfont/inc")

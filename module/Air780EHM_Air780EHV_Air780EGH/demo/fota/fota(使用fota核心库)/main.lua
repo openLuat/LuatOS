@@ -76,7 +76,7 @@ end
 
 -- 循环打印版本号, 方便看版本号变化, 非必须
 function print_version()
-    while 1 do
+    while true do
         sys.wait(1000)
         log.info("fota", "version", VERSION)
         -- log.info("fota1111122222222222")

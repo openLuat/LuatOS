@@ -57,6 +57,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     uint8_t *temp = NULL;
     int ret = 0;
     int cipher_mode = 0;
+    int cipher_type = 0;
 
     unsigned char output[32] = {0};
     size_t input_size = 0;
@@ -72,6 +73,13 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         goto _error_exit;
     }
 
+    #if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    cipher_mode = mbedtls_cipher_info_get_mode(_cipher);
+    cipher_type = mbedtls_cipher_info_get_type(_cipher);
+    #else
+    cipher_mode = _cipher->mode;
+    cipher_type = _cipher->type;
+    #endif
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     if (ret) {
@@ -90,9 +98,17 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
             LLOGE("mbedtls_cipher_set_iv fail -0x%04x %s", -ret, cctx->cipher);
             goto _error_exit;
         }
+        #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
+        if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
+            ret = mbedtls_cipher_update_ad(&ctx, (const unsigned char*)"1234567890123456", 16);
+            if (ret) {
+                LLOGE("mbedtls_cipher_update_ad fail -0x%04x %s", -ret, cctx->cipher);
+                goto _error_exit;
+            }
+        }
+        #endif
     }
-
-    mbedtls_cipher_reset(&ctx);
+    
 
     if (!strcmp("PKCS7", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
@@ -110,14 +126,10 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_NONE);
     }
 
+    mbedtls_cipher_reset(&ctx);
+
     // 开始注入数据
     block_size = mbedtls_cipher_get_block_size(&ctx);
-
-    #if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    cipher_mode = mbedtls_cipher_info_get_mode(_cipher);
-    #else
-    cipher_mode = _cipher->mode;
-    #endif
 
     if ((cipher_mode == MBEDTLS_MODE_ECB) && (!strcmp("PKCS7", cctx->pad) || !strcmp("ZERO", cctx->pad)) && (cctx->flags & 0x1)) {
     	uint32_t new_len  = ((cctx->str_size / block_size) + 1) * block_size;
@@ -170,12 +182,33 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         }
         output_size = 0;
     }
+    // 还需要处理GCM的tag
+    
+
     output_size = 0;
     ret = mbedtls_cipher_finish(&ctx, (unsigned char *)output, &output_size);
     if (ret) {
         LLOGE("mbedtls_cipher_finish fail 0x%04X %s", -ret, cctx->cipher);
         goto _exit;
     }
+    // 还有额外的操作
+    #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
+    if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
+        if ((cctx->flags & 0x1) == 0 && cctx->tag_len == 16) {
+            ret = mbedtls_cipher_check_tag(&ctx, cctx->tag, 16);
+            if (ret) {
+                LLOGE("mbedtls_cipher_check_tag fail 0x%04X %s", -ret, cctx->cipher);
+                goto _exit;
+            }
+        }
+        else if (cctx->flags & 0x1) {
+            cctx->tag_len = 16;
+            mbedtls_cipher_write_tag(&ctx, cctx->tag, 16);
+        }
+    }
+    #endif
+    
+
     //else LLOGD("mbedtls_cipher_finish, output size=%ld", output_size);
     if (output_size > 0) {
         memcpy(cctx->outbuff + cctx->outlen, (const char*)output, output_size);

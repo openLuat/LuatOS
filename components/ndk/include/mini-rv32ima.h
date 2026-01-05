@@ -22,7 +22,7 @@
 */
 
 #ifndef MINIRV32WARN
-	#define MINIRV32WARN( x... );
+	#define MINIRV32WARN(... );
 #endif
 
 #ifndef MINIRV32_DECORATE

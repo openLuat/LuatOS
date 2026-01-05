@@ -58,13 +58,6 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len
         return;
     }
     #endif
-    #ifdef LUAT_USE_DRV_MOBILE
-    luat_airlink_cmd_t* cmd = (luat_airlink_cmd_t*)data;
-    if (cmd->cmd >= 0x800) {
-        LLOGD("收到指令/回复 cmd %d len %d", cmd->cmd, cmd->len);
-        return;
-    }
-    #endif
     void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {
         LLOGE("airlink分配内存失败!!! %d", len);

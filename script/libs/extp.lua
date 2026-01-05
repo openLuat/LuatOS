@@ -2,8 +2,8 @@
 --[[
 @module  extp
 @summary 触摸系统拓展库
-@version 1.1.1
-@date    2025.11.20
+@version 1.0.2
+@date    2026.01.04
 @author  江访
 @usage
 本文件为触摸系统拓展库，核心业务逻辑为：
@@ -59,6 +59,7 @@ local tp_configs = {
     cst9220 = { i2c_speed = i2c.SLOW, tp_model = "cst9220" },
     jd9261t = { i2c_speed = i2c.FAST, tp_model = "jd9261t" },
     gt911 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
+    ft3x68 = { i2c_speed = i2c.SLOW, tp_model = "ft3x68" },
     AirLCD_1010 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
     Air780EHM_LCD_4 = { i2c_speed = i2c.SLOW, tp_model = "gt911" },
     AirLCD_1020 = { i2c_speed = i2c.SLOW, tp_model = "gt911" }

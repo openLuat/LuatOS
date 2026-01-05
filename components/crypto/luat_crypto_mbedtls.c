@@ -100,7 +100,7 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
         }
         #if defined(MBEDTLS_GCM_C) || defined(MBEDTLS_CHACHAPOLY_C)
         if (MBEDTLS_MODE_GCM == cipher_mode || MBEDTLS_CIPHER_CHACHA20_POLY1305 == cipher_type) {
-            ret = mbedtls_cipher_update_ad(&ctx, "1234567890123456", 16);
+            ret = mbedtls_cipher_update_ad(&ctx, (const unsigned char*)"1234567890123456", 16);
             if (ret) {
                 LLOGE("mbedtls_cipher_update_ad fail -0x%04x %s", -ret, cctx->cipher);
                 goto _error_exit;

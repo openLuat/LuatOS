@@ -70,7 +70,7 @@ UART-RS485 串口板与 USB-RS485 串口板接线图如下：
 
 2、[Air8101 V2001 版本](https://docs.openluat.com/air8101/luatos/firmware/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2001 固件对比验证）
 
-> 目前 V2001 正式固件还未发布，可以先用 https://www.air32.cn/air8101v2/LuatOS-SoC_V2001_Air8101_20251230_234242.soc 这个测试固件进行测试
+> 目前 V2001 正式固件还未发布，可以先用上级目录中临时固件文件夹下的 LuatOS-SoC_V2001_Air8101_20251230_234242.soc 固件进行测试
 
 3、[摩尔信使(MThings)官网](https://www.gulink.cn/)（用于模拟 modbus 主站设备）
 

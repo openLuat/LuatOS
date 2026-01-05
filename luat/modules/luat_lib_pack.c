@@ -296,10 +296,19 @@ static int l_pack(lua_State *L)
  {
   int c=*f++;
   int N=1;
+  int has_count = 0;
+  int orig_count = 1;
   if (isdigit(*f)) 
   {
    N=0;
    while (isdigit(*f)) N=10*N+(*f++)-'0';
+   has_count = 1;
+   orig_count = N;
+   if (orig_count == 0 && c == OP_STRING) {
+    size_t l;
+    luaL_optlstring(L, i++, "", &l); /* consume arg for consistency */
+    continue;
+   }
   }
   while (N--) switch (c)
   {
@@ -312,11 +321,30 @@ static int l_pack(lua_State *L)
     break;
    }
    case OP_STRING:
+   {
+    size_t l;
+    const char *a=luaL_checklstring(L,i++,&l);
+    int target_len = has_count ? orig_count : (int)l;
+    if (target_len <= 0) {
+     N=0;
+     break;
+    }
+    if ((size_t)target_len <= l) {
+     luaL_addlstring(&b,a,target_len);
+    }
+    else {
+     luaL_addlstring(&b,a,l);
+     int pad = target_len - (int)l;
+     while (pad--) luaL_addchar(&b,'\0');
+    }
+    N=0;
+    break;
+   }
    case OP_ZSTRING:
    {
     size_t l;
     const char *a=luaL_checklstring(L,i++,&l);
-    luaL_addlstring(&b,a,l+(c==OP_ZSTRING));
+    luaL_addlstring(&b,a,l+1);
     break;
    }
    PACKSTRING(OP_BSTRING, unsigned char)

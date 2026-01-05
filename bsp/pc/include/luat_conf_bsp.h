@@ -29,16 +29,16 @@
 #define LUAT_USE_TLS  1
 #define LUAT_USE_MOCKAPI 1
 
-#define LV_HOR_RES_MAX          (2000)
-#define LV_VER_RES_MAX          (2000)
-#define LV_COLOR_DEPTH          32
+// #define LV_HOR_RES_MAX          (2000)
+// #define LV_VER_RES_MAX          (2000)
+// #define LV_COLOR_DEPTH          32
 
-#define LV_COLOR_16_SWAP   0
+// #define LV_COLOR_16_SWAP   0
 #define LUAT_LCD_COLOR_DEPTH 16
 #define LUAT_USE_LVGL_SDL2 1
 #define LUAT_USE_LCD_SDL2 1
 #define LUAT_USE_LCD_CUSTOM_DRAW 1
-#define LV_MEM_CUSTOM 1
+// #define LV_MEM_CUSTOM 1
 // #define LV_USE_LOG 1
 // #define LUAT_LV_DEBUG 1
 
@@ -187,10 +187,10 @@
 // #define USE_U8G2_SARASA_M26_CHINESE
 // #define USE_U8G2_SARASA_M28_CHINESE
 /**********LVGL FONT*************/
-#define LV_FONT_OPPOSANS_M_8
-#define LV_FONT_OPPOSANS_M_10
-#define LV_FONT_OPPOSANS_M_12
-#define LV_FONT_OPPOSANS_M_16
+// #define LV_FONT_OPPOSANS_M_8
+// #define LV_FONT_OPPOSANS_M_10
+// #define LV_FONT_OPPOSANS_M_12
+// #define LV_FONT_OPPOSANS_M_16
 
 //---------------------
 

@@ -74,10 +74,10 @@
 |------------|-----------|
 | 75/GPIO28  | BUSY      |
 | 10/GPIO7   | RST       |
-| 75/GPIO28  | DC        |
+| 9/GPIO6    | DC        |
 | 68/GPIO12  | CS        |
 | 65/GPIO2   | SCK       |
-| 76/GPIO4   | DIN       |
+| 67/GPIO4   | DIN       |
 | vbat       | VCC       |
 | gnd        | GND       |
 

@@ -234,7 +234,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     cctx.flags = flags;
 
     luaL_Buffer buff;
-    luaL_buffinitsize(L, &buff, cctx.str_size + 16);
+    luaL_buffinitsize(L, &buff, cctx.str_size + 32); // 预分配空间
     cctx.outbuff = buff.b;
 
     int ret = luat_crypto_cipher_xxx(&cctx);

@@ -66,7 +66,7 @@ local function init()
         u8g2.SendBuffer()
 
         -- 打开背光，若采用GPIO控制
-        gpio.setup(24, 1)
+        gpio.setup(1, 1)
     else
         log.error("u8g2", "Init failed, error code:", result)
     end

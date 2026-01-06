@@ -443,7 +443,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     g_airlink_link_data_cb = on_link_data_notify;
     thread_rdy = 1;
     while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) == 1) {
-        luat_rtos_task_sleep(10);
+        luat_rtos_task_sleep(4);
     }
     int res = 0;
     while (1)
@@ -460,8 +460,8 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
         airlink_transfer_and_exec(s_txbuff, s_rxbuff);
 
         // 发送完成后，等待从机的响应/确认
-        res = airlink_wait_for_slave_reply(2000);
-        if (res != 0) {
+        res = airlink_wait_for_slave_reply(g_airlink_last_cmd_timestamp ? 1000 : 20);
+        if (res != 0 && g_airlink_last_cmd_timestamp) {
             LLOGD("slave timeout");
         }
         // LLOGD("spi master task loop");

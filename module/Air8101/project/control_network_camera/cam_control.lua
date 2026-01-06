@@ -13,17 +13,18 @@
 ]]
 
 -- 导入exremotecam模块
+local dhcam = require "dhcam"
 local exremotecam = require "exremotecam"
 
 local function camera_start()
     sys.waitUntil("WIFI_CONNECT_OK")
     log.info("开始运行OSD操作")
     -- 配置大华摄像头OSD，分六行依次显示 1111 2222 3333 4444 5555 6666
-    exremotecam.OSDsetup("Dhua","192.168.1.108", 0, "1111|2222|3333|4444|5555|6666", 0, 2000)
+    exremotecam.osd({brand = "Dhua", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000})
     -- 等待OSD配置完成再进行拍照
     sys.wait(1000) 
     log.info("开始运行抓图操作")
-    exremotecam.getphoto("Dhua", "192.168.1.108", 1)
+    exremotecam.get_photo({brand = "Dhua", host = "192.168.1.108", channel = 1})
 end
 
 sys.taskInit(camera_start)

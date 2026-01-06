@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "dvp_cam_rtmp"
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -33,7 +33,6 @@ local rtmpc = nil
 -- 重连控制变量与方法
 local rtmp_reconnecting = false -- 是否正在重连
 local rtmp_retries = 0         -- 当前重连次数
-local rtmp_max_retries = 5     -- 最大重连次数
 
 -- rtmp出现问题时的重连逻辑
 function rtmp_try_reconnect()
@@ -47,7 +46,7 @@ function rtmp_try_reconnect()
         -- end
         rtmp_reconnecting = true
         rtmpc:disconnect()  -- 确认断开当前连接
-        while rtmp_retries < rtmp_max_retries do
+        while rtmp_reconnecting do
             rtmp_retries = rtmp_retries + 1
             local isNetReady, adapterIndex = socket.adapter()
             log.info("rtmp", "reconnect attempt", rtmp_retries, "adapter_index: ", adapterIndex)
@@ -64,18 +63,15 @@ function rtmp_try_reconnect()
                         rtmpc:start()
                         rtmp_reconnecting = false
                         rtmp_retries = 0
-                        return
                     end
                 end
             else
                 -- 等待任意网卡变为就绪
                 log.info("rtmp", "waiting for IP_READY")
-                sys.waitUntil("IP_READY", 60000)
+                sys.waitUntil("IP_READY", 60 * 1000)
             end
-            sys.wait(10000) -- 每次重连间隔10秒
+            sys.wait(60 * 1000) -- 每次重连间隔60秒
         end
-        log.info("rtmp", "reconnect failed after ... ", rtmp_retries)
-        rtmp_reconnecting = false
     end
 end
 
@@ -135,6 +131,11 @@ sys.taskInit(function()
     sys.wait(200)
     result = camera.init(dvp_camera_table)
     log.info("摄像头初始化", result)
+    if result ~= 0 then
+        log.info("摄像头初始化失败, 5秒后重启设备, 进行重试")
+        sys.wait(5000)
+        rtos.reboot()
+    end
     camera.start(camera_id)
 
     if not rtmpc then

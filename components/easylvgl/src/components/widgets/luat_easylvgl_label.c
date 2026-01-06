@@ -64,10 +64,10 @@ lv_obj_t *easylvgl_label_create_from_config(void *L, int idx)
     const char *display_text = NULL;
     if (symbol != NULL && strlen(symbol) > 0) {
         display_text = symbol;
-        LLOGI("symbol found");
+        // LLOGI("symbol found");
     } else if (text != NULL && strlen(text) > 0) {
         display_text = text;
-        LLOGI("text found");
+        // LLOGI("text found");
     }
 
     if (display_text != NULL) {

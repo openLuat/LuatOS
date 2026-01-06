@@ -22,8 +22,8 @@
     /* SDL2 平台配置 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
-    #define LV_USE_LOG 1
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    // #define LV_USE_LOG 1
+    // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
     #define LV_MEM_SIZE (256 * 1024U)   
 

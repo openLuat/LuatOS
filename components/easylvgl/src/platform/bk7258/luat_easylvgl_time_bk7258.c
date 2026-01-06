@@ -3,7 +3,12 @@
  * @summary BK7258 时基实现
  * @responsible 提供 tick 获取与毫秒延时
  */
+#include "luat_conf_bsp.h"
 #if defined(__BK72XX__)
+    #include "luat_conf_bsp_air8101.h"
+#endif
+
+#if defined(LUAT_USE_EASYLVGL_BK7258)
 
 #include "luat_easylvgl.h"
 #include "luat_mcu.h"

@@ -4,7 +4,12 @@
  * @responsible 读取 luat_tp 数据并映射为 LVGL pointer 输入
  */
 
-#if defined(__BK72XX__)
+ #include "luat_conf_bsp.h"
+ #if defined(__BK72XX__)
+     #include "luat_conf_bsp_air8101.h"
+ #endif
+ 
+ #if defined(LUAT_USE_EASYLVGL_BK7258)
 
 #include "luat_easylvgl.h"
 #include "luat_tp.h"

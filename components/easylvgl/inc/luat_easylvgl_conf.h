@@ -10,7 +10,6 @@
 #define LUAT_EASYLVGL_CONF_H
 
 #include "luat_conf_bsp.h"
-
 #if defined(__BK72XX__)
     #include "luat_conf_bsp_air8101.h"
 #endif
@@ -48,7 +47,8 @@
 
 #elif defined(LUAT_USE_EASYLVGL_BK7258)
     /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
-    #define LV_USE_OS   LV_OS_FREERTOS
+    #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
+    // #define LV_USE_OS   LV_OS_FREERTOS
     // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制
     // #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
 

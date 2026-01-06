@@ -2,7 +2,7 @@
 @module  hw_gtfont_drv
 @summary LCD初始化和外置GTFont驱动模块
 @version 1.0
-@date    2025.12.11
+@date    2026.01.06
 @author  江访
 @usage
 本文件为LCD初始化和GTFont外置字库驱动模块，核心业务逻辑为：
@@ -15,7 +15,7 @@
 ]]
 
 -- ST7567 SPI引脚配置
-local spi_id, spi_res, spi_dc, spi_cs = 1, 22, 14, 12
+local spi_id, spi_res, spi_dc, spi_cs = 1, 24, 14, 12
 
 -- GTFont SPI引脚配置
 local gtfspi_id, gtfspi_cs = 0, 8

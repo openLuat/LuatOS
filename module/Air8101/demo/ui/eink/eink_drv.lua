@@ -2,7 +2,7 @@
 @module  eink_drv
 @summary eink墨水屏显示驱动模块，基于eink核心库
 @version 1.0
-@date    2025.12.18
+@date    2026.01.06
 @author  江访
 @usage
 本模块为eink墨水屏显示驱动功能模块，主要功能包括：
@@ -30,13 +30,17 @@ else
 end
 ]]
 
+
 local function eink_drv_init()
     -- 按接线引脚正确配置GPIO号
     local spi_id = 1
-    local pin_busy = 28
+    local pin_busy = 6
     local pin_reset = 7
-    local pin_dc = 6
-    local pin_cs = 12
+    local pin_dc = 12
+    local pin_cs = 28
+
+    -- 开启异步刷新
+    eink.async(1)
 
     -- 注意:eink初始化之前需要先初始化spi，使用spi对象方式初始化
     spi_eink = spi.deviceSetup(spi_id, pin_cs, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 1)
@@ -45,9 +49,6 @@ local function eink_drv_init()
     eink.init(eink.MODEL_1in54_V2,
         { port = "device", pin_dc = pin_dc, pin_busy = pin_busy, pin_rst = pin_reset },
         spi_eink)
-
-    -- 开启异步刷新
-    eink.async(1)
 
     -- 设置显示窗口和方向
     eink.setWin(200, 200, 0)

@@ -204,18 +204,18 @@ exit:
     {
         if (LUAT_BLE_EVENT_WRITE == evt && param->write_req.value_len)
         {
-            // LLOGD("free write_req.value %p", param->write_req.value);
+            // LLOGD("free write_req.value %p %d", param->write_req.value, param->write_req.value_len);
             luat_heap_free(param->write_req.value);
             param->write_req.value = NULL;
         }
-        else if (LUAT_BLE_EVENT_SCAN_REPORT == evt && param->adv_req.data)
+        else if (LUAT_BLE_EVENT_SCAN_REPORT == evt && param->adv_req.data_len)
         {
-            // LLOGD("free adv_req.data %p", param->adv_req.data);
+            // LLOGD("free adv_req.data %p %d", param->adv_req.data, param->adv_req.data_len);
             luat_heap_free(param->adv_req.data);
             param->adv_req.data = NULL;
         }
         else if (LUAT_BLE_EVENT_READ_VALUE == evt && param->read_req.value_len){
-            // LLOGD("free read_req.value %p", param->read_req.value);
+            // LLOGD("free read_req.value %p %d", param->read_req.value, param->read_req.value_len);
             luat_heap_free(param->read_req.value);
             param->read_req.value = NULL;
         }

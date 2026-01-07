@@ -13,6 +13,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_str.h"
+#include "luat_msgbus.h"
 
 #include "luat_fs.h"
 #include "luat_network_adapter.h"
@@ -385,7 +386,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 					return -1;
 				}
 			}
-			if (length != luat_fs_fwrite(at, length, 1, http_ctrl->fd)) {
+			if (length != luat_fs_fwrite(at, 1, length, http_ctrl->fd)) {
 				LLOGE("err when fwrite %s", http_ctrl->dst);
 				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
 				return -1;
@@ -641,10 +642,28 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	}
 }
 
+static int luat_http_timeout_resp_error(lua_State *L, void* ptr) {
+    luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
+    if (!http_ctrl) return 0;
+    http_resp_error(http_ctrl, HTTP_ERROR_TIMEOUT);
+    return 0;
+}
+
+static int luat_http_timeout_network_close(lua_State *L, void* ptr) {
+    luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
+    if (!http_ctrl) return 0;
+    http_ctrl->error_code = HTTP_ERROR_TIMEOUT;
+    http_network_close(http_ctrl);
+    return 0;
+}
+
 LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 	luat_http_ctrl_t * http_ctrl = (luat_http_ctrl_t *)param;
 	if (http_ctrl->luatos_mode) {
-		http_resp_error(http_ctrl, HTTP_ERROR_TIMEOUT);
+		rtos_msg_t msg = {0};
+		msg.handler = luat_http_timeout_resp_error;
+		msg.ptr = http_ctrl;
+		luat_msgbus_put(&msg, 0);
 	} else {
 		if (http_ctrl->new_data)
 		{
@@ -652,9 +671,10 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 		}
 		else
 		{
-			LLOGD("http timeout error!");
-			http_ctrl->error_code = HTTP_ERROR_TIMEOUT;
-			http_network_close(http_ctrl);
+			rtos_msg_t msg = {0};
+			msg.handler = luat_http_timeout_network_close;
+			msg.ptr = http_ctrl;
+			luat_msgbus_put(&msg, 0);
 		}
 	}
 }

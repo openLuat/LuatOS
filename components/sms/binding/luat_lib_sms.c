@@ -620,6 +620,98 @@ static int l_sms_clear_long(lua_State *L) {
     return 1;
 }
 
+/**
+PDU短信解包
+@api sms.unpack(pdu_data)
+@string pdu_data PDU格式的短信数据(hex字符串)
+@return table 解包后的短信内容
+@usage
+local pdu = "0491680010F50400069110102143650008024F60"
+local phone, txt, metas = sms.unpack(pdu)
+log.info("sms unpack", phone, txt, metas and json.encode(metas) or "")
+*/
+static int l_sms_pdu_unpack(lua_State *L) {
+    size_t pdu_len = 0;
+    const char* pdu_hex = luaL_checklstring(L, 1, &pdu_len);
+    uint8_t* pdu_bin = NULL;
+    size_t bin_len = 0;
+    int ret = 0;
+    luat_sms_recv_msg_t* sms = NULL;
+    size_t i = 0;
+    int hi = 0, lo = 0;
+
+    if (pdu_len == 0 || pdu_hex == NULL) {
+        LLOGE("pdu_data is empty");
+        return 0;
+    }
+
+    /* 检查是否为 hex 字符串 (长度为偶数且全是 hex 字符) */
+    if (pdu_len % 2 != 0) {
+        LLOGE("pdu_data length must be even (hex string), got %d", pdu_len);
+        return 0;
+    }
+
+    /* 分配二进制缓冲区 */
+    bin_len = pdu_len / 2;
+    pdu_bin = luat_heap_malloc(bin_len);
+    if (pdu_bin == NULL) {
+        LLOGE("out of memory when malloc pdu_bin");
+        return 0;
+    }
+
+    /* hex 字符串转二进制 */
+    for (i = 0; i < bin_len; i++) {
+        hi = pdu_hex[i * 2];
+        lo = pdu_hex[i * 2 + 1];
+        
+        /* 转换高4位 */
+        if (hi >= '0' && hi <= '9') hi = hi - '0';
+        else if (hi >= 'A' && hi <= 'F') hi = hi - 'A' + 10;
+        else if (hi >= 'a' && hi <= 'f') hi = hi - 'a' + 10;
+        else {
+            LLOGE("invalid hex char at pos %d: 0x%02X", i * 2, hi);
+            luat_heap_free(pdu_bin);
+            return 0;
+        }
+        
+        /* 转换低4位 */
+        if (lo >= '0' && lo <= '9') lo = lo - '0';
+        else if (lo >= 'A' && lo <= 'F') lo = lo - 'A' + 10;
+        else if (lo >= 'a' && lo <= 'f') lo = lo - 'a' + 10;
+        else {
+            LLOGE("invalid hex char at pos %d: 0x%02X", i * 2 + 1, lo);
+            luat_heap_free(pdu_bin);
+            return 0;
+        }
+        
+        pdu_bin[i] = (hi << 4) | lo;
+    }
+
+    LLOGD("PDU hex len=%d, bin len=%d", pdu_len, bin_len);
+
+    sms = luat_heap_malloc(sizeof(luat_sms_recv_msg_t));
+    if (sms == NULL) {
+        LLOGE("out of memory when malloc sms unpack");
+        luat_heap_free(pdu_bin);
+        return 0;
+    }
+    memset(sms, 0x00, sizeof(luat_sms_recv_msg_t));
+
+    ret = luat_sms_pdu_message_unpack(sms, pdu_bin, bin_len);
+    luat_heap_free(pdu_bin);
+
+    if (ret != 0) {
+        LLOGE("sms pdu unpack fail %d", ret);
+        luat_heap_free(sms);
+        return 0;
+    }
+
+    /* 返回结果 */
+    push_sms_args(L, sms, sms->sms_buffer, strlen(sms->sms_buffer));
+    luat_heap_free(sms);
+    return 3;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sms[] =
 {
@@ -628,6 +720,7 @@ static const rotable_Reg_t reg_sms[] =
     { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
     { "sendLong",       ROREG_FUNC(l_long_sms_send)},
+    { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
 	{ NULL,             ROREG_INT(0)}
 };
 

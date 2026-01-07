@@ -722,8 +722,10 @@ static int l_sms_pdu_unpack(lua_State *L) {
         luat_heap_free(sms);
         return 0;
     }
+    // 打印sms->dcs_info.alpha_bet和数据
     if (sms->dcs_info.alpha_bet == 0) {
         memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
+        dstlen = strlen(sms->sms_buffer);
     }
     else {
         luat_str_ucs2_to_char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);

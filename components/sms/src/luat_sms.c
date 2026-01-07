@@ -289,14 +289,25 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     }
 
     uint8_t payload[160] = {0};
-    uint8_t payload_len = pdu_data[pos];
+    uint8_t payload_len = pdu_data[pos];  // 对于7bit是septet数，对于8bit/UCS2是字节数
 
-    // 边界检查: 确保 payload 不会越界
-    if (payload_len + 1 > sizeof(payload) || pos + payload_len + 1 > pdu_len)
+    // 计算实际用户数据字节数 (需要根据DCS判断，但DCS已在前面读取)
+    // 先读取剩余可用字节数
+    uint16_t remaining_bytes = pdu_len - pos;  // 包含UDL本身
+
+    // 边界检查: 至少要有UDL这1个字节
+    if (remaining_bytes < 1)
     {
         return -1;
     }
-    memcpy(payload, &pdu_data[pos], payload_len + 1);
+
+    // 复制从UDL开始的所有剩余数据到payload
+    uint16_t copy_len = remaining_bytes;
+    if (copy_len > sizeof(payload))
+    {
+        copy_len = sizeof(payload);
+    }
+    memcpy(payload, &pdu_data[pos], copy_len);
 
     uint16_t payload_pos = 1;
     uint8_t user_data_len = 0;
@@ -314,12 +325,12 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     if (pdu_type & 0x40) // 是长短信， 解析udhi
     {
         is_long_msg = 1;
-        if (payload_pos >= payload_len + 1)
+        if (payload_pos >= copy_len)
         {
             return -1;
         }
         udhl = payload[payload_pos];    // udh的长度
-        if (payload_pos + udhl + 1 > payload_len + 1)
+        if (payload_pos + udhl + 1 > copy_len)
         {
             return -1;
         }
@@ -353,7 +364,15 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
             length -= ((user_total_len * 8) + fill_bits) / 7; /* 23.040 Figure 9.2.3.24(a) number of Septet in SM */
             payload_pos = 1 + user_total_len;                      /* index point to SM */
         }
-        user_data_len = (udl * 7) / 8 + ((udl * 7) % 8 == 0 ? 0 : 1);
+        // 计算7bit编码的实际字节数
+        user_data_len = (udl * 7 + 7) / 8;  // 向上取整
+        
+        // 确保不超出实际可用数据
+        uint16_t available_data = (copy_len > payload_pos) ? (copy_len - payload_pos) : 0;
+        if (user_data_len > available_data)
+        {
+            user_data_len = available_data;
+        }
 
         // 处理payload
         uint8_t *user_payload = (uint8_t *)luat_heap_malloc(160 + 1);
@@ -361,6 +380,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         {
             return -1;
         }
+        memset(user_payload, 0, 160 + 1);
 
         luat_sms_decode_7bit_data(&payload[payload_pos], user_data_len, user_payload, 160, fill_bits);
 
@@ -383,6 +403,14 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         }
         uint8_t body_length = 0;         /* SM length */
         body_length = udl - user_total_len;
+        
+        // 边界检查
+        uint16_t available_data = (copy_len > payload_pos) ? (copy_len - payload_pos) : 0;
+        if (body_length > available_data)
+        {
+            body_length = available_data;
+        }
+        
         /* code */
         luat_str_tohex(&payload[payload_pos], body_length, msg_info->sms_buffer);
         length = body_length;  // 修正: 更新实际长度
@@ -395,6 +423,14 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
             payload_pos += user_total_len;
             length = udl - user_total_len;
         }
+        
+        // 边界检查
+        uint16_t available_data = (copy_len > payload_pos) ? (copy_len - payload_pos) : 0;
+        if (length > available_data)
+        {
+            length = available_data;
+        }
+        
         memcpy(msg_info->sms_buffer, &payload[payload_pos], length);
     }
 

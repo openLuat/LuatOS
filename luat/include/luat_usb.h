@@ -10,7 +10,8 @@ enum
 	LUAT_USB_CLASS_CDC_ACM = 0,
 	LUAT_USB_CLASS_AUDIO,
 	LUAT_USB_CLASS_CAMERA,
-	LUAT_USB_CLASS_HID,
+	LUAT_USB_CLASS_HID_CUSTOMER,
+	LUAT_USB_CLASS_HID_KEYBOARD,
 	LUAT_USB_CLASS_MSC,
 	LUAT_USB_CLASS_WINUSB,
 	LUAT_USB_CLASS_QTY,
@@ -39,7 +40,7 @@ int luat_usb_clear_class(int id);
 int luat_usb_set_callback(int id, usb_callback_t callback);
 
 int luat_usb_tx(int id, uint8_t class, const void *data, uint32_t len);
-int luat_usb_hid_tx(int id, const char *string, uint32_t len);
+int luat_usb_hid_tx(int id, const char *string, uint32_t len, uint8_t is_keyboard);
 int luat_usb_rx(int id, uint8_t class, void *data, uint32_t len);
 
 int luat_usb_power_on_off(int id, uint8_t on_off);

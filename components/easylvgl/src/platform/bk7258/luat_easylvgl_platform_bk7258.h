@@ -4,7 +4,14 @@
  * @summary BK7258 平台共享数据与辅助接口
  * @responsible 统一维护 platform_data 结构，触摸配置绑定
  */
+
+
+#include "luat_conf_bsp.h"
 #if defined(__BK72XX__)
+    #include "luat_conf_bsp_air8101.h"
+#endif
+
+#if defined(LUAT_USE_EASYLVGL_BK7258)
 
 #include "luat_easylvgl.h"
 #include "luat_lcd.h"

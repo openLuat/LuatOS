@@ -31,7 +31,7 @@ static int lua_sms_recv_long = 1;
 
 typedef struct long_sms
 {
-    uint8_t refNum;
+    uint16_t refNum;
     uint8_t maxNum;
     uint8_t seqNum;
     char buff[1];

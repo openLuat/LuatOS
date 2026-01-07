@@ -248,25 +248,39 @@ void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_dat
     uint8_t is_long_msg = 0;
     uint8_t user_total_len = 0;
 
-    if (pdu_type & 0x40) // 是长短信
-    {
-        is_long_msg = 1;
-    }
-
+    uint16_t refNum = 0;
     uint8_t maxNum = 0;
     uint8_t seqNum = 0;
-    uint8_t refNum = 0;
+    uint8_t udhl = 0;
+    uint8_t iei = 0;
+
+    if (pdu_type & 0x40) // 是长短信， 解析udhi
+    {
+        is_long_msg = 1;
+        udhl = payload[pos];    // udh的长度
+        iei = payload[pos + 1]; // 信息元素标识
+        if (udhl == 6 && iei == 0x08) // 参考序号2byte
+        {
+            refNum = (payload[pos + 3] << 8) | payload[pos + 4];      // 参考序号
+            seqNum = payload[pos + 6];      // 当前序号
+            maxNum = payload[pos + 5];      // 消息总条数
+        }
+        else
+        {
+            refNum = payload[pos + 3];      // 参考序号
+            seqNum = payload[pos + 5];      // 当前序号
+            maxNum = payload[pos + 4];      // 消息总条数
+        }
+    }
+
 
     uint8_t encode_type = parse_dcs_encode_type(Dcs);
+
     if (encode_type == LUAT_SMS_CODE_7BIT) // 7bit ASCII
     {
         uint16_t fill_bits = 0;
         if (is_long_msg)
         {
-            uint8_t udhl = payload[pos];    // udh的长度
-            refNum = payload[pos + 3];      // 参考序号
-            seqNum = payload[pos + 5];      // 当前序号
-            maxNum = payload[pos + 4];      // 消息总条数
             user_total_len = udhl + 1; // udh的总长度, 包括udlh
             if (0 != (user_total_len * 8) % 7)
             {
@@ -293,12 +307,7 @@ void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_dat
 
         if (is_long_msg)
         {
-            /* parse msg header */
-            user_total_len = 1;
-            user_total_len += payload[pos];  // udh的长度
-            refNum = payload[pos + 3];      // 参考序号
-            seqNum = payload[pos + 5];      // 当前序号
-            maxNum = payload[pos + 4];      // 消息总条数
+            user_total_len += udhl + 1;
             pos += user_total_len;
         }
         else
@@ -309,6 +318,14 @@ void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_dat
         body_length = udl - user_total_len;
         /* code */
         luat_str_tohex(&payload[pos], body_length, msg_info->sms_buffer);
+    }
+    else if(encode_type == LUAT_SMS_CODE_8BIT) // 8bit
+    {
+        if (is_long_msg)
+        {
+            pos += udhl + 1;
+        }
+        memcpy(msg_info->sms_buffer, &payload[pos], length);
     }
 
 

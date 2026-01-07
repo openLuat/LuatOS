@@ -387,6 +387,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         length = luat_sms_gsm_to_ascii(user_payload, length);
 
         memcpy(msg_info->sms_buffer, user_payload, length);
+        msg_info->sms_buffer[length] = '\0';  // 添加字符串结束符
         
         luat_heap_free(user_payload);
     }
@@ -412,8 +413,9 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         }
         
         /* code */
-        luat_str_tohex(&payload[payload_pos], body_length, msg_info->sms_buffer);
-        length = body_length;  // 修正: 更新实际长度
+        luat_str_tohex(&payload[payload_pos], body_length, (char*)msg_info->sms_buffer);
+        msg_info->sms_buffer[body_length * 2] = '\0';  // 添加字符串结束符
+        length = body_length * 2;  // 修正: hex字符串长度是原始字节数的2倍
     }
     else if(encode_type == LUAT_SMS_CODE_8BIT) // 8bit
     {
@@ -432,6 +434,7 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
         }
         
         memcpy(msg_info->sms_buffer, &payload[payload_pos], length);
+        msg_info->sms_buffer[length] = '\0';  // 添加字符串结束符
     }
 
     msg_info->refNum = refNum;

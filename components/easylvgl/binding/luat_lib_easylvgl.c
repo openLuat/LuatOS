@@ -16,6 +16,7 @@
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_binding.h"
 #include "../inc/luat_easylvgl_symbol.h"
+#include "lvgl9/src/themes/default/lv_theme_default.h"
 #include "luat_conf_bsp.h"
 #if defined(LUAT_USE_EASYLVGL_LUATOS)
 #include "../src/platform/luatos/luat_easylvgl_platform_luatos.h"
@@ -405,6 +406,10 @@ static int l_easylvgl_font_load(lua_State *L) {
     if (font) {
         // 设置为全局默认字体
         lv_obj_set_style_text_font(lv_screen_active(), font, 0);
+        /* 更新主题字体 */
+        if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
+        lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+        
         lua_pushlightuserdata(L, font);
         return 1;
     }else{

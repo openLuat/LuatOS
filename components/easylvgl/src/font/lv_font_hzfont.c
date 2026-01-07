@@ -204,6 +204,7 @@ lv_font_t * easylvgl_font_hzfont_create(const char * path, uint16_t size, uint32
     const int extra_leading = 3;
     font->line_height = size + extra_leading;
     font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
+    font->fallback = lv_font_get_default(); //当有缺失字时，使用默认字体
     return font;
 }
 

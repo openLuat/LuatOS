@@ -42,7 +42,7 @@ tools文件夹，辅助工具
 
 1. 使用或购买支持的开发板
     * [合宙官方淘宝店](https://luat.taobao.com)
-    * [PC - 无需开发板的模拟器](https://gitee.com/openLuat/luatos-soc-pc)
+    * [PC - 无需开发板的模拟器](bsp/pc/)
 2. 掌握[刷机](https://docs.openluat.com/air780epm/common/Luatools/)
 3. 尝试[学习LuatOS](https://docs.openluat.com/osapi/luatos_framework/), 浏览[API](https://docs.openluat.com/osapi/), [30分钟入门lua语法(视频)](https://docs.openluat.com/air780epm/product/video/)
 4. 愉快地写业务代码

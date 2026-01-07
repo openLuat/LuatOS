@@ -149,8 +149,13 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     luat_sms_recv_msg_t* sms = ((luat_sms_recv_msg_t*)ptr);
     // char buff[280+2] = {0};
     size_t dstlen = strlen(sms->sms_buffer);
-    char tmpbuff[140*3+2] = {0};
-    char *dst = tmpbuff;
+    char *dst = luat_heap_malloc(dstlen + 2);
+    if (dst == NULL) {
+        LLOGE("out of memory when malloc sms buff");
+        luat_heap_free(sms);
+        return 0;
+    }
+    memset(dst, 0, dstlen + 2);
 
     LLOGD("dcs %d | %d | %d | %d", sms->dcs_info.alpha_bet, sms->dcs_info.dcs, sms->dcs_info.msg_class, sms->dcs_info.type);
 
@@ -248,6 +253,9 @@ end)
     }
 
 exit:
+    if (dst) {
+        luat_heap_free(dst);
+    }
     luat_heap_free(sms);
     return 0;
 }
@@ -707,9 +715,41 @@ static int l_sms_pdu_unpack(lua_State *L) {
     }
 
     /* 返回结果 */
-    push_sms_args(L, sms, sms->sms_buffer, strlen(sms->sms_buffer));
+    char* dst = luat_heap_malloc(strlen(sms->sms_buffer) + 2);
+    size_t dstlen = 0;
+    if (dst == NULL) {
+        LLOGE("out of memory when malloc sms unpack tmpbuff");
+        luat_heap_free(sms);
+        return 0;
+    }
+    if (sms->dcs_info.alpha_bet == 0) {
+        memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
+    }
+    else {
+        luat_str_ucs2_to_char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);
+        dst[dstlen] = 0;
+    }
+    push_sms_args(L, sms, dst, dstlen);
+    luat_heap_free(dst);
     luat_heap_free(sms);
     return 3;
+}
+
+/**
+设置短信模块的调试模式
+@api sms.debug(enable)
+@bool enable 是否启用调试模式,true为启用,false为禁用
+@return nil 无返回值
+@usage
+-- 启用短信调试模式,会输出更多日志信息
+sms.debug(true)
+-- 禁用短信调试模式
+sms.debug(false)
+ */
+static int l_sms_set_debug(lua_State *L) {
+    bool enable = lua_toboolean(L, 1) == 1 ? 1 : 0;
+    luat_sms_set_debug(enable);
+    return 0;
 }
 
 #include "rotable2.h"
@@ -721,6 +761,7 @@ static const rotable_Reg_t reg_sms[] =
     { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
     { "sendLong",       ROREG_FUNC(l_long_sms_send)},
     { "unpack",         ROREG_FUNC(l_sms_pdu_unpack)},
+    { "debug",          ROREG_FUNC(l_sms_set_debug)},
 	{ NULL,             ROREG_INT(0)}
 };
 

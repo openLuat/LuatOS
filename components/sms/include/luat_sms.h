@@ -184,7 +184,9 @@ uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length);
 
 uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst, uint16_t dst_len, uint16_t shift_bits);
 
-void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
+int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
+
+int luat_sms_set_debug(bool debug);
 
 /**@}*/
 #endif

@@ -97,6 +97,7 @@ typedef struct {
  */
 typedef struct {
     lv_obj_t *target;
+    lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
 } easylvgl_keyboard_data_t;
 
 /**********************

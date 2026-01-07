@@ -43,6 +43,10 @@
     #define LV_USE_XML 1
     #define LV_USE_OBJ_NAME 1
 
+    // 打开拼音输入法
+    #define LV_USE_IME_PINYIN 1
+    #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
+    #define LV_IME_PINYIN_CAND_TEXT_NUM 9 // 设置拼音候选词数量
 
 
 #elif defined(LUAT_USE_EASYLVGL_LUATOS)
@@ -71,6 +75,11 @@
     // 打开XML支持
     #define LV_USE_XML 1
     #define LV_USE_OBJ_NAME 1
+
+    // 打开拼音输入法
+    #define LV_USE_IME_PINYIN 1
+    #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
+    #define LV_IME_PINYIN_CAND_TEXT_NUM 6 // 设置拼音候选词数量
 
 #else
     /* 默认配置（如果未定义平台） */

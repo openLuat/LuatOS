@@ -8,11 +8,23 @@
 #include "luat_malloc.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "luat_conf_bsp.h"
+#include "luat_easylvgl_conf.h"
 #include "lvgl9/src/widgets/keyboard/lv_keyboard.h"
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
 #include "lvgl9/src/misc/lv_event.h"
+#if LV_USE_IME_PINYIN
+    #include "lvgl9/src/others/ime/lv_ime_pinyin.h"
+    // 如果定义了LUAT_USE_PINYIN，则使用自己的pinyin字典
+    #if defined(LUAT_USE_PINYIN)
+        #include "luat_pinyin.h"
+    #endif
+#endif
 #include "../../inc/luat_easylvgl_binding.h"
 #include <string.h>
+
+#define LUAT_LOG_TAG "easylvgl_keyboard"
+#include "luat_log.h"
 
 /**
  * 获取 EasyLVGL 上下文（简化访问注册表里预存的上下文指针）
@@ -120,7 +132,27 @@ lv_obj_t *easylvgl_keyboard_create_from_config(void *L, int idx)
         return NULL;
     }
     data->target = NULL;
+    data->ime = NULL;
     meta->user_data = data;
+
+    // 支持拼音输入法
+#if LV_USE_IME_PINYIN
+    data->ime = lv_ime_pinyin_create(keyboard);
+    if (data->ime != NULL) {
+        lv_ime_pinyin_set_keyboard(data->ime, keyboard);
+
+        // 如果定义了LUAT_USE_PINYIN，则使用自己的pinyin字典
+#if defined(LUAT_USE_PINYIN)
+        size_t dict_count = 0;
+        const lv_pinyin_dict_t *dict = luat_pinyin_get_lv_dict(&dict_count);
+        if (dict != NULL && dict_count > 0) {
+            lv_ime_pinyin_set_dict(data->ime, (lv_pinyin_dict_t *)dict);
+        }
+        LLOGD(LUAT_LOG_TAG, "打开中文输入法支持，词典数量：%d", dict_count);
+#endif
+
+    }
+#endif
 
     // 如果配置里提供了 Textarea userdata，立即绑定方可让默认按钮生效
     lua_getfield(L_state, idx, "target");
@@ -170,6 +202,7 @@ int easylvgl_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
             return EASYLVGL_ERR_NO_MEM;
         }
         data->target = NULL;
+        data->ime = NULL;
         meta->user_data = data;
     }
     data->target = textarea;

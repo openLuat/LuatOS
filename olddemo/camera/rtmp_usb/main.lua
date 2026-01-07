@@ -95,7 +95,7 @@ sys.taskInit(function()
     sys.wait(1000)
     log.info("当前脚本版本号：", VERSION, "core版本号：", rtos.version())
     wlan.init()
-    wlan.connect("admin-降功耗，找合宙！", "Air123456", 1)
+    wlan.connect(wifi_ssid, wifi_password, 1)
 
     sys.waitUntil("IP_READY")
     local rtos_bsp = rtos.bsp()

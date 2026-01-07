@@ -322,9 +322,33 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     uint8_t udhl = 0;
     uint8_t iei = 0;
 
-    if (pdu_type & 0x40) // 是长短信， 解析udhi
+    // 检查是否是长短信 (UDHI标志 或 启发式检测UDH头)
+    if (pdu_type & 0x40) // PDU Type设置了UDHI标志
     {
         is_long_msg = 1;
+    }
+    else if (copy_len >= 7) // 启发式检测: PDU Type未设置UDHI，但数据可能包含UDH
+    {
+        // 检查是否存在有效的concatenated SMS UDH
+        // UDH格式: UDHL(1) + IEI(1) + IEDL(1) + IE_DATA(IEDL)
+        uint8_t possible_udhl = payload[1];
+        uint8_t possible_iei = payload[2];
+        uint8_t possible_iedl = payload[3];
+        
+        // 标准concatenated SMS: IEI=0x00 (8-bit ref), IEDL=0x03
+        // 或 IEI=0x08 (16-bit ref), IEDL=0x04
+        if ((possible_udhl == 0x05 && possible_iei == 0x00 && possible_iedl == 0x03) ||
+            (possible_udhl == 0x06 && possible_iei == 0x08 && possible_iedl == 0x04))
+        {
+            is_long_msg = 1;
+            if (sms_debug_enable) {
+                LLOGI("Detected UDH without UDHI flag set in PDU Type");
+            }
+        }
+    }
+
+    if (is_long_msg) // 是长短信，解析UDH
+    {
         if (payload_pos >= copy_len)
         {
             return -1;

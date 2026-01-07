@@ -59,6 +59,7 @@
 #define LUAT_USE_CAN 1
 #define LUAT_USE_OTP 1
 #define LUAT_USE_MOBILE 1
+#define LUAT_USE_SMS 1
 
 #define LUAT_USE_IOTAUTH 1
 #define LUAT_USE_MINIZ 1

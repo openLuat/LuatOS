@@ -209,6 +209,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_MOBILE
   {"mobile", luaopen_mobile},
 #endif
+#ifdef LUAT_USE_SMS
+  {"sms", luaopen_sms},
+#endif
   {NULL, NULL}
 };
 

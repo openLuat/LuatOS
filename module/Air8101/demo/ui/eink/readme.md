@@ -72,10 +72,10 @@
 
 |Air8101核心板| 墨水屏引脚 |
 |------------|-----------|
-| 9/GPIO6    | BUSY      |
+| 75/GPIO28  | BUSY      |
 | 10/GPIO7   | RST       |
-| 68/GPIO12  | DC        |
-| 75/GPIO28  | CS        |
+| 9/GPIO6    | DC        |
+| 68/GPIO12  | CS        |
 | 65/GPIO2   | SCK       |
 | 67/GPIO4   | DIN       |
 | vbat       | VCC       |

@@ -17,8 +17,8 @@
 #include "../inc/luat_easylvgl_binding.h"
 #include "../inc/luat_easylvgl_symbol.h"
 #include "luat_conf_bsp.h"
-#if defined(LUAT_USE_EASYLVGL_BK7258)
-#include "../src/platform/bk7258/luat_easylvgl_platform_bk7258.h"
+#if defined(LUAT_USE_EASYLVGL_LUATOS)
+#include "../src/platform/luatos/luat_easylvgl_platform_luatos.h"
 #endif
 #include <string.h>
 
@@ -280,13 +280,13 @@ static int l_easylvgl_refresh(lua_State *L) {
 }
 
 /**
- * 绑定触摸输入配置到 BK7258 平台
+ * 绑定触摸输入配置到 LuatOS 平台
  * @api easylvgl.indev_bind_touch(tp_cfg)
  * @userdata tp_cfg luat_tp_config_t*（lightuserdata）
  * @return bool 绑定是否成功
  */
 static int l_easylvgl_indev_bind_touch(lua_State *L) {
-#if defined(LUAT_USE_EASYLVGL_BK7258)
+#if defined(LUAT_USE_EASYLVGL_LUATOS)
     luat_tp_config_t *tp_cfg = (luat_tp_config_t *)lua_touserdata(L, 1);
     if (tp_cfg == NULL) {
         LLOGE("indev_bind_touch tp_cfg is NULL");
@@ -295,11 +295,11 @@ static int l_easylvgl_indev_bind_touch(lua_State *L) {
     }
 
     /* 保存到平台绑定，供初始化时同步 */
-    easylvgl_platform_bk7258_bind_tp(tp_cfg);
+    easylvgl_platform_luatos_bind_tp(tp_cfg);
 
     /* 如果上下文已存在且平台数据已分配，运行时也同步一份 */
     if (g_ctx && g_ctx->platform_data) {
-        bk7258_platform_data_t *data = (bk7258_platform_data_t *)g_ctx->platform_data;
+        luatos_platform_data_t *data = (luatos_platform_data_t *)g_ctx->platform_data;
         data->tp_config = tp_cfg;
     }
 

@@ -1,7 +1,7 @@
 /**
  * @file luat_easylvgl_conf.h
  * @summary EasyLVGL 平台相关配置
- * @description 根据不同的平台（SDL2、BK7258等）配置 LVGL 参数
+ * @description 根据不同的平台（SDL2、LuatOS等）配置 LVGL 参数
  * 
  * 注意：此文件会被 lv_conf.h 包含，用于覆盖默认配置
  */
@@ -45,8 +45,8 @@
 
 
 
-#elif defined(LUAT_USE_EASYLVGL_BK7258)
-    /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
+#elif defined(LUAT_USE_EASYLVGL_LUATOS)
+    /* LuatOS 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
     // #define LV_USE_OS   LV_OS_FREERTOS
     // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制

@@ -30,7 +30,7 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #include "luat_log.h"
 #include "rotable2.h"
 
-#define MAX_USB_DEVICE_COUNT 2
+
 static int l_usb_cb[MAX_USB_DEVICE_COUNT];
 
 int l_usb_handler(lua_State *L, void* ptr) {

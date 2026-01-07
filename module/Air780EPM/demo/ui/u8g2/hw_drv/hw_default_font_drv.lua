@@ -2,7 +2,7 @@
 @module  hw_default_font_drv
 @summary LCD初始化和内置点阵字体驱动模块
 @version 1.0
-@date    2025.12.23
+@date    2026.01.06
 @author  江访
 @usage
 本文件为LCD初始化和内置字体硬件驱动模块，核心业务逻辑为：
@@ -15,7 +15,7 @@
 ]]
 
 -- ST7567 SPI引脚配置
-local spi_id, spi_res, spi_dc, spi_cs = 1, 22, 14, 12
+local spi_id, spi_res, spi_dc, spi_cs = 1, 24, 14, 12
 
 local function init()
     -- 初始化U8G2显示屏 - ST7567, 128x64
@@ -66,7 +66,7 @@ local function init()
         u8g2.SendBuffer()
 
         -- 打开背光，若采用GPIO控制
-        gpio.setup(24, 1)
+        gpio.setup(1, 1)
     else
         log.error("u8g2", "Init failed, error code:", result)
     end

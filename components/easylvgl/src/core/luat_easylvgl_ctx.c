@@ -230,7 +230,6 @@ int easylvgl_init(easylvgl_ctx_t *ctx, uint16_t width, uint16_t height, lv_color
         easylvgl_deinit(ctx);
         return EASYLVGL_ERR_INIT_FAILED;
     }
-    
     lv_indev_set_type(ctx->indev, LV_INDEV_TYPE_POINTER);
     lv_indev_set_user_data(ctx->indev, ctx);
     lv_indev_set_read_cb(ctx->indev, input_read_cb);

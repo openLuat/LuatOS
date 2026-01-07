@@ -3,8 +3,12 @@
  * @summary BK7258 显示驱动实现
  * @responsible LCD 初始化、flush、vsync 占位、资源清理
  */
-
+#include "luat_conf_bsp.h"
 #if defined(__BK72XX__)
+    #include "luat_conf_bsp_air8101.h"
+#endif
+
+#if defined(LUAT_USE_EASYLVGL_BK7258)
 
 #include "luat_easylvgl.h"
 #include "luat_lcd.h"

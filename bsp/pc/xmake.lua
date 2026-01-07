@@ -210,6 +210,10 @@ target("luatos-lua")
     add_includedirs(luatos.."components/mobile")
     add_files(luatos.."components/mobile/*.c")
 
+    -- sms
+    add_includedirs(luatos.."components/sms/include",{public = true})
+    add_files(luatos.."components/sms/**.c")
+
     -- multimedia
     -- add_includedirs(luatos.."components/multimedia",{public = true})
     -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")

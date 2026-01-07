@@ -88,7 +88,7 @@
 <tr>
 <td>58/U3RXD<br/></td><td>DC<br/></td></tr>
 <tr>
-<td>GPIO24<br/></td><td>BL<br/></td></tr>
+<td>22/GPIO1<br/></td><td>BL<br/></td></tr>
 <tr>
 <td>VBAT<br/></td><td>VCC<br/></td></tr>
 <tr>

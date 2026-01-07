@@ -2,7 +2,7 @@
 @module  time_page
 @summary 时间显示演示模块
 @version 1.0
-@date    2025.12.18
+@date    2026.01.06
 @author  江访  
 @usage
 本模块为时间显示演示功能模块，主要功能包括：
@@ -101,8 +101,8 @@ function time_page.draw()
     eink.line(10, 150, 190, 150, 0)
 
     -- 显示操作提示
-    eink.print(55, 175, "BOOT键:切换格式", 0)
-    eink.print(55, 190, "PWR键:返回主页", 0)
+    eink.print(55, 175, "GPIO8:切换格式", 0)
+    eink.print(55, 190, "GPIO9:返回主页", 0)
 
 
     -- 刷新屏幕
@@ -119,23 +119,23 @@ end
 @api time_page.handle_key(key_type, switch_page)
 @summary 处理时间页面按键事件
 @string key_type 按键类型
-@valid_values "boot_up", "pwr_up"
+@valid_values "switch_down", "confirm_down"
 @function switch_page 页面切换回调函数
 @return bool 事件处理成功返回true，否则返回false
 
 @usage
 -- 在UI主循环中调用
-local handled = time_page.handle_key("boot_up", switch_page)
+local handled = time_page.handle_key("switch_down", switch_page)
 ]]
 function time_page.handle_key(key_type, switch_page)
     log.info("time_page.handle_key", "key_type:", key_type)
 
-    if key_type == "boot_up" then
+    if key_type == "switch_down" then
         -- BOOT键：切换时间显示格式
         time_state.format_index = time_state.format_index % #time_state.display_formats + 1
         log.info("time_page", "切换到格式:", time_state.format_index)
         return true
-    elseif key_type == "pwr_up" then
+    elseif key_type == "confirm_down" then
         -- PWR键：返回首页
         switch_page("home")
         return true

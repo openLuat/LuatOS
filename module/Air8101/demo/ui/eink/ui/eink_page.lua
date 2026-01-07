@@ -1,198 +1,141 @@
 --[[
-@module  time_page
-@summary 时间显示演示模块
+@module  eink_page
+@summary eink核心库演示模块
 @version 1.0
-@date    2025.12.25
+@date    2026.01.06
 @author  江访  
 @usage
-本模块为时间显示演示功能模块，主要功能包括：
-1、使用os.date接口获取当前时间；
-2、显示多种时间格式；
-3、支持实时时间更新；
+本模块为eink核心库演示功能模块，主要功能包括：
+1、展示eink核心库的基本图形绘制功能；
+2、演示线、矩形、圆形等基本图形绘制；
+3、显示文本和二维码生成功能；
+4、提供电池图标显示功能；
 
 按键功能：
-- 确认键：返回主页
-- 切换键：切换时间显示格式
+- GPIO9：返回主页
 
 对外接口：
-1、time_page.draw()：绘制时间显示页面
-2、time_page.handle_key()：处理时间页面按键事件
-3、time_page.on_enter()：页面进入时重置状态
-4、time_page.on_leave()：页面离开时执行清理操作
-]]
+1、eink_page.draw()：绘制eink演示页面
+2、eink_page.handle_key()：处理eink页面按键事件
+3、eink_page.on_enter()：页面进入时重置状态
+4、eink_page.on_leave()：页面离开时执行清理操作
+]] 
 
-local time_page = {}
-
--- 时间显示状态
-local time_state = {
-    format_index = 1,     -- 当前显示格式索引
-    last_update = 0,      -- 最后更新时间
-    update_interval = 5000, -- 更新间隔（5秒）
-    display_formats = {   -- 时间显示格式列表
-        {name = "完整格式", format = "%Y年%m月%d日 %H:%M:%S"},
-        {name = "简洁格式", format = "%Y-%m-%d %H:%M"},
-        {name = "时间格式", format = "%H:%M:%S"},
-        {name = "日期格式", format = "%Y/%m/%d"},
-        {name = "星期格式", format = "%A %H:%M"},
-        {name = "UTC时间", format = "!%Y-%m-%d %H:%M:%S"}
-    }
-}
+local eink_page = {}
 
 --[[
-获取当前时间字符串
-@local
-@return string 格式化后的时间字符串
-]]
-local function get_time_string()
-    local format_info = time_state.display_formats[time_state.format_index]
-    return os.date(format_info.format)
-end
+绘制eink演示页面；
+绘制eink演示页面的所有图形和UI元素；
 
---[[
-绘制时间显示页面；
-绘制时间显示页面的所有UI元素；
-
-@api time_page.draw()
-@summary 绘制时间显示页面的所有UI元素
+@api eink_page.draw()
+@summary 绘制eink演示页面的所有图形和UI元素
 @return nil
 
 @usage
 -- 在UI主循环中调用
-time_page.draw()
-]]
-function time_page.draw()
-    -- 清除绘图缓冲区
+eink_page.draw()
+]] 
+function eink_page.draw()
+    -- 清除绘图缓冲区（使用白色背景）
     eink.clear(1, true)
-
-    -- 显示标题
-    eink.setFont(eink.font_opposansm12_chinese)
-    eink.rect(10, 10, 190, 45, 0, 0)     -- 标题背景框
-    eink.print(70, 30, "时间显示", 0)
-
-    -- 显示当前时间
-    local time_str = get_time_string()
-
-    -- 时间显示框
-    eink.rect(20, 60, 180, 110, 0, 0)
     
-    -- 统一使用12号中文字体显示时间
+    -- 绘制外边框（水平+垂直线组合）
+    eink.line(5, 5, 195, 5, 0)     -- 上边框水平线
+    eink.line(5, 195, 195, 195, 0) -- 下边框水平线
+    eink.line(5, 5, 5, 195, 0)     -- 左边框垂直线
+    eink.line(195, 5, 195, 195, 0) -- 右边框垂直线
+
+    -- 标题区域（22号英文字体）
+    eink.setFont(eink.font_opposansm22)
+    eink.rect(10, 10, 190, 40, 0, 0)     -- 标题背景（无斜线）
+    eink.print(35, 34, "LuatOS-eink", 0) -- 黑色文字
+
+    -- 区域分隔线（水平）
+    eink.line(10, 50, 190, 50, 0)   -- 标题与内容分隔线
+    eink.line(100, 55, 100, 190, 0) -- 左右区域分隔线（垂直）
+
+    -- 左侧区域（左半屏）
+    -- 1. 文本演示，中文目前仅支持12号中文字体
     eink.setFont(eink.font_opposansm12_chinese)
-    
-    -- 根据字符串长度微调显示位置
-    if #time_str > 20 then
-        -- 长字符串向左偏移
-        eink.print(25, 85, time_str, 0)
-    else
-        -- 短字符串居中显示
-        eink.print(30, 85, time_str, 0)
-    end
+    eink.print(15, 65, "1. 12中文字体", 0)
+    eink.print(20, 85, "GPIO9返回", 0)
 
-    -- 显示格式信息
-    local format_info = time_state.display_formats[time_state.format_index]
-    eink.print(30, 130, "当前时间格式:", 0)
+    -- 2. 矩形与线条演示
+    eink.print(15, 110, "2. 图形演示", 0)
+    eink.circle(33, 135, 15, 0, 0)    -- 空心圆形
+    eink.circle(73, 135, 15, 0, 1)    -- 实心圆形
+    eink.rect(20, 160, 60, 185, 0, 0) -- 空心矩形
+    eink.rect(70, 160, 90, 185, 0, 1) -- 实心矩形
 
-    eink.print(130, 130, format_info.name, 0)
-            -- 显示格式索引
-    eink.print(80, 145, string.format("%d/%d",
-        time_state.format_index,
-        #time_state.display_formats), 0)
+    -- 右侧区域（右半屏）
+    -- 3. 二维码演示
+    eink.print(110, 65, "3. 二维码", 0)
+    eink.qrcode(115, 70, "https://docs.openluat.com/osapi/core/eink/", 69)
 
-    -- 绘制分隔线
-    eink.line(10, 150, 190, 150, 0)
+    -- 4. 电池与位图演示
+    eink.print(110, 160, "4. 状态图标", 0)
+    eink.bat(120, 170, 3750) -- 电池图标
+    eink.print(150, 180, "电量", 0)
 
-    -- 显示操作提示
-    eink.print(55, 175, "切换键:切换格式", 0)
-    eink.print(55, 190, "确认键:返回主页", 0)
-
-
-    -- 刷新屏幕
+    -- 刷新屏幕（不清屏）
     eink.show(0, 0, true)
-
-    -- 更新最后更新时间
-    time_state.last_update = mcu.ticks()
 end
 
 --[[
 处理按键事件；
 根据按键类型执行相应的操作；
 
-@api time_page.handle_key(key_type, switch_page)
-@summary 处理时间页面按键事件
+@api eink_page.handle_key(key_type, switch_page)
+@summary 处理eink页面按键事件
 @string key_type 按键类型
-@valid_values "switch_up", "confirm_up"
+@valid_values "confirm_down"
 @function switch_page 页面切换回调函数
 @return bool 事件处理成功返回true，否则返回false
 
 @usage
 -- 在UI主循环中调用
-local handled = time_page.handle_key("switch_up", switch_page)
-]]
-function time_page.handle_key(key_type, switch_page)
-    log.info("time_page.handle_key", "key_type:", key_type)
-
-    if key_type == "switch_up" then
-        -- 切换键：切换时间显示格式
-        time_state.format_index = time_state.format_index % #time_state.display_formats + 1
-        time_page.draw()  -- 立即重绘以显示新的时间格式
-        log.info("time_page", "切换到格式:", time_state.format_index)
-        return true
-    elseif key_type == "confirm_up" then
-        -- 确认键：返回首页
+local handled = eink_page.handle_key("confirm_down", switch_page)
+]] 
+function eink_page.handle_key(key_type, switch_page)
+    log.info("eink_page.handle_key", "key_type:", key_type)
+    
+    if key_type == "confirm_down" then
+        -- PWR键：返回首页
         switch_page("home")
         return true
     end
+    -- BOOT键无功能
     return false
-end
-
---[[
-检查是否需要更新时间；
-基于时间间隔判断是否需要刷新显示；
-
-@api time_page.need_update()
-@summary 检查是否需要更新时间显示
-@return bool 需要更新返回true，否则返回false
-
-@usage
--- 在UI主循环中调用
-if time_page.need_update() then
-    time_page.draw()
-end
-]]
-function time_page.need_update()
-    local current_time = mcu.ticks()
-    return (current_time - time_state.last_update) >= time_state.update_interval
 end
 
 --[[
 页面进入时重置状态；
 
-@api time_page.on_enter()
+@api eink_page.on_enter()
 @summary 页面进入时重置状态
 @return nil
 
 @usage
 -- 在页面切换时调用
-time_page.on_enter()
-]]
-function time_page.on_enter()
-    time_state.format_index = 1
-    time_state.last_update = 0
-    log.info("time_page", "进入时间显示页面")
+eink_page.on_enter()
+]] 
+function eink_page.on_enter()
+    log.info("eink_page", "进入eink演示页面")
 end
 
 --[[
 页面离开时执行清理操作；
 
-@api time_page.on_leave()
+@api eink_page.on_leave()
 @summary 页面离开时执行清理操作
 @return nil
 
 @usage
 -- 在页面切换时调用
-time_page.on_leave()
-]]
-function time_page.on_leave()
-    log.info("time_page", "离开时间显示页面")
+eink_page.on_leave()
+]] 
+function eink_page.on_leave()
+    log.info("eink_page", "离开eink演示页面")
 end
 
-return time_page
+return eink_page

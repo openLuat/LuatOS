@@ -4,7 +4,12 @@
  * @responsible 汇总显示/输入/时基接口，提供 TP 绑定辅助
  */
 
-#if defined(__BK72XX__)
+ #include "luat_conf_bsp.h"
+ #if defined(__BK72XX__)
+     #include "luat_conf_bsp_air8101.h"
+ #endif
+ 
+ #if defined(LUAT_USE_EASYLVGL_BK7258)
 
 #include "luat_easylvgl.h"
 #include "luat_easylvgl_platform_bk7258.h"

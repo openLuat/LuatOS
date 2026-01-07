@@ -2,7 +2,7 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.12.18
+@date    2026.01.06
 @author  江访
 @usage
 

@@ -2,7 +2,7 @@
 @module  home_page
 @summary eink主页模块，提供应用入口和导航功能
 @version 1.0
-@date    2025.12.25
+@date    2026.01.06
 @author  江访  
 @usage
 本模块为主页模块，主要功能包括：
@@ -51,7 +51,7 @@ function home_page.draw()
     eink.print(60, 30, "eink演示系统", 0)
 
     -- 显示操作提示
-    eink.print(30, 65, "切换键:切换 确认键:确认", 0)
+    eink.print(30, 65, "GPIO8:切换 GPIO9:确认", 0)
 
     -- 绘制分隔线
     eink.line(10, 70, 190, 70, 0)
@@ -85,23 +85,23 @@ end
 @api home_page.handle_key(key_type, switch_page)
 @summary 处理主页按键事件
 @string key_type 按键类型
-@valid_values "confirm_up", "switch_up"
+@valid_values "confirm_down", "switch_down"
 @function switch_page 页面切换回调函数
 @return bool 事件处理成功返回true，否则返回false
 
 @usage
 -- 在UI主循环中调用
-local handled = home_page.handle_key("switch_up", switch_page)
+local handled = home_page.handle_key("switch_down", switch_page)
 ]] 
 function home_page.handle_key(key_type, switch_page)
     log.info("home_page.handle_key", "key_type:", key_type, "selected_index:", selected_index)
     
-    if key_type == "confirm_up" then
+    if key_type == "confirm_down" then
         -- 确认键：切换到选中的页面
         local opt = options[selected_index]
         switch_page(opt.name)
         return true
-    elseif key_type == "switch_up" then
+    elseif key_type == "switch_down" then
         -- 切换键：切换选项
         selected_index = selected_index % #options + 1
         home_page.draw()  -- 立即重绘以显示新的选中状态

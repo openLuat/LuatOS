@@ -30,7 +30,9 @@
  *====================*/
 
 /** Color depth: 1 (I1), 8 (L8), 16 (RGB565), 24 (RGB888), 32 (XRGB8888) */
-#define LV_COLOR_DEPTH 16
+#ifndef LV_COLOR_DEPTH
+    #define LV_COLOR_DEPTH 16
+#endif
 
 /*=========================
    STDLIB WRAPPER SETTINGS
@@ -538,7 +540,9 @@
 #define LV_USE_OBJ_ID           0
 
 /**  Enable support widget names*/
-#define LV_USE_OBJ_NAME         0
+#ifndef LV_USE_OBJ_NAME
+    #define LV_USE_OBJ_NAME         0
+#endif
 
 /** Automatically assign an ID when obj is created */
 #define LV_OBJ_ID_AUTO_ASSIGN   LV_USE_OBJ_ID
@@ -1224,7 +1228,9 @@
 #endif /*LV_USE_TEST*/
 
 /** Enable loading XML UIs runtime */
-#define LV_USE_XML    0
+#ifndef LV_USE_XML
+    #define LV_USE_XML    0
+#endif
 
 /** 1: Enable text translation support */
 #define LV_USE_TRANSLATION 0

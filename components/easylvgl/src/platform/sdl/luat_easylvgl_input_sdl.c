@@ -83,7 +83,7 @@ static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *c
         return;
     }
 
-    LLOGD("sdl_process_keyboard_event: event->type=%d", event->type);
+    // LLOGD("sdl_process_keyboard_event: event->type=%d", event->type);
 
     switch (event->type) {
     case SDL_KEYDOWN: {
@@ -110,7 +110,7 @@ static void sdl_process_keyboard_event(const SDL_Event *event, easylvgl_ctx_t *c
     }
     case SDL_TEXTEDITING:
         // 进入预编辑阶段，保存 SIMD 编辑器反馈的未提交文本
-        LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
+        // LLOGD("SDL_TEXTEDITING text=%s cursor=%d length=%d", event->edit.text, event->edit.start, event->edit.length);
         easylvgl_system_keyboard_set_preedit(ctx, event->edit.text);
         ctx->system_keyboard_preedit_active = true;
         break;

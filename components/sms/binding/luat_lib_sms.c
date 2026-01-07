@@ -84,7 +84,7 @@ end)
 
 
 static void push_sms_args(lua_State* L, luat_sms_recv_msg_t* sms, char* dst, size_t dstlen) {
-    char phone[strlen(sms->phone_address) * 3 + 1];
+    char phone[sizeof(sms->phone_address) * 3 + 1] = {0};
     memset(phone, 0, strlen(sms->phone_address) * 3 + 1);
     size_t outlen = 0;
     memcpy(phone, sms->phone_address, strlen(sms->phone_address));

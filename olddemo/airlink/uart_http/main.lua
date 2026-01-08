@@ -24,7 +24,7 @@ sys.taskInit(function()
     -- 注册网卡
     netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
     -- 启动airlink uart任务
-    airlink.start(2)
+    airlink.start(airlink.MODE_UART)
 
     -- 网关模式下, ip设置为.1, 对端设置为.2
     if is_gw then

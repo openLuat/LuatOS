@@ -14,7 +14,7 @@ sys.timerLoopStart(wdt.feed, 1000)
 
 sys.taskInit(function()
     -- sys.wait(500)
-    airlink.start(0)
+    airlink.start(airlink.MODE_SPI_SLAVE)
     -- wlan.init()
     -- sys.wait(5000)
 end)

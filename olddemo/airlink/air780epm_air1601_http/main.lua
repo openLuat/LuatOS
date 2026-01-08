@@ -11,7 +11,7 @@ dnsproxy = require("dnsproxy")
 -- 是否是网关模式, 要插卡, 要能联网
 is_gw = rtos.bsp() ~= "Air1601"
 -- 网关就用slave模式, 客户端就用master模式
-local airlink_mode = is_gw and 0 or 1
+local airlink_mode = is_gw and airlink.MODE_SPI_SLAVE or airlink.MODE_SPI_MASTER
 -------------------------------------
 
 

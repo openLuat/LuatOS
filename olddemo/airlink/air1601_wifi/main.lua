@@ -50,7 +50,7 @@ sys.taskInit(function()
     netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
     netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
     -- 启动底层线程, 主机模式
-    airlink.start(1)
+    airlink.start(airlink.MODE_SPI_MASTER)
     -- airlink初始化，等待1s
     sys.wait(1000)
     -- 初始化wlan

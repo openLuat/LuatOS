@@ -120,7 +120,7 @@ sys.taskInit(function()
     -- log.info("5秒后开始测试")
     -- sys.wait(5000)
     airlink.init()
-    airlink.start(1)
+    airlink.start(airlink.MODE_SPI_MASTER)
     
     sys.wait(200) -- 稍微缓一下, Air8000S的启动大概需要300ms
 

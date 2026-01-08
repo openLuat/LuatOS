@@ -93,17 +93,17 @@
 <tr>
 <td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>st7567<br/></td></tr>
 <tr>
-<td>57/U3TXD<br/></td><td>SCL<br/></td></tr>
+<td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>28/U2RXD<br/></td><td>CS<br/></td></tr>
+<td>84/SPI0_MISO<br/></td><td>DC<br/></td></tr>
+<tr>
+<td>85/SPI0_MOSI<br/></td><td>SDA<br/></td></tr>
+<tr>
+<td>86/SPI0_CLK<br/></td><td>SCL<br/></td></tr>
 <tr>
 <td>20/GPIO24<br/></td><td>RST<br/></td></tr>
 <tr>
-<td>29/U2TXD<br/></td><td>SDA<br/></td></tr>
-<tr>
-<td>58/U3RXD<br/></td><td>DC<br/></td></tr>
-<tr>
-<td>22/GPIO1<br/></td><td>BL<br/></td></tr>
+<td>VBAT<br/></td><td>BL<br/></td></tr>
 <tr>
 <td>VBAT<br/></td><td>VCC<br/></td></tr>
 <tr>
@@ -114,15 +114,15 @@
 
 <table>
 <tr>
-<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
+<td>Air780EHM核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
 <tr>
-<td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
+<td>57/U3TXD<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>84/SPI0_MISO<br/></td><td>MISO<br/></td></tr>
+<td>28/U2RXD<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>85/SPI0_MOSI<br/></td><td>MOSI<br/></td></tr>
+<td>29/U2TXD<br/></td><td>MOSI<br/></td></tr>
 <tr>
-<td>86/SPI0_CLK<br/></td><td>CLK<br/></td></tr>
+<td>58/U3RXD<br/></td><td>MISO<br/></td></tr>
 <tr>
 <td>24/VDD_EXT<br/></td><td>VCC<br/></td></tr>
 <tr>
@@ -161,7 +161,7 @@
 -- 1. hw_default_font_drv - LCD显示驱动和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 -- 2. hw_gtfont_drv - LCD显示驱动和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
 require("hw_default_font_drv")  -- 使用内置12号中文点阵字体
--- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库
+-- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库（Air780EHM支持，Air780EHV/EGH不支持2路SPI接口）
 
 -- 加载按键驱动
 require("key_drv")

@@ -148,7 +148,7 @@ lv_obj_t *easylvgl_keyboard_create_from_config(void *L, int idx)
         if (dict != NULL && dict_count > 0) {
             lv_ime_pinyin_set_dict(data->ime, (lv_pinyin_dict_t *)dict);
         }
-        LLOGD(LUAT_LOG_TAG, "打开中文输入法支持，词典数量：%d", dict_count);
+        LLOGI("打开中文输入法支持，词典数量：%d", dict_count);
 #endif
 
     }

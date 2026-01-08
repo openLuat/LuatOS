@@ -1,7 +1,7 @@
 --[[
-exEasyUI v1.7.1
+exEasyUI v1.7.2
 作者：曾帅、江访
-日期：2025-12-26
+日期：2026-01-05
 ================================
 结构说明：
 1. 常量定义 - UI颜色常量和调试配置
@@ -27,7 +27,7 @@ exEasyUI v1.7.1
 ]]
 
 local ui                              = {
-    version = "1.7.1",
+    version = "1.7.2",
     hw = {},
     runtime = {},
     render = {},
@@ -56,6 +56,8 @@ local canvas
 local handle_debug_stats
 
 local render_state
+
+local sleep_config = {}
 
 -- 运行时表提前声明，便于硬件模块引用
 local runtime                         = {
@@ -217,6 +219,7 @@ function ui.hw_init(opts)
     -- 设置消息发布状态
     if tp_config and tp_config.message_enabled then
         if type(tp_config.message_enabled) == "table" then
+            sleep_config = tp_config.message_enabled
             for msg_type, enabled in pairs(tp_config.message_enabled) do
                 if type(msg_type) == "string" and type(enabled) == "boolean" then
                     local success = extp.set_publish_enabled(msg_type, enabled)
@@ -227,6 +230,7 @@ function ui.hw_init(opts)
             end
         elseif type(tp_config.message_enabled) == "string" then
             local success = extp.set_publish_enabled(tp_config.message_enabled, true)
+            sleep_config = extp.get_publish_enable("ALL")
             if not success then
                 log.warn("exEasyUI", "设置消息发布状态失败:", tp_config.message_enabled)
             end
@@ -2472,7 +2476,7 @@ function keyboard:draw_top_bar(ctx, ax, ay)
     local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
     local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
     local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local button_bg_color  = bg_color 
+    local button_bg_color  = bg_color
 
     -- 返回按钮
     local backBtnX = ax + 10
@@ -2480,7 +2484,7 @@ function keyboard:draw_top_bar(ctx, ax, ay)
     local backBtnW = 60
     local backBtnH = 35
     -- 检查返回按钮是否被按下
-    local backBtnbg_color  = (self.enable_click_effect and self._backButtonPressed) and COLOR_GRAY or button_bg_color 
+    local backBtnbg_color  = (self.enable_click_effect and self._backButtonPressed) and COLOR_GRAY or button_bg_color
     ctx:fill_rect(backBtnX, backBtnY, backBtnW, backBtnH, backBtnbg_color )
     ctx:stroke_rect(backBtnX, backBtnY, backBtnW, backBtnH, border_color)
     local back_text = "返回"
@@ -2598,7 +2602,7 @@ function keyboard:draw_key(ctx, key)
     local text_color = dark and COLOR_WHITE or COLOR_BLACK
     local presse_dbg_color  = COLOR_GRAY
 
-    local btnbg_color  = (self.enable_click_effect and key.pressed) and presse_dbg_color  or bg_color 
+    local btnbg_color  = (self.enable_click_effect and key.pressed) and presse_dbg_color  or bg_color
 
     ctx:fill_rect(key.x, key.y, key.w, key.h, btnbg_color )
     ctx:stroke_rect(key.x, key.y, key.w, key.h, border_color)
@@ -2914,7 +2918,7 @@ function keyboard:draw_candidate_area(ctx, ax, ay)
             local char = self.currentCandidates[i]
             -- 检查候选按键是否被按下
             local isPressed = (self._pressedCandidateIndex == i)
-            local btnbg_color  = (self.enable_click_effect and isPressed) and presse_dbg_color  or bg_color 
+            local btnbg_color  = (self.enable_click_effect and isPressed) and presse_dbg_color  or bg_color
 
             ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, btnbg_color )
             ctx:stroke_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, border_color)
@@ -3122,13 +3126,13 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
             local syllable = self.syllableCandidates[idx]
             local isSelected = (idx == self.selectedSyllableIndex)
             local isPressed = (self._pressedSyllableIndex == idx)
-            local btnbg_color 
+            local btnbg_color
             if self.enable_click_effect and isPressed then
-                btnbg_color  = presse_dbg_color 
+                btnbg_color  = presse_dbg_color
             elseif isSelected then
-                btnbg_color  = selecte_dbg_color 
+                btnbg_color  = selecte_dbg_color
             else
-                btnbg_color  = bg_color 
+                btnbg_color  = bg_color
             end
             local btntext_color = (isSelected or (self.enable_click_effect and isPressed)) and selected_text_color or
             text_color
@@ -3194,13 +3198,13 @@ function keyboard:draw_pinyin_candidates(ctx, ax, ay)
             local char = self.pinyinCandidates[idx] -- 直接使用UTF-8字符串
             local isSelected = (idx == self.selectedCandidateIndex)
             local isPressed = (self._pressedCandidateIndex == idx)
-            local btnbg_color 
+            local btnbg_color
             if self.enable_click_effect and isPressed then
-                btnbg_color  = presse_dbg_color 
+                btnbg_color  = presse_dbg_color
             elseif isSelected then
-                btnbg_color  = selecte_dbg_color 
+                btnbg_color  = selecte_dbg_color
             else
-                btnbg_color  = bg_color 
+                btnbg_color  = bg_color
             end
             local btntext_color = (isSelected or (self.enable_click_effect and isPressed)) and selected_text_color or
             text_color
@@ -3992,13 +3996,95 @@ function ui.clear(color)
     ui.render.background(color or COLOR_BLACK)
 end
 
--- 已废除：预计1.8.0删除
-function ui.renderFrame()
-    return nil -- 返回空值
+
+-- 新增：屏幕休眠接口
+-- @param enable_touch boolean | nil: 可选参数，为true或nil时触摸保持生效，为false时关闭所有触摸消息
+function ui.sleep(enable_touch)
+    -- 默认参数为true，即触摸生效
+    local keep_touch_enabled = (enable_touch == nil) or (enable_touch == true)
+
+    -- 调用exlcd休眠
+    if exlcd and exlcd.sleep then
+        exlcd.sleep()
+    end
+
+    -- 如果不需要触摸生效，则关闭所有触摸消息
+    if not keep_touch_enabled and extp and extp.set_publish_enabled then
+        local success = extp.set_publish_enabled("ALL", false)
+        if success then
+            -- 记录触摸被关闭的状态，用于唤醒时恢复
+            runtime.touch_disabled_during_sleep = true
+            log.info("exEasyUI", "触摸已禁用")
+        else
+            runtime.touch_disabled_during_sleep = false
+            log.warn("exEasyUI", "禁用触摸失败")
+        end
+    else
+        runtime.touch_disabled_during_sleep = false
+        if keep_touch_enabled then
+            log.info("exEasyUI", "触摸保持生效")
+        end
+    end
+end
+
+-- 新增：屏幕唤醒接口
+function ui.wakeup()
+
+    -- 如果休眠时触摸被关闭，则恢复初始化时的触摸设置
+    if runtime.touch_disabled_during_sleep and extp and extp.set_publish_enabled then
+        -- 重新启用所有触摸消息
+        if sleep_config and type(sleep_config) == "table" then
+            local restored_count = 0
+            local failed_count = 0
+            for msg_type, enabled in pairs(sleep_config) do
+                if type(msg_type) == "string" and type(enabled) == "boolean" then
+                    local success = extp.set_publish_enabled(msg_type, enabled)
+                    if success then
+                        restored_count = restored_count + 1
+                    else
+                        failed_count = failed_count + 1
+                        log.warn("exEasyUI", "恢复触摸消息失败:", msg_type, enabled)
+                    end
+                end
+            end
+            log.info("exEasyUI", string.format("屏幕唤醒，触摸已恢复（成功%d个，失败%d个）",
+                     restored_count, failed_count))
+        else
+            -- 如果 sleep_config 无效，启用所有触摸消息作为后备
+            extp.set_publish_enabled("ALL", true)
+            log.info("exEasyUI", "屏幕唤醒，触摸已启用（使用后备方案）")
+        end
+        runtime.touch_disabled_during_sleep = false
+    else
+        log.info("exEasyUI", "屏幕唤醒，恢复触摸设置")
+    end
+
+    exlcd.wakeup()
+
+end
+
+-- 新增：设置背光亮度接口
+-- @param level number: 背光亮度等级，具体取值范围由硬件决定
+function ui.set_bl(level)
+    if exlcd and exlcd.set_bl then
+        -- 验证 level 参数
+        if type(level) == "number" then
+            exlcd.set_bl(level)
+            log.info("exEasyUI", "设置背光亮度", level)
+        else
+            log.warn("exEasyUI", "背光亮度参数必须是数字，当前类型:", type(level))
+        end
+    else
+        log.warn("exEasyUI", "set_bl接口不可用")
+    end
+end
+
+function ui.refresh()
+    ui.render.invalidate(nil)
 end
 
 -- 已废除：预计1.8.0删除
-function ui.refresh()
+function ui.renderFrame()
     return nil -- 返回空值
 end
 

@@ -178,11 +178,11 @@ local function send_sms()
         log.info("mobile.imsi(index) = ", mobile.imsi())
         -- 注意：以下查话费的三行代码只需根据自己卡的运营商打开其一即可，其余两行关闭，不要全部打开
         -- 电信卡查话费
-        local result = sms.send("10001", "102")
-        -- 中移动卡查短信
-        -- local result = sms.send("10086", "301")
+        -- local result = sms.send("10001", "102")
+        -- 中移动卡查话费
+        -- local result = sms.send("10086", "101")
         -- 联通卡查话费
-        -- local result = sms.send("10010", "101")
+        local result = sms.send("10010", "101")
         -- 注意：V2018及更高版本固件才有"SMS_SENT"系统消息
         if result then
             local wait_msg, success  = sys.waitUntil("SMS_SENT", 10000)

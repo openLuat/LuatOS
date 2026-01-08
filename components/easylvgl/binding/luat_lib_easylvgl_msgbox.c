@@ -138,13 +138,11 @@ static int l_msgbox_release(lua_State *L)
 }
 
 /**
- * Msgbox GC（Lua 垃圾回收）
+ * Msgbox:destroy（手动销毁）
  */
-static int l_msgbox_gc(lua_State *L)
+static int l_msgbox_destroy(lua_State *L)
 {
-    easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_MSGBOX_MT);
-    easylvgl_msgbox_lua_cleanup(ud);
-    return 0;
+    return l_msgbox_release(L);
 }
 
 /**
@@ -155,14 +153,12 @@ void easylvgl_register_msgbox_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_MSGBOX_MT);
 
-    lua_pushcfunction(L, l_msgbox_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg methods[] = {
         {"show", l_msgbox_show},
         {"hide", l_msgbox_hide},
         {"set_on_action", l_msgbox_set_on_action},
         {"release", l_msgbox_release},
+        {"destroy", l_msgbox_destroy},
         {NULL, NULL}
     };
 

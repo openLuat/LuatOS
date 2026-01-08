@@ -142,9 +142,9 @@ static int l_keyboard_get_target(lua_State *L) {
 }
 
 /**
- * Keyboard GC（释放资源）
+ * Keyboard:destroy（手动销毁）
  */
-static int l_keyboard_gc(lua_State *L) {
+static int l_keyboard_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_KEYBOARD_MT);
     if (ud != NULL && ud->obj != NULL) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
@@ -169,9 +169,6 @@ static int l_keyboard_gc(lua_State *L) {
 void easylvgl_register_keyboard_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_KEYBOARD_MT);
 
-    lua_pushcfunction(L, l_keyboard_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg methods[] = {
         {"set_target", l_keyboard_set_target},
         {"show", l_keyboard_show},
@@ -179,6 +176,7 @@ void easylvgl_register_keyboard_meta(lua_State *L) {
         {"set_on_commit", l_keyboard_set_on_commit},
         {"set_layout", l_keyboard_set_layout},
         {"get_target", l_keyboard_get_target},
+        {"destroy", l_keyboard_destroy},
         {NULL, NULL}
     };
 

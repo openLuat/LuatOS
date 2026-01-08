@@ -101,3 +101,17 @@ int easylvgl_container_set_hidden(lv_obj_t *container, bool hidden)
     lv_obj_set_flag(container, LV_OBJ_FLAG_HIDDEN, hidden);
     return EASYLVGL_OK;
 }
+
+/**
+ * 打开容器（用于子窗口），清除隐藏标志并置顶
+ */
+int easylvgl_container_open(lv_obj_t *container)
+{
+    if (container == NULL) {
+        return EASYLVGL_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(container);
+    return EASYLVGL_OK;
+}

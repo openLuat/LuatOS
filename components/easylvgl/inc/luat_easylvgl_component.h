@@ -272,6 +272,8 @@ int easylvgl_switch_set_on_change(lv_obj_t *sw, int callback_ref); //设置改�
 lv_obj_t *easylvgl_container_create_from_config(void *L, int idx);
 int easylvgl_container_set_color(lv_obj_t *container, uint32_t color); //设置背景颜色
 int easylvgl_container_set_hidden(lv_obj_t *container, bool hidden); //设置隐藏状态
+int easylvgl_container_open(lv_obj_t *container); //显示并置顶容器
+int easylvgl_container_destroy(lv_obj_t *container); //销毁容器及关联资源
 
 /**
  * Table 组件创建

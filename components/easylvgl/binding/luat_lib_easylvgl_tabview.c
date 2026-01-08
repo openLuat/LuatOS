@@ -74,7 +74,7 @@ static int l_tabview_set_on_change(lua_State *L) {
     return 0;
 }
 
-static int l_tabview_gc(lua_State *L) {
+static int l_tabview_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_TABVIEW_MT);
     if (ud != NULL && ud->obj != NULL) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
@@ -90,13 +90,12 @@ static int l_tabview_gc(lua_State *L) {
 
 void easylvgl_register_tabview_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_TABVIEW_MT);
-    lua_pushcfunction(L, l_tabview_gc);
-    lua_setfield(L, -2, "__gc");
 
     static const luaL_Reg methods[] = {
         {"set_active", l_tabview_set_active},
         {"get_content", l_tabview_get_content},
         {"set_on_change", l_tabview_set_on_change},
+        {"destroy", l_tabview_destroy},
         {NULL, NULL}
     };
 

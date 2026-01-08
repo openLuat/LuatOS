@@ -139,9 +139,9 @@ static int l_win_close(lua_State *L) {
 }
 
 /**
- * Win GC（垃圾回收）
+ * Win:destroy（手动销毁）
  */
-static int l_win_gc(lua_State *L) {
+static int l_win_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_WIN_MT);
     if (ud != NULL && ud->obj != NULL) {
         // 获取元数据并释放
@@ -152,7 +152,6 @@ static int l_win_gc(lua_State *L) {
                 luat_heap_free(meta->user_data);
                 meta->user_data = NULL;
             }
-            
             easylvgl_component_meta_free(meta);
         }
         
@@ -169,15 +168,11 @@ static int l_win_gc(lua_State *L) {
  */
 void easylvgl_register_win_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_WIN_MT);
-    
-    // 设置元方法
-    lua_pushcfunction(L, l_win_gc);
-    lua_setfield(L, -2, "__gc");
-    
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_title", l_win_set_title},
         {"add_content", l_win_add_content},
+        {"destroy", l_win_destroy},
         {"close", l_win_close},
         {NULL, NULL}
     };

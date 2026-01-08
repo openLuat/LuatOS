@@ -12,14 +12,16 @@
         3. 使用前请确保网络连接正常，能够访问到目标摄像头
 
     使用exremotecam库时，需要按照以下顺序加载模块：
-        require "dhcam" -- 首先加载具体型号的摄像头功能模块（如大华dhcam）
-        require "exremotecam" -- 然后加载exremotecam主模块
+        local dhcam = require "dhcam" -- 首先加载具体型号的摄像头功能模块（如大华dhcam）
+        local exremotecam = require "exremotecam" -- 然后加载exremotecam主模块
 
+
+local dhcam = require "dhcam"
 local exremotecam = require "exremotecam"
 
 -- OSD文字显示参数配置表
 local osd_param = {
-    brand = "Dhua",  -- 摄像头品牌，当前仅支持"Dhua"(大华)
+    brand = "dhcam",  -- 摄像头品牌，当前仅支持"dhcam"(大华)
     host = "192.168.1.108",  -- 摄像头/NVR的IP地址
     channel = 0,  -- 摄像头通道号
     text = "行1|行2|行3",  -- OSD文本内容，需用竖线分隔，格式如"1111|2222|3333|4444"
@@ -29,7 +31,7 @@ local osd_param = {
 
 -- 拍照功能参数配置表
 local photo_param = {
-    brand = "Dhua",  -- 摄像头品牌，当前仅支持"Dhua"(大华)
+    brand = "dhcam",  -- 摄像头品牌，当前仅支持"dhcam"(大华)
     host = "192.168.1.108",  -- 摄像头/NVR的IP地址
     channel = 0  -- 摄像头通道号
 }
@@ -40,8 +42,6 @@ function camera_start()
     -- 设置摄像头OSD文字显示
     log.info("开始设置OSD显示")
     exremotecam.osd(osd_param)
-    
-    sys.wait(1000) -- 等待OSD设置完成
     
     -- 控制摄像头拍照，若SD卡可用，则图片保存为/sd/1.jpeg
     log.info("开始拍照操作")
@@ -67,13 +67,13 @@ local camera_id, camera_buff
 @string camera_param.text OSD文本内容，需用竖线分隔
 @number camera_param.x 显示位置的X坐标
 @number camera_param.y 显示位置的Y坐标
-@return number 返回值
- 0：OSD设置失败
- 1：OSD设置成功
+@return boolean 返回值
+ false：OSD设置失败
+ true：OSD设置成功
 @usage
 -- 大华摄像头示例
 local osd_param = {
-    brand = "Dhua",
+    brand = "dhcam",
     host = "192.168.1.100",
     channel = 1,
     text = "温度: 25℃|湿度: 60%|设备ID: 001",
@@ -85,7 +85,7 @@ log.info("osd", "设置结果: " .. result)
 
 -- 多通道NVR示例
 local osd_param = {
-    brand = "Dhua",
+    brand = "dhcam",
     host = "192.168.1.100",
     channel = 3,  -- 第3通道
     text = "通道3|监控区域: 大厅|时间: " .. os.date("%Y-%m-%d %H:%M:%S"),
@@ -99,24 +99,24 @@ function exremotecam.osd(camera_param)
     -- 参数类型检查
     if type(camera_param) ~= "table" then
         log.error("osd", "参数必须是table类型")
-        return 0
+        return false
     end
     -- 检查必要参数
     if not camera_param.brand then
         log.error("osd", "缺少必要参数: brand")
-        return 0
+        return false
     end
     if not camera_param.host then
         log.error("osd", "缺少必要参数: host")
-        return 0
+        return false
     end
     if not camera_param.text then
         log.error("osd", "缺少必要参数: text")
-        return 0
+        return false
     end
 
     local brand = camera_param.brand
-    if brand == "Dhua" then
+    if brand == "dhcam" then
         -- 调用大华摄像头的set_osd方法
         return dhcam.set_osd({
             host = camera_param.host,
@@ -171,7 +171,7 @@ end
 @usage
 -- 大华摄像头示例
 local photo_param = {
-    brand = "Dhua",
+    brand = "dhcam",
     host = "192.168.1.100",
     channel = 0
 }
@@ -180,7 +180,7 @@ log.info("get_photo", "拍照结果: " .. result)
 
 -- 多通道NVR示例
 local photo_param = {
-    brand = "Dhua",
+    brand = "dhcam",
     host = "192.168.1.100",
     channel = 2  -- 第2通道
 }
@@ -204,7 +204,7 @@ function exremotecam.get_photo(camera_param)
     end
 
     local brand = camera_param.brand
-    if brand == "Dhua" then
+    if brand == "dhcam" then
         -- 调用大华摄像头的take_picture方法
         return dhcam.take_picture({
             host = camera_param.host,

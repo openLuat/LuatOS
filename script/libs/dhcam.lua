@@ -219,15 +219,15 @@ end
 @number dahua_param.channel 摄像头通道号，默认为全局的DH_channel
 @number dahua_param.x OSD显示的X坐标，默认为0
 @number dahua_param.y OSD显示的Y坐标，默认为0
-@return number 返回值
- 0：OSD设置失败
- 1：OSD设置成功
+@return boolean 返回值
+ false：OSD设置失败
+ true：OSD设置成功
 ]]
 function dhcam.set_osd(dahua_param)
     -- 参数类型检查
     if type(dahua_param) ~= "table" then
         log.error("dhcam.set_osd", "参数必须是table类型")
-        return 0
+        return false
     end
     
     -- 设置默认参数值
@@ -271,23 +271,23 @@ function dhcam.set_osd(dahua_param)
             log.info("dh_osd", "第二次请求http，code：", code)
             if code == 200 then
                 log.info("dh_osd", "OSD设置成功")
-                return 1
+                return true
             else
                 log.info("dh_osd", "OSD设置失败，HTTP状态码：", code)
-                return 0
+                return false
             end
         else
             log.info("dh_osd", "Digest认证失败")
-            return 0
+            return false
         end
     elseif code == -4 then
         -- 处理重组错误（参数错误）
         log.info("dh_osd", "重组错误，请检查参数是否正确")
-        return 0  -- 退出函数，节省资源
+        return false  -- 退出函数，节省资源
     else
         -- 处理其他HTTP错误
         log.info("dh_osd", "HTTP请求错误，code：", code)
-        return 0  -- 退出函数，节省资源
+        return false  -- 退出函数，节省资源
     end
 end
 

@@ -72,8 +72,8 @@
 |-------------|-----------|
 | GPIO16      | BUSY      |
 | GPIO17      | RST       |
-| GPIO20      | DC        |
-| GPIO21      | CS        |
+| GPIO1       | DC        |
+| GPIO2       | CS        |
 | SPI1_SCLK   | SCK       |
 | SPI1_MOSI   | DIN       |
 | VDD_EXT     | VCC       |

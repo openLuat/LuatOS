@@ -35,8 +35,8 @@ local function eink_drv_init()
     local spi_id = 1
     local pin_busy = 16
     local pin_reset = 17
-    local pin_dc = 20
-    local pin_cs = 21
+    local pin_dc = 1
+    local pin_cs = 2
 
     -- 开启异步刷新
     eink.async(1)

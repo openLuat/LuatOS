@@ -1,0 +1,6 @@
+Air510W模组，可以搭配Air780EHM或者Air780EHV来使用，LuatOS软件二次开发的demo参考：
+Air780EHM_Air780EHV_Air780EGH/demo/gnss/Air780EHM_Air780EHV+510W
+
+
+Air530W模组，可以搭配Air780EHM或者Air780EHV来使用，LuatOS软件二次开发的demo参考：
+Air780EHM_Air780EHV_Air780EGH/demo/gnss/Air780EHM_Air780EHV+530W

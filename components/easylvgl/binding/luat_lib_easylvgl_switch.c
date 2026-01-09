@@ -102,9 +102,9 @@ static int l_switch_set_on_change(lua_State *L)
 }
 
 /**
- * Switch GC（释放 LVGL 对象）
+ * Switch:destroy（手动销毁）
  */
-static int l_switch_gc(lua_State *L)
+static int l_switch_destroy(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_SWITCH_MT);
     if (ud != NULL && ud->obj != NULL) {
@@ -126,13 +126,11 @@ void easylvgl_register_switch_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_SWITCH_MT);
 
-    lua_pushcfunction(L, l_switch_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg methods[] = {
         {"set_state", l_switch_set_state},
         {"get_state", l_switch_get_state},
         {"set_on_change", l_switch_set_on_change},
+        {"destroy", l_switch_destroy},
         {NULL, NULL}
     };
 

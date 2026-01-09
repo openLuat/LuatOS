@@ -18,6 +18,9 @@
 #define LUAT_LOG_TAG "easylvgl.textarea"
 #include "luat_log.h"
 
+#define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
+#define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
+
 /************************************************************************
  * Lua 接口定义
  ************************************************************************/
@@ -145,9 +148,9 @@ static int l_textarea_get_keyboard(lua_State *L) {
 }
 
 /**
- * Textarea GC（销毁组件）
+ * Textarea:destroy（手动销毁）
  */
-static int l_textarea_gc(lua_State *L) {
+static int l_textarea_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_TEXTAREA_MT);
     if (ud != NULL && ud->obj != NULL) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
@@ -171,9 +174,6 @@ static int l_textarea_gc(lua_State *L) {
 void easylvgl_register_textarea_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_TEXTAREA_MT);
 
-    lua_pushcfunction(L, l_textarea_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg functions[] = {
         {"set_text", l_textarea_set_text},
         {"get_text", l_textarea_get_text},
@@ -181,6 +181,7 @@ void easylvgl_register_textarea_meta(lua_State *L) {
         {"set_on_text_change", l_textarea_set_on_change},
         {"attach_keyboard", l_textarea_attach_keyboard},
         {"get_keyboard", l_textarea_get_keyboard},
+        {"destroy", l_textarea_destroy},
         {NULL, NULL}
     };
 

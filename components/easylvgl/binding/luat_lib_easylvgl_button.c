@@ -92,9 +92,9 @@ static int l_button_set_on_click(lua_State *L) {
 }
 
 /**
- * Button GC（垃圾回收）
+ * Button:destroy（手动销毁）
  */
-static int l_button_gc(lua_State *L) {
+static int l_button_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_BUTTON_MT);
     if (ud != NULL && ud->obj != NULL) {
         // 获取元数据并释放
@@ -116,15 +116,11 @@ static int l_button_gc(lua_State *L) {
  */
 void easylvgl_register_button_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_BUTTON_MT);
-    
-    // 设置元方法
-    lua_pushcfunction(L, l_button_gc);
-    lua_setfield(L, -2, "__gc");
-    
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_button_set_text},
         {"set_on_click", l_button_set_on_click},
+        {"destroy", l_button_destroy},
         {NULL, NULL}
     };
     

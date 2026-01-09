@@ -63,7 +63,8 @@ typedef enum {
     EASYLVGL_ERR_NO_MEM = -2,
     EASYLVGL_ERR_INIT_FAILED = -3,
     EASYLVGL_ERR_NOT_INITIALIZED = -4,
-    EASYLVGL_ERR_PLATFORM_ERROR = -5
+    EASYLVGL_ERR_PLATFORM_ERROR = -5,
+    EASYLVGL_ERR_NOT_SUPPORTED = -6
 } easylvgl_err_t;
 
 /**
@@ -131,7 +132,7 @@ struct easylvgl_ctx {
     // LVGL 驱动实例
     lv_display_t *display;          /**< 显示设备 */
     lv_indev_t *indev;               /**< 输入设备 */
-    lv_fs_drv_t fs_drv[2];          /**< 文件系统驱动（L:/ 和 /） */
+    lv_fs_drv_t fs_drv;          /**< 文件系统驱动（和 /） */
     
     // 缓冲管理
     easylvgl_buffer_t *buffer;       /**< 缓冲管理器 */
@@ -214,6 +215,13 @@ easylvgl_buffer_t *easylvgl_buffer_create(void);
 void *easylvgl_buffer_alloc(easylvgl_ctx_t *ctx, size_t size, easylvgl_buffer_owner_t owner);
 
 /**
+ * 释放单个缓冲
+ * @param ctx 上下文指针
+ * @param buffer 缓冲指针
+ */
+void easylvgl_buffer_free(easylvgl_ctx_t *ctx, void *buffer);
+
+/**
  * 释放所有缓冲
  * @param ctx 上下文指针
  * @pre-condition ctx 必须非空
@@ -255,6 +263,16 @@ int easylvgl_display_set_buffers(
  * @post-condition 文件系统驱动已注册到 LVGL
  */
 int easylvgl_fs_init(easylvgl_ctx_t *ctx);
+
+/**
+ * 读取文件到内存
+ * @param ctx 上下文指针
+ * @param path 文件路径，例如 "L:/anim.json"
+ * @param out_data 输出缓冲指针（分配内存，需调用者释放）
+ * @param out_len 输出长度
+ * @return true 成功，false 失败
+ */
+bool easylvgl_fs_load_file(easylvgl_ctx_t *ctx, const char *path, void **out_data, size_t *out_len);
 
 /**
  * 记录当前聚焦的 textarea，用于系统键盘转发

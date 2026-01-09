@@ -75,6 +75,34 @@ void *easylvgl_buffer_alloc(easylvgl_ctx_t *ctx, size_t size, easylvgl_buffer_ow
 }
 
 /**
+ * 释放单个缓冲（独立释放后会从列表中移除）
+ * @param ctx 上下文指针
+ * @param buffer 缓冲指针
+ */
+void easylvgl_buffer_free(easylvgl_ctx_t *ctx, void *buffer)
+{
+    if (ctx == NULL || ctx->buffer == NULL || buffer == NULL) {
+        return;
+    }
+    
+    easylvgl_buffer_t *buf_mgr = ctx->buffer;
+    for (size_t i = 0; i < buf_mgr->count; i++) {
+        if (buf_mgr->buffers[i] == buffer) {
+            if (buf_mgr->owners[i] == EASYLVGL_BUFFER_OWNER_SYSTEM ||
+                buf_mgr->owners[i] == EASYLVGL_BUFFER_OWNER_LUA) {
+                free(buf_mgr->buffers[i]);
+            }
+
+            buf_mgr->buffers[i] = buf_mgr->buffers[buf_mgr->count - 1];
+            buf_mgr->sizes[i] = buf_mgr->sizes[buf_mgr->count - 1];
+            buf_mgr->owners[i] = buf_mgr->owners[buf_mgr->count - 1];
+            buf_mgr->count--;
+            return;
+        }
+    }
+}
+
+/**
  * 创建缓冲管理器
  * @return 缓冲管理器指针，失败返回 NULL
  */

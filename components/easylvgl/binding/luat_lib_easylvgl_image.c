@@ -103,9 +103,9 @@ static int l_image_set_opacity(lua_State *L) {
 }
 
 /**
- * Image GC（垃圾回收）
+ * Image:destroy（手动销毁）
  */
-static int l_image_gc(lua_State *L) {
+static int l_image_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_IMAGE_MT);
     if (ud != NULL && ud->obj != NULL) {
         // 获取元数据并释放
@@ -128,15 +128,12 @@ static int l_image_gc(lua_State *L) {
 void easylvgl_register_image_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_IMAGE_MT);
     
-    // 设置元方法
-    lua_pushcfunction(L, l_image_gc);
-    lua_setfield(L, -2, "__gc");
-    
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_src", l_image_set_src},
         {"set_zoom", l_image_set_zoom},
         {"set_opacity", l_image_set_opacity},
+        {"destroy", l_image_destroy},
         {NULL, NULL}
     };
     

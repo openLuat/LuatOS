@@ -57,7 +57,7 @@ static int l_table_set_col_width(lua_State *L) {
     return 0;
 }
 
-static int l_table_gc(lua_State *L) {
+static int l_table_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_TABLE_MT);
     if (ud != NULL && ud->obj != NULL) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
@@ -72,12 +72,10 @@ static int l_table_gc(lua_State *L) {
 
 void easylvgl_register_table_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_TABLE_MT);
-    lua_pushcfunction(L, l_table_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg methods[] = {
         {"set_cell_text", l_table_set_cell_text},
         {"set_col_width", l_table_set_col_width},
+        {"destroy", l_table_destroy},
         {NULL, NULL}
     };
 

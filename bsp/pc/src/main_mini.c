@@ -149,8 +149,6 @@ int main(int argc, char** argv) {
     uv_timer_t t;
     uv_timer_init(main_loop, &t);
     uv_timer_start(&t, timer_nop, 1000, 1000);
-    #endif
-
     uv_luat_main(NULL);
 
     uv_loop_close(main_loop);

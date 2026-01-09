@@ -181,7 +181,10 @@ static int l_lottie_set_src(lua_State *L)
 static int l_lottie_destroy(lua_State *L)
 {
     lv_obj_t *obj = lottie_check(L);
-    easylvgl_lottie_destroy(obj);
+    int ret = easylvgl_lottie_destroy(obj);
+    if (ret != EASYLVGL_OK) {
+        LLOGE("easylvgl.lottie:destroy failed: %d", ret);
+    }
     return 0;
 }
 

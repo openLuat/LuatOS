@@ -13,6 +13,9 @@
 #include "lvgl9/src/misc/lv_event.h"
 #include <string.h>
 
+#define LUAT_LOG_TAG "easylvgl.event"
+#include "luat_log.h"
+
 #define EASYLVGL_MSGBOX_MT "easylvgl.msgbox"
 
 /**
@@ -190,7 +193,7 @@ void easylvgl_component_call_callback(
         if (lua_pcall(L_state, arg_count, 0, 0) != LUA_OK) {
             // 错误处理
             const char *err = lua_tostring(L_state, -1);
-            // TODO: 记录错误日志
+            LLOGE("callback error: %s", err);
             lua_pop(L_state, 1);
         }
     } else {

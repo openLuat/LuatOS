@@ -349,6 +349,7 @@ int easylvgl_lottie_set_src_data(lv_obj_t *lottie, const void *data, size_t size
 int easylvgl_lottie_set_loop(lv_obj_t *lottie, bool loop);
 int easylvgl_lottie_set_speed(lv_obj_t *lottie, float speed);
 int easylvgl_lottie_set_progress(lv_obj_t *lottie, float progress);
+int easylvgl_lottie_destroy(lv_obj_t *lottie);
 
 #ifdef __cplusplus
 }

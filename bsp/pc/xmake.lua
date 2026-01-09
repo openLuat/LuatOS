@@ -290,7 +290,7 @@ target("luatos-lua")
     add_includedirs(luatos .. "components/hmeta")
     add_files(luatos .. "components/hmeta/**.c")
 
-    if is_host("windows") then
+    if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"
         add_includedirs(lwip_path .. "include")
@@ -304,6 +304,32 @@ target("luatos-lua")
         add_files(luatos .. "components/network/adapter_lwip2/*.c")
         add_includedirs(luatos .. "components/network/adapter_lwip2/")
         add_files(luatos .. "components/ethernet/common/*.c")
+
+        -- 继续添加netdrv代码
+        add_includedirs(luatos .. "components/network/netdrv/include")
+        add_files(luatos .. "components/network/netdrv/**.c")
+
+        -- 添加airlink
+        add_includedirs(luatos .. "components/airlink/include")
+        add_files(luatos .. "components/airlink/**.c")
+
+        -- 添加iperf
+        add_includedirs(luatos .. "components/network/iperf/include")
+        add_files(luatos .. "components/network/iperf/**.c")
+
+        remove_files(luatos .. "components/airlink/src/driver/*.c")
+        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_wlan.c")
+        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_gpio.c")
+        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_uart.c")
+        remove_files(luatos .. "components/airlink/src/exec/luat_airlink_cmd_exec_bluetooth.c")
+        
+        remove_files(luatos .. "components/airlink/src/task/luat_airlink_spi_slave_task.c")
+        
+        -- 添加wlan
+        add_includedirs(luatos .. "components/wlan")
+
+        -- 添加蓝牙
+        add_includedirs(luatos .. "components/bluetooth/include")
     else
         add_includedirs(luatos .. "components/network/lwip/include")
         add_includedirs("lwip/include")    

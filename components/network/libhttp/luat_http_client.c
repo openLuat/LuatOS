@@ -65,19 +65,8 @@ static void http_close_nw(luat_http_ctrl_t *http_ctrl) {
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 	}
 }
-int http_close(luat_http_ctrl_t *http_ctrl){
-	LLOGI("http close %p", http_ctrl);
-	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
-		network_force_close_socket(http_ctrl->netc);
-		network_release_ctrl(http_ctrl->netc);
-		http_ctrl->netc = NULL;
-	}
-	if (http_ctrl->timeout_timer){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
-		luat_release_rtos_timer(http_ctrl->timeout_timer);
-    	http_ctrl->timeout_timer = NULL;
-	}
+
+static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
 		http_ctrl->host = NULL;
@@ -115,6 +104,26 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 	luat_heap_free(http_ctrl);
+}
+
+int http_close(luat_http_ctrl_t *http_ctrl){
+	LLOGI("http close %p", http_ctrl);
+	if (http_ctrl->netc){
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
+		network_release_ctrl(http_ctrl->netc);
+		http_ctrl->netc = NULL;
+	}
+	if (http_ctrl->timeout_timer){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+		luat_release_rtos_timer(http_ctrl->timeout_timer);
+    	http_ctrl->timeout_timer = NULL;
+	}
+	#if defined(LUAT_USE_LWIP) && (NO_SYS == 0)
+	network_tcpip_callback(http_close_clean, http_ctrl, 0);
+	#else
+	http_close_clean(http_ctrl);
+	#endif
 	return 0;
 }
 

@@ -102,6 +102,11 @@ static const u8g2_font_t u8g2_fonts[] = {
 #ifdef USE_U8G2_SARASA_M28_CHINESE
     { .name="sarasa_m28_chinese", .font=u8g2_font_sarasa_m28_chinese},
 #endif
+
+#ifdef USE_U8G2_ZFULL_R16_CHINESE
+    { .name="zfull_r16_chinese", .font=u8g2_font_zfull_r16_chinese},
+#endif
+
 #ifdef LUAT_FONTS_CUSTOM_U8G2
     LUAT_FONTS_CUSTOM_U8G2
 #endif

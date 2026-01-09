@@ -1480,6 +1480,10 @@ static const rotable_Reg_t reg_eink[] =
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
 
+#ifdef USE_U8G2_ZFULL_R16_CHINESE
+    { "font_zfull_r16_chinese", ROREG_PTR((void*)u8g2_font_zfull_r16_chinese)},
+#endif
+
     { NULL,                    ROREG_INT(0)}
 };
 

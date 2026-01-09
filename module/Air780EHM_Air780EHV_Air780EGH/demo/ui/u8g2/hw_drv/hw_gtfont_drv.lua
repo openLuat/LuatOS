@@ -15,10 +15,10 @@
 ]]
 
 -- ST7567 SPI引脚配置
-local spi_id, spi_res, spi_dc, spi_cs = 1, 22, 14, 12
+local spi_id, spi_res, spi_dc, spi_cs = 0, 24, 10, 9
 
 -- GTFont SPI引脚配置
-local gtfspi_id, gtfspi_cs = 0, 8
+local gtfspi_id, gtfspi_cs = 1, 12
 
 -- 初始化U8G2显示屏 - ST7567, 128x64
 local function init()

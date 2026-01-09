@@ -19,9 +19,9 @@ sys.taskInit(function()
     airlink.init()
 
     if rtos.bsp() == "Air8101" then
-        airlink.start(0)
+        airlink.start(airlink.MODE_SPI_SLAVE)
     else
-        airlink.start(1)
+        airlink.start(airlink.MODE_SPI_MASTER)
     end
     sys.wait(100)
 

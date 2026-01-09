@@ -2308,6 +2308,12 @@ static const rotable_Reg_t reg_lcd[] =
 #ifdef USE_U8G2_SARASA_M28_CHINESE
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
+
+#ifdef USE_U8G2_ZFULL_R16_CHINESE
+    //@const font_zfull_r16_chinese font 16号中文字体
+    { "font_zfull_r16_chinese", ROREG_PTR((void*)u8g2_font_zfull_r16_chinese)},
+#endif
+
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
 	{ "reset_pin",  ROREG_FUNC(l_lcd_set_reset_pin)},
     //@const direction_0 int 0°方向命令

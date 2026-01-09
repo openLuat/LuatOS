@@ -2,7 +2,7 @@
 @module  ui_main
 @summary eink用户界面主控模块，负责页面管理和事件分发
 @version 1.0
-@date    2025.12.25
+@date    2026.01.06
 @author  江访  
 本模块为eink用户界面主控模块，主要功能包括：
 1、管理页面切换和事件分发；
@@ -77,42 +77,42 @@ end
 @api handle_key_event(key_event)
 @summary 处理按键事件并分发到对应页面
 @string key_event 按键事件类型
-@valid_values "switch_up", "confirm_up", "switch_down", "confirm_down"
+@valid_values "switch_down", "confirm_down", "switch_down", "confirm_down"
 @return bool 事件处理成功返回true，否则返回false
 
 @usage
 -- 在ui_main任务中调用
-local handled = handle_key_event("switch_up")
+local handled = handle_key_event("switch_down")
 ]] 
 local function handle_key_event(key_event)
     log.info("按键事件", "event:", key_event, "当前页面:", current_page)
     
-    if key_event == "switch_up" then
+    if key_event == "switch_down" then
         -- 切换键释放：在主页切换选项，在时间页面切换格式
         if current_page == "home" then
             -- 主页：切换选项
-            return home_page.handle_key("switch_up", switch_page)
+            return home_page.handle_key("switch_down", switch_page)
         elseif current_page == "time_demo" then
             -- 时间页面：切换时间格式
             if time_page.handle_key then
-                return time_page.handle_key("switch_up", switch_page)
+                return time_page.handle_key("switch_down", switch_page)
             end
         end
         -- 其他页面切换键无功能
         return false
-    elseif key_event == "confirm_up" then
+    elseif key_event == "confirm_down" then
         -- 确认键释放：确认/返回功能
         if current_page == "home" then
-            return home_page.handle_key("confirm_up", switch_page)
+            return home_page.handle_key("confirm_down", switch_page)
         elseif current_page == "eink_demo" then
             -- eink演示页面：返回首页
             if eink_page.handle_key then
-                return eink_page.handle_key("confirm_up", switch_page)
+                return eink_page.handle_key("confirm_down", switch_page)
             end
         elseif current_page == "time_demo" then
             -- 时间页面：返回首页
             if time_page.handle_key then
-                return time_page.handle_key("confirm_up", switch_page)
+                return time_page.handle_key("confirm_down", switch_page)
             end
         end
     end

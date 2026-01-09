@@ -129,8 +129,9 @@ local function http_opts_parse(opts)
     opts.body_len = 0
 
     -- multipart需要boundary
-    local boundary = "------------------------16ef6e68ef" .. tostring(os.time())
+    local boundary = "----WebKitFormBoundary"..os.time()
     opts.boundary = boundary
+    -- MIME Multipart Media Encapsulation, Type: multipart/form-data, Boundary: "------------------------16ef6e68ef1766793020"
     opts.mp = {}
 
     if opts.files then
@@ -437,10 +438,11 @@ local function http_socket_cb(opts, event)
     elseif event == socket.EVENT then
         -- 收到数据或者链接断开了, 这里总需要读取一次才知道
         local succ, data_len = socket.rx(opts.netc, opts.rx_buff)
+        -- log.info(TAG, "socket.EVENT", "succ", succ, "data_len", data_len)
         if succ and data_len > 0 then
             opts.log(TAG, "收到数据", data_len, "总长", opts.rx_buff:used())
             -- opts.log(TAG, "数据", opts.rx_buff:query())
-        else
+        elseif not succ then
             if not opts.is_closed then
                 opts.log(TAG, "服务器已经断开了连接或接收出错")
                 opts.is_closed = true
@@ -481,6 +483,12 @@ local function http_exec(opts)
         log.warn(TAG, "建立连接超时了!!!")
         return -104, "建立连接超时了!!!"
     end
+
+    local is_timeout = false
+    local timer_id = sys.timerStart(function()
+        log.warn(TAG, "HTTP请求超时了!!!")
+        is_timeout = true
+    end, opts.timeout * 1000)
     
     -- 首先是头部
     local line = string.format("%s %s HTTP/1.1\r\n", opts.method:upper(), opts.uri)
@@ -521,8 +529,8 @@ local function http_exec(opts)
     end
     
     if opts.mp and #opts.mp > 0 then
-        opts.log(TAG, "执行mulitpart上传模式")
-        for k, v in pairs(opts.mp) do
+        opts.log(TAG, "执行multipart上传模式")
+        for k, v in ipairs(opts.mp) do
             fail_check = socket.tx(netc, v[2])
             write_counter = write_counter + #v[2]
             if v[3] == "file" then
@@ -562,6 +570,9 @@ local function http_exec(opts)
         socket.tx(netc, opts.boundary)
         socket.tx(netc, "--\r\n")
         write_counter = write_counter + #opts.boundary + 2 + 2 + 2
+        if opts.body_len and opts.body_len > 0 and write_counter ~= opts.body_len then
+            opts.log(TAG, "multipart长度不一致", "期望", opts.body_len, "实际", write_counter)
+        end
     elseif opts.bodyfile then
         local fd = io.open(opts.bodyfile, "rb")
         -- log.info("写入文件数据", v[1])
@@ -633,10 +644,12 @@ local function http_exec(opts)
     end
 
     -- 处理响应信息
-    while not opts.is_closed and opts.timeout > 0 do
-        log.info(TAG, "等待服务器完成响应")
-        sys.waitUntil(opts.topic, 1000)
-        opts.timeout = opts.timeout - 1
+    while not opts.is_closed and not is_timeout do
+        sys.waitUntil(opts.topic, 100)
+    end
+    if timer_id and not is_timeout then
+        sys.timerStop(timer_id)
+        timer_id = nil
     end
     log.info(TAG, "服务器已完成响应,开始解析响应")
     resp_parse(opts)

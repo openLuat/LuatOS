@@ -13,7 +13,7 @@ sys.taskInit(function()
     -- sys.wait(500)
     airlink.init()
     netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
-    airlink.start(0)
+    airlink.start(airlink.MODE_SPI_SLAVE)
     netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
 end)
 

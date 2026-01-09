@@ -13,12 +13,6 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
 sys.taskInit(function()
-    -- sys.wait(500)
-    -- airlink.start(0)
-    -- wlan.init()
-end)
-
-sys.taskInit(function()
     -- sys.waitUntil("IP_READY")
     sys.wait(6000)
     while 1 do

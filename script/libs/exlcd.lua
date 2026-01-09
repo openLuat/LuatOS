@@ -2,8 +2,8 @@
 --[[
 @module  exlcd
 @summary LCD显示拓展库
-@version 1.0.5
-@date    2025.12.23
+@version 1.0.6
+@date    2026.01.08
 @author  江访
 @usage
 本文件为LCD显示拓展库，核心业务逻辑为：
@@ -298,7 +298,6 @@ function exlcd.wakeup()
 
         -- 唤醒LCD
         lcd.wakeup()
-        sys.wait(100) -- 等待100ms稳定
 
         -- 恢复背光设置 (如果配置了PWM引脚)
         if screen_state.lcd_config and screen_state.lcd_config.pin_pwm then

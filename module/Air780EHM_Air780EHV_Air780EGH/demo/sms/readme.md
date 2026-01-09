@@ -2,11 +2,9 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
+2、sms_app.lua：短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块； 
 
-3、sms_app.lua：短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块； 
-
-4、sntp_app.lua：sntp时间同步功能模块
+3、sntp_app.lua：sntp时间同步功能模块
 
 ## 演示功能概述
 
@@ -16,17 +14,7 @@
 
 2、短信接收功能；
 
-3、netdrv_device：短信通过http转发到企业微信/钉钉/飞书平台时，配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-
-(1) netdrv_4g：4G网卡
-
-(2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-
-(3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
-
-(4) netdrv_pc: pc模拟器网卡
-
-4、NTP时间同步
+3、NTP时间同步
 
 ## 演示硬件环境
 
@@ -35,19 +23,6 @@
 1、Air780EHV/EHM/EGH 核心板一块+手机sim卡一张：
 
 * sim卡插入开发板的sim卡槽；
-
-* 可选AirETH_1000配件板一块，Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
-
-| Air780EXX核心板 | AirETH_1000配件板 |
-| ------------ | -------------- |
-| 3V3          | 3.3v           |
-| gnd          | gnd            |
-| 86/SPI0CLK   | SCK            |
-| 83/SPI0CS    | CSS            |
-| 84/SPI0MISO  | SDO            |
-| 85/SPI0MOSI  | SDI            |
-| 107/GPIO21   | INT            |
-
 
 2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air780EHV/EHM/EGH 核心板和数据线的硬件接线方式为：
 
@@ -67,17 +42,9 @@
 
 ## 演示核心步骤
 
-1、搭建好硬件环境0
+1、搭建好硬件环境
 
-2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
-
-* 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
-
-* 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
-
-* 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；
-
-3、修改sms_forward.lua文件中的webhook_feishu和webhook_dingding以及webhook_weixi，如需加密也可以填写对应app的secret。
+2、修改sms_forward.lua文件中的webhook_feishu和webhook_dingding以及webhook_weixi，如需加密也可以填写对应app的secret。
 
 3、烧录内核固件和sms相关demo成功后，自动开机运行。
 

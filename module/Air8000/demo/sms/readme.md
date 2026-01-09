@@ -2,11 +2,9 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
+2、sms_app.lua：短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块； 
 
-3、sms_app.lua：短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块； 
-
-4、sntp_app.lua：sntp时间同步功能模块
+3、sntp_app.lua：sntp时间同步功能模块
 
 ## 演示功能概述
 
@@ -16,29 +14,17 @@
 
 2、短信接收功能；
 
-3、netdrv_device：短信通过http转发到企业微信/钉钉/飞书平台时，配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-
-(1) netdrv_4g：4G网卡
-
-(2) netdrv_wifi：WIFI STA网卡
-
-(3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-
-(4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
-
-4、NTP时间同步
+3、NTP时间同步；
 
 ## 演示硬件环境
 
 [](https://docs.openluat.com/air8000/luatos/app/image/netdrv_multi.jpg)
 
-1、Air8000开发板一块+手机sim卡一张+4g天线一根+wifi天线一根+网线一根：
+1、Air8000开发板一块+手机sim卡一张+4g天线一根：
 
 * sim卡插入开发板的sim卡槽
 
 * 天线装到开发板上
-
-* 网线一端插入开发板网口，另外一端连接可以上外网的路由器网口
 
 2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air8000开发板和数据线的硬件接线方式为：
 
@@ -56,23 +42,13 @@
 
 1、搭建好硬件环境
 
-2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
-
-* 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
-
-* 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-* 如果需要以太网卡，打开require "netdrv_eth_spi"，其余注释掉
-
-* 如果需要多网卡，打开require "netdrv_multiple"，其余注释掉；同时netdrv_multiple.lua中的ssid = "茶室-降功耗,找合宙!", password = "Air123456", 修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-3、修改sms_forward.lua文件中的webhook_feishu和webhook_dingding以及webhook_weixi，如需加密也可以填写对应app的secret，打开对应运营商的查话费代码
+2、修改sms_forward.lua文件中的webhook_feishu和webhook_dingding以及webhook_weixi，如需加密也可以填写对应app的secret，打开对应运营商的查话费代码
 
 3、烧录内核固件和sms相关demo成功后，自动开机运行。
 
 4、可以看到代码运行结果如下，不管是在选择什么网卡场景下，基本都是如下情况：
 
-以下是默认使用4G网卡下使用sms demo演示的日志
+以下是使用sms demo演示的日志
 
 日志中如果出现以下类似打印则说明短信转发成功：
 

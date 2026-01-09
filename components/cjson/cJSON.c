@@ -1925,6 +1925,30 @@ CJSON_PUBLIC(cJSON_bool) cJSON_HasObjectItem(const cJSON *object, const char *st
     return cJSON_GetObjectItem(object, string) ? 1 : 0;
 }
 
+CJSON_PUBLIC(cJSON*) cJSON_GetObjectStringItemByValue(cJSON * const object, const char * const value)
+{
+    cJSON *item = NULL;
+    int size = 0;
+    int i = 0;
+
+    size = cJSON_GetArraySize(object);
+    if(size <= 0)
+    {
+        return NULL;
+    }
+
+    for(i = 0; i < size; i++)
+    {
+        item = cJSON_GetArrayItem(object, i);
+        if(! case_insensitive_strcmp((const unsigned char*)value, (const unsigned char*)cJSON_GetStringValue(item)))
+        {
+            return item;
+        }
+    }
+
+    return NULL;
+}
+
 /* Utility for array list handling. */
 static void suffix_object(cJSON *prev, cJSON *item)
 {

@@ -16,8 +16,8 @@ sys.taskInit(function()
     airlink.init()
     log.info("创建桥接网络设备")
     netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
-    -- 启动底层线程, 从机模式
-    airlink.start(1)
+    -- 启动底层线程, 主机模式
+    airlink.start(airlink.MODE_SPI_MASTER)
 
     netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
     sys.wait(100)

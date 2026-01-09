@@ -6,12 +6,7 @@
 @author  王城钧
 @usage
 1. sms_app：加载短信发送+短信接收+短信转发到企业微信/钉钉/飞书平台功能模块
-2. netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
-    (1) netdrv_4g：4G网卡
-    (2) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-    (3) netdrv_multiple：支持以上两种网卡，可以配置两种网卡的优先级
-    (4) netdrv_pc: pc模拟器网卡
-3. sntp_app：启动sntp时间同步功能模块，同步网络时间
+2. sntp_app：启动sntp时间同步功能模块，同步网络时间
 ]]
 
 
@@ -67,9 +62,6 @@ end
 
 -- 加载sms应用功能模块
 require "sms_app"
-
--- 加载网络驱动设备功能模块
-require "netdrv_device"
 
 -- 加载sntp时间同步应用功能模块
 require "sntp_app"

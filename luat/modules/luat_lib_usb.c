@@ -30,7 +30,7 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #include "luat_log.h"
 #include "rotable2.h"
 
-#define MAX_USB_DEVICE_COUNT 2
+
 static int l_usb_cb[MAX_USB_DEVICE_COUNT];
 
 int l_usb_handler(lua_State *L, void* ptr) {
@@ -69,7 +69,7 @@ USB发送数据,目前仅限于HID和WINUSB设备,CDC-ACM虚拟串口直接使�
 @return bool 成功返回true,否则返回false,总线id填错,所填设备类不支持直接发送数据等情况下返回错误
 @usage
 -- HID上传数据
-usb.tx(0, "1234", usb.HID) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
+usb.tx(0, "1234", usb.HID_KB) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
 */
 static int l_usb_tx(lua_State* L) {
 	int result;
@@ -83,13 +83,17 @@ static int l_usb_tx(lua_State* L) {
     } else {
     	size_t len;
     	buf = luaL_checklstring(L, 2, &len);
-    	if (LUAT_USB_CLASS_HID == class)
+    	switch(class)
     	{
-    		result = luat_usb_hid_tx(usb_id, buf, len);
-    	}
-    	else
-    	{
+    	case LUAT_USB_CLASS_HID_CUSTOMER:
+    		result = luat_usb_hid_tx(usb_id, buf, len, 0);
+    		break;
+    	case LUAT_USB_CLASS_HID_KEYBOARD:
+    		result = luat_usb_hid_tx(usb_id, buf, len, 1);
+    		break;
+    	default:
     		result = luat_usb_tx(usb_id, class, buf, len);
+    		break;
     	}
         lua_pushboolean(L, !result);
     }
@@ -240,13 +244,15 @@ static int l_usb_pid(lua_State* L) {
 设置USB支持的设备类和数量，必须在USB外设掉电不工作时进行设置
 @api usb.add_class(id, class, num)
 @int usb总线id,默认0,如果芯片只有1条USB线,填0
-@int 设备类,从机模式支持usb.CDC_ACM,usb.HID,usb.MSC,usb.WINUSB,主机模式支持usb.CAMERA
+@int 设备类,从机模式支持usb.CDC_ACM,usb.HID_CM,usb.HID_KB,usb.MSC,usb.WINUSB,主机模式不需要配置
 @int 数量,目前只有从机的usb.CDC_ACM允许至多3个,其他只允许1个,超过时会强制改成所允许的最大值
 @return bool 成功返回true,否则返回false,总线id填错,所选设备类不支持时,端点数量超过芯片允许的最大值,USB外设正在工作等情况下返回失败
 @usage
 pm.power(pm.USB, false)
 usb.add_class(0, usb.CDC_ACM, 3)	--使用3个CDC-ACM虚拟串口功能
 usb.add_class(0, usb.WINUSB, 1)		--使用1个WINUSB功能
+usb.add_class(0, usb.HID_CM, 1)		--使用1个自定义HID功能
+usb.add_class(0, usb.HID_KB, 1)		--使用1个标准键盘功能
 pm.power(pm.USB, true)
 */
 static int l_usb_add_class(lua_State* L) {
@@ -317,8 +323,10 @@ static const rotable_Reg_t reg_usb[] =
     { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
 	//@const CAMERA number 摄像头类
     { "CAMERA",        		ROREG_INT(LUAT_USB_CLASS_CAMERA)},
-	//@const HID number HID设备类，只支持键盘和自定义
-    { "HID",       			ROREG_INT(LUAT_USB_CLASS_HID)},
+	//@const HID_CM number HID设备类，自定义类型，用于透传数据
+    { "HID_CM",       			ROREG_INT(LUAT_USB_CLASS_HID_CUSTOMER)},
+	//@const HID_KB number HID设备类，标准键盘，常见扫码枪
+    { "HID_KB",       			ROREG_INT(LUAT_USB_CLASS_HID_KEYBOARD)},
 	//@const MSC number 大容量存储类，也就是U盘，TF卡
     { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
 	//@const WINUSB number WINUSB类，透传数据

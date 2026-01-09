@@ -60,6 +60,8 @@ extern const uint8_t u8g2_font_sarasa_m24_chinese[] U8G2_FONT_SECTION("u8g2_font
 extern const uint8_t u8g2_font_sarasa_m26_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m26_chinese");
 extern const uint8_t u8g2_font_sarasa_m28_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m28_chinese");
 
+extern const uint8_t u8g2_font_zfull_r16_chinese[] U8G2_FONT_SECTION("u8g2_font_zfull_r16_chinese");
+
 // include custom fonts
 #include "luat_u8g2_fonts_custom.h"
 

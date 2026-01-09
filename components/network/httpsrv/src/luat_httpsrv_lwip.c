@@ -165,12 +165,12 @@ static void client_resp(void* arg) {
 
     char buff[64];
     // 首先, 发送状态行
-    sprintf(buff, "HTTP/1.0 %d %s\r\n", code, msg);
+    snprintf(buff, sizeof(buff), "HTTP/1.0 %d %s\r\n", code, msg);
     //LLOGD("send status line %s", buff);
     client_write(client, buff, strlen(buff));
     
     // 然后, 发送长度和用户自定义的headers
-    sprintf(buff, "Content-Length: %d\r\n", body_size);
+    snprintf(buff, sizeof(buff), "Content-Length: %zu\r\n", body_size);
     client_write(client, buff, strlen(buff));
     client_write(client, "Connection: close\r\n", strlen("Connection: close\r\n"));
     // client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
@@ -220,6 +220,11 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)ptr;
     lua_geti(L, LUA_REGISTRYINDEX, client->lua_ref_id);
     if (lua_isnil(L, -1)) {
+        // 回调函数不存在，需要关闭连接并清理资源
+        tcp_err(client->pcb, NULL);
+        tcp_sent(client->pcb, NULL);
+        tcp_recv(client->pcb, NULL);
+        tcp_close(client->pcb);
         client_cleanup(client);
         return 0;
     }
@@ -331,8 +336,7 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
 
-    ctx->parser.data = ctx;
-    http_parser_init(&ctx->parser, HTTP_REQUEST);
+    // http_parser 已在连接建立时初始化，这里只需执行解析
     size_t ret = http_parser_execute(&ctx->parser, &hp_settings, (const char*)ctx->buff, ctx->buff_offset);
     if (ret) {
         // 暂时不管
@@ -451,6 +455,9 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     memset(ctx, 0, sizeof(client_socket_ctx_t));
     ctx->pcb = newpcb;
     ctx->lua_ref_id = srvctx->lua_ref_id;
+    // 在连接建立时初始化 http_parser，而非每次收到数据时
+    ctx->parser.data = ctx;
+    http_parser_init(&ctx->parser, HTTP_REQUEST);
     tcp_arg(newpcb, ctx);
     tcp_recv(newpcb, client_recv_cb);
     tcp_sent(newpcb, client_sent_cb);
@@ -489,7 +496,8 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
     tcp->flags |= SOF_REUSEADDR;
     ret = tcp_bind(tcp, &ctx->netif->ip_addr, ctx->port);
     if (ret) {
-        LLOGD("httpsrv bind port %d ret %d", ctx->port);
+        LLOGE("httpsrv bind port %d ret %d", ctx->port, ret);
+        tcp_close(tcp);
         return;
     }
     ctx->pcb = tcp_listen_with_backlog(tcp, 1);
@@ -536,7 +544,7 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 首先, 发送状态行
     client_write(client, "HTTP/1.0 200 OK\r\n", strlen("HTTP/1.0 200 OK\r\n"));
     // 发送长度
-    sprintf(buff, "Content-Length: %d\r\n", len);
+    snprintf(buff, sizeof(client->sbuff), "Content-Length: %zu\r\n", len);
     client_write(client, buff, strlen(buff));
     client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
     // 解析content-type, 并发送
@@ -549,28 +557,37 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
         // 判断后缀
         if (path_size > suff_size + 2) {
             if (!memcmp(path + path_size - suff_size, suff, suff_size)) {
-                sprintf(buff, "Content-Type: %s\r\n", ct_regs[i].value);
+                snprintf(buff, sizeof(client->sbuff), "Content-Type: %s\r\n", ct_regs[i].value);
                 break;
             }
         }
     }
-    // 根据path判断一下文件后缀, 如果不是 html/htm/js/css就当文件下载
-    size_t plen = strlen(path);
-    if (strcmp(path + plen - 5, ".html") == 0 || strcmp(path + plen - 4, ".htm") == 0
-        || strcmp(path + plen - 3, ".js") == 0 || strcmp(path + plen - 4, ".css") == 0) {
-        // nop
-        LLOGD("普通文件模式 %s", path);
-    }
-    else {
-        LLOGD("启用文件下载模式 %s", path);
-        sprintf(buff, "Content-Disposition: attachment; filename=\"%s\"\r\n", strrchr(path, '/') + 1);
-    }
-
+    // 发送Content-Type
     if (buff[0] == 0) {
         client_write(client, "Content-Type: application/octet-stream\r\n", strlen("Content-Type: application/octet-stream\r\n"));
     }
     else {
         client_write(client, buff, strlen(buff));
+    }
+    // 根据path判断一下文件后缀, 如果不是 html/htm/js/css就当文件下载
+    size_t plen = strlen(path);
+    if (plen >= 5 && strcmp(path + plen - 5, ".html") == 0) {
+        LLOGD("普通文件模式 %s", path);
+    }
+    else if (plen >= 4 && (strcmp(path + plen - 4, ".htm") == 0 || strcmp(path + plen - 4, ".css") == 0)) {
+        LLOGD("普通文件模式 %s", path);
+    }
+    else if (plen >= 3 && strcmp(path + plen - 3, ".js") == 0) {
+        LLOGD("普通文件模式 %s", path);
+    }
+    else {
+        LLOGD("启用文件下载模式 %s", path);
+        const char* filename = strrchr(path, '/');
+        if (filename) {
+            filename++; // 跳过 '/'
+            snprintf(buff, sizeof(client->sbuff), "Content-Disposition: attachment; filename=\"%s\"\r\n", filename);
+            client_write(client, buff, strlen(buff));
+        }
     }
     
     // 头部发送完成
@@ -718,28 +735,36 @@ static int my_on_body(http_parser* parser, const char *at, size_t length) {
     if (length == 0)
         return 0;
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
-    if (client->expect_body_size > 0 && length < client->expect_body_size) {
-        return 0; // 等数据
+    // 限制body大小，防止内存耗尽
+    size_t max_body_size = 64 * 1024; // 64KB
+    if (client->body_size + length > max_body_size) {
+        LLOGW("body too large, limit %d", max_body_size);
+        return HPE_INVALID_STATUS;
     }
     if (client->body == NULL) {
-        client->body = luat_heap_malloc(client->expect_body_size > 0 ? client->expect_body_size : length);
-        //client->body_size = length;
+        size_t alloc_size = client->expect_body_size > 0 ? client->expect_body_size : length;
+        if (alloc_size > max_body_size) {
+            alloc_size = max_body_size;
+        }
+        client->body = luat_heap_malloc(alloc_size);
         if (client->body == NULL) {
             LLOGE("malloc body FAIL!!!");
             return HPE_INVALID_STATUS;
         }
+        memcpy(client->body, at, length);
+        client->body_size = length;
     }
     else {
-        // TODO 做成链表
-        char* tmp = luat_heap_realloc(client->body, length);
+        // 追加数据到已有body
+        char* tmp = luat_heap_realloc(client->body, client->body_size + length);
         if (tmp == NULL) {
-            LLOGE("realloc body FAIL!!! %d", length);
+            LLOGE("realloc body FAIL!!! %d", client->body_size + length);
             return HPE_INVALID_STATUS;
         }
         client->body = tmp;
+        memcpy(client->body + client->body_size, at, length);
+        client->body_size += length;
     }
-    memcpy(client->body, at, length);
-    client->body_size = length;
     return 0;
 }
 

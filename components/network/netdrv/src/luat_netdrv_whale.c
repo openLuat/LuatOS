@@ -96,6 +96,7 @@ void luat_netdrv_whale_boot(luat_netdrv_t* drv, void* userdata) {
         // 默认是down的就行
     }
     else if (netdrv->id == NW_ADAPTER_INDEX_LWIP_GP_GW) {
+        // GP_GW 的 link 状态由 drv_mobile 来控制（IP_READY/IP_LOSE）
     }
     else {
         // 其他的设备, 直接设置成up和link up

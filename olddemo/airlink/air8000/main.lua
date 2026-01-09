@@ -38,8 +38,8 @@ sys.taskInit(function()
     log.info("注册STA和AP设备")
     netdrv.setup(socket.LWIP_STA, netdrv.WHALE)
     netdrv.setup(socket.LWIP_AP, netdrv.WHALE)
-    -- 启动底层线程, 从机模式
-    airlink.start(1)
+    -- 启动底层线程, 主机模式
+    airlink.start(airlink.MODE_SPI_MASTER)
     sys.wait(100)
     log.info("打开Air8000S的LDO供电")
     gpio.setup(23, 1) -- 打开Air8000S的LDO供电

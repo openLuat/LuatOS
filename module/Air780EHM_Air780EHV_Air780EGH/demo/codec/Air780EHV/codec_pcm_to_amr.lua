@@ -3,7 +3,7 @@
 @summary PCM编码为AMR_WB并播放
 @version 2.3
 @date    2025.11.18
-@author  梁健
+@author  陈媛媛
 @usage
 本文件为PCM编码为AMR_WB功能模块，核心业务逻辑为：
 1、使用exaudio播放原始PCM文件

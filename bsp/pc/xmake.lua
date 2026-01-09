@@ -5,6 +5,8 @@ set_version("1.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")
 
 local luatos = "../../"
+-- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
+local mbedtls_version = 3
 
 add_requires("libuv v1.49.2")
 add_packages("libuv")
@@ -22,7 +24,11 @@ set_languages("gnu11", "cxx17")
 -- 核心宏定义
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 -- mbedtls使用本地自定义配置
-add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc.h\"")
+if mbedtls_version == 2 then
+    add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls218.h\"")
+else
+    add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_pc_mbedtls3.h\"")
+end
 -- coremark配置迭代数量
 add_defines("ITERATIONS=300000")
 
@@ -51,8 +57,6 @@ elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
 end
 
-
-add_includedirs(luatos.."components/mbedtls3/include",{public = true})
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
@@ -138,10 +142,14 @@ target("luatos-lua")
     add_files(luatos.."components/fft/src/*.c")
     add_files(luatos.."components/fft/binding/*.c")
     -- mbedtls
-    add_files(luatos.."components/mbedtls3/library/*.c")
-    add_includedirs(luatos.."components/mbedtls3/include")
-    -- add_files(luatos.."components/mbedtls/library/*.c")
-    -- add_includedirs(luatos.."components/mbedtls/include")
+    if mbedtls_version == 2 then
+        add_files(luatos.."components/mbedtls/library/*.c")
+        add_includedirs(luatos.."components/mbedtls/include")
+    else
+        add_files(luatos.."components/mbedtls3/library/*.c")
+        add_includedirs(luatos.."components/mbedtls3/include")
+    end
+
     -- iotauth
     add_includedirs(luatos.."components/iotauth")
     add_files(luatos.."components/iotauth/*.c")
@@ -201,6 +209,10 @@ target("luatos-lua")
     --mobile
     add_includedirs(luatos.."components/mobile")
     add_files(luatos.."components/mobile/*.c")
+
+    -- sms
+    add_includedirs(luatos.."components/sms/include",{public = true})
+    add_files(luatos.."components/sms/**.c")
 
     -- multimedia
     -- add_includedirs(luatos.."components/multimedia",{public = true})

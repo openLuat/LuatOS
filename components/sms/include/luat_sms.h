@@ -113,13 +113,13 @@ typedef struct
 {
     uint16_t pdu_length;//PDU 长度
     uint16_t sms_length;//TEXT 的长度
+    uint16_t refNum;    //长短信参考序号
     luat_sms_recv_msg_time_t time;//时间
     luat_sms_recv_msg_dcs_t dcs_info;//Data Coding Scheme
     char pdu_data[LUAT_SMS_MAX_TXT_SIZE + 1];//PDU 数据
     uint8_t sms_buffer[LUAT_SMS_MAX_TXT_SIZE + 1];//TEXT 数据
     uint8_t sc_address[LUAT_MSG_MAX_ADDR_LEN + 1];//中心地址
     uint8_t phone_address[LUAT_MSG_MAX_ADDR_LEN + 1];//来电号码
-    uint8_t refNum;
     uint8_t maxNum;
     uint8_t seqNum;
 }luat_sms_recv_msg_t;
@@ -184,7 +184,9 @@ uint8_t luat_sms_gsm_to_ascii(uint8_t *gsm_data, uint8_t length);
 
 uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst, uint16_t dst_len, uint16_t shift_bits);
 
-void luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
+int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len);
+
+int luat_sms_set_debug(bool debug);
 
 /**@}*/
 #endif

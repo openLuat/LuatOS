@@ -22,6 +22,8 @@
     /* SDL2 平台配置 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
+    #define LV_COLOR_DEPTH 16
+
     // #define LV_USE_LOG 1
     // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
@@ -61,6 +63,8 @@
     // #define LV_USE_OS   LV_OS_FREERTOS
     // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制
     // #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
+
+    #define LV_COLOR_DEPTH 16
 
     #define LV_USE_LOG 1
     /** Set value to one of the following levels of logging detail:

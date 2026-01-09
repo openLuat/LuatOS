@@ -1174,6 +1174,10 @@ static const rotable_Reg_t reg_u8g2[] =
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
 
+#ifdef USE_U8G2_ZFULL_R16_CHINESE
+    { "font_zfull_r16_chinese", ROREG_PTR((void*)u8g2_font_zfull_r16_chinese)},
+#endif
+
     //@const DRAW_UPPER_RIGHT number 上右
     { "DRAW_UPPER_RIGHT",        ROREG_INT(U8G2_DRAW_UPPER_RIGHT)},
     //@const DRAW_UPPER_LEFT number 上左

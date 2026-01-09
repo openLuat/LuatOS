@@ -49,7 +49,7 @@ local function spi_slave_task()
     -- 注册网卡
     netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 启动airlink从机模式
-    airlink.start(0)
+    airlink.start(airlink.MODE_SPI_SLAVE)
 
     -- 配置网关ip
     -- netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
@@ -84,7 +84,7 @@ local function spi_master_task()
     log.info("创建桥接网络设备")
     netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 启动底层线程, 主机模式
-    airlink.start(1)
+    airlink.start(airlink.MODE_SPI_MASTER)
 
     -- netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
     netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")

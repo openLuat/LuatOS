@@ -17,6 +17,9 @@ local tx_id = 0x12345677
 
 local test_cnt = 0
 local tx_buf = zbuff.create(8)  --创建zbuff
+
+gpio.setup(23, 1) -- 要手动打开，否则无法使用CAN芯片不能正常工作
+
 local function can_cb(id, cb_type, param)
     if cb_type == can.CB_MSG then
         log.info("有新的消息")

@@ -16,7 +16,7 @@ sys.taskInit(function()
     airlink.init()
     netdrv.setup(socket.LWIP_USER0, netdrv.WHALE) -- 初始化netdrv
     -- 启动airlink uart任务
-    airlink.start(2)
+    airlink.start(airlink.MODE_UART)
     if is_gw then
         netdrv.ipv4(socket.LWIP_USER0, "192.168.111.1", "255.255.255.0", "192.168.111.2")
     else

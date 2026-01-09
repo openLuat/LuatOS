@@ -18,6 +18,9 @@
 #define LUAT_LOG_TAG "easylvgl.keyboard"
 #include "luat_log.h"
 
+#define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
+#define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
+
 /**
  * 创建 Keyboard 组件
  * @api easylvgl.keyboard(config)

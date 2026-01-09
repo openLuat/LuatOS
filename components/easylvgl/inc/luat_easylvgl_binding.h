@@ -11,12 +11,6 @@
 #include "lauxlib.h"
 #include "lvgl9/src/core/lv_obj.h"
 
-#define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
-#define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
-#define EASYLVGL_CONTAINER_MT "easylvgl.container"
-#define EASYLVGL_TABLE_MT "easylvgl.table"
-#define EASYLVGL_TABVIEW_MT "easylvgl.tabview"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

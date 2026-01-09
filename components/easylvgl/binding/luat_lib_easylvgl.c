@@ -96,6 +96,10 @@ extern int easylvgl_textarea_create(lua_State *L);
 extern void easylvgl_register_keyboard_meta(lua_State *L);
 extern int easylvgl_keyboard_create(lua_State *L);
 
+// Lottie 模块声明
+extern void easylvgl_register_lottie_meta(lua_State *L);
+extern int easylvgl_lottie_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
     // 基础设置
@@ -128,6 +132,7 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"msgbox", ROREG_FUNC(easylvgl_msgbox_create)},
     {"textarea", ROREG_FUNC(easylvgl_textarea_create)},
     {"keyboard", ROREG_FUNC(easylvgl_keyboard_create)},
+    {"lottie", ROREG_FUNC(easylvgl_lottie_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -167,6 +172,7 @@ LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     easylvgl_register_msgbox_meta(L);
     easylvgl_register_textarea_meta(L);
     easylvgl_register_keyboard_meta(L);
+    easylvgl_register_lottie_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_easylvgl);

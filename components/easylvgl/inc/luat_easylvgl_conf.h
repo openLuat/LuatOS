@@ -48,6 +48,12 @@
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
     #define LV_IME_PINYIN_CAND_TEXT_NUM 9 // 设置拼音候选词数量
 
+    // lottie 支持
+    #define LV_USE_LOTTIE 1
+    #define LV_USE_FLOAT 1
+    #define LV_USE_MATRIX 1
+    #define LV_USE_VECTOR_GRAPHIC  1
+    #define LV_USE_THORVG_INTERNAL 1
 
 #elif defined(LUAT_USE_EASYLVGL_LUATOS)
     /* LuatOS 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */

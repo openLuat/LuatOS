@@ -18,6 +18,9 @@
 #define LUAT_LOG_TAG "easylvgl.textarea"
 #include "luat_log.h"
 
+#define EASYLVGL_TEXTAREA_MT "easylvgl.textarea"
+#define EASYLVGL_KEYBOARD_MT "easylvgl.keyboard"
+
 /************************************************************************
  * Lua 接口定义
  ************************************************************************/

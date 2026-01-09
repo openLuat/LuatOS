@@ -17,6 +17,8 @@
 #include "../inc/luat_easylvgl_binding.h"
 #include "../inc/luat_easylvgl_xml.h"
 
+#define EASYLVGL_CONTAINER_MT "easylvgl.container"
+
 typedef struct {
     lua_State *L;
     int lua_ref;

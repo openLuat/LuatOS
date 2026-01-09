@@ -18,8 +18,8 @@ add_packages("gmssl")
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
--- set language: c11
-set_languages("gnu11")
+-- set language: c11 and c++17
+set_languages("gnu11", "cxx17")
 
 -- 核心宏定义
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
@@ -297,8 +297,6 @@ target("luatos-lua")
         add_files(lwip_path .. "/api/**.c")
         add_files(lwip_path .. "/core/**.c")
         add_files(lwip_path .. "/netif/**.c")
-        add_files(lwip_path .. "/port/win32/*.c")
-        add_defines("NO_SYS=0")
         
         add_includedirs(luatos .. "components/network/ulwip/include")
         add_files(luatos .. "components/network/ulwip/**.c")
@@ -336,6 +334,9 @@ target("luatos-lua")
         
         -- 先添加所有源文件
         add_files(luatos.."components/easylvgl/lvgl9/src/**.c")
+
+         -- ThorVG 内部库使用 C++ 编译,单独添加
+         add_files(luatos.."components/easylvgl/lvgl9/src/libs/**/*.cpp")
         
         -- 排除不需要的组件（按优先级排序）
         -- 1. 硬件驱动（PC 模拟器不需要）

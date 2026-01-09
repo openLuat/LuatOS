@@ -1,7 +1,7 @@
 /**
  * @file luat_easylvgl_conf.h
  * @summary EasyLVGL 平台相关配置
- * @description 根据不同的平台（SDL2、BK7258等）配置 LVGL 参数
+ * @description 根据不同的平台（SDL2、LuatOS等）配置 LVGL 参数
  * 
  * 注意：此文件会被 lv_conf.h 包含，用于覆盖默认配置
  */
@@ -45,10 +45,20 @@
     #define LV_USE_XML 1
     #define LV_USE_OBJ_NAME 1
 
+    // 打开拼音输入法
+    #define LV_USE_IME_PINYIN 1
+    #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
+    #define LV_IME_PINYIN_CAND_TEXT_NUM 9 // 设置拼音候选词数量
 
+    // lottie 支持
+    #define LV_USE_LOTTIE 1
+    #define LV_USE_FLOAT 1
+    #define LV_USE_MATRIX 1
+    #define LV_USE_VECTOR_GRAPHIC  1
+    #define LV_USE_THORVG_INTERNAL 1
 
-#elif defined(LUAT_USE_EASYLVGL_BK7258)
-    /* BK7258 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
+#elif defined(LUAT_USE_EASYLVGL_LUATOS)
+    /* LuatOS 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
     // #define LV_USE_OS   LV_OS_FREERTOS
     // #define LV_DRAW_SW_DRAW_UNIT_CNT    1   // 开启2个软件渲染单元以并行绘制
@@ -75,6 +85,11 @@
     // 打开XML支持
     #define LV_USE_XML 1
     #define LV_USE_OBJ_NAME 1
+
+    // 打开拼音输入法
+    #define LV_USE_IME_PINYIN 1
+    #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
+    #define LV_IME_PINYIN_CAND_TEXT_NUM 6 // 设置拼音候选词数量
 
 #else
     /* 默认配置（如果未定义平台） */

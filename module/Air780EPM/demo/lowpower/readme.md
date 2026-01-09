@@ -63,4 +63,4 @@ Air780EPM/EHM/EHV/EGH 核心板在常规模式、低功耗模式、PSM+模式的
 
 ## 文档网址
 
-https://e3zt58hesn.feishu.cn/wiki/Cwk2wEcN9if4kUk4iQ7czMhwnug?from=from_copylink
+https://docs.openluat.com/air780epm/luatos/app/lowpower/sleep/

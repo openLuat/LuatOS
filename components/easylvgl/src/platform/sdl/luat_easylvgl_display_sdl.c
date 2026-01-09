@@ -172,6 +172,7 @@ static void sdl_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const 
     int texture_pitch;
     if (SDL_LockTexture(data->texture, &rect, &texture_pixels, &texture_pitch) != 0) {
         const char *error = SDL_GetError();
+        LLOGE("SDL_LockTexture failed: %s", error);
         return;
     }
     
@@ -196,6 +197,7 @@ static void sdl_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const 
         // 注意：不要调用 SDL_RenderClear，因为这会清除之前的内容
         if (SDL_RenderCopy(data->renderer, data->texture, NULL, NULL) != 0) {
             const char *error = SDL_GetError();
+            LLOGE("SDL_RenderCopy failed: %s", error);
             // 即便渲染失败也要通知 LVGL 完成，避免卡死
         } else {
             SDL_RenderPresent(data->renderer);

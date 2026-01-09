@@ -6,6 +6,7 @@
 #include "luat_pinyin.h"
 #include "pinyin_dict.h"
 #include "valid_syllables.h"
+#include "luat_mem.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "pinyin"
@@ -319,8 +320,8 @@ int luat_pinyin_query_syllables_by_keys(
                 while (left <= right) {
                     int mid = (left + right) / 2;
                     int cmp = strcmp(valid_syllables[mid], syllables[i]);
-                    if (cmp == 0) {
-                        indices[i] = mid;
+                if (cmp == 0) {
+                    indices[i] = (int16_t)mid;
                         break;
                     } else if (cmp < 0) {
                         left = mid + 1;
@@ -351,4 +352,74 @@ int luat_pinyin_query_syllables_by_keys(
     
     return 0;
 }
+
+#ifdef LUAT_USE_EASYLVGL
+/** 将Unicode码点转换为UTF-8字符串 */
+static size_t codepoints_to_utf8(const uint32_t *codepoints, uint16_t count, char *dest, size_t max_size)
+{
+    if (dest == NULL || max_size == 0) return 0;
+    size_t used = 0;
+    for (uint16_t i = 0; i < count; i++) {
+        char tmp[5] = {0};
+        int len = luat_pinyin_codepoint_to_utf8(codepoints[i], tmp);
+        if (len <= 0) continue;
+        if (used + (size_t)len + 1 > max_size) {
+            break;
+        }
+        memcpy(dest + used, tmp, len);
+        used += (size_t)len;
+    }
+    dest[used++] = '\0';
+    return used;
+}
+/** 用于给easylvgl提供拼音词典的词典数组 */
+const lv_pinyin_dict_t * luat_pinyin_get_lv_dict(size_t *count)
+{
+    if (count) {
+        *count = 0;
+    }
+
+    static bool prepared = false;
+    static lv_pinyin_dict_t lv_dict[PINYIN_DICT_SIZE];
+    static char *dict_buffer = NULL;
+    static size_t dict_buffer_size = 0;
+    static size_t dict_filled = 0;
+
+    if (!prepared) {
+        size_t needed = 0;
+        for (size_t i = 0; i < PINYIN_DICT_SIZE; i++) {
+            needed += (size_t)pinyin_dict[i].count * 4 + 1;
+        }
+        dict_buffer = (char *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM, needed);
+        if (dict_buffer == NULL) {
+            return NULL;
+        }
+        dict_buffer_size = needed;
+        char *cursor = dict_buffer;
+        dict_filled = 0;
+
+        for (size_t i = 0; i < PINYIN_DICT_SIZE; i++) {
+            *((const char **)&lv_dict[i].py) = pinyin_dict[i].pinyin;
+            *((const char **)&lv_dict[i].py_mb) = cursor;
+            size_t written = codepoints_to_utf8(pinyin_dict[i].codepoints,
+                                                pinyin_dict[i].count,
+                                                cursor,
+                                                dict_buffer_size - dict_filled);
+            if (written == 0) {
+                *cursor = '\0';
+                written = 1;
+            }
+            cursor += written;
+            dict_filled += written;
+        }
+        prepared = true;
+    }
+
+    if (count) {
+        *count = PINYIN_DICT_SIZE;
+    }
+    return lv_dict;
+}
+
+#endif
 

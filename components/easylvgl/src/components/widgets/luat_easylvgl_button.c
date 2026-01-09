@@ -15,6 +15,9 @@
 #include <string.h>
 #include <stdint.h>
 
+#define LUAT_LOG_TAG "easylvgl_button"
+#include "luat_log.h"
+
 /**
  * 从配置表创建 Button 组件
  * @param L Lua 状态

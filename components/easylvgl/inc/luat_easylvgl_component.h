@@ -30,7 +30,8 @@ typedef enum {
     EASYLVGL_COMPONENT_TABLE,
     EASYLVGL_COMPONENT_TABVIEW,
     EASYLVGL_COMPONENT_TEXTAREA,
-    EASYLVGL_COMPONENT_KEYBOARD
+    EASYLVGL_COMPONENT_KEYBOARD,
+    EASYLVGL_COMPONENT_LOTTIE
 } easylvgl_component_type_t;
 
 /** TabView 对齐常量 */
@@ -54,6 +55,7 @@ typedef enum {
     EASYLVGL_EVENT_ACTION,
     EASYLVGL_EVENT_READY,
     EASYLVGL_EVENT_CLOSE,
+    EASYLVGL_EVENT_COMPLETE,
     EASYLVGL_EVENT_MAX
 } easylvgl_event_type_t;
 
@@ -97,6 +99,7 @@ typedef struct {
  */
 typedef struct {
     lv_obj_t *target;
+    lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
 } easylvgl_keyboard_data_t;
 
 /**********************
@@ -271,6 +274,8 @@ int easylvgl_switch_set_on_change(lv_obj_t *sw, int callback_ref); //设置改�
 lv_obj_t *easylvgl_container_create_from_config(void *L, int idx);
 int easylvgl_container_set_color(lv_obj_t *container, uint32_t color); //设置背景颜色
 int easylvgl_container_set_hidden(lv_obj_t *container, bool hidden); //设置隐藏状态
+int easylvgl_container_open(lv_obj_t *container); //显示并置顶容器
+int easylvgl_container_destroy(lv_obj_t *container); //销毁容器及关联资源
 
 /**
  * Table 组件创建
@@ -331,6 +336,20 @@ int easylvgl_keyboard_show(lv_obj_t *keyboard); //显示键盘
 int easylvgl_keyboard_hide(lv_obj_t *keyboard); //隐藏键盘
 int easylvgl_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref); //设置提交回调
 int easylvgl_keyboard_set_layout(lv_obj_t *keyboard, const char *layout); //设置键盘布局
+
+/**
+ * Lottie组件
+ */
+lv_obj_t *easylvgl_lottie_create_from_config(void *L, int idx);
+int easylvgl_lottie_play(lv_obj_t *lottie);
+int easylvgl_lottie_pause(lv_obj_t *lottie);
+int easylvgl_lottie_stop(lv_obj_t *lottie);
+int easylvgl_lottie_set_src_file(lv_obj_t *lottie, const char *path);
+int easylvgl_lottie_set_src_data(lv_obj_t *lottie, const void *data, size_t size);
+int easylvgl_lottie_set_loop(lv_obj_t *lottie, bool loop);
+int easylvgl_lottie_set_speed(lv_obj_t *lottie, float speed);
+int easylvgl_lottie_set_progress(lv_obj_t *lottie, float progress);
+int easylvgl_lottie_destroy(lv_obj_t *lottie);
 
 #ifdef __cplusplus
 }

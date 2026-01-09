@@ -52,6 +52,8 @@ lv_obj_t *easylvgl_container_create_from_config(void *L, int idx)
     lv_obj_set_size(container, w, h);
     lv_obj_set_style_border_width(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_radius(container, radius, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // 屏幕默认存在 padding，清掉内边距让 (0,0) 真正对齐
+    lv_obj_set_style_pad_all(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     // 设置背景颜色或透明度
     if (color_value >= 0) {
@@ -99,5 +101,19 @@ int easylvgl_container_set_hidden(lv_obj_t *container, bool hidden)
     }
 
     lv_obj_set_flag(container, LV_OBJ_FLAG_HIDDEN, hidden);
+    return EASYLVGL_OK;
+}
+
+/**
+ * 打开容器（用于子窗口），清除隐藏标志并置顶
+ */
+int easylvgl_container_open(lv_obj_t *container)
+{
+    if (container == NULL) {
+        return EASYLVGL_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(container);
     return EASYLVGL_OK;
 }

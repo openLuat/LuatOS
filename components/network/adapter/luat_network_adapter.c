@@ -3,7 +3,7 @@
 #include "luat_mem.h"
 #include "luat_crypto.h"
 #include "luat_rtos.h"
-#ifdef LUAT_USE_NETWORK
+
 #include "luat_rtos.h"
 #include "platform_def.h"
 #include "ctype.h"
@@ -2887,4 +2887,9 @@ int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms
 	return 0;
 }
 
-#endif
+int network_tcpip_callback(nw_callback_fn fn, void *ctx, int block) {
+	if (fn == NULL) {
+		return 0;
+	}
+	return tcpip_callback_with_block(fn, ctx, block);
+}

@@ -17,6 +17,10 @@
 #include "uv.h"
 #include "luat_mem.h"
 
+#ifdef LUAT_USE_LWIP
+#include "lwip/tcpip.h"
+#endif
+
 #ifdef LUAT_USE_LVGL
 uv_timer_t lvgl_timer;
 #include "lvgl.h"
@@ -136,17 +140,14 @@ int main(int argc, char** argv) {
     #endif
 
     #ifdef LUAT_USE_LWIP
-    //LLOGD("初始化lwip");
-    luat_lwip_init();
+    LLOGD("初始化lwip");
+    tcpip_init(NULL, NULL);
     #endif
 
     // uv_thread_t l_main;
     // 加一个NOP的timer，防止uv_run 立即退出
     uv_timer_t t;
     uv_timer_init(main_loop, &t);
-    #if defined(LUAT_USE_LWIP)
-    uv_timer_start(&t, timer_lwip, 5, 5);
-    #else
     uv_timer_start(&t, timer_nop, 1000, 1000);
     #endif
 

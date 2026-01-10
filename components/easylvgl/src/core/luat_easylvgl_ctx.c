@@ -45,10 +45,10 @@ static void easylvgl_lv_log_cb(lv_log_level_t level, const char * buf)
 // 平台驱动声明（编译时选择）
 #if defined(LUAT_USE_EASYLVGL_SDL2)
 extern const easylvgl_platform_ops_t *easylvgl_platform_ops_sdl2_get(void);
-#elif defined(LUAT_USE_EASYLVGL_BK7258)
-extern const easylvgl_platform_ops_t *easylvgl_platform_ops_bk7258_get(void);
+#elif defined(LUAT_USE_EASYLVGL_LUATOS) 
+extern const easylvgl_platform_ops_t *easylvgl_platform_ops_luatos_get(void);
 #else
-#error "No platform driver selected. Please define LUAT_USE_EASYLVGL_SDL2 or LUAT_USE_EASYLVGL_BK7258"
+#error "No platform driver selected. Please define LUAT_USE_EASYLVGL_SDL2 or LUAT_USE_EASYLVGL_LUATOS"
 #endif
 
 /**
@@ -112,8 +112,8 @@ int easylvgl_ctx_create(easylvgl_ctx_t *ctx, const easylvgl_platform_ops_t *ops)
     if (ops == NULL) {
 #if defined(LUAT_USE_EASYLVGL_SDL2)
         ops = easylvgl_platform_ops_sdl2_get();
-#elif defined(LUAT_USE_EASYLVGL_BK7258)
-        ops = easylvgl_platform_ops_bk7258_get();
+#elif defined(LUAT_USE_EASYLVGL_LUATOS)
+        ops = easylvgl_platform_ops_luatos_get();
 #else
         return EASYLVGL_ERR_INVALID_PARAM;
 #endif

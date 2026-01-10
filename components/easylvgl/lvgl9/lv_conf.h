@@ -606,11 +606,15 @@
 #define LV_ATTRIBUTE_EXTERN_DATA
 
 /** Use `float` as `lv_value_precise_t` */
-#define LV_USE_FLOAT            0
+#ifndef LV_USE_FLOAT
+    #define LV_USE_FLOAT            0
+#endif
 
 /** Enable matrix support
  *  - Requires `LV_USE_FLOAT = 1` */
-#define LV_USE_MATRIX           0
+#ifndef LV_USE_MATRIX
+    #define LV_USE_MATRIX           0
+#endif
 
 /** Include `lvgl_private.h` in `lvgl.h` to access internal data and functions by default */
 #ifndef LV_USE_PRIVATE_API
@@ -803,7 +807,9 @@
 
 #define LV_USE_LIST       1
 
-#define LV_USE_LOTTIE     0  /**< Requires: lv_canvas, thorvg */
+#ifndef LV_USE_LOTTIE
+    #define LV_USE_LOTTIE     0  /**< Requires: lv_canvas, thorvg */
+#endif
 
 #define LV_USE_MENU       1
 
@@ -1030,11 +1036,15 @@
 
 /** Enable Vector Graphic APIs
  *  Requires `LV_USE_MATRIX = 1` */
-#define LV_USE_VECTOR_GRAPHIC  0
+#ifndef LV_USE_VECTOR_GRAPHIC
+    #define LV_USE_VECTOR_GRAPHIC  0
+#endif
 
 /** Enable ThorVG (vector graphics library) from the src/libs folder.
  *  Requires LV_USE_VECTOR_GRAPHIC */
-#define LV_USE_THORVG_INTERNAL 0
+#ifndef LV_USE_THORVG_INTERNAL
+    #define LV_USE_THORVG_INTERNAL 0
+#endif
 
 /** Enable ThorVG by assuming that its installed and linked to the project
  *  Requires LV_USE_VECTOR_GRAPHIC */
@@ -1182,15 +1192,20 @@
 
 /** 1: Enable Pinyin input method
  *  - Requires: lv_keyboard */
-#define LV_USE_IME_PINYIN 0
+#ifndef LUAT_USE_PINYIN
+    #define LV_USE_IME_PINYIN 0
+#endif
 #if LV_USE_IME_PINYIN
     /** 1: Use default thesaurus.
      *  @note  If you do not use the default thesaurus, be sure to use `lv_ime_pinyin` after setting the thesaurus. */
-    #define LV_IME_PINYIN_USE_DEFAULT_DICT 1
+    #ifndef LV_IME_PINYIN_USE_DEFAULT_DICT
+        #define LV_IME_PINYIN_USE_DEFAULT_DICT 1
+    #endif
     /** Set maximum number of candidate panels that can be displayed.
      *  @note  This needs to be adjusted according to size of screen. */
-    #define LV_IME_PINYIN_CAND_TEXT_NUM 6
-
+    #ifndef LV_IME_PINYIN_CAND_TEXT_NUM
+        #define LV_IME_PINYIN_CAND_TEXT_NUM 9
+    #endif
     /** Use 9-key input (k9). */
     #define LV_IME_PINYIN_USE_K9_MODE      1
     #if LV_IME_PINYIN_USE_K9_MODE == 1

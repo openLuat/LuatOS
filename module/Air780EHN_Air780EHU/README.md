@@ -1,0 +1,3 @@
+Air780EHN的软件demo，可直接参考Air780EHM_Air780EHV_Air780EGH目录下的软件demo。
+
+Air780EHU的软件demo，可直接参考Air780EHM_Air780EHV_Air780EGH目录下的软件demo。

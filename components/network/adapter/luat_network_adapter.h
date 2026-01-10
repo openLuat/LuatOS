@@ -821,5 +821,9 @@ int network_get_last_register_adapter_real(void);
  * @return 成功返回0，其他失败
  */
 int network_close_all_ctrl_by_adapter(uint8_t adapter_index, uint32_t timeout_ms);
+
+typedef void (*nw_callback_fn)(void *ctx);
+int network_tcpip_callback(nw_callback_fn function, void *ctx, int block);
+
 #endif
 // #endif

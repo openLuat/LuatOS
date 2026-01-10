@@ -64,7 +64,7 @@
 
 |Air780EHM/Air780EHV/Air780EGH核心板| 墨水屏引脚 |
 |---------------|-----------|
-| 26/GPIO33     | BUSY      |
+| 107/GPIO21    | BUSY      |
 | 25/GPIO26     | RST       |
 | 23/GPIO2      | DC        |
 | 22/GPIO1      | CS        |

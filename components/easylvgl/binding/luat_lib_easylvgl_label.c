@@ -118,9 +118,9 @@ static int l_label_get_text(lua_State *L) {
 }
 
 /**
- * Label GC（垃圾回收）
+ * Label:destroy（手动销毁）
  */
-static int l_label_gc(lua_State *L) {
+static int l_label_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_LABEL_MT);
     if (ud != NULL && ud->obj != NULL) {
         // 获取元数据并释放
@@ -143,16 +143,13 @@ static int l_label_gc(lua_State *L) {
 void easylvgl_register_label_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_LABEL_MT);
     
-    // 设置元方法
-    lua_pushcfunction(L, l_label_gc);
-    lua_setfield(L, -2, "__gc");
-    
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_label_set_text},
         {"set_symbol", l_label_set_symbol},
         {"set_on_click", l_label_set_on_click},
         {"get_text", l_label_get_text},
+        {"destroy", l_label_destroy},
         {NULL, NULL}
     };
     

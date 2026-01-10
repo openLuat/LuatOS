@@ -16,9 +16,10 @@
 #include "../inc/luat_easylvgl_component.h"
 #include "../inc/luat_easylvgl_binding.h"
 #include "../inc/luat_easylvgl_symbol.h"
+#include "lvgl9/src/themes/default/lv_theme_default.h"
 #include "luat_conf_bsp.h"
-#if defined(LUAT_USE_EASYLVGL_BK7258)
-#include "../src/platform/bk7258/luat_easylvgl_platform_bk7258.h"
+#if defined(LUAT_USE_EASYLVGL_LUATOS)
+#include "../src/platform/luatos/luat_easylvgl_platform_luatos.h"
 #endif
 #include <string.h>
 
@@ -95,6 +96,10 @@ extern int easylvgl_textarea_create(lua_State *L);
 extern void easylvgl_register_keyboard_meta(lua_State *L);
 extern int easylvgl_keyboard_create(lua_State *L);
 
+// Lottie 模块声明
+extern void easylvgl_register_lottie_meta(lua_State *L);
+extern int easylvgl_lottie_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_easylvgl[] = {
     // 基础设置
@@ -127,6 +132,7 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"msgbox", ROREG_FUNC(easylvgl_msgbox_create)},
     {"textarea", ROREG_FUNC(easylvgl_textarea_create)},
     {"keyboard", ROREG_FUNC(easylvgl_keyboard_create)},
+    {"lottie", ROREG_FUNC(easylvgl_lottie_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(EASYLVGL_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(EASYLVGL_COLOR_FORMAT_ARGB8888)},
@@ -166,6 +172,7 @@ LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     easylvgl_register_msgbox_meta(L);
     easylvgl_register_textarea_meta(L);
     easylvgl_register_keyboard_meta(L);
+    easylvgl_register_lottie_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_easylvgl);
@@ -280,13 +287,13 @@ static int l_easylvgl_refresh(lua_State *L) {
 }
 
 /**
- * 绑定触摸输入配置到 BK7258 平台
+ * 绑定触摸输入配置到 LuatOS 平台
  * @api easylvgl.indev_bind_touch(tp_cfg)
  * @userdata tp_cfg luat_tp_config_t*（lightuserdata）
  * @return bool 绑定是否成功
  */
 static int l_easylvgl_indev_bind_touch(lua_State *L) {
-#if defined(LUAT_USE_EASYLVGL_BK7258)
+#if defined(LUAT_USE_EASYLVGL_LUATOS)
     luat_tp_config_t *tp_cfg = (luat_tp_config_t *)lua_touserdata(L, 1);
     if (tp_cfg == NULL) {
         LLOGE("indev_bind_touch tp_cfg is NULL");
@@ -295,11 +302,11 @@ static int l_easylvgl_indev_bind_touch(lua_State *L) {
     }
 
     /* 保存到平台绑定，供初始化时同步 */
-    easylvgl_platform_bk7258_bind_tp(tp_cfg);
+    easylvgl_platform_luatos_bind_tp(tp_cfg);
 
     /* 如果上下文已存在且平台数据已分配，运行时也同步一份 */
     if (g_ctx && g_ctx->platform_data) {
-        bk7258_platform_data_t *data = (bk7258_platform_data_t *)g_ctx->platform_data;
+        luatos_platform_data_t *data = (luatos_platform_data_t *)g_ctx->platform_data;
         data->tp_config = tp_cfg;
     }
 
@@ -405,6 +412,10 @@ static int l_easylvgl_font_load(lua_State *L) {
     if (font) {
         // 设置为全局默认字体
         lv_obj_set_style_text_font(lv_screen_active(), font, 0);
+        /* 更新主题字体 */
+        if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
+        lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+        
         lua_pushlightuserdata(L, font);
         return 1;
     }else{

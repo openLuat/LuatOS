@@ -67,10 +67,30 @@ static int l_container_set_hidden(lua_State *L) {
     easylvgl_container_set_hidden(container, hidden);
     return 0;
 }
+
 /**
- * Container GC
+ * Container:hide()
  */
-static int l_container_gc(lua_State *L) {
+static int l_container_hide(lua_State *L) {
+    lv_obj_t *container = easylvgl_check_component(L, 1, EASYLVGL_CONTAINER_MT);
+    easylvgl_container_set_hidden(container, true);
+    return 0;
+}
+
+/**
+ * Container:open()
+ */
+static int l_container_open(lua_State *L) {
+    lv_obj_t *container = easylvgl_check_component(L, 1, EASYLVGL_CONTAINER_MT);
+    easylvgl_container_open(container);
+    return 0;
+}
+
+
+/**
+ * Container:destroy()
+ */
+static int l_container_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_CONTAINER_MT);
     if (ud != NULL && ud->obj != NULL) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
@@ -88,12 +108,15 @@ static int l_container_gc(lua_State *L) {
  */
 void easylvgl_register_container_meta(lua_State *L) {
     luaL_newmetatable(L, EASYLVGL_CONTAINER_MT);
-    lua_pushcfunction(L, l_container_gc);
-    lua_setfield(L, -2, "__gc");
+    // lua_pushcfunction(L, l_container_gc);
+    // lua_setfield(L, -2, "__gc");
 
     static const luaL_Reg methods[] = {
         {"set_color", l_container_set_color},
         {"set_hidden", l_container_set_hidden},
+        {"hide", l_container_hide},
+        {"open", l_container_open},
+        {"destroy", l_container_destroy},
         {NULL, NULL}
     };
 

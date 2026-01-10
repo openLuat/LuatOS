@@ -105,9 +105,9 @@ static int l_dropdown_set_on_change(lua_State *L)
 }
 
 /**
- * Dropdown GC（垃圾回收）
+ * Dropdown:destroy（手动销毁）
  */
-static int l_dropdown_gc(lua_State *L)
+static int l_dropdown_destroy(lua_State *L)
 {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_DROPDOWN_MT);
     if (ud != NULL && ud->obj != NULL) {
@@ -133,13 +133,11 @@ void easylvgl_register_dropdown_meta(lua_State *L)
 {
     luaL_newmetatable(L, EASYLVGL_DROPDOWN_MT);
 
-    lua_pushcfunction(L, l_dropdown_gc);
-    lua_setfield(L, -2, "__gc");
-
     static const luaL_Reg methods[] = {
         {"set_selected", l_dropdown_set_selected},
         {"get_selected", l_dropdown_get_selected},
         {"set_on_change", l_dropdown_set_on_change},
+        {"destroy", l_dropdown_destroy},
         {NULL, NULL}
     };
 

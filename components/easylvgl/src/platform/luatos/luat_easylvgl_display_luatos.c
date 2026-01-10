@@ -1,6 +1,6 @@
 /**
- * @file luat_easylvgl_display_bk7258.c
- * @summary BK7258 显示驱动实现
+ * @file luat_easylvgl_display_luatos.c
+ * @summary LuatOS 显示驱动实现
  * @responsible LCD 初始化、flush、vsync 占位、资源清理
  */
 #include "luat_conf_bsp.h"
@@ -8,62 +8,62 @@
     #include "luat_conf_bsp_air8101.h"
 #endif
 
-#if defined(LUAT_USE_EASYLVGL_BK7258)
+#if defined(LUAT_USE_EASYLVGL_LUATOS)
 
 #include "luat_easylvgl.h"
 #include "luat_lcd.h"
 #include "luat_log.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
-#include "luat_easylvgl_platform_bk7258.h"
+#include "luat_easylvgl_platform_luatos.h"
 #include <stdbool.h>
 #include <string.h>
 
-#define LUAT_LOG_TAG "easylvgl.bk.disp"
+#define LUAT_LOG_TAG "easylvgl.luatos.disp"
 #include "luat_log.h"
 
 /** 默认触摸配置绑定（由平台文件维护） */
-extern luat_tp_config_t *easylvgl_platform_bk7258_get_tp_bind(void);
+extern luat_tp_config_t *easylvgl_platform_luatos_get_tp_bind(void);
 
-static bk7258_platform_data_t *bk7258_get_or_alloc_data(easylvgl_ctx_t *ctx) {
+static luatos_platform_data_t *luatos_get_or_alloc_data(easylvgl_ctx_t *ctx) {
     if (ctx == NULL) {
         return NULL;
     }
-    bk7258_platform_data_t *data = easylvgl_bk7258_get_data(ctx);
+    luatos_platform_data_t *data = easylvgl_luatos_get_data(ctx);
     if (data != NULL) {
         return data;
     }
-    data = (bk7258_platform_data_t *)luat_heap_malloc(sizeof(bk7258_platform_data_t));
+    data = (luatos_platform_data_t *)luat_heap_malloc(sizeof(luatos_platform_data_t));
     if (data == NULL) {
         return NULL;
     }
-    memset(data, 0, sizeof(bk7258_platform_data_t));
+    memset(data, 0, sizeof(luatos_platform_data_t));
     ctx->platform_data = data;
     return data;
 }
 
 /**
- * BK7258 显示初始化
+ * LuatOS 显示初始化
  */
-static int bk7258_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt)
+static int luatos_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt)
 {
     if (ctx == NULL) {
         return EASYLVGL_ERR_INVALID_PARAM;
     }
 
     if (fmt != LV_COLOR_FORMAT_RGB565) {
-        LLOGE("bk7258 disp only supports RGB565, fmt=%d", fmt);
+        LLOGE("luatos disp only supports RGB565, fmt=%d", fmt);
         return EASYLVGL_ERR_INVALID_PARAM;
     }
 
-    bk7258_platform_data_t *data = bk7258_get_or_alloc_data(ctx);
+    luatos_platform_data_t *data = luatos_get_or_alloc_data(ctx);
     if (data == NULL) {
         return EASYLVGL_ERR_NO_MEM;
     }
 
     luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
     if (lcd_conf == NULL) {
-        LLOGE("bk7258 disp: lcd_conf is NULL");
+        LLOGE("luatos disp: lcd_conf is NULL");
         return EASYLVGL_ERR_PLATFORM_ERROR;
     }
 
@@ -79,17 +79,17 @@ static int bk7258_display_init(easylvgl_ctx_t *ctx, uint16_t w, uint16_t h, lv_c
     data->lcd_conf = lcd_conf;
 
     /* 将预先绑定的 TP 配置同步到 platform_data，供输入驱动使用 */
-    data->tp_config = easylvgl_platform_bk7258_get_tp_bind();
+    data->tp_config = easylvgl_platform_luatos_get_tp_bind();
 
     return EASYLVGL_OK;
 }
 
 /**
- * BK7258 显示 flush
+ * LuatOS 显示 flush
  */
-static void bk7258_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map)
+static void luatos_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map)
 {
-    bk7258_platform_data_t *data = easylvgl_bk7258_get_data(ctx);
+    luatos_platform_data_t *data = easylvgl_luatos_get_data(ctx);
     if (data == NULL || data->lcd_conf == NULL || area == NULL || px_map == NULL) {
         return;
     }
@@ -99,7 +99,7 @@ static void bk7258_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, con
     bool is_last = lv_display_flush_is_last(ctx->display);
 
     /* 直接绘制到 LCD，逐块刷新 */
-    // LLOGD("bk7258_display_flush: area=(%d,%d,%d,%d) size=(%d,%d)", area->x1, area->y1, area->x2, area->y2,
+    // LLOGD("luatos_display_flush: area=(%d,%d,%d,%d) size=(%d,%d)", area->x1, area->y1, area->x2, area->y2,
     //       area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
@@ -113,20 +113,20 @@ static void bk7258_display_flush(easylvgl_ctx_t *ctx, const lv_area_t *area, con
 }
 
 /**
- * BK7258 等待 vsync（占位）
+ * LuatOS 等待 vsync（占位）
  */
-static void bk7258_display_wait_vsync(easylvgl_ctx_t *ctx)
+static void luatos_display_wait_vsync(easylvgl_ctx_t *ctx)
 {
     (void)ctx;
     /* 硬件接口未暴露 vsync，保留占位 */
 }
 
 /**
- * BK7258 显示反初始化
+ * LuatOS 显示反初始化
  */
-static void bk7258_display_deinit(easylvgl_ctx_t *ctx)
+static void luatos_display_deinit(easylvgl_ctx_t *ctx)
 {
-    bk7258_platform_data_t *data = easylvgl_bk7258_get_data(ctx);
+    luatos_platform_data_t *data = easylvgl_luatos_get_data(ctx);
     if (data == NULL) {
         return;
     }
@@ -139,20 +139,20 @@ static void bk7258_display_deinit(easylvgl_ctx_t *ctx)
     ctx->platform_data = NULL;
 }
 
-/** BK7258 显示驱动操作接口 */
-static const easylvgl_display_ops_t bk7258_display_ops = {
-    .init = bk7258_display_init,
-    .flush = bk7258_display_flush,
-    .wait_vsync = bk7258_display_wait_vsync,
-    .deinit = bk7258_display_deinit
+/** LuatOS 显示驱动操作接口 */
+static const easylvgl_display_ops_t luatos_display_ops = {
+    .init = luatos_display_init,
+    .flush = luatos_display_flush,
+    .wait_vsync = luatos_display_wait_vsync,
+    .deinit = luatos_display_deinit
 };
 
-/** 获取 BK7258 显示驱动操作接口 */
-const easylvgl_display_ops_t *easylvgl_platform_bk7258_get_display_ops(void)
+/** 获取 LuatOS 显示驱动操作接口 */
+const easylvgl_display_ops_t *easylvgl_platform_luatos_get_display_ops(void)
 {
-    return &bk7258_display_ops;
+    return &luatos_display_ops;
 }
 
-#endif /* LUAT_USE_EASYLVGL_BK7258 */
+#endif /* LUAT_USE_EASYLVGL_LUATOS */
 
 

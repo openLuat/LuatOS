@@ -1,0 +1,3 @@
+Air700ECH的软件demo，可直接参考Air780EHM_Air780EHV_Air780EGH目录下的软件demo。
+
+Air700ECP的软件demo，可直接参考Air780EPM目录下的软件demo。

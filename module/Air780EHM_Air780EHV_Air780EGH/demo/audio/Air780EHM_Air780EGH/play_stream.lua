@@ -1,9 +1,9 @@
 --[[
 @module  play_stream
 @summary 流式播放
-@version 1.0
-@date    2025.09.08
-@author  梁健
+@version 1.1
+@date    2026.01.11
+@author  王世豪
 @usage
 
 本文件为流式播放应用功能模块，核心业务逻辑为：
@@ -78,14 +78,25 @@ gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
 local function audio_get_data()
     log.info("开始流式获取音频数据")
     local file = io.open("/luadb/test.pcm", "rb")   -- 模拟流式播放音源，实际的音频数据来源也可以来自网络或者本地存储
+    
+    -- 获取推荐的缓冲区大小
+    local buffer_size = exaudio.get_stream_buffer_size() or 4096
+    log.info("流式播放缓冲区大小", buffer_size)
+
     while true do
-        local read_data = file:read(4096)  --  读取文件，模拟流式音频源,需要1024 的倍数
+        local read_data = file:read(buffer_size)  --  读取文件，模拟流式音频源,需要1024 的倍数
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
             break
         end
+
+        -- 如果读取的数据小于缓冲区大小，补充静音数据
+        if #read_data < buffer_size then
+            read_data = read_data .. string.rep("\0", buffer_size - #read_data)
+        end
+
         exaudio.play_stream_write(read_data)  -- 流式写入音频数据
-        sys.wait(100)                   -- 写数据需要留出事件给其他task 运行代码
+        sys.wait(20)                   -- 写数据需要留出事件给其他task 运行代码
     end
 end
 

@@ -215,10 +215,19 @@ target("luatos-lua")
     add_files(luatos.."components/sms/**.c")
 
     -- multimedia
-    -- add_includedirs(luatos.."components/multimedia",{public = true})
+    add_includedirs(luatos.."components/multimedia",{public = true})
     -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
     -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
     -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
+
+    -- codec
+    add_files(luatos.."components/multimedia/luat_lib_multimedia_codec.c")
+    add_files(luatos.."components/multimedia/minimp3.c")
+    add_files(luatos.."components/multimedia/mp3_decode_port.c")
+    -- g711
+    add_files(luatos.."components/multimedia/g711_codec/*.c")
+    add_includedirs(luatos.."components/multimedia/g711_codec",{public = true})
+
 
     ----------------------------------------------------------------------
     -- 网络相关

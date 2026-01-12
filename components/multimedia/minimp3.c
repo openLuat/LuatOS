@@ -1,8 +1,10 @@
-
+#include "luat_base.h"
 #include "mp3_decode/minimp3.h"
 #include "luat_mem.h"
-extern void DBG_Printf(const char* format, ...);
-#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+
+#define LUAT_LOG_TAG "minimp3"
+#include "luat_log.h"
+
 #define _MINIMP3_IMPLEMENTATION_GUARD
 
 static void bs_init(bs_t *bs, const uint8_t *data, int bytes)
@@ -1486,7 +1488,7 @@ int mp3dec_decode_frame(mp3dec_t *dec, const uint8_t *mp3, int mp3_bytes, mp3d_s
     mp3dec_scratch_t *scratch = luat_heap_malloc(sizeof(mp3dec_scratch_t));
     if (!scratch)
     {
-    	DBG("no mem!");
+    	LLOGE("no mem when decode frame! mp3_bytes=%d", mp3_bytes);
     	return -1;
     }
     memset(scratch, 0, sizeof(mp3dec_scratch_t));

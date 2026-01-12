@@ -226,6 +226,7 @@ static const luaL_Reg loadedlibs[] = {
   {"ble", luaopen_ble},
   #endif
 #endif
+  {"codec", luaopen_multimedia_codec},
   {NULL, NULL}
 };
 

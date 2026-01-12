@@ -103,7 +103,7 @@ opus_int32 test_dec_api(void)
    for(c=0;c<4;c++)
    {
       i=opus_decoder_get_size(c);
-      if(((c==1||c==2)&&(i<=2048||i>1<<16))||((c!=1&&c!=2)&&i!=0))test_failed();
+      if(((c==1||c==2)&&(i<=2048||i>1<<18))||((c!=1&&c!=2)&&i!=0))test_failed();
       fprintf(stdout,"    opus_decoder_get_size(%d)=%d ...............%s OK.\n",c,i,i>0?"":"....");
       cfgs++;
    }
@@ -114,7 +114,11 @@ opus_int32 test_dec_api(void)
       for(i=-7;i<=96000;i++)
       {
          int fs;
-         if((i==8000||i==12000||i==16000||i==24000||i==48000)&&(c==1||c==2))continue;
+         if((i==8000||i==12000||i==16000||i==24000||i==48000
+#ifdef ENABLE_QEXT
+               ||i==96000
+#endif
+               )&&(c==1||c==2))continue;
          switch(i)
          {
            case(-5):fs=-8000;break;
@@ -367,7 +371,7 @@ opus_int32 test_msdec_api(void)
       for(b=-1;b<4;b++)
       {
          i=opus_multistream_decoder_get_size(a,b);
-         if(((a>0&&b<=a&&b>=0)&&(i<=2048||i>((1<<16)*a)))||((a<1||b>a||b<0)&&i!=0))test_failed();
+         if(((a>0&&b<=a&&b>=0)&&(i<=2048||i>((1<<18)*a)))||((a<1||b>a||b<0)&&i!=0))test_failed();
          fprintf(stdout,"    opus_multistream_decoder_get_size(%2d,%2d)=%d %sOK.\n",a,b,i,i>0?"":"... ");
          cfgs++;
       }
@@ -379,7 +383,11 @@ opus_int32 test_msdec_api(void)
       for(i=-7;i<=96000;i++)
       {
          int fs;
-         if((i==8000||i==12000||i==16000||i==24000||i==48000)&&(c==1||c==2))continue;
+         if((i==8000||i==12000||i==16000||i==24000||i==48000
+#ifdef ENABLE_QEXT
+               ||i==96000
+#endif
+               )&&(c==1||c==2))continue;
          switch(i)
          {
            case(-5):fs=-8000;break;
@@ -1081,7 +1089,7 @@ opus_int32 test_enc_api(void)
    for(c=0;c<4;c++)
    {
       i=opus_encoder_get_size(c);
-      if(((c==1||c==2)&&(i<=2048||i>1<<17))||((c!=1&&c!=2)&&i!=0))test_failed();
+      if(((c==1||c==2)&&(i<=2048||i>1<<18))||((c!=1&&c!=2)&&i!=0))test_failed();
       fprintf(stdout,"    opus_encoder_get_size(%d)=%d ...............%s OK.\n",c,i,i>0?"":"....");
       cfgs++;
    }
@@ -1092,7 +1100,11 @@ opus_int32 test_enc_api(void)
       for(i=-7;i<=96000;i++)
       {
          int fs;
-         if((i==8000||i==12000||i==16000||i==24000||i==48000)&&(c==1||c==2))continue;
+         if((i==8000||i==12000||i==16000||i==24000||i==48000
+#ifdef ENABLE_QEXT
+               ||i==96000
+#endif
+               )&&(c==1||c==2))continue;
          switch(i)
          {
            case(-5):fs=-8000;break;
@@ -1196,7 +1208,7 @@ opus_int32 test_enc_api(void)
    cfgs++;
    VG_UNDEF(&i,sizeof(i));
    if(opus_encoder_ctl(enc,OPUS_GET_BITRATE(&i))!=OPUS_OK)test_failed();
-   if(i>700000||i<256000)test_failed();
+   if(i>1700000||i<256000)test_failed();
    cfgs++;
    CHECK_SETGET(OPUS_SET_BITRATE(i),OPUS_GET_BITRATE(&i),-12345,0,
      500,256000,
@@ -1298,7 +1310,7 @@ opus_int32 test_enc_api(void)
    err=opus_encoder_ctl(enc,OPUS_GET_INBAND_FEC(null_int_ptr));
    if(err!=OPUS_BAD_ARG)test_failed();
    cfgs++;
-   CHECK_SETGET(OPUS_SET_INBAND_FEC(i),OPUS_GET_INBAND_FEC(&i),-1,2,
+   CHECK_SETGET(OPUS_SET_INBAND_FEC(i),OPUS_GET_INBAND_FEC(&i),-1,3,
      1,0,
      "    OPUS_SET_INBAND_FEC .......................... OK.\n",
      "    OPUS_GET_INBAND_FEC .......................... OK.\n")

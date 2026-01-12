@@ -50,16 +50,33 @@ extern "C" {
 #include "arch.h"
 
 #  define kiss_fft_scalar opus_int32
-#  define kiss_twiddle_scalar opus_int16
+#  ifdef ENABLE_QEXT
+#   define COEF_SHIFT 32
+#  else
+#   define COEF_SHIFT 16
+#  endif
 
+#  define kiss_twiddle_scalar celt_coef
+
+/* Some 32-bit CPUs would load/store a kiss_twiddle_cpx with a single memory
+ * access, and could benefit from additional alignment.
+ */
+#  define KISS_TWIDDLE_CPX_ALIGNMENT (sizeof(opus_int32))
 
 #else
+
 # ifndef kiss_fft_scalar
 /*  default is float */
 #   define kiss_fft_scalar float
 #   define kiss_twiddle_scalar float
 #   define KF_SUFFIX _celt_single
 # endif
+#endif
+
+#if defined(__GNUC__) && defined(KISS_TWIDDLE_CPX_ALIGNMENT)
+#define KISS_TWIDDLE_CPX_ALIGNED __attribute__((aligned(KISS_TWIDDLE_CPX_ALIGNMENT)))
+#else
+#define KISS_TWIDDLE_CPX_ALIGNED
 #endif
 
 typedef struct {
@@ -70,7 +87,7 @@ typedef struct {
 typedef struct {
    kiss_twiddle_scalar r;
    kiss_twiddle_scalar i;
-}kiss_twiddle_cpx;
+} KISS_TWIDDLE_CPX_ALIGNED kiss_twiddle_cpx;
 
 #define MAXFACTORS 8
 /* e.g. an fft of length 128 has 4 factors
@@ -85,7 +102,7 @@ typedef struct arch_fft_state{
 
 typedef struct kiss_fft_state{
     int nfft;
-    opus_val16 scale;
+    celt_coef scale;
 #ifdef FIXED_POINT
     int scale_shift;
 #endif
@@ -142,7 +159,7 @@ kiss_fft_state *opus_fft_alloc(int nfft,void * mem,size_t * lenmem, int arch);
 void opus_fft_c(const kiss_fft_state *cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 void opus_ifft_c(const kiss_fft_state *cfg,const kiss_fft_cpx *fin,kiss_fft_cpx *fout);
 
-void opus_fft_impl(const kiss_fft_state *st,kiss_fft_cpx *fout);
+void opus_fft_impl(const kiss_fft_state *st,kiss_fft_cpx *fout ARG_FIXED(int downshift));
 void opus_ifft_impl(const kiss_fft_state *st,kiss_fft_cpx *fout);
 
 void opus_fft_free(const kiss_fft_state *cfg, int arch);

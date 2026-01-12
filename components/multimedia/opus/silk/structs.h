@@ -34,6 +34,21 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "entenc.h"
 #include "entdec.h"
 
+#ifdef ENABLE_DEEP_PLC
+#include "lpcnet.h"
+#include "lpcnet_private.h"
+#endif
+
+#ifdef ENABLE_DRED
+#include "dred_encoder.h"
+#include "dred_decoder.h"
+#endif
+
+#ifdef ENABLE_OSCE
+#include "osce_config.h"
+#include "osce_structs.h"
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -228,10 +243,23 @@ typedef struct {
 } silk_encoder_state;
 
 
+#ifdef ENABLE_OSCE
+typedef struct {
+    OSCEFeatureState features;
+    OSCEState state;
+    int method;
+} silk_OSCE_struct;
+
+typedef struct {
+    OSCEBWEFeatureState features;
+    OSCEBWEState state;
+} silk_OSCE_BWE_struct;
+#endif
+
 /* Struct for Packet Loss Concealment */
 typedef struct {
     opus_int32                  pitchL_Q8;                          /* Pitch lag to use for voiced concealment                          */
-    opus_int16                  LTPCoef_Q14[ LTP_ORDER ];           /* LTP coeficients to use for voiced concealment                    */
+    opus_int16                  LTPCoef_Q14[ LTP_ORDER ];           /* LTP coefficients to use for voiced concealment                   */
     opus_int16                  prevLPC_Q12[ MAX_LPC_ORDER ];
     opus_int                    last_frame_lost;                    /* Was previous frame lost                                          */
     opus_int32                  rand_seed;                          /* Seed for unvoiced signal generation                              */
@@ -243,6 +271,7 @@ typedef struct {
     opus_int                    fs_kHz;
     opus_int                    nb_subfr;
     opus_int                    subfr_length;
+    opus_int                    enable_deep_plc;
 } silk_PLC_struct;
 
 /* Struct for CNG */
@@ -259,6 +288,13 @@ typedef struct {
 /* Decoder state                */
 /********************************/
 typedef struct {
+#ifdef ENABLE_OSCE
+    silk_OSCE_struct            osce;
+#ifdef ENABLE_OSCE_BWE
+    silk_OSCE_BWE_struct        osce_bwe;
+#endif
+#endif
+#define SILK_DECODER_STATE_RESET_START prev_gain_Q16
     opus_int32                  prev_gain_Q16;
     opus_int32                  exc_Q14[ MAX_FRAME_LENGTH ];
     opus_int32                  sLPC_Q14_buf[ MAX_LPC_ORDER ];

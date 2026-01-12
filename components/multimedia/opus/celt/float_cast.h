@@ -67,7 +67,46 @@
 #include <xmmintrin.h>
 static OPUS_INLINE opus_int32 float2int(float x) {return _mm_cvt_ss2si(_mm_set_ss(x));}
 
-#elif defined(HAVE_LRINTF)
+#elif (defined(_MSC_VER) && _MSC_VER >= 1400) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1))
+
+        #include <xmmintrin.h>
+        static OPUS_INLINE opus_int32 float2int(float value)
+        {
+                /* _mm_load_ss will generate same code as _mm_set_ss
+                ** in _MSC_VER >= 1914 /02 so keep __mm_load__ss
+                ** for backward compatibility.
+                */
+                return _mm_cvtss_si32(_mm_load_ss(&value));
+        }
+
+#elif (defined(_MSC_VER) && _MSC_VER >= 1400) && defined (_M_IX86)
+
+        #include <math.h>
+
+        /*      Win32 doesn't seem to have these functions.
+        **      Therefore implement OPUS_INLINE versions of these functions here.
+        */
+
+        static OPUS_INLINE opus_int32
+        float2int (float flt)
+        {       int intgr;
+
+                _asm
+                {       fld flt
+                        fistp intgr
+                } ;
+
+                return intgr ;
+        }
+#elif defined(__aarch64__)
+
+        #include <arm_neon.h>
+        static OPUS_INLINE opus_int32 float2int(float flt)
+        {
+                return vcvtns_s32_f32(flt);
+        }
+
+#elif defined(HAVE_LRINTF) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 
 /*      These defines enable functionality introduced with the 1999 ISO C
 **      standard. They must be defined before the inclusion of math.h to
@@ -85,7 +124,7 @@ static OPUS_INLINE opus_int32 float2int(float x) {return _mm_cvt_ss2si(_mm_set_s
 #include <math.h>
 #define float2int(x) lrintf(x)
 
-#elif (defined(HAVE_LRINT))
+#elif defined(HAVE_LRINT) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 
 #define _ISOC9X_SOURCE 1
 #define _ISOC99_SOURCE 1
@@ -95,32 +134,6 @@ static OPUS_INLINE opus_int32 float2int(float x) {return _mm_cvt_ss2si(_mm_set_s
 
 #include <math.h>
 #define float2int(x) lrint(x)
-
-#elif (defined(_MSC_VER) && _MSC_VER >= 1400) && (defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1))
-        #include <xmmintrin.h>
-
-        static __inline long int float2int(float value)
-        {
-                return _mm_cvtss_si32(_mm_load_ss(&value));
-        }
-#elif (defined(_MSC_VER) && _MSC_VER >= 1400) && defined (_M_IX86)
-        #include <math.h>
-
-        /*      Win32 doesn't seem to have these functions.
-        **      Therefore implement OPUS_INLINE versions of these functions here.
-        */
-
-        static __inline long int
-        float2int (float flt)
-        {       int intgr;
-
-                _asm
-                {       fld flt
-                        fistp intgr
-                } ;
-
-                return intgr ;
-        }
 
 #else
 
@@ -140,6 +153,14 @@ static OPUS_INLINE opus_int16 FLOAT2INT16(float x)
    x = MAX32(x, -32768);
    x = MIN32(x, 32767);
    return (opus_int16)float2int(x);
+}
+
+static OPUS_INLINE opus_int32 FLOAT2INT24(float x)
+{
+   x = x*(CELT_SIG_SCALE*256.f);
+   x = MAX32(x, -16777216);
+   x = MIN32(x, 16777216);
+   return float2int(x);
 }
 #endif /* DISABLE_FLOAT_API */
 

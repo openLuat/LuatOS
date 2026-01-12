@@ -46,50 +46,67 @@
 #  define MAY_HAVE_SSE4_1(name) name ## _c
 # endif
 
-# if defined(OPUS_X86_MAY_HAVE_AVX)
-#  define MAY_HAVE_AVX(name) name ## _avx
+# if defined(OPUS_X86_MAY_HAVE_AVX2)
+#  define MAY_HAVE_AVX2(name) name ## _avx2
 # else
-#  define MAY_HAVE_AVX(name) name ## _c
+#  define MAY_HAVE_AVX2(name) name ## _c
 # endif
 
-# if defined(OPUS_HAVE_RTCD)
+# if defined(OPUS_HAVE_RTCD) && \
+  ((defined(OPUS_X86_MAY_HAVE_SSE) && !defined(OPUS_X86_PRESUME_SSE)) || \
+  (defined(OPUS_X86_MAY_HAVE_SSE2) && !defined(OPUS_X86_PRESUME_SSE2)) || \
+  (defined(OPUS_X86_MAY_HAVE_SSE4_1) && !defined(OPUS_X86_PRESUME_SSE4_1)) || \
+  (defined(OPUS_X86_MAY_HAVE_AVX2) && !defined(OPUS_X86_PRESUME_AVX2)))
 int opus_select_arch(void);
 # endif
 
-/*gcc appears to emit MOVDQA's to load the argument of an _mm_cvtepi8_epi32()
-  or _mm_cvtepi16_epi32() when optimizations are disabled, even though the
-  actual PMOVSXWD instruction takes an m32 or m64. Unlike a normal memory
-  reference, these require 16-byte alignment and load a full 16 bytes (instead
-  of 4 or 8), possibly reading out of bounds.
+# if defined(OPUS_X86_MAY_HAVE_SSE2)
+#  include "opus_defines.h"
 
-  We can insert an explicit MOVD or MOVQ using _mm_cvtsi32_si128() or
-  _mm_loadl_epi64(), which should have the same semantics as an m32 or m64
-  reference in the PMOVSXWD instruction itself, but gcc is not smart enough to
-  optimize this out when optimizations ARE enabled.
+/*MOVD should not impose any alignment restrictions, but the C standard does,
+   and UBSan will report errors if we actually make unaligned accesses.
+  Use this to work around those restrictions (which should hopefully all get
+   optimized to a single MOVD instruction).
+  GCC implemented _mm_loadu_si32() since GCC 11; HOWEVER, there is a bug!
+  https://gcc.gnu.org/bugzilla/show_bug.cgi?id=99754
+  LLVM implemented _mm_loadu_si32() since Clang 8.0, however the
+   __clang_major__ version number macro is unreliable, as vendors
+   (specifically, Apple) will use different numbering schemes than upstream.
+  Clang's advice is "use feature detection", but they do not provide feature
+   detection support for specific SIMD functions.
+  We follow the approach from the SIMDe project and instead detect unrelated
+   features that should be available in the version we want (see
+   <https://github.com/simd-everywhere/simde/blob/master/simde/simde-detect-clang.h>).*/
+#  if defined(__clang__)
+#   if __has_warning("-Wextra-semi-stmt") || \
+ __has_builtin(__builtin_rotateleft32)
+#    define OPUS_CLANG_8 (1)
+#   endif
+#  endif
+#  if !defined(_MSC_VER) && !OPUS_GNUC_PREREQ(11,3) && !defined(OPUS_CLANG_8)
+#   include <string.h>
+#   include <emmintrin.h>
 
-  Clang, in contrast, requires us to do this always for _mm_cvtepi8_epi32
-  (which is fair, since technically the compiler is always allowed to do the
-  dereference before invoking the function implementing the intrinsic).
-  However, it is smart enough to eliminate the extra MOVD instruction.
-  For _mm_cvtepi16_epi32, it does the right thing, though does *not* optimize out
-  the extra MOVQ if it's specified explicitly */
+#   ifdef _mm_loadu_si32
+#    undef _mm_loadu_si32
+#   endif
+#   define _mm_loadu_si32 WORKAROUND_mm_loadu_si32
+static inline __m128i WORKAROUND_mm_loadu_si32(void const* mem_addr) {
+  int val;
+  memcpy(&val, mem_addr, sizeof(val));
+  return _mm_cvtsi32_si128(val);
+}
+#  elif defined(_MSC_VER)
+    /* MSVC needs this for _mm_loadu_si32 */
+#   include <immintrin.h>
+#  endif
 
-# if defined(__clang__) || !defined(__OPTIMIZE__)
 #  define OP_CVTEPI8_EPI32_M32(x) \
- (_mm_cvtepi8_epi32(_mm_cvtsi32_si128(*(int *)(x))))
-# else
-#  define OP_CVTEPI8_EPI32_M32(x) \
- (_mm_cvtepi8_epi32(*(__m128i *)(x)))
-#endif
+ (_mm_cvtepi8_epi32(_mm_loadu_si32(x)))
 
-/* similar reasoning about the instruction sequence as in the 32-bit macro above,
- */
-# if defined(__clang__) || !defined(__OPTIMIZE__)
 #  define OP_CVTEPI16_EPI32_M64(x) \
- (_mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(x))))
-# else
-#  define OP_CVTEPI16_EPI32_M64(x) \
- (_mm_cvtepi16_epi32(*(__m128i *)(x)))
+ (_mm_cvtepi16_epi32(_mm_loadl_epi64((__m128i *)(void*)(x))))
+
 # endif
 
 #endif

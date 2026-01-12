@@ -95,7 +95,7 @@ opus_int silk_encode_frame_FIX(
     opus_int     i, iter, maxIter, found_upper, found_lower, ret = 0;
     opus_int16   *x_frame;
     ec_enc       sRangeEnc_copy, sRangeEnc_copy2;
-    silk_nsq_state sNSQ_copy, sNSQ_copy2;
+    VARDECL(silk_nsq_state, sNSQ_copy);
     opus_int32   seed_copy, nBits, nBits_lower, nBits_upper, gainMult_lower, gainMult_upper;
     opus_int32   gainsID, gainsID_lower, gainsID_upper;
     opus_int16   gainMult_Q8;
@@ -105,8 +105,15 @@ opus_int silk_encode_frame_FIX(
     opus_int     gain_lock[ MAX_NB_SUBFR ] = {0};
     opus_int16   best_gain_mult[ MAX_NB_SUBFR ];
     opus_int     best_sum[ MAX_NB_SUBFR ];
+    opus_int     bits_margin;
     SAVE_STACK;
 
+    /* Using ALLOC() instead of a regular stack allocation to minimize real stack use when using the pseudostack.
+       This is useful on some embedded systems. */
+    ALLOC(sNSQ_copy, 2, silk_nsq_state);
+
+    /* For CBR, 5 bits below budget is close enough. For VBR, allow up to 25% below the cap if we initially busted the budget. */
+    bits_margin = useCBR ? 5 : maxBits/4;
     /* This is totally unnecessary but many compilers (including gcc) are too dumb to realise it */
     LastGainIndex_copy2 = nBits_lower = nBits_upper = gainMult_lower = gainMult_upper = 0;
 
@@ -174,7 +181,7 @@ opus_int silk_encode_frame_FIX(
         gainsID_upper = -1;
         /* Copy part of the input state */
         silk_memcpy( &sRangeEnc_copy, psRangeEnc, sizeof( ec_enc ) );
-        silk_memcpy( &sNSQ_copy, &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
+        silk_memcpy( &sNSQ_copy[0], &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
         seed_copy = psEnc->sCmn.indices.Seed;
         ec_prevLagIndex_copy = psEnc->sCmn.ec_prevLagIndex;
         ec_prevSignalType_copy = psEnc->sCmn.ec_prevSignalType;
@@ -188,7 +195,7 @@ opus_int silk_encode_frame_FIX(
                 /* Restore part of the input state */
                 if( iter > 0 ) {
                     silk_memcpy( psRangeEnc, &sRangeEnc_copy, sizeof( ec_enc ) );
-                    silk_memcpy( &psEnc->sCmn.sNSQ, &sNSQ_copy, sizeof( silk_nsq_state ) );
+                    silk_memcpy( &psEnc->sCmn.sNSQ, &sNSQ_copy[0], sizeof( silk_nsq_state ) );
                     psEnc->sCmn.indices.Seed = seed_copy;
                     psEnc->sCmn.ec_prevLagIndex = ec_prevLagIndex_copy;
                     psEnc->sCmn.ec_prevSignalType = ec_prevSignalType_copy;
@@ -264,7 +271,7 @@ opus_int silk_encode_frame_FIX(
                     silk_memcpy( psRangeEnc, &sRangeEnc_copy2, sizeof( ec_enc ) );
                     celt_assert( sRangeEnc_copy2.offs <= 1275 );
                     silk_memcpy( psRangeEnc->buf, ec_buf_copy, sRangeEnc_copy2.offs );
-                    silk_memcpy( &psEnc->sCmn.sNSQ, &sNSQ_copy2, sizeof( silk_nsq_state ) );
+                    silk_memcpy( &psEnc->sCmn.sNSQ, &sNSQ_copy[1], sizeof( silk_nsq_state ) );
                     psEnc->sShape.LastGainIndex = LastGainIndex_copy2;
                 }
                 break;
@@ -282,7 +289,7 @@ opus_int silk_encode_frame_FIX(
                     gainMult_upper = gainMult_Q8;
                     gainsID_upper = gainsID;
                 }
-            } else if( nBits < maxBits - 5 ) {
+            } else if( nBits < maxBits - bits_margin ) {
                 found_lower = 1;
                 nBits_lower = nBits;
                 gainMult_lower = gainMult_Q8;
@@ -292,11 +299,11 @@ opus_int silk_encode_frame_FIX(
                     silk_memcpy( &sRangeEnc_copy2, psRangeEnc, sizeof( ec_enc ) );
                     celt_assert( psRangeEnc->offs <= 1275 );
                     silk_memcpy( ec_buf_copy, psRangeEnc->buf, psRangeEnc->offs );
-                    silk_memcpy( &sNSQ_copy2, &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
+                    silk_memcpy( &sNSQ_copy[1], &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
                     LastGainIndex_copy2 = psEnc->sShape.LastGainIndex;
                 }
             } else {
-                /* Within 5 bits of budget: close enough */
+                /* Close enough */
                 break;
             }
 
@@ -318,21 +325,14 @@ opus_int silk_encode_frame_FIX(
             if( ( found_lower & found_upper ) == 0 ) {
                 /* Adjust gain according to high-rate rate/distortion curve */
                 if( nBits > maxBits ) {
-                    if (gainMult_Q8 < 16384) {
-                        gainMult_Q8 *= 2;
-                    } else {
-                        gainMult_Q8 = 32767;
-                    }
+                    gainMult_Q8 = silk_min_32( 1024, gainMult_Q8*3/2 );
                 } else {
-                    opus_int32 gain_factor_Q16;
-                    gain_factor_Q16 = silk_log2lin( silk_LSHIFT( nBits - maxBits, 7 ) / psEnc->sCmn.frame_length + SILK_FIX_CONST( 16, 7 ) );
-                    gainMult_Q8 = silk_SMULWB( gain_factor_Q16, gainMult_Q8 );
+                    gainMult_Q8 = silk_max_32( 64, gainMult_Q8*4/5 );
                 }
-
             } else {
                 /* Adjust gain by interpolating */
                 gainMult_Q8 = gainMult_lower + silk_DIV32_16( silk_MUL( gainMult_upper - gainMult_lower, maxBits - nBits_lower ), nBits_upper - nBits_lower );
-                /* New gain multplier must be between 25% and 75% of old range (note that gainMult_upper < gainMult_lower) */
+                /* New gain multiplier must be between 25% and 75% of old range (note that gainMult_upper < gainMult_lower) */
                 if( gainMult_Q8 > silk_ADD_RSHIFT32( gainMult_lower, gainMult_upper - gainMult_lower, 2 ) ) {
                     gainMult_Q8 = silk_ADD_RSHIFT32( gainMult_lower, gainMult_upper - gainMult_lower, 2 );
                 } else
@@ -398,8 +398,12 @@ static OPUS_INLINE void silk_LBRR_encode_FIX(
 {
     opus_int32   TempGains_Q16[ MAX_NB_SUBFR ];
     SideInfoIndices *psIndices_LBRR = &psEnc->sCmn.indices_LBRR[ psEnc->sCmn.nFramesEncoded ];
-    silk_nsq_state sNSQ_LBRR;
+    VARDECL(silk_nsq_state, sNSQ_LBRR);
+    SAVE_STACK;
 
+    /* Using ALLOC() instead of a regular stack allocation to minimize real stack use when using the pseudostack.
+       This is useful on some embedded systems. */
+    ALLOC(sNSQ_LBRR, 1, silk_nsq_state);
     /*******************************************/
     /* Control use of inband LBRR              */
     /*******************************************/
@@ -407,7 +411,7 @@ static OPUS_INLINE void silk_LBRR_encode_FIX(
         psEnc->sCmn.LBRR_flags[ psEnc->sCmn.nFramesEncoded ] = 1;
 
         /* Copy noise shaping quantizer state and quantization indices from regular encoding */
-        silk_memcpy( &sNSQ_LBRR, &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
+        silk_memcpy( &sNSQ_LBRR[0], &psEnc->sCmn.sNSQ, sizeof( silk_nsq_state ) );
         silk_memcpy( psIndices_LBRR, &psEnc->sCmn.indices, sizeof( SideInfoIndices ) );
 
         /* Save original gains */
@@ -431,12 +435,12 @@ static OPUS_INLINE void silk_LBRR_encode_FIX(
         /* Noise shaping quantization            */
         /*****************************************/
         if( psEnc->sCmn.nStatesDelayedDecision > 1 || psEnc->sCmn.warping_Q16 > 0 ) {
-            silk_NSQ_del_dec( &psEnc->sCmn, &sNSQ_LBRR, psIndices_LBRR, x16,
+            silk_NSQ_del_dec( &psEnc->sCmn, &sNSQ_LBRR[0], psIndices_LBRR, x16,
                 psEnc->sCmn.pulses_LBRR[ psEnc->sCmn.nFramesEncoded ], psEncCtrl->PredCoef_Q12[ 0 ], psEncCtrl->LTPCoef_Q14,
                 psEncCtrl->AR_Q13, psEncCtrl->HarmShapeGain_Q14, psEncCtrl->Tilt_Q14, psEncCtrl->LF_shp_Q14,
                 psEncCtrl->Gains_Q16, psEncCtrl->pitchL, psEncCtrl->Lambda_Q10, psEncCtrl->LTP_scale_Q14, psEnc->sCmn.arch );
         } else {
-            silk_NSQ( &psEnc->sCmn, &sNSQ_LBRR, psIndices_LBRR, x16,
+            silk_NSQ( &psEnc->sCmn, &sNSQ_LBRR[0], psIndices_LBRR, x16,
                 psEnc->sCmn.pulses_LBRR[ psEnc->sCmn.nFramesEncoded ], psEncCtrl->PredCoef_Q12[ 0 ], psEncCtrl->LTPCoef_Q14,
                 psEncCtrl->AR_Q13, psEncCtrl->HarmShapeGain_Q14, psEncCtrl->Tilt_Q14, psEncCtrl->LF_shp_Q14,
                 psEncCtrl->Gains_Q16, psEncCtrl->pitchL, psEncCtrl->Lambda_Q10, psEncCtrl->LTP_scale_Q14, psEnc->sCmn.arch );
@@ -445,4 +449,5 @@ static OPUS_INLINE void silk_LBRR_encode_FIX(
         /* Restore original gains */
         silk_memcpy( psEncCtrl->Gains_Q16, TempGains_Q16, psEnc->sCmn.nb_subfr * sizeof( opus_int32 ) );
     }
+    RESTORE_STACK;
 }

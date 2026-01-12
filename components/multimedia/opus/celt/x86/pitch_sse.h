@@ -63,7 +63,7 @@ void xcorr_kernel_sse(
 #define xcorr_kernel(x, y, sum, len, arch) \
     ((void)arch, xcorr_kernel_sse(x, y, sum, len))
 
-#elif (defined(OPUS_X86_MAY_HAVE_SSE4_1) && defined(FIXED_POINT)) || (defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT))
+#elif defined(OPUS_HAVE_RTCD) &&  ((defined(OPUS_X86_MAY_HAVE_SSE4_1) && defined(FIXED_POINT)) || (defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT)))
 
 extern void (*const XCORR_KERNEL_IMPL[OPUS_ARCHMASK + 1])(
                     const opus_val16 *x,
@@ -91,7 +91,7 @@ opus_val32 celt_inner_prod_sse2(
     int               N);
 #endif
 
-#if defined(OPUS_X86_MAY_HAVE_SSE2) && !defined(FIXED_POINT)
+#if defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT)
 opus_val32 celt_inner_prod_sse(
     const opus_val16 *x,
     const opus_val16 *y,
@@ -115,8 +115,8 @@ opus_val32 celt_inner_prod_sse(
     ((void)arch, celt_inner_prod_sse(x, y, N))
 
 
-#elif ((defined(OPUS_X86_MAY_HAVE_SSE4_1) || defined(OPUS_X86_MAY_HAVE_SSE2)) && defined(FIXED_POINT)) || \
-    (defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT))
+#elif defined(OPUS_HAVE_RTCD) && (((defined(OPUS_X86_MAY_HAVE_SSE4_1) || defined(OPUS_X86_MAY_HAVE_SSE2)) && defined(FIXED_POINT)) || \
+    (defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT)))
 
 extern opus_val32 (*const CELT_INNER_PROD_IMPL[OPUS_ARCHMASK + 1])(
                     const opus_val16 *x,
@@ -130,12 +130,6 @@ extern opus_val32 (*const CELT_INNER_PROD_IMPL[OPUS_ARCHMASK + 1])(
 #endif
 
 #if defined(OPUS_X86_MAY_HAVE_SSE) && !defined(FIXED_POINT)
-
-#define OVERRIDE_DUAL_INNER_PROD
-#define OVERRIDE_COMB_FILTER_CONST
-
-#undef dual_inner_prod
-#undef comb_filter_const
 
 void dual_inner_prod_sse(const opus_val16 *x,
     const opus_val16 *y01,
@@ -154,13 +148,17 @@ void comb_filter_const_sse(opus_val32 *y,
 
 
 #if defined(OPUS_X86_PRESUME_SSE)
+#define OVERRIDE_DUAL_INNER_PROD
+#define OVERRIDE_COMB_FILTER_CONST
 # define dual_inner_prod(x, y01, y02, N, xy1, xy2, arch) \
     ((void)(arch),dual_inner_prod_sse(x, y01, y02, N, xy1, xy2))
 
 # define comb_filter_const(y, x, T, N, g10, g11, g12, arch) \
     ((void)(arch),comb_filter_const_sse(y, x, T, N, g10, g11, g12))
-#else
+#elif defined(OPUS_HAVE_RTCD)
 
+#define OVERRIDE_DUAL_INNER_PROD
+#define OVERRIDE_COMB_FILTER_CONST
 extern void (*const DUAL_INNER_PROD_IMPL[OPUS_ARCHMASK + 1])(
               const opus_val16 *x,
               const opus_val16 *y01,
@@ -187,6 +185,32 @@ extern void (*const COMB_FILTER_CONST_IMPL[OPUS_ARCHMASK + 1])(
 #define NON_STATIC_COMB_FILTER_CONST_C
 
 #endif
-#endif
+
+void celt_pitch_xcorr_avx2(const float *_x, const float *_y, float *xcorr, int len, int max_pitch, int arch);
+
+#if defined(OPUS_X86_PRESUME_AVX2)
+
+#define OVERRIDE_PITCH_XCORR
+# define celt_pitch_xcorr celt_pitch_xcorr_avx2
+
+#elif defined(OPUS_HAVE_RTCD) && defined(OPUS_X86_MAY_HAVE_AVX2)
+
+#define OVERRIDE_PITCH_XCORR
+extern void (*const PITCH_XCORR_IMPL[OPUS_ARCHMASK + 1])(
+              const float *_x,
+              const float *_y,
+              float *xcorr,
+              int len,
+              int max_pitch,
+              int arch
+              );
+
+#define celt_pitch_xcorr(_x, _y, xcorr, len, max_pitch, arch) \
+    ((*PITCH_XCORR_IMPL[(arch) & OPUS_ARCHMASK])(_x, _y, xcorr, len, max_pitch, arch))
+
+
+#endif /* OPUS_X86_PRESUME_AVX2 && !OPUS_HAVE_RTCD */
+
+#endif /* OPUS_X86_MAY_HAVE_SSE && !FIXED_POINT */
 
 #endif

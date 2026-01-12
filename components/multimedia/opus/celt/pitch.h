@@ -42,7 +42,7 @@
 #include "x86/pitch_sse.h"
 #endif
 
-#if defined(MIPSr1_ASM)
+#if defined(FIXED_POINT) && defined(__mips)
 #include "mips/pitch_mipsr1.h"
 #endif
 
@@ -51,7 +51,7 @@
 #endif
 
 void pitch_downsample(celt_sig * OPUS_RESTRICT x[], opus_val16 * OPUS_RESTRICT x_lp,
-      int len, int C, int arch);
+      int len, int C, int factor, int arch);
 
 void pitch_search(const opus_val16 * OPUS_RESTRICT x_lp, opus_val16 * OPUS_RESTRICT y,
                   int len, int max_pitch, int *pitch, int arch);
@@ -188,5 +188,16 @@ celt_pitch_xcorr_c(const opus_val16 *_x, const opus_val16 *_y,
 #ifndef OVERRIDE_PITCH_XCORR
 # define celt_pitch_xcorr celt_pitch_xcorr_c
 #endif
+
+#ifdef NON_STATIC_COMB_FILTER_CONST_C
+void comb_filter_const_c(opus_val32 *y, opus_val32 *x, int T, int N,
+                         opus_val16 g10, opus_val16 g11, opus_val16 g12);
+#endif
+
+#ifndef OVERRIDE_COMB_FILTER_CONST
+# define comb_filter_const(y, x, T, N, g10, g11, g12, arch) \
+    ((void)(arch),comb_filter_const_c(y, x, T, N, g10, g11, g12))
+#endif
+
 
 #endif

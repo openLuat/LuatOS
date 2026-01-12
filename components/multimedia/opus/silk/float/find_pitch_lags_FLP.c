@@ -61,7 +61,7 @@ void silk_find_pitch_lags_FLP(
     x_buf = x - psEnc->sCmn.ltp_mem_length;
 
     /******************************************/
-    /* Estimate LPC AR coeficients            */
+    /* Estimate LPC AR coefficients           */
     /******************************************/
 
     /* Calculate windowed signal */
@@ -82,7 +82,7 @@ void silk_find_pitch_lags_FLP(
     silk_apply_sine_window_FLP( Wsig_ptr, x_buf_ptr, 2, psEnc->sCmn.la_pitch );
 
     /* Calculate autocorrelation sequence */
-    silk_autocorrelation_FLP( auto_corr, Wsig, psEnc->sCmn.pitch_LPC_win_length, psEnc->sCmn.pitchEstimationLPCOrder + 1 );
+    silk_autocorrelation_FLP( auto_corr, Wsig, psEnc->sCmn.pitch_LPC_win_length, psEnc->sCmn.pitchEstimationLPCOrder + 1, arch );
 
     /* Add white noise, as a fraction of the energy */
     auto_corr[ 0 ] += auto_corr[ 0 ] * FIND_PITCH_WHITE_NOISE_FRACTION + 1;

@@ -12,8 +12,10 @@
 #include "luat_fs.h"
 #include "luat_log.h"
 #include "luat_malloc.h"
+#include "luat_mem.h"
 #include <string.h>
 #include <stdio.h>
+
 
 #define LUAT_LOG_TAG "easylvgl.fs"
 
@@ -459,8 +461,8 @@ bool easylvgl_fs_load_file(easylvgl_ctx_t *ctx, const char *path, void **out_dat
         return true;
     }
 
-    // 为文件内容分配内存，末尾预留空字符
-    void *buffer = luat_heap_malloc(length + 1);
+    // 为文件内容分配psram内存，末尾预留空字符
+    void *buffer = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, length + 1);
     if (buffer == NULL) {
         fs_close_internal(ctx, file_p);
         return false;
@@ -469,7 +471,7 @@ bool easylvgl_fs_load_file(easylvgl_ctx_t *ctx, const char *path, void **out_dat
     uint32_t read_len = 0;
     if (fs_read_internal(ctx, file_p, buffer, length, &read_len) != LV_FS_RES_OK) {
         fs_close_internal(ctx, file_p);
-        luat_heap_free(buffer);
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, buffer);
         return false;
     }
 
@@ -477,7 +479,7 @@ bool easylvgl_fs_load_file(easylvgl_ctx_t *ctx, const char *path, void **out_dat
 
     // 读取字节数必须与文件长度一致
     if (read_len != length) {
-        luat_heap_free(buffer);
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, buffer);
         return false;
     }
 

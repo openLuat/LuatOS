@@ -46,18 +46,23 @@ typedef enum {
     HZFONT_GLYPH_DRAW_FAIL
 } hzfont_glyph_status_t;
 
+/**
+ * @brief 单个字符(glyph)在渲染流程中的完整上下文结构体
+ * 用于记录字体渲染过程中与单个字符有关的所有信息，包括缓存、计时、渲染状态等。
+ */
 typedef struct {
-    TtfBitmap bitmap;
-    uint32_t advance;
-    uint32_t codepoint;
-    uint32_t glyph_index;
-    uint32_t time_lookup_us;
-    uint32_t time_load_us;
-    uint32_t time_raster_us;
-    uint32_t time_draw_us;
-    uint8_t from_cache;
-    uint8_t has_bitmap;
-    uint8_t status;
+    TtfBitmap bitmap;          ///< 字符位图数据（若 from_cache=1 则指向缓存）
+    uint32_t advance;          ///< 字形前进宽度（像素），用于确定下一个字符位置
+    uint32_t codepoint;        ///< Unicode 编码点（UTF-32）
+    uint32_t glyph_index;      ///< 当前字体中的 glyph 索引
+    // 以下4项用于性能分析/调试，记录各阶段耗时（单位：微秒us）
+    uint32_t time_lookup_us;   ///< 查找Unicode与glyph索引映射所花时间
+    uint32_t time_load_us;     ///< 载入glyph（从ttf或缓存）耗时
+    uint32_t time_raster_us;   ///< 栅格化（ttf向bitmap转化）耗时
+    uint32_t time_draw_us;     ///< 绘制 bitmap 到 LCD 的耗时
+    uint8_t from_cache;        ///< 位图是否来自于缓存（1=是, 0=新生成）
+    uint8_t has_bitmap;        ///< 是否成功获得了有效位图（1=有, 0=无/失败）
+    uint8_t status;            ///< 渲染流程状态, 参考 hzfont_glyph_status_t 枚举
 } glyph_render_t;
 
 typedef struct {
@@ -95,6 +100,7 @@ static uint32_t g_hzfont_cp_cache_size = 0; /* 必须为 2 的幂，便于掩码
 /* 单次告警开关，避免重复噪声 */
 static uint8_t g_warn_fontsize = 0;
 static uint8_t g_warn_cache_invalid = 0;
+static uint8_t g_warn_cp_cache_full = 0;
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
@@ -374,10 +380,13 @@ static hzfont_cache_entry_t *hzfont_cache_insert(uint16_t glyph_index, uint8_t f
     if (!bitmap || !bitmap->pixels) {
         return NULL;
     }
+    // 先查找是否已在缓存中存在
     hzfont_cache_entry_t *entry = hzfont_cache_find(glyph_index, font_size, supersample);
     if (!entry) {
+        // 不存在，则分配新的缓存槽
         entry = hzfont_cache_allocate_slot();
     } else {
+        // 存在，则替换现有的 bitmap
         if (entry->bitmap.pixels) {
             ttf_free_bitmap(&entry->bitmap);
         }
@@ -417,23 +426,29 @@ static void hzfont_cp_cache_insert(uint32_t codepoint, uint16_t glyph_index) {
     if (!g_hzfont_cp_cache || g_hzfont_cp_cache_size == 0) {
         return;
     }
-    uint32_t mask = g_hzfont_cp_cache_size - 1u;
-    uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
+    const uint32_t mask = g_hzfont_cp_cache_size - 1u;
+    const uint32_t start = (uint32_t)((codepoint * 2654435761u) & mask);
     hzfont_cp_cache_entry_t *empty_slot = NULL;
+    // 线性探测
     for (uint32_t probe = 0; probe < g_hzfont_cp_cache_size; ++probe) {
         hzfont_cp_cache_entry_t *entry = &g_hzfont_cp_cache[(start + probe) & mask];
         if (!entry->in_use) {
+            // 发现空槽，记下来用于插入
             empty_slot = entry;
             break;
         }
         if (entry->codepoint == codepoint) {
+            // 已存在则替换 glyph 并刷新 LRU
             entry->glyph_index = glyph_index;
             entry->last_used = hzfont_next_stamp();
             return;
         }
     }
+    // 没有空槽，则通过插入时间来踢掉最久未使用的空槽
     hzfont_cp_cache_entry_t *target = empty_slot;
     if (!target) {
+        // 全表已占用，发一次告警并踢掉最久未使用的 entry（LRU）
+        LLOGW("hzfont event=cp_cache_full size=%lu", (unsigned long)g_hzfont_cp_cache_size);
         uint32_t oldest = UINT32_MAX;
         size_t oldest_idx = 0;
         for (size_t i = 0; i < g_hzfont_cp_cache_size; ++i) {
@@ -444,6 +459,7 @@ static void hzfont_cp_cache_insert(uint32_t codepoint, uint16_t glyph_index) {
         }
         target = &g_hzfont_cp_cache[oldest_idx];
     }
+    // 写入新条目并更新状态/时间戳
     target->codepoint = codepoint;
     target->glyph_index = glyph_index;
     target->in_use = 1;
@@ -875,116 +891,91 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     size_t profiled_glyphs = 0;
     size_t max_slot_index = (size_t)-1;
     uint32_t max_glyph_total_us = 0;
+    glyph_render_t max_slot_snapshot;
+    memset(&max_slot_snapshot, 0, sizeof(max_slot_snapshot));
+    uint32_t max_codepoint = 0;
     int result = 0;
 
-    // 为每个可能的 UTF-8 字符分配渲染上下文
-    glyph_render_t *glyphs = (glyph_render_t *)luat_heap_malloc(utf8_len * sizeof(glyph_render_t));
-    // 如果内存分配失败，则返回错误
-    if (!glyphs) {
-        LLOGE("luat_heap_malloc font glyphs failed");
-        return -1;
-    }
-    memset(glyphs, 0, utf8_len * sizeof(glyph_render_t));
+    // 解码前景/背景颜色用于混合
+    rgb24_t fg = hzfont_decode_input_color(color);
+    rgb24_t bg = hzfont_decode_luat_color(lcd_dft_conf, BACK_COLOR); // 当前背景色默认为白色
 
-    // 遍历UTF-8字符串，为每个字符分配渲染上下文
+    // 遍历UTF-8字符串，边解码边绘制
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + utf8_len;
-    // 记录glyph数量
     size_t glyph_count = 0;
     uint32_t default_ascent = hzfont_default_ascent(font_size); // 计算默认的上升高度用于基线对齐
+    int pen_x = x;
     while (cursor < end && glyph_count < utf8_len) {
         uint32_t cp = 0;
-        // 解码下一个UTF-8字符，失败则跳出循环
         if (!utf8_decode_next(&cursor, end, &cp)) {
             break;
         }
-        // 遇到回车或换行直接跳过，不处理
         if (cp == '\r' || cp == '\n') {
             continue;
         }
 
-        // 1. 初始化本轮 glyph 渲染上下文结构体
-        glyph_render_t *slot = &glyphs[glyph_count];
-        slot->advance      = hzfont_calc_fallback_advance(font_size); // 默认advance距离
-        slot->has_bitmap   = 0;                                       // 暂无位图
-        memset(&slot->bitmap, 0, sizeof(slot->bitmap));               // 位图结构清零
-        slot->codepoint    = cp;                                      // 当前unicode码点
-        slot->glyph_index  = 0;                                       // 默认glyph索引为0
-        slot->from_cache     = 0;                                     // 默认未命中缓存
-        slot->status         = HZFONT_GLYPH_LOOKUP_FAIL;              // 默认查找失败
-        // 初始化渲染时间记录变量
-        slot->time_lookup_us = 0;
-        slot->time_load_us   = 0;
-        slot->time_raster_us = 0;
-        slot->time_draw_us   = 0;
+        glyph_render_t slot;
+        memset(&slot, 0, sizeof(slot));
+        slot.advance = hzfont_calc_fallback_advance(font_size);
+        slot.codepoint = cp;
+        slot.status = HZFONT_GLYPH_LOOKUP_FAIL;
 
-        // 如果开启调试，记录当前时间
         uint64_t glyph_stamp = timing_enabled ? hzfont_now_us() : 0;
-        
-        // 2. 尝试从codepoint-glyph缓存命中
         uint16_t glyph_index = 0;
         int rc = TTF_OK;
         hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(cp);
         if (cp_entry) {
-            // 命中缓存，记录glyph索引
             glyph_index = cp_entry->glyph_index;
             if (timing_enabled) {
-                slot->time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_lookup_us += slot->time_lookup_us;
+                slot.time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
+                sum_lookup_us += slot.time_lookup_us;
             }
         } else {
-            // 未命中缓存，查找字体中对应glyph索引
             rc = ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index);
             if (timing_enabled) {
-                slot->time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_lookup_us += slot->time_lookup_us;
+                slot.time_lookup_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
+                sum_lookup_us += slot.time_lookup_us;
             }
-            // 查找失败，尝试查找'*'作为通配
             if (rc != TTF_OK) {
                 uint16_t star_index = 0;
                 if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
                     glyph_index = star_index;
-                    // 不把原cp写入codepoint缓存，避免错误缓存
                 } else {
-                    // '*'也不存在，放弃本字符
                     glyph_count++;
                     continue;
                 }
             } else {
-                // 查找成功，记录到codepoint-glyph缓存
                 hzfont_cp_cache_insert(cp, glyph_index);
             }
         }
-        // 记录glyph索引和状态
-        slot->glyph_index = glyph_index;
-        slot->status = HZFONT_GLYPH_LOAD_FAIL; // 默认加载失败
 
-        // 3. 加载glyph位图
+        slot.glyph_index = glyph_index;
+        slot.status = HZFONT_GLYPH_LOAD_FAIL;
+
         uint8_t supersample = (uint8_t)ttf_get_supersample_rate();
         hzfont_cache_entry_t *cache_entry = hzfont_cache_get(glyph_index, (uint8_t)font_size, supersample);
-        if (cache_entry) { // 命中缓存，记录位图
-            slot->bitmap = cache_entry->bitmap;
-            slot->from_cache = 1; // 命中缓存，标记为1
-            slot->status = HZFONT_GLYPH_OK; // 标记为成功
-        } else { // 未命中缓存，则从ttf字库中加载位图
-            // 加载glyph位图
+        if (cache_entry) {
+            slot.bitmap = cache_entry->bitmap;
+            slot.from_cache = 1;
+            slot.status = HZFONT_GLYPH_OK;
+        } else {
             TtfGlyph glyph;
             rc = ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph);
-            if (timing_enabled) { // 记录ttf加载用时
-                slot->time_load_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_load_us += slot->time_load_us;
+            if (timing_enabled) {
+                slot.time_load_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
+                sum_load_us += slot.time_load_us;
             }
             if (rc != TTF_OK) {
                 glyph_count++;
                 continue;
             }
 
-            // 栅格化glyph位图
-            slot->status = HZFONT_GLYPH_RASTER_FAIL; // 默认栅格化失败
-            rc = ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &slot->bitmap);
+            slot.status = HZFONT_GLYPH_RASTER_FAIL;
+            rc = ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &slot.bitmap);
             if (timing_enabled) {
-                slot->time_raster_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
-                sum_raster_us += slot->time_raster_us;
+                slot.time_raster_us = glyph_stamp ? hzfont_elapsed_step(&glyph_stamp) : 0;
+                sum_raster_us += slot.time_raster_us;
             }
             ttf_free_glyph(&glyph);
             if (rc != TTF_OK) {
@@ -992,149 +983,132 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
                 continue;
             }
 
-            // 记录位图到缓存
-            slot->status = HZFONT_GLYPH_OK;
-            hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, (uint8_t)font_size, supersample, &slot->bitmap);
+            slot.status = HZFONT_GLYPH_OK;
+            hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, (uint8_t)font_size, supersample, &slot.bitmap);
             if (new_entry) {
-                slot->from_cache = 1;
-                slot->bitmap = new_entry->bitmap;
+                slot.from_cache = 1;
+                slot.bitmap = new_entry->bitmap;
             }
         }
 
-        // 4. 记录位图信息
-        if (slot->bitmap.width > 0 && slot->bitmap.height > 0 && slot->bitmap.pixels) {
-            slot->has_bitmap = 1;
-            slot->advance = slot->bitmap.width; // 记录位图宽度作为advance距离
-            if (slot->advance == 0) {
-                // 如果位图宽度为0，则使用默认的advance距离
-                slot->advance = hzfont_calc_fallback_advance(font_size);
+        if (slot.bitmap.width > 0 && slot.bitmap.height > 0 && slot.bitmap.pixels) {
+            slot.has_bitmap = 1;
+            slot.advance = slot.bitmap.width;
+            if (slot.advance == 0) {
+                slot.advance = hzfont_calc_fallback_advance(font_size);
             }
         } else {
-            // 如果位图宽度或高度为0，则使用默认的上升高度
-            slot->bitmap.originY = (int32_t)default_ascent;
+            slot.bitmap.originY = (int32_t)default_ascent;
         }
-        glyph_count++;
-    }
 
-    // 解码前景/背景颜色用于混合
-    rgb24_t fg = hzfont_decode_input_color(color);
-    rgb24_t bg = hzfont_decode_luat_color(lcd_dft_conf, BACK_COLOR); // 当前背景色默认为白色
-
-    // 遍历已准备好的 glyph，逐行输出 bitmap
-    int pen_x = x;
-    for (size_t i = 0; i < glyph_count; i++) {
-        // 获取glyph渲染上下文
-        glyph_render_t *slot = &glyphs[i];
-        // 如果没有位图，则使用默认的上升高度
-        if (!slot->has_bitmap) {
-            if (slot->bitmap.originY == 0) {
-                slot->bitmap.originY = (int32_t)default_ascent;
+        size_t slot_index = glyph_count;
+        if (!slot.has_bitmap) {
+            if (slot.bitmap.originY == 0) {
+                slot.bitmap.originY = (int32_t)default_ascent;
             }
             if (timing_enabled) {
-                slot->time_draw_us = 0;
+                slot.time_draw_us = 0;
             }
-            pen_x += (int)slot->advance;
-            goto glyph_timing_update;
-        }
-        // 记录绘制开始时间
-        uint64_t draw_stamp = timing_enabled ? hzfont_now_us() : 0;
-        int draw_x = pen_x;
-        int draw_y_base = y - (int)slot->bitmap.originY;
-        // 记录行缓冲容量
-        size_t row_buf_capacity = (size_t)slot->bitmap.width;
-        // 如果行缓冲容量为0，则使用默认的宽度
-        if (row_buf_capacity == 0) {
-            if (timing_enabled && draw_stamp) {
-                slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
-                sum_draw_us += slot->time_draw_us;
-            }
-            pen_x += (int)slot->advance;
+            pen_x += (int)slot.advance;
             goto glyph_timing_update;
         }
 
-        /* 行缓冲按行申请/复用，绘制后立即释放，避免长生命周期占用 */
+        uint64_t draw_stamp = timing_enabled ? hzfont_now_us() : 0;
+        int draw_x = pen_x;
+        int draw_y_base = y - (int)slot.bitmap.originY;
+        size_t row_buf_capacity = (size_t)slot.bitmap.width;
+        if (row_buf_capacity == 0) {
+            if (timing_enabled && draw_stamp) {
+                slot.time_draw_us = hzfont_elapsed_from(draw_stamp);
+                sum_draw_us += slot.time_draw_us;
+            }
+            pen_x += (int)slot.advance;
+            goto glyph_timing_update;
+        }
+
         luat_color_t *row_buf = (luat_color_t *)luat_heap_malloc(row_buf_capacity * sizeof(luat_color_t));
         if (!row_buf) {
             if (timing_enabled && draw_stamp) {
-                slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
-                sum_draw_us += slot->time_draw_us;
+                slot.time_draw_us = hzfont_elapsed_from(draw_stamp);
+                sum_draw_us += slot.time_draw_us;
             }
-            slot->status = HZFONT_GLYPH_DRAW_FAIL;
-            pen_x += (int)slot->advance;
+            slot.status = HZFONT_GLYPH_DRAW_FAIL;
+            pen_x += (int)slot.advance;
             result = -5;
             LLOGE("luat_heap_malloc row buffer failed");
             goto glyph_timing_update;
         }
-        // 绘制行缓冲
-        for (uint32_t row = 0; row < slot->bitmap.height; row++) {
-            const uint8_t *row_pixels = slot->bitmap.pixels + row * slot->bitmap.width; // 获取行像素
-            uint32_t col = 0; // 记录列索引
-            while (col < slot->bitmap.width) { // 遍历行像素
-                while (col < slot->bitmap.width && row_pixels[col] == 0) {
-                    col++; // 跳过空白像素
+        for (uint32_t row = 0; row < slot.bitmap.height; row++) {
+            const uint8_t *row_pixels = slot.bitmap.pixels + row * slot.bitmap.width;
+            uint32_t col = 0;
+            while (col < slot.bitmap.width) {
+                while (col < slot.bitmap.width && row_pixels[col] == 0) {
+                    col++;
                 }
-                if (col >= slot->bitmap.width) {
-                    break; // 如果列索引大于等于行宽度，则跳出循环
+                if (col >= slot.bitmap.width) {
+                    break;
                 }
                 uint32_t run_start = col;
-                size_t run_len = 0; // 记录连续非空白像素长度
-                while (col < slot->bitmap.width && row_pixels[col] != 0) {
-                    // 将非空白像素转换为颜色
+                size_t run_len = 0;
+                while (col < slot.bitmap.width && row_pixels[col] != 0) {
                     row_buf[run_len++] = hzfont_coverage_to_color(row_pixels[col], lcd_dft_conf, &fg, &bg);
                     col++;
                 }
-                // 如果连续非空白像素长度大于0，则绘制行缓冲
                 if (run_len > 0) {
                     int y_draw = draw_y_base + (int)row;
                     int x_start = draw_x + (int)run_start;
                     int x_end = x_start + (int)run_len - 1;
-                    // 绘制行缓冲
                     luat_lcd_draw(lcd_dft_conf, (int16_t)x_start, (int16_t)y_draw, (int16_t)x_end, (int16_t)y_draw, row_buf);
                 }
             }
         }
-        // 释放行缓冲
         luat_heap_free(row_buf);
-        if (timing_enabled && draw_stamp) { // 记录绘制用时
-            slot->time_draw_us = hzfont_elapsed_from(draw_stamp);
-            sum_draw_us += slot->time_draw_us;
+        if (timing_enabled && draw_stamp) {
+            slot.time_draw_us = hzfont_elapsed_from(draw_stamp);
+            sum_draw_us += slot.time_draw_us;
         }
-        pen_x += (int)slot->advance; // 更新笔x坐标
+        pen_x += (int)slot.advance;
         rendered_count++;
 
 glyph_timing_update:
-        // 记录glyph总用时
         if (timing_enabled) {
-            uint64_t glyph_total64 = (uint64_t)slot->time_lookup_us +
-                                     (uint64_t)slot->time_load_us +
-                                     (uint64_t)slot->time_raster_us +
-                                     (uint64_t)slot->time_draw_us;
+            uint64_t glyph_total64 = (uint64_t)slot.time_lookup_us +
+                                     (uint64_t)slot.time_load_us +
+                                     (uint64_t)slot.time_raster_us +
+                                     (uint64_t)slot.time_draw_us;
             sum_total_us += glyph_total64;
-            if (slot->has_bitmap && slot->status == HZFONT_GLYPH_OK) {
+            if (slot.has_bitmap && slot.status == HZFONT_GLYPH_OK) {
                 sum_rendered_total_us += glyph_total64;
             }
             uint32_t glyph_total32 = hzfont_clamp_u32(glyph_total64);
             if (glyph_total32 > max_glyph_total_us) {
                 max_glyph_total_us = glyph_total32;
-                max_slot_index = i;
+                max_slot_index = slot_index;
+                max_slot_snapshot = slot;
+                max_codepoint = slot.codepoint;
             }
-            if (glyph_total32 >= HZFONT_TIMING_THRESHOLD_US || slot->status != HZFONT_GLYPH_OK) {
+            if (glyph_total32 >= HZFONT_TIMING_THRESHOLD_US || slot.status != HZFONT_GLYPH_OK) {
                 LLOGI("glyph[%u] cp=U+%04lX idx=%u status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
-                      (unsigned)i,
-                      (unsigned long)slot->codepoint,
-                      (unsigned)slot->glyph_index,
-                      hzfont_status_text(slot->status),
+                      (unsigned)slot_index,
+                      (unsigned long)slot.codepoint,
+                      (unsigned)slot.glyph_index,
+                      hzfont_status_text(slot.status),
                       (unsigned long)glyph_total32,
-                      (unsigned long)slot->time_lookup_us,
-                      (unsigned long)slot->time_load_us,
-                      (unsigned long)slot->time_raster_us,
-                      (unsigned long)slot->time_draw_us);
+                      (unsigned long)slot.time_lookup_us,
+                      (unsigned long)slot.time_load_us,
+                      (unsigned long)slot.time_raster_us,
+                      (unsigned long)slot.time_draw_us);
             }
             profiled_glyphs++;
+        }
+
+        if (slot.bitmap.pixels && !slot.from_cache) {
+            ttf_free_bitmap(&slot.bitmap);
         }
         if (result != 0) {
             break;
         }
+        glyph_count++;
     }
 
     // 记录总用时
@@ -1159,25 +1133,22 @@ glyph_timing_update:
               (unsigned long)sum_draw32,
               result);
         if (max_slot_index != (size_t)-1 && max_slot_index < glyph_count) {
-            glyph_render_t *max_slot = &glyphs[max_slot_index];
-            uint32_t glyph_total32 = hzfont_clamp_u32((uint64_t)max_slot->time_lookup_us +
-                                                        (uint64_t)max_slot->time_load_us +
-                                                        (uint64_t)max_slot->time_raster_us +
-                                                        (uint64_t)max_slot->time_draw_us);
+            uint32_t glyph_total32 = hzfont_clamp_u32((uint64_t)max_slot_snapshot.time_lookup_us +
+                                                        (uint64_t)max_slot_snapshot.time_load_us +
+                                                        (uint64_t)max_slot_snapshot.time_raster_us +
+                                                        (uint64_t)max_slot_snapshot.time_draw_us);
             LLOGI("timing max glyph idx=%u cp=U+%04lX status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
                   (unsigned)max_slot_index,
-                  (unsigned long)max_slot->codepoint,
-                  hzfont_status_text(max_slot->status),
+                  (unsigned long)max_codepoint,
+                  hzfont_status_text(max_slot_snapshot.status),
                   (unsigned long)glyph_total32,
-                  (unsigned long)max_slot->time_lookup_us,
-                  (unsigned long)max_slot->time_load_us,
-                  (unsigned long)max_slot->time_raster_us,
-                  (unsigned long)max_slot->time_draw_us);
+                  (unsigned long)max_slot_snapshot.time_lookup_us,
+                  (unsigned long)max_slot_snapshot.time_load_us,
+                  (unsigned long)max_slot_snapshot.time_raster_us,
+                  (unsigned long)max_slot_snapshot.time_draw_us);
         }
     }
 
-    // 释放glyph渲染上下文
-    hzfont_release_glyphs(glyphs, glyph_count);
     // 返回结果
     return result;
 }

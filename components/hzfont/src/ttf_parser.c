@@ -694,7 +694,6 @@ static int get_glyph_offset(const TtfFont *font, uint16_t glyphIndex, uint32_t *
         glyphOffset = read_u32(buf);
         nextOffset = read_u32(buf + 4);
     }
-    if (g_ttf_debug) LLOGD("loca gid=%u off=%u len=%u", (unsigned)glyphIndex, (unsigned)glyphOffset, (unsigned)(nextOffset - glyphOffset));
     if (glyphOffset > nextOffset) {
         return 0;
     }

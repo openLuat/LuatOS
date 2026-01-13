@@ -15,6 +15,9 @@ add_packages("libuv")
 add_requires("gmssl")
 add_packages("gmssl")
 
+add_requires("libsdl2")
+add_packages("libsdl2")
+
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
@@ -38,8 +41,6 @@ end
 
 if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
-    add_requires("libsdl2")
-    add_packages("libsdl2")
 end
 
 if is_host("windows") then
@@ -216,7 +217,7 @@ target("luatos-lua")
 
     -- multimedia
     add_includedirs(luatos.."components/multimedia",{public = true})
-    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
     -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
     -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
 

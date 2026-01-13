@@ -212,6 +212,21 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_SMS
   {"sms", luaopen_sms},
 #endif
+#ifdef LUAT_USE_NETDRV
+  {"netdrv", luaopen_netdrv},
+  {"iperf", luaopen_iperf},
+  #ifdef LUAT_USE_AIRLINK
+  {"airlink", luaopen_airlink},
+  #endif
+  #ifdef LUAT_USE_ICMP
+  {"icmp", luaopen_icmp},
+  #endif
+  #ifdef LUAT_USE_DRV_BLUETOOTH
+  {"bluetooth", luaopen_bluetooth},
+  {"ble", luaopen_ble},
+  #endif
+#endif
+  {"codec", luaopen_multimedia_codec},
   {NULL, NULL}
 };
 

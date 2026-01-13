@@ -1,7 +1,7 @@
 --[[
 @module  websocket_main
 @summary WebSocket client 主应用功能模块
-@version 1.1
+@version 1.2
 @date    2025.08.24
 @author  陈媛媛
 @usage
@@ -65,13 +65,19 @@ local function websocket_client_event_cbfunc(ws_client, event, data, fin, opcode
     -- data：string类型，表示具体的异常，有以下几种：
     --       "connect"：tcp连接失败
     --       "tx"：数据发送失败
+    --       "rx"：数据接收失败（解析错误等）
     --       "other"：其他异常
     elseif event == "error" then
+        log.error("WebSocket错误", "错误类型:", data)
         if data == "connect" then
             -- 发送消息通知 websocket main task，连接失败
             sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CONNECT", false)
-        elseif data == "other" or data == "tx" then
+        elseif data == "tx" or data == "rx" or data == "other" then
             -- 发送消息通知 websocket main task，出现异常
+            sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
+        else
+            -- 处理未知错误类型
+            log.error("WebSocket错误", "未知错误类型:", data)
             sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
         end
     end

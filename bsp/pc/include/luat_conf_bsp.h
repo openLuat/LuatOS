@@ -29,6 +29,13 @@
 #define LUAT_USE_TLS  1
 #define LUAT_USE_MOCKAPI 1
 
+#define LUAT_USE_NETDRV 1
+#define LUAT_USE_NETDRV_NAPT 1
+
+#define LUAT_USE_AIRLINK 1
+#define LUAT_USE_AIRLINK_SPI_MASTER 1
+#define LUAT_USE_AIRLINK_UART 1
+
 // #define LV_HOR_RES_MAX          (2000)
 // #define LV_VER_RES_MAX          (2000)
 // #define LV_COLOR_DEPTH          32
@@ -125,6 +132,9 @@
 
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1
+
+#define LUAT_USE_AUDIO_G711 1
+
 
 //--------------------------------------------------
 // GUI相关

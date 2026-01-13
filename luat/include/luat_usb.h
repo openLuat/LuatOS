@@ -33,6 +33,9 @@ int luat_usb_get_vid(int id, uint16_t *vid);
 int luat_usb_set_pid(int id, uint16_t pid);
 int luat_usb_get_pid(int id, uint16_t *pid);
 
+int luat_usb_set_dev_id(int id, uint16_t dev_id);
+int luat_usb_get_dev_id(int id, uint16_t *dev_id);
+
 int luat_usb_set_mode(int id, uint8_t mode);
 
 int luat_usb_add_class(int id, uint8_t class, uint8_t num);
@@ -46,4 +49,6 @@ int luat_usb_hid_tx(int id, const char *string, uint32_t len, uint8_t is_keyboar
 int luat_usb_rx(int id, uint8_t class, void *data, uint32_t len);
 
 int luat_usb_power_on_off(int id, uint8_t on_off);
+
+int luat_usb_debug(int id, uint8_t on_off);
 #endif

@@ -69,8 +69,8 @@ local function eth_wan_setup()
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
         netdrv.setup(eth_adapter, netdrv.CH390, {
-            spi = 1,
-            cs = 5
+            spi = 0,
+            cs = 15
         })
     end
     sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败

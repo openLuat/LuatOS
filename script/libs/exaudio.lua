@@ -238,7 +238,6 @@ local function audio_setup()
     -- 设置音量
     audio.vol(MULTIMEDIA_ID, voice_vol)
     audio.micVol(MULTIMEDIA_ID, mic_vol)
-    audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
     
     -- 检查芯片连接
     if audio_setup_param.model == "es8311" and not read_es8311_id() then
@@ -249,6 +248,7 @@ local function audio_setup()
     -- 注册回调
     audio.on(MULTIMEDIA_ID, audio_callback)
     
+    audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
     log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
     return true
 end

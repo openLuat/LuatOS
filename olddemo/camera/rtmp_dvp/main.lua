@@ -109,17 +109,25 @@ sys.taskInit(function()
     local URL = Posturl.."/"..GetDeviceid
     log.info("打印的URL",URL)
     local Camera_header = {["Accept-Encoding"]="identity",["Host"]="video.luatos.com:10030",["Content-Type"] = "application/json"}
-    local code,headers,body = http.request("POST", URL,Camera_header,json.encode(PostBody)).wait()
-    log.info("打印的请求code",code)
-    if code == 200 then
-        log.info("打印的请求body",body)
-        local JSONbody = json.decode(body)
-        if JSONbody.code ~= 200 then
-            log.info("请求视频URL失败", JSONbody.msg)
-            return
+    while true do
+        local code,headers,body = http.request("POST", URL,Camera_header,json.encode(PostBody)).wait()
+        log.info("打印的请求code",code)
+        if code == 200 then
+            sys.wait(1000)
+            log.info("打印的请求body: ",body, "长度: ", #body)
+            local JSONbody = json.decode(body)
+            if not JSONbody then
+                log.info("JSON解析错误,3s后重试")
+            elseif JSONbody.code ~= 200 then
+                log.info("请求视频URL失败,3s后重试", JSONbody.msg)
+            else
+                rtmpurl = JSONbody.data.urlList[1]
+                log.info("请求得到的RTMP地址",rtmpurl)
+                break
+            end
         end
-        rtmpurl = JSONbody.data.urlList[1]
-        log.info("请求得到的RTMP地址",rtmpurl)
+        sys.wait(3000)
+        log.info("重试请求获取推流URL")
     end
 
     camera.config(0, camera.CONF_UVC_FPS, 15)

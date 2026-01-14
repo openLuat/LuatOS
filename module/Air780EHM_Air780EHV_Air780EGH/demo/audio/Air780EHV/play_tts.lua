@@ -3,7 +3,7 @@
 @summary 文字转语音
 @version 1.0
 @date    2025.09.08
-@author  梁健
+@author  陈媛媛
 @usage
 
 本文件为流式播放应用功能模块，核心业务逻辑为：

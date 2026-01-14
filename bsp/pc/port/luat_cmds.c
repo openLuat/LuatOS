@@ -179,7 +179,7 @@ static int luat_cmd_load_luadb(const char *path)
 	fseek(f, 0, SEEK_END);
 	len = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	char *ptr = luat_heap_malloc(len);
+	char *ptr = malloc(len);
 	if (ptr == NULL)
 	{
 		fclose(f);
@@ -205,7 +205,7 @@ static int luat_cmd_load_luatools(const char *path)
 	fseek(f, 0, SEEK_END);
 	len = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	char *ptr = luat_heap_malloc(len + 1);
+	char *ptr = malloc(len + 1);
 	if (ptr == NULL)
 	{
 		fclose(f);
@@ -291,12 +291,12 @@ static int writer(lua_State *L, const void *p, size_t size, void *u)
 	luac_ctx_t *ctx = (luac_ctx_t *)u;
 	if (ctx->ptr == NULL)
 	{
-		ctx->ptr = luat_heap_malloc(size);
+		ctx->ptr = malloc(size);
 		ctx->len = size;
 		memcpy(ctx->ptr, p, size);
 		return 0;
 	}
-	char *ptr = luat_heap_realloc(ctx->ptr, ctx->len + size);
+	char *ptr = realloc(ctx->ptr, ctx->len + size);
 	if (ptr == NULL)
 	{
 		LLOGE("内存分配失败");
@@ -320,7 +320,7 @@ static int pmain(lua_State *L)
 		return 0;
 	}
 	// LLOGD("luac转换成功,开始转buff %s", name);
-	luac_ctx_t *ctx = luat_heap_malloc(sizeof(luac_ctx_t));
+	luac_ctx_t *ctx = malloc(sizeof(luac_ctx_t));
 	memset(ctx, 0, sizeof(luac_ctx_t));
 	// LLOGD("getproto ");
 	const Proto *f = getproto(L->top - 1);
@@ -345,8 +345,8 @@ static int pmain(lua_State *L)
 		luadb_ptr = luadb_ctx.dataptr;
 	}
 	lua_pushinteger(L, ret);
-	luat_heap_free(ctx->ptr);
-	luat_heap_free(ctx);
+	free(ctx->ptr);
+	free(ctx);
 	return 1;
 }
 
@@ -387,7 +387,7 @@ static int add_onefile(const char *path)
 	len = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	// void* fptr = luat_heap_malloc(len);
-	char *tmp = luat_heap_malloc(len);
+	char *tmp = malloc(len);
 	if (tmp == NULL)
 	{
 		fclose(f);
@@ -421,7 +421,7 @@ static int add_onefile(const char *path)
 		ret = luat_luadb2_write(&luadb_ctx, tmpname, tmp, len);
 		luadb_ptr = luadb_ctx.dataptr;
 	}
-	luat_heap_free(tmp);
+	free(tmp);
 	return ret;
 }
 
@@ -506,7 +506,7 @@ int luat_cmd_load_and_analyse(const char *path)
 	len = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	// void* fptr = luat_heap_malloc(len);
-	char *tmp = luat_heap_malloc(len);
+	char *tmp = malloc(len);
 	if (tmp == NULL)
 	{
 		fclose(f);
@@ -540,6 +540,6 @@ int luat_cmd_load_and_analyse(const char *path)
 		ret = luat_luadb2_write(&luadb_ctx, tmpname, tmp, len);
 		luadb_ptr = luadb_ctx.dataptr;
 	}
-	luat_heap_free(tmp);
+	free(tmp);
 	return ret;
 }

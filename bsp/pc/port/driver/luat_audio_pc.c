@@ -239,7 +239,7 @@ uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     if (luat_i2s_txbuff_info(dev->conf.codec_conf.i2s_id, &total, &remain) != 0) {
         return 1;
     }
-    return remain == 0;
+    return remain == total;
 }
 
 int luat_audio_play_stop(uint8_t multimedia_id){

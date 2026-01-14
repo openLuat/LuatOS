@@ -253,7 +253,7 @@ int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain) {
 
     const size_t queued = SDL_GetQueuedAudioSize(dev->dev);
     *buffsize = dev->queue_limit;
-    *remain = (queued >= dev->queue_limit) ? 0 : (dev->queue_limit - queued);
+    *remain = queued;
     return 0;
 }
 

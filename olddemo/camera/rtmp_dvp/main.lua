@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "dvp_cam_rtmp"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -55,7 +55,7 @@ function rtmp_try_reconnect()
                 local ok = rtmpc:connect()
                 if ok then
                     -- 等待短时间以便连接完成
-                    sys.wait(1000)
+                    sys.wait(5000)
                     local st = rtmpc:getState()
                     if st == rtmp.STATE_CONNECTED or st == rtmp.STATE_PUBLISHING then
                         log.info("rtmp", "reconnect success")

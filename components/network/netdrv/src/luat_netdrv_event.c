@@ -139,12 +139,9 @@ static void delay_dhcp_start(void* args) {
     }
 }
 
-static void link_updown(void* args) {
-    tmpptr_t* ptr = (tmpptr_t*)args;
+static void link_updown(tmpptr_t* ptr) {
     luat_netdrv_t* drv = ptr->drv;
     uint8_t updown = ptr->updown;
-    luat_heap_free(ptr);
-    ptr = NULL;
     void* userdata = NULL;
     if (drv == NULL || drv->netif == NULL) {
         return;
@@ -200,25 +197,27 @@ static void link_updown(void* args) {
     #endif
 }
 
+static void luat_netdrv_set_link_down(luat_netdrv_t* drv) {
+    tmpptr_t tmp = {0};
+    tmp.drv = drv;
+    tmp.updown = 0;
+    link_updown(&tmp);
+}
+static void luat_netdrv_set_link_up(luat_netdrv_t* drv) {
+    tmpptr_t tmp = {0};
+    tmp.drv = drv;
+    tmp.updown = 1;
+    link_updown(&tmp);
+}
+
 void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown) {
     if (drv == NULL || drv->netif == NULL) {
         return;
     }
-    // 动态分配内存，避免局部变量在回调执行前被销毁
-    tmpptr_t *ptr = (tmpptr_t*)luat_heap_malloc(sizeof(tmpptr_t));
-    if (ptr == NULL) {
-        LLOGE("luat_netdrv_set_link_updown: malloc failed!");
-        return;
+    if (updown) {
+        tcpip_callback(luat_netdrv_set_link_up, drv);
     }
-    ptr->drv = drv;
-    ptr->updown = updown;
-
-    // 使用 tcpip_callback 需要在回调中释放内存
-    #if NO_SYS
-    link_updown(ptr);
-    luat_heap_free(ptr);
-    #else
-    // 在 link_updown 中释放内存
-    tcpip_callback(link_updown, ptr);
-    #endif
+    else {
+        tcpip_callback(luat_netdrv_set_link_down, drv);
+    }
 }

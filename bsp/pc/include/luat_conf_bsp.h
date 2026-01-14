@@ -31,6 +31,9 @@
 
 #define LUAT_USE_NETDRV 1
 #define LUAT_USE_NETDRV_NAPT 1
+#define LUAT_USE_NETDRV_CH390H 1
+#define LUAT_USE_NETDRV_OPENVPN 1
+// #define LUAT_USE_NETDRV_WG 1
 
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
@@ -72,9 +75,11 @@
 #define LUAT_USE_MINIZ 1
 #define LUAT_USE_GMSSL 1
 
-// #define LUAT_USE_I2S  1
-// #define LUAT_USE_MEDIA 1
-// #define LUAT_USE_AUDIO 1
+#define LUAT_USE_I2S  1
+#define LUAT_USE_MEDIA 1
+#define LUAT_USE_AUDIO 1
+#define LUAT_SUPPORT_AMR 1
+#define LUAT_USE_AUDIO_G711 1
 
 //----------------------------
 // 常用工具库, 按需启用, cjson和pack是强烈推荐启用的
@@ -87,13 +92,12 @@
 #define LUAT_USE_LIBCOAP 1
 #define LUAT_USE_FS  1
 // #define LUAT_USE_SENSOR  1
-// #define LUAT_USE_SFUD  1
+#define LUAT_USE_SFUD  1
+#define LUAT_USE_LITTLE_FLASH 1
 // #define LUAT_USE_STATEM 1
 // 性能测试
 #define LUAT_USE_COREMARK 1
 // #define LUAT_USE_IR 1
-// FDB 提供kv数据库, 与nvm库类似
-// #define LUAT_USE_FDB 1
 // FSKV库提供fdb库的兼容API, 目标是替代fdb库
 #define LUAT_USE_FSKV 1
 #define LUAT_CONF_FSKV_CUSTOM 1
@@ -102,7 +106,7 @@
 // #define LUAT_USE_OTA 1
 // #define LUAT_USE_I2CTOOLS 1
 // #define LUAT_USE_LORA 1
-// #define LUAT_USE_LORA2 1
+#define LUAT_USE_LORA2 1
 // #define LUAT_USE_MAX30102 1
 // #define LUAT_USE_MLX90640 1
 #define LUAT_USE_YMODEM 1
@@ -133,7 +137,6 @@
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1
 
-#define LUAT_USE_AUDIO_G711 1
 
 
 //--------------------------------------------------

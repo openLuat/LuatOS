@@ -8,7 +8,7 @@
 
 4、play_stream: 流式播放音频，仅支持PCM 格式
 
-5、record_file: 录音到文件，仅支持PCM 格式
+5、record_file: 录音到文件，支持AMR格式
 
 6、record_stream:  流式录音，仅支持PCM。
 
@@ -41,7 +41,7 @@
 
 3、play_stream.lua 流式播放PCM,使用test.pcm 模拟音频来源，通过流式传输不断填入播放的音频，使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
 
-4、record_file.lua 录音到文件,演示了pcm 录音到文件，使用powerkey 按键进行录音音量减小，点击boot 按键进行录音音量增加
+4、record_file.lua 录音到文件（支持AMR格式），使用powerkey/boot 按键开始或停止录音/播放等。
 
 5、record_stream.lua 流式录音(仅支持PCM),不断输出录音的数据地址和录音长度，供给应用层调用
 
@@ -101,7 +101,6 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 
 - 如果需要测试流式录音，则选择record_stream 文件
 
-
 3、Luatools烧录内核固件和修改后的demo脚本代码
 
 4、 在测试播放音频文件的时候，点powerkey 按键进行音频切换，切换内容是MP3,AMR格式，切换是通过播放优先级进行区分的，注意音频格式仅仅支持:MP3,WAV,AMR,点击boot 按键停止音频播放
@@ -111,7 +110,7 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 
 6、在进行流式播放测试的时候,使用test.pcm 模拟音频来源，通过流式传输不断填入播放的音频，使用powerkey 按键进行音量减小，点击boot 按键进行音量增加，注意流式播放目前仅支持PCM 格式音频，可选择不同的采样率，以及位深
 
-7、在测试录音到文件(仅支持PCM),演示了pcm 录音到文件，使用powerkey 按键进行录音音量减小，点击boot 按键进行录音音量增加
+7、在测试录音到文件（支持AMR格式）时，使用powerkey/boot按键开始或停止录音/播放等。
 
 8、在测试流式录音(仅支持PCM),不断输出录音的数据地址和录音长度，供给应用层调用。
 
@@ -177,15 +176,73 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 
 主程序录音到/record.amr 文件
 
-使用powerkey 按键进行录音音量减小，点击boot 按键进行录音音量增加
+使用powerkey/boot按键开始或停止录音/播放。
+
+按键功能：
+
+Power键：空闲时开始录音，录音中停止录音，播放中停止播放
+
+Boot键：空闲时播放录音，播放中停止播放，录音中停止录音
+
+录音完成后会自动播放录音文件。
 
 ``` lua
- I/user.开始录制音频到文件
+I/user.音频系统初始化
+I/user.exaudio.setup 声道数已设置为:1(1=单声道,2=双声道)
+I/user.音量设置 播放:60 录音:60
+I/user.无录音文件
+I/user.按键功能说明：
+I/user.1. Power键: 开始/停止录音，停止播放
+I/user.2. Boot键: 开始/停止播放，停止录音
+I/user.3. 录音时长: 5秒，可提前结束
+I/user.4. 录音完成后自动播放
 
- E/user.减小音量55
- I/user.增大音量75
+# 空闲时按Power键开始录音
+I/user.按下POWERKEY键
+I/user.空闲状态，开始录音
+I/user.开始录音 时长:5秒
+I/user.录音已开始，按任意键可提前结束
+I/user.录音中... 1 秒
+I/user.录音中... 2 秒
+I/user.录音中... 3 秒
+I/user.录音中... 4 秒
+I/user.录音中... 5 秒
+I/user.提前停止录音 已录制: 5 秒
+I/user.录音时长已达5秒，自动停止录音
+I/user.录音完成 时长: 0 秒 大小: 3931 字节
+I/user.播放录音文件 大小: 3931 字节
+I/user.播放已开始
+I/user.播放完成
 
- I/user.录音后文件大小 320000
+# 空闲时按Boot键播放录音
+I/user.按下BOOT键
+I/user.空闲状态，播放录音
+I/user.播放录音文件 大小: 3931 字节
+I/user.播放已开始
+……
+I/user.播放完成
+
+# 播放中按Power键停止播放
+I/user.按下POWERKEY键
+I/user.正在播放中，停止播放
+I/user.停止播放
+I/user.播放完成
+
+# 再次按Power键开始录音并提前停止
+I/user.按下POWERKEY键
+I/user.空闲状态，开始录音
+I/user.开始录音 时长:5秒
+I/user.录音已开始，按任意键可提前结束
+I/user.录音中... 1 秒
+I/user.录音中... 2 秒
+I/user.按下POWERKEY键
+I/user.正在录音中，停止录音
+I/user.提前停止录音 已录制: 2 秒
+I/user.录音完成 时长: 0 秒 大小: 1999 字节
+I/user.播放录音文件 大小: 1999 字节
+I/user.播放已开始
+……
+I/user.播放完成
 ```
 
 - 流式录音(record_stream.lua)，仅支持PCM格式

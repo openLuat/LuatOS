@@ -146,8 +146,8 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
     
     luat_rtos_queue_pc_t *queue = (luat_rtos_queue_pc_t *)queue_handle;
     
-    // 检查元素大小是否匹配
-    if (item_size != queue->item_size) {
+    // 检查元素大小是否匹配, 允许传入0表示不检查
+    if (item_size && item_size != queue->item_size) {
         return -1;
     }
     

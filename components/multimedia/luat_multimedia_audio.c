@@ -388,6 +388,8 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 			case LUAT_AUDIO_PM_STANDBY:
 				luat_audio_power_keep_ctrl_by_bsp(1);
 				luat_audio_pa(multimedia_id,0,0);
+				if (audio_conf->power_off_delay_time)
+					luat_rtos_task_sleep(audio_conf->power_off_delay_time);
 				audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
 				audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
 #ifdef __LUATOS__

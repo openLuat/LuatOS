@@ -1,84 +1,276 @@
 --[[
 @module  record_file
 @summary 录音到文件
-@version 1.0
-@date    2025.09.08
-@author  梁健
+@version 3.0
+@date    2026.01.09
+@author  陈媛媛
 @usage
 
-录音到文件，核心业务逻辑为：
-1、主程序录音到/record.amr 文件
-2、使用powerkey 按键进行录音音量减小
-3、点击boot 按键进行录音音量增加
-本文件没有对外接口，直接在main.lua中require "record_file"就可以加载运行；
+录音到文件演示程序，按键功能：
+1. Power键：开始/停止录音，停止播放
+   - 空闲时按Power键开始5秒录音
+   - 录音中按Power键提前结束录音
+   - 播放中按Power键停止播放
+2. Boot键：开始/停止播放，停止录音
+   - 空闲时按Boot键播放录音文件
+   - 播放中按Boot键停止播放
+   - 录音中按Boot键提前结束录音
+
+音量设置：
+  播放音量：60
+  录音麦克风音量：60
+
+录音逻辑：
+  录音时长为5秒，并计时
+  录音过程中可以按任意键提前结束
+  录音完成后自动播放录音文件
 ]]
+
 exaudio = require("exaudio")
 
--- 音频初始化设置参数,exaudio.setup 传入参数
-local audio_setup_param ={
-    model= "es8311",          -- dac类型,可填入"es8311","es8211"
-    i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
-    pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
-    dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
-    bits_per_sample = 16  -- 录音的位深，可选8,16,24 位，但是当选择音频格式为AMR_NB,自动调节为8位,当音频格式为AMR_WB,自动调节为16位
+-- 硬件配置参数
+local audio_setup_param = {
+    model = "es8311",          -- 音频编解码芯片类型
+    i2c_id = 0,                -- I2C接口编号
+    pa_ctrl = gpio.AUDIOPA_EN,             -- 音频放大器控制引脚
+    dac_ctrl = 20,            -- 音频编解码芯片控制引脚
+    bits_per_sample = 16       -- 录音位深
 }
+
+-- 录音文件路径
 local recordPath = "/record.amr"
 
--- 录音完成回调
-local function record_end(event)
-    if event == exaudio.RECORD_DONE then
-        log.info("录音后文件大小",io.fileSize(recordPath))
+-- 全局状态
+local is_recording = false     -- 是否正在录音
+local is_playing = false       -- 是否正在播放
+local record_timer = nil       -- 录音计时器
+local record_seconds = 0       -- 录音计时秒数
+
+-- 音量设置
+local PLAY_VOLUME = 60         -- 播放音量
+local RECORD_VOLUME = 60       -- 录音麦克风音量
+
+-- ========== 播放相关函数 ==========
+
+-- 播放完成回调函数
+function play_end_callback(event)
+    if event == exaudio.PLAY_DONE then
+        log.info("播放完成")
+        is_playing = false
     end
-end 
-
--- 录音配置参数,exaudio.record_start 的入参
-local audio_record_param ={
-    format= exaudio.PCM_32000,    -- 录制格式，有exaudio.AMR_NB,exaudio.AMR_WB,exaudio.PCM_8000,exaudio.PCM_16000,exaudio.PCM_24000,exaudio.PCM_32000
-                                  -- 如果选择exaudio.AMR_WB,则需要固件支持volte 功能
-    time = 5,               -- 录制时间,单位(秒)
-    path = recordPath,             -- 如果填入的是字符串，则表示是文件路径，录音会传输到这个路径里
-                                   -- 如果填入的是函数，则表示是流式录音，录音的数据会传输到此函数内,返回的是zbuf地址，以及数据长度
-                                   -- 如果是流式录音，则仅支持PCM 格式 
-    cbfnc = record_end,            -- 录音完毕回调函数
-}
-
-
----------------------------------
----通过BOOT 按键增大录音---
----------------------------------
-local volume_number = 50 
-local function add_volume()
-    volume_number = volume_number + 20
-    log.info("增大录音音量",volume_number)
-    exaudio.mic_vol(volume_number)
 end
---按下boot 停止播放
-gpio.setup(0, add_volume, gpio.PULLDOWN, gpio.RISING)
+
+-- 开始播放录音文件
+function start_playback()
+    if io.exists(recordPath) then
+        local file_size = io.fileSize(recordPath)
+        if file_size > 0 then
+            log.info("播放录音文件", "大小:", file_size, "字节")
+            
+            is_playing = true
+            
+            local audio_play_param = {
+                type = 0,              -- 0=播放文件
+                content = recordPath,  -- 播放录音文件
+                cbfnc = play_end_callback,
+                priority = 1
+            }
+            
+            local play_result = exaudio.play_start(audio_play_param)
+            if not play_result then
+                log.error("播放启动失败")
+                is_playing = false
+            else
+                log.info("播放已开始")
+            end
+        else
+            log.warn("录音文件为空，无法播放")
+        end
+    else
+        log.warn("录音文件不存在，无法播放")
+    end
+end
+
+-- 停止播放
+function stop_playback()
+    if is_playing then
+        log.info("停止播放")
+        exaudio.play_stop()
+        is_playing = false
+    end
+end
+
+-- ========== 录音相关函数 ==========
+
+-- 录音完成回调函数
+function record_end_callback(event)
+    if event == exaudio.RECORD_DONE then
+        is_recording = false
+        stop_record_timer()
+        
+        local file_size = io.fileSize(recordPath)
+        log.info("录音完成", "时长:", record_seconds, "秒", "大小:", file_size, "字节")
+        
+        -- 使用定时器延迟500ms后播放录音文件
+        sys.timerStart(start_playback, 500)
+    end
+end
+
+-- 录音计时器回调
+function record_timer_callback()
+    if is_recording then
+        record_seconds = record_seconds + 1
+        log.info("录音中...", record_seconds, "秒")
+        
+        -- 如果达到5秒，自动停止录音
+        if record_seconds >= 5 then
+            stop_recording()
+            log.info("录音时长已达5秒，自动停止录音")
+        end
+    end
+end
+
+-- 开始录音计时
+function start_record_timer()
+    record_seconds = 0
+    record_timer = sys.timerLoopStart(record_timer_callback, 1000)
+end
+
+-- 停止录音计时
+function stop_record_timer()
+    if record_timer then
+        sys.timerStop(record_timer)
+        record_timer = nil
+        record_seconds = 0
+    end
+end
+
+-- 开始录音
+function start_recording()
+    if is_recording then
+        log.info("已经在录音中")
+        return false
+    end
+    
+    if is_playing then
+        log.info("正在播放中，停止播放")
+        stop_playback()
+    end
+    
+    log.info("开始录音", "时长:5秒")
+    
+    -- 设置录音麦克风音量
+    exaudio.mic_vol(RECORD_VOLUME)
+    
+    local audio_record_param = {
+        format = exaudio.AMR_NB,  -- 使用AMR_NB格式（窄带）
+        time = 5,                -- 录制5秒
+        path = recordPath,        -- 录音文件路径
+        cbfnc = record_end_callback  -- 录音完成回调函数
+    }
+    
+    local record_result = exaudio.record_start(audio_record_param)
+    if record_result then
+        is_recording = true
+        start_record_timer()
+        log.info("录音已开始，按任意键可提前结束")
+        return true
+    else
+        log.error("录音启动失败")
+        return false
+    end
+end
+
+-- 停止录音
+function stop_recording()
+    if is_recording then
+        log.info("提前停止录音", "已录制:", record_seconds, "秒")
+        exaudio.record_stop()
+        is_recording = false
+        stop_record_timer()
+    end
+end
+
+-- ========== 按键处理函数 ==========
+
+-- POWERKEY键：开始/停止录音，停止播放
+function powerkey_handler()
+    log.info("按下POWERKEY键")
+    
+    if is_recording then
+        -- 录音中：停止录音
+        log.info("正在录音中，停止录音")
+        stop_recording()
+    elseif is_playing then
+        -- 播放中：停止播放
+        log.info("正在播放中，停止播放")
+        stop_playback()
+    else
+        -- 空闲状态：开始录音
+        log.info("空闲状态，开始录音")
+        start_recording()
+    end
+end
+
+-- BOOT键：开始/停止播放，停止录音
+function boot_key_handler()
+    log.info("按下BOOT键")
+    
+    if is_recording then
+        -- 录音中：停止录音
+        log.info("正在录音中，停止录音")
+        stop_recording()
+    elseif is_playing then
+        -- 播放中：停止播放
+        log.info("正在播放中，停止播放")
+        stop_playback()
+    else
+        -- 空闲状态：播放录音
+        log.info("空闲状态，播放录音")
+        start_playback()
+    end
+end
+
+-- ========== 音频主任务 ==========
+
+function main_audio_task()
+
+    log.info("音频系统初始化")
+    
+    if exaudio.setup(audio_setup_param) then
+        -- 设置音量
+        exaudio.vol(PLAY_VOLUME)              -- 播放音量
+        exaudio.mic_vol(RECORD_VOLUME)        -- 录音麦克风音量
+        
+        log.info("音量设置", "播放:", PLAY_VOLUME, "录音:", RECORD_VOLUME)
+        
+        -- 检查是否有录音文件
+        if io.exists(recordPath) then
+            local file_size = io.fileSize(recordPath)
+            log.info("找到录音文件", "大小:", file_size, "字节")
+        else
+            log.info("无录音文件")
+        end
+        
+        log.info("按键功能说明：")
+        log.info("1. Power键: 开始/停止录音，停止播放")
+        log.info("2. Boot键: 开始/停止播放，停止录音")  
+        log.info("3. 录音时长: 5秒，可提前结束")
+        log.info("4. 录音完成后自动播放")
+    else
+        log.error("音频硬件初始化失败")
+    end
+end
+
+-- ========== 初始化设置 ==========
+
+-- 设置POWERKEY键（开始/停止录音）
+gpio.setup(gpio.PWR_KEY, powerkey_handler, gpio.PULLUP, gpio.FALLING)
+gpio.debounce(gpio.PWR_KEY, 200, 1)
+
+-- 设置BOOT键（开始/停止播放，停止录音）
+gpio.setup(0, boot_key_handler, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 200, 1)
 
----------------------------------
----通过POWERKEY按键减小录音-------
----------------------------------
-
-local function down_volume()
-    volume_number = volume_number - 15
-    log.info("减小录音音量",volume_number)
-    exaudio.mic_vol(volume_number)
-end
-
-gpio.setup(gpio.PWR_KEY, down_volume, gpio.PULLUP, gpio.FALLING)
-gpio.debounce(gpio.PWR_KEY, 200, 1)   -- 防抖，防止频繁触发
-
----------------------------------
----音频 task 初始化函数-----------
----------------------------------
-local taskName = "task_audio"
-local function audio_task()
-    sys.wait(100)
-    log.info("开始录制音频到文件")
-    if exaudio.setup(audio_setup_param) then
-        exaudio.record_start(audio_record_param)
-    end
-end
-
-sys.taskInitEx(audio_task, taskName)
+-- 启动音频主任务
+sys.taskInit(main_audio_task)

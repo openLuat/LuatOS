@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "usb_cam_rtmp"
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -56,7 +56,7 @@ function rtmp_try_reconnect()
                 local ok = rtmpc:connect()
                 if ok then
                     -- 等待短时间以便连接完成
-                    sys.wait(1000)
+                    sys.wait(5000)
                     local st = rtmpc:getState()
                     if st == rtmp.STATE_CONNECTED or st == rtmp.STATE_PUBLISHING then
                         log.info("rtmp", "reconnect success")
@@ -109,17 +109,25 @@ sys.taskInit(function()
     local URL = Posturl.."/"..GetDeviceid
     log.info("打印的URL",URL)
     local Camera_header = {["Accept-Encoding"]="identity",["Host"]="video.luatos.com:10030",["Content-Type"] = "application/json"}
-    local code,headers,body = http.request("POST", URL,Camera_header,json.encode(PostBody)).wait()
-    log.info("打印的请求code",code)
-    if code == 200 then
-        log.info("打印的请求body",body)
-        local JSONbody = json.decode(body)
-        if JSONbody.code ~= 200 then
-            log.info("请求视频URL失败", JSONbody.msg)
-            return
+    while true do
+        local code,headers,body = http.request("POST", URL,Camera_header,json.encode(PostBody),{ debug = true }).wait()
+        log.info("打印的请求code",code)
+        if code == 200 then
+            sys.wait(1000)
+            log.info("打印的请求body: ",body, "长度: ", #body)
+            local JSONbody = json.decode(body)
+            if not JSONbody then
+                log.info("JSON解析错误,3s后重试")
+            elseif JSONbody.code ~= 200 then
+                log.info("请求视频URL失败,3s后重试", JSONbody.msg)
+            else
+                rtmpurl = JSONbody.data.urlList[1]
+                log.info("请求得到的RTMP地址",rtmpurl)
+                break
+            end
         end
-        rtmpurl = JSONbody.data.urlList[1]
-        log.info("请求得到的RTMP地址",rtmpurl)
+        sys.wait(3000)
+        log.info("重试请求获取推流URL")
     end
 
     camera.config(0, camera.CONF_UVC_FPS, 15)

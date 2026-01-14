@@ -1505,6 +1505,10 @@ local function schedule_reconnect()
         log.info("[excloud]服务已关闭，停止重连")
         return
     end
+    -- 增加重连计数
+    reconnect_count = reconnect_count + 1
+    log.info("[excloud]安排第 " ..
+        reconnect_count .. "/" .. config.max_reconnect .. " 次重连，等待 " .. config.reconnect_interval .. " 秒")
 
     -- 检查是否达到最大重连次数
     if reconnect_count >= config.max_reconnect then
@@ -1567,10 +1571,7 @@ local function schedule_reconnect()
         return
     end
 
-    -- 增加重连计数
-    reconnect_count = reconnect_count + 1
-    log.info("[excloud]安排第 " ..
-        reconnect_count .. "/" .. config.max_reconnect .. " 次重连，等待 " .. config.reconnect_interval .. " 秒")
+
 
     -- 使用定时器安排重连，在协程中执行
     reconnect_timer = sys.timerStart(function()
@@ -1909,7 +1910,10 @@ function excloud.open()
     if is_open and is_connected then
         return false, "excloud is already open and connected"
     end
-    reconnect_count = 0
+    -- 只有首次连接时才重置重连计数，重连时保持计数
+    -- if not is_open then
+    --     reconnect_count = 0
+    -- end
     -- 判断是否初始化
     if not device_id_binary then
         return false, "excloud 没有初始化，请先调用setup"
@@ -2028,14 +2032,13 @@ function excloud.open()
         local ok, result = socket.connect(connection, config.host, config.port, config.mqtt_ipv6)
         log.info("[excloud]TCP连接结果", ok, result)
         if not ok then
-            --发生异常，强制close
+            --发生异常，释放资源但保持is_open为true，以便重连计数能正确递增
             socket.close(connection)
             --释放资源
             socket.release(connection)
             connection = nil
 
             if config.auto_reconnect then
-                is_open = false
                 schedule_reconnect()
             end
             return false, result
@@ -2153,7 +2156,6 @@ function excloud.open()
             connection = nil
             -- 发起连接失败，尝试重连
             if config.auto_reconnect then
-                is_open = false
                 schedule_reconnect()
             end
             return false, "MQTT connect failed"
@@ -2374,7 +2376,6 @@ function excloud.close()
     is_authenticated = false
     pending_messages = {}
     rxbuff = nil
-    reconnect_count = 0
     is_heartbeat_running = false
     collectgarbage("collect")
     log.info("[excloud]excloud service stopped")

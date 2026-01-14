@@ -15,6 +15,9 @@ add_packages("libuv")
 add_requires("gmssl")
 add_packages("gmssl")
 
+add_requires("libsdl2")
+add_packages("libsdl2")
+
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
@@ -38,8 +41,6 @@ end
 
 if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
-    add_requires("libsdl2")
-    add_packages("libsdl2")
 end
 
 if is_host("windows") then
@@ -214,20 +215,41 @@ target("luatos-lua")
     add_includedirs(luatos.."components/sms/include",{public = true})
     add_files(luatos.."components/sms/**.c")
 
-    -- multimedia
-    add_includedirs(luatos.."components/multimedia",{public = true})
-    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
-    -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
-    -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
+    -- audio
+    add_includedirs(luatos.."/components/multimedia/",
+                    luatos.."/components/multimedia/mp3_decode",
+                    luatos.."/components/multimedia/amr_decode/amr_common/dec/include",
+                    luatos.."/components/multimedia/amr_decode/amr_nb/common/include",
+                    luatos.."/components/multimedia/amr_decode/amr_nb/dec/include",
+                    luatos.."/components/multimedia/amr_decode/amr_wb/dec/include",
+                    luatos.."/components/multimedia/amr_decode/opencore-amrnb",
+                    luatos.."/components/multimedia/amr_decode/opencore-amrwb",
+                    luatos.."/components/multimedia/amr_decode/oscl",
+                    luatos.."/components/multimedia/amr_decode/amr_nb/enc/src",
+                    luatos.."/components/multimedia/vtool/include")
+    add_files(luatos.."/components/multimedia/*.c|luat_multimedia_audio.c|luat_audio_tm8211.c|luat_audio_es8311.c",
+            luatos.."/components/multimedia/amr_decode/**.c",
+            luatos.."/components/multimedia/g711_codec/**.c",
+            luatos.."/components/multimedia/vtool/**.c")
 
-    -- codec
-    add_files(luatos.."components/multimedia/luat_lib_multimedia_codec.c")
-    add_files(luatos.."components/multimedia/minimp3.c")
-    add_files(luatos.."components/multimedia/mp3_decode_port.c")
-    -- g711
-    add_files(luatos.."components/multimedia/g711_codec/*.c")
-    add_includedirs(luatos.."components/multimedia/g711_codec",{public = true})
-
+    -- opus
+    add_defines("OPUS_ARM_ASM","USE_ALLOCA","FIXED_POINT=1","OPUS_BUILD=1")
+    add_includedirs(luatos.."/components/multimedia/opus",
+                    luatos.."/components/multimedia/opus/include",
+                    luatos.."/components/multimedia/opus/src",
+                    luatos.."/components/multimedia/opus/celt",
+                    luatos.."/components/multimedia/opus/celt/arm",
+                    luatos.."/components/multimedia/opus/silk",
+                    luatos.."/components/multimedia/opus/silk/arm",
+                    luatos.."/components/multimedia/opus/silk/fixed"
+                    )
+    add_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
+                luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
+                luatos.."/components/multimedia/opus/celt/arm/arm_celt_map.c",
+                luatos.."/components/multimedia/opus/silk/*.c",
+                luatos.."/components/multimedia/opus/silk/fixed/*.c",
+                luatos.."/components/multimedia/opus/src/*.c|opus_compare.c|qext_compare.c|opus_demo.c"
+                )
 
     ----------------------------------------------------------------------
     -- 网络相关
@@ -267,6 +289,15 @@ target("luatos-lua")
     add_includedirs(luatos.."components/network/errdump",{public = true})
     add_files(luatos.."components/network/errdump/*.c")
 
+    -- wireguard
+    -- add_includedirs(luatos.."components/network/wireguard/include",{public = true})
+    -- add_files(luatos.."components/network/wireguard/src/*.c")
+
+    -- httpsrv
+    add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})
+    add_files(luatos.."components/network/httpsrv/src/*.c")
+    -- add_files(luatos.."components/network/httpsrv/binding/*.c")
+
     -- ercoap
     -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
     -- add_files(luatos.."components/network/ercoap/src/*.c")
@@ -298,6 +329,15 @@ target("luatos-lua")
     
     add_includedirs(luatos .. "components/hmeta")
     add_files(luatos .. "components/hmeta/**.c")
+
+    -- sfud
+    add_includedirs(luatos.."components/sfud",{public = true})
+    add_files(luatos.."components/sfud/**.c")
+
+    -- little_flash
+    add_includedirs(luatos.."components/little_flash/inc",{public = true})
+    add_includedirs(luatos.."components/little_flash/port",{public = true})
+    add_files(luatos.."components/little_flash/**.c")
 
     if true then
         -- lwip & zlink

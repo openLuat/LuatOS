@@ -139,8 +139,7 @@ static void delay_dhcp_start(void* args) {
     }
 }
 
-static void link_updown(void* args) {
-    tmpptr_t* ptr = (tmpptr_t*)args;
+static void link_updown(tmpptr_t* ptr) {
     luat_netdrv_t* drv = ptr->drv;
     uint8_t updown = ptr->updown;
     void* userdata = NULL;
@@ -198,13 +197,27 @@ static void link_updown(void* args) {
     #endif
 }
 
+static void luat_netdrv_set_link_down(luat_netdrv_t* drv) {
+    tmpptr_t tmp = {0};
+    tmp.drv = drv;
+    tmp.updown = 0;
+    link_updown(&tmp);
+}
+static void luat_netdrv_set_link_up(luat_netdrv_t* drv) {
+    tmpptr_t tmp = {0};
+    tmp.drv = drv;
+    tmp.updown = 1;
+    link_updown(&tmp);
+}
+
 void luat_netdrv_set_link_updown(luat_netdrv_t* drv, uint8_t updown) {
     if (drv == NULL || drv->netif == NULL) {
         return;
     }
-    tmpptr_t ptr = {
-        .drv = drv,
-        .updown = updown
-    };
-    tcpip_callback_with_block(link_updown, &ptr, 1);
+    if (updown) {
+        tcpip_callback(luat_netdrv_set_link_up, drv);
+    }
+    else {
+        tcpip_callback(luat_netdrv_set_link_down, drv);
+    }
 }

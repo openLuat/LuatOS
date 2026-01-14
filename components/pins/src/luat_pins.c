@@ -373,7 +373,9 @@ int luat_pins_setup(uint16_t pin, const char* func_name, size_t name_len, int al
 		|| memcmp("WAKEUP", func_name, 5) == 0
 		|| memcmp("ADC", func_name, 3) == 0
 		|| memcmp("PWR_KEY", func_name, 7) == 0
-		|| memcmp("I2S", func_name, 3) == 0){
+		|| memcmp("I2S", func_name, 3) == 0
+		|| memcmp("CAN_STB", func_name, 7) == 0
+	){
 		return 1;
 	}
 	#endif

@@ -155,15 +155,20 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
     
     while (1) {
         uv_mutex_lock(&queue->mutex);
-        
-        // 尝试从队列取出元素
-        uv_queue_item_t queue_item;
-        int ret = luat_queue_pop(&queue->queue, &queue_item);
-        
-        if (ret == 0) {
-            // 成功取出
-            memcpy(item, queue_item.msg, queue->item_size);
+
+        // 直接操作队列头节点，避免使用luat_queue_pop导致的栈溢出
+        uv_queue_item_t* head = (uv_queue_item_t*)queue->queue.next;
+        if (head != NULL) {
+            // 队列不为空，直接复制数据部分
+            memcpy(item, head->msg, queue->item_size);
+            // 从队列中移除节点
+            if (head->next == NULL) {
+                queue->queue.next = NULL;
+            } else {
+                queue->queue.next = head->next;
+            }
             queue->current_count--;
+            luat_heap_free(head);
             uv_mutex_unlock(&queue->mutex);
             return 0;
         }

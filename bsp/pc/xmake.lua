@@ -15,6 +15,9 @@ add_packages("libuv")
 add_requires("gmssl")
 add_packages("gmssl")
 
+add_requires("libsdl2")
+add_packages("libsdl2")
+
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
@@ -38,8 +41,6 @@ end
 
 if os.getenv("LUAT_USE_GUI") == "y" then
     add_defines("LUAT_USE_GUI=1")
-    add_requires("libsdl2")
-    add_packages("libsdl2")
 end
 
 if is_host("windows") then
@@ -215,8 +216,19 @@ target("luatos-lua")
     add_files(luatos.."components/sms/**.c")
 
     -- multimedia
-    add_includedirs(luatos.."components/multimedia",{public = true})
-    -- add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    add_includedirs(luatos.."components/multimedia",
+                    luatos.."components/multimedia/amr_decode/amr_common/dec/include",
+                    luatos.."components/multimedia/amr_decode/amr_nb/common/include",
+                    luatos.."components/multimedia/amr_decode/amr_nb/dec/include",
+                    luatos.."components/multimedia/amr_decode/amr_wb/dec/include",
+                    luatos.."components/multimedia/amr_decode/opencore-amrnb",
+                    luatos.."components/multimedia/amr_decode/opencore-amrwb",
+                    luatos.."components/multimedia/amr_decode/oscl",
+                    luatos.."components/multimedia/amr_decode/amr_nb/enc/src",
+    
+    {public = true})
+    add_files(luatos.."components/multimedia/luat_lib_multimedia_audio.c")
+    add_files(luatos.."components/multimedia/amr_decode/**.c")
     -- add_files(luatos.."components/multimedia/luat_audio_tm8211.c")
     -- add_files(luatos.."components/multimedia/luat_audio_es8311.c")
 
@@ -267,6 +279,15 @@ target("luatos-lua")
     add_includedirs(luatos.."components/network/errdump",{public = true})
     add_files(luatos.."components/network/errdump/*.c")
 
+    -- wireguard
+    -- add_includedirs(luatos.."components/network/wireguard/include",{public = true})
+    -- add_files(luatos.."components/network/wireguard/src/*.c")
+
+    -- httpsrv
+    add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})
+    add_files(luatos.."components/network/httpsrv/src/*.c")
+    -- add_files(luatos.."components/network/httpsrv/binding/*.c")
+
     -- ercoap
     -- add_includedirs(luatos.."components/network/ercoap/include",{public = true})
     -- add_files(luatos.."components/network/ercoap/src/*.c")
@@ -298,6 +319,15 @@ target("luatos-lua")
     
     add_includedirs(luatos .. "components/hmeta")
     add_files(luatos .. "components/hmeta/**.c")
+
+    -- sfud
+    add_includedirs(luatos.."components/sfud",{public = true})
+    add_files(luatos.."components/sfud/**.c")
+
+    -- little_flash
+    add_includedirs(luatos.."components/little_flash/inc",{public = true})
+    add_includedirs(luatos.."components/little_flash/port",{public = true})
+    add_files(luatos.."components/little_flash/**.c")
 
     if true then
         -- lwip & zlink

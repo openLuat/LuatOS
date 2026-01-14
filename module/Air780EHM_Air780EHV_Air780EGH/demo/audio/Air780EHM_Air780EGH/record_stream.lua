@@ -3,7 +3,7 @@
 @summary 流式录音
 @version 1.0
 @date    2025.09.08
-@author  梁健
+@author  陈媛媛
 @usage
 
 流式录音(仅支持PCM)，核心业务逻辑为：

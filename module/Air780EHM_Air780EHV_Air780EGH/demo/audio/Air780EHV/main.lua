@@ -4,7 +4,7 @@
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.09.08
-@author  梁健
+@author  陈媛媛
 @usage
 本demo演示的核心功能为：
 1、play_file.lua： 播放音频文件，可支持wav,amr,mp3 格式音频

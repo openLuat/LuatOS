@@ -32,6 +32,8 @@
 -- 支持 zbuff 作为 body 上传和响应返回
 -- 支持 bodyfile 直接把文件内容作为body上传
 -- 支持 上传时使用自定义缓冲区, 2025.9.25 新增
+
+-- 注意注意!!! 上传文件期间, 不能修改文件的内容,大小等属性,否则导致上传失败!!!
 ]]
 
 
@@ -407,7 +409,7 @@ local function resp_parse(opts)
                     break
                 end
                 if pos + clen > opts.rx_buff:used() then
-                    log.error(TAG, "chunk数据长度不足")
+                    log.error(TAG, "chunk数据长度不足", pos, clen, opts.rx_buff:used())
                     break
                 end
                 local chunk = opts.rx_buff:query(pos, clen)

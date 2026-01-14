@@ -4,12 +4,18 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "hzfont_psram.h"
+
 #define TTF_OK 0
 #define TTF_ERR_IO -1
 #define TTF_ERR_FORMAT -2
 #define TTF_ERR_UNSUPPORTED -3
 #define TTF_ERR_RANGE -4
 #define TTF_ERR_OOM -5
+
+#define TTF_DATA_SOURCE_MEMORY      0
+#define TTF_DATA_SOURCE_FILE        1
+#define TTF_DATA_SOURCE_PSRAM_CHAIN 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +38,8 @@ typedef struct {
     size_t fileSize;      /* 字体文件大小 */
     uint8_t streaming;    /* 1 表示未整读，仅按需读取 */
     uint8_t ownsData;     /* 1 表示 data 由解析器分配并在 unload 释放；0 表示外部内存（不可释放） */
+    uint8_t data_source;  /* 0=memory,1=file,2=psram_chain */
+    hzfont_psram_chain_t *psram_chain; /* PSRAM 分段链，data_source=2 时有效 */
     uint8_t *cmapBuf;     /* 常驻内存的 cmap 子表数据（按需加载） */
     uint32_t cmapBufLen;  /* cmapBuf 长度 */
     uint16_t cmapFormat;  /* 4 或 12，标记当前常驻的 cmap 子表格式 */
@@ -68,6 +76,7 @@ typedef struct {
 int ttf_load_from_file(const char *path, TtfFont *font);
 // 从内存读取 TTF 字体（不复制内容），适合内置字库
 int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font);
+int ttf_load_from_psram_chain(hzfont_psram_chain_t *chain, TtfFont *font);
 // 释放字体结构的全部资源
 void ttf_unload(TtfFont *font);
 

@@ -2,12 +2,10 @@
 #include "ttf_parser.h"
 
 #include <math.h>
-// #include <stdio.h>
-// #include <stdlib.h>
 #include <string.h>
-
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include "luat_hzfont.h"
 
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
@@ -112,6 +110,9 @@ static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length,
     if (!ensure_range(font, offset, length)) {
         return 0;
     }
+    if (font->data_source == TTF_DATA_SOURCE_PSRAM_CHAIN && font->psram_chain) {
+        return hzfont_psram_read_range(font->psram_chain, offset, length, out);
+    }
     if (font->data) {
         memcpy(out, font->data + offset, length);
         return 1;
@@ -212,6 +213,8 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->fileSize = (size_t)fileSize;
         font->streaming = 0;
         font->ownsData = 1;
+        font->data_source = TTF_DATA_SOURCE_MEMORY;
+        font->psram_chain = NULL;
         #else
         return TTF_ERR_IO;
         #endif
@@ -236,6 +239,8 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->fileSize = (size_t)vsize;
         font->streaming = 1;
         font->ownsData = 0;
+        font->data_source = TTF_DATA_SOURCE_FILE;
+        font->psram_chain = NULL;
     }
 
     if (font->size < 12) {
@@ -306,17 +311,10 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
 }
 
 // 从已有内存数据初始化 TTF（不复制，不释放）
-int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
-    if (!data || !font || size < 12) {
+static int ttf_load_from_common(TtfFont *font) {
+    if (!font || font->size < 12) {
         return TTF_ERR_RANGE;
     }
-    memset(font, 0, sizeof(*font));
-    font->data = (uint8_t*)data; /* 外部常量内存，不复制，不释放 */
-    font->size = size;
-    font->file = NULL;
-    font->fileSize = size;
-    font->streaming = 0;
-    font->ownsData = 0;
 
     uint8_t hdr4[4];
     if (!ttf_read_range(font, 0, 4, hdr4)) {
@@ -367,6 +365,44 @@ int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
     return TTF_OK;
 }
 
+// 从内存数据加载 TTF 字体结构
+int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
+    // 参数检查
+    if (!data || !font || size < 12) {
+        return TTF_ERR_RANGE;
+    }
+    // 初始化 font 结构体
+    memset(font, 0, sizeof(*font));
+    font->data = (uint8_t*)data;      
+    font->size = size;
+    font->file = NULL;
+    font->fileSize = size;
+    font->streaming = 0;
+    font->ownsData = 0;               
+    font->data_source = TTF_DATA_SOURCE_MEMORY;
+    font->psram_chain = NULL;
+    return ttf_load_from_common(font);
+}
+
+// 从PSRAM 链结构加载 TTF 字体结构
+
+int ttf_load_from_psram_chain(struct hzfont_psram_chain *chain, TtfFont *font) {
+    // 参数检查
+    if (!chain || !font || chain->total_size < 12) {
+        return TTF_ERR_RANGE;
+    }
+    // 初始化 font 结构体
+    memset(font, 0, sizeof(*font));
+    font->data = NULL;                
+    font->size = chain->total_size;
+    font->file = NULL;
+    font->fileSize = chain->total_size;
+    font->streaming = 0;
+    font->ownsData = 0;               
+    font->data_source = TTF_DATA_SOURCE_PSRAM_CHAIN;
+    font->psram_chain = chain;        
+    return ttf_load_from_common(font);
+}
 // 彻底释放 TtfFont 使用的所有动态资源
 void ttf_unload(TtfFont *font) {
     if (!font) {

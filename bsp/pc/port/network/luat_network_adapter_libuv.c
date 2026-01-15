@@ -15,7 +15,7 @@
 #define LUAT_LOG_TAG "libuv"
 #include "luat_log.h"
 
-#define MAX_SOCK_NUM 8
+#define MAX_SOCK_NUM 32
 
 #ifndef LUAT_CONF_NETWORK_DEBUG
 #define LUAT_CONF_NETWORK_DEBUG 0

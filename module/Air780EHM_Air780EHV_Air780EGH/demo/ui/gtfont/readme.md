@@ -8,8 +8,8 @@ Air780EHM/Air780EHV/Air780EGH核心板+AirLCD_1000配件板：支持lcd各种组
 
 - 代码：[module/Air780EHM_Air780EHV_Air780EGH/demo/accessory_board/AirLCD_1000/lcd](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/accessory_board/AirLCD_1000/lcd)
 - 文档：[gtfont 高通字库在Air780EHV+AirLCD_1000上的应用](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1000/lcd/)
-- 文档：[gtfont 高通字库在Air780EHV+AirLCD_1000上的应用](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1000/lcd/)
-- 文档：[gtfont 高通字库在Air780EHV+AirLCD_1000上的应用](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1000/lcd/)
+- 文档：[gtfont 高通字库在Air780EHM+AirLCD_1000上的应用](https://docs.openluat.com/air780epm/luatos/app/accessory/AirLCD_1000/lcd/)
+- 文档：[gtfont 高通字库在Air780EGH+AirLCD_1000上的应用](https://docs.openluat.com/air780egh/luatos/app/accessory/AirLCD_1000/lcd/)
 
 Air780EHM/Air780EHV/Air780EGH核心板+AirLCD_1010配件板：支持lcd各种组件、支持矢量字体、支持触摸控制
 

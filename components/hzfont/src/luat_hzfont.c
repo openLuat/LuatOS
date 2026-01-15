@@ -18,6 +18,7 @@
 
 #define LUAT_LOG_TAG "hzfont"
 #include "luat_log.h"
+#include "hzfont_psram.h"
 
 #define HZFONT_FONT_PATH_MAX   260   // 字体文件路径最大长度
 #define HZFONT_ADVANCE_RATIO   0.4f  // 默认advance距离比例
@@ -103,11 +104,114 @@ static uint32_t g_hzfont_cp_cache_size = 0; /* 必须为 2 的幂，便于掩码
 static uint8_t g_warn_fontsize = 0;
 static uint8_t g_warn_cache_invalid = 0;
 static uint8_t g_warn_cp_cache_full = 0;
+static hzfont_psram_chain_t g_psram_chain;
 
 extern luat_lcd_conf_t *lcd_dft_conf;
 extern luat_color_t BACK_COLOR;
 
-#define HZFONT_TIMING_THRESHOLD_US 3000
+// 初始化 PSRAM 数据链，清空元数据便于后续写入。
+void hzfont_psram_chain_init(hzfont_psram_chain_t *chain) {
+    if (!chain) {
+        return;
+    }
+    chain->head = NULL;
+    chain->tail = NULL;
+    chain->total_size = 0;
+    chain->block_count = 0;
+}
+
+// 释放链上所有块，并重置链表状态。
+void hzfont_psram_chain_clear(hzfont_psram_chain_t *chain) {
+    if (!chain) {
+        return;
+    }
+    hzfont_psram_block_t *block = chain->head;
+    while (block) {
+        // 逐块释放链表中的所有 PSRAM 内存。
+        hzfont_psram_block_t *next = block->next;
+        luat_heap_opt_free(LUAT_HEAP_PSRAM, block);
+        block = next;
+    }
+    chain->head = NULL;
+    chain->tail = NULL;
+    chain->total_size = 0;
+    chain->block_count = 0;
+}
+
+// 从 PSRAM 分配新的块并追加到链尾。
+hzfont_psram_block_t *hzfont_psram_chain_alloc_block(hzfont_psram_chain_t *chain) {
+    if (!chain) {
+        return NULL;
+    }
+    hzfont_psram_block_t *block = (hzfont_psram_block_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(hzfont_psram_block_t));
+    if (!block) {
+        return NULL;
+    }
+    memset(block, 0, sizeof(*block));
+    if (!chain->head) {
+        chain->head = block;
+        chain->tail = block;
+    } else {
+        chain->tail->next = block;
+        chain->tail = block;
+    }
+    chain->block_count++;
+    return block;
+}
+
+// 将数据追加到链表末尾，必要时自动扩容块。
+int hzfont_psram_chain_append_data(hzfont_psram_chain_t *chain, const uint8_t *source, size_t length) {
+    if (!chain || !source || length == 0) {
+        return 0;
+    }
+    size_t remaining = length;
+    while (remaining > 0) {
+        if (!chain->tail || chain->tail->used == HZFONT_PSRAM_BLOCK_SIZE) {
+            if (!hzfont_psram_chain_alloc_block(chain)) {
+                return 0;
+            }
+        }
+        // 计算当前块剩余空间并决定拷贝量。
+        size_t slot = HZFONT_PSRAM_BLOCK_SIZE - chain->tail->used;
+        size_t copy = remaining < slot ? remaining : slot;
+        memcpy(chain->tail->data + chain->tail->used, source, copy);
+        chain->tail->used += copy;
+        chain->total_size += copy;
+        source += copy;
+        remaining -= copy;
+    }
+    return 1;
+}
+
+// 从链中的指定偏移读取固定长度数据。
+int hzfont_psram_read_range(const hzfont_psram_chain_t *chain, uint32_t offset, uint32_t length, uint8_t *out) {
+    if (!chain || !out || length == 0) {
+        return 0;
+    }
+    size_t abs_offset = (size_t)offset;
+    if (abs_offset + (size_t)length > chain->total_size) {
+        return 0;
+    }
+    hzfont_psram_block_t *block = chain->head;
+    size_t cursor = abs_offset;
+    size_t need = length;
+    while (block && need > 0) {
+        if (cursor >= block->used) {
+            cursor -= block->used;
+            block = block->next;
+            continue;
+        }
+        // 计算当前块可用数据并拷贝。
+        size_t available = block->used - cursor;
+        size_t chunk = available < need ? available : need;
+        memcpy(out, block->data + cursor, chunk);
+        out += chunk;
+        need -= chunk;
+        cursor = 0;
+        block = block->next;
+    }
+    return need == 0;
+}
 
 // 获取当前精确的微秒级时间戳（兼容 tick 周期与 millisecond fallback）
 static uint64_t hzfont_now_us(void) {
@@ -203,19 +307,18 @@ static int hzfont_is_allowed_capacity(uint32_t cap) {
     return 0;
 }
 
-/* 将字体文件完整读入内存（PSRAM），用于后续内存解析 */
-static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t *out_size) {
-    if (!path || !out_data || !out_size) {
+/* 将字体文件分块读入 PSRAM 链表 */
+static int hzfont_load_file_to_ram(const char *path, hzfont_psram_chain_t *chain) {
+    // 检查参数有效性
+    if (!path || !chain) {
         return TTF_ERR_RANGE;
     }
-    *out_data = NULL;
-    *out_size = 0;
-
+    // 打开文件(只读二进制)
     FILE *fp = luat_fs_fopen(path, "rb");
     if (!fp) {
         return TTF_ERR_IO;
     }
-
+    // 移动到文件末尾获取文件长度
     if (luat_fs_fseek(fp, 0, SEEK_END) != 0) {
         luat_fs_fclose(fp);
         return TTF_ERR_IO;
@@ -225,23 +328,34 @@ static int hzfont_load_file_to_ram(const char *path, uint8_t **out_data, size_t 
         luat_fs_fclose(fp);
         return TTF_ERR_IO;
     }
+    // 恢复文件指针到起始
     if (luat_fs_fseek(fp, 0, SEEK_SET) != 0) {
         luat_fs_fclose(fp);
         return TTF_ERR_IO;
     }
-    uint8_t *buf = (uint8_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM,(size_t)vsize);
-    if (!buf) {
-        luat_fs_fclose(fp);
-        return TTF_ERR_OOM;
+    // 分块循环读取文件内容到 PSRAM 链表
+    size_t remaining = (size_t)vsize;
+    while (remaining > 0) {
+        // 分配新块（如必要）
+        if (!chain->tail || chain->tail->used == HZFONT_PSRAM_BLOCK_SIZE) {
+            if (!hzfont_psram_chain_alloc_block(chain)) {
+                luat_fs_fclose(fp);
+                return TTF_ERR_OOM;
+            }
+        }
+        size_t slot = HZFONT_PSRAM_BLOCK_SIZE - chain->tail->used; // 当前块剩余空间
+        size_t need = remaining < slot ? remaining : slot;         // 本轮需读取字节数
+        size_t read = luat_fs_fread(chain->tail->data + chain->tail->used, 1, need, fp);
+        if (read == 0) { // 读失败
+            luat_fs_fclose(fp);
+            return TTF_ERR_IO;
+        }
+        // 更新时间及指针
+        chain->tail->used += read;
+        chain->total_size += read;
+        remaining -= read;
     }
-    size_t n = luat_fs_fread(buf, 1, (size_t)vsize, fp);
-    luat_fs_fclose(fp);
-    if (n != (size_t)vsize) {
-        luat_heap_opt_free(LUAT_HEAP_PSRAM, buf);
-        return TTF_ERR_IO;
-    }
-    *out_data = buf;
-    *out_size = (size_t)vsize;
+    luat_fs_fclose(fp); // 关闭文件
     return TTF_OK;
 }
 
@@ -642,14 +756,14 @@ static luat_color_t hzfont_coverage_to_color(uint8_t coverage, const luat_lcd_co
  * Pre: 需要有效的 ttf_path 或启用内置字库宏；cache_size 仅允许 128/256/512/1024/2048；load_to_psram=1 时需有足够 RAM。
  * Post: 状态置为 READY，后续方可测宽/绘制；失败时状态为 ERROR。
  */
-// 初始化 hzfont 上下文（可重复调用）
 int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psram) {
+    // 已初始化直接返回
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         LLOGE("font already initialized");
         return 0;
     }
 
-    /* 分配/重置缓存 */
+    // 分配并重置缓存
     if (!hzfont_setup_caches(cache_size)) {
         LLOGE("cache alloc fail size=%lu", (unsigned long)cache_size);
         return 0;
@@ -658,24 +772,28 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
     memset(&g_ft_ctx.font, 0, sizeof(g_ft_ctx.font));
 
     int rc = TTF_ERR_RANGE;
-    uint8_t *ram_buf = NULL;
-    size_t ram_size = 0;
+    // 加载 TTF 字体主分支
     if (ttf_path && ttf_path[0]) {
         if (load_to_psram) {
-            rc = hzfont_load_file_to_ram(ttf_path, &ram_buf, &ram_size);
+            // 使用 PSRAM 链，将字体文件读入 psram 并通过链表结构操作
+            hzfont_psram_chain_clear(&g_psram_chain);
+            hzfont_psram_chain_init(&g_psram_chain);
+            rc = hzfont_load_file_to_ram(ttf_path, &g_psram_chain);
             if (rc == TTF_OK) {
-                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                rc = ttf_load_from_psram_chain(&g_psram_chain, &g_ft_ctx.font);
                 if (rc == TTF_OK) {
-                    g_ft_ctx.font.ownsData = 1; /* 允许 ttf_unload 释放 */
+                    // 记录成功并保存字体路径
                     g_ft_ctx.font_path[0] = 0;
                     strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
                     g_ft_ctx.font_path[sizeof(g_ft_ctx.font_path) - 1] = 0;
+                    LLOGI("psram loaded ttf size=%zu bytes, blocks=%u", g_psram_chain.total_size, g_psram_chain.block_count);
                 } else {
-                    luat_heap_opt_free(LUAT_HEAP_PSRAM, ram_buf);
-                    ram_buf = NULL;
+                    // 加载失败，释放链
+                    hzfont_psram_chain_clear(&g_psram_chain);
                 }
             }
         } else {
+            // 直接从文件加载，不经过psram
             rc = ttf_load_from_file(ttf_path, &g_ft_ctx.font);
             if (rc == TTF_OK) {
                 strncpy(g_ft_ctx.font_path, ttf_path, sizeof(g_ft_ctx.font_path) - 1);
@@ -685,35 +803,38 @@ int luat_hzfont_init(const char *ttf_path, uint32_t cache_size, int load_to_psra
     } else {
 #ifdef LUAT_CONF_USE_HZFONT_BUILTIN_TTF
         if (load_to_psram) {
-            ram_buf = (uint8_t *)luat_heap_opt_malloc(LUAT_HEAP_PSRAM,(size_t)hzfont_builtin_ttf_len);
-            if (!ram_buf) {
-                LLOGE("load builtin ttf to ram failed");
+            // 加载内置 TTF 到 psram
+            hzfont_psram_chain_clear(&g_psram_chain);
+            hzfont_psram_chain_init(&g_psram_chain);
+            if (!hzfont_psram_chain_append_data(&g_psram_chain, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len)) {
+                LLOGE("load builtin ttf to psram failed");
                 rc = TTF_ERR_OOM;
             } else {
-                memcpy(ram_buf, hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len);
-                ram_size = (size_t)hzfont_builtin_ttf_len;
-                rc = ttf_load_from_memory(ram_buf, ram_size, &g_ft_ctx.font);
+                rc = ttf_load_from_psram_chain(&g_psram_chain, &g_ft_ctx.font);
                 if (rc == TTF_OK) {
-                    g_ft_ctx.font.ownsData = 1;
                     g_ft_ctx.font_path[0] = '\0';
+                    LLOGI("psram loaded ttf size=%zu bytes, blocks=%u", g_psram_chain.total_size, g_psram_chain.block_count);
                 } else {
+                    // 内置ttf加载失败
                     LLOGE("load builtin ttf to ram failed rc=%d", rc);
-                    luat_heap_opt_free(LUAT_HEAP_PSRAM, ram_buf);
-                    ram_buf = NULL;
+                    hzfont_psram_chain_clear(&g_psram_chain);
                 }
             }
         } else {
+            // 从内存直接加载内置 TTF
             rc = ttf_load_from_memory(hzfont_builtin_ttf, (size_t)hzfont_builtin_ttf_len, &g_ft_ctx.font);
             if (rc == TTF_OK) {
                 g_ft_ctx.font_path[0] = '\0';
             }
         }
 #else
+        // 无 TTF 文件、也没开内置字体
         LLOGE("empty ttf path and no builtin ttf");
         rc = TTF_ERR_RANGE;
 #endif
     }
 
+    // 加载结果处理
     if (rc != TTF_OK) {
         LLOGE("load font fail rc=%d", rc);
         ttf_unload(&g_ft_ctx.font);
@@ -732,6 +853,7 @@ void luat_hzfont_deinit(void) {
     }
     hzfont_cache_clear();
     ttf_unload(&g_ft_ctx.font);
+    hzfont_psram_chain_clear(&g_psram_chain);
     hzfont_cache_destroy();
     memset(&g_ft_ctx, 0, sizeof(g_ft_ctx));
     g_ft_ctx.state = LUAT_HZFONT_STATE_UNINIT;
@@ -904,11 +1026,9 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     uint64_t sum_rendered_total_us = 0;
     size_t rendered_count = 0;
     size_t profiled_glyphs = 0;
-    size_t max_slot_index = (size_t)-1;
     uint32_t max_glyph_total_us = 0;
     glyph_render_t max_slot_snapshot;
     memset(&max_slot_snapshot, 0, sizeof(max_slot_snapshot));
-    uint32_t max_codepoint = 0;
     int result = 0; // 使用 result 传递绘制错误码，默认 0 表示成功
 
     // 解码前景/背景颜色用于抗锯齿混合
@@ -1119,22 +1239,18 @@ glyph_timing_update:
             uint32_t glyph_total32 = hzfont_clamp_u32(glyph_total64);
             if (glyph_total32 > max_glyph_total_us) {
                 max_glyph_total_us = glyph_total32;
-                max_slot_index = slot_index;
                 max_slot_snapshot = slot;
-                max_codepoint = slot.codepoint;
             }
-            if (glyph_total32 >= HZFONT_TIMING_THRESHOLD_US || slot.status != HZFONT_GLYPH_OK) {
-                LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
-                      (unsigned)slot_index,
-                      (unsigned long)slot.codepoint,
-                      (unsigned)slot.glyph_index,
-                      hzfont_status_text(slot.status),
-                      (double)glyph_total32 / 1000.0, // 总耗时
-                      (double)slot.time_lookup_us / 1000.0, // 查找耗时
-                      (double)slot.time_load_us / 1000.0, // 加载耗时
-                      (double)slot.time_raster_us / 1000.0, // 栅格化耗时
-                      (double)slot.time_draw_us / 1000.0); // 绘制耗时
-            }
+            LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
+                (unsigned)slot_index,
+                (unsigned long)slot.codepoint,
+                (unsigned)slot.glyph_index,
+                hzfont_status_text(slot.status),
+                (double)glyph_total32 / 1000.0, // 总耗时
+                (double)slot.time_lookup_us / 1000.0, // 查找耗时
+                (double)slot.time_load_us / 1000.0, // 加载耗时
+                (double)slot.time_raster_us / 1000.0, // 栅格化耗时
+                (double)slot.time_draw_us / 1000.0); // 绘制耗时
             profiled_glyphs++;
         }
 
@@ -1156,33 +1272,19 @@ glyph_timing_update:
         uint32_t sum_draw32 = hzfont_clamp_u32(sum_draw_us);
         uint32_t avg_all_us = profiled_glyphs ? hzfont_clamp_u32(sum_total_us / profiled_glyphs) : 0;
         uint32_t avg_rendered_us = rendered_count ? hzfont_clamp_u32(sum_rendered_total_us / rendered_count) : 0;
-        LLOGI("字符串绘制总耗时=%.3f ms 绘制的字符数=%u 分析的字符数=%u 渲染的字符数=%u 平均总耗时=%.3f ms 平均渲染耗时=%.3f ms 查找总耗时=%.3f ms 加载总耗时=%.3f ms 栅格化总耗时=%.3f ms 绘制总耗时=%.3f ms",
+        LLOGI("字符串绘制总耗时=%.3f ms 绘制的字符数=%u 分析的字符数=%u 渲染的字符数=%u 平均单字符耗时=%.3f ms 平均渲染耗时=%.3f ms 查找总耗时=%.3f ms 加载总耗时=%.3f ms 栅格化总耗时=%.3f ms 绘制总耗时=%.3f ms 其它耗时=%.3f ms",
               (double)total_us / 1000.0, // 总耗时
               (unsigned)glyph_count, // 绘制的字符数
               (unsigned)profiled_glyphs, // 已分析的字符数
               (unsigned)rendered_count, // 已渲染的字符数
-              (double)avg_all_us / 1000.0, // 平均总耗时
+              (double)avg_all_us / 1000.0, // 平均单字符耗时
               (double)avg_rendered_us / 1000.0, // 平均渲染耗时
               (double)sum_lookup32 / 1000.0, // 查找耗时
               (double)sum_load32 / 1000.0, // 加载耗时
               (double)sum_raster32 / 1000.0, // 栅格化耗时
-              (double)sum_draw32 / 1000.0 // 绘制耗时
+              (double)sum_draw32 / 1000.0, // 绘制耗时
+              (double)(total_us - sum_lookup32 - sum_load32 - sum_raster32 - sum_draw32) / 1000.0 // 其它耗时
               );
-        if (max_slot_index != (size_t)-1 && max_slot_index < glyph_count) {
-            uint32_t glyph_total32 = hzfont_clamp_u32((uint64_t)max_slot_snapshot.time_lookup_us +
-                                                        (uint64_t)max_slot_snapshot.time_load_us +
-                                                        (uint64_t)max_slot_snapshot.time_raster_us +
-                                                        (uint64_t)max_slot_snapshot.time_draw_us);
-            LLOGI("timing max glyph idx=%u cp=U+%04lX status=%s total=%luus lookup=%lu load=%lu raster=%lu draw=%lu",
-                  (unsigned)max_slot_index,
-                  (unsigned long)max_codepoint,
-                  hzfont_status_text(max_slot_snapshot.status),
-                  (unsigned long)glyph_total32,
-                  (unsigned long)max_slot_snapshot.time_lookup_us,
-                  (unsigned long)max_slot_snapshot.time_load_us,
-                  (unsigned long)max_slot_snapshot.time_raster_us,
-                  (unsigned long)max_slot_snapshot.time_draw_us);
-        }
     }
 
     // 返回结果

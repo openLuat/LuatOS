@@ -30,18 +30,7 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
             luat_spi_unlock(ch->spiid);
             return -1;
         }
-        char* ptr = (char*)buff;
-        while (count > 0) {
-            if (count > 256) {
-                ret = luat_spi_recv(ch->spiid, ptr, 256);
-                count -= 256;
-                ptr += 256;
-            }
-            else {
-                ret = luat_spi_recv(ch->spiid, ptr, count);
-                break;
-            }
-        }
+        ret = luat_spi_recv(ch->spiid, (char*)buff, count);
         luat_gpio_set(ch->cspin, 1);
     }
     else {
@@ -163,25 +152,29 @@ int luat_ch390h_set_phy(ch390h_t* ch, int enable) {
 
 int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
     uint8_t tmp[4] = {0};
+    uint8_t rx_ready;
+
     // 先假读一次
     luat_ch390h_read(ch, 0x70, 1, tmp);
-    tmp[0] = 0;
     // 真正读取一次
     luat_ch390h_read(ch, 0x70, 1, tmp);
-    uint8_t MRCMDX = tmp[0];
-    uint8_t MRCMDX2 = tmp[0];
-    if (MRCMDX & 0xFE) {
-        // 出错了!!
-        // 再读一次
-        luat_ch390h_read(ch, 0x70, 1, tmp);
-        luat_ch390h_read(ch, 0x70, 1, tmp);
-        MRCMDX2 = tmp[0];
-        if (MRCMDX2 & 0xFE) {
-            LLOGW("MRCMDX %02X/%02X !!! reset self", MRCMDX, MRCMDX2);
-            return -1;
-        }
+    rx_ready = tmp[0];
+
+    if (rx_ready & 0xFE) {
+        // Reset RX FIFO pointer (按照CH官方实现)
+        uint8_t rcr = 0;
+        luat_ch390h_read(ch, 0x05, 1, &rcr);
+        luat_ch390h_write_reg(ch, 0x05, rcr & ~(1 << 0));
+        luat_ch390h_write_reg(ch, 0x55, 0x01);
+        luat_ch390h_write_reg(ch, 0x75, 0x0C);
+        luat_timer_us_delay(1000);
+        luat_ch390h_write_reg(ch, 0x05, rcr | (1 << 0));
+        *len = 0;
+        return 0;
     }
-    if ((MRCMDX & 0x01) == 0) {
+
+    // 检查是否有数据包
+    if (!(rx_ready & 0x01)) {
         // 没有数据
         *len = 0;
         return 0;

@@ -105,10 +105,6 @@ local function sim_switch_adaptive_task()
                 -- 网络连接失败，切换到另一张SIM卡
                 current_sim = current_sim == 0 and 1 or 0
                 log.info("sim_switch", "网络连接失败，切换到SIM卡", current_sim)
-                -- 进入飞行模式
-                mobile.flymode(current_sim, true)
-                -- 退出飞行模式
-                mobile.flymode(current_sim, false)
             else
                 log.info("sim_switch", "网络连接成功")
             end

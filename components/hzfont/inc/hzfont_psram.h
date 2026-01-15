@@ -21,4 +21,7 @@ typedef struct hzfont_psram_chain {
     size_t total_size;
     uint32_t block_count;
 } hzfont_psram_chain_t;
+
+int hzfont_psram_read_range(const hzfont_psram_chain_t *chain, uint32_t offset, uint32_t length, uint8_t *out);
+
 #endif /* HZFONT_PSRAM_H */

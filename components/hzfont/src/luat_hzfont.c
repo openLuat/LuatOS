@@ -1026,11 +1026,9 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     uint64_t sum_rendered_total_us = 0;
     size_t rendered_count = 0;
     size_t profiled_glyphs = 0;
-    size_t max_slot_index = (size_t)-1;
     uint32_t max_glyph_total_us = 0;
     glyph_render_t max_slot_snapshot;
     memset(&max_slot_snapshot, 0, sizeof(max_slot_snapshot));
-    uint32_t max_codepoint = 0;
     int result = 0; // 使用 result 传递绘制错误码，默认 0 表示成功
 
     // 解码前景/背景颜色用于抗锯齿混合
@@ -1241,9 +1239,7 @@ glyph_timing_update:
             uint32_t glyph_total32 = hzfont_clamp_u32(glyph_total64);
             if (glyph_total32 > max_glyph_total_us) {
                 max_glyph_total_us = glyph_total32;
-                max_slot_index = slot_index;
                 max_slot_snapshot = slot;
-                max_codepoint = slot.codepoint;
             }
             LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
                 (unsigned)slot_index,

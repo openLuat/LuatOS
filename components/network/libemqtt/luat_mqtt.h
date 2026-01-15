@@ -59,7 +59,6 @@ typedef struct{
 	LUAT_MQTT_STATE_E mqtt_state;    		/**< mqtt状态*/
 	uint8_t reconnect;    		/**< mqtt是否重连*/
 	uint32_t reconnect_time;    /**< mqtt重连时间 单位ms*/
-    int qos0_frame_wait;
 	void* reconnect_timer;		/**< mqtt重连定时器*/
 	void* ping_timer;			/**< mqtt_ping定时器*/
 	void* conn_timer;			/**< mqtt连接超时定时器*/

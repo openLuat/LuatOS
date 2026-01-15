@@ -472,7 +472,9 @@ local function http_exec(opts)
     opts.netc = netc
     opts.rx_buff = zbuff.create(1024)
     opts.topic = tostring(netc)
-    socket.config(netc, nil,nil, opts.is_ssl)
+    socket.config(netc, nil, nil, opts.is_ssl, nil, nil, nil,
+        opts.server_cert, opts.client_cert, opts.client_key, opts.client_password
+    )
     if opts.debug_socket then
         socket.debug(netc, true)
     end
@@ -678,8 +680,12 @@ local opts = {
     adapter = nil,    -- 可选,网络适配器编号, 默认是自动选
     timeout = 30,     -- 可选,读取服务器响应的超时时间,单位秒,默认30
     bodyfile = "xxx", -- 可选,直接把文件内容作为body上传, 优先级高于body参数
-    upload_file_buff = zbuff.create(1024*64) -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
-}
+    upload_file_buff = zbuff.create(1024*64), -- 可选,上传时使用的缓冲区,默认会根据型号创建一个buff
+    server_cert = nil, -- 可选,HTTPS服务器证书内容,PEM格式字符串
+    client_cert = nil, -- 可选,HTTPS客户端证书内容,PEM格式字符串
+    client_key  = nil, -- 可选,HTTPS客户端私钥内容,PEM格式字符串
+    client_password = nil, -- 可选,HTTPS客户端私钥密码,字符串
+    }
 
 local code, resp = httpplus.request({url="https://httpbin.air32.cn/get"})
 log.info("http", code)

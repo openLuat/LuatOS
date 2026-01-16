@@ -14,6 +14,9 @@
 #include "luat_mem.h"
 #include "luat_bget.h"
 
+#define LUAT_HEAP_SRAM_SIZE (2*1024*1024)
+#define LUAT_HEAP_PSRAM_SIZE (8*1024*1024)
+
 static void* psram_ptr;
 static luat_bget_t psram_bget;
 
@@ -37,7 +40,7 @@ void luat_heap_free(void* ptr) {
         return;
     }
     uint32_t addr = (uint32_t)ptr;
-    if (addr < (uint32_t)sram_ptr || addr >= ((uint32_t)sram_ptr + 1024*1024)) {
+    if (addr < (uint32_t)sram_ptr || addr >= ((uint32_t)sram_ptr + LUAT_HEAP_SRAM_SIZE)) {
         printf("luat_heap_free: ptr %p out of sram range, return\n", ptr);
         return;
     }
@@ -125,14 +128,14 @@ void luat_meminfo_sys(size_t *total, size_t *used, size_t *max_used) {
 
 void luat_heap_opt_init(LUAT_HEAP_TYPE_E type){
     if (type == LUAT_HEAP_PSRAM && psram_ptr == NULL) {
-        psram_ptr = malloc(8*1024*1024);
+        psram_ptr = malloc(LUAT_HEAP_PSRAM_SIZE);
         luat_bget_init(&psram_bget);
-        luat_bpool(&psram_bget, psram_ptr, 8*1024*1024);
+        luat_bpool(&psram_bget, psram_ptr, LUAT_HEAP_PSRAM_SIZE);
     }
     else if (type == LUAT_HEAP_SRAM && sram_ptr == NULL) {
-        sram_ptr = malloc(1024*1024);
+        sram_ptr = malloc(LUAT_HEAP_SRAM_SIZE);
         luat_bget_init(&sram_bget);
-        luat_bpool(&sram_bget, sram_ptr, 1024*1024);
+        luat_bpool(&sram_bget, sram_ptr, LUAT_HEAP_SRAM_SIZE);
     }
 }
 

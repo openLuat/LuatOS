@@ -100,6 +100,7 @@ typedef struct {
 typedef struct {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
+    bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
 } easylvgl_keyboard_data_t;
 
 /**********************
@@ -336,6 +337,7 @@ int easylvgl_keyboard_show(lv_obj_t *keyboard); //显示键盘
 int easylvgl_keyboard_hide(lv_obj_t *keyboard); //隐藏键盘
 int easylvgl_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref); //设置提交回调
 int easylvgl_keyboard_set_layout(lv_obj_t *keyboard, const char *layout); //设置键盘布局
+void easylvgl_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, easylvgl_keyboard_data_t *data);
 
 /**
  * Lottie组件

@@ -1241,16 +1241,16 @@ glyph_timing_update:
                 max_glyph_total_us = glyph_total32;
                 max_slot_snapshot = slot;
             }
-            LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
-                (unsigned)slot_index,
-                (unsigned long)slot.codepoint,
-                (unsigned)slot.glyph_index,
-                hzfont_status_text(slot.status),
-                (double)glyph_total32 / 1000.0, // 总耗时
-                (double)slot.time_lookup_us / 1000.0, // 查找耗时
-                (double)slot.time_load_us / 1000.0, // 加载耗时
-                (double)slot.time_raster_us / 1000.0, // 栅格化耗时
-                (double)slot.time_draw_us / 1000.0); // 绘制耗时
+            // LLOGI("glyph[%u] UTF-32编码=U+%04lX idx=%u status=%s 单个字绘制总耗时=%.3f ms 查找耗时=%.3f ms 加载耗时=%.3f ms 栅格化耗时=%.3f ms 绘制耗时=%.3f ms",
+            //     (unsigned)slot_index,
+            //     (unsigned long)slot.codepoint,
+            //     (unsigned)slot.glyph_index,
+            //     hzfont_status_text(slot.status),
+            //     (double)glyph_total32 / 1000.0, // 总耗时
+            //     (double)slot.time_lookup_us / 1000.0, // 查找耗时
+            //     (double)slot.time_load_us / 1000.0, // 加载耗时
+            //     (double)slot.time_raster_us / 1000.0, // 栅格化耗时
+            //     (double)slot.time_draw_us / 1000.0); // 绘制耗时
             profiled_glyphs++;
         }
 

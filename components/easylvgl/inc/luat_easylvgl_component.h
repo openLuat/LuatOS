@@ -27,6 +27,7 @@ typedef enum {
     EASYLVGL_COMPONENT_SWITCH,
     EASYLVGL_COMPONENT_MSGBOX,
     EASYLVGL_COMPONENT_CONTAINER,
+    EASYLVGL_COMPONENT_BAR,
     EASYLVGL_COMPONENT_TABLE,
     EASYLVGL_COMPONENT_TABVIEW,
     EASYLVGL_COMPONENT_TEXTAREA,
@@ -289,11 +290,21 @@ int easylvgl_container_open(lv_obj_t *container); //显示并置顶容器
 int easylvgl_container_destroy(lv_obj_t *container); //销毁容器及关联资源
 
 /**
+ * Bar 组件创建
+ */
+lv_obj_t *easylvgl_bar_create_from_config(void *L, int idx);
+int easylvgl_bar_set_value(lv_obj_t *bar, lv_coord_t value, bool animated); //设置当前值
+int easylvgl_bar_set_range(lv_obj_t *bar, lv_coord_t min, lv_coord_t max); //设置范围
+int easylvgl_bar_set_indicator_color(lv_obj_t *bar, lv_color_t color); //设置进度颜色
+int easylvgl_bar_set_bg_color(lv_obj_t *bar, lv_color_t color); //设置背景颜色
+int easylvgl_bar_get_value(lv_obj_t *bar); //获取当前值
+
+/**
  * Table 组件创建
  */
 lv_obj_t *easylvgl_table_create_from_config(void *L, int idx);
 int easylvgl_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const char *text); //设置单元格文本
-int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽
+int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
 int easylvgl_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
 
 /**

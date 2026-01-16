@@ -215,6 +215,16 @@ bool easylvgl_marshal_bool(void *L, int idx, const char *key, bool default_value
 const char *easylvgl_marshal_string(void *L, int idx, const char *key, const char *default_value);
 
 /**
+ * 从配置表读取颜色字段（仅支持整型 Hex）
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 颜色输出
+ * @return true 成功解析，false 未指定或类型错误
+ */
+bool easylvgl_marshal_color(void *L, int idx, const char *key, lv_color_t *out);
+
+/**
  * 从配置表读取父对象
  * @param L Lua 状态
  * @param idx 配置表索引
@@ -283,7 +293,8 @@ int easylvgl_container_destroy(lv_obj_t *container); //销毁容器及关联资�
  */
 lv_obj_t *easylvgl_table_create_from_config(void *L, int idx);
 int easylvgl_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const char *text); //设置单元格文本
-int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
+int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽
+int easylvgl_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
 
 /**
  * TabView 组件创建

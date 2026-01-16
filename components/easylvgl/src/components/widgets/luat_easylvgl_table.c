@@ -58,6 +58,11 @@ lv_obj_t *easylvgl_table_create_from_config(void *L, int idx)
     // 默认 padding 与边框
     lv_obj_set_style_pad_all(table, 6, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     lv_obj_set_style_border_width(table, 1, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    // 设置边框颜色
+    lv_color_t border_color;
+    if (easylvgl_marshal_color(L_state, idx, "border_color", &border_color)) {
+        lv_obj_set_style_border_color(table, border_color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    }
 
     lv_table_set_row_cnt(table, rows);
     lv_table_set_col_cnt(table, cols);
@@ -119,6 +124,21 @@ int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width
         return EASYLVGL_ERR_INVALID_PARAM;
     }
     lv_table_set_col_width(table, col, width);
+    return EASYLVGL_OK;
+}
+
+/**
+ * 设置表格边框的颜色
+ * @param table Table 对象
+ * @param color 16 进制颜色值（lv_color_t）
+ * @return EASYLVGL_OK 成功，其他失败
+ */
+int easylvgl_table_set_border_color(lv_obj_t *table, lv_color_t color)
+{
+    if (table == NULL) {
+        return EASYLVGL_ERR_INVALID_PARAM;
+    }
+    lv_obj_set_style_border_color(table, color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     return EASYLVGL_OK;
 }
 

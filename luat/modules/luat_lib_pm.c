@@ -370,9 +370,11 @@ static int l_pm_power_ctrl(lua_State *L) {
         if(onoff) {
             LLOGI("pm", "wifi power on");
             luat_gpio_mode(23, LUAT_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
+            luat_airlink_set_pause(0);
         } else {
             LLOGI("pm", "wifi power off");
             luat_gpio_close(23);
+            luat_airlink_set_pause(1);
         }
         lua_pushboolean(L, 1);
         return 1;

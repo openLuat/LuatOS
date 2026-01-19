@@ -5,6 +5,20 @@
 #include "luat_mem.h"
 #include <string.h>
 
+static uint8_t g_h264player_debug = 0;
+
+#define H264_LOGI(...)           \
+    do {                        \
+        if (g_h264player_debug) \
+            LLOGI(__VA_ARGS__); \
+    } while (0)
+
+#define H264_LOGW_VERBOSE(...)   \
+    do {                        \
+        if (g_h264player_debug) \
+            LLOGW(__VA_ARGS__); \
+    } while (0)
+
 typedef struct luat_h264player_ctx {
     uint16_t width;
     uint16_t height;
@@ -501,7 +515,7 @@ static int h264player_parse_sps(luat_h264player_t *ctx, const uint8_t *data, siz
     ctx->sps_rbsp = rbsp;
     ctx->sps_rbsp_len = rbsp_size;
     ctx->sps_received = 1;
-    LLOGI("h264: sps ok profile=%u level=%u %ux%u", (unsigned)ctx->profile_idc,
+    H264_LOGI("h264: sps ok profile=%u level=%u %ux%u", (unsigned)ctx->profile_idc,
           (unsigned)ctx->level_idc, (unsigned)ctx->width, (unsigned)ctx->height);
     return 1;
 }
@@ -633,7 +647,7 @@ static int h264player_parse_pps(luat_h264player_t *ctx, const uint8_t *data, siz
     ctx->pps_rbsp = rbsp;
     ctx->pps_rbsp_len = rbsp_size;
     ctx->pps_received = 1;
-    LLOGI("h264: pps ok pps_id=%u sps_id=%u cabac=%u", (unsigned)ctx->pps_id,
+    H264_LOGI("h264: pps ok pps_id=%u sps_id=%u cabac=%u", (unsigned)ctx->pps_id,
           (unsigned)ctx->sps_id, (unsigned)ctx->entropy_coding_mode_flag);
     return 1;
 }
@@ -1226,7 +1240,7 @@ static int h264player_cavlc_decode_coeff_token(h264_bitreader_t *br, uint8_t nC,
         }
           uint32_t peek = 0;
           h264player_br_peek_bits(br, 16, &peek);
-          LLOGW("h264: cavlc coeff_token fail chroma_dc nC=0xFF bit=%u next=0x%04X",
+          H264_LOGW_VERBOSE("h264: cavlc coeff_token fail chroma_dc nC=0xFF bit=%u next=0x%04X",
               (unsigned)br->bitpos, (unsigned)peek);
           return 0;
     }
@@ -1263,7 +1277,7 @@ static int h264player_cavlc_decode_coeff_token(h264_bitreader_t *br, uint8_t nC,
     }
     uint32_t peek = 0;
     h264player_br_peek_bits(br, 16, &peek);
-    LLOGW("h264: cavlc coeff_token fail table=%u nC=%u bit=%u next=0x%04X",
+    H264_LOGW_VERBOSE("h264: cavlc coeff_token fail table=%u nC=%u bit=%u next=0x%04X",
           (unsigned)table_idx, (unsigned)nC, (unsigned)br->bitpos, (unsigned)peek);
     return 0;
 }
@@ -1431,17 +1445,16 @@ static int h264player_cavlc_parse_residual_block(h264_bitreader_t *br, uint8_t n
     uint8_t total_coeff = 0;
     uint8_t trailing_ones = 0;
     if (!h264player_cavlc_decode_coeff_token(br, nC, &total_coeff, &trailing_ones)) {
-        LLOGW("h264: cavlc coeff_token fail nC=%u max=%u bit=%u", (unsigned)nC,
+        H264_LOGW_VERBOSE("h264: cavlc coeff_token fail nC=%u max=%u bit=%u", (unsigned)nC,
               (unsigned)max_coeff, (unsigned)br->bitpos);
         uint32_t align = (uint32_t)(br->bitpos & 7U);
         uint32_t skip_bits = align ? (8U - align) : 8U;
         if (h264player_br_skip_bits(br, skip_bits) || h264player_br_skip_bits(br, 1)) {
-            LLOGW("h264: cavlc coeff_token soft skip %ubit bit=%u", (unsigned)skip_bits,
+            H264_LOGW_VERBOSE("h264: cavlc coeff_token soft skip %ubit bit=%u", (unsigned)skip_bits,
                   (unsigned)br->bitpos);
-            if (total_coeff_out) {
-                *total_coeff_out = 0;
-            }
-            return 1;
+        }
+        if (total_coeff_out) {
+            *total_coeff_out = 0;
         }
         return 0;
     }
@@ -1452,21 +1465,21 @@ static int h264player_cavlc_parse_residual_block(h264_bitreader_t *br, uint8_t n
         return 1;
     }
     if (!h264player_cavlc_decode_levels(br, total_coeff, trailing_ones)) {
-        LLOGW("h264: cavlc levels fail tc=%u t1=%u bit=%u", (unsigned)total_coeff,
+        H264_LOGW_VERBOSE("h264: cavlc levels fail tc=%u t1=%u bit=%u", (unsigned)total_coeff,
               (unsigned)trailing_ones, (unsigned)br->bitpos);
         if (total_coeff_out) {
             *total_coeff_out = 0;
         }
-        return 1;
+        return 0;
     }
     uint8_t total_zeros = 0;
     if (!h264player_cavlc_decode_total_zeros(br, total_coeff, max_coeff, nC, &total_zeros)) {
-        LLOGW("h264: cavlc total_zeros fail tc=%u max=%u nC=%u bit=%u", (unsigned)total_coeff,
+        H264_LOGW_VERBOSE("h264: cavlc total_zeros fail tc=%u max=%u nC=%u bit=%u", (unsigned)total_coeff,
               (unsigned)max_coeff, (unsigned)nC, (unsigned)br->bitpos);
         if (total_coeff_out) {
             *total_coeff_out = 0;
         }
-        return 1;
+        return 0;
     }
     uint8_t zeros_left = total_zeros;
     for (uint32_t i = 0; i + 1 < total_coeff; i++) {
@@ -1477,24 +1490,26 @@ static int h264player_cavlc_parse_residual_block(h264_bitreader_t *br, uint8_t n
         if (run < 0) {
             uint32_t peek = 0;
             h264player_br_peek_bits(br, 16, &peek);
-            LLOGW("h264: cavlc run_before fail tc=%u zl=%u i=%u bit=%u next=0x%04X",
+            H264_LOGW_VERBOSE("h264: cavlc run_before fail tc=%u zl=%u i=%u bit=%u next=0x%04X",
                   (unsigned)total_coeff, (unsigned)zeros_left, (unsigned)i, (unsigned)br->bitpos,
                   (unsigned)peek);
             uint32_t align = (uint32_t)(br->bitpos & 7U);
             uint32_t skip_bits = align ? (8U - align) : 8U;
             if (h264player_br_skip_bits(br, skip_bits) || h264player_br_skip_bits(br, 1)) {
-                LLOGW("h264: cavlc run_before soft skip %ubit bit=%u", (unsigned)skip_bits,
+                H264_LOGW_VERBOSE("h264: cavlc run_before soft skip %ubit bit=%u", (unsigned)skip_bits,
                       (unsigned)br->bitpos);
             }
             if (total_coeff_out) {
                 *total_coeff_out = 0;
             }
-            return 1;
+            return 0;
         }
         zeros_left = (uint8_t)(zeros_left - (uint8_t)run);
     }
     return 1;
 }
+
+static int h264player_try_resync(h264_bitreader_t *br, size_t before_bitpos);
 
 static int h264player_parse_luma_residual(luat_h264player_t *ctx, h264_bitreader_t *br, uint32_t mb_x,
                                           uint32_t mb_y, uint8_t cbp_luma) {
@@ -1509,23 +1524,38 @@ static int h264player_parse_luma_residual(luat_h264player_t *ctx, h264_bitreader
         }
         uint8_t nC = h264player_get_luma_nC(ctx, mb_x, mb_y, block);
         uint8_t total_coeff = 0;
+        size_t bitpos_before = br->bitpos;
         if (!h264player_cavlc_parse_residual_block(br, nC, 16, &total_coeff)) {
-            LLOGW("h264: luma residual fail mb=(%u,%u) blk=%u nC=%u bit=%u", (unsigned)mb_x,
+            H264_LOGW_VERBOSE("h264: luma residual fail mb=(%u,%u) blk=%u nC=%u bit=%u", (unsigned)mb_x,
                   (unsigned)mb_y, (unsigned)block, (unsigned)nC, (unsigned)br->bitpos);
-            if (nC != 0) {
-                if (h264player_cavlc_parse_residual_block(br, 0, 16, &total_coeff)) {
-                    LLOGW("h264: luma residual fallback nC=0 ok mb=(%u,%u) blk=%u", (unsigned)mb_x,
-                          (unsigned)mb_y, (unsigned)block);
-                } else {
-                    LLOGW("h264: luma residual soft skip mb=(%u,%u) blk=%u", (unsigned)mb_x,
-                          (unsigned)mb_y, (unsigned)block);
-                    total_coeff = 0;
+            if (br->bitpos == bitpos_before) {
+                int advanced = 0;
+                if (h264player_try_resync(br, bitpos_before)) {
+                    advanced = 1;
+                } else if (h264player_br_skip_bits(br, 1)) {
+                    advanced = 1;
                 }
-            } else {
-                LLOGW("h264: luma residual soft skip mb=(%u,%u) blk=%u", (unsigned)mb_x,
-                      (unsigned)mb_y, (unsigned)block);
-                total_coeff = 0;
+                if (!advanced) {
+                    return 0;
+                }
             }
+            h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+            continue;
+        }
+        if (br->bitpos == bitpos_before) {
+            H264_LOGW_VERBOSE("h264: luma residual bitpos stalled mb=(%u,%u) blk=%u", (unsigned)mb_x,
+                  (unsigned)mb_y, (unsigned)block);
+            int advanced = 0;
+            if (h264player_try_resync(br, bitpos_before)) {
+                advanced = 1;
+            } else if (h264player_br_skip_bits(br, 1)) {
+                advanced = 1;
+            }
+            if (!advanced) {
+                return 0;
+            }
+            h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+            continue;
         }
         h264player_set_luma_nz(ctx, mb_x, mb_y, block, total_coeff);
     }
@@ -1548,11 +1578,36 @@ static int h264player_parse_chroma_residual(luat_h264player_t *ctx, h264_bitread
 
     for (uint32_t plane = 0; plane < 2; plane++) {
         uint8_t total_coeff = 0;
+        size_t bitpos_before = br->bitpos;
         if (!h264player_cavlc_parse_residual_block(br, 0xFF, 4, &total_coeff)) {
-            LLOGW("h264: chroma dc fail mb=(%u,%u) plane=%u bit=%u", (unsigned)mb_x,
+            H264_LOGW_VERBOSE("h264: chroma dc fail mb=(%u,%u) plane=%u bit=%u", (unsigned)mb_x,
                   (unsigned)mb_y, (unsigned)plane, (unsigned)br->bitpos);
-            LLOGW("h264: chroma dc soft skip mb=(%u,%u) plane=%u", (unsigned)mb_x,
+            if (br->bitpos == bitpos_before) {
+                int advanced = 0;
+                if (h264player_try_resync(br, bitpos_before)) {
+                    advanced = 1;
+                } else if (h264player_br_skip_bits(br, 1)) {
+                    advanced = 1;
+                }
+                if (!advanced) {
+                    return 0;
+                }
+            }
+            continue;
+        }
+        if (br->bitpos == bitpos_before) {
+            H264_LOGW_VERBOSE("h264: chroma dc bitpos stalled mb=(%u,%u) plane=%u", (unsigned)mb_x,
                   (unsigned)mb_y, (unsigned)plane);
+            int advanced = 0;
+            if (h264player_try_resync(br, bitpos_before)) {
+                advanced = 1;
+            } else if (h264player_br_skip_bits(br, 1)) {
+                advanced = 1;
+            }
+            if (!advanced) {
+                return 0;
+            }
+            continue;
         }
     }
 
@@ -1561,12 +1616,38 @@ static int h264player_parse_chroma_residual(luat_h264player_t *ctx, h264_bitread
             for (uint32_t blk = 0; blk < 4; blk++) {
                 uint8_t nC = h264player_get_chroma_nC(ctx, mb_x, mb_y, plane, blk);
                 uint8_t total_coeff = 0;
+                size_t bitpos_before = br->bitpos;
                 if (!h264player_cavlc_parse_residual_block(br, nC, 15, &total_coeff)) {
-                    LLOGW("h264: chroma ac fail mb=(%u,%u) plane=%u blk=%u bit=%u", (unsigned)mb_x,
+                    H264_LOGW_VERBOSE("h264: chroma ac fail mb=(%u,%u) plane=%u blk=%u bit=%u", (unsigned)mb_x,
                           (unsigned)mb_y, (unsigned)plane, (unsigned)blk, (unsigned)br->bitpos);
-                    LLOGW("h264: chroma ac soft skip mb=(%u,%u) plane=%u blk=%u", (unsigned)mb_x,
+                    if (br->bitpos == bitpos_before) {
+                        int advanced = 0;
+                        if (h264player_try_resync(br, bitpos_before)) {
+                            advanced = 1;
+                        } else if (h264player_br_skip_bits(br, 1)) {
+                            advanced = 1;
+                        }
+                        if (!advanced) {
+                            return 0;
+                        }
+                    }
+                    h264player_set_chroma_nz(ctx, mb_x, mb_y, plane, blk, 0);
+                    continue;
+                }
+                if (br->bitpos == bitpos_before) {
+                    H264_LOGW_VERBOSE("h264: chroma ac bitpos stalled mb=(%u,%u) plane=%u blk=%u", (unsigned)mb_x,
                           (unsigned)mb_y, (unsigned)plane, (unsigned)blk);
-                    total_coeff = 0;
+                    int advanced = 0;
+                    if (h264player_try_resync(br, bitpos_before)) {
+                        advanced = 1;
+                    } else if (h264player_br_skip_bits(br, 1)) {
+                        advanced = 1;
+                    }
+                    if (!advanced) {
+                        return 0;
+                    }
+                    h264player_set_chroma_nz(ctx, mb_x, mb_y, plane, blk, 0);
+                    continue;
                 }
                 h264player_set_chroma_nz(ctx, mb_x, mb_y, plane, blk, total_coeff);
             }
@@ -1634,7 +1715,7 @@ static int h264player_parse_p_inter_pred(luat_h264player_t *ctx, h264_bitreader_
                 case 6: mvd_pairs = 2; break; /* 4x8 ref0 */
                 case 7: mvd_pairs = 4; break; /* 4x4 ref0 */
                 default:
-                    LLOGW("h264: mb%u unsupported P sub_mb_type=%u", (unsigned)mb_index,
+                    H264_LOGW_VERBOSE("h264: mb%u unsupported P sub_mb_type=%u", (unsigned)mb_index,
                           (unsigned)sub_mb_type);
                     mvd_pairs = 1;
                     need_ref_idx = 1;
@@ -1666,10 +1747,10 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
 
     uint32_t mb_type_ue = 0;
     if (!h264player_br_read_ue(br, &mb_type_ue)) {
-        LLOGW("h264: mb%u read mb_type fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
+        H264_LOGW_VERBOSE("h264: mb%u read mb_type fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
         return 0;
     }
-    LLOGI("h264: mb%u type=%u slice=%u bit=%u", (unsigned)mb_index, (unsigned)mb_type_ue,
+    H264_LOGI("h264: mb%u type=%u slice=%u bit=%u", (unsigned)mb_index, (unsigned)mb_type_ue,
           (unsigned)slice_type, (unsigned)br->bitpos);
 
     uint8_t cbp_luma = 0;
@@ -1680,7 +1761,7 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
 
     if (slice_type == 2 || slice_type == 7) {
         if (mb_type_ue > 25) {
-            LLOGW("h264: mb%u invalid I mb_type=%u", (unsigned)mb_index, (unsigned)mb_type_ue);
+            H264_LOGW_VERBOSE("h264: mb%u invalid I mb_type=%u", (unsigned)mb_index, (unsigned)mb_type_ue);
             h264player_fill_mb_gray(ctx, mb_x, mb_y);
             return 1;
         }
@@ -1688,26 +1769,26 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
             if (ctx->transform_8x8_mode_flag) {
                 uint32_t transform_size_8x8_flag = 0;
                 if (!h264player_br_read_bit(br, &transform_size_8x8_flag)) {
-                    LLOGW("h264: mb%u transform8x8 flag fail bit=%u", (unsigned)mb_index,
+                    H264_LOGW_VERBOSE("h264: mb%u transform8x8 flag fail bit=%u", (unsigned)mb_index,
                           (unsigned)br->bitpos);
                     return 0;
                 }
                 if (transform_size_8x8_flag) {
-                    LLOGW("h264: mb%u transform8x8 unsupported", (unsigned)mb_index);
+                    H264_LOGW_VERBOSE("h264: mb%u transform8x8 unsupported", (unsigned)mb_index);
                     return 0;
                 }
             }
             for (uint32_t blk = 0; blk < 16; blk++) {
                 uint32_t prev_intra4x4_pred_mode_flag = 0;
                 if (!h264player_br_read_bit(br, &prev_intra4x4_pred_mode_flag)) {
-                    LLOGW("h264: mb%u intra4x4 pred_flag fail blk=%u bit=%u", (unsigned)mb_index,
+                    H264_LOGW_VERBOSE("h264: mb%u intra4x4 pred_flag fail blk=%u bit=%u", (unsigned)mb_index,
                           (unsigned)blk, (unsigned)br->bitpos);
                     return 0;
                 }
                 if (!prev_intra4x4_pred_mode_flag) {
                     uint32_t rem_intra4x4_pred_mode = 0;
                     if (!h264player_br_read_bits(br, 3, &rem_intra4x4_pred_mode)) {
-                        LLOGW("h264: mb%u intra4x4 pred_mode fail blk=%u bit=%u", (unsigned)mb_index,
+                        H264_LOGW_VERBOSE("h264: mb%u intra4x4 pred_mode fail blk=%u bit=%u", (unsigned)mb_index,
                               (unsigned)blk, (unsigned)br->bitpos);
                         return 0;
                     }
@@ -1715,22 +1796,22 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
             }
             uint32_t intra_chroma_pred_mode = 0;
             if (!h264player_br_read_ue(br, &intra_chroma_pred_mode)) {
-                LLOGW("h264: mb%u intra_chroma_pred_mode fail bit=%u", (unsigned)mb_index,
+                H264_LOGW_VERBOSE("h264: mb%u intra_chroma_pred_mode fail bit=%u", (unsigned)mb_index,
                       (unsigned)br->bitpos);
                 return 0;
             }
             if (!h264player_br_read_ue(br, &coded_block_pattern)) {
-                LLOGW("h264: mb%u read cbp fail", (unsigned)mb_index);
+                H264_LOGW_VERBOSE("h264: mb%u read cbp fail", (unsigned)mb_index);
                 coded_block_pattern = 0;
             }
             if (coded_block_pattern >= 48) {
-                LLOGW("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
+                H264_LOGW_VERBOSE("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
                 coded_block_pattern = 0;
             }
             uint8_t cbp = h264_golomb_to_intra4x4_cbp[coded_block_pattern];
             cbp_luma = cbp & 0x0F;
             cbp_chroma = (cbp >> 4) & 0x03;
-            LLOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
+            H264_LOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
                   (unsigned)cbp, (unsigned)cbp_luma, (unsigned)cbp_chroma, (unsigned)br->bitpos);
         } else if (mb_type_ue <= 24) {
             uint32_t intra_chroma_pred_mode = 0;
@@ -1744,22 +1825,22 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
             uint32_t cbp_luma_code = type_minus1 / 12U;
             cbp_chroma = (uint8_t)cbp_chroma_code;
             cbp_luma = cbp_luma_code ? 0x0F : 0x00;
-            LLOGI("h264: mb%u I16x16 cbp_luma_code=%u cbp_chroma=%u", (unsigned)mb_index,
+            H264_LOGI("h264: mb%u I16x16 cbp_luma_code=%u cbp_chroma=%u", (unsigned)mb_index,
                   (unsigned)cbp_luma_code, (unsigned)cbp_chroma);
         } else if (mb_type_ue == 25) {
             if (!h264player_skip_pcm(ctx, br)) {
-                LLOGW("h264: mb%u pcm skip fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
+                H264_LOGW_VERBOSE("h264: mb%u pcm skip fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
                 return 0;
             }
             h264player_fill_mb_gray(ctx, mb_x, mb_y);
             return 1;
         } else {
-            LLOGW("h264: unsupported I-slice mb_type=%u", (unsigned)mb_type_ue);
+            H264_LOGW_VERBOSE("h264: unsupported I-slice mb_type=%u", (unsigned)mb_type_ue);
             return 0;
         }
     } else if (slice_type == 0 || slice_type == 5) {
         if (mb_type_ue > 30) {
-            LLOGW("h264: mb%u invalid P mb_type=%u", (unsigned)mb_index, (unsigned)mb_type_ue);
+            H264_LOGW_VERBOSE("h264: mb%u invalid P mb_type=%u", (unsigned)mb_index, (unsigned)mb_type_ue);
             h264player_copy_mb_from_ref(ctx, mb_x, mb_y);
             for (uint32_t block = 0; block < 16; block++) {
                 h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
@@ -1778,26 +1859,26 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
                 if (ctx->transform_8x8_mode_flag) {
                     uint32_t transform_size_8x8_flag = 0;
                     if (!h264player_br_read_bit(br, &transform_size_8x8_flag)) {
-                        LLOGW("h264: mb%u transform8x8 flag fail bit=%u", (unsigned)mb_index,
+                        H264_LOGW_VERBOSE("h264: mb%u transform8x8 flag fail bit=%u", (unsigned)mb_index,
                               (unsigned)br->bitpos);
                         return 0;
                     }
                     if (transform_size_8x8_flag) {
-                        LLOGW("h264: mb%u transform8x8 unsupported", (unsigned)mb_index);
+                        H264_LOGW_VERBOSE("h264: mb%u transform8x8 unsupported", (unsigned)mb_index);
                         return 0;
                     }
                 }
                 for (uint32_t blk = 0; blk < 16; blk++) {
                     uint32_t prev_intra4x4_pred_mode_flag = 0;
                     if (!h264player_br_read_bit(br, &prev_intra4x4_pred_mode_flag)) {
-                        LLOGW("h264: mb%u intra4x4 pred_flag fail blk=%u bit=%u", (unsigned)mb_index,
+                        H264_LOGW_VERBOSE("h264: mb%u intra4x4 pred_flag fail blk=%u bit=%u", (unsigned)mb_index,
                               (unsigned)blk, (unsigned)br->bitpos);
                         return 0;
                     }
                     if (!prev_intra4x4_pred_mode_flag) {
                         uint32_t rem_intra4x4_pred_mode = 0;
                         if (!h264player_br_read_bits(br, 3, &rem_intra4x4_pred_mode)) {
-                            LLOGW("h264: mb%u intra4x4 pred_mode fail blk=%u bit=%u", (unsigned)mb_index,
+                            H264_LOGW_VERBOSE("h264: mb%u intra4x4 pred_mode fail blk=%u bit=%u", (unsigned)mb_index,
                                   (unsigned)blk, (unsigned)br->bitpos);
                             return 0;
                         }
@@ -1805,22 +1886,22 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
                 }
                 uint32_t intra_chroma_pred_mode = 0;
                 if (!h264player_br_read_ue(br, &intra_chroma_pred_mode)) {
-                    LLOGW("h264: mb%u intra_chroma_pred_mode fail bit=%u", (unsigned)mb_index,
+                    H264_LOGW_VERBOSE("h264: mb%u intra_chroma_pred_mode fail bit=%u", (unsigned)mb_index,
                           (unsigned)br->bitpos);
                     return 0;
                 }
                 if (!h264player_br_read_ue(br, &coded_block_pattern)) {
-                    LLOGW("h264: mb%u read cbp fail", (unsigned)mb_index);
+                    H264_LOGW_VERBOSE("h264: mb%u read cbp fail", (unsigned)mb_index);
                     coded_block_pattern = 0;
                 }
                 if (coded_block_pattern >= 48) {
-                    LLOGW("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
+                    H264_LOGW_VERBOSE("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
                     coded_block_pattern = 0;
                 }
                 uint8_t cbp = h264_golomb_to_intra4x4_cbp[coded_block_pattern];
                 cbp_luma = cbp & 0x0F;
                 cbp_chroma = (cbp >> 4) & 0x03;
-                LLOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
+                H264_LOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
                       (unsigned)cbp, (unsigned)cbp_luma, (unsigned)cbp_chroma, (unsigned)br->bitpos);
             } else if (intra_mb_type <= 24) {
                 uint32_t intra_chroma_pred_mode = 0;
@@ -1834,22 +1915,22 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
                 uint32_t cbp_luma_code = type_minus1 / 12U;
                 cbp_chroma = (uint8_t)cbp_chroma_code;
                 cbp_luma = cbp_luma_code ? 0x0F : 0x00;
-                LLOGI("h264: mb%u I16x16 cbp_luma_code=%u cbp_chroma=%u", (unsigned)mb_index,
+                H264_LOGI("h264: mb%u I16x16 cbp_luma_code=%u cbp_chroma=%u", (unsigned)mb_index,
                       (unsigned)cbp_luma_code, (unsigned)cbp_chroma);
             } else if (intra_mb_type == 25) {
                 if (!h264player_skip_pcm(ctx, br)) {
-                    LLOGW("h264: mb%u pcm skip fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
+                    H264_LOGW_VERBOSE("h264: mb%u pcm skip fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
                     return 0;
                 }
                 h264player_fill_mb_gray(ctx, mb_x, mb_y);
                 return 1;
             } else {
-                LLOGW("h264: unsupported P-intra mb_type=%u", (unsigned)mb_type_ue);
+                H264_LOGW_VERBOSE("h264: unsupported P-intra mb_type=%u", (unsigned)mb_type_ue);
                 return 0;
             }
         } else if (mb_type_ue == 0 || mb_type_ue == 1 || mb_type_ue == 2 || mb_type_ue == 3 || mb_type_ue == 4) {
             if (!h264player_parse_p_inter_pred(ctx, br, mb_index, mb_type_ue)) {
-                LLOGW("h264: mb%u inter pred fail type=%u bit=%u", (unsigned)mb_index,
+                H264_LOGW_VERBOSE("h264: mb%u inter pred fail type=%u bit=%u", (unsigned)mb_index,
                       (unsigned)mb_type_ue, (unsigned)br->bitpos);
                 h264player_copy_mb_from_ref(ctx, mb_x, mb_y);
                 for (uint32_t block = 0; block < 16; block++) {
@@ -1865,17 +1946,17 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
         }
         if (!mb_is_intra) {
             if (!h264player_br_read_ue(br, &coded_block_pattern)) {
-                LLOGW("h264: mb%u read cbp fail", (unsigned)mb_index);
+                H264_LOGW_VERBOSE("h264: mb%u read cbp fail", (unsigned)mb_index);
                 coded_block_pattern = 0;
             }
             if (coded_block_pattern >= 48) {
-                LLOGW("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
+                H264_LOGW_VERBOSE("h264: mb%u cbp out of range=%u", (unsigned)mb_index, (unsigned)coded_block_pattern);
                 coded_block_pattern = 0;
             }
             uint8_t cbp = h264_golomb_to_inter_cbp[coded_block_pattern];
             cbp_luma = cbp & 0x0F;
             cbp_chroma = (cbp >> 4) & 0x03;
-            LLOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
+            H264_LOGI("h264: mb%u cbp=%u luma=0x%X chroma=%u bit=%u", (unsigned)mb_index,
                   (unsigned)cbp, (unsigned)cbp_luma, (unsigned)cbp_chroma, (unsigned)br->bitpos);
         }
     } else {
@@ -1897,7 +1978,7 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
     if ((cbp_luma | cbp_chroma) != 0 || is_i16x16) {
         uint32_t mb_qp_delta = 0;
         if (!h264player_br_read_se(br, (int32_t *)&mb_qp_delta)) {
-            LLOGW("h264: mb%u qp_delta fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
+            H264_LOGW_VERBOSE("h264: mb%u qp_delta fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
             return 0;
         }
         ctx->qp = (uint8_t)((int32_t)ctx->qp + (int32_t)mb_qp_delta);
@@ -1906,20 +1987,66 @@ static int h264player_parse_macroblock(luat_h264player_t *ctx, h264_bitreader_t 
     if (slice_type == 2 || slice_type == 7 || mb_is_intra) {
         uint32_t intra_type = mb_is_intra ? intra_mb_type : mb_type_ue;
         if (intra_type >= 1 && intra_type <= 24) {
+            size_t bitpos_before = br->bitpos;
+            int dc_ok = 1;
             if (!h264player_cavlc_parse_residual_block(br, 0, 16, NULL)) {
-                LLOGW("h264: mb%u luma dc fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
-                LLOGW("h264: mb%u luma dc soft skip", (unsigned)mb_index);
+                H264_LOGW_VERBOSE("h264: mb%u luma dc fail bit=%u", (unsigned)mb_index, (unsigned)br->bitpos);
+                dc_ok = 0;
+            } else if (br->bitpos == bitpos_before) {
+                H264_LOGW_VERBOSE("h264: mb%u luma dc bitpos stalled", (unsigned)mb_index);
+                dc_ok = 0;
             }
-            if (cbp_luma) {
+            if (!dc_ok) {
+                if (br->bitpos == bitpos_before) {
+                    int advanced = 0;
+                    if (h264player_try_resync(br, bitpos_before)) {
+                        advanced = 1;
+                    } else if (h264player_br_skip_bits(br, 1)) {
+                        advanced = 1;
+                    }
+                    if (!advanced) {
+                        return 0;
+                    }
+                }
+                for (uint32_t block = 0; block < 16; block++) {
+                    h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+                }
+            } else if (cbp_luma) {
                 for (uint32_t block = 0; block < 16; block++) {
                     uint8_t nC = h264player_get_luma_nC(ctx, mb_x, mb_y, block);
                     uint8_t total_coeff = 0;
+                    size_t bitpos_before_ac = br->bitpos;
                     if (!h264player_cavlc_parse_residual_block(br, nC, 15, &total_coeff)) {
-                        LLOGW("h264: luma ac fail mb=(%u,%u) blk=%u bit=%u", (unsigned)mb_x,
+                        H264_LOGW_VERBOSE("h264: luma ac fail mb=(%u,%u) blk=%u bit=%u", (unsigned)mb_x,
                               (unsigned)mb_y, (unsigned)block, (unsigned)br->bitpos);
-                        LLOGW("h264: luma ac soft skip mb=(%u,%u) blk=%u", (unsigned)mb_x,
+                        if (br->bitpos == bitpos_before_ac) {
+                            int advanced = 0;
+                            if (h264player_try_resync(br, bitpos_before_ac)) {
+                                advanced = 1;
+                            } else if (h264player_br_skip_bits(br, 1)) {
+                                advanced = 1;
+                            }
+                            if (!advanced) {
+                                return 0;
+                            }
+                        }
+                        h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+                        continue;
+                    }
+                    if (br->bitpos == bitpos_before_ac) {
+                        H264_LOGW_VERBOSE("h264: luma ac bitpos stalled mb=(%u,%u) blk=%u", (unsigned)mb_x,
                               (unsigned)mb_y, (unsigned)block);
-                        total_coeff = 0;
+                        int advanced = 0;
+                        if (h264player_try_resync(br, bitpos_before_ac)) {
+                            advanced = 1;
+                        } else if (h264player_br_skip_bits(br, 1)) {
+                            advanced = 1;
+                        }
+                        if (!advanced) {
+                            return 0;
+                        }
+                        h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+                        continue;
                     }
                     h264player_set_luma_nz(ctx, mb_x, mb_y, block, total_coeff);
                 }
@@ -1978,6 +2105,59 @@ static void h264player_fill_remaining_mbs(luat_h264player_t *ctx, uint32_t start
             h264player_fill_mb_gray(ctx, mb_x, mb_y);
         }
     }
+}
+
+static void h264player_conceal_mb(luat_h264player_t *ctx, uint32_t mb_index, uint8_t slice_type) {
+    if (!ctx) {
+        return;
+    }
+    uint32_t mb_x = 0;
+    uint32_t mb_y = 0;
+    h264player_mb_index_to_xy(ctx, mb_index, &mb_x, &mb_y);
+    for (uint32_t block = 0; block < 16; block++) {
+        h264player_set_luma_nz(ctx, mb_x, mb_y, block, 0);
+    }
+    for (uint32_t plane = 0; plane < 2; plane++) {
+        for (uint32_t blk = 0; blk < 4; blk++) {
+            h264player_set_chroma_nz(ctx, mb_x, mb_y, plane, blk, 0);
+        }
+    }
+    if (slice_type == 0 || slice_type == 5) {
+        h264player_copy_mb_from_ref(ctx, mb_x, mb_y);
+    } else {
+        h264player_fill_mb_gray(ctx, mb_x, mb_y);
+    }
+}
+
+static int h264player_try_resync(h264_bitreader_t *br, size_t before_bitpos) {
+    if (!br) {
+        return 0;
+    }
+    if (br->bitpos > before_bitpos) {
+        return 1;
+    }
+    size_t mod = br->bitpos & 7U;
+    if (mod) {
+        if (!h264player_br_skip_bits(br, (uint32_t)(8U - mod))) {
+            return 0;
+        }
+        if (br->bitpos > before_bitpos) {
+            return 1;
+        }
+    }
+    for (uint32_t step = 0; step < 4; step++) {
+        size_t pos_before = br->bitpos;
+        if (!h264player_br_skip_bits(br, 8)) {
+            return 0;
+        }
+        if (br->bitpos > before_bitpos) {
+            return 1;
+        }
+        if (br->bitpos == pos_before) {
+            return 0;
+        }
+    }
+    return br->bitpos > before_bitpos;
 }
 
 static int h264player_parse_slice(luat_h264player_t *ctx, const uint8_t *data, size_t size, uint8_t nal_ref_idc,
@@ -2173,16 +2353,28 @@ static int h264player_parse_slice(luat_h264player_t *ctx, const uint8_t *data, s
 
     uint32_t mb_count = ctx->mb_width * ctx->mb_height;
     uint32_t mb_index = first_mb_in_slice;
+    uint32_t recoveries = 0;
     while (mb_index < mb_count) {
         if (!h264player_br_more_rbsp_data(&br)) {
             break;
         }
         if (slice_type == 0 || slice_type == 5) {
             uint32_t mb_skip_run = 0;
+            size_t skip_bitpos_before = br.bitpos;
             if (!h264player_br_read_ue(&br, &mb_skip_run)) {
-                LLOGW("h264: mb_skip_run fail bit=%u", (unsigned)br.bitpos);
-                luat_heap_free(rbsp);
-                return 0;
+                H264_LOGW_VERBOSE("h264: mb_skip_run fail bit=%u", (unsigned)br.bitpos);
+                if (h264player_try_resync(&br, skip_bitpos_before) &&
+                    h264player_br_read_ue(&br, &mb_skip_run)) {
+                    H264_LOGW_VERBOSE("h264: mb_skip_run resynced bit=%u", (unsigned)br.bitpos);
+                } else {
+                    h264player_conceal_mb(ctx, mb_index, (uint8_t)slice_type);
+                    mb_index++;
+                    if (++recoveries > 64) {
+                        h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
+                        break;
+                    }
+                    continue;
+                }
             }
             if (mb_skip_run > 0) {
                 if (mb_index + mb_skip_run > mb_count) {
@@ -2211,15 +2403,33 @@ static int h264player_parse_slice(luat_h264player_t *ctx, const uint8_t *data, s
             if (!h264player_br_more_rbsp_data(&br)) {
                 break;
             }
-            LLOGW("h264: mb parse fail idx=%u bit=%u", (unsigned)mb_index, (unsigned)br.bitpos);
-            h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
-            break;
+            H264_LOGW_VERBOSE("h264: mb parse fail idx=%u bit=%u", (unsigned)mb_index, (unsigned)br.bitpos);
+            if (!h264player_try_resync(&br, mb_bitpos_before)) {
+                h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
+                break;
+            }
+            h264player_conceal_mb(ctx, mb_index, (uint8_t)slice_type);
+            mb_index++;
+            if (++recoveries > 64) {
+                h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
+                break;
+            }
+            continue;
         }
         if (br.bitpos <= mb_bitpos_before) {
-            LLOGW("h264: mb%u bitpos stalled %u->%u, end slice", (unsigned)mb_index,
+            H264_LOGW_VERBOSE("h264: mb%u bitpos stalled %u->%u, end slice", (unsigned)mb_index,
                   (unsigned)mb_bitpos_before, (unsigned)br.bitpos);
-            h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
-            break;
+            if (!h264player_try_resync(&br, mb_bitpos_before)) {
+                h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
+                break;
+            }
+            h264player_conceal_mb(ctx, mb_index, (uint8_t)slice_type);
+            mb_index++;
+            if (++recoveries > 64) {
+                h264player_fill_remaining_mbs(ctx, mb_index, (uint8_t)slice_type);
+                break;
+            }
+            continue;
         }
         mb_index++;
     }
@@ -2309,6 +2519,10 @@ void luat_h264player_set_callback(luat_h264player_t *ctx, luat_h264player_frame_
     ctx->frame_cb_userdata = userdata;
 }
 
+void luat_h264player_set_debug(uint8_t enable) {
+    g_h264player_debug = enable ? 1U : 0U;
+}
+
 void luat_h264player_destroy(luat_h264player_t *ctx) {
     if (!ctx) {
         return;
@@ -2338,7 +2552,7 @@ LUAT_RET luat_h264player_feed(luat_h264player_t *ctx, const uint8_t *data, size_
     if (!ctx || !data || len < 4) {
         return LUAT_ERR_FAIL;
     }
-    LLOGI("h264: feed len=%u", (unsigned)len);
+    H264_LOGI("h264: feed len=%u", (unsigned)len);
     int had_frame = 0;
     size_t offset = 0;
     while (offset + 4 <= len) {
@@ -2363,7 +2577,7 @@ LUAT_RET luat_h264player_feed(luat_h264player_t *ctx, const uint8_t *data, size_
                 uint8_t nal_type = nal[0] & 0x1F;
                 const uint8_t *payload = nal + 1;
                 size_t payload_len = nal_len - 1;
-                LLOGI("h264: nal type=%u len=%u", (unsigned)nal_type, (unsigned)payload_len);
+                H264_LOGI("h264: nal type=%u len=%u", (unsigned)nal_type, (unsigned)payload_len);
                 if (nal_type == 7) {
                     if (!h264player_parse_sps(ctx, payload, payload_len)) {
                         LLOGW("h264: parse sps fail len=%u", (unsigned)payload_len);
@@ -2391,6 +2605,15 @@ LUAT_RET luat_h264player_feed(luat_h264player_t *ctx, const uint8_t *data, size_
                                 break;
                             }
                             return LUAT_ERR_FAIL;
+                        }
+                        if (ctx->frame && ctx->ref_frame) {
+                            memcpy(ctx->frame, ctx->ref_frame, ctx->frame_size);
+                            ctx->frame_ready = 1;
+                            if (ctx->frame_cb) {
+                                ctx->frame_cb(ctx->frame_cb_userdata, ctx->frame, ctx->frame_size,
+                                              ctx->width, ctx->height, ctx->format);
+                            }
+                            had_frame = 1;
                         }
                         continue;
                     }

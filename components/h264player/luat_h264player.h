@@ -57,6 +57,12 @@ luat_h264player_t* luat_h264player_create(luat_h264player_frame_cb_t cb, void *u
 void luat_h264player_set_callback(luat_h264player_t* ctx, luat_h264player_frame_cb_t cb, void *userdata);
 
 /**
+ * @brief 开关调试日志
+ * @param enable 1 开启，0 关闭（默认关闭）
+ */
+void luat_h264player_set_debug(uint8_t enable);
+
+/**
  * @brief 销毁解码器实例
  */
 void luat_h264player_destroy(luat_h264player_t* ctx);

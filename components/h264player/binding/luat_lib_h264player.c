@@ -194,6 +194,17 @@ static int l_h264player_format(lua_State *L) {
     return 1;
 }
 
+/**
+设置调试日志开关
+@api h264player.debug(enable)
+@boolean enable true 开启, false 关闭
+@return nil
+*/
+static int l_h264player_debug(lua_State *L) {
+    luat_h264player_set_debug((uint8_t)lua_toboolean(L, 1));
+    return 0;
+}
+
 static int l_h264player_gc(lua_State *L) {
     return l_h264player_release(L);
 }
@@ -210,6 +221,7 @@ static const rotable_Reg_t reg_h264player_ctx[] = {
 
 static const rotable_Reg_t reg_h264player[] = {
     {"create", ROREG_FUNC(l_h264player_create)},
+    {"debug", ROREG_FUNC(l_h264player_debug)},
     {NULL, ROREG_INT(0)}
 };
 

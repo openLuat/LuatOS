@@ -23,12 +23,12 @@ local function init_airlink_net()
     airlink.init()
     -- 创建桥接网络设备。
     log.info("创建桥接网络设备")
-    netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
     -- 启动airlink，配置Air780EPM作为SPI主机模式。
-    airlink.start(airlink.MODE_SPI_MASTER)
+    airlink.start(airlink.MODE_SPI_SLAVE) 
     -- 配置IPv4地址。
     log.info("配置IPv4地址", "192.168.111.2", "255.255.255.0", "192.168.111.1")
-    netdrv.ipv4(socket.LWIP_USER0, "192.168.111.2", "255.255.255.0", "192.168.111.1")
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.2", "255.255.255.0", "192.168.111.1")
     -- 延时100毫秒。
     sys.wait(100)
     -- 等待网络就绪，默认事件主题为IP_READY，设置超时时间为10秒。
@@ -36,7 +36,7 @@ local function init_airlink_net()
     -- 配置网络地址端口转换（NAPT），此处使用4G网络作为主网关出口。
     netdrv.napt(socket.LWIP_GP)
     -- 设置DNS代理。
-    dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
+    dnsproxy.setup(socket.LWIP_GP_GW, socket.LWIP_GP)
 end
 
 -- Air780EPM发送数据信息给Air8101。
@@ -58,6 +58,8 @@ local function airlink_sdata_Air8101()
         -- end
 
         sys.wait(1000)
+        log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
+        airlink.statistics()
     end
 end
 
@@ -80,22 +82,6 @@ local function http_get_test()
     end
 end
 
--- 订阅IP_READY事件，打印收到的信息。
-local function ip_ready(id, ip)
-    -- 打印网络就绪的信息。
-    log.info("收到IP_READY!!", id, ip)
-    -- 给对端设备发送网络状态信息。
-    -- airlink.sdata("Air780EPM_IP_READY!!")
-end
-
--- 订阅IP_LOSE事件，打印收到的信息。
-local function ip_lose(id, ip)
-    -- 打印网络断开的信息。
-    log.info("收到IP_LOSE!!", id, ip)
-    -- 给对端设备发送网络状态信息。
-    -- airlink.sdata("Air780EPM_IP_LOSE!!")
-end
-
 -- 订阅airlink的SDATA事件，打印收到的信息。
 local function airlink_sdata(data)
     log.info("收到AIRLINK_SDATA!!", data)
@@ -110,12 +96,6 @@ sys.taskInit(init_airlink_net)
 
 -- Air780EPM发送数据信息给Air8101。
 sys.taskInit(airlink_sdata_Air8101)
-
--- 订阅IP_READY事件，打印收到的信息。
--- sys.subscribe("IP_READY", ip_ready)
-
--- 订阅IP_LOSE事件，打印收到的信息。
--- sys.subscribe("IP_LOSE", ip_lose)
 
 -- 订阅airlink的SDATA事件，打印收到的信息。
 sys.subscribe("AIRLINK_SDATA", airlink_sdata)

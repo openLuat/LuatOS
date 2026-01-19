@@ -6,10 +6,9 @@
 @author  魏健强
 @usage
 本demo演示的核心功能为：
-1. 初始化4G和WiFi网络连接。
-2. Air8101与对端设备进行数据交互。
-3. 自动切换网络连接模式。
-4. 通过HTTP GET请求测试网络连接情况。
+1. 初始化网络，使得Air8101可以外挂Air780EPM实现4G联网功能
+2. Air780EPM与对端设备进行数据交互。
+3. 通过HTTP GET请求测试Air780EPM的网络访问外网是否正常。
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -21,7 +20,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "Air8101_slave"
+PROJECT = "Air780EPM_slave"
 VERSION = "001.000.000"
 
 
@@ -62,10 +61,12 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 加载功能模块
+
+
+-- 开启多网融合功能
 require "network_airlink"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()
--- sys.run()之后不要加任何语句!!!!!因为添加的任何语句都不会被执行
+-- sys.run()之后后面不要加任何语句!!!!!

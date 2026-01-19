@@ -76,7 +76,7 @@ local function speech_state_callback(event_table)
         end
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
-        -- extalk.BROADCAST: 广播开始（已进入广播模式）
+        -- 收到对端广播请求（已进入广播接收模式）
         g_speech_active = true
         local dev_name = "未知设备"
         if g_dev_list then
@@ -89,7 +89,7 @@ local function speech_state_callback(event_table)
         end
         log.info(string.format("%s 开始广播", dev_name))
     end
-    
+
     log.info("当前对讲状态:", g_speech_active and "正在对讲" or "空闲")
 end
 

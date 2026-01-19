@@ -37,7 +37,7 @@ local function contact_list_callback(dev_list)
     if dev_list and #dev_list > 0 then
         log.info("联系人列表更新:")
         for i = 1, #dev_list do
-            log.info(string.format("  %d. ID: %s, 名称: %s", 
+            log.info(string.format("  %d. ID: %s, 名称: %s",
                 i, dev_list[i]["id"], dev_list[i]["name"] or "未知"))
         end
     else
@@ -49,7 +49,7 @@ end
 -- 处理对讲状态变化事件
 local function speech_state_callback(event_table)
     if not event_table then return end
-    
+
     if event_table.state == extalk.START then
         -- extalk.START: 对讲开始（广播或一对一通话已开始）
         log.info("对讲开始")
@@ -76,7 +76,7 @@ local function speech_state_callback(event_table)
         end
         log.info(string.format("%s 来电", dev_name))
     elseif event_table.state == extalk.BROADCAST then
-        -- extalk.BROADCAST: 广播开始（已进入广播模式）
+        -- extalk.BROADCAST: -- 收到对端广播请求（已进入广播接收模式）
         g_speech_active = true
         local dev_name = "未知设备"
         if g_dev_list then
@@ -89,7 +89,7 @@ local function speech_state_callback(event_table)
         end
         log.info(string.format("%s 开始广播", dev_name))
     end
-    
+
     log.info("当前对讲状态:", g_speech_active and "正在对讲" or "空闲")
 end
 
@@ -108,7 +108,7 @@ local function boot_key_callback()
     sys.sendMsg(USER_TASK_NAME, MSG_KEY_PRESS, false)  -- false表示Boot键
 end
 
--- Power键回调函数  
+-- Power键回调函数
 -- 电源按键，用于广播对讲控制
 local function power_key_callback()
     log.info("power_key_callback")
@@ -121,8 +121,8 @@ local function init_buttons()
     -- 配置Boot键 (GPIO0)，下拉电阻，上升沿触发
     gpio.setup(0, boot_key_callback, gpio.PULLDOWN, gpio.RISING)
     gpio.debounce(0, 200, 1)  -- 200ms去抖，防止按键抖动
-    
-    -- 配置Power键，上拉电阻，下降沿触发  
+
+    -- 配置Power键，上拉电阻，下降沿触发
     gpio.setup(gpio.PWR_KEY, power_key_callback, gpio.PULLUP, gpio.FALLING)
     gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 200ms去抖，防止按键抖动
 end
@@ -134,7 +134,7 @@ local function find_target_device()
     if TARGET_DEVICE_ID and TARGET_DEVICE_ID ~= "" then
         return TARGET_DEVICE_ID
     end
-    
+
     -- 没有配置目标ID，直接返回nil，不自动查找其他设备
     log.warn("未配置目标设备ID")
     return nil
@@ -143,7 +143,7 @@ end
 -- 处理按键消息，在结束对讲时立即更新状态
 local function handle_key_press(is_power_key)
     if g_speech_active then
-        -- 当前正在对讲，按任何键都结束对讲 
+        -- 当前正在对讲，按任何键都结束对讲
         log.info("结束当前对讲")
         extalk.stop()
         g_speech_active = false  -- 立即更新状态
@@ -176,7 +176,7 @@ local function user_main_task()
         return
     end
     log.info("音频初始化成功")
-    
+
     -- 初始化extalk对讲功能
     log.info("初始化extalk...")
     local extalk_init_ok = extalk.setup(extalk_configs)
@@ -185,9 +185,9 @@ local function user_main_task()
         return
     end
     log.info("extalk初始化成功")
-    
+
     log.info("对讲系统准备就绪")
-    
+
     -- 主消息循环 - 等待和处理按键消息
     while true do
         local msg = sys.waitMsg(USER_TASK_NAME, MSG_KEY_PRESS)

@@ -25,7 +25,7 @@ local USER_TASK_NAME = "user_task"  -- 用户任务名称
 local MSG_KEY_PRESS = 12            -- 按键消息类型
 
 -- 目标设备ID，修改为你想要对讲的终端ID
-TARGET_DEVICE_ID = "78122397"  
+TARGET_DEVICE_ID = "60646022"
 
 -- 全局状态变量
 local g_dev_list = nil              -- 设备列表，存储所有可用对讲设备
@@ -47,7 +47,7 @@ local function contact_list_callback(dev_list)
     if dev_list and #dev_list > 0 then
         log.info("联系人列表更新:")
         for i = 1, #dev_list do
-            log.info(string.format("  %d. ID: %s, 名称: %s", 
+            log.info(string.format("  %d. ID: %s, 名称: %s",
                 i, dev_list[i]["id"], dev_list[i]["name"] or "未知"))
         end
     else
@@ -61,25 +61,25 @@ end
 -- @param event_table 事件表，包含状态和设备ID等信息
 local function speech_state_callback(event_table)
     if not event_table then return end
-    
+
     -- 对讲开始（广播或一对一通话已开始）
     if event_table.state == extalk.START then
         log.info("对讲开始")
         LED(1)  -- LED亮
         g_speech_active = true
-        
+
     -- 对讲结束（广播或一对一通话已结束）
     elseif event_table.state == extalk.STOP then
         LED(0)  -- LED灭
         log.info("对讲结束")
         g_speech_active = false
-        
+
     -- 对端未响应（一对一呼叫时对方无应答）
     elseif event_table.state == extalk.UNRESPONSIVE then
         LED(0)  -- LED灭
         log.info("对端未响应")
         g_speech_active = false
-        
+
     -- 一对一呼叫建立（已连接到指定设备）
     elseif event_table.state == extalk.ONE_ON_ONE then
         LED(1)  -- LED亮
@@ -94,8 +94,8 @@ local function speech_state_callback(event_table)
             end
         end
         log.info(string.format("%s 来电", dev_name))
-        
-    -- 广播开始（已进入广播模式）
+
+    -- 收到对端广播请求（已进入广播接收模式）
     elseif event_table.state == extalk.BROADCAST then
         LED(1)  -- LED亮
         g_speech_active = true
@@ -110,7 +110,7 @@ local function speech_state_callback(event_table)
         end
         log.info(string.format("%s 开始广播", dev_name))
     end
-    
+
     log.info("当前对讲状态:", g_speech_active and "正在对讲" or "空闲")
 end
 
@@ -143,11 +143,11 @@ local function init_buttons()
     -- 配置Boot键，下拉电阻，上升沿触发
     gpio.setup(0, boot_key_callback, gpio.PULLDOWN, gpio.RISING)
     gpio.debounce(0, 200, 1)  -- 200ms去抖
-    
-    -- 配置Power键，上拉电阻，下降沿触发  
+
+    -- 配置Power键，上拉电阻，下降沿触发
     gpio.setup(gpio.PWR_KEY, power_key_callback, gpio.PULLUP, gpio.FALLING)
     gpio.debounce(gpio.PWR_KEY, 200, 1)  -- 200ms去抖
-    
+
     log.info("按键初始化完成 - Boot键: GPIO0, Power键: GPIO"..gpio.PWR_KEY)
 end
 
@@ -157,7 +157,7 @@ end
 -- @param is_power_key true表示Power键，false表示Boot键
 local function handle_key_press(is_power_key)
     if g_speech_active then
-        -- 当前正在对讲，按任何键都结束对讲 
+        -- 当前正在对讲，按任何键都结束对讲
         log.info("结束当前对讲")
         extalk.stop()
         LED(0)  -- 关闭LED
@@ -188,12 +188,12 @@ end
 -- 用户主任务
 local function user_main_task()
     log.info("启动对讲系统...")
-    
+
     -- 初始化LED指示灯
     LED = gpio.setup(LED_GPIO, 1)
     LED(0)  -- 初始状态关闭
     log.info("LED指示灯初始化完成 - GPIO"..LED_GPIO)
-    
+
     -- 初始化音频设备
     log.info("初始化音频设备...")
     if not audio_drv.init() then
@@ -201,7 +201,7 @@ local function user_main_task()
         return
     end
     log.info("音频初始化成功")
-    
+
     -- 初始化extalk对讲功能
     log.info("初始化extalk对讲功能...")
     local extalk_init_ok = extalk.setup(extalk_configs)
@@ -210,7 +210,7 @@ local function user_main_task()
         return
     end
     log.info("extalk初始化成功")
-    
+
     -- 显示当前配置信息
     log.info("========== 系统配置信息 ==========")
     log.info("目标设备ID:", TARGET_DEVICE_ID or "未配置（必须配置！）")
@@ -218,7 +218,7 @@ local function user_main_task()
     log.info("按键配置:", "Boot键(GPIO0)=一对一呼叫，Power键=广播")
     log.info("按键逻辑:", "对讲中按任意键=结束对讲，空闲时按Boot键=一对一呼叫，按Power键=广播")
     log.info("==================================")
-    
+
     -- 检查目标设备配置
     if not TARGET_DEVICE_ID or TARGET_DEVICE_ID == "" then
         log.error("警告：TARGET_DEVICE_ID未配置！")
@@ -226,9 +226,9 @@ local function user_main_task()
     else
         log.info("目标设备已配置:", TARGET_DEVICE_ID)
     end
-    
+
     log.info("对讲系统准备就绪，等待按键操作...")
-    
+
     -- 主消息循环 - 等待和处理按键消息
     -- 使用sys.waitMsg等待按键消息，这是必要的阻塞等待
     while true do

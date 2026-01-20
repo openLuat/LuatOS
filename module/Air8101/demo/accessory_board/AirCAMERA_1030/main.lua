@@ -59,9 +59,13 @@ end
 
 -- 导入netdrv_wifi模块，连接WIFI
 require "netdrv_wifi"
+
+-- 以下录像和拍照演示，只能二选一打开
 -- 导入take_photo_http_post拍照上传应用DEMO
 require "take_photo_http_post"
 
+-- 导入video_http_post视频上传应用DEMO
+-- require "video_http_post"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

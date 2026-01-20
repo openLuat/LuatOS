@@ -1039,7 +1039,13 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + utf8_len;
     size_t glyph_count = 0;
-    uint32_t default_ascent = hzfont_default_ascent(font_size); // 计算默认的上升高度用于基线对齐
+    // 按照字体 metrics 计算基线
+    int32_t font_baseline = ttf_scaled_baseline(&g_ft_ctx.font, font_size);
+    // 如果基线计算失败，则使用默认的上升高度
+    if (font_baseline <= 0) {
+        LLOGW("ttf_scaled_baseline failed : %d, use default_ascent", font_baseline);
+        font_baseline = (int32_t)hzfont_default_ascent(font_size);
+    }
     int pen_x = x;
     const uint64_t yield_threshold_us = HZFONT_YIELD_THRESHOLD_US; // 让出阈值（可通过宏统一调整）
     uint64_t yield_last_ts = timing_enabled ? func_start_ts : hzfont_now_us();
@@ -1150,14 +1156,14 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
                 slot.advance = hzfont_calc_fallback_advance(font_size);
             }
         } else {
-            slot.bitmap.originY = (int32_t)default_ascent;
+            slot.bitmap.originY = font_baseline;
         }
 
         // 调整宽度
         size_t slot_index = glyph_count;
         if (!slot.has_bitmap) { // 没有位图时只调整笔锋位置即可
             if (slot.bitmap.originY == 0) {
-                slot.bitmap.originY = (int32_t)default_ascent;
+                slot.bitmap.originY = font_baseline;
             }
             if (timing_enabled) {
                 slot.time_draw_us = 0;

@@ -10,6 +10,24 @@
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
 
+/* 表格记录结构体 */
+typedef struct {
+    uint32_t offset;
+    uint32_t length;
+} TableRecord;
+
+/* CMAP 子表结构体 */
+typedef struct {
+    uint32_t offset; /* 绝对偏移：font->cmapOffset + subtableOffset */
+    uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
+} CmapSubtable;
+
+static inline float ttf_compute_scale(const TtfFont *font, int ppem); // 计算缩放比例
+static inline int32_t ttf_round_pixel(float value); // 四舍五入浮点到 int32
+static int ttf_read_hhea_metrics(TtfFont *font, const TableRecord *hhea); // 读取 hhea 表的 metrics
+int32_t ttf_scaled_value(const TtfFont *font, int32_t value, int ppem); // 按照字体 metrics 计算像素值
+int32_t ttf_scaled_line_height(const TtfFont *font, int ppem); // 按照字体 metrics 计算行高
+int32_t ttf_scaled_baseline(const TtfFont *font, int ppem); // 按照字体 metrics 计算基线
 
 static int g_ttf_debug = 0;
 /* 运行时可调的超采样率，默认取编译期宏 */
@@ -126,11 +144,6 @@ static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length,
     }
     return 0;
 }
-
-typedef struct {
-    uint32_t offset;
-    uint32_t length;
-} TableRecord;
 
 // 在字体目录中查找指定表格并返回偏移长度
 static int find_table(const TtfFont *font, uint32_t tag, TableRecord *out) {
@@ -260,14 +273,15 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         return TTF_ERR_UNSUPPORTED;
     }
 
-    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0};
+    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0}, hhea = {0};
     if (!find_table(font, TTF_TAG('c', 'm', 'a', 'p'), &cmap) ||
         !find_table(font, TTF_TAG('g', 'l', 'y', 'f'), &glyf) ||
         !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
         !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
-        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
-        if (g_ttf_debug) LLOGE("find table failed cmap=%u glyf=%u loca=%u head=%u maxp=%u",
-            (unsigned)(cmap.length>0), (unsigned)(glyf.length>0), (unsigned)(loca.length>0), (unsigned)(head.length>0), (unsigned)(maxp.length>0));
+        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp) ||
+        !find_table(font, TTF_TAG('h', 'h', 'e', 'a'), &hhea)) {
+        if (g_ttf_debug) LLOGE("find table failed cmap=%u glyf=%u loca=%u head=%u maxp=%u hhea=%u",
+            (unsigned)(cmap.length>0), (unsigned)(glyf.length>0), (unsigned)(loca.length>0), (unsigned)(head.length>0), (unsigned)(maxp.length>0), (unsigned)(hhea.length>0));
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
@@ -325,15 +339,15 @@ static int ttf_load_from_common(TtfFont *font) {
         return TTF_ERR_UNSUPPORTED;
     }
 
-    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0};
+    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0}, hhea = {0};
     if (!find_table(font, TTF_TAG('c', 'm', 'a', 'p'), &cmap) ||
         !find_table(font, TTF_TAG('g', 'l', 'y', 'f'), &glyf) ||
         !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
         !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
-        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
+        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp) ||
+        !find_table(font, TTF_TAG('h', 'h', 'e', 'a'), &hhea)) {
         return TTF_ERR_FORMAT;
     }
-
     uint8_t headBuf[54];
     if (head.length < 54) {
         return TTF_ERR_FORMAT;
@@ -358,6 +372,12 @@ static int ttf_load_from_common(TtfFont *font) {
     font->cmapLength = cmap.length;
     font->glyfOffset = glyf.offset;
     font->locaOffset = loca.offset;
+
+    if (!ttf_read_hhea_metrics(font, &hhea)) {
+        font->ascent = (int16_t)font->unitsPerEm;
+        font->descent = 0;
+        font->lineGap = 0;
+    }
 
     ttf_cache_cmap_subtable(font);
     if (g_ttf_debug) LLOGI("font loaded from memory size=%u units_per_em=%u glyphs=%u indexToLocFormat=%u",
@@ -413,12 +433,6 @@ void ttf_unload(TtfFont *font) {
     ttf_safe_free(font->cmapBuf);
     memset(font, 0, sizeof(*font));
 }
-
-typedef struct {
-    uint32_t offset; /* 绝对偏移：font->cmapOffset + subtableOffset */
-    uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
-} CmapSubtable;
-
 // 从 cached cmap 或文件中读取 16 位值
 static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
     uint8_t b[2];
@@ -1434,10 +1448,64 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->width = width;
     bitmap->height = height;
     bitmap->pixels = pixels;
-    bitmap->originX = (int32_t)lrintf(glyph->minX * scale);
-    bitmap->originY = (int32_t)lrintf(glyph->maxY * scale);
+    bitmap->originX = ttf_scaled_value(font, glyph->minX, ppem);
+    bitmap->originY = ttf_scaled_value(font, glyph->maxY, ppem);
     bitmap->scale = scale;
     return TTF_OK;
+}
+
+// 计算缩放比例
+static inline float ttf_compute_scale(const TtfFont *font, int ppem) {
+    if (!font || font->unitsPerEm == 0 || ppem <= 0) {
+        return 0.0f;
+    }
+    return (float)ppem / (float)font->unitsPerEm;
+}
+
+// 四舍五入浮点到 int32
+static inline int32_t ttf_round_pixel(float value) {
+    return (int32_t)roundf(value);
+}
+
+// 读取 hhea 表的 metrics
+static int ttf_read_hhea_metrics(TtfFont *font, const TableRecord *hhea) {
+    if (!font || !hhea || hhea->length < 10) {
+        return 0;
+    }
+    uint8_t buf[10];
+    if (!ttf_read_range(font, hhea->offset, 10, buf)) {
+        return 0;
+    }
+    font->ascent = read_s16(buf + 4);
+    font->descent = read_s16(buf + 6);
+    font->lineGap = read_s16(buf + 8);
+    return 1;
+}
+
+// 按照字体 metrics 计算像素值
+int32_t ttf_scaled_value(const TtfFont *font, int32_t value, int ppem) {
+    float scale = ttf_compute_scale(font, ppem);
+    if (scale == 0.0f) {
+        return 0;
+    }
+    return ttf_round_pixel((float)value * scale);
+}
+
+// 按照字体 metrics 计算行高
+int32_t ttf_scaled_line_height(const TtfFont *font, int ppem) {
+    float scale = ttf_compute_scale(font, ppem);
+    if (scale == 0.0f) {
+        return 0;
+    }
+    float ascent = (float)font->ascent * scale;
+    float descent = (float)font->descent * scale;
+    float lineGap = (float)font->lineGap * scale;
+    return ttf_round_pixel(ascent - descent + lineGap);
+}
+
+// 按照字体 metrics 计算基线
+int32_t ttf_scaled_baseline(const TtfFont *font, int ppem) {
+    return ttf_scaled_value(font, font->ascent, ppem);
 }
 
 // 释放 bitmap 的像素缓冲

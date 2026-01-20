@@ -31,6 +31,8 @@ CMD_DEFINE(fota_end);
 CMD_DEFINE(dev_info);
 CMD_DEFINE(sdata);
 CMD_DEFINE(nop);
+
+
 // 通知类指令, 0x80开始
 CMD_DEFINE(notify_sys_pub);
 CMD_DEFINE(notify_log);
@@ -91,6 +93,13 @@ CMD_DEFINE(mobile_imei);
 CMD_DEFINE(mobile_imsi);
 CMD_DEFINE(mobile_iccid);
 CMD_DEFINE(mobile_muid);
+
+// 几个OTP指令, 0x900开始
+CMD_DEFINE(otp_write);
+CMD_DEFINE(otp_read);
+CMD_DEFINE(otp_lock);
+CMD_DEFINE(otp_erase);
+CMD_DEFINE(otp_read_cb);
 
 __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
@@ -177,5 +186,15 @@ __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
 #endif
 
     CMD_REG(0x21, nop),
+
+#ifdef LUAT_USE_AIRLINK_EXEC_OTP
+    CMD_REG(0x900, otp_write),
+    CMD_REG(0x901, otp_read),
+    CMD_REG(0x902, otp_lock),
+    CMD_REG(0x903, otp_erase),
+#endif
+#ifdef LUAT_USE_AIRLINK_EXEC_OTP_CB
+    CMD_REG(0x904, otp_read_cb),
+#endif
     {0, NULL}
 };

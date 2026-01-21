@@ -92,6 +92,10 @@ local function audio_get_data()
         local read_data = file:read(buffer_size)  --  读取文件，模拟流式音频源,需要1024 的倍数
         if read_data  == nil then
             file:close()                -- 模拟音频获取完毕，关闭音频文件
+            -- 本API需要用V2024固件！！！ 
+            -- 写入数据完毕后，通知多媒体通道已经没有更多数据需要播放了
+            -- 开启后可以有效的降低pop音
+            -- exaudio.finish()
             break
         end
 

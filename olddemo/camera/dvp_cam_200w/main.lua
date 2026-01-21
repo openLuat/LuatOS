@@ -8,6 +8,9 @@ httpplus = require "httpplus"
 -- 演示摄像头拍照，将图片数据存在zbuff中
 -- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
 
+-- IO电平设置到3.0~3.1v
+pm.ioVol(pm.IOVOL_ALL_GPIO, 3100)
+
 -- WIFI热点名称
 local ssid = "luatos1234"
 -- WIFI热点密码

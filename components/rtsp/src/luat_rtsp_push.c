@@ -205,6 +205,15 @@ typedef struct {
 } rtsp_udp_transport_t;
 
 /**
+ * TCP发送队列节点
+ */
+typedef struct tcp_send_queue_node {
+    uint8_t *data;                  /**< 待发送数据指针 */
+    uint32_t len;                   /**< 数据长度 */
+    struct tcp_send_queue_node *next; /**< 下一个节点 */
+} tcp_send_queue_node_t;
+
+/**
  * TCP传输层私有数据
  */
 typedef struct {
@@ -214,6 +223,15 @@ typedef struct {
     uint8_t *send_buf;              /**< 发送缓冲区 */
     uint32_t send_buf_size;         /**< 发送缓冲区大小 */
     uint32_t send_pos;              /**< 发送缓冲区写位置 */
+
+    /* 发送队列 */
+    tcp_send_queue_node_t *send_queue_head; /**< 发送队列头 */
+    tcp_send_queue_node_t *send_queue_tail; /**< 发送队列尾 */
+    uint32_t send_queue_bytes;      /**< 队列总字节数 */
+    uint32_t send_queue_count;      /**< 队列包数 */
+
+    /* 发送队列定时器 */
+    luat_rtos_timer_t send_timer;   /**< 发送队列定时器 */
 } rtsp_tcp_transport_t;
 
 /**
@@ -255,6 +273,33 @@ static void rtsp_tcp_transport_cleanup(rtsp_transport_t *transport);
  * TCP传输层发送RTCP函数（TCP模式不支持RTCP）
  */
 static int rtsp_tcp_transport_send_rtcp(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+
+/* ======================== TCP发送队列管理 ======================== */
+
+/**
+ * 清空TCP发送队列
+ */
+static void rtsp_tcp_send_queue_clear(rtsp_tcp_transport_t *tcp_transport);
+
+/**
+ * 数据入队到TCP发送队列
+ */
+static int rtsp_tcp_send_queue_enqueue(rtsp_tcp_transport_t *tcp_transport, const uint8_t *data, uint32_t len);
+
+/**
+ * 尝试发送队列中的数据
+ */
+static int rtsp_tcp_send_queue_flush(rtsp_tcp_transport_t *tcp_transport);
+
+/**
+ * TCP发送队列tcpip线程回调函数
+ */
+static void rtsp_tcp_send_tcpip_callback(void *arg);
+
+/**
+ * TCP发送队列定时器回调函数
+ */
+static LUAT_RT_RET_TYPE rtsp_tcp_send_timer_callback(LUAT_RT_CB_PARAM);
 
 /* ======================== RTCP处理 ======================== */
 
@@ -331,7 +376,7 @@ rtsp_ctx_t* rtsp_create(void) {
     ctx->last_rtcp_time = luat_mcu_ticks();
 
     // 初始化传输模式（默认UDP）
-    ctx->transport_mode = RTSP_TRANSPORT_UDP;
+    ctx->transport_mode = RTSP_TRANSPORT_TCP;
     ctx->transport = NULL;
 
     // 初始化网络统计
@@ -616,7 +661,7 @@ int rtsp_poll(rtsp_ctx_t *ctx) {
     // 发送队列中的帧
     if (ctx->state == RTSP_STATE_PLAYING) {
         rtsp_send_queued_frames(ctx);
-        
+
         // 定期发送RTCP Sender Report (每5秒一次)
         if (now - ctx->last_rtcp_time >= 5000) {
             LLOGD("触发RTCP SR发送: 距上次%u毫秒", now - ctx->last_rtcp_time);
@@ -2076,6 +2121,164 @@ static int rtsp_udp_transport_send_rtcp(rtsp_transport_t *transport, const uint8
     return RTSP_OK;
 }
 
+/* ======================== TCP发送队列管理 ======================== */
+
+/**
+ * 清空TCP发送队列
+ */
+static void rtsp_tcp_send_queue_clear(rtsp_tcp_transport_t *tcp_transport) {
+    if (!tcp_transport) {
+        return;
+    }
+
+    tcp_send_queue_node_t *node = tcp_transport->send_queue_head;
+    while (node) {
+        tcp_send_queue_node_t *next = node->next;
+        if (node->data) {
+            luat_heap_free(node->data);
+        }
+        luat_heap_free(node);
+        node = next;
+    }
+
+    tcp_transport->send_queue_head = NULL;
+    tcp_transport->send_queue_tail = NULL;
+    tcp_transport->send_queue_bytes = 0;
+    tcp_transport->send_queue_count = 0;
+}
+
+/**
+ * 尝试发送队列中的数据
+ */
+static int rtsp_tcp_send_queue_flush(rtsp_tcp_transport_t *tcp_transport) {
+    if (!tcp_transport || !tcp_transport->rtp_pcb) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    uint32_t sent_count = 0;
+    uint32_t sent_bytes = 0;
+    uint32_t reserved = TCP_WND / 5;  // 预留20%窗口给RTSP控制信令
+
+    while (tcp_transport->send_queue_head) {
+        tcp_send_queue_node_t *node = tcp_transport->send_queue_head;
+
+        // 检查TCP发送窗口（考虑预留）
+        uint32_t sndbuf = tcp_sndbuf(tcp_transport->rtp_pcb);
+        if (sndbuf < (node->len + reserved)) {
+            RTSP_LOGV("TCP窗口不足(预留%u字节)，停止发送队列: 需要%u字节, 可用%u字节", reserved, node->len, sndbuf);
+            break;
+        }
+
+        // 发送数据
+        err_t err = tcp_write(tcp_transport->rtp_pcb, node->data, node->len, TCP_WRITE_FLAG_COPY);
+        if (err != ERR_OK) {
+            LLOGE("TCP队列发送失败: err=%d", err);
+            break;
+        }
+
+        // 出队
+        tcp_transport->send_queue_head = node->next;
+        if (!tcp_transport->send_queue_head) {
+            tcp_transport->send_queue_tail = NULL;
+        }
+
+        tcp_transport->send_queue_bytes -= node->len;
+        tcp_transport->send_queue_count--;
+        sent_bytes += node->len;
+        sent_count++;
+
+        // 释放节点
+        luat_heap_free(node->data);
+        luat_heap_free(node);
+    }
+
+    if (sent_count > 0) {
+        tcp_output(tcp_transport->rtp_pcb);
+        RTSP_LOGV("队列发送完成: %u包, %u字节, 剩余%u包", sent_count, sent_bytes, tcp_transport->send_queue_count);
+    }
+
+    return sent_count > 0 ? RTSP_OK : RTSP_ERR_NETWORK;
+}
+
+/**
+ * TCP发送队列tcpip线程回调函数
+ * 在tcpip线程中执行，确保线程安全
+ */
+static void rtsp_tcp_send_tcpip_callback(void *arg) {
+    rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)arg;
+
+    if (tcp_transport && tcp_transport->send_queue_head) {
+        rtsp_tcp_send_queue_flush(tcp_transport);
+    }
+}
+
+/**
+ * TCP发送队列定时器回调函数
+ * 定期尝试发送队列中的数据
+ */
+static LUAT_RT_RET_TYPE rtsp_tcp_send_timer_callback(LUAT_RT_CB_PARAM) {
+    // 使用全局变量获取tcp_transport指针
+    extern rtsp_ctx_t *g_rtsp_ctx;
+    if (g_rtsp_ctx && g_rtsp_ctx->transport && g_rtsp_ctx->transport->private_data) {
+        rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)g_rtsp_ctx->transport->private_data;
+        if (tcp_transport && tcp_transport->send_queue_head) {
+            // 使用tcpip_callback确保在tcpip线程中执行TCP操作
+            tcpip_callback_with_block(rtsp_tcp_send_tcpip_callback, tcp_transport, 0);
+        }
+    }
+}
+
+/**
+ * 数据入队到TCP发送队列
+ */
+static int rtsp_tcp_send_queue_enqueue(rtsp_tcp_transport_t *tcp_transport, const uint8_t *data, uint32_t len) {
+    if (!tcp_transport || !data || len == 0) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // 检查队列大小限制（最大2MB）
+    if (tcp_transport->send_queue_bytes + len > 2 * 1024 * 1024) {
+        LLOGW("TCP发送队列已满: 当前%u字节, 新增%u字节", tcp_transport->send_queue_bytes, len);
+        return RTSP_ERR_BUFFER_OVERFLOW;
+    }
+
+    // 分配节点
+    tcp_send_queue_node_t *node = (tcp_send_queue_node_t *)luat_heap_malloc(sizeof(tcp_send_queue_node_t));
+    if (!node) {
+        LLOGE("发送队列节点分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 分配数据缓冲区
+    node->data = (uint8_t *)luat_heap_malloc(len);
+    if (!node->data) {
+        LLOGE("发送队列数据分配失败");
+        luat_heap_free(node);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 复制数据
+    memcpy(node->data, data, len);
+    node->len = len;
+    node->next = NULL;
+
+    // 入队
+    if (!tcp_transport->send_queue_tail) {
+        tcp_transport->send_queue_head = node;
+        tcp_transport->send_queue_tail = node;
+    } else {
+        tcp_transport->send_queue_tail->next = node;
+        tcp_transport->send_queue_tail = node;
+    }
+
+    tcp_transport->send_queue_bytes += len;
+    tcp_transport->send_queue_count++;
+
+    RTSP_LOGV("数据入队: %u字节, 队列包数=%u, 总字节数=%u", len, tcp_transport->send_queue_count, tcp_transport->send_queue_bytes);
+
+    return RTSP_OK;
+}
+
 /**
  * TCP传输层发送函数
  * 实现RTP over TCP (RFC 2326)
@@ -2090,6 +2293,11 @@ static int rtsp_tcp_transport_send(rtsp_transport_t *transport, const uint8_t *d
     if (!tcp_transport->rtp_pcb) {
         LLOGE("TCP传输层未初始化");
         return RTSP_ERR_CONNECT_FAILED;
+    }
+
+    // 优先发送队列中的数据
+    if (tcp_transport->send_queue_head) {
+        rtsp_tcp_send_queue_flush(tcp_transport);
     }
 
     // RFC 2326: RTP over TCP格式
@@ -2113,11 +2321,26 @@ static int rtsp_tcp_transport_send(rtsp_transport_t *transport, const uint8_t *d
     // 复制RTP数据
     memcpy(tcp_transport->send_buf + 4, data, len);
 
+    // 检查TCP发送窗口
+    uint32_t sndbuf = tcp_sndbuf(tcp_transport->rtp_pcb);
+    uint32_t reserved = TCP_WND / 5;  // 预留20%窗口给RTSP控制信令
+
+    // 如果队列还有数据或窗口不足（考虑预留），则入队
+    if (tcp_transport->send_queue_head || sndbuf < (total_len + reserved)) {
+        if (tcp_transport->send_queue_head) {
+            RTSP_LOGV("队列未清空，新数据入队: %u字节", total_len);
+        } else {
+            RTSP_LOGV("TCP窗口不足(预留%u字节): 需要%u字节, 可用%u字节, 数据入队", reserved, total_len, sndbuf);
+        }
+        return rtsp_tcp_send_queue_enqueue(tcp_transport, tcp_transport->send_buf, total_len);
+    }
+
     // 发送TCP数据
     err_t err = tcp_write(tcp_transport->rtp_pcb, tcp_transport->send_buf, total_len, TCP_WRITE_FLAG_COPY);
     if (err != ERR_OK) {
-        LLOGE("TCP发送失败: err=%d", err);
-        return RTSP_ERR_NETWORK;
+        LLOGE("TCP发送失败: err=%d, 尝试入队", err);
+        // 发送失败时也尝试入队
+        return rtsp_tcp_send_queue_enqueue(tcp_transport, tcp_transport->send_buf, total_len);
     }
 
     tcp_output(tcp_transport->rtp_pcb);
@@ -2156,6 +2379,24 @@ static int rtsp_tcp_transport_init(rtsp_transport_t *transport, rtsp_ctx_t *ctx)
     ip_addr_copy(tcp_transport->remote_ip, ctx->remote_ip);
     tcp_transport->remote_rtp_port = ctx->remote_rtp_port;
 
+    // 创建并启动发送队列定时器（每10ms触发一次）
+    if (luat_rtos_timer_create(&tcp_transport->send_timer) != 0) {
+        LLOGE("TCP发送定时器创建失败");
+        luat_heap_free(tcp_transport->send_buf);
+        luat_heap_free(tcp_transport);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    if (luat_rtos_timer_start(tcp_transport->send_timer, 10, 1, rtsp_tcp_send_timer_callback, NULL) != 0) {
+        LLOGE("TCP发送定时器启动失败");
+        luat_rtos_timer_delete(tcp_transport->send_timer);
+        luat_heap_free(tcp_transport->send_buf);
+        luat_heap_free(tcp_transport);
+        return RTSP_ERR_FAILED;
+    }
+
+    LLOGD("TCP发送定时器已启动");
+
     // 设置传输层接口
     transport->send = rtsp_tcp_transport_send;
     transport->send_rtcp = rtsp_tcp_transport_send_rtcp;
@@ -2177,6 +2418,17 @@ static void rtsp_tcp_transport_cleanup(rtsp_transport_t *transport) {
     }
 
     rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)transport->private_data;
+
+    // 停止并删除发送定时器
+    if (tcp_transport->send_timer) {
+        luat_rtos_timer_stop(tcp_transport->send_timer);
+        luat_rtos_timer_delete(tcp_transport->send_timer);
+        tcp_transport->send_timer = NULL;
+        LLOGD("TCP发送定时器已删除");
+    }
+
+    // 清空发送队列
+    rtsp_tcp_send_queue_clear(tcp_transport);
 
     // 释放发送缓冲区
     if (tcp_transport->send_buf) {

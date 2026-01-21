@@ -580,15 +580,6 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 #ifdef __LUATOS__
-        if (mqtt_ctrl->qos0_frame_wait){
-            mqtt_ctrl->qos0_frame_wait --;
-            rtos_msg_t msg = {0};
-            msg.handler = luatos_mqtt_callback;
-            msg.ptr = mqtt_ctrl;
-            msg.arg1 = MQTT_MSG_PUBACK;
-            msg.arg2 = 0;
-            luat_msgbus_put(&msg, 0);
-        }
 #else
 		if (MQTT_STATE_READY == mqtt_ctrl->mqtt_state) {
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TCP_TX_DONE, 0);

@@ -2,16 +2,32 @@
 #include "ttf_parser.h"
 
 #include <math.h>
-// #include <stdio.h>
-// #include <stdlib.h>
 #include <string.h>
-
 #include "luat_fs.h"
 #include "luat_mem.h"
+#include "luat_hzfont.h"
 
 #define LUAT_LOG_TAG "ttf"
 #include "luat_log.h"
 
+/* 表格记录结构体 */
+typedef struct {
+    uint32_t offset;
+    uint32_t length;
+} TableRecord;
+
+/* CMAP 子表结构体 */
+typedef struct {
+    uint32_t offset; /* 绝对偏移：font->cmapOffset + subtableOffset */
+    uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
+} CmapSubtable;
+
+static inline float ttf_compute_scale(const TtfFont *font, int ppem); // 计算缩放比例
+static inline int32_t ttf_round_pixel(float value); // 四舍五入浮点到 int32
+static int ttf_read_hhea_metrics(TtfFont *font, const TableRecord *hhea); // 读取 hhea 表的 metrics
+int32_t ttf_scaled_value(const TtfFont *font, int32_t value, int ppem); // 按照字体 metrics 计算像素值
+int32_t ttf_scaled_line_height(const TtfFont *font, int ppem); // 按照字体 metrics 计算行高
+int32_t ttf_scaled_baseline(const TtfFont *font, int ppem); // 按照字体 metrics 计算基线
 
 static int g_ttf_debug = 0;
 /* 运行时可调的超采样率，默认取编译期宏 */
@@ -112,6 +128,9 @@ static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length,
     if (!ensure_range(font, offset, length)) {
         return 0;
     }
+    if (font->data_source == TTF_DATA_SOURCE_PSRAM_CHAIN && font->psram_chain) {
+        return hzfont_psram_read_range(font->psram_chain, offset, length, out);
+    }
     if (font->data) {
         memcpy(out, font->data + offset, length);
         return 1;
@@ -125,11 +144,6 @@ static int ttf_read_range(const TtfFont *font, uint32_t offset, uint32_t length,
     }
     return 0;
 }
-
-typedef struct {
-    uint32_t offset;
-    uint32_t length;
-} TableRecord;
 
 // 在字体目录中查找指定表格并返回偏移长度
 static int find_table(const TtfFont *font, uint32_t tag, TableRecord *out) {
@@ -212,6 +226,8 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->fileSize = (size_t)fileSize;
         font->streaming = 0;
         font->ownsData = 1;
+        font->data_source = TTF_DATA_SOURCE_MEMORY;
+        font->psram_chain = NULL;
         #else
         return TTF_ERR_IO;
         #endif
@@ -236,6 +252,8 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         font->fileSize = (size_t)vsize;
         font->streaming = 1;
         font->ownsData = 0;
+        font->data_source = TTF_DATA_SOURCE_FILE;
+        font->psram_chain = NULL;
     }
 
     if (font->size < 12) {
@@ -255,14 +273,15 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
         return TTF_ERR_UNSUPPORTED;
     }
 
-    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0};
+    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0}, hhea = {0};
     if (!find_table(font, TTF_TAG('c', 'm', 'a', 'p'), &cmap) ||
         !find_table(font, TTF_TAG('g', 'l', 'y', 'f'), &glyf) ||
         !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
         !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
-        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
-        if (g_ttf_debug) LLOGE("find table failed cmap=%u glyf=%u loca=%u head=%u maxp=%u",
-            (unsigned)(cmap.length>0), (unsigned)(glyf.length>0), (unsigned)(loca.length>0), (unsigned)(head.length>0), (unsigned)(maxp.length>0));
+        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp) ||
+        !find_table(font, TTF_TAG('h', 'h', 'e', 'a'), &hhea)) {
+        if (g_ttf_debug) LLOGE("find table failed cmap=%u glyf=%u loca=%u head=%u maxp=%u hhea=%u",
+            (unsigned)(cmap.length>0), (unsigned)(glyf.length>0), (unsigned)(loca.length>0), (unsigned)(head.length>0), (unsigned)(maxp.length>0), (unsigned)(hhea.length>0));
         ttf_unload(font);
         return TTF_ERR_FORMAT;
     }
@@ -306,17 +325,10 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
 }
 
 // 从已有内存数据初始化 TTF（不复制，不释放）
-int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
-    if (!data || !font || size < 12) {
+static int ttf_load_from_common(TtfFont *font) {
+    if (!font || font->size < 12) {
         return TTF_ERR_RANGE;
     }
-    memset(font, 0, sizeof(*font));
-    font->data = (uint8_t*)data; /* 外部常量内存，不复制，不释放 */
-    font->size = size;
-    font->file = NULL;
-    font->fileSize = size;
-    font->streaming = 0;
-    font->ownsData = 0;
 
     uint8_t hdr4[4];
     if (!ttf_read_range(font, 0, 4, hdr4)) {
@@ -327,15 +339,15 @@ int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
         return TTF_ERR_UNSUPPORTED;
     }
 
-    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0};
+    TableRecord cmap = {0}, glyf = {0}, head = {0}, loca = {0}, maxp = {0}, hhea = {0};
     if (!find_table(font, TTF_TAG('c', 'm', 'a', 'p'), &cmap) ||
         !find_table(font, TTF_TAG('g', 'l', 'y', 'f'), &glyf) ||
         !find_table(font, TTF_TAG('l', 'o', 'c', 'a'), &loca) ||
         !find_table(font, TTF_TAG('h', 'e', 'a', 'd'), &head) ||
-        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp)) {
+        !find_table(font, TTF_TAG('m', 'a', 'x', 'p'), &maxp) ||
+        !find_table(font, TTF_TAG('h', 'h', 'e', 'a'), &hhea)) {
         return TTF_ERR_FORMAT;
     }
-
     uint8_t headBuf[54];
     if (head.length < 54) {
         return TTF_ERR_FORMAT;
@@ -361,12 +373,56 @@ int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
     font->glyfOffset = glyf.offset;
     font->locaOffset = loca.offset;
 
+    if (!ttf_read_hhea_metrics(font, &hhea)) {
+        font->ascent = (int16_t)font->unitsPerEm;
+        font->descent = 0;
+        font->lineGap = 0;
+    }
+
     ttf_cache_cmap_subtable(font);
     if (g_ttf_debug) LLOGI("font loaded from memory size=%u units_per_em=%u glyphs=%u indexToLocFormat=%u",
         (unsigned)font->size, (unsigned)font->unitsPerEm, (unsigned)font->numGlyphs, (unsigned)font->indexToLocFormat);
     return TTF_OK;
 }
 
+// 从内存数据加载 TTF 字体结构
+int ttf_load_from_memory(const uint8_t *data, size_t size, TtfFont *font) {
+    // 参数检查
+    if (!data || !font || size < 12) {
+        return TTF_ERR_RANGE;
+    }
+    // 初始化 font 结构体
+    memset(font, 0, sizeof(*font));
+    font->data = (uint8_t*)data;      
+    font->size = size;
+    font->file = NULL;
+    font->fileSize = size;
+    font->streaming = 0;
+    font->ownsData = 0;               
+    font->data_source = TTF_DATA_SOURCE_MEMORY;
+    font->psram_chain = NULL;
+    return ttf_load_from_common(font);
+}
+
+// 从PSRAM 链结构加载 TTF 字体结构
+
+int ttf_load_from_psram_chain(struct hzfont_psram_chain *chain, TtfFont *font) {
+    // 参数检查
+    if (!chain || !font || chain->total_size < 12) {
+        return TTF_ERR_RANGE;
+    }
+    // 初始化 font 结构体
+    memset(font, 0, sizeof(*font));
+    font->data = NULL;                
+    font->size = chain->total_size;
+    font->file = NULL;
+    font->fileSize = chain->total_size;
+    font->streaming = 0;
+    font->ownsData = 0;               
+    font->data_source = TTF_DATA_SOURCE_PSRAM_CHAIN;
+    font->psram_chain = chain;        
+    return ttf_load_from_common(font);
+}
 // 彻底释放 TtfFont 使用的所有动态资源
 void ttf_unload(TtfFont *font) {
     if (!font) {
@@ -377,12 +433,6 @@ void ttf_unload(TtfFont *font) {
     ttf_safe_free(font->cmapBuf);
     memset(font, 0, sizeof(*font));
 }
-
-typedef struct {
-    uint32_t offset; /* 绝对偏移：font->cmapOffset + subtableOffset */
-    uint32_t length; /* 剩余长度（可用时校验，不一定严格） */
-} CmapSubtable;
-
 // 从 cached cmap 或文件中读取 16 位值
 static int read_u16_at(const TtfFont *font, uint32_t absOff, uint16_t *out) {
     uint8_t b[2];
@@ -694,7 +744,6 @@ static int get_glyph_offset(const TtfFont *font, uint16_t glyphIndex, uint32_t *
         glyphOffset = read_u32(buf);
         nextOffset = read_u32(buf + 4);
     }
-    if (g_ttf_debug) LLOGD("loca gid=%u off=%u len=%u", (unsigned)glyphIndex, (unsigned)glyphOffset, (unsigned)(nextOffset - glyphOffset));
     if (glyphOffset > nextOffset) {
         return 0;
     }
@@ -1399,10 +1448,64 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->width = width;
     bitmap->height = height;
     bitmap->pixels = pixels;
-    bitmap->originX = (int32_t)lrintf(glyph->minX * scale);
-    bitmap->originY = (int32_t)lrintf(glyph->maxY * scale);
+    bitmap->originX = ttf_scaled_value(font, glyph->minX, ppem);
+    bitmap->originY = ttf_scaled_value(font, glyph->maxY, ppem);
     bitmap->scale = scale;
     return TTF_OK;
+}
+
+// 计算缩放比例
+static inline float ttf_compute_scale(const TtfFont *font, int ppem) {
+    if (!font || font->unitsPerEm == 0 || ppem <= 0) {
+        return 0.0f;
+    }
+    return (float)ppem / (float)font->unitsPerEm;
+}
+
+// 四舍五入浮点到 int32
+static inline int32_t ttf_round_pixel(float value) {
+    return (int32_t)roundf(value);
+}
+
+// 读取 hhea 表的 metrics
+static int ttf_read_hhea_metrics(TtfFont *font, const TableRecord *hhea) {
+    if (!font || !hhea || hhea->length < 10) {
+        return 0;
+    }
+    uint8_t buf[10];
+    if (!ttf_read_range(font, hhea->offset, 10, buf)) {
+        return 0;
+    }
+    font->ascent = read_s16(buf + 4);
+    font->descent = read_s16(buf + 6);
+    font->lineGap = read_s16(buf + 8);
+    return 1;
+}
+
+// 按照字体 metrics 计算像素值
+int32_t ttf_scaled_value(const TtfFont *font, int32_t value, int ppem) {
+    float scale = ttf_compute_scale(font, ppem);
+    if (scale == 0.0f) {
+        return 0;
+    }
+    return ttf_round_pixel((float)value * scale);
+}
+
+// 按照字体 metrics 计算行高
+int32_t ttf_scaled_line_height(const TtfFont *font, int ppem) {
+    float scale = ttf_compute_scale(font, ppem);
+    if (scale == 0.0f) {
+        return 0;
+    }
+    float ascent = (float)font->ascent * scale;
+    float descent = (float)font->descent * scale;
+    float lineGap = (float)font->lineGap * scale;
+    return ttf_round_pixel(ascent - descent + lineGap);
+}
+
+// 按照字体 metrics 计算基线
+int32_t ttf_scaled_baseline(const TtfFont *font, int ppem) {
+    return ttf_scaled_value(font, font->ascent, ppem);
 }
 
 // 释放 bitmap 的像素缓冲

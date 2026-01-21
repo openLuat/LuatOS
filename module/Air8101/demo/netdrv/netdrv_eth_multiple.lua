@@ -50,8 +50,8 @@ local function netdrv_multiple_task_func()
         -- netdrv.CH390外挂CH390
         -- SPI ID 1, 片选 GPIO12
         netdrv.setup(eth_adapter, netdrv.CH390, {
-            spi = 1,
-            cs = 5
+            spi = 0,
+            cs = 15
         })
         sys.wait(1000) -- 等待以太网模块初始化完成,去掉会导致以太网初始化失败
         if static_ip then

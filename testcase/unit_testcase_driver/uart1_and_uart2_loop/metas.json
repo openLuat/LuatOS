@@ -1,0 +1,12 @@
+{
+    "timeout" : 600,
+    "model" : {
+        "air780epm" : [1],
+        "air780ehm":[1],
+        "air8000":[1]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "uart1_uart2回环"
+}

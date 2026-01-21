@@ -33,7 +33,7 @@ end
 local function eink_drv_init()
     -- 按接线引脚正确配置GPIO号
     local spi_id = 0
-    local pin_busy = 33
+    local pin_busy = 21
     local pin_reset = 26
     local pin_dc = 2
     local pin_cs = 1

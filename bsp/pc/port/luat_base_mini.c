@@ -131,6 +131,7 @@ static const luaL_Reg loadedlibs[] = {
   {"websocket", luaopen_websocket},
   // {"ftp", luaopen_ftp},
   {"errDump", luaopen_errdump},
+  {"httpsrv", luaopen_httpsrv},
 #endif
 #ifdef LUAT_USE_ERCOAP
   {"ercoap", luaopen_ercoap},
@@ -212,6 +213,27 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_SMS
   {"sms", luaopen_sms},
 #endif
+#ifdef LUAT_USE_SFUD
+  {"sfud", luaopen_sfud},              // sfud
+#endif
+#ifdef LUAT_USE_LITTLE_FLASH
+  {"lf", luaopen_little_flash},
+#endif
+#ifdef LUAT_USE_NETDRV
+  {"netdrv", luaopen_netdrv},
+  {"iperf", luaopen_iperf},
+  #ifdef LUAT_USE_AIRLINK
+  {"airlink", luaopen_airlink},
+  #endif
+  #ifdef LUAT_USE_ICMP
+  {"icmp", luaopen_icmp},
+  #endif
+  #ifdef LUAT_USE_DRV_BLUETOOTH
+  {"bluetooth", luaopen_bluetooth},
+  {"ble", luaopen_ble},
+  #endif
+#endif
+  {"codec", luaopen_multimedia_codec},
   {NULL, NULL}
 };
 

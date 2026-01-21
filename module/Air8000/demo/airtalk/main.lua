@@ -2,14 +2,16 @@
 @module  main
 @summary LuatOS语音对讲应用主入口，负责加载功能模块
 @version 1.0
-@date    2025.11.26
-@author 陈媛媛
+@date    2025.12.08
+@author  陈媛媛
 @usage
 本demo演示的核心功能为：
-1、audio_drv：音频设备初始化与控制
-2、talk：airtalk 对讲业务逻辑处理。
+1、netdrv_device：网络驱动设备配置（选择4G/WiFi/以太网/多网卡/PC模拟器）
+2、audio_drv：音频设备初始化与控制
+3、talk：airtalk 对讲业务逻辑处理
 
-更多说明参考本目录下的readme.md文件
+模块加载顺序严格按照：
+1. 网络驱动 → 2. 音频驱动 → 3. 对讲业务
 ]]
 
 --[[
@@ -26,25 +28,18 @@ VERSION：项目版本号，ascii string类型
 PROJECT = "extalk"
 VERSION = "001.000.000"
 
-<<<<<<< HEAD
---到 iot.openluat.com 创建项目，获取正确的项目key
+-- 到 iot.openluat.com 创建项目，获取正确的项目key
 PRODUCT_KEY =  "5544VIDOIHH9Nv8huYVyEIGT4tCvldxI"
 
---在日志中打印项目名和项目版本号
-=======
-PROJECT = "audio"
-VERSION = "1.0.0"
-PRODUCT_KEY =  "123"
 -- 在日志中打印项目名和项目版本号
->>>>>>> 9a6fb53b485f93bba81406138cd8d957e03952b4
 log.info("main", PROJECT, VERSION)
 
 -- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
 -- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
 if wdt then
-    --配置喂狗超时时间为9秒钟
+    -- 配置喂狗超时时间为9秒钟
     wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
+    -- 启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
 
@@ -61,14 +56,26 @@ end
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
 
-require "audio_drv"        -- 音频驱动模块
-require "talk"             -- 对讲主模块
+-- ========================== 模块加载顺序 ==========================
 
--- 音频对内存影响较大，不断的打印内存，用于判断是否异常
+-- 1. 首先加载网络驱动设备模块（配置网络连接）
+-- 注意：在netdrv_device.lua中会根据需要加载具体的网络驱动
+require "netdrv_device"
+
+-- 2. 加载音频驱动模块
+require "audio_drv"
+
+-- 3. 加载对讲主业务模块
+require "talk"
+
+-- ========================== 系统监控 ==========================
+
+-- 内存监控，每30秒打印一次内存使用情况（语音对讲对内存要求较高，需要监控）
 sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
+    log.info("内存使用情况:")
+    log.info("  Lua内存:", rtos.meminfo())
+    log.info("  系统内存:", rtos.meminfo("sys"))
+end, 30000)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

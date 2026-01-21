@@ -31,7 +31,8 @@ function GPIO_setup()
     local lowpower_module = hmeta.model()
     -- 判断使用的模组型号，如果为Air8000A/AB/N/U/W，则不允许控制GPIO22和GPIO23
     -- 在含WIFI功能的Air8000系列模组中，GPIO23为WIFI芯片的供电使能脚，GPIO22为WIFI芯片的通讯脚，不允许控制
-    if lowpower_module ~= "Air8000A" and lowpower_module ~= "Air8000AB" and lowpower_module ~= "Air8000N" and lowpower_module ~= "Air8000U" and lowpower_module ~= "Air8000W" then
+    if lowpower_module ~= "Air8000A" and lowpower_module ~= "Air8000AB" and lowpower_module ~= "Air8000N" and
+        lowpower_module ~= "Air8000U" and lowpower_module ~= "Air8000W" then
 
         -- 在不含WIFI的Air8000系列，Air780系列，Air700系列模组中GPIO23是Vref参考电压管脚，固件默认拉高，会影响功耗展示，关闭可有效降低功耗。
         -- Air780EGH/EGG/EGP中，Vref为定位芯片备电使用，在含Gsensor的型号中作为Gsensor的供电使能，关闭后会影响功能使用，需根据实际情况选择是否关闭
@@ -42,30 +43,61 @@ function GPIO_setup()
         gpio.setup(gpio.WAKEUP5, nil, gpio.PULLDOWN)
         -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
         -- gpio.setup(gpio.WAKEUP5, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
-        log.info("模组非8000含WIFI",lowpower_module)
+        log.info("模组非8000含WIFI", lowpower_module)
+    else
+        -- 当前模块含WIFI功能，根据业务需求，不需要WIFI功能的情况下可关闭WIFI，有效降低功耗；
+        -- 如需要WIFI功能，则需要再手动打开pm.power(pm.WIFI, 1)
+        -- DEMO中默认不关闭WIFI，请根据实际业务需求，选择是否关闭WIFI
+        -- if pm.WIFI then
+        --     pm.power(pm.WIFI, 0)
+        -- end
+
     end
     -- WAKEUP0专用管脚，无复用，不需要使用时主动将其关闭可避免漏电风险
     gpio.setup(gpio.WAKEUP0, nil, gpio.PULLDOWN)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.WAKEUP0, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
 
     -- gpio.WAKEUP1 = VBUS，检测USB插入使用，关闭则无法检测是否插入USB，不需要使用时主动将其关闭可避免漏电风险
     gpio.setup(gpio.WAKEUP1, nil, gpio.PULLDOWN)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.WAKEUP1, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
 
     -- gpio.WAKEUP2 = SIM卡的DET检测脚，用于检测是否插卡，关闭则无法检测是否插卡，不需要使用时主动将其关闭可避免漏电风险
     gpio.setup(gpio.WAKEUP2, nil, gpio.PULLDOWN)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.WAKEUP2, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
 
     -- gpio.WAKEUP3 = GPIO 20，不需要使用时主动将其关闭可避免漏电风险
     -- 如测试模块型号为Air780EHV时，需注意该管脚内部用于控制Audio Codec芯片ES8311的开关，不要配置，否则会导致Audio Codec芯片ES8311无法正常工作
     gpio.setup(gpio.WAKEUP3, nil, gpio.PULLDOWN)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.WAKEUP3, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
 
     -- gpio.WAKEUP4 = GPIO 21，不需要使用时主动将其关闭可避免漏电风险
     -- 如测试模块型号为Air780EGP/EGG/EGH时，需注意该管脚内部用于控制GNSS定位芯片的开关使能，不要配置，否则会导致GNSS定位芯片无法正常工作
     gpio.setup(gpio.WAKEUP4, nil, gpio.PULLDOWN)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.WAKEUP4, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
 
     -- 如果硬件上PWR_KEY接地自动开机，可能会有漏电流风险，配置关闭可避免功耗异常，没接地可以不关
     gpio.setup(gpio.PWR_KEY, nil, gpio.PULLDOWN)
-    
-    -- 关闭USB以后可以降低约150ua左右的功耗，如果不需要USB可以关闭
-    pm.power(pm.USB, false)
+    -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
+    -- gpio.setup(gpio.PWR_KEY, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
+
+    -- GPIO24管脚为8000系列含GPS/Gsensor功能的模块中，内部GPS的备电脚，Gsensor的供电使能脚，关闭后会影响功能使用，需根据实际情况选择是否关闭
+    -- 此管脚在780系列、700系列中可注释，不影响功耗；
+    gpio.setup(24, nil, gpio.PULLDOWN)
+
+    -- 配置UART1为9600波特率，可用于唤醒PSM+模式下的模块；
+    -- uart.setup(1,9600)
+
+    -- 配置dtimerStart唤醒定时器，根据预设时间唤醒模块；
+    -- pm.dtimerStart(0, tcp_heartbeat * 60 * 1000)
+
+    -- 从2025年3月份开始的固件版本在pm.power(pm.WORK_MODE, 3)中会自动控制USB和飞行模式，脚本里不需要再手动控制
+    -- pm.power(pm.USB, false)
+    -- mobile.flymode(0, true)
 end
 
 --[[

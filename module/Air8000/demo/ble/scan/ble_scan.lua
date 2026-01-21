@@ -1,8 +1,8 @@
 --[[
 @module  ble_ibeacon
 @summary Air8000演示scan功能模块
-@version 1.0
-@date    2025.11.18
+@version 1.1
+@date    2026.01.11
 @author  王世豪
 @usage
 本文件为Air8000核心板演示scan功能的代码示例，核心业务逻辑为：
@@ -11,7 +11,7 @@
 2. 创建BLE对象
 local ble_device = bluetooth_device:ble(ble_event_cb)
 3.设置扫描模式
-ble_device:scan_create() -- 使用默认参数, addr_mode=0, scan_interval=100, scan_window=100
+ble_device:scan_create(ble.PUBLIC, 1600, 100, ble.SCAN_ACTIVE) -- 扫描模式: ble.PUBLIC, 扫描间隔: 1000ms, 扫描窗口: 62.6ms, 扫描类型: 主动扫描
 4. 开始扫描
 ble_device:scan_start()
 5. 在回调函数中处理扫描事件, 如接收设备信息等
@@ -30,7 +30,21 @@ local function handle_scan_report(ble_device, ble_param)
             "地址:", ble_param.adv_addr:toHex(),
             "数据:", ble_param.data:toHex())
     
-    -- 2. 打印解析的广播数据
+    -- -- 2. 解析设备名称
+    -- local adv_data = ble_device:adv_decode(ble_param.data)
+    -- if adv_data then
+    --     for k, v in pairs(adv_data) do
+    --         -- log.info("ble_scan", "广播数据", "长度:", v.len, "类型:", v.tp, "数据:", v.data:toHex())
+    --         local device_name = v.data:toHex()
+    --         -- 解析设备名称 (类型0x08: 短名称, 0x09: 完整名称)
+    --         if v.tp == 0x08 or v.tp == 0x09 then
+    --             device_name = string.fromHex(device_name)
+    --             log.info("ble_scan", "设备名称:", device_name)
+    --         end
+    --     end
+    -- end
+    
+    -- 3. 打印解析的广播数据, 并筛选iBeacon广播数据
     -- local adv_data = ble_device:adv_decode(ble_param.data)
     -- if adv_data then
     --     for k, v in pairs(adv_data) do
@@ -108,7 +122,7 @@ function ble_scan_task_func()
         end
 
         -- 创建扫描
-        if not ble_device:scan_create() then
+        if not ble_device:scan_create(ble.PUBLIC, 1600, 100, ble.SCAN_ACTIVE) then -- ble.SCAN_ACTIVE 主动扫描，ble.SCAN_PASSIVE 被动扫描
             log.error("BLE", "BLE创建扫描失败")
             goto EXCEPTION_PROC
         end

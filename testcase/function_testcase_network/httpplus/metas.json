@@ -1,0 +1,12 @@
+{
+    "timeout": 600,
+    "model": {
+        "air780epm": [1,106],
+        "air780ehm": [6,114],
+        "air8000": [7,108],
+        "air8101": [1, 101]
+    },
+    "action_count": 1,
+    "priority": 5,
+    "description": "HTTPPLUS测试"
+}

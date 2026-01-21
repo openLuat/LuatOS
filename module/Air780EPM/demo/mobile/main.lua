@@ -57,8 +57,12 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
+-- 为避免代码冲突 mobile_test 和 sim_switch_test 同时只能运行一个!!!
 -- 加载 mobile_test 功能模块
 require "mobile_test"
+
+-- 加载 sim_switch_test 功能模块（双卡切换功能）
+-- require "sim_switch_test"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

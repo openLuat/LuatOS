@@ -15,7 +15,7 @@
 #define LUAT_LOG_TAG "libuv"
 #include "luat_log.h"
 
-#define MAX_SOCK_NUM 8
+#define MAX_SOCK_NUM 32
 
 #ifndef LUAT_CONF_NETWORK_DEBUG
 #define LUAT_CONF_NETWORK_DEBUG 0
@@ -893,8 +893,59 @@ static int libuv_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, 
 
 static int libuv_get_full_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
 {
-    LLOGI("获取全部本地IP信息, 未实现");
-    return -1;
+    (void)user_data;
+    uv_interface_address_t *info;
+    int count, i;
+
+    int got_ipv4 = 0;
+    int got_ipv6 = 0;
+
+    // 先将IPv6标记为无效，避免旧值残留
+    if (ipv6) {
+        network_set_ip_invaild(ipv6);
+    }
+
+    if (uv_interface_addresses(&info, &count) != 0 || count <= 0) {
+        LLOGI("获取网卡信息失败或无有效网卡");
+        return -1;
+    }
+
+    // 遍历所有非内置接口，优先同时获取IPv4与IPv6
+    for (i = count - 1; i >= 0; i--) {
+        uv_interface_address_t interface_a = info[i];
+        if (interface_a.is_internal) {
+            continue;
+        }
+
+        // IPv4 信息
+        if (!got_ipv4 && interface_a.address.address4.sin_family == AF_INET) {
+            network_set_ip_ipv4(ip, interface_a.address.address4.sin_addr.s_addr);
+            network_set_ip_ipv4(submask, interface_a.netmask.netmask4.sin_addr.s_addr);
+            // gateway无法直接通过libuv获取，这里采用与本地IP同网段的占位方案
+            network_set_ip_ipv4(gateway, interface_a.address.address4.sin_addr.s_addr | 0x1000000);
+            got_ipv4 = 1;
+            break;
+        }
+
+        // // IPv6 信息
+        // if (!got_ipv6 && interface_a.address.address6.sin6_family == AF_INET6 && ipv6) {
+        //     memcpy(ipv6->ipv6_u8_addr, interface_a.address.address6.sin6_addr.s6_addr, 16);
+        //     ipv6->is_ipv6 = 1;
+        //     got_ipv6 = 1;
+        // }
+
+        // if (got_ipv4 && got_ipv6) {
+        //     break;
+        // }
+    }
+
+    uv_free_interface_addresses(info, count);
+
+    if (!got_ipv4 && !got_ipv6) {
+        LLOGI("未找到有效的本地IPv4/IPv6地址");
+        return -1;
+    }
+    return 0;
 }
 
 static int libuv_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data)

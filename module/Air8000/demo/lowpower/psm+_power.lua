@@ -49,6 +49,12 @@ function GPIO_setup()
         -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
         -- gpio.setup(gpio.WAKEUP5, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
         log.info("模组非8000含WIFI", lowpower_module)
+    else
+        -- 如果当前模块含WIFI功能，进入PSM+功能前完全关闭WIFI将有效降低功耗，唤醒模块时WIFI会重启，不影响唤醒后WIFI应用
+        if pm.WIFI then
+            pm.power(pm.WIFI, 0)
+        end
+
     end
     -- WAKEUP0专用管脚，无复用，不需要使用时主动将其关闭可避免漏电风险
     gpio.setup(gpio.WAKEUP0, nil, gpio.PULLDOWN)
@@ -81,6 +87,10 @@ function GPIO_setup()
     gpio.setup(gpio.PWR_KEY, nil, gpio.PULLDOWN)
     -- 可在进入低功耗模式时保持管脚状态，也可以配置为中断拉低触发唤醒,选择对应配置代码即可
     -- gpio.setup(gpio.PWR_KEY, gpio_wakeup, gpio.PULLUP, gpio.FALLING)
+
+    -- GPIO24管脚为8000系列含GPS/Gsensor功能的模块中，内部GPS的备电脚，Gsensor的供电使能脚，关闭后会影响功能使用，需根据实际情况选择是否关闭
+    -- 此管脚在780系列、700系列中可注释，不影响功耗；
+    gpio.setup(24, nil, gpio.PULLDOWN)
 
     -- 配置UART1为9600波特率，可用于唤醒PSM+模式下的模块；
     -- uart.setup(1,9600)

@@ -1,9 +1,17 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.1
-@date    2025.09.01
-@author  梁健
+@version 1.2
+@date    2026.1.6
+@author  wangshihao
+@updates
+    v1.2 2026.1.6
+        1. 新增双声道播放支持，exaudio.setup增加一个声道的配置参数
+        2. 录音时间设置成0,会一直录音是正常的,api库已说明，这里再增加log打印提示
+        3. 使用exaudio.record_stop()停止录音时，会有一小部分结尾的数据因为没有进入audio.on中的audio.RECORD_DATA事件而丢失，解决方案：
+            在调用exaudio.record_stop()后，检查两个PCM缓冲区，确保所有数据都被处理
+        4. exaudio.play_stream_write(data),流式音频数据,单次写入的长度修改为根据每秒播放数据量来确定
+        5. 低功耗自动控制，exaudio.setup默认POWEROFF模式,exaudio.play_start和exaudio.record_start会自动切换到RESUME模式,播放完成或录音完成，会自动切换到POWEROFF模式
 @usage
 ]]
 local exaudio = {}
@@ -12,13 +20,13 @@ local exaudio = {}
 local I2S_ID = 0
 local I2S_MODE = 0          -- 0:主机 1:从机
 local I2S_SAMPLE_RATE = 16000
-local I2S_CHANNEL_FORMAT = i2s.MONO_R  
 local I2S_COMM_FORMAT = i2s.MODE_LSB   -- 可选MODE_I2S, MODE_LSB, MODE_MSB
 local I2S_CHANNEL_BITS = 16
 local MULTIMEDIA_ID = 0
 local EX_MSG_PLAY_DONE = "playDone"
 local ES8311_ADDR = 0x18    -- 7位地址
 local CHIP_ID_REG = 0x00    -- 芯片ID寄存器地址
+local PCM_BUFFER_DURATION_MS = 50  -- 每个缓冲区的时长（毫秒）
 
 -- 模块常量
 exaudio.PLAY_DONE = 1         --   音频播放完毕的事件之一
@@ -34,25 +42,28 @@ exaudio.PCM_48000 = 6
 
 -- 默认配置参数
 local audio_setup_param = {
-    model = "es8311",         -- dac类型: "es8311","es8211"
+    model = "es8311",         -- dac类型: "es8311"
     i2c_id = 0,               -- i2c_id: 0,1
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
     dac_delay = 3,            -- DAC启动前冗余时间(100ms)
     pa_delay = 100,           -- DAC启动后延迟打开PA的时间(ms)
-    dac_time_delay = 600,     -- 播放完毕后PA与DAC关闭间隔(ms)
+    dac_time_delay = 600,      -- 播放完毕后PA与DAC关闭间隔(ms)
     bits_per_sample = 16,     -- 采样位数
-    pa_on_level = 1           -- PA打开电平 1:高 0:低        
+    pa_on_level = 1,          -- PA打开电平 1:高 0:低       
+    channels = 1              -- 声道数: 1:单声道 2:双声道  
 }
 
 local audio_play_param = {
-    type = 0,                 -- 0:文件 1:TTS 2:流式
-    content = nil,            -- 播放内容
-    cbfnc = nil,              -- 播放完毕回调
-    priority = 0,             -- 优先级(数值越大越高)
-    sampling_rate = 16000,    -- 采样率(仅流式)
-    sampling_depth = 16,      -- 采样位深(仅流式)
-    signed_or_unsigned = true -- PCM是否有符号(仅流式)
+    type = 0,                  -- 0:文件 1:TTS 2:流式
+    content = nil,             -- 播放内容
+    cbfnc = nil,               -- 播放完毕回调
+    priority = 0,              -- 优先级(数值越大越高)
+    sampling_rate = 16000,     -- 采样率(仅流式)
+    sampling_depth = 16,       -- 采样位深(仅流式)
+    signed_or_unsigned = true, -- PCM是否有符号(仅流式)
+    channels = 1,              -- 声道数 1:单声道 2:双声道（将使用setup中的配置）
+    stream_buffer_size = 0,    -- 流式缓冲区大小(字节)
 }
 
 local audio_record_param = {
@@ -65,7 +76,7 @@ local audio_record_param = {
 -- 内部变量
 local pcm_buff0 = nil
 local pcm_buff1 = nil
-local voice_vol = 55
+local voice_vol = 65
 local mic_vol = 80
 
 -- 定义全局队列表
@@ -97,6 +108,7 @@ local function audio_play_queue_pop()
     end
     return nil
 end
+
 -- 清空队列中所有数据
 function audio_queue_clear()
     -- 清空数组
@@ -115,6 +127,14 @@ local function check_param(param, expected_type, name)
     return true
 end
 
+-- 计算缓冲区大小, 公式：采样率 * 声道数 * 采样位数/8 * 缓冲区时长(秒)
+local function calculate_buffer_size(sampling_rate, sampling_depth, channels)
+    local bytes_per_sample = sampling_depth / 8
+    local bytes_per_channel_per_second = sampling_rate * bytes_per_sample
+    local bytes_per_buffer = bytes_per_channel_per_second * channels * (PCM_BUFFER_DURATION_MS / 1000)
+    return math.floor(bytes_per_buffer / 4) * 4  -- 对齐到4字节
+end
+
 -- 音频回调处理
 local function audio_callback(id, event, point)
     -- log.info("audio_callback", "event:", event, 
@@ -130,6 +150,7 @@ local function audio_callback(id, event, point)
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
         audio_queue_clear()  -- 清空流式播放数据队列
+        audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
         sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
@@ -143,13 +164,13 @@ local function audio_callback(id, event, point)
         if type(audio_record_param.cbfnc) == "function" then
             audio_record_param.cbfnc(exaudio.RECORD_DONE)
         end
+
+        audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
     end
 end
 
 -- 读取ES8311芯片ID
 local function read_es8311_id()
-
-
     -- 发送读取请求
     local send_ok = i2c.send(audio_setup_param.i2c_id, ES8311_ADDR, CHIP_ID_REG)
     if not send_ok then
@@ -175,6 +196,7 @@ local function audio_setup()
         return false
     end
     -- 初始化I2S
+    local I2S_CHANNEL_FORMAT = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
     local result, data = i2s.setup(
         I2S_ID, 
         I2S_MODE, 
@@ -207,16 +229,15 @@ local function audio_setup()
         {
             chip = audio_setup_param.model,
             i2cid = audio_setup_param.i2c_id,
-            i2sid = I2S_ID,
-            voltage = audio.VOLTAGE_1800
+            i2sid = I2S_ID
+            -- voltage = audio.VOLTAGE_1800
         }
     )
 
-  
+
     -- 设置音量
     audio.vol(MULTIMEDIA_ID, voice_vol)
     audio.micVol(MULTIMEDIA_ID, mic_vol)
-    audio.pm(MULTIMEDIA_ID, audio.RESUME)
     
     -- 检查芯片连接
     if audio_setup_param.model == "es8311" and not read_es8311_id() then
@@ -226,8 +247,25 @@ local function audio_setup()
 
     -- 注册回调
     audio.on(MULTIMEDIA_ID, audio_callback)
+    
+    audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
+    log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
     return true
 end
+
+-- 模块接口：获取推荐的流式缓冲区大小
+function exaudio.get_stream_buffer_size()
+    if audio_play_param.stream_buffer_size > 0 then
+        return audio_play_param.stream_buffer_size
+    end
+
+    -- 如果没有开始流式播放，返回一个基于默认参数的推荐值 
+    local default_channels = audio_setup_param.channels or 1 
+    local default_rate = I2S_SAMPLE_RATE 
+    local default_depth = audio_setup_param.bits_per_sample 
+    return calculate_buffer_size(default_rate, default_depth, default_channels)
+end
+
 
 -- 模块接口：初始化
 function exaudio.setup(audioConfigs)
@@ -274,26 +312,40 @@ function exaudio.setup(audioConfigs)
         {name = "pa_delay", type = "number"},
         {name = "dac_time_delay", type = "number"},
         {name = "bits_per_sample", type = "number"},
-        {name = "pa_on_level", type = "number"}
+        {name = "pa_on_level", type = "number"},
+        {name = "channels", type = "number"}
     }
 
     for _, param in ipairs(optional_params) do
         if audioConfigs[param.name] ~= nil then
             if check_param(audioConfigs[param.name], param.type, param.name) then
-                audio_setup_param[param.name] = audioConfigs[param.name]
+                -- 对channels参数进行验证，确保只能是1或2
+                if param.name == "channels" then
+                    if audioConfigs[param.name] == 1 or audioConfigs[param.name] == 2 then
+                        audio_setup_param[param.name] = audioConfigs[param.name]
+                    else
+                        log.error("声道数必须为1(单声道)或2(双声道)")
+                        return false
+                    end
+                else
+                    audio_setup_param[param.name] = audioConfigs[param.name]
+                end
             else
                 return false
             end
         end
     end
 
-    -- 确保采样位数有默认值
+    -- 确保采样位数和声道数有默认值
     audio_setup_param.bits_per_sample = audio_setup_param.bits_per_sample or 16
+    audio_setup_param.channels = audio_setup_param.channels or 1
     return audio_setup()
 end
 
 -- 模块接口：开始播放
 function exaudio.play_start(playConfigs)
+    -- 恢复audio.RESUME工作模式
+    audio.pm(MULTIMEDIA_ID, audio.RESUME)
     if not playConfigs or type(playConfigs) ~= "table" then
         log.error("播放配置必须为table类型")
         return false
@@ -375,7 +427,15 @@ function exaudio.play_start(playConfigs)
         audio_play_param.content = playConfigs.content
         audio_play_param.sampling_rate = playConfigs.sampling_rate
         audio_play_param.sampling_depth = playConfigs.sampling_depth
-        
+        audio_play_param.channels = audio_setup_param.channels or 1
+
+        -- 计算每个缓冲区的大小（字节数）
+        audio_play_param.stream_buffer_size = calculate_buffer_size(
+            audio_play_param.sampling_rate,
+            audio_play_param.sampling_depth,
+            audio_play_param.channels
+        )
+
         if playConfigs.signed_or_unsigned ~= nil then
             audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
         end
@@ -383,16 +443,17 @@ function exaudio.play_start(playConfigs)
         audio.start(
             MULTIMEDIA_ID, 
             audio.PCM, 
-            1, 
+            audio_play_param.channels, 
             playConfigs.sampling_rate, 
             playConfigs.sampling_depth, 
             audio_play_param.signed_or_unsigned
         )
-        -- 发送初始数据
-        if audio.write(MULTIMEDIA_ID, string.rep("\0", 512)) ~= true then
+
+        -- 发送初始数据（使用计算出的缓冲区大小）
+        if audio.write(MULTIMEDIA_ID, string.rep("\0", audio_play_param.stream_buffer_size)) ~= true then
             return false
         end
-    end
+    end                        
 
     -- 处理回调函数
     if playConfigs.cbfnc ~= nil then
@@ -430,6 +491,8 @@ end
 
 -- 模块接口：开始录音
 function exaudio.record_start(recodConfigs)
+    -- 恢复audio.RESUME工作模式
+    audio.pm(MULTIMEDIA_ID, audio.RESUME)
     if not recodConfigs or type(recodConfigs) ~= "table" then
         log.error("录音配置必须为table类型")
         return false
@@ -444,12 +507,24 @@ function exaudio.record_start(recodConfigs)
     -- 处理录音时间
     if recodConfigs.time ~= nil then
         if check_param(recodConfigs.time, "number", "time") then
-            audio_record_param.time = recodConfigs.time
+            if recodConfigs.time == 0 then
+                audio_record_param.time = 0
+                log.warn("exaudio.record_start", "录音时间设置为0，将无限录音")
+                log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
+            elseif recodConfigs.time < 0 then
+                log.error("录音时间不能为负数")
+                return false
+            else
+                audio_record_param.time = recodConfigs.time
+                log.info("exaudio.record_start", string.format("将录音%d秒", audio_record_param.time))
+            end
         else
             return false
         end
     else
         audio_record_param.time = 0
+        log.warn("exaudio.record_start", "未指定录音时间，将无限录音")
+        log.warn("exaudio.record_start", "提示：请调用exaudio.record_stop()手动停止录音")
     end
 
     -- 处理存储路径/回调
@@ -522,7 +597,19 @@ end
 
 -- 模块接口：停止录音
 function exaudio.record_stop()
-    return audio.recordStop(MULTIMEDIA_ID)
+    local result = audio.recordStop(MULTIMEDIA_ID)
+    -- 处理剩余的录音数据
+    if type(audio_record_param.path) == "function" then
+        -- 检查两个PCM缓冲区
+        local buffers = {pcm_buff0, pcm_buff1}
+        for i, buff in ipairs(buffers) do
+            if buff and buff:used() > 0 then
+                log.info("exaudio.record_stop", string.format("处理缓冲区%d的剩余数据: %d字节", i, buff:used()))
+                audio_record_param.path(buff, buff:used())
+            end
+        end
+    end
+    return result
 end
 
 -- 模块接口：设置音量
@@ -539,6 +626,11 @@ function exaudio.mic_vol(record_volume)
         return audio.micVol(MULTIMEDIA_ID, record_volume)  
     end
     return false
+end
+
+-- 获取当前声道数
+function exaudio.get_channels()
+    return audio_setup_param.channels
 end
 
 return exaudio

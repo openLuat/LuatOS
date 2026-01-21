@@ -65,19 +65,8 @@ static void http_close_nw(luat_http_ctrl_t *http_ctrl) {
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 	}
 }
-int http_close(luat_http_ctrl_t *http_ctrl){
-	LLOGI("http close %p", http_ctrl);
-	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
-		network_force_close_socket(http_ctrl->netc);
-		network_release_ctrl(http_ctrl->netc);
-		http_ctrl->netc = NULL;
-	}
-	if (http_ctrl->timeout_timer){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
-		luat_release_rtos_timer(http_ctrl->timeout_timer);
-    	http_ctrl->timeout_timer = NULL;
-	}
+
+static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
 		http_ctrl->host = NULL;
@@ -115,6 +104,26 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 	luat_heap_free(http_ctrl);
+}
+
+int http_close(luat_http_ctrl_t *http_ctrl){
+	LLOGI("http close %p", http_ctrl);
+	if (http_ctrl->netc){
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
+		network_release_ctrl(http_ctrl->netc);
+		http_ctrl->netc = NULL;
+	}
+	if (http_ctrl->timeout_timer){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+		luat_release_rtos_timer(http_ctrl->timeout_timer);
+    	http_ctrl->timeout_timer = NULL;
+	}
+	#if defined(LUAT_USE_LWIP) && (NO_SYS == 0)
+	network_tcpip_callback(http_close_clean, http_ctrl, 0);
+	#else
+	http_close_clean(http_ctrl);
+	#endif
 	return 0;
 }
 
@@ -339,8 +348,9 @@ static int on_headers_complete(http_parser* parser){
 	#endif
 		http_ctrl->headers_complete = 1;
 		// 如果头部解析出content_length为0，直接标记body接收完成
-		if (http_ctrl->resp_content_len == 0){
-			http_ctrl->http_body_is_finally = 1;
+		// 只在非chunked且content-length==0时置finally
+		if (!(parser->flags & F_CHUNKED) && http_ctrl->resp_content_len == 0){
+		   http_ctrl->http_body_is_finally = 1;
 		}
 		luat_http_callback(http_ctrl);
 	} else {
@@ -449,15 +459,24 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			http_cb(HTTP_STATE_GET_BODY, (void *)at, length, http_ctrl->http_cb_userdata);
 		}
 	}
-	if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
-		http_ctrl->http_body_is_finally = 1;
-		LLOGD("http body recv done by content_length");
-		http_close_nw(http_ctrl);
+	LLOGD("check http body complete content_length:%ld body_len:%ld chunked:%d finally:%d",http_ctrl->resp_content_len, http_ctrl->body_len, (parser->flags & F_CHUNKED), http_ctrl->http_body_is_finally);
+	// 判断是否完整
+    int body_complete = 0;
+	if (parser->flags & F_CHUNKED) {
+		// chunked下，只有收到0 chunk才算完整
+		if (http_ctrl->http_body_is_finally) {
+        body_complete = 1;
+    }
+	} else {
+		if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
+        body_complete = 1;
+    }
 	}
-	else if (http_ctrl->http_body_is_finally) {
-		LLOGD("http body recv done by chunked end");
-		http_close_nw(http_ctrl);
-	}
+    // 检测完整时，就可以把http回调关闭
+    if (body_complete) {
+        LLOGD("http body recv done, total_len=%ld", http_ctrl->body_len);
+        http_close_nw(http_ctrl);
+    }
     return 0;
 }
 
@@ -523,7 +542,7 @@ static int on_chunk_header(http_parser* parser){
 	LLOGD("on_chunk_header content_length:%lld",parser->content_length);
 	if (parser->content_length == 0){
 		http_ctrl->http_body_is_finally = 1;
-		http_close_nw(http_ctrl);
+		// http_close_nw(http_ctrl);	// 在on_body里关闭连接
 	}
     return 0;
 }
@@ -696,8 +715,31 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 	LLOGD("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
-	http_ctrl->tcp_closed = 1;
-	if (http_ctrl->http_body_is_finally == 0) { // 当没有解析完成
+    http_ctrl->tcp_closed = 1;
+    if ((http_ctrl->parser.flags & F_CHUNKED) && !http_ctrl->http_body_is_finally) {	 // 当chunked,没有解析完成
+        // 服务端没发 0\r\n\r\n 就 close，属于 chunked 截断
+        LLOGW("chunked transfer incomplete, server closed early, try to parse left buffer");
+
+        // 把剩余缓冲区全部喂给 parser，能拼多少算多少
+        size_t parsed = 0;
+        while (parsed < http_ctrl->resp_buff_offset) {
+            size_t n = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff + parsed, http_ctrl->resp_buff_offset - parsed);
+            if (http_ctrl->parser.http_errno) {
+                LLOGW("parser errno %d != HPE_OK", http_ctrl->parser.http_errno);
+                break;
+            }
+            if (n == 0) break;
+            parsed += n;
+        }
+
+        // 无论 parser 是否吃到 0-chunk，都按“截断”处理
+        // http_ctrl->error_code = HTTP_ERROR_CHUNK_INCOMPLETE;   // 错误，表示 chunked 截断
+        // http_resp_error(http_ctrl, http_ctrl->error_code);
+		// 直接返回，不再走后续正常关闭流程
+        return;
+    }
+
+    if (http_ctrl->http_body_is_finally == 0) {
 		// 存在多种可能性
 		// 1. 没有content_length的情况, 又没有chunked
 		if (http_ctrl->resp_content_len >= 0 && http_ctrl->headers_complete) {
@@ -834,18 +876,69 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				}
 			}
 			if (http_ctrl->resp_headers_done) {
-				size_t nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
-				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
-				if(http_ctrl->parser.http_errno) {
-					LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
-					return 0;
+				// 优化chunked模式下的组包逻辑，确保chunk size行和chunk body都完整后再解析
+				size_t parsed = 0;
+				while (parsed < http_ctrl->resp_buff_offset) {
+					// 检查是否为chunked模式
+					if (http_ctrl->parser.flags & F_CHUNKED) {
+						// 检查chunk size行是否完整（\r\n）
+						char* rn = NULL;
+						for (size_t j = parsed; j + 1 < http_ctrl->resp_buff_offset; ++j) {
+							if (http_ctrl->resp_buff[j] == '\r' && http_ctrl->resp_buff[j+1] == '\n') {
+								rn = http_ctrl->resp_buff + j + 2;
+								break;
+							}
+						}
+						if (!rn) {
+							// chunk size行未完整，等待更多数据
+							break;
+						}
+						// 检查chunk body是否完整（需先解析出chunk size数值）
+						// 临时调用一次 http_parser_execute，仅解析 chunk size 行
+						int chunk_size_bytes = rn - (http_ctrl->resp_buff + parsed);
+						int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff + parsed, chunk_size_bytes);
+						if (http_ctrl->parser.http_errno) {
+							LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
+							return 0;
+						}
+						if (nParseBytes == 0) break;
+						parsed += nParseBytes;
+						// 现在已知 chunk size，判断剩余数据是否足够
+						if (http_ctrl->parser.content_length > 0) {
+							size_t chunk_body_need = http_ctrl->parser.content_length + 2; // chunk body + \r\n
+							size_t chunk_body_have = http_ctrl->resp_buff_offset - parsed;
+							if (chunk_body_have < chunk_body_need) {
+								// chunk body未收齐，等待更多数据
+								break;
+							}
+							// chunk body收齐，解析 chunk body
+							nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings,
+								http_ctrl->resp_buff + parsed, chunk_body_need);
+							if (http_ctrl->parser.http_errno) {
+								LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
+								return 0;
+							}
+							if (nParseBytes == 0) break;
+							parsed += nParseBytes;
+						}
+					} else {
+						// 非chunked模式
+						int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings,
+							http_ctrl->resp_buff + parsed, http_ctrl->resp_buff_offset - parsed);
+						LLOGD("nParseBytes %d parsed %d resp_buff_offset %d", nParseBytes, parsed, http_ctrl->resp_buff_offset);
+						if (http_ctrl->parser.http_errno) {
+							LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
+							return 0;
+						}
+						if (nParseBytes == 0) break;
+						parsed += nParseBytes;
+					}
 				}
-				if (http_ctrl->resp_buff_offset <= nParseBytes) {
+				if (http_ctrl->resp_buff_offset <= parsed) {
 					http_ctrl->resp_buff_offset = 0;
-				}
-				else {
-					memmove(http_ctrl->resp_buff, http_ctrl->resp_buff + nParseBytes, http_ctrl->resp_buff_offset - nParseBytes);
-					http_ctrl->resp_buff_offset -= nParseBytes;
+				} else {
+					memmove(http_ctrl->resp_buff, http_ctrl->resp_buff + parsed, http_ctrl->resp_buff_offset - parsed);
+					http_ctrl->resp_buff_offset -= parsed;
 				}
 			}
 			else {

@@ -6,6 +6,9 @@
 
 3、audio_drv：音频设备初始化与控制
 
+4、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单4g网卡，单wifi网卡，单spi以太网卡，多网卡)中的任何一种网卡；
+
+
 ## 常量的介绍
 
 1. extalk.START            -- 通话开始
@@ -70,7 +73,7 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/) 
 
-2、Air8000 V2018版本固件，选择支持对讲功能的固件。不同版本区别请见https://docs.openluat.com/air8000/luatos/firmware/
+2、Air8000 V2016版本固件，选择支持对讲功能的固件。不同版本区别请见https://docs.openluat.com/air8000/luatos/firmware/
 
 3、 luatos需要的脚本和资源文件
 - 脚本和资源文件[点我浏览所有文件](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/airtalk)
@@ -94,153 +97,149 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 4、talk.lua 中，修改目标设备终端ID。 
   ``` lua
   -- 目标设备终端ID，修改为你想要对讲的终端ID
-  TARGET_DEVICE_ID = "78122397"  -- 请替换为实际的目标设备终端ID
+  TARGET_DEVICE_IMEI = "78122397"  -- 请替换为实际的目标设备终端ID
   ``` 
 
-5、talk.lua 中，修改WiFi连接参数。 
- ``` lua
--- WiFi连接参数（如果需要使用WiFi联网，请取消注释use_wifi函数调用）
-local WIFI_CONFIG = {
-    ssid = "茶室-降功耗,找合宙!",  -- WiFi SSID
-    password = "Air123456",         -- WiFi密码
-}
- ``` 
-6、audio_drv中，根据硬件环境修改pa_ctrl和dac_ctrl配置
- - Air8000开发板pa_ctrl和dac_ctrl配置
+5、netdrv_device.lua及netdrv文件夹内的netdrv_wifi 要连接的WiFi热点信息
   ``` lua
-  pa_ctrl = 162,         -- 音频放大器电源控制管脚
-  dac_ctrl = 164,        -- 音频编解码芯片电源控制管脚  
-   ``` 
-- Air8000核心板pa_ctrl和dac_ctrl配置
- ``` lua
-  pa_ctrl = 17,         -- 音频放大器电源控制管脚
-  dac_ctrl = 16,        -- 音频编解码芯片电源控制管脚 
-   ```
-7、Luatools烧录内核固件和修改后的demo脚本代码
+  exnetif.set_priority_order({{
+      WIFI = {
+          -- ssid = "茶室-降功耗,找合宙!", 
+          -- password = "Air123456"
+          ssid = "HONOR", -- WiFi SSID
+          password = "iot12345678" -- WiFi密码
+      }
+  }})
+  ``` 
+6、Luatools烧录内核固件和修改后的demo脚本代码
 
-8、烧录成功后，自动开机运行
-- 对讲模块初始化
-- 启动对讲系统
-- LED指示灯初始化
-- 初始化音频设备（通过I2C配置ES8311编解码芯片）
+7、烧录成功后，系统初始化
 
- luatools会打印以下日志
+- 网络初始化：
+
+  - 初始化以太网，注册CH390H设备，通过SPI1连接以太网芯片（CS引脚12）
+  - WiFi STA模式初始化，配置WiFi名称和密码
+  - 以太网和WiFi初始化完成，订阅网络状态变化事件
+  - 连接默认网络
+
+luatools会打印以下日志   
 ``` lua
-<<<<<<< HEAD
-I/talk.lua:428 对讲模块初始化...
-I/talk.lua:371 启动对讲系统...
-I/talk.lua:377 LED指示灯初始化完成 - GPIO146
-I/talk.lua:383 初始化音频设备...
-I/audio_drv.lua:37 audio_drv 开始初始化音频设备
-I2C_MasterSetup 426:I2C0, Total 65 HCNT 22 LCNT 40
-D/audio codec init es8311 
-I/audio_drv.lua:43 audio_drv 音频设备初始化成功
-I/talk.lua:388 音频初始化成功
-=======
- I/talk.lua:185 音频初始化成功
- I/talk.lua:193 extalk初始化成功
- I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0001 内容: {"key":"123","device_type":2}
- I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
- I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0002 内容: 
- I/talk.lua:37 联系人列表更新:
- I/talk.lua:39   1. ID: 861556079986013, 名称: 
- I/talk.lua:39   2. ID: 74959320, 名称: 866965083769676
- I/extalk.lua:462 对讲管理平台已连接
->>>>>>> 9a6fb53b485f93bba81406138cd8d957e03952b4
-```
-
-9、联网配置：
-
-9.1 WiFi联网（STA模式）
-- 配置待连接的WiFi名称（SSID）和密码
-- 订阅网络状态变化事件，等待连接就绪
-- 连接成功，等待从AP（路由器）通过DHCP获取IP地址
-- 收到IP就绪事件，获得完整的网络配置（IP、掩码、网关、DNS）
-
- luatools会打印以下日志
-``` lua
- I/exnetif.lua:372 WiFi名称: HONOR
- I/exnetif.lua:373 密码     : iot12345678
- I/exnetif.lua:374 ping_ip  : nil
- I/exnetif.lua:387 WiFi STA初始化完成
- I/exnetif.lua:64 netdrv 订阅socket连接状态变化事件 WiFi
- change from 1 to 2
- I/exnetif.lua:611 notify_status function
- I/talk.lua:161 WiFi STA事件 CONNECTED HONOR
- I/talk.lua:163 WiFi已连接，等待获取IP地址
+ I/user.初始化以太网
+ I/user.config.opts.spi 1 ,config.type 1
+ SPI_HWInit 552:spi1 speed 25600000,25600000,12
+ I/user.main open spi 0
+ D/ch390h 注册CH390H设备(4) SPI id 1 cs 12 irq 255
+ D/ch390h adapter 4 netif init ok
+ D/netdrv.ch390x task started
+ D/ch390h 注册完成 adapter 4 spi 1 cs 12 irq 255
+ I/user.以太网初始化完成
+ I/user.netdrv 订阅socket连接状态变化事件 Ethernet
+ I/user.WiFi名称: HONOR
+ I/user.密码     : iot12345678
+ I/user.ping_ip  : nil
+ I/user.WiFi STA初始化完成
+ I/user.netdrv 订阅socket连接状态变化事件 WiFi
+ change from 1 to 4
+ W/extalk.lua:434 airtalk_mqtt_task: 等待默认网卡就绪，当前网卡ID: 4 4
  D/airlink wifi sta上线了
  D/netdrv 网卡(2)设置为UP
- D/ulwip adapter 2 dhcp start netif c11169c
- D/DHCP dhcp discover C8C2C68F09CE
- D/ulwip 收到DHCP数据包(len=303)
- D/DHCP find ip d02ba8c0 192.168.43.208
- D/DHCP DHCP get ip ready
+ D/ulwip adapter 2 dhcp start netif c1118b0
  D/ulwip adapter 2 ip 192.168.43.208
  D/ulwip adapter 2 mask 255.255.255.0
  D/ulwip adapter 2 gateway 192.168.43.1
- D/ulwip adapter 2 DNS1:192.168.43.1
+ D/net network ready 2, setup dns server
  D/netdrv IP_READY 2 192.168.43.208
- I/talk.lua:169 IP就绪事件 192.168.43.208 2
- I/talk.lua:171 IP地址已获取，网络就绪
+ change from 4 to 2
+ I/extalk.lua:438 airtalk_mqtt_task: 默认网卡就绪，ID: 2 4
 ```
 
-9.2 4G蜂窝网络联网
-  - 系统加载完成后，开始等待网络连接就绪
-  - 默认网卡被设置为4G适配器（ID:1）
-  - 系统周期性主动检查网络状态，初始状态为“未获取到有效IP”
-  - 等待移动网络模块（mobile）完成链路激活和IP地址分配
-  -  网络就绪后，获取到运营商分配的IP地址（如10.90.8.191）
+- 音频系统初始化
+  - 初始化音频设备，配置ES8311编解码芯片和PA功放，音频设备初始化成功
+  - 初始化extalk对讲功能
+  - extalk初始化成功
+  - LED指示灯初始化
+  - talk.lua加载完成
+
+luatools会打印以下日志
+``` lua
+ I/talk.lua:246 对讲模块初始化...
+ I/talk.lua:151 按键初始化完成 - Boot键: GPIO0, Power键: GPIO46
+ I/talk.lua:190 启动对讲系统...
+ I/talk.lua:195 LED指示灯初始化完成 - GPIO20
+ I/talk.lua:198 初始化音频设备...
+ I/audio_drv.lua:37 audio_drv 开始初始化音频设备
+ I2C_MasterSetup 426:I2C0, Total 65 HCNT 22 LCNT 40
+ D/audio codec init es8311 
+ I/audio_drv.lua:43 audio_drv 音频设备初始化成功
+ I/talk.lua:203 音频初始化成功
+ I/talk.lua:206 初始化extalk对讲功能...
+ E/airtalk protocol 0 no mqttc
+ I/talk.lua:212 extalk初始化成功
+ I/talk.lua:255 talk.lua加载完成
+``` 
+
+- 网络连接成功后，配置系统
+
+  - 连接到对讲管理平台，可进行对讲业务
+  - 设备鉴权成功，进入在线状态
+  - 联系人列表更新，获取到可用设备列表，包括本机设备和目标设备
 
   luatools会打印以下日志
   ``` lua
-  I/talk.lua:337 等待网络连接就绪...
-  I/talk.lua:438 talk.lua加载完成
-  I/talk.lua:293 主动检查网络状态...
-  I/talk.lua:305 当前默认网卡: 4G 适配器ID: 1
-  W/talk.lua:313 默认网卡未获取到有效IP地址
-  (等待并多次检查...)
-  D/mobile cid1, state0
-  D/mobile bearer act 0, result 0
-  D/mobile NETIF_LINK_ON -> IP_READY
-  D/mobile TIME_SYNC 0
-  I/talk.lua:305 当前默认网卡: 4G 适配器ID: 1
-  I/talk.lua:310 IP地址: 10.90.8.191 子网掩码: 255.255.255.255 网关: 0.0.0.0
-  I/talk.lua:354 主动检查发现网络已就绪  
-  ```
-10、 网络就绪，对讲核心功能初始化
-  - 网络连接成功后（无论是WiFi或4G），系统初始化extalk对讲核心功
-  - 读取并上报本机设备信息（IMEI和设备密钥）
-  - 通过DNS解析并连接至对讲管理平台的MQTT服务器（mqtt.airtalk.luatos.com）
-  - 与服务器完成MQTT协议握手、订阅主题、并上报设备信息进行认证
-  - 从服务器获取并更新当前账号下的联系人/设备列表
-  - 对讲管理平台连接成功，设备进入可操作状态
-
-  luatools会打印以下日志
-  ``` lua
-  --无论通过WiFi还是4G联网，都会触发此流程
-  I/talk.lua:324 初始化extalk对讲功能...
-  I/extalk.lua:431 设备信息 864793080177038 20250722144318A235862A2562652411
-  dns_run 676:mqtt.airtalk.luatos.com state 0 id 1 ipv6 0 use dns serverX, try 0
-  D/net adapter X connect 121.196.102.79:1883 TCP // X为网卡ID
-  I/talk.lua:331 extalk初始化成功
-  I/talk.lua:414 对讲系统准备就绪，等待按键操作...
-  I/extalk.lua:351 conack
-  I/extalk.lua:440 connected
-  I/extalk.lua:351 suback true
+  I/talk.lua:215 ========== 系统配置信息 ==========
+  I/talk.lua:216 目标设备ID: 78122397
+  I/talk.lua:217 联网方式: 由netdrv_device.lua配置
+  I/talk.lua:218 按键配置: Boot键(GPIO0)=一对一呼叫，Power键=广播
+  I/talk.lua:219 按键逻辑: 对讲中按任意键=结束对讲，空闲时按Boot键=一对一呼叫，按Power键=广播
+  I/talk.lua:220 ==================================
+  I/talk.lua:227 目标设备已配置: 78122397
+  I/talk.lua:230 对讲系统准备就绪，等待按键操作...
+  I/extalk.lua:465 airtalk_mqtt_task: 设备信息 - IMEI: 864793080177038 MUID: 20250722144318A235862A2562652411
+  D/net adapter 2 connect 121.196.102.79:1883 TCP
+  I/extalk.lua:346 MQTT事件: conack 主题: 
+  I/extalk.lua:346 MQTT事件: suback 主题: true
   I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0001 内容: {"key":"5544VIDOIHH9Nv8huYVyEIGT4tCvldxI","device_type":1}
-  I/extalk.lua:351 sent 0
-  I/extalk.lua:351 recv ctrl/downlink/864793080177038/8001
-  I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0002 内容:
-  I/extalk.lua:351 sent 0
-  I/extalk.lua:351 recv ctrl/downlink/864793080177038/8002
-  I/talk.lua:64 联系人列表更新:
-  I/talk.lua:66   1. ID: 78122397, 名称: 对讲
-  I/talk.lua:66   2. ID: 46365487, 名称: 46365487
-   ... 
-  I/extalk.lua:462 对讲管理平台已连接
+  I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0002 内容:  
+  I/talk.lua:48 联系人列表更新:
+  I/talk.lua:50   1. ID: 867920073503634, 名称: 
+  I/talk.lua:50   2. ID: 78122397, 名称: 对讲
+  I/talk.lua:50   3. ID: 46365487, 名称: 46365487
+  I/talk.lua:50   4. ID: 58391372, 名称: 58391372
+  I/talk.lua:50   5. ID: 866965083769676, 名称: 866965083769676
+  I/talk.lua:50   6. ID: 864793080009504, 名称: 
+  I/talk.lua:50   7. ID: 861556079986013, 名称: 
+  I/extalk.lua:484 airtalk_mqtt_task: 鉴权成功，进入在线状态
+  I/extalk.lua:502 airtalk_mqtt_task: 对讲平台已连接，进入在线状态
+  ``` 
 
+8、当网络连接中断时，系统会自动检测并进行网络切换和重连
+  - WiFi网络掉线，MQTT连接中断
+  - 系统自动从WiFi切换到4G网络
+  - 延时5秒后自动重连MQTT服务器
+  - 使用4G网络重新连接对讲管理平台成功
 
-11、点击BOOT 按键，会选择指定IMEI的目标设备，进行一对一对讲，再按一次Boot键或powerkey键结束对讲。
+luatools会打印以下日志
+  ``` lua
+ D/airlink wifi sta掉线了
+ D/netdrv 网卡(2)设置为DOWN
+ I/extalk.lua:346 MQTT事件: error 主题: other
+ E/extalk.lua:376 MQTT错误: other 0
+ W/extalk.lua:525 airtalk_mqtt_task: 收到断开通知，退出在线状态
+ W/extalk.lua:539 airtalk_mqtt_task: 进入异常处理，准备重连
+ I/extalk.lua:346 MQTT事件: disconnect 主题: 0
+ W/extalk.lua:370 MQTT断开连接，触发对讲关闭
+ I/extalk.lua:346 MQTT事件: close 主题: 
+ D/netdrv IP_LOSE 2
+ I/exnetif.lua:183 ip_lose_handle WiFi
+ I/exnetif.lua:188 WiFi 失效，切换到其他网络
+ I/exnetif.lua:94 设置网卡 4G
+ I/netdrv_multiple.lua:35 netdrv_multiple_notify_cbfunc use new adapter 4G 1
+ change from 2 to 1
+ I/extalk.lua:563 airtalk_mqtt_task: 等待 5.000000 秒后重连
+ I/extalk.lua:438 airtalk_mqtt_task: 默认网卡就绪，ID: 1 4
+```
+
+9、 点击BOOT 按键，会选择指定IMEI的目标设备，进行一对一对讲，再按一次Boot键或powerkey键结束对讲。
 - 按下Boot键，启动一对一对讲流程
 - 向指定IMEI设备（终端ID：78122397）发起对讲请求
 - 通过MQTT向服务器发送一对一对讲请求，包含音频通道信息
@@ -251,25 +250,19 @@ I/talk.lua:388 音频初始化成功
 
 luatools会打印以下日志
 ``` lua
-I/talk.lua:136 boot_key_callback
-I/talk.lua:217 开始一对一对讲，目标设备: 78122397
-I/extalk.lua:555 向 78122397 主动发起对讲
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0003 内容: {"type":"one-on-one","topic":"audio\/864793080177038\/78122397\/6818"}
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8003
+I/talk.lua:154 开始一对一对讲
+I/extalk.lua:555 向 861556079986013 主动发起对讲
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/0003 内容: {"type":"one-on-one","topic":"audio\/866965083769676\/78122397\/6395"}
 I/extalk.lua:131 对讲模式 0
-I/talk.lua:80 对讲开始
-I/talk.lua:119 当前对讲状态: 正在对讲
-// ... 音频设备切换、RTP流同步等底层日志
-// 用户按键结束对讲
-I/talk.lua:136 boot_key_callback //或 I/talk.lua:142 power_key_callback
-I/talk.lua:202 结束当前对讲
+I/talk.lua:54 对讲开始
+I/talk.lua:86 当前对讲状态: 正在对讲
+……
+I/talk.lua:60 对讲结束
 I/extalk.lua:583 主动断开对讲
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0004 内容: {"to":"78122397"}
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8004
-I/talk.lua:60 对讲结束 
 ```
 
-12、 点击POWERKEY按键，会进行广播，所有群组内的人，都会收到对讲消息，再按一次Boot键或powerkey键结束广播。
+10、 点击POWERKEY按键，会进行广播，所有群组内的人，都会收到对讲消息，再按一次Boot键或powerkey键结束广播。
+
 - 按下Power键，启动广播对讲
 - 通过MQTT向服务器发送广播请求，音频通道主题包含"all"标识
 - 对讲模式1，进入广播对讲模式
@@ -278,26 +271,18 @@ I/talk.lua:60 对讲结束
 - 再次按Boot或powerkey键，结束广播对讲
 
 luatools会打印以下日志
-
 ``` lua
-I/talk.lua:142 power_key_callback
-I/talk.lua:210 开始一对多广播
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0003 内容: {"type":"broadcast","topic":"audio\/864793080177038\/all\/8618"}
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8003
+I/talk.lua:150 开始一对多广播
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/8102 内容: {"result":"success","info":"","topic":"audio\/78122397\/all\/skkj"}
 I/extalk.lua:131 对讲模式 1
-I/talk.lua:80 对讲开始
-I/talk.lua:119 当前对讲状态: 正在对讲
-// ... 音频设备切换等底层日志
-// 用户按键结束广播
-I/talk.lua:136 boot_key_callback
-I/talk.lua:202 结束当前对讲
+I/talk.lua:54 对讲开始
+I/talk.lua:86 当前对讲状态: 正在对讲
+……
+I/talk.lua:143 结束当前对讲
 I/extalk.lua:583 主动断开对讲
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/0004 内容: {"to":"all"}
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8004
-I/talk.lua:60 对讲结束 //或状态变为空闲
  ```
 
-13、当其他设备或手机/PC的web网页端对设备发起一对一对讲。
+11、当其他设备或手机/PC的web网页端对设备发起一对一对讲。
 - 收到其他设备的对讲呼叫请求，系统自动接听对讲（无需用户按键操作）
 - 进入一对一对讲模式
 - 通过MQTT通知服务器接听成功
@@ -307,19 +292,19 @@ I/talk.lua:60 对讲结束 //或状态变为空闲
 
 luatools会打印以下日志
 ``` lua
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/0102
-I/talk.lua:103 对讲 来电
-I/talk.lua:119 当前对讲状态: 正在对讲
+I/talk.lua:73 对讲 来电
+I/talk.lua:94 当前对讲状态: 正在对讲
 I/extalk.lua:131 对讲模式 0
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/8102 内容: {"result":"success","info":"","topic":"audio\/78122397\/864793080177038\/akmu"}
-I/talk.lua:80 对讲开始
-// ... 音频设备切换、RTP流同步等底层日志
-// 对方挂断，本机收到结束指令
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8004 //或其他结束指令
-I/talk.lua:60 对讲结束
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/8102 内容: {"result":"success","info":"","topic":"audio\/78122397\/866965083769676\/yvh9"}
+I/talk.lua:54 对讲开始
+I/talk.lua:94 当前对讲状态: 正在对讲
+……
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/8103 内容: {"info":"","result":"success"}
+I/talk.lua:57 对讲结束
+I/talk.lua:94 当前对讲状态: 空闲
 ```
 
-14、当其他设备或手机/PC的web网页端对设备发起广播。
+12、当其他设备或手机/PC的web网页端对设备发起广播。
 - 收到其他设备的广播邀请
 - 系统自动加入广播（无需按键操作）
 - 对讲模式2，进入被动接听广播模式
@@ -330,14 +315,15 @@ I/talk.lua:60 对讲结束
 
 luatools会打印以下日志
 ``` lua
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/0102
-I/talk.lua:116 对讲 开始广播 //注意：此处指“开始接收广播”
-I/talk.lua:119 当前对讲状态: 正在对讲
+I/talk.lua:91 对讲 开始广播
+I/talk.lua:94 当前对讲状态: 正在对讲
 I/extalk.lua:131 对讲模式 2
-I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/864793080177038/8102 内容: {"result":"success","info":"","topic":"audio\/78122397\/all\/yne7"}
-I/talk.lua:80 对讲开始
-// ... 音频设备切换、RTP流同步等底层日志
-// 广播结束，本机收到结束指令
-I/extalk.lua:351 recv ctrl/downlink/864793080177038/8004
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/8102 内容: {"result":"success","info":"","topic":"audio\/78122397\/all\/rebu"}
+I/talk.lua:56 对讲开始
+I/talk.lua:94 当前对讲状态: 正在对讲
+……
+I/extalk.lua:83 MQTT发布 - 主题: ctrl/uplink/866965083769676/8103 内容: {"info":"","result":"success"}
 I/talk.lua:60 对讲结束
+I/talk.lua:94 当前对讲状态: 空闲
+k.lua:57 对讲结束
 ```

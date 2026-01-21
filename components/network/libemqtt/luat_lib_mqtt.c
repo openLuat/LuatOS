@@ -728,15 +728,18 @@ static int l_mqtt_publish(lua_State *L) {
 	// LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
-	if (qos == 0){
-        mqtt_ctrl->qos0_frame_wait ++;
-	}
 	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload, payload_len, retain, qos, &message_id);
 	if (ret != 1){
-        mqtt_ctrl->qos0_frame_wait --;
 		return 0;
 	}
-
+	if (qos == 0){
+		rtos_msg_t msg = {0};
+    	msg.handler = luatos_mqtt_callback;
+		msg.ptr = mqtt_ctrl;
+		msg.arg1 = MQTT_MSG_PUBACK;
+		msg.arg2 = message_id;
+		luat_msgbus_put(&msg, 0);
+	}
 	lua_pushinteger(L, message_id);
 	return 1;
 }

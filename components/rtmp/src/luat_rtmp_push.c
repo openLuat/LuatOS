@@ -2661,6 +2661,20 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
             ctx->base_timestamp = (uint32_t)(luat_mcu_tick64_ms());
         }
     }
+
+    if (new_state == RTMP_STATE_IDLE || new_state == RTMP_STATE_ERROR) {
+        // 把未发完的帧全部扔掉，释放内存
+        rtmp_frame_node_t *n = ctx->frame_head;
+        while (n) {
+            rtmp_frame_node_t *next = n->next;
+            rtmp_free_frame_node(n);
+            n = next;
+        }
+        ctx->frame_head = ctx->frame_tail = NULL;
+        ctx->frame_queue_bytes = 0;
+        ctx->send_pos = 0;          // 清空 send_buf
+        ctx->recv_pos = 0;          // 顺便把接收残余也清掉
+    }
     
     // 在断开连接时重置 base_timestamp
     if (new_state == RTMP_STATE_IDLE) {

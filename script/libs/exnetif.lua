@@ -50,7 +50,8 @@ local available = {
     [socket.LWIP_STA] = connection_states.DISCONNECTED,
     [socket.LWIP_ETH] = connection_states.DISCONNECTED,
     [socket.LWIP_GP] = connection_states.DISCONNECTED,
-    [socket.LWIP_USER1] = connection_states.DISCONNECTED
+    [socket.LWIP_USER1] = connection_states.DISCONNECTED,
+    [socket.LWIP_GP_GW] = connection_states.DISCONNECTED
 }
 -- 当前使用的网卡
 local current_active = nil
@@ -61,7 +62,8 @@ local function type_to_string(net_type)
         [socket.LWIP_STA] = "WiFi",
         [socket.LWIP_ETH] = "Ethernet",
         [socket.LWIP_GP] = "4G",
-        [socket.LWIP_USER1] = "8101SPIETH"
+        [socket.LWIP_USER1] = "8101SPIETH",
+        [socket.LWIP_GP_GW] = "airlink_4G"
     }
     return type_map[net_type] or "Unknown"
 end
@@ -159,7 +161,7 @@ local function ping_request(adaptertest)
                 icmp.ping(adaptertest, wifi_ping_ip)
             end
         end
-        if adaptertest == socket.LWIP_GP then
+        if adaptertest == socket.LWIP_GP or adaptertest == socket.LWIP_GP_GW then
             if eth_ping_ip ~= nil then
                 icmp.setup(adaptertest)
                 icmp.ping(adaptertest, eth_ping_ip)
@@ -477,6 +479,25 @@ local function ping_res(id, time, dst)
     apply_priority()
 end
 
+-- airlink_4G网卡开启
+local function setup_airlink_4G(config)
+    if config.auto_socket_switch ~= nil then
+        auto_socket_switch = config.auto_socket_switch
+        -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+    end
+    airlink.init()
+    log.info("创建桥接网络设备")
+    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
+    -- TODO 根据config参数自动配置管脚
+    -- airlink.config(airlink.CONF_SPI_CS, 15)
+    -- airlink.config(airlink.CONF_SPI_RDY, 48)
+    airlink.start(1)
+    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
+    socket_state_detection(socket.LWIP_GP_GW)
+    return true
+end
+
+
 --[[
 设置网络优先级，相应网卡获取到ip且网络正常视为网卡可用，丢失ip视为网卡不可用.(需要在task中调用)
 @api exnetif.set_priority_order(new_priority)
@@ -664,6 +685,17 @@ function exnetif.set_priority_order(networkConfigs)
                 auto_socket_switch = config.auto_socket_switch
                 -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
             end
+        end
+        if type(config.airlink_4G) == "table"then
+            -- airlink_4G
+            table.insert(new_priority, socket.LWIP_GP_GW)
+            setup_airlink_4G(config.airlink_4G)
+            if config.auto_socket_switch ~= nil then
+                auto_socket_switch = config.auto_socket_switch
+                -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
+            end
+            available[socket.LWIP_GP_GW] = connection_states.CONNECTED
+            log.info("airlink_4G网卡已开启")
         end
     end
 

@@ -633,4 +633,9 @@ function exaudio.get_channels()
     return audio_setup_param.channels
 end
 
+-- 模块接口：写入最后一块数据后，通知多媒体通道已经没有更多数据需要播放了
+function exaudio.finish()
+    return audio.finish(MULTIMEDIA_ID)
+end
+
 return exaudio

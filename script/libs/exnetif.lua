@@ -485,13 +485,19 @@ local function setup_airlink_4G(config)
         auto_socket_switch = config.auto_socket_switch
         -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
+    if config.airlink_spi_id then
+        airlink.config(airlink.CONF_SPI_ID, config.airlink_spi_id)
+    end
+    if config.airlink_cs_pin then
+        airlink.config(airlink.CONF_SPI_CS, config.airlink_cs_pin)
+    end
+    if config.airlink_rdy_pin then
+        airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
+    end
     airlink.init()
     log.info("创建桥接网络设备")
     netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
-    -- TODO 根据config参数自动配置管脚
-    -- airlink.config(airlink.CONF_SPI_CS, 15)
-    -- airlink.config(airlink.CONF_SPI_RDY, 48)
-    airlink.start(1)
+    airlink.start(config.airlink_type)
     netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
     socket_state_detection(socket.LWIP_GP_GW)
     return true

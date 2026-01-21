@@ -38,8 +38,8 @@ extern "C" {
 /** RTSP默认端口 */
 #define RTSP_DEFAULT_PORT 554
 
-/** RTSP缓冲区大小(字节) - 需要足够大以容纳RTSP信令 */
-#define RTSP_BUFFER_SIZE (64 * 1024)
+/** RTSP缓冲区大小(字节) - 需要足够大以容纳RTSP信令和interleaved数据 */
+#define RTSP_BUFFER_SIZE (256 * 1024)
 
 /** RTP缓冲区大小(字节) */
 #define RTP_BUFFER_SIZE (256 * 1024)

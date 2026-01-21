@@ -911,9 +911,9 @@ static err_t rtsp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb,
     
     // 复制数据到接收缓冲区
     if (ctx->recv_pos + p->tot_len > ctx->recv_buf_size) {
-        LLOGE("接收缓冲区溢出");
-        pbuf_free(p);
-        return ERR_ABRT;
+        // 缓冲区满，丢弃旧数据（保留最近的响应）
+        LLOGW("接收缓冲区满，丢弃%u字节旧数据", ctx->recv_pos);
+        ctx->recv_pos = 0;
     }
     
     pbuf_copy_partial(p, ctx->recv_buf + ctx->recv_pos, p->tot_len, 0);
@@ -1220,16 +1220,48 @@ static int rtsp_handle_response(rtsp_ctx_t *ctx) {
         default:
             break;
     }
-    
+
     // 清空接收缓冲区
     resp_len = (resp_end - (char *)ctx->recv_buf) + 4;
-    if (ctx->recv_pos > (uint32_t)resp_len) {
-        memmove(ctx->recv_buf, ctx->recv_buf + resp_len, ctx->recv_pos - resp_len);
-        ctx->recv_pos -= resp_len;
+    uint32_t remaining = ctx->recv_pos - resp_len;
+
+    // 检查并跳过interleaved数据（以$开头的数据包）
+    if (remaining > 0) {
+        char *next_data = (char *)ctx->recv_buf + resp_len;
+        uint32_t skipped = 0;
+
+        // 跳过所有interleaved数据包
+        while (remaining >= 4 && next_data[0] == '$') {
+            // 解析interleaved数据包长度
+            uint16_t data_len = ((uint8_t)next_data[2] << 8) | (uint8_t)next_data[3];
+            uint16_t total_len = 4 + data_len;
+
+            if (remaining < total_len) {
+                // 数据不完整，等待更多数据
+                break;
+            }
+
+            RTSP_LOGV("跳过interleaved数据: 通道=%u, 长度=%u字节", (uint8_t)next_data[1], data_len);
+            next_data += total_len;
+            remaining -= total_len;
+            skipped += total_len;
+        }
+
+        if (skipped > 0) {
+            RTSP_LOGV("跳过interleaved数据总计: %u字节", skipped);
+        }
+
+        // 移动剩余数据到缓冲区开头
+        if (remaining > 0) {
+            memmove(ctx->recv_buf, next_data, remaining);
+            ctx->recv_pos = remaining;
+        } else {
+            ctx->recv_pos = 0;
+        }
     } else {
         ctx->recv_pos = 0;
     }
-    
+
     return RTSP_OK;
 }
 

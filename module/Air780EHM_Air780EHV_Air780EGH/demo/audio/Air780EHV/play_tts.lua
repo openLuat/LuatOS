@@ -21,7 +21,7 @@ local audio_setup_param ={
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
     dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
-}}
+}
 
 local function play_end(event)
     if event == exaudio.PLAY_DONE then

@@ -24,7 +24,11 @@ local function init_airlink_net()
     -- }, 
     { -- 开启4G虚拟网卡
         airlink_4G = {
-            auto_socket_switch = false -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+            auto_socket_switch = false, -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+            airlink_type = airlink.MODE_SPI_MASTER, -- airlink工作模式
+            -- airlink_spi_id = 0, -- airlink使用的SPI接口ID,选填参数
+            -- airlink_cs_pin = 15,-- airlink使用的片选引脚gpio号,选填参数
+            -- airlink_rdy_pin = 48-- airlink使用的rdy引脚gpio号,选填参数
         }
     }})
 end

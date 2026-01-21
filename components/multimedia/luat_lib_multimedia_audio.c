@@ -469,6 +469,24 @@ static int l_audio_stop_raw(lua_State *L) {
 }
 
 /**
+写入最后一块数据后，通知多媒体通道已经没有更多数据需要播放了
+@api audio.end(id)
+@int audio id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+audio.end(0)
+*/
+static int l_audio_end_raw(lua_State *L) {
+    uint8_t multimedia_id = (uint8_t)luaL_checkinteger(L, 1);
+	if (multimedia_id >= MAX_DEVICE_COUNT) {
+		LLOGE("multimedia_id %d is out of range", multimedia_id);
+		return 0;
+	}
+    lua_pushboolean(L, !luat_audio_end_raw(multimedia_id));
+    return 1;
+}
+
+/**
 暂停/恢复指定的多媒体通道
 @api audio.pause(id, pause)
 @int audio id,例如0
@@ -840,6 +858,7 @@ static const rotable_Reg_t reg_audio[] =
     { "start" ,        ROREG_FUNC(l_audio_start_raw)},
     { "write" ,        ROREG_FUNC(l_audio_write_raw)},
     { "pause",         ROREG_FUNC(l_audio_pause_raw)},
+	{ "end",		   ROREG_FUNC(l_audio_end_raw)},
 	{ "stop",		   ROREG_FUNC(l_audio_stop_raw)},
     { "on",            ROREG_FUNC(l_audio_raw_on)},
 	{ "play",		   ROREG_FUNC(l_audio_play)},

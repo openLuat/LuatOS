@@ -90,6 +90,10 @@ LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
     return -1;
 }
 
+LUAT_WEAK int luat_audio_end_raw(uint8_t multimedia_id){
+    return -1;
+}
+
 LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){

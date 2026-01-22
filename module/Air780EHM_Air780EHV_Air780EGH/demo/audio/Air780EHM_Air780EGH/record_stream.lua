@@ -6,6 +6,9 @@
 @author  陈媛媛
 @usage
 
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 流式录音(仅支持PCM)，核心业务逻辑为：
 1、主程序录音进行流式录音
 2、录音过程中不断的进行recode_data_callback回调，回调内容为音频流的地址和长度

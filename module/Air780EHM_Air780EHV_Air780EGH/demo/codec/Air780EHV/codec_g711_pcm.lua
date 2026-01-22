@@ -4,6 +4,10 @@
 @version 13.3
 @date 2025.11.16
 @author 陈媛媛
+@usage
+
+注意：
+如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
 本文件为G711编解码演示功能模块，核心业务逻辑为：
 1、使用exaudio流式播放原始PCM文件

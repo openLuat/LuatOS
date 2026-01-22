@@ -86,21 +86,23 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 1、搭建好硬件环境
 
-2、创建群组：详情请见：[Airtalk](https://docs.openluat.com/value/airtalk/)  第 5.2 章节--创建群组
+2、如果使用核心板 + AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
-3、main.lua 中，修改 PRODUCT_KEY 。
+3、创建群组：详情请见：[Airtalk](https://docs.openluat.com/value/airtalk/)  第 5.2 章节--创建群组
+
+4、main.lua 中，修改 PRODUCT_KEY 。
  ``` lua
  --到 iot.openluat.com 创建项目，获取正确的项目key
  PRODUCT_KEY =  "5544VIDOIHH9Nv8huYVyEIGT4tCvldxI"
   ``` 
 
-4、talk.lua 中，修改目标设备终端ID。 
+5、talk.lua 中，修改目标设备终端ID。 
   ``` lua
   -- 目标设备终端ID，修改为你想要对讲的终端ID
   TARGET_DEVICE_IMEI = "78122397"  -- 请替换为实际的目标设备终端ID
   ``` 
 
-5、netdrv_device.lua及netdrv文件夹内的netdrv_wifi 要连接的WiFi热点信息
+6、netdrv_device.lua及netdrv文件夹内的netdrv_wifi 要连接的WiFi热点信息
   ``` lua
   exnetif.set_priority_order({{
       WIFI = {
@@ -111,9 +113,9 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
       }
   }})
   ``` 
-6、Luatools烧录内核固件和修改后的demo脚本代码
+7、Luatools烧录内核固件和修改后的demo脚本代码
 
-7、烧录成功后，系统初始化
+8、烧录成功后，系统初始化
 
 - 网络初始化：
 
@@ -212,7 +214,7 @@ luatools会打印以下日志
   I/extalk.lua:502 airtalk_mqtt_task: 对讲平台已连接，进入在线状态
   ``` 
 
-8、当网络连接中断时，系统会自动检测并进行网络切换和重连
+9、当网络连接中断时，系统会自动检测并进行网络切换和重连
   - WiFi网络掉线，MQTT连接中断
   - 系统自动从WiFi切换到4G网络
   - 延时5秒后自动重连MQTT服务器
@@ -239,7 +241,7 @@ luatools会打印以下日志
  I/extalk.lua:438 airtalk_mqtt_task: 默认网卡就绪，ID: 1 4
 ```
 
-9、 点击BOOT 按键，会选择指定IMEI的目标设备，进行一对一对讲，再按一次Boot键或powerkey键结束对讲。
+10、 点击BOOT 按键，会选择指定IMEI的目标设备，进行一对一对讲，再按一次Boot键或powerkey键结束对讲。
 - 按下Boot键，启动一对一对讲流程
 - 向指定IMEI设备（终端ID：78122397）发起对讲请求
 - 通过MQTT向服务器发送一对一对讲请求，包含音频通道信息
@@ -261,7 +263,7 @@ I/talk.lua:60 对讲结束
 I/extalk.lua:583 主动断开对讲
 ```
 
-10、 点击POWERKEY按键，会进行广播，所有群组内的人，都会收到对讲消息，再按一次Boot键或powerkey键结束广播。
+11、 点击POWERKEY按键，会进行广播，所有群组内的人，都会收到对讲消息，再按一次Boot键或powerkey键结束广播。
 
 - 按下Power键，启动广播对讲
 - 通过MQTT向服务器发送广播请求，音频通道主题包含"all"标识
@@ -282,7 +284,7 @@ I/talk.lua:143 结束当前对讲
 I/extalk.lua:583 主动断开对讲
  ```
 
-11、当其他设备或手机/PC的web网页端对设备发起一对一对讲。
+12、当其他设备或手机/PC的web网页端对设备发起一对一对讲。
 - 收到其他设备的对讲呼叫请求，系统自动接听对讲（无需用户按键操作）
 - 进入一对一对讲模式
 - 通过MQTT通知服务器接听成功
@@ -304,7 +306,7 @@ I/talk.lua:57 对讲结束
 I/talk.lua:94 当前对讲状态: 空闲
 ```
 
-12、当其他设备或手机/PC的web网页端对设备发起广播。
+13、当其他设备或手机/PC的web网页端对设备发起广播。
 - 收到其他设备的广播邀请
 - 系统自动加入广播（无需按键操作）
 - 对讲模式2，进入被动接听广播模式

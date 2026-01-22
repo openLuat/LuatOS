@@ -90,7 +90,7 @@ local function audio_get_data()
             -- 本API需要用V2024固件！！！ 
             -- 写入数据完毕后，通知多媒体通道已经没有更多数据需要播放了
             -- 开启后可以有效的降低pop音
-            -- exaudio.finish()
+            exaudio.finish()
             break
         end
 

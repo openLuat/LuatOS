@@ -6,11 +6,11 @@
 
 ## 演示功能概述
 
-使用Air8000开发板测试ADC功能。
+使用Air780EXX核心板测试ADC功能。
 
 ## 演示硬件环境
 
-1、Air8000开发板一块
+1、Air780EXX核心板一块
 
 2、TYPE-C USB数据线一根
 
@@ -18,13 +18,13 @@
 
 4、外部供电电源Air9000P
 
-<img title="" src="https://docs.openLuat.com/cdn/image/8000_adc.jpg" alt="8000_adc.jpg" style="zoom:25%;">
+<img title="" src="https://docs.openLuat.com/cdn/image/780EHM_adc.jpg" alt="" style="zoom:67%;">
 
 ## 演示软件环境
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2012版本](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/core)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2012-1固件对比验证）
+2、[Air780EHM V2014版本固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)、[Air780EHV V2014版本固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)、[Air780EGH V2014版本固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)（理论上，2025年7月26日之后发布的固件都可以）
 
 ## 演示核心步骤
 
@@ -38,16 +38,16 @@
 
 这样设置量程和外部供电是为了更直观的观察两种量程下不同供电电压对精准度的影响，可以看到如下测量的数据是符合预期的
 
-对于Air8000：ADC_RANGE_MIN对应量程为0-1.5V，ADC_RANGE_MAX对应量程为0-3.3V。
+对于Air780EXX：ADC_RANGE_MIN对应量程为0-1.5V，ADC_RANGE_MAX对应量程为0-3.3V。
 
-在外部供电1.2V的情况下，ADC_RANGE_MIN量程获取到的数据更精准；在外部供电3.3V的情况下，ADC_RANGE_MIN量程下会限制在1.5v左右，ADC_RANGE_MAX可以正常测量。
+在外部供电1.2V的情况下，ADC_RANGE_MIN量程下获取到的数据更精准；在外部供电3.3V的情况下，ADC_RANGE_MIN量程下会限制在1.5v左右，ADC_RANGE_MAX可以正常测量。
 
 ```
 [2025-09-10 16:13:57.926][000000517.170] I/user.adc通道0 处理值: 1194.88 mV (样本数:10)
 
 [2025-09-10 16:13:57.946][000000517.174] I/user.adc通道1 处理值: 1189.00 mV (样本数:10)
 
-[2025-09-10 16:13:57.967][000000517.178] I/user.adc通道2 处理值: 3376.75 mV (样本数:10)
+[2025-09-10 16:13:57.967][000000517.178] I/user.adc通道2 处理值: 3272.62 mV (样本数:10)
 
 [2025-09-10 16:13:57.992][000000517.182] I/user.adc通道3 处理值: 1565.00 mV (样本数:10)
 

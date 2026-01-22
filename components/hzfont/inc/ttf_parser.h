@@ -33,6 +33,9 @@ typedef struct {
     uint32_t glyfOffset;       // 字体文件内 glyf 表的偏移（矢量定义与描述）
     uint32_t locaOffset;       // loca 表的偏移，用于glyph查找（glyf表每个字形偏移表）
     uint32_t headOffset;       // head 表的偏移（全局font信息，如版式/边界等）
+    int16_t ascent;            // hhea 表中的 ascent（基线以上最高点）
+    int16_t descent;           // hhea 表中的 descent（基线以下最低点）
+    int16_t lineGap;           // hhea 表中的 lineGap（行距补偿）
     /* 内存优化：流式读取支持与小表缓存 */
     void *file;           /* VFS 文件句柄 (luat_fs_fopen 返回的 FILE*)，无数据整读时有效 */
     size_t fileSize;      /* 字体文件大小 */
@@ -102,6 +105,13 @@ void ttf_free_glyph(TtfGlyph *glyph);
 int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, TtfBitmap *bitmap);
 // 释放 bitmap 内的像素缓冲
 void ttf_free_bitmap(TtfBitmap *bitmap);
+
+// 缩放辅助：按照 unitsPerEm 计算像素值，四舍五入
+int32_t ttf_scaled_value(const TtfFont *font, int32_t value, int ppem);
+// 按照字体 metrics 计算行高
+int32_t ttf_scaled_line_height(const TtfFont *font, int ppem);
+// 获取指定字号时的 ascent 基线（以像素计）
+int32_t ttf_scaled_baseline(const TtfFont *font, int ppem);
 
 #ifdef __cplusplus
 }

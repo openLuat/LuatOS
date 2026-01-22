@@ -165,4 +165,50 @@ function libnet.close(taskName,timeout, netc)
 	socket.close(netc)
 end
 
+--[[
+阻塞发起PING请求，可在sys.taskInit创建的任务中使用
+@api libnet.ping(id, ip, timeout, len)
+@number 网络适配器编号，例如socket.LWIP_ETH，必需
+@string 要ping的目标ip地址，必需
+@int 超时时间，可选，单位毫秒，默认5000ms
+@number ping包大小，可选，默认128字节
+@return boolean ping成功返回true，失败或超时返回false
+]]
+function libnet.ping(id, ip, timeout, len)
+	-- 检查必需参数
+	if not id then
+		log.error("libnet.ping", "参数错误：缺少网络适配器编号(id)")
+		return false
+	end
+	
+	if not ip then
+		log.error("libnet.ping", "参数错误：缺少目标IP地址(ip)")
+		return false
+	end
+	
+	-- 处理参数
+	local wait_timeout = timeout or 5000 -- 默认超时5秒
+	local packet_len = len or 128 -- 默认包大小128字节
+	
+	
+	-- 发送ping请求（返回值仅表示发送成功与否）
+	local send_ok = netdrv.ping(id, ip, packet_len)
+	if not send_ok then
+		log.warn("libnet.ping", "ping请求发送失败", "目标:", ip)
+		return false
+	end
+	
+	-- 等待PING_RESULT事件获取ping结果
+	local event, ping_id, ping_time, ping_dst = sys.waitUntil("PING_RESULT", wait_timeout)
+	
+	-- 根据事件结果判断ping是否成功
+	if event and ping_time and ping_time > 0 then
+		log.info("libnet.ping", "ping成功", "目标:", ping_dst, "耗时:", ping_time, "ms")
+		return true
+	else
+		log.warn("libnet.ping", "ping失败", "目标:", ip)
+		return false
+	end
+end
+
 return libnet

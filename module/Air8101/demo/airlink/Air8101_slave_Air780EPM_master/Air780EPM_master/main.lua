@@ -1,11 +1,14 @@
 --[[
 @module  main
-@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2025.11.09
-@author  陈取德
+@date    2025.10.15
+@author  魏健强
 @usage
-本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务
+本demo演示的核心功能为：
+1. 初始化网络，使得Air8101可以外挂Air780EPM实现4G联网功能
+2. Air780EPM与对端设备进行数据交互。
+3. 通过HTTP GET请求测试Air780EPM的网络访问外网是否正常。
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -17,8 +20,9 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "AirCAMERA_1030_Demo"
+PROJECT = "Air780EPM_master"
 VERSION = "001.000.000"
+
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -57,15 +61,10 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 导入netdrv_wifi模块，连接WIFI
-require "netdrv_wifi"
 
--- 以下录像和拍照演示，只能二选一打开
--- 导入take_photo_http_post拍照上传应用DEMO
-require "take_photo_http_post"
 
--- 导入video_http_post视频上传应用DEMO
--- require "video_http_post"
+-- 开启多网融合功能
+require "network_airlink"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

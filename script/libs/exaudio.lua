@@ -47,7 +47,7 @@ local audio_setup_param = {
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
     dac_delay = 3,            -- DAC启动前冗余时间(100ms)
-    pa_delay = 100,           -- DAC启动后延迟打开PA的时间(ms)
+    pa_delay = 10,           -- DAC启动后延迟打开PA的时间(ms)
     dac_time_delay = 600,      -- 播放完毕后PA与DAC关闭间隔(ms)
     bits_per_sample = 16,     -- 采样位数
     pa_on_level = 1,          -- PA打开电平 1:高 0:低       
@@ -631,6 +631,14 @@ end
 -- 获取当前声道数
 function exaudio.get_channels()
     return audio_setup_param.channels
+end
+
+-- 模块接口：写入最后一块数据后，通知多媒体通道已经没有更多数据需要播放了
+function exaudio.finish()
+    if audio.finish then
+        return audio.finish(MULTIMEDIA_ID)
+    end
+    return false
 end
 
 return exaudio

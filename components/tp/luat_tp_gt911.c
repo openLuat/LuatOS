@@ -482,10 +482,15 @@ exit_:
     return touch_num;
 }
 
+static int tp_gt911_sleep(luat_tp_config_t* luat_tp_config){
+    return tp_i2c_write_reg16(luat_tp_config, GT911_COMMAND_REG, (uint8_t[]){0x05}, 1);
+}
+
 luat_tp_opts_t tp_config_gt911 = {
     .name = "gt911",
     .init = tp_gt911_init,
     .deinit = tp_gt911_deinit,
     .read = tp_gt911_read,
 	.read_done = tp_gt911_read_done,
+    .sleep = tp_gt911_sleep,
 };

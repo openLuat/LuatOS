@@ -209,7 +209,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 			luat_fs_remove(http_ctrl->dst);
 		}
 	}
-	if (0 == http_ctrl->tcp_closed && NW_STATE_DISCONNECTING == http_ctrl->netc->state) {
+	if (!(http_ctrl->parser.flags & F_CHUNKED) && 0 == http_ctrl->tcp_closed && NW_STATE_DISCONNECTING == http_ctrl->netc->state) {
 		on_tcp_closed(http_ctrl);
 		return;
 	}
@@ -533,7 +533,19 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 
 static int on_message_complete(http_parser* parser){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-    LLOGD("on_message_complete");
+	LLOGD("on_message_complete headers_complete %d, http_body_is_finally %d, resp_buff_offset %d", http_ctrl->headers_complete, http_ctrl->http_body_is_finally, http_ctrl->resp_buff_offset);
+	if ((http_ctrl->parser.flags & F_CHUNKED) && http_ctrl->luatos_mode && http_ctrl->headers_complete && http_ctrl->http_body_is_finally && http_ctrl->tcp_closed == 0) {
+		if (http_ctrl->is_download && http_ctrl->fd != NULL) {
+			luat_fs_fclose(http_ctrl->fd);
+			http_ctrl->fd = NULL;
+			if (parser->status_code > 299 && http_ctrl->dst) {
+				LLOGW("download fail, remove file %s", http_ctrl->dst);
+				luat_fs_remove(http_ctrl->dst);
+			}
+		}
+		luat_http_client_onevent(http_ctrl, HTTP_OK, 0); 
+		http_ctrl->tcp_closed = 1;
+	}
 	return 0;
 }
 
@@ -796,7 +808,11 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			http_ctrl->error_code = event->ID == EV_NW_RESULT_CONNECT ? HTTP_ERROR_CONNECT : HTTP_ERROR_CLOSE;
 		}
 		if (http_ctrl->tcp_closed == 0) {
-			on_tcp_closed(http_ctrl);
+			if (http_ctrl->parser.flags & F_CHUNKED) {
+				http_resp_error(http_ctrl, http_ctrl->error_code ? http_ctrl->error_code : HTTP_ERROR_CLOSE);
+			} else {
+				on_tcp_closed(http_ctrl);
+			}
 		}
 		return -1;
 	}
@@ -841,7 +857,29 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				}
 			}
 			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff+http_ctrl->resp_buff_offset, total_len, 0, NULL, NULL, &rx_len);
-			LLOGD("result:%d rx_len:%d",result,rx_len);
+			// 将接收到的数据打印出来 hex格式
+			// for (size_t i = 0; i < rx_len; i += 16)
+			// {
+			// 	LLOGD("HTTP recv data hex: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X", 
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 0], 
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 1],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 2],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 3],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 4],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 5],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 6],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 7],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 8],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 9],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 10],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 11],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 12],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 13],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 14],
+			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 15]);
+			// }
+			// LLOGD("HTTP recv data: %.*s", rx_len, http_ctrl->resp_buff + http_ctrl->resp_buff_offset);
+			LLOGD("result:%d rx_len:%d", result, rx_len);
 			if (rx_len == 0||result!=0) {
 				if (http_ctrl->luatos_mode) {
 					http_resp_error(http_ctrl, http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX);
@@ -876,64 +914,16 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				}
 			}
 			if (http_ctrl->resp_headers_done) {
-				// 优化chunked模式下的组包逻辑，确保chunk size行和chunk body都完整后再解析
 				size_t parsed = 0;
-				while (parsed < http_ctrl->resp_buff_offset) {
-					// 检查是否为chunked模式
-					if (http_ctrl->parser.flags & F_CHUNKED) {
-						// 检查chunk size行是否完整（\r\n）
-						char* rn = NULL;
-						for (size_t j = parsed; j + 1 < http_ctrl->resp_buff_offset; ++j) {
-							if (http_ctrl->resp_buff[j] == '\r' && http_ctrl->resp_buff[j+1] == '\n') {
-								rn = http_ctrl->resp_buff + j + 2;
-								break;
-							}
-						}
-						if (!rn) {
-							// chunk size行未完整，等待更多数据
-							break;
-						}
-						// 检查chunk body是否完整（需先解析出chunk size数值）
-						// 临时调用一次 http_parser_execute，仅解析 chunk size 行
-						int chunk_size_bytes = rn - (http_ctrl->resp_buff + parsed);
-						int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff + parsed, chunk_size_bytes);
-						if (http_ctrl->parser.http_errno) {
-							LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
-							return 0;
-						}
-						if (nParseBytes == 0) break;
-						parsed += nParseBytes;
-						// 现在已知 chunk size，判断剩余数据是否足够
-						if (http_ctrl->parser.content_length > 0) {
-							size_t chunk_body_need = http_ctrl->parser.content_length + 2; // chunk body + \r\n
-							size_t chunk_body_have = http_ctrl->resp_buff_offset - parsed;
-							if (chunk_body_have < chunk_body_need) {
-								// chunk body未收齐，等待更多数据
-								break;
-							}
-							// chunk body收齐，解析 chunk body
-							nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings,
-								http_ctrl->resp_buff + parsed, chunk_body_need);
-							if (http_ctrl->parser.http_errno) {
-								LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
-								return 0;
-							}
-							if (nParseBytes == 0) break;
-							parsed += nParseBytes;
-						}
-					} else {
-						// 非chunked模式
-						int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings,
-							http_ctrl->resp_buff + parsed, http_ctrl->resp_buff_offset - parsed);
-						LLOGD("nParseBytes %d parsed %d resp_buff_offset %d", nParseBytes, parsed, http_ctrl->resp_buff_offset);
-						if (http_ctrl->parser.http_errno) {
-							LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
-							return 0;
-						}
-						if (nParseBytes == 0) break;
-						parsed += nParseBytes;
-					}
+				size_t nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings,
+					http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
+				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
+				if (http_ctrl->parser.http_errno) {
+					LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
+					return 0;
 				}
+				parsed = nParseBytes;
+				
 				if (http_ctrl->resp_buff_offset <= parsed) {
 					http_ctrl->resp_buff_offset = 0;
 				} else {
@@ -1553,6 +1543,7 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
 
 int luat_http_client_start_luatos(luat_http_ctrl_t* http_ctrl) {
 	http_ctrl->luatos_mode = 1;
+	http_ctrl->tcp_closed = 0;
 	if(http_ctrl->timeout){
 		http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
 		luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);

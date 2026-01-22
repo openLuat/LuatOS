@@ -432,3 +432,7 @@ static int pc_codec_start(luat_audio_codec_conf_t* conf){
 static int pc_codec_stop(luat_audio_codec_conf_t* conf){
     return luat_i2s_pause(conf->i2s_id);
 }
+
+int luat_audio_end_raw(uint8_t multimedia_id){
+    return 0;
+}

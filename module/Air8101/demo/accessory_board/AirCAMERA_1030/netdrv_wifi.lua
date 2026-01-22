@@ -60,8 +60,8 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 exnetif.set_priority_order({
     {
         WIFI = {
-            ssid = "A上海合宙通讯", 
-            password = "HZ88888888"
+            ssid = "茶室-降功耗,找合宙!", 
+            password = "Air123456"
         }
     }
 })

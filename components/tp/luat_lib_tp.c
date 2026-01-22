@@ -235,6 +235,21 @@ static int l_tp_init(lua_State* L){
     }
 }
 
+/*
+触摸休眠
+@api tp.sleep(tp_device)
+@userdata tp_device:触摸设备对象
+@return boolean 休眠成功返回true,失败返回false
+@usage
+    local function tp_callBack(tp_device, tp_data)
+        log.info("TP", tp_data[1].x, tp_data[1].y, tp_data[1].event)
+        sys.publish("TP", tp_device, tp_data)
+    end
+
+    tp_device = tp.init("gt911",{port=0,pin_rst = 22,pin_int = 23},tp_callBack)
+
+    tp.sleep(tp_device)
+*/
 static int l_tp_sleep(lua_State* L){
     luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)lua_touserdata(L, 1);
     if (luat_tp_config == NULL){

@@ -156,8 +156,8 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
 #endif
-#ifdef LUAT_USE_EASYLVGL
-  {"easylvgl", luaopen_easylvgl},
+#ifdef LUAT_USE_AIRUI
+  {"airui", luaopen_airui},
 #endif
 #ifdef LUAT_USE_LCD
   {"lcd",    luaopen_lcd},

@@ -1297,9 +1297,9 @@ glyph_timing_update:
     return result;
 }
 
-#ifdef LUAT_USE_EASYLVGL
+#ifdef LUAT_USE_AIRUI
 
-// 获取底层 TTF 对象供 easylvgl 或其他模块使用
+// 获取底层 TTF 对象供 airui 或其他模块使用
 TtfFont * luat_hzfont_get_ttf(void) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         return &g_ft_ctx.font;
@@ -1308,7 +1308,7 @@ TtfFont * luat_hzfont_get_ttf(void) {
 }
 
 /**
- * 用于easylvgl，获取指定 glyph 的缓存位图（如不存在则实时渲染）
+ * 用于airui，获取指定 glyph 的缓存位图（如不存在则实时渲染）
  * @param glyph_index 目标 glyph 的索引
  * @param font_size   渲染字号
  * @param supersample 超采样等级（1/2/4）

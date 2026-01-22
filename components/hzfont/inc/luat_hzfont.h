@@ -30,8 +30,8 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
 // 在屏幕上绘制 UTF-8 文本（带缓存和抗锯齿控制）
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
-#ifdef LUAT_USE_EASYLVGL
-// 用于 easylvgl 的 hzfont 兼容接口：获取底层 TTF 结构
+#ifdef LUAT_USE_AIRUI
+// 用于 airui 的 hzfont 兼容接口：获取底层 TTF 结构
 TtfFont * luat_hzfont_get_ttf(void);
 // 访问指定 glyph 的缓存位图（不存在时会触发实时渲染）
 const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample);

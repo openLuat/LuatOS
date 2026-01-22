@@ -211,8 +211,8 @@
 
 //---------------------
 
-#define LUAT_USE_EASYLVGL 1
-#define LUAT_USE_EASYLVGL_SDL2 1
+#define LUAT_USE_AIRUI 1
+#define LUAT_USE_AIRUI_SDL2 1
 
 // #else
 // // LVGL

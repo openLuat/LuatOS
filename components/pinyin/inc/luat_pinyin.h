@@ -6,7 +6,7 @@
 #include <stddef.h>
 
 #include "luat_conf_bsp.h"
-#ifdef LUAT_USE_EASYLVGL
+#ifdef LUAT_USE_AIRUI
 #include "lvgl9/src/others/ime/lv_ime_pinyin.h"
 #endif
 
@@ -74,11 +74,11 @@ int luat_pinyin_query_syllables_by_keys(
     uint16_t *actual_count
 );
 
-#ifdef LUAT_USE_EASYLVGL
+#ifdef LUAT_USE_AIRUI
 /**
- * @brief 提供 EASYLVGL 拼音输入法所需的词典数组
+ * @brief 提供 AIRUI 拼音输入法所需的词典数组
  * @param count 输出参数，返回词典条目数量
- * @return 指向 EASYLVGL 词典数组的指针，失败返回 NULL
+ * @return 指向 AIRUI 词典数组的指针，失败返回 NULL
  */
 const lv_pinyin_dict_t * luat_pinyin_get_lv_dict(size_t *count);
 #endif  

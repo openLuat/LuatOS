@@ -264,7 +264,6 @@
 // #define LUAT_USE_LVGL_TILEVIEW   //平铺视图 依赖页面PAGE
 // #define LUAT_USE_LVGL_WIN   //窗口 依赖容器CONT 按钮BTN 标签LABEL 图片IMG 页面PAGE
 
-// // #define LUAT_USE_AIRUI 1
 // #endif
 
 #endif

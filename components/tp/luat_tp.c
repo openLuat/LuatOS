@@ -78,7 +78,12 @@ int luat_tp_irq_enable(luat_tp_config_t* luat_tp_config, uint8_t enabled){
 }
 
 
-
+LUAT_WEAK int luat_tp_sleep(luat_tp_config_t* luat_tp_config){
+    if (luat_tp_config->opts->sleep) {
+        return luat_tp_config->opts->sleep(luat_tp_config);
+    }
+    return -1;
+}
 
 
 

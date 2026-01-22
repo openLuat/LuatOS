@@ -235,13 +235,25 @@ static int l_tp_init(lua_State* L){
     }
 }
 
-
+static int l_tp_sleep(lua_State* L){
+    luat_tp_config_t* luat_tp_config = (luat_tp_config_t*)lua_touserdata(L, 1);
+    if (luat_tp_config == NULL){
+        LLOGE("luat_tp_config is NULL!!!");
+        return 0;
+    }
+    if (luat_tp_sleep(luat_tp_config)){
+        return 0;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
 
 #include "rotable2.h"
 
 static const rotable_Reg_t reg_tp[] =
 {
 	{ "init",	    ROREG_FUNC(l_tp_init)},
+    { "sleep",	    ROREG_FUNC(l_tp_sleep)},
 
     //@const EVENT_NONE number 空事件,不应出现
     { "EVENT_NONE",    ROREG_INT(TP_EVENT_TYPE_NONE)},

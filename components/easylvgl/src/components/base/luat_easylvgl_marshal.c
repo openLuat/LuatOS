@@ -91,6 +91,34 @@ const char *easylvgl_marshal_string(void *L, int idx, const char *key, const cha
 }
 
 /**
+ * 从配置表读取颜色字段（仅支持整数 Hex）
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 输出颜色
+ * @return true 成功解析，false 未指定或类型错误
+ */
+bool easylvgl_marshal_color(void *L, int idx, const char *key, lv_color_t *out)
+{
+    if (L == NULL || key == NULL || out == NULL) {
+        return false;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    lua_getfield(L_state, idx, key);
+
+    bool ok = false;
+    if (lua_type(L_state, -1) == LUA_TNUMBER) {
+        uint32_t raw = (uint32_t)lua_tointeger(L_state, -1);
+        *out = lv_color_hex(raw);
+        ok = true;
+    }
+
+    lua_pop(L_state, 1);
+    return ok;
+}
+
+/**
  * 从配置表读取父对象
  * @param L Lua 状态
  * @param idx 配置表索引

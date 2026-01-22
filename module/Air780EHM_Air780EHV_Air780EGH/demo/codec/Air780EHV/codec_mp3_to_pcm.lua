@@ -4,6 +4,10 @@
 @version 2.4
 @date 2025.11.18
 @author 陈媛媛
+@usage
+
+注意：
+如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
 本文件为MP3解码为PCM并流式播放演示功能模块，核心业务逻辑为：
 1、 使用exaudio流式播放原始MP3文件

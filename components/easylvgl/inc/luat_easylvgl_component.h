@@ -27,6 +27,7 @@ typedef enum {
     EASYLVGL_COMPONENT_SWITCH,
     EASYLVGL_COMPONENT_MSGBOX,
     EASYLVGL_COMPONENT_CONTAINER,
+    EASYLVGL_COMPONENT_BAR,
     EASYLVGL_COMPONENT_TABLE,
     EASYLVGL_COMPONENT_TABVIEW,
     EASYLVGL_COMPONENT_TEXTAREA,
@@ -100,6 +101,7 @@ typedef struct {
 typedef struct {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
+    bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
 } easylvgl_keyboard_data_t;
 
 /**********************
@@ -214,6 +216,16 @@ bool easylvgl_marshal_bool(void *L, int idx, const char *key, bool default_value
 const char *easylvgl_marshal_string(void *L, int idx, const char *key, const char *default_value);
 
 /**
+ * 从配置表读取颜色字段（仅支持整型 Hex）
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 颜色输出
+ * @return true 成功解析，false 未指定或类型错误
+ */
+bool easylvgl_marshal_color(void *L, int idx, const char *key, lv_color_t *out);
+
+/**
  * 从配置表读取父对象
  * @param L Lua 状态
  * @param idx 配置表索引
@@ -278,11 +290,22 @@ int easylvgl_container_open(lv_obj_t *container); //显示并置顶容器
 int easylvgl_container_destroy(lv_obj_t *container); //销毁容器及关联资源
 
 /**
+ * Bar 组件创建
+ */
+lv_obj_t *easylvgl_bar_create_from_config(void *L, int idx);
+int easylvgl_bar_set_value(lv_obj_t *bar, lv_coord_t value, bool animated); //设置当前值
+int easylvgl_bar_set_range(lv_obj_t *bar, lv_coord_t min, lv_coord_t max); //设置范围
+int easylvgl_bar_set_indicator_color(lv_obj_t *bar, lv_color_t color); //设置进度颜色
+int easylvgl_bar_set_bg_color(lv_obj_t *bar, lv_color_t color); //设置背景颜色
+int easylvgl_bar_get_value(lv_obj_t *bar); //获取当前值
+
+/**
  * Table 组件创建
  */
 lv_obj_t *easylvgl_table_create_from_config(void *L, int idx);
 int easylvgl_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const char *text); //设置单元格文本
 int easylvgl_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
+int easylvgl_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
 
 /**
  * TabView 组件创建
@@ -336,6 +359,7 @@ int easylvgl_keyboard_show(lv_obj_t *keyboard); //显示键盘
 int easylvgl_keyboard_hide(lv_obj_t *keyboard); //隐藏键盘
 int easylvgl_keyboard_set_on_commit(lv_obj_t *keyboard, int callback_ref); //设置提交回调
 int easylvgl_keyboard_set_layout(lv_obj_t *keyboard, const char *layout); //设置键盘布局
+void easylvgl_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, easylvgl_keyboard_data_t *data);
 
 /**
  * Lottie组件

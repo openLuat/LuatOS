@@ -15,6 +15,21 @@
 
 #define EASYLVGL_TABVIEW_MT "easylvgl.tabview"
 
+/**
+ * 创建 TabView 组件
+ * @api easylvgl.tabview(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 320
+ * @int config.h 高度，默认 200
+ * @int config.tabbar_pos 标签栏位置，默认 LV_DIR_TOP
+ * @int config.active 初始激活页索引，默认 0
+ * @table config.tabs 页面名称数组，至少一个，默认 Tab 1
+ * @table config.page_style 可选的 Tab 页样式配置
+ * @userdata config.parent 父对象，默认当前屏幕
+ * @return userdata TabView 对象
+ */
 static int l_easylvgl_tabview(lua_State *L) {
     easylvgl_ctx_t *ctx = NULL;
     lua_getfield(L, LUA_REGISTRYINDEX, "easylvgl_ctx");
@@ -40,6 +55,12 @@ static int l_easylvgl_tabview(lua_State *L) {
     return 1;
 }
 
+/**
+ * TabView:set_active(index)
+ * @api tabview:set_active(index)
+ * @int index 目标页索引
+ * @return nil
+ */
 static int l_tabview_set_active(lua_State *L) {
     lv_obj_t *tabview = easylvgl_check_component(L, 1, EASYLVGL_TABVIEW_MT);
     int index = luaL_checkinteger(L, 2);
@@ -47,6 +68,12 @@ static int l_tabview_set_active(lua_State *L) {
     return 0;
 }
 
+/**
+ * TabView:get_content(index)
+ * @api tabview:get_content(index)
+ * @int index 页索引
+ * @return userdata 页对象，失败返回 nil
+ */
 static int l_tabview_get_content(lua_State *L) {
     lv_obj_t *tabview = easylvgl_check_component(L, 1, EASYLVGL_TABVIEW_MT);
     int index = luaL_checkinteger(L, 2);
@@ -60,6 +87,12 @@ static int l_tabview_get_content(lua_State *L) {
     return 1;
 }
 
+/**
+ * TabView:set_on_change(cb)
+ * @api tabview:set_on_change(cb)
+ * @function cb 回调（参数：tabview, index）
+ * @return nil
+ */
 static int l_tabview_set_on_change(lua_State *L) {
     lv_obj_t *tabview = easylvgl_check_component(L, 1, EASYLVGL_TABVIEW_MT);
     luaL_checktype(L, 2, LUA_TFUNCTION);
@@ -74,6 +107,11 @@ static int l_tabview_set_on_change(lua_State *L) {
     return 0;
 }
 
+/**
+ * TabView:destroy()
+ * @api tabview:destroy()
+ * @return nil
+ */
 static int l_tabview_destroy(lua_State *L) {
     easylvgl_component_ud_t *ud = (easylvgl_component_ud_t *)luaL_checkudata(L, 1, EASYLVGL_TABVIEW_MT);
     if (ud != NULL && ud->obj != NULL) {

@@ -469,9 +469,7 @@ target("luatos-lua")
         add_files(luatos.."components/pinyin/src/*.c")
         add_files(luatos.."components/pinyin/binding/*.c")
 
-        -- airui
-        -- add_includedirs(luatos_exts.."/airui/include")
-        -- add_files(luatos_exts.."/airui/**.c")
+
 
         -- tp (touch) core only; exclude hardware drivers on PC
         add_includedirs(luatos.."components/tp")

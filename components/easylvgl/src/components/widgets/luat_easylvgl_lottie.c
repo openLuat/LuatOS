@@ -9,6 +9,7 @@
 #include "luat_malloc.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "luat_mem.h"
 
 #include "luat_easylvgl_conf.h"
 #if LV_USE_LOTTIE == 1
@@ -362,7 +363,8 @@ static bool lottie_load_from_file(easylvgl_component_meta_t *meta, lv_obj_t *obj
     }
 
     bool ok = lottie_apply_src_data(meta, obj, buffer, len);
-    luat_heap_free(buffer);
+    // 释放psram加载的json动画内存
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, buffer);
     return ok;
 }
 

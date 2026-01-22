@@ -6,6 +6,9 @@
 @author  王世豪
 @usage
 
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
 2、创建一个模拟获取流式音频的task（audio_get_data）

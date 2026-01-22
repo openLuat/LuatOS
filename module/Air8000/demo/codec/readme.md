@@ -32,7 +32,6 @@
 
 3、codec_pcm_to_amr：将PCM文件编码为AMR格式，然后使用exaudio播放AMR文件，使用单声道，保持原始PCM文件的采样率和采样位深。
 
-
 ## 演示硬件环境
 
 1、Air8000开发板一块+喇叭
@@ -84,7 +83,9 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
 1、搭建好硬件环境
 
-2、demo脚本代码main.lua中，按照自己的需求选择对应的功能
+2、搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
+3、demo脚本代码main.lua中，按照自己的需求选择对应的功能
 
     如果需要测试MP3转PCM流式播放，则取消注释 require "codec_mp3_to_pcm"
 
@@ -92,11 +93,11 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 
     如果需要测试PCM转AMR并播放，则取消注释 require "codec_pcm_to_amr"
 
-3、Luatools烧录内核固件和demo脚本代码
+4、Luatools烧录内核固件和demo脚本代码
 
-4、运行程序，观察Luatools日志输出和音频播放效果
+5、运行程序，观察Luatools日志输出和音频播放效果
 
-5、各个功能模块的详细说明：
+6、各个功能模块的详细说明：
 
 - MP3转PCM流式播放 (codec_mp3_to_pcm)
 

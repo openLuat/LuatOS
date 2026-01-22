@@ -28,6 +28,9 @@
 #include <ctype.h>
 #include <stdio.h>
 
+/* 外部函数声明 */
+extern uint64_t luat_sntp_time64_ms();
+
 #define LUAT_LOG_TAG "rtsp_push"
 #include "luat_log.h"
 
@@ -188,6 +191,139 @@ static void rtsp_get_ntp_timestamp(uint32_t *ntp_sec, uint32_t *ntp_frac);
  */
 static int rtsp_send_rtcp_sr(rtsp_ctx_t *ctx);
 
+/* ======================== 传输层实现 ======================== */
+
+/**
+ * UDP传输层私有数据
+ */
+typedef struct {
+    struct udp_pcb *rtp_pcb;        /**< RTP UDP控制块 */
+    struct udp_pcb *rtcp_pcb;       /**< RTCP UDP控制块 */
+    ip_addr_t remote_ip;            /**< 远端IP地址 */
+    uint16_t remote_rtp_port;       /**< 远端RTP端口 */
+    uint16_t remote_rtcp_port;      /**< 远端RTCP端口 */
+} rtsp_udp_transport_t;
+
+/**
+ * TCP发送队列节点
+ */
+typedef struct tcp_send_queue_node {
+    uint8_t *data;                  /**< 待发送数据指针 */
+    uint32_t len;                   /**< 数据长度 */
+    struct tcp_send_queue_node *next; /**< 下一个节点 */
+} tcp_send_queue_node_t;
+
+/**
+ * TCP传输层私有数据
+ */
+typedef struct {
+    struct tcp_pcb *rtp_pcb;        /**< RTP TCP控制块 */
+    ip_addr_t remote_ip;            /**< 远端IP地址 */
+    uint16_t remote_rtp_port;       /**< 远端RTP端口 */
+    uint8_t *send_buf;              /**< 发送缓冲区 */
+    uint32_t send_buf_size;         /**< 发送缓冲区大小 */
+    uint32_t send_pos;              /**< 发送缓冲区写位置 */
+
+    /* 发送队列 */
+    tcp_send_queue_node_t *send_queue_head; /**< 发送队列头 */
+    tcp_send_queue_node_t *send_queue_tail; /**< 发送队列尾 */
+    uint32_t send_queue_bytes;      /**< 队列总字节数 */
+    uint32_t send_queue_count;      /**< 队列包数 */
+
+    /* 发送队列定时器 */
+    luat_rtos_timer_t send_timer;   /**< 发送队列定时器 */
+} rtsp_tcp_transport_t;
+
+/**
+ * UDP传输层发送函数
+ */
+static int rtsp_udp_transport_send(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+
+/**
+ * UDP传输层初始化函数
+ */
+static int rtsp_udp_transport_init(rtsp_transport_t *transport, rtsp_ctx_t *ctx);
+
+/**
+ * UDP传输层清理函数
+ */
+static void rtsp_udp_transport_cleanup(rtsp_transport_t *transport);
+
+/**
+ * UDP传输层发送RTCP函数
+ */
+static int rtsp_udp_transport_send_rtcp(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+
+/**
+ * TCP传输层发送函数
+ */
+static int rtsp_tcp_transport_send(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+
+/**
+ * TCP传输层初始化函数
+ */
+static int rtsp_tcp_transport_init(rtsp_transport_t *transport, rtsp_ctx_t *ctx);
+
+/**
+ * TCP传输层清理函数
+ */
+static void rtsp_tcp_transport_cleanup(rtsp_transport_t *transport);
+
+/**
+ * TCP传输层发送RTCP函数（TCP模式不支持RTCP）
+ */
+static int rtsp_tcp_transport_send_rtcp(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+
+/* ======================== TCP发送队列管理 ======================== */
+
+/**
+ * 清空TCP发送队列
+ */
+static void rtsp_tcp_send_queue_clear(rtsp_tcp_transport_t *tcp_transport);
+
+/**
+ * 数据入队到TCP发送队列
+ */
+static int rtsp_tcp_send_queue_enqueue(rtsp_tcp_transport_t *tcp_transport, const uint8_t *data, uint32_t len);
+
+/**
+ * 尝试发送队列中的数据
+ */
+static int rtsp_tcp_send_queue_flush(rtsp_tcp_transport_t *tcp_transport);
+
+/**
+ * TCP发送队列tcpip线程回调函数
+ */
+static void rtsp_tcp_send_tcpip_callback(void *arg);
+
+/**
+ * TCP发送队列定时器回调函数
+ */
+static LUAT_RT_RET_TYPE rtsp_tcp_send_timer_callback(LUAT_RT_CB_PARAM);
+
+/* ======================== RTCP处理 ======================== */
+
+/**
+ * RTCP UDP接收回调函数
+ */
+static void rtcp_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+                                   const ip_addr_t *addr, uint16_t port);
+
+/**
+ * 处理RTCP包
+ */
+static int rtsp_handle_rtcp_packet(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len);
+
+/**
+ * 处理RTCP NACK消息
+ */
+static int rtsp_handle_rtcp_nack(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len);
+
+/**
+ * 处理RTCP RR消息
+ */
+static int rtsp_handle_rtcp_rr(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len);
+
 /* ======================== 核心实现 ======================== */
 
 /**
@@ -220,7 +356,6 @@ rtsp_ctx_t* rtsp_create(void) {
         return NULL;
     }
     ctx->send_buf_size = RTSP_BUFFER_SIZE;
-    ctx->send_pos = 0;
     
     ctx->rtp_buf = (uint8_t *)luat_heap_malloc(RTP_BUFFER_SIZE);
     if (!ctx->rtp_buf) {
@@ -239,7 +374,16 @@ rtsp_ctx_t* rtsp_create(void) {
     ctx->rtp_ssrc = (uint32_t)luat_mcu_ticks();
     ctx->start_tick = luat_mcu_ticks();
     ctx->last_rtcp_time = luat_mcu_ticks();
-    
+
+    // 初始化传输模式（默认UDP）
+    ctx->transport_mode = RTSP_TRANSPORT_TCP;
+    ctx->transport = NULL;
+
+    // 初始化网络统计
+    memset(&ctx->network_stats, 0, sizeof(rtsp_network_stats_t));
+    ctx->network_stats_callback = NULL;
+    ctx->last_stats_time = luat_mcu_ticks();
+
     // 初始化帧队列
     ctx->frame_head = NULL;
     ctx->frame_tail = NULL;
@@ -257,31 +401,30 @@ int rtsp_destroy(rtsp_ctx_t *ctx) {
     if (!ctx) {
         return RTSP_ERR_INVALID_PARAM;
     }
-    
+
     // 断开连接
     if (ctx->state != RTSP_STATE_IDLE) {
         rtsp_disconnect(ctx);
     }
-    
+
     // 清空队列
     rtsp_clear_frame_queue(ctx);
-    
+
     // 释放TCP连接
     if (ctx->control_pcb) {
         tcp_abort(ctx->control_pcb);
         ctx->control_pcb = NULL;
     }
-    
-    // 释放UDP连接
-    if (ctx->rtp_pcb) {
-        udp_remove(ctx->rtp_pcb);
-        ctx->rtp_pcb = NULL;
+
+    // 释放传输层接口（传输层负责释放其管理的UDP/TCP连接）
+    if (ctx->transport) {
+        if (ctx->transport->cleanup) {
+            ctx->transport->cleanup(ctx->transport);
+        }
+        luat_heap_free(ctx->transport);
+        ctx->transport = NULL;
     }
-    if (ctx->rtcp_pcb) {
-        udp_remove(ctx->rtcp_pcb);
-        ctx->rtcp_pcb = NULL;
-    }
-    
+
     // 释放缓冲区
     if (ctx->recv_buf) {
         luat_heap_free(ctx->recv_buf);
@@ -308,10 +451,6 @@ int rtsp_destroy(rtsp_ctx_t *ctx) {
     if (ctx->stream) {
         luat_heap_free(ctx->stream);
         ctx->stream = NULL;
-    }
-    if (ctx->auth) {
-        luat_heap_free(ctx->auth);
-        ctx->auth = NULL;
     }
     if (ctx->session_id) {
         luat_heap_free(ctx->session_id);
@@ -462,7 +601,7 @@ int rtsp_push_h264_frame(rtsp_ctx_t *ctx, const uint8_t *frame_data,
         node->len = frame_len;
         node->timestamp = timestamp;
         node->next = NULL;
-        
+
         // 检查队列大小
         if (ctx->frame_queue_bytes + frame_len > RTSP_MAX_QUEUE_BYTES) {
             // 丢弃最早的非关键帧
@@ -470,13 +609,13 @@ int rtsp_push_h264_frame(rtsp_ctx_t *ctx, const uint8_t *frame_data,
                 struct rtsp_frame_node *temp = ctx->frame_head;
                 ctx->frame_head = ctx->frame_head->next;
                 ctx->frame_queue_bytes -= temp->len;
-                
+
                 luat_heap_free(temp->data);
                 luat_heap_free(temp);
                 LLOGD("队列溢出,丢弃一帧");
             }
         }
-        
+
         if (!ctx->frame_head) {
             ctx->frame_head = node;
         } else {
@@ -522,7 +661,7 @@ int rtsp_poll(rtsp_ctx_t *ctx) {
     // 发送队列中的帧
     if (ctx->state == RTSP_STATE_PLAYING) {
         rtsp_send_queued_frames(ctx);
-        
+
         // 定期发送RTCP Sender Report (每5秒一次)
         if (now - ctx->last_rtcp_time >= 5000) {
             LLOGD("触发RTCP SR发送: 距上次%u毫秒", now - ctx->last_rtcp_time);
@@ -772,9 +911,9 @@ static err_t rtsp_tcp_recv_callback(void *arg, struct tcp_pcb *pcb,
     
     // 复制数据到接收缓冲区
     if (ctx->recv_pos + p->tot_len > ctx->recv_buf_size) {
-        LLOGE("接收缓冲区溢出");
-        pbuf_free(p);
-        return ERR_ABRT;
+        // 缓冲区满，丢弃旧数据（保留最近的响应）
+        LLOGW("接收缓冲区满，丢弃%u字节旧数据", ctx->recv_pos);
+        ctx->recv_pos = 0;
     }
     
     pbuf_copy_partial(p, ctx->recv_buf + ctx->recv_pos, p->tot_len, 0);
@@ -996,14 +1135,23 @@ static int rtsp_handle_response(rtsp_ctx_t *ctx) {
             // ANNOUNCE/DESCRIBE成功,发送SETUP
             {
                 char setup_headers[512] = {0};
-                snprintf(setup_headers, sizeof(setup_headers),
-                    "Transport: RTP/AVP/UDP;unicast;client_port=%u-%u;mode=record\r\n",
-                    ctx->local_rtp_port ? ctx->local_rtp_port : 19030,
-                    ctx->local_rtcp_port ? ctx->local_rtcp_port : 19031);
-                
+
+                // 根据传输模式设置不同的 Transport 头
+                if (ctx->transport_mode == RTSP_TRANSPORT_TCP) {
+                    // TCP传输模式
+                    snprintf(setup_headers, sizeof(setup_headers),
+                        "Transport: RTP/AVP/TCP;unicast;interleaved=0-1;mode=record\r\n");
+                } else {
+                    // UDP 或 UDP+FEC 传输模式
+                    snprintf(setup_headers, sizeof(setup_headers),
+                        "Transport: RTP/AVP/UDP;unicast;client_port=%u-%u;mode=record\r\n",
+                        ctx->local_rtp_port ? ctx->local_rtp_port : 19030,
+                        ctx->local_rtcp_port ? ctx->local_rtcp_port : 19031);
+                }
+
                 char resource[512] = {0};
                 snprintf(resource, sizeof(resource), "%s/streamid=0", ctx->url);
-                
+
                 if (rtsp_send_command(ctx, "SETUP", resource, setup_headers, NULL, 0) == RTSP_OK) {
                     rtsp_set_state(ctx, RTSP_STATE_SETUP, 0);
                 }
@@ -1011,9 +1159,46 @@ static int rtsp_handle_response(rtsp_ctx_t *ctx) {
             break;
             
         case RTSP_STATE_SETUP:
-            // SETUP成功,发送PLAY
-            if (rtsp_send_command(ctx, "RECORD", ctx->url, NULL, NULL, 0) == RTSP_OK) {
-                rtsp_set_state(ctx, RTSP_STATE_PLAY, 0);
+            // SETUP成功,初始化传输层并发送PLAY
+            {
+                // 分配传输层接口
+                ctx->transport = (rtsp_transport_t *)luat_heap_malloc(sizeof(rtsp_transport_t));
+                if (!ctx->transport) {
+                    LLOGE("传输层内存分配失败");
+                    rtsp_set_state(ctx, RTSP_STATE_ERROR, RTSP_ERR_NO_MEMORY);
+                    break;
+                }
+                memset(ctx->transport, 0, sizeof(rtsp_transport_t));
+
+                // 根据传输模式初始化传输层
+                if (ctx->transport_mode == RTSP_TRANSPORT_TCP) {
+                    // TCP传输模式
+                    LLOGD("初始化TCP传输层");
+                    if (rtsp_tcp_transport_init(ctx->transport, ctx) != RTSP_OK) {
+                        LLOGE("TCP传输层初始化失败");
+                        luat_heap_free(ctx->transport);
+                        ctx->transport = NULL;
+                        rtsp_set_state(ctx, RTSP_STATE_ERROR, RTSP_ERR_CONNECT_FAILED);
+                        break;
+                    }
+                } else {
+                    // UDP 或 UDP+FEC 传输模式
+                    LLOGD("初始化UDP传输层");
+                    if (rtsp_udp_transport_init(ctx->transport, ctx) != RTSP_OK) {
+                        LLOGE("UDP传输层初始化失败");
+                        luat_heap_free(ctx->transport);
+                        ctx->transport = NULL;
+                        rtsp_set_state(ctx, RTSP_STATE_ERROR, RTSP_ERR_CONNECT_FAILED);
+                        break;
+                    }
+                }
+
+                LLOGD("传输层初始化成功: mode=%d", ctx->transport_mode);
+
+                // 发送PLAY请求
+                if (rtsp_send_command(ctx, "RECORD", ctx->url, NULL, NULL, 0) == RTSP_OK) {
+                    rtsp_set_state(ctx, RTSP_STATE_PLAY, 0);
+                }
             }
             break;
             
@@ -1035,47 +1220,60 @@ static int rtsp_handle_response(rtsp_ctx_t *ctx) {
         default:
             break;
     }
-    
+
     // 清空接收缓冲区
     resp_len = (resp_end - (char *)ctx->recv_buf) + 4;
-    if (ctx->recv_pos > (uint32_t)resp_len) {
-        memmove(ctx->recv_buf, ctx->recv_buf + resp_len, ctx->recv_pos - resp_len);
-        ctx->recv_pos -= resp_len;
+    uint32_t remaining = ctx->recv_pos - resp_len;
+
+    // 检查并跳过interleaved数据（以$开头的数据包）
+    if (remaining > 0) {
+        char *next_data = (char *)ctx->recv_buf + resp_len;
+        uint32_t skipped = 0;
+
+        // 跳过所有interleaved数据包
+        while (remaining >= 4 && next_data[0] == '$') {
+            // 解析interleaved数据包长度
+            uint16_t data_len = ((uint8_t)next_data[2] << 8) | (uint8_t)next_data[3];
+            uint16_t total_len = 4 + data_len;
+
+            if (remaining < total_len) {
+                // 数据不完整，等待更多数据
+                break;
+            }
+
+            RTSP_LOGV("跳过interleaved数据: 通道=%u, 长度=%u字节", (uint8_t)next_data[1], data_len);
+            next_data += total_len;
+            remaining -= total_len;
+            skipped += total_len;
+        }
+
+        if (skipped > 0) {
+            RTSP_LOGV("跳过interleaved数据总计: %u字节", skipped);
+        }
+
+        // 移动剩余数据到缓冲区开头
+        if (remaining > 0) {
+            memmove(ctx->recv_buf, next_data, remaining);
+            ctx->recv_pos = remaining;
+        } else {
+            ctx->recv_pos = 0;
+        }
     } else {
         ctx->recv_pos = 0;
     }
-    
+
     return RTSP_OK;
 }
 
 /**
  * 发送RTP包
  */
-static int rtsp_send_rtp_packet(rtsp_ctx_t *ctx, const uint8_t *data, 
+static int rtsp_send_rtp_packet(rtsp_ctx_t *ctx, const uint8_t *data,
                                 uint32_t len, uint32_t timestamp, uint8_t marker) {
-    if (!ctx->rtp_pcb) {
-        LLOGE("RTP UDP连接未建立");
-        return RTSP_ERR_CONNECT_FAILED;
-    }
-    
     // 构建RTP头
     uint8_t rtp_header[RTP_HEADER_SIZE];
     uint32_t rtp_ts = (timestamp * RTP_TIMESTAMP_BASE) / 1000;
-    
-    // 计算与上个包的时间戳差值（用于诊断时间戳跳跃）
-    static uint32_t last_rtp_ts = 0;
-    int32_t ts_delta = (int32_t)(rtp_ts - last_rtp_ts);
-    
-    RTSP_LOGV("RTP包: seq=%u, ts=%u, ts_delta=%d, marker=%u, len=%u, timestamp_ms=%u",
-              ctx->rtp_sequence, rtp_ts, ts_delta, marker, len, timestamp);
-    
-    // 如果时间戳跳跃异常大（可能导致抖动），记录警告
-    if (last_rtp_ts > 0 && (ts_delta < -90000 || ts_delta > 270000)) {
-        LLOGW("时间戳异常跳跃: seq=%u, last_ts=%u, curr_ts=%u, delta=%d (应在-90000~270000范围内,对应帧率25~120fps)",
-              ctx->rtp_sequence, last_rtp_ts, rtp_ts, ts_delta);
-    }
-    last_rtp_ts = rtp_ts;
-    
+
     // V=2, P=0, X=0, CC=0
     rtp_header[0] = (2 << 6) | 0;
     // M=marker, PT=96(H.264)
@@ -1093,42 +1291,31 @@ static int rtsp_send_rtp_packet(rtsp_ctx_t *ctx, const uint8_t *data,
     rtp_header[9] = (ctx->rtp_ssrc >> 16) & 0xFF;
     rtp_header[10] = (ctx->rtp_ssrc >> 8) & 0xFF;
     rtp_header[11] = ctx->rtp_ssrc & 0xFF;
-    
+
     ctx->rtp_sequence++;
-    
+
     // 构建完整RTP包
     if (RTP_HEADER_SIZE + len > ctx->rtp_buf_size) {
         LLOGE("RTP缓冲区溢出");
         return RTSP_ERR_BUFFER_OVERFLOW;
     }
-    
+
     memcpy(ctx->rtp_buf, rtp_header, RTP_HEADER_SIZE);
     memcpy(ctx->rtp_buf + RTP_HEADER_SIZE, data, len);
-    
-    // 发送UDP包
-    struct pbuf *pb = pbuf_alloc(PBUF_TRANSPORT, RTP_HEADER_SIZE + len, PBUF_RAM);
-    if (!pb) {
-        LLOGE("UDP数据包分配失败");
-        return RTSP_ERR_NO_MEMORY;
+
+    // 使用传输层接口发送
+    if (ctx->transport && ctx->transport->send) {
+        int ret = ctx->transport->send(ctx->transport, ctx->rtp_buf, RTP_HEADER_SIZE + len);
+        if (ret == RTSP_OK) {
+            ctx->bytes_sent += RTP_HEADER_SIZE + len;
+            ctx->rtp_packets_sent++;
+        }
+        return ret;
     }
-    
-    memcpy(pb->payload, ctx->rtp_buf, RTP_HEADER_SIZE + len);
-    
-    err_t err = udp_sendto(ctx->rtp_pcb, pb, &ctx->remote_ip, ctx->remote_rtp_port);
-    pbuf_free(pb);
-    
-    if (err != ERR_OK) {
-        LLOGE("RTP UDP发送失败: err=%d, remote_ip=%s, remote_rtp_port=%u, len=%u", 
-              err, ipaddr_ntoa(&ctx->remote_ip), ctx->remote_rtp_port, RTP_HEADER_SIZE + len);
-        return RTSP_ERR_NETWORK;
-    }
-    
-    ctx->bytes_sent += RTP_HEADER_SIZE + len;
-    ctx->rtp_packets_sent++;
-    
-    // RTSP_LOGV("RTP包已发送: %u字节, 序列号: %u", RTP_HEADER_SIZE + len, ctx->rtp_sequence - 1);
-    
-    return RTSP_OK;
+
+    // 传输层未初始化
+    LLOGE("传输层未初始化");
+    return RTSP_ERR_CONNECT_FAILED;
 }
 
 /**
@@ -1144,6 +1331,7 @@ static int rtsp_build_rtp_payload(rtsp_ctx_t *ctx, const uint8_t *frame_data,
     if (timestamp == 0) {
         timestamp = ctx->video_timestamp;
     }
+    
     const uint8_t *ptr = frame_data;
     uint32_t remaining = frame_len;
     int nalu_count = 0;
@@ -1307,38 +1495,38 @@ static int rtsp_build_rtp_payload(rtsp_ctx_t *ctx, const uint8_t *frame_data,
  */
 static int rtsp_send_queued_frames(rtsp_ctx_t *ctx) {
     int sent_count = 0;
-    
+
     while (ctx->frame_head && sent_count < 5) {  // 每次轮询最多发送5帧
         struct rtsp_frame_node *node = ctx->frame_head;
-        
+
         if (rtsp_build_rtp_payload(ctx, node->data, node->len, node->timestamp) == RTSP_OK) {
             ctx->frame_head = node->next;
             ctx->frame_queue_bytes -= node->len;
-            
+
             luat_heap_free(node->data);
             luat_heap_free(node);
-            
+
             sent_count++;
         } else {
             break;  // 发送失败,暂停发送
         }
     }
-    
+
     if (!ctx->frame_head) {
         ctx->frame_tail = NULL;
     }
-    
+
     //RTSP_LOGV("队列帧发送: %d帧, 剩余队列: %u字节", sent_count, ctx->frame_queue_bytes);
-    
+
     return RTSP_OK;
-}
+    }
 
 /**
  * 清空帧队列
  */
 static void rtsp_clear_frame_queue(rtsp_ctx_t *ctx) {
     struct rtsp_frame_node *node = ctx->frame_head;
-    
+
     while (node) {
         struct rtsp_frame_node *next = node->next;
         if (node->data) {
@@ -1347,7 +1535,7 @@ static void rtsp_clear_frame_queue(rtsp_ctx_t *ctx) {
         luat_heap_free(node);
         node = next;
     }
-    
+
     ctx->frame_head = NULL;
     ctx->frame_tail = NULL;
     ctx->frame_queue_bytes = 0;
@@ -1506,25 +1694,24 @@ static int rtsp_send_nalu(rtsp_ctx_t *ctx, const uint8_t *nalu_data,
  */
 static void rtsp_get_ntp_timestamp(uint32_t *ntp_sec, uint32_t *ntp_frac) {
     // 使用 SNTP 获取准确的 NTP 时间戳(毫秒单位，从1970年开始)
-    extern uint64_t luat_sntp_time64_ms();
     uint64_t unix_ms = luat_sntp_time64_ms();
-    
+
     // NTP时间戳从1900年开始，1970年1月1日对应的秒数为2208988800秒
     const uint64_t NTP_OFFSET_SEC = 2208988800UL;
-    
+
     // 将UNIX时间(毫秒)转换为NTP时间
     // 1. UNIX秒数 = unix_ms / 1000
     // 2. NTP秒数 = UNIX秒数 + NTP_OFFSET
     uint64_t unix_sec = unix_ms / 1000;
     uint32_t unix_ms_frac = (uint32_t)(unix_ms % 1000);
-    
+
     // NTP秒数
     *ntp_sec = (uint32_t)(unix_sec + NTP_OFFSET_SEC);
-    
+
     // NTP小数部分: 将毫秒转换为 NTP 小数格式 (2^32 * ms / 1000)
     *ntp_frac = (unix_ms_frac * 4294967296ULL) / 1000;
-    
-    RTSP_LOGV("NTP时间戳: unix_ms=%llu, unix_sec=%llu, ntp_sec=%u, ntp_frac=%u", 
+
+    RTSP_LOGV("NTP时间戳: unix_ms=%llu, unix_sec=%llu, ntp_sec=%u, ntp_frac=%u",
               unix_ms, unix_sec, *ntp_sec, *ntp_frac);
 }
 
@@ -1550,14 +1737,19 @@ static void rtsp_get_ntp_timestamp(uint32_t *ntp_sec, uint32_t *ntp_frac) {
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 static int rtsp_send_rtcp_sr(rtsp_ctx_t *ctx) {
-    if (!ctx->rtcp_pcb || ctx->remote_rtcp_port == 0) {
-        LLOGD("RTCP未配置,跳过SR发送: rtcp_pcb=%p, remote_rtcp_port=%u", 
-              ctx->rtcp_pcb, ctx->remote_rtcp_port);
+    if (!ctx->transport || !ctx->transport->send_rtcp) {
+        LLOGD("传输层不支持RTCP发送,跳过SR发送");
         return RTSP_OK;
     }
-    
+
+    if (ctx->remote_rtcp_port == 0) {
+        LLOGD("RTCP端口未配置,跳过SR发送: remote_rtcp_port=%u",
+              ctx->remote_rtcp_port);
+        return RTSP_OK;
+    }
+
     LLOGD("准备发送RTCP SR: packets=%u, bytes=%u, remote_ip=%s, remote_rtcp_port=%u",
-          ctx->rtp_packets_sent, ctx->bytes_sent, 
+          ctx->rtp_packets_sent, ctx->bytes_sent,
           ipaddr_ntoa(&ctx->remote_ip), ctx->remote_rtcp_port);
     
     uint8_t rtcp_packet[28];  // RTCP SR固定头部28字节(不含接收报告块)
@@ -1615,34 +1807,20 @@ static int rtsp_send_rtcp_sr(rtsp_ctx_t *ctx) {
     rtcp_packet[27] = ctx->bytes_sent & 0xFF;
     
     // 发送RTCP SR包
-    struct pbuf *pb = pbuf_alloc(PBUF_TRANSPORT, 28, PBUF_RAM);
-    if (!pb) {
-        LLOGE("RTCP SR包分配失败");
-        return RTSP_ERR_NO_MEMORY;
+    if (!ctx->transport || !ctx->transport->send_rtcp) {
+        LLOGE("传输层不支持RTCP发送");
+        return RTSP_ERR_CONNECT_FAILED;
     }
-    
-    memcpy(pb->payload, rtcp_packet, 28);
-    
-    LLOGD("执行udp_sendto: rtcp_pcb=%p, remote_ip=%s, remote_rtcp_port=%u, len=28",
-          ctx->rtcp_pcb, ipaddr_ntoa(&ctx->remote_ip), ctx->remote_rtcp_port);
-    
-    err_t err = udp_sendto(ctx->rtcp_pcb, pb, &ctx->remote_ip, ctx->remote_rtcp_port);
-    
-    LLOGD("udp_sendto执行完毕: err=%d (%s)", err, 
-          err == ERR_OK ? "成功" : (err == ERR_MEM ? "内存不足" : 
-          (err == ERR_RTE ? "路由错误" : "其他错误")));
-    
-    pbuf_free(pb);
-    
-    if (err != ERR_OK) {
-        LLOGE("RTCP SR发送失败: err=%d, remote_ip=%s, remote_rtcp_port=%u", 
-              err, ipaddr_ntoa(&ctx->remote_ip), ctx->remote_rtcp_port);
-        return RTSP_ERR_NETWORK;
+
+    int ret = ctx->transport->send_rtcp(ctx->transport, rtcp_packet, 28);
+    if (ret != RTSP_OK) {
+        LLOGE("RTCP SR发送失败: err=%d", ret);
+        return ret;
     }
-    
-    LLOGD("RTCP SR已成功发送: SSRC=0x%08X, packets=%u, bytes=%u, NTP=%u.%u, RTP_TS=%u", 
+
+    LLOGD("RTCP SR已成功发送: SSRC=0x%08X, packets=%u, bytes=%u, NTP=%u.%u, RTP_TS=%u",
           ctx->rtp_ssrc, ctx->rtp_packets_sent, ctx->bytes_sent, ntp_sec, ntp_frac, rtp_ts);
-    
+
     return RTSP_OK;
 }
 
@@ -1654,63 +1832,39 @@ int rtsp_connect(rtsp_ctx_t *ctx) {
         LLOGE("RTSP上下文无效或URL未设置");
         return RTSP_ERR_INVALID_PARAM;
     }
-    
+
     if (ctx->state != RTSP_STATE_IDLE) {
         LLOGE("RTSP已处于连接状态");
         return RTSP_ERR_FAILED;
     }
-    
+
     // 创建TCP控制连接
     ctx->control_pcb = tcp_new();
     if (!ctx->control_pcb) {
         LLOGE("TCP控制块创建失败");
         return RTSP_ERR_NO_MEMORY;
     }
-    
-    // 创建RTP UDP连接
-    ctx->rtp_pcb = udp_new();
-    if (!ctx->rtp_pcb) {
-        LLOGE("RTP UDP块创建失败");
-        tcp_abort(ctx->control_pcb);
-        ctx->control_pcb = NULL;
-        return RTSP_ERR_NO_MEMORY;
-    }
-    
-    // 创建RTCP UDP连接
-    ctx->rtcp_pcb = udp_new();
-    if (!ctx->rtcp_pcb) {
-        LLOGE("RTCP UDP块创建失败");
-        tcp_abort(ctx->control_pcb);
-        udp_remove(ctx->rtp_pcb);
-        ctx->control_pcb = NULL;
-        ctx->rtp_pcb = NULL;
-        return RTSP_ERR_NO_MEMORY;
-    }
-    
+
     rtsp_set_state(ctx, RTSP_STATE_CONNECTING, 0);
-    
+
     // 发起TCP连接
     ip_addr_t remote_ip;
     if (ipaddr_aton(ctx->host, &remote_ip) == 0) {
         // TODO: DNS解析
         LLOGE("IP地址转换失败: %s", ctx->host);
         tcp_abort(ctx->control_pcb);
-        udp_remove(ctx->rtp_pcb);
-        udp_remove(ctx->rtcp_pcb);
         ctx->control_pcb = NULL;
-        ctx->rtp_pcb = NULL;
-        ctx->rtcp_pcb = NULL;
         rtsp_set_state(ctx, RTSP_STATE_ERROR, RTSP_ERR_CONNECT_FAILED);
         return RTSP_ERR_CONNECT_FAILED;
     }
-    
+
     // 保存远端IP地址
     ip_addr_copy(ctx->remote_ip, remote_ip);
     LLOGD("解析服务器地址: %s -> %s", ctx->host, ipaddr_ntoa(&ctx->remote_ip));
-    
+
     tcp_arg(ctx->control_pcb, (void *)ctx);
     tcp_connect(ctx->control_pcb, &remote_ip, ctx->port, rtsp_tcp_connect_callback);
-    
+
     LLOGD("RTSP连接请求已发送: %s:%u", ctx->host, ctx->port);
     return RTSP_OK;
 }
@@ -1722,28 +1876,18 @@ int rtsp_disconnect(rtsp_ctx_t *ctx) {
     if (!ctx) {
         return RTSP_ERR_INVALID_PARAM;
     }
-    
+
     rtsp_set_state(ctx, RTSP_STATE_DISCONNECTING, 0);
-    
+
     // 关闭TCP连接
     if (ctx->control_pcb) {
         tcp_close(ctx->control_pcb);
         ctx->control_pcb = NULL;
     }
-    
-    // 关闭UDP连接
-    if (ctx->rtp_pcb) {
-        udp_remove(ctx->rtp_pcb);
-        ctx->rtp_pcb = NULL;
-    }
-    if (ctx->rtcp_pcb) {
-        udp_remove(ctx->rtcp_pcb);
-        ctx->rtcp_pcb = NULL;
-    }
-    
+
     rtsp_clear_frame_queue(ctx);
     rtsp_set_state(ctx, RTSP_STATE_IDLE, 0);
-    
+
     LLOGD("RTSP连接已断开");
     return RTSP_OK;
 }
@@ -1852,3 +1996,769 @@ static void rtsp_parse_pps_detail(const uint8_t *pps_data, uint32_t pps_len) {
     LLOGD("PPS Raw Data (%u bytes): %s", pps_len, hex_str);
     LLOGD("==================================\n");
 }
+
+/* ======================== 传输层实现 ======================== */
+
+/**
+ * UDP传输层发送函数
+ */
+static int rtsp_udp_transport_send(rtsp_transport_t *transport, const uint8_t *data, uint32_t len) {
+    if (!transport || !transport->private_data || !data || len == 0) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    rtsp_udp_transport_t *udp_transport = (rtsp_udp_transport_t *)transport->private_data;
+
+    if (!udp_transport->rtp_pcb) {
+        LLOGE("UDP传输层未初始化");
+        return RTSP_ERR_CONNECT_FAILED;
+    }
+
+    // 分配pbuf
+    struct pbuf *pb = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
+    if (!pb) {
+        LLOGE("UDP数据包分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    memcpy(pb->payload, data, len);
+
+    // 发送UDP包
+    err_t err = udp_sendto(udp_transport->rtp_pcb, pb, &udp_transport->remote_ip, udp_transport->remote_rtp_port);
+    pbuf_free(pb);
+
+    if (err != ERR_OK) {
+        LLOGE("UDP发送失败: err=%d", err);
+        return RTSP_ERR_NETWORK;
+    }
+
+    return RTSP_OK;
+}
+
+/**
+ * UDP传输层初始化函数
+ */
+static int rtsp_udp_transport_init(rtsp_transport_t *transport, rtsp_ctx_t *ctx) {
+    if (!transport || !ctx) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // 分配私有数据
+    rtsp_udp_transport_t *udp_transport = (rtsp_udp_transport_t *)luat_heap_malloc(sizeof(rtsp_udp_transport_t));
+    if (!udp_transport) {
+        LLOGE("UDP传输层内存分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    memset(udp_transport, 0, sizeof(rtsp_udp_transport_t));
+
+    // 创建RTP UDP连接
+    udp_transport->rtp_pcb = udp_new();
+    if (!udp_transport->rtp_pcb) {
+        LLOGE("RTP UDP块创建失败");
+        luat_heap_free(udp_transport);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 创建RTCP UDP连接
+    udp_transport->rtcp_pcb = udp_new();
+    if (!udp_transport->rtcp_pcb) {
+        LLOGE("RTCP UDP块创建失败");
+        udp_remove(udp_transport->rtp_pcb);
+        luat_heap_free(udp_transport);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 设置RTCP接收回调
+    udp_recv(udp_transport->rtcp_pcb, rtcp_udp_recv_callback, ctx);
+
+    // 从ctx复制UDP连接信息
+    ip_addr_copy(udp_transport->remote_ip, ctx->remote_ip);
+    udp_transport->remote_rtp_port = ctx->remote_rtp_port;
+    udp_transport->remote_rtcp_port = ctx->remote_rtcp_port;
+
+    // 设置传输层接口
+    transport->send = rtsp_udp_transport_send;
+    transport->send_rtcp = rtsp_udp_transport_send_rtcp;
+    transport->init = rtsp_udp_transport_init;
+    transport->cleanup = rtsp_udp_transport_cleanup;
+    transport->ctx = ctx;
+    transport->private_data = udp_transport;
+
+    LLOGD("UDP传输层初始化成功");
+    return RTSP_OK;
+}
+
+/**
+ * UDP传输层清理函数
+ */
+static void rtsp_udp_transport_cleanup(rtsp_transport_t *transport) {
+    if (!transport || !transport->private_data) {
+        return;
+    }
+
+    rtsp_udp_transport_t *udp_transport = (rtsp_udp_transport_t *)transport->private_data;
+
+    // 释放RTP UDP连接
+    if (udp_transport->rtp_pcb) {
+        udp_remove(udp_transport->rtp_pcb);
+        udp_transport->rtp_pcb = NULL;
+    }
+
+    // 释放RTCP UDP连接
+    if (udp_transport->rtcp_pcb) {
+        udp_remove(udp_transport->rtcp_pcb);
+        udp_transport->rtcp_pcb = NULL;
+    }
+
+    luat_heap_free(udp_transport);
+    transport->private_data = NULL;
+
+    LLOGD("UDP传输层已清理");
+}
+
+/**
+ * UDP传输层发送RTCP函数
+ */
+static int rtsp_udp_transport_send_rtcp(rtsp_transport_t *transport, const uint8_t *data, uint32_t len) {
+    if (!transport || !transport->private_data || !data || len == 0) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    rtsp_udp_transport_t *udp_transport = (rtsp_udp_transport_t *)transport->private_data;
+
+    if (!udp_transport->rtcp_pcb) {
+        LLOGE("RTCP UDP传输层未初始化");
+        return RTSP_ERR_CONNECT_FAILED;
+    }
+
+    // 分配pbuf
+    struct pbuf *pb = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_RAM);
+    if (!pb) {
+        LLOGE("RTCP UDP数据包分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    memcpy(pb->payload, data, len);
+
+    // 发送UDP包
+    err_t err = udp_sendto(udp_transport->rtcp_pcb, pb, &udp_transport->remote_ip, udp_transport->remote_rtcp_port);
+    pbuf_free(pb);
+
+    if (err != ERR_OK) {
+        LLOGE("RTCP UDP发送失败: err=%d", err);
+        return RTSP_ERR_NETWORK;
+    }
+
+    return RTSP_OK;
+}
+
+/* ======================== TCP发送队列管理 ======================== */
+
+/**
+ * 清空TCP发送队列
+ */
+static void rtsp_tcp_send_queue_clear(rtsp_tcp_transport_t *tcp_transport) {
+    if (!tcp_transport) {
+        return;
+    }
+
+    tcp_send_queue_node_t *node = tcp_transport->send_queue_head;
+    while (node) {
+        tcp_send_queue_node_t *next = node->next;
+        if (node->data) {
+            luat_heap_free(node->data);
+        }
+        luat_heap_free(node);
+        node = next;
+    }
+
+    tcp_transport->send_queue_head = NULL;
+    tcp_transport->send_queue_tail = NULL;
+    tcp_transport->send_queue_bytes = 0;
+    tcp_transport->send_queue_count = 0;
+}
+
+/**
+ * 尝试发送队列中的数据
+ */
+static int rtsp_tcp_send_queue_flush(rtsp_tcp_transport_t *tcp_transport) {
+    if (!tcp_transport || !tcp_transport->rtp_pcb) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    uint32_t sent_count = 0;
+    uint32_t sent_bytes = 0;
+    uint32_t reserved = TCP_WND / 5;  // 预留20%窗口给RTSP控制信令
+
+    while (tcp_transport->send_queue_head) {
+        tcp_send_queue_node_t *node = tcp_transport->send_queue_head;
+
+        // 检查TCP发送窗口（考虑预留）
+        uint32_t sndbuf = tcp_sndbuf(tcp_transport->rtp_pcb);
+        if (sndbuf < (node->len + reserved)) {
+            RTSP_LOGV("TCP窗口不足(预留%u字节)，停止发送队列: 需要%u字节, 可用%u字节", reserved, node->len, sndbuf);
+            break;
+        }
+
+        // 发送数据
+        err_t err = tcp_write(tcp_transport->rtp_pcb, node->data, node->len, TCP_WRITE_FLAG_COPY);
+        if (err != ERR_OK) {
+            LLOGE("TCP队列发送失败: err=%d", err);
+            break;
+        }
+
+        // 出队
+        tcp_transport->send_queue_head = node->next;
+        if (!tcp_transport->send_queue_head) {
+            tcp_transport->send_queue_tail = NULL;
+        }
+
+        tcp_transport->send_queue_bytes -= node->len;
+        tcp_transport->send_queue_count--;
+        sent_bytes += node->len;
+        sent_count++;
+
+        // 释放节点
+        luat_heap_free(node->data);
+        luat_heap_free(node);
+    }
+
+    if (sent_count > 0) {
+        tcp_output(tcp_transport->rtp_pcb);
+        RTSP_LOGV("队列发送完成: %u包, %u字节, 剩余%u包", sent_count, sent_bytes, tcp_transport->send_queue_count);
+    }
+
+    return sent_count > 0 ? RTSP_OK : RTSP_ERR_NETWORK;
+}
+
+/**
+ * TCP发送队列tcpip线程回调函数
+ * 在tcpip线程中执行，确保线程安全
+ */
+static void rtsp_tcp_send_tcpip_callback(void *arg) {
+    rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)arg;
+
+    if (tcp_transport && tcp_transport->send_queue_head) {
+        rtsp_tcp_send_queue_flush(tcp_transport);
+    }
+}
+
+/**
+ * TCP发送队列定时器回调函数
+ * 定期尝试发送队列中的数据
+ */
+static LUAT_RT_RET_TYPE rtsp_tcp_send_timer_callback(LUAT_RT_CB_PARAM) {
+    // 使用全局变量获取tcp_transport指针
+    extern rtsp_ctx_t *g_rtsp_ctx;
+    if (g_rtsp_ctx && g_rtsp_ctx->transport && g_rtsp_ctx->transport->private_data) {
+        rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)g_rtsp_ctx->transport->private_data;
+        if (tcp_transport && tcp_transport->send_queue_head) {
+            // 使用tcpip_callback确保在tcpip线程中执行TCP操作
+            tcpip_callback_with_block(rtsp_tcp_send_tcpip_callback, tcp_transport, 0);
+        }
+    }
+}
+
+/**
+ * 数据入队到TCP发送队列
+ */
+static int rtsp_tcp_send_queue_enqueue(rtsp_tcp_transport_t *tcp_transport, const uint8_t *data, uint32_t len) {
+    if (!tcp_transport || !data || len == 0) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // 检查队列大小限制（最大2MB）
+    if (tcp_transport->send_queue_bytes + len > 2 * 1024 * 1024) {
+        LLOGW("TCP发送队列已满: 当前%u字节, 新增%u字节", tcp_transport->send_queue_bytes, len);
+        return RTSP_ERR_BUFFER_OVERFLOW;
+    }
+
+    // 分配节点
+    tcp_send_queue_node_t *node = (tcp_send_queue_node_t *)luat_heap_malloc(sizeof(tcp_send_queue_node_t));
+    if (!node) {
+        LLOGE("发送队列节点分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 分配数据缓冲区
+    node->data = (uint8_t *)luat_heap_malloc(len);
+    if (!node->data) {
+        LLOGE("发送队列数据分配失败");
+        luat_heap_free(node);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 复制数据
+    memcpy(node->data, data, len);
+    node->len = len;
+    node->next = NULL;
+
+    // 入队
+    if (!tcp_transport->send_queue_tail) {
+        tcp_transport->send_queue_head = node;
+        tcp_transport->send_queue_tail = node;
+    } else {
+        tcp_transport->send_queue_tail->next = node;
+        tcp_transport->send_queue_tail = node;
+    }
+
+    tcp_transport->send_queue_bytes += len;
+    tcp_transport->send_queue_count++;
+
+    RTSP_LOGV("数据入队: %u字节, 队列包数=%u, 总字节数=%u", len, tcp_transport->send_queue_count, tcp_transport->send_queue_bytes);
+
+    return RTSP_OK;
+}
+
+/**
+ * TCP传输层发送函数
+ * 实现RTP over TCP (RFC 2326)
+ */
+static int rtsp_tcp_transport_send(rtsp_transport_t *transport, const uint8_t *data, uint32_t len) {
+    if (!transport || !transport->private_data || !data || len == 0) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)transport->private_data;
+
+    if (!tcp_transport->rtp_pcb) {
+        LLOGE("TCP传输层未初始化");
+        return RTSP_ERR_CONNECT_FAILED;
+    }
+
+    // 优先发送队列中的数据
+    if (tcp_transport->send_queue_head) {
+        rtsp_tcp_send_queue_flush(tcp_transport);
+    }
+
+    // RFC 2326: RTP over TCP格式
+    // 前缀: '$' (1字节) + 通道ID (1字节) + 数据长度 (2字节，大端)
+    // 数据: RTP包
+
+    uint16_t total_len = 4 + len;  // 前缀4字节 + RTP数据
+
+    // 检查缓冲区大小
+    if (total_len > tcp_transport->send_buf_size) {
+        LLOGE("TCP发送缓冲区溢出");
+        return RTSP_ERR_BUFFER_OVERFLOW;
+    }
+
+    // 构建RTP over TCP前缀
+    tcp_transport->send_buf[0] = '$';  // 起始符
+    tcp_transport->send_buf[1] = 0;    // 通道ID (RTP通道)
+    tcp_transport->send_buf[2] = (len >> 8) & 0xFF;  // 长度高字节
+    tcp_transport->send_buf[3] = len & 0xFF;         // 长度低字节
+
+    // 复制RTP数据
+    memcpy(tcp_transport->send_buf + 4, data, len);
+
+    // 检查TCP发送窗口
+    uint32_t sndbuf = tcp_sndbuf(tcp_transport->rtp_pcb);
+    uint32_t reserved = TCP_WND / 5;  // 预留20%窗口给RTSP控制信令
+
+    // 如果队列还有数据或窗口不足（考虑预留），则入队
+    if (tcp_transport->send_queue_head || sndbuf < (total_len + reserved)) {
+        if (tcp_transport->send_queue_head) {
+            RTSP_LOGV("队列未清空，新数据入队: %u字节", total_len);
+        } else {
+            RTSP_LOGV("TCP窗口不足(预留%u字节): 需要%u字节, 可用%u字节, 数据入队", reserved, total_len, sndbuf);
+        }
+        return rtsp_tcp_send_queue_enqueue(tcp_transport, tcp_transport->send_buf, total_len);
+    }
+
+    // 发送TCP数据
+    err_t err = tcp_write(tcp_transport->rtp_pcb, tcp_transport->send_buf, total_len, TCP_WRITE_FLAG_COPY);
+    if (err != ERR_OK) {
+        LLOGE("TCP发送失败: err=%d, 尝试入队", err);
+        // 发送失败时也尝试入队
+        return rtsp_tcp_send_queue_enqueue(tcp_transport, tcp_transport->send_buf, total_len);
+    }
+
+    tcp_output(tcp_transport->rtp_pcb);
+
+    return RTSP_OK;
+}
+
+/**
+ * TCP传输层初始化函数
+ */
+static int rtsp_tcp_transport_init(rtsp_transport_t *transport, rtsp_ctx_t *ctx) {
+    if (!transport || !ctx) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // 分配私有数据
+    rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)luat_heap_malloc(sizeof(rtsp_tcp_transport_t));
+    if (!tcp_transport) {
+        LLOGE("TCP传输层内存分配失败");
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    memset(tcp_transport, 0, sizeof(rtsp_tcp_transport_t));
+
+    // 分配发送缓冲区
+    tcp_transport->send_buf_size = RTP_BUFFER_SIZE + 4;  // RTP缓冲区 + 4字节前缀
+    tcp_transport->send_buf = (uint8_t *)luat_heap_malloc(tcp_transport->send_buf_size);
+    if (!tcp_transport->send_buf) {
+        LLOGE("TCP发送缓冲区分配失败");
+        luat_heap_free(tcp_transport);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    // 使用RTSP控制连接（TCP interleaved模式）
+    tcp_transport->rtp_pcb = ctx->control_pcb;
+    ip_addr_copy(tcp_transport->remote_ip, ctx->remote_ip);
+    tcp_transport->remote_rtp_port = ctx->remote_rtp_port;
+
+    // 创建并启动发送队列定时器（每10ms触发一次）
+    if (luat_rtos_timer_create(&tcp_transport->send_timer) != 0) {
+        LLOGE("TCP发送定时器创建失败");
+        luat_heap_free(tcp_transport->send_buf);
+        luat_heap_free(tcp_transport);
+        return RTSP_ERR_NO_MEMORY;
+    }
+
+    if (luat_rtos_timer_start(tcp_transport->send_timer, 10, 1, rtsp_tcp_send_timer_callback, NULL) != 0) {
+        LLOGE("TCP发送定时器启动失败");
+        luat_rtos_timer_delete(tcp_transport->send_timer);
+        luat_heap_free(tcp_transport->send_buf);
+        luat_heap_free(tcp_transport);
+        return RTSP_ERR_FAILED;
+    }
+
+    LLOGD("TCP发送定时器已启动");
+
+    // 设置传输层接口
+    transport->send = rtsp_tcp_transport_send;
+    transport->send_rtcp = rtsp_tcp_transport_send_rtcp;
+    transport->init = rtsp_tcp_transport_init;
+    transport->cleanup = rtsp_tcp_transport_cleanup;
+    transport->ctx = ctx;
+    transport->private_data = tcp_transport;
+
+    LLOGD("TCP传输层初始化成功");
+    return RTSP_OK;
+}
+
+/**
+ * TCP传输层清理函数
+ */
+static void rtsp_tcp_transport_cleanup(rtsp_transport_t *transport) {
+    if (!transport || !transport->private_data) {
+        return;
+    }
+
+    rtsp_tcp_transport_t *tcp_transport = (rtsp_tcp_transport_t *)transport->private_data;
+
+    // 停止并删除发送定时器
+    if (tcp_transport->send_timer) {
+        luat_rtos_timer_stop(tcp_transport->send_timer);
+        luat_rtos_timer_delete(tcp_transport->send_timer);
+        tcp_transport->send_timer = NULL;
+        LLOGD("TCP发送定时器已删除");
+    }
+
+    // 清空发送队列
+    rtsp_tcp_send_queue_clear(tcp_transport);
+
+    // 释放发送缓冲区
+    if (tcp_transport->send_buf) {
+        luat_heap_free(tcp_transport->send_buf);
+        tcp_transport->send_buf = NULL;
+    }
+
+    // 注意：不释放TCP PCB，因为使用的是RTSP控制连接，由RTSP上下文管理
+    luat_heap_free(tcp_transport);
+    transport->private_data = NULL;
+
+    LLOGD("TCP传输层已清理");
+}
+
+/**
+ * TCP传输层发送RTCP函数（TCP模式不支持RTCP）
+ */
+static int rtsp_tcp_transport_send_rtcp(rtsp_transport_t *transport, const uint8_t *data, uint32_t len) {
+    // TCP 模式下，RTCP 和 RTP 都通过同一个 TCP 连接发送
+    // 使用相同的发送函数
+    return rtsp_tcp_transport_send(transport, data, len);
+}
+
+/**
+ * 设置传输模式
+ */
+int rtsp_set_transport_mode(rtsp_ctx_t *ctx, rtsp_transport_mode_t mode) {
+    if (!ctx) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    if (ctx->state != RTSP_STATE_IDLE) {
+        LLOGE("只能在空闲状态下设置传输模式");
+        return RTSP_ERR_FAILED;
+    }
+
+    ctx->transport_mode = mode;
+    LLOGD("传输模式已设置为: %d", mode);
+
+    return RTSP_OK;
+}
+
+/**
+ * 获取网络统计信息
+ */
+int rtsp_get_network_stats(rtsp_ctx_t *ctx, rtsp_network_stats_t *stats) {
+    if (!ctx || !stats) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    memcpy(stats, &ctx->network_stats, sizeof(rtsp_network_stats_t));
+
+    return RTSP_OK;
+}
+
+/**
+ * 设置网络统计回调
+ */
+int rtsp_set_network_stats_callback(rtsp_ctx_t *ctx, rtsp_network_stats_callback_t callback) {
+    if (!ctx) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    ctx->network_stats_callback = callback;
+
+    return RTSP_OK;
+}
+
+/* ======================== RTCP处理实现 ======================== */
+
+/**
+ * RTCP UDP接收回调函数
+ */
+static void rtcp_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+                                   const ip_addr_t *addr, uint16_t port) {
+    rtsp_ctx_t *ctx = (rtsp_ctx_t *)arg;
+
+    if (!ctx || !p) {
+        if (p) pbuf_free(p);
+        return;
+    }
+
+    // 复制数据到接收缓冲区
+    if (p->tot_len > RTSP_BUFFER_SIZE) {
+        LLOGW("RTCP包过大: %u字节", p->tot_len);
+        pbuf_free(p);
+        return;
+    }
+
+    uint8_t *rtcp_data = (uint8_t *)luat_heap_malloc(p->tot_len);
+    if (!rtcp_data) {
+        LLOGE("RTCP数据内存分配失败");
+        pbuf_free(p);
+        return;
+    }
+
+    pbuf_copy_partial(p, rtcp_data, p->tot_len, 0);
+
+    LLOGD("收到RTCP包: %u字节, 来自 %s:%u", p->tot_len, ipaddr_ntoa(addr), port);
+
+    // 处理RTCP包
+    rtsp_handle_rtcp_packet(ctx, rtcp_data, p->tot_len);
+
+    luat_heap_free(rtcp_data);
+    pbuf_free(p);
+}
+
+/**
+ * 处理RTCP包
+ */
+static int rtsp_handle_rtcp_packet(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len) {
+    if (!ctx || !data || len < 4) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    uint32_t offset = 0;
+
+    // RTCP可能包含多个包，循环处理
+    while (offset + 4 <= len) {
+        // 解析RTCP头部
+        // Byte 0: V(2) + P(1) + RC(5)
+        // Byte 1: PT (Packet Type)
+        // Bytes 2-3: Length (in words, excluding header)
+
+        uint8_t v = (data[offset] >> 6) & 0x03;
+        uint8_t p = (data[offset] >> 5) & 0x01;
+        uint8_t rc = data[offset] & 0x1F;
+        uint8_t pt = data[offset + 1];
+        uint16_t length = ((data[offset + 2] << 8) | data[offset + 3]) + 1;  // +1 for header
+        uint32_t packet_len = length * 4;
+
+        // 验证RTSP版本
+        if (v != 2) {
+            LLOGE("不支持的RTCP版本: %u", v);
+            return RTSP_ERR_FAILED;
+        }
+
+        // 检查包长度
+        if (offset + packet_len > len) {
+            LLOGE("RTCP包长度错误");
+            return RTSP_ERR_FAILED;
+        }
+
+        LLOGD("RTCP包: PT=%u, RC=%u, 长度=%u字节", pt, rc, packet_len);
+
+        // 根据包类型处理
+        switch (pt) {
+            case RTCP_SR:
+                // Sender Report (我们发送的，忽略)
+                LLOGD("收到RTCP SR (忽略)");
+                break;
+
+            case RTCP_RR:
+                // Receiver Report (处理丢包率、延迟等)
+                rtsp_handle_rtcp_rr(ctx, data + offset, packet_len);
+                break;
+
+            case RTCP_RTPFB:
+                // RTP Feedback (NACK)
+                rtsp_handle_rtcp_nack(ctx, data + offset, packet_len);
+                break;
+
+            case RTCP_SDES:
+                // Source Description (忽略)
+                LLOGD("收到RTCP SDES (忽略)");
+                break;
+
+            case RTCP_BYE:
+                // Goodbye (忽略)
+                LLOGD("收到RTCP BYE (忽略)");
+                break;
+
+            default:
+                LLOGW("未知的RTCP包类型: %u", pt);
+                break;
+        }
+
+        offset += packet_len;
+    }
+
+    return RTSP_OK;
+}
+
+/**
+ * 处理RTCP NACK消息
+ */
+static int rtsp_handle_rtcp_nack(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len) {
+    if (!ctx || !data || len < 16) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // RTCP NACK格式 (RFC 4585):
+    // Bytes 0-3: Header (V=2, P=0, FMT=1, PT=205)
+    // Bytes 4-7: SSRC of packet sender
+    // Bytes 8-11: SSRC of media source
+    // Bytes 12-15: NACK PID (Packet ID)
+    // Bytes 16-19: NACK BLP (Bitmask of Following Lost Packets)
+
+    // 提取丢失的包序列号
+    uint16_t pid = ((data[12] << 8) | data[13]);
+    uint16_t blp = ((data[14] << 8) | data[15]);
+
+    LLOGD("RTCP NACK: PID=%u, BLP=0x%04X", pid, blp);
+
+    // 更新NACK统计
+    ctx->network_stats.rtp_nack_received++;
+
+    // 重传PID指定的包
+    // rtsp_retransmit_buffer_retransmit(ctx, pid);
+
+    // 重传BLP中指定的包（最多16个）
+    for (int i = 0; i < 16; i++) {
+        if (blp & (1 << i)) {
+            uint16_t seq = pid + i + 1;
+            LLOGD("重传NACK包: seq=%u", seq);
+            // rtsp_retransmit_buffer_retransmit(ctx, seq);
+        }
+    }
+
+    return RTSP_OK;
+}
+
+/**
+ * 处理RTCP RR消息
+ */
+static int rtsp_handle_rtcp_rr(rtsp_ctx_t *ctx, const uint8_t *data, uint32_t len) {
+    if (!ctx || !data || len < 8) {
+        return RTSP_ERR_INVALID_PARAM;
+    }
+
+    // RTCP RR格式 (RFC 3550):
+    // Bytes 0-3: Header (V=2, P=0, RC=report count, PT=201)
+    // Bytes 4-7: SSRC of packet sender
+    // 每个report block (24 bytes):
+    //   Bytes 0-3: SSRC of source
+    //   Bytes 4-7: Fraction lost (8 bits) + Cumulative packets lost (24 bits)
+    //   Bytes 8-11: Extended highest sequence number received
+    //   Bytes 12-15: Interarrival jitter
+    //   Bytes 16-19: Last SR timestamp (LSR)
+    //   Bytes 20-23: Delay since last SR (DLSR)
+
+    uint8_t rc = data[0] & 0x1F;  // Report count
+
+    LLOGD("RTCP RR: Report count=%u", rc);
+
+    if (len < 8 + rc * 24) {
+        LLOGE("RTCP RR包长度错误");
+        return RTSP_ERR_FAILED;
+    }
+
+    // 处理每个report block
+    for (uint8_t i = 0; i < rc; i++) {
+        uint32_t offset = 8 + i * 24;
+
+        // 提取丢包率
+        uint8_t fraction_lost = data[offset + 4];
+        int32_t cumulative_lost = ((data[offset + 5] << 16) | (data[offset + 6] << 8) | data[offset + 7]);
+        if (data[offset + 5] & 0x80) {
+            cumulative_lost |= 0xFF000000;  // 符号扩展
+        }
+
+        // 提取抖动
+        uint32_t jitter = ((data[offset + 12] << 24) | (data[offset + 13] << 16) |
+                          (data[offset + 14] << 8) | data[offset + 15]);
+
+        // 提取LSR和DLSR
+        uint32_t lsr = ((data[offset + 16] << 24) | (data[offset + 17] << 16) |
+                       (data[offset + 18] << 8) | data[offset + 19]);
+        uint32_t dlsr = ((data[offset + 20] << 24) | (data[offset + 21] << 16) |
+                        (data[offset + 22] << 8) | data[offset + 23]);
+
+        // 计算往返延迟 (RTT)
+        // LSR: NTP 时间戳中间 32 位（秒数，从1900年开始）
+        // DLSR: 延迟（单位：1/65536 秒）
+        // RTT = 当前时间 - LSR - DLSR
+        uint32_t rtt_ms = 0;
+        if (lsr > 0 && dlsr > 0) {
+            // 获取当前 NTP 时间（秒）
+            uint64_t now_ms = luat_sntp_time64_ms();
+            uint64_t now_ntp_sec = (now_ms / 1000) + 2208988800ULL;  // 转换为 NTP 时间（从1900年开始）
+            
+            // 计算 RTT（单位：1/65536 秒）
+            uint64_t rtt_units = (now_ntp_sec - lsr) * 65536 - dlsr;
+            
+            // 转换为毫秒（1/65536 秒 = 15.2587890625 微秒）
+            rtt_ms = (uint32_t)(rtt_units / 65.536);
+        }
+
+        LLOGD("RTCP RR Block %u: 丢包率=%u/256, 累计丢失=%d, 抖动=%u, RTT=%ums",
+              i, fraction_lost, cumulative_lost, jitter, rtt_ms);
+
+        // 更新网络统计
+        ctx->network_stats.packet_loss_rate = fraction_lost / 256.0f;
+        ctx->network_stats.rtt_ms = rtt_ms;
+        ctx->network_stats.jitter_ms = jitter / 90;  // 转换为毫秒 (90kHz时钟)
+        ctx->network_stats.rtp_packets_lost = cumulative_lost;
+    }
+
+    return RTSP_OK;
+}
+

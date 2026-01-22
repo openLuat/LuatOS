@@ -64,6 +64,10 @@ extern int easylvgl_image_create(lua_State *L);
 extern void easylvgl_register_container_meta(lua_State *L);
 extern int easylvgl_container_create(lua_State *L);
 
+// Bar 模块声明
+extern void easylvgl_register_bar_meta(lua_State *L);
+extern int easylvgl_bar_create(lua_State *L);
+
 // Table 模块声明
 extern void easylvgl_register_table_meta(lua_State *L);
 extern int easylvgl_table_create(lua_State *L);
@@ -124,6 +128,7 @@ static const rotable_Reg_t reg_easylvgl[] = {
     {"label", ROREG_FUNC(easylvgl_label_create)},
     {"image", ROREG_FUNC(easylvgl_image_create)},
     {"container", ROREG_FUNC(easylvgl_container_create)},
+    {"bar", ROREG_FUNC(easylvgl_bar_create)},
     {"table", ROREG_FUNC(easylvgl_table_create)},
     {"tabview", ROREG_FUNC(easylvgl_tabview_create)},
     {"win", ROREG_FUNC(easylvgl_win_create)},
@@ -164,6 +169,7 @@ LUAMOD_API int luaopen_easylvgl(lua_State *L) {
     easylvgl_register_label_meta(L);
     easylvgl_register_image_meta(L);
     easylvgl_register_container_meta(L);
+    easylvgl_register_bar_meta(L);
     easylvgl_register_table_meta(L);
     easylvgl_register_tabview_meta(L);
     easylvgl_register_win_meta(L);

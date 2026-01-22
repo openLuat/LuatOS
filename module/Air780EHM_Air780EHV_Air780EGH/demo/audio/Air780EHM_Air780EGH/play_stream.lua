@@ -6,12 +6,16 @@
 @author  王世豪
 @usage
 
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、创建一个播放流式音频task（task_audio）
 2、创建一个模拟获取流式音频的task（audio_get_data）
 3、此task通过流式传输不断向exaudio.play_stream_write填入播放的音频
 4、播放task 不断播放传入流式音频
 5、使用powerkey 按键进行音量减小，点击boot 按键进行音量增加
+
 本文件没有对外接口，直接在main.lua中require "play_stream"就可以加载运行；
 ]]
 

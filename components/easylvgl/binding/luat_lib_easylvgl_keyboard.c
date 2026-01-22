@@ -31,6 +31,7 @@
  * @int config.h 高度，默认 160
  * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"
  * @boolean config.popovers 是否启用提示弹窗，默认 true
+ * @boolean config.auto_hide 是否在目标 textarea 聚焦时自动显示、失焦时自动隐藏，默认 false
  * @userdata config.target 关联的 Textarea 对象，可选
  * @return userdata Keyboard 对象，失败返回 nil
  */
@@ -153,6 +154,8 @@ static int l_keyboard_destroy(lua_State *L) {
         easylvgl_component_meta_t *meta = easylvgl_component_meta_get(ud->obj);
         if (meta != NULL) {
             if (meta->user_data != NULL) {
+                easylvgl_keyboard_data_t *data = (easylvgl_keyboard_data_t *)meta->user_data;
+                easylvgl_keyboard_detach_auto_hide_target(ud->obj, data);
                 luat_heap_free(meta->user_data);
                 meta->user_data = NULL;
             }

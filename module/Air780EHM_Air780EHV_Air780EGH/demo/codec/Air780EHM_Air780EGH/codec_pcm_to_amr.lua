@@ -5,6 +5,10 @@
 @date    2025.11.18
 @author  陈媛媛
 @usage
+
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为PCM编码为AMR_WB功能模块，核心业务逻辑为：
 1、使用exaudio播放原始PCM文件
 2、 对PCM文件进行AMR_WB编码并保存

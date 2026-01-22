@@ -27,7 +27,8 @@
     // #define LV_USE_LOG 1
     // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    #define LV_MEM_SIZE (256 * 1024U)   
+    // 设置lvgl缓存大小，pc端可以大一些，给4M
+    #define LV_MEM_SIZE (4096 * 1024U)   
 
     // 打开图片解码器
     #define LV_USE_LODEPNG 1

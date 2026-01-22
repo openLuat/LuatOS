@@ -279,9 +279,8 @@ function exaudio.setup(audioConfigs)
         return false
     end
     -- 检查codec型号
-    if not audioConfigs.model or 
-       (audioConfigs.model ~= "es8311" and audioConfigs.model ~= "es8211") then
-        log.error("请指定正确的codec型号(es8311或es8211)")
+    if not audioConfigs.model or (audioConfigs.model ~= "es8311") then
+        log.error("请指定正确的codec型号(es8311)")
         return false
     end
     audio_setup_param.model = audioConfigs.model

@@ -36,6 +36,29 @@ local ble_device = nil
 local adv_create = nil
 local gatt_create = nil
 
+-- WiFi和蓝牙状态 (1=开启, 0=关闭)
+local wifi_state = 1
+
+local function wifi_state_change(state)
+    wifi_state = state
+    log.info("ble_server_main", "收到WiFi状态变化:", state)
+    
+    if state == 0 then
+        -- 释放已创建的BLE资源
+        bluetooth_device = nil
+        ble_device = nil
+        adv_create = nil
+        gatt_create = nil
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "WIFI_STATE_CLOSE")
+    else
+        -- WiFi状态打开时发布消息
+        sys.publish("WIFI_STATE_OPEN")
+    end
+end
+
+-- 订阅WiFi和蓝牙状态变化消息
+sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
+
 -- GATT数据库定义
 local att_db = { 
     string.fromHex(config.service_uuid), -- Service UUID
@@ -57,7 +80,6 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 连接中心设备成功
     if ble_event == ble.EVENT_CONN then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "CONNECT", ble_param)
-
     -- 连接断开
     elseif ble_event == ble.EVENT_DISCONN then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "DISCONNECTED", ble_param.reason)
@@ -65,6 +87,10 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 收到中心设备的写请求
     elseif ble_event == ble.EVENT_WRITE then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "WRITE_REQ", ble_param)
+    elseif ble_event == ble.EVENT_ADV_START then
+        log.info("ble_server_main", "广播已成功启动")
+    elseif ble_event == ble.EVENT_ADV_STOP then
+        log.info("ble_server_main", "广播已停止")
     end
 end
 
@@ -119,6 +145,14 @@ local function ble_server_main_task_func()
     local result,msg
 
     while true do
+        -- 检查WiFi状态
+        if wifi_state == 0 then
+            -- 等待WiFi激活消息
+            log.info("ble_server_main", "WiFi关闭,等待WiFi开启...")
+            sys.waitUntil("WIFI_STATE_OPEN")
+            goto CONTINUE_LOOP
+        end
+
         result = ble_init()
         if not result then
             log.error("ble_main_task_func", "ble_init error")
@@ -143,16 +177,24 @@ local function ble_server_main_task_func()
             -- 收到中心设备的写请求,将写的数据发给ble_server_receiver模块处理
             elseif msg[2] == "WRITE_REQ" then
                 local ble_param = msg[3]
-                log.info("BLE", "收到写请求: " .. ble_param.uuid_service:toHex() .. " " .. ble_param.uuid_characteristic:toHex() .. " " .. ble_param.data:toHex())
-                ble_server_receiver.proc(ble_param.uuid_service:toHex(), ble_param.uuid_characteristic:toHex(), ble_param.data)
+                if ble_device then
+                    log.info("BLE", "收到写请求: " .. ble_param.uuid_service:toHex() .. " " .. ble_param.uuid_characteristic:toHex() .. " " .. ble_param.data:toHex())
+                    ble_server_receiver.proc(ble_param.uuid_service:toHex(), ble_param.uuid_characteristic:toHex(), ble_param.data)
+                end
+            elseif msg[2] == "WIFI_STATE_CLOSE" then
+                -- 收到WiFi状态关闭消息，跳出主循环，等待WiFi开启
+                break
             end
         end
 
+        -- 出现异常
         ::EXCEPTION_PROC::
         log.error("ble_server_main_task_func", "异常退出, 5秒后重新开启广播")
         
         -- 停止广播
-        ble_device:adv_stop()
+        if ble_device then
+            ble_device:adv_stop()
+        end
 
         -- 清空此task绑定的消息队列中的未处理的消息
         sys.cleanMsg(TASK_NAME)
@@ -160,7 +202,9 @@ local function ble_server_main_task_func()
         -- 通知ble sender数据发送应用模块的task，ble连接已经断开
         sys.sendMsg(ble_server_sender.TASK_NAME, "BLE_EVENT", "DISCONNECTED")
 
+        ::CONTINUE_LOOP::
         -- 5秒后跳转到循环体开始位置，自动发起重连
+        log.info("ble_server_main", "等待5秒后重新尝试...")
         sys.wait(5000)
     end
 end

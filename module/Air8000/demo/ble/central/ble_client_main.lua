@@ -44,9 +44,32 @@ config = {
 
 local bluetooth_device = nil
 local ble_device = nil
-local scan_create = false
+local scan_create = nil
 local scan_count = 0
 local last_operation = nil
+
+-- WiFi和蓝牙状态 (1=开启, 0=关闭)
+local wifi_state = 1
+
+local function wifi_state_change(state)
+    wifi_state = state
+    log.info("ble_client_main", "收到WiFi状态变化:", state)
+    
+    if state == 0 then
+        -- 释放已创建的BLE资源
+        bluetooth_device = nil
+        ble_device = nil
+        scan_create = nil
+        scan_count = 0
+        sys.sendMsg(TASK_NAME, "BLE_EVENT", "WIFI_STATE_CLOSE")
+    else
+        -- WiFi状态打开时发布消息
+        sys.publish("WIFI_STATE_OPEN")
+    end
+end
+
+-- 订阅WiFi和蓝牙状态变化消息
+sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
 
 -- 设备过滤函数
 local function is_target_device(scan_param)
@@ -82,7 +105,9 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
             uuid_service = string.fromHex(config.target_service_uuid),
             uuid_characteristic = string.fromHex(config.target_notify_char)
         }
-        ble_device:notify_enable(notify_params, true)
+        if ble_device then
+            ble_device:notify_enable(notify_params, true)
+        end
     -- 读取特征值完成
     elseif ble_event == ble.EVENT_READ_VALUE then
         -- 通知receiver处理数据
@@ -128,6 +153,13 @@ local function ble_client_main_task_func()
     local result,msg
 
     while true do
+        -- 检查WiFi状态
+        if wifi_state == 0 then
+            log.info("ble_client_main", "WiFi关闭，等待WiFi开启...")
+            sys.waitUntil("WIFI_STATE_OPEN")
+            goto CONTINUE_LOOP
+        end
+
         result = ble_init()
         if not result then
             log.error("ble_client_main_task_func", "ble_init error")
@@ -193,8 +225,9 @@ local function ble_client_main_task_func()
             elseif msg[2] == "RESTART_SCAN" then
                 -- 5s后重新开始扫描
                 sys.wait(5000)
-                log.info("ble", "重新开始扫描")
-                ble_device:scan_start()
+                if ble_device then
+                    ble_device:scan_start()
+                end
                 last_operation = "scan"
             elseif msg[2] == "READ_REQ" then
                 -- 从消息中获取传入的UUID参数，若没有则使用默认配置
@@ -205,7 +238,12 @@ local function ble_client_main_task_func()
                     uuid_service = string.fromHex(service_uuid),
                     uuid_characteristic = string.fromHex(char_uuid)
                 }
-                ble_device:read_value(read_params)
+                if ble_device then
+                    ble_device:read_value(read_params)
+                end
+            elseif msg[2] == "WIFI_STATE_CLOSE" then
+                -- 收到WiFi状态关闭消息，跳出主循环，等待WiFi开启
+                break
             end
         end
 
@@ -219,7 +257,12 @@ local function ble_client_main_task_func()
         -- 通知ble sender数据发送应用模块的task，ble连接已经断开
         sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "DISCONNECTED")
 
+        -- 重置扫描计数
+        scan_count = 0
+
+        ::CONTINUE_LOOP::
         -- 5秒后跳转到循环体开始位置，自动发起重连
+        log.info("ble_server_main", "等待5秒后重新尝试...")
         sys.wait(5000)
     end
 end

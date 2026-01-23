@@ -465,12 +465,13 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	if (parser->flags & F_CHUNKED) {
 		// chunked下，只有收到0 chunk才算完整
 		if (http_ctrl->http_body_is_finally) {
-        body_complete = 1;
-    }
+			body_complete = 1;
+		}
 	} else {
 		if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
-        body_complete = 1;
-    }
+			body_complete = 1;
+			http_ctrl->http_body_is_finally = 1;
+		}
 	}
     // 检测完整时，就可以把http回调关闭
     if (body_complete) {

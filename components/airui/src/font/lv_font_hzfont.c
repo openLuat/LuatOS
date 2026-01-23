@@ -6,7 +6,7 @@
 #define LUAT_LOG_TAG "airui.hzfont"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_HZFONT
+#if defined(LUAT_USE_AIRUI) && defined(LUAT_USE_HZFONT)
 
 #include "luat_hzfont.h"
 #include "ttf_parser.h"

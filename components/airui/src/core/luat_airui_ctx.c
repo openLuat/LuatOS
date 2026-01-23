@@ -47,8 +47,8 @@ static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
 extern const airui_platform_ops_t *airui_platform_ops_sdl2_get(void);
 #elif defined(LUAT_USE_AIRUI_LUATOS) 
 extern const airui_platform_ops_t *airui_platform_ops_luatos_get(void);
-#else
-#error "No platform driver selected. Please define LUAT_USE_AIRUI_SDL2 or LUAT_USE_AIRUI_LUATOS"
+// #else
+// #warning "No platform driver selected. Please define LUAT_USE_AIRUI_SDL2 or LUAT_USE_AIRUI_LUATOS"
 #endif
 
 /**

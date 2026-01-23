@@ -265,4 +265,35 @@ function http_response.test_chunked()
 
 end
 
+-- 测试下载mp3文件数据完整性以及文件是否正常存在
+function http_response.test_download_mp3()
+    local url = "http://airtest.openluat.com:2900/download/1.mp3"
+    local save_path = "/ram/1.mp3"
+    log.info("http_response", "开始【下载mp3文件数据完整性】测试")
+    local code, headers, body = http.request("GET", url, nil, nil, {dst = save_path, timeout=10000}).wait()
+    local body_len = type(body) == "string" and #body or (type(body) == "number" and body or 0)
+    log.info("http_response", "下载mp3文件结果", code, body_len)
+    assert(code == 200, "下载mp3文件测试失败: 预期 200, 实际 " .. tostring(code))
+    assert(body_len == 411922, "下载mp3文件测试失败: 预期长度 411922, 实际长度 " .. tostring(body_len))
+    assert(io.exists and io.exists(save_path), "下载mp3文件测试失败: 文件不存在")
+    -- 删除文件
+    os.remove(save_path)
+    log.info("http_response", "下载mp3文件数据完整性 测试通过")
+end
+
+-- 测试下载星历文件是否正常
+function http_response.test_download_sp3()
+    local url = "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat"
+    local save_path = "/ram/HXXT_GPS_BDS_AGNSS_DATA.dat"
+    log.info("http_response", "开始【下载星历文件数据完整性】测试")
+    local code, headers, body = http.request("GET", url, nil, nil, {dst = save_path, timeout=5000, debug=true}).wait()
+    local body_len = type(body) == "string" and #body or (type(body) == "number" and body or 0)
+    log.info("http_response", "下载星历文件结果", code, body_len)
+    assert(code == 200, "下载星历文件测试失败: 预期 200, 实际 " .. tostring(code))
+    assert(io.exists and io.exists(save_path), "下载星历文件测试失败: 文件不存在")
+    -- 删除文件
+    os.remove(save_path)
+    log.info("http_response", "下载星历文件数据完整性 测试通过")
+end
+
 return http_response

@@ -640,4 +640,12 @@ function exaudio.finish()
     return false
 end
 
+-- 模块接口：休眠控制
+function exaudio.pm(pm_mode)
+    if audio.pm then
+        return audio.pm(MULTIMEDIA_ID,pm_mode)
+    end
+    return false
+end
+
 return exaudio

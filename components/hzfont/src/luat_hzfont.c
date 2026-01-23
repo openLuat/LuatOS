@@ -7,6 +7,7 @@
 #include "luat_mcu.h"
 #include "luat_fs.h"
 #include "luat_rtos.h"
+#include "luat_wdt.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -259,7 +260,8 @@ static inline void hzfont_maybe_yield(uint64_t *last_yield_us, uint64_t threshol
     }
     uint64_t now = hzfont_now_us();
     if (now >= *last_yield_us && now - *last_yield_us >= threshold_us) {
-        if (ttf_get_debug()){ LLOGI("hzfont 长时间渲染，休息10ms，让出一次 CPU");}
+        if (ttf_get_debug()){ LLOGI("hzfont 长时间渲染，休息10ms，让出一次 CPU 同时喂狗一次");}
+        luat_wdt_feed();
         luat_rtos_task_sleep(10);
         *last_yield_us = hzfont_now_us();
     }

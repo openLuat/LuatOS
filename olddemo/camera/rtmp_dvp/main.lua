@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "dvp_cam_rtmp"
-VERSION = "1.0.5"
+VERSION = "1.0.6"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -45,8 +45,9 @@ function rtmp_try_reconnect()
         --     return
         -- end
         rtmp_reconnecting = true
-        rtmpc:disconnect()  -- 确认断开当前连接
         while rtmp_reconnecting do
+            rtmpc:disconnect()  -- 确认断开当前连接
+            sys.wait(120 * 1000) -- 每次推流时效需要重连间隔两分钟再进行重连
             rtmp_retries = rtmp_retries + 1
             local isNetReady, adapterIndex = socket.adapter()
             log.info("rtmp", "reconnect attempt", rtmp_retries, "adapter_index: ", adapterIndex)
@@ -70,7 +71,6 @@ function rtmp_try_reconnect()
                 log.info("rtmp", "waiting for IP_READY")
                 sys.waitUntil("IP_READY", 60 * 1000)
             end
-            sys.wait(60 * 1000) -- 每次重连间隔60秒
         end
     end
 end
@@ -100,7 +100,7 @@ sys.taskInit(function()
 
     local rtos_bsp = rtos.bsp()
     local GetDeviceid = ""
-    if rtos_bsp == "Air8101" or rtos_bsp == "Air8201" then
+    if rtos_bsp == "Air8101" or rtos_bsp == "Air8101P" then
         GetDeviceid = netdrv.mac(socket.LWIP_STA)   -- 使用STA_MAC作为设备ID
     else
         GetDeviceid = mobile.imei()                 -- 使用IMEI作为设备ID
@@ -158,6 +158,9 @@ sys.taskInit(function()
         elseif state == rtmp.STATE_PUBLISHING then
             log.info("rtmp状态变化", "已开始推流")
             rtmp_retries = 0
+        elseif state == rtmp.STATE_IDLE then
+            log.info("rtmp状态变化", "空闲状态，可能和推流时效有关，需要等待一段时间，再尝试重连")
+            sys.publish("RECONNECT_RTMP", ...)
         elseif state == rtmp.STATE_ERROR then
             log.info("rtmp状态变化", "出错:", ...)
             -- 发生错误时尝试重连（若网络可用则立即尝试）

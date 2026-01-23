@@ -38,7 +38,7 @@
 
 这样设置量程和外部供电是为了更直观的观察两种量程下不同供电电压对精准度的影响，可以看到如下测量的数据是符合预期的
 
-对于Air780EPM：ADC_RANGE_MIN对应量程为0-1.5V，ADC_RANGE_MAX对应量程为0-3.6V。
+对于Air780EPM：ADC_RANGE_MIN对应量程为0-1.5V，ADC_RANGE_MAX对应量程为0-3.3V。
 
 在外部供电1.2V的情况下，ADC_RANGE_MIN量程下获取到的数据更精准；在外部供电3.3V的情况下，ADC_RANGE_MIN量程下会限制在1.5v左右，ADC_RANGE_MAX可以正常测量。
 

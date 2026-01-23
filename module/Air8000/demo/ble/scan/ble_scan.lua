@@ -21,6 +21,27 @@ ble_device:scan_stop()
 
 -- 扫描状态
 local scan_state = false
+-- WiFi和蓝牙状态 (1=开启, 0=关闭)
+local wifi_state = 1
+
+local function wifi_state_change(state)
+    wifi_state = state
+    log.info("ble_scan", "收到WiFi状态变化:", state)
+    
+    -- 如果是关闭状态，将扫描状态设置为false，并释放已创建的BLE资源
+    if state == 0 and scan_state then
+        scan_state = false
+        -- 释放已创建的BLE资源
+        ble_device = nil
+        bluetooth_device = nil
+    else
+        -- WiFi状态打开时发布消息
+        sys.publish("WIFI_STATE_OPEN")
+    end
+end
+
+-- 订阅WiFi和蓝牙状态变化消息
+sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
 
 -- 处理扫描报告事件
 local function handle_scan_report(ble_device, ble_param)
@@ -107,6 +128,12 @@ end
 
 function ble_scan_task_func()
     while true do
+        -- 检查WiFi状态
+        if wifi_state == 0 then
+            log.info("ble_scan", "WiFi关闭，等待WiFi开启...")
+            sys.waitUntil("WIFI_STATE_OPEN")
+            goto CONTINUE_LOOP
+        end
         -- 初始化蓝牙核心
         bluetooth_device = bluetooth_device or bluetooth.init()
         if not bluetooth_device then
@@ -145,10 +172,11 @@ function ble_scan_task_func()
         -- 停止扫描
         if ble_device then
             ble_device:scan_stop()
-            ble_device = nil
         end
 
+        ::CONTINUE_LOOP::
         -- 5秒后跳转到循环体开始位置，重新扫描
+        log.info("ble_scan", "等待5秒后重新尝试...")
         sys.wait(5000)
     end
 end

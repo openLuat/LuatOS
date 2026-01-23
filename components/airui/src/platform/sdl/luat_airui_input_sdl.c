@@ -343,7 +343,7 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     }
 
     // 日志打印最终输入法矩形，并通知 SDL
-    LLOGD("airui_platform_sdl2_set_text_input_rect: rect=%d,%d,%d,%d", rect.x, rect.y, rect.w, rect.h);
+    // LLOGD("airui_platform_sdl2_set_text_input_rect: rect=%d,%d,%d,%d", rect.x, rect.y, rect.w, rect.h);
     SDL_SetTextInputRect(&rect);
 }
 

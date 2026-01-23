@@ -108,7 +108,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
             break;
         case LV_EVENT_VALUE_CHANGED:
 #if defined(LUAT_USE_AIRUI_SDL2)
-            LLOGD("LV_EVENT_VALUE_CHANGED: system_keyboard_preedit_len=%d", meta->ctx->system_keyboard_preedit_len);
+            // LLOGD("LV_EVENT_VALUE_CHANGED: system_keyboard_preedit_len=%d", meta->ctx->system_keyboard_preedit_len);
             if (!meta->ctx->system_keyboard_preedit_active) {
                 airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
             }

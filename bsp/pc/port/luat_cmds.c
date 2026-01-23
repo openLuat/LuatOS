@@ -27,6 +27,7 @@ int cfg_dump_luadb;
 int cfg_dump_report;
 int cfg_norun;
 
+static void *check_file_path_depth(const char *path, int depth);
 void *check_file_path(const char *path);
 
 static int luat_cmd_load_luadb(const char *path);
@@ -427,6 +428,11 @@ static int add_onefile(const char *path)
 
 void *check_file_path(const char *path)
 {
+	return check_file_path_depth(path, 1);
+}
+
+static void *check_file_path_depth(const char *path, int depth)
+{
 	if (strlen(path) < 4 || strlen(path) >= 512)
 	{
 		LLOGD("文件长度不对劲 %d %s", strlen(path), path);
@@ -454,10 +460,35 @@ void *check_file_path(const char *path)
 			while ((ep = readdir(dp)) != NULL)
 			{
 				// LLOGD("文件/目录 %s %d", ep->d_name, ep->d_type);
+				if (!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."))
+				{
+					continue;
+				}
+
+				if (ep->d_type == DT_DIR)
+				{
+					if (depth >= 4) // 限制目录深度为三层
+					{
+						continue;
+					}
+					char child_path[512] = {0};
+					#ifdef LUA_USE_WINDOWS
+					sprintf(child_path, "%s\\%s\\", path, ep->d_name);
+					#else
+					sprintf(child_path, "%s/%s/", path, ep->d_name);
+					#endif
+					if (check_file_path_depth(child_path, depth + 1) == NULL)
+					{
+						return NULL;
+					}
+					continue;
+				}
+
 				if (ep->d_type != DT_REG)
 				{
 					continue;
 				}
+
 				#ifdef LUA_USE_WINDOWS
 				sprintf(buff, "%s\\%s", path, ep->d_name);
 				#else

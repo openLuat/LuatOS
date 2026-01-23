@@ -26,6 +26,7 @@
 
 -- 引入音频设备模块
 local audio_drv = require "audio_drv"
+local exaudio = require "exaudio"
 
 -- ====================== 配置区域 ======================
 -- 设置当前激活的场景（1-4），注释掉不需要的场景
@@ -204,21 +205,21 @@ sys.subscribe("CC_IND", function(status)
     -- 所有场景都需要处理的通用状态
     if status == "READY" then
         sys.publish("CC_READY")  -- 发布系统就绪事件
-        
+        exaudio.pm(audio.RESUME)
         -- 场景4：电话系统就绪后自动拨号
         if ACTIVE_SCENARIO == 4 then
             sys.timerStart(dial_for_scenario4, 1000)  -- 延迟1秒拨号
         end
     elseif status == "HANGUP_CALL_DONE" or status == "MAKE_CALL_FAILED" or status == "DISCONNECTED" then
         
-        audio.pm(0,audio.STANDBY)
-        -- audio.pm(0,audio.SHUTDOWN)   --低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
+        exaudio.pm(audio.STANDBY)
+        -- exaudio.pm(audio.SHUTDOWN)   --低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
     end
 end)
 
 -- ====================== 电话系统初始化 ======================
 local function init_cc()
-    -- 初始化音频设备（使用exaudio）
+    -- 初始化音频设备
     audio_drv.initAudioDevice()
     
     -- 等待电话系统就绪

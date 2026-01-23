@@ -153,11 +153,32 @@ static int l_httpsrv_stop(lua_State *L) {
     return 1;
 }
 
+/*
+设置httpsrv的调试开关
+@api httpsrv.debug(on)
+@bool 是否打开调试信息输出
+@return bool 当前调试状态，true为打开，false为关闭
+@usage
+-- 打开调试信息
+httpsrv.debug(true)
+-- 关闭调试信息
+httpsrv.debug(false)
+*/
+extern int g_httpsrv_debug;
+static int l_httpsrv_debug(lua_State *L) {
+    if (lua_isboolean(L, 1)) {
+        g_httpsrv_debug = lua_toboolean(L, 1) ? 1 : 0;
+    }
+    lua_pushboolean(L, g_httpsrv_debug ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_httpsrv[] =
 {
     {"start",        ROREG_FUNC(l_httpsrv_start) },
     {"stop",         ROREG_FUNC(l_httpsrv_stop) },
+    {"debug",        ROREG_FUNC(l_httpsrv_debug)},
 	{ NULL,          ROREG_INT(0) }
 };
 

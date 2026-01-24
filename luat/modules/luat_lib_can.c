@@ -113,7 +113,9 @@ can.init()
 */
 static int l_can_init(lua_State *L)
 {
-	int ret = luat_can_base_init(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0));
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	size_t rx_msg_cache_max = luaL_optinteger(L, 2, 0);
+	int ret = luat_can_base_init(id, rx_msg_cache_max);
 	if (ret)
 	{
 		LLOGE("init failed %d",  ret);
@@ -139,7 +141,7 @@ can.on(1, function(id, type, param)
 end)
 */
 static int l_can_on(lua_State *L) {
-    int id = luaL_optinteger(L, 1, 0);
+    uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
     if (id >= MAX_DEVICE_COUNT)
     {
     	id = 0;
@@ -184,9 +186,13 @@ can.timing(0, 1000000, 6, 6, 4, 2)
 */
 static int l_can_timing(lua_State *L)
 {
-	int ret = luat_can_set_timing(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 1000000),
-			luaL_optinteger(L, 3, 6), luaL_optinteger(L, 4, 6), luaL_optinteger(L, 5, 4),
-			luaL_optinteger(L, 6, 2));
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	int bitrate = luaL_optinteger(L, 2, 1000000);
+	int PTS = luaL_optinteger(L, 3, 6);
+	int PBS1 = luaL_optinteger(L, 4, 6);
+	int PBS2 = luaL_optinteger(L, 5, 4);
+	int SJW = luaL_optinteger(L, 6, 2);
+	int ret = luat_can_set_timing(id, bitrate, PTS, PBS1, PBS2, SJW);
 	if (ret)
 	{
 		LLOGE("set timing failed %d",  ret);
@@ -210,7 +216,9 @@ can.mode(0, CAN.MODE_NORMAL)
 */
 static int l_can_mode(lua_State *L)
 {
-	int ret = luat_can_set_work_mode(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, LUAT_CAN_WORK_MODE_NORMAL));
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	int mode = luaL_optinteger(L, 2, LUAT_CAN_WORK_MODE_NORMAL);
+	int ret = luat_can_set_work_mode(id, mode);
 	if (ret)
 	{
 		LLOGE("set mode failed %d",  ret);
@@ -236,8 +244,10 @@ can.node(0, 0x123, CAN.STD)
 */
 static int l_can_node(lua_State *L)
 {
-
-	int ret = luat_can_set_node(luaL_optinteger(L, 1, 0), luaL_optinteger(L, 2, 0x1fffffff), luaL_optinteger(L, 3, 1));
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	int node_id = luaL_optinteger(L, 2, 0x1fffffff);
+	int id_type = luaL_optinteger(L, 3, 1);
+	int ret = luat_can_set_node(id, node_id, id_type);
 	if (ret)
 	{
 		LLOGE("set node failed %d",  ret);
@@ -264,6 +274,7 @@ can.filter(0, false, 0x123 << 21, 0x0001fffff) --效果等同于can.node(0, 0x12
 */
 static int l_can_filter(lua_State *L)
 {
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
 	uint32_t mask = luaL_optinteger(L, 4, 0xffffffff);
 	uint32_t node_id = luaL_optinteger(L, 3, 0);
 	uint8_t ACR[4];
@@ -271,7 +282,7 @@ static int l_can_filter(lua_State *L)
 	uint8_t dual_mode = lua_toboolean(L,2);
     BytesPutBe32(ACR, node_id);
     BytesPutBe32(AMR, mask);
-    int ret = luat_can_set_filter(luaL_optinteger(L, 1, 0), dual_mode, ACR, AMR);
+    int ret = luat_can_set_filter(id, dual_mode, ACR, AMR);
 	if (ret)
 	{
 		LLOGE("set filter failed %d",  ret);
@@ -294,7 +305,8 @@ can.state(0)
 */
 static int l_can_state(lua_State *L)
 {
-	lua_pushinteger(L, luat_can_get_state(luaL_optinteger(L, 1, 0)));
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	lua_pushinteger(L, luat_can_get_state(id));
 	return 1;
 }
 
@@ -315,7 +327,8 @@ static int l_can_tx(lua_State *L)
 {
     size_t len;
     const char *buf;
-	uint32_t id = luaL_optinteger(L, 2, 0x1fffffff);
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	uint32_t msg_id = luaL_optinteger(L, 2, 0x1fffffff);
     if(lua_isuserdata(L, 6))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 6, LUAT_ZBUFF_TYPE));
@@ -328,7 +341,7 @@ static int l_can_tx(lua_State *L)
     }
     if (len > 8) len = 8;
 
-	lua_pushinteger(L, luat_can_tx_message(luaL_optinteger(L, 1, 0), id, luaL_optinteger(L, 3, 0), lua_toboolean(L, 4), lua_toboolean(L, 5), len, buf));
+	lua_pushinteger(L, luat_can_tx_message(id, msg_id, luaL_optinteger(L, 3, 0), lua_toboolean(L, 4), lua_toboolean(L, 5), len, buf));
 	return 1;
 }
 
@@ -347,7 +360,7 @@ local succ, id, type, rtr, data = can.rx(0)
 static int l_can_rx(lua_State *L)
 {
 	luat_can_message_t msg = {0};
-	int id = luaL_optinteger(L, 1, 0);
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
 	if (luat_can_rx_message_from_cache(id, &msg) > 0)
 	{
 		lua_pushboolean(L, 1);
@@ -378,7 +391,7 @@ can.stop(0)
 */
 static int l_can_stop(lua_State *L)
 {
-	int id = luaL_optinteger(L, 1, 0);
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
 	if (luat_can_tx_stop(id))
 	{
 		lua_pushboolean(L, 0);
@@ -400,7 +413,8 @@ can.reset(0)
 */
 static int l_can_reset(lua_State *L)
 {
-	if (luat_can_reset(luaL_optinteger(L, 1, 0)))
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	if (luat_can_reset(id))
 	{
 		lua_pushboolean(L, 0);
 	}
@@ -422,7 +436,8 @@ can.busOff(0)
 */
 static int l_can_bus_off(lua_State *L)
 {
-	if (luat_can_bus_off(luaL_optinteger(L, 1, 0)))
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	if (luat_can_bus_off(id))
 	{
 		lua_pushboolean(L, 0);
 	}
@@ -443,7 +458,8 @@ can.deinit(0)
 */
 static int l_can_deinit(lua_State *L)
 {
-	if (luat_can_close(luaL_optinteger(L, 1, 0)))
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	if (luat_can_close(id))
 	{
 		lua_pushboolean(L, 0);
 	}
@@ -484,7 +500,8 @@ local res, clk, div_min, div_max, div_step = can.capacity(0)
 static int l_can_capacity(lua_State *L)
 {
 	uint32_t clk, div_min, div_max, div_step;
-	if (luat_can_get_capacity(luaL_optinteger(L, 1, 0), &clk, &div_min, &div_max, &div_step))
+	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
+	if (luat_can_get_capacity(id, &clk, &div_min, &div_max, &div_step))
 	{
 		lua_pushboolean(L, 0);
 	}

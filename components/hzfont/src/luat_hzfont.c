@@ -7,6 +7,7 @@
 #include "luat_mcu.h"
 #include "luat_fs.h"
 #include "luat_rtos.h"
+#include "luat_wdt.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -259,7 +260,8 @@ static inline void hzfont_maybe_yield(uint64_t *last_yield_us, uint64_t threshol
     }
     uint64_t now = hzfont_now_us();
     if (now >= *last_yield_us && now - *last_yield_us >= threshold_us) {
-        if (ttf_get_debug()){ LLOGI("hzfont 长时间渲染，休息10ms，让出一次 CPU");}
+        if (ttf_get_debug()){ LLOGI("hzfont 长时间渲染，休息10ms，让出一次 CPU 同时喂狗一次");}
+        luat_wdt_feed();
         luat_rtos_task_sleep(10);
         *last_yield_us = hzfont_now_us();
     }
@@ -1297,9 +1299,9 @@ glyph_timing_update:
     return result;
 }
 
-#ifdef LUAT_USE_EASYLVGL
+#ifdef LUAT_USE_AIRUI
 
-// 获取底层 TTF 对象供 easylvgl 或其他模块使用
+// 获取底层 TTF 对象供 airui 或其他模块使用
 TtfFont * luat_hzfont_get_ttf(void) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         return &g_ft_ctx.font;
@@ -1308,7 +1310,7 @@ TtfFont * luat_hzfont_get_ttf(void) {
 }
 
 /**
- * 用于easylvgl，获取指定 glyph 的缓存位图（如不存在则实时渲染）
+ * 用于airui，获取指定 glyph 的缓存位图（如不存在则实时渲染）
  * @param glyph_index 目标 glyph 的索引
  * @param font_size   渲染字号
  * @param supersample 超采样等级（1/2/4）

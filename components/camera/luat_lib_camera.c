@@ -651,6 +651,8 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_H264_PMB_BITS",         ROREG_INT(LUAT_CAMERA_CONF_H264_PMB_BITS)},
     //@const CONF_H264_PFRAME_NUMS number H264编码器P帧数量
     { "CONF_H264_PFRAME_NUMS",      ROREG_INT(LUAT_CAMERA_CONF_H264_PFRAME_NUMS)},
+    //@const CONF_H264_APPLY number 立即应用H264编码器设置
+    { "CONF_H264_APPLY",            ROREG_INT(LUAT_CAMERA_CONF_H264_APPLY)},
     //@const CONF_PREVIEW_ENABLE number 是否启动摄像头预览功能，默认开启
     { "CONF_PREVIEW_ENABLE",        ROREG_INT(LUAT_CAMERA_CONF_PREVIEW_ENABLE)},
     //@const CONF_PREVIEW_ROTATE number 摄像头预览画面的旋转角度

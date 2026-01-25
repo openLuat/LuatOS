@@ -614,7 +614,7 @@ typedef void * lv_font_user_data_t;
 typedef struct luat_lv_userdata {
     int event_cb_ref;
     int signal_cb_ref;
-    void* easylvgl_component;  /* EasyLVGL component pointer */
+    void* airui_component;  /* AIRUI component pointer */
 }luat_lv_userdata_t;
 
 typedef struct luat_lv_userdata lv_obj_user_data_t;

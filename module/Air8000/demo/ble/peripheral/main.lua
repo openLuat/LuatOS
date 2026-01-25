@@ -61,10 +61,13 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-
 -- Air8000蓝牙依赖WiFi协处理器，如果蓝牙功能使用异常需要打开此注释更新WiFi固件
 -- 升级完毕后最好取消调用，防止后期版本升级过高导致程序使用不稳定
 -- require "check_wifi" 
+
+-- 加载 ble_lowpower 模块，控制WiFi和蓝牙的开启和关闭
+-- 默认WiFi和蓝牙都是开启状态，无需控制
+-- require "ble_lowpower"
 
 -- 加载BLE peripheral(外围设备)主控制模块
 require "ble_server_main"

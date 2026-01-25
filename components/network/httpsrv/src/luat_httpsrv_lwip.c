@@ -18,8 +18,9 @@
 
 #include "http_parser.h"
 
-#undef LLOGD
-#define LLOGD(...)
+int g_httpsrv_debug = 0;
+
+#define HTTPSRV_DBG(...) if (g_httpsrv_debug) LLOGD(__VA_ARGS__)
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 const http_code_str_t g_luat_http_codes[] = {
@@ -132,12 +133,12 @@ static int client_write(client_socket_ctx_t* client, const char* buff, size_t le
 #endif
     if (ret == 0) {
         client->send_size += len;
-        LLOGD("send more %d/%d", client->sent_size, client->send_size);
+        HTTPSRV_DBG("send more %d/%d", client->sent_size, client->send_size);
     }
     else {
         LLOGE("client_write err %d", ret);
     }
-    // LLOGD("Client Write len %d ret %d", len, ret);
+    // HTTPSRV_DBG("Client Write len %d ret %d", len, ret);
     return ret;
 }
 
@@ -161,12 +162,12 @@ static void client_resp(void* arg) {
         code = 200;
         msg = "Ok";
     }
-    LLOGD("httpd resp %d %s body %d", code, msg, body_size);
+    HTTPSRV_DBG("httpd resp %d %s body %d", code, msg, body_size);
 
     char buff[64];
     // 首先, 发送状态行
     snprintf(buff, sizeof(buff), "HTTP/1.0 %d %s\r\n", code, msg);
-    //LLOGD("send status line %s", buff);
+    //HTTPSRV_DBG("send status line %s", buff);
     client_write(client, buff, strlen(buff));
     
     // 然后, 发送长度和用户自定义的headers
@@ -175,44 +176,58 @@ static void client_resp(void* arg) {
     client_write(client, "Connection: close\r\n", strlen("Connection: close\r\n"));
     // client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
     if (headers && strlen(headers)) {
-    //     LLOGD("send headers %d", strlen(headers));
+    //     HTTPSRV_DBG("send headers %d", strlen(headers));
         client_write(client, (char*)headers, strlen(headers));
     }
     client_write(client, "\r\n", 2);
     // 最后发送body
     if (body_size) {
-        LLOGD("send body %d", body_size);
+        HTTPSRV_DBG("send body %d", body_size);
         client_write(client, client->body, body_size);
     }
     client->write_done = 1;
-    LLOGD("resp done, total send %d", client->send_size);
+    HTTPSRV_DBG("resp done, total send %d", client->send_size);
     tcp_output(client->pcb);
 }
 
 //================================
 
 static void client_cleanup(client_socket_ctx_t *client) {
-    LLOGD("client cleanup!!!");
+    HTTPSRV_DBG("client cleanup!!! %p", client);
+    if (client->pcb) {
+        tcp_arg(client->pcb, NULL);
+        tcp_err(client->pcb, NULL);
+        tcp_sent(client->pcb, NULL);
+        tcp_recv(client->pcb, NULL);
+        tcp_close(client->pcb);
+        client->pcb = NULL;
+    }
     if (client->uri) {
+        HTTPSRV_DBG("free uri %p", client->uri);
         luat_heap_free(client->uri);
         client->uri = NULL;
     }
     if (client->headers) {
+        HTTPSRV_DBG("free headers %p", client->headers);
         luat_heap_free(client->headers);
         client->headers = NULL;
     }
     if (client->body) {
+        HTTPSRV_DBG("free body %p", client->body);
         luat_heap_free(client->body);
         client->body = NULL;
     }
     if (client->buff) {
+        HTTPSRV_DBG("free buff %p", client->buff);
         luat_heap_free(client->buff);
         client->buff = NULL;
     }
     if (client->fd) {
+        HTTPSRV_DBG("close file %p", client->fd);
         luat_fs_fclose(client->fd);
         client->fd = NULL;
     }
+    HTTPSRV_DBG("free client %p", client);
     luat_heap_free(client);
 }
 
@@ -221,11 +236,7 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     lua_geti(L, LUA_REGISTRYINDEX, client->lua_ref_id);
     if (lua_isnil(L, -1)) {
         // 回调函数不存在，需要关闭连接并清理资源
-        tcp_err(client->pcb, NULL);
-        tcp_sent(client->pcb, NULL);
-        tcp_recv(client->pcb, NULL);
-        tcp_close(client->pcb);
-        client_cleanup(client);
+        tcpip_callback(client_cleanup, NULL);
         return 0;
     }
     //lua_settop(L, 0);
@@ -283,9 +294,6 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     int ret = tcpip_callback(client_resp, client);
     if (ret) {
         LLOGE("tcpip_callback %d", ret); // 这就很不好搞了
-        tcp_err(client->pcb, NULL);
-        tcp_sent(client->pcb, NULL);
-        tcp_abort(client->pcb);
         client_cleanup(client);
     }
 
@@ -297,60 +305,84 @@ static int luat_client_cb(lua_State* L, void* ptr) {
 static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
                              struct pbuf *p, err_t err) {
     if (err) {
-        LLOGD("tpcb %p err %d", tpcb, err);
+        HTTPSRV_DBG("tpcb %p err %d", tpcb, err);
         return ERR_OK;
     }
-    if (p == NULL) {
-        LLOGI("recv p is NULL");
+    if (arg == NULL) {
         tcp_abort(tpcb);
         return ERR_ABRT;
     }
-    LLOGD("tpcb %p p %p len %d err %d", tpcb, p, p->tot_len, err);
+    HTTPSRV_DBG("client_recv_cb tpcb %p p %p err %d arg %p", tpcb, p, err, arg);
     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
+    if (p == NULL) {
+        HTTPSRV_DBG("recv p is NULL");
+        tcp_arg(tpcb, NULL);
+        tcp_abort(tpcb);
+        ctx->pcb = NULL;
+        client_cleanup(ctx);
+        return ERR_ABRT;
+    }
+    HTTPSRV_DBG("tpcb %p p %p len %d err %d", tpcb, p, p->tot_len, err);
     if (ctx->buff == NULL) {
         ctx->buff = luat_heap_malloc(p->tot_len);
         if (ctx->buff == NULL) {
             LLOGW("out of memory when malloc client buff %d", p->tot_len);
-            // pbuf_free(p); // 需要吗?
+            pbuf_free(p); // 需要吗?
+            tcp_arg(tpcb, NULL);
             tcp_abort(tpcb);
+            ctx->pcb = NULL;
+            client_cleanup(ctx);
             return ERR_ABRT;
         }
         ctx->buff_offset = 0;
         ctx->buff_size = p->tot_len;
     }
-    if (ctx->buff_offset + p->tot_len > ctx->buff_size) {
-        char* ptr = luat_heap_realloc(ctx->buff, ctx->buff_offset + p->tot_len);
+    if (ctx->buff_size < p->tot_len) {
+        char* ptr = luat_heap_realloc(ctx->buff, p->tot_len + 1);
         if (ptr == NULL) {
-            LLOGW("out of memory when realloc client buff %d", ctx->buff_offset + p->tot_len);
+            LLOGW("out of memory when realloc client buff %d", p->tot_len);
             luat_heap_free(ctx->buff);
             ctx->buff = NULL;
+            tcp_arg(tpcb, NULL);
             tcp_abort(tpcb);
+            ctx->pcb = NULL;
+            client_cleanup(ctx);
             return ERR_ABRT;
         }
+        ctx->buff_offset = 0;
         ctx->buff = ptr;
-        ctx->buff_size = ctx->buff_offset + p->tot_len;
+        ctx->buff_size = p->tot_len;
     }
-    pbuf_copy_partial(p, ctx->buff + ctx->buff_offset, p->tot_len, 0);
-    ctx->buff_offset += p->tot_len;
-    //LLOGD("request %.*s", p->len, p->payload);
+    pbuf_copy_partial(p, ctx->buff, p->tot_len, 0);
+    ctx->buff_offset = p->tot_len;
+    HTTPSRV_DBG("request %.*s", p->len, p->payload);
     tcp_recved(tpcb, p->tot_len);
-    pbuf_free(p);
 
     // http_parser 已在连接建立时初始化，这里只需执行解析
     size_t ret = http_parser_execute(&ctx->parser, &hp_settings, (const char*)ctx->buff, ctx->buff_offset);
-    if (ret) {
-        // 暂时不管
+    if (ctx->parser.http_errno != HPE_OK) {
+        LLOGW("parser errno %d != HPE_OK", ctx->parser.http_errno);
+        tcp_arg(tpcb, NULL);
+        tcp_abort(tpcb);
+        ctx->pcb = NULL;
+        client_cleanup(ctx);
+        return ERR_ABRT;
     }
+    pbuf_free(p);
+    p = NULL;
 
     if (ctx->recv_done) {
         // 停止接收更多的数据
         tcp_recv(tpcb, NULL);
         luat_heap_free(ctx->buff);
         ctx->buff = NULL;
-        LLOGD("http request is ready");
+        HTTPSRV_DBG("http request is ready");
         if (ctx->parser.http_errno != HPE_OK || ctx->uri == NULL) {
-            LLOGI("bad request, close socket");
-            tcp_close(tpcb);
+            LLOGI("bad request, close socket %d", ctx->parser.http_errno);
+            tcp_arg(tpcb, NULL);
+            tcp_abort(tpcb);
+            ctx->pcb = NULL;
+            client_cleanup(ctx);
             return ERR_OK;
         }
         ctx->recv_done = 0;
@@ -365,7 +397,7 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         luat_msgbus_put(&msg, 0);
     }
     else {
-        LLOGD("wait more data");
+        HTTPSRV_DBG("wait more data");
     }
 
     return ERR_OK;
@@ -373,6 +405,9 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
 static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     (void)tpcb;
     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
+    if (ctx == NULL) {
+        return ERR_OK;
+    }
     ctx->sent_size += len;
     int ret = 0;
     if (ctx->fd) {
@@ -409,14 +444,11 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             }
         }
     }
-    LLOGD("done? %d sent %d/%d", ctx->write_done, ctx->sent_size, ctx->send_size);
+    HTTPSRV_DBG("done? %d sent %d/%d", ctx->write_done, ctx->sent_size, ctx->send_size);
     if (ctx->write_done && ctx->send_size == ctx->sent_size) {
-        tcp_err(ctx->pcb, NULL);
-        tcp_sent(ctx->pcb, NULL);
-        tcp_close(ctx->pcb);
         client_cleanup(ctx);
     }
-    // LLOGD("sent %d/%d", ctx->sent_size, ctx->send_size);
+    // HTTPSRV_DBG("sent %d/%d", ctx->sent_size, ctx->send_size);
     // ctx->send_size -= len;
     // if (ctx->send_size == 0) {
     //     // tcp_err(tpcb, NULL);
@@ -428,30 +460,36 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     return ERR_OK;
 }
 static void client_err_cb(void *arg, err_t err) {
-    LLOGD("client_err_cb %d", err);
+    HTTPSRV_DBG("client_err_cb %d", err);
+    if (arg == NULL) {
+        return;
+    }
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
-    if(ERR_RST == err)
+    if(ERR_RST == err && client->pcb)
     {
         tcp_err(client->pcb, NULL);
         tcp_sent(client->pcb, NULL);
+        tcp_recv(client->pcb, NULL);
     }
+    tcp_arg(client->pcb, NULL);
+    client->pcb = NULL;
     client_cleanup(client);
 }
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     if (err) {
-        LLOGD("accpet err %d", err);
+        HTTPSRV_DBG("accpet err %d", err);
         tcp_abort(newpcb);
         return ERR_OK;
     }
+    HTTPSRV_DBG("srv_accept_cb newpcb %p err %d", newpcb, err);
     luat_httpsrv_ctx_t* srvctx = (luat_httpsrv_ctx_t*) arg;
     client_socket_ctx_t* ctx = luat_heap_malloc(sizeof(client_socket_ctx_t));
     if (ctx == NULL) {
-        LLOGD("out of memory when malloc client ctx");
+        HTTPSRV_DBG("out of memory when malloc client ctx");
         tcp_abort(newpcb);
         return ERR_ABRT;
     }
-    tcp_accepted(newpcb);
     memset(ctx, 0, sizeof(client_socket_ctx_t));
     ctx->pcb = newpcb;
     ctx->lua_ref_id = srvctx->lua_ref_id;
@@ -462,6 +500,7 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     tcp_recv(newpcb, client_recv_cb);
     tcp_sent(newpcb, client_sent_cb);
     tcp_err(newpcb, client_err_cb);
+    tcp_accepted(newpcb);
     return ERR_OK;
 }
 
@@ -490,7 +529,7 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
     struct tcp_pcb* tcp = tcp_new();
     int ret = 0;
     if (tcp == NULL) {
-        LLOGD("out of memory when malloc httpsrv tcp_pcb");
+        HTTPSRV_DBG("out of memory when malloc httpsrv tcp_pcb");
         return;
     }
     tcp->flags |= SOF_REUSEADDR;
@@ -509,7 +548,7 @@ static void luat_httpsrv_start_cb(luat_httpsrv_ctx_t* ctx) {
 luat_httpsrv_ctx_t* luat_httpsrv_malloc(int port, int adapter_index) {
     luat_httpsrv_ctx_t* ctx = luat_heap_malloc(sizeof(luat_httpsrv_ctx_t));
     if (ctx == NULL) {
-        LLOGD("out of memory when malloc httpsrv ctx");
+        HTTPSRV_DBG("out of memory when malloc httpsrv ctx");
         return NULL;
     }
     memset(ctx, 0, sizeof(luat_httpsrv_ctx_t));
@@ -538,7 +577,7 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
 // 静态文件的处理
 
 static int client_send_static_file(client_socket_ctx_t *client, char* path, size_t len) {
-    LLOGD("sending %s", path);
+    HTTPSRV_DBG("sending %s", path);
     // 发送文件, 解析出content-type
     char *buff = client->sbuff;
     // 首先, 发送状态行
@@ -572,16 +611,16 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 根据path判断一下文件后缀, 如果不是 html/htm/js/css就当文件下载
     size_t plen = strlen(path);
     if (plen >= 5 && strcmp(path + plen - 5, ".html") == 0) {
-        LLOGD("普通文件模式 %s", path);
+        HTTPSRV_DBG("普通文件模式 %s", path);
     }
     else if (plen >= 4 && (strcmp(path + plen - 4, ".htm") == 0 || strcmp(path + plen - 4, ".css") == 0)) {
-        LLOGD("普通文件模式 %s", path);
+        HTTPSRV_DBG("普通文件模式 %s", path);
     }
     else if (plen >= 3 && strcmp(path + plen - 3, ".js") == 0) {
-        LLOGD("普通文件模式 %s", path);
+        HTTPSRV_DBG("普通文件模式 %s", path);
     }
     else {
-        LLOGD("启用文件下载模式 %s", path);
+        HTTPSRV_DBG("启用文件下载模式 %s", path);
         const char* filename = strrchr(path, '/');
         if (filename) {
             filename++; // 跳过 '/'
@@ -614,7 +653,7 @@ static int handle_static_file(client_socket_ctx_t *client) {
     //处理静态文件
     if (strlen(client->uri) < 1 || strlen(client->uri) > 200) {
         // 太长就不支持了
-        LLOGD("path too long [%s] > 200", client->uri);
+        HTTPSRV_DBG("path too long [%s] > 200", client->uri);
         return 0;
     }
     // 检查路径遍历攻击
@@ -652,20 +691,20 @@ static int handle_static_file(client_socket_ctx_t *client) {
 // 处理请求
 
 // static int my_on_message_begin(http_parser* parser) {
-//     LLOGD("on_message_begin");
+//     HTTPSRV_DBG("on_message_begin");
 //     return 0;
 // }
 
 // static int my_on_headers_complete(http_parser* parser) {
-//     LLOGD("on_headers_complete");
+//     HTTPSRV_DBG("on_headers_complete");
 //     return 0;
 // }
 
 static int my_on_message_complete(http_parser* parser) {
-    LLOGD("on_message_complete");
+    HTTPSRV_DBG("on_message_complete");
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
     if (client->expect_body_size > 0 && client->body_size < client->expect_body_size) {
-        LLOGD("body size not match expect %d/%d", client->body_size, client->expect_body_size);
+        LLOGW("body size not match expect %d/%d", client->body_size, client->expect_body_size);
         return HPE_INVALID_CONTENT_LENGTH;
     }
     client->recv_done = 1;
@@ -673,17 +712,17 @@ static int my_on_message_complete(http_parser* parser) {
 }
 
 // static int my_on_chunk_header(http_parser* parser) {
-//     LLOGD("on_chunk_header");
+//     HTTPSRV_DBG("on_chunk_header");
 //     return 0;
 // }
 
 // static int my_on_chunk_complete(http_parser* parser) {
-//     LLOGD("on_chunk_complete");
+//     HTTPSRV_DBG("on_chunk_complete");
 //     return 0;
 // }
 
 static int my_on_url(http_parser* parser, const char *at, size_t length) {
-    LLOGD("on_header_url %p %d", at, length);
+    HTTPSRV_DBG("on_header_url %p %d", at, length);
     if (length > 1024) {
         LLOGW("request URL is too long!!! %d", length);
         return HPE_INVALID_URL;
@@ -703,7 +742,7 @@ static int my_on_url(http_parser* parser, const char *at, size_t length) {
 
 // static int my_on_status(http_parser* parser, const char *at, size_t length) {
 //     // 这个函数应该是不会出现的
-//     LLOGD("on_header_status %p %d", at, length);
+//     HTTPSRV_DBG("on_header_status %p %d", at, length);
 //     return 0;
 // }
 
@@ -731,7 +770,7 @@ static int my_on_header_value(http_parser* parser, const char *at, size_t length
 }
 
 static int my_on_body(http_parser* parser, const char *at, size_t length) {
-    LLOGD("on_body %p %d", at, length);
+    HTTPSRV_DBG("on_body %p %d", at, length);
     if (length == 0)
         return 0;
     client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;

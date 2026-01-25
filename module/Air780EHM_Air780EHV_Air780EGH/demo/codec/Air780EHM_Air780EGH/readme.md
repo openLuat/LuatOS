@@ -79,7 +79,9 @@
 
 1、搭建好硬件环境
 
-2、demo脚本代码main.lua中，按照自己的需求选择对应的功能
+2、搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
+3、demo脚本代码main.lua中，按照自己的需求选择对应的功能
 
     如果需要测试MP3转PCM流式播放，则取消注释 require "codec_mp3_to_pcm"
 
@@ -87,11 +89,11 @@
 
     如果需要测试PCM转AMR并播放，则取消注释 require "codec_pcm_to_amr"
 
-3、Luatools烧录内核固件和demo脚本代码
+4、Luatools烧录内核固件和demo脚本代码
 
-4、运行程序，观察Luatools日志输出和音频播放效果
+5、运行程序，观察Luatools日志输出和音频播放效果
 
-5、各个功能模块的详细说明：
+6、各个功能模块的详细说明：
 
 - MP3转PCM流式播放 (codec_mp3_to_pcm)
 
@@ -105,7 +107,6 @@
 
     使用单声道播放
 
-
 - G711编解码演示 (codec_g711_pcm)
 
     自动加载test.pcm文件
@@ -117,7 +118,6 @@
     使用exaudio流式播放解码后的PCM数据
 
     使用单声道、16kHz采样率、16位深度
-
 
 - PCM转AMR并播放 (codec_pcm_to_amr)
 
@@ -131,8 +131,7 @@
 
     使用单声道，保持原始PCM文件的采样率和采样位深
 
-
-6、运行结果展示
+7、运行结果展示
 
 - MP3转PCM流式播放 (codec_mp3_to_pcm)
 

@@ -398,52 +398,52 @@ target("luatos-lua")
         add_includedirs(luatos.."components/lcd")
         add_files(luatos.."components/lcd/*.c")
         
-        -- LVGL 9.4 + EasyLVGL - 最基础组件编译
-        -- 宏定义：启用 EasyLVGL 和 SDL2 平台
-        -- add_defines("LUAT_USE_EASYLVGL=1")
-        -- add_defines("LUAT_USE_EASYLVGL_SDL2=1")
+        -- LVGL 9.4 + AIRUI - 最基础组件编译
+        -- 宏定义：启用 AIRUI 和 SDL2 平台
+        -- add_defines("LUAT_USE_AIRUI=1")
+        -- add_defines("LUAT_USE_AIRUI_SDL2=1")
         -- 头文件添加：lvgl9 
-        add_includedirs(luatos.."components/easylvgl")
-        add_includedirs(luatos.."components/easylvgl/lvgl9")
-        add_includedirs(luatos.."components/easylvgl/lvgl9/src")
+        add_includedirs(luatos.."components/airui")
+        add_includedirs(luatos.."components/airui/lvgl9")
+        add_includedirs(luatos.."components/airui/lvgl9/src")
         
         -- 先添加所有源文件
-        add_files(luatos.."components/easylvgl/lvgl9/src/**.c")
+        add_files(luatos.."components/airui/lvgl9/src/**.c")
 
          -- ThorVG 内部库使用 C++ 编译,单独添加
-         add_files(luatos.."components/easylvgl/lvgl9/src/libs/**/*.cpp")
+         add_files(luatos.."components/airui/lvgl9/src/libs/**/*.cpp")
         
         -- 排除不需要的组件（按优先级排序）
         -- 1. 硬件驱动（PC 模拟器不需要）
-        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/drivers/**/*.cpp")
+        remove_files(luatos.."components/airui/lvgl9/src/drivers/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/drivers/**/*.cpp")
         
         -- 2. 硬件加速绘制引擎（只保留软件渲染 SW）
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/dma2d/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/eve/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nema_gfx/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/nxp/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/opengles/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/renesas/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/vg_lite/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/sdl/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/espressif/**/*.c")
-        remove_files(luatos.."components/easylvgl/lvgl9/src/draw/convert/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/dma2d/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/eve/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/nema_gfx/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/nxp/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/opengles/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/renesas/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/vg_lite/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/sdl/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/espressif/**/*.c")
+        remove_files(luatos.."components/airui/lvgl9/src/draw/convert/**/*.c")
         
         -- 3. 库：排除不需要的库（可选功能）
-        -- remove_files(luatos.."components/easylvgl/lvgl9/src/libs/**/*.c")
+        -- remove_files(luatos.."components/airui/lvgl9/src/libs/**/*.c")
         
-        -- EasyLVGL 架构配置
+        -- AIRUI 架构配置
         -- 1. 公共头文件
-        add_includedirs(luatos.."components/easylvgl/inc")
+        add_includedirs(luatos.."components/airui/inc")
         
         -- 2. 包含 src 目录下的所有文件（递归）
-        add_includedirs(luatos.."components/easylvgl/src")
-        add_files(luatos.."components/easylvgl/src/**/*.c")
+        add_includedirs(luatos.."components/airui/src")
+        add_files(luatos.."components/airui/src/**/*.c")
         
         -- 3. Lua 绑定层（binding，不在 src 目录下，需单独处理）
-        add_includedirs(luatos.."components/easylvgl/binding")
-        add_files(luatos.."components/easylvgl/binding/*.c")
+        add_includedirs(luatos.."components/airui/binding")
+        add_files(luatos.."components/airui/binding/*.c")
 
         -- qrcode 和 tjpgd
         add_includedirs(luatos.."components/qrcode")
@@ -469,9 +469,7 @@ target("luatos-lua")
         add_files(luatos.."components/pinyin/src/*.c")
         add_files(luatos.."components/pinyin/binding/*.c")
 
-        -- airui
-        -- add_includedirs(luatos_exts.."/airui/include")
-        -- add_files(luatos_exts.."/airui/**.c")
+
 
         -- tp (touch) core only; exclude hardware drivers on PC
         add_includedirs(luatos.."components/tp")

@@ -6,10 +6,14 @@
 @author  陈媛媛
 @usage
 
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、播放一个TTS
 2、点powerkey 按键进行tts 的音色切换
 3、点击boot 按键停止音频播放
+
 本文件没有对外接口，直接在main.lua中require "play_tts"就可以加载运行；
 ]]
 exaudio = require("exaudio")

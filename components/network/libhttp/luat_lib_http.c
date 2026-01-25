@@ -483,7 +483,9 @@ exit:
 			http_ctrl->http_cb_userdata = NULL;
 		}
 	}
-	http_close(http_ctrl);
+	if (http_ctrl->tcp_closed == 0 || http_ctrl->netc){
+		http_close(http_ctrl);
+	}
 	return 0;
 }
 

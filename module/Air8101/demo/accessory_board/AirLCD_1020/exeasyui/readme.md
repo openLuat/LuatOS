@@ -30,7 +30,7 @@
 <tr>
 <td>主页<br/></td><td>组件演示页<br/></td><td>默认字体页<br/></td><td>GTFont页<br/></td></tr>
 <tr>
-<td><img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1020_home_gage.png.png" width="80" /><br/></td><td>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1020_home_gage.png" width="80" /><br/></td><td>
 <img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1020_component_page.png" width="80" /><br/></td><td>
 <img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1020_default_font_page.png" width="80" /><br/></td><td>
 <img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1020_default_font_page.jpg" width="80" /><br/></td></tr>

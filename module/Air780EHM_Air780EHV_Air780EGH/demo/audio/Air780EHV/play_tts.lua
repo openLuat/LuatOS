@@ -6,6 +6,9 @@
 @author  陈媛媛
 @usage
 
+注意：
+如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为流式播放应用功能模块，核心业务逻辑为：
 1、播放一个TTS
 2、点powerkey 按键进行tts 的音色切换
@@ -21,7 +24,7 @@ local audio_setup_param ={
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     pa_ctrl = gpio.AUDIOPA_EN,         -- 音频放大器电源控制管脚
     dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
-}}
+}
 
 local function play_end(event)
     if event == exaudio.PLAY_DONE then

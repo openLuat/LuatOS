@@ -423,6 +423,156 @@ static int l_rtsp_get_stats(lua_State *L) {
 }
 
 /**
+设置RTP传输模式
+@api rtsp:setTransportMode(mode)
+@string mode 传输模式: "udp", "tcp", "udp_fec"
+@return boolean 成功返回true，失败返回false
+@usage
+-- 使用TCP传输模式（适合外网）
+rtsp:setTransportMode("tcp")
+-- 使用UDP传输模式（适合局域网，默认）
+rtsp:setTransportMode("udp")
+-- 使用UDP+FEC传输模式（平衡方案）
+rtsp:setTransportMode("udp_fec")
+*/
+static int l_rtsp_set_transport_mode(lua_State *L) {
+    luat_rtsp_userdata_t *ud = (luat_rtsp_userdata_t *)luaL_checkudata(L, 1, "rtsp_ctx");
+    if (!ud || !ud->rtsp) {
+        return 0;
+    }
+
+    const char *mode_str = luaL_checkstring(L, 2);
+    rtsp_transport_mode_t mode;
+
+    if (strcmp(mode_str, "udp") == 0) {
+        mode = RTSP_TRANSPORT_UDP;
+    } else if (strcmp(mode_str, "tcp") == 0) {
+        mode = RTSP_TRANSPORT_TCP;
+    } else if (strcmp(mode_str, "udp_fec") == 0) {
+        mode = RTSP_TRANSPORT_UDP_FEC;
+    } else {
+        LLOGE("无效的传输模式: %s", mode_str);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int ret = rtsp_set_transport_mode(ud->rtsp, mode);
+    lua_pushboolean(L, ret == RTSP_OK);
+    return 1;
+}
+
+/**
+获取网络质量统计信息
+@api rtsp:getNetworkStats()
+@return table 网络统计信息，包含:
+  - packet_loss_rate: 丢包率 (0.0-1.0)
+  - rtt_ms: 往返延迟 (毫秒)
+  - jitter_ms: 抖动 (毫秒)
+  - bandwidth_kbps: 估算带宽 (Kbps)
+  - rtp_packets_sent: 已发送的RTP包数
+  - rtp_packets_lost: 丢失的RTP包数
+  - rtp_bytes_sent: 已发送的RTP字节数
+  - rtp_packets_retransmitted: 重传的RTP包数
+  - rtp_nack_received: 接收到的NACK请求数
+@usage
+local stats = rtsp:getNetworkStats()
+print("丢包率:", stats.packet_loss_rate)
+print("延迟:", stats.rtt_ms)
+print("重传包:", stats.rtp_packets_retransmitted)
+*/
+static int l_rtsp_get_network_stats(lua_State *L) {
+    luat_rtsp_userdata_t *ud = (luat_rtsp_userdata_t *)luaL_checkudata(L, 1, "rtsp_ctx");
+    if (!ud || !ud->rtsp) {
+        return 0;
+    }
+
+    rtsp_network_stats_t stats;
+    if (rtsp_get_network_stats(ud->rtsp, &stats) != RTSP_OK) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    lua_createtable(L, 0, 9);
+
+    lua_pushnumber(L, stats.packet_loss_rate);
+    lua_setfield(L, -2, "packet_loss_rate");
+
+    lua_pushinteger(L, stats.rtt_ms);
+    lua_setfield(L, -2, "rtt_ms");
+
+    lua_pushinteger(L, stats.jitter_ms);
+    lua_setfield(L, -2, "jitter_ms");
+
+    lua_pushinteger(L, stats.bandwidth_kbps);
+    lua_setfield(L, -2, "bandwidth_kbps");
+
+    lua_pushinteger(L, stats.rtp_packets_sent);
+    lua_setfield(L, -2, "rtp_packets_sent");
+
+    lua_pushinteger(L, stats.rtp_packets_lost);
+    lua_setfield(L, -2, "rtp_packets_lost");
+
+    lua_pushinteger(L, stats.rtp_bytes_sent);
+    lua_setfield(L, -2, "rtp_bytes_sent");
+
+    lua_pushinteger(L, stats.rtp_packets_retransmitted);
+    lua_setfield(L, -2, "rtp_packets_retransmitted");
+
+    lua_pushinteger(L, stats.rtp_nack_received);
+    lua_setfield(L, -2, "rtp_nack_received");
+
+    return 1;
+}
+
+/**
+设置网络统计回调函数
+@api rtsp:setNetworkStatsCallback(func)
+@function func 回调函数，参数为统计信息table
+@return boolean 成功返回true，失败返回false
+@usage
+rtsp:setNetworkStatsCallback(function(stats)
+    print("丢包率:", stats.packet_loss_rate)
+    print("延迟:", stats.rtt_ms)
+end)
+*/
+static int l_rtsp_set_network_stats_callback(lua_State *L) {
+    luat_rtsp_userdata_t *ud = (luat_rtsp_userdata_t *)luaL_checkudata(L, 1, "rtsp_ctx");
+    if (!ud || !ud->rtsp) {
+        return 0;
+    }
+
+    if (lua_isnil(L, 2)) {
+        // 清除回调
+        rtsp_set_network_stats_callback(ud->rtsp, NULL);
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+
+    if (!lua_isfunction(L, 2)) {
+        LLOGE("网络统计回调必须是函数");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    // TODO: 实现Lua回调的保存和调用
+    // 目前暂时不支持Lua回调
+    LLOGW("Lua网络统计回调暂未实现");
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/**
+设置FEC参数
+@api rtsp:setFECParam(param, value)
+@string param 参数名称: "redundancy"
+@number value 参数值 (redundancy: 0-100)
+@return boolean 成功返回true，失败返回false
+@usage
+-- 设置FEC冗余度为30%
+rtsp:setFECParam("redundancy", 30)
+*/
+
+/**
 销毁RTSP上下文，释放所有资源
 @api rtsp:destroy()
 @return nil 无返回值
@@ -472,6 +622,9 @@ static const rotable_Reg_t reg_rtsp_ctx[] = {
     {"setPPS",        ROREG_FUNC(l_rtsp_set_pps)},
     {"pushFrame",     ROREG_FUNC(l_rtsp_push_frame)},
     {"getStats",      ROREG_FUNC(l_rtsp_get_stats)},
+    {"setTransportMode", ROREG_FUNC(l_rtsp_set_transport_mode)},
+    {"getNetworkStats", ROREG_FUNC(l_rtsp_get_network_stats)},
+    {"setNetworkStatsCallback", ROREG_FUNC(l_rtsp_set_network_stats_callback)},
     {"destroy",       ROREG_FUNC(l_rtsp_destroy)},
     {"__gc",          ROREG_FUNC(l_rtsp_gc)},
     {NULL,            ROREG_INT(0)}
@@ -501,7 +654,12 @@ static const rotable_Reg_t reg_rtsp[] = {
     {"ERR_NETWORK",       ROREG_INT(RTSP_ERR_NETWORK)},
     {"ERR_TIMEOUT",       ROREG_INT(RTSP_ERR_TIMEOUT)},
     {"ERR_BUFFER_OVERFLOW",ROREG_INT(RTSP_ERR_BUFFER_OVERFLOW)},
-    
+
+    // 传输模式常量
+    {"TRANSPORT_UDP",     ROREG_INT(RTSP_TRANSPORT_UDP)},
+    {"TRANSPORT_TCP",     ROREG_INT(RTSP_TRANSPORT_TCP)},
+    {"TRANSPORT_UDP_FEC", ROREG_INT(RTSP_TRANSPORT_UDP_FEC)},
+
     {NULL,                ROREG_INT(0)}
 };
 

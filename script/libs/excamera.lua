@@ -78,7 +78,7 @@ function excamera.open(camera_param)
         -- 判断是否需要管理摄像头pwdn开关
         if type(camera_param.camera_pwdn) == "number" then
             cam_pwdn = gpio.setup(camera_param.camera_pwdn, 0)
-            -- 为8000暂时兼容，后续版本会移除
+            -- Air8000系列含WIFI功能的产品中需要增加这个等待，因为4G和WIFI芯片之间通讯有延迟，配置GPIO和设置I2C之间需要隔开最少5mS，否则I2C配置会报错。
             sys.wait(10)
         end
         -- 配置I2C接口，用于与摄像头通信

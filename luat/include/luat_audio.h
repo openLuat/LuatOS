@@ -396,4 +396,6 @@ void *luat_audio_inter_amr_coder_init(uint8_t is_wb, uint8_t quality);
 int luat_audio_inter_amr_coder_encode(void *handle, const uint16_t *pcm_buf, uint8_t *amr_buf, uint8_t *amr_len);
 int luat_audio_inter_amr_coder_decode(void *handle, uint16_t *pcm_buf, const uint8_t *amr_buf, uint8_t *amr_len);
 void luat_audio_inter_amr_coder_deinit(void *handle);
+
+int luat_audio_end_raw(uint8_t multimedia_id);
 #endif

@@ -131,9 +131,7 @@ function airlbs.request(param)
     if project_id:len() ~= 6 then
         log.error("airlbs", "project_id len not 6")
     end
-    local mac1 = netdrv.mac(socket.LWIP_STA)
-    local mac = "MAC" .. mac1 
-    log.info("mac", mac)
+    local mac1, mac    
     local timestamp = os.time()
     local project_key = param.project_key
     local nonce = crypto.trng(6)
@@ -141,6 +139,9 @@ function airlbs.request(param)
     local bsp = rtos.bsp()
     log.info("硬件型号", rtos.bsp())
     if bsp == "Air8101" then
+        mac1 = netdrv.mac(socket.LWIP_STA)
+        mac = "MAC" .. mac1 
+        log.info("mac", mac)
         -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
         -- local muid =  mcu.muid() or ""
         local muid = "12345678901234567890123456789012"
@@ -182,7 +183,7 @@ function airlbs.request(param)
     end
     local lbs_jdata = json.encode(lbs_data)
     log.info("扫描出的数据",lbs_jdata)
-    local bsp = rtos.bsp()
+    -- local bsp = rtos.bsp()
     if bsp == "Air8101" then
         -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
         -- local muid =  mcu.muid() or ""

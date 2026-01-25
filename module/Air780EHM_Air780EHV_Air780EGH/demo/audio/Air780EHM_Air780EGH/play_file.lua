@@ -6,10 +6,14 @@
 @author  陈媛媛
 @usage
 
+注意：
+如果搭配AirAUDIO_1010 音频板测试，需将AirAUDIO_1010 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
+
 本文件为播放文件的应用功能模块，核心业务逻辑为：
 1、自动播放一个sample-6s.mp3音乐
 2、点powerkey 按键进行音频切换，点击boot 按键停止音频播放
 3、点击boot 按键停止音频播放
+
 本文件没有对外接口，直接在main.lua中require "play_file"就可以加载运行；
 ]]
 

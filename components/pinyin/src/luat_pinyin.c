@@ -353,7 +353,7 @@ int luat_pinyin_query_syllables_by_keys(
     return 0;
 }
 
-#ifdef LUAT_USE_EASYLVGL
+#ifdef LUAT_USE_AIRUI
 /** 将Unicode码点转换为UTF-8字符串 */
 static size_t codepoints_to_utf8(const uint32_t *codepoints, uint16_t count, char *dest, size_t max_size)
 {
@@ -372,7 +372,7 @@ static size_t codepoints_to_utf8(const uint32_t *codepoints, uint16_t count, cha
     dest[used++] = '\0';
     return used;
 }
-/** 用于给easylvgl提供拼音词典的词典数组 */
+/** 用于给airui提供拼音词典的词典数组 */
 const lv_pinyin_dict_t * luat_pinyin_get_lv_dict(size_t *count)
 {
     if (count) {

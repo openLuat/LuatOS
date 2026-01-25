@@ -4,7 +4,7 @@ local model_ec718pm = {"Air780EPM", "Air780EGP", "Air700ECP"}
 local A = _G
 
 -- 0号版本，所有库都有的table，方便新库的增加时候的检查
-local B = {"airui", "lvgl", "cc", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "fota",
+local B = {"lvgl", "cc", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "fota",
            "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "i2c", "iconv", "io", "lcd.font_opposansm12_chinese",
            "codec", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64",
            "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "ht1621", "http", "httpsrv",
@@ -24,7 +24,7 @@ local A_1 = {"audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont", 
              "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
 -- 2号固件
-local A_2 = {"airui", "lvgl", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
+local A_2 = {"lvgl", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
              "lcd.font_opposansm12_chinese", "codec", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem",
              "otp", "adc", "airlink", "bit64", "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl",
              "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json",
@@ -33,7 +33,7 @@ local A_2 = {"airui", "lvgl", "cc", "camera", "codec", "fastlz", "fatfs", "gtfon
              "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
 -- 3号固件
-local A_3 = {"airui", "lvgl", "audio.tts", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
+local A_3 = {"lvgl", "audio.tts", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
              "lcd.font_opposansm12_chinese", "codec", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem",
              "otp", "adc", "airlink", "bit64", "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl",
              "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json",
@@ -42,7 +42,7 @@ local A_3 = {"airui", "lvgl", "audio.tts", "camera", "codec", "fastlz", "fatfs",
              "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
 -- 4号固件
-local A_4 = {"airui", "lvgl", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
+local A_4 = {"lvgl", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf",
              "lcd.font_opposansm12_chinese", "codec", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem",
              "otp", "adc", "airlink", "bit64", "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl",
              "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json",
@@ -60,7 +60,7 @@ local A_5 = {"audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfo
              "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
 -- 6号固件
-local A_6 = {"airui", "lvgl", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "lcd.font_opposansm12_chinese",
+local A_6 = {"lvgl", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "lcd.font_opposansm12_chinese",
              "codec", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64",
              "can", "crypto", "eink", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http",
              "httpsrv", "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu",
@@ -116,7 +116,7 @@ local A_11 = {"ble", "libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "b
 local A_12 = A_11
 
 -- 13号固件
-local A_13 = {"airui", "audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "codec", "audio", "i2s",
+local A_13 = {"audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "codec", "audio", "i2s",
               "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto", "eink",
               "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv",
               "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu", "miniz", "mobile", "mqtt",

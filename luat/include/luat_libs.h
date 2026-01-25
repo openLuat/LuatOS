@@ -80,7 +80,7 @@ LUAMOD_API int luaopen_zbuff( lua_State *L );
 LUAMOD_API int luaopen_sfd( lua_State *L );
 LUAMOD_API int luaopen_lfs2( lua_State *L );
 LUAMOD_API int luaopen_lvgl( lua_State *L );
-LUAMOD_API int luaopen_easylvgl( lua_State *L );
+LUAMOD_API int luaopen_airui( lua_State *L );
 
 /** ir库, 依赖gpio库*/
 LUAMOD_API int luaopen_ir( lua_State *L );
@@ -130,7 +130,6 @@ LUAMOD_API int luaopen_ymodem( lua_State *L );
 LUAMOD_API int luaopen_w5500( lua_State *L );
 LUAMOD_API int luaopen_socket_adapter( lua_State *L );
 
-LUAMOD_API int luaopen_airui( lua_State *L );
 LUAMOD_API int luaopen_fota( lua_State *L );
 LUAMOD_API int luaopen_i2s( lua_State *L );
 LUAMOD_API int luaopen_lora( lua_State *L );

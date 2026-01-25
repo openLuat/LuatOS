@@ -38,8 +38,8 @@ extern "C" {
 /** RTSP默认端口 */
 #define RTSP_DEFAULT_PORT 554
 
-/** RTSP缓冲区大小(字节) - 需要足够大以容纳RTSP信令 */
-#define RTSP_BUFFER_SIZE (64 * 1024)
+/** RTSP缓冲区大小(字节) - 需要足够大以容纳RTSP信令和interleaved数据 */
+#define RTSP_BUFFER_SIZE (256 * 1024)
 
 /** RTP缓冲区大小(字节) */
 #define RTP_BUFFER_SIZE (256 * 1024)
@@ -100,6 +100,15 @@ typedef enum {
 } rtsp_state_t;
 
 /**
+ * RTP传输模式枚举
+ */
+typedef enum {
+    RTSP_TRANSPORT_UDP = 0,         /**< 纯UDP传输模式（默认） */
+    RTSP_TRANSPORT_TCP = 1,         /**< TCP传输模式 */
+    RTSP_TRANSPORT_UDP_FEC = 2      /**< UDP+FEC传输模式 */
+} rtsp_transport_mode_t;
+
+/**
  * H.264 NALU类型枚举
  */
 typedef enum {
@@ -134,39 +143,71 @@ typedef struct {
 } rtsp_stats_t;
 
 /**
+ * RTSP网络质量统计结构体
+ */
+typedef struct {
+    float packet_loss_rate;         /**< 丢包率 (0.0-1.0) */
+    uint32_t rtt_ms;                /**< 往返延迟 (毫秒) */
+    uint32_t jitter_ms;             /**< 抖动 (毫秒) */
+    uint32_t bandwidth_kbps;        /**< 估算带宽 (Kbps) */
+    uint32_t rtp_packets_sent;      /**< 已发送的RTP包数 */
+    uint32_t rtp_packets_lost;      /**< 丢失的RTP包数 */
+    uint32_t rtp_bytes_sent;        /**< 已发送的RTP字节数 */
+    uint32_t rtp_packets_retransmitted; /**< 重传的RTP包数 */
+    uint32_t rtp_nack_received;     /**< 接收到的NACK请求数 */
+} rtsp_network_stats_t;
+
+/* ======================== 前向声明 ======================== */
+
+/**
+ * RTSP推流上下文前向声明
+ */
+typedef struct rtsp_ctx rtsp_ctx_t;
+
+/**
+ * 传输层前向声明
+ */
+typedef struct rtsp_transport rtsp_transport_t;
+
+/**
+ * RTSP网络统计回调函数类型
+ *
+ * @param ctx RTSP上下文指针
+ * @param stats 网络统计信息指针
+ */
+typedef void (*rtsp_network_stats_callback_t)(rtsp_ctx_t *ctx, rtsp_network_stats_t *stats);
+
+/**
  * RTSP推流上下文结构体
  * 管理单个RTSP连接的所有状态和缓冲区
  */
-typedef struct {
+struct rtsp_ctx {
     /** ============ 连接信息 ============ */
     char *url;                      /**< RTSP服务器URL */
     char *host;                     /**< RTSP服务器主机名/IP地址 */
     char *stream;                   /**< 推流名 */
-    char *auth;                     /**< 认证信息(用户名:密码) */
     uint16_t port;                  /**< 连接端口 */
+    rtsp_transport_mode_t transport_mode; /**< RTP传输模式 */
     
     /** ============ TCP连接状态(RTSP控制通道) ============ */
     struct tcp_pcb *control_pcb;    /**< lwip TCP控制块(RTSP信令) */
     rtsp_state_t state;             /**< 当前连接状态 */
     uint32_t last_activity_time;    /**< 最后活动时间戳 */
-    
-    /** ============ UDP连接状态(RTP媒体通道) ============ */
-    struct udp_pcb *rtp_pcb;        /**< RTP UDP控制块 */
-    struct udp_pcb *rtcp_pcb;       /**< RTCP UDP控制块 */
+
+    /** ============ 网络连接信息(RTP媒体通道) ============ */
     ip_addr_t remote_ip;            /**< 远端IP地址 */
     uint16_t remote_rtp_port;       /**< 远端RTP端口 */
     uint16_t remote_rtcp_port;      /**< 远端RTCP端口 */
     uint16_t local_rtp_port;        /**< 本地RTP端口 */
     uint16_t local_rtcp_port;       /**< 本地RTCP端口 */
+    /** 注意: rtp_pcb, rtcp_pcb, rtp_tcp_pcb 现在由传输层管理，不在此处定义 */
     
     /** ============ RTSP协议状态 ============ */
     uint32_t cseq;                  /**< RTSP序列号 */
     char *session_id;               /**< RTSP会话ID */
-    uint32_t video_stream_id;       /**< 视频流ID(SSRC) */
     
     /** ============ RTP状态 ============ */
     uint32_t rtp_sequence;          /**< RTP序列号 */
-    uint32_t rtp_timestamp;         /**< RTP时间戳 */
     uint32_t rtp_ssrc;              /**< RTP同步源标识符 */
     
     /** ============ 缓冲区管理 ============ */
@@ -176,7 +217,6 @@ typedef struct {
     
     uint8_t *send_buf;              /**< 发送缓冲区 */
     uint32_t send_buf_size;         /**< 发送缓冲区大小 */
-    uint32_t send_pos;              /**< 发送缓冲区写位置 */
     
     uint8_t *rtp_buf;               /**< RTP发送缓冲区 */
     uint32_t rtp_buf_size;          /**< RTP缓冲区大小 */
@@ -188,7 +228,6 @@ typedef struct {
     
     /** ============ 时间戳管理 ============ */
     uint32_t video_timestamp;       /**< 当前视频时间戳(ms) */
-    uint32_t base_timestamp;        /**< 基准时间戳 */
     uint32_t start_tick;            /**< 启动时刻的系统tick */
     
     /** ============ H.264编码信息 ============ */
@@ -199,26 +238,68 @@ typedef struct {
     char *sprop_parameter_sets;     /**< SDP中的sprop-parameter-sets */
     
     /** ============ 统计信息 ============ */
-    uint32_t packets_sent;          /**< 已发送的包数 */
     uint32_t bytes_sent;            /**< 已发送的字节数 */
     uint32_t video_frames_sent;     /**< 已发送的视频帧数 */
     uint32_t rtp_packets_sent;      /**< 已发送的RTP包数 */
     uint32_t last_rtcp_time;        /**< 上次发送RTCP SR的时间(tick) */
-    
+
+    /** ============ 传输层接口 ============ */
+    rtsp_transport_t *transport;    /**< 传输层接口指针 */
+
+    /** ============ 网络质量监测 ============ */
+    rtsp_network_stats_t network_stats; /**< 网络统计信息 */
+    rtsp_network_stats_callback_t network_stats_callback; /**< 网络统计回调 */
+    uint32_t last_stats_time;       /**< 上次更新统计的时间(tick) */
+
     /** ============ 用户数据 ============ */
     void *user_data;                /**< 用户自定义数据指针 */
-} rtsp_ctx_t;
+};
 
 /**
  * RTSP状态变化回调函数类型
- * 
+ *
  * @param ctx RTSP上下文指针
  * @param old_state 旧状态
  * @param new_state 新状态
  * @param error_code 错误代码(仅在STATE_ERROR时有效)
  */
-typedef void (*rtsp_state_callback_t)(rtsp_ctx_t *ctx, rtsp_state_t old_state, 
+typedef void (*rtsp_state_callback_t)(rtsp_ctx_t *ctx, rtsp_state_t old_state,
                                       rtsp_state_t new_state, int error_code);
+
+/**
+ * RTCP包类型枚举 (RFC 3550)
+ */
+typedef enum {
+    RTCP_SR = 200,      /**< Sender Report */
+    RTCP_RR = 201,      /**< Receiver Report */
+    RTCP_SDES = 202,    /**< Source Description */
+    RTCP_BYE = 203,     /**< Goodbye */
+    RTCP_APP = 204,     /**< Application-specific */
+    RTCP_RTPFB = 205,   /**< RTP Feedback (NACK) */
+    RTCP_PSFB = 206     /**< Payload-specific Feedback */
+} rtcp_packet_type_t;
+
+/* ======================== 传输层抽象接口 ======================== */
+
+/**
+ * 传输层接口函数类型
+ */
+typedef int (*rtsp_transport_send_fn)(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+typedef int (*rtsp_transport_send_rtcp_fn)(rtsp_transport_t *transport, const uint8_t *data, uint32_t len);
+typedef int (*rtsp_transport_init_fn)(rtsp_transport_t *transport, rtsp_ctx_t *ctx);
+typedef void (*rtsp_transport_cleanup_fn)(rtsp_transport_t *transport);
+
+/**
+ * 传输层抽象接口
+ */
+struct rtsp_transport {
+    rtsp_transport_send_fn send;        /**< 发送RTP数据 */
+    rtsp_transport_send_rtcp_fn send_rtcp; /**< 发送RTCP数据 */
+    rtsp_transport_init_fn init;        /**< 初始化函数 */
+    rtsp_transport_cleanup_fn cleanup;  /**< 清理函数 */
+    rtsp_ctx_t *ctx;                    /**< RTSP上下文指针 */
+    void *private_data;                 /**< 传输层私有数据 */
+};
 
 /* ======================== 核心接口函数 ======================== */
 
@@ -348,12 +429,40 @@ int rtsp_poll(rtsp_ctx_t *ctx);
 
 /**
  * 获取推流统计信息
- * 
+ *
  * @param ctx RTSP上下文指针
  * @param stats 统计信息指针
  * @return 0=成功, 负数=失败
  */
 int rtsp_get_stats(rtsp_ctx_t *ctx, rtsp_stats_t *stats);
+
+/**
+ * 设置RTP传输模式
+ *
+ * @param ctx RTSP上下文指针
+ * @param mode 传输模式 (RTSP_TRANSPORT_UDP/TCP/UDP_FEC)
+ * @return 0=成功, 负数=失败
+ * @note 必须在连接之前调用此函数
+ */
+int rtsp_set_transport_mode(rtsp_ctx_t *ctx, rtsp_transport_mode_t mode);
+
+/**
+ * 获取网络质量统计信息
+ *
+ * @param ctx RTSP上下文指针
+ * @param stats 网络统计信息指针
+ * @return 0=成功, 负数=失败
+ */
+int rtsp_get_network_stats(rtsp_ctx_t *ctx, rtsp_network_stats_t *stats);
+
+/**
+ * 设置网络统计回调函数
+ *
+ * @param ctx RTSP上下文指针
+ * @param callback 回调函数指针
+ * @return 0=成功, 负数=失败
+ */
+int rtsp_set_network_stats_callback(rtsp_ctx_t *ctx, rtsp_network_stats_callback_t callback);
 
 #ifdef __cplusplus
 }

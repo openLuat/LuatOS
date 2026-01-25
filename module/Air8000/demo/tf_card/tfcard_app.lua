@@ -68,16 +68,15 @@ function tfcard_main_task() -- 开始进行主测试流程。
     dir_path = "/sd/io_test"
 
     -- 1. 创建目录
-    if io.mkdir(dir_path) then
-        log.info("io.mkdir", "目录创建成功", "路径:" .. dir_path)
-    else
-        -- 检查是否目录已存在
-        if io.exists(dir_path) then
-            log.warn("io.mkdir", "目录已存在，跳过创建", "路径:" .. dir_path)
+    if not io.dexist(dir_path) then
+        if io.mkdir(dir_path) then
+            log.info("io.mkdir", "目录创建成功", "路径:" .. dir_path)
         else
-            log.error("io.mkdir", "目录创建失败且目录不存在", "路径:" .. dir_path)
+            log.error("io.mkdir", "目录创建失败", "路径:" .. dir_path)
             goto resource_cleanup
         end
+    else
+        log.warn("io.mkdir", "目录已存在，跳过创建", "路径:" .. dir_path)
     end
 
     -- 2. 创建并写入文件

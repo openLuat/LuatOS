@@ -42,10 +42,10 @@ end
 local function can_cb(id, cb_type, param)
     if cb_type == can.CB_MSG then
         log.info("有新的消息")
-        local succ, id, id_type, rtr, data = can.rx(id)
+        local succ, msg_id, id_type, rtr, data = can.rx(id)
         while succ do
-            log.info(mcu.x32(id), #data, data:toHex())
-            succ, id, id_type, rtr, data = can.rx(id)
+            log.info(mcu.x32(msg_id), #data, data:toHex())
+            succ, msg_id, id_type, rtr, data = can.rx(id)
         end
     end
     if cb_type == can.CB_TX then

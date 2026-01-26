@@ -43,7 +43,7 @@
 - 上传照片：httpplus.request()
 - 关闭摄像头：excamera.close()
 
-### 4、录像上传核心业务模块（http_upload_video.lua）
+### 4、录像上传核心业务模块（video_http_post.lua）
 
 - 订阅 IP_READY 信息，确认联网后执行录像上传任务
 - tf卡挂载，打印tf卡内存信息：fatfs.mount()

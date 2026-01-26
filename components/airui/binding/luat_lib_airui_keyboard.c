@@ -26,7 +26,7 @@
  * @api airui.keyboard(config)
  * @table config 配置表
  * @int config.x X 坐标，默认 0
- * @int config.y Y 坐标，默认 ctx->height-160（或 0）
+ * @int config.y Y 坐标，默认 0，注意键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
  * @int config.w 宽度，默认 ctx->width（或 480）
  * @int config.h 高度，默认 160
  * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"

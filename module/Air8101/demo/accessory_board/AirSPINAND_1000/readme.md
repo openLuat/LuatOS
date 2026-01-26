@@ -48,11 +48,11 @@
 <tr>
 <td>54/DISP<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>28/DCLK<br/></td><td>SCK<br/></td></tr>
+<td>28/DCLK<br/></td><td>CLK<br/></td></tr>
 <tr>
-<td>57/DE<br/></td><td>MOSI<br/></td></tr>
+<td>57/DE<br/></td><td>DI<br/></td></tr>
 <tr>
-<td>55/HSYN<br/></td><td>MISO<br/></td></tr>
+<td>55/HSYN<br/></td><td>DO<br/></td></tr>
 </table>
 
 ## 演示软件环境：

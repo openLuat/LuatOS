@@ -34,7 +34,7 @@ end
 static int l_dac_open(lua_State *L) {
     luat_dac_config_t config = {0};
     int ch = luaL_checkinteger(L, 1);
-    config.samp_rate = luaL_optinteger(L, 2);
+    config.samp_rate = luaL_checkinteger(L, 2);
     config.bits = luaL_optinteger(L, 3, LUAT_DAC_BITS_16);
     config.dac_chl = luaL_optinteger(L, 4, LUAT_DAC_CHL_L);
     int ret = luat_dac_setup(ch, &config);

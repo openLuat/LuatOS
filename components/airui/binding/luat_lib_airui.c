@@ -110,7 +110,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"init", ROREG_FUNC(l_airui_init)},
     {"deinit", ROREG_FUNC(l_airui_deinit)},
     {"refresh", ROREG_FUNC(l_airui_refresh)},
-    {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
+    {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
     // XML 模块
@@ -294,7 +294,7 @@ static int l_airui_refresh(lua_State *L) {
 
 /**
  * 绑定触摸输入配置到 LuatOS 平台
- * @api airui.indev_bind_touch(tp_cfg)
+ * @api airui.device_bind_touch(tp_cfg)
  * @userdata tp_cfg luat_tp_config_t*（lightuserdata）
  * @return bool 绑定是否成功
  */
@@ -302,7 +302,7 @@ static int l_airui_indev_bind_touch(lua_State *L) {
 #if defined(LUAT_USE_AIRUI_LUATOS)
     luat_tp_config_t *tp_cfg = (luat_tp_config_t *)lua_touserdata(L, 1);
     if (tp_cfg == NULL) {
-        LLOGE("indev_bind_touch tp_cfg is NULL");
+        LLOGE("device_bind_touch tp_cfg is NULL");
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -316,18 +316,18 @@ static int l_airui_indev_bind_touch(lua_State *L) {
         data->tp_config = tp_cfg;
     }
 
-    LLOGD("indev_bind_touch bind %p", tp_cfg);
+    LLOGD("device_bind_touch bind %p", tp_cfg);
     lua_pushboolean(L, 1);
     return 1;
 // SDL2 路径：SDL 输入已经通过事件轮询获取，无需绑定 TP
 #elif defined(LUAT_USE_AIRUI_SDL2)
     (void)L;
-    LLOGI("indev_bind_touch ignored on SDL2 (mouse/SDL events used)");
+    LLOGI("device_bind_touch ignored on SDL2 (mouse/SDL events used)");
     lua_pushboolean(L, 1);
     return 1;
 #else
     (void)L;
-    LLOGE("indev_bind_touch unsupported on this platform");
+    LLOGE("device_bind_touch unsupported on this platform");
     lua_pushboolean(L, 0);
     return 1;
 #endif

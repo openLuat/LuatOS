@@ -348,8 +348,8 @@ static int on_headers_complete(http_parser* parser){
 	#endif
 		http_ctrl->headers_complete = 1;
 		// 如果头部解析出content_length为0，直接标记body接收完成
-		// 只在非chunked且content-length==0时置finally
-		if (!(parser->flags & F_CHUNKED) && http_ctrl->resp_content_len == 0){
+		LLOGD("on_headers_complete resp_content_len:%d",http_ctrl->resp_content_len);
+		if (http_ctrl->resp_content_len <= 0){
 		   http_ctrl->http_body_is_finally = 1;
 		}
 		luat_http_callback(http_ctrl);
@@ -460,24 +460,12 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		}
 	}
 	LLOGD("check http body complete content_length:%ld body_len:%ld chunked:%d finally:%d",http_ctrl->resp_content_len, http_ctrl->body_len, (parser->flags & F_CHUNKED), http_ctrl->http_body_is_finally);
-	// 判断是否完整
-    int body_complete = 0;
-	if (parser->flags & F_CHUNKED) {
-		// chunked下，只有收到0 chunk才算完整
-		if (http_ctrl->http_body_is_finally) {
-			body_complete = 1;
-		}
-	} else {
-		if (http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
-			body_complete = 1;
-			http_ctrl->http_body_is_finally = 1;
-		}
+	// 判断是否完整, 检测完整时，就可以把http回调关闭
+	if (!(parser->flags & F_CHUNKED) && http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
+		http_ctrl->http_body_is_finally = 1;
+		LLOGD("http body recv done, total_len=%ld", http_ctrl->body_len);
+		http_close_nw(http_ctrl);
 	}
-    // 检测完整时，就可以把http回调关闭
-    if (body_complete) {
-        LLOGD("http body recv done, total_len=%ld", http_ctrl->body_len);
-        http_close_nw(http_ctrl);
-    }
     return 0;
 }
 

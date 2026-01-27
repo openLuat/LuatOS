@@ -53,14 +53,19 @@ static int l_can_handler(lua_State *L, void* ptr)
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
-    int can_id = msg->arg1;
+    uint8_t can_id = (uint8_t)msg->arg1;
+	if (can_id >= MAX_DEVICE_COUNT) {
+		LLOGW("invalid can id %d when callback", can_id);
+		return 0;
+	}
+	lua_Integer id = (lua_Integer)can_id;
     if (l_can_debug_flag) LLOGD("callback %d,%d,%x", can_id, msg->arg2, msg->ptr);
     if (l_can_cb[can_id])
     {
     	lua_geti(L, LUA_REGISTRYINDEX, l_can_cb[can_id]);
         if (lua_isfunction(L, -1))
         {
-            lua_pushinteger(L, can_id);
+            lua_pushinteger(L, id);
             switch(msg->arg2)
             {
             case LUAT_CAN_CB_NEW_MSG:
@@ -89,13 +94,12 @@ static int l_can_handler(lua_State *L, void* ptr)
     }
 
     // 给rtos.recv方法返回个空数据
-    lua_pushinteger(L, 0);
-    return 1;
+    return 0;
 }
 
 static void l_can_callback(int can_id, LUAT_CAN_CB_E cb_type, void *cb_param)
 {
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_can_handler;
     msg.ptr = cb_param;
     msg.arg1 = can_id;
@@ -329,6 +333,9 @@ static int l_can_tx(lua_State *L)
     const char *buf;
 	uint8_t id = (uint8_t)luaL_optinteger(L, 1, 0);
 	uint32_t msg_id = luaL_optinteger(L, 2, 0x1fffffff);
+	uint8_t is_extend_id = (uint8_t)luaL_optinteger(L, 3, 0);
+	uint8_t is_RTR = lua_toboolean(L, 4);
+	uint8_t need_ack = lua_toboolean(L, 5);
     if(lua_isuserdata(L, 6))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 6, LUAT_ZBUFF_TYPE));
@@ -341,7 +348,7 @@ static int l_can_tx(lua_State *L)
     }
     if (len > 8) len = 8;
 
-	lua_pushinteger(L, luat_can_tx_message(id, msg_id, luaL_optinteger(L, 3, 0), lua_toboolean(L, 4), lua_toboolean(L, 5), len, buf));
+	lua_pushinteger(L, luat_can_tx_message(id, msg_id, is_extend_id, is_RTR, need_ack, len, buf));
 	return 1;
 }
 

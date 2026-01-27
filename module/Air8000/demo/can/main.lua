@@ -62,7 +62,6 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-gpio.setup(23, 1) -- 要手动打开，否则无法使用CAN芯片不能正常工作
 
 require "can_normal"
 -- require "can_self_test"

@@ -18,23 +18,26 @@
 
 /*
 打开DAC通道,并配置参数
-@api dac.open(ch, freq, mode)
+@api dac.open(ch, freq, bits, dac_chl)
 @int 通道编号,例如0
 @int 输出频率,单位hz
-@int 模式,默认为0,预留
+@int 深度,默认为16
+@int 通道选择,默认为0, 0:左声道, 1:右声道, 2:左右声道
 @return true 成功返回true,否则返回false
 @return int 底层返回值,调试用
 @usage
-if dac.open(0, 44000) then
+if dac.open(0, 44000, 16, 0) then
     log.info("dac", "dac ch0 is opened")
 end
 
 */
 static int l_dac_open(lua_State *L) {
+    luat_dac_config_t config = {0};
     int ch = luaL_checkinteger(L, 1);
-    int freq = luaL_checkinteger(L, 2);
-    int mode = luaL_optinteger(L, 3, 0);
-    int ret = luat_dac_setup(ch, freq, mode);
+    config.samp_rate = luaL_checkinteger(L, 2);
+    config.bits = luaL_optinteger(L, 3, LUAT_DAC_BITS_16);
+    config.dac_chl = luaL_optinteger(L, 4, LUAT_DAC_CHL_L);
+    int ret = luat_dac_setup(ch, &config);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;
@@ -64,7 +67,7 @@ static int l_dac_write(lua_State *L) {
     if (lua_isinteger(L, 2)) {
         value = luaL_checkinteger(L, 2);
         buff = &value;
-        len = 2;
+        len = 1;
     }
     else if (lua_isuserdata(L, 2)) {
         return 0; // TODO 支持zbuff
@@ -75,11 +78,7 @@ static int l_dac_write(lua_State *L) {
     else {
         return 0;
     }
-    // 防御过短的数据
-    if (len < 2) {
-        return 0;
-    }
-    int ret = luat_dac_write(ch, buff, len >> 1);
+    int ret = luat_dac_write(ch, buff, len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;

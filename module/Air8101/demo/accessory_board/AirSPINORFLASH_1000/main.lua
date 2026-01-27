@@ -74,10 +74,10 @@ end
 
 
 -- 加载raw_spi功能模块
-require "raw_spi"
+-- require "raw_spi"
 
 -- 加载lf_fs功能模块
--- require"lf_fs"
+require"lf_fs"
 
 -- 加载sfud_test功能模块
 -- require"sfud_test"

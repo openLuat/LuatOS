@@ -1,20 +1,23 @@
-default = {}
+--[[
+@module  irtu_main
+@summary irtu功能初始化模块
+@version 5.0.0
+@date    2026.01.27
+@author  李源龙
+@usage
+本文件为irtu的功能初始化模块，核心业务逻辑为：
+    加载default,gnss,driver,create,audio_config模块，然后开启task，在task中初始化各个模块
+    其中基础功能模块为default,driver,create，如需GNSS定位/音频，可以选择加载gnss,audio_config模块
+    GNSS定位功能目前仅支持Air780EGG,Air780EGP,Air780EGH等内置GNSS的模块，如需外挂GNSS模块，请自行修改gnss模块的配置
+    音频功能目前仅支持Air780EHV内置音频解码芯片的模块，如需外挂音频解码芯片，请自行修改audio_config模块的配置
+]]
 
-require "libnet"
+local default = {}
+
 local libfota2=require"libfota2"
 local db=require "db"
 local dtulib=require "dtulib"
 
-local lbsLoc = require("lbsLoc")
-
-
--- 判断模块类型
-local ver = rtos.bsp():upper()
-
--- 定时采集任务的初始时间
-local startTime = {0, 0, 0}
--- 定时采集任务缓冲区
-local sendBuff = {{}, {}, {}, {}}
 local cfg
 
 -- 配置文件
@@ -56,6 +59,7 @@ local dtu = {
     task = {}, -- 用户自定义任务列表
 }
 
+--GPIO初始化输入，
 default.pios = {
     pio1 = gpio.setup(1, nil, gpio.PULLDOWN),
     pio2 = gpio.setup(2, nil, gpio.PULLDOWN),
@@ -91,19 +95,18 @@ default.pios = {
     pio38 =gpio.setup(38, nil,gpio.PULLDOWN),
 }
 
+--初始化fskv区域
 fskv.init()
 
--- 获取配置
+-- 获取dtu配置
 function default.get()
     return dtu
 end
 
--- 获取配置
+-- 获取cfg配置
 function default.cfg_get()
     return cfg
 end
-
----------------------------------------------------------- 开机读取保存的配置文件 ----------------------------------------------------------
 
 -- NTP同步消息处理
 sys.subscribe("NTP_UPDATE", function()
@@ -111,7 +114,8 @@ sys.subscribe("NTP_UPDATE", function()
     log.info("网络时间已同步", string.format("%04d-%02d-%02d %02d:%02d:%02d", t.year,t.month,t.day,t.hour,t.min,t.sec))
 end)
 
-function config_init()
+--获取dtu配置
+local function config_init()
     local rst, code, head, body, url = false
     -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
     while not socket.adapter(socket.dft()) do
@@ -124,6 +128,7 @@ function config_init()
      -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
      sys.waitUntil("IP_READY", 1000)
      end
+
      while true do
          rst = false
          url = "https://iot.openluat.com/api/dtu/device/" .. mobile.imei() .. "/param?product_name=" .. _G.PROJECT .. "&param_ver=" .. dtu.param_ver.."&iccid="..mobile.iccid()
@@ -168,19 +173,17 @@ function config_init()
          sys.publish("DTU_PARAM_READY")
          --进行ntp同步
          socket.sntp()
-         mobile.reqCellInfo(60)
-         sys.waitUntil("CELL_INFO_UPDATE", 30000)
          log.warn("请求更新:", sys.waitUntil("UPDATE_DTU_CNF", 86400000))
      end
 end
 
 
----------------------------------------------------------- 用户自定义任务初始化 ---------------------------------------------------------
-
+-- 自定义任务执行函数
 function pcall_task(func)
     log.info("pcall", pcall(func))
 end
 
+-- 自定义任务执行函数
 function load_task()
     if dtu.task and #dtu.task ~= 0 then
         for i = 1, #dtu.task do
@@ -191,6 +194,7 @@ function load_task()
     end
 end
 
+--初始化default功能，加载模块存储在文件区的配置，然后赋值给dtu的表里面
 function default.init()
     log.info("config_init")
     -- 加载用户预置的配置文件
@@ -199,25 +203,30 @@ function default.init()
     -- log.info("用户脚本文件:", cfg:export("string"))
     if type(sheet) == "table" and sheet.uconf then
         dtu = sheet
+        --把key值赋值给PRODUCT_KEY，用于后续OTA
         if dtu.project_key then PRODUCT_KEY=dtu.project_key end
+        -- 如果有配置apn，则设置apn
         if dtu.apn and dtu.apn[1] and dtu.apn[1] ~= "" then  mobile.apn(0,1,dtu.apn[1],dtu.apn[2],dtu.apn[3]) end
+        --如果日志等级不为1，则关闭日志
         if dtu.log ~= 1 then
             log.info("没有日志了哦")
             log.setLevel("SILENT") 
         end
+        --如果配置了ipv6，则打开ipv6
         if dtu.isipv6==1 then
             log.info("IPV6打开了")
             mobile.ipv6(true)
         end
     end
 
-
+    --如果配置了功耗模式，则设置功耗模式1，关于功耗问题可以参考https://docs.openluat.com/air780epm/luatos/app/lowpower/sleep/
     if dtu.pwrmod ~= "energy" then 
         pm.power(pm.WORK_MODE, 0)
     else
         pm.power(pm.WORK_MODE, 1)
     end
 
+    -- 如果配置了RNDIS，则打开RNDIS
     if dtu.isRndis==1 then
         mobile.flymode(0, true)
         -- 设置开启RNDIS协议（bit0=1, bit1=1, bit2=0 → 0x03）
@@ -225,7 +234,9 @@ function default.init()
         -- 退出飞行模式
         mobile.flymode(0, false)
     end
+    --加载自定义任务函数
     load_task()
+    --获取dtu配置和OTA功能
     sys.taskInit(config_init)
 end
 

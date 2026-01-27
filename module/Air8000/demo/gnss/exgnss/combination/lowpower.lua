@@ -17,12 +17,12 @@ local function lowpower_cb(tag)
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     local data=string.format('{"lat":%5f,"lng":%5f}', rmc.lat, rmc.lng)
     sys.publish("SEND_DATA_REQ", "gnsslowpower", data) --发送数据到服务器
-    -- pm.power(pm.WORK_MODE, 1)--进入低功耗模式
-    -- pm.power(pm.WORK_MODE,1,1)--wifi进入低功耗模式
 end
 
+pm.power(pm.WORK_MODE, 1)--进入低功耗模式
+pm.power(pm.WORK_MODE,1,1)--wifi进入低功耗模式
+
 local function lower_open()
-    pm.power(pm.WORK_MODE, 0)   --进入正常模式
     exgnss.open(exgnss.TIMERORSUC,{tag="lowpower",val=60,cb=lowpower_cb})
 end
 
@@ -40,7 +40,9 @@ local function gnss_fnc()
         ----芯片解析星历文件需要10-30s，默认GNSS会开启20s，该逻辑如果不执行，会导致下一次GNSS开启定位是冷启动，
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把auto_open设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
-        -- auto_open=false 
+        -- auto_open=false,
+        -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1秒/次，默认1hz，最大5hz
+        -- hz=1,
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
     exgnss.open(exgnss.TIMERORSUC,{tag="lowpower",val=60,cb=lowpower_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭

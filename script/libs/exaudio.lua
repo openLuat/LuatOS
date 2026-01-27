@@ -11,7 +11,7 @@
         3. 使用exaudio.record_stop()停止录音时，会有一小部分结尾的数据因为没有进入audio.on中的audio.RECORD_DATA事件而丢失，解决方案：
             在调用exaudio.record_stop()后，检查两个PCM缓冲区，确保所有数据都被处理
         4. exaudio.play_stream_write(data),流式音频数据,单次写入的长度修改为根据每秒播放数据量来确定
-        5. 低功耗自动控制，exaudio.setup默认POWEROFF模式,exaudio.play_start和exaudio.record_start会自动切换到RESUME模式,播放完成或录音完成，会自动切换到POWEROFF模式
+        5. 低功耗自动控制，exaudio.setup默认SHUTDOWN模式,exaudio.play_start和exaudio.record_start会自动切换到RESUME模式,播放完成或录音完成，会自动切换到SHUTDOWN模式
 @usage
 ]]
 local exaudio = {}
@@ -150,7 +150,7 @@ local function audio_callback(id, event, point)
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
         audio_queue_clear()  -- 清空流式播放数据队列
-        audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
+        audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
         sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
@@ -165,7 +165,7 @@ local function audio_callback(id, event, point)
             audio_record_param.cbfnc(exaudio.RECORD_DONE)
         end
 
-        audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
+        audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
     end
 end
 
@@ -248,7 +248,7 @@ local function audio_setup()
     -- 注册回调
     audio.on(MULTIMEDIA_ID, audio_callback)
     
-    audio.pm(MULTIMEDIA_ID, audio.POWEROFF) -- audio.POWEROFF模式
+    audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
     log.info("exaudio.setup", "声道数已设置为:"..audio_setup_param.channels.."(1=单声道,2=双声道)")
     return true
 end

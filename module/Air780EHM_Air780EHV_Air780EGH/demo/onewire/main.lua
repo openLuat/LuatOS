@@ -55,10 +55,10 @@ end
 -- 双设备模式：GPIO2默认 + 引脚54复用
 
 -- 加载单传感器应用模块
--- require("onewire_single_app")
+require("onewire_single_app")
 
 -- 加载多传感器应用模块
-require("onewire_multi_app")
+-- require("onewire_multi_app")
 
 
 -- 启动系统主循环

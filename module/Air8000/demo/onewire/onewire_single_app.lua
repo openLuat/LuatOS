@@ -108,7 +108,7 @@ local function single_sensor_app_main()
         -- 适用场景：总线上只有一个设备，无需设备寻址和选择
         -- 优势：通信效率高，无需传输ROM ID，简化通信流程
         -- 风险：如果总线上有多个设备，所有设备会同时响应，造成冲突
-        tbuff:write(0xcc)
+        tbuff:write(0xcc,0xb8)
         
         -- 发送温度转换命令
         tbuff[tbuff:used() - 1] = 0x44

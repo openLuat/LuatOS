@@ -235,9 +235,10 @@ void airui_buffer_free_all(airui_ctx_t *ctx);
  * @param size 字号
  * @param cache_size 缓存容量
  * @param antialias 抗锯齿等级
+ * @param load_to_psram 是否将字库缓存载入 PSRAM（默认 false）
  * @return lv_font_t 字体对象，失败返回 NULL
  */
-lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias);
+lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram);
 
 /**
  * 设置显示缓冲

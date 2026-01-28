@@ -382,6 +382,7 @@ lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
  * @int config.size 可选，TTF 字体大小，默认 16
  * @int config.cache_size 可选，TTF 缓存数量，默认 256
  * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
+ * @bool config.load_to_psram 可选，是否将字体及缓存加载到 PSRAM（默认 false）
  * @return userdata 字体指针
  */
 static int l_airui_font_load(lua_State *L) {
@@ -398,7 +399,8 @@ static int l_airui_font_load(lua_State *L) {
         uint16_t size = airui_marshal_integer(L, 1, "size", 16);
         uint32_t cache_size = airui_marshal_integer(L, 1, "cache_size", 256);
         int antialias = airui_marshal_integer(L, 1, "antialias", -1);
-        font = airui_font_hzfont_create(path, size, cache_size, antialias);
+        bool load_to_psram = airui_marshal_bool(L, 1, "load_to_psram", false);
+        font = airui_font_hzfont_create(path, size, cache_size, antialias, load_to_psram);
         if (font == NULL) {
             LLOGE("font_load: failed to create hzfont");
             return 0;

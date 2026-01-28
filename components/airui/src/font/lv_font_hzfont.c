@@ -159,12 +159,13 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
  * @param size 字号
  * @param cache_size 点阵缓存上限数量
  * @param antialias 抗锯齿等级 (-1: 自动, 1: 无, 2: 2x2, 4: 4x4)
+ * @param load_to_psram 是否在初始化时将字库数据复制到 PSRAM（默认 false）
  * @return lv_font_t* 字体对象指针，失败返回 NULL
  */
-lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias) {
+lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram) {
     // 1. 初始化底层引擎（单例模式）
     if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
-        if (!luat_hzfont_init(path, cache_size, 0)) // 当前默认不将hzfont加载到psram中，TODO:打开会在模拟器中有问题需要后续修复
+        if (!luat_hzfont_init(path, cache_size, (int)load_to_psram))
         {
             LLOGE("hzfont init failed: %s", path ? path : "builtin");
             return NULL;
@@ -218,8 +219,13 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
     return NULL;
 }
 
-lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias) {
+lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram) {
     LLOGW("该固件不支持HZFont字体");
+    (void)path;
+    (void)size;
+    (void)cache_size;
+    (void)antialias;
+    (void)load_to_psram;
     return NULL;
 }
 

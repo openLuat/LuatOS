@@ -319,6 +319,12 @@ int ttf_load_from_file(const char *path, TtfFont *font) {
     font->glyfOffset = glyf.offset;
     font->locaOffset = loca.offset;
 
+    if (!ttf_read_hhea_metrics(font, &hhea)) {
+        font->ascent = (int16_t)font->unitsPerEm;
+        font->descent = 0;
+        font->lineGap = 0;
+    }
+
     ttf_cache_cmap_subtable(font);
 
     return TTF_OK;

@@ -28,13 +28,13 @@ SPI0_MISO/p55/GPIO17    MISO
 ]]
 
 -- SPI配置参数
-local SPI_ID = 0             -- SPI总线ID，根据实际情况修改
-local CS_PIN = 15            -- CS引脚，根据实际情况修改
-local CPHA = 0               -- 时钟相位
-local CPOL = 0               -- 时钟极性
-local data_Width = 8         -- 数据宽度(位)
+local SPI_ID = 0                 -- SPI总线ID，根据实际情况修改
+local CS_PIN = 15                -- CS引脚，根据实际情况修改
+local CPHA = 1                   -- 时钟相位
+local CPOL = 0                   -- 时钟极性
+local data_Width = 8             -- 数据宽度(位)
 local bandrate = 4 * 1000 * 1000 -- 波特率(Hz)，初始化为4MHz,8101最低支持4M
-gpio.setup(13, 1)            --air8101模组，gpio13控制ldo输出3.3v
+gpio.setup(13, 1)                --air8101模组，gpio13控制ldo输出3.3v
 
 -- 1. 以对象方式设置并启用 SPI，返回设备对象
 local function spiDev_init_func()
@@ -180,23 +180,25 @@ local function spinor_test_func()
         spi_close_func()
         return
     end
+    while true do
+        -- 流程3：挂载文件系统
+        local mount_point = "/little_flash"
+        if not mount_filesystem(flash_device, mount_point) then
+            log.error("主流程", "文件系统挂载失败，终止")
+            spi_close_func()
+            return
+        end
 
-    -- 流程3：挂载文件系统
-    local mount_point = "/little_flash"
-    if not mount_filesystem(flash_device, mount_point) then
-        log.error("主流程", "文件系统挂载失败，终止")
-        spi_close_func()
-        return
+        -- 流程4：打印文件系统信息
+        print_filesystem_info(mount_point)
+
+        -- 流程5：执行文件操作测试
+        if not test_file_operations(mount_point) then
+            log.warn("主流程", "文件操作测试部分失败")
+        end
+
+        sys.wait(5000)
     end
-
-    -- 流程4：打印文件系统信息
-    print_filesystem_info(mount_point)
-
-    -- 流程5：执行文件操作测试
-    if not test_file_operations(mount_point) then
-        log.warn("主流程", "文件操作测试部分失败")
-    end
-
     -- 6.关闭SPI设备
     spi_close_func()
 end

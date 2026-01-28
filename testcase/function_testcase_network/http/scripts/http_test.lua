@@ -262,7 +262,33 @@ function http_response.test_chunked()
         assert(code == 200, string.format("chunked测试body完整性请求 %d 失败: 预期 200, 实际 %d", i, code))
         assert(body and #body == 204, string.format("chunked测试body完整性请求 %d 失败: 预期长度 204, 实际长度 %d", i, body and #body or 0))
     end
+end
 
+-- 测试请求chunked编码流式JSON文件并测试完整性
+function http_response.test_chunked_stream_json()
+    log.info("http_response", "开始【chunked编码流式JSON完整性】测试")
+    local count = 10
+    for i = 1, count do
+        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/stream/1", nil, nil, {timeout=5000, debug=true}).wait()
+        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: 预期 200, 实际 %d", i, code))
+        assert(body and #body > 0, string.format("chunked流式JSON测试 %d 失败: 预期长度 >0, 实际长度 %d", i, body and #body or 0))
+        local success, result = pcall(json.decode, body)
+        assert(success and result, string.format("chunked流式JSON测试 %d 失败: JSON解析失败", i))
+    end
+
+    for i = 1, count do
+        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/stream/100", nil, nil, {timeout=5000, debug=true}).wait()
+        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: 预期 200, 实际 %d", i, code))
+        assert(body and #body > 0, string.format("chunked流式JSON测试 %d 失败: 预期长度 >0, 实际长度 %d", i, body and #body or 0))
+        local jsons = {}
+        for json_str in body:gmatch("{.-}\r?\n?") do
+            local ok, obj = pcall(json.decode, json_str)
+            if ok and obj then
+                table.insert(jsons, obj)
+            end
+        end
+        assert(#jsons == 100, string.format("chunked流式JSON测试 %d 失败: JSON解析失败", i))
+    end
 end
 
 -- 测试下载mp3文件数据完整性以及文件是否正常存在

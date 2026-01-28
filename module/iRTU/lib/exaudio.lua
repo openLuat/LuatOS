@@ -20,7 +20,9 @@ local exaudio = {}
 local I2S_ID = 0
 local I2S_MODE = 0          -- 0:主机 1:从机
 local I2S_SAMPLE_RATE = 16000
-local I2S_COMM_FORMAT = i2s.MODE_LSB   -- 可选MODE_I2S, MODE_LSB, MODE_MSB
+if i2s then
+    local I2S_COMM_FORMAT = i2s.MODE_LSB   -- 可选MODE_I2S, MODE_LSB, MODE_MSB 
+end
 local I2S_CHANNEL_BITS = 16
 local MULTIMEDIA_ID = 0
 local EX_MSG_PLAY_DONE = "playDone"

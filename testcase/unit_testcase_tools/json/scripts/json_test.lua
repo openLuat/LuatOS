@@ -265,4 +265,60 @@ function json_tests.test_decode_boolean()
     log.info("json", "布尔值解码成功")
 end
 
+-- 测试本身包含大量转义字符的JSON字符串解码
+-- 测试目的: 验证复杂转义字符的JSON字符串能够正确解码
+-- 测试内容: 解码包含多种转义字符的JSON字符串
+-- 预期结果: 解码后的table字段值正确
+function json_tests.test_decode_complex_escape()
+    log.info("json_tests", "开始 JSON 复杂转义字符解码测试")
+    local f = io.open("/luadb/test_decode.txt", "r")
+    local str = f:read("*a")
+    f:close()
+    local t = json.decode(str)
+    assert(t ~= nil, "JSON解码失败")
+    -- {"netouttime":30,"password":"","log":1,"ota":0,"paramuptype":0,"userparamurl":"","reboottime":1440,"uartreboottime":0,"netreboottime":0,"remotecmd":1,"ntptime":24,"dcache":0,"simt":0,"lp":0,"ttst":0,"led":0,"pcm":1,"ipv6":0,"rndis":0,"mm":0,"paramsrc":2,"paramver":22,"apn":[0,"","","",0],"uartparam":[[1,115200,8,0,1,80,0],[],[3,115200,8,0,1,80,0]],"autopoll":[[],[],[]],"netchan":[["tcpc",1,1,0,"00",60,"118.195.188.216","9093",0,1,"",3,"END",3,"MY IS 4G",0,0],["tcpc",1,1,0,"00",60,"118.195.188.216","9091",0,1,"",1,"",3,"MY IS ETH",0,0],["tcpc",1,1,1,"123",60,"118.195.188.216","9092",0,0,"",0,"",3,"MY IS WIFI STA",0,0],[],[],[],[],[]],"prot":[[],[],[],[],[],[],[],[]],"task":["function \n\tlocal taskname=\"userTask\"\n\tlog.info(taskname,\"start\")\n\tlocal nid=1\n\tlocal count =0\n\tlocal netsta =0\n\t\n\twhile true do \n\tsys.wait(10000)\n\t\tlocal d ={}\n\t\td.datetime=os.date(\"%Y-%m-%d %H:%M:%S\")\n\t\td.csq=mobile.csq()\n\t\td.sn=mobile.imei()\n\t\td.iccid = PerGetIccid()\n\t\td.vbat = PerGetVbattV()\n\t\t\n\t\tlocal updata = json.encode(d)\n\t\tnetsta = PronetGetNetSta(nid)\n\t\tlog.info(taskname,\"updata\",updata,\"netsta\",netsta)\n\t\tif updata and netsta ==1 then \n\t\t\tPronetSetSendCh(nid,updata)\n\t\tend\n\tsys.wait(5000)\n\tend\nend"],"io":{"doout":[],"di_timer":[],"aii_timer":[],"aiv_timer":[],"di_warm":[],"aii_warm":[],"aiv_warm":[]},"wl":0,"location":[[],[]],"yedala":[],"sms":[],"upf":[],"sslf":[[],[],[],[],[],[],[],[]],"eth":[1,"","",""],"wifi":{"mode":0,"sta":["yedyftest","yed1234567890","",1,"","",""]},"nic":[]}
+    -- 检测每个字段是否正确解码
+    assert(t.netouttime == 30, "netouttime字段值错误")
+    assert(t.password == "", "password字段值错误")
+    assert(t.log == 1, "log字段值错误")
+    assert(t.ota == 0, "ota字段值错误")
+    assert(t.paramuptype == 0, "paramuptype字段值错误")
+    assert(t.userparamurl == "", "userparamurl字段值错误")
+    assert(t.reboottime == 1440, "reboottime字段值错误")
+    assert(t.uartreboottime == 0, "uartreboottime字段值错误")
+    assert(t.netreboottime == 0, "netreboottime字段值错误")
+    assert(t.remotecmd == 1, "remotecmd字段值错误")
+    assert(t.ntptime == 24, "ntptime字段值错误")
+    assert(t.dcache == 0, "dcache字段值错误")
+    assert(t.simt == 0, "simt字段值错误")
+    assert(t.lp == 0, "lp字段值错误")
+    assert(t.ttst == 0, "ttst字段值错误")
+    assert(t.led == 0, "led字段值错误")
+    assert(t.pcm == 1, "pcm字段值错误")
+    assert(t.ipv6 == 0, "ipv6字段值错误")
+    assert(t.rndis == 0, "rndis字段值错误")
+    assert(t.mm == 0, "mm字段值错误")
+    assert(t.paramsrc == 2, "paramsrc字段值错误")
+    assert(t.paramver == 22, "paramver字段值错误")
+    assert(t.apn[1] == 0, "apn字段值错误")
+    assert(t.uartparam[1][1] == 1, "uartparam字段值错误")
+    assert(t.autopoll[1][1] == nil, "autopoll字段值错误")
+    assert(t.netchan[1][1] == "tcpc", "netchan字段值错误")
+    assert(t.prot[1][1] == nil, "prot字段值错误")
+    assert(t.io.doout ~= nil, "io.doout字段解码失败")
+    assert(t.wl == 0, "wl字段值错误")
+    assert(t.location[1][1] == nil, "location字段值错误")
+    assert(t.yedala[1] == nil, "yedala字段值错误")
+    assert(t.sms[1] == nil, "sms字段值错误")
+    assert(t.upf[1] == nil, "upf字段值错误")
+    assert(t.sslf[1][1] == nil, "sslf字段值错误")
+    assert(t.eth[1] == 1, "eth字段值错误")
+    assert(t.wifi.mode == 0, "wifi.mode字段值错误")
+    assert(t.nic[1] == nil, "nic字段值错误")
+    assert(t.task[1] ~= nil, "task字段值错误")
+    log.info("json", "复杂转义字符JSON解码成功")
+    -- 打印task字段内容
+    log.info("json", "task内容:", t.task[1])
+end
+
 return json_tests

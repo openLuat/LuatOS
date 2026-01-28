@@ -21,7 +21,7 @@ local send_queue = {} -- 发送队列
 local MAX_SEND_QUEUE_LEN = 50 -- 发送队列最大长度
 local send_res = false
 
-gpio.setup(23, 1) -- 要手动打开，否则无法使用CAN芯片不能正常工作
+gpio.setup(23, 1) -- 要手动打开，开发板can电路需要使用gpio23引脚作为参考电平。
 
 -- 数据插入发送队列
 local function can_send_data(id, msg_id, id_type, RTR, need_ack, data)
@@ -42,10 +42,10 @@ end
 local function can_cb(id, cb_type, param)
     if cb_type == can.CB_MSG then
         log.info("有新的消息")
-        local succ, id, id_type, rtr, data = can.rx(id)
+        local succ, msg_id, id_type, rtr, data = can.rx(id)
         while succ do
-            log.info(mcu.x32(id), #data, data:toHex())
-            succ, id, id_type, rtr, data = can.rx(id)
+            log.info(mcu.x32(msg_id), #data, data:toHex())
+            succ, msg_id, id_type, rtr, data = can.rx(id)
         end
     end
     if cb_type == can.CB_TX then

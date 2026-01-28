@@ -266,7 +266,7 @@ static int on_header_field(http_parser* parser, const char *at, size_t length){
 	}
 
 	if (http_ctrl->luatos_mode) {
-		if(!strncasecmp(at, "Content-Length: ", 16) && http_ctrl->resp_content_len == 0){
+		if(!strncasecmp(at, "Content-Length", 14) && http_ctrl->resp_content_len == 0){
 			http_ctrl->resp_content_len = -1;
 		}
 		if (!http_ctrl->headers){

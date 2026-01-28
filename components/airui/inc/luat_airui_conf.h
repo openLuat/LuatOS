@@ -67,15 +67,15 @@
 
     #define LV_COLOR_DEPTH 16
 
-    #define LV_USE_LOG 1
-    /** Set value to one of the following levels of logging detail:
-     *  - LV_LOG_LEVEL_TRACE    Log detailed information.
-     *  - LV_LOG_LEVEL_INFO     Log important events.
-     *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
-     *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
-     *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
-     *  - LV_LOG_LEVEL_NONE     Do not log anything. */
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    // #define LV_USE_LOG 1
+    // /** Set value to one of the following levels of logging detail:
+    //  *  - LV_LOG_LEVEL_TRACE    Log detailed information.
+    //  *  - LV_LOG_LEVEL_INFO     Log important events.
+    //  *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
+    //  *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
+    //  *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
+    //  *  - LV_LOG_LEVEL_NONE     Do not log anything. */
+    // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
     
     // 图片解码支持
     #define LV_USE_LODEPNG 1

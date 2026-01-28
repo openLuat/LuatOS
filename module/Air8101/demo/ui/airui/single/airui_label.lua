@@ -13,15 +13,26 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 创建标签
-    local label = airui.label({
+    -- 创建文本标签
+    local label1 = airui.label({
         text = "Hello, World!",
         x = 20,
         y = 80,
-        w = 200,
+        w = 100,
         h = 40,
     })
 
+    -- 创建图标标签
+    local label2 = airui.label({
+        symbol = airui.AIRUI_SYMBOL_SETTINGS,
+        x = 120,
+        y = 80,
+        w = 20,
+        h = 20,
+        on_click = function(self)
+            log.info("label2", "设置图标被点击")
+        end
+    })
     -- 主循环
     while true do
         airui.refresh()

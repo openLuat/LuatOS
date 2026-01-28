@@ -29,7 +29,7 @@ local USER_TASK_NAME = "user_task"  -- 用户任务名称
 local MSG_KEY_PRESS = 12            -- 按键消息类型
 
 -- 目标设备ID，修改为你想要对讲的终端ID
-TARGET_DEVICE_ID = "60646022"
+TARGET_DEVICE_ID = "867920075013434"
 
 -- 全局状态变量
 local g_dev_list = nil              -- 设备列表，存储所有可用对讲设备
@@ -48,6 +48,16 @@ local LED = nil
 -- @param dev_list 设备列表，包含所有在线对讲设备信息
 local function contact_list_callback(dev_list)
     g_dev_list = dev_list
+    -- 当设备列表更新时，确保对讲状态为空闲
+    -- 这会在系统启动和网络重连时被调用，保证状态与服务器同步
+    if not g_speech_active then
+        -- 状态已经是空闲，无需处理
+    else
+        -- 重置对讲状态为空闲
+        log.info("系统重新连接，重置对讲状态为空闲")
+        g_speech_active = false
+        LED(0)  -- 关闭LED
+    end
     if dev_list and #dev_list > 0 then
         log.info("联系人列表更新:")
         for i = 1, #dev_list do

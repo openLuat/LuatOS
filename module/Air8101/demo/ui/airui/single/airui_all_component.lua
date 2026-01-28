@@ -185,13 +185,24 @@ local function ui_main()
         h = 30,
     })
 
+    -- 使用一个变量来跟踪当前状态
+    local is_on = true -- 初始为ON，与switch的checked=true对应
+
     local toggle_switch = airui.switch({
         parent = left_col,
         x = 240,
         y = 280,
         checked = true,
         on_change = function(self)
-            log.info("switch", toggle_switch:get_state() and "打开" or "关闭")
+            -- 切换状态
+            is_on = not is_on
+            -- 根据状态更新文本
+            if is_on then
+                log.info("当前状态: 开")
+            else
+                log.info("当前状态: 关")
+            end
+ 
         end
     })
 

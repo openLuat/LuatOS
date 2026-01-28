@@ -24,11 +24,11 @@
 
     #define LV_COLOR_DEPTH 16
 
-    // #define LV_USE_LOG 1
-    // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    #define LV_USE_LOG 1
+    #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // 使用系统堆
-    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB 
+    // 使用自定义堆（Lua堆）
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
     // 打开图片解码器
     #define LV_USE_LODEPNG 1
@@ -67,8 +67,9 @@
 
     #define LV_COLOR_DEPTH 16
 
-    /* Use system heap (luat_heap_malloc) instead of LVGL builtin pool */
-    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB
+    // 使用自定义堆（Lua堆）
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
+
 
     #define LV_USE_LOG 1
     /** Set value to one of the following levels of logging detail:

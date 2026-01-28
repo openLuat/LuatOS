@@ -27,8 +27,8 @@
     // #define LV_USE_LOG 1
     // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // 设置lvgl缓存大小，pc端可以大一些，给4M
-    #define LV_MEM_SIZE (4096 * 1024U)   
+    // 使用系统堆
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB 
 
     // 打开图片解码器
     #define LV_USE_LODEPNG 1
@@ -67,6 +67,9 @@
 
     #define LV_COLOR_DEPTH 16
 
+    /* Use system heap (luat_heap_malloc) instead of LVGL builtin pool */
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB
+
     #define LV_USE_LOG 1
     /** Set value to one of the following levels of logging detail:
      *  - LV_LOG_LEVEL_TRACE    Log detailed information.
@@ -79,8 +82,6 @@
     
     // 图片解码支持
     #define LV_USE_LODEPNG 1
-    #define LV_MEM_SIZE (128 * 1024U)
-
     #define LV_USE_TJPGD 1
 
     // 打开XML支持

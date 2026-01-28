@@ -194,9 +194,10 @@ local A_size = {
 ---718pm
 
 local B_1 = {"camera", "eink", "tp", "lcd", "u8g2", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump",
-             "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv",
-             "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
-             "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
+             "i2c", "iconv", "io", "fota", "fskv", "ftp", "gmssl", "gpio","hmeta", "ht1621", "http", "httpsrv", "ioqueue",
+             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os",
+             "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus",
+             "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 
 -- 2号固件
 local B_2 = {"camera", "lcd", "u8g2", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv",
@@ -484,7 +485,7 @@ local function module_size(core_number, is_ec718hm, is_ec718pm)
     assert(script_size == expected_script_size,
         string.format("%s_%s固件脚本区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
             core_value, expected_script_size, script_size))
-            log.info("脚本区/fs区大小符合预期")
+    log.info("脚本区/fs区大小符合预期")
     -- return expected_fs_size, expected_script_size
 end
 function check_core.test_mouble_check()
@@ -574,6 +575,4 @@ function check_core.test_mouble_check()
     log.info("✓ 库检查完成")
 end
 return check_core
-
-
 

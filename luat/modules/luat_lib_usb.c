@@ -244,13 +244,12 @@ static int l_usb_pid(lua_State* L) {
 设置USB支持的设备类和数量，必须在USB外设掉电不工作时进行设置
 @api usb.add_class(id, class, num)
 @int usb总线id,默认0,如果芯片只有1条USB线,填0
-@int 设备类,从机模式支持usb.CDC_ACM,usb.HID_CM,usb.HID_KB,usb.MSC,usb.WINUSB,主机模式不需要配置
+@int 设备类,从机模式支持usb.CDC_ACM,usb.HID_CM,usb.HID_KB,usb.MSC,主机模式不需要配置
 @int 数量,目前只有从机的usb.CDC_ACM允许至多3个,其他只允许1个,超过时会强制改成所允许的最大值
 @return bool 成功返回true,否则返回false,总线id填错,所选设备类不支持时,端点数量超过芯片允许的最大值,USB外设正在工作等情况下返回失败
 @usage
 pm.power(pm.USB, false)
 usb.add_class(0, usb.CDC_ACM, 3)	--使用3个CDC-ACM虚拟串口功能
-usb.add_class(0, usb.WINUSB, 1)		--使用1个WINUSB功能
 usb.add_class(0, usb.HID_CM, 1)		--使用1个自定义HID功能
 usb.add_class(0, usb.HID_KB, 1)		--使用1个标准键盘功能
 pm.power(pm.USB, true)
@@ -270,7 +269,8 @@ static int l_usb_add_class(lua_State* L) {
 pm.power(pm.USB, false)
 usb.clear_all_class(0)				--清除掉之前配置的设备类
 usb.add_class(0, usb.CDC_ACM, 3)	--使用3个CDC-ACM虚拟串口功能
-usb.add_class(0, usb.WINUSB, 1)		--使用1个WINUSB功能
+usb.add_class(0, usb.HID_CM, 1)		--使用1个自定义HID功能
+usb.add_class(0, usb.HID_KB, 1)		--使用1个标准键盘功能
 pm.power(pm.USB, true)
 */
 static int l_usb_clear_all_class(lua_State* L) {
@@ -329,8 +329,7 @@ static const rotable_Reg_t reg_usb[] =
     { "HID_KB",       			ROREG_INT(LUAT_USB_CLASS_HID_KEYBOARD)},
 	//@const MSC number 大容量存储类，也就是U盘，TF卡
     { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
-	//@const WINUSB number WINUSB类，透传数据
-    { "WINUSB",       		ROREG_INT(LUAT_USB_CLASS_WINUSB)},
+
 
 	//@const EV_RX number  有新的数据到来
     { "EV_RX",       		ROREG_INT(LUAT_USB_EVENT_NEW_RX)},

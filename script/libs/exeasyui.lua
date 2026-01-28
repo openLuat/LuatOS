@@ -1,7 +1,7 @@
 --[[
-exEasyUI v1.7.2
+exEasyUI v1.7.5
 作者：曾帅、江访
-日期：2026-01-05
+日期：2026-01-26
 ================================
 结构说明：
 1. 常量定义 - UI颜色常量和调试配置
@@ -27,7 +27,7 @@ exEasyUI v1.7.2
 ]]
 
 local ui                              = {
-    version = "1.7.2",
+    version = "1.7.5",
     hw = {},
     runtime = {},
     render = {},
@@ -56,8 +56,8 @@ local canvas
 local handle_debug_stats
 
 local render_state
-
-local sleep_config = {}
+local sleep_flag                      = false -- 休眠标志，默认false（非休眠状态）
+local sleep_config                    = {}
 
 -- 运行时表提前声明，便于硬件模块引用
 local runtime                         = {
@@ -153,6 +153,7 @@ local function configure_font_backend(opts)
             log.warn("exEasyUI", "该固件不支持默认的font_opposansm12_chinese字体，将没有中文支持，请更换支持该字体的固件 ")
         end
     end
+
     if opts.type == "gtfont" and gtfont and spi then
         local spi_id = (opts.spi and opts.spi.id) or 0
         local spi_cs = (opts.spi and opts.spi.cs) or 8
@@ -171,8 +172,20 @@ local function configure_font_backend(opts)
     elseif opts.type == "hzfont" and hzfont then
         local cache_size = tonumber(opts.cache_size) or 256
         cache_size = (cache_size == 128 or cache_size == 256 or cache_size == 512 or cache_size == 1024 or cache_size == 2048) and
-        cache_size or 256
-        local ok = hzfont.init(opts.path, cache_size)
+            cache_size or 256
+        local to_psram = opts.to_psram or false
+        local ok
+
+        if to_psram then
+            -- 使用3个参数初始化：ttf_path, cache_size, load_to_psram
+            ok = hzfont.init(opts.path, nil, true)
+            log.info("exEasyUI", "hzfont enabled with PSRAM", opts.path or "builtin", FontAdapter._size, "to_psram=true")
+        else
+            -- 使用2个参数初始化：ttf_path, cache_size
+            ok = hzfont.init(opts.path, cache_size)
+            log.info("exEasyUI", "hzfont enabled", opts.path or "builtin", FontAdapter._size, "to_psram=false")
+        end
+
         if ok then
             FontAdapter._backend = "hzfont"
             FontAdapter._size = tonumber(opts.size or 16)
@@ -181,12 +194,12 @@ local function configure_font_backend(opts)
                 aa = -1
             end
             FontAdapter._hz_antialias = aa
-            log.info("exEasyUI", "hzfont enabled", opts.path or "builtin", FontAdapter._size)
             return
         else
             log.warn("exEasyUI", "hzfont init failed, fallback")
         end
     end
+
     fallback_default()
 end
 
@@ -286,16 +299,16 @@ exEasyUI 当前的画面刷新机制采用了“脏区收集 + 延迟批量渲�
 ]]
 
 render_state = {
-    dirty_regions = {},          -- 当前帧需要刷新的区域列表（数组）
-    full_refresh = true,         -- 是否需要全屏刷新
-    need_present = false,        -- 是否需要LCD重新显示
-    viewport_w = 320,            -- 渲染视口宽度，默认320
-    viewport_h = 240,            -- 渲染视口高度，默认240
-    clear_color = COLOR_BLACK,   -- 清屏颜色
-    render_in_progress = false,  -- 是否正在渲染
-    render_pending = false,      -- 是否有待渲染请求
-    batch_timer_id = nil,        -- 批量刷新定时器ID
-    batch_delay_ms = 30          -- 批量刷新延迟（单位ms）
+    dirty_regions = {},         -- 当前帧需要刷新的区域列表（数组）
+    full_refresh = true,        -- 是否需要全屏刷新
+    need_present = false,       -- 是否需要LCD重新显示
+    viewport_w = 320,           -- 渲染视口宽度，默认320
+    viewport_h = 240,           -- 渲染视口高度，默认240
+    clear_color = COLOR_BLACK,  -- 清屏颜色
+    render_in_progress = false, -- 是否正在渲染
+    render_pending = false,     -- 是否有待渲染请求
+    batch_timer_id = nil,       -- 批量刷新定时器ID
+    batch_delay_ms = 30         -- 批量刷新延迟（单位ms）
 }
 
 -- 计算当前脏区的纵向范围，返回 min_y/max_y（用于局部刷新优化）
@@ -347,7 +360,7 @@ end
 -- 如果没脏区直接返回，避免无谓的绘制
 local function render_dirty_regions_once()
     if not render_state.need_present then
-        if lcd and lcd.flush then
+        if not sleep_flag and lcd and lcd.flush then
             lcd.flush()
         end
         return false
@@ -372,7 +385,7 @@ local function render_dirty_regions_once()
     end
     stats.frame_ms = now_ms() - start_ms
     handle_debug_stats(stats)
-    if lcd and lcd.flush then
+    if not sleep_flag and lcd and lcd.flush then
         lcd.flush()
     end
     reset_dirty_state()
@@ -410,7 +423,7 @@ end
 
 -- 批量渲染调度函数：合并短时间内多次渲染请求，只调度一次定时渲染
 local function schedule_batched_render()
-    render_state.need_present = true  -- 标记需要渲染
+    render_state.need_present = true -- 标记需要渲染
     -- 如果不支持 sys.timerStart 或未设置批量延迟，或批量延迟为0，则直接渲染
     if not sys or not sys.timerStart or (render_state.batch_delay_ms or 0) <= 0 then
         return request_render()
@@ -1182,7 +1195,7 @@ function button:new(opts)
     local o = BaseWidget.new(self, opts)
     local dark = (current_theme == "dark")
     o.text = opts.text or "Button"
-    o.text_style = { size = opts.text_size or 12 }
+    o.text_style = { size = opts.text_size or opts.size or opts.font_size or 12 }
     o.colors = {
         bg = opts.bg_color or (dark and COLOR_GRAY or COLOR_WHITE),
         pressed = opts.pressed_color or COLOR_SKY_BLUE,
@@ -1298,7 +1311,7 @@ check_box.__index = check_box
 function check_box:new(opts)
     opts = opts or {}
     opts.box_size = opts.box_size or 20
-    local text_style = { size = opts.font_size or 12 }
+    local text_style = { size = opts.text_size or 12 }
     local text_width = opts.text and font_measure(opts.text, text_style) or 0
     opts.w = math.max(opts.w or 0, opts.box_size + (opts.text and (10 + text_width) or 0))
     opts.h = math.max(opts.h or 0, opts.box_size, font_line_height(text_style))
@@ -1409,11 +1422,11 @@ function dropdown_panel:draw(ctx)
     if not self.visible then return end
     local owner = self.owner
     if not owner then return end
-    local ax, ay = self:get_absolute_position()
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local ax, ay       = self:get_absolute_position()
+    local dark         = (current_theme == "dark")
+    local bg_color     = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
     local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    ctx:fill_rect(ax, ay, self.w, self.h, bg_color )
+    ctx:fill_rect(ax, ay, self.w, self.h, bg_color)
     ctx:stroke_rect(ax, ay, self.w, self.h, border_color)
     local startIdx = self.scroll_offset + 1
     local endIdx = math.min(#owner.options, startIdx + (self.visible_count or owner.max_visible_items or 5) - 1)
@@ -1462,7 +1475,7 @@ function dropdown_panel:draw(ctx)
         local thumbY
         if self.max_scroll_offset > 0 then
             thumbY = scrollBarY +
-            math.floor((self.scroll_offset / self.max_scroll_offset) * (scrollBarHeight - thumbHeight))
+                math.floor((self.scroll_offset / self.max_scroll_offset) * (scrollBarHeight - thumbHeight))
         else
             thumbY = scrollBarY
         end
@@ -1668,9 +1681,9 @@ end
 
 function combo_box:draw(ctx)
     if not self.visible then return end
-    local ax, ay = self:get_absolute_position()
-    local bg_color  = self.pressed and COLOR_GRAY or self.colors.bg
-    ctx:fill_rect(ax, ay, self.w, self.h, bg_color )
+    local ax, ay   = self:get_absolute_position()
+    local bg_color = self.pressed and COLOR_GRAY or self.colors.bg
+    ctx:fill_rect(ax, ay, self.w, self.h, bg_color)
     ctx:stroke_rect(ax, ay, self.w, self.h, self.colors.border)
     local textPadding = 8
     local arrowSpace = 20
@@ -2086,9 +2099,9 @@ function keyboard:new(opts)
         { text = "7",      chars = { "7" }, type = "number" },
         { text = "8",      chars = { "8" }, type = "number" },
         { text = "9",      chars = { "9" }, type = "number" },
-        { text = "delete", chars = {},    type = "delete" },
+        { text = "delete", chars = {},      type = "delete" },
         { text = "0",      chars = { "0" }, type = "number" },
-        { text = "EN",     chars = {},    type = "letter" }
+        { text = "EN",     chars = {},      type = "letter" }
     }
 
     -- 根据模式设置按键映射
@@ -2437,13 +2450,13 @@ end
 function keyboard:draw(ctx)
     if not self.visible then return end
 
-    local ax, ay = self:get_absolute_position()
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local ax, ay       = self:get_absolute_position()
+    local dark         = (current_theme == "dark")
+    local bg_color     = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
     local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
 
     -- 绘制键盘背景
-    ctx:fill_rect(ax, ay, self.w, self.h, bg_color )
+    ctx:fill_rect(ax, ay, self.w, self.h, bg_color)
     ctx:stroke_rect(ax, ay, self.w, self.h, border_color)
 
     -- 绘制顶部控制栏（返回按钮和预览区）
@@ -2472,20 +2485,20 @@ function keyboard:draw(ctx)
 end
 
 function keyboard:draw_top_bar(ctx, ax, ay)
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local button_bg_color  = bg_color
+    local dark            = (current_theme == "dark")
+    local bg_color        = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color    = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color      = dark and COLOR_WHITE or COLOR_BLACK
+    local button_bg_color = bg_color
 
     -- 返回按钮
-    local backBtnX = ax + 10
-    local backBtnY = ay + 5
-    local backBtnW = 60
-    local backBtnH = 35
+    local backBtnX        = ax + 10
+    local backBtnY        = ay + 5
+    local backBtnW        = 60
+    local backBtnH        = 35
     -- 检查返回按钮是否被按下
-    local backBtnbg_color  = (self.enable_click_effect and self._backButtonPressed) and COLOR_GRAY or button_bg_color
-    ctx:fill_rect(backBtnX, backBtnY, backBtnW, backBtnH, backBtnbg_color )
+    local backBtnbg_color = (self.enable_click_effect and self._backButtonPressed) and COLOR_GRAY or button_bg_color
+    ctx:fill_rect(backBtnX, backBtnY, backBtnW, backBtnH, backBtnbg_color)
     ctx:stroke_rect(backBtnX, backBtnY, backBtnW, backBtnH, border_color)
     local back_text = "返回"
     local back_style = { size = 12 }
@@ -2516,7 +2529,7 @@ function keyboard:draw_top_bar(ctx, ax, ay)
         -- 输入预览区：有边框，高35px
         local previewAreaY = backBtnY
         local previewAreaH = backBtnH
-        ctx:fill_rect(previewX, previewAreaY, previewW, previewAreaH, button_bg_color )
+        ctx:fill_rect(previewX, previewAreaY, previewW, previewAreaH, button_bg_color)
         ctx:stroke_rect(previewX, previewAreaY, previewW, previewAreaH, border_color)
         -- 左对齐绘制，左边距10px
         local previewtext_color = (previewText == "") and COLOR_GRAY or text_color
@@ -2560,18 +2573,18 @@ end
 function keyboard:draw_preview_area(ctx, ax, ay)
     if not self.input then return end
 
-    local previewY = ay + 5      -- 和返回按键平行
-    local previewHeight = 35     -- 和返回按键高度一致
-    local previewX = ax + 80     -- 预览框起始位置（返回键后）
-    local previewW = self.w - 90 -- 预览框宽度
+    local previewY      = ay + 5      -- 和返回按键平行
+    local previewHeight = 35          -- 和返回按键高度一致
+    local previewX      = ax + 80     -- 预览框起始位置（返回键后）
+    local previewW      = self.w - 90 -- 预览框宽度
 
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
+    local dark          = (current_theme == "dark")
+    local bg_color      = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color  = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color    = dark and COLOR_WHITE or COLOR_BLACK
 
     -- 绘制预览区背景
-    ctx:fill_rect(previewX, previewY, previewW, previewHeight, bg_color )
+    ctx:fill_rect(previewX, previewY, previewW, previewHeight, bg_color)
     ctx:stroke_rect(previewX, previewY, previewW, previewHeight, border_color)
 
     -- 绘制预览文本
@@ -2596,15 +2609,15 @@ function keyboard:draw_preview_area(ctx, ax, ay)
 end
 
 function keyboard:draw_key(ctx, key)
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local presse_dbg_color  = COLOR_GRAY
+    local dark             = (current_theme == "dark")
+    local bg_color         = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color     = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color       = dark and COLOR_WHITE or COLOR_BLACK
+    local presse_dbg_color = COLOR_GRAY
 
-    local btnbg_color  = (self.enable_click_effect and key.pressed) and presse_dbg_color  or bg_color
+    local btnbg_color      = (self.enable_click_effect and key.pressed) and presse_dbg_color or bg_color
 
-    ctx:fill_rect(key.x, key.y, key.w, key.h, btnbg_color )
+    ctx:fill_rect(key.x, key.y, key.w, key.h, btnbg_color)
     ctx:stroke_rect(key.x, key.y, key.w, key.h, border_color)
 
     -- -- 绘制按键文本
@@ -2898,15 +2911,15 @@ end
 
 -- 绘制候选字符区
 function keyboard:draw_candidate_area(ctx, ax, ay)
-    local candidateY = ay + 50 -- 候选区Y坐标（预览区下方10px）
-    local candidateHeight = 50
+    local candidateY       = ay + 50 -- 候选区Y坐标（预览区下方10px）
+    local candidateHeight  = 50
     local candidateBtnSize = 30
 
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local presse_dbg_color  = COLOR_GRAY
+    local dark             = (current_theme == "dark")
+    local bg_color         = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color     = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color       = dark and COLOR_WHITE or COLOR_BLACK
+    local presse_dbg_color = COLOR_GRAY
 
     -- 候选按键固定10个，从左到右排列
     for i = 1, 10 do
@@ -2915,12 +2928,12 @@ function keyboard:draw_candidate_area(ctx, ax, ay)
 
         -- 根据是否有候选字符决定显示内容
         if i <= #self.currentCandidates then
-            local char = self.currentCandidates[i]
+            local char        = self.currentCandidates[i]
             -- 检查候选按键是否被按下
-            local isPressed = (self._pressedCandidateIndex == i)
-            local btnbg_color  = (self.enable_click_effect and isPressed) and presse_dbg_color  or bg_color
+            local isPressed   = (self._pressedCandidateIndex == i)
+            local btnbg_color = (self.enable_click_effect and isPressed) and presse_dbg_color or bg_color
 
-            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, btnbg_color )
+            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, btnbg_color)
             ctx:stroke_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, border_color)
 
             -- 绘制候选字符文本
@@ -2932,7 +2945,7 @@ function keyboard:draw_candidate_area(ctx, ax, ay)
             ctx:draw_text(char, textX, textY, text_color, textStyle)
         else
             -- 没有候选字符时显示空按钮
-            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, bg_color )
+            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, bg_color)
             ctx:stroke_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, border_color)
         end
     end
@@ -3086,30 +3099,30 @@ end
 
 -- 绘制左侧音节选择区
 function keyboard:draw_left_syllable_panel(ctx, ax, ay)
-    local syllableBtnSize = 30    -- 每个音节按钮大小（30x30）
-    local syllableAreaX = ax      -- 左侧预留区域X坐标
-    local syllableAreaY = ay + 95 -- 从按键区域上方开始（与大格子对齐）
+    local syllableBtnSize     = 30      -- 每个音节按钮大小（30x30）
+    local syllableAreaX       = ax      -- 左侧预留区域X坐标
+    local syllableAreaY       = ay + 95 -- 从按键区域上方开始（与大格子对齐）
 
     -- 大格子高度是90px，4个大格子总高度360px
     -- 12个小格子，每个30px，总共360px，正好对齐
     -- 每3个小格子对齐一个大格子（90px = 3 * 30px）
-    local keySize = 90              -- 大格子高度
-    local totalHeight = 4 * keySize -- 4个大格子的总高度 = 360px
+    local keySize             = 90          -- 大格子高度
+    local totalHeight         = 4 * keySize -- 4个大格子的总高度 = 360px
 
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local selecte_dbg_color  = COLOR_SKY_BLUE
+    local dark                = (current_theme == "dark")
+    local bg_color            = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color        = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color          = dark and COLOR_WHITE or COLOR_BLACK
+    local selecte_dbg_color   = COLOR_SKY_BLUE
     local selected_text_color = COLOR_WHITE
-    local presse_dbg_color  = COLOR_GRAY
+    local presse_dbg_color    = COLOR_GRAY
 
     -- 12个小格子，每个30px，总共360px，正好等于4个大格子的高度
-    local start_y = syllableAreaY
+    local start_y             = syllableAreaY
 
     -- 1. 最上面的上一页切换按键（↑）- 第一个大格子的第一个小格子位置
-    local topBtnY = start_y
-    ctx:fill_rect(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, bg_color )
+    local topBtnY             = start_y
+    ctx:fill_rect(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, bg_color)
     ctx:stroke_rect(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, border_color)
     -- 使用 draw_arrow_icon 绘制箭头图标
     draw_arrow_icon(syllableAreaX, topBtnY, syllableBtnSize, syllableBtnSize, "up", text_color)
@@ -3128,16 +3141,16 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
             local isPressed = (self._pressedSyllableIndex == idx)
             local btnbg_color
             if self.enable_click_effect and isPressed then
-                btnbg_color  = presse_dbg_color
+                btnbg_color = presse_dbg_color
             elseif isSelected then
-                btnbg_color  = selecte_dbg_color
+                btnbg_color = selecte_dbg_color
             else
-                btnbg_color  = bg_color
+                btnbg_color = bg_color
             end
             local btntext_color = (isSelected or (self.enable_click_effect and isPressed)) and selected_text_color or
-            text_color
+                text_color
 
-            ctx:fill_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, btnbg_color )
+            ctx:fill_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, btnbg_color)
             ctx:stroke_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, border_color)
             ctx:draw_text_in_rect_centered(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, syllable, {
                 color = btntext_color,
@@ -3145,45 +3158,45 @@ function keyboard:draw_left_syllable_panel(ctx, ax, ay)
             })
         else
             -- 空按钮
-            ctx:fill_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, bg_color )
+            ctx:fill_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, bg_color)
             ctx:stroke_rect(syllableAreaX, btnY, syllableBtnSize, syllableBtnSize, border_color)
         end
     end
 
     -- 3. 最下面的下一页切换按键（↓）- 第4个大格子的第3个小格子位置（最后一个）
     local bottomBtnY = start_y + 11 * syllableBtnSize -- 第12个小格子（索引12）
-    ctx:fill_rect(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, bg_color )
+    ctx:fill_rect(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, bg_color)
     ctx:stroke_rect(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, border_color)
     draw_arrow_icon(syllableAreaX, bottomBtnY, syllableBtnSize, syllableBtnSize, "down", text_color)
 end
 
 -- 绘制候选字选择区
 function keyboard:draw_pinyin_candidates(ctx, ax, ay)
-    local candidateY = ay + 50 -- 候选区Y坐标
-    local candidateHeight = 50
+    local candidateY          = ay + 50 -- 候选区Y坐标
+    local candidateHeight     = 50
     -- 中文候选带左右翻页：左右各占1格(30px)，中间8格候选
-    local candidateBtnSize = 30 -- 每个候选按钮大小（30x30）
+    local candidateBtnSize    = 30 -- 每个候选按钮大小（30x30）
 
-    local dark = (current_theme == "dark")
-    local bg_color  = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
-    local border_color = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
-    local text_color = dark and COLOR_WHITE or COLOR_BLACK
-    local selecte_dbg_color  = COLOR_SKY_BLUE
+    local dark                = (current_theme == "dark")
+    local bg_color            = dark and COLOR_WIN11_DARK_BUTTON_BG or COLOR_WIN11_LIGHT_BUTTON_BG
+    local border_color        = dark and COLOR_WIN11_DARK_BUTTON_BORDER or COLOR_WIN11_LIGHT_BUTTON_BORDER
+    local text_color          = dark and COLOR_WHITE or COLOR_BLACK
+    local selecte_dbg_color   = COLOR_SKY_BLUE
     local selected_text_color = COLOR_WHITE
-    local presse_dbg_color  = COLOR_GRAY
+    local presse_dbg_color    = COLOR_GRAY
 
     -- 左侧分页按键（←）
-    local arrowW = candidateBtnSize
-    local leftArrowX = ax
-    local leftArrowY = candidateY + (candidateHeight - candidateBtnSize) // 2
-    ctx:fill_rect(leftArrowX, leftArrowY, arrowW, candidateBtnSize, bg_color )
+    local arrowW              = candidateBtnSize
+    local leftArrowX          = ax
+    local leftArrowY          = candidateY + (candidateHeight - candidateBtnSize) // 2
+    ctx:fill_rect(leftArrowX, leftArrowY, arrowW, candidateBtnSize, bg_color)
     ctx:stroke_rect(leftArrowX, leftArrowY, arrowW, candidateBtnSize, border_color)
     draw_arrow_icon(leftArrowX, leftArrowY, arrowW, candidateBtnSize, "left", text_color)
 
     -- 右侧分页按键（→）
     local rightArrowX = ax + self.w - arrowW
     local rightArrowY = leftArrowY
-    ctx:fill_rect(rightArrowX, rightArrowY, arrowW, candidateBtnSize, bg_color )
+    ctx:fill_rect(rightArrowX, rightArrowY, arrowW, candidateBtnSize, bg_color)
     ctx:stroke_rect(rightArrowX, rightArrowY, arrowW, candidateBtnSize, border_color)
     draw_arrow_icon(rightArrowX, rightArrowY, arrowW, candidateBtnSize, "right", text_color)
 
@@ -3200,16 +3213,16 @@ function keyboard:draw_pinyin_candidates(ctx, ax, ay)
             local isPressed = (self._pressedCandidateIndex == idx)
             local btnbg_color
             if self.enable_click_effect and isPressed then
-                btnbg_color  = presse_dbg_color
+                btnbg_color = presse_dbg_color
             elseif isSelected then
-                btnbg_color  = selecte_dbg_color
+                btnbg_color = selecte_dbg_color
             else
-                btnbg_color  = bg_color
+                btnbg_color = bg_color
             end
             local btntext_color = (isSelected or (self.enable_click_effect and isPressed)) and selected_text_color or
-            text_color
+                text_color
 
-            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, btnbg_color )
+            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, btnbg_color)
             ctx:stroke_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, border_color)
 
             -- 使用字体渲染候选字（优先使用hzfont，如果不可用则降级到其他字体后端）
@@ -3221,7 +3234,7 @@ function keyboard:draw_pinyin_candidates(ctx, ax, ay)
             })
         else
             -- 空按钮
-            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, bg_color )
+            ctx:fill_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, bg_color)
             ctx:stroke_rect(btnX, btnY, candidateBtnSize, candidateBtnSize, border_color)
         end
     end
@@ -3996,8 +4009,7 @@ function ui.clear(color)
     ui.render.background(color or COLOR_BLACK)
 end
 
-
--- 新增：屏幕休眠接口
+-- V1.7.2新增：屏幕休眠接口
 -- @param enable_touch boolean | nil: 可选参数，为true或nil时触摸保持生效，为false时关闭所有触摸消息
 function ui.sleep(enable_touch)
     -- 默认参数为true，即触摸生效
@@ -4005,6 +4017,7 @@ function ui.sleep(enable_touch)
 
     -- 调用exlcd休眠
     if exlcd and exlcd.sleep then
+        sleep_flag = true
         exlcd.sleep()
     end
 
@@ -4027,9 +4040,8 @@ function ui.sleep(enable_touch)
     end
 end
 
--- 新增：屏幕唤醒接口
+-- V1.7.2新增：屏幕唤醒接口
 function ui.wakeup()
-
     -- 如果休眠时触摸被关闭，则恢复初始化时的触摸设置
     if runtime.touch_disabled_during_sleep and extp and extp.set_publish_enabled then
         -- 重新启用所有触摸消息
@@ -4048,7 +4060,7 @@ function ui.wakeup()
                 end
             end
             log.info("exEasyUI", string.format("屏幕唤醒，触摸已恢复（成功%d个，失败%d个）",
-                     restored_count, failed_count))
+                restored_count, failed_count))
         else
             -- 如果 sleep_config 无效，启用所有触摸消息作为后备
             extp.set_publish_enabled("ALL", true)
@@ -4058,12 +4070,11 @@ function ui.wakeup()
     else
         log.info("exEasyUI", "屏幕唤醒，恢复触摸设置")
     end
-
     exlcd.wakeup()
-
+    sleep_flag = false
 end
 
--- 新增：设置背光亮度接口
+-- V1.7.2新增：设置背光亮度接口
 -- @param level number: 背光亮度等级，具体取值范围由硬件决定
 function ui.set_bl(level)
     if exlcd and exlcd.set_bl then
@@ -4079,8 +4090,36 @@ function ui.set_bl(level)
     end
 end
 
+-- V1.7.3新增：获取屏幕休眠状态接口
+-- @return boolean true表示屏幕处于休眠状态，false表示屏幕处于工作状态
+function ui.get_sleep()
+    if exlcd and exlcd.get_sleep then
+        local status = exlcd.get_sleep()
+        log.info("exEasyUI", "获取屏幕休眠状态:", status and "休眠中" or "唤醒中")
+        return status
+    else
+        log.warn("exEasyUI", "get_sleep接口不可用")
+        return false
+    end
+end
+
+-- V1.7.3新增：获取当前背光亮度接口
+-- @return number 当前背光亮度级别(0-100)，如果接口不可用则返回nil
+function ui.get_bl()
+    if exlcd and exlcd.get_bl then
+        local brightness = exlcd.get_bl()
+        log.info("exEasyUI", "获取背光亮度:", brightness .. "%")
+        return brightness
+    else
+        log.warn("exEasyUI", "get_bl接口不可用")
+        return nil
+    end
+end
+
 function ui.refresh()
-    ui.render.invalidate(nil)
+    if not sleep_flag then
+        ui.render.invalidate(nil)
+    end
 end
 
 -- 已废除：预计1.8.0删除

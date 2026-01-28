@@ -962,6 +962,49 @@ static inline int hzfont_pick_antialias_auto(unsigned char font_size) {
     return (font_size <= 12) ? 1 : 2;
 }
 
+/**
+ * @brief 构建用于日志的字符串预览（最多 max_chars 个字符）
+ *
+ * @param utf8 待预览的 UTF-8 字符串
+ * @param utf8_len 字符串长度
+ * @param out_buf 输出缓冲
+ * @param buf_size 输出缓冲大小（必须大于 0）
+ * @param max_chars 最多复制的字符个数
+ * @return 非零表示字符串被截断（更多字符未包含）
+ */
+static int hzfont_build_log_preview(const char *utf8, size_t utf8_len, char *out_buf, size_t buf_size, size_t max_chars) {
+    if (!out_buf || buf_size == 0) {
+        return 0;
+    }
+    if (!utf8 || utf8_len == 0 || max_chars == 0) {
+        out_buf[0] = '\0';
+        return 0;
+    }
+    const unsigned char *cursor = (const unsigned char *)utf8;
+    const unsigned char *end = cursor + utf8_len;
+    size_t len = 0;
+    size_t chars = 0;
+    while (cursor < end && chars < max_chars) {
+        const unsigned char *segment_start = cursor;
+        uint32_t cp = 0;
+        if (!utf8_decode_next(&cursor, end, &cp)) {
+            break;
+        }
+        size_t segment_len = cursor - segment_start;
+        if (len + segment_len >= buf_size) {
+            break;
+        }
+        memcpy(out_buf + len, segment_start, segment_len);
+        len += segment_len;
+        chars++;
+    }
+    if (len >= buf_size) {
+        len = buf_size - 1;
+    }
+    out_buf[len] = '\0';
+    return cursor < end;
+}
+
 
 
 /**
@@ -1028,6 +1071,8 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     uint64_t sum_rendered_total_us = 0;
     size_t rendered_count = 0;
     size_t profiled_glyphs = 0;
+    size_t cache_hit_count = 0;
+    size_t rasterized_count = 0;
     uint32_t max_glyph_total_us = 0;
     glyph_render_t max_slot_snapshot;
     memset(&max_slot_snapshot, 0, sizeof(max_slot_snapshot));
@@ -1061,15 +1106,22 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
         if (!utf8_decode_next(&cursor, end, &cp)) {
             break;
         }
-        if (cp == '\r' || cp == '\n') {
-            continue; // 跳过换行符，不在此函数内换行
-        }
-
         glyph_render_t slot;
         memset(&slot, 0, sizeof(slot));
         slot.advance = hzfont_calc_fallback_advance(font_size);
         slot.codepoint = cp;
         slot.status = HZFONT_GLYPH_LOOKUP_FAIL; // 默认先假设查找失败
+        
+        // 处理特殊字符
+        if (cp == '\r' || cp == '\n') {
+             // 跳过换行符，不在此函数内换行
+            continue; 
+        } else if (cp == ' ' || cp == '\t') {
+            // 空格或制表符，直接增加笔锋位置，不在此函数内绘制
+            slot.status = HZFONT_GLYPH_OK;
+            pen_x += (int)slot.advance;
+            goto glyph_timing_update;
+        }
 
         uint64_t glyph_stamp = timing_enabled ? hzfont_now_us() : 0;
         uint16_t glyph_index = 0;
@@ -1115,6 +1167,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
             slot.bitmap = cache_entry->bitmap;
             slot.from_cache = 1;
             slot.status = HZFONT_GLYPH_OK;
+            cache_hit_count++;
         } else { 
             // 未命中 glyph bitmap 缓存，则加载 glyph
             TtfGlyph glyph;
@@ -1143,6 +1196,7 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
 
             // 栅格化成功，尝试缓存，便于下一次直接复用
             slot.status = HZFONT_GLYPH_OK;
+            rasterized_count++;
             hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, (uint8_t)font_size, supersample, &slot.bitmap);
             if (new_entry) {
                 slot.from_cache = 1;
@@ -1280,13 +1334,16 @@ glyph_timing_update:
         uint32_t sum_draw32 = hzfont_clamp_u32(sum_draw_us);
         uint32_t avg_all_us = profiled_glyphs ? hzfont_clamp_u32(sum_total_us / profiled_glyphs) : 0;
         uint32_t avg_rendered_us = rendered_count ? hzfont_clamp_u32(sum_rendered_total_us / rendered_count) : 0;
-        LLOGI("字符串绘制总耗时=%.3f ms 绘制的字符数=%u 分析的字符数=%u 渲染的字符数=%u 平均单字符耗时=%.3f ms 平均渲染耗时=%.3f ms 查找总耗时=%.3f ms 加载总耗时=%.3f ms 栅格化总耗时=%.3f ms 绘制总耗时=%.3f ms 其它耗时=%.3f ms",
-              (double)total_us / 1000.0, // 总耗时
+        // 处理字符串打印前10个字符，如果超过10个字符，则在末尾加上***
+        char text_logbuf[64];
+        int text_truncated = hzfont_build_log_preview(utf8, utf8_len, text_logbuf, sizeof(text_logbuf), 10);
+        // 打印处理完后的信息
+        LLOGI("字符串=%s%s 绘制的字符数=%u 缓存获取的字符数=%u 栅格化获取的字符数=%u 字符绘制总耗时=%.3f ms 查找总耗时=%.3f ms 加载总耗时=%.3f ms 栅格化总耗时=%.3f ms lcd绘制总耗时=%.3f ms 其它耗时=%.3f ms",
+              text_logbuf, text_truncated ? "***" : "",
               (unsigned)glyph_count, // 绘制的字符数
-              (unsigned)profiled_glyphs, // 已分析的字符数
-              (unsigned)rendered_count, // 已渲染的字符数
-              (double)avg_all_us / 1000.0, // 平均单字符耗时
-              (double)avg_rendered_us / 1000.0, // 平均渲染耗时
+              (unsigned)cache_hit_count, // 缓存获取的字符数
+              (unsigned)rasterized_count, // 栅格化获取的字符数
+              (double)total_us / 1000.0, // 总耗时
               (double)sum_lookup32 / 1000.0, // 查找耗时
               (double)sum_load32 / 1000.0, // 加载耗时
               (double)sum_raster32 / 1000.0, // 栅格化耗时

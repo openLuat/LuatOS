@@ -74,13 +74,13 @@
 <tr>
 <td>3.3V<br/></td><td>VCC<br/></td></tr>
 <tr>
-<td>SPI0_CS/p54/GPIO15<br/></td><td>CS<br/></td></tr>
+<td>54/DISP<br/></td><td>CS<br/></td></tr>
 <tr>
-<td>SPI0_SCK/p28/GPIO14<br/></td><td>SCK<br/></td></tr>
+<td>28/DCLK<br/></td><td>SCK<br/></td></tr>
 <tr>
-<td>SPI0_MOSI/p57/GPIO16<br/></td><td>MOSI<br/></td></tr>
+<td>57/DE<br/></td><td>MOSI<br/></td></tr>
 <tr>
-<td>SPI0_MISO/p55/GPIO17<br/></td><td>MISO<br/></td></tr>
+<td>55/HSYN<br/></td><td>MISO<br/></td></tr>
 </table>
 
 ## 演示软件环境：

@@ -20,8 +20,7 @@ local SENDSIZE =4096
 local writeIdle = {true, true, true}
 -- 串口读缓冲区
 local recvBuff, writeBuff = {{}, {}, {}, {},{},{}}, {{}, {}, {}, {},{},{}}
--- 串口流量统计
-local flowCount, timecnt = {0, 0, 0, 0}, 1
+
 
 local netready
 
@@ -256,10 +255,8 @@ local function read(uid, idx)
     log.error("uart.read--->", uid, idx)
     local s = table.concat(recvBuff[idx])
     recvBuff[idx] = {}
-    -- 串口流量统计
-    flowCount[idx] = flowCount[idx] + #s
     log.info("UART_" .. uid .. " read:", #s, (s:sub(1, 100):toHex()))
-    log.info("串口流量统计值:", flowCount[idx])
+    log.info("串口数据长度:", #s)
     -- 根据透传标志位判断是否解析数据
     
     -- DTU的参数配置

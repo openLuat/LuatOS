@@ -7,7 +7,8 @@ excloud= require ("excloud")
 local lbsLoc = require("lbsLoc")
 local default = require("default")
 local dtu
-
+local audio_uid="a"
+local audio_cid="a"
 
 local datalink, defChan = {}, 1
 -- 定时采集任务的参数
@@ -18,6 +19,13 @@ local latdata, lngdata = 0, 0
 
 local output, input = {}, {}
 
+sys.subscribe("audio_result", function(data)
+    if audio_uid~="a" and audio_cid~="a" then
+        sys.publish("NET_SENT_RDY_" .. audio_uid, "audioresult_"..audio_cid,data)
+        audio_uid="a"
+        audio_cid="a"
+    end
+end)
 
 -- 用户读取ADC
 function create.getADC(id)
@@ -176,6 +184,22 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     else
                         -- log.info("匹配CID失败",data)
                     end
+                elseif data:match("audioresult_") then
+                    if data== "audioresult_"..cid then
+                        -- log.info("匹配CID成功",cid)
+                        table.insert(outputSocket, data2)
+                        if waitsend==0 then
+                            sys_send(dName, socket.EVENT, 0)
+                            waitsend=1
+                        else
+                            log.info("太快了，晚500ms发")
+                            sys.timerStart(function ()
+                            sys_send(dName, socket.EVENT, 0)
+                            end,500)
+                        end
+                    else
+                        -- log.info("匹配CID失败",data)
+                    end
                 else
                     table.insert(outputSocket, data)
                     if waitsend==0 then
@@ -259,6 +283,8 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                     log.info("收到服务器数据，长度", rx_buff:used())
                     local data = rx_buff:toStr(0, rx_buff:used())
                     if data:sub(1, 5) == "rrpc," or data:sub(1, 7) == "config," then
+                        audio_uid=uid
+                        audio_cid=cid
                         local res, msg = pcall(create.userapi, data, pios)
                         if not res then
                             log.error("远程查询的API错误:", msg)
@@ -532,6 +558,36 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
                             else
                                 -- log.info("匹配CID失败",data)
                             end
+                        elseif topic:match("audioresult_") then
+                            -- log.info("是GPS发过来的消息")
+                            if topic== "audioresult_"..cid then
+                                if  upprotFnc then -- 转换为用户自定义报文
+                                    local res, msg, index = pcall(upprotFnc, data)
+                                    if not res or not msg then
+                                        log.error("数据流模版错误:", msg)
+                                    else
+                                        index = tonumber(index) or 1
+                                        local pub_topic = (pub[index]:sub(-1, -1) == "+" and messageId) and
+                                            pub[index]:sub(1, -2) .. messageId or pub[index]
+                                        log.info("-----发布的主题:", pub_topic)
+                                        if not mqttc:publish(pub_topic, res and msg or data, tonumber(pub[index + 1]) or qos,
+                                                retain) then
+                                            break
+                                        end
+                                    end
+                                else
+                                    local pub_topic = (pub[1]:sub(-1, -1) == "+" and messageId) and pub[1]:sub(1, -2) ..
+                                        messageId or pub[1]
+                                    log.info("-----发布的主题:", pub_topic)
+                                    if not mqttc:publish(pub_topic, data, tonumber(pub[2]) or qos, retain) then
+                                        break
+                                    end
+                                end
+                                messageId = false
+                                log.info('The client actively reports status information.')
+                            else
+                                -- log.info("匹配CID失败",data)
+                            end
                         else
                                 if  upprotFnc then -- 转换为用户自定义报文
                                 local res, msg, index = pcall(upprotFnc, topic)
@@ -566,7 +622,8 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
                         log.info("RET2", ret, topic, data, payload)
                         -- 这里执行用户自定义的指令
                         if payload:sub(1, 5) == "rrpc," or payload:sub(1, 7) == "config," then
-                            -- log.info("进到这里了1")
+                            audio_uid=uid
+                            audio_cid=cid
                             local res, msg = pcall(create.userapi, payload, pios)
                             if not res then
                                 log.error("远程查询的API错误:", msg)
@@ -759,11 +816,19 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                     --irtu命令
                 elseif  tlv.field == excloud.FIELD_MEANINGS.IRTU_DOWN then
                     if tlv.value:sub(1, 5) == "rrpc," or tlv.value:sub(1, 7) == "config," then
+                        audio_uid=uid
+                        audio_cid=cid
                         local res, msg = pcall(create.userapi, tlv.value)
                             if not res then
                                 log.error("远程查询的API错误:", msg)
                             end
-                        sys.publish("NET_SENT_RDY_"..uid,msg)
+                         local ok, err_msg = excloud.send({
+                        {
+                            field_meaning = excloud.FIELD_MEANINGS.IRTU_UP,
+                            data_type = excloud.DATA_TYPES.ASCII,
+                            value = msg     
+                        }
+                    }, false)
                     end
                 else
                     --透传
@@ -856,6 +921,14 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                     else
                         -- log.info("匹配CID失败",data)
                     end
+                elseif data:match("audioresult_") then
+                    if data== "audioresult_"..cid then
+                        -- log.info("匹配CID成功",cid)
+                        table.insert(outputSocket, data2)
+                        sys.publish("SEND_DATA")
+                    else
+                        -- log.info("匹配CID失败",data)
+                    end
                 else
                 table.insert(outputSocket, data)
                 sys.publish("SEND_DATA")
@@ -881,16 +954,6 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
             while #outputSocket>0 do
                 local data=table.remove(outputSocket,1)
                 log.info("RET",ret,data)
-                if data:sub(1, 5) == "rrpc," or data:sub(1, 7) == "config," then
-                    local ok, err_msg = excloud.send({
-                        {
-                            field_meaning = excloud.FIELD_MEANINGS.IRTU_UP,
-                            data_type = excloud.DATA_TYPES.ASCII,
-                            value = data     
-                        }
-                    }, false)                   -- 不需要服务器回复
-                else
-                    
                     if  upprotFnc then -- 转换为用户自定义报文
                         local res, msg = pcall(upprotFnc, data)
                         if not res or not msg then
@@ -914,7 +977,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
                             }
                         }, false)                   -- 不需要服务器回复
                     end
-                end
+                
                 if not ok then
                     log.info("发送数据失败: " .. err_msg )
                 else

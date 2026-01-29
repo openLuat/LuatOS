@@ -2,7 +2,7 @@ audio_config={}
 
 local exaudio = require "exaudio"
 
--- local success, errno = io.mkdir("/afile/")
+local success, errno = io.mkdir("/afile/")
 --播放结果
 local audio_result="a"
 
@@ -21,6 +21,9 @@ local audio_setup_param ={
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
+        local result,user_stop=audio.getError(0)
+        log.info("最近一次的播放结果",audio.getError(0))
+        sys.publish("audio_result","rrpc,playend,"..(result and "true" or "false")..","..(user_stop and "true" or "false"))
         exaudio.play_stop()
     end
 end 
@@ -67,17 +70,16 @@ function audio_config.audio_play_file(url,file_name,isdelete)
     log.info("file_name",file_name,type(file_name))
     log.info("isdelete",isdelete,type(isdelete))
     sys.taskInit(function()
-        if url then
+        if url and url~="" then
             local code, headers, body =
-            http.request("GET", url, nil, nil, {dst = "/1.mp3"}).wait()
+            http.request("GET", url, nil, nil, {dst = "/afile/"..file_name}).wait()
         --存到本地文件区，适用于多次播放
         log.info("下载完成", code, headers, body)
         end
 
-        local r=io.exists("/"..file_name)
-        log.info("文件是否存在",r)
-        file_data.content="/1.mp3"
+        file_data.content="/afile/"..file_name
         audio_result=exaudio.play_start(file_data)
+        log.info("播放结果",audio_result)
         if isdelete and tonumber(isdelete) == 1 then
             log.info("删除文件",file_data.content,io.exists(file_data.content))
             os.remove(file_data.content)

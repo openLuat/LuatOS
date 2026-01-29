@@ -61,7 +61,7 @@ int l_usb_handler(lua_State *L, void* ptr) {
 
 
 /*
-USB发送数据,目前仅限于HID和WINUSB设备,CDC-ACM虚拟串口直接使用串口API操作
+USB发送数据,目前仅限于HID设备,CDC-ACM虚拟串口直接使用串口API操作
 @api usb.tx(id, data, class)
 @int 设备id,默认为0
 @zbuff or string 需要发送的数据
@@ -73,7 +73,7 @@ usb.tx(0, "1234", usb.HID_KB) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
 */
 static int l_usb_tx(lua_State* L) {
 	int result;
-    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_WINUSB);
+    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_HID_CUSTOMER);
     int usb_id = luaL_optinteger(L, 1, 0);
     const char *buf;
     luat_zbuff_t *buff = NULL;
@@ -108,11 +108,11 @@ buff形式读接收到的数据，一次读出全部数据存入buff中，如果
 @int 设备类
 @return int 返回读到的长度，并把zbuff指针后移
 @usage
-usb.rx(0, buff, usb.HID)
+usb.rx(0, buff, usb.HID_CM)
 */
 static int l_usb_rx(lua_State *L)
 {
-    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_WINUSB);
+    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_HID_CUSTOMER);
     int usb_id = luaL_optinteger(L, 1, 0);
 
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理

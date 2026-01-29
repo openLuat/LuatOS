@@ -32,6 +32,7 @@
  * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"
  * @boolean config.popovers 是否启用提示弹窗，默认 true
  * @boolean config.auto_hide 是否在目标 textarea 聚焦时自动显示、失焦时自动隐藏，默认 false
+ * @int config.bg_color 键盘背景颜色，16 进制整数（如 0xffffff），可选，不提供则透明
  * @userdata config.target 关联的 Textarea 对象，可选
  * @return userdata Keyboard 对象，失败返回 nil
  */
@@ -123,6 +124,20 @@ static int l_keyboard_set_layout(lua_State *L) {
 }
 
 /**
+ * Keyboard:set_bg_color(color)
+ * @api keyboard:set_bg_color(color)
+ * @int color 16 进制整数（如 0xff0000）
+ * @return nil
+ */
+static int l_keyboard_set_bg_color(lua_State *L) {
+    lv_obj_t *keyboard = airui_check_component(L, 1, AIRUI_KEYBOARD_MT);
+    uint32_t raw = (uint32_t)luaL_checkinteger(L, 2);
+    lv_color_t color = lv_color_hex(raw);
+    airui_keyboard_set_bg_color(keyboard, color);
+    return 0;
+}
+
+/**
  * Keyboard:get_target()
  * @api keyboard:get_target()
  * @return userdata|null 当前关联 Textarea
@@ -181,6 +196,7 @@ void airui_register_keyboard_meta(lua_State *L) {
         {"hide", l_keyboard_hide},
         {"set_on_commit", l_keyboard_set_on_commit},
         {"set_layout", l_keyboard_set_layout},
+        {"set_bg_color", l_keyboard_set_bg_color},
         {"get_target", l_keyboard_get_target},
         {"destroy", l_keyboard_destroy},
         {NULL, NULL}

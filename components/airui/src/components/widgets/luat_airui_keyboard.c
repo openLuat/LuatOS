@@ -70,7 +70,6 @@ static void airui_keyboard_target_auto_hide_cb(lv_event_t *e)
     }
 }
 
-//刷新自动隐藏键盘
 static void airui_keyboard_refresh_auto_hide(lv_obj_t *keyboard, airui_keyboard_data_t *data, lv_obj_t *old_target)
 {
     if (keyboard == NULL || data == NULL) {
@@ -158,6 +157,14 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     const char *mode = airui_marshal_string(L, idx, "mode", "text");
     bool popovers = airui_marshal_bool(L, idx, "popovers", true);
     bool auto_hide = airui_marshal_bool(L, idx, "auto_hide", false);
+    // 解析背景颜色, 默认透明
+    bool has_bg_color = false;
+    lv_color_t bg_color;
+    lv_color_t parsed_color;
+    if (airui_marshal_color(L, idx, "bg_color", &parsed_color)) {
+        bg_color = parsed_color;
+        has_bg_color = true;
+    }
 
     // 创建 LVGL 键盘对象，后续配置尺寸与样式
     lv_obj_t *keyboard = lv_keyboard_create(parent);
@@ -188,6 +195,8 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     data->target = NULL;
     data->ime = NULL;
     data->auto_hide = auto_hide;
+    data->has_bg_color = has_bg_color;
+    data->bg_color = has_bg_color ? bg_color : lv_color_hex(0xffffff);
     meta->user_data = data;
 
     // 支持拼音输入法
@@ -208,6 +217,11 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
 
     }
 #endif
+
+    // 设置键盘和预览字体框背景颜色
+    if (has_bg_color) {
+        airui_keyboard_set_bg_color(keyboard, bg_color);
+    }
 
     // 如果配置里提供了 Textarea userdata，立即绑定方可让默认按钮生效
     lua_getfield(L_state, idx, "target");
@@ -264,6 +278,8 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
         data->target = NULL;
         data->ime = NULL;
         data->auto_hide = false;
+        data->has_bg_color = false;
+        data->bg_color = lv_color_hex(0xffffff);
         meta->user_data = data;
     }
     lv_obj_t *old_target = data->target;
@@ -271,6 +287,21 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
     //刷新自动隐藏键盘
     airui_keyboard_refresh_auto_hide(keyboard, data, old_target);
     return AIRUI_OK;
+}
+
+// 设置拼音候选框背景颜色
+static void airui_keyboard_apply_pinyin_bg(airui_keyboard_data_t *data, lv_obj_t *cand_panel)
+{
+#if LV_USE_IME_PINYIN
+    if (data == NULL || cand_panel == NULL || !data->has_bg_color) {
+        return;
+    }
+    lv_obj_set_style_bg_color(cand_panel, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+#else
+    (void)data;
+    (void)cand_panel;
+#endif
 }
 
 // 更新拼音候选框的可见性
@@ -292,6 +323,7 @@ static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible)
     if (cand_panel == NULL) {
         return;
     }
+    airui_keyboard_apply_pinyin_bg(data, cand_panel);
     if (visible) {
         lv_obj_clear_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -361,3 +393,34 @@ int airui_keyboard_set_layout(lv_obj_t *keyboard, const char *layout)
     return AIRUI_OK;
 }
 
+//设置键盘和拼音候选框背景颜色
+int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
+{
+    if (keyboard == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    if (meta == NULL || meta->user_data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
+    if (data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->has_bg_color = true;
+    data->bg_color = color;
+
+#if LV_USE_IME_PINYIN
+    if (data->ime != NULL) {
+        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        airui_keyboard_apply_pinyin_bg(data, cand_panel);
+    }
+#endif
+
+    lv_obj_set_style_bg_color(keyboard, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    return AIRUI_OK;
+}

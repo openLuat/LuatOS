@@ -233,4 +233,20 @@ function httpplus_test.test_httpplus_https_chunked_stream()
     assert(first and first.url, "首行 JSON 解析失败")
 end
 
+-- 文件表单上传,支持参数值是数字类型
+function httpplus_test.test_httpplus_post_multipart_file_with_number_form()
+    local expected = read_fixture(upload_fixture_path)
+    local code, resp = httpplus.request({
+        url = urlbase .. "/post",
+        files = { uploadFile = upload_fixture_path },
+        forms = { note = "multipart+file", count = 12345 },
+        timeout = 15
+    })
+    assert(code == 200, "预期 200, 实际 " .. tostring(code))
+    local data = decode_body(resp)
+    assert(data.files and data.files.uploadFile == expected, "文件回显不一致")
+    assert(data.form and data.form.note == "multipart+file", "表单回显不一致")
+    assert(tonumber(data.form.count) == 12345, "数字类型表单值回显不一致")
+end
+
 return httpplus_test

@@ -97,10 +97,9 @@
 
 ![](https://docs.openLuat.com/cdn/image/Air8101PC模拟器运行.png)
 
-![](https://docs.openLuat.com/cdn/image/模拟器仿真界面.png)
 
-5. 如需切换 demo 内的演示内容，可打开下载脚本文件中的 mian.lua 文件，将需要演示 demo 的 require 前面的注释符"--"去掉，将不需要演示 demo 的 require 前面加上注释符“--”。修改后保存代码文件，再点击模拟器运行，就会出现所 require 的 demo 对应的界面仿真。
-6. 比如：需要演示下拉框组件，将 main.lua 文件中的-- require("airui_dropdown") 改为 require("airui_dropdown") ，并把其他加载的组件改为注释状态。
+1. 如需切换 demo 内的演示内容，可打开下载脚本文件中的 mian.lua 文件，将需要演示 demo 的 require 前面的注释符"--"去掉，将不需要演示 demo 的 require 前面加上注释符“--”。修改后保存代码文件，再点击模拟器运行，就会出现所 require 的 demo 对应的界面仿真。
+2. 比如：需要演示下拉框组件，将 main.lua 文件中的-- require("airui_dropdown") 改为 require("airui_dropdown") ，并把其他加载的组件改为注释状态。
 
 ![](https://docs.openluat.com/cdn/image/AirUI_选择加载程序.png)
 

@@ -178,7 +178,7 @@
 <tr>
 <td>66/I2C1_SDA<br/></td><td>SDA<br/></td></tr>
 <tr>
-<td>20/GPIO24<br/></td><td></td><td>INT<br/></td></tr>
+<td>20/GPIO24<br/></td><td>INT<br/></td></tr>
 </table>
 
 #### 5.2.2 GTFont 字库接线

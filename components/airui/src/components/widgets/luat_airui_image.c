@@ -15,6 +15,16 @@
 #define LUAT_LOG_TAG "airui.image"
 #include "luat_log.h"
 
+/**
+ * 枚举图片支持的格式
+ */
+typedef enum {
+    AIRUI_IMAGE_TYPE_UNKNOWN = 0,
+    AIRUI_IMAGE_TYPE_JPG,
+    AIRUI_IMAGE_TYPE_PNG
+} airui_image_type_t;
+
+static airui_image_type_t airui_image_get_type(const char *src);
 
 /**
  * 从配置表创建 Image 组件
@@ -49,6 +59,9 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     int w = airui_marshal_integer(L, idx, "w", 100);
     int h = airui_marshal_integer(L, idx, "h", 100);
     const char *src = airui_marshal_string(L, idx, "src", NULL);
+
+    // 获取图片类型
+    airui_image_type_t img_type = airui_image_get_type(src);
     
     // 创建 Image 对象
     lv_obj_t *img = lv_image_create(parent);
@@ -73,14 +86,21 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     
     // 读取 zoom（缩放比例，256 = 100%）
     int zoom = airui_marshal_integer(L, idx, "zoom", 256);
-    if (zoom != 256) {
+    // JPG 图片不支持缩放
+    if (img_type != AIRUI_IMAGE_TYPE_JPG) {
         lv_image_set_scale(img, zoom);
+    } else if (zoom != 256) {
+        LLOGW("JPG 图片不支持缩放设置, 默认100 %%");
     }
     
     // 读取 opacity（透明度，0-255）
     int opacity = airui_marshal_integer(L, idx, "opacity", 255);
-    if (opacity != 255) {
-        lv_obj_set_style_opa(img, opacity, 0);
+    if (img_type != AIRUI_IMAGE_TYPE_JPG) {
+        if (opacity != 255) {
+            lv_obj_set_style_opa(img, opacity, 0);
+        }
+    } else if (opacity != 255) {
+        LLOGW("JPG 图片不支持透明度设置, 默认不透明");
     }
     
     // 分配元数据
@@ -153,3 +173,13 @@ int airui_image_set_opacity(lv_obj_t *img, int opacity)
     return AIRUI_OK;
 }
 
+static airui_image_type_t airui_image_get_type(const char *src)
+{
+    if (src == NULL) return AIRUI_IMAGE_TYPE_UNKNOWN;
+    const char *dot = strrchr(src, '.');
+    if (dot == NULL) return AIRUI_IMAGE_TYPE_UNKNOWN;
+    if (strcmp(dot, ".jpg") == 0) return AIRUI_IMAGE_TYPE_JPG;
+    if (strcmp(dot, ".jpeg") == 0) return AIRUI_IMAGE_TYPE_JPG;
+    if (strcmp(dot, ".png") == 0) return AIRUI_IMAGE_TYPE_PNG;
+    return AIRUI_IMAGE_TYPE_UNKNOWN;
+}

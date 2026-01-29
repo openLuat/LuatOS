@@ -122,11 +122,11 @@ local A_13 = {"audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont",
               "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
               "sys", "sysplus", "tp", "u8g2", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
-local A_14 = {"ble", "libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto", "eink",
+local A_14 = {"airui","ble", "libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto",
               "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv",
               "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu", "miniz", "mobile", "mqtt",
               "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket",
-              "spi", "string", "sys", "sysplus", "tp", "u8g2", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff",
+              "spi", "string", "sys", "sysplus", "tp",  "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff",
               "fft", "hzfont", "lf"}
 
 local A_size = {

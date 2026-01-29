@@ -887,6 +887,9 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
         return 0;
     }
 
+    int timing_enabled = ttf_get_debug();
+    uint64_t func_start_ts = timing_enabled ? hzfont_now_us() : 0;
+
     const unsigned char *cursor = (const unsigned char *)utf8;
     const unsigned char *end = cursor + strlen(utf8);
     uint32_t total = 0;
@@ -894,6 +897,8 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
     if (scale <= 0.0f) {
         scale = 1.0f;
     }
+
+    uint8_t supersample = (uint8_t)ttf_get_supersample_rate();
 
     while (cursor < end) {
         uint32_t cp = 0;
@@ -903,27 +908,36 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
         if (cp == '\r' || cp == '\n') {
             continue;
         }
+        if (cp == ' ' || cp == '\t') {
+            total += hzfont_calc_fallback_advance(font_size);
+            continue;
+        }
+
         uint16_t glyph_index = 0;
-        if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
-            if (cp == ' ' || cp == '\t') {
-                total += hzfont_calc_fallback_advance(font_size);
-                continue;
-            }
-            uint16_t star_index = 0;
-            if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
-                TtfGlyph star_glyph;
-                int rc2 = ttf_load_glyph(&g_ft_ctx.font, star_index, &star_glyph);
-                if (rc2 == TTF_OK) {
-                    uint32_t width = hzfont_glyph_estimate_width_px(&star_glyph, scale);
-                    ttf_free_glyph(&star_glyph);
-                    if (width == 0) {
-                        width = hzfont_calc_fallback_advance(font_size);
-                    }
-                    total += width;
+        hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(cp);
+        if (cp_entry) {
+            glyph_index = cp_entry->glyph_index;
+        } else {
+            if (ttf_lookup_glyph_index(&g_ft_ctx.font, cp, &glyph_index) != TTF_OK) {
+                uint16_t star_index = 0;
+                if (ttf_lookup_glyph_index(&g_ft_ctx.font, (uint32_t)'*', &star_index) == TTF_OK) {
+                    glyph_index = star_index;
+                } else {
+                    total += hzfont_calc_fallback_advance(font_size);
                     continue;
                 }
+            } else {
+                hzfont_cp_cache_insert(cp, glyph_index);
             }
-            total += hzfont_calc_fallback_advance(font_size);
+        }
+
+        hzfont_cache_entry_t *cache_entry = hzfont_cache_get(glyph_index, (uint8_t)font_size, supersample);
+        if (cache_entry && cache_entry->bitmap.width > 0) {
+            uint32_t width = cache_entry->bitmap.width;
+            if (width == 0) {
+                width = hzfont_calc_fallback_advance(font_size);
+            }
+            total += width;
             continue;
         }
 
@@ -939,6 +953,11 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size) {
             width = hzfont_calc_fallback_advance(font_size);
         }
         total += width;
+    }
+    if (timing_enabled) {
+        uint32_t total_us = hzfont_elapsed_from(func_start_ts);
+        LLOGI("字符长度=%u 宽度=%u 测量耗时=%.3f ms",
+              (unsigned)strlen(utf8), (unsigned)total, (double)total_us / 1000.0);
     }
     return total;
 }
@@ -1410,4 +1429,3 @@ const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size
     return NULL;
 }
 #endif
-

@@ -1,7 +1,7 @@
 --[[
-exEasyUI v1.7.5
+exEasyUI v1.7.6
 作者：曾帅、江访
-日期：2026-01-26
+日期：2026-01-28
 ================================
 结构说明：
 1. 常量定义 - UI颜色常量和调试配置
@@ -27,7 +27,7 @@ exEasyUI v1.7.5
 ]]
 
 local ui                              = {
-    version = "1.7.5",
+    version = "1.7.6",
     hw = {},
     runtime = {},
     render = {},
@@ -3951,12 +3951,6 @@ function window:draw(ctx)
         end
     else
         ctx:fill_rect(ax, ay, self.w, self.h, self.background_color)
-    end
-    for i = 1, #self.children do
-        local child = self.children[i]
-        if child and child.visible ~= false and child.draw then
-            child:draw(ctx)
-        end
     end
 end
 

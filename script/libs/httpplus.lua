@@ -146,8 +146,8 @@ local function http_opts_parse(opts)
         if opts.multipart then
             for kk, vv in pairs(opts.forms) do
                 local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n", boundary, kk)
-                table.insert(opts.mp, {vv, tmp, "form"})
-                opts.body_len = opts.body_len + #tmp + #vv + 2
+                table.insert(opts.mp, {tostring(vv), tmp, "form"})
+                opts.body_len = opts.body_len + #tmp + #tostring(vv) + 2
                 -- log.info("当前body长度", opts.body_len, "数据长度", #vv)
             end
         else

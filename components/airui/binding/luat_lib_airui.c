@@ -113,6 +113,8 @@ static const rotable_Reg_t reg_airui[] = {
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
+    // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
+    {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
     // XML 模块
     {"xml_init", ROREG_FUNC(l_airui_xml_init)},
     {"xml_deinit", ROREG_FUNC(l_airui_xml_deinit)},

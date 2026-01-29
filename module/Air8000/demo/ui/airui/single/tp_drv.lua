@@ -17,21 +17,6 @@
 local tp_drv = {}
 
 --[[
-触摸事件回调函数；
-
-@local
-@function tp_callback(tp_device, tp_data)
-@userdata tp_device 触摸设备对象
-@table tp_data 触摸数据数组
-@return nil
-]]
-
-local function tp_callback(tp_device, tp_data)
-    -- log.info("tp_drv tp_callback", tp_data[1].event, tp_data[1].x, tp_data[1].y)
-    sys.publish("TP", tp_device, tp_data)
-end
-
---[[
 初始化触摸面板驱动；
 
 @api tp_drv.init()
@@ -54,17 +39,9 @@ function tp_drv.init()
     gpio.setup(164, 1)
     -- 等待供电稳定
     sys.wait(100)
-    -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
-    -- 参数说明：
-    -- 0: SCL引脚编号
-    -- 1: SDA引脚编号
+    -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 
-    -- if type(result) ~= "userdata" then
-    --     log.error("tp_drv.init i2c.createSoft error")
-    --     return false
-    -- end
-    -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
     -- "gt911": 触摸控制器型号
     -- port: I2C接口对象
@@ -72,8 +49,7 @@ function tp_drv.init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0, w = 320, h = 480 },
-        tp_callback)
+    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0, w = 320, h = 480 })
 
     log.info("tp.init", result)
 

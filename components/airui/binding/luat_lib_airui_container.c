@@ -57,6 +57,20 @@ static int l_container_set_color(lua_State *L) {
 }
 
 /**
+ * Container:set_border_color(color[, width])
+ * @api container:set_border_color(color, width?)
+ * @int color 边框颜色（0xRRGGBB）
+ * @int width 边框宽度（默认 1）
+ */
+static int l_container_set_border_color(lua_State *L) {
+    lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
+    uint32_t color = (uint32_t)luaL_checkinteger(L, 2);
+    int width = luaL_optinteger(L, 3, 1);
+    airui_container_set_border_color(container, color, width);
+    return 0;
+}
+
+/**
  * Container:set_hidden(hidden)
  * @api container:set_hidden(hidden)
  * @bool hidden 是否隐藏
@@ -113,6 +127,7 @@ void airui_register_container_meta(lua_State *L) {
 
     static const luaL_Reg methods[] = {
         {"set_color", l_container_set_color},
+        {"set_border_color", l_container_set_border_color},
         {"set_hidden", l_container_set_hidden},
         {"hide", l_container_hide},
         {"open", l_container_open},

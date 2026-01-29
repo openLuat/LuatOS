@@ -41,6 +41,8 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
     int h = airui_marshal_integer(L, idx, "h", 100);
     int color_value = airui_marshal_integer(L, idx, "color", -1);
     int radius = airui_marshal_integer(L, idx, "radius", 0);
+    int border_color_value = airui_marshal_integer(L, idx, "border_color", -1);
+    int border_width = airui_marshal_integer(L, idx, "border_width", 1);
 
     lv_obj_t *container = lv_obj_create(parent);
     if (container == NULL) {
@@ -62,6 +64,12 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
         lv_obj_set_style_bg_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
     } else {
         lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (border_color_value >= 0 && border_width > 0) {
+        airui_container_set_border_color(container, (uint32_t)border_color_value, border_width);
+    } else {
+        lv_obj_set_style_border_width(container, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     }
 
     airui_component_meta_t *meta = airui_component_meta_alloc(
@@ -87,6 +95,26 @@ int airui_container_set_color(lv_obj_t *container, uint32_t color_value)
     lv_color_t bg_color = lv_color_hex(color_value);
     lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    return AIRUI_OK;
+}
+
+/**
+ * 设置 Container 边框颜色
+ */
+int airui_container_set_border_color(lv_obj_t *container, uint32_t color_value, int width)
+{
+    if (container == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_color_t border_color = lv_color_hex(color_value);
+    int border_width = width > 0 ? width : 0;
+    lv_obj_set_style_border_width(container, border_width, LV_PART_MAIN | LV_STATE_DEFAULT);
+    if (border_width > 0) {
+        lv_obj_set_style_border_color(container, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
 
     return AIRUI_OK;
 }

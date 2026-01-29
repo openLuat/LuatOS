@@ -62,7 +62,7 @@
 
 ### 4.2 LuatOS-PC 模拟器安装步骤
 
-1. 点击下载：[Luatools v3 下载调试工具](https://docs.openluat.com/air8101/luatos/common/download/)
+1. 点击下载：[Luatools v3 下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
 2. 通过 LuaTools 工具下载 LuatOS-PC 模拟器
 
    - LuaTools 工具安装完毕后，点击首页面左上角的--账户--打开资源下载
@@ -121,7 +121,9 @@
 ### 5.2 接线配置
 
 - AirLCD_1010 触摸配件板插入到Air8000 开发板 四线SPI屏接口
-- Air8000 开发板侧面供电开关打到 USB供电一端，开发板通过 TYPE-C USB 口供电
+- Air8000 开发板 4G天线旁拨码开关打到 ON 位置，此时背光正常供电
+- Air8000 开发板 侧面供电开关打到 USB供电一端，开发板通过 TYPE-C USB 口供电
+
 
 #### 5.3 接线图
 ![](https://docs.openLuat.com/cdn/image/Air8000开发板+屏幕.jpg)
@@ -134,7 +136,7 @@
 
 ### 6.2 内核固件
 
-- [点击下载Air8000最新版本内核固件](https://docs.openluat.com/air8000/luatos/firmware/)，demo所使用的是LuatOS-SoC_V2004_Air8101 104号固件
+- [点击下载Air8000最新版本内核固件](https://docs.openluat.com/air8000/luatos/firmware/)，demo所使用的是LuatOS-SoC_V2024_Air8000 14/114号固件
 
 
 ## 七、快速开始

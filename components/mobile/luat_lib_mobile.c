@@ -36,7 +36,7 @@ log.info("simid", mobile.simid())
 #include "luat_log.h"
 extern void luat_cc_start_speech(uint32_t param);
 extern void luat_cc_play_tone(uint32_t param);
-
+extern void net_lwip_check_switch(uint8_t onoff);
 #ifdef LUAT_USE_AIRLINK
 #include "luat_airlink.h"
 #endif
@@ -285,16 +285,16 @@ static int l_mobile_sim_pin(lua_State* L) {
 
 /**
 设置RRC自动释放时间间隔，当开启时后，遇到极弱信号+频繁数据操作可能会引起网络严重故障，因此需要额外设置自动重启协议栈
-@api mobile.rtime(time, auto_reset_stack, data_first)
+@api mobile.rtime(time, auto_reset_stack, data_first, idle_time)
 @int RRC自动释放时间，等同于Air724的AT+RTIME，单位秒，写0或者不写则是停用，不要超过20秒，没有意义
 @boolean 网络遇到严重故障时尝试自动恢复，和飞行模式/SIM卡切换冲突，true开启，false关闭，留空时，如果设置了时间则自动开启。本参数于2023年9月14日已废弃
 @boolean 是否启用数据传输优化，true启用，false关闭，留空为false，开启后必须等到TCP数据ACK或者超时失败，或者socket CONNECT完成（无论成功或者失败）才允许RRC提前释放，可能会增加功耗。本参数于2024年8月12日启用
+@int 允许RRC快速释放的前置空闲时间，首次入网后或者上次RRC release到本次RRC connect超过idle_time，才允许快速释放，如果本参数为nil则无此限制。建议值不小于55，本参数于2024年8月12日启用
 @return nil 无返回值
 @usage
 mobile.rtime(3)	--与基站无数据交互3秒后提前释放RRC
 mobile.rtime(3,nil,true) --启用数据传输优化，与基站无数据交互3秒后，提前释放RRC
  */
-extern void net_lwip_check_switch(uint8_t onoff);
 static int l_mobile_set_rrc_auto_release_time(lua_State* L) {
 	uint8_t release_time = luaL_optinteger(L, 1, 0);
 

@@ -1,0 +1,10 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "air780epm": [1, 105]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "can自测功能测试"
+}

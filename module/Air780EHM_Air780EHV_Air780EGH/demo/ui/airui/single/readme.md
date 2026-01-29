@@ -49,7 +49,7 @@
 <tr>
 <td>组件<br/></td><td>输入法<br/></td></tr>
 <tr>
-<td><img src="https://docs.openLuat.com/cdn/image/AirUI_Air780EHM组件.png"><br/><br/></td><td><img src="https://docs.openLuat.com/cdn/image/AirUI_Air780EHM输入法.png"><br/></td></tr>
+<td><img src="https://docs.openLuat.com/cdn/image/AirUI_Air8000组件.png"><br/><br/></td><td><img src="https://docs.openLuat.com/cdn/image/AirUI_Air8000输入法.png"><br/></td></tr>
 </table>
 
 

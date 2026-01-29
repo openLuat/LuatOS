@@ -27,8 +27,10 @@
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // 使用自定义堆（Lua堆）
-    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
+    // 使用自定义堆（Lua堆），测试在键盘组件会异常
+    // #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
+    // 模拟器使用clib堆，todo： 研究为什么使用自定义堆在keyborad组件会失效
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB
 
     // 打开图片解码器
     #define LV_USE_LODEPNG 1

@@ -87,7 +87,7 @@ local function ftp_login()
             config.server.is_ssl
         ).wait()
         if login_result then
-            log.info("FTP登录成功")           
+            log.info("FTP登录成功")
             return true
         end
         log.error("FTP登录失败")
@@ -148,17 +148,18 @@ local function ftp_download_file()
             log.error("文件下载失败")
             return false
         end
-        
+
         --检查下载结果
         local file = io.open(config.download.local_file, "r")
         if not file then
             log.error("下载文件本地打开失败！重新下载")
             return false
         end
-        
+
         local fsize = io.fileSize(config.download.local_file)
         if not fsize then
             log.error("读取文件大小失败,重新下载")
+            file:close()
             return false
         end
         log.info("服务器上文件" .. config.download.remote_file .. "下载成功，保存在本地路径:", config.download.local_file, "大小:", fsize,
@@ -172,6 +173,7 @@ local function ftp_download_file()
         end
         -- 执行完操作后,一定要关掉文件
         file:close()
+        return true
     end
 
     -- 如果下载失败，最多重试10次，间隔2秒,可按需修改
@@ -190,7 +192,7 @@ local function ftp_main_task()
             return
         end
 
-        
+
         -- 执行FTP命令并检查结果
         log.info("空操作，防止连接断掉", ftp.command("NOOP").wait())
         log.info("报告远程系统的操作系统类型", ftp.command("SYST").wait())
@@ -206,14 +208,14 @@ local function ftp_main_task()
             log.error("上传失败，继续执行下载") -- 不中断流程
         end
 
-       
+
         -- 步骤3：下载文件
         if not ftp_download_file() then
             log.error("下载失败")
         end
 
         -- 步骤4：清理操作（可选）,清理之前创建的目录
-        log.info("删除测试目录QWER", ftp.command("RMD QWER").wait())        
+        log.info("删除测试目录QWER", ftp.command("RMD QWER").wait())
 
         -- 步骤5：关闭连接
         local close_result = ftp.close().wait()

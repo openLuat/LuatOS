@@ -44,8 +44,6 @@ sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb)
 sys.timerLoopStart(libfota2.request, 4*3600*1000, libfota_cb, opts)
 ]]
 
-local sys = require "sys"
-require "sysplus"
 
 local libfota2 = {}
 

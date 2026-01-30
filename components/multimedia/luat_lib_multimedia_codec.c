@@ -15,6 +15,7 @@
 #include "luat_mem.h"
 #define LUAT_LOG_TAG "codec"
 #include "luat_log.h"
+
 #ifdef LUAT_SUPPORT_AMR
 #include "interf_enc.h"
 #include "interf_dec.h"
@@ -26,6 +27,10 @@ typedef void (*amr_decode_fun_t)(void* state, const unsigned char* in, short* ou
 
 #ifdef LUAT_USE_AUDIO_G711
 #include "g711_codec/g711_codec.h"
+#endif
+
+#ifdef LUAT_USE_AUDIO_DTMF
+#include "dtmf_codec/dtmf_codec.h"
 #endif
 
 #ifndef G711_PCM_SAMPLES
@@ -736,6 +741,285 @@ static int l_codec_encode_audio_data(lua_State *L) {
 #endif
 }
 
+#ifdef LUAT_USE_AUDIO_DTMF
+static uint32_t l_codec_dtmf_ratio_to_q10(lua_State *L, int index, uint32_t def_q10) {
+	if (lua_isnumber(L, index)) {
+		double v = lua_tonumber(L, index);
+		if (v < 0) v = 0;
+		return (uint32_t)(v * 1024.0 + 0.5);
+	}
+	return def_q10;
+}
+
+static void l_codec_dtmf_decode_opts(lua_State *L, int index, dtmf_decode_opts_t* opts) {
+	int step_set = 0;
+	// 解析解码参数表
+	dtmf_decode_opts_default(opts);
+	if (!lua_istable(L, index)) {
+		return;
+	}
+	lua_getfield(L, index, "frameMs");
+	if (lua_isnumber(L, -1)) {
+		opts->frame_ms = (uint32_t)lua_tointeger(L, -1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "stepMs");
+	if (lua_isnumber(L, -1)) {
+		opts->step_ms = (uint32_t)lua_tointeger(L, -1);
+		step_set = 1;
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "detectRatio");
+	if (lua_isnumber(L, -1)) {
+		opts->detect_ratio_q10 = l_codec_dtmf_ratio_to_q10(L, -1, opts->detect_ratio_q10);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "powerRatio");
+	if (lua_isnumber(L, -1)) {
+		opts->power_ratio_q10 = l_codec_dtmf_ratio_to_q10(L, -1, opts->power_ratio_q10);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "twistDb");
+	if (lua_isnumber(L, -1)) {
+		int32_t db = (int32_t)lua_tointeger(L, -1);
+		if (db < 0) db = 0;
+		if (db > 12) db = 12;
+		opts->twist_db = (uint32_t)db;
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "minConsecutive");
+	if (lua_isnumber(L, -1)) {
+		opts->min_consecutive = (uint32_t)lua_tointeger(L, -1);
+	}
+	lua_pop(L, 1);
+	if (!step_set) {
+		opts->step_ms = opts->frame_ms;
+	}
+}
+
+static void l_codec_dtmf_encode_opts(lua_State *L, int index, dtmf_encode_opts_t* opts) {
+	// 解析编码参数表
+	dtmf_encode_opts_default(opts);
+	if (!lua_istable(L, index)) {
+		return;
+	}
+	lua_getfield(L, index, "toneMs");
+	if (lua_isnumber(L, -1)) {
+		opts->tone_ms = (uint32_t)lua_tointeger(L, -1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "pauseMs");
+	if (lua_isnumber(L, -1)) {
+		opts->pause_ms = (uint32_t)lua_tointeger(L, -1);
+	}
+	lua_pop(L, 1);
+	lua_getfield(L, index, "amplitude");
+	if (lua_isnumber(L, -1)) {
+		double v = lua_tonumber(L, -1);
+		if (v <= 1.0) {
+			int32_t q15 = (int32_t)(v * 32767.0 + 0.5);
+			if (q15 < 0) q15 = 0;
+			if (q15 > 32767) q15 = 32767;
+			opts->amplitude_q15 = (uint16_t)q15;
+		} else {
+			int32_t q15 = (int32_t)(v + 0.5);
+			if (q15 < 0) q15 = 0;
+			if (q15 > 32767) q15 = 32767;
+			opts->amplitude_q15 = (uint16_t)q15;
+		}
+	}
+	lua_pop(L, 1);
+}
+
+static int l_codec_dtmf_get_samples(lua_State *L, int index, int16_t** out_samples, uint32_t* out_count) {
+	// 统一解析输入PCM: zbuff/string/table
+	if (luaL_testudata(L, index, LUAT_ZBUFF_TYPE)) {
+		luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, index, LUAT_ZBUFF_TYPE);
+		uint32_t len = buff->used;
+		uint32_t sample_count = len >> 1;
+		int16_t *samples = (int16_t *)luat_heap_malloc(sample_count * sizeof(int16_t));
+		if (!samples && sample_count > 0) {
+			return 0;
+		}
+		for (uint32_t i = 0; i < sample_count; ++i) {
+			uint8_t b0 = buff->addr[i * 2];
+			uint8_t b1 = buff->addr[i * 2 + 1];
+			samples[i] = (int16_t)((uint16_t)b0 | ((uint16_t)b1 << 8));
+		}
+		*out_samples = samples;
+		*out_count = sample_count;
+		return 1;
+	}
+	if (lua_isstring(L, index)) {
+		size_t len = 0;
+		const uint8_t *data = (const uint8_t *)luaL_checklstring(L, index, &len);
+		uint32_t sample_count = (uint32_t)(len >> 1);
+		int16_t *samples = (int16_t *)luat_heap_malloc(sample_count * sizeof(int16_t));
+		if (!samples && sample_count > 0) {
+			return 0;
+		}
+		for (uint32_t i = 0; i < sample_count; ++i) {
+			uint8_t b0 = data[i * 2];
+			uint8_t b1 = data[i * 2 + 1];
+			samples[i] = (int16_t)((uint16_t)b0 | ((uint16_t)b1 << 8));
+		}
+		*out_samples = samples;
+		*out_count = sample_count;
+		return 1;
+	}
+	if (lua_istable(L, index)) {
+		uint32_t sample_count = (uint32_t)lua_rawlen(L, index);
+		int16_t *samples = (int16_t *)luat_heap_malloc(sample_count * sizeof(int16_t));
+		if (!samples && sample_count > 0) {
+			return 0;
+		}
+		for (uint32_t i = 0; i < sample_count; ++i) {
+			lua_geti(L, index, i + 1);
+			int32_t v = (int32_t)luaL_optinteger(L, -1, 0);
+			if (v > 32767) v = 32767;
+			if (v < -32768) v = -32768;
+			samples[i] = (int16_t)v;
+			lua_pop(L, 1);
+		}
+		*out_samples = samples;
+		*out_count = sample_count;
+		return 1;
+	}
+	return 0;
+}
+
+/**
+DTMF 解码
+@api codec.dtmf_decode(pcm, sample_rate, opts)
+@string/zbuff/table PCM16LE 数据或样本表
+@int 采样率(Hz),默认8000
+@table 可选配置
+@return string 解码到的DTMF序列
+@return table 事件列表
+@usage
+local seq, events = codec.dtmf_decode(pcm, 8000, {frameMs = 40, stepMs = 40})
+*/
+static int l_codec_dtmf_decode(lua_State *L) {
+	uint32_t sample_rate = (uint32_t)luaL_optinteger(L, 2, 8000);
+	dtmf_decode_opts_t opts;
+	l_codec_dtmf_decode_opts(L, 3, &opts);
+
+	int16_t *samples = NULL;
+	uint32_t sample_count = 0;
+	if (!l_codec_dtmf_get_samples(L, 1, &samples, &sample_count)) {
+		lua_pushliteral(L, "");
+		lua_newtable(L);
+		return 2;
+	}
+	if (!samples || sample_count == 0 || sample_rate == 0) {
+		if (samples) {
+			luat_heap_free(samples);
+		}
+		lua_pushliteral(L, "");
+		lua_newtable(L);
+		return 2;
+	}
+
+	uint32_t frame_len = (uint32_t)((float)sample_rate * opts.frame_ms / 1000.0f);
+	uint32_t step_len = (uint32_t)((float)sample_rate * opts.step_ms / 1000.0f);
+	if (frame_len < 1) frame_len = 1;
+	if (step_len < 1) step_len = 1;
+	uint32_t max_events = (sample_count / step_len) + 2;
+	if (max_events < 4) max_events = 4;
+	// 预估事件数量后分配结果缓冲
+
+	char *seq = (char *)luat_heap_malloc(max_events + 1);
+	dtmf_event_t *events = (dtmf_event_t *)luat_heap_malloc(max_events * sizeof(dtmf_event_t));
+	uint32_t event_count = 0;
+	int seq_len = 0;
+	if (seq && events) {
+		seq_len = dtmf_decode_pcm16(samples, sample_count, sample_rate, &opts,
+							seq, max_events + 1, events, &event_count, max_events);
+	} else {
+		if (seq) {
+			seq[0] = 0;
+		}
+		if (events) {
+			event_count = 0;
+		}
+	}
+
+	if (seq) {
+		lua_pushlstring(L, seq, seq_len);
+	} else {
+		lua_pushliteral(L, "");
+	}
+	lua_newtable(L);
+	if (events) {
+		for (uint32_t i = 0; i < event_count; ++i) {
+			lua_newtable(L);
+			lua_pushlstring(L, &events[i].symbol, 1);
+			lua_setfield(L, -2, "symbol");
+			lua_pushinteger(L, events[i].start_sample);
+			lua_setfield(L, -2, "startSample");
+			lua_pushinteger(L, events[i].end_sample);
+			lua_setfield(L, -2, "endSample");
+			lua_pushinteger(L, events[i].frames);
+			lua_setfield(L, -2, "frames");
+			lua_seti(L, -2, i + 1);
+		}
+	}
+
+	if (samples) luat_heap_free(samples);
+	if (seq) luat_heap_free(seq);
+	if (events) luat_heap_free(events);
+	return 2;
+}
+
+/**
+DTMF 编码
+@api codec.dtmf_encode(seq, sample_rate, opts)
+@string DTMF字符串,支持 0-9 A-D * #
+@int 采样率(Hz),默认8000
+@table 可选配置
+@return zbuff PCM16LE数据
+@usage
+local pcm = codec.dtmf_encode("123#", 8000, {toneMs = 100, pauseMs = 50, amplitude = 0.7})
+*/
+static int l_codec_dtmf_encode(lua_State *L) {
+	size_t len = 0;
+	const char *digits = luaL_checklstring(L, 1, &len);
+	uint32_t sample_rate = (uint32_t)luaL_optinteger(L, 2, 8000);
+	dtmf_encode_opts_t opts;
+	l_codec_dtmf_encode_opts(L, 3, &opts);
+
+	uint32_t sample_count = dtmf_encode_calc_samples(digits, sample_rate, &opts);
+	uint32_t byte_len = sample_count * 2;
+
+	luat_zbuff_t *buff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
+	// 输出为PCM16LE zbuff
+	if (buff == NULL) {
+		lua_pushnil(L);
+		return 1;
+	}
+	memset(buff, 0, sizeof(luat_zbuff_t));
+	buff->type = LUAT_HEAP_SRAM;
+	if (byte_len > 0) {
+		buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type, byte_len);
+		if (!buff->addr) {
+			lua_pushnil(L);
+			return 1;
+		}
+		buff->len = byte_len;
+		buff->used = byte_len;
+		uint32_t out_count = 0;
+		dtmf_encode_pcm16(digits, sample_rate, &opts, (int16_t *)buff->addr, sample_count, &out_count);
+		buff->used = out_count * 2;
+	} else {
+		buff->addr = NULL;
+		buff->len = 0;
+		buff->used = 0;
+	}
+	luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
+	return 1;
+}
+#endif
+
 
 static int l_codec_gc(lua_State *L)
 {
@@ -831,6 +1115,10 @@ static const rotable_Reg_t reg_codec[] =
     { "info" , 		 	 ROREG_FUNC(l_codec_get_audio_info)},
     { "data",  		 	 ROREG_FUNC(l_codec_get_audio_data)},
 	{ "encode",  		 ROREG_FUNC(l_codec_encode_audio_data)},
+#ifdef LUAT_USE_AUDIO_DTMF
+	{ "dtmf_decode",    ROREG_FUNC(l_codec_dtmf_decode)},
+	{ "dtmf_encode",    ROREG_FUNC(l_codec_dtmf_encode)},
+#endif
     { "release",         ROREG_FUNC(l_codec_release)},
     //@const MP3 number MP3格式
 	{ "MP3",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_MP3)},

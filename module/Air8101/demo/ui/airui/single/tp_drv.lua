@@ -16,20 +16,6 @@
 
 local tp_drv = {}
 
---[[
-触摸事件回调函数；
-
-@local
-@function tp_callback(tp_device, tp_data)
-@userdata tp_device 触摸设备对象
-@table tp_data 触摸数据数组
-@return nil
-]]
-
-local function tp_callback(tp_device, tp_data)
-    -- log.info("tp_drv tp_callback", tp_data[1].event, tp_data[1].x, tp_data[1].y)
-    sys.publish("TP", tp_device, tp_data)
-end
 
 --[[
 初始化触摸面板驱动；
@@ -67,7 +53,7 @@ function tp_drv.init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    result = tp.init("gt911", { port = result, pin_rst = 28, pin_int = 7, w = 800, h = 480 }, tp_callback)
+    result = tp.init("gt911", { port = result, pin_rst = 28, pin_int = 7, w = 800, h = 480 })
 
     log.info("tp.init", result)
 

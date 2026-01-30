@@ -20,7 +20,7 @@ VERSION：项目版本号,ascii string类型
 ]]
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "iRTU"
-VERSION = "5.0.0"
+VERSION = "5.0.1"
 
 --联网成功获取配置之后，代码里会将PRODUCT_KEY更新为当前项目下的KEY值进行升级，所以这里写死为默认值
 --如果需要手动修改KEY请参考https://docs.openluat.com/air780epm/luatos/app/ota/fota/

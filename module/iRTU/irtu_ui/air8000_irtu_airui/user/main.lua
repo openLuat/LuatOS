@@ -8,9 +8,7 @@ PRODUCT_KEY = "0LkZx9Kn3tOhtW7uod48xhilVNrVsScV" --618DTU正式版本的key固�
 
 log.info("main", PROJECT, VERSION)
 
--- 一定要添加sys.lua !!!!
-_G.sys = require("sys")
-_G.sysplus = require("sysplus")
+
 pm.power(pm.GPS, false)
 
 require "libnet"

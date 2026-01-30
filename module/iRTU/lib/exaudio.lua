@@ -398,10 +398,17 @@ function exaudio.play_start(playConfigs)
             log.error("文件播放content必须为字符串或路径表")
             return false
         end
-
-        audio_play_param.content = playConfigs.content
-        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
+        if io.exists(playConfigs.content) then
+            audio_play_param.content = playConfigs.content
+            if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
+                return false
+            end
+        else
+            log.info("文件不存在")
             return false
+        end
+    elseif play_type == 2 then  -- URL播放
+        if not playConfigs.content then
         end
 
     elseif play_type == 1 then  -- TTS播放

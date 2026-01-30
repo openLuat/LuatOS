@@ -1,117 +1,81 @@
-
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "ftpdemo"
-VERSION = "1.0.0"
-
 --[[
-本demo需要ftp库, 大部分能联网的设备都具有这个库
-ftp也是内置库, 无需require
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
+@version 001.000.000
+@date    2025.07.28
+@author  马亚丹
+@usage
+1. 详细逻辑请看ftp_up_download.lua文件
+2. netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+   (1) netdrv_4g：4G网卡
+   (2) netdrv_wifi：WIFI STA网卡
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (4) netdrv_multiple：支持以上三种网卡，可以配置三种网卡的优先级
 ]]
 
 
-sys.taskInit(function()
-    -----------------------------
-    -- 统一联网函数, 可自行删减
-    ----------------------------
-    
-    if wlan and wlan.connect then
-        -- wifi 联网, 支持Air8101
-        
-        local ssid = "luatos1234"
-        local password = "12341234"
-         
-        
-        log.info("wifi", ssid, password)
-        
-        wlan.init()
-        wlan.setMode(wlan.STATION)
-        wlan.connect(ssid, password, 1)
-        local result, data = sys.waitUntil("IP_READY", 30000)
-        log.info("wlan", "IP_READY", result, data)
-        device_id = wlan.getMac()
-        -- TODO 获取mac地址作为device_id
-    
-    end
-    
-
-    -- -- 打印一下支持的加密套件, 通常来说, 固件已包含常见的99%的加密套件
-    -- if crypto.cipher_suites then
-    --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
-    -- end
-    while true do
-        sys.wait(1000)
-        log.info("ftp 启动")
-        log.info("ftp Air8101 Start ...")
-
-        
-        --print(ftp.debug(on))
-
-        print(ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
-    
-        --空操作，防止连接断掉
-        print(ftp.command("NOOP").wait())
-
-        --报告远程系统的操作系统类型
-        print(ftp.command("SYST").wait())
-
-        --设置 FTP 数据传输类型
-        print(ftp.command("TYPE I").wait())
-        
-        -- 显示当前工作目录名
-        print(ftp.command("PWD").wait())
-        
-        --创建目录
-        print(ftp.command("MKD QWER").wait())
-        
-        --改变当前工作目录
-        print(ftp.command("CWD /QWER").wait())
-
-        -- 返回上一层目录
-        print(ftp.command("CDUP").wait())
-        
-        -- 删除目录
-        print(ftp.command("RMD QWER").wait())
-
-        -- 获取当前工作目录下的文件名列表
-        print(ftp.command("LIST").wait())
-
-        -- 向文件写一段测试数据，打印日志检查是否一致
-        -- io.writeFile("/12222.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
-        -- print(ftp.push("/12222.txt","/12222.txt").wait())
-        
-        --FTP 文件下载 本地文件名1222.txt, 服务器端文件名1222.txt
-        print(ftp.pull("/122224.txt","/122224.txt").wait())
-
-        --读取文件 并打印输入文件内容数据
-        local f = io.open("/122224.txt", "r")
-        if f then
-            local data = f:read("*a")
-            f:close()
-            log.info("fs", "writed data", data)
-        else
-            log.info("fs", "open file for read failed")
-        end
-
-        --删除FTP服务器端文件
-        print(ftp.command("DELE /12222.txt").wait())
-        
-        
-        --FTP上传文件 本地文件名122224.txt, 服务器端文件名12222.txt
-        print(ftp.push("/122224.txt","/12222.txt").wait())
-
-        --关闭FTP连接
-        print(ftp.close().wait())
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
+PROJECT = "ftp_demo"
+VERSION = "001.000.000"
 
 
-        log.info("meminfo", rtos.meminfo("sys"))
-        sys.wait(15000)
-    end
+-- 在日志中打印项目名和项目版本号
+log.info("main", PROJECT, VERSION)
 
 
-end)
+-- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
+-- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
+if wdt then
+    --配置喂狗超时时间为9秒钟
+    wdt.init(9000)
+    --启动一个循环定时器，每隔3秒钟喂一次狗
+    sys.timerLoopStart(wdt.feed, 3000)
+end
+
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
+
+
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
+
+
+
+
+-- 加载网络驱动设备功能模块，在该文件中修改自己使用的联网方式
+require"netdrv_device"
+
+
+--加载ftp_up_download功能模块
+require "ftp_up_download"
+
+
+
+
+-- 启动系统调度（必须放在最后）
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

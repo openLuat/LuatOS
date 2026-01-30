@@ -19,7 +19,7 @@ function judge_device()
         model_name = "Air780EGH"
         chip_name = "EC718HM"
     elseif device_name == "Air8000" then
-        model_name = "Air8000A"
+        model_name = "Air8000"
         chip_name = "EC718HM"
     elseif device_name == "Air780EGG" then
         model_name = "Air780EGG"
@@ -53,6 +53,7 @@ end
 
 function hmeta_test.test_model_demo()
     judge_device()
+
     local hmeta_model = hmeta.model()
     log.info("hmeta_model名称", hmeta_model)
     assert(hmeta_model == model_name,

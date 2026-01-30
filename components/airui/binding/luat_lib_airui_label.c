@@ -13,6 +13,7 @@
 #include "../inc/luat_airui.h"
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
+#include "luat_malloc.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airui.label"
@@ -29,6 +30,8 @@
  * @int config.y Y 坐标，默认 0
  * @int config.w 宽度，默认 100
  * @int config.h 高度，默认 40
+ * @int config.color 颜色，默认 0x000000
+ * @int config.font_size 字号，默认 14
  * @string config.text 文本内容，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Label 对象
@@ -72,6 +75,12 @@ static int l_label_set_text(lua_State *L) {
     return 0;
 }
 
+/**
+ * Label:set_symbol(symbol)
+ * @api label:set_symbol(symbol)
+ * @string symbol 符号内容
+ * @return nil
+ */
 static int l_label_set_symbol(lua_State *L) {
     lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
     const char *symbol = luaL_checkstring(L, 2);
@@ -82,6 +91,40 @@ static int l_label_set_symbol(lua_State *L) {
     return 0;
 }
 
+/**
+ * Label:set_color(color)
+ * @api label:set_color(color)
+ * @int color 十六进制颜色值，如 0xff0000
+ */
+static int l_label_set_color(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    uint32_t color = (uint32_t)luaL_checkinteger(L, 2);
+    airui_label_set_text_color(label, lv_color_hex(color));
+    return 0;
+}
+
+/**
+ * Label:set_font_size(size)
+ * @api label:set_font_size(size)
+ * @int size 字号（对齐到可用字体）
+ */
+static int l_label_set_font_size(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    int font_size = (int)luaL_checkinteger(L, 2);
+    if (font_size <= 0) {
+        luaL_error(L, "font_size must be positive");
+        return 0;
+    }
+    airui_label_set_font_size(label, font_size);
+    return 0;
+}
+
+/**
+ * Label:set_on_click(callback)
+ * @api label:set_on_click(callback)
+ * @function callback 点击回调
+ * @return nil
+ */
 static int l_label_set_on_click(lua_State *L) {
     lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
     luaL_checktype(L, 2, LUA_TFUNCTION);
@@ -126,6 +169,11 @@ static int l_label_destroy(lua_State *L) {
         // 获取元数据并释放
         airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
         if (meta != NULL) {
+            // 因为引入了hzfont，所以需要释放私有数据
+            if (meta->user_data != NULL) {
+                luat_heap_free(meta->user_data);
+                meta->user_data = NULL;
+            }
             airui_component_meta_free(meta);
         }
         
@@ -147,6 +195,8 @@ void airui_register_label_meta(lua_State *L) {
     static const luaL_Reg methods[] = {
         {"set_text", l_label_set_text},
         {"set_symbol", l_label_set_symbol},
+        {"set_color", l_label_set_color},
+        {"set_font_size", l_label_set_font_size},
         {"set_on_click", l_label_set_on_click},
         {"get_text", l_label_get_text},
         {"destroy", l_label_destroy},

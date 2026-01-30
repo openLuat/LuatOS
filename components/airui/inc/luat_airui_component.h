@@ -89,6 +89,13 @@ typedef struct {
 } airui_msgbox_data_t;
 
 /**
+ * Label 私有数据
+ */
+typedef struct {
+    uint16_t hzfont_size;
+} airui_label_data_t;
+
+/**
  * Textarea 私有数据
  */
 typedef struct {
@@ -265,6 +272,8 @@ int airui_button_set_on_click(lv_obj_t *btn, int callback_ref); //设置点击�
 lv_obj_t *airui_label_create_from_config(void *L, int idx);
 int airui_label_set_text(lv_obj_t *label, const char *text); //设置标签文本
 const char *airui_label_get_text(lv_obj_t *label); //获取标签文本
+int airui_label_set_text_color(lv_obj_t *label, lv_color_t color); //设置标签颜色
+int airui_label_set_font_size(lv_obj_t *label, int font_size); //设置标签字号
 
 /**
  * Dropdown 组件创建

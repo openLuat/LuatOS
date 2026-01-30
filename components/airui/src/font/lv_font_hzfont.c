@@ -11,15 +11,20 @@
 #include "luat_hzfont.h"
 #include "ttf_parser.h"
 
-
-/** 
+/**
  * HZFont 字体描述私有数据结构 
  */
 typedef struct {
-    uint16_t font_size; /**< 当前字号 */
+    uint16_t font_size; /**< 默认字号 */
     uint8_t antialias;  /**< 抗锯齿等级 (1, 2, 4) */
     TtfFont *ttf;       /**< 底层 TTF 句柄引用 */
+    uint16_t *render_size; /**< 动态渲染字号引用 */
 } lv_font_hzfont_dsc_t;
+
+static lv_font_t *g_airui_hzfont_font = NULL; // 共享字体对象
+static lv_font_hzfont_dsc_t *g_airui_hzfont_dsc = NULL; // 共享字体描述对象
+static uint16_t g_airui_hzfont_render_size = 16; // 共享渲染字号
+static const int g_airui_hzfont_extra_leading = 3; // 共享额外行高
 
 static uint16_t hzfont_default_ascent(uint16_t font_size) {
     if (font_size == 0) {
@@ -31,6 +36,17 @@ static uint16_t hzfont_default_ascent(uint16_t font_size) {
         value = 1;
     }
     return (uint16_t)value;
+}
+
+// 获取共享渲染字号
+static uint16_t hzfont_get_active_size(lv_font_hzfont_dsc_t *dsc) {
+    if (dsc == NULL) {
+        return 0;
+    }
+    if (dsc->render_size && *dsc->render_size > 0) {
+        return *dsc->render_size;
+    }
+    return dsc->font_size;
 }
 
 /**
@@ -58,12 +74,13 @@ static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * d
 
     // 2. 获取位图以获取精确度量 (Metrics)
     // 优先从底层引擎的 LRU 缓存中获取，避免重复渲染
-    const TtfBitmap *bitmap = luat_hzfont_get_bitmap(glyph_index, dsc->font_size, dsc->antialias);
+    uint16_t render_size = hzfont_get_active_size(dsc);
+    const TtfBitmap *bitmap = luat_hzfont_get_bitmap(glyph_index, render_size, dsc->antialias);
     // 如果获取不到位图，则进行处理
     if (!bitmap) {
         // 空格和制表符特殊处理
         if (letter == ' ' || letter == '\t') {
-            dsc_out->adv_w = dsc->font_size/2;
+            dsc_out->adv_w = render_size/2;
             dsc_out->box_w = 0;
             dsc_out->box_h = 0;
             dsc_out->format = LV_FONT_GLYPH_FORMAT_NONE;
@@ -110,7 +127,8 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
     if (!dsc || !dsc->ttf) return NULL;
 
     uint32_t glyph_index = dsc_out->gid.index;
-    const TtfBitmap *bitmap = luat_hzfont_get_bitmap((uint16_t)glyph_index, dsc->font_size, dsc->antialias);
+    uint16_t render_size = hzfont_get_active_size(dsc);
+    const TtfBitmap *bitmap = luat_hzfont_get_bitmap((uint16_t)glyph_index, render_size, dsc->antialias);
     if (!bitmap) return NULL;
 
     if (draw_buf && draw_buf->data) {
@@ -172,6 +190,15 @@ lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t 
         }
     }
 
+    // 如果共享字体对象已存在，则更新渲染字号
+    if (g_airui_hzfont_font != NULL) {
+        g_airui_hzfont_render_size = size;
+        if (g_airui_hzfont_dsc && g_airui_hzfont_dsc->render_size) {
+            *g_airui_hzfont_dsc->render_size = size;
+        }
+        return g_airui_hzfont_font;
+    }
+
     // 2. 分配 LVGL 字体对象
     lv_font_t * font = lv_malloc(sizeof(lv_font_t));
     if (!font) return NULL;
@@ -201,15 +228,50 @@ lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t 
     font->get_glyph_dsc = hzfont_get_glyph_dsc;
     font->get_glyph_bitmap = hzfont_get_glyph_bitmap;
     uint16_t ascent = hzfont_default_ascent(size);
-    // 额外增加5像素行高，防止字体显示不全
-    const int extra_leading = 3;
-    font->line_height = size + extra_leading;
+    font->line_height = size + g_airui_hzfont_extra_leading;
     font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
     font->fallback = lv_font_get_default(); //当有缺失字时，使用默认字体
+    g_airui_hzfont_font = font;
+    g_airui_hzfont_dsc = dsc;
+    dsc->render_size = &g_airui_hzfont_render_size;
+    g_airui_hzfont_render_size = size;
     return font;
 }
 
+// 获取共享字体对象
+lv_font_t *airui_font_get_shared_hzfont(void)
+{
+    return g_airui_hzfont_font;
+}
+
+// 设置共享渲染字号
+void airui_font_hzfont_set_render_size(uint16_t size)
+{
+    if (g_airui_hzfont_dsc == NULL || g_airui_hzfont_dsc->render_size == NULL || g_airui_hzfont_font == NULL) {
+        return;
+    }
+    if (size == 0) {
+        size = g_airui_hzfont_dsc->font_size;
+    }
+    *g_airui_hzfont_dsc->render_size = size;
+    g_airui_hzfont_render_size = size;
+    uint16_t ascent = hzfont_default_ascent(size);
+    g_airui_hzfont_font->line_height = size + g_airui_hzfont_extra_leading;
+    g_airui_hzfont_font->base_line = (int32_t)g_airui_hzfont_font->line_height > ascent ?
+        (int32_t)g_airui_hzfont_font->line_height - ascent : 0;
+}
+
 #else
+
+lv_font_t *airui_font_get_shared_hzfont(void)
+{
+    return NULL;
+}
+
+void airui_font_hzfont_set_render_size(uint16_t size)
+{
+    return;
+}
 
 static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * dsc_out, uint32_t letter, uint32_t letter_next) {
     return false;

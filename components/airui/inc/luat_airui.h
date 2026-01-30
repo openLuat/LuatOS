@@ -241,6 +241,18 @@ void airui_buffer_free_all(airui_ctx_t *ctx);
 lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram);
 
 /**
+ * 获取共享的 HZFont 字体对象
+ * @return lv_font_t 字体对象，失败返回 NULL
+ */
+lv_font_t *airui_font_get_shared_hzfont(void);
+
+/**
+ * 设置共享的 HZFont 字体渲染字号
+ * @param size 字号
+ */
+void airui_font_hzfont_set_render_size(uint16_t size);
+
+/**
  * 设置显示缓冲
  * @param ctx 上下文指针
  * @param buf1 缓冲1指针

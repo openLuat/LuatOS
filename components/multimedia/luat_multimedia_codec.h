@@ -93,6 +93,8 @@ void g711_get_stats(void* codec, uint32_t* sample_rate, uint32_t* frame_count);
 void g711_reset_stats(void* codec);
 void g711_set_sample_rate(void* codec, uint32_t sample_rate);
 
+#include "dtmf_codec/dtmf_codec.h"
+
 #ifdef __LUATOS__
 int l_multimedia_raw_handler(lua_State *L, void* ptr);
 #endif

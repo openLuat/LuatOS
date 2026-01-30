@@ -226,10 +226,12 @@ target("luatos-lua")
                     luatos.."/components/multimedia/amr_decode/opencore-amrwb",
                     luatos.."/components/multimedia/amr_decode/oscl",
                     luatos.."/components/multimedia/amr_decode/amr_nb/enc/src",
+                    luatos.."/components/multimedia/dtmf_codec",
                     luatos.."/components/multimedia/vtool/include")
     add_files(luatos.."/components/multimedia/*.c|luat_multimedia_audio.c|luat_audio_tm8211.c|luat_audio_es8311.c",
             luatos.."/components/multimedia/amr_decode/**.c",
             luatos.."/components/multimedia/g711_codec/**.c",
+            luatos.."/components/multimedia/dtmf_codec/**.c",
             luatos.."/components/multimedia/vtool/**.c")
 
     -- opus

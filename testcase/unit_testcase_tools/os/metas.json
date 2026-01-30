@@ -1,0 +1,13 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "air780epm": [1, 105],
+        "air780ehm": [1, 104],
+        "air8000": [1,101],
+        "air8101": [1, 101]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "os测试"
+}

@@ -159,6 +159,7 @@ local function ftp_download_file()
         local fsize = io.fileSize(config.download.local_file)
         if not fsize then
             log.error("读取文件大小失败,重新下载")
+            file:close()
             return false
         end
         log.info("服务器上文件" .. config.download.remote_file .. "下载成功，保存在本地路径:", config.download.local_file, "大小:", fsize,
@@ -172,6 +173,7 @@ local function ftp_download_file()
         end
         -- 执行完操作后,一定要关掉文件
         file:close()
+        return true
     end
 
     -- 如果下载失败，最多重试10次，间隔2秒,可按需修改

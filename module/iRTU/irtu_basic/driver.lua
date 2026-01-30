@@ -2,9 +2,11 @@ local driver = {}
 
 local default=require "default"
 local create = require "create"
+
 local gnss = require "gnss"
 local exgnss= require "exgnss"
 local exvib= require "exvib"
+
 local exaudio = require "exaudio"
 local audio_config = require "audio_config"
 local lbsLoc = require"lbsLoc"
@@ -21,16 +23,8 @@ local writeIdle = {true, true, true}
 -- 串口读缓冲区
 local recvBuff, writeBuff = {{}, {}, {}, {},{},{}}, {{}, {}, {}, {},{},{}}
 
-local aid="a"
 
 local netready
-
-sys.subscribe("audio_result",function(data)
-    if aid~="a" then
-        write(aid, data)
-        aid="a"
-    end
-end)
 
 ---------------------------------------------------------- 用户控制 GPIO 配置 ----------------------------------------------------------
 driver.pios = {
@@ -211,14 +205,13 @@ cmd.rrpc = {
     ["ttsplay"] = function(t) 
         if t then
             log.info("TTT",t[1])
-
-            if t[1] and t[1]~="" then
-                local result=audio_config.audio_play_tts(t[1])
-                log.info("TTT",result)
-                return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
-            else
-               return "rrpc,ttsplay,ERROR" 
-            end
+            -- sys.publish("AUDIO_PLAY_TTS",t[1])
+            local result=audio_config.audio_play_tts(t[1])
+            -- local result=audio.tts(0, t[1])
+            -- sys.wait(1000)
+            log.info("TTT",result)
+            return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
+            -- return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
         end
     end,
     ["setvol"] = function(t) 
@@ -270,7 +263,6 @@ local function read(uid, idx)
     
     -- DTU的参数配置
     if s:sub(1, 7) == "config," or s:sub(1, 5) == "rrpc," then
-        aid=uid
         return write(uid, create.userapi(s))
     end
   -- 正常透传模式

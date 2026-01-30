@@ -31,7 +31,7 @@ sys.taskInit(function()
 end)
 ]]
 
-local sys = require "sys"
+
 
 local lbsLoc2 = {}
 

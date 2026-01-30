@@ -1,14 +1,15 @@
 #include "dtmf_codec.h"
-#include "luat_mem.h"
 #include <string.h>
-#include <math.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#define DTMF_Q10_ONE 1024
+#define DTMF_Q15_ONE 32768
+#define DTMF_Q30_ONE 1073741824
 
-static const float DTMF_ROW_FREQS[4] = {697.0f, 770.0f, 852.0f, 941.0f};
-static const float DTMF_COL_FREQS[4] = {1209.0f, 1336.0f, 1477.0f, 1633.0f};
+#define DTMF_PI_Q30 3373259426LL
+#define DTMF_TWO_PI_Q30 6746518852LL
+
+static const uint16_t DTMF_ROW_FREQS[4] = {697, 770, 852, 941};
+static const uint16_t DTMF_COL_FREQS[4] = {1209, 1336, 1477, 1633};
 static const char DTMF_MAP[4][4] = {
     { '1', '2', '3', 'A' },
     { '4', '5', '6', 'B' },
@@ -16,15 +17,65 @@ static const char DTMF_MAP[4][4] = {
     { '*', '0', '#', 'D' },
 };
 
+static const int32_t CORDIC_ATAN_Q30[16] = {
+    843314857, 497837829, 263043836, 133525159,
+    67021687, 33511064, 16754554, 8372258,
+    4187890, 2093945, 1046973, 523486,
+    261743, 130872, 65436, 32718
+};
+
+static const int32_t CORDIC_K_Q30 = 652032874;
+
+static const uint16_t TWIST_DB_RATIO_Q10[13] = {
+    1024, 1289, 1624, 2043, 2573, 3236, 4077,
+    5132, 6463, 8139, 10240, 12880, 16220
+};
+
+static void cordic_sin_cos_q30(int64_t angle_q30, int32_t* cos_q30, int32_t* sin_q30) {
+    int64_t ang = angle_q30 % DTMF_TWO_PI_Q30;
+    if (ang > DTMF_PI_Q30) {
+        ang -= DTMF_TWO_PI_Q30;
+    } else if (ang < -DTMF_PI_Q30) {
+        ang += DTMF_TWO_PI_Q30;
+    }
+
+    int32_t x = CORDIC_K_Q30;
+    int32_t y = 0;
+    int64_t z = ang;
+
+    for (int i = 0; i < 16; ++i) {
+        int32_t x_new;
+        int32_t y_new;
+        if (z >= 0) {
+            x_new = x - (y >> i);
+            y_new = y + (x >> i);
+            z -= CORDIC_ATAN_Q30[i];
+        } else {
+            x_new = x + (y >> i);
+            y_new = y - (x >> i);
+            z += CORDIC_ATAN_Q30[i];
+        }
+        x = x_new;
+        y = y_new;
+    }
+
+    if (cos_q30) {
+        *cos_q30 = x;
+    }
+    if (sin_q30) {
+        *sin_q30 = y;
+    }
+}
+
 void dtmf_decode_opts_default(dtmf_decode_opts_t* opts) {
     if (!opts) {
         return;
     }
-    opts->frame_ms = 40.0f;
-    opts->step_ms = 40.0f;
-    opts->detect_ratio = 5.0f;
-    opts->power_ratio = 2.5f;
-    opts->twist_db = 6.0f;
+    opts->frame_ms = 40;
+    opts->step_ms = 40;
+    opts->detect_ratio_q10 = 5 * DTMF_Q10_ONE;
+    opts->power_ratio_q10 = (uint32_t)(2 * DTMF_Q10_ONE + DTMF_Q10_ONE / 2);
+    opts->twist_db = 6;
     opts->min_consecutive = 2;
 }
 
@@ -32,40 +83,54 @@ void dtmf_encode_opts_default(dtmf_encode_opts_t* opts) {
     if (!opts) {
         return;
     }
-    opts->tone_ms = 100.0f;
-    opts->pause_ms = 50.0f;
-    opts->amplitude = 0.7f;
+    opts->tone_ms = 100;
+    opts->pause_ms = 50;
+    opts->amplitude_q15 = 22938;
 }
 
-// Goertzel算法计算指定频点能量
-static float goertzel_power(const int16_t* samples, uint32_t start, uint32_t end, uint32_t sample_rate, float freq) {
-    if (!samples || end < start) {
-        return 0.0f;
+static int64_t goertzel_power(const int16_t* samples, uint32_t start, uint32_t end,
+                              uint32_t sample_rate, uint16_t freq) {
+    if (!samples || end < start || sample_rate == 0) {
+        return 0;
     }
     uint32_t n = end - start + 1;
-    if (n == 0 || sample_rate == 0) {
-        return 0.0f;
+    if (n == 0) {
+        return 0;
     }
-    float k = 0.5f + ((float)n * freq) / (float)sample_rate;
-    float w = (2.0f * (float)M_PI * k) / (float)n;
-    float coeff = 2.0f * cosf(w);
-    float q0 = 0.0f, q1 = 0.0f, q2 = 0.0f;
+
+    uint32_t k = (uint32_t)(((uint64_t)n * freq + (sample_rate / 2)) / sample_rate);
+    if (k == 0) {
+        return 0;
+    }
+
+    int64_t angle_q30 = (DTMF_TWO_PI_Q30 * (int64_t)k + (int64_t)n / 2) / (int64_t)n;
+    int32_t cos_q30 = 0;
+    cordic_sin_cos_q30(angle_q30, &cos_q30, NULL);
+
+    int32_t cos_q14 = (int32_t)(cos_q30 >> 16);
+    int32_t coeff_q14 = cos_q14 << 1;
+
+    int64_t q0 = 0, q1 = 0, q2 = 0;
     for (uint32_t i = start; i <= end; ++i) {
-        float s = (float)samples[i];
-        q0 = coeff * q1 - q2 + s;
+        q0 = ((int64_t)coeff_q14 * q1 >> 14) - q2 + samples[i];
         q2 = q1;
         q1 = q0;
     }
-    return q1 * q1 + q2 * q2 - coeff * q1 * q2;
+
+    int64_t term = ((int64_t)coeff_q14 * q1 >> 14);
+    int64_t power = q1 * q1 + q2 * q2 - term * q2;
+    if (power < 0) {
+        power = 0;
+    }
+    return power;
 }
 
-// 选出最大和次大能量
-static void pick_top_two(const float* powers, uint32_t count, float* max1, float* max2, int* idx1) {
-    float m1 = -1.0f;
-    float m2 = -1.0f;
+static void pick_top_two(const int64_t* powers, uint32_t count, int64_t* max1, int64_t* max2, int* idx1) {
+    int64_t m1 = -1;
+    int64_t m2 = -1;
     int index = -1;
     for (uint32_t i = 0; i < count; ++i) {
-        float v = powers[i];
+        int64_t v = powers[i];
         if (v > m1) {
             m2 = m1;
             m1 = v;
@@ -74,8 +139,8 @@ static void pick_top_two(const float* powers, uint32_t count, float* max1, float
             m2 = v;
         }
     }
-    if (m2 < 0.0f) {
-        m2 = 0.0f;
+    if (m2 < 0) {
+        m2 = 0;
     }
     if (max1) {
         *max1 = m1;
@@ -88,65 +153,65 @@ static void pick_top_two(const float* powers, uint32_t count, float* max1, float
     }
 }
 
-// 主峰/次峰比校验
-static int power_ratio_ok(float max1, float max2, float ratio) {
-    if (max1 <= 0.0f) {
+static int power_ratio_ok(int64_t max1, int64_t max2, uint32_t ratio_q10) {
+    if (max1 <= 0) {
         return 0;
     }
-    if (max2 <= 0.0f) {
+    if (max2 <= 0) {
         return 1;
     }
-    return (max1 / max2) >= ratio;
+    return (max1 * DTMF_Q10_ONE) >= (max2 * (int64_t)ratio_q10);
 }
 
-// 行列功率扭曲容差校验
-static int twist_ok(float row_power, float col_power, float twist_db) {
-    if (row_power <= 0.0f || col_power <= 0.0f) {
+static int twist_ok(int64_t row_power, int64_t col_power, uint32_t twist_db) {
+    if (row_power <= 0 || col_power <= 0) {
         return 0;
     }
-    float twist = powf(10.0f, twist_db / 10.0f);
-    float r = row_power / col_power;
-    return (r >= (1.0f / twist)) && (r <= twist);
+    if (twist_db > 12) {
+        twist_db = 12;
+    }
+    uint32_t ratio_q10 = TWIST_DB_RATIO_Q10[twist_db];
+    return (row_power * (int64_t)ratio_q10 >= col_power * DTMF_Q10_ONE) &&
+           (row_power * DTMF_Q10_ONE <= col_power * (int64_t)ratio_q10);
 }
 
-// 单帧检测DTMF符号
 static char detect_frame(const int16_t* samples, uint32_t sample_rate, uint32_t start, uint32_t end,
                          const dtmf_decode_opts_t* opts) {
-    float row_powers[4];
-    float col_powers[4];
-    double total_energy = 0.0;
+    int64_t row_powers[4];
+    int64_t col_powers[4];
+    int64_t total_energy = 0;
 
     for (uint32_t i = start; i <= end; ++i) {
-        double s = (double)samples[i];
-        total_energy += s * s;
+        int32_t s = samples[i];
+        total_energy += (int64_t)s * s;
     }
     uint32_t n = end - start + 1;
-    double avg_power = (n > 0) ? (total_energy / (double)n) : 0.0;
+    int64_t avg_power = (n > 0) ? (total_energy / (int64_t)n) : 0;
 
     for (uint32_t i = 0; i < 4; ++i) {
         row_powers[i] = goertzel_power(samples, start, end, sample_rate, DTMF_ROW_FREQS[i]);
         col_powers[i] = goertzel_power(samples, start, end, sample_rate, DTMF_COL_FREQS[i]);
     }
 
-    float row_max, row_2nd, col_max, col_2nd;
+    int64_t row_max, row_2nd, col_max, col_2nd;
     int row_idx, col_idx;
     pick_top_two(row_powers, 4, &row_max, &row_2nd, &row_idx);
     pick_top_two(col_powers, 4, &col_max, &col_2nd, &col_idx);
 
-    float detect_ratio = opts ? opts->detect_ratio : 5.0f;
-    float power_ratio = opts ? opts->power_ratio : 2.5f;
-    float twist_db = opts ? opts->twist_db : 6.0f;
+    uint32_t detect_ratio_q10 = opts ? opts->detect_ratio_q10 : (5 * DTMF_Q10_ONE);
+    uint32_t power_ratio_q10 = opts ? opts->power_ratio_q10 : (2 * DTMF_Q10_ONE + DTMF_Q10_ONE / 2);
+    uint32_t twist_db = opts ? opts->twist_db : 6;
 
-    if (row_max < (float)avg_power * detect_ratio) {
+    if (row_max * DTMF_Q10_ONE < avg_power * (int64_t)detect_ratio_q10) {
         return 0;
     }
-    if (col_max < (float)avg_power * detect_ratio) {
+    if (col_max * DTMF_Q10_ONE < avg_power * (int64_t)detect_ratio_q10) {
         return 0;
     }
-    if (!power_ratio_ok(row_max, row_2nd, power_ratio)) {
+    if (!power_ratio_ok(row_max, row_2nd, power_ratio_q10)) {
         return 0;
     }
-    if (!power_ratio_ok(col_max, col_2nd, power_ratio)) {
+    if (!power_ratio_ok(col_max, col_2nd, power_ratio_q10)) {
         return 0;
     }
     if (!twist_ok(row_max, col_max, twist_db)) {
@@ -160,7 +225,6 @@ static char detect_frame(const int16_t* samples, uint32_t sample_rate, uint32_t 
     return DTMF_MAP[row_idx][col_idx];
 }
 
-// PCM16LE解码入口
 int dtmf_decode_pcm16(const int16_t* samples, uint32_t sample_count, uint32_t sample_rate,
                       const dtmf_decode_opts_t* opts,
                       char* seq, uint32_t seq_size,
@@ -175,12 +239,12 @@ int dtmf_decode_pcm16(const int16_t* samples, uint32_t sample_count, uint32_t sa
         return 0;
     }
 
-    float frame_ms = opts ? opts->frame_ms : 40.0f;
-    float step_ms = opts ? opts->step_ms : frame_ms;
+    uint32_t frame_ms = opts ? opts->frame_ms : 40;
+    uint32_t step_ms = opts ? opts->step_ms : frame_ms;
     uint32_t min_cons = opts ? opts->min_consecutive : 2;
 
-    uint32_t frame_len = (uint32_t)((float)sample_rate * frame_ms / 1000.0f);
-    uint32_t step_len = (uint32_t)((float)sample_rate * step_ms / 1000.0f);
+    uint32_t frame_len = (sample_rate * frame_ms + 500) / 1000;
+    uint32_t step_len = (sample_rate * step_ms + 500) / 1000;
     if (frame_len < 1) frame_len = 1;
     if (step_len < 1) step_len = 1;
 
@@ -242,8 +306,7 @@ int dtmf_decode_pcm16(const int16_t* samples, uint32_t sample_count, uint32_t sa
     return (int)seq_idx;
 }
 
-// 将符号映射为行列频率
-static int dtmf_symbol_to_freqs(char symbol, float* f1, float* f2) {
+static int dtmf_symbol_to_freqs(char symbol, uint16_t* f1, uint16_t* f2) {
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
             if (DTMF_MAP[r][c] == symbol) {
@@ -256,19 +319,18 @@ static int dtmf_symbol_to_freqs(char symbol, float* f1, float* f2) {
     return 0;
 }
 
-// 计算编码输出样本数
 uint32_t dtmf_encode_calc_samples(const char* digits, uint32_t sample_rate, const dtmf_encode_opts_t* opts) {
     if (!digits || sample_rate == 0) {
         return 0;
     }
-    float tone_ms = opts ? opts->tone_ms : 100.0f;
-    float pause_ms = opts ? opts->pause_ms : 50.0f;
-    uint32_t tone_len = (uint32_t)((float)sample_rate * tone_ms / 1000.0f);
-    uint32_t pause_len = (uint32_t)((float)sample_rate * pause_ms / 1000.0f);
+    uint32_t tone_ms = opts ? opts->tone_ms : 100;
+    uint32_t pause_ms = opts ? opts->pause_ms : 50;
+    uint32_t tone_len = (sample_rate * tone_ms + 500) / 1000;
+    uint32_t pause_len = (sample_rate * pause_ms + 500) / 1000;
 
     uint32_t count = 0;
     for (const char* p = digits; *p; ++p) {
-        float f1, f2;
+        uint16_t f1, f2;
         if (dtmf_symbol_to_freqs(*p, &f1, &f2)) {
             count += tone_len;
             if (pause_len > 0) {
@@ -279,7 +341,6 @@ uint32_t dtmf_encode_calc_samples(const char* digits, uint32_t sample_rate, cons
     return count;
 }
 
-// PCM16LE编码入口
 int dtmf_encode_pcm16(const char* digits, uint32_t sample_rate, const dtmf_encode_opts_t* opts,
                       int16_t* out_samples, uint32_t max_samples, uint32_t* out_count) {
     if (!digits || !out_samples || sample_rate == 0) {
@@ -288,45 +349,51 @@ int dtmf_encode_pcm16(const char* digits, uint32_t sample_rate, const dtmf_encod
         }
         return 0;
     }
-    float tone_ms = opts ? opts->tone_ms : 100.0f;
-    float pause_ms = opts ? opts->pause_ms : 50.0f;
-    float amplitude = opts ? opts->amplitude : 0.7f;
 
-    if (amplitude <= 1.0f) {
-        amplitude = amplitude * 32767.0f;
-    }
-    if (amplitude > 32767.0f) {
-        amplitude = 32767.0f;
-    }
-    if (amplitude < 0.0f) {
-        amplitude = 0.0f;
-    }
+    uint32_t tone_ms = opts ? opts->tone_ms : 100;
+    uint32_t pause_ms = opts ? opts->pause_ms : 50;
+    uint16_t amplitude_q15 = opts ? opts->amplitude_q15 : 22938;
 
-    uint32_t tone_len = (uint32_t)((float)sample_rate * tone_ms / 1000.0f);
-    uint32_t pause_len = (uint32_t)((float)sample_rate * pause_ms / 1000.0f);
+    uint32_t tone_len = (sample_rate * tone_ms + 500) / 1000;
+    uint32_t pause_len = (sample_rate * pause_ms + 500) / 1000;
     if (tone_len < 1) tone_len = 1;
 
     uint32_t out_idx = 0;
     for (const char* p = digits; *p; ++p) {
-        float f1, f2;
+        uint16_t f1, f2;
         if (!dtmf_symbol_to_freqs(*p, &f1, &f2)) {
             continue;
         }
-        float w1 = 2.0f * (float)M_PI * f1 / (float)sample_rate;
-        float w2 = 2.0f * (float)M_PI * f2 / (float)sample_rate;
-        float phase1 = 0.0f;
-        float phase2 = 0.0f;
+
+        int64_t angle1_q30 = (DTMF_TWO_PI_Q30 * (int64_t)f1 + (int64_t)sample_rate / 2) / (int64_t)sample_rate;
+        int64_t angle2_q30 = (DTMF_TWO_PI_Q30 * (int64_t)f2 + (int64_t)sample_rate / 2) / (int64_t)sample_rate;
+        int32_t cos1_q30 = 0, sin1_q30 = 0;
+        int32_t cos2_q30 = 0, sin2_q30 = 0;
+        cordic_sin_cos_q30(angle1_q30, &cos1_q30, &sin1_q30);
+        cordic_sin_cos_q30(angle2_q30, &cos2_q30, &sin2_q30);
+
+        int32_t s1_q30 = 0;
+        int32_t c1_q30 = DTMF_Q30_ONE;
+        int32_t s2_q30 = 0;
+        int32_t c2_q30 = DTMF_Q30_ONE;
+
         for (uint32_t i = 0; i < tone_len && out_idx < max_samples; ++i) {
-            float s = sinf(phase1) + sinf(phase2);
-            float v = s * (amplitude * 0.5f);
-            if (v > 32767.0f) v = 32767.0f;
-            if (v < -32768.0f) v = -32768.0f;
+            int32_t s1_next = (int32_t)(((int64_t)s1_q30 * cos1_q30 + (int64_t)c1_q30 * sin1_q30) >> 30);
+            int32_t c1_next = (int32_t)(((int64_t)c1_q30 * cos1_q30 - (int64_t)s1_q30 * sin1_q30) >> 30);
+            int32_t s2_next = (int32_t)(((int64_t)s2_q30 * cos2_q30 + (int64_t)c2_q30 * sin2_q30) >> 30);
+            int32_t c2_next = (int32_t)(((int64_t)c2_q30 * cos2_q30 - (int64_t)s2_q30 * sin2_q30) >> 30);
+            s1_q30 = s1_next;
+            c1_q30 = c1_next;
+            s2_q30 = s2_next;
+            c2_q30 = c2_next;
+
+            int32_t s_q15 = (int32_t)((s1_q30 + s2_q30) >> 16);
+            int32_t v = (int32_t)(((int64_t)amplitude_q15 * s_q15) >> 15);
+            if (v > 32767) v = 32767;
+            if (v < -32768) v = -32768;
             out_samples[out_idx++] = (int16_t)v;
-            phase1 += w1;
-            phase2 += w2;
-            if (phase1 > 2.0f * (float)M_PI) phase1 -= 2.0f * (float)M_PI;
-            if (phase2 > 2.0f * (float)M_PI) phase2 -= 2.0f * (float)M_PI;
         }
+
         for (uint32_t i = 0; i < pause_len && out_idx < max_samples; ++i) {
             out_samples[out_idx++] = 0;
         }

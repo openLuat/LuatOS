@@ -9,22 +9,24 @@ extern "C" {
 
 typedef struct {
     // 帧长与步进(毫秒)
-    float frame_ms;
-    float step_ms;
+    uint32_t frame_ms;
+    uint32_t step_ms;
     // 能量门限与峰值比/扭曲容差
-    float detect_ratio;
-    float power_ratio;
-    float twist_db;
+    // Q10 定点数(=值 * 1024)
+    uint32_t detect_ratio_q10;
+    uint32_t power_ratio_q10;
+    // 扭曲容差(dB), 仅接受整数
+    uint32_t twist_db;
     // 至少连续命中帧数
     uint32_t min_consecutive;
 } dtmf_decode_opts_t;
 
 typedef struct {
     // 单音时长与静默间隔(毫秒)
-    float tone_ms;
-    float pause_ms;
-    // 幅度: 0~1 为比例，>1 为绝对幅度
-    float amplitude;
+    uint32_t tone_ms;
+    uint32_t pause_ms;
+    // 幅度(Q15)
+    uint16_t amplitude_q15;
 } dtmf_encode_opts_t;
 
 typedef struct {

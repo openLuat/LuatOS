@@ -83,6 +83,7 @@
 #define LUAT_USE_AUDIO 1
 #define LUAT_SUPPORT_AMR 1
 #define LUAT_USE_AUDIO_G711 1
+#define LUAT_USE_AUDIO_DTMF 1
 
 //----------------------------
 // 常用工具库, 按需启用, cjson和pack是强烈推荐启用的

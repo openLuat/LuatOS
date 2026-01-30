@@ -742,6 +742,15 @@ static int l_codec_encode_audio_data(lua_State *L) {
 }
 
 #ifdef LUAT_USE_AUDIO_DTMF
+static uint32_t l_codec_dtmf_ratio_to_q10(lua_State *L, int index, uint32_t def_q10) {
+	if (lua_isnumber(L, index)) {
+		double v = lua_tonumber(L, index);
+		if (v < 0) v = 0;
+		return (uint32_t)(v * 1024.0 + 0.5);
+	}
+	return def_q10;
+}
+
 static void l_codec_dtmf_decode_opts(lua_State *L, int index, dtmf_decode_opts_t* opts) {
 	int step_set = 0;
 	// 解析解码参数表
@@ -751,28 +760,31 @@ static void l_codec_dtmf_decode_opts(lua_State *L, int index, dtmf_decode_opts_t
 	}
 	lua_getfield(L, index, "frameMs");
 	if (lua_isnumber(L, -1)) {
-		opts->frame_ms = (float)lua_tonumber(L, -1);
+		opts->frame_ms = (uint32_t)lua_tointeger(L, -1);
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "stepMs");
 	if (lua_isnumber(L, -1)) {
-		opts->step_ms = (float)lua_tonumber(L, -1);
+		opts->step_ms = (uint32_t)lua_tointeger(L, -1);
 		step_set = 1;
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "detectRatio");
 	if (lua_isnumber(L, -1)) {
-		opts->detect_ratio = (float)lua_tonumber(L, -1);
+		opts->detect_ratio_q10 = l_codec_dtmf_ratio_to_q10(L, -1, opts->detect_ratio_q10);
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "powerRatio");
 	if (lua_isnumber(L, -1)) {
-		opts->power_ratio = (float)lua_tonumber(L, -1);
+		opts->power_ratio_q10 = l_codec_dtmf_ratio_to_q10(L, -1, opts->power_ratio_q10);
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "twistDb");
 	if (lua_isnumber(L, -1)) {
-		opts->twist_db = (float)lua_tonumber(L, -1);
+		int32_t db = (int32_t)lua_tointeger(L, -1);
+		if (db < 0) db = 0;
+		if (db > 12) db = 12;
+		opts->twist_db = (uint32_t)db;
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "minConsecutive");
@@ -793,17 +805,28 @@ static void l_codec_dtmf_encode_opts(lua_State *L, int index, dtmf_encode_opts_t
 	}
 	lua_getfield(L, index, "toneMs");
 	if (lua_isnumber(L, -1)) {
-		opts->tone_ms = (float)lua_tonumber(L, -1);
+		opts->tone_ms = (uint32_t)lua_tointeger(L, -1);
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "pauseMs");
 	if (lua_isnumber(L, -1)) {
-		opts->pause_ms = (float)lua_tonumber(L, -1);
+		opts->pause_ms = (uint32_t)lua_tointeger(L, -1);
 	}
 	lua_pop(L, 1);
 	lua_getfield(L, index, "amplitude");
 	if (lua_isnumber(L, -1)) {
-		opts->amplitude = (float)lua_tonumber(L, -1);
+		double v = lua_tonumber(L, -1);
+		if (v <= 1.0) {
+			int32_t q15 = (int32_t)(v * 32767.0 + 0.5);
+			if (q15 < 0) q15 = 0;
+			if (q15 > 32767) q15 = 32767;
+			opts->amplitude_q15 = (uint16_t)q15;
+		} else {
+			int32_t q15 = (int32_t)(v + 0.5);
+			if (q15 < 0) q15 = 0;
+			if (q15 > 32767) q15 = 32767;
+			opts->amplitude_q15 = (uint16_t)q15;
+		}
 	}
 	lua_pop(L, 1);
 }

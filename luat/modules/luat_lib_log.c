@@ -126,7 +126,7 @@ static int l_log_style(lua_State *L) {
 /*
 获取日志级别
 @api   log.getLevel()
-@return  int   日志级别对应0,1,2,3,4,5
+@return int   日志级别对应0,1,2,3,4,5
 @usage
 -- 得到日志级别
 log.getLevel()

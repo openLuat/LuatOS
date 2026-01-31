@@ -48,7 +48,7 @@ static int l_dac_open(lua_State *L) {
 @api dac.write(ch, data)
 @int 通道编号,例如0
 @string 若输出固定值,可以填数值, 若输出波形,填string
-@return true 成功返回true,否则返回false
+@return boolean true 成功返回true,否则返回false
 @return int 底层返回值,调试用
 @usage
 if dac.open(0, 44000) then

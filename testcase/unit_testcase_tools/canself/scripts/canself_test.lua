@@ -119,6 +119,7 @@ function canself_test.test_init_demo()
 
     can.on(can_id, can_cb)
 
+    -- local can_timing_result = can.timing(can_id, 1000000, 5, 4, 3, 2)
     local can_timing_result = can.timing(can_id, 1000000, 6, 6, 4, 2)
     assert(can_timing_result == expectation,
         string.format("CAN时序测试失败: 预期 %s, 实际 %s", expectation, can_timing_result))

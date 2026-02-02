@@ -21,21 +21,14 @@ Air780Exx系列，包括Air780EPM/Air780EHM/Air780EHV/Air780EGH等；
 
 本仓库包含如下文件夹：
 
-.github文件夹，Github Action 配置文件, 用于自动化构建和测试
-
-components 组件库,，LuatOS在Lua基础上扩展的一系列库的源码
-
-lua文件夹，Lua虚拟机5.3系列的源码, 经过合宙优化和测试
-
-luat文件夹，LuatOS核心框架代码
-
-module文件夹，合宙模组和工业引擎主流型号的固件、demo、project参考代码等
-
-script文件夹，LuatOS扩展库
-
-tools文件夹，辅助工具
-
-.gitignore Git的文件忽略配置文件
+1. `.github文件夹`，Github Action 配置文件, 用于自动化构建和测试
+2. `components 组件库`,，LuatOS在Lua基础上扩展的一系列库的源码
+3. `lua文件夹`，Lua虚拟机5.3系列的源码, 经过合宙优化和测试
+4. `luat文件夹`，LuatOS核心框架代码
+5. `module文件夹`，合宙模组和工业引擎主流型号的固件、demo、project参考代码等
+6. `script文件夹`，LuatOS扩展库
+7. `tools文件夹`，辅助工具
+8. `.gitignore` Git的文件忽略配置文件
 
 
 ## 快速入门

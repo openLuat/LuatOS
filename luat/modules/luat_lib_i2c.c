@@ -235,7 +235,7 @@ LUAT_WEAK int i2c_soft_close(luat_ei2c_t *ei2c){
 @int i2c SCL引脚编号(GPIO编号)
 @int i2c SDA引脚编号(GPIO编号)
 @int 每个操作的延时, 单位us, 默认5
-@return 软件I2C对象 可当作i2c的id使用
+@return userdata 软件I2C对象 可当作i2c的id使用
 @usage
 -- 注意！这个接口是软件模拟i2c，速度可能会比硬件的慢
 -- 不需要调用i2c.close接口

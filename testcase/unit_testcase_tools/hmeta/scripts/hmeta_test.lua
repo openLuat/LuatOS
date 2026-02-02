@@ -19,7 +19,7 @@ function judge_device()
         model_name = "Air780EGH"
         chip_name = "EC718HM"
     elseif device_name == "Air8000" then
-        model_name = "Air8000"
+        model_name = {"Air8000", "Air8000A"}
         chip_name = "EC718HM"
     elseif device_name == "Air780EGG" then
         model_name = "Air780EGG"
@@ -56,9 +56,23 @@ function hmeta_test.test_model_demo()
 
     local hmeta_model = hmeta.model()
     log.info("hmeta_model名称", hmeta_model)
-    assert(hmeta_model == model_name,
-        string.format("获取模组名称测试失败: 预期 %s, 实际 %s", model_name, hmeta_model))
-    log.info("hmeta_test", "获取模组名称测试通过")
+
+    if device_name == "Air8000" then
+        local found = false
+        for _, name in ipairs(model_name) do
+            if hmeta_model == name then
+                found = true
+                break
+            end
+        end
+        assert(found == true, string.format("获取模组名称测试失败: 预期 %s, 实际 %s",
+            table.concat(model_name, " 或 "), hmeta_model))
+        log.info("hmeta_test", "获取模组名称测试通过")
+    else
+        assert(hmeta_model == model_name,
+            string.format("获取模组名称测试失败: 预期 %s, 实际 %s", model_name, hmeta_model))
+        log.info("hmeta_test", "获取模组名称测试通过")
+    end
 end
 
 function hmeta_test.test_hwver_demo()

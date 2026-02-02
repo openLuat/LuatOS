@@ -49,6 +49,8 @@ local function fatfs_spi_pin()
         return 0, 8
     elseif string.find(rtos_bsp,"Air810") then
         return 0, 3, fatfs.SDIO
+    elseif string.find(rtos_bsp,"Air8101") then
+        return 0, 3, fatfs.SDIO
     else
         log.info("main", "bsp not support")
         return
@@ -66,6 +68,7 @@ sys.taskInit(function()
         spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
         gpio.setup(pin_cs, 1)
     end
+
     fatfs.mount(tp or fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
     local data, err = fatfs.getfree("/sd")

@@ -27,7 +27,10 @@ enum{
 	LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB,
 	LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB,
 	LUAT_MULTIMEDIA_DATA_TYPE_ULAW,
-	LUAT_MULTIMEDIA_DATA_TYPE_ALAW
+	LUAT_MULTIMEDIA_DATA_TYPE_ALAW,
+    LUAT_MULTIMEDIA_DATA_TYPE_OPUS,
+    LUAT_MULTIMEDIA_DATA_TYPE_OGG,
+    LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS
 };
 
 enum{
@@ -60,6 +63,7 @@ typedef struct{
 		uint32_t read_len;
 		void *amr_coder;
 		void *g711_codec;
+        void *opus_decoder;
 	};
 	FILE* fd;
 #ifdef __LUATOS__
@@ -74,6 +78,16 @@ typedef struct{
 typedef struct luat_multimedia_cb {
     int function_ref;
 } luat_multimedia_cb_t;
+
+typedef struct{
+    uint8_t audio_format;
+    uint8_t num_channels;
+    uint8_t is_signed;
+    uint32_t sample_rate;
+    int bits_per_sample;
+} luat_audio_info_t;
+
+int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *coder, luat_audio_info_t* luat_audio_info);
 
 void *mp3_decoder_create(void);
 void mp3_decoder_init(void *decoder);

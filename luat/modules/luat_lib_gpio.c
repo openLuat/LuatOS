@@ -55,8 +55,8 @@ static uint8_t gpio_out_levels[(LUAT_GPIO_PIN_MAX + 7) / 8];
 static inline int check_wifi_pwr_pin(int pin) {
     #ifdef LUAT_MODEL_AIR8000
     extern int luat_airlink_has_wifi(void);
-    if (23 == pin && luat_airlink_has_wifi()) {
-        LLOGW("gpio23 is wifi power pin, operation denied");
+    if ((23 == pin || 22 == pin) && luat_airlink_has_wifi()) {
+        LLOGW("gpio23/gpio22 is wifi operation pin, denied!!");
         return 1; // wifi电源管脚禁止操作
     }
     #endif

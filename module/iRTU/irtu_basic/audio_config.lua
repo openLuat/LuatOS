@@ -70,6 +70,9 @@ function audio_config.audio_play_file(url,file_name,isdelete)
     log.info("file_name",file_name,type(file_name))
     log.info("isdelete",isdelete,type(isdelete))
     sys.taskInit(function()
+        if not audio_result then
+            audio_result=true
+        end
         if url and url~="" then
             local code, headers, body =
             http.request("GET", url, nil, nil, {dst = "/afile/"..file_name}).wait()

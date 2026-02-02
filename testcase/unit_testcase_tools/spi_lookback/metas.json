@@ -1,0 +1,10 @@
+{
+    "timeout" : 600,
+    "model" : {
+        "air780egp": [1, 105]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "SPI回环测试"
+}

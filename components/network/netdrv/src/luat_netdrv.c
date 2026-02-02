@@ -229,7 +229,7 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     ptr->netif = netif;
     ptr->len = len;
     // uint64_t tbegin = luat_mcu_tick64();
-    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 1);
+    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
     // uint64_t tend = luat_mcu_tick64();
     // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
     // if (tused > 50) {
@@ -346,10 +346,10 @@ int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
         return 0;
     }
     if (enable) {
-        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 1);
+        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 0);
     }
     else {
-        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 1);
+        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 0);
     }
     return 0;
 }

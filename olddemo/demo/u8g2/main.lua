@@ -23,6 +23,7 @@ wdt.init(9000)--初始化watchdog设置为9s
 sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 
 local rtos_bsp = rtos.bsp()
+local chip_type = hmeta.chip()
 
 -- hw_i2c_id,sw_i2c_scl,sw_i2c_sda,spi_id,spi_res,spi_dc,spi_cs
 function u8g2_pin()     
@@ -38,8 +39,11 @@ function u8g2_pin()
         return 0,12,11,2,16,15,14
     elseif rtos_bsp == "EC618" then
         return 0,10,11,0,1,10,8
-    elseif string.find(rtos_bsp,"EC718") then
-        return 0,14,15,0,14,10,8
+    elseif string.find(rtos_bsp,"EC718") or string.find(chip_type,"EC718") then
+        return 0,29,30
+    elseif string.find(rtos_bsp,"Air8101") then
+        return 0,8,9
+        -- return 0
     else
         log.info("main", "bsp not support")
         return
@@ -55,9 +59,9 @@ local TAG = "main"
 log.info(TAG, "init ssd1306")
 
 -- 初始化硬件i2c的ssd1306
-u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=hw_i2c_id,i2c_speed = i2c.FAST}) -- direction 可选0 90 180 270
+-- u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=hw_i2c_id,i2c_speed = i2c.FAST}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
--- u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=sw_i2c_scl, i2c_sda=sw_i2c_sda})
+u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=sw_i2c_scl, i2c_sda=sw_i2c_sda})
 -- 初始化硬件spi的ssd1306
 -- u8g2.begin({ic = "ssd1306",direction = 0,mode="spi_hw_4pin",spi_id=spi_id,spi_res=spi_res,spi_dc=spi_dc,spi_cs=spi_cs})
 -- u8g2.begin({ic = "st7565",direction = 0,mode="spi_hw_4pin",spi_id=spi_id,spi_res=spi_res,spi_dc=spi_dc,spi_cs=spi_cs})
@@ -108,7 +112,10 @@ u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=hw_i2c_id,i2c_spee
 
 u8g2.SetFontMode(1)
 u8g2.ClearBuffer()
-u8g2.SetFont(u8g2.font_opposansm8)
+-- u8g2.SetFont(u8g2.font_opposansm8)
+-- u8g2.SetFont(u8g2.font_opposansm18)
+u8g2.SetFont(u8g2.font_opposansm24_chinese)
+
 u8g2.DrawUTF8("U8g2+LuatOS", 32, 22)
 
 if u8g2.font_opposansm12_chinese then

@@ -156,6 +156,7 @@ luat_icmp_ctx_t* luat_icmp_get(uint8_t adapter_id) {
 luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
     luat_netdrv_t* netdrv = luat_netdrv_get(adapter_id);
     if (netdrv == NULL || netdrv->netif == NULL) {
+        LLOGW("adapter %d netif不存在", adapter_id);
         return NULL;
     }
     if (ctxs[adapter_id] != NULL) {
@@ -163,6 +164,7 @@ luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
     }
     ctxs[adapter_id] = luat_heap_malloc(sizeof(luat_icmp_ctx_t));
     if (ctxs[adapter_id] == NULL) {
+        LLOGW("adapter %d icmp ctx分配失败", adapter_id);
         return NULL;
     }
     luat_icmp_ctx_t* ctx = ctxs[adapter_id];
@@ -170,7 +172,7 @@ luat_icmp_ctx_t* luat_icmp_init(uint8_t adapter_id) {
     ctx->netif = netdrv->netif;
     ctx->pcb_v4 = raw_new(IP_PROTO_ICMP);
     if (ctx->pcb_v4 == NULL) {
-        LLOGE("分配ICMP RAW PCB失败!!");
+        LLOGE("adapter %d 分配ICMP RAW PCB失败!!", adapter_id);
         luat_heap_free(ctxs[adapter_id]);
         ctxs[adapter_id] = NULL;
         return NULL;
@@ -209,6 +211,7 @@ void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
     uint16_t ping_size = header_len + (uint16_t)ctx->len;
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, ping_size, PBUF_RAM);
     if (p == NULL) {
+        LLOGE("adapter %d ICMP pbuf alloc failed", ctx->adapter_id);
         return;
     }
 
@@ -222,7 +225,7 @@ void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
             ctx->pcb_v6 = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
             if (ctx->pcb_v6 == NULL) {
                 pbuf_free(p);
-                LLOGE("ICMPv6 RAW PCB alloc failed");
+                LLOGE("adapter %d ICMPv6 RAW PCB alloc failed", ctx->adapter_id);
                 return;
             }
             ctx->pcb_v6->chksum_offset = offsetof(struct icmp6_echo_hdr, chksum);
@@ -235,7 +238,7 @@ void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
         ip_addr_t src = {0};
         if (luat_icmp_select_ipv6_src(ctx, &src) != 0) {
             pbuf_free(p);
-            LLOGW("ICMPv6 no valid local address");
+            LLOGW("adapter %d ICMPv6 no valid local address", ctx->adapter_id);
             return;
         }
         ping_prepare_echo6((struct icmp6_echo_hdr *)p->payload, ping_size, ctx->id, ctx->seqno);
@@ -244,13 +247,13 @@ void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
         ipaddr_ntoa_r(&src, src_buff, sizeof(src_buff));
 #else
         pbuf_free(p);
-        LLOGW("ICMPv6 unsupported in this build");
+        LLOGW("adapter %d ICMPv6 unsupported in this build", ctx->adapter_id);
         return;
 #endif
     } else {
         if (ctx->pcb_v4 == NULL) {
             pbuf_free(p);
-            LLOGE("ICMPv4 PCB invalid");
+            LLOGE("adapter %d ICMPv4 PCB invalid", ctx->adapter_id);
             return;
         }
         ping_prepare_echo4((struct icmp_echo_hdr *)p->payload, ping_size, ctx->id, ctx->seqno);
@@ -264,8 +267,8 @@ void luat_icmp_ping(luat_icmp_ctx_t* ctx) {
     ret = raw_sendto(pcb, p, &ctx->dst);
     pbuf_free(p);
     if (ret) {
-        LLOGW("ICMP sendto error %d %s --> %s", ret, src_buff, dst_buff);
+        LLOGW("adapter %d ICMP sendto error %d %s --> %s", ctx->adapter_id, ret, src_buff, dst_buff);
     } else if (g_icmp_debug) {
-        LLOGD("ICMP sendto %s --> %s len=%u", src_buff, dst_buff, ping_size);
+        LLOGD("adapter %d ICMP sendto %s --> %s len=%u", ctx->adapter_id, src_buff, dst_buff, ping_size);
     }
 }

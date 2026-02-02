@@ -30,6 +30,8 @@ local function little_flash_spi_pin()
         return 0,8
     elseif string.find(rtos_bsp,"EC718") then
         return 0,8
+    elseif string.find(rtos_bsp,"Air8101") then
+        return 0,22
     else
         log.info("main", "bsp not support")
         return

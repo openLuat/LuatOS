@@ -16,6 +16,7 @@
 // #define LUAT_RET void
 #define LUAT_RT_RET_TYPE	void
 #define LUAT_RT_CB_PARAM void *param
+#define LWIP_NUM_SOCKETS 64
 
 #define LUA_USE_VFS_FILENAME_OFFSET 1
 

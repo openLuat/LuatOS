@@ -27,7 +27,7 @@ end)
 #include "http_parser.h"
 #include "luat_http.h"
 
-#define LUAT_LOG_TAG "http"
+#define LUAT_LOG_TAG "libhttp"
 #include "luat_log.h"
 
 

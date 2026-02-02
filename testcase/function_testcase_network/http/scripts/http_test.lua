@@ -372,7 +372,7 @@ function http_response.test_chunked_stream_json()
             timeout = 5000,
             debug = true
         }).wait()
-        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: 预期 200, 实际 %d", i, code))
+        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: status 预期 200, 实际 %d", i, code))
         assert(body and #body > 0, string.format("chunked流式JSON测试 %d 失败: 预期长度 >0, 实际长度 %d",
             i, body and #body or 0))
         local success, result = pcall(json.decode, body)
@@ -418,9 +418,10 @@ function http_response.test_download_mp3()
 end
 
 -- 测试下载星历文件是否正常
-function http_response.test_download_sp3()
+function http_response.test_download_agps()
     local url = "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat"
     local save_path = "/ram/HXXT_GPS_BDS_AGNSS_DATA.dat"
+    os.remove(save_path)
     log.info("http_response", "开始【下载星历文件数据完整性】测试")
     local code, headers, body = http.request("GET", url, nil, nil, {
         dst = save_path,
@@ -431,6 +432,15 @@ function http_response.test_download_sp3()
     log.info("http_response", "下载星历文件结果", code, body_len)
     assert(code == 200, "下载星历文件测试失败: 预期 200, 实际 " .. tostring(code))
     assert(io.exists and io.exists(save_path), "下载星历文件测试失败: 文件不存在")
+    assert(io.fileSize(save_path) > 4096, "下载星历文件测试失败: 文件大小异常")
+
+    -- 检查headers
+    local header_content_length = tonumber(headers["Content-Length"] or headers["content-length"] or "0")
+    local file_size = io.fileSize(save_path)
+    assert(header_content_length == file_size,
+        string.format("下载星历文件测试失败: Content-Length 与实际文件大小不符, Content-Length=%d, 文件大小=%d",
+            header_content_length, file_size))
+
     -- 删除文件
     os.remove(save_path)
     log.info("http_response", "下载星历文件数据完整性 测试通过")

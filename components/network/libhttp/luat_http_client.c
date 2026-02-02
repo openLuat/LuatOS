@@ -224,6 +224,7 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 		return;
 	}
 	else if (http_ctrl->tcp_closed == 0) {
+		LLOGD("http_report_result normal close");
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
 	}
@@ -705,12 +706,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
             if (n == 0) break;
             parsed += n;
         }
-
-        // 无论 parser 是否吃到 0-chunk，都按“截断”处理
-        // http_ctrl->error_code = HTTP_ERROR_CHUNK_INCOMPLETE;   // 错误，表示 chunked 截断
-        // http_report_result(http_ctrl, http_ctrl->error_code);
-		// 直接返回，不再走后续正常关闭流程
-        return;
+		http_ctrl->http_body_is_finally = 1;
     }
 
     if (http_ctrl->http_body_is_finally == 0) {
@@ -745,6 +741,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
+	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (http_ctrl == NULL){
 		LLOGE("http_ctrl is NULL");
 		return -1;
@@ -760,9 +757,6 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		LLOGD("http already closed %p", http_ctrl);
 		return 0;
 	}
-
-	//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (event->Param1){
 		//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("error event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
@@ -772,6 +766,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		on_tcp_closed(http_ctrl);
 		return -1;
 	}
+	LLOGD("http_ctrl->error_code %d", http_ctrl->error_code);
 	if (http_ctrl->error_code != 0){
 		if (event->ID == EV_NW_RESULT_EVENT) {
 			// 把数据读取完成
@@ -780,7 +775,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			uint8_t tmpbuff[256] = {0};
 			while (1) {
 				int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-				if (result) {
+				if (result || total_len == 0) {
 					break;
 				}
 				network_rx(http_ctrl->netc, tmpbuff, total_len > 256 ? 256 : total_len, 0, NULL, NULL, &rx_len);
@@ -804,7 +799,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		uint32_t rx_len = 0;
 		while (1) {
 			int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-			if (result) {
+			if (result || total_len == 0) {
 				break;
 			}
 			if (0 == total_len)
@@ -816,12 +811,12 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					// 要么header太长, 要么chunked太长,拒绝吧
 					if (http_ctrl->luatos_mode) {
 						http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
-						break;
 					} else {
 						http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
 						http_network_error(http_ctrl);
 					}
-					return -1;
+					LLOGW("resp buff full!!!");
+					break;
 				}
 			}
 			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff+http_ctrl->resp_buff_offset, total_len, 0, NULL, NULL, &rx_len);
@@ -865,7 +860,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
 				if (http_ctrl->parser.http_errno) {
 					LLOGW("http exit reason by errno: %d != HPE_OK!!", http_ctrl->parser.http_errno);
-					return 0;
+					goto next_wait;
 				}
 				parsed = nParseBytes;
 				
@@ -880,7 +875,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				LLOGD("wait headers %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			}
 			if (http_ctrl->tcp_closed){
-				return 0;
+				goto next_wait;
 			}
 		}
 
@@ -953,6 +948,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
     default:
         break;
     }
+
+next_wait:
 
     ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){

@@ -115,7 +115,7 @@ static int start_gogogo(iperf_start_ctx_t* ctx) {
     if (is_server) {
         ctx->remote_ip = drv->netif->ip_addr;
     }
-    tcpip_callback_with_block(iperf_start_cb, ctx, 1);
+    tcpip_callback_with_block(iperf_start_cb, ctx, 0);
     return 1; // 总是成功的
 }
 

@@ -1003,7 +1003,11 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 	#if NO_SYS
 	net_lwip2_task(event);
 	#else
-	tcpip_callback_with_block(net_lwip2_task, event, 1);
+	int ret = tcpip_callback(net_lwip2_task, event);
+	if (ret) {
+		LLOGE("tcpip_callback fail %d event %d", ret, id);
+		luat_heap_free(event);
+	}
 	#endif
 }
 #endif

@@ -663,5 +663,5 @@ void luat_airlink_master_autostart(void) {
 		return;
 	}
 
-	tcpip_callback_with_block(netdrv_airlink_setup, NULL, 1);
+	tcpip_callback(netdrv_airlink_setup, NULL);
 }

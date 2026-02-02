@@ -128,7 +128,7 @@ int l_icmp_ping(lua_State *L) {
         LLOGW("目标地址非法 %s", ip);
         return 0;
     };
-    int result = tcpip_callback_with_block(luat_icmp_ping, ctx, 1);
+    int result = tcpip_callback_with_block(luat_icmp_ping, ctx, 0);
     if (result) {
         LLOGW("luat_icmp_ping/tcpip_callback_with_block result %d", result);
     }

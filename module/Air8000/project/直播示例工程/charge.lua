@@ -30,7 +30,7 @@ local isCharge = false
 local LOW_BATTERY_TIME = 0
 
 -- ADC校准偏移值（mV）
-local ADC_DELTA = 65
+local ADC_DELTA = 10
 
 -- 电压平均值计算窗口大小
 local AVR_MAX = 15
@@ -38,8 +38,9 @@ local AVR_MAX = 15
 -- 电压历史缓存（用于计算平均值）
 local nochg_t = {}
 
--- 充电状态指示LED（GPIO 16，红灯）
-local pwrLed = gpio.setup(16, 0, nil, nil, 4)
+-- 充电状态指示LED（GPIO 17）
+--Air8000A开发板上有三个灯 分别是GPIO 17/20/21 这里是随便选了一个 用户可以自己根据项目自行修改
+local pwrLed = gpio.setup(17, 0)
 
 -- ==================== 电池放电曲线 ====================
 
@@ -64,12 +65,14 @@ local battery = {
 
 -- ==================== 内部函数 ====================
 
+local vbus_number =gpio.WAKEUP1
 -- GPIO中断回调：充电状态检测
--- 通过GPIO 40检测充电状态（高电平=充电中，低电平=未充电）
--- @usage gpio.setup(40, chargeCheck, gpio.PULLDOWN, gpio.BOTH)
+-- 通过VBUS检测充电状态（高电平=充电中，低电平=未充电）
+--
+-- @usage gpio.setup(vbus_number, chargeCheck, gpio.PULLDOWN, gpio.BOTH)
 local function chargeCheck()
     -- 检测充电状态
-    if gpio.get(40) == 0 then
+    if gpio.get(vbus_number) == 0 then
         -- 未充电
         if isCharge then
             -- pm.power(pm.USB, false)  -- 关闭USB电源（可选）

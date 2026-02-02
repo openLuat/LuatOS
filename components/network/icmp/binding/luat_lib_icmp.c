@@ -117,7 +117,7 @@ int l_icmp_ping(lua_State *L) {
     if (ctx == NULL) {
         ctx = luat_icmp_init(id);
         if (ctx == NULL) {
-            LLOGW("icmp初始化失败");
+            LLOGW("adapter %d icmp初始化失败", id);
             return 0;
         }
         ctx->cb = l_icmp_cb;

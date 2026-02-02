@@ -63,7 +63,7 @@ typedef struct{
 		uint32_t read_len;
 		void *amr_coder;
 		void *g711_codec;
-        void *opus_decoder;
+        void *opus_coder;
 	};
 	FILE* fd;
 #ifdef __LUATOS__
@@ -73,28 +73,27 @@ typedef struct{
 	Buffer_Struct audio_data_buffer;
 	uint8_t type;
 	uint8_t is_decoder;
+    // audio_info
+    uint8_t audio_format;
+    uint8_t num_channels;
+    uint8_t is_signed;
+    uint32_t sample_rate;
+    int bits_per_sample;
 }luat_multimedia_codec_t;
 
 typedef struct luat_multimedia_cb {
     int function_ref;
 } luat_multimedia_cb_t;
 
-typedef struct{
-    uint8_t audio_format;
-    uint8_t num_channels;
-    uint8_t is_signed;
-    uint32_t sample_rate;
-    int bits_per_sample;
-} luat_audio_info_t;
+int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *coder);
 
-int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *coder, luat_audio_info_t* luat_audio_info);
-
+// mp3
 void *mp3_decoder_create(void);
 void mp3_decoder_init(void *decoder);
 void mp3_decoder_set_debug(void *decoder, uint8_t onoff);
 int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel);
 int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t len, int16_t *pcm, uint32_t *out_len, uint32_t *hz, uint32_t *used);
-
+// g711
 void* g711_decoder_create(uint8_t type);
 void g711_decoder_destroy(void* decoder);
 int g711_decoder_get_data(void* decoder, const uint8_t* input, uint32_t len,
@@ -106,6 +105,22 @@ int g711_encoder_get_data(void* encoder, const int16_t* pcm, uint32_t len,
 void g711_get_stats(void* codec, uint32_t* sample_rate, uint32_t* frame_count);
 void g711_reset_stats(void* codec);
 void g711_set_sample_rate(void* codec, uint32_t sample_rate);
+// opus
+void* luat_opus_decoder_create(uint8_t type);
+void luat_opus_decoder_destroy(void* decoder);
+
+// int luat_opus_decoder_get_data(void* decoder, const uint8_t* input, uint32_t len,
+//                           int16_t* pcm, uint32_t* out_len, uint32_t* used);
+
+void* luat_opus_encoder_create(uint8_t type);
+
+// ogg
+void* luat_ogg_opus_decoder_create(uint8_t type);
+void luat_ogg_opus_decoder_destroy(void* decoder);
+
+void* luat_ogg_opus_encoder_create(uint8_t type);
+
+
 
 #include "dtmf_codec/dtmf_codec.h"
 

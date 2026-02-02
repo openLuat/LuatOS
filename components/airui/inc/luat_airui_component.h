@@ -82,6 +82,17 @@ struct airui_component_meta {
 };
 
 /**
+ * Bar 私有数据，用于管理进度文字 label
+ */
+typedef struct {
+    lv_obj_t *progress_label;
+    bool show_progress_text;
+    bool progress_text_color_set;
+    lv_color_t progress_text_color;
+    char progress_text_format[32];
+} airui_bar_data_t;
+
+/**
  * Msgbox 私有数据
  */
 typedef struct {
@@ -310,6 +321,8 @@ int airui_bar_set_range(lv_obj_t *bar, lv_coord_t min, lv_coord_t max); //设置
 int airui_bar_set_indicator_color(lv_obj_t *bar, lv_color_t color); //设置进度颜色
 int airui_bar_set_bg_color(lv_obj_t *bar, lv_color_t color); //设置背景颜色
 int airui_bar_get_value(lv_obj_t *bar); //获取当前值
+int airui_bar_set_progress_text_format(lv_obj_t *bar, const char *format); //设置进度文字格式
+int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color); //设置进度文字颜色
 
 /**
  * Table 组件创建

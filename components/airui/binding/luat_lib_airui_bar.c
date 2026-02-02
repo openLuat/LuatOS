@@ -12,6 +12,7 @@
 #include "../inc/luat_airui.h"
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
+#include <stdint.h>
 
 #define AIRUI_BAR_MT "airui.bar"
 
@@ -31,6 +32,8 @@
  * @int config.bg_color 背景颜色（Hex）
  * @int config.indicator_color 指示器颜色（Hex）
  * @int config.border_color 边框颜色（Hex）
+ * @string config.progress_text_format 进度文字格式，默认不显示进度文本（若设置为 "%d / 100" 可启用）
+ * @int config.progress_text_color 进度文字颜色（Hex）
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Bar 对象
  */
@@ -71,6 +74,44 @@ static int l_bar_set_value(lua_State *L) {
     int value = (int)luaL_checkinteger(L, 2);
     bool anim = lua_toboolean(L, 3);
     airui_bar_set_value(bar, value, anim);
+    return 0;
+}
+
+/**
+ * Bar:get_value()
+ * @api bar:get_value()
+ * @return int 当前值
+ */
+static int l_bar_get_value(lua_State *L) {
+    lv_obj_t *bar = airui_check_component(L, 1, AIRUI_BAR_MT);
+    int value = airui_bar_get_value(bar);
+    lua_pushinteger(L, value);
+    return 1;
+}
+
+/**
+ * Bar:set_progress_text_format(fmt)
+ * @api bar:set_progress_text_format(fmt)
+ * @string fmt 进度文字格式，例如 "%d/%d"
+ * @return nil
+ */
+static int l_bar_set_progress_text_format(lua_State *L) {
+    lv_obj_t *bar = airui_check_component(L, 1, AIRUI_BAR_MT);
+    const char *format = luaL_checkstring(L, 2);
+    airui_bar_set_progress_text_format(bar, format);
+    return 0;
+}
+
+/**
+ * Bar:set_progress_text_color(color)
+ * @api bar:set_progress_text_color(color)
+ * @int color 16 进制值
+ * @return nil
+ */
+static int l_bar_set_progress_text_color(lua_State *L) {
+    lv_obj_t *bar = airui_check_component(L, 1, AIRUI_BAR_MT);
+    lv_color_t color = lv_color_hex((uint32_t)luaL_checkinteger(L, 2));
+    airui_bar_set_progress_text_color(bar, color);
     return 0;
 }
 
@@ -133,23 +174,13 @@ static int l_bar_destroy(lua_State *L) {
     return 0;
 }
 
-/**
- * Bar:get_value()
- * @api bar:get_value()
- * @return int 当前值
- */
-static int l_bar_get_value(lua_State *L) {
-    lv_obj_t *bar = airui_check_component(L, 1, AIRUI_BAR_MT);
-    int value = airui_bar_get_value(bar);
-    lua_pushinteger(L, value);
-    return 1;
-}
-
 void airui_register_bar_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_BAR_MT);
     static const luaL_Reg methods[] = {
         {"set_value", l_bar_set_value},
         {"get_value", l_bar_get_value},
+        {"set_progress_text_format", l_bar_set_progress_text_format},
+        {"set_progress_text_color", l_bar_set_progress_text_color},
         {"set_range", l_bar_set_range},
         {"set_indicator_color", l_bar_set_indicator_color},
         {"set_bg_color", l_bar_set_bg_color},

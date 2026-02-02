@@ -37,7 +37,7 @@
  * @string config.text 初始文本
  * @string config.placeholder 占位提示
  * @function config.on_text_change 文本变更回调
- * @table config.keyboard 内嵌 Keyboard 配置（table）
+ * @userdata config.keyboard 绑定已创建的 `airui.keyboard` userdata，用于重用共享键盘
  * @userdata config.parent 父对象，可选
  * @return userdata Textarea 对象，失败返回 nil
  */

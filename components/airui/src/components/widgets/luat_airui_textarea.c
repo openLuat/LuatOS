@@ -14,6 +14,7 @@
 #include "lvgl9/src/core/lv_obj.h"
 #include <string.h>
 #include "luat_conf_bsp.h"
+#include "luat_airui_binding.h"
 
 #define LUAT_LOG_TAG "airui_textarea"
 #include "luat_log.h"
@@ -52,6 +53,29 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state) {
 }
 
 /**
+ * 尝试将已有共享键盘绑定到当前 textarea
+ */
+static void airui_textarea_bind_shared_keyboard(lv_obj_t *target)
+{
+    if (target == NULL) {
+        return;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(target);
+    if (meta == NULL || meta->user_data == NULL) {
+        return;
+    }
+
+    airui_textarea_data_t *data = (airui_textarea_data_t *)meta->user_data;
+    if (data == NULL || data->keyboard == NULL) {
+        return;
+    }
+
+    // 焦点变化时重新绑定到当前 textarea，保持自动隐藏逻辑一致
+    airui_keyboard_set_target(data->keyboard, target);
+}
+
+/**
  * 焦点事件回调：维护当前系统键盘应该写入的 textarea
  */
 static void airui_textarea_focus_cb(lv_event_t *e)
@@ -75,6 +99,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
 #if defined(LUAT_USE_AIRUI_SDL2)
             airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
 #endif
+            airui_textarea_bind_shared_keyboard(target);
             break;
         case LV_EVENT_DEFOCUSED:
             // 失去焦点时，仅当当前焦点是本控件才置空
@@ -95,6 +120,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
 #if defined(LUAT_USE_AIRUI_SDL2)
             airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
 #endif
+            airui_textarea_bind_shared_keyboard(target);
             break;
         case LV_EVENT_CLICKED:
             // 点击时，如果未处于 FOCUSED 状态，主动设为 FOCUSED 并发送 LV_EVENT_FOCUSED 事件
@@ -105,6 +131,7 @@ static void airui_textarea_focus_cb(lv_event_t *e)
 #if defined(LUAT_USE_AIRUI_SDL2)
             airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
 #endif
+            airui_textarea_bind_shared_keyboard(target);
             break;
         case LV_EVENT_VALUE_CHANGED:
 #if defined(LUAT_USE_AIRUI_SDL2)
@@ -201,14 +228,20 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
         airui_component_bind_event(meta, AIRUI_EVENT_VALUE_CHANGED, callback_ref);
     }
 
-    // 可选的虚拟键盘配置：创建并自动绑定
+    // 可选的虚拟键盘配置：创建/绑定并自动 attach
     lua_getfield(L_state, idx, "keyboard");
-    if (lua_istable(L_state, -1)) {
-        lv_obj_t *keyboard = airui_keyboard_create_from_config(L_state, lua_gettop(L_state));
-        if (keyboard != NULL) {
-            airui_keyboard_set_target(keyboard, textarea);
-            airui_textarea_attach_keyboard(textarea, keyboard);
+    if (lua_isuserdata(L_state, -1)) {
+        airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
+        airui_component_meta_t *kbd_meta = airui_component_meta_get(ud->obj);
+        if (kbd_meta == NULL || kbd_meta->component_type != AIRUI_COMPONENT_KEYBOARD) {
+            LLOGW("keyboard绑定组件对象不是键盘");
         }
+        else {
+            airui_keyboard_set_target(ud->obj, textarea);
+            airui_textarea_attach_keyboard(textarea, ud->obj);
+        }
+    }else{
+        LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");
     }
     lua_pop(L_state, 1);
 

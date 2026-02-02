@@ -324,7 +324,7 @@ static int on_headers_complete(http_parser* parser){
 		else if(http_ctrl->isfota){
 			if (parser->status_code != 200 && parser->status_code != 206){
 				LLOGE("fota http code error %d", parser->status_code);
-				http_report_result(http_ctrl, HTTP_ERROR_FOTA);
+				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
 			}
 			luat_fota_init(http_ctrl->address, http_ctrl->length, http_ctrl->spi_device, NULL, 0);

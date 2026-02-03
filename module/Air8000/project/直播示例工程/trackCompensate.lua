@@ -17,6 +17,9 @@ local trackCompensate = {}
 local moduleName = "trackCompensate"
 local logSwitch = true
 
+-- 统一日志前缀
+local logPrefix = "[TRACK_COMP]"
+
 -- 历史数据缓存（用于平滑计算）
 local historyBuffer = {}
 local MAX_HISTORY = 5  -- 保存最近5个定位点
@@ -24,7 +27,8 @@ local MAX_HISTORY = 5  -- 保存最近5个定位点
 -- 配置参数
 local config = {
     -- 距离阈值（米），超过此距离认为漂移，进行补偿
-    distanceThreshold = 50,
+    -- 原值50米太小,改为500米以避免正常移动被误判为漂移
+    distanceThreshold = 500,
 
     -- 速度突变阈值（km/h），超过此值认为异常
     speedChangeThreshold = 30,
@@ -41,7 +45,7 @@ local config = {
 
 local function logF(...)
     if logSwitch then
-        log.info(moduleName, ...)
+        log.info(moduleName, logPrefix, ...)
     end
 end
 
@@ -211,8 +215,13 @@ function trackCompensate.compensate(lat, lng, course, speed)
     course = course or 0
     speed = speed or 0
 
+    logF("========== 轨迹补偿开始 ==========")
+    logF("输入参数", "纬度:", lat, "经度:", lng, "航向:", course, "速度:", speed)
+    logF("历史数据量:", #historyBuffer)
+
     -- 无效数据直接返回
     if lat == 0 or lng == 0 then
+        logF("无效数据，直接返回")
         return lat, lng, course, speed
     end
 
@@ -231,30 +240,41 @@ function trackCompensate.compensate(lat, lng, course, speed)
 
         -- 距离漂移检测
         if distance > config.distanceThreshold then
-            logF("距离漂移检测", distance, "米，超过阈值", config.distanceThreshold)
-            -- 过滤掉漂移点，使用历史最后位置
+            logF("警告：距离漂移！", "距离:", distance, "米", "阈值:", config.distanceThreshold, "米")
+            logF("过滤漂移点，返回历史位置", last.lat, last.lng)
+            -- 过滤掉漂移点，返回历史最后位置，但不添加到缓存
             resultLat = last.lat
             resultLng = last.lng
-            addHistory(resultLat, resultLng, resultCourse, resultSpeed)
+            -- 注意：这里不调用addHistory,避免重复添加历史位置导致后续点全部被过滤
             return resultLat, resultLng, resultCourse, resultSpeed
         end
+
+        logF("距离正常:", distance, "米")
     end
 
     -- 速度平滑
     resultSpeed = smoothSpeed(speed, distance, timeDiff)
 
+    -- 速度平滑
+    resultSpeed = smoothSpeed(speed, distance, timeDiff)
+    logF("速度平滑", "原始:", speed, "→", "结果:", resultSpeed)
+
     -- 航向平滑
     resultCourse = smoothCourse(course)
+    logF("航向平滑", "原始:", course, "→", "结果:", resultCourse)
 
     -- 拐点补偿
     if config.enableCornerCompensate then
         resultLat, resultLng, resultCourse = compensateCorner(lat, lng, resultCourse, resultSpeed)
+        logF("拐点补偿后位置", resultLat, resultLng)
     end
 
     -- 添加到历史缓存
     addHistory(resultLat, resultLng, resultCourse, resultSpeed)
+    logF("添加到历史缓存，当前历史数量:", #historyBuffer)
 
-    logF("补偿结果", lat, lng, "→", resultLat, resultLng, "距离", distance)
+    logF("补偿结果", lat, lng, "→", resultLat, resultLng)
+    logF("========== 轨迹补偿结束 ==========")
 
     return resultLat, resultLng, resultCourse, resultSpeed
 end

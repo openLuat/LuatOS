@@ -32,13 +32,19 @@
 exaudio = require("exaudio")
 
 -- 硬件配置参数
+-- exaudio配置参数
 local audio_setup_param = {
-    model = "es8311",          -- 音频编解码芯片类型
-    i2c_id = 1,                -- I2C接口编号
-    pa_ctrl = 26,             -- 音频放大器控制引脚
-    dac_ctrl = 2,            -- 音频编解码芯片控制引脚
-    bits_per_sample = 16       -- 录音位深
+    model = "es8311",         -- dac类型: "es8311"
+    i2c_id = 1,               -- i2c_id: 可填入0，1 并使用pins 工具配置对应的管脚
+    pa_ctrl = 26,            -- 音频放大器电源控制管脚
+    dac_ctrl = 2,           -- 音频编解码芯片电源控制管脚
+    dac_delay = 3,            -- DAC启动前冗余时间(单位100ms)
+    pa_delay = 100,           -- DAC启动后延迟打开PA的时间(单位1ms)
+    dac_time_delay = 100,     -- 播放完毕后PA与DAC关闭间隔(单位1ms)
+    bits_per_sample = 16,     -- 采样位深
+    pa_on_level = 1           -- PA打开电平 1:高 0:低
 }
+
 
 -- 录音文件路径
 local recordPath = "/record.amr"

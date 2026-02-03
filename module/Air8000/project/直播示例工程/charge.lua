@@ -38,9 +38,10 @@ local AVR_MAX = 15
 -- 电压历史缓存（用于计算平均值）
 local nochg_t = {}
 
--- 充电状态指示LED（GPIO 17）
+-- 充电状态指示LED（GPIO 21 红色）
+--GPIO17 绿色 GPIO20 蓝色
 --Air8000A开发板上有三个灯 分别是GPIO 17/20/21 这里是随便选了一个 用户可以自己根据项目自行修改
-local pwrLed = gpio.setup(17, 0)
+local pwrLed = gpio.setup(21, 0)
 
 -- ==================== 电池放电曲线 ====================
 

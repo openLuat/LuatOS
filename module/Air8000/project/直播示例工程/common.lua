@@ -2,9 +2,12 @@
 local moduleName = "common"
 local logSwitch = true
 
+-- 统一日志前缀，方便过滤
+local logPrefix = "[GNSS_APP]"
+
 -- 引入依赖模块
-local trackCompensate = require "trackCompensate"  -- 轨迹补偿模块，用于平滑GPS轨迹
-local exgnss = require "exgnss"                 -- GNSS扩展库，统一管理GNSS生命周期
+local trackCompensate = require "trackCompensate" -- 轨迹补偿模块，用于平滑GPS轨迹
+local exgnss = require "exgnss" -- GNSS扩展库，统一管理GNSS生命周期
 
 -- 配置exgnss参数
 -- gnssmode: 1为卫星全定位(GPS+北斗)，2为单北斗
@@ -12,16 +15,16 @@ local exgnss = require "exgnss"                 -- GNSS扩展库，统一管理G
 -- debug: 是否输出exgnss调试信息
 -- hz: 定位频率，1表示1Hz即每秒定位一次
 exgnss.setup({
-    gnssmode = 1,       -- 1为卫星全定位，2为单北斗
+    gnssmode = 1, -- 1为卫星全定位，2为单北斗
     agps_enable = true, -- 启用AGPS
-    debug = true,       -- 是否输出调试信息
-    hz = 1,            -- 定位频率1Hz
+    debug = true, -- 是否输出调试信息
+    hz = 1 -- 定位频率1Hz
 })
 
 -- 本地日志输出函数
 local function logF(...)
     if logSwitch then
-        log.info(moduleName, ...)
+        log.info(moduleName, logPrefix, ...)
     end
 end
 
@@ -30,21 +33,23 @@ local common = {}
 
 -- GNSS工作模式：CAPTURE(捕获定位), TRACKING(追踪定位), STATIC_LBS(LBS静止), STATIC_GNSS(GNSS静止)
 -- local mode = "CAPTURE"  -- 默认为捕获模式
-local mode = "STATIC_GNSS"  -- 当前设置为GNSS静止模式
+local mode = "STATIC_GNSS" -- 当前设置为GNSS静止模式
 
 -- 保存上一次的GPS位置信息
 -- 包含：经纬度、经纬度类型(E/W, N/S)、定位状态
-local lastGPSLocation
+local lastGPSLocation = nil
+
+-- 保存最后一次非静止状态的GPS位置(用于静止时上报)
+local lastNonStaticGPSLocation = nil
 
 -- exgnss应用标签，用于引用计数管理
 -- 使用独立的标签可以避免与其他模块的GNSS应用冲突
 local gnssAppTag = "common_app"
 
 -- JT808协议0x0200位置信息报文的状态位定义
-local STATE_BIT_LOCAT = 0x02  -- bit1: 定位状态，1表示已定位，0表示未定位
-local STATE_BIT_NS = 0x04      -- bit2: 南北纬标识，1表示南纬，0表示北纬
-local STATE_BIT_EW = 0x08      -- bit3: 东西经标识，1表示西经，0表示东经
-
+local STATE_BIT_LOCAT = 0x02 -- bit1: 定位状态，1表示已定位，0表示未定位
+local STATE_BIT_NS = 0x04 -- bit2: 南北纬标识，1表示南纬，0表示北纬
+local STATE_BIT_EW = 0x08 -- bit3: 东西经标识，1表示西经，0表示东经
 
 -- 编码基站信息为JT808协议格式
 -- @param s 基站信息数组，包含mcc/mnc/tac/cid等字段
@@ -54,9 +59,10 @@ local function enCellInfo(s)
         return false
     end
     logF("enCellInfo", #s)
-    local ret = "" .. api.NumToBigBin(1, 1)  -- 基站数量
+    local ret = "" .. api.NumToBigBin(1, 1) -- 基站数量
     -- 编码基站详细信息：MCC(移动国家码,2字节) + MNC(移动网络码,1字节) + TAC(跟踪区码,2字节) + CID(小区ID,4字节) + 保留(1字节)
-    ret = ret .. api.NumToBigBin(s[1].mcc, 2) .. api.NumToBigBin(s[1].mnc, 1) .. api.NumToBigBin(s[1].tac, 2) .. api.NumToBigBin(s[1].cid, 4) .. api.NumToBigBin(31, 1)
+    ret = ret .. api.NumToBigBin(s[1].mcc, 2) .. api.NumToBigBin(s[1].mnc, 1) .. api.NumToBigBin(s[1].tac, 2) ..
+              api.NumToBigBin(s[1].cid, 4) .. api.NumToBigBin(31, 1)
     return true, ret
 end
 
@@ -86,22 +92,26 @@ function common.monitorRecord()
     -- 初始化lastGPSLocation表
     if lastGPSLocation == nil then
         lastGPSLocation = {}
-        lastGPSLocation.lngType = "E"      -- 默认东经
+        lastGPSLocation.lngType = "E" -- 默认东经
         lastGPSLocation.lng = 0
-        lastGPSLocation.latType = "N"      -- 默认北纬
+        lastGPSLocation.latType = "N" -- 默认北纬
         lastGPSLocation.lat = 0
-        lastGPSLocation.isFix = 0          -- 0表示未定位，1表示已定位
+        lastGPSLocation.isFix = 0 -- 0表示未定位，1表示已定位
     end
 
     local lat, lng
     local speed, totalStats, course, altitude = 0, 0, 0, 0
-    log.info("位置坐标打包", exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}) and exgnss.is_fix(), lastGPSLocation.lng, lastGPSLocation.lat)
+    log.info(moduleName, logPrefix, "位置坐标打包开始", "GNSS状态:", exgnss.is_active(exgnss.DEFAULT, {
+        tag = gnssAppTag
+    }) and "打开" or "关闭", "定位状态:", exgnss.is_fix() and "已定位" or "未定位", "最后位置:", lastGPSLocation.lng, lastGPSLocation.lat)
 
     -- 情况1: GNSS已打开且已定位，使用GNSS数据
-    if exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}) and exgnss.is_fix() then
-        local data = exgnss.rmc(2)    -- 获取RMC数据，参数2表示最近2秒内的数据
-        local gga = exgnss.gga(2)    -- 获取GGA数据，包含高度信息
-        local vtg = exgnss.vtg()     -- 获取VTG数据，包含速度和航向
+    if exgnss.is_active(exgnss.DEFAULT, {
+        tag = gnssAppTag
+    }) and exgnss.is_fix() then
+        local data = exgnss.rmc(2) -- 获取RMC数据，参数2表示最近2秒内的数据
+        local gga = exgnss.gga(2) -- 获取GGA数据，包含高度信息
+        local vtg = exgnss.vtg() -- 获取VTG数据，包含速度和航向
         if data and data.valid then
             -- 从VTG获取速度(km/h)
             speed = math.floor((vtg and vtg.speed_kph or 0))
@@ -125,45 +135,54 @@ function common.monitorRecord()
                 lat = lastGPSLocation.lat
                 lastGPSLocation.isFix = 0
             end
+
+            -- 轨迹补偿：仅在运动状态下进行补偿
+            -- 静止状态下不进行轨迹补偿，避免重复使用旧位置
+            if manage.isRun() then
+                logF("运动状态，执行轨迹补偿", "原始位置:", lat, lng, "速度:", speed, "航向:", course)
+                local compensatedLat, compensatedLng, compensatedCourse, compensatedSpeed =
+                    trackCompensate.compensate(lat, lng, course, speed)
+                if compensatedLat and compensatedLng and compensatedLat ~= 0 and compensatedLng ~= 0 then
+                    logF("轨迹补偿成功", "补偿后:", compensatedLat, compensatedLng, "速度:", compensatedSpeed, "航向:", compensatedCourse)
+                    lat = compensatedLat
+                    lng = compensatedLng
+                    course = compensatedCourse
+                    speed = compensatedSpeed
+                else
+                    logF("轨迹补偿失败，使用原始位置")
+                end
+                logF("本次位置汇报使用GPS定位数据(已补偿)", lat, lng)
+            else
+                logF("本次位置汇报使用GPS定位数据(静止状态,未补偿)", lat, lng)
+            end
         end
 
-        -- 轨迹补偿：平滑航向、速度，处理拐点
-        -- 减少GPS漂移导致的轨迹抖动
-        local compensatedLat, compensatedLng, compensatedCourse, compensatedSpeed =
-            trackCompensate.compensate(lat, lng, course, speed)
-        if compensatedLat and compensatedLng and compensatedLat ~= 0 and compensatedLng ~= 0 then
-            lat = compensatedLat
-            lng = compensatedLng
-            course = compensatedCourse
-            speed = compensatedSpeed
-        end
-
-        logF("本次位置汇报使用GPS定位数据(已补偿)", lat, lng)
-
-    -- 情况2: GNSS未定位但有上次GPS位置，使用上次位置
+        -- 情况2: GNSS未定位但有上次GPS位置，使用上次位置
     elseif lastGPSLocation.lng ~= 0 and lastGPSLocation.lat ~= 0 then
-        logF("use last gps")
+        logF("使用上次GPS位置", lat, lng, "→", lastGPSLocation.lng, lastGPSLocation.lat)
+        logF("本次位置汇报使用上次定位数据")
         lat = lastGPSLocation.lat
         lng = lastGPSLocation.lng
-        logF("本次位置汇报使用上次定位数据")
-        lastGPSLocation.isFix = 0  -- 标记为未定位
+        lastGPSLocation.isFix = 0 -- 标记为未定位
 
-    -- 情况3: 没有GNSS数据也没有上次位置，使用基站定位
+        -- 情况3: 没有GNSS数据也没有上次位置，使用基站定位
     else
-        logF("use lbs")
+        logF("使用基站定位")
         lastGPSLocation.isFix = 0
         logF("本次位置汇报使用基站定位数据")
-        lat = 0  -- 基站定位的经纬度由服务器端计算
+        lat = 0 -- 基站定位的经纬度由服务器端计算
         lng = 0
     end
 
+    logF("位置坐标打包完成", "最终位置:", lat, lng, "定位状态:", lastGPSLocation.isFix == 1 and "有效" or "无效")
+
     -- 更新lastGPSLocation
-    if lng ~= nil and lat ~= nil then
+    -- 只有在GNSS定位有效时才更新,避免在静止模式下重复使用旧位置
+    if lng ~= nil and lat ~= nil and lastGPSLocation.isFix > 0 then
         lastGPSLocation.lng = lng
         lastGPSLocation.lat = lat
     else
-        logF(moduleName, "no location")
-        logF("本次位置汇报没有定位数据")
+        logF(moduleName, "使用缓存位置或基站定位,不更新lastGPSLocation")
     end
 
     -- 获取当前时间并转换为BCD格式
@@ -183,16 +202,19 @@ function common.monitorRecord()
     end
 
     -- 时间转换为BCD格式：年月日时分秒
-    tTime = api.NumToBCDBin(tTime.year % 100, 1) .. api.NumToBCDBin(tTime.month, 1) .. api.NumToBCDBin(tTime.day, 1) .. api.NumToBCDBin(tTime.hour, 1) .. api.NumToBCDBin(tTime.min, 1) .. api.NumToBCDBin(tTime.sec, 1)
+    tTime = api.NumToBCDBin(tTime.year % 100, 1) .. api.NumToBCDBin(tTime.month, 1) .. api.NumToBCDBin(tTime.day, 1) ..
+                api.NumToBCDBin(tTime.hour, 1) .. api.NumToBCDBin(tTime.min, 1) .. api.NumToBCDBin(tTime.sec, 1)
 
     -- 构建JT808基础定位信息包
     local baseInfo = jt808.makeLocatBaseInfoMsg(0, status, lat, lng, math.floor(altitude), speed, course, tTime)
 
     -- 添加卫星信号强度信息(0x65附件)
     -- logF("位置上报", "GPS状态", exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}), json.encode(exgnss.gsv() or {}))
-    if exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}) then
+    if exgnss.is_active(exgnss.DEFAULT, {
+        tag = gnssAppTag
+    }) then
         local tmp = {}
-        local gsv = exgnss.gsv()  -- 获取卫星信息
+        local gsv = exgnss.gsv() -- 获取卫星信息
         if gsv then
             if gsv.total_sats > 0 then
                 -- 收集所有有效卫星的信号强度(SNR)
@@ -208,10 +230,10 @@ function common.monitorRecord()
                 totalStats = #tmp
                 log.info("GNSS", "可见卫星数量", totalStats, json.encode(tmp))
                 -- 添加0x65附件：卫星信号强度
-                baseInfo = baseInfo .. api.NumToBigBin(0x65, 1)  -- 附件ID
-                baseInfo = baseInfo .. api.NumToBigBin((#tmp > 3 and 3 or #tmp), 1)  -- 卫星数量(最多3个)
+                baseInfo = baseInfo .. api.NumToBigBin(0x65, 1) -- 附件ID
+                baseInfo = baseInfo .. api.NumToBigBin((#tmp > 3 and 3 or #tmp), 1) -- 卫星数量(最多3个)
                 for i = 1, (#tmp > 3 and 3 or #tmp) do
-                    baseInfo = baseInfo .. api.NumToBigBin(tmp[i], 1)  -- 信号强度
+                    baseInfo = baseInfo .. api.NumToBigBin(tmp[i], 1) -- 信号强度
                 end
             end
         end
@@ -223,10 +245,12 @@ function common.monitorRecord()
     baseInfo = baseInfo .. api.NumToBigBin(0x01, 1) .. api.NumToBigBin(4, 1) .. api.NumToBigBin(0, 4) -- 01 里程 4byte
 
     -- 添加充电状态和电量信息(0x04附件)
-    baseInfo = baseInfo .. api.NumToBigBin(0x04, 1) .. api.NumToBigBin(2, 1) .. api.NumToBigBin(charge.isCharge() and 0 or 1, 1) .. api.NumToBigBin(charge.getBatteryPercent(), 1) -- 04 充电状态,电量百分比 2 byte     0 充电，  1 未充电
+    baseInfo = baseInfo .. api.NumToBigBin(0x04, 1) .. api.NumToBigBin(2, 1) ..
+                   api.NumToBigBin(charge.isCharge() and 0 or 1, 1) .. api.NumToBigBin(charge.getBatteryPercent(), 1) -- 04 充电状态,电量百分比 2 byte     0 充电，  1 未充电
 
     -- 添加电池电压信息(0x2B附件)
-    baseInfo = baseInfo .. api.NumToBigBin(0x2B, 1) .. api.NumToBigBin(4, 1) .. api.NumToBigBin(charge.getVbat(), 2) .. api.NumToBigBin(0, 2) -- 2B 电池电压 4byte mv
+    baseInfo = baseInfo .. api.NumToBigBin(0x2B, 1) .. api.NumToBigBin(4, 1) .. api.NumToBigBin(charge.getVbat(), 2) ..
+                   api.NumToBigBin(0, 2) -- 2B 电池电压 4byte mv
 
     -- 添加信号强度信息(0x30附件)
     baseInfo = baseInfo .. api.NumToBigBin(0x30, 1) .. api.NumToBigBin(1, 1) .. api.NumToBigBin(mobile.csq(), 1) -- 30 信号强度 1byte
@@ -244,17 +268,19 @@ function common.monitorRecord()
     local results = wlan.scanResult()
     logF("wifi.scan", "results", results and #results or 0)
     if results and #results > 3 then
-        baseInfo = baseInfo .. api.NumToBigBin(0x54, 1)  -- WiFi附件ID
+        baseInfo = baseInfo .. api.NumToBigBin(0x54, 1) -- WiFi附件ID
         if #results >= 6 then
             -- 最多上报6个WiFi热点
-            baseInfo = baseInfo .. api.NumToBigBin((6 * 7) + 1, 1) .. api.NumToBigBin(6, 1)  -- 6个WiFi * (6字节BSSID + 1字节RSSI) + 1字节计数
+            baseInfo = baseInfo .. api.NumToBigBin((6 * 7) + 1, 1) .. api.NumToBigBin(6, 1) -- 6个WiFi * (6字节BSSID + 1字节RSSI) + 1字节计数
             for i = 1, 6 do
-                baseInfo = baseInfo .. api.StrToBin(results[i]["bssid"]:toHex(), 6) .. api.NumToBigBin(results[i]["rssi"] + 255, 1)
+                baseInfo = baseInfo .. api.StrToBin(results[i]["bssid"]:toHex(), 6) ..
+                               api.NumToBigBin(results[i]["rssi"] + 255, 1)
             end
         else
             baseInfo = baseInfo .. api.NumToBigBin((#results * 7) + 1, 1) .. api.NumToBigBin(#results, 1)
             for i = 1, #results do
-                baseInfo = baseInfo .. api.StrToBin(results[i]["bssid"]:toHex(), 6) .. api.NumToBigBin(results[i]["rssi"] + 255, 1)
+                baseInfo = baseInfo .. api.StrToBin(results[i]["bssid"]:toHex(), 6) ..
+                               api.NumToBigBin(results[i]["rssi"] + 255, 1)
             end
         end
     end
@@ -266,9 +292,10 @@ function common.monitorRecord()
     end
 
     -- 添加代码软件版本号(0x66附件)
-    local bspVer = rtos.version():sub(2)  -- BSP版本
-    local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)")  -- 应用版本
-    baseInfo = baseInfo .. api.NumToBigBin(0x66, 1) .. api.NumToBigBin(4, 1) .. api.StrToBin(bspVer, 2) ..api.StrToBin(x, 1)..api.StrToBin(z, 1)
+    local bspVer = rtos.version():sub(2) -- BSP版本
+    local x, y, z = string.match(_G.VERSION, "(%d+).(%d+).(%d+)") -- 应用版本
+    baseInfo = baseInfo .. api.NumToBigBin(0x66, 1) .. api.NumToBigBin(4, 1) .. api.StrToBin(bspVer, 2) ..
+                   api.StrToBin(x, 1) .. api.StrToBin(z, 1)
 
     -- 添加GNSS软件版本号(0x67附件)
     -- exgnss暂时没有获取GNSS版本号的接口 Air8000也不需要，使用0作为占位
@@ -277,10 +304,28 @@ function common.monitorRecord()
     return baseInfo
 end
 
--- 获取当前GNSS工作模式
--- @return string 当前模式：CAPTURE/TRACKING/STATIC_LBS/STATIC_GNSS
+    -- 获取当前GNSS工作模式
+    -- @return string 当前模式：CAPTURE/TRACKING/STATIC_LBS/STATIC_GNSS
 function common.getNowMode()
     return mode
+end
+
+-- 打印当前状态信息（用于调试）
+function common.printStatus()
+    logF("========== 状态信息 ==========")
+    logF("当前模式:", mode)
+    logF("GNSS状态:", exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}) and "已打开" or "已关闭")
+    logF("定位状态:", exgnss.is_fix() and "已定位" or "未定位")
+    logF("运动状态:", manage.isRun() and "运动中" or "静止")
+    logF("快速上传:", fastUpload and "开启" or "关闭")
+    logF("缓存数据量:", #dataCache)
+    logF("等待上传次数:", waitUploadTimes)
+    logF("最后GPS位置:", lastGPSLocation.lat, lastGPSLocation.lng, lastGPSLocation.isFix)
+    if lastNonStaticGPSLocation then
+        logF("最后非静止点:", lastNonStaticGPSLocation.lat, lastNonStaticGPSLocation.lng)
+    end
+    logF("轨迹补偿历史:", trackCompensate.getHistoryCount())
+    logF("============================")
 end
 
 -- 快速上传模式开关
@@ -321,7 +366,7 @@ function common.setfastUpload(time)
         log.warn("common", "当前不是跟踪模式,但设置快速上传", mode)
         -- return
     end
-    uploadCache()  -- 先上传缓存中的数据
+    uploadCache() -- 先上传缓存中的数据
     if time == 0 then
         log.info("common", "退出快速上传模式")
         fastUpload = false
@@ -340,10 +385,11 @@ function common.setfastUpload(time)
     end
 end
 
+local GNSS_FIX_LED = 17  --GNSS定位成功指示灯(Air8000A开发板是GPIO17 绿色的灯)
 -- 主任务：GNSS定位状态机
 -- 管理4种工作模式的切换：CAPTURE -> TRACKING -> STATIC_GNSS/STATIC_LBS -> CAPTURE
 sys.taskInit(function()
-    local result, firstCapture = nil, true  -- firstCapture: 首次捕获标志
+    local result, firstCapture = nil, true -- firstCapture: 首次捕获标志
 
     -- 等待时间同步成功
     while not netWork.timeSync() do
@@ -354,35 +400,45 @@ sys.taskInit(function()
 
     -- 主循环
     while true do
-        uploadCache()  -- 上传缓存中的数据
+        uploadCache() -- 上传缓存中的数据
 
         -- ==================== CAPTURE模式：捕获定位 ====================
         -- 目标：等待GNSS定位成功，进入TRACKING模式
         if mode == "CAPTURE" then
-            wlan.scan()  -- 扫描WiFi，用于辅助定位
+            logF("========== 进入CAPTURE模式 ==========")
+            wlan.scan() -- 扫描WiFi，用于辅助定位
             local times = 0
-            log.info("common", "真正打开GNSS，模式: CAPTURE, 标签:", gnssAppTag)
-            exgnss.open(exgnss.DEFAULT, {tag = gnssAppTag})  -- 打开GNSS
+            logF("打开GNSS", "模式: CAPTURE, 标签:", gnssAppTag)
+            exgnss.open(exgnss.DEFAULT, {
+                tag = gnssAppTag
+            }) -- 打开GNSS
 
             while true do
-                srvs.dataSend()  -- 发送数据
+                srvs.dataSend() -- 发送数据
 
                 -- 检查是否定位成功
                 if exgnss.is_fix() then
-                    mode = "TRACKING"  -- 切换到追踪模式
+                    logF("定位成功！切换到TRACKING模式")
+                    gpio.setup(GNSS_FIX_LED, 1) -- 定位成功，点亮指示灯
+                    mode = "TRACKING" -- 切换到追踪模式
                     firstCapture = false
+                    sys.timerStart(function()
+                        gpio.setup(GNSS_FIX_LED, 0) -- 2秒后熄灭指示灯
+                    end, 2000)
                     break
                 end
 
                 -- 等待GNSS状态事件，最长30秒
                 result = sys.waitUntil("GNSS_STATE", 30 * 1000)
                 if result == "FIXED" then
-                    mode = "TRACKING"  -- 定位成功，切换到追踪模式
+                    logF("定位成功！(事件)切换到TRACKING模式")
+                    mode = "TRACKING" -- 定位成功，切换到追踪模式
                     firstCapture = false
                     break
                 end
 
                 times = times + 1
+                logF("定位未成功", "尝试次数:", times, "/10", "首次捕获:", firstCapture)
 
                 -- 判定是否切换到STATIC_LBS模式
                 -- 首次捕获最多尝试10次，之后最多尝试4次
@@ -390,39 +446,44 @@ sys.taskInit(function()
                 if times >= (firstCapture and 10 or 4) then
                     firstCapture = false
                     if not manage.isRun() then
-                        mode = "STATIC_LBS"  -- 切换到LBS静止模式
+                        logF("定位失败且静止，切换到STATIC_LBS模式")
+                        mode = "STATIC_LBS" -- 切换到LBS静止模式
                         break
                     end
-                    times = 0  -- 继续尝试定位
+                    logF("定位失败但仍在运动，继续尝试")
+                    times = 0 -- 继续尝试定位
                 end
             end
 
-        -- ==================== TRACKING模式：追踪定位 ====================
-        -- 目标：持续追踪定位，直到定位丢失或检测到静止
+            -- ==================== TRACKING模式：追踪定位 ====================
+            -- 目标：持续追踪定位，直到定位丢失或检测到静止
         elseif mode == "TRACKING" then
-            manage.wake("READ_GNSS_DATA")  -- 唤醒读取GNSS数据
-            sys.wait(2000)  -- 等待2秒，确保读到NMEA数据
-            srvs.dataSend()  -- 发送数据
+            logF("========== 进入TRACKING模式 ==========")
+            manage.wake("READ_GNSS_DATA") -- 唤醒读取GNSS数据
+            sys.wait(2000) -- 等待2秒，确保读到NMEA数据
+            srvs.dataSend() -- 发送数据
             manage.sleep("READ_GNSS_DATA")
 
             while true do
                 -- 检查定位状态
                 if not exgnss.is_fix() then
-                    mode = "CAPTURE"  -- 定位丢失，切换到捕获模式
+                    logF("定位丢失，切换到CAPTURE模式")
+                    mode = "CAPTURE" -- 定位丢失，切换到捕获模式
                     break
                 end
 
                 manage.wake("READ_GNSS_DATA")
-                result = sys.waitUntil("GNSS_STATE", 3000)  -- 等待3秒，确保读到NMEA数据，但这期间有可能丢失定位
+                result = sys.waitUntil("GNSS_STATE", 3000) -- 等待3秒，确保读到NMEA数据，但这期间有可能丢失定位
                 if result == "LOSE" then
+                    logF("定位丢失(事件)，切换到CAPTURE模式")
                     manage.sleep("READ_GNSS_DATA")
-                    mode = "CAPTURE"  -- 定位丢失，切换到捕获模式
+                    mode = "CAPTURE" -- 定位丢失，切换到捕获模式
                     break
                 end
 
                 -- 处理数据上传
                 if fastUpload then
-                    -- 快速上传模式：立即上传
+                    logF("快速上传模式，立即上传数据")
                     srvs.dataSend()
                 else
                     -- 正常模式：缓存数据，每30次上传一次(约5分钟)
@@ -435,9 +496,11 @@ sys.taskInit(function()
                     item:copy(nil, common.monitorRecord())
                     table.insert(dataCache, item)
                     waitUploadTimes = waitUploadTimes + 1
+                    logF("正常上传模式", "缓存数据量:", #dataCache, "等待上传次数:", waitUploadTimes, "/30")
 
                     -- 每30次上传一次
                     if waitUploadTimes >= 30 then
+                        logF("达到上传阈值，开始批量上传")
                         uploadCache()
                     end
                 end
@@ -446,58 +509,119 @@ sys.taskInit(function()
                 result = sys.waitUntil("GNSS_STATE", 7000)
 
                 if result == "LOSE" then
-                    mode = "CAPTURE"  -- 定位丢失，切换到捕获模式
+                    logF("定位丢失(超时)，切换到CAPTURE模式")
+                    mode = "CAPTURE" -- 定位丢失，切换到捕获模式
                     break
+                end
+
+                -- 运动状态下持续更新最后非静止点位置
+                if lastGPSLocation.lat ~= 0 and lastGPSLocation.lng ~= 0 then
+                    lastNonStaticGPSLocation = {
+                        lat = lastGPSLocation.lat,
+                        lng = lastGPSLocation.lng,
+                        latType = lastGPSLocation.latType,
+                        lngType = lastGPSLocation.lngType,
+                        isFix = lastGPSLocation.isFix
+                    }
+                    logF("更新最后非静止点位置", lastNonStaticGPSLocation.lat, lastNonStaticGPSLocation.lng)
                 end
 
                 -- 检测到静止，关闭GNSS进入STATIC_GNSS模式
                 -- 此时lastGPSLocation已在monitorRecord中更新
                 if not manage.isRun() then
-                    log.info("common", "检测到静止，关闭GNSS进入STATIC_GNSS")
+                    logF("检测到静止，关闭GNSS进入STATIC_GNSS模式")
                     mode = "STATIC_GNSS"
                     break
                 end
             end
 
-        -- ==================== STATIC_LBS模式：LBS静止 ====================
-        -- 目标：关闭GNSS，使用LBS定位，定期上传数据
+            -- ==================== STATIC_LBS模式：LBS静止 ====================
+            -- 目标：关闭GNSS，使用LBS定位，定期上传数据
         elseif mode == "STATIC_LBS" then
+            logF("========== 进入STATIC_LBS模式 ==========")
             manage.sleep("READ_GNSS_DATA")
-            exgnss.close(exgnss.DEFAULT, {tag = gnssAppTag})  -- 关闭GNSS
+            exgnss.close(exgnss.DEFAULT, {
+                tag = gnssAppTag
+            }) -- 关闭GNSS
             lastGPSLocation.lat = 0
             lastGPSLocation.lng = 0
+            logF("清空GPS位置，使用基站定位")
 
             -- 循环等待运动检测
             while not manage.isRun() do
-                srvs.dataSend()  -- 定期上传数据
+                logF("STATIC_LBS循环，等待运动")
+                srvs.dataSend() -- 定期上传数据
                 -- 等待运动事件，最长20分钟
                 if sys.waitUntil("SYS_STATUS_RUN", 20 * 60 * 1000) then
-                    mode = "CAPTURE"  -- 检测到运动，切换到捕获模式
+                    logF("检测到运动，切换到CAPTURE模式")
+                    mode = "CAPTURE" -- 检测到运动，切换到捕获模式
                     break
                 end
             end
 
-        -- ==================== STATIC_GNSS模式：GNSS静止 ====================
-        -- 目标：关闭GNSS，定期上传上次定位数据
+            -- ==================== STATIC_GNSS模式：GNSS静止 ====================
+            -- 目标：关闭GNSS，使用最后一次非静止点的位置定期上报
         elseif mode == "STATIC_GNSS" then
+            logF("========== 进入STATIC_GNSS模式 ==========")
             manage.sleep("READ_GNSS_DATA")
-            exgnss.close(exgnss.DEFAULT, {tag = gnssAppTag})  -- 关闭GNSS
+            exgnss.close(exgnss.DEFAULT, {
+                tag = gnssAppTag
+            }) -- 关闭GNSS
+
+            -- 确保lastGPSLocation已初始化
+            if not lastGPSLocation then
+                logF("lastGPSLocation未初始化，跳过保存")
+                lastNonStaticGPSLocation = nil
+            else
+                -- 保存最后一次非静止点的位置
+                if lastGPSLocation.lat ~= 0 and lastGPSLocation.lng ~= 0 then
+                    lastNonStaticGPSLocation = {
+                        lat = lastGPSLocation.lat,
+                        lng = lastGPSLocation.lng,
+                        latType = lastGPSLocation.latType,
+                        lngType = lastGPSLocation.lngType,
+                        isFix = 0  -- 静止状态标记为未定位
+                    }
+                    logF("保存最后一次非静止点位置:", lastNonStaticGPSLocation.lat, lastNonStaticGPSLocation.lng)
+                else
+                    logF("最后GPS位置无效，不保存到非静止点缓存")
+                    lastNonStaticGPSLocation = nil
+                end
+            end
 
             -- 循环等待运动检测
             while not manage.isRun() do
-                log.info("common", "STATIC_GNSS循环, isRun:", manage.isRun())
-                srvs.dataSend()  -- 定期上传数据
+                logF("STATIC_GNSS循环，使用最后非静止点位置")
+
+                -- 确保lastGPSLocation已初始化
+                if not lastGPSLocation then
+                    logF("警告：lastGPSLocation未初始化，跳过本次循环")
+                    sys.wait(5000)
+                elseif lastNonStaticGPSLocation then
+                    -- 使用最后一次非静止点的位置
+                    lastGPSLocation.lat = lastNonStaticGPSLocation.lat
+                    lastGPSLocation.lng = lastNonStaticGPSLocation.lng
+                    lastGPSLocation.latType = lastNonStaticGPSLocation.latType
+                    lastGPSLocation.lngType = lastNonStaticGPSLocation.lngType
+                    lastGPSLocation.isFix = lastNonStaticGPSLocation.isFix
+                    logF("上报最后非静止点位置:", lastGPSLocation.lat, lastGPSLocation.lng)
+                else
+                    logF("警告：没有最后非静止点位置数据！")
+                end
+
+                srvs.dataSend() -- 定期上传数据
                 -- 等待运动事件，最长20分钟
                 if sys.waitUntil("SYS_STATUS_RUN", 20 * 60 * 1000) then
-                    mode = "CAPTURE"  -- 检测到运动，切换到捕获模式
+                    logF("检测到运动，切换到CAPTURE模式")
+                    mode = "CAPTURE" -- 检测到运动，切换到捕获模式
                     break
                 end
-                sys.wait(5000)  -- 等待5秒,避免频繁调用
+                sys.wait(5000) -- 等待5秒,避免频繁调用
             end
 
             -- 循环退出说明检测到运动,切换到CAPTURE模式
             if manage.isRun() then
-                log.info("common", "检测到运动,退出STATIC_GNSS模式,进入CAPTURE")
+                logF("检测到运动，退出STATIC_GNSS模式，进入CAPTURE模式")
                 mode = "CAPTURE"
             end
         end

@@ -554,19 +554,134 @@ exgnss.open(exgnss.TIMERORSUC, {
 - **速度平滑**: 过滤速度突变，防止轨迹偏离实际路网
 - **距离阈值过滤**: 过滤超出合理范围的漂移点
 - **拐点检测**: 检测急转弯点并优化轨迹
+- **自适应场景**: 根据使用场景（人员/车辆）自动调整参数
+
+#### 双场景配置系统
+
+模块支持**人员定位**和**车辆定位**两种场景，可根据实际使用对象选择或自动切换。
+
+| 场景 | 适用对象 | 距离阈值 | 速度突变阈值 | 航向跳变阈值 | 拐点检测角度 |
+|------|---------|---------|-------------|-------------|-------------|
+| person | 人员定位（学生卡、宠物追踪器） | 50米 | 10 km/h | 60度 | 120度 |
+| vehicle | 车辆定位（物流追踪、车辆管理） | 200米 | 50 km/h | 30度 | 90度 |
 
 #### 配置参数
+
+**人员定位参数 (personParams)**
 ```lua
-local config = {
-    distanceThreshold = 50,          -- 距离阈值（米），超过此距离认为漂移
-    speedChangeThreshold = 5,        -- 速度突变阈值（km/h）
-    courseChangeThreshold = 30,       -- 航向跳变阈值（度）
-    enableCornerCompensate = true,    -- 是否启用拐点补偿
-    minTurnRadius = 10,              -- 最小转弯半径（米）
+personParams = {
+    -- 距离阈值(米): 人员正常移动速度约1-2m/s,3秒间隔约3-6米
+    -- 设置50米可以有效过滤漂移,同时不会误判正常移动
+    distanceThreshold = 50,
+
+    -- 速度突变阈值(km/h): 人员速度突变通常不超过10km/h
+    speedChangeThreshold = 10,
+
+    -- 航向跳变阈值(度): 人员移动方向变化频繁,允许更大的航向变化
+    courseChangeThreshold = 60,
+
+    -- 拐点检测角度(度): 人员可以在小巷转弯,角度变化大
+    cornerAngleThreshold = 120,
+
+    -- 最小转弯半径(米): 人员可以在狭小空间转弯
+    minTurnRadius = 5,
 }
 ```
 
+**车辆定位参数 (vehicleParams)**
+```lua
+vehicleParams = {
+    -- 距离阈值(米): 城市车辆速度约20-40km/h,3秒间隔约17-34米
+    -- 设置200米可以过滤漂移,同时允许隧道/高架桥等场景
+    distanceThreshold = 200,
+
+    -- 速度突变阈值(km/h): 车辆急加速急刹车可能超过30km/h
+    speedChangeThreshold = 50,
+
+    -- 航向跳变阈值(度): 车辆一般在道路上行驶,航向变化相对平滑
+    courseChangeThreshold = 30,
+
+    -- 拐点检测角度(度): 车辆急转弯角度通常在90-120度
+    cornerAngleThreshold = 90,
+
+    -- 最小转弯半径(米): 车辆最小转弯半径通常在5-10米
+    minTurnRadius = 5,
+}
+```
+
+**全局配置**
+```lua
+local config = {
+    -- 使用场景: "person" 或 "vehicle"
+    scene = "person",
+
+    -- 是否启用自适应场景
+    autoAdaptive = true,
+
+    -- 自适应速度阈值(km/h): 低于此值认为是人员,高于此值认为是车辆
+    adaptiveSpeedThreshold = 15,
+
+    -- 是否启用拐点补偿
+    enableCornerCompensate = true,
+}
+```
+
+#### 自适应模式
+
+默认启用 `autoAdaptive = true`，模块会根据最近3个定位点的平均速度自动判断场景：
+- 速度 ≥15 km/h → 自动使用车辆参数
+- 速度 <15 km/h → 自动使用人员参数
+
+自适应模式适用于设备可能在人员佩戴和车辆安装两种场景间切换的情况。
+
+#### 配置接口
+
+通过 `trackCompensate.setConfig()` 动态调整配置：
+
+```lua
+-- 固定使用人员模式
+trackCompensate.setConfig({
+    scene = "person",
+    autoAdaptive = false
+})
+
+-- 固定使用车辆模式
+trackCompensate.setConfig({
+    scene = "vehicle",
+    autoAdaptive = false
+})
+
+-- 启用自适应并调整速度阈值
+trackCompensate.setConfig({
+    autoAdaptive = true,
+    adaptiveSpeedThreshold = 20
+})
+
+-- 自定义人员参数
+trackCompensate.setConfig({
+    personParams = {
+        distanceThreshold = 60,
+        speedChangeThreshold = 15,
+        courseChangeThreshold = 70
+    }
+})
+
+-- 自定义车辆参数
+trackCompensate.setConfig({
+    vehicleParams = {
+        distanceThreshold = 250,
+        speedChangeThreshold = 60
+    }
+})
+
+-- 禁用拐点补偿
+trackCompensate.setConfig({
+    enableCornerCompensate = false
+})
+```
+
 #### 主补偿函数
+
 ```lua
 local resultLat, resultLng, resultCourse, resultSpeed =
     trackCompensate.compensate(lat, lng, course, speed)
@@ -594,15 +709,24 @@ avgCourse = (avgCourse + 360) % 360
 
 **3. 拐点补偿**
 ```lua
--- 检测急转弯（角度变化>90度）
-if angleDiff > 90 and config.enableCornerCompensate then
+-- 检测急转弯（角度变化根据场景动态调整）
+if angleDiff > params.cornerAngleThreshold and config.enableCornerCompensate then
     -- 沿当前航向预估位置
     estimatedLat = lat + (distance / 6371000) * math.cos(math.rad(bearing2))
     estimatedLng = lng + (distance / 6371000) * math.sin(math.rad(bearing2))
 end
 ```
 
+**4. 速度平滑**
+```lua
+-- 根据当前场景的速度突变阈值进行平滑
+if speedDiff > params.speedChangeThreshold and calcSpeed > 0 then
+    return calcSpeed
+end
+```
+
 #### 集成方式
+
 在`common.lua`的TRACKING模式中自动调用：
 ```lua
 -- 轨迹补偿：平滑航向、速度，处理拐点
@@ -615,6 +739,31 @@ if compensatedLat and compensatedLng then
     speed = compensatedSpeed
 end
 ```
+
+#### 调试日志
+
+模块输出统一的调试日志前缀 `[TRACK_COMP]`，方便定位问题：
+
+```
+[TRACK_COMP] ========== 轨迹补偿开始 ==========
+[TRACK_COMP] 使用场景: person 自适应: true
+[TRACK_COMP] 参数配置: 距离阈值: 50 速度突变阈值: 10 航向阈值: 60
+[TRACK_COMP] 输入参数 纬度: 31.234567 经度: 121.654321 航向: 180 速度: 5
+[TRACK_COMP] 自适应场景判断: 当前平均速度 4.5 km/h → 使用人员参数
+[TRACK_COMP] 距离正常: 8 米
+[TRACK_COMP] 速度平滑 原始: 5 → 结果: 5
+[TRACK_COMP] 航向平滑 原始: 180 → 结果: 175
+[TRACK_COMP] 添加到历史缓存，当前历史数量: 3
+[TRACK_COMP] 补偿结果 31.234567,121.654321 → 31.234567,121.654321
+[TRACK_COMP] ========== 轨迹补偿结束 ==========
+```
+
+#### 重要说明
+
+1. **速度为0不进行补偿**: 当速度为0时，模块直接返回原始数据，避免静止状态下的误判
+2. **漂移点过滤**: 距离超过阈值的点会被过滤，返回历史位置，避免轨迹跳变
+3. **历史缓存**: 保存最近5个定位点用于平滑计算
+4. **场景切换**: 在自适应模式下，场景会根据速度动态切换，日志会显示当前使用的场景
 
 #### 模式特性
 - **定时定位**: 按配置间隔(如60秒)开启GNSS定位

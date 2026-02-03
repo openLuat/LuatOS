@@ -15,6 +15,18 @@ local srvs = {}
 
 -- ==================== 全局变量 ====================
 
+-- 日志开关
+local logSwitch = true
+local moduleName = "srvs"
+local logPrefix = "[SRVS]"
+
+-- 本地日志输出函数
+local function logF(...)
+    if logSwitch then
+        log.info(moduleName, logPrefix, ...)
+    end
+end
+
 -- 服务器实例列表
 -- 存储：{ srv1, srv2, ... }
 -- 每个srv应该实现以下接口：
@@ -39,6 +51,34 @@ srvs.dataSend(data)
 srvs.dataSend(zbuff.create(200))
 ]]
 function srvs.dataSend(data)
+    -- 打印数据内容（用于调试）
+    logF("========== 开始发送数据到服务器 ==========")
+    if data then
+        local dataType = type(data)
+        if dataType == "zbuff" then
+            local len = data:query() or 0
+            logF("数据类型: zbuff, 长度:", len, "字节")
+
+            -- 尝试解析JT808报文
+            if len >= 16 then
+                local dataStr = data:toStr(0, len) or ""
+                printUploadDataFromSrvs(dataStr)
+            end
+        elseif dataType == "string" then
+            logF("数据类型: string, 长度:", #data, "字节")
+
+            -- 尝试解析JT808报文
+            if #data >= 16 then
+                printUploadDataFromSrvs(data)
+            end
+        else
+            logF("数据类型:", dataType)
+        end
+    else
+        logF("数据为空，将自动调用common.monitorRecord()获取数据")
+    end
+    logF("==========================================")
+
     -- 遍历所有服务器
     for i = 1, #ns do
         local srv = ns[i]
@@ -51,6 +91,79 @@ function srvs.dataSend(data)
             end
         end
     end
+
+    logF("数据发送完成，服务器数量:", #ns)
+end
+
+-- 打印上传数据的关键信息（从srvs模块内部调用）
+local function printUploadDataFromSrvs(dataStr)
+    if not dataStr or #dataStr < 16 then
+        return
+    end
+
+    -- 尝试提取位置信息（从JT808报文中解析）
+    -- JT808报文格式: 7E + 消息ID(2) + 消息体属性(2) + 终端手机号(6) + 消息流水号(2) + 消息体 + 校验码 + 7E
+    -- 消息ID(2字节) = 0x0200 表示位置信息上报
+
+    -- 查找起始标识7E
+    local startPos = dataStr:find("\126") -- 7E的ASCII码
+    if not startPos then
+        return
+    end
+
+    -- 提取消息ID（在起始标识后2字节）
+    if #dataStr < startPos + 5 then
+        return
+    end
+
+    local msgIdHex = string.format("%02X%02X", dataStr:byte(startPos + 1), dataStr:byte(startPos + 2))
+    logF("消息ID:", msgIdHex)
+
+    -- 如果是位置信息上报(0x0200)，解析经纬度
+    if msgIdHex == "0200" then
+        -- 基础定位信息位置：起始标识(1) + 消息ID(2) + 属性(2) + 手机号(6) + 流水号(2) + 状态(1) = 14字节
+        -- 状态字节后: 经度(4) + 纬度(4) + 高度(2) + 速度(2) + 方向(2) + 时间(6) = 20字节
+        if #dataStr >= startPos + 24 then
+            local statusByte = dataStr:byte(startPos + 14)
+            local latHex = string.format("%02X%02X%02X%02X",
+                dataStr:byte(startPos + 15),
+                dataStr:byte(startPos + 16),
+                dataStr:byte(startPos + 17),
+                dataStr:byte(startPos + 18))
+            local lngHex = string.format("%02X%02X%02X%02X",
+                dataStr:byte(startPos + 19),
+                dataStr:byte(startPos + 20),
+                dataStr:byte(startPos + 21),
+                dataStr:byte(startPos + 22))
+            local speedHex = string.format("%02X%02X",
+                dataStr:byte(startPos + 23),
+                dataStr:byte(startPos + 24))
+            local courseHex = string.format("%02X%02X",
+                dataStr:byte(startPos + 25),
+                dataStr:byte(startPos + 26))
+
+            -- 转换为十进制
+            local lat = tonumber(latHex, 16) or 0
+            local lng = tonumber(lngHex, 16) or 0
+            local speed = tonumber(speedHex, 16) or 0
+            local course = tonumber(courseHex, 16) or 0
+
+            -- 经纬度显示（JT808格式是度*1000000，需要转换）
+            local latDeg = lat / 1000000
+            local lngDeg = lng / 1000000
+            local latType = lat < 0 and "S" or "N"
+            local lngType = lng < 0 and "W" or "E"
+
+            logF("位置信息:")
+            logF("  经度:", lngDeg, "度", lngType, " (原始值:", lng, ")")
+            logF("  纬度:", latDeg, "度", latType, " (原始值:", lat, ")")
+            logF("  速度:", speed, "km/h")
+            logF("  航向:", course, "度")
+            logF("  状态:", string.format("%02X", statusByte))
+        end
+    end
+
+    logF("发送时间:", os.date("%Y-%m-%d %H:%M:%S"))
 end
 
 --[[

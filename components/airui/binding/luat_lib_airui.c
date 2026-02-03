@@ -36,6 +36,7 @@ static int l_airui_refresh(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
 static int l_airui_font_load(lua_State *L);
+static int l_airui_version(lua_State *L);
 
 // XML 模块声明
 extern int l_airui_xml_init(lua_State *L);
@@ -113,6 +114,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
+    {"version", ROREG_FUNC(l_airui_version)},
     // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
     {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
     // XML 模块
@@ -436,3 +438,12 @@ static int l_airui_font_load(lua_State *L) {
     return 0;
 }
 
+/**
+ * 获取 AIRUI 库的版本号
+ * @api airui.version()
+ * @return string 当前版本（由 AIRUI_VERSION 提供）
+ */
+static int l_airui_version(lua_State *L) {
+    lua_pushstring(L, AIRUI_VERSION);
+    return 1;
+}

@@ -14,6 +14,9 @@
     #include "luat_conf_bsp_air8101.h"
 #endif
 
+/** AIRUI 库版本号 */
+#define AIRUI_VERSION "1.0.2"
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/

@@ -37,6 +37,8 @@ typedef void (*amr_decode_fun_t)(void* state, const unsigned char* in, short* ou
 #define G711_PCM_SAMPLES 160
 #endif
 
+#define OPUS_MAX_PACKET_SIZE (3*1276)
+
 #ifndef MINIMP3_MAX_SAMPLES_PER_FRAME
 #define MINIMP3_MAX_SAMPLES_PER_FRAME (2*1152)
 #endif
@@ -370,7 +372,7 @@ int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *co
         //     break;
         case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
             // OPUS 不定长,分配 3*1276 最大packet size
-            coder->buff.addr = luat_heap_malloc(3*1276);
+            coder->buff.addr = luat_heap_malloc(OPUS_MAX_PACKET_SIZE);
             if (coder->buff.addr){
                 coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
                 result = 1;
@@ -618,7 +620,7 @@ GET_MP3_DATA:
             if (read_len != 2) break;
             uint16_t len = (len_bytes[0] << 8) | len_bytes[1];
             // LLOGD("len_bytes[0]=%d, len_bytes[1]=%d, len=%u", len_bytes[0], len_bytes[1], len);
-            if (len > 3*1276){ 
+            if (len > OPUS_MAX_PACKET_SIZE){ 
                 LLOGE("packet too large: %u", len); 
                 break; 
             }
@@ -645,7 +647,11 @@ GET_MP3_DATA:
 	return 1;
 }
 
-
+#include "opus.h"
+#include "opus_types.h"
+#include "opus_private.h"
+//#include "opus_multistream.h"
+#include "opus_defines.h"
 /**
 编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能以外只支持amr-nb编码
 @api codec.encode(coder, in_buffer, out_buffer, mode)
@@ -819,68 +825,21 @@ static int l_codec_encode_audio_data(lua_State *L) {
 #endif
 #ifdef LUAT_SUPPORT_OPUS
         case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
-        // // AMR编码处理
-        // uint8_t outbuf[128];
+        #define DELAY_SAMPLES 60
         int16_t *pcm = (int16_t *)in_buff->addr;
         uint32_t pcm_len = in_buff->used >> 1;
-        // uint32_t total_len = in_buff->used >> 1;
-        // uint32_t done_len = 0;
-        // uint32_t pcm_len = (coder->type - LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB + 1) * 160;
-        uint8_t out_len;
-
-        LLOGD("pcm_len:%d",pcm_len);
-
-        // while ((total_len - done_len) >= pcm_len)
-        // {
-        //     luat_audio_inter_amr_coder_encode(coder->amr_coder, &pcm[done_len], outbuf, &out_len);
-        //     if (out_len <= 0)
-        //     {
-        //         LLOGE("encode error in %d,result %d", done_len, out_len);
-        //     }
-        //     else
-        //     {
-        //         if ((out_buff->len - out_buff->used) < out_len)
-        //         {
-        //             if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
-        //             {
-        //                 lua_pushboolean(L, 0);
-        //                 return 1;
-        //             }
-        //         }
-        //         memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
-        //         out_buff->used += out_len;
-        //     }
-        //     done_len += pcm_len;
-        // }
-
-        // while(1){
-            
-        // }
-
-        // size_t samples = luat_fs_fread(in, sizeof(opus_int16), FRAME_SIZE*CHANNELS, fd_pcm);
-        // LLOGD("raw read samples=%u", (unsigned int)samples);
-        // if (samples == 0) break;
-        // if (samples < FRAME_SIZE*CHANNELS){
-        //     size_t pad = FRAME_SIZE*CHANNELS - samples;
-        //     memset(in + samples, 0, pad * sizeof(opus_int16));
-        //     LLOGD("raw padding %u samples to full frame (%d)", (unsigned int)pad, FRAME_SIZE);
-        // }
-        // int frame_size = FRAME_SIZE;
-        // LLOGD("raw frame_size=%d", frame_size);
-        // int nbBytes = opus_encode(encoder, in, frame_size, cbits, MAX_PACKET_SIZE);
-        // LLOGD("raw opus_encode returned nbBytes=%d", nbBytes);
-        // if (nbBytes < 0){ LLOGE("opus_encode failed: %d", nbBytes); break; }
-        // // Write packet length (2 bytes, big-endian)
-        // uint16_t len = (uint16_t)nbBytes;
-        // uint8_t len_bytes[2];
-        // len_bytes[0] = (len >> 8) & 0xFF;
-        // len_bytes[1] = len & 0xFF;
-        // LLOGD("nbBytes=%d, len=%u, len_bytes[0]=%d, len_bytes[1]=%d", nbBytes, len, len_bytes[0], len_bytes[1]);
-        // if (luat_fs_fwrite(len_bytes, 1, 2, fd_opus) != 2){ LLOGE("write length failed"); break; }
-        // // Write packet data
-        // if (luat_fs_fwrite(cbits, 1, nbBytes, fd_opus) != (size_t)nbBytes){ LLOGE("write packet failed"); break; }
-
-
+        uint32_t done_len = 0;
+        uint32_t frame_size = coder->sample_rate*DELAY_SAMPLES/1000;
+        while(pcm_len >= frame_size){
+            uint32_t out_len = 0;
+            int ret =luat_opus_encoder_get_data(coder,pcm + done_len,frame_size,out_buff->addr + out_buff->used,&out_len);
+            if (ret){
+                break;
+            }
+            out_buff->used += out_len;
+            pcm_len -= frame_size;
+            done_len += frame_size;
+        }
         lua_pushboolean(L, 1);
         return 1;
         }

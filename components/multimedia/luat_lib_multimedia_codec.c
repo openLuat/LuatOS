@@ -666,7 +666,7 @@ static int l_codec_encode_audio_data(lua_State *L) {
 		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
 	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_ULAW && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_ALAW) || coder->is_decoder)
+	if (!coder || !in_buff || !out_buff || coder->is_decoder)
 	{
 		lua_pushboolean(L, 0);
 		return 1;
@@ -819,7 +819,70 @@ static int l_codec_encode_audio_data(lua_State *L) {
 #endif
 #ifdef LUAT_SUPPORT_OPUS
         case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
+        // // AMR编码处理
+        // uint8_t outbuf[128];
+        int16_t *pcm = (int16_t *)in_buff->addr;
+        uint32_t pcm_len = in_buff->used >> 1;
+        // uint32_t total_len = in_buff->used >> 1;
+        // uint32_t done_len = 0;
+        // uint32_t pcm_len = (coder->type - LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB + 1) * 160;
+        uint8_t out_len;
 
+        LLOGD("pcm_len:%d",pcm_len);
+
+        // while ((total_len - done_len) >= pcm_len)
+        // {
+        //     luat_audio_inter_amr_coder_encode(coder->amr_coder, &pcm[done_len], outbuf, &out_len);
+        //     if (out_len <= 0)
+        //     {
+        //         LLOGE("encode error in %d,result %d", done_len, out_len);
+        //     }
+        //     else
+        //     {
+        //         if ((out_buff->len - out_buff->used) < out_len)
+        //         {
+        //             if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
+        //             {
+        //                 lua_pushboolean(L, 0);
+        //                 return 1;
+        //             }
+        //         }
+        //         memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
+        //         out_buff->used += out_len;
+        //     }
+        //     done_len += pcm_len;
+        // }
+
+        // while(1){
+            
+        // }
+
+        // size_t samples = luat_fs_fread(in, sizeof(opus_int16), FRAME_SIZE*CHANNELS, fd_pcm);
+        // LLOGD("raw read samples=%u", (unsigned int)samples);
+        // if (samples == 0) break;
+        // if (samples < FRAME_SIZE*CHANNELS){
+        //     size_t pad = FRAME_SIZE*CHANNELS - samples;
+        //     memset(in + samples, 0, pad * sizeof(opus_int16));
+        //     LLOGD("raw padding %u samples to full frame (%d)", (unsigned int)pad, FRAME_SIZE);
+        // }
+        // int frame_size = FRAME_SIZE;
+        // LLOGD("raw frame_size=%d", frame_size);
+        // int nbBytes = opus_encode(encoder, in, frame_size, cbits, MAX_PACKET_SIZE);
+        // LLOGD("raw opus_encode returned nbBytes=%d", nbBytes);
+        // if (nbBytes < 0){ LLOGE("opus_encode failed: %d", nbBytes); break; }
+        // // Write packet length (2 bytes, big-endian)
+        // uint16_t len = (uint16_t)nbBytes;
+        // uint8_t len_bytes[2];
+        // len_bytes[0] = (len >> 8) & 0xFF;
+        // len_bytes[1] = len & 0xFF;
+        // LLOGD("nbBytes=%d, len=%u, len_bytes[0]=%d, len_bytes[1]=%d", nbBytes, len, len_bytes[0], len_bytes[1]);
+        // if (luat_fs_fwrite(len_bytes, 1, 2, fd_opus) != 2){ LLOGE("write length failed"); break; }
+        // // Write packet data
+        // if (luat_fs_fwrite(cbits, 1, nbBytes, fd_opus) != (size_t)nbBytes){ LLOGE("write packet failed"); break; }
+
+
+        lua_pushboolean(L, 1);
+        return 1;
         }
 #endif
         default:

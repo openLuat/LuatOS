@@ -18,6 +18,13 @@ local airlink_mode = is_gw and airlink.MODE_SPI_SLAVE or airlink.MODE_SPI_MASTER
 sys.taskInit(function()
     sys.wait(500)
     -- 初始化airlink
+    if not is_gw then
+        log.info("airlink", "master mode")
+        airlink.config(airlink.CONF_SPI_ID, 1) -- SPI1
+        airlink.config(airlink.CONF_SPI_CS, 8) -- GPIO8
+        airlink.config(airlink.CONF_SPI_RDY, 22) -- GPIO18
+        airlink.config(airlink.CONF_SPI_SPEED, 8 * 1000000) -- 8MHz速度
+    end
     airlink.init()
     -- 注册网卡
     netdrv.setup(socket.LWIP_USER0, netdrv.WHALE)

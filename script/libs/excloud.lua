@@ -31,7 +31,9 @@
 11. excloud.get_server_info() - 获取getip获取的服务器信息
 12. excloud.mtn_log(tag, ...)  - 记录运维日志；
 
-
+--做下版本记录：
+1：2025.09.22 - 初始版本
+2 2026.02.03 修改tlv打包解包函数的注释，抛出tlv打包解包函数给免费服务器使用
 ]]
 local excloud = {}
 local httpplus = require "httpplus"
@@ -40,7 +42,7 @@ local exmtn = require "exmtn"
 local config = {
     device_type = 1,         -- 默认设备类型: 4G
     device_id = "",          -- 设备ID
-    protocol_version = 1,    -- 协议版本
+    protocol_version = 2,    -- 协议版本
     transport = "",          -- 传输协议: tcp/mqtt
     host = "",               -- 服务器地址
     port = nil,              -- 服务器端口
@@ -456,8 +458,27 @@ local function build_header(need_reply, is_udp_transport, data_length)
         to_big_endian(flags, 4)
 end
 
--- 构建TLV字段
+--[[
+构建TLV字段
+@api excloud.build_tlv(field_meaning, data_type, value)
+@number field_meaning 字段含义，使用 FIELD_MEANINGS 中的常量
+@number data_type 数据类型，使用 DATA_TYPES 中的常量
+@param value 要编码的值，根据 data_type 类型不同，value 类型也不同
+@return boolean success 是否构建成功
+@return string tlv_data 构建好的 TLV 数据
+@usage
+-- 构建一个温度数据的 TLV 字段
+local success, tlv_data = excloud.build_tlv(excloud.FIELD_MEANINGS.TEMPERATURE, excloud.DATA_TYPES.FLOAT, 25.5)
+if success then
+    -- 使用 tlv_data
+end
+]]
+-- 保留本地函数引用，以便内部调用
 local function build_tlv(field_meaning, data_type, value)
+    return excloud.build_tlv(field_meaning, data_type, value)
+end
+
+function excloud.build_tlv(field_meaning, data_type, value)
     if field_meaning == nil or data_type == nil or value == nil then
         log.info("[excloud]构建tlv参数不能为空")
         return false
@@ -510,8 +531,36 @@ local function parse_header(header)
     }
 end
 
--- 工具函数：解析TLV
+--[[
+解析TLV字段
+@api excloud.parse_tlv(data, startPos)
+@string data 包含 TLV 数据的二进制字符串
+@number startPos 开始解析的位置，默认为 1
+@return table tlv_info 解析后的 TLV 信息表，包含 field、type、value 和 length 字段
+@return number new_pos 解析完成后的新位置，用于继续解析后续的 TLV 字段
+@return string error 解析失败时返回的错误信息
+@usage
+-- 解析一个包含 TLV 数据的二进制字符串
+local data = "..." -- 包含 TLV 数据的二进制字符串
+local pos = 1
+while pos <= #data do
+    local tlv, new_pos, err = excloud.parse_tlv(data, pos)
+    if not tlv then
+        log.error("解析TLV失败:", err)
+        break
+    end
+    -- 使用解析出的 TLV 信息
+    print("字段:", tlv.field, "类型:", tlv.type, "值:", tlv.value)
+    pos = new_pos
+end
+]]
+-- 保留本地函数引用，以便内部调用
 local function parse_tlv(data, startPos)
+    return excloud.parse_tlv(data, startPos)
+end
+
+function excloud.parse_tlv(data, startPos)
+    startPos = startPos or 1
     -- 检查数据是否足够解析TLV的T的长度。
     if #data < startPos + 3 then
         return nil, startPos, "TLV data too short"

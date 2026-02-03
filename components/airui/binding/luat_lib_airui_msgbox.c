@@ -154,11 +154,11 @@ void airui_register_msgbox_meta(lua_State *L)
     luaL_newmetatable(L, AIRUI_MSGBOX_MT);
 
     static const luaL_Reg methods[] = {
-        {"show", l_msgbox_show},
-        {"hide", l_msgbox_hide},
-        {"set_on_action", l_msgbox_set_on_action},
-        {"release", l_msgbox_release},
-        {"destroy", l_msgbox_destroy},
+        {"show", l_msgbox_show}, // 显示 Msgbox 对话框
+        {"hide", l_msgbox_hide}, // 隐藏 Msgbox 对话框
+        {"set_on_action", l_msgbox_set_on_action}, // 设置按钮点击回调
+        {"release", l_msgbox_release}, // 释放 Msgbox 组件, todo： 后续1.1版本可以移除，和destroy功能重复
+        {"destroy", l_msgbox_destroy}, // 销毁 Msgbox 组件
         {NULL, NULL}
     };
 

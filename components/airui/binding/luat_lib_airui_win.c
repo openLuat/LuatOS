@@ -170,10 +170,10 @@ void airui_register_win_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_WIN_MT);
     // 设置方法表
     static const luaL_Reg methods[] = {
-        {"set_title", l_win_set_title},
-        {"add_content", l_win_add_content},
-        {"destroy", l_win_destroy},
-        {"close", l_win_close},
+        {"set_title", l_win_set_title}, // 设置窗口标题
+        {"add_content", l_win_add_content}, // 添加内容
+        {"destroy", l_win_destroy}, // 销毁窗口
+        {"close", l_win_close}, // 关闭窗口
         {NULL, NULL}
     };
     

@@ -1069,7 +1069,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 				// 如果网关地址是0.0.0.0, 就不设置DNS服务器
 			}
 			else {
-				memcpy(&dns_client->dns_server[0], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
+				memcpy(&dns_client->dns_server[2], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
 				// ipaddr_ntoa_r(&dns_client->dns_server[0], ip_string, sizeof(ip_string));
 				// LLOGD("使用网关作为首选DNS服务器 %d %s", adapter_index, ip_string);
 			}
@@ -1080,7 +1080,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		}
 		
 		if (dns1_set == 0) {
-			network_set_ip_ipv4(&dns_client->dns_server[1], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
+			network_set_ip_ipv4(&dns_client->dns_server[3], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
 			// ipaddr_ntoa_r(&dns_client->dns_server[1], ip_string, sizeof(ip_string));
 			// LLOGD("使用默认DNS服务器 %d %s", adapter_index, ip_string);
 		}

@@ -31,29 +31,26 @@ enum {
     LUAT_NETDRV_CTRL_UPDOWN,
 };
 
-typedef struct luat_netdrv_conf
+typedef struct luat_netdrv_ip_conf
 {
-    int32_t id;
-    int32_t impl;
-    uint8_t spiid;
-    uint8_t cspin;
-    uint8_t rstpin;
-    uint8_t irqpin;
-    uint16_t mtu;
-    uint8_t flags;
-    // Wireguard相关参数
-    #if 1
+    ip4_addr_t ip;
+    ip4_addr_t netmask;
+    ip4_addr_t gw;
+}luat_netdrv_ip_conf_t;
+
+typedef struct luat_netdrv_wg_conf
+{
     const char* wg_private_key;
     uint16_t wg_listen_port;
     uint16_t wg_keepalive;
     const char* wg_preshared_key;
-    
     const char* wg_endpoint_key;
     const char* wg_endpoint_ip;
     uint16_t wg_endpoint_port;
-    #endif
-    // OpenVPN相关参数
-    #if 1
+}luat_netdrv_wg_conf_t;
+
+typedef struct luat_netdrv_openvpn_conf
+{
     const char* ovpn_remote_ip;     // VPN服务器IP地址
     uint16_t ovpn_remote_port;      // VPN服务器端口
     const char* ovpn_ca_cert;       // CA证书 (PEM格式)
@@ -64,7 +61,23 @@ typedef struct luat_netdrv_conf
     size_t ovpn_client_key_len;
     const uint8_t* ovpn_static_key; // 静态密钥 (可选)
     size_t ovpn_static_key_len;
-    #endif
+}luat_netdrv_openvpn_conf_t;
+
+
+typedef struct luat_netdrv_conf
+{
+    int32_t id;
+    int32_t impl;
+    uint8_t spiid;
+    uint8_t cspin;
+    uint8_t rstpin;
+    uint8_t irqpin;
+    uint16_t mtu;
+    uint8_t flags;
+    
+    luat_netdrv_ip_conf_t *ip_conf;
+    luat_netdrv_wg_conf_t *wg_conf;
+    luat_netdrv_openvpn_conf_t *ovpn_conf;
 }luat_netdrv_conf_t;
 
 typedef struct luat_netdrv_statics_item
@@ -144,6 +157,10 @@ void luat_netdrv_netif_set_link_down(struct netif* netif);
 int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable);
 
 extern uint32_t g_netdrv_debug_enable;
+
+int luat_netdrv_simple_stat(void);
+
+int luat_netdrv_is_ready(int id);
 
 #ifndef __NETDRV_CODE_IN_RAM__
 #ifdef __LUAT_C_CODE_IN_RAM__

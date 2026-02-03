@@ -1193,8 +1193,8 @@ static int32_t indev_scroll_throw_decay(int32_t x, int32_t t)
  */
 static void indev_proc_press(lv_indev_t * indev)
 {
-    LV_LOG_INFO("pressed at x:%d y:%d", (int)indev->pointer.act_point.x,
-                (int)indev->pointer.act_point.y);
+    // LV_LOG_INFO("pressed at x:%d y:%d", (int)indev->pointer.act_point.x,
+    //             (int)indev->pointer.act_point.y);
     indev_obj_act = indev->pointer.act_obj;
 
     if(indev->wait_until_release != 0) return;
@@ -1448,7 +1448,7 @@ static void indev_proc_release(lv_indev_t * indev)
 #endif
 
     if(indev_obj_act) {
-        LV_LOG_INFO("released");
+        // LV_LOG_INFO("released");
 
         const bool is_enabled = !lv_obj_has_state(indev_obj_act, LV_STATE_DISABLED);
 

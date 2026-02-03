@@ -19,7 +19,7 @@ local function ui_main()
         path = nil,
         size = 16,
         cache_size = 2048,
-        antialias = 4,
+        antialias = 1,
     })
 
     -- 创建主容器

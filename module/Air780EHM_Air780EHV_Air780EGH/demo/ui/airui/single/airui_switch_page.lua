@@ -23,7 +23,7 @@ local function ui_main()
         path = nil,
         size = 14, -- 减小字体以适应竖屏
         cache_size = 2048,
-        antialias = 4,
+        antialias = 1,
     })
 
     -- 创建主容器（竖屏尺寸）

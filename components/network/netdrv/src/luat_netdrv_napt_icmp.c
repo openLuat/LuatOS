@@ -242,8 +242,8 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             else {
                 gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
             }
-            return 1;
         }
+        return 1;
     }
     return 0;
 }

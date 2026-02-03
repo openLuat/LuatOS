@@ -114,7 +114,8 @@ int luat_opus_decoder_get_data(luat_multimedia_codec_t *coder, const uint8_t* in
 
 int luat_opus_encoder_create(luat_multimedia_codec_t *coder);
 void luat_opus_encoder_destroy(luat_multimedia_codec_t *coder);
-
+int luat_opus_encoder_get_data(luat_multimedia_codec_t *coder, const int16_t* pcm, uint32_t len,
+                          uint8_t* output, uint32_t* out_len);
 
 // ogg
 // void* luat_ogg_opus_decoder_create(uint8_t type);

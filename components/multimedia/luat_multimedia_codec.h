@@ -108,19 +108,20 @@ void g711_set_sample_rate(void* codec, uint32_t sample_rate);
 #ifdef LUAT_SUPPORT_OPUS
 // opus
 int luat_opus_decoder_create(luat_multimedia_codec_t *coder);
-
-void luat_opus_decoder_destroy(void* decoder);
-
-// int luat_opus_decoder_get_data(void* decoder, const uint8_t* input, uint32_t len,
-//                           int16_t* pcm, uint32_t* out_len, uint32_t* used);
+void luat_opus_decoder_destroy(luat_multimedia_codec_t *coder);
+int luat_opus_decoder_get_data(luat_multimedia_codec_t *coder, const uint8_t* input, uint32_t len,
+                          int16_t* pcm, uint32_t* out_len, uint32_t* used);
 
 int luat_opus_encoder_create(luat_multimedia_codec_t *coder);
+void luat_opus_encoder_destroy(luat_multimedia_codec_t *coder);
+int luat_opus_encoder_get_data(luat_multimedia_codec_t *coder, const int16_t* pcm, uint32_t len,
+                          uint8_t* output, uint32_t* out_len);
 
 // ogg
-void* luat_ogg_opus_decoder_create(uint8_t type);
-void luat_ogg_opus_decoder_destroy(void* decoder);
+// void* luat_ogg_opus_decoder_create(uint8_t type);
+// void luat_ogg_opus_decoder_destroy(void* decoder);
 
-int luat_ogg_opus_encoder_create(luat_multimedia_codec_t *coder);
+// int luat_ogg_opus_encoder_create(luat_multimedia_codec_t *coder);
 
 #endif
 

@@ -56,7 +56,7 @@ sys.taskInit(function()
             sys.wait(100)
         end
         netdrv.napt(socket.LWIP_GP)
-        dnsproxy.start(adapter=socket.LWIP_USER0, socket.LWIP_GP)
+        dnsproxy.setup(socket.LWIP_USER0, socket.LWIP_GP)
         return
     else
         log.info("airlink", "Client mode")

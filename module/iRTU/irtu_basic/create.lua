@@ -1,3 +1,12 @@
+--[[
+@module  create
+@summary irtu功能初始化模块
+@version 5.0.0
+@date    2026.01.27
+@author  李源龙
+@usage
+本文件为irtu的服务器配置等功能，主要包含TCP/UDP，MQTT,AirCloud等协议的初始化
+]]
 create = {}
 
 libnet = require "libnet"
@@ -426,6 +435,7 @@ local function listTopic(str, addImei, ProductKey, deviceName)
     return topics
 end
 
+--MQTT主TASK
 local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr, port, usr, pwd,
                         cleansession, sub, pub, qos, retain, uid, clientID, addImei, ssl, will, idAddImei, prTopic, cert)
     cid, keepAlive, timeout, uid = cid or 1, keepAlive or 300, timeout, uid
@@ -711,6 +721,7 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
     end
 end
 
+--AirCloud心跳处理
 local function aircloud_heart()
     local csq=mobile.csq()
     local eci=mobile.eci()
@@ -742,6 +753,7 @@ local function aircloud_heart()
     heart=json.encode(heart)
     return heart
 end
+--AirCloud主TASK
 local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAlive,timeout,authkey,uid,ssl,qos)
     cid, keepAlive, timeout, uid = cid or 1, keepAlive or 300, timeout, uid
     qos = qos and qos or 0
@@ -989,7 +1001,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
 end
 
 ---------------------------------------------------------- 参数配置,任务转发，线程守护主进程----------------------------------------------------------
-function connect(pios, conf, reg, upprot, dwprot)
+local function connect(pios, conf, reg, upprot, dwprot)
     local flyTag = false
     -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
     while not socket.adapter(socket.dft()) do
@@ -1019,21 +1031,23 @@ function connect(pios, conf, reg, upprot, dwprot)
         elseif v[1] and v[1]:upper() == "AIRCLOUD" then
             local taskName = "DTU_" .. tostring(k)
             log.warn("----------------------- Aircloud is start! --------------------------------------")
-            -- log.info("k",k,unpack(v))
             sys.taskInitEx(aircloudTask,taskName,netCB,k, pios, reg,upprot, dwprot,unpack(v))
         end
     end
 end
 
-
+--订阅网络注册成功事件
 sys.subscribe("IP_READY", function()
     log.info("---------------------- 网络注册已成功 ----------------------")
 end)
+
+--订阅网络断开事件
 sys.subscribe("IP_LOSE", function(adapter)
     log.info("---------------------- 网络注册失败 ----------------------")
     log.info("mobile", "IP_LOSE", (adapter or -1) == socket.LWIP_GP)
 end)
 
+--初始化服务器通道配置，并启动
 function create.start()
     dtu = default.get()
     ---------------------------------------------------------- 参数配置,任务转发，线程守护主进程----------------------------------------------------------

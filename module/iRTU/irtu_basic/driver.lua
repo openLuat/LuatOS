@@ -1,3 +1,12 @@
+--[[
+@module  driver
+@summary irtu串口/GPIO灯/自动任务采集功能
+@version 5.0.0
+@date    2026.01.27
+@author  李源龙
+@usage
+初始化串口，GPIO灯，自动任务采集功能
+]]
 local driver = {}
 
 local default=require "default"
@@ -23,44 +32,9 @@ local writeIdle = {true, true, true}
 -- 串口读缓冲区
 local recvBuff, writeBuff = {{}, {}, {}, {},{},{}}, {{}, {}, {}, {},{},{}}
 
-
+--netready灯的初始化接收变量
 local netready
 
----------------------------------------------------------- 用户控制 GPIO 配置 ----------------------------------------------------------
-driver.pios = {
-    pio1 = gpio.setup(1, nil, gpio.PULLDOWN),
-    pio2 = gpio.setup(2, nil, gpio.PULLDOWN),
-    pio3 = gpio.setup(3, nil, gpio.PULLDOWN),
-    pio4 = gpio.setup(4, nil, gpio.PULLDOWN),
-    pio5 =gpio.setup(5, nil,gpio.PULLDOWN),
-    pio6 =gpio.setup(6, nil,gpio.PULLDOWN),
-    pio7 =gpio.setup(7, nil,gpio.PULLDOWN),
-    pio8 =gpio.setup(8, nil,gpio.PULLDOWN),
-    pio9 =gpio.setup(9, nil,gpio.PULLDOWN),
-    pio10 =gpio.setup(10, nil,gpio.PULLDOWN),
-    pio11 =gpio.setup(11, nil,gpio.PULLDOWN),
-    pio16 =gpio.setup(16, nil,gpio.PULLDOWN),
-    pio17 =gpio.setup(17, nil,gpio.PULLDOWN),
-    pio20 =gpio.setup(20, nil,gpio.PULLDOWN),
-    pio21 =gpio.setup(21, nil,gpio.PULLDOWN),
-    pio22 =gpio.setup(22, nil,gpio.PULLDOWN),
-    -- pio23 =gpio.setup(23, nil,gpio.PULLDOWN),
-    -- pio24 =gpio.setup(24, nil,gpio.PULLDOWN),
-    -- pio25 =gpio.setup(25, nil,gpio.PULLDOWN),
-    pio26 =gpio.setup(26, nil,gpio.PULLDOWN),  --READY指示灯
-    pio27 =gpio.setup(27, nil,gpio.PULLDOWN),  --NET指示灯
-    pio28 =gpio.setup(28, nil,gpio.PULLDOWN),  
-    pio29 =gpio.setup(29, nil,gpio.PULLDOWN) ,
-    pio30 =gpio.setup(30, nil,gpio.PULLDOWN),
-    pio31 =gpio.setup(31, nil,gpio.PULLDOWN),
-    pio32 =gpio.setup(32, nil,gpio.PULLDOWN),
-    pio33 =gpio.setup(33, nil,gpio.PULLDOWN),
-    pio34 =gpio.setup(34, nil,gpio.PULLDOWN),
-    pio35 =gpio.setup(35, nil,gpio.PULLDOWN),
-    pio36 =gpio.setup(36, nil,gpio.PULLDOWN),
-    pio37 =gpio.setup(37, nil,gpio.PULLDOWN),
-    pio38 =gpio.setup(38, nil,gpio.PULLDOWN),
-}
 
 -- 保存获取的基站坐标
 function driver.setLocation(lat, lng)
@@ -90,6 +64,7 @@ function write(uid, str,cid)
     end
 end
 
+--串口发送是否完成
 local function writeDone(uid)
     if uid=="32" or uid==32 then
         
@@ -108,6 +83,7 @@ end
 
 -- DTU配置工具默认的方法表
 cmd = {}
+--config指令
 cmd.config = {
     ["A"] = function(t)
         if t[1]~=nil and t[2]~=nil and t[3]~=nil then
@@ -128,9 +104,10 @@ cmd.config = {
         else
             return "PASSWORD ERROR"
         end
-    end,  
+    end,
 
 }
+--rrpc指令
 cmd.rrpc = {
     ["getfwver"] = function(t) return "rrpc,getfwver," .. _G.PROJECT .. "_" .. _G.VERSION .. "_" .. rtos.version() end,
     ["getnetmode"] = function(t) return "rrpc,getnetmode," .. (mobile.status() and mobile.status() or 1) end,
@@ -163,13 +140,13 @@ cmd.rrpc = {
         return "rrpc,gettime," .. string.format("%04d-%02d-%02d %02d:%02d:%02d", t.year,t.month,t.day,t.hour,t.min,t.sec)
     end,
     ["setpio"] = function(t) 
-        if driver.pios["pio" .. t[1]] and (tonumber(t[2]) ==0 or tonumber(t[2]) ==1) then 
+        if default.pios["pio" .. t[1]] and (tonumber(t[2]) ==0 or tonumber(t[2]) ==1) then 
             gpio.setup(tonumber(t[1]),tonumber(t[2]))
             return "OK" 
         end 
         return "ERROR" end,
     ["getpio"] = function(t)
-        if driver.pios["pio" .. t[1]] then 
+        if default.pios["pio" .. t[1]] then 
             return "rrpc,getpio" .. t[1] .. "," .. gpio.get(t[1]) 
         end
         return "ERROR" end,
@@ -183,11 +160,7 @@ cmd.rrpc = {
     ["gnssopen"] = function(t)sys.publish("GPS_OPEN") return "rrpc,gnssopen,OK" end,
     ["gnssmsg"] = function(t) return "rrpc,gnssmsg," .. (gnss.locateMessage(dtu.gps.fun[8]) or "") end,
     ["gnssclose"] = function(t) 
-        exgnss.close_all() 
-        sys.timerStop(g_tid)
-        exvib.close()
-        sys.timerStop(s_tid)
-        sys.timerStop(tid)
+       sys.publish("GNSSCLOSE")
         return "rrpc,gnssclose,OK" 
     end,
     ["upconfig"] = function(t)sys.publish("UPDATE_DTU_CNF") return "rrpc,upconfig,OK" end,
@@ -204,19 +177,12 @@ cmd.rrpc = {
     end,
     ["ttsplay"] = function(t) 
         if t then
-            log.info("TTT",t[1])
-            -- sys.publish("AUDIO_PLAY_TTS",t[1])
             local result=audio_config.audio_play_tts(t[1])
-            -- local result=audio.tts(0, t[1])
-            -- sys.wait(1000)
-            log.info("TTT",result)
             return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
-            -- return "rrpc,ttsplay,"..(result and "OK" or "ERROR")
         end
     end,
     ["setvol"] = function(t) 
         if t and tonumber(t[1])>=0 and tonumber(t[1])<=100 then
-            log.info("TTT",t[1])
             if exaudio.vol(tonumber(t[1])) then
                 fskv.set("vol",tonumber(t[1]))
                 return "rrpc,setvol,OK"
@@ -281,6 +247,7 @@ local function streamEnd(uid)
     end
 end
 
+--串口初始化
 function uart_INIT(i, uconf)
     uconf[i][1] = tonumber(uconf[i][1])
     log.info("串口的数据是",uconf[i][1], uconf[i][2], uconf[i][3], uconf[i][4], uconf[i][5],uconf[i][6])
@@ -293,9 +260,9 @@ function uart_INIT(i, uconf)
     elseif uconf[i][4]==2 then
         parity=uart.None
     end
-    if driver.pios[dtu.uconf[i][6]] then
+    if default.pios[dtu.uconf[i][6]] then
         driver["dir" .. i] = tonumber(dtu.uconf[i][6]:sub(4, -1))
-        driver.pios[dtu.uconf[i][6]] = nil
+        default.pios[dtu.uconf[i][6]] = nil
     else
         driver["dir" .. i] = nil
     end
@@ -360,6 +327,7 @@ local function blinkPwm(ledPin, light, dark)
     sys.wait(dark)
 end
 
+-- NETLED指示灯任务
 local function netled(led)
     local ledpin = gpio.setup(led, 1)
     while true do

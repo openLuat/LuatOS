@@ -2,24 +2,64 @@ local spilookback_test = {}
 
 local device_name = rtos.bsp()
 
+-- SPI配置
+local spitest_spiId, spitest_cs, spitest_cspin
 local function spi_configuration()
     if device_name == "Air780EGP" then
+
         CHIP_TYPE = "718M" -- 可设置为 "718M" 或 "BK7258"
         -- SPI编号，请按实际情况修改！
         spitest_spiId = spi.SPI_0 -- 这里使用SPI 0
-        spitest_cs = 8 -- CS使用GPIO3
+        spitest_cs = 8
         spitest_cspin = gpio.setup(spitest_cs, 1) -- 配置CS为输出，初始高电平
-    -- elseif device_name == "Air780EPM" then
-    --     CHIP_TYPE = "718M" -- 可设置为 "718M" 或 "BK7258"
-    --     -- SPI编号，请按实际情况修改！
-    --     spitest_spiId = spi.SPI_0 -- 这里使用SPI 0
-    --     spitest_cs = 8 -- CS使用GPIO3
-    --     spitest_cspin = gpio.setup(spitest_cs, 1) -- 配置CS为输出，初始高电平
 
-    -- elseif device_name == "Air8101" then
+    elseif device_name == "Air780EPM" then
+
+        CHIP_TYPE = "718M"
+        spitest_spiId = spi.SPI_0
+        spitest_cs = 8
+        spitest_cspin = gpio.setup(spitest_cs, 1)
+
+        log.info("SPI", "Air780EPM SPI0正确引脚:")
+        log.info("SPI", "  CS:    GPIO8 (管脚83)")
+        log.info("SPI", "  MOSI:  GPIO9 (管脚85)")
+        log.info("SPI", "  MISO:  GPIO10 (管脚84)")
+        log.info("SPI", "  CLK:   GPIO11 (管脚86)")
+
+    elseif device_name == "Air8000" then
+
+        CHIP_TYPE = "718M"
+        spitest_spiId = spi.SPI_1
+        spitest_cs = 12
+        spitest_cspin = gpio.setup(spitest_cs, 1)
+
+        log.info("SPI", "Air8000 SPI1正确引脚:")
+        log.info("SPI", "  CS:    GPIO12 (管脚41)")
+        log.info("SPI", "  MOSI:  GPIO13 (管脚40)")
+        log.info("SPI", "  MISO:  GPIO14 (管脚39)")
+        log.info("SPI", "  CLK:   GPIO15 (管脚38)")
+
+    elseif device_name == "Air8101" then
+        pins.setup(54, "SPI0_CS")
+        pins.setup(57, "SPI0_MOSI")
+        pins.setup(55, "SPI0_MISO")
+        pins.setup(28, "SPI0_CLK")
+
+        CHIP_TYPE = "BK7258"
+        spitest_spiId = spi.SPI_0
+        spitest_cs = 15
+        spitest_cspin = gpio.setup(spitest_cs, 1)
+
+        log.info("SPI", "Air8101 SPI0正确引脚:")
+        log.info("SPI", "  CS:    GPIO15 (管脚54)")
+        log.info("SPI", "  MOSI:  GPIO16 (管脚57)")
+        log.info("SPI", "  MISO:  GPIO17 (管脚55)")
+        log.info("SPI", "  CLK:   GPIO14 (管脚28)")
 
     else
+
         log.info("未知的设备名称")
+
     end
 end
 
@@ -49,17 +89,19 @@ end
 
 -- SPI收发测试函数
 local function spiLoopbackTest(speed)
-    
+    -- 关闭之前可能未关闭的SPI
+    spi.close(spitest_spiId)
+    sys.wait(10)
 
     -- 设置SPI参数
     local spi_device = spi.deviceSetup(spitest_spiId, -- SPI ID
-    nil, -- CS引脚（手动控制）
+    spitest_cs, -- CS引脚（手动控制）
     0, -- CPHA
     0, -- CPOL  
     8, -- 数据宽度
     speed, -- 波特率
-    -- spi.MSB,    -- 大端序
-    spi.LSB, -- 小端序
+    spi.MSB, -- 大端序
+    -- spi.LSB, -- 小端序
     spi.master, -- 主模式
     spi.full -- 全双工
     )
@@ -72,15 +114,37 @@ local function spiLoopbackTest(speed)
         return false
     end
 
-    -- 根据速率调整测试数据长度
-    local dataLength = 1024
-    -- if speed < 1000000 then
-    --     dataLength = 4  -- 低速时使用较短数据
-    --     log.info("SPI 低速", "dataLength :", dataLength)
-    -- elseif speed > 20000000 then
-    --     dataLength = 10240  -- 高速时使用较长数据
-    --     log.info("SPI 高速", "dataLength :", dataLength)
-    -- end
+    -- 针对Air8101的特殊优化
+    if device_name == "Air8101" then
+
+        if speed < 1000000 then
+            dataLength = 4 -- 低速：4字节
+        elseif speed < 5000000 then
+            dataLength = 64 -- 中低速：64字节
+        elseif speed < 20000000 then
+            dataLength = 128 -- 中速：128字节
+        elseif speed < 40000000 then
+            dataLength = 256 -- 高速：256字节
+        else
+            dataLength = 512 -- 超高速：512字节（不超过1024，避免DMA错误）
+        end
+        
+    else
+
+        -- 其他设备
+        if speed < 1000000 then
+            dataLength = 4 -- 低速时使用较短数据
+            log.info("SPI 低速", "dataLength :", dataLength)
+        elseif speed > 20000000 then
+            dataLength = 10240 -- 高速时使用较长数据
+            log.info("SPI 高速", "dataLength :", dataLength)
+        elseif speed > 40000000 then
+            dataLength = 64 -- 超高速时使用更短数据
+            log.info("SPI 超高速", "dataLength :", dataLength)
+        end
+
+    end
+
 
     -- 生成测试数据
     local testData = ""
@@ -88,16 +152,17 @@ local function spiLoopbackTest(speed)
         testData = testData .. string.char((i * 17) % 256) -- 生成有规律但不重复的数据
     end
 
-    -- log.info("SPI", "准备发送的测试数据:", testData, "数据长度:", #testData)
+    log.info("SPI", "准备发送的测试数据:", testData, "数据长度:", #testData)
 
     -- 执行回环测试
     spitest_cspin(0) -- CS拉低
     local received = spi_device:transfer(testData, #testData, #testData) -- 发送数据 并读取数据
-
     spitest_cspin(1) -- CS拉高
 
     -- 关闭SPI
     spi.close(spitest_spiId)
+
+    log.info("SPI", "接收数据:", received:toHex())
 
     assert(#received == #testData,
         string.format("spi速率接收数据长度与发送数据长度匹配测试失败: 预期 %s, 实际 %s",
@@ -121,12 +186,48 @@ end
 
 function spilookback_test.test_spi_lookback()
     spi_configuration()
+
     local detectedChip = autoDetectChip()
+
+    log.info("SPI", "=== SPI回环速率测试 ===")
+    log.info("SPI", "设备:", device_name)
     log.info("SPI", "检测到芯片类型:", detectedChip)
-    log.info("SPI", "开始SPI速率测试...")
     log.info("SPI", "请确保MISO和MOSI已短接！")
 
     sys.wait(1000) -- 等待系统稳定
+
+    -- 先进行简单测试确认基本功能
+    log.info("SPI", "=== 基本功能验证 ===")
+    local spi_device = spi.deviceSetup(spitest_spiId, spitest_cs, 0, 0, 8, 1000000, spi.MSB, spi.master, spi.full)
+
+    if spi_device then
+        local testData = "\x55\xAA\x01\x02"
+
+        spitest_cspin(0)
+        local received = spi_device:transfer(testData, 4, 4)
+        spitest_cspin(1)
+
+        spi.close(spitest_spiId)
+
+        assert(#received == 4,
+            string.format(
+                "spi基本功能验证接收数据长度与发送数据长度匹配测试失败: 预期 %s, 实际 %s",
+                4, #received))
+        log.info("spi_test", "SPI基本功能验证接收数据长度与发送数据长度匹配测试通过")
+        assert(received == testData,
+            string.format(
+                "spi基本功能验证接收数据内容与发送数据内容匹配测试失败: 预期 %s, 实际 %s",
+                testData, received))
+        log.info("spi_test", "SPI基本功能验证接收数据内容与发送数据内容匹配测试通过")
+    else
+        log.error("SPI", "SPI设备初始化失败")
+        return
+    end
+
+    sys.wait(100)
+
+    -- 进行全速率测试
+    log.info("SPI", "=== 开始全速率测试 ===")
 
     local speedTable = getSpeedTable()
     if #speedTable == 0 then
@@ -143,13 +244,11 @@ function spilookback_test.test_spi_lookback()
     end)
 
     for i, speed in ipairs(speedTable) do
-        log.info("SPI", string.format("测试进度: %d/%d", i, totalTests))
-
+        log.info("SPI", string.format("测试进度: %d/%d - 速率: %s Hz", i, totalTests, speed))
         local success = spiLoopbackTest(speed)
         if success then
             successCount = successCount + 1
         end
-
         sys.wait(1000) -- 短暂延时，避免过于频繁的测试
     end
 end

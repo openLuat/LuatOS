@@ -742,7 +742,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
 	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
-	if (http_ctrl == NULL){
+	if (http_ctrl == NULL || http_ctrl->netc == NULL){
 		LLOGE("http_ctrl is NULL");
 		return -1;
 	}
@@ -759,7 +759,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	}
 	if (event->Param1){
 		//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-		LLOGE("error event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
+		LLOGI("event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
 		if (http_ctrl->tcp_closed == 0 && http_ctrl->error_code == 0) {
 			http_ctrl->error_code = event->ID == EV_NW_RESULT_CONNECT ? HTTP_ERROR_CONNECT : HTTP_ERROR_CLOSE;
 		}

@@ -221,39 +221,39 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
     // 注意：Lua 脚本调用完成后，参数内存会被释放，所以需要拷贝到 ovpn_client 内部
     
     // 拷贝 CA 证书
-    if (conf->ovpn_ca_cert != NULL && conf->ovpn_ca_cert_len > 0) {
-        ovpn_cfg.ca_cert_pem = conf->ovpn_ca_cert;
-        ovpn_cfg.ca_cert_len = conf->ovpn_ca_cert_len;
+    if (conf->ovpn_conf->ovpn_ca_cert != NULL && conf->ovpn_conf->ovpn_ca_cert_len > 0) {
+        ovpn_cfg.ca_cert_pem = conf->ovpn_conf->ovpn_ca_cert;
+        ovpn_cfg.ca_cert_len = conf->ovpn_conf->ovpn_ca_cert_len;
     }
     
     // 拷贝客户端证书
-    if (conf->ovpn_client_cert != NULL && conf->ovpn_client_cert_len > 0) {
-        ovpn_cfg.client_cert_pem = conf->ovpn_client_cert;
-        ovpn_cfg.client_cert_len = conf->ovpn_client_cert_len;
+    if (conf->ovpn_conf->ovpn_client_cert != NULL && conf->ovpn_conf->ovpn_client_cert_len > 0) {
+        ovpn_cfg.client_cert_pem = conf->ovpn_conf->ovpn_client_cert;
+        ovpn_cfg.client_cert_len = conf->ovpn_conf->ovpn_client_cert_len;
     }
     
     // 拷贝客户端私钥
-    if (conf->ovpn_client_key != NULL && conf->ovpn_client_key_len > 0) {
-        ovpn_cfg.client_key_pem = conf->ovpn_client_key;
-        ovpn_cfg.client_key_len = conf->ovpn_client_key_len;
+    if (conf->ovpn_conf->ovpn_client_key != NULL && conf->ovpn_conf->ovpn_client_key_len > 0) {
+        ovpn_cfg.client_key_pem = conf->ovpn_conf->ovpn_client_key;
+        ovpn_cfg.client_key_len = conf->ovpn_conf->ovpn_client_key_len;
     }
     
     // 拷贝静态密钥（可选）
-    if (conf->ovpn_static_key != NULL && conf->ovpn_static_key_len > 0) {
-        ovpn_cfg.static_key = conf->ovpn_static_key;
-        ovpn_cfg.static_key_len = conf->ovpn_static_key_len;
+    if (conf->ovpn_conf->ovpn_static_key != NULL && conf->ovpn_conf->ovpn_static_key_len > 0) {
+        ovpn_cfg.static_key = conf->ovpn_conf->ovpn_static_key;
+        ovpn_cfg.static_key_len = conf->ovpn_conf->ovpn_static_key_len;
     }
     
     // 设置远程服务器 IP 地址
-    if (conf->ovpn_remote_ip != NULL) {
+    if (conf->ovpn_conf->ovpn_remote_ip != NULL) {
         // 从字符串 IP 地址转换为 ip_addr_t
         // 这里需要在 ovpn_client_init 中处理
-        ovpn_cfg.remote_host = conf->ovpn_remote_ip;
+        ovpn_cfg.remote_host = conf->ovpn_conf->ovpn_remote_ip;
     }
     
     // 设置远程服务器端口
-    if (conf->ovpn_remote_port > 0) {
-        ovpn_cfg.remote_port = conf->ovpn_remote_port;
+    if (conf->ovpn_conf->ovpn_remote_port > 0) {
+        ovpn_cfg.remote_port = conf->ovpn_conf->ovpn_remote_port;
     } else {
         ovpn_cfg.remote_port = 1194;  // OpenVPN 默认端口
     }

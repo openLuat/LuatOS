@@ -19,7 +19,7 @@ local function ui_main()
         path = nil,         -- 使用内置字库
         size = 20,          -- 默认字体大小
         cache_size = 2048,  -- 缓存大小
-        antialias = 4,      -- 抗锯齿等级
+        antialias = 1,      -- 抗锯齿等级
     })
 
     -- 创建主容器

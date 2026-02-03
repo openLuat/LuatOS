@@ -91,6 +91,7 @@ static void iperf_start_cb(void* args) {
         ipaddr_ntoa_r(remote_ip, buff2, sizeof(buff2));
         LLOGD("client connect %s --> %s:%d", buff, buff2, ctx->port);
     }
+    luat_heap_free(ctx);
 }
 
 static int start_gogogo(iperf_start_ctx_t* ctx) {
@@ -115,7 +116,13 @@ static int start_gogogo(iperf_start_ctx_t* ctx) {
     if (is_server) {
         ctx->remote_ip = drv->netif->ip_addr;
     }
-    tcpip_callback_with_block(iperf_start_cb, ctx, 0);
+    iperf_start_ctx_t* ctx2 = luat_heap_malloc(sizeof(iperf_start_ctx_t));
+    if (ctx2 == NULL) {
+        LLOGE("内存不足, 无法启动iperf");
+        return 0;
+    }
+    memcpy(ctx2, ctx, sizeof(iperf_start_ctx_t));
+    tcpip_callback(iperf_start_cb, ctx2);
     return 1; // 总是成功的
 }
 

@@ -17,9 +17,9 @@ local num=0 --计数器
 local ticktable={0,0,0,0,0} --存放5次中断的tick值，用于做有效震动对比
 local eff=false --有效震动标志位，用于判断是否触发定位
 local s_isclose=false --是否关闭GPS
-local s_ontime=60
-local s_gtime=1800
-local gpscid=1
+local s_ontime=60   --gnss的开启时长
+local s_gtime=1800  --触发有效震动后多长时间可以再次允许触发
+local gpscid=1  
 local s_tid
 local ipready=false --网络是否连接成功标志位
 --有效震动模式
@@ -64,6 +64,7 @@ local function num_cb()
     eff=false
 end
 
+--触发震动开启GNSS
 local function eff_vib()
     log.info("触发有效震动",s_gtime,s_isclose,s_ontime)
     if s_ontime==0 then
@@ -81,10 +82,7 @@ end
 
 sys.subscribe("EFFECTIVE_VIBRATION",eff_vib)
 
--- 上传定位信息
--- [是否有效,时间戳,经度,纬度,海拔,方位角,速度,定位卫星]
--- 用户自定义上报GPS数据的报文顺序
--- msg = {"isfix", "stamp", "lng", "lat", "altitude", "azimuth", "speed", "sateCnt"},
+-- 上传定位信息，支持RMC、GGA、VTG三种格式或者是用户自定义格式
 function gnss.locateMessage(mode)
     local sendtable={rmc={}, gga={}, vtg={}}
     if mode.rmc then
@@ -131,6 +129,17 @@ local function gnss_state(event, ticks)
     end
 end
 sys.subscribe("GNSS_STATE",gnss_state)
+
+--gnss关闭函数
+local function gnss_close()
+    exgnss.close_all() 
+    sys.timerStop(g_tid)
+    exvib.close()
+    sys.timerStop(s_tid)
+    sys.timerStop(tid)
+end
+
+sys.subscribe("GNSSCLOSE",gnss_close)
 
 -- 串口ID,波特率，上报间隔，打开gps的时间,定位成功之后是否关闭gps, 采集方式，,上报通道,上报内容，震动触发采集间隔时间
 function alert(uid, baud, interval, ontime, isclose, gather, cid, pubmsg, gtime,timing)

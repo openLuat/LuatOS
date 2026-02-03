@@ -6,10 +6,6 @@ local success, errno = io.mkdir("/afile/")
 --播放结果
 local audio_result="a"
 
-function audio_config.result()
-    return audio_result
-end
-
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
@@ -18,6 +14,7 @@ local audio_setup_param ={
     dac_ctrl = 20,        --  音频编解码芯片电源控制管脚,780ehv 默认使用20
 }
 
+--播放完成回调
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
@@ -28,6 +25,7 @@ local function play_end(event)
     end
 end 
 
+--tts初始化配置
 local tts_data={
     type= 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
     -- 如果是播放文件,支持mp3,amr,wav格式
@@ -37,6 +35,7 @@ local tts_data={
     cbfnc = play_end,    
 }
 
+--播放文件初始化配置
 local file_data={
     type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
@@ -46,14 +45,7 @@ local file_data={
     cbfnc = play_end,            -- 播放完毕回调函数
 }
 
--- local function audio_play_tts()
---     while true do
---         local result,playdata=sys.waitUntil("AUDIO_PLAY_TTS")
---         tts_data.content=playdata
---         audio_result=exaudio.play_start(tts_data)
---     end
--- end
-
+--tts播放函数
 function audio_config.audio_play_tts(playdata)
     sys.taskInit(function()
         log.info("先处理任务")
@@ -65,6 +57,8 @@ function audio_config.audio_play_tts(playdata)
     return audio_result
 end
 
+--音频文件播放函数
+--目前使用的是http下载到文件区播放的方式，如果需要用完就删掉，可以选择保存到内存区
 function audio_config.audio_play_file(url,file_name,isdelete)
     log.info("URL",url,type(url))
     log.info("file_name",file_name,type(file_name))
@@ -74,9 +68,12 @@ function audio_config.audio_play_file(url,file_name,isdelete)
             audio_result=true
         end
         if url and url~="" then
-            local code, headers, body =
-            http.request("GET", url, nil, nil, {dst = "/afile/"..file_name}).wait()
-        --存到本地文件区，适用于多次播放
+            --存到本地文件区，适用于多次播放
+            
+            local code, headers, body = http.request("GET", url, nil, nil, {dst = "/afile/"..file_name}).wait()
+            --保存到内存区可以这么操作
+            -- local code, headers, body = http.request("GET", url, nil, nil, {dst = "/ram/"..file_name}).wait()
+        
         log.info("下载完成", code, headers, body)
         end
 
@@ -92,6 +89,7 @@ function audio_config.audio_play_file(url,file_name,isdelete)
     return audio_result
 end
 
+--初始化音频功能，设置参数
 function audio_config.init()
     if exaudio.setup(audio_setup_param) then
         if fskv.get("vol") then

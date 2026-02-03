@@ -719,7 +719,7 @@ static int l_audio_config(lua_State *L) {
 	}
     int pa_pin = luaL_optinteger(L, 2, -1);
     int level = luaL_optinteger(L, 3, 1);
-    int dac_pre_delay = luaL_optinteger(L, 4, 5);
+    int dac_pre_delay = luaL_optinteger(L, 4, 5) * 100;
     int dac_last_delay = luaL_optinteger(L, 5, 200);
     int dac_power_pin = luaL_optinteger(L, 6, -1);
     int dac_power_level = luaL_optinteger(L, 7, 1);

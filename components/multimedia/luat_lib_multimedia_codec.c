@@ -91,14 +91,21 @@ static int l_codec_create(lua_State *L) {
     	coder->type = type;
     	coder->is_decoder = is_decoder;
         if (lua_istable(L, 3)) {
-            lua_pushstring(L, "channels");
+            lua_pushstring(L, "num_channels");
             if (LUA_TNUMBER == lua_gettable(L, 3)) {
                 coder->num_channels = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+
             lua_pushstring(L, "sample_rate");
             if (LUA_TNUMBER == lua_gettable(L, 3)) {
                 coder->sample_rate = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "bits_per_sample");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                coder->bits_per_sample = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
         }
@@ -107,6 +114,9 @@ static int l_codec_create(lua_State *L) {
         }
         if (coder->num_channels == 0){
             coder->num_channels = 1;
+        }
+        if (coder->bits_per_sample == 0){
+            coder->bits_per_sample = 16;
         }
 
     	if (is_decoder)
@@ -235,9 +245,6 @@ int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *co
 	uint8_t temp[32];
 	int result = 0;
     coder->is_signed = 1;
-    coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_NONE;
-    coder->num_channels = 0;
-    coder->sample_rate = 0;
     coder->bits_per_sample = 16;
 
 	uint32_t align;
@@ -348,19 +355,26 @@ int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *co
 			break;
 #endif
 #ifdef LUAT_SUPPORT_OPUS
-        case LUAT_MULTIMEDIA_DATA_TYPE_OGG:
-            luat_fs_fread(temp, 28, 1, fd);
-            if (!memcmp(temp, "OggS", 4)){
-                luat_fs_fread(temp, 19, 1, fd);
-                coder->num_channels = temp[9];
-                coder->sample_rate = *(uint32_t*)&temp[12];
+        // case LUAT_MULTIMEDIA_DATA_TYPE_OGG:
+        //     luat_fs_fread(temp, 28, 1, fd);
+        //     if (!memcmp(temp, "OggS", 4)){
+        //         luat_fs_fread(temp, 19, 1, fd);
+        //         coder->num_channels = temp[9];
+        //         coder->sample_rate = *(uint32_t*)&temp[12];
+        //         coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
+        //         result = 1;
+		// 	} else {
+		// 		result = 0;
+		// 	}
+        //     result = 1;
+        //     break;
+        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+            // OPUS 不定长,分配 3*1276 最大packet size
+            coder->buff.addr = luat_heap_malloc(3*1276);
+            if (coder->buff.addr){
                 coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
                 result = 1;
-			} else {
-				result = 0;
-			}
-            result = 1;
-            break;
+            }
 #endif
 		default:
 			break;
@@ -438,6 +452,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 	else if (mini_output < 4 * 1024)
 		mini_output = 4 * 1024;
 	out_buff->used = 0;
+
 	if (coder)
     {
 		switch(coder->type)
@@ -597,28 +612,28 @@ GET_MP3_DATA:
 #endif
 #ifdef LUAT_SUPPORT_OPUS
         case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
-            // 初始化Opus解码器
-            if (coder->opus_coder == NULL){
-                /* code */
+            uint8_t len_bytes[2];
+            size_t read_len = luat_fs_fread(len_bytes, 1, 2, coder->fd);
+
+            if (read_len != 2) break;
+            uint16_t len = (len_bytes[0] << 8) | len_bytes[1];
+            // LLOGD("len_bytes[0]=%d, len_bytes[1]=%d, len=%u", len_bytes[0], len_bytes[1], len);
+            if (len > 3*1276){ 
+                LLOGE("packet too large: %u", len); 
+                break; 
             }
-            
-
-
-            // // 每次读取512字节的Opus数据进行解码
-            // while ((out_buff->used < mini_output) && is_not_end && ((out_buff->len - out_buff->used) >= MINIMP3_MAX_SAMPLES_PER_FRAME * 2)) {
-            //     read_len = luat_fs_fread(temp, 512, 1, coder->fd);
-            //     if (read_len <= 0) {
-            //         is_not_end = 0;
-            //         break;
-            //     }
-            //     int decoded_samples = opus_decoder_get_data(coder->opus_decoder, temp, read_len,
-            //                                                (int16_t*)out_buff->addr + (out_buff->used / 2),
-            //                                                &out_len);
-            //     if (decoded_samples > 0) {
-            //         out_buff->used += out_len;
-            //     }
-            // }
-            // result = 1;
+            // Read packet data
+            size_t bytes = luat_fs_fread(coder->buff.addr, 1, len, coder->fd);
+            if (bytes != len){ 
+                LLOGE("read packet data failed: %u/%u", (unsigned int)bytes, len); 
+                break; 
+            }
+            int ret = luat_opus_decoder_get_data(coder, coder->buff.addr, len,
+                                out_buff->addr, &out_len, &used);
+            if (ret == 0){
+                out_buff->used += out_len;
+                result = 1;
+            }
             break;
 #endif
 		default:
@@ -802,21 +817,7 @@ static int l_codec_encode_audio_data(lua_State *L) {
 	lua_pushboolean(L, 1);
 	return 1;
 #endif
-#elif defined(LUAT_SUPPORT_OPUS)
-	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
-	luat_zbuff_t *in_buff;
-	if (luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)){
-		in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-	}else{
-		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
-	}
-	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-	// int mode = luaL_optinteger(L, 4, MR475);
-	// if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_OPUS) || coder->is_decoder){
-	// 	lua_pushboolean(L, 0);
-	// 	return 1;
-	// }
-    
+
 #else
 	lua_pushboolean(L, 0);
 	return 1;
@@ -1172,6 +1173,18 @@ static int l_codec_gc(lua_State *L)
  				g711_encoder_destroy(coder->g711_codec);
  			}
  			coder->g711_codec = NULL;
+ 		}
+ 		break;
+#endif
+#ifdef LUAT_SUPPORT_OPUS
+ 	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+ 		if (coder->opus_coder) {
+ 			if (coder->is_decoder) {
+ 				luat_opus_decoder_destroy(coder);
+ 			} else {
+ 				luat_opus_encoder_destroy(coder);
+ 			}
+ 			coder->opus_coder = NULL;
  		}
  		break;
 #endif

@@ -105,21 +105,24 @@ int g711_encoder_get_data(void* encoder, const int16_t* pcm, uint32_t len,
 void g711_get_stats(void* codec, uint32_t* sample_rate, uint32_t* frame_count);
 void g711_reset_stats(void* codec);
 void g711_set_sample_rate(void* codec, uint32_t sample_rate);
+#ifdef LUAT_SUPPORT_OPUS
 // opus
-void* luat_opus_decoder_create(uint8_t type);
+int luat_opus_decoder_create(luat_multimedia_codec_t *coder);
+
 void luat_opus_decoder_destroy(void* decoder);
 
 // int luat_opus_decoder_get_data(void* decoder, const uint8_t* input, uint32_t len,
 //                           int16_t* pcm, uint32_t* out_len, uint32_t* used);
 
-void* luat_opus_encoder_create(uint8_t type);
+int luat_opus_encoder_create(luat_multimedia_codec_t *coder);
 
 // ogg
 void* luat_ogg_opus_decoder_create(uint8_t type);
 void luat_ogg_opus_decoder_destroy(void* decoder);
 
-void* luat_ogg_opus_encoder_create(uint8_t type);
+int luat_ogg_opus_encoder_create(luat_multimedia_codec_t *coder);
 
+#endif
 
 
 #include "dtmf_codec/dtmf_codec.h"

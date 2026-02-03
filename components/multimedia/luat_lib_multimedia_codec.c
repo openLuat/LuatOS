@@ -67,7 +67,6 @@ static int l_codec_create(lua_State *L) {
     if (lua_isboolean(L, 2)) {
     	is_decoder = lua_toboolean(L, 2);
     }
-
 #ifdef LUAT_SUPPORT_AMR
 #ifdef LUAT_USE_INTER_AMR
 	uint8_t encode_level = 7;
@@ -91,6 +90,25 @@ static int l_codec_create(lua_State *L) {
     	memset(coder, 0, sizeof(luat_multimedia_codec_t));
     	coder->type = type;
     	coder->is_decoder = is_decoder;
+        if (lua_istable(L, 3)) {
+            lua_pushstring(L, "channels");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                coder->num_channels = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "sample_rate");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                coder->sample_rate = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+        if (coder->sample_rate == 0){
+            coder->sample_rate = 16000;
+        }
+        if (coder->num_channels == 0){
+            coder->num_channels = 1;
+        }
+
     	if (is_decoder)
     	{
         	switch (type) {
@@ -129,16 +147,16 @@ static int l_codec_create(lua_State *L) {
              	break;
  #endif
 #ifdef LUAT_SUPPORT_OPUS
-        	case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
-                coder->opus_coder = luat_ogg_opus_decoder_create(type);
-            	if (!coder->opus_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
+        	// case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
+            //     coder->opus_coder = luat_ogg_opus_decoder_create(type);
+            // 	if (!coder->opus_coder) {
+            // 		lua_pushnil(L);
+            // 		return 1;
+            // 	}
+            // 	break;
         	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
-                coder->opus_coder = luat_opus_decoder_create(type);
-            	if (!coder->opus_coder) {
+                int ret  = luat_opus_decoder_create(coder);
+            	if (ret) {
             		lua_pushnil(L);
             		return 1;
             	}
@@ -187,20 +205,20 @@ static int l_codec_create(lua_State *L) {
              	break;
 #endif
 #ifdef LUAT_SUPPORT_OPUS
-        	case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
-            	coder->opus_coder = luat_ogg_opus_encoder_create(type);
-                if (!coder->opus_coder) {
+        	// case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
+            // 	int ret = luat_ogg_opus_encoder_create(coder);
+            //     if (ret) {
+            //         lua_pushnil(L);
+            //         return 1;
+            //     }
+            //     break;
+            case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+                int ret = luat_opus_encoder_create(coder);
+                if (ret) {
                     lua_pushnil(L);
                     return 1;
                 }
                 break;
-            case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
-                coder->opus_coder = luat_opus_encoder_create(type);
-                if (!coder->opus_coder) {
-                    lua_pushnil(L);
-                    return 1;
-                }
-            	break;
 #endif
         	default:
         		lua_pushnil(L);
@@ -793,11 +811,11 @@ static int l_codec_encode_audio_data(lua_State *L) {
 		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
 	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-	int mode = luaL_optinteger(L, 4, MR475);
-	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS) || coder->is_decoder){
-		lua_pushboolean(L, 0);
-		return 1;
-	}
+	// int mode = luaL_optinteger(L, 4, MR475);
+	// if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_OPUS) || coder->is_decoder){
+	// 	lua_pushboolean(L, 0);
+	// 	return 1;
+	// }
     
 #else
 	lua_pushboolean(L, 0);

@@ -8,6 +8,123 @@ local gnssmode = 1 -- 设置gnss的模式为1,1为全卫星开启，2为单北�
 local is_test_running = false
 local gnss_power_on = false -- 记录GNSS电源状态
 
+function nmea_check_task()
+    log.info("========= NMEA检测任务开始 =========")
+    local start_time = os.time()
+    local check_count = 0
+    local check_timeout = 10000
+
+    -- 存储各项检查结果
+    local results = {
+        gsv_passed = false,
+        gsa_passed = false,
+        rmc_passed = false,
+        zda_passed = false,
+        satellites = 0,
+        pdop_value = nil,
+        has_rmc = false,
+        has_zda_time = false
+    }
+
+    while (os.time() - start_time) * 1000 < check_timeout do
+        check_count = check_count + 1
+        log.info(string.format("NMEA检测 第%d次检查", check_count))
+        local any_new_pass = false
+
+        -- 卫星信息(GSV)
+        if not results.gsv_passed then
+            local gsv = libgnss.getGsv()
+            if gsv and gsv.total_sats then
+                results.satellites = gsv.total_sats
+                if gsv.total_sats >= 3 then
+                    results.gsv_passed = true
+                    any_new_pass = true
+                    log.info("GSV检测", string.format("通过: %d颗可见卫星", gsv.total_sats))
+                else
+                    log.info("GSV检测", string.format("卫星不足: %d颗（需要≥3）", gsv.total_sats))
+                end
+            else
+                log.info("GSV检测", "无数据")
+            end
+        else
+            log.info("GSV检测", "已通过")
+        end
+
+        -- 精度因子(GSA)
+        if not results.gsa_passed then
+            local gsa = libgnss.getGsa(0)
+            if gsa and type(gsa) == "table" and gsa.pdop ~= nil then
+                results.gsa_passed = true
+                results.pdop_value = gsa.pdop
+                any_new_pass = true
+                log.info("GSA检测", string.format("通过: PDOP=%.2f", gsa.pdop))
+            elseif gsa and type(gsa) == "table" then
+                log.info("GSA检测", "有数据但PDOP为nil")
+            else
+                log.info("GSA检测", "无有效数据")
+            end
+        else
+            log.info("GSA检测", "已通过")
+        end
+
+        -- RMC数据
+        if not results.rmc_passed then
+            local rmc = libgnss.getRmc(0)
+            if rmc and type(rmc) == "table" then
+                results.rmc_passed = true
+                results.has_rmc = true
+                any_new_pass = true
+                log.info("RMC检测", "通过: 收到RMC数据")
+                if rmc.valid then
+                    log.info("RMC状态", "定位有效")
+                else
+                    log.info("RMC状态", "定位无效（但数据存在）")
+                end
+            else
+                log.info("RMC检测", "无数据")
+            end
+        else
+            log.info("RMC检测", "已通过")
+        end
+
+        -- 时间数据(ZDA)
+        if not results.zda_passed then
+            local zda = libgnss.getZda()
+            if zda and type(zda) == "table" and zda.year ~= nil then
+                results.zda_passed = true
+                results.has_zda_time = true
+                any_new_pass = true
+                log.info("ZDA检测", string.format("通过: %04d年", zda.year))
+            elseif zda and type(zda) == "table" then
+                log.info("ZDA检测", "有数据但year为nil")
+            else
+                log.info("ZDA检测", "无数据")
+            end
+        else
+            log.info("ZDA检测", "已通过")
+        end
+        sys.wait(2000)
+    end
+
+    local passed_count = 0
+    if results.gsv_passed then
+        passed_count = passed_count + 1
+    end
+    if results.gsa_passed then
+        passed_count = passed_count + 1
+    end
+    if results.rmc_passed then
+        passed_count = passed_count + 1
+    end
+    if results.zda_passed then
+        passed_count = passed_count + 1
+    end
+
+    assert(passed_count >= 2, string.format(
+        "NMEA检测测试失败: 预期至少通过2项, 实际通过%d项", passed_count))
+    log.info("NMEA检测测试通过")
+end
+
 -- 测试libgnss.getIntLocation接口
 function test_getIntLocation()
     log.info("测试", "调用libgnss.getIntLocation()")
@@ -172,12 +289,12 @@ function run_libgnss_interface_tests()
         func = test_getGll
     }}
 
-
     for _, test in ipairs(test_functions) do
         log.info("执行测试", test.name)
         local success = pcall(test.func)
         sys.wait(300) -- 测试间隔
     end
+    cleanup_gnss()
 end
 
 local function agps()
@@ -318,6 +435,7 @@ function libgnss_test.test_gnss_open()
 
     -- 绑定uart
     libgnss.bind(gps_uart_id)
+    -- libgnss.bind(gps_uart_id, uart.VUART_0)
 
     -- 开启调试日志
     libgnss.debug(true)
@@ -328,7 +446,7 @@ function libgnss_test.test_gnss_open()
 
     -- 等待GNSS模块初始化（重要！）
     log.info("等待GNSS模块初始化...")
-    sys.wait(3000) -- 等待3秒让GNSS模块启动
+    sys.wait(5000) -- 等待3秒让GNSS模块启动
 
     -- 启动AGPS（在后台）
     sys.taskInit(agps)
@@ -340,10 +458,12 @@ function libgnss_test.test_gnss_open()
     -- 执行libgnss接口功能测试
     log.info("开始执行libgnss接口功能测试...")
 
+    nmea_check_task()
+
     run_libgnss_interface_tests()
 
     -- 清理GNSS状态
-    cleanup_gnss()
+    -- cleanup_gnss()
 end
 
 -- 添加一个清理函数，确保在测试结束或出错时清理资源

@@ -81,42 +81,15 @@ local mic_vol = 80
 
 -- 定义全局队列表
 local audio_play_queue = {
-    data = {},       -- 存储字符串的数组
-    sequenceIndex = 1  -- 用于跟踪插入顺序的索引
+    requests = {},       -- 存储播放请求的数组，按优先级从高到低排序
+    current_priority = 0 -- 当前播放的优先级
 }
 
--- 向队列中添加字符串（按调用顺序插入）
-local function audio_play_queue_push(str)
-    if type(str) == "string" then
-        -- 存储格式: {index = 顺序索引, value = 字符串值}
-        table.insert(audio_play_queue.data, {
-            index = audio_play_queue.sequenceIndex,
-            value = str
-        })
-        audio_play_queue.sequenceIndex = audio_play_queue.sequenceIndex + 1
-        return true
-    end
-    return false
-end
-
--- 从队列中取出最早插入的字符串（按顺序取出）
-local function audio_play_queue_pop()
-    if #audio_play_queue.data > 0 then
-        -- 取出并移除第一个元素
-        local item = table.remove(audio_play_queue.data, 1)
-        return item.value  -- 返回值
-    end
-    return nil
-end
-
--- 清空队列中所有数据
-function audio_queue_clear()
-    -- 清空数组
-    audio_play_queue.data = {}
-    -- 重置顺序索引
-    audio_play_queue.sequenceIndex = 1
-    return true
-end
+-- 定义全局流式数据队列
+local audio_stream_queue = {
+    data = {},           -- 存储字符串的数组
+    sequenceIndex = 1    -- 用于跟踪插入顺序的索引
+}
 
 -- 工具函数：参数检查
 local function check_param(param, expected_type, name)
@@ -135,6 +108,178 @@ local function calculate_buffer_size(sampling_rate, sampling_depth, channels)
     return math.floor(bytes_per_buffer / 4) * 4  -- 对齐到4字节
 end
 
+-- 向播放请求队列中添加请求（按优先级排序）
+local function audio_play_queue_push_request(request)
+    if type(request) == "table" and request.priority then
+        -- 按优先级从高到低插入队列
+        local inserted = false
+        for i, existing_request in ipairs(audio_play_queue.requests) do
+            if request.priority > existing_request.priority then
+                table.insert(audio_play_queue.requests, i, request)
+                inserted = true
+                break
+            end
+        end
+        
+        if not inserted then
+            table.insert(audio_play_queue.requests, request)
+        end
+        return true
+    end
+    return false
+end
+
+-- 从播放请求队列中取出最高优先级的请求
+local function audio_play_queue_pop_request()
+    if #audio_play_queue.requests > 0 then
+        -- 取出并移除最高优先级的请求（队列第一个元素）
+        local request = table.remove(audio_play_queue.requests, 1)
+        audio_play_queue.current_priority = request.priority
+        return request
+    end
+    audio_play_queue.current_priority = 0
+    return nil
+end
+
+-- 向流式数据队列中添加字符串（按调用顺序插入）
+local function audio_stream_queue_push(str)
+    if type(str) == "string" then
+        -- 存储格式: {index = 顺序索引, value = 字符串值}
+        table.insert(audio_stream_queue.data, {
+            index = audio_stream_queue.sequenceIndex,
+            value = str
+        })
+        audio_stream_queue.sequenceIndex = audio_stream_queue.sequenceIndex + 1
+        return true
+    end
+    return false
+end
+
+-- 从流式数据队列中取出最早插入的字符串（按顺序取出）
+local function audio_stream_queue_pop()
+    if #audio_stream_queue.data > 0 then
+        -- 取出并移除第一个元素
+        local item = table.remove(audio_stream_queue.data, 1)
+        return item.value  -- 返回值
+    end
+    return nil
+end
+
+-- 开始播放下一个请求
+local function start_next_play()
+    local request = audio_play_queue_pop_request()
+    if not request then
+        return false
+    end
+    
+    local playConfigs = request.configs
+    audio_play_param.priority = request.priority
+    
+    -- 处理不同播放类型
+    local play_type = playConfigs.type
+    if play_type == 0 then  -- 文件播放
+        if not playConfigs.content then
+            log.error("文件播放需要指定content(文件路径或路径表)")
+            return false
+        end
+
+        local content_type = type(playConfigs.content)
+        if content_type == "table" then
+            for _, path in ipairs(playConfigs.content) do
+                if type(path) ~= "string" then
+                    log.error("播放列表元素必须为字符串路径")
+                    return false
+                end
+            end
+        elseif content_type ~= "string" then
+            log.error("文件播放content必须为字符串或路径表")
+            return false
+        end
+
+        audio_play_param.content = playConfigs.content
+        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
+            return false
+        end
+
+    elseif play_type == 1 then  -- TTS播放
+        if not audio.tts then
+            log.error("本固件不支持TTS,请更换支持TTS 的固件")
+            return false
+        end
+        if not check_param(playConfigs.content, "string", "content") then
+            log.error("TTS播放content必须为字符串")
+            return false
+        end
+        audio_play_param.content = playConfigs.content
+        if audio.tts(MULTIMEDIA_ID, audio_play_param.content)  ~= true  then
+            return false
+        end
+
+    elseif play_type == 2 then  -- 流式播放
+        if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
+            return false
+        end
+        if not check_param(playConfigs.sampling_depth, "number", "sampling_depth") then
+            return false
+        end
+
+        audio_play_param.content = playConfigs.content
+        audio_play_param.sampling_rate = playConfigs.sampling_rate
+        audio_play_param.sampling_depth = playConfigs.sampling_depth
+        audio_play_param.channels = audio_setup_param.channels or 1
+
+        -- 计算每个缓冲区的大小（字节数）
+        audio_play_param.stream_buffer_size = calculate_buffer_size(
+            audio_play_param.sampling_rate,
+            audio_play_param.sampling_depth,
+            audio_play_param.channels
+        )
+
+        if playConfigs.signed_or_unsigned ~= nil then
+            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
+        end
+
+        audio.start(
+            MULTIMEDIA_ID, 
+            audio.PCM, 
+            audio_play_param.channels, 
+            playConfigs.sampling_rate, 
+            playConfigs.sampling_depth, 
+            audio_play_param.signed_or_unsigned
+        )
+
+        -- 发送初始数据（使用计算出的缓冲区大小）
+        if audio.write(MULTIMEDIA_ID, string.rep("\0", audio_play_param.stream_buffer_size)) ~= true then
+            return false
+        end
+    end                        
+
+    -- 处理回调函数
+    if playConfigs.cbfnc ~= nil then
+        if check_param(playConfigs.cbfnc, "function", "cbfnc") then
+            audio_play_param.cbfnc = playConfigs.cbfnc
+        else
+            return false
+        end
+    else
+        audio_play_param.cbfnc = nil
+    end
+    
+    return true
+end
+
+-- 清空所有队列数据
+local function audio_queue_clear()
+    -- 清空播放请求队列
+    audio_play_queue.requests = {}
+    audio_play_queue.current_priority = 0
+    
+    -- 清空流式数据队列
+    audio_stream_queue.data = {}
+    audio_stream_queue.sequenceIndex = 1
+    return true
+end
+
 -- 音频回调处理
 local function audio_callback(id, event, point)
     -- log.info("audio_callback", "event:", event, 
@@ -144,13 +289,24 @@ local function audio_callback(id, event, point)
     --         "RECORD_DONE:", audio.RECORD_DONE)
 
     if event == audio.MORE_DATA then
-        audio.write(MULTIMEDIA_ID,audio_play_queue_pop())
+        audio.write(MULTIMEDIA_ID,audio_stream_queue_pop())
     elseif event == audio.DONE then
         if type(audio_play_param.cbfnc) == "function" then
             audio_play_param.cbfnc(exaudio.PLAY_DONE)
         end
-        audio_queue_clear()  -- 清空流式播放数据队列
-        audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
+        
+        -- 检查是否有下一个播放请求
+        if #audio_play_queue.requests > 0 then
+            -- 播放下一个请求
+            start_next_play()
+        else
+            -- 没有更多请求，清空流式播放数据队列并进入休眠
+            audio_stream_queue.data = {}
+            audio_stream_queue.sequenceIndex = 1
+            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN) -- audio.SHUTDOWN模式
+            audio_play_queue.current_priority = 0
+        end
+        
         sys.publish(EX_MSG_PLAY_DONE)
         
     elseif event == audio.RECORD_DATA then
@@ -355,121 +511,44 @@ function exaudio.play_start(playConfigs)
         log.error("type必须为数值(0:文件,1:TTS,2:流式)")
         return false
     end
-    audio_play_param.type = playConfigs.type
 
-    -- 处理优先级
-    if playConfigs.priority ~= nil then
-        if check_param(playConfigs.priority, "number", "priority") then
-            if playConfigs.priority > audio_play_param.priority then
-                log.error("是否完成播放",audio.isEnd(MULTIMEDIA_ID))
-                if not audio.isEnd(MULTIMEDIA_ID) then
-                    if audio.play(MULTIMEDIA_ID) ~= true then
-                        return false
-                    end
-                    sys.waitUntil(EX_MSG_PLAY_DONE)
-                end
-                audio_play_param.priority = playConfigs.priority
+    -- 设置默认优先级
+    playConfigs.priority = playConfigs.priority or 0
+    
+    -- 创建播放请求
+    local request = {
+        priority = playConfigs.priority,
+        configs = playConfigs
+    }
+    
+    -- 检查是否正在播放
+    if not audio.isEnd(MULTIMEDIA_ID) then
+        -- 如果新请求的优先级更高，则打断当前播放
+        if playConfigs.priority > audio_play_queue.current_priority then
+            -- 停止当前播放
+            if audio.play(MULTIMEDIA_ID) ~= true then
+                return false
             end
+            sys.waitUntil(EX_MSG_PLAY_DONE)
+            
+            -- 将新请求加入队列并立即播放
+            audio_play_queue_push_request(request)
+            return start_next_play()
         else
-            return false
-        end
-    end
-
-    -- 处理不同播放类型
-    local play_type = audio_play_param.type
-    if play_type == 0 then  -- 文件播放
-        if not playConfigs.content then
-            log.error("文件播放需要指定content(文件路径或路径表)")
-            return false
-        end
-
-        local content_type = type(playConfigs.content)
-        if content_type == "table" then
-            for _, path in ipairs(playConfigs.content) do
-                if type(path) ~= "string" then
-                    log.error("播放列表元素必须为字符串路径")
-                    return false
-                end
-            end
-        elseif content_type ~= "string" then
-            log.error("文件播放content必须为字符串或路径表")
-            return false
-        end
-
-        audio_play_param.content = playConfigs.content
-        if audio.play(MULTIMEDIA_ID, audio_play_param.content) ~= true then
-            return false
-        end
-
-    elseif play_type == 1 then  -- TTS播放
-        if not audio.tts then
-            log.error("本固件不支持TTS,请更换支持TTS 的固件")
-            return false
-        end
-        if not check_param(playConfigs.content, "string", "content") then
-            log.error("TTS播放content必须为字符串")
-            return false
-        end
-        audio_play_param.content = playConfigs.content
-        if audio.tts(MULTIMEDIA_ID, audio_play_param.content)  ~= true  then
-            return false
-        end
-
-    elseif play_type == 2 then  -- 流式播放
-        if not check_param(playConfigs.sampling_rate, "number", "sampling_rate") then
-            return false
-        end
-        if not check_param(playConfigs.sampling_depth, "number", "sampling_depth") then
-            return false
-        end
-
-        audio_play_param.content = playConfigs.content
-        audio_play_param.sampling_rate = playConfigs.sampling_rate
-        audio_play_param.sampling_depth = playConfigs.sampling_depth
-        audio_play_param.channels = audio_setup_param.channels or 1
-
-        -- 计算每个缓冲区的大小（字节数）
-        audio_play_param.stream_buffer_size = calculate_buffer_size(
-            audio_play_param.sampling_rate,
-            audio_play_param.sampling_depth,
-            audio_play_param.channels
-        )
-
-        if playConfigs.signed_or_unsigned ~= nil then
-            audio_play_param.signed_or_unsigned = playConfigs.signed_or_unsigned
-        end
-
-        audio.start(
-            MULTIMEDIA_ID, 
-            audio.PCM, 
-            audio_play_param.channels, 
-            playConfigs.sampling_rate, 
-            playConfigs.sampling_depth, 
-            audio_play_param.signed_or_unsigned
-        )
-
-        -- 发送初始数据（使用计算出的缓冲区大小）
-        if audio.write(MULTIMEDIA_ID, string.rep("\0", audio_play_param.stream_buffer_size)) ~= true then
-            return false
-        end
-    end                        
-
-    -- 处理回调函数
-    if playConfigs.cbfnc ~= nil then
-        if check_param(playConfigs.cbfnc, "function", "cbfnc") then
-            audio_play_param.cbfnc = playConfigs.cbfnc
-        else
-            return false
+            -- 优先级不够高，将请求加入队列等待
+            audio_play_queue_push_request(request)
+            return true
         end
     else
-        audio_play_param.cbfnc = nil
+        -- 没有正在播放，将请求加入队列并立即播放
+        audio_play_queue_push_request(request)
+        return start_next_play()
     end
-    return true
 end
 
 -- 模块接口：流式播放数据写入
 function exaudio.play_stream_write(data)
-    audio_play_queue_push(data)
+    audio_stream_queue_push(data)
     return true
 end
 

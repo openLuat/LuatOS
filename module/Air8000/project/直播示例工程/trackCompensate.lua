@@ -322,28 +322,20 @@ function trackCompensate.compensate(lat, lng, course, speed)
     -- 计算与上一个点的距离
     local distance = 0
     local timeDiff = 0
+    local last = nil
     if #historyBuffer > 0 then
-        local last = historyBuffer[#historyBuffer]
+        last = historyBuffer[#historyBuffer]
         distance = calculateDistance(last.lat, last.lng, lat, lng)
         timeDiff = os.time() - last.time
 
-        -- 距离漂移检测
-        if distance > params.distanceThreshold then
-            logF("警告：距离漂移！", "距离:", distance, "米", "阈值:", params.distanceThreshold, "米")
-            logF("过滤漂移点，返回历史位置", last.lat, last.lng)
-            -- 过滤掉漂移点，返回历史最后位置，但不添加到缓存
-            resultLat = last.lat
-            resultLng = last.lng
-            -- 注意：这里不调用addHistory,避免重复添加历史位置导致后续点全部被过滤
-            return resultLat, resultLng, resultCourse, resultSpeed
-        end
-
-        logF("距离正常:", distance, "米")
+        logF("与上点距离:", distance, "米", "时间差:", timeDiff, "秒", "速度:", speed)
     end
 
-    -- 速度平滑
-    resultSpeed = smoothSpeed(speed, distance, timeDiff, params)
-    logF("速度平滑", "原始:", speed, "→", "结果:", resultSpeed)
+    -- 速度平滑（仅当有历史数据时）
+    if #historyBuffer > 0 then
+        resultSpeed = smoothSpeed(speed, distance, timeDiff, params)
+        logF("速度平滑", "原始:", speed, "→", "结果:", resultSpeed)
+    end
 
     -- 航向平滑
     resultCourse = smoothCourse(course, params)
@@ -353,6 +345,22 @@ function trackCompensate.compensate(lat, lng, course, speed)
     if config.enableCornerCompensate then
         resultLat, resultLng, resultCourse = compensateCorner(lat, lng, resultCourse, resultSpeed, params)
         logF("拐点补偿后位置", resultLat, resultLng)
+    end
+
+    -- 只有速度为0（静止状态）时，才进行漂移检测
+    -- 运动状态下不进行漂移过滤，所有点都正常记录
+    if speed == 0 and last and distance > params.distanceThreshold then
+        logF("静止漂移警告：距离:", distance, "米", "阈值:", params.distanceThreshold, "米")
+        logF("过滤静态漂移点，返回历史位置", last.lat, last.lng)
+        -- 过滤掉漂移点，返回历史最后位置
+        resultLat = last.lat
+        resultLng = last.lng
+        -- 注意：不添加到缓存，避免重复
+        addHistory(resultLat, resultLng, resultCourse, resultSpeed)
+        logF("添加到历史缓存，当前历史数量:", #historyBuffer)
+        logF("补偿结果", lat, lng, "→", resultLat, resultLng)
+        logF("========== 轨迹补偿结束 ==========")
+        return resultLat, resultLng, resultCourse, resultSpeed
     end
 
     -- 添加到历史缓存

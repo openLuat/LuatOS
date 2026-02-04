@@ -206,7 +206,8 @@ function common.monitorRecord()
                 api.NumToBCDBin(tTime.hour, 1) .. api.NumToBCDBin(tTime.min, 1) .. api.NumToBCDBin(tTime.sec, 1)
 
     -- 构建JT808基础定位信息包
-    local baseInfo = jt808.makeLocatBaseInfoMsg(0, status, lat, lng, math.floor(altitude), speed, course, tTime)
+    -- 确保所有数值参数都是整数，避免string.char()报错
+    local baseInfo = jt808.makeLocatBaseInfoMsg(0, status, math.floor(lat), math.floor(lng), math.floor(altitude), math.floor(speed), math.floor(course), tTime)
 
     -- 添加卫星信号强度信息(0x65附件)
     -- logF("位置上报", "GPS状态", exgnss.is_active(exgnss.DEFAULT, {tag = gnssAppTag}), json.encode(exgnss.gsv() or {}))
@@ -339,56 +340,27 @@ local waitUploadTimes = 0
 
 -- 打印上传数据的关键信息（用于调试）
 local function printUploadData(data)
-    if not data or #data == 0 then
-        logF("========== 发送给服务器的数据 ==========")
+    logF("========== 发送给服务器的数据 ==========")
+    if not data then
         logF("数据为空！")
         logF("==========================================")
         return
     end
 
-    -- 尝试解析JT808报文
-    -- JT808报文格式: 7E + 消息ID + 消息体属性 + 终端手机号 + 消息流水号 + 消息体 + 校验码 + 7E
-    logF("========== 发送给服务器的数据 ==========")
-    logF("数据长度:", #data, "字节")
-
-    -- 尝试提取位置信息（从JT808报文中解析）
-    -- 消息ID(2字节) = 0x0200 表示位置信息上报
-    if #data >= 16 then
-        local msgIdHex = data:sub(3, 6) -- 消息ID位置（跳过起始标识7E）
-        logF("消息ID:", msgIdHex)
-
-        -- 提取经纬度（JT808位置信息报文的经纬度位置）
-        -- 基础定位信息格式: 状态(1) + 经度(4) + 纬度(4) + 高度(2) + 速度(2) + 方向(2) + 时间(6) + 里程(4) + ...
-        -- 偏移量: 消息ID(2) + 属性(2) + 手机号(6) + 流水号(2) + 状态(1) = 13字节
-        if #data >= 25 then
-            local lngHex = data:sub(28, 35)  -- 经度(4字节)
-            local latHex = data:sub(36, 43)  -- 纬度(4字节)
-            local speedHex = data:sub(50, 53) -- 速度(2字节)
-            local courseHex = data:sub(54, 57) -- 航向(2字节)
-
-            -- 转换为十进制
-            local lng = tonumber(lngHex, 16) or 0
-            local lat = tonumber(latHex, 16) or 0
-            local speed = tonumber(speedHex, 16) or 0
-            local course = tonumber(courseHex, 16) or 0
-
-            -- 经纬度显示（JT808格式是度*1000000，需要转换）
-            local lngDeg = lng / 1000000
-            local latDeg = lat / 1000000
-            local latType = lat < 0 and "S" or "N"
-            local lngType = lng < 0 and "W" or "E"
-
-            logF("位置信息:")
-            logF("  经度:", lngDeg, "度", lngType, " (原始值:", lng, ")")
-            logF("  纬度:", latDeg, "度", latType, " (原始值:", lat, ")")
-            logF("  速度:", speed, "km/h")
-            logF("  航向:", course, "度")
-        end
+    local dataType = type(data)
+    if dataType == "zbuff" then
+        local len = data:query() or 0
+        logF("数据类型: zbuff, 长度:", len, "字节")
+    elseif dataType == "string" then
+        logF("数据类型: string, 长度:", #data, "字节")
+    else
+        logF("数据类型:", dataType)
     end
 
     logF("当前时间:", os.date("%Y-%m-%d %H:%M:%S"))
     logF("工作模式:", mode)
     logF("运动状态:", manage.isRun() and "运动中" or "静止")
+    logF("注意: JT808报文详细解析请在srvs.lua中查看")
     logF("==========================================")
 end
 
@@ -472,10 +444,14 @@ sys.taskInit(function()
             }) -- 打开GNSS
 
             while true do
-                srvs.dataSend() -- 发送数据
+                srvs.dataSend() -- 发送数据，这会调用common.monitorRecord()并更新GNSS状态
 
-                -- 检查是否定位成功
-                if exgnss.is_fix() then
+                -- 等待GNSS状态事件，最长3秒
+                -- 注意：这里需要等待，因为GNSS定位状态可能需要时间更新
+                result = sys.waitUntil("GNSS_STATE", 3 * 1000)
+                
+                -- 重新检查是否定位成功（在srvs.dataSend()和等待之后再次检查）
+                if result == "FIXED" or exgnss.is_fix() then
                     logF("定位成功！切换到TRACKING模式")
                     gpio.setup(GNSS_FIX_LED, 1) -- 定位成功，点亮指示灯
                     mode = "TRACKING" -- 切换到追踪模式
@@ -483,15 +459,6 @@ sys.taskInit(function()
                     sys.timerStart(function()
                         gpio.setup(GNSS_FIX_LED, 0) -- 2秒后熄灭指示灯
                     end, 2000)
-                    break
-                end
-
-                -- 等待GNSS状态事件，最长30秒
-                result = sys.waitUntil("GNSS_STATE", 30 * 1000)
-                if result == "FIXED" then
-                    logF("定位成功！(事件)切换到TRACKING模式")
-                    mode = "TRACKING" -- 定位成功，切换到追踪模式
-                    firstCapture = false
                     break
                 end
 

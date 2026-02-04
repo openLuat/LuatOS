@@ -351,6 +351,8 @@ function api.NumToLitteBin(Num, Len, Base)
     -- 逐字节取模（小端：低字节在前）
     for var = 1, Len do
         NumTemp = Num % Base
+        -- 确保是整数，避免浮点数导致string.char失败
+        NumTemp = math.floor(NumTemp)
         table.insert(Buf, NumTemp)
         Num = Num / Base
     end
@@ -423,6 +425,8 @@ function api.NumToBigBin(Num, Len, Base)
     -- 逐字节取模（大端：插入到数组头部，高字节在前）
     for var = 1, Len do
         NumTemp = Num % Base
+        -- 确保是整数，避免浮点数导致string.char失败
+        NumTemp = math.floor(NumTemp)
         table.insert(Buf, 1, NumTemp)
         Num = Num // Base
     end
@@ -487,6 +491,8 @@ function api.NumToBCDBin(Num, Len, Base)
     -- 逐字节取模并转换为BCD编码
     for var = 1, Len do
         NumTemp = Num % Base
+        -- 确保是整数
+        NumTemp = math.floor(NumTemp)
         -- BCD编码：将两位十进制数压缩到一个字节中
         -- 例如：34 -> (3 * 16) + 4 = 0x34
         NumTemp = (NumTemp // 10 * 16) + (NumTemp % 10)

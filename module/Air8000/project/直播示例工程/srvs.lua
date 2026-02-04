@@ -122,8 +122,9 @@ local function printUploadDataFromSrvs(dataStr)
     -- 如果是位置信息上报(0x0200)，解析经纬度
     if msgIdHex == "0200" then
         -- 基础定位信息位置：起始标识(1) + 消息ID(2) + 属性(2) + 手机号(6) + 流水号(2) + 状态(1) = 14字节
-        -- 状态字节后: 经度(4) + 纬度(4) + 高度(2) + 速度(2) + 方向(2) + 时间(6) = 20字节
-        if #dataStr >= startPos + 24 then
+        -- 状态字节后: 纬度(4) + 经度(4) + 高度(2) + 速度(2) + 方向(2) + 时间(6) = 20字节
+        -- 需要访问到 startPos + 26 (course)，所以需要至少 startPos + 27 字节长度
+        if #dataStr >= startPos + 27 then
             local statusByte = dataStr:byte(startPos + 14)
             local latHex = string.format("%02X%02X%02X%02X",
                 dataStr:byte(startPos + 15),

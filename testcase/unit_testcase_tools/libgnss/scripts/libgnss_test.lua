@@ -294,7 +294,6 @@ function run_libgnss_interface_tests()
         local success = pcall(test.func)
         sys.wait(300) -- 测试间隔
     end
-    cleanup_gnss()
 end
 
 local function agps()
@@ -463,7 +462,7 @@ function libgnss_test.test_gnss_open()
     run_libgnss_interface_tests()
 
     -- 清理GNSS状态
-    -- cleanup_gnss()
+    cleanup_gnss()
 end
 
 -- 添加一个清理函数，确保在测试结束或出错时清理资源

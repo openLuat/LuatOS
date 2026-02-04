@@ -181,63 +181,193 @@ function zbuff_tests.test_zbuff_seek_end()
     log.info("zbuff.SEEK_END 模式测试全部通过！")
 end
 
--- 测试固定长度字符串(A)的打包和解包
--- 测试目的: 验证指定长度字符串的处理
--- 测试内容: 打包一个指定长度的字符串
--- 预期结果: 解包后得到指定长度的字符串
-function zbuff_tests.test_pack_string()
-    log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
-    local buff = zbuff.create(35)
-    local str = "Hello123"
-    local data = buff:pack("<A", str)
-    assert(data == #str, "固定长度字符串打包失败")
-    log.info("data", data)
+-- pack/unpack 测试：
+
+-- 1. H格式边界测试 (无符号 short)
+function zbuff_tests.test_format_H_boundary()
+    log.info("zbuff_tests", "测试 H 格式边界值")
+
+    local buff = zbuff.create(10)
+
+    -- 只测试两个边界值
+    local test_cases = {{
+        value = 65535,
+        desc = "最大值 (0x7FFF)"
+    }, {
+        value = 0,
+        desc = "最小值 (0x0000)"
+    }}
+    for i, test in ipairs(test_cases) do
+        log.info("测试:", test.desc, "值:", test.value)
+        -- 清理缓冲区
+        buff:clear()
+        -- 打包
+        local written = buff:pack("H", test.value)
+        log.info("打包", "写入字节数:", written)
+        -- 验证写入大小
+        assert(written == 2, "h格式应该写入2字节")
+        -- 解包
+        buff:seek(0)
+        local cnt, unpacked = buff:unpack("H")
+        log.info("解包", "读取字节数:", cnt, "值:", unpacked)
+        -- 验证
+        assert(cnt == 2, "应该读取2字节")
+        assert(unpacked == test.value, string.format("值不匹配: 预期 %d, 实际 %d", test.value, unpacked))
+    end
+
+    log.info("test_format_H_minimal", "边界值测试完成")
 end
 
--- function zbuff_tests.test_pack_float()
---     log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
---     local buff = zbuff.create(35)
---     local str = "Hello123"
---     local data = buff:pack("<A", str)
---     assert(data == #str, "固定长度字符串打包失败")
---     log.info("data",data)
--- end
+-- 2. c 格式边界测试 (有符号 char)
+function zbuff_tests.test_format_c_boundary()
+    log.info("zbuff_tests", "测试 c 格式边界值")
 
--- function pack_tests.test_pack_byte_boundary()
---     log.info("pack_tests", "开始 byte边界值测试")
---     local buff = zbuff.create(3)
---     -- 测试最小值
---     local data_min = buff:pack("c", 0)
---     local pos, val_min = pack.unpack(data_min, "b")
---     assert(val_min == 0, "byte最小值(0)解包错误")
+    local buff = zbuff.create(20)
+    local max_value = 127
+    local min_value = -128
+    local written = buff:pack("cc", 0x7F, 0x80)
+    log.info("written",written)
+    assert(written == 2, string.format("cc格式应该写入2字节",written))
+    buff:seek(0)
+    local cnt, val, val2 = buff:unpack("cc")
+    assert(val == max_value, string.format("c格式最大值错误%d", val))
+    assert(val2 == min_value, string.format("c格式最小值错误%d", val2))
+    log.info("test_format_c_boundary", "完成")
+end
 
---     -- 测试最大值
---     local data_max = pack.pack("b", 255)
---     local pos, val_max = pack.unpack(data_max, "b")
---     assert(val_max == 255, "byte最大值(255)解包错误")
 
---     log.info("pack", "byte边界值测试成功: min=", val_min, "max=", val_max)
--- end
+-- 3. b 格式边界测试 (无符号 byte)
+function zbuff_tests.test_format_b_boundary()
+    log.info("zbuff_tests", "测试 b 格式边界值")
 
--- 测试short类型的边界值
--- 测试目的: 验证short类型能正确处理-32768到32767范围的值
--- 测试内容: 打包最小值和最大值
--- 预期结果: 边界值都能正确解包
--- function pack_tests.test_pack_short_boundary()
---     log.info("pack_tests", "开始 short边界值测试")
---     local buff = zbuff.create(3)
---     -- 测试最小值
---     local data_min = buff:pack(">h", -32768)
---     local pos, val_min = pack.unpack(data_min, ">h")
---     assert(val_min == -32768, "short最小值(-32768)解包错误")
+    local buff = zbuff.create(10)
 
---     -- 测试最大值
---     local data_max = pack.pack(">h", 32767)
---     local pos, val_max = pack.unpack(data_max, ">h")
---     assert(val_max == 32767, "short最大值(32767)解包错误")
+    local tests = {{
+        value = 255,
+        desc = "最大值"
+    }, {
+        value = 0,
+        desc = "最小值"
+    }}
 
---     log.info("pack", "short边界值测试成功: min=", val_min, "max=", val_max)
--- end
+    for _, test in ipairs(tests) do
+        buff:clear()
+        local written = buff:pack("b", test.value)
+        buff:seek(0)
+        local cnt, val = buff:unpack("b")
+
+        log.info(test.desc, "解包:", val)
+
+        assert(val == test.value, string.format("b格式%s错误: %d != %d", test.desc, test.value, val))
+    end
+    log.info("test_format_b_boundary", "完成")
+end
+
+-- -- 4. h 格式边界测试 (有符号 short)
+
+function zbuff_tests.test_format_h_boundary()
+    log.info("zbuff_tests", "测试 h 格式边界值")
+    local buff = zbuff.create(20)
+    local max_value = 32767
+    local min_value = -32768
+    local written = buff:pack("hh", 0x7FFF, 0x8000)
+    log.info("written",written)
+    assert(written == 4, string.format("hh格式应该写入4字节",written))
+    buff:seek(0)
+    local cnt, val, val2 = buff:unpack("hh")
+    assert(val == max_value, string.format("i格式最大值错误%d", val))
+    assert(val2 == min_value, string.format("i格式最小值错误%d", val2))
+    log.info("test_format_h_boundary", "完成")
+end
+
+
+-- 5. i 格式边界测试 (有符号 int)
+function zbuff_tests.test_format_i_boundary()
+    log.info("zbuff_tests", "测试 i 格式边界值")
+    local buff = zbuff.create(20)
+    local max_value = 2147483647
+    local min_value = 0x800000
+    local written = buff:pack("ii", 2147483647, 0x800000)
+    assert(written == 8, "ii格式应该写入8字节")
+    buff:seek(0)
+    local cnt, val, val2 = buff:unpack("ii")
+    assert(val == max_value, string.format("i格式最大值错误%d", val))
+    assert(val2 == min_value, string.format("i格式最小值错误%d", val2))
+    log.info("test_format_i_boundary", "完成")
+end
+
+-- 6. I 格式边界测试 (无符号 int)
+function zbuff_tests.test_format_I_boundary()
+    log.info("zbuff_tests", "测试 I 格式边界值")
+
+    local buff = zbuff.create(20)
+
+    -- Lua可能不支持大整数，使用十六进制
+    local tests = {{
+        value = 0xFFFFFFFF,
+        desc = "最大值",
+        hex = true
+    }, {
+        value = 0,
+        desc = "最小值"
+    }}
+
+    for _, test in ipairs(tests) do
+        buff:clear()
+        local written = buff:pack("I", test.value)
+        assert(written == 4, "I格式应该写入4字节")
+        buff:seek(0)
+        local cnt, val = buff:unpack("I")
+
+        assert(val == test.value, string.format("I格式%s错误", test.desc))
+    end
+    log.info("test_format_I_boundary", "完成")
+end
+
+--7.A格式测试
+function zbuff_tests.test_pack_string()
+    log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
+    local buff = zbuff.create(20)
+    local str = "Hello123"
+    local written = buff:pack("<A", str)
+    assert(written == #str, "固定长度字符串打包失败")
+    buff:seek(0)
+    local cnt, a= buff:unpack("<A8")
+    assert(written == cnt, "A格式解包应该写入#str个字节")
+end
+
+-- 8. 混合格式测试 
+function zbuff_tests.test_format_I_boundary_max()
+    log.info("zbuff_tests", "测试打包解包混合格式")
+    local buff = zbuff.create(20)
+    local written = buff:pack(">IhA", 0x12345678, 0x8000, "end")
+    assert(written == 9, "IHA混合格式应该写入9字节")
+    buff:seek(0)
+    local cnt, a, b, c = buff:unpack(">IhA3")
+    log.info("数据解包", "数量:", cnt, "值:", a, b, c)
+    assert(written == cnt, "IHA3混合格式解包应该写入9字节")
+end
+
+-- 9. 异常情况
+function zbuff_tests.test_packError()
+    log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
+    local buff = zbuff.create(20)
+    local str = "Hello123"
+        local success, err = pcall(function()
+        buff:pack("X", str) -- 'InvalidType'不是有效格式
+    end)
+    assert(success == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err)
+    buff:seek(0)
+     local success1, err1 = pcall(function()
+        buff:unpack("X", str) -- 'X'不是有效格式
+    end)
+    assert(success1 == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err1)
+end
+
+
+---buff:read类型(number)/write:read类型(number)
 
 -- 1. 测试有符号8位整数
 function zbuff_tests.test_wirteReadI8()
@@ -509,7 +639,7 @@ function zbuff_tests.test_buff_arrayWrite()
     buff[1] = 0x30
     buff[2] = 0x31
 
-    -- 3.使用 read() 读取多个字节（返回zbuff对象）
+    -- 2.使用 read() 读取多个字节（返回zbuff对象）
     buff:seek(0) -- 重置读取指针
     local read_obj = buff:read(3) -- 读取1个字节      
     local read_hex = read_obj:toHex() -- 转换为十六进制字符串
@@ -521,6 +651,7 @@ function zbuff_tests.test_buff_arrayWrite()
 
     log.info("test_buff_array", "单个字节比较通过")
 end
+
 
 -- buff_Resize()扩容
 function zbuff_tests.test_buffResize_expansion()
@@ -537,6 +668,7 @@ function zbuff_tests.test_buffResize_expansion()
     log.info("test_buff_buffResize", "扩容成功")
 
 end
+
 
 -- buff_Resize()缩容及数据截断
 function zbuff_tests.test_buffResizeReduce()
@@ -555,13 +687,16 @@ function zbuff_tests.test_buffResizeReduce()
     log.info("test_buff_buffResize", "缩容成功")
 end
 
+
 -- 动态写入string
 function zbuff_tests.test_buffCopyString()
     local buff = zbuff.create(8)
     local len = buff:copy(nil, "stst")
+
     assert(len ~= 0, string.format("使用buff:copy动态写入string失败,成功写入的字节数%d", len))
     log.info("test_buffCopyString", "动态写入string成功")
 end
+
 
 -- 动态复制zbuff
 function zbuff_tests.test_buffCopyZbuff()
@@ -573,6 +708,7 @@ function zbuff_tests.test_buffCopyZbuff()
     log.info("test_buffCopyZbuff", "动态复制zbuff成功")
 end
 
+
 -- 动态写入number
 function zbuff_tests.test_buffCopyNumber()
     local buff = zbuff.create(8)
@@ -580,6 +716,7 @@ function zbuff_tests.test_buffCopyNumber()
     assert(len ~= 0, string.format("使用buff:copy动态写入number失败,成功写入的字节数%d", len))
     log.info("test_buffCopyNumber", "动态复制number成功")
 end
+
 
 -- buff:used()
 function zbuff_tests.test_buffused()
@@ -601,6 +738,7 @@ function zbuff_tests.test_buffused()
     log.info("test_buffToStr", "测试通过")
 end
 
+
 function zbuff_tests.test_buffDel()
     -- 删除zbuff 0~used范围内的一段数据 
     local buff = zbuff.create(10)
@@ -612,6 +750,156 @@ function zbuff_tests.test_buffDel()
     local used = buff:used()
     log.info("删除后 used", buff:used())
     assert(used ~= 9, string.format("buff:del()删除0~used范围内的一段数据失败，:  实际大小%s", used))
+end
+function zbuff_tests.test_buffquery_string()
+    local buff = zbuff.create(10)
+    buff:write(0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC)
+    -- 非显示指定
+    local data = buff:query(0, 6)
+    local expected_data = "123456789ABC"
+
+    assert(type(data) == "string", string.format(
+        "使用buff:query()进行非显示指定提取缓冲区数据,数据返回类型错误:  类型应为string, 实际类型%s",
+        type(data)))
+
+    assert(data:toHex() == expected_data, string.format(
+        "使用buff:query()进行非显示指定提取缓冲区数据,结果返回异常:  预期应为%s, 实际为%s",
+        expected_data, data))
+end
+
+function zbuff_tests.test_buffquery_number()
+    -- 显示指定缓冲区数据
+    -- 仅1，2，4，8字节才触发类型转换，返回number类型。其余字节返回string类型
+    local buff = zbuff.create(10)
+    buff:write(0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC)
+    -- 非显示指定
+    local data = buff:query(0, 4, true, false, false)
+
+    local data1 = buff:query(0, 6, true, false, false)
+
+    local expected_data = 305419896
+    assert(type(data) == "number" and type(data1) == "string", string.format(
+        "使用buff:query()进行显示指定提取缓冲区数据,数据返回类型错误:  指定字节数返回类型为%s, 非指定字节数返回类型为%s",
+        type(data), type(data1)))
+    assert(data == expected_data, string.format(
+        "使用buff:query()进行非显示指定提取缓冲区数据,结果返回异常:  预期应为%s, 实际为%s",
+        expected_data, data))
+end
+
+
+
+function zbuff_tests.test_buffSet()
+    --  buff:set(start, num, len)
+    local buff = zbuff.create(10)
+    buff:set(0, 0xAA, 2)
+    local str = buff:read(2)
+    local expected_str = "AAAA"
+    assert(expected_str == str:toHex(), string.format(
+        "使用buff:set()从起始批量填充两个0xaa失败:   预期应为%s, 实际为%s", expected_str, str))
+    buff:set(8, 0x55, 5)
+    -- 1.填充超限
+    local s2 = buff:toStr(8, buff:used())
+    local expected_s2 = "5555"
+    assert(expected_s2 == s2:toHex(),
+        string.format("使用buff:set()长度超限填充失败:   预期应为%s, 实际为%s", expected_s2, s2))
+    buff:set(3, 0x123, 4)
+    local s3 = string.format("%02X", buff[3])
+    assert(s3 == "23", string.format("使用buff:set()数值超限填充失败:  实际为%s", s3))
+end
+
+
+
+function zbuff_tests.test_buffisEqual()
+    local buff1 = zbuff.create(8)
+    -- 全填充 0x12；    
+    buff1:set(0, 0x12, 8)
+    local buff2 = zbuff.create(8)
+    buff2:set(0, 0x12, 8)
+    local equal, offset = buff1:isEqual(0, buff2, 0, 8)
+    assert(equal == true and offset == 0, string.format(
+        "完全相等buff对比失败:   是否完全相等%s, 详细比较结果的位置码%s", equal, offset))
+    buff2[3] = 0x34
+    -- -- 比较前4字节  
+    local equal, offset = buff1:isEqual(0, buff2, 0, 4)
+    assert(equal == false and offset ~= 0,
+        string.format("非完全相等buff对比失败:   是否完全相等%s, 详细比较结果的位置码%s",
+            equal, offset))
+
+end
+
+
+
+function zbuff_tests.test_bufftoBase64()
+    local buff = zbuff.create(12)
+    -- --写入"Hello"的ASCII码；
+    buff:write(0x48, 0x65, 0x6C, 0x6C, 0x6F)
+    local used = buff:used()
+    local str = buff:toStr(0, used)
+    -- 创建足够大的目标缓冲区；
+    local dst = zbuff.create(math.ceil(buff:used() * 1.35) + 3)
+
+    -- 进行Base64编码；
+    local len = buff:toBase64(dst)
+    local dst_str = dst:toStr(0, len)
+    -- 输出结果 Base64编码 长度: 8 结果: SGVsbG8=；
+    assert(len > used and str ~= dst_str, "将zbuff数据转base64失败")
+
+end
+
+
+
+
+function zbuff_tests.test_buffSetFrameBuffer()
+    local buff = zbuff.create(320 * 240 * 2)
+    local result = buff:setFrameBuffer(320, 240, 16, 0xFFFF)
+    assert(result == true, "内存充足SetFrameBuffer()失败")
+    local buff1 = zbuff.create(100)
+    local result1 = buff1:setFrameBuffer(320, 240, 16, 0xFFFF)
+    assert(result1 ~= true, "内存不足SetFrameBuffer()成功，不符合预期")
+
+end
+
+
+
+function zbuff_tests.test_buffDrawLine()
+    local buff = zbuff.create(128 * 160 * 2)
+    -- 初始化，背景色默认
+    local set_result = buff:setFrameBuffer(128, 160, 16)
+    assert(set_result == true, "内存充足SetFrameBuffer()失败")
+    -- 从点 (10, 20) 到点 (100, 80) 绘制一条红色直线；
+    local result = buff:drawLine(10, 20, 100, 80, 0xF800)
+    assert(result == true, "线条绘制失败")
+
+end
+
+
+function zbuff_tests.test_buffDrawRect()
+    local buff = zbuff.create(128 * 160 * 2)
+    -- 初始化，背景色为白色
+    local set_result = buff:setFrameBuffer(128, 160, 16, 0xffff)
+    assert(set_result == true, "内存充足SetFrameBuffer()失败")
+    -- 绘制实心绿色矩形 (左上角: (0,0), 右下角: (2,3))；  
+    local result = buff:drawRect(0, 0, 2, 3, 0x07E0, true)
+    assert(result == true, "矩形绘制失败")
+    local pixel_color = buff:pixel(1, 1)
+    local color = string.format("0x%04X", pixel_color)
+    -- 输出: 0x07E0（绿色）；  
+    assert(color == "0x07E0", "缓冲区内颜色提取异常")
+
+end
+
+
+function zbuff_tests.test_buffDrawCircle()
+    local buff = zbuff.create(128 * 160 * 2)
+    -- 初始化，背景色为白色
+    local set_result = buff:setFrameBuffer(128, 160, 16, 0xffff)
+    assert(set_result == true, "内存充足SetFrameBuffer()失败")
+    local result = buff:drawCircle(15, 5, 3, 0x07E0, true)
+    assert(result == true, "实心圆绘制失败")
+    local pixel_color = buff:pixel(1, 1)
+    local color = string.format("0x%04X", pixel_color)
+    -- 输出: 0xFFFF（白色）；  
+    assert(color == "0xFFFF", "缓冲区内颜色提取异常")
 end
 
 return zbuff_tests

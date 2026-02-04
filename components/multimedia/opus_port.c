@@ -9,6 +9,8 @@
 #define LUAT_LOG_TAG "codec_opus"
 #include "luat_log.h"
 
+#ifdef LUAT_SUPPORT_OPUS
+
 #include "opus.h"
 #include "opus_types.h"
 #include "opus_private.h"
@@ -92,3 +94,5 @@ int luat_opus_encoder_get_data(luat_multimedia_codec_t *coder, const int16_t* pc
     *out_len += nbBytes;
     return 0;
 }
+
+#endif

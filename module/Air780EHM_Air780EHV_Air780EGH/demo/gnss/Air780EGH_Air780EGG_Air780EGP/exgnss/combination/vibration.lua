@@ -18,7 +18,7 @@
 ]]
 
 exvib=require("exvib")
-tcp_client_main=require("tcp_client_main")
+-- tcp_client_main=require("tcp_client_main")
 
 local intPin=gpio.WAKEUP2   --中断检测脚，内部固定wakeup2
 local tid   --获取定时打开的定时器id

@@ -165,8 +165,8 @@ end
 
 **静止状态判断** (运动→静止)
 ```lua
--- 运动状态下，8秒内振动次数小于3次则认为回到静止
-if isRun and vibrationCount < 3 then
+-- 运动状态下，20秒内振动次数为0则认为回到静止
+if isRun and vibrationCount == 0 then
     isRun = false
     -- 不发布事件，通过manage.isRun()检测
 end
@@ -186,7 +186,7 @@ end
 | 参数 | 值 | 说明 |
 |------|-----|------|
 | 静止→运动判定 | 5秒内2次震动 | 快速响应运动 |
-| 运动→静止判定 | 8秒内<3次震动 | 延迟确认，避免误判 |
+| 运动→静止判定 | 20秒内0次震动 | 延迟确认，避免行走时误判 |
 | 有效震动判定 | 10秒内5次震动 | 检测有效运动事件 |
 | 防抖时间 | 100ms | GPIO去抖动 |
 | 震动历史窗口 | 20次 | 用于运动检测 |
@@ -219,7 +219,7 @@ if mode == "CAPTURE" then
             mode = "TRACKING"  -- 定位成功，进入追踪
             break
         end
-        result = sys.waitUntil("GNSS_STATE", 30 * 1000)
+        result = sys.waitUntil("GNSS_STATE", 3 * 1000)
         if result == "FIXED" then
             mode = "TRACKING"
             break
@@ -554,19 +554,134 @@ exgnss.open(exgnss.TIMERORSUC, {
 - **速度平滑**: 过滤速度突变，防止轨迹偏离实际路网
 - **距离阈值过滤**: 过滤超出合理范围的漂移点
 - **拐点检测**: 检测急转弯点并优化轨迹
+- **自适应场景**: 根据使用场景（人员/车辆）自动调整参数
+
+#### 双场景配置系统
+
+模块支持**人员定位**和**车辆定位**两种场景，可根据实际使用对象选择或自动切换。
+
+| 场景 | 适用对象 | 距离阈值 | 速度突变阈值 | 航向跳变阈值 | 拐点检测角度 |
+|------|---------|---------|-------------|-------------|-------------|
+| person | 人员定位（学生卡、宠物追踪器） | 50米 | 10 km/h | 60度 | 120度 |
+| vehicle | 车辆定位（物流追踪、车辆管理） | 200米 | 50 km/h | 30度 | 90度 |
 
 #### 配置参数
+
+**人员定位参数 (personParams)**
 ```lua
-local config = {
-    distanceThreshold = 50,          -- 距离阈值（米），超过此距离认为漂移
-    speedChangeThreshold = 5,        -- 速度突变阈值（km/h）
-    courseChangeThreshold = 30,       -- 航向跳变阈值（度）
-    enableCornerCompensate = true,    -- 是否启用拐点补偿
-    minTurnRadius = 10,              -- 最小转弯半径（米）
+personParams = {
+    -- 距离阈值(米): 人员正常移动速度约1-2m/s,3秒间隔约3-6米
+    -- 设置50米可以有效过滤漂移,同时不会误判正常移动
+    distanceThreshold = 50,
+
+    -- 速度突变阈值(km/h): 人员速度突变通常不超过10km/h
+    speedChangeThreshold = 10,
+
+    -- 航向跳变阈值(度): 人员移动方向变化频繁,允许更大的航向变化
+    courseChangeThreshold = 60,
+
+    -- 拐点检测角度(度): 人员可以在小巷转弯,角度变化大
+    cornerAngleThreshold = 120,
+
+    -- 最小转弯半径(米): 人员可以在狭小空间转弯
+    minTurnRadius = 5,
 }
 ```
 
+**车辆定位参数 (vehicleParams)**
+```lua
+vehicleParams = {
+    -- 距离阈值(米): 城市车辆速度约20-40km/h,3秒间隔约17-34米
+    -- 设置200米可以过滤漂移,同时允许隧道/高架桥等场景
+    distanceThreshold = 200,
+
+    -- 速度突变阈值(km/h): 车辆急加速急刹车可能超过30km/h
+    speedChangeThreshold = 50,
+
+    -- 航向跳变阈值(度): 车辆一般在道路上行驶,航向变化相对平滑
+    courseChangeThreshold = 30,
+
+    -- 拐点检测角度(度): 车辆急转弯角度通常在90-120度
+    cornerAngleThreshold = 90,
+
+    -- 最小转弯半径(米): 车辆最小转弯半径通常在5-10米
+    minTurnRadius = 5,
+}
+```
+
+**全局配置**
+```lua
+local config = {
+    -- 使用场景: "person" 或 "vehicle"
+    scene = "person",
+
+    -- 是否启用自适应场景
+    autoAdaptive = true,
+
+    -- 自适应速度阈值(km/h): 低于此值认为是人员,高于此值认为是车辆
+    adaptiveSpeedThreshold = 15,
+
+    -- 是否启用拐点补偿
+    enableCornerCompensate = true,
+}
+```
+
+#### 自适应模式
+
+默认启用 `autoAdaptive = true`，模块会根据最近3个定位点的平均速度自动判断场景：
+- 速度 ≥15 km/h → 自动使用车辆参数
+- 速度 <15 km/h → 自动使用人员参数
+
+自适应模式适用于设备可能在人员佩戴和车辆安装两种场景间切换的情况。
+
+#### 配置接口
+
+通过 `trackCompensate.setConfig()` 动态调整配置：
+
+```lua
+-- 固定使用人员模式
+trackCompensate.setConfig({
+    scene = "person",
+    autoAdaptive = false
+})
+
+-- 固定使用车辆模式
+trackCompensate.setConfig({
+    scene = "vehicle",
+    autoAdaptive = false
+})
+
+-- 启用自适应并调整速度阈值
+trackCompensate.setConfig({
+    autoAdaptive = true,
+    adaptiveSpeedThreshold = 20
+})
+
+-- 自定义人员参数
+trackCompensate.setConfig({
+    personParams = {
+        distanceThreshold = 60,
+        speedChangeThreshold = 15,
+        courseChangeThreshold = 70
+    }
+})
+
+-- 自定义车辆参数
+trackCompensate.setConfig({
+    vehicleParams = {
+        distanceThreshold = 250,
+        speedChangeThreshold = 60
+    }
+})
+
+-- 禁用拐点补偿
+trackCompensate.setConfig({
+    enableCornerCompensate = false
+})
+```
+
 #### 主补偿函数
+
 ```lua
 local resultLat, resultLng, resultCourse, resultSpeed =
     trackCompensate.compensate(lat, lng, course, speed)
@@ -594,15 +709,24 @@ avgCourse = (avgCourse + 360) % 360
 
 **3. 拐点补偿**
 ```lua
--- 检测急转弯（角度变化>90度）
-if angleDiff > 90 and config.enableCornerCompensate then
+-- 检测急转弯（角度变化根据场景动态调整）
+if angleDiff > params.cornerAngleThreshold and config.enableCornerCompensate then
     -- 沿当前航向预估位置
     estimatedLat = lat + (distance / 6371000) * math.cos(math.rad(bearing2))
     estimatedLng = lng + (distance / 6371000) * math.sin(math.rad(bearing2))
 end
 ```
 
+**4. 速度平滑**
+```lua
+-- 根据当前场景的速度突变阈值进行平滑
+if speedDiff > params.speedChangeThreshold and calcSpeed > 0 then
+    return calcSpeed
+end
+```
+
 #### 集成方式
+
 在`common.lua`的TRACKING模式中自动调用：
 ```lua
 -- 轨迹补偿：平滑航向、速度，处理拐点
@@ -615,6 +739,31 @@ if compensatedLat and compensatedLng then
     speed = compensatedSpeed
 end
 ```
+
+#### 调试日志
+
+模块输出统一的调试日志前缀 `[TRACK_COMP]`，方便定位问题：
+
+```
+[TRACK_COMP] ========== 轨迹补偿开始 ==========
+[TRACK_COMP] 使用场景: person 自适应: true
+[TRACK_COMP] 参数配置: 距离阈值: 50 速度突变阈值: 10 航向阈值: 60
+[TRACK_COMP] 输入参数 纬度: 31.234567 经度: 121.654321 航向: 180 速度: 5
+[TRACK_COMP] 自适应场景判断: 当前平均速度 4.5 km/h → 使用人员参数
+[TRACK_COMP] 距离正常: 8 米
+[TRACK_COMP] 速度平滑 原始: 5 → 结果: 5
+[TRACK_COMP] 航向平滑 原始: 180 → 结果: 175
+[TRACK_COMP] 添加到历史缓存，当前历史数量: 3
+[TRACK_COMP] 补偿结果 31.234567,121.654321 → 31.234567,121.654321
+[TRACK_COMP] ========== 轨迹补偿结束 ==========
+```
+
+#### 重要说明
+
+1. **速度为0不进行补偿**: 当速度为0时，模块直接返回原始数据，避免静止状态下的误判
+2. **漂移点过滤**: 距离超过阈值的点会被过滤，返回历史位置，避免轨迹跳变
+3. **历史缓存**: 保存最近5个定位点用于平滑计算
+4. **场景切换**: 在自适应模式下，场景会根据速度动态切换，日志会显示当前使用的场景
 
 #### 模式特性
 - **定时定位**: 按配置间隔(如60秒)开启GNSS定位
@@ -758,6 +907,160 @@ end
 | 0x65 | 卫星信号强度 | 可变 |
 | 0x66 | 软件版本号 | 4字节 |
 | 0x67 | GNSS软件版本号 | 2字节 |
+
+---
+
+## 调试与日志
+
+### 8. 调试日志系统
+
+#### 统一日志前缀
+
+所有模块使用统一的日志前缀，方便过滤和定位问题：
+
+| 模块 | 日志前缀 | 说明 |
+|------|---------|------|
+| common | [GNSS_APP] | GNSS应用主逻辑 |
+| vibration | [VIBRATION] | 震动检测 |
+| trackCompensate | [TRACK_COMP] | 轨迹补偿 |
+| srvs | [SRVS] | 服务器管理 |
+| manage | [MANAGE] | 功耗管理 |
+| auxServer | [AUX_SRV] | 测试服务器 |
+
+#### 数据发送日志
+
+每次发送数据到服务器前，会自动打印以下信息：
+
+**srvs.dataSend() 输出示例：**
+```
+[SRVS] ========== 开始发送数据到服务器 ==========
+[SRVS] 数据类型: zbuff, 长度: 180 字节
+[SRVS] 消息ID: 0200
+[SRVS] 位置信息:
+[SRVS]   经度: 121.654321 度 E  (原始值: 121654321)
+[SRVS]   纬度: 31.234567 度 N  (原始值: 31234567)
+[SRVS]   速度: 5 km/h
+[SRVS]   航向: 180 度
+[SRVS]   状态: 02
+[SRVS] 发送时间: 2026-02-03 21:30:45
+[SRVS] ==========================================
+[SRVS] 数据发送完成，服务器数量: 1
+```
+
+**uploadCache() 输出示例：**
+```
+[GNSS_APP] ========== 发送给服务器的数据 ==========
+[GNSS_APP] 数据长度: 180 字节
+[GNSS_APP] 消息ID: 0200
+[GNSS_APP] 位置信息:
+[GNSS_APP]   经度: 121.654321 度 E  (原始值: 121654321)
+[GNSS_APP]   纬度: 31.234567 度 N  (原始值: 31234567)
+[GNSS_APP]   速度: 5 km/h
+[GNSS_APP]   航向: 180 度
+[GNSS_APP] 当前时间: 2026-02-03 21:30:45
+[GNSS_APP] 工作模式: TRACKING
+[GNSS_APP] 运动状态: 运动中
+[GNSS_APP] ==========================================
+```
+
+#### 轨迹补偿日志
+
+轨迹补偿模块会输出详细的调试信息：
+
+```
+[TRACK_COMP] ========== 轨迹补偿开始 ==========
+[TRACK_COMP] 使用场景: person 自适应: true
+[TRACK_COMP] 参数配置: 距离阈值: 50 速度突变阈值: 10 航向阈值: 60
+[TRACK_COMP] 输入参数 纬度: 31.234567 经度: 121.654321 航向: 180 速度: 5
+[TRACK_COMP] 历史数据量: 3
+[TRACK_COMP] 自适应场景判断: 当前平均速度 4.5 km/h → 使用人员参数
+[TRACK_COMP] 距离正常: 8 米
+[TRACK_COMP] 速度平滑 原始: 5 → 结果: 5
+[TRACK_COMP] 航向平滑 原始: 180 → 结果: 175
+[TRACK_COMP] 添加到历史缓存，当前历史数量: 4
+[TRACK_COMP] 补偿结果 31.234567,121.654321 → 31.234567,121.654321
+[TRACK_COMP] ========== 轨迹补偿结束 ==========
+```
+
+#### GNSS应用日志
+
+GNSS应用状态机日志：
+
+```
+[GNSS_APP] ========== 进入TRACKING模式 ==========
+[GNSS_APP] 位置坐标打包开始 GNSS状态: 打开 定位状态: 已定位 最后位置: 121654321, 31234567
+[GNSS_APP] 运动状态，执行轨迹补偿 原始位置: 31234567, 121654321 速度: 5 航向: 180
+[TRACK_COMP] ========== 轨迹补偿开始 ==========
+[TRACK_COMP] ...
+[TRACK_COMP] ========== 轨迹补偿结束 ==========
+[GNSS_APP] 轨迹补偿成功 补偿后: 31234567, 121654321 速度: 5 航向: 175
+[GNSS_APP] 本次位置汇报使用GPS定位数据(已补偿) 31234567, 121654321
+[GNSS_APP] 位置坐标打包完成 最终位置: 31234567, 121654321 定位状态: 有效
+[GNSS_APP] 正常上传模式 缓存数据量: 15 等待上传次数: 15/30
+[GNSS_APP] 更新最后非静止点位置 31234567, 121654321
+```
+
+#### 状态打印函数
+
+使用 `common.printStatus()` 打印当前状态：
+
+```lua
+common.printStatus()
+```
+
+输出示例：
+```
+[GNSS_APP] ========== 状态信息 ==========
+[GNSS_APP] 当前模式: TRACKING
+[GNSS_APP] GNSS状态: 已打开
+[GNSS_APP] 定位状态: 已定位
+[GNSS_APP] 运动状态: 运动中
+[GNSS_APP] 快速上传: 关闭
+[GNSS_APP] 缓存数据量: 15
+[GNSS_APP] 等待上传次数: 15
+[GNSS_APP] 最后GPS位置: 31234567, 121654321, 1
+[GNSS_APP] 最后非静止点: 31234567, 121654321
+[GNSS_APP] 轨迹补偿历史: 4
+[GNSS_APP] ============================
+```
+
+#### 日志分析技巧
+
+1. **过滤特定模块日志**
+   ```
+   # 只看轨迹补偿相关日志
+   grep "TRACK_COMP" trace_*.txt
+
+   # 只看数据发送相关日志
+   grep "发送给服务器" trace_*.txt
+   ```
+
+2. **定位问题流程**
+   - 查看工作模式切换：`进入.*模式`
+   - 查看定位状态变化：`定位成功` / `定位丢失`
+   - 查看轨迹补偿：`轨迹补偿开始` / `轨迹补偿结束`
+   - 查看数据发送：`发送给服务器` / `开始发送数据`
+
+3. **快速验证修复效果**
+   - 启动设备后等待约1-2分钟
+   - 搜索日志中的 `发送给服务器`
+   - 对比多次发送的经纬度是否变化
+   - 如果经纬度始终相同，说明仍有问题
+
+#### 调试开关
+
+如果需要关闭某些模块的日志，修改对应文件的 `logSwitch` 变量：
+
+```lua
+-- common.lua
+local logSwitch = true  -- 改为 false 关闭日志
+
+-- trackCompensate.lua
+local logSwitch = true  -- 改为 false 关闭日志
+
+-- srvs.lua
+local logSwitch = true  -- 改为 false 关闭日志
+```
 
 ---
 

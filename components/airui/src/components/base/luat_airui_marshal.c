@@ -8,6 +8,7 @@
 #include "luat_airui_binding.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "lvgl9/src/widgets/win/lv_win.h"
 
 /**
  * 从配置表读取整数字段
@@ -133,23 +134,28 @@ lv_obj_t *airui_marshal_parent(void *L, int idx)
     lua_State *L_state = (lua_State *)L;
     lua_getfield(L_state, idx, "parent");
     
+    lv_obj_t *parent = NULL;
     if (lua_type(L_state, -1) == LUA_TUSERDATA) {
         // 从 userdata 结构体中获取 LVGL 对象指针
         // userdata 是 airui_component_ud_t 结构体，需要访问其 obj 字段
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        lv_obj_t *parent = (ud != NULL) ? ud->obj : NULL;
-        lua_pop(L_state, 1);
-        
-        // 如果 userdata 有效且包含有效的对象指针，返回该对象
-        if (parent != NULL) {
-            return parent;
-        }
-        // 如果 userdata 无效，回退到默认屏幕
-        return lv_scr_act();
+        parent = (ud != NULL) ? ud->obj : NULL;
     }
-    
     lua_pop(L_state, 1);
-    // 未指定父对象，返回当前活动屏幕
+
+    if (parent != NULL) {
+        airui_component_meta_t *parent_meta = airui_component_meta_get(parent);
+        // 如果是窗口组件，则设置到content
+        if (parent_meta != NULL && parent_meta->component_type == AIRUI_COMPONENT_WIN) {
+            lv_obj_t *content = lv_win_get_content(parent);
+            if (content != NULL) {
+                return content;
+            }
+        }
+        return parent;
+    }
+
+    // 未指定父对象或 userdata 无效，返回当前活动屏幕
     return lv_scr_act();
 }
 

@@ -15,8 +15,6 @@
 
 -- ==================== 加载功能模块 ====================
 
--- 遥测数据上报模块
-_G.mreport = require "mreport"
 
 -- 配置文件模块
 require "cfg"
@@ -57,8 +55,6 @@ _G.srvs = require "srvs"
 local auxTask = require "auxServer"
 srvs.add(auxTask)
 
--- LED指示灯任务
-require "ledTask"
 
 -- ==================== 垃圾回收 ====================
 

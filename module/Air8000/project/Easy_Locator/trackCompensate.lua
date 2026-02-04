@@ -20,7 +20,7 @@ local logSwitch = true
 -- 统一日志前缀
 local logPrefix = "[TRACK_COMP]"
 
--- 历史数据缓存（用于平滑计算）
+-- 历史数据缓存（用于平滑计算，数量越多计算越精确，一般为5个点）
 local historyBuffer = {}
 local MAX_HISTORY = 5  -- 保存最近5个定位点
 

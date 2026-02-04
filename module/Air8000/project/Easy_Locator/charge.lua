@@ -187,8 +187,8 @@ end
 
 -- ==================== 初始化 ====================
 
--- 配置充电检测GPIO（GPIO 40），双边沿中断触发
-gpio.setup(40, chargeCheck, gpio.PULLDOWN, gpio.BOTH)
+-- 配置充电检测(vbus管脚)，双边沿中断触发
+gpio.setup(vbus_number, chargeCheck, gpio.PULLDOWN, gpio.BOTH)
 chargeCheck()  -- 初始检测一次
 
 -- 电池检测任务

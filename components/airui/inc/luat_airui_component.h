@@ -306,7 +306,7 @@ int airui_switch_set_on_change(lv_obj_t *sw, int callback_ref); //设置改变�
  * Container 组件创建
  */
 lv_obj_t *airui_container_create_from_config(void *L, int idx);
-int airui_container_set_color(lv_obj_t *container, uint32_t color); //设置背景颜色
+int airui_container_set_color(lv_obj_t *container, uint32_t color, int opacity); //设置背景颜色和可选透明度（0-255）
 int airui_container_set_hidden(lv_obj_t *container, bool hidden); //设置隐藏状态
 int airui_container_open(lv_obj_t *container); //显示并置顶容器
 int airui_container_set_border_color(lv_obj_t *container, uint32_t color, int width); //设置边框颜色+宽度

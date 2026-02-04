@@ -12,6 +12,8 @@
 #include "lauxlib.h"
 #include <stdint.h>
 
+static lv_opa_t airui_container_normalize_opacity(int opacity);
+
 /**
  * 从配置表创建 Container 组件
  */
@@ -40,6 +42,7 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
     int w = airui_marshal_integer(L, idx, "w", 100);
     int h = airui_marshal_integer(L, idx, "h", 100);
     int color_value = airui_marshal_integer(L, idx, "color", -1);
+    int color_opacity = airui_marshal_integer(L, idx, "color_opacity", LV_OPA_COVER);
     int radius = airui_marshal_integer(L, idx, "radius", 0);
     int border_color_value = airui_marshal_integer(L, idx, "border_color", -1);
     int border_width = airui_marshal_integer(L, idx, "border_width", 1);
@@ -59,9 +62,7 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
 
     // 设置背景颜色或透明度
     if (color_value >= 0) {
-        lv_color_t bg_color = lv_color_hex((uint32_t)color_value);
-        lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        airui_container_set_color(container, (uint32_t)color_value, color_opacity);
     } else {
         lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, LV_PART_MAIN | LV_STATE_DEFAULT);
     }
@@ -85,16 +86,17 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
 /**
  * 设置 Container 背景颜色
  */
-int airui_container_set_color(lv_obj_t *container, uint32_t color_value)
+int airui_container_set_color(lv_obj_t *container, uint32_t color_value, int opacity)
 {
     if (container == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    // 强制设置不透明背景
+    // 设置背景颜色与透明度
     lv_color_t bg_color = lv_color_hex(color_value);
     lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(container, airui_container_normalize_opacity(opacity),
+        LV_PART_MAIN | LV_STATE_DEFAULT);
 
     return AIRUI_OK;
 }
@@ -144,4 +146,16 @@ int airui_container_open(lv_obj_t *container)
     lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(container);
     return AIRUI_OK;
+}
+
+// 透明度归一化，0-255，0为完全透明，255为完全不透明
+static lv_opa_t airui_container_normalize_opacity(int opacity)
+{
+    if (opacity < 0) {
+        return LV_OPA_COVER;
+    }
+    if (opacity > LV_OPA_COVER) {
+        return LV_OPA_COVER;
+    }
+    return (lv_opa_t)opacity;
 }

@@ -45,14 +45,16 @@ static int l_airui_container(lua_State *L) {
 }
 
 /**
- * Container:set_color(color)
- * @api container:set_color(color)
+ * Container:set_color(color[, opacity])
+ * @api container:set_color(color, opacity?)
  * @int color 背景色（0xRRGGBB）
+ * @int opacity 透明度（0-255），默认 `LV_OPA_COVER`
  */
 static int l_container_set_color(lua_State *L) {
     lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
     uint32_t color = (uint32_t)luaL_checkinteger(L, 2);
-    airui_container_set_color(container, color);
+    int opacity = luaL_optinteger(L, 3, LV_OPA_COVER);
+    airui_container_set_color(container, color, opacity);
     return 0;
 }
 

@@ -94,8 +94,7 @@ function manage.wake(tag)
     if pmFlag == true then
         logF("pm wake")
         pmFlag = false
-        -- pm.power(pm.USB, true)  -- 打开USB电源（可选）
-        pm.request(pm.IDLE)  -- 请求IDLE模式
+        pm.power(pm.WORK_MODE, 0)  -- 设置为工作模式
         sys.publish("SYS_WAKE_STATUS", true)  -- 发布唤醒状态事件
     end
 end
@@ -119,8 +118,7 @@ function manage.sleep(tag)
     logF("pm sleep", tag)
     pmFlag = true
     sys.publish("SYS_WAKE_STATUS", false)  -- 发布休眠状态事件
-    -- pm.power(pm.USB, false)  -- 关闭USB电源（可选）
-    pm.request(pm.LIGHT)  -- 请求LIGHT模式（低功耗）
+    pm.power(pm.WORK_MODE, 1)  -- 设置为长连接低功耗模式
 end
 
 -- 检查模块是否处于休眠状态

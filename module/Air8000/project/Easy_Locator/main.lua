@@ -7,7 +7,6 @@
 本项目：放学接我智能学生卡
 主程序流程：
 1. 定义项目信息（PROJECT、VERSION、PRODUCT_KEY等）
-2. 加载系统库（sys、sysplus）
 3. 开机防抖处理
 4. 关闭GPS电源（启动时关闭，后续按需打开）
 5. 加载bootup模块（加载所有功能模块）
@@ -25,13 +24,6 @@ PRODUCT_KEY = "123"             -- 产品密钥
 PRODUCT_VER = "0003"            -- 产品版本号
 
 log.info("main", PROJECT, VERSION, PRODUCT_VER)
-
--- ==================== 加载系统库 ====================
-
--- 引入必要的库文件（Lua编写）
--- 内部库（C编写）不需要require
-_G.sys = require "sys"          -- 系统库（事件驱动框架）
-_G.sysplus = require "sysplus"  -- 系统扩展库
 
 -- ==================== 开机初始化 ====================
 

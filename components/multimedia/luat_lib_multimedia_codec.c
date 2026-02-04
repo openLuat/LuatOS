@@ -647,11 +647,6 @@ GET_MP3_DATA:
 	return 1;
 }
 
-#include "opus.h"
-#include "opus_types.h"
-#include "opus_private.h"
-//#include "opus_multistream.h"
-#include "opus_defines.h"
 /**
 编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能以外只支持amr-nb编码
 @api codec.encode(coder, in_buffer, out_buffer, mode)

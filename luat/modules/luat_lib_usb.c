@@ -251,7 +251,6 @@ static int l_usb_pid(lua_State* L) {
 pm.power(pm.USB, false)
 usb.add_class(0, usb.CDC_ACM, 3)	--使用3个CDC-ACM虚拟串口功能
 usb.add_class(0, usb.HID_CM, 1)		--使用1个自定义HID功能
-usb.add_class(0, usb.HID_KB, 1)		--使用1个标准键盘功能
 pm.power(pm.USB, true)
 */
 static int l_usb_add_class(lua_State* L) {
@@ -269,7 +268,6 @@ static int l_usb_add_class(lua_State* L) {
 pm.power(pm.USB, false)
 usb.clear_all_class(0)				--清除掉之前配置的设备类
 usb.add_class(0, usb.CDC_ACM, 3)	--使用3个CDC-ACM虚拟串口功能
-usb.add_class(0, usb.HID_CM, 1)		--使用1个自定义HID功能
 usb.add_class(0, usb.HID_KB, 1)		--使用1个标准键盘功能
 pm.power(pm.USB, true)
 */
@@ -339,9 +337,9 @@ static const rotable_Reg_t reg_usb[] =
     { "AUDIO",       		ROREG_INT(LUAT_USB_CLASS_AUDIO)},
 	//@const CAMERA number 摄像头类
     { "CAMERA",        		ROREG_INT(LUAT_USB_CLASS_CAMERA)},
-	//@const HID_CM number HID设备类，自定义类型，用于透传数据
+	//@const HID_CM number HID设备类，自定义类型，用于透传数据，不能和标准键盘同时使用
     { "HID_CM",       			ROREG_INT(LUAT_USB_CLASS_HID_CUSTOMER)},
-	//@const HID_KB number HID设备类，标准键盘，常见扫码枪
+	//@const HID_KB number HID设备类，标准键盘，常见扫码枪，不能和自定义类型同时使用
     { "HID_KB",       			ROREG_INT(LUAT_USB_CLASS_HID_KEYBOARD)},
 	//@const MSC number 大容量存储类，也就是U盘，TF卡
     { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},

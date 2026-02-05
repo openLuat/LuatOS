@@ -16,7 +16,7 @@
 本文件没有对外接口，直接在main.lua中require "play_file"就可以加载运行；
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 local taskName = "task_audio"
 
 
@@ -42,7 +42,7 @@ end
 
 --  音频播放的配置
 local audio_play_param ={
-    type= 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
+    type = 0,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://wiki.luatos.com/chips/air780e/tts.html?highlight=tts
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
@@ -100,7 +100,7 @@ local function audio_task()
                 exaudio.play_start({type= 0, content = audio_path,cbfnc = play_end,priority = index_number})
                 index_number= index_number +1 
             elseif msg[2] ==  "STOP_AUDIO" then
-                exaudio.play_stop()
+                exaudio.play_stop(audio_play_param)
             end 
         end
     end

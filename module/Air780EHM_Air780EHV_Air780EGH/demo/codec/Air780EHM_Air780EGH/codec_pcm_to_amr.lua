@@ -18,7 +18,7 @@
 本文件没有对外接口，直接在main.lua中require "codec_pcm_to_amr"就可以加载运行；
 ]]
 
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 音频初始化设置参数
 local audio_setup_param = {
@@ -191,7 +191,7 @@ function demo()
     end
 
     -- 确保音频设备停止
-    exaudio.play_stop()
+    exaudio.play_stop(audio_play_param)
     log.debug("资源清理", "播放器已停止")
 
     return play_success or false

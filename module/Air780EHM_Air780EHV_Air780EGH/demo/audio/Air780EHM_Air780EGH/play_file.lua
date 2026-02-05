@@ -17,7 +17,7 @@
 本文件没有对外接口，直接在main.lua中require "play_file"就可以加载运行；
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 local taskName = "task_audio"
 
 
@@ -95,7 +95,7 @@ local function audio_task()
                 exaudio.play_start({type= 0, content = audio_path,cbfnc = play_end,priority = index_number})
                 index_number= index_number +1 
             elseif msg[2] ==  "STOP_AUDIO" then
-                exaudio.play_stop()
+                exaudio.play_stop(audio_play_param)
             end 
         end
     end

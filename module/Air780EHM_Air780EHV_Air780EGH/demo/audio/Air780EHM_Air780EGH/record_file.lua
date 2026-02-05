@@ -29,7 +29,7 @@
   录音完成后自动播放录音文件
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 硬件配置参数
 -- exaudio配置参数
@@ -69,6 +69,13 @@ function play_end_callback(event)
     end
 end
 
+local audio_play_param = {
+                type = 0,              -- 0=播放文件
+                content = recordPath,  -- 播放录音文件
+                cbfnc = play_end_callback,
+                priority = 1
+}
+
 -- 开始播放录音文件
 function start_playback()
     if io.exists(recordPath) then
@@ -77,13 +84,6 @@ function start_playback()
             log.info("播放录音文件", "大小:", file_size, "字节")
             
             is_playing = true
-            
-            local audio_play_param = {
-                type = 0,              -- 0=播放文件
-                content = recordPath,  -- 播放录音文件
-                cbfnc = play_end_callback,
-                priority = 1
-            }
             
             local play_result = exaudio.play_start(audio_play_param)
             if not play_result then
@@ -104,7 +104,7 @@ end
 function stop_playback()
     if is_playing then
         log.info("停止播放")
-        exaudio.play_stop()
+        exaudio.play_stop(audio_play_param)
         is_playing = false
     end
 end

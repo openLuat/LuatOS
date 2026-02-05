@@ -29,7 +29,7 @@
   录音完成后自动播放录音文件
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 硬件配置参数
 local audio_setup_param = {
@@ -56,28 +56,28 @@ local RECORD_VOLUME = 60       -- 录音麦克风音量
 -- ========== 播放相关函数 ==========
 
 -- 播放完成回调函数
-function play_end_callback(event)
+local function play_end_callback(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成")
         is_playing = false
     end
 end
 
+local audio_play_param = {
+                type = 0,              -- 0=播放文件
+                content = recordPath,  -- 播放录音文件
+                cbfnc = play_end_callback,
+                priority = 1
+}
+
 -- 开始播放录音文件
-function start_playback()
+local function start_playback()
     if io.exists(recordPath) then
         local file_size = io.fileSize(recordPath)
         if file_size > 0 then
             log.info("播放录音文件", "大小:", file_size, "字节")
             
             is_playing = true
-            
-            local audio_play_param = {
-                type = 0,              -- 0=播放文件
-                content = recordPath,  -- 播放录音文件
-                cbfnc = play_end_callback,
-                priority = 1
-            }
             
             local play_result = exaudio.play_start(audio_play_param)
             if not play_result then
@@ -95,10 +95,10 @@ function start_playback()
 end
 
 -- 停止播放
-function stop_playback()
+local function stop_playback()
     if is_playing then
         log.info("停止播放")
-        exaudio.play_stop()
+        exaudio.play_stop(audio_play_param)
         is_playing = false
     end
 end
@@ -106,7 +106,7 @@ end
 -- ========== 录音相关函数 ==========
 
 -- 录音完成回调函数
-function record_end_callback(event)
+local function record_end_callback(event)
     if event == exaudio.RECORD_DONE then
         is_recording = false
         stop_record_timer()
@@ -120,7 +120,7 @@ function record_end_callback(event)
 end
 
 -- 录音计时器回调
-function record_timer_callback()
+local function record_timer_callback()
     if is_recording then
         record_seconds = record_seconds + 1
         log.info("录音中...", record_seconds, "秒")
@@ -134,13 +134,13 @@ function record_timer_callback()
 end
 
 -- 开始录音计时
-function start_record_timer()
+local function start_record_timer()
     record_seconds = 0
     record_timer = sys.timerLoopStart(record_timer_callback, 1000)
 end
 
 -- 停止录音计时
-function stop_record_timer()
+local function stop_record_timer()
     if record_timer then
         sys.timerStop(record_timer)
         record_timer = nil
@@ -149,7 +149,7 @@ function stop_record_timer()
 end
 
 -- 开始录音
-function start_recording()
+local function start_recording()
     if is_recording then
         log.info("已经在录音中")
         return false
@@ -185,7 +185,7 @@ function start_recording()
 end
 
 -- 停止录音
-function stop_recording()
+local function stop_recording()
     if is_recording then
         log.info("提前停止录音", "已录制:", record_seconds, "秒")
         exaudio.record_stop()
@@ -197,7 +197,7 @@ end
 -- ========== 按键处理函数 ==========
 
 -- POWERKEY键：开始/停止录音，停止播放
-function powerkey_handler()
+local function powerkey_handler()
     log.info("按下POWERKEY键")
     
     if is_recording then
@@ -216,7 +216,7 @@ function powerkey_handler()
 end
 
 -- BOOT键：开始/停止播放，停止录音
-function boot_key_handler()
+local function boot_key_handler()
     log.info("按下BOOT键")
     
     if is_recording then
@@ -236,7 +236,7 @@ end
 
 -- ========== 音频主任务 ==========
 
-function main_audio_task()
+local function main_audio_task()
 
     log.info("音频系统初始化")
     

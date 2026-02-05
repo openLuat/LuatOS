@@ -63,6 +63,11 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len
         exec_cmd(cmd);
         return;
     }
+    // UART指令, 也需要立即执行
+    else if (cmd->cmd >= 0x400 && cmd->cmd <= 0x410) {
+        exec_cmd(cmd);
+        return;
+    }
     #endif
     void* ptr = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, len);
     if (ptr == NULL) {

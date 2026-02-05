@@ -53,7 +53,13 @@ __AIRLINK_CODE_IN_RAM__ void luat_airlink_on_data_recv(uint8_t *data, size_t len
         luat_airlink_cmd_exec_ip_pkg(cmd, NULL);
         return;
     }
+    // GPIO指令, 需要立即执行
     else if (cmd->cmd >= 0x300 && cmd->cmd <= 0x302) {
+        exec_cmd(cmd);
+        return;
+    }
+    // FOTA指令, 也需要立即执行
+    else if (cmd->cmd >= 0x04 && cmd->cmd <= 0x07) {
         exec_cmd(cmd);
         return;
     }

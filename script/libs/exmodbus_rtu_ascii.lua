@@ -28,6 +28,9 @@ function modbus:new(config)
     obj.current_wait_request_id = nil
     -- 从站请求处理回调函数；
     obj.slaveHandler = nil
+    -- 字符拼接超时定时器；
+    -- 在数据拼接过程中，等待后续数据片段到达的最大时间间隔；
+    obj.concat_timeout = nil
 
     -- 设置原表；
     setmetatable(obj, modbus)
@@ -304,7 +307,7 @@ local function init_uart(instance)
                     -- 发布后，清除等待主题；
                     instance.current_wait_request_id = nil
                 end
-                -- 处理 RTU 从站模式下的接收数据；
+            -- 处理 RTU 从站模式下的接收数据；
             elseif instance.mode == exmodbus_ref.RTU_SLAVE then
                 -- 解析 RTU 请求帧；
                 local request = parse_rtu_request(read_buf)
@@ -348,11 +351,15 @@ local function init_uart(instance)
             data = uart.read(uart_id, data_len)
 
             if not data or #data == 0 then
-                -- 启动50毫秒的定时器，如果50毫秒内没收到新的数据，则处理当前收到的所有数据
-                -- 这样处理是为了防止将一大包数据拆分成多个小包来处理
-                -- 例如pc端串口工具下发1100字节的数据，可能会产生将近20次的中断进入到read函数，才能读取完整
-                -- 此处的50毫秒可以根据自己项目的需求做适当修改，在满足整包拼接完整的前提下，时间越短，处理越及时
-                sys.timerStart(concat_timeout_func, 50)
+                if instance.concat_timeout then
+                    -- 启动50毫秒的定时器，如果50毫秒内没收到新的数据，则处理当前收到的所有数据
+                    -- 这样处理是为了防止将一大包数据拆分成多个小包来处理
+                    -- 例如pc端串口工具下发1100字节的数据，可能会产生将近20次的中断进入到read函数，才能读取完整
+                    -- 此处的50毫秒可以根据自己项目的需求做适当修改，在满足整包拼接完整的前提下，时间越短，处理越及时
+                    sys.timerStart(concat_timeout_func, instance.concat_timeout)
+                else
+                    concat_timeout_func()
+                end
                 return
             end
 

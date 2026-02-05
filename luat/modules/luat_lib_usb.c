@@ -300,6 +300,21 @@ static int l_usb_get_free_ep_num(lua_State* L) {
     return 1;
 }
 
+/*
+配置调试信息输出开关
+@api usb.debug(id, on_off)
+@int usb总线id,默认0,如果芯片只有1条USB线,填0
+@boolean true开 false关
+@return
+@usage
+usb.debug(0,true)	--开启调试信息输出
+usb.debug(0,false)	--关闭调试信息输出
+*/
+static int l_usb_set_debug(lua_State* L) {
+	luat_usb_debug(luaL_optinteger(L, 1, 0), lua_toboolean(L, 2));
+    return 0;
+}
+
 static const rotable_Reg_t reg_usb[] =
 {
 	{ "tx",					ROREG_FUNC(l_usb_tx)},
@@ -311,6 +326,7 @@ static const rotable_Reg_t reg_usb[] =
 	{ "pid",         		ROREG_FUNC(l_usb_pid)},
 	{ "clear_all_class" ,   ROREG_FUNC(l_usb_clear_all_class)},
 	{ "get_free_ep_num" ,   ROREG_FUNC(l_usb_get_free_ep_num)},
+	{ "debug",         		ROREG_FUNC(l_usb_set_debug)},
 	//@const HOST number USB主机模式
     { "HOST",        		ROREG_INT(LUAT_USB_MODE_HOST)},
 	//@const DEVICE number USB从机模式

@@ -351,7 +351,7 @@ local function init_uart(instance)
             data = uart.read(uart_id, data_len)
 
             if not data or #data == 0 then
-                if instance.concat_timeout then
+                if instance.concat_timeout and type(instance.concat_timeout) == "number" then
                     -- 启动50毫秒的定时器，如果50毫秒内没收到新的数据，则处理当前收到的所有数据
                     -- 这样处理是为了防止将一大包数据拆分成多个小包来处理
                     -- 例如pc端串口工具下发1100字节的数据，可能会产生将近20次的中断进入到read函数，才能读取完整

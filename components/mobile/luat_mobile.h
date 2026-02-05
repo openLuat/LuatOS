@@ -1019,5 +1019,7 @@ int luat_mobile_find_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc, apn_info_t *apn)
  * @return
  */
 void luat_mobile_print_apn_by_mcc_mnc(uint16_t mcc, uint16_t mnc);
+
+int luat_mobile_is_ip_ready();
 /** @}*/
 #endif

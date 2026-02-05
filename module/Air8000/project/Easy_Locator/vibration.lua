@@ -110,23 +110,23 @@ end
 静止/运动状态检测逻辑
 ]]
 local function motionCheck()
-    -- 保留最近20次的振动时间用于运动检测
-    if #motionHistory >= 20 then
+    -- 保留最近30次的振动时间用于运动检测（扩大缓存）
+    if #motionHistory >= 30 then
         table.remove(motionHistory, 1)
     end
     table.insert(motionHistory, tickCount)
 
     local vibrationCount = 0
-    -- 统计最近8秒内的振动次数
+    -- 统计最近20秒内的振动次数（从10秒改为20秒，更宽松）
     for i = #motionHistory, 1, -1 do
-        if tickCount - motionHistory[i] <= 8 then
+        if tickCount - motionHistory[i] <= 20 then
             vibrationCount = vibrationCount + 1
         else
             break
         end
     end
 
-    logF("vibration", "8秒内振动次数", vibrationCount, "当前状态", isRun)
+    logF("vibration", "20秒内振动次数", vibrationCount, "当前状态", isRun)
 
     -- 静止 -> 运动 判断
     if not isRun then
@@ -148,10 +148,11 @@ local function motionCheck()
         end
     else
         -- 运动 -> 静止 判断
-        -- 如果8秒内振动次数小于3次，则认为回到静止
-        if vibrationCount < 3 then
+        -- 修改：只有20秒内完全没有振动，才认为回到静止
+        -- 避免正常行走时因振动间隔稍长被误判为静止
+        if vibrationCount == 0 then
             isRun = false
-            logF("vibration", "回到静止状态")
+            logF("vibration", "回到静止状态", "20秒内无振动")
             -- 不发布事件,让common.lua通过manage.isRun()检测状态变化
         end
     end
@@ -166,28 +167,30 @@ local function motionCheck()
         -- 检查最后几次振动的时间间隔，判断何时进入静止
         local lastVibIndex = #motionHistory
         local lastVibTime = motionHistory[lastVibIndex]
-        local timeToStatic = (8 - (tickCount - lastVibTime)) * 1000
+        if lastVibTime then
+            local timeToStatic = (20 - (tickCount - lastVibTime)) * 1000
 
-        if timeToStatic > 0 and timeToStatic <= 8000 then
-            logF("vibration", "设置静止检测定时器", timeToStatic, "ms")
-            staticCheckTimer = sys.timerStart(function()
-                -- 重新检查8秒内的振动次数
-                local finalCheckCount = 0
-                for i = #motionHistory, 1, -1 do
-                    if tickCount - motionHistory[i] <= 8 then
-                        finalCheckCount = finalCheckCount + 1
-                    else
-                        break
+            if timeToStatic > 0 and timeToStatic <= 20000 then
+                logF("vibration", "设置静止检测定时器", timeToStatic, "ms")
+                staticCheckTimer = sys.timerStart(function()
+                    -- 重新检查20秒内的振动次数
+                    local finalCheckCount = 0
+                    for i = #motionHistory, 1, -1 do
+                        if tickCount - motionHistory[i] <= 20 then
+                            finalCheckCount = finalCheckCount + 1
+                        else
+                            break
+                        end
                     end
-                end
 
-                if finalCheckCount < 3 then
-                    isRun = false
-                    logF("vibration", "定时器回调，回到静止状态")
-                    -- 不发布事件,让common.lua通过manage.isRun()检测状态变化
-                end
-                staticCheckTimer = nil
-            end, timeToStatic)
+                    if finalCheckCount == 0 then
+                        isRun = false
+                        logF("vibration", "定时器回调，回到静止状态")
+                        -- 不发布事件,让common.lua通过manage.isRun()检测状态变化
+                    end
+                    staticCheckTimer = nil
+                end, timeToStatic)
+            end
         end
     end
 end

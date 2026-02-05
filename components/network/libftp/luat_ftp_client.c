@@ -567,7 +567,8 @@ static void ftp_task(void *param){
 			if (g_s_ftp.network->upload_done_size != g_s_ftp.network->local_file_size)
 			{
 				LLOGE("upload not finish !!! %d,%d", g_s_ftp.network->upload_done_size, g_s_ftp.network->local_file_size);
-			}
+                ret = -1;
+            }
 			if (ret){
 				goto operation_failed;
 			}else{

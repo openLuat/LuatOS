@@ -359,7 +359,7 @@ local function auxServerTask(d1Name)
         if nowStatus == "WAIT_NET_READY" then
             responseQueue = {}
             lastRxData = ""
-            sysplus.cleanMsg(d1Name)
+            sys.cleanMsg(d1Name)
             connectOKFlag = false
             if not firstWaitNetReady then
                 retryTimes = retryTimes + 1
@@ -600,12 +600,12 @@ end
 
 --[[
 启动测试服务器任务
-使用sysplus.taskInitEx创建任务，绑定网络回调
+使用sys.taskInitEx创建任务，绑定网络回调
 
 说明：
 - taskName: 任务名称，用于消息传递
 - netCB: 网络回调函数，处理未识别的网络消息
 ]]
-sysplus.taskInitEx(auxServerTask, taskName, netCB, taskName)
+sys.taskInitEx(auxServerTask, taskName, netCB, taskName)
 
 return auxServer

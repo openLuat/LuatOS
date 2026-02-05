@@ -166,13 +166,14 @@ static int l_codec_create(lua_State *L) {
             // 		return 1;
             // 	}
             // 	break;
-        	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+        	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
                 int ret  = luat_opus_decoder_create(coder);
             	if (ret) {
             		lua_pushnil(L);
             		return 1;
             	}
             	break;
+            }
 #endif
         	}
     	}
@@ -224,13 +225,14 @@ static int l_codec_create(lua_State *L) {
             //         return 1;
             //     }
             //     break;
-            case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+            case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
                 int ret = luat_opus_encoder_create(coder);
                 if (ret) {
                     lua_pushnil(L);
                     return 1;
                 }
                 break;
+            }
 #endif
         	default:
         		lua_pushnil(L);
@@ -613,7 +615,7 @@ GET_MP3_DATA:
 			break;
 #endif
 #ifdef LUAT_SUPPORT_OPUS
-        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
+        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
             uint8_t len_bytes[2];
             size_t read_len = luat_fs_fread(len_bytes, 1, 2, coder->fd);
 
@@ -637,6 +639,7 @@ GET_MP3_DATA:
                 result = 1;
             }
             break;
+        }
 #endif
 		default:
 			break;
@@ -647,11 +650,6 @@ GET_MP3_DATA:
 	return 1;
 }
 
-#include "opus.h"
-#include "opus_types.h"
-#include "opus_private.h"
-//#include "opus_multistream.h"
-#include "opus_defines.h"
 /**
 编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能以外只支持amr-nb编码
 @api codec.encode(coder, in_buffer, out_buffer, mode)

@@ -50,9 +50,9 @@ end
 
 -- 电源按键中断回调函数
 -- 长按3秒触发关机，松开取消
--- @usage gpio.setup(46, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
+-- @usage gpio.setup(gpio.PWR_KEY, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
 local function pwrkeyCb()
-    if gpio.get(46) == 1 then
+    if gpio.get(gpio.PWR_KEY) == 1 then
         -- 按键松开：取消关机定时器
         if sys.timerIsActive(manage.powerOff) then
             sys.timerStop(manage.powerOff)
@@ -94,8 +94,7 @@ function manage.wake(tag)
     if pmFlag == true then
         logF("pm wake")
         pmFlag = false
-        -- pm.power(pm.USB, true)  -- 打开USB电源（可选）
-        pm.request(pm.IDLE)  -- 请求IDLE模式
+        pm.power(pm.WORK_MODE, 0)  -- 设置为工作模式
         sys.publish("SYS_WAKE_STATUS", true)  -- 发布唤醒状态事件
     end
 end
@@ -119,8 +118,7 @@ function manage.sleep(tag)
     logF("pm sleep", tag)
     pmFlag = true
     sys.publish("SYS_WAKE_STATUS", false)  -- 发布休眠状态事件
-    -- pm.power(pm.USB, false)  -- 关闭USB电源（可选）
-    pm.request(pm.LIGHT)  -- 请求LIGHT模式（低功耗）
+    pm.power(pm.WORK_MODE, 1)  -- 设置为长连接低功耗模式
 end
 
 -- 检查模块是否处于休眠状态
@@ -129,9 +127,9 @@ function manage.isSleep()
     return pmFlag
 end
 
--- 配置电源按键GPIO（GPIO 46），双边沿中断触发
--- @usage gpio.setup(46, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
-gpio.setup(46, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
+-- 配置电源按键GPIO（gpio.PWR_KEY），双边沿中断触发
+-- @usage gpio.setup(gpio.PWR_KEY, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
+gpio.setup(gpio.PWR_KEY, pwrkeyCb, gpio.PULLUP, gpio.BOTH)
 
 -- 关机事件处理
 -- 订阅SYS_SHUTDOWN事件，执行关机流程

@@ -36,6 +36,9 @@ local function ui_main()
         y = 20,
     })
 
+    -- 当前版本子组件还需再添加进win组件，后续版本可能添加为父级即可
+    win1:add_content(label1)
+
     -- 主循环
     while true do
         airui.refresh()

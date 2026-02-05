@@ -580,4 +580,53 @@ function pack_tests.test_pack_sensor_data()
     log.info("pack", string.format("传感器数据: 温度=%.1f℃, 湿度=%.1f%%, 气压=%.2fhPa", temp, humi, pres))
 end
 
+-- 对c参数的打包测试, -128到127范围内的值
+function pack_tests.test_pack_unpack_c_param()
+    log.info("pack_tests", "开始 c参数打包解包测试")
+    for val = -128, 127 do
+        local data = pack.pack("c", val)
+        assert(data ~= nil, string.format("c参数打包失败, 值=%d", val))
+        assert(#data == 1, "c参数应该占1字节")
+        
+        local pos, result = pack.unpack(data, "c")
+        assert(result ~= nil, string.format("c参数解包失败, 值=%d", val))
+        assert(result == val, string.format("c参数解包值错误: 预期 %d, 实际 %d", val, result))
+    end
+    log.info("pack_tests", "c参数打包解包测试成功")
+end
+
+
+-- 对c参数的打包测试, -128到127范围内的值, 且2个cc值一起打包和解包
+function pack_tests.test_pack_unpack_c_param_multiple()
+    log.info("pack_tests", "开始 多个c参数打包解包测试")
+    for val1 = -128, 127 do
+        for val2 = -128, 127 do
+            local data = pack.pack("cc", val1, val2)
+            assert(data ~= nil, string.format("多个c参数打包失败, 值=%d,%d", val1, val2))
+            assert(#data == 2, "2个c参数应该占2字节")
+                
+            local pos, r1, r2 = pack.unpack(data, "cc")
+            assert(r1 == val1, string.format("第1个c参数解包值错误: 预期 %d, 实际 %d", val1, r1))
+            assert(r2 == val2, string.format("第2个c参数解包值错误: 预期 %d, 实际 %d", val2, r2))
+        end
+    end
+    log.info("pack_tests", "多个c参数打包解包测试成功")
+end
+
+-- 对h参数的打包测试, 选取多个边界值进行测试
+function pack_tests.test_pack_unpack_h_param_boundary()
+    log.info("pack_tests", "开始 h参数边界值打包解包测试")
+    local test_values = {-32768, -16384, -1, 0, 1, 16383, 32767}
+    for _, val in ipairs(test_values) do
+        local data = pack.pack(">h", val)
+        assert(data ~= nil, string.format("h参数打包失败, 值=%d", val))
+        assert(#data == 2, "h参数应该占2字节")
+        
+        local pos, result = pack.unpack(data, ">h")
+        assert(result ~= nil, string.format("h参数解包失败, 值=%d", val))
+        assert(result == val, string.format("h参数解包值错误: 预期 %d, 实际 %d", val, result))
+    end
+    log.info("pack_tests", "h参数边界值打包解包测试成功")
+end
+
 return pack_tests

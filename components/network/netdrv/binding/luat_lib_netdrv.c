@@ -46,6 +46,19 @@ netdrv.dhcp(socket.LWIP_ETH, true)
 -- 支持CH390H的中断模式, 能提供响应速度, 但是需要外接中断引脚
 -- 实测对总网速没有帮助, 轻负载时能降低功耗, 让模组能进入低功耗模式
 netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8,irq=20})
+
+-- 初始化 OpenVPN 虚拟网卡 (需要通过其他网卡提供网络连接)
+-- 支持 TLS 证书认证和静态密钥认证两种模式
+local ok = netdrv.setup(socket.LWIP_USER0, netdrv.OPENVPN, {
+    ovpn_remote_ip = "vpn.example.com",          -- VPN 服务器地址
+    ovpn_remote_port = 1194,                     -- VPN 服务器端口 (默认 1194)
+    ovpn_ca_cert = ca_cert_pem_string,           -- CA 证书 (PEM 格式, 可选)
+    ovpn_client_cert = client_cert_pem_string,   -- 客户端证书 (PEM 格式, 可选)
+    ovpn_client_key = client_key_pem_string,     -- 客户端私钥 (PEM 格式, 可选)
+    ovpn_static_key = static_key_binary,         -- 静态密钥 (可选, 64 字节以内)
+})
+-- 完整示例见 openvpn/example_netdrv.lua
+-- 详细说明见 openvpn/usage.md 和 openvpn/PARAMETER_HANDLING.md
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
@@ -264,6 +277,14 @@ static int l_netdrv_ipv4(lua_State *L) {
         LLOGW("对应的netdrv不存在或未就绪 %d %p", id, netdrv);
         return 0;
     }
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushliteral(L, "");
+        lua_pushliteral(L, "");
+        lua_pushliteral(L, "");
+        return 3;
+    }
+    #endif
     if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {
         luat_netdrv_dhcp(id, 0); // 自动关闭DHCP
         tmp = luaL_checkstring(L, 2);
@@ -353,6 +374,12 @@ static int l_netdrv_link(lua_State *L) {
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;
     }
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    #endif
     lua_pushboolean(L, netif_is_link_up(netdrv->netif));
     return 1;
 }
@@ -364,17 +391,28 @@ static int l_netdrv_link(lua_State *L) {
 @return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
 @usage
 -- 注意, 本函数仅支持读取, 即判断是否能通信, 不代表IP状态
+-- 当id传-1时, 会返回一个位掩码, 每一位代表一个网卡的ready状态
+-- 例如有4个网卡, 那么返回值0b00001101就代表0号,2号网卡ready,1号,3号网卡不ready
+local ready, netstat = netdrv.ready(-1)
+log.info("netdrv", ready, "netstat", string.format("0x%X", netstat))
 */
 static int l_netdrv_ready(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
+    int ret = 0;
     if (id < 0) {
-        return 0; // 非法id
+        ret = luat_netdrv_simple_stat();
+        lua_pushboolean(L, ret > 0);
+        lua_pushinteger(L, ret);
+        return 2;
     }
-    luat_netdrv_t* netdrv = luat_netdrv_get(id);
-    if (netdrv == NULL || netdrv->netif == NULL) {
-        return 0;
+    ret = luat_netdrv_is_ready(id);
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushboolean(L, 0);
+        return 1;
     }
-    lua_pushboolean(L, netif_is_link_up(netdrv->netif) && !ip_addr_isany(&netdrv->netif->ip_addr));
+    #endif
+    lua_pushboolean(L, ret);
     return 1;
 }
 

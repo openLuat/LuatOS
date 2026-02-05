@@ -118,7 +118,7 @@ int airui_switch_set_state(lv_obj_t *sw, bool checked)
         lv_obj_clear_state(sw, LV_STATE_CHECKED);
     }
 
-    lv_event_send(sw, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_send_event(sw, LV_EVENT_VALUE_CHANGED, NULL);
     return AIRUI_OK;
 }
 

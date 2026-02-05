@@ -22,6 +22,7 @@
 
 static airui_label_data_t *airui_label_get_data(lv_obj_t *label);
 static void airui_label_draw_prepare_cb(lv_event_t *e);
+static void airui_label_draw_cleanup_cb(lv_event_t *e);
 static airui_label_data_t *airui_label_alloc_data(uint16_t size);
 
 /**
@@ -108,6 +109,7 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
     meta->user_data = data;
     // 添加绘制准备回调，保证每个label的字号都使用自己的字号
     lv_obj_add_event_cb(label, airui_label_draw_prepare_cb, LV_EVENT_DRAW_MAIN_BEGIN, NULL);
+    lv_obj_add_event_cb(label, airui_label_draw_cleanup_cb, LV_EVENT_DRAW_MAIN_END, NULL);
     // 设置label字号
     if (font_size > 0) {
         airui_label_set_font_size(label, font_size);
@@ -227,4 +229,11 @@ static void airui_label_draw_prepare_cb(lv_event_t *e)
     }
     // 设置字体共享对象渲染字号
     airui_font_hzfont_set_render_size(data->hzfont_size);
+}
+
+// 渲染完成后恢复共享字号，避免影响其他组件
+static void airui_label_draw_cleanup_cb(lv_event_t *e)
+{
+    (void)e;
+    airui_font_hzfont_set_render_size(0);
 }

@@ -2,6 +2,8 @@
 PROJECT = "fastlztest"
 VERSION = "1.0.0"
 
+-- Air780epm没有fastlz库，注释掉该型号
+
 -- 修改者的名称, 方便日后维护
 AUTHOR = {"chao", "wendal"}
 -- 

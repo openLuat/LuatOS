@@ -105,22 +105,27 @@ void airui_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, airui_keyboard_d
  */
 static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
 {
-    if (mode == NULL) {
+    if (mode == NULL || strcmp(mode, "text") == 0) {
+        LLOGI("键盘设置为默认小写文本模式: \"text\"");
         return LV_KEYBOARD_MODE_TEXT_LOWER;
     }
 
     if (strcmp(mode, "upper") == 0) {
+        LLOGI("键盘模式设置为大写文本模式: \"upper\"");
         return LV_KEYBOARD_MODE_TEXT_UPPER;
     }
 
     if (strcmp(mode, "special") == 0) {
+        LLOGI("键盘模式设置为特殊字符模式: \"special\"");
         return LV_KEYBOARD_MODE_SPECIAL;
     }
 
     if (strcmp(mode, "numeric") == 0) {
+        LLOGI("键盘模式设置为数字模式: \"numeric\"");
         return LV_KEYBOARD_MODE_NUMBER;
     }
 
+    LLOGI("mode 参数\"%s\"无效, 键盘模式设置为小写文本模式: \"text\"", mode);
     return LV_KEYBOARD_MODE_TEXT_LOWER;
 }
 

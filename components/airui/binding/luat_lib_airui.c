@@ -291,8 +291,10 @@ static int l_airui_refresh(lua_State *L) {
     }
     
     // 执行 LVGL 定时器处理（处理重绘、动画、事件等）
-    lv_timer_handler();
-    
+    // lv_timer_handler();
+    int version = AIRUI_VERSION;
+    LLOGW("airui refresh 接口在版本 %s 已废弃，改为自动刷新", version);
+
     return 0;
 }
 

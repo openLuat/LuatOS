@@ -11,6 +11,10 @@
 #include <string.h>
 #include <assert.h>
 #include "luat_conf_bsp.h"
+#include "luat_airui_conf.h"
+
+#include "luat_msgbus.h"
+#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
@@ -18,6 +22,11 @@
 // LVGL Tick 定时器句柄（全局静态变量，用于在 deinit 中清理）
 static luat_rtos_timer_t g_lv_tick_timer = NULL;
 static bool g_lv_log_cb_registered = false;
+
+// 自动刷新定时器句柄
+static luat_rtos_timer_t g_lv_refresh_timer = NULL;
+static int airui_refresh_msg_handler(void *ptr);
+static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM);
 
 /* 将 LVGL 日志映射到 LuatOS 日志 */
 static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
@@ -91,6 +100,25 @@ static void airui_lv_tick_timer_handler(void *param)
     
     // 直接更新 LVGL tick
     lv_tick_inc(5);  // 5ms tick
+}
+
+// 信息接受后激活 LVGL 定时器处理函数
+static int airui_refresh_msg_handler(void *ptr) {
+    (void)ptr;
+    lv_timer_handler();
+    return 0;
+}
+
+// 自动刷新定时器回调发送信息激活 LVGL 定时器处理函数
+static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
+    (void)param;
+    rtos_msg_t msg = {
+        .handler = airui_refresh_msg_handler,
+        .ptr = NULL,
+        .arg1 = 0,
+        .arg2 = 0
+    };
+    luat_msgbus_put(&msg, 0);
 }
 
 /**
@@ -259,6 +287,24 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         return AIRUI_ERR_INIT_FAILED;
     }
     
+    // 创建自动刷新定时器
+    int ret_refresh = luat_rtos_timer_create(&g_lv_refresh_timer);
+    if (ret_refresh != 0) {
+        LLOGE("airui_init failed: create lv refresh timer failed, ret=%d", ret_refresh);
+        airui_deinit(ctx);
+        return AIRUI_ERR_INIT_FAILED;
+    }
+
+    // 启动自动刷新定时器，周期为 AIRUI_REFRESH_PERIOD_MS，当前为20ms
+    ret_refresh = luat_rtos_timer_start(g_lv_refresh_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, NULL);
+    if (ret_refresh != 0) {
+        LLOGE("airui_init failed: start lv refresh timer failed, ret=%d", ret_refresh);
+        luat_rtos_timer_delete(g_lv_refresh_timer);
+        g_lv_refresh_timer = NULL;
+        airui_deinit(ctx);
+        return AIRUI_ERR_INIT_FAILED;
+    }
+
     LLOGD("airui_init success: %dx%d, color_format=%d", width, height, color_format);
     
     return AIRUI_OK;
@@ -280,6 +326,14 @@ void airui_deinit(airui_ctx_t *ctx)
         luat_rtos_timer_delete(g_lv_tick_timer);
         g_lv_tick_timer = NULL;
         LLOGD("lv tick timer stopped");
+    }
+
+    // 删除自动刷新定时器
+    if (g_lv_refresh_timer != NULL) {
+        luat_rtos_timer_stop(g_lv_refresh_timer);
+        luat_rtos_timer_delete(g_lv_refresh_timer);
+        g_lv_refresh_timer = NULL;
+        LLOGD("lv refresh timer stopped");
     }
     
     // 清理平台驱动

@@ -132,16 +132,16 @@ while 1 do
 end
 */
 static int l_i2s_send(lua_State *L) {
-    char* buff;
+    uint8_t* buff;
     size_t len;
     int id = luaL_checkinteger(L, 1);
     if (lua_isuserdata(L, 2)) {
         luat_zbuff_t* zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        buff = (char*)zbuff->addr;
+        buff = (uint8_t*)zbuff->addr;
         len = zbuff->cursor;
     }
     else {
-        buff = (char*)luaL_checklstring(L, 2, &len);
+        buff = (uint8_t*)luaL_checklstring(L, 2, &len);
     }
     if (lua_type(L, 3) == LUA_TNUMBER) {
         len = luaL_checkinteger(L, 3);

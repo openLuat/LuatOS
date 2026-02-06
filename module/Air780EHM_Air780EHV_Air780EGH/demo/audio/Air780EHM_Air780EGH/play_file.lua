@@ -25,6 +25,10 @@ local taskName = "task_audio"
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 1,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
+    
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    
     pa_ctrl = 26,         -- 音频放大器电源控制管脚
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }

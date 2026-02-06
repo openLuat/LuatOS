@@ -37,6 +37,10 @@ local audio_setup_param = {
     i2c_id = 0,                -- I2C接口编号
     pa_ctrl = 162,             -- 音频放大器控制引脚
     dac_ctrl = 164,            -- 音频编解码芯片控制引脚
+    
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    
     bits_per_sample = 16       -- 录音位深
 }
 

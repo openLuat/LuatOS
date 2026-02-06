@@ -50,7 +50,10 @@ local audio_setup_param = {
     i2c_id = 0,               -- i2c_id: 0,1
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
-    dac_delay = 3,            -- DAC启动前冗余时间(100ms)
+        
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    
     pa_delay = 10,           -- DAC启动后延迟打开PA的时间(ms)
     dac_time_delay = 600,      -- 播放完毕后PA与DAC关闭间隔(ms)
     bits_per_sample = 16,     -- 采样位数

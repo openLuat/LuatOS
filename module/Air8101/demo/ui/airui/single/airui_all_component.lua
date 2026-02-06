@@ -13,15 +13,6 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 加载中文字体
-    airui.font_load({
-        type = "hzfont",
-        path = nil,
-        size = 16,
-        cache_size = 2048,
-        antialias = 1,
-    })
-
     -- 创建主容器
     local main_container = airui.container({
         x = 0,
@@ -144,9 +135,9 @@ local function ui_main()
                 timeout = 2000,
                 on_action = function(self, label)
                     log.info("msgbox", "点击了: " .. label)
+                    self:hide()
                 end
             })
-            msgbox:show()
         end
     })
 
@@ -202,7 +193,6 @@ local function ui_main()
             else
                 log.info("当前状态: 关")
             end
- 
         end
     })
 

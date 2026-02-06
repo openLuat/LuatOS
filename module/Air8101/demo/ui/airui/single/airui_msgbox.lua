@@ -13,15 +13,6 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 加载中文字体
-    airui.font_load({
-        type = "hzfont",
-        path = "/MiSans_gb2312.ttf",
-        size = 16,
-        cache_size = 2048,
-        antialias = 1,
-    })
-
     -- 创建消息框
     local box = airui.msgbox({
         title = "通知",

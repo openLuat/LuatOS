@@ -95,3 +95,7 @@ hw_font_drv.init({
 ```
 
 ---
+
+## 四、扩展使用
+
+更详细的参数说明可以参考 [hzfont核心库](https://docs.openluat.com/osapi/core/hzfont/)

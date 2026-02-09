@@ -47,10 +47,10 @@
     // 默认字体设置
     #define LV_FONT_FMT_TXT_LARGE 1
     #define LV_USE_FONT_COMPRESSED 1
-    #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_20) LV_FONT_DECLARE(lv_font_misans_14) LV_FONT_DECLARE(lv_font_misans_16)
+    #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_14) LV_FONT_DECLARE(lv_font_misans_16) LV_FONT_DECLARE(lv_font_misans_20)
     
     // #define LV_FONT_DEFAULT &lv_font_misans_20
-    #define LV_FONT_DEFAULT &lv_font_misans_16
+    #define LV_FONT_DEFAULT &lv_font_misans_20
 
     // 打开XML支持
     #define LV_USE_XML 1

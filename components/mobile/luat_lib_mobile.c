@@ -648,7 +648,7 @@ static int l_mobile_flymode(lua_State* L) {
     if (lua_isboolean(L, 2)) {
         luat_mobile_set_flymode(index, lua_toboolean(L, 2));
     }
-    lua_pushboolean(L, flymode == 0 ? 0 : 1);
+    lua_pushboolean(L, flymode == 1 ? 0 : 1);
     return 1;
 }
 

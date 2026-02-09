@@ -635,7 +635,7 @@ function exftp:upload(local_path, remote_path, opts)
         end
 
         -- 等待当前发送完成
-        local ret = sys.waitUntil(self.data_topic, 300)
+        local ret = sys.waitUntil(self.data_topic, 3000)
         if ret == false then
             log.warn(TAG, "等待TX_OK超时，继续发送")
         end

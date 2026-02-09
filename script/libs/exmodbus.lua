@@ -150,6 +150,7 @@ end
     byte_order number 字节顺序
     rs485_dir_gpio number RS485 方向转换 GPIO 引脚
     rs485_dir_rx_level number RS485 接收方向电平
+    concat_timeout number 字符拼接超时时间（仅对 RTU/ASCII 模式有效），单位：毫秒
     adapter number 网卡 ID
     ip_address string 服务器 IP 地址
     port number 服务器端口号
@@ -175,6 +176,7 @@ local config = {
     byte_order = uart.LSB,      -- 字节顺序：小端序
     rs485_dir_gpio = 23,        -- RS485 方向转换 GPIO 引脚
     rs485_dir_rx_level = 0      -- RS485 接收方向电平：0 为低电平，1 为高电平
+    concat_timeout = 50         -- 字符拼接超时时间：50 毫秒
 }
 local rtu_master = exmodbus.create(config)
 

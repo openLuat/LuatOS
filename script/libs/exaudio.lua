@@ -1,10 +1,14 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.2
-@date    2026.1.6
-@author  wangshihao
+@version 1.3
+@date    2026.2.5
+@author  拓毅恒
 @updates
+    v1.3 2026.2.5
+        1. 新增exaudio.pm()函数，可以在逻辑层直接调用exaudio.pm()来修改audio休眠模式。
+        2. 重构exaudio.play_start()函数处理播放优先级逻辑，目前插入不同优先级的音频文件，会自动按照从高到底的顺序播放打断或播放。
+        3. 重构exaudio.play_stop()函数，目前可以使用本函数来停止流式播放。
     v1.2 2026.1.6
         1. 新增双声道播放支持，exaudio.setup增加一个声道的配置参数
         2. 录音时间设置成0,会一直录音是正常的,api库已说明，这里再增加log打印提示
@@ -46,7 +50,10 @@ local audio_setup_param = {
     i2c_id = 0,               -- i2c_id: 0,1
     pa_ctrl = 0,              -- 音频放大器电源控制管脚
     dac_ctrl = 0,             -- 音频编解码芯片电源控制管脚
-    dac_delay = 3,            -- DAC启动前冗余时间(100ms)
+        
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    
     pa_delay = 10,           -- DAC启动后延迟打开PA的时间(ms)
     dac_time_delay = 600,      -- 播放完毕后PA与DAC关闭间隔(ms)
     bits_per_sample = 16,     -- 采样位数
@@ -553,8 +560,44 @@ function exaudio.play_stream_write(data)
 end
 
 -- 模块接口：停止播放
-function exaudio.play_stop()
-    return audio.play(MULTIMEDIA_ID)
+function exaudio.play_stop(stopConfigs)
+    -- 强制要求传入配置表参数
+    if not stopConfigs or type(stopConfigs) ~= "table" then
+        log.error("停止播放必须传入配置表参数，格式: {type = 0|1|2}")
+        log.error("type参数说明: 0=文件播放, 1=TTS播放, 2=流式播放")
+        return false
+    end
+    
+    -- 检查播放类型参数
+    if not check_param(stopConfigs.type, "number", "type") then
+        log.error("停止播放需要指定type参数(0:文件,1:TTS,2:流式)")
+        return false
+    end
+    
+    local stop_type = stopConfigs.type
+    
+    -- 根据播放类型使用不同的停止方法
+    if stop_type == 2 then  -- 流式播放
+        -- 流式播放使用audio.stop()停止
+        local result = audio.stop(MULTIMEDIA_ID)
+        if result then
+            -- 清空流式数据队列
+            audio_stream_queue.data = {}
+            audio_stream_queue.sequenceIndex = 1
+            audio_play_queue.current_priority = 0
+            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+        end
+        return result
+    else  -- 文件播放或TTS播放
+        -- 文件播放和TTS播放使用audio.play()停止
+        local result = audio.play(MULTIMEDIA_ID)
+        if result then
+            -- 只有当停止的是当前播放类型时才清空状态
+            audio_play_queue.current_priority = 0
+            audio.pm(MULTIMEDIA_ID, audio.SHUTDOWN)
+        end
+        return result
+    end
 end
 
 -- 模块接口：检查播放是否结束

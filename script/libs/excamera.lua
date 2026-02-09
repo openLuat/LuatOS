@@ -73,12 +73,19 @@ function excamera.open(camera_param)
     if type(camera_param.id) == "string" then
         -- 判断是否需要管理供电使能
         if type(camera_param.camera_pwr) == "number" then
-            cam_pwr = gpio.setup(camera_param.camera_pwr, 1)
+            -- WiFi芯片端GPIO号都是大于等于100的
+            -- 在休眠模式之前配置GPIO电平后，若不加上/下拉，在进入休眠后会掉电
+            -- 4G芯片端GPIO号没有这个强制要求
+            if camera_param.camera_pwr >= 100 then
+                cam_pwr = gpio.setup(camera_param.camera_pwr, 1, gpio.PULLUP)
+            else
+                cam_pwr = gpio.setup(camera_param.camera_pwr, 1)
+            end
         end
         -- 判断是否需要管理摄像头pwdn开关
         if type(camera_param.camera_pwdn) == "number" then
             cam_pwdn = gpio.setup(camera_param.camera_pwdn, 0)
-             -- Air8000系列含WIFI功能的产品中需要增加这个等待，因为4G和WIFI芯片之间通讯有延迟，配置GPIO和设置I2C之间需要隔开最少5mS，否则I2C配置会报错。
+            -- Air8000系列含WIFI功能的产品中需要增加这个等待，因为4G和WIFI芯片之间通讯有延迟，配置GPIO和设置I2C之间需要隔开最少5mS，否则I2C配置会报错。
             sys.wait(10)
         end
         -- 配置I2C接口，用于与摄像头通信

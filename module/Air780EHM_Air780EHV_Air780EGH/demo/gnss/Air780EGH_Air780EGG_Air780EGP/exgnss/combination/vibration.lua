@@ -18,7 +18,8 @@
 ]]
 
 exvib=require("exvib")
--- tcp_client_main=require("tcp_client_main")
+
+tcp_client_main=require("tcp_client_main")
 
 local intPin=gpio.WAKEUP2   --中断检测脚，内部固定wakeup2
 local tid   --获取定时打开的定时器id
@@ -33,6 +34,8 @@ local function send_data()
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     local data=string.format('{"lat":%5f,"lng":%5f}', rmc.lat, rmc.lng)
     sys.publish("SEND_DATA_REQ", "gnssnormal", data) --发送数据到服务器
+    --三轴加速器的这个demo目前没有加入付费lbs功能，原因是因为一般的运动检测需要频繁定位，如果有
+    --lbs的定位需求逻辑根据normal的定位逻辑来即可
 end
 
 local function vib_cb(tag)
@@ -65,7 +68,7 @@ end
 -- --每秒运行一次计时
 tickid=sys.timerLoopStart(tick,1000)
 
-pm.power(pm.WORK_MODE, 1)--进入低功耗模式
+-- pm.power(pm.WORK_MODE, 1)--进入低功耗模式
 
 --有效震动判断
 local function ind()

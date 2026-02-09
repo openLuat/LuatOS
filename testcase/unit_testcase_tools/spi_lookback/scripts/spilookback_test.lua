@@ -13,6 +13,12 @@ local function spi_configuration()
         spitest_cs = 8
         spitest_cspin = gpio.setup(spitest_cs, 1) -- 配置CS为输出，初始高电平
 
+        log.info("SPI0", "Air780EGP SPI0正确引脚:")
+        log.info("SPI0", "  CS:    GPIO8 (管脚83)")
+        log.info("SPI0", "  MOSI:  GPIO9 (管脚85)")
+        log.info("SPI0", "  MISO:  GPIO10 (管脚84)")
+        log.info("SPI0", "  CLK:   GPIO11 (管脚86)")
+
     elseif device_name == "Air780EPM" then
 
         CHIP_TYPE = "718M"
@@ -20,11 +26,11 @@ local function spi_configuration()
         spitest_cs = 8
         spitest_cspin = gpio.setup(spitest_cs, 1)
 
-        log.info("SPI", "Air780EPM SPI0正确引脚:")
-        log.info("SPI", "  CS:    GPIO8 (管脚83)")
-        log.info("SPI", "  MOSI:  GPIO9 (管脚85)")
-        log.info("SPI", "  MISO:  GPIO10 (管脚84)")
-        log.info("SPI", "  CLK:   GPIO11 (管脚86)")
+        log.info("SPI0", "Air780EPM SPI0正确引脚:")
+        log.info("SPI0", "  CS:    GPIO8 (管脚83)")
+        log.info("SPI0", "  MOSI:  GPIO9 (管脚85)")
+        log.info("SPI0", "  MISO:  GPIO10 (管脚84)")
+        log.info("SPI0", "  CLK:   GPIO11 (管脚86)")
 
     elseif device_name == "Air8000" then
 
@@ -33,11 +39,11 @@ local function spi_configuration()
         spitest_cs = 12
         spitest_cspin = gpio.setup(spitest_cs, 1)
 
-        log.info("SPI", "Air8000 SPI1正确引脚:")
-        log.info("SPI", "  CS:    GPIO12 (管脚41)")
-        log.info("SPI", "  MOSI:  GPIO13 (管脚40)")
-        log.info("SPI", "  MISO:  GPIO14 (管脚39)")
-        log.info("SPI", "  CLK:   GPIO15 (管脚38)")
+        log.info("SPI1", "Air8000 SPI1正确引脚:")
+        log.info("SPI1", "  CS:    GPIO12 (管脚41)")
+        log.info("SPI1", "  MOSI:  GPIO13 (管脚40)")
+        log.info("SPI1", "  MISO:  GPIO14 (管脚39)")
+        log.info("SPI1", "  CLK:   GPIO15 (管脚38)")
 
     elseif device_name == "Air8101" then
         pins.setup(54, "SPI0_CS")
@@ -50,11 +56,11 @@ local function spi_configuration()
         spitest_cs = 15
         spitest_cspin = gpio.setup(spitest_cs, 1)
 
-        log.info("SPI", "Air8101 SPI0正确引脚:")
-        log.info("SPI", "  CS:    GPIO15 (管脚54)")
-        log.info("SPI", "  MOSI:  GPIO16 (管脚57)")
-        log.info("SPI", "  MISO:  GPIO17 (管脚55)")
-        log.info("SPI", "  CLK:   GPIO14 (管脚28)")
+        log.info("SPI0", "Air8101 SPI0正确引脚:")
+        log.info("SPI0", "  CS:    GPIO15 (管脚54)")
+        log.info("SPI0", "  MOSI:  GPIO16 (管脚57)")
+        log.info("SPI0", "  MISO:  GPIO17 (管脚55)")
+        log.info("SPI0", "  CLK:   GPIO14 (管脚28)")
 
     else
 

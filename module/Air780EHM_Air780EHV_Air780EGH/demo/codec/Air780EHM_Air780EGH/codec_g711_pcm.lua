@@ -19,7 +19,7 @@
 ]]
 
 -- 使用exaudio库
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 音频配置参数
 local audio_setup_param = {
@@ -128,7 +128,7 @@ local function stream_play_pcm_file(file_path, sampling_rate, sampling_depth, de
         log.debug("资源清理", "文件句柄已关闭")
     end
 
-    exaudio.play_stop()
+    exaudio.play_stop(stream_play_param)
     log.debug("资源清理", "播放器已停止")
 
     if play_success then
@@ -147,7 +147,7 @@ local function stream_play_pcm_file(file_path, sampling_rate, sampling_depth, de
         log.debug("资源清理", "文件句柄已关闭")
     end
 
-    exaudio.play_stop()
+    exaudio.play_stop(stream_play_param)
     log.debug("资源清理", "播放器已停止")
 
     return false
@@ -307,7 +307,7 @@ local function stream_play_pcm_data(pcm_data, sampling_rate, sampling_depth, des
         local play_success = wait_play_complete(15000)
 
         -- 清理资源
-        exaudio.play_stop()
+        exaudio.play_stop(stream_play_param)
         log.debug("资源清理", "播放器已停止")
 
         if play_success then
@@ -319,7 +319,7 @@ local function stream_play_pcm_data(pcm_data, sampling_rate, sampling_depth, des
         end
     else
         -- 资源清理
-        exaudio.play_stop()
+        exaudio.play_stop(stream_play_param)
         log.debug("资源清理", "播放器已停止")
         return false
     end
@@ -452,7 +452,7 @@ function demo()
     end
 
     -- 确保音频设备停止
-    exaudio.play_stop()
+    exaudio.play_stop(stream_play_param)
     log.debug("资源清理", "播放器已停止")
 end
 

@@ -11,11 +11,7 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 设置GPIO电平
--- 添加硬狗防止程序卡死
-if wdt then
-    wdt.init(9000) -- 初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
-end
+
 -- 根据不同的BSP返回不同的值
 function lcd_pin()
     return lcd.HWID_0, 36, 0xff, 0xff, 21 -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持

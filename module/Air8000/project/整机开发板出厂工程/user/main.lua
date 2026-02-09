@@ -84,10 +84,7 @@ _G.bkcolor = lcd.rgb565(99, 180, 245,false)
 fskv.init()
 local function wdtInit()
 -- 添加硬狗防止程序卡死
-  if wdt then
-    wdt.init(9000) -- 初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
-  end
+-- 不需要处理，内核固件会自动处理
 end
 
 

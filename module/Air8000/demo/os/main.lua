@@ -28,13 +28,6 @@ VERSION = "001.000.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
--- 添加硬狗防止程序卡死
-if wdt then
-    -- 初始化watchdog设置为9s
-    wdt.init(9000)
-    -- 3s喂一次狗 
-    sys.timerLoopStart(wdt.feed, 3000) 
-end
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题

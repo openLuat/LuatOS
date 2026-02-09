@@ -19,11 +19,7 @@ local isquit = false
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3300) -- 设置GPIO电平
 
 
---添加硬狗防止程序卡死
-if wdt then
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
-end
+
 
 local lcd_use_buff = false  -- 是否使用缓冲模式, 提升绘图效率，占用更大内存
 

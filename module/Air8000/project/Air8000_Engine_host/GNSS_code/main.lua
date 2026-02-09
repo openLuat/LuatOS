@@ -9,11 +9,7 @@ sys = require("sys")
 
 
 mobile.flymode(0,true)
-if wdt then
-    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
-end
+
 log.info("main", "cc0258_gnss")
 
 mcu.hardfault(0)    --死机后停机，一般用于调试状态

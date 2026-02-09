@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "uart_irq"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
 log.info("main", PROJECT, VERSION)
 

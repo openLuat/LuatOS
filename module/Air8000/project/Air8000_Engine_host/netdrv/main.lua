@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "ch390h"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
 -- 使用合宙iot平台时需要这个参数
 PRODUCT_KEY = "xxx" -- 到 iot.openluat.com 创建项目,获取正确的项目id

@@ -1,5 +1,5 @@
 PROJECT = "air_ui_test"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 PRODUCT_VER = "0001"
 log.info("main", PROJECT, VERSION)
 

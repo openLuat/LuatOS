@@ -23,7 +23,7 @@ local function rndis_task()
     local count = 0
     -- 尝试进入飞行模式，获取操作结果标志
     local fly_sign = mobile.flymode(0, true)
-    -- 判断是否成功进入飞行模式
+    -- 判断原先是否处于飞行模式
     if fly_sign then
         log.info("进入飞行模式成功,打开RNDIS模式")
         -- 调用 mobile.config 函数启用 RNDIS 功能

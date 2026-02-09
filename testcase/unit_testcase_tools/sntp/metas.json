@@ -9,5 +9,5 @@
 
     "action_count" : 1,
     "priority" : 5,
-    "description" : "rtc测试用例"
+    "description" : "sntp测试用例"
 }

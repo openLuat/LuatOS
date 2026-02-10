@@ -5,7 +5,7 @@ log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 sys = require("sys")
-sysplus = require("sysplus")
+sys = require("sys")
 
 mcu.hardfault(0) -- 死机后停机，一般用于调试状态
 -- pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)    -- 所有GPIO高电平输出3.3V

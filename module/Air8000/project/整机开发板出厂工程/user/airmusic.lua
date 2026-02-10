@@ -18,7 +18,7 @@ function airmusic.play(path)
         if result then
         --等待音频通道的回调消息，或者切换歌曲的消息
             while true do
-                msg = sysplus.waitMsg(taskName, nil)
+                msg = sys.waitMsg(taskName, nil)
                 if type(msg) == 'table' then
                     if msg[1] == MSG_PD then
                         log.info("播放结束")
@@ -51,7 +51,7 @@ function airmusic.play(path)
         log.info("mem.sys", rtos.meminfo("sys"))
     end, 3000)
 
-    sysplus.taskInitEx(audio_task, taskName)
+    sys.taskInitEx(audio_task, taskName)
 end
 
 return airmusic

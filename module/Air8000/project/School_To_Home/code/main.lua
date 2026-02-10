@@ -11,7 +11,7 @@ log.info("main", PROJECT, VERSION, PRODUCT_VER)
 -- pm.ioVol(pm.IOVOL_ALL_GPIO, 1800)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 _G.sys = require "sys"
-_G.sysplus = require "sysplus"
+_G.sys = require "sys"
 
 gpio.setup(22, 1, gpio.PULLUP)
 

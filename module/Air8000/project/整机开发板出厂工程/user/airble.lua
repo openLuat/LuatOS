@@ -155,7 +155,7 @@ function airble.run()
     log.info("airble.run")
     lcd.setFont(lcd.font_opposansm12_chinese) -- 设置中文字体
     run_state = true
-    sysplus.taskInitEx(ble_peripheral_setup,"airble")
+    sys.taskInitEx(ble_peripheral_setup,"airble")
     while true do
         sys.wait(10)
         lcd.clear(_G.bkcolor) 
@@ -183,7 +183,7 @@ function airble.tp_handal(x,y,event)
     if x > 20 and  x < 100 and y > 360  and  y < 440 then
         run_state = false
     elseif x > 130 and  x < 239 and y > 350  and  y < 393 then
-        sysplus.taskInitEx(start_notify_and_ind, "start_notify_and_ind")
+        sys.taskInitEx(start_notify_and_ind, "start_notify_and_ind")
     end
 end
 

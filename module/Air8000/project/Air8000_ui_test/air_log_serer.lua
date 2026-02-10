@@ -175,7 +175,7 @@ local function auxServerTask(d1Name)
         if nowStatus == "WAIT_NET_READY" then
             responseQueue = {}
             lastRxData = ""
-            sysplus.cleanMsg(d1Name)
+            sys.cleanMsg(d1Name)
             connectOKFlag = false
             if not firstWaitNetReady then
                 retryTimes = retryTimes + 1
@@ -482,7 +482,7 @@ local function auxServerTask(d1Name)
         end
     end
 end
-sysplus.taskInitEx(auxServerTask, taskName, netCB, taskName)
+sys.taskInitEx(auxServerTask, taskName, netCB, taskName)
 
 sys.timerLoopStart(function()
   local data = {

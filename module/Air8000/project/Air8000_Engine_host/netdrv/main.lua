@@ -7,7 +7,7 @@ PRODUCT_KEY = "xxx" -- 到 iot.openluat.com 创建项目,获取正确的项目id
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
-sysplus = require("sysplus")
+sys = require("sys")
 
 log.info("ch390", "打开LDO供电")
 

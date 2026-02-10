@@ -24,7 +24,7 @@ local function audio_play()
     if result then
     --等待音频通道的回调消息，或者切换歌曲的消息
         while true do
-            msg = sysplus.waitMsg(taskName, nil)
+            msg = sys.waitMsg(taskName, nil)
             if type(msg) == 'table' then
                 if msg[1] == MSG_PD then
                     log.info("播放结束")
@@ -50,13 +50,13 @@ local function audio_play()
     log.info("mem", "sys", rtos.meminfo("sys"))
     log.info("mem", "lua", rtos.meminfo("lua"))
     -- sys.wait(1000)
-    sysplus.taskDel(taskName)
+    sys.taskDel(taskName)
     run_state = 0
-    sysplus.sendMsg(taskName, "PALY END")
+    sys.sendMsg(taskName, "PALY END")
 end
 
 function audio_stop()
-    sysplus.sendMsg(taskName, MSG_PD)
+    sys.sendMsg(taskName, MSG_PD)
 end
 
 local function audio_task()
@@ -68,7 +68,7 @@ end
 function airtts.run()       -- TTS 播放主程序
     if run_state == 0 then
         lcd.setFont(lcd.font_opposansm12_chinese) -- 具体取值可参考api文档的常量表
-        sysplus.taskInitEx(audio_task, taskName)
+        sys.taskInitEx(audio_task, taskName)
         run_state = 1
     end
     lcd.drawStr(0,80,play_string)

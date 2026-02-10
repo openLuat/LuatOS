@@ -78,7 +78,7 @@ function airsms.tp_handal(x,y,event)          -- 此处处理UI 的发送短信�
     if x > 20 and  x < 100 and y > 360  and  y < 440 then   -- 返回主界面
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
-        sysplus.taskInitEx(start_send_sms, "start_send_sms")
+        sys.taskInitEx(start_send_sms, "start_send_sms")
     end
 end
 

@@ -44,7 +44,7 @@ local function send_data_req_proc_func(data, cb)
     table.insert(self_send_queue, {data=data, cb=cb})
     -- 通知tcp_client_main主任务有数据需要发送
     -- tcp_client_main主任务如果处在libnet.wait调用的阻塞等待状态，就会退出阻塞状态
-    sysplus.sendMsg(tcp_client_sender.TASK_NAME, socket.EVENT, 0)
+    sys.sendMsg(tcp_client_sender.TASK_NAME, socket.EVENT, 0)
 end
 
 --[[

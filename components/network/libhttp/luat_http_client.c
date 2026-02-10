@@ -644,11 +644,11 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	}
 }
 
-#ifdef __LUATOS__
+
 static void luat_http_timeout_resp_error(luat_http_ctrl_t * http_ctrl) {
     http_report_result(http_ctrl, HTTP_ERROR_TIMEOUT);
 }
-
+#ifdef __LUATOS__
 static int luat_http_timeout_network_close(lua_State *L, void* ptr) {
     luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
     if (!http_ctrl) return 0;

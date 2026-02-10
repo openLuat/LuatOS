@@ -16,7 +16,42 @@
 #define LUAT_LOG_TAG "airui.event"
 #include "luat_log.h"
 
-#define AIRUI_MSGBOX_MT "airui.msgbox"
+// 根据组件类型获取组件元类型, 用于实现组件的类型判断
+static const char *airui_component_get_mt_name(uint8_t component_type)
+{
+    switch (component_type) {
+        case AIRUI_COMPONENT_BUTTON:
+            return AIRUI_BUTTON_MT;
+        case AIRUI_COMPONENT_LABEL:
+            return AIRUI_LABEL_MT;
+        case AIRUI_COMPONENT_IMAGE:
+            return AIRUI_IMAGE_MT;
+        case AIRUI_COMPONENT_WIN:
+            return AIRUI_WIN_MT;
+        case AIRUI_COMPONENT_DROPDOWN:
+            return AIRUI_DROPDOWN_MT;
+        case AIRUI_COMPONENT_SWITCH:
+            return AIRUI_SWITCH_MT;
+        case AIRUI_COMPONENT_MSGBOX:
+            return AIRUI_MSGBOX_MT;
+        case AIRUI_COMPONENT_CONTAINER:
+            return AIRUI_CONTAINER_MT;
+        case AIRUI_COMPONENT_BAR:
+            return AIRUI_BAR_MT;
+        case AIRUI_COMPONENT_TABLE:
+            return AIRUI_TABLE_MT;
+        case AIRUI_COMPONENT_TABVIEW:
+            return AIRUI_TABVIEW_MT;
+        case AIRUI_COMPONENT_TEXTAREA:
+            return AIRUI_TEXTAREA_MT;
+        case AIRUI_COMPONENT_KEYBOARD:
+            return AIRUI_KEYBOARD_MT;
+        case AIRUI_COMPONENT_LOTTIE:
+            return AIRUI_LOTTIE_MT;
+        default:
+            return NULL;
+    }
+}
 
 /**
  * 捕获配置表中的回调函数
@@ -178,10 +213,17 @@ void airui_component_call_callback(
     // 从 registry 获取回调函数
     lua_rawgeti(L_state, LUA_REGISTRYINDEX, callback_ref);
     
+    // 判断回调函数是否存在， 实现可以self自引用回调
     if (lua_type(L_state, -1) == LUA_TFUNCTION) {
-        // 推送组件 userdata（如果有）
-        // TODO: 需要推送组件的 userdata，阶段一先简化
-        lua_pushlightuserdata(L_state, meta->obj);
+        // 获取组件元类型
+        const char *mt_name = airui_component_get_mt_name(meta->component_type);
+        if (mt_name != NULL) {
+            // 如果组件元类型不为空，则将组件元类型推入栈
+            airui_push_component_userdata(L_state, meta->obj, mt_name);
+        } else {
+            // 如果组件元类型为空，则将组件对象推入栈
+            lua_pushlightuserdata(L_state, meta->obj);
+        }
         int arg_count = 1;
         if (event_type == AIRUI_EVENT_VALUE_CHANGED &&
             meta->component_type == AIRUI_COMPONENT_DROPDOWN) {

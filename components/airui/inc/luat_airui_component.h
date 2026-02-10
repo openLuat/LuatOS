@@ -17,6 +17,22 @@ extern "C" {
  *      DEFINES
  *********************/
 
+/** 组件元类型 */
+#define AIRUI_BUTTON_MT "airui.button"
+#define AIRUI_LABEL_MT "airui.label"
+#define AIRUI_IMAGE_MT "airui.image"
+#define AIRUI_WIN_MT "airui.win"
+#define AIRUI_DROPDOWN_MT "airui.dropdown"
+#define AIRUI_SWITCH_MT "airui.switch"
+#define AIRUI_MSGBOX_MT "airui.msgbox"
+#define AIRUI_CONTAINER_MT "airui.container"
+#define AIRUI_BAR_MT "airui.bar"
+#define AIRUI_TABLE_MT "airui.table"
+#define AIRUI_TABVIEW_MT "airui.tabview"
+#define AIRUI_TEXTAREA_MT "airui.textarea"
+#define AIRUI_KEYBOARD_MT "airui.keyboard"
+#define AIRUI_LOTTIE_MT "airui.lottie"
+
 /** 组件类型 */
 typedef enum {
     AIRUI_COMPONENT_BUTTON = 1,

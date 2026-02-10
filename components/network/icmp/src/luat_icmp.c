@@ -57,7 +57,7 @@ static u8_t luat_icmp_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const
                 if (iecho->type == ICMP_ER && htons(iecho->id) == ctx->id && htons(iecho->seqno) == ctx->seqno) {
                     uint32_t elapsed = (uint32_t)(luat_mcu_tick64_ms() - ctx->send_time);
                     if (elapsed < 16 * 1000 && ctx->cb) {
-                        ctx->cb(ctx, elapsed);
+                        ctx->cb(ctx, elapsed, IPH_TTL(iphdr));
                     }
                     pbuf_free(p);
                     return 1;
@@ -75,7 +75,7 @@ static u8_t luat_icmp_recv(void *arg, struct raw_pcb *pcb, struct pbuf *p, const
             if (iecho6->type == ICMP6_TYPE_EREP && htons(iecho6->id) == ctx->id && htons(iecho6->seqno) == ctx->seqno) {
                 uint32_t elapsed = (uint32_t)(luat_mcu_tick64_ms() - ctx->send_time);
                 if (elapsed < 16 * 1000 && ctx->cb) {
-                    ctx->cb(ctx, elapsed);
+                    ctx->cb(ctx, elapsed, 0); // IPv6 does not have TTL in the same way as IPv4
                 }
                 pbuf_free(p);
                 return 1;

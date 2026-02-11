@@ -79,6 +79,7 @@ function lcd_drv.init()
             size = 20,                   -- 字体大小，默认 16
             cache_size = 1048,           -- 缓存字数大小，默认 2048
             antialias = 2,               -- 抗锯齿等级，默认 4
+            to_psram = true              -- 将.ttf文件加载到PSRAM中，默认不加载
         })
 
         -- 开启背光引脚供电

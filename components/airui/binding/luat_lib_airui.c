@@ -20,6 +20,10 @@
 #include "luat_conf_bsp.h"
 #if defined(LUAT_USE_AIRUI_LUATOS)
 #include "../src/platform/luatos/luat_airui_platform_luatos.h"
+#include "luat_gpio.h"
+#endif
+#if defined(LUAT_USE_AIRUI_SDL2)
+#include <SDL2/SDL.h>
 #endif
 #include <string.h>
 
@@ -34,6 +38,7 @@ static int l_airui_init(lua_State *L);
 static int l_airui_deinit(lua_State *L);
 static int l_airui_refresh(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
+static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
 static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
@@ -112,6 +117,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"deinit", ROREG_FUNC(l_airui_deinit)},
     {"refresh", ROREG_FUNC(l_airui_refresh)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
+    {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
     {"version", ROREG_FUNC(l_airui_version)},
@@ -334,6 +340,215 @@ static int l_airui_indev_bind_touch(lua_State *L) {
 #else
     (void)L;
     LLOGE("device_bind_touch unsupported on this platform");
+    lua_pushboolean(L, 0);
+    return 1;
+#endif
+}
+
+#if defined(LUAT_USE_AIRUI_LUATOS)
+static int airui_read_keypad_pin_field(lua_State *L, int idx, const char *key)
+{
+    int pin = -1;
+
+    lua_getfield(L, idx, key);
+    if (lua_isinteger(L, -1)) {
+        pin = (int)lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+    if (pin >= 0) {
+        return pin;
+    }
+
+    lua_getfield(L, idx, "pins");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, key);
+        if (lua_isinteger(L, -1)) {
+            pin = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    return pin;
+}
+
+static uint8_t airui_read_keypad_pull_mode(lua_State *L, int idx)
+{
+    uint8_t pull = LUAT_GPIO_PULLUP;
+    lua_getfield(L, idx, "pull");
+    if (lua_isinteger(L, -1)) {
+        pull = (uint8_t)lua_tointeger(L, -1);
+    } else if (lua_isstring(L, -1)) {
+        const char *mode = lua_tostring(L, -1);
+        if (mode != NULL) {
+            if (strcmp(mode, "default") == 0) {
+                pull = LUAT_GPIO_DEFAULT;
+            } else if (strcmp(mode, "pulldown") == 0) {
+                pull = LUAT_GPIO_PULLDOWN;
+            } else {
+                pull = LUAT_GPIO_PULLUP;
+            }
+        }
+    }
+    lua_pop(L, 1);
+    return pull;
+}
+#endif
+
+#if defined(LUAT_USE_AIRUI_SDL2)
+/**
+ * 将字符串转换为SDL_Keycode（辅助函数）
+ */
+static int sdl_string_to_keycode(const char *key_name)
+{
+    if (key_name == NULL) {
+        return 0;
+    }
+    
+    // 方向键
+    if (strcmp(key_name, "up") == 0) return SDLK_UP;
+    if (strcmp(key_name, "down") == 0) return SDLK_DOWN;
+    if (strcmp(key_name, "left") == 0) return SDLK_LEFT;
+    if (strcmp(key_name, "right") == 0) return SDLK_RIGHT;
+    
+    // 字母键
+    if (strlen(key_name) == 1 && key_name[0] >= 'a' && key_name[0] <= 'z') {
+        return SDLK_a + (key_name[0] - 'a');
+    }
+    if (strlen(key_name) == 1 && key_name[0] >= 'A' && key_name[0] <= 'Z') {
+        return SDLK_a + (key_name[0] - 'A');
+    }
+    
+    // 数字键
+    if (strlen(key_name) == 1 && key_name[0] >= '0' && key_name[0] <= '9') {
+        return SDLK_0 + (key_name[0] - '0');
+    }
+    
+    // 特殊键
+    if (strcmp(key_name, "return") == 0 || strcmp(key_name, "enter") == 0) return SDLK_RETURN;
+    if (strcmp(key_name, "space") == 0) return SDLK_SPACE;
+    if (strcmp(key_name, "escape") == 0 || strcmp(key_name, "esc") == 0) return SDLK_ESCAPE;
+    if (strcmp(key_name, "backspace") == 0) return SDLK_BACKSPACE;
+    if (strcmp(key_name, "tab") == 0) return SDLK_TAB;
+    
+    return 0;
+}
+
+/**
+ * 从Lua表读取按键配置（辅助函数）
+ */
+static int sdl_read_keypad_field(lua_State *L, int idx, const char *key, int default_val)
+{
+    int val = default_val;
+    lua_getfield(L, idx, key);
+    if (!lua_isnil(L, -1)) {
+        if (lua_isstring(L, -1)) {
+            const char *key_name = lua_tostring(L, -1);
+            val = sdl_string_to_keycode(key_name);
+        } else if (lua_isinteger(L, -1)) {
+            val = (int)lua_tointeger(L, -1);
+        }
+    }
+    lua_pop(L, 1);
+    return val;
+}
+#endif
+
+/**
+ * 绑定按键输入配置
+ * @api airui.device_bind_keypad(cfg)
+ * @table cfg 配置表
+ * @int|table cfg.up 或 cfg.pins.up
+ * @int|table cfg.down 或 cfg.pins.down
+ * @int|table cfg.left 或 cfg.pins.left
+ * @int|table cfg.right 或 cfg.pins.right
+ * @int|table cfg.ok 或 cfg.pins.ok
+ * @int|table cfg.back 或 cfg.pins.back
+ * @bool cfg.active_low 可选，默认 true
+ * @string|int cfg.pull 可选，默认 "pullup"
+ * @return bool 绑定是否成功
+ */
+static int l_airui_device_bind_keypad(lua_State *L) {
+#if defined(LUAT_USE_AIRUI_LUATOS)
+    luaL_checktype(L, 1, LUA_TTABLE);
+
+    airui_luatos_keypad_cfg_t cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.up = airui_read_keypad_pin_field(L, 1, "up");
+    cfg.down = airui_read_keypad_pin_field(L, 1, "down");
+    cfg.left = airui_read_keypad_pin_field(L, 1, "left");
+    cfg.right = airui_read_keypad_pin_field(L, 1, "right");
+    cfg.ok = airui_read_keypad_pin_field(L, 1, "ok");
+    cfg.back = airui_read_keypad_pin_field(L, 1, "back");
+    cfg.active_low = airui_marshal_bool(L, 1, "active_low", true) ? 1 : 0;
+    cfg.pull_mode = airui_read_keypad_pull_mode(L, 1);
+    cfg.enabled = 1;
+
+    airui_platform_luatos_bind_keypad(&cfg);
+
+    if (g_ctx && g_ctx->platform_data) {
+        luatos_platform_data_t *data = (luatos_platform_data_t *)g_ctx->platform_data;
+        data->keypad_cfg = cfg;
+    }
+
+    LLOGD("device_bind_keypad bind luatos up=%d down=%d left=%d right=%d ok=%d back=%d active_low=%d pull=%d",
+          cfg.up, cfg.down, cfg.left, cfg.right, cfg.ok, cfg.back, cfg.active_low, cfg.pull_mode);
+    lua_pushboolean(L, 1);
+    return 1;
+#elif defined(LUAT_USE_AIRUI_SDL2)
+    // SDL2按键配置结构
+    typedef struct {
+        int up;
+        int down;
+        int left;
+        int right;
+        int ok;
+        int back;
+    } sdl_keypad_cfg_t;
+    
+    extern void airui_platform_sdl2_bind_keypad(bool enable);
+    extern void airui_platform_sdl2_bind_keypad_cfg(const void *cfg);
+    
+    sdl_keypad_cfg_t cfg = {0};
+    bool has_cfg = false;
+    
+    // 读取配置（如果提供）
+    if (lua_istable(L, 1)) {
+        // 读取各个按键配置，如果存在则使用，否则使用默认值
+        int up_val = sdl_read_keypad_field(L, 1, "up", 0);
+        int down_val = sdl_read_keypad_field(L, 1, "down", 0);
+        int left_val = sdl_read_keypad_field(L, 1, "left", 0);
+        int right_val = sdl_read_keypad_field(L, 1, "right", 0);
+        int ok_val = sdl_read_keypad_field(L, 1, "ok", 0);
+        int back_val = sdl_read_keypad_field(L, 1, "back", 0);
+        
+        // 如果至少有一个配置项被设置，则应用配置
+        if (up_val != 0 || down_val != 0 || left_val != 0 || right_val != 0 || ok_val != 0 || back_val != 0) {
+            cfg.up = (up_val != 0) ? up_val : SDLK_UP;
+            cfg.down = (down_val != 0) ? down_val : SDLK_DOWN;
+            cfg.left = (left_val != 0) ? left_val : SDLK_LEFT;
+            cfg.right = (right_val != 0) ? right_val : SDLK_RIGHT;
+            cfg.ok = (ok_val != 0) ? ok_val : SDLK_RETURN;
+            cfg.back = (back_val != 0) ? back_val : SDLK_ESCAPE;
+            has_cfg = true;
+        }
+    }
+    
+    // 应用配置
+    if (has_cfg) {
+        airui_platform_sdl2_bind_keypad_cfg(&cfg);
+        LLOGD("device_bind_keypad SDL2 config: up=%d down=%d left=%d right=%d ok=%d back=%d",
+              cfg.up, cfg.down, cfg.left, cfg.right, cfg.ok, cfg.back);
+    } else {
+        airui_platform_sdl2_bind_keypad(true);
+        LLOGD("device_bind_keypad enabled on SDL2 (default: WASD/Arrow/Enter/Space/Esc)");
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+#else
+    (void)L;
+    LLOGE("device_bind_keypad unsupported on this platform");
     lua_pushboolean(L, 0);
     return 1;
 #endif

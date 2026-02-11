@@ -25,6 +25,186 @@ typedef struct {
     bool left_button_down;
 } sdl_input_data_t;
 
+/** 按键队列大小 */
+#define AIRUI_KEYPAD_QUEUE_SIZE 32
+
+/** 按键事件结构体 */
+typedef struct {
+    uint32_t key; // 按键值
+    lv_indev_state_t state; // 按键状态
+} airui_keypad_event_t;
+
+static airui_keypad_event_t g_keypad_queue[AIRUI_KEYPAD_QUEUE_SIZE]; // 按键队列
+static uint8_t g_keypad_head = 0; // 按键队列头
+static uint8_t g_keypad_tail = 0; // 按键队列尾
+static bool g_keypad_enabled = false; // 按键是否启用
+
+/** SDL2 按键映射配置 */
+typedef struct {
+    SDL_Keycode up;      /**< 上方向键 */
+    SDL_Keycode down;    /**< 下方向键 */
+    SDL_Keycode left;    /**< 左方向键 */
+    SDL_Keycode right;   /**< 右方向键 */
+    SDL_Keycode ok;      /**< 确认键 */
+    SDL_Keycode back;    /**< 返回键 */
+} sdl_keypad_cfg_t;
+
+// 默认按键配置
+static sdl_keypad_cfg_t g_keypad_cfg = {
+    .up = SDLK_UP,      // 默认使用方向键
+    .down = SDLK_DOWN,
+    .left = SDLK_LEFT,
+    .right = SDLK_RIGHT,
+    .ok = SDLK_RETURN,
+    .back = SDLK_ESCAPE
+};
+
+// 按键队列推入
+static bool airui_keypad_queue_push(uint32_t key, lv_indev_state_t state)
+{
+    uint8_t next = (uint8_t)((g_keypad_tail + 1) % AIRUI_KEYPAD_QUEUE_SIZE);
+    if (next == g_keypad_head) {
+        return false;
+    }
+    g_keypad_queue[g_keypad_tail].key = key;
+    g_keypad_queue[g_keypad_tail].state = state;
+    g_keypad_tail = next;
+    return true;
+}
+
+// 按键队列弹出
+static bool airui_keypad_queue_pop(lv_indev_data_t *data)
+{
+    if (data == NULL || g_keypad_head == g_keypad_tail) {
+        return false;
+    }
+    data->key = g_keypad_queue[g_keypad_head].key;
+    data->state = g_keypad_queue[g_keypad_head].state;
+    g_keypad_head = (uint8_t)((g_keypad_head + 1) % AIRUI_KEYPAD_QUEUE_SIZE);
+    return true;
+}
+
+// 将SDL按键映射为LVGL按键
+static uint32_t sdl_map_to_lvgl_key(SDL_Keycode key)
+{
+    // LVGL的KEYPAD模式使用LV_KEY_NEXT和LV_KEY_PREV来移动焦点
+    // 方向键需要转换为NEXT/PREV才能正确导航
+    // 右和下 -> NEXT (下一个对象)
+    // 左和上 -> PREV (上一个对象)
+    
+    if (key == g_keypad_cfg.right || key == SDLK_d) {
+        return LV_KEY_NEXT;  // 右方向键 -> 下一个
+    }
+    if (key == g_keypad_cfg.down || key == SDLK_s) {
+        return LV_KEY_NEXT;  // 下方向键 -> 下一个
+    }
+    if (key == g_keypad_cfg.left || key == SDLK_a) {
+        return LV_KEY_PREV;  // 左方向键 -> 上一个
+    }
+    if (key == g_keypad_cfg.up || key == SDLK_w) {
+        return LV_KEY_PREV;  // 上方向键 -> 上一个
+    }
+    if (key == g_keypad_cfg.ok || key == SDLK_RETURN || key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+        return LV_KEY_ENTER;
+    }
+    if (key == g_keypad_cfg.back || key == SDLK_ESCAPE) {
+        return LV_KEY_ESC;
+    }
+    return 0;
+}
+
+/**
+ * 将字符串转换为SDL_Keycode
+ * @param key_name 按键名称（如 "w", "up", "return", "space" 等）
+ * @return SDL_Keycode，如果无法识别则返回0
+ */
+static SDL_Keycode sdl_string_to_keycode(const char *key_name)
+{
+    if (key_name == NULL) {
+        return 0;
+    }
+    
+    // 方向键
+    if (strcmp(key_name, "up") == 0) return SDLK_UP;
+    if (strcmp(key_name, "down") == 0) return SDLK_DOWN;
+    if (strcmp(key_name, "left") == 0) return SDLK_LEFT;
+    if (strcmp(key_name, "right") == 0) return SDLK_RIGHT;
+    
+    // 字母键
+    if (strlen(key_name) == 1 && key_name[0] >= 'a' && key_name[0] <= 'z') {
+        return SDLK_a + (key_name[0] - 'a');
+    }
+    if (strlen(key_name) == 1 && key_name[0] >= 'A' && key_name[0] <= 'Z') {
+        return SDLK_a + (key_name[0] - 'A');
+    }
+    
+    // 数字键
+    if (strlen(key_name) == 1 && key_name[0] >= '0' && key_name[0] <= '9') {
+        return SDLK_0 + (key_name[0] - '0');
+    }
+    
+    // 特殊键
+    if (strcmp(key_name, "return") == 0 || strcmp(key_name, "enter") == 0) return SDLK_RETURN;
+    if (strcmp(key_name, "space") == 0) return SDLK_SPACE;
+    if (strcmp(key_name, "escape") == 0 || strcmp(key_name, "esc") == 0) return SDLK_ESCAPE;
+    if (strcmp(key_name, "backspace") == 0) return SDLK_BACKSPACE;
+    if (strcmp(key_name, "tab") == 0) return SDLK_TAB;
+    if (strcmp(key_name, "shift") == 0) return SDLK_LSHIFT;
+    if (strcmp(key_name, "ctrl") == 0) return SDLK_LCTRL;
+    if (strcmp(key_name, "alt") == 0) return SDLK_LALT;
+    
+    return 0;
+}
+
+// 绑定SDL2按键
+void airui_platform_sdl2_bind_keypad(bool enable)
+{
+    g_keypad_enabled = enable;
+    if (!enable) {
+        g_keypad_head = 0;
+        g_keypad_tail = 0;
+    }
+}
+
+/**
+ * 配置SDL2按键映射
+ * @param cfg 按键配置，如果为NULL则使用默认配置
+ */
+void airui_platform_sdl2_bind_keypad_cfg(const void *cfg_ptr)
+{
+    if (cfg_ptr != NULL) {
+        // 从Lua绑定层传递的结构体
+        typedef struct {
+            int up;
+            int down;
+            int left;
+            int right;
+            int ok;
+            int back;
+        } sdl_keypad_cfg_lua_t;
+        
+        const sdl_keypad_cfg_lua_t *cfg = (const sdl_keypad_cfg_lua_t *)cfg_ptr;
+        g_keypad_cfg.up = (SDL_Keycode)cfg->up;
+        g_keypad_cfg.down = (SDL_Keycode)cfg->down;
+        g_keypad_cfg.left = (SDL_Keycode)cfg->left;
+        g_keypad_cfg.right = (SDL_Keycode)cfg->right;
+        g_keypad_cfg.ok = (SDL_Keycode)cfg->ok;
+        g_keypad_cfg.back = (SDL_Keycode)cfg->back;
+        LLOGD("SDL2 keypad config: up=%d down=%d left=%d right=%d ok=%d back=%d",
+              g_keypad_cfg.up, g_keypad_cfg.down, g_keypad_cfg.left, 
+              g_keypad_cfg.right, g_keypad_cfg.ok, g_keypad_cfg.back);
+    } else {
+        // 重置为默认配置
+        g_keypad_cfg.up = SDLK_UP;
+        g_keypad_cfg.down = SDLK_DOWN;
+        g_keypad_cfg.left = SDLK_LEFT;
+        g_keypad_cfg.right = SDLK_RIGHT;
+        g_keypad_cfg.ok = SDLK_RETURN;
+        g_keypad_cfg.back = SDLK_ESCAPE;
+    }
+    g_keypad_enabled = true;
+}
+
 /**
  * 清除当前 SDL 预编辑文本（如果存在）
  */
@@ -86,8 +266,19 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
     // LLOGD("sdl_process_keyboard_event: event->type=%d", event->type);
 
     switch (event->type) {
+    case SDL_KEYUP:
     case SDL_KEYDOWN: {
-        // 虚拟按键映射到 LVGL 键值（回车/退格/ESC）
+        lv_indev_state_t key_state = (event->type == SDL_KEYDOWN) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+        uint32_t keypad_key = sdl_map_to_lvgl_key(event->key.keysym.sym);
+        if (g_keypad_enabled && keypad_key != 0) {
+            airui_keypad_queue_push(keypad_key, key_state);
+        }
+
+        if (event->type != SDL_KEYDOWN) {
+            break;
+        }
+
+        // 系统键盘映射（给 textarea 文本编辑使用）
         uint32_t lv_key = 0;
         switch (event->key.keysym.sym) {
         case SDLK_BACKSPACE:
@@ -184,7 +375,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
             airui_deinit(ctx);
             SDL_Quit();
             exit(0);
-        } else if (event.type == SDL_KEYDOWN || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
+        } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx);
         }
     }
@@ -242,10 +433,11 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
  */
 static bool sdl_input_read_keypad(airui_ctx_t *ctx, lv_indev_data_t *data)
 {
-    // 阶段一暂不实现键盘输入
     (void)ctx;
-    (void)data;
-    return false;
+    if (!g_keypad_enabled) {
+        return false;
+    }
+    return airui_keypad_queue_pop(data);
 }
 
 /**

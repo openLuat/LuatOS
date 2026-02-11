@@ -24,6 +24,7 @@
 
 /** 默认触摸配置绑定（由平台文件维护） */
 extern luat_tp_config_t *airui_platform_luatos_get_tp_bind(void);
+extern const airui_luatos_keypad_cfg_t *airui_platform_luatos_get_keypad_bind(void);
 
 static luatos_platform_data_t *luatos_get_or_alloc_data(airui_ctx_t *ctx) {
     if (ctx == NULL) {
@@ -80,6 +81,12 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
 
     /* 将预先绑定的 TP 配置同步到 platform_data，供输入驱动使用 */
     data->tp_config = airui_platform_luatos_get_tp_bind();
+
+    /* 将预先绑定的 GPIO 按键配置同步到 platform_data，供输入驱动使用 */
+    const airui_luatos_keypad_cfg_t *keypad_cfg = airui_platform_luatos_get_keypad_bind();
+    if (keypad_cfg != NULL) {
+        data->keypad_cfg = *keypad_cfg;
+    }
 
     return AIRUI_OK;
 }

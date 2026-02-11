@@ -13,6 +13,7 @@
 
 #include "luat_airui.h"
 #include "luat_airui_platform_luatos.h"
+#include <string.h>
 
 // 驱动接口获取函数声明
 extern const airui_display_ops_t *airui_platform_luatos_get_display_ops(void);
@@ -21,6 +22,8 @@ extern const airui_time_ops_t *airui_platform_luatos_get_time_ops(void);
 
 // 默认触摸配置绑定（可选）
 static luat_tp_config_t *g_tp_bind = NULL;
+static airui_luatos_keypad_cfg_t g_keypad_bind;
+static bool g_keypad_bind_valid = false;
 
 void airui_platform_luatos_bind_tp(luat_tp_config_t *cfg)
 {
@@ -30,6 +33,25 @@ void airui_platform_luatos_bind_tp(luat_tp_config_t *cfg)
 luat_tp_config_t *airui_platform_luatos_get_tp_bind(void)
 {
     return g_tp_bind;
+}
+
+// 绑定按键配置
+void airui_platform_luatos_bind_keypad(const airui_luatos_keypad_cfg_t *cfg)
+{
+    if (cfg == NULL) {
+        memset(&g_keypad_bind, 0, sizeof(g_keypad_bind));
+        g_keypad_bind_valid = false;
+        return;
+    }
+
+    g_keypad_bind = *cfg;
+    g_keypad_bind_valid = (cfg->enabled != 0);
+}
+
+// 获取按键配置
+const airui_luatos_keypad_cfg_t *airui_platform_luatos_get_keypad_bind(void)
+{
+    return g_keypad_bind_valid ? &g_keypad_bind : NULL;
 }
 
 /**

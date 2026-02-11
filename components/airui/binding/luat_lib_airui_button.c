@@ -13,6 +13,7 @@
 #include "../inc/luat_airui.h"
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
+#include "lvgl9/src/core/lv_group.h"
 #include <string.h>
 
 #define LUAT_LOG_TAG "airui.button"
@@ -92,6 +93,20 @@ static int l_button_set_on_click(lua_State *L) {
 }
 
 /**
+ * Button:focus() - 设置按钮获得焦点
+ * @api button:focus()
+ * @return nil
+ */
+static int l_button_focus(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    lv_group_t *default_group = lv_group_get_default();
+    if (default_group != NULL) {
+        lv_group_focus_obj(btn);
+    }
+    return 0;
+}
+
+/**
  * Button:destroy（手动销毁）
  */
 static int l_button_destroy(lua_State *L) {
@@ -120,6 +135,7 @@ void airui_register_button_meta(lua_State *L) {
     static const luaL_Reg methods[] = {
         {"set_text", l_button_set_text},
         {"set_on_click", l_button_set_on_click},
+        {"focus", l_button_focus},
         {"destroy", l_button_destroy},
         {NULL, NULL}
     };

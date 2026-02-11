@@ -92,6 +92,21 @@ static void input_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 }
 
 /**
+ * 按键输入设备 read 回调
+ */
+static void input_read_keypad_cb(lv_indev_t *indev, lv_indev_data_t *data)
+{
+    airui_ctx_t *ctx = (airui_ctx_t *)lv_indev_get_user_data(indev);
+    if (ctx == NULL || ctx->ops == NULL || ctx->ops->input_ops == NULL) {
+        return;
+    }
+
+    if (ctx->ops->input_ops->read_keypad) {
+        ctx->ops->input_ops->read_keypad(ctx, data);
+    }
+}
+
+/**
  * LVGL Tick 定时器回调（每5ms调用 lv_tick_inc(5)）
  */
 static void airui_lv_tick_timer_handler(void *param)
@@ -261,6 +276,27 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     lv_indev_set_type(ctx->indev, LV_INDEV_TYPE_POINTER);
     lv_indev_set_user_data(ctx->indev, ctx);
     lv_indev_set_read_cb(ctx->indev, input_read_cb);
+
+    // 创建按键输入设备（用于物理按键/键盘/方向键）
+    ctx->indev_keypad = lv_indev_create();
+    if (ctx->indev_keypad == NULL) {
+        LLOGE("airui_init failed: lv_indev_create keypad failed");
+        airui_deinit(ctx);
+        return AIRUI_ERR_INIT_FAILED;
+    }
+    lv_indev_set_type(ctx->indev_keypad, LV_INDEV_TYPE_KEYPAD);
+    lv_indev_set_user_data(ctx->indev_keypad, ctx);
+    lv_indev_set_read_cb(ctx->indev_keypad, input_read_keypad_cb);
+
+    // 创建默认焦点组，用于支持实体按键导航
+    ctx->indev_group = lv_group_create();
+    if (ctx->indev_group == NULL) {
+        LLOGE("airui_init failed: lv_group_create failed");
+        airui_deinit(ctx);
+        return AIRUI_ERR_INIT_FAILED;
+    }
+    lv_group_set_default(ctx->indev_group);
+    lv_indev_set_group(ctx->indev_keypad, ctx->indev_group);
     
     // 文件系统驱动初始化（可选）
     ret = airui_fs_init(ctx);
@@ -345,6 +381,21 @@ void airui_deinit(airui_ctx_t *ctx)
     if (ctx->indev != NULL) {
         lv_indev_delete(ctx->indev);
         ctx->indev = NULL;
+    }
+
+    // 删除按键输入设备
+    if (ctx->indev_keypad != NULL) {
+        lv_indev_delete(ctx->indev_keypad);
+        ctx->indev_keypad = NULL;
+    }
+
+    // 删除默认焦点组
+    if (ctx->indev_group != NULL) {
+        if (lv_group_get_default() == ctx->indev_group) {
+            lv_group_set_default(NULL);
+        }
+        lv_group_delete(ctx->indev_group);
+        ctx->indev_group = NULL;
     }
     
     // 删除显示设备

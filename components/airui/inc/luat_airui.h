@@ -131,7 +131,9 @@ typedef struct {
 struct airui_ctx {
     // LVGL 驱动实例
     lv_display_t *display;          /**< 显示设备 */
-    lv_indev_t *indev;               /**< 输入设备 */
+    lv_indev_t *indev;               /**< 指针输入设备 */
+    lv_indev_t *indev_keypad;        /**< 按键输入设备 */
+    lv_group_t *indev_group;         /**< 默认焦点组 */
     lv_fs_drv_t fs_drv;          /**< 文件系统驱动（和 /） */
     
     // 缓冲管理

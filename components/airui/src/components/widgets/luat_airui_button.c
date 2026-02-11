@@ -9,6 +9,7 @@
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/core/lv_obj.h"
+#include "lvgl9/src/core/lv_group.h"
 #include "lvgl9/src/misc/lv_color.h"
 #include "lua.h"
 #include "lauxlib.h"
@@ -93,6 +94,12 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
     int callback_ref = airui_component_capture_callback(L, idx, "on_click");
     if (callback_ref != LUA_NOREF) {
         airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+    }
+    
+    // 将按钮添加到默认按键组，以便支持按键导航
+    lv_group_t *default_group = lv_group_get_default();
+    if (default_group != NULL) {
+        lv_group_add_obj(default_group, btn);
     }
     
     return btn;

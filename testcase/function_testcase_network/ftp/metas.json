@@ -1,0 +1,10 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "air780epm" : [1,2,103,104,105,106]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "ftp单元测试"
+}

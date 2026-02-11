@@ -241,8 +241,10 @@ static int l_airui_init(lua_State *L) {
         return 1;
     }
     
-    // 存储 Lua 状态
-    g_ctx->L = L;
+    // 存储 Lua 主线程状态，避免协程结束导致悬空指针
+    lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_MAINTHREAD);
+    g_ctx->L = lua_tothread(L, -1);
+    lua_pop(L, 1);
     
     // 将上下文存储到注册表
     lua_pushlightuserdata(L, g_ctx);

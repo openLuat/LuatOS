@@ -55,9 +55,6 @@ log.info("main", PROJECT, VERSION)
 -- 加载sms应用功能模块
 require "sms_app"
 
--- 加载网络驱动设备功能模块
-require "netdrv_device"
-
 -- 加载sntp时间同步应用功能模块
 require "sntp_app"
 

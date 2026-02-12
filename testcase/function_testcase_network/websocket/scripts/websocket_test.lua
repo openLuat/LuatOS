@@ -99,6 +99,8 @@ function websocket_tests.test_WebsocketCreate_and_connect()
     wsc:close()
 end
 
+
+
 -- 三种不同数据
 
 local test_cases = {
@@ -122,59 +124,227 @@ local test_cases = {
         description = "发送JSON数据"
     }
 }
+--发送数据格式处理函数
 
--- 拆出的全局函数
-local function send_test_data(client, state, test_case_name)
-    -- 检查是否应该继续发送
-    if state.sent_count >= 10 then
-        return
+local function send_test_data(client, state, param)
+    -- 判断参数类型，兼容两种调用方式
+    local test_case_name
+    local test_case
+
+    
+    if type(param) == "string" then
+        -- 方式1：单格式测试，传入字符串
+        test_case_name = param
+        test_case = test_cases[test_case_name]
+        
+        -- 单格式测试：固定10次
+        if state.sent_count >= 10 then
+            return
+        end
+        
+    elseif type(param) == "table" then
+        -- 方式2：多格式混合测试，传入table列表
+        if state.sent_count >= #param * 10 then
+            return
+        end
+
+        --计算当前应该发送哪个格式
+        --每10次自动切换到下一个格式
+        --1.简单文本 2.显示文本  3.JSON数据
+        local format_index = math.floor(state.sent_count / 10) + 1
+        test_case_name = param[format_index]
+        test_case = test_cases[test_case_name]
+    else
+        log.error("参数类型错误，应为string或table")
     end
     
-    local test_case = test_cases[test_case_name]
-    assert(test_case ~= nil, "类型错误，未知的测试类型: " .. test_case_name)
+    -- 获取测试用例配置
+    assert(test_case ~= nil, "类型错误，未知的测试类型: " .. tostring(test_case_name))
     
+    -- 检查客户端是否就绪
     local ready = client:ready()
     assert(ready == true, "WebSocket 客户端未就绪")
     
+    -- 更新发送计数
     state.sent_count = state.sent_count + 1
     
     -- 获取要发送的数据
-    local data_to_send
-    if type(test_case.data) == "function" then
-        data_to_send = test_case.data()
-    else
-        data_to_send = test_case.data
+    -- 获取要发送的数据
+    local data_to_send = test_case.data
+    
+    -- 如果是table，先序列化成字符串再发送
+    if type(data_to_send) == "table" then
+        data_to_send = json.encode(data_to_send)
     end
     
     -- 记录发送的数据
     state.sent_data[state.sent_count] = data_to_send
-    log.info("发送" .. test_case.description, "第", state.sent_count, "次", "长度:", #data_to_send)
-
+    
+    -- 发送数据
     local send_result
     if test_case.opt then
-        send_result = client:send(data_to_send, test_case.opt)
+      send_result =  client:send(data_to_send, test_case.opt)
     else
-        send_result = client:send(data_to_send)
+       send_result = client:send(data_to_send)
     end
+    assert(send_result == true, string.format("第%d次发送失败:", state.sent_count))
+    log.info("发送成功", "第", state.sent_count, "次", "格式:", test_case_name)
     
-    -- 使用断言验证发送结果
-    assert(send_result == true, 
-        string.format("第%d次发送失败，类型: %s", state.sent_count, test_case_name))
-    
-    log.info("发送成功", "第", state.sent_count, "次", "类型:", test_case_name)
+end
 
-    -- 如果是最后一次发送，设置超时检查
-    if state.sent_count >= 10 then
-        log.info("已发送完10次，等待接收")
-        sys.timerStart(function()
-            if state.received_count < 10 then
-                assert(false, string.format("等待响应超时，已发送%d次，只收到%d次", 
-                      state.sent_count, state.received_count))
+
+-- 上述三种数据的回环测试
+-- 前10次发送简单文本
+-- 中间10次发送显示文本
+-- 最后10次发送json文件
+-- 对每一帧数据进行对比，保证数据完全一致
+-- 超过30次则不再发送
+
+function websocket_tests.test_WebsocketEcho_all_formats()
+    -- 定义要测试的格式顺序（数组形式）
+    local test_cases_list = {"简单文本", "显式文本", "JSON数据"}
+
+    local total_formats = #test_cases_list
+    local total_tests = total_formats * 10 -- 每个格式10次
+
+    -- 1. 创建客户端
+    local wsc = websocket.create(nil, test_server)
+    assert(wsc ~= nil, "WebSocket 客户端创建失败了")
+    assert(type(wsc) == "userdata", string.format("返回值类型应该为userdata,实际是%s:", type(wsc)))
+
+    -- 2. 设置请求头
+    local success, err = pcall(function()
+        wsc:headers({
+            Auth = "Basic ABCDEGG",
+            TestType = "echo_test"
+        })
+    end)
+    assert(success == true, "参数类型为table,设置自定义请求头失败，失败原因是", err)
+    
+    -- 3. 设置自动重连
+    wsc:autoreconn(true)
+
+    -- 测试状态
+    local test_state = {
+        sent_count = 0,
+        received_count = 0,
+        sent_data = {}, -- 记录每次发送的数据
+        received_data = {}, -- 记录每次接收的数据
+        send_timer = nil, -- 定时器引用
+        all_send_complete = false, -- 是否所有发送完成
+        all_receive_complete = false -- 是否所有接收完成
+    }
+
+    -- 4. 设置回调函数
+    wsc:on(function(ws_client, event, data, fin, optcode)
+        log.info("WebSocket事件", event)
+
+        if event == "conack" then
+            log.info("WebSocket连接成功")
+            log.info(string.format("开始测试%d种格式，总共%d次", total_formats, total_tests))
+
+            -- 设置定时器，每3秒发送一次
+            test_state.send_timer = sys.timerLoopStart(function()
+                -- 检查是否达到30次
+                if test_state.sent_count >= 30 then
+                    test_state.all_send_complete = true
+                    log.info("√ 30次发送已完成")
+                    sys.timerStop(test_state.send_timer)
+                    test_state.send_timer = nil
+                    return
+                end
+
+                -- 直接调用send_test_data，不判断返回值
+                send_test_data(wsc, test_state, test_cases_list)
+                
+            end, 3000)
+
+        elseif event == "recv" then
+            --接收到数据后
+            if data then
+                -- 正常的测试数据接收计数
+                test_state.received_count = test_state.received_count + 1
+                test_state.received_data[test_state.received_count] = data
+
+                -- 验证数据一致性
+                if test_state.sent_count >= test_state.received_count then
+                    local sent_info = test_state.sent_data[test_state.received_count]
+                    if sent_info then
+                        assert(#sent_info == #data,
+                            string.format(
+                                "第%d次数据长度不一致,发送的数据长度是%d,接收的数据长度是%d",
+                                test_state.received_count, #sent_info, #data))
+                        local sent_type = type(sent_info)
+                        local recv_type = type(data)
+                        assert(sent_type == recv_type, string.format(
+                            "第%d次数据类型不一致: 发送%s, 接收%s", test_state.received_count, sent_type,
+                            recv_type))
+
+                        assert(sent_info == data,
+                            string.format("第%d次数据不一致,发送的数据是%s,接收的数据是%s",
+                                test_state.received_count, sent_info, data))
+                        log.info(string.format("√ 第%d次数据回环完全一致", test_state.received_count))
+                    end
+                        
+                end
+
+                -- 检查是否接收完成
+                if test_state.received_count >= total_tests then
+                    test_state.all_receive_complete = true
+                    log.info("√ 所有30次接收已完成")
+                end
             end
-        end, 5000)
+            
+        elseif event == "disconnect" then
+            log.warn("连接断开")
+            -- 清理定时器
+            if test_state.send_timer then
+                sys.timerStop(test_state.send_timer)
+                test_state.send_timer = nil
+            end
+
+        elseif event == "error" then
+            log.error("WebSocket错误", data)
+            assert(false, string.format("WebSocket错误: %s", data or "未知错误"))
+        end
+    end)
+
+    -- 5.连接服务器
+    local connect_result = wsc:connect()
+    assert(type(connect_result) == "boolean",
+        string.format("返回值类型应该为boolean,实际是%s:", type(connect_result)))
+    assert(connect_result == true, "WebSocket 连接请求发送失败")
+    log.info("正在连接WebSocket服务器...")
+
+    -- 6. 等待测试完成
+    local start = os.time()
+    while not test_state.all_send_complete or not test_state.all_receive_complete do
+        assert(os.time() - start <= 120000, "测试超时")
+        sys.wait(1000)
+    end
+
+    -- 7. 清理定时器
+    if test_state.send_timer then
+        sys.timerStop(test_state.send_timer)
+        test_state.send_timer = nil
+    end
+
+    -- 8. 最终验证
+    assert(test_state.sent_count == total_tests,
+        string.format("应发送%d次，实际%d次", total_tests, test_state.sent_count))
+    assert(test_state.received_count == total_tests,
+        string.format("应接收%d次，实际%d次", total_tests, test_state.received_count))
+
+    log.info(" 所有测试通过！")
+
+    -- 9. 确保连接关闭
+    if wsc then
+        wsc:close()
     end
 end
 
+
+--只进行10次简单文本数据回环
 function websocket_tests.test_WebsocketEcho_simple_text()
     local test_case_name = "简单文本"
     -- 1. 创建客户端
@@ -221,7 +391,7 @@ function websocket_tests.test_WebsocketEcho_simple_text()
                         test_state.received_count))
                     assert(sent_data == data, string.format("第%d次数据不一致\n发送: %s\n接收: %s",
                         test_state.received_count, sent_data, data))
-                    log.info("✅ 第" .. test_state.received_count .. "次数据一致")
+                    log.info(" 第" .. test_state.received_count .. "次数据一致")
                 end
                 if test_state.sent_count < 10 then
                     -- 3秒后发送下一次
@@ -238,6 +408,7 @@ function websocket_tests.test_WebsocketEcho_simple_text()
 
         elseif event == "disconnect" then
             log.warn("连接断开")
+            --关闭循环发送数据的定时器
             if test_state.send_timer then
                 sys.timerStop(test_state.send_timer)
                 test_state.send_timer = nil
@@ -245,6 +416,7 @@ function websocket_tests.test_WebsocketEcho_simple_text()
 
         elseif event == "error" then
             log.error("WebSocket错误", data)
+            --异常 关闭循环发送数据对的定时器
             if test_state.send_timer then
                 sys.timerStop(test_state.send_timer)
                 test_state.send_timer = nil
@@ -265,9 +437,14 @@ function websocket_tests.test_WebsocketEcho_simple_text()
         sys.wait(1000)
     end
 
-    -- 清理和验证
-    sys.timerStop(test_state.send_timer)
+    
+       -- 6. 清理定时器
+    if test_state.send_timer then
+        sys.timerStop(test_state.send_timer)
+        test_state.send_timer = nil
+    end
 
+    --检查发送次数和接收次数是否与设定一致
     assert(test_state.sent_count == 10 and test_state.received_count == 10, "发送/接收未达10次")
     log.info("========== 测试完成 ==========")
 

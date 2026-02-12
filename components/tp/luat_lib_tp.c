@@ -224,11 +224,11 @@ static int l_tp_init(lua_State* L){
     }
     lua_pop(L, 1);
 
-    // lua_pushstring(L, "swap_xy");
-    // if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-    //     luat_tp_config->swap_xy = lua_toboolean(L, -1);
-    // }
-    // lua_pop(L, 1);
+    lua_pushstring(L, "swap_xy");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_tp_config->swap_xy = luaL_checkinteger(L, -1);
+    }
+    lua_pop(L, 1);
 
     ret = luat_tp_init(luat_tp_config);
     if (ret){
@@ -289,6 +289,11 @@ static const rotable_Reg_t reg_tp[] =
     { "EVENT_TYPE_UP",      ROREG_INT(TP_EVENT_TYPE_UP)},
     { "EVENT_TYPE_MOVE",    ROREG_INT(TP_EVENT_TYPE_MOVE)},
 
+    { "SWAP_NONE",  ROREG_INT(LUAT_TP_SWAP_NONE)},
+    { "SWAP_X",     ROREG_INT(LUAT_TP_SWAP_X)},
+    { "SWAP_Y",     ROREG_INT(LUAT_TP_SWAP_Y)},
+    { "SWAP_XY",    ROREG_INT(LUAT_TP_SWAP_XY)},
+
     { "RISING",     ROREG_INT(LUAT_GPIO_RISING_IRQ)},
     { "FALLING",    ROREG_INT(LUAT_GPIO_FALLING_IRQ)},
 	{ NULL,         ROREG_INT(0) }
@@ -299,5 +304,3 @@ LUAMOD_API int luaopen_tp(lua_State *L)
     luat_newlib2(L, reg_tp);
     return 1;
 }
-
-

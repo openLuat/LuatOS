@@ -39,6 +39,13 @@ void luat_tp_task_entry(void* param){
             tp_data->y_coordinate = coordinate_tmp;
         }
 
+        if (luat_tp_config->swap_xy & LUAT_TP_SWAP_X){
+            tp_data->x_coordinate = luat_tp_config->w - tp_data->x_coordinate;
+        }
+        if (luat_tp_config->swap_xy & LUAT_TP_SWAP_Y){
+            tp_data->y_coordinate = luat_tp_config->h - tp_data->y_coordinate;
+        }
+
         // // 抬起时，坐标为松开前的最后一次的坐标 !!!不应在此处修改,应在上方实现统一实现,故暂时注释!!!!
         // if (tp_data->event == TP_EVENT_TYPE_UP) {
         //     tp_data->x_coordinate = last_x;
@@ -56,8 +63,14 @@ void luat_tp_task_entry(void* param){
 }
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
+    // LLOGD("luat_tp_task_entry direction:%d w:%d h:%d swap_xy:%d",
+    //     luat_tp_config->direction,
+    //     luat_tp_config->w,
+    //     luat_tp_config->h,
+    //     luat_tp_config->swap_xy);
+    
     if (g_s_tp_task_handle == NULL){
-        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 27, "tp", luat_tp_task_entry, NULL, 32);
+        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096*2, 27, "tp", luat_tp_task_entry, NULL, 32);
         if (ret){
             g_s_tp_task_handle = NULL;
             LLOGE("tp task create failed!");

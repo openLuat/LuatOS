@@ -383,7 +383,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 					luat_audio_init(multimedia_id, audio_conf->last_vol, audio_conf->last_mic_vol);
 				}
 				//LLOGD("audio pm %d,%d", audio_conf->last_vol, audio_conf->last_mic_vol);
+				luat_i2s_conf_t *i2s = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
 				audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS, i2s->data_bits);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL, audio_conf->last_vol);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, audio_conf->last_mic_vol);
 				audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();

@@ -90,6 +90,7 @@ typedef struct{
 	uint32_t record_time_tmp;
 	uint32_t record_time_data_ratio;
 	void* encoder_handler;
+	Buffer_Struct record_file_buffer[2];
 	luat_zbuff_t * record_buffer[2];
     uint32_t bak_sample_rate;                                   // i2s采样率
     uint32_t bak_cb_rx_len;                                     // 接收触发回调数据长度
@@ -101,6 +102,7 @@ typedef struct{
     uint8_t multimedia_id;
 	uint8_t quailty;
 	uint8_t is_run;
+	uint8_t wait_stop;
     luat_record_channel_t channelCnt;
 }luat_record_ctrl_t;
 

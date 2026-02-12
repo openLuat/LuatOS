@@ -62,6 +62,9 @@ function lcd_drv.init()
             return result
         end
 
+        -- 加载真实键盘，PC端可以使用键盘输入
+        airui.keyboard_enable_system(true)
+
         -- 加载中文字体
         -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255号中文显示
         -- airui.font_load({

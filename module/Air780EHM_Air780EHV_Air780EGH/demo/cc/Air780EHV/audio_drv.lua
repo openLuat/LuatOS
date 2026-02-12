@@ -11,7 +11,7 @@
 ]]
 
 -- 引入exaudio库
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- exaudio配置参数
 local audio_configs = {
@@ -19,7 +19,7 @@ local audio_configs = {
     i2c_id = 0,               -- i2c_id: 可填入0，1 并使用pins 工具配置对应的管脚
     pa_ctrl = gpio.AUDIOPA_EN,            -- 音频放大器电源控制管脚
     dac_ctrl = 20,           -- 音频编解码芯片电源控制管脚
-        
+    
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
     dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
     

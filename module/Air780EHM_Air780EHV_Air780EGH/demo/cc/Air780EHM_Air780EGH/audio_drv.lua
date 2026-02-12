@@ -11,7 +11,7 @@
 ]]
 
 -- 引入exaudio库
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- exaudio配置参数
 local audio_configs = {

@@ -1,11 +1,11 @@
 --[[
 @module  netdrv_eth_spi
-@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块
+@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块 
 @version 1.0
 @date    2025.07.24
 @author  朱天华
 @usage
-本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块，核心业务逻辑为：
+本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
 1、打开CH390H芯片供电开关；
 2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
 3、以太网卡的连接状态发生变化时，在日志中进行打印；
@@ -32,7 +32,7 @@ local function ip_ready_func(ip, adapter)
     end
 end
 
-local function ip_lose_func(adapter)
+local function ip_lose_func(adapter)    
     if adapter == socket.LWIP_ETH then
         log.warn("netdrv_eth_spi.ip_lose_func", "IP_LOSE")
     end

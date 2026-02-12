@@ -9,7 +9,7 @@
 1、创建一个WebSocket client，连接server；
 2、处理连接/异常逻辑，出现异常后执行重连动作；
 3、调用websocket_receiver的外部接口websocket_receiver.proc，对接收到的数据进行处理；
-4、调用sysplus.sendMsg接口，发送"CONNECT OK"和"DISCONNECTED"两种类型的"WEBSOCKET_EVENT"消息到websocket_sender的task，控制数据发送逻辑；
+4、调用sys.sendMsg接口，发送"CONNECT OK"和"DISCONNECTED"两种类型的"WEBSOCKET_EVENT"消息到websocket_sender的task，控制数据发送逻辑；
 5、收到WebSocket数据后，执行sys.publish("FEED_NETWORK_WATCHDOG") 对网络环境检测看门狗功能模块进行喂狗；
 
 本文件没有对外接口，直接在main.lua中require "websocket_main"就可以加载运行；
@@ -37,7 +37,7 @@ local function websocket_client_event_cbfunc(ws_client, event, data, fin, opcode
 
     -- WebSocket连接成功
     if event == "conack" then
-        sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CONNECT", true)
+        sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CONNECT", true)
         -- 连接成功，通知网络环境检测看门狗功能模块进行喂狗
         sys.publish("FEED_NETWORK_WATCHDOG")
 
@@ -54,12 +54,12 @@ local function websocket_client_event_cbfunc(ws_client, event, data, fin, opcode
     elseif event == "sent" then
         log.info("WebSocket事件回调", "数据发送成功，发送确认")
         -- 发送消息通知 websocket sender task
-        sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "SEND_OK", data)
+        sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "SEND_OK", data)
 
     -- 服务器断开WebSocket连接
     elseif event == "disconnect" then
         -- 发送消息通知 websocket main task
-        sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED", false)
+        sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED", false)
 
     -- 严重异常，本地会主动断开连接
     -- data：string类型，表示具体的异常，有以下几种：
@@ -71,14 +71,14 @@ local function websocket_client_event_cbfunc(ws_client, event, data, fin, opcode
         log.error("WebSocket错误", "错误类型:", data)
         if data == "connect" then
             -- 发送消息通知 websocket main task，连接失败
-            sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CONNECT", false)
+            sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CONNECT", false)
         elseif data == "tx" or data == "rx" or data == "other" then
             -- 发送消息通知 websocket main task，出现异常
-            sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
+            sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
         else
             -- 处理未知错误类型
             log.error("WebSocket错误", "未知错误类型:", data)
-            sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
+            sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "ERROR")
         end
     end
 end
@@ -105,7 +105,7 @@ local function websocket_client_main_task_func()
         log.info("WebSocket主任务", "收到网络就绪消息", socket.dft())
 
         -- 清空此task绑定的消息队列中的未处理的消息
-        sysplus.cleanMsg(TASK_NAME)
+        sys.cleanMsg(TASK_NAME)
 
         -- 创建WebSocket client对象
         ws_client = websocket.create(nil, SERVER_URL)
@@ -135,7 +135,7 @@ local function websocket_client_main_task_func()
         -- 连接、断开连接、异常等各种事件的处理调度逻辑
         while true do
             -- 等待"WEBSOCKET_EVENT"消息
-            msg = sysplus.waitMsg(TASK_NAME, "WEBSOCKET_EVENT")
+            msg = sys.waitMsg(TASK_NAME, "WEBSOCKET_EVENT")
             log.info("WebSocket主任务等待消息", msg[2], msg[3], msg[4])
 
             -- connect连接结果
@@ -145,7 +145,7 @@ local function websocket_client_main_task_func()
                 if msg[3] then
                     log.info("WebSocket主任务", "连接成功")
                     -- 通知websocket sender数据发送应用模块的task，WebSocket连接成功
-                    sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "CONNECT_OK", ws_client)
+                    sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "CONNECT_OK", ws_client)
                 -- WebSocket连接失败
                 else
                     log.info("WebSocket主任务", "连接失败")
@@ -154,7 +154,7 @@ local function websocket_client_main_task_func()
                 end
 
             -- 需要主动关闭WebSocket连接
-            -- 用户需要主动关闭WebSocket连接时，可以调用sysplus.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CLOSE")
+            -- 用户需要主动关闭WebSocket连接时，可以调用sys.sendMsg(TASK_NAME, "WEBSOCKET_EVENT", "CLOSE")
             elseif msg[2] == "CLOSE" then
                 -- 主动断开WebSocket client连接
                 ws_client:disconnect()
@@ -177,10 +177,10 @@ local function websocket_client_main_task_func()
         ::EXCEPTION_PROC::
 
         -- 清空此task绑定的消息队列中的未处理的消息
-        sysplus.cleanMsg(TASK_NAME)
+        sys.cleanMsg(TASK_NAME)
 
         -- 通知websocket sender数据发送应用模块的task，WebSocket连接已经断开
-        sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
+        sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
 
         -- 如果存在WebSocket client对象
         if ws_client then
@@ -195,4 +195,4 @@ local function websocket_client_main_task_func()
 end
 
 --创建并且启动一个task
-sysplus.taskInitEx(websocket_client_main_task_func, TASK_NAME)
+sys.taskInitEx(websocket_client_main_task_func, TASK_NAME)

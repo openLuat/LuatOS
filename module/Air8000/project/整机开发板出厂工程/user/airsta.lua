@@ -117,7 +117,7 @@ sys.subscribe("WLAN_STA_INC", function(evt, data)
     if evt == "CONNECTED" then
         event = "连接成功,连接的SSID 是：" .. data
         wifi_net_state = "STA 连接成功"
-        sysplus.taskInitEx(test_sta_http,"test_sta_http")
+        sys.taskInitEx(test_sta_http,"test_sta_http")
     elseif evt == "DISCONNECTED" then
         event = "断开了,断开的原因是：" .. data
     end
@@ -178,9 +178,9 @@ function airsta.tp_handal(x,y,event)       -- 判断是否需要停止播放
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
         if sta_state then
-            sysplus.taskInitEx(stop_sta_task, "stop_sta_task")
+            sys.taskInitEx(stop_sta_task, "stop_sta_task")
         else
-            sysplus.taskInitEx(start_sta_task , "start_sta_task")
+            sys.taskInitEx(start_sta_task , "start_sta_task")
         end
     end
 end

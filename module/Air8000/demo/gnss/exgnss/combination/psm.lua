@@ -116,7 +116,7 @@ local function psm_cb(tag)
     local  rmc=exgnss.rmc(0)
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     lat,lng=rmc.lat,rmc.lng
-    sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
+    sys.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
 end
 
 local function gnss_fnc()

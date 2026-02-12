@@ -1,0 +1,13 @@
+{
+    "timeout" : 200,
+        "model": {
+        "air780epm": [1,103],
+        "air780ehm": [2, 103],
+        "air8000": [4, 105],
+        "air8101": [1, 101]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "websocket测试"
+}

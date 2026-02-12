@@ -1,7 +1,7 @@
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
-sysplus = require("sysplus")
+sys = require("sys")
 
 dhcps = require "dhcpsrv"
 dnsproxy = require "dnsproxy"

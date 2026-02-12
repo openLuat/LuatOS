@@ -176,7 +176,7 @@ local function psm_cb(tag)
         --GNSS定位失败，开启基站+WIFI定位，获取经纬度，需要注意的是，获取频率需要根据付费的时间来决定，否则会获取失败
         sys.taskInit(airlbs_multi_cells_wifi_task_func)
     end
-    sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
+    sys.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
 end
 
 local function gnss_fnc()

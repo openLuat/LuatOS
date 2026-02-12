@@ -1434,6 +1434,7 @@ static void rtmp_send_connect(void *arg) {
             
     /* 发送RTMP connect命令 */
     RTMP_LOGV("RTMP: Sending connect command...");
+    ctx->chunk_size = RTMP_DEFAULT_CHUNK_SIZE;  /* 可以根据需要调整 */
     int ret = rtmp_send_command(ctx, "connect", 1, ctx->app);
     if (ret == 0) {
         rtmp_set_state(ctx, RTMP_STATE_CONNECTED, 0);

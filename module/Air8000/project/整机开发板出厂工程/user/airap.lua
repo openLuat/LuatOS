@@ -111,9 +111,9 @@ function airap.tp_handal(x,y,event)       -- 判断是否需要停止播放
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
         if ap_state then
-            sysplus.taskInitEx(stop_ap_task, "stop_ap_task")
+            sys.taskInitEx(stop_ap_task, "stop_ap_task")
         else
-            sysplus.taskInitEx(start_ap_task , "start_ap_task")
+            sys.taskInitEx(start_ap_task , "start_ap_task")
         end
     end
 end

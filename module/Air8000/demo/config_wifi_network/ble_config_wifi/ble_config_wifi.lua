@@ -39,7 +39,7 @@ local taskName = "config_wifi"
 local function network_event_handler()
     while true do
         -- 等待指定任务的消息，不设置超时时间
-        msg = sysplus.waitMsg(taskName, nil)
+        msg = sys.waitMsg(taskName, nil)
         -- 检查接收到的消息是否为表类型
         if type(msg) == 'table' then
             log.info("MSG:", msg[1])
@@ -112,6 +112,6 @@ local function ble_wifi_config_task()
 end
 
 -- 初始化网络配置任务
-sysplus.taskInitEx(ble_wifi_config_task, "ble_wifi_config_task")
+sys.taskInitEx(ble_wifi_config_task, "ble_wifi_config_task")
 -- 初始化网络测试任务
-sysplus.taskInitEx(network_event_handler, taskName)
+sys.taskInitEx(network_event_handler, taskName)

@@ -74,7 +74,7 @@ local function send_data_req_proc_func(tag, data, cb)
     end
     
     -- 发送消息通知 websocket sender task，有新数据等待发送
-    sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "SEND_REQ")
+    sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "SEND_REQ")
 end
 
 -- 按照顺序发送send_queue中的数据
@@ -96,7 +96,7 @@ local function send_item(ws_client)
                 item.cb.func(false, item.cb.para)
             end
             -- 触发重连
-            sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
+            sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
             return nil
         end
 
@@ -132,7 +132,7 @@ local function send_item(ws_client)
                 item.cb.func(false, item.cb.para)
             end
             -- 触发重连
-            sysplus.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
+            sys.sendMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT", "DISCONNECTED")
             return nil
         end
     end
@@ -147,7 +147,7 @@ local function websocket_client_sender_task_func()
 
     while true do
         -- 等待"WEBSOCKET_EVENT"消息
-        msg = sysplus.waitMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT")
+        msg = sys.waitMsg(websocket_sender.TASK_NAME, "WEBSOCKET_EVENT")
         log.info("WebSocket发送任务等待消息", msg[2], msg[3])
 
         -- WebSocket连接成功
@@ -202,6 +202,6 @@ end
 sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 
 --创建并且启动一个task
-sysplus.taskInitEx(websocket_client_sender_task_func, websocket_sender.TASK_NAME)
+sys.taskInitEx(websocket_client_sender_task_func, websocket_sender.TASK_NAME)
 
 return websocket_sender

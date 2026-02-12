@@ -2,7 +2,7 @@ local taskName = "call"
 local calling = {}
 
 function calling.publishMsg(param1, param2, param3, param4)
-    sysplus.sendMsg(taskName, param1, param2, param3, param4)
+    sys.sendMsg(taskName, param1, param2, param3, param4)
 end
 
 --[[ 
@@ -26,22 +26,22 @@ audio.on(0, function(id, event)
             log.info("第", file_cnt, "个文件解码失败")
         end
     end
-    sysplus.sendMsg(taskName, "CC_STATE", "PLAY_DONE")
+    sys.sendMsg(taskName, "CC_STATE", "PLAY_DONE")
 end)
 sys.subscribe("CC_IND", function(state)
     log.info("cc state", state)
     if state == "READY" then
         sys.publish("CC_READY")
-        sysplus.sendMsg(taskName, "CC_STATE", state)
+        sys.sendMsg(taskName, "CC_STATE", state)
     elseif state == "INCOMINGCALL" then
         log.info("cc.lastNum", cc.lastNum())
-        sysplus.sendMsg(taskName, "CC_STATE", state)
+        sys.sendMsg(taskName, "CC_STATE", state)
     elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
-        sysplus.sendMsg(taskName, "CC_STATE", "CC_DONE")
+        sys.sendMsg(taskName, "CC_STATE", "CC_DONE")
         audio.pm(0, audio.STANDBY)
         -- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
     elseif state == "CONNECTED" then
-        sysplus.sendMsg(taskName, "CC_STATE", "CONNECTED")
+        sys.sendMsg(taskName, "CC_STATE", "CONNECTED")
     end
 end)
 
@@ -62,7 +62,7 @@ local function findVaildNum(list, num)
 end
 
 
-sysplus.taskInitEx(function()
+sys.taskInitEx(function()
     local multimedia_id = 0
     local i2c_id = 0
     local i2s_id = 0
@@ -122,7 +122,7 @@ sysplus.taskInitEx(function()
     while true do
         if mode == "IDLE" then
             index = 1
-            ret = sysplus.waitMsg(taskName, nil, nil)
+            ret = sys.waitMsg(taskName, nil, nil)
             log.info("IDLE", ret[1], ret[2])
             if ret[2] == "INCOMINGCALL" then -- 来电
                 local num = cc.lastNum() -- 获取来电号码
@@ -146,7 +146,7 @@ sysplus.taskInitEx(function()
                 ttsDone = true
             end
         elseif mode == "WAIT_CALLING" then -- 等待呼叫
-            ret = sysplus.waitMsg(taskName, nil, 4000)
+            ret = sys.waitMsg(taskName, nil, 4000)
             if not ret then -- 等待超时，拨打当前选中的联系人，默认为第一个
                 if not isSelect then
                     isSelect = true
@@ -180,14 +180,14 @@ sysplus.taskInitEx(function()
                 mode = "IDLE"
             end
         elseif mode == "CALLING" then -- 拨号中
-            ret = sysplus.waitMsg(taskName, nil, nil)
+            ret = sys.waitMsg(taskName, nil, nil)
             if ret[2] == "CC_DONE" or ret[2] == "POWER_KEY" then -- 通话结束或开机键按下，走到挂断流程
                 mode = "DISCONNECTING"
             elseif ret[2] == "CONNECTED" then -- 收到通话建立消息，则进入通话中状态
                 mode = "CONNECTING"
             end
         elseif mode == "PREPARE" then -- 准备通话
-            ret = sysplus.waitMsg(taskName, nil, nil)
+            ret = sys.waitMsg(taskName, nil, nil)
             log.info("PREPARE", ret[1], ret[2])
             if ret[2] == "CALL_KEY" then -- 按下拨号键，接听，则进入通话中状态
                 audio.playStop(0)
@@ -205,7 +205,7 @@ sysplus.taskInitEx(function()
                 mode = "IDLE"
             end
         elseif mode == "CONNECTING" then -- 通话中
-            ret = sysplus.waitMsg(taskName, nil, nil)
+            ret = sys.waitMsg(taskName, nil, nil)
             log.info("CONNECTING", ret[1], ret[2])
             if ret[2] == "POWER_KEY" then -- 按下开机键，走到挂断流程
                 mode = "DISCONNECTING"
@@ -214,7 +214,7 @@ sysplus.taskInitEx(function()
             end
         elseif mode == "DISCONNECTING" then -- 挂断流程
             cc.hangUp(0) -- 挂断电话
-            ret = sysplus.waitMsg(taskName, nil, 10000)
+            ret = sys.waitMsg(taskName, nil, 10000)
             log.info("DISCONNECTING", ret[1], ret[2])
             if not ret or ret[2] == "CC_DONE" then -- 通话结束或者超时没有等到挂断结束的消息，回到IDLE
                 mode = "IDLE"
@@ -228,7 +228,7 @@ end, taskName)
 -- 按键1, 红色SOS按钮
 gpio.setup(0, function()
     log.info("callme", "拨号键触发, 拨打电话")
-    sysplus.sendMsg(taskName, "CC_STATE", "CALL_KEY")
+    sys.sendMsg(taskName, "CC_STATE", "CALL_KEY")
 end, gpio.PULLDOWN, gpio.RISING)
 gpio.debounce(0, 1000)
 

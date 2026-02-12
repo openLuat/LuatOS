@@ -1,5 +1,5 @@
 {
-    "timeout" : 60,
+    "timeout" : 120,
     "model" : {
         "air780epm": [1, 105],
         "air780ehm": [1, 104],

@@ -44,7 +44,7 @@ local function send_data_req_proc_func(tag, data, cb)
     table.insert(send_queue, {data="send from "..tag..": "..data, cb=cb})
     -- 通知tcp_ssl_ca_main主任务有数据需要发送
     -- tcp_ssl_ca_main主任务如果处在libnet.wait调用的阻塞等待状态，就会退出阻塞状态
-    sysplus.sendMsg(tcp_ssl_ca_sender.TASK_NAME, socket.EVENT, 0)
+    sys.sendMsg(tcp_ssl_ca_sender.TASK_NAME, socket.EVENT, 0)
 end
 
 --[[

@@ -84,10 +84,7 @@ _G.bkcolor = lcd.rgb565(99, 180, 245,false)
 fskv.init()
 local function wdtInit()
 -- 添加硬狗防止程序卡死
-  if wdt then
-    wdt.init(9000) -- 初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
-  end
+-- 不需要处理，内核固件会自动处理
 end
 
 
@@ -532,7 +529,7 @@ wdtInit()
 function ip_ready_handle(ip, adapter)
   log.info("ip_ready_handle",ip, adapter)
   if adapter == socket.LWIP_GP then
-    sysplus.taskInitEx(update_airstatus, "update_airstatus")
+    sys.taskInitEx(update_airstatus, "update_airstatus")
   end
 
 
@@ -598,9 +595,9 @@ end
 -- 演示定时自动升级, 每隔4小时自动检查一次
 
 sys.timerLoopStart(libfota2.request, 4 * 3600000, fota_cb, ota_opts)
-sysplus.taskInitEx(hardware_start,"hardware_start")
+sys.taskInitEx(hardware_start,"hardware_start")
 sys.subscribe("IP_READY", ip_ready_handle)
-sysplus.taskInitEx(UITask, taskName)
+sys.taskInitEx(UITask, taskName)
 
 -- 当前是给camera 表的变量赋值让camera 退出。 未来可以让 UI task 发消息给camera 任务，让camera 任务关闭摄像头，释放LCD
 

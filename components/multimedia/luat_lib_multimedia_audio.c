@@ -145,6 +145,16 @@ static void record_run(uint8_t *data, uint32_t len)
 		{
 			luat_fs_fwrite(data, len, 1, g_s_record.fd);
 		}
+
+		if (g_s_record.record_time)
+		{
+			g_s_record.record_time_tmp++;
+			if (g_s_record.record_time_tmp >= (g_s_record.record_time * 10) )
+			{
+				record_stop(NULL, 0);
+			}
+		}
+
 	}else{
 		memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, data, len);
 		g_s_record.record_buffer[g_s_record.record_buffer_index]->used += len;
@@ -152,15 +162,17 @@ static void record_run(uint8_t *data, uint32_t len)
 		{
 			record_buffer_full();
 		}
-	}
-	if (g_s_record.record_time)
-	{
-		g_s_record.record_time_tmp++;
-		if (g_s_record.record_time_tmp >= (g_s_record.record_time * 10) )
+
+		if (g_s_record.record_time)
 		{
-			record_stop(NULL, 0);
+			g_s_record.record_time_tmp++;
+			if ((g_s_record.record_time_tmp * g_s_record.record_time_data_ratio) >= (g_s_record.record_time * 10) )
+			{
+				record_stop(NULL, 0);
+			}
 		}
 	}
+
 }
 
 static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
@@ -343,8 +355,25 @@ static int l_audio_record(lua_State *L){
     		goto ERROR_OUT;
     	}
     }
+    g_s_record.record_time_data_ratio = luaL_optinteger(L, 6, 1);
+    luat_audio_conf_t *audio = luat_audio_get_config(g_s_record.multimedia_id);
+    if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
+    {
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    	if (i2s->channel_bits > LUAT_I2S_BITS_16)
+    	{
+    		record_buffer_len = g_s_record.record_time_data_ratio * 2;
+    	}
+    	else
+    	{
+    		record_buffer_len = g_s_record.record_time_data_ratio;
+    	}
+    }
+    else
+    {
+    	record_buffer_len = g_s_record.record_time_data_ratio;
+    }
 
-    record_buffer_len = luaL_optinteger(L, 6, 1);
 	g_s_record.channelCnt = luaL_optinteger(L, 9, LUAT_RECORD_MONO);
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
@@ -374,6 +403,7 @@ static int l_audio_record(lua_State *L){
     }
     if (!g_s_record.fd)
     {
+    	LLOGD("record_callback_time %d, record_callback_level %d", g_s_record.record_time_data_ratio, record_buffer_len);
     	g_s_record.record_callback_level = record_buffer_len;
     	g_s_record.record_buffer[0] = ((luat_zbuff_t *)luaL_checkudata(L, 7, LUAT_ZBUFF_TYPE));
     	g_s_record.record_buffer[1] = ((luat_zbuff_t *)luaL_checkudata(L, 8, LUAT_ZBUFF_TYPE));

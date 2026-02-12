@@ -88,6 +88,7 @@ typedef struct{
 	FILE* fd;
 	uint32_t record_time;
 	uint32_t record_time_tmp;
+	uint32_t record_time_data_ratio;
 	void* encoder_handler;
 	luat_zbuff_t * record_buffer[2];
     uint32_t bak_sample_rate;                                   // i2s采样率

@@ -227,6 +227,11 @@ int luat_ble_gatt_unpack(luat_ble_gatt_service_t* gatt, uint8_t* data, size_t* l
 
     // LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
     gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
+    if (gatt->characteristics == NULL) {
+        LLOGE("gatt_unpack: characteristics malloc fail %d", gatt->characteristics_num);
+        if (len) *len = 0;
+        return -1;
+    }
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
         memcpy(&gatt->characteristics[i], data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));

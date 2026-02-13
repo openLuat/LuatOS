@@ -502,9 +502,9 @@ int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit) {
     if (1 + 2 > limit) {
         return -1;
     }
-    uint8_t tmp = LUA_TINTEGER;
+    uint8_t tmp = LUA_TBOOLEAN;
     memcpy(dst, &tmp, 1);
-    tmp = (uint8_t)4;
+    tmp = (uint8_t)1;
     memcpy(dst + 1, &tmp, 1);
     memcpy(dst + 2, &b, 1);
     return 1 + 2;

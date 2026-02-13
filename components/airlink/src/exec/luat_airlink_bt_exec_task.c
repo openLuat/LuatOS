@@ -359,6 +359,7 @@ static void drv_bt_task(void *param) {
                 LLOGD("ble gatt create ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SET_NAME:
+                if (msg->data[0] > 127) msg->data[0] = 127;
                 memcpy(buff, msg->data + 1, msg->data[0]);
                 buff[msg->data[0]] = 0;
                 ret = luat_ble_set_name(NULL, buff, msg->data[0]);

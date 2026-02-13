@@ -479,6 +479,10 @@ int luat_airlink_start_master(void)
 
     s_txbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
     s_rxbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
+    if (s_txbuff == NULL || s_rxbuff == NULL) {
+        LLOGE("SPI master buffer malloc failed");
+        return -2;
+    }
 
     // 创建通用事件队列 (id=2,3等)
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));

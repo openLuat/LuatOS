@@ -46,7 +46,7 @@ int luat_airlink_cmd_exec_mobile_iccid(luat_airlink_cmd_t* cmd, void* userdata) 
     uint8_t index = cmd->data[8];
     
     char iccid[20] = {0};
-    ret = luat_mobile_get_imei(index, iccid, 20);
+    ret = luat_mobile_get_iccid(index, iccid, 20);
     if (ret > 0) {
         memcpy(g_airlink_ext_dev_info.cat1.iccid, iccid, 20);
     }

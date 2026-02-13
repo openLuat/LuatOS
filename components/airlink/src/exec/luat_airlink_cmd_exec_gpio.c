@@ -46,13 +46,13 @@ __AIRLINK_CODE_IN_RAM__ static int luat_airlink_gpio_irq_cb_task(void *param) {
             };
             luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x311, sizeof(luat_gpio_t) + 8);
             if (cmd == NULL) { //  检查命令创建是否成功
-                return -101;
+                LLOGE("GPIO IRQ cmd_new OOM, skip");
+                continue;
             }
             memcpy(cmd->data, &luat_airlink_next_cmd_id, 8);
             uint8_t* data = cmd->data + 8;
             data[0] = event.param1;
             data[1] = event.param2;
-            memcpy(cmd->data + 8, data, 2);
             // LLOGD("GPIO中断回调!!!参数一：%d 参数二：%d",data[0], data[1]);
             item.cmd = cmd;
             luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
@@ -77,6 +77,7 @@ int airlink_gpio_irq_cb(int pin, void* args) {
 int luat_airlink_cmd_exec_gpio_setup(luat_airlink_cmd_t* cmd, void* userdata) {
     luat_gpio_t conf = {0}; //  定义并初始化一个luat_gpio_t类型的结构体变量conf，初始值为0
     // 后面是配置参数,是luat_gpio_t结构体
+    if (cmd->len < 8 + sizeof(luat_gpio_t)) return -1;
     memcpy(&conf, cmd->data + 8, sizeof(luat_gpio_t));
     if (conf.pin >= 128) {
         conf.pin -= 128;

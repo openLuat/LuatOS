@@ -86,6 +86,9 @@ int luat_netdrv_dhcp(int32_t id, int32_t enable) {
 }
 
 int luat_netdrv_ready(int32_t id) {
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
     if (drvs[id] == NULL) {
         return -1;
     }
@@ -93,6 +96,9 @@ int luat_netdrv_ready(int32_t id) {
 }
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv) {
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
     if (drvs[id] != NULL) {
         return -1;
     }
@@ -126,12 +132,12 @@ luat_netdrv_t* luat_netdrv_get(int id) {
     return drvs[id];
 }
 
-static char tmpbuff[1024];
 void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
+    char tmpbuff[1024];
     if (len > 511) {
         len = 511;
     }
-    memset(tmpbuff, 0, 1024);
+    memset(tmpbuff, 0, sizeof(tmpbuff));
     for (size_t i = 0; i < len; i++)
     {
         sprintf(tmpbuff + i * 2, "%02X", buff[i]);

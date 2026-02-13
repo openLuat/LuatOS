@@ -2,6 +2,35 @@
 #define LUAT_NETDRV_NAPT_H
 
 #include "lwip/pbuf.h"
+#include "lwip/def.h"
+
+// NAPT公共类型别名
+#ifndef NAPT_TYPE_ALIASES
+#define NAPT_TYPE_ALIASES
+#define u32 uint32_t
+#define u16 uint16_t
+#define u8  uint8_t
+#endif
+
+#define NAPT_ETH_HDR_LEN sizeof(struct ethhdr)
+
+// NAPT公共增量校验和更新函数
+static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
+{
+    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
+    acc = (acc >> 16) + (acc & 0xFFFFU);
+    acc += (acc >> 16);
+    return lwip_htons((uint16_t)(~acc));
+}
+
+static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
+{
+    const uint16_t *old16 = (const uint16_t *)&old_net;
+    const uint16_t *new16 = (const uint16_t *)&new_net;
+    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
+    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
+    return sum_net;
+}
 
 // 返回值定义（对齐LWIP期望：0=交给LWIP继续，非0=已消费）
 #define NAPT_RET_SKIP         0    // 跳过处理，让LWIP继续（0）

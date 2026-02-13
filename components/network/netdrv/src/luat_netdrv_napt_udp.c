@@ -14,30 +14,7 @@
 
 extern luat_netdrv_napt_ctx_t *g_napt_udp_ctx;
 
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-#define NAPT_ETH_HDR_LEN sizeof(struct ethhdr)
-
 static uint8_t *udp_buff;
-// Incrementally update checksum when a 16-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
-{
-    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
-    acc = (acc >> 16) + (acc & 0xFFFFU);
-    acc += (acc >> 16);
-    return lwip_htons((uint16_t)(~acc));
-}
-
-// Incrementally update checksum when a 32-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
-{
-    const uint16_t *old16 = (const uint16_t *)&old_net;
-    const uint16_t *new16 = (const uint16_t *)&new_net;
-    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
-    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
-    return sum_net;
-}
 
 __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
 {
@@ -49,6 +26,10 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
     if (udp_buff == NULL)
     {
         udp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
+        if (udp_buff == NULL) {
+            LLOGE("NAPT UDP缓冲区分配失败");
+            return 0;
+        }
     }
     // uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t mapping = {0};
@@ -69,7 +50,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
             ip_sum = napt_chksum_replace_u32(ip_sum, old_dst_ip, mapping.inet_ip);
             IPH_CHKSUM_SET(ip_hdr, ip_sum);
 
-            // 重新计算icmp的checksum
+            // 重新计算UDP的checksum
             if (udp_hdr->chksum)
             {
                 udp_hdr->chksum = napt_chksum_replace_u32(udp_hdr->chksum, old_dst_ip, mapping.inet_ip);
@@ -149,8 +130,8 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
         ip_sum = napt_chksum_replace_u32(ip_sum, old_src_ip, new_src_ip);
         IPH_CHKSUM_SET(ip_hdr, ip_sum);
         udp_hdr->src = mapping.wnet_local_port;
-        // 3. 与ICMP不同, 先计算IP的checksum
-        // 4. 计算IP包的checksum
+        // 3. 先计算IP的checksum
+        // 4. 计算UDP包的checksum
         if (udp_hdr->chksum)
         {
             udp_hdr->chksum = napt_chksum_replace_u32(udp_hdr->chksum, old_src_ip, new_src_ip);
@@ -168,7 +149,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
         // 发送出去
         if (gw && gw->dataout && gw->netif)
         {
-            // LLOGD("ICMP改写完成, 发送到GW");
+            // LLOGD("UDP改写完成, 发送到GW");
             if (gw->netif->flags & NETIF_FLAG_ETHARP)
             {
                 if (ctx->eth)
@@ -200,5 +181,5 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_udp_handle(napt_ctx_t *ctx)
         }
         return 1;
     }
-    return 0;
+    // return 0;
 }

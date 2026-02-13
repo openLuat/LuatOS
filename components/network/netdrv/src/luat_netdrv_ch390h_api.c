@@ -20,7 +20,7 @@ int luat_ch390h_read(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff) 
     char tmp[1] = {0};
     int ret = 0;
     luat_spi_lock(ch->spiid);
-    if (addr == 0x72) {
+    if (addr == CH390H_REG_RX_DATA) {
         tmp[0] = addr;
         luat_gpio_set(ch->cspin, 0);
         ret = luat_spi_send(ch->spiid, tmp, 1);
@@ -61,7 +61,7 @@ int luat_ch390h_write(ch390h_t* ch, uint8_t addr, uint16_t count, uint8_t* buff)
         return -2;
     }
     luat_spi_lock(ch->spiid);
-    if (addr == 0x78) {
+    if (addr == CH390H_REG_TX_DATA) {
         ch->txtmp[0] = addr | 0x80;
         memcpy(ch->txtmp+1, buff, count);
         luat_gpio_set(ch->cspin, 0);
@@ -91,62 +91,42 @@ int luat_ch390h_write_reg(ch390h_t* ch, uint8_t addr, uint8_t value) {
 }
 
 int luat_ch390h_read_mac(ch390h_t* ch, uint8_t* buff) {
-    return luat_ch390h_read(ch, 0x10, 6, buff);
+    return luat_ch390h_read(ch, CH390H_REG_MAC, 6, buff);
 }
 
 int luat_ch390h_read_vid_pid(ch390h_t* ch, uint8_t* buff) {
-    return luat_ch390h_read(ch, 0x28, 4, buff);
+    return luat_ch390h_read(ch, CH390H_REG_VID_PID, 4, buff);
 }
 
 int luat_ch390h_basic_config(ch390h_t* ch) {
-    /*
-    ch390h.write(0, 0x01)
-    sys.wait(20)
-    ch390h.write(0x01, (1 << 5) | (1 << 3) | (1 << 2))
-    ch390h.write(0x7E, 0xFF)
-    ch390h.write(0x2D, 0x80)
-    -- write_reg(0x31, 0x1F)
-    ch390h.write(0x7F, 0xFF)
-
-    ch390h.write(0x55, 0x01)
-    ch390h.write(0x75, 0x0c)
-    sys.wait(20)
-    -- ch390h.enable_rx()
-     */
-    luat_ch390h_write_reg(ch, 0x7E, 0xFF);
-    luat_ch390h_write_reg(ch, 0x2D, 0x80);
-    luat_ch390h_write_reg(ch, 0x7F, 0xFF);
-    luat_ch390h_write_reg(ch, 0x55, 0x01);
-    luat_ch390h_write_reg(ch, 0x75, 0x0C);
+    luat_ch390h_write_reg(ch, CH390H_REG_ISR, 0xFF);
+    luat_ch390h_write_reg(ch, CH390H_REG_WCR, 0x80);
+    luat_ch390h_write_reg(ch, CH390H_REG_IMR, 0xFF);
+    luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 0x01);
+    luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0x0C);
     return 0;
 }
 
 int luat_ch390h_software_reset(ch390h_t* ch) {
-    // ch390h.write(0, 0x01)
-    luat_ch390h_write_reg(ch, 0x00, 0x01);
-    // sys.wait(20)
-    // ch390h.write(0, 0x00)
-    luat_ch390h_write_reg(ch, 0x00, 0x00);
-    // ch390h.write(0, 0x01)
-    luat_ch390h_write_reg(ch, 0x00, 0x01);
-    // sys.wait(20)
+    luat_ch390h_write_reg(ch, CH390H_REG_NCR, 0x01);
+    luat_ch390h_write_reg(ch, CH390H_REG_NCR, 0x00);
+    luat_ch390h_write_reg(ch, CH390H_REG_NCR, 0x01);
     return 0;
 }
 
 int luat_ch390h_set_rx(ch390h_t* ch, int enable) {
-    // ch390h.write(0x05, (1 <<4) | (1 <<0) | (1 << 3))
     if (enable) {
-        luat_ch390h_write_reg(ch, 0x05, (1 <<4) | (1 <<0) | (1 << 3));
+        luat_ch390h_write_reg(ch, CH390H_REG_RCR, (1 <<4) | (1 <<0) | (1 << 3));
     }
     else {
-        luat_ch390h_write_reg(ch, 0x05, 0);
+        luat_ch390h_write_reg(ch, CH390H_REG_RCR, 0);
     }
     return 0;
 }
 
 int luat_ch390h_set_phy(ch390h_t* ch, int enable) {
     uint8_t buff[1] = {enable == 0 ? 1 : 0};
-    luat_ch390h_write(ch, 0x1F, 1, buff);
+    luat_ch390h_write(ch, CH390H_REG_GPR, 1, buff);
     return 0;
 }
 
@@ -155,20 +135,20 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
     uint8_t rx_ready;
 
     // 先假读一次
-    luat_ch390h_read(ch, 0x70, 1, tmp);
+    luat_ch390h_read(ch, CH390H_REG_RX_STATUS, 1, tmp);
     // 真正读取一次
-    luat_ch390h_read(ch, 0x70, 1, tmp);
+    luat_ch390h_read(ch, CH390H_REG_RX_STATUS, 1, tmp);
     rx_ready = tmp[0];
 
     if (rx_ready & 0xFE) {
         // Reset RX FIFO pointer (按照CH官方实现)
         uint8_t rcr = 0;
-        luat_ch390h_read(ch, 0x05, 1, &rcr);
-        luat_ch390h_write_reg(ch, 0x05, rcr & ~(1 << 0));
-        luat_ch390h_write_reg(ch, 0x55, 0x01);
-        luat_ch390h_write_reg(ch, 0x75, 0x0C);
+        luat_ch390h_read(ch, CH390H_REG_RCR, 1, &rcr);
+        luat_ch390h_write_reg(ch, CH390H_REG_RCR, rcr & ~(1 << 0));
+        luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 0x01);
+        luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0x0C);
         luat_timer_us_delay(1000);
-        luat_ch390h_write_reg(ch, 0x05, rcr | (1 << 0));
+        luat_ch390h_write_reg(ch, CH390H_REG_RCR, rcr | (1 << 0));
         *len = 0;
         return 0;
     }
@@ -179,23 +159,23 @@ int luat_ch390h_read_pkg(ch390h_t* ch, uint8_t *buff, uint16_t* len) {
         *len = 0;
         return 0;
     }
-    luat_ch390h_read(ch, 0x72, 4, tmp);
+    luat_ch390h_read(ch, CH390H_REG_RX_DATA, 4, tmp);
     *len = tmp[2] + (tmp[3] << 8);
     if (*len == 0) {
         return 1; // 出错了啊!!!
     }
     if (*len > 1600) {
-        LLOGE("pkg too large %ld", len);
+        LLOGE("pkg too large %u", *len);
         return 2;
     }
-    luat_ch390h_read(ch, 0x72, *len, buff);
+    luat_ch390h_read(ch, CH390H_REG_RX_DATA, *len, buff);
     return 0;
 }
 
 int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
     uint8_t tmp[4] = {0};
     
-    luat_ch390h_read(ch, 0x02, 1, tmp);
+    luat_ch390h_read(ch, CH390H_REG_TCR, 1, tmp);
     uint8_t TCR = tmp[0];
     uint8_t NCR = 0;
     uint8_t NSR = 0;
@@ -204,7 +184,7 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
         for (size_t i = 0; i < 100; i++)
         {
             luat_timer_us_delay(10);
-            luat_ch390h_read(ch, 0x02, 1, tmp);
+            luat_ch390h_read(ch, CH390H_REG_TCR, 1, tmp);
             TCR = tmp[0];
             if (!(TCR & 0x01)) {
                 ch->tx_busy_count = 0;  // 成功后清零计数器
@@ -219,30 +199,33 @@ int luat_ch390h_write_pkg(ch390h_t* ch, uint8_t *buff, uint16_t len) {
             uint32_t now = (uint32_t)luat_mcu_tick64_ms();
             if (ch->tx_busy_count >= 10 && (now - ch->last_reset_time > 5000)) {
                 // 读出NCR 和 NSR
-                luat_ch390h_read(ch, 0x00, 1, tmp);
+                luat_ch390h_read(ch, CH390H_REG_NCR, 1, tmp);
                 NCR = tmp[0];
-                luat_ch390h_read(ch, 0x01, 1, tmp);
+                luat_ch390h_read(ch, CH390H_REG_NSR, 1, tmp);
                 NSR = tmp[0];
                 LLOGE("连续TX忙超过阈值，执行复位 NCR=%02X NSR=%02X", NCR, NSR);
                 LLOGD("NCR->FDR %02X NSR->SPEED %02X NSR->LINKST %02X", NCR & (1<<3), NSR & (1<<7), NSR & (1<<6));
                 luat_ch390h_software_reset(ch);
+                luat_timer_mdelay(2);
+                luat_ch390h_basic_config(ch);
+                luat_ch390h_set_phy(ch, 1);
+                luat_ch390h_set_rx(ch, 1);
                 ch->tx_busy_count = 0;
                 ch->last_reset_time = now;
                 ch->total_reset_count++;
-                luat_timer_mdelay(2);
             }
             return -1;
         }
     }
-    luat_ch390h_write_reg(ch, 0x55, 2);     // 发数据之前重置一下tx的内存指针
+    luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 2);     // 发数据之前重置一下tx的内存指针
     // 写入下一个数据
-    luat_ch390h_write(ch, 0x78, len, buff);
+    luat_ch390h_write(ch, CH390H_REG_TX_DATA, len, buff);
     // TCR == 0之后, 才能写入长度
-    luat_ch390h_write_reg(ch, 0x7C, len & 0xFF);
-    luat_ch390h_write_reg(ch, 0x7D, (len >> 8) & 0xFF);
+    luat_ch390h_write_reg(ch, CH390H_REG_TX_LEN_L, len & 0xFF);
+    luat_ch390h_write_reg(ch, CH390H_REG_TX_LEN_H, (len >> 8) & 0xFF);
     // 再读一次TCR
-    luat_ch390h_read(ch, 0x02, 1, tmp);
+    luat_ch390h_read(ch, CH390H_REG_TCR, 1, tmp);
     // 发送
-    luat_ch390h_write_reg(ch, 0x02, tmp[0] | 0x01);
+    luat_ch390h_write_reg(ch, CH390H_REG_TCR, tmp[0] | 0x01);
     return 0;
 }

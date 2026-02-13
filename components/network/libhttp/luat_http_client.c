@@ -98,6 +98,7 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGI("http close %p", http_ctrl);
+	luat_http_idg_unreg(http_ctrl->idg);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
@@ -540,7 +541,8 @@ static const http_parser_settings parser_settings = {
 
 
 int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
-	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
+	luat_http_idg_register(http_ctrl);
+	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
@@ -740,7 +742,12 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 
 int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
-	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
+	uint32_t idg = (uint32_t)(intptr_t)param;
+	luat_http_ctrl_t *http_ctrl = luat_http_idg_get(idg);
+	if (!http_ctrl) {
+		LLOGE("http_ctrl is NULL for idg %d", idg);
+		return -1;
+	}
 	int ret = 0;
 	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (http_ctrl == NULL || http_ctrl->netc == NULL){
@@ -998,7 +1005,10 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 		return NULL;
 	}
 
-	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
+	
+	luat_http_idg_register(http_ctrl);
+
+	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 	http_ctrl->http_cb = cb?cb:luat_http_dummy_cb;
@@ -1009,6 +1019,8 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	http_ctrl->debug_onoff = 0;
 	http_ctrl->netc->is_debug = 0;
 	http_ctrl->resp_content_len = -1;
+
+
 	return http_ctrl;
 }
 

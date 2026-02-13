@@ -42,7 +42,11 @@ static int l_iperf_report_handle(lua_State*L, void* ptr) {
 static void iperf_report_cb(void *arg, enum lwiperf_report_type report_type,
     const ip_addr_t* local_addr, u16_t local_port, const ip_addr_t* remote_addr, u16_t remote_port,
     u32_t bytes_transferred, u32_t ms_duration, u32_t bandwidth_kbitpsec) {
-
+    (void)arg;
+    (void)local_addr;
+    (void)local_port;
+    (void)remote_addr;
+    (void)remote_port;
     if (report_type != LWIPERF_TCP_DONE_CLIENT && report_type != LWIPERF_TCP_DONE_SERVER) {
         LLOGW("iperf异常结束, type %d", report_type);
     }
@@ -150,9 +154,9 @@ static int l_iperf_server(lua_State *L) {
         return 0;
     }
     iperf_start_ctx_t ctx = {0};
-    ctx.adapter_index = luaL_checkinteger(L, 1);
+    ctx.adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     ctx.mode = 1; // server模式
-    ctx.port = luaL_optinteger(L, 2, 5001);
+    ctx.port = (uint16_t)luaL_optinteger(L, 2, 5001);
     if (start_gogogo(&ctx)) {
         lua_pushboolean(L, 1);
         return 1;
@@ -197,8 +201,8 @@ static int l_iperf_client(lua_State *L) {
         LLOGE("非法的ip地址 %s", ip);
         return 0;
     }
-    ctx.adapter_index = adapter_index;
-    ctx.port = luaL_optinteger(L, 3, 5001);
+    ctx.adapter_index = (uint8_t)adapter_index;
+    ctx.port = (uint16_t)luaL_optinteger(L, 3, 5001);
     ctx.drv = luat_netdrv_get(adapter_index);
     ctx.mode = 0; // client模式
     // LLOGD("client connect to %s:%d", ip, ctx.port);

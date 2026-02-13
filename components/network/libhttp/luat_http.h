@@ -1,6 +1,8 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
 #include "luat_network_adapter.h"
+#include "luat_spi.h"
+#include "luat_fota.h"
 #ifdef __LUATOS__
 #include "luat_zbuff.h"
 #else

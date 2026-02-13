@@ -3,6 +3,10 @@
 
 #include "lwip/pbuf.h"
 #include "lwip/def.h"
+#include "lwip/ip.h"
+#include "lwip/etharp.h"
+#include "luat_netdrv.h"
+#include <string.h>
 
 // NAPT公共类型别名
 #ifndef NAPT_TYPE_ALIASES
@@ -135,6 +139,64 @@ typedef struct luat_netdrv_napt_ctx{
     // 哈希表用于加速查找（LAN->WAN方向）
     napt_hash_entry_t *hash_table_lan2wan;  // 按(inet_ip, inet_port, wnet_ip, wnet_port)索引
 }luat_netdrv_napt_ctx_t;
+
+// NAPT公共输出路由函数: WAN→LAN 方向
+static inline int napt_output_to_lan(napt_ctx_t* ctx,
+                                     luat_netdrv_napt_tcpudp_t* mapping,
+                                     struct ip_hdr* ip_hdr,
+                                     uint8_t* buff)
+{
+    if (ctx->eth) {
+        memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
+        memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
+    }
+    luat_netdrv_t* dst = luat_netdrv_get(mapping->adapter_id);
+    if (dst == NULL || !dst->dataout) {
+        return 1;
+    }
+    if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+        dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
+    }
+    else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+        memcpy(buff, mapping->inet_mac, 6);
+        memcpy(buff + 6, dst->netif->hwaddr, 6);
+        memcpy(buff + 12, "\x08\x00", 2);
+        memcpy(buff + 14, ip_hdr, ctx->len);
+        dst->dataout(dst, dst->userdata, buff, ctx->len + 14);
+    }
+    else {
+        dst->dataout(dst, dst->userdata, ip_hdr, ctx->len);
+    }
+    return 1;
+}
+
+// NAPT公共输出路由函数: LAN→WAN 方向
+static inline int napt_output_to_wan(napt_ctx_t* ctx,
+                                     luat_netdrv_t* gw,
+                                     struct ip_hdr* ip_hdr)
+{
+    if (!gw || !gw->dataout || !gw->netif) {
+        return 1;
+    }
+    if (gw->netif->flags & NETIF_FLAG_ETHARP) {
+        if (ctx->eth) {
+            memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
+            gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
+        }
+        else {
+            return 0; // 网关netdrv是ETH,源网卡不是ETH, 当前不支持
+        }
+    }
+    else {
+        if (ctx->eth) {
+            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len - 14);
+        }
+        else {
+            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
+        }
+    }
+    return 1;
+}
 
 int luat_napt_icmp_handle(napt_ctx_t* ctx);
 int luat_napt_tcp_handle(napt_ctx_t* ctx);

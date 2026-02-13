@@ -121,8 +121,17 @@ int luat_airlink_drv_uart_data_cb(int uart_id, void* buffer, size_t length) {
         }
         if (uart_rx_buffs[realy_id]->remain + length > uart_rx_buffs[realy_id]->buff_size) {
             LLOGE("RX OVERFLOW remain %d income %d", uart_rx_buffs[realy_id]->remain, length);
-            memmove(uart_rx_buffs[realy_id]->buff, uart_rx_buffs[realy_id]->buff + uart_rx_buffs[realy_id]->remain, uart_rx_buffs[realy_id]->buff_size - uart_rx_buffs[realy_id]->remain);
-            uart_rx_buffs[realy_id]->remain = uart_rx_buffs[realy_id]->buff_size - length;
+            // 如果新数据本身就超过缓冲区大小,直接丢弃
+            if (length > uart_rx_buffs[realy_id]->buff_size) {
+                uart_rx_buffs[realy_id]->remain = 0;
+                return -102;
+            }
+            // 丢弃旧数据头部, 保留尾部, 给新数据腾出空间
+            size_t keep = uart_rx_buffs[realy_id]->buff_size - length;
+            if (keep > 0 && keep < uart_rx_buffs[realy_id]->remain) {
+                memmove(uart_rx_buffs[realy_id]->buff, uart_rx_buffs[realy_id]->buff + uart_rx_buffs[realy_id]->remain - keep, keep);
+            }
+            uart_rx_buffs[realy_id]->remain = keep;
         }
         memcpy(uart_rx_buffs[realy_id]->buff + uart_rx_buffs[realy_id]->remain,  buffer, length);
         uart_rx_buffs[realy_id]->remain += length;

@@ -393,6 +393,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		}
 	#ifdef LUAT_USE_FOTA
 		else if(http_ctrl->isfota && (parser->status_code == 200 || parser->status_code == 206)){
+			LLOGD("fota write len %d", length);
 			if (luat_fota_write((uint8_t*)at, length) < 0){
 				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
@@ -434,6 +435,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 		}
 		http_ctrl->body_len += length;
+		LLOGD("body write len %u, total %u", (unsigned int)length, (unsigned int)http_ctrl->body_len);
 		luat_http_callback(http_ctrl);
 	} else {
 		if (http_ctrl->state != HTTP_STATE_GET_BODY){

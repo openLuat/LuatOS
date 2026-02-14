@@ -269,8 +269,9 @@ require("airui_all_component") --所有组件综合演示
 
 1. 使用 Luatools 烧录对应型号的最新内核固件
 2. 下载本项目所有脚本文件
-3. 将演示图片文件（如 `logo.jpg` ）同.lua脚本文件一起烧录到脚本分区
-4. 设备自动重启后开始运行选定的演示模块
+3. 按[hzfont加载外置字体方式](https://docs.openluat.com/osapi/core/hzfont/#ttf)下载所需字体文件并加载至文件系统
+4. 将演示图片文件（如 `logo.jpg` ）同.lua脚本文件一起烧录到脚本分区
+5. 设备自动重启后开始运行选定的演示模块
 
 
 ## 八、故障排除

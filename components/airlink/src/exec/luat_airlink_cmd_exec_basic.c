@@ -112,6 +112,8 @@ int luat_airlink_cmd_exec_notify_log(luat_airlink_cmd_t *cmd, void *userdata) {
     }
     uint8_t level = cmd->data[0];
     uint8_t tag_len = cmd->data[1];
+    if (tag_len > 15) tag_len = 15;
+    if (cmd->len < (uint16_t)(2 + tag_len)) return 0;
     char tag[16] = {0};
     memcpy(tag, cmd->data + 2, tag_len);
     luat_log_log(level, tag, "%.*s", cmd->len - 2 - tag_len, cmd->data + 2 + tag_len);
@@ -184,6 +186,7 @@ static int l_airlink_sys_pub(lua_State *L, void* ptr) {
     }
     ret = lua_pcall(L, c, 0, 0);
     // LLOGD("pcall args %d ret %d", c, ret);
+    luat_heap_opt_free(AIRLINK_MEM_TYPE, msg->ptr);
     return 0;
 }
 

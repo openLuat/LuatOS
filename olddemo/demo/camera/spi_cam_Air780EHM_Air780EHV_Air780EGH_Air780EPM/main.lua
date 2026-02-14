@@ -1,9 +1,9 @@
-PROJECT = "camera_30W_480_320_demo"
+PROJECT = "camera_GC0310_demo"
 VERSION = "4.0.0"
 -- 实际使用时选1个就行
 -- require "bf30a2"
-require "gc032a"
--- require "gc0310"
+-- require "gc032a"
+require "gc0310"
 sys = require("sys")
 log.style(1)
 
@@ -11,12 +11,6 @@ log.style(1)
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3000)
 
 
-
-gpio.setup(2,1)--GPIO2打开给camera_3.3V供电
-
--- 注意：V1.2的开发板需要打开GPIO28，V1.3的开发板需要打开GPIO29
--- gpio.setup(28, 1) -- GPIO28打开给lcd电源供电 
-gpio.setup(29, 1) -- GPIO29打开给lcd电源供电 
 
 gpio.setup(14, nil)
 gpio.setup(15, nil)
@@ -34,7 +28,7 @@ local RAW_MODE = 0 -- 写1演示获取原始图像
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
 local function lcd_pin()
     local rtos_bsp = rtos.bsp()
-    if string.find(rtos_bsp,"780EPM") then
+    if string.find(rtos_bsp,"780") then
         return lcd.HWID_0, 36, 0xff, 0xff, 0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "没找到合适的cat.1芯片",rtos_bsp)
@@ -149,8 +143,8 @@ sys.taskInit(function()
     i2c.setup(i2cId, i2c.FAST) -- I2C1设置为快速模式，不开启上拉
     gpio.setup(5, 0) -- 将 GPIO5 下拉，用于 SPI 片选信号
     -- camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-    -- camera_id = gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
-    camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE) -- 通过 I2C1 配置摄像头，SPI1 时钟频率为 24 MHz
+    camera_id = gc0310Init(cspiId, i2cId, 25500000, SCAN_MODE, SCAN_MODE)
+    -- camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE) -- 通过 I2C1 配置摄像头，SPI1 时钟频率为 24 MHz
     camera.stop(camera_id) -- 暂停摄像头捕获数据。仅停止了图像捕获，未影响预览功能。
     camera.preview(camera_id, true) -- 打开LCD预览功能（直接将摄像头数据输出到LCD）
 

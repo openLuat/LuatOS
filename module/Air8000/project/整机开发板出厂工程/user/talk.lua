@@ -284,13 +284,13 @@ function talk.tp_handal(x, y, event)
             if x > 0 and x < 80 and y > 0 and y < 80 then
                 run_state = false 
             elseif x > 173 and x < 284 and y > 300 and y < 345 then
-                sysplus.taskInitEx(start_talk, "start_talk")
+                sys.taskInitEx(start_talk, "start_talk")
             elseif x > 32 and x < 133 and y > 300 and y < 345 then
-                sysplus.taskInitEx(start_broadcast, "start_broadcast")
+                sys.taskInitEx(start_broadcast, "start_broadcast")
             elseif x > 104 and x < 215 and y > 397 and y < 444 then
-                sysplus.taskInitEx(stop_talk, "stop_talk")
+                sys.taskInitEx(stop_talk, "stop_talk")
             elseif x > 175 and x < 286 and y > 250 and y < 295 then  -- 通讯录按钮
-                sysplus.taskInitEx(open_address_list, "open_address_list")
+                sys.taskInitEx(open_address_list, "open_address_list")
             end
         elseif current_page == "address_list" then
             handle_address_list_touch(x, y)

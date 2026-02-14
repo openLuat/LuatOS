@@ -11,6 +11,10 @@
 #include "luat_airlink.h"
 #endif
 
+#ifdef LUAT_USE_MOBILE
+#include "luat_mobile.h"
+#endif
+
 #define LUAT_LOG_TAG "netdrv"
 #include "luat_log.h"
 
@@ -82,6 +86,9 @@ int luat_netdrv_dhcp(int32_t id, int32_t enable) {
 }
 
 int luat_netdrv_ready(int32_t id) {
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
     if (drvs[id] == NULL) {
         return -1;
     }
@@ -89,6 +96,9 @@ int luat_netdrv_ready(int32_t id) {
 }
 
 int luat_netdrv_register(int32_t id, luat_netdrv_t* drv) {
+    if (id < 0 || id >= NW_ADAPTER_QTY) {
+        return -1;
+    }
     if (drvs[id] != NULL) {
         return -1;
     }
@@ -122,12 +132,12 @@ luat_netdrv_t* luat_netdrv_get(int id) {
     return drvs[id];
 }
 
-static char tmpbuff[1024];
 void luat_netdrv_print_pkg(const char* tag, uint8_t* buff, size_t len) {
+    char tmpbuff[1024];
     if (len > 511) {
         len = 511;
     }
-    memset(tmpbuff, 0, 1024);
+    memset(tmpbuff, 0, sizeof(tmpbuff));
     for (size_t i = 0; i < len; i++)
     {
         sprintf(tmpbuff + i * 2, "%02X", buff[i]);
@@ -229,7 +239,7 @@ int luat_netdrv_netif_input_proxy(struct netif * netif, uint8_t* buff, uint16_t 
     ptr->netif = netif;
     ptr->len = len;
     // uint64_t tbegin = luat_mcu_tick64();
-    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 1);
+    int ret = tcpip_callback_with_block(luat_netdrv_netif_input, ptr, 0);
     // uint64_t tend = luat_mcu_tick64();
     // uint64_t tused = (tend - tbegin) / luat_mcu_us_period();
     // if (tused > 50) {
@@ -346,10 +356,63 @@ int luat_netdrv_dhcp_opt(luat_netdrv_t* drv, void* userdata, int enable) {
         return 0;
     }
     if (enable) {
-        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 1);
+        tcpip_callback_with_block(ulwip_dhcp_client_start, drv->ulwip, 0);
     }
     else {
-        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 1);
+        tcpip_callback_with_block(ulwip_dhcp_client_stop, drv->ulwip, 0);
     }
     return 0;
+}
+
+
+
+int luat_netdrv_is_ready(int id) {
+    int ret = 0;
+    luat_netdrv_t* netdrv = NULL;
+    netdrv = luat_netdrv_get(id);
+    if (netdrv == NULL || netdrv->netif == NULL) {
+        return 0;
+    }
+    ret = netif_is_link_up(netdrv->netif);
+    ret &= netif_is_up(netdrv->netif);
+    ret &= !ip_addr_isany(&netdrv->netif->ip_addr);
+    // 对于移动网络，还要检查注册状态
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_mobile_is_ip_ready()) {
+        return 0;
+    }
+    #endif
+    return ret;
+}
+
+#ifdef TYPE_EC718M
+extern void soc_info(const char *fmt, ...);
+#define LUAT_DBG_PRINT(...) soc_info(__VA_ARGS__)
+#else
+#define LUAT_DBG_PRINT(...)
+#endif
+
+
+int luat_netdrv_simple_stat(void) {
+    // 特殊处理
+    uint32_t stat = 0;
+    luat_netdrv_t* netdrv = NULL;
+    char ip[64] = {0};
+    char gw[64] = {0};
+    char nm[64] = {0};
+    for (size_t i = 0; i < NW_ADAPTER_QTY; i++)
+    {
+        if (luat_netdrv_is_ready(i)) {
+            stat |= (1 << i);
+        }
+        netdrv = luat_netdrv_get(i);
+        if (netdrv && netdrv->netif) {
+            ipaddr_ntoa_r(&netdrv->netif->ip_addr, ip, 64);
+            ipaddr_ntoa_r(&netdrv->netif->gw, gw, 64);
+            ipaddr_ntoa_r(&netdrv->netif->netmask, nm, 64);
+            LUAT_DBG_PRINT("+NETDRV: %d,%s,%s,%s", i, ip, gw, nm);
+        }
+    }
+    LUAT_DBG_PRINT("+NETSTAT: 0x%08X,%d", stat, network_register_get_default());
+    return 1;
 }

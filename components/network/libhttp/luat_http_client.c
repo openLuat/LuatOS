@@ -56,16 +56,6 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl);
 
 int strncasecmp(const char *string1, const char *string2, size_t count);
 
-static void http_close_nw(luat_http_ctrl_t *http_ctrl) {
-	LLOGD("http close nw %p", http_ctrl);
-	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
-	}
-	if (http_ctrl->timeout_timer){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
-	}
-}
-
 static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
@@ -108,6 +98,7 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGI("http close %p", http_ctrl);
+	luat_http_idg_unreg(http_ctrl->idg);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
@@ -199,28 +190,18 @@ static void http_network_close(luat_http_ctrl_t *http_ctrl)
 	}
 }
 
-static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	LLOGD("report error(1) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
+static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
+	LLOGD("report result(1) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
 	if (error_code != HTTP_OK && http_ctrl->is_download && http_ctrl->fd) {
-		LLOGW("http_resp_error: closing open fd due to error %d", error_code);
+		LLOGW("closing open fd due to error %d", error_code);
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
 		if (http_ctrl->dst) {
 			luat_fs_remove(http_ctrl->dst);
 		}
 	}
-	if (!(http_ctrl->parser.flags & F_CHUNKED) && 0 == http_ctrl->tcp_closed && NW_STATE_DISCONNECTING == http_ctrl->netc->state) {
-		on_tcp_closed(http_ctrl);
-		return;
-	}
-	LLOGD("report error(2) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
-	if (0 == http_ctrl->tcp_closed && NW_STATE_ONLINE == http_ctrl->netc->state) {
-		if (0 == http_ctrl->error_code) {
-			http_ctrl->error_code = error_code;
-		}
-		http_close_nw(http_ctrl);
-		return;
-	}
+	LLOGD("report result(2) %d tcp_closed %d nw state %d",error_code, http_ctrl->tcp_closed, http_ctrl->netc->state);
+	LLOGD("http_report_result error_code:%d %d",error_code, http_ctrl->error_code);
 	if (http_ctrl->error_code) {
 		error_code = http_ctrl->error_code;
 	}
@@ -229,7 +210,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 		luat_fota_end(0);
 	}
 #endif
-	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
+	LLOGD("http_report_result headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
 	if (http_ctrl->tcp_closed == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < http_ctrl->retry_cnt_max){
 		#ifdef LUAT_USE_NETDRV
 		luat_netdrv_fire_socket_event_netctrl(EV_NW_TIMEOUT, http_ctrl->netc, 3);
@@ -238,9 +219,15 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
-			LLOGE("http_resp_error network_connect error");
+			LLOGE("http_report_result network_connect error");
 			goto error;
 		}
+		return;
+	}
+	else if (http_ctrl->tcp_closed == 0) {
+		LLOGD("http_report_result normal close");
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
 		return;
 	}
 error:
@@ -267,7 +254,7 @@ static int on_header_field(http_parser* parser, const char *at, size_t length){
 
 	if (http_ctrl->luatos_mode) {
 		if(!strncasecmp(at, "Content-Length", 14) && http_ctrl->resp_content_len == 0){
-			http_ctrl->resp_content_len = -1;
+			http_ctrl->resp_content_len = -2;
 		}
 		if (!http_ctrl->headers){
 			http_ctrl->headers = luat_heap_malloc(length+2);
@@ -287,8 +274,7 @@ static int on_header_field(http_parser* parser, const char *at, size_t length){
 }
 	
 static int on_header_value(http_parser* parser, const char *at, size_t length){
-
-	char tmp[16] = {0};
+	char tmp[32] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	// LLOGD("on_header_value:%.*s",length,at);
 	if (http_ctrl->headers_complete){
@@ -299,8 +285,9 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 	}
 
 	if (http_ctrl->luatos_mode) {
-		if(http_ctrl->resp_content_len == -1){
-			memcpy(tmp, at, length);
+		if(http_ctrl->resp_content_len == -2){
+			memcpy(tmp, at, 31 > length ? length : 31);
+			LLOGD("parse content length %.*s", length, tmp);
 			http_ctrl->resp_content_len = atoi(tmp);
 			LLOGD("resp_content_len:%d",http_ctrl->resp_content_len);
 		}
@@ -319,7 +306,7 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 
 static int on_headers_complete(http_parser* parser){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-    LLOGD("on_headers_complete");
+    LLOGD("on_headers_complete status %d content_length:%ld", http_ctrl->parser.status_code, http_ctrl->resp_content_len);
 	if (http_ctrl->headers_complete){
 		if (!http_ctrl->luatos_mode) {
 			LLOGD("state %d", http_ctrl->state);
@@ -340,7 +327,7 @@ static int on_headers_complete(http_parser* parser){
 		else if(http_ctrl->isfota){
 			if (parser->status_code != 200 && parser->status_code != 206){
 				LLOGE("fota http code error %d", parser->status_code);
-				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
 			}
 			luat_fota_init(http_ctrl->address, http_ctrl->length, http_ctrl->spi_device, NULL, 0);
@@ -394,20 +381,21 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 				http_ctrl->fd = luat_fs_fopen(http_ctrl->dst, "w+");
 				if (http_ctrl->fd == NULL) {
 					LLOGE("open download file fail %s", http_ctrl->dst);
-					http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+					http_ctrl->error_code = HTTP_ERROR_DOWNLOAD;
 					return -1;
 				}
 			}
 			if (length != luat_fs_fwrite(at, 1, length, http_ctrl->fd)) {
 				LLOGE("err when fwrite %s", http_ctrl->dst);
-				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+				http_ctrl->error_code = HTTP_ERROR_DOWNLOAD;
 				return -1;
 			}
 		}
 	#ifdef LUAT_USE_FOTA
 		else if(http_ctrl->isfota && (parser->status_code == 200 || parser->status_code == 206)){
+			LLOGD("fota write len %d", length);
 			if (luat_fota_write((uint8_t*)at, length) < 0){
-				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
 			}
 		}
@@ -418,7 +406,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 				void* tmpptr = luat_heap_realloc(http_ctrl->zbuff_body->addr,http_ctrl->zbuff_body->used+length+1);
 				if (tmpptr == NULL) {
 					LLOGE("out of memory when recv http body");
-					http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+					http_ctrl->error_code = HTTP_ERROR_DOWNLOAD;
 					return -1;
 				}
 				http_ctrl->zbuff_body->addr = tmpptr;
@@ -432,14 +420,14 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 				http_ctrl->body = luat_heap_malloc(length+1);
 				if (http_ctrl->body == NULL) {
 					LLOGE("out of memory when recv http body");
-					http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+					http_ctrl->error_code = HTTP_ERROR_DOWNLOAD;
 					return -1;
 				}
 			}else{
 				void* tmpptr = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+length+1);
 				if (tmpptr == NULL) {
 					LLOGE("out of memory when recv http body");
-					http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+					http_ctrl->error_code = HTTP_ERROR_DOWNLOAD;
 					return -1;
 				}
 				http_ctrl->body = tmpptr;
@@ -447,6 +435,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 		}
 		http_ctrl->body_len += length;
+		LLOGD("body write len %u, total %u", (unsigned int)length, (unsigned int)http_ctrl->body_len);
 		luat_http_callback(http_ctrl);
 	} else {
 		if (http_ctrl->state != HTTP_STATE_GET_BODY){
@@ -464,7 +453,6 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	if (!(parser->flags & F_CHUNKED) && http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
 		http_ctrl->http_body_is_finally = 1;
 		LLOGD("http body recv done, total_len=%ld", http_ctrl->body_len);
-		http_close_nw(http_ctrl);
 	}
     return 0;
 }
@@ -502,21 +490,20 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 				if (result==0){
 					if (luat_fota_end(1)){
 						LLOGE("fota finish error");
-						http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+						http_ctrl->error_code = HTTP_ERROR_FOTA;
 						return -1;
 					}
 				}else{
-					http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+					http_ctrl->error_code = HTTP_ERROR_FOTA;
 					return -1;
 				}
 			}else{
-				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+				http_ctrl->error_code = HTTP_ERROR_FOTA;
 				return -1;
 			}
 		}
 	#endif
 	}
-	// network_close(http_ctrl->netc, 0);
     return 0;
 }
 
@@ -532,8 +519,6 @@ static int on_message_complete(http_parser* parser){
 				luat_fs_remove(http_ctrl->dst);
 			}
 		}
-		luat_http_client_onevent(http_ctrl, HTTP_OK, 0); 
-		http_ctrl->tcp_closed = 1;
 	}
 	return 0;
 }
@@ -543,7 +528,6 @@ static int on_chunk_header(http_parser* parser){
 	LLOGD("on_chunk_header content_length:%lld",parser->content_length);
 	if (parser->content_length == 0){
 		http_ctrl->http_body_is_finally = 1;
-		// http_close_nw(http_ctrl);	// 在on_body里关闭连接
 	}
     return 0;
 }
@@ -559,7 +543,8 @@ static const http_parser_settings parser_settings = {
 
 
 int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
-	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
+	luat_http_idg_register(http_ctrl);
+	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
@@ -664,14 +649,11 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	}
 }
 
-#ifdef __LUATOS__
-static int luat_http_timeout_resp_error(lua_State *L, void* ptr) {
-    luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
-    if (!http_ctrl) return 0;
-    http_resp_error(http_ctrl, HTTP_ERROR_TIMEOUT);
-    return 0;
-}
 
+static void luat_http_timeout_resp_error(luat_http_ctrl_t * http_ctrl) {
+    http_report_result(http_ctrl, HTTP_ERROR_TIMEOUT);
+}
+#ifdef __LUATOS__
 static int luat_http_timeout_network_close(lua_State *L, void* ptr) {
     luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t*)ptr;
     if (!http_ctrl) return 0;
@@ -685,12 +667,9 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 	luat_http_ctrl_t * http_ctrl = (luat_http_ctrl_t *)param;
 	if (http_ctrl->luatos_mode) {
 #ifdef __LUATOS__
-		rtos_msg_t msg = {0};
-		msg.handler = luat_http_timeout_resp_error;
-		msg.ptr = http_ctrl;
-		luat_msgbus_put(&msg, 0);
+		network_tcpip_callback(luat_http_timeout_resp_error, http_ctrl, 0);
 #else
-		http_resp_error(http_ctrl, HTTP_ERROR_TIMEOUT);
+		luat_http_timeout_resp_error(http_ctrl);
 #endif
 	} else {
 		if (http_ctrl->new_data)
@@ -732,12 +711,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
             if (n == 0) break;
             parsed += n;
         }
-
-        // 无论 parser 是否吃到 0-chunk，都按“截断”处理
-        // http_ctrl->error_code = HTTP_ERROR_CHUNK_INCOMPLETE;   // 错误，表示 chunked 截断
-        // http_resp_error(http_ctrl, http_ctrl->error_code);
-		// 直接返回，不再走后续正常关闭流程
-        return;
+		http_ctrl->http_body_is_finally = 1;
     }
 
     if (http_ctrl->http_body_is_finally == 0) {
@@ -762,7 +736,7 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 		}
 	}
 	if (http_ctrl->luatos_mode) {
-		http_resp_error(http_ctrl, HTTP_OK);
+		http_report_result(http_ctrl, HTTP_OK);
 	} else {
 		http_network_error(http_ctrl);
 	}
@@ -770,9 +744,15 @@ static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 
 int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
-	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
+	uint32_t idg = (uint32_t)(intptr_t)param;
+	luat_http_ctrl_t *http_ctrl = luat_http_idg_get(idg);
+	if (!http_ctrl) {
+		LLOGE("http_ctrl is NULL for idg %d", idg);
+		return -1;
+	}
 	int ret = 0;
-	if (http_ctrl == NULL){
+	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
+	if (http_ctrl == NULL || http_ctrl->netc == NULL){
 		LLOGE("http_ctrl is NULL");
 		return -1;
 	}
@@ -787,22 +767,31 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		LLOGD("http already closed %p", http_ctrl);
 		return 0;
 	}
-
-	//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (event->Param1){
 		//LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-		LLOGE("error event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
+		LLOGI("event %08X %d host %s port %d",event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl->netc->domain_name, http_ctrl->netc->remote_port);
 		if (http_ctrl->tcp_closed == 0 && http_ctrl->error_code == 0) {
 			http_ctrl->error_code = event->ID == EV_NW_RESULT_CONNECT ? HTTP_ERROR_CONNECT : HTTP_ERROR_CLOSE;
 		}
-		if (http_ctrl->tcp_closed == 0) {
-			if (http_ctrl->parser.flags & F_CHUNKED) {
-				http_resp_error(http_ctrl, http_ctrl->error_code ? http_ctrl->error_code : HTTP_ERROR_CLOSE);
-			} else {
-				on_tcp_closed(http_ctrl);
+		on_tcp_closed(http_ctrl);
+		return -1;
+	}
+	LLOGD("http_ctrl->error_code %d", http_ctrl->error_code);
+	if (http_ctrl->error_code != 0){
+		if (event->ID == EV_NW_RESULT_EVENT) {
+			// 把数据读取完成
+			uint32_t total_len = 0;
+			uint32_t rx_len = 0;
+			uint8_t tmpbuff[256] = {0};
+			while (1) {
+				int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
+				if (result || total_len == 0) {
+					break;
+				}
+				network_rx(http_ctrl->netc, tmpbuff, total_len > 256 ? 256 : total_len, 0, NULL, NULL, &rx_len);
 			}
 		}
+		LLOGW("already error %d", http_ctrl->error_code);
 		return -1;
 	}
     switch (event->ID)
@@ -820,14 +809,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		uint32_t rx_len = 0;
 		while (1) {
 			int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-			if (result) {
-				if (http_ctrl->luatos_mode) {
-					http_resp_error(http_ctrl, http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX);
-				} else {
-					http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
-					http_network_error(http_ctrl);
-				}
-				return -1;
+			if (result || total_len == 0) {
+				break;
 			}
 			if (0 == total_len)
 				break;
@@ -837,41 +820,22 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					// 能到这里的就是片段太长了
 					// 要么header太长, 要么chunked太长,拒绝吧
 					if (http_ctrl->luatos_mode) {
-						http_resp_error(http_ctrl, http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX);
+						http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
 					} else {
 						http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
 						http_network_error(http_ctrl);
 					}
-					return -1;
+					LLOGW("resp buff full!!!");
+					break;
 				}
 			}
 			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff+http_ctrl->resp_buff_offset, total_len, 0, NULL, NULL, &rx_len);
 			// 将接收到的数据打印出来 hex格式
-			// for (size_t i = 0; i < rx_len; i += 16)
-			// {
-			// 	LLOGD("HTTP recv data hex: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X", 
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 0], 
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 1],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 2],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 3],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 4],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 5],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 6],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 7],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 8],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 9],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 10],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 11],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 12],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 13],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 14],
-			// 		http_ctrl->resp_buff[http_ctrl->resp_buff_offset + i + 15]);
-			// }
 			// LLOGD("HTTP recv data: %.*s", rx_len, http_ctrl->resp_buff + http_ctrl->resp_buff_offset);
 			LLOGD("result:%d rx_len:%d", result, rx_len);
 			if (rx_len == 0||result!=0) {
 				if (http_ctrl->luatos_mode) {
-					http_resp_error(http_ctrl, http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX);
+					http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
 				} else {
 					http_ctrl->error_code = http_ctrl->http_body_is_finally ? HTTP_OK : HTTP_ERROR_RX;
 					http_network_error(http_ctrl);
@@ -879,9 +843,6 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				return -1;
 			}
 			http_ctrl->resp_buff_offset += rx_len;
-			//LLOGD("resp_buff_offset:%d resp_buff:%s",http_ctrl->resp_buff_offset,http_ctrl->resp_buff);
-			// uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
-			//LLOGD("resp buff %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			if (0 == http_ctrl->resp_headers_done) {
 				LLOGD("search headers, buff len %d", http_ctrl->resp_buff_offset);
 				if (http_ctrl->resp_buff_offset > 4) {
@@ -908,8 +869,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
 				if (http_ctrl->parser.http_errno) {
-					LLOGW("http exit reason by errno: %d != HPE_OK!!!", http_ctrl->parser.http_errno);
-					return 0;
+					LLOGW("http exit reason by errno: %d != HPE_OK!!", http_ctrl->parser.http_errno);
+					goto next_wait;
 				}
 				parsed = nParseBytes;
 				
@@ -924,7 +885,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				LLOGD("wait headers %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			}
 			if (http_ctrl->tcp_closed){
-				return 0;
+				goto next_wait;
 			}
 		}
 
@@ -998,11 +959,13 @@ int32_t luat_lib_http_callback(void *data, void *param){
         break;
     }
 
+next_wait:
+
     ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){
 		LLOGE("network_wait_event %d", ret);
 		if (http_ctrl->luatos_mode) {
-			http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
+			http_report_result(http_ctrl, HTTP_ERROR_CLOSE);
 		} else {
 			http_ctrl->error_code = HTTP_ERROR_STATE;
 			http_network_close(http_ctrl);
@@ -1044,7 +1007,10 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 		return NULL;
 	}
 
-	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
+	
+	luat_http_idg_register(http_ctrl);
+
+	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, (void*)http_ctrl->idg);
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 	http_ctrl->http_cb = cb?cb:luat_http_dummy_cb;
@@ -1054,6 +1020,9 @@ luat_http_ctrl_t* luat_http_client_create(luat_http_cb cb, void *user_param, int
 	http_ctrl->state = HTTP_STATE_IDLE;
 	http_ctrl->debug_onoff = 0;
 	http_ctrl->netc->is_debug = 0;
+	http_ctrl->resp_content_len = -1;
+
+
 	return http_ctrl;
 }
 

@@ -647,6 +647,11 @@ int rtmp_connect(rtmp_ctx_t *ctx) {
     }
     
     rtmp_set_state(ctx, RTMP_STATE_CONNECTING, 0);
+
+    // 初始化握手状态和缓冲区位置
+    ctx->handshake_state = 0;
+    ctx->recv_pos = 0;
+    ctx->send_pos = 0;
     
     /* 发起TCP连接 */
     err_t err = tcp_connect(ctx->pcb, &remote_addr, ctx->port, rtmp_tcp_connect_callback);
@@ -1434,6 +1439,7 @@ static void rtmp_send_connect(void *arg) {
             
     /* 发送RTMP connect命令 */
     RTMP_LOGV("RTMP: Sending connect command...");
+    ctx->chunk_size = RTMP_DEFAULT_CHUNK_SIZE;  /* 可以根据需要调整 */
     int ret = rtmp_send_command(ctx, "connect", 1, ctx->app);
     if (ret == 0) {
         rtmp_set_state(ctx, RTMP_STATE_CONNECTED, 0);

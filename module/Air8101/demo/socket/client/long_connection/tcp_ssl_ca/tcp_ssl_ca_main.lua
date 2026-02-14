@@ -160,5 +160,5 @@ end
 
 --创建并且启动一个task
 --运行这个task的主函数tcp_ssl_ca_main_task_func
-sysplus.taskInitEx(tcp_ssl_ca_main_task_func, TASK_NAME, tcp_ssl_ca_main_cbfunc)
+sys.taskInitEx(tcp_ssl_ca_main_task_func, TASK_NAME, tcp_ssl_ca_main_cbfunc)
 

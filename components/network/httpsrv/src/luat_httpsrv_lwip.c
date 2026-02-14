@@ -35,32 +35,6 @@ const http_code_str_t g_luat_http_codes[] = {
     {0, ""}
 }; 
 
-typedef struct client_socket_ctx
-{
-    int lua_ref_id;
-    int code;
-    struct http_parser parser;
-
-    char *uri;
-    char *headers;
-    char *body;
-
-    size_t body_size;
-    size_t expect_body_size;
-    int next_header_value_is_content_length;
-    uint32_t recv_done;
-    char *buff;
-    size_t buff_offset;
-    size_t buff_size;
-    struct tcp_pcb* pcb;
-    size_t send_size;
-    size_t sent_size;
-
-    FILE* fd;
-    char sbuff[1500];
-    uint32_t sbuff_offset;
-    uint8_t write_done;
-}client_socket_ctx_t;
 
 static int handle_static_file(client_socket_ctx_t *client);
 
@@ -195,10 +169,10 @@ static void client_resp(void* arg) {
 static void client_cleanup(client_socket_ctx_t *client) {
     HTTPSRV_DBG("client cleanup!!! %p", client);
     if (client->pcb) {
-        tcp_arg(client->pcb, NULL);
         tcp_err(client->pcb, NULL);
         tcp_sent(client->pcb, NULL);
         tcp_recv(client->pcb, NULL);
+        tcp_arg(client->pcb, NULL);
         tcp_close(client->pcb);
         client->pcb = NULL;
     }
@@ -227,6 +201,16 @@ static void client_cleanup(client_socket_ctx_t *client) {
         luat_fs_fclose(client->fd);
         client->fd = NULL;
     }
+    if (client->req_headers) {
+        http_req_header_t* prev = client->req_headers;
+        http_req_header_t* next = NULL;
+        while (prev) {
+            next = prev->next;
+            luat_heap_free(prev);
+            prev = next;
+        }
+        client->req_headers = NULL;
+    }
     HTTPSRV_DBG("free client %p", client);
     luat_heap_free(client);
 }
@@ -245,6 +229,20 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     lua_pushstring(L, http_method_str(client->parser.method));
     lua_pushstring(L, client->uri);
     lua_newtable(L); // 暂时不解析headers
+    if (client->req_headers) {
+        http_req_header_t* prev = client->req_headers;
+        http_req_header_t* next = NULL;
+        while (prev) {
+            next = prev->next;
+            lua_pushlstring(L, prev->data, prev->key_len);
+            lua_pushlstring(L, prev->data + prev->key_len, prev->value_len);
+            lua_settable(L, -3);
+            luat_heap_free(prev);
+            prev = next;
+        }
+        client->req_headers = NULL;
+    }
+
     lua_pushlstring(L, client->body, client->body_size);
     // 先释放掉
     luat_heap_free(client->uri);
@@ -748,13 +746,25 @@ static int my_on_url(http_parser* parser, const char *at, size_t length) {
 
 static int my_on_header_field(http_parser* parser, const char *at, size_t length) {
     // LLOGI("on_header_field %.*s", (int)length, at);
+    client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
     if (length == 14 && !memcmp(at, "Content-Length", 14)) {
-        client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
         client->next_header_value_is_content_length = 1;
     }
     else {
-        client_socket_ctx_t* client = (client_socket_ctx_t*)parser->data;
         client->next_header_value_is_content_length = 0;
+    }
+    // 填充到 req_headers 链表中
+    http_req_header_t* header = luat_heap_malloc(sizeof(http_req_header_t) + length);
+    if (header) {
+        header->key_len = length;
+        header->value_len = 0;
+        memcpy(header->data, at, length);
+        header->next = client->req_headers;
+        client->req_headers = header;
+    }
+    else {
+        LLOGE("fail to malloc header!!!");
+        return -1;
     }
     return 0;
 }
@@ -765,6 +775,24 @@ static int my_on_header_value(http_parser* parser, const char *at, size_t length
     if (client->next_header_value_is_content_length) {
         client->expect_body_size = atoi(at);
         client->next_header_value_is_content_length = 0;
+    }
+    // 填充到 req_headers 链表中
+    if (client->req_headers) {
+        http_req_header_t* header = client->req_headers;
+        header->value_len = length;
+        // 判断一下长度，防止越界, 并根据长度重新分配内存
+        if (header->key_len + length > 4096) {
+            LLOGW("header too long, key_len %d value_len %d", header->key_len, length);
+            return -1;
+        }
+        void* ptr = luat_heap_realloc(header, sizeof(http_req_header_t) + header->key_len + length);
+        if (ptr == NULL) {
+            LLOGE("fail to realloc header!!!");
+            return -1;
+        }
+        header = ptr;
+        client->req_headers = header;
+        memcpy(header->data + header->key_len, at, length);
     }
     return 0;
 }

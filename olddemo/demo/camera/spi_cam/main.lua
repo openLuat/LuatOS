@@ -1,12 +1,13 @@
 PROJECT = "camerademo"
 VERSION = "1.0.0"
 -- 实际使用时选1个就行
-require "bf30a2"
-require "gc032a"
+-- require "bf30a2"
+-- require "gc032a"
 require "gc0310"
-require "gc2145"
+-- require "gc2145"
 sys = require("sys")
 log.style(1)
+    pm.ioVol(pm.IOVOL_LCD, 3000)
 
 local SCAN_MODE = 0 -- 写1演示扫码
 local scan_pause = true

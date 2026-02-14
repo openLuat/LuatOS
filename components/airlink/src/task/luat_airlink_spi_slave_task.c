@@ -296,13 +296,13 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
 }
 
 #ifndef __BK72XX__
-void luat_airlink_start_slave(void)
+int luat_airlink_start_slave(void)
 {
     LLOGD("luat_airlink_start_slave!!!");
     if (spi_task_handle != NULL)
     {
         LLOGE("SPI从机任务已经启动过了!!!");
-        return;
+        return -1;
     }
     
     if (s_rxbuff == NULL) {
@@ -310,12 +310,17 @@ void luat_airlink_start_slave(void)
         s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     }
     if (s_txbuff == NULL) {
-        // 分配内存给s_rxbuff
+        // 分配内存给s_txbuff
         s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
+    }
+    if (s_rxbuff == NULL || s_txbuff == NULL) {
+        LLOGE("SPI slave buffer malloc failed");
+        return -2;
     }
     spi_gpio_setup();
 
     luat_rtos_queue_create(&evt_queue, 2 * 1024, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 16 * 1024, 50, "spi_slave", spi_slave_task, NULL, 0);
+    return 0;
 }
 #endif

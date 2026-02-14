@@ -13,13 +13,10 @@
 #define LUAT_LOG_TAG "netdrv.napt.map"
 #include "luat_log.h"
 
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-
 // 端口分配范围
 #define NAPT_PORT_RANGE_START     0x1BBC
 #define NAPT_PORT_RANGE_END       0x6AAA
+#define NAPT_PORT_BITMAP_LEN      ((NAPT_PORT_RANGE_END - NAPT_PORT_RANGE_START + 31) / 32)
 
 // 全局NAPT上下文（供TCP/UDP处理使用）
 luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
@@ -213,7 +210,7 @@ __NETDRV_CODE_IN_RAM__ static void mapping_cleanup(luat_netdrv_napt_ctx_t *napt_
             port = it->wnet_local_port - NAPT_PORT_RANGE_START;
             offset = port / (4 * 8);
             soffset = port % (4 * 8);
-            if (offset <= 1024) {
+            if (offset < NAPT_PORT_BITMAP_LEN) {
                 napt_ctx->port_used[offset] &= (~(1 << soffset));
             } else {
                 LLOGE("非法的offset %d", (int)offset);

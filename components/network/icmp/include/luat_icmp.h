@@ -10,11 +10,12 @@
 #include "lwip/raw.h"
 
 
-typedef void (*luat_icmp_recv_fn)(void* ctx, uint32_t tused);
+typedef void (*luat_icmp_recv_fn)(void* ctx, uint32_t tused, uint8_t ttl);
 
 typedef struct luat_icmp_ctx
 {
     uint8_t adapter_id;
+    uint8_t ttl;
     struct netif *netif;
     struct raw_pcb *pcb_v4;
 #if LWIP_IPV6

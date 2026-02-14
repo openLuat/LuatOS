@@ -17,43 +17,21 @@
 static uint8_t *tcp_buff;
 extern luat_netdrv_napt_ctx_t *g_napt_tcp_ctx;
 
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-#define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
-
-// Incrementally update checksum when a 16-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
-{
-    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
-    acc = (acc >> 16) + (acc & 0xFFFFU);
-    acc += (acc >> 16);
-    return lwip_htons((uint16_t)(~acc));
-}
-
-// Incrementally update checksum when a 32-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
-{
-    const uint16_t *old16 = (const uint16_t *)&old_net;
-    const uint16_t *new16 = (const uint16_t *)&new_net;
-    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
-    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
-    return sum_net;
-}
-
 __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
     uint16_t iphdr_len = (ctx->iphdr->_v_hl & 0x0F) * 4;
     struct ip_hdr* ip_hdr = ctx->iphdr;
     struct tcp_hdr *tcp_hdr = (struct tcp_hdr*)(((uint8_t*)ctx->iphdr) + iphdr_len);
     luat_netdrv_t* gw = ctx->drv_gw;
-    // luat_netdrv_napt_tcpudp_t* it = NULL;
-    luat_netdrv_napt_tcpudp_t* it_map = NULL;
     int ret = 0;
     if (gw == NULL || gw->netif == NULL) {
         return 0;
     }
     if (tcp_buff == NULL) {
         tcp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
+        if (tcp_buff == NULL) {
+            LLOGE("NAPT TCP缓冲区分配失败");
+            return 0;
+        }
     }
     // uint64_t tnow = luat_mcu_tick64_ms();
     luat_netdrv_napt_tcpudp_t mapping = {0};
@@ -74,7 +52,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
             ip_sum = napt_chksum_replace_u32(ip_sum, old_dst_ip, mapping.inet_ip);
             IPH_CHKSUM_SET(ip_hdr, ip_sum);
 
-            // 重新计算icmp的checksum
+            // 重新计算TCP的checksum
             if (tcp_sum)
             {
                 tcp_sum = napt_chksum_replace_u32(tcp_sum, old_dst_ip, mapping.inet_ip);
@@ -89,41 +67,7 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
                                                        (u16 *)tcp_hdr,
                                                        ntohs(ip_hdr->_len) - iphdr_len);
             }
-
-            // 如果是ETH包, 那还需要修改源MAC和目标MAC
-            if (ctx->eth) {
-                memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
-                memcpy(ctx->eth->dest.addr, mapping.inet_mac, 6);
-            }
-            luat_netdrv_t* dst = luat_netdrv_get(mapping.adapter_id);
-            if (dst == NULL) {
-                LLOGE("能找到TCP映射关系, 但目标netdrv不存在, 这肯定是BUG啊!!");
-                return 1;
-            }
-            if (dst->dataout) {
-                if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-                    // LLOGD("输出到内网netdrv,无需额外添加eth头");
-                    dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
-                }
-                else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
-                    // 需要补全一个ETH头部
-                    memcpy(tcp_buff, mapping.inet_mac, 6);
-                    memcpy(tcp_buff + 6, dst->netif->hwaddr, 6);
-                    memcpy(tcp_buff + 12, "\x08\x00", 2);
-                    memcpy(tcp_buff + 14, ip_hdr, ctx->len);
-                    dst->dataout(dst, dst->userdata, tcp_buff, ctx->len + 14);
-                    // LLOGD("输出到内网netdrv,已额外添加eth头");
-                    // luat_netdrv_print_pkg("下行数据", tcp_buff, ctx->len + 14);
-                }
-                else {
-                    // 那就是IP2IP, 不需要加ETH头了
-                    dst->dataout(dst, dst->userdata, ip_hdr, ctx->len);
-                }
-            }
-            else {
-                LLOGE("能找到TCP映射关系, 但目标netdrv不支持dataout!!");
-            }
-            return 1; // 全部修改完成
+            return napt_output_to_lan(ctx, &mapping, ip_hdr, tcp_buff);
         }
         // LLOGD("没有找到TCP映射关系, 放行给LWIP处理");
         return 0;
@@ -133,67 +77,26 @@ __NETDRV_CODE_IN_RAM__ int luat_napt_tcp_handle(napt_ctx_t* ctx) {
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
             return 0; // 对网关的TCP请求, 交给LWIP处理
         }
-        // 第一轮循环, 是否有已知映射
-        // LLOGD("inet.search src port %d -> %d", ntohs(tcp_hdr->src), ntohs(tcp_hdr->dest));
         ret = luat_netdrv_napt_tcp_lan2wan(ctx, &mapping, g_napt_tcp_ctx);
-        if (ret != 0) {
+        if (ret != 0)
             return 0;
-        }
-        it_map = &mapping;
-
-        // 2. 修改信息
+        // 改写源地址/端口 + 校验和
         uint16_t old_src_port = tcp_hdr->src;
         uint32_t old_src_ip = ip_hdr->src.addr;
         uint32_t new_src_ip = ip_addr_get_ip4_u32(&gw->netif->ip_addr);
         uint16_t ip_sum = ip_hdr->_chksum;
         uint16_t tcp_sum = tcp_hdr->chksum;
         ip_hdr->src.addr = new_src_ip;
-        ip_sum = napt_chksum_replace_u32(ip_sum, old_src_ip, new_src_ip);
-        IPH_CHKSUM_SET(ip_hdr, ip_sum);
-        tcp_hdr->src = it_map->wnet_local_port;
-        // 3. 与ICMP不同, 先计算IP的checksum
-        // 4. 计算IP包的checksum
-        if (tcp_sum)
-        {
+        IPH_CHKSUM_SET(ip_hdr, napt_chksum_replace_u32(ip_sum, old_src_ip, new_src_ip));
+        tcp_hdr->src = mapping.wnet_local_port;
+        if (tcp_sum) {
             tcp_sum = napt_chksum_replace_u32(tcp_sum, old_src_ip, new_src_ip);
-            tcp_sum = napt_chksum_replace_u16(tcp_sum, old_src_port, it_map->wnet_local_port);
-            tcp_hdr->chksum = tcp_sum;
+            tcp_hdr->chksum = napt_chksum_replace_u16(tcp_sum, old_src_port, mapping.wnet_local_port);
+        } else {
+            tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr, ip_hdr->dest.addr,
+                IP_PROTO_TCP, (u16*)tcp_hdr, ntohs(ip_hdr->_len) - iphdr_len);
         }
-        else
-        {
-            tcp_hdr->chksum = alg_tcpudphdr_chksum(ip_hdr->src.addr,
-                                                   ip_hdr->dest.addr,
-                                                   IP_PROTO_TCP,
-                                                   (u16 *)tcp_hdr,
-                                                   ntohs(ip_hdr->_len) - iphdr_len);
-        }
-
-        // 发送出去
-        if (gw && gw->dataout && gw->netif) {
-            // LLOGD("ICMP改写完成, 发送到GW");
-            if (gw->netif->flags & NETIF_FLAG_ETHARP) {
-                if (ctx->eth) {
-                    memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
-                    gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
-                }
-                else {
-                    LLOGD("网关netdrv是ETH,源网卡不是ETH, 当前不支持");
-                    return 0;
-                }
-            }
-            else {
-                if (ctx->eth) {
-                    gw->dataout(gw, gw->userdata, ip_hdr, ctx->len - 14);
-                }
-                else {
-                    gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
-                }
-            }
-        }
-        else {
-            LLOGD("TCP改写完成, 但GW不支持dataout回调?!!");
-        }
-        return 1;
+        return napt_output_to_wan(ctx, gw, ip_hdr);
     }
-    return 0;
+    // return 0;
 }

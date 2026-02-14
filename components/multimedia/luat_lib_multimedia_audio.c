@@ -145,22 +145,22 @@ static void record_run(uint8_t *data, uint32_t len)
 		{
 			luat_fs_fwrite(data, len, 1, g_s_record.fd);
 		}
+
+		if (g_s_record.record_time)
+		{
+			g_s_record.record_time_tmp++;
+			if (g_s_record.record_time_tmp >= (g_s_record.record_time * 10) )
+			{
+				record_stop(NULL, 0);
+			}
+		}
+
 	}else{
-		memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, data, len);
-		g_s_record.record_buffer[g_s_record.record_buffer_index]->used += len;
-		if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
-		{
-			record_buffer_full();
-		}
+
+
+
 	}
-	if (g_s_record.record_time)
-	{
-		g_s_record.record_time_tmp++;
-		if (g_s_record.record_time_tmp >= (g_s_record.record_time * 10) )
-		{
-			record_stop(NULL, 0);
-		}
-	}
+
 }
 
 static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
@@ -168,7 +168,29 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 	switch(event)
 	{
 	case LUAT_I2S_EVENT_RX_DONE:
-		luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
+		if (!g_s_record.is_run || g_s_record.wait_stop) return 0;
+		if (g_s_record.fd){
+			luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
+		}
+		else
+		{
+			memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, rx_data, rx_len);
+			g_s_record.record_buffer[g_s_record.record_buffer_index]->used += rx_len;
+			if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
+			{
+				record_buffer_full();
+				if (g_s_record.record_time)
+				{
+					g_s_record.record_time_tmp++;
+					if ((g_s_record.record_time_tmp * g_s_record.record_time_data_ratio) >= (g_s_record.record_time * 10) )
+					{
+						g_s_record.wait_stop = 1;
+						luat_audio_run_callback_in_task(record_stop, NULL, 0);
+					}
+				}
+			}
+
+		}
 		break;
 	default:
 		break;
@@ -205,13 +227,11 @@ static void record_start(uint8_t *data, uint32_t len){
     luat_audio_conf_t *audio = luat_audio_get_config(g_s_record.multimedia_id);
     if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
     {
-    	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(audio->codec_conf.i2s_id);
     	g_s_record.bak_cb_rx_len = i2s->cb_rx_len;
     	g_s_record.bak_is_full_duplex = i2s->is_full_duplex;
     	g_s_record.bak_sample_rate = i2s->sample_rate;
     	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
-
-
     	i2s->is_full_duplex = 1;
     	i2s->luat_i2s_event_callback = record_cb;
     	switch(g_s_record.type)
@@ -273,7 +293,7 @@ static void record_stop(uint8_t *data, uint32_t len){
     if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
     {
     	//还原参数
-    	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(audio->codec_conf.i2s_id);
     	i2s->cb_rx_len = g_s_record.bak_cb_rx_len;
     	i2s->is_full_duplex = g_s_record.bak_is_full_duplex;
     	i2s->sample_rate = g_s_record.bak_sample_rate;
@@ -299,6 +319,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 	g_s_record.record_time_tmp = 0;
 	g_s_record.is_run = 0;
 	g_s_record.record_buffer_index = 0;
+	g_s_record.wait_stop = 0;
 	luat_msgbus_put(&msg, 1);
 }
 
@@ -343,8 +364,25 @@ static int l_audio_record(lua_State *L){
     		goto ERROR_OUT;
     	}
     }
+    g_s_record.record_time_data_ratio = luaL_optinteger(L, 6, 1);
+    luat_audio_conf_t *audio = luat_audio_get_config(g_s_record.multimedia_id);
+    if (LUAT_AUDIO_BUS_I2S == audio->bus_type)
+    {
+    	luat_i2s_conf_t *i2s = luat_i2s_get_config(audio->codec_conf.i2s_id);
+    	if (i2s->channel_bits > LUAT_I2S_BITS_16)
+    	{
+    		record_buffer_len = g_s_record.record_time_data_ratio * 2;
+    	}
+    	else
+    	{
+    		record_buffer_len = g_s_record.record_time_data_ratio;
+    	}
+    }
+    else
+    {
+    	record_buffer_len = g_s_record.record_time_data_ratio;
+    }
 
-    record_buffer_len = luaL_optinteger(L, 6, 1);
 	g_s_record.channelCnt = luaL_optinteger(L, 9, LUAT_RECORD_MONO);
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
@@ -374,6 +412,7 @@ static int l_audio_record(lua_State *L){
     }
     if (!g_s_record.fd)
     {
+    	LLOGD("record_callback_time %d, record_callback_level %d", g_s_record.record_time_data_ratio, record_buffer_len);
     	g_s_record.record_callback_level = record_buffer_len;
     	g_s_record.record_buffer[0] = ((luat_zbuff_t *)luaL_checkudata(L, 7, LUAT_ZBUFF_TYPE));
     	g_s_record.record_buffer[1] = ((luat_zbuff_t *)luaL_checkudata(L, 8, LUAT_ZBUFF_TYPE));
@@ -388,7 +427,6 @@ static int l_audio_record(lua_State *L){
     		__zbuff_resize(g_s_record.record_buffer[1], record_buffer_len);
     	}
     }
-
     g_s_record.is_run = 1;
     luat_audio_run_callback_in_task(record_start, NULL, 0);
     lua_pushboolean(L, 1);
@@ -719,7 +757,7 @@ static int l_audio_config(lua_State *L) {
 	}
     int pa_pin = luaL_optinteger(L, 2, -1);
     int level = luaL_optinteger(L, 3, 1);
-    int dac_pre_delay = luaL_optinteger(L, 4, 5);
+    int dac_pre_delay = luaL_optinteger(L, 4, 5) * 100;
     int dac_last_delay = luaL_optinteger(L, 5, 200);
     int dac_power_pin = luaL_optinteger(L, 6, -1);
     int dac_power_level = luaL_optinteger(L, 7, 1);

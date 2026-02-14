@@ -12,8 +12,6 @@
 --     --air153C_wtd.set_time(1)--开启定时模式再打开此代码，否则无效
 -- end)
 ]]
-local sys = require "sys"
-_G.sysplus = require("sysplus")
 air153C_wtd={}
 --[[
 初始化引脚

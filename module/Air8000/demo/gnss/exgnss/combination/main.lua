@@ -23,11 +23,7 @@ VERSION：项目版本号，ascii string类型
 PROJECT = "gnsstest"
 VERSION = "001.000.000"
 
---添加硬狗防止程序卡死
-if wdt then
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
-end
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -56,10 +52,10 @@ exgnss=require("exgnss")
 
 --以下功能每次只能打开一个用于测试，选择对应的功能进行测试
 
-require"normal"  --正常模式，搭配GNSS定时开启发送经纬度数据到服务器，不进入任何低功耗模式
+-- require"normal"  --正常模式，搭配GNSS定时开启发送经纬度数据到服务器，不进入任何低功耗模式
 -- require"lowpower"    -- 低功耗模式，搭配GNSS定时开启发送经纬度数据到服务器，定位成功之后关闭GNSS进入低功耗模式
 -- require"psm"     -- PSM+模式，唤醒开启GNSS定位，定位成功之后发送经纬度数据到服务器，然后关闭GNSS进入PSM+模式
--- require"vibration"  -- 振动检测模式，搭配GNSS触发震动检测之后，持续发送经纬度数据到服务器
+require"vibration"  -- 振动检测模式，搭配GNSS触发震动检测之后，持续发送经纬度数据到服务器
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

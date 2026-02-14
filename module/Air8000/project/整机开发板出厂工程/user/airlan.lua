@@ -119,9 +119,9 @@ function airlan.tp_handal(x,y,event)       -- 判断是否需要停止播放
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
         if lan_state then
-            sysplus.taskInitEx(stop_lan_task, "stop_lan_task")
+            sys.taskInitEx(stop_lan_task, "stop_lan_task")
         else
-            sysplus.taskInitEx(start_lan_task , "start_lan_task")
+            sys.taskInitEx(start_lan_task , "start_lan_task")
         end
     end
 end

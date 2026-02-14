@@ -1003,7 +1003,11 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 	#if NO_SYS
 	net_lwip2_task(event);
 	#else
-	tcpip_callback_with_block(net_lwip2_task, event, 1);
+	int ret = tcpip_callback(net_lwip2_task, event);
+	if (ret) {
+		LLOGE("tcpip_callback fail %d event %d", ret, id);
+		luat_heap_free(event);
+	}
 	#endif
 }
 #endif
@@ -1065,7 +1069,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 				// 如果网关地址是0.0.0.0, 就不设置DNS服务器
 			}
 			else {
-				memcpy(&dns_client->dns_server[0], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
+				memcpy(&dns_client->dns_server[2], &prvlwip.lwip_netif[adapter_index]->gw, sizeof(luat_ip_addr_t));
 				// ipaddr_ntoa_r(&dns_client->dns_server[0], ip_string, sizeof(ip_string));
 				// LLOGD("使用网关作为首选DNS服务器 %d %s", adapter_index, ip_string);
 			}
@@ -1076,7 +1080,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 		}
 		
 		if (dns1_set == 0) {
-			network_set_ip_ipv4(&dns_client->dns_server[1], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
+			network_set_ip_ipv4(&dns_client->dns_server[3], (114 << 24) | (114 << 16) | (114 << 8) | 114); // 默认DNS服务器
 			// ipaddr_ntoa_r(&dns_client->dns_server[1], ip_string, sizeof(ip_string));
 			// LLOGD("使用默认DNS服务器 %d %s", adapter_index, ip_string);
 		}

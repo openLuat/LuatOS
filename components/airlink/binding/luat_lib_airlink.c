@@ -116,6 +116,7 @@ airlink.test(10)
 static int l_airlink_test(lua_State *L) {
     int count = luaL_checkinteger(L, 1);
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + 128);
+    if (cmd == NULL) return 0;
     cmd->cmd = 0x21;
     cmd->len = 128;
     if (count > 0) {
@@ -180,6 +181,7 @@ airlink.slave_reboot()
 static int l_airlink_slave_reboot(lua_State *L) {
     LLOGD("重启从机");
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + 4);
+    if (cmd == NULL) return 0;
     cmd->cmd = 0x03;
     cmd->len = 4;
     luat_airlink_send2slave(cmd);
@@ -217,6 +219,7 @@ static int l_airlink_sdata(lua_State *L) {
         return 0;
     }
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (cmd == NULL) return 0;
     cmd->cmd = 0x20;
     cmd->len = len;
     memcpy(cmd->data, data, len);
@@ -249,9 +252,9 @@ static int l_airlink_cmd(lua_State *L) {
     const char* data = NULL;
     uint32_t cmd_id = luaL_checkinteger(L, 1);
     if (lua_type(L, 2) == LUA_TSTRING) {
-        data = luaL_checklstring(L, 1, &len);
+        data = luaL_checklstring(L, 2, &len);
     }
-    else if (lua_isuserdata(L, 1)) {
+    else if (lua_isuserdata(L, 2)) {
         // zbuff
         luat_zbuff_t* buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         data = (const char*)buff->addr;
@@ -266,6 +269,7 @@ static int l_airlink_cmd(lua_State *L) {
         return 0;
     }
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (cmd == NULL) return 0;
     cmd->cmd = cmd_id;
     cmd->len = len;
     memcpy(cmd->data, data, len);
@@ -277,6 +281,7 @@ static int l_airlink_cmd(lua_State *L) {
 
 static int sample_cmd_nodata(lua_State *L, uint32_t cmd_id) {
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(cmd_id, 8);
+    if (cmd == NULL) return 0;
     uint64_t pkgid = luat_airlink_get_next_cmd_id();
     memcpy(cmd->data, &pkgid, 8);
     luat_airlink_send2slave(cmd);
@@ -322,6 +327,7 @@ static int l_airlink_sfota_write(lua_State *L) {
         return 0;
     }
     luat_airlink_cmd_t* cmd = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, sizeof(luat_airlink_cmd_t) + len);
+    if (cmd == NULL) return 0;
     cmd->cmd = 0x05;
     cmd->len = len;
     memcpy(cmd->data, data, len);

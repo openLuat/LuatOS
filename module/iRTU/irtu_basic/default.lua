@@ -1,15 +1,11 @@
 --[[
-@module  irtu_main
+@module  default
 @summary irtu功能初始化模块
 @version 5.0.0
 @date    2026.01.27
 @author  李源龙
 @usage
-本文件为irtu的功能初始化模块，核心业务逻辑为：
-    加载default,gnss,driver,create,audio_config模块，然后开启task，在task中初始化各个模块
-    其中基础功能模块为default,driver,create，如需GNSS定位/音频，可以选择加载gnss,audio_config模块
-    GNSS定位功能目前仅支持Air780EGG,Air780EGP,Air780EGH等内置GNSS的模块，如需外挂GNSS模块，请自行修改gnss模块的配置
-    音频功能目前仅支持Air780EHV内置音频解码芯片的模块，如需外挂音频解码芯片，请自行修改audio_config模块的配置
+本文件为irtu的获取配置文件、初始化等功能
 ]]
 
 local default = {}
@@ -43,7 +39,7 @@ local dtu = {
     dwprot = {}, -- 下行自定义协议
     apn = {nil, nil, nil}, -- 用户自定义APN
     cmds = {{}, {}}, -- 自动采集任务参数
-    pins = {"", "", ""}, -- 用户自定义IO: netled,netready,rstcnf,
+    pins = {"", ""}, -- 用户自定义IO: netled,netready
     conf = {{}, {}, {}, {}, {}, {}, {}}, -- 用户通道参数
     project_key="",
     uconf = {

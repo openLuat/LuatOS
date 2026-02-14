@@ -7,6 +7,10 @@
 @usage
 使用Air8000整机开发板，外接GPS天线，开启定位，获取到定位发送到服务器上面，然后启动一个60s的定时器唤醒PSM+模式
 模块开启定位，然后定位成功获取到经纬度发送到服务器上面，然后进入PSM+模式，等待唤醒
+
+如果GNSS没有定位成功则获取基站/wifi定位，用付费的基站/wifi定位服务，需要申请项目id和秘钥
+不用免费的是因为当前免费的基站定位服务2小时只可以获取一次，测试情况下可以，实际项目运用大概
+率不符合需求
 ]]
 pm.power(pm.WORK_MODE, 0) 
 
@@ -112,7 +116,7 @@ local function psm_cb(tag)
     local  rmc=exgnss.rmc(0)
     log.info("nmea", "rmc", json.encode(exgnss.rmc(0)))
     lat,lng=rmc.lat,rmc.lng
-    sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
+    sys.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
 end
 
 local function gnss_fnc()

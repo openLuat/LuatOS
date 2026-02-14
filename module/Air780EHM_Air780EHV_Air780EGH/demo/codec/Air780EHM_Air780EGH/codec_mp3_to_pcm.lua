@@ -19,7 +19,7 @@
 ]]
 
 -- 使用exaudio库
-local exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 初始化exaudio音频设备
 local audio_configs = {
@@ -263,7 +263,7 @@ function demo()
     end
 
     -- 确保音频设备停止
-    exaudio.play_stop()
+    exaudio.play_stop(audio_play_param)
     log.debug("资源清理", "播放器已停止")
 
     return play_success or false

@@ -21,11 +21,7 @@
 -- 4. BL可以不接的, 若使用Air10x屏幕扩展板,对准排针插上即可
 -- ]]
 
--- -- 添加硬狗防止程序卡死
--- if wdt then
---     wdt.init(9000) -- 初始化watchdog设置为9s
---     sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
--- end
+
 
 
 

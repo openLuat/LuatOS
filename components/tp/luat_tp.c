@@ -13,6 +13,7 @@ static luat_rtos_task_handle g_s_tp_task_handle = NULL;
 // uint16_t last_y = 0;
 void luat_tp_task_entry(void* param){
     uint32_t message_id = 0;
+    luat_tp_data_t tp_data[LUAT_TP_TOUCH_MAX] = {0};
     luat_tp_config_t *luat_tp_config = NULL;
     luat_rtos_task_sleep(2);
     while (!g_s_tp_task_handle){
@@ -20,11 +21,11 @@ void luat_tp_task_entry(void* param){
     }
     while (1){
         luat_rtos_message_recv(g_s_tp_task_handle, &message_id, &luat_tp_config, LUAT_WAIT_FOREVER);
-
-        luat_tp_data_t* tp_data = luat_tp_config->tp_data;
-        luat_tp_config->opts->read(luat_tp_config,tp_data);
+        
+        luat_tp_config->opts->read(luat_tp_config,luat_tp_config->tp_data);
+        memcpy(tp_data, luat_tp_config->tp_data, sizeof(luat_tp_data_t)*LUAT_TP_TOUCH_MAX);
         uint16_t coordinate_tmp;
-
+        // LLOGD("---111--- luat_tp_task_entry x:%d y:%d",tp_data->x_coordinate,tp_data->y_coordinate);
         if (luat_tp_config->direction == LUAT_TP_ROTATE_90){
             coordinate_tmp = tp_data->x_coordinate;
             tp_data->x_coordinate = tp_data->y_coordinate;
@@ -38,6 +39,14 @@ void luat_tp_task_entry(void* param){
             tp_data->x_coordinate = luat_tp_config->h - tp_data->y_coordinate;
             tp_data->y_coordinate = coordinate_tmp;
         }
+
+        if (luat_tp_config->swap_xy & LUAT_TP_SWAP_X){
+            tp_data->x_coordinate = luat_tp_config->w - tp_data->x_coordinate;
+        }
+        if (luat_tp_config->swap_xy & LUAT_TP_SWAP_Y){
+            tp_data->y_coordinate = luat_tp_config->h - tp_data->y_coordinate;
+        }
+        // LLOGD("---222--- luat_tp_task_entry x:%d y:%d",tp_data->x_coordinate,tp_data->y_coordinate);
 
         // // 抬起时，坐标为松开前的最后一次的坐标 !!!不应在此处修改,应在上方实现统一实现,故暂时注释!!!!
         // if (tp_data->event == TP_EVENT_TYPE_UP) {
@@ -56,8 +65,14 @@ void luat_tp_task_entry(void* param){
 }
 
 int luat_tp_init(luat_tp_config_t* luat_tp_config){
+    // LLOGD("luat_tp_task_entry direction:%d w:%d h:%d swap_xy:%d",
+    //     luat_tp_config->direction,
+    //     luat_tp_config->w,
+    //     luat_tp_config->h,
+    //     luat_tp_config->swap_xy);
+    
     if (g_s_tp_task_handle == NULL){
-        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096, 27, "tp", luat_tp_task_entry, NULL, 32);
+        int ret = luat_rtos_task_create(&g_s_tp_task_handle, 4096*2, 27, "tp", luat_tp_task_entry, NULL, 32);
         if (ret){
             g_s_tp_task_handle = NULL;
             LLOGE("tp task create failed!");

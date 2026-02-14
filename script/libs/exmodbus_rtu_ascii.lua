@@ -6,6 +6,7 @@ modbus.__metatable = "instance is protected" -- 定义 modbus 实例的元表，
 -- 模块级变量：依赖注入的引用；
 local exmodbus_ref -- 主模块引用，用于访问enqueue_request等核心功能；
 local gen_id_func  -- ID生成函数引用，用于生成唯一请求ID；
+local read_buf = "" -- 接收缓冲区；
 
 -- 创建 modbus 实例的构造函数；
 function modbus:new(config)
@@ -27,6 +28,9 @@ function modbus:new(config)
     obj.current_wait_request_id = nil
     -- 从站请求处理回调函数；
     obj.slaveHandler = nil
+    -- 字符拼接超时定时器；
+    -- 在数据拼接过程中，等待后续数据片段到达的最大时间间隔；
+    obj.concat_timeout = nil
 
     -- 设置原表；
     setmetatable(obj, modbus)
@@ -291,54 +295,77 @@ local function init_uart(instance)
         sys.publish("exmodbus/sent/" .. uart_id, true)
     end
 
+    -- 当一包数据被拆分为多个小包时，此函数用于拼接这些小包；
+    local function concat_timeout_func()
+        if read_buf:len() > 0 then
+            -- 处理 RTU 主站模式下的接收数据；
+            if instance.mode == exmodbus_ref.RTU_MASTER then
+                -- 校验等待主题是否存在；
+                if instance.current_wait_request_id then
+                    -- 发布主题，通知其他任务；
+                    sys.publish("exmodbus/rtu_resp/" .. instance.current_wait_request_id, read_buf)
+                    -- 发布后，清除等待主题；
+                    instance.current_wait_request_id = nil
+                end
+            -- 处理 RTU 从站模式下的接收数据；
+            elseif instance.mode == exmodbus_ref.RTU_SLAVE then
+                -- 解析 RTU 请求帧；
+                local request = parse_rtu_request(read_buf)
+                if request then
+                    -- 广播地址（0）不响应；
+                    if request.slave_id == 0 then
+                        -- 调用回调以允许用户记录或处理广播命令（如写寄存器）；
+                        if instance.slaveHandler then
+                            instance.slaveHandler(request)
+                            -- 注意：即使回调返回数据，也不发送响应；
+                        end
+                        -- 广播请求处理完毕，不回复；
+                    end
+                    if instance.slaveHandler then
+                        local user_return = instance.slaveHandler(request)
+                        local response_frame = build_rtu_response(request, user_return)
+                        if response_frame then
+                            uart.write(uart_id, response_frame)
+                        else
+                            log.error("exmodbus", "构建响应帧失败，从站地址:", request.slave_id)
+                        end
+                    else
+                        log.warn("exmodbus", "收到主站请求，但未注册回调函数")
+                    end
+                else
+                    log.debug("exmodbus", "无效 RTU 请求帧（CRC 或格式错误）")
+                end
+            end
+        end
+
+        read_buf = ""
+    end
+
     -- 定义接收完成回调函数；
     -- 当串口接收完成时，对接收数据进行处理；
     -- 处理成功时，发布一个主题，通知其他任务；
     -- 处理失败时，不做任何处理；
     local function on_receive(uart_id, data_len)
-        local data = uart.read(uart_id, data_len)
-        if not data or #data == 0 then return end
+        local data
+        while true do
+            data = uart.read(uart_id, data_len)
 
-        -- 处理 RTU 主站模式下的接收数据；
-        if instance.mode == exmodbus_ref.RTU_MASTER then
-            -- 校验等待主题是否存在；
-            if instance.current_wait_request_id then
-                -- 发布主题，通知其他任务；
-                sys.publish("exmodbus/rtu_resp/" .. instance.current_wait_request_id, data)
-                -- 发布后，清除等待主题；
-                instance.current_wait_request_id = nil
+            if not data or #data == 0 then
+                if instance.concat_timeout and type(instance.concat_timeout) == "number" then
+                    -- 启动50毫秒的定时器，如果50毫秒内没收到新的数据，则处理当前收到的所有数据
+                    -- 这样处理是为了防止将一大包数据拆分成多个小包来处理
+                    -- 例如pc端串口工具下发1100字节的数据，可能会产生将近20次的中断进入到read函数，才能读取完整
+                    -- 此处的50毫秒可以根据自己项目的需求做适当修改，在满足整包拼接完整的前提下，时间越短，处理越及时
+                    sys.timerStart(concat_timeout_func, instance.concat_timeout)
+                else
+                    concat_timeout_func()
+                end
                 return
             end
-        -- 处理 RTU 从站模式下的接收数据；
-        elseif instance.mode == exmodbus_ref.RTU_SLAVE then
-            -- 解析 RTU 请求帧；
-            local request = parse_rtu_request(data)
-            if request then
-                -- 广播地址（0）不响应；
-                if request.slave_id == 0 then
-                    -- 调用回调以允许用户记录或处理广播命令（如写寄存器）；
-                    if instance.slaveHandler then
-                        instance.slaveHandler(request)
-                        -- 注意：即使回调返回数据，也不发送响应；
-                    end
-                    -- 广播请求处理完毕，不回复；
-                    return
-                end
-                if instance.slaveHandler then
-                    local user_return = instance.slaveHandler(request)
-                    local response_frame = build_rtu_response(request, user_return)
-                    if response_frame then
-                        uart.write(uart_id, response_frame)
-                    else
-                        log.error("exmodbus", "构建响应帧失败，从站地址:", request.slave_id)
-                    end
-                else
-                    log.warn("exmodbus", "收到主站请求，但未注册回调函数")
-                end
-            else
-                log.debug("exmodbus", "无效 RTU 请求帧（CRC 或格式错误）")
-            end
-            return
+
+            -- log.info("exmodbus", "收到串口 ", uart_id, " 数据: ", data:toHex())
+
+            read_buf = read_buf .. data
         end
     end
 

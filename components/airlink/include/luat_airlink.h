@@ -31,7 +31,7 @@ typedef struct airlink_flags {
     uint8_t queue_ip: 1; // 用于ip包的队列是否还有数据
     uint8_t irq_ready: 1; // 是否切换到IRQ模式
     uint8_t irq_pin: 4;   // 中断管脚号, 这是传给SLAVE的, 从 GPIO12(GPIO140)开始算
-    uint32_t revert: 24; // 保留位, 用于扩展
+    uint32_t reserved: 24; // 保留位, 用于扩展
 }airlink_flags_t;
 
 typedef struct airlink_link_data {
@@ -128,7 +128,7 @@ typedef struct luat_airlink_dev_wifi_info {
     uint8_t bt_mac[6];
     uint8_t sta_state;
     uint8_t ap_state;
-    uint8_t reverted[32]; // 预留的空位
+    uint8_t reserved[32]; // 预留的空位
     uint8_t version[4];
     uint8_t fw_type[2];
     uint8_t unique_id_len;
@@ -148,7 +148,7 @@ typedef struct luat_airlink_dev_cat_info {
     uint8_t imei[16];
     uint8_t iccid[20];
     uint8_t imsi[16];
-    uint8_t reverted[32]; // 预留的空位
+    uint8_t reserved[32]; // 预留的空位
     uint8_t version[4];
     uint8_t fw_type[4];
     uint8_t unique_id_len;
@@ -285,7 +285,7 @@ extern uint32_t g_airlink_debug;
 int luat_airlink_syspub_addstring(const char* str, size_t len, uint8_t *dst, uint32_t limit);
 int luat_airlink_syspub_addfloat32(const float val, uint8_t *dst, uint32_t limit);
 int luat_airlink_syspub_addint32(const int32_t val, uint8_t *dst, uint32_t limit);
-int luat_airlink_syspub_addnil(const uint8_t *dst, uint32_t limit);
+int luat_airlink_syspub_addnil(uint8_t *dst, uint32_t limit);
 int luat_airlink_syspub_addbool(const uint8_t b, uint8_t *dst, uint32_t limit);
 
 int luat_airlink_syspub_send(uint8_t* buff, size_t len);

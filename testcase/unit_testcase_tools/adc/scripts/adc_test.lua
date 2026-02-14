@@ -6,7 +6,7 @@ local adc_tests = {}
 local MIN_TEMP = -40 -- 最低工作温度
 local MAX_TEMP = 85 -- 最高工作温度
 -- vabt电压范围：
-local MIN_Voltage = 3700 -- 最小电压
+local MIN_Voltage = 3000 -- 最小电压
 local MAX_Voltage = 4300 -- 最大电压
 
 function adc_tests.test_GetCpuThermal_rang()

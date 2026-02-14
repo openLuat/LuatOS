@@ -58,10 +58,10 @@ end
 dac.close(0)
 */
 static int l_dac_write(lua_State *L) {
-    uint16_t* buff;
+    uint8_t* buff;
     size_t len;
     int ch;
-    uint16_t value;
+    uint8_t value;
 
     ch = luaL_checkinteger(L, 1);
     if (lua_isinteger(L, 2)) {
@@ -73,7 +73,7 @@ static int l_dac_write(lua_State *L) {
         return 0; // TODO 支持zbuff
     }
     else if (lua_isstring(L, 2)) {
-        buff = (uint16_t*)luaL_checklstring(L, 2, &len);
+        buff = (uint8_t*)luaL_checklstring(L, 2, &len);
     }
     else {
         return 0;

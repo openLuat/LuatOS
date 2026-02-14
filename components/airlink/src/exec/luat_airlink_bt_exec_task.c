@@ -33,9 +33,51 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
         LLOGD("drv_ble event %d", event);
     }
     uint64_t seq = luat_airlink_get_next_cmd_id();
+
+    // 先根据事件类型和参数计算需要的payload长度
+    size_t extra_len = 4; // 4字节event
+    size_t gatt_len = 0;
+    luat_ble_gatt_service_t* gatt = NULL;
+    if (param) {
+        extra_len += sizeof(luat_ble_param_t);
+        if (LUAT_BLE_EVENT_SCAN_REPORT == event && param->adv_req.data && param->adv_req.data_len > 0) {
+            extra_len += param->adv_req.data_len;
+        }
+        else if (LUAT_BLE_EVENT_READ_VALUE == event && param->read_req.value && param->read_req.value_len > 0) {
+            extra_len += param->read_req.value_len;
+        }
+        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value && param->write_req.value_len > 0) {
+            extra_len += param->write_req.value_len;
+        }
+        else if (LUAT_BLE_EVENT_GATT_ITEM == event) {
+            // 预先计算GATT打包后的长度
+            gatt = param->gatt_item_ind.gatt_service;
+            if (gatt == NULL) {
+                LLOGE("gatt item is NULL");
+                return;
+            }
+            gatt_len = 0;
+            luat_ble_gatt_pack(gatt, NULL, &gatt_len);
+            if (gatt_len == 0) {
+                LLOGE("gatt pack length is 0, gatt %p", gatt);
+                return;
+            }
+            extra_len += gatt_len;
+        }
+        else if (LUAT_BLE_EVENT_GATT_DONE == event) {
+            // 无附加数据
+        }
+    }
+
     airlink_queue_item_t item = {
-        .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + 1024
+        .len =  sizeof(luat_airlink_cmd_t) + sizeof(luat_drv_ble_msg_t) + extra_len
     };
+    // 防御性检查: 单包长度不超过1560, 超出则先报错丢弃
+    if (item.len > 1560) {
+        LLOGE("ble event pkg too large len %d, drop", item.len);
+        return;
+    }
+    
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x510, item.len - sizeof(luat_airlink_cmd_t));
     if (cmd == NULL) {
         LLOGW("out of memory when alloc ble event");
@@ -49,7 +91,7 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
     uint32_t tmp = event;
     size_t offset = 0;
     size_t len = 0;
-    luat_ble_gatt_service_t* gatt = NULL;
+    // LLOGD("event %d param %p, tmp %d", event, param, tmp);
     memcpy(ptr, &tmp, 4);
     if (param) {
         // LLOGD("param %p", param);
@@ -64,16 +106,15 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
             LLOGD("read resp value %d %p", param->read_req.value_len, param->read_req.value);
             memcpy(ptr + offset, param->read_req.value, param->read_req.value_len);
         }
-        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value_len && param->write_req.value_len > 0) {
+        else if (LUAT_BLE_EVENT_WRITE == event && param->write_req.value && param->write_req.value_len > 0) {
             LLOGD("write req value %d %p", param->write_req.value_len, param->write_req.value);
             memcpy(ptr + offset, param->write_req.value, param->write_req.value_len);
         }
         else if (LUAT_BLE_EVENT_GATT_ITEM == event) {
             // 这个事件是gatt服务项回调, 需要将gatt的内容全部拷贝到ptr中
             // LLOGD("gatt item %d", param->gatt_item_ind.gatt_service_num);
-            gatt = param->gatt_item_ind.gatt_service;
             if (gatt == NULL) {
-                LLOGE("gatt item is NULL");
+                LLOGE("gatt item is NULL when copy");
                 return;
             }
             len = 0;
@@ -82,7 +123,6 @@ static void drv_ble_cb(luat_ble_t* luat_ble, luat_ble_event_t event, luat_ble_pa
                 LLOGE("gatt pack failed, gatt %p len=0!!!", gatt);
                 return;
             }
-            // return; // 临时的
         }
         else if (LUAT_BLE_EVENT_GATT_DONE == event) {
             // pass
@@ -319,6 +359,7 @@ static void drv_bt_task(void *param) {
                 LLOGD("ble gatt create ret %d", ret);
                 break;
             case LUAT_DRV_BT_CMD_BLE_SET_NAME:
+                if (msg->data[0] > 127) msg->data[0] = 127;
                 memcpy(buff, msg->data + 1, msg->data[0]);
                 buff[msg->data[0]] = 0;
                 ret = luat_ble_set_name(NULL, buff, msg->data[0]);

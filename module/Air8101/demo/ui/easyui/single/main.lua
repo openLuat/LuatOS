@@ -57,7 +57,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "exEasyUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.0"         -- 项目版本号
+VERSION = "001.000.000"         -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("ui_demo", PROJECT, VERSION)

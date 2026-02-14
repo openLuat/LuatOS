@@ -105,7 +105,7 @@ int l_tp_callback(luat_tp_config_t* luat_tp_config, luat_tp_data_t* luat_tp_data
 触摸初始化
 @api tp.init(tp, args)
 @string 触摸芯片型号，当前支持：<br>gt911 <br>gt9157 <br>jd9261t
-@table 附加参数,与具体设备有关：<br>port 驱动方式<br>port：硬件i2c端口,例如0,1,2...如果为软件i2c对象<br>pin_rst：复位引脚<br>pin_int：中断引脚<br>w:宽度(可选,默认会寻找已初始化的lcd的数据)<br>h:高度(可选,默认会寻找已初始化的lcd的数据)
+@table 附加参数,与具体设备有关：<br>port 驱动方式<br>port：硬件i2c端口,例如0,1,2...如果为软件i2c对象<br>pin_rst：复位引脚<br>pin_int：中断引脚<br>w:宽度(可选,默认会寻找已初始化的lcd的数据)<br>h:高度(可选,默认会寻找已初始化的lcd的数据)<br>direction:方向(可选,默认会寻找已初始化的lcd的数据)
 @function 回调函数(可选,使用lvgl时可不传入,lvgl会自动处理), 回调参数: <br>tp_device: userdata tp.init返回的触摸设备对象 <br>tp_data: table 触摸数据,内部为多个触摸点数据的表,每个表中包括参数有: event: number 触摸事件,见文档上方的触摸事件常量 x: number 触摸位置x坐标 y: number 触摸位置y坐标 timestamp: number 时间戳
 @return userdata tp_device:触摸设备对象
 @usage
@@ -203,6 +203,11 @@ static int l_tp_init(lua_State* L){
         luat_tp_config->h = luaL_checkinteger(L, -1);
     }
     lua_pop(L, 1);
+    lua_pushstring(L, "direction");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_tp_config->direction = luaL_checkinteger(L, -1);
+    }
+    lua_pop(L, 1);
     lua_pushstring(L, "refresh_rate");
     if (LUA_TNUMBER == lua_gettable(L, 2)) {
         luat_tp_config->refresh_rate = luaL_checkinteger(L, -1);
@@ -219,11 +224,11 @@ static int l_tp_init(lua_State* L){
     }
     lua_pop(L, 1);
 
-    // lua_pushstring(L, "swap_xy");
-    // if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
-    //     luat_tp_config->swap_xy = lua_toboolean(L, -1);
-    // }
-    // lua_pop(L, 1);
+    lua_pushstring(L, "swap_xy");
+    if (LUA_TNUMBER == lua_gettable(L, 2)) {
+        luat_tp_config->swap_xy = luaL_checkinteger(L, -1);
+    }
+    lua_pop(L, 1);
 
     ret = luat_tp_init(luat_tp_config);
     if (ret){
@@ -284,6 +289,11 @@ static const rotable_Reg_t reg_tp[] =
     { "EVENT_TYPE_UP",      ROREG_INT(TP_EVENT_TYPE_UP)},
     { "EVENT_TYPE_MOVE",    ROREG_INT(TP_EVENT_TYPE_MOVE)},
 
+    { "SWAP_NONE",  ROREG_INT(LUAT_TP_SWAP_NONE)},
+    { "SWAP_X",     ROREG_INT(LUAT_TP_SWAP_X)},
+    { "SWAP_Y",     ROREG_INT(LUAT_TP_SWAP_Y)},
+    { "SWAP_XY",    ROREG_INT(LUAT_TP_SWAP_XY)},
+
     { "RISING",     ROREG_INT(LUAT_GPIO_RISING_IRQ)},
     { "FALLING",    ROREG_INT(LUAT_GPIO_FALLING_IRQ)},
 	{ NULL,         ROREG_INT(0) }
@@ -294,5 +304,3 @@ LUAMOD_API int luaopen_tp(lua_State *L)
     luat_newlib2(L, reg_tp);
     return 1;
 }
-
-

@@ -16,7 +16,7 @@ local function ui_main()
     -- 加载中文字体
     airui.font_load({
         type = "hzfont",
-        path = "/MiSans_gb2312.ttf",
+        path = nil,
         size = 16,
         cache_size = 2048,
         antialias = 1,
@@ -26,9 +26,14 @@ local function ui_main()
     local box = airui.msgbox({
         title = "通知",
         text = "2026年你会发财！",
-        buttons = { "确定" }
+        buttons = { "确定" },
+        on_action = function(self, label)
+            if label == "确定" then
+                self:hide()
+            end
+        end
     })
-    box:show()  -- 显示消息框
+    box:show() -- 显示消息框
 
     -- 主循环
     while true do

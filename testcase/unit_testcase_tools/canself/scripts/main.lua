@@ -1,4 +1,4 @@
-PROJECT = "packtest"
+PROJECT = "canselftest"
 VERSION = "1.0.0"
 
 -- 修改者的名称, 方便日后维护

@@ -46,6 +46,19 @@ netdrv.dhcp(socket.LWIP_ETH, true)
 -- 支持CH390H的中断模式, 能提供响应速度, 但是需要外接中断引脚
 -- 实测对总网速没有帮助, 轻负载时能降低功耗, 让模组能进入低功耗模式
 netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=0,cs=8,irq=20})
+
+-- 初始化 OpenVPN 虚拟网卡 (需要通过其他网卡提供网络连接)
+-- 支持 TLS 证书认证和静态密钥认证两种模式
+local ok = netdrv.setup(socket.LWIP_USER0, netdrv.OPENVPN, {
+    ovpn_remote_ip = "vpn.example.com",          -- VPN 服务器地址
+    ovpn_remote_port = 1194,                     -- VPN 服务器端口 (默认 1194)
+    ovpn_ca_cert = ca_cert_pem_string,           -- CA 证书 (PEM 格式, 可选)
+    ovpn_client_cert = client_cert_pem_string,   -- 客户端证书 (PEM 格式, 可选)
+    ovpn_client_key = client_key_pem_string,     -- 客户端私钥 (PEM 格式, 可选)
+    ovpn_static_key = static_key_binary,         -- 静态密钥 (可选, 64 字节以内)
+})
+-- 完整示例见 openvpn/example_netdrv.lua
+-- 详细说明见 openvpn/usage.md 和 openvpn/PARAMETER_HANDLING.md
 */
 static int l_netdrv_setup(lua_State *L) {
     luat_netdrv_conf_t conf = {0};
@@ -79,73 +92,85 @@ static int l_netdrv_setup(lua_State *L) {
         lua_pop(L, 1);
 
         #ifdef LUAT_USE_NETDRV_WG
-        // WG的配置参数比较多, 放在这里面传递
-        // 需要的参数有, private_key, public_key, endpoint, port, address, dns, mtu
-        if (lua_getfield(L, 3, "wg_private_key") == LUA_TSTRING) {
-            conf.wg_private_key = luaL_checklstring(L, -1, &len);
-        };
-        lua_pop(L, 1);
-        // 本地端口
-        if (lua_getfield(L, 3, "wg_listen_port") == LUA_TNUMBER) {
-            conf.wg_listen_port = luaL_checkinteger(L, -1);
-        };
-        lua_pop(L, 1);
-        // keepalive时长
-        if (lua_getfield(L, 3, "wg_keepalive") == LUA_TNUMBER) {
-            conf.wg_keepalive = luaL_checkinteger(L, -1);
-        };
-        lua_pop(L, 1);
-        // 预分享密钥
-        if (lua_getfield(L, 3, "wg_preshared_key") == LUA_TSTRING) {
-            conf.wg_preshared_key = luaL_checklstring(L, -1, &len);
-        };
-        lua_pop(L, 1);
+        if (conf.impl == LUAT_NETDRV_IMPL_WG) {
+            conf.wg_conf = luat_heap_malloc(sizeof(luat_netdrv_wg_conf_t));
+            // WG的配置参数比较多, 放在这里面传递
+            // 需要的参数有, private_key, public_key, endpoint, port, address, dns, mtu
+            if (lua_getfield(L, 3, "wg_private_key") == LUA_TSTRING) {
+                conf.wg_conf->wg_private_key = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            // 本地端口
+            if (lua_getfield(L, 3, "wg_listen_port") == LUA_TNUMBER) {
+                conf.wg_conf->wg_listen_port = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            // keepalive时长
+            if (lua_getfield(L, 3, "wg_keepalive") == LUA_TNUMBER) {
+                conf.wg_conf->wg_keepalive = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            // 预分享密钥
+            if (lua_getfield(L, 3, "wg_preshared_key") == LUA_TSTRING) {
+                conf.wg_conf->wg_preshared_key = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
 
-        // 对端信息, 公钥, IP地址, 端口
-        if (lua_getfield(L, 3, "wg_endpoint_key") == LUA_TSTRING) {
-            conf.wg_endpoint_key = luaL_checklstring(L, -1, &len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "wg_endpoint_ip") == LUA_TSTRING) {
-            conf.wg_endpoint_ip = luaL_checklstring(L, -1, &len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
-            conf.wg_endpoint_port = luaL_checkinteger(L, -1);
-        };
-        lua_pop(L, 1);
+            // 对端信息, 公钥, IP地址, 端口
+            if (lua_getfield(L, 3, "wg_endpoint_key") == LUA_TSTRING) {
+                conf.wg_conf->wg_endpoint_key = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "wg_endpoint_ip") == LUA_TSTRING) {
+                conf.wg_conf->wg_endpoint_ip = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "wg_endpoint_port") == LUA_TNUMBER) {
+                conf.wg_conf->wg_endpoint_port = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+        }
         #endif
 
         #ifdef LUAT_USE_NETDRV_OPENVPN
-        // OpenVPN的配置参数
-        if (lua_getfield(L, 3, "ovpn_remote_ip") == LUA_TSTRING) {
-            conf.ovpn_remote_ip = luaL_checklstring(L, -1, &len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "ovpn_remote_port") == LUA_TNUMBER) {
-            conf.ovpn_remote_port = luaL_checkinteger(L, -1);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "ovpn_ca_cert") == LUA_TSTRING) {
-            conf.ovpn_ca_cert = luaL_checklstring(L, -1, &conf.ovpn_ca_cert_len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "ovpn_client_cert") == LUA_TSTRING) {
-            conf.ovpn_client_cert = luaL_checklstring(L, -1, &conf.ovpn_client_cert_len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "ovpn_client_key") == LUA_TSTRING) {
-            conf.ovpn_client_key = luaL_checklstring(L, -1, &conf.ovpn_client_key_len);
-        };
-        lua_pop(L, 1);
-        if (lua_getfield(L, 3, "ovpn_static_key") == LUA_TSTRING) {
-            conf.ovpn_static_key = (const uint8_t *)luaL_checklstring(L, -1, &conf.ovpn_static_key_len);
-        };
-        lua_pop(L, 1);
+        if (conf.impl == LUAT_NETDRV_IMPL_OPENVPN) {
+            conf.ovpn_conf = luat_heap_malloc(sizeof(luat_netdrv_openvpn_conf_t));
+            // OpenVPN的配置参数
+            if (lua_getfield(L, 3, "ovpn_remote_ip") == LUA_TSTRING) {
+                conf.ovpn_conf->ovpn_remote_ip = luaL_checklstring(L, -1, &len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ovpn_remote_port") == LUA_TNUMBER) {
+                conf.ovpn_conf->ovpn_remote_port = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ovpn_ca_cert") == LUA_TSTRING) {
+                conf.ovpn_conf->ovpn_ca_cert = luaL_checklstring(L, -1, &conf.ovpn_conf->ovpn_ca_cert_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ovpn_client_cert") == LUA_TSTRING) {
+                conf.ovpn_conf->ovpn_client_cert = luaL_checklstring(L, -1, &conf.ovpn_conf->ovpn_client_cert_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ovpn_client_key") == LUA_TSTRING) {
+                conf.ovpn_conf->ovpn_client_key = luaL_checklstring(L, -1, &conf.ovpn_conf->ovpn_client_key_len);
+            };
+            lua_pop(L, 1);
+            if (lua_getfield(L, 3, "ovpn_static_key") == LUA_TSTRING) {
+                conf.ovpn_conf->ovpn_static_key = (const uint8_t *)luaL_checklstring(L, -1, &conf.ovpn_conf->ovpn_static_key_len);
+            };
+            lua_pop(L, 1);
+        }
         #endif
     }
     luat_netdrv_t* ret = luat_netdrv_setup(&conf);
     lua_pushboolean(L, ret != NULL);
+    if (conf.wg_conf) {
+        luat_heap_free(conf.wg_conf);
+    }
+    if (conf.ovpn_conf) {
+        luat_heap_free(conf.ovpn_conf);
+    }
     return 1;
 }
 
@@ -252,6 +277,14 @@ static int l_netdrv_ipv4(lua_State *L) {
         LLOGW("对应的netdrv不存在或未就绪 %d %p", id, netdrv);
         return 0;
     }
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushliteral(L, "");
+        lua_pushliteral(L, "");
+        lua_pushliteral(L, "");
+        return 3;
+    }
+    #endif
     if (lua_isstring(L, 2) && lua_isstring(L, 3) && lua_isstring(L, 4)) {
         luat_netdrv_dhcp(id, 0); // 自动关闭DHCP
         tmp = luaL_checkstring(L, 2);
@@ -330,7 +363,7 @@ static int l_netdrv_napt(lua_State *L) {
 @int netdrv的id, 例如 socket.LWIP_ETH
 @return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
 @usage
--- 注意, 本函数仅支持读取, 而且不能ip状态, 即是否能联网
+-- 注意, 本函数仅支持读取, 而且不代表ip状态, 即是否能联网
 */
 static int l_netdrv_link(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
@@ -341,6 +374,12 @@ static int l_netdrv_link(lua_State *L) {
     if (netdrv == NULL || netdrv->netif == NULL) {
         return 0;
     }
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    #endif
     lua_pushboolean(L, netif_is_link_up(netdrv->netif));
     return 1;
 }
@@ -352,17 +391,28 @@ static int l_netdrv_link(lua_State *L) {
 @return bool 已连接返回true, 否则返回false. 如果id对应的netdrv不存在,返回nil
 @usage
 -- 注意, 本函数仅支持读取, 即判断是否能通信, 不代表IP状态
+-- 当id传-1时, 会返回一个位掩码, 每一位代表一个网卡的ready状态
+-- 例如有4个网卡, 那么返回值0b00001101就代表0号,2号网卡ready,1号,3号网卡不ready
+local ready, netstat = netdrv.ready(-1)
+log.info("netdrv", ready, "netstat", string.format("0x%X", netstat))
 */
 static int l_netdrv_ready(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
+    int ret = 0;
     if (id < 0) {
-        return 0; // 非法id
+        ret = luat_netdrv_simple_stat();
+        lua_pushboolean(L, ret > 0);
+        lua_pushinteger(L, ret);
+        return 2;
     }
-    luat_netdrv_t* netdrv = luat_netdrv_get(id);
-    if (netdrv == NULL || netdrv->netif == NULL) {
-        return 0;
+    ret = luat_netdrv_is_ready(id);
+    #ifdef LUAT_USE_MOBILE
+    if (NW_ADAPTER_INDEX_LWIP_GPRS == id && !luat_netdrv_is_ready(id)) {
+        lua_pushboolean(L, 0);
+        return 1;
     }
-    lua_pushboolean(L, netif_is_link_up(netdrv->netif) && !ip_addr_isany(&netdrv->netif->ip_addr));
+    #endif
+    lua_pushboolean(L, ret);
     return 1;
 }
 
@@ -678,7 +728,7 @@ static const rotable_Reg_t reg_netdrv[] =
 
     { "ctrl",           ROREG_FUNC(l_netdrv_ctrl)},
     { "debug",          ROREG_FUNC(l_netdrv_debug)},
-    { "on",ROREG_FUNC(l_netdrv_on)},
+    { "on",             ROREG_FUNC(l_netdrv_on)},
 #ifdef LUAT_USE_MREPORT
     { "mreport",        ROREG_FUNC(l_mreport_config)},
 #endif

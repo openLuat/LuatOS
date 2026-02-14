@@ -3,7 +3,7 @@
 @summary “WIFI STA网卡”驱动模块
 @version 1.0
 @date    2025.07.01
-@author  朱天华
+@author  马梦阳
 @usage
 本文件为WIFI STA网卡驱动模块，核心业务逻辑为：
 1、初始化WIFI网络；
@@ -50,6 +50,17 @@ end
 --也可以根据自己的项目需求，在消息处理函数中增加自己的业务逻辑控制，例如可以在连网状态发生改变时更新网络图标
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
+
+
+local function wifi_sta_func(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt, data)
+end
+
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", wifi_sta_func)
 
 
 -- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA

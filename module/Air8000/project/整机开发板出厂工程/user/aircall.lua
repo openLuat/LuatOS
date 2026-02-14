@@ -80,11 +80,11 @@ function aircall.tp_handal(x, y, event)
     if x > 20 and x < 100 and y > 360 and y < 440 then
         run_state = false
     elseif x > 130 and x < 230 and y > 303 and y < 350 then
-        sysplus.taskInitEx(stop_call, "stop_call")
+        sys.taskInitEx(stop_call, "stop_call")
     elseif x > 130 and x < 230 and y > 350 and y < 397 then
-        sysplus.taskInitEx(recv_call, "recv_call")
+        sys.taskInitEx(recv_call, "recv_call")
     elseif x > 130 and x < 230 and y > 397 and y < 444 then
-        sysplus.taskInitEx(start_call, "start_call")
+        sys.taskInitEx(start_call, "start_call")
     end
 end
 

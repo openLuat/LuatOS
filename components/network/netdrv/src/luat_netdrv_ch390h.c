@@ -190,7 +190,7 @@ luat_netdrv_t* luat_netdrv_ch390h_setup(luat_netdrv_conf_t *cfg) {
         drv->dhcp = luat_netdrv_dhcp_opt;
         drv->ctrl = ch390h_ctrl;
         ch->netdrv = drv;
-        tcpip_callback_with_block((tcpip_callback_fn)ch390_lwip_init, ch, 1);
+        tcpip_callback_with_block((tcpip_callback_fn)ch390_lwip_init, ch, 0);
         ch->init_step = 1; // 已经完成基础初始化
         extern void luat_ch390h_task_start(void);
         luat_ch390h_task_start();

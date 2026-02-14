@@ -41,19 +41,12 @@ VERSION：项目版本号，ascii string类型
 ]]
 
 PROJECT = "audio"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
 
--- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
--- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
-if wdt then
-    --配置喂狗超时时间为9秒钟
-    wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
-    sys.timerLoopStart(wdt.feed, 3000)
-end
+
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -75,9 +68,9 @@ end
 
 
 -- require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
- require "play_tts"      -- 支持文字转普通话输出需要固件支持
+--  require "play_tts"      -- 支持文字转普通话输出需要固件支持
  -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
--- require "record_file"        -- 录音到文件
+require "record_file"        -- 录音到文件
 -- require "record_stream"        -- 流式录音   
 
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常

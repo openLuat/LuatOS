@@ -13,15 +13,6 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 加载中文字体
-    airui.font_load({
-        type = "hzfont",
-        path = nil,
-        size = 16,
-        cache_size = 2048,
-        antialias = 4,
-    })
-
     -- 创建主容器
     local main_container = airui.container({
         x = 0,
@@ -56,7 +47,7 @@ local function ui_main()
         x = 20,
         y = 70,
         w = 380,
-        h = 390,
+        h = 380,
         color = 0xFFFFFF,
         radius = 8,
     })
@@ -78,12 +69,12 @@ local function ui_main()
         x = 20,
         y = 50,
         w = 340,
-        h = 40,
+        h = 60,
         max_len = 50,
         text = "示例文本",
         placeholder = "请输入...",
-        on_text_change = function(self, text)
-            log.info("textarea", "输入: " .. text)
+        on_text_change = function(text)
+            log.info("textarea", text)
         end
     })
 
@@ -92,7 +83,7 @@ local function ui_main()
         parent = left_col,
         text = "进度条",
         x = 20,
-        y = 110,
+        y = 130,
         w = 100,
         h = 25,
     })
@@ -100,7 +91,7 @@ local function ui_main()
     local progress_bar = airui.bar({
         parent = left_col,
         x = 20,
-        y = 140,
+        y = 160,
         w = 340,
         h = 20,
         value = 65,
@@ -113,7 +104,7 @@ local function ui_main()
     local test_btn = airui.button({
         parent = left_col,
         x = 20,
-        y = 180,
+        y = 200,
         w = 150,
         h = 40,
         text = "更新进度条",
@@ -132,7 +123,7 @@ local function ui_main()
     local msgbox_btn = airui.button({
         parent = left_col,
         x = 200,
-        y = 180,
+        y = 200,
         w = 150,
         h = 40,
         text = "显示消息框",
@@ -144,9 +135,9 @@ local function ui_main()
                 timeout = 2000,
                 on_action = function(self, label)
                     log.info("msgbox", "点击了: " .. label)
+                    self:hide()
                 end
             })
-            msgbox:show()
         end
     })
 
@@ -156,7 +147,7 @@ local function ui_main()
         parent = left_col,
         text = "下拉选择",
         x = 20,
-        y = 250,
+        y = 270,
         w = 100,
         h = 25,
     })
@@ -164,7 +155,7 @@ local function ui_main()
     local dropdown = airui.dropdown({
         parent = left_col,
         x = 20,
-        y = 280,
+        y = 300,
         w = 200,
         h = 40,
         options = { "选项一", "选项二", "选项三", "选项四" },
@@ -180,7 +171,7 @@ local function ui_main()
         parent = left_col,
         text = "开关",
         x = 240,
-        y = 250,
+        y = 270,
         w = 60,
         h = 30,
     })
@@ -191,7 +182,7 @@ local function ui_main()
     local toggle_switch = airui.switch({
         parent = left_col,
         x = 240,
-        y = 280,
+        y = 300,
         checked = true,
         on_change = function(self)
             -- 切换状态
@@ -202,7 +193,6 @@ local function ui_main()
             else
                 log.info("当前状态: 关")
             end
- 
         end
     })
 
@@ -212,7 +202,7 @@ local function ui_main()
         x = 420,
         y = 70,
         w = 360,
-        h = 390,
+        h = 380,
         color = 0xFFFFFF,
         radius = 8,
     })
@@ -271,12 +261,12 @@ local function ui_main()
         y = 460,
         w = 800,
         h = 20,
-        color = 0x333333,
+        color = 0xCFCFCF,
     })
 
     airui.label({
         parent = status_bar,
-        text = "AirUI Demo v1.0",
+        text = "AirUI Demo v1.0.0",
         x = 20,
         y = 2,
         w = 760,

@@ -17,6 +17,11 @@ enum{
     LUAT_TP_ROTATE_270,
 };
 
+#define LUAT_TP_SWAP_NONE   0
+#define LUAT_TP_SWAP_X      1
+#define LUAT_TP_SWAP_Y      2
+#define LUAT_TP_SWAP_XY     3
+
 typedef struct{
 	uint32_t         timestamp;
     uint16_t         x_coordinate;

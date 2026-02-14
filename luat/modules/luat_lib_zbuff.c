@@ -469,14 +469,14 @@ static int l_zbuff_pack(lua_State *L)
             PACKNUMBER(OP_NUMBER, lua_Number)
             PACKNUMBER(OP_DOUBLE, double)
             PACKNUMBER(OP_FLOAT, float)
-            PACKINT(OP_CHAR, char)
-            PACKINT(OP_BYTE, unsigned char)
-            PACKINT(OP_SHORT, short)
-            PACKINT(OP_USHORT, unsigned short)
-            PACKINT(OP_INT, int)
-            PACKINT(OP_UINT, unsigned int)
-            PACKINT(OP_LONG, long)
-            PACKINT(OP_ULONG, unsigned long)
+            PACKINT(OP_CHAR, int8_t)
+            PACKINT(OP_BYTE, uint8_t)
+            PACKINT(OP_SHORT, int16_t)
+            PACKINT(OP_USHORT, uint16_t)
+            PACKINT(OP_INT, int32_t)
+            PACKINT(OP_UINT, uint32_t)
+            PACKINT(OP_LONG, int64_t)
+            PACKINT(OP_ULONG, uint64_t)
             case ' ':
             case ',':
                 break;
@@ -514,7 +514,7 @@ static int l_zbuff_pack(lua_State *L)
 		memcpy(&a,s+i,m);			\
 		i+=m;				\
 		doswap(swap,&a,m);			\
-		int t = (a & 0x80)?(0xffffff00+a):a;\
+		int8_t t = (a & 0x80)?(0xffffff00+a):a;\
 		lua_pushinteger(L,(lua_Integer)t);	\
 		++n;				\
 		break;				\
@@ -596,14 +596,14 @@ static int l_zbuff_unpack(lua_State *L)
             UNPACKNUMBER(OP_NUMBER, lua_Number)
             UNPACKNUMBER(OP_DOUBLE, double)
             UNPACKNUMBER(OP_FLOAT, float)
-			UNPACKINT8(OP_CHAR, char)
-            UNPACKINT(OP_BYTE, unsigned char)
-            UNPACKINT(OP_SHORT, short)
-            UNPACKINT(OP_USHORT, unsigned short)
-            UNPACKINT(OP_INT, int)
-            UNPACKINT(OP_UINT, unsigned int)
-            UNPACKINT(OP_LONG, long)
-            UNPACKINT(OP_ULONG, unsigned long)
+			UNPACKINT8(OP_CHAR, int8_t)
+            UNPACKINT(OP_BYTE, uint8_t)
+            UNPACKINT(OP_SHORT, int16_t)
+            UNPACKINT(OP_USHORT, uint16_t)
+            UNPACKINT(OP_INT, int32_t)
+            UNPACKINT(OP_UINT, uint32_t)
+            UNPACKINT(OP_LONG, int64_t)
+            UNPACKINT(OP_ULONG, uint64_t)
             case ' ':
             case ',':
                 break;

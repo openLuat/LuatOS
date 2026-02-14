@@ -130,7 +130,7 @@ int luat_airlink_drv_gpio_driver_yhm27xx_reqinfo(uint8_t Pin, uint8_t ChipID)
 {
     uint64_t luat_airlink_next_cmd_id = luat_airlink_get_next_cmd_id();
     airlink_queue_item_t item = {
-        .len = 5 + sizeof(luat_airlink_cmd_t) + 8
+        .len = 2 + sizeof(luat_airlink_cmd_t) + 8
     };
     luat_airlink_cmd_t* cmd = luat_airlink_cmd_new(0x305, 2 + 8) ;
     if (cmd == NULL) {

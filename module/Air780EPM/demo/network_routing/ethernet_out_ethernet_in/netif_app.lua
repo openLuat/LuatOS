@@ -1,13 +1,13 @@
 --[[
 @module  netif_app
-@summary netif_app 网络管理模块,开启多网融合功能，4G提供网络供以太网设备上网
+@summary netif_app 网络管理模块,开启多网融合功能，以太网Wan提供网络供以太网设备上网
 @version 1.0
 @date    2025.08.05
 @author  魏健强
 @usage
 本文件为网络管理模块，核心业务逻辑为：
-1、设置多网融合功能，4G提供网络供以太网设备上网
-2、http测试4G网络
+1、设置多网融合功能，以太网Wan提供网络供以太网设备上网
+2、http测试以太网Wan网络
 本文件没有对外接口，直接在main.lua中require "netif_app"就可以加载运行；
 ]] 
 exnetif = require "exnetif"
@@ -34,7 +34,7 @@ function netif_app_task_func()
         }
     })
     log.info("exnetif", "setproxy success", res)
-    -- -- 每5秒进行HTTPS连接测试，实时监测4G网络连接状态, 仅供测试需要，量产不需要，用来判断当前网络是否可用，需要的话可以打开注释
+    -- -- 每5秒进行HTTPS连接测试，实时监测以太网Wan网络连接状态, 仅供测试需要，量产不需要，用来判断当前网络是否可用，需要的话可以打开注释
     -- while 1 do
     --     log.info("dwrh", res)
     --     local code, headers, body = http.request("GET",

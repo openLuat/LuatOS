@@ -1,0 +1,10 @@
+{
+    "timeout" : 300,
+    "model" : {
+        "air780epm" : [1,103]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "udp单元测试"
+}

@@ -71,10 +71,9 @@ local function netdrv_multiple_task_func()
             {
                 WIFI = {
                     -- 要连接的WIFI路由器名称
-                     -- 要连接的WIFI路由器名称
-                    ssid = "Mayadan",
+                    ssid = "茶室-降功耗,找合宙!",
                     -- 要连接的WIFI路由器密码
-                    password = "12345678", 
+                    password = "Air123456", 
 
                     -- 连通性检测ip(选填参数)；
                     -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；

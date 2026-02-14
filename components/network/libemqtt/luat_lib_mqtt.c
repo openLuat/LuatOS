@@ -334,7 +334,7 @@ mqttc:unsubscribe({"/luatos/1234567","/luatos/12345678"})
 */
 static int l_mqtt_unsubscribe(lua_State *L) {
 	size_t len = 0;
-	int ret = 0;
+	int ret = 1;
 	uint16_t msgid = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
 	if (lua_isstring(L, 2)){
@@ -559,15 +559,15 @@ static int l_mqtt_auth(lua_State *L) {
 	if (lua_isboolean(L, 5) && !lua_toboolean(L, 5)) {
 		cleanSession = 0;
 	}
-	if (client_id != NULL && strlen(client_id) > MQTT_CONF_CLIENT_ID_LENGTH) {
+	if (client_id != NULL && strlen(client_id) >= MQTT_CONF_CLIENT_ID_LENGTH) {
 		LLOGE("mqtt client_id 太长或者无效!!!!");
 		return 0;
 	}
-	if (username != NULL && strlen(username) > MQTT_CONF_USERNAME_LENGTH) {
+	if (username != NULL && strlen(username) >= MQTT_CONF_USERNAME_LENGTH) {
 		LLOGE("mqtt username 太长或者无效!!!!");
 		return 0;
 	}
-	if (password != NULL && strlen(password) > MQTT_CONF_PASSWORD_LENGTH) {
+	if (password != NULL && strlen(password) >= MQTT_CONF_PASSWORD_LENGTH) {
 		LLOGE("mqtt password 太长或者无效!!!!");
 		return 0;
 	}
@@ -725,6 +725,10 @@ static int l_mqtt_publish(lua_State *L) {
 	}else{
 		LLOGD("only support string or zbuff");
 	}
+	if (payload == NULL) {
+		payload = "";
+		payload_len = 0;
+	}
 	// LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
@@ -818,10 +822,11 @@ static int l_mqtt_will(lua_State *L) {
 }
 
 static int _mqtt_struct_newindex(lua_State *L);
+static int _mqtt_struct_index(lua_State *L);
 
 void luat_mqtt_struct_init(lua_State *L) {
     luaL_newmetatable(L, LUAT_MQTT_CTRL_TYPE);
-    lua_pushcfunction(L, _mqtt_struct_newindex);
+    lua_pushcfunction(L, _mqtt_struct_index);
     lua_setfield( L, -2, "__index" );
     lua_pop(L, 1);
 }
@@ -860,7 +865,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{ NULL,             ROREG_INT(0)}
 };
 
-static int _mqtt_struct_newindex(lua_State *L) {
+static int _mqtt_struct_index(lua_State *L) {
 	const rotable_Reg_t* reg = reg_mqtt;
     const char* key = luaL_checkstring(L, 2);
 	while (1) {
@@ -886,8 +891,8 @@ LUAMOD_API int luaopen_mqtt( lua_State *L ) {
 	luat_mqtt_struct_init(L);
     return 1;
 #else
+	LLOGE("mqtt require network enable!!");
 	luat_newlib2(L, reg_mqtt_emtry);
     return 1;
-	LLOGE("mqtt require network enable!!");
 #endif
 }

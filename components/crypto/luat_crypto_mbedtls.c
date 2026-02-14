@@ -131,7 +131,9 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     // 开始注入数据
     block_size = mbedtls_cipher_get_block_size(&ctx);
 
-    if ((cipher_mode == MBEDTLS_MODE_ECB) && (!strcmp("PKCS7", cctx->pad) || !strcmp("ZERO", cctx->pad)) && (cctx->flags & 0x1)) {
+    if ((cipher_mode == MBEDTLS_MODE_ECB) && (cctx->flags & 0x1) &&
+        (!strcmp("PKCS7", cctx->pad) || !strcmp("ZERO", cctx->pad) ||
+         !strcmp("ZEROS_AND_LEN", cctx->pad) || !strcmp("ONE_AND_ZEROS", cctx->pad))) {
     	uint32_t new_len  = ((cctx->str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
         if (temp == NULL) {
@@ -143,6 +145,15 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     	if (!strcmp("PKCS7", cctx->pad))
     	{
     		add_pkcs_padding(temp + cctx->str_size - cctx->str_size % block_size, block_size, cctx->str_size % block_size);
+    	}
+    	else if (!strcmp("ZEROS_AND_LEN", cctx->pad))
+    	{
+    		size_t padding_len = new_len - cctx->str_size;
+    		temp[new_len - 1] = (unsigned char)padding_len;
+    	}
+    	else if (!strcmp("ONE_AND_ZEROS", cctx->pad))
+    	{
+    		temp[cctx->str_size] = 0x80;
     	}
     	else
     	{
@@ -157,14 +168,34 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
             input_size = block_size;
             ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
         }
-        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", cctx->pad) && !cctx->flags)
+        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !cctx->flags &&
+                 (!strcmp("PKCS7", cctx->pad) || !strcmp("ZEROS_AND_LEN", cctx->pad) || !strcmp("ONE_AND_ZEROS", cctx->pad)))
         {
         	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
             if (ret == 0) {
-                ret = get_pkcs_padding(output, output_size, &output_size);
-                if (ret) {
-                    LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cctx->cipher);
-                    goto _exit;
+                if (!strcmp("PKCS7", cctx->pad)) {
+                    ret = get_pkcs_padding(output, output_size, &output_size);
+                    if (ret) {
+                        LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cctx->cipher);
+                        goto _exit;
+                    }
+                } else if (!strcmp("ZEROS_AND_LEN", cctx->pad)) {
+                    if (output_size > 0) {
+                        size_t pad_len = output[output_size - 1];
+                        if (pad_len > 0 && pad_len <= output_size) {
+                            output_size -= pad_len;
+                        }
+                    }
+                } else if (!strcmp("ONE_AND_ZEROS", cctx->pad)) {
+                    if (output_size > 0) {
+                        size_t j = output_size;
+                        while (j > 0 && output[j - 1] == 0x00) {
+                            j--;
+                        }
+                        if (j > 0 && output[j - 1] == 0x80) {
+                            output_size = j - 1;
+                        }
+                    }
                 }
             }
         }

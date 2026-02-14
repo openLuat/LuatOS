@@ -11,8 +11,8 @@ local testsuite = require("testsuite")
 local ctx = {
     timeout = 30000,  -- 等待网络连接的超时时间（毫秒）
     retry_count = 3,   -- 重试次数
-    wifi_ssid = "观看15秒广告解锁WiFi",
-    wifi_password = "qwertYUIOP",
+    wifi_ssid = "luatos1234",
+    wifi_password = "12341234",
     -- status_url = "http://httpbin.air32.cn/post",  -- 状态上报服务器 URL
 }
 

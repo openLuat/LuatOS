@@ -15,8 +15,8 @@ local UDP_SERVER_CONFIG = {
     port = 34928
 } -- UDP服务器配置
 local taskName = "UDP_TASK" -- 测试任务名称
-local ssid = "观看15秒广告解锁WiFi"
-local password = "qwertYUIOP"
+local ssid = "luatos1234"
+local password = "12341234"
 local ALL_ADAPTERS = {}
 local send_buff
 local recv_buff

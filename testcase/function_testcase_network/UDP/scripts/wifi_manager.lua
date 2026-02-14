@@ -1,111 +1,13 @@
--- -- [file name]: wifi_manager.lua
--- -- WiFi连接管理器，确保WiFi只连接一次
--- local wifi_manager = {}
-
--- local device_name = rtos.bsp()
--- local wifi_connected = false
--- local wifi_connecting = false
-
--- -- WiFi配置
--- local WIFI_CONFIG = {
---     ssid = "观看15秒广告解锁WiFi",
---     password = "qwertYUIOP"  -- 如果不需要密码就留空
--- }
-
--- -- 等待WiFi连接成功
--- local function wait_wifi_ready(timeout)
---     timeout = timeout or 30000
---     local steps = timeout / 100
---     for i = 1, steps do
---         if wlan and wlan.ready and wlan.ready() then
---             return true
---         end
---         -- 检查是否获取到IP
---         local ip = wlan and wlan.getIP and wlan.getIP()
---         if ip and ip ~= "0.0.0.0" then
---             return true
---         end
---         sys.wait(100)
---     end
---     return false
--- end
-
--- -- 连接WiFi（只执行一次）
--- function wifi_manager.connect()
---     if not wlan or not wlan.connect then
---         return false
---     end
-    
---     if wifi_connected then
---         log.info("wifi_manager", "WiFi已连接，复用现有连接")
---         return true
---     end
-    
---     if wifi_connecting then
---         log.info("wifi_manager", "WiFi正在连接中，等待...")
---         local timeout = 30000
---         local steps = timeout / 100
---         for i = 1, steps do
---             sys.wait(100)
---             if wifi_connected then
---                 return true
---             end
---         end
---         return wifi_connected
---     end
-    
---     wifi_connecting = true
---     log.info("wifi_manager", string.format("开始连接WiFi: %s", WIFI_CONFIG.ssid))
-    
---     -- 如果密码为空字符串，则使用nil
---     local password = WIFI_CONFIG.password
---     if password == "" then
---         password = nil
---     end
-    
---     wlan.connect(WIFI_CONFIG.ssid, password, 1)
-    
---     -- 等待IP就绪
---     local result = wait_wifi_ready(30000)
-    
---     if result then
---         wifi_connected = true
---         local ip = wlan.getIP and wlan.getIP() or "未知"
---         log.info("wifi_manager", "✓ WiFi连接成功", ip)
---     else
---         wifi_connected = false
---         log.error("wifi_manager", "✗ WiFi连接失败")
---     end
-    
---     wifi_connecting = false
---     return wifi_connected
--- end
-
--- -- 获取WiFi连接状态
--- function wifi_manager.is_connected()
---     if not wlan then
---         return false
---     end
---     local ready = wlan.ready and wlan.ready() or false
---     local ip = wlan.getIP and wlan.getIP() or "0.0.0.0"
---     return ready and ip ~= "0.0.0.0"
--- end
-
--- return wifi_manager
-
-
--- [file name]: wifi_manager.lua
--- WiFi连接管理器，确保WiFi只连接一次
 local wifi_manager = {}
 
 local device_name = rtos.bsp()
 local wifi_connected = false
 local wifi_connecting = false
 
--- WiFi配置 - 使用正确的WiFi信息
+-- WiFi配置
 local WIFI_CONFIG = {
-    ssid = "观看15秒广告解锁WiFi",
-    password = "qwertYUIOP"  -- 如果是开放网络就留空，如果需要密码就填写
+    ssid = "luatos1234",
+    password = "12341234"
 }
 
 -- 等待WiFi连接成功

@@ -13,15 +13,6 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 加载hzfont字库
-    airui.font_load({
-        type = "hzfont",    -- 字体类型
-        path = nil,         -- 使用内置字库
-        size = 20,          -- 默认字体大小
-        cache_size = 2048,  -- 缓存大小
-        antialias = 1,      -- 抗锯齿等级
-    })
-
     -- 创建主容器
     local main_container = airui.container({
         x = 0,

@@ -273,11 +273,11 @@ local function ui_main()
         h = 16,
     })
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

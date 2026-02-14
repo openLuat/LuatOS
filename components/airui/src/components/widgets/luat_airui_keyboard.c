@@ -63,6 +63,8 @@ static void airui_keyboard_target_auto_hide_cb(lv_event_t *e)
             airui_keyboard_show(keyboard);
             break;
         case LV_EVENT_DEFOCUSED:
+        case LV_EVENT_LEAVE:
+            /* LV_EVENT_LEAVE：点击 group 外区域时触发；LV_EVENT_DEFOCUSED：group 内切换焦点时触发 */
             airui_keyboard_hide(keyboard);
             break;
         default:
@@ -76,6 +78,12 @@ static void airui_keyboard_refresh_auto_hide(lv_obj_t *keyboard, airui_keyboard_
         return;
     }
 
+    /* target 未变化时跳过：避免在 FOCUSED 事件处理链中，textarea_focus_cb 先执行 bind_shared_keyboard
+     * 导致 remove 我们的回调，使后续本应执行的 auto_hide_cb 被提前移除而无法触发 */
+    if (old_target == data->target && old_target != NULL) {
+        return;
+    }
+
     //移除旧目标的自动隐藏回调
     if (old_target != NULL) {
         lv_obj_remove_event_cb_with_user_data(old_target, airui_keyboard_target_auto_hide_cb, keyboard);
@@ -85,6 +93,7 @@ static void airui_keyboard_refresh_auto_hide(lv_obj_t *keyboard, airui_keyboard_
     if (data->auto_hide && data->target != NULL) {
         lv_obj_add_event_cb(data->target, airui_keyboard_target_auto_hide_cb, LV_EVENT_FOCUSED, keyboard);
         lv_obj_add_event_cb(data->target, airui_keyboard_target_auto_hide_cb, LV_EVENT_DEFOCUSED, keyboard);
+        lv_obj_add_event_cb(data->target, airui_keyboard_target_auto_hide_cb, LV_EVENT_LEAVE, keyboard);
     }
 }
 

@@ -1,10 +1,13 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.3
-@date    2026.2.5
+@version 1.4
+@date    2026.2.14
 @author  拓毅恒
 @updates
+    v1.4 2026.2.14
+        1. 重构初始化i2s的逻辑，将接口给出让有录音或流式播放等需求的客户来自定义。
+        3. 增大流式录音到文件缓冲区大小至48000，防止录音不完整。
     v1.3 2026.2.5
         1. 新增exaudio.pm()函数，可以在逻辑层直接调用exaudio.pm()来修改audio休眠模式。
         2. 重构exaudio.play_start()函数处理播放优先级逻辑，目前插入不同优先级的音频文件，会自动按照从高到底的顺序播放打断或播放。
@@ -22,10 +25,6 @@ local exaudio = {}
 
 -- 常量定义
 local I2S_ID = 0
-local I2S_MODE = 0          -- 0:主机 1:从机
-local I2S_SAMPLE_RATE = 16000
-local I2S_COMM_FORMAT = i2s.MODE_LSB   -- 可选MODE_I2S, MODE_LSB, MODE_MSB
-local I2S_CHANNEL_BITS = 16
 local MULTIMEDIA_ID = 0
 local EX_MSG_PLAY_DONE = "playDone"
 local ES8311_ADDR = 0x18    -- 7位地址
@@ -56,9 +55,15 @@ local audio_setup_param = {
     
     pa_delay = 10,           -- DAC启动后延迟打开PA的时间(ms)
     dac_time_delay = 600,      -- 播放完毕后PA与DAC关闭间隔(ms)
-    bits_per_sample = 16,     -- 采样位数
     pa_on_level = 1,          -- PA打开电平 1:高 0:低       
-    channels = 1              -- 声道数: 1:单声道 2:双声道  
+    channels = 1,             -- 声道数: 1:单声道 2:双声道
+    
+    -- I2S硬件配置参数
+    i2s_mode = 0,                -- I2S模式: 0:主机 1:从机
+    i2s_sample = 16000,     -- I2S采样率
+    bits_per_sample = 16,     -- I2S采样位深
+    i2s_comm_format = i2s.MODE_LSB, -- I2S通信格式: MODE_I2S, MODE_LSB, MODE_MSB
+    i2s_framebit = 16       -- I2S通道位宽
 }
 
 local audio_play_param = {
@@ -359,15 +364,16 @@ local function audio_setup()
         return false
     end
     -- 初始化I2S
-    local I2S_CHANNEL_FORMAT = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+    local I2S_channel_format = audio_setup_param.channels == 2 and i2s.STEREO or i2s.MONO_R
+
     local result, data = i2s.setup(
-        I2S_ID, 
-        I2S_MODE, 
-        I2S_SAMPLE_RATE, 
-        audio_setup_param.bits_per_sample, 
-        I2S_CHANNEL_FORMAT, 
-        I2S_COMM_FORMAT,
-        I2S_CHANNEL_BITS
+        I2S_ID,  -- I2S的通道号
+        audio_setup_param.i2s_mode,  -- I2S主从模式
+        audio_setup_param.i2s_sample,  -- I2S采样率
+        audio_setup_param.bits_per_sample,  -- I2S采样位深
+        I2S_channel_format, -- 声道
+        audio_setup_param.i2s_comm_format, -- I2S通讯格式
+        audio_setup_param.i2s_framebit  -- I2S通道位宽
     )
 
     if not result then
@@ -424,7 +430,7 @@ function exaudio.get_stream_buffer_size()
 
     -- 如果没有开始流式播放，返回一个基于默认参数的推荐值 
     local default_channels = audio_setup_param.channels or 1 
-    local default_rate = I2S_SAMPLE_RATE 
+    local default_rate = audio_setup_param.i2s_sample 
     local default_depth = audio_setup_param.bits_per_sample 
     return calculate_buffer_size(default_rate, default_depth, default_channels)
 end
@@ -475,7 +481,11 @@ function exaudio.setup(audioConfigs)
         {name = "dac_time_delay", type = "number"},
         {name = "bits_per_sample", type = "number"},
         {name = "pa_on_level", type = "number"},
-        {name = "channels", type = "number"}
+        {name = "channels", type = "number"},
+        {name = "i2s_sample", type = "number"},      -- 新增：I2S采样率
+        {name = "i2s_framebit", type = "number"},     -- 新增：I2S通道位宽
+        {name = "i2s_mode", type = "number"},            -- 新增：I2S模式
+        {name = "i2s_comm_format", type = "number"}       -- 新增：I2S通信格式
     }
 
     for _, param in ipairs(optional_params) do
@@ -698,8 +708,8 @@ function exaudio.record_start(recodConfigs)
     elseif path_type == "function" then
         -- 初始化缓冲区
         if not pcm_buff0 or not pcm_buff1 then
-            pcm_buff0 = zbuff.create(16000)
-            pcm_buff1 = zbuff.create(16000)
+            pcm_buff0 = zbuff.create(48000)
+            pcm_buff1 = zbuff.create(48000)
         end
         return audio.record(
             MULTIMEDIA_ID, 

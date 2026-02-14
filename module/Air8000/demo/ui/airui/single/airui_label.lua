@@ -24,7 +24,7 @@ local function ui_main()
 
     -- 创建图标标签
     local label2 = airui.label({
-        symbol = airui.AIRUI_SYMBOL_SETTINGS,
+        symbol = airui.SYMBOL_SETTINGS,
         x = 120,
         y = 80,
         w = 20,

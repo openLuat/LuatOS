@@ -98,7 +98,7 @@ function label_page.create_ui()
 
     local icon_label = airui.label({
         parent = scroll_container,
-        symbol = airui.AIRUI_SYMBOL_SETTINGS,
+        symbol = airui.SYMBOL_SETTINGS,
         x = 20,
         y = 115,
         w = 40,

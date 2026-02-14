@@ -428,7 +428,7 @@ function button_page.create_ui()
         y = 85,
         w = 200,
         h = 60,
-        symbol = airui.AIRUI_SYMBOL_SETTINGS,
+        symbol = airui.SYMBOL_SETTINGS,
         text = " 设置",
         size = 16,
         on_click = function()
@@ -442,7 +442,7 @@ function button_page.create_ui()
         y = 85,
         w = 200,
         h = 60,
-        symbol = airui.AIRUI_SYMBOL_REFRESH,
+        symbol = airui.SYMBOL_REFRESH,
         text = " 刷新",
         size = 16,
         on_click = function()
@@ -456,7 +456,7 @@ function button_page.create_ui()
         y = 160,
         w = 200,
         h = 60,
-        symbol = airui.AIRUI_SYMBOL_DOWNLOAD,
+        symbol = airui.SYMBOL_DOWNLOAD,
         text = " 下载",
         size = 16,
         on_click = function()
@@ -470,7 +470,7 @@ function button_page.create_ui()
         y = 160,
         w = 200,
         h = 60,
-        symbol = airui.AIRUI_SYMBOL_UPLOAD,
+        symbol = airui.SYMBOL_UPLOAD,
         text = " 上传",
         size = 16,
         on_click = function()

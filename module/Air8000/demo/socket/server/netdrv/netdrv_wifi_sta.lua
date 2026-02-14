@@ -17,14 +17,26 @@ local exnetif = require "exnetif"
 
 local function ip_ready_func(ip, adapter)
     if adapter == socket.LWIP_STA then
-        log.info("netdrv_wifi.ip_ready_func", "IP_READY: ", ip, json.encode(wlan.getInfo()))
+        -- 在位置1和2设置自定义的DNS服务器ip地址：
+        -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+        -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+        -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+        -- 如果使用专网卡，不要使用这两行代码；
+        -- 如果使用国外的网络，不要使用这两行代码；
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+
+        log.info("netdrv_wifi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_STA))
     end
 end
 
-local function ip_lose_func()
-    log.warn("netdrv_wifi.ip_lose_func", "IP_LOSE")
-    sys.publish(SERVER_TOPIC, "SOCKET_CLOSED")
+local function ip_lose_func(adapter)
+    if adapter == socket.LWIP_STA then
+        log.warn("netdrv_wifi.ip_lose_func", "IP_LOSE")
+	sys.publish(SERVER_TOPIC, "SOCKET_CLOSED")
+    end
 end
+
 
 --WIFI联网成功（做为STATION成功连接AP，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
 --各个功能模块可以订阅"IP_READY"消息实时处理WIFI联网成功的事件
@@ -40,6 +52,18 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
+
+local function wifi_sta_func(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt, data)
+end
+
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", wifi_sta_func)
+
+
 -- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
 -- ssid为要连接的WiFi路由器名称；
 -- password为要连接的WiFi路由器密码；
@@ -48,8 +72,9 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 exnetif.set_priority_order({
     {
         WIFI = {
-            ssid = "xiaomi15",
-            password = "wsh123456"
+            ssid = "茶室-降功耗,找合宙!", 
+            password = "Air123456"
         }
     }
 })
+

@@ -90,7 +90,7 @@ end
 -- 对讲超时处理
 function extalk.wait_speech_to()
     log.info("主动请求对讲超时无应答")
-    extalk.speech_off(true, false)
+    extalk.speech_off(true, true)
 end
 
 -- 发送鉴权消息
@@ -509,7 +509,7 @@ local function airtalk_mqtt_task()
                     if g_state ~= SP_T_CONNECTING and g_state ~= SP_T_CONNECTED then
                         log.info("airtalk_mqtt_task: 无活跃对讲，状态:", g_state)
                     else
-                        extalk.speech_off(true, false)
+                        extalk.speech_off(true, true)
                     end
                 elseif msg[1] == MSG_SPEECH_ON_IND then
                     if extalk_configs_local.state_cbfnc then
@@ -650,7 +650,7 @@ function extalk.stop()
     end
 
     log.info("主动断开对讲")
-    extalk.speech_off(true, false)
+    extalk.speech_off(true, true)
     return true
 end
 

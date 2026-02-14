@@ -126,6 +126,6 @@ sys.subscribe("SEND_DATA_REQ", send_data_req_proc_func)
 
 --创建并且启动一个task
 --运行这个task的处理函数lora2_sender_task_func
-sysplus.taskInitEx(lora2_sender_task_func, lora2_sender.TASK_NAME)
+sys.taskInitEx(lora2_sender_task_func, lora2_sender.TASK_NAME)
 
 return lora2_sender

@@ -104,7 +104,7 @@ local intstu=false
 -- local function x1int()
 --     x1,y1,z1 = read_xyz()
 -- end
--- sysplus.taskInit(x1int)
+-- sys.taskInit(x1int)
 
 
 -- 中断模式
@@ -227,7 +227,7 @@ function airgsensor.run()
         lcd.flush()--刷新页面        
         if not  run_state  then    -- 等待结束，返回主界面
         x,y,z=0,0,0
-        sysplus.taskInitEx(stop_interrupt, "stop_interrupt")
+        sys.taskInitEx(stop_interrupt, "stop_interrupt")
             return true
         end
     end
@@ -240,9 +240,9 @@ function airgsensor.tp_handal(x,y,event)
         run_state = false
     elseif x > 130 and  x < 230 and y > 370  and  y < 417 then
         if not interrupt_state then
-            sysplus.taskInitEx(start_interrupt, "start_interrupt")
+            sys.taskInitEx(start_interrupt, "start_interrupt")
         else
-            --sysplus.taskInitEx(stop_interrupt, "stop_interrupt")
+            --sys.taskInitEx(stop_interrupt, "stop_interrupt")
         end
     end
 end

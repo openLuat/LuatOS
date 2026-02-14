@@ -22,7 +22,7 @@ VERSION：项目版本号，ascii string类型
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 PROJECT = "AirKiss"
-VERSION = "1.0.0"
+VERSION = "001.000.000"
 
 
 -- 在日志中打印项目名和项目版本号

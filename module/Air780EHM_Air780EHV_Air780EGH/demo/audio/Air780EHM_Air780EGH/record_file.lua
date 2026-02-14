@@ -29,16 +29,22 @@
   录音完成后自动播放录音文件
 ]]
 
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 
 -- 硬件配置参数
+-- exaudio配置参数
 local audio_setup_param = {
-    model = "es8311",          -- 音频编解码芯片类型
-    i2c_id = 1,                -- I2C接口编号
-    pa_ctrl = 26,             -- 音频放大器控制引脚
-    dac_ctrl = 2,            -- 音频编解码芯片控制引脚
-    bits_per_sample = 16       -- 录音位深
+    model = "es8311",         -- dac类型: "es8311"
+    i2c_id = 1,               -- i2c_id: 可填入0，1 并使用pins 工具配置对应的管脚
+    pa_ctrl = 26,            -- 音频放大器电源控制管脚
+    dac_ctrl = 2,           -- 音频编解码芯片电源控制管脚
+    dac_delay = 3,            -- DAC启动前冗余时间(单位100ms)
+    pa_delay = 100,           -- DAC启动后延迟打开PA的时间(单位1ms)
+    dac_time_delay = 100,     -- 播放完毕后PA与DAC关闭间隔(单位1ms)
+    bits_per_sample = 16,     -- 采样位深
+    pa_on_level = 1           -- PA打开电平 1:高 0:低
 }
+
 
 -- 录音文件路径
 local recordPath = "/record.amr"
@@ -63,6 +69,13 @@ function play_end_callback(event)
     end
 end
 
+local audio_play_param = {
+                type = 0,              -- 0=播放文件
+                content = recordPath,  -- 播放录音文件
+                cbfnc = play_end_callback,
+                priority = 1
+}
+
 -- 开始播放录音文件
 function start_playback()
     if io.exists(recordPath) then
@@ -71,13 +84,6 @@ function start_playback()
             log.info("播放录音文件", "大小:", file_size, "字节")
             
             is_playing = true
-            
-            local audio_play_param = {
-                type = 0,              -- 0=播放文件
-                content = recordPath,  -- 播放录音文件
-                cbfnc = play_end_callback,
-                priority = 1
-            }
             
             local play_result = exaudio.play_start(audio_play_param)
             if not play_result then
@@ -98,7 +104,7 @@ end
 function stop_playback()
     if is_playing then
         log.info("停止播放")
-        exaudio.play_stop()
+        exaudio.play_stop(audio_play_param)
         is_playing = false
     end
 end

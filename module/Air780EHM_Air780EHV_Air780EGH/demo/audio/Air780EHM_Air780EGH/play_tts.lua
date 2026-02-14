@@ -16,13 +16,17 @@
 
 本文件没有对外接口，直接在main.lua中require "play_tts"就可以加载运行；
 ]]
-exaudio = require("exaudio")
+local exaudio = require "exaudio"
 local taskName = "task_audio"
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
     model= "es8311",          -- 音频编解码类型,可填入"es8311","es8211"
     i2c_id = 1,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
+    
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    
     pa_ctrl = 26,         -- 音频放大器电源控制管脚
     dac_ctrl = 2,        --  音频编解码芯片电源控制管脚
 }
@@ -30,12 +34,12 @@ local audio_setup_param ={
 local function play_end(event)
     if event == exaudio.PLAY_DONE then
         log.info("播放完成",exaudio.is_end())
-        exaudio.play_stop()
+        exaudio.play_stop({type = 1})
     end
 end 
 
 local audio_play_param ={
-    type= 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
+    type = 1,                -- 播放类型，有0，播放文件，1.播放tts 2. 流式播放
                             -- 如果是播放文件,支持mp3,amr,wav格式
                             -- 如果是tts,内容格式见:https://docs.openluat.com/air780epm/common/tts/
                             -- 流式播放，仅支持PCM 格式音频,如果是流式播放，则sampling_rate, sampling_depth,signed_or_unsigned 必填写
@@ -99,7 +103,7 @@ local function audio_task()
                 exaudio.play_start({type= 1, content = audio_path,cbfnc = play_end,priority = index_number})
                 index_number= index_number +1 
             elseif msg[2] ==  "STOP_AUDIO" then
-                exaudio.play_stop()
+                exaudio.play_stop({type = 1})
             end 
         end
     end

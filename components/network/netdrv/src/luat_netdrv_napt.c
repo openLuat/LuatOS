@@ -23,27 +23,10 @@
 #define LUAT_LOG_TAG "netdrv.napt"
 #include "luat_log.h"
 
-#define ICMP_MAP_SIZE (32)
 #define UDP_MAP_TIMEOUT (60 * 1000)
 #define NAPT_MAX_PACKET_SIZE (1520)
-/* napt icmp id range: 3000-65535 */
-#define NAPT_ICMP_ID_RANGE_START     0xBB8
-#define NAPT_ICMP_ID_RANGE_END       0xFFFF
 
 static int s_gw_adapter_id = -1;
-
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-#define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
-#define NAPT_CHKSUM_16BIT_LEN        sizeof(u16)
-
-static void check_it(const char* tag, luat_netdrv_napt_llist_t* it, luat_netdrv_napt_llist_t* prev, size_t id) {
-    uint32_t tmp = (uint32_t)it;
-    if (tmp == 0 || tmp > 0xc300000) {
-        LLOGE("why %s cur %p prev %p id %ld", tag, it, prev, id);
-    }
-}
 
 #if !defined(LUAT_USE_PSRAM) && !defined(LUAT_USE_NETDRV_NAPT)
 __NETDRV_CODE_IN_RAM__ int luat_netdrv_napt_pkg_input(int id, uint8_t* buff, size_t len) {
@@ -176,10 +159,24 @@ int luat_netdrv_napt_pkg_input_pbuf(int id, struct pbuf* p) {
     }
     // LLOGD("pbuf情况 total %d len %d", p->tot_len, p->len);
     if (p->tot_len == p->len) {
-        // LLOGD("其实就是单个pbuf");
+        // 单个连续pbuf, 直接使用
         return luat_netdrv_napt_pkg_input(id, p->payload, p->tot_len);
     }
-    return 0; // lwip继续处理 
+    // 链式pbuf, 拷贝为连续缓冲区再处理
+    uint8_t* tmp_buff = luat_heap_opt_malloc(LUAT_HEAP_AUTO, p->tot_len);
+    if (tmp_buff == NULL) {
+        LLOGW("NAPT链式pbuf分配缓冲区失败 %d", p->tot_len);
+        return 0;
+    }
+    uint16_t copied = pbuf_copy_partial(p, tmp_buff, p->tot_len, 0);
+    int ret = 0;
+    if (copied == p->tot_len) {
+        ret = luat_netdrv_napt_pkg_input(id, tmp_buff, copied);
+    } else {
+        LLOGW("NAPT链式pbuf拷贝不完整 %d/%d", copied, p->tot_len);
+    }
+    luat_heap_opt_free(LUAT_HEAP_AUTO, tmp_buff);
+    return ret;
 }
 
 void luat_netdrv_napt_enable(int adapter_id) {

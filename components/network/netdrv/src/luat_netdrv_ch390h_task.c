@@ -100,8 +100,9 @@ static luat_ch390h_cstring_t* new_cstring(ch390h_t* ch, uint16_t len) {
     size_t total = 0;
     size_t used = 0;
     size_t max_used = 0;
+    size_t need = sizeof(luat_ch390h_cstring_t) + len - 4;
     luat_meminfo_opt_sys(ch->pkg_mem_type, &total, &used, &max_used);
-    if (total > 0 && total - used > 32*1024) { // 最少留32k给系统用
+    if (total > 0 && total - used > need + 32*1024) { // 最少甲32k给系统用,且留出本次分配所需
         luat_ch390h_cstring_t* cs = luat_heap_opt_malloc(ch->pkg_mem_type, sizeof(luat_ch390h_cstring_t) + len - 4);
         if (cs == NULL) {
             LLOGE("有剩余内存不多但分配失败! total %d used %d max_used %d len %d", total, used, max_used, len);
@@ -172,8 +173,10 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
     if (ch->status == CH390H_STATUS_STOPPED) {
         return;
     }
+    LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
     luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
+        LLOGE("分配cstring失败，丢弃数据包 %d", p->tot_len);
         return;
     }
     cs->len = p->tot_len;
@@ -207,14 +210,14 @@ err_t ch390_netif_output(struct netif *netif, struct pbuf *p) {
 
 static void netdrv_netif_input(void* args) {
     netdrv_pkg_msg_t* ptr = (netdrv_pkg_msg_t*)args;
-    struct pbuf* p = pbuf_alloc(PBUF_TRANSPORT, ptr->len, PBUF_RAM);
+    struct pbuf* p = pbuf_alloc(PBUF_RAW, ptr->len, PBUF_RAM);
     if (p == NULL) {
         LLOGD("分配pbuf失败!!! %d", ptr->len);
         luat_heap_free(ptr);
         return;
     }
     pbuf_take(p, ptr->buff, ptr->len);
-    // LLOGD("数据注入到netif " MACFMT, MAC_ARG(p->payload));
+    LLOGI("数据注入到netif " MACFMT, MAC_ARG(p->payload));
     int ret = ptr->netif->input(p, ptr->netif);
     if (ret) {
         pbuf_free(p);
@@ -307,7 +310,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
         if (ch->intpin != 255) {
-            luat_ch390h_write_reg(ch, 0x7F, 1); // 开启接收中断
+            luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1); // 开启接收中断
         }
         return 0; // 等待下一个周期
     }
@@ -329,13 +332,13 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     }
 
     // 然后判断link的状态
-    luat_ch390h_read(ch, 0x01, 1, buff);
+    luat_ch390h_read(ch, CH390H_REG_NSR, 1, buff);
     uint8_t NSR = buff[0];
     // LLOGD("网络状态寄存器 %02X %d", buff[0], (NSR & (1 << 6)) != 0);
     if (0 == (NSR & (1 << 6))) {
         // 网线没插, 或者phy没有上电
         // 首先, 确保phy上电
-        // luat_ch390h_read(ch, 0x1F, 1, buff);
+        // luat_ch390h_read(ch, CH390H_REG_GPR, 1, buff);
         // LLOGD("PHY状态 %02X", buff[0]);
         luat_ch390h_set_phy(ch, 1);
         luat_ch390h_set_rx(ch, 1);
@@ -366,15 +369,15 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
             uint32_t now = (uint32_t)luat_mcu_tick64_ms();
             if (ch->rx_error_count >= 5 && (now - ch->last_reset_time > 3000)) {
                 LLOGE("连续读包错误超过阈值，执行复位");
-                luat_ch390h_write_reg(ch, 0x05, 0);
-                luat_ch390h_write_reg(ch, 0x55, 1);
-                luat_ch390h_write_reg(ch, 0x75, 0);
+                luat_ch390h_write_reg(ch, CH390H_REG_RCR, 0);
+                luat_ch390h_write_reg(ch, CH390H_REG_TP_PTR, 1);
+                luat_ch390h_write_reg(ch, CH390H_REG_RX_LEN, 0);
                 luat_rtos_task_sleep(1);
                 luat_ch390h_basic_config(ch);
                 luat_ch390h_set_phy(ch, 1);
                 luat_ch390h_set_rx(ch, 1);
                 if (ch->intpin != 255) {
-                    luat_ch390h_write_reg(ch, 0x7F, 1);
+                    luat_ch390h_write_reg(ch, CH390H_REG_IMR, 1);
                 }
                 ch->rx_error_count = 0;
                 ch->last_reset_time = now;
@@ -412,7 +415,7 @@ static int task_loop_one(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
     }
 
     if (ch->intpin != 255) {
-        luat_ch390h_write_reg(ch, 0x7E, 0x3F); // 清除中断
+        luat_ch390h_write_reg(ch, CH390H_REG_ISR, 0x3F); // 清除中断
     }
     
     // 这一轮处理完成了

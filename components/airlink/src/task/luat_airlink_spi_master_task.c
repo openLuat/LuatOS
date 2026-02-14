@@ -469,22 +469,27 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 }
 
 
-void luat_airlink_start_master(void)
+int luat_airlink_start_master(void)
 {
     if (s_txbuff != NULL)
     {
         LLOGE("SPI主机任务已经启动过了!!!");
-        return;
+        return -1;
     }
 
     s_txbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
     s_rxbuff = luat_heap_opt_malloc(LUAT_HEAP_SRAM, TEST_BUFF_SIZE);
+    if (s_txbuff == NULL || s_rxbuff == NULL) {
+        LLOGE("SPI master buffer malloc failed");
+        return -2;
+    }
 
     // 创建通用事件队列 (id=2,3等)
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     // 创建专门的RDY事件队列 (id=6)
     luat_rtos_queue_create(&rdy_evt_queue, 10, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+    return 0;
 }
 
 int luat_airlink_irqmode(luat_airlink_irq_ctx_t *ctx) {

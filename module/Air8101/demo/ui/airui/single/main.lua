@@ -24,22 +24,13 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.0"      -- 项目版本号
+VERSION = "001.000.000"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("ui_demo", PROJECT, VERSION)
 
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)
-
--- 如果内核固件支持wdt看门狗功能，此处对看门狗进行初始化和定时喂狗处理
--- 如果脚本程序死循环卡死，就会无法及时喂狗，最终会自动重启
-if wdt then
-    --配置喂狗超时时间为9秒钟
-    wdt.init(9000)
-    --启动一个循环定时器，每隔3秒钟喂一次狗
-    sys.timerLoopStart(wdt.feed, 3000)
-end
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】

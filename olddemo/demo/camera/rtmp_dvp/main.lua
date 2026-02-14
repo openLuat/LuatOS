@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "dvp_cam_rtmp"
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -35,7 +35,7 @@ local rtmp_reconnecting = false -- 是否正在重连
 local rtmp_retries = 0         -- 当前重连次数
 
 -- rtmp出现问题时的重连逻辑
-function rtmp_try_reconnect()
+local function rtmp_try_reconnect()
     while true do
         local ret, error_id = sys.waitUntil("RECONNECT_RTMP")
         if rtmp_reconnecting or not rtmpc then return end
@@ -89,6 +89,19 @@ if fota_enable then
     sys.timerLoopStart(libfota2.request, fota_looptime, fota_cb, ota_opts)
 end
 
+local function wifi_sta_func(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt, data)
+    if evt == "DISCONNECTED" then
+        sys.publish("RECONNECT_RTMP")
+    end
+end
+
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", wifi_sta_func)
+
 sys.taskInit(function()
     sys.wait(1000)
     log.info("当前脚本版本号：", VERSION, "core版本号：", rtos.version())
@@ -100,7 +113,7 @@ sys.taskInit(function()
 
     local rtos_bsp = rtos.bsp()
     local GetDeviceid = ""
-    if rtos_bsp == "Air8101" or rtos_bsp == "Air8101P" then
+    if rtos_bsp == "Air8101" or rtos_bsp == "Air6201" then
         GetDeviceid = netdrv.mac(socket.LWIP_STA)   -- 使用STA_MAC作为设备ID
     else
         GetDeviceid = mobile.imei()                 -- 使用IMEI作为设备ID

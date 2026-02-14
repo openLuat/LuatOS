@@ -21,30 +21,6 @@
 static uint16_t napt_curr_id = NAPT_ICMP_ID_RANGE_START;
 static luat_netdrv_napt_icmp_t* icmps;
 
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-#define NAPT_ETH_HDR_LEN             sizeof(struct ethhdr)
-
-// Incrementally update checksum when a 16-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
-{
-    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
-    acc = (acc >> 16) + (acc & 0xFFFFU);
-    acc += (acc >> 16);
-    return lwip_htons((uint16_t)(~acc));
-}
-
-// Incrementally update checksum when a 32-bit field (network order) changes.
-static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
-{
-    const uint16_t *old16 = (const uint16_t *)&old_net;
-    const uint16_t *new16 = (const uint16_t *)&new_net;
-    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
-    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
-    return sum_net;
-}
-
 
 static u16 luat_napt_icmp_id_alloc(void)
 {
@@ -84,9 +60,17 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
     }
     if (icmps == NULL) {
         icmps = luat_heap_opt_zalloc(LUAT_HEAP_PSRAM, sizeof(luat_netdrv_napt_icmp_t) * ICMP_MAP_SIZE);
+        if (icmps == NULL) {
+            LLOGE("NAPT ICMP映射表分配失败");
+            return 0;
+        }
     }
     if (icmp_buff == NULL) {
         icmp_buff = luat_heap_opt_zalloc(LUAT_HEAP_AUTO, 1600);
+        if (icmp_buff == NULL) {
+            LLOGE("NAPT ICMP缓冲区分配失败");
+            return 0;
+        }
     }
     luat_netdrv_napt_icmp_t* it = NULL;
     if (ctx->is_wnet) {
@@ -161,10 +145,12 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
         // 内网, 尝试对外网的请求吗?
         // LLOGD("ICMP request!!!");
         if (ip_hdr->dest.addr == ip_addr_get_ip4_u32(&ctx->net->netif->ip_addr)) {
+            // LLOGI("ICMP请求目标是本网关IP, 交给LWIP处理");
             return 0; // 对网关的ICMP/PING请求, 交给LWIP处理
         }
 
         if (NULL == gw->dataout) {
+            // LLOGW("网关netdrv不支持dataout, 无法转发ICMP请求");
             return 0;
         }
         // 首先, 有没有已有的映射呢?
@@ -197,6 +183,10 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
                 icmps[i].inet_id = icmp_hdr->id;
                 icmps[i].inet_ip = ip_hdr->src.addr;
                 icmps[i].wnet_id = luat_napt_icmp_id_alloc();
+                if (icmps[i].wnet_id == 0) {
+                    LLOGW("ICMP ID分配失败");
+                    return 0;
+                }
                 icmps[i].wnet_ip = ip_hdr->dest.addr;
                 icmps[i].tm_ms = tnow;
                 icmps[i].is_vaild = 1;
@@ -242,8 +232,8 @@ int luat_napt_icmp_handle(napt_ctx_t* ctx) {
             else {
                 gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
             }
-            return 1;
         }
+        return 1;
     }
-    return 0;
+    // return 0;
 }

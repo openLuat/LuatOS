@@ -2,6 +2,39 @@
 #define LUAT_NETDRV_NAPT_H
 
 #include "lwip/pbuf.h"
+#include "lwip/def.h"
+#include "lwip/ip.h"
+#include "lwip/etharp.h"
+#include "luat_netdrv.h"
+#include <string.h>
+
+// NAPT公共类型别名
+#ifndef NAPT_TYPE_ALIASES
+#define NAPT_TYPE_ALIASES
+#define u32 uint32_t
+#define u16 uint16_t
+#define u8  uint8_t
+#endif
+
+#define NAPT_ETH_HDR_LEN sizeof(struct ethhdr)
+
+// NAPT公共增量校验和更新函数
+static inline uint16_t napt_chksum_replace_u16(uint16_t sum_net, uint16_t old_net, uint16_t new_net)
+{
+    uint32_t acc = (~lwip_ntohs(sum_net) & 0xFFFFU) + (~lwip_ntohs(old_net) & 0xFFFFU) + lwip_ntohs(new_net);
+    acc = (acc >> 16) + (acc & 0xFFFFU);
+    acc += (acc >> 16);
+    return lwip_htons((uint16_t)(~acc));
+}
+
+static inline uint16_t napt_chksum_replace_u32(uint16_t sum_net, uint32_t old_net, uint32_t new_net)
+{
+    const uint16_t *old16 = (const uint16_t *)&old_net;
+    const uint16_t *new16 = (const uint16_t *)&new_net;
+    sum_net = napt_chksum_replace_u16(sum_net, old16[0], new16[0]);
+    sum_net = napt_chksum_replace_u16(sum_net, old16[1], new16[1]);
+    return sum_net;
+}
 
 // 返回值定义（对齐LWIP期望：0=交给LWIP继续，非0=已消费）
 #define NAPT_RET_SKIP         0    // 跳过处理，让LWIP继续（0）
@@ -106,6 +139,64 @@ typedef struct luat_netdrv_napt_ctx{
     // 哈希表用于加速查找（LAN->WAN方向）
     napt_hash_entry_t *hash_table_lan2wan;  // 按(inet_ip, inet_port, wnet_ip, wnet_port)索引
 }luat_netdrv_napt_ctx_t;
+
+// NAPT公共输出路由函数: WAN→LAN 方向
+static inline int napt_output_to_lan(napt_ctx_t* ctx,
+                                     luat_netdrv_napt_tcpudp_t* mapping,
+                                     struct ip_hdr* ip_hdr,
+                                     uint8_t* buff)
+{
+    if (ctx->eth) {
+        memcpy(ctx->eth->src.addr, ctx->net->netif->hwaddr, 6);
+        memcpy(ctx->eth->dest.addr, mapping->inet_mac, 6);
+    }
+    luat_netdrv_t* dst = luat_netdrv_get(mapping->adapter_id);
+    if (dst == NULL || !dst->dataout) {
+        return 1;
+    }
+    if (ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+        dst->dataout(dst, dst->userdata, ctx->eth, ctx->len);
+    }
+    else if (!ctx->eth && dst->netif->flags & NETIF_FLAG_ETHARP) {
+        memcpy(buff, mapping->inet_mac, 6);
+        memcpy(buff + 6, dst->netif->hwaddr, 6);
+        memcpy(buff + 12, "\x08\x00", 2);
+        memcpy(buff + 14, ip_hdr, ctx->len);
+        dst->dataout(dst, dst->userdata, buff, ctx->len + 14);
+    }
+    else {
+        dst->dataout(dst, dst->userdata, ip_hdr, ctx->len);
+    }
+    return 1;
+}
+
+// NAPT公共输出路由函数: LAN→WAN 方向
+static inline int napt_output_to_wan(napt_ctx_t* ctx,
+                                     luat_netdrv_t* gw,
+                                     struct ip_hdr* ip_hdr)
+{
+    if (!gw || !gw->dataout || !gw->netif) {
+        return 1;
+    }
+    if (gw->netif->flags & NETIF_FLAG_ETHARP) {
+        if (ctx->eth) {
+            memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
+            gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
+        }
+        else {
+            return 0; // 网关netdrv是ETH,源网卡不是ETH, 当前不支持
+        }
+    }
+    else {
+        if (ctx->eth) {
+            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len - 14);
+        }
+        else {
+            gw->dataout(gw, gw->userdata, ip_hdr, ctx->len);
+        }
+    }
+    return 1;
+}
 
 int luat_napt_icmp_handle(napt_ctx_t* ctx);
 int luat_napt_tcp_handle(napt_ctx_t* ctx);

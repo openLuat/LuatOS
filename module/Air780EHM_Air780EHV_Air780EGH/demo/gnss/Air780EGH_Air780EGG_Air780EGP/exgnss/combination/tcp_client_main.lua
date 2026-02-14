@@ -24,7 +24,7 @@ local tcp_client_sender = require "tcp_client_sender"
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 32066
+local SERVER_PORT = 34586
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
@@ -138,5 +138,5 @@ end
 
 --创建并且启动一个task
 --运行这个task的主函数tcp_client_main_task_func
-sysplus.taskInitEx(tcp_client_main_task_func, TASK_NAME, tcp_client_main_cbfunc)
+sys.taskInitEx(tcp_client_main_task_func, TASK_NAME, tcp_client_main_cbfunc)
 

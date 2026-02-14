@@ -1,6 +1,8 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
 #include "luat_network_adapter.h"
+#include "luat_spi.h"
+#include "luat_fota.h"
 #ifdef __LUATOS__
 #include "luat_zbuff.h"
 #else
@@ -150,6 +152,8 @@ typedef struct{
 	// TCP连接是否已经关闭
 	uint8_t tcp_closed;
 	uint8_t http_body_is_finally;
+
+	uint32_t idg;
 }luat_http_ctrl_t;
 
 //下面2个API是luatos内部使用，csdk不使用
@@ -282,6 +286,12 @@ int luat_http_client_set_get_offset(luat_http_ctrl_t *http_ctrl, uint32_t offset
  * @return 成功返回0，其他值失败或者是chunk编码
  */
 int luat_http_client_get_context_len(luat_http_ctrl_t *http_ctrl, uint32_t *len);
+
+uint32_t luat_http_idg_register(luat_http_ctrl_t *http_ctrl);
+
+luat_http_ctrl_t* luat_http_idg_get(uint32_t idg);
+
+int luat_http_idg_unreg(uint32_t idg);
 /** @}*/
 #endif
 

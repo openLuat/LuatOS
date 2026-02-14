@@ -25,6 +25,7 @@ int luat_airlink_cmd_exec_wlan_init(luat_airlink_cmd_t* cmd, void* userdata) {
 }
 
 int luat_airlink_cmd_exec_wlan_sta_connect(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 8 + sizeof(luat_wlan_conninfo_t)) return -1;
     luat_wlan_conninfo_t* info = (luat_wlan_conninfo_t*)(cmd->data+8);
     int ret = luat_wlan_connect(info);
     LLOGD("luat_wlan_connect ret=%d", ret);
@@ -38,6 +39,7 @@ int luat_airlink_cmd_exec_wlan_sta_disconnect(luat_airlink_cmd_t* cmd, void* use
 }
 
 int luat_airlink_cmd_exec_wlan_ap_start(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 8 + sizeof(luat_wlan_apinfo_t)) return -1;
     luat_wlan_apinfo_t* info = (luat_wlan_apinfo_t*)(cmd->data+8);
     int ret = luat_wlan_ap_start(info);
     LLOGD("luat_wlan_ap_start ret=%d", ret);
@@ -68,6 +70,7 @@ static int scan_result_handler(lua_State* L, void* ptr) {
 }
 
 int luat_airlink_cmd_exec_wlan_scan_result_cb(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 1) return -1;
     uint8_t tmp = cmd->data[0];
     LLOGD("收到扫描结果 %d", tmp);
     if (drv_scan_result) {
@@ -76,6 +79,7 @@ int luat_airlink_cmd_exec_wlan_scan_result_cb(luat_airlink_cmd_t* cmd, void* use
         drv_scan_result_size = 0;
     }
     if (tmp > 0) {
+        if (cmd->len < 1 + tmp * sizeof(luat_wlan_scan_result_t)) return -1;
         drv_scan_result = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, tmp * sizeof(luat_wlan_scan_result_t));
         if (drv_scan_result) {
             memcpy(drv_scan_result, cmd->data + 1, tmp * sizeof(luat_wlan_scan_result_t));
@@ -93,7 +97,7 @@ int luat_airlink_cmd_exec_wlan_scan_result_cb(luat_airlink_cmd_t* cmd, void* use
 }
 
 int luat_airlink_cmd_exec_wlan_set_mac(luat_airlink_cmd_t* cmd, void* userdata) {
-
+    if (cmd->len < 15) return -1;
     uint8_t id = cmd->data[8];
     uint8_t mac[6] = {0};
     memcpy(mac, cmd->data + 9, 6);
@@ -104,7 +108,7 @@ int luat_airlink_cmd_exec_wlan_set_mac(luat_airlink_cmd_t* cmd, void* userdata) 
 }
 
 int luat_airlink_cmd_exec_wlan_set_ps(luat_airlink_cmd_t* cmd, void* userdata) {
-
+    if (cmd->len < 9) return -1;
     uint8_t mode = cmd->data[8];
 
     int ret = luat_wlan_set_ps((int)mode);

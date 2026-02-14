@@ -126,7 +126,7 @@ static void doswap(int swap, void *p, size_t n)
     memcpy(&a,s+i,m);			\
     i+=m;				\
     doswap(swap,&a,m);			\
-    int t = (a & 0x80)?(0xffffff00+a):a;\
+    int8_t t = (a & 0x80)?(0xffffff00+a):a;\
     lua_pushinteger(L,(lua_Integer)t);	\
     ++n;				\
     break;				\
@@ -347,15 +347,15 @@ static int l_pack(lua_State *L)
     luaL_addlstring(&b,a,l+1);
     break;
    }
-   PACKSTRING(OP_BSTRING, unsigned char)
-   PACKSTRING(OP_WSTRING, unsigned short)
+   PACKSTRING(OP_BSTRING, uint8_t)
+   PACKSTRING(OP_WSTRING, uint16_t)
    PACKSTRING(OP_SSTRING, size_t)
    PACKNUMBER(OP_NUMBER, lua_Number)
 #ifndef LUA_NUMBER_INTEGRAL   
    PACKNUMBER(OP_DOUBLE, double)
    PACKNUMBER(OP_FLOAT, float)
 #endif
-   PACKINT(OP_CHAR, char)
+   PACKINT(OP_CHAR, int8_t)
    PACKINT(OP_BYTE, uint8_t)
    PACKINT(OP_SHORT, int16_t)
    PACKINT(OP_USHORT, uint16_t)

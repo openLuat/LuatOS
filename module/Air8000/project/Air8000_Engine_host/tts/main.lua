@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "testtts"
-VERSION = "2.0.0"
+VERSION = "002.000.000"
 
 --[[
 本demo当前仅支持ec618系列和ec718系列
@@ -57,7 +57,7 @@ CS    -- 10脚, GPIO08/SPI0_CS/LCD_CS,片选.
 
 -- sys库是标配
 _G.sys = require("sys")
-_G.sysplus = require("sysplus")
+_G.sys = require("sys")
 
 gpio.setup(24, 1, gpio.PULLUP)          -- i2c工作的电压域
 
@@ -118,7 +118,7 @@ audio.on(0, function(id, event)
             log.info("第", file_cnt, "个文件解码失败")
         end
     end
-    sysplus.sendMsg(taskName, MSG_PD)
+    sys.sendMsg(taskName, MSG_PD)
 end)
 
 
@@ -151,7 +151,7 @@ local function audio_task()
         if result then
         --等待音频通道的回调消息，或者切换歌曲的消息
             while true do
-                msg = sysplus.waitMsg(taskName, nil)
+                msg = sys.waitMsg(taskName, nil)
                 if type(msg) == 'table' then
                     if msg[1] == MSG_PD then
                         log.info("播放结束")
@@ -177,10 +177,10 @@ local function audio_task()
         log.info("mem", "lua", rtos.meminfo("lua"))
         sys.wait(1000)
     end
-    sysplus.taskDel(taskName)
+    sys.taskDel(taskName)
 end
 
-sysplus.taskInitEx(audio_task, taskName)
+sys.taskInitEx(audio_task, taskName)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -27,7 +27,7 @@ end)
 #include "http_parser.h"
 #include "luat_http.h"
 
-#define LUAT_LOG_TAG "http"
+#define LUAT_LOG_TAG "libhttp"
 #include "luat_log.h"
 
 
@@ -342,7 +342,7 @@ static int l_http_request(lua_State *L) {
 
 	network_set_ip_invaild(&http_ctrl->ip_addr);
 	http_ctrl->idp = luat_pushcwait(L);
-	LLOGI("http idp:%llx", http_ctrl->idp);
+	//LLOGD("http idp:%llx", http_ctrl->idp);
 
     if (luat_http_client_start_luatos(http_ctrl)) {
         goto error;
@@ -391,9 +391,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	uint16_t header_len = 0,value_len = 0;
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
+	uint32_t idg = (uint32_t)(msg->ptr);
+	luat_http_ctrl_t* http_ctrl = luat_http_idg_get(idg);
 	if (http_ctrl == NULL){
-		LLOGE("http callback http_ctrl is NULL");
+		LLOGI("http callback http_ctrl is NULL idg:%d", idg);
 		return 0;
 	}
 	uint64_t idp = http_ctrl->idp;
@@ -497,7 +498,7 @@ void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code, int a
 	}
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
-	msg.ptr = http_ctrl;
+	msg.ptr = (void*)http_ctrl->idg;
 	msg.arg1 = error_code;
 	msg.arg2 = arg;
 	luat_msgbus_put(&msg, 0);

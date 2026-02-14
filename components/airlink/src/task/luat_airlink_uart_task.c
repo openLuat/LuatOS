@@ -94,35 +94,6 @@ __USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) 
     }
 }
 
-static void parse_data(uint8_t* buff, size_t len)
-{
-    // luat_airlink_print_buff("反转义前的数据", buff,  len);
-    // 收到数据后去除帧头帧尾和魔数，遇到0x7E/0x7D 要转义
-    uint8_t* parse_buff = buff;
-    size_t parse_len = len - 2;
-    memcpy(parse_buff, buff+1, parse_len);//去帧头帧尾
-    // //反转义
-    for(int i = 0; i < parse_len; i++)
-    {
-        if(parse_buff[i] == 0x7D && parse_buff[i + 1] == 0x02) {
-            parse_buff[i] = 0x7E;
-            parse_len--;
-        }
-        else if(parse_buff[i] == 0x7D && parse_buff[i + 1] == 0x01) {
-            parse_buff[i] = 0x7D;
-            parse_len--;
-        }
-    }
-    airlink_link_data_t *link = luat_airlink_data_unpack(parse_buff, parse_len);
-    if (link == NULL)
-    {
-        LLOGE("luat_airlink_data_unpack failed len %d", parse_len);
-        return;
-    }
-    // LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
-    luat_airlink_on_data_recv(link->data, link->len);
-}
-
 static void unpack_data(uint8_t* buff, size_t len)
 {
     // LLOGD("unpack_data: src len = %d", len);
@@ -192,6 +163,11 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
     }
     // 按协议要求, 单个包的最大长度, 应该是 2 + 1600*2 + 2 = 3206 字节
     // 所以, 8k完全可以放入2个包
+    if (rxoffset + len > UNPACK_BUFF_SIZE) {
+        LLOGW("rxbuf溢出, 重置 rxoffset=%d len=%d", rxoffset, len);
+        rxoffset = 0;
+        if (len > UNPACK_BUFF_SIZE) return;
+    }
     memcpy(rxbuf + rxoffset, buff, len);
     rxoffset += len;
 

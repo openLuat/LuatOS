@@ -29,7 +29,7 @@ local taskName = "config_wifi"
 
 local function network_event_handler()
     while true do
-        msg = sysplus.waitMsg(taskName, nil)
+        msg = sys.waitMsg(taskName, nil)
         if type(msg) == 'table' then
             -- 检查消息的第一个元素是否为 "STA_CONNED"，即 STA 连接成功消息
             if msg[1] == "STA_CONNED" then
@@ -76,16 +76,16 @@ local function ble_wifi_config_task()
 end
 
 -- 初始化网络配置任务
-sysplus.taskInitEx(ble_wifi_config_task, "ble_wifi_config_task")
+sys.taskInitEx(ble_wifi_config_task, "ble_wifi_config_task")
 -- 初始化网络测试任务
-sysplus.taskInitEx(network_event_handler, taskName)
+sys.taskInitEx(network_event_handler, taskName)
 
 ]]
 
 local espblufi = {}
 
 local sys = require "sys"
-local sysplus = require "sysplus"
+local sys = require "sys"
 
 local BLUFI_TOPIC = "espblufi"
 local taskName = "config_wifi"
@@ -514,7 +514,7 @@ local function btc_blufi_protocol_handler(parse_data)
                         -- 将WiFi连接状态更新为已连接
                         blufi_env.wlan_state = BLUFI_WLAN_STATE_CONNED
                         -- 发送STA已连接的消息
-                        sysplus.sendMsg(taskName, "STA_CONNED")
+                        sys.sendMsg(taskName, "STA_CONNED")
                         -- 跳出循环
                         break
                     end
@@ -527,7 +527,7 @@ local function btc_blufi_protocol_handler(parse_data)
                 -- 将WiFi连接状态更新为已断开
                 blufi_env.wlan_state = BLUFI_WLAN_STATE_DISCONN
                 -- 发送STA已断开的消息
-                sysplus.sendMsg(taskName, "STA_DISCONNED")
+                sys.sendMsg(taskName, "STA_DISCONNED")
                 -- 断开 STA 连接
                 wlan.disconnect()
             end
@@ -591,7 +591,7 @@ local function btc_blufi_protocol_handler(parse_data)
                 ssid = blufi_env.softap_ssid,
                 password = blufi_env.softap_passwd
             })
-            sysplus.sendMsg(taskName, "AP_CONNED")
+            sys.sendMsg(taskName, "AP_CONNED")
         elseif blufi_subtype == BLUFI_TYPE_DATA_SUBTYPE_SOFTAP_CHANNEL then
             blufi_env.softap_max_channel = blufi_hdr.data:byte(1)
         elseif blufi_subtype == BLUFI_TYPE_DATA_SUBTYPE_USERNAME then

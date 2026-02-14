@@ -16,6 +16,7 @@
 // #define LUAT_RET void
 #define LUAT_RT_RET_TYPE	void
 #define LUAT_RT_CB_PARAM void *param
+#define LWIP_NUM_SOCKETS 64
 
 #define LUA_USE_VFS_FILENAME_OFFSET 1
 
@@ -82,6 +83,7 @@
 #define LUAT_USE_MEDIA 1
 #define LUAT_USE_AUDIO 1
 #define LUAT_SUPPORT_AMR 1
+#define LUAT_SUPPORT_OPUS   1
 #define LUAT_USE_AUDIO_G711 1
 #define LUAT_USE_AUDIO_DTMF 1
 

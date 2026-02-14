@@ -15,6 +15,7 @@
 #include "luat_log.h"
 
 int luat_airlink_cmd_exec_pm_request(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 9) return -1;
     uint8_t tp = cmd->data[8];
     if (tp >= LUAT_PM_SLEEP_MODE_NONE && tp <= LUAT_PM_SLEEP_MODE_STANDBY) {
         LLOGI("pm request %d", tp);
@@ -24,6 +25,7 @@ int luat_airlink_cmd_exec_pm_request(luat_airlink_cmd_t* cmd, void* userdata) {
 }
 
 int luat_airlink_cmd_exec_pm_power_ctrl(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 13) return -1;
     uint32_t id = 0;
     memcpy(&id, cmd->data + 8, 4);
     uint8_t onoff = cmd->data[8 + 4];
@@ -33,6 +35,7 @@ int luat_airlink_cmd_exec_pm_power_ctrl(luat_airlink_cmd_t* cmd, void* userdata)
 }
 
 int luat_airlink_cmd_exec_pm_wakeup_pin(luat_airlink_cmd_t* cmd, void* userdata) {
+    if (cmd->len < 13) return -1;
     uint32_t pin = 0;
     memcpy(&pin, cmd->data + 8, 4);
     uint8_t val = cmd->data[8 + 4];

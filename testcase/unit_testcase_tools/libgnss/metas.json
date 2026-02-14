@@ -1,0 +1,11 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "air780egp": [103, 104,105],
+        "air8000": [1, 101]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "libgnss测试"
+}

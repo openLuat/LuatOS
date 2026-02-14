@@ -155,6 +155,21 @@ int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len
         descriptor_totalNum += gatt->characteristics[i].descriptors_num;
         // LLOGD("统计GATT描述符数量 %d/%d", gatt->characteristics[i].descriptors_num, descriptor_totalNum);
     }
+
+    // 计算整体打包长度
+    size_t total_len = 8
+                     + sizeof(luat_ble_gatt_service_t)
+                     + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t)
+                     + descriptor_totalNum * sizeof(luat_ble_gatt_descriptor_t);
+    if (_len) {
+        *_len = total_len;
+    }
+
+    // 允许 ptr 为空，此时只返回长度，不做实际拷贝
+    if (ptr == NULL) {
+        return 0;
+    }
+
     uint16_t tmp = 0;
     uint16_t offset = 0;
     uint8_t descriptor_num;
@@ -174,7 +189,7 @@ int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len
     // 头部拷贝完成, 拷贝数据
     memcpy(ptr + 8, gatt, sizeof(luat_ble_gatt_service_t));
     // 然后是服务id
-    memcpy(ptr + 8 + sizeof(luat_ble_gatt_service_t), 
+    memcpy(ptr + 8 + sizeof(luat_ble_gatt_service_t),
         gatt->characteristics, gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t));
     
     offset = 8 + sizeof(luat_ble_gatt_service_t) + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t);
@@ -188,13 +203,7 @@ int luat_ble_gatt_pack(luat_ble_gatt_service_t* gatt, uint8_t* ptr, size_t* _len
         memcpy(ptr + offset, gatt->characteristics[i].descriptor, descriptor_num * sizeof(luat_ble_gatt_descriptor_t));
         offset += descriptor_num * sizeof(luat_ble_gatt_descriptor_t);
     }
-    if (_len) {
-        // 如果有传入len, 则返回实际长度
-        *_len = 8
-                + sizeof(luat_ble_gatt_service_t) 
-                + gatt->characteristics_num * sizeof(luat_ble_gatt_chara_t)
-                + descriptor_totalNum * sizeof(luat_ble_gatt_descriptor_t);
-    }
+
     return 0;
 }
 
@@ -218,6 +227,11 @@ int luat_ble_gatt_unpack(luat_ble_gatt_service_t* gatt, uint8_t* data, size_t* l
 
     // LLOGD("Gatt characteristics_num %d", gatt->characteristics_num);
     gatt->characteristics = luat_heap_malloc(sizeof(luat_ble_gatt_chara_t) * gatt->characteristics_num);
+    if (gatt->characteristics == NULL) {
+        LLOGE("gatt_unpack: characteristics malloc fail %d", gatt->characteristics_num);
+        if (len) *len = 0;
+        return -1;
+    }
     for (size_t i = 0; i < gatt->characteristics_num; i++)
     {
         memcpy(&gatt->characteristics[i], data + 8 + sizeof(luat_ble_gatt_service_t) + sizeof_gatt_chara * i, sizeof(luat_ble_gatt_chara_t));

@@ -50,12 +50,13 @@ static int l_icmp_handler(lua_State *L, void* ptr) {
         lua_pushinteger(L, (msg->arg1 >> 16) & 0xFFFF);
         lua_pushinteger(L, (msg->arg1 >> 0) & 0xFFFF);
         lua_pushstring(L, buff);
-        lua_call(L, 4, 0);
+        lua_pushinteger(L, msg->arg2);
+        lua_call(L, 5, 0);
     }
     return 0;
 }
 
-static void l_icmp_cb(void* _ctx, uint32_t tused) {
+static void l_icmp_cb(void* _ctx, uint32_t tused, uint8_t ttl) {
     if (_ctx == NULL) {
         return;
     }
@@ -64,7 +65,7 @@ static void l_icmp_cb(void* _ctx, uint32_t tused) {
         .handler = l_icmp_handler,
         .ptr = ctx,
         .arg1 = ctx->adapter_id << 16 | (tused & 0xFFFF),
-        .arg2 = 0
+        .arg2 = ttl
     };
     luat_msgbus_put(&msg, 0);
 }
@@ -107,8 +108,8 @@ sys.taskInit(function()
     end
 end)
 
-sys.subscribe("PING_RESULT", function(id, time, dst)
-    log.info("ping", id, time, dst);
+sys.subscribe("PING_RESULT", function(id, time, dst, ttl)
+    log.info("ping", id, time, dst, ttl);
 end)
 */
 int l_icmp_ping(lua_State *L) {
@@ -117,7 +118,7 @@ int l_icmp_ping(lua_State *L) {
     if (ctx == NULL) {
         ctx = luat_icmp_init(id);
         if (ctx == NULL) {
-            LLOGW("icmp初始化失败");
+            LLOGW("adapter %d icmp初始化失败", id);
             return 0;
         }
         ctx->cb = l_icmp_cb;
@@ -128,7 +129,7 @@ int l_icmp_ping(lua_State *L) {
         LLOGW("目标地址非法 %s", ip);
         return 0;
     };
-    int result = tcpip_callback_with_block(luat_icmp_ping, ctx, 1);
+    int result = tcpip_callback_with_block(luat_icmp_ping, ctx, 0);
     if (result) {
         LLOGW("luat_icmp_ping/tcpip_callback_with_block result %d", result);
     }

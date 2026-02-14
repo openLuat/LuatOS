@@ -43,4 +43,3 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 -- 设置默认网卡为socket.ETH0
 -- pc模拟器上的默认网卡仍然需要使用接口(socket.ETH0)来设置，因为exnetif扩展库当前还不支持模拟器
 socket.dft(socket.ETH0)
-

@@ -299,3 +299,12 @@ int luat_mobile_get_band_from_earfcn(uint32_t earfcn)
 	return 0;
 }
 
+int luat_mobile_is_ip_ready() {
+	LUAT_MOBILE_REGISTER_STATUS_E ret = luat_mobile_get_register_status();
+	if (LUAT_MOBILE_STATUS_REGISTERED == ret || LUAT_MOBILE_STATUS_REGISTERED_ROAMING == ret) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}

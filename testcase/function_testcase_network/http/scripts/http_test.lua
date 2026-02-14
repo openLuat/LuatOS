@@ -370,9 +370,9 @@ function http_response.test_chunked_stream_json()
     for i = 1, count do
         local code, headers, body = http.request("GET", "https://httpbin.air32.cn/stream/1", nil, nil, {
             timeout = 5000,
-            debug = true
+            debug = http_debug
         }).wait()
-        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: 预期 200, 实际 %d", i, code))
+        assert(code == 200, string.format("chunked流式JSON测试 %d 失败: status 预期 200, 实际 %d", i, code))
         assert(body and #body > 0, string.format("chunked流式JSON测试 %d 失败: 预期长度 >0, 实际长度 %d",
             i, body and #body or 0))
         local success, result = pcall(json.decode, body)
@@ -382,7 +382,7 @@ function http_response.test_chunked_stream_json()
     for i = 1, count do
         local code, headers, body = http.request("GET", "http://httpbin.air32.cn/stream/100", nil, nil, {
             timeout = 5000,
-            debug = true
+            debug = http_debug
         }).wait()
         assert(code == 200, string.format("chunked流式JSON测试 %d 失败: 预期 200, 实际 %d", i, code))
         assert(body and #body > 0, string.format("chunked流式JSON测试 %d 失败: 预期长度 >0, 实际长度 %d",
@@ -418,22 +418,56 @@ function http_response.test_download_mp3()
 end
 
 -- 测试下载星历文件是否正常
-function http_response.test_download_sp3()
+function http_response.test_download_agps()
     local url = "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat"
     local save_path = "/ram/HXXT_GPS_BDS_AGNSS_DATA.dat"
+    os.remove(save_path)
     log.info("http_response", "开始【下载星历文件数据完整性】测试")
     local code, headers, body = http.request("GET", url, nil, nil, {
         dst = save_path,
         timeout = 5000,
-        debug = true
+        debug = http_debug
     }).wait()
     local body_len = type(body) == "string" and #body or (type(body) == "number" and body or 0)
     log.info("http_response", "下载星历文件结果", code, body_len)
     assert(code == 200, "下载星历文件测试失败: 预期 200, 实际 " .. tostring(code))
     assert(io.exists and io.exists(save_path), "下载星历文件测试失败: 文件不存在")
+    assert(io.fileSize(save_path) > 4096, "下载星历文件测试失败: 文件大小异常")
+
+    -- 检查headers
+    local header_content_length = tonumber(headers["Content-Length"] or headers["content-length"] or "0")
+    local file_size = io.fileSize(save_path)
+    assert(header_content_length == file_size,
+        string.format("下载星历文件测试失败: Content-Length 与实际文件大小不符, Content-Length=%d, 文件大小=%d",
+            header_content_length, file_size))
+
     -- 删除文件
     os.remove(save_path)
     log.info("http_response", "下载星历文件数据完整性 测试通过")
+end
+
+-- 测试访问天地图，验证会忽略Connection: close请求头的服务器，是否会一直等到超时
+function http_response.test_test()
+    local req_headers = {
+        ["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1",
+        ["Connection"] = "keep-alive"
+    }
+    local code
+    local headers
+    local body
+    -- 获取请求之前的时间戳
+    local start_time = os.time()
+    code, headers, body = http.request("GET","http://api.tianditu.gov.cn/geocoder?postStr={'lon':117.1155846,'lat':36.6828714,'ver':1}}&tk=004150d6645036a89ef32cfc2df46985", req_headers, nil, {
+            timeout = 5000,
+            debug = http_debug
+        }).wait()
+    -- 获取请求之后的时间戳
+    local end_time = os.time()
+    local elapsed_time = end_time - start_time
+    log.info("http_response", "test_test", code, headers, body, "耗时", elapsed_time, "秒")
+    assert(code == 200, "test_test测试失败: 预期 200, 实际 " .. tostring(code))
+    assert(body and body:find("山东省济南市历下区"), "test_test测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
+    assert(elapsed_time < 5, "test_test测试失败: 预期耗时 < 5秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
 end
 
 return http_response

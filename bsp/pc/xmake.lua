@@ -292,8 +292,8 @@ target("luatos-lua")
     add_files(luatos.."components/network/errdump/*.c")
 
     -- wireguard
-    -- add_includedirs(luatos.."components/network/wireguard/include",{public = true})
-    -- add_files(luatos.."components/network/wireguard/src/*.c")
+    add_includedirs(luatos.."components/network/wireguard/include",{public = true})
+    add_files(luatos.."components/network/wireguard/src/*.c")
 
     -- httpsrv
     add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})

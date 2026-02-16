@@ -59,8 +59,9 @@ typedef struct luat_netdrv_openvpn_conf
     size_t ovpn_client_cert_len;
     const char* ovpn_client_key;    // 客户端私钥 (PEM格式)
     size_t ovpn_client_key_len;
-    const uint8_t* ovpn_static_key; // 静态密钥 (可选)
-    size_t ovpn_static_key_len;
+    uint8_t ovpn_retry_enable;      // 失败后自动重试
+    uint32_t ovpn_retry_base_ms;    // 重试基础延迟
+    uint32_t ovpn_retry_max_ms;     // 重试最大延迟
 }luat_netdrv_openvpn_conf_t;
 
 

@@ -1,0 +1,101 @@
+name: Windows Build
+
+on:
+  push:
+    paths:
+      - 'bsp/pc/**'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - '.github/workflows/windows-build.yml'
+  pull_request:
+    paths:
+      - 'bsp/pc/**'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - '.github/workflows/windows-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 32bit No-GUI (Debug mode based on bat file)
+          - name: "32bit No-GUI"
+            vm_64bit: "0"
+            gui: "n"
+            arch: "x86"
+            mode: "debug"
+            artifact_suffix: "32bit_NoGUI"
+
+          # 32bit GUI (Default mode)
+          - name: "32bit GUI"
+            vm_64bit: "0"
+            gui: "y"
+            arch: "x86"
+            mode: "release" # Defaulting to release if not specified, though bat file omits it
+            artifact_suffix: "32bit_GUI"
+
+          # 64bit No-GUI (Default mode)
+          - name: "64bit No-GUI"
+            vm_64bit: "1"
+            gui: "n"
+            arch: "x86"
+            mode: "release"
+            artifact_suffix: "64bit_NoGUI"
+
+          # 64bit GUI (Default mode)
+          - name: "64bit GUI"
+            vm_64bit: "1"
+            gui: "y"
+            arch: "x86"
+            mode: "release"
+            artifact_suffix: "64bit_GUI"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: branch@master
+
+      - name: Build ${{ matrix.name }}
+        working-directory: bsp/pc
+        shell: pwsh
+        run: |
+          $env:VM_64bit = "${{ matrix.vm_64bit }}"
+          $env:LUAT_USE_GUI = "${{ matrix.gui }}"
+          
+          xmake clean -a
+          
+          # Initialize package search directories if pkgs exists
+          if (Test-Path "pkgs") {
+            xmake g --pkg_searchdirs=pkgs
+          }
+          
+          # Configure build
+          # -y confirms prompts
+          # -a specifies architecture
+          # -m specifies mode (debug/release) if set
+          
+          if ("${{ matrix.mode }}" -ne "") {
+            xmake f -a ${{ matrix.arch }} -m ${{ matrix.mode }} -y
+          } else {
+            xmake f -a ${{ matrix.arch }} -y
+          }
+          
+          # Build
+          xmake -y
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LuatOS_PC_${{ matrix.artifact_suffix }}
+          path: bsp/pc/build/out/

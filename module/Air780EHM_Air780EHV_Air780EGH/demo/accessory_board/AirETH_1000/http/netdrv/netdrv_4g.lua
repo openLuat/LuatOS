@@ -40,5 +40,5 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
--- 在Air8000上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
+-- 在Air780EHM/EHV/EGH上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
 

@@ -29,14 +29,15 @@
 3、Air780EXX核心板和AirETH_1000配件板的硬件接线方式为：
 
 | Air780EXX核心板 | AirETH_1000配件板 |
-| ------------ | -------------- |
-| 3.3V         | 3.3v           |
-| gnd          | gnd            |
-| spi0_sclk    | SCK            |
-| spi0_cs      | CSS            |
-| spi0_miso    | SDO            |
-| spi0_mosi    | SDI            |
-| gpio21       | INT            |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 107/GPIO21      | INT               |
+
 
 演示软件环境
 ------

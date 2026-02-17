@@ -26,6 +26,10 @@
 #define LUAT_LOG_TAG "rtmp_push"
 #include "luat_log.h"
 
+/* ======================== 外部函数声明 ======================== */
+extern int luat_camera_capture(int id, uint8_t quality, const char *path);
+extern int luat_camera_stop(int id);
+
 /* ======================== 调试开关 ======================== */
 
 /** 启用详细调试日志 (0=关闭, 1=开启) */
@@ -44,6 +48,9 @@
 
 /** RTMP命令端口 */
 #define RTMP_DEFAULT_PORT 1935
+
+/** RTMP最大消息长度 (16MB) */
+#define RTMP_MAX_MSG_LEN (16 * 1024 * 1024)
 
 /** AMF数据类型 */
 #define AMF_TYPE_NUMBER 0x00
@@ -87,11 +94,6 @@ static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len);
 static int rtmp_do_handshake(rtmp_ctx_t *ctx);
 
 /**
- * 处理握手响应
- */
-static int rtmp_process_handshake_response(rtmp_ctx_t *ctx);
-
-/**
  * 发送RTMP命令
  */
 static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command, 
@@ -125,13 +127,6 @@ static uint32_t rtmp_pack_flv_header(uint8_t *buffer, uint32_t buffer_len,
 static int rtmp_pack_message(rtmp_ctx_t *ctx, uint8_t msg_type,
                             const uint8_t *payload, uint32_t payload_len,
                             uint32_t timestamp, uint32_t stream_id);
-
-/**
- * 打包FLV视频标签
- */
-static int rtmp_pack_video_tag(uint8_t *buffer, uint32_t buffer_len,
-                              const uint8_t *video_data, uint32_t video_len,
-                              bool is_key_frame);
 
 /**
  * 帧发送队列节点
@@ -790,6 +785,11 @@ int rtmp_send_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
          *       [spsLength(2)] [SPS data] [numOfPPS(1)] [ppsLength(2)] [PPS data]
          */
         uint32_t seq_header_size = 5 + 1 + 2 + sps_len + 1 + 2 + pps_len;
+        /* 检查长度溢出 */
+        if (seq_header_size > RTMP_MAX_MSG_LEN || sps_len > RTMP_MAX_MSG_LEN || pps_len > RTMP_MAX_MSG_LEN) {
+            LLOGE("RTMP: AVC sequence header size too large: %u", seq_header_size);
+            return RTMP_ERR_INVALID_PARAM;
+        }
         uint8_t *seq_header = (uint8_t *)luat_heap_malloc(seq_header_size);
         if (!seq_header) {
             LLOGE("RTMP: Failed to allocate AVC sequence header");
@@ -865,6 +865,11 @@ static int rtmp_send_avc_sequence_header(rtmp_ctx_t *ctx, const uint8_t *seq_hea
      * 格式: [FrameType+CodecID(1)] [AVCPacketType(1)] [CompositionTime(3)] [AVC Sequence Header]
      */
     uint32_t msg_len = 1 + 1 + 3 + seq_len;
+    /* 检查长度溢出 */
+    if (seq_len > RTMP_MAX_MSG_LEN || msg_len > RTMP_MAX_MSG_LEN) {
+        LLOGE("RTMP: AVC sequence header message too large: %u", msg_len);
+        return RTMP_ERR_INVALID_PARAM;
+    }
     uint8_t *msg_buf = (uint8_t *)luat_heap_malloc(msg_len);
     if (!msg_buf) {
         LLOGE("RTMP: Failed to allocate buffer for AVC sequence header");
@@ -939,7 +944,6 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     }
     
     /* 构建视频消息 - 支持大数据 */
-    uint32_t header_size = 11;  /* FLV标签头大小 */
     uint8_t header_buf[11];
     uint32_t header_len = 0;
     
@@ -971,6 +975,11 @@ static int rtmp_send_single_nalu(rtmp_ctx_t *ctx, const uint8_t *nalu_data,
     
     /* 完整视频消息 = 头(11字节) + NALU数据 */
     uint32_t total_msg_len = header_len + nalu_len;
+    /* 检查长度溢出 */
+    if (nalu_len > RTMP_MAX_MSG_LEN || total_msg_len > RTMP_MAX_MSG_LEN || total_msg_len < header_len) {
+        LLOGE("RTMP: Video message too large: %u", total_msg_len);
+        return RTMP_ERR_INVALID_PARAM;
+    }
 
     uint8_t *msg_buf = (uint8_t *)luat_heap_malloc(total_msg_len);
     if (!msg_buf) {
@@ -1382,22 +1391,70 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
         return RTMP_ERR_INVALID_PARAM;
     }
     
-    /* 保存URL组件 */
+    /* 保存URL组件 - 使用安全的分配和复制流程 */
+    char *new_url = NULL;
+    char *new_host = NULL;
+    char *new_app = NULL;
+    char *new_stream = NULL;
+    
+    /* 分配新字符串 */
+    size_t url_len = strlen(url);
+    size_t host_len = strlen(host);
+    size_t app_len = strlen(app);
+    size_t stream_len = strlen(stream);
+    
+    new_url = (char *)luat_heap_malloc(url_len + 1);
+    if (!new_url) {
+        LLOGE("RTMP: Failed to allocate memory for URL");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    new_host = (char *)luat_heap_malloc(host_len + 1);
+    if (!new_host) {
+        luat_heap_free(new_url);
+        LLOGE("RTMP: Failed to allocate memory for host");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    new_app = (char *)luat_heap_malloc(app_len + 1);
+    if (!new_app) {
+        luat_heap_free(new_url);
+        luat_heap_free(new_host);
+        LLOGE("RTMP: Failed to allocate memory for app");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    new_stream = (char *)luat_heap_malloc(stream_len + 1);
+    if (!new_stream) {
+        luat_heap_free(new_url);
+        luat_heap_free(new_host);
+        luat_heap_free(new_app);
+        LLOGE("RTMP: Failed to allocate memory for stream");
+        return RTMP_ERR_NO_MEMORY;
+    }
+    
+    /* 安全复制字符串 */
+    memcpy(new_url, url, url_len);
+    new_url[url_len] = '\0';
+    memcpy(new_host, host, host_len);
+    new_host[host_len] = '\0';
+    memcpy(new_app, app, app_len);
+    new_app[app_len] = '\0';
+    memcpy(new_stream, stream, stream_len);
+    new_stream[stream_len] = '\0';
+    
+    /* 替换旧指针 */
     if (ctx->url) luat_heap_free(ctx->url);
-    ctx->url = (char *)luat_heap_malloc(strlen(url) + 1);
-    strcpy(ctx->url, url);
+    ctx->url = new_url;
     
     if (ctx->host) luat_heap_free(ctx->host);
-    ctx->host = (char *)luat_heap_malloc(strlen(host) + 1);
-    strcpy(ctx->host, host);
+    ctx->host = new_host;
     
     if (ctx->app) luat_heap_free(ctx->app);
-    ctx->app = (char *)luat_heap_malloc(strlen(app) + 1);
-    strcpy(ctx->app, app);
+    ctx->app = new_app;
     
     if (ctx->stream) luat_heap_free(ctx->stream);
-    ctx->stream = (char *)luat_heap_malloc(strlen(stream) + 1);
-    strcpy(ctx->stream, stream);
+    ctx->stream = new_stream;
     
     RTMP_LOGV("RTMP: URL parsed - host:%s, port:%d, app:%s, stream:%s",
                      host, ctx->port, ctx->app, ctx->stream);
@@ -1571,12 +1628,9 @@ static void rtmp_tcp_error_callback(void *arg, err_t err) {
  */
 static err_t rtmp_tcp_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len) {
     rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
-    static uint64_t total_sent = 0;
-    total_sent += len;
-    //LLOGD("RTMP: TCP sent callback, len=%d, total_sent=%llu", len, total_sent);
     if (ctx) {
-        ctx->bytes_sent += (uint64_t)len;
-        /* 继续发送队列中的数据 */
+        /* bytes_sent 已在 rtmp_send_single_nalu / rtmp_send_audio 等处按应用层统计，
+         * 此处不再重复累加，仅触发队列继续发送 */
         rtmp_try_send_queue(ctx);
     }
     
@@ -1625,36 +1679,6 @@ static int rtmp_do_handshake(rtmp_ctx_t *ctx) {
 }
 
 /**
- * 处理握手响应
- */
-static int rtmp_process_handshake_response(rtmp_ctx_t *ctx) {
-    /* 检查收到的数据是否足够 */
-    if (ctx->recv_pos < 1 + 2 * RTMP_HANDSHAKE_CLIENT_SIZE) {
-        return RTMP_OK;  /* 数据不足,继续等待 */
-    }
-    
-    /* S0: 版本号 */
-    if (ctx->recv_buf[0] != 0x03) {
-        LLOGE("RTMP: Invalid RTMP version from server %d", ctx->recv_buf[0]);
-        return RTMP_ERR_HANDSHAKE_FAILED;
-    }
-    
-    /* 握手完成,发送connect命令 */
-    rtmp_set_state(ctx, RTMP_STATE_CONNECTED, 0);
-    
-    /* 发送connect命令 */
-    int ret = rtmp_send_command(ctx, "connect", 1, ctx->app);
-    if (ret != RTMP_OK) {
-        return ret;
-    }
-    
-    /* 清空接收缓冲区 */
-    ctx->recv_pos = 0;
-    
-    return RTMP_OK;
-}
-
-/**
  * 发送 @setDataFrame 元数据
  * 用于设置视频流的元信息
  */
@@ -1664,10 +1688,15 @@ static int rtmp_send_metadata(rtmp_ctx_t *ctx) {
     }
     
     uint8_t amf_buf[512] = {0};
+    const uint32_t amf_buf_size = sizeof(amf_buf);
     uint32_t offset = 0;
+    
+    /* 溢出检查宏 */
+    #define META_CHECK_SPACE(n) do { if (offset + (n) > amf_buf_size) { LLOGE("RTMP: Metadata buffer overflow"); return RTMP_ERR_BUFFER_OVERFLOW; } } while(0)
     
     /* 1. 写入命令名称 "@setDataFrame" */
     const char *cmd = "@setDataFrame";
+    META_CHECK_SPACE(1 + 2 + strlen(cmd));
     amf_buf[offset++] = AMF_TYPE_STRING;
     write_be16(&amf_buf[offset], strlen(cmd));
     offset += 2;
@@ -1676,6 +1705,7 @@ static int rtmp_send_metadata(rtmp_ctx_t *ctx) {
     
     /* 2. 写入元数据类型 "onMetaData" */
     const char *meta_type = "onMetaData";
+    META_CHECK_SPACE(1 + 2 + strlen(meta_type));
     amf_buf[offset++] = AMF_TYPE_STRING;
     write_be16(&amf_buf[offset], strlen(meta_type));
     offset += 2;
@@ -1683,130 +1713,50 @@ static int rtmp_send_metadata(rtmp_ctx_t *ctx) {
     offset += strlen(meta_type);
     
     /* 3. 写入元数据对象 */
+    META_CHECK_SPACE(1);
     amf_buf[offset++] = AMF_TYPE_OBJECT;
     
-    /* duration */
-    {
-        const char *key = "duration";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 0.0;
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
+    /* 辅助宏：写入AMF属性(key + number value), 含溢出检查 */
+    #define META_WRITE_NUM_PROP(k, v) do { \
+        const char *_k = (k); \
+        uint32_t _kl = strlen(_k); \
+        META_CHECK_SPACE(2 + _kl + 1 + 8); \
+        write_be16(&amf_buf[offset], _kl); offset += 2; \
+        memcpy(&amf_buf[offset], _k, _kl); offset += _kl; \
+        amf_buf[offset++] = AMF_TYPE_NUMBER; \
+        double _v = (v); uint64_t _b; memcpy(&_b, &_v, 8); \
+        for (int _i = 0; _i < 8; _i++) \
+            amf_buf[offset++] = (uint8_t)(_b >> (56 - _i * 8)); \
+    } while(0)
     
-    /* width */
-    {
-        const char *key = "width";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 1280.0;  /* 默认1280 */
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
+    META_WRITE_NUM_PROP("duration", 0.0);
+    META_WRITE_NUM_PROP("width", 1280.0);
+    META_WRITE_NUM_PROP("height", 720.0);
+    META_WRITE_NUM_PROP("videodatarate", 2500.0);
+    META_WRITE_NUM_PROP("framerate", 30.0);
+    META_WRITE_NUM_PROP("videocodecid", 7.0);
     
-    /* height */
-    {
-        const char *key = "height";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 720.0;  /* 默认720 */
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
-    
-    /* videodatarate */
-    {
-        const char *key = "videodatarate";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 2500.0;  /* 2.5 Mbps */
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
-    
-    /* framerate */
-    {
-        const char *key = "framerate";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 30.0;  /* 30 fps */
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
-    
-    /* videocodecid */
-    {
-        const char *key = "videocodecid";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
-        amf_buf[offset++] = AMF_TYPE_NUMBER;
-        double val = 7.0;  /* 7 = H.264 */
-        uint64_t bits = *(uint64_t *)&val;
-        for (int i = 0; i < 8; i++) {
-            amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
-        }
-    }
-    
-    /* encoder */
+    /* encoder (string property) */
     {
         const char *key = "encoder";
-        write_be16(&amf_buf[offset], strlen(key));
-        offset += 2;
-        memcpy(&amf_buf[offset], key, strlen(key));
-        offset += strlen(key);
-        
         const char *val = "LuatOS RTMP";
+        uint32_t kl = strlen(key), vl = strlen(val);
+        META_CHECK_SPACE(2 + kl + 1 + 2 + vl);
+        write_be16(&amf_buf[offset], kl); offset += 2;
+        memcpy(&amf_buf[offset], key, kl); offset += kl;
         amf_buf[offset++] = AMF_TYPE_STRING;
-        write_be16(&amf_buf[offset], strlen(val));
-        offset += 2;
-        memcpy(&amf_buf[offset], val, strlen(val));
-        offset += strlen(val);
+        write_be16(&amf_buf[offset], vl); offset += 2;
+        memcpy(&amf_buf[offset], val, vl); offset += vl;
     }
     
     /* 对象结束 */
+    META_CHECK_SPACE(3);
     amf_buf[offset++] = 0x00;
     amf_buf[offset++] = 0x00;
     amf_buf[offset++] = AMF_TYPE_OBJECT_END;
     
-    /* 检查缓冲区大小 */
-    if (offset > sizeof(amf_buf)) {
-        LLOGE("RTMP: Metadata buffer overflow");
-        return RTMP_ERR_BUFFER_OVERFLOW;
-    }
+    #undef META_WRITE_NUM_PROP
+    #undef META_CHECK_SPACE
     
     LLOGI("RTMP: Metadata payload size: %u bytes", offset);
     
@@ -1852,6 +1802,12 @@ static int rtmp_build_rtmp_message(rtmp_ctx_t *ctx, uint8_t msg_type,
     uint32_t total_len = 12 + payload_len;           /* 首块含完整头 */
     if (num_chunks > 1) {
         total_len += (num_chunks - 1);               /* 每个后续块1字节继续头 */
+    }
+    
+    /* 检查长度溢出 */
+    if (payload_len > RTMP_MAX_MSG_LEN || total_len > RTMP_MAX_MSG_LEN || total_len < payload_len) {
+        LLOGE("RTMP: RTMP message too large: %u", total_len);
+        return RTMP_ERR_INVALID_PARAM;
     }
 
     uint8_t *buf = (uint8_t *)luat_heap_malloc(total_len);
@@ -2040,7 +1996,11 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
     }
     
     uint8_t amf_buf[512] = {0};
+    const uint32_t amf_buf_size = sizeof(amf_buf);
     uint32_t offset = 0;
+    
+    /* 溢出检查宏 */
+    #define CMD_CHECK_SPACE(n) do { if (offset + (n) > amf_buf_size) { LLOGE("RTMP: AMF buffer overflow"); return RTMP_ERR_BUFFER_OVERFLOW; } } while(0)
     
     /* AMF消息格式:
      * 1. 命令名称 (String) - "connect"
@@ -2050,8 +2010,9 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
      */
     
     /* 1. 写入命令名称 */
-    amf_buf[offset++] = AMF_TYPE_STRING;
     uint32_t cmd_len = strlen(command);
+    CMD_CHECK_SPACE(1 + 2 + cmd_len);
+    amf_buf[offset++] = AMF_TYPE_STRING;
     write_be16(&amf_buf[offset], (uint16_t)cmd_len);
     offset += 2;
     memcpy(&amf_buf[offset], command, cmd_len);
@@ -2060,10 +2021,12 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
     RTMP_LOGV("RTMP: Command name: %s (len=%u)", command, cmd_len);
     
     /* 2. 写入事务ID */
+    CMD_CHECK_SPACE(1 + 8);
     amf_buf[offset++] = AMF_TYPE_NUMBER;
     /* 转换double */
     double trans_id = (double)transaction_id;
-    uint64_t bits = *(uint64_t *)&trans_id;
+    uint64_t bits;
+    memcpy(&bits, &trans_id, 8);
     for (int i = 0; i < 8; i++) {
         amf_buf[offset++] = (uint8_t)(bits >> (56 - i * 8));
     }
@@ -2073,40 +2036,33 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
     /* 3. 写入命令对象或参数 */
     if (strcmp(command, "connect") == 0) {
         /* connect 命令：带详细参数对象 */
+        CMD_CHECK_SPACE(1);
         amf_buf[offset++] = AMF_TYPE_OBJECT;
         
         /* 3.1 app 参数 */
         if (ctx->app) {
             const char *key = "app";
-            write_be16(&amf_buf[offset], strlen(key));
-            offset += 2;
-            memcpy(&amf_buf[offset], key, strlen(key));
-            offset += strlen(key);
-            
+            uint32_t kl = strlen(key), vl = strlen(ctx->app);
+            CMD_CHECK_SPACE(2 + kl + 1 + 2 + vl);
+            write_be16(&amf_buf[offset], kl); offset += 2;
+            memcpy(&amf_buf[offset], key, kl); offset += kl;
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(ctx->app));
-            offset += 2;
-            memcpy(&amf_buf[offset], ctx->app, strlen(ctx->app));
-            offset += strlen(ctx->app);
-            
+            write_be16(&amf_buf[offset], vl); offset += 2;
+            memcpy(&amf_buf[offset], ctx->app, vl); offset += vl;
             RTMP_LOGV("RTMP: Parameter - app: %s", ctx->app);
         }
 
         // 添加 type参数
-        if (1) {
+        {
             const char *key = "type";
             const char *val = "nonprivate";
-            write_be16(&amf_buf[offset], strlen(key));
-            offset += 2;
-            memcpy(&amf_buf[offset], key, strlen(key));
-            offset += strlen(key);
-            
+            uint32_t kl = strlen(key), vl = strlen(val);
+            CMD_CHECK_SPACE(2 + kl + 1 + 2 + vl);
+            write_be16(&amf_buf[offset], kl); offset += 2;
+            memcpy(&amf_buf[offset], key, kl); offset += kl;
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(val));
-            offset += 2;
-            memcpy(&amf_buf[offset], val, strlen(val));
-            offset += strlen(val);
-            
+            write_be16(&amf_buf[offset], vl); offset += 2;
+            memcpy(&amf_buf[offset], val, vl); offset += vl;
             RTMP_LOGV("RTMP: Parameter - type: %s", val);
         }
         
@@ -2114,36 +2070,27 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         {
             const char *key = "flashVer";
             const char *val = "LNX 9,0,124,2";
-            
-            write_be16(&amf_buf[offset], strlen(key));
-            offset += 2;
-            memcpy(&amf_buf[offset], key, strlen(key));
-            offset += strlen(key);
-            
+            uint32_t kl = strlen(key), vl = strlen(val);
+            CMD_CHECK_SPACE(2 + kl + 1 + 2 + vl);
+            write_be16(&amf_buf[offset], kl); offset += 2;
+            memcpy(&amf_buf[offset], key, kl); offset += kl;
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(val));
-            offset += 2;
-            memcpy(&amf_buf[offset], val, strlen(val));
-            offset += strlen(val);
-            
+            write_be16(&amf_buf[offset], vl); offset += 2;
+            memcpy(&amf_buf[offset], val, vl); offset += vl;
             RTMP_LOGV("RTMP: Parameter - flashVer: %s", val);
         }
         
         /* 3.3 tcUrl 参数 */
         if (ctx->url) {
             const char *key = "tcUrl";
-            write_be16(&amf_buf[offset], strlen(key));
-            offset += 2;
-            memcpy(&amf_buf[offset], key, strlen(key));
-            offset += strlen(key);
-            
+            uint32_t kl = strlen(key), vl = strlen(ctx->url);
+            CMD_CHECK_SPACE(2 + kl + 1 + 2 + vl);
+            write_be16(&amf_buf[offset], kl); offset += 2;
+            memcpy(&amf_buf[offset], key, kl); offset += kl;
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(ctx->url));
-            offset += 2;
-            memcpy(&amf_buf[offset], ctx->url, strlen(ctx->url));
-            offset += strlen(ctx->url);
-            
-            RTMP_LOGV("RTMP: Parameter - tcUrl: %s (len=%d)", tcurl, tcurl_len);
+            write_be16(&amf_buf[offset], vl); offset += 2;
+            memcpy(&amf_buf[offset], ctx->url, vl); offset += vl;
+            RTMP_LOGV("RTMP: Parameter - tcUrl: %s", ctx->url);
         }
         
         /* 3.4 fpad 参数 */
@@ -2215,6 +2162,7 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
         }
         
         /* 对象结束 */
+        CMD_CHECK_SPACE(3);
         amf_buf[offset++] = 0x00;
         amf_buf[offset++] = 0x00;
         amf_buf[offset++] = AMF_TYPE_OBJECT_END;
@@ -2223,53 +2171,59 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
                strcmp(command, "FCPublish") == 0 ||
                strcmp(command, "FCUnpublish") == 0) {
         /* releaseStream / FCPublish / FCUnpublish 命令：NULL对象 + 流名称 */
+        CMD_CHECK_SPACE(1);
         amf_buf[offset++] = AMF_TYPE_NULL;  /* 命令对象为null */
         
         /* 流名称参数 */
         if (ctx->stream) {
+            uint32_t sl = strlen(ctx->stream);
+            CMD_CHECK_SPACE(1 + 2 + sl);
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(ctx->stream));
+            write_be16(&amf_buf[offset], sl);
             offset += 2;
-            memcpy(&amf_buf[offset], ctx->stream, strlen(ctx->stream));
-            offset += strlen(ctx->stream);
+            memcpy(&amf_buf[offset], ctx->stream, sl);
+            offset += sl;
             
             RTMP_LOGV("RTMP: Parameter - stream: %s", ctx->stream);
         }
         
     } else if (strcmp(command, "createStream") == 0) {
         /* createStream 命令：NULL对象 */
+        CMD_CHECK_SPACE(1);
         amf_buf[offset++] = AMF_TYPE_NULL;
         RTMP_LOGV("RTMP: createStream with NULL object");
         
     } else if (strcmp(command, "publish") == 0) {
         /* publish 命令：NULL对象 + 流名称 + 发布类型 */
+        CMD_CHECK_SPACE(1);
         amf_buf[offset++] = AMF_TYPE_NULL;
         
         /* 流名称 */
         if (ctx->stream) {
+            uint32_t sl = strlen(ctx->stream);
+            CMD_CHECK_SPACE(1 + 2 + sl);
             amf_buf[offset++] = AMF_TYPE_STRING;
-            write_be16(&amf_buf[offset], strlen(ctx->stream));
+            write_be16(&amf_buf[offset], sl);
             offset += 2;
-            memcpy(&amf_buf[offset], ctx->stream, strlen(ctx->stream));
-            offset += strlen(ctx->stream);
+            memcpy(&amf_buf[offset], ctx->stream, sl);
+            offset += sl;
         }
         
         /* 发布类型："live" */
         const char *pub_type = "live";
+        uint32_t ptl = strlen(pub_type);
+        CMD_CHECK_SPACE(1 + 2 + ptl);
         amf_buf[offset++] = AMF_TYPE_STRING;
-        write_be16(&amf_buf[offset], strlen(pub_type));
+        write_be16(&amf_buf[offset], ptl);
         offset += 2;
-        memcpy(&amf_buf[offset], pub_type, strlen(pub_type));
-        offset += strlen(pub_type);
+        memcpy(&amf_buf[offset], pub_type, ptl);
+        offset += ptl;
         
         RTMP_LOGV("RTMP: publish - stream: %s, type: %s", ctx->stream ? ctx->stream : "NULL", pub_type);
     }
     
-    /* 检查缓冲区大小 */
-    if (offset > sizeof(amf_buf)) {
-        LLOGE("RTMP: AMF buffer overflow");
-        return RTMP_ERR_BUFFER_OVERFLOW;
-    }
+    /* 检查已通过 CMD_CHECK_SPACE 完成缓冲区边界检查 */
+    #undef CMD_CHECK_SPACE
     
     RTMP_LOGV("RTMP: AMF payload size: %u bytes", offset);
     
@@ -2314,7 +2268,30 @@ static int rtmp_send_command(rtmp_ctx_t *ctx, const char *command,
 }
 
 /**
+ * 在指定数据范围内搜索子串
+ */
+static bool rtmp_memmem(const uint8_t *data, uint32_t data_len,
+                        const char *needle, uint32_t needle_len) {
+    if (data_len < needle_len) return false;
+    for (uint32_t i = 0; i + needle_len <= data_len; i++) {
+        if (memcmp(&data[i], needle, needle_len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * 处理收到的RTMP数据
+ * 
+ * 正确解析RTMP块头格式：
+ * - Basic Header (1-3字节): fmt(2bit) + csid(6/8/16bit)
+ * - Message Header: 依据fmt为 11/7/3/0 字节
+ * - 块负载: 最多 in_chunk_size 字节
+ *
+ * 注：作为推流客户端，仅需解析服务器下发的控制/命令消息，
+ * 这些消息通常较小，不涉及多块重组。对于跨多块的消息，
+ * 当前以"逐块跳过数据部分"的方式正确前进游标。
  */
 static int rtmp_process_data(rtmp_ctx_t *ctx) {
     if (!ctx || ctx->recv_pos == 0) {
@@ -2335,94 +2312,129 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
     bool found_publish_start = false;
     bool found_on_bw_done = false;
 
+    uint32_t chunk_size = ctx->in_chunk_size ? ctx->in_chunk_size : RTMP_DEFAULT_CHUNK_SIZE;
     uint32_t pos = 0;
-    while (pos + 12 <= ctx->recv_pos) {
-        uint8_t chunk_header = ctx->recv_buf[pos];
-        uint8_t fmt = (chunk_header >> 6) & 0x03;
-        /* 仅处理格式0头，其他格式简单跳过到下一个字节 */
-        if (fmt != 0) {
-            pos++;
-            continue;
+
+    while (pos < ctx->recv_pos) {
+        uint32_t chunk_start = pos;
+
+        /* === 1. 解析 Basic Header (1-3 字节) === */
+        if (pos >= ctx->recv_pos) break;
+        uint8_t bh = ctx->recv_buf[pos++];
+        uint8_t fmt = (bh >> 6) & 0x03;
+        uint32_t csid = bh & 0x3F;
+
+        if (csid == 0) {
+            /* 2字节形式: csid = buf[1] + 64 */
+            if (pos >= ctx->recv_pos) { pos = chunk_start; break; }
+            csid = (uint32_t)ctx->recv_buf[pos++] + 64;
+        } else if (csid == 1) {
+            /* 3字节形式: csid = buf[2]*256 + buf[1] + 64 */
+            if (pos + 2 > ctx->recv_pos) { pos = chunk_start; break; }
+            csid = (uint32_t)ctx->recv_buf[pos] + (uint32_t)ctx->recv_buf[pos+1] * 256 + 64;
+            pos += 2;
+        }
+        /* else csid 2..63 直接使用 */
+
+        /* === 2. 解析 Message Header === */
+        uint32_t msg_header_size = 0;
+        uint32_t msg_len = 0;
+        uint8_t msg_type = 0;
+
+        switch (fmt) {
+            case 0: msg_header_size = 11; break;  /* timestamp(3) + msg_len(3) + type(1) + stream_id(4) */
+            case 1: msg_header_size = 7;  break;  /* timestamp_delta(3) + msg_len(3) + type(1) */
+            case 2: msg_header_size = 3;  break;  /* timestamp_delta(3) */
+            case 3: msg_header_size = 0;  break;  /* 无消息头 */
         }
 
-        /* 检查剩余长度是否包含完整头 */
-        if (pos + 12 > ctx->recv_pos) {
-            break; /* 不完整，等待更多数据 */
+        if (pos + msg_header_size > ctx->recv_pos) {
+            pos = chunk_start;
+            break; /* 数据不完整 */
         }
 
-        uint32_t msg_len = ((uint32_t)ctx->recv_buf[pos + 4] << 16) |
-                           ((uint32_t)ctx->recv_buf[pos + 5] << 8) |
-                           (uint32_t)ctx->recv_buf[pos + 6];
-        uint8_t msg_type = ctx->recv_buf[pos + 7];
-
-        /* 检查消息是否完整 */
-        if (pos + 12 + msg_len > ctx->recv_pos) {
-            break; /* 不完整，等待更多数据 */
+        if (fmt == 0) {
+            msg_len = ((uint32_t)ctx->recv_buf[pos + 3] << 16) |
+                      ((uint32_t)ctx->recv_buf[pos + 4] << 8) |
+                      (uint32_t)ctx->recv_buf[pos + 5];
+            msg_type = ctx->recv_buf[pos + 6];
+        } else if (fmt == 1) {
+            msg_len = ((uint32_t)ctx->recv_buf[pos + 3] << 16) |
+                      ((uint32_t)ctx->recv_buf[pos + 4] << 8) |
+                      (uint32_t)ctx->recv_buf[pos + 5];
+            msg_type = ctx->recv_buf[pos + 6];
         }
+        /* fmt 2/3 没有 msg_len/msg_type 信息 */
 
-        const uint8_t *payload = &ctx->recv_buf[pos + 12];
+        pos += msg_header_size;
 
-        if (msg_type == RTMP_MSG_SET_CHUNK_SIZE && msg_len >= 4) {
-            uint32_t new_chunk_size = read_be32(payload) & 0x7FFFFFFF;
-            if (new_chunk_size > 0 && new_chunk_size <= 0x7FFFFFFF) {
-                ctx->in_chunk_size = new_chunk_size;
-                ctx->chunk_size = new_chunk_size;
-                LLOGI("RTMP: Received Set Chunk Size from server: %u, updated local chunk_size", new_chunk_size);
-            }
-        } else if (msg_type == RTMP_MSG_COMMAND || msg_type == RTMP_MSG_EXTENDED_COMMAND || msg_type == RTMP_MSG_AMFDATAFILE) {
-            /* 在命令/数据消息体内查找关键字符串 */
-            if (!found_success && msg_len >= strlen(success_str)) {
-                for (uint32_t i = 0; i + strlen(success_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], success_str, strlen(success_str)) == 0) {
-                        found_success = true;
-                        break;
-                    }
-                }
-            }
-            if (!found_failed && msg_len >= strlen(failed_str)) {
-                for (uint32_t i = 0; i + strlen(failed_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], failed_str, strlen(failed_str)) == 0) {
-                        found_failed = true;
-                        break;
-                    }
-                }
-            }
-            if (!found_result && msg_len >= strlen(result_str)) {
-                for (uint32_t i = 0; i + strlen(result_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], result_str, strlen(result_str)) == 0) {
-                        found_result = true;
-                        break;
-                    }
-                }
-            }
-            if (!found_publish_start && msg_len >= strlen(publish_start_str)) {
-                for (uint32_t i = 0; i + strlen(publish_start_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], publish_start_str, strlen(publish_start_str)) == 0) {
-                        found_publish_start = true;
-                        break;
-                    }
-                }
-            }
-            if (!found_on_status && msg_len >= strlen(on_status_str)) {
-                for (uint32_t i = 0; i + strlen(on_status_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], on_status_str, strlen(on_status_str)) == 0) {
-                        found_on_status = true;
-                        break;
-                    }
-                }
-            }
-            if (!found_on_bw_done && msg_len >= strlen(on_bw_done_str)) {
-                for (uint32_t i = 0; i + strlen(on_bw_done_str) <= msg_len; i++) {
-                    if (memcmp(&payload[i], on_bw_done_str, strlen(on_bw_done_str)) == 0) {
-                        found_on_bw_done = true;
-                        break;
-                    }
-                }
+        /* === 3. 处理 Extended Timestamp (如果 timestamp == 0xFFFFFF) === */
+        if (msg_header_size >= 3) {
+            uint32_t ts = ((uint32_t)ctx->recv_buf[pos - msg_header_size] << 16) |
+                          ((uint32_t)ctx->recv_buf[pos - msg_header_size + 1] << 8) |
+                          (uint32_t)ctx->recv_buf[pos - msg_header_size + 2];
+            if (ts == 0xFFFFFF) {
+                if (pos + 4 > ctx->recv_pos) { pos = chunk_start; break; }
+                pos += 4; /* 跳过 extended timestamp */
             }
         }
 
-        /* 前进到下一条消息 */
-        pos += 12 + msg_len;
+        /* === 4. 读取块负载 === */
+        /* 对于 fmt 0/1 的消息，负载大小为 min(msg_len, chunk_size)
+         * 对于 fmt 2/3 续块，负载大小为 chunk_size（或消息剩余部分）
+         * 简化处理：块负载不超过 chunk_size */
+        uint32_t payload_size = 0;
+        if (fmt == 0 || fmt == 1) {
+            payload_size = (msg_len < chunk_size) ? msg_len : chunk_size;
+        } else {
+            payload_size = chunk_size;
+        }
+
+        /* 确保缓冲区中有足够数据 */
+        if (pos + payload_size > ctx->recv_pos) {
+            pos = chunk_start;
+            break; /* 数据不完整 */
+        }
+
+        const uint8_t *payload = &ctx->recv_buf[pos];
+
+        /* === 5. 处理有类型信息的消息 (fmt 0 或 1) === */
+        if ((fmt == 0 || fmt == 1) && msg_type != 0) {
+            if (msg_type == RTMP_MSG_SET_CHUNK_SIZE && msg_len >= 4 && payload_size >= 4) {
+                uint32_t new_chunk_size = read_be32(payload) & 0x7FFFFFFF;
+                if (new_chunk_size > 0) {
+                    ctx->in_chunk_size = new_chunk_size;
+                    ctx->chunk_size = new_chunk_size;
+                    chunk_size = new_chunk_size; /* 更新本次解析使用的值 */
+                    LLOGI("RTMP: Received Set Chunk Size from server: %u", new_chunk_size);
+                }
+            } else if (msg_type == RTMP_MSG_SERVER_BW && msg_len >= 4 && payload_size >= 4) {
+                uint32_t server_bw = read_be32(payload);
+                RTMP_LOGV("RTMP: Server bandwidth: %u", server_bw);
+                (void)server_bw;
+            } else if (msg_type == RTMP_MSG_CLIENT_BW && msg_len >= 5 && payload_size >= 5) {
+                uint32_t client_bw = read_be32(payload);
+                RTMP_LOGV("RTMP: Client bandwidth: %u, limit type: %u", client_bw, payload[4]);
+                (void)client_bw;
+            } else if (msg_type == RTMP_MSG_COMMAND || msg_type == RTMP_MSG_EXTENDED_COMMAND || msg_type == RTMP_MSG_AMFDATAFILE) {
+                /* 在命令/数据消息体内查找关键字符串 */
+                if (!found_success)
+                    found_success = rtmp_memmem(payload, payload_size, success_str, strlen(success_str));
+                if (!found_failed)
+                    found_failed = rtmp_memmem(payload, payload_size, failed_str, strlen(failed_str));
+                if (!found_result)
+                    found_result = rtmp_memmem(payload, payload_size, result_str, strlen(result_str));
+                if (!found_publish_start)
+                    found_publish_start = rtmp_memmem(payload, payload_size, publish_start_str, strlen(publish_start_str));
+                if (!found_on_status)
+                    found_on_status = rtmp_memmem(payload, payload_size, on_status_str, strlen(on_status_str));
+                if (!found_on_bw_done)
+                    found_on_bw_done = rtmp_memmem(payload, payload_size, on_bw_done_str, strlen(on_bw_done_str));
+            }
+        }
+
+        /* 前进到下一个块 */
+        pos += payload_size;
     }
 
     /* 如果有未处理完的部分，将剩余数据前移 */
@@ -2502,7 +2514,6 @@ static int rtmp_process_data(rtmp_ctx_t *ctx) {
             LLOGI("RTMP: Metadata sent, ready to send video data");
             rtmp_set_state(ctx, RTMP_STATE_PUBLISHING, 0);
             // 通知摄像头开始采集
-            extern int luat_camera_capture(int id, uint8_t quality, const char *path);
             luat_camera_capture(0, 80, "rtmp");
         } else {
             LLOGE("RTMP: Failed to send metadata");
@@ -2555,41 +2566,6 @@ static nalu_type_t rtmp_get_nalu_type(const uint8_t *nalu_data,
 static bool rtmp_is_key_frame(const uint8_t *nalu_data, uint32_t nalu_len) {
     nalu_type_t type = rtmp_get_nalu_type(nalu_data, nalu_len);
     return (type == NALU_TYPE_IDR);
-}
-
-/**
- * 打包FLV视频标签
- */
-static int rtmp_pack_video_tag(uint8_t *buffer, uint32_t buffer_len,
-                              const uint8_t *video_data, uint32_t video_len,
-                              bool is_key_frame) {
-    if (!buffer || buffer_len < 5 || !video_data || video_len == 0) {
-        return RTMP_ERR_INVALID_PARAM;
-    }
-    
-    /* 视频标签格式:
-     * byte 0: 帧类型(4bit) + 编码ID(4bit)
-     * byte 1-3: 包类型和时间戳偏移
-     * byte 4+: NAL单元数据
-     */
-    
-    uint32_t offset = 0;
-    
-    /* 帧类型和编码ID */
-    uint8_t tag = 0;
-    tag |= (is_key_frame ? 1 : 2) << 4;
-    tag |= 7;  /* H.264 */
-    
-    buffer[offset++] = tag;
-    
-    if (offset + video_len > buffer_len) {
-        return RTMP_ERR_BUFFER_OVERFLOW;
-    }
-    
-    memcpy(&buffer[offset], video_data, video_len);
-    offset += video_len;
-    
-    return (int)offset;
 }
 
 /**
@@ -2695,7 +2671,6 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
 
     if (old_state == RTMP_STATE_PUBLISHING && new_state != RTMP_STATE_PUBLISHING) {
         // 停止摄像头采集
-        extern int luat_camera_stop(int id);
         luat_camera_stop(0);
     }
 }

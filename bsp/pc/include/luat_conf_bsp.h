@@ -143,7 +143,7 @@
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1
 
-
+#define LUAT_USE_MREPORT 1
 
 //--------------------------------------------------
 // GUI相关

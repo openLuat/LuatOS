@@ -21,6 +21,19 @@ testcase/
 │           └── gmssl_sm2.lua       # SM2 算法单元测试
 ```
 
+## 执行方式（PC 模拟器）
+
+运行测试时，需要执行编译产物，并且**必须**传入两个脚本目录：
+
+1. `testcase/common/scripts/`
+2. 单个目标测试用例的 `scripts/` 目录
+
+```powershell
+build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\mreport\scripts\
+```
+
+注意：该运行方式不支持在同一条命令中传入多个目标测试用例目录。
+
 ## 快速开始
 
 ### 1. 创建新的测试用例目录

@@ -12,11 +12,12 @@ The project uses [xmake](https://xmake.io) for building.
 ### Test (Lua Scripts)
 Tests are located in `testcase/` and are Lua scripts executed by the LuatOS firmware (or PC simulator).
 - **Structure**: `testcase/<feature>/<feature>_basic/scripts/`
-- **Run**: Execute the built binary with the test's `main.lua`.
+- **Run**: Execute the built binary and pass exactly two script directories: `testcase/common/scripts/` and one target testcase's `scripts/` directory.
   ```powershell
   # Example running a test on PC simulator
-  .\bsp\pc\build\out\luatos.exe testcase\myfeature\myfeature_basic\scripts\main.lua
+  build\out\luatos-lua.exe ..\..\testcase\common\scripts\ ..\..\testcase\unit_testcase_tools\mreport\scripts\
   ```
+  Note: This mode does not support running multiple target testcase directories in a single command.
   Note: Check `bsp/pc/xmake.lua` for the exact output path (usually `$(builddir)/out`).
 
 - **New Test**:

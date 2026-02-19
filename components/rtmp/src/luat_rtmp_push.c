@@ -1399,9 +1399,9 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
     
     /* 分配新字符串 */
     size_t url_len = strlen(url);
-    size_t host_len = strlen(host);
-    size_t app_len = strlen(app);
-    size_t stream_len = strlen(stream);
+    size_t host_str_len = strlen(host);
+    size_t app_str_len = strlen(app);
+    size_t stream_str_len = strlen(stream);
     
     new_url = (char *)luat_heap_malloc(url_len + 1);
     if (!new_url) {
@@ -1409,14 +1409,14 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
         return RTMP_ERR_NO_MEMORY;
     }
     
-    new_host = (char *)luat_heap_malloc(host_len + 1);
+    new_host = (char *)luat_heap_malloc(host_str_len + 1);
     if (!new_host) {
         luat_heap_free(new_url);
         LLOGE("RTMP: Failed to allocate memory for host");
         return RTMP_ERR_NO_MEMORY;
     }
     
-    new_app = (char *)luat_heap_malloc(app_len + 1);
+    new_app = (char *)luat_heap_malloc(app_str_len + 1);
     if (!new_app) {
         luat_heap_free(new_url);
         luat_heap_free(new_host);
@@ -1424,7 +1424,7 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
         return RTMP_ERR_NO_MEMORY;
     }
     
-    new_stream = (char *)luat_heap_malloc(stream_len + 1);
+    new_stream = (char *)luat_heap_malloc(stream_str_len + 1);
     if (!new_stream) {
         luat_heap_free(new_url);
         luat_heap_free(new_host);
@@ -1436,12 +1436,12 @@ static int rtmp_parse_url(rtmp_ctx_t *ctx, const char *url) {
     /* 安全复制字符串 */
     memcpy(new_url, url, url_len);
     new_url[url_len] = '\0';
-    memcpy(new_host, host, host_len);
-    new_host[host_len] = '\0';
-    memcpy(new_app, app, app_len);
-    new_app[app_len] = '\0';
-    memcpy(new_stream, stream, stream_len);
-    new_stream[stream_len] = '\0';
+    memcpy(new_host, host, host_str_len);
+    new_host[host_str_len] = '\0';
+    memcpy(new_app, app, app_str_len);
+    new_app[app_str_len] = '\0';
+    memcpy(new_stream, stream, stream_str_len);
+    new_stream[stream_str_len] = '\0';
     
     /* 替换旧指针 */
     if (ctx->url) luat_heap_free(ctx->url);

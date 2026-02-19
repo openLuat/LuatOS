@@ -1,7 +1,7 @@
 /*
 @module  fft
 @summary 快速傅里叶变换（FFT/IFFT），支持 float32 与 q15 定点内核
-@version 0.2
+@version 0.3
 @date    2025.08
 @demo    fft
 @tag     LUAT_USE_FFT
@@ -42,8 +42,26 @@
 #include "luat_conf_bsp.h"
 #include "luat_zbuff.h"
 #include "rotable2.h"
-// Q15 内核头文件（当前版本已实现）
+// Q15 内核头文件
 #include "fft_core_q15.h"
+
+// Q15 输入格式枚举（避免在循环内 strcmp）
+enum {
+    INPUT_FMT_F32 = 0,
+    INPUT_FMT_U12,
+    INPUT_FMT_U16,
+    INPUT_FMT_S16
+};
+
+// 将输入格式字符串转为枚举
+static int parse_input_format(const char* s)
+{
+    if (!s || strcmp(s, "f32") == 0) return INPUT_FMT_F32;
+    if (strcmp(s, "u12") == 0) return INPUT_FMT_U12;
+    if (strcmp(s, "u16") == 0) return INPUT_FMT_U16;
+    if (strcmp(s, "s16") == 0) return INPUT_FMT_S16;
+    return INPUT_FMT_F32;
+}
 
 // helper: read float array from lua table (1-based)
 static int read_lua_array_float(lua_State* L, int idx, float* out, int n)
@@ -70,6 +88,148 @@ static void write_lua_array_float(lua_State* L, float* a, int n)
     }
 }
 
+// FFT/IFFT 公共参数结构体
+typedef struct {
+    float *r, *im, *Wc, *Ws;
+    int r_free, im_free, wc_free, ws_free;
+    int N;
+    int use_q15;
+    int input_fmt; // INPUT_FMT_xxx 枚举
+} fft_args_t;
+
+// 释放 fft_args_t 中动态分配的内存
+static void fft_args_cleanup(fft_args_t* a)
+{
+    if (a->r_free && a->r)   luat_heap_free(a->r);
+    if (a->im_free && a->im) luat_heap_free(a->im);
+    if (a->wc_free && a->Wc) luat_heap_free(a->Wc);
+    if (a->ws_free && a->Ws) luat_heap_free(a->Ws);
+    a->r = a->im = a->Wc = a->Ws = NULL;
+}
+
+// 解析 fft.run / fft.ifft 的公共参数
+// 参数布局: (real, imag, N, Wc, Ws [, opts])
+// 返回 0 成功, <0 失败（已设置 lua error）
+static int fft_parse_args(lua_State* L, fft_args_t* a)
+{
+    memset(a, 0, sizeof(*a));
+    a->N = luaL_checkinteger(L, 3);
+    if (a->N <= 1 || (a->N & (a->N - 1)))
+        return luaL_error(L, "N must be power of 2");
+
+    int N = a->N;
+    luat_zbuff_t* zb;
+
+    // real
+    zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
+    if (zb) {
+        a->r = (float*)zb->addr;
+    } else {
+        a->r = luat_heap_malloc(sizeof(float) * N);
+        a->r_free = 1;
+        if (!a->r) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (read_lua_array_float(L, 1, a->r, N)) {
+            fft_args_cleanup(a); return luaL_error(L, "real must be number array or zbuff");
+        }
+    }
+    // imag
+    zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
+    if (zb) {
+        a->im = (float*)zb->addr;
+    } else {
+        a->im = luat_heap_malloc(sizeof(float) * N);
+        a->im_free = 1;
+        if (!a->im) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (read_lua_array_float(L, 2, a->im, N)) {
+            fft_args_cleanup(a); return luaL_error(L, "imag must be number array or zbuff");
+        }
+    }
+    // Wc
+    zb = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
+    if (zb) {
+        a->Wc = (float*)zb->addr;
+    } else {
+        a->Wc = luat_heap_malloc(sizeof(float) * (N / 2));
+        a->wc_free = 1;
+        if (!a->Wc) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (read_lua_array_float(L, 4, a->Wc, N / 2)) {
+            fft_args_cleanup(a); return luaL_error(L, "W_real must be number array or zbuff");
+        }
+    }
+    // Ws
+    zb = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
+    if (zb) {
+        a->Ws = (float*)zb->addr;
+    } else {
+        a->Ws = luat_heap_malloc(sizeof(float) * (N / 2));
+        a->ws_free = 1;
+        if (!a->Ws) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        if (read_lua_array_float(L, 5, a->Ws, N / 2)) {
+            fft_args_cleanup(a); return luaL_error(L, "W_imag must be number array or zbuff");
+        }
+    }
+
+    // 读取 opts 参数
+    const char* core = "f32";
+    const char* input_format = "f32";
+    if (lua_gettop(L) >= 6 && lua_istable(L, 6)) {
+        lua_getfield(L, 6, "core");
+        if (!lua_isnil(L, -1))
+            core = luaL_checkstring(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "input_format");
+        if (!lua_isnil(L, -1))
+            input_format = luaL_checkstring(L, -1);
+        lua_pop(L, 1);
+    }
+    a->use_q15 = (core && strcmp(core, "q15") == 0);
+    a->input_fmt = parse_input_format(input_format);
+    return 0;
+}
+
+// 将整数 zbuff 数据原地转换为 Q15 有符号格式
+static void convert_integer_to_q15(int16_t* data, int N, int input_fmt)
+{
+    uint16_t* u16 = (uint16_t*)data;
+    for (int i = 0; i < N; i++) {
+        int32_t v;
+        uint16_t u = u16[i];
+        switch (input_fmt) {
+        case INPUT_FMT_U12:
+            v = (int32_t)(u & 0x0FFF) - 2048;
+            v <<= 4;
+            break;
+        case INPUT_FMT_U16:
+            v = (int32_t)u - 32768;
+            break;
+        default: // INPUT_FMT_S16
+            v = (int16_t)u;
+            break;
+        }
+        if (v > 32767) v = 32767;
+        if (v < -32768) v = -32768;
+        data[i] = (int16_t)v;
+    }
+}
+
+// 将 f32 路径结果回写到 Lua table（若输入为 table）
+static void writeback_lua_tables(lua_State* L, float* r, float* im, int N)
+{
+    if (!luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
+        lua_settop(L, 2);
+        for (int i = 0; i < N; i++) {
+            lua_pushnumber(L, r[i]);
+            lua_rawseti(L, 1, i + 1);
+        }
+    }
+    if (!luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)) {
+        for (int i = 0; i < N; i++) {
+            lua_pushnumber(L, im[i]);
+            lua_rawseti(L, 2, i + 1);
+        }
+    }
+}
+
 /*
 生成 float32 旋转因子
 @api fft.generate_twiddles(N)
@@ -88,10 +248,8 @@ static int l_fft_generate_twiddles(lua_State* L)
     float* Wc = luat_heap_malloc(sizeof(float) * half);
     float* Ws = luat_heap_malloc(sizeof(float) * half);
     if (!Wc || !Ws) {
-        if (Wc)
-            luat_heap_free(Wc);
-        if (Ws)
-            luat_heap_free(Ws);
+        if (Wc) luat_heap_free(Wc);
+        if (Ws) luat_heap_free(Ws);
         return luaL_error(L, "no memory");
     }
     luat_fft_generate_twiddles(N, Wc, Ws);
@@ -119,87 +277,19 @@ fft.generate_twiddles_q15_to_zbuff(N, Wc_q15, Ws_q15)
 */
 static int l_fft_generate_twiddles_q15_to_zbuff(lua_State* L)
 {
-    // 使用整型查表（度数，1度分辨率，缩放256）生成近似Q15旋转因子
-    static const int16_t SIN_TABLE256[91] = {
-        0, 4, 9, 13, 18, 22, 27, 31, 36, 40, 44, 49, 53, 58, 62, 66, 71, 75, 79, 83,
-        88, 92, 96, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 139, 143, 147, 150, 154, 158, 161,
-        165, 168, 171, 175, 178, 181, 184, 187, 190, 193, 196, 199, 202, 204, 207, 210, 212, 215, 217, 219,
-        222, 224, 226, 228, 230, 232, 234, 236, 237, 239, 241, 242, 243, 245, 246, 247, 248, 249, 250, 251,
-        252, 253, 254, 254, 255, 255, 255, 256, 256, 256, 256
-    };
     int N = luaL_checkinteger(L, 1);
     if (N <= 1 || (N & (N - 1)))
-        return luaL_error(L, "N 必须为 2 的幂");
+        return luaL_error(L, "N must be power of 2");
     luat_zbuff_t* zbWc = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
     luat_zbuff_t* zbWs = (luat_zbuff_t*)luaL_testudata(L, 3, LUAT_ZBUFF_TYPE);
     if (!zbWc || !zbWs)
-        return luaL_error(L, "Wc/Ws 需为 zbuff");
+        return luaL_error(L, "Wc/Ws must be zbuff");
     int need = (N / 2) * 2;
     if ((int)zbWc->len < need || (int)zbWs->len < need)
-        return luaL_error(L, "zbuff 太小");
+        return luaL_error(L, "zbuff too small");
     int16_t* Wc = (int16_t*)zbWc->addr;
     int16_t* Ws = (int16_t*)zbWs->addr;
-    for (int k = 0; k < N / 2; k++) {
-        // angle = 360 * k / N (度)，四舍五入
-        int deg = (int)((int64_t)k * 360 + (N / 2)) / N;
-        // cos 与 -sin，放大到 Q15（256<<7=32768，钳到 32767）
-        int s256;
-        int d = deg;
-        int neg = 0;
-        if (d < 0) {
-            d = -d + 180;
-        }
-        d %= 360;
-        if (d >= 180) {
-            d -= 180;
-            neg = 1;
-        }
-        if (d <= 90)
-            s256 = SIN_TABLE256[d];
-        else
-            s256 = SIN_TABLE256[180 - d];
-        int c256 = 0; // cos = sin(deg+90)
-        int d2 = deg + 90;
-        neg = 0;
-        d = d2;
-        if (d < 0) {
-            d = -d + 180;
-        }
-        d %= 360;
-        if (d >= 180) {
-            d -= 180;
-            neg = 1;
-        }
-        if (d <= 90)
-            c256 = SIN_TABLE256[d];
-        else
-            c256 = SIN_TABLE256[180 - d];
-        if (neg)
-            c256 = -c256;
-        int32_t wc = (int32_t)c256 << 7;
-        if (wc > 32767)
-            wc = 32767;
-        if (wc < -32768)
-            wc = -32768;
-        // -sin：复用 s256 并加符号
-        int sgn = 0;
-        d = deg;
-        if (d < 0) {
-            d = -d + 180;
-        }
-        d %= 360;
-        if (d >= 180) {
-            d -= 180;
-            sgn = 1;
-        }
-        int32_t ws = (int32_t)(sgn ? -s256 : s256) << 7;
-        if (ws > 32767)
-            ws = 32767;
-        if (ws < -32768)
-            ws = -32768;
-        Wc[k] = (int16_t)wc;
-        Ws[k] = (int16_t)ws;
-    }
+    luat_fft_generate_twiddles_q15(Wc, Ws, N);
     return 0;
 }
 
@@ -242,247 +332,58 @@ fft.run(real_i16, imag_i16, N, Wc_q15, Ws_q15, {core="q15", input_format="u12"})
 */
 static int l_fft_run(lua_State* L)
 {
-    int N = luaL_checkinteger(L, 3);
-    if (N <= 1 || (N & (N - 1)))
-        return luaL_error(L, "N 必须为 2 的幂");
+    fft_args_t a;
+    fft_parse_args(L, &a);
 
-    float *r = NULL, *im = NULL, *Wc = NULL, *Ws = NULL;
-    int r_free = 0, im_free = 0, wc_free = 0, ws_free = 0;
+    int N = a.N;
+    int integer_input = (a.input_fmt != INPUT_FMT_F32);
 
-    // 可选参数解析（opts）：当前版本仅支持 core/input_format（其余项作为未来优化）
-    const char* core = "f32"; // "f32" | "q15"
-    const char* input_format = "f32"; // "f32"|"u12"|"u16"|"s16"
-
-    // real
-    luat_zbuff_t* zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        r = (float*)zb->addr;
-    } else {
-        r = luat_heap_malloc(sizeof(float) * N);
-        r_free = 1;
-        if (!r)
-            return luaL_error(L, "no memory");
-        if (read_lua_array_float(L, 1, r, N)) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "real must be number array or zbuff");
-        }
-    }
-    // imag
-    zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        im = (float*)zb->addr;
-    } else {
-        im = luat_heap_malloc(sizeof(float) * N);
-        im_free = 1;
-        if (!im) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "no memory");
-        }
-        if (read_lua_array_float(L, 2, im, N)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            return luaL_error(L, "imag must be number array or zbuff");
-        }
-    }
-    // W_real
-    zb = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        Wc = (float*)zb->addr;
-    } else {
-        Wc = luat_heap_malloc(sizeof(float) * (N / 2));
-        wc_free = 1;
-        if (!Wc) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            return luaL_error(L, "no memory");
-        }
-        if (read_lua_array_float(L, 4, Wc, N / 2)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            return luaL_error(L, "W_real must be number array or zbuff");
-        }
-    }
-    // W_imag
-    zb = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        Ws = (float*)zb->addr;
-    } else {
-        Ws = luat_heap_malloc(sizeof(float) * (N / 2));
-        ws_free = 1;
-        if (!Ws) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            return luaL_error(L, "内存不足");
-        }
-        if (read_lua_array_float(L, 5, Ws, N / 2)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "W_imag 需为数字数组或 zbuff");
-        }
-    }
-    // 读取第6个参数的 opts（若有）
-    if (lua_gettop(L) >= 6 && lua_istable(L, 6)) {
-        lua_getfield(L, 6, "core");
-        if (!lua_isnil(L, -1))
-            core = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, 6, "input_format");
-        if (!lua_isnil(L, -1))
-            input_format = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
-    }
-
-    // 如果选择 q15 内核，且输入为整数 zbuff，则走 q15 路径
-    int use_q15 = (core && strcmp(core, "q15") == 0);
-    int integer_input = (strcmp(input_format, "u12") == 0 || strcmp(input_format, "u16") == 0 || strcmp(input_format, "s16") == 0);
-    if (use_q15 && integer_input) {
-        // 校验 real/imag 是否为 zbuff（当前整型快速路径仅支持 zbuff）
+    if (a.use_q15 && integer_input) {
+        // Q15 整数快速路径
         luat_zbuff_t* zb_real = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
         luat_zbuff_t* zb_imag = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
         if (!zb_real) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "q15 模式要求 real 为整数 zbuff");
+            fft_args_cleanup(&a);
+            return luaL_error(L, "q15 mode requires real to be zbuff");
         }
         if ((int)zb_real->len < N * 2) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "real zbuff 太小");
+            fft_args_cleanup(&a);
+            return luaL_error(L, "real zbuff too small");
         }
-        // 原地：将整数输入就地转换为带符号 Q15（覆盖 zbuff）
-        uint16_t* r16 = (uint16_t*)zb_real->addr;
-        for (int i = 0; i < N; i++) {
-            int32_t v;
-            uint16_t u = r16[i];
-            if (strcmp(input_format, "u12") == 0) {
-                v = (int32_t)(u & 0x0FFF) - 2048;
-                v <<= 4;
-            } else if (strcmp(input_format, "u16") == 0) {
-                v = (int32_t)u - 32768;
-            } else {
-                v = (int16_t)u;
-            }
-            if (v > 32767)
-                v = 32767;
-            if (v < -32768)
-                v = -32768;
-            ((int16_t*)zb_real->addr)[i] = (int16_t)v;
-        }
+
+        // 原地转换为 Q15
+        convert_integer_to_q15((int16_t*)zb_real->addr, N, a.input_fmt);
+
         if (zb_imag && (int)zb_imag->len >= N * 2) {
-            uint16_t* i16 = (uint16_t*)zb_imag->addr;
-            for (int i = 0; i < N; i++) {
-                int32_t v;
-                uint16_t u = i16[i];
-                if (strcmp(input_format, "u12") == 0) {
-                    v = (int32_t)(u & 0x0FFF) - 2048;
-                    v <<= 4;
-                } else if (strcmp(input_format, "u16") == 0) {
-                    v = (int32_t)u - 32768;
-                } else {
-                    v = (int16_t)u;
-                }
-                if (v > 32767)
-                    v = 32767;
-                if (v < -32768)
-                    v = -32768;
-                ((int16_t*)zb_imag->addr)[i] = (int16_t)v;
-            }
+            convert_integer_to_q15((int16_t*)zb_imag->addr, N, a.input_fmt);
         } else if (zb_imag) {
-            // 长度不足则清零
             memset(zb_imag->addr, 0, zb_imag->len);
         }
 
-        // 强制要求外部传入 Q15 twiddle
+        // 获取 Q15 twiddle
         luat_zbuff_t* zbWc = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
         luat_zbuff_t* zbWs = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
         const int need_tw = (N / 2) * 2;
         if (!(zbWc && zbWs) || (int)zbWc->len < need_tw || (int)zbWs->len < need_tw) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "q15 需传入 Wc/Ws zbuff，长度 N/2*2 字节");
+            fft_args_cleanup(&a);
+            return luaL_error(L, "q15 requires Wc/Ws zbuff, length N/2*2 bytes");
         }
 
         int scale_exp = 0;
-        int rc = luat_fft_inplace_q15((int16_t*)zb_real->addr, zb_imag ? (int16_t*)zb_imag->addr : NULL,
-                                       N, 0, (const int16_t*)zbWc->addr, (const int16_t*)zbWs->addr,
-                                       0, &scale_exp);
-        if (r_free)
-            luat_heap_free(r);
-        if (im_free)
-            luat_heap_free(im);
-        if (wc_free)
-            luat_heap_free(Wc);
-        if (ws_free)
-            luat_heap_free(Ws);
+        int rc = luat_fft_inplace_q15((int16_t*)zb_real->addr,
+                                       zb_imag ? (int16_t*)zb_imag->addr : NULL,
+                                       N, 0, (const int16_t*)zbWc->addr,
+                                       (const int16_t*)zbWs->addr, 0, &scale_exp);
+        fft_args_cleanup(&a);
         if (rc != 0)
-            return luaL_error(L, "q15 内核执行失败");
+            return luaL_error(L, "q15 core failed");
         return 0;
     }
 
-    // 默认：沿用 float32 路径
-    luat_fft_run_inplace(r, im, N, Wc, Ws);
-
-    // if input was table, write back
-    if (!luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
-        lua_settop(L, 2);
-        for (int i = 0; i < N; i++) {
-            lua_pushnumber(L, r[i]);
-            lua_rawseti(L, 1, i + 1);
-        }
-    }
-    if (!luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)) {
-        for (int i = 0; i < N; i++) {
-            lua_pushnumber(L, im[i]);
-            lua_rawseti(L, 2, i + 1);
-        }
-    }
-
-    if (r_free)
-        luat_heap_free(r);
-    if (im_free)
-        luat_heap_free(im);
-    if (wc_free)
-        luat_heap_free(Wc);
-    if (ws_free)
-        luat_heap_free(Ws);
+    // 默认：float32 路径
+    luat_fft_run_inplace(a.r, a.im, N, a.Wc, a.Ws);
+    writeback_lua_tables(L, a.r, a.im, N);
+    fft_args_cleanup(&a);
     return 0;
 }
 
@@ -501,199 +402,35 @@ static int l_fft_run(lua_State* L)
 */
 static int l_fft_ifft(lua_State* L)
 {
-    int N = luaL_checkinteger(L, 3);
-    if (N <= 1 || (N & (N - 1)))
-        return luaL_error(L, "N 必须为 2 的幂");
+    fft_args_t a;
+    fft_parse_args(L, &a);
 
-    float *r = NULL, *im = NULL, *Wc = NULL, *Ws = NULL;
-    int r_free = 0, im_free = 0, wc_free = 0, ws_free = 0;
-    // 可选 opts（同 run）：当前仅 core/input_format
-    const char* core = "f32";
-    const char* input_format = "f32";
-    luat_zbuff_t* zb = NULL;
-    zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        r = (float*)zb->addr;
-    } else {
-        r = luat_heap_malloc(sizeof(float) * N);
-        r_free = 1;
-        if (!r)
-            return luaL_error(L, "no memory");
-        if (read_lua_array_float(L, 1, r, N)) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "real must be number array or zbuff");
-        }
-    }
-    zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        im = (float*)zb->addr;
-    } else {
-        im = luat_heap_malloc(sizeof(float) * N);
-        im_free = 1;
-        if (!im) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "no memory");
-        }
-        if (read_lua_array_float(L, 2, im, N)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            return luaL_error(L, "imag must be number array or zbuff");
-        }
-    }
-    zb = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        Wc = (float*)zb->addr;
-    } else {
-        Wc = luat_heap_malloc(sizeof(float) * (N / 2));
-        wc_free = 1;
-        if (!Wc) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            return luaL_error(L, "no memory");
-        }
-        if (read_lua_array_float(L, 4, Wc, N / 2)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            return luaL_error(L, "W_real must be number array or zbuff");
-        }
-    }
-    zb = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
-    if (zb) {
-        Ws = (float*)zb->addr;
-    } else {
-        Ws = luat_heap_malloc(sizeof(float) * (N / 2));
-        ws_free = 1;
-        if (!Ws) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            return luaL_error(L, "内存不足");
-        }
-        if (read_lua_array_float(L, 5, Ws, N / 2)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "W_imag 需为数字数组或 zbuff");
-        }
-    }
+    int N = a.N;
+    int integer_input = (a.input_fmt != INPUT_FMT_F32);
 
-    if (lua_gettop(L) >= 6 && lua_istable(L, 6)) {
-        lua_getfield(L, 6, "core");
-        if (!lua_isnil(L, -1))
-            core = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, 6, "input_format");
-        if (!lua_isnil(L, -1))
-            input_format = luaL_checkstring(L, -1);
-        lua_pop(L, 1);
-    }
-
-    int use_q15 = (core && strcmp(core, "q15") == 0);
-    int integer_input = (strcmp(input_format, "u12") == 0 || strcmp(input_format, "u16") == 0 || strcmp(input_format, "s16") == 0);
-    if (use_q15 && integer_input) {
+    if (a.use_q15 && integer_input) {
+        // Q15 IFFT 路径：原地操作（避免额外分配）
         luat_zbuff_t* zb_real = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
         luat_zbuff_t* zb_imag = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
         if (!zb_real) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "q15 模式要求 real 为整数 zbuff");
+            fft_args_cleanup(&a);
+            return luaL_error(L, "q15 mode requires real to be zbuff");
         }
         if ((int)zb_real->len < N * 2) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "real zbuff 太小");
+            fft_args_cleanup(&a);
+            return luaL_error(L, "real zbuff too small");
         }
 
-        int16_t* rq = (int16_t*)luat_heap_malloc(sizeof(int16_t) * N);
-        int16_t* iq = (int16_t*)luat_heap_malloc(sizeof(int16_t) * N);
-        if (!rq || !iq) {
-            if (rq)
-                luat_heap_free(rq);
-            if (iq)
-                luat_heap_free(iq);
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "内存不足");
-        }
+        // 原地转换
+        convert_integer_to_q15((int16_t*)zb_real->addr, N, a.input_fmt);
 
-        const uint16_t* r16 = (const uint16_t*)zb_real->addr;
-        for (int i = 0; i < N; i++) {
-            int32_t v;
-            uint16_t u = r16[i];
-            if (strcmp(input_format, "u12") == 0) {
-                v = ((int32_t)(u & 0x0FFF)) - 2048;
-                v <<= 4;
-            } else if (strcmp(input_format, "u16") == 0) {
-                v = (int32_t)u - 32768;
-            } else {
-                v = (int16_t)u;
-            }
-            if (v > 32767)
-                v = 32767;
-            if (v < -32768)
-                v = -32768;
-            rq[i] = (int16_t)v;
-        }
         if (zb_imag && (int)zb_imag->len >= N * 2) {
-            const uint16_t* i16 = (const uint16_t*)zb_imag->addr;
-            for (int i = 0; i < N; i++) {
-                int32_t v;
-                uint16_t u = i16[i];
-                if (strcmp(input_format, "u12") == 0) {
-                    v = ((int32_t)(u & 0x0FFF)) - 2048;
-                    v <<= 4;
-                } else if (strcmp(input_format, "u16") == 0) {
-                    v = (int32_t)u - 32768;
-                } else {
-                    v = (int16_t)u;
-                }
-                if (v > 32767)
-                    v = 32767;
-                if (v < -32768)
-                    v = -32768;
-                iq[i] = (int16_t)v;
-            }
-        } else {
-            memset(iq, 0, sizeof(int16_t) * N);
+            convert_integer_to_q15((int16_t*)zb_imag->addr, N, a.input_fmt);
+        } else if (zb_imag) {
+            memset(zb_imag->addr, 0, zb_imag->len);
         }
 
-        // 使用传入的 Q15 旋转因子（zbuff）或按需生成
+        // 获取 Q15 twiddle
         luat_zbuff_t* zbWc = (luat_zbuff_t*)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
         luat_zbuff_t* zbWs = (luat_zbuff_t*)luaL_testudata(L, 5, LUAT_ZBUFF_TYPE);
         const int need_tw = (N / 2) * 2;
@@ -708,21 +445,10 @@ static int l_fft_ifft(lua_State* L)
             Wcq_alloc = (int16_t*)luat_heap_malloc(sizeof(int16_t) * (N / 2));
             Wsq_alloc = (int16_t*)luat_heap_malloc(sizeof(int16_t) * (N / 2));
             if (!Wcq_alloc || !Wsq_alloc) {
-                if (Wcq_alloc)
-                    luat_heap_free(Wcq_alloc);
-                if (Wsq_alloc)
-                    luat_heap_free(Wsq_alloc);
-                luat_heap_free(rq);
-                luat_heap_free(iq);
-                if (r_free)
-                    luat_heap_free(r);
-                if (im_free)
-                    luat_heap_free(im);
-                if (wc_free)
-                    luat_heap_free(Wc);
-                if (ws_free)
-                    luat_heap_free(Ws);
-                return luaL_error(L, "内存不足");
+                if (Wcq_alloc) luat_heap_free(Wcq_alloc);
+                if (Wsq_alloc) luat_heap_free(Wsq_alloc);
+                fft_args_cleanup(&a);
+                return luaL_error(L, "no memory");
             }
             luat_fft_generate_twiddles_q15(Wcq_alloc, Wsq_alloc, N);
             Wcq = Wcq_alloc;
@@ -730,68 +456,22 @@ static int l_fft_ifft(lua_State* L)
         }
 
         int scale_exp = 0;
-        int rc = luat_fft_inplace_q15(rq, iq, N, 1, Wcq, Wsq, 0, &scale_exp); // inverse=1
-        if (Wcq_alloc)
-            luat_heap_free(Wcq_alloc);
-        if (Wsq_alloc)
-            luat_heap_free(Wsq_alloc);
-        if (rc != 0) {
-            luat_heap_free(rq);
-            luat_heap_free(iq);
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            if (wc_free)
-                luat_heap_free(Wc);
-            if (ws_free)
-                luat_heap_free(Ws);
-            return luaL_error(L, "q15 内核执行失败");
-        }
-
-        for (int i = 0; i < N; i++)
-            ((int16_t*)zb_real->addr)[i] = rq[i];
-        if (zb_imag && (int)zb_imag->len >= N * 2) {
-            for (int i = 0; i < N; i++)
-                ((int16_t*)zb_imag->addr)[i] = iq[i];
-        }
-        luat_heap_free(rq);
-        luat_heap_free(iq);
-        if (r_free)
-            luat_heap_free(r);
-        if (im_free)
-            luat_heap_free(im);
-        if (wc_free)
-            luat_heap_free(Wc);
-        if (ws_free)
-            luat_heap_free(Ws);
+        int16_t* imag_ptr = (zb_imag && (int)zb_imag->len >= N * 2)
+                            ? (int16_t*)zb_imag->addr : NULL;
+        int rc = luat_fft_inplace_q15((int16_t*)zb_real->addr, imag_ptr,
+                                       N, 1, Wcq, Wsq, 0, &scale_exp);
+        if (Wcq_alloc) luat_heap_free(Wcq_alloc);
+        if (Wsq_alloc) luat_heap_free(Wsq_alloc);
+        fft_args_cleanup(&a);
+        if (rc != 0)
+            return luaL_error(L, "q15 core failed");
         return 0;
     }
 
-    luat_ifft_run_inplace(r, im, N, Wc, Ws);
-
-    if (!luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
-        lua_settop(L, 2);
-        for (int i = 0; i < N; i++) {
-            lua_pushnumber(L, r[i]);
-            lua_rawseti(L, 1, i + 1);
-        }
-    }
-    if (!luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)) {
-        for (int i = 0; i < N; i++) {
-            lua_pushnumber(L, im[i]);
-            lua_rawseti(L, 2, i + 1);
-        }
-    }
-
-    if (r_free)
-        luat_heap_free(r);
-    if (im_free)
-        luat_heap_free(im);
-    if (wc_free)
-        luat_heap_free(Wc);
-    if (ws_free)
-        luat_heap_free(Ws);
+    // 默认：float32 路径
+    luat_ifft_run_inplace(a.r, a.im, N, a.Wc, a.Ws);
+    writeback_lua_tables(L, a.r, a.im, N);
+    fft_args_cleanup(&a);
     return 0;
 }
 
@@ -813,22 +493,19 @@ static int l_fft_integral(lua_State* L)
     float df = (float)luaL_checknumber(L, 4);
     if (n <= 1 || (n & (n - 1)))
         return luaL_error(L, "n must be power of 2");
+
     float *r = NULL, *im = NULL;
     int r_free = 0, im_free = 0;
-    luat_zbuff_t* zb = NULL;
+    luat_zbuff_t* zb;
+
     zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
     if (zb) {
         r = (float*)zb->addr;
     } else {
         r = luat_heap_malloc(sizeof(float) * n);
         r_free = 1;
-        if (!r)
-            return luaL_error(L, "no memory");
-        if (read_lua_array_float(L, 1, r, n)) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "real must be number array or zbuff");
-        }
+        if (!r) goto integral_oom;
+        if (read_lua_array_float(L, 1, r, n)) goto integral_err_real;
     }
     zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
     if (zb) {
@@ -836,20 +513,12 @@ static int l_fft_integral(lua_State* L)
     } else {
         im = luat_heap_malloc(sizeof(float) * n);
         im_free = 1;
-        if (!im) {
-            if (r_free)
-                luat_heap_free(r);
-            return luaL_error(L, "no memory");
-        }
-        if (read_lua_array_float(L, 2, im, n)) {
-            if (r_free)
-                luat_heap_free(r);
-            if (im_free)
-                luat_heap_free(im);
-            return luaL_error(L, "imag must be number array or zbuff");
-        }
+        if (!im) goto integral_oom;
+        if (read_lua_array_float(L, 2, im, n)) goto integral_err_imag;
     }
+
     luat_fft_integral_inplace(r, im, n, df);
+
     if (!luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
         lua_settop(L, 2);
         for (int i = 0; i < n; i++) {
@@ -863,11 +532,22 @@ static int l_fft_integral(lua_State* L)
             lua_rawseti(L, 2, i + 1);
         }
     }
-    if (r_free)
-        luat_heap_free(r);
-    if (im_free)
-        luat_heap_free(im);
+
+    if (r_free) luat_heap_free(r);
+    if (im_free) luat_heap_free(im);
     return 0;
+
+integral_oom:
+    if (r_free && r) luat_heap_free(r);
+    if (im_free && im) luat_heap_free(im);
+    return luaL_error(L, "no memory");
+integral_err_real:
+    if (r_free) luat_heap_free(r);
+    return luaL_error(L, "real must be number array or zbuff");
+integral_err_imag:
+    if (r_free && r) luat_heap_free(r);
+    if (im_free) luat_heap_free(im);
+    return luaL_error(L, "imag must be number array or zbuff");
 }
 
 static const rotable_Reg_t reg_fft[] = {

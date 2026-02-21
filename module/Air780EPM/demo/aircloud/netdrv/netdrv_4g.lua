@@ -3,7 +3,7 @@
 @summary “4G网卡”驱动模块
 @version 1.0
 @date    2025.07.01
-@author  孟伟
+@author  马梦阳
 @usage
 本文件为4G网卡驱动模块，核心业务逻辑为：
 1、监听"IP_READY"和"IP_LOSE"，在日志中进行打印；
@@ -39,5 +39,5 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
--- 在Air8000上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
+-- 在Air780EPM上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
 

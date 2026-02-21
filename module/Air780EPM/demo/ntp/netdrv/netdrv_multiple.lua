@@ -36,6 +36,15 @@ local exnetif = require "exnetif"
 --     net_type：为nil
 --     adapter：number类型，为-1
 local function netdrv_multiple_notify_cbfunc(net_type,adapter)
+    -- 在位置1和2设置自定义的DNS服务器ip地址：
+    -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+    -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+    -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+    -- 如果使用专网卡，不要使用这两行代码；
+    -- 如果使用国外的网络，不要使用这两行代码；
+    socket.setDNS(adapter, 1, "223.5.5.5")
+    socket.setDNS(adapter, 2, "114.114.114.114")
+    
     if type(net_type)=="string" then
         log.info("netdrv_multiple_notify_cbfunc", "use new adapter", net_type, adapter)
     elseif type(net_type)=="nil" then
@@ -56,7 +65,7 @@ local function netdrv_multiple_task_func()
                     -- 核心板的VDD 3V3管脚对AirETH_1000配件板进行供电
                     -- 3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
                     -- 供电使能GPIO
-                    -- pwrpin = 20,
+                    pwrpin = nil,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,

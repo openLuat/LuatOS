@@ -3,7 +3,7 @@
 @summary “4G网卡”驱动模块
 @version 1.0
 @date    2025.07.01
-@author  孟伟
+@author  马梦阳
 @usage
 本文件为4G网卡驱动模块，核心业务逻辑为：
 1、监听"IP_READY"和"IP_LOSE"，在日志中进行打印；
@@ -13,6 +13,15 @@
 
 local function ip_ready_func(ip, adapter)
     if adapter == socket.LWIP_GP then
+        -- 在位置1和2设置自定义的DNS服务器ip地址：
+        -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+        -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+        -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+        -- 如果使用专网卡，不要使用这两行代码；
+        -- 如果使用国外的网络，不要使用这两行代码；
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+        
         log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_GP))
     end
 end
@@ -30,7 +39,5 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
--- 设置默认网卡为socket.LWIP_GP
 -- 在Air780EPM上，内核固件运行起来之后，默认网卡就是socket.LWIP_GP
--- 在单4G网卡使用场景下，下面这一行代码加不加都没有影响，为了和其他网卡驱动模块的代码风格保持一致，所以加上了
-socket.dft(socket.LWIP_GP)
+

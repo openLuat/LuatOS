@@ -68,7 +68,7 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 -- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
 -- 本demo使用Air780EHM/EHV/EGH核心板+AirETH_1000配件板测试，核心板上的硬件配置为：
 -- 核心板的VDD 3V3管脚对AirETH_1000配件板进行供电；3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
--- 使用spi0，片选引脚使用GPIO15
+-- 使用spi0，片选引脚使用GPIO8
 -- 如果使用的硬件和以上描述的环境不同，根据自己的硬件配置修改以下参数
 exnetif.set_priority_order({
     {

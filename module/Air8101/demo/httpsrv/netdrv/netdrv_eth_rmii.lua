@@ -44,6 +44,7 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 1, "223.5.5.5")
         socket.setDNS(adapter, 2, "114.114.114.114")
         log.info("netdrv_eth_rmii.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+        sys.publish("CREATE_OK")
     end
 end
 

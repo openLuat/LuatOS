@@ -1,6 +1,6 @@
 --[[
 @module  netdrv_multiple
-@summary 多网卡（WIFI STA网卡、通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
+@summary 多网卡（WIFI STA网卡、通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡、通过SPI外挂CH390H芯片的以太网卡、通过SPI外挂4G模组的4G网卡）驱动模块
 @version 1.0
 @date    2025.07.24
 @author  马梦阳
@@ -44,7 +44,8 @@ Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关
 | 14/GPIO8        | INT               |
 
 
-
+通过SPI接口外挂4G模组(Air780EHM/Air780EHV/Air780EGH/Air780EPM)的4G网卡：
+Air8101核心板和Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板或者开发板的硬件接线方式，参考netdrv_4g.lua的文件头注释；
 
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
@@ -62,6 +63,15 @@ local exnetif = require "exnetif"
 --     net_type：为nil
 --     adapter：number类型，为-1
 local function netdrv_multiple_notify_cbfunc(net_type,adapter)
+    -- 在位置1和2设置自定义的DNS服务器ip地址：
+    -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+    -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+    -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+    -- 如果使用专网卡，不要使用这两行代码；
+    -- 如果使用国外的网络，不要使用这两行代码；
+    socket.setDNS(adapter, 1, "223.5.5.5")
+    socket.setDNS(adapter, 2, "114.114.114.114")
+    
     if type(net_type)=="string" then
         log.info("netdrv_multiple_notify_cbfunc", "use new adapter", net_type, adapter)
     elseif type(net_type)=="nil" then
@@ -70,7 +80,6 @@ local function netdrv_multiple_notify_cbfunc(net_type,adapter)
         log.warn("netdrv_multiple_notify_cbfunc", "unknown status", net_type, adapter)
     end
 end
-
 
 local function netdrv_multiple_task_func()
     --设置网卡优先级

@@ -111,7 +111,7 @@ local function testTask(ip, port)
     --关闭debug信息
     socket.debug(netc, false)
     -- 配置socket client对象为netc
-    socket.config(netc) 
+    socket.config(netc, nil, nil, nil, 300, 10, 3) 
     local retry = 0
     --这边会尝试连接服务器并且发送，最多处理3次，如果3次都不行就退出，发送成功就直接退出
     while retry < 3 do

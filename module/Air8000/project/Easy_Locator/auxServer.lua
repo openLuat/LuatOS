@@ -389,7 +389,7 @@ local function auxServerTask(d1Name)
         if nowStatus == "REQ_SERVER" then
             sys.wait(3000)
             netc = socket.create(nil, d1Name)
-            socket.config(netc, nil, false)
+            socket.config(netc, nil, false, nil, 300, 10, 3)
             local code, headers, body = http.request("GET", string.format("https://gps.openluat.com/iot/getip?clientid=%s&p=%s", mobile.imei():sub(3, 14), _G.PRODUCT_VER)).wait()
             log.info("连接ip 请求结果", code, headers, body)
             if (code == 200 or code == 206) and body then

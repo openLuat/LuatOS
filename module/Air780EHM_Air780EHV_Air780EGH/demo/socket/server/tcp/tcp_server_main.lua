@@ -58,7 +58,7 @@ local function tcp_server_main_task_func()
 
         socket.debug(netc, true)
         -- 配置socker server 对象为tcp server
-        result = socket.config(netc, listen_port)
+        result = socket.config(netc, listen_port, nil, nil, 300, 10, 3)
         -- 如果配置失败
         if not result then
             log.error("tcp_server_task_func", "socket.config失败")

@@ -207,7 +207,7 @@ local function auxServerTask(d1Name)
             if _G.IPV6_UDP_VER and ipv6Valid then
                 socket.config(netc, 12398, true) 
             else
-                socket.config(netc, nil, false)
+                socket.config(netc, nil, false, nil, 300, 10, 3)
             end
             local code, headers, body = http.request("GET", string.format("https://gps.openluat.com/iot/getip?clientid=%s&p=%s", mobile.imei():sub(3, 14), _G.PRODUCT_VER)).wait()
             log.info("连接ip 请求结果", code, headers, body)

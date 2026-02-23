@@ -62,7 +62,7 @@ local function tcp_client_main_task_func()
         end
 
         -- 配置socket client对象为tcp client
-        result = socket.config(socket_client)
+        result = socket.config(socket_client, nil, nil, nil, 300, 10, 3)
         -- 如果配置失败
         if not result then
             log.error("tcp_client_main_task_func", "socket.config error")

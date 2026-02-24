@@ -82,6 +82,27 @@ local function is_target_device(scan_param)
     return false
 end
 
+-- 打印GATT信息
+local function print_gatt(gatt)
+    for k, v in pairs(gatt) do
+        if k == 1 and type(v) == 'string' then
+            local uuid,uuid_len = v:toHex()
+            log.info("server uuid:",uuid,"uuid len:",uuid_len*4)
+        else -- Characteristic
+            for n, m in pairs(v) do
+                if n == 1 and type(m) == 'string' then
+                    local uuid,uuid_len = m:toHex()
+                    log.info("characteristic uuid:",uuid,"uuid len:",uuid_len*4)
+                elseif n == 2 and type(m) == 'number' then
+                    -- Properties
+                else
+                    log.info("", n, type(m), m)
+                end
+            end
+        end
+    end
+end
+
 -- 事件回调函数
 local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 仅表示连接成功，后续读/写/订阅 需等待GATT_DONE事件
@@ -96,6 +117,7 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
     -- GATT项处理
     elseif ble_event == ble.EVENT_GATT_ITEM then
         log.info("ble", "gatt item", ble_param)
+        print_gatt(ble_param)
     -- GATT操作完成,可进行读/写/订阅操作
     elseif ble_event == ble.EVENT_GATT_DONE then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "GATT_DONE", ble_param)

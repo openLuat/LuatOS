@@ -32,18 +32,21 @@ static void airui_win_close_event_cb(lv_event_t *e)
     lv_obj_t *win = NULL;
     
     if (code == LV_EVENT_CLICKED) {
-        // 从关闭按钮点击事件
-        lv_obj_t *btn = lv_event_get_target(e);
-        if (btn != NULL) {
-            // 向上查找直到找到 win 对象（win 是按钮的祖先）
-            win = lv_obj_get_parent(btn);
-            while (win != NULL) {
-                // 检查是否是 win 对象（通过检查是否有 win 的特征）
-                lv_obj_t *content = lv_win_get_content(win);
-                if (content != NULL) {
-                    break;  // 找到了 win 对象
+        // 直接使用回调参数中的 win 对象，避免遍历导致误命中 header
+        win = (lv_obj_t *)lv_event_get_user_data(e);
+
+        // 兜底逻辑：从按钮开始向上查找 Window 组件
+        if (win == NULL) {
+            lv_obj_t *btn = lv_event_get_target(e);
+            if (btn != NULL) {
+                win = lv_obj_get_parent(btn);
+                while (win != NULL) {
+                    airui_component_meta_t *meta = airui_component_meta_get(win);
+                    if (meta != NULL && meta->component_type == AIRUI_COMPONENT_WIN) {
+                        break;
+                    }
+                    win = lv_obj_get_parent(win);
                 }
-                win = lv_obj_get_parent(win);
             }
         }
     } else if (code == LV_EVENT_DELETE) {

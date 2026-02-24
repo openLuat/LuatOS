@@ -1,7 +1,9 @@
 {
-    "timeout" : 300,
+    "timeout" : 600,
     "model" : {
-        "air780epm" : [1,103]
+        "air780epm": [1, 105],
+        "air780ehm": [1, 104],
+        "air8000": [1,101]
     },
 
     "action_count" : 1,

@@ -10,7 +10,9 @@
 
 3、video_http_post.lua：执行录像后上传视频至 air32.com
 
-4、netdrv_wifi.lua：连接 WIFI
+4、rtmp_app.lua：USB摄像头RTMP推流功能模块
+
+5、netdrv_wifi.lua：连接 WIFI
 
 注意：take_photo_http_post.lua 和 video_http_post.lua 只能打开一个不能同时打开
 
@@ -19,40 +21,88 @@
 ### 1、主程序入口模块（main.lua）
 
 - 初始化项目信息和版本号
+
 - 初始化看门狗，并定时喂狗
+
 - 启动一个循环定时器，每隔 3 秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况方便分析内存使用是否有异常
+
 - 加载 netdrv_wifi 模块（通过 require "netdrv_wifi"）
+
 - 加载 take_photo_http_post 模块（通过 require "take_photo_http_post"）
+
 - 加载 video_http_post 模块（通过 require "video_http_post"）
 
 ### 2、WIFI 连接模块（netdrv_wifi.lua）
 
 - 订阅"IP_READY"和"IP_LOSE"
+
 - 根据对应的网络状态执行对应的动作
+
 - 联网成功则配置 DNS
+
 - 联网失败则打印联网失败日志
 
 ### 3、拍照上传核心业务模块（http_upload_file.lua）
 
 - 订阅 IP_READY 信息，确认联网后执行拍照上传任务
+
 - 每 30 秒触发一次拍照：AirCAMERA_1030_func()
+
 - 每 3 秒打印一次系统和 LUA 的内存信息：memory_check()
+
 - 配置摄像头信息表：usb_camera_param
+
 - 初始化摄像头：excamera.open()
+
 - 执行拍照：excamera.photo()
+
 - 上传照片：httpplus.request()
+
 - 关闭摄像头：excamera.close()
 
 ### 4、录像上传核心业务模块（video_http_post.lua）
 
 - 订阅 IP_READY 信息，确认联网后执行录像上传任务
-- tf卡挂载，打印tf卡内存信息：fatfs.mount()
-- 摄像头初始化以后录制一个时长为30s的视频：excamera.video()
-- 上传视频：httpplus.request()
+
+- 挂载TF卡 ：系统启动时调用 mount_tf_card() 函数挂载TF卡
+
+- 循环轮切摄像头 ：video_cycle_func() 函数循环触发每个摄像头的视频录制
+
+- 等待视频上传完成 ：触发摄像头后，等待 VIDEO_UPLOAD_DONE 事件
+
+- 配置摄像头信息表 ：usb_camera_param
+
+- 初始化摄像头 ：excamera.open()
+
+- 录制30秒MP4视频 ：excamera.video()
+
+- 关闭摄像头 ：excamera.close()
+
+- 上传视频 ：httpplus.request() 将视频上传到服务器
+
+- 发送上传完成事件 ：上传完成后发布 VIDEO_UPLOAD_DONE 事件
+
+- 每10秒打印一次系统和Lua的内存信息 ：memory_check()
+
+### 5、RTMP推流业务模块（video_http_post.lua）
+
+- 订阅IP_READY信息 , 确认联网后执行RTMP推流任务
+
+- 获取RTMP推流地址：通过http.request()请求从服务器获取推流地址
+
+- 初始化摄像头 ：excamera.open()初始化USB摄像头，配置参数包括分辨率、帧率和H264编码参数
+
+- RTMP推流 ：excamera.rtmp()连接RTMP服务器并开始推流，包含错误处理和状态监控
+
+- 监控推流状态 ：循环监控推流过程，每30秒打印一次内存信息
+
+- 处理异常情况 ：推流异常时发布RTMP_ERROR事件，5秒后重试
+
+- 释放资源 ：推流结束或异常时excamera.close()关闭摄像头，释放资源
 
 ## 演示硬件环境
 
-**使用拍照功能的硬件环境：**
+### 1、拍照上传硬件环境：
 
 1、Air8101 核心板一块
 
@@ -79,7 +129,7 @@ AirCAMERA_1030 配件板 + Air8101 核心板，硬件连接示意图：
 
 ![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头拍照.jpg)
 
-**使用录像功能的硬件环境：**
+### 2、 录像上传硬件环境：
 
 1、Air8101 核心板一块
 
@@ -118,15 +168,39 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 
 ![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头录像.jpg)
 
+### 3、 rtmp推流硬件环境
+
+1、Air8101 核心板一块
+
+2、TYPE-C USB 数据线一根
+
+3、合宙标准配件 AirCAMERA_1030 配件板 一块
+
+4、Air8101 核心板和合宙标准配件 AirCAMERA_1030 的硬件接线方式为
+
+Air8101 核心板通过 TYPE-C USB 口供电；（背面功耗测试开关拨到 OFF）
+
+TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
+
+AirCAMERA_1030 配件板与 Air8101核心板连接说明：
+
+将 AirCAMERA_1030 配件板 直接接入 Air8101核心板 的USB接口即可
+
+参考[AirCAMERA_1030 - 合宙模组资料中心](https://docs.openluat.com/accessory/AirCAMERA_1030/)
+
+AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件连接示意图：
+
+![](https://docs.openLuat.com/cdn/image/8101_usb_rtmp.jpg)
+
 ## 演示软件环境
 
 1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、Air8101 V1006 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
+2、Air8101 V2004 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
 
 ## 演示核心步骤
 
-**使用拍照功能演示的核心步骤：**
+### **使用拍照功能演示的核心步骤：**
 
 1、搭建硬件环境;
 
@@ -306,7 +380,7 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 
 ![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)
 
-**使用录像功能演示的核心步骤：**
+### **使用录像功能演示的核心步骤：**
 
 1、搭建硬件环境;
 
@@ -778,3 +852,131 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 5、登录 [https://www.air32.cn/upload/data/mp4/](https://www.air32.cn/upload/data/mp4/) 查看拍摄的视频;
 
 ![](https://docs.openLuat.com/cdn/image/8101_usb摄像头演示.jpg)
+
+### 使用rtmp推流功能演示的核心步骤：
+
+1、搭建好硬件环境
+
+2、修改rtmp_app.lua中的PostBody参数
+
+3、烧录内核固件和相关demo成功后，自动开机运行。
+
+4、可以看到代码运行结果如下，日志中如果出现以下类似打印则说明rtmp推流成功：
+
+```lua
+[2026-02-10 18:07:04.134] luat:U(3505):I/user.打印的请求code 200
+[2026-02-10 18:07:04.134] luat:U(3505):I/user.打印的请求body {"msg":"操作成功","code":200,"data":{"urlList":["rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001"],"deviceId":"93ecc063_8d75_4356_82ea_6a78914b649d","deviceChannels":1}}
+[2026-02-10 18:07:04.149] luat:U(3506):I/user.请求得到的RTMP地址 rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001
+[2026-02-10 18:07:04.149] luat:U(3507):I/user.excamera.open 初始化USB/DVP摄像头，端口: 1
+[2026-02-10 18:07:04.149] ap0:pm_ap:E(3394):Invalid gpio_id: 255
+[2026-02-10 18:07:04.149] ap0:usb_driv:I(3394):USB_DRV_USB_OPEN!
+[2026-02-10 18:07:04.149] ap0:uvc_stre:W(3398):uvc_camera_device_power_on, port:5, device:0
+[2026-02-10 18:07:04.149] ap0:uvc_stre:W(3398):uvc_camera_device_power_on, port:5, device:0, ret:-17413
+[2026-02-10 18:07:04.369] luat:U(3721):I/user.excamera.rtmp 同步系统时间
+[2026-02-10 18:07:04.369] luat:D(3721):sntp:query ntp.aliyun.com
+[2026-02-10 18:07:04.369] luat:D(3722):DNS:ntp.aliyun.com state 0 id 2 ipv6 0 use dns server0, try 0
+[2026-02-10 18:07:04.369] luat:D(3722):net:adatper 2 dns server 223.5.5.5
+[2026-02-10 18:07:04.369] luat:D(3723):net:dns udp sendto 223.5.5.5:53 from 192.168.0.108
+[2026-02-10 18:07:04.414] luat:I(3763):DNS:dns all done ,now stop
+[2026-02-10 18:07:04.414] luat:D(3764):net:adapter 2 connect 203.107.6.88:123 UDP
+[2026-02-10 18:07:04.553] luat:D(3898):sntp:Unix timestamp: 1770718024
+[2026-02-10 18:07:04.801] cal:I(4152):idx:37=40+(-3),r:54,xtal:80,pwr_gain:a4ab7110
+[2026-02-10 18:07:07.375] luat:D(6732):rtmp:RTMP上下文创建成功: rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001
+[2026-02-10 18:07:07.375] luat:D(6732):rtmp:RTMP回调函数已设置
+[2026-02-10 18:07:07.375] luat:U(6732):I/user.excamera.rtmp RTMP客户端创建成功
+[2026-02-10 18:07:07.375] luat:U(6733):I/user.excamera.rtmp 启动摄像头...
+[2026-02-10 18:07:07.375] luat:U(6733):I/user.excamera.rtmp 等待摄像头就绪...
+[2026-02-10 18:07:12.383] luat:U(11732):I/user.excamera.rtmp 连接RTMP服务器...
+[2026-02-10 18:07:12.383] luat:D(11733):rtmp:RTMP发起连接请求: 成功
+[2026-02-10 18:07:12.383] luat:I(11733):rtmp_push:RTMP: State changed from 0 to 1
+[2026-02-10 18:07:12.383] luat:U(11733):I/user.excamera.rtmp 等待连接完成...
+[2026-02-10 18:07:12.383] luat:D(11733):rtmp:RTMP状态(1)回调消息入队 0x2802c8a0 0x6099ea48
+[2026-02-10 18:07:12.383] luat:U(11735):I/user.excamera.rtmp 状态变化 1
+[2026-02-10 18:07:12.383] luat:U(11735):I/user.rtmp状态变化 1
+[2026-02-10 18:07:12.401] luat:I(11774):rtmp_push:RTMP: Sending handshake (C0+C1)...
+[2026-02-10 18:07:12.401] luat:I(11774):rtmp_push:RTMP: State changed from 1 to 2
+[2026-02-10 18:07:12.401] luat:D(11774):rtmp:RTMP状态(2)回调消息入队 0x2802c820 0x6099ea48
+[2026-02-10 18:07:12.401] luat:U(11775):I/user.excamera.rtmp 状态变化 2
+[2026-02-10 18:07:12.414] luat:U(11776):I/user.rtmp状态变化 2
+[2026-02-10 18:07:12.615] luat:I(11966):rtmp_push:RTMP: Received complete S0+S1 (1537 bytes), sending C2...
+[2026-02-10 18:07:12.615] luat:I(11966):rtmp_push:RTMP: C2 sent successfully (exactly 1536 bytes, S1 echo)
+[2026-02-10 18:07:12.708] luat:I(12066):rtmp_push:RTMP: Received 1536 bytes after C2, handshake confirmed
+[2026-02-10 18:07:12.712] luat:I(12066):rtmp_push:RTMP: command sent successfully: connect (tx_id=1, payload_size=175 bytes)
+[2026-02-10 18:07:12.712] luat:I(12067):rtmp_push:RTMP: State changed from 2 to 3
+[2026-02-10 18:07:12.712] luat:D(12067):rtmp:RTMP状态(3)回调消息入队 0x2802c890 0x6099ea48
+[2026-02-10 18:07:12.712] luat:I(12067):rtmp_push:RTMP: Connect command sent successfully
+[2026-02-10 18:07:12.712] luat:U(12067):I/user.excamera.rtmp 状态变化 3
+[2026-02-10 18:07:12.712] luat:U(12067):I/user.rtmp状态变化 3
+[2026-02-10 18:07:13.881] cal:I(13225):idx:37=40+(-3),r:54,xtal:80,pwr_gain:a4ab7110
+[2026-02-10 18:07:17.384] luat:U(16734):I/user.excamera.rtmp 当前RTMP状态: 3
+[2026-02-10 18:07:17.384] luat:U(16734):I/user.excamera.rtmp 准备开始推流
+[2026-02-10 18:07:17.384] luat:U(16735):W/user.excamera.rtmp start()返回失败，但继续监控推流状态...
+[2026-02-10 18:07:17.384] luat:U(16735):I/user.excamera.rtmp 等待推流开始...
+[2026-02-10 18:07:17.394] luat:I(16754):rtmp_push:RTMP: Received Set Chunk Size from server: 60000, updated local chunk_size
+[2026-02-10 18:07:17.394] luat:I(16754):rtmp_push:RTMP: Sent setChunkSize: 60000
+[2026-02-10 18:07:17.394] luat:I(16755):rtmp_push:RTMP: command sent successfully: releaseStream (tx_id=2, payload_size=70 bytes)
+[2026-02-10 18:07:17.394] luat:I(16755):rtmp_push:RTMP: command sent successfully: FCPublish (tx_id=3, payload_size=66 bytes)
+[2026-02-10 18:07:17.394] luat:I(16755):rtmp_push:RTMP: command sent successfully: createStream (tx_id=4, payload_size=25 bytes)
+[2026-02-10 18:07:17.394] luat:I(16755):rtmp_push:RTMP stats: total=3 kB packets=0 I=0 (0kB) P=0 (0kB) dropped=0 (0kB) queue=0 avg=6 kbps win=0 kbps
+[2026-02-10 18:07:17.710] luat:I(17055):rtmp_push:RTMP: command sent successfully: publish (tx_id=5, payload_size=71 bytes)
+[2026-02-10 18:07:17.850] luat:I(17195):rtmp_push:RTMP: Metadata payload size: 175 bytes
+[2026-02-10 18:07:17.850] luat:I(17196):rtmp_push:RTMP: Metadata @setDataFrame sent successfully
+[2026-02-10 18:07:17.850] luat:I(17196):rtmp_push:RTMP: Metadata sent, ready to send video data
+[2026-02-10 18:07:17.850] luat:I(17196):rtmp_push:RTMP: State changed from 3 to 4
+[2026-02-10 18:07:17.850] luat:D(17196):rtmp:RTMP状态(4)回调消息入队 0x2802c808 0x6099ea48
+[2026-02-10 18:07:17.850] ap1:CAM:W(17082):拍照/录像到文件录 rtmp
+[2026-02-10 18:07:17.850] ap1:CAM:W(17082):选定的捕捉模式 6
+[2026-02-10 18:07:17.850] ap1:CAM:W(17082):RTMP传输模式
+[2026-02-10 18:07:17.850] luat:U(17197):I/user.excamera.rtmp 状态变化 4
+[2026-02-10 18:07:17.850] ap1:uvc_pipe:E(17082):init_encoder_buffer 65 mux_sram_decode_buffer:0x28030908
+[2026-02-10 18:07:17.850] luat:U(17197):I/user.rtmp状态变化 4
+[2026-02-10 18:07:17.942] luat:I(17293):rtmp_push:RTMP: Sending IDR frame, len=4291
+[2026-02-10 18:07:20.000] luat:I(19350):rtmp_push:RTMP: Sending IDR frame, len=5719
+[2026-02-10 18:07:20.390] luat:U(19735):I/user.excamera.rtmp 推流后状态: 4
+[2026-02-10 18:07:20.390] luat:U(19736):I/user.excamera.rtmp 监控推流状态...
+[2026-02-10 18:07:21.955] cal:I(21299):idx:12=15+(-3),r:54,xtal:80,pwr_gain:a4ab7084
+[2026-02-10 18:07:21.986] luat:I(21336):rtmp_push:RTMP: Sending IDR frame, len=4907
+[2026-02-10 18:07:23.970] luat:I(23321):rtmp_push:RTMP: Sending IDR frame, len=4271
+[2026-02-10 18:07:25.381] luat:U(24737):I/user.excamera.rtmp RTMP推流已启动
+[2026-02-10 18:07:25.951] luat:I(25312):rtmp_push:RTMP: Sending IDR frame, len=5767
+[2026-02-10 18:07:26.995] cal:I(26342):idx:37=40+(-3),r:54,xtal:80,pwr_gain:a4ab7110
+[2026-02-10 18:07:27.413] luat:I(26761):rtmp_push:RTMP stats: total=1148 kB packets=142 I=5 (24kB) P=137 (616kB) dropped=0 (0kB) queue=125218 avg=640 kbps win=0 kbps
+[2026-02-10 18:07:27.957] luat:I(27305):rtmp_push:RTMP: Sending IDR frame, len=4611
+[2026-02-10 18:07:29.993] luat:I(29351):rtmp_push:RTMP: Sending IDR frame, len=4359
+[2026-02-10 18:07:29.997] cal:I(29372):idx:37=40+(-3),r:54,xtal:80,pwr_gain:a4ab7110
+[2026-02-10 18:07:31.986] luat:I(31338):rtmp_push:RTMP: Sending IDR frame, len=3319
+[2026-02-10 18:07:34.030] luat:I(33390):rtmp_push:RTMP: Sending IDR frame, len=3275
+[2026-02-10 18:07:36.034] luat:I(35382):rtmp_push:RTMP: Sending IDR frame, len=3747
+[2026-02-10 18:07:37.414] luat:I(36766):rtmp_push:RTMP stats: total=2371 kB packets=291 I=10 (43kB) P=281 (1138kB) dropped=0 (0kB) queue=0 avg=787 kbps win=0 kbps
+[2026-02-10 18:07:38.018] luat:I(37372):rtmp_push:RTMP: Sending IDR frame, len=3731
+[2026-02-10 18:07:40.000] luat:I(39358):rtmp_push:RTMP: Sending IDR frame, len=9603
+[2026-02-10 18:07:41.985] luat:I(41343):rtmp_push:RTMP: Sending IDR frame, len=9959
+[2026-02-10 18:07:43.976] luat:I(43331):rtmp_push:RTMP: Sending IDR frame, len=9495
+[2026-02-10 18:07:45.966] luat:I(45321):rtmp_push:RTMP: Sending IDR frame, len=9267
+[2026-02-10 18:07:47.419] luat:I(46770):rtmp_push:RTMP stats: total=3677 kB packets=442 I=15 (84kB) P=427 (1750kB) dropped=0 (0kB) queue=0 avg=868 kbps win=0 kbps
+[2026-02-10 18:07:47.943] luat:I(47304):rtmp_push:RTMP: Sending IDR frame, len=8099
+[2026-02-10 18:07:49.939] luat:I(49292):rtmp_push:RTMP: Sending IDR frame, len=8343
+[2026-02-10 18:07:52.131] luat:I(51486):rtmp_push:RTMP: Sending IDR frame, len=8491
+[2026-02-10 18:07:54.177] luat:I(53532):rtmp_push:RTMP: Sending IDR frame, len=8411
+[2026-02-10 18:07:55.386] luat:U(54738):I/user.lua 2097144 153816 153816
+[2026-02-10 18:07:55.386] luat:U(54739):I/user.sys 238608 124328 124712
+[2026-02-10 18:07:55.386] luat:U(54740):I/user.psram 6291456 1371728 1546072
+
+```
+
+## 合宙音视频后台查看
+
+打开[合宙视频物联网大数据平台](https://video.luatos.com:8083/login?redirect=/real-time)
+输入自己的IOT账号和密码然后输入验证码，点击登录
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_1.jpg)
+
+新增设备
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_2.jpg)
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_3.jpg)
+
+查看推流视频
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_4.jpg)

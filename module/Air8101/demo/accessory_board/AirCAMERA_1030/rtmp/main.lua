@@ -2,11 +2,14 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.11.09
-@author  陈取德
+@date    2026.01.22
+@author  王城钧
 @usage
-本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务或usb摄像头循环轮切录制视频任务
+本demo演示的核心功能为：
+1.使用rtmp_app模块实现USB摄像头视频推流
+更多说明参考本目录下的readme.md文件
 ]]
+
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -17,7 +20,7 @@ VERSION：项目版本号，ascii string类型
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
-PROJECT = "AirCAMERA_1030_Demo"
+PROJECT = "rtmp_demo"
 VERSION = "001.000.000"
 
 -- 在日志中打印项目名和项目版本号
@@ -32,7 +35,6 @@ if wdt then
     --启动一个循环定时器，每隔3秒钟喂一次狗
     sys.timerLoopStart(wdt.feed, 3000)
 end
-
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -57,20 +59,12 @@ end
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 导入netdrv_wifi模块，连接WIFI
+
+--加载rtmp推流驱动模块
+require "rtmp_app"
+
+-- 加载WIFI网络驱动模块
 require "netdrv_wifi"
 
--- 以下录像和拍照演示，只能二选一打开
--- 导入take_photo_http_post拍照上传应用DEMO
-require "take_photo_http_post"
-
--- 导入video_http_post视频上传应用DEMO
--- require "video_http_post"
-
--- 导入rtmp推流驱动模块
--- require "rtmp_app"
-
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+-- 启动系统调度（必须放在最后）
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

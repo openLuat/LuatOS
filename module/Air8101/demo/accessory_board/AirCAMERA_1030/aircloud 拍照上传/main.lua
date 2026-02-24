@@ -5,7 +5,7 @@
 @date    2025.11.09
 @author  陈取德
 @usage
-本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务或usb摄像头循环轮切录制视频任务
+本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
@@ -60,15 +60,9 @@ end
 -- 导入netdrv_wifi模块，连接WIFI
 require "netdrv_wifi"
 
--- 以下录像和拍照演示，只能二选一打开
 -- 导入take_photo_http_post拍照上传应用DEMO
 require "take_photo_http_post"
 
--- 导入video_http_post视频上传应用DEMO
--- require "video_http_post"
-
--- 导入rtmp推流驱动模块
--- require "rtmp_app"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

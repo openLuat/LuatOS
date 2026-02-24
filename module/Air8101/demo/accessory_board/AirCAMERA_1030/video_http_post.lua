@@ -68,7 +68,7 @@ local function video_capture_func()
             local success = excamera.video(filepath, 30000) -- 录制30秒视频
 
             -- 关闭摄像头，释放资源
-            excamera.close(camera.USB)
+            excamera.close()
 
             if success then
                 log.info("视频录制成功!")

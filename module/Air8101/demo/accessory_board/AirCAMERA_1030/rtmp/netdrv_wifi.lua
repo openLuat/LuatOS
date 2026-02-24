@@ -57,11 +57,29 @@ sys.subscribe("IP_LOSE", ip_lose_func)
 -- password为要连接的WiFi路由器密码；
 -- 注意：仅支持2.4G的WiFi，不支持5G的WiFi；
 -- 实际测试时，根据自己要连接的WiFi热点信息修改以下参数
+-- exnetif.set_priority_order({
+--     {
+--         WIFI = {
+--             ssid = "茶室-降功耗,找合宙!", 
+--             password = "Air123456"
+--         }
+--     }
+-- })
+
 exnetif.set_priority_order({
     {
         WIFI = {
-            ssid = "茶室-降功耗,找合宙!", 
-            password = "Air123456"
+            ssid = "116", 
+            password = "wangtiancheng123456"
         }
     }
 })
+
+-- exnetif.set_priority_order({
+--     {
+--         WIFI = {
+--             ssid = "vivo X300 Pro", 
+--             password = "2894551470"
+--         }
+--     }
+-- })

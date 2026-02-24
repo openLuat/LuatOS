@@ -67,9 +67,6 @@ require "take_photo_http_post"
 -- 导入video_http_post视频上传应用DEMO
 -- require "video_http_post"
 
--- 导入rtmp推流驱动模块
--- require "rtmp_app"
-
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

@@ -94,7 +94,7 @@ local function print_gatt(gatt)
                 elseif n == 2 and type(m) == 'number' then
                     -- Properties
                     local prop_str = parse_properties(m)
-                    log.info("characteristic properties:", m, "(", prop_str, ")")
+                    log.info("characteristic properties:", prop_str)
                 else
                     log.info("", n, type(m), m)
                 end

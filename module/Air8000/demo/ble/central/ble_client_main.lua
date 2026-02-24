@@ -82,6 +82,27 @@ local function is_target_device(scan_param)
     return false
 end
 
+-- 解析特征值属性
+local function parse_properties(properties)
+    local prop_map = {
+        [0x08] = "Read",         -- (0x01 << 3)
+        [0x10] = "Write",        -- (0x01 << 4)
+        [0x20] = "Indicate",     -- (0x01 << 5)
+        [0x40] = "Notify",       -- (0x01 << 6)
+        [0x80] = "Write Command"  -- (0x01 << 7)
+    }
+    local result = ""
+    for bit, name in pairs(prop_map) do
+        if properties & bit ~= 0 then
+            if result ~= "" then
+                result = result .. ", "
+            end
+            result = result .. name
+        end
+    end
+    return result
+end
+
 -- 打印GATT信息
 local function print_gatt(gatt)
     for k, v in pairs(gatt) do
@@ -95,6 +116,8 @@ local function print_gatt(gatt)
                     log.info("characteristic uuid:",uuid,"uuid len:",uuid_len*4)
                 elseif n == 2 and type(m) == 'number' then
                     -- Properties
+                    local prop_str = parse_properties(m)
+                    log.info("characteristic properties:", m, "(", prop_str, ")")
                 else
                     log.info("", n, type(m), m)
                 end

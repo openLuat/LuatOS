@@ -3,8 +3,8 @@
 @module  main
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
-@date    2025.09.08
-@author  梁健
+@date    2026.02.24
+@author  拓毅恒
 @usage
 本demo演示的核心功能为：
 1、play_file.lua： 播放音频文件，可支持wav,amr,mp3 格式音频
@@ -13,13 +13,15 @@
 
 3、play_stream: 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
 
-4、record_file: 录音到文件，仅支持PCM 格式
+4、record_amr_file: 录音到文件（AMR格式）
 
-5、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
+5、record_pcm_file: 录音到文件（PCM格式）
 
-6、sample-6s: 用于测试本地mp3文件播放
+6、record_stream:  流式录音，仅支持PCM，可以将音频流不断的拉取，可用来对接大模型
 
-7、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
+7、sample-6s、10.amr: 用于测试本地mp3文件播放
+
+8、test.pcm: 用于测试pcm 流式播放(实际可以云端下载)
 
 
 更多说明参考本目录下的readme.md文件
@@ -37,14 +39,13 @@ VERSION：项目版本号，ascii string类型
 ]]
 
 --[[
-本demo可使用Air780EHM核心板/Air780EGH核心板+AirAUDIO_1010 音频扩展板+喇叭两种硬件环境演示
+本demo可直接在Air780EHM和Air780EGH整机开发板上直接运行
 ]]
 
 PROJECT = "audio"
 VERSION = "001.000.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
 
 
 
@@ -56,28 +57,22 @@ log.info("main", PROJECT, VERSION)
 --     errDump.config(true, 600)
 -- end
 
+
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
--- 方便分析内存使用是否有异常
--- sys.timerLoopStart(function()
---     log.info("mem.lua", rtos.meminfo())
---     log.info("mem.sys", rtos.meminfo("sys"))
--- end, 3000)
-
-
-
-
--- require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
---  require "play_tts"      -- 支持文字转普通话输出需要固件支持
- -- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
-require "record_file"        -- 录音到文件
--- require "record_stream"        -- 流式录音   
-
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常
 sys.timerLoopStart(function()
     log.info("mem.lua", rtos.meminfo())
     log.info("mem.sys", rtos.meminfo("sys"))
- end, 3000)
+end, 3000)
+
+
+require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频
+-- require "play_tts"      -- 支持文字转普通话输出需要固件支持
+-- require "play_stream"        -- 流式播放音频，仅支持PCM 格式，可以将音频推流到云端，用来对接大模型或者流式录音的应用。
+-- require "record_amr_file"        -- 录音到文件（AMR格式）
+-- require "record_pcm_file"        -- 录音到文件（PCM格式）
+-- require "record_stream"        -- 流式录音   
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

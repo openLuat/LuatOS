@@ -1,9 +1,9 @@
 --[[
-@module  record_file
-@summary 录音到文件
-@version 3.0
-@date    2026.01.09
-@author  陈媛媛
+@module  record_amr_file
+@summary 录音到文件（AMR格式）
+@version 1.0
+@date    2026.02.24
+@author  拓毅恒
 @usage
 
 注意：
@@ -27,25 +27,58 @@
   录音时长为5秒，并计时
   录音过程中可以按任意键提前结束
   录音完成后自动播放录音文件
+
+工作流程：
+1. 初始化：挂载SD卡，设置音频硬件参数
+2. 录音：流式录音，按下Power按键实时写入SD卡
+3. 播放：流式播放，按下Boot按键读取文件并播放
+4. 状态管理：互斥控制录音/播放状态
 ]]
 
 local exaudio = require "exaudio"
+
+-- 根据版本号自适应设置dac_delay
+local set_dac_delay = 0
+local version = rtos.version()
+local version_num = 0
+if version then
+    -- 从版本号字符串中提取数字部分
+    local num_str = version:match("V(%d+)")
+    if num_str then
+        version_num = tonumber(num_str)
+    end
+end
+
+if version_num and version_num >= 2026 then
+    -- 固件版本≥V2026，dac_delay单位为100ms
+    set_dac_delay = 6
+else
+    -- 固件版本＜V2026，dac_delay单位为1ms
+    set_dac_delay = 600
+end
+
+-- SD卡配置参数
+local sd_spi_id = 0            -- SPI接口编号
+local sd_cs_pin = 16           -- 片选引脚 核心板cs为8 开发板cs为16 按照自己的硬件选择
+local sd_mount_path = "/sd"    -- SD卡挂载路径
+
+-- 录音文件路径（保存到SD卡）
+local recordPath = sd_mount_path .. "/record.amr"
 
 -- 硬件配置参数
 local audio_setup_param = {
     model = "es8311",          -- 音频编解码芯片类型
     i2c_id = 0,                -- I2C接口编号
-    pa_ctrl = 162,             -- 音频放大器控制引脚
-    dac_ctrl = 164,            -- 音频编解码芯片控制引脚
-    
-    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
-    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
-    
-    bits_per_sample = 16       -- 录音位深
-}
+    pa_ctrl = gpio.AUDIOPA_EN,             -- 音频放大器控制引脚
+    dac_ctrl = 20,            -- 音频编解码芯片控制引脚
 
--- 录音文件路径
-local recordPath = "/record.amr"
+    -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
+    dac_delay = set_dac_delay,            -- DAC启动前冗余时间
+
+    i2s_sample = 16000,         -- I2S采样率
+    bits_per_sample = 16,       -- I2S录音位深
+    i2s_framebit = 16           -- I2S通道位宽
+}
 
 -- 全局状态
 local is_recording = false     -- 是否正在录音
@@ -109,14 +142,32 @@ end
 
 -- ========== 录音相关函数 ==========
 
+-- 停止录音计时
+local function stop_record_timer()
+    if record_timer then
+        sys.timerStop(record_timer)
+        record_timer = nil
+        record_seconds = 0
+    end
+end
+
+-- 停止录音
+local function stop_recording()
+    if is_recording then
+        log.info("停止录音", "已录制:", record_seconds, "秒")
+        exaudio.record_stop()
+        is_recording = false
+        stop_record_timer()
+    end
+end
+
 -- 录音完成回调函数
 local function record_end_callback(event)
     if event == exaudio.RECORD_DONE then
         is_recording = false
-        stop_record_timer()
-        
         local file_size = io.fileSize(recordPath)
-        log.info("录音完成", "时长:", record_seconds, "秒", "大小:", file_size, "字节")
+        log.info("录音完成", "大小:", file_size, "字节")
+        stop_record_timer()
         
         -- 使用定时器延迟500ms后播放录音文件
         sys.timerStart(start_playback, 500)
@@ -141,15 +192,6 @@ end
 local function start_record_timer()
     record_seconds = 0
     record_timer = sys.timerLoopStart(record_timer_callback, 1000)
-end
-
--- 停止录音计时
-local function stop_record_timer()
-    if record_timer then
-        sys.timerStop(record_timer)
-        record_timer = nil
-        record_seconds = 0
-    end
 end
 
 -- 开始录音
@@ -185,16 +227,6 @@ local function start_recording()
     else
         log.error("录音启动失败")
         return false
-    end
-end
-
--- 停止录音
-local function stop_recording()
-    if is_recording then
-        log.info("提前停止录音", "已录制:", record_seconds, "秒")
-        exaudio.record_stop()
-        is_recording = false
-        stop_record_timer()
     end
 end
 
@@ -238,11 +270,56 @@ local function boot_key_handler()
     end
 end
 
+-- ========== SD卡挂载函数 ==========
+
+-- 挂载SD卡
+local function mount_sd_card()
+    log.info("开始挂载SD卡")
+    -- 打开ch390供电脚（使用开发板需要打开此注释）
+    gpio.setup(20, 1, gpio.PULLUP) 
+    --上拉ch390使用spi的cs引脚避免干扰（使用开发板需要打开此注释）
+    gpio.setup(8,1)
+    
+    -- 初始化SPI接口
+    spi.setup(sd_spi_id, nil, 0, 0, 400 * 1000)
+    -- 设置片选引脚为高电平
+    gpio.setup(sd_cs_pin, 1)
+    
+    -- 挂载SD卡，挂载失败时自动格式化
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, sd_mount_path, sd_spi_id, sd_cs_pin, 24 * 1000 * 1000)
+    
+    if mount_ok then
+        log.info("SD卡挂载成功", "挂载路径:", sd_mount_path)
+        
+        -- 获取SD卡空间信息
+        local data, err = fatfs.getfree(sd_mount_path)
+        if data then
+            log.info("SD卡空间信息", json.encode(data))
+        else
+            log.warn("获取SD卡空间信息失败", err)
+        end
+        
+        return true
+    else
+        log.error("SD卡挂载失败", mount_err)
+        return false
+    end
+end
+
 -- ========== 音频主任务 ==========
 
 local function main_audio_task()
 
     log.info("音频系统初始化")
+    
+    -- 先挂载SD卡
+    if not mount_sd_card() then
+        log.error("SD卡挂载失败，录音文件将无法保存到SD卡")
+        -- 如果SD卡挂载失败，使用默认路径
+        recordPath = "/record.pcm"
+    else
+        log.error("SD卡挂载成功！！！")
+    end
     
     if exaudio.setup(audio_setup_param) then
         -- 设置音量
@@ -254,9 +331,9 @@ local function main_audio_task()
         -- 检查是否有录音文件
         if io.exists(recordPath) then
             local file_size = io.fileSize(recordPath)
-            log.info("找到录音文件", "大小:", file_size, "字节")
+            log.info("找到录音文件", "大小:", file_size, "字节", "路径:", recordPath)
         else
-            log.info("无录音文件")
+            log.info("无录音文件", "路径:", recordPath)
         end
         
         log.info("按键功能说明：")
@@ -264,6 +341,7 @@ local function main_audio_task()
         log.info("2. Boot键: 开始/停止播放，停止录音")  
         log.info("3. 录音时长: 5秒，可提前结束")
         log.info("4. 录音完成后自动播放")
+        log.info("5. 录音文件保存到:", recordPath)
     else
         log.error("音频硬件初始化失败")
     end

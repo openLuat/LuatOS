@@ -20,6 +20,10 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
+#ifdef __BK72XX__
+#include "driver/sd_card.h"
+#endif
+
 #define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
 
@@ -39,6 +43,7 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 #endif
 
 static int s_fatfs_fmt = FM_FAT32;
+static int s_fatfs_mode = -1;
 
 /*
 挂载fatfs
@@ -102,6 +107,7 @@ static int fatfs_mount(lua_State *L)
 	const char *mount_point = luaL_optstring(L, 2, "/fatfs");
 
 	int fatfs_mode = luaL_checkinteger(L, 1);
+	s_fatfs_mode = fatfs_mode;
 	FATFS_POWER_PIN = luaL_optinteger(L, 6, 0xff);
 	FATFS_POWER_DELAY = luaL_optinteger(L, 7, 1);
 	if (fatfs_mode == DISK_SPI){
@@ -234,7 +240,7 @@ static int fatfs_mount(lua_State *L)
 @return int 成功返回0, 否则返回失败码
 @usage
 -- 注意, 取消挂载, 在 2025.9.29 之后编译的固件才真正支持
-fatfs.mount("/sd")
+fatfs.unmount("/sd")
 */
 static int fatfs_unmount(lua_State *L) {
 
@@ -249,6 +255,13 @@ static int fatfs_unmount(lua_State *L) {
       luat_fs_umount(&conf);
 #endif
     FRESULT re = f_mount(NULL, "/", 0);
+	// 对于 BK72XX 平台，进一步调用底层 sd 卡 deinit，确保控制器状态清零，下次 init 从 CMD0/CMD8 开始，避免init开头发 CMD12 出现无响应的情况
+#ifdef __BK72XX__
+	if (s_fatfs_mode == DISK_SDIO) {
+		bk_sd_card_deinit();
+	}
+#endif
+	s_fatfs_mode = -1;
 	lua_pushinteger(L, re);
 	return 1;
 }

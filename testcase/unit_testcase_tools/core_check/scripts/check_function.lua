@@ -2,7 +2,8 @@ local check_core = {}
 local model_ec718hm = {"Air780EHM", "Air780EHV", "Air780EGH", "Air780EGG", "Air700ECH"}
 local model_ec718pm = {"Air780EPM", "Air780EGP", "Air700ECP"}
 local A = _G
-
+local rtos_bsp = rtos.bsp()
+local mouble, core_value, _ = rtos.version(true)
 -- 0号版本，所有库都有的table，方便新库的增加时候的检查
 local B = {"lvgl", "cc", "audio.tts", "airtalk", "camera", "codec", "fastlz", "fatfs", "gtfont", "lf", "io",
            "lcd.font_opposansm12_chinese", "audio", "i2s", "ble", "libgnss", "sfud", "yhm27xx", "ymodem", "otp", "adc",
@@ -122,12 +123,12 @@ local A_13 = {"audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont",
               "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
               "sys", "sysplus", "tp", "u8g2", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
-local A_14 = {"airui","ble", "libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto",
+local A_14 = {"airui", "ble",  "fastlz", "fatfs","libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto",
               "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv",
               "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu", "miniz", "mobile", "mqtt",
               "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket",
-              "spi", "string", "sys", "sysplus", "tp",  "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff",
-              "fft", "hzfont", "lf"}
+              "spi", "string", "sys", "sysplus", "tp", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft",
+              "hzfont", "lf"}
 
 local A_size = {
     [1] = {
@@ -194,10 +195,10 @@ local A_size = {
 ---718pm
 
 local B_1 = {"camera", "eink", "tp", "lcd", "u8g2", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump",
-             "i2c", "iconv", "io", "fota", "fskv", "ftp", "gmssl", "gpio","hmeta", "ht1621", "http", "httpsrv", "ioqueue",
-             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv", "onewire", "os",
-             "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string", "sys", "sysplus",
-             "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
+             "i2c", "iconv", "io", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv",
+             "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv",
+             "onewire", "os", "pack", "pins", "pm", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
+             "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff"}
 
 -- 2号固件
 local B_2 = {"camera", "lcd", "u8g2", "protobuf", "adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fskv",
@@ -276,10 +277,15 @@ local C_1 = {"airlink", "fft", "protobuf", "iconv", "rsa", "xxtea", "camera", "f
              "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
              "websocket", "wlan", "zbuff"}
 
-local C_2 = {"airlink", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp", "tp", "crypto",
-             "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io", "iotauth",
-             "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc",
-             "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff"}
+local C_2 = {"airlink", "camera", "fatfs", "fft", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp", "tp",
+             "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
+             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm",
+             "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff"}
+
+local C_4 = {"airlink", "airui", "hzfont", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp", "tp",
+             "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
+             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm",
+             "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff"}
 
 local C_size = {
     [1] = {
@@ -289,7 +295,12 @@ local C_size = {
     [2] = {
         fs_size = 2124,
         script_size = 512
+    },
+    [4] = {
+        fs_size = 1752,
+        script_size = 512
     }
+
 }
 
 local function findMissingElements(aTable, bTable)
@@ -337,8 +348,6 @@ local function getConfigByCore()
     -- 生成对应的表名
     local table_name
     local config_table
-    local mouble, core_value, _ = rtos.version(true)
-    local rtos_bsp = rtos.bsp()
     local core_number = tonumber(core_value) or 1
     local core_num
     local is_ec718hm = false
@@ -430,6 +439,8 @@ local function getConfigByCore()
             config_table = C_1
         elseif table_name == "C_2" then
             config_table = C_2
+        elseif table_name == "C_4" then
+        config_table = C_4
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -443,7 +454,6 @@ end
 
 local function module_size(core_number, is_ec718hm, is_ec718pm)
     log.info("第一步：脚本区/fs区大小是否符合预期")
-    local rtos_bsp = rtos.bsp()
     local expected_fs_size = nil
     local expected_script_size = nil
     local _, total_blocks1, used_blocks1, block_size1 = io.fsstat("/luadb/")
@@ -480,17 +490,57 @@ local function module_size(core_number, is_ec718hm, is_ec718pm)
 
     assert(fs_size == expected_fs_size,
         string.format("%s_%s固件文件系统区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
-            core_value, expected_fs_size, fs_size))
+            core_number, expected_fs_size, fs_size))
 
     assert(script_size == expected_script_size,
         string.format("%s_%s固件脚本区大小不符合预期：理论是 %dKB，实际是 %dKB", rtos_bsp,
-            core_value, expected_script_size, script_size))
+            core_number, expected_script_size, script_size))
     log.info("脚本区/fs区大小符合预期")
-    -- return expected_fs_size, expected_script_size
 end
+
+
+-- 检查是否有多余库
+local function getActualLibs(current_config)
+
+    local actualLibs = {}
+    for _, libName in ipairs(B) do
+        if A[libName] ~= nil then
+            table.insert(actualLibs, libName)
+        end
+    end
+    -- 2. 固件定义的库 和 固件实际包含的库，找出多出来的库
+    local extra_libs = {}
+
+    -- 检查实际库中哪些不在定义的库中
+    for _, actual_lib in ipairs(actualLibs) do
+        local found_in_defined = false
+        for _, defined_lib in ipairs(current_config) do
+            if actual_lib == defined_lib then
+                found_in_defined = true
+                break
+            end
+        end
+
+        if not found_in_defined then
+            table.insert(extra_libs, actual_lib)
+        end
+    end
+
+    if #extra_libs == 0 then
+        log.info(rtos_bsp .. "_" .. core_value .. "固件" .. "要求的所有库都存在")
+    else
+        -- 构建详细的错误信息
+        local extra_msg = rtos_bsp .. "_" .. core_value .. "固件" .. "多余以下" .. #extra_libs .. "个库:\n"
+        for i, element in ipairs(extra_libs) do
+            extra_msg = extra_msg .. "  " .. i .. ". " .. element .. "\n"
+        end
+        assert(false, extra_msg)
+    end
+
+end
+
 function check_core.test_mouble_check()
-    local mouble, core_value, _ = rtos.version(true)
-    local rtos_bsp = rtos.bsp()
+
     -- 获取当前固件的配置表
     local current_config, core_number, config_table_name, is_ec718hm, is_ec718pm = getConfigByCore()
     module_size(core_number, is_ec718hm, is_ec718pm)
@@ -572,6 +622,8 @@ function check_core.test_mouble_check()
         end
 
     end
+     --检查是否有多余库
+    getActualLibs(current_config)
     log.info("✓ 库检查完成")
 end
 return check_core

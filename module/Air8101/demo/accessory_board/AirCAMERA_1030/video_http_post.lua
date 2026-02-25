@@ -10,9 +10,7 @@
 2. 多摄像头轮切录制视频
 3. 摄像头视频 MP4 格式录制与SD卡文件保存
 4. 将拍摄的视频通过httpplus上传到对应服务器
-]]
-
--- 引入excamera库
+]] -- 引入excamera库
 local excamera = require("excamera")
 -- 引入httpplus库
 local httpplus = require("httpplus")
@@ -49,10 +47,10 @@ local function video_capture_func()
         local result, usb_port = sys.waitUntil("ONCE_VIDEO_CAPTURE")
         -- 配置USB摄像头参数表
         local usb_camera_param = {
-            id = camera.USB,     -- 摄像头类型，USB接口
+            id = camera.USB, -- 摄像头类型，USB接口
             sensor_width = 1280, -- 摄像头像素宽度，1280像素
             sensor_height = 720, -- 摄像头像素高度，720像素
-            usb_port = usb_port  -- USB端口号
+            usb_port = usb_port -- USB端口号
         }
         -- 初始化摄像头，传入配置参数
         local result1 = excamera.open(usb_camera_param)
@@ -97,14 +95,14 @@ local function video_capture_func()
                 if code == 200 then
                     log.info("http上传完成，code:", code)
                     log.info("上传成功")
-                    -- 当项目不再需要保存此视频文件时，可以参考下面一行代码，在合适的位置删除视频文件
-                    os.remove(filepath)
                 else
-                    log.info("上传失败，code:",code)
+                    log.info("上传失败，code:", code)
                 end
             else
                 log.error("视频录制失败!")
             end
+            -- 当项目不再需要保存此视频文件时，可以参考下面一行代码，在合适的位置删除视频文件
+            os.remove(filepath)
         else
             log.error("摄像头初始化失败!")
         end

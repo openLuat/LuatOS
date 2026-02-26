@@ -106,6 +106,9 @@ local function vib_fnc()
     gpio.debounce(intPin, 100)
     --设置gpio中断触发方式wakeup2唤醒脚默认为双边沿触发
     gpio.setup(intPin, ind)
+    --下面的操作是因为有效震动模式是根据时间戳进行判断的，当前模块在没联网的情况下，时间戳会从开机时从0依次递增
+    --联网之后获取基站时间，时间戳会从联网时的时间戳开始递增，所以在下列操作主要是为了在没联网前如果触发了有效震动模式，
+    --规避掉时间戳不一致的问题
     while not socket.adapter(socket.dft()) do
         log.warn("mqtt_client_main_task_func", "wait IP_READY", socket.dft())
         -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"

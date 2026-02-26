@@ -360,6 +360,9 @@ target("luatos-lua")
         add_includedirs(luatos .. "components/network/netdrv/include")
         add_files(luatos .. "components/network/netdrv/**.c")
 
+        -- 添加mreport
+        add_files(luatos .. "components/mreport/src/*.c")
+
         -- 添加airlink
         add_includedirs(luatos .. "components/airlink/include")
         add_files(luatos .. "components/airlink/**.c")

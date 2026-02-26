@@ -133,6 +133,7 @@ local active_ths_addr = {0x28, 0x33}    -- 设置激活阈值，灵敏度最高
 -- local active_ths_addr = {0x28, 0xFE}    -- 设置激活阈值，灵敏度最低
 local odr_addr = {0x10, 0x08}           -- 设置采样率 100Hz
 local mode_addr = {0x11, 0x00}          -- 设置正常模式
+local int_config_addr = {0x20, 0x00}    -- 设置中断配置为推挽输出+低电平有效
 local int_latch_addr = {0x21, 0x02}     -- 设置中断锁存
 
 local x_lsb_reg = 0x02 -- X轴LSB寄存器地址
@@ -250,6 +251,8 @@ local function da221_init()
     i2c.send(i2cId, da221Addr, mode_addr, 1)-- 设置模式
     sys.wait(5)
     i2c.send(i2cId, da221Addr, odr_addr, 1)-- 设置采样率
+    sys.wait(5)
+    i2c.send(i2cId, da221Addr, int_config_addr, 1)-- 设置中断配置为推挽输出+低电平有效
     sys.wait(5)
     i2c.send(i2cId, da221Addr, int_latch_addr, 1)-- 设置中断锁存 中断一旦触发将保持，直到手动清除
     sys.wait(5)

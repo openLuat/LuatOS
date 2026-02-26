@@ -355,6 +355,9 @@ void airui_deinit(airui_ctx_t *ctx)
     if (ctx == NULL) {
         return;
     }
+
+    // 释放调试信息数据
+    airui_debug_deinit(ctx);
     
     // 停止并删除 LVGL tick 定时器
     if (g_lv_tick_timer != NULL) {

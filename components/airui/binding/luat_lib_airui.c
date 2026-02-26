@@ -42,6 +42,7 @@ static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
 static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
+static int l_airui_debug(lua_State *L);
 
 // XML 模块声明
 extern int l_airui_xml_init(lua_State *L);
@@ -120,6 +121,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
+    {"debug", ROREG_FUNC(l_airui_debug)},
     {"version", ROREG_FUNC(l_airui_version)},
     // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
     {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
@@ -655,6 +657,52 @@ static int l_airui_font_load(lua_State *L) {
     }
     
     return 0;
+}
+
+/**
+ * 调试开关与状态
+ * @api airui.debug(enable)
+ * @bool enable true 开启，false 关闭
+ * @return bool|table
+ */
+static int l_airui_debug(lua_State *L) {
+    int argc = lua_gettop(L);
+
+    if (argc == 0) {
+        lua_newtable(L);
+
+        lua_pushboolean(L, g_ctx != NULL && g_ctx->debug_enabled);
+        lua_setfield(L, -2, "enabled");
+
+        lua_pushinteger(L, g_ctx != NULL ? g_ctx->debug_last_fps : 0);
+        lua_setfield(L, -2, "fps");
+
+        lua_pushinteger(L, g_ctx != NULL ? g_ctx->debug_last_mem_used_pct : 0);
+        lua_setfield(L, -2, "mem_used_pct");
+
+        lua_pushinteger(L, g_ctx != NULL ? g_ctx->debug_component_count : 0);
+        lua_setfield(L, -2, "component_count");
+
+        return 1;
+    }
+
+    bool enable = lua_toboolean(L, 1);
+
+    if (g_ctx == NULL) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "airui not initialized, call airui.init() first");
+        return 2;
+    }
+
+    int ret = airui_debug_set_enabled(g_ctx, enable);
+    if (ret != AIRUI_OK) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, airui_strerror((airui_err_t)ret));
+        return 2;
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /**

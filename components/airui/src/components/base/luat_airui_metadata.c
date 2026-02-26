@@ -6,7 +6,61 @@
 
 #include "luat_airui_component.h"
 #include "luat_malloc.h"
+#include "lvgl9/src/misc/lv_event.h"
+#include <stdint.h>
 #include <string.h>
+
+#define LUAT_LOG_TAG "airui.meta"
+#include "luat_log.h"
+
+static const char *airui_component_type_name(uint8_t component_type)
+{
+    switch (component_type) {
+        case AIRUI_COMPONENT_BUTTON:
+            return "button";
+        case AIRUI_COMPONENT_LABEL:
+            return "label";
+        case AIRUI_COMPONENT_IMAGE:
+            return "image";
+        case AIRUI_COMPONENT_WIN:
+            return "win";
+        case AIRUI_COMPONENT_DROPDOWN:
+            return "dropdown";
+        case AIRUI_COMPONENT_SWITCH:
+            return "switch";
+        case AIRUI_COMPONENT_MSGBOX:
+            return "msgbox";
+        case AIRUI_COMPONENT_CONTAINER:
+            return "container";
+        case AIRUI_COMPONENT_BAR:
+            return "bar";
+        case AIRUI_COMPONENT_TABLE:
+            return "table";
+        case AIRUI_COMPONENT_TABVIEW:
+            return "tabview";
+        case AIRUI_COMPONENT_TEXTAREA:
+            return "textarea";
+        case AIRUI_COMPONENT_KEYBOARD:
+            return "keyboard";
+        case AIRUI_COMPONENT_LOTTIE:
+            return "lottie";
+        default:
+            return "unknown";
+    }
+}
+
+static void airui_component_meta_delete_event_cb(lv_event_t *e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_DELETE) {
+        return;
+    }
+
+    lv_obj_t *obj = lv_event_get_target(e);
+    airui_component_meta_t *meta = airui_component_meta_get(obj);
+    if (meta != NULL) {
+        airui_component_meta_free(meta);
+    }
+}
 
 /**
  * 分配组件元数据
@@ -43,6 +97,22 @@ airui_component_meta_t *airui_component_meta_alloc(
     
     // 将元数据关联到 LVGL 对象
     lv_obj_set_user_data(obj, meta);
+
+    // 绑定对象删除事件，兜底释放 metadata
+    lv_obj_add_event_cb(obj, airui_component_meta_delete_event_cb, LV_EVENT_DELETE, NULL);
+
+    // 增加组件计数
+    if (ctx->debug_component_count < UINT32_MAX) {
+        ctx->debug_component_count++;
+    }
+
+    // 打印调试信息
+    if (ctx->debug_enabled) {
+        LLOGI("[airui][debug][comp] create type=%s obj=%p count=%u",
+              airui_component_type_name(component_type),
+              obj,
+              (unsigned int)ctx->debug_component_count);
+    }
     
     return meta;
 }
@@ -61,6 +131,20 @@ void airui_component_meta_free(airui_component_meta_t *meta)
     if (meta->ctx != NULL && meta->ctx->L != NULL) {
         extern void airui_component_release_callbacks(airui_component_meta_t *meta, void *L);
         airui_component_release_callbacks(meta, meta->ctx->L);
+    }
+
+    // 减少组件计数
+    if (meta->ctx != NULL) {
+        if (meta->ctx->debug_component_count > 0) {
+            meta->ctx->debug_component_count--;
+        }
+        // 打印调试信息
+        if (meta->ctx->debug_enabled) {
+            LLOGI("[airui][debug][comp] destroy type=%s obj=%p count=%u",
+                  airui_component_type_name(meta->component_type),
+                  meta->obj,
+                  (unsigned int)meta->ctx->debug_component_count);
+        }
     }
     
     // 清除 LVGL 对象的用户数据

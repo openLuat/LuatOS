@@ -71,7 +71,7 @@ local function gnss_fnc()
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把auto_open设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
         -- auto_open=false,
-        -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1秒/次，默认1hz，可选值：1/2/4/5
+        -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1次/秒，默认1hz，可选值：1/2/4/5
         -- hz=1,
     }
     --设置gnss参数
@@ -327,7 +327,7 @@ local function is_agps()
     local now = os.time()
     local agps_time = tonumber(io.readFile("/hxxt_tm") or "0") or 0
     -- if ((not exgnss.opts.agps_tm) and (now - agps_time > 300))  or  now - agps_time > 3600 then
-    if not exgnss.opts.agps_tm  or  now - agps_time > 3600 then
+    if not exgnss.opts.agps_tm  and  now - agps_time > 3600 then
         -- 执行AGPS
         log.info("exgnss.opts", "开始执行AGPS")
         sys.taskInit(agps)

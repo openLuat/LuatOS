@@ -315,6 +315,11 @@ local function autoSampl(uid, t)
             end
             sys.wait(t[1])
         end
+        if dtu.pwrmod=="psm" then
+            sys.timerStart(function()
+                pm.power(pm.WORK_MODE, 3)
+            end,1000)
+        end
     end
 end
 

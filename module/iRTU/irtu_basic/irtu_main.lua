@@ -15,11 +15,11 @@ local irtu_main = {}
 
 local default = require "default"
 -- 加载gnss模块，如果需要GNSS定位功能，请加载此模块
--- local gnss = require "gnss"
+local gnss = require "gnss"
 local driver = require "driver"
 local create = require "create"
 -- 加载audio_config模块，如果需要音频功能，请加载此模块
-local audio_config= require "audio_config"
+-- local audio_config= require "audio_config"
 
 local function irtu_init()
     -- 初始化配置
@@ -29,9 +29,9 @@ local function irtu_init()
     -- 启动服务器
     create.start()
     -- 启动GNSS
-    -- gnss.init()
+    gnss.init()
     -- 启动音频配置
-    audio_config.init()
+    -- audio_config.init()
 end
 sys.taskInit(irtu_init)
 

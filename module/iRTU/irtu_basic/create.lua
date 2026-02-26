@@ -9,15 +9,16 @@
 ]]
 create = {}
 
-libnet = require "libnet"
-dtulib = require "dtulib"
+local libnet = require "libnet"
+local dtulib = require "dtulib"
 
-excloud= require ("excloud")
+local excloud= require ("excloud")
 local lbsLoc = require("lbsLoc")
 local default = require("default")
 local dtu
 local audio_uid="a"
 local audio_cid="a"
+local gps_psm=false
 
 local datalink, defChan = {}, 1
 -- 定时采集任务的参数
@@ -179,7 +180,6 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
                 if data:match("GPSCID_") then
                     -- log.info("是GPS发过来的消息")
                     if data== "GPSCID_"..cid then
-                        -- log.info("匹配CID成功",cid)
                         table.insert(outputSocket, data2)
                         if waitsend==0 then
                             sys_send(dName, socket.EVENT, 0)

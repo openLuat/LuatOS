@@ -95,7 +95,7 @@ local function gnss_fnc()
     local gnssotps={
         gnssmode=1, --1为卫星全定位，2为单北斗
         agps_enable=true,    --是否使用AGPS，开启AGPS后定位速度更快，会访问服务器下载星历，星历时效性为北斗1小时，GPS4小时，默认下载星历的时间为1小时，即一小时内只会下载一次
-        -- debug=true,    --是否输出调试信息
+        debug=true,    --是否输出调试信息
         -- uart=2,    --使用的串口,780EGH和8000默认串口2
         -- uartbaud=115200,    --串口波特率，780EGH和8000默认115200
         -- bind=1, --绑定uart端口进行GNSS数据读取，是否设置串口转发，指定串口号
@@ -105,12 +105,12 @@ local function gnss_fnc()
         ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把auto_open设置成false
         ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
         -- auto_open=false,
-        -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1秒/次，默认1hz，可选值：1/2/4/5
+        -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1次/秒，默认1hz，可选值：1/2/4/5
         -- hz=1,
     }
     exgnss.setup(gnssotps)  --配置GNSS参数
     exgnss.open(exgnss.TIMER,{tag="normal",val=60,cb=normal_cb}) --打开一个60s的TIMERORSUC应用，该模式定位成功关闭
-    sys.timerLoopStart(normal_open,120000)       --每120s开启一次GNSS
+    -- sys.timerLoopStart(normal_open,120000)       --每120s开启一次GNSS
     
 end
 

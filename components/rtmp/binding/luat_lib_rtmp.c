@@ -45,6 +45,7 @@ rtmp:destroy()
 typedef struct {
     rtmp_ctx_t *rtmp;
     int callback_ref;
+    int polling;          /* 1=已启动定时轮询, 0=未启动 */
 } luat_rtmp_userdata_t;
 
 /**
@@ -198,6 +199,9 @@ static int l_rtmp_connect(lua_State *L) {
     return 1;
 }
 
+/* 前向声明 */
+static void t_rtmp_poll(void *arg);
+
 /**
 断开RTMP连接
 @api rtmp:disconnect()
@@ -212,6 +216,12 @@ static int l_rtmp_disconnect(lua_State *L) {
         return 1;
     }
     
+    /* 先停止定时轮询，防止断开后继续访问 */
+    if (ud->polling) {
+        ud->polling = 0;
+        sys_untimeout(t_rtmp_poll, ud->rtmp);
+    }
+    
     int ret = tcpip_callback_with_block(rtmp_disconnect, (void *)ud->rtmp, 0);
     LLOGD("RTMP发起断开连接请求: %s", ret == 0 ? "成功" : "失败");
     lua_pushboolean(L, ret == 0 ? 1 : 0);
@@ -220,6 +230,13 @@ static int l_rtmp_disconnect(lua_State *L) {
 
 static void t_rtmp_poll(void *arg) {
     rtmp_ctx_t *ctx = (rtmp_ctx_t *)arg;
+    if (!ctx || !ctx->user_data) {
+        return; /* 上下文已销毁，不再续注定时器 */
+    }
+    luat_rtmp_userdata_t *ud = (luat_rtmp_userdata_t *)ctx->user_data;
+    if (!ud->polling) {
+        return; /* 已停止，不再续注定时器 */
+    }
     rtmp_poll(ctx);
     sys_timeout(20, t_rtmp_poll, ctx);
 }
@@ -236,7 +253,29 @@ static int l_rtmp_start(lua_State *L) {
     if (!ud || !ud->rtmp) {
         return 0;
     }
-    sys_timeout(20, t_rtmp_poll, ud->rtmp);
+    if (!ud->polling) {
+        ud->polling = 1;
+        sys_timeout(20, t_rtmp_poll, ud->rtmp);
+    }
+    return 0;
+}
+
+/**
+停止RTMP事件轮询
+@api rtmp:stop()
+@return nil 无返回值
+@usage
+rtmp:stop()
+*/
+static int l_rtmp_stop(lua_State *L) {
+    luat_rtmp_userdata_t *ud = (luat_rtmp_userdata_t *)luaL_checkudata(L, 1, "rtmp_ctx");
+    if (!ud || !ud->rtmp) {
+        return 0;
+    }
+    if (ud->polling) {
+        ud->polling = 0;
+        sys_untimeout(t_rtmp_poll, ud->rtmp);
+    }
     return 0;
 }
 
@@ -310,6 +349,12 @@ static int l_rtmp_destroy(lua_State *L) {
         return 0;
     }
     
+    /* 取消定时轮询，防止 UAF */
+    if (ud->polling) {
+        ud->polling = 0;
+        sys_untimeout(t_rtmp_poll, ud->rtmp);
+    }
+    
     if (ud->callback_ref != LUA_NOREF) {
         luaL_unref(L, LUA_REGISTRYINDEX, ud->callback_ref);
         ud->callback_ref = LUA_NOREF;
@@ -325,6 +370,11 @@ static int l_rtmp_destroy(lua_State *L) {
 static int l_rtmp_gc(lua_State *L) {
     luat_rtmp_userdata_t *ud = (luat_rtmp_userdata_t *)luaL_checkudata(L, 1, "rtmp_ctx");
     if (ud && ud->rtmp) {
+        /* 取消定时轮询，防止 UAF */
+        if (ud->polling) {
+            ud->polling = 0;
+            sys_untimeout(t_rtmp_poll, ud->rtmp);
+        }
         if (ud->callback_ref != LUA_NOREF) {
             luaL_unref(L, LUA_REGISTRYINDEX, ud->callback_ref);
         }
@@ -341,6 +391,7 @@ static const rotable_Reg_t reg_rtmp_ctx[] = {
     {"connect",       ROREG_FUNC(l_rtmp_connect)},
     {"disconnect",    ROREG_FUNC(l_rtmp_disconnect)},
     {"start",         ROREG_FUNC(l_rtmp_start)},
+    {"stop",          ROREG_FUNC(l_rtmp_stop)},
     {"getState",      ROREG_FUNC(l_rtmp_get_state)},
     {"getStats",      ROREG_FUNC(l_rtmp_get_stats)},
     {"destroy",       ROREG_FUNC(l_rtmp_destroy)},
@@ -363,7 +414,7 @@ static const rotable_Reg_t reg_rtmp[] = {
     {NULL,                ROREG_INT(0)}
 };
 
-static int _rtmp_struct_newindex(lua_State *L) {
+static int _rtmp_struct_index(lua_State *L) {
 	const rotable_Reg_t* reg = reg_rtmp_ctx;
     const char* key = luaL_checkstring(L, 2);
 	while (1) {
@@ -381,7 +432,7 @@ LUAMOD_API int luaopen_rtmp(lua_State *L) {
     luat_newlib2(L, reg_rtmp);
     
     luaL_newmetatable(L, "rtmp_ctx");
-    lua_pushcfunction(L, _rtmp_struct_newindex);
+    lua_pushcfunction(L, _rtmp_struct_index);
     lua_setfield(L, -2, "__index");
     lua_pop(L, 1);
     

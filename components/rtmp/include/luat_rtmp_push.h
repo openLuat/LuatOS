@@ -122,18 +122,6 @@ typedef enum {
 } nalu_type_t;
 
 /**
- * H.264视频帧标签结构体
- * 用于描述FLV格式中的视频数据帧
- */
-typedef struct {
-    uint8_t frame_type;             /**< 帧类型: 1=关键帧, 2=普通帧 */
-    uint8_t codec_id;               /**< 编码器ID: 7=H.264 */
-    uint32_t cts;                   /**< 时间戳偏移(ms) */
-    uint8_t *data;                  /**< 视频数据指针 */
-    uint32_t len;                   /**< 视频数据长度 */
-} video_tag_t;
-
-/**
  * RTMP推流统计信息结构体
  * 用于查询RTMP连接的实时统计数据
  */

@@ -2,7 +2,7 @@
 @module  tp_drv
 @summary 触摸面板驱动模块，基于tp核心库
 @version 1.0
-@date    2025.12.1
+@date    2026.02.05
 @author  江访
 @usage
 本模块为触摸面板驱动功能模块，主要功能包括：

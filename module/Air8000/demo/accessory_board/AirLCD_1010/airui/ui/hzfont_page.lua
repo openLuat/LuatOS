@@ -1,7 +1,7 @@
 --[[
 @module     hzfont_page
 @summary    矢量字体演示页面
-@version    1.0.0
+@version    1.0
 @date       2026.01.30
 @author     江访
 @usage      本文件是矢量字体的演示页面，展示中文字体的各种用法。
@@ -37,7 +37,7 @@ local function create_demo_container(parent, title, x, y, width, height)
         w = width - 20,
         h = 25,
         color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
 
     return container
@@ -47,7 +47,6 @@ end
 -- 创建UI
 ----------------------------------------------------------------
 function hzfont_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -73,8 +72,8 @@ function hzfont_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
         color = 0xFFFFFF,
-        size = 16,
     })
 
     -- 返回按钮
@@ -85,7 +84,7 @@ function hzfont_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -100,7 +99,6 @@ function hzfont_page.create_ui()
         color = 0xF5F5F5,
     })
 
-    -- 当前y坐标
     local current_y = 10
 
     --------------------------------------------------------------------
@@ -117,7 +115,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 40,
         color = 0x333333,
-        size = 18,
+        font_size = 18,
     })
 
     --------------------------------------------------------------------
@@ -135,7 +133,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 60,
         color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
 
     --------------------------------------------------------------------
@@ -152,7 +150,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 40,
         color = 0x333333,
-        size = 16,
+        font_size = 16,
     })
 
     --------------------------------------------------------------------
@@ -169,7 +167,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 40,
         color = 0x333333,
-        size = 16,
+        font_size = 16,
     })
 
     --------------------------------------------------------------------
@@ -186,7 +184,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 60,
         color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
 
     --------------------------------------------------------------------
@@ -195,7 +193,6 @@ function hzfont_page.create_ui()
     local demo7_container = create_demo_container(scroll_container, "示例6: 字体大小对比", 10, current_y, 300, 120)
     current_y = current_y + 120 + 10
 
-    -- 不同大小的字体示例
     airui.label({
         parent = demo7_container,
         text = "12px - 小号字体",
@@ -204,7 +201,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     airui.label({
@@ -215,7 +212,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0x333333,
-        size = 16,
+        font_size = 16,
     })
 
     airui.label({
@@ -226,7 +223,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0x333333,
-        size = 20,
+        font_size = 20,
     })
 
     --------------------------------------------------------------------
@@ -234,7 +231,6 @@ function hzfont_page.create_ui()
     --------------------------------------------------------------------
     local demo8_container = create_demo_container(scroll_container, "示例7: 字体颜色对比", 10, current_y, 300, 100)
 
-    -- 不同颜色的字体示例
     airui.label({
         parent = demo8_container,
         text = "红色字体",
@@ -243,7 +239,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0xFF0000,
-        size = 16,
+        font_size = 16,
     })
 
     airui.label({
@@ -254,7 +250,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0x00FF00,
-        size = 16,
+        font_size = 16,
     })
 
     airui.label({
@@ -265,7 +261,7 @@ function hzfont_page.create_ui()
         w = 260,
         h = 30,
         color = 0x0000FF,
-        size = 16,
+        font_size = 16,
     })
 
     -- 底部信息
@@ -277,7 +273,7 @@ function hzfont_page.create_ui()
         w = 300,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 end
 

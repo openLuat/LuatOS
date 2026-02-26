@@ -1,8 +1,8 @@
 --[[
 @module  game_page
 @summary 俄罗斯方块游戏演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是俄罗斯方块游戏的演示页面。

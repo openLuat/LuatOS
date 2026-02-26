@@ -1,8 +1,8 @@
 --[[
 @module  switch_page
 @summary 开关组件演示页面
-@version 2.0.0
-@date    2026.01.30
+@version 1.0.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件展示开关组件的基本用法和常见场景。
@@ -15,7 +15,6 @@ local main_container = nil
 
 -- 创建UI
 function switch_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -42,6 +41,7 @@ function switch_page.create_ui()
         w = 200,
         h = 20,
         font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -52,8 +52,7 @@ function switch_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        radius = 5,
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -67,7 +66,6 @@ function switch_page.create_ui()
         h = 430,
         color = 0xF5F5F5,
     })
-
 
     airui.label({
         parent = main_container,
@@ -88,8 +86,8 @@ function switch_page.create_ui()
         w = 50,
         h = 25,
         checked = true,
-        on_change = function(state)
-            log.info("WiFi", state and "开启" or "关闭")
+        on_change = function(self)
+            log.info("WiFi", self:get_state() and "开启" or "关闭")
         end
     })
 
@@ -100,6 +98,7 @@ function switch_page.create_ui()
         y = 92,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     local switch_bluetooth = airui.switch({
@@ -109,8 +108,8 @@ function switch_page.create_ui()
         w = 50,
         h = 25,
         checked = false,
-        on_change = function(state)
-            log.info("蓝牙", state and "开启" or "关闭")
+        on_change = function(self)
+            log.info("蓝牙", self:get_state() and "开启" or "关闭")
         end
     })
 
@@ -121,6 +120,7 @@ function switch_page.create_ui()
         y = 92,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     -- 第二行
@@ -131,8 +131,8 @@ function switch_page.create_ui()
         w = 50,
         h = 25,
         checked = false,
-        on_change = function(state)
-            log.info("移动数据", state and "开启" or "关闭")
+        on_change = function(self)
+            log.info("移动数据", self:get_state() and "开启" or "关闭")
         end
     })
 
@@ -143,6 +143,7 @@ function switch_page.create_ui()
         y = 137,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     local switch_gps = airui.switch({
@@ -152,8 +153,8 @@ function switch_page.create_ui()
         w = 50,
         h = 25,
         checked = true,
-        on_change = function(state)
-            log.info("GPS", state and "开启" or "关闭")
+        on_change = function(self)
+            log.info("GPS", self:get_state() and "开启" or "关闭")
         end
     })
 
@@ -164,6 +165,7 @@ function switch_page.create_ui()
         y = 137,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     -- 底部提示

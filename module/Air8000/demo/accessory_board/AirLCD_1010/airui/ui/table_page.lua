@@ -1,8 +1,8 @@
 --[[
 @module  table_page
 @summary 表格组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是表格组件的演示页面，展示表格的各种用法。
@@ -16,7 +16,6 @@ local update_timer
 
 -- 创建UI
 function table_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -42,6 +41,8 @@ function table_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -52,7 +53,7 @@ function table_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -75,6 +76,7 @@ function table_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local basic_table = airui.table({
@@ -89,12 +91,10 @@ function table_page.create_ui()
         border_color = 0x607D8B,
     })
 
-    -- 设置表头
     basic_table:set_cell_text(0, 0, "姓名")
     basic_table:set_cell_text(0, 1, "年龄")
     basic_table:set_cell_text(0, 2, "城市")
 
-    -- 设置数据
     basic_table:set_cell_text(1, 0, "张三")
     basic_table:set_cell_text(1, 1, "25")
     basic_table:set_cell_text(1, 2, "北京")
@@ -115,6 +115,7 @@ function table_page.create_ui()
         y = 180,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local color_table = airui.table({
@@ -136,7 +137,6 @@ function table_page.create_ui()
     color_table:set_cell_text(2, 0, "电脑")
     color_table:set_cell_text(2, 1, "￥5999")
 
-    -- 颜色选择按钮
     local color_btn1 = airui.button({
         parent = scroll_container,
         x = 20,
@@ -144,7 +144,7 @@ function table_page.create_ui()
         w = 70,
         h = 30,
         text = "红色",
-        on_click = function()
+        on_click = function(self)
             color_table:set_border_color(0xF44336)
         end
     })
@@ -156,7 +156,7 @@ function table_page.create_ui()
         w = 70,
         h = 30,
         text = "蓝色",
-        on_click = function()
+        on_click = function(self)
             color_table:set_border_color(0x2196F3)
         end
     })
@@ -168,7 +168,7 @@ function table_page.create_ui()
         w = 70,
         h = 30,
         text = "绿色",
-        on_click = function()
+        on_click = function(self)
             color_table:set_border_color(0x4CAF50)
         end
     })
@@ -181,6 +181,7 @@ function table_page.create_ui()
         y = 370,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local dynamic_table = airui.table({
@@ -199,18 +200,17 @@ function table_page.create_ui()
     dynamic_table:set_cell_text(0, 1, "温度")
     dynamic_table:set_cell_text(0, 2, "湿度")
 
-    -- 动态更新数据
     local update_counter = 0
     update_timer = sys.timerLoopStart(function()
         update_counter = update_counter + 1
         local time_str = os.date("%H:%M:%S")
         local temp = math.random(20, 30)
         local humidity = math.random(40, 80)
-        
+
         dynamic_table:set_cell_text(1, 0, time_str)
         dynamic_table:set_cell_text(1, 1, temp .. "°C")
         dynamic_table:set_cell_text(1, 2, humidity .. "%")
-        
+
         if update_counter % 2 == 0 then
             dynamic_table:set_cell_text(2, 0, "上次更新")
             dynamic_table:set_cell_text(2, 1, temp .. "°C")
@@ -218,7 +218,6 @@ function table_page.create_ui()
         end
     end, 1000)
 
-    -- 控制按钮
     local stop_btn = airui.button({
         parent = scroll_container,
         x = 20,
@@ -230,23 +229,25 @@ function table_page.create_ui()
             if update_timer then
                 sys.timerStop(update_timer)
                 update_timer = nil
+                self:set_text("开始更新")
             else
                 update_timer = sys.timerLoopStart(function()
                     update_counter = update_counter + 1
                     local time_str = os.date("%H:%M:%S")
                     local temp = math.random(20, 30)
                     local humidity = math.random(40, 80)
-                    
+
                     dynamic_table:set_cell_text(1, 0, time_str)
                     dynamic_table:set_cell_text(1, 1, temp .. "°C")
                     dynamic_table:set_cell_text(1, 2, humidity .. "%")
-                    
+
                     if update_counter % 2 == 0 then
                         dynamic_table:set_cell_text(2, 0, "上次更新")
                         dynamic_table:set_cell_text(2, 1, temp .. "°C")
                         dynamic_table:set_cell_text(2, 2, humidity .. "%")
                     end
                 end, 1000)
+                self:set_text("停止更新")
             end
         end
     })
@@ -259,6 +260,7 @@ function table_page.create_ui()
         y = 560,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local resize_table = airui.table({
@@ -282,7 +284,6 @@ function table_page.create_ui()
     resize_table:set_cell_text(1, 2, "78")
     resize_table:set_cell_text(1, 3, "255")
 
-    -- 列宽调整按钮
     local resize_btn1 = airui.button({
         parent = scroll_container,
         x = 20,
@@ -290,7 +291,7 @@ function table_page.create_ui()
         w = 60,
         h = 30,
         text = "窄列",
-        on_click = function()
+        on_click = function(self)
             resize_table:set_col_width(0, 40)
             resize_table:set_col_width(1, 40)
             resize_table:set_col_width(2, 40)
@@ -305,7 +306,7 @@ function table_page.create_ui()
         w = 60,
         h = 30,
         text = "中列",
-        on_click = function()
+        on_click = function(self)
             resize_table:set_col_width(0, 60)
             resize_table:set_col_width(1, 60)
             resize_table:set_col_width(2, 60)
@@ -320,7 +321,7 @@ function table_page.create_ui()
         w = 60,
         h = 30,
         text = "宽列",
-        on_click = function()
+        on_click = function(self)
             resize_table:set_col_width(0, 80)
             resize_table:set_col_width(1, 80)
             resize_table:set_col_width(2, 80)
@@ -336,6 +337,7 @@ function table_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 
@@ -347,7 +349,10 @@ end
 
 -- 清理页面
 function table_page.cleanup()
-    sys.timerStop(update_timer)
+    if update_timer then
+        sys.timerStop(update_timer)
+        update_timer = nil
+    end
     if main_container then
         main_container:destroy()
         main_container = nil

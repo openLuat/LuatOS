@@ -1,8 +1,8 @@
 --[[
 @module  button_page
 @summary 按钮组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是按钮组件的演示页面，展示按钮的各种用法。
@@ -12,7 +12,6 @@ local button_page = {}
 
 -- 页面UI元素
 local main_container = nil
-local click_count = 0
 
 -- 创建UI
 function button_page.create_ui()
@@ -42,6 +41,8 @@ function button_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -52,7 +53,7 @@ function button_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -75,6 +76,7 @@ function button_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local basic_btn = airui.button({
@@ -84,9 +86,8 @@ function button_page.create_ui()
         w = 120,
         h = 40,
         text = "点击我",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "基本按钮被点击")
-            click_count = click_count + 1
         end
     })
 
@@ -98,6 +99,7 @@ function button_page.create_ui()
         y = 100,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local small_btn = airui.button({
@@ -107,7 +109,7 @@ function button_page.create_ui()
         w = 80,
         h = 30,
         text = "小按钮",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "小按钮被点击")
         end
     })
@@ -119,7 +121,7 @@ function button_page.create_ui()
         w = 180,
         h = 40,
         text = "大按钮",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "大按钮被点击")
         end
     })
@@ -132,6 +134,7 @@ function button_page.create_ui()
         y = 190,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local click_count = 0
@@ -141,11 +144,11 @@ function button_page.create_ui()
         y = 220,
         w = 140,
         h = 40,
-        text = "点击计数",
-        on_click = function()
-            log.info("点击计数:"..click_count)
+        text = "点击计数: 0",
+        on_click = function(self)
             click_count = click_count + 1
-            dynamic_label:set_symbol("点击计数: "..click_count)
+            self:set_text("点击计数: " .. click_count)   -- v1.0.3 使用 self
+            dynamic_label:set_text("示例3: 动态更新文本")
         end
     })
 
@@ -157,6 +160,7 @@ function button_page.create_ui()
         y = 280,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local btn_container = airui.container({
@@ -176,7 +180,7 @@ function button_page.create_ui()
         w = 80,
         h = 40,
         text = "选项1",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "选项1被选中")
         end
     })
@@ -188,7 +192,7 @@ function button_page.create_ui()
         w = 80,
         h = 40,
         text = "选项2",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "选项2被选中")
         end
     })
@@ -200,12 +204,12 @@ function button_page.create_ui()
         w = 80,
         h = 40,
         text = "选项3",
-        on_click = function()
+        on_click = function(self)
             log.info("button", "选项3被选中")
         end
     })
 
-    -- 示例5: 禁用/启用按钮
+    -- 示例5: 销毁按钮
     airui.label({
         parent = scroll_container,
         text = "示例5: 销毁按钮",
@@ -213,6 +217,7 @@ function button_page.create_ui()
         y = 390,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local toggle_btn = airui.button({
@@ -234,7 +239,7 @@ function button_page.create_ui()
         w = 120,
         h = 40,
         text = "销毁可点击",
-        on_click = function()
+        on_click = function(self)
             toggle_btn:destroy()
             log.info("button", "已销毁可点击按钮")
         end
@@ -248,12 +253,12 @@ function button_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 
 -- 初始化页面
 function button_page.init(params)
-    click_count = 0
     button_page.create_ui()
 end
 

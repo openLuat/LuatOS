@@ -1,8 +1,8 @@
 --[[
 @module  label_page
 @summary 标签组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是标签组件的演示页面，展示标签的各种用法。
@@ -16,7 +16,6 @@ local current_font = nil
 
 -- 创建UI
 function label_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -42,6 +41,8 @@ function label_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -52,7 +53,7 @@ function label_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -75,6 +76,7 @@ function label_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local label1 = airui.label({
@@ -83,10 +85,11 @@ function label_page.create_ui()
         x = 20,
         y = 40,
         w = 280,
-        h = 30
+        h = 30,
+        font_size = 14,
     })
 
-    -- 示例2: 图标标签
+    -- 示例2: 图标标签（使用符号）
     airui.label({
         parent = scroll_container,
         text = "示例2: 图标标签",
@@ -94,15 +97,17 @@ function label_page.create_ui()
         y = 80,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local icon_label = airui.label({
         parent = scroll_container,
-        symbol = airui.SYMBOL_SETTINGS,
+        symbol = airui.SYMBOL_SETTINGS,                     -- 使用符号字符串
         x = 20,
         y = 115,
         w = 40,
         h = 40,
+        font_size = 24,
         on_click = function(self)
             log.info("label", "图标标签被点击")
         end
@@ -112,9 +117,10 @@ function label_page.create_ui()
         parent = scroll_container,
         text = "点击图标",
         x = 70,
-        y = 115,
+        y = 120,
         w = 100,
         h = 30,
+        font_size = 14,
     })
 
     -- 示例3: 动态更新文本
@@ -125,6 +131,7 @@ function label_page.create_ui()
         y = 160,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local dynamic_label = airui.label({
@@ -134,6 +141,7 @@ function label_page.create_ui()
         y = 190,
         w = 200,
         h = 30,
+        font_size = 14,
     })
 
     local update_btn = airui.button({
@@ -143,7 +151,7 @@ function label_page.create_ui()
         w = 70,
         h = 40,
         text = "更新",
-        on_click = function()
+        on_click = function(self)
             local current_time = os.date("%H:%M:%S")
             dynamic_label:set_text("时间: " .. current_time)
         end
@@ -157,6 +165,7 @@ function label_page.create_ui()
         y = 240,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local multiline_label = airui.label({
@@ -166,18 +175,52 @@ function label_page.create_ui()
         y = 270,
         w = 280,
         h = 60,
+        font_size = 14,
     })
 
-    -- 示例5: 不同字体大小
+    -- 示例5: 不同字体大小和颜色
     airui.label({
         parent = scroll_container,
-        text = "示例5: 不同字体大小和颜色:待更新接口",
+        text = "示例5: 不同字体大小和颜色",
         x = 10,
-        y = 340,
+        y = 330,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
+    local size_label1 = airui.label({
+        parent = scroll_container,
+        text = "12px 红色",
+        x = 20,
+        y = 360,
+        w = 100,
+        h = 30,
+        font_size = 12,
+        color = 0xFF0000,
+    })
+
+    local size_label2 = airui.label({
+        parent = scroll_container,
+        text = "16px 绿色",
+        x = 130,
+        y = 360,
+        w = 100,
+        h = 30,
+        font_size = 16,
+        color = 0x00FF00,
+    })
+
+    local size_label3 = airui.label({
+        parent = scroll_container,
+        text = "20px 蓝色",
+        x = 240,
+        y = 360,
+        w = 60,
+        h = 50,
+        font_size = 20,
+        color = 0x0000FF,
+    })
 
     -- 底部信息
     airui.label({
@@ -187,6 +230,7 @@ function label_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 

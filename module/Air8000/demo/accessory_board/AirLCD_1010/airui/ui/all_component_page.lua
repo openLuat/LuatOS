@@ -1,8 +1,8 @@
 --[[
 @module  all_component_page
 @summary 所有组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是所有组件的综合演示页面，展示AirUI所有组件的用法。
@@ -22,6 +22,7 @@ function all_component_page.create_ui()
         w = 320,
         h = 480,
         color = 0xF5F5F5,
+        color_opacity = 255,   -- v1.0.3 新增
     })
 
     -- 标题栏
@@ -41,6 +42,8 @@ function all_component_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,         -- v1.0.1 改为 font_size
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -51,7 +54,7 @@ function all_component_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)   -- v1.0.3 支持 self 参数
             go_back()
         end
     })
@@ -77,6 +80,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_label = airui.label({
@@ -86,8 +90,9 @@ function all_component_page.create_ui()
         y = y_offset + 30,
         w = 120,
         h = 30,
-        on_click = function()
-            demo_label:set_text("标签被点击")
+        font_size = 14,
+        on_click = function(self)
+            self:set_text("标签被点击")   -- v1.0.3 使用 self
         end
     })
 
@@ -101,6 +106,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_button = airui.button({
@@ -110,7 +116,7 @@ function all_component_page.create_ui()
         w = 100,
         h = 40,
         text = "点击我",
-        on_click = function()
+        on_click = function(self)
             log.info("all_component", "按钮被点击")
         end
     })
@@ -125,6 +131,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_container = airui.container({
@@ -144,6 +151,7 @@ function all_component_page.create_ui()
         y = 20,
         w = 120,
         h = 20,
+        font_size = 14,
     })
 
     y_offset = y_offset + 100
@@ -156,6 +164,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_bar = airui.bar({
@@ -166,6 +175,8 @@ function all_component_page.create_ui()
         h = 20,
         value = 65,
         indicator_color = 0x4CAF50,
+        show_progress_text = true,           -- v1.0.3 新增
+        progress_text_format = "%d%%",       -- v1.0.3 新增
     })
 
     y_offset = y_offset + 60
@@ -178,6 +189,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_switch = airui.switch({
@@ -187,8 +199,8 @@ function all_component_page.create_ui()
         w = 60,
         h = 30,
         checked = true,
-        on_change = function(state)
-            log.info("all_component", "开关状态: " .. tostring(state))
+        on_change = function(self)           -- v1.0.3 回调参数为 self
+            log.info("all_component", "开关状态: " .. tostring(self:get_state()))
         end
     })
 
@@ -202,6 +214,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_dropdown = airui.dropdown({
@@ -212,7 +225,7 @@ function all_component_page.create_ui()
         h = 35,
         options = { "选项1", "选项2", "选项3" },
         default_index = 0,
-        on_change = function(idx)
+        on_change = function(idx)   -- 回调参数为索引（0起始）
             log.info("all_component", "选择了选项: " .. (idx + 1))
         end
     })
@@ -227,6 +240,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_table = airui.table({
@@ -258,6 +272,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_textarea = airui.textarea({
@@ -268,17 +283,14 @@ function all_component_page.create_ui()
         h = 60,
         placeholder = "请输入文本...",
         max_len = 50,
-    })
-
-    -- 创建键盘
-        local keyboard1 = airui.keyboard({
-        x = 0,
-        y = -10,
-        w = 320,
-        h = 200,
-        mode = "text",
-        target = demo_textarea,
-        auto_hide = true,
+        keyboard = {                -- v1.0.3 内嵌键盘配置
+            x = 0,
+            y = 480 - 200,          -- 放置在屏幕底部
+            w = 320,
+            h = 200,
+            mode = "text",
+            auto_hide = true,
+        },
     })
 
     y_offset = y_offset + 100
@@ -291,6 +303,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_msgbox_btn = airui.button({
@@ -300,7 +313,7 @@ function all_component_page.create_ui()
         w = 120,
         h = 40,
         text = "显示消息",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 text = "这是一个消息框",
                 buttons = { "确定" },
@@ -309,7 +322,6 @@ function all_component_page.create_ui()
                         self:hide()
                     end
                 end
-
             })
             msg:show()
         end
@@ -325,6 +337,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     -- 假设有图片文件
@@ -335,7 +348,7 @@ function all_component_page.create_ui()
         w = 80,
         h = 80,
         src = "/luadb/logo.jpg",
-        on_click = function()
+        on_click = function(self)
             log.info("all_component", "图片被点击")
         end
     })
@@ -350,6 +363,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_tabview = airui.tabview({
@@ -372,6 +386,7 @@ function all_component_page.create_ui()
             y = 20,
             w = 240,
             h = 30,
+            font_size = 14,
         })
     end
 
@@ -385,6 +400,7 @@ function all_component_page.create_ui()
         y = y_offset,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local demo_window_btn = airui.button({
@@ -394,7 +410,7 @@ function all_component_page.create_ui()
         w = 120,
         h = 40,
         text = "打开窗口",
-        on_click = function()
+        on_click = function(self)
             local win = airui.win({
                 parent = airui.screen,
                 title = "演示窗口",
@@ -403,9 +419,8 @@ function all_component_page.create_ui()
                 w = 200,
                 h = 250,
                 close_btn = true,
-                on_close = function(self)
-                    log.info("all_component", "窗口关闭")
-                end
+                auto_center = false,
+                -- on_close 在 v1.0.3 无效，v1.0.4 修复
             })
 
             win:add_content(airui.label({
@@ -414,6 +429,7 @@ function all_component_page.create_ui()
                 y = 20,
                 w = 160,
                 h = 30,
+                font_size = 14,
             }))
 
             win:add_content(airui.button({
@@ -422,7 +438,7 @@ function all_component_page.create_ui()
                 y = 70,
                 w = 80,
                 h = 40,
-                on_click = function()
+                on_click = function(self)
                     win:close()
                 end
             }))
@@ -439,6 +455,7 @@ function all_component_page.create_ui()
         y = y_offset + 20,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     -- 交互提示
@@ -449,6 +466,7 @@ function all_component_page.create_ui()
         y = y_offset + 50,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     -- 组件计数
@@ -460,6 +478,7 @@ function all_component_page.create_ui()
         y = y_offset + 80,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     -- 底部信息
@@ -470,6 +489,7 @@ function all_component_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 

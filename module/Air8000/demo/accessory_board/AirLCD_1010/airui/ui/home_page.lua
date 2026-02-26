@@ -1,8 +1,8 @@
 --[[
 @module  home_page
 @summary AirUI演示系统主页
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是AirUI演示系统的主页，提供所有功能演示的入口。
@@ -17,22 +17,22 @@ local scroll_container = nil
 -- 演示模块列表
 local demos = {
     -- AirUI组件演示
-    {name = "所有组件演示", icon = airui.AIRUI_SYMBOL_OK, page = "all_component", color = 0x007AFF},
-    {name = "标签组件", icon = airui.AIRUI_SYMBOL_REFRESH, page = "label", color = 0x4CAF50},
-    {name = "按钮组件", icon = airui.AIRUI_SYMBOL_LOOP, page = "button", color = 0xF44336},
-    {name = "容器组件", icon = airui.AIRUI_SYMBOL_SD_CARD, page = "container", color = 0xFF9800},
-    {name = "进度条组件", icon = airui.AIRUI_SYMBOL_SHUFFLE, page = "bar", color = 0x9C27B0},
-    {name = "开关组件", icon = airui.AIRUI_SYMBOL_COPY, page = "switch", color = 0x00BCD4},
-    {name = "下拉框组件", icon = airui.AIRUI_SYMBOL_DOWN, page = "dropdown", color = 0x795548},
-    {name = "表格组件", icon = airui.AIRUI_SYMBOL_LIST, page = "table", color = 0x607D8B},
-    {name = "输入框组件", icon = airui.AIRUI_SYMBOL_EDIT, page = "input", color = 0x3F51B5},
-    {name = "消息框组件", icon = airui.AIRUI_SYMBOL_CALL, page = "msgbox", color = 0xE91E63},
-    {name = "图片组件", icon = airui.AIRUI_SYMBOL_IMAGE, page = "image", color = 0x8BC34A},
-    {name = "选项卡组件", icon = airui.AIRUI_SYMBOL_PASTE, page = "tabview", color = 0xFF5722},
-    {name = "窗口组件", icon = airui.AIRUI_SYMBOL_BELL, page = "win", color = 0x009688},
-    {name = "页面切换演示", icon = airui.AIRUI_SYMBOL_LEFT, page = "switch_page_demo", color = 0x673AB7},
-    {name = "矢量字体演示", icon = airui.AIRUI_SYMBOL_EYE_OPEN, page = "hzfont", color = 0x2196F3},
-    {name = "俄罗斯方块游戏", icon = airui.AIRUI_SYMBOL_WARNING, page = "game", color = 0xFF4081},
+    {name = "所有组件演示", icon = airui.SYMBOL_OK, page = "all_component", color = 0x007AFF},
+    {name = "标签组件", icon = airui.SYMBOL_REFRESH, page = "label", color = 0x4CAF50},
+    {name = "按钮组件", icon = airui.SYMBOL_LOOP, page = "button", color = 0xF44336},
+    {name = "容器组件", icon = airui.SYMBOL_SD_CARD, page = "container", color = 0xFF9800},
+    {name = "进度条组件", icon = airui.SYMBOL_SHUFFLE, page = "bar", color = 0x9C27B0},
+    {name = "开关组件", icon = airui.SYMBOL_COPY, page = "switch", color = 0x00BCD4},
+    {name = "下拉框组件", icon = airui.SYMBOL_DOWN, page = "dropdown", color = 0x795548},
+    {name = "表格组件", icon = airui.SYMBOL_LIST, page = "table", color = 0x607D8B},
+    {name = "输入框组件", icon = airui.SYMBOL_EDIT, page = "input", color = 0x3F51B5},
+    {name = "消息框组件", icon = airui.SYMBOL_CALL, page = "msgbox", color = 0xE91E63},
+    {name = "图片组件", icon = airui.SYMBOL_IMAGE, page = "image", color = 0x8BC34A},
+    {name = "选项卡组件", icon = airui.SYMBOL_PASTE, page = "tabview", color = 0xFF5722},
+    {name = "窗口组件", icon = airui.SYMBOL_BELL, page = "win", color = 0x009688},
+    {name = "页面切换演示", icon = airui.SYMBOL_LEFT, page = "switch_page_demo", color = 0x673AB7},
+    {name = "矢量字体演示", icon = airui.SYMBOL_EYE_OPEN, page = "hzfont", color = 0x2196F3},
+    {name = "俄罗斯方块游戏", icon = airui.SYMBOL_WARNING, page = "game", color = 0xFF4081},
 }
 
 -- 创建主页UI
@@ -135,7 +135,7 @@ function home_page.create_ui()
 
     airui.label({
         parent = status_bar,
-        text = string.format("共%d个演示 - AirUI v1.0.0", #demos),
+        text = string.format("共%d个演示 - AirUI v1.0.3", #demos),
         x = 10,
         y = 12,
         w = 300,

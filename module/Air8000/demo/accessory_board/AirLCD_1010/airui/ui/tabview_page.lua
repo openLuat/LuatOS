@@ -1,7 +1,7 @@
 --[[
 @module     tabview_page
 @summary    选项卡组件演示页面
-@version    1.0.0
+@version    1.0
 @date       2026.01.30
 @author     江访
 @usage      本文件是选项卡组件的演示页面，展示选项卡的各种用法。
@@ -18,7 +18,6 @@ local main_container = nil
 -- 创建UI
 ----------------------------------------------------------------
 function tabview_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -44,8 +43,8 @@ function tabview_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
         color = 0xFFFFFF,
-        size = 16,
     })
 
     -- 返回按钮
@@ -56,7 +55,7 @@ function tabview_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -71,7 +70,6 @@ function tabview_page.create_ui()
         color = 0xF5F5F5,
     })
 
-    -- 当前y坐标
     local current_y = 10
 
     --------------------------------------------------------------------
@@ -84,8 +82,7 @@ function tabview_page.create_ui()
         y = current_y,
         w = 300,
         h = 20,
-        color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
     current_y = current_y + 25
 
@@ -100,7 +97,6 @@ function tabview_page.create_ui()
     })
     current_y = current_y + 180 + 10
 
-    -- 获取各个页面的内容并添加组件
     local tab1_content = basic_tabview:get_content(0)
     if tab1_content then
         airui.label({
@@ -110,8 +106,7 @@ function tabview_page.create_ui()
             y = 20,
             w = 240,
             h = 30,
-            color = 0x333333,
-            size = 14,
+            font_size = 14,
         })
 
         local home_info = airui.label({
@@ -121,8 +116,8 @@ function tabview_page.create_ui()
             y = 60,
             w = 240,
             h = 30,
+            font_size = 12,
             color = 0x666666,
-            size = 12,
         })
     end
 
@@ -135,8 +130,7 @@ function tabview_page.create_ui()
             y = 20,
             w = 240,
             h = 30,
-            color = 0x333333,
-            size = 14,
+            font_size = 14,
         })
 
         local msg_btn = airui.button({
@@ -146,7 +140,7 @@ function tabview_page.create_ui()
             w = 100,
             h = 40,
             text = "新消息",
-            on_click = function()
+            on_click = function(self)
                 log.info("tabview", "新消息按钮被点击")
                 local msg = airui.msgbox({
                     text = "收到新消息",
@@ -170,8 +164,7 @@ function tabview_page.create_ui()
             y = 20,
             w = 240,
             h = 30,
-            color = 0x333333,
-            size = 14,
+            font_size = 14,
         })
 
         local setting_switch = airui.switch({
@@ -181,9 +174,9 @@ function tabview_page.create_ui()
             w = 60,
             h = 30,
             checked = true,
-            on_change = function(state)
-                log.info("tabview", "设置开关: " .. tostring(state))
-                local status = state and "开启" or "关闭"
+            on_change = function(self)
+                log.info("tabview", "设置开关: " .. tostring(self:get_state()))
+                local status = self:get_state() and "开启" or "关闭"
                 local msg = airui.msgbox({
                     text = "通知已" .. status,
                     buttons = { "确定" },
@@ -203,8 +196,7 @@ function tabview_page.create_ui()
             y = 65,
             w = 100,
             h = 20,
-            color = 0x333333,
-            size = 12,
+            font_size = 12,
         })
     end
 
@@ -218,8 +210,7 @@ function tabview_page.create_ui()
         y = current_y,
         w = 300,
         h = 20,
-        color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
     current_y = current_y + 25
 
@@ -241,11 +232,9 @@ function tabview_page.create_ui()
         y = 10,
         w = 240,
         h = 20,
-        color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
-    -- 在容器内创建嵌套的选项卡
     local inner_tabview = airui.tabview({
         parent = nested_container,
         x = 10,
@@ -256,7 +245,6 @@ function tabview_page.create_ui()
         active = 0,
     })
 
-    -- 获取子页面内容
     local inner_content1 = inner_tabview:get_content(0)
     if inner_content1 then
         airui.label({
@@ -266,8 +254,7 @@ function tabview_page.create_ui()
             y = 20,
             w = 220,
             h = 30,
-            color = 0x333333,
-            size = 12,
+            font_size = 12,
         })
     end
 
@@ -280,11 +267,9 @@ function tabview_page.create_ui()
             y = 20,
             w = 220,
             h = 30,
-            color = 0x333333,
-            size = 12,
+            font_size = 12,
         })
     end
-
 
     --------------------------------------------------------------------
     -- 示例3: 多选项卡演示
@@ -296,8 +281,7 @@ function tabview_page.create_ui()
         y = current_y,
         w = 300,
         h = 20,
-        color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
     current_y = current_y + 25
 
@@ -312,7 +296,6 @@ function tabview_page.create_ui()
     })
     current_y = current_y + 150 + 10
 
-    -- 为每个标签页添加内容
     for i = 0, 3 do
         local tab_content = multi_tabview:get_content(i)
         if tab_content then
@@ -323,8 +306,7 @@ function tabview_page.create_ui()
                 y = 20,
                 w = 240,
                 h = 30,
-                color = 0x333333,
-                size = 12,
+                font_size = 12,
             })
         end
     end

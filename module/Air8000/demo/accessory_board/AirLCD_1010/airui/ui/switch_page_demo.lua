@@ -1,15 +1,15 @@
 --[[
 @module  switch_page_demo
 @summary 页面切换演示
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是页面切换的演示，展示多个子页面之间的切换。
 ]]
 
 local switch_page_demo = {}
-local tab_buttons = {} -- 存储选项卡按钮的引用
+local tab_buttons = {}
 
 -- 页面UI元素
 local main_container = nil
@@ -21,7 +21,6 @@ local auto_update_timer
 
 -- 创建UI
 function switch_page_demo.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -47,6 +46,8 @@ function switch_page_demo.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -57,7 +58,7 @@ function switch_page_demo.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -101,6 +102,7 @@ function switch_page_demo.create_ui()
             y = 50,
             w = 120,
             h = 40,
+            font_size = 16,
         })
 
         airui.label({
@@ -110,6 +112,7 @@ function switch_page_demo.create_ui()
             y = 100,
             w = 200,
             h = 30,
+            font_size = 14,
         })
 
         airui.label({
@@ -119,6 +122,7 @@ function switch_page_demo.create_ui()
             y = 140,
             w = 200,
             h = 30,
+            font_size = 14,
         })
 
         -- 子页面2: 信息页面
@@ -138,6 +142,7 @@ function switch_page_demo.create_ui()
             y = 50,
             w = 120,
             h = 40,
+            font_size = 16,
         })
 
         airui.label({
@@ -147,6 +152,7 @@ function switch_page_demo.create_ui()
             y = 100,
             w = 120,
             h = 30,
+            font_size = 14,
         })
 
         airui.label({
@@ -156,6 +162,7 @@ function switch_page_demo.create_ui()
             y = 140,
             w = 260,
             h = 20,
+            font_size = 14,
         })
 
         airui.label({
@@ -165,6 +172,7 @@ function switch_page_demo.create_ui()
             y = 170,
             w = 260,
             h = 20,
+            font_size = 14,
         })
 
         -- 子页面3: 设置页面
@@ -184,6 +192,7 @@ function switch_page_demo.create_ui()
             y = 50,
             w = 120,
             h = 40,
+            font_size = 16,
         })
 
         local setting1 = airui.switch({
@@ -193,8 +202,8 @@ function switch_page_demo.create_ui()
             w = 60,
             h = 30,
             checked = true,
-            on_change = function(state)
-                log.info("switch_page", "设置1: " .. tostring(state))
+            on_change = function(self)
+                log.info("switch_page", "设置1: " .. tostring(self:get_state()))
             end
         })
 
@@ -205,6 +214,7 @@ function switch_page_demo.create_ui()
             y = 105,
             w = 100,
             h = 20,
+            font_size = 14,
         })
 
         local setting2 = airui.switch({
@@ -214,8 +224,8 @@ function switch_page_demo.create_ui()
             w = 60,
             h = 30,
             checked = false,
-            on_change = function(state)
-                log.info("switch_page", "设置2: " .. tostring(state))
+            on_change = function(self)
+                log.info("switch_page", "设置2: " .. tostring(self:get_state()))
             end
         })
 
@@ -226,16 +236,15 @@ function switch_page_demo.create_ui()
             y = 155,
             w = 100,
             h = 20,
+            font_size = 14,
         })
 
-        -- 存储子页面
         subpages = {
             { container = page1, name = "欢迎" },
             { container = page2, name = "信息" },
             { container = page3, name = "设置" }
         }
 
-        -- 默认显示第一个页面
         current_subpage = 1
         for i, page in ipairs(subpages) do
             if i == 1 then
@@ -261,15 +270,13 @@ function switch_page_demo.create_ui()
                 w = tab_width,
                 h = tab_height,
                 text = page.name,
-                on_click = function()
+                on_click = function(self)
                     switch_page_demo.switch_to_page(i)
                 end
             })
 
-            -- 存储按钮引用到 tab_buttons 表中
             tab_buttons[i] = tab
 
-            -- 设置当前页面的按钮样式（通过文字颜色区分）
             if i == current_subpage then
                 tab:set_text("- " .. page.name .. " -")
             end
@@ -282,17 +289,14 @@ function switch_page_demo.create_ui()
             return
         end
 
-        -- 隐藏当前页面
         if current_subpage and subpages[current_subpage] then
             subpages[current_subpage].container:hide()
         end
 
-        -- 显示新页面
         if subpages[page_index] then
             subpages[page_index].container:open()
             current_subpage = page_index
 
-            -- 更新选项卡按钮文字（使用存储的按钮引用）
             for i, btn in ipairs(tab_buttons) do
                 if i == page_index then
                     btn:set_text("- " .. subpages[i].name .. " -")
@@ -305,7 +309,6 @@ function switch_page_demo.create_ui()
         end
     end
 
-    -- 创建子页面和选项卡
     switch_page_demo.create_subpages()
     switch_page_demo.create_tabs()
 
@@ -317,9 +320,9 @@ function switch_page_demo.create_ui()
         y = 410,
         w = 200,
         h = 20,
+        font_size = 14,
     })
 
-    -- 更新指示器
     update_timer = sys.timerLoopStart(function()
         if current_subpage and subpages[current_subpage] then
             indicator_label:set_text("当前页面: " .. subpages[current_subpage].name)
@@ -334,7 +337,7 @@ function switch_page_demo.create_ui()
         w = 80,
         h = 35,
         text = "上一页",
-        on_click = function()
+        on_click = function(self)
             local new_index = current_subpage - 1
             if new_index < 1 then
                 new_index = #subpages
@@ -350,7 +353,7 @@ function switch_page_demo.create_ui()
         w = 80,
         h = 35,
         text = "下一页",
-        on_click = function()
+        on_click = function(self)
             local new_index = current_subpage + 1
             if new_index > #subpages then
                 new_index = 1
@@ -367,8 +370,8 @@ function switch_page_demo.create_ui()
         w = 50,
         h = 30,
         checked = false,
-        on_change = function(state)
-            if state then
+        on_change = function(self)
+            if self:get_state() then
                 log.info("switch_page", "启用自动切换")
             else
                 log.info("switch_page", "禁用自动切换")
@@ -383,39 +386,18 @@ function switch_page_demo.create_ui()
         y = 450,
         w = 40,
         h = 20,
+        font_size = 14,
     })
 
-    -- 自动切换定时器
-    local auto_timer = nil
-    local auto_counter = 0
-
-    -- 更新自动切换
     auto_update_timer = sys.timerLoopStart(function()
-        local state = auto_switch:get_state()
-        if state then
-            auto_counter = auto_counter + 1
-            if auto_counter >= 10 then -- 10秒切换一次
-                auto_counter = 0
-                local new_index = current_subpage + 1
-                if new_index > #subpages then
-                    new_index = 1
-                end
-                switch_page_demo.switch_to_page(new_index)
+        if auto_switch:get_state() then
+            local new_index = current_subpage + 1
+            if new_index > #subpages then
+                new_index = 1
             end
-        else
-            auto_counter = 0
+            switch_page_demo.switch_to_page(new_index)
         end
-    end, 1000)
-
-    -- 底部信息
-    airui.label({
-        parent = main_container,
-        text = "提示: 点击标签或使用按钮切换页面",
-        x = 10,
-        y = 430,
-        w = 300,
-        h = 20,
-    })
+    end, 5000) -- 5秒自动切换
 end
 
 -- 初始化页面
@@ -435,7 +417,7 @@ function switch_page_demo.cleanup()
     end
     current_subpage = nil
     subpages = {}
-    tab_buttons = {} -- 清空按钮引用
+    tab_buttons = {}
 end
 
 return switch_page_demo

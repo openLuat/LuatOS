@@ -1,7 +1,7 @@
 --[[
 @module     image_page
 @summary    图片组件演示页面
-@version    1.0.0
+@version    1.0
 @date       2026.01.30
 @author     江访
 @usage      本文件是图片组件的演示页面，展示图片的各种用法。
@@ -38,7 +38,7 @@ local function create_demo_container(parent, title, x, y, width, height)
         w = width - 20,
         h = 25,
         color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
 
     return container
@@ -66,7 +66,7 @@ local function create_control_panel(parent, title, x, y, width, height)
         w = width - 16,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     return panel
@@ -76,7 +76,6 @@ end
 -- 创建UI
 ----------------------------------------------------------------
 function image_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         parent = airui.screen,
         x = 0,
@@ -103,8 +102,8 @@ function image_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
         color = 0xFFFFFF,
-        size = 16,
     })
 
     -- 返回按钮
@@ -115,7 +114,7 @@ function image_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -130,7 +129,6 @@ function image_page.create_ui()
         color = 0xF5F5F5,
     })
 
-    -- 当前y坐标位置
     local current_y = 10
 
     --------------------------------------------------------------------
@@ -147,7 +145,7 @@ function image_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local basic_image = airui.image({
@@ -157,12 +155,15 @@ function image_page.create_ui()
         w = 120,
         h = 100,
         src = "/luadb/test1.png",
-        on_click = function()
+        on_click = function(self)
             log.info("image", "基本图片被点击")
             local msg = airui.msgbox({
                 text = "基本图片被点击",
                 buttons = { "确定" },
-                timeout = 1500
+                timeout = 1500,
+                on_action = function(self, label)
+                    self:hide()
+                end
             })
             msg:show()
         end
@@ -176,7 +177,7 @@ function image_page.create_ui()
         w = 140,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     airui.label({
@@ -187,7 +188,7 @@ function image_page.create_ui()
         w = 140,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     airui.label({
@@ -198,7 +199,7 @@ function image_page.create_ui()
         w = 140,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     --------------------------------------------------------------------
@@ -228,7 +229,7 @@ function image_page.create_ui()
         w = 140,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     local opacity_buttons = {
@@ -246,7 +247,7 @@ function image_page.create_ui()
             w = 60,
             h = 25,
             text = btn_info.text,
-            on_click = function()
+            on_click = function(self)
                 local opacity_value = btn_info.value
                 png_image:set_opacity(opacity_value)
                 opacity_label:set_text("当前: " .. opacity_value)
@@ -282,7 +283,7 @@ function image_page.create_ui()
         w = 120,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     local zoom_buttons = {
@@ -300,7 +301,7 @@ function image_page.create_ui()
             w = 50,
             h = 25,
             text = btn_info.text,
-            on_click = function()
+            on_click = function(self)
                 local zoom_value = btn_info.value
                 zoom_image:set_zoom(zoom_value)
                 local percent = math.floor((zoom_value / 256) * 100)
@@ -337,7 +338,7 @@ function image_page.create_ui()
         w = 140,
         h = 20,
         color = 0x333333,
-        size = 12,
+        font_size = 12,
     })
 
     local switch_btn = airui.button({
@@ -347,7 +348,7 @@ function image_page.create_ui()
         w = 100,
         h = 35,
         text = "切换图片",
-        on_click = function()
+        on_click = function(self)
             image_index = image_index % #image_paths + 1
             switch_image:set_src(image_paths[image_index])
             image_info_label:set_text("当前: " .. image_names[image_index])
@@ -356,7 +357,10 @@ function image_page.create_ui()
             local msg = airui.msgbox({
                 text = "已切换到: " .. image_names[image_index],
                 buttons = { "确定" },
-                timeout = 1000
+                timeout = 1000,
+                on_action = function(self, label)
+                    self:hide()
+                end
             })
             msg:show()
         end
@@ -375,7 +379,7 @@ function image_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local dynamic_images = {}
@@ -388,7 +392,7 @@ function image_page.create_ui()
         w = 100,
         h = 35,
         text = "创建图片",
-        on_click = function()
+        on_click = function(self)
             local count = #dynamic_images + 1
             if count <= 3 then
                 local pos = img_positions[count]
@@ -413,7 +417,7 @@ function image_page.create_ui()
         w = 100,
         h = 35,
         text = "清除图片",
-        on_click = function()
+        on_click = function(self)
             for _, img in ipairs(dynamic_images) do
                 img:destroy()
             end
@@ -431,7 +435,7 @@ function image_page.create_ui()
         w = 300,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 end
 

@@ -93,7 +93,7 @@ sys.subscribe("EFFECTIVE_VIBRATION",eff_vib)
 -- end
 
 
-local function gnss_fnc()
+local function vib_fnc()
     -- 1，微小震动检测，用于检测轻微震动的场景，例如用手敲击桌面；加速度量程2g；
     -- 2，运动检测，用于电动车或汽车行驶时的检测和人行走和跑步时的检测；加速度量程4g；
     -- 3，跌倒检测，用于人或物体瞬间跌倒时的检测；加速度量程8g；
@@ -138,5 +138,5 @@ local function gnss_fnc()
     end
 end
 
-sys.taskInit(gnss_fnc)
+sys.taskInit(vib_fnc)
 

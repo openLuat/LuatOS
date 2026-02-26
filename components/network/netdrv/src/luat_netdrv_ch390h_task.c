@@ -48,7 +48,9 @@ static uint64_t warn_msg_tm;
 
 static uint32_t s_ch390h_mode; // 0 -- PULL 模式, 1 == IRQ 模式
 
-static int ch390h_irq_cb(void *data, void *args) {
+static int ch390h_irq_cb(int pin, void *args) {
+    (void)pin;
+    (void)args;
     uint32_t len = 0;
     luat_rtos_queue_get_cnt(qt, &len);
     if (len > 4) {
@@ -156,6 +158,7 @@ static void send_msg_cs(ch390h_t* ch, luat_ch390h_cstring_t* cs) {
 }
 
 static void ch390h_dataout(luat_netdrv_t* drv, void* userdata, uint8_t* buff, uint16_t len) {
+    (void)drv;
     ch390h_t* ch = (ch390h_t*)userdata;
     if (ch->status == CH390H_STATUS_STOPPED) {
         return;

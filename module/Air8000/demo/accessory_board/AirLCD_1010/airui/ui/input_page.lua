@@ -33,6 +33,46 @@ function input_page.create_ui()
         color = 0x3F51B5,
     })
 
+    -- 注册虚拟键盘，先创建再在 textarea 配置里复用
+    local keyboard1 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "text",                  -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
+    local keyboard2 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "numeric",               -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
+    local keyboard3 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "lower",                 -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
     airui.label({
         parent = title_bar,
         text = "输入框组件演示",
@@ -88,14 +128,8 @@ function input_page.create_ui()
         text = "",
         placeholder = "请输入文本...",
         max_len = 100,
-        keyboard = {                    -- v1.0.3 内嵌键盘
-            x = 0,
-            y = -20,
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
+
     })
 
     -- 示例2: 带默认值的输入框
@@ -118,14 +152,7 @@ function input_page.create_ui()
         text = "默认文本",
         placeholder = "请输入...",
         max_len = 50,
-        keyboard = {                    -- 内嵌键盘
-            x = 0,
-            y = -20,
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
     })
 
     -- 示例3: 数字输入框
@@ -148,14 +175,7 @@ function input_page.create_ui()
         text = "",
         placeholder = "请输入数字...",
         max_len = 20,
-        keyboard = {
-            x = 0,
-            y = 0,
-            w = 320,
-            h = 200,
-            mode = "numeric",            -- 数字键盘
-            auto_hide = true,
-        },
+        keyboard = keyboard2
     })
 
     airui.label({
@@ -210,14 +230,7 @@ function input_page.create_ui()
         text = "",
         placeholder = "请输入姓名",
         max_len = 20,
-        keyboard = {                     -- 内嵌键盘
-            x = 0,
-            y = -20,
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
     })
 
     -- 邮箱输入
@@ -240,14 +253,7 @@ function input_page.create_ui()
         text = "",
         placeholder = "请输入邮箱",
         max_len = 50,
-        keyboard = {                     -- 内嵌键盘
-            x = 0,
-            y = -20,
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
     })
 
     -- 提交按钮
@@ -308,14 +314,7 @@ function input_page.create_ui()
         text = "可控制的输入框",
         placeholder = "请输入...",
         max_len = 50,
-        keyboard = {                     -- 内嵌键盘
-            x = 0,
-            y = -20,
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
     })
 
     -- 控制按钮

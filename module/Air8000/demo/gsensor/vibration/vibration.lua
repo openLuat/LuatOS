@@ -30,15 +30,25 @@ local eff=false --有效震动标志位，用于判断是否触发定位
 local ipready=false --网络是否连接成功标志位
 local tickid
 
-gpio.setup(164, 1, gpio.PULLUP) -- air8000整机板需要大概该电源控制i2c上电 和音频解码芯片共用，自己设计可以忽略掉
-gpio.setup(147, 1, gpio.PULLUP) -- air8000整机板需要大概该电源控制i2c上电 camera的供电使能脚，自己设计可以忽略掉
+-- 项目演示硬件环境为Air8000A整机开发板；
+-- 在Air8000A整机开发板上，ES8311音频与摄像头部分还有Gsensor使用的是同一个I2C通道；
+-- GPIO164为ES8311音频的LDO使能引脚，需要将GPIO164设置为输出高电平，否则I2C0的SDA和SCLK管脚电平只有2.8V左右，无法达到稳定的3.3V；
+-- 最终会造成I2C初始化不成功，Gsensor无法正常工作；
+-- 
+-- GPIO164为WiFi芯片的GPIO管脚，需要Air8000系列模组内部包含有WiFi芯片；
+-- Air8000A/Air8000U/Air8000N/Air8000AB/Air8000W内部包含有WiFi芯片；
+-- Air8000D/Air8000DB/Air8000T模组内部未包含WiFi芯片；
+-- 需要根据型号判断是否设置GPIO164为输出高电平；
+-- 如果客户使用的是其他开发板，则不需要关注此处配置；
+
+gpio.setup(164, 1, gpio.PULLUP) 
 --有效震动模式
 --tick计数器，每秒+1用于存放5次中断的tick值，用于做有效震动对比
 local function tick()
     num=num+1
 end
 --每秒运行一次计时
-sys.timerLoopStart(tick,1000)
+tickid=sys.timerLoopStart(tick,1000)
 
 --有效震动判断
 local function ind()

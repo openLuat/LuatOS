@@ -59,6 +59,20 @@ function all_component_page.create_ui()
         end
     })
 
+        -- 注册虚拟键盘，先创建再在 textarea 配置里复用
+    local keyboard1 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "text",                  -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
     -- 滚动容器
     local scroll_container = airui.container({
         parent = main_container,
@@ -283,14 +297,7 @@ function all_component_page.create_ui()
         h = 60,
         placeholder = "请输入文本...",
         max_len = 50,
-        keyboard = {                -- v1.0.3 内嵌键盘配置
-            x = 0,
-            y = 480 - 200,          -- 放置在屏幕底部
-            w = 320,
-            h = 200,
-            mode = "text",
-            auto_hide = true,
-        },
+        keyboard = keyboard1
     })
 
     y_offset = y_offset + 100

@@ -10,13 +10,11 @@
 
 5、record_amr_file.lua：录音到文件功能模块，演示AMR格式音频录制；
 
-6、record_pcm_file.lua：录音到文件功能模块，演示PCM格式音频录制；
+6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
-7、record_stream.lua：流式录音功能模块，演示PCM格式音频的流式录制；
+7、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
 
-8、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
-
-9、test.pcm：用于测试PCM流式播放的示例音频文件；
+8、test.pcm：用于测试PCM流式播放的示例音频文件；
 
 **注意:目前不支持录音和放音同时进行**
 
@@ -63,19 +61,12 @@
 - 支持5秒录音时长，可提前结束
 - 录音完成后自动播放录音文件
 
-### 5、录音到文件功能 - PCM格式（record_pcm_file.lua）
+### 5、流式录音到文件功能 - PCM格式（record_pcm_file.lua）
 
 - 录音到文件（PCM格式），默认保存到/sd/record.pcm
 - 通过powerkey/boot按键开始或停止录音/播放
 - 支持流式录音和播放
 - 支持16kHz采样率、16位采样深度、有符号PCM数据
-
-### 6、流式录音功能（record_stream.lua）
-
-- 流式录音，仅支持PCM格式
-- 录音过程中不断进行recode_data_callback回调
-- 回调内容为音频流的地址和长度
-- 供给应用层调用处理
 
 ## 演示硬件环境
 
@@ -140,11 +131,10 @@ Air8000核心板和AirAudio_1010 配件板的硬件接线方式为:
 ├── play_tts.lua          # 文字转语音功能模块，支持中文TTS语音合成
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
 ├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
-├── record_pcm_file.lua   # 录音到文件功能模块，支持PCM格式录音
-├── record_stream.lua     # 流式录音功能模块，支持PCM格式流式录音
-├── sample-6s.mp3        # 示例音频文件，用于播放测试
-├── test.pcm             # 示例PCM音频文件，用于流式播放测试
-└── 10.amr               # 示例AMR音频文件，用于播放测试
+├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
+├── sample-6s.mp3         # 示例音频文件，用于播放测试
+├── test.pcm              # 示例PCM音频文件，用于流式播放测试
+└── 10.amr                # 示例AMR音频文件，用于播放测试
 ```
 
 ### 1、音频文件播放功能（play_file.lua）
@@ -253,7 +243,7 @@ I/user.播放已开始
 I/user.播放完成
 ```
 
-### 5、录音到文件功能 - PCM格式（record_pcm_file.lua）
+### 5、流式录音到文件功能 - PCM格式（record_pcm_file.lua）
 
 1. 搭建好硬件环境
 2. 搭配AirAUDIO_1010音频板测试，需将AirAUDIO_1010音频板中PA开关拨到OFF，让软件控制PA，避免pop音
@@ -312,34 +302,16 @@ I/user.录音时长已达5秒，自动停止录音
 I/user.录音完成 大小: 169600 字节
 
 # 空闲时按Boot键播放录音
-I/user.按下BOOT键开始播放录音文件
 I/user.按下BOOT键
 I/user.空闲状态，播放录音
 I/user.流式播放录音文件 大小: 169600 字节
 I/user.流式播放已开始
 I/user.开始流式读取录音数据
 I/user.流式播放缓冲区大小 1600
+I/user.mem.lua 4194296 134496 151520
+I/user.mem.sys 3200560 475860 485708
 I/user.流式数据读取完成
+I/user.mem.lua 4194296 222872 258424
+I/user.mem.sys 3200560 478380 485708
 I/user.播放完成
-```
-
-### 6、流式录音功能（record_stream.lua）
-
-1. 搭建好硬件环境
-2. 搭配AirAUDIO_1010音频板测试，需将AirAUDIO_1010音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，确保保留`require "record_stream"`这一行
-4. 将代码下载到开发板并运行
-5. **演示效果**：流式录音，录音过程中不断进行recode_data_callback回调，供给应用层调用处理
-
-**运行结果示例：**
-
-```lua
-I/user.开始流式录制音频到文件
-I/user.收到音频流,地址为: ZBUFF*:0C7F70A8 有效数据长度为: 9600
-I/user.录音完成
-
-E/user.减小音量55
-I/user.增大音量75
-
-I/user.录音后
 ```

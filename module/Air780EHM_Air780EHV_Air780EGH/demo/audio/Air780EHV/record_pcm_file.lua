@@ -1,6 +1,6 @@
 --[[
 @module  record_pcm_file
-@summary 录音到文件（PCM格式）
+@summary 流式录音到文件功能（PCM格式）
 @version 1.0
 @date    2026.02.24
 @author  拓毅恒

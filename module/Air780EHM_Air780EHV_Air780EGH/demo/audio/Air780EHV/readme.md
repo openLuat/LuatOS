@@ -8,9 +8,9 @@
 
 4、play_stream.lua：流式音频播放功能模块，演示PCM格式音频的流式播放；
 
-5、record_file.lua：录音到文件功能模块，演示AMR格式音频录制；
+5、record_amr_file.lua：录音到文件功能模块，演示AMR格式音频录制；
 
-6、record_stream.lua：流式录音功能模块，演示PCM格式音频的流式录制；
+6、record_pcm_file.lua：流式录音到文件功能模块，演示PCM格式音频录制；
 
 7、sample-6s.mp3/10.amr：用于测试本地MP3和AMR文件播放的示例音频文件；
 
@@ -54,19 +54,19 @@
 - 通过boot按键进行音量增加
 - 仅支持PCM格式音频
 
-### 4、录音到文件功能 - AMR格式（record_file.lua）
+### 4、录音到文件功能 - AMR格式（record_amr_file.lua）
 
-- 录音到文件（AMR格式），默认保存到/record.amr
+- 录音到文件（AMR格式），默认保存到/sd/record.amr
 - 通过powerkey/boot按键开始或停止录音/播放
 - 支持5秒录音时长，可提前结束
 - 录音完成后自动播放录音文件
 
-### 5、流式录音功能（record_stream.lua）
+### 5、流式录音到文件功能 - PCM格式（record_pcm_file.lua）
 
-- 流式录音，仅支持PCM格式
-- 录音过程中不断进行recode_data_callback回调
-- 回调内容为音频流的地址和长度
-- 供给应用层调用处理
+- 录音到文件（PCM格式），默认保存到/sd/record.pcm
+- 通过powerkey/boot按键开始或停止录音/播放
+- 支持流式录音和播放
+- 支持16kHz采样率、16位采样深度、有符号PCM数据
 
 ## 演示硬件环境
 
@@ -122,11 +122,11 @@ Air780EHV核心板和AirAudio_1000 配件板的硬件接线方式为:
 ├── play_file.lua         # 音频文件播放功能模块，支持MP3、WAV、AMR格式
 ├── play_tts.lua          # 文字转语音功能模块，支持中文TTS语音合成
 ├── play_stream.lua       # 流式音频播放功能模块，支持PCM格式流式播放
-├── record_file.lua       # 录音到文件功能模块，支持AMR格式录音
-├── record_stream.lua     # 流式录音功能模块，支持PCM格式流式录音
-├── sample-6s.mp3        # 示例音频文件，用于播放测试
-├── test.pcm             # 示例PCM音频文件，用于流式播放测试
-└── 10.amr               # 示例AMR音频文件，用于播放测试
+├── record_amr_file.lua   # 录音到文件功能模块，支持AMR格式录音
+├── record_pcm_file.lua   # 流式录音到文件功能模块，支持PCM格式录音
+├── sample-6s.mp3         # 示例音频文件，用于播放测试
+├── test.pcm              # 示例PCM音频文件，用于流式播放测试
+└── 10.amr                # 示例AMR音频文件，用于播放测试
 ```
 
 ### 1、音频文件播放功能（play_file.lua）
@@ -191,11 +191,11 @@ I/user.播放状态 true
 I/user.播放完成 true
 ```
 
-### 4、录音到文件功能 - AMR格式（record_file.lua）
+### 4、录音到文件功能 - AMR格式（record_amr_file.lua）
 
 1. 搭建好硬件环境
 2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，确保保留`require "record_file"`这一行
+3. 打开main.lua，确保保留`require "record_amr_file"`这一行
 4. 将代码下载到开发板并运行
 5. **演示效果**：录音到文件（AMR格式），通过powerkey/boot按键开始或停止录音/播放，支持5秒录音时长，可提前结束
 
@@ -258,23 +258,71 @@ I/user.播放已开始
 I/user.播放完成
 ```
 
-### 5、流式录音功能（record_stream.lua）
+### 5、流式录音到文件功能 - PCM格式（record_pcm_file.lua）
 
 1. 搭建好硬件环境
 2. 搭配AirAUDIO_1000音频板测试，需将AirAUDIO_1000音频板中PA开关拨到OFF，让软件控制PA，避免pop音
-3. 打开main.lua，确保保留`require "record_stream"`这一行
+3. 打开main.lua，确保保留`require "record_pcm_file"`这一行
 4. 将代码下载到开发板并运行
-5. **演示效果**：流式录音，录音过程中不断进行recode_data_callback回调，供给应用层调用处理
+5. **演示效果**：录音到文件（PCM格式），通过powerkey/boot按键开始或停止录音/播放，支持5秒录音时长，可提前结束
 
 **运行结果示例：**
 
 ```lua
-I/user.开始流式录制音频到文件
-I/user.收到音频流,地址为: ZBUFF*:0C7F70A8 有效数据长度为: 9600
-I/user.录音完成
+I/user.音频系统初始化
+I/user.exaudio.setup 声道数已设置为:1(1=单声道,2=双声道)
+I/user.音量设置 播放:60 录音:60
+I/user.无录音文件
+I/user.按键功能说明：
+I/user.1. Power键: 开始/停止录音，停止播放
+I/user.2. Boot键: 开始/停止播放，停止录音
+I/user.3. 录音时长: 5秒，可提前结束
+I/user.4. 录音完成后自动播放
 
-E/user.减小音量55
-I/user.增大音量75
+# 空闲时按Power键开始录音
+I/user.按下POWERKEY键
+I/user.空闲状态，开始录音
+I/user.开始录音 时长:5秒
+I/user.录音已开始，按任意键可提前结束
+I/user.录音中... 1 秒
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 29.00 ms, 写入速度: 323.28 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 21.00 ms, 写入速度: 446.43 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 21.00 ms, 写入速度: 446.43 KB/s
+I/user.录音中... 2 秒
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 27.00 ms, 写入速度: 347.22 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 21.00 ms, 写入速度: 446.43 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 21.00 ms, 写入速度: 446.43 KB/s
+I/user.录音中... 3 秒
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 22.00 ms, 写入速度: 426.14 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 29.00 ms, 写入速度: 323.28 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 21.00 ms, 写入速度: 446.43 KB/s
+I/user.录音中... 4 秒
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 29.00 ms, 写入速度: 323.28 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 23.00 ms, 写入速度: 407.61 KB/s
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 20.00 ms, 写入速度: 468.75 KB/s
+I/user.录音中... 5 秒
+I/user.停止录音 已录制: 5 秒
+I/user.exaudio.record_stop 处理缓冲区1的剩余数据: 6400字节
+I/user.SD卡写入统计 数据大小: 6400 字节, 写入耗时: 15.00 ms, 写入速度: 416.67 KB/s
+I/user.exaudio.record_stop 处理缓冲区2的剩余数据: 9600字节
+I/user.SD卡写入统计 数据大小: 9600 字节, 写入耗时: 27.00 ms, 写入速度: 347.22 KB/s
+I/user.录音时长已达5秒，自动停止录音
+I/user.录音完成 大小: 169600 字节
+I/user.按下BOOT键开始播放录音文件
+I/user.录音完成 大小: 169600 字节
+I/user.按下BOOT键开始播放录音文件
 
-I/user.录音后
+# 空闲时按Boot键播放录音
+I/user.按下BOOT键
+I/user.空闲状态，播放录音
+I/user.流式播放录音文件 大小: 169600 字节
+I/user.流式播放已开始
+I/user.开始流式读取录音数据
+I/user.流式播放缓冲区大小 1600
+I/user.mem.lua 4194296 134496 151520
+I/user.mem.sys 3200560 475860 485708
+I/user.流式数据读取完成
+I/user.mem.lua 4194296 222872 258424
+I/user.mem.sys 3200560 478380 485708
+I/user.播放完成
 ```

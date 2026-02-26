@@ -7,6 +7,7 @@
 
 #include "luat_conf_bsp.h"
 #ifdef LUAT_USE_AIRUI
+#include "luat_airui_conf.h"
 #include "lvgl9/src/others/ime/lv_ime_pinyin.h"
 #endif
 
@@ -74,7 +75,7 @@ int luat_pinyin_query_syllables_by_keys(
     uint16_t *actual_count
 );
 
-#ifdef LUAT_USE_AIRUI
+#if (defined(LUAT_USE_AIRUI) && LV_USE_IME_PINYIN == 1)
 /**
  * @brief 提供 AIRUI 拼音输入法所需的词典数组
  * @param count 输出参数，返回词典条目数量

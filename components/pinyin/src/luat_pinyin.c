@@ -353,7 +353,7 @@ int luat_pinyin_query_syllables_by_keys(
     return 0;
 }
 
-#ifdef LUAT_USE_AIRUI
+#if (defined(LUAT_USE_AIRUI) && LV_USE_IME_PINYIN == 1)
 /** 将Unicode码点转换为UTF-8字符串 */
 static size_t codepoints_to_utf8(const uint32_t *codepoints, uint16_t count, char *dest, size_t max_size)
 {

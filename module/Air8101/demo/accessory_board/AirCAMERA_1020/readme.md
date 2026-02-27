@@ -151,7 +151,7 @@ AirCAMERA_1020 配件板 +Air8101 核心板，硬件连接示意图如下所示�
 [2025-11-17 14:44:07.864] cpu1:img_serv:W(1116):img_service_close already close
 ```
 
-5、登录 https://www.air32.cn/upload/data/jpg/ 查看拍摄的照片;
+5、登录 https://www.air32.cn/upload/jpg/ 查看拍摄的照片;
 
 ![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)
 

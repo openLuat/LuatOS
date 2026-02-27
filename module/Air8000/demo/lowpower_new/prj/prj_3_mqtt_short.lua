@@ -18,7 +18,7 @@ Air8000A/Air8000U/Air8000N/Air8000AB/Air8000W模组内部包含有WiFi芯片，G
 在PSM+模式示例代码中，默认关闭了WiFi芯片，以此演示PSM+模式下的实际功耗表现
 
 Air8000A/Air8000U/Air8000N/Air8000AB/Air8000D/Air8000DB模组内部包含有GNSS和GSensor，GPIO24作为GNSS备电电源开关和GSensor电源开关
-默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为783uA左右，客户应根据实际需求进行配置
+默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为88uA左右，客户应根据实际需求进行配置
 在PSM+模式示例代码中，默认配置GPIO24为输入下拉的方式来演示PSM+模式的功耗表现
 
 

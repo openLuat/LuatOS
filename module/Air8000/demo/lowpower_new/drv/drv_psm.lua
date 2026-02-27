@@ -17,7 +17,7 @@ Air8000A/Air8000U/Air8000N/Air8000AB/Air8000W模组内部包含有WiFi芯片，G
 在PSM+模式示例代码中，默认关闭了WiFi芯片，以此演示PSM+模式下的实际功耗表现
 
 Air8000A/Air8000U/Air8000N/Air8000AB/Air8000D/Air8000DB模组内部包含有GNSS和GSensor，GPIO24作为GNSS备电电源开关和GSensor电源开关
-默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为783uA左右，客户应根据实际需求进行配置
+默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为88uA左右，客户应根据实际需求进行配置
 在PSM+模式示例代码中，默认配置GPIO24为输入下拉的方式来演示PSM+模式的功耗表现
 
 
@@ -215,8 +215,8 @@ local function set_psm_interrupt_wakeup()
     --          3、在PSM+模式3下，休眠之后，防抖功能无效，根据自己配置的中断触发类型，只要满足条件就会立即触发中断，自动唤醒，并且重启软件
     -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
     --     -- 关于引用exvib模块，功耗数据变化的说明：
-    --     exvib = require("exvib")    -- 引用exvib模块，如果其他地方没有将GPIO24拉低，此时功耗数据会增加783uA
-    --     exvib.open(1)               -- 打开Air8000A内部的三轴加速度传感器DA221，库内自动将GPIO24拉高，此时功耗数据会增加783uA
+    --     exvib = require("exvib")    -- 引用exvib模块，如果其他地方没有将GPIO24拉低，此时功耗数据会增加88uA
+    --     exvib.open(1)               -- 打开Air8000A内部的三轴加速度传感器DA221，库内自动将GPIO24拉高，此时功耗数据会增加88uA
     
     --     -- 执行完pm.power(pm.WORK_MODE, 3)函数之后并不会立即进去休眠，而是等内核固件中的任务和Lua脚本中task都处于阻塞状态时才会进入休眠；
     --     -- 此处在调用exvib.open(1)函数时，exvib.open(1)内部自动执行了一个task（sys.taskInit(da221_init)），da221_init函数内部包含多个sys.wait函数；
@@ -227,9 +227,9 @@ local function set_psm_interrupt_wakeup()
 
     --     -- 在测试下面的配置代码时，同时也需要把上面两行代码打开
     --     gpio.debounce(gpio.WAKEUP2, 200)
-    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.FALLING)  -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
-    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.RISING)   -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
-    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.BOTH)     -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.FALLING)  -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.RISING)   -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.BOTH)     -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
     -- end
     -- 
     -- 
@@ -469,7 +469,7 @@ local function set_psm_func_item()
     -- 所以，在实际的项目设计中，如果需要工作在低功耗模式或者PSM+模式下，
     -- 可能你会打开GNSS的备电电源开关和GSensor的电源开关，用于保存GNSS的定位数据和快速获取定位数据或者实现GSensor的震动中断唤醒功能
     -- 根据自己的项目需求决定：进入PSM+模式前，是否需要关闭GNSS的备电电源开关和GSensor的电源开关
-    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码已经打开，可以减少783uA左右的功耗
+    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码已经打开，可以减少88uA左右的功耗
     if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
         gpio.setup(24, nil, gpio.PULLDOWN)
     end

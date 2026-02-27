@@ -427,7 +427,8 @@ unsigned char * PUB_XxTEADecrypt(unsigned char* data, unsigned short data_size,s
 
     if (real_data_size > data_size)
     {
-        return 0;
+        free(out_data);
+        return NULL;
     }
 
     for (i=0; i<real_data_size; i++)

@@ -109,6 +109,8 @@ static int l_camera_init(lua_State *L){
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             conf.i2c_id = luaL_checkinteger(L, -1);
+        } else {
+            conf.i2c_id = 0xFF;
         }
         lua_pop(L, 1);
         lua_pushliteral(L, "i2c_addr");

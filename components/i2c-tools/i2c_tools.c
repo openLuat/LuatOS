@@ -7,8 +7,12 @@
 
 void i2c_tools(const char * data,size_t len){
     char *i2c_tools_data = (char *)luat_heap_malloc(len-8);
-    memset(i2c_tools_data, 0, len-8); // 确保填充为0
-    memcpy(i2c_tools_data, data+9, len-9); 
+    if (i2c_tools_data == NULL) {
+        LLOGE("out of memory when malloc i2c_tools_data");
+        return;
+    }
+    memset(i2c_tools_data, 0, len-8); // 确保填充为 0
+    memcpy(i2c_tools_data, data+9, len-9);
     char *command = strtok(i2c_tools_data, " ");
     if (memcmp("send", command, 4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
@@ -34,7 +38,12 @@ void i2c_tools(const char * data,size_t len){
         uint8_t len = atoi(strtok(NULL, " "));
         if (len == 0)len = 1;
         uint8_t *buffer = (uint8_t *)luat_heap_malloc(len);
-        memset(buffer, 0, len); // 确保填充为0
+        if (buffer == NULL) {
+            LLOGE("out of memory when malloc recv buffer");
+            luat_heap_free(i2c_tools_data);
+            return;
+        }
+        memset(buffer, 0, len); // 确保填充为 0
         if( i2c_read(address, reg,buffer,len)!=1){
             char buff[64] = {0};
             sprintf_(buff, "[ ");
@@ -57,3 +66,4 @@ void i2c_tools(const char * data,size_t len){
     }
     luat_heap_free(i2c_tools_data);
 }
+

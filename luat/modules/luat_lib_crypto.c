@@ -535,6 +535,10 @@ static int l_crypto_totp(lua_State *L) {
     const char* secret_base32 = luaL_checklstring(L,1,&len);
 
     char * secret = (char *)luat_heap_malloc(len+1);
+    if (secret == NULL) {
+        LLOGE("out of memory when malloc secret");
+        return 0;
+    }
     len = (size_t)luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
 
     uint64_t t = 0;

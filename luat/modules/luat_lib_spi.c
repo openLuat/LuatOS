@@ -626,6 +626,11 @@ static int l_spi_device_transfer(lua_State *L) {
         send_mode = LUA_TTABLE;
         send_length = lua_rawlen(L, 2); //返回数组的长度
         send_buff = (char*)luat_heap_malloc(send_length);
+        if (send_buff == NULL) {
+            LLOGE("out of memory when malloc spi device transfer buffer");
+            lua_pushnil(L);
+            return 1;
+        }
         for (size_t i = 0; i < send_length; i++){
             lua_rawgeti(L, 2, 1 + i);
             send_buff[i] = (char)lua_tointeger(L, -1);
@@ -693,6 +698,11 @@ static int l_spi_device_send(lua_State *L) {
     }else if (lua_istable(L, 2)){
         len = lua_rawlen(L, 2); //返回数组的长度
         send_buff = (char*)luat_heap_malloc(len);
+        if (send_buff == NULL) {
+            LLOGE("out of memory when malloc spi device send buffer");
+            lua_pushinteger(L, 0);
+            return 1;
+        }
         for (size_t i = 0; i < len; i++){
             lua_rawgeti(L, 2, 1 + i);
             send_buff[i] = (char)lua_tointeger(L, -1);
@@ -816,6 +826,11 @@ static int l_spi_no_block_transfer(lua_State *L)
 	if (rxbuff) rx_buff = rxbuff->addr;
 
 	char *cb_topic = luat_heap_malloc(topic_len + 1);
+    if (cb_topic == NULL) {
+        LLOGE("out of memory when malloc spi xfer cb_topic");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
 	memcpy(cb_topic, topic, topic_len);
 	cb_topic[topic_len] = 0;
 

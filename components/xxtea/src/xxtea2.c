@@ -148,6 +148,9 @@ static uint8_t * xxtea_to_ubyte_array(const uint32_t * data, size_t len, int inc
     }
 
     out = (uint8_t *)malloc(n + 1);
+    if (out == NULL) {
+        return NULL;
+    }
 
 #if defined(BYTE_ORDER) && (BYTE_ORDER == LITTLE_ENDIAN)
     memcpy(out, data, n);
@@ -339,9 +342,12 @@ unsigned char * PUB_XxTEAEncrypt(unsigned char *data, unsigned short data_size,s
     int block_size = ((data_size + 2) / 4 + 1) * 4;
 
 	unsigned char *out_data = malloc(block_size);
-	
+    if (out_data == NULL) {
+        return NULL;
+    }
+
 	memset(out_data,0,data_size);
-	
+
 	memcpy(out_data,data,data_size);
 
     memset(sg_data_buff, 0, ENCRYPT_INT_BUFF*4);
@@ -395,9 +401,12 @@ unsigned char * PUB_XxTEADecrypt(unsigned char* data, unsigned short data_size,s
     int real_data_size =0;
 
 	unsigned char *out_data = malloc(data_size);
-	
+    if (out_data == NULL) {
+        return NULL;
+    }
+
 	memset(out_data,0,data_size);
-	
+
 	memcpy(out_data,data,data_size);
 
     memset(sg_data_buff, 0, ENCRYPT_INT_BUFF*4);

@@ -82,10 +82,18 @@ void *luat_ymodem_create_handler(luat_ymodem_callback cb)
 		{
 			if (save_path[strlen(save_path)-1] == '/'){
 				handler->save_path = luat_heap_malloc(strlen(save_path) + 1);
+                if (handler->save_path == NULL) {
+                    luat_heap_free(handler);
+                    return NULL;
+                }
 				strcpy(handler->save_path, save_path);
 				handler->save_path[strlen(save_path)] = 0;
 			}else{
 				handler->save_path = luat_heap_malloc(strlen(save_path) + 2);
+                if (handler->save_path == NULL) {
+                    luat_heap_free(handler);
+                    return NULL;
+                }
 				strcpy(handler->save_path, save_path);
 				handler->save_path[strlen(save_path)] = '/';
 				handler->save_path[strlen(save_path)+1] = 0;
@@ -93,8 +101,8 @@ void *luat_ymodem_create_handler(luat_ymodem_callback cb)
 		}
 		if (force_save_path)
 		{
-			handler->force_save_path = luat_heap_malloc(strlen(force_save_path) + 1);
-			strcpy((char*)handler->force_save_path, force_save_path);
+			/* Do not allocate/copy; assume caller owns force_save_path lifetime. */
+			handler->force_save_path = force_save_path;
 		}
 #else
 		handler->cb = cb;

@@ -6,6 +6,10 @@
 #include "luat_log.h"
 
 void i2c_tools(const char * data,size_t len){
+    if (len < 9) {
+        LLOGE("i2c_tools: data too short");
+        return;
+    }
     char *i2c_tools_data = (char *)luat_heap_malloc(len-8);
     if (i2c_tools_data == NULL) {
         LLOGE("out of memory when malloc i2c_tools_data");
@@ -14,6 +18,10 @@ void i2c_tools(const char * data,size_t len){
     memset(i2c_tools_data, 0, len-8); // 确保填充为 0
     memcpy(i2c_tools_data, data+9, len-9);
     char *command = strtok(i2c_tools_data, " ");
+    if (command == NULL) {
+        luat_heap_free(i2c_tools_data);
+        return;
+    }
     if (memcmp("send", command, 4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
         i2c_init(i2c_id,0);

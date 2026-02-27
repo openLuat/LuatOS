@@ -648,13 +648,16 @@ static int l_spi_device_transfer(lua_State *L) {
     size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
     if(recv_length == 0){
+        if (send_mode == LUA_TTABLE) luat_heap_free(send_buff);
         lua_pushlstring(L,NULL,0);
         return 1;
     }
     if (recv_length > 0) {
         recv_buff = luat_heap_malloc(recv_length);
-        if(recv_buff == NULL)
+        if(recv_buff == NULL) {
+            if (send_mode == LUA_TTABLE) luat_heap_free(send_buff);
             return 0;
+        }
     }
     int ret = luat_spi_device_transfer(spi_device, send_buff, send_length, recv_buff, recv_length);
     if (send_mode == LUA_TTABLE){

@@ -380,6 +380,10 @@ static int l_i2c_recv(lua_State *L)
     }
     int addr = luaL_checkinteger(L, 2);
     int len = luaL_checkinteger(L, 3);
+    if (len <= 0) {
+        lua_pushlstring(L, NULL, 0);
+        return 1;
+    }
     char *buff = (char *)luat_heap_malloc(len);
     if (buff == NULL) {
         LLOGE("out of memory when malloc i2c recv buffer");
@@ -756,7 +760,7 @@ static int l_i2c_transfer(lua_State *L)
 		tx_buff = (uint8_t*)luaL_checklstring(L, 3, &tx_len);
 	}
     else if (lua_istable(L, 3)) {
-        const int tx_len = lua_rawlen(L, 3); //返回数组的长度
+        tx_len = lua_rawlen(L, 3); //返回数组的长度
         tx_buff = (uint8_t *)luat_heap_malloc(tx_len);
         if (tx_buff == NULL) {
             LLOGE("out of memory when malloc i2c transfer tx buffer");

@@ -116,45 +116,22 @@ function exremotecam.osd(camera_param)
     end
 
     local brand = camera_param.brand
-    if brand == "dhcam" then
-        -- 调用大华摄像头的set_osd方法
-        return dhcam.set_osd({
-            host = camera_param.host,
-            data = camera_param.text,
-            channel = camera_param.channel or 0,
-            x = camera_param.x or 0,
-            y = camera_param.y or 0
-        })
-    -- 后续可添加其他品牌的处理
-    -- elseif brand == "Hikvision" then
-    --     -- 调用海康威视摄像头的set_osd方法
-    --     return hkcam.set_osd({
-    --         host = camera_param.host,
-    --         data = camera_param.text,
-    --         channel = camera_param.channel or 0,
-    --         x = camera_param.x or 0,
-    --         y = camera_param.y or 0
-    --     })
-    -- elseif brand == "Uniview" then
-    --     return yscam.set_osd({
-    --         host = camera_param.host,
-    --         data = camera_param.text,
-    --         channel = camera_param.channel or 0,
-    --         x = camera_param.x or 0,
-    --         y = camera_param.y or 0
-    --     })
-    -- elseif brand == "TianDiWeiye" then
-    --     return tdwycam.set_osd({
-    --         host = camera_param.host,
-    --         data = camera_param.text,
-    --         channel = camera_param.channel or 0,
-    --         x = camera_param.x or 0,
-    --         y = camera_param.y or 0
-    --     })
-    else
-        -- 处理不支持的品牌
-        log.info("osd","型号填写错误或暂不支持！！！")
+    
+    -- 使用pcall动态加载对应品牌的功能模块，保护执行配置文件加载
+    local result, camera_module = pcall(require, brand)
+    if not result then
+        log.error("osd", brand .. " 型号填写错误或暂不支持！！！")
+        return false
     end
+    
+    -- 调用对应品牌模块的set_osd方法
+    return camera_module.set_osd({
+        host = camera_param.host,
+        data = camera_param.text,
+        channel = camera_param.channel or 0,
+        x = camera_param.x or 0,
+        y = camera_param.y or 0
+    })
 end
 
 --[[

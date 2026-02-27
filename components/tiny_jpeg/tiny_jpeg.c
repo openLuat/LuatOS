@@ -1044,6 +1044,9 @@ TJE_FUN void *jpeg_encode_init(tje_write_func* func, void* context, uint8_t qual
     }
 
 	TJE_ContextStruct *ctx = calloc(1, sizeof(TJE_ContextStruct));
+    if (ctx == NULL) {
+        return NULL;
+    }
     uint8_t qt_factor = 1;
     switch(quality) {
     case 3:

@@ -53,6 +53,10 @@ uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
 void i2c_scan(void){
     uint16_t len = 0;
     char *scan_buff = luat_heap_malloc(512);
+    if (scan_buff == NULL) {
+        LLOGE("out of memory when malloc scan_buff");
+        return;
+    }
     memset(scan_buff, 0, 512);
     for(unsigned char i=0; i<8; i++){
         sprintf_(scan_buff + len, "%d0: ", i);

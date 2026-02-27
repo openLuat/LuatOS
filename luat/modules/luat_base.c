@@ -156,8 +156,10 @@ int luat_cbcwait(lua_State *L, uint64_t id, int arg_num) {
 static int luat_cbcwait_cb(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
+    if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
+        luat_heap_free(msg->ptr);
         return 0;
+    }
     char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
     if (topic == NULL) {
         LLOGE("out of memory when malloc topic");

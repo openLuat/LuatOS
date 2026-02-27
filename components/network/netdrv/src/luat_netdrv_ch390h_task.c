@@ -83,7 +83,7 @@ static int ch390h_bootup(ch390h_t* ch) {
         luat_gpio_set_default_cfg(&gpio_cfg);
         gpio_cfg.pin = ch->intpin;
         gpio_cfg.mode = LUAT_GPIO_IRQ;
-        gpio_cfg.irq_type = LUAT_GPIO_RISING_IRQ;
+        gpio_cfg.irq_type = LUAT_GPIO_FALLING_IRQ;
         gpio_cfg.pull = 0;
         gpio_cfg.irq_cb = ch390h_irq_cb;
         luat_gpio_open(&gpio_cfg);

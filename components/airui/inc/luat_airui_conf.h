@@ -17,10 +17,10 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.0.3"
+#define AIRUI_VERSION "1.1.0"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
-#define AIRUI_REFRESH_PERIOD_MS 20
+#define AIRUI_REFRESH_PERIOD_MS 33
 
 /*=================
  * PLATFORM CONFIGURATION
@@ -35,10 +35,8 @@
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
 
-    // 使用自定义堆（Lua堆），测试在键盘组件会异常
-    // #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
-    // 模拟器使用clib堆，todo： 研究为什么使用自定义堆在keyborad组件会失效
-    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CLIB
+    // 使用自定义堆（Lua堆）
+    #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
     // 打开图片解码器
     #define LV_USE_LODEPNG 1
@@ -79,6 +77,13 @@
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
+
+    // #define LV_FONT_FMT_TXT_LARGE 1
+    // #define LV_USE_FONT_COMPRESSED 1
+    // #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_14) LV_FONT_DECLARE(lv_font_misans_16) LV_FONT_DECLARE(lv_font_misans_20)
+    
+    // // #define LV_FONT_DEFAULT &lv_font_misans_20
+    // #define LV_FONT_DEFAULT &lv_font_misans_14
 
 
     // #define LV_USE_LOG 1

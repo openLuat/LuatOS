@@ -48,6 +48,8 @@ static const char *airui_component_get_mt_name(uint8_t component_type)
             return AIRUI_KEYBOARD_MT;
         case AIRUI_COMPONENT_LOTTIE:
             return AIRUI_LOTTIE_MT;
+        case AIRUI_COMPONENT_CHART:
+            return AIRUI_CHART_MT;
         default:
             return NULL;
     }

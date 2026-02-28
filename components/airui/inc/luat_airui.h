@@ -158,6 +158,16 @@ struct airui_ctx {
     int32_t system_keyboard_preedit_pos; /**< 上一次插入的 SDL 预编辑文本起始位置 */
     int32_t system_keyboard_preedit_len; /**< 上一次插入的 SDL 预编辑文本长度（字符数） */
     bool system_keyboard_preedit_active; /**< 当前是否处于 SDL 预编辑（拼音）阶段 */
+
+    // Debug 运行态
+    bool debug_enabled;                  /**< 调试开关 */
+    bool debug_refr_hooked;              /**< 是否已挂载 display 刷新事件 */
+    uint32_t debug_refr_count;           /**< 刷新完成计数（LV_EVENT_REFR_READY） */
+    uint32_t debug_last_refr_count;      /**< 上次统计时的刷新计数 */
+    uint16_t debug_last_fps;             /**< 上次统计 fps */
+    uint8_t debug_last_mem_used_pct;     /**< 上次统计内存占用率 */
+    uint32_t debug_component_count;      /**< 当前组件计数 */
+    bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
 };
 
 /**********************
@@ -255,6 +265,17 @@ lv_font_t *airui_font_get_shared_hzfont(void);
 void airui_font_hzfont_set_render_size(uint16_t size);
 
 /**
+ * 开始一次 label 场景的 hzfont 调试统计会话
+ * @param text 当前 label 文本
+ */
+void airui_font_hzfont_prof_begin(const char *text);
+
+/**
+ * 结束当前 label 场景的 hzfont 调试统计并打印汇总日志
+ */
+void airui_font_hzfont_prof_end(void);
+
+/**
  * 设置显示缓冲
  * @param ctx 上下文指针
  * @param buf1 缓冲1指针
@@ -304,6 +325,12 @@ void airui_system_keyboard_post_key(airui_ctx_t *ctx, uint32_t key, bool pressed
 void airui_system_keyboard_post_text(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx);
+
+/**
+ * 调试能力控制
+ */
+int airui_debug_set_enabled(airui_ctx_t *ctx, bool enable);
+void airui_debug_deinit(airui_ctx_t *ctx);
 
 
 #ifdef __cplusplus

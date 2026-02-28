@@ -607,6 +607,18 @@ end
 local function lowpower_task()
     log.info("lowpower_task enter")
 
+    -- 在使用本示例代码时，如果将GPIO24配置为高电平输出，那么需要将Gsensor芯片的中断配置方式配置为推挽输出+低电平有效；
+    -- 这是因为在Air8000系列内含GNSS和Gsensor芯片的模组中，GPIO24作为GNSS的备电使能开关和Gsensor的电源使能开关；
+    -- 同时Gsensor芯片的中断配置方式默认为推挽输出+高电平有效，配置GPIO24为高电平输出后会产生一定的漏电流；
+    -- 
+    -- 上诉问题会在V2025内核固件中解决掉，目前如果客户在实际项目中需要将GPIO24配置为高电平输出，就一定需要添加如下代码；
+    if tonumber(string.sub(rtos.version(), 2)) < 2026 and module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+        exvib = require("exvib")
+        exvib.open(1)
+        sys.wait(200)
+    end
+
+
     -- 在进入低功耗模式前，根据自己的实际项目需求，配置进入低功耗模式后的中断唤醒方式
     -- 一定要仔细阅读这个函数的代码注释说明，根据自己的项目需求来决定是否需要配置每一项功能
     -- 注意：如果在此处配置了某些引脚，就不要在接下来的set_lowpower_func_item()函数中关闭对应的引脚功能，否则会导致配置失效

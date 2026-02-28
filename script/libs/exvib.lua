@@ -239,23 +239,14 @@ local function da221_init()
     end
     -- 设置寄存器
     i2c.send(i2cId, da221Addr, rangeaddr, 1)    --设置加速度量程，默认2g
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, int_set1_reg, 1) --设置x,y,z发生变化时，产生中断
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, int_map1_reg, 1)--运动的时候，产生中断
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, active_dur_addr, 1)-- 设置激活时间，默认0x00
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, active_ths_addr, 1)-- 设置激活阈值
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, mode_addr, 1)-- 设置模式
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, odr_addr, 1)-- 设置采样率
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, int_config_addr, 1)-- 设置中断配置为推挽输出+低电平有效
-    sys.wait(5)
     i2c.send(i2cId, da221Addr, int_latch_addr, 1)-- 设置中断锁存 中断一旦触发将保持，直到手动清除
-    sys.wait(5)
 end
 
 --[[

@@ -32,6 +32,7 @@ extern "C" {
 #define AIRUI_TEXTAREA_MT "airui.textarea"
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
+#define AIRUI_CHART_MT "airui.chart"
 
 /** 组件类型 */
 typedef enum {
@@ -48,7 +49,8 @@ typedef enum {
     AIRUI_COMPONENT_TABVIEW,
     AIRUI_COMPONENT_TEXTAREA,
     AIRUI_COMPONENT_KEYBOARD,
-    AIRUI_COMPONENT_LOTTIE
+    AIRUI_COMPONENT_LOTTIE,
+    AIRUI_COMPONENT_CHART
 } airui_component_type_t;
 
 /** TabView 对齐常量 */
@@ -416,6 +418,20 @@ int airui_lottie_set_loop(lv_obj_t *lottie, bool loop);
 int airui_lottie_set_speed(lv_obj_t *lottie, float speed);
 int airui_lottie_set_progress(lv_obj_t *lottie, float progress);
 int airui_lottie_destroy(lv_obj_t *lottie);
+
+/**
+ * Chart组件
+ */
+lv_obj_t *airui_chart_create_from_config(void *L, int idx);
+int airui_chart_set_values(lv_obj_t *chart, const int32_t *values, uint32_t count);
+int airui_chart_push_value(lv_obj_t *chart, int32_t value);
+int airui_chart_clear(lv_obj_t *chart, int32_t value);
+int airui_chart_set_range(lv_obj_t *chart, int32_t min, int32_t max);
+int airui_chart_set_point_count(lv_obj_t *chart, uint32_t count);
+int airui_chart_set_update_mode(lv_obj_t *chart, lv_chart_update_mode_t mode);
+int airui_chart_set_line_color(lv_obj_t *chart, lv_color_t color);
+int airui_chart_set_on_point(lv_obj_t *chart, int callback_ref);
+int airui_chart_get_pressed_point(lv_obj_t *chart);
 
 #ifdef __cplusplus
 }

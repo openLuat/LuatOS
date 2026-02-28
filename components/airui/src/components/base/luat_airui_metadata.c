@@ -44,6 +44,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "keyboard";
         case AIRUI_COMPONENT_LOTTIE:
             return "lottie";
+        case AIRUI_COMPONENT_CHART:
+            return "chart";
         default:
             return "unknown";
     }
@@ -174,4 +176,3 @@ airui_component_meta_t *airui_component_meta_get(lv_obj_t *obj)
     
     return (airui_component_meta_t *)user_data;
 }
-

@@ -111,6 +111,10 @@ extern int airui_keyboard_create(lua_State *L);
 extern void airui_register_lottie_meta(lua_State *L);
 extern int airui_lottie_create(lua_State *L);
 
+// Chart 模块声明
+extern void airui_register_chart_meta(lua_State *L);
+extern int airui_chart_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_airui[] = {
     // 基础设置
@@ -150,6 +154,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"textarea", ROREG_FUNC(airui_textarea_create)},
     {"keyboard", ROREG_FUNC(airui_keyboard_create)},
     {"lottie", ROREG_FUNC(airui_lottie_create)},
+    {"chart", ROREG_FUNC(airui_chart_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(AIRUI_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(AIRUI_COLOR_FORMAT_ARGB8888)},
@@ -191,6 +196,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_textarea_meta(L);
     airui_register_keyboard_meta(L);
     airui_register_lottie_meta(L);
+    airui_register_chart_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_airui);

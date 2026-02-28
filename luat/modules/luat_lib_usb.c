@@ -8,12 +8,18 @@
 @usage
 --[[
 --简单举例
+--从机功能
 pm.power(pm.USB, false)		--确保USB外设是掉电状态
 --usb.vid(0, 0x1234)		--配置VID,不是必须的
---usb.pvid(0, 0x5678)		--配置PID,不是必须的
+--usb.pid(0, 0x5678)		--配置PID,不是必须的
 usb.clear_all_class(0)				--清除掉之前配置的设备类
 usb.mode(0, usb.DEVICE)		--usb设置成从机模式
 usb.add_class(0, usb.CDC_ACM, 1)	--使用1个CDC-ACM虚拟串口功能
+pm.power(pm.USB, true)		--USB上电初始化开始工作
+
+--主机功能
+pm.power(pm.USB, false)		--确保USB外设是掉电状态
+usb.mode(0, usb.HOST)		--usb设置成主机模式
 pm.power(pm.USB, true)		--USB上电初始化开始工作
 --说明
 目前设备类只有usb.HID可以通过usb操作库api和对端通讯,usb.CDC-ACM虚拟串口直接使用uart api

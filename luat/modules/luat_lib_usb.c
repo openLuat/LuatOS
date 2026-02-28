@@ -14,10 +14,9 @@ pm.power(pm.USB, false)		--确保USB外设是掉电状态
 usb.clear_all_class(0)				--清除掉之前配置的设备类
 usb.mode(0, usb.DEVICE)		--usb设置成从机模式
 usb.add_class(0, usb.CDC_ACM, 1)	--使用1个CDC-ACM虚拟串口功能
-usb.add_class(0, usb.WINUSB, 1)		--使用1个WINUSB功能
 pm.power(pm.USB, true)		--USB上电初始化开始工作
 --说明
-目前设备类只有usb.HID和usb.WINUSB可以通过usb操作库api和对端通讯,usb.CDC-ACM虚拟串口直接使用uart api
+目前设备类只有usb.HID可以通过usb操作库api和对端通讯,usb.CDC-ACM虚拟串口直接使用uart api
 ]]
 */
 #include "luat_base.h"

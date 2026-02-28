@@ -87,10 +87,12 @@ static int airui_keypad_get_pin_by_idx(const airui_luatos_keypad_cfg_t *cfg, uin
 static uint32_t airui_keypad_get_lv_key_by_idx(uint8_t idx)
 {
     switch (idx) {
-        case 0: return LV_KEY_UP;
-        case 1: return LV_KEY_DOWN;
-        case 2: return LV_KEY_LEFT;
-        case 3: return LV_KEY_RIGHT;
+        // 与 SDL 路径保持一致：方向键使用 NEXT/PREV 进行焦点导航
+        // up/left -> PREV, down/right -> NEXT
+        case 0: return LV_KEY_PREV;
+        case 1: return LV_KEY_NEXT;
+        case 2: return LV_KEY_PREV;
+        case 3: return LV_KEY_NEXT;
         case 4: return LV_KEY_ENTER;
         case 5: return LV_KEY_ESC;
         default: return 0;

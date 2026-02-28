@@ -251,6 +251,12 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     
     // 设置 display 的颜色格式（要和平台 driver 传入的一致）
     lv_display_set_color_format(ctx->display, color_format);
+
+    // 将 LVGL 显示刷新周期调整为 AIRUI_REFRESH_PERIOD_MS，保证刷新节拍一致
+    lv_timer_t *refr_timer = lv_display_get_refr_timer(ctx->display);
+    if (refr_timer != NULL) {
+        lv_timer_set_period(refr_timer, AIRUI_REFRESH_PERIOD_MS);
+    }
     
     // 分配显示缓冲（双缓冲模式）
     uint32_t buf_size = width * height * lv_color_format_get_size(color_format);
@@ -331,7 +337,7 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         return AIRUI_ERR_INIT_FAILED;
     }
 
-    // 启动自动刷新定时器，周期为 AIRUI_REFRESH_PERIOD_MS，当前为20ms
+    // 启动自动刷新定时器，周期为 AIRUI_REFRESH_PERIOD_MS，当前为33ms
     ret_refresh = luat_rtos_timer_start(g_lv_refresh_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, NULL);
     if (ret_refresh != 0) {
         LLOGE("airui_init failed: start lv refresh timer failed, ret=%d", ret_refresh);
@@ -355,6 +361,9 @@ void airui_deinit(airui_ctx_t *ctx)
     if (ctx == NULL) {
         return;
     }
+
+    // 释放调试信息数据
+    airui_debug_deinit(ctx);
     
     // 停止并删除 LVGL tick 定时器
     if (g_lv_tick_timer != NULL) {

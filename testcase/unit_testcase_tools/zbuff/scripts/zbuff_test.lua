@@ -1,6 +1,29 @@
 local zbuff_tests = {}
 
---
+-- zbuff.create 异常情况测试
+function zbuff_tests.test_zbuff_create_nil()
+    local success, err = pcall(function()
+        zbuff.create(nil)
+    end)
+    assert(success == false, "无效参数应该返回错误")
+    log.info("create", "参数无效返回错误:", err)
+end
+
+function zbuff_tests.test_zbuff_create_string()
+    -- local  size = "A1024"
+    local success, err = pcall(function()
+        zbuff.create("secong")
+    end)
+    assert(success == false, "无效参数应该返回错误")
+    log.info("create", "参数无效返回错误:", err)
+end
+
+function zbuff_tests.test_zbuff_create_zero()
+
+    local buff = zbuff.create(0)
+    assert(buff == nil, "创建zbuff缓冲区失败")
+end
+
 function zbuff_tests.test_zbuffInterface_wirtenumber()
     local buff = zbuff.create(1024)
     assert(buff ~= nil, "创建zbuff缓冲区失败")
@@ -50,6 +73,118 @@ function zbuff_tests.test_zbuffInterface_wirteString()
         "支持拼接写入多个string类型的字节和分批写入多个string类型的字节但结果不一致:  拼接方式成功写入结果 %s,多次连续方式成功写入结果 %s",
         str:toHex(), str1:toHex()))
 end
+
+function zbuff_tests.test_zbuff_wirte_nil()
+    -- 多个string类型的写入
+    -- 方法一:拼接写入
+    local buff = zbuff.create(2)
+    local success, err = pcall(function()
+        buff:write(nil)
+    end)
+    assert(success == false, "wirte无效参数应该返回错误")
+end
+
+-- buff_read() 异常
+function zbuff_tests.test_zbuff_read()
+    local buff = zbuff.create(1024)
+    assert(buff ~= nil, "创建zbuff缓冲区失败")
+    local len = buff:write(0x1a, 0x30, 0x31, 0x32, 0x00, 0x01)
+    assert(len > 0, string.format("连续写入多个number类型的字节失败:  写入的字节数 %d", len))
+    local success, err = pcall(function()
+        buff:read("second")
+    end)
+    assert(success == false, "无效参数应该返回错误")
+    log.info("create", "参数无效返回错误:", err)
+
+end
+
+function zbuff_tests.test_zbuff_read_nil()
+    local buff = zbuff.create(1024)
+    assert(buff ~= nil, "创建zbuff缓冲区失败")
+    local len = buff:write(0x1a, 0x30, 0x31, 0x32, 0x00, 0x01)
+    assert(len > 0, string.format("连续写入多个number类型的字节失败:  写入的字节数 %d", len))
+    local success = buff:read()
+    log.info("str", success:toHex())
+    assert(success:toHex() == "00", "无效参数返回00")
+end
+
+function zbuff_tests.test_zbuff_read_zero()
+    local buff = zbuff.create(1024)
+    assert(buff ~= nil, "创建zbuff缓冲区失败")
+    local len = buff:write(0x1a, 0x30, 0x31, 0x32, 0x00, 0x01)
+    assert(len > 0, string.format("连续写入多个number类型的字节失败:  写入的字节数 %d", len))
+    local success = buff:read(0)
+    log.info("str", success:toHex())
+    assert(success == "", "读取0字节应该返回空字符串")
+end
+
+-- buff:clear(0)
+-- -- 全填充为0xAA;
+-- buff:clear(0xAA) 
+-- -- 输出170（0xAA的十进制）; 
+-- log.info("索引0的值:", buff[0]) 
+function zbuff_tests.test_zbuff_clear_AA()
+    local buff = zbuff.create(2)
+    buff:clear(0xAA)  --使用0xaa进行填充
+    local success = buff:read(2)
+    assert(success:toHex() == "AAAA", "使用AA进行填充读取所有数据都应为AA")
+end
+
+function zbuff_tests.test_zbuff_clear_ZERO()
+    local buff = zbuff.create(2)
+    buff:clear(0)  --使用0xaa进行填充
+    local success = buff:read(2)
+    log.info("str", success:toHex())
+    assert(success:toHex() == "00", "使用AA进行填充读取所有数据都应为AA")
+end
+
+function zbuff_tests.test_zbuff_clear_ZERO()
+    local buff = zbuff.create(2)
+    buff:clear(0)  --使用0xaa进行填充
+    local success = buff:read(2)
+    log.info("str", success:toHex())
+    assert(success:toHex() == "00", "使用AA进行填充读取所有数据都应为AA")
+end
+
+
+function zbuff_tests.test_zbuff_clear_ZERO()
+    local buff = zbuff.create(2)
+    buff:clear(0)  --使用0xaa进行填充
+    local success = buff:read(2)
+    log.info("str", success:toHex())
+    assert(success:toHex() == "0000", "使用0进行填充读取所有数据都应为0000")
+end
+
+--seek() :默认值分别为0 和zbuff.SEEK_SET；
+function zbuff_tests.test_zbuff_seek_nil()
+      local buff = zbuff.create(35)
+    local test_data = "0123456789ABCDEFGHIJKLMNOPQRSTUVW"
+    buff:write(test_data)
+     local pos = buff:seek(0, nil)
+     log.info("pos",pos)
+    assert(pos == 0, "SEEK_SET 0应该返回0，实际" .. pos)
+end
+
+function zbuff_tests.test_zbuff_seek_nil_both()
+      local buff = zbuff.create(35)
+    local test_data = "0123456789ABCDEFGHIJKLMNOPQRSTUVW"
+    buff:write(test_data)
+        local success, err = pcall(function()
+         buff:seek(nil, nil)
+    end)
+    assert(success == false, "seek无效参数应该返回错误")
+end
+
+function zbuff_tests.test_zbuff_seek_nil_first()
+      local buff = zbuff.create(35)
+    local test_data = "0123456789ABCDEFGHIJKLMNOPQRSTUVW"
+    buff:write(test_data)
+        local success, err = pcall(function()
+         buff:seek(nil,zbuff.SEEK_SET )
+    end)
+    assert(success == false, "seek无效参数应该返回错误")
+end
+
 
 function zbuff_tests.test_zbuff_seek_set()
     log.info("测试", "=== 测试 zbuff.SEEK_SET 模式 ===")
@@ -226,15 +361,14 @@ function zbuff_tests.test_format_c_boundary()
     local max_value = 127
     local min_value = -128
     local written = buff:pack("cc", 0x7F, 0x80)
-    log.info("written",written)
-    assert(written == 2, string.format("cc格式应该写入2字节",written))
+    log.info("written", written)
+    assert(written == 2, string.format("cc格式应该写入2字节", written))
     buff:seek(0)
     local cnt, val, val2 = buff:unpack("cc")
     assert(val == max_value, string.format("c格式最大值错误%d", val))
     assert(val2 == min_value, string.format("c格式最小值错误%d", val2))
     log.info("test_format_c_boundary", "完成")
 end
-
 
 -- 3. b 格式边界测试 (无符号 byte)
 function zbuff_tests.test_format_b_boundary()
@@ -264,22 +398,20 @@ function zbuff_tests.test_format_b_boundary()
 end
 
 -- -- 4. h 格式边界测试 (有符号 short)
-
 function zbuff_tests.test_format_h_boundary()
     log.info("zbuff_tests", "测试 h 格式边界值")
     local buff = zbuff.create(20)
     local max_value = 32767
     local min_value = -32768
     local written = buff:pack("hh", 0x7FFF, 0x8000)
-    log.info("written",written)
-    assert(written == 4, string.format("hh格式应该写入4字节",written))
+    log.info("written", written)
+    assert(written == 4, string.format("hh格式应该写入4字节", written))
     buff:seek(0)
     local cnt, val, val2 = buff:unpack("hh")
     assert(val == max_value, string.format("i格式最大值错误%d", val))
     assert(val2 == min_value, string.format("i格式最小值错误%d", val2))
     log.info("test_format_h_boundary", "完成")
 end
-
 
 -- 5. i 格式边界测试 (有符号 int)
 function zbuff_tests.test_format_i_boundary()
@@ -324,7 +456,7 @@ function zbuff_tests.test_format_I_boundary()
     log.info("test_format_I_boundary", "完成")
 end
 
---7.A格式测试
+-- 7.A格式测试
 function zbuff_tests.test_pack_string()
     log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
     local buff = zbuff.create(20)
@@ -332,8 +464,55 @@ function zbuff_tests.test_pack_string()
     local written = buff:pack("<A", str)
     assert(written == #str, "固定长度字符串打包失败")
     buff:seek(0)
-    local cnt, a= buff:unpack("<A8")
+    local cnt, a = buff:unpack("<A8")
     assert(written == cnt, "A格式解包应该写入#str个字节")
+end
+
+
+-- 8. 浮点数测试 (f格式 - float)
+function zbuff_tests.test_format_f_float()
+    log.info("zbuff_tests", "测试 f 格式浮点数")
+    
+    local buff = zbuff.create(20)
+    local test_values = {3.14159, -2.71828, 0.0, 1.0, -1.0}
+    
+    for _, val in ipairs(test_values) do
+        buff:clear()
+        local written = buff:pack("f", val)
+        assert(written == 4, "f格式应该写入4字节")
+        
+        buff:seek(0)
+        -- 第一个返回值cnt是成功解包的字节数，第二个是解包出的值
+        local cnt, result = buff:unpack("f")
+        
+        -- 验证解包字节数
+        assert(cnt == 4, string.format("f格式应该读取4字节，实际读取%d", cnt))
+    end
+    log.info("test_format_f_float", "完成")
+end
+
+-- 9. double格式测试 (d格式)
+function zbuff_tests.test_format_d_double()
+    log.info("zbuff_tests", "测试 d 格式双精度浮点")
+    
+    local buff = zbuff.create(20)
+    local test_values = {3.141592653589793, -2.718281828459045, 0.0}
+    
+    for _, val in ipairs(test_values) do
+        buff:clear()
+        local written = buff:pack("d", val)
+        assert(written == 8, "d格式应该写入8字节")
+        
+        buff:seek(0)
+        -- 第一个返回值cnt是成功解包的字节数，第二个是解包出的值
+        local cnt, result = buff:unpack("d")
+        
+        -- 验证解包字节数
+        assert(cnt == 8, string.format("d格式应该读取8字节，实际读取%d", cnt))
+        
+    end
+    
+    log.info("test_format_d_double", "完成")
 end
 
 -- 8. 混合格式测试 
@@ -353,19 +532,55 @@ function zbuff_tests.test_packError()
     log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
     local buff = zbuff.create(20)
     local str = "Hello123"
-        local success, err = pcall(function()
-        buff:pack("X", str) -- 'InvalidType'不是有效格式
+    local success, err = pcall(function()
+        buff:pack("X", str) -- 'X'不是有效格式
     end)
     assert(success == false, "无效格式应该返回错误")
     log.info("pack", "格式无效返回错误:", err)
     buff:seek(0)
-     local success1, err1 = pcall(function()
-        buff:unpack("X", str) -- 'X'不是有效格式
+    local success1, err1 = pcall(function()
+        buff:unpack("X") -- 'X'不是有效格式
     end)
     assert(success1 == false, "无效格式应该返回错误")
     log.info("pack", "格式无效返回错误:", err1)
 end
 
+
+--10.异常情况
+function zbuff_tests.test_packError_nil()
+    log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
+    local buff = zbuff.create(20)
+    local str = "Hello123"
+    local success, err = pcall(function()
+        buff:pack(nil, str) -- nil不是有效格式
+    end)
+    assert(success == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err)
+    buff:seek(0)
+    local success1, err1 = pcall(function()
+        buff:unpack(nil) -- nil不是有效格式
+    end)
+    assert(success1 == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err1)
+end
+
+--11.异常情况
+function zbuff_tests.test_packError_number()
+    log.info("zbuff_tests", "开始 固定长度字符串打包解包测试")
+    local buff = zbuff.create(20)
+    local str = "Hello123"
+    local success, err = pcall(function()
+        buff:pack(2, str) -- 2不是有效格式
+    end)
+    assert(success == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err)
+    buff:seek(0)
+    local success1, err1 = pcall(function()
+        buff:unpack(2) -- 2不是有效格式
+    end)
+    assert(success1 == false, "无效格式应该返回错误")
+    log.info("pack", "格式无效返回错误:", err1)
+end
 
 ---buff:read类型(number)/write:read类型(number)
 
@@ -606,6 +821,127 @@ function zbuff_tests.test_buffToStr()
     log.info("test_buffToStr", "测试通过")
 end
 
+
+function zbuff_tests.test_buffToStr()
+    -- 若通过 buff:seek() 移动指针，会影响 used() 的返回值；
+    local buff = zbuff.create(10)
+    local data = "HelloWorld"
+    -- 写入10字节字符串；
+    buff:write(data)
+    local expected_str = "Hello"
+    -- 移动指针到中间位置（不影响toStr）；
+    buff:seek(5)
+    -- 1.读取开头的5字节；
+    local s1 = buff:toStr(0, 5)
+    assert(s1 == expected_str, string.format("从头取出5个字节不成功 :  预期 %s,实际 %s", expected_str, s1))
+    -- 输出: "Hello"；
+
+    -- 2. 读取整个缓冲区；
+    local s2 = buff:toStr()
+    -- 输出: "HelloWorld"；
+    assert(s2 == data, string.format("读取整个缓冲区不成功 :  预期 %s,实际 %s", data, s2))
+
+    -- 3.读取已使用部分；
+    local s3 = buff:toStr(0, buff:used())
+    assert(s3 == s1, string.format("从头取出5个字节不成功 :  预期 %s,实际 %s", s1, s3))
+    -- 输出: "Hello" (同s1)；
+    log.info("test_buffToStr", "测试通过")
+end
+
+
+-- toStr异常情况测试：
+-- toStr 测试1：offset超出缓冲区长度
+function zbuff_tests.test_toStr_offset_overflow()
+    log.info("zbuff_tests", "测试 toStr offset超出缓冲区长度")
+    
+    local buff = zbuff.create(20)
+    buff:write("HelloLuatOS")
+    
+    local s = buff:toStr(100, 5)  -- offset 100 > 缓冲区长度20
+    log.info("测试1", "offset超出长度:", s)
+    assert(s == "", "offset超出缓冲区长度应返回空字符串")
+    
+    log.info("test_toStr_offset_overflow", "完成")
+end
+
+-- toStr 测试2：length为0
+function zbuff_tests.test_toStr_length_zero()
+    log.info("zbuff_tests", "测试 toStr length为0")
+    
+    local buff = zbuff.create(20)
+    buff:write("HelloLuatOS")
+    
+    local s = buff:toStr(0, 0)
+    log.info("测试2", "length为0:", s)
+    assert(s == "", "length为0应返回空字符串")
+    
+    log.info("test_toStr_length_zero", "完成")
+end
+
+-- toStr 测试3：length为负数
+function zbuff_tests.test_toStr_length_negative()
+    log.info("zbuff_tests", "测试 toStr length为负数")
+    
+    local buff = zbuff.create(20)
+    buff:write("HelloLuatOS")
+    
+    local s = buff:toStr(0, -5)
+    log.info("测试3", "length为负数:", s)
+    
+    assert(s == "", "length为负数应返回空字符串")
+    
+    log.info("test_toStr_length_negative", "完成")
+end
+
+-- toStr 测试4：offset为负数
+function zbuff_tests.test_toStr_offset_negative()
+    log.info("zbuff_tests", "测试 toStr offset为负数")
+    
+    local buff = zbuff.create(20)
+    buff:write("HelloLuatOS")
+    
+    local s = buff:toStr(-5, 5)
+    log.info("测试4", "offset为负数:", s)
+
+    assert(s == "", "offset为负数应返回空字符串")
+    
+    log.info("test_toStr_offset_negative", "完成")
+end
+
+-- toStr 测试5：传入nil作为offset
+function zbuff_tests.test_toStr_nil_offset()
+    log.info("zbuff_tests", "测试 toStr 传入nil作为offset")
+    
+    local buff = zbuff.create(20)
+    buff:write("HelloLuatOS")
+    
+    -- 传入nil作为offset，期望使用默认值0
+    local s = buff:toStr(nil, 5)
+    log.info("测试10", "nil offset:", s)
+    -- 预期：nil被当作默认值0处理，读取前5字节
+    assert(s == "Hello", "nil offset应使用默认值0，读取前5字节应为'Hello'")
+    
+    log.info("test_toStr_nil_offset", "完成")
+end
+
+-- toStr 测试6：传入nil作为length
+function zbuff_tests.test_toStr_nil_length()
+    log.info("zbuff_tests", "测试 toStr 传入nil作为length")
+    
+    local expected = "Hello"
+    local buff = zbuff.create(20)
+    buff:write(expected)
+    
+    local s = buff:toStr(0, nil)
+    
+    -- 去除尾部可能存在的\0字符
+    s = s:gsub("%z", "")
+    
+    log.info("测试6", "nil length返回: " .. s)
+    assert(s == expected, "nil length应读取整个缓冲区")
+    
+    log.info("test_toStr_nil_length", "完成")
+end
 -- buff[]_read
 function zbuff_tests.test_buff_arrayRead()
     local buff = zbuff.create(8)
@@ -652,7 +988,6 @@ function zbuff_tests.test_buff_arrayWrite()
     log.info("test_buff_array", "单个字节比较通过")
 end
 
-
 -- buff_Resize()扩容
 function zbuff_tests.test_buffResize_expansion()
     local buff = zbuff.create(8)
@@ -668,7 +1003,6 @@ function zbuff_tests.test_buffResize_expansion()
     log.info("test_buff_buffResize", "扩容成功")
 
 end
-
 
 -- buff_Resize()缩容及数据截断
 function zbuff_tests.test_buffResizeReduce()
@@ -687,7 +1021,6 @@ function zbuff_tests.test_buffResizeReduce()
     log.info("test_buff_buffResize", "缩容成功")
 end
 
-
 -- 动态写入string
 function zbuff_tests.test_buffCopyString()
     local buff = zbuff.create(8)
@@ -696,7 +1029,6 @@ function zbuff_tests.test_buffCopyString()
     assert(len ~= 0, string.format("使用buff:copy动态写入string失败,成功写入的字节数%d", len))
     log.info("test_buffCopyString", "动态写入string成功")
 end
-
 
 -- 动态复制zbuff
 function zbuff_tests.test_buffCopyZbuff()
@@ -708,7 +1040,6 @@ function zbuff_tests.test_buffCopyZbuff()
     log.info("test_buffCopyZbuff", "动态复制zbuff成功")
 end
 
-
 -- 动态写入number
 function zbuff_tests.test_buffCopyNumber()
     local buff = zbuff.create(8)
@@ -716,7 +1047,6 @@ function zbuff_tests.test_buffCopyNumber()
     assert(len ~= 0, string.format("使用buff:copy动态写入number失败,成功写入的字节数%d", len))
     log.info("test_buffCopyNumber", "动态复制number成功")
 end
-
 
 -- buff:used()
 function zbuff_tests.test_buffused()
@@ -737,7 +1067,6 @@ function zbuff_tests.test_buffused()
         s1, s2))
     log.info("test_buffToStr", "测试通过")
 end
-
 
 function zbuff_tests.test_buffDel()
     -- 删除zbuff 0~used范围内的一段数据 
@@ -786,8 +1115,6 @@ function zbuff_tests.test_buffquery_number()
         expected_data, data))
 end
 
-
-
 function zbuff_tests.test_buffSet()
     --  buff:set(start, num, len)
     local buff = zbuff.create(10)
@@ -807,8 +1134,6 @@ function zbuff_tests.test_buffSet()
     assert(s3 == "23", string.format("使用buff:set()数值超限填充失败:  实际为%s", s3))
 end
 
-
-
 function zbuff_tests.test_buffisEqual()
     local buff1 = zbuff.create(8)
     -- 全填充 0x12；    
@@ -827,8 +1152,6 @@ function zbuff_tests.test_buffisEqual()
 
 end
 
-
-
 function zbuff_tests.test_bufftoBase64()
     local buff = zbuff.create(12)
     -- --写入"Hello"的ASCII码；
@@ -846,9 +1169,6 @@ function zbuff_tests.test_bufftoBase64()
 
 end
 
-
-
-
 function zbuff_tests.test_buffSetFrameBuffer()
     local buff = zbuff.create(320 * 240 * 2)
     local result = buff:setFrameBuffer(320, 240, 16, 0xFFFF)
@@ -858,8 +1178,6 @@ function zbuff_tests.test_buffSetFrameBuffer()
     assert(result1 ~= true, "内存不足SetFrameBuffer()成功，不符合预期")
 
 end
-
-
 
 function zbuff_tests.test_buffDrawLine()
     local buff = zbuff.create(128 * 160 * 2)
@@ -871,7 +1189,6 @@ function zbuff_tests.test_buffDrawLine()
     assert(result == true, "线条绘制失败")
 
 end
-
 
 function zbuff_tests.test_buffDrawRect()
     local buff = zbuff.create(128 * 160 * 2)
@@ -887,7 +1204,6 @@ function zbuff_tests.test_buffDrawRect()
     assert(color == "0x07E0", "缓冲区内颜色提取异常")
 
 end
-
 
 function zbuff_tests.test_buffDrawCircle()
     local buff = zbuff.create(128 * 160 * 2)

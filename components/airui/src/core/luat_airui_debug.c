@@ -3,6 +3,7 @@
  * @brief AirUI 调试模块：FPS、内存占用、组件数量等性能统计
  */
 
+#include "luat_base.h"
 #include "luat_airui.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -38,8 +39,9 @@ static void airui_debug_display_event_cb(lv_event_t *e)
  * @param ptr 指向 airui_ctx_t 的指针
  * @return 0 表示处理完成
  */
-static int airui_debug_perf_msg_handler(void *ptr)
+static int airui_debug_perf_msg_handler(lua_State *L, void *ptr)
 {
+    (void)L;
     airui_ctx_t *ctx = (airui_ctx_t *)ptr;
     if (ctx == NULL || !ctx->debug_enabled) {
         return 0;

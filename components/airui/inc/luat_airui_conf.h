@@ -20,7 +20,7 @@
 #define AIRUI_VERSION "1.0.3"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
-#define AIRUI_REFRESH_PERIOD_MS 20
+#define AIRUI_REFRESH_PERIOD_MS 33
 
 /*=================
  * PLATFORM CONFIGURATION
@@ -77,6 +77,13 @@
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
+
+    // #define LV_FONT_FMT_TXT_LARGE 1
+    // #define LV_USE_FONT_COMPRESSED 1
+    // #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_14) LV_FONT_DECLARE(lv_font_misans_16) LV_FONT_DECLARE(lv_font_misans_20)
+    
+    // // #define LV_FONT_DEFAULT &lv_font_misans_20
+    // #define LV_FONT_DEFAULT &lv_font_misans_14
 
 
     // #define LV_USE_LOG 1

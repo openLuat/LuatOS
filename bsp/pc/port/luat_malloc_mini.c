@@ -129,13 +129,23 @@ void luat_meminfo_sys(size_t *total, size_t *used, size_t *max_used) {
 void luat_heap_opt_init(LUAT_HEAP_TYPE_E type){
     if (type == LUAT_HEAP_PSRAM && psram_ptr == NULL) {
         psram_ptr = malloc(LUAT_HEAP_PSRAM_SIZE);
+        if (psram_ptr == NULL) {
+            LLOGE("Failed to allocate PSRAM memory pool: %d bytes", LUAT_HEAP_PSRAM_SIZE);
+            return;
+        }
         luat_bget_init(&psram_bget);
         luat_bpool(&psram_bget, psram_ptr, LUAT_HEAP_PSRAM_SIZE);
+        LLOGI("PSRAM pool initialized: %d bytes at %p", LUAT_HEAP_PSRAM_SIZE, psram_ptr);
     }
     else if (type == LUAT_HEAP_SRAM && sram_ptr == NULL) {
         sram_ptr = malloc(LUAT_HEAP_SRAM_SIZE);
+        if (sram_ptr == NULL) {
+            LLOGE("Failed to allocate SRAM memory pool: %d bytes", LUAT_HEAP_SRAM_SIZE);
+            return;
+        }
         luat_bget_init(&sram_bget);
         luat_bpool(&sram_bget, sram_ptr, LUAT_HEAP_SRAM_SIZE);
+        LLOGI("SRAM pool initialized: %d bytes at %p", LUAT_HEAP_SRAM_SIZE, sram_ptr);
     }
 }
 

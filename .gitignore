@@ -103,3 +103,6 @@ luat/demo/
 tools/snippet.json
 
 self_docs/
+# cursor编程相关文件
+.cursor/*
+openspec/*

@@ -65,6 +65,7 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
 
     // 默认风格：白底淡蓝边
     lv_color_t border_color = lv_color_make(0x1e, 0x90, 0xff); // 天蓝色边框 (Dodger Blue)
+    lv_color_t focus_border_color = lv_color_make(0x00, 0x90, 0xff); // 浅蓝色焦点边框
     lv_color_t normal_bg = lv_color_make(0xff, 0xff, 0xff); // 白色背景
     lv_color_t pressed_bg = lv_color_make(0xe5, 0xed, 0xff); // 按下时蓝色背景
     lv_color_t text_color = lv_color_make(0x11, 0x2b, 0x63); // 黑色文字
@@ -74,6 +75,9 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
     lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
     lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    // 被聚焦时的效果
+    lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY); 
+    lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     
     // 设置文本
     if (text != NULL && strlen(text) > 0) {

@@ -16,7 +16,7 @@ Air8000A/Air8000U/Air8000N/Air8000AB/Air8000W模组内部包含有WiFi芯片，G
 在低功耗模式示例代码中，并未对GPIO23进行配置，默认WiFi芯片是开启状态，以此演示低功耗模式下的实际功耗表现
 
 Air8000A/Air8000U/Air8000N/Air8000AB/Air8000D/Air8000DB模组内部包含有GNSS和GSensor，GPIO24作为GNSS备电电源开关和GSensor电源开关
-默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为783uA左右，客户应根据实际需求进行配置
+默认状态下，GPIO24为高电平，在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为88uA左右，客户应根据实际需求进行配置
 在低功耗模式示例代码中，并未对GPIO24进行配置，默认状态下为高电平，以此演示低功耗模式下的实际功耗表现
 
 
@@ -249,14 +249,14 @@ local function set_lowpower_interrupt_wakeup()
     --          3、在PSM+模式3下，休眠之后，防抖功能无效，根据自己配置的中断触发类型，只要满足条件就会立即触发中断，自动唤醒，并且重启软件
     -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
     --     -- 关于引用exvib模块，功耗数据变化的说明：
-    --     exvib = require("exvib")    -- 引用exvib模块，如果其他地方没有将GPIO24拉低，此时功耗数据会增加783uA
-    --     exvib.open(1)               -- 打开Air8000A内部的三轴加速度传感器DA221，库内自动将GPIO24拉高，此时功耗数据会增加783uA
-    -- 
+    --     exvib = require("exvib")    -- 引用exvib模块，如果其他地方没有将GPIO24拉低，此时功耗数据会增加88uA
+    --     exvib.open(1)               -- 打开Air8000A内部的三轴加速度传感器DA221，库内自动将GPIO24拉高，此时功耗数据会增加88uA
+    
     --     -- 在测试下面的配置代码时，同时也需要把上面两行代码打开
     --     gpio.debounce(gpio.WAKEUP2, 200)
-    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.FALLING)  -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
-    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.RISING)   -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
-    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.BOTH)     -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加783uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.FALLING)  -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.RISING)   -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
+    --     -- gpio.setup(gpio.WAKEUP2, lowpower_wakeup_func, nil, gpio.BOTH)     -- Air8000系列内部包含GSensor的每个模组的核心板测试，增加88uA功耗
     -- end
     -- 
     -- 
@@ -479,7 +479,7 @@ local function set_lowpower_func_item()
     -- 所以，在实际的项目设计中，如果需要工作在低功耗模式或者PSM+模式下，
     -- 可能你会打开GNSS的备电电源开关和GSensor的电源开关，用于保存GNSS的定位数据和快速获取定位数据或者实现GSensor的震动中断唤醒功能
     -- 根据自己的项目需求决定：进入低功耗模式前，是否需要关闭GNSS的备电电源开关和GSensor的电源开关
-    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码没有打开，这行代码打开后可以减少783uA左右的功耗
+    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码没有打开，这行代码打开后可以减少88uA左右的功耗
     -- if module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
     --     gpio.setup(24, nil, gpio.PULLDOWN)
     -- end
@@ -606,6 +606,18 @@ end
 
 local function lowpower_task()
     log.info("lowpower_task enter")
+
+    -- 在使用本示例代码时，如果将GPIO24配置为高电平输出，那么需要将Gsensor芯片的中断配置方式配置为推挽输出+低电平有效；
+    -- 这是因为在Air8000系列内含GNSS和Gsensor芯片的模组中，GPIO24作为GNSS的备电使能开关和Gsensor的电源使能开关；
+    -- 同时Gsensor芯片的中断配置方式默认为推挽输出+高电平有效，配置GPIO24为高电平输出后会产生一定的漏电流；
+    -- 
+    -- 上诉问题会在V2025内核固件中解决掉，目前如果客户在实际项目中需要将GPIO24配置为高电平输出，就一定需要添加如下代码；
+    if tonumber(string.sub(rtos.version(), 2)) < 2026 and module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+        exvib = require("exvib")
+        exvib.open(1)
+        sys.wait(200)
+    end
+
 
     -- 在进入低功耗模式前，根据自己的实际项目需求，配置进入低功耗模式后的中断唤醒方式
     -- 一定要仔细阅读这个函数的代码注释说明，根据自己的项目需求来决定是否需要配置每一项功能

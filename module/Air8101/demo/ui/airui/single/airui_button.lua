@@ -14,12 +14,33 @@ local function ui_main()
     tp_drv.init()
 
     -- 创建按钮
-    local btn = airui.button({ 
+    -- 示例1：创建一个基础按钮
+    local btn1 = airui.button({ 
+        text = "点我", 
         x = 20, 
         y = 80, 
         on_click = function() 
-            log.info("btn", "按钮被点击了") 
+            log.info("btn", "tap") 
         end 
+    })
+
+    -- 示例2：创建一个支持切换显示内容的按钮，V1.0.3更新
+    local is_play = false
+    local btn2 = airui.button({
+        text = "播放",
+        x = 20,
+        y = 180,
+        on_click = function(self)
+            if is_play then
+                -- 当前是“停止”，点击后切换为“播放”
+                self:set_text("播放") 
+                is_play = false
+            else
+                -- 当前是“播放”，点击后切换为“停止”
+                self:set_text("停止") 
+                is_play = true
+            end
+        end
     })
 
     -- 主循环,V1.0.3已不需要

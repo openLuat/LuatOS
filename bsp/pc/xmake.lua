@@ -341,6 +341,10 @@ target("luatos-lua")
     add_includedirs(luatos.."components/little_flash/port",{public = true})
     add_files(luatos.."components/little_flash/**.c")
 
+    -- 添加mreport
+    -- add_includedirs(luatos.."components/mreport/include",{public = true})
+    add_files(luatos.."components/mreport/src/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"

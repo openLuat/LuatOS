@@ -376,7 +376,7 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2025-12-03 10:43:20.323] luat:U(45065):I/user.lua ram 2097144 311256 337952
 ```
 
-5、登录 https://www.air32.cn/upload/data/jpg/ 查看拍摄的照片;
+5、登录 https://www.air32.cn/upload/jpg/ 查看拍摄的照片;
 
 ![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)
 
@@ -849,7 +849,7 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 [2026-01-16 17:16:34.685] luat:U(308465):I/user.上传成功
 ```
 
-5、登录 [https://www.air32.cn/upload/data/mp4/](https://www.air32.cn/upload/data/mp4/) 查看拍摄的视频;
+5、登录 [https://www.air32.cn/upload/mp4/](https://www.air32.cn/upload/mp4/) 查看拍摄的视频;
 
 ![](https://docs.openLuat.com/cdn/image/8101_usb摄像头演示.jpg)
 

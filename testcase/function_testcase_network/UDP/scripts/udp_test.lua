@@ -226,7 +226,7 @@ local function udp_date_callback()
                     send_buff:del()
 
                     -- 为当前服务器等待接收数据
-                    local wait_result, event_param = libnet.wait(taskName, 1000, socket_client)
+                    local wait_result, event_param = libnet.wait(taskName, 5000, socket_client)
 
                     if wait_result then
                         -- 接收数据

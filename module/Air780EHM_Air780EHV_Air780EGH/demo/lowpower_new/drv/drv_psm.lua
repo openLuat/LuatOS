@@ -223,7 +223,14 @@ local function set_psm_interrupt_wakeup()
     --     -- 关于引用exvib模块，功耗数据变化的说明：
     --     exvib = require("exvib")    -- 引用exvib模块
     --     exvib.open(1)               -- 打开Air780EXX系列内部的三轴加速度传感器DA221
-    -- 
+    
+    --     -- 执行完pm.power(pm.WORK_MODE, 3)函数之后并不会立即进去休眠，而是等内核固件中的任务和Lua脚本中task都处于阻塞状态时才会进入休眠；
+    --     -- 此处在调用exvib.open(1)函数时，exvib.open(1)内部自动执行了一个task（sys.taskInit(da221_init)），da221_init函数内部包含多个sys.wait函数；
+    --     -- 由于da221_init和psm_task函数不在同一个task，于是da221_init和pm.power(pm.WORK_MODE, 3)会同时执行；
+    --     -- 当执行完pm.power(pm.WORK_MODE, 3)函数之后，da221_init函数内部执行到某个sys.wait后会立即进入休眠模式，此时后续代码并不会执行；
+    --     -- 最终会导致WAKEUP2引脚实际没有配置成功，因此需要在下方添加一个延时1秒左右的函数，待exvib.open(1)函数执行完成后再执行pm.power(pm.WORK_MODE, 3)；
+    --     sys.wait(1000)
+
     --     -- 在测试下面的配置代码时，同时也需要把上面两行代码打开
     --     gpio.debounce(gpio.WAKEUP2, 200)
     --     -- gpio.setup(gpio.WAKEUP2, psm_wakeup_func, nil, gpio.FALLING)  -- Air780EXX系列内部包含GSensor的每个模组的核心板测试，没有增加功耗

@@ -82,12 +82,12 @@ void luat_os_print_heapinfo(const char* tag) {
 }
 
 
-//唯一c等待接口使用的id
+//唯一 c 等待接口使用的 id
 uint64_t c_wait_id = 0;
-//c等待接口
-//获取一个消息等待的唯一id
+//c 等待接口
+//获取一个消息等待的唯一 id
 //并向栈中推入一个可等待对象
-//返回值为0时，表示用户没有启用sys库，无法使用该功能
+//返回值为 0 时，表示用户没有启用 sys 库，无法使用该功能
 //[-0, +1, –]
 uint64_t luat_pushcwait(lua_State *L) {
     if(lua_getglobal(L, "sys_cw") != LUA_TFUNCTION)
@@ -106,10 +106,10 @@ uint64_t luat_pushcwait(lua_State *L) {
     return c_wait_id;
 }
 
-//c等待接口，直接向用户返回错误的对象
+//c 等待接口，直接向用户返回错误的对象
 //使用时推入需要返回的所有参数
 //该函数会向栈中推入一个可等待对象，但该对象会直接返回结果，无需等待
-//用户没有启用sys库，不会进行任何操作（[-0, +0, –]）
+//用户没有启用 sys 库，不会进行任何操作（[-0, +0, –]）
 //[-arg_num, +1, –]
 void luat_pushcwait_error(lua_State *L, int arg_num) {
     if(lua_getglobal(L, "sys_cw") != LUA_TFUNCTION)
@@ -122,16 +122,20 @@ void luat_pushcwait_error(lua_State *L, int arg_num) {
     lua_call(L,arg_num+1,1);
 }
 
-//c等待接口，对指定id进行回调响应
+//c 等待接口，对指定 id 进行回调响应
 //使用时推入需要返回的所有参数
-//调用时传入消息id和参数个数
-//该函数会调用sys_pub代为发送消息事件
-//用户没有启用sys库，不会进行任何操作（[-0, +0, –]），并返回0
-//[-arg_num, +0, –] 成功返回1
+//调用时传入消息 id 和参数个数
+//该函数会调用 sys_pub 代为发送消息事件
+//用户没有启用 sys 库，不会进行任何操作（[-0, +0, –]），并返回 0
+//[-arg_num, +0, –] 成功返回 1
 int luat_cbcwait(lua_State *L, uint64_t id, int arg_num) {
     if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
         return 0;
     char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    if (topic == NULL) {
+        LLOGE("out of memory when malloc topic");
+        return 0;
+    }
     topic[0] = 0x01;
     memcpy(topic + 1,&id,sizeof(uint64_t));
     lua_pushlstring(L,topic,1 + sizeof(uint64_t));
@@ -143,8 +147,8 @@ int luat_cbcwait(lua_State *L, uint64_t id, int arg_num) {
 
 /*
 @sys_pub sys
-用于luatos内部的系统消息传递
-以0x01为第一个字节开头
+用于 luatos 内部的系统消息传递
+以 0x01 为第一个字节开头
 @args 返回的数据
 @usage
 --此为系统内部使用的消息，请勿在外部使用
@@ -155,6 +159,11 @@ static int luat_cbcwait_cb(lua_State *L, void* ptr) {
     if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
         return 0;
     char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    if (topic == NULL) {
+        LLOGE("out of memory when malloc topic");
+        luat_heap_free(msg->ptr);
+        return 0;
+    }
     topic[0] = 0x01;
     memcpy(topic + 1,msg->ptr,sizeof(uint64_t));
     lua_pushlstring(L,topic,1 + sizeof(uint64_t));
@@ -164,13 +173,17 @@ static int luat_cbcwait_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-//c等待接口，无参数的回调，可不传入lua栈
+//c 等待接口，无参数的回调，可不传入 lua 栈
 void luat_cbcwait_noarg(uint64_t id) {
     if(id == 0)
         return;
     rtos_msg_t msg = {0};
     msg.handler = luat_cbcwait_cb;
     uint64_t* idp = (uint64_t*)luat_heap_malloc(sizeof(uint64_t));
+    if (idp == NULL) {
+        LLOGE("out of memory when malloc idp");
+        return;
+    }
     memcpy(idp, &id, sizeof(uint64_t));
     msg.ptr = (void*)idp;
     luat_msgbus_put(&msg, 0);

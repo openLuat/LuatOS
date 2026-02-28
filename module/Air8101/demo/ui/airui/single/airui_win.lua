@@ -23,6 +23,7 @@ local function ui_main()
         close_btn = true,
         auto_center = false,
         style = "radius",
+        -- V1.0.4版本实现点击关闭按钮关闭win组件
         on_close = function(self)
             log.info("win", "窗口已关闭")
         end
@@ -35,9 +36,6 @@ local function ui_main()
         x = 20,
         y = 20,
     })
-
-    -- 当前版本子组件还需再添加进win组件，后续版本可能添加为父级即可
-    win1:add_content(label1)
 
     -- 主循环,V1.0.3已不需要
     -- while true do

@@ -133,6 +133,7 @@ local active_ths_addr = {0x28, 0x33}    -- 设置激活阈值，灵敏度最高
 -- local active_ths_addr = {0x28, 0xFE}    -- 设置激活阈值，灵敏度最低
 local odr_addr = {0x10, 0x08}           -- 设置采样率 100Hz
 local mode_addr = {0x11, 0x00}          -- 设置正常模式
+local suspend_mode_addr = {0x11, 0x80}          -- 设置休眠模式
 local int_config_addr = {0x20, 0x00}    -- 设置中断配置为推挽输出+低电平有效
 local int_latch_addr = {0x21, 0x02}     -- 设置中断锁存
 
@@ -226,9 +227,7 @@ local function da221_init()
     --重新打开i2c,i2c速度设置为低速
     i2c.setup(i2cId, i2c.SLOW)
 
-    sys.wait(50)
     i2c.send(i2cId, da221Addr, soft_reset, 1)   --复位da221
-    sys.wait(50)
     i2c.send(i2cId, da221Addr, chipid_addr, 1)  --读取芯片id
     local chipid = i2c.recv(i2cId, da221Addr, 1)    --接收返回的芯片id
     log.info("i2c", "chipid",chipid:toHex())
@@ -294,12 +293,7 @@ end
     exvib.close()
 ]]
 function exvib.close()
-    if bsp:find("780") then
-        gpio.close(23)  -- gsensor供电关闭
-    else
-        gpio.close(24)  -- gsensor供电关闭
-    end
-    gpio.close(24)  -- gsensor供电关闭
+    i2c.send(i2cId, da221Addr, suspend_mode_addr, 1)-- 设置休眠模式
     log.info("exvib close..")
 end
 

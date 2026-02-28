@@ -3,15 +3,28 @@
 @summary 多网卡（4G网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 @version 1.0
 @date    2025.07.24
-@author  王城钧
+@author  马梦阳
 @usage
-本文件为多网卡驱动模块，核心业务逻辑为：
+本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-直接使用Air780EXX. 核心板外挂AirETH_1000硬件测试即可；
+通过SPI外挂CH390H芯片的以太网卡：
+Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
+核心板通过TYPE-C USB口供电（TYPE-C USB口旁边的ON/OFF拨动开关拨到ON一端）；
+如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的5V管脚进行5V供电；
+| Air780EXX核心板  |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 107/GPIO21      | INT               |
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
+
 
 local exnetif = require "exnetif"
 
@@ -49,8 +62,11 @@ local function netdrv_multiple_task_func()
             -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EXX核心板验证
             {
                 ETHERNET = {
+                    -- 本demo测试使用的是Air780EXX核心板
+                    -- 核心板的VDD 3V3管脚对AirETH_1000配件板进行供电
+                    -- 3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
                     -- 供电使能GPIO
-                    pwrpin = 20,
+                    pwrpin = nil,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
@@ -71,7 +87,7 @@ local function netdrv_multiple_task_func()
                 LWIP_GP = true
             }
         }
-    )
+    )    
 end
 
 -- 设置网卡状态变化通知回调函数netdrv_multiple_notify_cbfunc

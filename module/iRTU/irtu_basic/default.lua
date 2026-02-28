@@ -216,9 +216,10 @@ function default.init()
     end
 
     --如果配置了功耗模式，则设置功耗模式1，关于功耗问题可以参考https://docs.openluat.com/air780epm/luatos/app/lowpower/sleep/
-    if dtu.pwrmod ~= "energy" then 
+    log.info("功耗模式",dtu.pwrmod)
+    if dtu.pwrmod == "noraml" then 
         pm.power(pm.WORK_MODE, 0)
-    else
+    elseif dtu.pwrmod == "energy" then
         pm.power(pm.WORK_MODE, 1)
     end
 

@@ -37,13 +37,18 @@ static void exec_netif_add(wg_ctx_t* ctx) {
 
     // 初始化WireGuard设备
 
-    netif_add(ctx->netif, &ctx->ipaddr, &ctx->netmask, &ctx->gateway, ctx->dev, wireguardif_init, ip_input);
+    netif_add(ctx->netif, ip_2_ip4(&ctx->ipaddr), ip_2_ip4(&ctx->netmask), ip_2_ip4(&ctx->gateway), ctx->dev, wireguardif_init, ip_input);
     luat_heap_free(ctx);
 }
 
-luat_netdrv_conf_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
+luat_netdrv_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
 {
     LLOGD("Starting WireGuard netdrv setup for cfg id=%d", cfg->id);
+
+    if (cfg->wg_conf == NULL) {
+        LLOGE("WireGuard config is NULL");
+        return NULL;
+    }
 
     uint8_t wireguard_peer_index = 0;
     wg_ctx_t* ctx = luat_heap_malloc(sizeof(wg_ctx_t));
@@ -85,15 +90,27 @@ luat_netdrv_conf_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     uint8_t private_key[WIREGUARD_PRIVATE_KEY_LEN + 1] = {0};
     uint32_t private_key_len = sizeof(private_key);
 
-    wireguard_base64_decode("wGUdxUlZS334RPR+bNSceZvCsNi+//U8M+kz8a+dTm0=", private_key, &private_key_len);
+    if (cfg->wg_conf->wg_private_key == NULL) {
+        LLOGE("WireGuard private key is NULL");
+        goto fail;
+    }
+    wireguard_base64_decode(cfg->wg_conf->wg_private_key, private_key, &private_key_len);
 
     wireguard_device_init(device, private_key);
 
     ctx->netif = wg_netif_struct;
     ctx->dev = device;
-    ipaddr_aton("10.22.1.3", &ctx->ipaddr);
-    ipaddr_aton("255.255.0.0", &ctx->netmask);
-    ipaddr_aton("10.22.0.1", &ctx->gateway);
+    
+    if (cfg->ip_conf) {
+        ip_addr_copy_from_ip4(ctx->ipaddr, cfg->ip_conf->ip);
+        ip_addr_copy_from_ip4(ctx->netmask, cfg->ip_conf->netmask);
+        ip_addr_copy_from_ip4(ctx->gateway, cfg->ip_conf->gw);
+    } else {
+        // Fallback or error? defaulting to 0.0.0.0 if not provided which is handled by memset
+        // But let's log a warning
+        LLOGW("No IP config provided for WireGuard interface");
+    }
+
     // Register the new WireGuard network interface with lwIP
     LLOGD("Adding WireGuard netif %p %p", wg_netif_struct, ctx->dev);
     tcpip_callback_with_block((tcpip_callback_fn)exec_netif_add, ctx, 0);
@@ -101,20 +118,38 @@ luat_netdrv_conf_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     // Initialise the first WireGuard peer structure
     LLOGD("Adding WireGuard peer - master");
     wireguardif_peer_init(peer);
-    peer->public_key = "P3l+ouAVZGRPz7uwVnYg7gaq9OnLL003FKkT0DwgZwU=";
-    peer->preshared_key = NULL;
-    // Allow all IPs through tunnel
-    // peer.allowed_ip = IPADDR4_INIT_BYTES(0, 0, 0, 0);
-    // peer.allowed_mask = IPADDR4_INIT_BYTES(0, 0, 0, 0);
+    peer->public_key = cfg->wg_conf->wg_endpoint_key;
+
+    // Add buffer for preshared key
+    uint8_t preshared_key_buf[WIREGUARD_SESSION_KEY_LEN + 1];
+    memset(preshared_key_buf, 0, sizeof(preshared_key_buf));
+    
+    if (cfg->wg_conf->wg_preshared_key) {
+        size_t preshared_key_len = sizeof(preshared_key_buf);
+        wireguard_base64_decode(cfg->wg_conf->wg_preshared_key, preshared_key_buf, &preshared_key_len);
+        peer->preshared_key = preshared_key_buf;
+    } else {
+        peer->preshared_key = NULL;
+    }
+
+    peer->keep_alive = cfg->wg_conf->wg_keepalive;
 
     // If we know the endpoint's address can add here
-    // peer.endpoint_ip = IPADDR4_INIT_BYTES(49, 232, 89, 122);
-    ipaddr_aton("49.232.89.122", &peer->endpoint_ip);
-    peer->endpoint_port = 41820;
+    if (cfg->wg_conf->wg_endpoint_ip) {
+        ipaddr_aton(cfg->wg_conf->wg_endpoint_ip, &peer->endpoint_ip);
+    }
+    if (cfg->wg_conf->wg_endpoint_port) {
+        peer->endpoint_port = cfg->wg_conf->wg_endpoint_port;
+    } else {
+        peer->endpoint_port = 51820; // Default WG port
+    }
 
     // Register the new WireGuard peer with the netwok interface
     LLOGD("Registering WireGuard peer - wireguardif_add_peer");
     wireguardif_add_peer(wg_netif_struct, peer, &wireguard_peer_index);
+
+    // Free peer structure as it is copied by wireguardif_add_peer
+    luat_heap_free(peer);
 
     wireguardif_connect(wg_netif_struct, wireguard_peer_index);
 
@@ -129,6 +164,19 @@ luat_netdrv_conf_t* luat_netdrv_wg_setup(luat_netdrv_conf_t *cfg)
     net_lwip2_set_netif(netdrv->id, netdrv->netif);
     net_lwip2_register_adapter(netdrv->id);
     return netdrv;
+
+fail:
+    if (netdrv)
+        luat_heap_free(netdrv);
+    if (wg_netif_struct)
+        luat_heap_free(wg_netif_struct);
+    if (peer)
+        luat_heap_free(peer);
+    if (device)
+        luat_heap_free(device);
+    if (ctx)
+        luat_heap_free(ctx);
+    return NULL;
 }
 
 err_t wireguardif_peer_output(struct netif *netif, struct pbuf *q, struct wireguard_peer *peer) {

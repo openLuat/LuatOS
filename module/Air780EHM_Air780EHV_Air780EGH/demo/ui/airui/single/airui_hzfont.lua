@@ -13,15 +13,6 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 加载hzfont字库
-    airui.font_load({
-        type = "hzfont",    -- 字体类型
-        path = nil,         -- 使用内置字库
-        size = 14,          -- 默认字体大小（竖屏适当减小）
-        cache_size = 2048,  -- 缓存大小
-        antialias = 1,      -- 抗锯齿等级
-    })
-
     -- 创建主容器（竖屏尺寸）
     local main_container = airui.container({
         x = 0,
@@ -166,11 +157,11 @@ local function ui_main()
         h = 16,
     })
     
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

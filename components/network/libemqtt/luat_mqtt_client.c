@@ -136,7 +136,12 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     if (!memcmp(opts->host, "ws://", 5) || !memcmp(opts->host, "wss://", 6)) {
         mqtt_ctrl->ws_mode = 1;
         memset(mqtt_ctrl->ws_url, 0, sizeof(mqtt_ctrl->ws_url));
-        memcpy(mqtt_ctrl->ws_url, opts->host, strlen(opts->host));
+        size_t ws_url_len = strlen(opts->host);
+        if (ws_url_len >= sizeof(mqtt_ctrl->ws_url)) {
+            LLOGE("ws url too long %d >= %d", ws_url_len, sizeof(mqtt_ctrl->ws_url));
+            return -1;
+        }
+        memcpy(mqtt_ctrl->ws_url, opts->host, ws_url_len);
         /* 初始化 WebSocket 控制块 */
         luat_websocket_init(&mqtt_ctrl->ws_ctrl, mqtt_ctrl->adapter_index);
         /* 强制无效IP，避免传入0.0.0.0 导致直连失败，走域名解析 */
@@ -175,7 +180,12 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     }
 
     /* 常规 TCP/MQTTS */
-    memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
+    size_t host_len = strlen(opts->host);
+    if (host_len >= sizeof(mqtt_ctrl->host)) {
+        LLOGE("host too long %d >= %d", host_len, sizeof(mqtt_ctrl->host));
+        return -1;
+    }
+    memcpy(mqtt_ctrl->host, opts->host, host_len + 1);
     mqtt_ctrl->remote_port = opts->port;
     if (opts->is_tls){
         if (network_init_tls(mqtt_ctrl->netc, opts->verify)){
@@ -332,7 +342,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		LLOGW("rx event but NO data wait for recv");
 		return 0;
 	}
-	if (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset <= 0) {
+	if (mqtt_ctrl->buffer_offset >= mqtt_ctrl->rxbuff_size) {
 		LLOGE("buff is FULL, mqtt packet too big");
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
@@ -340,7 +350,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	#define MAX_READ (1024)
 	int recv_want = 0;
 
-	while (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset > 0) {
+	while (mqtt_ctrl->buffer_offset < mqtt_ctrl->rxbuff_size) {
 		if (MAX_READ > (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset)) {
 			recv_want = mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset;
 		}
@@ -614,11 +624,15 @@ static void mqtt_ws_on_event(luat_websocket_ctrl_t *ws_ctrl, int arg1, int arg2)
         uint8_t *frame = (uint8_t *)arg2;
         if (!frame) return;
         uint16_t plen = 0;
-        if ((frame[1] & 0x7F) == 126) {
+        uint8_t len7 = frame[1] & 0x7F;
+        if (len7 == 127) {
+            LLOGW("ws frame 64-bit extended length not supported");
+            return;
+        } else if (len7 == 126) {
             plen = (frame[2] << 8) | frame[3];
             frame += 4;
         } else {
-            plen = (frame[1] & 0x7F);
+            plen = len7;
             frame += 2;
         }
         if (plen == 0) return;
@@ -701,7 +715,7 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	const char *hostname = mqtt_ctrl->host;
 	uint16_t port = mqtt_ctrl->remote_port;
 	LLOGD("host %s port %d keepalive %d", hostname, port, keepalive);
-	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), NULL, port, 0) < 0;
+	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), NULL, port, 0);
 	LLOGD("network_connect ret %d", ret);
 	if (ret < 0) {
 		network_close(mqtt_ctrl->netc, 0);

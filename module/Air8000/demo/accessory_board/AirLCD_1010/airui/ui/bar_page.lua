@@ -1,8 +1,8 @@
 --[[
 @module  bar_page
 @summary 进度条组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是进度条组件的演示页面，展示进度条的各种用法。
@@ -45,6 +45,8 @@ function bar_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -55,7 +57,7 @@ function bar_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -78,6 +80,7 @@ function bar_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local basic_bar = airui.bar({
@@ -101,6 +104,7 @@ function bar_page.create_ui()
         y = 80,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local bordered_bar = airui.bar({
@@ -127,6 +131,7 @@ function bar_page.create_ui()
         y = 150,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     -- 显示当前值
@@ -137,6 +142,7 @@ function bar_page.create_ui()
         y = 225,
         w = 90,
         h = 30,
+        font_size = 14,
     })
 
     animated_bar = airui.bar({
@@ -150,6 +156,8 @@ function bar_page.create_ui()
         max = 100,
         radius = 12,
         indicator_color = 0x2196F3,
+        show_progress_text = true,           -- v1.0.3 新增
+        progress_text_format = "%d%%",
     })
 
     -- 控制按钮
@@ -160,11 +168,13 @@ function bar_page.create_ui()
         w = 80,
         h = 40,
         text = "开始",
-        on_click = function()
+        on_click = function(self)
             if update_timer then
                 sys.timerStop(update_timer)
                 update_timer = nil
+                self:set_text("开始")
             else
+                self:set_text("停止")
                 update_timer = sys.timerLoopStart(function()
                     local current = animated_bar:get_value()
                     if current >= 100 then
@@ -173,12 +183,13 @@ function bar_page.create_ui()
                         current = current + 5
                     end
                     animated_bar:set_value(current, true) -- 启用动画
-                    value_label:set_text("当前值: "..current.."%") -- 更新显示
+                    value_label:set_text("当前值: "..current.."%")
                     progress_value = current
 
                     if current >= 100 then
                         sys.timerStop(update_timer)
                         update_timer = nil
+                        self:set_text("开始")
                     end
                 end, 200)
             end
@@ -192,7 +203,7 @@ function bar_page.create_ui()
         w = 80,
         h = 40,
         text = "重置",
-        on_click = function()
+        on_click = function(self)
             if update_timer then
                 sys.timerStop(update_timer)
                 update_timer = nil
@@ -202,8 +213,6 @@ function bar_page.create_ui()
         end
     })
 
-
-
     -- 示例4: 不同颜色进度条
     airui.label({
         parent = scroll_container,
@@ -212,6 +221,7 @@ function bar_page.create_ui()
         y = 280,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local color_bar = airui.bar({
@@ -235,7 +245,7 @@ function bar_page.create_ui()
         w = 60,
         h = 30,
         text = "红色",
-        on_click = function()
+        on_click = function(self)
             color_bar:set_indicator_color(0xF44336)
         end
     })
@@ -247,7 +257,7 @@ function bar_page.create_ui()
         w = 60,
         h = 30,
         text = "绿色",
-        on_click = function()
+        on_click = function(self)
             color_bar:set_indicator_color(0x4CAF50)
         end
     })
@@ -259,7 +269,7 @@ function bar_page.create_ui()
         w = 60,
         h = 30,
         text = "蓝色",
-        on_click = function()
+        on_click = function(self)
             color_bar:set_indicator_color(0x2196F3)
         end
     })
@@ -271,7 +281,7 @@ function bar_page.create_ui()
         w = 60,
         h = 30,
         text = "紫色",
-        on_click = function()
+        on_click = function(self)
             color_bar:set_indicator_color(0x9C27B0)
         end
     })
@@ -284,6 +294,7 @@ function bar_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 
@@ -295,7 +306,10 @@ end
 
 -- 清理页面
 function bar_page.cleanup()
-    sys.timerStop(update_timer)
+    if update_timer then
+        sys.timerStop(update_timer)
+        update_timer = nil
+    end
     if main_container then
         main_container:destroy()
         main_container = nil

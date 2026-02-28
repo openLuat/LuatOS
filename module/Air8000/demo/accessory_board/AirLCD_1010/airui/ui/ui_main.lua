@@ -1,8 +1,8 @@
 --[[
 @module  ui_main
 @summary UI主程序，负责页面管理和主循环
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件管理所有UI页面，包括主页和各个演示页面。
@@ -29,7 +29,7 @@ require("all_component_page")
 -- 当前显示的页面
 local current_page = nil
 local page_stack = {} -- 页面，用于返回功能
-local frame_time = 20 -- 主循环刷新间隔，单位ms
+-- local frame_time = 20 -- 主循环刷新间隔，单位ms
 
 
 -- 页面定义
@@ -121,11 +121,11 @@ local function ui_main_task()
     -- 显示主页
     show_page("home")
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(frame_time)
-    end
+    -- -- 主循环，V1.0.3版本后已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(frame_time)
+    -- end
 end
 
 -- 全局函数，方便页面调用

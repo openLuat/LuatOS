@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2016"
+#define LUAT_BSP_VERSION "V2017"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -37,7 +37,7 @@
 #define LUAT_USE_NETDRV_NAPT 1
 #define LUAT_USE_NETDRV_CH390H 1
 #define LUAT_USE_NETDRV_OPENVPN 1
-// #define LUAT_USE_NETDRV_WG 1
+#define LUAT_USE_NETDRV_WG 1
 
 #define LUAT_USE_AIRLINK 1
 #define LUAT_USE_AIRLINK_SPI_MASTER 1
@@ -143,7 +143,7 @@
 // #define LUAT_USE_ROSTR 1
 #define LUAT_USE_VTOOL 1
 
-
+#define LUAT_USE_MREPORT 1
 
 //--------------------------------------------------
 // GUI相关

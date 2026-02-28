@@ -11,6 +11,7 @@
 #include "luat_crypto.h"
 #include "lwip/netif.h"
 #include "lwip/tcpip.h"
+#include "lwip/inet.h"
 #include "net_lwip2.h"
 
 /* OpenVPN 客户端头文件 */
@@ -184,6 +185,10 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
         LLOGE("Invalid configuration");
         return NULL;
     }
+    if (conf->ovpn_conf == NULL) {
+        LLOGE("OpenVPN configuration missing");
+        return NULL;
+    }
     
     LLOGI("Setting up OpenVPN netdrv for adapter %d", conf->id);
     
@@ -238,17 +243,24 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
         ovpn_cfg.client_key_len = conf->ovpn_conf->ovpn_client_key_len;
     }
     
-    // 拷贝静态密钥（可选）
-    if (conf->ovpn_conf->ovpn_static_key != NULL && conf->ovpn_conf->ovpn_static_key_len > 0) {
-        ovpn_cfg.static_key = conf->ovpn_conf->ovpn_static_key;
-        ovpn_cfg.static_key_len = conf->ovpn_conf->ovpn_static_key_len;
-    }
-    
-    // 设置远程服务器 IP 地址
-    if (conf->ovpn_conf->ovpn_remote_ip != NULL) {
-        // 从字符串 IP 地址转换为 ip_addr_t
-        // 这里需要在 ovpn_client_init 中处理
-        ovpn_cfg.remote_host = conf->ovpn_conf->ovpn_remote_ip;
+    // 设置远程服务器地址
+    if (conf->ovpn_conf->ovpn_remote_ip != NULL && conf->ovpn_conf->ovpn_remote_ip[0] != '\0') {
+        ip_addr_t remote_ip;
+        if (ipaddr_aton(conf->ovpn_conf->ovpn_remote_ip, &remote_ip)) {
+            ovpn_cfg.remote_ip = remote_ip;
+        } else {
+            LLOGE("OpenVPN remote host must be an IP address: %s", conf->ovpn_conf->ovpn_remote_ip);
+            luat_heap_free(client);
+            luat_heap_free(ctx);
+            luat_heap_free(drv);
+            return NULL;
+        }
+    } else {
+        LLOGE("OpenVPN remote host missing");
+        luat_heap_free(client);
+        luat_heap_free(ctx);
+        luat_heap_free(drv);
+        return NULL;
     }
     
     // 设置远程服务器端口
@@ -271,6 +283,16 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
     // 设置事件回调
     ovpn_cfg.event_cb = ovpn_netdrv_event_callback;
     ovpn_cfg.user_data = (void *)drv;
+
+    // 设置重试参数
+    if (conf->ovpn_conf->ovpn_retry_enable) {
+        ovpn_cfg.retry_enable = 1;
+        ovpn_cfg.retry_base_ms = conf->ovpn_conf->ovpn_retry_base_ms ? conf->ovpn_conf->ovpn_retry_base_ms : 1000;
+        ovpn_cfg.retry_max_ms = conf->ovpn_conf->ovpn_retry_max_ms ? conf->ovpn_conf->ovpn_retry_max_ms : 60000;
+        if (ovpn_cfg.retry_max_ms < ovpn_cfg.retry_base_ms) {
+            ovpn_cfg.retry_max_ms = ovpn_cfg.retry_base_ms;
+        }
+    }
     
     // 初始化 OpenVPN 客户端
     int ret = ovpn_client_init(client, &ovpn_cfg);
@@ -284,14 +306,13 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
     
     // 保存客户端指针到上下文
     ctx->client = client;
-    ctx->conf = conf;
+    ctx->conf = NULL;
     
     // 初始化 netdrv 结构体
     drv->id = conf->id;
     drv->userdata = (void *)ctx;
     drv->netif = &client->netif;
     drv->boot = openvpn_boot;
-    // drv->shutdown = openvpn_shutdown;
     drv->ready = openvpn_ready;
     drv->dhcp = openvpn_dhcp;
     drv->debug = openvpn_debug;

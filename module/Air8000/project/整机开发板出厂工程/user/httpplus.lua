@@ -427,7 +427,7 @@ local function http_exec(opts)
     opts.netc = netc
     opts.rx_buff = zbuff.create(1024)
     opts.topic = tostring(netc)
-    socket.config(netc, nil,nil, opts.is_ssl)
+    socket.config(netc, nil, nil, opts.is_ssl, 300, 10, 3)
     if opts.debug or httpplus.debug then
         socket.debug(netc)
     end

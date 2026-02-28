@@ -64,6 +64,17 @@ local function ui_main()
         h = 25,
     })
 
+    -- 创建虚拟键盘
+    local keyboard = airui.keyboard({
+        x = 0,
+        y = -20, -- 底部留20像素边距
+        w = 800,
+        h = 250,
+        mode = "text",
+        auto_hide = true,
+    })
+
+    -- 创建输入框并绑定键盘
     local text_input = airui.textarea({
         parent = left_col,
         x = 20,
@@ -73,6 +84,7 @@ local function ui_main()
         max_len = 50,
         text = "示例文本",
         placeholder = "请输入...",
+        keyboard = keyboard,
         on_text_change = function(text)
             log.info("textarea", text)
         end
@@ -240,20 +252,6 @@ local function ui_main()
     data_table:set_cell_text(2, 1, "30")
     data_table:set_cell_text(2, 2, "上海")
 
-    -- 创建虚拟键盘
-    local keyboard = airui.keyboard({
-        x = 0,
-        y = -20, -- 底部留20像素边距
-        w = 800,
-        h = 250,
-        mode = "text",
-        target = text_input,
-        auto_hide = true,
-        on_commit = function()
-            log.info("input", "输入内容: ", text_input:get_text())
-        end,
-    })
-
     -- 4. 底部状态栏
     local status_bar = airui.container({
         parent = main_container,
@@ -266,18 +264,18 @@ local function ui_main()
 
     airui.label({
         parent = status_bar,
-        text = "AirUI Demo v1.0.0",
+        text = "AirUI Demo v1.0.3",
         x = 20,
         y = 2,
         w = 760,
         h = 16,
     })
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

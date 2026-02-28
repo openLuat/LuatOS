@@ -473,9 +473,9 @@ static void *check_file_path_depth(const char *path, int depth)
 					}
 					char child_path[512] = {0};
 					#ifdef LUA_USE_WINDOWS
-					sprintf(child_path, "%s\\%s\\", path, ep->d_name);
+					snprintf(child_path, sizeof(child_path), "%s\\%s\\", path, ep->d_name);
 					#else
-					sprintf(child_path, "%s/%s/", path, ep->d_name);
+					snprintf(child_path, sizeof(child_path), "%s/%s/", path, ep->d_name);
 					#endif
 					if (check_file_path_depth(child_path, depth + 1) == NULL)
 					{
@@ -490,9 +490,9 @@ static void *check_file_path_depth(const char *path, int depth)
 				}
 
 				#ifdef LUA_USE_WINDOWS
-				sprintf(buff, "%s\\%s", path, ep->d_name);
+				snprintf(buff, sizeof(buff), "%s\\%s", path, ep->d_name);
 				#else
-				sprintf(buff, "%s/%s", path, ep->d_name);
+				snprintf(buff, sizeof(buff), "%s/%s", path, ep->d_name);
 				#endif
 				if (add_onefile(buff))
 				{

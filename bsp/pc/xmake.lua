@@ -292,8 +292,8 @@ target("luatos-lua")
     add_files(luatos.."components/network/errdump/*.c")
 
     -- wireguard
-    -- add_includedirs(luatos.."components/network/wireguard/include",{public = true})
-    -- add_files(luatos.."components/network/wireguard/src/*.c")
+    add_includedirs(luatos.."components/network/wireguard/include",{public = true})
+    add_files(luatos.."components/network/wireguard/src/*.c")
 
     -- httpsrv
     add_includedirs(luatos.."components/network/httpsrv/inc",{public = true})
@@ -340,6 +340,10 @@ target("luatos-lua")
     add_includedirs(luatos.."components/little_flash/inc",{public = true})
     add_includedirs(luatos.."components/little_flash/port",{public = true})
     add_files(luatos.."components/little_flash/**.c")
+
+    -- 添加mreport
+    -- add_includedirs(luatos.."components/mreport/include",{public = true})
+    add_files(luatos.."components/mreport/src/*.c")
 
     if true then
         -- lwip & zlink

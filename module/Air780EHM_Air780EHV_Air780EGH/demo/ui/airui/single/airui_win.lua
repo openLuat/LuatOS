@@ -39,11 +39,11 @@ local function ui_main()
     -- 当前版本子组件还需再添加进win组件，后续版本可能添加为父级即可
     win1:add_content(label1)
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

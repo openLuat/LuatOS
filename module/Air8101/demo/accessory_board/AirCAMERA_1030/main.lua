@@ -5,7 +5,7 @@
 @date    2025.11.09
 @author  陈取德
 @usage
-本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务
+本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务或usb摄像头循环轮切录制视频任务
 ]]
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量

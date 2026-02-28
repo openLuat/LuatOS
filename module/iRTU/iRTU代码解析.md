@@ -27,7 +27,6 @@
 - `audio_config.init()`- 音频系统初始化
 - `audio_config.audio_play_tts()`- TTS 文本转语音播放
 - `audio_config.audio_play_file()`- 音频文件播放
-- `audio_config.result()`- 播放结果查询
 - `play_end()`- 播放完成回调处理
 
 **功能分析：**

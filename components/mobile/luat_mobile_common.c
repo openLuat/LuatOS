@@ -71,6 +71,14 @@ void luat_mobile_add_auto_apn_item(uint16_t mcc, uint16_t mnc, uint8_t ip_type, 
 		free(apn);
 	}
 	apn = calloc(1, sizeof(apn_node_t) + name_len + user_len + password_len);
+    if (apn == NULL) {
+        LLOGE("out of memory when malloc apn");
+        if (task_safe)
+        {
+            luat_rtos_task_resume_all();
+        }
+        return;
+    }
 	apn->plmn.u16[1] = mcc;
 	apn->plmn.u16[0] = mnc;
 	apn->ip_type = ip_type;

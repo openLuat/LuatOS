@@ -97,7 +97,7 @@ local function tcp_short_main()
     -- 检查socket客户端是否创建成功
     if socket_client then
         -- 配置socket客户端
-        if socket.config(socket_client) then
+        if socket.config(socket_client, nil, nil, nil, 300, 10, 3) then
             -- 连接服务器，超时时间15000ms
             if libnet.connect(tcp_short, 15000, socket_client, SERVER_ADDR, SERVER_PORT) then
                 -- 发送数据，超时时间15000ms

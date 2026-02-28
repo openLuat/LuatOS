@@ -6,10 +6,7 @@ local default=require "default"
 
 local dtu
 
-
 local openFlag=false
-
-
 
 local intPin=gpio.WAKEUP2   --中断检测脚，内部固定wakeup2
 local tid   --获取定时打开的定时器id
@@ -113,19 +110,29 @@ local function gnss_state(event, ticks)
     -- ticks number类型 是事件发生的时间,一般可以忽略
     log.info("exgnss", "state", event)
     if event=="FIXED" then
-       sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,locateMessage(dtu.gps.fun[8]))
-       sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,locateMessage(dtu.gps.fun[8]))
+       sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
+       sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
        if dtu.gps.fun[5] ==1 then
         log.info("定位成功就关掉了")
+        if dtu.pwrmod=="psm" then
+            sys.timerStart(function()
+                pm.power(pm.WORK_MODE, 3)
+            end,2000)
+        end
        else
         tid=sys.timerLoopStart(function()
-            sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,locateMessage(dtu.gps.fun[8]))
-            sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,locateMessage(dtu.gps.fun[8]))
+            sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
+            sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
         end,dtu.gps.fun[3]*1000)
        end
     end
     if event=="CLOSE" then
         sys.timerStop(tid)
+        if dtu.pwrmod=="psm" then
+            sys.timerStart(function()
+                pm.power(pm.WORK_MODE, 3)
+            end,2000)
+        end
     end
 end
 sys.subscribe("GNSS_STATE",gnss_state)
@@ -163,7 +170,7 @@ function alert(uid, baud, interval, ontime, isclose, gather, cid, pubmsg, gtime,
             ----定位速度慢，大概35S左右，所以默认开启，如果可以接受下一次定位是冷启动，可以把auto_open设置成false
             ----需要注意的是热启动在定位成功之后，需要再开启3s左右才能保证本次的星历获取完成，如果对定位速度有要求，建议这么处理
             -- auto_open=false,
-            -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1秒/次，默认1hz，可选值：1/2/4/5
+            -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1次/秒，默认1hz，可选值：1/2/4/5
             -- hz=1,
         }
     exgnss.setup(gnssotps)  --配置GNSS参数
@@ -178,6 +185,15 @@ function alert(uid, baud, interval, ontime, isclose, gather, cid, pubmsg, gtime,
             gpio.debounce(intPin, 100)
             --设置gpio中断触发方式wakeup2唤醒脚默认为双边沿触发
             gpio.setup(intPin, ind)
+            local a , b , c , d = pm.lastReson()
+            if a==2 and d==4 then
+                sys.publish("EFFECTIVE_VIBRATION")
+                return
+            end
+            if dtu.pwrmod=="psm" then
+                sys.wait(1000)
+                pm.power(pm.WORK_MODE, 3)
+            end
             while not socket.adapter(socket.dft()) do
                 sys.waitUntil("IP_READY", 1000)
             end

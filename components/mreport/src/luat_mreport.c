@@ -30,28 +30,39 @@ typedef struct mreport_ctx {
 
 static mreport_ctx_t* s_mreport_ctx;
 
-static void luat_mreport_init(lua_State *L) {
+static int luat_mreport_init_ctx(void) {
     if (s_mreport_ctx == NULL) {
         s_mreport_ctx = (mreport_ctx_t*)luat_heap_malloc(sizeof(mreport_ctx_t));
         if (s_mreport_ctx == NULL) {
             LLOGE("mreport malloc ctx failed");
-            return;
+            return -1;
         }
         memset(s_mreport_ctx, 0, sizeof(mreport_ctx_t));
         memcpy(s_mreport_ctx->project_name, "unkonw", 6);
         memcpy(s_mreport_ctx->project_version, "0.0.0", 6);
         s_mreport_ctx->s_adapter_index = 0;
     }
+    return 0;
+}
+
+static void luat_mreport_init(lua_State *L) {
+    if (luat_mreport_init_ctx() != 0) {
+        return;
+    }
+    if (L == NULL) {
+        return;
+    }
     if (strcmp(s_mreport_ctx->project_name, "unkonw") == 0) {
         lua_getglobal(L, "PROJECT");
         if (LUA_TSTRING == lua_type(L, -1))
         {
             size_t project_len;
-            const char *project_name = luaL_tolstring(L, -1, &project_len);
-            size_t copy_len = project_len < sizeof(s_mreport_ctx->project_version) - 1  ? project_len : sizeof(s_mreport_ctx->project_version) - 1;
+            const char *project_name = lua_tolstring(L, -1, &project_len);
+            size_t copy_len = project_len < sizeof(s_mreport_ctx->project_name) - 1  ? project_len : sizeof(s_mreport_ctx->project_name) - 1;
             memcpy(s_mreport_ctx->project_name, project_name, copy_len);
             s_mreport_ctx->project_name[copy_len] = '\0';
         }
+        lua_pop(L, 1);
     }
 
     if (strcmp(s_mreport_ctx->project_version, "0.0.0") == 0) {
@@ -59,11 +70,12 @@ static void luat_mreport_init(lua_State *L) {
         if (LUA_TSTRING == lua_type(L, -1))
         {
             size_t version_len;
-            const char *project_version = luaL_tolstring(L, -1, &version_len);
+            const char *project_version = lua_tolstring(L, -1, &version_len);
             size_t copy_len = version_len < sizeof(s_mreport_ctx->project_version) - 1  ? version_len : sizeof(s_mreport_ctx->project_version) - 1;
-            memcpy(s_mreport_ctx->project_version, project_version, version_len);
+            memcpy(s_mreport_ctx->project_version, project_version, copy_len);
             s_mreport_ctx->project_version[copy_len] = '\0';
         }
+        lua_pop(L, 1);
     }
 }
 
@@ -149,7 +161,6 @@ static void luat_mreport_mobile(cJSON* mreport_data) {
 
 // 网络信息
 static void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
-    cJSON* cells = cJSON_CreateArray();
     // ICCID
     char iccid[24] = {0};
     luat_mobile_get_iccid(0, (char*)iccid, 24);
@@ -293,9 +304,13 @@ static void luat_mreport_meminfo(cJSON* mreport_data) {
 void luat_mreport_send(void) {
     ip_addr_t host = {0};
     int ret = 0;
-    size_t olen = 0;
     cJSON* mreport_data = cJSON_CreateObject();
     int adapter_id = 0;
+
+    if (luat_mreport_init_ctx() != 0) {
+        cJSON_Delete(mreport_data);
+        return;
+    }
 
     if (s_mreport_ctx->s_adapter_index == 0) 
     {
@@ -391,6 +406,12 @@ static void mreport_timer_cb(void* params) {
 }
 
 void luat_mreport_start(void) {
+    if (luat_mreport_init_ctx() != 0) {
+        return;
+    }
+    if (s_mreport_ctx->mreport_timer) {
+        return;
+    }
     int ret = luat_rtos_timer_create(&s_mreport_ctx->mreport_timer);
     if (ret) {
         LLOGE("luat_rtos_timer_create %d", ret);
@@ -404,14 +425,28 @@ void luat_mreport_start(void) {
 }
 
 void luat_mreport_stop(void) {
+    if (s_mreport_ctx == NULL) {
+        return;
+    }
     if (s_mreport_ctx->mreport_timer) {
         luat_stop_rtos_timer(s_mreport_ctx->mreport_timer);
         luat_rtos_timer_delete(s_mreport_ctx->mreport_timer);
         s_mreport_ctx->mreport_timer = NULL;
     }
+    if (s_mreport_ctx->mreport_pcb) {
+        udp_remove(s_mreport_ctx->mreport_pcb);
+        s_mreport_ctx->mreport_pcb = NULL;
+    }
 }
 
 void luat_mreport_config(const char* config, int val) {
+    if (luat_mreport_init_ctx() != 0) {
+        return;
+    }
+    if (config == NULL) {
+        LLOGE("luat_mreport config is NULL");
+        return;
+    }
     // LLOGD("luat_mreport_config %s %d", config, val);
     if (strcmp(config, "enable") == 0) {
         if (val == 0) {

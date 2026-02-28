@@ -360,6 +360,12 @@ wlan.setMac(0, mac)
 static int l_wlan_set_mac(lua_State* L){
     int id = luaL_optinteger(L, 1, 0);
     const char* mac = luaL_checkstring(L, 2);
+#ifdef LUAT_MODEL_AIR8000
+    if (id != 0) {
+        LLOGE("air800 only support set sta mac");
+        return 0;
+    }
+#endif
 #ifdef LUAT_USE_DRV_WLAN
     if (id == 2)
         id = 0;

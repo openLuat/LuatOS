@@ -19,6 +19,25 @@
 local exaudio = require "exaudio"
 local taskName = "task_audio"
 
+-- 根据版本号自适应设置dac_delay
+local set_dac_delay = 0
+local version = rtos.version()
+local version_num = 0
+if version then
+    -- 从版本号字符串中提取数字部分
+    local num_str = version:match("V(%d+)")
+    if num_str then
+        version_num = tonumber(num_str)
+    end
+end
+
+if version_num and version_num >= 2026 then
+    -- 固件版本≥V2026，dac_delay单位为100ms
+    set_dac_delay = 6
+else
+    -- 固件版本＜V2026，dac_delay单位为1ms
+    set_dac_delay = 600
+end
 
 -- 音频初始化设置参数,exaudio.setup 传入参数
 local audio_setup_param ={
@@ -26,7 +45,7 @@ local audio_setup_param ={
     i2c_id = 0,          -- i2c_id,可填入0，1 并使用pins 工具配置对应的管脚
     
     -- 【注意：固件版本＜V2026，这里单位为1ms，这里填600，否则可能第一个字播不出来】
-    dac_delay = 6,            -- DAC启动前冗余时间(单位100ms)
+    dac_delay = set_dac_delay,            -- DAC启动前冗余时间
     
     --Air8000开发板配置pa_ctrl 和dac_ctrl 
     pa_ctrl = 162,            -- 音频放大器电源控制管脚

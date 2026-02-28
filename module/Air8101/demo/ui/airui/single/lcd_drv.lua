@@ -88,6 +88,9 @@ function lcd_drv.init()
         -- 开启背光引脚供电
         gpio.setup(8, 1)
 
+        -- 查询当前固件内AirUI核心库版本，V1.0.3新增接口
+        log.info("airui", "version -> " .. airui.version())
+
         return result
     end
 

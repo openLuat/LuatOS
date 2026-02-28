@@ -46,20 +46,20 @@
 #endif
 
 
-#define MQTT_MSG_CONNECT       1<<4
-#define MQTT_MSG_CONNACK       2<<4
-#define MQTT_MSG_PUBLISH       3<<4
-#define MQTT_MSG_PUBACK        4<<4
-#define MQTT_MSG_PUBREC        5<<4
-#define MQTT_MSG_PUBREL        6<<4
-#define MQTT_MSG_PUBCOMP       7<<4
-#define MQTT_MSG_SUBSCRIBE     8<<4
-#define MQTT_MSG_SUBACK        9<<4
-#define MQTT_MSG_UNSUBSCRIBE  10<<4
-#define MQTT_MSG_UNSUBACK     11<<4
-#define MQTT_MSG_PINGREQ      12<<4
-#define MQTT_MSG_PINGRESP     13<<4
-#define MQTT_MSG_DISCONNECT   14<<4 /**< mqtt 关闭断开消息(只要有断开就会上报,无论是否重连) */
+#define MQTT_MSG_CONNECT       (1<<4)
+#define MQTT_MSG_CONNACK       (2<<4)
+#define MQTT_MSG_PUBLISH       (3<<4)
+#define MQTT_MSG_PUBACK        (4<<4)
+#define MQTT_MSG_PUBREC        (5<<4)
+#define MQTT_MSG_PUBREL        (6<<4)
+#define MQTT_MSG_PUBCOMP       (7<<4)
+#define MQTT_MSG_SUBSCRIBE     (8<<4)
+#define MQTT_MSG_SUBACK        (9<<4)
+#define MQTT_MSG_UNSUBSCRIBE  (10<<4)
+#define MQTT_MSG_UNSUBACK     (11<<4)
+#define MQTT_MSG_PINGREQ      (12<<4)
+#define MQTT_MSG_PINGRESP     (13<<4)
+#define MQTT_MSG_DISCONNECT   (14<<4) /**< mqtt 关闭断开消息(只要有断开就会上报,无论是否重连) */
 
 
 /** Extract the message type from buffer.
@@ -87,8 +87,8 @@
 /** Indicate if this packet has a retain flag.
  * @param buffer Pointer to the packet.
  *
- * @retval   0 Not duplicate.
- * @retval !=0 Duplicate.
+ * @retval   0 Not retained.
+ * @retval !=0 Retained.
  */
 #define MQTTParseMessageRetain(buffer) ( *buffer & 0x01 )
 

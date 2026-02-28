@@ -5,13 +5,13 @@
 #include "lwip/pbuf.h"
 #include "lwip/udp.h"
 #include "lwip/ip4.h"
+#include "lwip/ip_addr.h"
 #include "lwip/tcpip.h"
 #include "lwip/timeouts.h"
 #include "lwip/sys.h"
 #include "net_lwip2.h"
 #include "luat_malloc.h"
 #include "luat_crypto.h"
-#include "mbedtls/md.h"
 #include "mbedtls/ssl.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pk.h"
@@ -70,14 +70,10 @@
 #define NETIF_FLAG_NOARP 0
 #endif
 
-#ifndef OVPN_MAX_KEY_LEN
-#define OVPN_MAX_KEY_LEN 64
-#endif
-
-#define OVPN_HMAC_LEN 32
 #define OVPN_REPLAY_WINDOW 32
 #define OVPN_PING_INTERVAL_MS 10000
 #define OVPN_DEAD_INTERVAL_MS 30000
+#define OVPN_HANDSHAKE_TIMEOUT_MS 30000
 #define OVPN_FLAG_PING 0x01
 #define OVPN_FLAG_PONG 0x02
 
@@ -95,14 +91,55 @@ static err_t ovpn_netif_output_ip6(struct netif *n, struct pbuf *p, const ip6_ad
 static void ovpn_udp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 static err_t ovpn_netif_init(struct netif *n);
 static err_t ovpn_send_frame(ovpn_client_t *cli, struct pbuf *payload, uint8_t flags);
-static int ovpn_hmac(const ovpn_client_t *cli, const uint8_t *hdr, size_t hdr_len, const uint8_t *payload, size_t payload_len, uint8_t *out);
 static int ovpn_replay_accept(ovpn_client_t *cli, uint32_t seq);
 static void ovpn_ping_timer(void *arg);
 static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg);
-static void ovpn_tls_free(ovpn_client_t *cli);
+static void ovpn_tls_free(ovpn_client_t *cli, int free_buffers);
 static int ovpn_tls_udp_send(void *ctx, const unsigned char *buf, size_t len);
 static int ovpn_tls_udp_recv(void *ctx, unsigned char *buf, size_t len);
 static void ovpn_tls_process_rx(ovpn_client_t *cli);
+static void ovpn_client_stop_internal(ovpn_client_t *cli, int free_buffers);
+static void ovpn_retry_timer(void *arg);
+
+static uint32_t ovpn_next_backoff_ms(ovpn_client_t *cli) {
+    uint32_t base = cli->retry_base_ms ? cli->retry_base_ms : 1000;
+    uint32_t max = cli->retry_max_ms ? cli->retry_max_ms : 60000;
+    if (max < base) {
+        max = base;
+    }
+    if (cli->retry_attempt >= 31) {
+        return max;
+    }
+    uint32_t delay = base << cli->retry_attempt;
+    if (delay < base) {
+        return max;
+    }
+    return delay > max ? max : delay;
+}
+
+static void ovpn_schedule_retry(ovpn_client_t *cli, const char *reason) {
+    if (!cli || !cli->retry_enabled) {
+        return;
+    }
+    if (cli->retry_timer_active) {
+        return;
+    }
+    uint32_t delay = ovpn_next_backoff_ms(cli);
+    cli->retry_timer_active = 1;
+    cli->retry_attempt++;
+    LLOGW("schedule retry in %u ms (%s)", (unsigned int)delay, reason ? reason : "unknown");
+    sys_timeout(delay, ovpn_retry_timer, cli);
+}
+
+static int ovpn_entropy_source(void *data, unsigned char *output, size_t len, size_t *olen) {
+    (void)data;
+    int ret = luat_crypto_trng((char *)output, len);
+    if (ret != 0) {
+        return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
+    }
+    *olen = len;
+    return 0;
+}
 
 int ovpn_client_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     if (!cli || !cfg) {
@@ -113,83 +150,90 @@ int ovpn_client_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     cli->remote_port = cfg->remote_port;
     cli->adapter_index = cfg->adapter_index ? cfg->adapter_index : NW_ADAPTER_INDEX_LWIP_USER0;
     cli->mtu = cfg->tun_mtu ? cfg->tun_mtu : 1500;
-    if (cfg->static_key && cfg->static_key_len) {
-        cli->key_len = (cfg->static_key_len > OVPN_MAX_KEY_LEN) ? OVPN_MAX_KEY_LEN : cfg->static_key_len;
-        memcpy(cli->key, cfg->static_key, cli->key_len);
-    }
     cli->event_cb = cfg->event_cb;
     cli->user_data = cfg->user_data;
+    cli->retry_enabled = cfg->retry_enable ? 1 : 0;
+    cli->retry_base_ms = cfg->retry_base_ms ? cfg->retry_base_ms : 1000;
+    cli->retry_max_ms = cfg->retry_max_ms ? cfg->retry_max_ms : 60000;
+    cli->retry_attempt = 0;
+    cli->retry_timer_active = 0;
+
+    if (!cfg->ca_cert_pem || !cfg->client_cert_pem || !cfg->client_key_pem ||
+        cfg->ca_cert_len == 0 || cfg->client_cert_len == 0 || cfg->client_key_len == 0) {
+        LLOGE("TLS certificates are required for OpenVPN");
+        return -3;
+    }
     
-    if (cfg->ca_cert_pem && cfg->client_cert_pem && cfg->client_key_pem) {
-        // Copy CA certificate to heap memory
-        cli->ca_cert_buf = (uint8_t *)luat_heap_malloc(cfg->ca_cert_len + 1);
-        if (!cli->ca_cert_buf) {
-            return -2;
-        }
-        memcpy(cli->ca_cert_buf, cfg->ca_cert_pem, cfg->ca_cert_len);
-        cli->ca_cert_buf[cfg->ca_cert_len] = '\0';  // Add string terminator
-        cli->ca_cert_len = cfg->ca_cert_len;
-        
-        // Copy client certificate to heap memory
-        cli->client_cert_buf = (uint8_t *)luat_heap_malloc(cfg->client_cert_len + 1);
-        if (!cli->client_cert_buf) {
-            luat_heap_free(cli->ca_cert_buf);
-            cli->ca_cert_buf = NULL;
-            return -2;
-        }
-        memcpy(cli->client_cert_buf, cfg->client_cert_pem, cfg->client_cert_len);
-        cli->client_cert_buf[cfg->client_cert_len] = '\0';
-        cli->client_cert_len = cfg->client_cert_len;
-        
-        // Copy client private key to heap memory
-        cli->client_key_buf = (uint8_t *)luat_heap_malloc(cfg->client_key_len + 1);
-        if (!cli->client_key_buf) {
-            luat_heap_free(cli->ca_cert_buf);
-            luat_heap_free(cli->client_cert_buf);
-            cli->ca_cert_buf = NULL;
-            cli->client_cert_buf = NULL;
-            return -2;
-        }
-        memcpy(cli->client_key_buf, cfg->client_key_pem, cfg->client_key_len);
-        cli->client_key_buf[cfg->client_key_len] = '\0';
-        cli->client_key_len = cfg->client_key_len;
-        
-        // Allocate TLS temporary buffer
-        cli->tls_buf = (uint8_t *)luat_heap_malloc(1600);
-        if (!cli->tls_buf) {
-            luat_heap_free(cli->ca_cert_buf);
-            luat_heap_free(cli->client_cert_buf);
-            luat_heap_free(cli->client_key_buf);
-            cli->ca_cert_buf = NULL;
-            cli->client_cert_buf = NULL;
-            cli->client_key_buf = NULL;
-            return -2;
-        }
-        
-        // Initialize TLS using copied certificate data
-        ovpn_client_cfg_t cfg_copy = *cfg;  // Copy configuration structure
-        cfg_copy.ca_cert_pem = (const char *)cli->ca_cert_buf;
-        cfg_copy.ca_cert_len = cli->ca_cert_len;
-        cfg_copy.client_cert_pem = (const char *)cli->client_cert_buf;
-        cfg_copy.client_cert_len = cli->client_cert_len;
-        cfg_copy.client_key_pem = (const char *)cli->client_key_buf;
-        cfg_copy.client_key_len = cli->client_key_len;
-        
-        if (ovpn_tls_init(cli, &cfg_copy) != 0) {
-            luat_heap_free(cli->ca_cert_buf);
-            luat_heap_free(cli->client_cert_buf);
-            luat_heap_free(cli->client_key_buf);
-            luat_heap_free(cli->tls_buf);
-            cli->ca_cert_buf = NULL;
-            cli->client_cert_buf = NULL;
-            cli->client_key_buf = NULL;
-            cli->tls_buf = NULL;
-            return -2;
-        }
-        cli->use_tls = 1;
+    // Copy CA certificate to heap memory
+    cli->ca_cert_buf = (uint8_t *)luat_heap_malloc(cfg->ca_cert_len + 1);
+    if (!cli->ca_cert_buf) {
+        LLOGE("allocate ca_cert_buf failed");
+        return -2;
+    }
+    memcpy(cli->ca_cert_buf, cfg->ca_cert_pem, cfg->ca_cert_len);
+    cli->ca_cert_buf[cfg->ca_cert_len] = '\0';
+    cli->ca_cert_len = cfg->ca_cert_len + 1;
+
+    // Copy client certificate to heap memory
+    cli->client_cert_buf = (uint8_t *)luat_heap_malloc(cfg->client_cert_len + 1);
+    if (!cli->client_cert_buf) {
+        LLOGE("allocate client_cert_buf failed");
+        luat_heap_free(cli->ca_cert_buf);
+        cli->ca_cert_buf = NULL;
+        return -2;
+    }
+    memcpy(cli->client_cert_buf, cfg->client_cert_pem, cfg->client_cert_len);
+    cli->client_cert_buf[cfg->client_cert_len] = '\0';
+    cli->client_cert_len = cfg->client_cert_len + 1;
+
+    // Copy client private key to heap memory
+    cli->client_key_buf = (uint8_t *)luat_heap_malloc(cfg->client_key_len + 1);
+    if (!cli->client_key_buf) {
+        LLOGE("allocate client_key_buf failed");
+        luat_heap_free(cli->ca_cert_buf);
+        luat_heap_free(cli->client_cert_buf);
+        cli->ca_cert_buf = NULL;
+        cli->client_cert_buf = NULL;
+        return -2;
+    }
+    memcpy(cli->client_key_buf, cfg->client_key_pem, cfg->client_key_len);
+    cli->client_key_buf[cfg->client_key_len] = '\0';
+    cli->client_key_len = cfg->client_key_len + 1;
+
+    // Allocate TLS temporary buffer
+    cli->tls_buf = (uint8_t *)luat_heap_malloc(1600);
+    if (!cli->tls_buf) {
+        LLOGE("allocate tls_buf failed");
+        luat_heap_free(cli->ca_cert_buf);
+        luat_heap_free(cli->client_cert_buf);
+        luat_heap_free(cli->client_key_buf);
+        cli->ca_cert_buf = NULL;
+        cli->client_cert_buf = NULL;
+        cli->client_key_buf = NULL;
+        return -2;
+    }
+
+    // Initialize TLS using copied certificate data
+    ovpn_client_cfg_t cfg_copy = *cfg;
+    cfg_copy.ca_cert_pem = (const char *)cli->ca_cert_buf;
+    cfg_copy.ca_cert_len = cli->ca_cert_len;
+    cfg_copy.client_cert_pem = (const char *)cli->client_cert_buf;
+    cfg_copy.client_cert_len = cli->client_cert_len;
+    cfg_copy.client_key_pem = (const char *)cli->client_key_buf;
+    cfg_copy.client_key_len = cli->client_key_len;
+
+    cli->use_tls = 1;
+    int tls_ret = ovpn_tls_init(cli, &cfg_copy);
+    if (tls_ret != 0) {
+        LLOGE("TLS init failed: %d", tls_ret);
+        ovpn_tls_free(cli, 1);
+        cli->use_tls = 0;
+        return -2;
     }
     cli->last_activity_ms = sys_now();
     cli->last_ping_ms = cli->last_activity_ms;
+    cli->handshake_start_ms = cli->last_activity_ms;
+    cli->handshake_failed = 0;
     return 0;
 }
 
@@ -225,8 +269,8 @@ int ovpn_client_start(ovpn_client_t *cli) {
         LLOGE("remote ip missing");
         return -2;
     }
-    if (!cli->use_tls && cli->key_len == 0) {
-        LLOGE("static key missing");
+    if (!cli->use_tls) {
+        LLOGE("TLS certificates are required");
         return -3;
     }
     /* lwIP 2.0/2.1/2.2 compatibility: use different UDP creation methods based on version */
@@ -237,6 +281,7 @@ int ovpn_client_start(ovpn_client_t *cli) {
 #endif
     if (!cli->udp) {
         LLOGE("udp alloc fail");
+        ovpn_schedule_retry(cli, "udp alloc fail");
         return -3;
     }
     /* lwIP 2.0/2.1/2.2 compatibility: initialize any_addr */
@@ -250,20 +295,21 @@ int ovpn_client_start(ovpn_client_t *cli) {
         udp_remove(cli->udp);
         cli->udp = NULL;
         LLOGE("udp bind fail");
+        ovpn_schedule_retry(cli, "udp bind fail");
         return -4;
     }
     udp_recv(cli->udp, ovpn_udp_recv, cli);
     ovpn_attach_netif(cli);
     sys_timeout(OVPN_PING_INTERVAL_MS, ovpn_ping_timer, cli);
     cli->started = 1;
-    /* Trigger connection established event (static key mode triggers immediately, TLS mode waits for handshake completion) */
-    if (!cli->use_tls && cli->event_cb) {
-        cli->event_cb(OVPN_EVENT_CONNECTED, cli->user_data);
-    }
+    cli->handshake_start_ms = sys_now();
+    cli->handshake_failed = 0;
+    cli->retry_attempt = 0;
+    cli->retry_timer_active = 0;
     return 0;
 }
 
-void ovpn_client_stop(ovpn_client_t *cli) {
+static void ovpn_client_stop_internal(ovpn_client_t *cli, int free_buffers) {
     if (!cli) {
         return;
     }
@@ -272,23 +318,33 @@ void ovpn_client_stop(ovpn_client_t *cli) {
         cli->udp = NULL;
     }
     sys_untimeout(ovpn_ping_timer, cli);
+    sys_untimeout(ovpn_retry_timer, cli);
+    cli->retry_timer_active = 0;
     if (cli->started) {
         netif_set_down(&cli->netif);
         netif_remove(&cli->netif);
     }
     cli->started = 0;
     if (cli->use_tls) {
-        ovpn_tls_free(cli);
+        ovpn_tls_free(cli, free_buffers);
     }
+    cli->tls_ready = 0;
     /* Trigger disconnected event */
     if (cli->event_cb) {
         cli->event_cb(OVPN_EVENT_DISCONNECTED, cli->user_data);
     }
 }
 
+void ovpn_client_stop(ovpn_client_t *cli) {
+    ovpn_client_stop_internal(cli, 1);
+}
+
 static err_t ovpn_send_frame(ovpn_client_t *cli, struct pbuf *payload, uint8_t flags) {
     if (!cli || !cli->udp) {
         return ERR_CLSD;
+    }
+    if (!cli->use_tls) {
+        return ERR_VAL;
     }
     uint16_t payload_len = payload ? (uint16_t)payload->tot_len : 0;
     if (payload_len > cli->mtu) {
@@ -300,55 +356,19 @@ static err_t ovpn_send_frame(ovpn_client_t *cli, struct pbuf *payload, uint8_t f
     hdr.len = lwip_htons(payload_len);
     hdr.flags = flags;
 
-    if (cli->use_tls) {
-        if (!cli->tls_ready) {
-            return ERR_INPROGRESS;
-        }
-        uint16_t frame_len = (uint16_t)(sizeof(hdr) + payload_len);
-        if (frame_len > 1600 || !cli->tls_buf) {
-            return ERR_VAL;
-        }
-        memcpy(cli->tls_buf, &hdr, sizeof(hdr));
-        if (payload_len) {
-            pbuf_copy_partial(payload, cli->tls_buf + sizeof(hdr), payload_len, 0);
-        }
-        int wret = mbedtls_ssl_write(&cli->ssl, cli->tls_buf, frame_len);
-        if (wret > 0) {
-            cli->stats.tx_pkts++;
-            cli->stats.tx_bytes += payload_len;
-            if (flags == OVPN_FLAG_PING) {
-                cli->stats.ping_sent++;
-            }
-            cli->last_activity_ms = sys_now();
-            if (cli->debug) {
-                LLOGD("tx(tls) seq=%lu len=%u flags=0x%02X", (unsigned long)lwip_ntohl(hdr.seq), payload_len, flags);
-            }
-            /* Trigger data TX event (non-PING packets) */
-            if (payload_len > 0 && cli->event_cb) {
-                cli->event_cb(OVPN_EVENT_DATA_TX, cli->user_data);
-            }
-            return ERR_OK;
-        }
-        return ERR_CLSD;
+    if (!cli->tls_ready) {
+        return ERR_INPROGRESS;
     }
-
-    uint16_t frame_len = sizeof(hdr) + payload_len + OVPN_HMAC_LEN;
-    struct pbuf *q = pbuf_alloc(PBUF_TRANSPORT, frame_len, PBUF_RAM);
-    if (!q) {
-        return ERR_MEM;
-    }
-    pbuf_take(q, &hdr, sizeof(hdr));
-    uint8_t *frame_payload = ((uint8_t *)q->payload) + sizeof(hdr);
-    if (payload_len) {
-        pbuf_copy_partial(payload, frame_payload, payload_len, 0);
-    }
-    uint8_t *mac_pos = frame_payload + payload_len;
-    if (ovpn_hmac(cli, (const uint8_t *)&hdr, sizeof(hdr), frame_payload, payload_len, mac_pos) != 0) {
-        pbuf_free(q);
+    uint16_t frame_len = (uint16_t)(sizeof(hdr) + payload_len);
+    if (frame_len > 1600 || !cli->tls_buf) {
         return ERR_VAL;
     }
-    err_t err = udp_sendto(cli->udp, q, &cli->remote_ip, cli->remote_port);
-    if (err == ERR_OK) {
+    memcpy(cli->tls_buf, &hdr, sizeof(hdr));
+    if (payload_len) {
+        pbuf_copy_partial(payload, cli->tls_buf + sizeof(hdr), payload_len, 0);
+    }
+    int wret = mbedtls_ssl_write(&cli->ssl, cli->tls_buf, frame_len);
+    if (wret > 0) {
         cli->stats.tx_pkts++;
         cli->stats.tx_bytes += payload_len;
         if (flags == OVPN_FLAG_PING) {
@@ -356,39 +376,15 @@ static err_t ovpn_send_frame(ovpn_client_t *cli, struct pbuf *payload, uint8_t f
         }
         cli->last_activity_ms = sys_now();
         if (cli->debug) {
-            LLOGD("tx seq=%lu len=%u flags=0x%02X", (unsigned long)lwip_ntohl(hdr.seq), payload_len, flags);
+            LLOGD("tx(tls) seq=%lu len=%u flags=0x%02X", (unsigned long)lwip_ntohl(hdr.seq), payload_len, flags);
         }
         /* Trigger data TX event (non-PING packets) */
         if (payload_len > 0 && cli->event_cb) {
             cli->event_cb(OVPN_EVENT_DATA_TX, cli->user_data);
         }
+        return ERR_OK;
     }
-    pbuf_free(q);
-    return err;
-}
-
-static int ovpn_hmac(const ovpn_client_t *cli, const uint8_t *hdr, size_t hdr_len, const uint8_t *payload, size_t payload_len, uint8_t *out) {
-    const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-    mbedtls_md_context_t ctx;
-    if (!info || !out || !cli || cli->key_len == 0) {
-        return -1;
-    }
-    mbedtls_md_init(&ctx);
-    if (mbedtls_md_setup(&ctx, info, 1) != 0) {
-        mbedtls_md_free(&ctx);
-        return -1;
-    }
-    if (mbedtls_md_hmac_starts(&ctx, cli->key, cli->key_len) != 0) {
-        mbedtls_md_free(&ctx);
-        return -1;
-    }
-    mbedtls_md_hmac_update(&ctx, hdr, hdr_len);
-    if (payload_len) {
-        mbedtls_md_hmac_update(&ctx, payload, payload_len);
-    }
-    int ret = mbedtls_md_hmac_finish(&ctx, out);
-    mbedtls_md_free(&ctx);
-    return ret;
+    return ERR_CLSD;
 }
 
 static int ovpn_replay_accept(ovpn_client_t *cli, uint32_t seq) {
@@ -429,6 +425,18 @@ static void ovpn_ping_timer(void *arg) {
         return;
     }
     uint32_t now = sys_now();
+    if (cli->use_tls && !cli->tls_ready) {
+        if (!cli->handshake_failed && (now - cli->handshake_start_ms) >= OVPN_HANDSHAKE_TIMEOUT_MS) {
+            cli->handshake_failed = 1;
+            LLOGE("dtls handshake timeout");
+            if (cli->event_cb) {
+                cli->event_cb(OVPN_EVENT_TLS_HANDSHAKE_FAIL, cli->user_data);
+            }
+            ovpn_client_stop_internal(cli, 0);
+            ovpn_schedule_retry(cli, "handshake timeout");
+            return;
+        }
+    }
     if ((now - cli->last_activity_ms) >= OVPN_PING_INTERVAL_MS) {
         if (!(cli->use_tls && !cli->tls_ready)) {
             ovpn_send_frame(cli, NULL, OVPN_FLAG_PING);
@@ -443,6 +451,9 @@ static void ovpn_ping_timer(void *arg) {
         if (cli->event_cb && (now - cli->last_activity_ms) < (OVPN_DEAD_INTERVAL_MS + OVPN_PING_INTERVAL_MS)) {
             cli->event_cb(OVPN_EVENT_KEEPALIVE_TIMEOUT, cli->user_data);
         }
+        ovpn_client_stop_internal(cli, 0);
+        ovpn_schedule_retry(cli, "keepalive timeout");
+        return;
     }
     sys_timeout(OVPN_PING_INTERVAL_MS, ovpn_ping_timer, cli);
 }
@@ -476,95 +487,29 @@ static err_t ovpn_netif_output_ip6(struct netif *n, struct pbuf *p, const ip6_ad
 
 static void ovpn_udp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     LWIP_UNUSED_ARG(pcb);
-    LWIP_UNUSED_ARG(addr);
-    LWIP_UNUSED_ARG(port);
     ovpn_client_t *cli = (ovpn_client_t *)arg;
     if (!cli || !p) {
         if (p) pbuf_free(p);
         return;
     }
-    if (cli->use_tls) {
-        if (cli->rx_pending.pkt) {
-            pbuf_free(cli->rx_pending.pkt);
-        }
-        cli->rx_pending.pkt = p;
-        cli->rx_pending.offset = 0;
-        ovpn_tls_process_rx(cli);
-        return;
-    }
-    if (p->tot_len < (sizeof(struct ovpn_data_hdr) + OVPN_HMAC_LEN)) {
-        cli->stats.drop_malformed++;
-        pbuf_free(p);
-        return;
-    }
-    struct ovpn_data_hdr hdr;
-    pbuf_copy_partial(p, &hdr, sizeof(hdr), 0);
-    uint16_t plen = lwip_ntohs(hdr.len);
-    uint32_t seq = lwip_ntohl(hdr.seq);
-    uint16_t expect_len = (uint16_t)(sizeof(hdr) + plen + OVPN_HMAC_LEN);
-    if (p->tot_len < expect_len) {
-        cli->stats.drop_malformed++;
-        pbuf_free(p);
-        return;
-    }
-    if (!ovpn_replay_accept(cli, seq)) {
-        cli->stats.drop_replay++;
-        pbuf_free(p);
-        return;
-    }
-    struct pbuf *ip = NULL;
-    if (plen) {
-        ip = pbuf_alloc(PBUF_IP, plen, PBUF_RAM);
-        if (!ip) {
+    if (!ip_addr_isany(&cli->remote_ip)) {
+        if (!ip_addr_cmp(addr, &cli->remote_ip) || port != cli->remote_port) {
+            cli->stats.drop_malformed++;
             pbuf_free(p);
             return;
         }
-        pbuf_copy_partial(p, ip->payload, plen, sizeof(hdr));
     }
-    uint8_t mac_calc[OVPN_HMAC_LEN];
-    uint8_t mac_recv[OVPN_HMAC_LEN];
-    pbuf_copy_partial(p, mac_recv, OVPN_HMAC_LEN, sizeof(hdr) + plen);
-    if (ovpn_hmac(cli, (uint8_t *)&hdr, sizeof(hdr), ip ? (uint8_t *)ip->payload : NULL, plen, mac_calc) != 0 ||
-        memcmp(mac_calc, mac_recv, OVPN_HMAC_LEN) != 0) {
-        cli->stats.drop_auth++;
-        /* Trigger authentication failed event */
-        if (cli->event_cb) {
-            cli->event_cb(OVPN_EVENT_AUTH_FAILED, cli->user_data);
-        }
-        if (ip) pbuf_free(ip);
+    if (!cli->use_tls) {
         pbuf_free(p);
         return;
     }
-    cli->last_activity_ms = sys_now();
-    if (hdr.flags & OVPN_FLAG_PING) {
-        cli->stats.ping_recv++;
-        ovpn_send_frame(cli, NULL, OVPN_FLAG_PONG);
-        if (ip) pbuf_free(ip);
-        pbuf_free(p);
-        return;
+    if (cli->rx_pending.pkt) {
+        pbuf_free(cli->rx_pending.pkt);
     }
-    if (hdr.flags & OVPN_FLAG_PONG) {
-        if (ip) pbuf_free(ip);
-        pbuf_free(p);
-        return;
-    }
-    if (ip) {
-        err_t err = cli->netif.input(ip, &cli->netif);
-        if (err != ERR_OK) {
-            pbuf_free(ip);
-        } else {
-            cli->stats.rx_pkts++;
-            cli->stats.rx_bytes += plen;
-            /* Trigger data RX event */
-            if (cli->event_cb) {
-                cli->event_cb(OVPN_EVENT_DATA_RX, cli->user_data);
-            }
-        }
-    }
-    if (cli->debug) {
-        LLOGD("rx seq=%lu len=%u flags=0x%02X", (unsigned long)seq, plen, hdr.flags);
-    }
-    pbuf_free(p);
+    cli->rx_pending.pkt = p;
+    cli->rx_pending.offset = 0;
+    ovpn_tls_process_rx(cli);
+    return;
 }
 
 static int ovpn_tls_udp_send(void *ctx, const unsigned char *buf, size_t len) {
@@ -584,6 +529,41 @@ static int ovpn_tls_udp_send(void *ctx, const unsigned char *buf, size_t len) {
         return MBEDTLS_ERR_SSL_INTERNAL_ERROR;
     }
     return (int)len;
+}
+
+static void ovpn_retry_timer(void *arg) {
+    ovpn_client_t *cli = (ovpn_client_t *)arg;
+    if (!cli) {
+        return;
+    }
+    cli->retry_timer_active = 0;
+    if (cli->started) {
+        return;
+    }
+    if (cli->use_tls) {
+        if (!cli->ca_cert_buf || !cli->client_cert_buf || !cli->client_key_buf) {
+            LLOGE("retry skipped: cert buffers missing");
+            return;
+        }
+        ovpn_tls_free(cli, 0);
+        ovpn_client_cfg_t cfg = {0};
+        cfg.ca_cert_pem = (const char *)cli->ca_cert_buf;
+        cfg.ca_cert_len = cli->ca_cert_len;
+        cfg.client_cert_pem = (const char *)cli->client_cert_buf;
+        cfg.client_cert_len = cli->client_cert_len;
+        cfg.client_key_pem = (const char *)cli->client_key_buf;
+        cfg.client_key_len = cli->client_key_len;
+        int tls_ret = ovpn_tls_init(cli, &cfg);
+        if (tls_ret != 0) {
+            LLOGE("TLS re-init failed: %d", tls_ret);
+            ovpn_schedule_retry(cli, "tls re-init");
+            return;
+        }
+    }
+    int ret = ovpn_client_start(cli);
+    if (ret != 0) {
+        ovpn_schedule_retry(cli, "start retry");
+    }
 }
 
 static int ovpn_tls_udp_recv(void *ctx, unsigned char *buf, size_t len) {
@@ -625,13 +605,6 @@ static int ovpn_tls_get_delay(void *ctx) {
     return 0;
 }
 
-static int tls_myrand( void *rng_state, unsigned char *output, size_t len ) {
-    (void)rng_state;
-    luat_crypto_trng((char*)output, len);
-    return 0;
-}
-
-
 static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     /* Initialize DTLS contexts and load credentials. */
     mbedtls_ssl_init(&cli->ssl);
@@ -642,18 +615,27 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     mbedtls_ctr_drbg_init(&cli->drbg);
     mbedtls_entropy_init(&cli->entropy);
 
-    const char *pers = "ovpn-dtls";
-    int ret = mbedtls_ctr_drbg_seed(&cli->drbg, mbedtls_entropy_func, &cli->entropy,
-                                    (const unsigned char *)pers, strlen(pers));
+    int ret = mbedtls_entropy_add_source(&cli->entropy, ovpn_entropy_source, NULL, 32, MBEDTLS_ENTROPY_SOURCE_STRONG);
     if (ret != 0) {
+        LLOGE("entropy add source failed: %d", ret);
+        return ret;
+    }
+
+    const char *pers = "ovpn-dtls";
+    ret = mbedtls_ctr_drbg_seed(&cli->drbg, mbedtls_entropy_func, &cli->entropy,
+                                (const unsigned char *)pers, strlen(pers));
+    if (ret != 0) {
+        LLOGE("tls seed failed: %d", ret);
         return ret;
     }
     ret = mbedtls_x509_crt_parse(&cli->ca, (const unsigned char *)cfg->ca_cert_pem, cfg->ca_cert_len);
     if (ret != 0) {
+        LLOGE("ca cert parse failed: %d", ret);
         return ret;
     }
     ret = mbedtls_x509_crt_parse(&cli->client_cert, (const unsigned char *)cfg->client_cert_pem, cfg->client_cert_len);
     if (ret != 0) {
+        LLOGE("client cert parse failed: %d", ret);
         return ret;
     }
     /* mbedtls 3.x adds RNG parameters to pk_parse_key */
@@ -661,9 +643,10 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, 
                                 NULL, 0, mbedtls_ctr_drbg_random, &cli->drbg);
 #else
-    ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, tls_myrand, 0);
+    ret = mbedtls_pk_parse_key(&cli->client_key, (const unsigned char *)cfg->client_key_pem, cfg->client_key_len, NULL, 0);
 #endif
     if (ret != 0) {
+        LLOGE("client key parse failed: %d", ret);
         return ret;
     }
     ret = mbedtls_ssl_config_defaults(&cli->conf,
@@ -671,12 +654,14 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
                                       MBEDTLS_SSL_TRANSPORT_DATAGRAM,
                                       MBEDTLS_SSL_PRESET_DEFAULT);
     if (ret != 0) {
+        LLOGE("ssl config defaults failed: %d", ret);
         return ret;
     }
     mbedtls_ssl_conf_authmode(&cli->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
     mbedtls_ssl_conf_ca_chain(&cli->conf, &cli->ca, NULL);
     ret = mbedtls_ssl_conf_own_cert(&cli->conf, &cli->client_cert, &cli->client_key);
     if (ret != 0) {
+        LLOGE("ssl conf own cert failed: %d", ret);
         return ret;
     }
     mbedtls_ssl_conf_rng(&cli->conf, mbedtls_ctr_drbg_random, &cli->drbg);
@@ -684,10 +669,8 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
 
     ret = mbedtls_ssl_setup(&cli->ssl, &cli->conf);
     if (ret != 0) {
+        LLOGE("ssl setup failed: %d", ret);
         return ret;
-    }
-    if (cfg->remote_host) {
-        mbedtls_ssl_set_hostname(&cli->ssl, cfg->remote_host);
     }
     mbedtls_ssl_set_bio(&cli->ssl, cli, ovpn_tls_udp_send, ovpn_tls_udp_recv, NULL);
     mbedtls_ssl_set_timer_cb(&cli->ssl, cli, ovpn_tls_set_delay, ovpn_tls_get_delay);
@@ -695,7 +678,7 @@ static int ovpn_tls_init(ovpn_client_t *cli, const ovpn_client_cfg_t *cfg) {
     return 0;
 }
 
-static void ovpn_tls_free(ovpn_client_t *cli) {
+static void ovpn_tls_free(ovpn_client_t *cli, int free_buffers) {
     if (!cli || !cli->use_tls) {
         return;
     }
@@ -703,20 +686,20 @@ static void ovpn_tls_free(ovpn_client_t *cli) {
         pbuf_free(cli->rx_pending.pkt);
         cli->rx_pending.pkt = NULL;
     }
-    if (cli->tls_buf) {
+    if (free_buffers && cli->tls_buf) {
         luat_heap_free(cli->tls_buf);
         cli->tls_buf = NULL;
     }
     // Free certificate data copies
-    if (cli->ca_cert_buf) {
+    if (free_buffers && cli->ca_cert_buf) {
         luat_heap_free(cli->ca_cert_buf);
         cli->ca_cert_buf = NULL;
     }
-    if (cli->client_cert_buf) {
+    if (free_buffers && cli->client_cert_buf) {
         luat_heap_free(cli->client_cert_buf);
         cli->client_cert_buf = NULL;
     }
-    if (cli->client_key_buf) {
+    if (free_buffers && cli->client_key_buf) {
         luat_heap_free(cli->client_key_buf);
         cli->client_key_buf = NULL;
     }
@@ -748,8 +731,11 @@ static void ovpn_tls_process_rx(ovpn_client_t *cli) {
                     }
                     /* Trigger TLS handshake OK event */
                     if (cli->event_cb) {
+                        cli->event_cb(OVPN_EVENT_CONNECTED, cli->user_data);
                         cli->event_cb(OVPN_EVENT_TLS_HANDSHAKE_OK, cli->user_data);
                     }
+                    cli->retry_attempt = 0;
+                    cli->retry_timer_active = 0;
                 }
                 continue;
             }
@@ -763,6 +749,9 @@ static void ovpn_tls_process_rx(ovpn_client_t *cli) {
             if (cli->event_cb) {
                 cli->event_cb(OVPN_EVENT_TLS_HANDSHAKE_FAIL, cli->user_data);
             }
+            cli->handshake_failed = 1;
+            ovpn_client_stop_internal(cli, 0);
+            ovpn_schedule_retry(cli, "handshake fail");
             return;
         }
     }

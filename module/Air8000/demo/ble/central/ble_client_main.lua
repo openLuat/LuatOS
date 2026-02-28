@@ -82,6 +82,50 @@ local function is_target_device(scan_param)
     return false
 end
 
+-- 解析特征值属性
+local function parse_properties(properties)
+    local prop_map = {
+        [0x08] = "Read",         -- (0x01 << 3)
+        [0x10] = "Write",        -- (0x01 << 4)
+        [0x20] = "Indicate",     -- (0x01 << 5)
+        [0x40] = "Notify",       -- (0x01 << 6)
+        [0x80] = "Write Command"  -- (0x01 << 7)
+    }
+    local result = ""
+    for bit, name in pairs(prop_map) do
+        if properties & bit ~= 0 then
+            if result ~= "" then
+                result = result .. ", "
+            end
+            result = result .. name
+        end
+    end
+    return result
+end
+
+-- 打印GATT信息
+local function print_gatt(gatt)
+    for k, v in pairs(gatt) do
+        if k == 1 and type(v) == 'string' then
+            local uuid,uuid_len = v:toHex()
+            log.info("server uuid:",uuid,"uuid len:",uuid_len*4)
+        else -- Characteristic
+            for n, m in pairs(v) do
+                if n == 1 and type(m) == 'string' then
+                    local uuid,uuid_len = m:toHex()
+                    log.info("characteristic uuid:",uuid,"uuid len:",uuid_len*4)
+                elseif n == 2 and type(m) == 'number' then
+                    -- Properties
+                    local prop_str = parse_properties(m)
+                    log.info("characteristic properties:", prop_str)
+                else
+                    log.info("", n, type(m), m)
+                end
+            end
+        end
+    end
+end
+
 -- 事件回调函数
 local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 仅表示连接成功，后续读/写/订阅 需等待GATT_DONE事件
@@ -96,6 +140,7 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
     -- GATT项处理
     elseif ble_event == ble.EVENT_GATT_ITEM then
         log.info("ble", "gatt item", ble_param)
+        print_gatt(ble_param)
     -- GATT操作完成,可进行读/写/订阅操作
     elseif ble_event == ble.EVENT_GATT_DONE then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "GATT_DONE", ble_param)

@@ -1,14 +1,26 @@
 --[[
 @module  netdrv_multiple
-@summary 多网卡（4G网卡、WIFI STA网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
+@summary 多网卡（4G网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 @version 1.0
-@date    2025.08.12
-@author  孟伟
+@date    2025.07.24
+@author  马梦阳
 @usage
 本文件为多网卡驱动模块 ，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-直接使用Air8000开发板硬件测试即可；
+通过SPI外挂CH390H芯片的以太网卡：
+Air780EXX核心板和AirETH_1000配件板的硬件接线方式为:
+核心板通过TYPE-C USB口供电（TYPE-C USB口旁边的ON/OFF拨动开关拨到ON一端）；
+如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的5V管脚进行5V供电；
+| Air780EXX核心板  |  AirETH_1000配件板 |
+| --------------- | ----------------- |
+| 3V3             | 3.3v              |
+| gnd             | gnd               |
+| 86/SPI0CLK      | SCK               |
+| 83/SPI0CS       | CSS               |
+| 84/SPI0MISO     | SDO               |
+| 85/SPI0MOSI     | SDI               |
+| 107/GPIO21      | INT               |
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
@@ -25,6 +37,15 @@ local exnetif = require "exnetif"
 --     net_type：为nil
 --     adapter：number类型，为-1
 local function netdrv_multiple_notify_cbfunc(net_type,adapter)
+    -- 在位置1和2设置自定义的DNS服务器ip地址：
+    -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+    -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+    -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+    -- 如果使用专网卡，不要使用这两行代码；
+    -- 如果使用国外的网络，不要使用这两行代码；
+    socket.setDNS(adapter, 1, "223.5.5.5")
+    socket.setDNS(adapter, 2, "114.114.114.114")
+    
     if type(net_type)=="string" then
         log.info("netdrv_multiple_notify_cbfunc", "use new adapter", net_type, adapter)
     elseif type(net_type)=="nil" then
@@ -38,11 +59,14 @@ local function netdrv_multiple_task_func()
     --设置网卡优先级
     exnetif.set_priority_order(
         {
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air8000开发板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EXX核心板验证
             {
                 ETHERNET = {
+                    -- 本demo测试使用的是Air780EXX核心板
+                    -- 核心板的VDD 3V3管脚对AirETH_1000配件板进行供电
+                    -- 3V3管脚是作为LDO 3.3V输出，供测试用的，仅在使用DCDC供电时有输出，默认打开，无需控制
                     -- 供电使能GPIO
-                    pwrpin = 140,
+                    pwrpin = nil,
                     -- 设置的多个“已经IP READY，但是还没有ping通”网卡，循环执行ping动作的间隔（单位毫秒，可选）
                     -- 如果没有传入此参数，exnetif会使用默认值10秒
                     ping_time = 3000,
@@ -54,22 +78,7 @@ local function netdrv_multiple_task_func()
 
                     -- 网卡芯片型号(选填参数)，仅spi方式外挂以太网时需要填写。
                     tp = netdrv.CH390,
-                    opts = {spi=1, cs=12}
-                }
-            },
-
-            -- WIFI STA网卡
-            {
-                WIFI = {
-                    -- 要连接的WIFI路由器名称
-                    ssid = "茶室-降功耗,找合宙!",
-                    -- 要连接的WIFI路由器密码
-                    password = "Air123456",
-
-                    -- 连通性检测ip(选填参数)；
-                    -- 如果没有传入ip地址，exnetif中会默认使用httpdns能否成功获取baidu.com的ip作为是否连通的判断条件；
-                    -- 如果传入，一定要传入可靠的并且可以ping通的ip地址；
-                    -- ping_ip = "填入可靠的并且可以ping通的ip地址",
+                    opts = {spi=0, cs=8}
                 }
             },
 
@@ -78,7 +87,7 @@ local function netdrv_multiple_task_func()
                 LWIP_GP = true
             }
         }
-    )
+    )    
 end
 
 -- 设置网卡状态变化通知回调函数netdrv_multiple_notify_cbfunc

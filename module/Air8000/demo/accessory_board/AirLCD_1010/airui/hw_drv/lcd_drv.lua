@@ -2,7 +2,7 @@
 @module  lcd_drv
 @summary LCD显示驱动模块，基于lcd核心库
 @version 1.0
-@date    2025.12.1
+@date    2026.02.05
 @author  江访
 @usage
 本模块为LCD显示驱动功能模块，主要功能包括：
@@ -54,8 +54,8 @@ function lcd_drv.init()
 
     if result then
         -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-        lcd.setupBuff(nil, true)
-        lcd.autoFlush(false)
+        -- lcd.setupBuff(nil, true)
+        -- lcd.autoFlush(false)
 
         -- 初始化AirUI
         local width, height = lcd.getSize()
@@ -67,11 +67,11 @@ function lcd_drv.init()
 
         -- 加载字体
         airui.font_load({
-            type = "hzfont",    -- 字体类型，hzfont
-            path = nil,         -- 字体路径，Air8000固件内置，无需填写
-            size = 14,         -- 默认字体大写
-            cache_size = 512,   -- 
-            antialias = 4, -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
+            type = "hzfont",  -- 字体类型，hzfont
+            path = nil,       -- 字体路径，Air8000固件内置，无需填写
+            size = 14,        -- 默认字体大写
+            cache_size = 512, --
+            antialias = 4,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
         })
 
         -- 开启背光引脚供电

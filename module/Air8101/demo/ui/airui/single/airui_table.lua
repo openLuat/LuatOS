@@ -37,11 +37,11 @@ local function ui_main()
     tbl:set_cell_text(2, 1, "30")
     tbl:set_cell_text(2, 2, "上海")
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

@@ -13,6 +13,16 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
+    -- 创建虚拟键盘
+    local keyboard = airui.keyboard({
+        x = 0,
+        y = -20, -- 底部留20像素边距
+        w = 800,
+        h = 250,
+        mode = "text",
+        auto_hide = true,
+    })
+
     -- 创建文本输入框
     local textarea = airui.textarea({
         x = 0,
@@ -22,27 +32,16 @@ local function ui_main()
         max_len = 512,
         text = "在这里输入文字",
         placeholder = "点击输入...",
+        keyboard = keyboard
     })
 
-    -- 创建虚拟键盘
-    local keyboard = airui.keyboard({
-        x = 0,
-        y = -20,  -- 底部留20像素边距
-        w = 800,
-        h = 250,
-        mode = "text",
-        target = textarea,
-        auto_hide = true,
-        on_commit = function()
-            log.info("input", "输入内容: ", textarea:get_text())
-        end,
-    })
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

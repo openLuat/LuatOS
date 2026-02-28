@@ -1,8 +1,8 @@
 --[[
 @module  dropdown_page
 @summary 下拉框组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是下拉框组件的演示页面，展示下拉框的各种用法。
@@ -41,6 +41,8 @@ function dropdown_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -51,7 +53,7 @@ function dropdown_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -74,9 +76,10 @@ function dropdown_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
-        -- 显示选中项
+    -- 显示选中项
     local selected_label1 = airui.label({
         parent = scroll_container,
         text = "当前选中: 选项1",
@@ -84,6 +87,7 @@ function dropdown_page.create_ui()
         y = 45,
         w = 80,
         h = 50,
+        font_size = 14,
     })
 
     local basic_dropdown = airui.dropdown({
@@ -94,14 +98,11 @@ function dropdown_page.create_ui()
         h = 40,
         options = {"选项1", "选项2", "选项3", "选项4", "选项5"},
         default_index = 0,
-        on_change = function(self, index)
-            -- 更新标签显示选择结果
+        on_change = function(self,idx)
             local texts = {"选项1", "选项2", "选项3", "选项4", "选项5"}
-            selected_label1:set_text("当前选中: " .. texts[index + 1])
+            selected_label1:set_text("当前选中: " .. texts[idx + 1])
         end
     })
-
-
 
     -- 示例2: 下拉框组
     airui.label({
@@ -111,6 +112,7 @@ function dropdown_page.create_ui()
         y = 110,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local dropdown_container = airui.container({
@@ -131,6 +133,7 @@ function dropdown_page.create_ui()
         y = 20,
         w = 60,
         h = 20,
+        font_size = 14,
     })
 
     local city_dropdown = airui.dropdown({
@@ -151,6 +154,7 @@ function dropdown_page.create_ui()
         y = 60,
         w = 60,
         h = 20,
+        font_size = 14,
     })
 
     local district_dropdown = airui.dropdown({
@@ -171,7 +175,7 @@ function dropdown_page.create_ui()
         w = 180,
         h = 35,
         text = "确认选择",
-        on_click = function()
+        on_click = function(self)
             local city_idx = city_dropdown:get_selected()
             local district_idx = district_dropdown:get_selected()
             local cities = {"北京", "上海", "广州", "深圳", "杭州", "南京", "成都"}
@@ -187,6 +191,7 @@ function dropdown_page.create_ui()
         y = 310,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local value_dropdown = airui.dropdown({
@@ -206,13 +211,16 @@ function dropdown_page.create_ui()
         w = 80,
         h = 40,
         text = "获取",
-        on_click = function()
+        on_click = function(self)
             local idx = value_dropdown:get_selected()
             local colors = {"红色", "绿色", "蓝色", "黄色", "紫色"}
             local msg = airui.msgbox({
                 text = "当前选中: " .. colors[idx + 1],
                 buttons = {"确定"},
-                timeout = 2000
+                timeout = 2000,
+                on_action = function(self, label)
+                    self:hide()
+                end
             })
             msg:show()
         end
@@ -226,7 +234,7 @@ function dropdown_page.create_ui()
         w = 180,
         h = 40,
         text = "设置为黄色",
-        on_click = function()
+        on_click = function(self)
             value_dropdown:set_selected(3) -- 黄色是第4项，索引为3
         end
     })
@@ -239,6 +247,7 @@ function dropdown_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 

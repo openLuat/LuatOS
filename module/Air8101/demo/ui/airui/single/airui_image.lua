@@ -20,6 +20,7 @@ local function ui_main()
         y = 176,
         w = 128,
         h = 128,
+        opacity = 100,
         on_click = function(self)
             log.info("image", "图片被点击了")
         end
@@ -32,14 +33,14 @@ local function ui_main()
         y = 20,
         w = 80,
         h = 80,
-        opacity = 100, -- 透明度
+        -- opacity = 100, -- jpg不支持调整透明度
     })
 
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

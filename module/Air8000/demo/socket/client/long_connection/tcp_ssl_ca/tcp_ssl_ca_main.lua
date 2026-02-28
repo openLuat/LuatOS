@@ -88,7 +88,7 @@ local function tcp_ssl_ca_main_task_func()
         -- expires on        : 2020-12-27 15:46:55
         -- 表示证书有效期截止到2020-12-27 15:46:55，明显就是证书已经过了有效期
         -- 遇到这种情况，可以反馈给合宙的技术人员；或者不再使用netlab server测试，使用你自己的tcp ssl server来测试，只要保证你的server证书合法就行；
-        result = socket.config(socket_client, nil, nil, true, nil, nil, nil, server_ca_cert)
+        result = socket.config(socket_client, nil, nil, true, 300, 10, 3, server_ca_cert)
         -- 如果配置失败
         if not result then
             log.error("tcp_ssl_ca_main_task_func", "socket.config error")

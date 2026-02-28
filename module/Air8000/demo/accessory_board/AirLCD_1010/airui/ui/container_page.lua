@@ -1,8 +1,8 @@
 --[[
 @module  container_page
 @summary 容器组件演示页面
-@version 1.0.0
-@date    2026.01.30
+@version 1.0
+@date    2026.02.05
 @author  江访
 @usage
 本文件是容器组件的演示页面，展示容器的各种用法。
@@ -41,6 +41,8 @@ function container_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
     })
 
     -- 返回按钮
@@ -51,7 +53,7 @@ function container_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -74,6 +76,7 @@ function container_page.create_ui()
         y = 10,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local basic_container = airui.container({
@@ -93,6 +96,7 @@ function container_page.create_ui()
         y = 10,
         w = 260,
         h = 20,
+        font_size = 14,
     })
 
     airui.label({
@@ -102,6 +106,7 @@ function container_page.create_ui()
         y = 40,
         w = 260,
         h = 20,
+        font_size = 14,
     })
 
     -- 示例2: 圆角容器
@@ -112,6 +117,7 @@ function container_page.create_ui()
         y = 130,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local rounded_container = airui.container({
@@ -131,6 +137,7 @@ function container_page.create_ui()
         y = 30,
         w = 260,
         h = 20,
+        font_size = 14,
     })
 
     -- 示例3: 嵌套容器
@@ -141,6 +148,7 @@ function container_page.create_ui()
         y = 250,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local parent_container = airui.container({
@@ -170,6 +178,7 @@ function container_page.create_ui()
         y = 15,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     local child2 = airui.container({
@@ -189,6 +198,7 @@ function container_page.create_ui()
         y = 15,
         w = 100,
         h = 20,
+        font_size = 14,
     })
 
     -- 示例4: 动态显示/隐藏
@@ -199,6 +209,7 @@ function container_page.create_ui()
         y = 410,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local toggle_container = airui.container({
@@ -218,6 +229,7 @@ function container_page.create_ui()
         y = 20,
         w = 140,
         h = 20,
+        font_size = 14,
     })
 
     local toggle_btn = airui.button({
@@ -242,6 +254,7 @@ function container_page.create_ui()
         y = 510,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 
     local color_container = airui.container({
@@ -261,6 +274,7 @@ function container_page.create_ui()
         y = 30,
         w = 260,
         h = 20,
+        font_size = 14,
     })
 
     local color_btn = airui.button({
@@ -270,7 +284,7 @@ function container_page.create_ui()
         w = 130,
         h = 40,
         text = "随机颜色",
-        on_click = function()
+        on_click = function(self)
             local colors = {0xFF5722, 0x4CAF50, 0x9C27B0, 0xFF9800, 0x00BCD4}
             local random_color = colors[math.random(1, #colors)]
             color_container:set_color(random_color)
@@ -284,7 +298,7 @@ function container_page.create_ui()
         w = 130,
         h = 40,
         text = "重置颜色",
-        on_click = function()
+        on_click = function(self)
             color_container:set_color(0x2196F3)
         end
     })
@@ -297,6 +311,7 @@ function container_page.create_ui()
         y = 440,
         w = 300,
         h = 20,
+        font_size = 14,
     })
 end
 

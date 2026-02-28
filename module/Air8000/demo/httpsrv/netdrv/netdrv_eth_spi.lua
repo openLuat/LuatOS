@@ -1,77 +1,72 @@
 --[[
 @module  netdrv_eth_spi
-@summary "以太网SPI网卡"驱动模块
+@summary “通过SPI外挂CH390H芯片的以太网卡”驱动模块 
 @version 1.0
-@date    2025.11.4
-@author  拓毅恒
+@date    2025.07.24
+@author  朱天华
 @usage
-本文件为以太网SPI网卡驱动模块，核心业务逻辑为：
-1、初始化以太网SPI接口；
-2、配置以太网适配器；
-3、设置IP地址；
+本文件为“通过SPI外挂CH390H芯片的以太网卡”驱动模块 ，核心业务逻辑为：
+1、打开CH390H芯片供电开关；
+2、初始化spi1，初始化以太网卡，并且在以太网卡上开启DHCP(动态主机配置协议)；
+3、以太网卡的连接状态发生变化时，在日志中进行打印；
 4、当网络连接成功后，会发布CREATE_OK事件通知HTTP服务器启动；
+
+直接使用Air8000开发板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_eth_spi"就可以加载运行；
 ]]
 
-gpio.setup(140, 1, gpio.PULLUP)     --打开ch390供电
+local exnetif = require "exnetif"
 
--- 以太网IP状态变化处理
-local function eth_ip_ready_func(ip, adapter)
+local function ip_ready_func(ip, adapter)    
     if adapter == socket.LWIP_ETH then
-        log.info("netdrv_eth_spi", "IP_READY", ip)
-        -- 发布CREATE_OK事件，通知HTTP服务器启动
-        sys.publish("CREATE_OK")
+        -- 在位置1和2设置自定义的DNS服务器ip地址：
+        -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
+        -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
+        -- 可以加上以下两行代码，在自动获取的DNS服务器工作不稳定的情况下，这两个新增的DNS服务器会使DNS服务更加稳定可靠；
+        -- 如果使用专网卡，不要使用这两行代码；
+        -- 如果使用国外的网络，不要使用这两行代码；
+        socket.setDNS(adapter, 1, "223.5.5.5")
+        socket.setDNS(adapter, 2, "114.114.114.114")
+
+        log.info("netdrv_eth_spi.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_ETH))
+	sys.publish("CREATE_OK")
     end
 end
 
--- 订阅以太网相关事件
-sys.subscribe("IP_READY", eth_ip_ready_func)
-
--- 创建并启动以太网初始化任务
-local function netdrv_eth_init_task()
-    -- 设置默认网卡为socket.LWIP_ETH
-    socket.dft(socket.LWIP_ETH)
-    
-    -- 初始化SPI接口连接CH390
-    local result = spi.setup(
-        1,--串口id
-        nil,
-        0,--CPHA
-        0,--CPOL
-        8,--数据宽度
-        25600000--频率
-    )
-    if result ~= 0 then--返回值为0，表示打开成功
-        log.info("netdrv_eth_spi", "SPI初始化失败", result)
-        return
+local function ip_lose_func(adapter)    
+    if adapter == socket.LWIP_ETH then
+        log.warn("netdrv_eth_spi.ip_lose_func", "IP_LOSE")
     end
-    log.info("netdrv_eth_spi", "SPI初始化成功")
-
-    -- 设置CH390驱动和网络参数
-    netdrv.setup(socket.LWIP_ETH, netdrv.CH390, {spi=1,cs=12})
-    sys.wait(3000)
-    
-    -- 配置从路由器获取IP地址（DHCP客户端模式）
-    log.info("netdrv_ethernet_spi", "开始从路由器获取IP地址...")
-    netdrv.dhcp(socket.LWIP_ETH, true)  -- 启用DHCP客户端
-    sys.wait(3000)
-    
-    -- 获取并显示分配的IP地址
-    local ipv4, mark, gw = netdrv.ipv4(socket.LWIP_ETH)
-    -- 手动设置IP地址
-    -- local ipv4,mark, gw = netdrv.ipv4(socket.LWIP_ETH, "192.168.4.1", "255.255.255.0", "192.168.4.1")
-    server_ip = ipv4
-    log.info("netdrv_ethernet_spi", "IP配置完成:", ipv4, mark, gw)
-    -- 等待以太网连接
-    while netdrv.link(socket.LWIP_ETH) ~= true do
-        sys.wait(100)
-    end
-    while netdrv.link(socket.LWIP_GP) ~= true do
-        sys.wait(100)
-    end
-    log.info("netdrv_ethernet_spi", "以太网连接状态:", netdrv.link(socket.LWIP_ETH))
 end
 
--- 启动以太网初始化任务
-sys.taskInit(netdrv_eth_init_task)
+
+-- 以太网联网成功（成功连接路由器，并且获取到了IP地址）后，内核固件会产生一个"IP_READY"消息
+-- 各个功能模块可以订阅"IP_READY"消息实时处理以太网联网成功的事件
+-- 也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
+
+-- 以太网断网后，内核固件会产生一个"IP_LOSE"消息
+-- 各个功能模块可以订阅"IP_LOSE"消息实时处理以太网断网的事件
+-- 也可以在任何时刻调用socket.adapter(socket.LWIP_ETH)来获取以太网是否连接成功
+
+--此处订阅"IP_READY"和"IP_LOSE"两种消息
+--在消息的处理函数中，仅仅打印了一些信息，便于实时观察“通过SPI外挂CH390H芯片的以太网卡”的连接状态
+--也可以根据自己的项目需求，在消息处理函数中增加自己的业务逻辑控制，例如可以在连网状态发生改变时更新网络图标
+sys.subscribe("IP_READY", ip_ready_func)
+sys.subscribe("IP_LOSE", ip_lose_func)
+
+
+-- 配置SPI外接以太网芯片CH390H的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_ETH
+-- 本demo使用Air8000开发板测试，开发板上的硬件配置为：
+-- GPIO140为CH390H以太网芯片的供电使能控制引脚
+-- 使用spi1，片选引脚使用GPIO12
+-- 如果使用的硬件不是Air8000开发板，根据自己的硬件配置修改以下参数
+exnetif.set_priority_order({
+    {
+        ETHERNET = {
+            pwrpin = 140, 
+            tp = netdrv.CH390,
+            opts = {spi = 1, cs = 12}
+        }
+    }
+})

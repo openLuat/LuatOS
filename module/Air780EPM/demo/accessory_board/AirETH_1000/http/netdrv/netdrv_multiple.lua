@@ -3,12 +3,12 @@
 @summary 多网卡（4G网卡、通过SPI外挂CH390H芯片的以太网卡）驱动模块
 @version 1.0
 @date    2025.07.24
-@author  王城钧
+@author  马梦阳
 @usage
 本文件为多网卡驱动模块，核心业务逻辑为：
 1、调用exnetif.set_priority_order配置多网卡的控制参数以及优先级；
 
-直接使用Air780EPM 核心板外挂AirETH_1000硬件测试即可；
+直接使用Air780EPM V1.3版本开发板硬件测试即可；
 
 本文件没有对外接口，直接在其他功能模块中require "netdrv_multiple"就可以加载运行；
 ]]
@@ -46,7 +46,7 @@ local function netdrv_multiple_task_func()
     --设置网卡优先级
     exnetif.set_priority_order(
         {
-            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EPM 核心板验证
+            -- “通过SPI外挂CH390H芯片”的以太网卡，使用Air780EPM V1.3版本开发板验证
             {
                 ETHERNET = {
                     -- 供电使能GPIO

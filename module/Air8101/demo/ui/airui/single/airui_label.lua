@@ -24,7 +24,7 @@ local function ui_main()
 
     -- 创建图标标签
     local label2 = airui.label({
-        symbol = airui.AIRUI_SYMBOL_SETTINGS,
+        symbol = airui.SYMBOL_SETTINGS,
         x = 120,
         y = 80,
         w = 20,
@@ -33,11 +33,11 @@ local function ui_main()
             log.info("label2", "设置图标被点击")
         end
     })
-    -- 主循环
-    while true do
-        airui.refresh()
-        sys.wait(50)
-    end
+    -- 主循环,V1.0.3已不需要
+    -- while true do
+    --     airui.refresh()
+    --     sys.wait(50)
+    -- end
 end
 
 sys.taskInit(ui_main)

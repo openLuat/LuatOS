@@ -66,7 +66,7 @@ local function udp_client_main_task_func()
         end
 
         -- 配置socket client对象为udp client
-        result = socket.config(socket_client, nil, true)
+        result = socket.config(socket_client, nil, true, nil, 300, 10, 3)
         -- 如果配置失败
         if not result then
             log.error("udp_client_main_task_func", "socket.config error")

@@ -321,6 +321,11 @@ static int l_i2c_send(lua_State *L)
     {
         const int len = lua_rawlen(L, 3); //返回数组的长度
         char *buff = (char *)luat_heap_malloc(len);
+        if (buff == NULL) {
+            LLOGE("out of memory when malloc i2c send buffer");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
 
         for (size_t i = 0; i < len; i++)
         {
@@ -376,6 +381,11 @@ static int l_i2c_recv(lua_State *L)
     int addr = luaL_checkinteger(L, 2);
     int len = luaL_checkinteger(L, 3);
     char *buff = (char *)luat_heap_malloc(len);
+    if (buff == NULL) {
+        LLOGE("out of memory when malloc i2c recv buffer");
+        lua_pushlstring(L, NULL, 0);
+        return 1;
+    }
     int result;
     if (lua_isuserdata(L, 1))
     {
@@ -422,6 +432,11 @@ static int l_i2c_write_reg(lua_State *L)
     const char *lb = luaL_checklstring(L, 4, &len);
     int stop = luaL_optnumber(L, 5 , 1);
     char *buff = (char *)luat_heap_malloc(len + 1);
+    if (buff == NULL) {
+        LLOGE("out of memory when malloc i2c writeReg buffer");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     *buff = (char)reg;
     memcpy(buff + 1, lb, len);
     int result;
@@ -481,6 +496,11 @@ static int l_i2c_read_reg(lua_State *L)
         return 1;
     }
     char *buff = (char *)luat_heap_malloc(sizeof(char) * len);
+    if (buff == NULL) {
+        LLOGE("out of memory when malloc i2c readReg buffer");
+        lua_pushlstring(L, NULL, 0);
+        return 1;
+    }
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c_t *ei2c = toei2c(L);
@@ -738,6 +758,12 @@ static int l_i2c_transfer(lua_State *L)
     else if (lua_istable(L, 3)) {
         const int tx_len = lua_rawlen(L, 3); //返回数组的长度
         tx_buff = (uint8_t *)luat_heap_malloc(tx_len);
+        if (tx_buff == NULL) {
+            LLOGE("out of memory when malloc i2c transfer tx buffer");
+            lua_pushboolean(L, 0);
+            lua_pushnil(L);
+            return 2;
+        }
         tx_heap_flag = 1;
         for (size_t i = 0; i < tx_len; i++)
         {
@@ -760,6 +786,13 @@ static int l_i2c_transfer(lua_State *L)
 		if (rx_len) {
 			if (!rbuff) {
 				rx_buff = luat_heap_malloc(rx_len);
+                if (rx_buff == NULL) {
+                    LLOGE("out of memory when malloc i2c transfer rx buffer");
+                    if (tx_heap_flag) luat_heap_free(tx_buff);
+                    lua_pushboolean(L, 0);
+                    lua_pushnil(L);
+                    return 2;
+                }
 			}
 			else {
 				if ((rbuff->used + rx_len) > rbuff->len) {
@@ -849,6 +882,11 @@ static int l_i2c_no_block_transfer(lua_State *L)
 	uint32_t timeout = luaL_optinteger(L, 7, 100);
 
 	char *cb_topic = luat_heap_malloc(topic_len + 1);
+    if (cb_topic == NULL) {
+        LLOGE("out of memory when malloc i2c xfer cb_topic");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
 	memcpy(cb_topic, topic, topic_len);
 	cb_topic[topic_len] = 0;
 	if (rx_buff && rx_len) {

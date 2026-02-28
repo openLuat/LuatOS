@@ -18,7 +18,7 @@ extern "C" {
 
 /* Event types for OpenVPN client state */
 typedef enum {
-    OVPN_EVENT_CONNECTED = 0,      /* Connection established (static key mode) */
+    OVPN_EVENT_CONNECTED = 0,      /* Connection established */
     OVPN_EVENT_TLS_HANDSHAKE_OK,   /* TLS/DTLS handshake succeeded */
     OVPN_EVENT_TLS_HANDSHAKE_FAIL, /* TLS/DTLS handshake failed */
     OVPN_EVENT_KEEPALIVE_TIMEOUT,  /* Keepalive timeout (30s no response) */
@@ -32,19 +32,19 @@ typedef enum {
 typedef void (*ovpn_event_cb_t)(ovpn_event_t event, void *user_data);
 
 typedef struct {
-    const char *remote_host;      // optional; if NULL, remote_ip must be set
     ip_addr_t   remote_ip;        // required for now (UDP only)
     uint16_t    remote_port;      // server port
     uint8_t     adapter_index;    // defaults to NW_ADAPTER_INDEX_LWIP_USER0
     uint16_t    tun_mtu;          // defaults to 1500
-    const uint8_t *static_key;    // optional static key material
-    size_t      static_key_len;   // up to 64 bytes stored
     const char *ca_cert_pem;      // CA certificate (PEM)
     size_t      ca_cert_len;
     const char *client_cert_pem;  // client certificate (PEM)
     size_t      client_cert_len;
     const char *client_key_pem;   // client private key (PEM)
     size_t      client_key_len;
+    uint8_t     retry_enable;     // enable retry
+    uint32_t    retry_base_ms;    // base delay
+    uint32_t    retry_max_ms;     // max delay
     ovpn_event_cb_t event_cb;     // Event callback function (optional)
     void       *user_data;        // User-defined data passed to callback
 } ovpn_client_cfg_t;
@@ -75,8 +75,13 @@ typedef struct ovpn_client {
     uint8_t rx_initialized;
     uint32_t last_activity_ms;
     uint32_t last_ping_ms;
-    uint8_t key[64];  /* OVPN_MAX_KEY_LEN */
-    size_t key_len;
+    uint32_t handshake_start_ms;
+    uint8_t handshake_failed;
+    uint8_t retry_enabled;
+    uint8_t retry_timer_active;
+    uint32_t retry_attempt;
+    uint32_t retry_base_ms;
+    uint32_t retry_max_ms;
     ovpn_client_stats_t stats;
     uint8_t debug;
     uint8_t use_tls;

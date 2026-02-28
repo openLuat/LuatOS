@@ -1,8 +1,8 @@
 --[[
 @module     msgbox_page
 @summary    消息框组件演示页面
-@version    1.0.0
-@date       2026.01.30
+@version    1.0
+@date       2026.02.05
 @author     江访
 @usage      本文件是消息框组件的演示页面，展示消息框的各种用法。
 ]]
@@ -36,7 +36,7 @@ local function create_demo_container(parent, title, x, y, width, height)
         w = width - 20,
         h = 25,
         color = 0x333333,
-        size = 14,
+        font_size = 14,
     })
 
     return container
@@ -46,7 +46,6 @@ end
 -- 创建UI
 ----------------------------------------------------------------
 function msgbox_page.create_ui()
-    -- 创建主容器
     main_container = airui.container({
         x = 0,
         y = 0,
@@ -72,8 +71,8 @@ function msgbox_page.create_ui()
         y = 15,
         w = 200,
         h = 20,
+        font_size = 16,
         color = 0xFFFFFF,
-        size = 16,
     })
 
     -- 返回按钮
@@ -84,7 +83,7 @@ function msgbox_page.create_ui()
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function()
+        on_click = function(self)
             go_back()
         end
     })
@@ -99,7 +98,6 @@ function msgbox_page.create_ui()
         color = 0xF5F5F5,
     })
 
-    -- 当前y坐标
     local current_y = 10
 
     --------------------------------------------------------------------
@@ -116,7 +114,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local basic_msg_btn = airui.button({
@@ -126,13 +124,13 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "显示消息",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 text = "这是一个基本消息框",
                 buttons = { "确定" },
                 on_action = function(self, label)
                     log.info("msgbox", "点击了: " .. label)
-                    self:hide()  -- 点击按钮后关闭消息框
+                    self:hide()
                 end
             })
             msg:show()
@@ -153,7 +151,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local title_msg_btn = airui.button({
@@ -163,14 +161,14 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "带标题消息",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 title = "系统提示",
                 text = "操作成功完成!",
                 buttons = { "确定" },
                 on_action = function(self, label)
                     log.info("msgbox", "点击了: " .. label)
-                    self:hide()  -- 点击按钮后关闭消息框
+                    self:hide()
                 end
             })
             msg:show()
@@ -191,7 +189,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local multi_msg_btn = airui.button({
@@ -201,14 +199,14 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "确认对话框",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 title = "确认操作",
                 text = "确定要删除这个文件吗？",
                 buttons = { "取消", "确定" },
                 on_action = function(self, label)
                     log.info("msgbox", "点击了: " .. label)
-                    
+
                     if label == "确定" then
                         log.info("msgbox", "执行删除操作")
                         local confirm_msg = airui.msgbox({
@@ -223,8 +221,8 @@ function msgbox_page.create_ui()
                     else
                         log.info("msgbox", "操作已取消")
                     end
-                    
-                    self:hide()  -- 点击按钮后关闭当前消息框
+
+                    self:hide()
                 end
             })
             msg:show()
@@ -245,7 +243,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local auto_msg_btn = airui.button({
@@ -255,7 +253,7 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "显示3秒",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 text = "这条消息将在3秒后自动关闭",
                 buttons = { "确定" },
@@ -283,7 +281,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local custom_msg_btn = airui.button({
@@ -293,7 +291,7 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "自定义按钮",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 title = "选择操作",
                 text = "请选择一个操作:",
@@ -330,7 +328,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local multiline_msg_btn = airui.button({
@@ -340,7 +338,7 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "多行消息",
-        on_click = function()
+        on_click = function(self)
             local msg = airui.msgbox({
                 title = "详细信息",
                 text = "这是第一行文本\n这是第二行文本\n这是第三行文本\n消息框支持多行显示",
@@ -368,7 +366,7 @@ function msgbox_page.create_ui()
         w = 280,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 
     local chain_msg_btn = airui.button({
@@ -378,7 +376,7 @@ function msgbox_page.create_ui()
         w = 140,
         h = 40,
         text = "链式消息",
-        on_click = function()
+        on_click = function(self)
             local msg1 = airui.msgbox({
                 title = "第一步",
                 text = "这是第一步操作",
@@ -419,7 +417,7 @@ function msgbox_page.create_ui()
         w = 300,
         h = 20,
         color = 0x666666,
-        size = 12,
+        font_size = 12,
     })
 end
 

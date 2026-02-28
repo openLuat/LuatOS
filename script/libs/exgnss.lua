@@ -173,8 +173,10 @@ sys.subscribe("GNSS_STATE", function(event)
         save_loc()
         tid=sys.timerLoopStart(save_loc,600000)
         timetid=sys.timerStart(timer_fnc,10000)
-        if exgnss.opts.rtc then
-            sys.publish("NTP_UPDATE")
+        if exgnss.opts then
+            if exgnss.opts.rtc==true then
+                sys.publish("NTP_UPDATE")
+            end
         end
     elseif event == "LOSE" or event == "CLOSE" then
         -- log.info("libagps","libagps is close")

@@ -265,6 +265,17 @@ lv_font_t *airui_font_get_shared_hzfont(void);
 void airui_font_hzfont_set_render_size(uint16_t size);
 
 /**
+ * 开始一次 label 场景的 hzfont 调试统计会话
+ * @param text 当前 label 文本
+ */
+void airui_font_hzfont_prof_begin(const char *text);
+
+/**
+ * 结束当前 label 场景的 hzfont 调试统计并打印汇总日志
+ */
+void airui_font_hzfont_prof_end(void);
+
+/**
  * 设置显示缓冲
  * @param ctx 上下文指针
  * @param buf1 缓冲1指针

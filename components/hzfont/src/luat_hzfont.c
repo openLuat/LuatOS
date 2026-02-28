@@ -1376,13 +1376,33 @@ glyph_timing_update:
 }
 
 #ifdef LUAT_USE_AIRUI
-
 // 获取底层 TTF 对象供 airui 或其他模块使用
 TtfFont * luat_hzfont_get_ttf(void) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {
         return &g_ft_ctx.font;
     }
     return NULL;
+}
+
+// 供 airui 复用 hzfont 内部 cp cache 的 glyph 查找接口
+int luat_hzfont_lookup_glyph_index(uint32_t codepoint, uint16_t *glyph_index) {
+    if (!glyph_index || g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
+        return TTF_ERR_RANGE;
+    }
+
+    // 先查 code point 缓存
+    hzfont_cp_cache_entry_t *cp_entry = hzfont_cp_cache_lookup(codepoint);
+    if (cp_entry) {
+        *glyph_index = cp_entry->glyph_index;
+        return TTF_OK;
+    }
+
+    // 如果未命中，则查找 glyph 索引
+    int rc = ttf_lookup_glyph_index(&g_ft_ctx.font, codepoint, glyph_index);
+    if (rc == TTF_OK) {
+        hzfont_cp_cache_insert(codepoint, *glyph_index);
+    }
+    return rc;
 }
 
 /**
@@ -1394,38 +1414,80 @@ TtfFont * luat_hzfont_get_ttf(void) {
  * @note 本函数内部会先查 Cache 结构，未命中时调 glyph 加载 + rasterize，
  *       渲染完成后将结果插入缓存并返回；若缓存已满或渲染失败则返回 NULL。
  */
-// 获取或渲染特定 glyph 的缓存位图
-const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
-    if (g_ft_ctx.state != LUAT_HZFONT_STATE_READY) return NULL;
-    
+// 获取或渲染特定 glyph 的缓存位图，并可选输出本次流程统计
+const TtfBitmap * luat_hzfont_get_bitmap_profiled(uint16_t glyph_index, uint8_t font_size,
+                                                  uint8_t supersample, luat_hzfont_bitmap_profile_t *prof_out) {
+    const TtfBitmap *result = NULL;
+    int timing_enabled = ttf_get_debug();
+    uint64_t total_start = timing_enabled ? hzfont_now_us() : 0;
+    luat_hzfont_bitmap_profile_t prof;
+    memset(&prof, 0, sizeof(prof));
+
+    if (g_ft_ctx.state != LUAT_HZFONT_STATE_READY) {
+        goto profile_done;
+    }
+
     // 先查 cache
     hzfont_cache_entry_t *entry = hzfont_cache_get(glyph_index, font_size, supersample);
     if (entry) {
-        return &entry->bitmap;
+        prof.cache_hit = 1;
+        result = &entry->bitmap;
+        goto profile_done;
     }
-    
+    prof.cache_miss = 1;
+
     // 如果未命中，尝试加载并渲染
     TtfGlyph glyph;
+    uint64_t stage_start = timing_enabled ? hzfont_now_us() : 0;
     if (ttf_load_glyph(&g_ft_ctx.font, glyph_index, &glyph) != TTF_OK) {
-        return NULL;
+        if (timing_enabled) {
+            prof.load_us = hzfont_elapsed_from(stage_start);
+        }
+        prof.load_fail = 1;
+        goto profile_done;
     }
-    
+    if (timing_enabled) {
+        prof.load_us = hzfont_elapsed_from(stage_start);
+    }
+
     TtfBitmap bitmap;
     memset(&bitmap, 0, sizeof(TtfBitmap));
+    stage_start = timing_enabled ? hzfont_now_us() : 0;
     if (ttf_rasterize_glyph(&g_ft_ctx.font, &glyph, font_size, &bitmap) != TTF_OK) {
+        if (timing_enabled) {
+            prof.raster_us = hzfont_elapsed_from(stage_start);
+        }
+        prof.raster_fail = 1;
         ttf_free_glyph(&glyph);
-        return NULL;
+        goto profile_done;
+    }
+    if (timing_enabled) {
+        prof.raster_us = hzfont_elapsed_from(stage_start);
     }
     ttf_free_glyph(&glyph);
-    
+
     hzfont_cache_entry_t *new_entry = hzfont_cache_insert(glyph_index, font_size, supersample, &bitmap);
     if (new_entry) {
-        return &new_entry->bitmap;
+        result = &new_entry->bitmap;
+        goto profile_done;
     }
-    
+
     // 插入失败（可能缓存已满且无法替换），则需要释放并返回 NULL，或者直接返回临时的？
     // 实际上 hzfont_cache_insert 会处理淘汰
     ttf_free_bitmap(&bitmap);
-    return NULL;
+
+profile_done:
+    if (timing_enabled) {
+        prof.total_us = hzfont_elapsed_from(total_start);
+    }
+    if (prof_out) {
+        *prof_out = prof;
+    }
+    return result;
+}
+
+// 获取最近一次位图获取流程统计（供 airui 调试汇总）
+const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample) {
+    return luat_hzfont_get_bitmap_profiled(glyph_index, font_size, supersample, NULL);
 }
 #endif

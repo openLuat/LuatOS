@@ -25,7 +25,8 @@ if device_name == "Air8000" then
         name = "LWIP_STA",
         adapter = socket.LWIP_STA
     }}
-elseif device_name == "Air780EPM" or device_name == "Air780EHM" then
+elseif device_name == "Air780EPM" or device_name == "Air780EHM" or device_name == "Air780EHV" or device_name ==
+    "Air780EGH" or device_name == "Air780EGG" or device_name == "Air780EGP" then
     -- 所有可用的网络适配器列表
     ALL_ADAPTERS = {{
         name = "默认(nil)",

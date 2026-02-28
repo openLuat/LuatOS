@@ -227,6 +227,9 @@ static void airui_label_draw_prepare_cb(lv_event_t *e)
     if (data == NULL) {
         return;
     }
+    // 获取文本，用于字符串渲染耗时统计
+    const char *text = lv_label_get_text(label);
+    airui_font_hzfont_prof_begin(text);
     // 设置字体共享对象渲染字号
     airui_font_hzfont_set_render_size(data->hzfont_size);
 }
@@ -235,5 +238,6 @@ static void airui_label_draw_prepare_cb(lv_event_t *e)
 static void airui_label_draw_cleanup_cb(lv_event_t *e)
 {
     (void)e;
+    airui_font_hzfont_prof_end();
     airui_font_hzfont_set_render_size(0);
 }

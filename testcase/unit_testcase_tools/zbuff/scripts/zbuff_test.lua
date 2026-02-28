@@ -887,7 +887,7 @@ function zbuff_tests.test_toStr_length_negative()
     
     local s = buff:toStr(0, -5)
     log.info("测试3", "length为负数:", s)
-    -- 需要确认API行为，这里假设返回空字符串
+    
     assert(s == "", "length为负数应返回空字符串")
     
     log.info("test_toStr_length_negative", "完成")
@@ -902,7 +902,7 @@ function zbuff_tests.test_toStr_offset_negative()
     
     local s = buff:toStr(-5, 5)
     log.info("测试4", "offset为负数:", s)
-    -- 需要确认API行为，这里假设返回空字符串
+
     assert(s == "", "offset为负数应返回空字符串")
     
     log.info("test_toStr_offset_negative", "完成")

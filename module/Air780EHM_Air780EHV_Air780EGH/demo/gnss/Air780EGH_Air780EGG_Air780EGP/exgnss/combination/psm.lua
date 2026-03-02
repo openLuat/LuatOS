@@ -92,17 +92,17 @@ local function airlbs_multi_cells_wifi_task_func()
 end
 
 local function testTask(ip, port)
-    local txData="11111111111"
+    local txData
     --拼接处理定位数据和唤醒原因
-    -- if reason == 0 then
-    --     txData = "normal wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
-    -- elseif reason == 1 then
-    --     txData = "timer wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
-    -- elseif reason == 2 then
-    --     txData = "pad wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
-    -- elseif reason == 3 then
-    --     txData = "uart1 wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
-    -- end
+    if reason == 0 then
+        txData = "normal wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 1 then
+        txData = "timer wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 2 then
+        txData = "pad wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    elseif reason == 3 then
+        txData = "uart1 wakeup,"..string.format('{"lat":%5f,"lng":%5f}', lat, lng)
+    end
     if slp_state > 0 then
         mobile.flymode(0, false) -- 退出飞行模式，进入psm+前进入飞行模式，唤醒后需要主动退出
     end
@@ -152,14 +152,9 @@ local function testTask(ip, port)
         end
     end
     socket.release(netc)
-    -- uart.close(2)
-    -- pins.setup(28, "GPIO12")
-    -- pins.setup(29, "GPIO13")
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
-    -- gpio.setup(12,0)
-    -- gpio.setup(13,0)
     -- 配置GPIO以达到最低功耗的目的
-	-- gpio.close(23) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
+	-- gpio.close(23) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高30ua左右
 
     pm.dtimerStart(3, period) -- 启动深度休眠定时器
 
@@ -183,7 +178,7 @@ local function psm_cb(tag)
     end
     sys.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
 end
-sys.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)
+
 local function gnss_fnc()
     log.info("gnss_fnc111")
     local gnssotps={
@@ -202,8 +197,8 @@ local function gnss_fnc()
         -- 定位频率，指gnss每秒输出多少次的定位数据，1hz=1次/秒，默认1hz，可选值：1/2/4/5
         -- hz=1,
     }
-    -- exgnss.setup(gnssotps)
-    -- exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})
+    exgnss.setup(gnssotps)
+    exgnss.open(exgnss.TIMERORSUC,{tag="psm",val=60,cb=psm_cb})
 end
 
--- sys.taskInit(gnss_fnc)
+sys.taskInit(gnss_fnc)

@@ -73,28 +73,26 @@ tickid=sys.timerLoopStart(tick,1000)
 --有效震动判断
 local function ind()
     log.info("int", gpio.get(intPin))
-    if gpio.get(intPin) == 1 then
-        --接收数据如果大于5就删掉第一个
-        if #ticktable>=5 then
-            log.info("table.remove",table.remove(ticktable,1))
-        end
-        --存入新的tick值
-        if not ipready then
-            log.info("ipready",ipready)
-            table.insert(ticktable,num)
-        else
-            log.info("ipready2",ipready)
-            table.insert(ticktable,os.time())
-        end
-        log.info("tick",os.time(),(ticktable[5]-ticktable[1]<10),ticktable[5]>0)
-        log.info("tick2",ticktable[1],ticktable[2],ticktable[3],ticktable[4],ticktable[5])
-        --表长度为5且，第5次中断时间间隔减去第一次间隔小于10s，且第5次值为有效值
-        if #ticktable>=5 and (ticktable[5]-ticktable[1]<10 and ticktable[1]>0) then
-            log.info("vib", "xxx")
-            --是否要去触发有效震动逻辑
-            if eff==false then
-                sys.publish("EFFECTIVE_VIBRATION")
-            end
+    --接收数据如果大于5就删掉第一个
+    if #ticktable>=5 then
+        log.info("table.remove",table.remove(ticktable,1))
+    end
+    --存入新的tick值
+    if not ipready then
+        log.info("ipready",ipready)
+        table.insert(ticktable,num)
+    else
+        log.info("ipready2",ipready)
+        table.insert(ticktable,os.time())
+    end
+    log.info("tick",os.time(),(ticktable[5]-ticktable[1]<10),ticktable[5]>0)
+    log.info("tick2",ticktable[1],ticktable[2],ticktable[3],ticktable[4],ticktable[5])
+    --表长度为5且，第5次中断时间间隔减去第一次间隔小于10s，且第5次值为有效值
+    if #ticktable>=5 and (ticktable[5]-ticktable[1]<10 and ticktable[1]>0) then
+        log.info("vib", "xxx")
+        --是否要去触发有效震动逻辑
+        if eff==false then
+            sys.publish("EFFECTIVE_VIBRATION")
         end
     end
 end
@@ -133,19 +131,17 @@ sys.subscribe("EFFECTIVE_VIBRATION",eff_vib)
 -- --持续震动模式中断函数
 -- local function ind()
 --     log.info("int", gpio.get(intPin))
---     if gpio.get(intPin) == 1 then
---         --10s没有触发中断就停止
---         sys.timerStart(vib_close,10000)
---         local x,y,z =  exvib.read_xyz()      --读取x，y，z轴的数据
---         log.info("x", x..'g', "y", y..'g', "z", z..'g')
---         --判断gnss是否处于打开状态
---         if exgnss.is_active(exgnss.DEFAULT,{tag="vib"})~=true then
---             log.info("nmea", "is_open", "false")
---             exgnss.open(exgnss.DEFAULT,{tag="vib",cb=vib_cb}) 
---             tid=sys.timerLoopStart(vib_cb, 5000)
---         else
---             log.info("nmea", "is_open", "true")
---         end
+--     --10s没有触发中断就停止
+--     sys.timerStart(vib_close,10000)
+--     local x,y,z =  exvib.read_xyz()      --读取x，y，z轴的数据
+--     log.info("x", x..'g', "y", y..'g', "z", z..'g')
+--     --判断gnss是否处于打开状态
+--     if exgnss.is_active(exgnss.DEFAULT,{tag="vib"})~=true then
+--         log.info("nmea", "is_open", "false")
+--         exgnss.open(exgnss.DEFAULT,{tag="vib",cb=vib_cb}) 
+--         tid=sys.timerLoopStart(vib_cb, 5000)
+--     else
+--         log.info("nmea", "is_open", "true")
 --     end
 -- end
 
@@ -176,8 +172,8 @@ local function gnss_fnc()
     exvib.open(1)
     --设置gpio防抖100ms
     gpio.debounce(intPin, 100)
-    --设置gpio中断触发方式wakeup2唤醒脚默认为双边沿触发
-    gpio.setup(intPin, ind)
+    --设置gpio中断触发方式wakeup2唤醒脚默认为下降沿触发
+    gpio.setup(intPin, ind,nil,gpio.FALLING)
     while not socket.adapter(socket.dft()) do
         log.warn("mqtt_client_main_task_func", "wait IP_READY", socket.dft())
         -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"

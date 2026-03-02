@@ -31,8 +31,24 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
 #ifdef LUAT_USE_AIRUI
+//  hzfont绘制耗时统计
+typedef struct {
+    uint8_t cache_hit;
+    uint8_t cache_miss;
+    uint8_t load_fail;
+    uint8_t raster_fail;
+    uint32_t load_us;
+    uint32_t raster_us;
+    uint32_t total_us;
+} luat_hzfont_bitmap_profile_t;
+
 // 用于 airui 的 hzfont 兼容接口：获取底层 TTF 结构
 TtfFont * luat_hzfont_get_ttf(void);
+// 用于 airui 的码点查找接口（复用 hzfont 内部 cp cache）
+int luat_hzfont_lookup_glyph_index(uint32_t codepoint, uint16_t *glyph_index);
+// 获取位图并输出本次流程统计（供 airui 调试汇总）
+const TtfBitmap * luat_hzfont_get_bitmap_profiled(uint16_t glyph_index, uint8_t font_size,
+                                                  uint8_t supersample, luat_hzfont_bitmap_profile_t *prof_out);
 // 访问指定 glyph 的缓存位图（不存在时会触发实时渲染）
 const TtfBitmap * luat_hzfont_get_bitmap(uint16_t glyph_index, uint8_t font_size, uint8_t supersample);
 #endif

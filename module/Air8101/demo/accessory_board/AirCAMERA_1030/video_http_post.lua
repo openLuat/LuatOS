@@ -10,7 +10,9 @@
 2. 多摄像头轮切录制视频
 3. 摄像头视频 MP4 格式录制与SD卡文件保存
 4. 将拍摄的视频通过httpplus上传到对应服务器
-]] -- 引入excamera库
+]] 
+
+-- 引入excamera库
 local excamera = require("excamera")
 -- 引入httpplus库
 local httpplus = require("httpplus")

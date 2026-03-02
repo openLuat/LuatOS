@@ -3,7 +3,7 @@
 @summary LuatOS用户应用脚本文件入口，总体调度应用逻辑
 @version 1.0
 @date    2025.11.09
-@author  陈取德
+@author  王城钧
 @usage
 本demo主要使用AirCAMERA_1030 usb摄像头完成一次拍照上传任务
 ]]

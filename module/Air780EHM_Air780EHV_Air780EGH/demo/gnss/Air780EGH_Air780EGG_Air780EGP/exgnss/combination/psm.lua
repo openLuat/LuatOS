@@ -20,7 +20,7 @@ local lat,lng
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
 local server_ip = "112.125.89.8" 
-local server_port = 43706 -- 换成自己的
+local server_port = 34825 -- 换成自己的
 
 local period = 3 * 60 * 60 * 1000 -- 定时器唤醒时间，3小时唤醒一次
 
@@ -152,11 +152,9 @@ local function testTask(ip, port)
         end
     end
     socket.release(netc)
-
     uart.setup(1, 9600) -- 配置uart1，外部唤醒用
-    
     -- 配置GPIO以达到最低功耗的目的
-	-- gpio.close(23) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高0.5-1MA左右
+	-- gpio.close(23) --此脚为gnss备电脚和三轴加速度传感器的供电脚，功能是热启动和保存星历文件，关掉会没有热启动，常开功耗会增高30ua左右
 
     pm.dtimerStart(3, period) -- 启动深度休眠定时器
 

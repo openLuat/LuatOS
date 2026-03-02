@@ -353,7 +353,7 @@ int luat_pinyin_query_syllables_by_keys(
     return 0;
 }
 
-#ifdef LUAT_USE_AIRUI
+#if (defined(LUAT_USE_AIRUI) && LV_USE_IME_PINYIN == 1)
 /** 将Unicode码点转换为UTF-8字符串 */
 static size_t codepoints_to_utf8(const uint32_t *codepoints, uint16_t count, char *dest, size_t max_size)
 {
@@ -380,7 +380,7 @@ const lv_pinyin_dict_t * luat_pinyin_get_lv_dict(size_t *count)
     }
 
     static bool prepared = false;
-    static lv_pinyin_dict_t lv_dict[PINYIN_DICT_SIZE];
+    static lv_pinyin_dict_t lv_dict[PINYIN_DICT_SIZE + 1];
     static char *dict_buffer = NULL;
     static size_t dict_buffer_size = 0;
     static size_t dict_filled = 0;
@@ -412,6 +412,9 @@ const lv_pinyin_dict_t * luat_pinyin_get_lv_dict(size_t *count)
             cursor += written;
             dict_filled += written;
         }
+        // LVGL 的 init_pinyin_dict() 会一直遍历到遇到 py==NULL || py_mb==NULL 才停，没有哨兵时会继续读越界内存
+        *((const char **)&lv_dict[PINYIN_DICT_SIZE].py) = NULL;
+        *((const char **)&lv_dict[PINYIN_DICT_SIZE].py_mb) = NULL;
         prepared = true;
     }
 

@@ -6,8 +6,11 @@
 @author  陈取德
 @usage
 本demo主要使用AirCAMERA_1030 USB摄像头完成一次拍照上传任务
-]] -- 摄像头拍照模块
+]] 
+
+-- 摄像头拍照模块
 -- 功能：提供摄像头初始化、拍照和资源管理功能
+
 -- 引入excamera扩展库模块
 local excamera = require "excamera"
 -- 引入httpplus扩展库模块

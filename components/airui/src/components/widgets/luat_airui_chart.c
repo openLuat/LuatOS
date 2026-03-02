@@ -357,7 +357,7 @@ int airui_chart_set_on_point(lv_obj_t *chart, int callback_ref)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+    return airui_component_bind_event(meta, AIRUI_EVENT_PRESSED, callback_ref);
 }
 
 /**

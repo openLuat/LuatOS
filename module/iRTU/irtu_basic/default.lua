@@ -221,6 +221,32 @@ function default.init()
         pm.power(pm.WORK_MODE, 0)
     elseif dtu.pwrmod == "energy" then
         pm.power(pm.WORK_MODE, 1)
+    elseif dtu.pwrmod == "psm" then
+        if dtu.psm_wakeup and dtu.psm_wakeup~="disable" then
+            local last_char = string.sub(dtu.psm_wakeup, -1)
+            -- 映射wakeup数字到GPIO唤醒引脚
+            local wakeup_pins = {
+                ["0"] = gpio.WAKEUP0,
+                ["1"] = gpio.WAKEUP1,
+                ["2"] = gpio.WAKEUP2,
+                ["3"] = gpio.WAKEUP3,
+                ["4"] = gpio.WAKEUP4,
+                ["5"] = gpio.WAKEUP5
+            }
+            local pin = wakeup_pins[last_char]
+            if pin then
+                gpio.debounce(pin, 100)
+                -- 定义中断回调函数
+                local function wakeup_callback()
+                    log.info("gpio", "wakeup"..last_char.." interrupt triggered")
+                end
+                -- 设置中断
+                gpio.setup(pin, wakeup_callback)
+                log.info("PSM唤醒中断", "已设置wakeup"..last_char.."中断")
+            end
+        end
+
+
     end
 
     -- 如果配置了RNDIS，则打开RNDIS

@@ -30,28 +30,26 @@ local tickid=sys.timerLoopStart(tick,1000)
 --有效震动判断
 local function ind()
     log.info("int", gpio.get(intPin))
-    if gpio.get(intPin) == 1 then
-        --接收数据如果大于5就删掉第一个
-        if #ticktable>=5 then
-            log.info("table.remove",table.remove(ticktable,1))
-        end
-       --存入新的tick值
-        if not ipready then
-            log.info("ipready",ipready)
-            table.insert(ticktable,num)
-        else
-            log.info("ipready2",ipready)
-            table.insert(ticktable,os.time())
-        end
-        log.info("tick",os.time(),(ticktable[5]-ticktable[1]<10),ticktable[5]>0)
-        log.info("tick2",ticktable[1],ticktable[2],ticktable[3],ticktable[4],ticktable[5])
-        --表长度为5且，第5次中断时间间隔减去第一次间隔小于10s，且第5次值为有效值
-        if #ticktable>=5 and (ticktable[5]-ticktable[1]<10 and ticktable[1]>0) then
-            log.info("vib", "xxx")
-            --是否要去触发有效震动逻辑
-            if eff==false then
-                sys.publish("EFFECTIVE_VIBRATION")
-            end
+    --接收数据如果大于5就删掉第一个
+    if #ticktable>=5 then
+        log.info("table.remove",table.remove(ticktable,1))
+    end
+    --存入新的tick值
+    if not ipready then
+        log.info("ipready",ipready)
+        table.insert(ticktable,num)
+    else
+        log.info("ipready2",ipready)
+        table.insert(ticktable,os.time())
+    end
+    log.info("tick",os.time(),(ticktable[5]-ticktable[1]<10),ticktable[5]>0)
+    log.info("tick2",ticktable[1],ticktable[2],ticktable[3],ticktable[4],ticktable[5])
+    --表长度为5且，第5次中断时间间隔减去第一次间隔小于10s，且第5次值为有效值
+    if #ticktable>=5 and (ticktable[5]-ticktable[1]<10 and ticktable[1]>0) then
+        log.info("vib", "xxx")
+        --是否要去触发有效震动逻辑
+        if eff==false then
+            sys.publish("EFFECTIVE_VIBRATION")
         end
     end
 end
@@ -110,15 +108,18 @@ local function gnss_state(event, ticks)
     -- ticks number类型 是事件发生的时间,一般可以忽略
     log.info("exgnss", "state", event)
     if event=="FIXED" then
-       sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
-       sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
+        sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
+        sys.publish("NET_SENT_RDY_3","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
        if dtu.gps.fun[5] ==1 then
         log.info("定位成功就关掉了")
-        if dtu.pwrmod=="psm" then
-            sys.timerStart(function()
-                pm.power(pm.WORK_MODE, 3)
-            end,2000)
-        end
+            if dtu.pwrmod=="psm" then
+                sys.timerStart(function()
+                    if dtu.psm_time and dtu.psm_time > 0 then
+                        pm.dtimerStart(2, dtu.psm_time*1000)
+                    end
+                    pm.power(pm.WORK_MODE, 3)
+                end,2000)
+            end
        else
         tid=sys.timerLoopStart(function()
             sys.publish("NET_SENT_RDY_1","GPSCID_"..gpscid,gnss.locateMessage(dtu.gps.fun[8]))
@@ -130,6 +131,9 @@ local function gnss_state(event, ticks)
         sys.timerStop(tid)
         if dtu.pwrmod=="psm" then
             sys.timerStart(function()
+                if dtu.psm_time and dtu.psm_time > 0 then
+                    pm.dtimerStart(2, dtu.psm_time*1000)
+                end
                 pm.power(pm.WORK_MODE, 3)
             end,2000)
         end
@@ -191,7 +195,10 @@ function alert(uid, baud, interval, ontime, isclose, gather, cid, pubmsg, gtime,
                 return
             end
             if dtu.pwrmod=="psm" then
-                sys.wait(1000)
+                sys.wait(5000)
+                if dtu.psm_time and dtu.psm_time > 0 then
+                    pm.dtimerStart(2, dtu.psm_time*1000)
+                end
                 pm.power(pm.WORK_MODE, 3)
             end
             while not socket.adapter(socket.dft()) do
@@ -245,7 +252,17 @@ end
 function gnss.init()
     dtu= default.get()
     if dtu.gps and dtu.gps.fun and tonumber(dtu.gps.fun[1]) then
-        sys.taskInit(alert, unpack(dtu.gps.fun))
+            while not socket.adapter(socket.dft()) do
+                log.warn("tcp_client_main_task_func", "wait IP_READY", socket.dft())
+                -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+                -- 或者等待1秒超时退出阻塞等待状态;
+                -- 注意：此处的1000毫秒超时不要修改的更长；
+                -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+                -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+                -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+                sys.waitUntil("IP_READY", 1000)
+            end
+            sys.taskInit(alert, unpack(dtu.gps.fun))
     end
 end
 

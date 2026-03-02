@@ -317,6 +317,9 @@ local function autoSampl(uid, t)
         end
         if dtu.pwrmod=="psm" then
             sys.timerStart(function()
+                if dtu.psm_time and dtu.psm_time > 0 then
+                    pm.dtimerStart(2, dtu.psm_time*1000)
+                end
                 pm.power(pm.WORK_MODE, 3)
             end,1000)
         end
@@ -368,21 +371,22 @@ function driver.init()
         dtu.uconf[4] = {uart.VUART_0, 115200, 8, 2, 0}
         uart_INIT(4, dtu.uconf)
     end
-    -- 网络READY信号
-    if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
-        netready = gpio.setup(26, 0)
-    else
-        netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
-        default.pios[dtu.pins[2]] = nil
-    end
+    if dtu.pwrmod == "noraml" then
+        -- 网络READY信号
+        if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
+            netready = gpio.setup(26, 0)
+        else
+            netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
+            default.pios[dtu.pins[2]] = nil
+        end
 
-    if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
-        sys.taskInit(netled,27)
-    else
-        sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))
-        default.pios[dtu.pins[1]] = nil
+        if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
+            sys.taskInit(netled,27)
+        else
+            sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))
+            default.pios[dtu.pins[1]] = nil
+        end
     end
-
     --自动任务采集
     if dtu.cmds and dtu.cmds[1] and dtu.cmds[1][1] then sys.taskInit(autoSampl, 1, dtu.cmds[1]) end
     if dtu.cmds and dtu.cmds[2] and dtu.cmds[2][1] then sys.taskInit(autoSampl, 2, dtu.cmds[2]) end

@@ -1,26 +1,20 @@
 --[[
 @module  video_http_post
-@summary 多摄像头轮切视频录制上传功能模块
+@summary 单摄像头循环录制视频上传功能模块
 @version 1.0
 @date    2026.01.15
 @author  王城钧
 @usage
-本文件为多摄像头轮切视频录制上传功能模块，核心业务逻辑为：
-1. USB 摄像头初始化、帧率配置与视频采集
-2. 多摄像头轮切录制视频
-3. 摄像头视频 MP4 格式录制与SD卡文件保存
-4. 将拍摄的视频通过httpplus上传到对应服务器
-]] 
+本文件为单摄像头循环录制视频上传功能模块，核心业务逻辑为：
+1. DVP 摄像头初始化与视频采集
+2. 摄像头视频 MP4 格式录制与SD卡文件保存
+3. 将拍摄的视频通过httpplus上传到对应服务器
+]]
 
 -- 引入excamera库
 local excamera = require("excamera")
 -- 引入httpplus库
 local httpplus = require("httpplus")
-
--- USB摄像头支持多摄像头轮切拍摄
--- 该变量表示有多少路摄像头，如果有多路摄像头则会逐个轮切拍摄，顺序以HUB的USB端口号顺序
--- 如果只是一路摄像头，此处填1即可
-local usb_port_num = 4
 
 -- TF卡挂载函数
 local function mount_tf_card()
@@ -44,24 +38,28 @@ end
 
 -- 视频录制功能函数
 local function video_capture_func()
+    -- 打开控制camera的LDO
+    gpio.setup(28, 1, gpio.PULLUP)
+    -- 设置记录第几个视频的变量
+    local n = 0
     while true do
-        -- 等待外部触发视频录制事件(ONCE_VIDEO_CAPTURE)
-        local result, usb_port = sys.waitUntil("ONCE_VIDEO_CAPTURE")
-        -- 配置USB摄像头参数表
-        local usb_camera_param = {
-            id = camera.USB, -- 摄像头类型，USB接口
+        -- 等待外部触发录制事件
+        sys.waitUntil("ONCE_RECORD")
+        -- 配置dvp摄像头参数表
+        local dvp_camera_param = {
+            id = camera.DVP,     -- 摄像头类型，USB接口
             sensor_width = 1280, -- 摄像头像素宽度，1280像素
-            sensor_height = 720, -- 摄像头像素高度，720像素
-            usb_port = usb_port -- USB端口号
+            sensor_height = 720  -- 摄像头像素高度，720像素
         }
+
         -- 初始化摄像头，传入配置参数
-        local result1 = excamera.open(usb_camera_param)
+        local result = excamera.open(dvp_camera_param)
         -- 记录摄像头初始化状态
-        log.info("摄像头初始化状态", result1, "USB端口:", usb_port)
-        if result1 then
-            -- 生成唯一的视频文件名
-            local timestamp = os.time()
-            local filepath = string.format("/sd/video_usb%d_%d.mp4", usb_port, timestamp)
+        log.info("摄像头初始化状态", result)
+        if result then
+            -- 视频编号递增
+            n = n + 1
+            local filepath = "/sd/video_dvp_ " .. n .. ".mp4"
 
             -- 录制视频：文件路径、时长(ms)
             log.info("开始录制视频", filepath)
@@ -89,7 +87,8 @@ local function video_capture_func()
                 local opts = {
                     url = "http://upload.air32.cn/api/upload/mp4",
                     method = "POST",
-                    bodyfile = filepath
+                    bodyfile = filepath,
+                    timeout = 150
                 }
                 -- 执行上传并处理结果
                 local code = httpplus.request(opts)
@@ -108,8 +107,14 @@ local function video_capture_func()
         else
             log.error("摄像头初始化失败!")
         end
-        -- 发送上传完成事件
-        sys.publish("VIDEO_UPLOAD_DONE", usb_port)
+    end
+end
+
+-- AirCAMERA_1020 DEMO应用触发函数，每30S触发一次视频录制
+local function AirCAMERA_1020_func()
+    while true do
+        sys.publish("ONCE_RECORD")
+        sys.wait(30000)
     end
 end
 
@@ -125,27 +130,14 @@ local function memory_check()
     end
 end
 
--- 视频录制触发函数，循环轮切摄像头
-local function video_cycle_func()
-    while true do
-        -- 循环推送USB端口号，触发轮切视频录制功能
-        for i = 1, usb_port_num do
-            log.info("触发第", i, "个摄像头视频录制")
-            sys.publish("ONCE_VIDEO_CAPTURE", i)
-            -- 等待当前摄像头上传完成事件，设置超时时间为120秒
-            sys.waitUntil("VIDEO_UPLOAD_DONE", 120000)
-        end
-    end
-end
-
 -- 挂载TF卡任务
 sys.taskInit(mount_tf_card)
 
 -- 视频录制任务
 sys.taskInit(video_capture_func)
 
+-- 视频录制触发任务
+sys.taskInit(AirCAMERA_1020_func)
+
 -- 内存检查任务
 sys.taskInit(memory_check)
-
--- 视频轮切任务
-sys.taskInit(video_cycle_func)

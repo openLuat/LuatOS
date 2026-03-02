@@ -3,7 +3,7 @@
 @summary AirCAMERA_1030 USB摄像头拍照上传应用模块
 @version 1.0
 @date    2025.11.09
-@author  陈取德
+@author  王城钧
 @usage
 本demo主要使用AirCAMERA_1030 USB摄像头完成一次拍照上传任务
 ]] -- 摄像头拍照模块
@@ -89,7 +89,7 @@ end
 
 
 function excloud_task_func()
-    -- -- 配置excloud参数
+    -- 配置excloud参数
     local ok, err_msg = excloud.setup({
         use_getip = true, -- 使用getip服务
         device_type = 2,   -- WIFI设备

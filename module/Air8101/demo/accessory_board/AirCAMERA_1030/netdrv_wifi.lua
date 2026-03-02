@@ -52,6 +52,17 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
+local function wifi_sta_func(evt, data)
+    -- evt 可能的值有: "CONNECTED", "DISCONNECTED"
+    -- 当evt=CONNECTED, data是连接的AP的ssid, 字符串类型
+    -- 当evt=DISCONNECTED, data断开的原因, 整数类型
+    log.info("收到STA事件", evt, data)
+end
+
+-- wifi的STA相关事件
+sys.subscribe("WLAN_STA_INC", wifi_sta_func)
+
+
 -- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
 -- ssid为要连接的WiFi路由器名称；
 -- password为要连接的WiFi路由器密码；

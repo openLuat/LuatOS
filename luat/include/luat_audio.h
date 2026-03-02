@@ -340,6 +340,17 @@ int luat_audio_record_and_play(uint8_t multimedia_id, uint32_t sample_rate, cons
 int luat_audio_record_stop(uint8_t multimedia_id);
 
 /**
+ * @brief 循环播放振铃
+ *
+ * @param multimedia_id 多媒体通道
+ * @param sample_rate 采样率
+ * @param play_buffer buffer
+ * @param one_trunk_len 一次传输长度
+ * @param total_trunk_cnt 传输次数
+ * @return int 成功返回0，失败返回-1
+ */
+int luat_audio_play_tone(uint8_t multimedia_id, uint32_t sample_rate, const uint8_t *play_buffer, uint32_t one_trunk_len, uint32_t total_trunk_cnt);
+/**
  * @brief 开始通话输出
  * 
  * @param multimedia_id 多媒体通道

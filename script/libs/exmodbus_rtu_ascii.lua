@@ -325,7 +325,7 @@ local function init_uart(instance)
                         local user_return = instance.slaveHandler(request)
                         local response_frame = build_rtu_response(request, user_return)
                         if response_frame then
-                            uart.write(uart_id, response_frame)
+                            uart.write(instance.uart_id, response_frame)
                         else
                             log.error("exmodbus", "构建响应帧失败，从站地址:", request.slave_id)
                         end

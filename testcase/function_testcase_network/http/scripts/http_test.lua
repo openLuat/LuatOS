@@ -240,24 +240,42 @@ end
 -- 这里隐含一个对Content-Length的测试, 因为httpbin会返回一个带Content-Length: 0的响应
 function http_response.test_status_codes()
     local status_codes = {200, 201, 202, 203, 301, 302, 400, 401, 403, 404, 500, 502, 503}
-    local method = {"GET", "POST", "PUT", "DELETE", "PATCH"}
+    -- 只测试客户端实际支持的方法
+    local supported_methods = {"GET", "POST", "PUT"}
+    
+    -- 可选：测试前检查方法是否支持
+    local function is_method_supported(method)
+        local supported = {
+            GET = true,
+            POST = true,
+            PUT = true,
+            -- DELETE = false,  -- 不支持
+            -- PATCH = false     -- 不支持
+        }
+        return supported[method] or false
+    end
+    
     for _, code in ipairs(status_codes) do
-        for _, m in ipairs(method) do
-            -- 测试http的情况
-            local url = string.format("http://httpbin.air32.cn/status/%d", code)
-            local resp_code, headers, body = http.request(m, url, nil, nil, {
-                timeout = 5000,
-                debug = http_debug
-            }).wait()
-            assert(resp_code == code, string.format("预期 status %d, 实际 %d", code, resp_code))
-            -- 测试https的情况
-            local url = string.format("https://httpbin.air32.cn/status/%d", code)
-            local resp_code, headers, body = http.request(m, url, nil, nil, {
-                timeout = 5000,
-                debug = http_debug
-            }).wait()
-            assert(resp_code == code, string.format("预期 status %d, 实际 %d", code, resp_code))
-            sys.wait(10) -- 测试间隔
+        for _, m in ipairs(supported_methods) do
+            if is_method_supported(m) then
+                -- 测试http的情况
+                local url = string.format("http://httpbin.air32.cn/status/%d", code)
+                local resp_code = http.request(m, url, nil, nil, {
+                    timeout = 5000,
+                    debug = http_debug
+                }).wait()
+                assert(resp_code == code, string.format("HTTP %s %d: 预期 %d, 实际 %d", m, code, code, resp_code))
+                
+                -- 测试https的情况
+                local url = string.format("https://httpbin.air32.cn/status/%d", code)
+                local resp_code = http.request(m, url, nil, nil, {
+                    timeout = 5000,
+                    debug = http_debug
+                }).wait()
+                assert(resp_code == code, string.format("HTTPS %s %d: 预期 %d, 实际 %d", m, code, code, resp_code))
+                
+                sys.wait(10)
+            end
         end
     end
 end
@@ -437,9 +455,9 @@ function http_response.test_download_agps()
     -- 检查headers
     local header_content_length = tonumber(headers["Content-Length"] or headers["content-length"] or "0")
     local file_size = io.fileSize(save_path)
-    assert(header_content_length == file_size,
-        string.format("下载星历文件测试失败: Content-Length 与实际文件大小不符, Content-Length=%d, 文件大小=%d",
-            header_content_length, file_size))
+    assert(header_content_length == file_size, string.format(
+        "下载星历文件测试失败: Content-Length 与实际文件大小不符, Content-Length=%d, 文件大小=%d",
+        header_content_length, file_size))
 
     -- 删除文件
     os.remove(save_path)
@@ -457,7 +475,9 @@ function http_response.test_test()
     local body
     -- 获取请求之前的时间戳
     local start_time = os.time()
-    code, headers, body = http.request("GET","http://api.tianditu.gov.cn/geocoder?postStr={'lon':117.1155846,'lat':36.6828714,'ver':1}}&tk=004150d6645036a89ef32cfc2df46985", req_headers, nil, {
+    code, headers, body = http.request("GET",
+                              "http://api.tianditu.gov.cn/geocoder?postStr={'lon':117.1155846,'lat':36.6828714,'ver':1}}&tk=004150d6645036a89ef32cfc2df46985",
+                              req_headers, nil, {
             timeout = 5000,
             debug = http_debug
         }).wait()
@@ -466,8 +486,123 @@ function http_response.test_test()
     local elapsed_time = end_time - start_time
     log.info("http_response", "test_test", code, headers, body, "耗时", elapsed_time, "秒")
     assert(code == 200, "test_test测试失败: 预期 200, 实际 " .. tostring(code))
-    assert(body and body:find("山东省济南市历下区"), "test_test测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
-    assert(elapsed_time < 5, "test_test测试失败: 预期耗时 < 5秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
+    assert(body and body:find("山东省济南市历下区"),
+        "test_test测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
+    assert(elapsed_time < 5,
+        "test_test测试失败: 预期耗时 < 5秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
+end
+
+-- PUT：基本请求，无请求头、无body
+function http_response.test_http_put_basic()
+    log.info("http_response", "开始【PUT方法,基本请求】测试")
+    local code = http.request("PUT", urlbase .. "/put", nil, nil, {}).wait()
+    assert(code == 200, "PUT方法,基本请求测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,基本请求 测试通过 ")
+end
+
+-- PUT：JSON数据更新资源
+function http_response.test_http_put_json()
+    log.info("http_response", "开始【PUT方法,JSON数据】测试")
+    local put_data = json.encode({
+        id = 123,
+        name = "updated_resource",
+        status = "active"
+    })
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "application/json",
+        ["If-Match"] = "etag123" -- PUT常用条件头，防止并发修改
+    }, put_data, {}).wait()
+    assert(code == 200, "PUT方法,JSON数据测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,JSON数据 测试通过 ")
+end
+
+-- PUT：表单数据更新
+function http_response.test_http_put_form()
+    log.info("http_response", "开始【PUT方法,表单数据】测试")
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "application/x-www-form-urlencoded"
+    }, "id=123&status=updated", {}).wait()
+    assert(code == 200, "PUT方法,表单数据测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,表单数据 测试通过 ")
+end
+
+-- PUT：上传文件内容
+function http_response.test_http_put_file()
+    log.info("http_response", "开始【PUT方法,上传文件内容】测试")
+    local file_content = "This is file content for PUT update"
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "text/plain",
+        ["Content-Length"] = tostring(#file_content)
+    }, file_content, {}).wait()
+    assert(code == 200, "PUT方法,上传文件内容测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,上传文件内容 测试通过 ")
+end
+
+-- PUT：带条件更新（If-Match/If-None-Match）
+function http_response.test_http_put_conditional()
+    log.info("http_response", "开始【PUT方法,条件更新】测试")
+
+    -- 先GET获取当前资源的ETag
+    local _, headers, _ = http.request("GET", urlbase .. "/etag/test", nil, nil, {}).wait()
+    local etag = headers and headers["ETag"] or headers["etag"] or "\"test123\""
+
+    -- PUT时带上If-Match头
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "application/json",
+        ["If-Match"] = etag -- 只有ETag匹配时才更新
+    }, '{"status": "conditional_update"}', {}).wait()
+
+    assert(code == 200 or code == 412, -- 412 Precondition Failed 也是合理响应
+    "PUT方法,条件更新测试失败: 预期 200 或 412, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,条件更新 测试通过 ")
+end
+
+-- PUT：大数据更新（测试分块上传）
+function http_response.test_http_put_large_data()
+    log.info("http_response", "开始【PUT方法,大数据更新】测试")
+    local large_data = string.rep("UPDATE DATA ", 1024) -- ~12KB
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "text/plain"
+    }, large_data, {
+        timeout = 10000 -- 大数据传输需要更长超时
+    }).wait()
+    assert(code == 200, "PUT方法,大数据更新测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,大数据更新 测试通过 ")
+end
+
+-- PUT：HTTPS双向认证
+function http_response.test_https_put_mutual_auth()
+    log.info("http_response", "开始【HTTPS PUT方法,双向认证】测试")
+    local code = http.request("PUT", urlbase .. "/put", {
+        ["Content-Type"] = "application/json"
+    }, '{"secure": "update"}', {
+        ca = ca_server,
+        client_cert = ca_client,
+        client_key = client_private_key_encrypts_data,
+        client_key_password = client_private_key_password,
+        timeout = 5000
+    }).wait()
+    assert(code == 200, "HTTPS PUT方法,双向认证测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "HTTPS PUT方法,双向认证 测试通过 ")
+end
+
+-- PUT：无效URL测试
+function http_response.test_http_put_invalid_url()
+    log.info("http_response", "开始【PUT方法,无效URL】测试")
+    local code = http.request("PUT", urlbase .. "/invalid/put/url", nil, '{"test":"data"}', {}).wait()
+    assert(code == 404, "PUT方法,无效URL测试失败: 预期 404, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,无效URL 测试通过 ")
+end
+
+-- PUT：超时测试
+function http_response.test_http_put_timeout()
+    log.info("http_response", "开始【PUT方法,超时测试】测试")
+    local code = http.request("PUT", urlbase .. "/delay/3", nil, '{"delay":"test"}', {
+        timeout = 1000  -- 1秒超时，但接口会延迟3秒
+    }).wait()
+    -- 超时错误码可能是 -1, -2, -3, -8 等，只要是负值表示错误即可
+    assert(code < 0, "PUT方法,超时测试失败: 预期错误码, 实际 " .. tostring(code))
+    log.info("http_response", "PUT方法,超时测试 测试通过 ")
 end
 
 return http_response

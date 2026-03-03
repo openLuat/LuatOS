@@ -21,8 +21,8 @@
 local inputpin = 1
 local ledpin = 146
 
-local input = gpio.setup(inputpin, nil, gpio.PULLDOWN)
-local led = gpio.setup(ledpin, 1)
+gpio.setup(inputpin, nil, gpio.PULLDOWN)
+gpio.setup(ledpin, 1)
 
 gpio.debounce(inputpin, 50)
 --GPIO1检测到有高低电平输入后，会返回GPIO1当前获取到的电平为高还是低，高返回值为1，低返回值为0

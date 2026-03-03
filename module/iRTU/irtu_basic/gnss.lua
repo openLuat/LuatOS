@@ -195,7 +195,7 @@ function alert(uid, baud, interval, ontime, isclose, gather, cid, pubmsg, gtime,
                 return
             end
             if dtu.pwrmod=="psm" then
-                sys.wait(5000)
+                sys.wait(2000)
                 if dtu.psm_time and dtu.psm_time > 0 then
                     pm.dtimerStart(2, dtu.psm_time*1000)
                 end

@@ -242,12 +242,14 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     }
 
     static lv_point_t last_point = {0, 0};
-    bool pressed = (tp_data[0].event == TP_EVENT_TYPE_DOWN || tp_data[0].event == TP_EVENT_TYPE_MOVE);
+    luat_tp_data_t tp_data_snapshot = {0};
+    memcpy(&tp_data_snapshot, tp_data, sizeof(luat_tp_data_t));
+    bool pressed = (tp_data_snapshot.event == TP_EVENT_TYPE_DOWN || tp_data_snapshot.event == TP_EVENT_TYPE_MOVE);
 
     if (pressed) {
         // 获取初始触摸坐标
-        int32_t x = (int32_t)tp_data[0].x_coordinate;
-        int32_t y = (int32_t)tp_data[0].y_coordinate;
+        int32_t x = (int32_t)tp_data_snapshot.x_coordinate;
+        int32_t y = (int32_t)tp_data_snapshot.y_coordinate;
 
         // 获取触摸方向和lcd旋转方向， 以lcd方向为准
         uint8_t tp_dir = tp_cfg->direction & 0x03;

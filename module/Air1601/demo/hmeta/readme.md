@@ -10,27 +10,15 @@
 
 2、在task中的任务处理函数中，每隔三秒钟通过日志输出一次模组名称，硬件版本号，原始芯片型号；
 
-
 ## 演示硬件环境
 
-![](https://docs.openLuat.com/cdn//image/Air1601/1101开发板.JPEG)
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-1、Air811601开发板一块
+## **演示软件环境**
 
-2、TYPE-C USB数据线一根
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-3、Air1601开发板和数据线的硬件接线方式为
-
-- Air1601开发板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
-- Air1601开发板通过TYPE-C USB口供电；
-
-
-## 演示软件环境
-
-1、[Luatools下载调试工具](https://docs.openluat.com/air8101/luatos/common/download/)
-
-2、[Air1601 最新版本的内核固件](https://gitee.com/openLuat/LuatOS/releases/tag/v1004.air1601.release)
-
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
 ## 演示核心步骤
 

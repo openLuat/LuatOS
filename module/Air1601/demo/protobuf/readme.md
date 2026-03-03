@@ -65,15 +65,13 @@ Protobuf Text Format 官方语言规范（草案）：[Text Format Language Spec
 
 ## 演示硬件环境
 
-1、Air8000 核心板一块
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-2、TYPE-C USB数据线一根
+## **演示软件环境**
 
-## 演示软件环境
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
-
-2、[Air8000 V2016 版本](https://docs.openluat.com/air8000/luatos/common/download/)（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录 V2016-1 固件对比验证）
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
 ## 演示核心步骤
 

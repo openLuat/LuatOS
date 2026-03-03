@@ -2,25 +2,17 @@
 
 使用Air8000整机开发板，本示例主要是展示xxtea核心库的使用，使用xxtea加密算法，对数据进行加密和解密
 
-
 ## 演示硬件环境
 
-1、Air8000整机开发板一块
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-2、TYPE-C USB数据线一根
+## **演示软件环境**
 
-3、Air8000整机开发板和数据线的硬件接线方式为
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-- Air8000整机开发板通过TYPE-C USB口供电；（整机开发板的拨钮开关拨到USB供电）
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-
-
-## 演示软件环境
-
-1、Luatools下载调试工具
-
-2、[Air8000 V2014版本固件](https://docs.openluat.com/air8000/luatos/firmware/)
+3.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板中。
 
 ## 演示核心步骤
 

@@ -15,21 +15,13 @@
 
 ## 演示硬件环境
 
-1、Air8000开发板一块;
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-![netdrv_multi](https://docs.openLuat.com/cdn/image/8000开发板.jpg)
+## **演示软件环境**
 
-2、TYPE-C USB数据线一根
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-* Air8000开发板/核心板通过 TYPE-C USB 口供电；
-* TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
-
-演示软件环境
----------
-
-1、Luatools下载调试工具
-
-2、[Air8000 V2016版本]([固件和应用脚本Demo - luatos@air8000 - 合宙模组资料中心](https://docs.openluat.com/air8000/luatos/firmware/))（理论上最新版本固件也可以，如果使用最新版本的固件不可以，可以烧录V2016-1固件对比验证）
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
 ## 演示核心步骤
 

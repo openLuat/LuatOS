@@ -30,27 +30,27 @@
  - 硬件复位：外部看门狗超时后通过硬件复位系统
 
 ## 演示硬件环境
-1、Air780EPM开发板
- 
-![alt text]( https://docs.openLuat.com/cdn/image/Air780EPM开发板.jpg)
 
-2、Air153C配件版（待补充图片和接线图）
-
-3、TYPE-C USB数据线一根
-- Air780EPM开发板通过 TYPE-C USB 口供电；
-- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
-
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## 演示软件环境
-1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
 
-2、固件版本LuatOS-SoC_V2016_Air780EPM 版本固件。不同版本区别请见 https://docs.openluat.com/air780epm/luatos/firmware/version/
+在开始实践本示例之前，先筹备一下软件环境：
 
-3、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-4、准备好软件环境之后，接下来查看[如何烧录项目文件到 Air780EPM开发板中](https://docs.openluat.com/air780epm/luatos/common/download/)将本篇文章中演示使用的项目文件烧录到相应的核心板中。
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+
+3.luatos 需要的脚本和资源文件
+
+- 脚本和资源文件[点击此处查看与下载](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/wdt)
+
+- lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+
+4.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板 中。
 
 ## 相关软件资料
+
 wdt 核心库文档：https://docs.openluat.com/osapi/core/wdt/
 
 air153C_wtd 扩展库文档：https://docs.openluat.com/osapi/ext/air153C_wtd/

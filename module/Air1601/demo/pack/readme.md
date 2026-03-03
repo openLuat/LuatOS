@@ -23,33 +23,28 @@
 
 ## 演示硬件环境
 
-1、Air8000开发板或者核心板
-
-![alt text](https://docs.openLuat.com/cdn/image/Air8000开发板1.jpg)
- 
-![alt text]( https://docs.openLuat.com/cdn/image/Air8000核心板.png)
-
-
-2、TYPE-C USB数据线一根
-- Air8000开发板/核心板通过 TYPE-C USB 口供电；
-- TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
-
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## 演示软件环境
-1、Luatools下载调试工具 [https://docs.openluat.com/air780epm/common/Luatools/]
 
-2、Air8000 V2016版本固件。不同版本区别请见https://docs.openluat.com/air8000/luatos/firmware/
+在开始实践本示例之前，先筹备一下软件环境：
 
-3、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-4、准备好软件环境之后，接下来查看[如何烧录项目文件到 Air8000核心板中]
-(https://docs.openluat.com/air8000/luatos/common/download/)或者查看 [Air8000 产品手册](https://docs.openluat.com/air8000/product/shouce/)中“Air8000 整机开发板使用手册 -> 使用说明”，将本篇文章中演示使用的项目文件烧录到 Air8000 开发板中。
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
+3.luatos 需要的脚本和资源文件
 
+- 脚本和资源文件[点击此处查看与下载](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/pack)
 
+- lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件；
+
+4.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板 中。
 
 ## 相关软件资料
+
 pack 核心库文档：https://docs.openluat.com/osapi/core/pack/
+
 ## 演示核心步骤
 1、搭建好硬件环境
 

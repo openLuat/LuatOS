@@ -15,24 +15,15 @@
 4. Unicode大端(ucs2be)与UTF8编码互转
 5. GB2312 编码与 UTF-8 编码之间的转换。
 
-
 ## 演示硬件环境
 
-![](https://docs.openluat.com/air8000/luatos/common/hwenv/image/Air8000_core_board1.jpg)
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-1、Air8000 核心板一块
+## **演示软件环境**
 
-2、TYPE-C USB数据线一根 + USB转串口数据线一根，Air8000 核心板和数据线的硬件接线方式为：
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-- Air8000 核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
-
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-
-## 演示软件环境
-
-1、Luatools下载调试工具
-
-2、[Air780EPM V2016版本固件）](https://docs.openluat.com/air780epm/luatos/firmware/version/)
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
 ## 演示操作步骤
 

@@ -76,24 +76,17 @@
 
 （2）Base64编码转换(toBase64())
 
-## **演示硬件环境**
+## 演示硬件环境
 
-1、Air8000整机开发板一块/任意一款的Air8000核心板
-
-2、TYPE-C USB数据线一根
-
-3、Air8000整机开发板和数据线的硬件接线方式为
-
-- Air8000整机开发板通过TYPE-C USB口供电；（USB旁边的开关拨到USB供电）
-- TYPE-C USB数据线直接插到Air8000整机开发板的TYPE-C USB座子，另外一端连接电脑USB口；
-
-4、如果是Air8000系列核心板，需要将正面拨到USB供电，背面拨码拨到USB ON, 通过TYPE-C USB口供电，另外一端连接电脑USB口；
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## **演示软件环境**
 
-1、Luatools下载调试工具： https://docs.openluat.com/air780epm/common/Luatools/
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2、内核固件版本：https://docs.openluat.com/air8000/luatos/firmware/
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+
+3.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板中。
 
 ## **演示核心步骤**
 

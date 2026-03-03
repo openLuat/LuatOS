@@ -12,26 +12,27 @@
 
 ## 演示硬件环境
 
-![](https://docs.openLuat.com/cdn//image/Air1601/1101开发板.JPEG)
-
-1、Air1601开发板一块
-
-2、TYPE-C USB数据线一根
-
-3、Air1601开发板和数据线的硬件接线方式为
-
-- Air1601开发板通过TYPE-C USB口供电；
-
-- 如果测试提示“ramrun下载失败，串口异常导致握手失败”，可能是供电不足，此时再通过直流稳压电源对开发板的VIN管脚进行5V供电；
-
-- TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
-
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## 演示软件环境
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
+在开始实践本示例之前，先筹备一下软件环境：
 
-2、[Air1601 最新固件](https://gitee.com/openLuat/LuatOS/releases/tag/v1004.air1601.release)
+1、烧录工具：[Luatools 下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)
+
+2、内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+
+3、luatos 需要的脚本和资源文件
+
+- 脚本文件：[https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/bit64](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/bit64)
+
+- lib脚本文件：使用Luatools烧录时，勾选 添加默认lib 选项，使用默认lib脚本文件
+
+准备好软件环境之后，接下来查看[如何烧录项目文件到Air1601开发板](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板中。
+
+###  API 介绍
+
+bit64 库：[https://docs.openluat.com/osapi/core/bit64/](https://docs.openluat.com/osapi/core/bit64/)
 
 ## 演示核心步骤
 

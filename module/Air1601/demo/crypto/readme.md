@@ -12,27 +12,18 @@
 
 2、演示有关加解密的各种 API 的功能；
 
-
 ## 演示硬件环境
 
-![](https://docs.openluat.com/luatos_lesson/image/Evh1bVjatoG1rCxhrdpc9ny7nVf.png)
-
-1、Air8000核心板一块
-
-2、TYPE-C USB数据线一根
-
-4、Air8000核心板和数据线的硬件接线方式为
-
-- Air8000核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
-- 核心板正面的 供电/充电 拨动开关 拨到供电一端；
-- 核心板背面的 USB ON/USB OFF 拨动开关 拨到USB ON一端；
-
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## 演示软件环境
 
-1、[Luatools下载调试工具](https://docs.openluat.com/air8000/luatos/common/download/)
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2、[Air8000 最新版本的内核固件](https://docs.openluat.com/air8000/luatos/firmware/)
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
+
+3.准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601 开发板中](https://docs.openluat.com/air1601/luatos/common/download/)，将本篇文章中演示使用的项目文件烧录到Air1601开发板中。
+
 
 
 ## 演示核心步骤

@@ -57,6 +57,7 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
     int y = airui_marshal_integer(L, idx, "y", 0);
     int w = airui_marshal_integer(L, idx, "w", 100);
     int h = airui_marshal_integer(L, idx, "h", 40);
+    int align = airui_marshal_integer(L, idx, "align", LV_TEXT_ALIGN_LEFT);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     const char *symbol = airui_marshal_string(L, idx, "symbol", NULL);
     
@@ -80,6 +81,10 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
 
     if (display_text != NULL) {
         lv_label_set_text(label, display_text);
+    }
+
+    if (align == LV_TEXT_ALIGN_LEFT || align == LV_TEXT_ALIGN_CENTER || align == LV_TEXT_ALIGN_RIGHT) {
+        airui_label_set_text_align(label, (lv_text_align_t)align);
     }
     
     // 分配元数据
@@ -197,6 +202,21 @@ int airui_label_set_font_size(lv_obj_t *label, int font_size)
     LLOGW("hzfont 未启用，无法设置字号");
     return AIRUI_ERR_NOT_SUPPORTED;
 #endif
+}
+
+// 设置标签对齐
+int airui_label_set_text_align(lv_obj_t *label, lv_text_align_t align)
+{
+    if (label == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (align != LV_TEXT_ALIGN_LEFT && align != LV_TEXT_ALIGN_CENTER && align != LV_TEXT_ALIGN_RIGHT) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_set_style_text_align(label, align, LV_PART_MAIN | LV_STATE_DEFAULT);
+    return AIRUI_OK;
 }
 
 // 分配私有数据用于存储hzfont字号

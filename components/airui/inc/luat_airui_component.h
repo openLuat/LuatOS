@@ -303,6 +303,7 @@ int airui_label_set_text(lv_obj_t *label, const char *text); //设置标签文�
 const char *airui_label_get_text(lv_obj_t *label); //获取标签文本
 int airui_label_set_text_color(lv_obj_t *label, lv_color_t color); //设置标签颜色
 int airui_label_set_font_size(lv_obj_t *label, int font_size); //设置标签字号
+int airui_label_set_text_align(lv_obj_t *label, lv_text_align_t align); //设置标签对齐
 
 /**
  * Dropdown 组件创建

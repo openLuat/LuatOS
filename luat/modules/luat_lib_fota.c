@@ -296,6 +296,7 @@ static int l_fota_end(lua_State* L)
 	return 1;
 }
 
+#ifdef LUAT_USE_EMS_SERVER
 /**
 配置最小急救子系统服务功能
 @api fota.emgsvc(enable, key, interval, exeption_count, normal_count)
@@ -325,6 +326,7 @@ static int l_fota_emgsvc_setup(lua_State* L)
     lua_pushinteger(L, ret);
     return 1;
 }
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_fota[] =
@@ -335,7 +337,9 @@ static const rotable_Reg_t reg_fota[] =
 	{ "isDone",		ROREG_FUNC(l_fota_done)},
 	{ "finish",		ROREG_FUNC(l_fota_end)},
     { "file",       ROREG_FUNC(l_fota_file)},
+#ifdef LUAT_USE_EMS_SERVER
     { "emgsvc",     ROREG_FUNC(l_fota_emgsvc_setup)},
+#endif
 	{ NULL,         ROREG_INT(0) }
 };
 

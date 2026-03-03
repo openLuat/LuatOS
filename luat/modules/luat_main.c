@@ -9,7 +9,9 @@
 #include "luat_rtos.h"
 #include "luat_gpio.h"
 #include "luat_ota.h"
+#ifdef LUAT_USE_EMS_SERVER
 #include "luat_ems_server.h"
+#endif
 
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
@@ -75,9 +77,11 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
                           "sys.run()\n");
 }
 
+#ifdef LUAT_USE_EMS_SERVER
 int luat_restore_main(void) {
   return luaL_dostring(L, ems_server_lua_code);
 }
+#endif
 
 static int pmain(lua_State *L) {
     int re = -2;
@@ -193,11 +197,6 @@ static int pmain(lua_State *L) {
 #else
         if (luat_search_module("main", filename) == 0) {
           re = luaL_dofile(L, filename);
-          if (re != 0) {
-            LLOGE("Failed to load main.lua, error code: %d", re);
-            // 加载失败时尝试加载急救脚本
-            re = luat_restore_main();
-          }
         }
         else {
           re = -1;

@@ -113,6 +113,7 @@ static int pmain(lua_State *L) {
         dolibrary(L, "sysplus");
         #endif
         #endif
+#ifdef LUAT_USE_EMS_SERVER
         // 急救服务判断
         uint8_t emg_enable = 0;
         uint8_t exception_max_count = 10;       // 默认10次异常重启启动急救服务
@@ -189,6 +190,22 @@ static int pmain(lua_State *L) {
             re = luat_restore_main(); // 找不到main.lua时尝试加载急救脚本
           }
         }
+#else
+        if (luat_search_module("main", filename) == 0) {
+          re = luaL_dofile(L, filename);
+          if (re != 0) {
+            LLOGE("Failed to load main.lua, error code: %d", re);
+            // 加载失败时尝试加载急救脚本
+            re = luat_restore_main();
+          }
+        }
+        else {
+          re = -1;
+          luar_error_timer = luat_create_rtos_timer(l_timer_error_cb, NULL, NULL);
+          luat_start_rtos_timer(luar_error_timer, 1000, 1);
+          luaL_error(L, "module '%s' not found", "main");
+        }
+#endif
       #else
         re = luat_main_demo();
       #endif

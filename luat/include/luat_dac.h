@@ -41,5 +41,7 @@ int luat_dac_setup(uint32_t ch, luat_dac_config_t* config);
 int luat_dac_write(uint32_t ch, uint8_t* buff, size_t size);
 int luat_dac_close(uint32_t ch);
 
+luat_dac_config_t *luat_dac_get_config(uint32_t ch);
+
 #endif
 

@@ -100,12 +100,29 @@ cmd.config = {
     end, -- APN 配置
     ["readconfig"] = function(t)-- 读取整个DTU的参数配置
         if t[1] == dtu.password or dtu.password == "" or dtu.password == nil then
-            return default.cfg_get():export("string")
+            return cfg:export("string")
         else
             return "PASSWORD ERROR"
         end
+    end,  
+    ["writeconfig"] = function(t, s)-- 读取整个DTU的参数配置
+        local str = s:match("(.+)\r\n") and s:match("(.+)\r\n"):sub(20, -1) or s:sub(20, -1)
+        local dat, result, errinfo = json.decode(str)
+        if result then
+            if dtu.password == dat.password or dtu.password == "" or dtu.password == nil then
+                cfg:import(str)
+                if dat.auth and tonumber(dat.auth[1]) and dat.auth[2] then
+                    link.setAuthApn(tonumber(dat.auth[1]), dat.auth[2], dat.auth[3], dat.auth[4])
+                end
+                sys.timerStart(dtulib.restart, 5000, "Setting parameters have been saved!")
+                return "OK"
+            else
+                return "PASSWORD ERROR"
+            end
+        else
+            return "JSON ERROR"
+        end
     end,
-
 }
 --rrpc指令
 cmd.rrpc = {
@@ -316,12 +333,10 @@ local function autoSampl(uid, t)
             sys.wait(t[1])
         end
         if dtu.pwrmod=="psm" then
-            sys.timerStart(function()
-                if dtu.psm_time and dtu.psm_time > 0 then
-                    pm.dtimerStart(2, dtu.psm_time*1000)
-                end
-                pm.power(pm.WORK_MODE, 3)
-            end,1000)
+            if dtu.psm_time and dtu.psm_time > 0 then
+                pm.dtimerStart(2, dtu.psm_time*1000)
+            end
+            pm.power(pm.WORK_MODE, 3)
         end
     end
 end

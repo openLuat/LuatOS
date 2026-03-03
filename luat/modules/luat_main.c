@@ -9,6 +9,7 @@
 #include "luat_rtos.h"
 #include "luat_gpio.h"
 #include "luat_ota.h"
+#include "luat_ems_server.h"
 
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
@@ -74,6 +75,10 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
                           "sys.run()\n");
 }
 
+int luat_restore_main(void) {
+  return luaL_dostring(L, ems_server_lua_code);
+}
+
 static int pmain(lua_State *L) {
     int re = -2;
     #ifndef LUAT_MAIN_DEMO
@@ -108,14 +113,81 @@ static int pmain(lua_State *L) {
         dolibrary(L, "sysplus");
         #endif
         #endif
-        if (luat_search_module("main", filename) == 0) {
-          re = luaL_dofile(L, filename);
+        // 急救服务判断
+        uint8_t emg_enable = 0;
+        uint8_t exception_max_count = 10;       // 默认10次异常重启启动急救服务
+        uint8_t normal_max_count = 20;         // 默认20次正常重启退出急救服务
+        uint32_t interval = 180;               // 默认3小时上报间隔
+        uint8_t power_exception = 0;           // 记录异常开机次数
+        uint8_t power_normal = 0;              // 记录正常开机次数
+        char emg_key[32] = {0};
+        
+        // 使用 luat_ems_server 接口读取配置
+	      luat_ems_server_read_config_all(&emg_enable, emg_key, &interval, &exception_max_count, &normal_max_count, &power_exception, &power_normal);
+        if (emg_enable) {
+          LLOGE("Emergency service enabled, exception count: %d, threshold: %d", power_exception, exception_max_count);
+          // 检查异常计数是否超过阈值
+          if (power_exception >= exception_max_count) {
+            LLOGE("Emergency service enabled, normal count: %d, threshold: %d", power_normal, normal_max_count);
+            if (power_normal >= normal_max_count) {
+              LLOGE("Emergency service restoring original main.lua execution");
+              if (luat_search_module("main", filename) == 0) {
+                re = luaL_dofile(L, filename);
+                if (re != 0) {
+                  LLOGE("Failed to load main.lua, error code: %d", re);
+                  re = luat_restore_main(); // 加载失败时尝试加载急救脚本
+                }
+              }
+              else {
+                re = -1;
+                luar_error_timer = luat_create_rtos_timer(l_timer_error_cb, NULL, NULL);
+                luat_start_rtos_timer(luar_error_timer, 1000, 1);
+                luaL_error(L, "module '%s' not found", "main");
+              }
+            }
+            else
+            {
+              LLOGE("Emergency service enabled, normal count: %d, threshold: %d", power_normal, normal_max_count);
+              re = luat_restore_main();   // Restore and load emergency script
+              if (re != 0) {
+                LLOGE("Failed to load emergency script, error code: %d", re);
+                // 尝试加载main.lua作为备选
+                if (luat_search_module("main", filename) == 0) {
+                  re = luaL_dofile(L, filename);
+                }
+              }
+            }
+          } 
+          else {
+            if (luat_search_module("main", filename) == 0) {
+                re = luaL_dofile(L, filename);
+                if (re != 0) {
+                  LLOGE("Failed to load main.lua, error code: %d", re);
+                  // 加载失败时尝试加载急救脚本
+                  re = luat_restore_main();
+                }
+            }
+            else {
+              re = -1;
+              luar_error_timer = luat_create_rtos_timer(l_timer_error_cb, NULL, NULL);
+              luat_start_rtos_timer(luar_error_timer, 1000, 1);
+              luaL_error(L, "module '%s' not found", "main");
+            }
+          }
         }
         else {
-          re = -1;
-          luar_error_timer = luat_create_rtos_timer(l_timer_error_cb, NULL, NULL);
-          luat_start_rtos_timer(luar_error_timer, 1000, 1);
-          luaL_error(L, "module '%s' not found", "main");
+          if (luat_search_module("main", filename) == 0) {
+              re = luaL_dofile(L, filename);
+              if (re != 0) {
+                LLOGE("Failed to load main.lua, error code: %d", re);
+                // 尝试加载急救脚本作为备选
+                re = luat_restore_main();
+              }
+          }
+          else {
+            LLOGE("main.lua not found, trying emergency script");
+            re = luat_restore_main(); // 找不到main.lua时尝试加载急救脚本
+          }
         }
       #else
         re = luat_main_demo();

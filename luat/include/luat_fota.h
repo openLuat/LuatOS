@@ -43,5 +43,14 @@ int luat_fota_end(uint8_t is_ok);
 /// @param  
 /// @return uint8_t =1 准备好
 uint8_t luat_fota_wait_ready(void);
+
+/// @brief 配置最小急救子系统服务功能
+/// @param enable 是否启用
+/// @param key iot项目key
+/// @param interval 急救服务上报间隔，单位: 分钟
+/// @param exeption_count 在用户脚本运行中异常重启次数，超过该次数则启动急救服务
+/// @param normal_count 在最小急救子系统服务脚本中正常重启次数，超过该次数则退出急救服务
+/// @return int =0成功，其他失败
+int luat_fota_emgsvc_setup(uint8_t enable, const char *key, uint32_t interval, uint8_t exeption_count, uint8_t normal_count);
 /** @}*/
 #endif

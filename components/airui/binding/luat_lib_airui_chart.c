@@ -13,26 +13,11 @@
 #include "../inc/luat_airui.h"
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 #define AIRUI_CHART_MT "airui.chart"
-
-static lv_chart_update_mode_t airui_chart_parse_mode(lua_State *L, int idx)
-{
-    if (lua_type(L, idx) == LUA_TNUMBER) {
-        int mode = (int)lua_tointeger(L, idx);
-        if (mode == (int)LV_CHART_UPDATE_MODE_CIRCULAR) {
-            return LV_CHART_UPDATE_MODE_CIRCULAR;
-        }
-        return LV_CHART_UPDATE_MODE_SHIFT;
-    }
-
-    const char *mode = luaL_optstring(L, idx, "shift");
-    if (strcmp(mode, "circular") == 0) {
-        return LV_CHART_UPDATE_MODE_CIRCULAR;
-    }
-    return LV_CHART_UPDATE_MODE_SHIFT;
-}
 
 /**
  * 创建 Chart 组件
@@ -79,50 +64,155 @@ static int l_airui_chart(lua_State *L)
     return 1;
 }
 
+static lv_chart_update_mode_t airui_chart_parse_mode(lua_State *L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        int mode = (int)lua_tointeger(L, idx);
+        if (mode == (int)LV_CHART_UPDATE_MODE_CIRCULAR) {
+            return LV_CHART_UPDATE_MODE_CIRCULAR;
+        }
+        return LV_CHART_UPDATE_MODE_SHIFT;
+    }
+
+    const char *mode = luaL_optstring(L, idx, "shift");
+    if (strcmp(mode, "circular") == 0) {
+        return LV_CHART_UPDATE_MODE_CIRCULAR;
+    }
+    return LV_CHART_UPDATE_MODE_SHIFT;
+}
+
+static int32_t *airui_chart_values_from_table(lua_State *L, int table_idx, size_t *out_len)
+{
+    size_t len = lua_rawlen(L, table_idx);
+    if (out_len != NULL) {
+        *out_len = len;
+    }
+    if (len == 0) {
+        return NULL;
+    }
+
+    int32_t *values = (int32_t *)luat_heap_malloc(sizeof(int32_t) * len);
+    if (values == NULL) {
+        return NULL;
+    }
+
+    for (size_t i = 0; i < len; i++) {
+        lua_rawgeti(L, table_idx, (lua_Integer)(i + 1));
+        values[i] = lua_type(L, -1) == LUA_TNUMBER ? (int32_t)lua_tointeger(L, -1) : 0;
+        lua_pop(L, 1);
+    }
+    return values;
+}
+
 /**
- * Chart:set_values(values)
- * @api chart:set_values(values)
+ * Chart:set_values(series_id, values)
+ * @api chart:set_values(series_id, values)
+ * @int series_id 曲线编号（从 1 开始）
  * @table values 数值数组
  * @return nil
  */
 static int l_chart_set_values(lua_State *L)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    luaL_checktype(L, 2, LUA_TTABLE);
-
-    size_t len = lua_rawlen(L, 2);
-    if (len == 0) {
-        airui_chart_clear(chart, 0);
-        return 0;
+    int id = (int)luaL_checkinteger(L, 2);
+    luaL_checktype(L, 3, LUA_TTABLE);
+    if (id < 1) {
+        return luaL_error(L, "chart:set_values invalid series id");
     }
 
-    int32_t *values = (int32_t *)luat_heap_malloc(sizeof(int32_t) * len);
+    size_t len = 0;
+    int32_t *values = airui_chart_values_from_table(L, 3, &len);
+    if (len == 0) {
+        int32_t zero = 0;
+        airui_chart_set_series_values(chart, (uint32_t)(id - 1), &zero, 1);
+        return 0;
+    }
     if (values == NULL) {
         return luaL_error(L, "chart:set_values out of memory");
     }
 
-    for (size_t i = 0; i < len; i++) {
-        lua_rawgeti(L, 2, (lua_Integer)(i + 1));
-        values[i] = lua_type(L, -1) == LUA_TNUMBER ? (int32_t)lua_tointeger(L, -1) : 0;
-        lua_pop(L, 1);
-    }
-
-    airui_chart_set_values(chart, values, (uint32_t)len);
+    airui_chart_set_series_values(chart, (uint32_t)(id - 1), values, (uint32_t)len);
     luat_heap_free(values);
     return 0;
 }
 
 /**
- * Chart:push(value)
- * @api chart:push(value)
+ * Chart:push(series_id, value)
+ * @api chart:push(series_id, value)
+ * @int series_id 曲线编号（从 1 开始）
  * @int value 新值
  * @return nil
  */
 static int l_chart_push(lua_State *L)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    int32_t value = (int32_t)luaL_checkinteger(L, 2);
-    airui_chart_push_value(chart, value);
+    int id = (int)luaL_checkinteger(L, 2);
+    int32_t value = (int32_t)luaL_checkinteger(L, 3);
+    if (id < 1) {
+        return luaL_error(L, "chart:push invalid series id");
+    }
+    airui_chart_push_series_value(chart, (uint32_t)(id - 1), value);
+    return 0;
+}
+
+static int l_chart_add_series(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    uint32_t color_hex = 0x00b4ff;
+    const char *name = NULL;
+
+    lua_getfield(L, 2, "color");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        color_hex = (uint32_t)lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "name");
+    if (lua_type(L, -1) == LUA_TSTRING) {
+        name = lua_tostring(L, -1);
+    }
+    lua_pop(L, 1);
+
+    int id = airui_chart_add_series(chart, lv_color_hex(color_hex), name);
+    if (id < 1) {
+        return luaL_error(L, "chart:add_series failed");
+    }
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static int l_chart_remove_series(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    int ret = AIRUI_ERR_INVALID_PARAM;
+
+    if (lua_isnoneornil(L, 2)) {
+        ret = airui_chart_remove_last_series(chart);
+    } else {
+        int id = (int)luaL_checkinteger(L, 2);
+        if (id < 2) {
+            return luaL_error(L, "chart:remove_series id must be >= 2");
+        }
+        ret = airui_chart_remove_series(chart, (uint32_t)(id - 1));
+    }
+
+    if (ret != AIRUI_OK) {
+        return luaL_error(L, "chart:remove_series failed");
+    }
+    return 0;
+}
+
+static int l_chart_set_series_name(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    int id = (int)luaL_checkinteger(L, 2);
+    const char *name = luaL_checkstring(L, 3);
+    if (id < 1) {
+        return luaL_error(L, "chart:set_series_name invalid series id");
+    }
+    airui_chart_set_series_name(chart, (uint32_t)(id - 1), name);
     return 0;
 }
 
@@ -137,22 +227,6 @@ static int l_chart_clear(lua_State *L)
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
     int32_t value = (int32_t)luaL_optinteger(L, 2, 0);
     airui_chart_clear(chart, value);
-    return 0;
-}
-
-/**
- * Chart:set_range(min, max)
- * @api chart:set_range(min, max)
- * @int min 最小值
- * @int max 最大值
- * @return nil
- */
-static int l_chart_set_range(lua_State *L)
-{
-    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    int32_t min = (int32_t)luaL_checkinteger(L, 2);
-    int32_t max = (int32_t)luaL_checkinteger(L, 3);
-    airui_chart_set_range(chart, min, max);
     return 0;
 }
 
@@ -185,45 +259,77 @@ static int l_chart_set_update_mode(lua_State *L)
 }
 
 /**
- * Chart:set_line_color(color)
- * @api chart:set_line_color(color)
+ * Chart:set_line_color(series_id, color)
+ * @api chart:set_line_color(series_id, color)
+ * @int series_id 曲线编号（从 1 开始）
  * @int color 16 进制颜色整数
  * @return nil
  */
 static int l_chart_set_line_color(lua_State *L)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    lv_color_t color = lv_color_hex((uint32_t)luaL_checkinteger(L, 2));
-    airui_chart_set_line_color(chart, color);
+    int id = (int)luaL_checkinteger(L, 2);
+    lv_color_t color = lv_color_hex((uint32_t)luaL_checkinteger(L, 3));
+    if (id < 1) {
+        return luaL_error(L, "chart:set_line_color invalid series id");
+    }
+    airui_chart_set_series_color(chart, (uint32_t)(id - 1), color);
     return 0;
 }
 
-/**
- * Chart:get_pressed_point()
- * @api chart:get_pressed_point()
- * @return int 点索引，未命中返回 -1
- */
-static int l_chart_get_pressed_point(lua_State *L)
+static int l_chart_set_axis(lua_State *L, bool is_x)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    lua_pushinteger(L, airui_chart_get_pressed_point(chart));
-    return 1;
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    bool enable = true;
+    int32_t min = 0;
+    int32_t max = is_x ? 100 : 100;
+    uint32_t ticks = 6;
+    const char *unit = NULL;
+
+    lua_getfield(L, 2, "enable");
+    if (lua_type(L, -1) == LUA_TBOOLEAN) {
+        enable = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "min");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        min = (int32_t)lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "max");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        max = (int32_t)lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "ticks");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        ticks = (uint32_t)lua_tointeger(L, -1);
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "unit");
+    if (lua_type(L, -1) == LUA_TSTRING) {
+        unit = lua_tostring(L, -1);
+    }
+    lua_pop(L, 1);
+
+    airui_chart_set_axis_config(chart, is_x, enable, min, max, ticks, unit);
+    return 0;
 }
 
-/**
- * Chart:set_on_point(cb)
- * @api chart:set_on_point(cb)
- * @function cb 回调（参数：chart）
- * @return nil
- */
-static int l_chart_set_on_point(lua_State *L)
+static int l_chart_set_x_axis(lua_State *L)
 {
-    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    luaL_checktype(L, 2, LUA_TFUNCTION);
-    lua_pushvalue(L, 2);
-    int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    airui_chart_set_on_point(chart, ref);
-    return 0;
+    return l_chart_set_axis(L, true);
+}
+
+static int l_chart_set_y_axis(lua_State *L)
+{
+    return l_chart_set_axis(L, false);
 }
 
 /**
@@ -251,13 +357,15 @@ void airui_register_chart_meta(lua_State *L)
     static const luaL_Reg methods[] = {
         {"set_values", l_chart_set_values},
         {"push", l_chart_push},
+        {"add_series", l_chart_add_series},
+        {"remove_series", l_chart_remove_series},
+        {"set_series_name", l_chart_set_series_name},
         {"clear", l_chart_clear},
-        {"set_range", l_chart_set_range},
         {"set_point_count", l_chart_set_point_count},
         {"set_update_mode", l_chart_set_update_mode},
         {"set_line_color", l_chart_set_line_color},
-        {"get_pressed_point", l_chart_get_pressed_point},
-        {"set_on_point", l_chart_set_on_point},
+        {"set_x_axis", l_chart_set_x_axis},
+        {"set_y_axis", l_chart_set_y_axis},
         {"destroy", l_chart_destroy},
         {NULL, NULL}
     };

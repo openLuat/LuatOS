@@ -111,11 +111,13 @@ local function callback(request)
     if not is_write then
         -- 构造响应数据表
         local response = {}
+        local response_str = ""
         for i = 0, request.reg_count - 1 do
             local addr = request.start_addr + i
             response[addr] = data_table[addr]
+            response_str = response_str .. (i > 0 and ", " or "") .. response[addr]
         end
-        log.info("exmodbus_test", "读取成功，返回数据: ", table.concat(response, ", "))
+        log.info("exmodbus_test", "读取成功，返回数据: ", response_str)
         return response
     end
 

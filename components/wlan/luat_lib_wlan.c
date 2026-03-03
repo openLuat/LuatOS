@@ -362,20 +362,11 @@ static int l_wlan_set_mac(lua_State* L){
     const char* mac = luaL_checkstring(L, 2);
 #ifdef LUAT_MODEL_AIR8000
     if (id != 0) {
-        LLOGE("air800 only support set sta mac");
+        LLOGE("air8000 only support set sta mac");
         return 0;
     }
 #endif
 #ifdef LUAT_USE_DRV_WLAN
-    if (id == 2)
-        id = 0;
-    else if (id == 3)
-        id = 1;
-    else
-    {
-        LLOGE("mac parm id error %d", id);
-        return 0;
-    }
     int ret = luat_drv_wlan_set_mac(id, mac);
     // LLOGD("l_wlan_set_mac %02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     // LLOGD("set mac result %d", ret);

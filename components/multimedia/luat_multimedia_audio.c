@@ -190,7 +190,7 @@ LUAT_WEAK void luat_audio_power(uint8_t multimedia_id,uint8_t on){
 LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL || vol < 0 || vol > 1000) return -1;
-    if (audio_conf->codec_conf.codec_opts->no_control) {
+    if (audio_conf->codec_conf.codec_opts && audio_conf->codec_conf.codec_opts->no_control) {
     	audio_conf->soft_vol = vol;
     	return vol;
     }

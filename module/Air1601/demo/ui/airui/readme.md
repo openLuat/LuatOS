@@ -47,9 +47,9 @@
 
 ## 三、演示效果
 
-<img src="https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg">
-<img src="https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg">
-<img src="https://docs.openLuat.com/cdn/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg">
+![](https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg)
+![](https://docs.openLuat.com/cdn/image/FAoNbQWLYovlSGxZYO9cbj4Nn2c.jpg)
+![](https://docs.openLuat.com/cdn/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg)
 
 ## 四、准备硬件环境
 

@@ -109,7 +109,7 @@ AirSHT30_1000与Air8000系列核心板接线说明：
 
 2、内核固件：[Air8000系列最新版本内核固件](https://docs.openluat.com/air8000/luatos/firmware/)；
 
-3、脚本文件：先占个位置，后续加上
+3、脚本文件：[lowpower_new](https://gitee.com/openLuat/LuatOS/tree/master/module/Air8000/demo/lowpower_new)；
 
 4、lib脚本文件：使用Luatools烧录时，勾选 添加默认lib 选项，使用默认lib脚本文件
 

@@ -1,6 +1,6 @@
 ## 功能模块介绍：
 
-1. main.lua：主程序入口，主程序入口，加载lf_fs脚本运行
+1. main.lua：主程序入口，加载lf_fs脚本运行
 
 2. lf_fs：通过littleFS文件系统,对nand flash模块以文件系统的方式进行读写数据操作，详细逻辑请看lf_fs.lua 文件
    

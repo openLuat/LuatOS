@@ -1,5 +1,5 @@
 --[[
-@module  all_component_page
+@module  airui_all_component
 @summary 所有组件演示页面
 @version 1.0.0
 @date    2026.01.30
@@ -8,13 +8,13 @@
 本文件是所有组件的综合演示页面，展示AirUI所有组件的用法。
 ]]
 
-local all_component_page = {}
+local airui_all_component = {}
 
 -- 页面UI元素
 local main_container = nil
 
 -- 创建UI
-function all_component_page.create_ui()
+function airui_all_component.create_ui()
     -- 创建主容器
     main_container = airui.container({
         x = 0,
@@ -462,16 +462,16 @@ function all_component_page.create_ui()
 end
 
 -- 初始化页面
-function all_component_page.init(params)
-    all_component_page.create_ui()
+function airui_all_component.init(params)
+    airui_all_component.create_ui()
 end
 
 -- 清理页面
-function all_component_page.cleanup()
+function airui_all_component.cleanup()
     if main_container then
         main_container:destroy()
         main_container = nil
     end
 end
 
-return all_component_page
+return airui_all_component

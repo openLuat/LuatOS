@@ -1,6 +1,6 @@
 /*
 @module  airui.chart
-@summary AIRUI Chart 曲线图组件 Lua 绑定
+@summary AIRUI Chart 图表组件 Lua 绑定
 @version 0.1.0
 @date    2026.02.28
 @tag     LUAT_USE_AIRUI
@@ -30,11 +30,14 @@
  * @int config.y_min Y 轴最小值，默认 0
  * @int config.y_max Y 轴最大值，默认 100
  * @int config.point_count 点数量，默认 120（适合 10Hz）
+ * @string|int config.type 图表类型，"line"(默认) / "bar" / "stacked"
  * @string|int config.update_mode 更新模式，"shift" 或 "circular"
  * @int config.line_color 曲线颜色（Hex）
  * @int config.line_width 曲线宽度
  * @int config.point_radius 点半径，默认 0
- * @function config.on_point 点击图表点时回调（参数：chart）
+ * @int config.bar_group_gap 柱状图分组间距，默认 2
+ * @int config.bar_series_gap 柱状图组内序列间距，默认 2
+ * @int config.bar_radius 柱状图圆角，默认 0
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Chart 对象
  */
@@ -79,6 +82,29 @@ static lv_chart_update_mode_t airui_chart_parse_mode(lua_State *L, int idx)
         return LV_CHART_UPDATE_MODE_CIRCULAR;
     }
     return LV_CHART_UPDATE_MODE_SHIFT;
+}
+
+static lv_chart_type_t airui_chart_parse_type(lua_State *L, int idx)
+{
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        int type = (int)lua_tointeger(L, idx);
+        if (type == (int)LV_CHART_TYPE_BAR) {
+            return LV_CHART_TYPE_BAR;
+        }
+        if (type == (int)LV_CHART_TYPE_STACKED) {
+            return LV_CHART_TYPE_STACKED;
+        }
+        return LV_CHART_TYPE_LINE;
+    }
+
+    const char *type = luaL_optstring(L, idx, "line");
+    if (strcmp(type, "bar") == 0) {
+        return LV_CHART_TYPE_BAR;
+    }
+    if (strcmp(type, "stacked") == 0) {
+        return LV_CHART_TYPE_STACKED;
+    }
+    return LV_CHART_TYPE_LINE;
 }
 
 static int32_t *airui_chart_values_from_table(lua_State *L, int table_idx, size_t *out_len)
@@ -259,6 +285,52 @@ static int l_chart_set_update_mode(lua_State *L)
 }
 
 /**
+ * Chart:set_type(type)
+ * @api chart:set_type(type)
+ * @string|int type "line" / "bar" / "stacked"
+ * @return nil
+ */
+static int l_chart_set_type(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    lv_chart_type_t type = airui_chart_parse_type(L, 2);
+    if (airui_chart_set_type(chart, type) != AIRUI_OK) {
+        return luaL_error(L, "chart:set_type invalid type");
+    }
+    return 0;
+}
+
+/**
+ * Chart:set_bar_gap(group_gap, series_gap)
+ * @api chart:set_bar_gap(group_gap, series_gap)
+ * @int group_gap 分组间距
+ * @int series_gap 组内序列间距
+ * @return nil
+ */
+static int l_chart_set_bar_gap(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    int32_t group_gap = (int32_t)luaL_checkinteger(L, 2);
+    int32_t series_gap = (int32_t)luaL_optinteger(L, 3, 0);
+    airui_chart_set_bar_gap(chart, group_gap, series_gap);
+    return 0;
+}
+
+/**
+ * Chart:set_bar_radius(radius)
+ * @api chart:set_bar_radius(radius)
+ * @int radius 圆角
+ * @return nil
+ */
+static int l_chart_set_bar_radius(lua_State *L)
+{
+    lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
+    int32_t radius = (int32_t)luaL_checkinteger(L, 2);
+    airui_chart_set_bar_radius(chart, radius);
+    return 0;
+}
+
+/**
  * Chart:set_line_color(series_id, color)
  * @api chart:set_line_color(series_id, color)
  * @int series_id 曲线编号（从 1 开始）
@@ -362,7 +434,10 @@ void airui_register_chart_meta(lua_State *L)
         {"set_series_name", l_chart_set_series_name},
         {"clear", l_chart_clear},
         {"set_point_count", l_chart_set_point_count},
+        {"set_type", l_chart_set_type},
         {"set_update_mode", l_chart_set_update_mode},
+        {"set_bar_gap", l_chart_set_bar_gap},
+        {"set_bar_radius", l_chart_set_bar_radius},
         {"set_line_color", l_chart_set_line_color},
         {"set_x_axis", l_chart_set_x_axis},
         {"set_y_axis", l_chart_set_y_axis},

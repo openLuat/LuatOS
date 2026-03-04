@@ -46,6 +46,10 @@ typedef struct {
     uint32_t point_count;
     uint32_t hdiv;
     uint32_t vdiv;
+    lv_chart_type_t type;
+    int32_t bar_group_gap;
+    int32_t bar_series_gap;
+    int32_t bar_radius;
     bool legend_enabled;
     lv_obj_t *legend_box;
     lv_obj_t *legend_marks[AIRUI_CHART_MAX_SERIES];
@@ -57,7 +61,9 @@ typedef struct {
 static airui_ctx_t *airui_chart_get_ctx(lua_State *L);
 static lv_chart_series_t *airui_chart_get_series_by_index(lv_obj_t *chart, uint32_t series_index);
 static airui_chart_data_t *airui_chart_get_data(lv_obj_t *chart);
+static lv_chart_type_t airui_chart_parse_type(lua_State *L, int idx);
 static lv_chart_update_mode_t airui_chart_parse_update_mode(lua_State *L, int idx);
+static void airui_chart_apply_bar_style(lv_obj_t *chart, airui_chart_data_t *data);
 static void airui_chart_axis_clear(lv_obj_t *chart, airui_chart_axis_state_t *axis, bool is_x);
 static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *axis, bool is_x);
 static void airui_chart_axis_render_all(lv_obj_t *chart);
@@ -107,6 +113,10 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
     uint32_t vdiv = (uint32_t)airui_marshal_integer(L, idx, "vdiv", 6);
     int line_width = airui_marshal_integer(L, idx, "line_width", 2);
     int point_radius = airui_marshal_integer(L, idx, "point_radius", 0);
+    int32_t bar_group_gap = airui_marshal_integer(L, idx, "bar_group_gap", 2);
+    int32_t bar_series_gap = airui_marshal_integer(L, idx, "bar_series_gap", 2);
+    int32_t bar_radius = airui_marshal_integer(L, idx, "bar_radius", 0);
+    lv_chart_type_t chart_type = airui_chart_parse_type(L_state, idx);
 
     lv_color_t line_color = lv_color_make(0x00, 0xb4, 0xff);
     lv_color_t parsed_color;
@@ -128,7 +138,7 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
 
     lv_obj_set_pos(chart, x, y);
     lv_obj_set_size(chart, w, h);
-    lv_chart_set_type(chart, LV_CHART_TYPE_LINE);
+    lv_chart_set_type(chart, chart_type);
     lv_chart_set_point_count(chart, point_count);
     lv_chart_set_axis_range(chart, LV_CHART_AXIS_PRIMARY_Y, y_min, y_max);
     lv_chart_set_update_mode(chart, airui_chart_parse_update_mode(L_state, idx));
@@ -157,7 +167,7 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
 
     chart_data->series[0] = series;
     chart_data->series_colors[0] = line_color;
-    strncpy(chart_data->series_names[0], "line-1", AIRUI_CHART_MAX_NAME_LEN);
+    strncpy(chart_data->series_names[0], "series-1", AIRUI_CHART_MAX_NAME_LEN);
     chart_data->series_names[0][AIRUI_CHART_MAX_NAME_LEN] = '\0';
     chart_data->series_count = 1;
     chart_data->y_min = y_min;
@@ -165,12 +175,18 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
     chart_data->point_count = point_count;
     chart_data->hdiv = hdiv;
     chart_data->vdiv = vdiv;
+    chart_data->type = chart_type;
+    chart_data->bar_group_gap = bar_group_gap;
+    chart_data->bar_series_gap = bar_series_gap;
+    chart_data->bar_radius = bar_radius;
     chart_data->axis_x.min = 0;
     chart_data->axis_x.max = (point_count > 0) ? (int32_t)(point_count - 1) : 0;
     chart_data->axis_x.tick_count = (vdiv > 1) ? vdiv : 2;
     chart_data->axis_y.min = y_min;
     chart_data->axis_y.max = y_max;
     chart_data->axis_y.tick_count = (hdiv > 1) ? hdiv : 2;
+
+    airui_chart_apply_bar_style(chart, chart_data);
 
     lua_getfield(L_state, idx, "legend");
     if (lua_type(L_state, -1) == LUA_TBOOLEAN) {
@@ -274,11 +290,6 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
 
     lv_async_call(airui_chart_render_overlays_async, chart);
 
-    int on_point_ref = airui_component_capture_callback(L, idx, "on_point");
-    if (on_point_ref != LUA_NOREF) {
-        airui_chart_set_on_point(chart, on_point_ref);
-    }
-
     return chart;
 }
 
@@ -367,6 +378,106 @@ static lv_chart_update_mode_t airui_chart_parse_update_mode(lua_State *L, int id
     }
     lua_pop(L, 1);
     return mode;
+}
+
+// 解析图表类型
+static lv_chart_type_t airui_chart_parse_type(lua_State *L, int idx)
+{
+    lv_chart_type_t type = LV_CHART_TYPE_LINE;
+
+    lua_getfield(L, idx, "type");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        int type_int = (int)lua_tointeger(L, -1);
+        if (type_int == (int)LV_CHART_TYPE_BAR) {
+            type = LV_CHART_TYPE_BAR;
+        } else if (type_int == (int)LV_CHART_TYPE_STACKED) {
+            type = LV_CHART_TYPE_STACKED;
+        } else if (type_int == (int)LV_CHART_TYPE_LINE) {
+            type = LV_CHART_TYPE_LINE;
+        }
+    } else if (lua_type(L, -1) == LUA_TSTRING) {
+        const char *type_str = lua_tostring(L, -1);
+        if (type_str != NULL) {
+            if (strcmp(type_str, "bar") == 0) {
+                type = LV_CHART_TYPE_BAR;
+            } else if (strcmp(type_str, "stacked") == 0) {
+                type = LV_CHART_TYPE_STACKED;
+            }
+        }
+    }
+    lua_pop(L, 1);
+
+    return type;
+}
+
+// 应用图表柱状样式
+static void airui_chart_apply_bar_style(lv_obj_t *chart, airui_chart_data_t *data)
+{
+    if (chart == NULL || data == NULL) {
+        return;
+    }
+
+    int32_t group_gap = data->bar_group_gap;
+    int32_t series_gap = data->bar_series_gap;
+    int32_t radius = data->bar_radius;
+    if (group_gap < 0) {
+        group_gap = 0;
+    }
+    if (series_gap < 0) {
+        series_gap = 0;
+    }
+    if (radius < 0) {
+        radius = 0;
+    }
+
+    lv_obj_update_layout(chart);
+    int32_t content_w = lv_obj_get_content_width(chart);
+    if (content_w < 1) {
+        content_w = 1;
+    }
+
+    uint32_t point_count = lv_chart_get_point_count(chart);
+    if (point_count < 1) {
+        point_count = 1;
+    }
+
+    if (point_count > 1) {
+        int32_t max_group_gap = (content_w - (int32_t)point_count) / (int32_t)(point_count - 1);
+        if (max_group_gap < 0) {
+            max_group_gap = 0;
+        }
+        if (group_gap > max_group_gap) {
+            group_gap = max_group_gap;
+        }
+    } else {
+        group_gap = 0;
+    }
+
+    int32_t block_w = (content_w - ((int32_t)(point_count - 1) * group_gap)) / (int32_t)point_count;
+    if (block_w < 1) {
+        block_w = 1;
+    }
+
+    uint32_t series_count = data->series_count > 0 ? data->series_count : 1;
+    if (series_count > 1) {
+        int32_t max_series_gap = (block_w - 1) / (int32_t)(series_count - 1);
+        if (max_series_gap < 0) {
+            max_series_gap = 0;
+        }
+        if (series_gap > max_series_gap) {
+            series_gap = max_series_gap;
+        }
+    } else {
+        series_gap = 0;
+    }
+
+    data->bar_group_gap = group_gap;
+    data->bar_series_gap = series_gap;
+    data->bar_radius = radius;
+
+    lv_obj_set_style_pad_column(chart, group_gap, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(chart, series_gap, LV_PART_ITEMS | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(chart, radius, LV_PART_ITEMS | LV_STATE_DEFAULT);
 }
 
 /**
@@ -468,7 +579,22 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
         int32_t label_h = lv_obj_get_height(label);
 
         if (is_x) {
-            int32_t x = plot_x + (int32_t)((int64_t)plot_w * (int64_t)i / (int64_t)(tick_count - 1));
+            lv_chart_type_t chart_type = lv_chart_get_type(chart);
+            int32_t x = 0;
+            if (chart_type == LV_CHART_TYPE_BAR || chart_type == LV_CHART_TYPE_STACKED) {
+                uint32_t point_count = lv_chart_get_point_count(chart);
+                if (point_count < 1) {
+                    point_count = 1;
+                }
+                int32_t block_gap = lv_obj_get_style_pad_column(chart, LV_PART_MAIN);
+                int32_t block_w = (plot_w - ((int32_t)(point_count - 1) * block_gap)) / (int32_t)point_count;
+                if (block_w < 1) {
+                    block_w = 1;
+                }
+                x = plot_x + block_w / 2 + (int32_t)((int64_t)(plot_w - block_w) * (int64_t)i / (int64_t)(tick_count - 1));
+            } else {
+                x = plot_x + (int32_t)((int64_t)plot_w * (int64_t)i / (int64_t)(tick_count - 1));
+            }
             lv_obj_set_pos(label, x - label_w / 2, chart_y + chart_h + 4);
         } else {
             uint32_t rev = tick_count - 1 - i;
@@ -814,6 +940,7 @@ int airui_chart_set_point_count(lv_obj_t *chart, uint32_t count)
     if (data != NULL) {
         data->point_count = count;
         data->axis_x.max = (count > 0) ? (int32_t)(count - 1) : 0;
+        airui_chart_apply_bar_style(chart, data);
         airui_chart_axis_render(chart, &data->axis_x, true);
     }
     lv_chart_refresh(chart);
@@ -837,6 +964,68 @@ int airui_chart_set_update_mode(lv_obj_t *chart, lv_chart_update_mode_t mode)
     }
 
     lv_chart_set_update_mode(chart, mode);
+    lv_chart_refresh(chart);
+    return AIRUI_OK;
+}
+
+// 设置图表类型
+int airui_chart_set_type(lv_obj_t *chart, lv_chart_type_t type)
+{
+    if (chart == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (type != LV_CHART_TYPE_LINE && type != LV_CHART_TYPE_BAR && type != LV_CHART_TYPE_STACKED) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_chart_set_type(chart, type);
+    airui_chart_data_t *data = airui_chart_get_data(chart);
+    if (data != NULL) {
+        data->type = type;
+        airui_chart_apply_bar_style(chart, data);
+        airui_chart_axis_render(chart, &data->axis_x, true);
+    }
+    lv_chart_refresh(chart);
+    return AIRUI_OK;
+}
+
+// 设置图表柱状间距
+int airui_chart_set_bar_gap(lv_obj_t *chart, int32_t group_gap, int32_t series_gap)
+{
+    if (chart == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_chart_data_t *data = airui_chart_get_data(chart);
+    if (data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->bar_group_gap = group_gap;
+    data->bar_series_gap = series_gap;
+    airui_chart_apply_bar_style(chart, data);
+    if (data->type == LV_CHART_TYPE_BAR || data->type == LV_CHART_TYPE_STACKED) {
+        airui_chart_axis_render(chart, &data->axis_x, true);
+    }
+    lv_chart_refresh(chart);
+    return AIRUI_OK;
+}
+
+// 设置图表柱状圆角
+int airui_chart_set_bar_radius(lv_obj_t *chart, int32_t radius)
+{
+    if (chart == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_chart_data_t *data = airui_chart_get_data(chart);
+    if (data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->bar_radius = radius;
+    airui_chart_apply_bar_style(chart, data);
     lv_chart_refresh(chart);
     return AIRUI_OK;
 }
@@ -944,11 +1133,12 @@ int airui_chart_add_series(lv_obj_t *chart, lv_color_t color, const char *name)
         strncpy(data->series_names[idx], name, AIRUI_CHART_MAX_NAME_LEN);
         data->series_names[idx][AIRUI_CHART_MAX_NAME_LEN] = '\0';
     } else {
-        snprintf(data->series_names[idx], AIRUI_CHART_MAX_NAME_LEN + 1, "line-%lu", (unsigned long)(idx + 1));
+        snprintf(data->series_names[idx], AIRUI_CHART_MAX_NAME_LEN + 1, "series-%lu", (unsigned long)(idx + 1));
     }
     data->series_count++;
 
     lv_chart_set_all_values(chart, series, data->y_min);
+    airui_chart_apply_bar_style(chart, data);
     airui_chart_legend_render(chart);
     lv_chart_refresh(chart);
     return (int)(idx + 1);
@@ -1008,6 +1198,7 @@ int airui_chart_remove_series(lv_obj_t *chart, uint32_t series_index)
     data->series_names[data->series_count - 1][0] = '\0';
     data->series_count--;
 
+    airui_chart_apply_bar_style(chart, data);
     airui_chart_legend_render(chart);
     lv_chart_refresh(chart);
     return AIRUI_OK;
@@ -1068,44 +1259,4 @@ int airui_chart_set_legend_enabled(lv_obj_t *chart, bool enable)
     data->legend_enabled = enable;
     airui_chart_legend_render(chart);
     return AIRUI_OK;
-}
-
-/**
- * 设置数据点点击回调
- * @param chart Chart 对象指针
- * @param callback_ref Lua 回调引用
- * @return 0 成功，<0 失败
- */
-int airui_chart_set_on_point(lv_obj_t *chart, int callback_ref)
-{
-    if (chart == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-
-    airui_component_meta_t *meta = airui_component_meta_get(chart);
-    if (meta == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
-    }
-
-    return airui_component_bind_event(meta, AIRUI_EVENT_PRESSED, callback_ref);
-}
-
-/**
- * 获取当前按下的数据点索引
- * @param chart Chart 对象指针
- * @return 按下点索引，非法返回 -1
- */
-int airui_chart_get_pressed_point(lv_obj_t *chart)
-{
-    if (chart == NULL) {
-        return -1;
-    }
-
-    uint32_t point_count = lv_chart_get_point_count(chart);
-    uint32_t pressed = lv_chart_get_pressed_point(chart);
-    if (pressed >= point_count) {
-        return -1;
-    }
-
-    return (int)pressed;
 }

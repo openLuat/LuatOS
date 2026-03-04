@@ -432,7 +432,10 @@ int airui_chart_push_series_value(lv_obj_t *chart, uint32_t series_index, int32_
 int airui_chart_clear(lv_obj_t *chart, int32_t value);
 int airui_chart_set_range(lv_obj_t *chart, int32_t min, int32_t max);
 int airui_chart_set_point_count(lv_obj_t *chart, uint32_t count);
+int airui_chart_set_type(lv_obj_t *chart, lv_chart_type_t type);
 int airui_chart_set_update_mode(lv_obj_t *chart, lv_chart_update_mode_t mode);
+int airui_chart_set_bar_gap(lv_obj_t *chart, int32_t group_gap, int32_t series_gap);
+int airui_chart_set_bar_radius(lv_obj_t *chart, int32_t radius);
 int airui_chart_set_line_color(lv_obj_t *chart, lv_color_t color);
 int airui_chart_set_series_color(lv_obj_t *chart, uint32_t series_index, lv_color_t color);
 int airui_chart_set_series_name(lv_obj_t *chart, uint32_t series_index, const char *name);
@@ -441,8 +444,6 @@ int airui_chart_remove_series(lv_obj_t *chart, uint32_t series_index);
 int airui_chart_remove_last_series(lv_obj_t *chart);
 int airui_chart_set_axis_config(lv_obj_t *chart, bool is_x, bool enable, int32_t min, int32_t max, uint32_t ticks, const char *unit);
 int airui_chart_set_legend_enabled(lv_obj_t *chart, bool enable);
-int airui_chart_set_on_point(lv_obj_t *chart, int callback_ref);
-int airui_chart_get_pressed_point(lv_obj_t *chart);
 
 #ifdef __cplusplus
 }

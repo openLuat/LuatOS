@@ -27,9 +27,13 @@ local function tfcard_main_task()
     --gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
     gpio.setup(13, 1)
     
-   
+    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
+    spi_id, pin_cs = 1, 3
+    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    --初始化后拉高pin_cs,准备开始挂载TF卡
+    gpio.setup(pin_cs, 1)
     -- ########## 开始进行tf卡挂载 ##########
-    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
     if mount_ok then
         log.info("fatfs.mount", "挂载成功", mount_err)
     else
@@ -62,16 +66,15 @@ local function tfcard_main_task()
     dir_path = "/sd/io_test"
 
     -- 1. 创建目录
-    if io.mkdir(dir_path) then
-        log.info("io.mkdir", "目录创建成功", "路径:" .. dir_path)
-    else
-        -- 检查是否目录已存在
-        if io.exists(dir_path) then
-            log.warn("io.mkdir", "目录已存在，跳过创建", "路径:" .. dir_path)
+    if not io.dexist(dir_path) then
+        if io.mkdir(dir_path) then
+            log.info("io.mkdir", "目录创建成功", "路径:" .. dir_path)
         else
-            log.error("io.mkdir", "目录创建失败且目录不存在", "路径:" .. dir_path)
+            log.error("io.mkdir", "目录创建失败", "路径:" .. dir_path)
             goto resource_cleanup
         end
+    else
+        log.warn("io.mkdir", "目录已存在，跳过创建", "路径:" .. dir_path)
     end
 
     -- 2. 创建并写入文件
@@ -302,11 +305,11 @@ local function tfcard_main_task()
     log.info("文件操作", "===== 文件操作完成 =====")
 
     -- ########## 功能: 收尾功能演示##########
-    -- 卸载文件系统和关闭SPI
+    -- 卸载文件系统
     ::resource_cleanup::
 
     log.info("结束", "开始执行关闭操作...")  
-    -- 如已挂载需先卸载文件系统，未挂载直接关闭SPI
+    -- 如已挂载需先卸载文件系统
     if mount_ok then
         if fatfs.unmount("/sd") then
             log.info("文件系统", "卸载成功")
@@ -315,6 +318,9 @@ local function tfcard_main_task()
         end
     end
 
+    -- 2. 关闭SPI接口
+    spi.close(spi_id)
+    log.info("SPI接口", "已关闭")
 
 end
 

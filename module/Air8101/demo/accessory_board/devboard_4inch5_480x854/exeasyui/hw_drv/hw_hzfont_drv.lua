@@ -25,6 +25,7 @@
 ]]
 
 -- 使用Air780EHM/EHV/EGH V2020版本以上14号固件内置的hzfont合宙矢量字库初始化exEasyUI硬件
+-- 将ttf字体烧录至文件系统方式请看：https://docs.openluat.com/osapi/core/hzfont/#ttf
 ui.hw_init({
     font_config = { type = "hzfont", path = "/MiSans_gb2312.ttf", size = 24, to_psram = true, antialias = -1 },  -- 默认-1，表示自动抗锯齿
 

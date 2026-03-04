@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 #include "luat_mem.h"
-#include "cjson.h"
+#include "cJSON.h"
 
 #define LUAT_LOG_TAG "ems"
 #include "luat_log.h"

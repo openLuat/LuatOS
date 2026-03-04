@@ -56,7 +56,7 @@ function eink_page.draw()
     eink.line(100, 55, 100, 190, 0) -- 左右区域分隔线（垂直）
 
     -- 左侧区域（左半屏）
-    -- 1. 文本演示，中文目前仅支持12号英文字体
+    -- 1. 文本演示，不支持中文仅支持12号英文字体
     eink.setFont(eink.font_opposansm12)
     eink.print(15, 65, "1. Font-12px", 0)
     eink.print(20, 85, "PWR:Return", 0)

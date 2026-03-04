@@ -29,6 +29,7 @@ ui.hw_init({
 
     -- font_config 字体参数，可选。参数填写可以参考合宙exeayui扩展库初始化接口说明：https://docs.openluat.com/osapi/ext/exeasyui/#411-uihw_initopts
     -- Air8101 V2002 102号固件仅内置了hzfont核心库未内置hzfont字体文件，需要将.ttf文件手动烧录到模组文件系统内，并填对应的path参数
+    -- 将ttf字体烧录至文件系统方式请看：https://docs.openluat.com/osapi/core/hzfont/#ttf
     font_config = { type = "hzfont", path = "/MiSans_gb2312.ttf", size = 24, to_psram = true, antialias = 1 }, -- 默认-1，表示自动抗锯齿
 
     -- lcd_config参数填写可以参考合宙exlcd显示扩展库exlcd.init(param)接口说明：https://docs.openluat.com/osapi/ext/exlcd/#31-exlcdinitparam

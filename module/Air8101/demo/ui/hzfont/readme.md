@@ -71,6 +71,7 @@ airui.font_load({
 })
 
 -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+-- 将ttf字体烧录至文件系统方式请看：https://docs.openluat.com/osapi/core/hzfont/#ttf
 airui.font_load({
     type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
     path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库

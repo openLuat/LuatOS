@@ -176,7 +176,7 @@ static void ch390h_dataout_pbuf(ch390h_t* ch, struct pbuf* p) {
     if (ch->status == CH390H_STATUS_STOPPED) {
         return;
     }
-    LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
+    // LLOGI("lwip待发送到硬件层 %p %d", p, p->tot_len);
     luat_ch390h_cstring_t* cs = new_cstring(ch, p->tot_len);
     if (cs == NULL) {
         LLOGE("分配cstring失败，丢弃数据包 %d", p->tot_len);

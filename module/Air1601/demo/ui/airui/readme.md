@@ -9,25 +9,21 @@
 ### 2.1 核心核心驱动模块
 
 1. main.lua - 主程序入口，负责系统初始化和任务调度
-
 - 项目初始化和版本定义
 - 系统任务调度和看门狗配置
 - 演示模块的选择和加载
 
-1. lcd_drv -LCD 显示驱动模块，基于 lcd 核心库
-
+2. lcd_drv -LCD 显示驱动模块，基于 lcd 核心库
 - 初始化 LCD 屏幕及背光
 - 配置显示参数和缓冲区
 - 初始化 AirUI 框架
 
-1. tp_drv - 触摸面板驱动模块，基于 tp 核心库
-
+3. tp_drv - 触摸面板驱动模块，基于 tp 核心库
 - 初始化 GT911 触摸控制器
 - 配置 I2C 通信和触摸回调
 - 绑定触摸设备到 AirUI 输入系统
 
 ### 2.2 基础组件演示
-
 1. airui_home.lua AirUI 演示系统主页
 2. airui_label.lua -标签组件演示页面
 3. airui_button.lua - 按钮组件演示页面
@@ -36,7 +32,6 @@
 6. airui_bar.lua - （动态）进度条组件演示页面
 
 ### 2.3 交互组件演示
-
 1. airui_switch.lua -开关组件演示页面
 2. airui_dropdown.lua - 下拉框组件演示页面
 3. airui_input.lua - 输入框组件演示页面
@@ -44,7 +39,6 @@
 5. airui_game.lua- 俄罗斯方块游戏演示页面
 
 ### 2.4 布局与高级组件演示
-
 1. airui_table_page.lua - 表格组件演示页面
 2. airui_tabview.lua - 选项卡组件演示页面
 3. airui_win.lua - 窗口组件演示页面
@@ -53,22 +47,13 @@
 
 ## 三、演示效果
 
-![alt text](image.png)
-
-![alt text](image-1.png)
-
+<img src="https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg">
+<img src="https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg">
+<img src="https://docs.openLuat.com/cdn/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg">
 
 ## 四、准备硬件环境
 
-![](image/Z5jhbnPA4oR9aoxKT04cP0EZnth.jpg)
-
-1、Air1101 开发板
-
-2、1024*600 分辨率 RGB888 屏
-
-3、TYPE-C 数据线 × 1
-
-注意：Air1101 开发板 TP 功能与 uart4 复用（uart4 为专用下载口，不可用作其他功能），需飞线将 TP_INT 连接至 GPIO3(UART1_RXD)，TP_RST 飞线至 GPIO55(UART3_RXD)。
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
 ## 五、准备软件环境
 

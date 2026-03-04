@@ -89,6 +89,7 @@ static uint8_t s_tp_down[FT3X68_TOUCH_NUMBER_MAX];
 static uint8_t pre_touch = 0;
 static int8_t pre_id[FT3X68_TOUCH_NUMBER_MAX] = {0};
 static luat_tp_info_t ft3x68_tp;
+static uint8_t s_point_event[FT3X68_TOUCH_NUMBER_MAX] = {0};
 
 static int luat_tp_irq_cb(int pin, void *args){
     if (ft3x68_tp.is_inited == 0){
@@ -152,7 +153,8 @@ static int tp_ft3x68_deinit(luat_tp_config_t* luat_tp_config){
 }
 
 static void tp_ft3x68_read_done(luat_tp_config_t * luat_tp_config){
-    if (luat_gpio_get(luat_tp_config->pin_int)){
+    int int_level = luat_gpio_get(luat_tp_config->pin_int);
+    if (int_level){
         luat_tp_irq_enable(luat_tp_config, 1);
     }else{
         luat_rtos_message_send(luat_tp_config->task_handle, 1, luat_tp_config);
@@ -189,10 +191,14 @@ void ft3x68_touch_down(void *buf, int8_t id, int16_t x, int16_t y, int16_t w){
 	luat_tp_data_t *read_data = (luat_tp_data_t *)buf;
 	if (x == pre_x[id] && y == pre_y[id])
 	{
-		read_data[id].event = TP_EVENT_TYPE_NONE;
-		return;
+		if (s_tp_down[id] == 1) {
+			read_data[id].event = TP_EVENT_TYPE_MOVE;
+		} else {
+			read_data[id].event = TP_EVENT_TYPE_NONE;
+			return;
+		}
 	}
-	if (s_tp_down[id] == 1){
+	else if (s_tp_down[id] == 1){
 		read_data[id].event = TP_EVENT_TYPE_MOVE;
 	}else{
 		read_data[id].event = TP_EVENT_TYPE_DOWN;
@@ -245,7 +251,11 @@ void ft3x68_read_point(luat_tp_config_t* luat_tp_config, luat_tp_touch_t *input_
                 return;
             }
             input_w = read_buf[read_index].w;	/* w */
-			ft3x68_touch_down(buf, read_index, input_x, input_y, input_w);
+			if (s_point_event[read_index] == 1) {
+				ft3x68_touch_up(buf, read_index);
+			} else {
+				ft3x68_touch_down(buf, read_index, input_x, input_y, input_w);
+			}
 		}
 	}else if (pre_touch){
 		for(read_index = 0; read_index < pre_touch; read_index++){
@@ -258,43 +268,46 @@ const int FT3X68_TPX_TBL[5]={FT3X68_TP1_REG,FT3X68_TP2_REG,FT3X68_TP3_REG,FT3X68
 static int tp_ft3x68_read(luat_tp_config_t* luat_tp_config, luat_tp_data_t *luat_tp_data){
     uint8_t touch_num=0, point_status=0;
     uint8_t temp[1] = {FT3X68_TD_STATUS};
+    uint8_t touch_event = 0;
     if (!tp_i2c_read(luat_tp_config, temp, 1, temp, 4, 1))
     {
-    	touch_num = temp[0] & 0x0f;
-    	if(touch_num && (touch_num <= FT3X68_TOUCH_NUMBER_MAX))
-    	{
-    		for(int i = 0; i < touch_num; i++)
-    		{
-    			temp[0] = FT3X68_TPX_TBL[i];
-    			if (!tp_i2c_read(luat_tp_config, temp, 1, &ft3x68_tp.point[i], 4, 1))
-    			{
-//    				LLOGD("point %d data%x,%x,%x,%x", i, ft3x68_tp.point[i].x_h, ft3x68_tp.point[i].x_l, ft3x68_tp.point[i].y_h, ft3x68_tp.point[i].y_l);
-    				if (0x80 != (ft3x68_tp.point[i].x_h & 0xF0))
-    				{
-//    					LLOGE("point %d data error %x,%x,%x,%x", i, ft3x68_tp.point[i].x_h, ft3x68_tp.point[i].x_l, ft3x68_tp.point[i].y_h, ft3x68_tp.point[i].y_l);
-    					memset(&ft3x68_tp.point[i], 0, sizeof(ft3x68_tp.point[i]));
-    					touch_num--;
-    				}
-    				else
-    				{
-    					ft3x68_tp.point[i].x_h &= 0x0f;
-    					point_status = 1;
-    				}
-    			}
+	touch_num = temp[0] & 0x0f;
+	if(touch_num && (touch_num <= FT3X68_TOUCH_NUMBER_MAX))
+	{
+		memset(s_point_event, 0, sizeof(s_point_event));
+		for(int i = 0; i < touch_num; i++)
+		{
+			temp[0] = FT3X68_TPX_TBL[i];
+			if (!tp_i2c_read(luat_tp_config, temp, 1, &ft3x68_tp.point[i], 4, 1))
+			{
+				touch_event = (ft3x68_tp.point[i].x_h >> 6) & 0x03;
+				if (touch_event >= 3)
+				{
+					memset(&ft3x68_tp.point[i], 0, sizeof(ft3x68_tp.point[i]));
+					touch_num--;
+				}
+				else
+				{
+					s_point_event[i] = touch_event;
+     					ft3x68_tp.point[i].x_h &= 0x0f;
+					ft3x68_tp.point[i].y_h &= 0x0f;
+     					point_status = 1;
+     				}
+     			}
     		}
     	}
     }
     if (point_status || pre_touch)
     {
-    	ft3x68_tp.touch_num = touch_num;
-    	ft3x68_read_point(luat_tp_config, ft3x68_tp.point, luat_tp_data, ft3x68_tp.touch_num);
+	ft3x68_tp.touch_num = touch_num;
+	ft3x68_read_point(luat_tp_config, ft3x68_tp.point, luat_tp_data, ft3x68_tp.touch_num);
     }
     else
     {
-    	if (!pre_touch && !touch_num)
-    	{
-    		memset(luat_tp_data, 0, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
-    	}
+	if (!pre_touch && !touch_num)
+	{
+		memset(luat_tp_data, 0, sizeof(luat_tp_data_t) * LUAT_TP_TOUCH_MAX);
+	}
     }
     return touch_num;
 }

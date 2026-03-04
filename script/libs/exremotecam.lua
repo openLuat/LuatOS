@@ -141,21 +141,23 @@ end
 @string camera_param.brand 摄像头品牌
 @string camera_param.host 摄像头/NVR的IP地址
 @number camera_param.channel 摄像头通道号（主要用于NVR）
+@string camera_param.save_path 照片保存路径（可选，默认为"/sd/1.jpeg"）
 @return number 返回值
  0：拍照失败
- 1：拍照成功，并且照片保存到/sd/1.jpeg
- 2：拍照成功，但是照片没有保存本地
+ 1：拍照成功，并且照片保存到指定路径
+ 2：拍照成功，但是照片保存失败
 @usage
 -- 大华摄像头示例
 local photo_param = {
     brand = "dhcam",
     host = "192.168.1.100",
-    channel = 0
+    channel = 0,
+    save_path = "/sd/camera1.jpeg"
 }
 local result = exremotecam.get_photo(photo_param)
 log.info("get_photo", "拍照结果: " .. result)
 
--- 多通道NVR示例
+-- 多通道NVR示例（使用默认路径）
 local photo_param = {
     brand = "dhcam",
     host = "192.168.1.100",
@@ -185,24 +187,28 @@ function exremotecam.get_photo(camera_param)
         -- 调用大华摄像头的take_picture方法
         return dhcam.take_picture({
             host = camera_param.host,
-            channel = camera_param.channel or 0
+            channel = camera_param.channel or 0,
+            save_path = camera_param.save_path or "/sd/1.jpeg"
         })
     -- 后续可添加其他品牌的处理
     -- elseif brand == "Hikvision" then
     --     -- 调用海康威视摄像头的take_picture方法
     --     return hkcam.take_picture({
     --         host = camera_param.host,
-    --         channel = camera_param.channel or 0
+    --         channel = camera_param.channel or 0,
+    --         save_path = camera_param.save_path or "/sd/1.jpeg"
     --     })
     -- elseif brand == "Uniview" then
     --     return yscam.take_picture({
     --         host = camera_param.host,
-    --         channel = camera_param.channel or 0
+    --         channel = camera_param.channel or 0,
+    --         save_path = camera_param.save_path or "/sd/1.jpeg"
     --     })
     -- elseif brand == "TianDiWeiye" then
     --     return tdwycam.take_picture({
     --         host = camera_param.host,
-    --         channel = camera_param.channel or 0
+    --         channel = camera_param.channel or 0,
+    --         save_path = camera_param.save_path or "/sd/1.jpeg"
     --     })
     else
         -- 处理不支持的品牌

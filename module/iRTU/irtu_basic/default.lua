@@ -127,27 +127,30 @@ local function config_init()
 
      while true do
          rst = false
-         url = "https://iot.openluat.com/api/dtu/device/" .. mobile.imei() .. "/param?product_name=" .. _G.PROJECT .. "&param_ver=" .. dtu.param_ver.."&iccid="..mobile.iccid()
-         log.info("MUID",mobile.muid())
-         code, head, body = dtulib.request("GET", url,30000,nil,nil,1,mobile.imei()..":"..mobile.muid())
-         if tonumber(code) == 200 and body then
-             log.info("Parameters issued from the server:", body)
-             local dat, res, err = json.decode(body)
-             if dat.code==0 then
-                 local databody=json.encode(dat.parameter)
-                 if res and tonumber(dat.param_ver) ~= tonumber(dtu.param_ver) then
-                     _G.PRODUCT_KEY=dat.parameter.project_key
-                     cfg:import(databody)
-                     rst = true
-                 end
-             elseif dat.code==1 then
-                 log.info("没有新参数。已是最新参数")
-             elseif dat.code==2 then
-                 log.info("未付费，登录")
-             end
-         else
-             log.info("COde",code,body,head)
-         end
+         log.info("Source",dtu.source)
+         if dtu.source~="uart" then
+            url = "https://iot.openluat.com/api/dtu/device/" .. mobile.imei() .. "/param?product_name=" .. _G.PROJECT .. "&param_ver=" .. dtu.param_ver.."&iccid="..mobile.iccid()
+            log.info("MUID",mobile.muid())
+            code, head, body = dtulib.request("GET", url,30000,nil,nil,1,mobile.imei()..":"..mobile.muid())
+            if tonumber(code) == 200 and body then
+                log.info("Parameters issued from the server:", body)
+                local dat, res, err = json.decode(body)
+                if dat.code==0 then
+                    local databody=json.encode(dat.parameter)
+                    if res and tonumber(dat.param_ver) ~= tonumber(dtu.param_ver) then
+                        _G.PRODUCT_KEY=dat.parameter.project_key
+                        cfg:import(databody)
+                        rst = true
+                    end
+                elseif dat.code==1 then
+                    log.info("没有新参数。已是最新参数")
+                elseif dat.code==2 then
+                    log.info("未付费，登录")
+                end
+            else
+                log.info("COde",code,body,head)
+            end
+        end
          -- 检查是否有更新程序
          if tonumber(dtu.fota) == 1 then
              log.info("----- update firmware:", "start!")

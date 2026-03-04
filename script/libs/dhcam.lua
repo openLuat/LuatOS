@@ -297,10 +297,11 @@ end
 @table dahua_param 大华摄像头拍照配置参数
 @string dahua_param.host 摄像头/NVR的IP地址
 @number dahua_param.channel 摄像头通道号
+@string dahua_param.save_path 照片保存路径（可选，默认为"/sd/1.jpeg"）
 @return number 返回值
  0：拍照失败
- 1：拍照成功，并且照片保存到/sd/1.jpeg
- 2：拍照成功，但是照片没有保存本地
+ 1：拍照成功，并且照片保存到指定路径
+ 2：拍照成功，但是照片保存失败
 ]]
 function dhcam.take_picture(dahua_param)
     -- 参数类型检查
@@ -312,6 +313,7 @@ function dhcam.take_picture(dahua_param)
     -- 设置默认参数值
     local host = dahua_param.host or "192.168.1.108"
     local channel = dahua_param.channel or 0
+    local save_path = dahua_param.save_path or "/sd/1.jpeg"  -- 默认保存路径
     
     -- 构建拍照请求参数
     local photo_params = "channel=" .. channel
@@ -344,19 +346,30 @@ function dhcam.take_picture(dahua_param)
                     log.info("dh_picture", "SD卡可用，开始保存照片")
                     
                     -- 保存照片到SD卡
-                    local photo_file = io.open("/sd/1.jpeg", "wb")
+                    local photo_file = io.open(save_path, "wb")
                     if photo_file then
                         photo_file:write(body)
                         photo_file:close()
-                        log.info("dh_picture", "照片保存到/sd/1.jpeg成功")
+                        log.info("dh_picture", "照片保存到", save_path, "成功")
                         return 1
                     else
                         log.info("dh_picture", "照片保存失败")
                         return 2
                     end
                 else
-                    log.info("dh_picture", "SD卡不可用，照片未保存本地")
-                    return 2
+                    log.info("dh_picture", "SD卡不可用，照片将保存到内存路径")
+                    
+                    -- 保存照片到内存
+                    local photo_file = io.open("/luadb/1.jpeg", "wb")
+                    if photo_file then
+                        photo_file:write(body)
+                        photo_file:close()
+                        log.info("dh_picture", "照片保存到/luadb/1.jpeg成功")
+                        return 1
+                    else
+                        log.info("dh_picture", "照片保存到内存路径失败")
+                        return 2
+                    end
                 end
             else
                 log.info("dh_picture", "拍照失败，HTTP状态码：", code)
@@ -375,19 +388,30 @@ function dhcam.take_picture(dahua_param)
             log.info("dh_picture", "SD卡可用，开始保存照片")
             
             -- 保存照片到SD卡
-            local photo_file = io.open("/sd/1.jpeg", "wb")
+            local photo_file = io.open(save_path, "wb")
             if photo_file then
                 photo_file:write(body)
                 photo_file:close()
-                log.info("dh_picture", "照片保存到/sd/1.jpeg成功")
+                log.info("dh_picture", "照片保存到", save_path, "成功")
                 return 1
             else
                 log.info("dh_picture", "照片保存失败")
                 return 2
             end
         else
-            log.info("dh_picture", "SD卡不可用，照片未保存本地")
-            return 2
+            log.info("dh_picture", "SD卡不可用，照片将保存到内存路径")
+            
+            -- 保存照片到内存
+            local photo_file = io.open("/luadb/1.jpeg", "wb")
+            if photo_file then
+                photo_file:write(body)
+                photo_file:close()
+                log.info("dh_picture", "照片保存到/luadb/1.jpeg成功")
+                return 1
+            else
+                log.info("dh_picture", "照片保存到内存路径失败")
+                return 2
+            end
         end
     else
         log.info("dh_picture", "拍照失败，HTTP状态码：", code)

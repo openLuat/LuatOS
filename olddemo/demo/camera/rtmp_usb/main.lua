@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "usb_cam_rtmp"
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 
 local fota_enable = false  -- 是否启用FOTA功能
 local fota_looptime = 4*3600000  -- FOTA轮询时间，默认4小时
@@ -35,6 +35,26 @@ local rtmpc = nil
 local rtmp_reconnecting = false -- 是否正在重连
 local rtmp_retries = 0         -- 当前重连次数
 
+-- camera 初始化
+local function camera_init()
+    camera.config(0, camera.CONF_UVC_FPS, 15)
+    camera.config(0, camera.CONF_H264_QP_INIT, 40)
+    camera.config(0, camera.CONF_H264_QP_I_MAX, 40)
+    camera.config(0, camera.CONF_H264_QP_P_MAX, 25)
+    camera.config(0, camera.CONF_H264_IMB_BITS, 8)
+    camera.config(0, camera.CONF_H264_PMB_BITS, 4)
+    camera.config(0, camera.CONF_H264_PFRAME_NUMS, 29)
+    sys.wait(200)
+    result = camera.init(usb_camera_table)
+    log.info("摄像头初始化", result)
+    if result ~= 0 then
+        log.info("摄像头初始化失败, 5秒后重启设备, 进行重试")
+        sys.wait(5000)
+        rtos.reboot()
+    end
+    camera.start(camera_id)
+end
+
 -- rtmp出现问题时的重连逻辑
 local function rtmp_try_reconnect()
     while true do
@@ -49,12 +69,20 @@ local function rtmp_try_reconnect()
         rtmp_reconnecting = true
         while rtmp_reconnecting do
             rtmpc:disconnect()  -- 确认断开当前连接
+            -- 关闭摄像头
+            log.info("camera", "stopping camera")
+            camera.stop(camera_id)
+            camera.close(camera_id)
             sys.wait(120 * 1000) -- 每次推流时效需要重连间隔两分钟再进行重连
             rtmp_retries = rtmp_retries + 1
             local isNetReady, adapterIndex = socket.adapter()
             log.info("rtmp", "reconnect attempt", rtmp_retries, "adapter_index: ", adapterIndex)
             -- 检测当前网络是否就绪
             if isNetReady then
+                -- 重新初始化摄像头
+                log.info("camera", "reinitializing camera")
+                camera_init()
+                -- 重新连接RTMP
                 local ok = rtmpc:connect()
                 if ok then
                     -- 等待短时间以便连接完成
@@ -143,25 +171,7 @@ sys.taskInit(function()
         sys.wait(3000)
         log.info("重试请求获取推流URL")
     end
-
-    camera.config(0, camera.CONF_UVC_FPS, 15)
-    camera.config(0, camera.CONF_H264_QP_INIT, 40)
-    camera.config(0, camera.CONF_H264_QP_I_MAX, 40)
-    camera.config(0, camera.CONF_H264_QP_P_MAX, 25)
-    camera.config(0, camera.CONF_H264_IMB_BITS, 8)
-    camera.config(0, camera.CONF_H264_PMB_BITS, 4)
-    camera.config(0, camera.CONF_H264_PFRAME_NUMS, 29)
-    socket.sntp()
-    sys.wait(200)
-    result = camera.init(usb_camera_table)
-    log.info("摄像头初始化", result)
-    if result ~= 0 then
-        log.info("摄像头初始化失败, 5秒后重启设备, 进行重试")
-        sys.wait(5000)
-        rtos.reboot()
-    end
-    camera.start(camera_id)
-
+    camera_init()   -- 初始化摄像头
     if not rtmpc then
         rtmpc = rtmp.create(rtmpurl)
         -- rtmpc = rtmp.create("rtmp://47.94.236.172/live/1ca786f5") -- 替换为你的推流地址

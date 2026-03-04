@@ -106,7 +106,7 @@ AirSHT30_1000与Air780EXX系列核心板接线说明：
 - [Air780EGH/EGG/EGP最新版本内核固件](https://docs.openluat.com/air780egh/luatos/firmware/version/#air780egg-luatos)
 - [Air780EHN/EHU最新版本内核固件](https://docs.openluat.com/air780ehnehu/luatos/firmware/version/)
 
-3、脚本文件：先占个位置，后续加上
+3、脚本文件：[lowpower_new](https://gitee.com/openLuat/LuatOS/tree/master/module/Air780EHM_Air780EHV_Air780EGH/demo/lowpower_new)；
 
 4、lib脚本文件：使用Luatools烧录时，勾选 添加默认lib 选项，使用默认lib脚本文件
 

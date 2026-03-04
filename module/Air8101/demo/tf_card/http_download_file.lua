@@ -18,9 +18,9 @@ local function http_download_file_task()
     -- 阶段1: 网络就绪检测
     
     -- 要连接的WIFI路由器名称
-    local ssid ="茶室-降功耗,找合宙!"
+    local ssid ="A上海合宙通讯"
     -- 要连接的WIFI路由器密码
-    local password = "Air123456"
+    local password = "HZ88888888"
     log.info("wifi", ssid, password)
     wlan.init()
     -- 连接WIFI
@@ -37,8 +37,13 @@ local function http_download_file_task()
     log.info("HTTP下载", "网络已就绪", socket.dft())
     -- TF卡供电控制（AIR8101专用）
     gpio.setup(13, 1)  
-    -- 挂载文件系统
-    local mount_ok = fatfs.mount(fatfs.SDIO , "/sd",  24 * 1000 * 1000)
+    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
+    spi_id, pin_cs = 1, 3
+    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    --初始化后拉高pin_cs,准备开始挂载TF卡
+    gpio.setup(pin_cs, 1)
+    -- ########## 开始进行tf卡挂载 ##########
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
     if not mount_ok then
         log.error("HTTP下载", "文件系统挂载失败")
         return

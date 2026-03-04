@@ -27,9 +27,13 @@ local function tfcard_main_task()
     --gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
     gpio.setup(13, 1)
     
-   
+    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
+    spi_id, pin_cs = 1, 3
+    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    --初始化后拉高pin_cs,准备开始挂载TF卡
+    gpio.setup(pin_cs, 1)
     -- ########## 开始进行tf卡挂载 ##########
-    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
     if mount_ok then
         log.info("fatfs.mount", "挂载成功", mount_err)
     else
@@ -314,6 +318,9 @@ local function tfcard_main_task()
         end
     end
 
+    -- 2. 关闭SPI接口
+    spi.close(spi_id)
+    log.info("SPI接口", "已关闭")
 
 end
 

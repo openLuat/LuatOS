@@ -22,7 +22,7 @@ local lbsLoc = require"lbsLoc"
 local dtulib = require "dtulib"
 
 local dtu
-
+local cfg
 -- 基站定位坐标
 local lbs = {lat, lng}
 -- 串口缓冲区最大值
@@ -90,7 +90,7 @@ cmd.config = {
             t[2]=t[2]=="nil" and "" or t[2]
             t[3]=t[3]=="nil" and "" or t[3]
             dtu.apn = t 
-            default.cfg_get():import(dtu)
+            cfg:import(dtu)
             log.info("APN配置成功",dtu.apn[1],dtu.apn[2],dtu.apn[3])
             mobile.flymode(0,true)
             mobile.apn(0,1,dtu.apn[1],dtu.apn[2],dtu.apn[3])
@@ -111,9 +111,6 @@ cmd.config = {
         if result then
             if dtu.password == dat.password or dtu.password == "" or dtu.password == nil then
                 cfg:import(str)
-                if dat.auth and tonumber(dat.auth[1]) and dat.auth[2] then
-                    link.setAuthApn(tonumber(dat.auth[1]), dat.auth[2], dat.auth[3], dat.auth[4])
-                end
                 sys.timerStart(dtulib.restart, 5000, "Setting parameters have been saved!")
                 return "OK"
             else
@@ -374,6 +371,7 @@ end
 --初始化串口/灯/自动任务采集功能
 function driver.init()
     dtu = default.get()
+    cfg = default.cfg_get()
     -- 初始化配置UART1和UART2
     local uidgps = dtu.gps and dtu.gps.fun and tonumber(dtu.gps.fun[1])
     if uidgps ~= 1 and dtu.uconf and dtu.uconf[1] and tonumber(dtu.uconf[1][1]) == 1 then

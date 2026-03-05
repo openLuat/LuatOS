@@ -514,13 +514,26 @@ def _reciprocal_rank_fusion(
 
 
 def _find_module_case_insensitive(module_name: str, demos_by_module: Dict[str, List[Dict]]) -> Optional[str]:
-    """Find module name case-insensitively, return the original case name."""
+    """Find module name case-insensitively, return the original case name.
+    
+    Supports multi-module directories separated by underscores.
+    Example: 'Air780EHM_Air780EHV_Air780EGH' matches 'Air780EHM', 'Air780EHV', or 'Air780EGH'.
+    """
     if not module_name:
         return None
     module_lower = module_name.strip().lower()
+    
     for key in demos_by_module.keys():
-        if key.lower() == module_lower:
+        key_lower = key.lower()
+        # Direct match
+        if key_lower == module_lower:
             return key
+        # Multi-module directory (separated by underscores)
+        if '_' in key:
+            sub_modules = key_lower.split('_')
+            if module_lower in sub_modules:
+                return key
+    
     return None
 
 

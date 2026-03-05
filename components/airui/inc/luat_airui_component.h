@@ -33,6 +33,7 @@ extern "C" {
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
 #define AIRUI_CHART_MT "airui.chart"
+#define AIRUI_QRCODE_MT "airui.qrcode"
 
 /** 组件类型 */
 typedef enum {
@@ -50,7 +51,8 @@ typedef enum {
     AIRUI_COMPONENT_TEXTAREA,
     AIRUI_COMPONENT_KEYBOARD,
     AIRUI_COMPONENT_LOTTIE,
-    AIRUI_COMPONENT_CHART
+    AIRUI_COMPONENT_CHART,
+    AIRUI_COMPONENT_QRCODE
 } airui_component_type_t;
 
 /** TabView 对齐常量 */
@@ -376,6 +378,15 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx);
 int airui_image_set_src(lv_obj_t *img, const char *src); //设置图片源
 int airui_image_set_zoom(lv_obj_t *img, int zoom); //设置缩放比例
 int airui_image_set_opacity(lv_obj_t *img, int opacity); //设置透明度
+
+/**
+ * Qrcode 组件
+ */
+lv_obj_t *airui_qrcode_create_from_config(void *L, int idx);
+int airui_qrcode_set_data(lv_obj_t *qrcode, const void *data, size_t len); //设置二维码内容
+int airui_qrcode_set_size(lv_obj_t *qrcode, int size); //设置二维码尺寸
+int airui_qrcode_set_colors(lv_obj_t *qrcode, lv_color_t dark_color, lv_color_t light_color); //设置二维码前景/背景色
+int airui_qrcode_set_quiet_zone(lv_obj_t *qrcode, bool enable); //设置静区开关
 
 /**
  * Win 组件

@@ -32,6 +32,8 @@
  * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"
  * @boolean config.popovers 是否启用提示弹窗，默认 true
  * @boolean config.auto_hide 是否在目标 textarea 聚焦时自动显示、失焦时自动隐藏，默认 false
+ * @boolean config.preview 是否启用输入预览框（显示当前 textarea 文本），默认 false
+ * @int config.preview_height 预览框固定高度（像素），默认 40
  * @int config.bg_color 键盘背景颜色，16 进制整数（如 0xffffff），可选，不提供则透明
  * @userdata config.target 关联的 Textarea 对象，可选
  *        当不在创建时指定 target 时，textarea 的焦点事件会自动将共享 keyboard 绑定至当前焦点控件，用户只需调用 `textarea:attach_keyboard(shared_keyboard)`。

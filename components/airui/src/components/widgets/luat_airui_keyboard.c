@@ -12,7 +12,11 @@
 #include "luat_airui_conf.h"
 #include "lvgl9/src/widgets/keyboard/lv_keyboard.h"
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
+#include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/core/lv_obj_pos.h"
+#include "lvgl9/src/core/lv_obj_scroll.h"
+#include "lvgl9/src/core/lv_obj_style_gen.h"
 #if LV_USE_IME_PINYIN
     #include "lvgl9/src/others/ime/lv_ime_pinyin.h"
     // 如果定义了LUAT_USE_PINYIN，则使用自己的pinyin字典
@@ -25,6 +29,33 @@
 
 #define LUAT_LOG_TAG "airui_keyboard"
 #include "luat_log.h"
+
+// 输入预览框运行时数据
+typedef struct {
+    lv_obj_t *keyboard;
+    lv_obj_t *target;
+    lv_obj_t *container;
+    lv_obj_t *label;
+    int32_t height;
+    int32_t ime_panel_height;
+} airui_keyboard_preview_runtime_t;
+
+// 初始化键盘数据
+static void airui_keyboard_data_init_defaults(airui_keyboard_data_t *data)
+{
+    if (data == NULL) {
+        return;
+    }
+
+    data->target = NULL;
+    data->ime = NULL;
+    data->auto_hide = false;
+    data->preview_enabled = false;
+    data->preview_height = 40;
+    data->has_bg_color = false;
+    data->bg_color = lv_color_hex(0xffffff);
+    data->preview_runtime = NULL;
+}
 
 /**
  * 获取 AIRUI 上下文（简化访问注册表里预存的上下文指针）
@@ -43,6 +74,252 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state) {
     }
     lua_pop(L_state, 1);
     return ctx;
+}
+
+// 输入预览框目标事件回调
+static void airui_keyboard_preview_target_event_cb(lv_event_t *e);
+
+// 输入预览框重新布局
+static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *runtime)
+{
+    if (runtime == NULL || runtime->keyboard == NULL || runtime->container == NULL || runtime->label == NULL) {
+        return;
+    }
+    if (!lv_obj_is_valid(runtime->keyboard) || !lv_obj_is_valid(runtime->container) || !lv_obj_is_valid(runtime->label)) {
+        return;
+    }
+
+    lv_obj_t *anchor = runtime->keyboard;
+    int32_t anchor_y_offset = 4;
+
+#if LV_USE_IME_PINYIN
+    airui_component_meta_t *meta = airui_component_meta_get(runtime->keyboard);
+    if (meta != NULL && meta->user_data != NULL) {
+        airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
+        if (data != NULL && data->ime != NULL) {
+            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            if (cand_panel != NULL && lv_obj_is_valid(cand_panel)) {
+                lv_obj_update_layout(cand_panel);
+                int32_t cand_h = lv_obj_get_height(cand_panel);
+                if (cand_h > 0) {
+                    runtime->ime_panel_height = cand_h;
+                }
+            }
+        }
+    }
+#endif
+
+    if (runtime->ime_panel_height > 0) {
+        anchor_y_offset = runtime->ime_panel_height + 4;
+    }
+
+    int32_t width = lv_obj_get_width(anchor);
+    if (width < 20) {
+        width = 20;
+    }
+
+    lv_obj_set_width(runtime->container, width);
+    lv_obj_set_width(runtime->label, LV_PCT(100));
+    lv_obj_set_height(runtime->label, LV_SIZE_CONTENT);
+    if (runtime->height <= 0) {
+        lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_set_height(runtime->container, runtime->height);
+
+    lv_obj_align_to(runtime->container, anchor, LV_ALIGN_OUT_TOP_MID, 0, -anchor_y_offset);
+
+    lv_obj_update_layout(anchor);
+    lv_obj_update_layout(runtime->container);
+
+    lv_area_t anchor_coords;
+    lv_obj_get_coords(anchor, &anchor_coords);
+    int32_t available_h = anchor_coords.y1 - anchor_y_offset;
+    if (available_h < runtime->height) {
+        lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+}
+
+// 输入预览框同步文本
+static void airui_keyboard_preview_sync_text(airui_keyboard_preview_runtime_t *runtime)
+{
+    if (runtime == NULL || runtime->label == NULL || runtime->container == NULL) {
+        return;
+    }
+    if (!lv_obj_is_valid(runtime->label) || !lv_obj_is_valid(runtime->container)) {
+        return;
+    }
+
+    const char *text = "";
+    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+        const char *value = lv_textarea_get_text(runtime->target);
+        text = value != NULL ? value : "";
+    }
+
+    lv_label_set_text(runtime->label, text);
+    airui_keyboard_preview_relayout(runtime);
+    if (!lv_obj_has_flag(runtime->container, LV_OBJ_FLAG_HIDDEN)) {
+        int32_t overflow_top = lv_obj_get_scroll_top(runtime->container);
+        int32_t overflow_bottom = lv_obj_get_scroll_bottom(runtime->container);
+        if (overflow_top > 0 || overflow_bottom > 0) {
+            lv_obj_scroll_to_y(runtime->container, LV_COORD_MAX, LV_ANIM_OFF);
+        }
+        else {
+            lv_obj_scroll_to_y(runtime->container, 0, LV_ANIM_OFF);
+        }
+    }
+}
+
+// 输入预览框绑定目标
+static void airui_keyboard_preview_bind_target(airui_keyboard_preview_runtime_t *runtime, lv_obj_t *target)
+{
+    if (runtime == NULL) {
+        return;
+    }
+
+    if (runtime->target == target && target != NULL) {
+        airui_keyboard_preview_sync_text(runtime);
+        return;
+    }
+
+    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+        lv_obj_remove_event_cb_with_user_data(runtime->target, airui_keyboard_preview_target_event_cb, runtime);
+    }
+
+    runtime->target = target;
+    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+        lv_obj_add_event_cb(runtime->target, airui_keyboard_preview_target_event_cb, LV_EVENT_VALUE_CHANGED, runtime);
+        lv_obj_add_event_cb(runtime->target, airui_keyboard_preview_target_event_cb, LV_EVENT_DELETE, runtime);
+    }
+
+    airui_keyboard_preview_sync_text(runtime);
+}
+
+// 输入预览框设置可见性
+static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool visible)
+{
+    if (data == NULL || data->preview_runtime == NULL) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+    if (runtime->container == NULL || !lv_obj_is_valid(runtime->container)) {
+        return;
+    }
+
+    if (visible) {
+        lv_obj_clear_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
+        airui_keyboard_preview_sync_text(runtime);
+        lv_obj_move_foreground(runtime->container);
+    }
+    else {
+        lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+// 输入预览框目标事件回调
+static void airui_keyboard_preview_target_event_cb(lv_event_t *e)
+{
+    if (e == NULL) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)lv_event_get_user_data(e);
+    if (runtime == NULL) {
+        return;
+    }
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        airui_keyboard_preview_sync_text(runtime);
+    }
+    else if (code == LV_EVENT_DELETE) {
+        runtime->target = NULL;
+        airui_keyboard_preview_sync_text(runtime);
+    }
+}
+
+// 输入预览框清理事件回调
+static void airui_keyboard_preview_cleanup_event_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_DELETE) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)lv_event_get_user_data(e);
+    if (runtime == NULL) {
+        return;
+    }
+
+    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+        lv_obj_remove_event_cb_with_user_data(runtime->target, airui_keyboard_preview_target_event_cb, runtime);
+    }
+    runtime->target = NULL;
+
+    if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
+        lv_obj_delete(runtime->container);
+    }
+
+    luat_heap_free(runtime);
+}
+
+// 输入预览框初始化
+static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_t *data)
+{
+    if (keyboard == NULL || data == NULL || !data->preview_enabled || data->preview_runtime != NULL) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)luat_heap_malloc(sizeof(airui_keyboard_preview_runtime_t));
+    if (runtime == NULL) {
+        return;
+    }
+    memset(runtime, 0, sizeof(airui_keyboard_preview_runtime_t));
+
+    runtime->keyboard = keyboard;
+    runtime->height = data->preview_height;
+
+    lv_obj_t *parent = lv_obj_get_parent(keyboard);
+    runtime->container = lv_obj_create(parent);
+    if (runtime->container == NULL) {
+        luat_heap_free(runtime);
+        return;
+    }
+
+    runtime->label = lv_label_create(runtime->container);
+    if (runtime->label == NULL) {
+        lv_obj_delete(runtime->container);
+        luat_heap_free(runtime);
+        return;
+    }
+
+    lv_obj_set_style_pad_hor(runtime->container, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_ver(runtime->container, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(runtime->container, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(runtime->container, lv_color_hex(0xcbd5e1), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(runtime->container, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(runtime->container, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_opa(runtime->container, LV_OPA_0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_scroll_dir(runtime->container, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(runtime->container, LV_SCROLLBAR_MODE_AUTO);
+
+    lv_label_set_long_mode(runtime->label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(runtime->label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(runtime->label, LV_PCT(100));
+    lv_obj_set_height(runtime->label, LV_SIZE_CONTENT);
+    lv_label_set_text(runtime->label, "");
+
+    if (data->has_bg_color) {
+        lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    lv_obj_add_event_cb(keyboard, airui_keyboard_preview_cleanup_event_cb, LV_EVENT_DELETE, runtime);
+    lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
+
+    data->preview_runtime = runtime;
 }
 
 //自动隐藏键盘回调函数
@@ -171,6 +448,11 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     const char *mode = airui_marshal_string(L, idx, "mode", "text");
     bool popovers = airui_marshal_bool(L, idx, "popovers", true);
     bool auto_hide = airui_marshal_bool(L, idx, "auto_hide", false);
+    bool preview_enabled = airui_marshal_bool(L, idx, "preview", false);
+    int preview_height = airui_marshal_integer(L, idx, "preview_height", 40);
+    if (preview_height < 0) {
+        preview_height = 0;
+    }
     // 解析背景颜色, 默认透明
     bool has_bg_color = false;
     lv_color_t bg_color;
@@ -206,11 +488,14 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
         lv_obj_delete(keyboard);
         return NULL;
     }
-    data->target = NULL;
-    data->ime = NULL;
+    airui_keyboard_data_init_defaults(data);
     data->auto_hide = auto_hide;
+    data->preview_enabled = preview_enabled;
+    data->preview_height = preview_height;
     data->has_bg_color = has_bg_color;
-    data->bg_color = has_bg_color ? bg_color : lv_color_hex(0xffffff);
+    if (has_bg_color) {
+        data->bg_color = bg_color;
+    }
     meta->user_data = data;
 
     // 支持拼音输入法
@@ -235,6 +520,14 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     // 设置键盘和预览字体框背景颜色
     if (has_bg_color) {
         airui_keyboard_set_bg_color(keyboard, bg_color);
+    }
+
+    // 如果配置了输入预览框，则初始化
+    if (preview_enabled) {
+        airui_keyboard_preview_init(keyboard, data);
+        if (!auto_hide) {
+            airui_keyboard_preview_set_visible(data, true);
+        }
     }
 
     // 如果配置里提供了 Textarea userdata，立即绑定方可让默认按钮生效
@@ -289,17 +582,17 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
         if (data == NULL) {
             return AIRUI_ERR_NO_MEM;
         }
-        data->target = NULL;
-        data->ime = NULL;
-        data->auto_hide = false;
-        data->has_bg_color = false;
-        data->bg_color = lv_color_hex(0xffffff);
+        airui_keyboard_data_init_defaults(data);
         meta->user_data = data;
     }
     lv_obj_t *old_target = data->target;
     data->target = textarea;
     //刷新自动隐藏键盘
     airui_keyboard_refresh_auto_hide(keyboard, data, old_target);
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        airui_keyboard_preview_bind_target(runtime, textarea);
+    }
     return AIRUI_OK;
 }
 
@@ -358,6 +651,13 @@ int airui_keyboard_show(lv_obj_t *keyboard)
 
     //更新拼音候选框的可见性
     airui_keyboard_update_pinyin_panel(keyboard, true);
+
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    if (meta != NULL && meta->user_data != NULL) {
+        airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
+        airui_keyboard_preview_set_visible(data, true);
+    }
+
     // 使键盘可见并置于最前
     lv_obj_clear_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(keyboard);
@@ -373,6 +673,13 @@ int airui_keyboard_hide(lv_obj_t *keyboard)
 
     //更新拼音候选框的可见性
     airui_keyboard_update_pinyin_panel(keyboard, false);
+
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    if (meta != NULL && meta->user_data != NULL) {
+        airui_keyboard_data_t *data = (airui_keyboard_data_t *)meta->user_data;
+        airui_keyboard_preview_set_visible(data, false);
+    }
+
     // 隐藏键盘，不销毁对象
     lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
     return AIRUI_OK;
@@ -433,6 +740,14 @@ int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
         airui_keyboard_apply_pinyin_bg(data, cand_panel);
     }
 #endif
+
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
+            lv_obj_set_style_bg_color(runtime->container, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+    }
 
     lv_obj_set_style_bg_color(keyboard, color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);

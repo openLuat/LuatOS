@@ -140,8 +140,11 @@ typedef struct {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
     bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
+    bool preview_enabled; /**< 是否启用输入预览框 */
+    int32_t preview_height; /**< 预览框固定高度（像素） */
     bool has_bg_color; /**< 是否由 Lua 配置或 API 设置了背景色 */
     lv_color_t bg_color; /**< 背景颜色 */
+    void *preview_runtime; /**< 预览框运行态数据（内部使用） */
 } airui_keyboard_data_t;
 
 /**********************

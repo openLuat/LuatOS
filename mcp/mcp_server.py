@@ -512,6 +512,17 @@ def _reciprocal_rank_fusion(
     return fused
 
 
+def _find_module_case_insensitive(module_name: str, demos_by_module: Dict[str, List[Dict]]) -> Optional[str]:
+    """Find module name case-insensitively, return the original case name."""
+    if not module_name:
+        return None
+    module_lower = module_name.strip().lower()
+    for key in demos_by_module.keys():
+        if key.lower() == module_lower:
+            return key
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Index building
 # ---------------------------------------------------------------------------
@@ -848,7 +859,18 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         t0 = time.time()
         _, _, demos_by_module = _get_index_and_sync(str(code_root), chroma_index)
         
-        target_module = module.strip()
+        # Case-insensitive module lookup
+        target_module = _find_module_case_insensitive(module.strip(), demos_by_module)
+        if target_module is None:
+            elapsed_ms = (time.time() - t0) * 1000
+            stats.record_call("list_demos", module, 0, elapsed_ms)
+            return {
+                "module": module.strip(),
+                "count": 0,
+                "demos": [],
+                "note": f"Module '{module}' not found. Available: {list(demos_by_module.keys())}"
+            }
+        
         demos = demos_by_module.get(target_module, [])
         
         elapsed_ms = (time.time() - t0) * 1000
@@ -866,10 +888,19 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         t0 = time.time()
         _, _, demos_by_module = _get_index_and_sync(str(code_root), chroma_index)
         
-        target_module = module.strip()
+        # Case-insensitive module lookup
+        target_module = _find_module_case_insensitive(module.strip(), demos_by_module)
+        if target_module is None:
+            elapsed_ms = (time.time() - t0) * 1000
+            stats.record_call("get_demo", f"{module}/{demo_name}", 0, elapsed_ms)
+            return {
+                "found": False,
+                "message": f"Module '{module}' not found. Use list_modules() to see available modules."
+            }
+        
         demos = demos_by_module.get(target_module, [])
         
-        # Find the demo
+        # Find the demo (case-insensitive for demo_name too)
         demo_info = None
         for d in demos:
             if d['name'] == demo_name or d['name'].lower() == demo_name.lower():
@@ -881,7 +912,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             stats.record_call("get_demo", f"{module}/{demo_name}", 0, elapsed_ms)
             return {
                 "found": False,
-                "message": f"Demo '{demo_name}' not found in module '{module}'. Use list_demos() to see available demos."
+                "message": f"Demo '{demo_name}' not found in module '{target_module}'. Use list_demos() to see available demos."
             }
         
         # Read full content

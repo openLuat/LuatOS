@@ -52,7 +52,6 @@ static void airui_keyboard_data_init_defaults(airui_keyboard_data_t *data)
     data->auto_hide = false;
     data->preview_enabled = false;
     data->preview_height = 40;
-    data->has_bg_color = false;
     data->bg_color = lv_color_hex(0xffffff);
     data->preview_runtime = NULL;
 }
@@ -89,8 +88,7 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
         return;
     }
 
-    lv_obj_t *anchor = runtime->keyboard;
-    int32_t anchor_y_offset = 4;
+    lv_obj_t *keyboard = runtime->keyboard;
 
 #if LV_USE_IME_PINYIN
     airui_component_meta_t *meta = airui_component_meta_get(runtime->keyboard);
@@ -109,11 +107,9 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
     }
 #endif
 
-    if (runtime->ime_panel_height > 0) {
-        anchor_y_offset = runtime->ime_panel_height + 4;
-    }
+    int32_t ime_reserved_h = runtime->ime_panel_height > 0 ? runtime->ime_panel_height : 0;
 
-    int32_t width = lv_obj_get_width(anchor);
+    int32_t width = lv_obj_get_width(keyboard);
     if (width < 20) {
         width = 20;
     }
@@ -127,14 +123,14 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
     }
     lv_obj_set_height(runtime->container, runtime->height);
 
-    lv_obj_align_to(runtime->container, anchor, LV_ALIGN_OUT_TOP_MID, 0, -anchor_y_offset);
+    lv_obj_align_to(runtime->container, keyboard, LV_ALIGN_OUT_TOP_MID, 0, -ime_reserved_h);
 
-    lv_obj_update_layout(anchor);
+    lv_obj_update_layout(keyboard);
     lv_obj_update_layout(runtime->container);
 
-    lv_area_t anchor_coords;
-    lv_obj_get_coords(anchor, &anchor_coords);
-    int32_t available_h = anchor_coords.y1 - anchor_y_offset;
+    lv_area_t keyboard_coords;
+    lv_obj_get_coords(keyboard, &keyboard_coords);
+    int32_t available_h = keyboard_coords.y1 - ime_reserved_h;
     if (available_h < runtime->height) {
         lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
         return;
@@ -311,10 +307,8 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     lv_obj_set_height(runtime->label, LV_SIZE_CONTENT);
     lv_label_set_text(runtime->label, "");
 
-    if (data->has_bg_color) {
-        lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-        lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    }
+    lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(keyboard, airui_keyboard_preview_cleanup_event_cb, LV_EVENT_DELETE, runtime);
     lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
@@ -453,14 +447,9 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     if (preview_height < 0) {
         preview_height = 0;
     }
-    // 解析背景颜色, 默认透明
-    bool has_bg_color = false;
+    // 解析背景颜色, 未配置时使用键盘默认主题色
     lv_color_t bg_color;
     lv_color_t parsed_color;
-    if (airui_marshal_color(L, idx, "bg_color", &parsed_color)) {
-        bg_color = parsed_color;
-        has_bg_color = true;
-    }
 
     // 创建 LVGL 键盘对象，后续配置尺寸与样式
     lv_obj_t *keyboard = lv_keyboard_create(parent);
@@ -473,6 +462,11 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     // 根据配置设置键盘模式与提示框开关
     lv_keyboard_set_mode(keyboard, airui_keyboard_mode_from_string(mode));
     lv_keyboard_set_popovers(keyboard, popovers);
+
+    bg_color = lv_obj_get_style_bg_color(keyboard, LV_PART_MAIN);
+    if (airui_marshal_color(L, idx, "bg_color", &parsed_color)) {
+        bg_color = parsed_color;
+    }
 
     airui_component_meta_t *meta = airui_component_meta_alloc(
         ctx, keyboard, AIRUI_COMPONENT_KEYBOARD);
@@ -492,10 +486,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     data->auto_hide = auto_hide;
     data->preview_enabled = preview_enabled;
     data->preview_height = preview_height;
-    data->has_bg_color = has_bg_color;
-    if (has_bg_color) {
-        data->bg_color = bg_color;
-    }
+    data->bg_color = bg_color;
     meta->user_data = data;
 
     // 支持拼音输入法
@@ -517,10 +508,8 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     }
 #endif
 
-    // 设置键盘和预览字体框背景颜色
-    if (has_bg_color) {
-        airui_keyboard_set_bg_color(keyboard, bg_color);
-    }
+    // 设置键盘和预览框背景颜色
+    airui_keyboard_set_bg_color(keyboard, bg_color);
 
     // 如果配置了输入预览框，则初始化
     if (preview_enabled) {
@@ -600,7 +589,7 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
 static void airui_keyboard_apply_pinyin_bg(airui_keyboard_data_t *data, lv_obj_t *cand_panel)
 {
 #if LV_USE_IME_PINYIN
-    if (data == NULL || cand_panel == NULL || !data->has_bg_color) {
+    if (data == NULL || cand_panel == NULL) {
         return;
     }
     lv_obj_set_style_bg_color(cand_panel, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -731,7 +720,6 @@ int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    data->has_bg_color = true;
     data->bg_color = color;
 
 #if LV_USE_IME_PINYIN

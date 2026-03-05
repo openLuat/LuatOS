@@ -80,6 +80,7 @@ local config = {
     current_imginfo = nil,                                -- 当前图片上传信息
     current_audinfo = nil,                                -- 当前音频上传信息
     current_mtninfo = nil,                                -- 新增：运维日志上传信息
+    current_qrinfo = nil,                                 -- 当前二维码信息
     getip_retry_count = 0,                                -- getip重试次数
     max_getip_retry = 3,                                  -- 最大getip重试次数
 
@@ -647,6 +648,7 @@ end
 -- 发送鉴权请求
 local function send_auth_request()
     if not config.auth_key then
+        log.error("[excloud]没有配置auth_key，无法发送鉴权请求")
         return false, "No auth key configured"
     end
     local auth_data
@@ -1041,11 +1043,12 @@ function excloud.getip(getip_type)
     getip_type = getip_type or 3 -- 默认使用AirCloud TCP协议
 
     -- 添加参数验证
-    if not config.auth_key or not config.device_id then
-        return false, "缺少必要的认证参数: auth_key 或 device_id"
+    if not config.device_id then
+        return false, "缺少必要的认证参数: device_id"
     end
 
-    local key = config.auth_key .. "-" .. config.device_id
+    -- 构建key：如果有auth_key则使用auth_key+device_id，否则只使用device_id
+    local key = config.auth_key and (config.auth_key .. "-" .. config.device_id) or config.device_id
     log.info("[excloud]excloud.getip", "类型:", getip_type, "key:", key)
 
     -- 执行HTTP请求
@@ -1141,6 +1144,14 @@ function excloud.getip(getip_type)
         else
             log.warn("[excloud]未获取到运维日志上传信息")
         end
+        
+        -- 保存二维码信息
+        if response_json.qrinfo then
+            config.current_qrinfo = response_json.qrinfo
+            log.info("[excloud]获取到二维码信息")
+        else
+            log.warn("[excloud]未获取到二维码信息")
+        end
     end
 
     -- 如果获取到连接信息，自动更新配置
@@ -1179,6 +1190,12 @@ function excloud.getip(getip_type)
             if config.current_conninfo.key then
                 config.udp_auth_key = config.current_conninfo.key
                 log.info("[excloud]更新UDP认证密钥")
+            end
+            
+            -- 如果服务器返回了auth_key，且本地没有设置，则保存
+            if config.current_conninfo.auth_key and not config.auth_key then
+                config.auth_key = config.current_conninfo.auth_key
+                log.info("[excloud]自动获取到auth_key")
             end
         end
 
@@ -1494,6 +1511,11 @@ function excloud.mtn_log(level, tag, ...)
     end
     exmtn.log(level, tag, ...)
     return true
+end
+
+-- 获取二维码信息
+function excloud.get_qrinfo()
+    return config.current_qrinfo
 end
 
 -- 获取运维日志状态
@@ -1947,9 +1969,7 @@ function excloud.setup(params)
     end
 
     -- 验证必要参数
-    if not config.auth_key then
-        return false, "auth_key is required"
-    end
+    -- auth_key不再是必需的，如果没有传入，会在open时自动获取
     if config.device_type == 1 then
         config.device_id = mobile.imei()
         log.info("[excloud]4G设备", "IMEI:", config.device_id, "MUID:", mobile.muid())
@@ -2054,6 +2074,15 @@ function excloud.open()
                 return false, "获取服务器信息失败: " .. result
             end
 
+            -- 检查是否成功获取到auth_key
+            if not config.auth_key then
+                log.error("[excloud]未能获取到auth_key，无法继续")
+                if callback_func then
+                    callback_func("auth_key_error", { error = "未能获取到auth_key" })
+                end
+                return false, "未能获取到auth_key"
+            end
+
             -- 更新连接配置
             log.info("[excloud]服务器信息获取成功", "host:", config.host, "port:", config.port, "transport:", config.transport)
 
@@ -2063,6 +2092,15 @@ function excloud.open()
             end
             if result.audinfo then
                 config.current_audinfo = result.audinfo
+            end
+            -- 保存运维日志上传信息
+            if result.mtninfo then
+                config.current_mtninfo = result.mtninfo
+            end
+            -- 保存二维码信息
+            if result.qrinfo then
+                config.current_qrinfo = result.qrinfo
+                log.info("[excloud]获取到二维码信息")
             end
         end
     else

@@ -44,6 +44,7 @@ CHROMA_COLLECTION_NAME = "luatos_code"
 CHROMA_PERSIST_DIR_NAME = ".chroma_code"
 RRF_K = 60  # Reciprocal Rank Fusion constant
 FRESHNESS_CHECK_INTERVAL_SECONDS = 3600.0
+GITEE_BASE_URL = "https://gitee.com/openLuat/LuatOS/tree/master/"
 
 # Global state
 _last_index_build_time: float = 0.0
@@ -765,7 +766,8 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
                 "summary": info.summary,
                 "version": info.version,
                 "author": info.author,
-                "api_count": len(info.apis)
+                "api_count": len(info.apis),
+                "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{info.file_path}"
             })
         
         elapsed_ms = (time.time() - t0) * 1000
@@ -828,6 +830,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             "author": lib_info.author,
             "date": lib_info.date,
             "file_path": lib_info.file_path,
+            "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{lib_info.file_path}",
             "apis": apis,
             "content": full_content
         }
@@ -873,13 +876,20 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         
         demos = demos_by_module.get(target_module, [])
         
+        # Add URL to each demo
+        demos_with_url = []
+        for d in demos:
+            demo_copy = dict(d)
+            demo_copy['url'] = f"https://gitee.com/openLuat/LuatOS/tree/master/{d['path']}"
+            demos_with_url.append(demo_copy)
+        
         elapsed_ms = (time.time() - t0) * 1000
         stats.record_call("list_demos", module, len(demos), elapsed_ms)
         
         return {
             "module": target_module,
             "count": len(demos),
-            "demos": demos
+            "demos": demos_with_url
         }
 
     @mcp.tool()
@@ -932,6 +942,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             "name": demo_info['name'],
             "description": demo_info['description'],
             "file_path": demo_info['path'],
+            "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{demo_info['path']}",
             "content": full_content
         }
 

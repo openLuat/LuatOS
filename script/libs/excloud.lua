@@ -1185,6 +1185,11 @@ function excloud.getip(getip_type)
             if config.current_conninfo.password then
                 config.password = config.current_conninfo.password
             end
+            -- 如果服务器返回了auth_key，且本地没有设置，则保存
+            if config.current_conninfo.auth_key and not config.auth_key then
+                config.auth_key = config.current_conninfo.auth_key
+                log.info("[excloud]自动获取到auth_key")
+            end
         else -- TCP/UDP连接
             -- 更新UDP认证密钥
             if config.current_conninfo.key then

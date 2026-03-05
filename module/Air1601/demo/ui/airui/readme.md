@@ -47,12 +47,8 @@
 
 ## 三、演示效果
 ![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg)
-![](https://https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg)
-![](https://https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/FAoNbQWLYovlSGxZYO9cbj4Nn2c.jpg)
-
-![](https://docs.openLuat.com/cdn/image/GmJgbSOURoLL9jxRgiBcjV2gnfg.jpg)
-![](https://docs.openLuat.com/cdn/image/FAoNbQWLYovlSGxZYO9cbj4Nn2c.jpg)
-![](https://docs.openLuat.com/cdn/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg)
+![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/AyPDbVeGyoXQaaxq2lFcZjernwf.jpg)
+![](https://docs.openluat.com/air1601/luatos/app/multimedia/ui/airui/image/FAoNbQWLYovlSGxZYO9cbj4Nn2c.jpg)
 
 ## 四、准备硬件环境
 

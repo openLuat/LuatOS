@@ -860,10 +860,10 @@ static int l_eink_qrcode(lua_State *L)
         LLOGE("qrcode out of memory");
         return 0;
     }
-    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+    bool ok = luat_qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
         qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
     if (ok){
-        int qr_size = qrcodegen_getSize(qrcode);
+        int qr_size = luat_qrcodegen_getSize(qrcode);
         if (size < qr_size){
             LLOGE("size must be greater than qr_size %d",qr_size);
             goto end;
@@ -875,13 +875,13 @@ static int l_eink_qrcode(lua_State *L)
         y+=margin;
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
-                if (qrcodegen_getModule(qrcode, i, j)){
+                if (luat_qrcodegen_getModule(qrcode, i, j)){
                     Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,COLORED);
                 }
             }
         }
     }else{
-        LLOGE("qrcodegen_encodeText false");
+        LLOGE("luat_qrcodegen_encodeText false");
     }
 end:
     if (qrcode)

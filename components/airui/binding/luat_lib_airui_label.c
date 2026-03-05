@@ -32,6 +32,7 @@
  * @int config.h 高度，默认 40
  * @int config.color 颜色，默认 0x000000
  * @int config.font_size 字号，默认 14
+ * @string config.font 字体类型，当前支持 "hzfont"，不传时使用默认字体
  * @string config.text 文本内容，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Label 对象

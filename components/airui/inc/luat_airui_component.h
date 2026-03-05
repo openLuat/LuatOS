@@ -124,6 +124,7 @@ typedef struct {
  */
 typedef struct {
     uint16_t hzfont_size;
+    bool use_hzfont;
 } airui_label_data_t;
 
 /**

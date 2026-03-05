@@ -620,6 +620,7 @@ lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
  * @int config.cache_size 可选，TTF 缓存数量，默认 256
  * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
  * @bool config.load_to_psram 可选，是否将字体及缓存加载到 PSRAM（默认 false）
+ * @bool config.global 可选，是否设为全局默认字体（默认 true）
  * @return userdata 字体指针
  */
 static int l_airui_font_load(lua_State *L) {
@@ -630,6 +631,7 @@ static int l_airui_font_load(lua_State *L) {
         return 0;
     }
     lv_font_t *font = NULL;
+    bool set_global = airui_marshal_bool(L, 1, "global", true);
 
     if (strcmp(type, "hzfont") == 0) {
         const char *path = airui_marshal_string(L, 1, "path", NULL);
@@ -655,12 +657,14 @@ static int l_airui_font_load(lua_State *L) {
     }
 
     if (font) {
-        // 设置为全局默认字体
-        lv_obj_set_style_text_font(lv_screen_active(), font, 0);
-        /* 更新主题字体 */
-        if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
-        lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
-        
+        if (set_global) {
+            // 设置为全局默认字体
+            lv_obj_set_style_text_font(lv_screen_active(), font, 0);
+            /* 更新主题字体 */
+            if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
+            lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+        }
+
         lua_pushlightuserdata(L, font);
         return 1;
     }else{

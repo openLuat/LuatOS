@@ -60,6 +60,7 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
     int align = airui_marshal_integer(L, idx, "align", LV_TEXT_ALIGN_LEFT);
     const char *text = airui_marshal_string(L, idx, "text", NULL);
     const char *symbol = airui_marshal_string(L, idx, "symbol", NULL);
+    const char *font_name = airui_marshal_string(L, idx, "font", NULL);
     
     // 创建 Label 对象
     lv_obj_t *label = lv_label_create(parent);
@@ -116,9 +117,24 @@ lv_obj_t *airui_label_create_from_config(void *L, int idx)
     lv_obj_add_event_cb(label, airui_label_draw_prepare_cb, LV_EVENT_DRAW_MAIN_BEGIN, NULL);
     lv_obj_add_event_cb(label, airui_label_draw_cleanup_cb, LV_EVENT_DRAW_MAIN_END, NULL);
     // 设置label字号
-    if (font_size > 0) {
+    if (font_name != NULL && strcmp(font_name, "hzfont") == 0) {
+        lv_font_t *shared_font = airui_font_get_shared_hzfont();
+        if (shared_font != NULL) {
+            data->use_hzfont = true;
+            lv_obj_set_style_text_font(label, shared_font, LV_PART_MAIN | LV_STATE_DEFAULT);
+        } else {
+            LLOGW("label.font=hzfont but hzfont is not loaded, fallback to default font");
+        }
+    } else {
+        const lv_font_t *theme_font = lv_theme_get_font_normal(label);
+        if (theme_font != NULL) {
+            lv_obj_set_style_text_font(label, theme_font, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+    }
+
+    if (font_size > 0 && data->use_hzfont) {
         airui_label_set_font_size(label, font_size);
-    } 
+    }
 
     int click_ref = airui_component_capture_callback(L, idx, "on_click");
     if (click_ref != LUA_NOREF) {
@@ -189,12 +205,20 @@ int airui_label_set_font_size(lv_obj_t *label, int font_size)
         LLOGW("hzfont 未注册，无法设置字号");
         return AIRUI_ERR_NOT_SUPPORTED;
     }
-    data->hzfont_size = (uint16_t)font_size;
-    // 获取hzfont共享字体对象
     lv_font_t *shared_font = airui_font_get_shared_hzfont();
-    if (shared_font != NULL) {
-        lv_obj_set_style_text_font(label, shared_font, LV_PART_MAIN | LV_STATE_DEFAULT);
+    if (shared_font == NULL) {
+        return AIRUI_ERR_NOT_SUPPORTED;
     }
+
+    const lv_font_t *current_font = lv_obj_get_style_text_font(label, LV_PART_MAIN);
+    if (!data->use_hzfont && current_font != shared_font) {
+        LLOGW("label is not using hzfont, ignore set_font_size");
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+
+    data->use_hzfont = true;
+    data->hzfont_size = (uint16_t)font_size;
+    lv_obj_set_style_text_font(label, shared_font, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_invalidate(label);
     return AIRUI_OK;
@@ -225,6 +249,7 @@ static airui_label_data_t *airui_label_alloc_data(uint16_t size)
     airui_label_data_t *data = (airui_label_data_t *)luat_heap_malloc(sizeof(airui_label_data_t));
     if (data != NULL) {
         data->hzfont_size = size;
+        data->use_hzfont = false;
     }
     return data;
 }
@@ -247,6 +272,9 @@ static void airui_label_draw_prepare_cb(lv_event_t *e)
     if (data == NULL) {
         return;
     }
+    if (!data->use_hzfont) {
+        return;
+    }
     // 获取文本，用于字符串渲染耗时统计
     const char *text = lv_label_get_text(label);
     airui_font_hzfont_prof_begin(text);
@@ -257,7 +285,11 @@ static void airui_label_draw_prepare_cb(lv_event_t *e)
 // 渲染完成后恢复共享字号，避免影响其他组件
 static void airui_label_draw_cleanup_cb(lv_event_t *e)
 {
-    (void)e;
+    lv_obj_t *label = lv_event_get_target(e);
+    airui_label_data_t *data = airui_label_get_data(label);
+    if (data == NULL || !data->use_hzfont) {
+        return;
+    }
     airui_font_hzfont_prof_end();
     airui_font_hzfont_set_render_size(0);
 }

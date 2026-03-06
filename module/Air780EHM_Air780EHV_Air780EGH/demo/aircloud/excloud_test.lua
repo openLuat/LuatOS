@@ -106,14 +106,14 @@ function excloud_task_func()
     local ok, err_msg = excloud.setup({
         use_getip = true, -- 使用getip服务
         device_type = 1,   -- 4G设备
-        auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi",
-        transport = "tcp",       -- 使用TCP传输
+        -- auth_key = "Qqn2TH50319ELOuO0rhPgF5fOxNVNhNW",
+        transport = "udp",       -- 使用TCP传输
         auto_reconnect = true,   -- 自动重连
         reconnect_interval = 10, -- 重连间隔(秒)
         max_reconnect = 5,       -- 最大重连次数
         mtn_log_enabled = true,  -- 启用运维日志
         mtn_log_blocks = 1,      -- 日志文件块数
-        mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式
+        mtn_log_write_way = excloud.MTN_LOG_ADD_WRITE  -- 追加写入方式
     })
 
 
@@ -123,7 +123,7 @@ function excloud_task_func()
     --     device_type = 1,                               -- 设备类型: 4G
     --     host = "112.125.89.8",                         -- 服务器地址
     --     port = 32585,                                  -- 服务器端口
-    --     auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi", -- 鉴权密钥
+    --     auth_key = "Qqn2TH50319ELOuO0rhPgF5fOxNVNhNW", -- 鉴权密钥
     --     transport = "tcp",                             -- 使用TCP传输
     --     auto_reconnect = true,                         -- 自动重连
     --     reconnect_interval = 10,                       -- 重连间隔(秒)
@@ -135,7 +135,7 @@ function excloud_task_func()
     -- local ok, err_msg = excloud.setup({
     --     use_getip = true, --使用getip服务
     --     device_type = 9,
-    --     auth_key = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi",
+    --     auth_key = "Qqn2TH50319ELOuO0rhPgF5fOxNVNhNW",
     --     virtual_phone_number = "15893470522",  -- 11位手机号
     --     virtual_serial_num = 1,                -- 序列号（0-999）
     --     transport = "tcp", -- 由于mqtt链接需要使用imei,虚拟设备没有,所以只能使用TCP传输
@@ -170,6 +170,13 @@ function excloud_task_func()
     --excloud.stop_heartbeat()
     -- 记录启动日志
     --excloud.mtn_log("system", "设备启动完成", "version", "1.0.0")
+    -- 获取并打印二维码信息
+    local qrinfo = excloud.get_qrinfo()
+    if qrinfo and qrinfo.url then
+        log.info("二维码URL:", qrinfo.url)
+    else
+        log.info("未获取到二维码信息")
+    end
 
     -- 主循环：定期上报数据
 
@@ -244,7 +251,7 @@ function mtnlog_test_task()
         test_count = test_count + 1
 
         excloud.mtn_log("info", "mtn_test", test_count)
-        -- 每30秒记录一次
+        -- 每1秒记录一次
         sys.wait(1000)
     end
 end

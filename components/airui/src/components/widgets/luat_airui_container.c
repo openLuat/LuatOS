@@ -80,6 +80,12 @@ lv_obj_t *airui_container_create_from_config(void *L, int idx)
         return NULL;
     }
 
+    int callback_ref = airui_component_capture_callback(L, idx, "on_click");
+    if (callback_ref != LUA_NOREF) {
+        lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+        airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+    }
+
     return container;
 }
 
@@ -146,6 +152,24 @@ int airui_container_open(lv_obj_t *container)
     lv_obj_clear_flag(container, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(container);
     return AIRUI_OK;
+}
+
+/**
+ * 设置 Container 点击回调
+ */
+int airui_container_set_on_click(lv_obj_t *container, int callback_ref)
+{
+    if (container == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(container);
+    if (meta == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_add_flag(container, LV_OBJ_FLAG_CLICKABLE);
+    return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
 }
 
 // 透明度归一化，0-255，0为完全透明，255为完全不透明

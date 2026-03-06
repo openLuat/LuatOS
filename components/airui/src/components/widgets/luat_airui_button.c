@@ -19,6 +19,10 @@
 #define LUAT_LOG_TAG "airui_button"
 #include "luat_log.h"
 
+static lv_opa_t airui_button_normalize_opacity(int opacity);
+static bool airui_button_get_table_integer(lua_State *L, int idx, const char *key, int *out);
+static void airui_button_apply_default_style(lv_obj_t *btn);
+
 /**
  * 从配置表创建 Button 组件
  * @param L Lua 状态
@@ -63,21 +67,13 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, w, h);
 
-    // 默认风格：白底淡蓝边
-    lv_color_t border_color = lv_color_make(0x1e, 0x90, 0xff); // 天蓝色边框 (Dodger Blue)
-    lv_color_t focus_border_color = lv_color_make(0x00, 0x90, 0xff); // 浅蓝色焦点边框
-    lv_color_t normal_bg = lv_color_make(0xff, 0xff, 0xff); // 白色背景
-    lv_color_t pressed_bg = lv_color_make(0xe5, 0xed, 0xff); // 按下时蓝色背景
-    lv_color_t text_color = lv_color_make(0x11, 0x2b, 0x63); // 黑色文字
-    lv_obj_set_style_border_color(btn, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    // 被聚焦时的效果
-    lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY); 
-    lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    airui_button_apply_default_style(btn);
+
+    lua_getfield(L_state, idx, "stype");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_button_set_stype(btn, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
     
     // 设置文本
     if (text != NULL && strlen(text) > 0) {
@@ -162,5 +158,145 @@ int airui_button_set_on_click(lv_obj_t *btn, int callback_ref)
     }
     
     return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
+}
+
+/**
+ * 设置 Button 样式
+ * 可设置的参数包括：
+ *   - bg_color: 背景色，格式 0xRRGGBB
+ *   - bg_opa: 背景透明度，范围 0~255
+ *   - border_color: 边框颜色，格式 0xRRGGBB
+ *   - border_width: 边框宽度，单位像素
+ *   - radius: 圆角半径
+ *   - pad: 内边距，影响文字与边框距离
+ *   - text_color: 文字颜色
+ * 
+ *   - pressed_bg_color: 按下态背景色
+ *   - pressed_bg_opa: 按下态背景透明度，范围 0~255
+ *   - pressed_text_color: 按下态文字颜色
+ * 
+ *   - focus_outline_color: 焦点态描边颜色（键盘/编码器聚焦时可见）
+ *   - focus_outline_width: 焦点态描边宽度
+ * @param btn Button 对象指针
+ * @param L Lua 状态
+ * @param idx 样式表在栈中的索引
+ * @return 0 成功，<0 失败
+ */
+int airui_button_set_stype(lv_obj_t *btn, void *L, int idx)
+{
+    if (btn == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    int value = 0;
+
+    if (airui_button_get_table_integer(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(btn, airui_button_normalize_opacity(value),
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "border_width", &value)) {
+        lv_obj_set_style_border_width(btn, value < 0 ? 0 : value,
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(btn, value < 0 ? 0 : value,
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "pad", &value)) {
+        lv_obj_set_style_pad_all(btn, value < 0 ? 0 : value,
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "text_color", &value)) {
+        lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "pressed_bg_color", &value)) {
+        lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_PRESSED);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "pressed_bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(btn, airui_button_normalize_opacity(value),
+            LV_PART_MAIN | LV_STATE_PRESSED);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "pressed_text_color", &value)) {
+        lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_PRESSED);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "focus_outline_color", &value)) {
+        lv_obj_set_style_outline_color(btn, lv_color_hex((uint32_t)value),
+            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    }
+    if (airui_button_get_table_integer(L_state, idx, "focus_outline_width", &value)) {
+        lv_obj_set_style_outline_width(btn, value < 0 ? 0 : value,
+            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    }
+
+    return AIRUI_OK;
+}
+
+// 归一化透明度
+static lv_opa_t airui_button_normalize_opacity(int opacity)
+{
+    if (opacity < 0) {
+        return LV_OPA_COVER;
+    }
+    if (opacity > LV_OPA_COVER) {
+        return LV_OPA_COVER;
+    }
+    return (lv_opa_t)opacity;
+}
+
+// 从 Lua 表中获取整数
+static bool airui_button_get_table_integer(lua_State *L, int idx, const char *key, int *out)
+{
+    if (L == NULL || key == NULL || out == NULL) {
+        return false;
+    }
+
+    idx = lua_absindex(L, idx);
+    lua_getfield(L, idx, key);
+    if (lua_type(L, -1) != LUA_TNUMBER) {
+        lua_pop(L, 1);
+        return false;
+    }
+
+    *out = (int)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    return true;
+}
+
+// 应用默认样式
+static void airui_button_apply_default_style(lv_obj_t *btn)
+{
+    lv_color_t border_color = lv_color_make(0x1e, 0x90, 0xff);
+    lv_color_t focus_border_color = lv_color_make(0x00, 0x90, 0xff);
+    lv_color_t normal_bg = lv_color_make(0xff, 0xff, 0xff);
+    lv_color_t pressed_bg = lv_color_make(0xe5, 0xed, 0xff);
+    lv_color_t text_color = lv_color_make(0x11, 0x2b, 0x63);
+
+    lv_obj_set_style_border_color(btn, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
 }
 

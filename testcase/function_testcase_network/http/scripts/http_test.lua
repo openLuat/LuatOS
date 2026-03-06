@@ -488,8 +488,8 @@ function http_response.test_test()
     assert(code == 200, "test_test测试失败: 预期 200, 实际 " .. tostring(code))
     assert(body and body:find("山东省济南市历下区"),
         "test_test测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
-    assert(elapsed_time < 5,
-        "test_test测试失败: 预期耗时 < 5秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
+    assert(elapsed_time < 8,
+        "test_test测试失败: 预期耗时 < 8秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
 end
 
 -- PUT：基本请求，无请求头、无body

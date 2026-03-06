@@ -101,7 +101,7 @@ lv_res_t lv_qrcode_update(lv_obj_t * qrcode, const void * data, uint32_t data_le
 
     memcpy(data_tmp, data, data_len);
 
-    bool ok = qrcodegen_encodeBinary(data_tmp, data_len,
+    bool ok = luat_qrcodegen_encodeBinary(data_tmp, data_len,
             qr0, qrcodegen_Ecc_MEDIUM,
             qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
             qrcodegen_Mask_AUTO, true);
@@ -116,7 +116,7 @@ lv_res_t lv_qrcode_update(lv_obj_t * qrcode, const void * data, uint32_t data_le
 
 
     lv_coord_t obj_w = lv_obj_get_width(qrcode);
-    int qr_size = qrcodegen_getSize(qr0);
+    int qr_size = luat_qrcodegen_getSize(qr0);
     int scale = obj_w / qr_size;
     int scaled = qr_size * scale;
     int margin = (obj_w - scaled) / 2;
@@ -134,7 +134,7 @@ lv_res_t lv_qrcode_update(lv_obj_t * qrcode, const void * data, uint32_t data_le
         bool aligned = false;
         int x;
         for (x = margin; x < scaled + margin; x++) {
-            bool a = qrcodegen_getModule(qr0, (x - margin) / scale, (y - margin) / scale);
+            bool a = luat_qrcodegen_getModule(qr0, (x - margin) / scale, (y - margin) / scale);
 
             if(aligned == false && (x & 0x7) == 0) aligned = true;
 

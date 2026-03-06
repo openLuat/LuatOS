@@ -40,6 +40,8 @@ static uint8_t g_keypad_tail = 0; // 按键队列尾
 static uint8_t g_keypad_state_mask = 0; // 按键状态掩码
 static uint8_t g_keypad_has_state = 0; // 按键状态是否有效
 static uint8_t g_keypad_gpio_inited = 0; // 按键GPIO是否初始化
+static uint8_t g_tp_dir_warned = 0; // TP/LCD 方向不一致告警是否已打印
+
 
 // 按键队列推入
 static bool airui_keypad_queue_push(uint32_t key, lv_indev_state_t state)
@@ -179,6 +181,43 @@ static void airui_luatos_keypad_collect_events(const airui_luatos_keypad_cfg_t *
     g_keypad_state_mask = curr_mask;
 }
 
+// 对齐 tp 库：按 tp.direction + swap_xy 处理触摸坐标
+static void airui_luatos_apply_tp_transform(int32_t *x, int32_t *y, int32_t w, int32_t h, uint8_t tp_dir, uint8_t swap_xy)
+{
+    if (x == NULL || y == NULL || w <= 0 || h <= 0) {
+        return;
+    }
+
+    int32_t src_x = *x;
+    int32_t src_y = *y;
+
+    // 旋转
+    switch (tp_dir & 0x03) {
+        case LUAT_TP_ROTATE_90:
+            *x = src_y;
+            *y = w - src_x;
+            break;
+        case LUAT_TP_ROTATE_180:
+            *x = w - src_x;
+            *y = h - src_y;
+            break;
+        case LUAT_TP_ROTATE_270:
+            *x = h - src_y;
+            *y = src_x;
+            break;
+        default:
+            break;
+    }
+
+    // 交换
+    if (swap_xy & LUAT_TP_SWAP_X) {
+        *x = w - *x;
+    }
+    if (swap_xy & LUAT_TP_SWAP_Y) {
+        *y = h - *y;
+    }
+}
+
 /**
  * 读取指针输入
  */
@@ -203,11 +242,47 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     }
 
     static lv_point_t last_point = {0, 0};
-    bool pressed = (tp_data[0].event == TP_EVENT_TYPE_DOWN || tp_data[0].event == TP_EVENT_TYPE_MOVE);
+    luat_tp_data_t tp_data_snapshot = {0};
+    memcpy(&tp_data_snapshot, tp_data, sizeof(luat_tp_data_t));
+    bool pressed = (tp_data_snapshot.event == TP_EVENT_TYPE_DOWN || tp_data_snapshot.event == TP_EVENT_TYPE_MOVE);
 
     if (pressed) {
-        last_point.x = (lv_coord_t)tp_data[0].x_coordinate;
-        last_point.y = (lv_coord_t)tp_data[0].y_coordinate;
+        // 获取初始触摸坐标
+        int32_t x = (int32_t)tp_data_snapshot.x_coordinate;
+        int32_t y = (int32_t)tp_data_snapshot.y_coordinate;
+
+        // 获取触摸方向和lcd旋转方向， 以lcd方向为准
+        uint8_t tp_dir = tp_cfg->direction & 0x03;
+        uint8_t lcd_dir = 0;
+        if (platform != NULL && platform->lcd_conf != NULL) {
+            lcd_dir = platform->lcd_conf->direction & 0x03;
+        }
+
+        // 应用触摸方向和lcd旋转方向
+        int32_t tp_w = tp_cfg->w > 0 ? tp_cfg->w : ctx->width;
+        int32_t tp_h = tp_cfg->h > 0 ? tp_cfg->h : ctx->height;
+        airui_luatos_apply_tp_transform(&x, &y, tp_w, tp_h, tp_dir, tp_cfg->swap_xy);
+
+        // 检查触摸方向和lcd旋转方向是否一致
+        if (!g_tp_dir_warned && tp_dir != lcd_dir) {
+            LLOGW("tp direction(%d) != lcd direction(%d), check tp.init/lcd.init direction consistency", tp_dir, lcd_dir);
+            g_tp_dir_warned = 1;
+        }
+
+        if (x < 0) {
+            x = 0;
+        } else if (x >= ctx->width) {
+            x = ctx->width - 1;
+        }
+
+        if (y < 0) {
+            y = 0;
+        } else if (y >= ctx->height) {
+            y = ctx->height - 1;
+        }
+
+        last_point.x = (lv_coord_t)x;
+        last_point.y = (lv_coord_t)y;
         data->state = LV_INDEV_STATE_PRESSED;
     } else {
         data->state = LV_INDEV_STATE_RELEASED;

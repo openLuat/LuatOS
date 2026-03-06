@@ -706,9 +706,13 @@ static void lv_ime_pinyin_kb_event(lv_event_t * e)
             pinyin_ime_clear_data(obj);
         }
         else if((pinyin_ime->mode == LV_IME_PINYIN_MODE_K26) && ((txt[0] >= 'a' && txt[0] <= 'z') || (txt[0] >= 'A' &&
-                                                                                                      txt[0] <= 'Z'))) {
+                                                                                                       txt[0] <= 'Z'))) {
             uint16_t len = lv_strlen(pinyin_ime->input_char);
-            lv_snprintf(pinyin_ime->input_char + len, sizeof(pinyin_ime->input_char) - len, "%s", txt);
+            char input_char[2] = {txt[0], '\0'};
+            if(input_char[0] >= 'A' && input_char[0] <= 'Z') {
+                input_char[0] = (char)(input_char[0] - 'A' + 'a');
+            }
+            lv_snprintf(pinyin_ime->input_char + len, sizeof(pinyin_ime->input_char) - len, "%s", input_char);
             pinyin_input_proc(obj);
             pinyin_ime->ta_count++;
         }

@@ -31,6 +31,19 @@
  * @int config.w 宽度，默认 100
  * @int config.h 高度，默认 40
  * @string config.text 文本内容，可选
+ * @table config.stype 样式表，可选
+ * @int config.stype.bg_color 默认态背景色（0xRRGGBB）
+ * @int config.stype.bg_opa 默认态背景透明度（0-255）
+ * @int config.stype.border_color 默认态边框颜色（0xRRGGBB）
+ * @int config.stype.border_width 默认态边框宽度
+ * @int config.stype.radius 圆角半径
+ * @int config.stype.pad 内边距
+ * @int config.stype.text_color 默认态文字颜色（0xRRGGBB）
+ * @int config.stype.pressed_bg_color 按下态背景色（0xRRGGBB）
+ * @int config.stype.pressed_bg_opa 按下态背景透明度（0-255）
+ * @int config.stype.pressed_text_color 按下态文字颜色（0xRRGGBB）
+ * @int config.stype.focus_outline_color 焦点态描边颜色（0xRRGGBB）
+ * @int config.stype.focus_outline_width 焦点态描边宽度
  * @function config.on_click 点击回调函数，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Button 对象
@@ -93,6 +106,19 @@ static int l_button_set_on_click(lua_State *L) {
 }
 
 /**
+ * Button:set_stype(stype)
+ * @api button:set_stype(stype)
+ * @table stype 样式表，仅覆盖传入字段
+ * @return nil
+ */
+static int l_button_set_stype(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    airui_button_set_stype(btn, L, 2);
+    return 0;
+}
+
+/**
  * Button:focus() - 设置按钮获得焦点
  * @api button:focus()
  * @return nil
@@ -134,6 +160,7 @@ void airui_register_button_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_button_set_text},
+        {"set_stype", l_button_set_stype},
         {"set_on_click", l_button_set_on_click},
         {"focus", l_button_focus},
         {"destroy", l_button_destroy},

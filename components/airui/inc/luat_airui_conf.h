@@ -17,7 +17,7 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.1.0"
+#define AIRUI_VERSION "1.1.1"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
@@ -78,13 +78,6 @@
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
-    // #define LV_FONT_FMT_TXT_LARGE 1
-    // #define LV_USE_FONT_COMPRESSED 1
-    // #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_14) LV_FONT_DECLARE(lv_font_misans_16) LV_FONT_DECLARE(lv_font_misans_20)
-    
-    // // #define LV_FONT_DEFAULT &lv_font_misans_20
-    // #define LV_FONT_DEFAULT &lv_font_misans_14
-
 
     // #define LV_USE_LOG 1
     // /** Set value to one of the following levels of logging detail:
@@ -109,6 +102,16 @@
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
     #define LV_IME_PINYIN_CAND_TEXT_NUM 6 // 设置拼音候选词数量
 
+    // 可选配置，需要在"luat_conf_bsp.h"等文件中打开相关宏
+
+    // 使用16号字体
+    # ifdef LUAT_USE_AIRUI_MISANS_FONT_16
+        #define LV_FONT_FMT_TXT_LARGE 1
+        #define LV_USE_FONT_COMPRESSED 1
+        #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_16)
+        #define LV_FONT_DEFAULT &lv_font_misans_16
+    # endif
+    
 #else
     /* 默认配置（如果未定义平台） */
     /* 使用 lv_conf.h 中的默认值，这里不需要重新定义 */

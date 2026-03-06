@@ -31,6 +31,7 @@
  * @int config.h 高度，默认 100
  * @string config.src 图片路径，可选
  * @table config.pivot 旋转中心点，可选，格式 {x=0, y=0}
+ * @int config.rotation 旋转角度，可选，0.1 度单位，900 = 90.0 度
  * @int config.zoom 缩放比例，默认 256（100%）
  * @int config.opacity 透明度，默认 255（不透明），范围 0-255
  * @function config.on_click 点击回调函数，可选
@@ -73,6 +74,19 @@ static int l_image_set_src(lua_State *L) {
     lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
     const char *src = luaL_checkstring(L, 2);
     airui_image_set_src(img, src);
+    return 0;
+}
+
+/**
+ * Image:set_rotation(rotation)
+ * @api image:set_rotation(rotation)
+ * @int rotation 旋转角度，0.1 度单位，900 = 90.0 度
+ * @return nil
+ */
+static int l_image_set_rotation(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    int rotation = luaL_checkinteger(L, 2);
+    airui_image_set_rotation(img, rotation);
     return 0;
 }
 
@@ -131,6 +145,7 @@ void airui_register_image_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_src", l_image_set_src},
+        {"set_rotation", l_image_set_rotation},
         {"set_zoom", l_image_set_zoom},
         {"set_opacity", l_image_set_opacity},
         {"destroy", l_image_destroy},

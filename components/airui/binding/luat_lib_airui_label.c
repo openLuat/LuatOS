@@ -32,6 +32,7 @@
  * @int config.h 高度，默认 40
  * @int config.color 颜色，默认 0x000000
  * @int config.font_size 字号，默认 14
+ * @string config.font 字体类型，当前支持 "hzfont"，不传时使用默认字体
  * @string config.text 文本内容，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Label 对象
@@ -120,6 +121,22 @@ static int l_label_set_font_size(lua_State *L) {
 }
 
 /**
+ * Label:set_align(align)
+ * @api label:set_align(align)
+ * @int align 对齐方式，支持 airui.TEXT_ALIGN_LEFT/CENTER/RIGHT
+ */
+static int l_label_set_align(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    int v = (int)luaL_checkinteger(L, 2);
+    lv_text_align_t align = LV_TEXT_ALIGN_LEFT;
+    if (v == (int)LV_TEXT_ALIGN_LEFT || v == (int)LV_TEXT_ALIGN_CENTER || v == (int)LV_TEXT_ALIGN_RIGHT) {
+        align = (lv_text_align_t)v;
+    }
+    airui_label_set_text_align(label, align);
+    return 0;
+}
+
+/**
  * Label:set_on_click(callback)
  * @api label:set_on_click(callback)
  * @function callback 点击回调
@@ -197,6 +214,7 @@ void airui_register_label_meta(lua_State *L) {
         {"set_symbol", l_label_set_symbol},
         {"set_color", l_label_set_color},
         {"set_font_size", l_label_set_font_size},
+        {"set_align", l_label_set_align},
         {"set_on_click", l_label_set_on_click},
         {"get_text", l_label_get_text},
         {"destroy", l_label_destroy},

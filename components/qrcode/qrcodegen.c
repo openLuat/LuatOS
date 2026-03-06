@@ -129,23 +129,23 @@ static const int PENALTY_N4 = 10;
 /*---- High-level QR Code encoding functions ----*/
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_encodeText(const char *text, uint8_t tempBuffer[], uint8_t qrcode[],
+bool luat_qrcodegen_encodeText(const char *text, uint8_t tempBuffer[], uint8_t qrcode[],
 		enum qrcodegen_Ecc ecl, int minVersion, int maxVersion, enum qrcodegen_Mask mask, bool boostEcl) {
 	
 	size_t textLen = strlen(text);
 	if (textLen == 0)
-		return qrcodegen_encodeSegmentsAdvanced(NULL, 0, ecl, minVersion, maxVersion, mask, boostEcl, tempBuffer, qrcode);
+		return luat_qrcodegen_encodeSegmentsAdvanced(NULL, 0, ecl, minVersion, maxVersion, mask, boostEcl, tempBuffer, qrcode);
 	size_t bufLen = (size_t)qrcodegen_BUFFER_LEN_FOR_VERSION(maxVersion);
 	
 	struct qrcodegen_Segment seg;
-	if (qrcodegen_isNumeric(text)) {
-		if (qrcodegen_calcSegmentBufferSize(qrcodegen_Mode_NUMERIC, textLen) > bufLen)
+	if (luat_qrcodegen_isNumeric(text)) {
+		if (luat_qrcodegen_calcSegmentBufferSize(qrcodegen_Mode_NUMERIC, textLen) > bufLen)
 			goto fail;
-		seg = qrcodegen_makeNumeric(text, tempBuffer);
-	} else if (qrcodegen_isAlphanumeric(text)) {
-		if (qrcodegen_calcSegmentBufferSize(qrcodegen_Mode_ALPHANUMERIC, textLen) > bufLen)
+		seg = luat_qrcodegen_makeNumeric(text, tempBuffer);
+	} else if (luat_qrcodegen_isAlphanumeric(text)) {
+		if (luat_qrcodegen_calcSegmentBufferSize(qrcodegen_Mode_ALPHANUMERIC, textLen) > bufLen)
 			goto fail;
-		seg = qrcodegen_makeAlphanumeric(text, tempBuffer);
+		seg = luat_qrcodegen_makeAlphanumeric(text, tempBuffer);
 	} else {
 		if (textLen > bufLen)
 			goto fail;
@@ -158,7 +158,7 @@ bool qrcodegen_encodeText(const char *text, uint8_t tempBuffer[], uint8_t qrcode
 		seg.numChars = (int)textLen;
 		seg.data = tempBuffer;
 	}
-	return qrcodegen_encodeSegmentsAdvanced(&seg, 1, ecl, minVersion, maxVersion, mask, boostEcl, tempBuffer, qrcode);
+	return luat_qrcodegen_encodeSegmentsAdvanced(&seg, 1, ecl, minVersion, maxVersion, mask, boostEcl, tempBuffer, qrcode);
 	
 fail:
 	qrcode[0] = 0;  // Set size to invalid value for safety
@@ -167,7 +167,7 @@ fail:
 
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_encodeBinary(uint8_t dataAndTemp[], size_t dataLen, uint8_t qrcode[],
+bool luat_qrcodegen_encodeBinary(uint8_t dataAndTemp[], size_t dataLen, uint8_t qrcode[],
 		enum qrcodegen_Ecc ecl, int minVersion, int maxVersion, enum qrcodegen_Mask mask, bool boostEcl) {
 	
 	struct qrcodegen_Segment seg;
@@ -179,7 +179,7 @@ bool qrcodegen_encodeBinary(uint8_t dataAndTemp[], size_t dataLen, uint8_t qrcod
 	}
 	seg.numChars = (int)dataLen;
 	seg.data = dataAndTemp;
-	return qrcodegen_encodeSegmentsAdvanced(&seg, 1, ecl, minVersion, maxVersion, mask, boostEcl, dataAndTemp, qrcode);
+	return luat_qrcodegen_encodeSegmentsAdvanced(&seg, 1, ecl, minVersion, maxVersion, mask, boostEcl, dataAndTemp, qrcode);
 }
 
 
@@ -196,15 +196,15 @@ testable void appendBitsToBuffer(unsigned int val, int numBits, uint8_t buffer[]
 /*---- Low-level QR Code encoding functions ----*/
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_encodeSegments(const struct qrcodegen_Segment segs[], size_t len,
+bool luat_qrcodegen_encodeSegments(const struct qrcodegen_Segment segs[], size_t len,
 		enum qrcodegen_Ecc ecl, uint8_t tempBuffer[], uint8_t qrcode[]) {
-	return qrcodegen_encodeSegmentsAdvanced(segs, len, ecl,
+	return luat_qrcodegen_encodeSegmentsAdvanced(segs, len, ecl,
 		qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true, tempBuffer, qrcode);
 }
 
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_encodeSegmentsAdvanced(const struct qrcodegen_Segment segs[], size_t len, enum qrcodegen_Ecc ecl,
+bool luat_qrcodegen_encodeSegmentsAdvanced(const struct qrcodegen_Segment segs[], size_t len, enum qrcodegen_Ecc ecl,
 		int minVersion, int maxVersion, enum qrcodegen_Mask mask, bool boostEcl, uint8_t tempBuffer[], uint8_t qrcode[]) {
 	assert(segs != NULL || len == 0);
 	assert(qrcodegen_VERSION_MIN <= minVersion && minVersion <= maxVersion && maxVersion <= qrcodegen_VERSION_MAX);
@@ -457,7 +457,7 @@ testable void initializeFunctionModules(int version, uint8_t qrcode[]) {
 // marked dark (namely by initializeFunctionModules()), because this may skip redrawing dark function modules.
 static void drawLightFunctionModules(uint8_t qrcode[], int version) {
 	// Draw horizontal and vertical timing patterns
-	int qrsize = qrcodegen_getSize(qrcode);
+	int qrsize = luat_qrcodegen_getSize(qrcode);
 	for (int i = 7; i < qrsize - 7; i += 2) {
 		setModuleBounded(qrcode, 6, i, false);
 		setModuleBounded(qrcode, i, 6, false);
@@ -537,7 +537,7 @@ static void drawFormatBits(enum qrcodegen_Ecc ecl, enum qrcodegen_Mask mask, uin
 		setModuleBounded(qrcode, 14 - i, 8, getBit(bits, i));
 	
 	// Draw second copy
-	int qrsize = qrcodegen_getSize(qrcode);
+	int qrsize = luat_qrcodegen_getSize(qrcode);
 	for (int i = 0; i < 8; i++)
 		setModuleBounded(qrcode, qrsize - 1 - i, 8, getBit(bits, i));
 	for (int i = 8; i < 15; i++)
@@ -578,7 +578,7 @@ static void fillRectangle(int left, int top, int width, int height, uint8_t qrco
 // Draws the raw codewords (including data and ECC) onto the given QR Code. This requires the initial state of
 // the QR Code to be dark at function modules and light at codeword modules (including unused remainder bits).
 static void drawCodewords(const uint8_t data[], int dataLen, uint8_t qrcode[]) {
-	int qrsize = qrcodegen_getSize(qrcode);
+	int qrsize = luat_qrcodegen_getSize(qrcode);
 	int i = 0;  // Bit index into the data
 	// Do the funny zigzag scan
 	for (int right = qrsize - 1; right >= 1; right -= 2) {  // Index of right column in each column pair
@@ -610,7 +610,7 @@ static void drawCodewords(const uint8_t data[], int dataLen, uint8_t qrcode[]) {
 // QR Code needs exactly one (not zero, two, etc.) mask applied.
 static void applyMask(const uint8_t functionModules[], uint8_t qrcode[], enum qrcodegen_Mask mask) {
 	assert(0 <= (int)mask && (int)mask <= 7);  // Disallows qrcodegen_Mask_AUTO
-	int qrsize = qrcodegen_getSize(qrcode);
+	int qrsize = luat_qrcodegen_getSize(qrcode);
 	for (int y = 0; y < qrsize; y++) {
 		for (int x = 0; x < qrsize; x++) {
 			if (getModuleBounded(functionModules, x, y))
@@ -637,7 +637,7 @@ static void applyMask(const uint8_t functionModules[], uint8_t qrcode[], enum qr
 // Calculates and returns the penalty score based on state of the given QR Code's current modules.
 // This is used by the automatic mask choice algorithm to find the mask pattern that yields the lowest score.
 static long getPenaltyScore(const uint8_t qrcode[]) {
-	int qrsize = qrcodegen_getSize(qrcode);
+	int qrsize = luat_qrcodegen_getSize(qrcode);
 	long result = 0;
 	
 	// Adjacent modules in row having same color, and finder-like patterns
@@ -752,7 +752,7 @@ static void finderPenaltyAddHistory(int currentRunLength, int runHistory[7], int
 /*---- Basic QR Code information ----*/
 
 // Public function - see documentation comment in header file.
-int qrcodegen_getSize(const uint8_t qrcode[]) {
+int luat_qrcodegen_getSize(const uint8_t qrcode[]) {
 	assert(qrcode != NULL);
 	int result = qrcode[0];
 	assert((qrcodegen_VERSION_MIN * 4 + 17) <= result
@@ -762,7 +762,7 @@ int qrcodegen_getSize(const uint8_t qrcode[]) {
 
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_getModule(const uint8_t qrcode[], int x, int y) {
+bool luat_qrcodegen_getModule(const uint8_t qrcode[], int x, int y) {
 	assert(qrcode != NULL);
 	int qrsize = qrcode[0];
 	return (0 <= x && x < qrsize && 0 <= y && y < qrsize) && getModuleBounded(qrcode, x, y);
@@ -810,7 +810,7 @@ static bool getBit(int x, int i) {
 /*---- Segment handling ----*/
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_isNumeric(const char *text) {
+bool luat_qrcodegen_isNumeric(const char *text) {
 	assert(text != NULL);
 	for (; *text != '\0'; text++) {
 		if (*text < '0' || *text > '9')
@@ -821,7 +821,7 @@ bool qrcodegen_isNumeric(const char *text) {
 
 
 // Public function - see documentation comment in header file.
-bool qrcodegen_isAlphanumeric(const char *text) {
+bool luat_qrcodegen_isAlphanumeric(const char *text) {
 	assert(text != NULL);
 	for (; *text != '\0'; text++) {
 		if (strchr(ALPHANUMERIC_CHARSET, *text) == NULL)
@@ -832,7 +832,7 @@ bool qrcodegen_isAlphanumeric(const char *text) {
 
 
 // Public function - see documentation comment in header file.
-size_t qrcodegen_calcSegmentBufferSize(enum qrcodegen_Mode mode, size_t numChars) {
+size_t luat_qrcodegen_calcSegmentBufferSize(enum qrcodegen_Mode mode, size_t numChars) {
 	int temp = calcSegmentBitLength(mode, numChars);
 	if (temp == LENGTH_OVERFLOW)
 		return SIZE_MAX;
@@ -876,7 +876,7 @@ testable int calcSegmentBitLength(enum qrcodegen_Mode mode, size_t numChars) {
 
 
 // Public function - see documentation comment in header file.
-struct qrcodegen_Segment qrcodegen_makeBytes(const uint8_t data[], size_t len, uint8_t buf[]) {
+struct qrcodegen_Segment luat_qrcodegen_makeBytes(const uint8_t data[], size_t len, uint8_t buf[]) {
 	assert(data != NULL || len == 0);
 	struct qrcodegen_Segment result;
 	result.mode = qrcodegen_Mode_BYTE;
@@ -891,7 +891,7 @@ struct qrcodegen_Segment qrcodegen_makeBytes(const uint8_t data[], size_t len, u
 
 
 // Public function - see documentation comment in header file.
-struct qrcodegen_Segment qrcodegen_makeNumeric(const char *digits, uint8_t buf[]) {
+struct qrcodegen_Segment luat_qrcodegen_makeNumeric(const char *digits, uint8_t buf[]) {
 	assert(digits != NULL);
 	struct qrcodegen_Segment result;
 	size_t len = strlen(digits);
@@ -925,7 +925,7 @@ struct qrcodegen_Segment qrcodegen_makeNumeric(const char *digits, uint8_t buf[]
 
 
 // Public function - see documentation comment in header file.
-struct qrcodegen_Segment qrcodegen_makeAlphanumeric(const char *text, uint8_t buf[]) {
+struct qrcodegen_Segment luat_qrcodegen_makeAlphanumeric(const char *text, uint8_t buf[]) {
 	assert(text != NULL);
 	struct qrcodegen_Segment result;
 	size_t len = strlen(text);
@@ -959,7 +959,7 @@ struct qrcodegen_Segment qrcodegen_makeAlphanumeric(const char *text, uint8_t bu
 
 
 // Public function - see documentation comment in header file.
-struct qrcodegen_Segment qrcodegen_makeEci(long assignVal, uint8_t buf[]) {
+struct qrcodegen_Segment luat_qrcodegen_makeEci(long assignVal, uint8_t buf[]) {
 	struct qrcodegen_Segment result;
 	result.mode = qrcodegen_Mode_ECI;
 	result.numChars = 0;

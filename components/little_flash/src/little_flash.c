@@ -391,6 +391,7 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
     }else{
         cmd_data[0] = lf->chip_info.erase_cmd;
         while (true){
+            if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
             uint32_t page_addr = addr/lf->chip_info.prog_size;
             cmd_data[1] = page_addr >> 16;
             cmd_data[2] = page_addr >> 8;
@@ -450,6 +451,8 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
     }
     erase_len = len + erase_off;// 修正擦除长度,长度对齐擦除起始位置
     while (erase_len){
+        if(little_flash_write_enabled(lf, LF_ENABLE)) goto error;
+
         cmd_data[1] = erase_addr >> 16;
         cmd_data[2] = erase_addr >> 8;
         cmd_data[3] = erase_addr;
@@ -500,14 +503,15 @@ lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8
         lf->lock(lf);
     }
 
-    if(little_flash_write_enabled(lf, LF_ENABLE)){
-        goto error;
-    }
     while (len){
         if (little_flash_wait_busy(lf,100)){
             goto error;
         }
         
+        if(little_flash_write_enabled(lf, LF_ENABLE)){
+            goto error;
+        }
+
         if (lf->chip_info.type==LF_DRIVER_NOR_FLASH){
             cmd_data[0] = LF_CMD_PROG_DATA;
             cmd_data[1] = addr >> 16;

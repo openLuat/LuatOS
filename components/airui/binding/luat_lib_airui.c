@@ -115,6 +115,10 @@ extern int airui_lottie_create(lua_State *L);
 extern void airui_register_chart_meta(lua_State *L);
 extern int airui_chart_create(lua_State *L);
 
+// Qrcode 模块声明
+extern void airui_register_qrcode_meta(lua_State *L);
+extern int airui_qrcode_create(lua_State *L);
+
 // 模块注册表
 static const rotable_Reg_t reg_airui[] = {
     // 基础设置
@@ -155,6 +159,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"keyboard", ROREG_FUNC(airui_keyboard_create)},
     {"lottie", ROREG_FUNC(airui_lottie_create)},
     {"chart", ROREG_FUNC(airui_chart_create)},
+    {"qrcode", ROREG_FUNC(airui_qrcode_create)},
     // 颜色格式常量
     {"COLOR_FORMAT_RGB565", ROREG_INT(AIRUI_COLOR_FORMAT_RGB565)},
     {"COLOR_FORMAT_ARGB8888", ROREG_INT(AIRUI_COLOR_FORMAT_ARGB8888)},
@@ -197,6 +202,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_keyboard_meta(L);
     airui_register_lottie_meta(L);
     airui_register_chart_meta(L);
+    airui_register_qrcode_meta(L);
     
     // 注册模块函数
     luat_newlib2(L, reg_airui);
@@ -614,6 +620,7 @@ lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
  * @int config.cache_size 可选，TTF 缓存数量，默认 256
  * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
  * @bool config.load_to_psram 可选，是否将字体及缓存加载到 PSRAM（默认 false）
+ * @bool config.global 可选，是否设为全局默认字体（默认 true）
  * @return userdata 字体指针
  */
 static int l_airui_font_load(lua_State *L) {
@@ -624,6 +631,7 @@ static int l_airui_font_load(lua_State *L) {
         return 0;
     }
     lv_font_t *font = NULL;
+    bool set_global = airui_marshal_bool(L, 1, "global", true);
 
     if (strcmp(type, "hzfont") == 0) {
         const char *path = airui_marshal_string(L, 1, "path", NULL);
@@ -649,12 +657,14 @@ static int l_airui_font_load(lua_State *L) {
     }
 
     if (font) {
-        // 设置为全局默认字体
-        lv_obj_set_style_text_font(lv_screen_active(), font, 0);
-        /* 更新主题字体 */
-        if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
-        lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
-        
+        if (set_global) {
+            // 设置为全局默认字体
+            lv_obj_set_style_text_font(lv_screen_active(), font, 0);
+            /* 更新主题字体 */
+            if (lv_theme_default_is_inited()) {lv_theme_default_deinit();}
+            lv_theme_default_init(g_ctx->display,lv_palette_main(LV_PALETTE_BLUE),lv_palette_darken(LV_PALETTE_BLUE, 2),false,font);
+        }
+
         lua_pushlightuserdata(L, font);
         return 1;
     }else{

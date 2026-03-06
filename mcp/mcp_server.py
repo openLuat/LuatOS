@@ -44,6 +44,7 @@ CHROMA_COLLECTION_NAME = "luatos_code"
 CHROMA_PERSIST_DIR_NAME = ".chroma_code"
 RRF_K = 60  # Reciprocal Rank Fusion constant
 FRESHNESS_CHECK_INTERVAL_SECONDS = 3600.0
+GITEE_BASE_URL = "https://gitee.com/openLuat/LuatOS/tree/master/"
 
 # Global state
 _last_index_build_time: float = 0.0
@@ -512,6 +513,30 @@ def _reciprocal_rank_fusion(
     return fused
 
 
+def _find_module_case_insensitive(module_name: str, demos_by_module: Dict[str, List[Dict]]) -> Optional[str]:
+    """Find module name case-insensitively, return the original case name.
+    
+    Supports multi-module directories separated by underscores.
+    Example: 'Air780EHM_Air780EHV_Air780EGH' matches 'Air780EHM', 'Air780EHV', or 'Air780EGH'.
+    """
+    if not module_name:
+        return None
+    module_lower = module_name.strip().lower()
+    
+    for key in demos_by_module.keys():
+        key_lower = key.lower()
+        # Direct match
+        if key_lower == module_lower:
+            return key
+        # Multi-module directory (separated by underscores)
+        if '_' in key:
+            sub_modules = key_lower.split('_')
+            if module_lower in sub_modules:
+                return key
+    
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Index building
 # ---------------------------------------------------------------------------
@@ -754,7 +779,8 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
                 "summary": info.summary,
                 "version": info.version,
                 "author": info.author,
-                "api_count": len(info.apis)
+                "api_count": len(info.apis),
+                "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{info.file_path}"
             })
         
         elapsed_ms = (time.time() - t0) * 1000
@@ -817,6 +843,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             "author": lib_info.author,
             "date": lib_info.date,
             "file_path": lib_info.file_path,
+            "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{lib_info.file_path}",
             "apis": apis,
             "content": full_content
         }
@@ -848,8 +875,26 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         t0 = time.time()
         _, _, demos_by_module = _get_index_and_sync(str(code_root), chroma_index)
         
-        target_module = module.strip()
+        # Case-insensitive module lookup
+        target_module = _find_module_case_insensitive(module.strip(), demos_by_module)
+        if target_module is None:
+            elapsed_ms = (time.time() - t0) * 1000
+            stats.record_call("list_demos", module, 0, elapsed_ms)
+            return {
+                "module": module.strip(),
+                "count": 0,
+                "demos": [],
+                "note": f"Module '{module}' not found. Available: {list(demos_by_module.keys())}"
+            }
+        
         demos = demos_by_module.get(target_module, [])
+        
+        # Add URL to each demo
+        demos_with_url = []
+        for d in demos:
+            demo_copy = dict(d)
+            demo_copy['url'] = f"https://gitee.com/openLuat/LuatOS/tree/master/{d['path']}"
+            demos_with_url.append(demo_copy)
         
         elapsed_ms = (time.time() - t0) * 1000
         stats.record_call("list_demos", module, len(demos), elapsed_ms)
@@ -857,7 +902,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         return {
             "module": target_module,
             "count": len(demos),
-            "demos": demos
+            "demos": demos_with_url
         }
 
     @mcp.tool()
@@ -866,10 +911,19 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
         t0 = time.time()
         _, _, demos_by_module = _get_index_and_sync(str(code_root), chroma_index)
         
-        target_module = module.strip()
+        # Case-insensitive module lookup
+        target_module = _find_module_case_insensitive(module.strip(), demos_by_module)
+        if target_module is None:
+            elapsed_ms = (time.time() - t0) * 1000
+            stats.record_call("get_demo", f"{module}/{demo_name}", 0, elapsed_ms)
+            return {
+                "found": False,
+                "message": f"Module '{module}' not found. Use list_modules() to see available modules."
+            }
+        
         demos = demos_by_module.get(target_module, [])
         
-        # Find the demo
+        # Find the demo (case-insensitive for demo_name too)
         demo_info = None
         for d in demos:
             if d['name'] == demo_name or d['name'].lower() == demo_name.lower():
@@ -881,7 +935,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             stats.record_call("get_demo", f"{module}/{demo_name}", 0, elapsed_ms)
             return {
                 "found": False,
-                "message": f"Demo '{demo_name}' not found in module '{module}'. Use list_demos() to see available demos."
+                "message": f"Demo '{demo_name}' not found in module '{target_module}'. Use list_demos() to see available demos."
             }
         
         # Read full content
@@ -901,6 +955,7 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
             "name": demo_info['name'],
             "description": demo_info['description'],
             "file_path": demo_info['path'],
+            "url": f"https://gitee.com/openLuat/LuatOS/tree/master/{demo_info['path']}",
             "content": full_content
         }
 

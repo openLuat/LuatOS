@@ -83,6 +83,12 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     if (airui_marshal_point(L, idx, "pivot", &pivot)) {
         lv_image_set_pivot(img, pivot.x, pivot.y);
     }
+
+    // 读取 rotation（旋转角度，900 = 90.0°）
+    int rotation = airui_marshal_integer(L, idx, "rotation", 0);
+    if (rotation != 0) {
+        lv_image_set_rotation(img, rotation);
+    }
     
     // 读取 zoom（缩放比例，256 = 100%）
     int zoom = airui_marshal_integer(L, idx, "zoom", 256);
@@ -135,6 +141,22 @@ int airui_image_set_src(lv_obj_t *img, const char *src)
     }
     
     lv_image_set_src(img, src != NULL ? src : "");
+    return AIRUI_OK;
+}
+
+/**
+ * 设置 Image 旋转角度
+ * @param img Image 对象指针
+ * @param rotation 旋转角度，0.1度单位，900 = 90.0°
+ * @return 0 成功，<0 失败
+ */
+int airui_image_set_rotation(lv_obj_t *img, int rotation)
+{
+    if (img == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_image_set_rotation(img, rotation);
     return AIRUI_OK;
 }
 

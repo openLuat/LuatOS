@@ -1059,12 +1059,13 @@ function excloud.getip(getip_type)
             forms = { key = key, type = getip_type }
         })
 
-    log.info("[excloud]excloud.getip响应", "HTTP Code:", code, "Body:", response.body:query())
     -- 添加对HTTP响应为空值的处理
     if not response or not response.body then
         log.error("[excloud]getip请求失败", "HTTP响应为空")
         return false, "HTTP响应为空"
     end
+    
+    log.info("[excloud]excloud.getip响应", "HTTP Code:", code, "Body:", response.body:query())
 
     local response_body = response.body:query()
     if not response_body or response_body == "" then
@@ -1597,7 +1598,7 @@ local function schedule_reconnect()
                     sys.wait(200)   -- 在协程中可以安全使用 wait
                     excloud.open()  -- 重新打开
                 else
-                    log.error("[excloud]重新获取服务器信息失败，停止重连")
+                    log.error("[excloud]重新获取服务器信息失败，将在网络恢复后重试")
                     if callback_func then
                         callback_func("reconnect_failed", {
                             count = reconnect_count,
@@ -1605,19 +1606,22 @@ local function schedule_reconnect()
                             getip_failed = true
                         })
                     end
-                    -- 彻底停止重连
-                    is_open = false
+                    -- 重置重连计数，等待网络恢复后通过IP_READY事件重试
+                    reconnect_count = 0
+                    -- 保持服务开启状态，等待网络恢复
                 end
             else
-                -- 不使用getip，直接停止重连
-                log.info("[excloud]达到最大重连次数，停止重连")
+                -- 不使用getip，将在网络恢复后重试
+                log.info("[excloud]达到最大重连次数，将在网络恢复后重试")
                 if callback_func then
                     callback_func("reconnect_failed", {
                         count = reconnect_count,
                         max_reconnect = config.max_reconnect
                     })
                 end
-                is_open = false
+                -- 重置重连计数，等待网络恢复后通过IP_READY事件重试
+                reconnect_count = 0
+                -- 保持服务开启状态，等待网络恢复
             end
         end)
         return
@@ -2055,6 +2059,23 @@ function excloud.open()
     if not device_id_binary then
         return false, "excloud 没有初始化，请先调用setup"
     end
+    
+    -- 订阅IP_READY事件，当网络恢复时自动重连
+    sys.subscribe("IP_READY", function()
+        if is_open and not is_connected then
+            log.info("[excloud]网络已恢复，尝试重新连接")
+            -- 在协程中执行重连操作
+            sys.taskInit(function()
+                -- 重置重连计数
+                reconnect_count = 0
+                -- 尝试重新连接
+                local success, err = excloud.open()
+                if not success then
+                    log.error("[excloud]网络恢复后重连失败:", err)
+                end
+            end)
+        end
+    end)
 
     -- 根据use_getip决定是否使用getip服务
     if config.use_getip then

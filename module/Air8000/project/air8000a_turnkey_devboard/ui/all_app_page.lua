@@ -13,13 +13,6 @@ function all_app_page.create_ui()
         parent = airui.screen,
     })
 
-    local msg = airui.msgbox({
-        text = "功能正在开发中，近期会进行更新！",
-        buttons = { "确定" },
-        on_action = function(self, label) self:hide() end
-    })
-    msg:hide()
-
     -- ==================== 顶部状态栏 ====================
     local status_bar = airui.container({
         parent = main_container, x = 0, y = 0, w = 480, h = 40, color = 0x3F51B5,
@@ -45,132 +38,103 @@ function all_app_page.create_ui()
 
     -- 图标通用宽度，特殊处理40x40的图标
     local icon_size_default = 32
-    local icon_special_index = 4  -- 第二行第四列（从0开始计数）
     local icon_special_width = 40
 
     -- 垂直位置（基于计算：topMargin=24, gap1=6, gap2=12）
-    local row_y_icons = { 24, 100, 176 }          -- 三行图标Y坐标
+    local row_y_icons = { 9, 86, 163 }          -- 三行图标Y坐标
     local row_y_labels = { 62, 138, 214 }         -- 三行文字Y坐标
 
-    -- 第一行图标 (5个, 32x32)
-    local row1_icons = {
-        "/luadb/tonghuazhong.png",
-        "/luadb/paizhao.png",
-        "/luadb/Internet.png",
-        "/luadb/dingwei.png",
-        "/luadb/chuanganqi.png"
+    -- 页面映射表，与 ui_main 中的 pages 保持一致
+    local page_map = {
+        [1] = { "call", "camera", "network_select", "gps", "sensor" },
+        [2] = { "iot_account", "bluetooth", "uart", "record", "tts" },
+        [3] = { "apn", "ethernet", "wifi" }  -- 第三行只有三列
     }
-    for i = 1, 5 do
-        local center = col_centers[i]
-        local icon_x = center - icon_size_default / 2
-        airui.image({
-            parent = content,
-            x = icon_x,
-            y = row_y_icons[1],
-            w = icon_size_default,
-            h = icon_size_default,
-            src = row1_icons[i],
-            on_click = function() msg:show() end
-        })
 
-        -- 文字标签（宽度80，居中）
-        local label_x = center - 40
-        airui.label({
-            parent = content,
-            x = label_x,
-            y = row_y_labels[1],
-            w = 80,
-            h = 26,
-            text = (i == 1 and "通话") or
-                   (i == 2 and "拍照") or
-                   (i == 3 and "多网融合") or
-                   (i == 4 and "定位") or
-                   "传感器",
-            font_size = 16,
-            color = 0x000000,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-    end
-
-    -- 第二行图标 (5个，注意第四个为40x40)
-    local row2_icons = {
-        "/luadb/denglu.png",
-        "/luadb/lanya.png",
-        "/luadb/chuankou.png",  -- 特殊40x40
-        "/luadb/luyin.png",
-        "/luadb/TTS.png"
+    -- 图标文件名（仅用于显示，不用于点击）
+    local icon_files = {
+        [1] = { "/luadb/tonghuazhong.png", "/luadb/paizhao.png", "/luadb/Internet.png", "/luadb/dingwei.png", "/luadb/chuanganqi.png" },
+        [2] = { "/luadb/denglu.png", "/luadb/lanya.png", "/luadb/chuankou.png", "/luadb/luyin.png", "/luadb/TTS.png" },
+        [3] = { "/luadb/APN.png", "/luadb/yitaiwang.png", "/luadb/wifi.png" }
     }
-    for i = 1, 5 do
-        local center = col_centers[i]
-        local width = (i == 3) and icon_special_width or icon_size_default  -- 注意第三个是特殊（对应第四列，索引3）
-        local icon_x = center - width / 2
-        airui.image({
-            parent = content,
-            x = icon_x,
-            y = row_y_icons[2],
-            w = width,
-            h = width,
-            src = row2_icons[i],
-            on_click = function() msg:show() end
-        })
 
-        local label_text
-        if i == 1 then label_text = "IoT账户"
-        elseif i == 2 then label_text = "蓝牙"
-        elseif i == 3 then label_text = "串口"
-        elseif i == 4 then label_text = "录音"
-        else label_text = "TTS"
+    -- 标签文字
+    local label_texts = {
+        [1] = { "通话", "拍照", "多网融合", "定位", "传感器" },
+        [2] = { "IoT账户", "蓝牙", "串口", "录音", "TTS" },
+        [3] = { "APN配置", "以太网", "WIFI" }
+    }
+
+    -- 定义每个格子的宽高（覆盖图标和标签）
+    local cell_w = 90
+    local cell_h = 70
+
+    -- 遍历三行
+    for row = 1, 3 do
+        local cols = (row == 3) and 3 or 5
+        for col = 1, cols do
+            local center_x = col_centers[col]
+            -- 格子左上角坐标，使图标和标签大致居中
+            local cell_x = center_x - cell_w / 2
+            local cell_y = row_y_icons[row] - 5  -- 让格子顶部略高于图标顶部
+
+            -- 创建格子容器，背景色透明（可设半透明以便调试，正式使用透明）
+            local cell = airui.container({
+                parent = content,
+                x = cell_x,
+                y = cell_y,
+                w = cell_w,
+                h = cell_h,
+                color = 0xF3F4F6,  -- 与背景保持一致
+                on_click = function()
+                    local page_name = page_map[row][col]
+                    if page_name then
+                        _G.show_page(page_name)
+                    end
+                end
+            })
+
+            -- 图标尺寸
+            local icon_w = icon_size_default
+            local icon_h = icon_size_default
+            -- 第二行第三列（row=2, col=3）使用特殊宽度
+            if row == 2 and col == 3 then
+                icon_w = icon_special_width
+                icon_h = icon_special_width
+            end
+
+            -- 图标在格子内的水平居中
+            local icon_x = (cell_w - icon_w) / 2
+            -- 图标在格子内的垂直位置：距离顶部5px
+            local icon_y = 5
+
+            airui.image({
+                parent = cell,
+                x = icon_x,
+                y = icon_y,
+                w = icon_w,
+                h = icon_h,
+                src = icon_files[row][col],
+                -- 不设置点击，由容器处理
+            })
+
+            -- 标签在格子内的水平居中（标签宽80）
+            local label_x = (cell_w - 80) / 2
+            -- 标签在图标下方，间隔约6px
+            local label_y = icon_y + icon_h + 6
+
+            airui.label({
+                parent = cell,
+                x = label_x,
+                y = label_y,
+                w = 80,
+                h = 20,
+                text = label_texts[row][col],
+                font_size = 16,
+                color = 0x000000,
+                align = airui.TEXT_ALIGN_CENTER
+            })
         end
-
-        airui.label({
-            parent = content,
-            x = center - 40,
-            y = row_y_labels[2],
-            w = 80,
-            h = 26,
-            text = label_text,
-            font_size = 16,
-            color = 0x000000,
-            align = airui.TEXT_ALIGN_CENTER
-        })
-    end
-
-    -- 第三行图标 (3个，与前3列对齐)
-    local row3_icons = {
-        "/luadb/APN.png",
-        "/luadb/yitaiwang.png",
-        "/luadb/wifi.png"
-    }
-    for i = 1, 3 do
-        local center = col_centers[i]
-        local icon_x = center - icon_size_default / 2
-        airui.image({
-            parent = content,
-            x = icon_x,
-            y = row_y_icons[3],
-            w = icon_size_default,
-            h = icon_size_default,
-            src = row3_icons[i],
-            on_click = function() msg:show() end
-        })
-
-        local label_text
-        if i == 1 then label_text = "APN配置"
-        elseif i == 2 then label_text = "以太网"
-        else label_text = "WIFI"
-        end
-
-        airui.label({
-            parent = content,
-            x = center - 40,
-            y = row_y_labels[3],
-            w = 80,
-            h = 26,
-            text = label_text,
-            font_size = 16,
-            color = 0x000000,
-            align = airui.TEXT_ALIGN_CENTER
-        })
     end
 
     -- ==================== 底部按钮区域 ====================
@@ -208,7 +172,6 @@ local function update_time()
     end
 end
 
-
 -- 更新信号图标
 local function update_signal()
     local img_name
@@ -235,11 +198,9 @@ end
 
 -- 处理SIM卡状态变化
 local function handle_sim_ind(status, value)
-
     if status  == "RDY" then
         sim_present = true
     end
-
     if status  == "NORDY" then
         sim_present = false
     end
@@ -249,7 +210,7 @@ end
 function all_app_page.init(params)
     all_app_page.create_ui()
 
-    -- 订阅SIM卡状态事件，不保存返回值
+    -- 订阅SIM卡状态事件
     sys.subscribe("SIM_IND", handle_sim_ind)
 
     update_time()
@@ -262,7 +223,7 @@ function all_app_page.cleanup()
     if time_timer then sys.timerStop(time_timer); time_timer = nil end
     if signal_timer then sys.timerStop(signal_timer); signal_timer = nil end
 
-    -- 取消SIM卡事件订阅（直接使用函数名）
+    -- 取消SIM卡事件订阅
     sys.unsubscribe("SIM_IND", handle_sim_ind)
 
     if main_container then

@@ -74,9 +74,6 @@ function lcd_drv.init()
             antialias = 2,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
         })
 
-        -- 开启背光引脚供电
-        gpio.setup(1, 1)
-
         return result
     end
 

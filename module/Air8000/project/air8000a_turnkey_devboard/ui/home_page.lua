@@ -1,14 +1,24 @@
+-- 页面模块
 local home_page = {}
 
+-- UI控件引用（初始为nil）
 local main_container
 local time_label
 local temp_label, hum_label, air_label
-local signal_img -- 信号图标控件
+local signal_img         -- 信号图标控件
+local qrcode1            -- 二维码控件
+
+-- 定时器句柄
 local time_timer
 local signal_timer
-local aircloud_qr, qrcode1
-local active = false -- 控制任务是否运行
+
+-- 状态标志
+local active = false     -- 页面是否激活（UI已创建且可见）
+
+-- 传感器数据（默认文本）
 local temp_val, hum_val, voc_val = "未接入传感器", "未接入传感器", "未接入传感器"
+
+-- 卡片容器（用于点击事件）
 local card_temp, card_hum, card_air
 
 -- 历史数据存储（最多20条）
@@ -36,6 +46,8 @@ end
 
 -- 显示历史数据图表窗口
 local function show_history_chart(sensor_type)
+    if not active then return end  -- 页面未激活时不操作
+
     -- 关闭之前打开的窗口
     if current_win then
         current_win:close()
@@ -47,7 +59,7 @@ local function show_history_chart(sensor_type)
         title = "温度历史"
         history = temp_history
         y_min = 0
-        y_max = 50      -- 可根据实际调整
+        y_max = 50
         unit = "℃"
     elseif sensor_type == "humidity" then
         title = "湿度历史"
@@ -59,7 +71,7 @@ local function show_history_chart(sensor_type)
         title = "空气质量历史"
         history = air_history
         y_min = 0
-        y_max = 1000    -- 根据 VOC 传感器量程调整
+        y_max = 1000
         unit = "ppb"
     else
         return
@@ -71,11 +83,11 @@ local function show_history_chart(sensor_type)
         title = title,
         w = 400,
         h = 300,
-        close_btn = true,      -- 显示关闭按钮
+        close_btn = true,
         auto_center = true,
         style = {radius = 10, pad = 10},
         on_close = function()
-            current_win = nil   -- 窗口关闭后清除引用
+            current_win = nil
         end
     })
 
@@ -83,8 +95,8 @@ local function show_history_chart(sensor_type)
     local chart = airui.chart({
         x = 30,
         y = 0,
-        w = 300,                -- 窗口宽度减去左右边距
-        h = 170,                -- 窗口高度减去标题栏和边距
+        w = 300,
+        h = 170,
         y_min = y_min,
         y_max = y_max,
         point_count = MAX_HISTORY,
@@ -110,16 +122,15 @@ local function show_history_chart(sensor_type)
         }
     })
 
-    -- 如果有历史数据，一次性设置到图表（第一个系列）
     if #history > 0 then
         chart:set_values(1, history)
     end
 
-    -- 将图表添加到窗口
     win:add_content(chart)
     current_win = win
 end
 
+-- 创建UI
 function home_page.create_ui()
     -- 主容器
     main_container = airui.container({
@@ -148,7 +159,7 @@ function home_page.create_ui()
         y = 4,
         w = 32,
         h = 32,
-        src = "/luadb/4Gxinghao6.png", -- 默认无卡图标，稍后会被更新
+        src = "/luadb/4Gxinghao6.png", -- 默认无卡图标
     })
 
     -- 时间标签
@@ -173,7 +184,7 @@ function home_page.create_ui()
         color = 0xF3F4F6,
     })
 
-    -- 三个卡片容器，点击改为显示对应图表窗口
+    -- 三个卡片容器
     card_temp = airui.container({
         parent = content,
         x = 15,
@@ -182,7 +193,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) show_history_chart("temperature") end
+        on_click = function() show_history_chart("temperature") end
     })
     card_hum = airui.container({
         parent = content,
@@ -192,7 +203,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) show_history_chart("humidity") end
+        on_click = function() show_history_chart("humidity") end
     })
     card_air = airui.container({
         parent = content,
@@ -202,7 +213,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) show_history_chart("air") end
+        on_click = function() show_history_chart("air") end
     })
 
     -- 温度卡片
@@ -313,7 +324,7 @@ function home_page.create_ui()
         align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 标题: 常用应用
+    -- 标题
     airui.label({
         parent = content,
         x = 0,
@@ -325,7 +336,6 @@ function home_page.create_ui()
         color = 0x3d3d3d,
         align = airui.TEXT_ALIGN_CENTER
     })
-
     airui.label({
         parent = content,
         x = 240,
@@ -338,12 +348,14 @@ function home_page.create_ui()
         align = airui.TEXT_ALIGN_CENTER
     })
 
+    -- 使用全局 aircloud_qr，如果为 nil 则提供空字符串避免二维码创建失败
+    local qr_initial_data = aircloud_qr or ""
     qrcode1 = airui.qrcode({
         parent = content,
         x = 80,
         y = 150,
         size = 90,
-        data = aircloud_qr,
+        data = qr_initial_data,
         dark_color = 0x000000,
         light_color = 0xFFFFFF,
         quiet_zone = true
@@ -370,7 +382,6 @@ function home_page.create_ui()
         color = 0xffffff,
     })
 
-    -- 左侧按钮
     local btn_left = airui.container({
         parent = bottom_bar,
         x = 0,
@@ -391,7 +402,6 @@ function home_page.create_ui()
         color = 0xfefefe,
     })
 
-    -- 右侧按钮
     local btn_right = airui.container({
         parent = bottom_bar,
         x = 240,
@@ -414,75 +424,15 @@ function home_page.create_ui()
     })
 end
 
-local function aircloud_qr_task()
-    local result
-    result, aircloud_qr = sys.waitUntil("aircloud_qrinfo")
-    if qrcode1 then
-        qrcode1:set_data(aircloud_qr)
-    end
-end
-
--- 更新历史数组的辅助函数
-local function update_history(history, value)
-    if value then
-        table.insert(history, value)
-        if #history > MAX_HISTORY then
-            table.remove(history, 1)
-        end
-    end
-end
-
--- 传感器读取任务（UI更新 + 历史记录）
-local function sensor_read_task()
-    while true do
-        local result, temp_val, hum_val, voc_val = sys.waitUntil("ui_sensor_data")
-        if active then
-            -- 温度
-            if temp_val ~= nil then
-                update_history(temp_history, temp_val)
-                temp_label:set_text(string.format("%.1f", temp_val))
-                temp_label:set_color(0x000000)
-                temp_label:set_font_size(36)
-            else
-                temp_label:set_text("未接入传感器")
-                temp_label:set_color(0xFF0000)
-                temp_label:set_font_size(16)
-            end
-
-            -- 湿度
-            if hum_val ~= nil then
-                update_history(hum_history, hum_val)
-                hum_label:set_text(string.format("%.0f", hum_val))
-                hum_label:set_color(0x000000)
-                hum_label:set_font_size(36)
-            else
-                hum_label:set_text("未接入传感器")
-                hum_label:set_color(0xFF0000)
-                hum_label:set_font_size(16)
-            end
-
-            -- VOC
-            if voc_val ~= nil then
-                update_history(air_history, voc_val)
-                air_label:set_text(string.format("%d", voc_val))
-                air_label:set_color(0x000000)
-                air_label:set_font_size(36)
-            else
-                air_label:set_text("未接入传感器")
-                air_label:set_color(0xFF0000)
-                air_label:set_font_size(16)
-            end
-        end
-    end
-end
-
--- 更新信号图标
+-- 更新信号图标（由定时器或SIM事件调用）
 local function update_signal()
+    if not signal_img then return end  -- 控件不存在则跳过
     local img_name
+    -- 使用全局 sim_present，如果未定义则视为 false
     if not sim_present then
         img_name = "4Gxinghao6.png"
     else
-        local csq = mobile.csq()  -- 实时获取信号强度
+        local csq = mobile.csq()
         if csq == 99 or csq <= 5 then
             img_name = "4Gxinghao5.png"
         elseif csq <= 10 then
@@ -502,58 +452,152 @@ end
 
 -- 处理SIM卡状态变化
 local function handle_sim_ind(status, value)
-    log.info("插卡情况",status)
-
-    if status  == "RDY" then
+    -- 更新全局 SIM 状态变量
+    if status == "RDY" then
         sim_present = true
-    end
-
-    if status  == "NORDY" then
+    elseif status == "NORDY" then
         sim_present = false
     end
-    update_signal()  -- 立即更新图标
+    -- 仅当页面激活且信号图标存在时更新
+    if active and signal_img then
+        update_signal()
+    end
 end
 
-function home_page.init()
-    home_page.create_ui()
-    active = true
+-- 更新历史数组的辅助函数
+local function update_history(history, value)
+    if value then
+        table.insert(history, value)
+        if #history > MAX_HISTORY then
+            table.remove(history, 1)
+        end
+    end
+end
 
-    -- 订阅SIM卡状态事件，不保存返回值
-    sys.subscribe("SIM_IND", handle_sim_ind)
+-- 二维码更新任务（全局启动）
+local function aircloud_qr_task()
+    while true do
+        local result
+        result, aircloud_qr = sys.waitUntil("aircloud_qrinfo")
+        -- 只有页面激活且控件存在时才更新
+        if active and qrcode1 then
+            qrcode1:set_data(aircloud_qr)
+        end
+    end
+end
+
+
+-- 传感器读取任务（全局启动）
+local function sensor_read_task()
+    while true do
+        local result, t, h, v = sys.waitUntil("ui_sensor_data")
+        if active then
+            -- 更新温度
+            if temp_label then
+                if t ~= nil then
+                    temp_label:set_text(string.format("%.1f", t))
+                    temp_label:set_color(0x000000)
+                    temp_label:set_font_size(36)
+                    update_history(temp_history, t)
+                else
+                    temp_label:set_text("未接入传感器")
+                    temp_label:set_color(0xFF0000)
+                    temp_label:set_font_size(16)
+                end
+            end
+            -- 更新湿度
+            if hum_label then
+                if h ~= nil then
+                    hum_label:set_text(string.format("%.0f", h))
+                    hum_label:set_color(0x000000)
+                    hum_label:set_font_size(36)
+                    update_history(hum_history, h)
+                else
+                    hum_label:set_text("未接入传感器")
+                    hum_label:set_color(0xFF0000)
+                    hum_label:set_font_size(16)
+                end
+            end
+            -- 更新空气质量
+            if air_label then
+                if v ~= nil then
+                    air_label:set_text(string.format("%d", v))
+                    air_label:set_color(0x000000)
+                    air_label:set_font_size(36)
+                    update_history(air_history, v)
+                else
+                    air_label:set_text("未接入传感器")
+                    air_label:set_color(0xFF0000)
+                    air_label:set_font_size(16)
+                end
+            end
+        end
+    end
+end
+
+-- 页面初始化
+function home_page.init()
+    -- 创建UI
+    home_page.create_ui()
+    active = true   -- 标记页面已激活
 
     -- 立即刷新一次
     update_time()
     update_signal()
 
+    -- 启动定时器
     time_timer = sys.timerLoopStart(update_time, 1000)
     signal_timer = sys.timerLoopStart(update_signal, 2000)
 
+    -- 订阅SIM卡事件
+    sys.subscribe("SIM_IND", handle_sim_ind)
+
+    -- 触发传感器读取
     sys.publish("read_sensors_req")
 end
 
+-- 页面清理
 function home_page.cleanup()
-    active = false
+    active = false   -- 先标记为非激活，阻止后续UI操作
 
     -- 停止定时器
-    if time_timer then sys.timerStop(time_timer); time_timer = nil end
-    if signal_timer then sys.timerStop(signal_timer); signal_timer = nil end
+    if time_timer then
+        sys.timerStop(time_timer)
+        time_timer = nil
+    end
+    if signal_timer then
+        sys.timerStop(signal_timer)
+        signal_timer = nil
+    end
 
-    -- 取消SIM卡事件订阅（直接使用函数名）
+    -- 取消SIM事件订阅
     sys.unsubscribe("SIM_IND", handle_sim_ind)
 
-    -- 如果图表窗口还开着，关闭它
+    -- 关闭图表窗口
     if current_win then
         current_win:close()
         current_win = nil
     end
 
+    -- 销毁主容器及其所有子控件
     if main_container then
         main_container:destroy()
         main_container = nil
     end
+
+    -- 清空所有控件引用
+    time_label = nil
+    signal_img = nil
+    qrcode1 = nil
+    temp_label = nil
+    hum_label = nil
+    air_label = nil
+    card_temp = nil
+    card_hum = nil
+    card_air = nil
 end
 
--- 启动后台任务
+-- 启动后台任务（保留在文件末尾，全局启动）
 sys.taskInit(aircloud_qr_task)
 sys.taskInit(sensor_read_task)
 

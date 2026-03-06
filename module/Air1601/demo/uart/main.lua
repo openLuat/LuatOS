@@ -1,14 +1,18 @@
 --[[
-@module  LCD_Demo
-@summary 应用入口，选择并加载演示模块
+@module  main
+@summary LuatOS用户应用脚本文件入口，总体调度应用逻辑 
 @version 1.0
-@date    2026.03.06
-@author  陈媛媛
+@date    2025.09.23
+@author  魏健强
 @usage
-通过取消注释所需演示模块的require语句，选择运行哪个演示。
-每个演示模块内部包含完整的硬件初始化。
+本demo演示的核心功能为：
+演示uart串口功能的使用：
+1. 简易串口，小数据字符串收发
+2. 大数据收发串口
+3. 485串口
+4. 多串口
+5. USB虚拟串口
 ]]
-
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -18,19 +22,15 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-]]
+]]-- Luatools需要PROJECT和VERSION这两个信息
+PROJECT = "uart"
+VERSION = "001.000.000"
 
--- main.lua - 程序入口文件
-
--- 定义项目名称和版本号
-PROJECT = "LCD_demo" -- 项目名称
-VERSION = "001.000.000"    -- 版本号
 
 -- 在日志中打印项目名和项目版本号
-log.info("LCD_demo", PROJECT, VERSION)
+log.info("main", PROJECT, VERSION)
 
--- 设置日志输出风格为样式2（建议调试时开启）
--- log.style(2)
+
 
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
@@ -56,12 +56,12 @@ log.info("LCD_demo", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
-require "ui_main"
 
--- 选择要运行的演示（取消注释其中一行）
--- require "hzfont_demo"      -- HZFont字体演示
- require "image_demo"    -- 图片显示演示
--- require "draw_demo"     -- 图形绘制演示
 
--- 用户代码已结束
+-- uart功能模块
+require "uart_manger"
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

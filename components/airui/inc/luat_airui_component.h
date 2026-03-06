@@ -380,6 +380,7 @@ lv_timer_t *airui_msgbox_release_user_data(airui_component_meta_t *meta); //释�
  */
 lv_obj_t *airui_image_create_from_config(void *L, int idx);
 int airui_image_set_src(lv_obj_t *img, const char *src); //设置图片源
+int airui_image_set_rotation(lv_obj_t *img, int rotation); //设置旋转角度，0.1度单位
 int airui_image_set_zoom(lv_obj_t *img, int zoom); //设置缩放比例
 int airui_image_set_opacity(lv_obj_t *img, int opacity); //设置透明度
 

@@ -228,7 +228,9 @@ static void http_report_result(luat_http_ctrl_t *http_ctrl, int error_code) {
 		LLOGD("http_report_result normal close");
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
+#ifdef __BK72X__
 		return;
+#endif
 	}
 error:
 	#ifdef LUAT_USE_NETDRV

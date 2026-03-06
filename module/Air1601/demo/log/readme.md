@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口，负责初始化系统环境；
 
-2、log_test.lua：日志功能测试模块，演示Air8000的日志输出功能；
+2、log_test.lua：日志功能测试模块，演示Air8101的日志输出功能；
 
 ## 演示功能概述
 
@@ -20,23 +20,28 @@ log.setLevel("SILENT")： 静默所有日志，即禁止日志有任何内容输
 
 ## 演示硬件环境
 
-1、Air8000核心板一个
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-2、TYPE-C USB数据线一根
+## 准备软件环境
 
-3、Air8000核心板和数据线的硬件接线方式为
+### 4.1 软件环境
 
-- Air8000核心板通过TYPE-C USB口连接TYPE-C USB 数据线，数据线的另外一端连接电脑的USB口；
+1. 烧录工具：[Luatools 下载调试工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-- 核心板正面的 供电/充电 拨动开关 拨到供电一端；
+2. 内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc]((https://gitee.com/openLuat/LuatOS/releases/tag/v1004.air1601.release))；
 
-- 核心板背面的 USB ON/USB OFF 拨动开关 拨到USB ON一端；
+3. .luatos 需要的脚本和资源文件
 
-## 演示软件环境
+- 脚本文件：[https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/log](https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/demo/log)
 
-1、Luatools下载调试工具
+- LuatOS 运行所需要的 lib 文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件。
 
-2、[Air8000 V2018版本固件](https://docs.openluat.com/air8000/luatos/firmware/)
+准备好软件环境之后，接下来查看[如何烧录项目文件到 Air1601开发板](https://docs.openluat.com/air1601/luatos/common/hwenv/)中，将本篇文章中演示使用的项目文件烧录到 Air1601开发板中。
+
+###  API 介绍
+
+log 库：[https://docs.openluat.com/osapi/core/log/](https://docs.openluat.com/osapi/core/log/)
+
 
 ## 演示核心步骤
 
@@ -47,25 +52,24 @@ log.setLevel("SILENT")： 静默所有日志，即禁止日志有任何内容输
 3、烧录成功后，自动开机运行，通过luatools日志可以观察到以下信息：
 
 ``` lua
-[2025-10-25 15:49:25.278][000000000.654] I/user.main project name is  logdemo version is  001.000.000
-[2025-10-25 15:49:26.074][000000001.663] 日志功能测试开始
-[2025-10-25 15:49:26.079][000000001.663] 默认日志级别: 1
-[2025-10-25 15:49:26.084][000000001.663] 测试日志级别: 1
-[2025-10-25 15:49:26.089][000000001.664] D/user.logdemo debug message
-[2025-10-25 15:49:26.094][000000001.664] I/user.logdemo info message
-[2025-10-25 15:49:26.097][000000001.664] W/user.logdemo warn message
-[2025-10-25 15:49:26.102][000000001.664] E/user.logdemo error message
-[2025-10-25 15:49:26.105][000000001.665] 测试日志级别: INFO
-[2025-10-25 15:49:26.108][000000001.665] I/user.logdemo info message
-[2025-10-25 15:49:26.111][000000001.665] W/user.logdemo warn message
-[2025-10-25 15:49:26.114][000000001.665] E/user.logdemo error message
-[2025-10-25 15:49:26.117][000000001.665] 测试日志级别: WARN
-[2025-10-25 15:49:26.122][000000001.666] W/user.logdemo warn message
-[2025-10-25 15:49:26.125][000000001.666] E/user.logdemo error message
-[2025-10-25 15:49:26.128][000000001.666] 测试日志级别: ERROR
-[2025-10-25 15:49:26.131][000000001.666] E/user.logdemo error message
-[2025-10-25 15:49:26.135][000000001.667] 测试日志级别: SILENT
-[2025-10-25 15:49:26.139][000000001.667] 恢复默认日志级别: 1
-[2025-10-25 15:49:26.142][000000001.667] I/user.logdemo 数值: 123 布尔值: true 表: table: 0C7F6DC8
-
+[2026-03-02 10:53:48.510][LTOS/N][000000000.013]:I/user.main project name is  logdemo version is  001.000.000
+[2026-03-02 10:53:48.510][LTOS/N][000000000.015]:日志功能测试开始
+[2026-03-02 10:53:48.515][LTOS/N][000000000.016]:默认日志级别: 1
+[2026-03-02 10:53:48.515][LTOS/N][000000000.016]:测试日志级别: 1
+[2026-03-02 10:53:48.520][LTOS/N][000000000.016]:D/user.logdemo debug message
+[2026-03-02 10:53:48.520][LTOS/N][000000000.016]:I/user.logdemo info message
+[2026-03-02 10:53:48.526][LTOS/N][000000000.016]:W/user.logdemo warn message
+[2026-03-02 10:53:48.526][LTOS/N][000000000.016]:E/user.logdemo error message
+[2026-03-02 10:53:48.531][LTOS/N][000000000.016]:测试日志级别: INFO
+[2026-03-02 10:53:48.531][LTOS/N][000000000.016]:I/user.logdemo info message
+[2026-03-02 10:53:48.531][LTOS/N][000000000.016]:W/user.logdemo warn message
+[2026-03-02 10:53:48.536][LTOS/N][000000000.016]:E/user.logdemo error message
+[2026-03-02 10:53:48.536][LTOS/N][000000000.016]:测试日志级别: WARN
+[2026-03-02 10:53:48.541][LTOS/N][000000000.017]:W/user.logdemo warn message
+[2026-03-02 10:53:48.546][LTOS/N][000000000.017]:E/user.logdemo error message
+[2026-03-02 10:53:48.546][LTOS/N][000000000.017]:测试日志级别: ERROR
+[2026-03-02 10:53:48.546][LTOS/N][000000000.017]:E/user.logdemo error message
+[2026-03-02 10:53:48.552][LTOS/N][000000000.017]:测试日志级别: SILENT
+[2026-03-02 10:53:48.557][LTOS/N][000000000.017]:恢复默认日志输出等级: 1
+[2026-03-02 10:53:48.562][LTOS/N][000000000.017]:I/user.logdemo 数值: 123 布尔值: true 表: table: 1C27EDF0
 ```

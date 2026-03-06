@@ -25,6 +25,7 @@ require("switch_page_demo")
 require("hzfont_page")
 require("game_page")
 require("all_component_page")
+require("chart_page")
 
 -- 当前显示的页面
 local current_page = nil
@@ -51,6 +52,7 @@ local pages = {
     hzfont = "hzfont_page",                -- 矢量字体演示
     game = "game_page",                    -- 游戏演示
     all_component = "all_component_page",  -- 所有组件演示
+    chart = "chart_page",                  -- 曲线图演示
 }
 
 -- 显示指定页面

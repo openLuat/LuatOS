@@ -66,8 +66,9 @@ sys.subscribe("SIM_IND", get_sim_status_task)
 -- 自己设计其他gpio热插拔只需要替换对应的gpio即可
 gpio.debounce(gpio.WAKEUP6,500)
 -- 设置中断触发，拔卡进入飞行模式，插卡进出飞行模式，val值为上升沿或者下降沿触发0/1
+-- 固件版本号>V2018，val == 1 为插卡；固件版本号≤V2018，val == 0 为插卡
 local function sim_hot_plug(val)
-    if val==0 then
+    if val == 1 then
         log.info("插卡")
         mobile.flymode(0,true)
         mobile.flymode(0,false)

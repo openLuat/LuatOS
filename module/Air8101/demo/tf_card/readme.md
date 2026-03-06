@@ -68,22 +68,8 @@
 - 自动文件大小验证
 - 资源清理（卸载）
 
-## **演示硬件环境**(二选一)
+## **演示硬件环境**
 
-### **Air8101开发板**
-
-1、Air8101开发板一块
-
-1、Air8101_B11开发板一块
-
-2、TYPE-C USB数据线一根
-
-3、闪迪C10高速TF卡一张（即micro SD卡，即微型SD卡）
-
-4、Air8101开发板和数据线的硬件接线方式为
-
-- Air8101开发板通过串口小板上的TYPE-C USB口供电。（USB旁边的开关拨到ON）
-- TYPE-C USB数据线直接插到Air8101开发板配套的外接串口小板的的TYPE-C USB座子，另外一端连接电脑USB口；
 
 ### **Air8101核心板**
 
@@ -93,22 +79,22 @@
 
 3、闪迪C10高速TF卡一张（即micro SD卡，即微型SD卡）
 
-4、AirMICROSD_1000配件板一块
+4、AirMICROSD_1010配件板一块
 
 5、Air8101核心板和数据线的硬件接线方式为
 
 - Air8101核心板通过板上的TYPE-C USB口供电。（正面的开关拨到3.3V，背面的开关拨到off）
 - TYPE-C USB数据线直接插到Air8101核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-6、Air8101核心板与AirMICROSD_1000配件板直插，对应管脚为
-| Air8101/Air6101核心板 | AirMICROSD_1000配件板 |
+6、Air8101核心板与AirMICROSD_1010配件板通过杜邦线连接，对应管脚为
+| Air8101/Air6101核心板 | AirMICROSD_1010配件板 |
 | ------------- | ----------------- |
 | 59/3V3        | 3V3               |
 | gnd           | gnd               |
-| 9/GPIO6       | CD                |
-| 67/GPIO4      | D0                |
-| 66/GPIO3      | CMD               |
-| 65/GPIO2      | CLK               |
+| 65/GPIO2      | spi_clk           |
+| 67/GPIO4      | spi_mosi          |
+| 66/GPIO3      | spi_cs            |
+| 8/GPIO5       | spi_miso          |
 
 
 ## **演示软件环境**
@@ -127,66 +113,73 @@
 
 ```lua
 （1）TF卡初始化与挂载
-[2025-09-14 12:59:05.009] I/user.fatfs.mount	挂载成功	0
-[2025-09-14 12:59:05.133] I/user.fatfs	getfree	{"free_sectors":244262144,"total_kb":122132480,"free_kb":122131072,"total_sectors":244264960}
-[2025-09-14 12:59:05.133] I/user.fs	lsmount	[{"fs":"lfs2","path":"\/"},{"fs":"inline","path":"\/lua\/"},{"fs":"ram","path":"\/ram\/"},{"fs":"luadb","path":"\/luadb\/"},{"fs":"fatfs","path":"\/sd"}]
+[2026-03-04 14:39:10.096] luat:U(702):I/user.fatfs.mount 挂载成功 0
+[2026-03-04 14:39:10.096] luat:U(702):I/user.fatfs getfree {"free_sectors":122114816,"total_kb":61057440,"free_kb":61057408,"total_sectors":122114880}
+[2026-03-04 14:39:10.096] luat:U(703):I/user.fs lsmount [{"fs":"lfs2","path":"/"},{"fs":"inline","path":"/lua/"},{"fs":"ram","path":"/ram/"},{"fs":"luadb","path":"/luadb/"},{"fs":"fatfs","path":"/sd"}]
+
 
 
 
 （2）文件操作演示
-[2025-08-24 19:51:24.685][000000002.619] I/user.文件操作 ===== 开始文件操作 =====
-[2025-08-24 19:51:25.145][000000003.032] I/user.io.mkdir 目录创建成功 路径:/sd/io_test
-[2025-08-24 19:51:25.231][000000003.043] I/user.文件创建 文件写入成功 路径:/sd/io_test/boottime
-[2025-08-24 19:51:25.297][000000003.046] I/user.io.exists 文件存在 路径:/sd/io_test/boottime
-[2025-08-24 19:51:25.376][000000003.049] I/user.io.fileSize 文件大小:41字节 路径:/sd/io_test/boottime
-[2025-08-24 19:51:25.467][000000003.052] I/user.文件读取 路径:/sd/io_test/boottime 内容:这是io库API文档示例的测试内容
-[2025-08-24 19:51:25.547][000000003.056] I/user.启动计数 文件内容: 这是io库API文档示例的测试内容 十六进制: E8BF99E698AF696FE5BA93415049E69687E6A1A3E7A4BAE4BE8BE79A84E6B58BE8AF95E58685E5AEB9 82
-[2025-08-24 19:51:25.616][000000003.056] I/user.启动计数 当前值: 0
-[2025-08-24 19:51:25.693][000000003.057] I/user.启动计数 更新值: 1
-[2025-08-24 19:51:25.736][000000003.068] I/user.文件写入 路径:/sd/io_test/boottime 内容: 1
-[2025-08-24 19:51:25.795][000000003.081] I/user.文件创建 路径:/sd/io_test/test_a 初始内容:ABC
-[2025-08-24 19:51:25.852][000000003.088] I/user.文件追加 路径:/sd/io_test/test_a 追加内容:def
-[2025-08-24 19:51:25.909][000000003.091] I/user.文件验证 路径:/sd/io_test/test_a 内容:ABCdef 结果: 成功
-[2025-08-24 19:51:25.954][000000003.102] I/user.文件创建 路径:/sd/io_test/testline 写入3行文本
-[2025-08-24 19:51:26.001][000000003.106] I/user.按行读取 路径:/sd/io_test/testline 第1行: abc
-[2025-08-24 19:51:26.048][000000003.106] I/user.按行读取 路径:/sd/io_test/testline 第2行: 123
-[2025-08-24 19:51:26.093][000000003.107] I/user.按行读取 路径:/sd/io_test/testline 第3行: wendal
-[2025-08-24 19:51:26.140][000000003.112] I/user.os.rename 文件重命名成功 原路径:/sd/io_test/test_a 新路径:/sd/io_test/renamed_file.txt
-[2025-08-24 19:51:26.188][000000003.116] D/fatfs f_open /io_test/test_a 4
-[2025-08-24 19:51:26.238][000000003.116] D/vfs fopen /sd/io_test/test_a r not found
-[2025-08-24 19:51:26.312][000000003.117] I/user.验证结果 重命名验证成功 新文件存在 原文件不存在
-[2025-08-24 19:51:26.367][000000003.117] I/user.目录操作 ===== 开始目录列举 =====
-[2025-08-24 19:51:26.424][000000003.121] I/user.fs lsdir [{"name":"boottime","size":0,"type":0},{"name":"testline","size":0,"type":0},{"name":"renamed_file.txt","size":0,"type":0}]
-[2025-08-24 19:51:26.478][000000003.127] I/user.os.remove 文件删除成功 路径:/sd/io_test/renamed_file.txt
-[2025-08-24 19:51:26.539][000000003.129] D/fatfs f_open /io_test/renamed_file.txt 4
-[2025-08-24 19:51:26.593][000000003.130] D/vfs fopen /sd/io_test/renamed_file.txt r not found
-[2025-08-24 19:51:26.656][000000003.130] I/user.验证结果 renamed_file.txt文件删除验证成功
-[2025-08-24 19:51:26.734][000000003.137] I/user.os.remove testline文件删除成功 路径:/sd/io_test/testline
-[2025-08-24 19:51:26.856][000000003.139] D/fatfs f_open /io_test/testline 4
-[2025-08-24 19:51:26.922][000000003.140] D/vfs fopen /sd/io_test/testline r not found
-[2025-08-24 19:51:27.113][000000003.140] I/user.验证结果 testline文件删除验证成功
-[2025-08-24 19:51:27.197][000000003.147] I/user.os.remove 文件删除成功 路径:/sd/io_test/boottime
-[2025-08-24 19:51:27.251][000000003.149] D/fatfs f_open /io_test/boottime 4
-[2025-08-24 19:51:27.302][000000003.150] D/vfs fopen /sd/io_test/boottime r not found
-[2025-08-24 19:51:27.365][000000003.150] I/user.验证结果 boottime文件删除验证成功
-[2025-08-24 19:51:27.407][000000003.158] I/user.io.rmdir 目录删除成功 路径:/sd/io_test
-[2025-08-24 19:51:27.461][000000003.159] D/fatfs f_open /io_test 4
-[2025-08-24 19:51:27.536][000000003.159] D/vfs fopen /sd/io_test r not found
-[2025-08-24 19:51:27.610][000000003.159] I/user.验证结果 目录删除验证成功
-[2025-08-24 19:51:27.668][000000003.160] I/user.文件操作 ===== 文件操作完成 =====
-[2025-08-24 19:51:27.712][000000003.160] I/user.系统清理 开始执行关闭操作...
-[2025-08-24 19:51:27.772][000000003.160] I/user.文件系统 卸载成功
+[2026-03-04 14:39:10.096] luat:U(704):I/user.文件操作 ===== 开始文件操作 =====
+[2026-03-04 14:39:10.245] luat:U(782):I/user.io.mkdir 目录创建成功 路径:/sd/io_test
+[2026-03-04 14:39:10.245] luat:U(794):I/user.文件创建 文件写入成功 路径:/sd/io_test/boottime
+[2026-03-04 14:39:10.245] luat:U(796):I/user.io.exists 文件存在 路径:/sd/io_test/boottime
+[2026-03-04 14:39:10.245] luat:U(798):I/user.io.fileSize 文件大小:41字节 路径:/sd/io_test/boottime
+[2026-03-04 14:39:10.245] luat:U(801):I/user.文件读取 路径:/sd/io_test/boottime 内容:这是io库API文档示例的测试内容
+[2026-03-04 14:39:10.245] luat:U(804):I/user.启动计数 文件内容: 这是io库API文档示例的测试内容 十六进制: E8BF99E698AF696FE5BA93415049E69687E6A1A3E7A4BAE4BE8BE79A84E6B58BE8AF95E58685E5AEB9 82
+[2026-03-04 14:39:10.245] luat:U(805):I/user.启动计数 当前值: 0
+[2026-03-04 14:39:10.245] luat:U(805):I/user.启动计数 更新值: 1
+[2026-03-04 14:39:10.245] luat:U(821):I/user.文件写入 路径:/sd/io_test/boottime 内容: 1
+[2026-03-04 14:39:10.245] luat:U(834):I/user.文件创建 路径:/sd/io_test/test_a 初始内容:ABC
+[2026-03-04 14:39:10.245] luat:U(840):I/user.文件追加 路径:/sd/io_test/test_a 追加内容:def
+[2026-03-04 14:39:10.245] luat:U(843):I/user.文件验证 路径:/sd/io_test/test_a 内容:ABCdef 结果: 成功
+[2026-03-04 14:39:10.324] luat:U(855):I/user.文件创建 路径:/sd/io_test/testline 写入3行文本
+[2026-03-04 14:39:10.324] luat:U(858):I/user.按行读取 路径:/sd/io_test/testline 第1行: abc
+[2026-03-04 14:39:10.324] luat:U(859):I/user.按行读取 路径:/sd/io_test/testline 第2行: 123
+[2026-03-04 14:39:10.324] luat:U(859):I/user.按行读取 路径:/sd/io_test/testline 第3行: wendal
+[2026-03-04 14:39:10.324] luat:U(864):I/user.os.rename 文件重命名成功 原路径:/sd/io_test/test_a 新路径:/sd/io_test/renamed_file.txt
+[2026-03-04 14:39:10.324] luat:D(868):fatfs:f_open /io_test/test_a 4
+[2026-03-04 14:39:10.324] luat:D(868):vfs:fopen /sd/io_test/test_a r not found
+[2026-03-04 14:39:10.324] luat:U(868):I/user.验证结果 重命名验证成功 新文件存在 原文件不存在
+[2026-03-04 14:39:10.324] luat:U(868):I/user.目录操作 ===== 开始目录列举 =====
+[2026-03-04 14:39:10.324] luat:U(875):I/user.fs lsdir [{"name":"boottime","size":1,"type":0},{"name":"testline","size":15,"type":0},{"name":"renamed_file.txt","size":6,"type":0}]
+[2026-03-04 14:39:10.324] luat:U(883):I/user.os.remove 文件删除成功 路径:/sd/io_test/renamed_file.txt
+[2026-03-04 14:39:10.324] luat:D(885):fatfs:f_open /io_test/renamed_file.txt 4
+[2026-03-04 14:39:10.324] luat:D(885):vfs:fopen /sd/io_test/renamed_file.txt r not found
+[2026-03-04 14:39:10.324] luat:U(885):I/user.验证结果 renamed_file.txt文件删除验证成功
+[2026-03-04 14:39:10.324] luat:U(893):I/user.os.remove testline文件删除成功 路径:/sd/io_test/testline
+[2026-03-04 14:39:10.324] luat:D(894):fatfs:f_open /io_test/testline 4
+[2026-03-04 14:39:10.324] luat:D(895):vfs:fopen /sd/io_test/testline r not found
+[2026-03-04 14:39:10.324] luat:U(895):I/user.验证结果 testline文件删除验证成功
+[2026-03-04 14:39:10.324] luat:U(902):I/user.os.remove 文件删除成功 路径:/sd/io_test/boottime
+[2026-03-04 14:39:10.324] luat:D(904):fatfs:f_open /io_test/boottime 4
+[2026-03-04 14:39:10.324] luat:D(904):vfs:fopen /sd/io_test/boottime r not found
+[2026-03-04 14:39:10.324] luat:U(904):I/user.验证结果 boottime文件删除验证成功
+[2026-03-04 14:39:10.324] luat:U(913):I/user.io.rmdir 目录删除成功 路径:/sd/io_test
+[2026-03-04 14:39:10.324] luat:D(914):fatfs:f_open /io_test 4
+[2026-03-04 14:39:10.324] luat:D(914):vfs:fopen /sd/io_test r not found
+[2026-03-04 14:39:10.324] luat:U(914):I/user.验证结果 目录删除验证成功
+[2026-03-04 14:39:10.324] luat:U(914):I/user.文件操作 ===== 文件操作完成 =====
+[2026-03-04 14:39:10.324] luat:U(914):I/user.结束 开始执行关闭操作...
+[2026-03-04 14:39:10.324] luat:U(915):I/user.文件系统 卸载成功
+[2026-03-04 14:39:10.324] luat:U(915):I/user.SPI接口 已关闭
+
 
 
 （3）网络连接与HTTP下载
-[2025-08-24 20:31:49.405][000000006.268] I/user.HTTP下载 开始下载任务
-[2025-08-24 20:31:49.438][000000006.275] dns_run 674:gitee.com state 0 id 1 ipv6 0 use dns server2, try 0
-[2025-08-24 20:31:49.471][000000006.277] D/mobile TIME_SYNC 0
-[2025-08-24 20:31:49.503][000000006.297] dns_run 691:dns all done ,now stop
-[2025-08-24 20:31:54.800][000000012.080] I/user.HTTP下载 下载完成 success 200 
-[2025-08-24 20:31:54.872][000000012.080] {"Age":"0","Cache-Control":"public, max-age=60","Via":"1.1 varnish","Transfer-Encoding":"chunked","Date":"Sun, 24 Aug 2025 12:31:49 GMT","Access-Control-Allow-Credentials":"true","Vary":"Accept-Encoding","X-Served-By":"cache-ffe9","X-Gitee-Server":"http-pilot 1.9.21","Connection":"keep-alive","Server":"ADAS\/1.0.214","Access-Control-Allow-Headers":"Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With,X-CustomHeader,Content-Range,Range,Set-Language","Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'; sandbox","X-Request-Id":"1f7e4b55-53c8-440a-9806-8894aa823f50","Accept-Ranges":"bytes","Etag":"W\/\"6ea36a6c51a48eaba0ffbc01d409424e7627bc56\"","Content-Type":"text\/plain; charset=utf-8","Access-Control-Allow-Methods":"GET, POST, PUT, PATCH, DELETE, OPTIONS","X-Frame-Options":"DENY","X-Cache":"MISS","Set-Cookie":"BEC=1f1759df3ccd099821dcf0da6feb0357;Path=\/;Max-Age=126000"}
-[2025-08-24 20:31:54.910][000000012.080]  411922
-[2025-08-24 20:31:54.936][000000012.082] I/user.HTTP下载 文件大小验证 预期: 411922 实际: 411922
-[2025-08-24 20:31:54.979][000000012.083] I/user.HTTP下载 资源清理完成
+[2026-03-04 14:56:38.981] luat:U(3270):I/user.HTTP下载 开始下载任务
+[2026-03-04 14:56:38.981] luat:D(3272):DNS:gitee.com state 0 id 1 ipv6 0 use dns server2, try 0
+[2026-03-04 14:56:38.981] luat:D(3272):net:adatper 2 dns server 192.168.1.1
+[2026-03-04 14:56:38.981] luat:D(3272):net:dns udp sendto 192.168.1.1:53 from 192.168.1.106
+[2026-03-04 14:56:38.981] luat:I(3291):DNS:dns all done ,now stop
+[2026-03-04 14:56:38.981] luat:D(3292):net:adapter 2 connect 180.76.199.13:443 TCP
+[2026-03-04 14:56:39.382] luat:I(3739):http:event 00000005 -1 host gitee.com port 443
+[2026-03-04 14:56:39.394] luat:W(3758):http:download fail, remove file /sd/1.mp3
+[2026-03-04 14:56:39.427] luat:I(3777):http:http close 0x609c4cf8
+[2026-03-04 14:56:39.427] luat:E(3780):http:http_ctrl is NULL for idg 1
+[2026-03-04 14:56:39.441] luat:U(3781):I/user.HTTP下载 下载完成 error 404 luat:U(3781):{"BDWAF-Request-ID":"afd00252-f8a4-43d2-a638-2aa77f246231","X-Served-By":"cache-ffe9","Age":"0","Access-Control-Allow-Headers":"Accept,Authorization,Cache-Control,Content-Type,DNT,If-Modified-Since,Keep-Alive,Origin,User-Agent,X-Requested-With,X-CustomHeader,Content-Range,Range,Set-Language","Connection":"close","Content-Length":"47","Via":"1.1 varnish","Access-Control-Allow-Methods":"GET, POST, PUT, PATCH, DELETE, OPTIONS","X-Request-Id":"ffacb4ea-01ff-4cae-8c13-6931b988f002","Access-Control-Allow-Credentials":"true","X-Gitee-Server":"http-pilot 1.9.28","Content-Type":"text/plain; charset=UTF-8","X-Cache":"MISS","X-Frame-Options":"DENY","Date":"Wed, 04 Mar 2026 06:56:39 GMT","Server":"ADAS/1.0.214"}luat:U(3782): 47
+[2026-03-04 14:56:39.441] luat:U(3782):I/user.HTTP下载 资源清理完成
+
 
 ```

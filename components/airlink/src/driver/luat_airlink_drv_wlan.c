@@ -1,14 +1,10 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_airlink.h"
-
-
 #include "luat_rtos.h"
 #include "luat_debug.h"
-#include "luat_spi.h"
 #include "luat_pm.h"
 #include "luat_gpio.h"
-#include "luat_airlink.h"
 #include "luat_mem.h"
 #include "luat_wlan.h"
 

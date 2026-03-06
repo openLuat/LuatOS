@@ -22,7 +22,7 @@ local lbsLoc = require"lbsLoc"
 local dtulib = require "dtulib"
 
 local dtu
-
+local cfg
 -- 基站定位坐标
 local lbs = {lat, lng}
 -- 串口缓冲区最大值
@@ -90,7 +90,7 @@ cmd.config = {
             t[2]=t[2]=="nil" and "" or t[2]
             t[3]=t[3]=="nil" and "" or t[3]
             dtu.apn = t 
-            default.cfg_get():import(dtu)
+            cfg:import(dtu)
             log.info("APN配置成功",dtu.apn[1],dtu.apn[2],dtu.apn[3])
             mobile.flymode(0,true)
             mobile.apn(0,1,dtu.apn[1],dtu.apn[2],dtu.apn[3])
@@ -100,12 +100,26 @@ cmd.config = {
     end, -- APN 配置
     ["readconfig"] = function(t)-- 读取整个DTU的参数配置
         if t[1] == dtu.password or dtu.password == "" or dtu.password == nil then
-            return default.cfg_get():export("string")
+            return cfg:export("string")
         else
             return "PASSWORD ERROR"
         end
+    end,  
+    ["writeconfig"] = function(t, s)-- 读取整个DTU的参数配置
+        local str = s:match("(.+)\r\n") and s:match("(.+)\r\n"):sub(20, -1) or s:sub(20, -1)
+        local dat, result, errinfo = json.decode(str)
+        if result then
+            if dtu.password == dat.password or dtu.password == "" or dtu.password == nil then
+                cfg:import(str)
+                sys.timerStart(dtulib.restart, 5000, "Setting parameters have been saved!")
+                return "OK"
+            else
+                return "PASSWORD ERROR"
+            end
+        else
+            return "JSON ERROR"
+        end
     end,
-
 }
 --rrpc指令
 cmd.rrpc = {
@@ -316,9 +330,10 @@ local function autoSampl(uid, t)
             sys.wait(t[1])
         end
         if dtu.pwrmod=="psm" then
-            sys.timerStart(function()
-                pm.power(pm.WORK_MODE, 3)
-            end,1000)
+            if dtu.psm_time and dtu.psm_time > 0 then
+                pm.dtimerStart(2, dtu.psm_time*1000)
+            end
+            pm.power(pm.WORK_MODE, 3)
         end
     end
 end
@@ -356,6 +371,7 @@ end
 --初始化串口/灯/自动任务采集功能
 function driver.init()
     dtu = default.get()
+    cfg = default.cfg_get()
     -- 初始化配置UART1和UART2
     local uidgps = dtu.gps and dtu.gps.fun and tonumber(dtu.gps.fun[1])
     if uidgps ~= 1 and dtu.uconf and dtu.uconf[1] and tonumber(dtu.uconf[1][1]) == 1 then
@@ -368,21 +384,22 @@ function driver.init()
         dtu.uconf[4] = {uart.VUART_0, 115200, 8, 2, 0}
         uart_INIT(4, dtu.uconf)
     end
-    -- 网络READY信号
-    if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
-        netready = gpio.setup(26, 0)
-    else
-        netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
-        default.pios[dtu.pins[2]] = nil
-    end
+    if dtu.pwrmod == "noraml" then
+        -- 网络READY信号
+        if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
+            netready = gpio.setup(26, 0)
+        else
+            netready = gpio.setup(tonumber(dtu.pins[2]:sub(4, -1)), 0)
+            default.pios[dtu.pins[2]] = nil
+        end
 
-    if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
-        sys.taskInit(netled,27)
-    else
-        sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))
-        default.pios[dtu.pins[1]] = nil
+        if not dtu.pins or not dtu.pins[1] or not default.pios[dtu.pins[1]] then 
+            sys.taskInit(netled,27)
+        else
+            sys.taskInit(netled, tonumber(dtu.pins[1]:sub(4, -1)))
+            default.pios[dtu.pins[1]] = nil
+        end
     end
-
     --自动任务采集
     if dtu.cmds and dtu.cmds[1] and dtu.cmds[1][1] then sys.taskInit(autoSampl, 1, dtu.cmds[1]) end
     if dtu.cmds and dtu.cmds[2] and dtu.cmds[2][1] then sys.taskInit(autoSampl, 2, dtu.cmds[2]) end

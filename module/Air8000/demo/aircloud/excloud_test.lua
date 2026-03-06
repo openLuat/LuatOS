@@ -170,6 +170,13 @@ function excloud_task_func()
     --excloud.stop_heartbeat()
     -- 记录启动日志
     --excloud.mtn_log("system", "设备启动完成", "version", "1.0.0")
+    -- 获取并打印二维码信息
+    local qrinfo = excloud.get_qrinfo()
+    if qrinfo and qrinfo.url then
+        log.info("二维码URL:", qrinfo.url)
+    else
+        log.info("未获取到二维码信息")
+    end
 
     -- 主循环：定期上报数据
 

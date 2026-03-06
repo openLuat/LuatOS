@@ -24,24 +24,13 @@
 
 ## 演示硬件环境：
 
-![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/80001.jpg)
+参考：[硬件环境清单](https://docs.openluat.com/air1601/luatos/common/hwenv/)，准备以及组装好硬件环境。
 
-![](https://docs.openluat.com/accessory/AirSPINORFLASH_1000/image/80002.jpg)
+## **演示软件环境**
 
-1. 合宙 Air8000 核心板一块
+1.[Luatools 工具](https://docs.openluat.com/air780epm/common/Luatools/)；
 
-2. TYPE-C USB 数据线一根 ，Air8000 核心板和数据线的硬件接线方式为：
-- Air8000 核心板通过 TYPE-C USB 口供电；（外部供电/USB 供电 拨动开关 拨到 USB 供电一端）
-
-- TYPE-C USB 数据线直接插到开发板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
-
-## 演示软件环境：
-
-1. Luatools 下载调试工具
-
-2. 固件版本：LuatOS-SoC_V2018_Air8000_1，固件地址，如有最新固件请用最新 [https://docs.openluat.com/air8000/luatos/firmware/](https://docs.openluat.com/air8000/luatos/firmware/)
-
-3. pc 系统 win11（win10 及以上）
+2.内核固件文件（底层 core 固件文件）：[LuatOS-SoC_V1004_Air1601.soc](https://docs.openluat.com/air1601/luatos/firmware/) ；
 
 ## 演示核心步骤：
 

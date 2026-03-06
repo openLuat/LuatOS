@@ -13,9 +13,9 @@
 
 对外接口：
 1、事件发布：
-   - "CAPTURE_COMPLETE"：拍照完成时发布，携带照片数据
+   - "CAMERA_TAKE_PHOTO_RSP"：拍照完成时发布，携带照片数据
 2、消息订阅：
-   - "ONCE_CAPTURE"：等待拍照指令
+   - "CAMERA_TAKE_PHOTO_REQ"：等待拍照指令
 
 使用说明：
 1、摄像头配置：支持gc032a型号

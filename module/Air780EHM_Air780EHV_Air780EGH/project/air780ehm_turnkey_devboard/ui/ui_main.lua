@@ -1,25 +1,52 @@
 --[[
 @module  ui_main
-@summary UI主程序，管理页面切换（仅含两个页面）
+@summary UI主程序，管理页面切换
 @version 1.0
 @date    2026.03.03
 ]]
 
--- 只保留两个页面模块
+-- 加载页面模块
 require("home_page")
 require("all_app_page")
+require("call_page")
+require("all_app_page")
+require("camera_page")
+require("network_select_page")
+require("gps_page")
+require("sensor_page")
+require("iot_account_page")
+require("bluetooth_page")
+require("uart_page")
+require("record_page")
+require("tts_page")
+require("apn_page")
+require("ethernet_page")
+require("wifi_page")
 
 -- 当前页面与栈
 local current_page = nil
 local page_stack = {}
 
--- SIM卡状态标志及订阅ID
+-- SIM卡状态标志及订阅ID，全部UI页面可以使用，判断当前联网情况
 sim_present = false
 
 -- 页面映射表
 local pages = {
     home = "home_page",
     all_app = "all_app_page",
+    call = "call_page",
+    camera = "camera_page",
+    network_select = "network_select_page",
+    gps = "gps_page",
+    sensor = "sensor_page",
+    iot_account = "iot_account_page",
+    bluetooth = "bluetooth_page",
+    uart = "uart_page",
+    record = "record_page",
+    tts = "tts_page",
+    apn = "apn_page",
+    ethernet = "ethernet_page",
+    wifi = "wifi_page",
 }
 
 -- 显示指定页面
@@ -80,7 +107,6 @@ local function ui_main_task()
     -- 启动主页
     show_page("home")
 
-    -- 主循环（AirUI v1.0.3+ 无需手动刷新）
 end
 
 -- 全局导出

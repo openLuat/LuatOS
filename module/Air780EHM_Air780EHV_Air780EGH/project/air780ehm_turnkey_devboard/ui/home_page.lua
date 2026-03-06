@@ -11,6 +11,14 @@ local active = false -- 控制任务是否运行
 local temp_val, hum_val, voc_val = "未接入传感器", "未接入传感器", "未接入传感器"
 local card_temp, card_hum, card_air
 
+-- 历史数据存储（最多20条）
+local temp_history = {}
+local hum_history = {}
+local air_history = {}
+local MAX_HISTORY = 20
+
+-- 当前打开的图表窗口（避免重叠）
+local current_win = nil
 
 -- 更新时间标签
 local function update_time()
@@ -26,6 +34,92 @@ local function update_time()
     end
 end
 
+-- 显示历史数据图表窗口
+local function show_history_chart(sensor_type)
+    -- 关闭之前打开的窗口
+    if current_win then
+        current_win:close()
+        current_win = nil
+    end
+
+    local title, history, y_min, y_max, unit
+    if sensor_type == "temperature" then
+        title = "温度历史"
+        history = temp_history
+        y_min = 0
+        y_max = 50      -- 可根据实际调整
+        unit = "℃"
+    elseif sensor_type == "humidity" then
+        title = "湿度历史"
+        history = hum_history
+        y_min = 0
+        y_max = 100
+        unit = "%"
+    elseif sensor_type == "air" then
+        title = "空气质量历史"
+        history = air_history
+        y_min = 0
+        y_max = 1000    -- 根据 VOC 传感器量程调整
+        unit = "ppb"
+    else
+        return
+    end
+
+    -- 创建窗口
+    local win = airui.win({
+        parent = airui.screen,
+        title = title,
+        w = 400,
+        h = 300,
+        close_btn = true,      -- 显示关闭按钮
+        auto_center = true,
+        style = {radius = 10, pad = 10},
+        on_close = function()
+            current_win = nil   -- 窗口关闭后清除引用
+        end
+    })
+
+    -- 创建图表
+    local chart = airui.chart({
+        x = 30,
+        y = 0,
+        w = 300,                -- 窗口宽度减去左右边距
+        h = 170,                -- 窗口高度减去标题栏和边距
+        y_min = y_min,
+        y_max = y_max,
+        point_count = MAX_HISTORY,
+        line_color = 0x00b4ff,
+        line_width = 2,
+        hdiv = 5,
+        vdiv = 5,
+        legend = false,
+        update_mode = "shift",
+        x_axis = {
+            enable = true,
+            min = 0,
+            max = MAX_HISTORY,
+            ticks = 5,
+            unit = "次"
+        },
+        y_axis = {
+            enable = true,
+            min = y_min,
+            max = y_max,
+            ticks = 5,
+            unit = unit
+        }
+    })
+
+    -- 如果有历史数据，一次性设置到图表（第一个系列）
+    if #history > 0 then
+        chart:set_values(1, history)
+    end
+
+    -- 将图表添加到窗口
+    win:add_content(chart)
+    current_win = win
+end
+
 function home_page.create_ui()
     -- 主容器
     main_container = airui.container({
@@ -36,15 +130,6 @@ function home_page.create_ui()
         color = 0xF8F9FA,
         parent = airui.screen,
     })
-
-    local msg = airui.msgbox({
-        text = "功能正在开发中，近期会进行更新！",
-        buttons = { "确定" },
-        on_action = function(self, label)
-            self:hide()
-        end
-    })
-    msg:hide()
 
     -- 顶部状态栏
     local status_bar = airui.container({
@@ -88,7 +173,7 @@ function home_page.create_ui()
         color = 0xF3F4F6,
     })
 
-    -- 三个卡片容器
+    -- 三个卡片容器，点击改为显示对应图表窗口
     card_temp = airui.container({
         parent = content,
         x = 15,
@@ -97,7 +182,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) msg:show() end
+        on_click = function(self) show_history_chart("temperature") end
     })
     card_hum = airui.container({
         parent = content,
@@ -107,7 +192,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) msg:show() end
+        on_click = function(self) show_history_chart("humidity") end
     })
     card_air = airui.container({
         parent = content,
@@ -117,7 +202,7 @@ function home_page.create_ui()
         h = 110,
         color = 0xffffff,
         radius = 10,
-        on_click = function(self) msg:show() end
+        on_click = function(self) show_history_chart("air") end
     })
 
     -- 温度卡片
@@ -337,13 +422,24 @@ local function aircloud_qr_task()
     end
 end
 
--- 传感器读取任务（UI更新）
+-- 更新历史数组的辅助函数
+local function update_history(history, value)
+    if value then
+        table.insert(history, value)
+        if #history > MAX_HISTORY then
+            table.remove(history, 1)
+        end
+    end
+end
+
+-- 传感器读取任务（UI更新 + 历史记录）
 local function sensor_read_task()
     while true do
         local result, temp_val, hum_val, voc_val = sys.waitUntil("ui_sensor_data")
         if active then
             -- 温度
             if temp_val ~= nil then
+                update_history(temp_history, temp_val)
                 temp_label:set_text(string.format("%.1f", temp_val))
                 temp_label:set_color(0x000000)
                 temp_label:set_font_size(36)
@@ -355,6 +451,7 @@ local function sensor_read_task()
 
             -- 湿度
             if hum_val ~= nil then
+                update_history(hum_history, hum_val)
                 hum_label:set_text(string.format("%.0f", hum_val))
                 hum_label:set_color(0x000000)
                 hum_label:set_font_size(36)
@@ -366,6 +463,7 @@ local function sensor_read_task()
 
             -- VOC
             if voc_val ~= nil then
+                update_history(air_history, voc_val)
                 air_label:set_text(string.format("%d", voc_val))
                 air_label:set_color(0x000000)
                 air_label:set_font_size(36)
@@ -377,7 +475,6 @@ local function sensor_read_task()
         end
     end
 end
-
 
 -- 更新信号图标
 local function update_signal()
@@ -405,7 +502,6 @@ end
 
 -- 处理SIM卡状态变化
 local function handle_sim_ind(status, value)
-
     log.info("插卡情况",status)
 
     if status  == "RDY" then
@@ -444,6 +540,12 @@ function home_page.cleanup()
 
     -- 取消SIM卡事件订阅（直接使用函数名）
     sys.unsubscribe("SIM_IND", handle_sim_ind)
+
+    -- 如果图表窗口还开着，关闭它
+    if current_win then
+        current_win:close()
+        current_win = nil
+    end
 
     if main_container then
         main_container:destroy()

@@ -24,7 +24,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.0"      -- 项目版本号
+VERSION = "1.0.1"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("ui_demo", PROJECT, VERSION)
@@ -61,16 +61,10 @@ lcd_drv = require("lcd_drv")
 -- 加载触摸驱动
 tp_drv = require("tp_drv")
 
---  -- 加载voc应用模块
---  require("AirVOC_1000")
-
---   -- 加载sht30应用模块
---  require("AirSHT30_1000")
-
-  -- 加载voc应用模块
+  -- 加载应用主模块
  require("app_main")
 
--- 引入演示模块（每次只选择一个运行）
+-- 引入UI主模块
 require("ui_main") --动态更新标签演示
 
 

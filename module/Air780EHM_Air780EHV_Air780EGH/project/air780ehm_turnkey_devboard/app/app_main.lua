@@ -13,6 +13,9 @@ local last_temp = nil
 local last_hum  = nil
 local last_voc  = nil
 
+-- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息，会增加功耗
+mobile.setAuto(10000,30000, 5) -- 此函数仅需要配置一次
+
 -- 传感器读取任务（主循环）
 local function sensor_task()
     while true do
@@ -24,7 +27,7 @@ local function sensor_task()
         local current_temp, current_hum, current_voc
 
         -- 1. 读取温湿度
-        if air_sht30.open(1) then
+        if air_sht30.open(0) then
             local t, h = air_sht30.read()
             if t then
                 current_temp, current_hum = t, h
@@ -39,7 +42,7 @@ local function sensor_task()
         end
 
         -- 2. 读取 VOC
-        if air_voc.open(1) then
+        if air_voc.open(0) then
             local v = air_voc.get_ppb()
             if v then
                 current_voc = v
@@ -60,7 +63,7 @@ local function sensor_task()
         if sht30_ok and voc_ok then
             last_temp, last_hum, last_voc = current_temp, current_hum, current_voc
             sys.publish("read_sht30_voc_rsp", current_temp, current_hum, current_voc)
-            log.info("sensor", "两个传感器均成功，发布新数据到云端")
+            log.info("sensor", "两个传感器均成功，向云端发布更新数据请求")
         else
             log.info("sensor", "传感器读取不完整，仅更新UI")
         end

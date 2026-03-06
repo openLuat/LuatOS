@@ -27,7 +27,7 @@ local function sensor_task()
         local current_temp, current_hum, current_voc
 
         -- 1. 读取温湿度
-        if air_sht30.open(0) then
+        if air_sht30.open(1) then
             local t, h = air_sht30.read()
             if t then
                 current_temp, current_hum = t, h
@@ -42,7 +42,7 @@ local function sensor_task()
         end
 
         -- 2. 读取 VOC
-        if air_voc.open(0) then
+        if air_voc.open(1) then
             local v = air_voc.get_ppb()
             if v then
                 current_voc = v

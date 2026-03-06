@@ -299,6 +299,7 @@ airui_component_meta_t *airui_component_meta_get(lv_obj_t *obj);
 lv_obj_t *airui_button_create_from_config(void *L, int idx);
 int airui_button_set_text(lv_obj_t *btn, const char *text); //设置按钮文本
 int airui_button_set_on_click(lv_obj_t *btn, int callback_ref); //设置点击回调
+int airui_button_set_stype(lv_obj_t *btn, void *L, int idx); //按样式表设置按钮样式
 
 /**
  * Label 组件：从配置表创建

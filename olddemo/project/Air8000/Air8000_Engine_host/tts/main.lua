@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "testtts"
-VERSION = "002.000.000"
+VERSION = "002.999.000"
 
 --[[
 本demo当前仅支持ec618系列和ec718系列

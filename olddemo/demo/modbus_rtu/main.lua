@@ -1,5 +1,5 @@
 PROJECT = "modbus_rtu_uart2"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 sys = require("sys")
 

@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "fatfs"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 -- sys库是标配
 _G.sys = require("sys")

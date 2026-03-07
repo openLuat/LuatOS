@@ -3,7 +3,7 @@
 -- @release 2025.03.17
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "lvglDemo"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 log.info("main", PROJECT, VERSION)
 

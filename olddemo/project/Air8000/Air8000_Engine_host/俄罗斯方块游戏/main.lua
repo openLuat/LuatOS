@@ -5,7 +5,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "lcddemo"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 log.info("main", PROJECT, VERSION)
 

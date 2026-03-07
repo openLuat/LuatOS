@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "helloworld"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 log.info("main", "hello world")
 

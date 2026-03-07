@@ -1,72 +1,67 @@
---- 模块功能：lcddemo
--- @module lcd
--- @author Tuo
--- @release 2025.12.23
--- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "lcddemo"
-VERSION = "1.0.0"
+--[[
+@module  LCD_Demo
+@summary 应用入口，选择并加载演示模块
+@version 1.0
+@date    2026.03.06
+@author  陈媛媛
+@usage
+通过取消注释所需演示模块的require语句，选择运行哪个演示。
+每个演示模块内部包含完整的硬件初始化。
+]]
 
-log.info("main", PROJECT, VERSION)
+--[[
+必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
+PROJECT：项目名，ascii string类型
+        可以随便定义，只要不使用,就行
+VERSION：项目版本号，ascii string类型
+        如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
+            X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
+        如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
+]]
 
--- 添加硬狗防止程序卡死
-if wdt then
-    wdt.init(9000) -- 初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000) -- 3s喂一次狗
-end
+-- main.lua - 程序入口文件
 
-local lcd_use_buff = true -- 是否使用缓冲模式, 提升绘图效率，占用更大内存
-local port, pin_reset, bl = lcd.RGB, 22, 23
+-- 定义项目名称和版本号
+PROJECT = "LCD_demo" -- 项目名称
+VERSION = "001.999.000"    -- 版本号
 
+-- 在日志中打印项目名和项目版本号
+log.info("LCD_demo", PROJECT, VERSION)
 
--- Air1101开发板配套LCD屏幕 分辨率1024*600
- log.info("lcdinit",lcd.init("custom", {
-     port = port,
-     hbp = 140,
-     hspw = 20,
-     hfp = 160,
-     vbp = 20,
-     vspw = 3,
-     vfp = 12,
-     bus_speed = 50 * 1000 * 1000,
-     pin_pwr = bl,
-     pin_rst = pin_reset,
-     direction = 0,
-     w = 1024,
-     h = 600
- }))
+-- 设置日志输出风格为样式2（建议调试时开启）
+-- log.style(2)
 
 
+-- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
+-- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
+-- 以下代码是最基本的用法，更复杂的用法可以详细阅读API说明文档
+-- 启动errDump日志存储并且上传功能，600秒上传一次
+-- if errDump then
+--     errDump.config(true, 600)
+-- end
 
--- 如果显示颜色相反，请解开下面一行的注释，关闭反色
--- lcd.invoff()
 
-sys.taskInit(function()
-    -- gpio.setup(bl, 1)
-    -- 开启缓冲区, 刷屏速度会加快, 但也消耗2倍屏幕分辨率的内存
-    lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
-    lcd.autoFlush(false)
-    while 1 do
-        lcd.clear()
-         log.info("合宙工业引擎 Air1101")
-         if lcd.showImage then
-             -- 注意, jpg需要是常规格式, 不能是渐进式JPG
-             -- 如果无法解码, 可以用画图工具另存为,新文件就能解码了
-             lcd.showImage(0, 0, "/luadb/picture2.jpg") -- lcd屏幕分辨率1024*600
+-- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
+-- 可以使用合宙的iot.openluat.com平台进行远程升级
+-- 也可以使用客户自己搭建的平台进行远程升级
+-- 远程升级的详细用法，可以参考fota的demo进行使用
 
-             sys.wait(100)
-         end
-        -- log.info("lcd.drawLine", lcd.drawLine(300, 300, 900, 300, 0x001F)) --在屏幕两点之间画一条线
-        -- log.info("lcd.drawRectangle", lcd.drawRectangle(100, 100, 500, 550, 0xF800)) --从屏幕左上边缘开始绘制一个框
-        -- log.info("lcd.drawCircle", lcd.drawCircle(512, 300, 200, 0x0CE0)) --从圆心开始绘制一个圆
 
-        if lcd_use_buff then
-            lcd.flush()
-        end
-        sys.wait(1000)
-    end
-end)
+-- 启动一个循环定时器
+-- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
+-- 方便分析内存使用是否有异常
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
--- 用户代码已结束---------------------------------------------
--- 结尾总是这一句
+require "ui_main"
+
+-- 选择要运行的演示（取消注释其中一行）
+-- require "hzfont_demo"      -- HZFont字体演示
+ require "image_demo"    -- 图片显示演示
+-- require "draw_demo"     -- 图形绘制演示
+
+-- 用户代码已结束
 sys.run()
--- sys.run()之后后面不要加任何语句!!!!!

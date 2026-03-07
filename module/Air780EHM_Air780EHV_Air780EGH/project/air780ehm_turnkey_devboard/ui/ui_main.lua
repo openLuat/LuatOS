@@ -6,22 +6,22 @@
 ]]
 
 -- 加载页面模块
-require("home_page")
-require("all_app_page")
-require("call_page")
-require("all_app_page")
-require("camera_page")
-require("network_select_page")
-require("gps_page")
-require("sensor_page")
-require("iot_account_page")
-require("bluetooth_page")
-require("uart_page")
-require("record_page")
-require("tts_page")
-require("apn_page")
-require("ethernet_page")
-require("wifi_page")
+require "home_page"
+require "all_app_page"
+require "call_page"
+require "all_app_page"
+require "camera_page"
+require "network_select_page"
+require "gps_page"
+require "sensor_page"
+require "iot_account_page"
+require "bluetooth_page"
+require "uart_page"
+require "record_page"
+require "tts_page"
+require "apn_page"
+require "ethernet_page"
+require "wifi_page"
 
 -- 当前页面与栈
 local current_page = nil
@@ -29,6 +29,7 @@ local page_stack = {}
 
 -- SIM卡状态标志及订阅ID，全部UI页面可以使用，判断当前联网情况
 sim_present = false
+aircloud_qr = nil
 
 -- 页面映射表
 local pages = {
@@ -107,6 +108,8 @@ local function ui_main_task()
     -- 启动主页
     show_page("home")
 
+    -- 开启背光引脚供电
+    gpio.setup(17, 0)
 end
 
 -- 全局导出

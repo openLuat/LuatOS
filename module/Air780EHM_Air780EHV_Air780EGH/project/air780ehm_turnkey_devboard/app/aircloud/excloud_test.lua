@@ -14,7 +14,7 @@
 5. 心跳保活机制
 ]]
 -- 导入excloud库
-local excloud = require("excloud")
+local excloud = require "excloud"
 
 -- 注册回调函数
 function on_excloud_event(event, data)

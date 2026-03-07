@@ -327,7 +327,7 @@ local function is_agps()
     local now = os.time()
     local agps_time = tonumber(io.readFile("/hxxt_tm") or "0") or 0
     -- if ((not exgnss.opts.agps_tm) and (now - agps_time > 300))  or  now - agps_time > 3600 then
-    if not exgnss.opts.agps_tm  and  now - agps_time > 3600 then
+    if not exgnss.opts.agps_tm  or  now - agps_time > 3600 then
         -- 执行AGPS
         log.info("exgnss.opts", "开始执行AGPS")
         sys.taskInit(agps)

@@ -1,7 +1,7 @@
 --[[
 @module  main
 @summary OneWire综合演示项目主文件（单传感器 + 多传感器）
-@version 001.000.000
+@version 001.999.000
 @date    2025.11.25
 @author  王棚嶙
 @usage
@@ -13,7 +13,7 @@
 
 -- 项目信息
 PROJECT = "onewire_demo"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 
 

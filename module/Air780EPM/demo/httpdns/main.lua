@@ -14,7 +14,7 @@ HTTPDNS通过直接向指定DNS服务器发起HTTP/HTTPS请求获取域名解析
 更多说明参考本目录下的readme.md文件
 ]]
 PROJECT = "HTTPDNS"
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 
 -- 在日志中打印项目名和项目版本号

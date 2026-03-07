@@ -128,7 +128,7 @@ function all_app_page.create_ui()
                 x = label_x,
                 y = label_y,
                 w = 80,
-                h = 20,
+                h = 16,
                 text = label_texts[row][col],
                 font_size = 16,
                 color = 0x000000,
@@ -191,7 +191,7 @@ local function update_signal()
             img_name = "4Gxinghao4.png"
         end
     end
-    if img_name then
+    if img_name and signal_img then
         signal_img:set_src("/luadb/" .. img_name)
     end
 end

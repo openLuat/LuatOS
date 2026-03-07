@@ -611,8 +611,13 @@ local function lowpower_task()
     -- 这是因为在Air8000系列内含GNSS和Gsensor芯片的模组中，GPIO24作为GNSS的备电使能开关和Gsensor的电源使能开关；
     -- 同时Gsensor芯片的中断配置方式默认为推挽输出+高电平有效，配置GPIO24为高电平输出后会产生一定的漏电流；
     -- 
-    -- 上诉问题会在V2025内核固件中解决掉，目前如果客户在实际项目中需要将GPIO24配置为高电平输出，就一定需要添加如下代码；
-    if tonumber(string.sub(rtos.version(), 2)) < 2026 and module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+    -- 在Air8000A整机开发板上，ES8311音频与Gsensor部分使用的是同一个I2C通道；
+    -- GPIO164为ES8311音频的LDO使能引脚，需要将GPIO164设置为输出高电平，否则I2C0的SDA和SCLK管脚电平只有2.8V左右，无法达到稳定的3.3V；
+    -- 最终会造成I2C初始化不成功；
+    -- 
+    -- 上诉问题会在V2027内核固件中解决掉，目前如果客户在实际项目中需要将GPIO24配置为高电平输出，就一定需要添加如下代码；
+    if tonumber(string.sub(rtos.version(), 2)) < 2027 and module == "Air8000A" or module == "Air8000U" or module == "Air8000N" or module == "Air8000AB" or module == "Air8000D" or module == "Air8000DB" then
+        gpio.setup(164, 1, gpio.PULLUP)
         exvib = require("exvib")
         exvib.open(1)
         sys.wait(200)

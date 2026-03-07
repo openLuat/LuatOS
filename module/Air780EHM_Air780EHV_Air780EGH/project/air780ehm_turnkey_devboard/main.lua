@@ -1,11 +1,10 @@
 --[[
 @module  main
-@summary exEasyUI组件演示主程序入口
-@version 1.0.0
+@summary turnkey_devboard主程序入口
+@version 1.0.1
 @date    2026.01.27
 @author  江访
 @usage
-本文件是exEasyUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
 通过注释/取消注释require语句来运行不同的演示。
 ]]
 
@@ -16,18 +15,18 @@ PROJECT：项目名，ascii string类型
 VERSION：项目版本号，ascii string类型
         如果使用合宙iot.openluat.com进行远程升级，必须按照"XXX.YYY.ZZZ"三段格式定义：
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
-            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为000
+            因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
 ]]
 
 -- main.lua - 程序入口文件
 
 -- 项目名称和版本定义
-PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.1"      -- 项目版本号
+PROJECT = "Turnkey_Devboard" -- 项目名称，用于标识当前工程
+VERSION = "001.999.001"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
-log.info("ui_demo", PROJECT, VERSION)
+log.info("main", PROJECT, VERSION)
 
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)
@@ -57,15 +56,15 @@ log.info("ui_demo", PROJECT, VERSION)
 -- end, 3000)
 
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+lcd_drv = require "lcd_drv"
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+tp_drv = require "tp_drv"
 
   -- 加载应用主模块
- require("app_main")
+ require "app_main"
 
 -- 引入UI主模块
-require("ui_main") --动态更新标签演示
+require "ui_main"
 
 
 -- 用户代码已结束

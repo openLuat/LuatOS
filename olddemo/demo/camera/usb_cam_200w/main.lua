@@ -63,7 +63,7 @@ sys.taskInit(function()
             result, data = sys.waitUntil("capture_done", 30000)
             camera.stop(camera_id)
             if result then
-                -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/data/
+                -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/
                 local code, resp = httpplus.request({
                     url = "http://upload.air32.cn/api/upload/jpg",
                     method = "POST",

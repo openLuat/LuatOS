@@ -75,7 +75,7 @@ lcd.init("st7796", {
 
 
 -- 将拍好的照片发送到HTTP服务器里保存，
--- 当前测试服务器可以在https://www.air32.cn/upload/data/这里看到你拍的照片
+-- 当前测试服务器可以在https://www.air32.cn/upload/这里看到你拍的照片
 
 local function HTTP_SEND_FILE()
 

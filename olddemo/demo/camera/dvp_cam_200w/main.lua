@@ -6,7 +6,7 @@ httpplus = require "httpplus"
 -- 本demo适用于Air8101核心板 + AirCAMERA_1020摄像头配件板
 
 -- 演示摄像头拍照，将图片数据存在zbuff中
--- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
+-- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/
 
 -- IO电平设置到3.0~3.1v
 pm.ioVol(pm.IOVOL_ALL_GPIO, 3100)

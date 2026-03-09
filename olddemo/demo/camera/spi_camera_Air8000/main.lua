@@ -156,7 +156,7 @@ local function main_task()
                         -- body, 是个zbuff
                         -- 通过query函数可以转为lua的string
                         log.info("http", "headers", resp.body:query())
-                        log.info("发送完毕，图片在： https://www.air32.cn/upload/data/jpg/ 中查看")
+                        log.info("发送完毕，图片在： https://www.air32.cn/upload/jpg/ 中查看")
                     else
                         log.error("上传失败，http code:", code)
                     end

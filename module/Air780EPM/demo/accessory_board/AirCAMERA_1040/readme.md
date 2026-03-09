@@ -118,6 +118,6 @@ AirCAMERA_1040 配件板插入Air780EPM 开发板的SPI摄像头座子中
 [2025-11-21 15:19:17.327][000000000.542] I/user.Scan result : Air780EPM
 ```
 
-5、登录 https://www.air32.cn/upload/data/jpg/ 查看拍摄的照片;
+5、登录 https://www.air32.cn/upload/jpg/ 查看拍摄的照片;
 
 ![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)

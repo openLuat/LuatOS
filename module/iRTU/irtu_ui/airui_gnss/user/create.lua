@@ -251,6 +251,7 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
         if result then
             idx = 0
             log.info("tcp连接成功", dName, addr, port)
+            sys.publish("CONNECT_SUCCESS" ,true)
             if autoReturn then
                 if intervalTime>0 then
                     sys.publish("AUTO_SAMPL_"..uid)
@@ -369,6 +370,7 @@ local function tcpTask(dName, cid, pios, reg,upprot, dwprot, sockettype,prot, pi
         else
             log.info("tcp连接失败了", dName, addr, port)
         end
+        sys.publish("CONNECT_SUCCESS",false)
         log.info("关闭tcp链接", dName, addr, port)
         datalink[cid] = false
         libnet.close(dName, 5000, netc)
@@ -513,6 +515,7 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
         local conres = sys.waitUntil("mqtt_conack"..cid, 10000)
         if mqttc:ready() and conres then
             log.info("mqtt连接成功")
+            sys.publish("CONNECT_SUCCESS" ,true)
             datalink[cid] = true
             -- 初始化订阅主题
             -- sub1={["/luatos/1234567"]=1,["/luatos/12345678"]=2}
@@ -704,6 +707,7 @@ local function mqttTask(cid, pios, reg, upprot, dwprot, keepAlive, timeout, addr
         else
             log.info("连接服务器失败")
         end
+        sys.publish("CONNECT_SUCCESS" ,false)
         datalink[cid] = false
         mqttc:disconnect()
         log.info("断开连接了",cid)
@@ -778,6 +782,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
             if data.success then
                 datalink[cid] = true
                 log.info("连接成功")
+                sys.publish("CONNECT_SUCCESS" ,true)
                 if autoReturn then
                     if timeout>0 then
                         sys.publish("AUTO_SAMPL_"..uid)
@@ -861,6 +866,7 @@ local function aircloudTask(cid,pios,reg,upprot, dwprot, tasktype, prot, keepAli
         elseif event == "disconnect" then
             datalink[cid] = false
             log.warn("与服务器断开连接")
+            sys.publish("CONNECT_SUCCESS" ,false)
         elseif event == "reconnect_failed" then
             log.info("重连失败，已尝试 " .. data.count .. " 次")
         elseif event == "send_result" then

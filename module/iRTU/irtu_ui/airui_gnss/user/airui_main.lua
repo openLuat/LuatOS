@@ -19,6 +19,7 @@ local position_label
 local mapTile=require("mapTile")
 local lng,lat=0,0
 local latlabel,lnglabel
+local sta_label
 local function latlngfun()
     while true do
         sys.wait(5000)
@@ -32,6 +33,14 @@ local function latlngfun()
     end
 end
 sys.taskInit(latlngfun)
+local function connect_fnc(status)
+    if status then
+        sta_label:set_text("服务器连接状态：已连接")
+    else
+        sta_label:set_text("服务器连接状态：未连接")
+    end
+end
+sys.subscribe("CONNECT_SUCCESS",connect_fnc)
 local function position()
      while not socket.adapter(socket.dft()) do
             log.warn("http_app_task_func", "wait IP_READY", socket.dft())
@@ -163,20 +172,14 @@ local function ui_main()
         sys.taskInit(position)
     end 
     })
-    -- -- 创建半透明图片
-    -- local img1 = airui.image({
-    --     src = "/luadb/logo.jpg",
-    --     x = 20,
-    --     y = 20,
-    --     w = 80,
-    --     h = 80,
-    -- })
+    sta_label = airui.label({ 
+    text = "服务器连接状态：未连接", 
+    x = 20, 
+    y = 450, 
+    w = 200,
+    h = 40, 
+    })
 
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
 end
 
 sys.taskInit(ui_main)

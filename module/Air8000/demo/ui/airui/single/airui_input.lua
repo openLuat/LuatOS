@@ -35,13 +35,24 @@ local function ui_main()
         keyboard = keyboard
     })
 
-
-
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
+        -- 创建按钮
+    local btn = airui.button({
+        x = 20,
+        y = 180,
+        text = "提交",
+        on_click = function()
+            airui.msgbox({
+                title = "提交内容为",
+                text = textarea:get_text(),
+                buttons = { "确定" },
+                on_action = function(self, label)
+                    if label == "确定" then
+                        self:hide()
+                    end
+                end
+            })
+        end
+    })
 end
 
 sys.taskInit(ui_main)

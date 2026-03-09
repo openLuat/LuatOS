@@ -123,11 +123,11 @@ local function ui_main_task()
     -- 显示主页
     show_page("home")
 
-    -- -- 主循环，V1.0.3版本后已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(frame_time)
-    -- end
+    sys.wait(1000)
+
+    -- 开启背光引脚供电
+    gpio.setup(1, 1)
+
 end
 
 -- 全局函数，方便页面调用

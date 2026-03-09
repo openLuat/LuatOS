@@ -360,11 +360,7 @@ local function ui_main()
         page_btn_x = page_btn_x + btn_width + 10 -- 按钮间距
     end
 
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
+
 end
 
 sys.taskInit(ui_main)

@@ -26,7 +26,6 @@ local function ui_main()
 
     -- 主循环
     while true do
-        airui.refresh()
 
         -- 更新进度条值
         current = current + direction

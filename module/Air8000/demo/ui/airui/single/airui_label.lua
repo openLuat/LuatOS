@@ -20,6 +20,8 @@ local function ui_main()
         y = 80,
         w = 100,
         h = 40,
+        font_size = 20,
+        color = 0xff0000
     })
 
     -- 创建图标标签
@@ -33,11 +35,6 @@ local function ui_main()
             log.info("label2", "设置图标被点击")
         end
     })
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
 end
 
 sys.taskInit(ui_main)

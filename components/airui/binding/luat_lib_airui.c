@@ -618,7 +618,7 @@ lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
  * @string config.path 字体路径，对于 "hzfont"，传 nil 则使用内置字库
  * @int config.size 可选，TTF 字体大小，默认 16
  * @int config.cache_size 可选，TTF 缓存数量，默认 256
- * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）
+ * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）；1=边界2x2，2=边界3x3，3=边界4x4
  * @bool config.load_to_psram 可选，是否将字体及缓存加载到 PSRAM（默认 false）
  * @bool config.global 可选，是否设为全局默认字体（默认 true）
  * @return userdata 字体指针

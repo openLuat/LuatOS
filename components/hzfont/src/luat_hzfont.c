@@ -977,8 +977,14 @@ static void hzfont_release_glyphs(glyph_render_t *glyphs, size_t count) {
 
 // 根据字号决定默认的抗锯齿等级
 static inline int hzfont_pick_antialias_auto(unsigned char font_size) {
-    /* 规则：<=12 无抗锯齿 ，>12 用2x2超采样抗锯齿 */
-    return (font_size <= 12) ? 1 : 2;
+    /* 规则：<=16 用边界2x2AA，17~32 用边界3x3AA，>32 用边界4x4AA */
+    if (font_size <= 16) {
+        return 1;
+    }
+    if (font_size <= 32) {
+        return 2;
+    }
+    return 3;
 }
 
 /**
@@ -1033,7 +1039,7 @@ static int hzfont_build_log_preview(const char *utf8, size_t utf8_len, char *out
  * @param utf8      待绘制的 UTF-8 字符串
  * @param font_size 字号（像素值）
  * @param color     文本颜色（ARGB/RGB 格式，依赖底层 LCD 驱动）
- * @param antialias 抗锯齿等级：-1=自动, 1=无AA, 2=2x2, 4=4x4
+ * @param antialias 抗锯齿等级：-1=自动, 1=边界2x2, 2=边界3x3, 3=边界4x4
  * @return 绘制成功返回0，失败返回负值
  */
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias) {
@@ -1068,12 +1074,12 @@ int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_siz
     int new_rate = prev_rate;
     if (antialias < 0) { // -1时自动选择抗锯齿等级
         new_rate = hzfont_pick_antialias_auto(font_size); 
-    } else if (antialias <= 1) { // 1时无抗锯齿
+    } else if (antialias <= 1) { // 1时扫描线边界2x2 AA
         new_rate = 1;
-    } else if (antialias == 2) { // 2时2x2超采样抗锯齿
+    } else if (antialias == 2) { // 2时扫描线边界3x3 AA
         new_rate = 2;
-    } else { // 4时4x4超采样抗锯齿
-        new_rate = 4;
+    } else { // 3及以上时扫描线边界4x4 AA
+        new_rate = 3;
     }
     // 检查抗锯齿等级是否发生变化，如果发生变化，则设置新的抗锯齿等级
     if (new_rate != prev_rate) {

@@ -98,6 +98,15 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGI("http close %p", http_ctrl);
+	if (http_ctrl == NULL) {
+		LLOGE("http_ctrl is NULL");
+		return -1;
+	}
+	http_ctrl = luat_http_idg_get(http_ctrl->idg);
+	if (http_ctrl == NULL) {
+		LLOGE("http_ctrl is NULL after idg get");
+		return -1;
+	}
 	luat_http_idg_unreg(http_ctrl->idg);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);

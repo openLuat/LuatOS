@@ -70,6 +70,7 @@ static void airui_chart_axis_render_all(lv_obj_t *chart);
 static void airui_chart_legend_clear(lv_obj_t *chart);
 static void airui_chart_legend_render(lv_obj_t *chart);
 static void airui_chart_cleanup_event_cb(lv_event_t *e);
+static void airui_chart_overlay_event_cb(lv_event_t *e);
 static void airui_chart_render_overlays_async(void *user_data);
 
 /**
@@ -287,6 +288,8 @@ lv_obj_t *airui_chart_create_from_config(void *L, int idx)
     meta->user_data = chart_data;
 
     lv_obj_add_event_cb(chart, airui_chart_cleanup_event_cb, LV_EVENT_DELETE, chart_data);
+    lv_obj_add_event_cb(chart, airui_chart_overlay_event_cb, LV_EVENT_SIZE_CHANGED, NULL);
+    lv_obj_add_event_cb(chart, airui_chart_overlay_event_cb, LV_EVENT_STYLE_CHANGED, NULL);
 
     lv_async_call(airui_chart_render_overlays_async, chart);
 
@@ -519,6 +522,8 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
         return;
     }
 
+    lv_obj_update_layout(chart);
+
     airui_chart_axis_clear(chart, axis, is_x);
     if (!axis->enabled) {
         return;
@@ -557,6 +562,11 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
         plot_h = 1;
     }
     int32_t range = axis->max - axis->min;
+    int32_t ticks_min_left = 0;
+    int32_t ticks_max_right = 0;
+    int32_t ticks_min_top = 0;
+    int32_t ticks_max_bottom = 0;
+    bool ticks_bounds_valid = false;
 
     for (uint32_t i = 0; i < tick_count; i++) {
         lv_obj_t *label = lv_label_create(parent);
@@ -581,6 +591,8 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
         if (is_x) {
             lv_chart_type_t chart_type = lv_chart_get_type(chart);
             int32_t x = 0;
+            int32_t label_x = 0;
+            int32_t label_y = chart_y + chart_h + 4;
             if (chart_type == LV_CHART_TYPE_BAR || chart_type == LV_CHART_TYPE_STACKED) {
                 uint32_t point_count = lv_chart_get_point_count(chart);
                 if (point_count < 1) {
@@ -595,11 +607,54 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
             } else {
                 x = plot_x + (int32_t)((int64_t)plot_w * (int64_t)i / (int64_t)(tick_count - 1));
             }
-            lv_obj_set_pos(label, x - label_w / 2, chart_y + chart_h + 4);
+            label_x = x - label_w / 2;
+            lv_obj_set_pos(label, label_x, label_y);
+            if (!ticks_bounds_valid) {
+                ticks_min_left = label_x;
+                ticks_max_right = label_x + label_w;
+                ticks_min_top = label_y;
+                ticks_max_bottom = label_y + label_h;
+                ticks_bounds_valid = true;
+            } else {
+                if (label_x < ticks_min_left) {
+                    ticks_min_left = label_x;
+                }
+                if (label_x + label_w > ticks_max_right) {
+                    ticks_max_right = label_x + label_w;
+                }
+                if (label_y < ticks_min_top) {
+                    ticks_min_top = label_y;
+                }
+                if (label_y + label_h > ticks_max_bottom) {
+                    ticks_max_bottom = label_y + label_h;
+                }
+            }
         } else {
             uint32_t rev = tick_count - 1 - i;
             int32_t y = plot_y + (int32_t)((int64_t)plot_h * (int64_t)rev / (int64_t)(tick_count - 1));
-            lv_obj_set_pos(label, plot_x - label_w - 6, y - label_h / 2);
+            int32_t label_x = plot_x - label_w - 6;
+            int32_t label_y = y - label_h / 2;
+            lv_obj_set_pos(label, label_x, label_y);
+            if (!ticks_bounds_valid) {
+                ticks_min_left = label_x;
+                ticks_max_right = label_x + label_w;
+                ticks_min_top = label_y;
+                ticks_max_bottom = label_y + label_h;
+                ticks_bounds_valid = true;
+            } else {
+                if (label_x < ticks_min_left) {
+                    ticks_min_left = label_x;
+                }
+                if (label_x + label_w > ticks_max_right) {
+                    ticks_max_right = label_x + label_w;
+                }
+                if (label_y < ticks_min_top) {
+                    ticks_min_top = label_y;
+                }
+                if (label_y + label_h > ticks_max_bottom) {
+                    ticks_max_bottom = label_y + label_h;
+                }
+            }
         }
 
         axis->tick_labels[axis->tick_label_count++] = label;
@@ -608,14 +663,49 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
     if (axis->unit[0] != '\0') {
         axis->unit_label = lv_label_create(parent);
         if (axis->unit_label != NULL) {
+            int32_t unit_x = 0;
+            int32_t unit_y = 0;
+            int32_t unit_w = 0;
+            int32_t unit_h = 0;
+            int32_t parent_w = lv_obj_get_width(parent);
+            int32_t parent_h = lv_obj_get_height(parent);
             lv_label_set_text(axis->unit_label, axis->unit);
             lv_obj_set_style_text_color(axis->unit_label, lv_color_hex(0x374151), LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_update_layout(axis->unit_label);
+            unit_w = lv_obj_get_width(axis->unit_label);
+            unit_h = lv_obj_get_height(axis->unit_label);
             if (is_x) {
-                lv_obj_set_pos(axis->unit_label, plot_x + plot_w + 12, chart_y + chart_h + 4);
+                unit_x = ticks_bounds_valid ? (ticks_max_right + 8) : (plot_x + plot_w + 12);
+                unit_y = ticks_bounds_valid ? ticks_min_top : (chart_y + chart_h + 4);
+                if (parent_w > 0 && unit_x + unit_w > parent_w) {
+                    unit_x = parent_w - unit_w;
+                }
+                if (unit_x < 0) {
+                    unit_x = 0;
+                }
+                if (parent_h > 0 && unit_y + unit_h > parent_h) {
+                    unit_y = parent_h - unit_h;
+                }
+                if (unit_y < 0) {
+                    unit_y = 0;
+                }
             } else {
-                lv_obj_set_pos(axis->unit_label, plot_x - lv_obj_get_width(axis->unit_label) + 6, plot_y - lv_obj_get_height(axis->unit_label) + 8);
+                unit_x = ticks_bounds_valid ? (ticks_max_right + 8) : (plot_x + 8);
+                unit_y = ticks_bounds_valid ? ticks_min_top : (plot_y - unit_h + 8);
+                if (unit_x < 0) {
+                    unit_x = 0;
+                }
+                if (unit_y < 0) {
+                    unit_y = 0;
+                }
+                if (parent_w > 0 && unit_x + unit_w > parent_w) {
+                    unit_x = parent_w - unit_w;
+                }
+                if (parent_h > 0 && unit_y + unit_h > parent_h) {
+                    unit_y = parent_h - unit_h;
+                }
             }
+            lv_obj_set_pos(axis->unit_label, unit_x, unit_y);
         }
     }
 }
@@ -741,6 +831,21 @@ static void airui_chart_cleanup_event_cb(lv_event_t *e)
     luat_heap_free(data);
 }
 
+static void airui_chart_overlay_event_cb(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_SIZE_CHANGED && code != LV_EVENT_STYLE_CHANGED) {
+        return;
+    }
+
+    lv_obj_t *chart = lv_event_get_target(e);
+    if (chart == NULL || !lv_obj_is_valid(chart)) {
+        return;
+    }
+
+    lv_async_call(airui_chart_render_overlays_async, chart);
+}
+
 /**
  * 渲染图表轴线和图例
  * @param user_data 用户数据
@@ -751,6 +856,8 @@ static void airui_chart_render_overlays_async(void *user_data)
     if (chart == NULL || !lv_obj_is_valid(chart)) {
         return;
     }
+
+    lv_obj_update_layout(chart);
 
     airui_chart_axis_render_all(chart);
     airui_chart_legend_render(chart);

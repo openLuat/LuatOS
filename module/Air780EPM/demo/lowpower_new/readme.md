@@ -84,8 +84,8 @@ AirSHT30_1000与Air780EXX系列核心板接线说明：
 | ------------------- | ------------------------------- |
 | VDD_EXT             | 3.3V                            |
 | GND                 | GND                             |
-| I2C0_SDA            | SDA                             |
-| I2C0_SCL            | SCL                             |
+| 66/I2C1SDA          | SDA                             |
+| 67/I2C1SCL          | SCL                             |
 
 
 

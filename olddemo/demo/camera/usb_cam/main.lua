@@ -69,7 +69,7 @@ sys.taskInit(function()
             -- camera.close(camera_id)	--完全关闭摄像头才用这个
             -- rawbuff:resize(60 * 1024)
 
-            -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/data/
+            -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/
             -- local code, resp = httpplus.request({
             --     url = "http://upload.air32.cn/api/upload/jpg",
             --     method = "POST",

@@ -44,7 +44,7 @@ local function upload_photo_task()
             end
             
             -- 将拍摄到的照片数据上传到服务器air32.cn
-            -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/data/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+            -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
             local code = httpplus.request({
                 url = "http://upload.air32.cn/api/upload/jpg",
                 method = "POST",
@@ -56,7 +56,7 @@ local function upload_photo_task()
             
             -- 根据状态码判断上传结果
             if code == 200 then
-                log.info("照片上传成功", "可在 https://www.air32.cn/upload/data/jpg/ 查看")
+                log.info("照片上传成功", "可在 https://www.air32.cn/upload/jpg/ 查看")
             else
                 log.warn("照片上传失败", "状态码:", code)
             end

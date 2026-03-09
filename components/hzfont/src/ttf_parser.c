@@ -49,6 +49,10 @@ static inline void ttf_safe_free(void *p) {
 #define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
 #define TTF_FIXED_HALF  (1 << (TTF_FIXED_SHIFT - 1))
 
+#define TTF_AA_SCAN_2X2    1
+#define TTF_AA_SCAN_3X3    2
+#define TTF_AA_SCAN_4X4    3
+
 // 设置 ttf 解析器的调试输出
 int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
 // 获取当前的调试标志
@@ -68,12 +72,12 @@ int ttf_get_supersample_rate(void) {
     }
     return g_ttf_supersample_rate;
 }
-// 设置运行时的超采样率（自动限幅为 1/2/4）
+// 设置运行时的抗锯齿等级（自动限幅为 1/2/3）
 int ttf_set_supersample_rate(int rate) {
     int newRate;
-    if (rate <= 1) newRate = 1;
-    else if (rate <= 2) newRate = 2;
-    else newRate = 4; /* 3或更大按4x4 */
+    if (rate <= TTF_AA_SCAN_2X2) newRate = TTF_AA_SCAN_2X2;
+    else if (rate == TTF_AA_SCAN_3X3) newRate = TTF_AA_SCAN_3X3;
+    else newRate = TTF_AA_SCAN_4X4;
     g_ttf_supersample_rate = newRate;
     return g_ttf_supersample_rate;
 }
@@ -1523,6 +1527,150 @@ static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int3
     }
     return winding;
 }
+
+static inline uint8_t ttf_sample_point_fixed(const FixedSegmentList *segments, int32_t px, int32_t py) {
+    return (uint8_t)(point_inside_fixed(segments, px, py) ? 255 : 0);
+}
+
+static uint8_t ttf_sample_supersample_coverage(const FixedSegmentList *segments,
+                                               int32_t baseX, int32_t baseY,
+                                               int sampleRate) {
+    int insideHits = 0;
+    const int sampleCount = sampleRate * sampleRate;
+    const int32_t step = TTF_FIXED_ONE / sampleRate;
+    const int32_t subOffset = step / 2;
+    for (int sy = 0; sy < sampleRate; ++sy) {
+        const int32_t py = baseY + sy * step + subOffset;
+        for (int sx = 0; sx < sampleRate; ++sx) {
+            const int32_t px = baseX + sx * step + subOffset;
+            insideHits += point_inside_fixed(segments, px, py);
+        }
+    }
+    if (insideHits <= 0) {
+        return 0;
+    }
+    return (uint8_t)((insideHits * 255 + sampleCount / 2) / sampleCount);
+}
+
+static size_t ttf_collect_scanline_intersections(const FixedSegmentList *segments,
+                                                 int32_t py, int32_t *intersections,
+                                                 size_t maxCount) {
+    if (!segments || !intersections || maxCount == 0) {
+        return 0;
+    }
+    size_t count = 0;
+    for (size_t i = 0; i < segments->count; ++i) {
+        int32_t x0 = segments->data[i * 4 + 0];
+        int32_t y0 = segments->data[i * 4 + 1];
+        int32_t x1 = segments->data[i * 4 + 2];
+        int32_t y1 = segments->data[i * 4 + 3];
+        if (y0 == y1) {
+            continue;
+        }
+        if (!((y0 <= py && y1 > py) || (y1 <= py && y0 > py))) {
+            continue;
+        }
+        int32_t dy = y1 - y0;
+        int64_t num = (int64_t)(py - y0) * (int64_t)(x1 - x0);
+        int64_t den = (int64_t)dy;
+        if (den > 0) {
+            num += den / 2;
+        } else {
+            num -= (-den) / 2;
+        }
+        if (count < maxCount) {
+            intersections[count++] = (int32_t)((int64_t)x0 + num / den);
+        }
+    }
+    return count;
+}
+
+static void ttf_sort_fixed_intersections(int32_t *values, size_t count) {
+    for (size_t i = 1; i < count; ++i) {
+        int32_t key = values[i];
+        size_t j = i;
+        while (j > 0 && values[j - 1] > key) {
+            values[j] = values[j - 1];
+            --j;
+        }
+        values[j] = key;
+    }
+}
+
+static int ttf_apply_scanline_boundary_aa(const FixedSegmentList *segments, uint8_t *pixels,
+                                          uint32_t width, uint32_t height, int sampleRate) {
+    if (!segments || !pixels) {
+        return 0;
+    }
+    int32_t *intersections = (int32_t *)luat_heap_malloc(segments->count * sizeof(int32_t));
+    if (!intersections) {
+        return 0;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        const int32_t py = ((int32_t)y << TTF_FIXED_SHIFT) + TTF_FIXED_HALF;
+        size_t count = ttf_collect_scanline_intersections(segments, py, intersections, segments->count);
+        if (count < 2) {
+            continue;
+        }
+        ttf_sort_fixed_intersections(intersections, count);
+
+        for (size_t i = 0; i + 1 < count; i += 2) {
+            int32_t left = intersections[i];
+            int32_t right = intersections[i + 1];
+            if (right <= left) {
+                continue;
+            }
+
+            int32_t leftPix = left >> TTF_FIXED_SHIFT;
+            int32_t rightPix = right >> TTF_FIXED_SHIFT;
+            if (rightPix < 0 || leftPix >= (int32_t)width) {
+                continue;
+            }
+
+            if (leftPix == rightPix) {
+                if (leftPix >= 0 && leftPix < (int32_t)width) {
+                    size_t idx = (size_t)y * width + (uint32_t)leftPix;
+                    pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                                  leftPix << TTF_FIXED_SHIFT,
+                                                                  (int32_t)y << TTF_FIXED_SHIFT,
+                                                                  sampleRate);
+                }
+                continue;
+            }
+
+            if (leftPix >= 0 && leftPix < (int32_t)width) {
+                size_t idx = (size_t)y * width + (uint32_t)leftPix;
+                pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                              leftPix << TTF_FIXED_SHIFT,
+                                                              (int32_t)y << TTF_FIXED_SHIFT,
+                                                              sampleRate);
+            }
+            if (rightPix >= 0 && rightPix < (int32_t)width) {
+                size_t idx = (size_t)y * width + (uint32_t)rightPix;
+                pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                              rightPix << TTF_FIXED_SHIFT,
+                                                              (int32_t)y << TTF_FIXED_SHIFT,
+                                                              sampleRate);
+            }
+
+            int32_t fillStart = leftPix + 1;
+            int32_t fillEnd = rightPix - 1;
+            if (fillStart < 0) {
+                fillStart = 0;
+            }
+            if (fillEnd >= (int32_t)width) {
+                fillEnd = (int32_t)width - 1;
+            }
+            for (int32_t x = fillStart; x <= fillEnd; ++x) {
+                pixels[(size_t)y * width + (uint32_t)x] = 255;
+            }
+        }
+    }
+
+    ttf_safe_free(intersections);
+    return 1;
+}
 /**
  * @brief 栅格化指定 glyph 到 bitmap 像素位图
  * @param font    指向 TtfFont 对象（字体描述结构）
@@ -1599,34 +1747,17 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     ttf_safe_free(segments.data);
 #endif
 
-    // 按当前超采样率采样每个像素（用于计算覆盖率）
     const int supersampleRate = ttf_get_supersample_rate();
-    const int sampleCount = supersampleRate * supersampleRate;
-    int32_t step = (supersampleRate > 0) ? (TTF_FIXED_ONE / supersampleRate) : TTF_FIXED_ONE;
-    int32_t subOffset = step / 2;
-    for (uint32_t y = 0; y < height; ++y) {
-        int32_t baseY = ((int32_t)y << TTF_FIXED_SHIFT);
-        for (uint32_t x = 0; x < width; ++x) {
-            int32_t baseX = ((int32_t)x << TTF_FIXED_SHIFT);
-            int insideHits = 0;
-            if (supersampleRate == 1) {
-                int32_t px = baseX + TTF_FIXED_HALF;
-                int32_t py = baseY + TTF_FIXED_HALF;
-                insideHits = point_inside_fixed(&fixedSegments, px, py);
-            } else {
-                for (int sy = 0; sy < supersampleRate; ++sy) {
-                    int32_t py = baseY + sy * step + subOffset;
-                    for (int sx = 0; sx < supersampleRate; ++sx) {
-                        int32_t px = baseX + sx * step + subOffset;
-                        insideHits += point_inside_fixed(&fixedSegments, px, py);
-                    }
-                }
-            }
-            if (insideHits > 0) {
-                uint8_t value = (uint8_t)((insideHits * 255 + sampleCount / 2) / sampleCount);
-                pixels[y * width + x] = value;
-            }
-        }
+    int boundarySampleRate = 2;
+    if (supersampleRate == TTF_AA_SCAN_3X3) {
+        boundarySampleRate = 3;
+    } else if (supersampleRate == TTF_AA_SCAN_4X4) {
+        boundarySampleRate = 4;
+    }
+    if (!ttf_apply_scanline_boundary_aa(&fixedSegments, pixels, width, height, boundarySampleRate)) {
+        free_fixed_segments(&fixedSegments);
+        ttf_safe_free(pixels);
+        return TTF_ERR_OOM;
     }
 
     free_fixed_segments(&fixedSegments);

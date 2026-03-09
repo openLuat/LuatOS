@@ -219,7 +219,7 @@ sys.taskInit(function()
             -- uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
 
             -- 通过WIFI网络上传到服务器查看
-            -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/data/
+            -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/
             -- local code, resp = httpplus.request({
             --     url = "http://upload.air32.cn/api/upload/jpg",
             --     method = "POST",

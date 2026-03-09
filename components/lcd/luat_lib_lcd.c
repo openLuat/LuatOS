@@ -1543,15 +1543,15 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 @int fontSize 字体大小（像素）
 @int color 颜色值（RGB565，缺省为黑色0x000000）
 @int antialias 抗锯齿级别（整数，可选）：
--- -1：自动（≤12号字 无抗锯齿，>12号字 2x2超采样）
--- 1：无抗锯齿
--- 2：2x2 超采样
--- 4：4x4 超采样
+-- -1：自动（<=16号字 边界2x2，17~32号字 边界3x3，>32号字 边界4x4）
+-- 1：边界 2x2 扫描
+-- 2：边界 3x3 扫描
+-- 3：边界 4x4 扫描
 @return nil 无返回值
 @usage
 -- 默认黑色，自动抗锯齿
 lcd.drawHzfontUtf8(10, 50, "Hello世界", 24)
--- 指定红色与2x2抗锯齿
+-- 指定红色与边界3x3抗锯齿
 lcd.drawHzfontUtf8(10, 80, "Red文本", 24, 0xF800, 2)
 -- 仅指定抗锯齿（颜色位用nil占位）
 lcd.drawHzfontUtf8(10, 110, "锐利输出", 14, nil, 1)
@@ -1572,8 +1572,8 @@ static int l_lcd_draw_hzfont_utf8(lua_State *L) {
             int v = (int)luaL_checkinteger(L, 6);
             if (v == -1) antialias = -1;
             else if (v <= 1) antialias = 1;
-            else if (v <= 2) antialias = 2;
-            else antialias = 4;
+            else if (v == 2) antialias = 2;
+            else antialias = 3;
         } else {
             antialias = -1;
         }

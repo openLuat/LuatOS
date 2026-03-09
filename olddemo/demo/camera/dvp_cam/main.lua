@@ -28,7 +28,7 @@ end)
 -- 需要用电脑或其他设备与模块连接同一热点
 
 -- testMode等于2时，演示摄像头拍照，将图片数据存在zbuff中
--- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/data/
+-- 通过http post将拍照文件上传至upload.air32.cn，数据访问页面是 https://www.air32.cn/upload/
 local testMode = 2
 
 -- WIFI热点名称

@@ -143,7 +143,7 @@ local function aircamera_ui()
 
         lcd.showImage(120,240,"/luadb/next.jpg")
         lcd.drawStr(0,320,"点击上方按钮将进行拍照，点击屏幕后，会将照片上传,并可以在:")
-        lcd.drawStr(0,340,"https://www.air32.cn/upload/data/这里看到你拍的照片"..send_end)
+        lcd.drawStr(0,340,"https://www.air32.cn/upload/这里看到你拍的照片"..send_end)
         lcd.drawStr(0,365,send_end)
 
         lcd.showImage(120,360,"/luadb/back.jpg")

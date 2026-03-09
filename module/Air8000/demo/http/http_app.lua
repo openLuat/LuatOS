@@ -305,7 +305,7 @@ local function http_app_post_binary()
     -- http post提交原始二进制数据
     -- http://upload.air32.cn/api/upload/jpg为jpg图片上传测试服务器
     -- 此处将logo.jpg的原始二进制数据做为body上传到服务器
-    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/data/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
+    -- 上传成功后，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看上传的照片
     -- ["Content-Type"] = "application/octet-stream" 表示post提交的body数据格式为原始二进制格式的数据
     -- 如果请求成功，服务器应答的数据会保存到resp_body中
     local code, headers, resp_body = http.request("POST", "http://upload.air32.cn/api/upload/jpg", {["Content-Type"] = "application/octet-stream"}, body).wait()

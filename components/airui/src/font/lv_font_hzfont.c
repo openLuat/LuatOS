@@ -17,7 +17,7 @@
  */
 typedef struct {
     uint16_t font_size; /**< 默认字号 */
-    uint8_t antialias;  /**< 抗锯齿等级 (1, 2, 4) */
+    uint8_t antialias;  /**< 抗锯齿等级 (1, 2, 3) */
     TtfFont *ttf;       /**< 底层 TTF 句柄引用 */
     uint16_t *render_size; /**< 动态渲染字号引用 */
 } lv_font_hzfont_dsc_t;
@@ -384,11 +384,12 @@ profile_done:
  * @param path TTF 文件路径（传 NULL 则尝试加载内置字库）
  * @param size 字号
  * @param cache_size 点阵缓存上限数量
- * @param antialias 抗锯齿等级 (-1: 自动, 1: 无, 2: 2x2, 4: 4x4)
+ * @param antialias 抗锯齿等级 (-1: 自动, 1: 边界2x2, 2: 边界3x3, 3: 边界4x4)
  * @param load_to_psram 是否在初始化时将字库数据复制到 PSRAM（默认 false）
  * @return lv_font_t* 字体对象指针，失败返回 NULL
  */
 lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram) {
+    uint8_t aa_mode = 1;
     // 1. 初始化底层引擎（单例模式）
     if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
         if (!luat_hzfont_init(path, cache_size, (int)load_to_psram))
@@ -398,12 +399,32 @@ lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t 
         }
     }
 
+    if (antialias < 0) {
+        if (size <= 16) {
+            aa_mode = 1;
+        } else if (size <= 32) {
+            aa_mode = 2;
+        } else {
+            aa_mode = 3;
+        }
+    } else if (antialias <= 1) {
+        aa_mode = 1;
+    } else if (antialias == 2) {
+        aa_mode = 2;
+    } else {
+        aa_mode = 3;
+    }
+
     // 如果共享字体对象已存在，则更新渲染字号
     if (g_airui_hzfont_font != NULL) {
         g_airui_hzfont_render_size = size;
+        if (g_airui_hzfont_dsc) {
+            g_airui_hzfont_dsc->antialias = aa_mode;
+        }
         if (g_airui_hzfont_dsc && g_airui_hzfont_dsc->render_size) {
             *g_airui_hzfont_dsc->render_size = size;
         }
+        (void)ttf_set_supersample_rate(aa_mode);
         return g_airui_hzfont_font;
     }
 
@@ -421,12 +442,8 @@ lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t 
     }
     dsc->font_size = size;
     
-    // 自动选择 AA 等级：小号字体关闭以提高清晰度，大号开启
-    if (antialias < 0) {
-        dsc->antialias = (size <= 12) ? 1 : 2;
-    } else {
-        dsc->antialias = (uint8_t)antialias;
-    }
+    // 自动选择 AA 等级：小号 2x2，中号 3x3，大号 4x4
+    dsc->antialias = aa_mode;
     (void)ttf_set_supersample_rate(dsc->antialias);
     LLOGI("hzfont antialias: %d", dsc->antialias);
     // 关联底层句柄

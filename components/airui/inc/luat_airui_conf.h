@@ -105,6 +105,7 @@
     // 可选配置，需要在"luat_conf_bsp.h"等文件中打开相关宏
 
     // 使用16号字体
+
     #ifdef LUAT_USE_AIRUI_MISANS_FONT_16
         #define LV_FONT_FMT_TXT_LARGE 1
         #define LV_USE_FONT_COMPRESSED 1

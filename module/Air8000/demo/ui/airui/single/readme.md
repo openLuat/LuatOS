@@ -38,7 +38,7 @@
 3.  **`airui_win.lua`** - 窗口组件演示
 4.  **`airui_switch_page.lua`** - 多页面切换功能演示
 5.  **`airui_all_component.lua`** - 所有组件综合演示
-6.  **`airui_chart.lua`** - 图表组件演示（折线图动态更新）
+6.  **`airui_chart.lua`** - 图表组件演示
 7.  **`airui_qrcode.lua`** - 二维码组件演示
 
 ### 2.5 字体渲染演示
@@ -174,6 +174,8 @@ tp_drv = require("tp_drv")
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
+-- require("airui_chart")  --图表组件演示
+-- require("airui_qrcode") --二维码组件演示
 ```
 
 ### 7.3 软件烧录步骤

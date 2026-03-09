@@ -1,11 +1,11 @@
 --[[
 @module all_component_page
 @summary 所有组件综合演示
-@version 1.0
-@date 2026.01.27
+@version 2.0
+@date 2026.03.09
 @author 江访
 @usage
-本文件演示所有AirUI组件的综合用法，展示完整UI界面。
+本文件演示所有AirUI组件的综合用法。
 ]]
 
 local function ui_main()
@@ -52,9 +52,7 @@ local function ui_main()
         radius = 8,
     })
 
-
-
-    -- 2.1 文本输入框组件（移动到上方）
+    -- 2.1 文本输入框组件
     airui.label({
         parent = left_col,
         text = "文本输入",
@@ -131,7 +129,7 @@ local function ui_main()
         end
     })
 
-    -- 2.6 消息框按钮
+    -- 2.4 消息框按钮
     local msgbox_btn = airui.button({
         parent = left_col,
         x = 200,
@@ -153,13 +151,12 @@ local function ui_main()
         end
     })
 
-
     -- 2.5 下拉框组件
     airui.label({
         parent = left_col,
         text = "下拉选择",
         x = 20,
-        y = 270,
+        y = 250,
         w = 100,
         h = 25,
     })
@@ -167,7 +164,7 @@ local function ui_main()
     local dropdown = airui.dropdown({
         parent = left_col,
         x = 20,
-        y = 300,
+        y = 280,
         w = 200,
         h = 40,
         options = { "选项一", "选项二", "选项三", "选项四" },
@@ -178,12 +175,12 @@ local function ui_main()
         end
     })
 
-    -- 2.4 开关组件
+    -- 2.6 开关组件
     airui.label({
         parent = left_col,
         text = "开关",
         x = 240,
-        y = 270,
+        y = 250,
         w = 60,
         h = 30,
     })
@@ -194,12 +191,12 @@ local function ui_main()
     local toggle_switch = airui.switch({
         parent = left_col,
         x = 240,
-        y = 300,
+        y = 280,
         checked = true,
         on_change = function(self)
             -- 切换状态
             is_on = not is_on
-            -- 根据状态更新文本
+            -- 根据状态更新日志
             if is_on then
                 log.info("当前状态: 开")
             else
@@ -207,6 +204,36 @@ local function ui_main()
             end
         end
     })
+
+    -- 2.7 在左列底部添加图表组件（折线图）
+    airui.label({
+        parent = left_col,
+        text = "图表（简化）",
+        x = 20,
+        y = 320,
+        w = 100,
+        h = 20,
+    })
+
+    local chart = airui.chart({
+        parent = left_col,
+        x = 20,
+        y = 340,
+        w = 340,
+        h = 40,
+        type = "line",
+        y_min = 0,
+        y_max = 100,
+        point_count = 30,
+        line_color = 0x00b4ff,
+        line_width = 1,
+        point_radius = 1,
+        legend = false,
+        x_axis = { enable = false },
+        y_axis = { enable = false },
+    })
+    -- 设置一些示例数据
+    chart:set_values(1, {30, 45, 60, 55, 70, 65, 80, 75, 90, 85, 95})
 
     -- 3. 右列组件
     local right_col = airui.container({
@@ -229,12 +256,13 @@ local function ui_main()
         h = 25,
     })
 
+    -- 3.1 表格组件
     local data_table = airui.table({
         parent = right_col,
         x = 20,
         y = 60,
         w = 320,
-        h = 250,
+        h = 220,
         rows = 3,
         cols = 3,
         col_width = { 100, 100, 100 },
@@ -252,6 +280,27 @@ local function ui_main()
     data_table:set_cell_text(2, 1, "30")
     data_table:set_cell_text(2, 2, "上海")
 
+    -- 3.2 二维码组件
+    airui.label({
+        parent = right_col,
+        text = "二维码",
+        x = 20,
+        y = 290,
+        w = 100,
+        h = 20,
+    })
+
+    local qrcode = airui.qrcode({
+        parent = right_col,
+        x = 125,          -- 居中 (360-70)/2 = 145, 但考虑标签文字占用左边距，微调
+        y = 310,
+        size = 70,
+        data = "https://docs.openluat.com/",
+        dark_color = 0x000000,
+        light_color = 0xFFFFFF,
+        quiet_zone = true
+    })
+
     -- 4. 底部状态栏
     local status_bar = airui.container({
         parent = main_container,
@@ -264,13 +313,12 @@ local function ui_main()
 
     airui.label({
         parent = status_bar,
-        text = "AirUI Demo v1.0.3",
+        text = "AirUI Demo v1.1",
         x = 20,
         y = 2,
         w = 760,
         h = 16,
     })
-
 
 end
 

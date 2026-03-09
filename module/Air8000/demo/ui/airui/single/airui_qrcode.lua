@@ -54,7 +54,7 @@ local function ui_main()
                     log.error("qrcode", "数据过长，切换失败")
                 end
             else
-                -- 切换回官网
+                -- 切换docs资料站
                 qr:set_data("https://docs.openluat.com/")
                 is_luatos = true
             end

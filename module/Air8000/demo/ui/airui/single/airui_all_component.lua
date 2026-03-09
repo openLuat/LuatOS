@@ -1,7 +1,7 @@
 --[[
 @module all_component_page
-@summary 所有组件综合演示（排版优化，图表起伏明显）
-@version 1.0
+@summary 所有组件综合演示
+@version 1.1
 @date 2026.03.09
 @author 江访
 @usage
@@ -253,7 +253,7 @@ local function ui_main()
     data_table:set_cell_text(3, 2, "广州")
     y = y + 120 + 15
 
-    -- 2.7 图表组件（单独一行，起伏明显）
+    -- 2.7 图表组件
     airui.label({
         parent = scroll_container,
         text = "折线图示例",
@@ -283,12 +283,12 @@ local function ui_main()
         y_axis = { enable = false },
     })
 
-    -- 添加一个系列，生成叠加波形（基波+二次谐波），起伏范围约20~80，振幅60
+    -- 添加一个系列，生成叠加波形
     local sid = chart:add_series({color = 0x00b4ff})
 
     y = y + 90 + 15
 
-    -- 2.8 二维码组件（单独一行，居中）
+    -- 2.8 二维码组件
     airui.label({
         parent = scroll_container,
         text = "二维码",
@@ -306,15 +306,13 @@ local function ui_main()
         x = 110,         -- 水平居中 (320-100)/2 ≈ 110
         y = y,
         size = 100,
-        data = "https://luatos.com",
+        data = "https://docs.openluat.com/",
         dark_color = 0x000000,
         light_color = 0xFFFFFF,
         quiet_zone = true,
     })
     y = y + 100 + 15
 
-    -- 添加一个底部留白，确保最后一项不被遮挡
-    -- 注意：y 最终可能超过380，但滚动容器会自动滚动
 
     -- 3. 虚拟键盘（底部固定）
     local keyboard = airui.keyboard({

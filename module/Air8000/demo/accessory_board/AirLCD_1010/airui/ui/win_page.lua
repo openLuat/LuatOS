@@ -9,9 +9,9 @@
 
 local win_page = {}
 
-----------------------------------------------------------------
+
 -- 页面UI元素
-----------------------------------------------------------------
+
 local main_container = nil
 local current_window = nil
 
@@ -31,9 +31,9 @@ local components_switch = nil
 local cancel_switch = nil
 local multi_switch = nil
 
-----------------------------------------------------------------
+
 -- 创建基本窗口
-----------------------------------------------------------------
+
 local function create_basic_window()
     if current_window then
         current_window:close()
@@ -210,9 +210,9 @@ local function create_basic_window()
     end
 end
 
-----------------------------------------------------------------
+
 -- 创建UI
-----------------------------------------------------------------
+
 function win_page.create_ui()
     main_container = airui.container({
         parent = airui.screen,
@@ -282,9 +282,9 @@ function win_page.create_ui()
     })
     current_y = current_y + 30
 
-    --------------------------------------------------------------------
+    ----
     -- 开关控制区域
-    --------------------------------------------------------------------
+    ----
     airui.label({
         parent = scroll_container,
         text = "显示标题:",
@@ -410,9 +410,9 @@ function win_page.create_ui()
     })
     current_y = current_y + 50
 
-    --------------------------------------------------------------------
+    ----
     -- 控制按钮
-    --------------------------------------------------------------------
+    ----
     local show_window_btn = airui.button({
         parent = scroll_container,
         x = 40,
@@ -498,16 +498,16 @@ function win_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
+
 -- 初始化页面
-----------------------------------------------------------------
+
 function win_page.init(params)
     win_page.create_ui()
 end
 
-----------------------------------------------------------------
+
 -- 清理页面
-----------------------------------------------------------------
+
 function win_page.cleanup()
     if current_window then
         current_window:close()

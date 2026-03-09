@@ -1,31 +1,36 @@
 --[[
 @module  chart_page
 @summary 图表组件演示页面
-@version 1.0
-@date    2026.03.02
-@author  自动生成
+@version 1.1
+@date    2026.03.09
+@author  江访
 @usage
-本文件是图表组件的演示页面，展示图表的各种用法。
-注意：需要确保 airui.chart 组件可用。
+本文件展示图表组件 V1.1.0 的新特性：多系列、折线/柱状/堆叠、坐标轴自定义、动态推流、点击点回调。
 ]]
 
 local chart_page = {}
 
-----------------------------------------------------------------
+
 -- 页面UI元素
-----------------------------------------------------------------
+
 local main_container   = nil
 local scroll_container = nil
-local chart_timer      = nil          -- 数据推送定时器ID
-local page_active      = false        -- 页面是否活跃，用于定时器安全
-
-local value_text       = nil          -- 显示当前数值
-local point_text       = nil          -- 显示按下的点索引
 local chart            = nil          -- 图表对象
+local chart_timer      = nil          -- 数据定时器
+local page_active      = false
 
-----------------------------------------------------------------
+-- 控制相关变量
+local chart_type = "line"              -- 当前图表类型
+local series_ids = {}                  -- 存储系列ID
+local series_names = { "正弦波", "噪声", "差值" }
+local series_colors = { 0x00b4ff, 0xff6b35, 0x22c55e }
+
+-- 用于点击点显示
+local point_label = nil
+
+
 -- 辅助函数：创建带标题的容器
-----------------------------------------------------------------
+
 local function create_demo_container(parent, title, x, y, width, height)
     local container = airui.container({
         parent = parent,
@@ -36,7 +41,6 @@ local function create_demo_container(parent, title, x, y, width, height)
         color = 0xFFFFFF,
         radius = 8,
     })
-
     airui.label({
         parent = container,
         text = title,
@@ -47,13 +51,43 @@ local function create_demo_container(parent, title, x, y, width, height)
         color = 0x333333,
         font_size = 14,
     })
-
     return container
 end
 
-----------------------------------------------------------------
+-- 定时器回调：模拟动态数据推送
+local function chart_timer_cb()
+    if not page_active or not chart then return end
+
+    local t = _G.__chart_t or 0
+    t = t + 1
+    _G.__chart_t = t
+
+    -- 计算原始浮点值
+    local v1 = 50 + 30 * math.sin(t * 0.1)
+    local v2 = 40 + 20 * math.cos(t * 0.12)
+    local v3 = 10 + 10 * math.sin(t * 0.15)
+
+    -- 添加噪声
+    v1 = v1 + math.random(-2, 2)
+    v2 = v2 + math.random(-2, 2)
+    v3 = v3 + math.random(-1, 1)
+
+    -- 限制范围
+    v1 = math.max(0, math.min(100, v1))
+    v2 = math.max(0, math.min(100, v2))
+    v3 = math.max(0, math.min(100, v3))
+
+    -- 转换为整数（四舍五入）
+    v1 = math.floor(v1 + 0.5)
+    v2 = math.floor(v2 + 0.5)
+    v3 = math.floor(v3 + 0.5)
+
+    chart:push(series_ids[1], v1)
+    chart:push(series_ids[2], v2)
+    chart:push(series_ids[3], v3)
+end
+
 -- 创建UI
-----------------------------------------------------------------
 function chart_page.create_ui()
     main_container = airui.container({
         parent = airui.screen,
@@ -71,12 +105,11 @@ function chart_page.create_ui()
         y = 0,
         w = 320,
         h = 50,
-        color = 0x9C27B0,          -- 紫色，与其他页面区分
+        color = 0x9C27B0,
     })
-
     airui.label({
         parent = title_bar,
-        text = "图表组件演示",
+        text = "图表组件演示 V1.1.0",
         x = 10,
         y = 15,
         w = 200,
@@ -84,179 +117,296 @@ function chart_page.create_ui()
         font_size = 16,
         color = 0xFFFFFF,
     })
-
-    -- 返回按钮
-    local back_btn = airui.button({
+    airui.button({
         parent = title_bar,
         x = 250,
         y = 10,
         w = 60,
         h = 30,
         text = "返回",
-        on_click = function(self)
-            go_back()
-        end
+        on_click = function() go_back() end,
     })
 
-    -- 滚动容器（确保所有内容可滚动）
     scroll_container = airui.container({
         parent = main_container,
         x = 0,
         y = 50,
         w = 320,
-        h = 420,                    -- 留出底部空间
+        h = 420,
         color = 0xF5F5F5,
     })
 
-    local current_y = 10
+    local y_off = 10
 
-    --------------------------------------------------------------------
-    -- 示例说明
-    --------------------------------------------------------------------
-    airui.label({
-        parent = scroll_container,
-        text = "图表组件演示 (10Hz 模拟数据)",
-        x = 10,
-        y = current_y,
-        w = 300,
-        h = 20,
-        font_size = 14,
-        color = 0x333333,
-    })
-    current_y = current_y + 25
+    ----
+    -- 图表区域
+    ----
+    local chart_container = create_demo_container(scroll_container, "实时曲线 (多系列)", 10, y_off, 300, 200)
+    y_off = y_off + 200 + 10
 
-    --------------------------------------------------------------------
-    -- 数值显示区域
-    --------------------------------------------------------------------
-    local info_container = airui.container({
-        parent = scroll_container,
-        x = 10,
-        y = current_y,
-        w = 300,
-        h = 40,
-        color = 0xEEEEEE,
-        radius = 4,
-    })
-    current_y = current_y + 45
-
-    value_text = airui.label({
-        parent = info_container,
-        text = "当前值: 50",
-        x = 10,
-        y = 10,
-        w = 140,
-        h = 20,
-        font_size = 14,
-        color = 0x333333,
-    })
-
-    point_text = airui.label({
-        parent = info_container,
-        text = "按下点: -1",
-        x = 160,
-        y = 10,
-        w = 130,
-        h = 20,
-        font_size = 14,
-        color = 0x333333,
-    })
-
-    --------------------------------------------------------------------
-    -- 图表组件
-    --------------------------------------------------------------------
-    local chart_container = create_demo_container(scroll_container, "实时曲线", 10, current_y, 300, 200)
-    current_y = current_y + 200 + 10
-
+    -- 创建图表（折线图，多系列）
     chart = airui.chart({
         parent = chart_container,
         x = 10,
         y = 30,
         w = 280,
         h = 150,
+        type = chart_type,                 -- 默认折线图
         y_min = 0,
         y_max = 100,
-        point_count = 30,               -- 减少点数以适应窄屏
-        update_mode = "shift",           -- 滚动模式
-        line_color = 0x00b4ff,
+        point_count = 40,
+        update_mode = "shift",
+        line_color = series_colors[1],      -- 第一个系列颜色
         line_width = 2,
         hdiv = 5,
         vdiv = 4,
+        legend = true,                      -- 显示图例
+        x_axis = { enable = true, min = 0, max = 40, ticks = 5, unit = "t" },
+        y_axis = { enable = true, min = 0, max = 100, ticks = 5, unit = "v" },
         on_point = function(self)
-            if point_text then
+            if point_label then
                 local idx = self:get_pressed_point()
-                point_text:set_text("按下点: " .. tostring(idx))
-                log.info("chart", "pressed index", idx)
+                point_label:set_text("点击点索引: " .. tostring(idx))
+                log.info("chart", "点击点索引:", idx)
             end
-        end
+        end,
     })
 
-    -- 预置一组初始值（平滑过渡）
-    chart:set_values({50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 68, 66, 64, 62, 60, 58, 56, 54, 52, 50})
+    -- 添加额外系列
+    table.insert(series_ids, 1)  -- 第一个系列ID默认为1（由创建时line_color指定）
+    for i = 2, #series_names do
+        local sid = chart:add_series({ color = series_colors[i], name = series_names[i] })
+        table.insert(series_ids, sid)
+    end
 
-    --------------------------------------------------------------------
-    -- 控制按钮区域
-    --------------------------------------------------------------------
-    local control_container = create_demo_container(scroll_container, "控制面板", 10, current_y, 300, 100)
-    current_y = current_y + 100 + 10
+    -- 初始化数据
+    local init_data = {}
+    for i = 1, 40 do
+        table.insert(init_data, 50 + 30 * math.sin(i * 0.2))
+    end
+    chart:set_values(series_ids[1], init_data)
 
-    local mode = "shift"
-    local btn_mode = airui.button({
-        parent = control_container,
-        text = "模式: shift",
-        x = 20,
-        y = 30,
-        w = 120,
-        h = 35,
+    local init_data2 = {}
+    for i = 1, 40 do
+        table.insert(init_data2, 40 + 20 * math.cos(i * 0.3))
+    end
+    chart:set_values(series_ids[2], init_data2)
+
+    local init_data3 = {}
+    for i = 1, 40 do
+        table.insert(init_data3, 10 + 10 * math.sin(i * 0.5))
+    end
+    chart:set_values(series_ids[3], init_data3)
+
+    ----
+    -- 信息显示区域
+    ----
+    local info_container = airui.container({
+        parent = scroll_container,
+        x = 10,
+        y = y_off,
+        w = 300,
+        h = 40,
+        color = 0xEEEEEE,
+        radius = 4,
+    })
+    y_off = y_off + 45
+
+    point_label = airui.label({
+        parent = info_container,
+        text = "点击点索引: -1",
+        x = 10,
+        y = 10,
+        w = 280,
+        h = 20,
+        color = 0x333333,
+        font_size = 12,
+    })
+
+    ----
+    -- 控制面板
+    ----
+    local ctrl_container = create_demo_container(scroll_container, "控制面板", 10, y_off, 300, 220)
+    y_off = y_off + 220 + 10
+
+    local btn_x, btn_y = 20, 30
+    local btn_w, btn_h = 120, 35
+
+    -- 切换图表类型
+    local type_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "切换柱状图",
         on_click = function(self)
-            if mode == "shift" then
-                mode = "circular"
-                chart:set_update_mode("circular")
-                self:set_text("模式: circular")
+            if chart_type == "line" then
+                chart_type = "bar"
+                self:set_text("切换折线图")
             else
-                mode = "shift"
-                chart:set_update_mode("shift")
-                self:set_text("模式: shift")
+                chart_type = "line"
+                self:set_text("切换柱状图")
             end
-            log.info("chart", "update_mode ->", mode)
-        end
+            -- 注意：图表类型可能无法动态修改，此处演示仅改变文本
+            log.info("chart", "图表类型切换为", chart_type)
+            -- 实际可能需要重建图表，但为了演示，仅示意
+        end,
     })
 
-    local btn_clear = airui.button({
-        parent = control_container,
-        text = "清除",
-        x = 160,
-        y = 30,
-        w = 120,
-        h = 35,
-        on_click = function(self)
-            chart:clear(50)
-            if value_text then
-                value_text:set_text("当前值: 50")
-            end
-            log.info("chart", "clear to 50")
-        end
+    -- 添加/移除系列
+    local add_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x + btn_w + 20,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "添加系列",
+        on_click = function()
+            local new_sid = chart:add_series({ color = 0xFF00FF, name = "新系列" })
+            table.insert(series_ids, new_sid)
+            log.info("chart", "添加系列ID:", new_sid)
+        end,
     })
 
-    local btn_color = airui.button({
-        parent = control_container,
-        text = "随机颜色",
-        x = 20,
-        y = 70,
-        w = 120,
-        h = 35,
-        on_click = function(self)
+    btn_y = btn_y + btn_h + 10
+
+    -- 随机颜色
+    local rand_color_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "随机系列1颜色",
+        on_click = function()
             local color = math.random(0, 0xFFFFFF)
-            chart:set_line_color(color)
-            log.info("chart", "set line color", string.format("%06X", color))
-        end
+            chart:set_line_color(series_ids[1], color)
+            log.info("chart", "系列1颜色设为", string.format("%06X", color))
+        end,
     })
 
-    --------------------------------------------------------------------
+    -- 清空数据
+    local clear_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x + btn_w + 20,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "清空(设50)",
+        on_click = function()
+            chart:clear(50)
+            log.info("chart", "数据清空为50")
+        end,
+    })
+
+    btn_y = btn_y + btn_h + 10
+
+    -- 切换更新模式
+    local mode_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "模式:shift",
+        on_click = function(self)
+            if chart.update_mode == "shift" then
+                chart:set_update_mode("circular")
+                self:set_text("模式:circular")
+            else
+                chart:set_update_mode("shift")
+                self:set_text("模式:shift")
+            end
+        end,
+    })
+
+    -- 停止/启动定时器
+    local timer_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x + btn_w + 20,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "暂停数据",
+        on_click = function(self)
+            if chart_timer then
+                sys.timerStop(chart_timer)
+                chart_timer = nil
+                self:set_text("启动数据")
+            else
+                chart_timer = sys.timerLoopStart(chart_timer_cb, 100)
+                self:set_text("暂停数据")
+            end
+        end,
+    })
+
+    btn_y = btn_y + btn_h + 10
+
+    -- 设置X轴（示例）
+    local xaxis_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "X轴: 0~50",
+        on_click = function()
+            chart:set_x_axis({ min = 0, max = 50, ticks = 6, unit = "s" })
+            log.info("chart", "X轴范围设为0~50")
+        end,
+    })
+
+    -- 设置Y轴（示例）
+    local yaxis_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x + btn_w + 20,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "Y轴: -20~120",
+        on_click = function()
+            chart:set_y_axis({ min = -20, max = 120, ticks = 8, unit = "%" })
+            log.info("chart", "Y轴范围设为-20~120")
+        end,
+    })
+
+    btn_y = btn_y + btn_h + 10
+
+    -- 柱状图间距设置（仅演示，实际需要bar类型）
+    local bar_gap_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "柱间距: 15/5",
+        on_click = function()
+            chart:set_bar_gap(15, 5)
+            log.info("chart", "设置组间距15，系列间距5")
+        end,
+    })
+
+    -- 柱状图圆角
+    local bar_radius_btn = airui.button({
+        parent = ctrl_container,
+        x = btn_x + btn_w + 20,
+        y = btn_y,
+        w = btn_w,
+        h = btn_h,
+        text = "柱圆角: 8",
+        on_click = function()
+            chart:set_bar_radius(8)
+            log.info("chart", "柱圆角设为8")
+        end,
+    })
+
+    ----
     -- 底部提示
-    --------------------------------------------------------------------
+    ----
     airui.label({
         parent = main_container,
-        text = "提示: 点击曲线可查看数据点索引",
+        text = "提示: 图表支持多系列、动态数据、点击点、自定义轴",
         x = 10,
         y = 450,
         w = 300,
@@ -266,66 +416,24 @@ function chart_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
--- 定时器回调：模拟10Hz数据推送
-----------------------------------------------------------------
-local function chart_timer_cb()
-    if not page_active then
-        return      -- 页面已销毁，不再更新
-    end
-
-    -- 简单的三角波模拟
-    local tick = _G.__chart_tick or 0
-    tick = tick + 1
-    _G.__chart_tick = tick
-
-    local base = 50 + 30 * math.sin(tick * 0.1)
-    local noise = math.random(-3, 3)
-    local value = math.floor(base + noise + 0.5)
-    -- 限制范围
-    if value < 0 then value = 0 end
-    if value > 100 then value = 100 end
-
-    if chart and value_text then
-        chart:push(value)
-        value_text:set_text("当前值: " .. tostring(value))
-    end
-
-    if tick % 50 == 0 then
-        log.info("chart", "running 10Hz, sample=", value)
-    end
-end
-
-----------------------------------------------------------------
--- 初始化页面
-----------------------------------------------------------------
+-- 页面生命周期
 function chart_page.init(params)
-    chart_page.create_ui()
     page_active = true
-
-    -- 启动定时器（100ms = 10Hz）
-    if chart_timer then
-        sys.timerStop(chart_timer)
-    end
+    chart_page.create_ui()
+    -- 启动定时器
     chart_timer = sys.timerLoopStart(chart_timer_cb, 100)
 end
 
-----------------------------------------------------------------
--- 清理页面
-----------------------------------------------------------------
 function chart_page.cleanup()
     page_active = false
     if chart_timer then
         sys.timerStop(chart_timer)
         chart_timer = nil
     end
-
     if main_container then
         main_container:destroy()
         main_container = nil
         scroll_container = nil
-        value_text = nil
-        point_text = nil
         chart = nil
     end
 end

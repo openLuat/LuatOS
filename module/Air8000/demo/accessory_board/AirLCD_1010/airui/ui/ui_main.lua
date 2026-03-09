@@ -26,12 +26,12 @@ require("hzfont_page")
 require("game_page")
 require("all_component_page")
 require("chart_page")
+require("qrcode_page")   -- V1.1.0 新增二维码页面
 
 -- 当前显示的页面
 local current_page = nil
 local page_stack = {} -- 页面，用于返回功能
 -- local frame_time = 20 -- 主循环刷新间隔，单位ms
-
 
 -- 页面定义
 local pages = {
@@ -53,6 +53,7 @@ local pages = {
     game = "game_page",                    -- 游戏演示
     all_component = "all_component_page",  -- 所有组件演示
     chart = "chart_page",                  -- 曲线图演示
+    qrcode = "qrcode_page",                -- 二维码演示 (V1.1.0)
 }
 
 -- 显示指定页面

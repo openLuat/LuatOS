@@ -9,15 +9,15 @@
 
 local hzfont_page = {}
 
-----------------------------------------------------------------
+
 -- 页面UI元素
-----------------------------------------------------------------
+
 local main_container = nil
 local current_font = nil
 
-----------------------------------------------------------------
+
 -- 辅助函数：创建带标题的容器
-----------------------------------------------------------------
+
 local function create_demo_container(parent, title, x, y, width, height)
     local container = airui.container({
         parent = parent,
@@ -43,9 +43,9 @@ local function create_demo_container(parent, title, x, y, width, height)
     return container
 end
 
-----------------------------------------------------------------
+
 -- 创建UI
-----------------------------------------------------------------
+
 function hzfont_page.create_ui()
     main_container = airui.container({
         x = 0,
@@ -101,9 +101,9 @@ function hzfont_page.create_ui()
 
     local current_y = 10
 
-    --------------------------------------------------------------------
+    ----
     -- 示例1: 基本中文显示
-    --------------------------------------------------------------------
+    ----
     local demo1_container = create_demo_container(scroll_container, "示例1: 基本中文显示", 10, current_y, 300, 80)
     current_y = current_y + 80 + 10
 
@@ -118,9 +118,9 @@ function hzfont_page.create_ui()
         font_size = 18,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例2: 长文本中文显示
-    --------------------------------------------------------------------
+    ----
     local demo2_container = create_demo_container(scroll_container, "示例2: 长文本中文", 10, current_y, 300, 100)
     current_y = current_y + 100 + 10
 
@@ -136,9 +136,9 @@ function hzfont_page.create_ui()
         font_size = 14,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例3: 中英文混合
-    --------------------------------------------------------------------
+    ----
     local demo3_container = create_demo_container(scroll_container, "示例3: 中英文混合", 10, current_y, 300, 80)
     current_y = current_y + 80 + 10
 
@@ -153,9 +153,9 @@ function hzfont_page.create_ui()
         font_size = 16,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例4: 常用汉字显示
-    --------------------------------------------------------------------
+    ----
     local demo4_container = create_demo_container(scroll_container, "示例4: 常用汉字", 10, current_y, 300, 80)
     current_y = current_y + 80 + 10
 
@@ -170,9 +170,9 @@ function hzfont_page.create_ui()
         font_size = 16,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例5: 数字和标点
-    --------------------------------------------------------------------
+    ----
     local demo5_container = create_demo_container(scroll_container, "示例5: 数字标点", 10, current_y, 300, 100)
     current_y = current_y + 100 + 10
 
@@ -187,9 +187,9 @@ function hzfont_page.create_ui()
         font_size = 14,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例6: 字体大小对比
-    --------------------------------------------------------------------
+    ----
     local demo7_container = create_demo_container(scroll_container, "示例6: 字体大小对比", 10, current_y, 300, 120)
     current_y = current_y + 120 + 10
 
@@ -226,9 +226,9 @@ function hzfont_page.create_ui()
         font_size = 20,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例7: 字体颜色对比
-    --------------------------------------------------------------------
+    ----
     local demo8_container = create_demo_container(scroll_container, "示例7: 字体颜色对比", 10, current_y, 300, 100)
 
     airui.label({
@@ -277,16 +277,16 @@ function hzfont_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
+
 -- 初始化页面
-----------------------------------------------------------------
+
 function hzfont_page.init(params)
     hzfont_page.create_ui()
 end
 
-----------------------------------------------------------------
+
 -- 清理页面
-----------------------------------------------------------------
+
 function hzfont_page.cleanup()
     if main_container then
         main_container:destroy()

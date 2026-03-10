@@ -39,28 +39,6 @@ end
 -- 订阅WiFi和蓝牙状态变化消息
 sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
 
-local function wifi_state_change(state)
-    wifi_state = state
-    log.info("ble_ibeacon", "收到WiFi状态变化:", state)
-    
-    if state == 0 then
-        -- 如果是关闭状态，将广播状态设置为false，并释放已创建的BLE资源
-        if adv_state then
-            adv_state = false
-            -- 释放已创建的BLE资源
-            ble_device = nil
-            bluetooth_device = nil
-            adv_create = nil
-        end
-    else
-        -- WiFi状态打开时发布消息
-        sys.publish("WIFI_ACTIVATED", state)
-    end
-end
-
--- 订阅WiFi和蓝牙状态变化消息
-sys.subscribe("WIFI_STATE_CHANGED", wifi_state_change)
-
 -- 配置ibeacon广播数据包
 local ibeacon_data = string.char(0x4C, 0x00, -- Manufacturer ID（2字节）
                             0x02, -- ibeacon数据类型（1字节）

@@ -80,6 +80,9 @@ local record_seconds = 0       -- 录音计时秒数
 local PLAY_VOLUME = 60         -- 播放音量
 local RECORD_VOLUME = 60       -- 录音麦克风音量
 
+-- 录音时长设置（秒）
+local RECORD_DURATION = 5      -- 录音时长
+
 -- 硬件配置参数
 local audio_setup_param = {
     model = "es8311",          -- 音频编解码芯片类型
@@ -231,7 +234,7 @@ end
 -- 录音设置
 local audio_record_param = {
     format = exaudio.PCM_16000,  -- 使用16kHz PCM格式
-    time = 5,                -- 录制5秒
+    time = RECORD_DURATION,      -- 录制时长
     path = function(buff, size)
         -- 流式回调方式将录音数据写入文件
         if buff and size > 0 then
@@ -266,10 +269,10 @@ local function record_timer_callback()
         record_seconds = record_seconds + 1
         log.info("录音中...", record_seconds, "秒")
         
-        -- 如果达到5秒，自动停止录音
-        if record_seconds >= 5 then
+        -- 如果达到设定时长，自动停止录音
+        if record_seconds >= RECORD_DURATION then
             stop_recording()
-            log.info("录音时长已达5秒，自动停止录音")
+            log.info("录音时长已达", RECORD_DURATION, "秒，自动停止录音")
         end
     end
 end
@@ -292,7 +295,7 @@ local function start_recording()
         stop_playback()
     end
     
-    log.info("开始录音", "时长:5秒")
+    log.info("开始录音", "时长:", RECORD_DURATION, "秒")
     
     -- 清空旧录音文件（流式模式需要手动管理文件）
     if io.exists(recordPath) then
@@ -424,7 +427,7 @@ local function main_audio_task()
         log.info("按键功能说明：")
         log.info("1. Power键: 开始/停止录音，停止播放")
         log.info("2. Boot键: 开始/停止播放，停止录音")  
-        log.info("3. 录音时长: 5秒，可提前结束")
+        log.info("3. 录音时长: ", RECORD_DURATION, "秒，可提前结束")
         log.info("4. 录音完成后自动播放")
         log.info("5. 录音文件保存到:", recordPath)
     else

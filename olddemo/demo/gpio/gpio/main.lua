@@ -84,7 +84,7 @@ sys.taskInit(function()
             LEDC(count % 3 == 2 and 1 or 0)
         end
         log.info("GPIO", "Go Go Go", count, rtos.bsp(), hmeta and hmeta.model() or "")
-        log.info("LuatOS:", "https://wiki.luatos.com")
+        log.info("LuatOS:", "https://docs.openluat.com")
         count = count + 1
     end
 end)

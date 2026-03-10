@@ -1,10 +1,12 @@
 --[[
 @module exaudio
 @summary exaudio扩展库
-@version 1.4
-@date    2026.2.14
+@version 1.5
+@date    2026.3.10
 @author  拓毅恒
 @updates
+    v1.5 2026.3.10
+        1. 修改录音缓冲区使用逻辑，每次写完数据都清空缓冲区数据，释放内存，避免最后一段录音数据异常
     v1.4 2026.2.14
         1. 重构初始化i2s的逻辑，将接口给出让有录音或流式播放等需求的客户来自定义。
         3. 增大流式录音到文件缓冲区大小至48000，防止录音不完整。
@@ -345,7 +347,13 @@ local function audio_callback(id, event, point)
         if type(audio_record_param.path) == "function" then
             local buff, len = point == 0 and pcm_buff0 or pcm_buff1,
                              point == 0 and pcm_buff0:used() or pcm_buff1:used()
+            -- 添加调试信息：显示使用的缓冲区和大小
+            -- log.info("录音缓冲区", "使用:", point == 0 and "pcm_buff0" or "pcm_buff1", "大小:", len, "字节")
             audio_record_param.path(buff, len)
+            -- 清空缓冲区数据，释放内存
+            if buff and buff.del then
+                buff:del()
+            end
         end
         
     elseif event == audio.RECORD_DONE then

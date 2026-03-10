@@ -37,6 +37,9 @@ static airui_ctx_t *g_ctx = NULL;
 static int l_airui_init(lua_State *L);
 static int l_airui_deinit(lua_State *L);
 static int l_airui_refresh(lua_State *L);
+static int l_airui_full_refresh(lua_State *L);
+static int l_airui_sleep(lua_State *L);
+static int l_airui_wakeup(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
@@ -125,6 +128,9 @@ static const rotable_Reg_t reg_airui[] = {
     {"init", ROREG_FUNC(l_airui_init)},
     {"deinit", ROREG_FUNC(l_airui_deinit)},
     {"refresh", ROREG_FUNC(l_airui_refresh)},
+    {"full_refresh", ROREG_FUNC(l_airui_full_refresh)},
+    {"sleep", ROREG_FUNC(l_airui_sleep)},
+    {"wakeup", ROREG_FUNC(l_airui_wakeup)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
@@ -318,6 +324,51 @@ static int l_airui_refresh(lua_State *L) {
     LLOGW("airui refresh 接口在版本 %s 已废弃，改为自动刷新", version);
 
     return 0;
+}
+
+/**
+ * 强制全屏刷新 AIRUI
+ * @api airui.full_refresh()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_full_refresh(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_full_refresh(g_ctx) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 休眠 AIRUI
+ * @api airui.sleep()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_sleep(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_sleep(g_ctx) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 唤醒 AIRUI
+ * @api airui.wakeup()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_wakeup(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_wakeup(g_ctx) == 0 ? 1 : 0);
+    return 1;
 }
 
 /**

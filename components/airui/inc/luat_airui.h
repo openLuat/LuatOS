@@ -74,6 +74,8 @@ typedef struct {
     int (*init)(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt);
     void (*flush)(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map);
     void (*wait_vsync)(airui_ctx_t *ctx);
+    int (*suspend)(airui_ctx_t *ctx);
+    int (*resume)(airui_ctx_t *ctx);
     void (*deinit)(airui_ctx_t *ctx);
 } airui_display_ops_t;
 
@@ -152,6 +154,8 @@ struct airui_ctx {
     
     // 内部状态
     lv_timer_t *tick_timer;          /**< Tick 定时器（可选） */
+    void *tick_rtos_timer;           /**< LVGL tick RTOS 定时器 */
+    void *refresh_rtos_timer;        /**< LVGL 刷新 RTOS 定时器 */
     void *platform_data;             /**< 平台私有数据 */
     lv_obj_t *focused_textarea;      /**< 当前聚焦的 textarea，供系统键盘使用 */
     bool system_keyboard_enabled;    /**< 是否允许系统键盘输入 */
@@ -168,6 +172,7 @@ struct airui_ctx {
     uint8_t debug_last_mem_used_pct;     /**< 上次统计内存占用率 */
     uint32_t debug_component_count;      /**< 当前组件计数 */
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
+    bool sleeping;                       /**< 当前是否处于休眠状态 */
 };
 
 /**********************
@@ -195,6 +200,27 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops);
  * @post-condition LVGL 已初始化，驱动已注册，缓冲已申请
  */
 int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format);
+
+/**
+ * 休眠 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_sleep(airui_ctx_t *ctx);
+
+/**
+ * 唤醒 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_wakeup(airui_ctx_t *ctx);
+
+/**
+ * 强制全屏刷新 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_full_refresh(airui_ctx_t *ctx);
 
 /**
  * 反初始化 AIRUI

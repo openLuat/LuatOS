@@ -19,14 +19,13 @@
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
 
-// LVGL Tick 定时器句柄（全局静态变量，用于在 deinit 中清理）
-static luat_rtos_timer_t g_lv_tick_timer = NULL;
 static bool g_lv_log_cb_registered = false;
-
-// 自动刷新定时器句柄
-static luat_rtos_timer_t g_lv_refresh_timer = NULL;
-static int airui_refresh_msg_handler(void *ptr);
+static int airui_refresh_msg_handler(lua_State *L, void *ptr);
 static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM);
+static int airui_start_runtime_timers(airui_ctx_t *ctx);
+static void airui_stop_runtime_timers(airui_ctx_t *ctx);
+static void airui_pause_lvgl_timers(airui_ctx_t *ctx);
+static void airui_resume_lvgl_timers(airui_ctx_t *ctx);
 
 /* 将 LVGL 日志映射到 LuatOS 日志 */
 static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
@@ -118,22 +117,163 @@ static void airui_lv_tick_timer_handler(void *param)
 }
 
 // 信息接受后激活 LVGL 定时器处理函数
-static int airui_refresh_msg_handler(void *ptr) {
-    (void)ptr;
+static int airui_refresh_msg_handler(lua_State *L, void *ptr) {
+    (void)L;
+    airui_ctx_t *ctx = (airui_ctx_t *)ptr;
+    if (ctx == NULL || ctx->sleeping) {
+        return 0;
+    }
     lv_timer_handler();
     return 0;
 }
 
 // 自动刷新定时器回调发送信息激活 LVGL 定时器处理函数
 static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
-    (void)param;
+    airui_ctx_t *ctx = (airui_ctx_t *)param;
+    if (ctx == NULL || ctx->sleeping) {
+        return;
+    }
     rtos_msg_t msg = {
         .handler = airui_refresh_msg_handler,
-        .ptr = NULL,
+        .ptr = ctx,
         .arg1 = 0,
         .arg2 = 0
     };
     luat_msgbus_put(&msg, 0);
+}
+
+// 启动运行时定时器
+static int airui_start_runtime_timers(airui_ctx_t *ctx)
+{
+    int ret = 0;
+
+    if (ctx == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (ctx->tick_rtos_timer == NULL) {
+        ret = luat_rtos_timer_create((luat_rtos_timer_t *)&ctx->tick_rtos_timer);
+        if (ret != 0) {
+            LLOGE("airui_init failed: create lv tick timer failed, ret=%d", ret);
+            return AIRUI_ERR_INIT_FAILED;
+        }
+    }
+
+    ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
+    if (ret != 0) {
+        LLOGE("airui_init failed: start lv tick timer failed, ret=%d", ret);
+        luat_rtos_timer_delete((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        ctx->tick_rtos_timer = NULL;
+        return AIRUI_ERR_INIT_FAILED;
+    }
+
+    if (ctx->refresh_rtos_timer == NULL) {
+        ret = luat_rtos_timer_create((luat_rtos_timer_t *)&ctx->refresh_rtos_timer);
+        if (ret != 0) {
+            LLOGE("airui_init failed: create lv refresh timer failed, ret=%d", ret);
+            luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+            luat_rtos_timer_delete((luat_rtos_timer_t)ctx->tick_rtos_timer);
+            ctx->tick_rtos_timer = NULL;
+            return AIRUI_ERR_INIT_FAILED;
+        }
+    }
+
+    ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+    if (ret != 0) {
+        LLOGE("airui_init failed: start lv refresh timer failed, ret=%d", ret);
+        luat_rtos_timer_delete((luat_rtos_timer_t)ctx->refresh_rtos_timer);
+        ctx->refresh_rtos_timer = NULL;
+        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        luat_rtos_timer_delete((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        ctx->tick_rtos_timer = NULL;
+        return AIRUI_ERR_INIT_FAILED;
+    }
+
+    return AIRUI_OK;
+}
+
+// 停止运行时定时器
+static void airui_stop_runtime_timers(airui_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (ctx->tick_rtos_timer != NULL) {
+        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        luat_rtos_timer_delete((luat_rtos_timer_t)ctx->tick_rtos_timer);
+        ctx->tick_rtos_timer = NULL;
+        LLOGD("lv tick timer stopped");
+    }
+
+    if (ctx->refresh_rtos_timer != NULL) {
+        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
+        luat_rtos_timer_delete((luat_rtos_timer_t)ctx->refresh_rtos_timer);
+        ctx->refresh_rtos_timer = NULL;
+        LLOGD("lv refresh timer stopped");
+    }
+}
+
+// 暂停 LVGL 定时器
+static void airui_pause_lvgl_timers(airui_ctx_t *ctx)
+{
+    lv_timer_t *timer = NULL;
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (ctx->display != NULL) {
+        timer = lv_display_get_refr_timer(ctx->display);
+        if (timer != NULL) {
+            lv_timer_pause(timer);
+        }
+    }
+
+    if (ctx->indev != NULL) {
+        timer = lv_indev_get_read_timer(ctx->indev);
+        if (timer != NULL) {
+            lv_timer_pause(timer);
+        }
+    }
+
+    if (ctx->indev_keypad != NULL) {
+        timer = lv_indev_get_read_timer(ctx->indev_keypad);
+        if (timer != NULL) {
+            lv_timer_pause(timer);
+        }
+    }
+}
+
+// 恢复 LVGL 定时器
+static void airui_resume_lvgl_timers(airui_ctx_t *ctx)
+{
+    lv_timer_t *timer = NULL;
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (ctx->display != NULL) {
+        timer = lv_display_get_refr_timer(ctx->display);
+        if (timer != NULL) {
+            lv_timer_resume(timer);
+        }
+    }
+
+    if (ctx->indev != NULL) {
+        timer = lv_indev_get_read_timer(ctx->indev);
+        if (timer != NULL) {
+            lv_timer_resume(timer);
+        }
+    }
+
+    if (ctx->indev_keypad != NULL) {
+        timer = lv_indev_get_read_timer(ctx->indev_keypad);
+        if (timer != NULL) {
+            lv_timer_resume(timer);
+        }
+    }
 }
 
 /**
@@ -311,44 +451,133 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         // 文件系统初始化失败不影响整体初始化，只记录错误
     }
 
-    // 创建 LVGL tick 定时器（每5ms触发一次，用于更新 lv_tick_inc(5)）
-    ret = luat_rtos_timer_create(&g_lv_tick_timer);
-    if (ret != 0) {
-        LLOGE("airui_init failed: create lv tick timer failed, ret=%d", ret);
+    // 启动运行时定时器
+    ret = airui_start_runtime_timers(ctx);
+    if (ret != AIRUI_OK) {
         airui_deinit(ctx);
-        return AIRUI_ERR_INIT_FAILED;
-    }
-    
-    // 启动定时器：5ms 超时，重复执行
-    ret = luat_rtos_timer_start(g_lv_tick_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
-    if (ret != 0) {
-        LLOGE("airui_init failed: start lv tick timer failed, ret=%d", ret);
-        luat_rtos_timer_delete(g_lv_tick_timer);
-        g_lv_tick_timer = NULL;
-        airui_deinit(ctx);
-        return AIRUI_ERR_INIT_FAILED;
-    }
-    
-    // 创建自动刷新定时器
-    int ret_refresh = luat_rtos_timer_create(&g_lv_refresh_timer);
-    if (ret_refresh != 0) {
-        LLOGE("airui_init failed: create lv refresh timer failed, ret=%d", ret_refresh);
-        airui_deinit(ctx);
-        return AIRUI_ERR_INIT_FAILED;
-    }
-
-    // 启动自动刷新定时器，周期为 AIRUI_REFRESH_PERIOD_MS，当前为33ms
-    ret_refresh = luat_rtos_timer_start(g_lv_refresh_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, NULL);
-    if (ret_refresh != 0) {
-        LLOGE("airui_init failed: start lv refresh timer failed, ret=%d", ret_refresh);
-        luat_rtos_timer_delete(g_lv_refresh_timer);
-        g_lv_refresh_timer = NULL;
-        airui_deinit(ctx);
-        return AIRUI_ERR_INIT_FAILED;
+        return ret;
     }
 
     LLOGD("airui_init success: %dx%d, color_format=%d", width, height, color_format);
     
+    return AIRUI_OK;
+}
+
+// 休眠 AIRUI
+int airui_sleep(airui_ctx_t *ctx)
+{
+    int ret = AIRUI_OK;
+
+    if (ctx == NULL || ctx->display == NULL) {
+        LLOGE("airui_sleep invalid ctx=%p display=%p", ctx, ctx ? ctx->display : NULL);
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+
+    if (ctx->sleeping) {
+        LLOGW("airui_sleep ignored already sleeping ctx=%p", ctx);
+        return AIRUI_OK;
+    }
+
+    airui_pause_lvgl_timers(ctx);
+
+    if (ctx->tick_rtos_timer != NULL) {
+        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->tick_rtos_timer);
+    }
+    if (ctx->refresh_rtos_timer != NULL) {
+        luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
+    }
+
+    ctx->sleeping = true;
+
+    if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->suspend != NULL) {
+        ret = ctx->ops->display_ops->suspend(ctx);
+        if (ret != 0) {
+            ctx->sleeping = false;
+            LLOGE("airui_sleep suspend failed restore runtime ctx=%p", ctx);
+            airui_resume_lvgl_timers(ctx);
+            if (ctx->tick_rtos_timer != NULL) {
+                luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
+            }
+            if (ctx->refresh_rtos_timer != NULL) {
+                luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+            }
+            return ret;
+        }
+    }
+
+    return AIRUI_OK;
+}
+
+// 唤醒 AIRUI
+int airui_wakeup(airui_ctx_t *ctx)
+{
+    int ret = AIRUI_OK;
+
+    if (ctx == NULL || ctx->display == NULL) {
+        LLOGE("airui_wakeup invalid ctx=%p display=%p", ctx, ctx ? ctx->display : NULL);
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+
+    if (!ctx->sleeping) {
+        LLOGW("airui_wakeup ignored not sleeping ctx=%p", ctx);
+        return AIRUI_OK;
+    }
+
+    if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->resume != NULL) {
+        ret = ctx->ops->display_ops->resume(ctx);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
+    if (ctx->tick_rtos_timer != NULL) {
+        ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->tick_rtos_timer, 5, 1, airui_lv_tick_timer_handler, NULL);
+        if (ret != 0) {
+            LLOGE("airui_wakeup start tick_rtos_timer failed ret=%d ctx=%p", ret, ctx);
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    }
+    if (ctx->refresh_rtos_timer != NULL) {
+        ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
+        if (ret != 0) {
+            LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);
+            return AIRUI_ERR_PLATFORM_ERROR;
+        }
+    }
+
+    airui_resume_lvgl_timers(ctx);
+    ctx->sleeping = false;
+    lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
+    if (act_scr != NULL) {
+        lv_obj_invalidate(act_scr);
+    }
+    lv_refr_now(ctx->display);
+    return AIRUI_OK;
+}
+
+// 全屏刷新 
+int airui_full_refresh(airui_ctx_t *ctx)
+{
+    lv_obj_t *act_scr = NULL;
+
+    if (ctx == NULL || ctx->display == NULL) {
+        LLOGE("airui_full_refresh invalid ctx=%p display=%p", ctx, ctx ? ctx->display : NULL);
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+
+    if (ctx->sleeping) {
+        LLOGW("airui_full_refresh ignored while sleeping ctx=%p", ctx);
+        return AIRUI_ERR_PLATFORM_ERROR;
+    }
+
+    act_scr = lv_display_get_screen_active(ctx->display);
+    if (act_scr == NULL) {
+        LLOGW("airui_full_refresh active screen missing ctx=%p display=%p", ctx, ctx->display);
+        return AIRUI_ERR_PLATFORM_ERROR;
+    }
+
+    lv_obj_invalidate(act_scr);
+    lv_refr_now(ctx->display);
     return AIRUI_OK;
 }
 
@@ -365,21 +594,8 @@ void airui_deinit(airui_ctx_t *ctx)
     // 释放调试信息数据
     airui_debug_deinit(ctx);
     
-    // 停止并删除 LVGL tick 定时器
-    if (g_lv_tick_timer != NULL) {
-        luat_rtos_timer_stop(g_lv_tick_timer);
-        luat_rtos_timer_delete(g_lv_tick_timer);
-        g_lv_tick_timer = NULL;
-        LLOGD("lv tick timer stopped");
-    }
-
-    // 删除自动刷新定时器
-    if (g_lv_refresh_timer != NULL) {
-        luat_rtos_timer_stop(g_lv_refresh_timer);
-        luat_rtos_timer_delete(g_lv_refresh_timer);
-        g_lv_refresh_timer = NULL;
-        LLOGD("lv refresh timer stopped");
-    }
+    // 停止运行时定时器
+    airui_stop_runtime_timers(ctx);
     
     // 清理平台驱动
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->deinit != NULL) {

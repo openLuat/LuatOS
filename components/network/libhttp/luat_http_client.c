@@ -99,12 +99,12 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGI("http close %p", http_ctrl);
 	if (http_ctrl == NULL) {
-		LLOGE("http_ctrl is NULL");
+		// LLOGE("http_ctrl is NULL");
 		return -1;
 	}
 	http_ctrl = luat_http_idg_get(http_ctrl->idg);
 	if (http_ctrl == NULL) {
-		LLOGE("http_ctrl is NULL after idg get");
+		// LLOGE("http_ctrl is NULL after idg get");
 		return -1;
 	}
 	luat_http_idg_unreg(http_ctrl->idg);
@@ -758,13 +758,13 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	uint32_t idg = (uint32_t)(intptr_t)param;
 	luat_http_ctrl_t *http_ctrl = luat_http_idg_get(idg);
 	if (!http_ctrl) {
-		LLOGE("http_ctrl is NULL for idg %d", idg);
+		// LLOGE("http_ctrl is NULL for idg %d", idg);
 		return -1;
 	}
 	int ret = 0;
 	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (http_ctrl == NULL || http_ctrl->netc == NULL){
-		LLOGE("http_ctrl is NULL");
+		// LLOGE("http_ctrl is NULL");
 		return -1;
 	}
 	if (!http_ctrl->luatos_mode) {

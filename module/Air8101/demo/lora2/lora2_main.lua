@@ -1,8 +1,8 @@
 --[[
 @module  lora2_main
 @summary lora2功能测试主模块
-@version 1.0
-@date    2025.11.23
+@version 1.1
+@date    2026.3.10
 @author  王世豪
 @usage
 本功能模块演示的内容为：
@@ -32,15 +32,16 @@ local RECEIVE_TIMEOUT = 3000  -- 接收超时时间3秒
 --[[
 event值有：
     tx_done     -- 发送完成：数据已成功发送
-    rx_done     -- 接收完成：成功接收到数据
+    rx_done     -- 接收完成：成功接收到数据，参数包括：data(数据), size(长度), rssi(信号强度), snr(信噪比)
     rx_timeout  -- 接收超时：在指定时间内未收到数据
     rx_error    -- 接收错误：接收过程中发生错误
 __]]
-function callback(lora_device, event, data, size)
+function callback(lora_device, event, data, size, rssi, snr)
     if event == "tx_done" then
         sys.sendMsg(TASK_NAME, "LORA_EVENT", "tx_done")
     elseif event == "rx_done" then
-        sys.sendMsg(TASK_NAME, "LORA_EVENT", "rx_done", data, size)
+        local rx_data = {data=data, size=size, rssi=rssi, snr=snr}
+        sys.sendMsg(TASK_NAME, "LORA_EVENT", "rx_done", rx_data)
     elseif event == "rx_timeout" then
         sys.sendMsg(TASK_NAME, "LORA_EVENT", "rx_timeout")
     elseif event == "rx_error" then
@@ -137,9 +138,9 @@ local function lora2_main_task_func()
                 lora_device:recv(RECEIVE_TIMEOUT)
 
             elseif msg[2]== "rx_done" then
-                log.info("lora2_main", "接收完成", "数据长度:", msg[4])
+                log.info("lora2_main", "接收完成", "数据长度:", msg[3].size)
                 -- 交由receiver模块处理数据
-                lora2_receiver.proc(msg[3], msg[4], lora_device)
+                lora2_receiver.proc(msg[3].data, msg[3].size, msg[3].rssi, msg[3].snr, lora_device)
                 -- 处理完成后启动接收
                 lora_device:recv(RECEIVE_TIMEOUT)
 

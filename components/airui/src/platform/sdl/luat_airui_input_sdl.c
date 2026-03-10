@@ -9,6 +9,8 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_lcd.h"
+#include "luat_sdl2.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
@@ -338,9 +340,15 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         uint16_t width;
         uint16_t height;
         lv_color_format_t color_format;
+        uint8_t reuse_lcd;
+        luat_lcd_conf_t *lcd_conf;
     } sdl_display_data_t;
     
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
+    SDL_Window *window = display_data->window;
+    if (window == NULL && display_data->reuse_lcd) {
+        window = (SDL_Window *)luat_sdl2_get_window();
+    }
     
     // 输入数据存储在静态变量中（因为 platform_data 已被显示驱动使用）
     static sdl_input_data_t input_data = {0};
@@ -383,8 +391,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     if (has_event) {
         // 获取 SDL 窗口的实际大小（逻辑大小，考虑高 DPI 缩放）
         int window_w = 0, window_h = 0;
-        if (display_data->window != NULL) {
-            SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+        if (window != NULL) {
+            SDL_GetWindowSize(window, &window_w, &window_h);
         }
         
         // 如果无法获取窗口大小，使用显示驱动的存储值
@@ -472,11 +480,21 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         uint16_t width;
         uint16_t height;
         lv_color_format_t color_format;
+        uint8_t reuse_lcd;
+        luat_lcd_conf_t *lcd_conf;
     } sdl_display_data_t;
 
     // 获取 display_data 指针并判空
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
-    if (display_data == NULL || display_data->window == NULL) {
+    if (display_data == NULL) {
+        return;
+    }
+
+    SDL_Window *window = display_data->window;
+    if (window == NULL && display_data->reuse_lcd) {
+        window = (SDL_Window *)luat_sdl2_get_window();
+    }
+    if (window == NULL) {
         return;
     }
 
@@ -495,8 +513,8 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     // 获取窗口实际像素尺寸（窗口可缩放情况下）
     int window_w = display_data->width;
     int window_h = display_data->height;
-    if (display_data->window != NULL) {
-        SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+    if (window != NULL) {
+        SDL_GetWindowSize(window, &window_w, &window_h);
     }
 
     // 按实际窗口尺寸缩放 LVGL 坐标

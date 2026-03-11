@@ -171,10 +171,10 @@ static int luat_little_flash_erase_write(lua_State *L){
 }
 
 /*
-获取 Flash 容量和page大小
+获取 Flash 信息
 @api  lf.getInfo(flash)
 @userdata flash Flash 设备对象 lf.init()返回的数据结构
-@return int Flash 容量 (byte)
+@return int capacity 总容量 (byte)
 @return int prog_size 编程最小单位 (byte)
 @return int erase_size 擦除最小单位 (byte)
 @usage

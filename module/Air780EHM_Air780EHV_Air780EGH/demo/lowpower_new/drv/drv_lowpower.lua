@@ -17,6 +17,12 @@ GPIO23作为GNSS备电电源开关和Gsensor电源开关，默认状态下为高
 在低功耗模式示例代码中，并未对GPIO23进行配置，默认状态下为高电平，以此演示低功耗模式下的实际功耗表现；
 
 
+Air780EHV模组内部包含有Audio Codec芯片ES8311；GPIO20作为Audio Codec芯片ES8311的供电使能开关；
+在本应用demo中无须单独对GPIO20进行配置，一般是结合对应的Audio功能代码进行操作；
+如果在本应用demo中配置了GPIO20为输出高电平，此时Audio Codec芯片功耗表现为45uA左右；
+在低功耗模式下，并未对GPIO20进行配置，默认状态下为输入高阻态，以此演示低功耗模式下的实际功耗表现；
+
+
 本文件的对外接口只有1个：
 1、sys.subscribe("DRV_SET_LOWPOWER", set_drv_lowpower)：订阅"DRV_SET_LOWPOWER"消息；
    其他应用模块如果需要配置低功耗模式，直接sys.publish("DRV_SET_LOWPOWER")这个消息即可；

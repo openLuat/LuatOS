@@ -1,16 +1,18 @@
 -- APN配置页面
-local apn_page = {}
+local apn_win = {}
+local exwin = require "exwin"
 
+local win_id = nil
 local main_container, content
 local apn_input, user_input, pass_input
 
-function apn_page.create_ui()
+local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
     -- 顶部返回栏
     local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
-    local back_btn =  airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5,text = "返回",
-        on_click = function() _G.go_back() end
+    local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
+        on_click = function() if win_id then exwin.close(win_id) end end
     })
 
     airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="APN配置", font_size=24, color=0xffffff })
@@ -40,13 +42,35 @@ function apn_page.create_ui()
     })
 end
 
-function apn_page.init()
-    apn_page.create_ui()
-    -- 加载已保存的APN
+function apn_win.on_create(id)
+    win_id = id
+    create_ui()
+    -- 可加载已保存的APN
+    -- 例如: local saved = settings.get("apn")
 end
 
-function apn_page.cleanup()
+function apn_win.on_destroy(id)
     if main_container then main_container:destroy(); main_container = nil end
+    win_id = nil
 end
 
-return apn_page
+function apn_win.on_get_focus(id)
+    -- 获得焦点时可刷新数据
+end
+
+function apn_win.on_lose_focus(id)
+    -- 失去焦点时可暂停操作
+end
+
+-- 订阅打开APN配置页面的消息
+local function open_handler()
+    exwin.open({
+        on_create = apn_win.on_create,
+        on_destroy = apn_win.on_destroy,
+        on_get_focus = apn_win.on_get_focus,
+        on_lose_focus = apn_win.on_lose_focus,
+    })
+end
+sys.subscribe("OPEN_APN_WIN", open_handler)
+
+return apn_win

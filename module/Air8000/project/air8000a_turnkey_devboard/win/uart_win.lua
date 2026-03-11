@@ -1,18 +1,32 @@
 -- 串口页面
-local uart_page = {}
+local uart_win = {}
+local exwin = require "exwin"
 
+local win_id = nil
 local main_container, content
 local uart_dropdown, baud_dropdown, send_input, receive_area
 
-function uart_page.create_ui()
+local function update_receive(data)
+    if not exwin.is_active(win_id) then return end
+    if receive_area then
+        local old = receive_area:get_text() or ""
+        receive_area:set_text(old .. data)
+    end
+end
+
+local function uart_rx_handler(data)
+    update_receive(data)
+end
+
+local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
     -- 顶部返回栏
     local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
-    local back_btn =  airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5,text = "返回",
-        on_click = function() _G.go_back() end
+    local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
+        on_click = function() if win_id then exwin.close(win_id) end end
     })
-  
+
     airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="串口", font_size=24, color=0xffffff })
 
     content = airui.container({ parent = main_container, x=0, y=50, w=480, h=270, color=0xF3F4F6 })
@@ -57,18 +71,39 @@ function uart_page.create_ui()
     receive_area = airui.textarea({
         parent = content, x=10, y=160, w=460, h=100,
         placeholder = "接收到的数据将显示在这里",
-        read_only = true  -- 假设支持只读
+        read_only = true
     })
 end
 
-function uart_page.init()
-    uart_page.create_ui()
-    -- TODO: 订阅串口接收事件，更新 receive_area
+function uart_win.on_create(id)
+    win_id = id
+    create_ui()
+    sys.subscribe("UART_RX_DATA", uart_rx_handler)
 end
 
-function uart_page.cleanup()
+function uart_win.on_destroy(id)
+    sys.unsubscribe("UART_RX_DATA", uart_rx_handler)
     if main_container then main_container:destroy(); main_container = nil end
+    win_id = nil
     -- 关闭串口
 end
 
-return uart_page
+function uart_win.on_get_focus(id)
+    -- 刷新
+end
+
+function uart_win.on_lose_focus(id)
+    -- 可暂停接收显示（但订阅仍会触发，只是 is_active 阻止UI更新）
+end
+
+local function open_handler()
+    exwin.open({
+        on_create = uart_win.on_create,
+        on_destroy = uart_win.on_destroy,
+        on_get_focus = uart_win.on_get_focus,
+        on_lose_focus = uart_win.on_lose_focus,
+    })
+end
+sys.subscribe("OPEN_UART_WIN", open_handler)
+
+return uart_win

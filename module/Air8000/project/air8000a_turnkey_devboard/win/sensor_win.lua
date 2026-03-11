@@ -1,18 +1,37 @@
--- 传感器页面（包含温湿度和空气质量）
-local sensor_page = {}
+-- 传感器页面
+local sensor_win = {}
+local exwin = require "exwin"
 
+local win_id = nil
 local main_container, content
 local temp_label, hum_label, voc_label
 
-function sensor_page.create_ui()
+local function update_sensor_data(data_t, data_h, data_voc)
+    if not exwin.is_active(win_id) then return end
+    if temp_label then
+        temp_label:set_text(data_t and string.format("%.1f ℃", data_t) or "-- ℃")
+    end
+    if hum_label then
+        hum_label:set_text(data_h and string.format("%.0f %%", data_h) or "-- %")
+    end
+    if voc_label then
+        voc_label:set_text(data_voc and string.format("%d ppb", data_voc) or "-- ppb")
+    end
+end
+
+local function sensor_data_handler(data_t, data_h, data_voc)
+    update_sensor_data(data_t, data_h, data_voc)
+end
+
+local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
     -- 顶部返回栏
     local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
-    local back_btn =  airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5,text = "返回",
-        on_click = function() _G.go_back() end
+    local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
+        on_click = function() if win_id then exwin.close(win_id) end end
     })
-  
+
     airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="传感器", font_size=24, color=0xffffff })
 
     content = airui.container({ parent = main_container, x=0, y=50, w=480, h=270, color=0xF3F4F6 })
@@ -56,15 +75,37 @@ function sensor_page.create_ui()
     airui.label({ parent = content, x=370, y=210, w=100, h=20, text="自动上传", font_size=16, color=0x000000 })
 end
 
-function sensor_page.init()
-    sensor_page.create_ui()
-    -- TODO: 订阅传感器数据事件，更新标签
-    -- sys.subscribe("SENSOR_DATA", function(temp, hum, voc) ... end)
+function sensor_win.on_create(id)
+    win_id = id
+    create_ui()
+    sys.subscribe("SENSOR_DATA", sensor_data_handler)
+    -- 主动请求一次数据
+    sys.publish("read_sensors_req")
 end
 
-function sensor_page.cleanup()
+function sensor_win.on_destroy(id)
+    sys.unsubscribe("SENSOR_DATA", sensor_data_handler)
     if main_container then main_container:destroy(); main_container = nil end
-    -- 取消订阅
+    win_id = nil
 end
 
-return sensor_page
+function sensor_win.on_get_focus(id)
+    -- 刷新数据
+    sys.publish("read_sensors_req")
+end
+
+function sensor_win.on_lose_focus(id)
+    -- 可暂停自动上传等
+end
+
+local function open_handler()
+    exwin.open({
+        on_create = sensor_win.on_create,
+        on_destroy = sensor_win.on_destroy,
+        on_get_focus = sensor_win.on_get_focus,
+        on_lose_focus = sensor_win.on_lose_focus,
+    })
+end
+sys.subscribe("OPEN_SENSOR_WIN", open_handler)
+
+return sensor_win

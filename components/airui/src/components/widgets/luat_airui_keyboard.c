@@ -380,7 +380,7 @@ void airui_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, airui_keyboard_d
 
 /**
  * 将 Lua 方式传入的模式字符串转换为 LVGL 的枚举值
- * @param mode Lua 端模式，支持 "upper"/"special"/"numeric"
+ * @param mode Lua 端模式，支持 "text"/"upper"/"special"/"numeric"/"pinyin_26"/"pinyin_9"
  * @return 对应的 lv_keyboard_mode_t，默认小写文本
  */
 static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
@@ -388,6 +388,21 @@ static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
     if (mode == NULL || strcmp(mode, "text") == 0) {
         LLOGI("键盘设置为默认小写文本模式: \"text\"");
         return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_26") == 0) {
+        LLOGI("键盘模式设置为拼音26键模式: \"pinyin_26\"");
+        return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_9") == 0) {
+        LLOGI("键盘模式设置为拼音9键模式: \"pinyin_9\"");
+        return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_9_number") == 0) {
+        LLOGI("键盘模式设置为拼音9键数字模式: \"pinyin_9_number\"");
+        return LV_KEYBOARD_MODE_NUMBER;
     }
 
     if (strcmp(mode, "upper") == 0) {
@@ -407,6 +422,38 @@ static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
 
     LLOGI("mode 参数\"%s\"无效, 键盘模式设置为小写文本模式: \"text\"", mode);
     return LV_KEYBOARD_MODE_TEXT_LOWER;
+}
+
+static void airui_keyboard_apply_pinyin_mode(airui_keyboard_data_t *data, const char *mode)
+{
+#if LV_USE_IME_PINYIN
+    if (data == NULL || data->ime == NULL || mode == NULL) {
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_9") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9);
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_9_number") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9_NUMBER);
+        lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_NUMBER);
+        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        if (cand_panel != NULL) {
+            lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_26") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K26);
+        lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_TEXT_LOWER);
+    }
+#else
+    (void)data;
+    (void)mode;
+#endif
 }
 
 /**
@@ -504,6 +551,8 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
         }
         LLOGI("打开中文输入法支持，词典数量：%d", dict_count);
 #endif
+
+        airui_keyboard_apply_pinyin_mode(data, mode);
 
     }
 #endif

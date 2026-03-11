@@ -465,7 +465,7 @@ function http_response.test_download_agps()
 end
 
 -- 测试访问天地图，验证会忽略Connection: close请求头的服务器，是否会一直等到超时
-function http_response.test_test()
+function http_response.test_http_tianditu_timeout()
     local req_headers = {
         ["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1",
         ["Connection"] = "keep-alive"
@@ -484,12 +484,12 @@ function http_response.test_test()
     -- 获取请求之后的时间戳
     local end_time = os.time()
     local elapsed_time = end_time - start_time
-    log.info("http_response", "test_test", code, headers, body, "耗时", elapsed_time, "秒")
-    assert(code == 200, "test_test测试失败: 预期 200, 实际 " .. tostring(code))
+    log.info("http_response", "test_http_tianditu_timeout", code, headers, body, "耗时", elapsed_time, "秒")
+    assert(code == 200, "test_http_tianditu_timeout测试失败: 预期 200, 实际 " .. tostring(code))
     assert(body and body:find("山东省济南市历下区"),
-        "test_test测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
+        "test_http_tianditu_timeout测试失败: 预期响应包含 '山东省济南市历下区', 实际响应 " .. tostring(body))
     assert(elapsed_time < 8,
-        "test_test测试失败: 预期耗时 < 8秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
+        "test_http_tianditu_timeout测试失败: 预期耗时 < 8秒, 实际耗时 " .. tostring(elapsed_time) .. "秒")
 end
 
 -- PUT：基本请求，无请求头、无body

@@ -314,8 +314,8 @@ int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    // 将 keyboard 联动到本 textarea
-    lv_keyboard_set_textarea(keyboard, textarea);
+    // 将 keyboard 联动到本 textarea，并同步 AirUI 内部 target
+    airui_keyboard_set_target(keyboard, textarea);
 
     // 读取已有 metadata，便于存储 keyboard 指针
     airui_component_meta_t *meta = airui_component_meta_get(textarea);

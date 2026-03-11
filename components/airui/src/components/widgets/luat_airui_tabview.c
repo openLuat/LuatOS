@@ -7,8 +7,10 @@
 #include "luat_airui_component.h"
 #include "luat_malloc.h"
 #include "lvgl9/lvgl.h"
+#include "lvgl9/src/indev/lv_indev.h"
 #include "lvgl9/src/widgets/tabview/lv_tabview.h"
 #include "lvgl9/src/core/lv_obj.h"
+#include "lvgl9/src/core/lv_obj_scroll.h"
 #include "lvgl9/src/core/lv_obj_style.h"
 #include "lvgl9/src/misc/lv_color.h"
 #include "lua.h"
@@ -16,16 +18,29 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct {
     lv_obj_t **pages;
     uint32_t page_count;
+    uint8_t switch_mode;
+    bool gesture_hooked;
+    airui_ctx_t *ctx;
+    bool pointer_tracking;
+    lv_point_t press_point;
 } airui_tabview_data_t;
+
+typedef enum {
+    AIRUI_TABVIEW_SWITCH_MODE_SWIPE = 0,
+    AIRUI_TABVIEW_SWITCH_MODE_JUMP
+} airui_tabview_switch_mode_t;
 
 typedef struct {
     airui_tabview_pad_method_t pad_method;
     bool has_pad;
     lv_coord_t pad_value;
+    lv_coord_t tabbar_size;
+    bool has_tabbar_size;
     lv_opa_t bg_opa;
     bool has_bg_opa;
     lv_color_t bg_color;
@@ -44,6 +59,105 @@ static void airui_tabview_data_free(airui_tabview_data_t *data)
         luat_heap_free(data->pages);
     }
     luat_heap_free(data);
+}
+
+static airui_tabview_switch_mode_t airui_tabview_parse_switch_mode(const char *mode)
+{
+    if (mode == NULL) {
+        return AIRUI_TABVIEW_SWITCH_MODE_SWIPE;
+    }
+    if (strcmp(mode, "jump") == 0) {
+        return AIRUI_TABVIEW_SWITCH_MODE_JUMP;
+    }
+    return AIRUI_TABVIEW_SWITCH_MODE_SWIPE;
+}
+
+static bool airui_tabview_contains_obj(lv_obj_t *tabview, lv_obj_t *obj)
+{
+    while (obj != NULL) {
+        if (obj == tabview) {
+            return true;
+        }
+        obj = lv_obj_get_parent(obj);
+    }
+    return false;
+}
+
+static void airui_tabview_jump_indev_cb(lv_event_t *e)
+{
+    if (e == NULL) {
+        return;
+    }
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code != LV_EVENT_PRESSED && code != LV_EVENT_RELEASED) {
+        return;
+    }
+
+    lv_indev_t *indev = lv_event_get_current_target(e);
+    lv_obj_t *tabview = (lv_obj_t *)lv_event_get_user_data(e);
+    lv_obj_t *event_obj = (lv_obj_t *)lv_event_get_param(e);
+    if (indev == NULL || tabview == NULL || event_obj == NULL || !lv_obj_is_valid(tabview)) {
+        return;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    if (meta == NULL || meta->user_data == NULL) {
+        return;
+    }
+
+    airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
+    if (data->switch_mode != AIRUI_TABVIEW_SWITCH_MODE_JUMP) {
+        return;
+    }
+
+    if (code == LV_EVENT_PRESSED) {
+        data->pointer_tracking = airui_tabview_contains_obj(tabview, event_obj);
+        if (data->pointer_tracking) {
+            lv_indev_get_point(indev, &data->press_point);
+        }
+        return;
+    }
+
+    if (!data->pointer_tracking) {
+        return;
+    }
+    data->pointer_tracking = false;
+
+    if (!airui_tabview_contains_obj(tabview, event_obj)) {
+        return;
+    }
+
+    lv_point_t release_point;
+    lv_indev_get_point(indev, &release_point);
+    lv_coord_t dx = release_point.x - data->press_point.x;
+    lv_coord_t dy = release_point.y - data->press_point.y;
+    if (LV_ABS(dx) <= 50 || LV_ABS(dx) <= LV_ABS(dy)) {
+        return;
+    }
+
+    int32_t current = (int32_t)lv_tabview_get_tab_active(tabview);
+    int32_t next = current;
+    if (dx < 0) {
+        next++;
+    }
+    else {
+        next--;
+    }
+
+    if (next < 0) {
+        next = 0;
+    }
+    if (next >= (int32_t)data->page_count) {
+        next = (int32_t)data->page_count - 1;
+    }
+    if (next == current) {
+        return;
+    }
+
+    lv_tabview_set_active(tabview, (uint32_t)next, LV_ANIM_OFF);
+    lv_indev_stop_processing(indev);
+    lv_obj_send_event(tabview, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
 /**
@@ -76,6 +190,14 @@ static void airui_tabview_collect_page_style(lua_State *L, int table_idx, airui_
             style->has_pad = true;
         }
         lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+
+    // tab bar 尺寸，设为 0 可隐藏顶部/侧边 tab bar
+    lua_getfield(L, abs_idx, "tabbar_size");
+    if (lua_type(L, -1) == LUA_TNUMBER) {
+        style->tabbar_size = (lv_coord_t)lua_tointeger(L, -1);
+        style->has_tabbar_size = true;
     }
     lua_pop(L, 1);
 
@@ -152,6 +274,51 @@ static void airui_tabview_apply_page_style(lv_obj_t *page, const airui_tabview_p
     }
 }
 
+static void airui_tabview_apply_style(lv_obj_t *tabview, const airui_tabview_page_style_t *style)
+{
+    if (tabview == NULL || style == NULL) {
+        return;
+    }
+
+    if (style->has_tabbar_size) {
+        lv_tabview_set_tab_bar_size(tabview, style->tabbar_size);
+    }
+}
+
+static void airui_tabview_apply_switch_mode(lv_obj_t *tabview, airui_tabview_data_t *data)
+{
+    if (tabview == NULL || data == NULL) {
+        return;
+    }
+
+    if (data->switch_mode != AIRUI_TABVIEW_SWITCH_MODE_JUMP) {
+        return;
+    }
+
+    lv_obj_t *cont = lv_tabview_get_content(tabview);
+    if (cont == NULL) {
+        return;
+    }
+
+    lv_obj_remove_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(cont, LV_DIR_NONE);
+    lv_obj_stop_scroll_anim(cont);
+    for (uint32_t i = 0; i < data->page_count; i++) {
+        lv_obj_t *page = data->pages[i];
+        if (page == NULL) {
+            continue;
+        }
+        lv_obj_remove_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_scroll_dir(page, LV_DIR_NONE);
+        lv_obj_stop_scroll_anim(page);
+    }
+    if (data->ctx != NULL && data->ctx->indev != NULL && !data->gesture_hooked) {
+        lv_indev_add_event_cb(data->ctx->indev, airui_tabview_jump_indev_cb, LV_EVENT_PRESSED, tabview);
+        lv_indev_add_event_cb(data->ctx->indev, airui_tabview_jump_indev_cb, LV_EVENT_RELEASED, tabview);
+        data->gesture_hooked = true;
+    }
+}
+
 /**
  * 判断 page_style 是否包含有效设置
  */
@@ -160,7 +327,7 @@ static bool airui_tabview_page_style_used(const airui_tabview_page_style_t *styl
     if (style == NULL) {
         return false;
     }
-    return style->has_pad || style->has_bg_opa || style->has_bg_color;
+    return style->has_pad || style->has_tabbar_size || style->has_bg_opa || style->has_bg_color;
 }
 
 /**
@@ -195,6 +362,7 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     int h = airui_marshal_integer(L, idx, "h", 200);
     int tabbar_pos = airui_marshal_integer(L, idx, "tabbar_pos", LV_DIR_TOP);
     int active = airui_marshal_integer(L, idx, "active", 0);
+    const char *switch_mode = airui_marshal_string(L, idx, "switch_mode", "swipe");
 
     // 创建 TabView 对象并设置样式
     lv_obj_t *tabview = lv_tabview_create(parent);
@@ -220,11 +388,17 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     }
     lua_pop(L_state, 1);
 
+    airui_tabview_apply_style(tabview, &page_style);
+
     airui_tabview_data_t *data = (airui_tabview_data_t *)luat_heap_malloc(sizeof(airui_tabview_data_t));
     if (data == NULL) {
         lv_obj_delete(tabview);
         return NULL;
     }
+
+    memset(data, 0, sizeof(airui_tabview_data_t));
+    data->ctx = ctx;
+    data->switch_mode = (uint8_t)airui_tabview_parse_switch_mode(switch_mode);
 
     data->pages = (lv_obj_t **)luat_heap_malloc(sizeof(lv_obj_t *) * tab_count);
     if (data->pages == NULL) {
@@ -266,6 +440,7 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
         return NULL;
     }
     meta->user_data = data;
+    airui_tabview_apply_switch_mode(tabview, data);
 
     return tabview;
 }
@@ -308,6 +483,10 @@ void airui_tabview_release_data(airui_component_meta_t *meta)
     }
 
     airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
+    if (data->gesture_hooked && data->ctx != NULL && data->ctx->indev != NULL) {
+        lv_indev_remove_event_cb_with_user_data(data->ctx->indev, airui_tabview_jump_indev_cb, meta->obj);
+        data->gesture_hooked = false;
+    }
     airui_tabview_data_free(data);
     meta->user_data = NULL;
 }

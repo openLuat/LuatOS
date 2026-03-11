@@ -34,7 +34,7 @@ local data_Width = 8    -- 数据宽度(位)
 local bandrate = 2*1000*1000 -- 波特率(Hz)，初始化为2MHz
 -- flash操作起始地址（示例值，需根据需求调整）
 local erase_addr = 4096 
--- 擦除数据的大小（示例值，需匹配 Flash block 大小）
+-- 擦除数据的大小（示例值，需匹配 Flash 扇区 大小）
 local erase_size = 4096   
 --需要操作的数据（示例值，需根据需求调整）
 local data = "testdata"

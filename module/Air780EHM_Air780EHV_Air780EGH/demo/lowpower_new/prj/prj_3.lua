@@ -15,7 +15,7 @@
 
 Air780EGP/EGG模组内部包含有GNSS和Gsensor，Air780EGH模组内部只包含有GNSS，不包含Gsensor；
 GPIO23作为GNSS备电电源开关和Gsensor电源开关，默认状态下为高电平；
-在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为200uA左右，客户应根据实际需求进行配置；
+在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为30uA左右，客户应根据实际需求进行配置；
 在PSM+模式示例代码中，默认配置GPIO23为输入下拉的方式来演示PSM+模式的功耗表现;
 
 

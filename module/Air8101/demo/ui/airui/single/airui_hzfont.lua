@@ -13,80 +13,84 @@ local function ui_main()
     lcd_drv.init()
     tp_drv.init()
 
-    -- 创建主容器
+    -- 创建主容器（白色背景）
     local main_container = airui.container({
         x = 0,
         y = 0,
         w = 800,
         h = 480,
-        color = 0xFFFFFF,  -- 白色背景
+        color = 0xFFFFFF,
     })
 
-    -- 标题区域
+    -- 标题栏（蓝色）
     local title_bar = airui.container({
         parent = main_container,
         x = 0,
         y = 0,
         w = 800,
         h = 80,
-        color = 0x2196F3,  -- 蓝色背景
+        color = 0x2196F3,
     })
 
+    -- 标题：使用大字号 + 白色
     local title_label = airui.label({
         parent = title_bar,
-        text = "HzFont矢量字体演示",
+        text = "HzFont 矢量字体演示 (Vector Font Demo)",
         x = 10,
         y = 20,
-        w = 300,
+        w = 780,
         h = 40,
+        font_size = 32, -- 大字号突出标题
+        color = 0xFFFFFF, -- 白色文字
+        align = airui.TEXT_ALIGN_CENTER
     })
 
-    -- 内容区域
+    -- 内容区域（浅灰色圆角背景）
     local content_area = airui.container({
         parent = main_container,
         x = 40,
         y = 100,
         w = 720,
         h = 340,
-        color = 0xF8F9FA,  -- 浅灰色背景
-        radius = 8,        -- 圆角
+        color = 0xF8F9FA,
+        radius = 8,
     })
 
-    -- 第1行：全字号无级缩放 - 使用最大字号
+    -- 第1行：超大字号演示无级缩放（含英文、符号）
     local line1_label = airui.label({
         parent = content_area,
-        text = "全字号无级缩放：完整支持 12-255 字号，可随意指定任意大小，满足精细化的界面排版需求。",
+        text = "全字号无级缩放：字号 48 (Scale: 48px)",
         x = 20,
-        y = 30,
+        y = 20,
         w = 680,
-        h = 60,
+        h = 120,
+        font_size = 48, -- 超大字号
+        color = 0xE63946, -- 鲜艳红色
     })
-    
-    -- 第2行：智能抗锯齿优化 - 使用中等字号和不同颜色
+
+    -- 第2行：中等字号 + 智能抗锯齿（多颜色）
     local line2_label = airui.label({
         parent = content_area,
-        text = "智能抗锯齿优化：支持可调节的抗锯齿等级，有效平滑字体边缘，提升显示细腻度与视觉效果。",
+        text = "智能抗锯齿优化：字号 28  Anti-aliasing  中文 English",
         x = 20,
-        y = 110,
+        y = 150,
         w = 680,
-        h = 50,
+        h = 70,
+        font_size = 28, -- 中等字号
+        color = 0x2A9D8F, -- 翠绿色
     })
-    
-    -- 第3行：字体使用高度自由 - 使用小字号和不同颜色
+
+    -- 第3行：小字号展示多语言和符号（长文本）
     local line3_label = airui.label({
         parent = content_area,
-        text = "字体使用高度自由：既可使用固件内置字库快速上手，也能轻松加载外部 .ttf 字体文件，便于对定制字体与多国语言的支持。",
+        text = "字体使用高度自由：内置字库 / 外部.ttf。支持中英符号",
         x = 20,
-        y = 180,
+        y = 240,
         w = 680,
-        h = 80,
+        h = 30,
+        font_size = 24, -- 较小字号，适合多行文本
+        color = 0x264653, -- 深蓝灰色
     })
-    
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
 end
 
 sys.taskInit(ui_main)

@@ -68,43 +68,48 @@ function label_page.create_ui()
         color = 0xF5F5F5,
     })
 
+    local current_y = 10
+
     -- 示例1: 基本文本标签
     airui.label({
         parent = scroll_container,
         text = "示例1: 基本文本标签",
         x = 10,
-        y = 10,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local label1 = airui.label({
         parent = scroll_container,
         text = "这是一个文本标签",
         x = 20,
-        y = 40,
+        y = current_y,
         w = 280,
         h = 30,
         font_size = 14,
     })
+    current_y = current_y + 40
 
     -- 示例2: 图标标签（使用符号）
     airui.label({
         parent = scroll_container,
         text = "示例2: 图标标签",
         x = 10,
-        y = 80,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local icon_label = airui.label({
         parent = scroll_container,
         symbol = airui.SYMBOL_SETTINGS,                     -- 使用符号字符串
         x = 20,
-        y = 115,
+        y = current_y,
         w = 40,
         h = 40,
         font_size = 24,
@@ -117,28 +122,30 @@ function label_page.create_ui()
         parent = scroll_container,
         text = "点击图标",
         x = 70,
-        y = 120,
+        y = current_y + 5,
         w = 100,
         h = 30,
         font_size = 14,
     })
+    current_y = current_y + 50
 
     -- 示例3: 动态更新文本
     airui.label({
         parent = scroll_container,
         text = "示例3: 动态更新文本",
         x = 10,
-        y = 160,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local dynamic_label = airui.label({
         parent = scroll_container,
         text = "初始文本",
         x = 20,
-        y = 190,
+        y = current_y,
         w = 200,
         h = 30,
         font_size = 14,
@@ -147,7 +154,7 @@ function label_page.create_ui()
     local update_btn = airui.button({
         parent = scroll_container,
         x = 230,
-        y = 185,
+        y = current_y - 5,
         w = 70,
         h = 40,
         text = "更新",
@@ -156,44 +163,48 @@ function label_page.create_ui()
             dynamic_label:set_text("时间: " .. current_time)
         end
     })
+    current_y = current_y + 50
 
     -- 示例4: 多行文本
     airui.label({
         parent = scroll_container,
         text = "示例4: 多行文本",
         x = 10,
-        y = 240,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local multiline_label = airui.label({
         parent = scroll_container,
         text = "这是一个多行文本标签，可以显示较长的文本内容。标签支持自动换行功能。",
         x = 20,
-        y = 270,
+        y = current_y,
         w = 280,
         h = 60,
         font_size = 14,
     })
+    current_y = current_y + 70
 
     -- 示例5: 不同字体大小和颜色
     airui.label({
         parent = scroll_container,
         text = "示例5: 不同字体大小和颜色",
         x = 10,
-        y = 330,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local size_label1 = airui.label({
         parent = scroll_container,
         text = "12px 红色",
         x = 20,
-        y = 360,
+        y = current_y,
         w = 100,
         h = 30,
         font_size = 12,
@@ -204,7 +215,7 @@ function label_page.create_ui()
         parent = scroll_container,
         text = "16px 绿色",
         x = 130,
-        y = 360,
+        y = current_y,
         w = 100,
         h = 30,
         font_size = 16,
@@ -215,12 +226,114 @@ function label_page.create_ui()
         parent = scroll_container,
         text = "20px 蓝色",
         x = 240,
-        y = 360,
+        y = current_y,
         w = 60,
         h = 50,
         font_size = 20,
         color = 0x0000FF,
     })
+    current_y = current_y + 60
+
+    -- 示例6: 对齐方式 (V1.1.0 新增)
+    airui.label({
+        parent = scroll_container,
+        text = "示例6: 对齐方式",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local align_container = airui.container({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 120,
+        color = 0xEEEEEE,
+        radius = 8,
+    })
+    current_y = current_y + 130
+
+    airui.label({
+        parent = align_container,
+        text = "左对齐",
+        x = 10,
+        y = 10,
+        w = 80,
+        h = 30,
+        font_size = 14,
+        align = airui.TEXT_ALIGN_LEFT,   -- 默认左对齐
+    })
+
+    airui.label({
+        parent = align_container,
+        text = "居中对齐",
+        x = 100,
+        y = 10,
+        w = 80,
+        h = 30,
+        font_size = 14,
+        align = airui.TEXT_ALIGN_CENTER, -- 居中
+    })
+
+    airui.label({
+        parent = align_container,
+        text = "右对齐",
+        x = 190,
+        y = 10,
+        w = 80,
+        h = 30,
+        font_size = 14,
+        align = airui.TEXT_ALIGN_RIGHT,  -- 右对齐
+    })
+
+    -- 示例7: 自定义字体句柄 (V1.1.0 新增)
+    airui.label({
+        parent = scroll_container,
+        text = "示例7: 自定义字体",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    -- 加载外置字体（假设有字体文件）
+    local font_hz = airui.font_load({
+        type = "hzfont",
+        path = "/luadb/msyh.ttf",  -- 需实际存在
+        size = 20,
+    })
+
+    if font_hz then
+        airui.label({
+            parent = scroll_container,
+            text = "使用外置字体: 微软雅黑",
+            x = 20,
+            y = current_y,
+            w = 280,
+            h = 30,
+            font = font_hz,
+            font_size = 20,
+            color = 0x333333,
+        })
+        current_y = current_y + 40
+    else
+        airui.label({
+            parent = scroll_container,
+            text = "外置字体加载失败，使用默认字体",
+            x = 20,
+            y = current_y,
+            w = 280,
+            h = 30,
+            color = 0x999999,
+        })
+        current_y = current_y + 40
+    end
 
     -- 底部信息
     airui.label({

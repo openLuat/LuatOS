@@ -24,11 +24,10 @@ local function ui_main()
 
     -- 创建开关
 -- 使用一个变量来跟踪当前状态
-    local is_on = true -- 初始为ON，与switch的checked=true对应
+    local is_on = true -- 初始为ON
     local sw = airui.switch({
         x = 20,
         y = 120,
-        checked = true,
         on_change = function()
             -- 切换状态
             is_on = not is_on
@@ -41,11 +40,7 @@ local function ui_main()
         end
     })
 
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
+
 end
 
 sys.taskInit(ui_main)

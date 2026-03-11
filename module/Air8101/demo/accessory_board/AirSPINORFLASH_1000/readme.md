@@ -161,7 +161,7 @@
 [2025-11-19 14:39:12.075] luat:I(205):sfud:LuatOS-sfud flash device initialized successfully.
 [2025-11-19 14:39:12.082] luat:U(205):I/user.获取flash设备信息表: userdata: 280032B4
 [2025-11-19 14:39:12.082] luat:U(205):I/user.获取 Flash 容量和page大小： 8388608 4096
-[2025-11-19 14:39:12.169] luat:U(285):I/user.擦除一个块的数据： 0
+[2025-11-19 14:39:12.169] luat:U(285):I/user.擦除一个扇区的数据： 0
 [2025-11-19 14:39:12.169] luat:U(287):I/user.写入数据： 0
 [2025-11-19 14:39:12.178] luat:U(299):I/user.读取数据： luat:U(299):testdatluat:U(300):
 

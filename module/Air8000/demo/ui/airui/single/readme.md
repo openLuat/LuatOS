@@ -33,12 +33,13 @@
 3.  **`airui_input.lua`** - 输入框和虚拟键盘演示
 4.  **`airui_msgbox.lua`** - 消息框组件演示
 
-### 2.4 布局与高级组件演示
 1.  **`airui_table.lua`** - 表格组件演示
 2.  **`airui_tabview.lua`** - 选项卡组件演示
 3.  **`airui_win.lua`** - 窗口组件演示
 4.  **`airui_switch_page.lua`** - 多页面切换功能演示
 5.  **`airui_all_component.lua`** - 所有组件综合演示
+6.  **`airui_chart.lua`** - 图表组件演示
+7.  **`airui_qrcode.lua`** - 二维码组件演示
 
 ### 2.5 字体渲染演示
 1.  **`airui_hzfont.lua`** - HzFont 矢量字体特性演示
@@ -173,6 +174,8 @@ tp_drv = require("tp_drv")
 require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
+-- require("airui_chart")  --图表组件演示
+-- require("airui_qrcode") --二维码组件演示
 ```
 
 ### 7.3 软件烧录步骤

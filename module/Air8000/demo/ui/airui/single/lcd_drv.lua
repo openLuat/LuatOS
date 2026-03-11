@@ -72,7 +72,7 @@ function lcd_drv.init()
             path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
             size = 16,         -- 字体大小，默认 16
             cache_size = 1048, -- 缓存字数大小，默认 2048
-            antialias = 1,     -- 抗锯齿等级，默认 4
+            antialias = 4,     -- 抗锯齿等级，默认 4
         })
 
         -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示

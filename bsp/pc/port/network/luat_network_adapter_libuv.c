@@ -309,6 +309,7 @@ static void on_recv(uv_stream_t *handler,
         if (ptr == NULL)
         {
             LLOGD("socket[%d] 内存不足, 无法存放更多接收到的数据", socket_id);
+            luat_heap_free(buf->base);
             cb_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, (size_t)sockets[socket_id].param);
             return;
         }

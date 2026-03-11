@@ -36,7 +36,7 @@ local data_Width = 8    -- 数据宽度(位)
 local bandrate = 2*1000*1000 -- 波特率(Hz)，初始化为2MHz
 -- flash操作起始地址（示例值，需根据需求调整）
 local erase_addr = 4096 
--- 擦除数据的大小（示例值，需匹配 Flash block 大小）
+-- 擦除数据的大小（示例值，需匹配 Flash 扇区 大小）
 local erase_size = 4096   
 --需要操作的数据（示例值，需根据需求调整）
 local data = "testdata"
@@ -190,7 +190,7 @@ local function spinor_test_func()
     local sfud_device = sfud.getDeviceTable()    
     log.info("获取flash设备信息表:", sfud_device)
     log.info("获取 Flash 容量和page大小：", sfud.getInfo(sfud_device))
-    log.info("擦除一个块的数据：", sfud.erase(sfud_device, erase_addr, erase_size))   
+    log.info("擦除一个扇区的数据：", sfud.erase(sfud_device, erase_addr, erase_size))   
     log.info("写入数据：", sfud.write(sfud_device, erase_addr, data))    
     log.info("读取数据：", sfud.read(sfud_device, erase_addr, erase_size ))    
     log.info("先擦除再写入数据：", sfud.eraseWrite(sfud_device, erase_addr, data))

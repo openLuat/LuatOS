@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary LuatOS用户应用脚本文件入口,总体调度应用逻辑
-@version 1.0.0
-@date    2025.11.23
+@version 1.1
+@date    2026.3.10
 @author  王世豪
 @usage
 本demo演示的功能为：

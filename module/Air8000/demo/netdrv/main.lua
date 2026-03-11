@@ -64,6 +64,8 @@ require "netdrv_eth_wan"
 -- require "netdrv_eth_multiple"
 -- WIFI连接外部网络,支持以太网lan模式为其他以太网设备提供接入,支持生成WiFi热点为WiFi终端设备提供接入
 -- require "netdrv_wifi_multiple"
+-- 单独测试wifi ap局域网
+-- require "netdrv_wifi_ap"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

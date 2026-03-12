@@ -40,7 +40,7 @@ function lcd_drv.init()
     gpio.setup(141, 1)
     local result = lcd.init("st7796",
         {
-            pin_pwr = 1,       -- 背光控制引脚GPIO端口号
+            -- pin_pwr = 1,       -- 背光控制引脚GPIO端口号
             port = lcd.HWID_0, -- 驱动端口
             pin_rst = 36,      -- lcd复位引脚
             direction = 1,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致

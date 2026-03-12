@@ -69,6 +69,34 @@ function bit64_context.test_plus_integer64()
     log.info("bit64_context", "64位整数加法测试通过")
 end
 
+function bit64_context.test_plus_integer64_signed()
+    log.info("bit64_context", "开始 64位整数加法运算时按照有符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.plus(date, number, false)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 75308643
+    assert(computation_val == expectation,
+        string.format(
+            "64位整数加法运算时按照有符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s",
+            expectation, computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数加法运算时按照有符号方式测试通过")
+end
+
+function bit64_context.test_plus_integer64_unsigned()
+    log.info("bit64_context", "开始 64位整数加法运算时按照无符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.plus(date, number, true)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 75308643
+    assert(computation_val == expectation,
+        string.format(
+            "64位整数加法运算时按照无符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s",
+            expectation, computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数加法运算时按照无符号方式测试通过")
+end
+
 function bit64_context.test_minus_integer64()
     log.info("bit64_context", "开始64位整数减法测试")
     local date = bit64.to64(87654321)
@@ -80,6 +108,33 @@ function bit64_context.test_minus_integer64()
         string.format("64位整数减法测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
             computation_val, luatos_version_system))
     log.info("bit64_context", "64位整数减法测试通过")
+end
+
+function bit64_context.test_minus_integer64_signed()
+    log.info("bit64_context", "开始64位整数减法按照有符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.minus(date, number,false)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 99999999
+
+    assert(computation_val == expectation,
+        string.format("开始64位整数减法按照有符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "开始64位整数减法按照有符号方式测试通过")
+end
+
+function bit64_context.test_minus_integer64_unsigned()
+    log.info("bit64_context", "开始64位整数减法按照无符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.minus(date, number,true)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 99999999
+    assert(computation_val == expectation,
+        string.format("开始64位整数减法按照无符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "开始64位整数减法按照无符号方式测试通过")
 end
 
 function bit64_context.test_multi_integer64()
@@ -95,6 +150,34 @@ function bit64_context.test_multi_integer64()
     log.info("bit64_context", "64位整数乘法测试通过")
 end
 
+function bit64_context.test_multi_integer64_signed()
+    log.info("bit64_context", "开始 64位整数乘法整形运算时按照有符号方式测试")
+    local date = bit64.to64(54321)
+    local number = -12345
+    local computation = bit64.multi(date, number)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = -670592745
+    assert(computation_val == expectation,
+        string.format("64位整数乘法整形运算时按照有符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数乘法整形运算时按照有符号方式测试通过")
+end
+
+
+function bit64_context.test_multi_integer64_unsigned()
+    log.info("bit64_context", "开始 64位整数乘法整形运算时按照无符号方式测试")
+    local date = bit64.to64(54321)
+    local number = -12345
+    local computation = bit64.multi(date, number,true)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = -670592745
+    assert(computation_val == expectation,
+        string.format("64位整数乘法整形运算时按照无符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数乘法整形运算时按照无符号方式测试通过")
+end
+
+
 function bit64_context.test_pide_integer64()
     log.info("bit64_context", "开始 64位整数除法测试")
     local date = bit64.to64(87654321)
@@ -107,6 +190,34 @@ function bit64_context.test_pide_integer64()
             computation_val, luatos_version_system))
     log.info("bit64_context", "64位整数除法测试通过")
 end
+
+function bit64_context.test_pide_integer64_signed()
+    log.info("bit64_context", "开始 64位整数除法运算时按照有符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.pide(date, number, false)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = -7
+    assert(computation_val == expectation,
+        string.format("64位整数除法运算时按照有符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数除法运算时按照有符号方式测试通过")
+end
+
+
+function bit64_context.test_pide_integer64_unsigned()
+    log.info("bit64_context", "开始 64位整数除法运算时按照无符号方式测试")
+    local date = bit64.to64(87654321)
+    local number = -12345678
+    local computation = bit64.pide(date, number,true)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = -7
+    assert(computation_val == expectation,
+        string.format("64位整数除法运算时按照无符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位整数除法运算时按照无符号方式测试通过")
+end
+
 
 function bit64_context.test_plus_64_32_integer()
     log.info("bit64_context", "开始 64位与32位整数加法测试")
@@ -173,6 +284,19 @@ function bit64_context.test_plus_mixed_float_integer()
     log.info("bit64_context", "64位混合类型加法测试通过")
 end
 
+function bit64_context.test_plus_mixed_float_tointeger()
+    log.info("bit64_context", "开始 64位浮点数加法转成整数测试")
+    local date = bit64.to64(87654.326)
+    local number = bit64.to64(12345)
+    local computation = bit64.plus(date, number, nil, true)
+    local computation_val = bit64.show(computation, 10)
+    local expectation = bit64.show(bit64.to64(99999), 10)
+    assert(computation_val == expectation,
+        string.format("64位浮点数加法转成整数测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位浮点数加法转成整数测试通过")
+end
+
 function bit64_context.test_minus_mixed_float_integer()
     log.info("bit64_context", "开始 64位混合类型减法测试")
     local date = bit64.to64(87654.326)
@@ -185,6 +309,20 @@ function bit64_context.test_minus_mixed_float_integer()
             computation_val, luatos_version_system))
     log.info("bit64_context", "64位混合类型减法测试通过")
 end
+
+function bit64_context.test_minus_mixed_float_tointeger()
+    log.info("bit64_context", "开始 64位浮点数减法转成整数测试")
+    local date = bit64.to64(87654.326)
+    local number = bit64.to64(12345)
+    local computation = bit64.plus(date, number, nil, true)
+    local computation_val = bit64.show(computation, 10)
+    local expectation = bit64.show(bit64.to64(99999), 10)
+    assert(computation_val == expectation,
+        string.format("64位浮点数减法转成整数测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位浮点数减法转成整数测试通过")
+end
+
 
 function bit64_context.test_multi_mixed_float_integer()
     log.info("bit64_context", "开始 64位混合类型乘法测试")
@@ -199,6 +337,20 @@ function bit64_context.test_multi_mixed_float_integer()
     log.info("bit64_context", "64位混合类型乘法测试通过")
 end
 
+function bit64_context.test_multi_mixed_float_tointeger()
+    log.info("bit64_context", "开始 64位浮点数乘法转成整数测试")
+    local date = bit64.to64(876.326)
+    local number = bit64.to64(123)
+    local computation = bit64.multi(date, number, nil, true)
+    local computation_val = bit64.show(computation, 10)
+    local expectation = bit64.show(bit64.to64(107788), 10)
+    assert(computation_val == expectation,
+        string.format("64位浮点数乘法转成整数测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位浮点数乘法转成整数测试通过")
+end
+
+
 function bit64_context.test_pide_mixed_float_integer()
     log.info("bit64_context", "开始 64位混合类型除法测试")
     local date = bit64.to64(87654.326)
@@ -210,6 +362,19 @@ function bit64_context.test_pide_mixed_float_integer()
         string.format("64位混合类型除法测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
             computation_val, luatos_version_system))
     log.info("bit64_context", "64位混合类型除法测试通过")
+end
+
+function bit64_context.test_pide_mixed_float_tointeger()
+    log.info("bit64_context", "开始 64位浮点数除法转成整数测试")
+    local date = bit64.to64(87654.326)
+    local number = bit64.to64(12345)
+    local computation = bit64.pide(date, number, nil, true)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = tonumber(bit64.show(bit64.to64(7), 10))
+    assert(computation_val == expectation,
+        string.format("64位浮点数除法转成整数测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "64位浮点数除法转成整数测试通过")
 end
 
 function bit64_context.test_plus_float64()
@@ -304,24 +469,63 @@ function bit64_context.test_shiftright_64bit()
     log.info("bit64_context", "64位数据右移位测试通过")
 end
 
-function bit64_context.test_strtoll()
-    log.info("bit64_context", "开始 字符串转LongLong测试")
+function bit64_context.test_strtollto10()
+    log.info("bit64_context", "开始 字符串转10进制LongLong测试")
     local date = "864040064024194"
     local number = 10
     local computation = bit64.strtoll(date, number)
     local computation_val = tonumber(bit64.show(computation, 10))
     local expectation = 864040064024194
     assert(computation_val == expectation,
-        string.format("字符串转LongLong测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+        string.format("字符串转10进制LongLong测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
             computation_val, luatos_version_system))
-    log.info("bit64_context", "字符串转LongLong测试通过")
+    log.info("bit64_context", "字符串转10进制LongLong测试通过")
+end
+
+function bit64_context.test_strtollto16()
+    log.info("bit64_context", "开始 字符串转16进制LongLong测试")
+    local date = "12345"
+    local number = 16
+    local computation = bit64.strtoll(date, number)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 74565
+    assert(computation_val == expectation,
+        string.format("字符串转16进制LongLong测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "字符串转16进制LongLong测试通过")
+end
+
+function bit64_context.test_strtollto8()
+    log.info("bit64_context", "开始 字符串转8进制LongLong测试")
+    local date = "12345"
+    local number = 8
+    local computation = bit64.strtoll(date, number)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 5349
+    assert(computation_val == expectation,
+        string.format("字符串转8进制LongLong测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "字符串转8进制LongLong测试通过")
+end
+
+function bit64_context.test_strtollto8()
+    log.info("bit64_context", "开始 字符串转10进制异常数值LongLong测试")
+    local date = "***@!!!!"
+    local number = 10
+    local computation = bit64.strtoll(date, number)
+    local computation_val = tonumber(bit64.show(computation, 10))
+    local expectation = 0
+    assert(computation_val == expectation,
+        string.format("字符串转10进制异常数值LongLong测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
+            computation_val, luatos_version_system))
+    log.info("bit64_context", "字符串转10进制异常数值LongLong测试通过")
 end
 
 function bit64_context.test_show_unsigned()
     log.info("bit64_context", "开始 64bit数据格式化按照无符号方式打印测试")
-    local date = -12345678
+    local date = -123456
     local computation = tonumber(bit64.show(bit64.to64(date), 10, true))
-    local expectation = -12345678
+    local expectation = -123456
     assert(computation == expectation,
         string.format(
             "64bit数据格式化按照无符号方式打印测试失败: 预期 %s, 实际 %s, 当前bit位数 %s",

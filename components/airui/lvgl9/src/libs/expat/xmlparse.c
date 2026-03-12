@@ -8551,6 +8551,7 @@ unsignedCharToPrintable(unsigned char c) {
 
 static unsigned long
 getDebugLevel(const char *variableName, unsigned long defaultDebugLevel) {
+  #if 0
   const char *const valueOrNull = getenv(variableName);
   if (valueOrNull == NULL) {
     return defaultDebugLevel;
@@ -8561,6 +8562,9 @@ getDebugLevel(const char *variableName, unsigned long defaultDebugLevel) {
   unsigned long debugLevel = strtoul(value, &afterValue, 10);
 
   return debugLevel;
+  #else
+  return defaultDebugLevel;
+  #endif
 }
 
 #endif /* LV_USE_XML */

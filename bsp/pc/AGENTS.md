@@ -22,16 +22,34 @@ pc/
 
 ```bash
 cd bsp/pc
-
-# Configure
-xmake f -a x64 -y        # 64-bit
-xmake f -a x86 -y        # 32-bit
-
-# Build
-xmake -y
-
-# Output: build/out/luatos-lua.exe
 ```
+
+### Windows
+
+| Script | Description |
+|--------|-------------|
+| `build_windows_32bit_msvc.bat` | 32-bit, no GUI |
+| `build_windows_32bit_msvc_gui.bat` | 32-bit, GUI (with clean) |
+| `build_windows_64bit_msvc.bat` | 64-bit, no GUI |
+| `build_windows_64bit_msvc_gui.bat` | 64-bit, GUI |
+
+### Linux
+
+| Script | Description |
+|--------|-------------|
+| `build_linux_32bit.sh` | 32-bit i386 |
+| `build_linux_32bit_armv6.sh` | 32-bit ARMv6 |
+| `build_linux_64bit.sh` | 64-bit |
+| `build_linux_64bit_gui.sh` | 64-bit, GUI |
+
+### macOS
+
+| Script | Description |
+|--------|-------------|
+| `build_macos.sh` | no GUI |
+| `build_macos_gui.sh` | GUI |
+
+Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/macOS)
 
 ## FEATURES
 

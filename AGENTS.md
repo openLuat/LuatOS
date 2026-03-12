@@ -65,22 +65,7 @@ LuatOS/
 
 ### PC Simulator (Development & Testing)
 
-```bash
-# Navigate to PC BSP directory
-cd bsp/pc
-
-# Configure (32-bit or 64-bit)
-xmake f -a x86 -y        # 32-bit
-xmake f -a x64 -y        # 64-bit
-
-# Build
-xmake -y
-
-# Clean
-xmake clean -a
-
-# Output location: build/out/luatos-lua.exe (Windows)
-```
+See bsp/pc/AGENTS.md for detailed PC Simulator build and development instructions.
 
 ### Running Tests
 

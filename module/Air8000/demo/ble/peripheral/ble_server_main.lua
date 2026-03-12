@@ -44,14 +44,10 @@ local function wifi_state_change(state)
     log.info("ble_server_main", "收到WiFi状态变化:", state)
     
     if state == 0 then
-        -- 释放已创建的BLE资源
-        bluetooth_device = nil
-        ble_device = nil
-        adv_create = nil
-        gatt_create = nil
+        -- WiFi状态关闭时发布"WIFI_STATE_CLOSE"消息
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "WIFI_STATE_CLOSE")
     else
-        -- WiFi状态打开时发布消息
+        -- WiFi状态打开时发布"WIFI_STATE_OPEN"消息
         sys.publish("WIFI_STATE_OPEN")
     end
 end
@@ -126,8 +122,7 @@ local function ble_init()
         adv_data = {    -- 支持表格形式, 也支持字符串形式(255字节以内)
             {ble.FLAGS, string.char(0x06)}, -- 广播标志位
             {ble.COMPLETE_LOCAL_NAME, config.device_name}, -- 广播本地名称
-        },
-        adv_prop = ble.ADV_PROP_CONNECTABLE | ble.ADV_PROP_SCANNABLE -- 广播属性, ble.ADV_PROP_CONNECTABLE(可被连接), ble.ADV_PROP_SCANNABLE(可被扫描)
+        }
     })
     if not adv_create then
         log.error("BLE", "BLE创建广播失败")

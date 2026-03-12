@@ -27,9 +27,24 @@ local SERVER_ADDR = "netlab.luatos.com"
 local SERVER_PORT = 32918
 
 local NET_ADAPTER = socket.LWIP_STA
+local SOCKET_NAME = "WIFI_SOCKET"
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
+
+local function get_socket_name(adapter)
+    if adapter == socket.LWIP_ETH then
+        return "ETH_SOCKET"
+    elseif adapter == socket.LWIP_STA then
+        return "WIFI_SOCKET"
+    elseif adapter == socket.LWIP_GP then
+        return "4G_SOCKET"
+    elseif adapter == socket.LWIP_AP then
+        return "AP_SOCKET"
+    else
+        return "UNKNOWN_SOCKET"
+    end
+end
 
 
 -- 处理未识别的消息
@@ -46,7 +61,7 @@ local function WIFI_SOCKET()
     while true do
         -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
         while not socket.adapter(NET_ADAPTER) do
-            log.warn("WIFI_SOCKET", "wait IP_READY", NET_ADAPTER)
+            log.warn(SOCKET_NAME, "wait IP_READY", NET_ADAPTER)
             -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
             -- 或者等待1秒超时退出阻塞等待状态;
             -- 注意：此处的1000毫秒超时不要修改的更长；
@@ -57,13 +72,13 @@ local function WIFI_SOCKET()
         end
 
         -- 检测到了IP_READY消息
-        log.info("WIFI_SOCKET", "recv IP_READY", NET_ADAPTER)
+        log.info(SOCKET_NAME, "recv IP_READY", NET_ADAPTER)
 
         -- 创建socket client对象
         socket_client = socket.create(NET_ADAPTER, TASK_NAME)
         -- 如果创建socket client对象失败
         if not socket_client then
-            log.error("WIFI_SOCKET", "socket.create error")
+            log.error(SOCKET_NAME, "socket.create error")
             goto EXCEPTION_PROC
         end
 
@@ -71,33 +86,33 @@ local function WIFI_SOCKET()
         result = socket.config(socket_client, nil, nil, nil, 300, 10, 3)
         -- 如果配置失败
         if not result then
-            log.error("WIFI_SOCKET", "socket.config error")
+            log.error(SOCKET_NAME, "socket.config error")
             goto EXCEPTION_PROC
         end
-        log.info("WIFI_SOCKET", "socket.LWIP_STA conneting")
+        log.info(SOCKET_NAME, "socket.LWIP_STA conneting")
         -- 连接server
         result = libnet.connect(TASK_NAME, 10000, socket_client, SERVER_ADDR, SERVER_PORT)
         -- 如果连接server失败
         if not result then
-            log.error("WIFI_SOCKET", "libnet.connect error")
+            log.error(SOCKET_NAME, "libnet.connect error")
             goto EXCEPTION_PROC
         end
 
-        log.info("WIFI_SOCKET", "libnet.connect success")
+        log.info(SOCKET_NAME, "libnet.connect success")
 
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do
             -- 数据接收处理（接收处理必须写在libnet.wait之前，因为老版本的内核固件要求必须这样，新版本的内核固件没这个要求，为了不出问题，写在libnet.wait之前就行了）
             -- 如果处理失败，则退出循环
             if not tcp_client_receiver.proc(socket_client) then
-                log.error("WIFI_SOCKET", "tcp_client_receiver.proc error")
+                log.error(SOCKET_NAME, "tcp_client_receiver.proc error")
                 break
             end
 
             -- 数据发送处理
             -- 如果处理失败，则退出循环
             if not tcp_client_sender.proc(TASK_NAME, socket_client) then
-                log.error("WIFI_SOCKET", "tcp_client_sender.proc error")
+                log.error(SOCKET_NAME, "tcp_client_sender.proc error")
                 break
             end
 
@@ -107,11 +122,11 @@ local function WIFI_SOCKET()
             -- 2、socket client接收到server发送过来的数据，此时在内核固件中会发布事件socket.EVENT
             -- 3、socket client需要发送数据到server, 在tcp_client_sender.lua中会发布事件socket.EVENT
 			result, para1, para2 = libnet.wait(TASK_NAME, 15000, socket_client)
-            log.info("WIFI_SOCKET", "libnet.wait", result, para1, para2)
+            log.info(SOCKET_NAME, "libnet.wait", result, para1, para2)
 			
 			-- 如果连接异常，则退出循环
 			if not result then
-				log.warn("WIFI_SOCKET", "connection exception")
+				log.warn(SOCKET_NAME, "connection exception")
 				break
             end
         end
@@ -142,7 +157,8 @@ local function set_tcp_client_params(adapter, server_addr, server_port)
     NET_ADAPTER = adapter or socket.LWIP_STA
     SERVER_ADDR = server_addr or "netlab.luatos.com"
     SERVER_PORT = server_port or 32918
-    log.info("tcp_client_2", "params", NET_ADAPTER, SERVER_ADDR, SERVER_PORT)
+    SOCKET_NAME = get_socket_name(NET_ADAPTER)
+    log.info("tcp_client_2", "params", SOCKET_NAME, NET_ADAPTER, SERVER_ADDR, SERVER_PORT)
 
     -- 创建并且启动一个task
     -- 运行这个task的主函数WIFI_SOCKET

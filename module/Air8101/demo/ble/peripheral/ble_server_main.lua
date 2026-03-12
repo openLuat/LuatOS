@@ -65,6 +65,10 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
     -- 收到中心设备的写请求
     elseif ble_event == ble.EVENT_WRITE then
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "WRITE_REQ", ble_param)
+    elseif ble_event == ble.EVENT_ADV_START then
+        log.info("ble_server_main", "广播已成功启动")
+    elseif ble_event == ble.EVENT_ADV_STOP then
+        log.info("ble_server_main", "广播已停止")
     end
 end
 
@@ -142,16 +146,21 @@ local function ble_server_main_task_func()
             -- 收到中心设备的写请求,将写的数据发给ble_server_receiver模块处理
             elseif msg[2] == "WRITE_REQ" then
                 local ble_param = msg[3]
-                log.info("BLE", "收到写请求: " .. ble_param.uuid_service:toHex() .. " " .. ble_param.uuid_characteristic:toHex() .. " " .. ble_param.data:toHex())
-                ble_server_receiver.proc(ble_param.uuid_service:toHex(), ble_param.uuid_characteristic:toHex(), ble_param.data)
+                if ble_device then
+                    log.info("BLE", "收到写请求: " .. ble_param.uuid_service:toHex() .. " " .. ble_param.uuid_characteristic:toHex() .. " " .. ble_param.data:toHex())
+                    ble_server_receiver.proc(ble_param.uuid_service:toHex(), ble_param.uuid_characteristic:toHex(), ble_param.data)
+                end
             end
         end
 
+        -- 出现异常
         ::EXCEPTION_PROC::
         log.error("ble_server_main_task_func", "异常退出, 5秒后重新开启广播")
-
+        
         -- 停止广播
-        ble_device:adv_stop()
+        if ble_device then
+            ble_device:adv_stop()
+        end
 
         -- 清空此task绑定的消息队列中的未处理的消息
         sys.cleanMsg(TASK_NAME)

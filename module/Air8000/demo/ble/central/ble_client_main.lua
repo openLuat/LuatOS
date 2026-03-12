@@ -56,14 +56,11 @@ local function wifi_state_change(state)
     log.info("ble_client_main", "收到WiFi状态变化:", state)
     
     if state == 0 then
-        -- 释放已创建的BLE资源
-        bluetooth_device = nil
-        ble_device = nil
-        scan_create = nil
         scan_count = 0
+        -- WiFi状态关闭时发布"WIFI_STATE_CLOSE"消息
         sys.sendMsg(TASK_NAME, "BLE_EVENT", "WIFI_STATE_CLOSE")
     else
-        -- WiFi状态打开时发布消息
+        -- WiFi状态打开时发布"WIFI_STATE_OPEN"消息
         sys.publish("WIFI_STATE_OPEN")
     end
 end

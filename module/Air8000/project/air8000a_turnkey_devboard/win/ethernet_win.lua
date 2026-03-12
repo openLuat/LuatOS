@@ -1,6 +1,4 @@
 -- 以太网页面
-local ethernet_win = {}
-local exwin = require "exwin"
 
 local win_id = nil
 local main_container, content
@@ -44,33 +42,31 @@ local function create_ui()
     })
 end
 
-function ethernet_win.on_create(id)
-    win_id = id
+function ethernet_win_on_create()
+    
     create_ui()
     -- 加载已保存配置
 end
 
-function ethernet_win.on_destroy(id)
+function ethernet_win_on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function ethernet_win.on_get_focus(id)
+function ethernet_win_on_get_focus()
     -- 刷新
 end
 
-function ethernet_win.on_lose_focus(id)
+function ethernet_win_on_lose_focus()
     -- 暂停
 end
 
 local function open_handler()
-    exwin.open({
-        on_create = ethernet_win.on_create,
-        on_destroy = ethernet_win.on_destroy,
-        on_get_focus = ethernet_win.on_get_focus,
-        on_lose_focus = ethernet_win.on_lose_focus,
+    win_id = exwin.open({
+        on_create = ethernet_win_on_create,
+        on_destroy = ethernet_win_on_destroy,
+        on_get_focus = ethernet_win_on_get_focus,
+        on_lose_focus = ethernet_win_on_lose_focus,
     })
 end
 sys.subscribe("OPEN_ETHERNET_WIN", open_handler)
-
-return ethernet_win

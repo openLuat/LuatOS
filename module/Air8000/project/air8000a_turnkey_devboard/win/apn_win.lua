@@ -1,6 +1,4 @@
 -- APN配置页面
-local apn_win = {}
-local exwin = require "exwin"
 
 local win_id = nil
 local main_container, content
@@ -42,35 +40,33 @@ local function create_ui()
     })
 end
 
-function apn_win.on_create(id)
-    win_id = id
+function apn_win_on_create()
+    
     create_ui()
     -- 可加载已保存的APN
     -- 例如: local saved = settings.get("apn")
 end
 
-function apn_win.on_destroy(id)
+function apn_win_on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function apn_win.on_get_focus(id)
+function apn_win_on_get_focus()
     -- 获得焦点时可刷新数据
 end
 
-function apn_win.on_lose_focus(id)
+function apn_win_on_lose_focus()
     -- 失去焦点时可暂停操作
 end
 
 -- 订阅打开APN配置页面的消息
 local function open_handler()
-    exwin.open({
-        on_create = apn_win.on_create,
-        on_destroy = apn_win.on_destroy,
-        on_get_focus = apn_win.on_get_focus,
-        on_lose_focus = apn_win.on_lose_focus,
+    win_id = exwin.open({
+        on_create = apn_win_on_create,
+        on_destroy = apn_win_on_destroy,
+        on_get_focus = apn_win_on_get_focus,
+        on_lose_focus = apn_win_on_lose_focus,
     })
 end
 sys.subscribe("OPEN_APN_WIN", open_handler)
-
-return apn_win

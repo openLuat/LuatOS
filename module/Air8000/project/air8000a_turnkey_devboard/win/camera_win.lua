@@ -1,6 +1,4 @@
 -- 拍照页面
-local camera_win = {}
-local exwin = require "exwin"
 
 local win_id = nil
 local main_container, content
@@ -36,34 +34,32 @@ local function create_ui()
     })
 end
 
-function camera_win.on_create(id)
-    win_id = id
+function camera_win_on_create()
+    
     create_ui()
     -- TODO: 初始化摄像头
 end
 
-function camera_win.on_destroy(id)
+function camera_win_on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 释放摄像头资源
 end
 
-function camera_win.on_get_focus(id)
+function camera_win_on_get_focus()
     -- 恢复预览
 end
 
-function camera_win.on_lose_focus(id)
+function camera_win_on_lose_focus()
     -- 暂停预览
 end
 
 local function open_handler()
-    exwin.open({
-        on_create = camera_win.on_create,
-        on_destroy = camera_win.on_destroy,
-        on_get_focus = camera_win.on_get_focus,
-        on_lose_focus = camera_win.on_lose_focus,
+    win_id = exwin.open({
+        on_create = camera_win_on_create,
+        on_destroy = camera_win_on_destroy,
+        on_get_focus = camera_win_on_get_focus,
+        on_lose_focus = camera_win_on_lose_focus,
     })
 end
 sys.subscribe("OPEN_CAMERA_WIN", open_handler)
-
-return camera_win

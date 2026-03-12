@@ -1,6 +1,4 @@
 -- 串口页面
-local uart_win = {}
-local exwin = require "exwin"
 
 local win_id = nil
 local main_container, content
@@ -75,35 +73,33 @@ local function create_ui()
     })
 end
 
-function uart_win.on_create(id)
-    win_id = id
+function uart_win_on_create()
+    
     create_ui()
     sys.subscribe("UART_RX_DATA", uart_rx_handler)
 end
 
-function uart_win.on_destroy(id)
+function uart_win_on_destroy()
     sys.unsubscribe("UART_RX_DATA", uart_rx_handler)
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 关闭串口
 end
 
-function uart_win.on_get_focus(id)
+function uart_win_on_get_focus()
     -- 刷新
 end
 
-function uart_win.on_lose_focus(id)
+function uart_win_on_lose_focus()
     -- 可暂停接收显示（但订阅仍会触发，只是 is_active 阻止UI更新）
 end
 
 local function open_handler()
-    exwin.open({
-        on_create = uart_win.on_create,
-        on_destroy = uart_win.on_destroy,
-        on_get_focus = uart_win.on_get_focus,
-        on_lose_focus = uart_win.on_lose_focus,
+    win_id = exwin.open({
+        on_create = uart_win_on_create,
+        on_destroy = uart_win_on_destroy,
+        on_get_focus = uart_win_on_get_focus,
+        on_lose_focus = uart_win_on_lose_focus,
     })
 end
 sys.subscribe("OPEN_UART_WIN", open_handler)
-
-return uart_win

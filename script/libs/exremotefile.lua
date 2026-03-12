@@ -1,10 +1,13 @@
 --[[
 @module exremotefile
 @summary exremotefile 远程文件管理系统扩展库，提供AP热点创建、SD卡挂载、SERVER文件管理服务器等功能，支持文件浏览、上传、下载和删除操作。
-@version 1.0
-@date    2025.09.10
+@version 1.1
+@date    2026.3.12
 @author  拓毅恒
 @usage
+V1.1：
+移除sdcard_opts.is_sdio参数、新增sdcard_opts.is_8101参数，用于挂载8101 sd卡
+V1.0：
 注：在使用exremotefile 扩展库时，需要将同一目录下的explorer.html文件烧录进模组中，否则无法启动server服务器来创建文件管理系统!!!
 
 注：如果使用Air8000开发板测试，必须自定义配置is_8000_development_board = true
@@ -41,7 +44,7 @@ local default_sdcard_opts = {
     spi_id = 1,
     spi_cs = 20,
     is_8000_development_board = false,
-    is_sdio = false
+    is_8101 = false
 }
 
 -- server默认配置
@@ -108,22 +111,21 @@ local function init_sdcard(sdcard_opts)
             end
         end
     end
-    
-    local mount_result = nil
 
-    if not sdcard_opts.is_sdio then
-        -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
-        local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
-        log.info("sdcard_init", "open spi", result)
-        -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
-        gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
-        -- 挂载SD卡到文件系统，指定挂载点为"/sd"
-        mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
-    else
+    if sdcard_opts.is_8101 then
         -- gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
         gpio.setup(13, 1)
-        mount_result = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
     end
+
+    local mount_result = nil
+    -- 配置SPI，设置spi_id，波特率为400000，用于SD卡初始化
+    local result = spi.setup(sdcard_opts.spi_id, nil, 0, 0, 8, 400 * 1000)
+    log.info("sdcard_init", "open spi", result)
+    -- 配置SD卡片选引脚，设置为输出模式，并启用上拉电阻
+    gpio.setup(sdcard_opts.spi_cs, 1, gpio.PULLUP)
+    -- 挂载SD卡到文件系统，指定挂载点为"/sd"
+    mount_result = fatfs.mount(fatfs.SPI, "/sd", sdcard_opts.spi_id, sdcard_opts.spi_cs, 24 * 1000 * 1000)
+    
     log.info("SDCARD", "挂载SD卡结果:", mount_result)
     
     -- 获取SD卡的可用空间信息
@@ -1472,7 +1474,7 @@ exremotefile.open({
     spi_id = 1,                 -- SPI编号
     spi_cs = 12,               -- CS片选引脚
     is_8000_development_board = false, -- 是否使用8000开发板
-    is_sdio = false             -- 是否使用sdio挂载
+    is_8101 = false             -- 是否使用sdio挂载
 }, 
 {
     server_addr = "192.168.4.1",    -- 服务器地址

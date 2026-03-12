@@ -5,6 +5,9 @@
 @date    2025.10.24
 @author  孟伟
 @usage
+-- V1.1：
+-- 更新TF/SD卡挂载方式，使用SPI挂载
+-- V1.0：
 -- 文件系统FOTA升级功能
 -- 提供从文件系统直接读取升级包进行固件升级的功能
 -- 可以使用luatools工具的烧录系统文件功能将升级包直接烧录到文件系统中，
@@ -16,19 +19,19 @@
 local function fileUpgradeTask()
     -- 等待系统稳定后再开始升级
     sys.wait(10000)
-    gpio.setup(13, 1) -- TF卡供电控制（AIR8101专用）
-    local mount_ok, mount_err = fatfs.mount(fatfs.SDIO, "/sd", 24 * 1000 * 1000)
+    -- 供电控制 (Air8101专用)
+    --gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
+    gpio.setup(13, 1)
+    
+    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
+    local spi_id, pin_cs = 1, 3
+    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    --初始化后拉高pin_cs,准备开始挂载TF卡
+    gpio.setup(pin_cs, 1)
+    -- ########## 开始进行tf卡挂载 ##########
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
     if mount_ok then
         log.info("fatfs.mount", "挂载成功", mount_err)
-        local data, err = fatfs.getfree("/sd") -- 获取SD卡剩余空间信息
-        if data then
-            -- table: 若成功会返回table, 否则返回nil
-            -- table 中包含 total_sectors（总扇区数量）, free_sectors（空闲扇区数量）, total_kb（总字节数,单位kb）, free_kb（空闲字节数, 单位kb）
-            log.info("fatfs", "getfree", json.encode(data))
-        else
-            -- err: 导致失败的底层返回值
-            log.info("fatfs", "err", err)
-        end
         log.info("FOTA_FILE", "=== 开始文件系统升级 ===")
     else
         log.error("fatfs.mount", "挂载失败", mount_err)
@@ -38,6 +41,16 @@ local function fileUpgradeTask()
         -- 尝试卸载（如果需要）
         fatfs.unmount("/sd")
         return
+    end
+
+    -- ########## 获取SD卡的可用空间信息并打印。 ########## 
+    local data, err = fatfs.getfree("/sd")
+    if data then
+        --打印SD卡的可用空间信息
+        log.info("fatfs", "getfree", json.encode(data))
+    else
+        --打印错误信息
+        log.info("fatfs", "getfree", "err", err)
     end
 
     -- 步骤1: 初始化FOTA流程

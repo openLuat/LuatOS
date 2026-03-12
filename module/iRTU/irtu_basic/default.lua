@@ -234,7 +234,9 @@ function default.init()
                 ["2"] = gpio.WAKEUP2,
                 ["3"] = gpio.WAKEUP3,
                 ["4"] = gpio.WAKEUP4,
-                ["5"] = gpio.WAKEUP5
+                ["5"] = gpio.WAKEUP5,
+                ["6"] = gpio.WAKEUP6,
+                ["y"] = gpio.PWR_KEY
             }
             local pin = wakeup_pins[last_char]
             if pin then

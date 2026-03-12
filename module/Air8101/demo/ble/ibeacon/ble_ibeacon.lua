@@ -89,10 +89,10 @@ function ble_ibeacon_task_func()
         -- 停止广播
         if ble_device then
             ble_device:adv_stop()
-            ble_device = nil
         end
 
         -- 5秒后跳转到循环体开始位置，重新广播
+        log.info("ble_ibeacon", "等待5秒后重新广播")
         sys.wait(5000)
     end
 end

@@ -23,13 +23,9 @@ local function wifi_state_change(state)
     wifi_state = state
     log.info("ble_ibeacon", "收到WiFi状态变化:", state)
     
-    -- 如果是关闭状态，将广播状态设置为false，并释放已创建的BLE资源
+    -- 如果是关闭状态，将广播状态设置为false
     if state == 0 and adv_state then
         adv_state = false
-        -- 释放已创建的BLE资源
-        ble_device = nil
-        bluetooth_device = nil
-        adv_create = nil
     else
         -- WiFi状态打开时发布消息
         sys.publish("WIFI_STATE_OPEN")

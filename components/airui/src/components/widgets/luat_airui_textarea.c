@@ -189,6 +189,8 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     // 应用布局与文本约束
     lv_obj_set_pos(textarea, x, y);
     lv_obj_set_size(textarea, w, h);
+    lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
     lv_textarea_set_max_length(textarea, max_len);
 
     if (placeholder != NULL && placeholder[0] != '\0') {

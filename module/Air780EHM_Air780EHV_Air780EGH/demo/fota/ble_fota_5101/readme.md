@@ -18,7 +18,7 @@
 
 本demo演示的核心功能为：
 
-Air8000系列模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完整实现方案，支持两种升级方式：
+Air780EHM/EHV/EGH 模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完整实现方案，支持两种升级方式：
 
 1. **文件写入方式**：将接收到的升级包数据先保存到本地临时文件，完成数据接收后再执行升级
    - 优点：适合完整固件升级，逻辑清晰，易于调试
@@ -35,25 +35,24 @@ Air8000系列模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完
 - 需要自定义升级流程的应用场景
 - 无网络环境下的设备固件更新
 - 使用Air5101蓝牙模块的嵌入式设备
-- 适用于Air8000D，Air8000DB，Air8000T三款没有内置蓝牙功能的模组
 
 ## 演示硬件环境
 
-1、Air8000 核心板一个；
+1、AAir780EHM/EHV/EGH 核心板一个；
 
 2、Air5101S 开发板一个；
 
-3、串口连接线，用于连接Air8000和Air5101
+3、串口连接线，用于连接Air780EHM/EHV/EGH和Air5101
 
-4、TYPE-C USB数据线一根 ，Air8000 核心板和数据线的硬件接线方式为：
+4、TYPE-C USB数据线一根，Air780EHM/EHV/EGH 核心板和数据线的硬件接线方式为：
 
-- Air8000 核心板通过TYPE-C USB口供电；（外部供电/USB供电 拨动开关 拨到 USB供电一端）
+- Air780EHM/EHV/EGH 核心板通过TYPE-C USB口供电，核心板正面的 ON/OFF 拨动开关 拨到ON一端；
 
 - TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
 ### 硬件连接
 
-| Air8000 管脚 | Air5101 管脚 |
+| Air780EHM/EHV/EGH 管脚 | Air5101 管脚 |
 |------------|-------------|
 | UART1_TX   | RX          | 
 | UART1_RX   | TX          | 
@@ -64,7 +63,13 @@ Air8000系列模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完
 
 1、Luatools下载调试工具
 
-2、[Air8000固件](https://docs.openluat.com/air8000/luatos/firmware/)
+2、固件获取地址：
+
+[Air780EHM 固件](https://docs.openluat.com/air780epm/luatos/firmware/version/#air780ehmluatos)
+
+[Air780EHV 固件](https://docs.openluat.com/air780ehv/luatos/firmware/version/)
+
+[Air780EGH 固件](https://docs.openluat.com/air780egh/luatos/firmware/version/)
 
 3、Python 3 环境（用于运行ble_5101_fota_tool.py发送升级包）
      注意需要安装bleak库，可通过pip安装：
@@ -206,7 +211,7 @@ Air8000系列模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完
 ### 升级流程
 
 #### 用法:
-1. 先把脚本和固件烧录到Air8000模块中，并确认设备正常启动
+1. 先把脚本和固件烧录到Air780EHM/EHV/EGH 模块中，并确认设备正常启动
 2. 模块启动后会自动初始化Air5101并开启BLE广播，广播名称为"Air5101_FOTA"
 3. 在电脑端操作：运行ble_5101_fota_tool.py脚本连接设备并发送升级固件
     注意：确保升级文件名为正确格式，并且与ble_5101_fota_tool.py在同一目录下
@@ -227,7 +232,7 @@ Air8000系列模块通过Air5101蓝牙模块进行固件远程升级(FOTA)的完
 
 ## 演示操作步骤
 
-1、搭建好演示硬件环境，确保Air8000和Air5101之间的串口连接正确
+1、搭建好演示硬件环境，确保Air780EHM/EHV/EGH 和Air5101之间的串口连接正确
 
 2、根据ble_5101_main.lua中的fota_mode选择FOTA升级方式："file" 或 "packet"，默认是"packet"方式。
    ```lua
@@ -1807,7 +1812,7 @@ file方式升级日志如下：
 
 3、**升级失败**：检查固件文件是否正确，设备存储空间是否充足
 
-4、**串口通信问题**：检查Air8000和Air5101之间的串口连接是否正确
+4、**串口通信问题**：检查Air780EHM/EHV/EGH和Air5101之间的串口连接是否正确
 
 5、**初始化失败**：检查Air5101模块是否正常供电，串口波特率设置是否正确
 

@@ -85,3 +85,7 @@ void luat_sdl2_flush(void) {
     // 画面刷新后立刻处理（pump）SDL事件，保持窗口及触摸输入活跃
     luat_sdl2_pump_events();
 }
+
+void* luat_sdl2_get_window(void) {
+    return window;
+}

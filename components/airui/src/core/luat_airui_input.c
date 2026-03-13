@@ -6,6 +6,8 @@
 
 #include "luat_airui.h"
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
+#include "lua.h"
+#include "lauxlib.h"
 #include <stdint.h>
 #define LUAT_LOG_TAG "airui_input"
 #include "luat_log.h"
@@ -83,6 +85,88 @@ void airui_system_keyboard_post_key(airui_ctx_t *ctx, uint32_t key, bool pressed
 
     if (key >= 32 && key < 127) {
         lv_textarea_add_char(textarea, (char)key);
+    }
+}
+
+// 订阅触摸事件
+int airui_touch_subscribe(airui_ctx_t *ctx, void *L, int callback_ref) {
+    lua_State *L_state = (lua_State *)L;
+
+    if (ctx == NULL || L_state == NULL || callback_ref <= 0) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (ctx->touch_callback_ref > 0) {
+        luaL_unref(L_state, LUA_REGISTRYINDEX, ctx->touch_callback_ref);
+    }
+
+    ctx->touch_callback_ref = callback_ref;
+    ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
+    ctx->touch_pressed = false;
+    ctx->touch_last_point.x = 0;
+    ctx->touch_last_point.y = 0;
+    ctx->touch_last_track_id = 0;
+    ctx->touch_last_timestamp = 0;
+    return AIRUI_OK;
+}
+
+// 取消触摸事件订阅
+void airui_touch_unsubscribe(airui_ctx_t *ctx, void *L) {
+    lua_State *L_state = (lua_State *)L;
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (L_state != NULL && ctx->touch_callback_ref > 0) {
+        luaL_unref(L_state, LUA_REGISTRYINDEX, ctx->touch_callback_ref);
+    }
+
+    ctx->touch_callback_ref = 0;
+    ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
+    ctx->touch_pressed = false;
+    ctx->touch_last_point.x = 0;
+    ctx->touch_last_point.y = 0;
+    ctx->touch_last_track_id = 0;
+    ctx->touch_last_timestamp = 0;
+}
+
+// 通知触摸事件
+void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp) {
+    lua_State *L_state;
+
+    if (ctx == NULL || ctx->L == NULL) {
+        return;
+    }
+
+    L_state = (lua_State *)ctx->L;
+    if (ctx->touch_callback_ref <= 0) {
+        return;
+    }
+
+    ctx->touch_last_state = state;
+    ctx->touch_last_point.x = x;
+    ctx->touch_last_point.y = y;
+    ctx->touch_last_track_id = track_id;
+    ctx->touch_last_timestamp = timestamp;
+    ctx->touch_pressed = (state == AIRUI_TOUCH_STATE_DOWN || state == AIRUI_TOUCH_STATE_HOLD);
+
+    lua_rawgeti(L_state, LUA_REGISTRYINDEX, ctx->touch_callback_ref);
+    if (lua_type(L_state, -1) != LUA_TFUNCTION) {
+        lua_pop(L_state, 1);
+        return;
+    }
+
+    lua_pushinteger(L_state, state);
+    lua_pushinteger(L_state, x);
+    lua_pushinteger(L_state, y);
+    lua_pushinteger(L_state, track_id);
+    lua_pushinteger(L_state, timestamp);
+
+    if (lua_pcall(L_state, 5, 0, 0) != LUA_OK) {
+        const char *err = lua_tostring(L_state, -1);
+        LLOGE("touch callback error: %s", err ? err : "unknown");
+        lua_pop(L_state, 1);
     }
 }
 

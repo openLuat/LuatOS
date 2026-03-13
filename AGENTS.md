@@ -65,22 +65,14 @@ LuatOS/
 
 ### PC Simulator (Development & Testing)
 
-```bash
-# Navigate to PC BSP directory
-cd bsp/pc
+See `bsp/pc/AGENTS.md` for detailed PC Simulator build and development instructions.
 
-# Configure (32-bit or 64-bit)
-xmake f -a x86 -y        # 32-bit
-xmake f -a x64 -y        # 64-bit
-
-# Build
-xmake -y
-
-# Clean
-xmake clean -a
-
-# Output location: build/out/luatos-lua.exe (Windows)
-```
+**Compilation rule:**
+- If you modify ordinary non-GUI logic and only need a fast verification, build in `bsp/pc` with `xmake -y`
+- If you modify `components/airui/`, LVGL, SDL display flow, or any code behind `LUAT_USE_GUI`, you MUST verify with a GUI-enabled PC build instead of plain `xmake -y`
+- On Windows, prefer the existing helper scripts in `bsp/pc/`, especially `build_windows_64bit_msvc_gui.bat` or `build_windows_32bit_msvc_gui.bat`
+- On Linux/macOS, ensure `LUAT_USE_GUI=y` is set before running `xmake f ...` and then `xmake -y`
+- For AirUI-related changes, do not claim build verification is complete unless the GUI build path has been exercised
 
 ### Running Tests
 
@@ -242,7 +234,7 @@ Before reporting task completion, verify:
 
 - [ ] All planned steps completed (check todo list)
 - [ ] No type errors or warnings introduced
-- [ ] Build passes: `xmake -y` in `bsp/pc`
+- [ ] If required, build passes in `bsp/pc` using the correct mode: plain `xmake -y` for non-GUI changes, GUI-enabled build for AirUI/LVGL/SDL changes
 - [ ] Tests pass (if applicable)
 - [ ] Code follows existing patterns
 - [ ] No hardcoded credentials or security issues

@@ -63,7 +63,7 @@ local win_id = exwin.open({
 function exwin.open(config)
 
     -- 如果参数不是表则报错重启
-    assert(type(config) == "table" and type(config.on_create) == "function", "exwin.open()参数必须是table，并且包含on_create函数")
+    assert(type(config) == "table" and type(config.on_create) == "function" and type(config.on_destroy) == "function", "exwin.open()参数必须是table，并且包含on_create函数")
 
     -- 获取当前活动窗口（栈顶）
     local current = win_stack[#win_stack]

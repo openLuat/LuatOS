@@ -68,12 +68,24 @@ typedef enum {
 } airui_err_t;
 
 /**
+ * AirUI 触摸订阅状态
+ */
+typedef enum {
+    AIRUI_TOUCH_STATE_NONE = 0,
+    AIRUI_TOUCH_STATE_DOWN,
+    AIRUI_TOUCH_STATE_HOLD,
+    AIRUI_TOUCH_STATE_UP
+} airui_touch_state_t;
+
+/**
  * 显示驱动操作接口
  */
 typedef struct {
     int (*init)(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_format_t fmt);
     void (*flush)(airui_ctx_t *ctx, const lv_area_t *area, const uint8_t *px_map);
     void (*wait_vsync)(airui_ctx_t *ctx);
+    int (*suspend)(airui_ctx_t *ctx);
+    int (*resume)(airui_ctx_t *ctx);
     void (*deinit)(airui_ctx_t *ctx);
 } airui_display_ops_t;
 
@@ -152,12 +164,20 @@ struct airui_ctx {
     
     // 内部状态
     lv_timer_t *tick_timer;          /**< Tick 定时器（可选） */
+    void *tick_rtos_timer;           /**< LVGL tick RTOS 定时器 */
+    void *refresh_rtos_timer;        /**< LVGL 刷新 RTOS 定时器 */
     void *platform_data;             /**< 平台私有数据 */
     lv_obj_t *focused_textarea;      /**< 当前聚焦的 textarea，供系统键盘使用 */
     bool system_keyboard_enabled;    /**< 是否允许系统键盘输入 */
     int32_t system_keyboard_preedit_pos; /**< 上一次插入的 SDL 预编辑文本起始位置 */
     int32_t system_keyboard_preedit_len; /**< 上一次插入的 SDL 预编辑文本长度（字符数） */
     bool system_keyboard_preedit_active; /**< 当前是否处于 SDL 预编辑（拼音）阶段 */
+    int touch_callback_ref;              /**< 全局触摸订阅回调 */
+    airui_touch_state_t touch_last_state;/**< 上一次已分发的触摸状态 */
+    bool touch_pressed;                  /**< 当前是否处于按下中 */
+    lv_point_t touch_last_point;         /**< 上一次触摸点 */
+    uint8_t touch_last_track_id;         /**< 上一次触摸 track id */
+    uint32_t touch_last_timestamp;       /**< 上一次触摸时间戳 */
 
     // Debug 运行态
     bool debug_enabled;                  /**< 调试开关 */
@@ -168,6 +188,7 @@ struct airui_ctx {
     uint8_t debug_last_mem_used_pct;     /**< 上次统计内存占用率 */
     uint32_t debug_component_count;      /**< 当前组件计数 */
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
+    bool sleeping;                       /**< 当前是否处于休眠状态 */
 };
 
 /**********************
@@ -195,6 +216,27 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops);
  * @post-condition LVGL 已初始化，驱动已注册，缓冲已申请
  */
 int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_format_t color_format);
+
+/**
+ * 休眠 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_sleep(airui_ctx_t *ctx);
+
+/**
+ * 唤醒 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_wakeup(airui_ctx_t *ctx);
+
+/**
+ * 强制全屏刷新 AIRUI
+ * @param ctx 上下文指针
+ * @return 0 成功，<0 失败
+ */
+int airui_full_refresh(airui_ctx_t *ctx);
 
 /**
  * 反初始化 AIRUI
@@ -325,6 +367,13 @@ void airui_system_keyboard_post_key(airui_ctx_t *ctx, uint32_t key, bool pressed
 void airui_system_keyboard_post_text(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx);
+
+/**
+ * 控制全局触摸订阅
+ */
+int airui_touch_subscribe(airui_ctx_t *ctx, void *L, int callback_ref);
+void airui_touch_unsubscribe(airui_ctx_t *ctx, void *L);
+void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp);
 
 /**
  * 调试能力控制

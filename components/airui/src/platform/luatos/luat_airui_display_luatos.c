@@ -106,8 +106,6 @@ static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const 
     bool is_last = lv_display_flush_is_last(ctx->display);
 
     /* 直接绘制到 LCD，逐块刷新 */
-    // LLOGD("luatos_display_flush: area=(%d,%d,%d,%d) size=(%d,%d)", area->x1, area->y1, area->x2, area->y2,
-    //       area->x2 - area->x1 + 1, area->y2 - area->y1 + 1);
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
     /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
@@ -126,6 +124,36 @@ static void luatos_display_wait_vsync(airui_ctx_t *ctx)
 {
     (void)ctx;
     /* 硬件接口未暴露 vsync，保留占位 */
+}
+
+/**
+ * LuatOS 显示休眠
+ */
+static int luatos_display_suspend(airui_ctx_t *ctx)
+{
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    if (data == NULL || data->lcd_conf == NULL) {
+        LLOGE("display suspend invalid platform_data ctx=%p data=%p lcd=%p", ctx, data, data ? data->lcd_conf : NULL);
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+
+    int ret = luat_lcd_sleep(data->lcd_conf);
+    return ret;
+}
+
+/**
+ * LuatOS 显示唤醒
+ */
+static int luatos_display_resume(airui_ctx_t *ctx)
+{
+    luatos_platform_data_t *data = airui_luatos_get_data(ctx);
+    if (data == NULL || data->lcd_conf == NULL) {
+        LLOGE("display resume invalid platform_data ctx=%p data=%p lcd=%p", ctx, data, data ? data->lcd_conf : NULL);
+        return AIRUI_ERR_NOT_INITIALIZED;
+    }
+
+    int ret = luat_lcd_wakeup(data->lcd_conf);
+    return ret;
 }
 
 /**
@@ -151,6 +179,8 @@ static const airui_display_ops_t luatos_display_ops = {
     .init = luatos_display_init,
     .flush = luatos_display_flush,
     .wait_vsync = luatos_display_wait_vsync,
+    .suspend = luatos_display_suspend,
+    .resume = luatos_display_resume,
     .deinit = luatos_display_deinit
 };
 

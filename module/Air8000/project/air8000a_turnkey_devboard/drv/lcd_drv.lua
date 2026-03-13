@@ -40,7 +40,7 @@ function lcd_drv.init()
     gpio.setup(141, 1)
     local result = lcd.init("st7796",
         {
-            -- pin_pwr = 1,       -- 背光控制引脚GPIO端口号
+            -- pin_pwr = 1,       -- 背光控制引脚GPIO端口号，不填使用lcd.sleep和lcd.wakeup时需要手动控制背光
             port = lcd.HWID_0, -- 驱动端口
             pin_rst = 36,      -- lcd复位引脚
             direction = 1,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
@@ -48,6 +48,7 @@ function lcd_drv.init()
             h = 320,           -- lcd 竖直分辨率
             xoffset = 0,       -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,       -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
+            bus_speed = 80000000
         })
 
     log.info("lcd.init", result)
@@ -71,8 +72,14 @@ function lcd_drv.init()
             path = nil,       -- 字体路径，Air8000固件内置，无需填写
             size = 14,        -- 默认字体大写
             cache_size = 512, --
-            antialias = 2,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
+            antialias = 1,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
         })
+
+        -- 查询当前固件内AirUI核心库版本
+        local version_result = airui.version()
+
+        -- 打印查询结果
+        log.info("airui", "version -> " .. version_result)
 
         return result
     end

@@ -1,4 +1,4 @@
--- wifi_win_lua - WiFi页面
+-- lua - WiFi页面
 
 local win_id = nil
 local main_container, content, scan_list, connect_btn
@@ -42,33 +42,33 @@ local function create_ui()
     airui.textarea({ parent = content, x=10, y=210, w=150, h=30, placeholder = "密码" })
 end
 
-function wifi_win_on_create()
+local function on_create()
     
     create_ui()
     -- 可在此启动定时器、订阅等
 end
 
-function wifi_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     -- 停止定时器、取消订阅等
 end
 
-function wifi_win_on_get_focus()
+local function on_get_focus()
     -- 获得焦点时可刷新UI
     -- 例如更新列表
 end
 
-function wifi_win_on_lose_focus()
+local function on_lose_focus()
     -- 失去焦点时可暂停某些操作
 end
 
 -- 订阅打开WiFi页面的消息
-local function open_wifi_win_handler()
+local function open_handler()
     win_id = exwin.open({
-        on_create = wifi_win_on_create,
-        on_destroy = wifi_win_on_destroy,
-        on_lose_focus = wifi_win_on_lose_focus,
-        on_get_focus = wifi_win_on_get_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_lose_focus = on_lose_focus,
+        on_get_focus = on_get_focus,
     })
 end
-sys.subscribe("OPEN_WIFI_WIN", open_wifi_win_handler)
+sys.subscribe("OPEN_WIFI_WIN", open_handler)

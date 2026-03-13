@@ -3,7 +3,7 @@
 -- 加载所有页面模块
 require "welcome_win"
 require "idle_win"
-require "all_app_win"
+require "main_meun_win"
 require "call_win"
 require "camera_win"
 require "network_select_win"
@@ -17,10 +17,12 @@ require "tts_win"
 require "apn_win"
 require "ethernet_win"
 require "wifi_win"
+require "temperature_win"
+require "humidity_win"
+require "air_win"
 
 -- 全局变量（供所有页面使用）
 sim_present = false
-aircloud_qr = nil
 lte_csq = nil
 show_time = nil
 

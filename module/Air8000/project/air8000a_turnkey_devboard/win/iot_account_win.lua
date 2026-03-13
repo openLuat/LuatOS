@@ -64,32 +64,32 @@ local function create_ui()
     })
 end
 
-function iot_account_win_on_create()
+local function on_create()
     
     create_ui()
     -- TODO: 加载已保存的配置
 end
 
-function iot_account_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 断开MQTT连接等
 end
 
-function iot_account_win_on_get_focus()
+local function on_get_focus()
     -- 刷新
 end
 
-function iot_account_win_on_lose_focus()
+local function on_lose_focus()
     -- 暂停可能的上传
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = iot_account_win_on_create,
-        on_destroy = iot_account_win_on_destroy,
-        on_get_focus = iot_account_win_on_get_focus,
-        on_lose_focus = iot_account_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_IOT_ACCOUNT_WIN", open_handler)

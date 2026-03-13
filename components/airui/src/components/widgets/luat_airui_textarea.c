@@ -189,6 +189,8 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     // 应用布局与文本约束
     lv_obj_set_pos(textarea, x, y);
     lv_obj_set_size(textarea, w, h);
+    lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
     lv_textarea_set_max_length(textarea, max_len);
 
     if (placeholder != NULL && placeholder[0] != '\0') {
@@ -314,8 +316,8 @@ int airui_textarea_attach_keyboard(lv_obj_t *textarea, lv_obj_t *keyboard)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    // 将 keyboard 联动到本 textarea
-    lv_keyboard_set_textarea(keyboard, textarea);
+    // 将 keyboard 联动到本 textarea，并同步 AirUI 内部 target
+    airui_keyboard_set_target(keyboard, textarea);
 
     // 读取已有 metadata，便于存储 keyboard 指针
     airui_component_meta_t *meta = airui_component_meta_get(textarea);

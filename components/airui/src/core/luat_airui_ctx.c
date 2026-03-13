@@ -290,6 +290,7 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops)
     
     // 清零上下文
     memset(ctx, 0, sizeof(airui_ctx_t));
+    ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
     
     // 如果没有传入 ops，则根据编译时宏定义自动选择
     if (ops == NULL) {
@@ -593,6 +594,9 @@ void airui_deinit(airui_ctx_t *ctx)
 
     // 释放调试信息数据
     airui_debug_deinit(ctx);
+
+    // 释放全局触摸订阅
+    airui_touch_unsubscribe(ctx, ctx->L);
     
     // 停止运行时定时器
     airui_stop_runtime_timers(ctx);

@@ -86,6 +86,24 @@ static bool airui_keypad_queue_pop(lv_indev_data_t *data)
     return true;
 }
 
+// 通知触摸事件
+static void airui_sdl_notify_touch_state(airui_ctx_t *ctx, bool button_down, bool down_event, bool up_event, lv_coord_t x, lv_coord_t y)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (button_down) {
+        airui_touch_notify(ctx, (down_event || !ctx->touch_pressed) ? AIRUI_TOUCH_STATE_DOWN : AIRUI_TOUCH_STATE_HOLD,
+                           x, y, 0, lv_tick_get());
+        return;
+    }
+
+    if (up_event || ctx->touch_pressed) {
+        airui_touch_notify(ctx, AIRUI_TOUCH_STATE_UP, x, y, 0, lv_tick_get());
+    }
+}
+
 // 将SDL按键映射为LVGL按键
 static uint32_t sdl_map_to_lvgl_key(SDL_Keycode key)
 {
@@ -356,6 +374,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     // 处理 SDL 事件
     SDL_Event event;
     bool has_event = false;
+    bool mouse_down_event = false;
+    bool mouse_up_event = false;
     int32_t sdl_x = 0, sdl_y = 0;
     
     while (SDL_PollEvent(&event)) {
@@ -366,6 +386,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 input_data.left_button_down = true;
+                mouse_down_event = true;
                 sdl_x = event.button.x;
                 sdl_y = event.button.y;
                 has_event = true;
@@ -373,6 +394,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 input_data.left_button_down = false;
+                mouse_up_event = true;
                 sdl_x = event.button.x;
                 sdl_y = event.button.y;
                 has_event = true;
@@ -429,6 +451,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     data->point.x = input_data.last_x;
     data->point.y = input_data.last_y;
     data->state = input_data.left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    airui_sdl_notify_touch_state(ctx, input_data.left_button_down, mouse_down_event, mouse_up_event,
+                                 data->point.x, data->point.y);
     
     return has_event;
 }

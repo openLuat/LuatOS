@@ -68,6 +68,16 @@ typedef enum {
 } airui_err_t;
 
 /**
+ * AirUI 触摸订阅状态
+ */
+typedef enum {
+    AIRUI_TOUCH_STATE_NONE = 0,
+    AIRUI_TOUCH_STATE_DOWN,
+    AIRUI_TOUCH_STATE_HOLD,
+    AIRUI_TOUCH_STATE_UP
+} airui_touch_state_t;
+
+/**
  * 显示驱动操作接口
  */
 typedef struct {
@@ -162,6 +172,12 @@ struct airui_ctx {
     int32_t system_keyboard_preedit_pos; /**< 上一次插入的 SDL 预编辑文本起始位置 */
     int32_t system_keyboard_preedit_len; /**< 上一次插入的 SDL 预编辑文本长度（字符数） */
     bool system_keyboard_preedit_active; /**< 当前是否处于 SDL 预编辑（拼音）阶段 */
+    int touch_callback_ref;              /**< 全局触摸订阅回调 */
+    airui_touch_state_t touch_last_state;/**< 上一次已分发的触摸状态 */
+    bool touch_pressed;                  /**< 当前是否处于按下中 */
+    lv_point_t touch_last_point;         /**< 上一次触摸点 */
+    uint8_t touch_last_track_id;         /**< 上一次触摸 track id */
+    uint32_t touch_last_timestamp;       /**< 上一次触摸时间戳 */
 
     // Debug 运行态
     bool debug_enabled;                  /**< 调试开关 */
@@ -351,6 +367,13 @@ void airui_system_keyboard_post_key(airui_ctx_t *ctx, uint32_t key, bool pressed
 void airui_system_keyboard_post_text(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_set_preedit(airui_ctx_t *ctx, const char *text);
 void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx);
+
+/**
+ * 控制全局触摸订阅
+ */
+int airui_touch_subscribe(airui_ctx_t *ctx, void *L, int callback_ref);
+void airui_touch_unsubscribe(airui_ctx_t *ctx, void *L);
+void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp);
 
 /**
  * 调试能力控制

@@ -218,6 +218,34 @@ static void airui_luatos_apply_tp_transform(int32_t *x, int32_t *y, int32_t w, i
     }
 }
 
+// 通知触摸事件
+static void airui_luatos_notify_touch_state(airui_ctx_t *ctx, uint8_t raw_event, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    switch (raw_event) {
+        case TP_EVENT_TYPE_DOWN:
+            airui_touch_notify(ctx, ctx->touch_pressed ? AIRUI_TOUCH_STATE_HOLD : AIRUI_TOUCH_STATE_DOWN, x, y, track_id, timestamp);
+            return;
+        case TP_EVENT_TYPE_MOVE:
+            airui_touch_notify(ctx, ctx->touch_pressed ? AIRUI_TOUCH_STATE_HOLD : AIRUI_TOUCH_STATE_DOWN, x, y, track_id, timestamp);
+            return;
+        case TP_EVENT_TYPE_UP:
+            if (ctx->touch_pressed) {
+                airui_touch_notify(ctx, AIRUI_TOUCH_STATE_UP, x, y, track_id, timestamp);
+            }
+            return;
+        case TP_EVENT_TYPE_NONE:
+        default:
+            if (ctx->touch_pressed) {
+                airui_touch_notify(ctx, AIRUI_TOUCH_STATE_UP, x, y, track_id, timestamp);
+            }
+            return;
+    }
+}
+
 /**
  * 读取指针输入
  */
@@ -237,6 +265,11 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     }
 
     luat_tp_data_t *tp_data = tp_cfg->tp_data;
+    uint8_t raw_event;
+    lv_coord_t notify_x;
+    lv_coord_t notify_y;
+    uint8_t track_id;
+    uint32_t timestamp;
     if (tp_data == NULL) {
         return false;
     }
@@ -244,7 +277,10 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     static lv_point_t last_point = {0, 0};
     luat_tp_data_t tp_data_snapshot = {0};
     memcpy(&tp_data_snapshot, tp_data, sizeof(luat_tp_data_t));
-    bool pressed = (tp_data_snapshot.event == TP_EVENT_TYPE_DOWN || tp_data_snapshot.event == TP_EVENT_TYPE_MOVE);
+    raw_event = tp_data_snapshot.event;
+    track_id = tp_data_snapshot.track_id;
+    timestamp = tp_data_snapshot.timestamp;
+    bool pressed = (raw_event == TP_EVENT_TYPE_DOWN || raw_event == TP_EVENT_TYPE_MOVE);
 
     if (pressed) {
         // 获取初始触摸坐标
@@ -288,6 +324,9 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_RELEASED;
     }
     data->point = last_point;
+    notify_x = last_point.x;
+    notify_y = last_point.y;
+    airui_luatos_notify_touch_state(ctx, raw_event, notify_x, notify_y, track_id, timestamp);
     return pressed;
 }
 

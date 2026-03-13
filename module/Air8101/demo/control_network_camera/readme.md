@@ -6,10 +6,9 @@
 
 3、cam_control.lua：摄像头控制模块，负责OSD设置、拍照和照片上传；
 
-4、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡（WiFi STA网卡、RMII以太网卡、SPI以太网卡）中的任何一种网卡；
+4、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的两种网卡（WiFi STA网卡、SPI以太网卡）中的任何一种网卡；
 
 5、sdcard_mount_app.lua：SD卡挂载功能模块；
-
 
 ## 演示功能概述
 
@@ -44,7 +43,6 @@
 支持多种网络连接方式：
 
 - **WiFi STA模式**：使用 wlan.connect() 连接指定的WiFi网络
-- **以太网模式(RMII)**：通过RMII接口外挂PHY芯片的以太网卡
 - **以太网模式(SPI)**：通过SPI外挂CH390H芯片的以太网卡
 
 #### 3、SD卡智能管理
@@ -93,24 +91,7 @@
 | 66/GPIO3      | spi_cs            |
 | 8/GPIO5       | spi_miso          |
 
-6、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirPHY_1000配件板 |
-| ------------- | ----------------- |
-| 59/3V3        | 3.3v              |
-| gnd           | gnd               |
-| 5/D2          | RX1               |
-| 72/D1         | RX0               |
-| 71/D3         | CRS               |
-| 4/D0          | MDIO              |
-| 6/D4          | TX0               |
-| 74/PCK        | MDC               |
-| 70/D5         | TX1               |
-| 7/D6          | TXEN              |
-| 不接          | NC                |
-| 69/D7         | CLK               |
-
-7、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air8101核心板 | AirETH_1000配件板 |
 | ------------- | ----------------- |
@@ -122,7 +103,7 @@
 | 57/DE         | SDI               |
 | 14/GPIO8      | INT               |
 
-8、支持OSD功能的网络摄像头一台（目前仅支持大华摄像头）
+7、支持OSD功能的网络摄像头一台（目前仅支持大华摄像头）
 
 ## 演示软件环境
 
@@ -137,8 +118,6 @@
 2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 
 - 如果需要单WIFI STA网卡，打开require "netdrv/netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("@PHICOMM_75", "li19760705")，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-- 如果需要RMII以太网卡，打开require "netdrv/netdrv_eth_rmii"，其余注释掉
 
 - 如果需要SPI以太网卡，打开require "netdrv/netdrv_eth_spi"，其余注释掉
 

@@ -269,6 +269,23 @@ const char *airui_marshal_string(void *L, int idx, const char *key, const char *
 bool airui_marshal_color(void *L, int idx, const char *key, lv_color_t *out);
 
 /**
+ * 从配置表按需读取整数字段
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 整数输出
+ * @return true 成功读取，false 未指定或类型错误
+ */
+bool airui_marshal_integer_opt(void *L, int idx, const char *key, int *out);
+
+/**
+ * 规范化透明度到 LVGL 可用范围
+ * @param opacity 输入透明度
+ * @return 归一化后的透明度
+ */
+lv_opa_t airui_marshal_opacity(int opacity);
+
+/**
  * 从配置表读取父对象
  * @param L Lua 状态
  * @param idx 配置表索引

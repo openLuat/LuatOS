@@ -38,6 +38,7 @@ rtmp:destroy()
 #include <stdlib.h>
 #include "lwip/timeouts.h"
 #include "lwip/tcpip.h"
+#include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "rtmp"
 #include "luat_log.h"
@@ -50,37 +51,43 @@ typedef struct {
 
 /**
 创建RTMP推流上下文
-@api rtmp.create(url)
+@api rtmp.create(url, adapter_id)
 @string url RTMP服务器地址, 格式: rtmp://host:port/app/stream
+@int adapter_id 网络适配器ID, 可选, 默认使用系统默认适配器
 @return userdata RTMP上下文对象
 @usage
 local rtmp = rtmp.create("rtmp://example.com:1935/live/stream")
 */
 static int l_rtmp_create(lua_State *L) {
     const char *url = luaL_checkstring(L, 1);
+    int adapter_id = -1; /* 默认使用适配器0, 可以扩展为参数 */
+    if (lua_type(L, 2) == LUA_TNUMBER) {
+        adapter_id = (int)luaL_checkinteger(L, 2);
+    }
+    if (adapter_id < 0) {
+        adapter_id = network_register_get_default();
+    }
     
     luat_rtmp_userdata_t *ud = (luat_rtmp_userdata_t *)lua_newuserdata(L, sizeof(luat_rtmp_userdata_t));
     if (!ud) {
         LLOGE("内存分配失败");
-        lua_pushnil(L);
-        return 1;
+        return 0;
     }
     
     ud->rtmp = rtmp_create();
     if (!ud->rtmp) {
         LLOGE("RTMP上下文创建失败");
-        lua_pushnil(L);
-        return 1;
+        return 0;
     }
     ud->rtmp->user_data = (void *)ud;
+    ud->rtmp->adapter_id = (uint8_t)adapter_id;
     
     ud->callback_ref = LUA_NOREF;
     
     if (rtmp_set_url(ud->rtmp, url) != 0) {
         LLOGE("RTMP URL设置失败");
         rtmp_destroy(ud->rtmp);
-        lua_pushnil(L);
-        return 1;
+        return 0;
     }
     
     luaL_getmetatable(L, "rtmp_ctx");

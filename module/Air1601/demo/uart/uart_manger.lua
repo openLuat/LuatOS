@@ -15,7 +15,8 @@
 -- 根据自己的项目需求，只需要require以下五种中的一种即可；
 -- 简易串口，小数据字符串收发
 require "simple_uart"
-
+-- 测试485串口
+-- require "485_uart"
 -- 大数据收发串口
 -- require "high_volume_uart"
 

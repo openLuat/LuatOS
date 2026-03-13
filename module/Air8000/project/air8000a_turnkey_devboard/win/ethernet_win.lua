@@ -10,7 +10,7 @@ local function create_ui()
     -- 顶部返回栏
     local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
     local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
-        on_click = function() if win_id then exwin.close(win_id) end end
+        on_click = function() if win_id then exwin.close(win_id) win_id = nil end end
     })
 
     airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="以太网", font_size=24, color=0xffffff })
@@ -42,31 +42,31 @@ local function create_ui()
     })
 end
 
-function ethernet_win_on_create()
+local function on_create()
     
     create_ui()
     -- 加载已保存配置
 end
 
-function ethernet_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function ethernet_win_on_get_focus()
+local function on_get_focus()
     -- 刷新
 end
 
-function ethernet_win_on_lose_focus()
+local function on_lose_focus()
     -- 暂停
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = ethernet_win_on_create,
-        on_destroy = ethernet_win_on_destroy,
-        on_get_focus = ethernet_win_on_get_focus,
-        on_lose_focus = ethernet_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_ETHERNET_WIN", open_handler)

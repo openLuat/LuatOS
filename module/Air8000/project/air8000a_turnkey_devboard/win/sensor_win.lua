@@ -73,34 +73,34 @@ local function create_ui()
     airui.label({ parent = content, x=370, y=210, w=100, h=20, text="自动上传", font_size=16, color=0x000000 })
 end
 
-function sensor_win_on_create()
+local function on_create()
     create_ui()
     sys.subscribe("SENSOR_DATA", sensor_data_handler)
     -- 主动请求一次数据
     sys.publish("read_sensors_req")
 end
 
-function sensor_win_on_destroy()
+local function on_destroy()
     sys.unsubscribe("SENSOR_DATA", sensor_data_handler)
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function sensor_win_on_get_focus()
+local function on_get_focus()
     -- 刷新数据
     sys.publish("read_sensors_req")
 end
 
-function sensor_win_on_lose_focus()
+local function on_lose_focus()
     -- 可暂停自动上传等
 end
 
 local function open_handler()
    win_id = exwin.open({
-        on_create = sensor_win_on_create,
-        on_destroy = sensor_win_on_destroy,
-        on_get_focus = sensor_win_on_get_focus,
-        on_lose_focus = sensor_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_SENSOR_WIN", open_handler)

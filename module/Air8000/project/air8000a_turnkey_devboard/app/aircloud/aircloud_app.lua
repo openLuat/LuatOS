@@ -1,5 +1,5 @@
 --[[
-@module  excloud_test
+@module  aircloud_app
 @summary excloud测试文件
 @version 1.0
 @date    2025.09.22
@@ -94,15 +94,27 @@ function excloud_task_func()
         sys.waitUntil("IP_READY", 1000)
     end
 
+    local device_type
+    if rtos.bsp() == "PC" then
+        device_type = 9
+    elseif rtos.bsp() ~= "Air8101" then
+        -- 加载“4G网卡”驱动模块
+        device_type = 1
+    else
+        -- 加载“wifi”驱动网卡
+        device_type = 2
+    end
+
     -- 配置excloud参数
     local ok, err_msg = excloud.setup({
         use_getip = true,        -- 使用getip服务
-        device_type = 1,         -- 4G设备
+        device_type = device_type,         -- 4G设备
         -- auth_key = "89SKSPwYBo0kIiDETV0nUXUAPgPDHsin",
-        transport = "tcp",      -- 使用TCP传输
+        transport = "tcp",       -- 使用TCP传输
         auto_reconnect = true,   -- 自动重连
         reconnect_interval = 10, -- 重连间隔(秒)
         max_reconnect = 5,       -- 最大重连次数
+        virtual_phone_number ="10012345678",--PC模拟器使用11位手机号
         -- mtn_log_enabled = true,  -- 启用运维日志
         -- mtn_log_blocks = 1,      -- 日志文件块数
         -- mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式
@@ -125,11 +137,11 @@ function excloud_task_func()
     excloud.start_heartbeat()
     log.info("自动心跳已启动")
 
-        -- 获取并打印二维码信息
+    -- 获取并打印二维码信息
     local qrinfo = excloud.get_qrinfo()
     if qrinfo and qrinfo.url then
         log.info("二维码URL:", qrinfo.url)
-        sys.publish("aircloud_qrinfo",qrinfo.url)
+        sys.publish("aircloud_qrinfo", qrinfo.url)
     else
         log.info("未获取到二维码信息")
     end
@@ -152,18 +164,30 @@ function excloud_task_func()
 
             if temp_val ~= nil then
                 table.insert(tlv_list,
-                    { field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE, data_type = excloud.DATA_TYPES.FLOAT, value =
-                    temp_val })
+                    {
+                        field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE,
+                        data_type = excloud.DATA_TYPES.FLOAT,
+                        value =
+                            temp_val
+                    })
             end
             if hum_val ~= nil then
                 table.insert(tlv_list,
-                    { field_meaning = excloud.FIELD_MEANINGS.HUMIDITY, data_type = excloud.DATA_TYPES.FLOAT, value =
-                    hum_val })
+                    {
+                        field_meaning = excloud.FIELD_MEANINGS.HUMIDITY,
+                        data_type = excloud.DATA_TYPES.FLOAT,
+                        value =
+                            hum_val
+                    })
             end
             if voc_val ~= nil then
                 table.insert(tlv_list,
-                    { field_meaning = excloud.FIELD_MEANINGS.PARTICULATE, data_type = excloud.DATA_TYPES.FLOAT, value =
-                    voc_val })
+                    {
+                        field_meaning = excloud.FIELD_MEANINGS.PARTICULATE,
+                        data_type = excloud.DATA_TYPES.FLOAT,
+                        value =
+                            voc_val
+                    })
             end
 
             local ok, err_msg = excloud.send(tlv_list, false)

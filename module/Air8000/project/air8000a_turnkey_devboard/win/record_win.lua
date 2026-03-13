@@ -45,31 +45,31 @@ local function create_ui()
     })
 end
 
-function record_win_on_create()
+local function on_create()
     
     create_ui()
 end
 
-function record_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 停止录音、播放等
 end
 
-function record_win_on_get_focus()
+local function on_get_focus()
     -- 刷新
 end
 
-function record_win_on_lose_focus()
+local function on_lose_focus()
     -- 如果正在录音，可考虑停止或暂停
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = record_win_on_create,
-        on_destroy = record_win_on_destroy,
-        on_get_focus = record_win_on_get_focus,
-        on_lose_focus = record_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_RECORD_WIN", open_handler)

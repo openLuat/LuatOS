@@ -41,7 +41,7 @@ local function create_ui()
     airui.label({ parent = content, x=180, y=120, w=100, h=30, text="静止", font_size=18, color=0x000000 })
 end
 
-function gps_win_on_create()
+local function on_create()
     
     create_ui()
     -- 启动GPS定时读取
@@ -49,27 +49,27 @@ function gps_win_on_create()
     gps_timer = sys.timerLoopStart(update_gps_display, interval * 1000)
 end
 
-function gps_win_on_destroy()
+local function on_destroy()
     if gps_timer then sys.timerStop(gps_timer); gps_timer = nil end
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function gps_win_on_get_focus()
+local function on_get_focus()
     -- 获得焦点时立即刷新一次
     update_gps_display()
 end
 
-function gps_win_on_lose_focus()
+local function on_lose_focus()
     -- 失去焦点时可不做特殊处理，定时器依然运行但 is_active 会阻止UI更新
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = gps_win_on_create,
-        on_destroy = gps_win_on_destroy,
-        on_get_focus = gps_win_on_get_focus,
-        on_lose_focus = gps_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_GPS_WIN", open_handler)

@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-本项目是基于 Air780EHV 的语音通信演示demo，实现了两种语音通话应用场景（二选一）：基础通话功能和TTS循环播放与通话处理功能。
+本项目是基于 Air780EHV 的语音通信演示demo，实现了三种语音通话应用场景（三选一）：基础通话功能模块、TTS循环播放与通话处理功能模块、以及通话录音功能模块。
 
 ## 文件结构
 
@@ -10,6 +10,7 @@
 - audio_drv.lua: 管理音频设备初始化与控制
 - cc_app.lua: 实现基础通话业务逻辑以及通话录音
 - cc_tts_app.lua: 实现TTS循环播放与通话业务逻辑
+- cc_record_save.lua: 通话录音功能模块，仅支持SD卡存储
 
 ## 功能模块说明
 
@@ -46,7 +47,29 @@
    - 通话结束后自动恢复TTS播放
    - 来电时自动关闭音频输出，避免POP音
 
-4. **通话录音功能**：所有通话均支持双向录音（上行+下行），实时记录通话数据。
+### 场景三：通话录音功能模块（cc_record_save.lua）
+
+1. **模块功能概述**：
+   - 实现呼入自动接听功能（响2声后自动接听）
+   - 支持通话录音功能，保存为PCM格式
+   - 录音文件仅支持SD卡
+
+2. **功能说明**：
+   - 来电自动接听：响铃2声后自动接听来电
+   - 通话录音：自动开始录音，对方挂断后停止录音
+   - 存储方式：优先保存到SD卡，无卡或卡挂载失败时不录音
+
+3. **录音功能特性**：
+   - 录音文件保存为PCM格式：/sd/record_call.pcm（SD卡）
+   - 只保存上行数据（包含本地声音和网络回声）
+   - 下行数据自动跳过，避免重复存储
+   - 支持SD卡自动挂载和空间检测
+   - 仅支持SD卡存储，必须插入SD卡才能使用录音功能
+
+4. **使用方式**：
+   - 本模块仅支持呼入自动接听功能
+   - 录音文件仅支持SD卡存储，必须插入SD卡才能使用录音功能
+   - 录音文件为原始PCM格式，普通播放器无法播放，需要Audacity等支持原始音频播放器的软件播放
 
 ## 演示硬件环境
 
@@ -126,8 +149,9 @@
 3、根据需求配置演示功能：
 
    - 编辑main.lua文件，选择需要演示的功能
-   - 功能一（基础通话功能）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"`
-   - 功能二（TTS循环播放与通话处理）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`
+   - 功能一（基础通话功能模块）：取消注释 `require "cc_app"`，注释掉 `require "cc_tts_app"` 和 `require "cc_record_save"`
+   - 功能二（TTS循环播放与通话处理功能模块）：注释掉 `require "cc_app"`，取消注释 `require "cc_tts_app"`，注释掉 `require "cc_record_save"`
+   - 功能三（通话录音功能模块）：注释掉 `require "cc_app"` 和 `require "cc_tts_app"`，取消注释 `require "cc_record_save"`
 
 4、功能一场景四需要修改测试号码：
 
@@ -284,11 +308,41 @@ I/user.开始播放TTS
 I/user.播放完成 true
 ```
 
-#### 通话录音功能
+### 功能三：通话录音功能模块
 
-所有通话均会进行双向录音，实时记录通话数据，可通过日志查看录音状态。
+#### 呼入自动接听与录音功能
+
+设备启动后初始化通话系统，当有来电时自动接听并开始录音，通话结束后停止录音并保存文件。
+
+类似以下日志：
 
 ``` lua
+I/user.cc_app 通话录音功能模块加载完成
+I/user.exaudio_device 使用exaudio.setup初始化音频设备
+I/user.exaudio_device exaudio.setup初始化成功
+I/user.CC状态 READY
+I/user.exaudio_device 通话录音已启用
+I/user.cc_app 电话系统初始化完成
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 1
+I/user.CC状态 INCOMINGCALL
+I/user.场景3 收到来电，号码: 139XXXXXXXX 响铃次数: 2
+I/user.场景3 自动接听来电
+I/user.场景3 电话已接通，电话号码: 139XXXXXXXX
+I/user.录音文件 SD卡挂载成功，录音文件将保存到SD卡
+I/user.录音文件 创建录音文件成功:/sd/record_call.pcm
 I/user.录音 上行数据，位于缓存 1 缓存1数据量 6400 缓存2数据量 0
 I/user.通话质量 2
+I/user.CC状态 DISCONNECTED
+I/user.场景3 通话结束对方挂断
+I/user.录音文件 录音完成 文件大小: 102400 字节 录音时长: 10.5 秒 路径: /sd/record_call.pcm
+```
+
+#### SD卡存储要求
+
+必须插入SD卡才能使用录音功能，无SD卡时录音功能不可用：
+
+``` lua
+I/user.录音文件 SD卡挂载失败，录音功能不可用
+I/user.录音文件 无法创建录音文件，请插入SD卡
 ```

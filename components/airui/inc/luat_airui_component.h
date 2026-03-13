@@ -417,6 +417,7 @@ int airui_qrcode_set_quiet_zone(lv_obj_t *qrcode, bool enable); //设置静区�
 lv_obj_t *airui_win_create_from_config(void *L, int idx);
 int airui_win_set_title(lv_obj_t *win, const char *title); //设置窗口标题
 int airui_win_add_content(lv_obj_t *win, lv_obj_t *child); //添加子组件到内容容器
+int airui_win_set_style(lv_obj_t *win, void *L, int idx); //按样式表设置窗口样式
 
 /**
  * Textarea组件

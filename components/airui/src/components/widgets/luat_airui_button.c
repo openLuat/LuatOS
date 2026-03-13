@@ -22,6 +22,7 @@
 static lv_opa_t airui_button_normalize_opacity(int opacity);
 static bool airui_button_get_table_integer(lua_State *L, int idx, const char *key, int *out);
 static void airui_button_apply_default_style(lv_obj_t *btn);
+static void airui_button_warn_stype_deprecated(void);
 
 /**
  * 从配置表创建 Button 组件
@@ -69,9 +70,16 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
 
     airui_button_apply_default_style(btn);
 
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_button_set_style(btn, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
+
     lua_getfield(L_state, idx, "stype");
     if (lua_type(L_state, -1) == LUA_TTABLE) {
-        airui_button_set_stype(btn, L_state, lua_gettop(L_state));
+        airui_button_warn_stype_deprecated();
+        airui_button_set_style(btn, L_state, lua_gettop(L_state));
     }
     lua_pop(L_state, 1);
     
@@ -182,7 +190,7 @@ int airui_button_set_on_click(lv_obj_t *btn, int callback_ref)
  * @param idx 样式表在栈中的索引
  * @return 0 成功，<0 失败
  */
-int airui_button_set_stype(lv_obj_t *btn, void *L, int idx)
+int airui_button_set_style(lv_obj_t *btn, void *L, int idx)
 {
     if (btn == NULL || L == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
@@ -248,6 +256,12 @@ int airui_button_set_stype(lv_obj_t *btn, void *L, int idx)
     return AIRUI_OK;
 }
 
+int airui_button_set_stype(lv_obj_t *btn, void *L, int idx)
+{
+    airui_button_warn_stype_deprecated();
+    return airui_button_set_style(btn, L, idx);
+}
+
 // 归一化透明度
 static lv_opa_t airui_button_normalize_opacity(int opacity)
 {
@@ -298,5 +312,10 @@ static void airui_button_apply_default_style(lv_obj_t *btn)
     lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+}
+
+static void airui_button_warn_stype_deprecated(void)
+{
+    LLOGW("button stype 接口已废弃，请改用 style；该接口将在 1.2.0 版本后移除，当前版本 %s", AIRUI_VERSION);
 }
 

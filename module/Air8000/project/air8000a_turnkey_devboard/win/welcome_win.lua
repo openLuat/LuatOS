@@ -1,8 +1,7 @@
--- welcome_win_lua - 开机画面
+-- lua - 开机画面
 
 local win_id = nil
 local main_container
-local welcome_timer = nil
 
 -- 创建 UI：全屏显示一张图片或纯色背景+文字
 local function create_ui()
@@ -49,18 +48,14 @@ local function on_welcome_timeout()
     sys.publish("OPEN_IDLE_WIN")
 end
 
-function welcome_win_on_create()
+local function on_create()
     create_ui()
-
     -- 启动一个定时器，1秒后切换到首页（可根据实际需要调整时间）
-    welcome_timer = sys.timerStart(on_welcome_timeout, 1000)
+    sys.timerStart(on_welcome_timeout, 1000)
 end
 
-function welcome_win_on_destroy()
-    if welcome_timer then
-        sys.timerStop(welcome_timer)
-        welcome_timer = nil
-    end
+local function on_destroy()
+    sys.timerStop(on_welcome_timeout)
     if main_container then
         main_container:destroy()
         main_container = nil
@@ -69,17 +64,17 @@ function welcome_win_on_destroy()
 end
 
 -- 可选：获得焦点/失去焦点时不做特殊处理
-function welcome_win_on_get_focus() end
+local function on_get_focus() end
 
-function welcome_win_on_lose_focus() end
+local function on_lose_focus() end
 
 -- 订阅打开开机画面的消息
 local function open_welcome_handler()
     win_id = exwin.open({
-        on_create = welcome_win_on_create,
-        on_destroy = welcome_win_on_destroy,
-        on_get_focus = welcome_win_on_get_focus,
-        on_lose_focus = welcome_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_WELCOME_WIN", open_welcome_handler)

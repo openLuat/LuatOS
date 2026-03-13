@@ -20,8 +20,17 @@
 
 -- 根据自己的项目需求，只需要require以下四种中的一种即可；
 
+
+if rtos.bsp() == "PC" then
+    -- 加载“pc模拟器网卡”驱动模块
+    require "netdrv_pc"
+elseif rtos.bsp() ~= "Air8101" then
 -- 加载“4G网卡”驱动模块
-require "netdrv_4g"
+    require "netdrv_4g"
+else
+    -- 加载“wifi”驱动网卡
+    require "netdrv_wifi"
+end
 
 
 -- 加载“通过SPI外挂CH390H芯片的以太网卡”驱动模块

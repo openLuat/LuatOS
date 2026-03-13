@@ -39,32 +39,32 @@ local function create_ui()
     scan_list:set_cell_text(0, 1, "信号")
 end
 
-function bluetooth_win_on_create()
+local function on_create()
     
     create_ui()
     -- TODO: 初始化蓝牙
 end
 
-function bluetooth_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 停止扫描等
 end
 
-function bluetooth_win_on_get_focus()
+local function on_get_focus()
     -- 刷新列表等
 end
 
-function bluetooth_win_on_lose_focus()
+local function on_lose_focus()
     -- 暂停扫描
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = bluetooth_win_on_create,
-        on_destroy = bluetooth_win_on_destroy,
-        on_get_focus = bluetooth_win_on_get_focus,
-        on_lose_focus = bluetooth_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_BLUETOOTH_WIN", open_handler)

@@ -1,12 +1,12 @@
--- idle_win_lua - 首页
+-- lua - 首页
 
 local win_id = nil
 local main_container, time_label, temp_label, hum_label, air_label, signal_img, qrcode1
 local card_temp, card_hum, card_air
-local time_timer, signal_timer
 local temp_history, hum_history, air_history = {}, {}, {}
 local MAX_HISTORY = 20
 local current_win = nil -- 图表窗口
+local aircloud_qr = nil
 
 
 
@@ -61,8 +61,11 @@ end
 local function create_ui()
     main_container = airui.container({ x = 0, y = 0, w = 480, h = 320, color = 0xF8F9FA, parent = airui.screen })
     -- 顶部状态栏
+    log.info("lte_csq_idle", lte_csq, show_time,aircloud_qr)
+  
     local status_bar = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 40, color = 0x3F51B5 })
-    signal_img = airui.image({ parent = status_bar, x = 430, y = 4, w = 32, h = 32, src = lte_csq or "/luadb/4Gxinghao6.png" })
+    signal_img = airui.image({ parent = status_bar, x = 430, y = 4, w = 32, h = 32, src = lte_csq or
+    "/luadb/4Gxinghao6.png" })
     time_label = airui.label({ parent = status_bar, x = 188, y = 4, w = 100, h = 32, text = show_time or "--:--", font_size = 30, color = 0xfefefe })
 
     -- 内容区域
@@ -236,10 +239,10 @@ local function create_ui()
         w = 240,
         h = 40,
         color = 0x2195F6,
-        on_click = function() sys.publish("OPEN_ALL_APP_WIN") end
+        on_click = function() sys.publish("OPEN_MAIN_MENU_WIN") end
     })
     airui.image({ parent = btn_right, x = 53, y = 4, w = 32, h = 32, src = "/luadb/quanbuyingyong.png" })
-    airui.label({ parent = btn_right, x = 100, y = 10, w = 100, h = 30, text = "全部应用", font_size = 20, color = 0xfefefe })
+    airui.label({ parent = btn_right, x = 100, y = 10, w = 100, h = 30, text = "主菜单", font_size = 20, color = 0xfefefe })
 end
 
 -- 内部函数：更新时间
@@ -335,57 +338,55 @@ local function sensor_read_update(temp, hum, air)
 end
 
 -- 生命周期回调
-function idle_win_on_create()
+local function on_create()
     create_ui()
-    time_timer = sys.timerLoopStart(update_time, 1000)
-    signal_timer = sys.timerLoopStart(update_signal, 2000)
+    sys.timerLoopStart(update_time, 1000)
+    sys.timerLoopStart(update_signal, 2000)
     sys.subscribe("SIM_IND", handle_sim_ind)
     sys.publish("read_sensors_req")
     update_time()
     update_signal()
-    if qrcode1 ~= nil then
-         qrcode1:set_data(aircloud_qr)
-    end
 end
 
-function idle_win_on_destroy()
-    if time_timer then
-        sys.timerStop(time_timer); time_timer = nil
-    end
-    if signal_timer then
-        sys.timerStop(signal_timer); signal_timer = nil
-    end
+local function on_destroy()
+    sys.timerStop(update_time)
+    sys.timerStop(update_signal)
     sys.unsubscribe("SIM_IND", handle_sim_ind)
     if current_win then
-        current_win:close(); current_win = nil
+        current_win:close()
+        current_win = nil
     end
     if main_container then
-        main_container:destroy(); main_container = nil
+        main_container:destroy()
+        main_container = nil
     end
     time_label, signal_img, qrcode1, temp_label, hum_label, air_label = nil, nil, nil, nil, nil, nil
     card_temp, card_hum, card_air = nil, nil, nil
 end
 
-function idle_win_on_get_focus()
+local function on_get_focus()
     -- 页面获得焦点时主动刷新一次
     update_time()
     update_signal()
+    if aircloud_qr ~= nil then
+        qrcode1:set_data(aircloud_qr)
+    end
 end
 
-function idle_win_on_lose_focus()
+local function on_lose_focus()
     -- 无需操作
 end
 
 -- 订阅打开首页的消息
-local function open_idle_win_handler()
+local function open_handler()
     win_id = exwin.open({
-        on_create = idle_win_on_create,
-        on_destroy = idle_win_on_destroy,
-        on_lose_focus = idle_win_on_lose_focus,
-        on_get_focus = idle_win_on_get_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_lose_focus = on_lose_focus,
+        on_get_focus = on_get_focus,
     })
 end
 
-sys.subscribe("OPEN_IDLE_WIN", open_idle_win_handler)
+sys.subscribe("OPEN_IDLE_WIN", open_handler)
 sys.subscribe("aircloud_qrinfo", aircloud_qr_update)
 sys.subscribe("ui_sensor_data", sensor_read_update)

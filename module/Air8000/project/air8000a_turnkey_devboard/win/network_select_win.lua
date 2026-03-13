@@ -40,31 +40,31 @@ local function create_ui()
     })
 end
 
-function network_select_win_on_create()
+local function on_create()
     
     create_ui()
     -- TODO: 读取当前设置，初始化下拉框
 end
 
-function network_select_win_on_destroy()
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
-function network_select_win_on_get_focus()
+local function on_get_focus()
     -- 刷新
 end
 
-function network_select_win_on_lose_focus()
+local function on_lose_focus()
     -- 暂停
 end
 
 local function open_handler()
     win_id = exwin.open({
-        on_create = network_select_win_on_create,
-        on_destroy = network_select_win_on_destroy,
-        on_get_focus = network_select_win_on_get_focus,
-        on_lose_focus = network_select_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_NETWORK_SELECT_WIN", open_handler)

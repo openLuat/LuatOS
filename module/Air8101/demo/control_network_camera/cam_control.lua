@@ -73,20 +73,17 @@ local function camera_start()
     
     -- 配置大华摄像头OSD，分六行依次显示 1111 2222 3333 4444 5555 6666
     exremotecam.osd({brand = "dhcam", host = "192.168.1.108", channel = 0, text = "1111|2222|3333|4444|5555|6666", x = 0, y = 2000})
-    
-    -- 等待OSD配置完成再进行拍照
-    sys.wait(1000) 
+
     log.info("开始运行抓图操作")
-    
     -- 判断SD卡状态，选择保存路径
-            local save_path
-            if io.exists("/sd") then
-                save_path = "/sd/" .. photo_save_addr
-                log.info("SD卡已挂载", "照片将保存到:", save_path)
-            else
-                save_path = "/luadb/" .. photo_save_addr
-                log.info("SD卡未挂载", "照片将保存到:", save_path)
-            end
+    local save_path
+    if io.exists("/sd") then
+        save_path = "/sd/" .. photo_save_addr
+        log.info("SD卡已挂载", "照片将保存到:", save_path)
+    else
+        save_path = "/luadb/" .. photo_save_addr
+        log.info("SD卡未挂载", "照片将保存到:", save_path)
+    end
     
     -- 执行拍照操作
     local result = exremotecam.get_photo({brand = "dhcam", host = "192.168.1.108", channel = 1, save_path = save_path})

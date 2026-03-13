@@ -2,13 +2,11 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的五种网卡(单wifi网卡，单rmii以太网卡，单spi以太网卡，单4g网卡，多网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单wifi网卡，单spi以太网卡，单4g网卡，多网卡)中的任何一种网卡；
 
 3、http_app.lua：基于不同的应用场景，演示http核心库的使用方式；
 
 4、httpplus_app.lua：基于不同的应用场景，演示httpplus扩展库的使用方式；
-
-
 
 ## 演示功能概述
 
@@ -50,19 +48,15 @@
 
 - http post文件上传功能演示；
 
-3、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
+3、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
 
    (1) netdrv_4g：通过SPI外挂4G模组的4G网卡
 
    (2) netdrv_wifi：WIFI STA网卡
 
-   (3) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
-   (4) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-
-   (5) netdrv_multiple：支持以上(2)、(3)、(4)三种网卡，可以配置三种网卡的优先级
-
-
+   (4) netdrv_multiple：支持以上(2)、(3)、两种网卡，可以配置两种网卡的优先级
 
 ## 演示硬件环境
 
@@ -84,24 +78,7 @@
 
 - USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
-5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirPHY_1000配件板 |
-| ------------- | ----------------- |
-| 59/3V3        | 3.3v              |
-| gnd           | gnd               |
-| 5/D2          | RX1               |
-| 72/D1         | RX0               |
-| 71/D3         | CRS               |
-| 4/D0          | MDIO              |
-| 6/D4          | TX0               |
-| 74/PCK        | MDC               |
-| 70/D5         | TX1               |
-| 7/D6          | TXEN              |
-| 不接          | NC                |
-| 69/D7         | CLK               |
-
-6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+5、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air8101核心板 | AirETH_1000配件板 |
 | ------------- | ----------------- |
@@ -155,8 +132,6 @@
 
 - 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("茶室-降功耗,找合宙!", "Air123456", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
 
-- 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
-
 - 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 
 - 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
@@ -191,4 +166,3 @@
 [2025-08-06 15:35:02.236][000000013.145] I/user.http_app_post_binary success 200 {"Da
 [2025-08-06 15:35:02.437][000000013.348] I/user.post_multipart_form_data success 200 
 ```
-

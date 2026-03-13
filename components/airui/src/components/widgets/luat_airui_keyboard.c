@@ -16,6 +16,7 @@
 #include "lvgl9/src/misc/lv_event.h"
 #include "lvgl9/src/core/lv_obj_pos.h"
 #include "lvgl9/src/core/lv_obj_scroll.h"
+#include "lvgl9/src/core/lv_obj_style.h"
 #include "lvgl9/src/core/lv_obj_style_gen.h"
 #if LV_USE_IME_PINYIN
     #include "lvgl9/src/others/ime/lv_ime_pinyin.h"
@@ -35,9 +36,10 @@ typedef struct {
     lv_obj_t *keyboard;
     lv_obj_t *target;
     lv_obj_t *container;
-    lv_obj_t *label;
+    lv_obj_t *preview_ta;
     int32_t height;
     int32_t ime_panel_height;
+    bool syncing;
 } airui_keyboard_preview_runtime_t;
 
 // 初始化键盘数据
@@ -77,14 +79,43 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state) {
 
 // 输入预览框目标事件回调
 static void airui_keyboard_preview_target_event_cb(lv_event_t *e);
+static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e);
+
+// 隐藏输入框光标
+static void airui_keyboard_hide_textarea_cursor(lv_obj_t *textarea)
+{
+    if (textarea == NULL || !lv_obj_is_valid(textarea)) {
+        return;
+    }
+
+    lv_style_selector_t sel = LV_PART_CURSOR | LV_STATE_FOCUSED;
+    lv_obj_set_style_bg_opa(textarea, LV_OPA_0, sel);
+    lv_obj_set_style_border_opa(textarea, LV_OPA_0, sel);
+    lv_obj_set_style_text_opa(textarea, LV_OPA_0, sel);
+    lv_obj_set_style_anim_duration(textarea, 0, sel);
+}
+
+// 恢复输入框光标
+static void airui_keyboard_restore_textarea_cursor(lv_obj_t *textarea)
+{
+    if (textarea == NULL || !lv_obj_is_valid(textarea)) {
+        return;
+    }
+
+    lv_style_selector_t sel = LV_PART_CURSOR | LV_STATE_FOCUSED;
+    lv_obj_remove_local_style_prop(textarea, LV_STYLE_BG_OPA, sel);
+    lv_obj_remove_local_style_prop(textarea, LV_STYLE_BORDER_OPA, sel);
+    lv_obj_remove_local_style_prop(textarea, LV_STYLE_TEXT_OPA, sel);
+    lv_obj_remove_local_style_prop(textarea, LV_STYLE_ANIM_DURATION, sel);
+}
 
 // 输入预览框重新布局
 static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *runtime)
 {
-    if (runtime == NULL || runtime->keyboard == NULL || runtime->container == NULL || runtime->label == NULL) {
+    if (runtime == NULL || runtime->keyboard == NULL || runtime->container == NULL || runtime->preview_ta == NULL) {
         return;
     }
-    if (!lv_obj_is_valid(runtime->keyboard) || !lv_obj_is_valid(runtime->container) || !lv_obj_is_valid(runtime->label)) {
+    if (!lv_obj_is_valid(runtime->keyboard) || !lv_obj_is_valid(runtime->container) || !lv_obj_is_valid(runtime->preview_ta)) {
         return;
     }
 
@@ -115,8 +146,8 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
     }
 
     lv_obj_set_width(runtime->container, width);
-    lv_obj_set_width(runtime->label, LV_PCT(100));
-    lv_obj_set_height(runtime->label, LV_SIZE_CONTENT);
+    lv_obj_set_width(runtime->preview_ta, LV_PCT(100));
+    lv_obj_set_height(runtime->preview_ta, LV_SIZE_CONTENT);
     if (runtime->height <= 0) {
         lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
         return;
@@ -140,20 +171,25 @@ static void airui_keyboard_preview_relayout(airui_keyboard_preview_runtime_t *ru
 // 输入预览框同步文本
 static void airui_keyboard_preview_sync_text(airui_keyboard_preview_runtime_t *runtime)
 {
-    if (runtime == NULL || runtime->label == NULL || runtime->container == NULL) {
+    if (runtime == NULL || runtime->preview_ta == NULL || runtime->container == NULL) {
         return;
     }
-    if (!lv_obj_is_valid(runtime->label) || !lv_obj_is_valid(runtime->container)) {
+    if (!lv_obj_is_valid(runtime->preview_ta) || !lv_obj_is_valid(runtime->container)) {
         return;
     }
 
     const char *text = "";
+    uint32_t cursor_pos = 0;
     if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
         const char *value = lv_textarea_get_text(runtime->target);
         text = value != NULL ? value : "";
+        cursor_pos = lv_textarea_get_cursor_pos(runtime->target);
     }
 
-    lv_label_set_text(runtime->label, text);
+    runtime->syncing = true;
+    lv_textarea_set_text(runtime->preview_ta, text);
+    lv_textarea_set_cursor_pos(runtime->preview_ta, cursor_pos);
+    runtime->syncing = false;
     airui_keyboard_preview_relayout(runtime);
     if (!lv_obj_has_flag(runtime->container, LV_OBJ_FLAG_HIDDEN)) {
         int32_t overflow_top = lv_obj_get_scroll_top(runtime->container);
@@ -192,6 +228,21 @@ static void airui_keyboard_preview_bind_target(airui_keyboard_preview_runtime_t 
     airui_keyboard_preview_sync_text(runtime);
 }
 
+static void airui_keyboard_preview_sync_back(airui_keyboard_preview_runtime_t *runtime)
+{
+    if (runtime == NULL || runtime->target == NULL || runtime->preview_ta == NULL) {
+        return;
+    }
+    if (!lv_obj_is_valid(runtime->target) || !lv_obj_is_valid(runtime->preview_ta)) {
+        return;
+    }
+
+    runtime->syncing = true;
+    lv_textarea_set_text(runtime->target, lv_textarea_get_text(runtime->preview_ta));
+    lv_textarea_set_cursor_pos(runtime->target, lv_textarea_get_cursor_pos(runtime->preview_ta));
+    runtime->syncing = false;
+}
+
 // 输入预览框设置可见性
 static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool visible)
 {
@@ -207,9 +258,25 @@ static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool
     if (visible) {
         lv_obj_clear_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
         airui_keyboard_preview_sync_text(runtime);
+        if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+            airui_keyboard_hide_textarea_cursor(runtime->target);
+        }
+        if (runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta)) {
+            lv_keyboard_set_textarea(runtime->keyboard, runtime->preview_ta);
+            lv_obj_add_state(runtime->preview_ta, LV_STATE_FOCUSED);
+            lv_obj_move_foreground(runtime->preview_ta);
+        }
         lv_obj_move_foreground(runtime->container);
     }
     else {
+        airui_keyboard_preview_sync_back(runtime);
+        if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+            lv_keyboard_set_textarea(runtime->keyboard, runtime->target);
+            airui_keyboard_restore_textarea_cursor(runtime->target);
+        }
+        if (runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta)) {
+            lv_obj_clear_state(runtime->preview_ta, LV_STATE_FOCUSED);
+        }
         lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
     }
 }
@@ -228,11 +295,31 @@ static void airui_keyboard_preview_target_event_cb(lv_event_t *e)
 
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_VALUE_CHANGED) {
+        if (runtime->syncing) {
+            return;
+        }
         airui_keyboard_preview_sync_text(runtime);
     }
     else if (code == LV_EVENT_DELETE) {
         runtime->target = NULL;
         airui_keyboard_preview_sync_text(runtime);
+    }
+}
+
+static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e)
+{
+    if (e == NULL) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)lv_event_get_user_data(e);
+    if (runtime == NULL || runtime->syncing) {
+        return;
+    }
+
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_VALUE_CHANGED) {
+        airui_keyboard_preview_sync_back(runtime);
     }
 }
 
@@ -283,8 +370,8 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
         return;
     }
 
-    runtime->label = lv_label_create(runtime->container);
-    if (runtime->label == NULL) {
+    runtime->preview_ta = lv_textarea_create(runtime->container);
+    if (runtime->preview_ta == NULL) {
         lv_obj_delete(runtime->container);
         luat_heap_free(runtime);
         return;
@@ -301,11 +388,16 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     lv_obj_set_scroll_dir(runtime->container, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(runtime->container, LV_SCROLLBAR_MODE_AUTO);
 
-    lv_label_set_long_mode(runtime->label, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(runtime->label, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_width(runtime->label, LV_PCT(100));
-    lv_obj_set_height(runtime->label, LV_SIZE_CONTENT);
-    lv_label_set_text(runtime->label, "");
+    lv_obj_set_style_text_align(runtime->preview_ta, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_width(runtime->preview_ta, LV_PCT(100));
+    lv_obj_set_height(runtime->preview_ta, LV_SIZE_CONTENT);
+    lv_obj_set_style_border_width(runtime->preview_ta, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->preview_ta, LV_OPA_0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(runtime->preview_ta, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(runtime->preview_ta, 0, LV_PART_CURSOR | LV_STATE_FOCUSED);
+    lv_textarea_set_placeholder_text(runtime->preview_ta, "");
+    lv_textarea_set_text(runtime->preview_ta, "");
+    lv_obj_add_event_cb(runtime->preview_ta, airui_keyboard_preview_proxy_event_cb, LV_EVENT_VALUE_CHANGED, runtime);
 
     lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -380,7 +472,7 @@ void airui_keyboard_detach_auto_hide_target(lv_obj_t *keyboard, airui_keyboard_d
 
 /**
  * 将 Lua 方式传入的模式字符串转换为 LVGL 的枚举值
- * @param mode Lua 端模式，支持 "upper"/"special"/"numeric"
+ * @param mode Lua 端模式，支持 "text"/"upper"/"special"/"numeric"/"pinyin_26"/"pinyin_9"
  * @return 对应的 lv_keyboard_mode_t，默认小写文本
  */
 static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
@@ -388,6 +480,21 @@ static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
     if (mode == NULL || strcmp(mode, "text") == 0) {
         LLOGI("键盘设置为默认小写文本模式: \"text\"");
         return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_26") == 0) {
+        LLOGI("键盘模式设置为拼音26键模式: \"pinyin_26\"");
+        return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_9") == 0) {
+        LLOGI("键盘模式设置为拼音9键模式: \"pinyin_9\"");
+        return LV_KEYBOARD_MODE_TEXT_LOWER;
+    }
+
+    if (strcmp(mode, "pinyin_9_number") == 0) {
+        LLOGI("键盘模式设置为拼音9键数字模式: \"pinyin_9_number\"");
+        return LV_KEYBOARD_MODE_NUMBER;
     }
 
     if (strcmp(mode, "upper") == 0) {
@@ -407,6 +514,38 @@ static lv_keyboard_mode_t airui_keyboard_mode_from_string(const char *mode)
 
     LLOGI("mode 参数\"%s\"无效, 键盘模式设置为小写文本模式: \"text\"", mode);
     return LV_KEYBOARD_MODE_TEXT_LOWER;
+}
+
+static void airui_keyboard_apply_pinyin_mode(airui_keyboard_data_t *data, const char *mode)
+{
+#if LV_USE_IME_PINYIN
+    if (data == NULL || data->ime == NULL || mode == NULL) {
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_9") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9);
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_9_number") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K9_NUMBER);
+        lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_NUMBER);
+        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        if (cand_panel != NULL) {
+            lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
+    }
+
+    if (strcmp(mode, "pinyin_26") == 0) {
+        lv_ime_pinyin_set_mode(data->ime, LV_IME_PINYIN_MODE_K26);
+        lv_keyboard_set_mode(lv_ime_pinyin_get_kb(data->ime), LV_KEYBOARD_MODE_TEXT_LOWER);
+    }
+#else
+    (void)data;
+    (void)mode;
+#endif
 }
 
 /**
@@ -505,6 +644,8 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
         LLOGI("打开中文输入法支持，词典数量：%d", dict_count);
 #endif
 
+        airui_keyboard_apply_pinyin_mode(data, mode);
+
     }
 #endif
 
@@ -556,9 +697,6 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    // 通知 LVGL 该 keyboard 操作哪个 textarea，便自动插入字符
-    lv_keyboard_set_textarea(keyboard, textarea);
-
     airui_component_meta_t *meta = airui_component_meta_get(keyboard);
     if (meta == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
@@ -581,7 +719,16 @@ int airui_keyboard_set_target(lv_obj_t *keyboard, lv_obj_t *textarea)
     if (data->preview_runtime != NULL) {
         airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
         airui_keyboard_preview_bind_target(runtime, textarea);
+        if (runtime->container != NULL && lv_obj_is_valid(runtime->container) &&
+            !lv_obj_has_flag(runtime->container, LV_OBJ_FLAG_HIDDEN) &&
+            runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta)) {
+            lv_keyboard_set_textarea(keyboard, runtime->preview_ta);
+            return AIRUI_OK;
+        }
     }
+
+    // 通知 LVGL 该 keyboard 操作哪个 textarea，便自动插入字符
+    lv_keyboard_set_textarea(keyboard, textarea);
     return AIRUI_OK;
 }
 
@@ -622,6 +769,7 @@ static void airui_keyboard_update_pinyin_panel(lv_obj_t *keyboard, bool visible)
     airui_keyboard_apply_pinyin_bg(data, cand_panel);
     if (visible) {
         lv_obj_clear_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(cand_panel);
     } else {
         lv_obj_add_flag(cand_panel, LV_OBJ_FLAG_HIDDEN);
     }

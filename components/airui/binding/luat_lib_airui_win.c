@@ -34,9 +34,28 @@
  * @bool config.close_btn 是否显示关闭按钮，默认 false
  * @bool config.auto_center 是否自动居中，默认 false
  * @table config.style 样式配置，可选
+ * @int config.style.bg_color 窗口背景色（0xRRGGBB）
+ * @int config.style.bg_opa 窗口背景透明度（0-255）
+ * @int config.style.border_color 窗口边框颜色（0xRRGGBB）
  * @int config.style.radius 圆角半径
- * @int config.style.pad 内边距
+ * @int config.style.pad 窗口内边距
+ * @int config.style.pad_top 窗口顶部内边距
+ * @int config.style.pad_bottom 窗口底部内边距
+ * @int config.style.pad_left 窗口左侧内边距
+ * @int config.style.pad_right 窗口右侧内边距
  * @int config.style.border_width 边框宽度
+ * @int config.style.header_bg_color 标题栏背景色（0xRRGGBB）
+ * @int config.style.header_bg_opa 标题栏背景透明度（0-255）
+ * @int config.style.header_pad 标题栏内边距
+ * @int config.style.header_height 标题栏高度
+ * @int config.style.content_bg_color 内容区背景色（0xRRGGBB）
+ * @int config.style.content_bg_opa 内容区背景透明度（0-255）
+ * @int config.style.content_pad 内容区内边距
+ * @int config.style.title_text_color 标题文字颜色（0xRRGGBB）
+ * @int config.style.close_btn_bg_color 关闭按钮背景色（0xRRGGBB）
+ * @int config.style.close_btn_bg_opa 关闭按钮背景透明度（0-255）
+ * @int config.style.close_btn_text_color 关闭按钮文字颜色（0xRRGGBB）
+ * @int config.style.close_btn_radius 关闭按钮圆角半径
  * @function config.on_close 关闭回调函数，可选
  * @userdata config.parent 父对象，可选，默认当前屏幕
  * @return userdata Win 对象
@@ -114,6 +133,19 @@ static int l_win_add_content(lua_State *L) {
 }
 
 /**
+ * Win:set_style(style)
+ * @api win:set_style(style)
+ * @table style 样式表，仅覆盖传入字段
+ * @return nil
+ */
+static int l_win_set_style(lua_State *L) {
+    lv_obj_t *win = airui_check_component(L, 1, AIRUI_WIN_MT);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    airui_win_set_style(win, L, 2);
+    return 0;
+}
+
+/**
  * Win:close()
  * @api win:close()
  * @return nil
@@ -171,6 +203,7 @@ void airui_register_win_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_title", l_win_set_title}, // 设置窗口标题
+        {"set_style", l_win_set_style}, // 设置窗口样式
         {"add_content", l_win_add_content}, // 添加内容,当前也支持通过组件设置parent为win来添加内容,todo：后续1.1版本可以移除
         {"destroy", l_win_destroy}, // 销毁窗口
         {"close", l_win_close}, // 关闭窗口

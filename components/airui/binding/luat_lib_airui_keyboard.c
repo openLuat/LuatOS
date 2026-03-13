@@ -29,7 +29,7 @@
  * @int config.y Y 坐标，默认 0，注意键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
  * @int config.w 宽度，默认 ctx->width（或 480）
  * @int config.h 高度，默认 160
- * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"
+ * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"/"pinyin_26"/"pinyin_9"/"pinyin_9_number"
  * @boolean config.popovers 是否启用提示弹窗，默认 true
  * @boolean config.auto_hide 是否在目标 textarea 聚焦时自动显示、失焦时自动隐藏，默认 false
  * @boolean config.preview 是否启用输入预览框（显示当前 textarea 文本），默认 false

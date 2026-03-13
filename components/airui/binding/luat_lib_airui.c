@@ -37,9 +37,14 @@ static airui_ctx_t *g_ctx = NULL;
 static int l_airui_init(lua_State *L);
 static int l_airui_deinit(lua_State *L);
 static int l_airui_refresh(lua_State *L);
+static int l_airui_full_refresh(lua_State *L);
+static int l_airui_sleep(lua_State *L);
+static int l_airui_wakeup(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
+static int l_airui_touch_subscribe(lua_State *L);
+static int l_airui_touch_unsubscribe(lua_State *L);
 static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
 static int l_airui_debug(lua_State *L);
@@ -125,9 +130,14 @@ static const rotable_Reg_t reg_airui[] = {
     {"init", ROREG_FUNC(l_airui_init)},
     {"deinit", ROREG_FUNC(l_airui_deinit)},
     {"refresh", ROREG_FUNC(l_airui_refresh)},
+    {"full_refresh", ROREG_FUNC(l_airui_full_refresh)},
+    {"sleep", ROREG_FUNC(l_airui_sleep)},
+    {"wakeup", ROREG_FUNC(l_airui_wakeup)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
+    {"touch_subscribe", ROREG_FUNC(l_airui_touch_subscribe)},
+    {"touch_unsubscribe", ROREG_FUNC(l_airui_touch_unsubscribe)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
     {"debug", ROREG_FUNC(l_airui_debug)},
     {"version", ROREG_FUNC(l_airui_version)},
@@ -180,6 +190,10 @@ static const rotable_Reg_t reg_airui[] = {
     {"EVENT_PRESSED", ROREG_INT(LV_EVENT_PRESSED)},
     {"EVENT_RELEASED", ROREG_INT(LV_EVENT_RELEASED)},
     {"EVENT_VALUE_CHANGED", ROREG_INT(LV_EVENT_VALUE_CHANGED)},
+    // 触摸状态常量
+    {"TP_DOWN", ROREG_INT(AIRUI_TOUCH_STATE_DOWN)},
+    {"TP_HOLD", ROREG_INT(AIRUI_TOUCH_STATE_HOLD)},
+    {"TP_UP", ROREG_INT(AIRUI_TOUCH_STATE_UP)},
     // 图标常量
     AIRUI_SYMBOL_REG,
     {NULL, ROREG_INT(0)}
@@ -318,6 +332,51 @@ static int l_airui_refresh(lua_State *L) {
     LLOGW("airui refresh 接口在版本 %s 已废弃，改为自动刷新", version);
 
     return 0;
+}
+
+/**
+ * 强制全屏刷新 AIRUI
+ * @api airui.full_refresh()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_full_refresh(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_full_refresh(g_ctx) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 休眠 AIRUI
+ * @api airui.sleep()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_sleep(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_sleep(g_ctx) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 唤醒 AIRUI
+ * @api airui.wakeup()
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_wakeup(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushboolean(L, airui_wakeup(g_ctx) == 0 ? 1 : 0);
+    return 1;
 }
 
 /**
@@ -587,6 +646,41 @@ static int l_airui_keyboard_enable_system(lua_State *L) {
     int ret = airui_system_keyboard_enable(ctx, enable);
     lua_pushboolean(L, ret == AIRUI_OK);
     return 1;
+}
+
+// 订阅触摸事件
+static int l_airui_touch_subscribe(lua_State *L) {
+    int ref;
+    int ret;
+
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized");
+        return 0;
+    }
+
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    lua_pushvalue(L, 1);
+    ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    ret = airui_touch_subscribe(g_ctx, L, ref);
+    if (ret != AIRUI_OK) {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// 取消触摸事件订阅
+static int l_airui_touch_unsubscribe(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized");
+        return 0;
+    }
+
+    airui_touch_unsubscribe(g_ctx, L);
+    return 0;
 }
 
 /**

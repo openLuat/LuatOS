@@ -1135,6 +1135,17 @@ int rtmp_poll(rtmp_ctx_t *ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
 
+    // 根据netif的状态, 如果网卡不可用, 则直接返回错误, 断开链接
+    luat_netdrv_t *netdrv = luat_netdrv_get(ctx->adapter_id);
+    if (netdrv && netdrv->netif) {
+        /* 如果网卡不可用, 则断开链接 */
+        if (netif_is_link_up(netdrv->netif) == 0 || netif_is_up(netdrv->netif) == 0) {
+            LLOGW("RTMP: Network interface is down, disconnecting");
+            rtmp_disconnect(ctx);
+            return RTMP_ERR_NETWORK;
+        }
+    }
+
     /* 优先尝试发送队列中的数据 */
     rtmp_try_send_queue(ctx);
     

@@ -234,7 +234,7 @@ Before reporting task completion, verify:
 
 - [ ] All planned steps completed (check todo list)
 - [ ] No type errors or warnings introduced
-- [ ] Build passes in `bsp/pc` using the correct mode: plain `xmake -y` for non-GUI changes, GUI-enabled build for AirUI/LVGL/SDL changes
+- [ ] If required, build passes in `bsp/pc` using the correct mode: plain `xmake -y` for non-GUI changes, GUI-enabled build for AirUI/LVGL/SDL changes
 - [ ] Tests pass (if applicable)
 - [ ] Code follows existing patterns
 - [ ] No hardcoded credentials or security issues

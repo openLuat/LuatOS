@@ -25,31 +25,87 @@ else
 end
 
 -- 常用波特率配置列表
-local baud_rates = {
-    {name = "1Mbps",   value = 1000000, pts = 6, pbs1 = 6, pbs2 = 4, sjw = 2},
-    {name = "500Kbps",  value = 500000, pts = 6, pbs1 = 6, pbs2 = 4, sjw = 2},
-    {name = "250Kbps",  value = 250000, pts = 6, pbs1 = 6, pbs2 = 4, sjw = 2},
-    {name = "125Kbps",  value = 125000, pts = 6, pbs1 = 6, pbs2 = 4, sjw = 2},
-    {name = "100Kbps",  value = 100000, pts = 6, pbs1 = 6, pbs2 = 3, sjw = 2},
-    {name = "50Kbps",   value = 50000,  pts = 6, pbs1 = 6, pbs2 = 3, sjw = 2},
-}
+local baud_rates = {{
+    name = "1Mbps",
+    value = 1000000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 4,
+    sjw = 2
+}, {
+    name = "500Kbps",
+    value = 500000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 4,
+    sjw = 2
+}, {
+    name = "250Kbps",
+    value = 250000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 4,
+    sjw = 2
+}, {
+    name = "125Kbps",
+    value = 125000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 4,
+    sjw = 2
+}, {
+    name = "100Kbps",
+    value = 100000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 3,
+    sjw = 2
+}, {
+    name = "50Kbps",
+    value = 50000,
+    pts = 6,
+    pbs1 = 6,
+    pbs2 = 3,
+    sjw = 2
+}}
 
 local test_cnt = 0
 local tx_buf = zbuff.create(8)
-local per_baud_tests = 3 -- 每个波特率每种帧类型的测试次数
+local per_baud_tests = 5 -- 每个波特率每种帧类型的测试次数
 local current_test_count = 0
 local tx_success_count = 0
 local rx_success_count = 0
 
 -- API测试结果统计
 local api_test_results = {
-    filter = {pass = 0, fail = 0},
-    state = {pass = 0, fail = 0},
-    reset = {pass = 0, fail = 0},
-    busOff = {pass = 0, fail = 0},
-    capacity = {pass = 0, fail = 0},
-    deinit = {pass = 0, fail = 0},
-    stop = {pass = 0, fail = 0},
+    filter = {
+        pass = 0,
+        fail = 0
+    },
+    state = {
+        pass = 0,
+        fail = 0
+    },
+    reset = {
+        pass = 0,
+        fail = 0
+    },
+    busOff = {
+        pass = 0,
+        fail = 0
+    },
+    capacity = {
+        pass = 0,
+        fail = 0
+    },
+    deinit = {
+        pass = 0,
+        fail = 0
+    },
+    stop = {
+        pass = 0,
+        fail = 0
+    }
 }
 
 local function can_configuration()
@@ -77,8 +133,8 @@ local function can_cb(id, cb_type, param)
         local succ, id, id_type, rtr, data = can.rx(id)
         while succ do
             local frame_type_str = (id_type == can.STD) and "标准帧" or "扩展帧"
-            log.info("CAN接收", string.format("[%s] ID:%08X 长度:%d 数据:%s", 
-                frame_type_str, id, #data, data:toHex()))
+            log.info("CAN接收",
+                string.format("[%s] ID:%08X 长度:%d 数据:%s", frame_type_str, id, #data, data:toHex()))
             local data_message = data:toHex()
             -- 使用assert验证接收到的数据
             assert(data_message == can_tx_message,
@@ -113,7 +169,7 @@ local function can_tx_test()
         return
     end
 
-    log.info("CAN测试", string.format("第%d次测试 [%s]", current_test_count, 
+    log.info("CAN测试", string.format("第%d次测试 [%s]", current_test_count,
         (current_frame_type == "std") and "标准帧" or "扩展帧"))
 
     test_cnt = test_cnt + 1
@@ -150,323 +206,11 @@ end
 
 -- 测试filter函数
 local function test_filter_api(baud_config, frame_type)
-    log.info("canself_test", "----- 测试 can.filter API -----")
-    
-    -- 确保前一个CAN实例已关闭
-    can.deinit(can_id)
-    sys.wait(200)
-    
-    -- 初始化CAN
-    local init_result = can.init(can_id, 128)
-    assert(init_result == true, "filter测试: CAN初始化失败")
-    
-    -- 注册回调
-    can.on(can_id, can_cb)
-    
-    -- 配置波特率
-    local timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "filter测试: 时序配置失败")
-    
-    -- 测试filter函数
-    local filter_result
-    if frame_type == "std" then
-        -- 标准帧：接收ID 0x120~0x12F
-        filter_result = can.filter(can_id, false, 0x120 << 21, 0x00F << 21)
-    else
-        -- 扩展帧：接收ID 0x12345670~0x1234567F
-        filter_result = can.filter(can_id, false, 0x12345670 << 3, 0x0F << 3)
-    end
-    assert(filter_result == true, "filter测试: can.filter配置失败")
-    log.info("canself_test", "✓ can.filter配置成功")
-    
-    -- 设置自测模式
-    local mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(mode_result == true, "filter测试: 自测模式设置失败")
-    
-    -- 配置STB引脚
-    gpio.setup(stb_pin, 0)
-    
-    -- 重置测试计数器
-    current_frame_type = frame_type
-    current_test_count = 0
-    tx_success_count = 0
-    rx_success_count = 0
-    
-    -- 执行发送测试
-    can_tx_test()
-    sys.wait(300)
-    
-    -- 使用assert验证发送和接收
-    assert(tx_success_count == 1, "filter测试: 发送失败")
-    assert(rx_success_count == 1, "filter测试: 接收失败 - 可能filter配置不正确")
-    log.info("canself_test", "✓ filter功能验证通过")
-    
-    api_test_results.filter.pass = api_test_results.filter.pass + 1
-    
-    -- 关闭CAN
-    local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, "filter测试: CAN关闭失败")
-    sys.wait(200)
-end
-
--- 测试state函数
-local function test_state_api(baud_config)
-    log.info("canself_test", "----- 测试 can.state API -----")
-    
-    -- 确保前一个CAN实例已关闭
-    can.deinit(can_id)
-    sys.wait(200)
-    
-    -- 初始状态检查（允许5表示未初始化）
-    local state = can.state(can_id)
-    log.info("canself_test", string.format("初始状态值: %d", state))
-    if state ~= can.STATE_STOP and state ~= 5 then
-        assert(false, string.format("state测试: 初始状态异常, 期望STOP(0)或5, 实际%d", state))
-    end
-    log.info("canself_test", "✓ 初始状态检查通过")
-    
-    -- 初始化CAN
-    local init_result = can.init(can_id, 128)
-    assert(init_result == true, "state测试: CAN初始化失败")
-    
-    -- 配置波特率
-    local timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "state测试: 时序配置失败")
-    
-    -- 配置节点ID
-    local node_result = can.node(can_id, rx_id_std, can.STD)
-    assert(node_result == true, "state测试: 节点配置失败")
-    
-    -- 设置自测模式
-    local mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(mode_result == true, "state测试: 自测模式设置失败")
-    
-    sys.wait(100)
-    state = can.state(can_id)
-    assert(state == can.STATE_TEST, 
-        string.format("state测试: 自测模式状态应为TEST(%d), 实际%d", can.STATE_TEST, state))
-    log.info("canself_test", "✓ 自测模式状态正确")
-    
-    -- 关闭CAN
-    local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, "state测试: CAN关闭失败")
-    sys.wait(200)
-    
-    state = can.state(can_id)
-    -- 关闭后允许为5（未初始化）或STOP
-    if state ~= can.STATE_STOP and state ~= 5 then
-        assert(false, string.format("state测试: 关闭后状态异常, 期望STOP(0)或5, 实际%d", state))
-    end
-    log.info("canself_test", "✓ 关闭后状态检查通过")
-    
-    api_test_results.state.pass = api_test_results.state.pass + 1
-end
-
--- 测试reset和busOff函数
-local function test_reset_busoff_api(baud_config)
-    log.info("canself_test", "----- 测试 can.reset 和 can.busOff API -----")
-    
-    -- 确保前一个CAN实例已关闭
-    can.deinit(can_id)
-    sys.wait(200)
-    
-    -- 初始化CAN
-    local init_result = can.init(can_id, 128)
-    assert(init_result == true, "reset/busOff测试: CAN初始化失败")
-    
-    -- 注册回调
-    can.on(can_id, can_cb)
-    
-    -- 配置波特率
-    local timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "reset/busOff测试: 时序配置失败")
-    
-    -- 测试busOff
-    log.info("canself_test", "测试 can.busOff...")
-    local busoff_result = can.busOff(can_id)
-    assert(busoff_result == true, "busOff测试失败")
-    log.info("canself_test", "✓ can.busOff成功")
-    
-    -- busOff后状态检查
-    sys.wait(100)
-    local state = can.state(can_id)
-    assert(state == can.STATE_STOP, string.format("busOff后状态应为STOP, 实际%d", state))
-    log.info("canself_test", "✓ busOff后状态正确")
-    
-    -- 测试reset
-    log.info("canself_test", "测试 can.reset...")
-    local reset_result = can.reset(can_id)
-    assert(reset_result == true, "reset测试失败")
-    log.info("canself_test", "✓ can.reset成功")
-    
-    -- reset后需要重新配置
-    timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "reset后时序配置失败")
-    
-    local node_result = can.node(can_id, rx_id_std, can.STD)
-    assert(node_result == true, "reset后节点配置失败")
-    
-    local mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(mode_result == true, "reset后自测模式设置失败")
-    
-    gpio.setup(stb_pin, 0)
-    
-    -- 验证reset后功能
-    current_frame_type = "std"
-    current_test_count = 0
-    tx_success_count = 0
-    rx_success_count = 0
-    
-    can_tx_test()
-    sys.wait(200)
-    
-    assert(tx_success_count == 1, "reset后发送验证失败")
-    assert(rx_success_count == 1, "reset后接收验证失败")
-    log.info("canself_test", "✓ reset后功能正常")
-    
-    api_test_results.reset.pass = api_test_results.reset.pass + 1
-    api_test_results.busOff.pass = api_test_results.busOff.pass + 1
-    
-    -- 关闭CAN
-    local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, "reset/busOff测试: CAN关闭失败")
-    sys.wait(200)
-end
-
--- 测试capacity函数
-local function test_capacity_api()
-    log.info("canself_test", "----- 测试 can.capacity API -----")
-    
-    local result, clk, div_min, div_max, div_step = can.capacity(can_id)
-    assert(result == true, "capacity测试失败")
-    assert(clk > 0, string.format("capacity: 时钟频率应为正数, 实际%d", clk))
-    assert(div_min >= 1, string.format("capacity: 最小分频系数应≥1, 实际%d", div_min))
-    assert(div_max >= div_min, string.format("capacity: 最大分频系数应≥最小分频系数, 实际%d≥%d", div_max, div_min))
-    assert(div_step >= 1, string.format("capacity: 分频步进应≥1, 实际%d", div_step))
-    
-    log.info("canself_test", string.format("基础时钟: %.2f MHz", clk / 1000000))
-    log.info("canself_test", string.format("分频范围: %d - %d 步进:%d", div_min, div_max, div_step))
-    log.info("canself_test", "✓ can.capacity测试通过")
-    
-    api_test_results.capacity.pass = api_test_results.capacity.pass + 1
-end
-
--- 测试deinit函数
-local function test_deinit_api(baud_config)
-    log.info("canself_test", "----- 测试 can.deinit API -----")
-    
-    -- 确保前一个CAN实例已关闭
-    can.deinit(can_id)
-    sys.wait(200)
-    
-    -- 初始化CAN
-    local init_result = can.init(can_id, 128)
-    assert(init_result == true, "deinit测试: CAN初始化失败")
-    
-    -- 注册回调
-    can.on(can_id, can_cb)
-    
-    -- 配置并启动
-    local timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "deinit测试: 时序配置失败")
-    
-    local node_result = can.node(can_id, rx_id_std, can.STD)
-    assert(node_result == true, "deinit测试: 节点配置失败")
-    
-    local mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(mode_result == true, "deinit测试: 自测模式设置失败")
-    
-    gpio.setup(stb_pin, 0)
-    
-    -- 测试deinit
-    log.info("canself_test", "测试 can.deinit...")
-    local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, "deinit测试失败")
-    log.info("canself_test", "✓ can.deinit成功")
-    
-    -- deinit后状态检查
-    sys.wait(100)
-    local state = can.state(can_id)
-    if state ~= can.STATE_STOP and state ~= 5 then
-        assert(false, string.format("deinit后状态异常, 期望STOP(0)或5, 实际%d", state))
-    end
-    log.info("canself_test", "✓ deinit后状态检查通过")
-    
-    -- 验证deinit后不能工作
-    current_frame_type = "std"
-    can_tx_test() -- 这里应该失败
-    sys.wait(100)
-    assert(tx_success_count == 0, "deinit后发送应该失败")
-    log.info("canself_test", "✓ deinit后无法发送（符合预期）")
-    
-    api_test_results.deinit.pass = api_test_results.deinit.pass + 1
-end
-
--- 测试stop函数
-local function test_stop_api(baud_config)
-    log.info("canself_test", "----- 测试 can.stop API -----")
-    
-    -- 确保前一个CAN实例已关闭
-    can.deinit(can_id)
-    sys.wait(200)
-    
-    -- 初始化CAN
-    local init_result = can.init(can_id, 128)
-    assert(init_result == true, "stop测试: CAN初始化失败")
-    
-    -- 注册回调
-    can.on(can_id, can_cb)
-    
-    -- 配置
-    local timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(timing_result == true, "stop测试: 时序配置失败")
-    
-    local node_result = can.node(can_id, rx_id_std, can.STD)
-    assert(node_result == true, "stop测试: 节点配置失败")
-    
-    local mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(mode_result == true, "stop测试: 自测模式设置失败")
-    
-    gpio.setup(stb_pin, 0)
-    
-    -- 测试stop
-    log.info("canself_test", "测试 can.stop...")
-    local stop_result = can.stop(can_id)
-    assert(stop_result == true, "stop测试失败")
-    log.info("canself_test", "✓ can.stop成功")
-    
-    -- stop后应该还能继续发送
-    current_frame_type = "std"
-    current_test_count = 0
-    tx_success_count = 0
-    rx_success_count = 0
-    
-    can_tx_test()
-    sys.wait(200)
-    
-    assert(tx_success_count == 1, "stop后发送验证失败")
-    assert(rx_success_count == 1, "stop后接收验证失败")
-    log.info("canself_test", "✓ stop后功能正常")
-    
-    api_test_results.stop.pass = api_test_results.stop.pass + 1
-    
-    -- 关闭CAN
-    local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, "stop测试: CAN关闭失败")
-    sys.wait(200)
-end
-
--- 测试指定波特率和帧类型
-local function test_baud_rate_frame(baud_config, frame_type)
-    log.info("canself_test", "")
-    log.info("canself_test", string.format("========== 测试 %s - %s ==========", 
-        baud_config.name, (frame_type == "std") and "标准帧" or "扩展帧"))
+    log.info("can.filter", "====================================================")
+    log.info("canself_test",
+        string.format("----- 测试 can.filter API,波特率%s,帧类型%s -----", baud_config.name,
+            (frame_type == "std") and "标准帧" or "扩展帧"))
+    log.info("can.filter", "====================================================")
 
     -- 确保前一个CAN实例已关闭
     can.deinit(can_id)
@@ -480,19 +224,537 @@ local function test_baud_rate_frame(baud_config, frame_type)
     current_frame_type = frame_type
 
     -- 初始化CAN
+    local init_result = can.init(can_id, 128)
+    assert(init_result == true, "filter测试: CAN初始化失败")
+    log.info("canself_test", "filter测试: CAN初始化成功")
+
+    -- 注册回调
+    can.on(can_id, can_cb)
+
+    -- 配置波特率
+    local timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true, "filter测试: 时序配置失败")
+    log.info("canself_test", "filter测试: 时序配置成功")
+
+    -- 测试filter函数
+    local filter_result
+    if frame_type == "std" then
+        -- 标准帧：接收ID 0x120~0x12F
+        filter_result = can.filter(can_id, false, 0x123 << 21, 0x007fffff)
+    else
+        -- 扩展帧：接收ID 0x12345670~0x1234567F
+        filter_result = can.filter(can_id, false, 0x12345670 << 3, 0x0F << 3)
+    end
+    assert(filter_result == true, "filter测试: can.filter配置失败")
+    log.info("canself_test", "✓ can.filter配置成功")
+
+    -- 设置自测模式
+    local mode_result = can.mode(can_id, can.MODE_TEST)
+    assert(mode_result == true, "filter测试: 自测模式设置失败")
+    log.info("canself_test", "filter测试: 自测模式设置成功")
+
+    -- 配置STB引脚
+    gpio.setup(stb_pin, 0)
+
+    -- 循环执行测试
+    log.info("canself_test",
+        string.format("开始filter测试，共%d次,波特率%s,帧类型%s", per_baud_tests, baud_config.name,
+            (frame_type == "std") and "标准帧" or "扩展帧"))
+
+    -- 执行发送测试
+    for i = 1, per_baud_tests do
+        can_tx_test()
+        sys.wait(300)
+
+        -- 等待接收完成
+        sys.wait(200)
+
+        -- 验证本次测试的发送和接收
+        assert(tx_success_count >= i,
+            string.format("filter测试[%s-%s] 第%d次发送失败，发送成功次数：%d", baud_config.name,
+                frame_type, i, tx_success_count))
+        assert(rx_success_count >= i,
+            string.format("filter测试[%s-%s] 第%d次接收失败，接收成功次数：%d", baud_config.name,
+                frame_type, i, rx_success_count))
+        log.info("canself_test", "✓ filter功能验证通过")
+
+        -- 等待再进行下一次
+        if i < per_baud_tests then
+            sys.wait(300)
+        end
+    end
+
+    -- 最终验证
+    log.info("canself_test",
+        string.format("filter功能测试完成统计：发送成功 %d 次，接收成功 %d 次", tx_success_count,
+            rx_success_count))
+
+    assert(tx_success_count == rx_success_count,
+        string.format("filter功能[%s-%s] CAN自测失败: 发送成功 %d 次但接收成功 %d 次",
+            baud_config.name, frame_type, tx_success_count, rx_success_count))
+    assert(tx_success_count == per_baud_tests,
+        string.format("filter功能[%s-%s] CAN自测失败: 只发送成功 %d 次，期望 %d 次", baud_config.name,
+            frame_type, tx_success_count, per_baud_tests))
+
+    log.info("canself_test", string.format("✓ filter功能%s - %s 测试通过", baud_config.name,
+        (frame_type == "std") and "标准帧" or "扩展帧"))
+
+    -- 关闭CAN总线
+    local deinit_result = can.deinit(can_id)
+    assert(deinit_result == true, string.format("[%s-%s] 关闭CAN总线测试失败", baud_config.name, frame_type))
+    log.info("canself_test",
+        string.format("filter功能 [%s-%s] 关闭CAN总线测试失败", baud_config.name, frame_type))
+
+    api_test_results.filter.pass = api_test_results.filter.pass + 1
+
+    sys.wait(200)
+
+    return true
+
+end
+
+-- 测试state函数
+local function test_state_api(baud_config, frame_type)
+    log.info("can.state", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    log.info("canself_test", string.format("========== 测试can.state API %s - %s ==========", baud_config.name,
+        (frame_type == "std") and "标准帧" or "扩展帧"))
+    log.info("can.state", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+    -- 确保前一个CAN实例已关闭
+    local result = can.deinit(can_id)
+    assert(result == true, "can.state 测试前关闭can失败")
+    log.info("canself_test", "can.state 测试前关闭can成功")
+    sys.wait(200)
+
+    -- 重置状态
+    test_cnt = 0
+    current_test_count = 0
+    tx_success_count = 0
+    rx_success_count = 0
+    current_frame_type = frame_type
+
+    -- 初始状态检查（允许5表示未初始化）
+    local state = can.state(can_id)
+    log.info("canself_test", string.format("初始状态值: %d", state))
+    assert(state == can.STATE_STOP or state == 0,
+        string.format("state测试: 初始状态异常, 期望STOP0, 实际%d", state))
+    log.info("canself_test", "✓ 初始状态检查通过")
+
+    -- 初始化CAN
+    local init_result = can.init(can_id, 128)
+    assert(init_result == true,
+        string.format("state测试[%s-%s] CAN初始化测试失败", baud_config.name, frame_type))
+    log.info("canself_test", "state测试CAN初始化测试通过")
+
+    -- 注册回调
+    can.on(can_id, can_cb)
+
+    -- 配置波特率
+    local timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true,
+        string.format("state测试[%s-%s] CAN时序测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("state测试CAN总线配置时序测试通过 (%s)", baud_config.name))
+
+    -- 配置节点ID
+    local rx_id
+    local id_type
+    if frame_type == "std" then
+        rx_id = rx_id_std
+        id_type = can.STD
+    else
+        rx_id = rx_id_ext
+        id_type = can.EXT
+    end
+
+    -- 配置节点ID
+    local node_result = can.node(can_id, rx_id, id_type)
+    assert(node_result == true, "state测试: 节点配置失败")
+    log.info("canself_test", string.format("state测试: 节点配置测试通过 (%s)", baud_config.name))
+
+    -- 设置自测模式
+    local mode_result = can.mode(can_id, can.MODE_TEST)
+    assert(mode_result == true, "state测试: 自测模式设置失败")
+    log.info("canself_test", string.format("state测试: 自测模式设置测试通过 (%s)", baud_config.name))
+
+    sys.wait(100)
+    state = can.state(can_id)
+    assert(state == can.STATE_TEST,
+        string.format("state测试: 自测模式状态应为TEST(%d), 实际%d", can.STATE_TEST, state))
+    log.info("canself_test", "✓ 自测模式状态正确")
+
+    -- 配置STB引脚
+    gpio.setup(stb_pin, 0)
+
+    -- 循环执行测试
+    log.info("canself_test", string.format("开始测试，共1次"))
+
+    -- 执行一次发送测试
+    can_tx_test()
+
+    state = can.state(can_id)
+    assert(state == can.STATE_TEST,
+        string.format("state测试: 自测模式状态应为TEST(%d), 实际%d", can.STATE_TEST, state))
+    log.info("canself_test", "✓ 自测模式状态正确")
+
+    -- 等待接收完成
+    sys.wait(200)
+
+    -- 验证本次测试的发送和接收
+    assert(tx_success_count == 1, string.format("[%s-%s] 发送失败，发送成功次数：%d", baud_config.name,
+        frame_type, tx_success_count))
+    assert(rx_success_count == 1, string.format("[%s-%s] 接收失败，接收成功次数：%d", baud_config.name,
+        frame_type, rx_success_count))
+
+    -- 关闭CAN
+    local deinit_result = can.deinit(can_id)
+    assert(deinit_result == true, "state测试: CAN关闭失败")
+    log.info("canself_test", "✓ state测试: CAN关闭正确")
+    sys.wait(200)
+
+    state = can.state(can_id)
+    -- 关闭后允许为5（未初始化）或STOP
+    if state ~= can.STATE_STOP and state ~= 5 then
+        assert(false, string.format("state测试: 关闭后状态异常, 期望STOP(0)或5, 实际%d", state))
+    end
+    log.info("canself_test", "✓ 关闭后状态检查通过")
+
+    api_test_results.state.pass = api_test_results.state.pass + 1
+    return true
+end
+
+-- 测试reset和busOff函数
+local function test_reset_busoff_api(baud_config, frame_type)
+    log.info("can.reset/can.busOff", "-------------------------------------------")
+    log.info("canself_test", "----- 测试 can.reset 和 can.busOff API -----")
+    log.info("can.reset/can.busOff", "-------------------------------------------")
+
+    -- 确保前一个CAN实例已关闭
+    local result = can.deinit(can_id)
+    assert(result == true, "can.reset/can.busOff 测试前关闭can失败")
+    log.info("canself_test", "can.reset/can.busOff 测试前关闭can成功")
+    sys.wait(200)
+
+    -- 重置状态
+    test_cnt = 0
+    current_test_count = 0
+    tx_success_count = 0
+    rx_success_count = 0
+    current_frame_type = frame_type
+
+    -- 初始化CAN
+    local init_result = can.init(can_id, 128)
+    assert(init_result == true, "reset/busOff测试: CAN初始化失败")
+    log.info("canself_test", "reset/busOff测试CAN初始化测试通过")
+
+    -- 注册回调
+    can.on(can_id, can_cb)
+
+    -- 配置波特率
+    local timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true, "reset/busOff测试: 时序配置失败")
+    log.info("canself_test", string.format("reset/busOff测试CAN总线配置时序测试通过 (%s)", baud_config.name))
+
+    -- 配置节点ID
+    local rx_id
+    local id_type
+    if frame_type == "std" then
+        rx_id = rx_id_std
+        id_type = can.STD
+    else
+        rx_id = rx_id_ext
+        id_type = can.EXT
+    end
+
+    -- 测试busOff
+    log.info("canself_test", "测试 can.busOff...")
+    local busoff_result = can.busOff(can_id)
+    assert(busoff_result == true, "busOff测试失败")
+    log.info("canself_test", "✓ can.busOff成功")
+
+    -- busOff后状态检查
+    sys.wait(100)
+    local state = can.state(can_id)
+    assert(state == can.STATE_STOP, string.format("busOff后状态应为STOP, 实际%d", state))
+    log.info("canself_test", "✓ busOff后状态正确")
+
+    -- 测试reset
+    log.info("canself_test", "测试 can.reset...")
+    local reset_result = can.reset(can_id)
+    assert(reset_result == true, "reset测试失败")
+    log.info("canself_test", "✓ can.reset成功")
+
+    -- reset后需要重新配置
+    timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true, "reset后时序配置失败")
+
+    local node_result = can.node(can_id, rx_id, id_type)
+    assert(node_result == true, "reset后节点配置失败")
+
+    local mode_result = can.mode(can_id, can.MODE_TEST)
+    assert(mode_result == true, "reset后自测模式设置失败")
+
+    gpio.setup(stb_pin, 0)
+
+    -- 循环执行测试
+    log.info("canself_test", string.format("开始测试，共1次"))
+
+    -- 执行一次发送测试
+    can_tx_test()
+    sys.wait(200)
+
+    assert(tx_success_count == 1, "reset后发送验证失败")
+    assert(rx_success_count == 1, "reset后接收验证失败")
+    log.info("canself_test", "✓ reset后功能正常")
+
+    -- 关闭CAN
+    local deinit_result = can.deinit(can_id)
+    assert(deinit_result == true, "reset/busOff测试: CAN关闭失败")
+    log.info("canself_test", "✓ reset/busOff测试: CAN关闭正确")
+    sys.wait(200)
+
+    api_test_results.reset.pass = api_test_results.reset.pass + 1
+    api_test_results.busOff.pass = api_test_results.busOff.pass + 1
+
+    return true
+end
+
+-- 测试capacity函数
+local function test_capacity_api()
+    log.info("canself_test", "----- 测试 can.capacity API -----")
+
+    local result, clk, div_min, div_max, div_step = can.capacity(can_id)
+    assert(result == true, "capacity测试失败")
+    assert(clk > 0, string.format("capacity: 时钟频率应为正数, 实际%d", clk))
+    assert(div_min >= 1, string.format("capacity: 最小分频系数应≥1, 实际%d", div_min))
+    assert(div_max >= div_min,
+        string.format("capacity: 最大分频系数应≥最小分频系数, 实际%d≥%d", div_max, div_min))
+    assert(div_step >= 1, string.format("capacity: 分频步进应≥1, 实际%d", div_step))
+
+    log.info("canself_test", string.format("基础时钟: %.2f MHz", clk / 1000000))
+    log.info("canself_test", string.format("分频范围: %d - %d 步进:%d", div_min, div_max, div_step))
+    log.info("canself_test", "✓ can.capacity测试通过")
+
+    api_test_results.capacity.pass = api_test_results.capacity.pass + 1
+end
+
+-- 测试deinit函数
+local function test_deinit_api(baud_config, frame_type)
+    log.info("can.deinit", "*************************************")
+    log.info("canself_test", "----- 测试 can.deinit API -----")
+    log.info("can.deinit", "*************************************")
+
+    -- 确保前一个CAN实例已关闭
+    local result = can.deinit(can_id)
+    assert(result == true, "deinit 测试前关闭can失败")
+    log.info("canself_test", "deinit 测试前关闭can成功")
+    sys.wait(200)
+
+    -- 重置状态
+    test_cnt = 0
+    current_test_count = 0
+    tx_success_count = 0
+    rx_success_count = 0
+    current_frame_type = frame_type
+
+    -- 初始化CAN
+    local init_result = can.init(can_id, 128)
+    assert(init_result == true,
+        string.format("deinit测试[%s-%s] CAN初始化测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("deinit测试[%s-%s] CAN初始化测试通过", baud_config.name, frame_type))
+
+    -- 注册回调
+    can.on(can_id, can_cb)
+
+    -- 配置并启动
+    local timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true,
+        string.format("deinit测试[%s-%s] CAN时序测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("deinit测试CAN总线配置时序测试通过 (%s)", baud_config.name))
+
+    -- 配置节点ID
+    local rx_id
+    local id_type
+    if frame_type == "std" then
+        rx_id = rx_id_std
+        id_type = can.STD
+    else
+        rx_id = rx_id_ext
+        id_type = can.EXT
+    end
+
+    local node_result = can.node(can_id, rx_id, id_type)
+    assert(node_result == true, string.format("deinit测试: 节点配置测试失败 (%s)", baud_config.name))
+    log.info("canself_test", string.format("deinit测试: 节点配置测试通过 (%s)", baud_config.name))
+
+    local mode_result = can.mode(can_id, can.MODE_TEST)
+    assert(mode_result == true, string.format("deinit测试: 自测模式设置测试失败 (%s)", baud_config.name))
+    log.info("canself_test", string.format("deinit测试: 自测模式设置测试通过 (%s)", baud_config.name))
+
+    gpio.setup(stb_pin, 0)
+
+    -- 循环执行测试
+    log.info("canself_test", string.format("开始测试，共1次"))
+
+    -- 执行一次发送测试
+    can_tx_test()
+
+    -- 等待接收完成
+    sys.wait(200)
+
+    -- 验证本次测试的发送和接收
+    assert(tx_success_count == 1, string.format("deinit[%s-%s] 发送失败，发送成功次数：%d",
+        baud_config.name, frame_type, tx_success_count))
+    assert(rx_success_count == 1, string.format("deinit[%s-%s] 接收失败，接收成功次数：%d",
+        baud_config.name, frame_type, rx_success_count))
+
+    -- 测试deinit
+    log.info("canself_test", "开始测试 can.deinit...")
+    local deinit_result = can.deinit(can_id)
+    assert(deinit_result == true, string.format("deinit关闭 CAN 总线测试失败 (%s)", baud_config.name))
+    log.info("canself_test", string.format("deinit关闭 CAN 总线测试通过 (%s)", baud_config.name))
+
+    -- deinit后状态检查
+    sys.wait(100)
+    local state = can.state(can_id)
+    assert(state == can.STATE_STOP and state == 0,
+        string.format("%s deinit后状态异常, 期望STOP0, 实际%d", baud_config.name, state))
+    log.info("canself_test", string.format("%s ✓ deinit后状态检查通过", baud_config.name))
+    api_test_results.deinit.pass = api_test_results.deinit.pass + 1
+    return true
+end
+
+-- 测试stop函数
+local function test_stop_api(baud_config, frame_type)
+    log.info("can.stop", "####################################")
+    log.info("canself_test", "----- 测试 can.stop API -----")
+    log.info("can.stop", "####################################")
+
+    -- 确保前一个CAN实例已关闭
+    local result = can.deinit(can_id)
+    assert(result == true, "can.stop 测试前关闭can失败")
+    log.info("canself_test", "can.stop 测试前关闭can成功")
+    sys.wait(200)
+
+    -- 重置状态
+    test_cnt = 0
+    current_test_count = 0
+    tx_success_count = 0
+    rx_success_count = 0
+    current_frame_type = frame_type
+
+    -- 初始化CAN
+    local init_result = can.init(can_id, 128)
+    assert(init_result == true,
+        string.format("stop测试[%s-%s] CAN初始化测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("stop测试[%s-%s] CAN初始化测试失败", baud_config.name, frame_type))
+
+    -- 注册回调
+    can.on(can_id, can_cb)
+
+    -- 配置波特率
+    local timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(timing_result == true, string.format("stop测试[%s-%s] CAN时序测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("stop测试CAN总线配置时序测试通过 (%s)", baud_config.name))
+
+    -- 配置节点ID
+    local rx_id
+    local id_type
+    if frame_type == "std" then
+        rx_id = rx_id_std
+        id_type = can.STD
+    else
+        rx_id = rx_id_ext
+        id_type = can.EXT
+    end
+
+    -- 配置节点ID
+    local node_result = can.node(can_id, rx_id, id_type)
+    assert(node_result == true, "stop测试: 节点配置失败")
+    log.info("canself_test", string.format("stop测试: 节点配置测试通过 (%s)", baud_config.name))
+
+    -- 设置自测模式
+    local mode_result = can.mode(can_id, can.MODE_TEST)
+    assert(mode_result == true, "stop测试: 自测模式设置失败")
+    log.info("canself_test", string.format("stop测试: 自测模式设置测试通过 (%s)", baud_config.name))
+
+    gpio.setup(stb_pin, 0)
+
+    -- 循环执行测试
+    log.info("canself_test", string.format("stop开始测试，共1次"))
+
+    -- 执行一次发送测试
+    can_tx_test()
+
+    -- 等待接收完成
+    sys.wait(200)
+
+    -- 验证本次测试的发送和接收
+    assert(tx_success_count == 1, string.format("stop[%s-%s] 发送失败，发送成功次数：%d", baud_config.name,
+        frame_type, tx_success_count))
+    assert(rx_success_count == 1, string.format("stop[%s-%s] 接收失败，接收成功次数：%d", baud_config.name,
+        frame_type, rx_success_count))
+    log.info("canself_test", "stop[%s-%s] 第一次发送接收成功")
+
+    -- 测试stop
+    log.info("canself_test", "测试 can.stop...")
+    local stop_result = can.stop(can_id)
+    assert(stop_result == true,
+        string.format("stop[%s-%s]立即停止当前的发送操作失败 ", baud_config.name, frame_type))
+    log.info("canself_test",
+        string.format("stop[%s-%s]立即停止当前的发送操作失败 ", baud_config.name, current_frame_type))
+
+    can_tx_test()
+    sys.wait(200)
+
+    assert(tx_success_count ~= 2, "stop后发送验证失败")
+    assert(rx_success_count ~= 1, "stop后接收验证失败")
+    log.info("canself_test", "✓ stop后功能正常")
+
+    -- 关闭CAN
+    local deinit_result = can.deinit(can_id)
+    assert(deinit_result == true, "stop测试: CAN关闭失败")
+    log.info("canself_test", "✓ stop测试: CAN关闭正确")
+    sys.wait(200)
+
+    api_test_results.stop.pass = api_test_results.stop.pass + 1
+    return true
+end
+
+-- 测试指定波特率和帧类型
+local function test_baud_rate_frame(baud_config, frame_type)
+    log.info("canself_test", string.format("========== 测试 %s - %s ==========", baud_config.name,
+        (frame_type == "std") and "标准帧" or "扩展帧"))
+
+    -- 确保前一个CAN实例已关闭
+    local result = can.deinit(can_id)
+    assert(result == true, "测试前关闭can失败")
+    sys.wait(200)
+
+    -- 重置状态
+    test_cnt = 0
+    current_test_count = 0
+    tx_success_count = 0
+    rx_success_count = 0
+    current_frame_type = frame_type
+
+    -- 初始化CAN
     local caninit_result = can.init(can_id, 128)
-    assert(caninit_result == true, string.format("[%s-%s] CAN初始化测试失败", 
-        baud_config.name, frame_type))
+    assert(caninit_result == true, string.format("[%s-%s] CAN初始化测试失败", baud_config.name, frame_type))
     log.info("canself_test", "CAN初始化测试通过")
 
     -- 注册回调
     can.on(can_id, can_cb)
 
     -- 配置时序
-    local can_timing_result = can.timing(can_id, baud_config.value, 
-        baud_config.pts, baud_config.pbs1, baud_config.pbs2, baud_config.sjw)
-    assert(can_timing_result == true, string.format("[%s-%s] CAN时序测试失败", 
-        baud_config.name, frame_type))
+    local can_timing_result = can.timing(can_id, baud_config.value, baud_config.pts, baud_config.pbs1, baud_config.pbs2,
+        baud_config.sjw)
+    assert(can_timing_result == true, string.format("[%s-%s] CAN时序测试失败", baud_config.name, frame_type))
     log.info("canself_test", string.format("CAN总线配置时序测试通过 (%s)", baud_config.name))
 
     -- 配置节点ID
@@ -505,17 +767,16 @@ local function test_baud_rate_frame(baud_config, frame_type)
         rx_id = rx_id_ext
         id_type = can.EXT
     end
-    
+
     local can_node_result = can.node(can_id, rx_id, id_type)
-    assert(can_node_result == true, string.format("[%s-%s] CAN设置节点ID测试失败", 
-        baud_config.name, frame_type))
-    log.info("canself_test", string.format("CAN总线配置节点ID测试通过 (%s)", 
+    assert(can_node_result == true, string.format("[%s-%s] CAN设置节点ID测试失败", baud_config.name, frame_type))
+    log.info("canself_test", string.format("CAN总线配置节点ID测试通过 (%s)",
         (frame_type == "std") and "标准帧" or "扩展帧"))
 
     -- 设置自测模式
     local can_mode_result = can.mode(can_id, can.MODE_TEST)
-    assert(can_mode_result == true, string.format("[%s-%s] CAN设置自测模式测试失败", 
-        baud_config.name, frame_type))
+    assert(can_mode_result == true,
+        string.format("[%s-%s] CAN设置自测模式测试失败", baud_config.name, frame_type))
     log.info("canself_test", "CAN总线配置自测工作模式测试通过")
 
     -- 配置STB引脚
@@ -533,11 +794,11 @@ local function test_baud_rate_frame(baud_config, frame_type)
 
         -- 验证本次测试的发送和接收
         assert(tx_success_count >= i,
-            string.format("[%s-%s] 第%d次发送失败，发送成功次数：%d", 
-                baud_config.name, frame_type, i, tx_success_count))
+            string.format("[%s-%s] 第%d次发送失败，发送成功次数：%d", baud_config.name, frame_type, i,
+                tx_success_count))
         assert(rx_success_count >= i,
-            string.format("[%s-%s] 第%d次接收失败，接收成功次数：%d", 
-                baud_config.name, frame_type, i, rx_success_count))
+            string.format("[%s-%s] 第%d次接收失败，接收成功次数：%d", baud_config.name, frame_type, i,
+                rx_success_count))
 
         -- 等待再进行下一次
         if i < per_baud_tests then
@@ -549,49 +810,45 @@ local function test_baud_rate_frame(baud_config, frame_type)
     log.info("canself_test", string.format("测试完成统计：发送成功 %d 次，接收成功 %d 次",
         tx_success_count, rx_success_count))
 
-    assert(tx_success_count == rx_success_count, 
-        string.format("[%s-%s] CAN自测失败: 发送成功 %d 次但接收成功 %d 次", 
-            baud_config.name, frame_type, tx_success_count, rx_success_count))
+    assert(tx_success_count == rx_success_count,
+        string.format("[%s-%s] CAN自测失败: 发送成功 %d 次但接收成功 %d 次", baud_config.name,
+            frame_type, tx_success_count, rx_success_count))
     assert(tx_success_count == per_baud_tests,
-        string.format("[%s-%s] CAN自测失败: 只发送成功 %d 次，期望 %d 次",
-            baud_config.name, frame_type, tx_success_count, per_baud_tests))
+        string.format("[%s-%s] CAN自测失败: 只发送成功 %d 次，期望 %d 次", baud_config.name, frame_type,
+            tx_success_count, per_baud_tests))
 
-    log.info("canself_test", string.format("✓ %s - %s 测试通过", 
-        baud_config.name, (frame_type == "std") and "标准帧" or "扩展帧"))
+    log.info("canself_test", string.format("✓ %s - %s 测试通过", baud_config.name,
+        (frame_type == "std") and "标准帧" or "扩展帧"))
 
     -- 关闭CAN总线
     local deinit_result = can.deinit(can_id)
-    assert(deinit_result == true, string.format("[%s-%s] 关闭CAN总线测试失败", 
-        baud_config.name, frame_type))
-    
+    assert(deinit_result == true, string.format("[%s-%s] 关闭CAN总线测试失败", baud_config.name, frame_type))
+
     sys.wait(200)
-    
     return true
 end
 
 function canself_test.test_all_baudrates()
-    log.info("canself_test", "")
     log.info("canself_test", "=========================================")
-    log.info("canself_test", "      CAN自测 - 多波特率测试 + API测试")
+    log.info("canself_test", " CAN自测 ")
     log.info("canself_test", "=========================================")
 
     -- 硬件配置
     can_configuration()
 
     -- 显示测试计划
-    log.info("canself_test", "")
     log.info("canself_test", "测试计划:")
     log.info("canself_test", string.format("- 波特率数量: %d种", #baud_rates))
-    log.info("canself_test", "- 每种波特率测试: 标准帧(%d次) + 扩展帧(%d次)", per_baud_tests, per_baud_tests)
+    log.info("canself_test", string.format("- 每种波特率测试: 标准帧(%d次) + 扩展帧(%d次)",
+        per_baud_tests, per_baud_tests))
     log.info("canself_test", "- 总测试次数: %d次", #baud_rates * 2 * per_baud_tests)
-    log.info("canself_test", "- API测试: filter/state/reset/busOff/capacity/deinit/stop")
 
     -- 记录测试结果
     local pass_count = 0
     local fail_count = 0
     local fail_details = {}
 
-    -- 先测试capacity（不依赖CAN初始化）
+    -- 测试capacity
     local success, err = pcall(test_capacity_api)
     if not success then
         fail_count = fail_count + 1
@@ -601,15 +858,14 @@ function canself_test.test_all_baudrates()
 
     -- 遍历所有波特率
     for idx, baud in ipairs(baud_rates) do
-        log.info("canself_test", "")
-        log.info("canself_test", string.format("========== [%d/%d] 测试波特率: %s ==========", 
-            idx, #baud_rates, baud.name))
+        log.info("canself_test",
+            string.format("========== [%d/%d] 测试波特率: %s ==========", idx, #baud_rates, baud.name))
 
         -- 测试标准帧
         local success, err = pcall(function()
             return test_baud_rate_frame(baud, "std")
         end)
-        
+
         if success then
             pass_count = pass_count + 1
         else
@@ -622,7 +878,7 @@ function canself_test.test_all_baudrates()
         local success, err = pcall(function()
             return test_baud_rate_frame(baud, "ext")
         end)
-        
+
         if success then
             pass_count = pass_count + 1
         else
@@ -630,50 +886,148 @@ function canself_test.test_all_baudrates()
             table.insert(fail_details, string.format("%s-扩展帧: %s", baud.name, err))
             log.error("canself_test", string.format("✗ %s-扩展帧 测试失败: %s", baud.name, err))
         end
-    end
 
-    -- 使用第一个波特率进行API测试
-    if #baud_rates > 0 then
-        local test_baud = baud_rates[1]
-        
-        -- filter测试（标准帧和扩展帧）
-        success, err = pcall(function()
-            test_filter_api(test_baud, "std")
-            test_filter_api(test_baud, "ext")
-        end)
-        if not success then
-            api_test_results.filter.fail = api_test_results.filter.fail + 2
-            table.insert(fail_details, string.format("filter测试失败: %s", err))
+        -- 使用第一个波特率进行API测试
+        if #baud_rates > 0 then
+            local test_baud = baud
+
+            -- filter测试（标准帧）
+            success, err = pcall(function()
+                test_filter_api(test_baud, "std")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.filter.fail = api_test_results.filter.fail + 2
+                table.insert(fail_details, string.format("filter测试%s-标准帧失败: %s", baud.name, err))
+                log.error("canself_test",
+                    string.format("✗ filter测试 %s-标准帧 测试失败: %s", baud.name, err))
+            end
+
+            -- filter测试（扩展帧）
+            success, err = pcall(function()
+                test_filter_api(test_baud, "ext")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.filter.fail = api_test_results.filter.fail + 2
+                table.insert(fail_details, string.format("filter测试%s-扩展帧失败: %s", baud.name, err))
+                log.error("canself_test",
+                    string.format("✗ filter测试 %s-扩展帧 测试失败: %s", baud.name, err))
+            end
+
+            -- state测试
+            success, err = pcall(function()
+                test_state_api(test_baud, "std")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.state.fail = api_test_results.state.fail + 1
+                table.insert(fail_details, string.format("state标准帧测试失败: %s", err))
+                log.error("canself_test", string.format("✗ state测试 %s-标准帧 测试失败: %s", baud.name, err))
+            end
+
+            success, err = pcall(function()
+                test_state_api(test_baud, "ext")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.state.fail = api_test_results.state.fail + 1
+                table.insert(fail_details, string.format("state测试失败: %s", err))
+                log.error("canself_test", string.format("✗ state测试 %s-扩展帧 测试失败: %s", baud.name, err))
+            end
+
+            -- reset和busOff测试
+            success, err = pcall(function()
+                test_reset_busoff_api(test_baud, "std")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.reset.fail = api_test_results.reset.fail + 1
+                api_test_results.busOff.fail = api_test_results.busOff.fail + 1
+                table.insert(fail_details, string.format("reset/busOff测试标准帧失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ reset/busOff测试 %s-标准帧 测试失败: %s", baud.name, err))
+            end
+
+            success, err = pcall(function()
+                test_reset_busoff_api(test_baud, "ext")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.reset.fail = api_test_results.reset.fail + 1
+                api_test_results.busOff.fail = api_test_results.busOff.fail + 1
+                table.insert(fail_details, string.format("reset/busOff测试扩展帧失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ reset/busOff测试 %s-扩展帧 测试失败: %s", baud.name, err))
+            end
+
+            -- deinit测试
+            success, err = pcall(function()
+                test_deinit_api(test_baud, "std")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.deinit.fail = api_test_results.deinit.fail + 1
+                table.insert(fail_details, string.format("deinit测试标准帧失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ deinit测试 %s-标准帧 测试失败: %s", baud.name, err))
+            end
+
+            success, err = pcall(function()
+                test_deinit_api(test_baud, "ext")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.deinit.fail = api_test_results.deinit.fail + 1
+                table.insert(fail_details, string.format("deinit测试失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ deinit测试 %s-扩展帧 测试失败: %s", baud.name, err))
+            end
+
+            -- stop测试
+            success, err = pcall(function()
+                test_stop_api(test_baud, "std")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.stop.fail = api_test_results.stop.fail + 1
+                table.insert(fail_details, string.format("stop测试标准帧失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ deinit测试 %s-标准帧 测试失败: %s", baud.name, err))
+            end
+
+            success, err = pcall(function()
+                test_stop_api(test_baud, "ext")
+            end)
+            if success then
+                pass_count = pass_count + 1
+            else
+                fail_count = fail_count + 1
+                api_test_results.stop.fail = api_test_results.stop.fail + 1
+                table.insert(fail_details, string.format("stop测试扩展帧失败: %s", err))
+                log.error("canself_test",
+                    string.format("✗ deinit测试 %s-扩展帧 测试失败: %s", baud.name, err))
+            end
         end
-        
-        -- state测试
-        success, err = pcall(function() test_state_api(test_baud) end)
-        if not success then
-            api_test_results.state.fail = api_test_results.state.fail + 1
-            table.insert(fail_details, string.format("state测试失败: %s", err))
-        end
-        
-        -- reset和busOff测试
-        success, err = pcall(function() test_reset_busoff_api(test_baud) end)
-        if not success then
-            api_test_results.reset.fail = api_test_results.reset.fail + 1
-            api_test_results.busOff.fail = api_test_results.busOff.fail + 1
-            table.insert(fail_details, string.format("reset/busOff测试失败: %s", err))
-        end
-        
-        -- deinit测试
-        success, err = pcall(function() test_deinit_api(test_baud) end)
-        if not success then
-            api_test_results.deinit.fail = api_test_results.deinit.fail + 1
-            table.insert(fail_details, string.format("deinit测试失败: %s", err))
-        end
-        
-        -- stop测试
-        success, err = pcall(function() test_stop_api(test_baud) end)
-        if not success then
-            api_test_results.stop.fail = api_test_results.stop.fail + 1
-            table.insert(fail_details, string.format("stop测试失败: %s", err))
-        end
+
     end
 
     -- 输出最终测试报告
@@ -684,23 +1038,23 @@ function canself_test.test_all_baudrates()
     log.info("canself_test", string.format("波特率测试项: %d", #baud_rates * 2))
     log.info("canself_test", string.format("通过: %d", pass_count))
     log.info("canself_test", string.format("失败: %d", fail_count))
-    
+
     log.info("canself_test", "")
     log.info("canself_test", "API测试结果:")
-    log.info("canself_test", string.format("  filter  : 通过%d, 失败%d", 
-        api_test_results.filter.pass, api_test_results.filter.fail))
-    log.info("canself_test", string.format("  state   : 通过%d, 失败%d", 
-        api_test_results.state.pass, api_test_results.state.fail))
-    log.info("canself_test", string.format("  reset   : 通过%d, 失败%d", 
-        api_test_results.reset.pass, api_test_results.reset.fail))
-    log.info("canself_test", string.format("  busOff  : 通过%d, 失败%d", 
-        api_test_results.busOff.pass, api_test_results.busOff.fail))
-    log.info("canself_test", string.format("  capacity: 通过%d, 失败%d", 
-        api_test_results.capacity.pass, api_test_results.capacity.fail))
-    log.info("canself_test", string.format("  deinit  : 通过%d, 失败%d", 
-        api_test_results.deinit.pass, api_test_results.deinit.fail))
-    log.info("canself_test", string.format("  stop    : 通过%d, 失败%d", 
-        api_test_results.stop.pass, api_test_results.stop.fail))
+    log.info("canself_test", string.format("  filter  : 通过%d, 失败%d", api_test_results.filter.pass,
+        api_test_results.filter.fail))
+    log.info("canself_test",
+        string.format("  state   : 通过%d, 失败%d", api_test_results.state.pass, api_test_results.state.fail))
+    log.info("canself_test",
+        string.format("  reset   : 通过%d, 失败%d", api_test_results.reset.pass, api_test_results.reset.fail))
+    log.info("canself_test", string.format("  busOff  : 通过%d, 失败%d", api_test_results.busOff.pass,
+        api_test_results.busOff.fail))
+    log.info("canself_test", string.format("  capacity: 通过%d, 失败%d", api_test_results.capacity.pass,
+        api_test_results.capacity.fail))
+    log.info("canself_test", string.format("  deinit  : 通过%d, 失败%d", api_test_results.deinit.pass,
+        api_test_results.deinit.fail))
+    log.info("canself_test",
+        string.format("  stop    : 通过%d, 失败%d", api_test_results.stop.pass, api_test_results.stop.fail))
 
     if #fail_details > 0 then
         log.info("canself_test", "")

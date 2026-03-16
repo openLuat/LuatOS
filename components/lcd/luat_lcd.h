@@ -191,6 +191,7 @@ int luat_lcd_init_default(luat_lcd_conf_t* conf);
 int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf);
 int luat_lcd_flush_default(luat_lcd_conf_t* conf);
 int luat_lcd_draw_default(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
 int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
 int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
 
@@ -200,6 +201,7 @@ int luat_lcd_init(luat_lcd_conf_t* conf);
 int luat_lcd_setup_buff(luat_lcd_conf_t* conf);
 int luat_lcd_flush(luat_lcd_conf_t* conf);
 int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+int lcd_jpeg_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height);
 int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y);
 int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info);
 // 以下为非 weak 函数

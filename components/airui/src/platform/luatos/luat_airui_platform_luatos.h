@@ -58,6 +58,11 @@ void airui_platform_luatos_bind_keypad(const airui_luatos_keypad_cfg_t *cfg);
 const airui_luatos_keypad_cfg_t *airui_platform_luatos_get_keypad_bind(void);
 
 /**
+ * 注册 LuatOS 平台 JPG 解码器
+ */
+int airui_platform_luatos_register_jpg_decoder(void);
+
+/**
  * 从 ctx->platform_data 获取 LuatOS 平台数据
  */
 static inline luatos_platform_data_t *airui_luatos_get_data(airui_ctx_t *ctx) {

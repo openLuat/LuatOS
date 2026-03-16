@@ -55,8 +55,8 @@ static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
 extern const airui_platform_ops_t *airui_platform_ops_sdl2_get(void);
 #elif defined(LUAT_USE_AIRUI_LUATOS) 
 extern const airui_platform_ops_t *airui_platform_ops_luatos_get(void);
-// #else
-// #warning "No platform driver selected. Please define LUAT_USE_AIRUI_SDL2 or LUAT_USE_AIRUI_LUATOS"
+// 注册 LuatOS 平台 JPG 解码器
+extern int airui_platform_luatos_register_jpg_decoder(void);
 #endif
 
 /**
@@ -451,6 +451,13 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         LLOGE("airui_init failed: file system init failed, ret=%d", ret);
         // 文件系统初始化失败不影响整体初始化，只记录错误
     }
+
+    #if defined(LUAT_USE_AIRUI_LUATOS)
+    ret = airui_platform_luatos_register_jpg_decoder();
+    if (ret != AIRUI_OK) {
+        LLOGW("airui_init: register luatos jpg decoder failed, ret=%d", ret);
+    }
+    #endif
 
     // 启动运行时定时器
     ret = airui_start_runtime_timers(ctx);

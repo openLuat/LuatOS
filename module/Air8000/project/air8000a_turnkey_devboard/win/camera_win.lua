@@ -8,14 +8,16 @@ local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
     -- 顶部返回栏
-    local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
-    local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
+    local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=40, color=0x3F51B5 })
+    -- 返回按钮使用容器样式，与历史页面保持一致
+    local back_btn = airui.container({ parent = header, x = 400, y = 5, w = 70, h = 30, color = 0x2195F6, radius = 5,
         on_click = function() if win_id then exwin.close(win_id) end end
     })
+    airui.label({ parent = back_btn, x = 10, y = 5, w = 50, h = 20, text = "返回", font_size = 16, color = 0xfefefe, align = airui.TEXT_ALIGN_CENTER })
 
-    airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="拍照", font_size=24, color=0xffffff })
+    airui.label({ parent = header, x = 10, y = 4, w = 360, h = 32, align = airui.TEXT_ALIGN_CENTER, text="拍照", font_size=24, color=0xffffff })
 
-    content = airui.container({ parent = main_container, x=0, y=50, w=480, h=270, color=0xF3F4F6 })
+    content = airui.container({ parent = main_container, x=0, y=40, w=480, h=280, color=0xF3F4F6 })
 
     -- 预览区域（实际应显示摄像头图像）
     preview_img = airui.image({

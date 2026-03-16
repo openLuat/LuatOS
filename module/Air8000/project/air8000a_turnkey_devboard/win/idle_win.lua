@@ -2,71 +2,32 @@
 
 local win_id = nil
 local main_container, time_label, temp_label, hum_label, air_label, signal_img, qrcode1
+local full_path, current_time = "/luadb/4Gxinghao6.png", "08:00"
 local card_temp, card_hum, card_air
-local temp_history, hum_history, air_history = {}, {}, {}
-local MAX_HISTORY = 20
 local current_win = nil -- 图表窗口
 local aircloud_qr = nil
-
-
+local StatusProvider = require "status_provider_app"
 
 -- 内部函数：显示历史图表
 local function show_history_chart(sensor_type)
     if not exwin.is_active(win_id) then return end
-    if current_win then
-        current_win:close(); current_win = nil
-    end
-    local title, history, y_min, y_max, unit
     if sensor_type == "temperature" then
-        title = "温度历史"; history = temp_history; y_min = 0; y_max = 50; unit = "℃"
+        sys.publish("OPEN_TEMP_HISTORY_WIN")
     elseif sensor_type == "humidity" then
-        title = "湿度历史"; history = hum_history; y_min = 0; y_max = 100; unit = "%"
+        sys.publish("OPEN_HUM_HISTORY_WIN")
     elseif sensor_type == "air" then
-        title = "空气质量历史"; history = air_history; y_min = 0; y_max = 1000; unit = "ppb"
-    else
-        return
+        sys.publish("OPEN_AIR_HISTORY_WIN")
     end
-    local win = airui.win({
-        parent = airui.screen,
-        title = title,
-        w = 400,
-        h = 300,
-        close_btn = true,
-        auto_center = true,
-        on_close = function() current_win = nil end
-    })
-    local chart = airui.chart({
-        x = 30,
-        y = 0,
-        w = 300,
-        h = 170,
-        y_min = y_min,
-        y_max = y_max,
-        point_count = MAX_HISTORY,
-        line_color = 0x00b4ff,
-        line_width = 2,
-        hdiv = 5,
-        vdiv = 5,
-        legend = false,
-        update_mode = "shift",
-        x_axis = { enable = true, min = 0, max = MAX_HISTORY, ticks = 5, unit = "次" },
-        y_axis = { enable = true, min = y_min, max = y_max, ticks = 5, unit = unit }
-    })
-    if #history > 0 then chart:set_values(1, history) end
-    win:add_content(chart)
-    current_win = win
 end
 
 -- 内部函数：创建UI
 local function create_ui()
     main_container = airui.container({ x = 0, y = 0, w = 480, h = 320, color = 0xF8F9FA, parent = airui.screen })
     -- 顶部状态栏
-    log.info("lte_csq_idle", lte_csq, show_time,aircloud_qr)
-  
     local status_bar = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 40, color = 0x3F51B5 })
-    signal_img = airui.image({ parent = status_bar, x = 430, y = 4, w = 32, h = 32, src = lte_csq or
-    "/luadb/4Gxinghao6.png" })
-    time_label = airui.label({ parent = status_bar, x = 188, y = 4, w = 100, h = 32, text = show_time or "--:--", font_size = 30, color = 0xfefefe })
+
+    signal_img = airui.image({ parent = status_bar, x = 430, y = 4, w = 32, h = 32, src = full_path })
+    time_label = airui.label({ parent = status_bar, x = 188, y = 4, w = 100, h = 32, text = current_time, font_size = 30, color = 0xfefefe })
 
     -- 内容区域
     local content = airui.container({ parent = main_container, x = 0, y = 40, w = 480, h = 240, color = 0xF3F4F6 })
@@ -247,55 +208,36 @@ end
 
 -- 内部函数：更新时间
 local function update_time()
-    local t = os.time()
-    local dt = os.date("*t", t)
-    show_time = string.format("%02d:%02d", dt.hour, dt.min)
-    if not exwin.is_active(win_id) then return end
-    if time_label then time_label:set_text(show_time) end
+    if not time_label then return end
+    -- exwin.is_active 在页面刚打开时可能还是false，放宽判断，只检查控件是否存在
+    -- 即使不活跃，更新控件也不会出问题，而且当获得焦点时on_get_focus会再次刷新
+    local current_time = StatusProvider.get_time()
+    time_label:set_text(current_time)
 end
 
 
--- 更新信号图标（由定时器或SIM事件调用）
+-- 更新信号图标（由StatusProvider事件调用）
 local function update_signal()
-    -- 使用全局 sim_present，如果未定义则视为 false
-    if not sim_present then
-        lte_csq = "4Gxinghao6.png"
-    else
-        local csq = mobile.csq()
-        if csq == 99 or csq <= 5 then
-            lte_csq = "4Gxinghao5.png"
-        elseif csq <= 10 then
-            lte_csq = "4Gxinghao1.png"
-        elseif csq <= 15 then
-            lte_csq = "4Gxinghao2.png"
-        elseif csq <= 20 then
-            lte_csq = "4Gxinghao3.png"
-        else
-            lte_csq = "4Gxinghao4.png"
-        end
+    local csq_level = StatusProvider.get_signal_level()
+    if not signal_img then return end
+    local signal_img_name = "4Gxinghao6.png" -- 默认无信号
+    if csq_level > 0 and csq_level <= 5 then
+        signal_img_name = "4Gxinghao" .. csq_level .. ".png"
+    elseif csq_level >= 6 then
+        signal_img_name = "4Gxinghao6.png"
     end
-    if not exwin.is_active(win_id) or not signal_img then return end
-    signal_img:set_src("/luadb/" .. lte_csq)
+    local full_path = "/luadb/" .. signal_img_name
+    signal_img:set_src(full_path)
 end
 
+-- 处理StatusProvider的时间更新事件
+local function on_status_time_updated()
+    update_time()
+end
 
-
--- 内部函数：处理SIM卡状态
-local function handle_sim_ind(status, value)
-    if status == "RDY" then
-        sim_present = true
-    elseif status == "NORDY" then
-        sim_present = false
-    end
+-- 处理StatusProvider的信号更新事件
+local function on_status_signal_updated()
     update_signal()
-end
-
--- 更新历史数组
-local function update_history(history, value)
-    if value then
-        table.insert(history, value)
-        if #history > MAX_HISTORY then table.remove(history, 1) end
-    end
 end
 
 -- 后台任务（全局）
@@ -313,7 +255,6 @@ local function sensor_read_update(temp, hum, air)
         if temp_label then
             if t then
                 temp_label:set_text(string.format("%.1f", t)); temp_label:set_color(0x000000); temp_label:set_font_size(36)
-                update_history(temp_history, t)
             else
                 temp_label:set_text("未接入传感器"); temp_label:set_color(0xFF0000); temp_label:set_font_size(16)
             end
@@ -321,7 +262,6 @@ local function sensor_read_update(temp, hum, air)
         if hum_label then
             if h then
                 hum_label:set_text(string.format("%.0f", h)); hum_label:set_color(0x000000); hum_label:set_font_size(36)
-                update_history(hum_history, h)
             else
                 hum_label:set_text("未接入传感器"); hum_label:set_color(0xFF0000); hum_label:set_font_size(16)
             end
@@ -329,7 +269,6 @@ local function sensor_read_update(temp, hum, air)
         if air_label then
             if v then
                 air_label:set_text(string.format("%d", v)); air_label:set_color(0x000000); air_label:set_font_size(36)
-                update_history(air_history, v)
             else
                 air_label:set_text("未接入传感器"); air_label:set_color(0xFF0000); air_label:set_font_size(16)
             end
@@ -341,8 +280,8 @@ end
 local function on_create()
     create_ui()
     sys.timerLoopStart(update_time, 1000)
-    sys.timerLoopStart(update_signal, 2000)
-    sys.subscribe("SIM_IND", handle_sim_ind)
+    sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
+    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
     sys.publish("read_sensors_req")
     update_time()
     update_signal()
@@ -350,8 +289,8 @@ end
 
 local function on_destroy()
     sys.timerStop(update_time)
-    sys.timerStop(update_signal)
-    sys.unsubscribe("SIM_IND", handle_sim_ind)
+    sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
+    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
     if current_win then
         current_win:close()
         current_win = nil
@@ -371,6 +310,7 @@ local function on_get_focus()
     if aircloud_qr ~= nil then
         qrcode1:set_data(aircloud_qr)
     end
+    -- update_signal() 内部已经处理了set_src，这里不需要重复设置
 end
 
 local function on_lose_focus()

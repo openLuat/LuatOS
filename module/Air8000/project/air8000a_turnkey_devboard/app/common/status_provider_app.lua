@@ -8,7 +8,7 @@ local history = {
 local MAX_HISTORY = 20
 local csq_level = -1
 local sim_present = false
-local current_time = "--:--"
+local current_time = "08:00"
 
 -- 更新时间
 local function update_time()
@@ -28,7 +28,7 @@ local function update_signal()
         log.info("status_provider", "no sim, set level -1")
     else
         local csq = mobile.csq()
-        log.info("status_provider", "csq raw =", csq)
+        -- log.info("status_provider", "csq raw =", csq)
         if csq == 99 or csq <= 5 then
             csq_level = 1
         elseif csq <= 10 then
@@ -40,7 +40,7 @@ local function update_signal()
         else
             csq_level = 5
         end
-        log.info("status_provider", "mapped level =", csq_level)
+        -- log.info("status_provider", "mapped level =", csq_level)
     end
     if old_level ~= csq_level then
         sys.publish("STATUS_SIGNAL_UPDATED", csq_level)
@@ -52,7 +52,7 @@ local function handle_sim_ind(status, value)
     log.info("status_provider", "SIM_IND", status, value or "")
     if status == "RDY" then
         sim_present = true
-    elseif status == "NORDY" or status == "SIM NOT INSERTED" then
+    elseif status == "NORDY" then
         sim_present = false
     end
     update_signal()  -- 立即更新一次
@@ -65,14 +65,21 @@ local function handle_sensor_data(temp, hum, air)
     local function is_valid_air(v)  return v and v >= 0 and v < 5000 end
 
     if is_valid_temp(temp) then
-        table.insert(history.temperature, temp)
+        -- 存入历史图表前向下取整，适配AirUI折线图不支持小数的问题
+        local temp_int = math.floor(temp)
+        table.insert(history.temperature, temp_int)
         if #history.temperature > MAX_HISTORY then table.remove(history.temperature, 1) end
+        log.info("status_provider", "temperature history stored", temp, "->", temp_int)
     end
     if is_valid_hum(hum) then
-        table.insert(history.humidity, hum)
+        -- 存入历史图表前向下取整，适配AirUI折线图不支持小数的问题
+        local hum_int = math.floor(hum)
+        table.insert(history.humidity, hum_int)
         if #history.humidity > MAX_HISTORY then table.remove(history.humidity, 1) end
+        log.info("status_provider", "humidity history stored", hum, "->", hum_int)
     end
     if is_valid_air(air) then
+        -- 空气质量已经是整数，直接存储
         table.insert(history.air, air)
         if #history.air > MAX_HISTORY then table.remove(history.air, 1) end
     end

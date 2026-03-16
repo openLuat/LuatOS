@@ -32,6 +32,10 @@
 
     #define LV_COLOR_DEPTH 16
 
+    /* 图片缓存配置 */
+    #define LV_CACHE_DEF_SIZE (2 * 1024 * 1024)     /* 2MB */
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 32        /* 32个图片头缓存 */
+
     #define LV_USE_LOG 1
     #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
 
@@ -57,7 +61,7 @@
     // 打开拼音输入法
     #define LV_USE_IME_PINYIN 1
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
-    #define LV_IME_PINYIN_CAND_TEXT_NUM 9 // 设置拼音候选词数量
+    #define LV_IME_PINYIN_CAND_TEXT_NUM 6 // 设置拼音候选词数量
 
     // lottie 支持
     #define LV_USE_LOTTIE 1
@@ -67,6 +71,8 @@
     #define LV_USE_THORVG_INTERNAL 1
 
 #elif defined(LUAT_USE_AIRUI_LUATOS)
+    /* -------------------------------------- 通用配置 -------------------------------------- */
+
     /* LuatOS 平台配置：使用 FreeRTOS 以支持 LVGL 多线程渲染 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
     // #define LV_USE_OS   LV_OS_FREERTOS
@@ -74,6 +80,10 @@
     // #define LV_USE_PARALLEL_DRAW_DEBUG  0    // 开启并行绘制调试
 
     #define LV_COLOR_DEPTH 16
+
+    /* 图片缓存配置 */
+    #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 16        /* 16个图片头缓存 */
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
@@ -102,10 +112,10 @@
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
     #define LV_IME_PINYIN_CAND_TEXT_NUM 6 // 设置拼音候选词数量
 
+    /* -------------------------------------- 可选配置 -------------------------------------- */
     // 可选配置，需要在"luat_conf_bsp.h"等文件中打开相关宏
 
     // 使用16号字体
-
     #ifdef LUAT_USE_AIRUI_MISANS_FONT_16
         #define LV_FONT_FMT_TXT_LARGE 1
         #define LV_USE_FONT_COMPRESSED 1

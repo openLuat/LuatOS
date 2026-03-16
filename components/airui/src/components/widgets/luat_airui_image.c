@@ -26,7 +26,6 @@ typedef enum {
 } airui_image_type_t;
 
 static airui_image_type_t airui_image_get_type(const char *src);
-static airui_image_type_t airui_image_get_obj_type(lv_obj_t *img);
 
 /**
  * 从配置表创建 Image 组件
@@ -62,9 +61,6 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     int h = airui_marshal_integer(L, idx, "h", 100);
     const char *src = airui_marshal_string(L, idx, "src", NULL);
 
-    // 获取图片类型
-    airui_image_type_t img_type = airui_image_get_type(src);
-    
     // 创建 Image 对象
     lv_obj_t *img = lv_image_create(parent);
     if (img == NULL) {
@@ -89,30 +85,17 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     // 读取 rotation（旋转角度，900 = 90.0°）
     int rotation = airui_marshal_integer(L, idx, "rotation", 0);
     if (rotation != 0) {
-        if (img_type != AIRUI_IMAGE_TYPE_JPG) {
-            lv_image_set_rotation(img, rotation);
-        } else {
-            LLOGW("JPG 图片不支持旋转设置, 已忽略 rotation=%d", rotation);
-        }
+        lv_image_set_rotation(img, rotation);
     }
     
     // 读取 zoom（缩放比例，256 = 100%）
     int zoom = airui_marshal_integer(L, idx, "zoom", 256);
-    // JPG 图片不支持缩放
-    if (img_type != AIRUI_IMAGE_TYPE_JPG) {
-        lv_image_set_scale(img, zoom);
-    } else if (zoom != 256) {
-        LLOGW("JPG 图片不支持缩放设置, 默认100 %%");
-    }
+    lv_image_set_scale(img, zoom);
     
     // 读取 opacity（透明度，0-255）
     int opacity = airui_marshal_integer(L, idx, "opacity", 255);
-    if (img_type != AIRUI_IMAGE_TYPE_JPG) {
-        if (opacity != 255) {
-            lv_obj_set_style_opa(img, opacity, 0);
-        }
-    } else if (opacity != 255) {
-        LLOGW("JPG 图片不支持透明度设置, 默认不透明");
+    if (opacity != 255) {
+        lv_obj_set_style_opa(img, opacity, 0);
     }
     
     // 分配元数据
@@ -160,11 +143,6 @@ int airui_image_set_rotation(lv_obj_t *img, int rotation)
 {
     if (img == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
-    }
-
-    if (airui_image_get_obj_type(img) == AIRUI_IMAGE_TYPE_JPG) {
-        LLOGW("JPG 图片不支持旋转设置, 已忽略 rotation=%d", rotation);
-        return AIRUI_OK;
     }
 
     lv_image_set_rotation(img, rotation);
@@ -215,20 +193,4 @@ static airui_image_type_t airui_image_get_type(const char *src)
     if (strcmp(dot, ".jpeg") == 0) return AIRUI_IMAGE_TYPE_JPG;
     if (strcmp(dot, ".png") == 0) return AIRUI_IMAGE_TYPE_PNG;
     return AIRUI_IMAGE_TYPE_UNKNOWN;
-}
-
-static airui_image_type_t airui_image_get_obj_type(lv_obj_t *img)
-{
-    const void *src;
-
-    if (img == NULL) {
-        return AIRUI_IMAGE_TYPE_UNKNOWN;
-    }
-
-    src = lv_image_get_src(img);
-    if (lv_image_src_get_type(src) != LV_IMAGE_SRC_FILE) {
-        return AIRUI_IMAGE_TYPE_UNKNOWN;
-    }
-
-    return airui_image_get_type((const char *)src);
 }

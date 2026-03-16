@@ -123,12 +123,26 @@ local A_13 = {"audio.tts", "cc", "camera", "codec", "fastlz", "fatfs", "gtfont",
               "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket", "spi", "string",
               "sys", "sysplus", "tp", "u8g2", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
-local A_14 = {"airui", "ble",  "fastlz", "fatfs","libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64", "can", "crypto",
+local A_14 = {"airui", "ble", "fastlz", "fatfs", "libgnss", "yhm27xx", "ymodem", "otp", "adc", "airlink", "bit64",
+              "can", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv",
+              "i2c", "iconv", "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu", "miniz",
+              "mobile", "mqtt", "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc",
+              "rtos", "sms", "socket", "spi", "string", "sys", "sysplus", "tp", "uart", "wdt", "websocket", "wlan",
+              "xxtea", "zbuff", "fft", "hzfont", "lf"}
+
+local A_15 = {"airui", "camera", "fastlz", "fatfs", "lf", "audio", "i2s", "ble", "libgnss", "hzfont", "airtalk",
+              "codec", "yhm27xx", "ymodem", "sms", "otp", "tp", "lcd", "adc", "airlink", "bit64", "can", "crypto",
               "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv",
-              "io", "ioqueue", "iotauth", "iperf", "json", "lcd", "log", "lora2", "mcu", "miniz", "mobile", "mqtt",
-              "netdrv", "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "sms", "socket",
-              "spi", "string", "sys", "sysplus", "tp", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft",
-              "hzfont", "lf"}
+              "io", "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv",
+              "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string",
+              "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
+
+local A_16 = {"airui", "audio.tts", "cc", "camera", "fastlz", "fatfs", "lf", "audio", "i2s", "ble", "libgnss", "hzfont",
+              "yhm27xx", "ymodem", "sms", "otp", "tp", "lcd", "adc", "airlink", "bit64", "can", "crypto", "errDump",
+              "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "ht1621", "http", "httpsrv", "i2c", "iconv", "io",
+              "ioqueue", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mobile", "mqtt", "netdrv",
+              "onewire", "os", "pack", "pins", "pm", "protobuf", "pwm", "rsa", "rtc", "rtos", "socket", "spi", "string",
+              "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "xxtea", "zbuff", "fft"}
 
 local A_size = {
     [1] = {
@@ -188,6 +202,14 @@ local A_size = {
     [14] = {
         fs_size = 1024,
         script_size = 512
+    },
+    [15] = {
+        fs_size = 1792,
+        script_size = 512
+    },
+    [16] = {
+        fs_size = 512,
+        script_size = 384
     }
 
 }
@@ -238,6 +260,10 @@ local B_6 = {"adc", "airlink", "bit64", "can", "crypto", "errDump", "fota", "fsk
 local B_7 = {"lcd", "u8g2", "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log",
              "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc", "rtos",
              "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
+
+local B_8 = {"lcd",  "adc", "crypto", "errDump", "fota", "fskv", "gpio", "i2c", "iconv", "io", "json", "log","iperf","websocket", "fastlz",
+             "bit64", "http", "netdrv", "mcu", "mobile", "mqtt", "os", "pack", "pins", "pm", "pwm", "rtc", "rtos",
+             "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "wlan", "zbuff"}
 local B_size = {
     [1] = {
         fs_size = 168,
@@ -267,25 +293,31 @@ local B_size = {
     [7] = {
         fs_size = 168,
         script_size = 288
+    },
+    [8] = {
+        fs_size = 168,
+        script_size = 288
     }
 }
 
 -- 8101
-local C_1 = {"bit64","adc","airlink", "fft", "protobuf", "iconv", "rsa", "xxtea", "camera", "fatfs", "can", "pins", "ble", "fastlz",
-             "lcd", "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http",
-             "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os",
-             "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt",
-             "websocket", "wlan", "zbuff","libgnss","sfud","ymodem","eink","u8g2"}
+local C_1 = {"bit64", "adc", "airlink", "fft", "protobuf", "iconv", "rsa", "xxtea", "camera", "fatfs", "can", "pins",
+             "ble", "fastlz", "lcd", "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio",
+             "hmeta", "http", "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz",
+             "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus",
+             "uart", "wdt", "websocket", "wlan", "zbuff", "libgnss", "sfud", "ymodem", "eink", "u8g2"}
 
-local C_2 = {"bit64","adc","airlink", "camera", "fatfs", "fft", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp", "tp",
-             "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
-             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm",
-             "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff"}
+local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "fft", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf",
+             "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
+             "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
+             "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
+             "wlan", "zbuff"}
 
-local C_4 = {"bit64","adc","airlink", "airui", "hzfont", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd", "lf", "otp", "tp",
-             "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv", "i2c", "io",
-             "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack", "pwm", "pm",
-             "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket", "wlan", "zbuff"}
+local C_4 = {"bit64", "adc", "airlink", "airui", "hzfont", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd",
+             "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
+             "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
+             "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
+             "wlan", "zbuff"}
 
 local C_size = {
     [1] = {
@@ -410,6 +442,10 @@ local function getConfigByCore()
             config_table = A_13
         elseif table_name == "A_14" then
             config_table = A_14
+        elseif table_name == "A_15" then
+            config_table = A_15
+        elseif table_name == "A_16" then
+            config_table = A_16
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -429,6 +465,8 @@ local function getConfigByCore()
             config_table = B_6
         elseif table_name == "B_7" then
             config_table = B_7
+        elseif table_name == "B_8" then
+            config_table = B_8
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -440,7 +478,7 @@ local function getConfigByCore()
         elseif table_name == "C_2" then
             config_table = C_2
         elseif table_name == "C_4" then
-        config_table = C_4
+            config_table = C_4
         else
             log.error("未知的配置表名:", table_name)
         end
@@ -497,7 +535,6 @@ local function module_size(core_number, is_ec718hm, is_ec718pm)
             core_number, expected_script_size, script_size))
     log.info("脚本区/fs区大小符合预期")
 end
-
 
 -- 检查是否有多余库
 local function getActualLibs(current_config)
@@ -622,9 +659,8 @@ function check_core.test_mouble_check()
         end
 
     end
-     --检查是否有多余库
+    -- 检查是否有多余库
     getActualLibs(current_config)
     log.info("✓ 库检查完成")
 end
 return check_core
-

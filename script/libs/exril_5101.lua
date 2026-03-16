@@ -1,7 +1,7 @@
 --[[
 @summary exril_5101扩展库
-@version 1.3
-@date    2026.2.26
+@version 1.6
+@date    2026.3.9
 @author  王世豪
 @usage
 -- 应用场景：
@@ -16,6 +16,7 @@
 5. 状态查询：实时查询连接状态和设备信息
 6. 系统控制：模块重启、恢复出厂设置、看门狗控制
 7. 功耗管理：多级功耗模式配置
+8. API操作队列：自动管理操作顺序，避免并发问题
 
 -- 用法实例：
 本扩展库对外提供了以下接口：
@@ -35,15 +36,18 @@ exril_5101.restore(timeout)                        -- 恢复出厂设置
 exril_5101.save(timeout)                           -- 保存配置到Flash
 
 3. 功耗管理接口：
-exril_5101.power(mode, timeout)                    -- 设置功耗模式
+exril_5101.power(mode, wakeup_option, timeout) -- 设置功耗模式
 
 4. 看门狗接口：
-exril_5101.wdcfg(enable, timeout, level, width, sync_timeout)   -- 配置看门狗
-exril_5101.wdfed(timeout)                          -- 喂狗操作
+exril_5101.wdt.init(timeout, level, width, sync_timeout) -- 初始化看门狗
+exril_5101.wdt.feed(sync_timeout)             -- 喂狗操作
+exril_5101.wdt.close(sync_timeout)            -- 关闭看门狗
+exril_5101.wdt.status(sync_timeout)           -- 查询看门狗状态
+
 
 同步/异步调用说明：
-1. 同步调用(默认)：若不提供callback参数，则视为同步，由函数返回结果；
-2. 异步调用(可选)：若提供了callback参数，则视为异步，函数立即返回，结果通过callback回调。
+1. 同步调用(默认)：若不提供callback参数，则视为同步，由函数返回结果，自动加入队列等待执行；
+2. 异步调用(可选)：若提供了callback参数，则视为异步，函数立即返回，操作加入队列执行，结果通过callback回调。
 
 同步调用示例：
 local success, message = exril_5101.mode(exril_5101.MODE_AT)
@@ -62,10 +66,17 @@ local function mode_switch_callback(success, message)
     end
 end
 exril_5101.mode(exril_5101.MODE_AT, mode_switch_callback)
+
+队列系统说明：
+- 所有API调用自动加入操作队列，确保同一时间只有一个操作在执行
+- 队列系统内部管理，用户无需额外处理
 ]]
 
 local exril_5101 = {}
 local ril = {}
+
+-- =============== 子模块定义 ===============
+exril_5101.wdt = {}  -- 看门狗子模块
 
 -- =============== 常量定义 ===============
 -- 功耗模式常量
@@ -82,7 +93,7 @@ exril_5101.ADV_N = "0x02"       -- 不可连接广播
 exril_5101.ADV_C = "0x03"       -- 可连接广播
 
 -- 超时设置
-local DEFAULT_TIMEOUT = 200    -- 默认同步超时时间（毫秒）
+local DEFAULT_TIMEOUT = 500    -- 默认同步超时时间（毫秒）
 local MAX_TIMEOUT = 10000      -- 最大同步超时时间（毫秒）
 
 -- =============== 内部状态变量 ===============
@@ -92,6 +103,87 @@ local user_callback = nil                 -- 用户回调函数
 local urc_registered = false              -- 是否已注册URC处理器
 local exril_5101_power_mode = exril_5101.P0         -- 当前功耗模式，默认P0
 
+-- =============== 操作队列 ===============
+local operation_queue = {}
+local processing_queue = false
+
+-- =============== 看门狗状态变量 ===============
+local wdt_inited = false                -- 看门狗是否已初始化
+local wdt_feed_mutex = false            -- 喂狗互斥锁
+
+-- =============== 队列处理器 ===============
+-- 处理操作队列的协程
+local function process_operation_queue()
+    while true do
+        if #operation_queue > 0 and not processing_queue then
+            processing_queue = true
+            local op = table.remove(operation_queue, 1)
+            
+            -- 执行操作
+            local success, result = op.func(unpack(op.args))
+            
+            -- 设置同步结果（异步由原始API处理）
+            if op.sync_promise then
+                op.sync_promise(success, result)
+            end
+            
+            processing_queue = false
+        else
+            sys.wait(10) -- 避免忙等
+        end
+    end
+end
+
+-- 启动处理协程
+sys.taskInit(process_operation_queue, "exril_5101_op_queue")
+
+-- 封装操作到队列
+-- 检测参数中是否有函数（callback），如果有则为异步，否则为同步
+local function queue_operation(func, ...)
+    local args = {...}
+    local callback = nil
+    
+    -- 查找是否有 callback（函数类型）
+    for _, arg in ipairs(args) do
+        if type(arg) == "function" then
+            callback = arg
+            break
+        end
+    end
+    
+    if callback then
+        -- 异步调用：直接传递所有参数，让原始API处理异步
+        table.insert(operation_queue, {
+            func = func,
+            args = args
+        })
+    else
+        -- 同步调用
+        local sync_result = nil
+        local sync_ready = false
+        
+        -- 创建同步等待函数
+        local function sync_promise(success, result)
+            sync_result = {success, result}
+            sync_ready = true
+        end
+        
+        -- 将操作加入队列
+        table.insert(operation_queue, {
+            func = func,
+            args = args,
+            sync_promise = sync_promise
+        })
+        
+        -- 等待操作完成
+        while not sync_ready do
+            sys.wait(10)
+        end
+        
+        -- 返回结果
+        return unpack(sync_result)
+    end
+end
 
 -- =============== ril部分 ===============
 local UART_ID = 1
@@ -274,7 +366,6 @@ data：收到的数据
 返回值：无
 ]]
 local function procatc(data)
-    -- log.info("ril.proatc", data)
     log.info("ril.proatc", data, "cmdtype:", cmdtype, "cmdhead:", cmdhead)
     -- 如果命令的应答是多行字符串格式
     if interdata and cmdtype == MLINE then
@@ -321,7 +412,7 @@ local function procatc(data)
         result = true
         respdata = data
         -- 执行失败的应答
-    elseif data == "ERROR" or data == "AE" or data == "UE" then
+    elseif data == "ERROR" or string.find(data, "^UE:") then
         result = false
         respdata = data
     else
@@ -541,30 +632,40 @@ function ril.delayfunc()
 end
 
 local function atcreader(id, len)
-    local alls = vread(UART_ID, len):split("\r\n")
-    if isupdate then
-        for i = 1, #alls do
-            local s = alls[i]
-            -- log.debug("uart.log", s)
-            if string.len(s) ~= 0 then
-                updateRcvFun(s)
-            else
-                break
-            end
+    local data = vread(UART_ID, len)
+    
+    -- 透传模式下，直接处理原始数据，不按\r\n分割
+    if exril_5101_current_mode == exril_5101.MODE_UA then
+        if string.len(data) ~= 0 then
+            procatc(data)
         end
     else
-        readat = true
-        for i = 1, #alls do
-            local s = alls[i]
-            -- log.debug("uart.log", s)
-            if string.len(s) ~= 0 then
-                procatc(s)
-            else
-                break
+        -- AT模式下，按\r\n分割处理
+        local alls = data:split("\r\n")
+        if isupdate then
+            for i = 1, #alls do
+                local s = alls[i]
+                -- log.debug("uart.log", s)
+                if string.len(s) ~= 0 then
+                    updateRcvFun(s)
+                else
+                    break
+                end
             end
+        else
+            readat = true
+            for i = 1, #alls do
+                local s = alls[i]
+                -- log.debug("uart.log", s)
+                if string.len(s) ~= 0 then
+                    procatc(s)
+                else
+                    break
+                end
+            end
+            readat = false
+            sendat()
         end
-        readat = false
-        sendat()
     end
 end
 
@@ -700,6 +801,26 @@ urc_handler = function(data, prefix)
         event = "disconnected"
         payload = {connected = false}
         
+    elseif string.find(data, "^AE:") or string.find(data, "^UE:") then
+        event = "error"
+        local error_code = string.match(data, "^[AU]E:%((%d+)%)") or string.match(data, "^[AU]E:(.+)")
+        payload = {
+            error_type = string.sub(data, 1, 2),  -- "AE" or "UE"
+            error_code = error_code,               -- 错误码
+            raw = data,                            -- 原始数据
+            mode = exril_5101_current_mode
+        }
+        
+    elseif string.find(data, "^Mac:") then
+        event = "system"
+        local mac_address = string.match(data, "^Mac:(.+)")
+        payload = {
+            type = "mac",
+            mac_address = mac_address,
+            raw = data,
+            mode = exril_5101_current_mode
+        }
+        
     else
         event = "data"
         if exril_5101_current_mode == exril_5101.MODE_AT then
@@ -733,6 +854,9 @@ end
 local function register_ble_urc()
     ril.regUrc("AT", urc_handler)
     ril.regUrc("UT", urc_handler)
+    ril.regUrc("AE", urc_handler)
+    ril.regUrc("UE", urc_handler)
+    ril.regUrc("Mac", urc_handler)
 end
 
 -- AT指令模式发送数据
@@ -868,29 +992,17 @@ local function wakeup_module(data)
     return success
 end
 
--- =============== 公共API函数 ===============
+-- =============== 内部API函数（通过队列包装后对外暴露） ===============
 --[[
-切换蓝牙工作模式
-@api exril_5101.mode(mode, timeout)
+切换蓝牙工作模式（内部实现）
+此函数为内部实现，请使用 exril_5101.mode() 进行队列化调用
+@api mode_internal(mode, callback, timeout)
 @param mode string 工作模式，nil表示获取当前模式
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和模式，失败返回false和错误信息
-@usage
--- 同步获取当前模式
-local success, mode = exril_5101.mode()
-if success then
-    log.info("当前模式:", mode)
-else
-    log.error("获取失败:", mode)
-end
-
--- 同步切换到AT指令模式
-local success, mode = exril_5101.mode(exril_5101.MODE_AT)
-if success then
-    log.info("已切换到", mode, "模式")
-end
+@return boolean, string 同步调用时：成功返回true和模式，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.mode(mode, callback, timeout)
+local function mode_internal(mode, callback, timeout)
     -- 参数重载处理：
     -- 1. 如果第一个参数是函数，说明是异步获取模式
     -- 2. 如果第二个参数是数字，说明是同步调用并指定超时
@@ -990,8 +1102,9 @@ function exril_5101.mode(mode, callback, timeout)
 end
 
 --[[
-设置蓝牙参数
-@api exril_5101.set(config, timeout)
+设置蓝牙参数（内部实现）
+此函数为内部实现，请使用 exril_5101.set() 进行队列化调用
+@api set_internal(config, callback, timeout)
 @param config table 配置表，可包含以下字段：
   name: 设备名称
   adv_type: 广播类型
@@ -1001,23 +1114,11 @@ end
   conn_interval: 连接间隔（毫秒）
   mtu_len: MTU长度
   baud: 波特率
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, table 成功返回true和结果，失败返回false和错误信息
-@usage
--- 设置设备参数
-local config = {
-    name = "MyDevice",
-    adv_type = exril_5101.ADV_C,
-    adv_interval = 1000
-}
-local success, results = exril_5101.set(config)
-if success then
-    log.info("参数设置成功")
-else
-    log.error("参数设置失败:", results)
-end
+@return boolean, table 同步调用时：成功返回true和结果，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.set(config, callback, timeout)
+local function set_internal(config, callback, timeout)
     -- 参数重载处理：
     -- 如果第二个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -1076,6 +1177,7 @@ function exril_5101.set(config, callback, timeout)
         
         -- 验证配置项的有效性
         for key, value in pairs(config) do
+            -- log.info("exril_5101.set", "处理配置项:", key, "值:", value)
             if cmd_map[key] then
                 -- 设备名称长度验证
                 if key == "name" then
@@ -1137,11 +1239,18 @@ function exril_5101.set(config, callback, timeout)
                     return false, "生成AT命令失败: " .. key
                 end
 
-                table.insert(setting_sequence, {
-                    key = key,
-                    cmd = cmd_map[key](value),
-                    value = value
-                })
+                -- mtu_len 和 conn_interval 需要在蓝牙连接后才能设置
+                local need_connected = (key == "mtu_len" or key == "conn_interval")
+                if need_connected and not exril_5101_connected then
+                    log.warn("exril_5101.set", key .. "需要在蓝牙连接后才能设置，跳过")
+                else
+                    log.info("exril_5101.set", "添加配置项到序列:", key, "命令:", cmd)
+                    table.insert(setting_sequence, {
+                        key = key,
+                        cmd = cmd,
+                        value = value
+                    })
+                end
             else
                 log.warn("exril_5101.set", "忽略未知配置项:", key)
             end
@@ -1162,7 +1271,9 @@ function exril_5101.set(config, callback, timeout)
         local error_msg = ""
 
         for i, item in ipairs(setting_sequence) do
+            -- log.info("exril_5101.set.sync", "执行命令:", item.key, "命令:", item.cmd)
             local success, response = ril.requestSync(item.cmd, nil, nil, ril.ATRESP, "^AT:.+$", sync_timeout)
+            -- log.info("exril_5101.set.sync", "执行结果:", item.key, "成功:", success, "响应:", response)
             
             results[item.key] = {
                 success = success,
@@ -1175,6 +1286,7 @@ function exril_5101.set(config, callback, timeout)
                 error_msg = error_msg .. item.key .. "设置失败; "
             end
         end
+
         
         -- 保存配置
         if not has_error and save then
@@ -1319,11 +1431,17 @@ function exril_5101.set(config, callback, timeout)
                     return false
                 end
 
-                table.insert(setting_sequence, {
-                    key = key,
-                    cmd = cmd_map[key](value),
-                    value = value
-                })
+                -- mtu_len 和 conn_interval 需要在蓝牙连接后才能设置
+                local need_connected = (key == "mtu_len" or key == "conn_interval")
+                if need_connected and not exril_5101_connected then
+                    log.warn("exril_5101.set", key .. "需要在蓝牙连接后才能设置，跳过")
+                else
+                    table.insert(setting_sequence, {
+                        key = key,
+                        cmd = cmd,
+                        value = value
+                    })
+                end
             else
                 log.warn("exril_5101.set", "忽略未知配置项:", key)
             end
@@ -1602,33 +1720,17 @@ local config = {
     }
 }
 
--- =============== exril_5101.get(key) ===============
+-- =============== exril_5101.get(key) 内部实现 ===============
 --[[
-获取设备信息
-@api exril_5101.get(key, timeout)
+获取设备信息（内部实现）
+此函数为内部实现，请使用 exril_5101.get() 进行队列化调用
+@api get_internal(key, callback, timeout)
 @param key string|table 单个键名或键名数组
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return table, string 成功返回结果表，失败返回nil和错误信息
-@usage
--- 获取单个信息
-local value, error = exril_5101.get("name")
-if value then
-    log.info("设备名称:", value)
-else
-    log.error("获取失败:", error)
-end
-
--- 获取多个信息
-local results, error = exril_5101.get({"name", "mac", "ver"})
-if results then
-    log.info("设备名称:", results.name)
-    log.info("设备MAC:", results.mac)
-    log.info("设备版本:", results.ver)
-else
-    log.error("获取失败:", error)
-end
+@return table, string 同步调用时：成功返回结果表，失败返回nil和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.get(key, callback, timeout)
+local function get_internal(key, callback, timeout)
     -- 参数重载处理：
     -- 如果第二个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -1890,20 +1992,14 @@ function exril_5101.get(key, callback, timeout)
 end
 
 --[[
-恢复出厂设置
-@api exril_5101.restore(timeout)
+恢复出厂设置（内部实现）
+此函数为内部实现，请使用 exril_5101.restore() 进行队列化调用
+@api restore_internal(callback, timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和"恢复出厂设置成功"，失败返回false和错误信息
-@usage
--- 恢复出厂设置
-local success, message = exril_5101.restore()
-if success then
-    log.info("恢复出厂设置成功")
-else
-    log.error("恢复失败:", message)
-end
+@return boolean, string 同步调用时：成功返回true和"恢复出厂设置成功"，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.restore(callback, timeout)
+local function restore_internal(callback, timeout)
     -- 参数重载处理：
     -- 如果第一个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -1955,20 +2051,14 @@ function exril_5101.restore(callback, timeout)
 end
 
 --[[
-软重启模块
-@api exril_5101.restart(timeout)
+软重启模块（内部实现）
+此函数为内部实现，请使用 exril_5101.restart() 进行队列化调用
+@api restart_internal(callback, timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和"重启成功"，失败返回false和错误信息
-@usage
--- 重启模块
-local success, message = exril_5101.restart()
-if success then
-    log.info("模块重启成功")
-else
-    log.error("重启失败:", message)
-end
+@return boolean, string 同步调用时：成功返回true和"重启成功"，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.restart(callback, timeout)
+local function restart_internal(callback, timeout)
     -- 参数重载处理：
     -- 如果第一个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -2020,20 +2110,14 @@ function exril_5101.restart(callback, timeout)
 end
 
 --[[
-断开蓝牙连接
-@api exril_5101.disconnect(timeout)
+断开蓝牙连接（内部实现）
+此函数为内部实现，请使用 exril_5101.disconnect() 进行队列化调用
+@api disconnect_internal(callback, timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和"断开连接成功"，失败返回false和错误信息
-@usage
--- 断开连接
-local success, message = exril_5101.disconnect()
-if success then
-    log.info("连接已断开")
-else
-    log.error("断开失败:", message)
-end
+@return boolean, string 同步调用时：成功返回true和"断开连接成功"，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.disconnect(callback, timeout)
+local function disconnect_internal(callback, timeout)
     -- 参数重载处理：
     -- 如果第一个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -2087,19 +2171,14 @@ function exril_5101.disconnect(callback, timeout)
 end
 
 --[[
-查询蓝牙连接状态
-@api exril_5101.status(timeout)
+查询蓝牙连接状态（内部实现）
+此函数为内部实现，请使用 exril_5101.status() 进行队列化调用
+@api status_internal(callback, timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, table 成功返回true和状态信息，失败返回false和错误信息
-@usage
-local success, status = exril_5101.status()
-if success then
-    log.info("连接状态:", status.connected)
-else
-    log.error("查询失败:", status)
-end
+@return boolean, table 同步调用时：成功返回true和状态信息，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.status(callback, timeout)
+local function status_internal(callback, timeout)
     -- 参数重载处理：
     -- 如果第一个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -2163,8 +2242,9 @@ function exril_5101.status(callback, timeout)
 end
 
 --[[
-功耗模式控制
-@api exril_5101.power(mode, wakeup_option, timeout)
+功耗模式控制（内部实现）
+此函数为内部实现，请使用 exril_5101.power() 进行队列化调用
+@api power_internal(mode, wakeup_option, callback, timeout)
 @param mode number|nil 要设置的功耗模式，nil表示获取当前模式
 @param wakeup_option nil|boolean|number|table 唤醒配置（可选）
     - nil/false: 不唤醒
@@ -2174,34 +2254,11 @@ end
         enable: boolean 是否唤醒
         data:   string 唤醒数据（默认"wakeup"）
         delay:  number 唤醒后延时（默认25ms）
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和模式/"设置成功"，失败返回false和错误信息
-@usage
--- 获取当前功耗模式
-local success, mode = exril_5101.power()
-if success then
-    log.info("当前功耗模式:", mode)
-else
-    log.error("获取功耗模式失败:", mode)
-end
-
--- 设置低功耗模式(不唤醒)
-local success, message = exril_5101.power(exril_5101.P1)
-if success then
-    log.info("功耗模式设置成功:", message)
-else
-    log.error("功耗模式设置失败:", message)
-end
-
--- 设置低功耗模式(使用默认配置唤醒)
-local success, message = exril_5101.power(exril_5101.P1, true)
-if success then
-    log.info("功耗模式设置成功:", message)
-else
-    log.error("功耗模式设置失败:", message)
-end
+@return boolean, string 同步调用时：成功返回true和模式/"设置成功"，失败返回false和错误信息；异步调用时返回发送状态
 --]]
-function exril_5101.power(mode, wakeup_option, callback, timeout)
+local function power_internal(mode, wakeup_option, callback, timeout)
     -- 参数重载：
     -- 1. 第二个参数是函数时当作回调
     -- 2. 第三个参数是数字时当作超时
@@ -2302,6 +2359,7 @@ function exril_5101.power(mode, wakeup_option, callback, timeout)
             log.info("exril_5101.power", "设置成功，当前模式:", exril_5101_power_mode)
             return true, "设置成功"
         else
+            -- log.error("exril_5101.power", "设置失败，响应:", response)
             return false, "设置失败"
         end
     else
@@ -2373,30 +2431,75 @@ function exril_5101.power(mode, wakeup_option, callback, timeout)
 end
 
 --[[
-配置或查询看门狗功能
-@api exril_5101.wdcfg(en, timeout, level, width, sync_timeout)
+保存当前配置到Flash（内部实现）
+此函数为内部实现，请使用 exril_5101.save() 进行队列化调用
+@api save_internal(callback, timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"保存成功"，失败返回false和错误信息；异步调用时返回发送状态
+--]]
+local function save_internal(callback, timeout)
+    -- 参数重载处理：
+    -- 如果第一个参数是数字，说明是同步调用并指定超时
+    if type(callback) == "number" then
+        timeout = callback
+        callback = nil
+    end
+    -- 同步调用
+    if not callback then
+        if exril_5101_current_mode ~= exril_5101.MODE_AT then
+            return false, "必须在AT模式下执行"
+        end
+        
+        -- 处理超时参数
+        local sync_timeout = timeout or DEFAULT_TIMEOUT
+        sync_timeout = math.min(sync_timeout, MAX_TIMEOUT) -- 最大10秒
+        
+        local success, response = ril.requestSync("AT+SAVE", nil, nil, ril.ATRESP, "^AT:.+$", sync_timeout)
+        if success then
+            return true, "保存成功"
+        else
+            return false, "保存失败"
+        end
+    else
+        -- 异步调用
+        if exril_5101_current_mode ~= exril_5101.MODE_AT then
+            if callback then callback(false, "必须在AT模式下执行") end
+            return false
+        end
+        
+        local function handle_save_response(cmd_sent, success, response)
+            local saved = success and response and response == "AT:OK"
+            
+            if callback then
+                callback(saved, saved and "保存成功" or "保存失败")
+            end
+        end
+        
+        local sent = ril.request("AT+SAVE", nil, handle_save_response, nil, ril.ATRESP, "^AT:.+$")
+        
+        if not sent and callback then
+            callback(false, "命令发送失败")
+        end
+        
+        return sent
+    end
+end
+
+--[[
+配置或查询看门狗功能（内部实现）
+@api wdcfg_internal(en, timeout, level, width, callback, sync_timeout)
 @param en boolean|nil 如果为nil表示查询，true/false表示设置使能
 @param timeout number|nil 可选，喂狗超时时长（秒），默认60，范围1-99999999
 @param level number|nil 可选，超时动作电平，默认0
     0：超时后拉低SWITCH
     1：超时后拉高SWITCH
 @param width number|nil 可选，复位脉冲宽度（毫秒），默认100, 范围10-10000
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
-@return boolean|table 设置时返回发送状态，查询时返回当前看门狗配置信息
-@usage
--- 查询看门狗配置
-local success, config = exril_5101.wdcfg()
-if success then
-    log.info("看门狗配置:", config)
-end
-
--- 开启看门狗，60秒超时，超时后拉低100ms
-local success, message = exril_5101.wdcfg(true, 60, 0, 100)
-if success then
-    log.info("看门狗已开启")
-end
+@return boolean|table 同步调用时：设置时返回发送状态，查询时返回当前看门狗配置信息；异步调用时返回发送状态
 --]]
-function exril_5101.wdcfg(en, timeout, level, width, callback, sync_timeout)
+local function wdcfg_internal(en, timeout, level, width, callback, sync_timeout)
     -- 参数重载处理：
     -- 如果第五个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -2484,7 +2587,7 @@ function exril_5101.wdcfg(en, timeout, level, width, callback, sync_timeout)
         local success, response = ril.requestSync(at_cmd, nil, nil, ril.ATRESP, "^AT:.+$", st)
         if success then
             -- 配置成功，保存配置
-            local save_success = exril_5101.save()
+            local save_success = save_internal()
             return save_success, save_success and "配置保存成功" or "配置保存失败"
         else
             return false, "配置失败"
@@ -2589,7 +2692,7 @@ function exril_5101.wdcfg(en, timeout, level, width, callback, sync_timeout)
             end
             
             -- 配置成功，调用保存函数
-            exril_5101.save(on_save_complete)
+            save_internal(on_save_complete)
         end
         
         local sent = ril.request(at_cmd, nil, handle_set_response, nil, ril.ATRESP, "^AT:.+$")
@@ -2602,72 +2705,168 @@ function exril_5101.wdcfg(en, timeout, level, width, callback, sync_timeout)
 end
 
 --[[
-看门狗喂狗
-@api exril_5101.wdfed(timeout)
-@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean 命令是否发送成功
-@usage
--- 定期喂狗
-local function wdfed()
-    while true do
-        exril_5101.wdfed()
-        sys.wait(30000)  -- 30秒喂一次
-    end
-end
-sys.taskInit(wdfed)
+喂狗操作（内部实现）
+此函数为内部实现，请使用 exril_5101.wdt.feed() 进行队列化调用
+整合了 wdfed_internal 和 atomic_wdt_feed 的逻辑
+@api wdt_feed_internal(callback, sync_timeout)
+@param callback function|nil 可选，异步回调函数
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"喂狗成功"，失败返回false和错误信息
 --]]
-function exril_5101.wdfed(callback, timeout)
-    -- 参数重载处理：
-    -- 如果第一个参数是数字，说明是同步调用并指定超时
-    if type(callback) == "number" then
-        timeout = callback
-        callback = nil
-    end
-    -- 同步调用
-    if not callback then
-        if exril_5101_current_mode ~= exril_5101.MODE_AT then
-            return false, "必须在AT模式下执行喂狗操作"
+local function wdt_feed_internal(callback, sync_timeout)
+    -- 检查看门狗是否已初始化
+    if not wdt_inited then
+        log.error("exril_5101.wdt.feed", "看门狗未初始化，请先调用init()")
+        if callback then
+            callback(false, "看门狗未初始化")
         end
-        
-        -- 处理超时参数
-        local sync_timeout = timeout or DEFAULT_TIMEOUT
-        sync_timeout = math.min(sync_timeout, MAX_TIMEOUT) -- 最大10秒
-        
-        local success, response = ril.requestSync("AT+WDFED", nil, nil, ril.ATRESP, "^AT:.+$", sync_timeout)
+        return false, "看门狗未初始化"
+    end
+
+    -- 获取互斥锁
+    if wdt_feed_mutex then
+        log.warn("exril_5101.wdt", "喂狗操作正在进行中，跳过本次喂狗")
+        if callback then
+            callback(false, "喂狗操作正在进行中")
+        end
+        return false, "喂狗操作正在进行中"
+    end
+    wdt_feed_mutex = true
+
+    -- 处理超时参数
+    local timeout = sync_timeout or DEFAULT_TIMEOUT
+    timeout = math.min(timeout, MAX_TIMEOUT)
+
+    -- 保存当前工作模式
+    local original_mode = exril_5101_current_mode
+    local success = false
+    local message = ""
+
+    -- 执行喂狗操作
+    if original_mode == exril_5101.MODE_UA then
+        -- 透传模式：需要切换到AT模式再喂狗
+        log.debug("exril_5101.wdt", "透传模式下喂狗，临时切换到AT模式")
+
+        -- 切换到AT模式（同步操作）
+        local mode_success = mode_internal(exril_5101.MODE_AT)
+        if not mode_success then
+            wdt_feed_mutex = false
+            if callback then
+                callback(false, "切换到AT模式失败")
+            end
+            return false, "切换到AT模式失败"
+        end
+
+        -- 执行喂狗
+        success, message = ril.requestSync("AT+WDFED", nil, nil, ril.ATRESP, "^AT:.+$", timeout)
         if success then
-            return true, "喂狗成功"
+            message = "喂狗成功"
         else
-            return false, "喂狗失败"
+            message = "喂狗失败"
+        end
+
+        -- 切换回透传模式
+        local restore_success = mode_internal(exril_5101.MODE_UA)
+        if not restore_success then
+            wdt_feed_mutex = false
+            if callback then
+                callback(false, "切回透传模式失败")
+            end
+            return false, "切回透传模式失败"
+        end
+
+    elseif original_mode == exril_5101.MODE_AT then
+        -- AT模式：直接喂狗
+        success, message = ril.requestSync("AT+WDFED", nil, nil, ril.ATRESP, "^AT:.+$", timeout)
+        if success then
+            message = "喂狗成功"
+        else
+            message = "喂狗失败"
         end
     else
-        -- 异步调用
-        if exril_5101_current_mode ~= exril_5101.MODE_AT then
-            if callback then callback(false, "必须在AT模式下执行") end
-            return false
-        end
-        
-        -- 定义喂狗响应处理函数
-        local function handle_feed_response(cmd_sent, success, response)
-            local fed_ok = success and response and response == "AT:OK"
-            
-            if callback then
-                callback(fed_ok, fed_ok and "喂狗成功" or "喂狗失败")
-            end
-        end
-        
-        local sent = ril.request("AT+WDFED", nil, handle_feed_response, nil, ril.ATRESP, "^AT:.+$")
-        
-        if not sent and callback then
-            callback(false, "喂狗命令发送失败")
-        end
-        
-        return sent
+        message = "未知的工作模式"
+    end
+
+    -- 释放互斥锁
+    wdt_feed_mutex = false
+
+    -- 记录日志
+    if success then
+        log.debug("exril_5101.wdt.feed", "喂狗成功")
+    else
+        log.error("exril_5101.wdt.feed", "喂狗失败:", message or "")
+    end
+
+    -- 调用回调（异步）
+    if callback then
+        callback(success, message)
+    end
+
+    return success, message
+end
+
+--[[
+初始化看门狗并立即启用（内部实现）
+此函数为内部实现，请使用 exril_5101.wdt.init() 进行队列化调用
+@api wdt_init_internal(timeout, level, width, callback, sync_timeout)
+@param timeout number 看门狗超时时长（秒），范围1-99999999，默认60
+@param level number 可选，超时动作电平，默认0
+@param width number 可选，复位脉冲宽度（毫秒），默认100，范围10-10000
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean|nil 返回发送结果
+--]]
+local function wdt_init_internal(timeout, level, width, callback, sync_timeout)
+    local success, config = wdcfg_internal(true, timeout, level, width, callback, sync_timeout)
+    
+    if success then
+        wdt_inited = true
+        log.info("exril_5101.wdt.init", "看门狗初始化成功，超时:", timeout, "秒")
+        return true
+    else
+        wdt_inited = false
+        log.error("exril_5101.wdt.init", "看门狗初始化失败:", config)
+        return false
     end
 end
 
 --[[
-配置蓝牙唤醒功能
-@api exril_5101.wakeup(source, level, width, timeout)
+关闭看门狗（内部实现）
+此函数为内部实现，请使用 exril_5101.wdt.close() 进行队列化调用
+@api wdt_close_internal(callback, sync_timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean|nil 同步调用返回布尔值，异步调用返回发送状态
+--]]
+local function wdt_close_internal(callback, sync_timeout)
+    local success, config = wdcfg_internal(false, nil, nil, nil, callback, sync_timeout)
+    
+    if success then
+        wdt_inited = false
+        log.info("exril_5101.wdt.close", "看门狗已关闭")
+        return true
+    else
+        log.error("exril_5101.wdt.close", "关闭看门狗失败:", config)
+        return false
+    end
+end
+
+--[[
+获取看门狗当前状态（内部实现）
+此函数为内部实现，请使用 exril_5101.wdt.status() 进行队列化调用
+@api wdt_status_internal(callback, sync_timeout)
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return table|nil 同步调用返回状态表，异步调用返回发送状态
+--]]
+local function wdt_status_internal(callback, sync_timeout)
+    return wdcfg_internal(nil, nil, nil, nil, callback, sync_timeout)
+end
+
+--[[
+配置蓝牙唤醒功能（内部实现）
+此函数为内部实现，请使用 exril_5101.wakeup() 进行队列化调用
+@api wakeup_internal(source, level, width, callback, timeout)
 @param source number 唤醒源配置，0-3
     0：禁用所有唤醒源
     1：使能蓝牙连接断开作为唤醒源
@@ -2677,22 +2876,11 @@ end
     0：当唤醒事件发生时，拉低 WAKEUP脚
     1：当唤醒事件发生时，拉高 WAKEUP脚
 @param width number 脉冲宽度，单位：ms，默认100，范围：10-10000ms
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean 唤醒配置是否成功
-@usage
--- 查询唤醒配置
-local success, config = exril_5101.wakeup()
-if success then
-    log.info("唤醒配置:", config)
-end
-
--- 配置唤醒功能，唤醒源1，唤醒后拉低 WAKEUP 脚100ms
-local success, message = exril_5101.wakeup(1, 0, 100)
-if success then
-    log.info("唤醒配置成功")
-end
+@return boolean 同步调用时：唤醒配置是否成功；异步调用时返回发送状态
 --]]
-function exril_5101.wakeup(source, level, width, callback, timeout)
+local function wakeup_internal(source, level, width, callback, timeout)
     -- 参数重载处理：
     -- 如果第四个参数是数字，说明是同步调用并指定超时
     if type(callback) == "number" then
@@ -2762,7 +2950,7 @@ function exril_5101.wakeup(source, level, width, callback, timeout)
         local success, response = ril.requestSync(at_cmd, nil, nil, ril.ATRESP, "^AT:.+$", sync_timeout)
         if success then
             -- 配置成功，保存配置
-            local save_success, save_msg = exril_5101.save()
+            local save_success, save_msg = save_internal()
             return save_success, save_success and "配置保存成功" or save_msg
         else
             return false, "唤醒配置失败"
@@ -2847,7 +3035,7 @@ function exril_5101.wakeup(source, level, width, callback, timeout)
             end
                         
             -- 配置成功，调用保存函数
-            exril_5101.save(on_save_complete)
+            save_internal(on_save_complete)
         end
         
         local sent = ril.request(at_cmd, nil, handle_wakeup_response, nil, ril.ATRESP, "^AT:.+$")
@@ -2860,70 +3048,9 @@ function exril_5101.wakeup(source, level, width, callback, timeout)
 end
 
 --[[
-保存当前配置到Flash
-@api exril_5101.save(timeout)
-@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和"保存成功"，失败返回false和错误信息
-@usage
--- 保存配置到Flash
-local success, message = exril_5101.save()
-if success then
-    log.info("配置保存成功")
-else
-    log.error("保存失败:", message)
-end
---]]
-function exril_5101.save(callback, timeout)
-    -- 参数重载处理：
-    -- 如果第一个参数是数字，说明是同步调用并指定超时
-    if type(callback) == "number" then
-        timeout = callback
-        callback = nil
-    end
-    -- 同步调用
-    if not callback then
-        if exril_5101_current_mode ~= exril_5101.MODE_AT then
-            return false, "必须在AT模式下执行"
-        end
-        
-        -- 处理超时参数
-        local sync_timeout = timeout or DEFAULT_TIMEOUT
-        sync_timeout = math.min(sync_timeout, MAX_TIMEOUT) -- 最大10秒
-        
-        local success, response = ril.requestSync("AT+SAVE", nil, nil, ril.ATRESP, "^AT:.+$", sync_timeout)
-        if success then
-            return true, "保存成功"
-        else
-            return false, "保存失败"
-        end
-    else
-        -- 异步调用
-        if exril_5101_current_mode ~= exril_5101.MODE_AT then
-            if callback then callback(false, "必须在AT模式下执行") end
-            return false
-        end
-        
-        local function handle_save_response(cmd_sent, success, response)
-            local saved = success and response and response == "AT:OK"
-            
-            if callback then
-                callback(saved, saved and "保存成功" or "保存失败")
-            end
-        end
-        
-        local sent = ril.request("AT+SAVE", nil, handle_save_response, nil, ril.ATRESP, "^AT:.+$")
-        
-        if not sent and callback then
-            callback(false, "命令发送失败")
-        end
-        
-        return sent
-    end
-end
-
---[[
-向已连接的蓝牙主设备发送数据
-@api exril_5101.send(data, wakeup_option, timeout)
+向已连接的蓝牙主设备发送数据（内部实现）
+此函数为内部实现，请使用 exril_5101.send() 进行队列化调用
+@api send_internal(data, wakeup_option, callback, timeout)
 @param data string 要发送的数据
 @param wakeup_option nil|boolean|number|table 唤醒配置（可选）
     - nil/false: 不唤醒
@@ -2933,37 +3060,16 @@ end
         enable: boolean 是否唤醒
         data:   string 唤醒数据（默认"wakeup"）
         delay:  number 唤醒后延时（默认25ms）
+@param callback function|nil 可选，异步回调函数。提供则为异步调用，否则为同步调用
 @param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
-@return boolean, string 成功返回true和"发送成功"，失败返回false和错误信息
-@usage
--- 1. 发送数据给已连接的蓝牙设备，不唤醒
-local success, message = exril_5101.send("Hello, Bluetooth!")
-if success then
-    log.info("数据发送成功")
-else
-    log.error("发送失败:", message)
-end
-
--- 2. 简单唤醒（使用默认参数） 
-exril_5101.send("Hello", true)
-
--- 3. 唤醒并指定延时20ms
-exril_5101.send("Hello", 20)
-
--- 4. 完整唤醒配置
-exril_5101.send("Hello", {
-    enable = true,
-    data = "0x00",     -- 唤醒数据
-    delay = 30        -- 延时30ms
-})
-
+@return boolean, string 同步调用时：成功返回true和"发送成功"，失败返回false和错误信息；异步调用时返回发送状态
 @note
 1. 根据当前工作模式自动选择发送方式：
     - 透传模式：直接发送原始数据，最大MTU-3字节（MTU最大是512，所以data最大是509字节）；
     - AT指令模式：使用AT+BS命令，最大80字节；
 2. 需要蓝牙已连接才能发送成功
 --]]
-function exril_5101.send(data, wakeup_option, callback, timeout)
+local function send_internal(data, wakeup_option, callback, timeout)
     -- 参数重载：
     -- 1. 第二个参数是函数时当作回调
     -- 2. 第三个参数是数字时当作超时
@@ -3064,6 +3170,7 @@ end
 
 --[[
 注册蓝牙事件回调函数
+此函数不涉及硬件操作，直接注册回调，不通过队列
 @api exril_5101.on(cbfunc)
 @function cbfunc 回调函数，格式: function(event, payload)
 @return boolean, string|nil 成功返回true，失败返回false和错误信息
@@ -3079,7 +3186,7 @@ local function ble_callback(event, payload)
 end
 exril_5101.on(ble_callback)
 --]]
-function exril_5101.on(cbfunc)
+local function on_internal(cbfunc)
     if type(cbfunc) ~= "function" then
         return false, "回调必须是函数"
     end
@@ -3092,6 +3199,473 @@ function exril_5101.on(cbfunc)
         urc_registered = true
     end
     return true
+end
+
+-- =============== 队列化公共API ===============
+--[[
+切换蓝牙工作模式
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.mode(mode, timeout)
+@param mode string 工作模式，nil表示获取当前模式
+  - exril_5101.MODE_AT: AT指令模式
+  - exril_5101.MODE_UA: UART透传模式
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和模式，失败返回false和错误信息；异步调用时返回nil
+@usage
+-- 同步获取当前模式
+local success, mode = exril_5101.mode()
+if success then
+    log.info("当前模式:", mode)
+else
+    log.error("获取失败:", mode)
+end
+
+-- 同步切换到AT指令模式
+local success, mode = exril_5101.mode(exril_5101.MODE_AT)
+if success then
+    log.info("模式切换成功，当前模式:", mode)
+end
+--]]
+function exril_5101.mode(mode, callback, timeout)
+    if type(mode) == "function" then
+        -- 异步获取模式：第一个参数是callback
+        queue_operation(mode_internal, mode, nil, nil)
+    elseif type(callback) == "function" then
+        -- 异步设置模式：第二个参数是callback
+        queue_operation(mode_internal, mode, callback, nil)
+    else
+        -- 同步调用，callback参数实际是timeout
+        timeout = callback
+        return queue_operation(mode_internal, mode, nil, timeout)
+    end
+end
+
+--[[
+设置蓝牙参数（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.set(config, timeout)
+@param config table 配置表，可包含以下字段：
+  - name: 设备名称
+  - adv_type: 广播类型
+  - adv_data: 广播数据（十六进制字符串）
+  - scan_rsp_data: 扫描响应数据（十六进制字符串）
+  - adv_interval: 广播间隔（毫秒）
+  - conn_interval: 连接间隔（毫秒）
+  - mtu_len: MTU长度
+  - baud: 波特率
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, table 同步调用时：成功返回true和结果，失败返回false和错误信息；异步调用时返回nil
+@usage
+-- 同步设置参数
+local config = {name = "MyDevice", adv_interval = 1000}
+local success, results = exril_5101.set(config)
+if success then
+    log.info("参数设置成功")
+else
+    log.error("参数设置失败:", results)
+end
+--]]
+function exril_5101.set(config, callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(set_internal, config, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(set_internal, config, nil, timeout)
+    end
+end
+
+--[[
+获取设备信息（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.get(key, timeout)
+@param key string|table 单个键名或键名数组
+  - "name": 设备名称
+  - "mac": MAC地址
+  - "ver": 版本信息
+  - "mode": 当前模式
+  - "conn": 连接状态
+  - "mtu": MTU长度
+  - "baud": 波特率
+  - {"name", "mac", "ver"}: 同时获取多个信息
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return table, string 同步调用时：成功返回结果表，失败返回nil和错误信息；
+@usage
+-- 获取单个信息
+local value, error = exril_5101.get("name")
+if value then
+    log.info("设备名称:", value)
+else
+    log.error("获取失败:", error)
+end
+
+-- 获取多个信息
+local results, error = exril_5101.get({"name", "mac", "ver"})
+if results then
+    log.info("设备名称:", results.name)
+    log.info("设备MAC:", results.mac)
+    log.info("设备版本:", results.ver)
+else
+    log.error("获取失败:", error)
+end
+--]]
+function exril_5101.get(key, callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(get_internal, key, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(get_internal, key, nil, timeout)
+    end
+end
+
+--[[
+向已连接的蓝牙主设备发送数据（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.send(data, wakeup_option, timeout)
+@param data string 要发送的数据
+@param wakeup_option nil|boolean|number|table 唤醒配置（可选）
+  - nil/false: 不唤醒
+  - true: 唤醒（使用默认参数：data="wakeup", delay=25ms）
+  - number: 唤醒并指定延时（毫秒），如：50
+  - table: 完整唤醒配置，支持字段：
+      enable: boolean 是否唤醒
+      data:   string 唤醒数据（默认"wakeup"）
+      delay:  number 唤醒后延时（默认25ms）
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"发送成功"，失败返回false和错误信息；
+@usage
+-- 1. 发送数据给已连接的蓝牙设备，不唤醒
+local success, message = exril_5101.send("Hello, Bluetooth!")
+if success then
+    log.info("数据发送成功")
+else
+    log.error("发送失败:", message)
+end
+
+-- 2. 简单唤醒（使用默认参数） 
+exril_5101.send("Hello", true)
+
+-- 3. 唤醒并指定延时20ms
+exril_5101.send("Hello", 20)
+
+-- 4. 完整唤醒配置
+exril_5101.send("Hello", {
+    enable = true,
+    data = "0x00",     -- 唤醒数据
+    delay = 30        -- 延时30ms
+})
+
+@note
+1. 根据当前工作模式自动选择发送方式：
+    - 透传模式：直接发送原始数据，最大MTU-3字节（MTU最大是512，所以data最大是509字节）；
+    - AT指令模式：使用AT+BS命令，最大80字节；
+2. 需要蓝牙已连接才能发送成功
+--]]
+function exril_5101.send(data, wakeup_option, callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(send_internal, data, wakeup_option, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(send_internal, data, wakeup_option, nil, timeout)
+    end
+end
+
+--[[
+断开蓝牙连接（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.disconnect(timeout)
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"断开连接成功"，失败返回false和错误信息；
+@usage
+-- 断开连接
+local success, message = exril_5101.disconnect()
+if success then
+    log.info("连接已断开")
+else
+    log.error("断开失败:", message)
+end
+--]]
+function exril_5101.disconnect(callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(disconnect_internal, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(disconnect_internal, nil, timeout)
+    end
+end
+
+--[[
+查询蓝牙连接状态（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.status(timeout)
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, table 同步调用时：成功返回true和状态信息，失败返回false和错误信息；
+@usage
+local success, status = exril_5101.status()
+if success then
+    log.info("连接状态:", status.connected)
+end
+--]]
+function exril_5101.status(callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(status_internal, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(status_internal, nil, timeout)
+    end
+end
+
+--[[
+设置功耗模式（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.power(mode, wakeup_option, timeout)
+@param mode number|nil 要设置的功耗模式，nil表示获取当前模式
+    - exril_5101.P0: 常规模式
+    - exril_5101.P1: 低功耗模式1
+    - exril_5101.P3: 低功耗模式3
+@param wakeup_option nil|boolean|number|table 唤醒配置（可选）
+    - nil/false: 不唤醒
+    - true: 唤醒（使用默认参数：data="wakeup", delay=25ms）
+    - number: 唤醒并指定延时（毫秒），如：50
+    - table: 完整唤醒配置，支持字段：
+        enable: boolean 是否唤醒
+        data:   string 唤醒数据（默认"wakeup"）
+        delay:  number 唤醒后延时（默认25ms）
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和模式/"设置成功"，失败返回false和错误信息；
+--]]
+function exril_5101.power(mode, wakeup_option, callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(power_internal, mode, wakeup_option, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(power_internal, mode, wakeup_option, nil, timeout)
+    end
+end
+
+--[[
+初始化看门狗（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.wdt.init(timeout, level, width, sync_timeout)
+@param timeout number 看门狗超时时长（秒），范围1-99999999，默认60
+@param level number 可选，超时动作电平，默认0
+@param width number 可选，脉冲宽度，单位：ms，默认100，范围：10-10000ms
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean 同步调用时：初始化是否成功；
+@usage
+-- 初始化看门狗
+local success, message = exril_5101.wdt.init(60, 0, 100)
+if success then
+    log.info("看门狗初始化成功")
+else
+    log.error("初始化失败:", message)
+end
+--]]
+function exril_5101.wdt.init(timeout, level, width, callback, sync_timeout)
+    if type(callback) == "function" then
+        queue_operation(wdt_init_internal, timeout, level, width, callback, nil)
+    else
+        sync_timeout = callback
+        return queue_operation(wdt_init_internal, timeout, level, width, nil, sync_timeout)
+    end
+end
+
+--[[
+看门狗喂狗（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.wdt.feed(sync_timeout)
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean 同步调用时：喂狗是否成功；
+@usage
+-- 喂狗
+local success, message = exril_5101.wdt.feed()
+if success then
+    log.info("看门狗已喂狗")
+else
+    log.error("喂狗失败:", message)
+end
+--]]
+function exril_5101.wdt.feed(callback, sync_timeout)
+    if type(callback) == "function" then
+        queue_operation(wdt_feed_internal, callback, nil)
+    else
+        sync_timeout = callback
+        return queue_operation(wdt_feed_internal, nil, sync_timeout)
+    end
+end
+
+--[[
+关闭看门狗（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.wdt.close(timeout)
+@param timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return boolean 同步调用时：关闭是否成功；
+@usage
+-- 关闭看门狗
+local success, message = exril_5101.wdt.close()
+if success then
+    log.info("看门狗已关闭")
+else
+    log.error("关闭失败:", message)
+end
+--]]
+function exril_5101.wdt.close(callback, sync_timeout)
+    if type(callback) == "function" then
+        queue_operation(wdt_close_internal, callback, nil)
+    else
+        sync_timeout = callback
+        return queue_operation(wdt_close_internal, nil, sync_timeout)
+    end
+end
+
+--[[
+查询看门狗状态（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.wdt.status(sync_timeout)
+@param sync_timeout number|nil 可选，同步调用超时时间（毫秒），默认DEFAULT_TIMEOUT
+@return table|nil 同步调用时：返回状态表；
+@usage
+-- 查询看门狗状态
+local status, error = exril_5101.wdt.status()
+if status then
+    log.info("看门狗状态:", status)
+else
+    log.error("查询失败:", error)
+end
+--]]
+function exril_5101.wdt.status(callback, sync_timeout)
+    if type(callback) == "function" then
+        queue_operation(wdt_status_internal, callback, nil)
+    else
+        sync_timeout = callback
+        return queue_operation(wdt_status_internal, nil, sync_timeout)
+    end
+end
+
+--[[
+保存配置到Flash（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.save(timeout)
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"保存成功"，失败返回false和错误信息；
+@usage
+-- 保存配置到Flash
+local success, message = exril_5101.save()
+if success then
+    log.info("配置保存成功")
+else
+    log.error("保存失败:", message)
+end
+--]]
+function exril_5101.save(callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(save_internal, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(save_internal, nil, timeout)
+    end
+end
+
+--[[
+恢复出厂设置（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.restore(timeout)
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"恢复出厂设置成功"，失败返回false和错误信息；
+@usage
+-- 恢复出厂设置
+local success, message = exril_5101.restore()
+if success then
+    log.info("恢复出厂设置成功")
+else
+    log.error("恢复失败:", message)
+end
+--]]
+function exril_5101.restore(callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(restore_internal, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(restore_internal, nil, timeout)
+    end
+end
+
+--[[
+软重启模块（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.restart(timeout)
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean, string 同步调用时：成功返回true和"重启成功"，失败返回false和错误信息；
+@usage
+-- 重启模块
+local success, message = exril_5101.restart()
+if success then
+    log.info("模块重启成功")
+else
+    log.error("重启失败:", message)
+end
+--]]
+function exril_5101.restart(callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(restart_internal, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(restart_internal, nil, timeout)
+    end
+end
+
+--[[
+配置蓝牙唤醒功能（队列版本）
+此API通过操作队列执行，确保与其他操作顺序执行，避免并发冲突
+@api exril_5101.wakeup(source, level, width, timeout)
+@param source number 唤醒源配置，0-3
+@param level number 唤醒电平，0/1，默认0
+@param width number 脉冲宽度，单位：ms，默认100，范围：10-10000ms
+@param timeout number|nil 可选，超时时间，单位毫秒，默认DEFAULT_TIMEOUT
+@return boolean 同步调用时：唤醒配置是否成功；
+@usage
+-- 查询唤醒配置
+local success, config = exril_5101.wakeup()
+if success then
+    log.info("唤醒配置:", config)
+end
+
+-- 配置唤醒功能，唤醒源1，唤醒后拉低 WAKEUP 脚100ms
+local success, message = exril_5101.wakeup(1, 0, 100)
+if success then
+    log.info("唤醒配置成功")
+end
+--]]
+function exril_5101.wakeup(source, level, width, callback, timeout)
+    if type(callback) == "function" then
+        queue_operation(wakeup_internal, source, level, width, callback, nil)
+    else
+        timeout = callback
+        return queue_operation(wakeup_internal, source, level, width, nil, timeout)
+    end
+end
+
+--[[
+注册事件回调（直接调用，不涉及队列）
+@api exril_5101.on(cbfunc)
+@param cbfunc function 回调函数，用于接收蓝牙事件通知
+  - 回调格式：cbfunc(event, data)
+    - event: string 事件类型（"connect", "disconnect", "data"等）
+    - data: any 事件数据
+@return boolean 注册是否成功
+@usage
+local function ble_callback(event, payload)
+    if event == "connected" then
+        log.info("蓝牙已连接")
+    elseif event == "disconnected" then
+        log.info("蓝牙已断开")
+    elseif event == "data" then
+        log.info("收到数据:", payload.data)
+    end
+end
+exril_5101.on(ble_callback)
+--]]
+function exril_5101.on(cbfunc)
+    return on_internal(cbfunc)
 end
 
 return exril_5101

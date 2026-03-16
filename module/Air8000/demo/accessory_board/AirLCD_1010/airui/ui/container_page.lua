@@ -68,21 +68,24 @@ function container_page.create_ui()
         color = 0xF5F5F5,
     })
 
+    local current_y = 10
+
     -- 示例1: 基本容器
     airui.label({
         parent = scroll_container,
         text = "示例1: 基本容器",
         x = 10,
-        y = 10,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local basic_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 40,
+        y = current_y,
         w = 280,
         h = 80,
         color = 0xE3F2FD,
@@ -108,22 +111,24 @@ function container_page.create_ui()
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 90
 
     -- 示例2: 圆角容器
     airui.label({
         parent = scroll_container,
         text = "示例2: 圆角容器",
         x = 10,
-        y = 130,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local rounded_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 160,
+        y = current_y,
         w = 280,
         h = 80,
         color = 0xFFEBEE,
@@ -139,22 +144,24 @@ function container_page.create_ui()
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 90
 
     -- 示例3: 嵌套容器
     airui.label({
         parent = scroll_container,
         text = "示例3: 嵌套容器",
         x = 10,
-        y = 250,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local parent_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 280,
+        y = current_y,
         w = 280,
         h = 120,
         color = 0xE8F5E8,
@@ -200,22 +207,24 @@ function container_page.create_ui()
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 130
 
     -- 示例4: 动态显示/隐藏
     airui.label({
         parent = scroll_container,
         text = "示例4: 显示/隐藏容器",
         x = 10,
-        y = 410,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local toggle_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 440,
+        y = current_y,
         w = 160,
         h = 60,
         color = 0xE1BEE7,
@@ -235,7 +244,7 @@ function container_page.create_ui()
     local toggle_btn = airui.button({
         parent = scroll_container,
         x = 190,
-        y = 450,
+        y = current_y + 10,
         w = 100,
         h = 40,
         text = "隐藏",
@@ -245,22 +254,24 @@ function container_page.create_ui()
             end
         end
     })
+    current_y = current_y + 70
 
     -- 示例5: 动态改变颜色
     airui.label({
         parent = scroll_container,
         text = "示例5: 动态改变颜色",
         x = 10,
-        y = 510,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local color_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 540,
+        y = current_y,
         w = 280,
         h = 80,
         color = 0x2196F3,
@@ -280,7 +291,7 @@ function container_page.create_ui()
     local color_btn = airui.button({
         parent = scroll_container,
         x = 20,
-        y = 630,
+        y = current_y + 90,
         w = 130,
         h = 40,
         text = "随机颜色",
@@ -294,7 +305,7 @@ function container_page.create_ui()
     local reset_btn = airui.button({
         parent = scroll_container,
         x = 170,
-        y = 630,
+        y = current_y + 90,
         w = 130,
         h = 40,
         text = "重置颜色",
@@ -302,11 +313,51 @@ function container_page.create_ui()
             color_container:set_color(0x2196F3)
         end
     })
+    current_y = current_y + 140
+
+    -- 示例6: 容器透明度和点击回调 (V1.0.3 color_opacity, V1.1.0 on_click)
+    airui.label({
+        parent = scroll_container,
+        text = "示例6: 透明度和点击回调",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local alpha_container = airui.container({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 100,
+        color = 0xFF5722,
+        color_opacity = 128,          -- V1.0.3 透明度
+        radius = 8,
+        on_click = function(self)      -- V1.1.0 点击回调
+            log.info("container", "容器被点击")
+            -- 仅演示点击，不实际修改透明度（因无 set_color_opacity 方法）
+        end
+    })
+    current_y = current_y + 110
+
+    airui.label({
+        parent = alpha_container,
+        text = "点击我（半透明）",
+        x = 40,
+        y = 40,
+        w = 200,
+        h = 20,
+        color = 0xFFFFFF,
+        font_size = 14,
+    })
 
     -- 底部信息
     airui.label({
         parent = main_container,
-        text = "提示: 容器是布局的基础组件",
+        text = "提示: 容器是布局的基础组件，支持透明度和点击回调",
         x = 10,
         y = 440,
         w = 300,

@@ -34,6 +34,7 @@ local demos = {
     {name = "页面切换演示", icon = airui.SYMBOL_LEFT, page = "switch_page_demo", color = 0x673AB7},
     {name = "矢量字体演示", icon = airui.SYMBOL_EYE_OPEN, page = "hzfont", color = 0x2196F3},
     {name = "俄罗斯方块游戏", icon = airui.SYMBOL_WARNING, page = "game", color = 0xFF4081},
+    {name = "二维码演示", icon = airui.SYMBOL_IMAGE, page = "qrcode", color = 0x673AB7}, -- V1.1.0 新增
 }
 
 -- 创建主页UI
@@ -136,7 +137,7 @@ function home_page.create_ui()
 
     airui.label({
         parent = status_bar,
-        text = string.format("共%d个演示 - AirUI v1.0.3", #demos),
+        text = string.format("共%d个演示 - AirUI v1.1.0", #demos),
         x = 10,
         y = 12,
         w = 300,

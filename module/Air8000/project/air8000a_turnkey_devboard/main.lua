@@ -1,11 +1,10 @@
 --[[
 @module  main
-@summary exEasyUI组件演示主程序入口
-@version 1.0.0
+@summary turnkey_devboard主程序入口
+@version 1.0.1
 @date    2026.01.27
 @author  江访
 @usage
-本文件是exEasyUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
 通过注释/取消注释require语句来运行不同的演示。
 ]]
 
@@ -23,11 +22,11 @@ VERSION：项目版本号，ascii string类型
 -- main.lua - 程序入口文件
 
 -- 项目名称和版本定义
-PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "1.0.1"      -- 项目版本号
+PROJECT = "Turnkey_Devboard" -- 项目名称，用于标识当前工程
+VERSION = "001.999.002"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
-log.info("ui_demo", PROJECT, VERSION)
+log.info("main", PROJECT, VERSION)
 
 -- 设置日志输出风格为样式2（建议调试时开启）
 -- log.style(2)
@@ -57,15 +56,17 @@ log.info("ui_demo", PROJECT, VERSION)
 -- end, 3000)
 
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+lcd_drv = require "lcd_drv"
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+tp_drv = require "tp_drv"
 
-  -- 加载应用主模块
- require("app_main")
+exwin = require "exwin"
+
+-- 加载应用主模块
+require "app_main"
 
 -- 引入UI主模块
-require("ui_main") --动态更新标签演示
+require "ui_main"
 
 
 -- 用户代码已结束

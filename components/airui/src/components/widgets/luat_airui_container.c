@@ -12,8 +12,6 @@
 #include "lauxlib.h"
 #include <stdint.h>
 
-static lv_opa_t airui_container_normalize_opacity(int opacity);
-
 /**
  * 从配置表创建 Container 组件
  */
@@ -101,7 +99,7 @@ int airui_container_set_color(lv_obj_t *container, uint32_t color_value, int opa
     // 设置背景颜色与透明度
     lv_color_t bg_color = lv_color_hex(color_value);
     lv_obj_set_style_bg_color(container, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(container, airui_container_normalize_opacity(opacity),
+    lv_obj_set_style_bg_opa(container, airui_marshal_opacity(opacity),
         LV_PART_MAIN | LV_STATE_DEFAULT);
 
     return AIRUI_OK;
@@ -172,14 +170,3 @@ int airui_container_set_on_click(lv_obj_t *container, int callback_ref)
     return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
 }
 
-// 透明度归一化，0-255，0为完全透明，255为完全不透明
-static lv_opa_t airui_container_normalize_opacity(int opacity)
-{
-    if (opacity < 0) {
-        return LV_OPA_COVER;
-    }
-    if (opacity > LV_OPA_COVER) {
-        return LV_OPA_COVER;
-    }
-    return (lv_opa_t)opacity;
-}

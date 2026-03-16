@@ -454,6 +454,7 @@ void luat_ymodem_release(void *handler)
 	luat_ymodem_reset(handler);
 #ifdef __LUATOS__
 	luat_heap_free(ctrl->save_path);
+	luat_heap_free(ctrl->force_save_path);
 #endif
 	luat_heap_free(handler);
 }

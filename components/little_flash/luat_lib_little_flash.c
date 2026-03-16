@@ -171,11 +171,12 @@ static int luat_little_flash_erase_write(lua_State *L){
 }
 
 /*
-获取 Flash 容量和page大小
+获取 Flash 信息
 @api  lf.getInfo(flash)
 @userdata flash Flash 设备对象 lf.init()返回的数据结构
-@return int Flash 容量
-@return int page 页大小
+@return int capacity 总容量 (byte)
+@return int prog_size 编程最小单位 (byte)
+@return int erase_size 擦除最小单位 (byte)
 @usage
 log.info("lf.getInfo",lf.getInfo(lf_device))
 */
@@ -187,12 +188,17 @@ static int luat_little_flash_get_info(lua_State *L){
         return 0;
     }
     uint32_t capacity = 0;
-    uint32_t page = 0;
+    uint32_t prog_size = 0;
+    uint32_t erase_size = 0;
+
     capacity = flash->chip_info.capacity;
-    page = flash->chip_info.prog_size;
+    prog_size = flash->chip_info.prog_size;
+    erase_size = flash->chip_info.erase_size;
+
     lua_pushinteger(L, capacity);
-    lua_pushinteger(L, page);
-    return 2;
+    lua_pushinteger(L, prog_size);
+    lua_pushinteger(L, erase_size);
+    return 3;
 }
 
 #ifdef LUAT_USE_FS_VFS

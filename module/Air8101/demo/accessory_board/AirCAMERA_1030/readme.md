@@ -10,7 +10,9 @@
 
 3、video_http_post.lua：执行录像后上传视频至 air32.com
 
-4、netdrv_wifi.lua：连接 WIFI
+4、rtmp_app.lua：RTMP推流功能模块
+
+5、netdrv_wifi.lua：连接 WIFI
 
 注意：take_photo_http_post.lua 和 video_http_post.lua 只能打开一个不能同时打开
 
@@ -82,6 +84,21 @@
 
 - 每10秒打印一次系统和Lua的内存信息 ：memory_check()
 
+### 5、RTMP推流业务模块（video_http_post.lua）
+
+- 订阅IP_READY信息 , 确认联网后执行RTMP推流任务
+
+- 获取RTMP推流地址：通过http.request()请求从服务器获取推流地址
+
+- 初始化摄像头 ：excamera.open()初始化USB摄像头
+
+- RTMP推流 ：excamera.rtmp()确保摄像头状态正常，然后rtmpc:start()开始推流逻辑
+
+- 监控推流状态 ：循环监控推流过程，每20秒打印一次内存信息
+
+- 处理异常情况 ：推流异常时发送RECONNECT_RTMP信息，然后根据重连函数进行重连
+
+- 释放资源 ：推流结束时excamera.close()关闭摄像头，释放资源
 
 ## 演示硬件环境
 
@@ -108,7 +125,6 @@ AirCAMERA_1030 配件板 + Air8101 核心板，硬件连接示意图：
 ![](https://docs.openLuat.com/cdn/image/8101_usb_摄像头拍照.jpg)
 
 四路摄像头链接方式
-
 如图所示，将四路USB摄像头接入HUB中，然后将HUB通过USB口连接到Air8101核心板上;
 
 ![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头拍照.jpg)
@@ -152,12 +168,35 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 
 ![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头录像.jpg)
 
+### 3、 rtmp推流硬件环境
+
+1、Air8101 核心板一块
+
+2、TYPE-C USB 数据线一根
+
+3、合宙标准配件 AirCAMERA_1030 配件板 一块
+
+4、Air8101 核心板和合宙标准配件 AirCAMERA_1030 的硬件接线方式为
+
+Air8101 核心板通过 TYPE-C USB 口供电；（背面功耗测试开关拨到 OFF）
+
+TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
+
+AirCAMERA_1030 配件板与 Air8101核心板连接说明：
+
+将 AirCAMERA_1030 配件板 直接接入 Air8101核心板 的USB接口即可
+
+参考[AirCAMERA_1030 - 合宙模组资料中心](https://docs.openluat.com/accessory/AirCAMERA_1030/)
+
+AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件连接示意图：
+
+![](https://docs.openLuat.com/cdn/image/8101_usb_rtmp.jpg)
 
 ## 演示软件环境
 
 1、Luatools 下载调试工具：[https://docs.openluat.com/air780epm/common/Luatools/](https://docs.openluat.com/air780epm/common/Luatools/)
 
-2、Air8101 V2004 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
+2、Air8101 V2006 版本固件：[https://docs.openluat.com/air8101/luatos/firmware/](https://docs.openluat.com/air8101/luatos/firmware/)
 
 ## 演示核心步骤
 
@@ -168,9 +207,7 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 2、修改 netdrv_wifi.lua 中的 WIFI 账号密码;打开 main.lua文件中 require "take_photo_http_post" 同时注释掉 require "video_http_post"
 
 3、烧录 DEMO 代码;
-
    单路摄像头请将take_photo_http_post.lua中的usb_port_num修改为1;
-
    四路或多路摄像头请将take_photo_http_post.lua中的usb_port_num修改为4或对应的摄像头数量;
 
 4、等待单摄像头自动拍照完成后上传平台，LUATOOLS会有如下打印;
@@ -339,7 +376,7 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 [2025-12-03 10:43:20.323] luat:U(45065):I/user.lua ram 2097144 311256 337952
 ```
 
-5、登录 https://www.air32.cn/upload/jpg/ 查看拍摄的照片;
+5、登录 https://www.air32.cn/upload/data/jpg/ 查看拍摄的照片;
 
 ![](https://docs.openluat.com/air8101/luatos/app/accessory/AirCAMERA_1020/image/httpupload.png)
 
@@ -812,8 +849,93 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 [2026-01-16 17:16:34.685] luat:U(308465):I/user.上传成功
 ```
 
-5、登录 [https://www.air32.cn/upload/mp4/](https://www.air32.cn/upload/mp4/) 查看拍摄的视频;
+5、登录 [https://www.air32.cn/upload/data/mp4/](https://www.air32.cn/upload/data/mp4/) 查看拍摄的视频;
 
 ![](https://docs.openLuat.com/cdn/image/8101_usb摄像头演示.jpg)
 
+### **使用rtmp推流功能演示的核心步骤：**
 
+1、搭建好硬件环境
+
+2、修改rtmp_app.lua中的deviceUser、devicePsd参数； 修改 netdrv_wifi.lua 中的 WIFI 账号密码; 
+
+​	打开 main.lua文件中 require "rtmp_app" 同时注释掉 require "take_photo_http_post"
+
+3、烧录内核固件和相关demo成功后，自动开机运行。
+
+4、可以看到代码运行结果如下，日志中如果出现以下类似打印则说明rtmp推流成功：
+
+```lua
+[2026-03-12 19:58:24.323] luat:U(5280):I/user.打印的请求code 200
+[2026-03-12 19:58:24.323] luat:U(5281):I/user.打印的请求body {"msg":"操作成功","code":200,"data":{"urlList":["rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001"],"deviceId":"93ecc063_8d75_4356_82ea_6a78914b649d","deviceChannels":1}}
+[2026-03-12 19:58:24.323] luat:U(5282):I/user.请求得到的RTMP地址 rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001
+[2026-03-12 19:58:24.323] ap0:pm_ap:E(5173):Invalid gpio_id: 255
+[2026-03-12 19:58:24.323] ap0:usb_driv:I(5173):USB_DRV_USB_OPEN!
+[2026-03-12 19:58:24.323] ap0:uvc_stre:W(5177):uvc_camera_device_power_on, port:5, device:0
+[2026-03-12 19:58:24.323] ap0:uvc_stre:W(5177):uvc_camera_device_power_on, port:5, device:0, ret:-17413
+[2026-03-12 19:58:24.740] luat:U(5699):I/user.启动摄像头...
+[2026-03-12 19:58:24.740] luat:U(5699):I/user.excamera.rtmp 摄像头启动成功
+[2026-03-12 19:58:24.746] luat:D(5708):rtmp:RTMP上下文创建成功: rtmp://180.152.6.34:1935/stream1live/93ecc063_8d75_4356_82ea_6a78914b649d_0001
+[2026-03-12 19:58:24.746] luat:U(5708):I/user.rtmp.create RTMP客户端创建成功
+[2026-03-12 19:58:24.746] luat:D(5709):rtmp:RTMP回调函数已设置
+[2026-03-12 19:58:24.746] luat:U(5709):I/user.开始连接RTMP服务器...
+[2026-03-12 19:58:24.746] luat:I(5709):rtmp_push:RTMP: State changed from 0 to 1
+[2026-03-12 19:58:24.746] luat:D(5710):rtmp:RTMP状态(1)回调消息入队 0x2802c528 0x6099e6a8
+[2026-03-12 19:58:24.746] luat:D(5710):rtmp:RTMP发起连接请求: 成功
+[2026-03-12 19:58:24.746] luat:U(5712):I/user.rtmp_state_callback state 1
+[2026-03-12 19:58:24.746] luat:U(5713):I/user.正在连接
+[2026-03-12 19:58:24.801] luat:I(5757):rtmp_push:RTMP: Sending handshake (C0+C1)...
+[2026-03-12 19:58:24.801] luat:I(5757):rtmp_push:RTMP: State changed from 1 to 2
+[2026-03-12 19:58:24.801] luat:D(5757):rtmp:RTMP状态(2)回调消息入队 0x2802c4a8 0x6099e6a8
+[2026-03-12 19:58:24.801] luat:U(5758):I/user.rtmp_state_callback state 2
+[2026-03-12 19:58:24.801] luat:U(5759):I/user.握手中
+[2026-03-12 19:58:25.142] luat:I(6096):rtmp_push:RTMP: Received complete S0+S1 (1537 bytes), sending C2...
+[2026-03-12 19:58:25.142] luat:I(6096):rtmp_push:RTMP: C2 sent successfully (exactly 1536 bytes, S1 echo)
+[2026-03-12 19:58:25.235] luat:I(6197):rtmp_push:RTMP: Received 1536 bytes after C2, handshake confirmed
+[2026-03-12 19:58:25.235] luat:I(6197):rtmp_push:RTMP: command sent successfully: connect (tx_id=1, payload_size=175 bytes)
+[2026-03-12 19:58:25.235] luat:I(6197):rtmp_push:RTMP: State changed from 2 to 3
+[2026-03-12 19:58:25.235] luat:D(6197):rtmp:RTMP状态(3)回调消息入队 0x2802c518 0x6099e6a8
+[2026-03-12 19:58:25.235] luat:I(6197):rtmp_push:RTMP: Connect command sent successfully
+[2026-03-12 19:58:25.235] luat:U(6198):I/user.rtmp_state_callback state 3
+[2026-03-12 19:58:25.235] luat:U(6198):I/user.已连接
+[2026-03-12 19:58:25.235] luat:U(6199):I/user.rtmp_task waitMsg CONNECTED nil nil
+[2026-03-12 19:58:25.235] luat:U(6199):I/user.准备开始推流
+[2026-03-12 19:58:25.235] luat:U(6199):I/user.推流已启动
+[2026-03-12 19:58:25.792] luat:I(6758):rtmp_push:RTMP: Received Set Chunk Size from server: 60000
+[2026-03-12 19:58:25.792] luat:I(6759):rtmp_push:RTMP: Sent setChunkSize: 60000
+[2026-03-12 19:58:25.792] luat:I(6759):rtmp_push:RTMP: command sent successfully: releaseStream (tx_id=2, payload_size=70 bytes)
+[2026-03-12 19:58:25.792] luat:I(6759):rtmp_push:RTMP: command sent successfully: FCPublish (tx_id=3, payload_size=66 bytes)
+[2026-03-12 19:58:25.792] luat:I(6759):rtmp_push:RTMP: command sent successfully: createStream (tx_id=4, payload_size=25 bytes)
+[2026-03-12 19:58:26.423] luat:I(7380):rtmp_push:RTMP: command sent successfully: publish (tx_id=5, payload_size=71 bytes)
+[2026-03-12 19:58:26.500] luat:I(7459):rtmp_push:RTMP: Metadata payload size: 175 bytes
+[2026-03-12 19:58:26.500] luat:I(7460):rtmp_push:RTMP: Metadata @setDataFrame sent successfully
+[2026-03-12 19:58:26.500] luat:I(7460):rtmp_push:RTMP: Metadata sent, ready to send video data
+[2026-03-12 19:58:26.500] luat:I(7460):rtmp_push:RTMP: State changed from 3 to 4
+[2026-03-12 19:58:26.500] luat:D(7460):rtmp:RTMP状态(4)回调消息入队 0x2802c498 0x6099e6a8
+[2026-03-12 19:58:26.500] ap1:CAM:W(7350):拍照/录像到文件录 rtmp
+[2026-03-12 19:58:26.500] ap1:CAM:W(7350):选定的捕捉模式 6
+[2026-03-12 19:58:26.500] ap1:CAM:W(7350):RTMP传输模式
+[2026-03-12 19:58:26.500] luat:U(7461):I/user.rtmp_state_callback state 4
+[2026-03-12 19:58:26.500] ap1:uvc_pipe:E(7350):init_encoder_buffer 65 mux_sram_decode_buffer:0x28030640
+[2026-03-12 19:58:26.500] luat:U(7461):I/user.推流中
+[2026-03-12 19:58:26.592] luat:I(7549):rtmp_push:RTMP: Sending IDR frame, len=37579
+[2026-03-12 19:58:34.771] luat:I(15724):rtmp_push:RTMP stats: total=1978 kB packets=127 I=1 (36kB) P=126 (1942kB) dropped=0 (0kB) queue=0 avg=1702 kbps win=0 kbps
+[2026-03-12 19:58:34.832] luat:I(15791):rtmp_push:RTMP: Sending IDR frame, len=37623
+```
+
+## 合宙音视频后台查看
+
+打开[合宙视频物联网大数据平台](https://video.luatos.com:8083/login?redirect=/real-time)
+输入自己的IOT账号和密码然后输入验证码，点击登录
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_1.jpg)
+
+新增设备
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_2.jpg)
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_3.jpg)
+
+查看推流视频
+
+![](https://docs.openLuat.com/cdn/image/8101_rtmp_4.jpg)

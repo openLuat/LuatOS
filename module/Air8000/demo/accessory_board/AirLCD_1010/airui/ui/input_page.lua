@@ -42,6 +42,8 @@ function input_page.create_ui()
         mode = "text",                  -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
         auto_hide = true,               -- 自动隐藏键盘
         bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
         on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
             log.info("keyboard", "commit")
         end
@@ -55,6 +57,8 @@ function input_page.create_ui()
         mode = "numeric",               -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
         auto_hide = true,               -- 自动隐藏键盘
         bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
         on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
             log.info("keyboard", "commit")
         end
@@ -68,6 +72,8 @@ function input_page.create_ui()
         mode = "lower",                 -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
         auto_hide = true,               -- 自动隐藏键盘
         bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
         on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
             log.info("keyboard", "commit")
         end
@@ -107,46 +113,50 @@ function input_page.create_ui()
         color = 0xF5F5F5,
     })
 
+    local current_y = 10
+
     -- 示例1: 基本输入框
     airui.label({
         parent = scroll_container,
         text = "示例1: 基本输入框",
         x = 10,
-        y = 10,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     -- 创建键盘并关联输入框（v1.0.3 推荐内嵌键盘配置）
     local basic_input = airui.textarea({
         parent = scroll_container,
         x = 20,
-        y = 40,
+        y = current_y,
         w = 280,
         h = 100,
         text = "",
         placeholder = "请输入文本...",
         max_len = 100,
         keyboard = keyboard1
-
     })
+    current_y = current_y + 110
 
     -- 示例2: 带默认值的输入框
     airui.label({
         parent = scroll_container,
         text = "示例2: 带默认值",
         x = 10,
-        y = 160,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local default_input = airui.textarea({
         parent = scroll_container,
         x = 20,
-        y = 190,
+        y = current_y,
         w = 280,
         h = 60,
         text = "默认文本",
@@ -154,22 +164,24 @@ function input_page.create_ui()
         max_len = 50,
         keyboard = keyboard1
     })
+    current_y = current_y + 70
 
     -- 示例3: 数字输入框
     airui.label({
         parent = scroll_container,
         text = "示例3: 数字输入框",
         x = 10,
-        y = 270,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local number_input = airui.textarea({
         parent = scroll_container,
         x = 20,
-        y = 300,
+        y = current_y,
         w = 280,
         h = 60,
         text = "",
@@ -182,28 +194,30 @@ function input_page.create_ui()
         parent = scroll_container,
         text = "（使用数字键盘）",
         x = 20,
-        y = 365,
+        y = current_y + 65,
         w = 280,
         h = 20,
         font_size = 12,
         color = 0x666666,
     })
+    current_y = current_y + 95
 
     -- 示例4: 表单输入
     airui.label({
         parent = scroll_container,
         text = "示例4: 表单输入",
         x = 10,
-        y = 400,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local form_container = airui.container({
         parent = scroll_container,
         x = 20,
-        y = 430,
+        y = current_y,
         w = 280,
         h = 150,
         color = 0xE8EAF6,
@@ -293,22 +307,24 @@ function input_page.create_ui()
             end
         end
     })
+    current_y = current_y + 160
 
     -- 示例5: 输入框控制
     airui.label({
         parent = scroll_container,
         text = "示例5: 输入框控制",
         x = 10,
-        y = 600,
+        y = current_y,
         w = 300,
         h = 20,
         font_size = 14,
     })
+    current_y = current_y + 25
 
     local control_input = airui.textarea({
         parent = scroll_container,
         x = 20,
-        y = 630,
+        y = current_y,
         w = 200,
         h = 60,
         text = "可控制的输入框",
@@ -321,7 +337,7 @@ function input_page.create_ui()
     local clear_btn = airui.button({
         parent = scroll_container,
         x = 230,
-        y = 630,
+        y = current_y,
         w = 70,
         h = 30,
         text = "清空",
@@ -333,7 +349,7 @@ function input_page.create_ui()
     local get_btn = airui.button({
         parent = scroll_container,
         x = 230,
-        y = 670,
+        y = current_y + 35,
         w = 70,
         h = 30,
         text = "获取",
@@ -355,7 +371,7 @@ function input_page.create_ui()
     local cursor_btn = airui.button({
         parent = scroll_container,
         x = 20,
-        y = 700,
+        y = current_y + 70,
         w = 130,
         h = 35,
         text = "光标到开头",
@@ -363,6 +379,7 @@ function input_page.create_ui()
             control_input:set_cursor(0)
         end
     })
+    current_y = current_y + 115
 
     -- 底部信息
     airui.label({

@@ -72,7 +72,7 @@ local function capture_upload_task_func()
         -- sys.wait(3000)
 
         -- 通过WIFI网络上传到服务器查看
-        -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/data/
+        -- 上传到upload.air32.cn, 数据访问页面是 https://www.air32.cn/upload/
         local code, resp = httpplus.request({
             url = "http://upload.air32.cn/api/upload/jpg",
             method = "POST",

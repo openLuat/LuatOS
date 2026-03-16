@@ -46,7 +46,6 @@ local function handle_scan_report(ble_device, ble_param)
     
     -- 3. 打印解析的广播数据, 并筛选iBeacon广播数据
     -- local adv_data = ble_device:adv_decode(ble_param.data)
-    
     -- if adv_data then
     --     for k, v in pairs(adv_data) do
     --         -- log.info("ble_scan", "广播数据", "长度:", v.len, "类型:", v.tp, "数据:", v.data:toHex())
@@ -146,7 +145,6 @@ function ble_scan_task_func()
         -- 停止扫描
         if ble_device then
             ble_device:scan_stop()
-            ble_device = nil
         end
 
         -- 5秒后跳转到循环体开始位置，重新扫描

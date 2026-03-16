@@ -13,8 +13,14 @@
 
 Air780EGP/EGG模组内部包含有GNSS和Gsensor，Air780EGH模组内部只包含有GNSS，不包含Gsensor；
 GPIO23作为GNSS备电电源开关和Gsensor电源开关，默认状态下为高电平；
-在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为200uA左右，客户应根据实际需求进行配置；
+在低功耗模式和PSM+模式下，GNSS备电开启和Gsensor开启后，二者的功耗总和表现为30uA左右，客户应根据实际需求进行配置；
 在PSM+模式示例代码中，默认配置GPIO23为输入下拉的方式来演示PSM+模式的功耗表现；
+
+
+Air780EHV模组内部包含有Audio Codec芯片ES8311；GPIO20作为Audio Codec芯片ES8311的供电使能开关；
+在本应用demo中无须单独对GPIO20进行配置，一般是结合对应的Audio功能代码进行操作；
+如果在本应用demo中配置了GPIO20为输出高电平，此时Audio Codec芯片功耗表现为45uA左右；
+在PSM+模式下，并未对GPIO20进行配置，默认状态下为输入高阻态，以此演示PSM+模式下的实际功耗表现；
 
 
 本文件的对外接口只有1个：
@@ -284,13 +290,15 @@ local function set_psm_interrupt_wakeup()
     --          1、在常规模式0下，防抖功能有效，可以参考API详细说明，配置自己需要的防抖模式，实现“有效避免误触发”的效果
     --          2、在低功耗模式1下，休眠之后，防抖功能无效，根据自己配置的中断触发类型，只要满足条件就会立即触发中断，自动唤醒，并且执行中断处理函数
     --          3、在PSM+模式3下，休眠之后，防抖功能无效，根据自己配置的中断触发类型，只要满足条件就会立即触发中断，自动唤醒，并且重启软件
-    -- gpio.debounce(gpio.WAKEUP3, 1000)
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.FALLING)    -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.RISING)     -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.BOTH)       -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.FALLING)  -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.RISING)   -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
-    -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.BOTH)     -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    -- if module == "Air780EPM" or module == "Air780EHM" or module == "Air780EHN" or module == "Air780EHU" or module == "Air780EGH" or module == "Air780EGG" or module == "Air780EGP" then
+    --     gpio.debounce(gpio.WAKEUP3, 1000)
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.FALLING)    -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.RISING)     -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLUP, gpio.BOTH)       -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.FALLING)  -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.RISING)   -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    --     -- gpio.setup(gpio.WAKEUP3, psm_wakeup_func, gpio.PULLDOWN, gpio.BOTH)     -- Air780EXX系列支持将GPIO20引脚配置为WAKEUP3引脚的模组的核心板测试，没有增加功耗
+    -- end
 
 
     -- 在Air780EXX系列模组中，Air780EGH/EGP/EGG模组内部将GPIO21引脚强制用作GPIO21功能，用于控制GNSS定位芯片的供电使能开关
@@ -412,7 +420,7 @@ local function set_psm_func_item()
     -- 所以，在实际的项目设计中，如果需要工作在低功耗模式或者PSM+模式下，
     -- 可能你会打开GNSS的备电电源开关和GSensor的电源开关，用于保存GNSS的定位数据和快速获取定位数据或者实现GSensor的震动中断唤醒功能
     -- 根据自己的项目需求决定：进入PSM+模式前，是否需要关闭GNSS的备电电源开关和GSensor的电源开关
-    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码已经打开，可以减少200uA左右的功耗
+    -- 此处默认使用的是配置为输入下拉的方式来关闭，默认代码已经打开，可以减少30uA左右的功耗
     if module == "Air780EGH" or module == "Air780EGG" or module == "Air780EGP" then
         gpio.setup(23, nil, gpio.PULLDOWN)
     end

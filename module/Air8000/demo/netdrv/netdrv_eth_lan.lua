@@ -53,3 +53,11 @@ local function eth_lan_setup()
 end
 
 sys.taskInit(eth_lan_setup)
+
+-- -- 局域网内tcp客户端测试
+-- local function tcp_client_test()
+--     local tcp_client_main = require "tcp_client_main"
+--     -- 传入网卡，ip,端口号参数
+--     tcp_client_main.set_tcp_client_params(socket.LWIP_ETH, "192.168.4.100", 2333)
+-- end
+-- sys.taskInit(tcp_client_test)

@@ -54,9 +54,9 @@ local scoreLabel
 local statusLabel
 local leftBtn, rightBtn, rotateBtn, downBtn, restartBtn
 
-----------------------------------------------------------------
+
 -- 工具函数：网格与方块
-----------------------------------------------------------------
+
 local function initGrid()
     grid = {}
     for y = 1, GRID_H do
@@ -156,9 +156,9 @@ local function clearLines()
     return cleared
 end
 
-----------------------------------------------------------------
+
 -- 绘制函数：使用lcd.fill绘制棋盘
-----------------------------------------------------------------
+
 local function drawCell(x, y, color)
     local cx = BOARD_X + (x - 1) * CELL_SIZE
     local cy = BOARD_Y + (y - 1) * CELL_SIZE
@@ -201,9 +201,9 @@ local function drawBoard()
     lcd.fill(BOARD_X + BOARD_W, BOARD_Y - 2, BOARD_X + BOARD_W + 1, BOARD_Y + BOARD_H + 1, 0xFFFF) -- 右边框
 end
 
-----------------------------------------------------------------
+
 -- UI更新函数
-----------------------------------------------------------------
+
 local function updateScoreLabel()
     if scoreLabel then
         scoreLabel:set_text("分数: " .. tostring(score))
@@ -229,9 +229,9 @@ local function redrawAll(extraStatus)
     drawBoard()
 end
 
-----------------------------------------------------------------
+
 -- 控制逻辑
-----------------------------------------------------------------
+
 local function stepDown()
     if gameOver or not curPiece then return end
     local test = {
@@ -338,9 +338,9 @@ local function restartGame()
     gameTimer = sys.timerLoopStart(stepDown, 400)
 end
 
-----------------------------------------------------------------
+
 -- 创建游戏UI
-----------------------------------------------------------------
+
 function game_page.create_ui()
     -- 创建主容器
     main_container = airui.container({
@@ -468,9 +468,9 @@ function game_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
+
 -- 页面生命周期函数
-----------------------------------------------------------------
+
 function game_page.init(params)
     math.randomseed(os.time())
     

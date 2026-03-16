@@ -10,12 +10,14 @@
  * - FLV视频数据打包
  * - 网络数据收发
  */
-
+#include "luat_base.h"
 #include "luat_rtmp_push.h"
 #include "luat_debug.h"
 #include "luat_mcu.h"
 #include "luat_mem.h"
 #include "luat_rtos.h"
+#include "luat_netdrv.h"
+
 #include "lwip/tcp.h"
 #include "lwip/tcpip.h"
 #include "lwip/timeouts.h"
@@ -647,6 +649,12 @@ int rtmp_connect(rtmp_ctx_t *ctx) {
     ctx->handshake_state = 0;
     ctx->recv_pos = 0;
     ctx->send_pos = 0;
+
+    // 先尝试绑定本地端口（可选）
+    luat_netdrv_t *netdrv = luat_netdrv_get(ctx->adapter_id);
+    if (netdrv && netdrv->netif) {
+        tcp_bind(ctx->pcb, &netdrv->netif->ip_addr, 0);
+    }
     
     /* 发起TCP连接 */
     err_t err = tcp_connect(ctx->pcb, &remote_addr, ctx->port, rtmp_tcp_connect_callback);
@@ -1125,6 +1133,17 @@ rtmp_state_t rtmp_get_state(rtmp_ctx_t *ctx) {
 int rtmp_poll(rtmp_ctx_t *ctx) {
     if (!ctx) {
         return RTMP_ERR_INVALID_PARAM;
+    }
+
+    // 根据netif的状态, 如果网卡不可用, 则直接返回错误, 断开链接
+    luat_netdrv_t *netdrv = luat_netdrv_get(ctx->adapter_id);
+    if (netdrv && netdrv->netif) {
+        /* 如果网卡不可用, 则断开链接 */
+        if (netif_is_link_up(netdrv->netif) == 0 || netif_is_up(netdrv->netif) == 0) {
+            LLOGW("RTMP: Network interface is down, disconnecting");
+            rtmp_disconnect(ctx);
+            return RTMP_ERR_NETWORK;
+        }
     }
 
     /* 优先尝试发送队列中的数据 */

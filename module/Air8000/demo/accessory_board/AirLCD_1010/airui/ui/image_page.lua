@@ -10,15 +10,15 @@
 
 local image_page = {}
 
-----------------------------------------------------------------
+
 -- 页面UI元素
-----------------------------------------------------------------
+
 local main_container   = nil
 local scroll_container = nil
 
-----------------------------------------------------------------
+
 -- 辅助函数：创建带标题的容器
-----------------------------------------------------------------
+
 local function create_demo_container(parent, title, x, y, width, height)
     local container = airui.container({
         parent = parent,
@@ -44,9 +44,9 @@ local function create_demo_container(parent, title, x, y, width, height)
     return container
 end
 
-----------------------------------------------------------------
+
 -- 辅助函数：创建控制面板
-----------------------------------------------------------------
+
 local function create_control_panel(parent, title, x, y, width, height)
     local panel = airui.container({
         parent = parent,
@@ -72,9 +72,9 @@ local function create_control_panel(parent, title, x, y, width, height)
     return panel
 end
 
-----------------------------------------------------------------
+
 -- 创建UI
-----------------------------------------------------------------
+
 function image_page.create_ui()
     main_container = airui.container({
         parent = airui.screen,
@@ -131,9 +131,9 @@ function image_page.create_ui()
 
     local current_y = 10
 
-    --------------------------------------------------------------------
+    ----
     -- 示例1: 基本图片显示
-    --------------------------------------------------------------------
+    ----
     local demo1_container = create_demo_container(scroll_container, "示例1: 基本图片显示", 10, current_y, 300, 180)
     current_y = current_y + 180 + 10
 
@@ -202,9 +202,9 @@ function image_page.create_ui()
         font_size = 12,
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例2: 图片透明度控制
-    --------------------------------------------------------------------
+    ----
     local demo2_container = create_demo_container(scroll_container, "示例2: 图片透明度控制", 10, current_y, 300, 200)
     current_y = current_y + 200 + 10
 
@@ -257,9 +257,9 @@ function image_page.create_ui()
         })
     end
 
-    --------------------------------------------------------------------
+    ----
     -- 示例3: 图片缩放控制
-    --------------------------------------------------------------------
+    ----
     local demo3_container = create_demo_container(scroll_container, "示例3: 图片缩放控制", 10, current_y, 300, 200)
     current_y = current_y + 200 + 10
 
@@ -311,9 +311,9 @@ function image_page.create_ui()
         })
     end
 
-    --------------------------------------------------------------------
+    ----
     -- 示例4: 图片切换演示
-    --------------------------------------------------------------------
+    ----
     local demo4_container = create_demo_container(scroll_container, "示例4: 图片切换演示", 10, current_y, 300, 180)
     current_y = current_y + 180 + 10
 
@@ -366,10 +366,11 @@ function image_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例5: 动态创建图片
-    --------------------------------------------------------------------
+    ----
     local demo5_container = create_demo_container(scroll_container, "示例5: 动态创建图片", 10, current_y, 300, 200)
+    current_y = current_y + 200 + 10
 
     airui.label({
         parent = demo5_container,
@@ -426,10 +427,95 @@ function image_page.create_ui()
         end
     })
 
+    ----
+    -- 示例6: 图片旋转 (V1.1.0 新增)
+    ----
+    local demo6_container = create_demo_container(scroll_container, "示例6: 图片旋转", 10, current_y, 300, 220)
+    current_y = current_y + 220 + 10
+
+    airui.label({
+        parent = demo6_container,
+        text = "点击按钮旋转PNG图片（支持0.1度单位）",
+        x = 10,
+        y = 30,
+        w = 280,
+        h = 20,
+        color = 0x666666,
+        font_size = 12,
+    })
+
+    local rotate_image = airui.image({
+        parent = demo6_container,
+        x = 60,
+        y = 60,
+        w = 120,
+        h = 120,
+        src = "/luadb/test1.png",   -- 必须是PNG
+        rotation = 0,                -- V1.1.0 旋转角度 (0.1度单位)
+        pivot = {x=0.5, y=0.5},      -- 旋转中心
+    })
+
+    local rotation_label = airui.label({
+        parent = demo6_container,
+        text = "当前角度: 0°",
+        x = 20,
+        y = 170,
+        w = 120,
+        h = 20,
+        color = 0x333333,
+        font_size = 12,
+    })
+
+    -- 旋转控制（直接设置 rotation 属性，若无 set_rotation 方法，可能需要其他方式）
+    local btn_rot_left = airui.button({
+        parent = demo6_container,
+        x = 20,
+        y = 200,
+        w = 60,
+        h = 30,
+        text = "左转15°",
+        on_click = function()
+            local cur = rotate_image.rotation or 0
+            cur = cur - 150   -- 15度 = 150 (0.1度单位)
+            if cur < 0 then cur = cur + 3600 end
+            rotate_image.rotation = cur   -- 尝试直接设置属性（可能需要根据实际支持调整）
+            rotation_label:set_text("当前角度: " .. (cur/10) .. "°")
+        end
+    })
+
+    local btn_rot_right = airui.button({
+        parent = demo6_container,
+        x = 90,
+        y = 200,
+        w = 60,
+        h = 30,
+        text = "右转15°",
+        on_click = function()
+            local cur = rotate_image.rotation or 0
+            cur = cur + 150
+            if cur >= 3600 then cur = cur - 3600 end
+            rotate_image.rotation = cur
+            rotation_label:set_text("当前角度: " .. (cur/10) .. "°")
+        end
+    })
+
+    local btn_rot_reset = airui.button({
+        parent = demo6_container,
+        x = 160,
+        y = 200,
+        w = 60,
+        h = 30,
+        text = "复位",
+        on_click = function()
+            rotate_image.rotation = 0
+            rotation_label:set_text("当前角度: 0°")
+        end
+    })
+
     -- 底部提示
     airui.label({
         parent = main_container,
-        text = "提示: 支持PNG透明度、图片缩放、点击事件等功能",
+        text = "提示: 支持PNG透明度、缩放、旋转、点击事件等功能",
         x = 10,
         y = 450,
         w = 300,
@@ -439,16 +525,16 @@ function image_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
+
 -- 初始化页面
-----------------------------------------------------------------
+
 function image_page.init(params)
     image_page.create_ui()
 end
 
-----------------------------------------------------------------
+
 -- 清理页面
-----------------------------------------------------------------
+
 function image_page.cleanup()
     if main_container then
         main_container:destroy()

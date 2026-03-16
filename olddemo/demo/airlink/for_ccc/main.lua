@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "air8000_factory"
-VERSION = "001.000.012"
+VERSION = "001.999.012"
 
 log.info("main", PROJECT, VERSION)
 

@@ -36,7 +36,8 @@ function send_notify_data_timer_cbfunc()
     -- 携带的第二个参数server_uuid表示要发送的服务UUID
     -- 携带的第三个参数char_uuid表示要发送的特征值UUID
     -- 携带的第四个参数data表示要发送的数据
-    -- 携带的第五个参数cb为发送结果回调(可以为空，如果为空，表示不关心ble client 发送数据成功还是失败)，其中：
+    -- 携带的第五个参数send_type表示发送类型，notify表示通知，write表示写入
+    -- 携带的第六个参数cb为发送结果回调(可以为空，如果为空，表示不关心ble client 发送数据成功还是失败)，其中：
     --       cb.func为回调函数(可以为空，如果为空，表示不关心ble client发送数据成功还是失败)
     --       cb.para为回调函数的第二个参数(可以为空)，回调函数的第一个参数为发送结果(true表示成功，false表示失败)
     sys.publish("SEND_DATA_REQ", "timer", config.service_uuid, config.char_uuid1, notify_data, "notify", {func = send_data_cbfunc, para="timer "..notify_data})
@@ -50,7 +51,8 @@ function send_write_data_timer_cbfunc()
     -- 携带的第二个参数server_uuid表示要发送的服务UUID
     -- 携带的第三个参数char_uuid表示要发送的特征值UUID
     -- 携带的第四个参数data表示要发送的数据
-    -- 携带的第五个参数cb为发送结果回调(可以为空，如果为空，表示不关心ble client 发送数据成功还是失败)，其中：
+    -- 携带的第五个参数send_type表示发送类型，notify表示通知，write表示写入
+    -- 携带的第六个参数cb为发送结果回调(可以为空，如果为空，表示不关心ble client 发送数据成功还是失败)，其中：
     --       cb.func为回调函数(可以为空，如果为空，表示不关心ble client发送数据成功还是失败)
     --       cb.para为回调函数的第二个参数(可以为空)，回调函数的第一个参数为发送结果(true表示成功，false表示失败)
     sys.publish("SEND_DATA_REQ", "timer", config.service_uuid, config.char_uuid3, write_data, "write", {func = send_data_cbfunc, para="timer "..write_data})

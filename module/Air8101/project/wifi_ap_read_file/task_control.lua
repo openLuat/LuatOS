@@ -42,7 +42,7 @@ local function start_services()
         
         -- 自定义参数启动（使用8101核心板）
         -- 启动后连接默认AP热点，访问日志中的地址"http://192.168.4.1:80/explorer.html"来访问文件管理服务器。
-        exremotefile.open(nil, {is_sdio = true})
+        exremotefile.open(nil, {is_8101 = true})
         -- exremotefile.open()
 
         is_running = true

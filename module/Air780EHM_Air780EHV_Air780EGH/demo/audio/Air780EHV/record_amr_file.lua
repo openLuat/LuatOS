@@ -90,6 +90,9 @@ local record_seconds = 0       -- 录音计时秒数
 local PLAY_VOLUME = 60         -- 播放音量
 local RECORD_VOLUME = 60       -- 录音麦克风音量
 
+-- 录音时长设置（秒）
+local RECORD_DURATION = 5      -- 录音时长
+
 -- ========== 播放相关函数 ==========
 
 -- 播放完成回调函数
@@ -180,10 +183,10 @@ local function record_timer_callback()
         record_seconds = record_seconds + 1
         log.info("录音中...", record_seconds, "秒")
         
-        -- 如果达到5秒，自动停止录音
-        if record_seconds >= 5 then
+        -- 如果达到设定时长，自动停止录音
+        if record_seconds >= RECORD_DURATION then
             stop_recording()
-            log.info("录音时长已达5秒，自动停止录音")
+            log.info("录音时长已达", RECORD_DURATION, "秒，自动停止录音")
         end
     end
 end
@@ -206,14 +209,14 @@ local function start_recording()
         stop_playback()
     end
     
-    log.info("开始录音", "时长:5秒")
+    log.info("开始录音", "时长:", RECORD_DURATION, "秒")
     
     -- 设置录音麦克风音量
     exaudio.mic_vol(RECORD_VOLUME)
     
     local audio_record_param = {
         format = exaudio.AMR_NB,  -- 使用AMR_NB格式（窄带）
-        time = 5,                -- 录制5秒
+        time = RECORD_DURATION,      -- 录制时长
         path = recordPath,        -- 录音文件路径
         cbfnc = record_end_callback  -- 录音完成回调函数
     }
@@ -339,7 +342,7 @@ local function main_audio_task()
         log.info("按键功能说明：")
         log.info("1. Power键: 开始/停止录音，停止播放")
         log.info("2. Boot键: 开始/停止播放，停止录音")  
-        log.info("3. 录音时长: 5秒，可提前结束")
+        log.info("3. 录音时长: ", RECORD_DURATION, "秒，可提前结束")
         log.info("4. 录音完成后自动播放")
         log.info("5. 录音文件保存到:", recordPath)
     else

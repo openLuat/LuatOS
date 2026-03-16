@@ -2,7 +2,7 @@
 @module  main
 @summary exEasyUI组件演示主程序入口
 @version 1.0.0
-@date    2026.01.27
+@date    2026.03.09
 @author  江访
 @usage
 本文件是exEasyUI演示程序的主入口，用于选择加载不同的UI组件演示模块。
@@ -24,7 +24,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "AirUI_demo" -- 项目名称，用于标识当前工程
-VERSION = "001.000.000"      -- 项目版本号
+VERSION = "001.999.001"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("ui_demo", PROJECT, VERSION)
@@ -74,10 +74,12 @@ tp_drv = require("tp_drv")
 -- require("airui_tabview")  --选项卡演示
 -- require("airui_table") --表格演示
 -- require("airui_win")  --标签窗口演示
-require("airui_all_component") --所有组件综合演示
+-- require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
-
+-- require("airui_chart")  --图表组件演示
+-- require("airui_qrcode") --二维码组件演示
+require("airui_msg_input") --二维码组件演示
 
 -- 用户代码已结束
 -- 结尾总是这一句

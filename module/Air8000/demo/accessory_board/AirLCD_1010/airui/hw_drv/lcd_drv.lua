@@ -71,11 +71,8 @@ function lcd_drv.init()
             path = nil,       -- 字体路径，Air8000固件内置，无需填写
             size = 14,        -- 默认字体大写
             cache_size = 512, --
-            antialias = 4,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
+            antialias = 1,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
         })
-
-        -- 开启背光引脚供电
-        gpio.setup(1, 1)
 
         return result
     end

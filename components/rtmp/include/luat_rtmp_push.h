@@ -162,7 +162,8 @@ typedef struct {
     struct tcp_pcb *pcb;            /**< lwip TCP控制块 */
     rtmp_state_t state;             /**< 当前连接状态 */
     uint32_t last_activity_time;    /**< 最后活动时间戳 */
-    int handshake_state;            /**< 握手状态: 0=发送C0C1, 1=等待S0S1, 2=发送C2, 3=完成 */
+    int8_t handshake_state;            /**< 握手状态: 0=发送C0C1, 1=等待S0S1, 2=发送C2, 3=完成 */
+    uint8_t adapter_id;              /**< 网络适配器ID, 用于多网管理 */
     
     /** ============ RTMP协议状态 ============ */
     uint32_t in_chunk_size;         /**< 输入块大小 */

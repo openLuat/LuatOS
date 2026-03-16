@@ -943,7 +943,7 @@ static void luat_volte_task(void *param){
 	            }
                 break;
             }
-            else
+            else if (LUAT_MOBILE_CC_PLAY_CALL_INCOMINGCALL_RINGING != param)
             {
             	LLOGD("play tone %d", param);
                 luat_cc.is_play_tone = 1;

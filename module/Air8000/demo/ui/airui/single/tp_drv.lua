@@ -49,7 +49,7 @@ function tp_drv.init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0, w = 320, h = 480 })
+    local result = tp.init("gt911", { port = 0, pin_rst = 0xff, pin_int = gpio.WAKEUP0 })
 
     log.info("tp.init", result)
 
@@ -58,7 +58,7 @@ function tp_drv.init()
         return result
     else
         -- 绑定触摸设备到AirUI输入设备
-        return airui.indev_bind_touch(result)
+        return airui.device_bind_touch(result)
     end
 end
 

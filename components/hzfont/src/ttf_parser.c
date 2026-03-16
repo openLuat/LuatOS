@@ -49,6 +49,10 @@ static inline void ttf_safe_free(void *p) {
 #define TTF_FIXED_ONE   (1 << TTF_FIXED_SHIFT)
 #define TTF_FIXED_HALF  (1 << (TTF_FIXED_SHIFT - 1))
 
+#define TTF_AA_SCAN_2X2    1
+#define TTF_AA_SCAN_3X3    2
+#define TTF_AA_SCAN_4X4    3
+
 // 设置 ttf 解析器的调试输出
 int ttf_set_debug(int enable) { g_ttf_debug = enable ? 1 : 0; return g_ttf_debug; }
 // 获取当前的调试标志
@@ -68,12 +72,12 @@ int ttf_get_supersample_rate(void) {
     }
     return g_ttf_supersample_rate;
 }
-// 设置运行时的超采样率（自动限幅为 1/2/4）
+// 设置运行时的抗锯齿等级（自动限幅为 1/2/3）
 int ttf_set_supersample_rate(int rate) {
     int newRate;
-    if (rate <= 1) newRate = 1;
-    else if (rate <= 2) newRate = 2;
-    else newRate = 4; /* 3或更大按4x4 */
+    if (rate <= TTF_AA_SCAN_2X2) newRate = TTF_AA_SCAN_2X2;
+    else if (rate == TTF_AA_SCAN_3X3) newRate = TTF_AA_SCAN_3X3;
+    else newRate = TTF_AA_SCAN_4X4;
     g_ttf_supersample_rate = newRate;
     return g_ttf_supersample_rate;
 }
@@ -1150,6 +1154,7 @@ typedef struct {
 typedef struct {
     int32_t *data;
     size_t count;
+    size_t capacity; /* 定点构建路径使用；convert 路径保持 0 */
 } FixedSegmentList;
 
 // 向平面线段列表追加一段（自动扩容）
@@ -1186,6 +1191,163 @@ static inline int32_t float_to_fixed(float value) {
     float scaled = value * (float)TTF_FIXED_ONE;
     return (int32_t)lrintf(scaled);
 }
+
+/* ── 定点构建路径 (TTF_FIXEDPT_RASTERIZE) ────────────────────────────────
+ * 在没有 FPU 的单片机上，所有浮点运算均由软件模拟，开销极大。
+ * 启用此宏后，build_segments / flatten_quadratic 全部使用整数运算，
+ * 跳过浮点 SegmentList 中间缓冲，直接生成 FixedSegmentList (Q8)。
+ * 在 luat_conf_bsp.h 或构建脚本中加入  -DTTF_FIXEDPT_RASTERIZE  即可启用。
+ * ─────────────────────────────────────────────────────────────────────── */
+#ifdef TTF_FIXEDPT_RASTERIZE
+/* 前向声明：midpoint_point 定义于本文件稍后处 */
+static TtfPoint midpoint_point(const TtfPoint *a, const TtfPoint *b);
+
+/* 向 FixedSegmentList 追加一段（自动扩容，退化线段自动跳过） */
+static int append_segment_fixed(FixedSegmentList *segs,
+                                 int32_t x0, int32_t y0,
+                                 int32_t x1, int32_t y1) {
+    if (!segs) return 0;
+    if (x0 == x1 && y0 == y1) return 1; /* 退化，跳过 */
+    if (segs->count * 4 + 4 > segs->capacity) {
+        size_t newCap = segs->capacity ? segs->capacity * 2 : 128;
+        while (segs->count * 4 + 4 > newCap) newCap *= 2;
+        int32_t *newData = (int32_t *)luat_heap_realloc(segs->data, newCap * sizeof(int32_t));
+        if (!newData) return 0;
+        segs->data    = newData;
+        segs->capacity = newCap;
+    }
+    int32_t *dest = segs->data + segs->count * 4;
+    dest[0] = x0; dest[1] = y0; dest[2] = x1; dest[3] = y1;
+    segs->count++;
+    return 1;
+}
+
+/* 将二次贝塞尔曲线离散为 Q8 定点线段（前向差分法，全程无浮点）
+ *
+ * 推导（一元为例，y 同理）：
+ *   B(t) = (1-t)²x0 + 2t(1-t)cx + t²x1
+ *        = x0 + 2(cx-x0)t + (x0-2cx+x1)t²
+ * 以 dt = 1/n 均匀采样，按比例 n² 放大后迭代：
+ *   d2  = 2*(x0 - 2*cx + x1)          （二阶差分，常数）
+ *   d1₀ = 2*(cx-x0)*n + (x0-2*cx+x1) （一阶差分初值）
+ *   v₀  = x0 * n²
+ *   迭代：v += d1; d1 += d2; 输出 v/n²
+ *
+ * 溢出分析 (n=12, Q8 坐标上限 ≈ ppem*256 ≤ 128*256=32768)：
+ *   v_max  = 32768 * 144 ≈ 4.7M  ← int32 安全
+ *   d1_max = 2*32768*12 + 32768  ≈ 820K ← 安全
+ */
+static int flatten_quadratic_fixed(FixedSegmentList *segs,
+                                    int32_t x0, int32_t y0,
+                                    int32_t cx, int32_t cy,
+                                    int32_t x1, int32_t y1, int steps) {
+    int32_t n  = (int32_t)steps;
+    int32_t n2 = n * n;
+    int32_t half = n2 >> 1; /* 四舍五入用 */
+    /* 二阶前向差分（常数） */
+    int32_t d2x = 2 * (x0 - 2*cx + x1);
+    int32_t d2y = 2 * (y0 - 2*cy + y1);
+    /* 一阶前向差分初值 */
+    int32_t d1x = 2*(cx - x0)*n + (x0 - 2*cx + x1);
+    int32_t d1y = 2*(cy - y0)*n + (y0 - 2*cy + y1);
+    /* 放大 n² 的累加器 */
+    int32_t vx   = x0 * n2;
+    int32_t vy   = y0 * n2;
+    int32_t prevX = x0, prevY = y0;
+    for (int32_t i = 0; i < n; i++) {
+        vx += d1x; d1x += d2x;
+        vy += d1y; d1y += d2y;
+        int32_t nx = (vx + half) / n2;
+        int32_t ny = (vy + half) / n2;
+        if (!append_segment_fixed(segs, prevX, prevY, nx, ny))
+            return 0;
+        prevX = nx; prevY = ny;
+    }
+    return 1;
+}
+
+/* 将 glyph 坐标转换到 Q8 栅格空间（无浮点）
+ * scale_q16 = (ppem << 16) / unitsPerEm  (Q16 缩放因子)
+ * 输出结果为 Q8 像素坐标（与 FixedSegmentList 格式一致）
+ */
+static void transform_point_fixed(const TtfGlyph *glyph, int32_t scale_q16,
+                                   int32_t offsetX_q8, int32_t offsetY_q8,
+                                   const TtfPoint *pt,
+                                   int32_t *outX, int32_t *outY) {
+    /* pixel_q8 = glyph_unit * ppem * 256 / unitsPerEm
+     *          = glyph_unit * scale_q16 >> 8
+     * 使用 int64 中间值防止溢出（glyph_unit 最大约 4096，scale_q16 最大约 65536）
+     */
+    *outX = (int32_t)(((int64_t)(pt->x - glyph->minX) * scale_q16) >> 8) + offsetX_q8;
+    *outY = (int32_t)(((int64_t)(glyph->maxY - pt->y) * scale_q16) >> 8) + offsetY_q8;
+}
+
+/* 从 glyph 轮廓直接构建 Q8 定点线段列表（全程无浮点，镜像 build_segments 逻辑） */
+static int build_segments_fixed(const TtfGlyph *glyph, int32_t scale_q16,
+                                  int32_t offsetX_q8, int32_t offsetY_q8,
+                                  FixedSegmentList *segs) {
+    uint16_t contourStart = 0;
+    for (uint16_t contour = 0; contour < glyph->contourCount; ++contour) {
+        uint16_t contourEnd = glyph->contourEnds[contour];
+        if (contourEnd < contourStart || contourEnd >= glyph->pointCount)
+            return 0;
+        uint16_t count = (uint16_t)(contourEnd - contourStart + 1);
+        if (count == 0) {
+            contourStart = (uint16_t)(contourEnd + 1);
+            continue;
+        }
+        const TtfPoint *firstPoint = &glyph->points[contourStart];
+        const TtfPoint *lastPoint  = &glyph->points[contourEnd];
+        TtfPoint startOn = *lastPoint;
+        if (!lastPoint->onCurve) {
+            if (firstPoint->onCurve)
+                startOn = *firstPoint;
+            else
+                startOn = midpoint_point(lastPoint, firstPoint);
+        }
+        int32_t prevX, prevY;
+        transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8, &startOn, &prevX, &prevY);
+        int32_t startX = prevX, startY = prevY;
+
+        uint16_t index = contourStart;
+        do {
+            const TtfPoint *current   = &glyph->points[index];
+            uint16_t nextIndex        = (index == contourEnd) ? contourStart : (uint16_t)(index + 1);
+            const TtfPoint *nextPoint = &glyph->points[nextIndex];
+
+            if (current->onCurve) {
+                int32_t currX, currY;
+                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
+                                      current, &currX, &currY);
+                if (!append_segment_fixed(segs, prevX, prevY, currX, currY))
+                    return 0;
+                prevX = currX;
+                prevY = currY;
+            } else {
+                TtfPoint nextOn = *nextPoint;
+                if (!nextPoint->onCurve)
+                    nextOn = midpoint_point(current, nextPoint);
+                int32_t ctrlX, ctrlY, nextX, nextY;
+                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
+                                      current, &ctrlX, &ctrlY);
+                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
+                                      &nextOn, &nextX, &nextY);
+                if (!flatten_quadratic_fixed(segs, prevX, prevY, ctrlX, ctrlY, nextX, nextY, 12))
+                    return 0;
+                prevX = nextX;
+                prevY = nextY;
+            }
+            index = nextIndex;
+        } while (index != contourStart);
+
+        if (!append_segment_fixed(segs, prevX, prevY, startX, startY))
+            return 0;
+        contourStart = (uint16_t)(contourEnd + 1);
+    }
+    return 1;
+}
+
+#endif /* TTF_FIXEDPT_RASTERIZE */
 
 // 批量将浮点段转换为定点表示（供点内查询）
 static int convert_segments_to_fixed(const SegmentList *src, FixedSegmentList *dst) {
@@ -1365,6 +1527,150 @@ static int point_inside_fixed(const FixedSegmentList *segments, int32_t px, int3
     }
     return winding;
 }
+
+static inline uint8_t ttf_sample_point_fixed(const FixedSegmentList *segments, int32_t px, int32_t py) {
+    return (uint8_t)(point_inside_fixed(segments, px, py) ? 255 : 0);
+}
+
+static uint8_t ttf_sample_supersample_coverage(const FixedSegmentList *segments,
+                                               int32_t baseX, int32_t baseY,
+                                               int sampleRate) {
+    int insideHits = 0;
+    const int sampleCount = sampleRate * sampleRate;
+    const int32_t step = TTF_FIXED_ONE / sampleRate;
+    const int32_t subOffset = step / 2;
+    for (int sy = 0; sy < sampleRate; ++sy) {
+        const int32_t py = baseY + sy * step + subOffset;
+        for (int sx = 0; sx < sampleRate; ++sx) {
+            const int32_t px = baseX + sx * step + subOffset;
+            insideHits += point_inside_fixed(segments, px, py);
+        }
+    }
+    if (insideHits <= 0) {
+        return 0;
+    }
+    return (uint8_t)((insideHits * 255 + sampleCount / 2) / sampleCount);
+}
+
+static size_t ttf_collect_scanline_intersections(const FixedSegmentList *segments,
+                                                 int32_t py, int32_t *intersections,
+                                                 size_t maxCount) {
+    if (!segments || !intersections || maxCount == 0) {
+        return 0;
+    }
+    size_t count = 0;
+    for (size_t i = 0; i < segments->count; ++i) {
+        int32_t x0 = segments->data[i * 4 + 0];
+        int32_t y0 = segments->data[i * 4 + 1];
+        int32_t x1 = segments->data[i * 4 + 2];
+        int32_t y1 = segments->data[i * 4 + 3];
+        if (y0 == y1) {
+            continue;
+        }
+        if (!((y0 <= py && y1 > py) || (y1 <= py && y0 > py))) {
+            continue;
+        }
+        int32_t dy = y1 - y0;
+        int64_t num = (int64_t)(py - y0) * (int64_t)(x1 - x0);
+        int64_t den = (int64_t)dy;
+        if (den > 0) {
+            num += den / 2;
+        } else {
+            num -= (-den) / 2;
+        }
+        if (count < maxCount) {
+            intersections[count++] = (int32_t)((int64_t)x0 + num / den);
+        }
+    }
+    return count;
+}
+
+static void ttf_sort_fixed_intersections(int32_t *values, size_t count) {
+    for (size_t i = 1; i < count; ++i) {
+        int32_t key = values[i];
+        size_t j = i;
+        while (j > 0 && values[j - 1] > key) {
+            values[j] = values[j - 1];
+            --j;
+        }
+        values[j] = key;
+    }
+}
+
+static int ttf_apply_scanline_boundary_aa(const FixedSegmentList *segments, uint8_t *pixels,
+                                          uint32_t width, uint32_t height, int sampleRate) {
+    if (!segments || !pixels) {
+        return 0;
+    }
+    int32_t *intersections = (int32_t *)luat_heap_malloc(segments->count * sizeof(int32_t));
+    if (!intersections) {
+        return 0;
+    }
+
+    for (uint32_t y = 0; y < height; ++y) {
+        const int32_t py = ((int32_t)y << TTF_FIXED_SHIFT) + TTF_FIXED_HALF;
+        size_t count = ttf_collect_scanline_intersections(segments, py, intersections, segments->count);
+        if (count < 2) {
+            continue;
+        }
+        ttf_sort_fixed_intersections(intersections, count);
+
+        for (size_t i = 0; i + 1 < count; i += 2) {
+            int32_t left = intersections[i];
+            int32_t right = intersections[i + 1];
+            if (right <= left) {
+                continue;
+            }
+
+            int32_t leftPix = left >> TTF_FIXED_SHIFT;
+            int32_t rightPix = right >> TTF_FIXED_SHIFT;
+            if (rightPix < 0 || leftPix >= (int32_t)width) {
+                continue;
+            }
+
+            if (leftPix == rightPix) {
+                if (leftPix >= 0 && leftPix < (int32_t)width) {
+                    size_t idx = (size_t)y * width + (uint32_t)leftPix;
+                    pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                                  leftPix << TTF_FIXED_SHIFT,
+                                                                  (int32_t)y << TTF_FIXED_SHIFT,
+                                                                  sampleRate);
+                }
+                continue;
+            }
+
+            if (leftPix >= 0 && leftPix < (int32_t)width) {
+                size_t idx = (size_t)y * width + (uint32_t)leftPix;
+                pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                              leftPix << TTF_FIXED_SHIFT,
+                                                              (int32_t)y << TTF_FIXED_SHIFT,
+                                                              sampleRate);
+            }
+            if (rightPix >= 0 && rightPix < (int32_t)width) {
+                size_t idx = (size_t)y * width + (uint32_t)rightPix;
+                pixels[idx] = ttf_sample_supersample_coverage(segments,
+                                                              rightPix << TTF_FIXED_SHIFT,
+                                                              (int32_t)y << TTF_FIXED_SHIFT,
+                                                              sampleRate);
+            }
+
+            int32_t fillStart = leftPix + 1;
+            int32_t fillEnd = rightPix - 1;
+            if (fillStart < 0) {
+                fillStart = 0;
+            }
+            if (fillEnd >= (int32_t)width) {
+                fillEnd = (int32_t)width - 1;
+            }
+            for (int32_t x = fillStart; x <= fillEnd; ++x) {
+                pixels[(size_t)y * width + (uint32_t)x] = 255;
+            }
+        }
+    }
+
+    ttf_safe_free(intersections);
+    return 1;
+}
 /**
  * @brief 栅格化指定 glyph 到 bitmap 像素位图
  * @param font    指向 TtfFont 对象（字体描述结构）
@@ -1384,23 +1690,43 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     }
 
     // 计算 glyph 在指定字号下的像素尺寸
+#ifdef TTF_FIXEDPT_RASTERIZE
+    /* Q16 缩放因子：scale_q16 = (ppem << 16) / unitsPerEm
+     * pixel_q8  = glyph_unit * scale_q16 >> 8
+     * pixel_f32 ≈ glyph_unit * scale_q16 / 65536                          */
+    int32_t scale_q16 = (int32_t)(((int64_t)ppem << 16) / (int32_t)font->unitsPerEm);
+    int32_t widthQ  = (int32_t)((((int64_t)(glyph->maxX - glyph->minX) * scale_q16) >> 16) + 2);
+    int32_t heightQ = (int32_t)((((int64_t)(glyph->maxY - glyph->minY) * scale_q16) >> 16) + 2);
+    if (widthQ  < 1) widthQ  = 1;
+    if (heightQ < 1) heightQ = 1;
+    uint32_t width  = (uint32_t)widthQ;
+    uint32_t height = (uint32_t)heightQ;
+#else
     float scale = (float)ppem / (float)font->unitsPerEm;
-    float widthF = (glyph->maxX - glyph->minX) * scale + 2.0f;
+    float widthF  = (glyph->maxX - glyph->minX) * scale + 2.0f;
     float heightF = (glyph->maxY - glyph->minY) * scale + 2.0f;
-    if (widthF < 1.0f) {
-        widthF = 1.0f;
-    }
-    if (heightF < 1.0f) {
-        heightF = 1.0f;
-    }
-    uint32_t width = (uint32_t)ceilf(widthF);
+    if (widthF  < 1.0f) widthF  = 1.0f;
+    if (heightF < 1.0f) heightF = 1.0f;
+    uint32_t width  = (uint32_t)ceilf(widthF);
     uint32_t height = (uint32_t)ceilf(heightF);
+#endif
 
     uint8_t *pixels = (uint8_t *)luat_heap_calloc((size_t)width * height, sizeof(uint8_t));
     if (!pixels) {
         return TTF_ERR_OOM;
     }
 
+    // 构建轮廓线段列表（定点模式直接生成 FixedSegmentList；浮点模式走原有路径）
+#ifdef TTF_FIXEDPT_RASTERIZE
+    const int32_t offsetX_q8 = 1 << TTF_FIXED_SHIFT; /* 1.0 像素，Q8 = 256 */
+    const int32_t offsetY_q8 = 1 << TTF_FIXED_SHIFT;
+    FixedSegmentList fixedSegments = {0};
+    if (!build_segments_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8, &fixedSegments)) {
+        ttf_safe_free(pixels);
+        ttf_safe_free(fixedSegments.data);
+        return TTF_ERR_FORMAT;
+    }
+#else
     // 用扁平化的线段表示 glyph 轮廓
     SegmentList segments = {0};
     float offsetX = 1.0f;
@@ -1419,35 +1745,19 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_OOM;
     }
     ttf_safe_free(segments.data);
+#endif
 
-    // 按当前超采样率采样每个像素（用于计算覆盖率）
     const int supersampleRate = ttf_get_supersample_rate();
-    const int sampleCount = supersampleRate * supersampleRate;
-    int32_t step = (supersampleRate > 0) ? (TTF_FIXED_ONE / supersampleRate) : TTF_FIXED_ONE;
-    int32_t subOffset = step / 2;
-    for (uint32_t y = 0; y < height; ++y) {
-        int32_t baseY = ((int32_t)y << TTF_FIXED_SHIFT);
-        for (uint32_t x = 0; x < width; ++x) {
-            int32_t baseX = ((int32_t)x << TTF_FIXED_SHIFT);
-            int insideHits = 0;
-            if (supersampleRate == 1) {
-                int32_t px = baseX + TTF_FIXED_HALF;
-                int32_t py = baseY + TTF_FIXED_HALF;
-                insideHits = point_inside_fixed(&fixedSegments, px, py);
-            } else {
-                for (int sy = 0; sy < supersampleRate; ++sy) {
-                    int32_t py = baseY + sy * step + subOffset;
-                    for (int sx = 0; sx < supersampleRate; ++sx) {
-                        int32_t px = baseX + sx * step + subOffset;
-                        insideHits += point_inside_fixed(&fixedSegments, px, py);
-                    }
-                }
-            }
-            if (insideHits > 0) {
-                uint8_t value = (uint8_t)((insideHits * 255 + sampleCount / 2) / sampleCount);
-                pixels[y * width + x] = value;
-            }
-        }
+    int boundarySampleRate = 2;
+    if (supersampleRate == TTF_AA_SCAN_3X3) {
+        boundarySampleRate = 3;
+    } else if (supersampleRate == TTF_AA_SCAN_4X4) {
+        boundarySampleRate = 4;
+    }
+    if (!ttf_apply_scanline_boundary_aa(&fixedSegments, pixels, width, height, boundarySampleRate)) {
+        free_fixed_segments(&fixedSegments);
+        ttf_safe_free(pixels);
+        return TTF_ERR_OOM;
     }
 
     free_fixed_segments(&fixedSegments);
@@ -1456,7 +1766,12 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->pixels = pixels;
     bitmap->originX = ttf_scaled_value(font, glyph->minX, ppem);
     bitmap->originY = ttf_scaled_value(font, glyph->maxY, ppem);
-    bitmap->scale = scale;
+    bitmap->scale =
+#ifdef TTF_FIXEDPT_RASTERIZE
+        (float)scale_q16 * (1.0f / 65536.0f); /* Q16 还原为浮点，仅在函数末尾调用一次 */
+#else
+        scale;
+#endif
     return TTF_OK;
 }
 

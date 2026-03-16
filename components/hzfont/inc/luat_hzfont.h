@@ -26,7 +26,7 @@ void luat_hzfont_deinit(void);
 luat_hzfont_state_t luat_hzfont_get_state(void);
 // 估算一段 UTF-8 字符串的像素宽度
 uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
-/* antialias = -1(自动), 1(无AA), 2(2x2), 4(4x4) */
+/* antialias = -1(自动), 1(边界2x2), 2(边界3x3), 3(边界4x4) */
 // 在屏幕上绘制 UTF-8 文本（带缓存和抗锯齿控制）
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 

@@ -9,6 +9,8 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_lcd.h"
+#include "luat_sdl2.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
 #include "luat_log.h"
 #include <SDL2/SDL.h>
@@ -26,6 +28,8 @@ typedef struct {
     uint16_t width;
     uint16_t height;
     lv_color_format_t color_format;
+    uint8_t reuse_lcd;
+    luat_lcd_conf_t *lcd_conf;
 } sdl_display_data_t;
 
 /**
@@ -63,6 +67,17 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
     data->width = w;
     data->height = h;
     data->color_format = fmt;
+
+    luat_lcd_conf_t *lcd_conf = luat_lcd_get_default();
+    if (lcd_conf != NULL && lcd_conf->opts != NULL && lcd_conf->opts->name != NULL && strcmp(lcd_conf->opts->name, "sdl2") == 0) {
+        data->window = (SDL_Window *)luat_sdl2_get_window();
+        data->reuse_lcd = 1;
+        data->lcd_conf = lcd_conf;
+        lcd_conf->lcd_use_lvgl = 1;
+        ctx->platform_data = data;
+        LLOGI("reuse lcd sdl2 window for airui");
+        return AIRUI_OK;
+    }
     
     // 创建 SDL 窗口
     data->window = SDL_CreateWindow(
@@ -132,7 +147,25 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
     
-    if (data->texture == NULL || px_map == NULL) {
+    if (px_map == NULL) {
+        return;
+    }
+
+    if (data->reuse_lcd) {
+        if (data->lcd_conf == NULL) {
+            lv_display_flush_ready(ctx->display);
+            return;
+        }
+
+        luat_lcd_draw(data->lcd_conf, area->x1, area->y1, area->x2, area->y2, (luat_color_t *)px_map);
+        if (lv_display_flush_is_last(ctx->display)) {
+            luat_lcd_flush(data->lcd_conf);
+        }
+        lv_display_flush_ready(ctx->display);
+        return;
+    }
+
+    if (data->texture == NULL) {
         return;
     }
     
@@ -228,6 +261,15 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     }
     
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
+
+    if (data->reuse_lcd) {
+        if (data->lcd_conf != NULL) {
+            data->lcd_conf->lcd_use_lvgl = 0;
+        }
+        free(data);
+        ctx->platform_data = NULL;
+        return;
+    }
     
     if (data->texture != NULL) {
         SDL_DestroyTexture(data->texture);

@@ -111,7 +111,11 @@ static lv_result_t decoder_info(lv_image_decoder_t * decoder, lv_image_decoder_d
             JDEC jd;
             JRESULT rc = jd_prepare(&jd, input_func, workb, TJPGD_WORKBUFF_SIZE, &dsc->file);
             if(rc) {
-                LV_LOG_WARN("jd_prepare error: %d", rc);
+                if(rc == JDR_FMT3) {
+                    LV_LOG_WARN("progressive JPEG is not supported, convert it to baseline JPEG and try again: %s", fn);
+                } else {
+                    LV_LOG_WARN("jd_prepare error: %d", rc);
+                }
                 return LV_RESULT_INVALID;
             }
             header->cf = LV_COLOR_FORMAT_RAW;

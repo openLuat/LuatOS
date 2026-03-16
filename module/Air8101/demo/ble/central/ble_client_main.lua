@@ -44,7 +44,7 @@ config = {
 
 local bluetooth_device = nil
 local ble_device = nil
-local scan_create = false
+local scan_create = nil
 local scan_count = 0
 local last_operation = nil
 
@@ -127,7 +127,9 @@ local function ble_event_cb(ble_device, ble_event, ble_param)
             uuid_service = string.fromHex(config.target_service_uuid),
             uuid_characteristic = string.fromHex(config.target_notify_char)
         }
-        ble_device:notify_enable(notify_params, true)
+        if ble_device then
+            ble_device:notify_enable(notify_params, true)
+        end
     -- 读取特征值完成
     elseif ble_event == ble.EVENT_READ_VALUE then
         -- 通知receiver处理数据
@@ -238,8 +240,9 @@ local function ble_client_main_task_func()
             elseif msg[2] == "RESTART_SCAN" then
                 -- 5s后重新开始扫描
                 sys.wait(5000)
-                log.info("ble", "重新开始扫描")
-                ble_device:scan_start()
+                if ble_device then
+                    ble_device:scan_start()
+                end
                 last_operation = "scan"
             elseif msg[2] == "READ_REQ" then
                 -- 从消息中获取传入的UUID参数，若没有则使用默认配置
@@ -250,7 +253,9 @@ local function ble_client_main_task_func()
                     uuid_service = string.fromHex(service_uuid),
                     uuid_characteristic = string.fromHex(char_uuid)
                 }
-                ble_device:read_value(read_params)
+                if ble_device then
+                    ble_device:read_value(read_params)
+                end
             end
         end
 
@@ -264,7 +269,11 @@ local function ble_client_main_task_func()
         -- 通知ble sender数据发送应用模块的task，ble连接已经断开
         sys.sendMsg(ble_client_sender.TASK_NAME, "BLE_EVENT", "DISCONNECTED")
 
+        -- 重置扫描计数
+        scan_count = 0
+
         -- 5秒后跳转到循环体开始位置，自动发起重连
+        log.info("ble_server_main", "等待5秒后重新尝试...")
         sys.wait(5000)
     end
 end

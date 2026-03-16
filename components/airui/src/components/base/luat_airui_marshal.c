@@ -38,6 +38,35 @@ int airui_marshal_integer(void *L, int idx, const char *key, int default_value)
 }
 
 /**
+ * 从配置表读取整数字段, 不存在则保持返回false，而不是返回默认值
+ * 一般用于style样式表设置中，某些字段可能不存在，则保持返回false
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @param key 字段名
+ * @param out 输出整数
+ * @return true 成功解析，false 未指定或类型错误
+ */
+bool airui_marshal_integer_opt(void *L, int idx, const char *key, int *out)
+{
+    if (L == NULL || key == NULL || out == NULL) {
+        return false;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+    lua_getfield(L_state, idx, key);
+
+    if (lua_type(L_state, -1) != LUA_TNUMBER) {
+        lua_pop(L_state, 1);
+        return false;
+    }
+
+    *out = (int)lua_tointeger(L_state, -1);
+    lua_pop(L_state, 1);
+    return true;
+}
+
+/**
  * 从配置表读取布尔字段
  * @param L Lua 状态
  * @param idx 配置表索引
@@ -117,6 +146,18 @@ bool airui_marshal_color(void *L, int idx, const char *key, lv_color_t *out)
 
     lua_pop(L_state, 1);
     return ok;
+}
+
+// 规范化透明度
+lv_opa_t airui_marshal_opacity(int opacity)
+{
+    if (opacity < 0) {
+        return LV_OPA_COVER;
+    }
+    if (opacity > LV_OPA_COVER) {
+        return LV_OPA_COVER;
+    }
+    return (lv_opa_t)opacity;
 }
 
 /**

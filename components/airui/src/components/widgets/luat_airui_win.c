@@ -6,9 +6,11 @@
 
 #include "luat_airui_component.h"
 #include "lvgl9/src/widgets/win/lv_win.h"
+#include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/core/lv_obj.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/misc/lv_color.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include <string.h>
@@ -21,6 +23,7 @@
 typedef struct {
     lv_obj_t *title_label;  /**< 标题标签指针 */
     lv_obj_t *content;      /**< 内容容器指针 */
+    lv_obj_t *close_btn;    /**< 关闭按钮指针 */
 } airui_win_data_t;
 
 /**
@@ -131,6 +134,7 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     }
     win_data->title_label = NULL;
     win_data->content = NULL;
+    win_data->close_btn = NULL;
     meta->user_data = win_data;
     
     // 设置标题区域
@@ -149,6 +153,7 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     // 添加关闭按钮
     if (close_btn) {
         lv_obj_t *btn = lv_win_add_button(win, LV_SYMBOL_CLOSE, 40);
+        win_data->close_btn = btn;
         lv_obj_add_event_cb(btn, airui_win_close_event_cb, LV_EVENT_CLICKED, win);
     }
     
@@ -160,19 +165,7 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     // 应用样式
     lua_getfield(L_state, idx, "style");
     if (lua_type(L_state, -1) == LUA_TTABLE) {
-        int style_idx = lua_gettop(L_state);
-        int radius = airui_marshal_integer(L, style_idx, "radius", 0);
-        if (radius > 0) {
-            lv_obj_set_style_radius(win, radius, 0);
-        }
-        int pad = airui_marshal_integer(L, style_idx, "pad", 0);
-        if (pad > 0) {
-            lv_obj_set_style_pad_all(win, pad, 0);
-        }
-        int border = airui_marshal_integer(L, style_idx, "border_width", 0);
-        if (border > 0) {
-            lv_obj_set_style_border_width(win, border, 0);
-        }
+        airui_win_set_style(win, L_state, lua_gettop(L_state));
     }
     lua_pop(L_state, 1);
     
@@ -259,4 +252,119 @@ int airui_win_add_content(lv_obj_t *win, lv_obj_t *child)
     
     return AIRUI_OK;
 }
+
+// 按样式表设置窗口样式
+int airui_win_set_style(lv_obj_t *win, void *L, int idx)
+{
+    if (win == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(win);
+    if (meta == NULL || meta->user_data == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_win_data_t *win_data = (airui_win_data_t *)meta->user_data;
+    lv_obj_t *header = lv_win_get_header(win);
+    lv_obj_t *content = win_data->content != NULL ? win_data->content : lv_win_get_content(win);
+    lv_obj_t *title_label = win_data->title_label;
+    lv_obj_t *close_btn = win_data->close_btn;
+    int value = 0;
+
+    if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(win, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(win, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(win, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
+        lv_obj_set_style_border_width(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad", &value)) {
+        lv_obj_set_style_pad_all(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad_top", &value)) {
+        lv_obj_set_style_pad_top(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad_bottom", &value)) {
+        lv_obj_set_style_pad_bottom(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad_left", &value)) {
+        lv_obj_set_style_pad_left(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "pad_right", &value)) {
+        lv_obj_set_style_pad_right(win, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (header != NULL) {
+        if (airui_marshal_integer_opt(L_state, idx, "header_bg_color", &value)) {
+            lv_obj_set_style_bg_color(header, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "header_bg_opa", &value)) {
+            lv_obj_set_style_bg_opa(header, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "header_pad", &value)) {
+            lv_obj_set_style_pad_all(header, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "header_height", &value)) {
+            lv_obj_set_height(header, value < 0 ? 0 : value);
+        }
+    }
+
+    if (content != NULL) {
+        if (airui_marshal_integer_opt(L_state, idx, "content_bg_color", &value)) {
+            lv_obj_set_style_bg_color(content, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "content_bg_opa", &value)) {
+            lv_obj_set_style_bg_opa(content, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "content_pad", &value)) {
+            lv_obj_set_style_pad_all(content, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        win_data->content = content;
+    }
+
+    if (title_label != NULL) {
+        if (airui_marshal_integer_opt(L_state, idx, "title_text_color", &value)) {
+            lv_obj_set_style_text_color(title_label, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+    }
+
+    if (close_btn != NULL) {
+        if (airui_marshal_integer_opt(L_state, idx, "close_btn_bg_color", &value)) {
+            lv_obj_set_style_bg_color(close_btn, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "close_btn_bg_opa", &value)) {
+            lv_obj_set_style_bg_opa(close_btn, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "close_btn_radius", &value)) {
+            lv_obj_set_style_radius(close_btn, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "close_btn_text_color", &value)) {
+            lv_obj_set_style_text_color(close_btn, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            uint32_t child_cnt = lv_obj_get_child_cnt(close_btn);
+            uint32_t i = 0;
+            for (i = 0; i < child_cnt; i++) {
+                lv_obj_t *child = lv_obj_get_child(close_btn, i);
+                lv_obj_set_style_text_color(child, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+            }
+        }
+    }
+
+    return AIRUI_OK;
+}
+
 

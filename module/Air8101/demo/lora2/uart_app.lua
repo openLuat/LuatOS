@@ -1,8 +1,8 @@
 --[[
 @module  uart_app
 @summary 串口应用功能模块
-@version 1.0
-@date    2025.11.23
+@version 1.1
+@date    2026.3.10
 @author  王世豪
 @usage
 本文件为串口应用功能模块，核心业务逻辑为：
@@ -23,8 +23,8 @@ local UART_ID = 1
 local read_buf = ""
 
 -- 末尾增加回车换行两个字符，通过uart发送出去，方便在PC端换行显示查看
-local function recv_data_from_lora_proc(data)
-    uart.write(UART_ID, data.."\r\n")
+local function recv_data_from_lora_proc(msg)
+    uart.write(UART_ID, msg.data.."\r\n")
 end
 
 

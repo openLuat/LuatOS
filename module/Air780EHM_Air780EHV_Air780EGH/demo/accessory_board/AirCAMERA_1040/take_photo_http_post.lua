@@ -65,7 +65,7 @@ local function capture_func()
                     data = io.readFile(data)
                 end
                 -- 通过网卡(本demo使用的是socket.LWIP_STA网卡)将拍摄到的照片数据result上传到服务器air32.cn
-                -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/data/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
+                -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
                 -- 执行httpplus.request后，等待服务器的http应答，此处会阻塞当前task，等待整个过程成功结束或者出现错误异常结束
                 -- code表示结果，number类型，详细说明参考API手册，一般来说：
                 --             200表示成功

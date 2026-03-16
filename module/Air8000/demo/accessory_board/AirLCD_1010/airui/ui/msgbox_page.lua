@@ -9,14 +9,14 @@
 
 local msgbox_page = {}
 
-----------------------------------------------------------------
+
 -- 页面UI元素
-----------------------------------------------------------------
+
 local main_container = nil
 
-----------------------------------------------------------------
+
 -- 辅助函数：创建带标题的容器
-----------------------------------------------------------------
+
 local function create_demo_container(parent, title, x, y, width, height)
     local container = airui.container({
         parent = parent,
@@ -42,9 +42,9 @@ local function create_demo_container(parent, title, x, y, width, height)
     return container
 end
 
-----------------------------------------------------------------
+
 -- 创建UI
-----------------------------------------------------------------
+
 function msgbox_page.create_ui()
     main_container = airui.container({
         x = 0,
@@ -100,9 +100,9 @@ function msgbox_page.create_ui()
 
     local current_y = 10
 
-    --------------------------------------------------------------------
+    ----
     -- 示例1: 基本消息框
-    --------------------------------------------------------------------
+    ----
     local demo1_container = create_demo_container(scroll_container, "示例1: 基本消息框", 10, current_y, 300, 100)
     current_y = current_y + 100 + 10
 
@@ -137,9 +137,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例2: 带标题的消息框
-    --------------------------------------------------------------------
+    ----
     local demo2_container = create_demo_container(scroll_container, "示例2: 带标题消息框", 10, current_y, 300, 100)
     current_y = current_y + 100 + 10
 
@@ -175,9 +175,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例3: 多个按钮的消息框
-    --------------------------------------------------------------------
+    ----
     local demo3_container = create_demo_container(scroll_container, "示例3: 多个按钮消息框", 10, current_y, 300, 120)
     current_y = current_y + 120 + 10
 
@@ -229,9 +229,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例4: 自动关闭的消息框
-    --------------------------------------------------------------------
+    ----
     local demo4_container = create_demo_container(scroll_container, "示例4: 自动关闭消息框", 10, current_y, 300, 100)
     current_y = current_y + 100 + 10
 
@@ -267,9 +267,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例5: 自定义按钮的消息框
-    --------------------------------------------------------------------
+    ----
     local demo5_container = create_demo_container(scroll_container, "示例5: 自定义按钮", 10, current_y, 300, 120)
     current_y = current_y + 120 + 10
 
@@ -314,9 +314,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例6: 多行文本消息框
-    --------------------------------------------------------------------
+    ----
     local demo6_container = create_demo_container(scroll_container, "示例6: 多行文本消息", 10, current_y, 300, 120)
     current_y = current_y + 120 + 10
 
@@ -352,9 +352,9 @@ function msgbox_page.create_ui()
         end
     })
 
-    --------------------------------------------------------------------
+    ----
     -- 示例7: 消息框链式调用
-    --------------------------------------------------------------------
+    ----
     local demo7_container = create_demo_container(scroll_container, "示例7: 链式调用", 10, current_y, 300, 140)
     current_y = current_y + 140 + 10
 
@@ -421,16 +421,16 @@ function msgbox_page.create_ui()
     })
 end
 
-----------------------------------------------------------------
+
 -- 初始化页面
-----------------------------------------------------------------
+
 function msgbox_page.init(params)
     msgbox_page.create_ui()
 end
 
-----------------------------------------------------------------
+
 -- 清理页面
-----------------------------------------------------------------
+
 function msgbox_page.cleanup()
     if main_container then
         main_container:destroy()

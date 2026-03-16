@@ -17,7 +17,7 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.1.1"
+#define AIRUI_VERSION "1.1.2"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
@@ -33,7 +33,7 @@
     #define LV_COLOR_DEPTH 16
 
     #define LV_USE_LOG 1
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
@@ -79,15 +79,15 @@
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
 
-    // #define LV_USE_LOG 1
-    // /** Set value to one of the following levels of logging detail:
-    //  *  - LV_LOG_LEVEL_TRACE    Log detailed information.
-    //  *  - LV_LOG_LEVEL_INFO     Log important events.
-    //  *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
-    //  *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
-    //  *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
-    //  *  - LV_LOG_LEVEL_NONE     Do not log anything. */
-    // #define LV_LOG_LEVEL LV_LOG_LEVEL_INFO
+    #define LV_USE_LOG 1
+    /** Set value to one of the following levels of logging detail:
+     *  - LV_LOG_LEVEL_TRACE    Log detailed information.
+     *  - LV_LOG_LEVEL_INFO     Log important events.
+     *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
+     *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
+     *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
+     *  - LV_LOG_LEVEL_NONE     Do not log anything. */
+    #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
     
     // 图片解码支持
     #define LV_USE_LODEPNG 1
@@ -105,12 +105,13 @@
     // 可选配置，需要在"luat_conf_bsp.h"等文件中打开相关宏
 
     // 使用16号字体
-    # ifdef LUAT_USE_AIRUI_MISANS_FONT_16
+
+    #ifdef LUAT_USE_AIRUI_MISANS_FONT_16
         #define LV_FONT_FMT_TXT_LARGE 1
         #define LV_USE_FONT_COMPRESSED 1
         #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_16)
         #define LV_FONT_DEFAULT &lv_font_misans_16
-    # endif
+    #endif
     
 #else
     /* 默认配置（如果未定义平台） */

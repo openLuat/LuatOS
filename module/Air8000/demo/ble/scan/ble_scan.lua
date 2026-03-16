@@ -11,7 +11,7 @@
 2. 创建BLE对象
 local ble_device = bluetooth_device:ble(ble_event_cb)
 3.设置扫描模式
-ble_device:scan_create(ble.PUBLIC, 1600, 100, ble.SCAN_ACTIVE) -- 扫描模式: ble.PUBLIC, 扫描间隔: 1000ms, 扫描窗口: 62.6ms, 扫描类型: 主动扫描
+ble_device:scan_create(ble.PUBLIC, 1600, 100, ble.SCAN_ACTIVE) -- 扫描模式: ble.PUBLIC, 扫描间隔: 1000ms, 扫描窗口: 62.5ms, 扫描类型: 主动扫描
 4. 开始扫描
 ble_device:scan_start()
 5. 在回调函数中处理扫描事件, 如接收设备信息等
@@ -28,12 +28,9 @@ local function wifi_state_change(state)
     wifi_state = state
     log.info("ble_scan", "收到WiFi状态变化:", state)
     
-    -- 如果是关闭状态，将扫描状态设置为false，并释放已创建的BLE资源
+    -- 如果是关闭状态，将扫描状态设置为false
     if state == 0 and scan_state then
         scan_state = false
-        -- 释放已创建的BLE资源
-        ble_device = nil
-        bluetooth_device = nil
     else
         -- WiFi状态打开时发布消息
         sys.publish("WIFI_STATE_OPEN")

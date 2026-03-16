@@ -9,6 +9,8 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_lcd.h"
+#include "luat_sdl2.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
@@ -82,6 +84,24 @@ static bool airui_keypad_queue_pop(lv_indev_data_t *data)
     data->state = g_keypad_queue[g_keypad_head].state;
     g_keypad_head = (uint8_t)((g_keypad_head + 1) % AIRUI_KEYPAD_QUEUE_SIZE);
     return true;
+}
+
+// 通知触摸事件
+static void airui_sdl_notify_touch_state(airui_ctx_t *ctx, bool button_down, bool down_event, bool up_event, lv_coord_t x, lv_coord_t y)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (button_down) {
+        airui_touch_notify(ctx, (down_event || !ctx->touch_pressed) ? AIRUI_TOUCH_STATE_DOWN : AIRUI_TOUCH_STATE_HOLD,
+                           x, y, 0, lv_tick_get());
+        return;
+    }
+
+    if (up_event || ctx->touch_pressed) {
+        airui_touch_notify(ctx, AIRUI_TOUCH_STATE_UP, x, y, 0, lv_tick_get());
+    }
 }
 
 // 将SDL按键映射为LVGL按键
@@ -338,9 +358,15 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         uint16_t width;
         uint16_t height;
         lv_color_format_t color_format;
+        uint8_t reuse_lcd;
+        luat_lcd_conf_t *lcd_conf;
     } sdl_display_data_t;
     
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
+    SDL_Window *window = display_data->window;
+    if (window == NULL && display_data->reuse_lcd) {
+        window = (SDL_Window *)luat_sdl2_get_window();
+    }
     
     // 输入数据存储在静态变量中（因为 platform_data 已被显示驱动使用）
     static sdl_input_data_t input_data = {0};
@@ -348,6 +374,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     // 处理 SDL 事件
     SDL_Event event;
     bool has_event = false;
+    bool mouse_down_event = false;
+    bool mouse_up_event = false;
     int32_t sdl_x = 0, sdl_y = 0;
     
     while (SDL_PollEvent(&event)) {
@@ -358,6 +386,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_MOUSEBUTTONDOWN) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 input_data.left_button_down = true;
+                mouse_down_event = true;
                 sdl_x = event.button.x;
                 sdl_y = event.button.y;
                 has_event = true;
@@ -365,6 +394,7 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_MOUSEBUTTONUP) {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 input_data.left_button_down = false;
+                mouse_up_event = true;
                 sdl_x = event.button.x;
                 sdl_y = event.button.y;
                 has_event = true;
@@ -383,8 +413,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     if (has_event) {
         // 获取 SDL 窗口的实际大小（逻辑大小，考虑高 DPI 缩放）
         int window_w = 0, window_h = 0;
-        if (display_data->window != NULL) {
-            SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+        if (window != NULL) {
+            SDL_GetWindowSize(window, &window_w, &window_h);
         }
         
         // 如果无法获取窗口大小，使用显示驱动的存储值
@@ -421,6 +451,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
     data->point.x = input_data.last_x;
     data->point.y = input_data.last_y;
     data->state = input_data.left_button_down ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    airui_sdl_notify_touch_state(ctx, input_data.left_button_down, mouse_down_event, mouse_up_event,
+                                 data->point.x, data->point.y);
     
     return has_event;
 }
@@ -472,11 +504,21 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         uint16_t width;
         uint16_t height;
         lv_color_format_t color_format;
+        uint8_t reuse_lcd;
+        luat_lcd_conf_t *lcd_conf;
     } sdl_display_data_t;
 
     // 获取 display_data 指针并判空
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
-    if (display_data == NULL || display_data->window == NULL) {
+    if (display_data == NULL) {
+        return;
+    }
+
+    SDL_Window *window = display_data->window;
+    if (window == NULL && display_data->reuse_lcd) {
+        window = (SDL_Window *)luat_sdl2_get_window();
+    }
+    if (window == NULL) {
         return;
     }
 
@@ -495,8 +537,8 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     // 获取窗口实际像素尺寸（窗口可缩放情况下）
     int window_w = display_data->width;
     int window_h = display_data->height;
-    if (display_data->window != NULL) {
-        SDL_GetWindowSize(display_data->window, &window_w, &window_h);
+    if (window != NULL) {
+        SDL_GetWindowSize(window, &window_w, &window_h);
     }
 
     // 按实际窗口尺寸缩放 LVGL 坐标

@@ -1,10 +1,13 @@
 --[[
 @module  video_http_post
 @summary 多摄像头轮切视频录制上传功能模块
-@version 1.0
+@version 1.1
 @date    2026.01.15
 @author  王城钧
 @usage
+V1.1：
+更新TF/SD卡挂载方式，使用SPI挂载
+V1.0：
 本文件为多摄像头轮切视频录制上传功能模块，核心业务逻辑为：
 1. USB 摄像头初始化、帧率配置与视频采集
 2. 多摄像头轮切录制视频
@@ -24,21 +27,33 @@ local usb_port_num = 4
 
 -- TF卡挂载函数
 local function mount_tf_card()
-    -- gpio13为8101 TF卡的供电控制引脚，在挂载前需要设置为高电平
-    gpio.setup(13, 1, gpio.PULLUP)
-
-    local ret = fatfs.mount(fatfs.SDIO, "/sd")
-    if ret then
-        log.info("TF卡挂载成功")
-        -- 检查空间
-        local free_info = fatfs.getfree("/sd")
-        if free_info then
-            log.info("剩余空间:", free_info.free_kb / 1024, "MB")
-        end
-        return true
+    -- 供电控制 (Air8101专用)
+    --gpio13为8101TF卡的供电控制引脚，在挂载前需要设置为高电平，不能省略
+    gpio.setup(13, 1)
+    
+    -- 在Air8101核心板上TF卡的的pin_cs为gpio3，spi_id为1.请根据实际硬件修改
+    local spi_id, pin_cs = 1, 3
+    spi.setup(spi_id, nil, 0, 0, 400 * 1000)
+    --初始化后拉高pin_cs,准备开始挂载TF卡
+    gpio.setup(pin_cs, 1)
+    -- ########## 开始进行tf卡挂载 ##########
+    local mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
+    if mount_ok then
+        log.info("fatfs.mount", "挂载成功", mount_err)
+        log.info("FOTA_FILE", "=== 开始文件系统升级 ===")
     else
-        log.error("TF卡挂载失败")
-        return false
+        log.error("fatfs.mount", "挂载失败", mount_err)
+        log.error("FOTA_FILE", "SD卡挂载失败，无法进行文件系统升级")
+    end
+
+    -- ########## 获取SD卡的可用空间信息并打印。 ########## 
+    local data, err = fatfs.getfree("/sd")
+    if data then
+        --打印SD卡的可用空间信息
+        log.info("fatfs", "getfree", json.encode(data))
+    else
+        --打印错误信息
+        log.info("fatfs", "getfree", "err", err)
     end
 end
 

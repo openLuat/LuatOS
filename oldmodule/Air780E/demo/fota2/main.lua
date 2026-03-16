@@ -2,7 +2,7 @@
 PROJECT = "fotademo"
 -- iot限制，只能上传xxx.yyy.zzz格式的三位数的版本号，但实际上现在只用了XXX和ZZZ,中间yyy暂未使用
 -- 需要注意的是,因为yyy不生效，所以111.222.333版本和111.444.333版本，对iot平台来说都一样，所以建议中间那一位永远写000
-VERSION = "001.000.000"
+VERSION = "001.999.000"
 
 -- 使用合宙iot平台时需要这个参数
 PRODUCT_KEY = "123" -- 到 iot.openluat.com 创建项目,获取正确的项目id

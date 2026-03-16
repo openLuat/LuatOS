@@ -53,6 +53,7 @@ extern void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int error_code
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 static int32_t luat_lib_http_callback(void *data, void *param);
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl);
+static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl);
 
 int strncasecmp(const char *string1, const char *string2, size_t count);
 
@@ -98,6 +99,15 @@ static void http_close_clean(luat_http_ctrl_t *http_ctrl) {
 
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGI("http close %p", http_ctrl);
+	if (http_ctrl == NULL) {
+		// LLOGE("http_ctrl is NULL");
+		return -1;
+	}
+	http_ctrl = luat_http_idg_get(http_ctrl->idg);
+	if (http_ctrl == NULL) {
+		// LLOGE("http_ctrl is NULL after idg get");
+		return -1;
+	}
 	luat_http_idg_unreg(http_ctrl->idg);
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
@@ -455,6 +465,8 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	if (!(parser->flags & F_CHUNKED) && http_ctrl->resp_content_len >= 0 && http_ctrl->body_len >= http_ctrl->resp_content_len) {
 		http_ctrl->http_body_is_finally = 1;
 		LLOGD("http body recv done, total_len=%ld", http_ctrl->body_len);
+		// 对端可能不会按 Connection: close 主动断开，此处在确认 body 完整时主动结束
+		http_try_finish_if_body_complete(http_ctrl);
 	}
     return 0;
 }
@@ -522,6 +534,8 @@ static int on_message_complete(http_parser* parser){
 			}
 		}
 	}
+	// 无论是否 chunked，只要 body 已经完整，就尝试主动结束本次 HTTP
+	http_try_finish_if_body_complete(http_ctrl);
 	return 0;
 }
 
@@ -694,6 +708,40 @@ LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
 	}
 }
 
+// 在确认 HTTP body 已经完整的前提下，主动结束本次 HTTP 事务，
+// 调用 on_complete 和 http_report_result，并由客户端主动关闭连接，
+// 避免依赖服务器按 Connection: close 主动断开
+static void http_try_finish_if_body_complete(luat_http_ctrl_t *http_ctrl) {
+	if (!http_ctrl) return;
+	if (!http_ctrl->luatos_mode) return;
+	if (!http_ctrl->headers_complete) return;
+	if (!http_ctrl->http_body_is_finally) return;
+	if (http_ctrl->tcp_closed) return;
+
+	LLOGD("http_try_finish_if_body_complete status_code %d", http_ctrl->parser.status_code);
+
+	// 先执行 on_complete 完成下载/FOTA 等资源收尾
+	int ret = on_complete(&http_ctrl->parser, http_ctrl);
+	if (ret) {
+		// 保持与 on_tcp_closed 一致：出错时直接返回，由其它路径处理
+		return;
+	}
+	if (http_ctrl->error_code == -5) {
+		http_ctrl->error_code = HTTP_OK;
+	}
+
+	// 主动关闭底层 socket，不再依赖服务器关闭
+	network_close(http_ctrl->netc, 0);
+	network_force_close_socket(http_ctrl->netc);
+
+	// 标记 HTTP 事务逻辑结束
+	http_ctrl->tcp_closed = 1;
+
+	// 复用 http_report_result 上报结果。
+	// 此时 tcp_closed=1，http_report_result 不会再尝试重连，只会走 error: 分支，
+	http_report_result(http_ctrl, HTTP_OK);
+}
+
 static void on_tcp_closed(luat_http_ctrl_t *http_ctrl) {
 	LLOGD("on_tcp_closed %p body is done %d header is complete %d", http_ctrl, http_ctrl->http_body_is_finally, http_ctrl->headers_complete);
 	int ret = 0;
@@ -749,13 +797,13 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	uint32_t idg = (uint32_t)(intptr_t)param;
 	luat_http_ctrl_t *http_ctrl = luat_http_idg_get(idg);
 	if (!http_ctrl) {
-		LLOGE("http_ctrl is NULL for idg %d", idg);
+		// LLOGE("http_ctrl is NULL for idg %d", idg);
 		return -1;
 	}
 	int ret = 0;
 	LLOGD("nw cb %08X %d %p", event->ID - EV_NW_RESULT_BASE, event->Param1, http_ctrl);
 	if (http_ctrl == NULL || http_ctrl->netc == NULL){
-		LLOGE("http_ctrl is NULL");
+		// LLOGE("http_ctrl is NULL");
 		return -1;
 	}
 	if (!http_ctrl->luatos_mode) {
@@ -962,6 +1010,12 @@ int32_t luat_lib_http_callback(void *data, void *param){
     }
 
 next_wait:
+	// luatos 模式下 HTTP 是完全事件驱动的，不需要在这里阻塞等待下一次事件，
+	// 否则在已经关闭 socket 的情况下可能导致 network_wait_event 返回错误。
+	if (http_ctrl->luatos_mode) {
+		LLOGD("luatos mode skip wait_event, state %d closed %d", http_ctrl->state, http_ctrl->tcp_closed);
+		return 0;
+	}
 
     ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){

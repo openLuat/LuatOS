@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui_component.h"
+#include "lvgl9/src/draw/lv_draw_image.h"
 #include "lvgl9/src/widgets/image/lv_image.h"
 #include "lvgl9/src/core/lv_obj.h"
 #include "lua.h"
@@ -25,6 +26,7 @@ typedef enum {
 } airui_image_type_t;
 
 static airui_image_type_t airui_image_get_type(const char *src);
+static airui_image_type_t airui_image_get_obj_type(lv_obj_t *img);
 
 /**
  * 从配置表创建 Image 组件
@@ -87,7 +89,11 @@ lv_obj_t *airui_image_create_from_config(void *L, int idx)
     // 读取 rotation（旋转角度，900 = 90.0°）
     int rotation = airui_marshal_integer(L, idx, "rotation", 0);
     if (rotation != 0) {
-        lv_image_set_rotation(img, rotation);
+        if (img_type != AIRUI_IMAGE_TYPE_JPG) {
+            lv_image_set_rotation(img, rotation);
+        } else {
+            LLOGW("JPG 图片不支持旋转设置, 已忽略 rotation=%d", rotation);
+        }
     }
     
     // 读取 zoom（缩放比例，256 = 100%）
@@ -156,6 +162,11 @@ int airui_image_set_rotation(lv_obj_t *img, int rotation)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
+    if (airui_image_get_obj_type(img) == AIRUI_IMAGE_TYPE_JPG) {
+        LLOGW("JPG 图片不支持旋转设置, 已忽略 rotation=%d", rotation);
+        return AIRUI_OK;
+    }
+
     lv_image_set_rotation(img, rotation);
     return AIRUI_OK;
 }
@@ -204,4 +215,20 @@ static airui_image_type_t airui_image_get_type(const char *src)
     if (strcmp(dot, ".jpeg") == 0) return AIRUI_IMAGE_TYPE_JPG;
     if (strcmp(dot, ".png") == 0) return AIRUI_IMAGE_TYPE_PNG;
     return AIRUI_IMAGE_TYPE_UNKNOWN;
+}
+
+static airui_image_type_t airui_image_get_obj_type(lv_obj_t *img)
+{
+    const void *src;
+
+    if (img == NULL) {
+        return AIRUI_IMAGE_TYPE_UNKNOWN;
+    }
+
+    src = lv_image_get_src(img);
+    if (lv_image_src_get_type(src) != LV_IMAGE_SRC_FILE) {
+        return AIRUI_IMAGE_TYPE_UNKNOWN;
+    }
+
+    return airui_image_get_type((const char *)src);
 }

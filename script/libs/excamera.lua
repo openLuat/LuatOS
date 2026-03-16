@@ -16,6 +16,8 @@
         按照实际使用的摄像头类型填写配置表 - 创建摄像头excamera.open() - 拍照excamera.photo() - 关闭摄像头 excamera.close()的逻辑使用
     2、扫描模式：当前USB和DVP摄像头不支持扫描模式，仅SPI摄像头可使用
         按照实际使用的摄像头类型填写配置表 - 创建摄像头excamera.open() - 扫描excamera.scan() - 关闭摄像头 excamera.close()的逻辑使用
+    3、RTMP推流模式：使用USB摄像头进行RTMP推流
+        按照实际使用的摄像头类型填写配置表 - 创建摄像头excamera.open() - 推流excamera.rtmp() - 关闭摄像头 excamera.close()的逻辑使用
 
 local excamera = require "excamera"
 
@@ -44,6 +46,20 @@ local dvp_camera_param = {
     save_path = "/ram/test.jpg"
 }
 
+local usb_camera_rtmp_param = {
+    id = camera.USB, -- 摄像头类型，默认camera.USB
+    sensor_width = 1280, -- 摄像头像素宽度，根据摄像头实际参数填写数值
+    sensor_height = 720, -- 摄像头像素高度，根据摄像头实际参数填写数值
+    usb_port = 1, -- USB端口号
+    fps = 15, -- 帧率，每秒15帧
+    h264_qp_init = 40, -- H.264编码的初始量化参数
+    h264_qp_i_max = 40, -- H.264编码的I帧最大量化参数
+    h264_qp_p_max = 25, -- H.264编码的P帧最大量化参数
+    h264_imb_bits = 8, -- I帧比特率控制参数
+    h264_pmb_bits = 4, -- P帧比特率控制参数
+    h264_pframe_nums = 29 -- 每29个P帧插入一个I帧
+}
+
 sys.taskInit(function()
     local camera_id
     while true do
@@ -55,16 +71,19 @@ sys.taskInit(function()
         excamera.close()
     end
 end)
+
 sys.run()
 ]] --
 local excamera = {}
 local h, w
 local camera_id, path, camera_buff, camera_i2c, data, result
 local cam_pwr, cam_pwdn, cam_light
+local cam_pwr_wifi, cam_pwdn_wifi, cam_light_wifi = false, false, false
+local camera_started
 
 -- 设备打开函数：初始化指定类型的摄像头设备
 -- 参数：camera_param - 摄像头配置参数表，包含id、i2c_id、work_mode等配置
--- 返回值：成功返回camera_id，失败返回false
+-- 返回值：成功返回true，失败返回false
 -- 支持SPI摄像、USB摄像头、DVP摄像头使用
 -- 自动处理异步回调函数，将摄像头业务流程改为同步流程
 -- 支持ZBUFF处理照片，支持文件路径处理照片
@@ -73,20 +92,29 @@ function excamera.open(camera_param)
     if type(camera_param.id) == "string" then
         -- 判断是否需要管理供电使能
         if type(camera_param.camera_pwr) == "number" then
-            -- WiFi芯片端GPIO号都是大于等于100的
-            -- 在休眠模式之前配置GPIO电平后，若不加上/下拉，在进入休眠后会掉电
-            -- 4G芯片端GPIO号没有这个强制要求
+            -- WIFI芯片与4G芯片之间通讯是有延迟的，所以使用WIFI端GPIO时需要增加不少于5毫秒的延时，确保GPIO的配置发送到WIFI芯片并且执行生效；
+            -- 摄像头这种复杂应用请使用单芯片的GPIO操作，不要使用双芯片的GPIO操作，否则会有时序问题导致摄像头无法正常工作。
+            -- 将供电管脚是否WIFI芯片控制标签设为true，方便后续动作在使用WIFI端GPIO时需要增加延时；
             if camera_param.camera_pwr >= 100 then
                 cam_pwr = gpio.setup(camera_param.camera_pwr, 1, gpio.PULLUP)
+                cam_pwr_wifi = true
+                sys.wait(10)
             else
                 cam_pwr = gpio.setup(camera_param.camera_pwr, 1)
             end
         end
         -- 判断是否需要管理摄像头pwdn开关
         if type(camera_param.camera_pwdn) == "number" then
-            cam_pwdn = gpio.setup(camera_param.camera_pwdn, 0)
-            -- Air8000系列含WIFI功能的产品中需要增加这个等待，因为4G和WIFI芯片之间通讯有延迟，配置GPIO和设置I2C之间需要隔开最少5mS，否则I2C配置会报错。
-            sys.wait(10)
+            -- WIFI芯片与4G芯片之间通讯是有延迟的，所以使用WIFI端GPIO时需要增加不少于5毫秒的延时，确保GPIO的配置发送到WIFI芯片并且执行生效；
+            -- 摄像头这种复杂应用请使用单芯片的GPIO操作，不要使用双芯片的GPIO操作，否则会有时序问题导致摄像头无法正常工作。
+            -- 将摄像头开关管脚是否WIFI芯片控制标签设为true，方便后续动作在使用WIFI端GPIO时需要增加延时；
+            if camera_param.camera_pwdn >= 100 then
+                cam_pwdn = gpio.setup(camera_param.camera_pwdn, 0)
+                cam_pwdn_wifi = true
+                sys.wait(10)
+            else
+                cam_pwr = gpio.setup(camera_param.camera_pwdn, 0)
+            end
         end
         -- 配置I2C接口，用于与摄像头通信
         if i2c.setup(camera_param.i2c_id, i2c.FAST) then
@@ -129,6 +157,28 @@ function excamera.open(camera_param)
         end
         camera_id = camera_param.id
 
+        -- 配置摄像头参数（H264编码相关）
+        if camera_param.fps then
+            camera.config(0, camera.CONF_UVC_FPS, camera_param.fps or 15)
+        end
+        if camera_param.h264_qp_init then
+            camera.config(0, camera.CONF_H264_QP_INIT, camera_param.h264_qp_init or 40)
+        end
+        if camera_param.h264_qp_i_max then
+            camera.config(0, camera.CONF_H264_QP_I_MAX, camera_param.h264_qp_i_max or 40)
+        end
+        if camera_param.h264_qp_p_max then
+            camera.config(0, camera.CONF_H264_QP_P_MAX, camera_param.h264_qp_p_max or 25)
+        end
+        if camera_param.h264_imb_bits then
+            camera.config(0, camera.CONF_H264_IMB_BITS, camera_param.h264_imb_bits or 8)
+        end
+        if camera_param.h264_pmb_bits then
+            camera.config(0, camera.CONF_H264_PMB_BITS, camera_param.h264_pmb_bits or 4)
+        end
+        if camera_param.h264_pframe_nums then
+            camera.config(0, camera.CONF_H264_PFRAME_NUMS, camera_param.h264_pframe_nums or 29)
+        end
     end
 
     -- 注册摄像头事件回调处理
@@ -163,7 +213,6 @@ function excamera.open(camera_param)
                 h, w = camera_param.sensor_height, camera_param.sensor_width
             end
 
-
             -- 创建ZBUFF内存缓冲区，用于存储图像数据
             -- 参数1: 缓冲区大小（宽*高*2，2字节/像素）
             -- 参数2: 对齐方式
@@ -183,7 +232,16 @@ function excamera.open(camera_param)
     end
     -- 判断是否需要管理摄像头补光灯
     if type(camera_param.camera_light) == "number" then
-        cam_light = gpio.setup(camera_param.camera_light, 0)
+        -- WIFI芯片与4G芯片之间通讯是有延迟的，所以使用WIFI端GPIO时需要增加不少于5毫秒的延时，确保GPIO的配置发送到WIFI芯片并且执行生效；
+        -- 摄像头这种复杂应用请使用单芯片的GPIO操作，不要使用双芯片的GPIO操作，否则会有时序问题导致摄像头无法正常工作。
+        -- 将补光灯管脚是否WIFI芯片控制标签设为true，方便后续动作在使用WIFI端GPIO时需要增加延时；
+        if camera_param.camera_light >= 100 then
+            cam_light = gpio.setup(camera_param.camera_light, 0)
+            cam_light_wifi = true
+            sys.wait(10)
+        else
+            cam_light = gpio.setup(camera_param.camera_light, 0)
+        end
     end
     -- 返回初始化动作结果
     return true
@@ -206,6 +264,10 @@ function excamera.photo(x, y, w, h)
     end
     -- 保护执行打开补光灯，如果上面没有配置补光灯，该函数也不会报错
     pcall(cam_light, 1)
+    -- 如果补光灯是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_light_wifi then
+        sys.wait(10)
+    end
     log.info("照片存储路径", path)
     -- 执行拍照操作，保存到指定路径
     if camera.capture(camera_id, path, 1, x, y, w, h) then
@@ -213,6 +275,10 @@ function excamera.photo(x, y, w, h)
         result = sys.waitUntil("CAPTURE_DONE", 5000)
         -- 保护执行关闭补光灯，如果上面没有配置补光灯，该函数也不会报错
         pcall(cam_light, 0)
+        -- 如果补光灯是WIFI芯片控制，需要增加延时确保GPIO配置生效
+        if cam_light_wifi then
+            sys.wait(10)
+        end
         -- 停止摄像头采集，释放内存空间
         camera.stop(camera_id)
         if result then
@@ -226,6 +292,10 @@ function excamera.photo(x, y, w, h)
     else
         -- 保护执行关闭补光灯，如果上面没有配置补光灯，该函数也不会报错
         pcall(cam_light, 0)
+        -- 如果补光灯是WIFI芯片控制，需要增加延时确保GPIO配置生效
+        if cam_light_wifi then
+            sys.wait(10)
+        end
         -- 停止摄像头采集，释放内存空间
         camera.stop(camera_id)
         -- 拍照操作失败
@@ -249,12 +319,20 @@ function excamera.scan(ms)
     camera.start(camera_id)
     -- 保护执行打开补光灯，如果上面没有配置补光灯，该函数也不会报错
     pcall(cam_light, 1)
+    -- 如果补光灯是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_light_wifi then
+        sys.wait(10)
+    end
     -- 等待SCAN_DONE事件，超时时间根据用户配置
     result, data = sys.waitUntil("SCAN_DONE", ms)
     -- 停止摄像头采集，释放内存空间
     camera.stop(camera_id)
     -- 保护执行关闭补光灯，如果上面没有配置补光灯，该函数也不会报错
     pcall(cam_light, 0)
+    -- 如果补光灯是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_light_wifi then
+        sys.wait(10)
+    end
     if result then
         log.info("扫描完成，扫描结果为：", data)
     else
@@ -272,12 +350,11 @@ end
 -- 返回值：成功返回(true, 保存路径)，失败返回false
 -- 注意：在使用此函数前，需要先使用excamera.open配置摄像头
 function excamera.video(file_path, duration)
-
     if not file_path or not duration then
         log.error("excamera.video", "参数配置错误")
         return false
     end
-    
+
     if not camera_id then
         log.error("excamera.video", "摄像头未初始化")
         return false
@@ -288,21 +365,21 @@ function excamera.video(file_path, duration)
     -- 打印内存信息
     log.info("excamera.video", "lua内存:", rtos.meminfo())
     log.info("excamera.video", "sys内存:", rtos.meminfo("sys"))
-    
+
     -- 1. 启动摄像头
     if camera.start(camera_id) then
         -- 2. 开始MP4录制
         if camera.capture(camera_id, file_path) then
             -- 3. 等待录制时长
             sys.wait(duration)
-            
+
             -- 4. 停止录制
             camera.stop(camera_id)
-            
+
             -- 再次打印内存信息
             log.info("excamera.video", "lua内存:", rtos.meminfo())
             log.info("excamera.video", "sys内存:", rtos.meminfo("sys"))
-            
+
             log.info("excamera.video", "视频录制完成", file_path)
             return true, file_path
         else
@@ -317,10 +394,37 @@ function excamera.video(file_path, duration)
     end
 end
 
+--[[
+RTMP推流功能
+@return 成功返回true，失败返回false
+--]]
+function excamera.rtmp()
+    if not camera_id then
+        log.error("excamera.rtmp", "摄像头未初始化")
+        return false
+    end
+
+    if camera.start(camera_id) then
+        log.info("excamera.rtmp", "摄像头启动成功")
+        camera_started = true
+        return true
+    else
+        log.error("excamera.rtmp", "无法启动摄像头")
+        return false
+    end
+end
+
 -- 关闭函数：释放摄像头资源
 -- 参数：camera_id - 摄像头ID
 function excamera.close(remain_zbuff)
     if camera_id then
+        -- 如果启动摄像头之后，还没有stop，则此处stop
+        -- 目前在rtmp场景下需要
+        if camera_started then
+            camera_started = false
+            camera.stop(camera_id)
+        end
+
         -- 关闭摄像头，释放摄像头硬件资源
         camera.close(camera_id)
     end
@@ -331,8 +435,16 @@ function excamera.close(remain_zbuff)
     end
     -- 保护执行摄像头使能关闭，如果上面没有配置摄像头使能管脚，该函数也不会报错
     pcall(cam_pwr, 0)
+    -- 如果供电管脚是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_pwr_wifi then
+        sys.wait(10)
+    end
     -- 保护执行摄像头开关关闭，如果上面没有配置摄像头开关管脚，该函数也不会报错
     pcall(cam_pwdn, 1)
+    -- 如果摄像头开关管脚是WIFI芯片控制，需要增加延时确保GPIO配置生效
+    if cam_pwdn_wifi then
+        sys.wait(10)
+    end
     -- 如果使用了内存缓冲区，释放相关资源
     if type(path) == "userdata" and not remain_zbuff then
         -- 置空缓冲区引用，便于垃圾回收
@@ -342,7 +454,8 @@ function excamera.close(remain_zbuff)
         -- 记录当前系统剩余内存情况
         log.info("剩余内存", rtos.meminfo("sys"))
     end
-    camera_id = nil
+    cam_pwr_wifi, cam_pwdn_wifi , cam_light_wifi , camera_id = nil, nil, nil, nil
 end
 
 return excamera
+

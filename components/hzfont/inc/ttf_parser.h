@@ -13,6 +13,24 @@
 #define TTF_ERR_RANGE -4
 #define TTF_ERR_OOM -5
 
+/* TTF_FIXEDPT_RASTERIZE — 定点栅格化模式
+ *
+ * 在没有 FPU（浮点运算单元）的单片机（如 Cortex-M0/M0+/M3 等）上，
+ * 软件浮点模拟开销极大，导致 TTF 渲染非常缓慢。定义此宏后，
+ * ttf_rasterize_glyph() 中的所有几何运算（坐标变换、贝塞尔细分）
+ * 全部替换为 Q16/Q8 整数运算，并直接生成 FixedSegmentList，
+ * 跳过浮点 SegmentList 中间缓冲和 float→fixed 转换步骤。
+ *
+ * 启用方式（三选一）：
+ *   1. 构建系统：在编译器标志中加入  -DTTF_FIXEDPT_RASTERIZE
+ *   2. BSP 配置：在 luat_conf_bsp.h 中加入  #define TTF_FIXEDPT_RASTERIZE
+ *   3. 本文件：取消下一行的注释
+ *
+ * 注意：bitmap->scale 字段仍为 float，函数末尾会做一次 Q16→float 转换，
+ * 代价极低（单次乘法），对整体性能无影响。
+ */
+/* #define TTF_FIXEDPT_RASTERIZE */
+
 #define TTF_DATA_SOURCE_MEMORY      0
 #define TTF_DATA_SOURCE_FILE        1
 #define TTF_DATA_SOURCE_PSRAM_CHAIN 2
@@ -88,10 +106,11 @@ void ttf_unload(TtfFont *font);
 int ttf_set_debug(int enable);
 // 查询当前调试设置
 int ttf_get_debug(void);
-// 读取当前超采样率
+/* 运行时抗锯齿模式：1=扫描线边界2x2AA, 2=扫描线边界3x3AA, 3=扫描线边界4x4AA */
+// 读取当前超采样率/AA模式
 int ttf_get_supersample_rate(void);
-/* 运行时设置超采样率：仅允许 1(无AA)、2(2x2)、4(4x4)，非法值将被修正到最近的允许值 */
-// 设定超采样等级（会修正为 1/2/4）
+/* 运行时设置超采样率：仅允许 1/2/3，非法值将被修正到最近的允许值 */
+// 设定超采样等级（会修正为 1/2/3）
 int ttf_set_supersample_rate(int rate);
 
 // 根据码点查询 glyph 索引

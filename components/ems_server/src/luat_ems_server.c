@@ -286,7 +286,7 @@ void luat_ems_server_write_config(uint8_t config_type, void* value)
         case EMS_SERVER_KEY: {
             cJSON* item = cJSON_GetObjectItem(root, "key");
             if (item) {
-                cJSON_SetStringValue(item, (const char*)value);
+                cJSON_SetValuestring(item, (const char*)value);
             } else {
                 cJSON_AddStringToObject(root, "key", (const char*)value);
             }

@@ -1,8 +1,8 @@
 --[[
 @module  lora2_sender
 @summary lora数据发送应用功能模块
-@version 1.0
-@date    2025.11.24
+@version 1.1
+@date    2026.3.10
 @author  王世豪
 @usage
 本文件为lora数据发送应用功能模块，核心业务逻辑为：

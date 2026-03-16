@@ -646,7 +646,6 @@ static void lv_ime_pinyin_kb_event(lv_event_t * e)
 
         if(lv_strcmp(txt, "Enter") == 0 || lv_strcmp(txt, LV_SYMBOL_NEW_LINE) == 0) {
             pinyin_ime_clear_data(obj);
-            lv_obj_add_flag(pinyin_ime->cand_panel, LV_OBJ_FLAG_HIDDEN);
         }
         else if(lv_strcmp(txt, LV_SYMBOL_BACKSPACE) == 0) {
             // del input char
@@ -661,7 +660,6 @@ static void lv_ime_pinyin_kb_event(lv_event_t * e)
                 pinyin_ime->ta_count--;
                 if(pinyin_ime->ta_count <= 0) {
                     pinyin_ime_clear_data(obj);
-                    lv_obj_add_flag(pinyin_ime->cand_panel, LV_OBJ_FLAG_HIDDEN);
                 }
                 else if(pinyin_ime->mode == LV_IME_PINYIN_MODE_K26) {
                     pinyin_input_proc(obj);
@@ -690,7 +688,6 @@ static void lv_ime_pinyin_kb_event(lv_event_t * e)
             lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
             lv_ime_pinyin_set_mode(obj, LV_IME_PINYIN_MODE_K9_NUMBER);
             lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_NUMBER);
-            lv_obj_add_flag(pinyin_ime->cand_panel, LV_OBJ_FLAG_HIDDEN);
         }
         else if(lv_strcmp(txt, LV_SYMBOL_KEYBOARD) == 0) {
             if(pinyin_ime->mode == LV_IME_PINYIN_MODE_K26) {
@@ -958,7 +955,7 @@ static void pinyin_ime_clear_data(lv_obj_t * obj)
     }
     lv_memzero(pinyin_ime->input_char, sizeof(pinyin_ime->input_char));
 
-    lv_obj_add_flag(pinyin_ime->cand_panel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_invalidate(pinyin_ime->cand_panel);
 }
 
 #if LV_IME_PINYIN_USE_K9_MODE

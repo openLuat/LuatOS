@@ -176,12 +176,24 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 		{
 			memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, rx_data, rx_len);
 			g_s_record.record_buffer[g_s_record.record_buffer_index]->used += rx_len;
-			if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
+			// LLOGD("record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
+            //     g_s_record.record_buffer, 
+            //     g_s_record.record_buffer_index, 
+            //     g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, 
+            //     g_s_record.record_buffer[g_s_record.record_buffer_index]->used, 
+            //     rx_len);
+            if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
 			{
 				record_buffer_full();
+                // LLOGD("record_cb record_time:%d ", g_s_record.record_time);
 				if (g_s_record.record_time)
 				{
 					g_s_record.record_time_tmp++;
+                    // LLOGD("record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
+                    //     g_s_record.record_time_tmp, 
+                    //     g_s_record.record_time_data_ratio, 
+                    //     g_s_record.record_time_tmp * g_s_record.record_time_data_ratio, 
+                    //     g_s_record.record_time * 10);
 					if ((g_s_record.record_time_tmp * g_s_record.record_time_data_ratio) >= (g_s_record.record_time * 10) )
 					{
 						g_s_record.wait_stop = 1;
@@ -277,7 +289,7 @@ static void record_start(uint8_t *data, uint32_t len){
         		break;
         	}
     	}
-    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_no_i2s_cb, &g_s_record);
+    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_cb, &g_s_record);
     	luat_audio_record_and_play(g_s_record.multimedia_id, sample_rate, NULL, 3200, 2);
     }
 

@@ -17,12 +17,11 @@
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后，使用wlan.getMac().."/timer/up"主题，发送给server；
 4、每一路mqtt连接，client收到server数据后，将数据增加recv from mqtt/mqtt ssl/mqtt ssl ca/mqtt ssl mutual ca（四选一）server: 前缀后，通过uart1发送出去；
 5、启动一个网络业务逻辑看门狗task，用来监控网络环境，如果连续长时间工作不正常，重启整个软件系统；
-6、netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
-   (1) netdrv_4g：通过SPI外挂4G模组的4G网卡
-   (2) netdrv_wifi：WIFI STA网卡
-   (3) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
-   (4) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (5) netdrv_multiple：支持以上(2)、(3)、(4)三种网卡，可以配置三种网卡的优先级
+6、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+   (1)netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
+   (2)netdrv_eth_spi：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
+   (3)netdrv_4g：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
+   (4)netdrv_multi_network：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 
 更多说明参考本目录下的readme.md文件
 ]]

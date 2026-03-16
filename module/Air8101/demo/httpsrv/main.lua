@@ -8,11 +8,10 @@
 本demo演示的核心功能为：
 HTTP服务器应用功能，通过加载httpsrv_start模块来启动和配置HTTP服务器，处理HTTP请求和响应。
 
-netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（四选一）
    (1) netdrv_4g：4G网卡
    (2) netdrv_wifi：WIFI STA网卡
    (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_eth_rmii：通过MAC层的RMII接口外挂PHY芯片（LAN8720Ai）的以太网卡驱动，支持AirPHY_1000配件板，实现稳定的有线网络连接；
 
 更多说明参考本目录下的readme.md文件
 ]]

@@ -2,7 +2,7 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单wifi ap网卡，单wifi sta网卡，单spi以太网卡，单rmii以太网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的三种网卡(单wifi ap网卡，单wifi sta网卡，单spi以太网卡)中的任何一种网卡；
 
 3、tcp文件夹：tcp server以及数据收发处理逻辑；
 
@@ -44,15 +44,13 @@
 
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给client；
 
-3、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+3、netdrv_device：配置连接外网使用的网卡，目前支持以下三种选择（三选一）
 
    (1) netdrv_wifi_ap：WIFI AP网卡
 
    (2) netdrv_wifi_sta：WIFI STA网卡
 
-   (3) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
-
-   (4) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
+   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
 
 ## 演示硬件环境
 
@@ -74,24 +72,7 @@
 
 - USB转串口数据线，一般来说，白线连接核心板的12/U1TX，绿线连接核心板的11/U1RX，黑线连接核心板的gnd，另外一端连接电脑USB口；
 
-5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirPHY_1000配件板  |
-| ------------ | ------------------ |
-|    59/3V3    |         3.3v       |
-|     gnd      |         gnd        |
-|     5/D2     |         RX1        |
-|    72/D1     |         RX0        |
-|    71/D3     |         CRS        |
-|     4/D0     |         MDIO       |
-|     6/D4     |         TX0        |
-|    74/PCK    |         MDC        |
-|    70/D5     |         TX1        |
-|     7/D6     |         TXEN       |
-|     不接     |          NC        |
-|    69/D7     |         CLK        |
-
-6、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
+5、可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
 | Air8101核心板   |  AirETH_1000配件板 |
 | --------------- | ----------------- |
@@ -121,8 +102,6 @@
 - 如果需要单WIFI AP网卡，打开require "netdrv_wifi_ap"，其余注释掉；同时netdrv_wifi_ap.lua中的wlan.createAP("LuatOS" .. mobile.imei(), "12345678")，表示创建wifi的名称和密码，根据自己需求改动即可；
 
 - 如果需要单WIFI STA网卡，打开require "netdrv_wifi_sta"，其余注释掉；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-- 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
 
 - 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 

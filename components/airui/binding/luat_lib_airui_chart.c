@@ -13,6 +13,7 @@
 #include "../inc/luat_airui.h"
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
+#include "lvgl9/src/widgets/chart/lv_chart.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -107,6 +108,18 @@ static lv_chart_type_t airui_chart_parse_type(lua_State *L, int idx)
     return LV_CHART_TYPE_LINE;
 }
 
+
+static int32_t airui_chart_lua_value_to_point(lua_State *L, int idx)
+{
+    if (lua_isnoneornil(L, idx)) {
+        return LV_CHART_POINT_NONE;
+    }
+    if (lua_type(L, idx) == LUA_TNUMBER) {
+        return (int32_t)lua_tointeger(L, idx);
+    }
+    return LV_CHART_POINT_NONE;
+}
+
 static int32_t *airui_chart_values_from_table(lua_State *L, int table_idx, size_t *out_len)
 {
     size_t len = lua_rawlen(L, table_idx);
@@ -124,7 +137,7 @@ static int32_t *airui_chart_values_from_table(lua_State *L, int table_idx, size_
 
     for (size_t i = 0; i < len; i++) {
         lua_rawgeti(L, table_idx, (lua_Integer)(i + 1));
-        values[i] = lua_type(L, -1) == LUA_TNUMBER ? (int32_t)lua_tointeger(L, -1) : 0;
+        values[i] = airui_chart_lua_value_to_point(L, -1);
         lua_pop(L, 1);
     }
     return values;
@@ -134,7 +147,7 @@ static int32_t *airui_chart_values_from_table(lua_State *L, int table_idx, size_
  * Chart:set_values(series_id, values)
  * @api chart:set_values(series_id, values)
  * @int series_id 曲线编号（从 1 开始）
- * @table values 数值数组
+ * @table values 数值数组，nil 项会显示为空点
  * @return nil
  */
 static int l_chart_set_values(lua_State *L)
@@ -149,8 +162,8 @@ static int l_chart_set_values(lua_State *L)
     size_t len = 0;
     int32_t *values = airui_chart_values_from_table(L, 3, &len);
     if (len == 0) {
-        int32_t zero = 0;
-        airui_chart_set_series_values(chart, (uint32_t)(id - 1), &zero, 1);
+        int32_t empty = LV_CHART_POINT_NONE;
+        airui_chart_set_series_values(chart, (uint32_t)(id - 1), &empty, 1);
         return 0;
     }
     if (values == NULL) {
@@ -245,13 +258,13 @@ static int l_chart_set_series_name(lua_State *L)
 /**
  * Chart:clear(value)
  * @api chart:clear(value)
- * @int value 可选，默认 0
+ * @int value 可选，默认清为空点
  * @return nil
  */
 static int l_chart_clear(lua_State *L)
 {
     lv_obj_t *chart = airui_check_component(L, 1, AIRUI_CHART_MT);
-    int32_t value = (int32_t)luaL_optinteger(L, 2, 0);
+    int32_t value = lua_isnoneornil(L, 2) ? LV_CHART_POINT_NONE : (int32_t)luaL_checkinteger(L, 2);
     airui_chart_clear(chart, value);
     return 0;
 }

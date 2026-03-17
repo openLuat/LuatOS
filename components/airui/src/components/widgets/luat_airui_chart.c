@@ -883,9 +883,8 @@ int airui_chart_set_values(lv_obj_t *chart, const int32_t *values, uint32_t coun
     }
 
     uint32_t point_count = lv_chart_get_point_count(chart);
-    int32_t fill = count > 0 ? values[count - 1] : 0;
     for (uint32_t i = 0; i < point_count; i++) {
-        int32_t value = (i < count) ? values[i] : fill;
+        int32_t value = (i < count) ? values[i] : LV_CHART_POINT_NONE;
         lv_chart_set_series_value_by_id(chart, series, i, value);
     }
 
@@ -913,9 +912,8 @@ int airui_chart_set_series_values(lv_obj_t *chart, uint32_t series_index, const 
     }
 
     uint32_t point_count = lv_chart_get_point_count(chart);
-    int32_t fill = count > 0 ? values[count - 1] : 0;
     for (uint32_t i = 0; i < point_count; i++) {
-        int32_t value = (i < count) ? values[i] : fill;
+        int32_t value = (i < count) ? values[i] : LV_CHART_POINT_NONE;
         lv_chart_set_series_value_by_id(chart, series, i, value);
     }
 

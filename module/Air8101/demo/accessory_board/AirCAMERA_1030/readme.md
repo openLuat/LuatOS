@@ -84,7 +84,7 @@
 
 - 每10秒打印一次系统和Lua的内存信息 ：memory_check()
 
-### 5、RTMP推流业务模块（video_http_post.lua）
+### 5、RTMP推流业务模块（rtmp_app.lua）
 
 - 订阅IP_READY信息 , 确认联网后执行RTMP推流任务
 
@@ -859,7 +859,7 @@ AirCAMERA_1030 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件
 
 2、修改rtmp_app.lua中的deviceUser、devicePsd参数； 修改 netdrv_wifi.lua 中的 WIFI 账号密码; 
 
-​	打开 main.lua文件中 require "rtmp_app" 同时注释掉 require "take_photo_http_post"
+​    打开 main.lua文件中 require "rtmp_app" 同时注释掉 require "take_photo_http_post"
 
 3、烧录内核固件和相关demo成功后，自动开机运行。
 

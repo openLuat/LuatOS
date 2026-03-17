@@ -31,7 +31,7 @@
  * @int config.h 高度，默认 40
  * @table config.options 选项列表（字符串数组）
  * @int config.default_index 默认选中项索引，默认 -1
- * @function config.on_change 选中项变化回调
+ * @function config.on_change 选中项变化回调，参数为 (self, idx, value)
  * @userdata config.parent 父对象，可覆盖默认屏幕
  * @return userdata Dropdown 对象，失败返回 nil
  */
@@ -89,9 +89,23 @@ static int l_dropdown_get_selected(lua_State *L)
 }
 
 /**
+ * Dropdown:get_value()
+ * @api dropdown:get_value()
+ * @return string 当前选中项文本
+ */
+static int l_dropdown_get_value(lua_State *L)
+{
+    lv_obj_t *dropdown = airui_check_component(L, 1, AIRUI_DROPDOWN_MT);
+    char value[256] = {0};
+    lv_dropdown_get_selected_str(dropdown, value, sizeof(value));
+    lua_pushstring(L, value);
+    return 1;
+}
+
+/**
  * Dropdown:set_on_change(callback)
  * @api dropdown:set_on_change(callback)
- * @function callback 选中项改变回调
+ * @function callback 选中项改变回调，参数为 (self, idx, value)
  * @return nil
  */
 static int l_dropdown_set_on_change(lua_State *L)
@@ -136,6 +150,7 @@ void airui_register_dropdown_meta(lua_State *L)
     static const luaL_Reg methods[] = {
         {"set_selected", l_dropdown_set_selected},
         {"get_selected", l_dropdown_get_selected},
+        {"get_value", l_dropdown_get_value},
         {"set_on_change", l_dropdown_set_on_change},
         {"destroy", l_dropdown_destroy},
         {NULL, NULL}

@@ -186,6 +186,14 @@ int airui_component_bind_event(
     return AIRUI_OK;
 }
 
+// 推送下拉框选中项值
+static void airui_push_dropdown_selected_value(lua_State *L, lv_obj_t *dropdown)
+{
+    char value[256] = {0};
+    lv_dropdown_get_selected_str(dropdown, value, sizeof(value));
+    lua_pushstring(L, value);
+}
+
 /**
  * 调用 Lua 回调函数
  * @param meta 组件元数据
@@ -230,6 +238,8 @@ void airui_component_call_callback(
         if (event_type == AIRUI_EVENT_VALUE_CHANGED &&
             meta->component_type == AIRUI_COMPONENT_DROPDOWN) {
             lua_pushinteger(L_state, lv_dropdown_get_selected(meta->obj));
+            airui_push_dropdown_selected_value(L_state, meta->obj);
+            arg_count++;
             arg_count++;
         }
         

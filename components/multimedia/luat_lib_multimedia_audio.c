@@ -210,14 +210,7 @@ int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_
 	return 0;
 }
 
-static void record_no_i2s_cb(uint8_t id, uint8_t *rx_data, uint32_t rx_len, void *param)
-{
-	luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
-}
-
 static void record_start(uint8_t *data, uint32_t len){
-
-
 
     //需要保存文件，看情况打开编码功能
     if (g_s_record.fd){
@@ -289,10 +282,9 @@ static void record_start(uint8_t *data, uint32_t len){
         		break;
         	}
     	}
-    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_cb, &g_s_record);
+
     	luat_audio_record_and_play(g_s_record.multimedia_id, sample_rate, NULL, 3200, 2);
     }
-
 }
 
 

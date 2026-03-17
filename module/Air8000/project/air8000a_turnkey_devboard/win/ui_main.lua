@@ -3,7 +3,7 @@
 -- 加载所有页面模块
 require "welcome_win"
 require "idle_win"
-require "main_meun_win"
+require "main_menu_win"
 require "call_win"
 require "camera_win"
 require "network_select_win"
@@ -20,11 +20,6 @@ require "wifi_win"
 require "temperature_win"
 require "humidity_win"
 require "air_win"
-
--- 全局变量（供所有页面使用）
-sim_present = false
-lte_csq = nil
-show_time = nil
 
 -- UI 主任务：初始化硬件并发布启动消息
 local function ui_main_task()

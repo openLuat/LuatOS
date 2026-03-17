@@ -2,22 +2,24 @@
 
 local win_id = nil
 local main_container, time_label, signal_img
+local full_path, current_time = "/luadb/4Gxinghao6.png", "08:00"
+local StatusProvider = require "status_provider_app"
 
 -- 创建UI
 local function create_ui()
     main_container = airui.container({ x = 0, y = 0, w = 480, h = 320, color = 0xF8F9FA, parent = airui.screen })
     -- 顶部状态栏
     local status_bar = airui.container({ parent = main_container, x = 0, y = 0, w = 480, h = 40, color = 0x3F51B5 })
+    
     signal_img = airui.image({
         parent = status_bar,
         x = 430,
         y = 4,
         w = 32,
         h = 32,
-        src = ("/luadb/"..lte_csq) or
-            "/luadb/4Gxinghao6.png"
+        src = full_path
     })
-    time_label = airui.label({ parent = status_bar, x = 188, y = 4, w = 100, h = 32, text = show_time or "--:--", font_size = 30, color = 0xfefefe })
+    time_label = airui.label({ parent = status_bar, x = 188, y = 4, w = 100, h = 32, text = current_time, font_size = 30, color = 0xfefefe })
 
     -- 内容区域（图标网格 + 测试按钮）
     local content = airui.container({ parent = main_container, x = 0, y = 40, w = 480, h = 240, color = 0xF3F4F6 })
@@ -94,45 +96,34 @@ end
 
 -- 更新时间
 local function update_time()
-    if not exwin.is_active(win_id) then return end
-    local t = os.time()
-    if t then
-        local dt = os.date("*t", t)
-        local time_str = string.format("%02d:%02d", dt.hour, dt.min)
-        if time_label then time_label:set_text(time_str) end
-    end
+    if not time_label then return end
+    -- exwin.is_active 在页面刚打开时可能还是false，放宽判断，只检查控件是否存在
+    -- 即使不活跃，更新控件也不会出问题，而且当获得焦点时on_get_focus会再次刷新
+    current_time = StatusProvider.get_time()
+    time_label:set_text(current_time)
 end
 
 -- 更新信号图标
 local function update_signal()
-    if not exwin.is_active(win_id) or not signal_img then return end
-    local img_name
-    if not sim_present then
-        img_name = "4Gxinghao6.png"
-    else
-        local csq = mobile.csq()
-        if csq == 99 or csq <= 5 then
-            img_name = "4Gxinghao5.png"
-        elseif csq <= 10 then
-            img_name = "4Gxinghao1.png"
-        elseif csq <= 15 then
-            img_name = "4Gxinghao2.png"
-        elseif csq <= 20 then
-            img_name = "4Gxinghao3.png"
-        else
-            img_name = "4Gxinghao4.png"
-        end
+    local csq_level = StatusProvider.get_signal_level()
+    if not signal_img then return end
+    local signal_img_name = "4Gxinghao6.png" -- 默认无信号
+    if csq_level > 0 and csq_level <= 5 then
+        signal_img_name = "4Gxinghao" .. csq_level .. ".png"
+    elseif csq_level >= 6 then
+        signal_img_name = "4Gxinghao6.png"
     end
-    if img_name then signal_img:set_src("/luadb/" .. img_name) end
+    full_path = "/luadb/" .. signal_img_name
+    signal_img:set_src(full_path)
 end
 
--- 处理SIM卡状态
-local function handle_sim_ind(status, value)
-    if status == "RDY" then
-        sim_present = true
-    elseif status == "NORDY" then
-        sim_present = false
-    end
+-- 处理StatusProvider的时间更新事件
+local function on_status_time_updated()
+    update_time()
+end
+
+-- 处理StatusProvider的信号更新事件
+local function on_status_signal_updated()
     update_signal()
 end
 
@@ -143,15 +134,14 @@ local function on_create()
     update_time()
     update_signal()
     sys.timerLoopStart(update_time, 1000)
-    sys.timerLoopStart(update_signal, 2000)
-    sys.subscribe("SIM_IND", handle_sim_ind)
+    sys.subscribe("STATUS_TIME_UPDATED", on_status_time_updated)
+    sys.subscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
 end
 
 local function on_destroy()
     sys.timerStop(update_time)
-    sys.timerStop(update_signal)
-
-    sys.unsubscribe("SIM_IND", handle_sim_ind)
+    sys.unsubscribe("STATUS_TIME_UPDATED", on_status_time_updated)
+    sys.unsubscribe("STATUS_SIGNAL_UPDATED", on_status_signal_updated)
     if main_container then
         main_container:destroy()
         main_container = nil

@@ -76,4 +76,4 @@ sys.taskInit(sensor_task)
 -- 每30秒触发一次读取请求（可根据需要调整周期）
 sys.timerLoopStart(function()
     sys.publish("read_sensors_req")
-end, 30000)
+end, 5000)

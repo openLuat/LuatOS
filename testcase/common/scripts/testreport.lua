@@ -27,7 +27,8 @@ function report.reportStatus(ctx, testcase, status, msg)
         id = ctx.id or "",
         test_case = testcase,
         status = status,
-        message = msg
+        message = msg,
+        test_id = ctx.test_id or ""
     }
     local status_json = json.encode(status_data)
     
@@ -69,7 +70,8 @@ function report.send(ctx, result, testcase, msg)
         id = ctx.id or "",
         result = result_status,
         test_case = testcase,
-        message = msg
+        message = msg,
+        test_id = ctx.test_id or ""
     }
     local report_json = json.encode(report_data)
     

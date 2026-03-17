@@ -176,12 +176,24 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 		{
 			memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, rx_data, rx_len);
 			g_s_record.record_buffer[g_s_record.record_buffer_index]->used += rx_len;
-			if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
+			// LLOGD("record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
+            //     g_s_record.record_buffer, 
+            //     g_s_record.record_buffer_index, 
+            //     g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, 
+            //     g_s_record.record_buffer[g_s_record.record_buffer_index]->used, 
+            //     rx_len);
+            if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
 			{
 				record_buffer_full();
+                // LLOGD("record_cb record_time:%d ", g_s_record.record_time);
 				if (g_s_record.record_time)
 				{
 					g_s_record.record_time_tmp++;
+                    // LLOGD("record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
+                    //     g_s_record.record_time_tmp, 
+                    //     g_s_record.record_time_data_ratio, 
+                    //     g_s_record.record_time_tmp * g_s_record.record_time_data_ratio, 
+                    //     g_s_record.record_time * 10);
 					if ((g_s_record.record_time_tmp * g_s_record.record_time_data_ratio) >= (g_s_record.record_time * 10) )
 					{
 						g_s_record.wait_stop = 1;
@@ -277,7 +289,7 @@ static void record_start(uint8_t *data, uint32_t len){
         		break;
         	}
     	}
-    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_no_i2s_cb, &g_s_record);
+    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_cb, &g_s_record);
     	luat_audio_record_and_play(g_s_record.multimedia_id, sample_rate, NULL, 3200, 2);
     }
 
@@ -822,33 +834,45 @@ static int l_audio_set_output_bus(lua_State *L) {
     luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
     int ret = luat_audio_set_bus_type(id,tp);
-    if (audio_conf!=NULL && lua_istable(L,3) && tp==LUAT_AUDIO_BUS_I2S){
-        audio_conf->codec_conf.multimedia_id = id;
-        audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
-        audio_conf->codec_conf.codec_opts = &codec_opts_common;
-		lua_pushstring(L, "chip");
-		if (LUA_TSTRING == lua_gettable(L, 3)) {
-            const char *chip = luaL_checklstring(L, -1,&len);
-            if(strcmp(chip,"es8311") == 0){
-                audio_conf->codec_conf.codec_opts = &codec_opts_es8311;
+    if (audio_conf!=NULL && lua_istable(L,3)){
+        if (tp==LUAT_AUDIO_BUS_I2S){
+            audio_conf->codec_conf.multimedia_id = id;
+            audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
+            audio_conf->codec_conf.codec_opts = &codec_opts_common;
+            lua_pushstring(L, "chip");
+            if (LUA_TSTRING == lua_gettable(L, 3)) {
+                const char *chip = luaL_checklstring(L, -1,&len);
+                if(strcmp(chip,"es8311") == 0){
+                    audio_conf->codec_conf.codec_opts = &codec_opts_es8311;
+                }
             }
-		}
-		lua_pop(L, 1);
-		lua_pushstring(L, "i2cid");
-		if (LUA_TNUMBER == lua_gettable(L, 3)) {
-			audio_conf->codec_conf.i2c_id = luaL_checknumber(L, -1);
-		}
-		lua_pop(L, 1);
-		lua_pushstring(L, "i2sid");
-		if (LUA_TNUMBER == lua_gettable(L, 3)) {
-			audio_conf->codec_conf.i2s_id = luaL_checknumber(L, -1);
-		}
-		lua_pop(L, 1);
-		lua_pushstring(L, "voltage");
-		if (LUA_TNUMBER == lua_gettable(L, 3)) {
-			audio_conf->voltage = luaL_checknumber(L, -1);
-		}
-		lua_pop(L, 1);
+            lua_pop(L, 1);
+            lua_pushstring(L, "i2cid");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                audio_conf->codec_conf.i2c_id = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "i2sid");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                audio_conf->codec_conf.i2s_id = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "voltage");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                audio_conf->voltage = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+        }else if (tp==LUAT_AUDIO_BUS_DAC){
+            audio_conf->bus_type = LUAT_AUDIO_BUS_DAC;
+            audio_conf->codec_conf.multimedia_id = id;
+            audio_conf->codec_conf.codec_opts = &codec_opts_common;
+
+            lua_pushstring(L, "dacid");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                audio_conf->codec_conf.dac_id = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+        }
     }
     ret |= luat_audio_init(id, 0, 0);
     lua_pushboolean(L, !ret);

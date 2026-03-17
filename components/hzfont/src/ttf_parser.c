@@ -1192,163 +1192,6 @@ static inline int32_t float_to_fixed(float value) {
     return (int32_t)lrintf(scaled);
 }
 
-/* ── 定点构建路径 (TTF_FIXEDPT_RASTERIZE) ────────────────────────────────
- * 在没有 FPU 的单片机上，所有浮点运算均由软件模拟，开销极大。
- * 启用此宏后，build_segments / flatten_quadratic 全部使用整数运算，
- * 跳过浮点 SegmentList 中间缓冲，直接生成 FixedSegmentList (Q8)。
- * 在 luat_conf_bsp.h 或构建脚本中加入  -DTTF_FIXEDPT_RASTERIZE  即可启用。
- * ─────────────────────────────────────────────────────────────────────── */
-#ifdef TTF_FIXEDPT_RASTERIZE
-/* 前向声明：midpoint_point 定义于本文件稍后处 */
-static TtfPoint midpoint_point(const TtfPoint *a, const TtfPoint *b);
-
-/* 向 FixedSegmentList 追加一段（自动扩容，退化线段自动跳过） */
-static int append_segment_fixed(FixedSegmentList *segs,
-                                 int32_t x0, int32_t y0,
-                                 int32_t x1, int32_t y1) {
-    if (!segs) return 0;
-    if (x0 == x1 && y0 == y1) return 1; /* 退化，跳过 */
-    if (segs->count * 4 + 4 > segs->capacity) {
-        size_t newCap = segs->capacity ? segs->capacity * 2 : 128;
-        while (segs->count * 4 + 4 > newCap) newCap *= 2;
-        int32_t *newData = (int32_t *)luat_heap_realloc(segs->data, newCap * sizeof(int32_t));
-        if (!newData) return 0;
-        segs->data    = newData;
-        segs->capacity = newCap;
-    }
-    int32_t *dest = segs->data + segs->count * 4;
-    dest[0] = x0; dest[1] = y0; dest[2] = x1; dest[3] = y1;
-    segs->count++;
-    return 1;
-}
-
-/* 将二次贝塞尔曲线离散为 Q8 定点线段（前向差分法，全程无浮点）
- *
- * 推导（一元为例，y 同理）：
- *   B(t) = (1-t)²x0 + 2t(1-t)cx + t²x1
- *        = x0 + 2(cx-x0)t + (x0-2cx+x1)t²
- * 以 dt = 1/n 均匀采样，按比例 n² 放大后迭代：
- *   d2  = 2*(x0 - 2*cx + x1)          （二阶差分，常数）
- *   d1₀ = 2*(cx-x0)*n + (x0-2*cx+x1) （一阶差分初值）
- *   v₀  = x0 * n²
- *   迭代：v += d1; d1 += d2; 输出 v/n²
- *
- * 溢出分析 (n=12, Q8 坐标上限 ≈ ppem*256 ≤ 128*256=32768)：
- *   v_max  = 32768 * 144 ≈ 4.7M  ← int32 安全
- *   d1_max = 2*32768*12 + 32768  ≈ 820K ← 安全
- */
-static int flatten_quadratic_fixed(FixedSegmentList *segs,
-                                    int32_t x0, int32_t y0,
-                                    int32_t cx, int32_t cy,
-                                    int32_t x1, int32_t y1, int steps) {
-    int32_t n  = (int32_t)steps;
-    int32_t n2 = n * n;
-    int32_t half = n2 >> 1; /* 四舍五入用 */
-    /* 二阶前向差分（常数） */
-    int32_t d2x = 2 * (x0 - 2*cx + x1);
-    int32_t d2y = 2 * (y0 - 2*cy + y1);
-    /* 一阶前向差分初值 */
-    int32_t d1x = 2*(cx - x0)*n + (x0 - 2*cx + x1);
-    int32_t d1y = 2*(cy - y0)*n + (y0 - 2*cy + y1);
-    /* 放大 n² 的累加器 */
-    int32_t vx   = x0 * n2;
-    int32_t vy   = y0 * n2;
-    int32_t prevX = x0, prevY = y0;
-    for (int32_t i = 0; i < n; i++) {
-        vx += d1x; d1x += d2x;
-        vy += d1y; d1y += d2y;
-        int32_t nx = (vx + half) / n2;
-        int32_t ny = (vy + half) / n2;
-        if (!append_segment_fixed(segs, prevX, prevY, nx, ny))
-            return 0;
-        prevX = nx; prevY = ny;
-    }
-    return 1;
-}
-
-/* 将 glyph 坐标转换到 Q8 栅格空间（无浮点）
- * scale_q16 = (ppem << 16) / unitsPerEm  (Q16 缩放因子)
- * 输出结果为 Q8 像素坐标（与 FixedSegmentList 格式一致）
- */
-static void transform_point_fixed(const TtfGlyph *glyph, int32_t scale_q16,
-                                   int32_t offsetX_q8, int32_t offsetY_q8,
-                                   const TtfPoint *pt,
-                                   int32_t *outX, int32_t *outY) {
-    /* pixel_q8 = glyph_unit * ppem * 256 / unitsPerEm
-     *          = glyph_unit * scale_q16 >> 8
-     * 使用 int64 中间值防止溢出（glyph_unit 最大约 4096，scale_q16 最大约 65536）
-     */
-    *outX = (int32_t)(((int64_t)(pt->x - glyph->minX) * scale_q16) >> 8) + offsetX_q8;
-    *outY = (int32_t)(((int64_t)(glyph->maxY - pt->y) * scale_q16) >> 8) + offsetY_q8;
-}
-
-/* 从 glyph 轮廓直接构建 Q8 定点线段列表（全程无浮点，镜像 build_segments 逻辑） */
-static int build_segments_fixed(const TtfGlyph *glyph, int32_t scale_q16,
-                                  int32_t offsetX_q8, int32_t offsetY_q8,
-                                  FixedSegmentList *segs) {
-    uint16_t contourStart = 0;
-    for (uint16_t contour = 0; contour < glyph->contourCount; ++contour) {
-        uint16_t contourEnd = glyph->contourEnds[contour];
-        if (contourEnd < contourStart || contourEnd >= glyph->pointCount)
-            return 0;
-        uint16_t count = (uint16_t)(contourEnd - contourStart + 1);
-        if (count == 0) {
-            contourStart = (uint16_t)(contourEnd + 1);
-            continue;
-        }
-        const TtfPoint *firstPoint = &glyph->points[contourStart];
-        const TtfPoint *lastPoint  = &glyph->points[contourEnd];
-        TtfPoint startOn = *lastPoint;
-        if (!lastPoint->onCurve) {
-            if (firstPoint->onCurve)
-                startOn = *firstPoint;
-            else
-                startOn = midpoint_point(lastPoint, firstPoint);
-        }
-        int32_t prevX, prevY;
-        transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8, &startOn, &prevX, &prevY);
-        int32_t startX = prevX, startY = prevY;
-
-        uint16_t index = contourStart;
-        do {
-            const TtfPoint *current   = &glyph->points[index];
-            uint16_t nextIndex        = (index == contourEnd) ? contourStart : (uint16_t)(index + 1);
-            const TtfPoint *nextPoint = &glyph->points[nextIndex];
-
-            if (current->onCurve) {
-                int32_t currX, currY;
-                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
-                                      current, &currX, &currY);
-                if (!append_segment_fixed(segs, prevX, prevY, currX, currY))
-                    return 0;
-                prevX = currX;
-                prevY = currY;
-            } else {
-                TtfPoint nextOn = *nextPoint;
-                if (!nextPoint->onCurve)
-                    nextOn = midpoint_point(current, nextPoint);
-                int32_t ctrlX, ctrlY, nextX, nextY;
-                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
-                                      current, &ctrlX, &ctrlY);
-                transform_point_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8,
-                                      &nextOn, &nextX, &nextY);
-                if (!flatten_quadratic_fixed(segs, prevX, prevY, ctrlX, ctrlY, nextX, nextY, 12))
-                    return 0;
-                prevX = nextX;
-                prevY = nextY;
-            }
-            index = nextIndex;
-        } while (index != contourStart);
-
-        if (!append_segment_fixed(segs, prevX, prevY, startX, startY))
-            return 0;
-        contourStart = (uint16_t)(contourEnd + 1);
-    }
-    return 1;
-}
-
-#endif /* TTF_FIXEDPT_RASTERIZE */
-
 // 批量将浮点段转换为定点表示（供点内查询）
 static int convert_segments_to_fixed(const SegmentList *src, FixedSegmentList *dst) {
     if (!dst) {
@@ -1690,18 +1533,6 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     }
 
     // 计算 glyph 在指定字号下的像素尺寸
-#ifdef TTF_FIXEDPT_RASTERIZE
-    /* Q16 缩放因子：scale_q16 = (ppem << 16) / unitsPerEm
-     * pixel_q8  = glyph_unit * scale_q16 >> 8
-     * pixel_f32 ≈ glyph_unit * scale_q16 / 65536                          */
-    int32_t scale_q16 = (int32_t)(((int64_t)ppem << 16) / (int32_t)font->unitsPerEm);
-    int32_t widthQ  = (int32_t)((((int64_t)(glyph->maxX - glyph->minX) * scale_q16) >> 16) + 2);
-    int32_t heightQ = (int32_t)((((int64_t)(glyph->maxY - glyph->minY) * scale_q16) >> 16) + 2);
-    if (widthQ  < 1) widthQ  = 1;
-    if (heightQ < 1) heightQ = 1;
-    uint32_t width  = (uint32_t)widthQ;
-    uint32_t height = (uint32_t)heightQ;
-#else
     float scale = (float)ppem / (float)font->unitsPerEm;
     float widthF  = (glyph->maxX - glyph->minX) * scale + 2.0f;
     float heightF = (glyph->maxY - glyph->minY) * scale + 2.0f;
@@ -1709,24 +1540,13 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     if (heightF < 1.0f) heightF = 1.0f;
     uint32_t width  = (uint32_t)ceilf(widthF);
     uint32_t height = (uint32_t)ceilf(heightF);
-#endif
 
     uint8_t *pixels = (uint8_t *)luat_heap_calloc((size_t)width * height, sizeof(uint8_t));
     if (!pixels) {
         return TTF_ERR_OOM;
     }
 
-    // 构建轮廓线段列表（定点模式直接生成 FixedSegmentList；浮点模式走原有路径）
-#ifdef TTF_FIXEDPT_RASTERIZE
-    const int32_t offsetX_q8 = 1 << TTF_FIXED_SHIFT; /* 1.0 像素，Q8 = 256 */
-    const int32_t offsetY_q8 = 1 << TTF_FIXED_SHIFT;
-    FixedSegmentList fixedSegments = {0};
-    if (!build_segments_fixed(glyph, scale_q16, offsetX_q8, offsetY_q8, &fixedSegments)) {
-        ttf_safe_free(pixels);
-        ttf_safe_free(fixedSegments.data);
-        return TTF_ERR_FORMAT;
-    }
-#else
+    // 构建轮廓线段列表
     // 用扁平化的线段表示 glyph 轮廓
     SegmentList segments = {0};
     float offsetX = 1.0f;
@@ -1745,7 +1565,6 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
         return TTF_ERR_OOM;
     }
     ttf_safe_free(segments.data);
-#endif
 
     const int supersampleRate = ttf_get_supersample_rate();
     int boundarySampleRate = 2;
@@ -1766,12 +1585,7 @@ int ttf_rasterize_glyph(const TtfFont *font, const TtfGlyph *glyph, int ppem, Tt
     bitmap->pixels = pixels;
     bitmap->originX = ttf_scaled_value(font, glyph->minX, ppem);
     bitmap->originY = ttf_scaled_value(font, glyph->maxY, ppem);
-    bitmap->scale =
-#ifdef TTF_FIXEDPT_RASTERIZE
-        (float)scale_q16 * (1.0f / 65536.0f); /* Q16 还原为浮点，仅在函数末尾调用一次 */
-#else
-        scale;
-#endif
+    bitmap->scale = scale;
     return TTF_OK;
 }
 

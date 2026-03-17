@@ -12,7 +12,7 @@ testrunner = require("testrunner")
 udp_test = require("udp_test")
 
 -- 开启一个task,运行测试
-sys.taskInit(function()
+sysplus.taskInitEx(function()
     -- 第一个参数, 是整个测试的名称
     -- 第二个参数, 是一个表数组, 每个表包含 testTable 和 testcase 字段
     --   testTable - 包含测试函数的表, 也就是模块, 其中的所有 test_ 开头的函数都会被执行
@@ -23,7 +23,7 @@ sys.taskInit(function()
         {testTable = udp_test, testcase = "udp测试"}
     })
 
-end)
+end,"UDP_TASK")
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

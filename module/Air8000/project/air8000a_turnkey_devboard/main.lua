@@ -1,8 +1,8 @@
 --[[
 @module  main
 @summary turnkey_devboard主程序入口
-@version 1.0.1
-@date    2026.01.27
+@version 1.0.3
+@date    2026.03.16
 @author  江访
 @usage
 通过注释/取消注释require语句来运行不同的演示。
@@ -23,7 +23,7 @@ VERSION：项目版本号，ascii string类型
 
 -- 项目名称和版本定义
 PROJECT = "Turnkey_Devboard" -- 项目名称，用于标识当前工程
-VERSION = "001.999.002"      -- 项目版本号
+VERSION = "001.999.003"      -- 项目版本号
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -50,10 +50,10 @@ log.info("main", PROJECT, VERSION)
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
--- sys.timerLoopStart(function()
---     log.info("mem.lua", rtos.meminfo())
---     log.info("mem.sys", rtos.meminfo("sys"))
--- end, 3000)
+sys.timerLoopStart(function()
+    log.info("mem.lua", rtos.meminfo())
+    log.info("mem.sys", rtos.meminfo("sys"))
+end, 3000)
 
 -- 加载显示驱动
 lcd_drv = require "lcd_drv"
@@ -67,7 +67,6 @@ require "app_main"
 
 -- 引入UI主模块
 require "ui_main"
-
 
 -- 用户代码已结束
 -- 结尾总是这一句

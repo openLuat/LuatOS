@@ -64,17 +64,24 @@ end
 sys.subscribe("WLAN_STA_INC", wifi_sta_func)
 
 
--- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
--- ssid为要连接的WiFi路由器名称；
--- password为要连接的WiFi路由器密码；
--- 注意：仅支持2.4G的WiFi，不支持5G的WiFi；
--- 实际测试时，根据自己要连接的WiFi热点信息修改以下参数
-exnetif.set_priority_order({
-    {
-        WIFI = {
-            ssid = "茶室-降功耗,找合宙!", 
-            password = "Air123456"
+local function netdrv_wifi_task_func()
+    -- 配置WiFi设备模式的单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_STA
+    -- ssid为要连接的WiFi路由器名称；
+    -- password为要连接的WiFi路由器密码；
+    -- 注意：仅支持2.4G的WiFi，不支持5G的WiFi；
+    -- 实际测试时，根据自己要连接的WiFi热点信息修改以下参数
+    exnetif.set_priority_order({
+        {
+            WIFI = {
+                ssid = "茶室-降功耗,找合宙!", 
+                password = "Air123456"
+            }
         }
-    }
-})
+    })
+end
+
+-- 启动一个task，task的处理函数为netdrv_wifi_task_func
+-- 在处理函数中调用exnetif.set_priority_order设置网卡优先级
+-- 因为exnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
+sys.taskInit(netdrv_wifi_task_func)
 

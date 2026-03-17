@@ -106,19 +106,26 @@ sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
 
--- 配置SPI外接的4G单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_GP_GW
--- 本demo使用Air8101核心板+Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板/开发板测试，Air8101核心板上的硬件配置为：
--- 工作在SPI主模式
--- 使用spi0，片选引脚使用GPIO15，rdy引脚使用gpio48
--- 如果使用的硬件和以上描述的环境不同，根据自己的硬件配置修改以下参数
-exnetif.set_priority_order({
-    { -- 开启4G虚拟网卡
-        airlink_4G = {
-            auto_socket_switch = false, -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
-            airlink_type = airlink.MODE_SPI_MASTER, -- airlink工作模式
-            airlink_spi_id = 0, -- airlink使用的SPI接口ID,选填参数
-            airlink_cs_pin = 15,-- airlink使用的片选引脚gpio号,选填参数
-            airlink_rdy_pin = 48-- airlink使用的rdy引脚gpio号,选填参数
+local function netdrv_4g_task_func()
+    -- 配置SPI外接的4G单网卡，exnetif.set_priority_order使用的网卡编号为socket.LWIP_GP_GW
+    -- 本demo使用Air8101核心板+Air780EHM/Air780EHV/Air780EGH/Air780EPM核心板/开发板测试，Air8101核心板上的硬件配置为：
+    -- 工作在SPI主模式
+    -- 使用spi0，片选引脚使用GPIO15，rdy引脚使用gpio48
+    -- 如果使用的硬件和以上描述的环境不同，根据自己的硬件配置修改以下参数
+    exnetif.set_priority_order({
+        { -- 开启4G虚拟网卡
+            airlink_4G = {
+                auto_socket_switch = false, -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                airlink_type = airlink.MODE_SPI_MASTER, -- airlink工作模式
+                airlink_spi_id = 0, -- airlink使用的SPI接口ID,选填参数
+                airlink_cs_pin = 15,-- airlink使用的片选引脚gpio号,选填参数
+                airlink_rdy_pin = 48-- airlink使用的rdy引脚gpio号,选填参数
+            }
         }
-    }
-})
+    })
+end
+
+-- 启动一个task，task的处理函数为netdrv_4g_task_func
+-- 在处理函数中调用exnetif.set_priority_order设置网卡优先级
+-- 因为exnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
+sys.taskInit(netdrv_4g_task_func)

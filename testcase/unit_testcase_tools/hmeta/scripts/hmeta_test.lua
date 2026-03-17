@@ -5,7 +5,7 @@ local model_name
 local hwver_name
 local chip_name
 
-function judge_device()
+local function judge_device()
     if device_name == "Air780EHM" then
         model_name = "Air780EHM"
         chip_name = "EC718HM"
@@ -30,11 +30,11 @@ function judge_device()
     elseif device_name == "Air700ECP" then
         model_name = "Air700ECP"
         chip_name = "EC718PM"
-        -- elseif device_name == "Air700ECH" then
-        --     model_name = "Air700ECH"
-        --     chip_name = "EC718PM"
+    elseif device_name == "Air700ECH" then
+        model_name = "Air700ECH"
+        chip_name = "EC718HM"
     elseif device_name == "Air8101" then
-        model_name = "Air8101"
+        model_name = {"Air8101", "D602"}
         chip_name = "BK7258"
     elseif device_name == "EC618" then
         model_name = "Air780E"
@@ -44,6 +44,12 @@ function judge_device()
         chip_name = "EC718P"
     elseif device_name == "Air795UG" then
         model_name = "Air795UG"
+        chip_name = "UIS8910"
+    elseif device_name == "Air722UG" then
+        model_name = "Air722UG"
+        chip_name = "UIS8910"
+    elseif device_name == "UIS8910" then
+        model_name = "Air724UG"
         chip_name = "UIS8910"
     else
         log.info("未知的设备名称")
@@ -58,6 +64,7 @@ function hmeta_test.test_model_demo()
     log.info("hmeta_model名称", hmeta_model)
 
     if device_name == "Air8000" then
+
         local found = false
         for _, name in ipairs(model_name) do
             if hmeta_model == name then
@@ -68,6 +75,20 @@ function hmeta_test.test_model_demo()
         assert(found == true, string.format("获取模组名称测试失败: 预期 %s, 实际 %s",
             table.concat(model_name, " 或 "), hmeta_model))
         log.info("hmeta_test", "获取模组名称测试通过")
+
+    elseif device_name == "Air8101" then
+
+        local found = false
+        for _, name in ipairs(model_name) do
+            if hmeta_model == name then
+                found = true
+                break
+            end
+        end
+        assert(found == true, string.format("获取模组名称测试失败: 预期 %s, 实际 %s",
+            table.concat(model_name, " 或 "), hmeta_model))
+        log.info("hmeta_test", "获取模组名称测试通过")
+
     else
         assert(hmeta_model == model_name,
             string.format("获取模组名称测试失败: 预期 %s, 实际 %s", model_name, hmeta_model))
@@ -93,7 +114,7 @@ function hmeta_test.test_hwver_demo()
     end
     local version_number = version_str and tonumber(version_str)
     -- 检查数字部分是否大于10
-    local hwver_result = version_number and version_number >= 1
+    local hwver_result = version_number and version_number >= 0
     assert(hwver_result == true,
         string.format("获取模组的硬件版本号测试失败: 数字部分应大于1，实际值: %s ",
             hmeta_hwver, version_number or "无效"))

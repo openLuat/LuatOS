@@ -990,7 +990,9 @@
 
 /** libjpeg-turbo decoder library.
  *  - Supports complete JPEG specifications and high-performance JPEG decoding. */
-#define LV_USE_LIBJPEG_TURBO 0
+#ifndef LV_USE_LIBJPEG_TURBO
+    #define LV_USE_LIBJPEG_TURBO 0
+#endif
 
 /** GIF decoder library */
 #define LV_USE_GIF 0

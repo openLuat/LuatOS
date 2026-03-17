@@ -18,6 +18,10 @@ add_packages("gmssl")
 add_requires("libsdl2")
 add_packages("libsdl2")
 
+if os.getenv("LUAT_USE_GUI") == "y" then
+    add_requires("libjpeg-turbo")
+end
+
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
@@ -405,9 +409,8 @@ target("luatos-lua")
         add_files(luatos.."components/lcd/*.c")
         
         -- LVGL 9.4 + AIRUI - 最基础组件编译
-        -- 宏定义：启用 AIRUI 和 SDL2 平台
-        -- add_defines("LUAT_USE_AIRUI=1")
-        -- add_defines("LUAT_USE_AIRUI_SDL2=1")
+        -- 添加libjpeg-turbo库, 用于pc模拟器平台解码
+        add_packages("libjpeg-turbo")
         -- 头文件添加：lvgl9 
         add_includedirs(luatos.."components/airui")
         add_includedirs(luatos.."components/airui/lvgl9")
@@ -418,7 +421,6 @@ target("luatos-lua")
 
          -- ThorVG 内部库使用 C++ 编译,单独添加
          add_files(luatos.."components/airui/lvgl9/src/libs/**/*.cpp")
-        
         -- 排除不需要的组件（按优先级排序）
         -- 1. 硬件驱动（PC 模拟器不需要）
         remove_files(luatos.."components/airui/lvgl9/src/drivers/**/*.c")

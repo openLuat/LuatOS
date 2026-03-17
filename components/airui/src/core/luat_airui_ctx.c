@@ -517,7 +517,7 @@ int airui_sleep(airui_ctx_t *ctx)
 }
 
 // 唤醒 AIRUI
-int airui_wakeup(airui_ctx_t *ctx)
+int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
 {
     int ret = AIRUI_OK;
 
@@ -555,11 +555,13 @@ int airui_wakeup(airui_ctx_t *ctx)
 
     airui_resume_lvgl_timers(ctx);
     ctx->sleeping = false;
-    lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
-    if (act_scr != NULL) {
-        lv_obj_invalidate(act_scr);
+    if (auto_refresh) {
+        lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
+        if (act_scr != NULL) {
+            lv_obj_invalidate(act_scr);
+        }
+        lv_refr_now(ctx->display);
     }
-    lv_refr_now(ctx->display);
     return AIRUI_OK;
 }
 

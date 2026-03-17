@@ -366,16 +366,28 @@ static int l_airui_sleep(lua_State *L) {
 
 /**
  * 唤醒 AIRUI
- * @api airui.wakeup()
+ * @api airui.wakeup(opts)
+ * @table opts 可选配置
+ * @bool opts.auto_refresh 唤醒后是否自动刷新，默认 true
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_wakeup(lua_State *L) {
+    bool auto_refresh = true;
+
     if (g_ctx == NULL) {
         luaL_error(L, "airui not initialized, call airui.init() first");
         return 0;
     }
 
-    lua_pushboolean(L, airui_wakeup(g_ctx) == 0 ? 1 : 0);
+    if (lua_istable(L, 1)) {
+        lua_getfield(L, 1, "auto_refresh");
+        if (!lua_isnil(L, -1)) {
+            auto_refresh = lua_toboolean(L, -1) ? true : false;
+        }
+        lua_pop(L, 1);
+    }
+
+    lua_pushboolean(L, airui_wakeup(g_ctx, auto_refresh) == 0 ? 1 : 0);
     return 1;
 }
 

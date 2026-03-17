@@ -227,9 +227,10 @@ int airui_sleep(airui_ctx_t *ctx);
 /**
  * 唤醒 AIRUI
  * @param ctx 上下文指针
+ * @param auto_refresh true: 唤醒后立即刷新当前屏幕; false: 仅恢复运行时，由调用方自行刷新
  * @return 0 成功，<0 失败
  */
-int airui_wakeup(airui_ctx_t *ctx);
+int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh);
 
 /**
  * 强制全屏刷新 AIRUI

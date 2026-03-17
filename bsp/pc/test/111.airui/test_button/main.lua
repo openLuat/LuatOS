@@ -34,11 +34,6 @@ sys.taskInit(function()
         btn:set_text("Button2")  -- 再次修改
     end)
 
-    while true do
-        airui.refresh()
-        sys.wait(10)
-    end
-
 end)
 
 sys.run()

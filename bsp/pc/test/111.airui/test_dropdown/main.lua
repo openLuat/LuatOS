@@ -33,13 +33,6 @@ sys.taskInit(function()
             log.info("dropdown", "now set selected to A")
         end
     })
-    
-
-
-    while true do
-        airui.refresh()
-        sys.wait(10)
-    end
 end)
 
 sys.run()

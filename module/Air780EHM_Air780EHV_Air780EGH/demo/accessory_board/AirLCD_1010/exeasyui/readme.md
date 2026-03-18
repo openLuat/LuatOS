@@ -28,9 +28,19 @@
 
 <table>
 <tr>
-<td>主页<br/></td><td>组件演示页1<br/></td><td>组件演示页2<br/></td><td>默认字体页<br/></td><td>HZFont页<br/></td></tr>
+<td>主页<br/></td>
+<td>组件演示页1<br/></td>
+<td>组件演示页2<br/></td>
+<td>默认字体页<br/></td>
+<td>HZFont页<br/></td>
+</tr>
 <tr>
-<td><img src="https://docs.openluat.com/cdn/image/exeasyui_home_gage.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_component_page_1.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_component_page_2.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_default_font_page.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_hzfont_page.png" width="80" /><br/></td><td><img 
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_home_gage.png" width="80" /><br/></td>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_component_page_1.png" width="80" /><br/></td>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_component_page_2.png" width="80" /><br/></td>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_default_font_page.png" width="80" /><br/></td>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_hzfont_page.png" width="80" /><br/></td>
+</tr>
 </table>
 
 

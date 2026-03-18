@@ -163,7 +163,7 @@ static void record_run(uint8_t *data, uint32_t len)
 
 }
 
-int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
+int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
 	switch(event)
 	{
@@ -176,7 +176,7 @@ int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_
 		{
 			memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, rx_data, rx_len);
 			g_s_record.record_buffer[g_s_record.record_buffer_index]->used += rx_len;
-			// LLOGD("record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
+			// LLOGD("luat_audio_record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
             //     g_s_record.record_buffer, 
             //     g_s_record.record_buffer_index, 
             //     g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, 
@@ -185,11 +185,11 @@ int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_
             if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
 			{
 				record_buffer_full();
-                // LLOGD("record_cb record_time:%d ", g_s_record.record_time);
+                // LLOGD("luat_audio_record_cb record_time:%d ", g_s_record.record_time);
 				if (g_s_record.record_time)
 				{
 					g_s_record.record_time_tmp++;
-                    // LLOGD("record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
+                    // LLOGD("luat_audio_record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
                     //     g_s_record.record_time_tmp, 
                     //     g_s_record.record_time_data_ratio, 
                     //     g_s_record.record_time_tmp * g_s_record.record_time_data_ratio, 
@@ -238,7 +238,7 @@ static void record_start(uint8_t *data, uint32_t len){
     	g_s_record.bak_sample_rate = i2s->sample_rate;
     	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
     	i2s->is_full_duplex = 1;
-    	i2s->luat_i2s_event_callback = record_cb;
+    	i2s->luat_i2s_event_callback = luat_audio_record_cb;
     	switch(g_s_record.type)
     	{
     	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:

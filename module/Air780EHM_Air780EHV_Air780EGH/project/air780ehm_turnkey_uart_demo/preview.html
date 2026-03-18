@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuatOS UART UI Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #0a0a12;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .screen-container {
+            background: #1a1a2e;
+            width: 480px;
+            height: 320px;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: #16213e;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .back-btn {
+            background: #0f3460;
+            color: #00d4ff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .back-btn:hover {
+            background: #1a4a8a;
+        }
+
+        .title {
+            color: #00d4ff;
+            font-size: 24px;
+            flex: 1;
+            text-align: center;
+        }
+
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ff4444;
+            margin-left: auto;
+        }
+
+        .status-indicator.active {
+            background: #00ff88;
+        }
+
+        /* Content */
+        .content {
+            padding: 8px;
+            height: calc(320px - 55px - 10px);
+        }
+
+        /* Config Box */
+        .config-box {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 8px;
+            height: 60px;
+        }
+
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .config-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            color: #00d4ff;
+            font-size: 14px;
+            min-width: 50px;
+        }
+
+        select, button, textarea {
+            background: #1a1a2e;
+            color: #ffffff;
+            border: 1px solid #2a2a4e;
+            border-radius: 4px;
+            padding: 5px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        select:focus, button:focus, textarea:focus {
+            outline: 2px solid #00d4ff;
+        }
+
+        .btn-connect {
+            background: #00ff88;
+            color: #1a1a2e;
+            width: 150px;
+        }
+
+        .btn-connect.connected {
+            background: #ff4444;
+            color: #ffffff;
+        }
+
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .switch {
+            width: 40px;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .switch.active {
+            background: #00d4ff;
+        }
+
+        .switch::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+
+        .switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* Send Box */
+        .send-box {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 8px;
+            margin-bottom: 8px;
+            height: 60px;
+        }
+
+        .send-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .send-input {
+            width: 280px;
+            height: 28px;
+            resize: none;
+            font-family: monospace;
+        }
+
+        .btn-keyboard {
+            background: #00d4ff;
+            color: #1a1a2e;
+            width: 75px;
+            height: 22px;
+            font-size: 11px;
+        }
+
+        .btn-send {
+            background: #e94560;
+            color: #ffffff;
+            width: 75px;
+            height: 48px;
+            font-size: 14px;
+        }
+
+        .btn-send:hover {
+            background: #ff5570;
+        }
+
+        /* Receive Box */
+        .receive-box {
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 8px;
+            height: 100px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .receive-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .receive-stats {
+            color: #00d4ff;
+            font-size: 12px;
+        }
+
+        .btn-clear {
+            background: #666666;
+            color: #ffffff;
+            width: 75px;
+            height: 22px;
+            font-size: 14px;
+        }
+
+        .receive-area {
+            background: #1a1a2e;
+            color: #ffffff;
+            border: 1px solid #2a2a4e;
+            border-radius: 4px;
+            padding: 8px;
+            flex: 1;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Virtual Keyboard */
+        .keyboard-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .keyboard-overlay.active {
+            display: flex;
+        }
+
+        .keyboard {
+            background: #16213e;
+            border-radius: 10px;
+            padding: 10px;
+            width: 464px;
+            height: 72px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .key {
+            background: #0f3460;
+            color: #00d4ff;
+            border: none;
+            border-radius: 4px;
+            width: 48px;
+            height: 14px;
+            font-size: 10px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+
+        .key:hover {
+            background: #1a4a8a;
+        }
+
+        .key.del {
+            background: #e94560;
+            color: #ffffff;
+        }
+
+        .key.confirm {
+            background: #00ff88;
+            color: #1a1a2e;
+        }
+
+        .key.space {
+            background: #666666;
+            color: #ffffff;
+        }
+
+        /* Toast Message */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f3460;
+            color: #00d4ff;
+            padding: 15px 30px;
+            border-radius: 8px;
+            border: 2px solid #00d4ff;
+            font-size: 14px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-container">
+        <!-- Header -->
+        <div class="header">
+            <button class="back-btn">← 返回</button>
+            <div class="title">串口调试</div>
+            <div class="status-indicator" id="statusIndicator"></div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Config Box -->
+            <div class="config-box">
+                <div class="config-row">
+                    <span class="label">串口:</span>
+                    <select id="uartSelect">
+                        <option value="1">UART1</option>
+                        <option value="2">UART2</option>
+                        <option value="3">UART3</option>
+                    </select>
+                    <span class="label" style="margin-left: 10px;">波特率:</span>
+                    <select id="baudSelect">
+                        <option value="9600">9600</option>
+                        <option value="115200" selected>115200</option>
+                        <option value="460800">460800</option>
+                    </select>
+                    <button class="btn-connect" id="btnConnect">连接</button>
+                </div>
+                <div class="config-row">
+                    <div class="switch-container">
+                        <div class="switch" id="hexSwitch"></div>
+                        <span class="label" style="color: #aaaaaa; font-size: 12px;">十六进制</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Send Box -->
+            <div class="send-box">
+                <div class="send-row">
+                    <span class="label">发送:</span>
+                    <textarea class="send-input" id="sendInput" placeholder="点击键盘输入"></textarea>
+                    <button class="btn-keyboard" id="btnKeyboard">⌨ 键盘</button>
+                    <button class="btn-send" id="btnSend">发送</button>
+                </div>
+            </div>
+
+            <!-- Receive Box -->
+            <div class="receive-box">
+                <div class="receive-header">
+                    <span class="receive-stats" id="receiveStats">接收 Rx:0 Tx:0</span>
+                    <button class="btn-clear" id="btnClear">清空</button>
+                </div>
+                <div class="receive-area" id="receiveArea">等待接收数据...</div>
+            </div>
+        </div>
+
+        <!-- Virtual Keyboard -->
+        <div class="keyboard-overlay" id="keyboardOverlay">
+            <div class="keyboard" id="keyboard">
+                <div class="keyboard-row">
+                    <button class="key" onclick="typeKey('1')">1</button>
+                    <button class="key" onclick="typeKey('2')">2</button>
+                    <button class="key" onclick="typeKey('3')">3</button>
+                    <button class="key" onclick="typeKey('4')">4</button>
+                    <button class="key" onclick="typeKey('5')">5</button>
+                    <button class="key" onclick="typeKey('6')">6</button>
+                    <button class="key" onclick="typeKey('7')">7</button>
+                    <button class="key" onclick="typeKey('8')">8</button>
+                    <button class="key" onclick="typeKey('9')">9</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key" onclick="typeKey('Q')">Q</button>
+                    <button class="key" onclick="typeKey('W')">W</button>
+                    <button class="key" onclick="typeKey('E')">E</button>
+                    <button class="key" onclick="typeKey('R')">R</button>
+                    <button class="key" onclick="typeKey('T')">T</button>
+                    <button class="key" onclick="typeKey('Y')">Y</button>
+                    <button class="key" onclick="typeKey('U')">U</button>
+                    <button class="key" onclick="typeKey('I')">I</button>
+                    <button class="key" onclick="typeKey('O')">O</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key" onclick="typeKey('A')">A</button>
+                    <button class="key" onclick="typeKey('S')">S</button>
+                    <button class="key" onclick="typeKey('D')">D</button>
+                    <button class="key" onclick="typeKey('F')">F</button>
+                    <button class="key" onclick="typeKey('G')">G</button>
+                    <button class="key" onclick="typeKey('H')">H</button>
+                    <button class="key" onclick="typeKey('J')">J</button>
+                    <button class="key" onclick="typeKey('K')">K</button>
+                    <button class="key" onclick="typeKey('L')">L</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key" onclick="typeKey('Z')">Z</button>
+                    <button class="key" onclick="typeKey('X')">X</button>
+                    <button class="key" onclick="typeKey('C')">C</button>
+                    <button class="key" onclick="typeKey('V')">V</button>
+                    <button class="key" onclick="typeKey('B')">B</button>
+                    <button class="key" onclick="typeKey('N')">N</button>
+                    <button class="key" onclick="typeKey('M')">M</button>
+                    <button class="key" onclick="typeKey('.')">.</button>
+                    <button class="key del" onclick="deleteKey()">DEL</button>
+                </div>
+                <div class="keyboard-row">
+                    <button class="key" style="visibility: hidden;"></button>
+                    <button class="key" style="visibility: hidden;"></button>
+                    <button class="key" style="visibility: hidden;"></button>
+                    <button class="key" onclick="typeKey('0')">0</button>
+                    <button class="key confirm" onclick="hideKeyboard()">P</button>
+                    <button class="key space" onclick="typeKey(' ')">␣</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Message -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let isOpen = false;
+        let hexMode = false;
+        let receiveCount = 0;
+        let sendCount = 0;
+        let receiveBuffer = '';
+
+        // Status indicator
+        const statusIndicator = document.getElementById('statusIndicator');
+        const btnConnect = document.getElementById('btnConnect');
+        const hexSwitch = document.getElementById('hexSwitch');
+        const sendInput = document.getElementById('sendInput');
+        const btnKeyboard = document.getElementById('btnKeyboard');
+        const btnSend = document.getElementById('btnSend');
+        const receiveArea = document.getElementById('receiveArea');
+        const receiveStats = document.getElementById('receiveStats');
+        const btnClear = document.getElementById('btnClear');
+        const keyboardOverlay = document.getElementById('keyboardOverlay');
+        const toast = document.getElementById('toast');
+
+        // Show toast
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+        // Connect/Disconnect UART
+        btnConnect.addEventListener('click', () => {
+            if (isOpen) {
+                // 断开串口
+                isOpen = false;
+                statusIndicator.classList.remove('active');
+                btnConnect.textContent = '连接';
+                btnConnect.classList.remove('connected');
+                showToast('串口已断开');
+            } else {
+                // 连接串口
+                const uart = document.getElementById('uartSelect').value;
+                const baud = document.getElementById('baudSelect').value;
+                isOpen = true;
+                statusIndicator.classList.add('active');
+                btnConnect.textContent = '断开';
+                btnConnect.classList.add('connected');
+                showToast(`串口 ${uart} 已连接\n波特率: ${baud}`);
+            }
+        });
+
+        // Toggle hex mode
+        hexSwitch.addEventListener('click', () => {
+            hexMode = !hexMode;
+            hexSwitch.classList.toggle('active');
+            console.log('十六进制模式:', hexMode);
+        });
+
+        // Show keyboard
+        btnKeyboard.addEventListener('click', () => {
+            keyboardOverlay.classList.add('active');
+        });
+
+        // Hide keyboard
+        function hideKeyboard() {
+            keyboardOverlay.classList.remove('active');
+        }
+
+        // Type key
+        function typeKey(char) {
+            sendInput.value += char;
+        }
+
+        // Delete key
+        function deleteKey() {
+            sendInput.value = sendInput.value.slice(0, -1);
+        }
+
+        // Click outside keyboard to close
+        keyboardOverlay.addEventListener('click', (e) => {
+            if (e.target === keyboardOverlay) {
+                hideKeyboard();
+            }
+        });
+
+        // Send data
+        btnSend.addEventListener('click', () => {
+            if (!isOpen) {
+                showToast('请先打开串口');
+                return;
+            }
+
+            const data = sendInput.value.trim();
+            if (!data) {
+                showToast('请输入要发送的数据');
+                return;
+            }
+
+            // Simulate sending
+            let dataToSend = data;
+            if (hexMode) {
+                // Convert hex string to actual data
+                const hexStr = data.replace(/\s/g, '');
+                dataToSend = '';
+                for (let i = 0; i < hexStr.length; i += 2) {
+                    const hexByte = hexStr.substr(i, 2);
+                    const charCode = parseInt(hexByte, 16);
+                    if (!isNaN(charCode)) {
+                        dataToSend += String.fromCharCode(charCode);
+                    }
+                }
+                console.log('hex转换后长度:', dataToSend.length);
+            }
+
+            console.log('准备发送数据:', dataToSend);
+            sendCount += dataToSend.length;
+            updateStats();
+            showToast(`发送成功 ${dataToSend.length}字节`);
+
+            // Simulate receiving echo
+            if (!hexMode) {
+                addToReceive(dataToSend);
+            } else {
+                // In hex mode, show as hex
+                let hexStr = '';
+                for (let i = 0; i < dataToSend.length; i++) {
+                    hexStr += dataToSend.charCodeAt(i).toString(16).toUpperCase().padStart(2, '0') + ' ';
+                }
+                addToReceive(hexStr.trim());
+            }
+
+            // Clear input
+            sendInput.value = '';
+        });
+
+        // Add to receive buffer
+        function addToReceive(data) {
+            receiveBuffer += data;
+            if (receiveBuffer.length > 2000) {
+                receiveBuffer = receiveBuffer.slice(-2000);
+            }
+            receiveCount += data.length;
+            receiveArea.textContent = receiveBuffer || '等待接收数据...';
+            updateStats();
+        }
+
+        // Update stats
+        function updateStats() {
+            receiveStats.textContent = `接收 Rx:${receiveCount} Tx:${sendCount}`;
+        }
+
+        // Clear receive
+        btnClear.addEventListener('click', () => {
+            receiveBuffer = '';
+            receiveCount = 0;
+            sendCount = 0;
+            receiveArea.textContent = '等待接收数据...';
+            updateStats();
+            showToast('清空接收区');
+        });
+
+        // Keyboard support for send input
+        sendInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                btnSend.click();
+            }
+        });
+    </script>
+</body>
+</html>

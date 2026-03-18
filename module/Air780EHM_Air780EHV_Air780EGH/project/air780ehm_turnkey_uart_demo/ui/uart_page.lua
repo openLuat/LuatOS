@@ -469,6 +469,11 @@ function uart_page.create_ui()
         color = 0xaaaaaa
     })
 
+    -- 初始化并创建虚拟键盘
+    log.info("uart_page", "【UI创建】初始化并创建虚拟键盘")
+    virtual_keyboard.create(main_container, 8, 245, 464, 72)
+    log.info("uart_page", "【UI创建】串口页面UI创建完成")
+    
     -- 发送区域（紧凑版）
     local send_box = airui.container({
         parent = content,
@@ -499,7 +504,9 @@ function uart_page.create_ui()
         h = 28,
         placeholder = "点击输入",
         font_size = 12,
-        read_only = true
+        on_click = function()
+            virtual_keyboard.show(send_input, send_input:get_text())
+        end
     })
 
     send_btn = airui.button({
@@ -567,11 +574,6 @@ function uart_page.create_ui()
         radius = 4,
         on_click = handle_clear
     })
-
-    -- 初始化虚拟键盘（但不创建UI，只在需要时创建）
-    log.info("uart_page", "【UI创建】初始化虚拟键盘参数")
-    virtual_keyboard.init(main_container, 8, 245, 464, 72)
-    log.info("uart_page", "【UI创建】串口页面UI创建完成")
 end
 
 -- 处理串口接收数据

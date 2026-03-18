@@ -89,7 +89,7 @@
 </table>
 
 
-![](https://docs.openLuat.com/cdn/image/Air780EHV_AirLCD_10010_AirFONTS_1000接线图.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1010/exeasyui/image/image1.png)
 
 ## 四、演示软件环境
 
@@ -191,7 +191,6 @@ require("ui_main")
 
 1. **显示异常**：检查 LCD 接线，确认对应驱动文件中的硬件参数正确
 2. **触摸无响应**：检查 I2C 接线，确认触摸芯片型号配置正确
-3. **字体显示异常**：确认选择的字体驱动与硬件匹配
 4. **图片无法显示**：确认图片文件已正确烧录到指定路径
 5. **系统卡顿**：调整 `ui_main.lua` 中的刷新率参数
 

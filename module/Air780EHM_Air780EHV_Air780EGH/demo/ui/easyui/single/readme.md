@@ -178,6 +178,8 @@
 <tr>
 <td>20/GPIO24<br/></td><td>INT<br/></td></tr>
 </table>
+
+
 ![](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1010/exeasyui/image/image1.png)
 
 ## 六、演示软件环境

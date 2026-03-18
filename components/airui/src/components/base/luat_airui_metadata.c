@@ -137,6 +137,12 @@ void airui_component_meta_free(airui_component_meta_t *meta)
         airui_component_release_callbacks(meta, meta->ctx->L);
     }
 
+    // 释放二维码数据（二维码组件会缓存数据，需要手动释放）
+    if (meta->component_type == AIRUI_COMPONENT_QRCODE && meta->user_data != NULL) {
+        extern void airui_qrcode_release_data(airui_component_meta_t *meta);
+        airui_qrcode_release_data(meta);
+    }
+
     // 减少组件计数
     if (meta->ctx != NULL) {
         if (meta->ctx->debug_component_count > 0) {

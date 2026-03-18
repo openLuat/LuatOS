@@ -1,4 +1,13 @@
--- lua - 全部应用页面（使用 exwin.is_active 判断活跃）
+--[[
+@module  main_menu_win
+@summary 主菜单（全部应用）页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为主菜单页面，以图标网格形式显示所有功能入口。
+订阅"OPEN_MAIN_MENU_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, time_label, signal_img

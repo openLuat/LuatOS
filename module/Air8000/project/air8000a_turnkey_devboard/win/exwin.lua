@@ -1,4 +1,3 @@
--- exwin.lua - 嵌入式窗口管理扩展库
 --[[
 @module  exwin
 @summary UI窗口管理扩展库
@@ -31,9 +30,14 @@ local win_stack = {}
 -- 下一个可分配的窗口ID（从1开始）
 local next_id = 0
 
--- 内部函数：根据ID查找窗口在栈中的索引
--- @number id 窗口ID
--- @return number|nil 窗口在栈中的索引，若不存在返回nil
+--[[
+内部函数：根据ID查找窗口在栈中的索引
+
+@local
+@function find_index_by_id
+@param id number 窗口ID
+@return number|nil 窗口在栈中的索引，若不存在返回nil
+]]
 local function find_index_by_id(id)
     for i, w in ipairs(win_stack) do
         if w.id == id then
@@ -45,19 +49,20 @@ end
 
 --[[
 打开一个新窗口
+
 @api exwin.open(config)
 @table config 配置表，可包含：
-    @function on_create 可选，窗口创建回调
-    @function on_destroy 可选，窗口销毁回调
-    @function on_lose_focus 可选，窗口失去焦点回调
-    @function on_get_focus 可选，窗口获得焦点回调
+    @function on_create 窗口创建回调（必需）
+    @function on_destroy 窗口销毁回调（必须）
+    @function on_lose_focus 窗口失去焦点回调（可选）
+    @function on_get_focus 窗口获得焦点回调（可选）
 @return number 新窗口的ID
 @usage
 local win_id = exwin.open({
-    on_create = function(id) print("窗口创建", id) end,
-    on_get_focus = function(id) print("窗口获得焦点", id) end,
-    on_lose_focus = function(id) print("窗口失去焦点", id) end,
-    on_destroy = function(id) print("窗口销毁", id) end
+    on_create = function() print("窗口创建") end,
+    on_get_focus = function() print("窗口获得焦点") end,
+    on_lose_focus = function() print("窗口失去焦点") end,
+    on_destroy = function() print("窗口销毁") end
 })
 ]]
 function exwin.open(config)
@@ -97,8 +102,9 @@ end
 
 --[[
 关闭指定窗口（通常由页面自己调用）
+
 @api exwin.close(win_id)
-@number win_id 要关闭的窗口ID
+@param win_id number 要关闭的窗口ID
 @return nil
 @usage
 -- 在窗口内部关闭自己
@@ -131,8 +137,9 @@ end
 
 --[[
 查询窗口是否为当前活动页面
+
 @api exwin.is_active(win_id)
-@number win_id 窗口ID
+@param win_id number 窗口ID
 @return boolean true表示是活动窗口，false表示不是或窗口不存在
 @usage
 if exwin.is_active(1) then
@@ -147,6 +154,7 @@ end
 
 --[[
 一键返回首页（win_id=1），销毁其他所有窗口，并保留第一个窗口
+
 @api exwin.return_idle()
 @return nil
 @usage

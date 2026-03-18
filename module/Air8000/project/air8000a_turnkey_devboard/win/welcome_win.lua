@@ -1,4 +1,13 @@
--- lua - 开机画面
+--[[
+@module  welcome_win
+@summary 开机欢迎页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为开机欢迎页面，显示欢迎文字，1秒后自动切换到首页。
+订阅"OPEN_WELCOME_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container

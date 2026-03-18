@@ -1,9 +1,27 @@
--- 联网选择页面
+--[[
+@module  network_select_win
+@summary 联网选择页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为联网选择页面，可设置联网优先级（4G/WiFi/以太网）并保存。
+订阅"OPEN_NETWORK_SELECT_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local priority_dropdown
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、优先级下拉框和保存按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -42,25 +60,46 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并加载当前设置
+]]
 local function on_create()
     
     create_ui()
     -- TODO: 读取当前设置，初始化下拉框
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，释放资源
+]]
 local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 刷新
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 暂停
 end
 
+-- 订阅打开联网选择页面的消息
 local function open_handler()
     win_id = exwin.open({
         on_create = on_create,

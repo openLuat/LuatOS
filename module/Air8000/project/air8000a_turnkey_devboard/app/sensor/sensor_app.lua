@@ -1,7 +1,20 @@
+--[[
+@module  sensor_app
+@summary 传感器应用主模块，负责定时读取传感器数据并分发
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为传感器应用主模块，核心业务逻辑为：
+1、加载温湿度传感器驱动（AirSHT30_1000）和VOC传感器驱动（AirVOC_1000）；
+2、启动传感器读取任务，每5秒（由定时器触发）读取一次数据；
+3、无论读取成功与否，均发布"ui_sensor_data"供UI显示；
+4、当两个传感器均成功读取时，发布"read_sht30_voc_rsp"供云端上报。
+]]
+
 -- 加载传感器驱动
 local air_sht30 = require "AirSHT30_1000"
 local air_voc = require "AirVOC_1000"
-
 
 -- 存储上一次的有效值
 local last_temp = nil
@@ -12,11 +25,19 @@ if rtos.bsp() == "PC" then
 
 elseif rtos.bsp() ~= "Air8101" then
     -- 开启SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息，会增加功耗
-    mobile.setAuto(10000, 30000, 5) -- 此函数仅需要配置一次
+    mobile.setAuto(10000, 30000, 5) -- 此函数仅需配置一次
 end
 
+--[[
+传感器读取任务（主循环）
 
--- 传感器读取任务（主循环）
+@local
+@function sensor_task
+@return nil
+@usage
+-- 作为系统任务启动，循环等待"read_sensors_req"事件，每收到一次执行一次读取
+-- 读取温湿度、VOC，发布UI数据和云端数据
+]]
 local function sensor_task()
     while true do
         -- 等待定时器发布的读取请求（每30秒一次）

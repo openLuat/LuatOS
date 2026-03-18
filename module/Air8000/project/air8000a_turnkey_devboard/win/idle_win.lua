@@ -1,14 +1,58 @@
--- lua - 首页
+--[[
+@module  idle_win
+@summary 首页窗口模块，显示系统状态和传感器数据
+@version 1.0.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为系统首页窗口，主要功能包括：
+1、显示当前时间，每秒自动更新；
+2、显示信号强度，每2秒自动更新；
+3、显示温度、湿度、空气质量传感器数据；
+4、提供传感器卡片点击查看历史图表功能；
+5、显示设备型号二维码；
+6、显示合宙云二维码；
 
+对外接口：通过exwin窗口管理系统管理窗口生命周期；
+]]
+
+-- 窗口ID，由exwin.open()分配
 local win_id = nil
+
+-- UI组件引用
 local main_container, time_label, temp_label, hum_label, air_label, signal_img, qrcode1
+
+-- 静态资源路径和初始时间
 local full_path, current_time = "/luadb/4Gxinghao6.png", "08:00"
+
+-- 传感器卡片组件
 local card_temp, card_hum, card_air
-local current_win = nil -- 图表窗口
+
+-- 当前图表窗口引用
+local current_win = nil
+
+-- 合宙云二维码组件
 local aircloud_qr = nil
+
+-- 状态提供器模块
 local StatusProvider = require "status_provider_app"
 
--- 内部函数：显示历史图表
+--[[
+显示历史图表函数，响应传感器卡片点击事件
+
+@local
+@function show_history_chart
+@param sensor_type string 传感器类型，可选值："temperature"（温度）、"humidity"（湿度）、"air"（空气质量）
+@return nil
+
+@usage
+-- 当用户点击传感器卡片时调用
+-- 检查当前窗口是否激活，未激活则不执行
+-- 根据传感器类型发布对应的事件：
+--   "temperature" -> "OPEN_TEMP_HISTORY_WIN"
+--   "humidity" -> "OPEN_HUM_HISTORY_WIN"
+--   "air" -> "OPEN_AIR_HISTORY_WIN"
+]]
 local function show_history_chart(sensor_type)
     if not exwin.is_active(win_id) then return end
     if sensor_type == "temperature" then

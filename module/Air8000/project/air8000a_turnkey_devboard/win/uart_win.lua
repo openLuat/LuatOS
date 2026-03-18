@@ -1,9 +1,29 @@
--- 串口页面
+--[[
+@module  uart_win
+@summary 串口调试页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为串口调试页面，支持选择串口号、波特率，打开/关闭串口，发送和接收数据。
+订阅"OPEN_UART_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local uart_dropdown, baud_dropdown, send_input, receive_area
 
+--[[
+更新接收数据显示
+
+@local
+@function update_receive
+@param data string 接收到的数据
+@return nil
+@usage
+-- 当串口收到数据时调用，将数据追加到接收区
+-- 仅当窗口活跃时执行
+]]
 local function update_receive(data)
     if not exwin.is_active(win_id) then return end
     if receive_area then
@@ -12,10 +32,20 @@ local function update_receive(data)
     end
 end
 
+-- 串口接收事件处理函数
 local function uart_rx_handler(data)
     update_receive(data)
 end
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、串口配置控件、发送接收区域
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -75,12 +105,30 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并订阅串口接收事件
+]]
 local function on_create()
     
     create_ui()
     sys.subscribe("UART_RX_DATA", uart_rx_handler)
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，取消订阅，销毁容器，关闭串口
+]]
 local function on_destroy()
     sys.unsubscribe("UART_RX_DATA", uart_rx_handler)
     if main_container then main_container:destroy(); main_container = nil end
@@ -88,14 +136,17 @@ local function on_destroy()
     -- 关闭串口
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 刷新
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 可暂停接收显示（但订阅仍会触发，只是 is_active 阻止UI更新）
 end
 
+-- 订阅打开串口页面的消息
 local function open_handler()
     win_id = exwin.open({
         on_create = on_create,

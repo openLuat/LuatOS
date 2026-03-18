@@ -1,10 +1,28 @@
--- IoT账户页面
+--[[
+@module  iot_account_win
+@summary IoT账户配置页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为IoT账户配置页面，可设置服务器地址、账号、密码，并提供登录、上传数据、获取历史按钮。
+订阅"OPEN_IOT_ACCOUNT_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local server_input, user_input, pass_input
 local login_btn
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、输入框和操作按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -66,26 +84,47 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并加载已保存配置
+]]
 local function on_create()
     
     create_ui()
     -- TODO: 加载已保存的配置
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，断开MQTT连接等
+]]
 local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 断开MQTT连接等
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 刷新
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 暂停可能的上传
 end
 
+-- 订阅打开IoT账户页面的消息
 local function open_handler()
     win_id = exwin.open({
         on_create = on_create,

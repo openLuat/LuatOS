@@ -137,7 +137,7 @@ static int luatos_display_suspend(airui_ctx_t *ctx)
         return AIRUI_ERR_NOT_INITIALIZED;
     }
 
-    int ret = luat_lcd_sleep(data->lcd_conf);
+    int ret = luat_lcd_airui_sleep(data->lcd_conf, ctx->sleep_power_down_lcd ? 1 : 0);
     return ret;
 }
 

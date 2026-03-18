@@ -188,6 +188,7 @@ struct airui_ctx {
     uint8_t debug_last_mem_used_pct;     /**< 上次统计内存占用率 */
     uint32_t debug_component_count;      /**< 当前组件计数 */
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
+    bool sleep_power_down_lcd;           /**< 休眠时是否关闭 LCD 供电 */
     bool sleeping;                       /**< 当前是否处于休眠状态 */
 };
 

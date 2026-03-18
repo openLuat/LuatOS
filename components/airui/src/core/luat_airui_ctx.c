@@ -291,6 +291,7 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops)
     // 清零上下文
     memset(ctx, 0, sizeof(airui_ctx_t));
     ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
+    ctx->sleep_power_down_lcd = true;
     
     // 如果没有传入 ops，则根据编译时宏定义自动选择
     if (ops == NULL) {

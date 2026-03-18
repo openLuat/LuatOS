@@ -351,15 +351,28 @@ static int l_airui_full_refresh(lua_State *L) {
 
 /**
  * 休眠 AIRUI
- * @api airui.sleep()
+ * @api airui.sleep(opts)
+ * @table opts 可选配置
+ * @bool opts.power_down_lcd 休眠时是否关闭 LCD 供电，默认 true
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_sleep(lua_State *L) {
+    bool power_down_lcd = true;
+
     if (g_ctx == NULL) {
         luaL_error(L, "airui not initialized, call airui.init() first");
         return 0;
     }
 
+    if (lua_istable(L, 1)) {
+        lua_getfield(L, 1, "power_down_lcd");
+        if (!lua_isnil(L, -1)) {
+            power_down_lcd = lua_toboolean(L, -1) ? true : false;
+        }
+        lua_pop(L, 1);
+    }
+
+    g_ctx->sleep_power_down_lcd = power_down_lcd;
     lua_pushboolean(L, airui_sleep(g_ctx) == 0 ? 1 : 0);
     return 1;
 }

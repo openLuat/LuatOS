@@ -277,6 +277,18 @@ int luat_lcd_display_on(luat_lcd_conf_t* conf) {
     return 0;
 }
 
+int luat_lcd_airui_sleep(luat_lcd_conf_t* conf, uint8_t power_down) {
+    if (power_down && conf->pin_pwr != LUAT_GPIO_NONE)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    luat_rtos_task_sleep(5);
+    if (conf->opts->sleep_ctrl) {
+    	conf->opts->sleep_ctrl(conf, 1);
+    } else {
+    	lcd_write_cmd_data(conf,conf->opts->sleep_cmd?conf->opts->sleep_cmd:LUAT_LCD_DEFAULT_SLEEP, NULL, 0);
+    }
+    return 0;
+}
+
 int luat_lcd_sleep(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);

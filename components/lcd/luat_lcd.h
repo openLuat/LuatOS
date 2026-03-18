@@ -210,6 +210,7 @@ const char* luat_lcd_name(luat_lcd_conf_t* conf);
 int luat_lcd_close(luat_lcd_conf_t* conf);
 int luat_lcd_display_on(luat_lcd_conf_t* conf);
 int luat_lcd_display_off(luat_lcd_conf_t* conf);
+int luat_lcd_airui_sleep(luat_lcd_conf_t* conf, uint8_t power_down);
 int luat_lcd_sleep(luat_lcd_conf_t* conf);
 int luat_lcd_wakeup(luat_lcd_conf_t* conf);
 int luat_lcd_inv_off(luat_lcd_conf_t* conf);

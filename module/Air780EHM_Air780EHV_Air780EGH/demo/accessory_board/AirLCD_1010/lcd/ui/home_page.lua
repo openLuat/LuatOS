@@ -24,9 +24,8 @@ local center_x = math.floor(width / 2)
 
 -- 按钮区域定义
 local buttons = {
-    lcd_page = { x1 = 10, y1 = 350, x2 = 100, y2 = 420 },
-    gtfont_page = { x1 = 115, y1 = 350, x2 = 205, y2 = 420 },
-    customer_font_page = { x1 = 220, y1 = 350, x2 = 310, y2 = 420 }
+    lcd_page = { x1 = 10, y1 = 350, x2 = 150, y2 = 420 },
+    customer_font_page = { x1 = 170, y1 = 350, x2 = 310, y2 = 420 }
 }
 
 local title = "合宙lcd演示系统"
@@ -56,18 +55,12 @@ function home_page.draw()
     -- 绘制LCD演示按钮
     lcd.fill(buttons.lcd_page.x1, buttons.lcd_page.y1,
         buttons.lcd_page.x2, buttons.lcd_page.y2, 0x001F)
-    lcd.drawStr(15, 390, "lcd核心库演示", 0xFFFF)
-
-    -- 绘制GTFont演示按钮
-    lcd.fill(buttons.gtfont_page.x1, buttons.gtfont_page.y1,
-        buttons.gtfont_page.x2, buttons.gtfont_page.y2, 0xF800)
-    lcd.drawStr(148, 380, "外部", 0xFFFF)
-    lcd.drawStr(124, 400, "矢量字体芯片", 0xFFFF)
+    lcd.drawStr(40, 390, "lcd核心库演示", 0xFFFF)
 
     -- 绘制自定义字体演示按钮
     lcd.fill(buttons.customer_font_page.x1, buttons.customer_font_page.y1,
         buttons.customer_font_page.x2, buttons.customer_font_page.y2, 0x07E0)
-    lcd.drawStr(235, 390, "自定义字体", 0xFFFF)
+    lcd.drawStr(205, 390, "自定义字体", 0xFFFF)
 end
 
 --[[
@@ -84,13 +77,6 @@ function home_page.handle_touch(x, y, switch_page)
     if x >= buttons.lcd_page.x1 and x <= buttons.lcd_page.x2 and
         y >= buttons.lcd_page.y1 and y <= buttons.lcd_page.y2 then
         switch_page("lcd")
-        return true
-    end
-
-    -- 检查GTFont演示按钮
-    if x >= buttons.gtfont_page.x1 and x <= buttons.gtfont_page.x2 and
-        y >= buttons.gtfont_page.y1 and y <= buttons.gtfont_page.y2 then
-        switch_page("gtfont")
         return true
     end
 

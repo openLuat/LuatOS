@@ -346,6 +346,7 @@ end
 local function fnc_open()
     if openFlag then return end
     libgnss.clear() -- 清空数据,兼初始化
+    log.info("exgnss", "open",uart_id)
     uart.setup(uart_id, uart_baudrate)
     if exgnss.opts.gnss_volgpio then
         gpio.setup(exgnss.opts.gnss_volgpio,1)
@@ -616,8 +617,8 @@ function exgnss.setup(opts)
         uart_id=2
         uart_baudrate=115200
     else
-        if exgnss.opts.uart_id then
-            uart_id=exgnss.opts.uart_id
+        if exgnss.opts.uart then
+            uart_id=exgnss.opts.uart
         else
             uart_id=2    
         end

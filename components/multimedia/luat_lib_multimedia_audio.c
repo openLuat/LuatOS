@@ -163,7 +163,7 @@ static void record_run(uint8_t *data, uint32_t len)
 
 }
 
-static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
+int luat_audio_record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
 	switch(event)
 	{
@@ -176,7 +176,7 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 		{
 			memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, rx_data, rx_len);
 			g_s_record.record_buffer[g_s_record.record_buffer_index]->used += rx_len;
-			// LLOGD("record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
+			// LLOGD("luat_audio_record_cb record_buffer:%p record_buffer_index:%d addr:%p used:%d len:%d ", 
             //     g_s_record.record_buffer, 
             //     g_s_record.record_buffer_index, 
             //     g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, 
@@ -185,11 +185,11 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
             if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_callback_level)
 			{
 				record_buffer_full();
-                // LLOGD("record_cb record_time:%d ", g_s_record.record_time);
+                // LLOGD("luat_audio_record_cb record_time:%d ", g_s_record.record_time);
 				if (g_s_record.record_time)
 				{
 					g_s_record.record_time_tmp++;
-                    // LLOGD("record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
+                    // LLOGD("luat_audio_record_cb record_time_tmp:%d record_time_data_ratio:%d record_time_tmp * g_s_record.record_time_data_ratio:%d g_s_record.record_time * 10:%d ", 
                     //     g_s_record.record_time_tmp, 
                     //     g_s_record.record_time_data_ratio, 
                     //     g_s_record.record_time_tmp * g_s_record.record_time_data_ratio, 
@@ -210,14 +210,7 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 	return 0;
 }
 
-static void record_no_i2s_cb(uint8_t id, uint8_t *rx_data, uint32_t rx_len, void *param)
-{
-	luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
-}
-
 static void record_start(uint8_t *data, uint32_t len){
-
-
 
     //需要保存文件，看情况打开编码功能
     if (g_s_record.fd){
@@ -245,7 +238,7 @@ static void record_start(uint8_t *data, uint32_t len){
     	g_s_record.bak_sample_rate = i2s->sample_rate;
     	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
     	i2s->is_full_duplex = 1;
-    	i2s->luat_i2s_event_callback = record_cb;
+    	i2s->luat_i2s_event_callback = luat_audio_record_cb;
     	switch(g_s_record.type)
     	{
     	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
@@ -289,10 +282,9 @@ static void record_start(uint8_t *data, uint32_t len){
         		break;
         	}
     	}
-    	luat_audio_setup_record_callback(g_s_record.multimedia_id, record_cb, &g_s_record);
+
     	luat_audio_record_and_play(g_s_record.multimedia_id, sample_rate, NULL, 3200, 2);
     }
-
 }
 
 

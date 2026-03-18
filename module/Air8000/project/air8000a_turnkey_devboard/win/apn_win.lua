@@ -1,9 +1,27 @@
--- APN配置页面
+--[[
+@module  apn_win
+@summary APN配置页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为APN配置页面，允许用户设置APN、账号、密码并保存。
+订阅"OPEN_APN_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local apn_input, user_input, pass_input
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、输入框和保存按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x = 0, y = 0, w = 480, h = 320, color = 0xF8F9FA })
 
@@ -48,12 +66,30 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并加载已保存配置（TODO）
+]]
 local function on_create()
     create_ui()
     -- 可加载已保存的APN
     -- 例如: local saved = settings.get("apn")
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，释放资源
+]]
 local function on_destroy()
     if main_container then
         main_container:destroy()
@@ -62,10 +98,12 @@ local function on_destroy()
     win_id = nil
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 获得焦点时可刷新数据
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 失去焦点时可暂停操作
 end

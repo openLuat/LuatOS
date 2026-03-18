@@ -1,11 +1,19 @@
 local spilookback_test = {}
 
 local device_name = rtos.bsp()
+local dev_set = {
+    Air780EGP = true,
+    Air780EPM = true,
+    Air780EHV = true,
+    Air780EGH = true,
+    Air780EHM = true,
+    Air780EGG = true
+}
 
 -- SPI配置
 local spitest_spiId, spitest_cs, spitest_cspin
 local function spi_configuration()
-    if device_name == "Air780EGP" then
+    if dev_set[device_name] then
 
         CHIP_TYPE = "718M" -- 可设置为 "718M" 或 "BK7258"
         -- SPI编号，请按实际情况修改！
@@ -13,20 +21,7 @@ local function spi_configuration()
         spitest_cs = 8
         spitest_cspin = gpio.setup(spitest_cs, 1) -- 配置CS为输出，初始高电平
 
-        log.info("SPI0", "Air780EGP SPI0正确引脚:")
-        log.info("SPI0", "  CS:    GPIO8 (管脚83)")
-        log.info("SPI0", "  MOSI:  GPIO9 (管脚85)")
-        log.info("SPI0", "  MISO:  GPIO10 (管脚84)")
-        log.info("SPI0", "  CLK:   GPIO11 (管脚86)")
-
-    elseif device_name == "Air780EPM" then
-
-        CHIP_TYPE = "718M"
-        spitest_spiId = spi.SPI_0
-        spitest_cs = 8
-        spitest_cspin = gpio.setup(spitest_cs, 1)
-
-        log.info("SPI0", "Air780EPM SPI0正确引脚:")
+        log.info("SPI0", "Air780EGP/Air780EPM SPI0正确引脚:")
         log.info("SPI0", "  CS:    GPIO8 (管脚83)")
         log.info("SPI0", "  MOSI:  GPIO9 (管脚85)")
         log.info("SPI0", "  MISO:  GPIO10 (管脚84)")
@@ -134,7 +129,7 @@ local function spiLoopbackTest(speed)
         else
             dataLength = 512 -- 超高速：512字节（不超过1024，避免DMA错误）
         end
-        
+
     else
 
         -- 其他设备
@@ -150,7 +145,6 @@ local function spiLoopbackTest(speed)
         end
 
     end
-
 
     -- 生成测试数据
     local testData = ""

@@ -37,7 +37,7 @@ function send_notify_data_timer_cbfunc()
     local notify_data = "Notify " .. config.counter .. " " .. os.date("%H:%M:%S")
     
     -- 发布消息"SEND_DATA_REQ"
-    sys.publish("SEND_DATA_REQ", "timer", notify_data, {func = send_data_cbfunc, para="notify "..notify_data})
+    sys.publish("SEND_DATA_REQ", notify_data, {func = send_data_cbfunc, para="notify "..notify_data})
 end
 
 

@@ -341,6 +341,13 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx)
         if (airui_marshal_integer_opt(L_state, idx, "title_text_color", &value)) {
             lv_obj_set_style_text_color(title_label, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
         }
+        if (airui_marshal_integer_opt(L_state, idx, "title_align", &value)) {
+            lv_text_align_t align = LV_TEXT_ALIGN_LEFT;
+            if (value == (int)LV_TEXT_ALIGN_LEFT || value == (int)LV_TEXT_ALIGN_CENTER || value == (int)LV_TEXT_ALIGN_RIGHT) {
+                align = (lv_text_align_t)value;
+            }
+            lv_obj_set_style_text_align(title_label, align, LV_PART_MAIN | LV_STATE_DEFAULT);
+        }
     }
 
     if (close_btn != NULL) {

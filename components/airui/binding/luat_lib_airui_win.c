@@ -52,6 +52,7 @@
  * @int config.style.content_bg_opa 内容区背景透明度（0-255）
  * @int config.style.content_pad 内容区内边距
  * @int config.style.title_text_color 标题文字颜色（0xRRGGBB）
+ * @int config.style.title_align 标题对齐方式，支持 airui.TEXT_ALIGN_LEFT/CENTER/RIGHT
  * @int config.style.close_btn_bg_color 关闭按钮背景色（0xRRGGBB）
  * @int config.style.close_btn_bg_opa 关闭按钮背景透明度（0-255）
  * @int config.style.close_btn_text_color 关闭按钮文字颜色（0xRRGGBB）

@@ -798,9 +798,14 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                 sub_type[i] = (int)bs_read_ue(bs);
         }
 
-        /* ref_idx_l0 per partition (te(v); no bits when n_ref == 0) */
-        for (i = 0; i < npart; i++)
-            (void)read_ref_idx(bs, n_ref);
+        /* ref_idx_l0 per partition (te(v); no bits when n_ref == 0).
+         * For P_8x8ref0 (mb_type_raw == 4), the spec does not code ref_idx_l0;
+         * it is implicitly 0, so we must not consume any bits here.
+         */
+        if (mb_type_raw != 4) {
+            for (i = 0; i < npart; i++)
+                (void)read_ref_idx(bs, n_ref);
+        }
 
         /* mvd_l0: read per partition / sub-partition, store final MV */
         int16_t mv[4][2];

@@ -4,56 +4,11 @@
 
 #include "../include/h264_decoder.h"
 #include "../src/h264_common.h"
+#include "test_utils.h"
 
 #define CHECK(cond, msg) do { \
     if (!(cond)) { fprintf(stderr, "FAIL: %s (line %d)\n", msg, __LINE__); return 1; } \
 } while(0)
-
-/* ---- Bit writer ---- */
-typedef struct {
-    uint8_t buf[4096];
-    int     bit_pos;
-    int     byte_count;
-} BW;
-
-static void bw_init2(BW *bw) {
-    memset(bw->buf, 0, sizeof(bw->buf));
-    bw->bit_pos   = 0;
-    bw->byte_count = 0;
-}
-
-static void bw_write_bit2(BW *bw, int b) {
-    if ((bw->bit_pos >> 3) >= (int)sizeof(bw->buf)) return;
-    if (b) bw->buf[bw->bit_pos >> 3] |= (0x80 >> (bw->bit_pos & 7));
-    bw->bit_pos++;
-}
-
-static void bw_write_bits2(BW *bw, uint32_t v, int n) {
-    int i;
-    for (i = n-1; i >= 0; i--)
-        bw_write_bit2(bw, (v >> i) & 1);
-}
-
-static void bw_write_ue2(BW *bw, uint32_t v) {
-    if (v == 0) { bw_write_bit2(bw, 1); return; }
-    int n = 0;
-    uint32_t t = v + 1;
-    while (t > 1) { n++; t >>= 1; }
-    int i;
-    for (i = 0; i < n; i++) bw_write_bit2(bw, 0);
-    bw_write_bits2(bw, v + 1, n + 1);
-}
-
-static void bw_write_se2(BW *bw, int v) {
-    uint32_t k = (v <= 0) ? (uint32_t)(-2*v) : (uint32_t)(2*v - 1);
-    bw_write_ue2(bw, k);
-}
-
-static void bw_align(BW *bw) {
-    while (bw->bit_pos & 7) bw_write_bit2(bw, 0);
-}
-
-static int bw_len(const BW *bw) { return (bw->bit_pos + 7) >> 3; }
 
 /* ---- Emulation prevention ---- */
 extern int h264_rbsp_to_nalu(const uint8_t *rbsp_data, int rbsp_size,
@@ -81,93 +36,93 @@ static int write_nalu(uint8_t *out, int out_max, int *out_pos,
 
 /*
  * Build a minimal valid H.264 Annex-B stream for a 16x16 video with one IDR
- * I-frame using I_PCM macroblock.  Pixel values are Y=128, Cb=128, Cr=128.
+ * I-frame using I_PCM macroblock. Pixel values are Y=128, Cb=128, Cr=128.
  */
 static int build_16x16_gray_stream(uint8_t *out, int out_max, int *out_size)
 {
-    BW bw;
+    TestBitWriter bw;
     int pos = 0;
 
     /* ---- SPS ---- */
-    bw_init2(&bw);
-    bw_write_bits2(&bw, 66, 8);   /* profile_idc = Baseline */
-    bw_write_bits2(&bw, 0xC0, 8); /* constraint flags */
-    bw_write_bits2(&bw, 30, 8);   /* level_idc */
-    bw_write_ue2(&bw, 0);  /* sps_id */
-    bw_write_ue2(&bw, 0);  /* log2_max_frame_num_minus4 */
-    bw_write_ue2(&bw, 0);  /* pic_order_cnt_type */
-    bw_write_ue2(&bw, 4);  /* log2_max_poc_lsb_minus4 */
-    bw_write_ue2(&bw, 1);  /* max_num_ref_frames */
-    bw_write_bit2(&bw, 0); /* gaps_in_frame_num */
-    bw_write_ue2(&bw, 0);  /* pic_width_in_mbs_minus1 = 0 -> 16px */
-    bw_write_ue2(&bw, 0);  /* pic_height_in_map_units_minus1 = 0 -> 16px */
-    bw_write_bit2(&bw, 1); /* frame_mbs_only_flag */
-    bw_write_bit2(&bw, 1); /* direct_8x8_inference_flag */
-    bw_write_bit2(&bw, 0); /* frame_cropping_flag */
-    bw_write_bit2(&bw, 0); /* vui_parameters_present_flag */
+    tbw_init(&bw);
+    tbw_write_bits(&bw, 66, 8);   /* profile_idc = Baseline */
+    tbw_write_bits(&bw, 0xC0, 8); /* constraint flags */
+    tbw_write_bits(&bw, 30, 8);   /* level_idc */
+    tbw_write_ue(&bw, 0);  /* sps_id */
+    tbw_write_ue(&bw, 0);  /* log2_max_frame_num_minus4 */
+    tbw_write_ue(&bw, 0);  /* pic_order_cnt_type */
+    tbw_write_ue(&bw, 4);  /* log2_max_poc_lsb_minus4 */
+    tbw_write_ue(&bw, 1);  /* max_num_ref_frames */
+    tbw_write_bit(&bw, 0); /* gaps_in_frame_num */
+    tbw_write_ue(&bw, 0);  /* pic_width_in_mbs_minus1 = 0 -> 16px */
+    tbw_write_ue(&bw, 0);  /* pic_height_in_map_units_minus1 = 0 -> 16px */
+    tbw_write_bit(&bw, 1); /* frame_mbs_only_flag */
+    tbw_write_bit(&bw, 1); /* direct_8x8_inference_flag */
+    tbw_write_bit(&bw, 0); /* frame_cropping_flag */
+    tbw_write_bit(&bw, 0); /* vui_parameters_present_flag */
 
-    if (write_nalu(out, out_max, &pos, 0x67, bw.buf, bw_len(&bw)) != 0) return -1;
+    if (write_nalu(out, out_max, &pos, 0x67, bw.buf, tbw_len(&bw)) != 0) return -1;
 
     /* ---- PPS ---- */
-    bw_init2(&bw);
-    bw_write_ue2(&bw, 0);  /* pps_id */
-    bw_write_ue2(&bw, 0);  /* sps_id */
-    bw_write_bit2(&bw, 0); /* entropy_coding_mode = CAVLC */
-    bw_write_bit2(&bw, 0); /* bottom_field_pic_order */
-    bw_write_ue2(&bw, 0);  /* num_slice_groups_minus1 */
-    bw_write_ue2(&bw, 0);  /* num_ref_idx_l0_default */
-    bw_write_ue2(&bw, 0);  /* num_ref_idx_l1_default */
-    bw_write_bit2(&bw, 0); /* weighted_pred_flag */
-    bw_write_bits2(&bw, 0, 2); /* weighted_bipred_idc */
-    bw_write_se2(&bw, 0);  /* pic_init_qp_minus26 */
-    bw_write_se2(&bw, 0);  /* pic_init_qs_minus26 */
-    bw_write_se2(&bw, 0);  /* chroma_qp_index_offset */
-    bw_write_bit2(&bw, 1); /* deblocking_filter_control_present */
-    bw_write_bit2(&bw, 0); /* constrained_intra_pred */
-    bw_write_bit2(&bw, 0); /* redundant_pic_cnt_present */
+    tbw_init(&bw);
+    tbw_write_ue(&bw, 0);  /* pps_id */
+    tbw_write_ue(&bw, 0);  /* sps_id */
+    tbw_write_bit(&bw, 0); /* entropy_coding_mode = CAVLC */
+    tbw_write_bit(&bw, 0); /* bottom_field_pic_order */
+    tbw_write_ue(&bw, 0);  /* num_slice_groups_minus1 */
+    tbw_write_ue(&bw, 0);  /* num_ref_idx_l0_default */
+    tbw_write_ue(&bw, 0);  /* num_ref_idx_l1_default */
+    tbw_write_bit(&bw, 0); /* weighted_pred_flag */
+    tbw_write_bits(&bw, 0, 2); /* weighted_bipred_idc */
+    tbw_write_se(&bw, 0);  /* pic_init_qp_minus26 */
+    tbw_write_se(&bw, 0);  /* pic_init_qs_minus26 */
+    tbw_write_se(&bw, 0);  /* chroma_qp_index_offset */
+    tbw_write_bit(&bw, 1); /* deblocking_filter_control_present */
+    tbw_write_bit(&bw, 0); /* constrained_intra_pred */
+    tbw_write_bit(&bw, 0); /* redundant_pic_cnt_present */
 
-    if (write_nalu(out, out_max, &pos, 0x68, bw.buf, bw_len(&bw)) != 0) return -1;
+    if (write_nalu(out, out_max, &pos, 0x68, bw.buf, tbw_len(&bw)) != 0) return -1;
 
     /* ---- IDR Slice with I_PCM macroblock ---- */
-    bw_init2(&bw);
+    tbw_init(&bw);
     /* Slice header */
-    bw_write_ue2(&bw, 0);  /* first_mb_in_slice */
-    bw_write_ue2(&bw, 7);  /* slice_type = I (7 = I only) */
-    bw_write_ue2(&bw, 0);  /* pps_id */
+    tbw_write_ue(&bw, 0);  /* first_mb_in_slice */
+    tbw_write_ue(&bw, 7);  /* slice_type = I (7 = I only) */
+    tbw_write_ue(&bw, 0);  /* pps_id */
     /* frame_num (log2_max_frame_num_minus4+4 = 4 bits) */
-    bw_write_bits2(&bw, 0, 4);
+    tbw_write_bits(&bw, 0, 4);
     /* idr_pic_id */
-    bw_write_ue2(&bw, 0);
+    tbw_write_ue(&bw, 0);
     /* pic_order_cnt_lsb (log2_max_poc_lsb_minus4+4 = 8 bits) */
-    bw_write_bits2(&bw, 0, 8);
+    tbw_write_bits(&bw, 0, 8);
     /* IDR dec_ref_pic_marking: no_output_of_prior_pics_flag, long_term_reference_flag */
-    bw_write_bit2(&bw, 0);
-    bw_write_bit2(&bw, 0);
+    tbw_write_bit(&bw, 0);
+    tbw_write_bit(&bw, 0);
     /* slice_qp_delta = 0 -> qp = 26 */
-    bw_write_se2(&bw, 0);
+    tbw_write_se(&bw, 0);
     /* disable_deblocking_filter_idc = 0 */
-    bw_write_ue2(&bw, 0);
+    tbw_write_ue(&bw, 0);
     /* slice_alpha_c0_offset_div2 = 0 */
-    bw_write_se2(&bw, 0);
+    tbw_write_se(&bw, 0);
     /* slice_beta_offset_div2 = 0 */
-    bw_write_se2(&bw, 0);
+    tbw_write_se(&bw, 0);
 
     /* Macroblock type = I_PCM: ue(25) */
-    bw_write_ue2(&bw, 25);
+    tbw_write_ue(&bw, 25);
 
     /* Byte-align */
-    bw_align(&bw);
+    tbw_align(&bw);
 
     /* Write 256 luma samples (Y=128) */
     int i;
-    for (i = 0; i < 256; i++) bw_write_bits2(&bw, 128, 8);
+    for (i = 0; i < 256; i++) tbw_write_bits(&bw, 128, 8);
     /* Write 64 Cb samples (128) */
-    for (i = 0; i < 64;  i++) bw_write_bits2(&bw, 128, 8);
+    for (i = 0; i < 64;  i++) tbw_write_bits(&bw, 128, 8);
     /* Write 64 Cr samples (128) */
-    for (i = 0; i < 64;  i++) bw_write_bits2(&bw, 128, 8);
+    for (i = 0; i < 64;  i++) tbw_write_bits(&bw, 128, 8);
 
     /* NAL header 0x65 = IDR slice, nal_ref_idc=3 */
-    if (write_nalu(out, out_max, &pos, 0x65, bw.buf, bw_len(&bw)) != 0) return -1;
+    if (write_nalu(out, out_max, &pos, 0x65, bw.buf, tbw_len(&bw)) != 0) return -1;
 
     *out_size = pos;
     return 0;

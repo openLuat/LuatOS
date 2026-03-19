@@ -42,16 +42,6 @@ static void write_bits(uint8_t *buf, int *bit_pos, uint32_t v, int n) {
         write_bit(buf, bit_pos, (v >> i) & 1);
 }
 
-/* Write ue(v) */
-static void write_ue(uint8_t *buf, int *bit_pos, uint32_t v) {
-    if (v == 0) { write_bit(buf, bit_pos, 1); return; }
-    int n = 0;
-    uint32_t t = v + 1;
-    while (t > 1) { n++; t >>= 1; }
-    int i;
-    for (i = 0; i < n; i++) write_bit(buf, bit_pos, 0);
-    write_bits(buf, bit_pos, v + 1, n + 1);
-}
 
 int test_cavlc(void) {
     int16_t coeffs[16];

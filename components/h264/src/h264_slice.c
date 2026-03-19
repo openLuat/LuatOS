@@ -188,7 +188,7 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
     if (sh->is_idr) {
         sh->no_output_of_prior_pics_flag = (int)bs_read_u1(bs);
         sh->long_term_reference_flag     = (int)bs_read_u1(bs);
-    } else if (/* nal_ref_idc != 0 - assume ref */ 1) {
+    } else if (/* nal_ref_idc != 0; assume reference frame (TODO: pass nal_ref_idc here) */ 1) {
         sh->adaptive_ref_pic_marking_mode_flag = (int)bs_read_u1(bs);
         if (sh->adaptive_ref_pic_marking_mode_flag) {
             int op;

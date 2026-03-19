@@ -4,6 +4,7 @@
 
 #include "../src/h264_bitstream.h"
 #include "../src/h264_common.h"
+#include "test_utils.h"
 
 extern int h264_parse_sps(H264BitStream *bs, H264SPS *sps);
 extern int h264_parse_pps(H264BitStream *bs, H264PPS *pps, H264SPS sps_array[32]);
@@ -12,48 +13,14 @@ extern int h264_parse_pps(H264BitStream *bs, H264PPS *pps, H264SPS sps_array[32]
     if (!(cond)) { fprintf(stderr, "FAIL: %s (line %d)\n", msg, __LINE__); return 1; } \
 } while(0)
 
-/* ---- Helper: encode ue(v) into a bit buffer ---- */
-typedef struct {
-    uint8_t buf[256];
-    int     bit_pos;
-} BitWriter;
-
-static void bw_init(BitWriter *bw) {
-    memset(bw->buf, 0, sizeof(bw->buf));
-    bw->bit_pos = 0;
-}
-
-static void bw_write_bit(BitWriter *bw, int b) {
-    int byte_idx = bw->bit_pos >> 3;
-    int bit_idx  = 7 - (bw->bit_pos & 7);
-    if (b) bw->buf[byte_idx] |= (1 << bit_idx);
-    bw->bit_pos++;
-}
-
-static void bw_write_bits(BitWriter *bw, uint32_t v, int n) {
-    int i;
-    for (i = n-1; i >= 0; i--)
-        bw_write_bit(bw, (v >> i) & 1);
-}
-
-static void bw_write_ue(BitWriter *bw, uint32_t v) {
-    if (v == 0) { bw_write_bit(bw, 1); return; }
-    int n = 0;
-    uint32_t t = v + 1;
-    while (t > 1) { n++; t >>= 1; }
-    int i;
-    for (i = 0; i < n; i++) bw_write_bit(bw, 0);
-    bw_write_bits(bw, v + 1, n + 1);
-}
-
-static void bw_write_se(BitWriter *bw, int v) {
-    uint32_t k = (v <= 0) ? (uint32_t)(-2*v) : (uint32_t)(2*v - 1);
-    bw_write_ue(bw, k);
-}
-
-static int bw_byte_count(const BitWriter *bw) {
-    return (bw->bit_pos + 7) >> 3;
-}
+/* Use TestBitWriter from test_utils.h */
+typedef TestBitWriter BitWriter;
+#define bw_init(bw)           tbw_init(bw)
+#define bw_write_bit(bw,b)    tbw_write_bit(bw,b)
+#define bw_write_bits(bw,v,n) tbw_write_bits(bw,v,n)
+#define bw_write_ue(bw,v)     tbw_write_ue(bw,v)
+#define bw_write_se(bw,v)     tbw_write_se(bw,v)
+#define bw_byte_count(bw)     tbw_len(bw)
 
 /* Build a minimal SPS for 640x480 Baseline Profile, level 3.0 */
 static int build_sps_640x480(uint8_t *out, int max_size)
@@ -183,7 +150,7 @@ int test_sps_pps(void) {
         BitWriter bw;
         bw_init(&bw);
         bw_write_bits(&bw, 66, 8);  /* profile */
-        bw_write_bits(&bw, 0xE0, 8); /* constraints */
+        bw_write_bits(&bw, 0xE0, 8); /* constraints: set0=1,set1=1,set2=1,set3=0 */
         bw_write_bits(&bw, 30, 8);  /* level */
         bw_write_ue(&bw, 0);  /* sps_id */
         bw_write_ue(&bw, 0);  /* log2_max_frame_num_minus4 */

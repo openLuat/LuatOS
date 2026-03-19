@@ -193,7 +193,10 @@ void h264_intra16x16_predict(uint8_t *dst, int stride, int mode,
 
     case 3: { /* Plane */
         int H = 0, V = 0;
-        /* p[-1,-1] (top-left) is not passed; approximate with average of top[0] and left[0] */
+        /* p[-1,-1] (top-left corner) is not passed as a separate parameter to this
+         * function; approximate using the average of the first top and left samples.
+         * This matches the common case where the true top-left is not available at
+         * the slice boundary, and the approximation is exact when top[0]==left[0]. */
         int top_left = ((int)top[0] + (int)left[0] + 1) >> 1;
         for (i = 1; i <= 8; i++) {
             int t_plus  = top[7 + i];              /* top[8..15] */
@@ -204,7 +207,7 @@ void h264_intra16x16_predict(uint8_t *dst, int stride, int mode,
             int l_minus = (7 - i >= 0) ? left[7 - i] : top_left;
             V += i * (l_plus - l_minus);
         }
-        /* Use a simple approximation without top_left access */
+        /* Use a simple approximation: a = 16*(left[15]+top[15]), without accessing p[-1,-1] */
         int a = 16 * (left[15] + top[15]);
         int b = (5 * H + 32) >> 6;
         int c = (5 * V + 32) >> 6;

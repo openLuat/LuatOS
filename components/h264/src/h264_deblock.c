@@ -159,18 +159,35 @@ void h264_deblock_frame(H264Decoder *dec, H264Frame *frame)
         for (mb_x = 0; mb_x < mb_w; mb_x++) {
             int x0 = mb_x * 16;
             int y0 = mb_y * 16;
+            int cx = mb_x * 8;
+            int cy = mb_y * 8;
 
-            /* Luma vertical edges (4 edges per MB) */
-            /* Left MB boundary */
+            /* Luma vertical edges at left MB boundary */
             if (mb_x > 0) {
                 uint8_t *p = frame->y + y0 * frame->y_stride + x0;
-                filter_luma_edge(p, frame->y_stride, 4, 28, 0 /* vertical=0 means we're filtering along x */);
+                filter_luma_edge(p, frame->y_stride, 4, 28, 0);
             }
 
-            /* Luma horizontal edges */
+            /* Luma horizontal edges at top MB boundary */
             if (mb_y > 0) {
                 uint8_t *p = frame->y + y0 * frame->y_stride + x0;
                 filter_luma_edge(p, frame->y_stride, 4, 28, 1);
+            }
+
+            /* Chroma vertical edges */
+            if (mb_x > 0) {
+                uint8_t *pc = frame->cb + cy * frame->c_stride + cx;
+                filter_chroma_edge(pc, frame->c_stride, 4, 28, 0);
+                pc = frame->cr + cy * frame->c_stride + cx;
+                filter_chroma_edge(pc, frame->c_stride, 4, 28, 0);
+            }
+
+            /* Chroma horizontal edges */
+            if (mb_y > 0) {
+                uint8_t *pc = frame->cb + cy * frame->c_stride + cx;
+                filter_chroma_edge(pc, frame->c_stride, 4, 28, 1);
+                pc = frame->cr + cy * frame->c_stride + cx;
+                filter_chroma_edge(pc, frame->c_stride, 4, 28, 1);
             }
         }
     }

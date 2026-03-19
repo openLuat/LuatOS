@@ -203,6 +203,7 @@ int h264_decode_nal(H264Decoder *dec, const uint8_t *nal_data, int nal_size,
     case H264_NAL_SLICE: {
         H264SliceHeader sh;
         sh.is_idr = (nal_unit_type == H264_NAL_IDR_SLICE) ? 1 : 0;
+        sh.nal_ref_idc = nal_ref_idc;
 
         ret = h264_parse_slice_header(&bs, dec, &sh);
         if (ret != H264_OK) break;

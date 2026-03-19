@@ -807,28 +807,33 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                 (void)read_ref_idx(bs, n_ref);
         }
 
-        /* mvd_l0: read per partition / sub-partition, store final MV */
+        /* mvd_l0: read per partition / sub-partition.
+         * For P_8x8/P_8x8ref0 each 8x8 block can contain up to 4 sub-partitions
+         * (P_L0_8x8=1, P_L0_8x4=2, P_L0_4x8=2, P_L0_4x4=4), each with its own MV.
+         * sub_mv[block][sub_partition][x/y]                                      */
         int16_t mv[4][2];
+        int16_t sub_mv[4][4][2];  /* used only for P_8x8 / P_8x8ref0 */
         if (mb_type_raw == 3 || mb_type_raw == 4) {
-            /* P_8x8 / P_8x8ref0: read MVDs for each sub-MB */
+            memset(sub_mv, 0, sizeof(sub_mv));
+            /* P_8x8 / P_8x8ref0: read MVDs for each sub-MB, per sub-partition */
             for (i = 0; i < 4; i++) {
                 /* Number of sub-partitions inside this 8x8 block */
                 int nsub = (sub_type[i] == 3) ? 4 :
                            (sub_type[i] >= 1) ? 2 : 1;
                 int16_t mvp[2] = {0, 0};
                 compute_mvp(dec, mb_x, mb_y, mvp);
-                int16_t lx = mvp[0], ly = mvp[1];
                 int k;
                 for (k = 0; k < nsub; k++) {
                     int16_t dx = (int16_t)bs_read_se(bs);
                     int16_t dy = (int16_t)bs_read_se(bs);
-                    lx = (int16_t)(mvp[0] + dx);
-                    ly = (int16_t)(mvp[1] + dy);
+                    sub_mv[i][k][0] = (int16_t)(mvp[0] + dx);
+                    sub_mv[i][k][1] = (int16_t)(mvp[1] + dy);
                 }
-                mv[i][0] = lx;
-                mv[i][1] = ly;
-                mb->mv_l0[i][0] = lx;
-                mb->mv_l0[i][1] = ly;
+                /* Store first sub-partition MV in mb->mv_l0[i] for neighbour prediction */
+                mv[i][0] = sub_mv[i][0][0];
+                mv[i][1] = sub_mv[i][0][1];
+                mb->mv_l0[i][0] = mv[i][0];
+                mb->mv_l0[i][1] = mv[i][1];
             }
         } else {
             /* P_L0_16x16, P_L0_L0_16x8, P_L0_L0_8x16 */
@@ -892,26 +897,26 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                         int sx = x0 + (i & 1) * 8;
                         int sy = y0 + (i >> 1) * 8;
                         switch (sub_type[i]) {
-                        case 0: /* P_L0_8x8 */
-                            do_mc(dec, ref, sx,     sy,     8, 8, mv[i][0], mv[i][1]);
+                        case 0: /* P_L0_8x8 — one 8x8 block */
+                            do_mc(dec, ref, sx,     sy,     8, 8, sub_mv[i][0][0], sub_mv[i][0][1]);
                             break;
-                        case 1: /* P_L0_8x4 */
-                            do_mc(dec, ref, sx,     sy,     8, 4, mv[i][0], mv[i][1]);
-                            do_mc(dec, ref, sx,     sy + 4, 8, 4, mv[i][0], mv[i][1]);
+                        case 1: /* P_L0_8x4 — two 8x4 sub-partitions (top/bottom) */
+                            do_mc(dec, ref, sx,     sy,     8, 4, sub_mv[i][0][0], sub_mv[i][0][1]);
+                            do_mc(dec, ref, sx,     sy + 4, 8, 4, sub_mv[i][1][0], sub_mv[i][1][1]);
                             break;
-                        case 2: /* P_L0_4x8 */
-                            do_mc(dec, ref, sx,     sy,     4, 8, mv[i][0], mv[i][1]);
-                            do_mc(dec, ref, sx + 4, sy,     4, 8, mv[i][0], mv[i][1]);
+                        case 2: /* P_L0_4x8 — two 4x8 sub-partitions (left/right) */
+                            do_mc(dec, ref, sx,     sy,     4, 8, sub_mv[i][0][0], sub_mv[i][0][1]);
+                            do_mc(dec, ref, sx + 4, sy,     4, 8, sub_mv[i][1][0], sub_mv[i][1][1]);
                             break;
-                        case 3: /* P_L0_4x4 */
-                            do_mc(dec, ref, sx,     sy,     4, 4, mv[i][0], mv[i][1]);
-                            do_mc(dec, ref, sx + 4, sy,     4, 4, mv[i][0], mv[i][1]);
-                            do_mc(dec, ref, sx,     sy + 4, 4, 4, mv[i][0], mv[i][1]);
-                            do_mc(dec, ref, sx + 4, sy + 4, 4, 4, mv[i][0], mv[i][1]);
+                        case 3: /* P_L0_4x4 — four 4x4 sub-partitions (Z-scan) */
+                            do_mc(dec, ref, sx,     sy,     4, 4, sub_mv[i][0][0], sub_mv[i][0][1]);
+                            do_mc(dec, ref, sx + 4, sy,     4, 4, sub_mv[i][1][0], sub_mv[i][1][1]);
+                            do_mc(dec, ref, sx,     sy + 4, 4, 4, sub_mv[i][2][0], sub_mv[i][2][1]);
+                            do_mc(dec, ref, sx + 4, sy + 4, 4, 4, sub_mv[i][3][0], sub_mv[i][3][1]);
                             break;
                         default:
                             /* Fallback: treat as a single 8x8 block */
-                            do_mc(dec, ref, sx,     sy,     8, 8, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx,     sy,     8, 8, sub_mv[i][0][0], sub_mv[i][0][1]);
                             break;
                         }
                     }

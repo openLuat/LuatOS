@@ -142,6 +142,7 @@ typedef struct {
     int slice_group_change_cycle;
     int is_idr;
     int qp;
+    int nal_ref_idc;
 } H264SliceHeader;
 
 typedef struct {

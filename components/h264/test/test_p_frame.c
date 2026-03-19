@@ -26,6 +26,14 @@
  *   deblocking_filter_control_present = 1
  *   weighted_pred_flag = 0
  */
+static void tbw_write_rbsp_trailing_bits(TestBitWriter *bw)
+{
+    /* rbsp_trailing_bits: rbsp_stop_one_bit (1) followed by alignment zero bits.
+     * The TestBitWriter buffer is assumed to be zero-initialized, so writing the
+     * stop bit is sufficient; remaining bits in the last byte are already zero. */
+    tbw_write_bit(bw, 1);
+}
+
 static int append_p_frame(uint8_t *buf, int buf_max, int *pos)
 {
     TestBitWriter bw;
@@ -60,6 +68,9 @@ static int append_p_frame(uint8_t *buf, int buf_max, int *pos)
     tbw_write_se(&bw, 0);      /* mvd_l0[0][1] = 0 */
     tbw_write_ue(&bw, 0);      /* cbp_idx = 0 → cbp = 0, no residuals */
     /* cbp==0 → no mb_qp_delta, no residual syntax */
+
+    /* Terminate RBSP with rbsp_trailing_bits to make the slice spec-compliant. */
+    tbw_write_rbsp_trailing_bits(&bw);
 
     /* NAL header 0x21: forbidden=0, nal_ref_idc=1, nal_unit_type=1 (non-IDR slice) */
     return ts_write_nalu(buf, buf_max, pos, 0x21, bw.buf, tbw_len(&bw));

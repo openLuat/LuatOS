@@ -105,10 +105,6 @@
     #define LV_USE_TJPGD 1
     #define LV_USE_LIBJPEG_TURBO 0
 
-    // 打开XML支持
-    #define LV_USE_XML 1
-    #define LV_USE_OBJ_NAME 1
-
     // 打开拼音输入法
     #define LV_USE_IME_PINYIN 1
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
@@ -123,6 +119,12 @@
         #define LV_USE_FONT_COMPRESSED 1
         #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_16)
         #define LV_FONT_DEFAULT &lv_font_misans_16
+    #endif
+
+    // 打开XML支持
+    #ifdef LUAT_USE_AIRUI_XML
+        #define LV_USE_XML 1
+        #define LV_USE_OBJ_NAME 1
     #endif
     
 #else

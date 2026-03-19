@@ -250,6 +250,205 @@ static int parse_cbp(H264BitStream *bs, int is_intra)
     return is_intra ? cbp_intra_table[idx] : cbp_inter_table[idx];
 }
 
+/* ---- Motion vector prediction ---- */
+
+/* Return a stored MV component from a neighbouring macroblock, or 0. */
+static int16_t mb_mv(const H264Decoder *dec, int mb_x, int mb_y,
+                     int part, int comp)
+{
+    if (mb_x < 0 || mb_y < 0 ||
+        mb_x >= dec->mb_width || mb_y >= dec->mb_height)
+        return 0;
+    return dec->mbs[mb_y * dec->mb_width + mb_x].mv_l0[part][comp];
+}
+
+static int16_t median3_mv(int16_t a, int16_t b, int16_t c)
+{
+    int16_t mn = (a < b) ? ((a < c) ? a : c) : ((b < c) ? b : c);
+    int16_t mx = (a > b) ? ((a > c) ? a : c) : ((b > c) ? b : c);
+    return (int16_t)(a + b + c - mn - mx);
+}
+
+/*
+ * Compute the H.264 median motion vector predictor for a 16x16 partition.
+ * Uses neighbours A (left), B (top), C (top-right, or top-left if unavailable).
+ */
+static void compute_mvp(const H264Decoder *dec, int mb_x, int mb_y,
+                        int16_t mvp[2])
+{
+    int16_t ax = mb_mv(dec, mb_x - 1, mb_y,     0, 0);
+    int16_t ay = mb_mv(dec, mb_x - 1, mb_y,     0, 1);
+    int16_t bx = mb_mv(dec, mb_x,     mb_y - 1, 0, 0);
+    int16_t by = mb_mv(dec, mb_x,     mb_y - 1, 0, 1);
+    int16_t cx, cy;
+    if (mb_x + 1 < dec->mb_width && mb_y > 0) {
+        cx = mb_mv(dec, mb_x + 1, mb_y - 1, 0, 0);
+        cy = mb_mv(dec, mb_x + 1, mb_y - 1, 0, 1);
+    } else {
+        cx = mb_mv(dec, mb_x - 1, mb_y - 1, 0, 0);
+        cy = mb_mv(dec, mb_x - 1, mb_y - 1, 0, 1);
+    }
+    mvp[0] = median3_mv(ax, bx, cx);
+    mvp[1] = median3_mv(ay, by, cy);
+}
+
+/* Read truncated exp-Golomb code te(max_val) for a reference frame index. */
+static int read_ref_idx(H264BitStream *bs, int max_val)
+{
+    if (max_val <= 0) return 0;   /* single reference: no bits written */
+    if (max_val == 1) return (int)bs_read_u1(bs);
+    return (int)bs_read_ue(bs);
+}
+
+/* ---- Motion compensation and P-frame helpers ---- */
+
+/* Fill a 16x16 macroblock with grey (128) on all three planes. */
+static void mb_fill_gray(H264Decoder *dec, int mb_x, int mb_y)
+{
+    int stride   = dec->frame_stride;
+    int c_stride = dec->frame_c_stride;
+    int x0 = mb_x * 16;
+    int y0 = mb_y * 16;
+    int i;
+    for (i = 0; i < 16; i++)
+        memset(dec->frame_y  + (y0 + i) * stride   + x0,     128, 16);
+    for (i = 0; i < 8; i++) {
+        memset(dec->frame_cb + (y0/2 + i) * c_stride + x0/2, 128, 8);
+        memset(dec->frame_cr + (y0/2 + i) * c_stride + x0/2, 128, 8);
+    }
+}
+
+/*
+ * Luma + chroma (4:2:0) motion compensation for a block of bw x bh luma
+ * pixels at position (x0, y0).  mv_x and mv_y are in quarter-luma-pixel
+ * units.  For 4:2:0, one quarter-luma-pixel equals one eighth-chroma-pixel
+ * numerically, so the same integer MV values are passed to h264_mc_chroma.
+ */
+static void do_mc(H264Decoder *dec, const H264RefPic *ref,
+                  int x0, int y0, int bw, int bh,
+                  int16_t mv_x, int16_t mv_y)
+{
+    int stride   = dec->frame_stride;
+    int c_stride = dec->frame_c_stride;
+    h264_mc_luma(dec->frame_y + y0 * stride + x0, stride,
+                 ref->y, ref->stride, ref->width, ref->height,
+                 x0, y0, (int)mv_x, (int)mv_y, bw, bh);
+    h264_mc_chroma(dec->frame_cb + (y0/2) * c_stride + x0/2, c_stride,
+                   ref->cb, ref->c_stride, ref->width/2, ref->height/2,
+                   x0/2, y0/2, (int)mv_x, (int)mv_y, bw/2, bh/2);
+    h264_mc_chroma(dec->frame_cr + (y0/2) * c_stride + x0/2, c_stride,
+                   ref->cr, ref->c_stride, ref->width/2, ref->height/2,
+                   x0/2, y0/2, (int)mv_x, (int)mv_y, bw/2, bh/2);
+}
+
+/*
+ * Handle a P-skip macroblock: perform MC with the median-predictor MV
+ * (as specified by H.264 for P-skip), or fill grey if no reference available.
+ */
+static void p_skip_mb(H264Decoder *dec, int mb_x, int mb_y)
+{
+    H264MacroBlock *mb = &dec->mbs[mb_y * dec->mb_width + mb_x];
+    int i;
+    memset(mb, 0, sizeof(*mb));
+    mb->is_skipped = 1;
+
+    int16_t mvp[2] = {0, 0};
+    compute_mvp(dec, mb_x, mb_y, mvp);
+    for (i = 0; i < 4; i++) {
+        mb->mv_l0[i][0] = mvp[0];
+        mb->mv_l0[i][1] = mvp[1];
+    }
+
+    if (dec->num_ref > 0 && dec->ref[0].is_valid)
+        do_mc(dec, &dec->ref[0], mb_x * 16, mb_y * 16, 16, 16,
+              mvp[0], mvp[1]);
+    else
+        mb_fill_gray(dec, mb_x, mb_y);
+
+    mb->decoded = 1;
+}
+
+/*
+ * Decode inter (P-frame) residuals: luma 4x4 CAVLC blocks (no DC Hadamard)
+ * and chroma DC (2x2 Hadamard) + optional AC for a macroblock.
+ */
+static int decode_inter_residuals(H264Decoder *dec, H264BitStream *bs,
+                                   int mb_x, int mb_y, int cbp, int qp)
+{
+    int stride   = dec->frame_stride;
+    int c_stride = dec->frame_c_stride;
+    int x0 = mb_x * 16;
+    int y0 = mb_y * 16;
+    int cbp_luma   = cbp & 0x0F;
+    int cbp_chroma = (cbp >> 4) & 0x03;
+    int i, j;
+
+    /* Luma: 4 8x8 groups, each containing 4 4x4 CAVLC blocks (no DC Hadamard) */
+    for (i = 0; i < 4; i++) {
+        if (!(cbp_luma & (1 << i))) continue;
+        int bx8 = (i % 2) * 8;
+        int by8 = (i / 2) * 8;
+        for (j = 0; j < 4; j++) {
+            int bx = bx8 + (j % 2) * 4;
+            int by = by8 + (j / 2) * 4;
+            uint8_t *dst = dec->frame_y + (y0 + by) * stride + x0 + bx;
+            int16_t coeffs[16];
+            memset(coeffs, 0, sizeof(coeffs));
+            if (h264_cavlc_decode_block(bs, coeffs, 16, 0) != H264_OK)
+                return H264_ERR_BITSTREAM;
+            h264_idct4x4(coeffs, qp, 1);
+            h264_add_residual4x4(dst, stride, coeffs);
+        }
+    }
+
+    /* Chroma DC + (optionally) AC */
+    if (cbp_chroma > 0) {
+        int16_t dc_cb[4], dc_cr[4];
+        memset(dc_cb, 0, sizeof(dc_cb));
+        memset(dc_cr, 0, sizeof(dc_cr));
+        if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK)
+            return H264_ERR_BITSTREAM;
+        if (h264_cavlc_decode_block(bs, dc_cr, 4, -1) != H264_OK)
+            return H264_ERR_BITSTREAM;
+        h264_hadamard2x2_inverse(dc_cb);
+        h264_hadamard2x2_inverse(dc_cr);
+
+        for (i = 0; i < 4; i++) {
+            int bx = (i % 2) * 4;
+            int by = (i / 2) * 4;
+            uint8_t *dst_cb = dec->frame_cb + (y0/2 + by) * c_stride + x0/2 + bx;
+            uint8_t *dst_cr = dec->frame_cr + (y0/2 + by) * c_stride + x0/2 + bx;
+            if (cbp_chroma == 2) {
+                int16_t ac_cb[16], ac_cr[16];
+                memset(ac_cb, 0, sizeof(ac_cb));
+                memset(ac_cr, 0, sizeof(ac_cr));
+                if (h264_cavlc_decode_block(bs, ac_cb + 1, 15, 0) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                if (h264_cavlc_decode_block(bs, ac_cr + 1, 15, 0) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                ac_cb[0] = dc_cb[i];
+                ac_cr[0] = dc_cr[i];
+                h264_idct4x4(ac_cb, qp, 0);
+                h264_idct4x4(ac_cr, qp, 0);
+                h264_add_residual4x4(dst_cb, c_stride, ac_cb);
+                h264_add_residual4x4(dst_cr, c_stride, ac_cr);
+            } else {
+                /* cbp_chroma == 1: DC only */
+                int16_t ac[16];
+                memset(ac, 0, sizeof(ac));
+                ac[0] = dc_cb[i];
+                h264_idct4x4(ac, qp, 0);
+                h264_add_residual4x4(dst_cb, c_stride, ac);
+                memset(ac, 0, sizeof(ac));
+                ac[0] = dc_cr[i];
+                h264_idct4x4(ac, qp, 0);
+                h264_add_residual4x4(dst_cr, c_stride, ac);
+            }
+        }
+    }
+    return H264_OK;
+}
+
 /* ---- Decode macroblock ---- */
 
 int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
@@ -280,15 +479,27 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
 
     /* P-skip handling */
     if (sh->slice_type == H264_SLICE_P) {
-        /* Check skip - in a real decoder we'd check mb_skip_run */
-        /* For now always read mb_type */
+        /* Skip run is handled by h264_decode_slice; here we only see coded MBs */
     }
 
     /* Read mb_type */
     int mb_type_raw = (int)bs_read_ue(bs);
     mb->mb_type_raw = mb_type_raw;
 
-    if (sh->slice_type == H264_SLICE_I) {
+    /*
+     * In a P-slice, mb_type >= 5 signals an intra macroblock:
+     *   5  -> I_4x4  (raw type 0 in I-slice)
+     *   6..29 -> I_16x16 variants (raw types 1..24)
+     *   30 -> I_PCM  (raw type 25)
+     * Remap and treat as an I-slice macroblock.
+     */
+    int effective_slice_type = sh->slice_type;
+    if (sh->slice_type == H264_SLICE_P && mb_type_raw >= 5) {
+        mb_type_raw -= 5;
+        effective_slice_type = H264_SLICE_I;
+    }
+
+    if (effective_slice_type == H264_SLICE_I) {
         mb->is_intra = 1;
 
         if (mb_type_raw == H264_MB_I_PCM) {
@@ -543,6 +754,17 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                         h264_idct4x4(ac_cr, mb->qp, 0);
                         h264_add_residual4x4(dst_cb, c_stride, ac_cb);
                         h264_add_residual4x4(dst_cr, c_stride, ac_cr);
+                    } else {
+                        /* cbp_chroma == 1: DC only */
+                        int16_t ac[16];
+                        memset(ac, 0, sizeof(ac));
+                        ac[0] = dc_cb[i];
+                        h264_idct4x4(ac, mb->qp, 0);
+                        h264_add_residual4x4(dst_cb, c_stride, ac);
+                        memset(ac, 0, sizeof(ac));
+                        ac[0] = dc_cr[i];
+                        h264_idct4x4(ac, mb->qp, 0);
+                        h264_add_residual4x4(dst_cr, c_stride, ac);
                     }
                 }
             }
@@ -550,34 +772,126 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             return H264_ERR_UNSUPPORTED;
         }
     } else if (sh->slice_type == H264_SLICE_P) {
-        if (mb_type_raw == 5) {
-            /* P_Skip equivalent after P_L0_16x16 */
-            /* Very simplified: just copy from reference */
-            mb->is_skipped = 1;
-            if (dec->num_ref > 0 && dec->ref[0].is_valid) {
-                H264RefPic *ref = &dec->ref[0];
-                for (i = 0; i < 16; i++) {
-                    int ry = y0 + i;
-                    if (ry >= ref->height) ry = ref->height - 1;
-                    uint8_t *src = ref->y + ry * ref->stride + x0;
-                    uint8_t *dst = dec->frame_y + (y0+i)*stride + x0;
-                    int copy = 16;
-                    if (x0 + copy > ref->width) copy = ref->width - x0;
-                    if (copy > 0) memcpy(dst, src, copy);
+        /*
+         * P-slice inter macroblock.  mb_type_raw values (intra-in-P is
+         * already remapped to effective_slice_type == I above):
+         *   0  P_L0_16x16        single 16x16 partition
+         *   1  P_L0_L0_16x8      top-16x8 + bottom-16x8 partitions
+         *   2  P_L0_L0_8x16      left-8x16 + right-8x16 partitions
+         *   3  P_8x8             four 8x8 sub-macroblocks
+         *   4  P_8x8ref0         four 8x8 sub-MBs, ref_idx always 0
+         */
+        int n_ref = pps->num_ref_idx_l0_default_active_minus1;
+        if (sh->num_ref_idx_active_override_flag)
+            n_ref = sh->num_ref_idx_l0_active_minus1;
+        H264RefPic *ref = (dec->num_ref > 0 && dec->ref[0].is_valid) ?
+                           &dec->ref[0] : NULL;
+
+        /* Number of top-level partitions */
+        int npart = (mb_type_raw == 0) ? 1 :
+                    (mb_type_raw <= 2) ? 2 : 4;
+
+        /* sub_mb_type for P_8x8 / P_8x8ref0 */
+        int sub_type[4] = {0, 0, 0, 0};
+        if (mb_type_raw == 3 || mb_type_raw == 4) {
+            for (i = 0; i < 4; i++)
+                sub_type[i] = (int)bs_read_ue(bs);
+        }
+
+        /* ref_idx_l0 per partition (te(v); no bits when n_ref == 0) */
+        for (i = 0; i < npart; i++)
+            (void)read_ref_idx(bs, n_ref);
+
+        /* mvd_l0: read per partition / sub-partition, store final MV */
+        int16_t mv[4][2];
+        if (mb_type_raw == 3 || mb_type_raw == 4) {
+            /* P_8x8 / P_8x8ref0: read MVDs for each sub-MB */
+            for (i = 0; i < 4; i++) {
+                /* Number of sub-partitions inside this 8x8 block */
+                int nsub = (sub_type[i] == 3) ? 4 :
+                           (sub_type[i] >= 1) ? 2 : 1;
+                int16_t mvp[2] = {0, 0};
+                compute_mvp(dec, mb_x, mb_y, mvp);
+                int16_t lx = mvp[0], ly = mvp[1];
+                int k;
+                for (k = 0; k < nsub; k++) {
+                    int16_t dx = (int16_t)bs_read_se(bs);
+                    int16_t dy = (int16_t)bs_read_se(bs);
+                    lx = (int16_t)(mvp[0] + dx);
+                    ly = (int16_t)(mvp[1] + dy);
                 }
-            } else {
-                for (i = 0; i < 16; i++)
-                    memset(dec->frame_y + (y0+i)*stride + x0, 128, 16);
-                for (i = 0; i < 8; i++) {
-                    memset(dec->frame_cb + (y0/2+i)*c_stride + x0/2, 128, 8);
-                    memset(dec->frame_cr + (y0/2+i)*c_stride + x0/2, 128, 8);
-                }
+                mv[i][0] = lx;
+                mv[i][1] = ly;
+                mb->mv_l0[i][0] = lx;
+                mb->mv_l0[i][1] = ly;
             }
         } else {
-            /* Simplified P decode: skip unsupported types */
-            dec->prev_qp = sh->qp;
-            for (i = 0; i < 16; i++)
-                memset(dec->frame_y + (y0+i)*stride + x0, 128, 16);
+            /* P_L0_16x16, P_L0_L0_16x8, P_L0_L0_8x16 */
+            for (i = 0; i < npart; i++) {
+                int16_t mvp[2] = {0, 0};
+                compute_mvp(dec, mb_x, mb_y, mvp);
+                int16_t dx = (int16_t)bs_read_se(bs);
+                int16_t dy = (int16_t)bs_read_se(bs);
+                mv[i][0] = (int16_t)(mvp[0] + dx);
+                mv[i][1] = (int16_t)(mvp[1] + dy);
+                mb->mv_l0[i][0] = mv[i][0];
+                mb->mv_l0[i][1] = mv[i][1];
+            }
+            /* Replicate last partition MV for neighbour predictor */
+            for (i = npart; i < 4; i++) {
+                mb->mv_l0[i][0] = mv[npart - 1][0];
+                mb->mv_l0[i][1] = mv[npart - 1][1];
+            }
+        }
+
+        /* CBP */
+        {
+            int cbp_idx = (int)bs_read_ue(bs);
+            if (cbp_idx >= 48) cbp_idx = 0;
+            int cbp = cbp_inter_table[cbp_idx];
+            mb->cbp       = cbp;
+            mb->cbp_luma   = cbp & 0x0F;
+            mb->cbp_chroma = (cbp >> 4) & 0x03;
+
+            /* QP delta (present only when CBP != 0) */
+            if (cbp != 0) {
+                int qp_delta = (int)bs_read_se(bs);
+                mb->qp = dec->prev_qp + qp_delta;
+                if (mb->qp < 0) mb->qp = 0;
+                if (mb->qp > 51) mb->qp = 51;
+                dec->prev_qp = mb->qp;
+            } else {
+                mb->qp = dec->prev_qp;
+            }
+
+            /* Motion compensation */
+            if (ref) {
+                switch (mb_type_raw) {
+                case 0: /* P_L0_16x16 */
+                    do_mc(dec, ref, x0, y0, 16, 16, mv[0][0], mv[0][1]);
+                    break;
+                case 1: /* P_L0_L0_16x8 */
+                    do_mc(dec, ref, x0, y0,   16, 8, mv[0][0], mv[0][1]);
+                    do_mc(dec, ref, x0, y0+8, 16, 8, mv[1][0], mv[1][1]);
+                    break;
+                case 2: /* P_L0_L0_8x16 */
+                    do_mc(dec, ref, x0,   y0, 8, 16, mv[0][0], mv[0][1]);
+                    do_mc(dec, ref, x0+8, y0, 8, 16, mv[1][0], mv[1][1]);
+                    break;
+                default: /* P_8x8 / P_8x8ref0: four 8x8 sub-blocks */
+                    do_mc(dec, ref, x0,   y0,   8, 8, mv[0][0], mv[0][1]);
+                    do_mc(dec, ref, x0+8, y0,   8, 8, mv[1][0], mv[1][1]);
+                    do_mc(dec, ref, x0,   y0+8, 8, 8, mv[2][0], mv[2][1]);
+                    do_mc(dec, ref, x0+8, y0+8, 8, 8, mv[3][0], mv[3][1]);
+                    break;
+                }
+            } else {
+                mb_fill_gray(dec, mb_x, mb_y);
+            }
+
+            /* Residuals */
+            if (cbp != 0)
+                decode_inter_residuals(dec, bs, mb_x, mb_y, cbp, mb->qp);
         }
     } else {
         /* Unsupported slice type: fill gray */

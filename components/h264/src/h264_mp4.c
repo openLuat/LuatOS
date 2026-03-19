@@ -27,6 +27,15 @@
 #define H264_REALLOC realloc
 #endif
 
+/* ---- Debug logging (g_h264_debug defined in h264_file.c) ---- */
+#ifdef LUAT_BUILD
+#define LUAT_LOG_TAG "h264"
+#include "luat_log.h"
+#define H264_DBGI(fmt, ...) do { if (g_h264_debug) { LLOGI(fmt, ##__VA_ARGS__); } } while(0)
+#else
+#define H264_DBGI(fmt, ...) do { if (g_h264_debug) { printf("[h264] " fmt "\n", ##__VA_ARGS__); } } while(0)
+#endif
+
 /* ---- Four-CC helper ---- */
 #define FOURCC(a,b,c,d) \
     ((uint32_t)((uint8_t)(a))<<24 | (uint32_t)((uint8_t)(b))<<16 | \
@@ -62,7 +71,6 @@ typedef struct {
     uint32_t samples_per_chunk;
     uint32_t sample_desc;
 } StscEntry;
-
 /* ---- MP4 context ---- */
 typedef struct {
     /* From avcC */
@@ -99,6 +107,9 @@ typedef struct {
     long     payload_start; /* file pos after header */
     long     box_end;       /* file pos at end of box */
 } BoxInfo;
+
+/* Forward declaration: defined after mp4_cleanup */
+static void mp4_free_ctx_resources(H264Mp4Context *ctx);
 
 /* Read one box header.  Positions fp at start of payload.
  * Returns 0 on success, -1 on error / EOF. */
@@ -176,6 +187,8 @@ static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
         ctx->pps_len[i]  = plen;
         ctx->pps_count++;
     }
+    H264_DBGI("avcC: nal_length_size=%d sps_count=%d pps_count=%d",
+              ctx->nal_length_size, ctx->sps_count, ctx->pps_count);
     return 0;
 }
 
@@ -358,13 +371,8 @@ static void parse_trak(FILE *fp, H264Mp4Context *ctx,
         if (bi.type == FOURCC('m','d','i','a')) {
             if (parse_mdia(fp, &tmp, bi.payload_start, bi.box_end)) {
                 /* Video track found — steal parsed tables into ctx */
-                int i;
                 /* Free any existing tables from a previous (non-video) trak */
-                if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
-                if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
-                if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
-                for (i = 0; i < ctx->sps_count; i++) H264_FREE(ctx->sps_data[i]);
-                for (i = 0; i < ctx->pps_count; i++) H264_FREE(ctx->pps_data[i]);
+                mp4_free_ctx_resources(ctx);
                 memcpy(ctx, &tmp, sizeof(tmp));
                 memset(&tmp, 0, sizeof(tmp)); /* tmp no longer owns anything */
                 fseek(fp, bi.box_end, SEEK_SET);
@@ -375,14 +383,7 @@ static void parse_trak(FILE *fp, H264Mp4Context *ctx,
     }
 
     /* Free any resources left in tmp (non-video trak) */
-    {
-        int i;
-        for (i = 0; i < tmp.sps_count; i++) if (tmp.sps_data[i]) H264_FREE(tmp.sps_data[i]);
-        for (i = 0; i < tmp.pps_count; i++) if (tmp.pps_data[i]) H264_FREE(tmp.pps_data[i]);
-        if (tmp.sample_sizes)  H264_FREE(tmp.sample_sizes);
-        if (tmp.chunk_offsets) H264_FREE(tmp.chunk_offsets);
-        if (tmp.stsc_entries)  H264_FREE(tmp.stsc_entries);
-    }
+    mp4_free_ctx_resources(&tmp);
 }
 
 /* ---- moov container ---- */
@@ -473,6 +474,19 @@ static int mp4_read_next(H264FileDecoder *fctx, H264Frame *frame)
         for (i = 0; i < ctx->pps_count; i++)
             h264_decode_nal(fctx->dec, ctx->pps_data[i], ctx->pps_len[i], &dummy);
         ctx->params_sent = 1;
+        /* Debug: print video resolution from the first valid SPS */
+        if (g_h264_debug) {
+            int s;
+            for (s = 0; s < H264_MAX_SPS; s++) {
+                if (fctx->dec->sps[s].is_valid) {
+                    H264_DBGI("MP4 video: %dx%d, total_samples=%d",
+                              fctx->dec->sps[s].width,
+                              fctx->dec->sps[s].height,
+                              ctx->sample_count);
+                    break;
+                }
+            }
+        }
     }
 
     /* Iterate samples until we decode a frame or run out */
@@ -524,11 +538,27 @@ static int mp4_read_next(H264FileDecoder *fctx, H264Frame *frame)
         H264_FREE(sbuf);
         ctx->current_sample++;
 
-        if (got_frame) return H264_OK;
+        if (got_frame) {
+            fctx->frame_count++;
+            H264_DBGI("MP4 frame #%d: sample=%d %dx%d",
+                      fctx->frame_count, sidx, frame->width, frame->height);
+            return H264_OK;
+        }
         if (ret != H264_OK) return ret;
     }
 
     return H264_ERR_EOF;
+}
+
+/* ---- mp4 context resource freer (used by mp4_cleanup and mp4_open_fail) ---- */
+static void mp4_free_ctx_resources(H264Mp4Context *ctx)
+{
+    int i;
+    for (i = 0; i < ctx->sps_count; i++) if (ctx->sps_data[i]) H264_FREE(ctx->sps_data[i]);
+    for (i = 0; i < ctx->pps_count; i++) if (ctx->pps_data[i]) H264_FREE(ctx->pps_data[i]);
+    if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
+    if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
+    if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
 }
 
 /* ---- mp4 cleanup ---- */
@@ -536,13 +566,7 @@ static void mp4_cleanup(H264FileDecoder *fctx)
 {
     H264Mp4Context *ctx = (H264Mp4Context *)fctx->mp4_ctx;
     if (!ctx) return;
-
-    int i;
-    for (i = 0; i < ctx->sps_count; i++) if (ctx->sps_data[i]) H264_FREE(ctx->sps_data[i]);
-    for (i = 0; i < ctx->pps_count; i++) if (ctx->pps_data[i]) H264_FREE(ctx->pps_data[i]);
-    if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
-    if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
-    if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
+    mp4_free_ctx_resources(ctx);
     H264_FREE(ctx);
     fctx->mp4_ctx = NULL;
 }
@@ -552,12 +576,7 @@ static void mp4_cleanup(H264FileDecoder *fctx)
 static H264FileDecoder *mp4_open_fail(H264FileDecoder *fctx, H264Mp4Context *ctx)
 {
     if (ctx) {
-        int i;
-        for (i = 0; i < ctx->sps_count; i++) if (ctx->sps_data[i]) H264_FREE(ctx->sps_data[i]);
-        for (i = 0; i < ctx->pps_count; i++) if (ctx->pps_data[i]) H264_FREE(ctx->pps_data[i]);
-        if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
-        if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
-        if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
+        mp4_free_ctx_resources(ctx);
         H264_FREE(ctx);
     }
     if (fctx) {
@@ -610,5 +629,7 @@ H264FileDecoder *h264_open_mp4(const char *path)
     fctx->type      = 1;
     fctx->read_next = mp4_read_next;
     fctx->cleanup   = mp4_cleanup;
+    H264_DBGI("opened MP4: %s, samples=%d chunks=%d sps_count=%d",
+              path, ctx->sample_count, ctx->chunk_count, ctx->sps_count);
     return fctx;
 }

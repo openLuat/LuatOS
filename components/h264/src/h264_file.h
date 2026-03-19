@@ -27,10 +27,20 @@ struct H264FileDecoder {
     /* MP4 specific (set by h264_mp4.c) */
     void        *mp4_ctx;
 
+    /* Frame counter (used by debug logging) */
+    int          frame_count;
+
     /* Virtual dispatch */
     int  (*read_next)(struct H264FileDecoder *self, H264Frame *frame);
     void (*cleanup)(struct H264FileDecoder *self);
 };
+
+/**
+ * Global debug level (0 = off, 1 = on).
+ * Set via h264.debug() from Lua or by writing directly in C.
+ * Defined in h264_file.c.
+ */
+extern int g_h264_debug;
 
 /**
  * Allocate and zero-initialise an H264FileDecoder together with its inner

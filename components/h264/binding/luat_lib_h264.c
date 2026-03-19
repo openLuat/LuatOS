@@ -6,6 +6,16 @@
  *   h264.destroy(dec)
  *   h264.decode_nal(dec, nal_data)   -> frame_table or nil, err_msg
  *   h264.decode_stream(dec, data)    -> frame_table or nil, err_msg
+ *   h264.open_file(path)             -> file_decoder or nil, err_msg
+ *   h264.open_mp4(path)              -> file_decoder or nil, err_msg
+ *   h264.read_frame(fdec)            -> frame_table or nil, err_msg
+ *   h264.close_file(fdec)
+ *   h264.debug(on_off)               -> (void)  toggle debug output
+ *
+ * When LUAT_USE_LCD is defined:
+ *   h264.draw_frame(fdec, x, y)      -> true or nil, err_msg
+ *     Reads the next frame from a file decoder and draws it to the
+ *     default LCD via luat_lcd_draw() using YUV420p→RGB565 conversion.
  *
  * Frame table fields:
  *   frame.width, frame.height
@@ -31,6 +41,7 @@
 
 #include "h264_decoder.h"
 #include "../src/h264_common.h"
+#include "../src/h264_file.h"  /* for g_h264_debug */
 #include <string.h>
 
 /* Metatable name for file-decoder userdata */
@@ -300,6 +311,111 @@ static int l_h264_filedec_gc(lua_State *L)
     return l_h264_close_file(L);
 }
 
+/* ---- h264.debug(on_off) ---- */
+static int l_h264_debug(lua_State *L)
+{
+    g_h264_debug = lua_toboolean(L, 1);
+    return 0;
+}
+
+/* ---- LCD frame output (only when LCD support is compiled in) ---- */
+#ifdef LUAT_USE_LCD
+#include "luat_lcd.h"
+
+/*
+ * Convert one YCbCr (4:2:0) sample to a packed RGB565 pixel.
+ * Uses integer approximation of BT.601 full-range coefficients.
+ */
+static uint16_t yuv_to_rgb565(int y, int u, int v)
+{
+    int u_off = u - 128;
+    int v_off = v - 128;
+    int r = y + ((1435 * v_off) >> 10);
+    int g = y - (( 352 * u_off + 731 * v_off) >> 10);
+    int b = y + ((1814 * u_off) >> 10);
+    if (r < 0) r = 0; else if (r > 255) r = 255;
+    if (g < 0) g = 0; else if (g > 255) g = 255;
+    if (b < 0) b = 0; else if (b > 255) b = 255;
+    return (uint16_t)(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3));
+}
+
+/*
+ * h264.draw_frame(fdec, x, y)
+ *
+ * Reads the next frame from the file decoder @fdec and draws it to the
+ * default LCD starting at pixel (x, y) using YUV420p → RGB565 conversion.
+ *
+ * Returns true on success, or nil + error string on failure.
+ * Returns nil + "eof" when the stream is exhausted.
+ */
+static int l_h264_draw_frame(lua_State *L)
+{
+    LuaH264FileDecoder *ud =
+        (LuaH264FileDecoder *)luaL_checkudata(L, 1, H264_FILE_META);
+    if (!ud->fctx) {
+        lua_pushnil(L);
+        lua_pushstring(L, "decoder closed");
+        return 2;
+    }
+
+    int16_t x = (int16_t)luaL_checkinteger(L, 2);
+    int16_t y = (int16_t)luaL_checkinteger(L, 3);
+
+    luat_lcd_conf_t *lcd = luat_lcd_get_default();
+    if (!lcd) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no lcd");
+        return 2;
+    }
+
+    H264Frame frame;
+    memset(&frame, 0, sizeof(frame));
+    int ret = h264_read_frame(ud->fctx, &frame);
+
+    if (ret == H264_ERR_EOF) {
+        lua_pushnil(L);
+        lua_pushstring(L, "eof");
+        return 2;
+    }
+    if (ret != H264_OK || !frame.is_valid) {
+        lua_pushnil(L);
+        lua_pushstring(L, h264_strerror(ret));
+        return 2;
+    }
+
+    int width  = frame.width;
+    int height = frame.height;
+
+    /* Allocate RGB565 buffer (2 bytes per pixel) */
+    uint16_t *rgb_buf = (uint16_t *)H264_MALLOC((size_t)(width * height) * 2);
+    if (!rgb_buf) {
+        lua_pushnil(L);
+        lua_pushstring(L, "out of memory");
+        return 2;
+    }
+
+    /* YUV420p → RGB565 */
+    int i, j;
+    for (i = 0; i < height; i++) {
+        for (j = 0; j < width; j++) {
+            int yv = frame.y [i       * frame.y_stride + j      ];
+            int uv = frame.cb[(i / 2) * frame.c_stride + (j / 2)];
+            int vv = frame.cr[(i / 2) * frame.c_stride + (j / 2)];
+            rgb_buf[i * width + j] = yuv_to_rgb565(yv, uv, vv);
+        }
+    }
+
+    luat_lcd_draw(lcd, x, y,
+                  (int16_t)(x + width  - 1),
+                  (int16_t)(y + height - 1),
+                  (luat_color_t *)rgb_buf);
+
+    H264_FREE(rgb_buf);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+#endif /* LUAT_USE_LCD */
+
 /* ---- Module registration ---- */
 static const luaL_Reg h264_lib[] = {
     {"create",        l_h264_create},
@@ -310,6 +426,10 @@ static const luaL_Reg h264_lib[] = {
     {"open_mp4",      l_h264_open_mp4},
     {"read_frame",    l_h264_read_frame},
     {"close_file",    l_h264_close_file},
+    {"debug",         l_h264_debug},
+#ifdef LUAT_USE_LCD
+    {"draw_frame",    l_h264_draw_frame},
+#endif
     {NULL, NULL}
 };
 

@@ -23,6 +23,18 @@
 #define H264_REALLOC realloc
 #endif
 
+/* ---- Debug logging ---- */
+int g_h264_debug = 0;
+
+#ifdef LUAT_BUILD
+#define LUAT_LOG_TAG "h264"
+#include "luat_log.h"
+#define H264_DBGI(fmt, ...) do { if (g_h264_debug) { LLOGI(fmt, ##__VA_ARGS__); } } while(0)
+#else
+#include <stdio.h>
+#define H264_DBGI(fmt, ...) do { if (g_h264_debug) { printf("[h264] " fmt "\n", ##__VA_ARGS__); } } while(0)
+#endif
+
 /* Forward declaration (defined in h264_nalu.c) */
 int h264_find_next_nal(const uint8_t *data, int size,
                        int *nal_start, int *nal_size);
@@ -71,6 +83,9 @@ static int annexb_read_next(H264FileDecoder *fctx, H264Frame *frame)
 
                     if (f.is_valid) {
                         *frame = f;
+                        fctx->frame_count++;
+                        H264_DBGI("annexb frame #%d: %dx%d",
+                                  fctx->frame_count, f.width, f.height);
                         return H264_OK;
                     }
                     /* SPS / PPS / SEI — non-picture NAL; keep going */
@@ -150,8 +165,10 @@ H264FileDecoder *h264_open_file(const char *path)
     fctx->buf_pos   = 0;
     fctx->eof       = 0;
     fctx->type      = 0;
+    fctx->frame_count = 0;
     fctx->read_next = annexb_read_next;
     fctx->cleanup   = annexb_cleanup;
+    H264_DBGI("opened annexb file: %s", path);
     return fctx;
 }
 

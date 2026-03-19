@@ -919,6 +919,7 @@ int h264_decode_slice(H264Decoder *dec, H264BitStream *bs,
     int mb_x, mb_y;
     int mb_idx = sh->first_mb_in_slice;
     int skip_run = 0;
+    int slice_status = H264_OK;
 
     dec->prev_qp = sh->qp;
 
@@ -947,11 +948,15 @@ int h264_decode_slice(H264Decoder *dec, H264BitStream *bs,
 
             int ret = h264_decode_macroblock(dec, bs, mb_x, mb_y);
             if (ret != H264_OK) {
-                /* On error, continue with next MB */
+                /* On error, continue with next MB, but remember the first failure
+                 * so that callers can detect that this slice encountered issues. */
+                if (slice_status == H264_OK) {
+                    slice_status = ret;
+                }
             }
         }
     }
 done:
     (void)sps;
-    return H264_OK;
+    return slice_status;
 }

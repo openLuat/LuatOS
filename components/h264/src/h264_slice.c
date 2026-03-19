@@ -878,12 +878,38 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                     do_mc(dec, ref, x0,   y0, 8, 16, mv[0][0], mv[0][1]);
                     do_mc(dec, ref, x0+8, y0, 8, 16, mv[1][0], mv[1][1]);
                     break;
-                default: /* P_8x8 / P_8x8ref0: four 8x8 sub-blocks */
-                    do_mc(dec, ref, x0,   y0,   8, 8, mv[0][0], mv[0][1]);
-                    do_mc(dec, ref, x0+8, y0,   8, 8, mv[1][0], mv[1][1]);
-                    do_mc(dec, ref, x0,   y0+8, 8, 8, mv[2][0], mv[2][1]);
-                    do_mc(dec, ref, x0+8, y0+8, 8, 8, mv[3][0], mv[3][1]);
+                default: /* P_8x8 / P_8x8ref0: per sub-macroblock partition */
+                {
+                    int i;
+                    for (i = 0; i < 4; i++) {
+                        int sx = x0 + (i & 1) * 8;
+                        int sy = y0 + (i >> 1) * 8;
+                        switch (sub_type[i]) {
+                        case 0: /* P_L0_8x8 */
+                            do_mc(dec, ref, sx,     sy,     8, 8, mv[i][0], mv[i][1]);
+                            break;
+                        case 1: /* P_L0_8x4 */
+                            do_mc(dec, ref, sx,     sy,     8, 4, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx,     sy + 4, 8, 4, mv[i][0], mv[i][1]);
+                            break;
+                        case 2: /* P_L0_4x8 */
+                            do_mc(dec, ref, sx,     sy,     4, 8, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx + 4, sy,     4, 8, mv[i][0], mv[i][1]);
+                            break;
+                        case 3: /* P_L0_4x4 */
+                            do_mc(dec, ref, sx,     sy,     4, 4, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx + 4, sy,     4, 4, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx,     sy + 4, 4, 4, mv[i][0], mv[i][1]);
+                            do_mc(dec, ref, sx + 4, sy + 4, 4, 4, mv[i][0], mv[i][1]);
+                            break;
+                        default:
+                            /* Fallback: treat as a single 8x8 block */
+                            do_mc(dec, ref, sx,     sy,     8, 8, mv[i][0], mv[i][1]);
+                            break;
+                        }
+                    }
                     break;
+                }
                 }
             } else {
                 mb_fill_gray(dec, mb_x, mb_y);

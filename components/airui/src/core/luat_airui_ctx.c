@@ -401,7 +401,7 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
     
     // 分配显示缓冲（双缓冲模式）
-    uint32_t buf_size = width * height * lv_color_format_get_size(color_format);
+    uint32_t buf_size = width * height * lv_color_format_get_size(color_format) / 4;
     void *buf1 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
     void *buf2 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
     

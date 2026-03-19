@@ -33,6 +33,14 @@
 #include "../src/h264_common.h"
 #include <string.h>
 
+/* Metatable name for file-decoder userdata */
+#define H264_FILE_META "h264.filedec"
+
+/* Wrapper for H264FileDecoder Lua userdata */
+typedef struct {
+    H264FileDecoder *fctx;
+} LuaH264FileDecoder;
+
 /* Metatable name for the decoder userdata */
 #define H264_META "h264.decoder"
 
@@ -50,6 +58,7 @@ static const char *h264_strerror(int code)
     case -2: return "invalid bitstream";
     case -3: return "unsupported feature";
     case -4: return "invalid parameter";
+    case -5: return "end of file";
     default: return "unknown error";
     }
 }
@@ -200,12 +209,107 @@ static int l_h264_decode_stream(lua_State *L)
     return 1;
 }
 
+/* ---- File-decoder Lua bindings ---- */
+
+/* h264.open_file(path) → fileDecoder userdata or nil, errmsg */
+static int l_h264_open_file(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    LuaH264FileDecoder *ud =
+        (LuaH264FileDecoder *)lua_newuserdata(L, sizeof(LuaH264FileDecoder));
+    ud->fctx = h264_open_file(path);
+    if (!ud->fctx) {
+        lua_pop(L, 1);
+        lua_pushnil(L);
+        lua_pushstring(L, "failed to open file");
+        return 2;
+    }
+    luaL_getmetatable(L, H264_FILE_META);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+/* h264.open_mp4(path) → fileDecoder userdata or nil, errmsg */
+static int l_h264_open_mp4(lua_State *L)
+{
+    const char *path = luaL_checkstring(L, 1);
+    LuaH264FileDecoder *ud =
+        (LuaH264FileDecoder *)lua_newuserdata(L, sizeof(LuaH264FileDecoder));
+    ud->fctx = h264_open_mp4(path);
+    if (!ud->fctx) {
+        lua_pop(L, 1);
+        lua_pushnil(L);
+        lua_pushstring(L, "failed to open mp4");
+        return 2;
+    }
+    luaL_getmetatable(L, H264_FILE_META);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+/* h264.read_frame(fdec) → frame table, or nil, errmsg (nil,"eof" at end) */
+static int l_h264_read_frame(lua_State *L)
+{
+    LuaH264FileDecoder *ud =
+        (LuaH264FileDecoder *)luaL_checkudata(L, 1, H264_FILE_META);
+    if (!ud->fctx) {
+        lua_pushnil(L);
+        lua_pushstring(L, "decoder closed");
+        return 2;
+    }
+
+    H264Frame frame;
+    memset(&frame, 0, sizeof(frame));
+    int ret = h264_read_frame(ud->fctx, &frame);
+
+    if (ret == H264_ERR_EOF) {
+        lua_pushnil(L);
+        lua_pushstring(L, "eof");
+        return 2;
+    }
+    if (ret != H264_OK) {
+        lua_pushnil(L);
+        lua_pushstring(L, h264_strerror(ret));
+        return 2;
+    }
+    if (!frame.is_valid) {
+        lua_pushnil(L);
+        lua_pushstring(L, "no frame");
+        return 2;
+    }
+
+    push_frame(L, &frame);
+    return 1;
+}
+
+/* h264.close_file(fdec) */
+static int l_h264_close_file(lua_State *L)
+{
+    LuaH264FileDecoder *ud =
+        (LuaH264FileDecoder *)luaL_checkudata(L, 1, H264_FILE_META);
+    if (ud->fctx) {
+        h264_close_file(ud->fctx);
+        ud->fctx = NULL;
+    }
+    return 0;
+}
+
+/* __gc for file-decoder userdata */
+static int l_h264_filedec_gc(lua_State *L)
+{
+    return l_h264_close_file(L);
+}
+
 /* ---- Module registration ---- */
 static const luaL_Reg h264_lib[] = {
     {"create",        l_h264_create},
     {"destroy",       l_h264_destroy},
     {"decode_nal",    l_h264_decode_nal},
     {"decode_stream", l_h264_decode_stream},
+    {"open_file",     l_h264_open_file},
+    {"open_mp4",      l_h264_open_mp4},
+    {"read_frame",    l_h264_read_frame},
+    {"close_file",    l_h264_close_file},
     {NULL, NULL}
 };
 
@@ -216,6 +320,14 @@ LUAMOD_API int luaopen_h264(lua_State *L)
     lua_pushcfunction(L, l_h264_gc);
     lua_setfield(L, -2, "__gc");
     lua_pushcfunction(L, l_h264_destroy);
+    lua_setfield(L, -2, "__close");
+    lua_pop(L, 1);
+
+    /* Create metatable for file-decoder userdata */
+    luaL_newmetatable(L, H264_FILE_META);
+    lua_pushcfunction(L, l_h264_filedec_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pushcfunction(L, l_h264_close_file);
     lua_setfield(L, -2, "__close");
     lua_pop(L, 1);
 

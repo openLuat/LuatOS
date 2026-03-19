@@ -110,4 +110,3 @@ openspec/*
 # MCP server
 .chroma_code/
 components/h264/test/test_h264
-components/h264/test/test_h264

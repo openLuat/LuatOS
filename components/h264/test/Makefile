@@ -5,6 +5,8 @@ SRCS    = test_main.c \
           test_sps_pps.c \
           test_cavlc.c \
           test_integration.c \
+          test_file.c \
+          test_mp4.c \
           ../src/h264_tables.c \
           ../src/h264_bitstream.c \
           ../src/h264_nalu.c \
@@ -15,7 +17,9 @@ SRCS    = test_main.c \
           ../src/h264_inter.c \
           ../src/h264_deblock.c \
           ../src/h264_slice.c \
-          ../src/h264_decoder.c
+          ../src/h264_decoder.c \
+          ../src/h264_file.c \
+          ../src/h264_mp4.c
 TARGET  = test_h264
 
 all: $(TARGET)

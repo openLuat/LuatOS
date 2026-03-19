@@ -5,6 +5,8 @@ extern int test_bitstream(void);
 extern int test_sps_pps(void);
 extern int test_cavlc(void);
 extern int test_integration(void);
+extern int test_file(void);
+extern int test_mp4(void);
 
 int main(void) {
     int pass = 0, fail = 0;
@@ -19,6 +21,8 @@ int main(void) {
     RUN(sps_pps,     test_sps_pps);
     RUN(cavlc,       test_cavlc);
     RUN(integration, test_integration);
+    RUN(file,        test_file);
+    RUN(mp4,         test_mp4);
 
     printf("\n%d passed, %d failed\n", pass, fail);
     return fail > 0 ? 1 : 0;

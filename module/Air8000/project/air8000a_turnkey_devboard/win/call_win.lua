@@ -1,9 +1,27 @@
--- 通话页面
+--[[
+@module  call_win
+@summary 通话页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为通话功能页面，显示联系人列表并提供拨号功能。
+订阅"OPEN_CALL_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local contact_list -- 用于显示联系人
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、联系人列表和拨号按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -43,32 +61,52 @@ local function create_ui()
     })
 end
 
-function call_win_on_create()
+--[[
+窗口创建回调
+
+@function call_win_on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并初始化联系人列表（TODO）
+]]
+function on_create()
     
     create_ui()
     -- TODO: 初始化联系人列表，订阅通话状态等
 end
 
-function call_win_on_destroy()
+--[[
+窗口销毁回调
+
+@function call_win_on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，释放资源
+]]
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 取消订阅
 end
 
-function call_win_on_get_focus()
+-- 窗口获得焦点回调（空实现）
+local function on_get_focus()
     -- 刷新联系人
 end
 
-function call_win_on_lose_focus()
+-- 窗口失去焦点回调（空实现）
+local function on_lose_focus()
     -- 暂停可能的活动
 end
 
+-- 订阅打开通话页面的消息
 local function open_handler()
     win_id = exwin.open({
-        on_create = call_win_on_create,
-        on_destroy = call_win_on_destroy,
-        on_get_focus = call_win_on_get_focus,
-        on_lose_focus = call_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
+
 sys.subscribe("OPEN_CALL_WIN", open_handler)

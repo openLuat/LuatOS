@@ -847,7 +847,9 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
         /* CBP */
         {
             int cbp_idx = (int)bs_read_ue(bs);
-            if (cbp_idx >= 48) cbp_idx = 0;
+            if (cbp_idx >= 48) {
+                return H264_ERR_BITSTREAM;
+            }
             int cbp = cbp_inter_table[cbp_idx];
             mb->cbp       = cbp;
             mb->cbp_luma   = cbp & 0x0F;

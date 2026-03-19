@@ -17,6 +17,7 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
+#include "mbedtls/platform_util.h"
 
 #define LUAT_LOG_TAG "openvpn"
 #include "luat_log.h"
@@ -313,6 +314,7 @@ static void ovpn_client_stop_internal(ovpn_client_t *cli, int free_buffers) {
     if (!cli) {
         return;
     }
+    uint8_t was_started = cli->started;
     if (cli->udp) {
         udp_remove(cli->udp);
         cli->udp = NULL;
@@ -323,14 +325,15 @@ static void ovpn_client_stop_internal(ovpn_client_t *cli, int free_buffers) {
     if (cli->started) {
         netif_set_down(&cli->netif);
         netif_remove(&cli->netif);
+        net_lwip2_set_netif(cli->adapter_index, NULL);
     }
     cli->started = 0;
     if (cli->use_tls) {
         ovpn_tls_free(cli, free_buffers);
     }
     cli->tls_ready = 0;
-    /* Trigger disconnected event */
-    if (cli->event_cb) {
+    /* Trigger disconnected event only if client was started */
+    if (was_started && cli->event_cb) {
         cli->event_cb(OVPN_EVENT_DISCONNECTED, cli->user_data);
     }
 }
@@ -700,6 +703,7 @@ static void ovpn_tls_free(ovpn_client_t *cli, int free_buffers) {
         cli->client_cert_buf = NULL;
     }
     if (free_buffers && cli->client_key_buf) {
+        mbedtls_platform_zeroize(cli->client_key_buf, cli->client_key_len);
         luat_heap_free(cli->client_key_buf);
         cli->client_key_buf = NULL;
     }

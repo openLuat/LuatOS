@@ -118,25 +118,6 @@ static int openvpn_boot(luat_netdrv_t *drv, void *userdata) {
 }
 
 /**
- * OpenVPN netdrv shutdown 函数（关闭网络设备）
- */
-static int openvpn_shutdown(luat_netdrv_t *drv, void *userdata) {
-    if (drv == NULL || drv->userdata == NULL) {
-        return -1;
-    }
-    
-    luat_netdrv_openvpn_ctx_t *ctx = (luat_netdrv_openvpn_ctx_t *)drv->userdata;
-    ovpn_client_t *client = ctx->client;
-    
-    if (client != NULL) {
-        ovpn_client_stop(client);
-        LLOGI("[%d] OpenVPN client stopped", drv->id);
-    }
-    
-    return 0;
-}
-
-/**
  * OpenVPN netdrv ready 函数（检查是否准备就绪）
  */
 static int openvpn_ready(luat_netdrv_t *drv, void *userdata) {
@@ -321,6 +302,7 @@ luat_netdrv_t* luat_netdrv_openvpn_setup(luat_netdrv_conf_t *conf) {
     int reg_ret = luat_netdrv_register(conf->id, drv);
     if (reg_ret != 0) {
         LLOGE("Failed to register OpenVPN netdrv");
+        ovpn_client_stop(client);
         luat_heap_free(client);
         luat_heap_free(ctx);
         luat_heap_free(drv);

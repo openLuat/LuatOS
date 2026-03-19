@@ -88,6 +88,7 @@
 <td>20/GPIO24<br/></td><td></td><td>INT<br/></td></tr>
 </table>
 
+#### 3.2.3 接线图
 
 ![](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1010/exeasyui/image/image1.png)
 

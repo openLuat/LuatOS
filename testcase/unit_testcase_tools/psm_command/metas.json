@@ -1,0 +1,10 @@
+{
+    "timeout" : 60,
+    "model" : {
+        "air8000": [1,103]
+    },
+
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "PSM+唤醒配置模块单元测试"
+}

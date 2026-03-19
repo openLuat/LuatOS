@@ -40,15 +40,33 @@
  * Minimal MP4 box builder helpers
  * ================================================================ */
 
+/* Current maximum size for the MP4 buffer being constructed.
+ * Set by build_test_mp4() before any writes occur so the helpers
+ * can avoid writing past the end of the caller-provided buffer. */
+static int g_build_test_mp4_max_size = 0;
+
+static void mp4_set_buffer_bounds(int max_size)
+{
+    g_build_test_mp4_max_size = max_size;
+}
+
 static void pu8(uint8_t *b, int *p, uint8_t v)
 {
+    if (g_build_test_mp4_max_size > 0 && *p >= g_build_test_mp4_max_size) {
+        /* Signal overflow by moving p just past max_size; build_test_mp4()
+         * will detect this at the end and return -1 without writing
+         * beyond the end of the buffer. */
+        *p = g_build_test_mp4_max_size + 1;
+        return;
+    }
     b[(*p)++] = v;
 }
 
 static void pu16(uint8_t *b, int *p, uint16_t v)
 {
-    b[(*p)++] = (v >> 8) & 0xFF;
-    b[(*p)++] =  v       & 0xFF;
+    /* Reuse pu8 so that all bounds checking is centralized. */
+    pu8(b, p, (uint8_t)((v >> 8) & 0xFF));
+    pu8(b, p, (uint8_t)( v       & 0xFF));
 }
 
 static void pu32(uint8_t *b, int *p, uint32_t v)
@@ -129,6 +147,9 @@ static int build_test_mp4(uint8_t *out, int max_size, int *out_size,
                            const uint8_t *pps, int pps_len,
                            const uint8_t *idr, int idr_len)
 {
+    /* Configure bounds for the MP4 box builder helpers so that they
+     * do not write past the end of the caller-provided buffer. */
+    mp4_set_buffer_bounds(max_size);
     int p = 0;
     int sp;
 
@@ -363,7 +384,14 @@ static int build_test_mp4(uint8_t *out, int max_size, int *out_size,
 
     end_box(out, &p, sp_moov);
 
-    if (p > max_size) return -1;
+    if (p > max_size) {
+        /* Reset helper bounds before returning on error. */
+        mp4_set_buffer_bounds(0);
+        return -1;
+    }
+    *out_size = p;
+    /* Reset helper bounds now that we are done with this buffer. */
+    mp4_set_buffer_bounds(0);
     *out_size = p;
     return 0;
 }

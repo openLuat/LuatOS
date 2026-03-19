@@ -1,8 +1,8 @@
 --[[
 @module  lcd_drv
-@summary LCD显示驱动模块，基于lcd核心库
+@summary LCD显示驱动模块，基于lcd核心库(Air1601版本)
 @version 1.0
-@date    2025.12.1
+@date    2026.03.16
 @author  江访
 @usage
 本模块为LCD显示驱动功能模块，主要功能包括：
@@ -35,7 +35,7 @@ else
 end
 ]]
 
-local port, pin_reset, bl = lcd.RGB, 22, 23
+local port, pin_reset, bl = lcd.RGB, 15, 2
 
 function lcd_drv.init()
     -- 开启屏幕供电
@@ -70,8 +70,17 @@ function lcd_drv.init()
             return result
         end
 
-        -- 开启背光引脚供电
-        --gpio.setup(8, 1)
+        -- 加载字体
+        airui.font_load({
+            type = "hzfont",
+            path = nil,
+            size = 14,
+            cache_size = 512,
+            antialias = 1,
+        })
+
+        local version_result = airui.version()
+        log.info("airui", "version -> " .. version_result)
 
         return result
     end

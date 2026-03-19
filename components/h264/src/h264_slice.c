@@ -489,8 +489,8 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
     /*
      * In a P-slice, mb_type >= 5 signals an intra macroblock:
      *   5  -> I_4x4  (raw type 0 in I-slice)
-     *   6..29 -> I_16x16 variants (raw types 1..24)
-     *   30 -> I_PCM  (raw type 25)
+     *   6..29 -> I_16x16 variants (raw types 1..24, i.e. mb_type-5 = 1..24)
+     *   30 -> I_PCM  (raw type 25, i.e. mb_type-5 = 25)
      * Remap and treat as an I-slice macroblock.
      */
     int effective_slice_type = sh->slice_type;
@@ -928,28 +928,18 @@ int h264_decode_slice(H264Decoder *dec, H264BitStream *bs,
         {
             if (bs_bits_left(bs) <= 0) goto done;
 
-            /* Handle P-skip macroblocks */
+            /* Handle P-skip macroblocks.
+             * In a P-slice the bitstream reads:
+             *   mb_skip_run  (ue) — number of skipped MBs before the next coded MB
+             * We read it fresh whenever the previous run has been consumed. */
             if (sh->slice_type == H264_SLICE_P) {
                 if (skip_run == 0) {
-                    /* Peek at next mb - check if it's a skip */
+                    if (bs_bits_left(bs) <= 0) goto done;
                     skip_run = (int)bs_read_ue(bs);
                 }
                 if (skip_run > 0) {
-                    /* This MB is skipped */
-                    int y0 = mb_y * 16, x0 = mb_x * 16;
-                    int i;
-                    if (dec->num_ref > 0 && dec->ref[0].is_valid) {
-                        H264RefPic *ref = &dec->ref[0];
-                        for (i = 0; i < 16; i++) {
-                            int ry = y0+i < ref->height ? y0+i : ref->height-1;
-                            memcpy(dec->frame_y + (y0+i)*dec->frame_stride + x0,
-                                   ref->y + ry*ref->stride + (x0 < ref->width ? x0 : ref->width-16),
-                                   16);
-                        }
-                    } else {
-                        for (i = 0; i < 16; i++)
-                            memset(dec->frame_y+(y0+i)*dec->frame_stride+x0, 128, 16);
-                    }
+                    p_skip_mb(dec, mb_x, mb_y);
+                    dec->mbs[mb_y * mb_width + mb_x].decoded = 1;
                     skip_run--;
                     continue;
                 }

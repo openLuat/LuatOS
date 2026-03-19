@@ -7,6 +7,7 @@ SRCS    = test_main.c \
           test_integration.c \
           test_file.c \
           test_mp4.c \
+          test_p_frame.c \
           ../src/h264_tables.c \
           ../src/h264_bitstream.c \
           ../src/h264_nalu.c \

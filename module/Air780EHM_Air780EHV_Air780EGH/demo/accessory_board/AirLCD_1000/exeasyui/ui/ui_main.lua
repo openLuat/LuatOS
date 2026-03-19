@@ -23,7 +23,6 @@ local PAGE_NAMES = {
     HOME = "home",
     COMPONENT = "component",
     DEFAULT_FONT = "default_font",
-    GTFONT = "gtfont",
     HZFONT = "hzfont"
 }
 
@@ -90,7 +89,6 @@ local function register_all_pages()
     key_handler.register_page(PAGE_NAMES.HOME, home_page_callback)
     key_handler.register_page(PAGE_NAMES.COMPONENT, component_page_callback)
     key_handler.register_page(PAGE_NAMES.DEFAULT_FONT, default_font_page_callback)
-    key_handler.register_page(PAGE_NAMES.GTFONT, gtfont_page_callback)
     key_handler.register_page(PAGE_NAMES.HZFONT, hzfont_page_callback)
 end
 

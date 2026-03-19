@@ -26,6 +26,8 @@ static lv_font_t *g_airui_hzfont_font = NULL; // 共享字体对象
 static lv_font_hzfont_dsc_t *g_airui_hzfont_dsc = NULL; // 共享字体描述对象
 static uint16_t g_airui_hzfont_render_size = 16; // 共享渲染字号
 static const int g_airui_hzfont_extra_leading = 3; // 共享额外行高
+static uint16_t g_airui_hzfont_render_size_stack[16];
+static uint8_t g_airui_hzfont_render_size_stack_depth = 0;
 
 // 字符串渲染耗时统计
 typedef struct {
@@ -486,6 +488,25 @@ void airui_font_hzfont_set_render_size(uint16_t size)
         (int32_t)g_airui_hzfont_font->line_height - ascent : 0;
 }
 
+void airui_font_hzfont_push_render_size(uint16_t size)
+{
+    if (g_airui_hzfont_render_size_stack_depth < (sizeof(g_airui_hzfont_render_size_stack) / sizeof(g_airui_hzfont_render_size_stack[0]))) {
+        g_airui_hzfont_render_size_stack[g_airui_hzfont_render_size_stack_depth++] = g_airui_hzfont_render_size;
+    }
+    airui_font_hzfont_set_render_size(size);
+}
+
+void airui_font_hzfont_pop_render_size(void)
+{
+    if (g_airui_hzfont_render_size_stack_depth == 0) {
+        airui_font_hzfont_set_render_size(0);
+        return;
+    }
+
+    g_airui_hzfont_render_size_stack_depth--;
+    airui_font_hzfont_set_render_size(g_airui_hzfont_render_size_stack[g_airui_hzfont_render_size_stack_depth]);
+}
+
 #else
 
 lv_font_t *airui_font_get_shared_hzfont(void)
@@ -496,6 +517,15 @@ lv_font_t *airui_font_get_shared_hzfont(void)
 void airui_font_hzfont_set_render_size(uint16_t size)
 {
     return;
+}
+
+void airui_font_hzfont_push_render_size(uint16_t size)
+{
+    (void)size;
+}
+
+void airui_font_hzfont_pop_render_size(void)
+{
 }
 
 void airui_font_hzfont_prof_begin(const char *text)

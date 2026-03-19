@@ -143,6 +143,12 @@ void airui_component_meta_free(airui_component_meta_t *meta)
         airui_qrcode_release_data(meta);
     }
 
+    if (meta->user_data != NULL && meta->user_data_free != NULL) {
+        meta->user_data_free(meta->user_data);
+        meta->user_data = NULL;
+        meta->user_data_free = NULL;
+    }
+
     // 减少组件计数
     if (meta->ctx != NULL) {
         if (meta->ctx->debug_component_count > 0) {
@@ -164,6 +170,19 @@ void airui_component_meta_free(airui_component_meta_t *meta)
     
     // 释放元数据
     luat_heap_free(meta);
+}
+
+void airui_component_meta_set_user_data(
+    airui_component_meta_t *meta,
+    void *user_data,
+    airui_component_user_data_free_cb_t user_data_free)
+{
+    if (meta == NULL) {
+        return;
+    }
+
+    meta->user_data = user_data;
+    meta->user_data_free = user_data_free;
 }
 
 /**

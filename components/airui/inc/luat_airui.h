@@ -309,6 +309,17 @@ lv_font_t *airui_font_get_shared_hzfont(void);
 void airui_font_hzfont_set_render_size(uint16_t size);
 
 /**
+ * 压入共享 HZFont 字体渲染字号
+ * @param size 字号，0 表示恢复默认字号后入栈
+ */
+void airui_font_hzfont_push_render_size(uint16_t size);
+
+/**
+ * 弹出共享 HZFont 字体渲染字号
+ */
+void airui_font_hzfont_pop_render_size(void);
+
+/**
  * 开始一次 label 场景的 hzfont 调试统计会话
  * @param text 当前 label 文本
  */

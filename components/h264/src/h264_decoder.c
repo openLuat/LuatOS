@@ -164,6 +164,7 @@ int h264_decode_nal(H264Decoder *dec, const uint8_t *nal_data, int nal_size,
         return H264_ERR_BITSTREAM;
 
     /* Remove emulation prevention bytes */
+    /* +16 to allow for RBSP trailing bits padding added during NALU writing */
     int rbsp_size_max = nal_size + 16;
     uint8_t *rbsp = (uint8_t *)H264_MALLOC((size_t)rbsp_size_max);
     if (!rbsp) return H264_ERR_NOMEM;

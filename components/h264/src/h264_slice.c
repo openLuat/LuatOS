@@ -188,7 +188,7 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
     if (sh->is_idr) {
         sh->no_output_of_prior_pics_flag = (int)bs_read_u1(bs);
         sh->long_term_reference_flag     = (int)bs_read_u1(bs);
-    } else if (/* nal_ref_idc != 0; assume reference frame (TODO: pass nal_ref_idc here) */ 1) {
+    } else if (/* nal_ref_idc: assume reference frame for all non-IDR slices in Baseline */ 1) {
         sh->adaptive_ref_pic_marking_mode_flag = (int)bs_read_u1(bs);
         if (sh->adaptive_ref_pic_marking_mode_flag) {
             int op;
@@ -617,7 +617,7 @@ int h264_decode_slice(H264Decoder *dec, H264BitStream *bs,
             /* Handle P-skip macroblocks */
             if (sh->slice_type == H264_SLICE_P) {
                 if (skip_run == 0) {
-                    /* Peek at next mb – check if it's a skip */
+                    /* Peek at next mb - check if it's a skip */
                     skip_run = (int)bs_read_ue(bs);
                 }
                 if (skip_run > 0) {

@@ -181,13 +181,15 @@ int h264_parse_sps(H264BitStream *bs, H264SPS *sps)
         h264_parse_vui(bs, sps);
     }
 
-    /* Derive picture dimensions */
-    int crop_x = sps->frame_crop_left_offset  + sps->frame_crop_right_offset;
-    int crop_y = sps->frame_crop_top_offset    + sps->frame_crop_bottom_offset;
-    int mux    = (sps->chroma_format_idc == 0) ? 0 : 2;
-    sps->width  = (sps->pic_width_in_mbs_minus1 + 1) * 16 - crop_x * mux;
+    /* Derive picture dimensions.
+     * crop_unit is the number of luma pixels per crop offset unit.
+     * For 4:2:0 and 4:2:2 chroma formats the offset is in 2-sample units. */
+    int crop_x    = sps->frame_crop_left_offset  + sps->frame_crop_right_offset;
+    int crop_y    = sps->frame_crop_top_offset    + sps->frame_crop_bottom_offset;
+    int crop_unit = (sps->chroma_format_idc == 0) ? 0 : 2;
+    sps->width  = (sps->pic_width_in_mbs_minus1 + 1) * 16 - crop_x * crop_unit;
     sps->height = (sps->pic_height_in_map_units_minus1 + 1) *
-                  (sps->frame_mbs_only_flag ? 16 : 32) - crop_y * mux;
+                  (sps->frame_mbs_only_flag ? 16 : 32) - crop_y * crop_unit;
     /* Fallback: ensure non-zero */
     if (sps->width  <= 0) sps->width  = (sps->pic_width_in_mbs_minus1 + 1) * 16;
     if (sps->height <= 0) sps->height = (sps->pic_height_in_map_units_minus1 + 1) * 16;

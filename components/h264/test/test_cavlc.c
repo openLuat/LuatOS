@@ -135,20 +135,12 @@ int test_cavlc(void) {
         CHECK(coeffs[0] == 0, "chroma DC TC=0 coeff[0]=0");
     }
 
-    /* ---- Test 6: level encoding edge case - single non-trailing level ---- */
-    /* Build: TC=1, T1=0, nC=8
-     * coeff_token: (1<<2)|0 = 4 = 0b000100 (6 bits)
-     * TrailingOnes count = 0, so no sign bits
+    /* ---- Test 6: single non-trailing coefficient (TC=1, T1=0, nC=8) ---- */
+    /* coeff_token:  6-bit fixed code for (TC=1, T1=0) in nC>=8 table
      * Level for coeff[0]:
-     *   suffixLength starts at 1 (TC > 10? no. TC<=10, T1=0 -> suffixLength=0)
-     *   But since first non-trailing level: level = 1 or 2
-     *   level_prefix leading zeros + 1 = simplest: prefix=0 (one "1" bit), suffix=0
-     *   levelCode = 0, level = 1 (odd: positive)
-     *   Since it's first and T1=0: add 1 -> level = 2? Actually:
-     *   levelCode=0: (0%2==0) -> level = 0/2+1 = 1; then adjust: level += 1 -> 2
-     *   Wait per spec: for first coeff when T1 < 3: level += (level>0)?1:-1
-     *   So level = 2
-     * total_zeros: TC=1 < 16, tzVlcIndex=1: tz=0 -> code=1, len=1
+     *   suffixLength=0; prefix=0 gives levelCode=0
+     *   levelCode=0 (even) -> level = 1; first coeff when T1<3 adds 1 -> level = 2
+     * total_zeros=0: 1-bit code "1" (tzVlcIndex=1, tz=0)
      */
     {
         uint8_t buf[8] = {0};

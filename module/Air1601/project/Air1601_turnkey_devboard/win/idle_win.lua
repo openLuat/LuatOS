@@ -188,7 +188,7 @@ local function create_ui()
         y = 320,
         size = 150,
         data =
-        "https://docs.openluat.com/air1601/product/Air1601_turnkey_devboard/",
+        "https://gitee.com/openLuat/LuatOS/tree/master/module/Air1601/project/Air1601_turnkey_devboard",
         dark_color = 0x000000,
         light_color = 0xFFFFFF,
         quiet_zone = true

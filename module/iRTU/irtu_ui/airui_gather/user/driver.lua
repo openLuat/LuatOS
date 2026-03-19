@@ -384,7 +384,7 @@ function driver.init()
         dtu.uconf[4] = {uart.VUART_0, 115200, 8, 2, 0}
         uart_INIT(4, dtu.uconf)
     end
-    if dtu.pwrmod == "noraml" then
+    if dtu.pwrmod == "normal" then
         -- 网络READY信号
         if not dtu.pins or not dtu.pins[2] or not default.pios[dtu.pins[2]] then 
             netready = gpio.setup(26, 0)

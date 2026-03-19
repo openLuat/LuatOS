@@ -132,6 +132,17 @@ static int next_box(FILE *fp, BoxInfo *bi)
     return 0;
 }
 
+/* ---- Allocate a buffer and read exactly 'len' bytes from fp.
+ * Returns the buffer (caller must H264_FREE it), or NULL on error. ---- */
+static uint8_t *read_alloc(FILE *fp, uint16_t len)
+{
+    if (len == 0) return NULL;
+    uint8_t *buf = (uint8_t *)H264_MALLOC(len);
+    if (!buf) return NULL;
+    if ((int)fread(buf, 1, len, fp) != len) { H264_FREE(buf); return NULL; }
+    return buf;
+}
+
 /* ---- avcC parser ---- */
 static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
 {
@@ -149,9 +160,8 @@ static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
     int i;
     for (i = 0; i < (int)num_sps && i < 32; i++) {
         uint16_t slen = read_u16_be(fp);
-        uint8_t *buf = (uint8_t *)H264_MALLOC(slen);
+        uint8_t *buf = read_alloc(fp, slen);
         if (!buf) return -1;
-        if ((int)fread(buf, 1, slen, fp) != slen) { H264_FREE(buf); return -1; }
         ctx->sps_data[i] = buf;
         ctx->sps_len[i]  = slen;
         ctx->sps_count++;
@@ -160,9 +170,8 @@ static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
     uint8_t num_pps = (uint8_t)fgetc(fp);
     for (i = 0; i < (int)num_pps && i < 32; i++) {
         uint16_t plen = read_u16_be(fp);
-        uint8_t *buf = (uint8_t *)H264_MALLOC(plen);
+        uint8_t *buf = read_alloc(fp, plen);
         if (!buf) return -1;
-        if ((int)fread(buf, 1, plen, fp) != plen) { H264_FREE(buf); return -1; }
         ctx->pps_data[i] = buf;
         ctx->pps_len[i]  = plen;
         ctx->pps_count++;
@@ -391,6 +400,15 @@ static void parse_moov(FILE *fp, H264Mp4Context *ctx,
 }
 
 /* ---- Compute file offset + size of sample[sample_idx] ---- */
+/*
+ * Compute the file byte offset and byte size of sample[sample_idx].
+ *
+ * The MP4 sample-to-chunk table (stsc) maps ranges of chunks to a fixed
+ * number of samples per chunk.  For each stsc entry we compute how many
+ * samples fall into the covered chunk range, then locate the chunk that
+ * contains sample_idx and add up the sizes of all earlier samples within
+ * that chunk to get the final byte offset inside it.
+ */
 static int get_sample_info(H264Mp4Context *ctx, int sample_idx,
                            uint64_t *offset_out, uint32_t *size_out)
 {
@@ -529,6 +547,27 @@ static void mp4_cleanup(H264FileDecoder *fctx)
     fctx->mp4_ctx = NULL;
 }
 
+/* ---- Cleanup helper for failed h264_open_mp4() paths ---- */
+
+static H264FileDecoder *mp4_open_fail(H264FileDecoder *fctx, H264Mp4Context *ctx)
+{
+    if (ctx) {
+        int i;
+        for (i = 0; i < ctx->sps_count; i++) if (ctx->sps_data[i]) H264_FREE(ctx->sps_data[i]);
+        for (i = 0; i < ctx->pps_count; i++) if (ctx->pps_data[i]) H264_FREE(ctx->pps_data[i]);
+        if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
+        if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
+        if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
+        H264_FREE(ctx);
+    }
+    if (fctx) {
+        if (fctx->fp) { fclose(fctx->fp); fctx->fp = NULL; }
+        h264_decoder_destroy(fctx->dec);
+        H264_FREE(fctx);
+    }
+    return NULL;
+}
+
 /* ---- Public entry point ---- */
 
 H264FileDecoder *h264_open_mp4(const char *path)
@@ -539,19 +578,12 @@ H264FileDecoder *h264_open_mp4(const char *path)
     if (!fctx) return NULL;
 
     fctx->fp = fopen(path, "rb");
-    if (!fctx->fp) {
-        h264_decoder_destroy(fctx->dec);
-        H264_FREE(fctx);
-        return NULL;
-    }
+    if (!fctx->fp)
+        return mp4_open_fail(fctx, NULL);
 
     H264Mp4Context *ctx = (H264Mp4Context *)H264_MALLOC(sizeof(H264Mp4Context));
-    if (!ctx) {
-        fclose(fctx->fp);
-        h264_decoder_destroy(fctx->dec);
-        H264_FREE(fctx);
-        return NULL;
-    }
+    if (!ctx)
+        return mp4_open_fail(fctx, NULL);
     memset(ctx, 0, sizeof(*ctx));
     ctx->fp             = fctx->fp;
     ctx->nal_length_size = 4; /* default; overridden by avcC */
@@ -571,18 +603,7 @@ H264FileDecoder *h264_open_mp4(const char *path)
     /* Validate: need at least one sample and a chunk-offset table */
     if (!found_moov || ctx->sample_count == 0 || !ctx->chunk_offsets ||
         !ctx->sample_sizes || !ctx->stsc_entries || ctx->sps_count == 0) {
-        /* Clean up and fail */
-        int i;
-        for (i = 0; i < ctx->sps_count; i++) if (ctx->sps_data[i]) H264_FREE(ctx->sps_data[i]);
-        for (i = 0; i < ctx->pps_count; i++) if (ctx->pps_data[i]) H264_FREE(ctx->pps_data[i]);
-        if (ctx->sample_sizes)  H264_FREE(ctx->sample_sizes);
-        if (ctx->chunk_offsets) H264_FREE(ctx->chunk_offsets);
-        if (ctx->stsc_entries)  H264_FREE(ctx->stsc_entries);
-        H264_FREE(ctx);
-        fclose(fctx->fp);
-        h264_decoder_destroy(fctx->dec);
-        H264_FREE(fctx);
-        return NULL;
+        return mp4_open_fail(fctx, ctx);
     }
 
     fctx->mp4_ctx   = ctx;

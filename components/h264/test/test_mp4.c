@@ -31,6 +31,11 @@
 
 #define MP4_PATH "/tmp/test_h264.mp4"
 
+/* ftyp box is always exactly 20 bytes: size(4)+type(4)+brand(4)+version(4)+compat(4) */
+#define FTYP_BOX_SIZE   20
+/* mdat box header is 8 bytes: size(4)+type(4) */
+#define MDAT_HEADER_SIZE 8
+
 /* ================================================================
  * Minimal MP4 box builder helpers
  * ================================================================ */
@@ -131,8 +136,9 @@ static int build_test_mp4(uint8_t *out, int max_size, int *out_size,
     int avcc_size  = 4 + idr_len;
 
     /* The AVCC sample data starts immediately after the mdat box header.
-     * ftyp = 20 bytes, mdat header = 8 bytes → chunk_offset = 28. */
-    uint32_t chunk_offset = 20 + 8;
+     * ftyp = FTYP_BOX_SIZE bytes, mdat header = MDAT_HEADER_SIZE bytes
+     * → chunk_offset = FTYP_BOX_SIZE + MDAT_HEADER_SIZE = 28 */
+    uint32_t chunk_offset = FTYP_BOX_SIZE + MDAT_HEADER_SIZE;
     uint32_t sample_size  = (uint32_t)avcc_size;
 
     /* ---- ftyp ---- */
@@ -364,6 +370,12 @@ static int build_test_mp4(uint8_t *out, int max_size, int *out_size,
 
 /* ================================================================
  * Extract individual NAL units from an Annex-B stream.
+ *
+ * Scans the Annex-B byte stream and locates the first SPS (type 7),
+ * PPS (type 8), and IDR slice (type 5) NAL units.  Pointers returned
+ * are into the original 'stream' buffer (no copies are made).
+ *
+ * Returns 0 when all three are found, -1 otherwise.
  * ================================================================ */
 static int extract_nals(const uint8_t *stream, int stream_size,
                         const uint8_t **sps_out, int *sps_len,

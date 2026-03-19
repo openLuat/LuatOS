@@ -161,7 +161,7 @@ int test_p_frame(void)
     H264Frame idr_frame;
     memset(&idr_frame, 0, sizeof(idr_frame));
     ret = h264_decode_stream(dec, stream, stream_size, &idr_frame);
-    CHECK(ret == H264_OK || ret == H264_ERR_BITSTREAM, "IDR decode ok");
+    CHECK(ret == H264_OK, "IDR decode ok");
     CHECK(idr_frame.is_valid, "IDR frame valid");
     CHECK(idr_frame.y[0] == 200, "IDR Y=200");
     CHECK(idr_frame.cb[0] == 100, "IDR Cb=100");
@@ -176,7 +176,7 @@ int test_p_frame(void)
     H264Frame p_frame;
     memset(&p_frame, 0, sizeof(p_frame));
     ret = h264_decode_stream(dec, stream, stream_size, &p_frame);
-    CHECK(ret == H264_OK || ret == H264_ERR_BITSTREAM, "P decode ok");
+    CHECK(ret == H264_OK, "P decode ok");
     CHECK(p_frame.is_valid, "P frame valid");
     CHECK(p_frame.width  == 16, "P frame width == 16");
     CHECK(p_frame.height == 16, "P frame height == 16");

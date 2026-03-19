@@ -918,8 +918,11 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             }
 
             /* Residuals */
-            if (cbp != 0)
-                decode_inter_residuals(dec, bs, mb_x, mb_y, cbp, mb->qp);
+            if (cbp != 0) {
+                int residual_status = decode_inter_residuals(dec, bs, mb_x, mb_y, cbp, mb->qp);
+                if (residual_status != H264_OK)
+                    return residual_status;
+            }
         }
     } else {
         /* Unsupported slice type: fill gray */

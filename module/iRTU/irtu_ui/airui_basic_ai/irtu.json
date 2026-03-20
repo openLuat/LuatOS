@@ -1,0 +1,96 @@
+{
+    "fota": 0,
+    "uartReadTime": 25,
+    "flow": "",
+    "param_ver": 0,
+    "pwrmod": "normal",
+    "password": "",
+    "netReadTime": 0,
+    "passon": 1,
+    "nolog": "1",
+    "plate": 0,
+    "reg": 0,
+    "convert": 0,
+    "protectContent":[0,0,0,0,0,0,0],
+    "webProtect":"1",
+    "uconf": [
+        [
+            1,
+            "115200",
+            8,
+            2,
+            0,
+            "",
+            ""
+        ],
+        [],
+        []
+    ],
+    "conf": [
+        [
+            "tcp",
+            "0x00",
+            300,
+            "",
+            2345,
+            1,
+            "",
+            "",
+            "",
+            ""
+        ],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+    ],
+    "preset": {
+        "number": "",
+        "delay": "",
+        "smsword": ""
+    },
+    "apn": [
+        "",
+        "",
+        ""
+    ],
+    "cmds": [
+        [],
+        []
+    ],
+    "pins": [
+        "pio27",
+        "pio0",
+        "pio17"
+    ],
+    "gps": {
+        "pio": [],
+        "fun": []
+    },
+    "upprot": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+    ],
+    "dwprot": [
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+    ],
+    "warn": {
+        "adc0": [],
+        "adc1": [],
+        "vbatt": [],
+        "gpio": []
+    }
+}

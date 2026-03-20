@@ -2,9 +2,9 @@
 
 1、main.lua：主程序入口；
 
-2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的五种网卡(单wifi网卡，单rmii以太网卡，单spi以太网卡，多网卡，pc模拟器上的网卡)中的任何一种网卡；
+2、netdrv_device.lua：网卡驱动设备，可以配置使用netdrv文件夹内的四种网卡(单wifi网卡，单spi以太网卡，多网卡，pc模拟器上的网卡)中的任何一种网卡；
 
-3、netdrv文件夹：五种网卡，单wifi网卡、单rmii以太网卡、单spi以太网卡、多网卡、pc模拟器上的网卡，供netdrv_device.lua加载配置；
+3、netdrv文件夹：五种网卡，单wifi网卡、单spi以太网卡、多网卡、pc模拟器上的网卡，供netdrv_device.lua加载配置；
 
 4、ftp_up_download.lua:   功能演示核心脚本，操作ftp文件、上传和下载文件等,在main.lua中加载运行。
 
@@ -42,35 +42,6 @@
 
 * TYPE-C USB数据线直接插到核心板的TYPE-C USB座子，另外一端连接电脑USB口；
 
-4、可选AirETH_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirETH_1000配件板 |
-|:----------:|:--------------:|
-| 59/3V3     | 3.3v           |
-| GND        | GND            |
-| 28/DCLK    | SCK            |
-| 54/DISP    | CSS            |
-| 55/HSYN    | SDO            |
-| 57/DE      | SDI            |
-| 14/GPIO8   | INT            |
-
- 5、可选AirPHY_1000配件板一块，Air8101核心板和AirPHY_1000配件板的硬件接线方式为:
-
-| Air8101核心板 | AirPHY_1000配件板 |
-| ---------- | -------------- |
-| 59/3V3     | 3.3v           |
-| GND        | GND            |
-| 5/D2       | RX1            |
-| 72/D1      | RX0            |
-| 71/D3      | CRS            |
-| 4/D0       | MDIO           |
-| 6/D4       | TX0            |
-| 74/PCK     | MDC            |
-| 70/D5      | TX1            |
-| 7/D6       | TXEN           |
-| 不接         | NC             |
-| 69/D7      |                |
-
 ## 演示软件环境
 
 1、 Luatools下载调试工具
@@ -103,8 +74,6 @@
 2、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 
 * 如果需要单WIFI STA网卡，打开require "netdrv_wifi"，其余注释掉；同时netdrv_wifi.lua中的wlan.connect("Mayadan", "12345678", 1)，前两个参数，修改为自己测试时wifi热点的名称和密码；注意：仅支持2.4G的wifi，不支持5G的wifi
-
-* 如果需要RMII以太网卡，打开require "netdrv_eth_rmii"，其余注释掉
 
 * 如果需要SPI以太网卡，打开require "netdrv_eth_spi"，其余注释掉
 

@@ -13,53 +13,55 @@ local socket_clients = {}
 -- 多个UDP服务器配置
 local UDP_SERVERS_CONFIG = {{
     name = "UDP服务器1",
-    host = "112.125.89.8",
-    port = 33121,
+    host = "gz01.air32.cn",
+    port =  9901,
     socket_client = nil,
     connected = false
-}, {
-    name = "UDP服务器2",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 33346, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器3",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 34665, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器4",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 34965, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器5",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 33321, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器6",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 32971, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器7",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 32181, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}, {
-    name = "UDP服务器8",
-    host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
-    port = 32326, -- 示例端口，请替换为实际的服务器端口
-    socket_client = nil,
-    connected = false
-}} -- 可以继续添加更多服务器配置
+}
+-- , {
+--     name = "UDP服务器2",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 33346, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器3",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 34665, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器4",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 34965, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器5",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 33321, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器6",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 32971, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器7",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 32181, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }, {
+--     name = "UDP服务器8",
+--     host = "112.125.89.8", -- 示例IP，请替换为实际的服务器IP
+--     port = 32326, -- 示例端口，请替换为实际的服务器端口
+--     socket_client = nil,
+--     connected = false
+-- }
+} -- 可以继续添加更多服务器配置
 
 local taskName = "UDP_TASK" -- 测试任务名称
 local ssid = "luatos1234"
@@ -193,73 +195,70 @@ local function udp_date_callback()
                 local recv_buff = recv_buffs[i]
                 local socket_client = server_config.socket_client
 
-                    -- 生成测试数据
-                    local current_time = os.time()
-                    local date_table = os.date("*t", current_time)
+                -- 生成测试数据
+                local current_time = os.time()
+                local date_table = os.date("*t", current_time)
 
-                    local test_str = string.format(
-                        '{"server":"%s","seq":%d,"time":%d,"date":"%04d-%02d-%02d %02d:%02d:%02d","data":"test_message_%d","hex":0x%X,"random":%d}',
-                        server_config.name, server_test_counts[i] + 1, current_time, date_table.year, date_table.month,
-                        date_table.day, date_table.hour, date_table.min, date_table.sec, server_test_counts[i] + 1,
-                        math.random(0, 65535), math.random(1000, 9999))
+                local test_str = string.format(
+                    '{"server":"%s","seq":%d,"time":%d,"date":"%04d-%02d-%02d %02d:%02d:%02d","data":"test_message_%d","hex":0x%X,"random":%d}',
+                    server_config.name, server_test_counts[i] + 1, current_time, date_table.year, date_table.month,
+                    date_table.day, date_table.hour, date_table.min, date_table.sec, server_test_counts[i] + 1,
+                    math.random(0, 65535), math.random(1000, 9999))
 
-                    log.info("udp_echo", string.format("服务器[%s] 第%d次发送数据: %s", server_config.name,
-                        server_test_counts[i] + 1, test_str))
+                log.info("udp_echo", string.format("服务器[%s] 第%d次发送数据: %s", server_config.name,
+                    server_test_counts[i] + 1, test_str))
 
-                    -- 清空发送缓冲区并写入新数据
-                    send_buff:write(test_str)
-                    assert(send_buff:used() > 0,
-                        string.format("服务器[%s] 数据写入失败！", server_config.name))
-                    log.info("udp_test", string.format("服务器[%s] 数据写入通过", server_config.name))
+                -- 清空发送缓冲区并写入新数据
+                send_buff:write(test_str)
+                assert(send_buff:used() > 0, string.format("服务器[%s] 数据写入失败！", server_config.name))
+                log.info("udp_test", string.format("服务器[%s] 数据写入通过", server_config.name))
 
-                    -- 发送数据
-                    local succ, full = libnet.tx(taskName, 0, socket_client, send_buff)
-                    assert(type(succ) == "boolean" and type(full) == "boolean",
-                        string.format("服务器[%s] libnet.tx()返回的数据类型错误", server_config.name))
-                    assert(succ == true, string.format("服务器[%s] 数据发送失败", server_config.name))
-                    assert(full == false, string.format("服务器[%s] 发送缓冲区已满", server_config.name))
+                -- 发送数据
+                local succ, full = libnet.tx(taskName, 0, socket_client, send_buff)
+                assert(type(succ) == "boolean" and type(full) == "boolean",
+                    string.format("服务器[%s] libnet.tx()返回的数据类型错误", server_config.name))
+                assert(succ == true, string.format("服务器[%s] 数据发送失败", server_config.name))
+                assert(full == false, string.format("服务器[%s] 发送缓冲区已满", server_config.name))
 
-                    -- 保存发送数据用于后续比较
-                    local send_data = send_buff:query()
-                    assert(send_data ~= nil,
+                -- 保存发送数据用于后续比较
+                local send_data = send_buff:query()
+                assert(send_data ~= nil, string.format("服务器[%s] 读取缓冲区数据失败", server_config.name))
+                send_buff:del()
+
+                -- 为当前服务器等待接收数据
+                local wait_result, event_param = libnet.wait(taskName, 5000, socket_client)
+
+                if wait_result then
+                    -- 接收数据
+                    local succ, param, _, _ = socket.rx(socket_client, recv_buff)
+                    assert(succ == true, string.format("服务器[%s] 数据接收失败", server_config.name))
+                    assert(param ~= 0, string.format("服务器[%s] 接收到的数据长度为0", server_config.name))
+
+                    local recive_data = recv_buff:query()
+                    assert(recive_data ~= nil,
                         string.format("服务器[%s] 读取缓冲区数据失败", server_config.name))
-                    send_buff:del()
+                    recv_buff:del()
 
-                    -- 为当前服务器等待接收数据
-                    local wait_result, event_param = libnet.wait(taskName, 5000, socket_client)
+                    -- 验证数据一致性
+                    assert(recive_data == send_data,
+                        string.format(
+                            "服务器[%s] 第%d次回环数据不匹配!\n发送数据: %s\n接收数据: %s",
+                            server_config.name, server_test_counts[i] + 1, send_data, recive_data))
 
-                    if wait_result then
-                        -- 接收数据
-                        local succ, param, _, _ = socket.rx(socket_client, recv_buff)
-                        assert(succ == true, string.format("服务器[%s] 数据接收失败", server_config.name))
-                        assert(param ~= 0,
-                            string.format("服务器[%s] 接收到的数据长度为0", server_config.name))
+                    server_test_counts[i] = server_test_counts[i] + 1
 
-                        local recive_data = recv_buff:query()
-                        assert(recive_data ~= nil,
-                            string.format("服务器[%s] 读取缓冲区数据失败", server_config.name))
-                        recv_buff:del()
+                    log.info("udp_echo", string.format("服务器[%s] ✓ 第%d次回环成功", server_config.name,
+                        server_test_counts[i]))
+                    log.info("udp_echo",
+                        string.format("服务器[%s] 接收数据: %s", server_config.name, recive_data))
+                else
+                    -- 接收超时，记录日志但不中断测试
+                    log.warn("udp_echo", string.format("服务器[%s] 第%d次接收超时", server_config.name,
+                        server_test_counts[i] + 1))
+                end
 
-                        -- 验证数据一致性
-                        assert(recive_data == send_data,
-                            string.format(
-                                "服务器[%s] 第%d次回环数据不匹配!\n发送数据: %s\n接收数据: %s",
-                                server_config.name, server_test_counts[i] + 1, send_data, recive_data))
-
-                        server_test_counts[i] = server_test_counts[i] + 1
-
-                        log.info("udp_echo", string.format("服务器[%s] ✓ 第%d次回环成功", server_config.name,
-                            server_test_counts[i]))
-                        log.info("udp_echo",
-                            string.format("服务器[%s] 接收数据: %s", server_config.name, recive_data))
-                    else
-                        -- 接收超时，记录日志但不中断测试
-                        log.warn("udp_echo", string.format("服务器[%s] 第%d次接收超时", server_config.name,
-                            server_test_counts[i] + 1))
-                    end
-
-                    -- 短暂延迟，避免同时发送造成拥塞
-                    sys.wait(100)
+                -- 短暂延迟，避免同时发送造成拥塞
+                sys.wait(100)
             end
         end
 
@@ -273,7 +272,10 @@ local function udp_date_callback()
 
 end
 
-local function UDP_LIBNET_TASK()
+function udp_test.test_main_demo()
+    -- 配置可用网络适配器
+    get_supported_adapters()
+
     for _, adapt_result in ipairs(ALL_ADAPTERS) do
         local adapter = adapt_result.adapter
         name = adapt_result.name
@@ -313,83 +315,82 @@ local function UDP_LIBNET_TASK()
         end
 
         for i, server_config in ipairs(UDP_SERVERS_CONFIG) do
-                log.info("udp_test",
-                    string.format("适配器[%s] 创建到服务器[%s]的连接", name, server_config.name))
+            log.info("udp_test",
+                string.format("适配器[%s] 创建到服务器[%s]的连接", name, server_config.name))
 
-                -- 创建socket对象
-                local socket_client = socket.create(adapter, taskName)
-                assert(socket_client ~= nil,
-                    string.format("适配器[%s] 服务器[%s] 创建socket对象失败", name, server_config.name))
-                log.info("udp_test", string.format("适配器[%s] 服务器[%s] 创建socket对象测试通过", name,
-                    server_config.name))
+            -- 创建socket对象
+            local socket_client = socket.create(adapter, taskName)
+            assert(socket_client ~= nil,
+                string.format("适配器[%s] 服务器[%s] 创建socket对象失败", name, server_config.name))
+            log.info("udp_test", string.format("适配器[%s] 服务器[%s] 创建socket对象测试通过", name,
+                server_config.name))
 
-                -- 保存socket对象到配置中
-                server_config.socket_client = socket_client
+            -- 保存socket对象到配置中
+            server_config.socket_client = socket_client
 
-                -- 打开debug日志信息
-                local success, err = pcall(function()
-                    socket.debug(socket_client, true)
-                end)
-                assert(success == true,
-                    string.format("适配器[%s] 服务器[%s] debug日志打开失败", name, server_config.name))
-                log.info("udp_test", string.format("适配器[%s] 服务器[%s] debug日志信息打开测试通过",
-                    name, server_config.name))
+            -- 打开debug日志信息
+            local success, err = pcall(function()
+                socket.debug(socket_client, true)
+            end)
+            assert(success == true,
+                string.format("适配器[%s] 服务器[%s] debug日志打开失败", name, server_config.name))
+            log.info("udp_test", string.format("适配器[%s] 服务器[%s] debug日志信息打开测试通过", name,
+                server_config.name))
 
-                -- 随机生成端口配置socket
-                local config_port_table = {}
-                -- 设置随机种子
-                math.randomseed(os.time())
-                for i = 1, 3 do
-                    table.insert(config_port_table, math.random(0, 60000))
-                end
+            -- 随机生成端口配置socket
+            local config_port_table = {}
+            -- 设置随机种子
+            math.randomseed(os.time())
+            for i = 1, 3 do
+                table.insert(config_port_table, math.random(0, 60000))
+            end
 
-                for _, number in ipairs(config_port_table) do
+            for _, number in ipairs(config_port_table) do
 
-                    local config_port = number
-                    local config_result = socket.config(socket_client, nil, true, ssl)
-                    assert(type(config_result) == "boolean",
-                        string.format(
-                            "适配器[%s]端口[%s]配置socket对象的参数返回值类型测试失败,预期boolean，实际%s",
-                            name, config_port, type(config_result)))
-                    log.info("udp_test", string.format(
-                        "适配器[%s]端口[%s]配置socket对象的参数返回值类型测试通过", name,
-                        config_port))
+                local config_port = number
+                local config_result = socket.config(socket_client, nil, true, ssl)
+                assert(type(config_result) == "boolean",
+                    string.format(
+                        "适配器[%s]端口[%s]配置socket对象的参数返回值类型测试失败,预期boolean，实际%s",
+                        name, config_port, type(config_result)))
+                log.info("udp_test", string.format(
+                    "适配器[%s]端口[%s]配置socket对象的参数返回值类型测试通过", name, config_port))
 
-                    assert(config_result == true,
-                        string.format(
-                            "适配器[%s]端口[%s]配置socket对象的参数测试失败,预期true，实际%s",
-                            name, config_port, config_result))
-                    log.info("udp_test", string.format("适配器[%s]端口[%s]配置socket对象的参数测试通过",
-                        name, config_port))
+                assert(config_result == true,
+                    string.format(
+                        "适配器[%s]端口[%s]配置socket对象的参数测试失败,预期true，实际%s", name,
+                        config_port, config_result))
+                log.info("udp_test", string.format("适配器[%s]端口[%s]配置socket对象的参数测试通过",
+                    name, config_port))
 
-                end
+            end
 
-                local connect_result = libnet.connect(taskName, 15000, socket_client, server_config.host,
-                    server_config.port)
+            local connect_result =
+                libnet.connect(taskName, 15000, socket_client, server_config.host, server_config.port)
 
-                assert(type(connect_result) == "boolean",
-                    "适配器[%s] 服务器[%s] libnet 连接对端返回的数据类型错误,实际是%s:", name,
-                    server_config.name, type(connect_result))
-                log.info("udp_test",
-                    string.format("适配器[%s] libnet 连接对端返回的数据类型测试通过", name))
-                assert(connect_result == true,
-                    string.format("适配器[%s] 服务器[%s] libnet 连接对端测试失败,预期true，实际%s",
-                        name, server_config.name, connect_result))
-                log.info("udp_test", string.format("适配器[%s] 服务器[%s] libnet 连接对端测试通过", name,
-                    server_config.name))
+            assert(type(connect_result) == "boolean",
+                "适配器[%s] 服务器[%s] libnet 连接对端返回的数据类型错误,实际是%s:", name,
+                server_config.name, type(connect_result))
+            log.info("udp_test",
+                string.format("适配器[%s] libnet 连接对端返回的数据类型测试通过", name))
+            assert(connect_result == true,
+                string.format("适配器[%s] 服务器[%s] libnet 连接对端测试失败,预期true，实际%s", name,
+                    server_config.name, connect_result))
+            log.info("udp_test", string.format("适配器[%s] 服务器[%s] libnet 连接对端测试通过", name,
+                server_config.name))
 
-                if connect_result then
-                    server_config.connected = true
-                    log.info(string.format("适配器[%s] 连接服务器[%s] %s:%d 成功", name, server_config.name,
-                        server_config.host, server_config.port))
-                else
-                    server_config.connected = false
-                    log.error(string.format("适配器[%s] 连接服务器[%s] %s:%d 失败", name, server_config.name,
-                        server_config.host, server_config.port))
-                end
+            if connect_result then
+                server_config.connected = true
+                log.info(string.format("适配器[%s] 连接服务器[%s] %s:%d 成功", name, server_config.name,
+                    server_config.host, server_config.port))
+            else
+                server_config.connected = false
+                log.error(string.format("适配器[%s] 连接服务器[%s] %s:%d 失败", name, server_config.name,
+                    server_config.host, server_config.port))
+            end
 
-                -- 短暂延迟，避免同时连接造成问题
-                sys.wait(500)
+            -- 短暂延迟，避免同时连接造成问题
+            sys.wait(500)
         end
 
         -- 所有服务器连接完成后，创建缓冲区
@@ -405,7 +406,7 @@ local function UDP_LIBNET_TASK()
                 pcall(function()
                     libnet.close(taskName, 5000, server_config.socket_client)
                     socket.release(server_config.socket_client)
-                    end)
+                end)
                 server_config.socket_client = nil
                 server_config.connected = false
                 log.info(string.format("关闭服务器[%s]连接", server_config.name))
@@ -413,20 +414,6 @@ local function UDP_LIBNET_TASK()
         end
         sys.wait(1000)
     end
-end
-
-function udp_test.test_main_demo()
-    -- 配置可用网络适配器
-    get_supported_adapters()
-
-    -- sysplus.taskInitEx(UDP_LIBNET_TASK, taskName)
-    -- sys.wait(120000)
-
-    pcall(function()
-        sysplus.taskInitEx(UDP_LIBNET_TASK, taskName)
-        sys.wait(120000)
-    end)
-
 end
 
 return udp_test

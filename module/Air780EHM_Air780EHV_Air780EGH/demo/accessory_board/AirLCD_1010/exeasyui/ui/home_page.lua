@@ -37,7 +37,6 @@ function home_page.create()
     home:configure_subpages({
         component = function() return require("component_page").create(ui) end,
         default_font = function() return require("default_font_page").create(ui) end,
-        gtfont = function() return require("gtfont_page").create(ui) end,
         hzfont = function() return require("hzfont_page").create(ui) end
     })
 
@@ -63,7 +62,7 @@ function home_page.create()
         x = 20,
         y = 100,
         w = 280,
-        h = 50,
+        h = 80,
         text = "组件演示",
         bg_color = ui.COLOR_BLUE,
         text_color = ui.COLOR_WHITE,
@@ -75,9 +74,9 @@ function home_page.create()
     -- 默认字体演示按钮
     local btn_default_font = ui.button({
         x = 20,
-        y = 170,
+        y = 200,
         w = 280,
-        h = 50,
+        h = 80,
         text = "默认字体演示",
         bg_color = ui.COLOR_RED,
         text_color = ui.COLOR_WHITE,
@@ -86,26 +85,12 @@ function home_page.create()
         end
     })
 
-    -- GTFont演示按钮
-    local btn_gtfont = ui.button({
-        x = 20,
-        y = 240,
-        w = 280,
-        h = 50,
-        text = "GTFont演示",
-        bg_color = ui.COLOR_GREEN,
-        text_color = ui.COLOR_WHITE,
-        on_click = function()
-            home:show_subpage("gtfont")
-        end
-    })
-
     -- HZFont演示按钮
     local btn_hzfont = ui.button({
         x = 20,
-        y = 310,
+        y = 300,
         w = 280,
-        h = 50,
+        h = 80,
         text = "HZFont演示",
         bg_color = ui.COLOR_ORANGE,
         text_color = ui.COLOR_WHITE,
@@ -119,7 +104,6 @@ function home_page.create()
     home:add(subtitle)
     home:add(btn_component)
     home:add(btn_default_font)
-    home:add(btn_gtfont)
     home:add(btn_hzfont)
 
     ui.add(home)

@@ -75,8 +75,8 @@ ui = require("exeasyui")
 -- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
 -- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air8000/common/product/
 -- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
-require("hw_default_font_drv")
--- require("hw_hzfont_drv")
+-- require("hw_default_font_drv")
+require("hw_hzfont_drv")
 -- require("hw_gtfont_drv")
 -- require("hw_customer_font_drv")开发中
 

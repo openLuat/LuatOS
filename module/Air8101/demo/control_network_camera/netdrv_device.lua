@@ -7,8 +7,7 @@
 @usage
 本文件为网络驱动设备功能模块，核心业务逻辑为：根据项目需求，选择并且配置合适的网卡(网络适配器)
 1、WiFi STA模式：socket.LWIP_STA，无线网络连接；
-2、以太网模式(RMII)：socket.LWIP_ETH，通过MAC层的RMII接口外挂PHY芯片（LAN8720Ai）的以太网卡；
-3、以太网模式(SPI)：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
+2、以太网模式(SPI)：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
 
 无论选择哪种网卡模式，在成功联网后都会发布"NET_CONNECT_OK"事件，用于通知摄像头控制系统启动。
 
@@ -20,9 +19,6 @@
 
 -- 加载"WIFI STA网卡"驱动模块（默认启用）
 require "netdrv_wifi"
-
--- 加载“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块
--- require "netdrv_eth_rmii"
 
 -- 加载“通过SPI外挂CH390H芯片的以太网卡”驱动模块
 -- require "netdrv_eth_spi"

@@ -1,21 +1,41 @@
--- TTS页面
+--[[
+@module  tts_win
+@summary TTS语音合成页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为TTS功能页面，提供文本输入和朗读按钮。
+订阅"OPEN_TTS_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local text_input, speak_btn
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、文本输入框和朗读按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
     -- 顶部返回栏
-    local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=50, color=0x3F51B5 })
-    local back_btn = airui.button({ parent = header, x=10, y=5, w=50, h=40, color=0x3F51B5, text = "返回",
+    local header = airui.container({ parent = main_container, x=0, y=0, w=480, h=40, color=0x3F51B5 })
+    -- 返回按钮使用容器样式，与历史页面保持一致
+    local back_btn = airui.container({ parent = header, x = 400, y = 5, w = 70, h = 30, color = 0x2195F6, radius = 5,
         on_click = function() if win_id then exwin.close(win_id) end end
     })
+    airui.label({ parent = back_btn, x = 10, y = 5, w = 50, h = 20, text = "返回", font_size = 16, color = 0xfefefe, align = airui.TEXT_ALIGN_CENTER })
 
-    airui.label({ parent = header, x=60, y=10, w=360, h=30, align = airui.TEXT_ALIGN_CENTER, text="TTS", font_size=24, color=0xffffff })
+    airui.label({ parent = header, x = 10, y = 4, w = 360, h = 32, align = airui.TEXT_ALIGN_CENTER, text="TTS", font_size=24, color=0xffffff })
 
-    content = airui.container({ parent = main_container, x=0, y=50, w=480, h=270, color=0xF3F4F6 })
+    content = airui.container({ parent = main_container, x=0, y=40, w=480, h=280, color=0xF3F4F6 })
 
     -- 文本输入
     text_input = airui.textarea({
@@ -35,31 +55,52 @@ local function create_ui()
     })
 end
 
-function tts_win_on_create()
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI
+]]
+local function on_create()
     
     create_ui()
 end
 
-function tts_win_on_destroy()
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，停止播放等
+]]
+local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 停止播放等
 end
 
-function tts_win_on_get_focus()
+-- 窗口获得焦点回调（空实现）
+local function on_get_focus()
     -- 刷新
 end
 
-function tts_win_on_lose_focus()
+-- 窗口失去焦点回调（空实现）
+local function on_lose_focus()
     -- 如果正在朗读，可暂停
 end
 
+-- 订阅打开TTS页面的消息
 local function open_handler()
     win_id = exwin.open({
-        on_create = tts_win_on_create,
-        on_destroy = tts_win_on_destroy,
-        on_get_focus = tts_win_on_get_focus,
-        on_lose_focus = tts_win_on_lose_focus,
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
     })
 end
 sys.subscribe("OPEN_TTS_WIN", open_handler)

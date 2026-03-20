@@ -683,6 +683,11 @@ static int libuv_socket_receive(int socket_id, uint64_t tag, uint8_t *buf, uint3
         {
             return 0;
         }
+        if (sockets[socket_id].udp_data == NULL)
+        {
+            LLOGD("socket[%d] UDP没有数据可读了", socket_id);
+            return 0;
+        }
         if (sockets[socket_id].udp_data->len < len)
         {
             len = sockets[socket_id].udp_data->len;

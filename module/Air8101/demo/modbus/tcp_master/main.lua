@@ -19,10 +19,7 @@
 4、require "param_field" 和 require "raw_frame" 不要同时打开，否则功能会有冲突
 
 特别说明一：
-1、本示例代码中配置了两种以太网卡
-2、在 main.lua 中 require "netdrv_eth_rmii" 模块，使用的是“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”
-3、在 main.lua 中 require "netdrv_eth_spi" 模块，使用的是“通过SPI外挂CH390H芯片的以太网卡”
-4、require "netdrv_eth_rmii" 和 require "netdrv_eth_spi" 不要同时打开，否则会导致功能冲突
+1、在 main.lua 中 require "netdrv_eth_spi" 模块，使用的是“通过SPI外挂CH390H芯片的以太网卡”
 
 特别说明二：
 关于 TCP 报文，exmodbus 扩展库支持通过 字段参数 或 原始帧 两种方式进行配置
@@ -141,14 +138,8 @@ end
 
 
 -- 开启以太网wan（默认使用静态 IP 地址）
--- netdrv_eth_rmii.lua 中配置的是 通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡，例如 Air8101 核心板 + AirPHY_1000 配件板
--- netdrv_eth_spi.lua 中配置的是 通过SPI外挂CH390H芯片的以太网卡，例如 Air8101 核心板 + AirETH_1000 配件板
--- netdrv_eth_rmii 和 netdrv_eth_spi 只能选择其中一种打开，否则会导致功能冲突
-
--- 加载“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块
-require "netdrv_eth_rmii"
 -- 加载“通过SPI外挂CH390H芯片的以太网卡”驱动模块
--- require "netdrv_eth_spi"
+require "netdrv_eth_spi"
 
 
 -- 以下两种方式只能选择其中一种打开，否则会导致功能冲突

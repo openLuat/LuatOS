@@ -16,7 +16,7 @@
 @api hw_font_drv.init(font_config)
 @summary 初始化exEasyUI硬件系统
 @table font_config 字体配置参数（可选）
-@field type string 字体类型，支持 "hzfont"、"gtfont"，不传则使用默认字体
+@field type string 字体类型，支持 "hzfont"、不传则使用默认字体
 @field size number 字体大小
 @field antialias number 抗锯齿设置（仅HzFont有效）
 @field spi table SPI配置（仅GTFont有效）

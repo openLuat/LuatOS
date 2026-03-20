@@ -34,16 +34,16 @@ else
 end
 ]]
 
-local rst_pin = 55
-local int_pin = 3
+local rst_pin = 2
+local int_pin = 51
 
 
-local is_soft_i2c = false
+local is_soft_i2c = true
 
 local port = 1
 
 if is_soft_i2c then
-    port = i2c.createSoft(39, 38) -- scl, sda, delay
+    port = i2c.createSoft(23, 22) -- scl, sda, delay
 else
     i2c.setup(port, i2c.SLOW)
 end
@@ -81,7 +81,7 @@ function tp_drv.init()
         return result
     else
         -- 绑定触摸设备到AirUI输入设备
-        return airui.device_bind_touch(result)
+        return airui.indev_bind_touch(result)
     end
 end
 

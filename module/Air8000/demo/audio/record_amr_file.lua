@@ -317,7 +317,7 @@ local function main_audio_task()
     if not mount_sd_card() then
         log.error("SD卡挂载失败，录音文件将无法保存到SD卡")
         -- 如果SD卡挂载失败，使用默认路径
-        recordPath = "/record.pcm"
+        recordPath = "/record.amr"
     else
         log.error("SD卡挂载成功！！！")
     end

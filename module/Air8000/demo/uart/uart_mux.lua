@@ -38,7 +38,7 @@ end
 
 local function uart_io_setup()
     sys.wait(15000)          -- 等待15秒钟后切换uart管脚
-    log.info("uart", "重新配置uart2到新管脚")
+    log.info("uart", "重新配置uart3到新管脚")
     uart.close(uartid)       -- 先关闭串口
     pins.setup(38, "GPIO15") -- 把原有的uart改成其他功能, 或者gpio
     pins.setup(39, "GPIO14") -- 把原有的uart改成其他功能, 或者gpio
@@ -47,7 +47,7 @@ local function uart_io_setup()
     pins.setup(25, "UART3_RX") -- 设置新管脚为uart3
     pins.setup(26, "UART3_TX") -- 设置新管脚为uart3
     uart.setup(uartid,115200,8,1) -- 重新初始化串口
-    log.info("uart", "uart2重新配置完成")
+    log.info("uart", "uart3重新配置完成")
 end
 
 --初始化

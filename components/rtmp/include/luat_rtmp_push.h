@@ -89,7 +89,8 @@ typedef enum {
     RTMP_STATE_CONNECTED = 3,      /**< 已连接 */
     RTMP_STATE_PUBLISHING = 4,     /**< 正在推流 */
     RTMP_STATE_DISCONNECTING = 5,  /**< 正在断开连接 */
-    RTMP_STATE_ERROR = 6            /**< 错误状态 */
+    RTMP_STATE_DISCONNECTED = 6,   /**< 已断开连接 */
+    RTMP_STATE_ERROR = 7           /**< 错误状态 */
 } rtmp_state_t;
 
 /**

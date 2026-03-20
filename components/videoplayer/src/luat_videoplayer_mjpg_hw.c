@@ -8,12 +8,19 @@
 
 #include "luat_videoplayer.h"
 
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #include "luat_base.h"
 #endif
 
+/* Use project-wide LUAT_WEAK if available, else define per-compiler */
 #ifndef LUAT_WEAK
+#if defined(_MSC_VER) || (defined(_WIN32) && !defined(__GNUC__))
+#define LUAT_WEAK
+#elif defined(__GNUC__) || defined(__clang__)
 #define LUAT_WEAK __attribute__((weak))
+#else
+#define LUAT_WEAK
+#endif
 #endif
 
 /*

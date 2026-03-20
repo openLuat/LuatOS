@@ -28,7 +28,7 @@ end
 videoplayer.close(player)
 */
 
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #include "luat_base.h"
 #include "luat_malloc.h"
 #define VP_LIB_MALLOC luat_heap_malloc
@@ -46,9 +46,23 @@ videoplayer.close(player)
 #include <string.h>
 
 #define LUAT_LOG_TAG "videoplayer"
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #include "luat_log.h"
 #endif
+
+/* Map videoplayer error codes to Lua error strings */
+static const char* vp_err_str(int ret) {
+    switch (ret) {
+        case LUAT_VP_ERR_EOF:     return "eof";
+        case LUAT_VP_ERR_FORMAT:  return "format";
+        case LUAT_VP_ERR_NOMEM:   return "nomem";
+        case LUAT_VP_ERR_NOIMPL:  return "noimpl";
+        case LUAT_VP_ERR_IO:      return "io";
+        case LUAT_VP_ERR_PARAM:   return "param";
+        case LUAT_VP_ERR_DECODE:  return "decode";
+        default:                  return "error";
+    }
+}
 
 /* Metatable name for videoplayer userdata */
 #define VP_META "videoplayer.ctx"
@@ -149,7 +163,7 @@ static int l_videoplayer_read_frame(lua_State *L) {
     }
     if (ret != LUAT_VP_OK) {
         lua_pushnil(L);
-        lua_pushstring(L, "decode error");
+        lua_pushstring(L, vp_err_str(ret));
         return 2;
     }
 
@@ -162,10 +176,19 @@ static int l_videoplayer_read_frame(lua_State *L) {
     lua_pushinteger(L, frame.height);
     lua_setfield(L, -2, "height");
 
-    /* Push RGB565 data as Lua string (2 bytes per pixel) */
-    size_t data_size = (size_t)frame.width * frame.height * 2;
-    if (frame.data && data_size > 0 && data_size / 2 / frame.height == frame.width) {
-        lua_pushlstring(L, (const char *)frame.data, data_size);
+    /* Push RGB565 data as Lua string (2 bytes per pixel) with safe overflow check */
+    if (frame.data && frame.width > 0 && frame.height > 0) {
+        size_t pixel_count = (size_t)frame.width * frame.height;
+        if (pixel_count / frame.width == (size_t)frame.height) {
+            size_t data_size = pixel_count * 2;
+            if (data_size / 2 == pixel_count) {
+                lua_pushlstring(L, (const char *)frame.data, data_size);
+            } else {
+                lua_pushstring(L, "");
+            }
+        } else {
+            lua_pushstring(L, "");
+        }
     } else {
         lua_pushstring(L, "");
     }
@@ -223,7 +246,7 @@ static int l_videoplayer_draw_frame(lua_State *L) {
     }
     if (ret != LUAT_VP_OK) {
         lua_pushnil(L);
-        lua_pushstring(L, "decode error");
+        lua_pushstring(L, vp_err_str(ret));
         return 2;
     }
 

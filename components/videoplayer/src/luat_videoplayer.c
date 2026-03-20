@@ -6,7 +6,7 @@
 
 #include "luat_videoplayer.h"
 
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_fs.h"
@@ -45,7 +45,7 @@
 /* Debug flag */
 static int g_vp_debug = 0;
 
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #define LUAT_LOG_TAG "videoplayer"
 #include "luat_log.h"
 #define VP_LOGD(...) do { if (g_vp_debug) LLOGD(__VA_ARGS__); } while(0)
@@ -305,7 +305,7 @@ int luat_videoplayer_read_frame(luat_vp_ctx_t *ctx, luat_vp_frame_t *frame) {
                                         jpeg_data, jpeg_size, frame);
         if (ret != LUAT_VP_OK) {
             VP_LOGW("decode failed: %d", ret);
-            return LUAT_VP_ERR_DECODE;
+            return ret;
         }
 
         /* Update video dimensions from first decoded frame */

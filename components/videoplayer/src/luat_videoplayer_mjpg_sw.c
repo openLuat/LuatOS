@@ -6,7 +6,7 @@
 
 #include "luat_videoplayer.h"
 
-#ifdef LUAT_BUILD
+#ifdef __LUATOS__
 #include "luat_base.h"
 #include "luat_malloc.h"
 #define VP_SW_MALLOC  luat_heap_malloc
@@ -23,19 +23,17 @@
 /* Work buffer size for tjpgd */
 #define TJPGD_WORK_SIZE  4096
 
-/* Context for memory-based JPEG input */
+/* Combined context shared by both input and output callbacks via jd->device */
 typedef struct {
-    const uint8_t *data;
-    size_t size;
-    size_t pos;
-} mjpg_mem_input_t;
-
-/* Context for output collection */
-typedef struct {
-    uint16_t *pixels;       /* Output RGB565 buffer */
-    uint16_t width;
-    uint16_t height;
-} mjpg_output_ctx_t;
+    /* Input state */
+    const uint8_t *in_data;
+    size_t in_size;
+    size_t in_pos;
+    /* Output state (set after jd_prepare, before jd_decomp) */
+    uint16_t *out_pixels;
+    uint16_t out_width;
+    uint16_t out_height;
+} mjpg_sw_device_t;
 
 /* Software decoder context */
 typedef struct {
@@ -44,21 +42,21 @@ typedef struct {
 
 /* tjpgd input function: read from memory buffer */
 static size_t mjpg_sw_input_func(JDEC *jd, uint8_t *buff, size_t nbyte) {
-    mjpg_mem_input_t *in = (mjpg_mem_input_t *)jd->device;
-    size_t remain = in->size - in->pos;
+    mjpg_sw_device_t *dev = (mjpg_sw_device_t *)jd->device;
+    size_t remain = dev->in_size - dev->in_pos;
     if (nbyte > remain) nbyte = remain;
 
     if (buff) {
-        memcpy(buff, in->data + in->pos, nbyte);
+        memcpy(buff, dev->in_data + dev->in_pos, nbyte);
     }
-    in->pos += nbyte;
+    dev->in_pos += nbyte;
     return nbyte;
 }
 
 /* tjpgd output function: copy RGB565 pixels to output buffer */
 static int mjpg_sw_output_func(JDEC *jd, void *bitmap, JRECT *rect) {
-    mjpg_output_ctx_t *out = (mjpg_output_ctx_t *)jd->device;
-    if (!out || !out->pixels || !bitmap) return 0;
+    mjpg_sw_device_t *dev = (mjpg_sw_device_t *)jd->device;
+    if (!dev || !dev->out_pixels || !bitmap) return 0;
 
     uint16_t *src = (uint16_t *)bitmap;
     if (rect->right < rect->left || rect->bottom < rect->top) return 1;
@@ -66,12 +64,12 @@ static int mjpg_sw_output_func(JDEC *jd, void *bitmap, JRECT *rect) {
     uint16_t y;
 
     for (y = rect->top; y <= rect->bottom; y++) {
-        if (y < out->height && rect->left < out->width) {
+        if (y < dev->out_height && rect->left < dev->out_width) {
             uint16_t copy_w = w;
-            if (rect->left + copy_w > out->width) {
-                copy_w = out->width - rect->left;
+            if (rect->left + copy_w > dev->out_width) {
+                copy_w = dev->out_width - rect->left;
             }
-            memcpy(&out->pixels[y * out->width + rect->left],
+            memcpy(&dev->out_pixels[y * dev->out_width + rect->left],
                    src, copy_w * sizeof(uint16_t));
         }
         src += w;
@@ -102,14 +100,15 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     if (!sw || !data || size == 0 || !frame) return LUAT_VP_ERR_PARAM;
 
     JDEC jdec;
-    mjpg_mem_input_t input;
-    input.data = data;
-    input.size = size;
-    input.pos = 0;
+    mjpg_sw_device_t dev;
+    memset(&dev, 0, sizeof(dev));
+    dev.in_data = data;
+    dev.in_size = size;
+    dev.in_pos = 0;
 
-    /* Prepare JPEG decoder */
+    /* Prepare JPEG decoder - both input and output callbacks read from dev */
     JRESULT res = luat_jd_prepare(&jdec, mjpg_sw_input_func,
-                                   sw->work_buf, TJPGD_WORK_SIZE, &input);
+                                   sw->work_buf, TJPGD_WORK_SIZE, &dev);
     if (res != JDR_OK) {
         return LUAT_VP_ERR_FORMAT;
     }
@@ -122,7 +121,7 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
         return LUAT_VP_ERR_FORMAT;
     }
     size_t pixel_count = (size_t)w * h;
-    if (pixel_count / w != h) {
+    if (pixel_count / w != (size_t)h) {
         return LUAT_VP_ERR_NOMEM;  /* overflow */
     }
     size_t buf_size = pixel_count * 2;
@@ -135,27 +134,12 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     }
     memset(pixels, 0, buf_size);
 
-    /* Set up output context - we reuse the device pointer for output */
-    mjpg_output_ctx_t out_ctx;
-    out_ctx.pixels = pixels;
-    out_ctx.width = w;
-    out_ctx.height = h;
+    /* Set up output fields in the shared device context */
+    dev.out_pixels = pixels;
+    dev.out_width = w;
+    dev.out_height = h;
 
-    /* Reset input position for decompression */
-    input.pos = 0;
-
-    /* Re-prepare with output context as device */
-    res = luat_jd_prepare(&jdec, mjpg_sw_input_func,
-                           sw->work_buf, TJPGD_WORK_SIZE, &input);
-    if (res != JDR_OK) {
-        VP_SW_FREE(pixels);
-        return LUAT_VP_ERR_FORMAT;
-    }
-
-    /* Override device to point to output context for the output function */
-    jdec.device = &out_ctx;
-
-    /* Decompress */
+    /* Decompress - input callback continues reading via dev.in_* fields */
     res = luat_jd_decomp(&jdec, mjpg_sw_output_func, 0);
     if (res != JDR_OK) {
         VP_SW_FREE(pixels);

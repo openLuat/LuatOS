@@ -133,24 +133,50 @@ static int init_decoder(luat_vp_ctx_t *ctx) {
     return LUAT_VP_OK;
 }
 
+/* Scan buffer size for buffered marker search */
+#define VP_SCAN_BUF_SIZE  512
+
+/* Helper: ensure frame buffer has room for at least one more byte */
+static int ensure_frame_buf(luat_vp_ctx_t *ctx, size_t frame_size) {
+    if (frame_size < ctx->read_buf_cap) return LUAT_VP_OK;
+    if (frame_size >= VP_MAX_FRAME_SIZE) {
+        VP_LOGW("frame too large (%d bytes), skipping", (int)frame_size);
+        return LUAT_VP_ERR_FORMAT;
+    }
+    size_t new_cap = ctx->read_buf_cap * 2;
+    if (new_cap > VP_MAX_FRAME_SIZE) new_cap = VP_MAX_FRAME_SIZE;
+    uint8_t *new_buf = (uint8_t *)VP_MALLOC(new_cap);
+    if (!new_buf) return LUAT_VP_ERR_NOMEM;
+    memcpy(new_buf, ctx->read_buf, frame_size);
+    VP_FREE(ctx->read_buf);
+    ctx->read_buf = new_buf;
+    ctx->read_buf_cap = new_cap;
+    return LUAT_VP_OK;
+}
+
 /* ---- Internal: read next JPEG frame from MJPG stream ---- */
 static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
                                  uint8_t **out_data, size_t *out_size) {
     if (ctx->eof) return LUAT_VP_ERR_EOF;
 
-    /* Scan for SOI marker (0xFF 0xD8) */
+    /* Scan for SOI marker (0xFF 0xD8) using buffered reads */
     int found_soi = 0;
     int prev_byte = -1;
-    int c;
-    uint8_t byte_buf[1];
+    int c, ret;
+    uint8_t scan_buf[VP_SCAN_BUF_SIZE];
+    size_t bytes_in_buf = 0;
+    size_t scan_pos = 0;
 
     while (!found_soi) {
-        size_t n = VP_FREAD(byte_buf, 1, 1, ctx->fp);
-        if (n == 0) {
-            ctx->eof = 1;
-            return LUAT_VP_ERR_EOF;
+        if (scan_pos >= bytes_in_buf) {
+            bytes_in_buf = VP_FREAD(scan_buf, 1, sizeof(scan_buf), ctx->fp);
+            if (bytes_in_buf == 0) {
+                ctx->eof = 1;
+                return LUAT_VP_ERR_EOF;
+            }
+            scan_pos = 0;
         }
-        c = byte_buf[0];
+        c = scan_buf[scan_pos++];
         if (prev_byte == JPEG_SOI_0 && c == JPEG_SOI_1) {
             found_soi = 1;
         }
@@ -165,11 +191,23 @@ static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
     ctx->read_buf[0] = JPEG_SOI_0;
     ctx->read_buf[1] = JPEG_SOI_1;
 
-    /* Read until EOI marker (0xFF 0xD9) */
-    prev_byte = JPEG_SOI_1;
-    while (1) {
-        size_t n = VP_FREAD(byte_buf, 1, 1, ctx->fp);
-        if (n == 0) {
+    /* Copy any remaining bytes from the SOI scan buffer into the frame */
+    int found_eoi = 0;
+    while (scan_pos < bytes_in_buf && !found_eoi) {
+        c = scan_buf[scan_pos++];
+        ret = ensure_frame_buf(ctx, frame_size);
+        if (ret != LUAT_VP_OK) return ret;
+        ctx->read_buf[frame_size++] = (uint8_t)c;
+        if (prev_byte == JPEG_SOI_0 && c == JPEG_EOI_1) {
+            found_eoi = 1;
+        }
+        prev_byte = c;
+    }
+
+    /* Read until EOI marker (0xFF 0xD9) using buffered reads */
+    while (!found_eoi) {
+        bytes_in_buf = VP_FREAD(scan_buf, 1, sizeof(scan_buf), ctx->fp);
+        if (bytes_in_buf == 0) {
             /* Unexpected EOF inside a frame */
             ctx->eof = 1;
             if (frame_size > 2) {
@@ -178,35 +216,20 @@ static int read_next_mjpg_frame(luat_vp_ctx_t *ctx,
             }
             return LUAT_VP_ERR_EOF;
         }
-        c = byte_buf[0];
 
-        if (frame_size >= ctx->read_buf_cap) {
-            /* Frame too large, try to reallocate */
-            if (frame_size >= VP_MAX_FRAME_SIZE) {
-                VP_LOGW("frame too large (%d bytes), skipping", (int)frame_size);
-                return LUAT_VP_ERR_FORMAT;
+        for (scan_pos = 0; scan_pos < bytes_in_buf && !found_eoi; scan_pos++) {
+            c = scan_buf[scan_pos];
+            ret = ensure_frame_buf(ctx, frame_size);
+            if (ret != LUAT_VP_OK) return ret;
+            ctx->read_buf[frame_size++] = (uint8_t)c;
+            if (prev_byte == JPEG_SOI_0 && c == JPEG_EOI_1) {
+                found_eoi = 1;
             }
-            size_t new_cap = ctx->read_buf_cap * 2;
-            if (new_cap > VP_MAX_FRAME_SIZE) new_cap = VP_MAX_FRAME_SIZE;
-            uint8_t *new_buf = (uint8_t *)VP_MALLOC(new_cap);
-            if (!new_buf) return LUAT_VP_ERR_NOMEM;
-            memcpy(new_buf, ctx->read_buf, frame_size);
-            VP_FREE(ctx->read_buf);
-            ctx->read_buf = new_buf;
-            ctx->read_buf_cap = new_cap;
+            prev_byte = c;
         }
-
-        ctx->read_buf[frame_size++] = (uint8_t)c;
-
-        if (prev_byte == JPEG_SOI_0 && c == JPEG_EOI_1) {
-            /* Found EOI - frame is complete */
-            break;
-        }
-        prev_byte = c;
     }
 
     VP_LOGD("MJPG frame: %d bytes", (int)frame_size);
-
     *out_data = ctx->read_buf;
     *out_size = frame_size;
     return LUAT_VP_OK;

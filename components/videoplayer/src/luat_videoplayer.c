@@ -111,8 +111,21 @@ static int init_decoder(luat_vp_ctx_t *ctx) {
     ctx->decoder_ops = ops;
     int ret = ops->init(&ctx->decoder_ctx);
     if (ret != LUAT_VP_OK) {
-        VP_LOGW("decoder init failed: %d", ret);
-        return ret;
+        /* If hardware decode is unavailable, fall back to software decode */
+        if (ctx->decode_mode == LUAT_VP_DECODE_HW) {
+            VP_LOGW("HW decoder init failed (%d), falling back to SW", ret);
+            ops = &luat_vp_mjpg_sw_ops;
+            ctx->decoder_ops = ops;
+            ctx->decode_mode = LUAT_VP_DECODE_SW;
+            ret = ops->init(&ctx->decoder_ctx);
+            if (ret != LUAT_VP_OK) {
+                VP_LOGW("SW decoder init also failed: %d", ret);
+                return ret;
+            }
+        } else {
+            VP_LOGW("decoder init failed: %d", ret);
+            return ret;
+        }
     }
 
     VP_LOGD("decoder initialized, mode=%s",

@@ -103,7 +103,7 @@ end
 
 -- 获取视频信息
 local info = vp.info(player)
-log.info("vp", "分辨率", info.width, info.height, "fps", info.fps)
+log.info("vp", "分辨率", info.width, info.height)
 
 -- 逐帧读取并显示到LCD
 while true do

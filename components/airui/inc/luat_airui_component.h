@@ -413,6 +413,7 @@ int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color); //设置
 lv_obj_t *airui_table_create_from_config(void *L, int idx);
 int airui_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const char *text); //设置单元格文本
 int airui_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
+int airui_table_set_row_height(lv_obj_t *table, uint16_t row, lv_coord_t height); //调整行高
 int airui_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
 
 /**

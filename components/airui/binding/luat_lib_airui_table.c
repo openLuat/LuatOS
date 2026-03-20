@@ -26,6 +26,8 @@
  * @int config.h 高度，默认 120
  * @int config.rows 行数，默认 4，最小 1
  * @int config.cols 列数，默认 3，最小 1
+ * @table config.data 可选的二维表内容，按 { {"r0c0", "r0c1"}, {"r1c0", "r1c1"} } 传入
+ * @int|table config.row_height 可选的行高设置，支持单个高度或逐行数组
  * @table config.col_width 可选的列宽数组，支持逐列设置
  * @int config.border_color 可选的边框颜色（Hex 整数，如 0xff0000）
  * @userdata config.parent 父对象，默认当前屏幕
@@ -89,6 +91,21 @@ static int l_table_set_col_width(lua_State *L) {
 }
 
 /**
+ * Table:set_row_height(row, height)
+ * @api table:set_row_height(row, height)
+ * @int row 行索引（从 0 开始）
+ * @int height 高度（像素）
+ * @return nil
+ */
+static int l_table_set_row_height(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    int row = luaL_checkinteger(L, 2);
+    int height = luaL_checkinteger(L, 3);
+    airui_table_set_row_height(table, row, height);
+    return 0;
+}
+
+/**
  * Table:set_border_color(color)
  * @api table:set_border_color(color)
  * @int color 16 进制颜色整数（如 0xff0000）
@@ -125,6 +142,7 @@ void airui_register_table_meta(lua_State *L) {
     static const luaL_Reg methods[] = {
         {"set_cell_text", l_table_set_cell_text},
         {"set_col_width", l_table_set_col_width},
+        {"set_row_height", l_table_set_row_height},
         {"set_border_color", l_table_set_border_color},
         {"destroy", l_table_destroy},
         {NULL, NULL}

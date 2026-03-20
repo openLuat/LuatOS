@@ -162,9 +162,13 @@ static int l_videoplayer_read_frame(lua_State *L) {
     lua_pushinteger(L, frame.height);
     lua_setfield(L, -2, "height");
 
-    /* Push RGB565 data as Lua string */
-    lua_pushlstring(L, (const char *)frame.data,
-                    (size_t)frame.width * frame.height * 2);
+    /* Push RGB565 data as Lua string (2 bytes per pixel) */
+    size_t data_size = (size_t)frame.width * frame.height * 2;
+    if (frame.data && data_size > 0 && data_size / 2 / frame.height == frame.width) {
+        lua_pushlstring(L, (const char *)frame.data, data_size);
+    } else {
+        lua_pushstring(L, "");
+    }
     lua_setfield(L, -2, "data");
 
     luat_videoplayer_frame_free(&frame);

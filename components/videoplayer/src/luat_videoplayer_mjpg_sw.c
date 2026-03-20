@@ -58,12 +58,15 @@ static size_t mjpg_sw_input_func(JDEC *jd, uint8_t *buff, size_t nbyte) {
 /* tjpgd output function: copy RGB565 pixels to output buffer */
 static int mjpg_sw_output_func(JDEC *jd, void *bitmap, JRECT *rect) {
     mjpg_output_ctx_t *out = (mjpg_output_ctx_t *)jd->device;
+    if (!out || !out->pixels || !bitmap) return 0;
+
     uint16_t *src = (uint16_t *)bitmap;
+    if (rect->right < rect->left || rect->bottom < rect->top) return 1;
     uint16_t w = rect->right - rect->left + 1;
     uint16_t y;
 
     for (y = rect->top; y <= rect->bottom; y++) {
-        if (y < out->height) {
+        if (y < out->height && rect->left < out->width) {
             uint16_t copy_w = w;
             if (rect->left + copy_w > out->width) {
                 copy_w = out->width - rect->left;
@@ -114,8 +117,18 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     uint16_t w = jdec.width;
     uint16_t h = jdec.height;
 
-    /* Allocate output buffer (RGB565, 2 bytes per pixel) */
-    size_t buf_size = (size_t)w * h * 2;
+    /* Validate dimensions and check for integer overflow (RGB565, 2 bytes/pixel) */
+    if (w == 0 || h == 0) {
+        return LUAT_VP_ERR_FORMAT;
+    }
+    size_t pixel_count = (size_t)w * h;
+    if (pixel_count / w != h) {
+        return LUAT_VP_ERR_NOMEM;  /* overflow */
+    }
+    size_t buf_size = pixel_count * 2;
+    if (buf_size / 2 != pixel_count) {
+        return LUAT_VP_ERR_NOMEM;  /* overflow */
+    }
     uint16_t *pixels = (uint16_t *)VP_SW_MALLOC(buf_size);
     if (!pixels) {
         return LUAT_VP_ERR_NOMEM;

@@ -6,12 +6,11 @@
 @author  马亚丹
 @usage
 1. 详细逻辑请看ntp_test.lua文件
-2. netdrv_device：配置连接外网使用的网卡，目前支持以下五种选择（五选一）
-   (1) netdrv_wifi：WIFI STA网卡
-   (2) netdrv_eth_rmii：通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡
-   (3) netdrv_eth_spi：通过SPI外挂CH390H芯片的以太网卡
-   (4) netdrv_multiple：支持以上(1)、(2)、(3)三种网卡，可以配置三种网卡的优先级
-   (5) netdrv_pc：pc模拟器上的网卡
+2、netdrv_device：配置连接外网使用的网卡，目前支持以下四种选择（四选一）
+   (1)netdrv_wifi：socket.LWIP_STA，WIFI STA网卡；
+   (2)netdrv_eth_spi：socket.LWIP_USER1，通过SPI外挂CH390H芯片的以太网卡；
+   (3)netdrv_4g：socket.LWIP_USER0，通过SPI外挂4G模组的4G网卡；
+   (4)netdrv_multi_network：可以配置多种网卡的优先级，按照优先级配置，使用其中一种网卡连接外网；
 ]]
 
 

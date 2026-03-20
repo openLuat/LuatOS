@@ -352,7 +352,7 @@ void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len){
     (void)len;
 }
 
-void luat_audio_setup_record_callback(uint8_t multimedia_id, luat_audio_record_callback callback, void *param){
+void luat_audio_setup_record_callback(uint8_t multimedia_id, void* callback, void *param){
     (void)multimedia_id;
     (void)callback;
     (void)param;

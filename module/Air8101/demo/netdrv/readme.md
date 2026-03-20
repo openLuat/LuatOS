@@ -22,30 +22,15 @@
 
 1、Air8101核心板
 
-2、AirPHY_1000配件板
+2、AirETH_1000配件板
 
 3、公对母的杜邦线11根（连接核心板和配件板）
 
 4、网线1根（一端接配件板，一端接路由器）
 
-5、Air8101核心板和AirPHY_1000配件板的硬件接线方式为
+5、Air8101核心板和AirETH_1000配件板的硬件接线方式为
 
 - Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）；如果测试发现软件重启，并且日志中出现  poweron reason 0，表示供电不足，此时再通过直流稳压电源对核心板的VIN管脚进行5V供电；
-
-| Air8101核心板 | AirPHY_1000配件板  |
-| ------------ | ------------------ |
-|    59/3V3    |         3.3v       |
-|     gnd      |         gnd        |
-|     5/D2     |         RX1        |
-|    72/D1     |         RX0        |
-|    71/D3     |         CRS        |
-|     4/D0     |         MDIO       |
-|     6/D4     |         TX0        |
-|    74/PCK    |         MDC        |
-|    70/D5     |         TX1        |
-|     7/D6     |         TXEN       |
-|     不接     |          NC        |
-|    69/D7     |         CLK        |
 
 可选AirETH_1000配件板一块，Air8101核心板和AirETH_1000配件板的硬件接线方式为:
 
@@ -90,8 +75,6 @@ netdrv_eth_multiple中的wlan.createAP("test", "HZ88888888"),修改生成wifi热
 netdrv_wifi_multiple中的wlan.connect("test", "HZ88888888")修改需要连接的wifi的名称和密码
 
 3、在main.lua中按照自己的网卡需求启用对应的Lua文件
-
-- 使用phy以太网扩展板时直接运行即可，使用eth以太网扩展板时需要将local is_RMII = true 修改为local is_RMII = false
 
 - 如果需要开启以太网lan，打开require "netdrv_eth_lan"，其余注释掉
 

@@ -221,4 +221,182 @@ function xxtea_test.test_binary()
     end
 end
 
+
+
+
+function xxtea_test.test_number_param_encrypt_data()
+    -- 测试加密函数传入数字类型的data参数
+    local num_data = 12345
+    local key = "test_key"
+    
+    -- 使用pcall捕获可能发生的错误
+    local success, encrypt_result = pcall(xxtea.encrypt, num_data, key)
+    
+    -- 如果pcall执行失败（抛出错误），说明函数不支持数字类型参数
+    if not success then
+        log.info("xxtea_test", "数字类型data参数加密测试：函数抛出错误，符合预期")
+        return
+    end
+    
+    -- 如果pcall成功执行，验证返回值
+    assert(encrypt_result ~= nil, 
+        string.format("xxtea数字类型data参数加密测试失败：加密函数返回nil"))
+    
+    log.info("xxtea_test", "数字类型data参数加密测试通过，加密结果不为nil")
+    
+    -- 验证解密后是否能得到原始数字的字符串形式
+    local success_decrypt, decrypt_result = pcall(xxtea.decrypt, encrypt_result, key)
+    
+    assert(success_decrypt, "xxtea数字类型data参数解密测试失败：解密函数执行出错")
+    assert(decrypt_result ~= nil, 
+        string.format("xxtea数字类型data参数解密测试失败：解密返回nil"))
+    
+    -- 预期数字参数会被转换为字符串
+    assert(tostring(num_data) == decrypt_result, 
+        string.format("xxtea数字类型data参数加密解密测试失败：预期解密结果为'%s'，实际为'%s'", 
+            tostring(num_data), tostring(decrypt_result)))
+    
+    log.info("xxtea_test", "数字类型data参数加密解密测试通过")
+end
+
+function xxtea_test.test_number_param_encrypt_key()
+    -- 测试加密函数传入数字类型的key参数
+    local data = "Hello World!"
+    local num_key = 123456
+    
+    -- 使用pcall捕获可能发生的错误
+    local success, encrypt_result = pcall(xxtea.encrypt, data, num_key)
+    
+    -- 如果pcall执行失败（抛出错误），说明函数不支持数字类型参数
+    if not success then
+        log.info("xxtea_test", "数字类型key参数加密测试：函数抛出错误，符合预期")
+        return
+    end
+    
+    -- 如果pcall成功执行，验证返回值
+    assert(encrypt_result ~= nil, 
+        string.format("xxtea数字类型key参数加密测试失败：加密函数返回nil"))
+    
+    log.info("xxtea_test", "数字类型key参数加密测试通过，加密结果不为nil")
+    
+    -- 验证解密时使用相同的数字key是否能成功解密
+    local success_decrypt, decrypt_result = pcall(xxtea.decrypt, encrypt_result, num_key)
+    
+    assert(success_decrypt, "xxtea数字类型key参数解密测试失败：解密函数执行出错")
+    assert(decrypt_result ~= nil, 
+        string.format("xxtea数字类型key参数解密测试失败：解密返回nil"))
+    assert(data == decrypt_result, 
+        string.format("xxtea数字类型key参数加密解密测试失败：预期解密结果为'%s'，实际为'%s'", 
+            data, tostring(decrypt_result)))
+    
+    log.info("xxtea_test", "数字类型key参数加密解密测试通过")
+end
+
+function xxtea_test.test_number_param_both()
+    -- 测试加密函数同时传入数字类型的data和key参数
+    local num_data = 98765
+    local num_key = 54321
+    
+    -- 使用pcall捕获可能发生的错误
+    local success, encrypt_result = pcall(xxtea.encrypt, num_data, num_key)
+    
+    -- 如果pcall执行失败（抛出错误），说明函数不支持数字类型参数
+    if not success then
+        log.info("xxtea_test", "数字类型双参数加密测试：函数抛出错误，符合预期")
+        return
+    end
+    
+    -- 如果pcall成功执行，验证返回值
+    assert(encrypt_result ~= nil, 
+        string.format("xxtea数字类型双参数加密测试失败：加密函数返回nil"))
+    
+    log.info("xxtea_test", "数字类型双参数加密测试通过，加密结果不为nil")
+    
+    -- 验证解密
+    local success_decrypt, decrypt_result = pcall(xxtea.decrypt, encrypt_result, num_key)
+    
+    assert(success_decrypt, "xxtea数字类型双参数解密测试失败：解密函数执行出错")
+    assert(decrypt_result ~= nil, 
+        string.format("xxtea数字类型双参数解密测试失败：解密返回nil"))
+    
+    -- 预期数字data参数会被转换为字符串
+    assert(tostring(num_data) == decrypt_result, 
+        string.format("xxtea数字类型双参数加密解密测试失败：预期解密结果为'%s'，实际为'%s'", 
+            tostring(num_data), tostring(decrypt_result)))
+    
+    log.info("xxtea_test", "数字类型双参数加密解密测试通过")
+end
+
+function xxtea_test.test_number_param_edge_cases()
+    -- 测试边界情况的数字参数
+    
+    -- 测试用例：各种数字类型
+    local test_cases = {
+        {data = 0, key = "test_key", desc = "data为0"},
+        {data = -123, key = "test_key", desc = "data为负数"},
+        {data = 9999999999, key = "test_key", desc = "data为大整数"},
+        {data = 3.14159, key = "test_key", desc = "data为浮点数"},
+        {data = "Hello", key = 0, desc = "key为0"},
+        {data = "Hello", key = -456, desc = "key为负数"},
+        {data = "Hello", key = 1.2345, desc = "key为浮点数"},
+    }
+    
+    for _, tc in ipairs(test_cases) do
+        log.info("xxtea_test", string.format("测试边界情况：%s", tc.desc))
+        
+        local success, encrypt_result = pcall(xxtea.encrypt, tc.data, tc.key)
+        
+        -- 如果抛出错误，记录并继续下一个测试
+        if not success then
+            log.info("xxtea_test", string.format("边界情况'%s'：函数抛出错误", tc.desc))
+            goto continue
+        end
+        
+        -- 验证加密结果
+        assert(encrypt_result ~= nil, 
+            string.format("边界情况'%s'加密测试失败：返回nil", tc.desc))
+        
+        -- 验证解密
+        local success_decrypt, decrypt_result = pcall(xxtea.decrypt, encrypt_result, tc.key)
+        
+        assert(success_decrypt, string.format("边界情况'%s'解密执行失败", tc.desc))
+        assert(decrypt_result ~= nil, 
+            string.format("边界情况'%s'解密测试失败：返回nil", tc.desc))
+        
+        -- 验证解密结果与原始数据的字符串形式一致
+        local expected = type(tc.data) == "string" and tc.data or tostring(tc.data)
+        assert(expected == decrypt_result, 
+            string.format("边界情况'%s'加密解密验证失败：预期'%s'，实际'%s'", 
+                tc.desc, expected, tostring(decrypt_result)))
+        
+        log.info("xxtea_test", string.format("边界情况'%s'测试通过", tc.desc))
+        
+        ::continue::
+    end
+end
+
+function xxtea_test.test_number_param_nil_handling()
+    -- 测试nil值处理（虽然这不是数字类型，但作为边界情况测试）
+    local data = "test data"
+    local key = "test key"
+    
+    -- 测试data为nil
+    local success1, result1 = pcall(xxtea.encrypt, nil, key)
+    if success1 then
+        assert(result1 == nil, "传入nil data时预期返回nil")
+        log.info("xxtea_test", "nil data参数测试通过")
+    else
+        log.info("xxtea_test", "nil data参数导致函数抛出错误")
+    end
+    
+    -- 测试key为nil
+    local success2, result2 = pcall(xxtea.encrypt, data, nil)
+    if success2 then
+        assert(result2 == nil, "传入nil key时预期返回nil")
+        log.info("xxtea_test", "nil key参数测试通过")
+    else
+        log.info("xxtea_test", "nil key参数导致函数抛出错误")
+    end
+end
+
 return xxtea_test

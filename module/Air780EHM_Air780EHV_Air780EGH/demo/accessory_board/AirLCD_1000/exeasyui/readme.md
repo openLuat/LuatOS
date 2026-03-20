@@ -12,20 +12,18 @@
 1. **home_page.lua** - 主页模块，提供应用入口和导航功能
 2. **component_page.lua** - UI 组件演示模块
 3. **default_font_page.lua** - 默认字体演示模块
-4. **gtfont_page.lua** - GTFont 矢量字体演示模块
 5. **hzfont_page.lua** - HZFont 矢量字体演示模块
 
 ### 1.3 硬件驱动模块
 
 1. **hw_default_font_drv.lua** - LCD显示驱动配置和默认字体驱动模块，使用内置 12 号点阵字体
-2. **hw_gtfont_drv.lua** - LCD显示驱动配置和GTFont 矢量字库驱动模块
 3. **hw_hzfont_drv.lua** - LCD显示驱动配置和HZFont 矢量字体驱动模块
 4. **hw_customer_font_drv.lua** - LCD显示驱动配置和自定义外部字体驱动模块（开发中）
 5. **key_drv.lua** - 按键硬件驱动模块，负责GPIO初始化和按键事件发布
 
 当前演示的exeasyui V1.7.0版本还不支持同时启用多种字体，仅支持选择一种字体初始化，同时启用多种字体功能正在开发中
 
-使用 HZfont 需要使用 V2020 版本以上的 14 号或者114号固件，且 14 号或114号固件仅支持 HZfont，不支持内置12号中文字体和GTfont核心库
+使用 HZfont 需要使用 V2020 版本以上的 14 号或者114号固件，且 14 号或114号固件仅支持 HZfont，不支持内置12号中文字体
 
 ### 1.4 按键处理模块
 
@@ -37,10 +35,11 @@
 
 <table>
 <tr>
-<td>主页<br/></td><td>组件演示页<br/></td><td>默认字体页<br/></td><td>HZFont页<br/></td><td>GTFont页<br/></td></tr>
+<td>主页<br/></td><td>组件演示页<br/></td><td>默认字体页<br/></td><td>HZFont页<br/></td></tr>
 <tr>
-<td><img src="https://docs.openluat.com/cdn/image/exeasyui_home_gage.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1000组件页面.jpg" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_default_font_page.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_hzfont_page.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_gtfont_page.png" width="80" /><br/></td></tr>
+<td><img src="https://docs.openluat.com/cdn/image/exeasyui_home_gage.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_AirLCD_1000组件页面.jpg" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_default_font_page.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/exeasyui_hzfont_page.png" width="80" /><br/></td></tr>
 </table>
+
 
 
 ## 三、演示硬件环境
@@ -49,13 +48,12 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - AirLCD_1000 配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 14，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1000配件板以及AirFONTS_1000 配件板的硬件接线方式为
+- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1000配件板的硬件接线方式为
 
-  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1000配件板和AirFONTS_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VBAT 引脚给 AirLCD_1000配件板，VDD-EXT引脚给AirFONTS_1000 配件板供电；
+  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1000配件板供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VBAT 引脚给 AirLCD_1000配件板；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 3.2 接线配置
@@ -83,27 +81,8 @@
 <td>GND<br/></td><td>GND<br/></td></tr>
 </table>
 
-#### 3.2.2 GTFont 字库接线
-
-<table>
-<tr>
-<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
-<tr>
-<td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
-<tr>
-<td>84/SPI0_MISO<br/></td><td>MISO<br/></td></tr>
-<tr>
-<td>85/SPI0_MOSI<br/></td><td>MOSI<br/></td></tr>
-<tr>
-<td>86/SPI0_CLK<br/></td><td>CLK<br/></td></tr>
-<tr>
-<td>24/VDD_EXT<br/></td><td>VCC<br/></td></tr>
-<tr>
-<td>GND<br/></td><td>GND<br/></td></tr>
-</table>
-
 #### 3.2.3 接线图
-![](https://docs.openLuat.com/cdn/image/Air780EHV核心板_AirLCD_1000_AirFONTS_1000接线图.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1000/exeasyui/image/image1.png)
 
 ## 四、演示软件环境
 
@@ -128,7 +107,6 @@
 ### 5.1 硬件准备
 
 1. 按照硬件接线表连接所有设备
-2. 如使用 GTFont，需要连接 AirFONTS_1000 配件板
 3. 通过 TYPE-C USB 口供电
 4. 检查所有接线无误
 
@@ -141,16 +119,14 @@
 ui = require("exeasyui")
 
 
--- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 加载lcd、tp和字库驱动管理功能模块，有以下三种：
 -- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置初始化
 -- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置初始化
--- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua，并按lcd显示驱动配置初始化
--- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
--- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
--- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+-- 3、使用自定义字体的hw_customer_font_drv（目前开发中）
+-- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、hzfont，链接https://docs.openluat.com/air780epm/common/product/
+-- 目前exeasyui V1.7.0版本支持使用已经实现的三种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
 require("hw_default_font_drv")
 -- require("hw_hzfont_drv")
--- require("hw_gtfont_drv")
 -- require("hw_customer_font_drv")开发中
 
 -- 加载按键驱动模块
@@ -167,7 +143,6 @@ require("ui_main")
 在对应的驱动文件中根据实际硬件调整硬件参数：
 
 1. **hw_default_font_drv.lua** - LCD显示驱动配置和默认字体驱动模块，使用内置 12 号点阵字体
-2. **hw_gtfont_drv.lua** - LCD显示驱动配置和GTFont 矢量字库驱动模块
 3. **hw_hzfont_drv.lua** - LCD显示驱动配置和HZFont 矢量字体驱动模块
 4. **hw_customer_font_drv.lua** - LCD显示驱动配置和自定义外部字体驱动模块（开发中）
 5. **key_drv.lua** - 按键硬件驱动模块，负责GPIO初始化和按键事件发布
@@ -200,7 +175,6 @@ require("ui_main")
 
 1. **默认字体页**：查看固定 12 号字体的颜色和中英文显示
 2. **HZFont 页**：测试动态字体大小调整功能
-3. **GTFont 页**：体验多尺寸矢量字体显示效果
 4. 在各页面使用按键操作界面按钮
 
 ### 5.6 预期效果
@@ -213,7 +187,7 @@ require("ui_main")
 
 1. **显示异常**：检查 LCD 接线，确认对应驱动文件中的硬件参数正确
 2. **触摸无响应**：检查 I2C 接线，确认触摸芯片型号配置正确
-3. **字体显示异常**：确认选择的字体驱动与硬件匹配
+3. **字体显示异常**：确认选择的字体驱动
 4. **图片无法显示**：确认图片文件已正确烧录到指定路径
 5. **系统卡顿**：调整 `ui_main.lua` 中的刷新率参数
 

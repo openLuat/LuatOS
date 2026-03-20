@@ -124,6 +124,12 @@ static int fft_parse_args(lua_State* L, fft_args_t* a)
     zb = (luat_zbuff_t*)luaL_testudata(L, 1, LUAT_ZBUFF_TYPE);
     if (zb) {
         a->r = (float*)zb->addr;
+    } else if (lua_isnil(L, 1)) {
+        // 当 real 为 nil 时，分配内存并初始化为 0
+        a->r = luat_heap_malloc(sizeof(float) * N);
+        a->r_free = 1;
+        if (!a->r) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        memset(a->r, 0, sizeof(float) * N);
     } else {
         a->r = luat_heap_malloc(sizeof(float) * N);
         a->r_free = 1;
@@ -136,6 +142,12 @@ static int fft_parse_args(lua_State* L, fft_args_t* a)
     zb = (luat_zbuff_t*)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE);
     if (zb) {
         a->im = (float*)zb->addr;
+    } else if (lua_isnil(L, 2)) {
+        // 当 imag 为 nil 时，分配内存并初始化为 0
+        a->im = luat_heap_malloc(sizeof(float) * N);
+        a->im_free = 1;
+        if (!a->im) { fft_args_cleanup(a); return luaL_error(L, "no memory"); }
+        memset(a->im, 0, sizeof(float) * N);
     } else {
         a->im = luat_heap_malloc(sizeof(float) * N);
         a->im_free = 1;
@@ -215,14 +227,16 @@ static void convert_integer_to_q15(int16_t* data, int N, int input_fmt)
 // 将 f32 路径结果回写到 Lua table（若输入为 table）
 static void writeback_lua_tables(lua_State* L, float* r, float* im, int N)
 {
-    if (!luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
+    // 检查 real 是否为 nil 或 zbuff
+    if (!lua_isnil(L, 1) && !luaL_testudata(L, 1, LUAT_ZBUFF_TYPE)) {
         lua_settop(L, 2);
         for (int i = 0; i < N; i++) {
             lua_pushnumber(L, r[i]);
             lua_rawseti(L, 1, i + 1);
         }
     }
-    if (!luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)) {
+    // 检查 imag 是否为 nil 或 zbuff
+    if (!lua_isnil(L, 2) && !luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)) {
         for (int i = 0; i < N; i++) {
             lua_pushnumber(L, im[i]);
             lua_rawseti(L, 2, i + 1);

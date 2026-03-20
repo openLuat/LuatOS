@@ -14,18 +14,15 @@
 
 7、netdrv/netdrv_eth_spi.lua：以太网SPI网卡驱动，通过SPI接口连接CH390H芯片实现有线网络连接；
 
-8、netdrv/netdrv_eth_rmii.lua：通过MAC层的RMII接口外挂PHY芯片（LAN8720Ai）的以太网卡驱动，支持AirPHY_1000配件板，实现稳定的有线网络连接；
-
 ## 演示功能概述
 
 1、HTTP服务器：创建Web服务器，提供Web控制界面
 
-- 支持四种网卡模式：WiFi AP模式、WiFi STA模式、以太网SPI模式和以太网RMII模式
+- 支持三种网卡模式：WiFi AP模式、WiFi STA模式、以太网SPI模式
 - HTTP服务器监听80端口，具体IP地址取决于使用的网卡模式：
   - WiFi AP模式：自动创建名为"luatos8888"的WiFi热点，密码为"12345678"，IP地址为192.168.4.1
   - WiFi STA模式：连接外部WiFi路由器，IP地址由路由器DHCP分配
   - 以太网SPI模式：通过网线连接网络，IP地址由路由器DHCP分配
-  - 以太网RMII模式：通过网线连接网络，IP地址由路由器DHCP分配
 - 支持访问Web控制界面
 
 2、文本发送功能：通过Web界面发送文本数据
@@ -97,22 +94,6 @@ require "netdrv_wifi"
 
 -- 加载"通过SPI外挂CH390H芯片的以太网卡"驱动模块
 require "netdrv_eth_spi"
-```
-
-- 使用以太网RMII模式：
-
-```lua
--- 加载"WIFI AP网卡"驱动模块（默认启用）
--- require "netdrv_ap"
-
--- 加载"WIFI STA网卡"驱动模块
--- require "netdrv_wifi"
-
--- 加载"通过SPI外挂CH390H芯片的以太网卡"驱动模块
--- require "netdrv_eth_spi"
-
--- 加载"通过MAC层的rmii接口外挂PHY芯片的以太网卡"驱动模块
-require "netdrv_eth_rmii"
 ```
 
 3、如果使用WiFi STA模式，请修改 `netdrv/netdrv_wifi.lua` 文件中的WiFi配置：
@@ -188,43 +169,6 @@ wlan.connect("你的WiFi名称", "你的WiFi密码", 1)
 8、确保你的电脑连接到同一路由器或网络
 
 9、在浏览器中输入设备的IP地址（如http://192.168.1.101），访问Web控制界面
-
-### 以太网RMII模式
-
-1、按照选择网卡模式的说明，配置为以太网RMII模式
-
-2、确保AirPHY_1000配件板正确连接到Air8101核心板，接线方式如下：
-
-| Air8101核心板 |  AirPHY_1000配件板  |
-| ------------ | ------------------ |
-|    59/3V3    |         3.3v       |
-|     gnd      |         gnd        |
-|     5/D2     |         RX1        |
-|    72/D1     |         RX0        |
-|    71/D3     |         CRS        |
-|     4/D0     |         MDIO       |
-|     6/D4     |         TX0        |
-|    74/PCK    |         MDC        |
-|    70/D5     |         TX1        |
-|     7/D6     |         TXEN       |
-|     不接     |          NC        |
-|    69/D7     |         CLK        |
-
-3、硬件连接注意事项：
-- Air8101核心板通过TYPE-C USB口供电（核心板背面的功耗测试开关拨到OFF一端）
-- 如果测试发现软件重启，并且日志中出现 "poweron reason 0"，表示供电不足，此时需要通过直流稳压电源对核心板的VIN管脚进行5V供电
-
-4、使用网线将AirPHY_1000配件板连接到路由器或网络交换机
-
-5、使用Luatools烧录内核固件和demo脚本代码
-
-6、烧录成功后，设备自动开机运行，开启PHY芯片供电并初始化以太网卡
-
-7、通过Luatools日志查看设备获取的IP地址（例如：192.168.1.102）
-
-8、确保你的电脑连接到同一路由器或网络
-
-9、在浏览器中输入设备的IP地址（如http://192.168.1.102），访问Web控制界面
 
 ## Web控制界面功能
 

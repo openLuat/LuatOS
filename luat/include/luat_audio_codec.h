@@ -43,6 +43,8 @@ typedef struct luat_audio_codec_conf {
     int i2s_id;                                                         // i2s id
     const struct luat_audio_codec_opts* codec_opts;                     // codec 驱动函数
     uint8_t multimedia_id;                                              // 多媒体id
+    int dac_id;                                                         // dac id
+    int adc_id;                                                         // adc id
 } luat_audio_codec_conf_t;
 
 typedef struct luat_audio_codec_opts{

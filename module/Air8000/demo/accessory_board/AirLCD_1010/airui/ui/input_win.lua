@@ -1,0 +1,436 @@
+--[[
+@module  input_win
+@summary 输入框组件演示窗口
+@version 1.1.0
+@date    2026.03.17
+@author  江访
+@usage
+本文件是输入框组件的演示窗口，采用exwin窗口管理扩展库。
+展示输入框的各种用法，支持虚拟键盘和表单输入。
+]]
+
+
+
+-- 窗口ID
+local win_id = nil
+
+-- 窗口UI元素
+local main_container = nil
+
+-- 创建UI
+local function create_ui()
+    main_container = airui.container({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 480,
+        color = 0xF5F5F5,
+    })
+
+    -- 标题栏
+    local title_bar = airui.container({
+        parent = main_container,
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 50,
+        color = 0x3F51B5,
+    })
+
+    -- 注册虚拟键盘，先创建再在 textarea 配置里复用
+    local keyboard1 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "text",                  -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
+    local keyboard2 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "numeric",               -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
+    local keyboard3 = airui.keyboard({
+        x = 0,
+        y = 0,
+        w = 320,
+        h = 220,                        -- x, y, 键盘默认打开ALIGN_BOTTOM_MID，位置从中下方开始计算
+        mode = "lower",                 -- 键盘模式，可选 "text"/"upper"/"lower"/"numeric"
+        auto_hide = true,               -- 自动隐藏键盘
+        bg_color = 0xf1f1f1,            -- 键盘背景颜色为灰色，可选，不设置则透明
+        preview = true,                  -- V1.1.0 启用预览
+        preview_height = 40,             -- V1.1.0 预览高度
+        on_commit = function()          -- 确认事件回调，只有在按下确认键时才会触发
+            log.info("keyboard", "commit")
+        end
+    })
+
+    airui.label({
+        parent = title_bar,
+        text = "输入框组件演示",
+        x = 10,
+        y = 15,
+        w = 200,
+        h = 20,
+        font_size = 16,
+        color = 0xFFFFFF,
+    })
+
+    -- 返回按钮
+    local back_btn = airui.button({
+        parent = title_bar,
+        x = 250,
+        y = 10,
+        w = 60,
+        h = 30,
+        text = "返回",
+        on_click = function(self)
+            exwin.close(win_id)
+        end
+    })
+
+    -- 滚动容器
+    local scroll_container = airui.container({
+        parent = main_container,
+        x = 0,
+        y = 60,
+        w = 320,
+        h = 370,
+        color = 0xF5F5F5,
+    })
+
+    local current_y = 10
+
+    -- 示例1: 基本输入框
+    airui.label({
+        parent = scroll_container,
+        text = "示例1: 基本输入框",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    -- 创建键盘并关联输入框（v1.0.3 推荐内嵌键盘配置）
+    local basic_input = airui.textarea({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 100,
+        text = "",
+        placeholder = "请输入文本...",
+        max_len = 100,
+        keyboard = keyboard1
+    })
+    current_y = current_y + 110
+
+    -- 示例2: 带默认值的输入框
+    airui.label({
+        parent = scroll_container,
+        text = "示例2: 带默认值",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local default_input = airui.textarea({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 60,
+        text = "默认文本",
+        placeholder = "请输入...",
+        max_len = 50,
+        keyboard = keyboard1
+    })
+    current_y = current_y + 70
+
+    -- 示例3: 数字输入框
+    airui.label({
+        parent = scroll_container,
+        text = "示例3: 数字输入框",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local number_input = airui.textarea({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 60,
+        text = "",
+        placeholder = "请输入数字...",
+        max_len = 20,
+        keyboard = keyboard2
+    })
+
+    airui.label({
+        parent = scroll_container,
+        text = "（使用数字键盘）",
+        x = 20,
+        y = current_y + 65,
+        w = 280,
+        h = 20,
+        font_size = 12,
+        color = 0x666666,
+    })
+    current_y = current_y + 95
+
+    -- 示例4: 表单输入
+    airui.label({
+        parent = scroll_container,
+        text = "示例4: 表单输入",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local form_container = airui.container({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 280,
+        h = 150,
+        color = 0xE8EAF6,
+        radius = 8,
+    })
+
+    -- 姓名输入
+    airui.label({
+        parent = form_container,
+        text = "姓名:",
+        x = 10,
+        y = 20,
+        w = 60,
+        h = 20,
+        font_size = 14,
+    })
+
+    local name_input = airui.textarea({
+        parent = form_container,
+        x = 80,
+        y = 15,
+        w = 180,
+        h = 30,
+        text = "",
+        placeholder = "请输入姓名",
+        max_len = 20,
+        keyboard = keyboard1
+    })
+
+    -- 邮箱输入
+    airui.label({
+        parent = form_container,
+        text = "邮箱:",
+        x = 10,
+        y = 60,
+        w = 60,
+        h = 20,
+        font_size = 14,
+    })
+
+    local email_input = airui.textarea({
+        parent = form_container,
+        x = 80,
+        y = 55,
+        w = 180,
+        h = 30,
+        text = "",
+        placeholder = "请输入邮箱",
+        max_len = 50,
+        keyboard = keyboard1
+    })
+
+    -- 提交按钮
+    local submit_btn = airui.button({
+        parent = form_container,
+        x = 80,
+        y = 100,
+        w = 120,
+        h = 35,
+        text = "提交",
+        on_click = function(self)
+            local name = name_input:get_text()
+            local email = email_input:get_text()
+
+            if name == "" or email == "" then
+                local msg = airui.msgbox({
+                    text = "请填写完整信息",
+                    buttons = { "确定" },
+                    on_action = function(self, label)
+                        if label == "确定" then
+                            self:hide()
+                        end
+                    end
+                })
+                msg:show()
+            else
+                local msg = airui.msgbox({
+                    text = "提交成功!\n姓名: " .. name .. "\n邮箱: " .. email,
+                    buttons = { "确定" },
+                    on_action = function(self, label)
+                        if label == "确定" then
+                            self:hide()
+                        end
+                    end
+                })
+                msg:show()
+            end
+        end
+    })
+    current_y = current_y + 160
+
+    -- 示例5: 输入框控制
+    airui.label({
+        parent = scroll_container,
+        text = "示例5: 输入框控制",
+        x = 10,
+        y = current_y,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+    current_y = current_y + 25
+
+    local control_input = airui.textarea({
+        parent = scroll_container,
+        x = 20,
+        y = current_y,
+        w = 200,
+        h = 60,
+        text = "可控制的输入框",
+        placeholder = "请输入...",
+        max_len = 50,
+        keyboard = keyboard1
+    })
+
+    -- 控制按钮
+    local clear_btn = airui.button({
+        parent = scroll_container,
+        x = 230,
+        y = current_y,
+        w = 70,
+        h = 30,
+        text = "清空",
+        on_click = function(self)
+            control_input:set_text("")
+        end
+    })
+
+    local get_btn = airui.button({
+        parent = scroll_container,
+        x = 230,
+        y = current_y + 35,
+        w = 70,
+        h = 30,
+        text = "获取",
+        on_click = function(self)
+            local text = control_input:get_text()
+            local msg = airui.msgbox({
+                text = "当前内容: " .. text,
+                buttons = { "确定" },
+                timeout = 2000,
+                on_action = function(self, label)
+                    self:hide()
+                end
+            })
+            msg:show()
+        end
+    })
+
+    -- 设置光标位置
+    local cursor_btn = airui.button({
+        parent = scroll_container,
+        x = 20,
+        y = current_y + 70,
+        w = 130,
+        h = 35,
+        text = "光标到开头",
+        on_click = function(self)
+            control_input:set_cursor(0)
+        end
+    })
+    current_y = current_y + 115
+
+    -- 底部信息
+    airui.label({
+        parent = main_container,
+        text = "提示: 输入框支持文本监听和控制",
+        x = 10,
+        y = 440,
+        w = 300,
+        h = 20,
+        font_size = 14,
+    })
+end
+
+-- 窗口创建回调
+local function on_create()
+    create_ui()
+end
+
+-- 窗口销毁回调
+local function on_destroy()
+    if main_container then
+        main_container:destroy()
+        main_container = nil
+    end
+    win_id = nil
+    log.info("input_win", "窗口销毁")
+end
+
+-- 窗口获得焦点回调
+local function on_get_focus()
+    log.info("input_win", "窗口获得焦点")
+end
+
+-- 窗口失去焦点回调
+local function on_lose_focus()
+    log.info("input_win", "窗口失去焦点")
+end
+
+-- 订阅打开输入框窗口消息
+sys.subscribe("OPEN_INPUT_WIN", function()
+    if not exwin.is_active(win_id) then
+        win_id = exwin.open({
+            on_create = on_create,
+            on_destroy = on_destroy,
+            on_get_focus = on_get_focus,
+            on_lose_focus = on_lose_focus,
+        })
+        log.info("input_win", "窗口打开，ID:", win_id)
+    end
+end)

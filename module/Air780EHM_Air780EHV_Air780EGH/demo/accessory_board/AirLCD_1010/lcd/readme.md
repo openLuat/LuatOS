@@ -9,18 +9,17 @@
 ### 1.2 显示页面模块
 3. **home_page.lua** - 主页模块，提供应用入口和导航功能
 4. **lcd_page.lua** - LCD图形绘制演示模块
-5. **gtfont_page.lua** - GTFont矢量字体演示模块
 6. **customer_font_page.lua** - 自定义字体演示模块
 
 ### 1.3 驱动模块
-7. **lcd_drv.lua** - LCD显示驱动模块，基于lcd核心库，lcd_drv和exlcd_drv二选一使用
-8. **exlcd_drv.lua** - LCD显示驱动模块，基于exlcd扩展库，lcd_drv和exlcd_drv二选一使用
-9. **tp_drv.lua** - 触摸驱动模块，基于tp核心库，tp_drv和extp_drv二选一使用
-10. **extp_drv.lua** - 触摸驱动模块，基于extp扩展库，tp_drv和extp_drv二选一使用
-11. **gtfont_drv.lua** - GTFont矢量字库驱动模块
-12. **customer_font_drv.lua** - 自定义外部字体驱动功能模块
-13. **hzfont_drv.lua** - 合宙软件矢量字库（开发中）
-    - gtfongt_drv、customer_font_drv、hzfont_drv
+6. **lcd_drv.lua** - LCD显示驱动模块，基于lcd核心库，lcd_drv和exlcd_drv二选一使用
+
+7. **exlcd_drv.lua** - LCD显示驱动模块，基于exlcd扩展库，lcd_drv和exlcd_drv二选一使用
+8. **tp_drv.lua** - 触摸驱动模块，基于tp核心库，tp_drv和extp_drv二选一使用
+9. **extp_drv.lua** - 触摸驱动模块，基于extp扩展库，tp_drv和extp_drv二选一使用
+10. **customer_font_drv.lua** - 自定义外部字体驱动功能模块
+11. **hzfont_drv.lua** - 合宙软件矢量字库（开发中）
+    - customer_font_drv、hzfont_drv
     - 可以都不启用
     - 可以仅启用一种
     - 可以启用任意两种
@@ -37,12 +36,11 @@
 
 <table>
 <tr>
-<td>主页<br/></td><td>lcd核心库页面<br/></td><td>gtfont页面<br/></td><td>自定义字体页面<br/></td></tr>
+<td>主页<br/></td><td>lcd核心库页面<br/></td><td>自定义字体页面<br/></td></tr>
 <tr>
-<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示1.png" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示2.png" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演3.png" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示5.jpg" width="80" /><br/></td></tr>
-<tr>
-<td><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示4.jpg" width="80" /><br/></td></tr>
+<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD1.png" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示2.png" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD2.png" width="80" /><br/></td></tr>
 </table>
+
 
 
 ## 四、演示功能概述
@@ -54,20 +52,13 @@
 4. **xbm格式位图示例** - 显示16*16 xbm点阵
 5. **中文、英文字体示例** - 显示12号中文字体和英文字体
 
-### 4.2 GTFont矢量字体演示
-1. **矢量字体显示** - 使用AirFONTS_1000矢量字库小板显示平滑字体
-2. **字体大小切换** - 支持10-192号字体大小动态变化
-3. **灰度模式** - 支持灰度显示模式，字体边缘更平滑
-4. **多颜色显示** - 支持多种颜色字体显示
-
-### 4.3 自定义字体演示
+### 4.2 自定义字体演示
 1. **外部字体加载** - 支持加载外部自定义字体文件
 2. **多颜色文字** - 支持不同颜色的文字显示
 
-### 4.4 触摸交互功能
+### 4.3 触摸交互功能
 1. **页面导航** - 支持多页面之间的切换
 2. **按钮响应** - 触摸按钮的点击响应功能
-3. **模式切换** - 支持gtfont切换灰度/常规显示
 
 ## 五、演示硬件环境
 
@@ -75,13 +66,12 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - AirLCD_1010 触摸配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 17，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板以及 AirFONTS_1000 配件板的硬件接线方式为
+- Air780EHM/Air780EHV/Air780EGH 核心板和 AirLCD_1010 配件板的硬件接线方式为
 
-  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板和 AirFONTS_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电，通过3V3引脚给 AirFONTS_1000 配件板供电；
+  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1010 配件板供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VDD_EXT 引脚给 AirLCD_1010 配件板供电；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 5.2 接线配置
@@ -113,25 +103,8 @@
 <td>20/GPIO24<br/></td><td></td><td>INT<br/></td></tr>
 </table>
 
-#### 5.2.2 GTFont 字库接线
-
-<table>
-<tr>
-<td>Air780EHM/Air780EHV/Air780EGH 核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
-<tr>
-<td>83/SPI0_CS<br/></td><td>CS<br/></td></tr>
-<tr>
-<td>84/SPI0_MISO<br/></td><td>MISO<br/></td></tr>
-<tr>
-<td>85/SPI0_MOSI<br/></td><td>MOSI<br/></td></tr>
-<tr>
-<td>86/SPI0_CLK<br/></td><td>CLK<br/></td></tr>
-<tr>
-<td>3V3<br/></td><td>VCC<br/></td></tr>
-</table>
-
 ### 5.3 实际接线图
-![](https://docs.openLuat.com/cdn/image/Air780EHV_AirLCD_10010_AirFONTS_1000接线图.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/app/accessory/AirLCD_1010/exeasyui/image/image1.png)
 
 ## 六、演示软件环境
 
@@ -182,13 +155,11 @@ tp_drv = require "tp_drv"
 -- tp_drv = require "extp_drv"
 
 
--- 加载字库驱动管理功能模块，有以下三种：
--- 1、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的gtfont_drv.lua
--- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hzfont_drv.lua（正在开发中，后续补充）
--- 3、使用自定义字体
--- 根据自己的需求，启用三者中的任何几种都可以
+-- 加载字库驱动管理功能模块，有以下两种：
+-- 1、使用1hzfont核心库驱动内核固件中支持的软件矢量字库的hzfont_drv.lua（正在开发中，后续补充）
+-- 2、使用自定义字体
+-- 根据自己的需求，启用两者中的任何几种都可以
 -- 也可以不启用任何一种，只使用内核固件中自带的点阵字库
-require "gtfont_drv"
 -- require "hzfont_drv"
 -- 使用外部自定义字体不需要require "customer_font_drv"，可以参照customer_font_drv.lua内的使用说明进行创建和加载字体文件
 
@@ -199,7 +170,7 @@ require "gtfont_drv"
 
 -- 加载lcd核心库实现的用户界面功能模块
 -- 实现多页面切换、触摸事件分发和界面渲染功能
--- 包含主页、lcd核心库功能演示页、GTFont演示页和自定义字体演示页
+-- 包含主页、lcd核心库功能演示页和自定义字体演示页
 require "ui_main"
 ```
 
@@ -223,14 +194,7 @@ require "ui_main"
 4. 查看位图和字体示例
 5. 点击"返回"按钮回到主页
 
-#### 7.4.3 GTFont演示页面
-1. 计时阶段，gtfont说明显示
-2. 字体大小变化阶段，查看10-192号字体动态变化
-3. 点击"灰度/常规"切换按钮，体验不同显示模式
-4. 查看多颜色字体显示效果
-5. 点击"返回"按钮回到主页
-
-#### 7.4.4 自定义字体页面
+#### 7.4.3 自定义字体页面
 1. 查看外部字体文件显示效果
 2. 查看多颜色文字显示（红色、绿色、蓝色）
 3. 查看字体使用说明和接口信息
@@ -240,7 +204,6 @@ require "ui_main"
 
 - **主页面**：正常显示，三个功能按钮响应灵敏
 - **LCD演示页面**：图形绘制清晰，图片和二维码显示正常，颜色示例完整
-- **GTFont演示页面**：字体显示平滑，字号切换流畅，灰度模式切换正常
 - **自定义字体页面**：外部字体加载正确，多颜色文字显示正常
 - **触摸交互**：所有触摸操作响应及时准确，页面切换流畅
 
@@ -248,6 +211,6 @@ require "ui_main"
 
 1. **显示异常**：检查LCD接线是否正确，确认电源供电稳定
 2. **触摸无响应**：检查I2C接线，确认触摸芯片初始化成功
-3. **字体显示异常**：检查SPI接线（如使用GTFont），确认字体文件路径正确
+3. 确认字体文件路径正确
 4. **图片无法显示**：确认图片文件已正确烧录到指定路径
 5. **系统卡顿**：检查内存使用情况，适当调整刷新频率

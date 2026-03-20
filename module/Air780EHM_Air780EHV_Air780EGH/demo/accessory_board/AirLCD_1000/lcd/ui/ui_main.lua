@@ -17,7 +17,6 @@
 -- 加载子页面
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
-local gtfont_page = require "gtfont_page"
 local customer_font_page = require "customer_font_page"
 
 -- 当前页面状态
@@ -32,7 +31,7 @@ frame_time = 20 * 1000
 @api switch_page(new_page)
 @summary 执行页面切换操作
 @string new_page 目标页面名称
-@valid_values "home", "lcd", "gtfont", "customer_font"
+@valid_values "home", "lcd", "customer_font"
 @return nil
 
 @usage
@@ -50,8 +49,6 @@ local function switch_page(new_page)
         home_page.on_leave()
     elseif current_page == "lcd" and lcd_page.on_leave then
         lcd_page.on_leave()
-    elseif current_page == "gtfont" and gtfont_page.on_leave then
-        gtfont_page.on_leave()
     elseif current_page == "customer_font" and customer_font_page.on_leave then
         customer_font_page.on_leave()
     end
@@ -64,8 +61,6 @@ local function switch_page(new_page)
         home_page.on_enter()
     elseif new_page == "lcd" and lcd_page.on_enter then
         lcd_page.on_enter()
-    elseif new_page == "gtfont" and gtfont_page.on_enter then
-        gtfont_page.on_enter()
     elseif new_page == "customer_font" and customer_font_page.on_enter then
         customer_font_page.on_enter()
     end
@@ -92,15 +87,10 @@ local function handle_key_event(key_event)
     
     -- 只在按键释放时处理（防止重复触发）
     if key_event == "boot_up" then
-        -- BOOT键：在主页作为方向键，在gtfont页面切换模式
+        -- BOOT键：在主页作为方向键
         if current_page == "home" then
             -- 主页：向右移动光标
             return home_page.handle_key("next", switch_page)
-        elseif current_page == "gtfont" then
-            -- GTFont页面：切换灰度模式
-            if gtfont_page.handle_key then
-                return gtfont_page.handle_key("boot_up", switch_page)
-            end
         end
         -- 其他页面BOOT键无功能
         return false
@@ -112,11 +102,6 @@ local function handle_key_event(key_event)
             -- LCD页面：返回首页
             if lcd_page.handle_key then
                 return lcd_page.handle_key("pwr_up", switch_page)
-            end
-        elseif current_page == "gtfont" then
-            -- GTFont页面：返回首页
-            if gtfont_page.handle_key then
-                return gtfont_page.handle_key("pwr_up", switch_page)
             end
         elseif current_page == "customer_font" then
             -- 自定义字体页面：返回首页
@@ -167,8 +152,6 @@ local function ui_main()
             home_page.draw()
         elseif current_page == "lcd" then
             lcd_page.draw()
-        elseif current_page == "gtfont" then
-            gtfont_page.draw()
         elseif current_page == "customer_font" then
             customer_font_page.draw()
         end

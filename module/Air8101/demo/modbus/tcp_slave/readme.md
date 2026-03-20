@@ -6,8 +6,6 @@
 
 3、netdrv_eth_spi.lua：“通过SPI外挂CH390H芯片的以太网卡”驱动模块；
 
-4、netdrv_eth_rmii.lua：“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”驱动模块
-
 ## 演示功能概述
 
 本功能模块演示的内容为：
@@ -30,42 +28,17 @@
 
 特别说明：
 
-1、示例代码中配置了两种以太网卡
-
-2、在 main.lua 中 require "netdrv_eth_rmii" 模块，使用的是“通过MAC层的rmii接口外挂PHY芯片（LAN8720Ai）的以太网卡”
-
-3、在 main.lua 中 require "netdrv_eth_spi" 模块，使用的是“通过SPI外挂CH390H芯片的以太网卡”
-
-4、require "netdrv_eth_rmii" 和 require "netdrv_eth_spi" 不要同时打开，否则会导致功能冲突
+1、在 main.lua 中 require "netdrv_eth_spi" 模块，使用的是“通过SPI外挂CH390H芯片的以太网卡”
 
 ## 演示硬件环境
 
 1、Air8101 核心板一块
 
-2、AirPHY_1000 和 AirETH_1000 配件板任意一块
+2、AirETH_1000 配件板任意一块
 
 3、TYPE-C USB数据线一根
 
 4、网线两根（一根开发板使用，一根电脑使用）
-
-
-
-Air8101 核心板和 AirPHY_1000 配件板的硬件接线方式为:
-
-| Air8101核心板 | AirPHY_1000配件板 |
-| ------------- | ----------------- |
-| 59/3V3        | 3.3v              |
-| gnd           | gnd               |
-| 5/D2          | RX1               |
-| 72/D1         | RX0               |
-| 71/D3         | CRS               |
-| 4/D0          | MDIO              |
-| 6/D4          | TX0               |
-| 74/PCK        | MDC               |
-| 70/D5         | TX1               |
-| 7/D6          | TXEN              |
-| 不接          | NC                |
-| 69/D7         | CLK               |
 
 Air8101 核心板和 AirETH_1000 配件板的硬件接线方式为:
 
@@ -79,7 +52,7 @@ Air8101 核心板和 AirETH_1000 配件板的硬件接线方式为:
 | 57/DE         | SDI               |
 | 14/GPIO8      | INT               |
 
-Air8101 核心板与 AirPHY_1000、AirETH_1000 配件板接线图为：
+Air8101 核心板与 AirETH_1000 配件板接线图为：
 
 ![img](https://docs.openluat.com/cdn/image/Air8101_rmii_spi.png)
 
@@ -98,7 +71,7 @@ Air8101 核心板与 AirPHY_1000、AirETH_1000 配件板接线图为：
 1、搭建硬件环境
 
 - 将 TYPE-C USB 数据线一端接在 Air8101 核心板上，另一端接在电脑上
-- 将 AirPHY_1000 或 AirETH_1000 配件板与 Air8101 核心板相连接，网线接在配件板网口上，另一端接在路由器/交换机上
+- 将 AirETH_1000 配件板与 Air8101 核心板相连接，网线接在配件板网口上，另一端接在路由器/交换机上
 
 - 将另一根网线一端接在电脑网口上，另一端接在同一个路由器/交换机上
 

@@ -24,3 +24,6 @@ require "sensor_app"
 
 -- 加载状态提供app模块
 require "status_provider_app"
+
+-- 加载FOTA应用模块
+require "fota_app"

@@ -139,14 +139,14 @@ function excloud_task_func()
 
     -- 配置excloud参数
     local ok, err_msg = excloud.setup({
-        use_getip = true,        -- 使用getip服务
-        device_type = device_type,         -- 4G设备
-        -- auth_key = "89SKSPwYBo0kIiDETV0nUXUAPgPDHsin",
-        transport = "tcp",       -- 使用TCP传输
-        auto_reconnect = true,   -- 自动重连
-        reconnect_interval = 10, -- 重连间隔(秒)
-        max_reconnect = 5,       -- 最大重连次数
-        virtual_phone_number ="10012345678",--PC模拟器使用11位手机号
+        use_getip = true,                    -- 使用getip服务
+        device_type = device_type,           -- 4G设备
+        auth_key = PROJECT_KEY,              -- 
+        transport = "tcp",                   -- 使用TCP传输
+        auto_reconnect = true,               -- 自动重连
+        reconnect_interval = 10,             -- 重连间隔(秒)
+        max_reconnect = 5,                   -- 最大重连次数
+        virtual_phone_number = "10012345678", --PC模拟器使用11位手机号
         -- mtn_log_enabled = true,  -- 启用运维日志
         -- mtn_log_blocks = 1,      -- 日志文件块数
         -- mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式

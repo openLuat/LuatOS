@@ -35,6 +35,8 @@ require "wifi_win"
 require "temperature_win"
 require "humidity_win"
 require "air_win"
+require "fota_win"
+require "fota_progress_win"
 
 --[[
 UI主任务函数，初始化硬件并发布启动消息

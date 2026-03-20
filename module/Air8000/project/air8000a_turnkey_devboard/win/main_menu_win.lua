@@ -39,22 +39,22 @@ local function create_ui()
     local win_map = {
         [1] = { "call", "camera", "network_select", "gps", "sensor" },
         [2] = { "iot_account", "bluetooth", "uart", "record", "tts" },
-        [3] = { "apn", "ethernet", "wifi" }
+        [3] = { "apn", "ethernet", "wifi","fota" }
     }
     local icon_files = {
         [1] = { "/luadb/tonghuazhong.png", "/luadb/paizhao.png", "/luadb/Internet.png", "/luadb/dingwei.png", "/luadb/chuanganqi.png" },
         [2] = { "/luadb/denglu.png", "/luadb/lanya.png", "/luadb/chuankou.png", "/luadb/luyin.png", "/luadb/TTS.png" },
-        [3] = { "/luadb/APN.png", "/luadb/yitaiwang.png", "/luadb/wifi.png" }
+        [3] = { "/luadb/APN.png", "/luadb/yitaiwang.png", "/luadb/wifi.png", "/luadb/FOTA.png" }
     }
     local label_texts = {
         [1] = { "通话", "拍照", "多网融合", "定位", "传感器" },
         [2] = { "IoT账户", "蓝牙", "串口", "录音", "TTS" },
-        [3] = { "APN配置", "以太网", "WIFI" }
+        [3] = { "APN配置", "以太网", "WIFI","FOTA" }
     }
     local cell_w, cell_h = 90, 70
 
     for row = 1, 3 do
-        local cols = (row == 3) and 3 or 5
+        local cols = (row == 3) and 4 or 5
         for col = 1, cols do
             local center_x = col_centers[col]
             local cell_x = center_x - cell_w / 2

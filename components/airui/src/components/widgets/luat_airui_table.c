@@ -17,6 +17,7 @@
 
 static void airui_table_apply_row_height(lv_obj_t *table, uint32_t row, lv_coord_t height);
 static void airui_table_apply_data(lua_State *L_state, int idx, lv_obj_t *table, int *rows, int *cols);
+static void airui_table_apply_col_widths(lua_State *L_state, int idx, lv_obj_t *table, int cols);
 static void airui_table_apply_row_heights(lua_State *L_state, int idx, lv_obj_t *table, int rows);
 static void airui_table_reapply_row_heights(lv_obj_t *table);
 static lv_coord_t airui_table_normalize_row_height(lv_coord_t height);
@@ -94,22 +95,7 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
     airui_table_apply_data(L_state, idx, table, &rows, &cols);
     airui_table_sync_size(table, rows, cols);
 
-    int col_width_count = airui_marshal_table_length(L, idx, "col_width");
-    if (col_width_count > 0) {
-        lua_getfield(L_state, idx, "col_width");
-        for (int i = 0; i < col_width_count && i < cols; i++) {
-            if (lua_type(L_state, -1) == LUA_TTABLE) {
-                // 设置每一列的宽度
-                lua_rawgeti(L_state, -1, i + 1);
-                if (lua_type(L_state, -1) == LUA_TNUMBER) {
-                    int width = lua_tointeger(L_state, -1);
-                    lv_table_set_column_width(table, i, width);
-                }
-                lua_pop(L_state, 1);
-            }
-        }
-        lua_pop(L_state, 1);
-    }
+    airui_table_apply_col_widths(L_state, idx, table, cols);
 
     airui_table_apply_row_heights(L_state, idx, table, rows);
 
@@ -301,6 +287,30 @@ static void airui_table_apply_data(lua_State *L_state, int idx, lv_obj_t *table,
 
     if ((int)row_count > *rows) {
         *rows = (int)row_count;
+    }
+    lua_pop(L_state, 1);
+}
+
+// 应用行高
+static void airui_table_apply_col_widths(lua_State *L_state, int idx, lv_obj_t *table, int cols)
+{
+    lua_getfield(L_state, idx, "col_width");
+    if (lua_type(L_state, -1) == LUA_TNUMBER) {
+        lv_coord_t col_width = (lv_coord_t)lua_tointeger(L_state, -1);
+        for (int i = 0; i < cols; i++) {
+            airui_table_set_col_width(table, (uint16_t)i, col_width);
+        }
+    }
+    else if (lua_type(L_state, -1) == LUA_TTABLE) {
+        size_t col_width_count = lua_rawlen(L_state, -1);
+        for (size_t i = 0; i < col_width_count && i < (size_t)cols; i++) {
+            lua_rawgeti(L_state, -1, (lua_Integer)(i + 1));
+            if (lua_type(L_state, -1) == LUA_TNUMBER) {
+                lv_coord_t col_width = (lv_coord_t)lua_tointeger(L_state, -1);
+                airui_table_set_col_width(table, (uint16_t)i, col_width);
+            }
+            lua_pop(L_state, 1);
+        }
     }
     lua_pop(L_state, 1);
 }

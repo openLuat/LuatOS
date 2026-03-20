@@ -104,7 +104,8 @@ local function video_capture_func()
                 local opts = {
                     url = "http://upload.air32.cn/api/upload/mp4",
                     method = "POST",
-                    bodyfile = filepath
+                    bodyfile = filepath,
+                    timeout = 150
                 }
                 -- 执行上传并处理结果
                 local code = httpplus.request(opts)

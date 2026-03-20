@@ -10,6 +10,28 @@
 #include <stdint.h>
 #include "../include/h264_decoder.h"
 
+/* File I/O abstraction macros */
+#ifdef __LUATOS__
+#include "luat_fs.h"
+#define H264_FOPEN   luat_fs_fopen
+#define H264_FCLOSE  luat_fs_fclose
+#define H264_FREAD   luat_fs_fread
+#define H264_FSEEK   luat_fs_fseek
+#define H264_FTELL   luat_fs_ftell
+#define H264_FEOF    luat_fs_feof
+#define H264_FERROR  luat_fs_ferror
+#define H264_FGETC   luat_fs_getc
+#else
+#define H264_FOPEN   fopen
+#define H264_FCLOSE  fclose
+#define H264_FREAD   fread
+#define H264_FSEEK   fseek
+#define H264_FTELL   ftell
+#define H264_FEOF    feof
+#define H264_FERROR  ferror
+#define H264_FGETC   fgetc
+#endif
+
 #define H264_FILE_CHUNK_SIZE (64 * 1024)
 
 struct H264FileDecoder {

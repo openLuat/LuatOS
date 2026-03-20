@@ -185,6 +185,11 @@ typedef struct {
     int is_skipped;
     int is_pcm;
     int decoded;
+
+    /* Non-zero coefficient counts per 4x4 block (Z-scan order) for nC */
+    int nz_count[16];     /* 16 luma 4x4 blocks */
+    int nz_count_cb[4];   /* 4 Cb 4x4 blocks */
+    int nz_count_cr[4];   /* 4 Cr 4x4 blocks */
 } H264MacroBlock;
 
 typedef struct {

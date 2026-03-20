@@ -349,6 +349,11 @@ target("luatos-lua")
     -- add_includedirs(luatos.."components/mreport/include",{public = true})
     add_files(luatos.."components/mreport/src/*.c")
 
+    -- 添加h264
+    add_includedirs(luatos.."components/h264/include")
+    add_files(luatos.."components/h264/src/*.c")
+    add_files(luatos.."components/h264/binding/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"

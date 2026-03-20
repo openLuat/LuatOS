@@ -231,6 +231,9 @@ static const luaL_Reg loadedlibs[] = {
   #endif
 #endif
   {"codec", luaopen_multimedia_codec},
+#ifdef LUAT_USE_H264_DECODER
+  {"h264", luaopen_h264},
+#endif
   {NULL, NULL}
 };
 

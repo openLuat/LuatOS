@@ -148,6 +148,8 @@
 #define LUAT_USE_H264_DECODER 1
 
 #define LUAT_USE_VIDEOPLAYER 1
+// videoplayer软解依赖TJPGD, 需在GUI块外启用
+#define LUAT_USE_TJPGD
 
 //--------------------------------------------------
 // GUI相关
@@ -165,7 +167,6 @@
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
-#define LUAT_USE_TJPGD
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1

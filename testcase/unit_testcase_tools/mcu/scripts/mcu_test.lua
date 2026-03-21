@@ -274,5 +274,26 @@ function mcu_tests.test_mcu_ticks2()
     assert(is_increasing, "ticks2()返回值应随时间递增")
 end
 
+-- 对mcu.unique_id()的重复性测试
+function mcu_tests.test_mcu_uniqueId_repeated_calls()
+    log.info("===== 测试 mcu.unique_id() 多次调用的一致性 =====")
+    local id1 = mcu.unique_id()
+    local id2 = mcu.unique_id()
+    assert(id1 == id2, string.format("多次调用mcu.unique_id()返回不同的值: id1=%s, id2=%s", id1, id2))
+end
+
+-- 对mcu.unique_id()的长度进行测试, 根据不同平台有不同的长度要求
+function mcu_tests.test_mcu_uniqueId_length()
+    log.info("===== 测试 mcu.unique_id() 长度 =====")
+    local id = mcu.unique_id()
+    assert(#id > 0, string.format("mcu.unique_id()返回的长度不应为0: %d", #id))
+
+    -- 对应 不同平台的长度要求
+    local chip = hmeta.chip()
+    if chip == "ec718hm" or chip == "ec718pm" then
+        assert(#id == 8, string.format("ec718hm/ec718pm平台mcu.unique_id()长度应为8字节, 实际 %d字节", #id))
+    end
+end
+
 
 return mcu_tests

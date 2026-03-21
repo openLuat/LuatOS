@@ -354,6 +354,15 @@ target("luatos-lua")
     add_files(luatos.."components/h264/src/*.c")
     add_files(luatos.."components/h264/binding/*.c")
 
+    -- 添加videoplayer
+    add_includedirs(luatos.."components/videoplayer/include")
+    add_includedirs(luatos.."components/tjpgd")
+    add_includedirs(luatos.."components/lcd")
+    add_includedirs(luatos.."components/u8g2")
+    add_files(luatos.."components/tjpgd/*.c")
+    add_files(luatos.."components/videoplayer/src/*.c")
+    add_files(luatos.."components/videoplayer/binding/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"
@@ -458,10 +467,8 @@ target("luatos-lua")
         add_includedirs(luatos.."components/airui/binding")
         add_files(luatos.."components/airui/binding/*.c")
 
-        -- qrcode 和 tjpgd
+        -- qrcode 和 tjpgd (tjpgd已在videoplayer处添加)
         add_includedirs(luatos.."components/qrcode")
-        add_includedirs(luatos.."components/tjpgd")
-        add_files(luatos.."components/tjpgd/*.c")
         add_files(luatos.."components/qrcode/*.c")
 
         -- add_includedirs(luatos.."components/luatfonts")

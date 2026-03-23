@@ -22,6 +22,7 @@
 
 typedef struct luat_camera_cb {
     int scanned;
+    luat_zbuff_t *zbuff[3];
 } luat_camera_cb_t;
 static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static uint64_t camera_idp = 0;
@@ -49,7 +50,26 @@ int l_camera_handler(lua_State *L, void* ptr) {
             lua_pushinteger(L, camera_id);
             if (msg->ptr)
             {
-                lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            	if (msg->arg2 > 0)
+            	{
+            		lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            	}
+            	else
+            	{
+            		if (msg->ptr == camera_cbs[camera_id].zbuff[0])
+            		{
+            			lua_pushinteger(L, 0);
+            		}
+            		else if (msg->ptr == camera_cbs[camera_id].zbuff[1])
+            		{
+            			lua_pushinteger(L, 1);
+            		}
+            		else if (msg->ptr == camera_cbs[camera_id].zbuff[2])
+            		{
+            			lua_pushinteger(L, 2);
+            		}
+            	}
+
             }
             else if (msg->arg2 > 1)
             {
@@ -319,7 +339,9 @@ event可能出现的值有
   boolean型 false   摄像头没有正常工作，检查硬件和软件配置
   boolean型 true    拍照模式下拍照成功并保存完成，可以读取照片文件数据进一步处理，比如读出数据上传
   int型 原始图像大小 RAW模式下，采集完一帧图像后回调，回调值为图像数据大小，可以对传入的zbuff做进一步处理，比如读出数据上传
+  int型 zbuff序号 stream流模式下，返回保存数据的zbuff序号，0~2，如果只设置了2个，就是0~1
   string型  扫码结果 扫码模式下扫码成功一次，并且回调解码值，可以对回调值做进一步处理，比如打印到LCD上
+
 ]]
 */
 static int l_camera_on(lua_State *L) {
@@ -419,6 +441,12 @@ LUAT_WEAK int luat_camera_video(int id, int w, int h, uint8_t uart_id) {
     return -1;
 }
 
+LUAT_WEAK int luat_camera_stream(int id, void *buff1, void *buff2, void *buff3) {
+    LLOGD("not support yet");
+    return -1;
+}
+
+
 LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     LLOGD("not support yet");
     return -1;
@@ -485,7 +513,7 @@ static int l_camera_capture(lua_State *L) {
 }
 
 /**
-camera输出视频流到USB
+camera输出视频流到USB，即将废弃，不要使用
 @api camera.video(id, w, h, out_path)
 @int camera id,例如0
 @int 宽度
@@ -536,6 +564,41 @@ camera.getRaw(0)
 static int l_camera_get_raw(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     lua_pushboolean(L, !luat_camera_get_raw_again(id));
+    return 1;
+}
+
+/**
+配置camera输出数据流到用户指定的zbuff缓存区，需要输入2~3个zbuff，并通过camera.on设置的回调函数返回具体哪一个zbuff有数据
+@api camera.stream(id, buff0, buff1, buff2)
+@userdata zbuff0
+@userdata zbuff1
+@userdata zbuff2
+@return boolean 成功返回true,否则返回false
+@usage
+buff0 = zbuff.create(1024*768*2)
+buff1 = zbuff.create(1024*768*2)
+buff2 = zbuff.create(1024*768*2)	--可以去掉，最少需要2个缓存
+camera.stream(camera_id, buff0, buff1, buff2)
+*/
+static int l_camera_stream(lua_State *L) {
+    int camera_id = luaL_checkinteger(L, 1);
+    if (camera_id >= LUAT_CAMERA_TYPE_USB)
+    {
+        camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
+    }
+    luat_zbuff_t *zbuff[3] = {NULL, NULL, NULL};
+    zbuff[0] = luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+    zbuff[1] = luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+    zbuff[2] = luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
+    if (!luat_camera_stream(camera_id, zbuff[0], zbuff[1], zbuff[2]))
+    {
+    	memcpy(camera_cbs[camera_id].zbuff, zbuff, 3 * sizeof(luat_zbuff_t *));
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 0);
+    }
     return 1;
 }
 
@@ -619,6 +682,7 @@ static const rotable_Reg_t reg_camera[] =
 	{ "video",       ROREG_FUNC(l_camera_video)},
 	{ "startRaw",    ROREG_FUNC(l_camera_start_raw)},
 	{ "getRaw",      ROREG_FUNC(l_camera_get_raw)},
+	{ "stream",		 ROREG_FUNC(l_camera_stream)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
     { "config",      ROREG_FUNC(l_camera_config)},

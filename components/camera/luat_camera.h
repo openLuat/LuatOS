@@ -203,6 +203,8 @@ int luat_camera_start(int id);
  */
 int luat_camera_stop(int id);
 
+int luat_camera_stream(int id, void *buff1, void *buff2, void *buff3);
+
 int luat_camera_preview(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);

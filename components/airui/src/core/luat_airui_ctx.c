@@ -55,8 +55,8 @@ static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
 extern const airui_platform_ops_t *airui_platform_ops_sdl2_get(void);
 #elif defined(LUAT_USE_AIRUI_LUATOS) 
 extern const airui_platform_ops_t *airui_platform_ops_luatos_get(void);
-// #else
-// #warning "No platform driver selected. Please define LUAT_USE_AIRUI_SDL2 or LUAT_USE_AIRUI_LUATOS"
+// 注册 LuatOS 平台 JPG 解码器
+extern int airui_platform_luatos_register_jpg_decoder(void);
 #endif
 
 /**
@@ -291,6 +291,7 @@ int airui_ctx_create(airui_ctx_t *ctx, const airui_platform_ops_t *ops)
     // 清零上下文
     memset(ctx, 0, sizeof(airui_ctx_t));
     ctx->touch_last_state = AIRUI_TOUCH_STATE_NONE;
+    ctx->sleep_power_down_lcd = true;
     
     // 如果没有传入 ops，则根据编译时宏定义自动选择
     if (ops == NULL) {
@@ -400,7 +401,7 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     }
     
     // 分配显示缓冲（双缓冲模式）
-    uint32_t buf_size = width * height * lv_color_format_get_size(color_format);
+    uint32_t buf_size = width * height * lv_color_format_get_size(color_format) / 4;
     void *buf1 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
     void *buf2 = airui_buffer_alloc(ctx, buf_size, AIRUI_BUFFER_OWNER_SYSTEM);
     
@@ -451,6 +452,13 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
         LLOGE("airui_init failed: file system init failed, ret=%d", ret);
         // 文件系统初始化失败不影响整体初始化，只记录错误
     }
+
+    #if defined(LUAT_USE_AIRUI_LUATOS)
+    ret = airui_platform_luatos_register_jpg_decoder();
+    if (ret != AIRUI_OK) {
+        LLOGW("airui_init: register luatos jpg decoder failed, ret=%d", ret);
+    }
+    #endif
 
     // 启动运行时定时器
     ret = airui_start_runtime_timers(ctx);
@@ -510,7 +518,7 @@ int airui_sleep(airui_ctx_t *ctx)
 }
 
 // 唤醒 AIRUI
-int airui_wakeup(airui_ctx_t *ctx)
+int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
 {
     int ret = AIRUI_OK;
 
@@ -548,11 +556,13 @@ int airui_wakeup(airui_ctx_t *ctx)
 
     airui_resume_lvgl_timers(ctx);
     ctx->sleeping = false;
-    lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
-    if (act_scr != NULL) {
-        lv_obj_invalidate(act_scr);
+    if (auto_refresh) {
+        lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
+        if (act_scr != NULL) {
+            lv_obj_invalidate(act_scr);
+        }
+        lv_refr_now(ctx->display);
     }
-    lv_refr_now(ctx->display);
     return AIRUI_OK;
 }
 

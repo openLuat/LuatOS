@@ -680,15 +680,15 @@ int rtmp_disconnect(rtmp_ctx_t *ctx) {
     if (!ctx) {
         return RTMP_ERR_INVALID_PARAM;
     }
-    
+
     if (ctx->pcb) {
         rtmp_set_state(ctx, RTMP_STATE_DISCONNECTING, 0);
         tcp_close(ctx->pcb);
         ctx->pcb = NULL;
     }
-    
-    rtmp_set_state(ctx, RTMP_STATE_IDLE, 0);
-    
+
+    rtmp_set_state(ctx, RTMP_STATE_DISCONNECTED, 0);
+
     return RTMP_OK;
 }
 
@@ -2663,7 +2663,8 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
         }
     }
 
-    if (new_state == RTMP_STATE_IDLE || new_state == RTMP_STATE_ERROR) {
+    if (new_state == RTMP_STATE_IDLE || new_state == RTMP_STATE_ERROR ||
+        new_state == RTMP_STATE_DISCONNECTED) {
         // 把未发完的帧全部扔掉，释放内存
         rtmp_frame_node_t *n = ctx->frame_head;
         while (n) {
@@ -2678,7 +2679,7 @@ static void rtmp_set_state(rtmp_ctx_t *ctx, rtmp_state_t new_state, int error_co
     }
     
     // 在断开连接时重置 base_timestamp
-    if (new_state == RTMP_STATE_IDLE) {
+    if (new_state == RTMP_STATE_IDLE || new_state == RTMP_STATE_DISCONNECTED) {
         ctx->base_timestamp = 0;
     }
     

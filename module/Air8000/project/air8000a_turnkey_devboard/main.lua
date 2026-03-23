@@ -24,6 +24,7 @@ VERSION：项目版本号，ascii string类型
 -- 项目名称和版本定义
 PROJECT = "Turnkey_Devboard" -- 项目名称，用于标识当前工程
 VERSION = "001.999.003"      -- 项目版本号
+PROJECT_KEY = "89SKSPwYBo0kIiDETV0nUXUAPgPDHsin"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
@@ -50,10 +51,10 @@ log.info("main", PROJECT, VERSION)
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 方便分析内存使用是否有异常
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
-end, 3000)
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
 -- 加载显示驱动
 lcd_drv = require "lcd_drv"

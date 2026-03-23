@@ -90,7 +90,7 @@
 [2025-11-14 13:35:50.321][000000000.268] I/user.Flash初始化 开始
 [2025-11-14 13:35:50.332][000000000.268] I/little_flash SFDP header not found.
 [2025-11-14 13:35:50.344][000000000.268] I/little_flash JEDEC ID: manufacturer_id:0xEF device_id:0xAA21 
-[2025-11-14 13:35:50.350][000000000.268] I/little_flash little flash fonud flash W25N01GVZEIG
+[2025-11-14 13:35:50.350][000000000.268] I/little_flash little flash found flash W25N01GVZEIG
 [2025-11-14 13:35:50.359][000000000.319] I/user.Flash初始化 成功，设备: userdata: 0C10B894
 [2025-11-14 13:35:50.366][000000000.319] I/user.文件系统 开始挂载: /little_flash
 [2025-11-14 13:35:50.965][000000001.427] D/little_flash lfs_mount 0

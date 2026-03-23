@@ -47,10 +47,6 @@ sys.taskInit(function()
     })
 
 
-    while true do
-        airui.refresh()
-        sys.wait(10)
-    end
 
 
 end)

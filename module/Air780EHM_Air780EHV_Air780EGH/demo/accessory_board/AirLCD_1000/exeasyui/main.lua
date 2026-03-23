@@ -70,16 +70,14 @@ log.info("ui_demo", PROJECT, VERSION)
 ui = require("exeasyui")
 
 
--- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 加载lcd、tp和字库驱动管理功能模块，有以下三种：
 -- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置进行初始化
 -- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置初始化
--- 3、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的hw_gtfont_drv.lua，并按lcd显示驱动配置初始化
--- 4、使用自定义字体的hw_customer_font_drv（目前开发中）
--- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、gtfont、hzfont，链接https://docs.openluat.com/air780epm/common/product/
--- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+-- 3、使用自定义字体的hw_customer_font_drv（目前开发中）
+-- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、hzfont，链接https://docs.openluat.com/air780epm/common/product/
+-- 目前exeasyui V1.7.0版本支持使用已经实现的三种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
 require("hw_default_font_drv")
 -- require("hw_hzfont_drv")
--- require("hw_gtfont_drv")
 -- require("hw_customer_font_drv")开发中
 
 -- 加载按键驱动模块
@@ -87,7 +85,7 @@ require("key_drv")
 
 -- 加载exeassyui扩展库实现的用户界面功能模块
 -- 实现多页面切换、触摸事件分发和界面渲染功能
--- 包含主页、组件演示页、默认字体演示页、HZfont演示页、GTFont演示页和自定义字体演示页
+-- 包含主页、组件演示页、默认字体演示页、HZfont演示页和自定义字体演示页
 require("ui_main")
 
 

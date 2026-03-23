@@ -188,6 +188,7 @@ struct airui_ctx {
     uint8_t debug_last_mem_used_pct;     /**< 上次统计内存占用率 */
     uint32_t debug_component_count;      /**< 当前组件计数 */
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
+    bool sleep_power_down_lcd;           /**< 休眠时是否关闭 LCD 供电 */
     bool sleeping;                       /**< 当前是否处于休眠状态 */
 };
 
@@ -227,9 +228,10 @@ int airui_sleep(airui_ctx_t *ctx);
 /**
  * 唤醒 AIRUI
  * @param ctx 上下文指针
+ * @param auto_refresh true: 唤醒后立即刷新当前屏幕; false: 仅恢复运行时，由调用方自行刷新
  * @return 0 成功，<0 失败
  */
-int airui_wakeup(airui_ctx_t *ctx);
+int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh);
 
 /**
  * 强制全屏刷新 AIRUI
@@ -305,6 +307,17 @@ lv_font_t *airui_font_get_shared_hzfont(void);
  * @param size 字号
  */
 void airui_font_hzfont_set_render_size(uint16_t size);
+
+/**
+ * 压入共享 HZFont 字体渲染字号
+ * @param size 字号，0 表示恢复默认字号后入栈
+ */
+void airui_font_hzfont_push_render_size(uint16_t size);
+
+/**
+ * 弹出共享 HZFont 字体渲染字号
+ */
+void airui_font_hzfont_pop_render_size(void);
 
 /**
  * 开始一次 label 场景的 hzfont 调试统计会话

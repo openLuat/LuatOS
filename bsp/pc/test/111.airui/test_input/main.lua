@@ -34,10 +34,6 @@ sys.taskInit(function()
         log.info("textarea", "text changed -> " .. (textarea:get_text() or ""))
     end)
 
-    while true do
-        airui.refresh()
-        sys.wait(10)
-    end
 end)
 
 sys.run()

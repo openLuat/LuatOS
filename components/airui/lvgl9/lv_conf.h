@@ -517,11 +517,15 @@
  *  If size is not set to 0, the decoder will fail to decode when the cache is full.
  *  If size is 0, the cache function is not enabled and the decoded memory will be
  *  released immediately after use. */
-#define LV_CACHE_DEF_SIZE       0
+#ifndef LV_CACHE_DEF_SIZE
+    #define LV_CACHE_DEF_SIZE       0
+#endif
 
 /** Default number of image header cache entries. The cache is used to store the headers of images
  *  The main logic is like `LV_CACHE_DEF_SIZE` but for image headers. */
-#define LV_IMAGE_HEADER_CACHE_DEF_CNT 0
+#ifndef LV_IMAGE_HEADER_CACHE_DEF_CNT
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 0
+#endif
 
 /** Number of stops allowed per gradient. Increase this to allow more stops.
  *  This adds (sizeof(lv_color_t) + 1) bytes per additional stop. */
@@ -986,7 +990,9 @@
 
 /** libjpeg-turbo decoder library.
  *  - Supports complete JPEG specifications and high-performance JPEG decoding. */
-#define LV_USE_LIBJPEG_TURBO 0
+#ifndef LV_USE_LIBJPEG_TURBO
+    #define LV_USE_LIBJPEG_TURBO 0
+#endif
 
 /** GIF decoder library */
 #define LV_USE_GIF 0

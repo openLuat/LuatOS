@@ -76,6 +76,55 @@ static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     return 1;    /* Continue to decompress */
 }
 
+// 获取 JPG 图片信息
+int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
+    JRESULT res;
+    JDEC jdec;
+    void *work = NULL;
+#if JD_FASTDECODE == 2
+    size_t sz_work = 3500 * 3;
+#else
+    size_t sz_work = 3500;
+#endif
+    FILE* fd = NULL;
+    IODEV devid;
+    (void)conf;
+
+    if (path == NULL || width == NULL || height == NULL) {
+        return -1;
+    }
+
+    fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGW("no such file %s", path);
+        return -1;
+    }
+
+    memset(&devid, 0, sizeof(devid));
+    devid.fp = fd;
+    work = luat_heap_malloc(sz_work);
+    if (work == NULL) {
+        LLOGE("out of memory when malloc jpeg info workbuff");
+        luat_fs_fclose(fd);
+        return -1;
+    }
+
+    res = luat_jd_prepare(&jdec, file_in_func, work, sz_work, &devid);
+    if (res != JDR_OK) {
+        luat_heap_free(work);
+        luat_fs_fclose(fd);
+        LLOGW("luat_jd_prepare file %s error %d", path, res);
+        return -1;
+    }
+
+    *width = jdec.width;
+    *height = jdec.height;
+
+    luat_heap_free(work);
+    luat_fs_fclose(fd);
+    return 0;
+}
+
 int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
@@ -184,6 +233,10 @@ int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_bu
     buff_info->height = jdec.height;
 	buff_info->len = jdec.width*jdec.height*sizeof(luat_color_t);
 	buff_info->buff = luat_heap_malloc(buff_info->len);
+	if (buff_info->buff == NULL) {
+		LLOGE("out of memory when malloc jpeg image buff");
+		goto error;
+	}
     res = luat_jd_decomp(&jdec, decode_out_func, 0);
     if (res != JDR_OK) {
         LLOGW("luat_jd_decomp file %s error %d", path, res);
@@ -204,6 +257,47 @@ error:
 
 LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
     return lcd_draw_jpeg_default(conf, path, x, y);
+}
+
+LUAT_WEAK int lcd_jpeg_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
+    return lcd_jpeg_info_default(conf, path, width, height);
+}
+
+LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
+    return lcd_jpeg_decode_default(conf, path, buff_info);
+}
+
+#else
+
+int lcd_jpeg_info_default(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
+    (void)conf;
+    (void)path;
+    (void)width;
+    (void)height;
+    return -1;
+}
+
+int lcd_draw_jpeg_default(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
+    (void)conf;
+    (void)path;
+    (void)x;
+    (void)y;
+    return -1;
+}
+
+int lcd_jpeg_decode_default(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){
+    (void)conf;
+    (void)path;
+    (void)buff_info;
+    return -1;
+}
+
+LUAT_WEAK int lcd_draw_jpeg(luat_lcd_conf_t* conf, const char* path, int16_t x, int16_t y){
+    return lcd_draw_jpeg_default(conf, path, x, y);
+}
+
+LUAT_WEAK int lcd_jpeg_info(luat_lcd_conf_t* conf, const char* path, uint16_t *width, uint16_t *height){
+    return lcd_jpeg_info_default(conf, path, width, height);
 }
 
 LUAT_WEAK int lcd_jpeg_decode(luat_lcd_conf_t* conf, const char* path, luat_lcd_buff_info_t* buff_info){

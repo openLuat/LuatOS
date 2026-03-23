@@ -116,6 +116,8 @@ rtmp:setCallback(function(state, ...)
         print("推流中")
     elseif state == rtmp.STATE_DISCONNECTING then
         print("正在断开")
+    elseif state == rtmp.STATE_DISCONNECTED then
+        print("已断开连接")
     elseif state == rtmp.STATE_ERROR then
         print("错误:", ...)
     end
@@ -416,6 +418,7 @@ static const rotable_Reg_t reg_rtmp[] = {
     {"STATE_CONNECTED",   ROREG_INT(RTMP_STATE_CONNECTED)},
     {"STATE_PUBLISHING",  ROREG_INT(RTMP_STATE_PUBLISHING)},
     {"STATE_DISCONNECTING",ROREG_INT(RTMP_STATE_DISCONNECTING)},
+    {"STATE_DISCONNECTED", ROREG_INT(RTMP_STATE_DISCONNECTED)},
     {"STATE_ERROR",       ROREG_INT(RTMP_STATE_ERROR)},
     
     {NULL,                ROREG_INT(0)}

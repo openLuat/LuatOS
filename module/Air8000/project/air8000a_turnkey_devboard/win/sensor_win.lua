@@ -1,9 +1,31 @@
--- 传感器页面
+--[[
+@module  sensor_win
+@summary 传感器数据页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为传感器数据显示页面，实时显示温度、湿度、TVOC值，并提供手动上传和自动上传开关。
+订阅"OPEN_SENSOR_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local temp_label, hum_label, voc_label
 
+--[[
+更新传感器数据显示
+
+@local
+@function update_sensor_data
+@param data_t number|nil 温度值
+@param data_h number|nil 湿度值
+@param data_voc number|nil TVOC值
+@return nil
+@usage
+-- 内部调用，当收到传感器数据时更新UI
+-- 仅当窗口活跃时执行
+]]
 local function update_sensor_data(data_t, data_h, data_voc)
     if not exwin.is_active(win_id) then return end
     if temp_label then
@@ -17,10 +39,20 @@ local function update_sensor_data(data_t, data_h, data_voc)
     end
 end
 
+-- 传感器数据事件处理函数
 local function sensor_data_handler(data_t, data_h, data_voc)
     update_sensor_data(data_t, data_h, data_voc)
 end
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、数据标签和操作控件
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -75,6 +107,15 @@ local function create_ui()
     airui.label({ parent = content, x=370, y=210, w=100, h=20, text="自动上传", font_size=16, color=0x000000 })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并订阅传感器数据事件
+]]
 local function on_create()
     create_ui()
     sys.subscribe("SENSOR_DATA", sensor_data_handler)
@@ -82,21 +123,33 @@ local function on_create()
     sys.publish("read_sensors_req")
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，取消订阅，销毁容器
+]]
 local function on_destroy()
     sys.unsubscribe("SENSOR_DATA", sensor_data_handler)
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
 end
 
+-- 窗口获得焦点回调
 local function on_get_focus()
     -- 刷新数据
     sys.publish("read_sensors_req")
 end
 
+-- 窗口失去焦点回调
 local function on_lose_focus()
     -- 可暂停自动上传等
 end
 
+-- 订阅打开传感器页面的消息
 local function open_handler()
    win_id = exwin.open({
         on_create = on_create,

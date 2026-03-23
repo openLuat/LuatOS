@@ -15,8 +15,8 @@ sys.taskInit(function()
         options = {"Option A", "Option B", "Option C"}, -- 选项列表（字符串数组）
         default_index = 2, -- 默认选中项索引，默认 -1
         x = 40, y = 60, w = 180, h = 50,
-        on_change = function(self, index) -- 选中项变化回调
-            log.info("dropdown", "selected index", index)
+        on_change = function(self, index, value) -- 选中项变化回调
+            log.info("dropdown", "selected index", index, "value", value)
         end
     })
 
@@ -26,18 +26,13 @@ sys.taskInit(function()
         x = 240, y = 60, w = 160, h = 48,
         on_click = function(self)
             local selected = dropdown:get_selected() -- 获取当前选中项索引
+            local value = dropdown:get_value() -- 获取当前选中项文本
             log.info("dropdown", "previous selected index is", selected)
+            log.info("dropdown", "previous selected value is", value)
             dropdown:set_selected(0)  -- 设置选中项为1  
             log.info("dropdown", "now set selected to A")
         end
     })
-    
-
-
-    while true do
-        airui.refresh()
-        sys.wait(10)
-    end
 end)
 
 sys.run()

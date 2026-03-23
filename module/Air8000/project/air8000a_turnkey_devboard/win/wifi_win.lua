@@ -1,8 +1,26 @@
--- lua - WiFi页面
+--[[
+@module  wifi_win
+@summary WiFi配置页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为WiFi配置页面，支持扫描网络、显示列表、输入密码并连接。
+订阅"OPEN_WIFI_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content, scan_list, connect_btn
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、扫描按钮、WiFi列表、连接按钮和密码输入框
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
     -- 顶部返回栏
@@ -44,22 +62,42 @@ local function create_ui()
     airui.textarea({ parent = content, x=10, y=210, w=150, h=30, placeholder = "密码" })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI
+]]
 local function on_create()
     
     create_ui()
     -- 可在此启动定时器、订阅等
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，停止定时器
+]]
 local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     -- 停止定时器、取消订阅等
 end
 
+-- 窗口获得焦点回调
 local function on_get_focus()
     -- 获得焦点时可刷新UI
     -- 例如更新列表
 end
 
+-- 窗口失去焦点回调
 local function on_lose_focus()
     -- 失去焦点时可暂停某些操作
 end

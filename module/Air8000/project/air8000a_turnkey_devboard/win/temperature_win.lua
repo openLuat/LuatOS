@@ -1,4 +1,13 @@
--- temperature_win.lua - 温度历史图表窗口
+--[[
+@module  temperature_win
+@summary 温度历史图表窗口模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为温度历史图表窗口，显示历史温度数据折线图。
+订阅"OPEN_TEMP_HISTORY_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, chart
@@ -71,14 +80,14 @@ local function on_lose_focus()
     -- do nothing
 end
 
+local function open_handler()
+   win_id = exwin.open({
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
+    })
+end
+
 -- 订阅打开温度历史窗口的消息
-sys.subscribe("OPEN_TEMP_HISTORY_WIN", function()
-    if not exwin.is_active(win_id) then
-        win_id = exwin.open({
-            on_create = on_create,
-            on_destroy = on_destroy,
-            on_get_focus = on_get_focus,
-            on_lose_focus = on_lose_focus,
-        })
-    end
-end)
+sys.subscribe("OPEN_TEMP_HISTORY_WIN", open_handler)

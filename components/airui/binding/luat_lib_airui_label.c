@@ -186,11 +186,6 @@ static int l_label_destroy(lua_State *L) {
         // 获取元数据并释放
         airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
         if (meta != NULL) {
-            // 因为引入了hzfont，所以需要释放私有数据
-            if (meta->user_data != NULL) {
-                luat_heap_free(meta->user_data);
-                meta->user_data = NULL;
-            }
             airui_component_meta_free(meta);
         }
         

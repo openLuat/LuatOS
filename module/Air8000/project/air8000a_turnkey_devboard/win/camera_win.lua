@@ -1,9 +1,27 @@
--- 拍照页面
+--[[
+@module  camera_win
+@summary 拍照页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为拍照功能页面，显示摄像头预览并提供拍照按钮。
+订阅"OPEN_CAMERA_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local preview_img
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、预览区域和拍照按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -36,26 +54,47 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI并初始化摄像头（TODO）
+]]
 local function on_create()
     
     create_ui()
     -- TODO: 初始化摄像头
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，释放摄像头资源
+]]
 local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 释放摄像头资源
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 恢复预览
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 暂停预览
 end
 
+-- 订阅打开拍照页面的消息
 local function open_handler()
     win_id = exwin.open({
         on_create = on_create,

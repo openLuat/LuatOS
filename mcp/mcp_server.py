@@ -518,11 +518,15 @@ def _find_module_case_insensitive(module_name: str, demos_by_module: Dict[str, L
     
     Supports multi-module directories separated by underscores.
     Example: 'Air780EHM_Air780EHV_Air780EGH' matches 'Air780EHM', 'Air780EHV', or 'Air780EGH'.
+    
+    Also supports sub-model fallback:
+    Example: 'Air8000A' falls back to 'Air8000' if exact match not found.
     """
     if not module_name:
         return None
     module_lower = module_name.strip().lower()
     
+    # First pass: exact match and multi-module directory match
     for key in demos_by_module.keys():
         key_lower = key.lower()
         # Direct match
@@ -532,6 +536,16 @@ def _find_module_case_insensitive(module_name: str, demos_by_module: Dict[str, L
         if '_' in key:
             sub_modules = key_lower.split('_')
             if module_lower in sub_modules:
+                return key
+    
+    # Second pass: sub-model fallback (e.g., Air8000A -> Air8000)
+    # Pattern: air8000[a-z], air8101[a-z], etc.
+    # Extract base model by removing trailing letters from the model name
+    submodel_match = re.match(r'^(air\d+[a-z]?\d*)([a-z]+)$', module_lower)
+    if submodel_match:
+        base_model = submodel_match.group(1)
+        for key in demos_by_module.keys():
+            if key.lower() == base_model:
                 return key
     
     return None
@@ -1082,6 +1096,19 @@ def _build_server(code_root: Path, port: int = 8100) -> FastMCP:
                         is_default = False
                         break
                 break
+            else:
+                # Try sub-model fallback (e.g., air8000a -> air8000)
+                submodel_match = re.match(r'^(air\d+[a-z]?\d*)([a-z]+)$', m_lower)
+                if submodel_match:
+                    base_model = submodel_match.group(1)
+                    if base_model in known_set:
+                        for km in known_modules:
+                            if km.lower() == base_model:
+                                detected_module = km
+                                source = "query_detected_fallback"
+                                is_default = False
+                                break
+                        break
         
         if detected_module is None:
             # Check for default

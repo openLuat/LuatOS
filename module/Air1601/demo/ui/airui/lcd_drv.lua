@@ -39,7 +39,6 @@ local port, pin_reset, bl = lcd.RGB, 22, 23
 
 function lcd_drv.init()
     -- 开启屏幕供电
-    gpio.setup(141, 1)
     local result = lcd.init("custom", {
         port = port,
         hbp = 140,
@@ -72,7 +71,7 @@ function lcd_drv.init()
         end
 
         -- 开启背光引脚供电
-        gpio.setup(8, 1)
+        --gpio.setup(8, 1)
 
         return result
     end

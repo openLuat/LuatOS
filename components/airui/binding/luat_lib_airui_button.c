@@ -31,6 +31,8 @@
  * @int config.w 宽度，默认 100
  * @int config.h 高度，默认 40
  * @string config.text 文本内容，可选
+ * @string config.font 字体类型，当前支持 "hzfont"，不传时使用默认字体
+ * @int config.font_size 字号，仅对 hzfont 生效
  * @table config.style 样式表，可选
  * @int config.style.bg_color 默认态背景色（0xRRGGBB）
  * @int config.style.bg_opa 默认态背景透明度（0-255）

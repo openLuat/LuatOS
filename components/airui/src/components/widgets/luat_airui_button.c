@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui_component.h"
+#include "luat_malloc.h"
 #include "lvgl9/lvgl.h"
 #include "lvgl9/src/widgets/button/lv_button.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
@@ -21,6 +22,8 @@
 
 static void airui_button_apply_default_style(lv_obj_t *btn);
 static void airui_button_warn_stype_deprecated(void);
+static airui_button_data_t *airui_button_get_data(lv_obj_t *btn);
+static lv_obj_t *airui_button_ensure_label(lv_obj_t *btn, airui_button_data_t *data);
 
 /**
  * 从配置表创建 Button 组件
@@ -81,19 +84,32 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
     }
     lua_pop(L_state, 1);
     
-    // 设置文本
-    if (text != NULL && strlen(text) > 0) {
-        lv_obj_t *label = lv_label_create(btn);
-        lv_label_set_text(label, text);
-        lv_obj_center(label);
-    }
-    
     // 分配元数据
     airui_component_meta_t *meta = airui_component_meta_alloc(
         ctx, btn, AIRUI_COMPONENT_BUTTON);
     if (meta == NULL) {
         lv_obj_delete(btn);
         return NULL;
+    }
+
+    airui_button_data_t *data = (airui_button_data_t *)luat_heap_malloc(sizeof(airui_button_data_t));
+    if (data == NULL) {
+        airui_component_meta_free(meta);
+        lv_obj_delete(btn);
+        return NULL;
+    }
+    memset(data, 0, sizeof(airui_button_data_t));
+    airui_text_font_state_init(&data->font, 0);
+    airui_text_font_read_config(&data->font, L, idx);
+    airui_component_meta_set_user_data(meta, data, luat_heap_free);
+
+    // 设置文本
+    if (text != NULL && strlen(text) > 0) {
+        lv_obj_t *label = airui_button_ensure_label(btn, data);
+        if (label != NULL) {
+            lv_label_set_text(label, text);
+            lv_obj_center(label);
+        }
     }
     
     // 绑定点击事件
@@ -119,30 +135,19 @@ lv_obj_t *airui_button_create_from_config(void *L, int idx)
  */
 int airui_button_set_text(lv_obj_t *btn, const char *text)
 {
+    airui_button_data_t *data;
+
     if (btn == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
-    
-    // 查找或创建 label
-    // Button 的第一个子对象通常是 label
-    lv_obj_t *label = NULL;
-    uint32_t child_cnt = lv_obj_get_child_cnt(btn);
-    
-    if (child_cnt > 0) {
-        label = lv_obj_get_child(btn, 0);
-        // 检查是否是 label（简化处理，假设第一个子对象就是 label）
-    }
-    
-    if (label == NULL) {
-        // 创建新的 label
-        label = lv_label_create(btn);
-        lv_obj_center(label);
-    }
-    
+
+    data = airui_button_get_data(btn);
+    lv_obj_t *label = airui_button_ensure_label(btn, data);
     if (label != NULL) {
         lv_label_set_text(label, text != NULL ? text : "");
+        lv_obj_center(label);
     }
-    
+
     return AIRUI_OK;
 }
 
@@ -284,5 +289,42 @@ static void airui_button_apply_default_style(lv_obj_t *btn)
 static void airui_button_warn_stype_deprecated(void)
 {
     LLOGW("button stype 接口已废弃，请改用 style；该接口将在 1.2.0 版本后移除，当前版本 %s", AIRUI_VERSION);
+}
+
+static airui_button_data_t *airui_button_get_data(lv_obj_t *btn)
+{
+    airui_component_meta_t *meta = airui_component_meta_get(btn);
+    if (meta == NULL) {
+        return NULL;
+    }
+    return (airui_button_data_t *)meta->user_data;
+}
+
+static lv_obj_t *airui_button_ensure_label(lv_obj_t *btn, airui_button_data_t *data)
+{
+    lv_obj_t *label;
+
+    if (btn == NULL) {
+        return NULL;
+    }
+
+    if (data != NULL && data->text_label != NULL) {
+        return data->text_label;
+    }
+
+    if (lv_obj_get_child_cnt(btn) > 0) {
+        label = lv_obj_get_child(btn, 0);
+    }
+    else {
+        label = lv_label_create(btn);
+    }
+
+    if (label != NULL && data != NULL) {
+        data->text_label = label;
+        airui_text_font_attach(label, &data->font);
+        airui_text_font_apply_to_obj(label, &data->font);
+    }
+
+    return label;
 }
 

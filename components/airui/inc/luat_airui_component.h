@@ -99,7 +99,22 @@ struct airui_component_meta {
     
     // 私有数据
     void *user_data;
+    void (*user_data_free)(void *user_data);
 };
+
+/**
+ * 组件私有数据释放回调
+ */
+typedef void (*airui_component_user_data_free_cb_t)(void *user_data);
+
+/**
+ * 通用文本字体状态
+ */
+typedef struct {
+    uint16_t hzfont_size;
+    bool prefer_hzfont;
+    bool use_hzfont;
+} airui_text_font_state_t;
 
 /**
  * Bar 私有数据，用于管理进度文字 label
@@ -123,9 +138,16 @@ typedef struct {
  * Label 私有数据
  */
 typedef struct {
-    uint16_t hzfont_size;
-    bool use_hzfont;
+    airui_text_font_state_t font;
 } airui_label_data_t;
+
+/**
+ * Button 私有数据
+ */
+typedef struct {
+    lv_obj_t *text_label;
+    airui_text_font_state_t font;
+} airui_button_data_t;
 
 /**
  * Textarea 私有数据
@@ -170,6 +192,14 @@ airui_component_meta_t *airui_component_meta_alloc(
  * @post-condition 元数据及关联资源已释放
  */
 void airui_component_meta_free(airui_component_meta_t *meta);
+
+/**
+ * 设置组件私有数据及释放器
+ */
+void airui_component_meta_set_user_data(
+    airui_component_meta_t *meta,
+    void *user_data,
+    airui_component_user_data_free_cb_t user_data_free);
 
 /**
  * 捕获配置表中的回调函数
@@ -311,6 +341,15 @@ bool airui_marshal_point(void *L, int idx, const char *key, lv_point_t *out);
 airui_component_meta_t *airui_component_meta_get(lv_obj_t *obj);
 
 /**
+ * 通用文本字体辅助
+ */
+void airui_text_font_state_init(airui_text_font_state_t *state, uint16_t font_size);
+void airui_text_font_read_config(airui_text_font_state_t *state, void *L, int idx);
+void airui_text_font_apply_to_obj(lv_obj_t *text_obj, airui_text_font_state_t *state);
+void airui_text_font_attach(lv_obj_t *text_obj, airui_text_font_state_t *state);
+int airui_text_font_set_size(lv_obj_t *text_obj, airui_text_font_state_t *state, int font_size);
+
+/**
  * Button 组件：从配置表创建
  */
 lv_obj_t *airui_button_create_from_config(void *L, int idx);
@@ -374,6 +413,7 @@ int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color); //设置
 lv_obj_t *airui_table_create_from_config(void *L, int idx);
 int airui_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const char *text); //设置单元格文本
 int airui_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
+int airui_table_set_row_height(lv_obj_t *table, uint16_t row, lv_coord_t height); //调整行高
 int airui_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
 
 /**

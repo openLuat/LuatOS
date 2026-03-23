@@ -219,21 +219,6 @@ int luat_lcd_setup_buff_default(luat_lcd_conf_t* conf){
         }
     }
 
-    if (conf->buff_ex) {
-        LLOGE("lcd buff_ex已经分配过了");
-    }
-    else
-    {
-        conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_PSRAM, sizeof(luat_color_t) * conf->w * conf->h);
-        if (conf->buff_ex == NULL) {
-            LLOGW("psram 分配 lcd buff_ex失败, 尝试在sram分配");
-            conf->buff_ex = luat_heap_opt_malloc(LUAT_HEAP_SRAM, sizeof(luat_color_t) * conf->w * conf->h);
-        }
-        if (conf->buff_ex == NULL) {
-            LLOGE("分配 lcd buff_ex失败");
-            return -1;
-        }
-    }
     return 0;
 }
 
@@ -273,6 +258,18 @@ int luat_lcd_display_on(luat_lcd_conf_t* conf) {
     }
     if (conf->port != LUAT_LCD_PORT_RGB) {
         lcd_write_cmd_data(conf,0x29, NULL, 0);
+    }
+    return 0;
+}
+
+int luat_lcd_airui_sleep(luat_lcd_conf_t* conf, uint8_t power_down) {
+    if (power_down && conf->pin_pwr != LUAT_GPIO_NONE)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    luat_rtos_task_sleep(5);
+    if (conf->opts->sleep_ctrl) {
+    	conf->opts->sleep_ctrl(conf, 1);
+    } else {
+    	lcd_write_cmd_data(conf,conf->opts->sleep_cmd?conf->opts->sleep_cmd:LUAT_LCD_DEFAULT_SLEEP, NULL, 0);
     }
     return 0;
 }

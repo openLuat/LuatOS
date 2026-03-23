@@ -13,7 +13,6 @@
 #include "lv_libjpeg_turbo.h"
 #include <stdio.h>
 #include <jpeglib.h>
-#include <jpegint.h>
 #include <setjmp.h>
 #include "../../core/lv_global.h"
 
@@ -480,6 +479,7 @@ static bool get_jpeg_direction(uint8_t * data, uint32_t data_size, uint32_t * or
 {
     struct jpeg_decompress_struct cinfo;
     error_mgr_t jerr;
+    int ret;
 
     cinfo.err = jpeg_std_error(&jerr.pub);
     jerr.pub.error_exit = error_exit;
@@ -495,8 +495,12 @@ static bool get_jpeg_direction(uint8_t * data, uint32_t data_size, uint32_t * or
     jpeg_mem_src(&cinfo, data, data_size);
 
     jpeg_save_markers(&cinfo, JPEG_APP0 + 1, 0xFFFF);
-
-    cinfo.marker->read_markers(&cinfo);
+    ret = jpeg_read_header(&cinfo, TRUE);
+    if(ret != JPEG_HEADER_OK) {
+        LV_LOG_WARN("read jpeg orientation failed: %d", ret);
+        jpeg_destroy_decompress(&cinfo);
+        return false;
+    }
 
     jpeg_saved_marker_ptr marker = cinfo.marker_list;
     while(marker != NULL) {

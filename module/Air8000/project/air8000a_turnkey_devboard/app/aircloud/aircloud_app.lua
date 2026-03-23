@@ -1,22 +1,39 @@
 --[[
 @module  aircloud_app
-@summary excloud测试文件
+@summary excloud云平台测试应用模块
 @version 1.0
 @date    2025.09.22
 @author  孟伟
 @usage
-本demo演示的功能为：
 本demo演示了excloud扩展库的完整使用流程，包括：
 1. 设备连接与认证
 2. 数据上报与接收
 3. 运维日志管理
 4. 文件上传功能
 5. 心跳保活机制
+
+本文件为核心业务逻辑模块，主要功能：
+- 初始化excloud配置并开启服务
+- 注册回调函数处理云平台事件
+- 主任务循环等待网络就绪，定期上报传感器数据
+- 处理服务器下发的控制命令并回复
 ]]
 -- 导入excloud库
 local excloud = require "excloud"
 
--- 注册回调函数
+--[[
+用户回调函数，处理excloud所有事件
+
+@local
+@function on_excloud_event
+@param event string 事件类型，如"connect_result", "auth_result", "message", "disconnect", "reconnect_failed", "send_result", "mtn_log_upload_start", "mtn_log_upload_progress", "mtn_log_upload_complete"
+@param data table 事件数据，不同事件包含不同字段
+@return nil
+
+@usage
+-- 内部使用，由excloud.on注册
+-- 根据事件类型打印日志并处理对应逻辑
+]]
 function on_excloud_event(event, data)
     log.info("用户回调函数", event, json.encode(data))
 
@@ -86,7 +103,22 @@ end
 -- 注册回调
 excloud.on(on_excloud_event)
 
--- 主任务函数
+--[[
+主任务函数，负责网络等待、excloud初始化、开启服务和数据上报
+
+@local
+@function excloud_task_func
+@return nil
+
+@usage
+-- 作为系统任务启动，执行以下操作：
+-- 1. 等待默认网卡就绪
+-- 2. 根据设备类型设置device_type
+-- 3. 配置excloud参数并开启服务
+-- 4. 启动自动心跳
+-- 5. 获取并发布二维码信息
+-- 6. 循环等待传感器数据并上报
+]]
 function excloud_task_func()
     -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
     while not socket.adapter(socket.dft()) do
@@ -107,14 +139,14 @@ function excloud_task_func()
 
     -- 配置excloud参数
     local ok, err_msg = excloud.setup({
-        use_getip = true,        -- 使用getip服务
-        device_type = device_type,         -- 4G设备
-        -- auth_key = "89SKSPwYBo0kIiDETV0nUXUAPgPDHsin",
-        transport = "tcp",       -- 使用TCP传输
-        auto_reconnect = true,   -- 自动重连
-        reconnect_interval = 10, -- 重连间隔(秒)
-        max_reconnect = 5,       -- 最大重连次数
-        virtual_phone_number ="10012345678",--PC模拟器使用11位手机号
+        use_getip = true,                    -- 使用getip服务
+        device_type = device_type,           -- 4G设备
+        auth_key = PROJECT_KEY,              -- 
+        transport = "tcp",                   -- 使用TCP传输
+        auto_reconnect = true,               -- 自动重连
+        reconnect_interval = 10,             -- 重连间隔(秒)
+        max_reconnect = 5,                   -- 最大重连次数
+        virtual_phone_number = "10012345678", --PC模拟器使用11位手机号
         -- mtn_log_enabled = true,  -- 启用运维日志
         -- mtn_log_blocks = 1,      -- 日志文件块数
         -- mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE  -- 缓存写入方式

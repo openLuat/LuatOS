@@ -1,4 +1,13 @@
--- lua - 全部应用页面（使用 exwin.is_active 判断活跃）
+--[[
+@module  main_menu_win
+@summary 主菜单（全部应用）页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为主菜单页面，以图标网格形式显示所有功能入口。
+订阅"OPEN_MAIN_MENU_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, time_label, signal_img
@@ -30,22 +39,22 @@ local function create_ui()
     local win_map = {
         [1] = { "call", "camera", "network_select", "gps", "sensor" },
         [2] = { "iot_account", "bluetooth", "uart", "record", "tts" },
-        [3] = { "apn", "ethernet", "wifi" }
+        [3] = { "apn", "ethernet", "wifi","fota" }
     }
     local icon_files = {
         [1] = { "/luadb/tonghuazhong.png", "/luadb/paizhao.png", "/luadb/Internet.png", "/luadb/dingwei.png", "/luadb/chuanganqi.png" },
         [2] = { "/luadb/denglu.png", "/luadb/lanya.png", "/luadb/chuankou.png", "/luadb/luyin.png", "/luadb/TTS.png" },
-        [3] = { "/luadb/APN.png", "/luadb/yitaiwang.png", "/luadb/wifi.png" }
+        [3] = { "/luadb/APN.png", "/luadb/yitaiwang.png", "/luadb/wifi.png", "/luadb/FOTA.png" }
     }
     local label_texts = {
         [1] = { "通话", "拍照", "多网融合", "定位", "传感器" },
         [2] = { "IoT账户", "蓝牙", "串口", "录音", "TTS" },
-        [3] = { "APN配置", "以太网", "WIFI" }
+        [3] = { "APN配置", "以太网", "WIFI","FOTA" }
     }
     local cell_w, cell_h = 90, 70
 
     for row = 1, 3 do
-        local cols = (row == 3) and 3 or 5
+        local cols = (row == 3) and 4 or 5
         for col = 1, cols do
             local center_x = col_centers[col]
             local cell_x = center_x - cell_w / 2

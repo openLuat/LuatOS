@@ -287,7 +287,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
         if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
             memcpy(&lf->chip_info,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
             LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
-            LF_DEBUG("little flash fonud flash %s",lf->chip_info.name);
+            LF_DEBUG("little flash found flash %s",lf->chip_info.name);
             result = little_flash_reset(lf);
             return result;
         }
@@ -299,13 +299,13 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
         if (manufacturer_id==little_flash_table[i].manufacturer_id && device_id ==little_flash_table[i].device_id){
             memcpy(&lf->chip_info,&little_flash_table[i],sizeof(little_flash_chipinfo_t));
             LF_DEBUG("JEDEC ID: manufacturer_id:0x%02X device_id:0x%04X ",little_flash_table[i].manufacturer_id,little_flash_table[i].device_id);
-            LF_DEBUG("little flash fonud flash %s",lf->chip_info.name);
+            LF_DEBUG("little flash found flash %s",lf->chip_info.name);
             result = little_flash_reset(lf);
             return result;
         }
     }
     // all not found
-    LF_DEBUG("NOT fonud flash");
+    LF_DEBUG("NOT found flash");
     return LF_ERR_NO_FLASH;
 }
 

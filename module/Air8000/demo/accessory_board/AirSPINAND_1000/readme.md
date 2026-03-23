@@ -85,7 +85,7 @@
 [2025-09-18 14:50:09.822][000000000.370] I/little_flash Gitee Repositories https://gitee.com/Dozingfiretruck/little_flash .
 [2025-09-18 14:50:09.831][000000000.371] I/little_flash SFDP header not found.
 [2025-09-18 14:50:09.838][000000000.371] I/little_flash JEDEC ID: manufacturer_id:0xEF device_id:0xAA21 
-[2025-09-18 14:50:09.847][000000000.371] I/little_flash little flash fonud flash W25N01GVZEIG
+[2025-09-18 14:50:09.847][000000000.371] I/little_flash little flash found flash W25N01GVZEIG
 [2025-09-18 14:50:09.853][000000000.421] I/user.Flash初始化 成功，设备: userdata: 0C0F9D7C
 [2025-09-18 14:50:09.864][000000000.421] I/user.文件系统 开始挂载: /little_flash
 [2025-09-18 14:50:10.078][000000000.816] D/little_flash lfs_mount 0

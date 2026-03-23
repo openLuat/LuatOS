@@ -1,9 +1,27 @@
--- TTS页面
+--[[
+@module  tts_win
+@summary TTS语音合成页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为TTS功能页面，提供文本输入和朗读按钮。
+订阅"OPEN_TTS_WIN"事件打开窗口。
+]]
 
 local win_id = nil
 local main_container, content
 local text_input, speak_btn
 
+--[[
+创建窗口UI
+
+@local
+@function create_ui
+@return nil
+@usage
+-- 内部调用，创建全屏容器、标题栏、返回按钮、文本输入框和朗读按钮
+]]
 local function create_ui()
     main_container = airui.container({ parent = airui.screen, x=0, y=0, w=480, h=320, color=0xF8F9FA })
 
@@ -37,25 +55,46 @@ local function create_ui()
     })
 end
 
+--[[
+窗口创建回调
+
+@local
+@function on_create
+@return nil
+@usage
+-- 窗口打开时调用，创建UI
+]]
 local function on_create()
     
     create_ui()
 end
 
+--[[
+窗口销毁回调
+
+@local
+@function on_destroy
+@return nil
+@usage
+-- 窗口关闭时调用，销毁容器，停止播放等
+]]
 local function on_destroy()
     if main_container then main_container:destroy(); main_container = nil end
     win_id = nil
     -- 停止播放等
 end
 
+-- 窗口获得焦点回调（空实现）
 local function on_get_focus()
     -- 刷新
 end
 
+-- 窗口失去焦点回调（空实现）
 local function on_lose_focus()
     -- 如果正在朗读，可暂停
 end
 
+-- 订阅打开TTS页面的消息
 local function open_handler()
     win_id = exwin.open({
         on_create = on_create,

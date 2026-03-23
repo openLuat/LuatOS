@@ -21,6 +21,7 @@
 
 // Forward declarations for opts framework
 struct luat_zbuff;
+struct luat_multimedia_codec;
 
 // Unified audio information structure
 typedef struct audio_info {

@@ -56,9 +56,6 @@ LUAT_WEAK int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t
 	return result;
 }
 
-#define MINIMP3_MAX_SAMPLES_PER_FRAME (2*1152)
-#define MP3_FRAME_LEN (4 * 1152)
-
 static void* mp3_codec_create(luat_multimedia_codec_t* coder) {
     if (!coder->is_decoder) {
         return NULL;

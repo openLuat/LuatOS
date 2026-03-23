@@ -60,7 +60,7 @@ AirCAMERA_1030 配件板 + Air8101 核心板，硬件连接示意图：
 
 单路摄像头链接方式
 
-![](https://docs.openLuat.com/cdn/image/8101_1031_1.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_5.jpg)
 
 ## 演示软件环境
 

@@ -41,7 +41,7 @@ tcp_client_sender.TASK_NAME = "tcp_client_main"
 -- "SEND_DATA_REQ"消息的处理函数
 local function send_data_req_proc_func(tag, data, cb)
     -- 将原始数据增加前缀，然后插入到发送队列send_queue中
-    table.insert(send_queue, {data=data, cb=cb})
+    table.insert(send_queue, {data="send from "..tag..": "..data, cb=cb})
     -- 通知tcp_client_main主任务有数据需要发送
     -- tcp_client_main主任务如果处在libnet.wait调用的阻塞等待状态，就会退出阻塞状态
     sys.sendMsg(tcp_client_sender.TASK_NAME, socket.EVENT, 0)

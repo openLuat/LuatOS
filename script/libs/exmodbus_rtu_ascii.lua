@@ -408,7 +408,7 @@ end
 -- 销毁已创建的实例，释放资源；
 function modbus:destroy()
     -- 检查实例是否已被销毁；
-    if not self then
+    if not self or self.destroyed then
         log.error("exmodbus", "实例对象已被销毁，无需重复销毁")
         return
     end
@@ -425,8 +425,8 @@ function modbus:destroy()
         gpio.close(self.rs485_dir_gpio)
     end
 
-    -- 销毁已创建的实例；
-    setmetatable(self, nil)
+    -- 标记实例已销毁
+    self.destroyed = true
 
     log.info("exmodbus", "实例对象已销毁")
 end
@@ -970,6 +970,13 @@ end
 
 -- 主站读取请求函数；（内部使用）
 function modbus:read_internal(config)
+    -- 检查实例是否已被销毁；
+    if self.destroyed then
+        log.error("exmodbus", "实例对象已被销毁，无法执行 read_internal 操作")
+        local parsed_data = {}
+        parsed_data.status = exmodbus_ref.STATUS_PARAM_INVALID
+        return parsed_data
+    end
     -- 处理响应结果；
     local parsed_data = {}
 
@@ -1022,7 +1029,13 @@ end
 
 -- 主站写入请求的函数；
 function modbus:write_internal(config)
-
+    -- 检查实例是否已被销毁；
+    if self.destroyed then
+        log.error("exmodbus", "实例对象已被销毁，无法执行 write_internal 操作")
+        local parsed_data = {}
+        parsed_data.status = exmodbus_ref.STATUS_PARAM_INVALID
+        return parsed_data
+    end
     -- 处理响应结果；
     local parsed_data = {}
 
@@ -1076,16 +1089,28 @@ end
 
 -- 主站读取请求的函数；
 function modbus:read(config)
+    if self.destroyed then
+        log.error("exmodbus", "实例对象已被销毁，无法执行 read 操作")
+        return { status = exmodbus_ref.STATUS_PARAM_INVALID }
+    end
     return exmodbus_ref.enqueue_request(self, config, true)
 end
 
 -- 主站写入请求的函数；
 function modbus:write(config)
+    if self.destroyed then
+        log.error("exmodbus", "实例对象已被销毁，无法执行 write 操作")
+        return { status = exmodbus_ref.STATUS_PARAM_INVALID }
+    end
     return exmodbus_ref.enqueue_request(self, config, false)
 end
 
 -- 注册从站请求处理回调函数；
 function modbus:on(callback)
+    if self.destroyed then
+        log.error("exmodbus", "实例对象已被销毁，无法注册回调函数")
+        return false
+    end
     if type(callback) ~= "function" then
         log.error("exmodbus", "on(callback) 的参数必须是一个函数")
         return false

@@ -60,13 +60,20 @@ local function fota_result_cb(ret)
 end
 
 -- 下载进度回调
+local last_percent = -1
+
 local function fota_progress_cb(total_len, received_len, userdata)
     if total_len > 0 then
         local percent = math.floor(received_len * 100 / total_len)
-        local msg = string.format("正在下载：%d%% (%d/%d KB)", percent, received_len//1024, total_len//1024)
-        sys.publish("FOTA_STATUS", "DOWNLOAD_PROGRESS", msg, percent)
+        -- 仅在百分比变化时更新
+        if percent ~= last_percent then
+            last_percent = percent
+            local msg = string.format("正在下载：%d%% (%d/%d KB)", percent, received_len//1024, total_len//1024)
+            sys.publish("FOTA_STATUS", "DOWNLOAD_PROGRESS", msg, percent)
+        end
     end
 end
+
 
 -- 执行FOTA升级（手动或自动触发）
 local function fota_task()

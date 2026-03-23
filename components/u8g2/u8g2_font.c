@@ -817,13 +817,13 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
                 luat_fs_fread(font_data, 1, 2, u8g2->font_file);
                 if (font_data[1] == 0) break;
                 if (font_data[0] == encoding ){
-                    if(u8g2->font){
-                        u8g2->font = luat_heap_realloc(u8g2->font, font_data[1] - 2);
+                    if(u8g2->glyph_cache){
+                        u8g2->glyph_cache = luat_heap_realloc(u8g2->glyph_cache, font_data[1] - 2);
                     }else{
-                        u8g2->font = luat_heap_malloc(font_data[1] - 2);
+                        u8g2->glyph_cache = luat_heap_malloc(font_data[1] - 2);
                     }
-                    luat_fs_fread(u8g2->font, 1, font_data[1] - 2, u8g2->font_file);
-                    return u8g2->font;
+                    luat_fs_fread(u8g2->glyph_cache, 1, font_data[1] - 2, u8g2->font_file);
+                    return u8g2->glyph_cache;
                 }
                 luat_fs_fseek(u8g2->font_file, font_data[1] - 2, SEEK_CUR);
             }
@@ -872,13 +872,13 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding)
                     break;
                 // printf("2: unicode e=%02X\n", e);
                 if ( e == encoding ){
-                    if(u8g2->font){
-                        u8g2->font = luat_heap_realloc(u8g2->font, font_data[2] - 3);
+                    if(u8g2->glyph_cache){
+                        u8g2->glyph_cache = luat_heap_realloc(u8g2->glyph_cache, font_data[2] - 3);
                     }else{
-                        u8g2->font = luat_heap_malloc(font_data[2] - 3);
+                        u8g2->glyph_cache = luat_heap_malloc(font_data[2] - 3);
                     }
-                    luat_fs_fread(u8g2->font, 1, font_data[2] - 3, u8g2->font_file);
-                    return u8g2->font;
+                    luat_fs_fread(u8g2->glyph_cache, 1, font_data[2] - 3, u8g2->font_file);
+                    return u8g2->glyph_cache;
                 }
                 luat_fs_fseek(u8g2->font_file, font_data[2]-3, SEEK_CUR);
             }  
@@ -1403,6 +1403,10 @@ void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
 #endif
     {
 #if (defined __LUATOS__) || defined (__USER_CODE__)
+        if (u8g2->glyph_cache) {
+            luat_heap_free(u8g2->glyph_cache);
+            u8g2->glyph_cache = NULL;
+        }
         if (u8g2->font_file) {
             luat_fs_fclose(u8g2->font_file);
             u8g2->font_file = NULL;

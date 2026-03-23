@@ -23,7 +23,6 @@ local PAGE_NAMES = {
     HOME = "home",
     COMPONENT = "component",
     DEFAULT_FONT = "default_font",
-    GTFONT = "gtfont",
     HZFONT = "hzfont"
 }
 
@@ -42,11 +41,10 @@ end
 -- 主页区域回调函数
 local function home_page_callback()
     key_handler.clear_areas()
-    key_handler.add_area(20, 100, 280, 50) -- 组件按钮
-    key_handler.add_area(20, 170, 280, 50) -- 默认字体按钮
-    key_handler.add_area(20, 240, 280, 50) -- GTFont按钮
-    key_handler.add_area(20, 310, 280, 50) -- HZFont按钮
-    log.info("ui_main", "已注册主页区域，共4个区域")
+    key_handler.add_area(20, 100, 280, 80) -- 组件按钮
+    key_handler.add_area(20, 200, 280, 80) -- 默认字体按钮
+    key_handler.add_area(20, 300, 280, 80) -- HZFont按钮
+    log.info("ui_main", "已注册主页区域，共3个区域")
 end
 
 -- 组件页面区域回调函数
@@ -69,14 +67,6 @@ local function default_font_page_callback()
     log.info("ui_main", "已注册默认字体页面区域，共1个区域")
 end
 
--- GTFont页面区域回调函数
-local function gtfont_page_callback()
-    key_handler.clear_areas()
-    key_handler.add_area(20, 20, 60, 30)   -- 返回
-    key_handler.add_area(20, 140, 120, 30) -- 切换字体按钮
-    log.info("ui_main", "已注册GTFont页面区域，共2个区域")
-end
-
 -- HZFont页面区域回调函数
 local function hzfont_page_callback()
     key_handler.clear_areas()
@@ -90,7 +80,6 @@ local function register_all_pages()
     key_handler.register_page(PAGE_NAMES.HOME, home_page_callback)
     key_handler.register_page(PAGE_NAMES.COMPONENT, component_page_callback)
     key_handler.register_page(PAGE_NAMES.DEFAULT_FONT, default_font_page_callback)
-    key_handler.register_page(PAGE_NAMES.GTFONT, gtfont_page_callback)
     key_handler.register_page(PAGE_NAMES.HZFONT, hzfont_page_callback)
 end
 

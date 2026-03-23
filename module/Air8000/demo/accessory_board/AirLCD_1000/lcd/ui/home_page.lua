@@ -23,9 +23,8 @@ local home_page = {}
 
 -- 按钮区域定义
 local buttons = {
-    {name = "lcd", text = "lcd核心库演示", x1 = 10, y1 = 350, x2 = 100, y2 = 420, color = 0x001F},
-    {name = "gtfont", text = "矢量字体芯片", x1 = 115, y1 = 350, x2 = 205, y2 = 420, color = 0xF800},
-    {name = "customer_font", text = "自定义字体", x1 = 220, y1 = 350, x2 = 310, y2 = 420, color = 0x07E0}
+    {name = "lcd", text = "lcd核心库演示", x1 = 10, y1 = 350, x2 = 150, y2 = 420, color = 0x001F},
+    {name = "customer_font", text = "自定义字体", x1 = 170, y1 = 350, x2 = 310, y2 = 420, color = 0x07E0}
 }
 
 -- 当前选中项索引
@@ -84,12 +83,9 @@ function home_page.draw()
         
         -- 根据按钮调整文字位置
         if btn.name == "lcd" then
-            lcd.drawStr(btn.x1 + 5, btn.y1 + 30, "lcd核心库演示", 0xFFFF)
-        elseif btn.name == "gtfont" then
-            lcd.drawStr(btn.x1 + 28, btn.y1 + 20, "外部", 0xFFFF)
-            lcd.drawStr(btn.x1 + 4, btn.y1 + 40, "矢量字体芯片", 0xFFFF)
+            lcd.drawStr(btn.x1 + 25, btn.y1 + 30, "lcd核心库演示", 0xFFFF)
         elseif btn.name == "customer_font" then
-            lcd.drawStr(btn.x1 + 15, btn.y1 + 30, "自定义字体", 0xFFFF)
+            lcd.drawStr(btn.x1 + 35, btn.y1 + 30, "自定义字体", 0xFFFF)
         end
     end
 

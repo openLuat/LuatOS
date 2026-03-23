@@ -1,0 +1,71 @@
+--[[
+@module  welcome_win
+@summary 开机欢迎页面模块
+@version 1.0
+@date    2026.03.16
+@author  江访
+@usage
+本模块为开机欢迎页面，显示欢迎文字，1秒后自动切换到首页。
+订阅"OPEN_WELCOME_WIN"事件打开窗口。
+]]
+
+local win_id = nil
+local main_container
+
+local function create_ui()
+    main_container = airui.container({
+        parent = airui.screen,
+        x = 0,
+        y = 0,
+        w = 800,
+        h = 480,
+        color = 0x3F51B5
+    })
+
+    -- 欢迎文字
+    airui.label({
+        parent = main_container,
+        x = 0,
+        y = 200,          -- 原140 → 约210，微调至200
+        w = 800,
+        h = 60,           -- 原40 → 60
+        text = "欢迎使用合宙turnkey开发板",
+        font_size = 32,   -- 原24 → 32
+        color = 0xFFFFFF,
+        align = airui.TEXT_ALIGN_CENTER
+    })
+end
+
+local function on_welcome_timeout()
+    if win_id then
+        exwin.close(win_id)
+    end
+    sys.publish("OPEN_IDLE_WIN")
+end
+
+local function on_create()
+    create_ui()
+    sys.timerStart(on_welcome_timeout, 1000)
+end
+
+local function on_destroy()
+    sys.timerStop(on_welcome_timeout)
+    if main_container then
+        main_container:destroy()
+        main_container = nil
+    end
+    win_id = nil
+end
+
+local function on_get_focus() end
+local function on_lose_focus() end
+
+local function open_welcome_handler()
+    win_id = exwin.open({
+        on_create = on_create,
+        on_destroy = on_destroy,
+        on_get_focus = on_get_focus,
+        on_lose_focus = on_lose_focus,
+    })
+end
+sys.subscribe("OPEN_WELCOME_WIN", open_welcome_handler)

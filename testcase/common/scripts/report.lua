@@ -8,7 +8,7 @@ function report.send(result, testcase, msg)
     local rheaders = {}
     rheaders["Content-Type"] = "application/json"
     local result_format = '{"result" : "%s", "test_case" : "%s", "message" : "%s", "test_id":"%s"}'
-    local report_data = string.format(result_format, result and "success" or "fail", testcase, msg, ctx.test_id or "")
+    local report_data = string.format(result_format, result and "success" or "fail", testcase, msg, t_data.test_id or "")
     local code, headers, body = http.request("POST", report_url, rheaders, report_data).wait()
     log.info("上报结果", code)
     return code, headers, body

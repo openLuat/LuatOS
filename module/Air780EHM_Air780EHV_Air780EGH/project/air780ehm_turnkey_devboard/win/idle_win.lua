@@ -225,8 +225,7 @@ local function create_ui()
         x = 320,
         y = 150,
         size = 90,
-        data =
-        "https://docs.openluat.com/air8000/product/air8000a_turnkey_devboard/",
+        data = "https://docs.openluat.com/air780epm/product/air780ehm_turnkey_devboard/",
         dark_color = 0x000000,
         light_color = 0xFFFFFF,
         quiet_zone = true

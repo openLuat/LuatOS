@@ -122,12 +122,12 @@ AirCAMERA_1031 配件板 + Air8101 核心板，硬件连接示意图：
 
 单路摄像头链接方式
 
-![](https://docs.openLuat.com/cdn/image/8101_1031_1.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_5.jpg)
 
 四路摄像头链接方式
 如图所示，将四路USB摄像头接入HUB中，然后将HUB通过USB口连接到Air8101核心板上;
 
-![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头拍照.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_3.jpg)
 
 ### 2、 录像上传硬件环境：
 
@@ -158,7 +158,7 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 
  单路摄像头链接方式
 
-![](https://docs.openLuat.com/cdn/image/8101_1031_2.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_6.jpg)
 
 四路摄像头链接方式
 
@@ -166,7 +166,7 @@ AirMICROSD_1000 配件板与 Air8101核心板连接说明：
 
 如图所示，将四路USB摄像头接入HUB中，然后将HUB通过USB口连接到Air8101核心板上;
 
-![](https://docs.openLuat.com/cdn/image/8101_多usb_摄像头录像.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_4.jpg)
 
 ### 3、 rtmp推流硬件环境
 
@@ -190,7 +190,7 @@ AirCAMERA_1031 配件板与 Air8101核心板连接说明：
 
 AirCAMERA_1031 配件板 + AirMICROSD_1000 配件板+ Air8101 核心板，硬件连接示意图：
 
-![](https://docs.openLuat.com/cdn/image/8101_1031_1.jpg)
+![](https://docs.openLuat.com/cdn/image/8101_1031_5.jpg)
 
 ## 演示软件环境
 

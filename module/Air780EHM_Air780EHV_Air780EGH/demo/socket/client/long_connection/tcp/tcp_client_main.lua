@@ -9,26 +9,87 @@
 1、创建一个tcp client socket，连接server；
 2、处理连接异常，出现异常后执行重连动作；
 3、调用tcp_client_receiver和tcp_client_sender中的外部接口，进行数据收发处理；
+4、定时发送json格式数据到服务器
 
 本文件没有对外接口，直接在main.lua中require "tcp_client_main"就可以加载运行；
-]]
+]] local libnet = require "libnet"
 
-local libnet = require "libnet"
+local excloud = require "excloud"
 
 -- 加载tcp client socket数据接收功能模块
 local tcp_client_receiver = require "tcp_client_receiver"
 -- 加载tcp client socket数据发送功能模块
 local tcp_client_sender = require "tcp_client_sender"
 
--- 电脑访问：https://netlab.luatos.com/
+-- 电脑访问：https://gps.openluat.com/netlab/
 -- 点击 打开TCP 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 45584
+local SERVER_ADDR = "115.120.239.161"
+local SERVER_PORT = 21465
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
 
+-- 获取CPU温度的函数
+local function CPU_TEMPERATURE()
+    adc.open(adc.CH_CPU) -- 打开adc.CH_CPU通道
+    local cpu_temp = adc.get(adc.CH_CPU) -- 获取adc.CH_CPU计算值
+    adc.close(adc.CH_CPU) -- 关闭adc.CH_CPU通道
+    log.info("CPU TEMP", cpu_temp/1000) -- 打印adc.CH_CPU计算值，单位：摄氏度
+    return cpu_temp/1000 or 0 -- 如果获取到的值为nil，则返回0
+end
+
+-- 获取VBAT电压的函数
+local function vabt_vaule()
+    adc.open(adc.CH_VBAT) -- 打开adc.CH_VBAT通道
+    local vabt_vaule = adc.get(adc.CH_VBAT) -- 获取adc.CH_VBAT计算值
+    adc.close(adc.CH_VBAT) -- 关闭adc.CH_VBAT通道
+    log.info("VBAT", vabt_vaule/1000) -- 打印adc.CH_VBAT计算值，单位：毫伏
+    return vabt_vaule/1000 or 3.300 -- 如果获取到的值为nil，则返回3300   
+end
+
+-- 定时发送json数据的回调函数
+local function send_json_data_timer_cbfunc()
+    -- 按照aircloud平台的格式定义要发送的数据
+    local send_data = {{
+        field_meaning = excloud.FIELD_MEANINGS.SIGNAL_STRENGTH_4G, -- 字段含义：4G信号强度
+        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
+        value = mobile.csq() or 0 -- 信号强度
+    }, {
+        field_meaning = excloud.FIELD_MEANINGS.SIM_ICCID, -- 字段含义：SIM卡的ICCID号
+        data_type = excloud.DATA_TYPES.ASCII, -- 数据类型：ASCII字符串
+        value = mobile.iccid() or "" -- SIM卡ICCID
+    }, {
+        field_meaning = excloud.FIELD_MEANINGS.TIMESTAMP, -- 字段含义：时间戳
+        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
+        value = os.time() -- 当前时间戳
+    }, {
+        field_meaning = excloud.FIELD_MEANINGS.DEVICE_ID, -- 字段含义：设备号
+        data_type = excloud.DATA_TYPES.ASCII, -- 数据类型：ASCII字符串
+        value = mobile.imei() or "" -- 设备IMEI（4G模块）
+    }, {
+        field_meaning = excloud.FIELD_MEANINGS.TEMPERATURE, -- 字段含义：温度
+        data_type = excloud.DATA_TYPES.FLOAT, -- 数据类型：浮点数
+        value = CPU_TEMPERATURE() -- 温度值
+    }, {
+        field_meaning = excloud.FIELD_MEANINGS.VOLTAGE, -- 字段含义：电压
+        data_type = excloud.DATA_TYPES.INTEGER, -- 数据类型：整数
+        value = vabt_vaule() -- vbat电压值
+    }, {
+        field_meaning = 0, -- 自定义数据，使用0作为field_meaning
+        data_type = excloud.DATA_TYPES.UNICODE, -- 数据类型：Unicode字符串
+        value = "用户utf-8格式自定义数据"
+    }}
+
+    -- 打印构建的数据结构，用于调试
+    log.info("send_data structure:", json.encode(send_data))
+
+    local send_data_string = json.encode(send_data)
+    sys.publish("SEND_DATA_REQ", "tcp_main", send_data_string)
+
+    -- 30秒后再次发送
+    sys.timerStart(send_json_data_timer_cbfunc, 30000)
+end
 
 -- 处理未识别的消息
 local function tcp_client_main_cbfunc(msg)
@@ -81,7 +142,8 @@ local function tcp_client_main_task_func()
         end
 
         log.info("tcp_client_main_task_func", "libnet.connect success")
-
+        -- 服务器连接成功，启动定时发送json数据的定时器
+        sys.timerStart(send_json_data_timer_cbfunc, 30000)
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do
             -- 数据接收处理（接收处理必须写在libnet.wait之前，因为老版本的内核固件要求必须这样，新版本的内核固件没这个要求，为了不出问题，写在libnet.wait之前就行了）
@@ -113,7 +175,6 @@ local function tcp_client_main_task_func()
             end
         end
 
-
         -- 出现异常
         ::EXCEPTION_PROC::
 
@@ -135,6 +196,6 @@ local function tcp_client_main_task_func()
     end
 end
 
---创建并且启动一个task
---运行这个task的主函数tcp_client_main_task_func
+-- 创建并且启动一个task
+-- 运行这个task的主函数tcp_client_main_task_func
 sys.taskInitEx(tcp_client_main_task_func, TASK_NAME, tcp_client_main_cbfunc)

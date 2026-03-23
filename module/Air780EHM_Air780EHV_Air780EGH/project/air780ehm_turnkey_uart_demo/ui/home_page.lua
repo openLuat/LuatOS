@@ -44,19 +44,19 @@ local function update_signal()
     if not signal_img then return end
     local img_name
     if not sim_present then
-        img_name = "4Gxinghao6.png"
+        img_name = "4Gxinhao6.png"
     else
         local csq = mobile.csq()
         if csq == 99 or csq <= 5 then
-            img_name = "4Gxinghao5.png"
+            img_name = "4Gxinhao5.png"
         elseif csq <= 10 then
-            img_name = "4Gxinghao1.png"
+            img_name = "4Gxinhao1.png"
         elseif csq <= 15 then
-            img_name = "4Gxinghao2.png"
+            img_name = "4Gxinhao2.png"
         elseif csq <= 20 then
-            img_name = "4Gxinghao3.png"
+            img_name = "4Gxinhao3.png"
         else
-            img_name = "4Gxinghao4.png"
+            img_name = "4Gxinhao4.png"
         end
     end
     if img_name then
@@ -230,7 +230,7 @@ function home_page.create_ui()
         y = 8,
         w = 32,
         h = 32,
-        src = "/luadb/4Gxinghao6.png",
+        src = "/luadb/4Gxinhao6.png",
     })
 
     -- 中间内容区域

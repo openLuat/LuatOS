@@ -11,17 +11,27 @@
 #include "luat_malloc.h"
 #define VP_SW_MALLOC  luat_heap_malloc
 #define VP_SW_FREE    luat_heap_free
+
+#define LUAT_LOG_TAG "mjpg_sw"
+#include "luat_log.h"
+#define MJPG_DEBUG(...) do { \
+    LLOGD(__VA_ARGS__); \
+} while (0)
 #else
 #include <stdlib.h>
 #define VP_SW_MALLOC  malloc
 #define VP_SW_FREE    free
+#define MJPG_DEBUG(...) do { \
+    fprintf(stderr, "[mjpg_sw] " __VA_ARGS__); \
+    fprintf(stderr, "\n"); \
+} while (0)
 #endif
 
 #include "tjpgd.h"
 #include <string.h>
 
 /* Work buffer size for tjpgd */
-#define TJPGD_WORK_SIZE  4096
+#define TJPGD_WORK_SIZE  (32*1024)
 
 /* Combined context shared by both input and output callbacks via jd->device */
 typedef struct {
@@ -110,6 +120,7 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
     JRESULT res = luat_jd_prepare(&jdec, mjpg_sw_input_func,
                                    sw->work_buf, TJPGD_WORK_SIZE, &dev);
     if (res != JDR_OK) {
+        MJPG_DEBUG("JPEG prepare failed: %d", res);
         return LUAT_VP_ERR_FORMAT;
     }
 
@@ -118,6 +129,7 @@ static int mjpg_sw_decode(void *ctx, const uint8_t *data, size_t size,
 
     /* Validate dimensions and check for integer overflow (RGB565, 2 bytes/pixel) */
     if (w == 0 || h == 0) {
+        MJPG_DEBUG("Invalid JPEG dimensions: %dx%d", w, h);
         return LUAT_VP_ERR_FORMAT;
     }
     size_t pixel_count = (size_t)w * h;

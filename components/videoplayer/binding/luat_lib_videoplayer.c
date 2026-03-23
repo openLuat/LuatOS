@@ -254,6 +254,7 @@ static int l_videoplayer_draw_frame(lua_State *L) {
                   (int16_t)(x + frame.width - 1),
                   (int16_t)(y + frame.height - 1),
                   (luat_color_t *)frame.data);
+    lcd_auto_flush(lcd);
 
     luat_videoplayer_frame_free(&frame);
     lua_pushboolean(L, 1);

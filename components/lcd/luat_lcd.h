@@ -297,6 +297,7 @@ int luat_lcd_conf_add(luat_lcd_conf_t* conf);
 
 void luat_lcd_service_debug(void);
 
+void lcd_auto_flush(luat_lcd_conf_t *conf);
 
 #endif
 

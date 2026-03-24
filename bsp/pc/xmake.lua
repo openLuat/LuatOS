@@ -18,10 +18,6 @@ add_packages("gmssl")
 add_requires("libsdl2")
 add_packages("libsdl2")
 
-if os.getenv("LUAT_USE_GUI") == "y" then
-    add_requires("libjpeg-turbo")
-end
-
 -- set warning all as error
 set_warnings("allextra")
 set_optimize("fastest")
@@ -409,8 +405,6 @@ target("luatos-lua")
         add_files(luatos.."components/lcd/*.c")
         
         -- LVGL 9.4 + AIRUI - 最基础组件编译
-        -- 添加libjpeg-turbo库, 用于pc模拟器平台解码
-        add_packages("libjpeg-turbo")
         -- 头文件添加：lvgl9 
         add_includedirs(luatos.."components/airui")
         add_includedirs(luatos.."components/airui/lvgl9")

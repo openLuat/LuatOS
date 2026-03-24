@@ -3,7 +3,7 @@
 #include "luat_fs.h"
 #include "luat_zbuff.h"
 #include "luat_mem.h"
-#include "g711_codec.h"
+#include "g711_codec/g711_codec.h"
 
 #ifndef G711_PCM_SAMPLES
 #define G711_PCM_SAMPLES 160

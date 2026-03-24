@@ -6,28 +6,52 @@
 
 #include "luat_airui_component.h"
 #include "lvgl9/lvgl.h"
+#include "lvgl9/src/core/lv_obj_scroll.h"
 #include "lvgl9/src/widgets/table/lv_table.h"
 #include "lvgl9/src/widgets/table/lv_table_private.h"
 #include "lvgl9/src/core/lv_obj.h"
+#include "lvgl9/src/misc/lv_timer.h"
 #include "lua.h"
 #include "lauxlib.h"
 #include "luat_malloc.h"
 #include <stdint.h>
 #include <string.h>
 
+typedef struct {
+    lv_coord_t *row_heights;
+    uint16_t row_count;
+    lv_timer_t *jump_scroll_timer;
+    uint32_t jump_scroll_interval;
+    uint16_t jump_scroll_current_row;
+    uint16_t jump_scroll_focus_col;
+    uint16_t jump_scroll_step;
+    bool jump_scroll_loop;
+    bool jump_scroll_anim;
+    bool jump_scroll_running;
+    bool jump_scroll_paused;
+    lv_timer_t *marquee_scroll_timer;
+    uint32_t marquee_scroll_interval;
+    uint16_t marquee_scroll_speed;
+    bool marquee_scroll_loop;
+    bool marquee_scroll_running;
+    bool marquee_scroll_paused;
+} airui_table_data_t;
+
 static void airui_table_apply_row_height(lv_obj_t *table, uint32_t row, lv_coord_t height);
+static void airui_table_jump_scroll_select_cell(lv_obj_t *table, uint32_t row, uint32_t col);
+static void airui_table_jump_scroll_stop_internal(lv_obj_t *table, bool reset_position);
+static void airui_table_jump_scroll_timer_cb(lv_timer_t *timer);
 static void airui_table_apply_data(lua_State *L_state, int idx, lv_obj_t *table, int *rows, int *cols);
 static void airui_table_apply_col_widths(lua_State *L_state, int idx, lv_obj_t *table, int cols);
 static void airui_table_apply_row_heights(lua_State *L_state, int idx, lv_obj_t *table, int rows);
+static void airui_table_scroll_row_into_view(lv_obj_t *table, uint32_t row, bool animated);
+static void airui_table_shift_cached_row_heights(airui_table_data_t *data, uint32_t index, int32_t delta);
+static void airui_table_marquee_scroll_stop_internal(lv_obj_t *table, bool reset_position);
+static void airui_table_marquee_scroll_timer_cb(lv_timer_t *timer);
 static void airui_table_reapply_row_heights(lv_obj_t *table);
 static lv_coord_t airui_table_normalize_row_height(lv_coord_t height);
 static void airui_table_sync_size(lv_obj_t *table, int rows, int cols);
 static void airui_table_style_event_cb(lv_event_t *e);
-
-typedef struct {
-    lv_coord_t *row_heights;
-    uint16_t row_count;
-} airui_table_data_t;
 
 /**
  * 通过 config 表创建 Table 组件
@@ -115,6 +139,14 @@ static void airui_table_release_data(void *user_data)
     if (data->row_heights != NULL) {
         luat_heap_free(data->row_heights);
     }
+    if (data->jump_scroll_timer != NULL) {
+        lv_timer_delete(data->jump_scroll_timer);
+        data->jump_scroll_timer = NULL;
+    }
+    if (data->marquee_scroll_timer != NULL) {
+        lv_timer_delete(data->marquee_scroll_timer);
+        data->marquee_scroll_timer = NULL;
+    }
     luat_heap_free(data);
 }
 
@@ -176,6 +208,287 @@ static int airui_table_store_row_height(lv_obj_t *table, uint32_t row, lv_coord_
 
     data->row_heights[row] = height;
     return AIRUI_OK;
+}
+
+// 缓存行高
+static void airui_table_shift_cached_row_heights(airui_table_data_t *data, uint32_t index, int32_t delta)
+{
+    if (data == NULL || delta == 0) {
+        return;
+    }
+
+    if (delta > 0) {
+        uint32_t step = (uint32_t)delta;
+        uint32_t old_count = data->row_count;
+        uint32_t new_count = old_count + step;
+        lv_coord_t *new_heights = (lv_coord_t *)luat_heap_malloc(sizeof(lv_coord_t) * new_count);
+        if (new_heights == NULL) {
+            return;
+        }
+        memset(new_heights, 0, sizeof(lv_coord_t) * new_count);
+
+        if (data->row_heights != NULL && old_count > 0) {
+            if (index > old_count) {
+                index = old_count;
+            }
+            if (index > 0) {
+                memcpy(new_heights, data->row_heights, sizeof(lv_coord_t) * index);
+            }
+            if (index < old_count) {
+                memcpy(new_heights + index + step,
+                       data->row_heights + index,
+                       sizeof(lv_coord_t) * (old_count - index));
+            }
+            luat_heap_free(data->row_heights);
+        }
+
+        data->row_heights = new_heights;
+        data->row_count = (uint16_t)new_count;
+        return;
+    }
+
+    if (data->row_heights == NULL || data->row_count == 0) {
+        return;
+    }
+
+    uint32_t remove_count = (uint32_t)(-delta);
+    if (index >= data->row_count) {
+        return;
+    }
+    if (index + remove_count > data->row_count) {
+        remove_count = data->row_count - index;
+    }
+    if (remove_count == 0) {
+        return;
+    }
+
+    memmove(data->row_heights + index,
+            data->row_heights + index + remove_count,
+            sizeof(lv_coord_t) * (data->row_count - index - remove_count));
+
+    data->row_count = (uint16_t)(data->row_count - remove_count);
+    if (data->row_count == 0) {
+        luat_heap_free(data->row_heights);
+        data->row_heights = NULL;
+        return;
+    }
+
+    lv_coord_t *new_heights = (lv_coord_t *)luat_heap_malloc(sizeof(lv_coord_t) * data->row_count);
+    if (new_heights == NULL) {
+        return;
+    }
+    memcpy(new_heights, data->row_heights, sizeof(lv_coord_t) * data->row_count);
+    luat_heap_free(data->row_heights);
+    data->row_heights = new_heights;
+}
+
+// 选择单元格
+static void airui_table_jump_scroll_select_cell(lv_obj_t *table, uint32_t row, uint32_t col)
+{
+    if (table == NULL) {
+        return;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    if (table_dsc->row_cnt == 0 || table_dsc->col_cnt == 0) {
+        return;
+    }
+
+    if (row >= table_dsc->row_cnt) {
+        row = table_dsc->row_cnt - 1;
+    }
+    if (col >= table_dsc->col_cnt) {
+        col = table_dsc->col_cnt - 1;
+    }
+
+    table_dsc->row_act = row;
+    table_dsc->col_act = col;
+    lv_obj_invalidate(table);
+}
+
+// 滚动行到视图
+static void airui_table_scroll_row_into_view(lv_obj_t *table, uint32_t row, bool animated)
+{
+    if (table == NULL) {
+        return;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    if (table_dsc->row_h == NULL || row >= table_dsc->row_cnt) {
+        return;
+    }
+
+    int32_t row_top = 0;
+    for (uint32_t i = 0; i < row; i++) {
+        row_top += table_dsc->row_h[i];
+    }
+
+    int32_t row_bottom = row_top + table_dsc->row_h[row];
+    int32_t visible_top = lv_obj_get_scroll_top(table);
+    int32_t visible_bottom = visible_top + lv_obj_get_height(table);
+    int32_t target = visible_top;
+
+    if (row_top < visible_top) {
+        target = row_top;
+    }
+    else if (row_bottom > visible_bottom) {
+        target = row_bottom - lv_obj_get_height(table);
+    }
+    else {
+        return;
+    }
+
+    lv_obj_scroll_to_y(table, target, animated ? LV_ANIM_ON : LV_ANIM_OFF);
+}
+
+// 停止跳转滚动
+static void airui_table_jump_scroll_stop_internal(lv_obj_t *table, bool reset_position)
+{
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data == NULL) {
+        return;
+    }
+
+    if (data->jump_scroll_timer != NULL) {
+        lv_timer_delete(data->jump_scroll_timer);
+        data->jump_scroll_timer = NULL;
+    }
+
+    data->jump_scroll_running = false;
+    data->jump_scroll_paused = false;
+    data->jump_scroll_current_row = 0;
+
+    if (reset_position) {
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+        airui_table_jump_scroll_select_cell(table, 0, data->jump_scroll_focus_col);
+    }
+}
+
+// 跳转滚动定时器回调
+static void airui_table_jump_scroll_timer_cb(lv_timer_t *timer)
+{
+    if (timer == NULL) {
+        return;
+    }
+
+    lv_obj_t *table = (lv_obj_t *)lv_timer_get_user_data(timer);
+    if (table == NULL) {
+        lv_timer_delete(timer);
+        return;
+    }
+
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data == NULL || data->jump_scroll_timer != timer || !data->jump_scroll_running || data->jump_scroll_paused) {
+        return;
+    }
+
+    uint32_t row_count = lv_table_get_row_count(table);
+    uint32_t col_count = lv_table_get_column_count(table);
+    if (row_count == 0 || col_count == 0) {
+        airui_table_jump_scroll_stop_internal(table, false);
+        return;
+    }
+
+    if (row_count == 1) {
+        data->jump_scroll_current_row = 0;
+        airui_table_jump_scroll_select_cell(table, 0, 0);
+        return;
+    }
+
+    uint32_t focus_col = data->jump_scroll_focus_col;
+    if (focus_col >= col_count) {
+        focus_col = col_count - 1;
+    }
+
+    uint32_t next_row = data->jump_scroll_current_row + data->jump_scroll_step;
+    bool wrapped = false;
+    if (next_row >= row_count) {
+        if (!data->jump_scroll_loop) {
+            airui_table_jump_scroll_stop_internal(table, false);
+            return;
+        }
+        next_row %= row_count;
+        wrapped = true;
+    }
+
+    if (wrapped) {
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+    }
+
+    data->jump_scroll_current_row = (uint16_t)next_row;
+    airui_table_jump_scroll_select_cell(table, next_row, focus_col);
+    airui_table_scroll_row_into_view(table, next_row, data->jump_scroll_anim && !wrapped);
+}
+
+// 停止跑马灯滚动
+static void airui_table_marquee_scroll_stop_internal(lv_obj_t *table, bool reset_position)
+{
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data == NULL) {
+        return;
+    }
+
+    if (data->marquee_scroll_timer != NULL) {
+        lv_timer_delete(data->marquee_scroll_timer);
+        data->marquee_scroll_timer = NULL;
+    }
+
+    data->marquee_scroll_running = false;
+    data->marquee_scroll_paused = false;
+
+    if (reset_position) {
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+    }
+}
+
+// 跑马灯滚动定时器回调
+static void airui_table_marquee_scroll_timer_cb(lv_timer_t *timer)
+{
+    if (timer == NULL) {
+        return;
+    }
+
+    lv_obj_t *table = (lv_obj_t *)lv_timer_get_user_data(timer);
+    if (table == NULL) {
+        lv_timer_delete(timer);
+        return;
+    }
+
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data == NULL || data->marquee_scroll_timer != timer || !data->marquee_scroll_running || data->marquee_scroll_paused) {
+        return;
+    }
+
+    if (lv_table_get_row_count(table) == 0 || lv_table_get_column_count(table) == 0) {
+        airui_table_marquee_scroll_stop_internal(table, false);
+        return;
+    }
+
+    int32_t scroll_bottom = lv_obj_get_scroll_bottom(table);
+    if (scroll_bottom <= 0) {
+        if (!data->marquee_scroll_loop) {
+            airui_table_marquee_scroll_stop_internal(table, false);
+            return;
+        }
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+        scroll_bottom = lv_obj_get_scroll_bottom(table);
+        if (scroll_bottom <= 0) {
+            return;
+        }
+    }
+
+    int32_t delta = data->marquee_scroll_speed;
+    if (delta <= 0) {
+        delta = 1;
+    }
+    if (delta > scroll_bottom) {
+        delta = scroll_bottom;
+    }
+    lv_obj_scroll_to_y(table, lv_obj_get_scroll_y(table) + delta, LV_ANIM_OFF);
 }
 
 // 样式事件回调
@@ -408,4 +721,248 @@ int airui_table_set_border_color(lv_obj_t *table, lv_color_t color)
     }
     lv_obj_set_style_border_color(table, color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     return AIRUI_OK;
+}
+
+// 插入行
+int airui_table_insert_row(lv_obj_t *table, uint16_t row)
+{
+    if (table == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    uint32_t old_row_count = table_dsc->row_cnt;
+    uint32_t col_count = table_dsc->col_cnt;
+
+    if (row > old_row_count) {
+        row = (uint16_t)old_row_count;
+    }
+
+    lv_table_set_row_count(table, old_row_count + 1);
+    table_dsc = (lv_table_t *)table;
+
+    if (col_count > 0 && row < old_row_count) {
+        memmove(table_dsc->cell_data + ((row + 1U) * col_count),
+                table_dsc->cell_data + (row * col_count),
+                sizeof(table_dsc->cell_data[0]) * ((old_row_count - row) * col_count));
+        memset(table_dsc->cell_data + (row * col_count), 0, sizeof(table_dsc->cell_data[0]) * col_count);
+    }
+
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data != NULL) {
+        airui_table_shift_cached_row_heights(data, row, 1);
+        if ((data->jump_scroll_running || data->jump_scroll_paused) && data->jump_scroll_current_row >= row) {
+            data->jump_scroll_current_row++;
+        }
+    }
+
+    lv_obj_refresh_self_size(table);
+    lv_obj_invalidate(table);
+    return AIRUI_OK;
+}
+
+// 插入列
+int airui_table_insert_col(lv_obj_t *table, uint16_t col)
+{
+    if (table == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    uint32_t row_count = table_dsc->row_cnt;
+    uint32_t old_col_count = table_dsc->col_cnt;
+
+    if (col > old_col_count) {
+        col = (uint16_t)old_col_count;
+    }
+
+    lv_table_set_column_count(table, old_col_count + 1);
+    table_dsc = (lv_table_t *)table;
+
+    if (row_count > 0 && col < old_col_count) {
+        uint32_t new_col_count = table_dsc->col_cnt;
+        for (int32_t row_idx = (int32_t)row_count - 1; row_idx >= 0; row_idx--) {
+            uint32_t row_start = (uint32_t)row_idx * new_col_count;
+            memmove(table_dsc->cell_data + row_start + col + 1U,
+                    table_dsc->cell_data + row_start + col,
+                    sizeof(table_dsc->cell_data[0]) * (old_col_count - col));
+            table_dsc->cell_data[row_start + col] = NULL;
+        }
+
+        memmove(table_dsc->col_w + col + 1U,
+                table_dsc->col_w + col,
+                sizeof(table_dsc->col_w[0]) * (old_col_count - col));
+        table_dsc->col_w[col] = LV_DPI_DEF;
+    }
+
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data != NULL && data->jump_scroll_focus_col >= col) {
+        data->jump_scroll_focus_col++;
+    }
+
+    lv_obj_refresh_self_size(table);
+    lv_obj_invalidate(table);
+    return AIRUI_OK;
+}
+
+// 自动跳转滚动
+int airui_table_auto_jump_scroll_control(lv_obj_t *table,
+                                         airui_table_scroll_action_t action,
+                                         uint32_t interval,
+                                         bool loop,
+                                         bool anim,
+                                         uint16_t step,
+                                         uint16_t focus_col)
+{
+    if (table == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_table_data_t *data = airui_table_ensure_data(table);
+    if (data == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    switch (action) {
+    case AIRUI_TABLE_SCROLL_ACTION_START: {
+        uint32_t row_count = lv_table_get_row_count(table);
+        uint32_t col_count = lv_table_get_column_count(table);
+        if (row_count == 0 || col_count == 0) {
+            return AIRUI_ERR_INVALID_PARAM;
+        }
+
+        airui_table_marquee_scroll_stop_internal(table, false);
+
+        if (interval == 0) {
+            interval = 1500;
+        }
+        if (step == 0) {
+            step = 1;
+        }
+        if (focus_col >= col_count) {
+            focus_col = (uint16_t)(col_count - 1);
+        }
+
+        data->jump_scroll_interval = interval;
+        data->jump_scroll_loop = loop;
+        data->jump_scroll_anim = anim;
+        data->jump_scroll_step = step;
+        data->jump_scroll_focus_col = focus_col;
+        data->jump_scroll_current_row = 0;
+        data->jump_scroll_running = true;
+        data->jump_scroll_paused = false;
+
+        if (data->jump_scroll_timer == NULL) {
+            data->jump_scroll_timer = lv_timer_create(airui_table_jump_scroll_timer_cb, interval, table);
+            if (data->jump_scroll_timer == NULL) {
+                data->jump_scroll_running = false;
+                return AIRUI_ERR_NO_MEM;
+            }
+        }
+        else {
+            lv_timer_set_period(data->jump_scroll_timer, interval);
+            lv_timer_set_user_data(data->jump_scroll_timer, table);
+            lv_timer_resume(data->jump_scroll_timer);
+        }
+
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+        airui_table_jump_scroll_select_cell(table, 0, focus_col);
+        lv_timer_reset(data->jump_scroll_timer);
+        return AIRUI_OK;
+    }
+    case AIRUI_TABLE_SCROLL_ACTION_PAUSE:
+        if (data->jump_scroll_timer != NULL) {
+            lv_timer_pause(data->jump_scroll_timer);
+            data->jump_scroll_paused = true;
+        }
+        return AIRUI_OK;
+    case AIRUI_TABLE_SCROLL_ACTION_RESUME:
+        if (data->jump_scroll_timer != NULL) {
+            lv_timer_resume(data->jump_scroll_timer);
+            data->jump_scroll_running = true;
+            data->jump_scroll_paused = false;
+        }
+        return AIRUI_OK;
+    case AIRUI_TABLE_SCROLL_ACTION_STOP:
+        airui_table_jump_scroll_stop_internal(table, true);
+        return AIRUI_OK;
+    default:
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+}
+
+// 自动跑马灯滚动
+int airui_table_auto_marquee_scroll_control(lv_obj_t *table,
+                                            airui_table_scroll_action_t action,
+                                            uint32_t interval,
+                                            bool loop,
+                                            uint16_t speed)
+{
+    if (table == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    airui_table_data_t *data = airui_table_ensure_data(table);
+    if (data == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    switch (action) {
+    case AIRUI_TABLE_SCROLL_ACTION_START:
+        if (lv_table_get_row_count(table) == 0 || lv_table_get_column_count(table) == 0) {
+            return AIRUI_ERR_INVALID_PARAM;
+        }
+
+        airui_table_jump_scroll_stop_internal(table, false);
+
+        if (interval == 0) {
+            interval = 30;
+        }
+        if (speed == 0) {
+            speed = 1;
+        }
+
+        data->marquee_scroll_interval = interval;
+        data->marquee_scroll_speed = speed;
+        data->marquee_scroll_loop = loop;
+        data->marquee_scroll_running = true;
+        data->marquee_scroll_paused = false;
+
+        if (data->marquee_scroll_timer == NULL) {
+            data->marquee_scroll_timer = lv_timer_create(airui_table_marquee_scroll_timer_cb, interval, table);
+            if (data->marquee_scroll_timer == NULL) {
+                data->marquee_scroll_running = false;
+                return AIRUI_ERR_NO_MEM;
+            }
+        }
+        else {
+            lv_timer_set_period(data->marquee_scroll_timer, interval);
+            lv_timer_set_user_data(data->marquee_scroll_timer, table);
+            lv_timer_resume(data->marquee_scroll_timer);
+        }
+
+        lv_obj_stop_scroll_anim(table);
+        lv_obj_scroll_to_y(table, 0, LV_ANIM_OFF);
+        lv_timer_reset(data->marquee_scroll_timer);
+        return AIRUI_OK;
+    case AIRUI_TABLE_SCROLL_ACTION_PAUSE:
+        if (data->marquee_scroll_timer != NULL) {
+            lv_timer_pause(data->marquee_scroll_timer);
+            data->marquee_scroll_paused = true;
+        }
+        return AIRUI_OK;
+    case AIRUI_TABLE_SCROLL_ACTION_RESUME:
+        if (data->marquee_scroll_timer != NULL) {
+            lv_timer_resume(data->marquee_scroll_timer);
+            data->marquee_scroll_running = true;
+            data->marquee_scroll_paused = false;
+        }
+        return AIRUI_OK;
+    case AIRUI_TABLE_SCROLL_ACTION_STOP:
+        airui_table_marquee_scroll_stop_internal(table, true);
+        return AIRUI_OK;
+    default:
+        return AIRUI_ERR_INVALID_PARAM;
+    }
 }

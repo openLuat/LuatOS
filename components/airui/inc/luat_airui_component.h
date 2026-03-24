@@ -67,6 +67,14 @@ typedef enum {
     AIRUI_TABVIEW_PAD_MAX
 } airui_tabview_pad_method_t;
 
+/** Table 自动跳转 / 跑马灯滚动控制动作 */
+typedef enum {
+    AIRUI_TABLE_SCROLL_ACTION_START = 0,
+    AIRUI_TABLE_SCROLL_ACTION_PAUSE,
+    AIRUI_TABLE_SCROLL_ACTION_RESUME,
+    AIRUI_TABLE_SCROLL_ACTION_STOP,
+} airui_table_scroll_action_t;
+
 /** 事件类型 */
 typedef enum {
     AIRUI_EVENT_CLICKED = 0,
@@ -415,6 +423,21 @@ int airui_table_set_cell_text(lv_obj_t *table, uint16_t row, uint16_t col, const
 int airui_table_set_col_width(lv_obj_t *table, uint16_t col, lv_coord_t width); //调整列宽   
 int airui_table_set_row_height(lv_obj_t *table, uint16_t row, lv_coord_t height); //调整行高
 int airui_table_set_border_color(lv_obj_t *table, lv_color_t color); //设置边框颜色
+int airui_table_insert_row(lv_obj_t *table, uint16_t row); //插入空白行
+int airui_table_insert_col(lv_obj_t *table, uint16_t col); //插入空白列
+
+int airui_table_auto_jump_scroll_control(lv_obj_t *table,
+                                         airui_table_scroll_action_t action,
+                                         uint32_t interval,
+                                         bool loop,
+                                         bool anim,
+                                         uint16_t step,
+                                         uint16_t focus_col); //控制按行跳转滚动
+int airui_table_auto_marquee_scroll_control(lv_obj_t *table,
+                                            airui_table_scroll_action_t action,
+                                            uint32_t interval,
+                                            bool loop,
+                                            uint16_t speed); //控制跑马灯滚动
 
 /**
  * TabView 组件创建

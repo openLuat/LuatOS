@@ -13,8 +13,13 @@
 #include "../inc/luat_airui_component.h"
 #include "../inc/luat_airui_binding.h"
 
+#include <string.h>
+
 #define AIRUI_TABLE_MT "airui.table"
 
+static void airui_table_fill_row_from_lua(lua_State *L, lv_obj_t *table, int row, int idx);
+static void airui_table_fill_col_from_lua(lua_State *L, lv_obj_t *table, int col, int idx);
+static airui_table_scroll_action_t airui_table_parse_scroll_action(lua_State *L, int idx);
 
 /**
  * 创建 Table 组件
@@ -120,6 +125,168 @@ static int l_table_set_border_color(lua_State *L) {
 }
 
 /**
+ * Table:insert_row(row, row_data[, row_height])
+ * @api table:insert_row(row, row_data[, row_height])
+ * @int row 插入位置（从 0 开始）
+ * @table row_data 行数据，按 {"c0", "c1"} 传入
+ * @int row_height 可选行高（像素）
+ * @return nil
+ */
+static int l_table_insert_row(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    int row = luaL_checkinteger(L, 2);
+    if (row < 0) {
+        row = 0;
+    }
+    airui_table_insert_row(table, (uint16_t)row);
+
+    if (!lua_isnoneornil(L, 3)) {
+        luaL_checktype(L, 3, LUA_TTABLE);
+        airui_table_fill_row_from_lua(L, table, row, 3);
+    }
+
+    if (!lua_isnoneornil(L, 4)) {
+        int row_height = luaL_checkinteger(L, 4);
+        airui_table_set_row_height(table, (uint16_t)row, row_height);
+    }
+    return 0;
+}
+
+/**
+ * Table:insert_col(col, col_data[, col_width])
+ * @api table:insert_col(col, col_data[, col_width])
+ * @int col 插入位置（从 0 开始）
+ * @table col_data 列数据，按 {"r0", "r1"} 传入
+ * @int col_width 可选列宽（像素）
+ * @return nil
+ */
+static int l_table_insert_col(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    int col = luaL_checkinteger(L, 2);
+    if (col < 0) {
+        col = 0;
+    }
+    airui_table_insert_col(table, (uint16_t)col);
+
+    if (!lua_isnoneornil(L, 3)) {
+        luaL_checktype(L, 3, LUA_TTABLE);
+        airui_table_fill_col_from_lua(L, table, col, 3);
+    }
+
+    if (!lua_isnoneornil(L, 4)) {
+        int col_width = luaL_checkinteger(L, 4);
+        airui_table_set_col_width(table, (uint16_t)col, col_width);
+    }
+    return 0;
+}
+
+/**
+ * Table:auto_jump_scroll_control(config)
+ * @api table:auto_jump_scroll_control(config)
+ * @table config 控制配置
+ * @string config.action 控制动作，支持 start/pause/resume/stop
+ * @int config.interval start 时可选，滚动间隔（毫秒），默认 1500，表示每次跳转到下一批行之前的停留时间
+ * @boolean config.loop start 时可选，是否循环滚动，默认 true，true 表示滚动到最后一行后回到首行继续
+ * @boolean config.anim start 时可选，是否使用动画，默认 true，true 表示按行平滑滚动，false 表示直接跳转
+ * @int config.step start 时可选，每次前进的行数，默认 1，例如 1 表示逐行滚动，2 表示每次跳过 1 行
+ * @int config.focus_col start 时可选，自动滚动使用的焦点列，默认 0，滚动到目标行时会以该列单元格作为定位参考
+ * @return nil
+ */
+static int l_table_auto_jump_scroll_control(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    uint32_t interval = 1500;
+    bool loop = true;
+    bool anim = true;
+    uint16_t step = 1;
+    uint16_t focus_col = 0;
+
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "action");
+    airui_table_scroll_action_t action = airui_table_parse_scroll_action(L, -1);
+    lua_pop(L, 1);
+
+    if (action == AIRUI_TABLE_SCROLL_ACTION_START) {
+        lua_getfield(L, 2, "interval");
+        if (lua_isnumber(L, -1)) {
+            interval = (uint32_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "loop");
+        if (!lua_isnil(L, -1)) {
+            loop = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "anim");
+        if (!lua_isnil(L, -1)) {
+            anim = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "step");
+        if (lua_isnumber(L, -1)) {
+            step = (uint16_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "focus_col");
+        if (lua_isnumber(L, -1)) {
+            focus_col = (uint16_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+
+    airui_table_auto_jump_scroll_control(table, action, interval, loop, anim, step, focus_col);
+    return 0;
+}
+
+/**
+ * Table:auto_marquee_scroll_control(config)
+ * @api table:auto_marquee_scroll_control(config)
+ * @table config 控制配置
+ * @string config.action 控制动作，支持 start/pause/resume/stop
+ * @int config.interval start 时可选，滚动 tick 间隔（毫秒），默认 30，数值越小滚动更新越频繁
+ * @boolean config.loop start 时可选，是否循环滚动，默认 true，true 表示到底部后回到顶部继续跑马灯滚动
+ * @int config.speed start 时可选，每次 tick 的滚动像素，默认 1，数值越大滚动越快
+ * @return nil
+ */
+static int l_table_auto_marquee_scroll_control(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    uint32_t interval = 30;
+    bool loop = true;
+    uint16_t speed = 1;
+
+    luaL_checktype(L, 2, LUA_TTABLE);
+    lua_getfield(L, 2, "action");
+    airui_table_scroll_action_t action = airui_table_parse_scroll_action(L, -1);
+    lua_pop(L, 1);
+
+    if (action == AIRUI_TABLE_SCROLL_ACTION_START) {
+        lua_getfield(L, 2, "interval");
+        if (lua_isnumber(L, -1)) {
+            interval = (uint32_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "loop");
+        if (!lua_isnil(L, -1)) {
+            loop = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 2, "speed");
+        if (lua_isnumber(L, -1)) {
+            speed = (uint16_t)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+
+    airui_table_auto_marquee_scroll_control(table, action, interval, loop, speed);
+    return 0;
+}
+
+/**
  * Table:destroy()
  * @api table:destroy()
  * @return nil
@@ -137,6 +304,61 @@ static int l_table_destroy(lua_State *L) {
     return 0;
 }
 
+static void airui_table_fill_row_from_lua(lua_State *L, lv_obj_t *table, int row, int idx) {
+    if (!lua_istable(L, idx)) {
+        return;
+    }
+
+    size_t col_count = lua_rawlen(L, idx);
+    for (size_t col = 0; col < col_count; col++) {
+        lua_rawgeti(L, idx, (lua_Integer)(col + 1));
+        if (!lua_isnil(L, -1)) {
+            size_t text_len = 0;
+            const char *text = luaL_tolstring(L, -1, &text_len);
+            airui_table_set_cell_text(table, (uint16_t)row, (uint16_t)col, text ? text : "");
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+}
+
+static void airui_table_fill_col_from_lua(lua_State *L, lv_obj_t *table, int col, int idx) {
+    if (!lua_istable(L, idx)) {
+        return;
+    }
+
+    size_t row_count = lua_rawlen(L, idx);
+    for (size_t row = 0; row < row_count; row++) {
+        lua_rawgeti(L, idx, (lua_Integer)(row + 1));
+        if (!lua_isnil(L, -1)) {
+            size_t text_len = 0;
+            const char *text = luaL_tolstring(L, -1, &text_len);
+            airui_table_set_cell_text(table, (uint16_t)row, (uint16_t)col, text ? text : "");
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+}
+
+static airui_table_scroll_action_t airui_table_parse_scroll_action(lua_State *L, int idx) {
+    const char *action = luaL_checkstring(L, idx);
+    if (!strcmp(action, "start")) {
+        return AIRUI_TABLE_SCROLL_ACTION_START;
+    }
+    if (!strcmp(action, "pause")) {
+        return AIRUI_TABLE_SCROLL_ACTION_PAUSE;
+    }
+    if (!strcmp(action, "resume")) {
+        return AIRUI_TABLE_SCROLL_ACTION_RESUME;
+    }
+    if (!strcmp(action, "stop")) {
+        return AIRUI_TABLE_SCROLL_ACTION_STOP;
+    }
+
+    luaL_error(L, "unsupported auto_scroll action: %s", action);
+    return AIRUI_TABLE_SCROLL_ACTION_STOP;
+}
+
 void airui_register_table_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_TABLE_MT);
     static const luaL_Reg methods[] = {
@@ -144,6 +366,10 @@ void airui_register_table_meta(lua_State *L) {
         {"set_col_width", l_table_set_col_width},
         {"set_row_height", l_table_set_row_height},
         {"set_border_color", l_table_set_border_color},
+        {"insert_row", l_table_insert_row},
+        {"insert_col", l_table_insert_col},
+        {"auto_jump_scroll_control", l_table_auto_jump_scroll_control},
+        {"auto_marquee_scroll_control", l_table_auto_marquee_scroll_control},
         {"destroy", l_table_destroy},
         {NULL, NULL}
     };

@@ -5,7 +5,7 @@
  */
 
 #include "luat_airui.h"
-#include <stdlib.h>
+#include "luat_malloc.h"
 #include <string.h>
 
 /**
@@ -37,14 +37,33 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
     // 扩展数组容量
     if (buf_mgr->count >= buf_mgr->capacity) {
         size_t new_capacity = buf_mgr->capacity == 0 ? 4 : buf_mgr->capacity * 2;
-        void **new_buffers = realloc(buf_mgr->buffers, new_capacity * sizeof(void *));
-        size_t *new_sizes = realloc(buf_mgr->sizes, new_capacity * sizeof(size_t));
-        airui_buffer_owner_t *new_owners = realloc(buf_mgr->owners, new_capacity * sizeof(airui_buffer_owner_t));
-        
+        void **new_buffers = luat_heap_malloc(new_capacity * sizeof(void *));
+        size_t *new_sizes = luat_heap_malloc(new_capacity * sizeof(size_t));
+        airui_buffer_owner_t *new_owners = luat_heap_malloc(new_capacity * sizeof(airui_buffer_owner_t));
+
         if (new_buffers == NULL || new_sizes == NULL || new_owners == NULL) {
+            if (new_buffers != NULL) {
+                luat_heap_free(new_buffers);
+            }
+            if (new_sizes != NULL) {
+                luat_heap_free(new_sizes);
+            }
+            if (new_owners != NULL) {
+                luat_heap_free(new_owners);
+            }
             return NULL;
         }
-        
+
+        if (buf_mgr->count > 0) {
+            memcpy(new_buffers, buf_mgr->buffers, buf_mgr->count * sizeof(void *));
+            memcpy(new_sizes, buf_mgr->sizes, buf_mgr->count * sizeof(size_t));
+            memcpy(new_owners, buf_mgr->owners, buf_mgr->count * sizeof(airui_buffer_owner_t));
+        }
+
+        luat_heap_free(buf_mgr->buffers);
+        luat_heap_free(buf_mgr->sizes);
+        luat_heap_free(buf_mgr->owners);
+
         buf_mgr->buffers = new_buffers;
         buf_mgr->sizes = new_sizes;
         buf_mgr->owners = new_owners;
@@ -54,11 +73,9 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
     // 分配缓冲
     void *buffer = NULL;
     if (owner == AIRUI_BUFFER_OWNER_SYSTEM) {
-        buffer = malloc(size);
+        buffer = luat_heap_malloc(size);
     } else if (owner == AIRUI_BUFFER_OWNER_LUA) {
-        // TODO: 使用 Lua heap 分配（luat_heap_alloc）
-        // 阶段一先使用系统 heap
-        buffer = malloc(size);
+        buffer = luat_heap_malloc(size);
     }
     
     if (buffer == NULL) {
@@ -90,7 +107,7 @@ void airui_buffer_free(airui_ctx_t *ctx, void *buffer)
         if (buf_mgr->buffers[i] == buffer) {
             if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_SYSTEM ||
                 buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_LUA) {
-                free(buf_mgr->buffers[i]);
+                luat_heap_free(buf_mgr->buffers[i]);
             }
 
             buf_mgr->buffers[i] = buf_mgr->buffers[buf_mgr->count - 1];
@@ -108,7 +125,7 @@ void airui_buffer_free(airui_ctx_t *ctx, void *buffer)
  */
 airui_buffer_t *airui_buffer_create(void)
 {
-    airui_buffer_t *buf_mgr = malloc(sizeof(airui_buffer_t));
+    airui_buffer_t *buf_mgr = luat_heap_malloc(sizeof(airui_buffer_t));
     if (buf_mgr == NULL) {
         return NULL;
     }
@@ -135,22 +152,20 @@ void airui_buffer_free_all(airui_ctx_t *ctx)
     for (size_t i = 0; i < buf_mgr->count; i++) {
         if (buf_mgr->buffers[i] != NULL) {
             if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_SYSTEM) {
-                free(buf_mgr->buffers[i]);
+                luat_heap_free(buf_mgr->buffers[i]);
             } else if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_LUA) {
-                // TODO: 使用 Lua heap 释放（luat_heap_free）
-                // 阶段一先使用系统 heap
-                free(buf_mgr->buffers[i]);
+                luat_heap_free(buf_mgr->buffers[i]);
             }
         }
     }
     
     // 释放数组
-    free(buf_mgr->buffers);
-    free(buf_mgr->sizes);
-    free(buf_mgr->owners);
+    luat_heap_free(buf_mgr->buffers);
+    luat_heap_free(buf_mgr->sizes);
+    luat_heap_free(buf_mgr->owners);
     
     // 释放管理器
-    free(buf_mgr);
+    luat_heap_free(buf_mgr);
     ctx->buffer = NULL;
 }
 

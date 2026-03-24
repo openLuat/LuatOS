@@ -1,0 +1,138 @@
+#include "luat_base.h"
+#include "luat_lcd.h"
+
+#define LUAT_LOG_TAG "nv3041a"
+#include "luat_log.h"
+
+static const uint16_t nv3041a_init_cmds[] = {
+    0x02FF, 0x03A5,
+    0x02E7, 0x0310,  // TE_output_en
+    0x0235, 0x0301,  // TE_ interface_en 01
+    // 0x0236, 0x03C0,
+    0x023A, 0x0301,  // 01---565，00---666
+    0x0240, 0x0301,  // 01:IPS/00:TN 
+    0x0241, 0x0303,  // 01--8bit, 03-16bit
+    0x0244, 0x0315,  // VBP 21
+    0x0245, 0x0315,  // VFP 21
+    0x027D, 0x0303,  // vdds_trim[2:0]
+    0x02C1, 0x03BB,  // avdd_clp_en avdd_clp[1:0] avcl_clp_en avcl_clp[1:0]  0xbb	 88		  a2
+    0x02C2, 0x0305,  // vgl_clp_en vgl_clp[2:0]	
+    0x02C3, 0x0310,  // vgl_clp_en vgl_clp[2:0]	
+    0x02C6, 0x033E,  // avdd_ratio_sel avcl_ratio_sel vgh_ratio_sel[1:0] vgl_ratio_sel[1:0]	35	      
+    0x02C7, 0x0325,  // mv_clk_sel[1:0] avdd_clk_sel[1:0] avcl_clk_sel[1:0]	   2e
+    0x02C8, 0x0311,  // VGL_CLK_sel
+    0x027A, 0x035F,  // user_vgsp  4f:0.8V		3f:1.04V	5f
+    0x026F, 0x0344,  // user_gvdd  1C:5.61	  5f	 53		   2a	    3a
+    0x0278, 0x0370,  // user_gvcl  50:-3.22	  75			58	     	66	
+    0x02C9, 0x0300, 
+    0x0267, 0x0321, 
+
+    // gate_ed
+    0x0251, 0x030A,  // gate_st_o[7:0]       
+    0x0252, 0x0376,  // gate_ed_o[7:0]     76
+    0x0253, 0x030A,  // gate_st_e[7:0]     76
+    0x0254, 0x0376,  // gate_ed_e[7:0]
+    // sorce
+    0x0246, 0x030A,  // fsm_hbp_o[5:0]
+    0x0247, 0x032A,  // fsm_hfp_o[5:0]
+    0x0248, 0x030A,  // fsm_hbp_e[5:0]
+    0x0249, 0x031A,  // fsm_hfp_e[5:0]
+    0x0256, 0x0343,  // src_ld_wd[1:0] src_ld_st[5:0]
+    0x0257, 0x0342,  // pn_cs_en src_cs_st[5:0]
+    0x0258, 0x033C,  // src_cs_p_wd[6:0]
+    0x0259, 0x0364,  // src_cs_n_wd[6:0]
+    0x025A, 0x0341,  // src_pchg_st_o[6:0] 41
+    0x025B, 0x033C,  // src_pchg_wd_o[6:0]
+    0x025C, 0x0302,  // src_pchg_st_e[6:0] 02
+    0x025D, 0x033C,  // src_pchg_wd_e[6:0] 3c
+    0x025E, 0x031F,  // src_pol_sw[7:0]
+    0x0260, 0x0380,  // src_op_st_o[7:0]
+    0x0261, 0x033F,  // src_op_st_e[7:0]
+    0x0262, 0x0321,  // src_op_ed_o[9:8] src_op_ed_e[9:8]
+    0x0263, 0x0307,  // src_op_ed_o[7:0]
+    0x0264, 0x03E0,  // src_op_ed_e[7:0]
+    0x0265, 0x0302,  // chopper
+    0x02CA, 0x0320,  // avdd_mux_st_o[7:0]
+    0x02CB, 0x0352,  // avdd_mux_ed_o[7:0]
+    0x02CC, 0x0310,  // avdd_mux_st_e[7:0]
+    0x02CD, 0x0342,  // avdd_mux_ed_e[7:0]
+    0x02D0, 0x0320,  // avcl_mux_st_o[7:0]
+    0x02D1, 0x0352,  // avcl_mux_ed_o[7:0]
+    0x02D2, 0x0310,  // avcl_mux_st_e[7:0]
+    0x02D3, 0x0342,  // avcl_mux_ed_e[7:0]
+    0x02D4, 0x030A,  // vgh_mux_st[7:0]
+    0x02D5, 0x0332,  // vgh_mux_ed[7:0]
+    // test mode
+    0x02F8, 0x0303,
+    0x02F9, 0x0320,
+    // 2-1
+    // gammma  weihuan pianguangpian 0913
+    0x0280, 0x0300,
+    0x02A0, 0x0300,
+    0x0281, 0x0305,
+    0x02A1, 0x0305,
+
+    0x0282, 0x0304,
+    0x02A2, 0x0303,
+    0x0286, 0x0325,
+    0x02A6, 0x031C,
+
+    0x0287, 0x032A,
+    0x02A7, 0x032A,
+    0x0283, 0x031D,
+    0x02A3, 0x031D,
+
+    0x0284, 0x031E,
+    0x02A4, 0x031E,
+
+    0x0285, 0x033F,
+    0x02A5, 0x033F,
+
+    0x0288, 0x030B,
+    0x02A8, 0x030B,
+
+    0x0289, 0x0314,
+    0x02A9, 0x0313,
+
+    0x028A, 0x031A,
+    0x02AA, 0x031A,
+
+    0x028B, 0x030A,
+    0x02AB, 0x030A,
+
+    0x028C, 0x031C,
+    0x02AC, 0x030C,
+
+    0x028D, 0x031F,
+    0x02AD, 0x030B,
+
+    0x028E, 0x031F,
+    0x02AE, 0x030A,
+
+    0x028F, 0x031F,
+    0x02AF, 0x0307,
+
+    0x0290, 0x0306,
+    0x02B0, 0x0306,
+
+    0x0291, 0x030D,
+    0x02B1, 0x030D,
+
+    0x0292, 0x0317,
+    0x02B2, 0x0317,
+
+    0x02FF, 0x0300,
+
+};
+
+luat_lcd_opts_t lcd_opts_nv3041a = {
+    .name = "nv3041a",
+    .init_cmds_len = sizeof(nv3041a_init_cmds)/sizeof(nv3041a_init_cmds[0]),
+    .init_cmds = nv3041a_init_cmds,
+    .direction0 = 0xC0,
+    .direction90 = 0x70,
+    .direction180 = 0x00,
+    .direction270 = 0xA0,
+	.rb_swap = 1,
+};
+

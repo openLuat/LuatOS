@@ -238,6 +238,8 @@ local FIELD_MEANINGS = {
     NETWORK_TYPE                 = 781, -- 当前联网方式
     SIGNAL_STRENGTH_4G           = 782, --4G信号强度
     SIM_ICCID                    = 783, -- SIM卡ICCID
+    DEVICE_ID                    = 798, -- 设备号（4G模块使用IMEI，WiFi/蓝牙模块使用MAC地址）
+    VOLTAGE                      = 799, -- 电压
 
     -- 文件上传业务字段 (784-787)
     FILE_UPLOAD_TYPE             = 784, -- 文件上传类型（1:图片, 2:音频）

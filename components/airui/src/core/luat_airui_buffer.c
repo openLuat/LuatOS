@@ -8,6 +8,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "luat_mem.h"
+
+static inline void *airui_malloc(size_t size)
+{
+    return luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, size);
+}
+
+static inline void airui_free(void *ptr)
+{
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, ptr);
+}
+
+static inline void *airui_realloc(void *ptr, size_t new_size)
+{
+    return luat_heap_opt_realloc(LUAT_HEAP_PSRAM, ptr, new_size);
+}
+
+#undef malloc
+#undef free
+#undef realloc
+#define malloc airui_malloc
+#define free airui_free
+#define realloc airui_realloc
+
 /**
  * 缓冲管理器
  */

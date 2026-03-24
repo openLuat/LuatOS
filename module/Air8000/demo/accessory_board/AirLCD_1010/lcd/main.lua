@@ -82,13 +82,11 @@ tp_drv = require "tp_drv"
 -- tp_drv = require "extp_drv"
 
 
--- 加载字库驱动管理功能模块，有以下三种：
--- 1、使用gtfont核心库驱动AirFONTS_1000矢量字库配件板的gtfont_drv.lua
--- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hzfont_drv.lua（正在开发中，后续补充）
--- 3、使用自定义字体
--- 根据自己的需求，启用三者中的任何几种都可以
+-- 加载字库驱动管理功能模块，有以下两种：
+-- 1、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hzfont_drv.lua（正在开发中，后续补充）
+-- 2、使用自定义字体
+-- 根据自己的需求，启用两者中的任何几种都可以
 -- 也可以不启用任何一种，只使用内核固件中自带的点阵字库
-require "gtfont_drv"
 -- require "hzfont_drv"
 -- 使用外部自定义字体不需要require "customer_font_drv"，可以参照customer_font_drv.lua内的使用说明进行创建和加载字体文件
 
@@ -99,7 +97,7 @@ require "gtfont_drv"
 
 -- 加载lcd核心库实现的用户界面功能模块
 -- 实现多页面切换、触摸事件分发和界面渲染功能
--- 包含主页、lcd核心库功能演示页、GTFont演示页和自定义字体演示页
+-- 包含主页、lcd核心库功能演示页和自定义字体演示页
 require "ui_main"
 
 

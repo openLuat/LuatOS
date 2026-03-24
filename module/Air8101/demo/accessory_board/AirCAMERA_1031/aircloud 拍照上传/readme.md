@@ -1,8 +1,8 @@
-# AirCAMERA_1030 DEMO
+# AirCAMERA_1031 DEMO
 
 ## 演示功能概述
 
-本示例主要是展示 AirCAMERA_1030 的使用，本地拍摄照片或者视频录制后通过 httpplus 扩展库将图片或者视频上传至 aircloud平台
+本示例主要是展示 AirCAMERA_1031 的使用，本地拍摄照片或者视频录制后通过 httpplus 扩展库将图片或者视频上传至 aircloud平台
 
 1、main.lua：主程序入口
 
@@ -30,7 +30,7 @@
 ### 3、拍照上传核心业务模块（http_upload_file.lua）
 
 - 订阅 IP_READY 信息，确认联网后执行拍照上传任务
-- 每 10 秒触发一次拍照：AirCAMERA_1030_func()
+- 每 10 秒触发一次拍照：AirCAMERA_1031_func()
 - 每 10 秒打印一次系统和 LUA 的内存信息：memory_check()
 - 配置摄像头信息表：usb_camera_param
 - 初始化摄像头：excamera.open()
@@ -46,9 +46,9 @@
 
 2、TYPE-C USB 数据线一根
 
-3、合宙标准配件 AirCAMERA_1030 一块
+3、合宙标准配件 AirCAMERA_1031 一块
 
-4、Air8101 核心板和合宙标准配件 AirCAMERA_1030 的硬件接线方式为
+4、Air8101 核心板和合宙标准配件 AirCAMERA_1031 的硬件接线方式为
 
 Air8101 核心板通过 TYPE-C USB 口供电；（背面功耗测试开关拨到 OFF）
 
@@ -56,7 +56,7 @@ Air8101 核心板正面的 5V/3.3V 拨动开关，拨到5V的一端
 
 TYPE-C USB 数据线直接插到核心板的 TYPE-C USB 座子，另外一端连接电脑 USB 口；
 
-AirCAMERA_1030 配件板 + Air8101 核心板，硬件连接示意图：
+AirCAMERA_1031 配件板 + Air8101 核心板，硬件连接示意图：
 
 单路摄像头链接方式
 

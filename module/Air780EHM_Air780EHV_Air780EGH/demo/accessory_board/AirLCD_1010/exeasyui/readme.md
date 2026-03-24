@@ -125,12 +125,12 @@
 -- 必须加载才能启用exeasyui的功能
 ui = require("exeasyui")
 
--- 加载lcd、tp和字库驱动管理功能模块，有以下四种：
+-- 加载lcd、tp和字库驱动管理功能模块，有以下三种：
 -- 1、使用lcd内核固件中自带的12号中文字体的hw_default_font_drv，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
 -- 2、使用hzfont核心库驱动内核固件中支持的软件矢量字库的hw_hzfont_drv.lua，并按lcd显示驱动配置和tp触摸驱动配置进行初始化
 -- 3、使用自定义字体的hw_customer_font_drv（目前开发中）
 -- 最新情况可查看模组选型手册中对应型号的固件列表内，支持的核心库是否包含lcd、tp、12号中文、hzfont，链接https://docs.openluat.com/air780epm/common/product/
--- 目前exeasyui V1.7.0版本支持使用已经实现的四种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
+-- 目前exeasyui V1.7.0版本支持使用已经实现的三种功能中的一种进行初始化，同时支持多种字体初始化功能正在开发中
 require("hw_default_font_drv")
 -- require("hw_hzfont_drv")
 -- require("hw_customer_font_drv")开发中

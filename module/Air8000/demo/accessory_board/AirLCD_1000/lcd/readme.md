@@ -41,9 +41,10 @@
 <tr>
 <td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHV_AirLCD_1000_AirFONTS_1000演示主页.png" width="80" /><br/></td>
 <td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示2.png" width="80" /><br/></td>
-<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD演示5.jpg" width="80" /><br/></td>
+<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHMLCD2.png" width="80" /><br/></td>
 </tr>
 </table>
+
 
 
 

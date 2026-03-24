@@ -16,12 +16,44 @@
 #define LUAT_LOG_TAG "codec"
 #include "luat_log.h"
 
+extern const luat_codec_opts_t mp3_codec_opts;
+extern const luat_codec_opts_t wav_codec_opts;
+#ifdef LUAT_USE_AUDIO_G711
+extern const luat_codec_opts_t g711_codec_opts;
+#endif
+#ifdef LUAT_SUPPORT_AMR
+extern const luat_codec_opts_t amr_codec_opts;
+#endif
+#ifdef LUAT_SUPPORT_OPUS
+extern const luat_codec_opts_t opus_codec_opts;
+#endif
+
+static const luat_codec_opts_t* const codec_opts_table[] = {
+    [LUAT_MULTIMEDIA_DATA_TYPE_MP3]       = &mp3_codec_opts,
+    [LUAT_MULTIMEDIA_DATA_TYPE_WAV]       = &wav_codec_opts,
+#ifdef LUAT_SUPPORT_AMR
+    [LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB]    = &amr_codec_opts,
+    [LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB]    = &amr_codec_opts,
+#endif
+#ifdef LUAT_USE_AUDIO_G711
+    [LUAT_MULTIMEDIA_DATA_TYPE_ULAW]      = &g711_codec_opts,
+    [LUAT_MULTIMEDIA_DATA_TYPE_ALAW]      = &g711_codec_opts,
+#endif
+#ifdef LUAT_SUPPORT_OPUS
+    [LUAT_MULTIMEDIA_DATA_TYPE_OPUS]      = &opus_codec_opts,
+#endif
+    [LUAT_MULTIMEDIA_DATA_TYPE_OGG]       = NULL,
+    [LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS]  = NULL,
+};
+
+#define CODEC_OPTS_TABLE_SIZE (sizeof(codec_opts_table) / sizeof(codec_opts_table[0]))
+
 #ifdef LUAT_SUPPORT_AMR
 #include "interf_enc.h"
 #include "interf_dec.h"
 #include "dec_if.h"
 static const uint8_t  amr_nb_byte_len[16] = {12, 13, 15, 17, 19, 20, 26, 31, 5, 0, 0, 0, 0, 0, 0, 0};
-static const uint8_t  amr_wb_byte_len[16] = {17, 23, 32, 36, 40, 46, 50, 58, 60, 5,0, 0, 0, 0, 0, 0};
+static const uint8_t  amr_wb_byte_len[16] = {17, 23, 32, 36, 40, 46, 50, 58, 60, 5, 0, 0, 0, 0, 0, 0};
 typedef void (*amr_decode_fun_t)(void* state, const unsigned char* in, short* out, int bfi);
 #endif
 
@@ -42,6 +74,14 @@ typedef void (*amr_decode_fun_t)(void* state, const unsigned char* in, short* ou
 #ifndef MINIMP3_MAX_SAMPLES_PER_FRAME
 #define MINIMP3_MAX_SAMPLES_PER_FRAME (2*1152)
 #endif
+
+const luat_codec_opts_t* luat_codec_get_ops(uint8_t type) {
+    if (type < CODEC_OPTS_TABLE_SIZE) {
+        return codec_opts_table[type];
+    }
+    return NULL;
+}
+
 /**
 创建编解码用的codec
 @api codec.create(type, isDecoder, quality)
@@ -66,330 +106,109 @@ local encoder = codec.create(codec.AMR_WB, false, 8)--创建一个amr-wb的encod
 static int l_codec_create(lua_State *L) {
     uint8_t type = luaL_optinteger(L, 1, LUAT_MULTIMEDIA_DATA_TYPE_MP3);
     uint8_t is_decoder = 1;
+    int encode_level = 7;  // 编码等级，AMR-NB默认7，AMR-WB默认8
+
     if (lua_isboolean(L, 2)) {
-    	is_decoder = lua_toboolean(L, 2);
+        is_decoder = lua_toboolean(L, 2);
     }
+
 #ifdef LUAT_SUPPORT_AMR
 #ifdef LUAT_USE_INTER_AMR
-	uint8_t encode_level = 7;
-	switch (type) {
-		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-			encode_level = luaL_optinteger(L, 3, 7);
-			break;
-		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-			encode_level = luaL_optinteger(L, 3, 8);
-			break;
-		default:
-			break;
-	}
+    switch (type) {
+        case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+            encode_level = luaL_optinteger(L, 3, 7);
+            break;
+        case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+            encode_level = luaL_optinteger(L, 3, 8);
+            break;
+        default:
+            break;
+    }
 #endif
 #endif
 
     luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_newuserdata(L, sizeof(luat_multimedia_codec_t));
     if (coder == NULL) {
-    	lua_pushnil(L);
-    } else {
-    	memset(coder, 0, sizeof(luat_multimedia_codec_t));
-    	coder->type = type;
-    	coder->is_decoder = is_decoder;
-        if (lua_istable(L, 3)) {
-            lua_pushstring(L, "num_channels");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                coder->num_channels = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "sample_rate");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                coder->sample_rate = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "bits_per_sample");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                coder->bits_per_sample = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-        }
-        if (coder->sample_rate == 0){
-            coder->sample_rate = 16000;
-        }
-        if (coder->num_channels == 0){
-            coder->num_channels = 1;
-        }
-        if (coder->bits_per_sample == 0){
-            coder->bits_per_sample = 16;
-        }
-
-    	if (is_decoder)
-    	{
-        	switch (type) {
-        	case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
-            	coder->mp3_decoder = mp3_decoder_create();
-            	if (!coder->mp3_decoder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
-#ifdef LUAT_SUPPORT_AMR
-        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-        		coder->amr_coder = Decoder_Interface_init();
-            	if (!coder->amr_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-         		break;
-         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-        		coder->amr_coder = D_IF_init();
-            	if (!coder->amr_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-             	break;
-#endif
-#ifdef LUAT_USE_AUDIO_G711
-         	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
-         	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
-             	// 使用专门的g711_codec字段存储G711解码器
-             	coder->g711_codec = g711_decoder_create(type);
-             	if (!coder->g711_codec) {
-             		lua_pushnil(L);
-             		return 1;
-             	}
-             	break;
- #endif
-#ifdef LUAT_SUPPORT_OPUS
-        	// case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
-            //     coder->opus_coder = luat_ogg_opus_decoder_create(type);
-            // 	if (!coder->opus_coder) {
-            // 		lua_pushnil(L);
-            // 		return 1;
-            // 	}
-            // 	break;
-        	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
-                int ret  = luat_opus_decoder_create(coder);
-            	if (ret) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
-            }
-#endif
-        	}
-    	}
-    	else
-    	{
-        	switch (type) {
-#ifdef LUAT_SUPPORT_AMR
-#ifdef LUAT_USE_INTER_AMR
-        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-            	coder->amr_coder = luat_audio_inter_amr_coder_init(0, encode_level);
-            	if (!coder->amr_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
-        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-        		coder->amr_coder = luat_audio_inter_amr_coder_init(1, encode_level);
-            	if (!coder->amr_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
-#else
-        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-            	coder->amr_coder = Encoder_Interface_init(0);
-            	if (!coder->amr_coder) {
-            		lua_pushnil(L);
-            		return 1;
-            	}
-            	break;
-#endif
-#endif
-#ifdef LUAT_USE_AUDIO_G711
-         	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
-         	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
-             	// 使用专门的g711_codec字段存储G711编码器
-             	coder->g711_codec = g711_encoder_create(type);
-             	if (!coder->g711_codec) {
-             		lua_pushnil(L);
-             		return 1;
-             	}
-             	break;
-#endif
-#ifdef LUAT_SUPPORT_OPUS
-        	// case LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS:
-            // 	int ret = luat_ogg_opus_encoder_create(coder);
-            //     if (ret) {
-            //         lua_pushnil(L);
-            //         return 1;
-            //     }
-            //     break;
-            case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
-                int ret = luat_opus_encoder_create(coder);
-                if (ret) {
-                    lua_pushnil(L);
-                    return 1;
-                }
-                break;
-            }
-#endif
-        	default:
-        		lua_pushnil(L);
-        		return 1;
-        	}
-    	}
-    	luaL_setmetatable(L, LUAT_M_CODE_TYPE);
+        lua_pushnil(L);
+        return 1;
     }
+
+    memset(coder, 0, sizeof(luat_multimedia_codec_t));
+    coder->type = type;
+    coder->is_decoder = is_decoder;
+    coder->encode_level = encode_level;
+
+    if (lua_istable(L, 3)) {
+        lua_pushstring(L, "num_channels");
+        if (LUA_TNUMBER == lua_gettable(L, 3)) {
+            coder->num_channels = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "sample_rate");
+        if (LUA_TNUMBER == lua_gettable(L, 3)) {
+            coder->sample_rate = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "bits_per_sample");
+        if (LUA_TNUMBER == lua_gettable(L, 3)) {
+            coder->bits_per_sample = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+
+    if (coder->sample_rate == 0) coder->sample_rate = 16000;
+    if (coder->num_channels == 0) coder->num_channels = 1;
+    if (coder->bits_per_sample == 0) coder->bits_per_sample = 16;
+
+    const luat_codec_opts_t* opts = luat_codec_get_ops(type);
+    if (opts && opts->create) {
+        coder->ops = opts;
+        coder->ctx = opts->create(coder);
+        if (!coder->ctx) {
+            LLOGE("codec create failed for type %d", type);
+            lua_pushnil(L);
+            return 1;
+        }
+    } else {
+        LLOGE("no codec available for type %d", type);
+        lua_pushnil(L);
+        return 1;
+    }
+
+    luaL_setmetatable(L, LUAT_M_CODE_TYPE);
     return 1;
 }
 
 int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *coder){
-	uint32_t jump, i;
-	uint8_t temp[32];
-	int result = 0;
+    int result = 0;
     coder->is_signed = 1;
     coder->bits_per_sample = 16;
 
-	uint32_t align;
-    size_t len;
     FILE *fd = luat_fs_fopen(file_path, "r");
-    if (fd && coder){
-		switch(coder->type){
-		case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
-			mp3_decoder_init(coder->mp3_decoder);
-			coder->buff.addr = luat_heap_malloc(MP3_FRAME_LEN);
-
-			coder->buff.len = MP3_FRAME_LEN;
-			coder->buff.used = luat_fs_fread(temp, 10, 1, fd);
-			if (coder->buff.used != 10){
-				break;
-			}
-			if (!memcmp(temp, "ID3", 3)){
-				jump = 0;
-				for(i = 0; i < 4; i++)
-				{
-					jump <<= 7;
-					jump |= temp[6 + i] & 0x7f;
-				}
-//				LLOGD("jump head %d", jump);
-				luat_fs_fseek(fd, jump, SEEK_SET);
-
-			}
-			coder->buff.used = luat_fs_fread(coder->buff.addr, MP3_FRAME_LEN, 1, fd);
-			result = mp3_decoder_get_info(coder->mp3_decoder, coder->buff.addr, coder->buff.used, &coder->sample_rate, &coder->num_channels);
-			mp3_decoder_init(coder->mp3_decoder);
-			coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-			break;
-		case LUAT_MULTIMEDIA_DATA_TYPE_WAV:
-			luat_fs_fread(temp, 12, 1, fd);
-			if (!memcmp(temp, "RIFF", 4) || !memcmp(temp + 8, "WAVE", 4)){
-				luat_fs_fread(temp, 8, 1, fd);
-				if (!memcmp(temp, "fmt ", 4)){
-					memcpy(&len, temp + 4, 4);
-					coder->buff.addr = luat_heap_malloc(len);
-					luat_fs_fread(coder->buff.addr, len, 1, fd);
-					coder->audio_format = coder->buff.addr[0];
-					coder->num_channels = coder->buff.addr[2];
-					memcpy(&coder->sample_rate, coder->buff.addr + 4, 4);
-					align = coder->buff.addr[12];
-					coder->bits_per_sample = coder->buff.addr[14];
-					coder->read_len = (align * coder->sample_rate >> 3) & ~(3);
-//					LLOGD("size %d", coder->read_len);
-					luat_heap_free(coder->buff.addr);
-					coder->buff.addr = NULL;
-					luat_fs_fread(temp, 8, 1, fd);
-					if (!memcmp(temp, "fact", 4)){
-						memcpy(&len, temp + 4, 4);
-						luat_fs_fseek(fd, len, SEEK_CUR);
-						luat_fs_fread(temp, 8, 1, fd);
-					}
-					if (!memcmp(temp, "data", 4)){
-						result = 1;
-					}else{
-						LLOGD("no data");
-						result = 0;
-					}
-				}else{
-					LLOGD("no fmt");
-				}
-			}else{
-				LLOGD("head error");
-			}
-			break;
-#ifdef LUAT_SUPPORT_AMR
-		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-			luat_fs_fread(temp, 6, 1, fd);
-			if (!memcmp(temp, "#!AMR\n", 6)){
-				coder->buff.addr = luat_heap_malloc(320);
-				if (coder->buff.addr){
-					coder->num_channels = 1;
-					coder->sample_rate = 8000;
-					coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-					result = 1;
-				}
-			}else{
-				result = 0;
-			}
-			break;
-		case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-			luat_fs_fread(temp, 9, 1, fd);
-			if (!memcmp(temp, "#!AMR-WB\n", 9)){
-				coder->buff.addr = luat_heap_malloc(640);
-				if (coder->buff.addr){
-					coder->num_channels = 1;
-					coder->sample_rate = 16000;
-					coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-					result = 1;
-				}
-			}else{
-				result = 0;
-			}
-			break;
-#endif
-#ifdef LUAT_USE_AUDIO_G711
-		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
-		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
-			// G711固定参数：8kHz采样率, 单声道, 8位深度
-			coder->sample_rate = 8000;
-			coder->num_channels = 1;
-			coder->bits_per_sample = 8;
-			coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-			result = 1;
-			break;
-#endif
-#ifdef LUAT_SUPPORT_OPUS
-        // case LUAT_MULTIMEDIA_DATA_TYPE_OGG:
-        //     luat_fs_fread(temp, 28, 1, fd);
-        //     if (!memcmp(temp, "OggS", 4)){
-        //         luat_fs_fread(temp, 19, 1, fd);
-        //         coder->num_channels = temp[9];
-        //         coder->sample_rate = *(uint32_t*)&temp[12];
-        //         coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-        //         result = 1;
-		// 	} else {
-		// 		result = 0;
-		// 	}
-        //     result = 1;
-        //     break;
-        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
-            // OPUS 不定长,分配 3*1276 最大packet size
-            coder->buff.addr = luat_heap_malloc(OPUS_MAX_PACKET_SIZE);
-            if (coder->buff.addr){
-                coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-                result = 1;
-            }
-#endif
-		default:
-			break;
-		}
+    if (!fd || !coder) {
+        return 0;
     }
+
+    if (coder->ops && coder->ops->get_info) {
+        audio_info_t info = {0};
+        result = coder->ops->get_info(coder, fd, &info);
+        if (result) {
+            coder->audio_format = info.audio_format;
+            coder->num_channels = info.num_channels;
+            coder->sample_rate = info.sample_rate;
+            coder->bits_per_sample = info.bits_per_sample;
+            coder->is_signed = info.is_signed;
+        }
+    }
+
     if (!result){
-    	luat_fs_fclose(fd);
-    }else{
-    	coder->fd = fd;
+        luat_fs_fclose(fd);
+    } else {
+        coder->fd = fd;
     }
-	return result;
+    return result;
 }
 
 /**
@@ -436,218 +255,24 @@ local buff = zbuff.create(8*1024)
 local result = codec.data(coder, buff, 4096)
  */
 static int l_codec_get_audio_data(lua_State *L) {
-	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
-#ifdef LUAT_SUPPORT_AMR
-	amr_decode_fun_t decode_if;
-	uint32_t frame_len;
-	uint8_t *size_table;
-	uint8_t size;
-	uint8_t temp[64];
-#endif
-	uint32_t pos = 0;
-	int read_len;
-	int result = 0;
-	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-	uint32_t is_not_end = 1;
-	uint32_t hz, out_len, used;
-	size_t mini_output = luaL_optinteger(L, 3, 16384);
-	if (mini_output > 16384)
-		mini_output = 16384;
-	else if (mini_output < 4 * 1024)
-		mini_output = 4 * 1024;
-	out_buff->used = 0;
+    luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
+    luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    size_t mini_output = luaL_optinteger(L, 3, 16384);
 
-	if (coder)
-    {
-		switch(coder->type)
-		{
-		case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
-GET_MP3_DATA:
-			if (coder->buff.used < MINIMP3_MAX_SAMPLES_PER_FRAME)
-			{
-				read_len = luat_fs_fread((void*)(coder->buff.addr + coder->buff.used), MINIMP3_MAX_SAMPLES_PER_FRAME, 1, coder->fd);
-				if (read_len > 0)
-				{
-					coder->buff.used += read_len;
-				}
-				else
-				{
-					is_not_end = 0;
-				}
-			}
-			do
-			{
-				result = mp3_decoder_get_data(coder->mp3_decoder, coder->buff.addr + pos, coder->buff.used - pos, out_buff->addr + out_buff->used, &out_len, &hz, &used);
-				if (result > 0)
-				{
-					out_buff->used += out_len;
-				}
-				if (result < 0) {
-					return 0;
-				}
-//				if (!result) {
-//					LLOGD("jump %dbyte", info.frame_bytes);
-//				}
-				pos += used;
-				if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2))
-				{
-					break;
-				}
-			} while ((coder->buff.used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
-//			LLOGD("result %u,%u,%u,%u,%u", result, out_buff->used, coder->buff.used, pos, info.frame_bytes);
-			if (pos >= coder->buff.used)
-			{
-				coder->buff.used = 0;
-			}
-			else
-			{
-				memmove(coder->buff.addr, coder->buff.addr + pos, coder->buff.used - pos);
-				coder->buff.used -= pos;
-			}
-			pos = 0;
-			if (!out_buff->used)
-			{
-				if (is_not_end)
-				{
-					goto GET_MP3_DATA;
-				}
-				else
-				{
-					result = 0;
-				}
-			}
-			else
-			{
-				if ((out_buff->used < mini_output) && is_not_end)
-				{
-					goto GET_MP3_DATA;
-				}
-				result = 1;
-			}
-			break;
-		case LUAT_MULTIMEDIA_DATA_TYPE_WAV:
-			read_len = luat_fs_fread(out_buff->addr + out_buff->used, coder->read_len, 1, coder->fd);
-			if (read_len > 0)
-			{
-				out_buff->used += read_len;
-				result = 1;
-			}
-			else
-			{
-				result = 0;
-			}
+    if (mini_output > 16384)
+        mini_output = 16384;
+    else if (mini_output < 4 * 1024)
+        mini_output = 4 * 1024;
 
-			break;
-#ifdef LUAT_SUPPORT_AMR
-        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-         		if (coder->type == LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)
-         		{
-         			frame_len = 320;
-         			size_table = amr_nb_byte_len;
-         			decode_if = Decoder_Interface_Decode;
-         		}
-         		else
-         		{
-         			frame_len = 640;
-         			size_table = amr_wb_byte_len;
-         			decode_if = D_IF_decode;
-         		}
+    out_buff->used = 0;
+    int result = 0;
 
-         		while ((out_buff->used < mini_output) && is_not_end && ((out_buff->len - out_buff->used) >= frame_len))
-				{
-         			read_len = luat_fs_fread(temp, 1, 1, coder->fd);
-    				if (read_len <= 0)
-    				{
-    					is_not_end = 0;
-    					break;
-    				}
-    				size = size_table[(temp[0] >> 3) & 0x0f];
-    				if (size > 0)
-					{
-						read_len = luat_fs_fread(temp + 1, 1, size, coder->fd);
-						if (read_len <= 0)
-						{
-	    					is_not_end = 0;
-	    					break;
-						}
-					}
-    				decode_if(coder->amr_coder, temp, coder->buff.addr, 0);
-    				memcpy(out_buff->addr + out_buff->used, coder->buff.addr, frame_len);
-    				out_buff->used += frame_len;
-				}
-         		result = 1;
-             	break;
-#endif
-#ifdef LUAT_USE_AUDIO_G711
-		case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
-		case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
-			// 动态分配缓冲区
-			if (!coder->buff.addr) {
-				coder->buff.addr = luat_heap_malloc(G711_PCM_SAMPLES);  // G711每帧160字节
-				coder->buff.len = G711_PCM_SAMPLES;
-				coder->buff.used = 0;
-			}
-
-			// 读取G711数据
-			if (coder->buff.used < G711_PCM_SAMPLES) {
-				read_len = luat_fs_fread((void*)(coder->buff.addr + coder->buff.used),
-									G711_PCM_SAMPLES, 1, coder->fd);
-				if (read_len > 0) {
-					coder->buff.used += read_len;
-				} else {
-					is_not_end = 0;
-				}
-			}
-
-			// 解码G711数据为PCM
- 			if (coder->buff.used >= G711_PCM_SAMPLES) {
- 				result = g711_decoder_get_data(coder->g711_codec, coder->buff.addr,
- 											coder->buff.used, (int16_t*)out_buff->addr + out_buff->used,
- 											&out_len, &used);
-				if (result > 0) {
-					out_buff->used += out_len;
-				}
-				// 移动缓冲区数据
-				memmove(coder->buff.addr, coder->buff.addr + used, coder->buff.used - used);
-				coder->buff.used -= used;
-			}
-			break;
-#endif
-#ifdef LUAT_SUPPORT_OPUS
-        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
-            uint8_t len_bytes[2];
-            size_t read_len = luat_fs_fread(len_bytes, 1, 2, coder->fd);
-
-            if (read_len != 2) break;
-            uint16_t len = (len_bytes[0] << 8) | len_bytes[1];
-            // LLOGD("len_bytes[0]=%d, len_bytes[1]=%d, len=%u", len_bytes[0], len_bytes[1], len);
-            if (len > OPUS_MAX_PACKET_SIZE){ 
-                LLOGE("packet too large: %u", len); 
-                break; 
-            }
-            // Read packet data
-            size_t bytes = luat_fs_fread(coder->buff.addr, 1, len, coder->fd);
-            if (bytes != len){ 
-                LLOGE("read packet data failed: %u/%u", (unsigned int)bytes, len); 
-                break; 
-            }
-            int ret = luat_opus_decoder_get_data(coder, coder->buff.addr, len,
-                                out_buff->addr, &out_len, &used);
-            if (ret == 0){
-                out_buff->used += out_len;
-                result = 1;
-            }
-            break;
-        }
-#endif
-		default:
-			break;
-		}
-
+    if (coder && coder->fd && coder->ops && coder->ops->decode_file_data) {
+        result = coder->ops->decode_file_data(coder, out_buff, mini_output);
     }
-	lua_pushboolean(L, result);
-	return 1;
+
+    lua_pushboolean(L, result);
+    return 1;
 }
 
 /**
@@ -670,182 +295,22 @@ static int l_codec_encode_audio_data(lua_State *L) {
 		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
 	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-	if (!coder || !in_buff || !out_buff || coder->is_decoder)
-	{
+	int mode = luaL_optinteger(L, 4, 0);
+
+	if (!coder || !in_buff || !out_buff || coder->is_decoder) {
 		lua_pushboolean(L, 0);
 		return 1;
 	}
 
-    switch (coder->type){
-#ifdef LUAT_USE_AUDIO_G711
-        case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
-        case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
-	    {
-            // G711编码处理 - 使用栈上分配的临时缓冲区，避免长期占用堆内存
-            uint8_t outbuf[G711_PCM_SAMPLES];  // 栈上分配，用完即释放
-            int16_t *pcm = (int16_t *)in_buff->addr;
-            uint32_t total_len = in_buff->used >> 1;  // 16位PCM转字节数
-            uint32_t done_len = 0;
-            uint32_t frame_size = G711_PCM_SAMPLES;  // G711每帧160个PCM样本
-            uint32_t out_len;
-
-            // 处理完整的160样本帧
-            while ((total_len - done_len) >= frame_size) {
-                // 编码一帧PCM数据为G711
-                int result = g711_encoder_get_data(coder->g711_codec, &pcm[done_len], frame_size,
-                                                outbuf, &out_len);
-
-                if (result > 0 && out_len > 0) {
-                    // 检查输出缓冲区空间
-                    if ((out_buff->len - out_buff->used) < out_len) {
-                        if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len)) {
-                            lua_pushboolean(L, 0);
-                            return 1;
-                        }
-                    }
-                    // 复制编码后的数据到输出缓冲区
-                    memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
-                    out_buff->used += out_len;
-                } else {
-
-                }
-                done_len += frame_size;
-            }
-
-            // 处理剩余的PCM样本（不足160个样本的部分）
-            uint32_t remaining_len = total_len - done_len;
-            if (remaining_len > 0) {
-
-                // 用零填充到160个样本
-                int16_t padded_frame[G711_PCM_SAMPLES] = {0};
-                memcpy(padded_frame, &pcm[done_len], remaining_len * sizeof(int16_t));
-
-                int result = g711_encoder_get_data(coder->g711_codec, padded_frame, frame_size,
-                                                outbuf, &out_len);
-
-                if (result > 0 && out_len > 0) {
-                    // 检查输出缓冲区空间
-                    if ((out_buff->len - out_buff->used) < out_len) {
-                        if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len)) {
-                            lua_pushboolean(L, 0);
-                            return 1;
-                        }
-                    }
-                    // 复制编码后的数据到输出缓冲区
-                    memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
-                    out_buff->used += out_len;
-                }
-            }
-
-            lua_pushboolean(L, 1);
-            return 1;
-        }
-#endif
-#ifdef LUAT_SUPPORT_AMR
-        case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-        case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-        {
-        int mode = luaL_optinteger(L, 4, MR475);
-        if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB) || coder->is_decoder)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-#ifdef LUAT_USE_INTER_AMR
-        // AMR编码处理
-        uint8_t outbuf[128];
-        int16_t *pcm = (int16_t *)in_buff->addr;
-        uint32_t total_len = in_buff->used >> 1;
-        uint32_t done_len = 0;
-        uint32_t pcm_len = (coder->type - LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB + 1) * 160;
-        uint8_t out_len;
-
-        while ((total_len - done_len) >= pcm_len)
-        {
-            luat_audio_inter_amr_coder_encode(coder->amr_coder, &pcm[done_len], outbuf, &out_len);
-            if (out_len <= 0)
-            {
-                LLOGE("encode error in %d,result %d", done_len, out_len);
-            }
-            else
-            {
-                if ((out_buff->len - out_buff->used) < out_len)
-                {
-                    if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
-                    {
-                        lua_pushboolean(L, 0);
-                        return 1;
-                    }
-                }
-                memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
-                out_buff->used += out_len;
-            }
-            done_len += pcm_len;
-        }
-        lua_pushboolean(L, 1);
+    if (!coder->ops || !coder->ops->encode) {
+        LLOGE("no encode callback for type %d", coder->type);
+        lua_pushboolean(L, 0);
         return 1;
-#else
-        if (mode > MR122)
-        {
-            mode = MR475;
-        }
-        uint8_t outbuf[64];
-        int16_t *pcm = (int16_t *)in_buff->addr;
-        uint32_t total_len = in_buff->used >> 1;
-        uint32_t done_len = 0;
-        int out_len;
-        while ((total_len - done_len) >= 160)
-        {
-            out_len = Encoder_Interface_Encode(coder->amr_coder, mode, &pcm[done_len], outbuf, 0);
-            if (out_len <= 0)
-            {
-                LLOGE("encode error in %d,result %d", done_len, out_len);
-            }
-            else
-            {
-                if ((out_buff->len - out_buff->used) < out_len)
-                {
-                    if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
-                    {
-                        lua_pushboolean(L, 0);
-                        return 1;
-                    }
-                }
-                memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
-                out_buff->used += out_len;
-            }
-            done_len += 160;
-        }
-        lua_pushboolean(L, 1);
-        return 1;
-#endif
-        }
-#endif
-#ifdef LUAT_SUPPORT_OPUS
-        case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:{
-        #define DELAY_SAMPLES 60
-        int16_t *pcm = (int16_t *)in_buff->addr;
-        uint32_t pcm_len = in_buff->used >> 1;
-        uint32_t done_len = 0;
-        uint32_t frame_size = coder->sample_rate*DELAY_SAMPLES/1000;
-        while(pcm_len >= frame_size){
-            uint32_t out_len = 0;
-            int ret =luat_opus_encoder_get_data(coder,pcm + done_len,frame_size,out_buff->addr + out_buff->used,&out_len);
-            if (ret){
-                break;
-            }
-            out_buff->used += out_len;
-            pcm_len -= frame_size;
-            done_len += frame_size;
-        }
-        lua_pushboolean(L, 1);
-        return 1;
-        }
-#endif
-        default:
-            lua_pushboolean(L, 0);
-            return 1;
     }
+
+    int result = coder->ops->encode(coder, in_buff, out_buff, mode);
+    lua_pushboolean(L, result > 0 ? 1 : 0);
+    return 1;
 }
 
 #ifdef LUAT_USE_AUDIO_DTMF
@@ -1130,89 +595,24 @@ static int l_codec_dtmf_encode(lua_State *L) {
 
 static int l_codec_gc(lua_State *L)
 {
-	luat_multimedia_codec_t *coder = ((luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE));
-	if (coder->fd) {
-		luat_fs_fclose(coder->fd);
-		coder->fd = NULL;
-	}
-	if (coder->buff.addr)
-	{
-		luat_heap_free(coder->buff.addr);
-		coder->buff.addr = NULL;
-		memset(&coder->buff, 0, sizeof(luat_zbuff_t));
-	}
-	switch(coder->type) {
-	case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
-		if (coder->is_decoder && coder->mp3_decoder) {
-			luat_heap_free(coder->mp3_decoder);
-			coder->mp3_decoder = NULL;
-		}
-		break;
-#ifdef LUAT_SUPPORT_AMR
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
-		if (coder->amr_coder)
-		{
-			if (!coder->is_decoder)
-			{
-#ifdef LUAT_USE_INTER_AMR
-				luat_audio_inter_amr_coder_deinit(coder->amr_coder);
-#else
-				Encoder_Interface_exit(coder->amr_coder);
-#endif
-			}
-			else
-			{
-				Decoder_Interface_exit(coder->amr_coder);
-			}
-			coder->amr_coder = NULL;
-		}
-		break;
-	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
-		if (coder->amr_coder)
-		{
-			if (!coder->is_decoder)
-			{
-#ifdef LUAT_USE_INTER_AMR
-				luat_audio_inter_amr_coder_deinit(coder->amr_coder);
-#else
-#endif
-			}
-			else
-			{
-				D_IF_exit(coder->amr_coder);
-			}
-			coder->amr_coder = NULL;
-		}
-		break;
-#endif
-#ifdef LUAT_USE_AUDIO_G711
- 	case LUAT_MULTIMEDIA_DATA_TYPE_ULAW:
- 	case LUAT_MULTIMEDIA_DATA_TYPE_ALAW:
- 		if (coder->g711_codec) {
- 			if (coder->is_decoder) {
- 				// 清理G711解码器
- 				g711_decoder_destroy(coder->g711_codec);
- 			} else {
- 				// 清理G711编码器
- 				g711_encoder_destroy(coder->g711_codec);
- 			}
- 			coder->g711_codec = NULL;
- 		}
- 		break;
-#endif
-#ifdef LUAT_SUPPORT_OPUS
- 	case LUAT_MULTIMEDIA_DATA_TYPE_OPUS:
- 		if (coder->opus_coder) {
- 			if (coder->is_decoder) {
- 				luat_opus_decoder_destroy(coder);
- 			} else {
- 				luat_opus_encoder_destroy(coder);
- 			}
- 			coder->opus_coder = NULL;
- 		}
- 		break;
-#endif
-	}
+    luat_multimedia_codec_t *coder = ((luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE));
+
+    if (coder->fd) {
+        luat_fs_fclose(coder->fd);
+        coder->fd = NULL;
+    }
+
+    if (coder->buff.addr) {
+        luat_heap_free(coder->buff.addr);
+        coder->buff.addr = NULL;
+        memset(&coder->buff, 0, sizeof(luat_zbuff_t));
+    }
+
+    if (coder->ops && coder->ops->destroy && coder->ctx) {
+        coder->ops->destroy(coder);
+        coder->ops = NULL;
+    }
+
     return 0;
 }
 

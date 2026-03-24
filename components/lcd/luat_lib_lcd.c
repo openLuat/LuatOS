@@ -68,6 +68,7 @@ static const lcd_reg_t lcd_regs[] = {
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
   {"nv3037",  &lcd_opts_nv3037},
+  {"nv3041a", &lcd_opts_nv3041a},
   {"h050iwv", &lcd_opts_h050iwv},
   {"jd9261t_inited", &lcd_opts_jd9261t_inited},
   {"nv3052c", &lcd_opts_nv3052c},

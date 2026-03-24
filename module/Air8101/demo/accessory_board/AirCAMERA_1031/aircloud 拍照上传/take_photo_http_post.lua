@@ -1,11 +1,11 @@
 --[[
 @module  take_photo_http_post
-@summary AirCAMERA_1030 USB摄像头拍照上传应用模块
+@summary AirCAMERA_1031 USB摄像头拍照上传应用模块
 @version 1.0
 @date    2025.11.09
 @author  王城钧
 @usage
-本demo主要使用AirCAMERA_1030 USB摄像头完成一次拍照上传任务
+本demo主要使用AirCAMERA_1031 USB摄像头完成一次拍照上传任务
 ]] -- 摄像头拍照模块
 -- 功能：提供摄像头初始化、拍照和资源管理功能
 -- 引入excamera扩展库模块
@@ -168,8 +168,8 @@ local function memory_check()
     end
 end
 
--- AirCAMERA_1030 DEMO应用触发函数，每30S触发一次拍照
-local function AirCAMERA_1030_func()
+-- AirCAMERA_1031 DEMO应用触发函数，每30S触发一次拍照
+local function AirCAMERA_1031_func()
     while true do
         -- 循环推送USB端口号，触发轮切拍照功能
         for i = 1, usb_port_num do
@@ -193,4 +193,4 @@ sys.taskInit(memory_check)
 
 -- 创建拍照触发任务
 -- 作用：每30秒触发一次拍照上传业务
-sys.taskInit(AirCAMERA_1030_func)
+sys.taskInit(AirCAMERA_1031_func)

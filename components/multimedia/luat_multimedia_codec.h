@@ -19,35 +19,57 @@
 
 #define G711_PCM_SAMPLES 160
 
+// Forward declarations for opts framework
+struct luat_zbuff;
+struct luat_multimedia_codec;
+
+// Unified audio information structure
+typedef struct audio_info {
+    uint8_t audio_format;
+    uint8_t num_channels;
+    uint8_t is_signed;
+    uint32_t sample_rate;
+    int bits_per_sample;
+} audio_info_t;
+
+// Codec operation interface
+typedef struct luat_codec_opts {
+    void* (*create)(struct luat_multimedia_codec* coder);
+    void (*destroy)(struct luat_multimedia_codec* coder);
+    int (*get_info)(struct luat_multimedia_codec* coder, FILE* fd, audio_info_t* info);
+    int (*decode_file_data)(struct luat_multimedia_codec* coder, struct luat_zbuff* out_buff, uint32_t mini_output);
+    int (*encode)(struct luat_multimedia_codec* coder, struct luat_zbuff* in_buff, struct luat_zbuff* out_buff, int mode);
+} luat_codec_opts_t;
+
 enum{
-	LUAT_MULTIMEDIA_DATA_TYPE_NONE,
-	LUAT_MULTIMEDIA_DATA_TYPE_PCM,
-	LUAT_MULTIMEDIA_DATA_TYPE_MP3,
-	LUAT_MULTIMEDIA_DATA_TYPE_WAV,
-	LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB,
-	LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB,
-	LUAT_MULTIMEDIA_DATA_TYPE_ULAW,
-	LUAT_MULTIMEDIA_DATA_TYPE_ALAW,
+    LUAT_MULTIMEDIA_DATA_TYPE_NONE,
+    LUAT_MULTIMEDIA_DATA_TYPE_PCM,
+    LUAT_MULTIMEDIA_DATA_TYPE_MP3,
+    LUAT_MULTIMEDIA_DATA_TYPE_WAV,
+    LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB,
+    LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB,
+    LUAT_MULTIMEDIA_DATA_TYPE_ULAW,
+    LUAT_MULTIMEDIA_DATA_TYPE_ALAW,
     LUAT_MULTIMEDIA_DATA_TYPE_OPUS,
     LUAT_MULTIMEDIA_DATA_TYPE_OGG,
     LUAT_MULTIMEDIA_DATA_TYPE_OGG_OPUS
 };
 
 enum{
-	LUAT_MULTIMEDIA_CB_AUDIO_DECODE_START,	//开始解码文件
-	LUAT_MULTIMEDIA_CB_AUDIO_OUTPUT_START,	//开始输出解码后的音数据
-	LUAT_MULTIMEDIA_CB_AUDIO_NEED_DATA,		//底层驱动播放播放完一部分数据，需要更多数据
-	LUAT_MULTIMEDIA_CB_AUDIO_DONE,			//底层驱动播放完全部数据了
-	LUAT_MULTIMEDIA_CB_DECODE_DONE,			//音频解码完成
-	LUAT_MULTIMEDIA_CB_TTS_INIT,			//TTS做完了必要的初始化，用户可以通过audio_play_tts_set_param做个性化配置
-	LUAT_MULTIMEDIA_CB_TTS_DONE,			//TTS编码完成了。注意不是播放完成
-	LUAT_MULTIMEDIA_CB_RECORD_DATA,			//录音数据
-	LUAT_MULTIMEDIA_CB_RECORD_DONE,			//录音完成
+    LUAT_MULTIMEDIA_CB_AUDIO_DECODE_START,  //开始解码文件
+    LUAT_MULTIMEDIA_CB_AUDIO_OUTPUT_START,  //开始输出解码后的音数据
+    LUAT_MULTIMEDIA_CB_AUDIO_NEED_DATA,     //底层驱动播放播放完一部分数据，需要更多数据
+    LUAT_MULTIMEDIA_CB_AUDIO_DONE,          //底层驱动播放完全部数据了
+    LUAT_MULTIMEDIA_CB_DECODE_DONE,         //音频解码完成
+    LUAT_MULTIMEDIA_CB_TTS_INIT,            //TTS做完了必要的初始化，用户可以通过audio_play_tts_set_param做个性化配置
+    LUAT_MULTIMEDIA_CB_TTS_DONE,            //TTS编码完成了。注意不是播放完成
+    LUAT_MULTIMEDIA_CB_RECORD_DATA,         //录音数据
+    LUAT_MULTIMEDIA_CB_RECORD_DONE,         //录音完成
 };
 
 enum{
-	LUAT_CODEC_VDDA_3V3,
-	LUAT_CODEC_VDDA_1V8,
+    LUAT_CODEC_VDDA_3V3,
+    LUAT_CODEC_VDDA_1V8,
 };
 
 #include <stddef.h>
@@ -57,23 +79,25 @@ enum{
 #include "c_common.h"
 #endif
 
-typedef struct{
-	union{
-		void *mp3_decoder;
-		uint32_t read_len;
-		void *amr_coder;
-		void *g711_codec;
+typedef struct luat_multimedia_codec {
+    void* ctx;
+    const luat_codec_opts_t* ops;
+    union{
+        void *mp3_decoder;
+        uint32_t read_len;
+        void *amr_coder;
+        void *g711_codec;
         void *opus_coder;
-	};
-	FILE* fd;
+    };
+    FILE* fd;
 #ifdef __LUATOS__
-	luat_zbuff_t buff;
+    luat_zbuff_t buff;
 #endif
-	Buffer_Struct file_data_buffer;
-	Buffer_Struct audio_data_buffer;
-	uint8_t type;
-	uint8_t is_decoder;
-    // audio_info
+    Buffer_Struct file_data_buffer;
+    Buffer_Struct audio_data_buffer;
+    uint8_t type;
+    uint8_t is_decoder;
+    int encode_level;
     uint8_t audio_format;
     uint8_t num_channels;
     uint8_t is_signed;
@@ -84,6 +108,9 @@ typedef struct{
 typedef struct luat_multimedia_cb {
     int function_ref;
 } luat_multimedia_cb_t;
+
+// Codec lookup function
+const luat_codec_opts_t* luat_codec_get_ops(uint8_t type);
 
 int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *coder);
 

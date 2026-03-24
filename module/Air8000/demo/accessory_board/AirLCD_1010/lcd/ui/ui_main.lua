@@ -21,7 +21,6 @@
 -- 加载子页面
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
---local gtfont_page = require "gtfont_page"
 local customer_font_page = require "customer_font_page"
 
 -- 当前页面状态

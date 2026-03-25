@@ -53,16 +53,14 @@ local audio_configs = {
     pa_on_level = 1           -- PA打开电平 1:高 0:低
 }
 
-
-exaudio.vol(70)            -- 喇叭音量
-exaudio.mic_vol(65)        -- 麦克风音量
-
 -- 初始化音频设备
 local function initAudioDevice()
 
     -- 使用exaudio.setup统一配置音频设备
     log.info("audio_drv", "使用exaudio.setup初始化音频设备")
     if exaudio.setup(audio_configs) then
+        exaudio.vol(70)            -- 喇叭音量
+        exaudio.mic_vol(65)        -- 麦克风音量
         log.info("audio_drv", "exaudio.setup初始化成功")
     else
         log.error("audio_drv", "exaudio.setup初始化失败")

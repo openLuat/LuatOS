@@ -23,20 +23,11 @@
 struct luat_zbuff;
 struct luat_multimedia_codec;
 
-// Unified audio information structure
-typedef struct audio_info {
-    uint8_t audio_format;
-    uint8_t num_channels;
-    uint8_t is_signed;
-    uint32_t sample_rate;
-    int bits_per_sample;
-} audio_info_t;
-
 // Codec operation interface
 typedef struct luat_codec_opts {
     void* (*create)(struct luat_multimedia_codec* coder);
     void (*destroy)(struct luat_multimedia_codec* coder);
-    int (*get_info)(struct luat_multimedia_codec* coder, FILE* fd, audio_info_t* info);
+    int (*get_info)(struct luat_multimedia_codec* coder, FILE* fd);
     int (*decode_file_data)(struct luat_multimedia_codec* coder, struct luat_zbuff* out_buff, uint32_t mini_output);
     int (*encode)(struct luat_multimedia_codec* coder, struct luat_zbuff* in_buff, struct luat_zbuff* out_buff, int mode);
 } luat_codec_opts_t;
@@ -82,13 +73,6 @@ enum{
 typedef struct luat_multimedia_codec {
     void* ctx;
     const luat_codec_opts_t* ops;
-    union{
-        void *mp3_decoder;
-        uint32_t read_len;
-        void *amr_coder;
-        void *g711_codec;
-        void *opus_coder;
-    };
     FILE* fd;
 #ifdef __LUATOS__
     luat_zbuff_t buff;

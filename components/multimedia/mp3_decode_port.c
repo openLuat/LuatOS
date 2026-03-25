@@ -70,24 +70,21 @@ static void mp3_codec_destroy(luat_multimedia_codec_t* coder) {
     }
 }
 
-static int mp3_codec_get_info(luat_multimedia_codec_t* coder, FILE* fd, audio_info_t* info) {
-    if (!coder || !coder->ctx || !fd || !info) return 0;
+static int mp3_codec_get_info(luat_multimedia_codec_t* coder, FILE* fd) {
+    if (!coder || !coder->ctx || !fd) return 0;
 
     uint8_t temp[32];
-    uint8_t* buffer = NULL;
     uint32_t jump, i;
-    uint32_t hz;
-    uint8_t channel;
     int result = 0;
 
-    buffer = luat_heap_malloc(MP3_FRAME_LEN);
-    if (!buffer) return 0;
-
     mp3_decoder_init(coder->ctx);
+    coder->buff.addr = luat_heap_malloc(MP3_FRAME_LEN);
 
-    size_t read = luat_fs_fread(temp, 10, 1, fd);
-    if (read != 10) goto cleanup;
-
+    coder->buff.len = MP3_FRAME_LEN;
+    coder->buff.used = luat_fs_fread(temp, 10, 1, fd);
+    if (coder->buff.used != 10) {
+        return 0;
+    }
     if (!memcmp(temp, "ID3", 3)) {
         jump = 0;
         for(i = 0; i < 4; i++) {
@@ -95,80 +92,55 @@ static int mp3_codec_get_info(luat_multimedia_codec_t* coder, FILE* fd, audio_in
             jump |= temp[6 + i] & 0x7f;
         }
         luat_fs_fseek(fd, jump, SEEK_SET);
-    } else {
-        luat_fs_fseek(fd, 0, SEEK_SET);
     }
-
-    uint32_t buffer_used = luat_fs_fread(buffer, MP3_FRAME_LEN, 1, fd);
-    if (buffer_used == 0) goto cleanup;
-
-    if (mp3_decoder_get_info(coder->ctx, buffer, buffer_used, &hz, &channel)) {
-        info->sample_rate = hz;
-        info->num_channels = channel;
-        info->bits_per_sample = 16;
-        info->is_signed = 1;
-        info->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
-        result = 1;
-    }
-
+    coder->buff.used = luat_fs_fread(coder->buff.addr, MP3_FRAME_LEN, 1, fd);
+    result = mp3_decoder_get_info(coder->ctx, coder->buff.addr, coder->buff.used, &coder->sample_rate, &coder->num_channels);
     mp3_decoder_init(coder->ctx);
+    coder->audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
 
-cleanup:
-    luat_heap_free(buffer);
     return result;
 }
 
 static int mp3_codec_decode_file_data(luat_multimedia_codec_t* coder, luat_zbuff_t* out_buff, uint32_t mini_output) {
-    if (!coder || !coder->ctx || !coder->fd || !out_buff) return 0;
+    if (!coder || !coder->ctx || !coder->fd || !out_buff || !coder->buff.addr) return 0;
 
     FILE* fd = coder->fd;
-    uint8_t* buffer = NULL;
-    uint32_t buffer_used = 0;
     uint32_t pos = 0;
     uint32_t hz, out_len, used;
     int result;
-    int is_not_end = 1;
-    int ret = 0;
-
-    if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2)) {
-        return 0;
-    }
-
-    buffer = luat_heap_malloc(MP3_FRAME_LEN);
-    if (!buffer) return 0;
+    uint32_t is_not_end = 1;
 
 GET_MP3_DATA:
-    if (buffer_used < MINIMP3_MAX_SAMPLES_PER_FRAME) {
-        int read_len = luat_fs_fread(buffer + buffer_used, MINIMP3_MAX_SAMPLES_PER_FRAME, 1, fd);
+    if (coder->buff.used < MINIMP3_MAX_SAMPLES_PER_FRAME) {
+        int read_len = luat_fs_fread(coder->buff.addr + coder->buff.used, MINIMP3_MAX_SAMPLES_PER_FRAME, 1, fd);
         if (read_len > 0) {
-            buffer_used += read_len;
+            coder->buff.used += read_len;
         } else {
             is_not_end = 0;
         }
     }
 
     do {
-        result = mp3_decoder_get_data(coder->ctx, buffer + pos, buffer_used - pos,
+        result = mp3_decoder_get_data(coder->ctx, coder->buff.addr + pos, coder->buff.used - pos,
                                        (int16_t*)(out_buff->addr + out_buff->used),
                                        &out_len, &hz, &used);
-        if (result >= 0 && out_len > 0) {
+        if (result > 0) {
             out_buff->used += out_len;
         }
-
-        if (result < 0) goto cleanup;
-
+        if (result < 0) {
+            return 0;
+        }
         pos += used;
-
         if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2)) {
             break;
         }
-    } while ((buffer_used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
+    } while ((coder->buff.used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
 
-    if (pos >= buffer_used) {
-        buffer_used = 0;
+    if (pos >= coder->buff.used) {
+        coder->buff.used = 0;
     } else {
-        memmove(buffer, buffer + pos, buffer_used - pos);
-        buffer_used -= pos;
+        memmove(coder->buff.addr, coder->buff.addr + pos, coder->buff.used - pos);
+        coder->buff.used -= pos;
     }
     pos = 0;
 
@@ -176,18 +148,14 @@ GET_MP3_DATA:
         if (is_not_end) {
             goto GET_MP3_DATA;
         } else {
-            goto cleanup;
+            return 0;
         }
     } else {
         if ((out_buff->used < mini_output) && is_not_end) {
             goto GET_MP3_DATA;
         }
-        ret = 1;
+        return 1;
     }
-
-cleanup:
-    luat_heap_free(buffer);
-    return ret;
 }
 
 const luat_codec_opts_t mp3_codec_opts = {

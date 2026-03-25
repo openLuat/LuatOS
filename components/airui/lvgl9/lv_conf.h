@@ -988,6 +988,12 @@
     #define LV_USE_TJPGD 0
 #endif
 
+/** HZJPEG baseline decoder library.
+ *  - Decodes baseline JPEG into a full RGB draw buffer for LVGL transforms. */
+#ifndef LV_USE_HZJPEG
+    #define LV_USE_HZJPEG 0
+#endif
+
 /** libjpeg-turbo decoder library.
  *  - Supports complete JPEG specifications and high-performance JPEG decoding. */
 #ifndef LV_USE_LIBJPEG_TURBO

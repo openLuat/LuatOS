@@ -27,6 +27,7 @@
 #include "libs/fsdrv/lv_fsdrv.h"
 #include "libs/gif/lv_gif.h"
 #include "libs/tjpgd/lv_tjpgd.h"
+#include "libs/hzjpeg/lv_hzjpeg.h"
 #include "libs/libjpeg_turbo/lv_libjpeg_turbo.h"
 #include "libs/lodepng/lv_lodepng.h"
 #include "libs/libpng/lv_libpng.h"
@@ -388,6 +389,10 @@ void lv_init(void)
 
 #if LV_USE_LIBPNG
     lv_libpng_init();
+#endif
+
+#if LV_USE_HZJPEG
+    lv_hzjpeg_init();
 #endif
 
 #if LV_USE_TJPGD

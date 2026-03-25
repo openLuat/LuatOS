@@ -8,6 +8,7 @@
 #include "luat_malloc.h"
 #include "lua.h"
 #include "lauxlib.h"
+#include "lvgl9/src/misc/lv_text_private.h"
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
 #include "lvgl9/src/widgets/keyboard/lv_keyboard.h"
 #include "lvgl9/src/misc/lv_event.h"
@@ -146,6 +147,83 @@ static void airui_textarea_focus_cb(lv_event_t *e)
     }
 }
 
+// 剪切文本
+static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len, bool *truncated)
+{
+    uint32_t char_len;
+    uint32_t byte_len;
+    char *clipped;
+
+    if (truncated != NULL) {
+        *truncated = false;
+    }
+
+    if (text == NULL || max_len == 0) {
+        return NULL;
+    }
+
+    char_len = lv_text_get_encoded_length(text);
+    if (char_len <= max_len) {
+        return NULL;
+    }
+
+    if (truncated != NULL) {
+        *truncated = true;
+    }
+
+    byte_len = lv_text_encoded_get_byte_id(text, max_len);
+    clipped = (char *)luat_heap_malloc(byte_len + 1);
+    if (clipped == NULL) {
+        return NULL;
+    }
+
+    memcpy(clipped, text, byte_len);
+    clipped[byte_len] = '\0';
+    return clipped;
+}
+
+// 应用文本
+static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text)
+{
+    uint32_t max_len;
+    const char *accepted_chars;
+    const char *text_to_set;
+    char *clipped_text;
+    bool truncated;
+
+    if (textarea == NULL || text == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    max_len = lv_textarea_get_max_length(textarea);
+    accepted_chars = lv_textarea_get_accepted_chars(textarea);
+    if (accepted_chars != NULL && accepted_chars[0] != '\0') {
+        lv_textarea_set_text(textarea, text);
+        return AIRUI_OK;
+    }
+
+    truncated = false;
+    clipped_text = airui_textarea_dup_clipped_text(text, max_len, &truncated);
+    if (truncated && clipped_text == NULL) {
+        lv_textarea_set_text(textarea, text);
+        return AIRUI_OK;
+    }
+    text_to_set = clipped_text != NULL ? clipped_text : text;
+
+    if (max_len > 0) {
+        lv_textarea_set_max_length(textarea, 0);
+    }
+    lv_textarea_set_text(textarea, text_to_set);
+    if (max_len > 0) {
+        lv_textarea_set_max_length(textarea, max_len);
+    }
+
+    if (clipped_text != NULL) {
+        luat_heap_free(clipped_text);
+    }
+    return AIRUI_OK;
+}
+
 /**
  * 从 Lua 配置表创建 textarea
  * @api airui.textarea(config)
@@ -191,14 +269,17 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lv_obj_set_size(textarea, w, h);
     lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
-    lv_textarea_set_max_length(textarea, max_len);
-
+    if (max_len > 0) {
+        lv_textarea_set_max_length(textarea, max_len);
+    }
     if (placeholder != NULL && placeholder[0] != '\0') {
         lv_textarea_set_placeholder_text(textarea, placeholder);
     }
 
     if (text != NULL) {
-        lv_textarea_set_text(textarea, text);
+        airui_textarea_apply_text_fast(textarea, text);
+        lv_textarea_set_cursor_pos(textarea, 0);
+        lv_obj_scroll_to_y(textarea, 0, LV_ANIM_OFF);
     }
 
     airui_component_meta_t *meta = airui_component_meta_alloc(
@@ -261,8 +342,7 @@ int airui_textarea_set_text(lv_obj_t *textarea, const char *text)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_textarea_set_text(textarea, text);
-    return AIRUI_OK;
+    return airui_textarea_apply_text_fast(textarea, text);
 }
 
 /**

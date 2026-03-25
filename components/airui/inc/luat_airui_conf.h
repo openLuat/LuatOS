@@ -17,7 +17,7 @@
 // 通用设置
 
 /** AIRUI 库版本号 */
-#define AIRUI_VERSION "1.1.2"
+#define AIRUI_VERSION "1.1.3"
 
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
@@ -42,10 +42,9 @@
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
-    // 打开图片解码器， pc模拟器使用libjpeg-turbo解码
+    // 打开图片解码器，pc模拟器优先使用 hzjpeg 解码 baseline jpg
     #define LV_USE_LODEPNG 1
-    #define LV_USE_TJPGD 0
-    #define LV_USE_LIBJPEG_TURBO 1
+    #define LV_USE_HZJPEG 1
 
     // 默认字体设置
     #define LV_FONT_FMT_TXT_LARGE 1
@@ -102,8 +101,7 @@
     
     // 图片解码支持，真机还支持硬件jpg解码，默认打开
     #define LV_USE_LODEPNG 1
-    #define LV_USE_TJPGD 1
-    #define LV_USE_LIBJPEG_TURBO 0
+    #define LV_USE_HZJPEG 1
 
     // 打开拼音输入法
     #define LV_USE_IME_PINYIN 1

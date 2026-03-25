@@ -5,8 +5,8 @@
  */
 
 #include "luat_airui.h"
-#include <stdlib.h>
-#include <string.h>
+
+#include "luat_mem.h"
 
 /**
  * 缓冲管理器
@@ -37,9 +37,9 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
     // 扩展数组容量
     if (buf_mgr->count >= buf_mgr->capacity) {
         size_t new_capacity = buf_mgr->capacity == 0 ? 4 : buf_mgr->capacity * 2;
-        void **new_buffers = realloc(buf_mgr->buffers, new_capacity * sizeof(void *));
-        size_t *new_sizes = realloc(buf_mgr->sizes, new_capacity * sizeof(size_t));
-        airui_buffer_owner_t *new_owners = realloc(buf_mgr->owners, new_capacity * sizeof(airui_buffer_owner_t));
+        void **new_buffers = luat_heap_opt_realloc(LUAT_HEAP_PSRAM, buf_mgr->buffers, new_capacity * sizeof(void *));
+        size_t *new_sizes = luat_heap_opt_realloc(LUAT_HEAP_PSRAM, buf_mgr->sizes, new_capacity * sizeof(size_t));
+        airui_buffer_owner_t *new_owners = luat_heap_opt_realloc(LUAT_HEAP_PSRAM, buf_mgr->owners, new_capacity * sizeof(airui_buffer_owner_t));
         
         if (new_buffers == NULL || new_sizes == NULL || new_owners == NULL) {
             return NULL;
@@ -54,11 +54,11 @@ void *airui_buffer_alloc(airui_ctx_t *ctx, size_t size, airui_buffer_owner_t own
     // 分配缓冲
     void *buffer = NULL;
     if (owner == AIRUI_BUFFER_OWNER_SYSTEM) {
-        buffer = malloc(size);
+        buffer = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, size);
     } else if (owner == AIRUI_BUFFER_OWNER_LUA) {
         // TODO: 使用 Lua heap 分配（luat_heap_alloc）
         // 阶段一先使用系统 heap
-        buffer = malloc(size);
+        buffer = luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, size);
     }
     
     if (buffer == NULL) {
@@ -90,7 +90,7 @@ void airui_buffer_free(airui_ctx_t *ctx, void *buffer)
         if (buf_mgr->buffers[i] == buffer) {
             if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_SYSTEM ||
                 buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_LUA) {
-                free(buf_mgr->buffers[i]);
+                luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->buffers[i]);
             }
 
             buf_mgr->buffers[i] = buf_mgr->buffers[buf_mgr->count - 1];
@@ -108,13 +108,7 @@ void airui_buffer_free(airui_ctx_t *ctx, void *buffer)
  */
 airui_buffer_t *airui_buffer_create(void)
 {
-    airui_buffer_t *buf_mgr = malloc(sizeof(airui_buffer_t));
-    if (buf_mgr == NULL) {
-        return NULL;
-    }
-    
-    memset(buf_mgr, 0, sizeof(airui_buffer_t));
-    return buf_mgr;
+    return (airui_buffer_t *)luat_heap_opt_calloc(LUAT_HEAP_PSRAM, 1, sizeof(airui_buffer_t));
 }
 
 /**
@@ -135,22 +129,22 @@ void airui_buffer_free_all(airui_ctx_t *ctx)
     for (size_t i = 0; i < buf_mgr->count; i++) {
         if (buf_mgr->buffers[i] != NULL) {
             if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_SYSTEM) {
-                free(buf_mgr->buffers[i]);
+                luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->buffers[i]);
             } else if (buf_mgr->owners[i] == AIRUI_BUFFER_OWNER_LUA) {
                 // TODO: 使用 Lua heap 释放（luat_heap_free）
                 // 阶段一先使用系统 heap
-                free(buf_mgr->buffers[i]);
+                luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->buffers[i]);
             }
         }
     }
     
     // 释放数组
-    free(buf_mgr->buffers);
-    free(buf_mgr->sizes);
-    free(buf_mgr->owners);
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->buffers);
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->sizes);
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr->owners);
     
     // 释放管理器
-    free(buf_mgr);
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, buf_mgr);
     ctx->buffer = NULL;
 }
 

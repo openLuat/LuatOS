@@ -20,6 +20,7 @@
 static void airui_table_fill_row_from_lua(lua_State *L, lv_obj_t *table, int row, int idx);
 static void airui_table_fill_col_from_lua(lua_State *L, lv_obj_t *table, int col, int idx);
 static airui_table_scroll_action_t airui_table_parse_scroll_action(lua_State *L, int idx);
+static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row);
 
 /**
  * 创建 Table 组件
@@ -34,6 +35,19 @@ static airui_table_scroll_action_t airui_table_parse_scroll_action(lua_State *L,
  * @table config.data 可选的二维表内容，按 { {"r0c0", "r0c1"}, {"r1c0", "r1c1"} } 传入
  * @int|table config.row_height 可选的行高设置，支持单个高度或逐行数组
  * @table config.col_width 可选的列宽数组，支持逐列设置
+ * @table config.style 可选样式配置
+ * @int config.style.bg_color 表格背景色（0xRRGGBB）
+ * @int config.style.bg_opa 表格背景透明度（0-255）
+ * @int config.style.border_color 表格边框颜色（0xRRGGBB）
+ * @int config.style.radius 表格圆角半径
+ * @int config.style.cell_bg_color 单元格背景色（0xRRGGBB）
+ * @int config.style.cell_bg_opa 单元格背景透明度（0-255）
+ * @int config.style.cell_border_color 单元格边框颜色（0xRRGGBB）
+ * @int config.style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int config.style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
+ * @int config.style.selected_cell_bg_opa 选中单元格背景透明度（0-255）
+ * @int config.style.selected_cell_border_color 选中单元格边框颜色（0xRRGGBB）
+ * @int config.style.selected_cell_text_color 选中单元格文字颜色（0xRRGGBB）
  * @int config.border_color 可选的边框颜色（Hex 整数，如 0xff0000）
  * @userdata config.parent 父对象，默认当前屏幕
  * @return userdata Table 对象
@@ -70,6 +84,8 @@ static int l_airui_table(lua_State *L) {
  * @int col 列索引（从 0 开始）
  * @string text 单元格文本
  * @return nil
+ * @usage
+ * tbl:set_cell_text(0, 0, "hello")
  */
 static int l_table_set_cell_text(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -86,6 +102,8 @@ static int l_table_set_cell_text(lua_State *L) {
  * @int col 列索引（从 0 开始）
  * @int width 宽度（像素）
  * @return nil
+ * @usage
+ * tbl:set_col_width(1, 120)
  */
 static int l_table_set_col_width(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -101,6 +119,8 @@ static int l_table_set_col_width(lua_State *L) {
  * @int row 行索引（从 0 开始）
  * @int height 高度（像素）
  * @return nil
+ * @usage
+ * tbl:set_row_height(0, 40)
  */
 static int l_table_set_row_height(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -115,6 +135,8 @@ static int l_table_set_row_height(lua_State *L) {
  * @api table:set_border_color(color)
  * @int color 16 进制颜色整数（如 0xff0000）
  * @return nil
+ * @usage
+ * tbl:set_border_color(0xff0000)
  */
 static int l_table_set_border_color(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -125,58 +147,130 @@ static int l_table_set_border_color(lua_State *L) {
 }
 
 /**
- * Table:insert_row(row, row_data[, row_height])
- * @api table:insert_row(row, row_data[, row_height])
- * @int row 插入位置（从 0 开始）
- * @table row_data 行数据，按 {"c0", "c1"} 传入
- * @int row_height 可选行高（像素）
+ * Table:set_style(style)
+ * @api table:set_style(style)
+ * @table style 样式表，仅覆盖传入字段
+ * @int style.bg_color 表格背景色（0xRRGGBB）
+ * @int style.bg_opa 表格背景透明度（0-255）
+ * @int style.border_color 表格边框颜色（0xRRGGBB）
+ * @int style.radius 表格圆角半径
+ * @int style.cell_bg_color 单元格背景色（0xRRGGBB）
+ * @int style.cell_bg_opa 单元格背景透明度（0-255）
+ * @int style.cell_border_color 单元格边框颜色（0xRRGGBB）
+ * @int style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
+ * @int style.selected_cell_bg_opa 选中单元格背景透明度（0-255）
+ * @int style.selected_cell_border_color 选中单元格边框颜色（0xRRGGBB）
+ * @int style.selected_cell_text_color 选中单元格文字颜色（0xRRGGBB）
  * @return nil
+ * @usage
+ * tbl:set_style({ bg_color = 0xffffff, cell_text_color = 0x333333, radius = 6 })
  */
-static int l_table_insert_row(lua_State *L) {
+static int l_table_set_style(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
-    int row = luaL_checkinteger(L, 2);
-    if (row < 0) {
-        row = 0;
-    }
-    airui_table_insert_row(table, (uint16_t)row);
+    luaL_checktype(L, 2, LUA_TTABLE);
+    airui_table_set_style(table, L, 2);
+    return 0;
+}
 
-    if (!lua_isnoneornil(L, 3)) {
-        luaL_checktype(L, 3, LUA_TTABLE);
-        airui_table_fill_row_from_lua(L, table, row, 3);
+/**
+ * Table:set_cell_style(axis, index, style)
+ * @api table:set_cell_style(axis, index, style)
+ * @string axis 作用维度，支持 row/col
+ * @int index 行或列索引（从 0 开始）
+ * @table style 指定行或列的单元格样式，仅支持下列字段
+ * @int style.cell_bg_color 单元格背景色（0xRRGGBB）
+ * @int style.cell_border_color 单元格边框颜色（0xRRGGBB）
+ * @int style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @return nil
+ * @usage
+ * tbl:set_cell_style("row", 1, { cell_text_color = 0xff0000 })
+ * tbl:set_cell_style("col", 0, { cell_bg_color = 0xeeeeee, cell_border_color = 0xcccccc })
+ */
+static int l_table_set_cell_style(lua_State *L) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    bool is_row = true;
+    airui_table_parse_axis(L, 2, &is_row);
+    int index = luaL_checkinteger(L, 3);
+    if (index < 0) {
+        luaL_error(L, "index must be >= 0");
+        return 0;
+    }
+    luaL_checktype(L, 4, LUA_TTABLE);
+    airui_table_set_cell_style(table, is_row, (uint16_t)index, L, 4);
+    return 0;
+}
+
+static int airui_table_insert_impl(lua_State *L, bool is_row, int index_arg, int data_arg, int size_arg) {
+    lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
+    int index = luaL_checkinteger(L, index_arg);
+    if (index < 0) {
+        index = 0;
     }
 
-    if (!lua_isnoneornil(L, 4)) {
-        int row_height = luaL_checkinteger(L, 4);
-        airui_table_set_row_height(table, (uint16_t)row, row_height);
+    airui_table_insert(table, is_row, (uint16_t)index);
+    if (!lua_isnoneornil(L, data_arg)) {
+        luaL_checktype(L, data_arg, LUA_TTABLE);
+        if (is_row) {
+            airui_table_fill_row_from_lua(L, table, index, data_arg);
+        }
+        else {
+            airui_table_fill_col_from_lua(L, table, index, data_arg);
+        }
+    }
+
+    if (!lua_isnoneornil(L, size_arg)) {
+        int size = luaL_checkinteger(L, size_arg);
+        if (is_row) {
+            airui_table_set_row_height(table, (uint16_t)index, size);
+        }
+        else {
+            airui_table_set_col_width(table, (uint16_t)index, size);
+        }
     }
     return 0;
 }
 
 /**
- * Table:insert_col(col, col_data[, col_width])
- * @api table:insert_col(col, col_data[, col_width])
- * @int col 插入位置（从 0 开始）
- * @table col_data 列数据，按 {"r0", "r1"} 传入
- * @int col_width 可选列宽（像素）
+ * Table:insert(axis, index, data[, size])
+ * @api table:insert(axis, index, data[, size])
+ * @string axis 插入维度，支持 row/col
+ * @int index 插入位置（从 0 开始）
+ * @table data 行数据或列数据
+ * @int size 可选尺寸，row 时表示行高，col 时表示列宽
  * @return nil
+ * @usage
+ * tbl:insert("row", 1, { "新行A", "新行B", "新行C" }, 36)
+ * tbl:insert("col", 2, { "c2r0", "c2r1", "c2r2" }, 100)
  */
-static int l_table_insert_col(lua_State *L) {
+static int l_table_insert(lua_State *L) {
+    bool is_row = true;
+    airui_table_parse_axis(L, 2, &is_row);
+    return airui_table_insert_impl(L, is_row, 3, 4, 5);
+}
+
+/**
+ * Table:remove(axis, index[, count])
+ * @api table:remove(axis, index[, count])
+ * @string axis 移除维度，支持 row/col
+ * @int index 起始位置（从 0 开始）
+ * @int count 可选数量，默认 1
+ * @return nil
+ * @usage
+ * tbl:remove("row", 2)
+ * tbl:remove("col", 0, 2)
+ */
+static int l_table_remove(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
-    int col = luaL_checkinteger(L, 2);
-    if (col < 0) {
-        col = 0;
+    bool is_row = true;
+    airui_table_parse_axis(L, 2, &is_row);
+    int index = luaL_checkinteger(L, 3);
+    int count = luaL_optinteger(L, 4, 1);
+    if (index < 0 || count < 1) {
+        luaL_error(L, "index/count must be valid");
+        return 0;
     }
-    airui_table_insert_col(table, (uint16_t)col);
-
-    if (!lua_isnoneornil(L, 3)) {
-        luaL_checktype(L, 3, LUA_TTABLE);
-        airui_table_fill_col_from_lua(L, table, col, 3);
-    }
-
-    if (!lua_isnoneornil(L, 4)) {
-        int col_width = luaL_checkinteger(L, 4);
-        airui_table_set_col_width(table, (uint16_t)col, col_width);
-    }
+    airui_table_remove(table, is_row, (uint16_t)index, (uint16_t)count);
     return 0;
 }
 
@@ -191,6 +285,10 @@ static int l_table_insert_col(lua_State *L) {
  * @int config.step start 时可选，每次前进的行数，默认 1，例如 1 表示逐行滚动，2 表示每次跳过 1 行
  * @int config.focus_col start 时可选，自动滚动使用的焦点列，默认 0，滚动到目标行时会以该列单元格作为定位参考
  * @return nil
+ * @usage
+ * tbl:auto_jump_scroll_control({ action = "start", interval = 1500, loop = true, anim = true, step = 1, focus_col = 0 })
+ * tbl:auto_jump_scroll_control({ action = "pause" })
+ * tbl:auto_jump_scroll_control({ action = "stop" })
  */
 static int l_table_auto_jump_scroll_control(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -250,6 +348,10 @@ static int l_table_auto_jump_scroll_control(lua_State *L) {
  * @boolean config.loop start 时可选，是否循环滚动，默认 true，true 表示到底部后回到顶部继续跑马灯滚动
  * @int config.speed start 时可选，每次 tick 的滚动像素，默认 1，数值越大滚动越快
  * @return nil
+ * @usage
+ * tbl:auto_marquee_scroll_control({ action = "start", interval = 30, loop = true, speed = 2 })
+ * tbl:auto_marquee_scroll_control({ action = "resume" })
+ * tbl:auto_marquee_scroll_control({ action = "stop" })
  */
 static int l_table_auto_marquee_scroll_control(lua_State *L) {
     lv_obj_t *table = airui_check_component(L, 1, AIRUI_TABLE_MT);
@@ -290,6 +392,8 @@ static int l_table_auto_marquee_scroll_control(lua_State *L) {
  * Table:destroy()
  * @api table:destroy()
  * @return nil
+ * @usage
+ * tbl:destroy()
  */
 static int l_table_destroy(lua_State *L) {
     airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_TABLE_MT);
@@ -359,15 +463,30 @@ static airui_table_scroll_action_t airui_table_parse_scroll_action(lua_State *L,
     return AIRUI_TABLE_SCROLL_ACTION_STOP;
 }
 
+static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row) {
+    const char *axis = luaL_checkstring(L, idx);
+    if (!strcmp(axis, "row")) {
+        *is_row = true;
+        return 0;
+    }
+    if (!strcmp(axis, "col")) {
+        *is_row = false;
+        return 0;
+    }
+    return luaL_error(L, "unsupported axis: %s", axis);
+}
+
 void airui_register_table_meta(lua_State *L) {
     luaL_newmetatable(L, AIRUI_TABLE_MT);
     static const luaL_Reg methods[] = {
         {"set_cell_text", l_table_set_cell_text},
+        {"set_cell_style", l_table_set_cell_style},
         {"set_col_width", l_table_set_col_width},
         {"set_row_height", l_table_set_row_height},
+        {"set_style", l_table_set_style},
         {"set_border_color", l_table_set_border_color},
-        {"insert_row", l_table_insert_row},
-        {"insert_col", l_table_insert_col},
+        {"insert", l_table_insert},
+        {"remove", l_table_remove},
         {"auto_jump_scroll_control", l_table_auto_jump_scroll_control},
         {"auto_marquee_scroll_control", l_table_auto_marquee_scroll_control},
         {"destroy", l_table_destroy},

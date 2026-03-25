@@ -6,6 +6,9 @@
 
 #include "luat_airui_component.h"
 #include "lvgl9/lvgl.h"
+#include "lvgl9/src/draw/lv_draw_rect.h"
+#include "lvgl9/src/draw/lv_draw_label.h"
+#include "lvgl9/src/draw/lv_draw_private.h"
 #include "lvgl9/src/core/lv_obj_scroll.h"
 #include "lvgl9/src/widgets/table/lv_table.h"
 #include "lvgl9/src/widgets/table/lv_table_private.h"
@@ -18,8 +21,21 @@
 #include <string.h>
 
 typedef struct {
+    bool has_bg_color;
+    lv_color_t bg_color;
+    bool has_border_color;
+    lv_color_t border_color;
+    bool has_text_color;
+    lv_color_t text_color;
+} airui_table_cell_style_t;
+
+typedef struct {
     lv_coord_t *row_heights;
     uint16_t row_count;
+    airui_table_cell_style_t *row_styles;
+    uint16_t row_style_count;
+    airui_table_cell_style_t *col_styles;
+    uint16_t col_style_count;
     lv_timer_t *jump_scroll_timer;
     uint32_t jump_scroll_interval;
     uint16_t jump_scroll_current_row;
@@ -52,6 +68,12 @@ static void airui_table_reapply_row_heights(lv_obj_t *table);
 static lv_coord_t airui_table_normalize_row_height(lv_coord_t height);
 static void airui_table_sync_size(lv_obj_t *table, int rows, int cols);
 static void airui_table_style_event_cb(lv_event_t *e);
+static void airui_table_draw_task_added_event_cb(lv_event_t *e);
+static int airui_table_ensure_cell_style_capacity(airui_table_cell_style_t **styles, uint16_t *count, uint32_t target_count);
+static void airui_table_shift_cell_style_rules(airui_table_cell_style_t **styles, uint16_t *count, uint32_t index, int32_t delta);
+static airui_table_cell_style_t *airui_table_get_cell_style_slot(lv_obj_t *table, bool is_row, uint32_t index, bool create);
+static void airui_table_adjust_after_structure_change(lv_obj_t *table, bool row_axis, uint32_t index, uint32_t remove_count);
+static void airui_table_clamp_selection(lv_obj_t *table);
 
 /**
  * 通过 config 表创建 Table 组件
@@ -112,7 +134,15 @@ lv_obj_t *airui_table_create_from_config(void *L, int idx)
         lv_obj_set_style_border_color(table, border_color, (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
     }
 
+    lua_getfield(L_state, idx, "style");
+    if (lua_type(L_state, -1) == LUA_TTABLE) {
+        airui_table_set_style(table, L_state, lua_gettop(L_state));
+    }
+    lua_pop(L_state, 1);
+
     lv_obj_add_event_cb(table, airui_table_style_event_cb, LV_EVENT_STYLE_CHANGED, NULL);
+    lv_obj_add_event_cb(table, airui_table_draw_task_added_event_cb, LV_EVENT_DRAW_TASK_ADDED, NULL);
+    lv_obj_add_flag(table, LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
 
     airui_table_sync_size(table, rows, cols);
 
@@ -138,6 +168,12 @@ static void airui_table_release_data(void *user_data)
 
     if (data->row_heights != NULL) {
         luat_heap_free(data->row_heights);
+    }
+    if (data->row_styles != NULL) {
+        luat_heap_free(data->row_styles);
+    }
+    if (data->col_styles != NULL) {
+        luat_heap_free(data->col_styles);
     }
     if (data->jump_scroll_timer != NULL) {
         lv_timer_delete(data->jump_scroll_timer);
@@ -280,6 +316,111 @@ static void airui_table_shift_cached_row_heights(airui_table_data_t *data, uint3
     memcpy(new_heights, data->row_heights, sizeof(lv_coord_t) * data->row_count);
     luat_heap_free(data->row_heights);
     data->row_heights = new_heights;
+}
+
+static int airui_table_ensure_cell_style_capacity(airui_table_cell_style_t **styles, uint16_t *count, uint32_t target_count)
+{
+    if (styles == NULL || count == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (target_count <= *count) {
+        return AIRUI_OK;
+    }
+
+    airui_table_cell_style_t *new_styles = (airui_table_cell_style_t *)luat_heap_malloc(sizeof(airui_table_cell_style_t) * target_count);
+    if (new_styles == NULL) {
+        return AIRUI_ERR_NO_MEM;
+    }
+
+    memset(new_styles, 0, sizeof(airui_table_cell_style_t) * target_count);
+    if (*styles != NULL && *count > 0) {
+        memcpy(new_styles, *styles, sizeof(airui_table_cell_style_t) * (*count));
+        luat_heap_free(*styles);
+    }
+
+    *styles = new_styles;
+    *count = (uint16_t)target_count;
+    return AIRUI_OK;
+}
+
+static void airui_table_shift_cell_style_rules(airui_table_cell_style_t **styles, uint16_t *count, uint32_t index, int32_t delta)
+{
+    if (styles == NULL || count == NULL || delta == 0) {
+        return;
+    }
+
+    if (delta > 0) {
+        uint32_t old_count = *count;
+        uint32_t new_count = old_count + (uint32_t)delta;
+        if (airui_table_ensure_cell_style_capacity(styles, count, new_count) != AIRUI_OK) {
+            return;
+        }
+        if (index > old_count) {
+            index = old_count;
+        }
+        memmove((*styles) + index + delta,
+                (*styles) + index,
+                sizeof(airui_table_cell_style_t) * (old_count - index));
+        memset((*styles) + index, 0, sizeof(airui_table_cell_style_t) * (uint32_t)delta);
+        return;
+    }
+
+    if (*styles == NULL || *count == 0 || index >= *count) {
+        return;
+    }
+
+    uint32_t remove_count = (uint32_t)(-delta);
+    if (index + remove_count > *count) {
+        remove_count = *count - index;
+    }
+    if (remove_count == 0) {
+        return;
+    }
+
+    memmove((*styles) + index,
+            (*styles) + index + remove_count,
+            sizeof(airui_table_cell_style_t) * (*count - index - remove_count));
+    memset((*styles) + (*count - remove_count), 0, sizeof(airui_table_cell_style_t) * remove_count);
+    *count = (uint16_t)(*count - remove_count);
+
+    if (*count == 0) {
+        luat_heap_free(*styles);
+        *styles = NULL;
+        return;
+    }
+
+    airui_table_cell_style_t *new_styles = (airui_table_cell_style_t *)luat_heap_malloc(sizeof(airui_table_cell_style_t) * (*count));
+    if (new_styles == NULL) {
+        return;
+    }
+    memcpy(new_styles, *styles, sizeof(airui_table_cell_style_t) * (*count));
+    luat_heap_free(*styles);
+    *styles = new_styles;
+}
+
+static airui_table_cell_style_t *airui_table_get_cell_style_slot(lv_obj_t *table, bool is_row, uint32_t index, bool create)
+{
+    airui_table_data_t *data = create ? airui_table_ensure_data(table) : airui_table_get_data(table);
+    if (data == NULL) {
+        return NULL;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    uint32_t limit = is_row ? table_dsc->row_cnt : table_dsc->col_cnt;
+    if (index >= limit) {
+        return NULL;
+    }
+
+    airui_table_cell_style_t **styles = is_row ? &data->row_styles : &data->col_styles;
+    uint16_t *count = is_row ? &data->row_style_count : &data->col_style_count;
+    if (create && airui_table_ensure_cell_style_capacity(styles, count, limit) != AIRUI_OK) {
+        return NULL;
+    }
+    if (*styles == NULL || index >= *count) {
+        return NULL;
+    }
+    return (*styles) + index;
 }
 
 // 选择单元格
@@ -502,6 +643,145 @@ static void airui_table_style_event_cb(lv_event_t *e)
     airui_table_reapply_row_heights(table);
 }
 
+static void airui_table_draw_task_added_event_cb(lv_event_t *e)
+{
+    lv_obj_t *table = lv_event_get_current_target(e);
+    lv_draw_task_t *draw_task = lv_event_get_param(e);
+    lv_draw_dsc_base_t *base = (lv_draw_dsc_base_t *)draw_task->draw_dsc;
+    if (table == NULL || draw_task == NULL || base == NULL || base->part != LV_PART_ITEMS) {
+        return;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    uint32_t row = base->id1;
+    uint32_t col = base->id2;
+    if (row >= table_dsc->row_cnt || col >= table_dsc->col_cnt) {
+        return;
+    }
+
+    if (row == table_dsc->row_act && col == table_dsc->col_act &&
+        (table->state & (LV_STATE_PRESSED | LV_STATE_FOCUSED | LV_STATE_FOCUS_KEY | LV_STATE_EDITED))) {
+        return;
+    }
+
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (data == NULL) {
+        return;
+    }
+
+    airui_table_cell_style_t merged = {0};
+    bool has_style = false;
+    if (data->row_styles != NULL && row < data->row_style_count) {
+        merged = data->row_styles[row];
+        has_style = merged.has_bg_color || merged.has_border_color || merged.has_text_color;
+    }
+    if (data->col_styles != NULL && col < data->col_style_count) {
+        airui_table_cell_style_t *col_style = &data->col_styles[col];
+        if (col_style->has_bg_color) {
+            merged.has_bg_color = true;
+            merged.bg_color = col_style->bg_color;
+        }
+        if (col_style->has_border_color) {
+            merged.has_border_color = true;
+            merged.border_color = col_style->border_color;
+        }
+        if (col_style->has_text_color) {
+            merged.has_text_color = true;
+            merged.text_color = col_style->text_color;
+        }
+        has_style = has_style || col_style->has_bg_color || col_style->has_border_color || col_style->has_text_color;
+    }
+    if (!has_style) {
+        return;
+    }
+
+    lv_draw_fill_dsc_t *fill_dsc = lv_draw_task_get_fill_dsc(draw_task);
+    lv_draw_border_dsc_t *border_dsc = lv_draw_task_get_border_dsc(draw_task);
+    lv_draw_label_dsc_t *label_dsc = lv_draw_task_get_label_dsc(draw_task);
+
+    if (fill_dsc != NULL && merged.has_bg_color) {
+        fill_dsc->color = merged.bg_color;
+        fill_dsc->opa = LV_OPA_COVER;
+    }
+    if (border_dsc != NULL && merged.has_border_color) {
+        border_dsc->color = merged.border_color;
+        border_dsc->opa = LV_OPA_COVER;
+    }
+    if (label_dsc != NULL && merged.has_text_color) {
+        label_dsc->color = merged.text_color;
+        label_dsc->opa = LV_OPA_COVER;
+    }
+}
+
+static void airui_table_clamp_selection(lv_obj_t *table)
+{
+    if (table == NULL) {
+        return;
+    }
+
+    lv_table_t *table_dsc = (lv_table_t *)table;
+    if (table_dsc->row_cnt == 0 || table_dsc->col_cnt == 0) {
+        table_dsc->row_act = 0;
+        table_dsc->col_act = 0;
+        return;
+    }
+
+    if (table_dsc->row_act >= table_dsc->row_cnt) {
+        table_dsc->row_act = table_dsc->row_cnt - 1;
+    }
+    if (table_dsc->col_act >= table_dsc->col_cnt) {
+        table_dsc->col_act = table_dsc->col_cnt - 1;
+    }
+}
+
+static void airui_table_adjust_after_structure_change(lv_obj_t *table, bool row_axis, uint32_t index, uint32_t remove_count)
+{
+    airui_table_data_t *data = airui_table_get_data(table);
+    lv_table_t *table_dsc = (lv_table_t *)table;
+
+    if (data != NULL) {
+        if (row_axis) {
+            if ((data->jump_scroll_running || data->jump_scroll_paused) && data->jump_scroll_current_row >= index) {
+                if (data->jump_scroll_current_row < index + remove_count) {
+                    data->jump_scroll_current_row = (uint16_t)index;
+                }
+                else {
+                    data->jump_scroll_current_row = (uint16_t)(data->jump_scroll_current_row - remove_count);
+                }
+            }
+        }
+        else {
+            if (data->jump_scroll_focus_col >= index) {
+                if (data->jump_scroll_focus_col < index + remove_count) {
+                    data->jump_scroll_focus_col = (uint16_t)index;
+                }
+                else {
+                    data->jump_scroll_focus_col = (uint16_t)(data->jump_scroll_focus_col - remove_count);
+                }
+            }
+        }
+    }
+
+    if (row_axis && table_dsc->row_act >= index) {
+        if (table_dsc->row_act < index + remove_count) {
+            table_dsc->row_act = index;
+        }
+        else {
+            table_dsc->row_act -= remove_count;
+        }
+    }
+    if (!row_axis && table_dsc->col_act >= index) {
+        if (table_dsc->col_act < index + remove_count) {
+            table_dsc->col_act = index;
+        }
+        else {
+            table_dsc->col_act -= remove_count;
+        }
+    }
+
+    airui_table_clamp_selection(table);
+}
+
 // 归一化行高
 static lv_coord_t airui_table_normalize_row_height(lv_coord_t height)
 {
@@ -602,6 +882,62 @@ static void airui_table_apply_data(lua_State *L_state, int idx, lv_obj_t *table,
         *rows = (int)row_count;
     }
     lua_pop(L_state, 1);
+}
+
+int airui_table_set_style(lv_obj_t *table, void *L, int idx)
+{
+    if (table == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    int value = 0;
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
+        lv_obj_set_style_radius(table, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "cell_bg_color", &value)) {
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_border_color", &value)) {
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_text_color", &value)) {
+        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    }
+
+    if (airui_marshal_integer_opt(L_state, idx, "selected_cell_bg_color", &value)) {
+        lv_obj_set_style_bg_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "selected_cell_bg_opa", &value)) {
+        lv_obj_set_style_bg_opa(table, airui_marshal_opacity(value), LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "selected_cell_border_color", &value)) {
+        lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "selected_cell_text_color", &value)) {
+        lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
+
+    airui_table_reapply_row_heights(table);
+    return AIRUI_OK;
 }
 
 // 应用行高
@@ -723,36 +1059,114 @@ int airui_table_set_border_color(lv_obj_t *table, lv_color_t color)
     return AIRUI_OK;
 }
 
-// 插入行
-int airui_table_insert_row(lv_obj_t *table, uint16_t row)
+int airui_table_set_cell_style(lv_obj_t *table, bool is_row, uint16_t index, void *L, int idx)
+{
+    if (table == NULL || L == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    airui_table_cell_style_t *style = airui_table_get_cell_style_slot(table, is_row, index, true);
+    int value = 0;
+    if (style == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    idx = lua_absindex(L_state, idx);
+    if (!lua_istable(L_state, idx)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    memset(style, 0, sizeof(airui_table_cell_style_t));
+    if (airui_marshal_integer_opt(L_state, idx, "cell_bg_color", &value)) {
+        style->has_bg_color = true;
+        style->bg_color = lv_color_hex((uint32_t)value);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_border_color", &value)) {
+        style->has_border_color = true;
+        style->border_color = lv_color_hex((uint32_t)value);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_text_color", &value)) {
+        style->has_text_color = true;
+        style->text_color = lv_color_hex((uint32_t)value);
+    }
+
+    lv_obj_invalidate(table);
+    return AIRUI_OK;
+}
+
+int airui_table_insert(lv_obj_t *table, bool is_row, uint16_t index)
 {
     if (table == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
     lv_table_t *table_dsc = (lv_table_t *)table;
-    uint32_t old_row_count = table_dsc->row_cnt;
-    uint32_t col_count = table_dsc->col_cnt;
-
-    if (row > old_row_count) {
-        row = (uint16_t)old_row_count;
-    }
-
-    lv_table_set_row_count(table, old_row_count + 1);
-    table_dsc = (lv_table_t *)table;
-
-    if (col_count > 0 && row < old_row_count) {
-        memmove(table_dsc->cell_data + ((row + 1U) * col_count),
-                table_dsc->cell_data + (row * col_count),
-                sizeof(table_dsc->cell_data[0]) * ((old_row_count - row) * col_count));
-        memset(table_dsc->cell_data + (row * col_count), 0, sizeof(table_dsc->cell_data[0]) * col_count);
-    }
-
     airui_table_data_t *data = airui_table_get_data(table);
-    if (data != NULL) {
-        airui_table_shift_cached_row_heights(data, row, 1);
-        if ((data->jump_scroll_running || data->jump_scroll_paused) && data->jump_scroll_current_row >= row) {
-            data->jump_scroll_current_row++;
+    if (is_row) {
+        uint32_t old_row_count = table_dsc->row_cnt;
+        uint32_t col_count = table_dsc->col_cnt;
+        int32_t inserted_row_height = 0;
+
+        if (index > old_row_count) {
+            index = (uint16_t)old_row_count;
+        }
+
+        lv_table_set_row_count(table, old_row_count + 1);
+        table_dsc = (lv_table_t *)table;
+        inserted_row_height = table_dsc->row_h[old_row_count];
+
+        if (col_count > 0 && index < old_row_count) {
+            memmove(table_dsc->cell_data + ((index + 1U) * col_count),
+                    table_dsc->cell_data + (index * col_count),
+                    sizeof(table_dsc->cell_data[0]) * ((old_row_count - index) * col_count));
+            memset(table_dsc->cell_data + (index * col_count), 0, sizeof(table_dsc->cell_data[0]) * col_count);
+            memmove(table_dsc->row_h + index + 1U,
+                    table_dsc->row_h + index,
+                    sizeof(table_dsc->row_h[0]) * (old_row_count - index));
+        }
+        table_dsc->row_h[index] = inserted_row_height;
+
+        if (data != NULL) {
+            airui_table_shift_cached_row_heights(data, index, 1);
+            airui_table_shift_cell_style_rules(&data->row_styles, &data->row_style_count, index, 1);
+            if ((data->jump_scroll_running || data->jump_scroll_paused) && data->jump_scroll_current_row >= index) {
+                data->jump_scroll_current_row++;
+            }
+        }
+    }
+    else {
+        uint32_t row_count = table_dsc->row_cnt;
+        uint32_t old_col_count = table_dsc->col_cnt;
+
+        if (index > old_col_count) {
+            index = (uint16_t)old_col_count;
+        }
+
+        lv_table_set_column_count(table, old_col_count + 1);
+        table_dsc = (lv_table_t *)table;
+
+        if (row_count > 0 && index < old_col_count) {
+            uint32_t new_col_count = table_dsc->col_cnt;
+            for (int32_t row_idx = (int32_t)row_count - 1; row_idx >= 0; row_idx--) {
+                uint32_t row_start = (uint32_t)row_idx * new_col_count;
+                memmove(table_dsc->cell_data + row_start + index + 1U,
+                        table_dsc->cell_data + row_start + index,
+                        sizeof(table_dsc->cell_data[0]) * (old_col_count - index));
+                table_dsc->cell_data[row_start + index] = NULL;
+            }
+
+            memmove(table_dsc->col_w + index + 1U,
+                    table_dsc->col_w + index,
+                    sizeof(table_dsc->col_w[0]) * (old_col_count - index));
+        }
+        table_dsc->col_w[index] = LV_DPI_DEF;
+
+        if (data != NULL) {
+            airui_table_shift_cell_style_rules(&data->col_styles, &data->col_style_count, index, 1);
+            if (data->jump_scroll_focus_col >= index) {
+                data->jump_scroll_focus_col++;
+            }
         }
     }
 
@@ -761,43 +1175,108 @@ int airui_table_insert_row(lv_obj_t *table, uint16_t row)
     return AIRUI_OK;
 }
 
-// 插入列
+int airui_table_insert_row(lv_obj_t *table, uint16_t row)
+{
+    return airui_table_insert(table, true, row);
+}
+
 int airui_table_insert_col(lv_obj_t *table, uint16_t col)
 {
-    if (table == NULL) {
+    return airui_table_insert(table, false, col);
+}
+
+int airui_table_remove(lv_obj_t *table, bool is_row, uint16_t index, uint16_t count)
+{
+    if (table == NULL || count == 0) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
     lv_table_t *table_dsc = (lv_table_t *)table;
-    uint32_t row_count = table_dsc->row_cnt;
-    uint32_t old_col_count = table_dsc->col_cnt;
-
-    if (col > old_col_count) {
-        col = (uint16_t)old_col_count;
-    }
-
-    lv_table_set_column_count(table, old_col_count + 1);
-    table_dsc = (lv_table_t *)table;
-
-    if (row_count > 0 && col < old_col_count) {
-        uint32_t new_col_count = table_dsc->col_cnt;
-        for (int32_t row_idx = (int32_t)row_count - 1; row_idx >= 0; row_idx--) {
-            uint32_t row_start = (uint32_t)row_idx * new_col_count;
-            memmove(table_dsc->cell_data + row_start + col + 1U,
-                    table_dsc->cell_data + row_start + col,
-                    sizeof(table_dsc->cell_data[0]) * (old_col_count - col));
-            table_dsc->cell_data[row_start + col] = NULL;
+    airui_table_data_t *data = airui_table_get_data(table);
+    if (is_row) {
+        uint32_t old_row_count = table_dsc->row_cnt;
+        uint32_t col_count = table_dsc->col_cnt;
+        if (old_row_count <= 1 || index >= old_row_count) {
+            return AIRUI_ERR_INVALID_PARAM;
+        }
+        if ((uint32_t)index + (uint32_t)count > old_row_count) {
+            count = (uint16_t)(old_row_count - index);
+        }
+        if (old_row_count - count < 1) {
+            count = (uint16_t)(old_row_count - 1);
+        }
+        if (count == 0) {
+            return AIRUI_ERR_INVALID_PARAM;
         }
 
-        memmove(table_dsc->col_w + col + 1U,
-                table_dsc->col_w + col,
-                sizeof(table_dsc->col_w[0]) * (old_col_count - col));
-        table_dsc->col_w[col] = LV_DPI_DEF;
-    }
+        for (uint32_t row = index; row < (uint32_t)index + (uint32_t)count; row++) {
+            for (uint32_t col = 0; col < col_count; col++) {
+                lv_free(table_dsc->cell_data[row * col_count + col]);
+                table_dsc->cell_data[row * col_count + col] = NULL;
+            }
+        }
+        if ((uint32_t)index + (uint32_t)count < old_row_count) {
+            memmove(table_dsc->cell_data + index * col_count,
+                    table_dsc->cell_data + (index + count) * col_count,
+                    sizeof(table_dsc->cell_data[0]) * ((old_row_count - index - count) * col_count));
+            memmove(table_dsc->row_h + index,
+                    table_dsc->row_h + index + count,
+                    sizeof(table_dsc->row_h[0]) * (old_row_count - index - count));
+        }
+        memset(table_dsc->cell_data + (old_row_count - count) * col_count, 0, sizeof(table_dsc->cell_data[0]) * (count * col_count));
+        memset(table_dsc->row_h + (old_row_count - count), 0, sizeof(table_dsc->row_h[0]) * count);
 
-    airui_table_data_t *data = airui_table_get_data(table);
-    if (data != NULL && data->jump_scroll_focus_col >= col) {
-        data->jump_scroll_focus_col++;
+        if (data != NULL) {
+            airui_table_shift_cached_row_heights(data, index, -(int32_t)count);
+            airui_table_shift_cell_style_rules(&data->row_styles, &data->row_style_count, index, -(int32_t)count);
+        }
+
+        lv_table_set_row_count(table, old_row_count - count);
+        airui_table_adjust_after_structure_change(table, true, index, count);
+    }
+    else {
+        uint32_t row_count = table_dsc->row_cnt;
+        uint32_t old_col_count = table_dsc->col_cnt;
+        if (old_col_count <= 1 || index >= old_col_count) {
+            return AIRUI_ERR_INVALID_PARAM;
+        }
+        if ((uint32_t)index + (uint32_t)count > old_col_count) {
+            count = (uint16_t)(old_col_count - index);
+        }
+        if (old_col_count - count < 1) {
+            count = (uint16_t)(old_col_count - 1);
+        }
+        if (count == 0) {
+            return AIRUI_ERR_INVALID_PARAM;
+        }
+
+        for (uint32_t row = 0; row < row_count; row++) {
+            uint32_t row_start = row * old_col_count;
+            for (uint32_t col = index; col < (uint32_t)index + (uint32_t)count; col++) {
+                lv_free(table_dsc->cell_data[row_start + col]);
+                table_dsc->cell_data[row_start + col] = NULL;
+            }
+            if ((uint32_t)index + (uint32_t)count < old_col_count) {
+                memmove(table_dsc->cell_data + row_start + index,
+                        table_dsc->cell_data + row_start + index + count,
+                        sizeof(table_dsc->cell_data[0]) * (old_col_count - index - count));
+            }
+            memset(table_dsc->cell_data + row_start + (old_col_count - count), 0, sizeof(table_dsc->cell_data[0]) * count);
+        }
+
+        if ((uint32_t)index + (uint32_t)count < old_col_count) {
+            memmove(table_dsc->col_w + index,
+                    table_dsc->col_w + index + count,
+                    sizeof(table_dsc->col_w[0]) * (old_col_count - index - count));
+        }
+        memset(table_dsc->col_w + (old_col_count - count), 0, sizeof(table_dsc->col_w[0]) * count);
+
+        if (data != NULL) {
+            airui_table_shift_cell_style_rules(&data->col_styles, &data->col_style_count, index, -(int32_t)count);
+        }
+
+        lv_table_set_column_count(table, old_col_count - count);
+        airui_table_adjust_after_structure_change(table, false, index, count);
     }
 
     lv_obj_refresh_self_size(table);

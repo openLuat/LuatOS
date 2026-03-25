@@ -29,10 +29,17 @@
 
 local exmodbus = require("exmodbus")
 
+-- 根据硬件环境配置控制485接收和发送的使能脚
+local rs485_dir_gpio = 24  -- 默认值
+
+if HARDWARE_ENV == "DEV_BOARD_V1.2" then
+    rs485_dir_gpio = 25    -- V1.2开发板使用GPIO25
+elseif HARDWARE_ENV == "DEV_BOARD_V1.3" then
+    rs485_dir_gpio = 24    -- V1.3开发板使用GPIO24
+end
 
 gpio.setup(1, 1)          -- Air780EPM RS485 芯片供电引脚
 gpio.setup(23, 1)         -- Air780EPM vref 脚拉高
-local rs485_dir_gpio = 24 -- Air780EPM RS485 方向引脚（V1.2 开发板是 25，V1.3 开发板是 24）
 
 
 -- 创建 RTU 主站配置参数

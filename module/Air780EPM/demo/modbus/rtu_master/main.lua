@@ -98,6 +98,13 @@ VERSION = "001.999.000"
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
 
+-- 硬件环境配置说明
+-- 本Demo支持两种硬件环境，请根据实际使用情况修改HARDWARE_ENV变量：
+--   "DEV_BOARD_V1.3" - V1.3开发板（默认）
+--                      控制485接收和发送的使能脚：GPIO24
+--   "DEV_BOARD_V1.2" - V1.2开发板
+--                      控制485接收和发送的使能脚：GPIO25
+HARDWARE_ENV = "DEV_BOARD_V1.3"  -- 修改此值适配不同开发板版本："DEV_BOARD_V1.3"=V1.3开发板, "DEV_BOARD_V1.2"=V1.2开发板
 
 
 

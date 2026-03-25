@@ -9,9 +9,22 @@
 1.开启串口，配置波特率等参数；
 2.设置接收回调函数
 3.定时向串口发送数据
+
+硬件环境说明：
+- V1.2开发板：控制485接收和发送的使能脚为GPIO25
+- V1.3开发板：控制485接收和发送的使能脚为GPIO24（默认）
 ]]
+
+-- 根据硬件环境配置485使能脚
+local uart485Pin = 24  -- 默认值
+
+if HARDWARE_ENV == "DEV_BOARD_V1.2" then
+    uart485Pin = 25    -- V1.2开发板使用GPIO25
+elseif HARDWARE_ENV == "DEV_BOARD_V1.3" then
+    uart485Pin = 24    -- V1.3开发板使用GPIO24
+end
+
 local uartid = 1        -- 根据实际设备选取不同的uartid
-local uart485Pin = 24   -- 用于控制485接收和发送的使能引脚（根据实际设备选取不同引脚）
 
 gpio.setup(1, 1)        --打开电源(开发板485供电脚是gpio1，用开发板测试需要开机初始化拉高gpio1)
 gpio.setup(23, 1)       --打开上拉电源

@@ -35,12 +35,29 @@ end
 ]]
 
 function lcd_drv.init()
+    -- 根据硬件环境配置LCD电源GPIO和背光控制引脚
+    -- HARDWARE_ENV参数说明：
+    -- "CORE_BOARD": 核心板直连，不需要控制GPIO供电，背光使用GPIO1控制
+    -- "DEV_BOARD_V1.2": V1.2开发板，使用GPIO28控制LCD电源，无需控制背光（未接背光）
+    -- "DEV_BOARD_V1.3": V1.3开发板，使用GPIO29控制LCD电源，背光使用GPIO30控制
+
+    local pin_pwr = nil  -- 默认不通过lcd库控制背光
+
+    if HARDWARE_ENV == "DEV_BOARD_V1.2" then
+        gpio.setup(28, 1) -- GPIO28打开给LCD电源供电，无需控制背光
+    elseif HARDWARE_ENV == "DEV_BOARD_V1.3" then
+        gpio.setup(29, 1) -- GPIO29打开给LCD电源供电
+        gpio.setup(30, 0) -- GPIO30拉低开启背光（拉高灭屏，拉低亮屏），不通过lcd库控制
+    else
+        pin_pwr = 1       -- 核心板使用GPIO1控制背光，通过lcd库控制
+    end
+
     local result = lcd.init("st7796",
         {
             pin_rst = 36,                          -- 复位引脚
-            pin_pwr = 1,                           -- 背光控制引脚GPIO的ID号
+            pin_pwr = pin_pwr,                     -- 背光控制引脚GPIO ID号，根据硬件环境自适应
             port = lcd.HWID_0,                     -- 驱动端口
-            -- pin_dc = 0xFF,          -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值
+            -- pin_dc = 0xFF,                      -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值
             direction = 0,                         -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
             w = 320,                               -- lcd 水平分辨率
             h = 480,                               -- lcd 竖直分辨率

@@ -12,13 +12,11 @@
 1. **home_page.lua** - 主页模块，提供应用入口和导航功能
 2. **component_page.lua** - 组件演示模块，展示进度条和基本图形
 3. **default_font_page.lua** - 内置字体演示模块，展示U8G2内置字体效果
-4. **gtfont_page.lua** - GTFont矢量字体演示模块，展示外置字库效果
 
 ### 1.3 驱动模块
 
-1. **hw_default_font_drv.lua** - LCD初始化和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
-2. **hw_gtfont_drv.lua** - LCD初始化和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
-3. **key_drv.lua** - 按键驱动模块，管理BOOT键和PWR键
+1. **hw_default_font_drv.lua** - LCD初始化和内置字体驱动模块
+2. **key_drv.lua** - 按键驱动模块，管理BOOT键和PWR键
 
 
 ## 二、按键消息介绍
@@ -30,7 +28,6 @@
      - 主页：boot 键（释放）选择/切换选项，pwr 键（释放）确认
      - 组件演示页面：boot 键（释放）切换选项，pwr 键（释放）确认（返回或进度 +10%）
      - 内置字体页面：boot 键（释放）切换选项（只有一个返回按钮，无实际效果），pwr 键（释放）返回
-     - GTFont 页面：boot 键（释放）切换选项（返回或切换字体大小），pwr 键（释放）确认
 
 注意：当前代码中只处理按键的释放事件（boot_up 和 pwr_up），按下事件被忽略。
 
@@ -38,10 +35,9 @@
 
 <table>
 <tr>
-<td>主页<br/></td><td>组件演示页<br/></td><td>内置中文字体页面<br/></td><td>GTFont页面<br/></td></tr>
+<td>主页<br/></td><td>组件演示页<br/></td><td>内置中文字体页面<br/></td></tr>
 <tr>
-<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHM_st7567_homepage.jpg" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHM_ST7567_component_page.jpg" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/Air780EHM_st7567_default_font_page.jpg" width="80" /><br/></td>
-<td><img src="https://docs.openluat.com/cdn/image/Air780EHM_st7567_gtfont_page.jpg" width="80" /><br/></td></tr>
+<td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air8000_st7567_homepage.jpg" width="80" /><br/></td><td rowspan="2"><img src="https://docs.openluat.com/cdn/image/Air780EHM_ST7567_component_page.jpg" width="80" /><br/></td><td><img src="https://docs.openluat.com/cdn/image/Air780EHM_st7567_default_font_page.jpg" width="80" /><br/></td></tr>
 </table>
 
 ## 四、功能详细说明
@@ -58,13 +54,7 @@
 2. **时间显示** - 显示当前系统时间，支持实时更新
 3. **简洁界面** - 单按钮设计，便于快速返回
 
-### 4.3 GTFont 矢量字体演示页面
-
-1. **矢量字体显示** - 使用 GTFont 矢量字库显示文字（需外置字库支持）
-2. **字体大小切换** - 支持 12、14、16、18、20 号字体大小循环切换
-3. **兼容性设计** - 无外置字库时自动使用内置字体显示
-
-### 4.4 按键交互功能
+### 4.3 按键交互功能
 
 1. **页面导航** - 支持多页面之间的流畅切换
 2. **防抖处理** - 按键驱动内置 50ms 防抖，防止误触发
@@ -76,13 +66,12 @@
 
 - Air780EHM/Air780EHV/Air780EGH 核心板 × 1
 - st7657 显示屏 × 1 [本demo演示使用的屏幕购买链接]( https://e.tb.cn/h.72oQitvwK2AJtDC?tk=ymJ3fuxC8L4)
-- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 14，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air780EHM/Air780EHV/Air780EGH 核心板和 ST7567单色点阵屏以及AirFONTS_1000 配件板的硬件接线方式为
+- Air780EHM/Air780EHV/Air780EGH 核心板和 ST7567单色点阵屏的硬件接线方式为
 
-  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 ST7567单色点阵屏和AirFONTS_1000 配件板供电；
-  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VBAT 引脚给 ST7567单色点阵屏，VDD-EXT引脚给AirFONTS_1000 配件板供电；
+  - Air780EHM/Air780EHV/Air780EGH 核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 ST7567单色点阵屏供电；
+  - 为了演示方便，所以 Air780EHM/Air780EHV/Air780EGH 核心板上电后直接通过 VBAT 引脚给 ST7567单色点阵屏；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
 
 ### 5.2 接线配置
@@ -110,27 +99,8 @@
 <td>GND<br/></td><td>GND<br/></td></tr>
 </table>
 
-#### 5.2.2 GTFont 字库接线
-
-<table>
-<tr>
-<td>Air780EHM核心板<br/></td><td>AirFONTS_1000配件板<br/></td></tr>
-<tr>
-<td>57/U3TXD<br/></td><td>CLK<br/></td></tr>
-<tr>
-<td>28/U2RXD<br/></td><td>CS<br/></td></tr>
-<tr>
-<td>29/U2TXD<br/></td><td>MOSI<br/></td></tr>
-<tr>
-<td>58/U3RXD<br/></td><td>MISO<br/></td></tr>
-<tr>
-<td>24/VDD_EXT<br/></td><td>VCC<br/></td></tr>
-<tr>
-<td>GND<br/></td><td>GND<br/></td></tr>
-</table>
-
 #### 5.2.3 接线图
-![](https://docs.openLuat.com/cdn/image/Air780EHM_st7567接线图.jpg)
+![](https://docs.openluat.com/air780ehv/luatos/app/multimedia/ui/u8g2/image/image1.png)
 
 ## 六、演示软件环境
 
@@ -157,11 +127,8 @@
 在`main.lua`中选择加载对应的驱动模块：
 
 ```lua
--- 加载显示和字体驱动模块，有以下两种：
--- 1. hw_default_font_drv - LCD显示驱动和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
--- 2. hw_gtfont_drv - LCD显示驱动和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
+-- 加载显示和字体驱动模块
 require("hw_default_font_drv")  -- 使用内置12号中文点阵字体
--- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库（Air780EHM支持，Air780EHV/EGH不支持2路SPI接口）
 
 -- 加载按键驱动
 require("key_drv")
@@ -179,7 +146,7 @@ require("ui_main")
 
 #### 7.4.1 主页面操作
 
-1. 设备启动后显示主页面，包含三个功能选项
+1. 设备启动后显示主页面，包含两个功能选项
 2. 使用 boot 键（释放）切换选择不同的菜单项
 3. 使用 pwr 键（释放）进入选中的演示页面
 
@@ -198,20 +165,12 @@ require("ui_main")
 3. 使用 boot 键切换按钮（只有一个返回按钮）
 4. 按 pwr 键返回主页
 
-#### 7.4.4 GTFont 演示页面
-
-1. 查看字体大小显示（如果使用 GTFont 驱动，则显示 GTFont 字体，否则显示内置字体）
-2. 使用 boot 键切换按钮（返回、切换字体大小）
-3. 使用 pwr 键执行当前选中按钮的功能
-4. 按 pwr 键（当返回按钮选中时）返回主页
-
 ### 7.5 预期效果
 
-- **系统启动**：显示开机信息（内置字体进入/GTFont 进入），然后进入主页面
-- **主页面**：正常显示三个菜单项，boot 键切换选项，pwr 键确认
+- **系统启动**：显示开机信息（内置字体进入），然后进入主页面
+- **主页面**：正常显示两个菜单项，boot 键切换选项，pwr 键确认
 - **组件演示页面**：进度条和图形显示正常，按键功能正常
 - **内置字体页面**：字体显示正常，时间更新正常，pwr 键返回
-- **GTFont 页面**：字体显示正常，字体大小切换正常，pwr 键返回
 - **按键响应**：所有按键操作响应及时准确，页面切换流畅
 
 ### 7.6 故障排除
@@ -232,17 +191,11 @@ require("ui_main")
    - 确认按键中断处理函数是否正确注册
    - 检查防抖参数是否合适
 
-4. **GTFont 功能异常**
-
-   - 检查 GTFont 字库接线是否正确
-   - 确认 SPI 通信速率是否合适（20MHz）
-   - 检查字库初始化是否成功
-
-5. **系统卡顿或重启**
+4. **系统卡顿或重启**
 
    - 确认内存使用情况
    - 适当调整屏幕刷新频率
 
 ### 7.7 扩展建议
-  
+
   本demo所演示的接口都可以在[u8g2核心库](https://docs.openluat.com/osapi/core/u8g2)中找到，更丰富的使用方式可以参考u8g2核心库进行进一步开发。

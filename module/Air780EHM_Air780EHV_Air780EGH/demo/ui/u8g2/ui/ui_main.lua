@@ -6,7 +6,7 @@
 @author  江访
 @usage
 本文件为U8G2图形界面的主控模块，核心业务逻辑为：
-1、管理四个页面：主页、组件演示页、内置字体页、GTFont演示页；
+1、管理三个页面：主页、组件演示页、内置字体页；
 2、处理按键事件并分发给当前页面；
 3、控制页面切换逻辑，调用页面的进入/离开回调函数；
 4、实现主渲染循环，定期更新屏幕显示；
@@ -20,7 +20,6 @@
 local home_page = require("home_page")
 local component_page = require("component_page")
 local default_font_page = require("default_font_page")
-local gtfont_page = require("gtfont_page")
 
 -- 超时更新画面时间，默认60秒
 frame_time = 60 * 1000
@@ -29,8 +28,7 @@ frame_time = 60 * 1000
 local PAGE_NAMES = {
     HOME = "home",
     COMPONENT = "component",
-    DEFAULT_FONT = "default_font",
-    GTFONT = "gtfont"
+    DEFAULT_FONT = "default_font"
 }
 
 -- 当前页面
@@ -58,8 +56,6 @@ local function handle_key_event(key_event)
             return component_page.handle_key("next")
         elseif current_page == PAGE_NAMES.DEFAULT_FONT then
             return default_font_page.handle_key("next")
-        elseif current_page == PAGE_NAMES.GTFONT then
-            return gtfont_page.handle_key("next")
         end
         return false
     elseif key_event == "pwr_up" then
@@ -70,8 +66,6 @@ local function handle_key_event(key_event)
             return component_page.handle_key("confirm")
         elseif current_page == PAGE_NAMES.DEFAULT_FONT then
             return default_font_page.handle_key("confirm")
-        elseif current_page == PAGE_NAMES.GTFONT then
-            return gtfont_page.handle_key("confirm")
         end
     end
     return false
@@ -80,7 +74,7 @@ end
 --[[
 @api switch_page(new_page)
 @summary 切换当前显示的页面
-@param string new_page 要切换到的页面名称，可选值："home"、"component"、"default_font"、"gtfont"
+@param string new_page 要切换到的页面名称，可选值："home"、"component"、"default_font"
 @return 无返回值
 @usage
 -- 在页面处理函数中调用
@@ -97,8 +91,6 @@ function switch_page(new_page)
         component_page.on_leave()
     elseif current_page == PAGE_NAMES.DEFAULT_FONT and default_font_page.on_leave then
         default_font_page.on_leave()
-    elseif current_page == PAGE_NAMES.GTFONT and gtfont_page.on_leave then
-        gtfont_page.on_leave()
     end
 
     current_page = new_page
@@ -110,8 +102,6 @@ function switch_page(new_page)
         component_page.on_enter()
     elseif new_page == PAGE_NAMES.DEFAULT_FONT and default_font_page.on_enter then
         default_font_page.on_enter()
-    elseif new_page == PAGE_NAMES.GTFONT and gtfont_page.on_enter then
-        gtfont_page.on_enter()
     end
 
     log.info("ui_main", "已切换到页面:", current_page)
@@ -141,8 +131,6 @@ local function ui_main()
             component_page.draw()
         elseif current_page == PAGE_NAMES.DEFAULT_FONT then
             default_font_page.draw()
-        elseif current_page == PAGE_NAMES.GTFONT then
-            gtfont_page.draw()
         end
 
         -- 刷新显示

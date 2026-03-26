@@ -42,6 +42,8 @@ local RECORD_FILE_PATH = SD_MOUNT_PATH .. "/record_call.pcm"  -- 录音文件路
 -- Air8000整机开发板上TF卡的的pin_cs为gpio20，spi_id为1.请根据实际硬件修改
 local spi_id = 1
 local pin_cs = 20
+-- Air8000核心板CS为IO12
+-- local pin_cs = 12
 
 -- 录音功能相关函数
 local is_recording_to_file = false  -- 录音状态标志：true表示正在录音到文件

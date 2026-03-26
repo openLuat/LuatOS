@@ -42,6 +42,8 @@ local RECORD_FILE_PATH = SD_MOUNT_PATH .. "/record_call.pcm"  -- 录音文件路
 -- 整机开发板上TF卡的的pin_cs为gpio16，spi_id为0.请根据实际硬件修改
 local spi_id = 0
 local pin_cs = 16
+-- 核心板CS为IO8
+-- local pin_cs = 8
 
 -- 录音功能相关函数
 local is_recording_to_file = false  -- 录音状态标志：true表示正在录音到文件

@@ -192,15 +192,7 @@ int luat_codec_get_audio_info(const char *file_path, luat_multimedia_codec_t *co
     }
 
     if (coder->ops && coder->ops->get_info) {
-        audio_info_t info = {0};
-        result = coder->ops->get_info(coder, fd, &info);
-        if (result) {
-            coder->audio_format = info.audio_format;
-            coder->num_channels = info.num_channels;
-            coder->sample_rate = info.sample_rate;
-            coder->bits_per_sample = info.bits_per_sample;
-            coder->is_signed = info.is_signed;
-        }
+        result = coder->ops->get_info(coder, fd);
     }
 
     if (!result){

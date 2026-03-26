@@ -1,6 +1,6 @@
 --[[
 @module  codec_pcm_to_amr
-@summary PCM编码为AMR_WB并播放
+@summary PCM编码为AMR并播放
 @version 2.3
 @date    2025.11.18
 @author  陈媛媛
@@ -9,16 +9,23 @@
 注意：
 如果搭配AirAUDIO_1000 音频板测试，需将AirAUDIO_1000 音频板中PA开关拨到OFF，让软件控制PA，避免pop音
 
-本文件为PCM编码为AMR_WB功能模块，核心业务逻辑为：
+本文件为PCM编码为AMR功能模块，支持AMR-NB(8kHz)和AMR-WB(16kHz)两种模式，核心业务逻辑为：
 1、使用exaudio播放原始PCM文件
-2、 对PCM文件进行AMR_WB编码并保存
-3、播放编码后的AMR_WB文件
+2、对PCM文件进行AMR编码并保存（AMR-NB或AMR-WB，由TEST_AMR_NB开关控制）
+3、播放编码后的AMR文件
 4、等待播放完成并释放所有资源
+
+测试开关 TEST_AMR_NB：
+  - true:  AMR-NB模式，使用8kHz PCM文件，输出文件头 #!AMR\n
+  - false: AMR-WB模式，使用16kHz PCM文件，输出文件头 #!AMR-WB\n
 
 本文件没有对外接口，直接在main.lua中require "codec_pcm_to_amr"就可以加载运行；
 ]]
 
 local exaudio = require "exaudio"
+
+-- 测试开关：true = AMR-NB (8kHz), false = AMR-WB (16kHz)
+local TEST_AMR_NB = false
 
 -- 音频初始化设置参数
 local audio_setup_param = {
@@ -31,17 +38,20 @@ local audio_setup_param = {
     pa_on_level = 1
 }
 
--- 文件路径定义
-local PCM_FILE = "/luadb/test.pcm"
-local AMR_WB_OUTPUT_FILE = "/encoded.amr.wb"
+-- 文件路径定义（根据测试模式选择）
+local PCM_FILE = TEST_AMR_NB and "/luadb/test_8k.pcm" or "/luadb/test.pcm"
+local AMR_OUTPUT_FILE = TEST_AMR_NB and "/encoded_amr_nb.amr" or "/encoded_amr_wb.amr"
+
+-- AMR文件头
+local AMR_HEADER = TEST_AMR_NB and "#!AMR\n" or "#!AMR-WB\n"
 
 -- 定义播放完成消息
-local PLAY_COMPLETE_MSG = "AMR_WB_PLAY_COMPLETE"
+local PLAY_COMPLETE_MSG = "AMR_PLAY_COMPLETE"
 
 -- 播放完成回调
 local function play_end_callback(event)
     if event == exaudio.PLAY_DONE then
-        log.info("AMR_WB播放完成", "回调触发")
+        log.info("AMR播放完成", "回调触发")
         sys.publish(PLAY_COMPLETE_MSG)
     end
 end
@@ -51,21 +61,22 @@ local function wait_play_complete(timeout_ms)
     local result, data = sys.waitUntil(PLAY_COMPLETE_MSG, timeout_ms)
 
     if result then
-        log.info("AMR_WB播放正常完成")
+        log.info("AMR播放正常完成")
         return true
     else
-        log.warn("等待AMR_WB播放完成超时", timeout_ms, "ms")
+        log.warn("等待AMR播放完成超时", timeout_ms, "ms")
         return false
     end
 end
 
--- PCM转AMR_WB编码并播放演示主函数
+-- PCM转AMR编码并播放演示主函数
 function demo()
-    log.info("开始PCM转AMR_WB编码并播放演示")
+    local mode_name = TEST_AMR_NB and "AMR-NB(8kHz)" or "AMR-WB(16kHz)"
+    log.info("开始PCM转AMR编码并播放演示", "模式:", mode_name)
 
     -- 提前声明所有需要跨goto使用的变量
     local encoder, in_buffer, out_buffer, pcm_file, pcm_data, encode_result
-    local encoded_size, encoded_data, play_success, file_check, pcm_size, amr_wb_size
+    local encoded_size, encoded_data, play_success, file_check, pcm_size, amr_size
     local audio_play_param
 
     -- 初始化音频设备
@@ -90,13 +101,13 @@ function demo()
     pcm_size = fs.fsize(PCM_FILE)
     log.info("原始PCM文件大小:", pcm_size, "字节")
 
-    -- 创建AMR_WB编码器
-    encoder = codec.create(codec.AMR_WB, false, 4)
+    -- 创建AMR编码器（根据测试模式选择AMR-NB或AMR-WB）
+    encoder = codec.create(TEST_AMR_NB and codec.AMR or codec.AMR_WB, false, 4)
     if not encoder then
-        log.error("AMR_WB编码器创建失败")
+        log.error("AMR编码器创建失败", mode_name)
         goto FINAL_CLEANUP
     end
-    log.info("AMR_WB编码器创建成功")
+    log.info("AMR编码器创建成功", mode_name)
 
     -- 读取PCM文件
     pcm_file = io.open(PCM_FILE, "rb")
@@ -121,61 +132,61 @@ function demo()
     -- 将PCM数据写入输入缓冲区
     in_buffer:write(pcm_data)
 
-    -- 执行AMR_WB编码
-    log.info("开始AMR_WB编码")
+    -- 执行AMR编码
+    log.info("开始AMR编码", mode_name)
     encode_result = codec.encode(encoder, in_buffer, out_buffer, 4)
 
     if not encode_result then
-        log.error("AMR_WB编码失败")
+        log.error("AMR编码失败", mode_name)
         goto FINAL_CLEANUP
     end
 
     encoded_size = out_buffer:used()
-    log.info("AMR_WB编码成功，编码后数据大小:", encoded_size, "字节")
+    log.info("AMR编码成功", mode_name, "编码后数据大小:", encoded_size, "字节")
 
-    -- 保存编码后的AMR_WB数据到文件
+    -- 保存编码后的AMR数据到文件
     encoded_data = out_buffer:toStr(0, encoded_size)
 
-    -- 添加AMR_WB文件头
-    encoded_data = "#!AMR-WB\n" .. encoded_data
+    -- 添加AMR文件头（根据模式选择）
+    encoded_data = AMR_HEADER .. encoded_data
 
     -- 写入文件
-    if not io.writeFile(AMR_WB_OUTPUT_FILE, encoded_data) then
-        log.error("保存AMR_WB文件失败")
+    if not io.writeFile(AMR_OUTPUT_FILE, encoded_data) then
+        log.error("保存AMR文件失败", mode_name)
         goto FINAL_CLEANUP
     end
 
-    amr_wb_size = fs.fsize(AMR_WB_OUTPUT_FILE)
-    log.info("AMR_WB文件保存成功:", AMR_WB_OUTPUT_FILE, "大小:", amr_wb_size, "字节")
+    amr_size = fs.fsize(AMR_OUTPUT_FILE)
+    log.info("AMR文件保存成功:", AMR_OUTPUT_FILE, "大小:", amr_size, "字节")
 
     -- 配置音频播放参数
     audio_play_param = {
         type = 0,  -- 文件播放
-        content = AMR_WB_OUTPUT_FILE,
+        content = AMR_OUTPUT_FILE,
         cbfnc = play_end_callback
     }
 
     -- 开始播放
-    log.info("开始播放AMR_WB文件")
+    log.info("开始播放AMR文件", mode_name)
     if not exaudio.play_start(audio_play_param) then
-        log.error("AMR_WB文件播放失败")
+        log.error("AMR文件播放失败", mode_name)
         goto FINAL_CLEANUP
     end
 
-    log.info("AMR_WB文件开始播放")
+    log.info("AMR文件开始播放", mode_name)
 
     -- 等待播放完成
     play_success = wait_play_complete(30000)
 
     -- 正常完成路径
-    log.info("PCM转AMR_WB编码并播放演示完成")
+    log.info("PCM转AMR编码并播放演示完成", mode_name)
 
     -- 最终资源清理
     ::FINAL_CLEANUP::
     if encoder then
         codec.release(encoder)
         encoder = nil
-        log.debug("资源清理", "AMR_WB编码器已释放")
+        log.debug("资源清理", "AMR编码器已释放")
     end
 
     if in_buffer then
@@ -197,10 +208,10 @@ function demo()
     return play_success or false
 end
 
--- 启动AMR_WB演示任务函数
-local function start_pcm_to_amr_wb_demo()
+-- 启动AMR演示任务函数
+local function start_pcm_to_amr_demo()
     demo()
 end
 
--- 启动AMR_WB演示任务
-sys.taskInit(start_pcm_to_amr_wb_demo)
+-- 启动AMR演示任务
+sys.taskInit(start_pcm_to_amr_demo)

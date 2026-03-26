@@ -26,23 +26,6 @@
 extern luat_tp_config_t *airui_platform_luatos_get_tp_bind(void);
 extern const airui_luatos_keypad_cfg_t *airui_platform_luatos_get_keypad_bind(void);
 
-#if defined(__BK72XX__)
-typedef void (*luat_lcd_async_flush_cb_t)(void *userdata, int result);
-extern void luat_lcd_bk72xx_set_async_flush_cb(luat_lcd_conf_t *conf, luat_lcd_async_flush_cb_t cb, void *userdata);
-
-static void luatos_display_async_flush_done(void *userdata, int result)
-{
-    lv_display_t *display = (lv_display_t *)userdata;
-    if (display == NULL) {
-        return;
-    }
-    if (result != 0) {
-        LLOGW("async flush complete with result=%d", result);
-    }
-    lv_display_flush_ready(display);
-}
-#endif
-
 static luatos_platform_data_t *luatos_get_or_alloc_data(airui_ctx_t *ctx) {
     if (ctx == NULL) {
         return NULL;
@@ -96,10 +79,6 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
 
     data->lcd_conf = lcd_conf;
 
-#if defined(__BK72XX__)
-    luat_lcd_bk72xx_set_async_flush_cb(lcd_conf, luatos_display_async_flush_done, ctx->display);
-#endif
-
     /* 将预先绑定的 TP 配置同步到 platform_data，供输入驱动使用 */
     data->tp_config = airui_platform_luatos_get_tp_bind();
 
@@ -129,14 +108,13 @@ static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const 
     /* 直接绘制到 LCD，逐块刷新 */
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
 
-    if (!is_last) {
-        lv_display_flush_ready(ctx->display);
-        return;
+    /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
+    if (is_last) {
+        luat_lcd_flush(lcd_conf);
     }
 
-    if (luat_lcd_flush(lcd_conf) != 0) {
-        lv_display_flush_ready(ctx->display);
-    }
+    /* lv_display_flush_ready 必须在每次 flush 回调结束时调用，否则 LVGL 会阻塞后续渲染 */
+    lv_display_flush_ready(ctx->display);
 }
 
 /**
@@ -189,9 +167,6 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
     }
 
     if (data->lcd_conf != NULL) {
-#if defined(__BK72XX__)
-        luat_lcd_bk72xx_set_async_flush_cb(data->lcd_conf, NULL, NULL);
-#endif
         data->lcd_conf->lcd_use_lvgl = 0;
     }
 
@@ -216,4 +191,5 @@ const airui_display_ops_t *airui_platform_luatos_get_display_ops(void)
 }
 
 #endif /* LUAT_USE_AIRUI_LUATOS */
+
 

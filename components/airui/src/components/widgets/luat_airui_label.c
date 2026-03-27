@@ -168,7 +168,22 @@ int airui_label_set_font_size(lv_obj_t *label, int font_size)
     if (data == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
-    return airui_text_font_set_size(label, &data->font, font_size);
+    if (font_size <= 0) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    data->font.prefer_hzfont = true;
+    data->font.use_hzfont = true;
+    data->font.hzfont_size = (uint16_t)font_size;
+    if (airui_text_font_apply_hzfont(label, font_size,
+        (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT)) != AIRUI_OK) {
+        return AIRUI_ERR_NOT_SUPPORTED;
+    }
+    lv_obj_refresh_self_size(label);
+    lv_obj_mark_layout_as_dirty(label);
+    lv_obj_update_layout(label);
+    lv_obj_invalidate(label);
+    return AIRUI_OK;
 }
 
 // 设置标签对齐

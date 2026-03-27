@@ -44,6 +44,7 @@ static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row);
  * @int config.style.cell_bg_opa 单元格背景透明度（0-255）
  * @int config.style.cell_border_color 单元格边框颜色（0xRRGGBB）
  * @int config.style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int config.style.cell_font_size 单元格字体大小，使用 hzfont 时生效
  * @int config.style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
  * @int config.style.selected_cell_bg_opa 选中单元格背景透明度（0-255）
  * @int config.style.selected_cell_border_color 选中单元格边框颜色（0xRRGGBB）
@@ -158,6 +159,7 @@ static int l_table_set_border_color(lua_State *L) {
  * @int style.cell_bg_opa 单元格背景透明度（0-255）
  * @int style.cell_border_color 单元格边框颜色（0xRRGGBB）
  * @int style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int style.cell_font_size 单元格字体大小，使用 hzfont 时生效
  * @int style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
  * @int style.selected_cell_bg_opa 选中单元格背景透明度（0-255）
  * @int style.selected_cell_border_color 选中单元格边框颜色（0xRRGGBB）

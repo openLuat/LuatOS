@@ -29,6 +29,8 @@
  * @int config.y Y 坐标，默认 0
  * @int config.w 宽度，默认 140
  * @int config.h 高度，默认 40
+ * @string config.font 字体类型，传 "hzfont" 时启用 hzfont
+ * @int config.font_size 字体大小，使用 hzfont 时生效
  * @table config.options 选项列表（字符串数组）
  * @int config.default_index 默认选中项索引，默认 -1
  * @function config.on_change 选中项变化回调，参数为 (self, idx, value)

@@ -76,6 +76,23 @@ static void airui_textarea_bind_shared_keyboard(lv_obj_t *target)
     airui_keyboard_set_target(data->keyboard, target);
 }
 
+static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_t *font_state)
+{
+    lv_obj_t *label;
+
+    if (textarea == NULL || font_state == NULL || !font_state->prefer_hzfont || font_state->hzfont_size == 0) {
+        return;
+    }
+
+    label = lv_textarea_get_label(textarea);
+    if (label != NULL) {
+        airui_text_font_attach(label, font_state);
+        airui_text_font_apply_to_obj(label, font_state);
+    }
+    (void)airui_text_font_apply_hzfont(textarea, font_state->hzfont_size,
+        (lv_style_selector_t)(LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
+}
+
 /**
  * 焦点事件回调：维护当前系统键盘应该写入的 textarea
  */
@@ -303,7 +320,10 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
         return NULL;
     }
     data->keyboard = NULL;
+    airui_text_font_state_init(&data->font, 0);
+    airui_text_font_read_config(&data->font, L, idx);
     meta->user_data = data;
+    airui_textarea_apply_font(textarea, &data->font);
 
     // 绑定 Lua on_text_change 回调
     int callback_ref = airui_component_capture_callback(L, idx, "on_text_change");

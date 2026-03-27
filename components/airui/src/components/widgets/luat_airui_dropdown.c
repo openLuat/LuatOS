@@ -101,6 +101,7 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     int w = airui_marshal_integer(L, idx, "w", 140);
     int h = airui_marshal_integer(L, idx, "h", 40);
     int default_index = airui_marshal_integer(L, idx, "default_index", -1);
+    airui_text_font_state_t font_state;
 
     lv_obj_t *dropdown = lv_dropdown_create(parent);
     if (dropdown == NULL) {
@@ -109,6 +110,17 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
 
     lv_obj_set_pos(dropdown, x, y);
     lv_obj_set_size(dropdown, w, h);
+    airui_text_font_state_init(&font_state, 0);
+    airui_text_font_read_config(&font_state, L, idx);
+    if (font_state.prefer_hzfont && font_state.hzfont_size > 0) {
+        (void)airui_text_font_apply_hzfont(dropdown, font_state.hzfont_size,
+            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+        lv_obj_t *list = lv_dropdown_get_list(dropdown);
+        if (list != NULL) {
+            (void)airui_text_font_apply_hzfont(list, font_state.hzfont_size,
+                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+        }
+    }
 
     // 构建 options 字符串并同步到 LVGL 下拉框
     char *options = airui_dropdown_build_options(L_state, idx);

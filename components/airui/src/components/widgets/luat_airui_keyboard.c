@@ -52,6 +52,7 @@ static void airui_keyboard_data_init_defaults(airui_keyboard_data_t *data)
     data->target = NULL;
     data->ime = NULL;
     data->auto_hide = false;
+    data->font_size = 0;
     data->preview_enabled = false;
     data->preview_height = 40;
     data->bg_color = lv_color_hex(0xffffff);
@@ -80,6 +81,7 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state) {
 // 输入预览框目标事件回调
 static void airui_keyboard_preview_target_event_cb(lv_event_t *e);
 static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e);
+static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t *data);
 
 // 隐藏输入框光标
 static void airui_keyboard_hide_textarea_cursor(lv_obj_t *textarea)
@@ -190,6 +192,12 @@ static void airui_keyboard_preview_sync_text(airui_keyboard_preview_runtime_t *r
     lv_textarea_set_text(runtime->preview_ta, text);
     lv_textarea_set_cursor_pos(runtime->preview_ta, cursor_pos);
     runtime->syncing = false;
+    if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {
+        airui_component_meta_t *meta = airui_component_meta_get(runtime->keyboard);
+        if (meta != NULL && meta->user_data != NULL) {
+            airui_keyboard_apply_font(runtime->keyboard, (airui_keyboard_data_t *)meta->user_data);
+        }
+    }
     airui_keyboard_preview_relayout(runtime);
     if (!lv_obj_has_flag(runtime->container, LV_OBJ_FLAG_HIDDEN)) {
         int32_t overflow_top = lv_obj_get_scroll_top(runtime->container);
@@ -201,6 +209,43 @@ static void airui_keyboard_preview_sync_text(airui_keyboard_preview_runtime_t *r
             lv_obj_scroll_to_y(runtime->container, 0, LV_ANIM_OFF);
         }
     }
+}
+
+static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t *data)
+{
+    if (keyboard == NULL || data == NULL || data->font_size == 0) {
+        return;
+    }
+
+    (void)airui_text_font_apply_hzfont(keyboard, data->font_size,
+        (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+    (void)airui_text_font_apply_hzfont(keyboard, data->font_size,
+        (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_PRESSED));
+
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        if (runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta)) {
+            lv_obj_t *preview_label = lv_textarea_get_label(runtime->preview_ta);
+            if (preview_label != NULL) {
+                (void)airui_text_font_apply_hzfont(preview_label, data->font_size,
+                    (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            }
+            (void)airui_text_font_apply_hzfont(runtime->preview_ta, data->font_size,
+                (lv_style_selector_t)(LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
+        }
+    }
+
+#if LV_USE_IME_PINYIN
+    if (data->ime != NULL) {
+        lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+        if (cand_panel != NULL && lv_obj_is_valid(cand_panel)) {
+            (void)airui_text_font_apply_hzfont(cand_panel, data->font_size,
+                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            (void)airui_text_font_apply_hzfont(cand_panel, data->font_size,
+                (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+        }
+    }
+#endif
 }
 
 // 输入预览框绑定目标
@@ -581,6 +626,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     const char *mode = airui_marshal_string(L, idx, "mode", "text");
     bool popovers = airui_marshal_bool(L, idx, "popovers", true);
     bool auto_hide = airui_marshal_bool(L, idx, "auto_hide", false);
+    int font_size = airui_marshal_integer(L, idx, "font_size", 0);
     bool preview_enabled = airui_marshal_bool(L, idx, "preview", false);
     int preview_height = airui_marshal_integer(L, idx, "preview_height", 40);
     if (preview_height < 0) {
@@ -623,6 +669,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     }
     airui_keyboard_data_init_defaults(data);
     data->auto_hide = auto_hide;
+    data->font_size = (uint16_t)(font_size > 0 ? font_size : 0);
     data->preview_enabled = preview_enabled;
     data->preview_height = preview_height;
     data->bg_color = bg_color;
@@ -651,6 +698,7 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
 
     // 设置键盘和预览框背景颜色
     airui_keyboard_set_bg_color(keyboard, bg_color);
+    airui_keyboard_apply_font(keyboard, data);
 
     // 如果配置了输入预览框，则初始化
     if (preview_enabled) {
@@ -848,6 +896,10 @@ int airui_keyboard_set_layout(lv_obj_t *keyboard, const char *layout)
     lv_keyboard_mode_t mode = airui_keyboard_mode_from_string(layout);
     // 切换键盘布局（包括数值/特殊字符）
     lv_keyboard_set_mode(keyboard, mode);
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    if (meta != NULL && meta->user_data != NULL) {
+        airui_keyboard_apply_font(keyboard, (airui_keyboard_data_t *)meta->user_data);
+    }
     return AIRUI_OK;
 }
 

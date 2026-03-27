@@ -34,6 +34,8 @@
  * @int config.w 宽度，默认 ctx->width - x 或 200
  * @int config.h 高度，默认 120
  * @int config.max_len 最大字符数，默认 256
+ * @string config.font 字体类型，传 "hzfont" 时启用 hzfont
+ * @int config.font_size 字体大小，使用 hzfont 时生效
  * @string config.text 初始文本
  * @string config.placeholder 占位提示
  * @function config.on_text_change 文本变更回调

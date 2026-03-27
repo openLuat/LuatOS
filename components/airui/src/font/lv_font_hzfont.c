@@ -19,15 +19,31 @@ typedef struct {
     uint16_t font_size; /**< 默认字号 */
     uint8_t antialias;  /**< 抗锯齿等级 (1, 2, 3) */
     TtfFont *ttf;       /**< 底层 TTF 句柄引用 */
-    uint16_t *render_size; /**< 动态渲染字号引用 */
 } lv_font_hzfont_dsc_t;
 
-static lv_font_t *g_airui_hzfont_font = NULL; // 共享字体对象
-static lv_font_hzfont_dsc_t *g_airui_hzfont_dsc = NULL; // 共享字体描述对象
-static uint16_t g_airui_hzfont_render_size = 16; // 共享渲染字号
+typedef struct {
+    lv_font_t *font;
+    uint16_t size;
+} airui_hzfont_font_entry_t;
+
+typedef struct {
+    char *path;
+    uint32_t cache_size;
+    int antialias;
+    bool load_to_psram;
+    uint8_t configured;
+} airui_hzfont_config_t;
+
+static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * dsc_out, uint32_t letter, uint32_t letter_next);
+static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_draw_buf_t * draw_buf);
+
+static airui_hzfont_font_entry_t *g_airui_hzfont_fonts = NULL;
+static uint16_t g_airui_hzfont_font_count = 0;
+static uint16_t g_airui_hzfont_font_capacity = 0;
+static lv_font_t *g_airui_hzfont_font = NULL; // 默认共享字体对象
+static uint16_t g_airui_hzfont_default_size = 16;
+static airui_hzfont_config_t g_airui_hzfont_config = {0};
 static const int g_airui_hzfont_extra_leading = 3; // 共享额外行高
-static uint16_t g_airui_hzfont_render_size_stack[16];
-static uint8_t g_airui_hzfont_render_size_stack_depth = 0;
 
 // 字符串渲染耗时统计
 typedef struct {
@@ -184,15 +200,172 @@ static uint16_t hzfont_default_ascent(uint16_t font_size) {
     return (uint16_t)value;
 }
 
-// 获取共享渲染字号
-static uint16_t hzfont_get_active_size(lv_font_hzfont_dsc_t *dsc) {
+static uint8_t hzfont_get_antialias_mode(uint16_t size, int antialias)
+{
+    if (antialias < 0) {
+        if (size <= 16) {
+            return 1;
+        }
+        if (size <= 32) {
+            return 2;
+        }
+        return 3;
+    }
+    if (antialias <= 1) {
+        return 1;
+    }
+    if (antialias == 2) {
+        return 2;
+    }
+    return 3;
+}
+
+static char *hzfont_strdup(const char *src)
+{
+    size_t len;
+    char *dst;
+
+    if (src == NULL) {
+        return NULL;
+    }
+
+    len = strlen(src) + 1;
+    dst = lv_malloc(len);
+    if (dst == NULL) {
+        return NULL;
+    }
+    memcpy(dst, src, len);
+    return dst;
+}
+
+static airui_hzfont_font_entry_t *hzfont_find_entry(uint16_t size)
+{
+    uint16_t i;
+
+    for (i = 0; i < g_airui_hzfont_font_count; ++i) {
+        if (g_airui_hzfont_fonts[i].size == size) {
+            return &g_airui_hzfont_fonts[i];
+        }
+    }
+    return NULL;
+}
+
+bool airui_font_hzfont_is_font(const lv_font_t *font)
+{
+    uint16_t i;
+
+    if (font == NULL) {
+        return false;
+    }
+
+    for (i = 0; i < g_airui_hzfont_font_count; ++i) {
+        if (g_airui_hzfont_fonts[i].font == font) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool hzfont_ensure_font_capacity(void)
+{
+    airui_hzfont_font_entry_t *entries;
+    uint16_t new_capacity;
+
+    if (g_airui_hzfont_font_count < g_airui_hzfont_font_capacity) {
+        return true;
+    }
+
+    new_capacity = g_airui_hzfont_font_capacity == 0 ? 4 : (uint16_t)(g_airui_hzfont_font_capacity * 2);
+    entries = lv_realloc(g_airui_hzfont_fonts, sizeof(airui_hzfont_font_entry_t) * new_capacity);
+    if (entries == NULL) {
+        return false;
+    }
+
+    memset(entries + g_airui_hzfont_font_capacity, 0,
+           sizeof(airui_hzfont_font_entry_t) * (new_capacity - g_airui_hzfont_font_capacity));
+    g_airui_hzfont_fonts = entries;
+    g_airui_hzfont_font_capacity = new_capacity;
+    return true;
+}
+
+static bool hzfont_configure_backend(const char *path, uint32_t cache_size, int antialias, bool load_to_psram)
+{
+    if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
+        if (!luat_hzfont_init(path, cache_size, (int)load_to_psram)) {
+            LLOGE("hzfont init failed: %s", path ? path : "builtin");
+            return false;
+        }
+    }
+
+    if (!g_airui_hzfont_config.configured) {
+        g_airui_hzfont_config.path = hzfont_strdup(path);
+        g_airui_hzfont_config.cache_size = cache_size;
+        g_airui_hzfont_config.antialias = antialias;
+        g_airui_hzfont_config.load_to_psram = load_to_psram;
+        g_airui_hzfont_config.configured = 1;
+        return true;
+    }
+
+    if (((g_airui_hzfont_config.path == NULL) != (path == NULL)) ||
+        (g_airui_hzfont_config.path != NULL && path != NULL && strcmp(g_airui_hzfont_config.path, path) != 0) ||
+        g_airui_hzfont_config.cache_size != cache_size ||
+        g_airui_hzfont_config.antialias != antialias ||
+        g_airui_hzfont_config.load_to_psram != load_to_psram) {
+        LLOGW("hzfont backend already configured, ignore new config and reuse existing font source");
+    }
+
+    return true;
+}
+
+static lv_font_t *hzfont_create_font_instance(uint16_t size)
+{
+    lv_font_t *font;
+    lv_font_hzfont_dsc_t *dsc;
+    airui_hzfont_font_entry_t *entry;
+    uint16_t ascent;
+
+    if (size == 0 || !g_airui_hzfont_config.configured) {
+        return NULL;
+    }
+
+    entry = hzfont_find_entry(size);
+    if (entry != NULL) {
+        return entry->font;
+    }
+
+    if (!hzfont_ensure_font_capacity()) {
+        return NULL;
+    }
+
+    font = lv_malloc(sizeof(lv_font_t));
+    if (font == NULL) {
+        return NULL;
+    }
+    memset(font, 0, sizeof(lv_font_t));
+
+    dsc = lv_malloc(sizeof(lv_font_hzfont_dsc_t));
     if (dsc == NULL) {
-        return 0;
+        lv_free(font);
+        LLOGI("hzfont malloc dsc failed");
+        return NULL;
     }
-    if (dsc->render_size && *dsc->render_size > 0) {
-        return *dsc->render_size;
-    }
-    return dsc->font_size;
+    memset(dsc, 0, sizeof(lv_font_hzfont_dsc_t));
+    dsc->font_size = size;
+    dsc->antialias = hzfont_get_antialias_mode(size, g_airui_hzfont_config.antialias);
+    dsc->ttf = luat_hzfont_get_ttf();
+
+    font->dsc = dsc;
+    font->get_glyph_dsc = hzfont_get_glyph_dsc;
+    font->get_glyph_bitmap = hzfont_get_glyph_bitmap;
+    ascent = hzfont_default_ascent(size);
+    font->line_height = size + g_airui_hzfont_extra_leading;
+    font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
+    font->fallback = lv_font_get_default();
+
+    g_airui_hzfont_fonts[g_airui_hzfont_font_count].font = font;
+    g_airui_hzfont_fonts[g_airui_hzfont_font_count].size = size;
+    g_airui_hzfont_font_count++;
+    return font;
 }
 
 /**
@@ -241,7 +414,7 @@ static bool hzfont_get_glyph_dsc(const lv_font_t * font, lv_font_glyph_dsc_t * d
 
     // 2. 获取位图以获取精确度量 (Metrics)
     // 优先从底层引擎的 LRU 缓存中获取，避免重复渲染
-    uint16_t render_size = hzfont_get_active_size(dsc);
+    uint16_t render_size = dsc->font_size;
     if (timing_enabled) {
         stage_start = airui_hzfont_now_us();
     }
@@ -324,7 +497,7 @@ static const void * hzfont_get_glyph_bitmap(lv_font_glyph_dsc_t * dsc_out, lv_dr
     }
 
     uint32_t glyph_index = dsc_out->gid.index;
-    uint16_t render_size = hzfont_get_active_size(dsc);
+    uint16_t render_size = dsc->font_size;
     const TtfBitmap *bitmap = luat_hzfont_get_bitmap((uint16_t)glyph_index, render_size, dsc->antialias);
     if (!bitmap) {
         goto profile_done;
@@ -391,77 +564,43 @@ profile_done:
  * @return lv_font_t* 字体对象指针，失败返回 NULL
  */
 lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram) {
-    uint8_t aa_mode = 1;
-    // 1. 初始化底层引擎（单例模式）
-    if (luat_hzfont_get_state() == LUAT_HZFONT_STATE_UNINIT) {
-        if (!luat_hzfont_init(path, cache_size, (int)load_to_psram))
-        {
-            LLOGE("hzfont init failed: %s", path ? path : "builtin");
-            return NULL;
-        }
+    lv_font_t *font;
+
+    if (size == 0) {
+        size = g_airui_hzfont_default_size;
     }
 
-    if (antialias < 0) {
-        if (size <= 16) {
-            aa_mode = 1;
-        } else if (size <= 32) {
-            aa_mode = 2;
-        } else {
-            aa_mode = 3;
-        }
-    } else if (antialias <= 1) {
-        aa_mode = 1;
-    } else if (antialias == 2) {
-        aa_mode = 2;
-    } else {
-        aa_mode = 3;
+    if (!hzfont_configure_backend(path, cache_size, antialias, load_to_psram)) {
+        return NULL;
     }
 
-    // 如果共享字体对象已存在，则更新渲染字号
-    if (g_airui_hzfont_font != NULL) {
-        g_airui_hzfont_render_size = size;
-        if (g_airui_hzfont_dsc) {
-            g_airui_hzfont_dsc->antialias = aa_mode;
-        }
-        if (g_airui_hzfont_dsc && g_airui_hzfont_dsc->render_size) {
-            *g_airui_hzfont_dsc->render_size = size;
-        }
-        (void)ttf_set_supersample_rate(aa_mode);
+    font = hzfont_create_font_instance(size);
+    if (font != NULL) {
+        g_airui_hzfont_default_size = size;
+        g_airui_hzfont_font = font;
+    }
+    return font;
+}
+
+lv_font_t *airui_font_hzfont_get_size(uint16_t size)
+{
+    lv_font_t *font;
+    airui_hzfont_font_entry_t *entry;
+
+    if (size == 0) {
         return g_airui_hzfont_font;
     }
 
-    // 2. 分配 LVGL 字体对象
-    lv_font_t * font = lv_malloc(sizeof(lv_font_t));
-    if (!font) return NULL;
-    memset(font, 0, sizeof(lv_font_t));
-
-    // 3. 构造私有描述上下文
-    lv_font_hzfont_dsc_t * dsc = lv_malloc(sizeof(lv_font_hzfont_dsc_t));
-    if (!dsc) {
-        lv_free(font);
-        LLOGI("hzfont malloc dsc failed");
-        return NULL;
+    entry = hzfont_find_entry(size);
+    if (entry != NULL) {
+        return entry->font;
     }
-    dsc->font_size = size;
-    
-    // 自动选择 AA 等级：小号 2x2，中号 3x3，大号 4x4
-    dsc->antialias = aa_mode;
-    (void)ttf_set_supersample_rate(dsc->antialias);
-    LLOGI("hzfont antialias: %d", dsc->antialias);
-    // 关联底层句柄
-    dsc->ttf = luat_hzfont_get_ttf();
-    // 4. 绑定 LVGL 回调
-    font->dsc = dsc;
-    font->get_glyph_dsc = hzfont_get_glyph_dsc;
-    font->get_glyph_bitmap = hzfont_get_glyph_bitmap;
-    uint16_t ascent = hzfont_default_ascent(size);
-    font->line_height = size + g_airui_hzfont_extra_leading;
-    font->base_line = (int32_t)font->line_height > ascent ? (int32_t)font->line_height - ascent : 0;
-    font->fallback = lv_font_get_default(); //当有缺失字时，使用默认字体
-    g_airui_hzfont_font = font;
-    g_airui_hzfont_dsc = dsc;
-    dsc->render_size = &g_airui_hzfont_render_size;
-    g_airui_hzfont_render_size = size;
+
+    font = hzfont_create_font_instance(size);
+    if (font != NULL && g_airui_hzfont_font == NULL) {
+        g_airui_hzfont_font = font;
+        g_airui_hzfont_default_size = size;
+    }
     return font;
 }
 
@@ -471,61 +610,23 @@ lv_font_t *airui_font_get_shared_hzfont(void)
     return g_airui_hzfont_font;
 }
 
-// 设置共享渲染字号
-void airui_font_hzfont_set_render_size(uint16_t size)
-{
-    if (g_airui_hzfont_dsc == NULL || g_airui_hzfont_dsc->render_size == NULL || g_airui_hzfont_font == NULL) {
-        return;
-    }
-    if (size == 0) {
-        size = g_airui_hzfont_dsc->font_size;
-    }
-    *g_airui_hzfont_dsc->render_size = size;
-    g_airui_hzfont_render_size = size;
-    uint16_t ascent = hzfont_default_ascent(size);
-    g_airui_hzfont_font->line_height = size + g_airui_hzfont_extra_leading;
-    g_airui_hzfont_font->base_line = (int32_t)g_airui_hzfont_font->line_height > ascent ?
-        (int32_t)g_airui_hzfont_font->line_height - ascent : 0;
-}
-
-void airui_font_hzfont_push_render_size(uint16_t size)
-{
-    if (g_airui_hzfont_render_size_stack_depth < (sizeof(g_airui_hzfont_render_size_stack) / sizeof(g_airui_hzfont_render_size_stack[0]))) {
-        g_airui_hzfont_render_size_stack[g_airui_hzfont_render_size_stack_depth++] = g_airui_hzfont_render_size;
-    }
-    airui_font_hzfont_set_render_size(size);
-}
-
-void airui_font_hzfont_pop_render_size(void)
-{
-    if (g_airui_hzfont_render_size_stack_depth == 0) {
-        airui_font_hzfont_set_render_size(0);
-        return;
-    }
-
-    g_airui_hzfont_render_size_stack_depth--;
-    airui_font_hzfont_set_render_size(g_airui_hzfont_render_size_stack[g_airui_hzfont_render_size_stack_depth]);
-}
-
 #else
+
+lv_font_t *airui_font_hzfont_get_size(uint16_t size)
+{
+    (void)size;
+    return NULL;
+}
+
+bool airui_font_hzfont_is_font(const lv_font_t *font)
+{
+    (void)font;
+    return false;
+}
 
 lv_font_t *airui_font_get_shared_hzfont(void)
 {
     return NULL;
-}
-
-void airui_font_hzfont_set_render_size(uint16_t size)
-{
-    return;
-}
-
-void airui_font_hzfont_push_render_size(uint16_t size)
-{
-    (void)size;
-}
-
-void airui_font_hzfont_pop_render_size(void)
-{
 }
 
 void airui_font_hzfont_prof_begin(const char *text)

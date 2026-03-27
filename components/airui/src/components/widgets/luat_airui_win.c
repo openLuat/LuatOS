@@ -24,7 +24,24 @@ typedef struct {
     lv_obj_t *title_label;  /**< 标题标签指针 */
     lv_obj_t *content;      /**< 内容容器指针 */
     lv_obj_t *close_btn;    /**< 关闭按钮指针 */
+    airui_text_font_state_t header_font;
 } airui_win_data_t;
+
+static void airui_win_apply_header_font(airui_win_data_t *win_data)
+{
+    if (win_data == NULL || !win_data->header_font.prefer_hzfont || win_data->header_font.hzfont_size == 0) {
+        return;
+    }
+
+    if (win_data->title_label != NULL) {
+        airui_text_font_attach(win_data->title_label, &win_data->header_font);
+        airui_text_font_apply_to_obj(win_data->title_label, &win_data->header_font);
+    }
+    if (win_data->close_btn != NULL) {
+        (void)airui_text_font_apply_hzfont(win_data->close_btn, win_data->header_font.hzfont_size,
+            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+    }
+}
 
 /**
  * Win 关闭事件回调
@@ -135,6 +152,7 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     win_data->title_label = NULL;
     win_data->content = NULL;
     win_data->close_btn = NULL;
+    airui_text_font_state_init(&win_data->header_font, 0);
     meta->user_data = win_data;
     
     // 设置标题区域
@@ -172,6 +190,7 @@ lv_obj_t *airui_win_create_from_config(void *L, int idx)
     // 获取内容容器
     lv_obj_t *content = lv_win_get_content(win);
     win_data->content = content;
+    airui_win_apply_header_font(win_data);
     
     // 绑定关闭事件
     int callback_ref = airui_component_capture_callback(L, idx, "on_close");
@@ -213,6 +232,7 @@ int airui_win_set_title(lv_obj_t *win, const char *title)
         // 创建新标题
         lv_obj_t *title_label = lv_win_add_title(win, title != NULL ? title : "");
         win_data->title_label = title_label;
+        airui_win_apply_header_font(win_data);
     }
     
     return AIRUI_OK;
@@ -321,6 +341,11 @@ int airui_win_set_style(lv_obj_t *win, void *L, int idx)
         }
         if (airui_marshal_integer_opt(L_state, idx, "header_height", &value)) {
             lv_obj_set_height(header, value < 0 ? 0 : value);
+        }
+        if (airui_marshal_integer_opt(L_state, idx, "header_font_size", &value) && value > 0) {
+            win_data->header_font.prefer_hzfont = true;
+            win_data->header_font.hzfont_size = (uint16_t)value;
+            airui_win_apply_header_font(win_data);
         }
     }
 

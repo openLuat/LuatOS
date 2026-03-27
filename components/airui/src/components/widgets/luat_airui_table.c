@@ -51,6 +51,7 @@ typedef struct {
     bool marquee_scroll_loop;
     bool marquee_scroll_running;
     bool marquee_scroll_paused;
+    uint16_t cell_font_size;
 } airui_table_data_t;
 
 static void airui_table_apply_row_height(lv_obj_t *table, uint32_t row, lv_coord_t height);
@@ -711,6 +712,12 @@ static void airui_table_draw_task_added_event_cb(lv_event_t *e)
         label_dsc->color = merged.text_color;
         label_dsc->opa = LV_OPA_COVER;
     }
+    if (label_dsc != NULL && data->cell_font_size > 0) {
+        lv_font_t *font = airui_font_hzfont_get_size(data->cell_font_size);
+        if (font != NULL) {
+            label_dsc->font = font;
+        }
+    }
 }
 
 static void airui_table_clamp_selection(lv_obj_t *table)
@@ -934,6 +941,16 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
     }
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_text_color", &value)) {
         lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_font_size", &value) && value > 0) {
+        airui_table_data_t *data = airui_table_ensure_data(table);
+        if (data != NULL) {
+            data->cell_font_size = (uint16_t)value;
+        }
+        (void)airui_text_font_apply_hzfont(table, value,
+            (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+        (void)airui_text_font_apply_hzfont(table, value,
+            (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_PRESSED));
     }
 
     airui_table_reapply_row_heights(table);

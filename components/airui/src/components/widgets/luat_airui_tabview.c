@@ -362,6 +362,7 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     int h = airui_marshal_integer(L, idx, "h", 200);
     int tabbar_pos = airui_marshal_integer(L, idx, "tabbar_pos", LV_DIR_TOP);
     int active = airui_marshal_integer(L, idx, "active", 0);
+    int tab_font_size = airui_marshal_integer(L, idx, "tab_font_size", 0);
     const char *switch_mode = airui_marshal_string(L, idx, "switch_mode", "swipe");
 
     // 创建 TabView 对象并设置样式
@@ -430,6 +431,20 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
         active = data->page_count - 1;
     }
     lv_tabview_set_active(tabview, active, LV_ANIM_OFF);
+    if (tab_font_size > 0) {
+        lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tabview);
+        if (tab_bar != NULL) {
+            (void)airui_text_font_apply_hzfont(tab_bar, tab_font_size,
+                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            for (uint32_t i = 0; i < data->page_count; i++) {
+                lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, (int32_t)i);
+                if (tab_btn != NULL) {
+                    (void)airui_text_font_apply_hzfont(tab_btn, tab_font_size,
+                        (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                }
+            }
+        }
+    }
 
     // 绑定 meta 与 page 数据
     airui_component_meta_t *meta = airui_component_meta_alloc(

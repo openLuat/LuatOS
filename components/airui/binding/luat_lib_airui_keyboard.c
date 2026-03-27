@@ -31,6 +31,7 @@
  * @int config.h 高度，默认 160
  * @string config.mode 键盘模式，如 "text"/"upper"/"special"/"numeric"/"pinyin_26"/"pinyin_9"/"pinyin_9_number"
  * @boolean config.popovers 是否启用提示弹窗，默认 true
+ * @int config.font_size 键盘字体大小，使用 hzfont 时生效
  * @boolean config.auto_hide 是否在目标 textarea 聚焦时自动显示、失焦时自动隐藏，默认 false
  * @boolean config.preview 是否启用输入预览框（显示当前 textarea 文本），默认 false
  * @int config.preview_height 预览框固定高度（像素），默认 40

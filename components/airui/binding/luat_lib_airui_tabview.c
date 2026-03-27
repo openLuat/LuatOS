@@ -25,6 +25,7 @@
  * @int config.h 高度，默认 200
  * @int config.tabbar_pos 标签栏位置，默认 LV_DIR_TOP
  * @int config.active 初始激活页索引，默认 0
+ * @int config.tab_font_size 标签字体大小，使用 hzfont 时生效
  * @string config.switch_mode 切屏方式，可选 "swipe" 或 "jump"，默认 "swipe"
  * @table config.tabs 页面名称数组，至少一个，默认 Tab 1
  * @table config.page_style 可选的 Tab 页样式配置

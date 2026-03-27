@@ -48,6 +48,7 @@
  * @int config.style.header_bg_opa 标题栏背景透明度（0-255）
  * @int config.style.header_pad 标题栏内边距
  * @int config.style.header_height 标题栏高度
+ * @int config.style.header_font_size 标题栏字体大小，使用 hzfont 时生效
  * @int config.style.content_bg_color 内容区背景色（0xRRGGBB）
  * @int config.style.content_bg_opa 内容区背景透明度（0-255）
  * @int config.style.content_pad 内容区内边距

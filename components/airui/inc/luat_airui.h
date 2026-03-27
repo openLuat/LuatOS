@@ -297,27 +297,24 @@ void airui_buffer_free_all(airui_ctx_t *ctx);
 lv_font_t * airui_font_hzfont_create(const char * path, uint16_t size, uint32_t cache_size, int antialias, bool load_to_psram);
 
 /**
+ * 按字号获取 HZFont 字体对象
+ * @param size 字号，0 表示返回默认共享字体
+ * @return lv_font_t 字体对象，失败返回 NULL
+ */
+lv_font_t *airui_font_hzfont_get_size(uint16_t size);
+
+/**
+ * 判断字体对象是否为 HZFont 实例
+ * @param font 字体对象
+ * @return true 表示是 HZFont 实例
+ */
+bool airui_font_hzfont_is_font(const lv_font_t *font);
+
+/**
  * 获取共享的 HZFont 字体对象
  * @return lv_font_t 字体对象，失败返回 NULL
  */
 lv_font_t *airui_font_get_shared_hzfont(void);
-
-/**
- * 设置共享的 HZFont 字体渲染字号
- * @param size 字号
- */
-void airui_font_hzfont_set_render_size(uint16_t size);
-
-/**
- * 压入共享 HZFont 字体渲染字号
- * @param size 字号，0 表示恢复默认字号后入栈
- */
-void airui_font_hzfont_push_render_size(uint16_t size);
-
-/**
- * 弹出共享 HZFont 字体渲染字号
- */
-void airui_font_hzfont_pop_render_size(void);
 
 /**
  * 开始一次 label 场景的 hzfont 调试统计会话

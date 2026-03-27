@@ -162,6 +162,7 @@ typedef struct {
  */
 typedef struct {
     lv_obj_t *keyboard;
+    airui_text_font_state_t font;
 } airui_textarea_data_t;
 
 /**
@@ -171,6 +172,7 @@ typedef struct {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
     bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
+    uint16_t font_size; /**< Keyboard hzfont 字号 */
     bool preview_enabled; /**< 是否启用输入预览框 */
     int32_t preview_height; /**< 预览框固定高度（像素） */
     lv_color_t bg_color; /**< 背景颜色 */
@@ -355,7 +357,7 @@ void airui_text_font_state_init(airui_text_font_state_t *state, uint16_t font_si
 void airui_text_font_read_config(airui_text_font_state_t *state, void *L, int idx);
 void airui_text_font_apply_to_obj(lv_obj_t *text_obj, airui_text_font_state_t *state);
 void airui_text_font_attach(lv_obj_t *text_obj, airui_text_font_state_t *state);
-int airui_text_font_set_size(lv_obj_t *text_obj, airui_text_font_state_t *state, int font_size);
+int airui_text_font_apply_hzfont(lv_obj_t *obj, int font_size, lv_style_selector_t selector);
 
 /**
  * Button 组件：从配置表创建

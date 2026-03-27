@@ -35,6 +35,8 @@ typedef struct {
     luat_lcd_conf_t *lcd_conf;       /**< LCD 配置指针 */
     luat_tp_config_t *tp_config;     /**< 触摸配置指针（可选） */
     airui_luatos_keypad_cfg_t keypad_cfg; /**< GPIO 按键配置（可选） */
+    uint8_t *rotation_buf;           /**< 显示旋转临时缓冲 */
+    uint32_t rotation_buf_size;      /**< 显示旋转临时缓冲大小 */
 } luatos_platform_data_t;
 
 /**

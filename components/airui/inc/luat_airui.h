@@ -161,6 +161,8 @@ struct airui_ctx {
     uint8_t flags;                   /**< 配置标志位 */
     uint16_t width;                 /**< 屏幕宽度 */
     uint16_t height;                 /**< 屏幕高度 */
+    uint16_t native_width;           /**< 原生物理宽度（不含 UI 旋转） */
+    uint16_t native_height;          /**< 原生物理高度（不含 UI 旋转） */
     
     // 内部状态
     lv_timer_t *tick_timer;          /**< Tick 定时器（可选） */
@@ -342,6 +344,35 @@ int airui_display_set_buffers(
     void *buf2,
     uint32_t buf_size,
     airui_buffer_mode_t mode);
+
+/**
+ * 设置 AIRUI 显示旋转
+ * @param ctx 上下文指针
+ * @param rotation 旋转角度，仅支持 0/90/180/270
+ * @return 0 成功，<0 失败
+ */
+int airui_display_set_rotation(airui_ctx_t *ctx, uint16_t rotation);
+
+/**
+ * 获取 AIRUI 当前显示旋转角度
+ * @param ctx 上下文指针
+ * @return 当前旋转角度（0/90/180/270），失败返回 0
+ */
+uint16_t airui_display_get_rotation(airui_ctx_t *ctx);
+
+/**
+ * 获取 AIRUI 当前逻辑宽度（已考虑 UI 旋转）
+ * @param ctx 上下文指针
+ * @return 逻辑宽度
+ */
+uint16_t airui_display_get_width(airui_ctx_t *ctx);
+
+/**
+ * 获取 AIRUI 当前逻辑高度（已考虑 UI 旋转）
+ * @param ctx 上下文指针
+ * @return 逻辑高度
+ */
+uint16_t airui_display_get_height(airui_ctx_t *ctx);
 
 /**
  * 初始化文件系统驱动

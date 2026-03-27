@@ -12,6 +12,7 @@
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
+#include "lvgl9/src/draw/sw/lv_draw_sw_utils.h"
 #include "luat_log.h"
 #include <SDL2/SDL.h>
 #include <string.h>
@@ -30,7 +31,29 @@ typedef struct {
     lv_color_format_t color_format;
     uint8_t reuse_lcd;
     luat_lcd_conf_t *lcd_conf;
+    uint8_t *rotation_buf;
+    uint32_t rotation_buf_size;
 } sdl_display_data_t;
+
+static uint8_t *sdl_display_get_rotation_buf(sdl_display_data_t *data, uint32_t size)
+{
+    if (data == NULL || size == 0) {
+        return NULL;
+    }
+
+    if (data->rotation_buf != NULL && data->rotation_buf_size >= size) {
+        return data->rotation_buf;
+    }
+
+    uint8_t *new_buf = (uint8_t *)realloc(data->rotation_buf, size);
+    if (new_buf == NULL) {
+        return NULL;
+    }
+
+    data->rotation_buf = new_buf;
+    data->rotation_buf_size = size;
+    return data->rotation_buf;
+}
 
 /**
  * SDL2 显示驱动初始化
@@ -157,7 +180,36 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
             return;
         }
 
-        luat_lcd_draw(data->lcd_conf, area->x1, area->y1, area->x2, area->y2, (luat_color_t *)px_map);
+        lv_display_rotation_t rotation = lv_display_get_rotation(ctx->display);
+        if (rotation == LV_DISPLAY_ROTATION_0) {
+            luat_lcd_draw(data->lcd_conf, area->x1, area->y1, area->x2, area->y2, (luat_color_t *)px_map);
+        }
+        else {
+            lv_area_t rotated_area = *area;
+            lv_color_format_t cf = lv_display_get_color_format(ctx->display);
+            uint32_t px_size = lv_color_format_get_size(cf);
+            uint32_t src_w = (uint32_t)lv_area_get_width(area);
+            uint32_t src_h = (uint32_t)lv_area_get_height(area);
+            uint32_t src_stride = src_w * px_size;
+
+            lv_display_rotate_area(ctx->display, &rotated_area);
+
+            uint32_t dest_w = (uint32_t)lv_area_get_width(&rotated_area);
+            uint32_t dest_h = (uint32_t)lv_area_get_height(&rotated_area);
+            uint32_t dest_stride = dest_w * px_size;
+            uint32_t rotate_buf_size = dest_stride * dest_h;
+            uint8_t *rotate_buf = sdl_display_get_rotation_buf(data, rotate_buf_size);
+            if (rotate_buf == NULL) {
+                lv_display_flush_ready(ctx->display);
+                return;
+            }
+
+            lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
+                              (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+            luat_lcd_draw(data->lcd_conf, rotated_area.x1, rotated_area.y1, rotated_area.x2, rotated_area.y2,
+                          (luat_color_t *)rotate_buf);
+        }
+
         if (lv_display_flush_is_last(ctx->display)) {
             luat_lcd_flush(data->lcd_conf);
         }
@@ -179,16 +231,45 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     }
     
     
+    lv_display_rotation_t rotation = lv_display_get_rotation(ctx->display);
+    lv_area_t draw_area = *area;
+    const uint8_t *draw_px_map = px_map;
+    bool rotated = false;
+    if (rotation != LV_DISPLAY_ROTATION_0) {
+        lv_color_format_t cf = data->color_format;
+        uint32_t px_size = lv_color_format_get_size(cf);
+        uint32_t src_w = (uint32_t)lv_area_get_width(area);
+        uint32_t src_h = (uint32_t)lv_area_get_height(area);
+        uint32_t src_stride = src_w * px_size;
+
+        lv_display_rotate_area(ctx->display, &draw_area);
+
+        uint32_t dest_w = (uint32_t)lv_area_get_width(&draw_area);
+        uint32_t dest_h = (uint32_t)lv_area_get_height(&draw_area);
+        uint32_t dest_stride = dest_w * px_size;
+        uint32_t rotate_buf_size = dest_stride * dest_h;
+        uint8_t *rotate_buf = sdl_display_get_rotation_buf(data, rotate_buf_size);
+        if (rotate_buf == NULL) {
+            lv_display_flush_ready(ctx->display);
+            return;
+        }
+
+        lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
+                          (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+        draw_px_map = rotate_buf;
+        rotated = true;
+    }
+
     // 计算区域大小
-    uint32_t w = lv_area_get_width(area);
-    uint32_t h = lv_area_get_height(area);
+    uint32_t w = lv_area_get_width(&draw_area);
+    uint32_t h = lv_area_get_height(&draw_area);
     uint32_t bytes_per_pixel = lv_color_format_get_size(data->color_format);
     
     // 使用 SDL_UpdateTexture 更新部分区域（类似重构前的 luat_sdl2_draw）
     // 这比 LockTexture + memcpy + UnlockTexture 更高效
     SDL_Rect rect = {
-        .x = area->x1,
-        .y = area->y1,
+        .x = draw_area.x1,
+        .y = draw_area.y1,
         .w = (int)w,
         .h = (int)h
     };
@@ -196,7 +277,7 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     // 计算 px_map 的实际 stride
     // 在 PARTIAL 模式下，px_map 的数据可能是紧密打包的（区域宽度），
     // 但为了安全，我们使用 LockTexture + 逐行复制的方式
-    uint32_t px_map_stride = lv_draw_buf_width_to_stride(w, data->color_format);  // 区域宽度的 stride
+    uint32_t px_map_stride = rotated ? (w * bytes_per_pixel) : lv_draw_buf_width_to_stride(w, data->color_format);
     uint32_t px_map_line_bytes = w * bytes_per_pixel;  // 每行实际数据字节数
     
     
@@ -210,7 +291,7 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     }
     
     // 逐行复制数据
-    const uint8_t *src = px_map;
+    const uint8_t *src = draw_px_map;
     uint8_t *dst = (uint8_t *)texture_pixels;
 
     for (uint32_t y = 0; y < h; y++) {
@@ -266,6 +347,11 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
         if (data->lcd_conf != NULL) {
             data->lcd_conf->lcd_use_lvgl = 0;
         }
+        if (data->rotation_buf != NULL) {
+            free(data->rotation_buf);
+            data->rotation_buf = NULL;
+            data->rotation_buf_size = 0;
+        }
         free(data);
         ctx->platform_data = NULL;
         return;
@@ -284,6 +370,12 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     if (data->window != NULL) {
         SDL_DestroyWindow(data->window);
         data->window = NULL;
+    }
+
+    if (data->rotation_buf != NULL) {
+        free(data->rotation_buf);
+        data->rotation_buf = NULL;
+        data->rotation_buf_size = 0;
     }
     
     free(data);

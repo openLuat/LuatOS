@@ -16,6 +16,7 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_airui_platform_luatos.h"
+#include "lvgl9/src/draw/sw/lv_draw_sw_utils.h"
 #include <stdbool.h>
 #include <string.h>
 
@@ -41,6 +42,31 @@ static luatos_platform_data_t *luatos_get_or_alloc_data(airui_ctx_t *ctx) {
     memset(data, 0, sizeof(luatos_platform_data_t));
     ctx->platform_data = data;
     return data;
+}
+
+static uint8_t *luatos_display_get_rotation_buf(luatos_platform_data_t *data, uint32_t size)
+{
+    if (data == NULL || size == 0) {
+        return NULL;
+    }
+
+    if (data->rotation_buf != NULL && data->rotation_buf_size >= size) {
+        return data->rotation_buf;
+    }
+
+    if (data->rotation_buf != NULL) {
+        luat_heap_free(data->rotation_buf);
+        data->rotation_buf = NULL;
+        data->rotation_buf_size = 0;
+    }
+
+    data->rotation_buf = (uint8_t *)luat_heap_malloc(size);
+    if (data->rotation_buf == NULL) {
+        return NULL;
+    }
+
+    data->rotation_buf_size = size;
+    return data->rotation_buf;
 }
 
 /**
@@ -109,17 +135,54 @@ static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const 
     luat_color_t *color_p = (luat_color_t *)px_map;
     luat_lcd_conf_t *lcd_conf = data->lcd_conf;
     bool is_last = lv_display_flush_is_last(ctx->display);
-    uint32_t px_count = (uint32_t)(area->x2 - area->x1 + 1) * (uint32_t)(area->y2 - area->y1 + 1);
+    lv_display_rotation_t rotation = lv_display_get_rotation(ctx->display);
 
-    /* 如果LCD是SPI设备，并且需要交换颜色，则交换颜色 */
-    if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
-        for (uint32_t i = 0; i < px_count; i++) {
-            color_p[i] = airui_rgb565_swap(color_p[i]);
+    if (rotation == LV_DISPLAY_ROTATION_0) {
+        uint32_t px_count = (uint32_t)(area->x2 - area->x1 + 1) * (uint32_t)(area->y2 - area->y1 + 1);
+
+        /* 如果LCD是SPI设备，并且需要交换颜色，则交换颜色 */
+        if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
+            for (uint32_t i = 0; i < px_count; i++) {
+                color_p[i] = airui_rgb565_swap(color_p[i]);
+            }
         }
-    }
 
-    /* 直接绘制到 LCD，逐块刷新 */
-    luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+        /* 直接绘制到 LCD，逐块刷新 */
+        luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+    }
+    else {
+        lv_area_t rotated_area = *area;
+        lv_color_format_t cf = lv_display_get_color_format(ctx->display);
+        uint32_t px_size = lv_color_format_get_size(cf);
+        uint32_t src_w = (uint32_t)lv_area_get_width(area);
+        uint32_t src_h = (uint32_t)lv_area_get_height(area);
+        uint32_t src_stride = src_w * px_size;
+
+        lv_display_rotate_area(ctx->display, &rotated_area);
+
+        uint32_t dest_w = (uint32_t)lv_area_get_width(&rotated_area);
+        uint32_t dest_h = (uint32_t)lv_area_get_height(&rotated_area);
+        uint32_t dest_stride = dest_w * px_size;
+        uint32_t rotate_buf_size = dest_stride * dest_h;
+        luat_color_t *rotate_buf = (luat_color_t *)luatos_display_get_rotation_buf(data, rotate_buf_size);
+        if (rotate_buf == NULL) {
+            LLOGE("rotation buffer alloc failed size=%u", rotate_buf_size);
+            lv_display_flush_ready(ctx->display);
+            return;
+        }
+
+        lv_draw_sw_rotate(px_map, rotate_buf, (int32_t)src_w, (int32_t)src_h,
+                          (int32_t)src_stride, (int32_t)dest_stride, rotation, cf);
+
+        if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
+            uint32_t px_count = dest_w * dest_h;
+            for (uint32_t i = 0; i < px_count; i++) {
+                rotate_buf[i] = airui_rgb565_swap(rotate_buf[i]);
+            }
+        }
+
+        luat_lcd_draw(lcd_conf, rotated_area.x1, rotated_area.y1, rotated_area.x2, rotated_area.y2, rotate_buf);
+    }
 
     /* 在最后一块时触发 flush，确保硬件输出（假定 luat_lcd_flush 同步完成） */
     if (is_last) {
@@ -181,6 +244,12 @@ static void luatos_display_deinit(airui_ctx_t *ctx)
 
     if (data->lcd_conf != NULL) {
         data->lcd_conf->lcd_use_lvgl = 0;
+    }
+
+    if (data->rotation_buf != NULL) {
+        luat_heap_free(data->rotation_buf);
+        data->rotation_buf = NULL;
+        data->rotation_buf_size = 0;
     }
 
     luat_heap_free(data);

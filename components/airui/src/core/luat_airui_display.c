@@ -6,6 +6,37 @@
 
 #include "luat_airui.h"
 
+static lv_display_rotation_t airui_rotation_to_lv(uint16_t rotation)
+{
+    switch (rotation) {
+        case 0:
+            return LV_DISPLAY_ROTATION_0;
+        case 90:
+            return LV_DISPLAY_ROTATION_90;
+        case 180:
+            return LV_DISPLAY_ROTATION_180;
+        case 270:
+            return LV_DISPLAY_ROTATION_270;
+        default:
+            return LV_DISPLAY_ROTATION_0;
+    }
+}
+
+static uint16_t airui_rotation_from_lv(lv_display_rotation_t rotation)
+{
+    switch (rotation) {
+        case LV_DISPLAY_ROTATION_90:
+            return 90;
+        case LV_DISPLAY_ROTATION_180:
+            return 180;
+        case LV_DISPLAY_ROTATION_270:
+            return 270;
+        case LV_DISPLAY_ROTATION_0:
+        default:
+            return 0;
+    }
+}
+
 /**
  * 设置显示缓冲
  * @param ctx 上下文指针
@@ -43,5 +74,56 @@ int airui_display_set_buffers(
     
     lv_display_set_buffers(ctx->display, buf1, buf2, buf_size, render_mode);
     return AIRUI_OK;
+}
+
+int airui_display_set_rotation(airui_ctx_t *ctx, uint16_t rotation)
+{
+    if (ctx == NULL || ctx->display == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (rotation != 0 && rotation != 90 && rotation != 180 && rotation != 270) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_display_set_rotation(ctx->display, airui_rotation_to_lv(rotation));
+    ctx->width = (uint16_t)lv_display_get_horizontal_resolution(ctx->display);
+    ctx->height = (uint16_t)lv_display_get_vertical_resolution(ctx->display);
+
+    if (!ctx->sleeping) {
+        lv_obj_t *act_scr = lv_display_get_screen_active(ctx->display);
+        if (act_scr != NULL) {
+            lv_obj_invalidate(act_scr);
+        }
+    }
+
+    return AIRUI_OK;
+}
+
+uint16_t airui_display_get_rotation(airui_ctx_t *ctx)
+{
+    if (ctx == NULL || ctx->display == NULL) {
+        return 0;
+    }
+
+    return airui_rotation_from_lv(lv_display_get_rotation(ctx->display));
+}
+
+uint16_t airui_display_get_width(airui_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return 0;
+    }
+
+    return ctx->width;
+}
+
+uint16_t airui_display_get_height(airui_ctx_t *ctx)
+{
+    if (ctx == NULL) {
+        return 0;
+    }
+
+    return ctx->height;
 }
 

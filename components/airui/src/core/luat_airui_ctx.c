@@ -347,6 +347,8 @@ int airui_init(airui_ctx_t *ctx, uint16_t width, uint16_t height, lv_color_forma
     
     ctx->width = width;
     ctx->height = height;
+    ctx->native_width = width;
+    ctx->native_height = height;
     
     // 初始化 LVGL
     if (!lv_is_initialized()) {

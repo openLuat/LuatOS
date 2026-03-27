@@ -11,6 +11,7 @@
 #include "luat_airui.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
+#include "lvgl9/src/display/lv_display.h"
 #include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <string.h>
@@ -360,6 +361,8 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         lv_color_format_t color_format;
         uint8_t reuse_lcd;
         luat_lcd_conf_t *lcd_conf;
+        uint8_t *rotation_buf;
+        uint32_t rotation_buf_size;
     } sdl_display_data_t;
     
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
@@ -423,20 +426,19 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
             window_h = display_data->height;
         }
         
-        // 将 SDL 坐标转换为 LVGL 逻辑坐标
-        // LVGL 的逻辑分辨率存储在 ctx->width 和 ctx->height
+        // 将 SDL 坐标先转换为面板原生坐标，再交给 LVGL 按 display rotation 处理
         int32_t lvgl_x, lvgl_y;
         
-        if (window_w > 0 && window_h > 0 && ctx->width > 0 && ctx->height > 0) {
+        if (window_w > 0 && window_h > 0 && ctx->native_width > 0 && ctx->native_height > 0) {
             // 按比例缩放坐标
-            lvgl_x = (int32_t)((int64_t)sdl_x * ctx->width / window_w);
-            lvgl_y = (int32_t)((int64_t)sdl_y * ctx->height / window_h);
+            lvgl_x = (int32_t)((int64_t)sdl_x * ctx->native_width / window_w);
+            lvgl_y = (int32_t)((int64_t)sdl_y * ctx->native_height / window_h);
             
             // 限制坐标范围
             if (lvgl_x < 0) lvgl_x = 0;
-            if (lvgl_x >= ctx->width) lvgl_x = ctx->width - 1;
+            if (lvgl_x >= ctx->native_width) lvgl_x = ctx->native_width - 1;
             if (lvgl_y < 0) lvgl_y = 0;
-            if (lvgl_y >= ctx->height) lvgl_y = ctx->height - 1;
+            if (lvgl_y >= ctx->native_height) lvgl_y = ctx->native_height - 1;
         } else {
             // 如果无法转换，直接使用 SDL 坐标（兼容性处理）
             lvgl_x = sdl_x;
@@ -506,6 +508,8 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         lv_color_format_t color_format;
         uint8_t reuse_lcd;
         luat_lcd_conf_t *lcd_conf;
+        uint8_t *rotation_buf;
+        uint32_t rotation_buf_size;
     } sdl_display_data_t;
 
     // 获取 display_data 指针并判空
@@ -527,11 +531,16 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     lv_obj_get_coords(target, &coords);
 
     // 初始将 lvgl 区域直接转换为 SDL_Rect
+    lv_area_t phy_coords = coords;
+    if (ctx->display != NULL) {
+        lv_display_rotate_area(ctx->display, &phy_coords);
+    }
+
     SDL_Rect rect = {
-        .x = coords.x1,
-        .y = coords.y1,
-        .w = lv_area_get_width(&coords),
-        .h = lv_area_get_height(&coords)
+        .x = phy_coords.x1,
+        .y = phy_coords.y1,
+        .w = lv_area_get_width(&phy_coords),
+        .h = lv_area_get_height(&phy_coords)
     };
 
     // 获取窗口实际像素尺寸（窗口可缩放情况下）
@@ -539,14 +548,6 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     int window_h = display_data->height;
     if (window != NULL) {
         SDL_GetWindowSize(window, &window_w, &window_h);
-    }
-
-    // 按实际窗口尺寸缩放 LVGL 坐标
-    if (window_w > 0 && window_h > 0 && ctx->width > 0 && ctx->height > 0) {
-        rect.x = (int32_t)((int64_t)coords.x1 * window_w / ctx->width);
-        rect.y = (int32_t)((int64_t)coords.y1 * window_h / ctx->height);
-        rect.w = (int32_t)((int64_t)lv_area_get_width(&coords) * window_w / ctx->width);
-        rect.h = (int32_t)((int64_t)lv_area_get_height(&coords) * window_h / ctx->height);
     }
 
     // 如果是文本区域，进一步精确到光标位置
@@ -560,12 +561,29 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         lv_obj_get_coords(label, &label_coords);
         // 查询某字符左上角相对 label 的偏移
         lv_label_get_letter_pos(label, cp, &letter_pos);
+        lv_area_t caret_area;
+        lv_area_set(&caret_area,
+                    label_coords.x1 + letter_pos.x,
+                    label_coords.y1 + letter_pos.y,
+                    label_coords.x1 + letter_pos.x,
+                    label_coords.y1 + letter_pos.y);
+        if (ctx->display != NULL) {
+            lv_display_rotate_area(ctx->display, &caret_area);
+        }
         // 用 label 区域原点 + 字符偏移指定输入法聚焦位
-        rect.x = label_coords.x1 + letter_pos.x;
-        rect.y = label_coords.y1 + letter_pos.y;
+        rect.x = caret_area.x1;
+        rect.y = caret_area.y1;
         // 推荐一个典型大小，防止输入法候选窗太大（可微调）
         rect.w = 24;
         rect.h = 24;
+    }
+
+    // 按实际窗口尺寸缩放物理坐标
+    if (window_w > 0 && window_h > 0 && ctx->native_width > 0 && ctx->native_height > 0) {
+        rect.x = (int32_t)((int64_t)rect.x * window_w / ctx->native_width);
+        rect.y = (int32_t)((int64_t)rect.y * window_h / ctx->native_height);
+        rect.w = (int32_t)((int64_t)rect.w * window_w / ctx->native_width);
+        rect.h = (int32_t)((int64_t)rect.h * window_h / ctx->native_height);
     }
 
     // 防止宽/高为 0，输入法无法显示（设为最小 1）

@@ -40,7 +40,7 @@ static uint8_t g_keypad_tail = 0; // 按键队列尾
 static uint8_t g_keypad_state_mask = 0; // 按键状态掩码
 static uint8_t g_keypad_has_state = 0; // 按键状态是否有效
 static uint8_t g_keypad_gpio_inited = 0; // 按键GPIO是否初始化
-static uint8_t g_tp_dir_warned = 0; // TP/LCD 方向不一致告警是否已打印
+static uint8_t g_tp_dir_warned = 0; // TP 原始方向配置告警是否已打印
 
 
 // 按键队列推入
@@ -287,34 +287,30 @@ static bool luatos_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         int32_t x = (int32_t)tp_data_snapshot.x_coordinate;
         int32_t y = (int32_t)tp_data_snapshot.y_coordinate;
 
-        // 获取触摸方向和lcd旋转方向， 以lcd方向为准
+        // 获取触摸芯片原始方向配置，仅用于校准到面板原生坐标
         uint8_t tp_dir = tp_cfg->direction & 0x03;
-        uint8_t lcd_dir = 0;
-        if (platform != NULL && platform->lcd_conf != NULL) {
-            lcd_dir = platform->lcd_conf->direction & 0x03;
-        }
 
-        // 应用触摸方向和lcd旋转方向
-        int32_t tp_w = tp_cfg->w > 0 ? tp_cfg->w : ctx->width;
-        int32_t tp_h = tp_cfg->h > 0 ? tp_cfg->h : ctx->height;
+        // 应用触摸原始方向和交换配置，转换到面板原生坐标
+        int32_t tp_w = tp_cfg->w > 0 ? tp_cfg->w : ctx->native_width;
+        int32_t tp_h = tp_cfg->h > 0 ? tp_cfg->h : ctx->native_height;
         airui_luatos_apply_tp_transform(&x, &y, tp_w, tp_h, tp_dir, tp_cfg->swap_xy);
 
-        // 检查触摸方向和lcd旋转方向是否一致
-        if (!g_tp_dir_warned && tp_dir != lcd_dir) {
-            LLOGW("tp direction(%d) != lcd direction(%d), check tp.init/lcd.init direction consistency", tp_dir, lcd_dir);
+        // 当 UI 使用原生旋转时，不再强制要求 TP 跟随 LCD 方向，仅提示方向来自 TP 校准配置
+        if (!g_tp_dir_warned && (tp_cfg->direction != 0 || tp_cfg->swap_xy != 0)) {
+            LLOGI("tp transform uses tp.init direction=%d swap_xy=0x%02X before LVGL display rotation", tp_dir, tp_cfg->swap_xy);
             g_tp_dir_warned = 1;
         }
 
         if (x < 0) {
             x = 0;
-        } else if (x >= ctx->width) {
-            x = ctx->width - 1;
+        } else if (x >= ctx->native_width) {
+            x = ctx->native_width - 1;
         }
 
         if (y < 0) {
             y = 0;
-        } else if (y >= ctx->height) {
-            y = ctx->height - 1;
+        } else if (y >= ctx->native_height) {
+            y = ctx->native_height - 1;
         }
 
         last_point.x = (lv_coord_t)x;

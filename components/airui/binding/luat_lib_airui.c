@@ -40,6 +40,8 @@ static int l_airui_refresh(lua_State *L);
 static int l_airui_full_refresh(lua_State *L);
 static int l_airui_sleep(lua_State *L);
 static int l_airui_wakeup(lua_State *L);
+static int l_airui_set_rotation(lua_State *L);
+static int l_airui_get_rotation(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
@@ -137,6 +139,8 @@ static const rotable_Reg_t reg_airui[] = {
     {"full_refresh", ROREG_FUNC(l_airui_full_refresh)},
     {"sleep", ROREG_FUNC(l_airui_sleep)},
     {"wakeup", ROREG_FUNC(l_airui_wakeup)},
+    {"set_rotation", ROREG_FUNC(l_airui_set_rotation)},
+    {"get_rotation", ROREG_FUNC(l_airui_get_rotation)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
@@ -407,6 +411,38 @@ static int l_airui_wakeup(lua_State *L) {
     }
 
     lua_pushboolean(L, airui_wakeup(g_ctx, auto_refresh) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 设置 AIRUI 显示旋转
+ * @api airui.set_rotation(rotation)
+ * @int rotation 旋转角度，仅支持 0/90/180/270
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_set_rotation(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    int rotation = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, airui_display_set_rotation(g_ctx, (uint16_t)rotation) == AIRUI_OK ? 1 : 0);
+    return 1;
+}
+
+/**
+ * 获取 AIRUI 当前显示旋转
+ * @api airui.get_rotation()
+ * @return int 当前旋转角度，0/90/180/270
+ */
+static int l_airui_get_rotation(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_pushinteger(L, airui_display_get_rotation(g_ctx));
     return 1;
 }
 

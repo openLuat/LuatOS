@@ -89,11 +89,6 @@ sys.taskInit(function()
         end
     })
 
-    airui.refresh()
-    while true do
-        -- airui.refresh()
-        sys.wait(30)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

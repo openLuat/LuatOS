@@ -57,10 +57,6 @@ sys.taskInit(function()
 
     sys.publish("MAIN_PAGE_DONE")
 
-    while true do
-        airui.refresh()
-        sys.wait(30)
-    end
 end)
 
 sys.taskInit(function()

@@ -91,6 +91,11 @@ static int luatos_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_colo
     return AIRUI_OK;
 }
 
+static inline uint16_t airui_rgb565_swap(uint16_t c)
+{
+    return (uint16_t)((c >> 8) | (c << 8));
+}
+
 /**
  * LuatOS 显示 flush
  */
@@ -104,6 +109,14 @@ static void luatos_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const 
     luat_color_t *color_p = (luat_color_t *)px_map;
     luat_lcd_conf_t *lcd_conf = data->lcd_conf;
     bool is_last = lv_display_flush_is_last(ctx->display);
+    uint32_t px_count = (uint32_t)(area->x2 - area->x1 + 1) * (uint32_t)(area->y2 - area->y1 + 1);
+
+    /* 如果LCD是SPI设备，并且需要交换颜色，则交换颜色 */
+    if (lcd_conf->port == LUAT_LCD_SPI_DEVICE && lcd_conf->endianness_swap) {
+        for (uint32_t i = 0; i < px_count; i++) {
+            color_p[i] = airui_rgb565_swap(color_p[i]);
+        }
+    }
 
     /* 直接绘制到 LCD，逐块刷新 */
     luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
@@ -191,5 +204,4 @@ const airui_display_ops_t *airui_platform_luatos_get_display_ops(void)
 }
 
 #endif /* LUAT_USE_AIRUI_LUATOS */
-
 

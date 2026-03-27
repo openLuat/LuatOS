@@ -139,11 +139,6 @@ local function ui_main_task()
     -- 显示主页
     show_page("home")
 
---     -- 主循环
---     while true do
---         airui.refresh()
---         sys.wait(frame_time)
---     end
  end
 
 -- 全局函数，方便页面调用

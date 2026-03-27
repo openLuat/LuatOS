@@ -184,5 +184,19 @@ void luat_netdrv_napt_enable(int adapter_id) {
         luat_netdrv_napt_init_contexts();
     }
     s_gw_adapter_id = adapter_id;
+    // 主动发送ARP请求获取网关MAC
+    if (adapter_id > 0) {
+        luat_netdrv_t* gw = luat_netdrv_get(adapter_id);
+        if (gw && gw->netif) {
+            ip4_addr_t* gw_ip = &gw->netif->gw;
+            if (!ip4_addr_isany(gw_ip)) {
+                LLOGE("NAPT enable: sending ARP request for gw %08X", gw_ip->addr);
+                err_t err = etharp_query(gw->netif, gw_ip, NULL);
+                LLOGE("NAPT enable: etharp_query result=%d", err);
+            } else {
+                LLOGE("NAPT enable: gateway IP is empty!");
+            }
+        }
+    }
 }
  

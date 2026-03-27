@@ -452,6 +452,9 @@ int airui_table_auto_marquee_scroll_control(lv_obj_t *table,
  */
 lv_obj_t *airui_tabview_create_from_config(void *L, int idx);
 int airui_tabview_set_active(lv_obj_t *tabview, uint32_t idx); //激活某页
+lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title); //追加标签页并返回页容器
+int airui_tabview_remove_tab(lv_obj_t *tabview, uint32_t idx); //删除指定标签页
+uint32_t airui_tabview_get_tab_count(lv_obj_t *tabview); //获取标签页数量
 lv_obj_t *airui_tabview_get_content(lv_obj_t *tabview, int idx); //获取某页容器
 void airui_tabview_release_data(airui_component_meta_t *meta); //释放内部页容器数据
 

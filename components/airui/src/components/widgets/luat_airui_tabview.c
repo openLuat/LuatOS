@@ -20,16 +20,6 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef struct {
-    lv_obj_t **pages;
-    uint32_t page_count;
-    uint8_t switch_mode;
-    bool gesture_hooked;
-    airui_ctx_t *ctx;
-    bool pointer_tracking;
-    lv_point_t press_point;
-} airui_tabview_data_t;
-
 typedef enum {
     AIRUI_TABVIEW_SWITCH_MODE_SWIPE = 0,
     AIRUI_TABVIEW_SWITCH_MODE_JUMP
@@ -47,6 +37,17 @@ typedef struct {
     bool has_bg_color;
 } airui_tabview_page_style_t;
 
+typedef struct {
+    uint8_t switch_mode;
+    bool gesture_hooked;
+    airui_ctx_t *ctx;
+    bool pointer_tracking;
+    lv_point_t press_point;
+    int tab_font_size;
+    airui_tabview_page_style_t page_style;
+    bool page_style_used;
+} airui_tabview_data_t;
+
 /**
  * 释放 TabView 页面缓存数据
  */
@@ -55,10 +56,37 @@ static void airui_tabview_data_free(airui_tabview_data_t *data)
     if (data == NULL) {
         return;
     }
-    if (data->pages != NULL) {
-        luat_heap_free(data->pages);
-    }
     luat_heap_free(data);
+}
+
+static uint32_t airui_tabview_get_page_count_internal(lv_obj_t *tabview)
+{
+    if (tabview == NULL) {
+        return 0;
+    }
+
+    return lv_tabview_get_tab_count(tabview);
+}
+
+static lv_obj_t *airui_tabview_get_page_by_index(lv_obj_t *tabview, int idx)
+{
+    lv_obj_t *cont = lv_tabview_get_content(tabview);
+    if (cont == NULL || idx < 0) {
+        return NULL;
+    }
+
+    return lv_obj_get_child(cont, idx);
+}
+
+static void airui_tabview_apply_jump_page_flags(lv_obj_t *page)
+{
+    if (page == NULL) {
+        return;
+    }
+
+    lv_obj_remove_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(page, LV_DIR_NONE);
+    lv_obj_stop_scroll_anim(page);
 }
 
 static airui_tabview_switch_mode_t airui_tabview_parse_switch_mode(const char *mode)
@@ -148,8 +176,12 @@ static void airui_tabview_jump_indev_cb(lv_event_t *e)
     if (next < 0) {
         next = 0;
     }
-    if (next >= (int32_t)data->page_count) {
-        next = (int32_t)data->page_count - 1;
+    uint32_t page_count = airui_tabview_get_page_count_internal(tabview);
+    if (page_count == 0) {
+        return;
+    }
+    if (next >= (int32_t)page_count) {
+        next = (int32_t)page_count - 1;
     }
     if (next == current) {
         return;
@@ -303,14 +335,9 @@ static void airui_tabview_apply_switch_mode(lv_obj_t *tabview, airui_tabview_dat
     lv_obj_remove_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scroll_dir(cont, LV_DIR_NONE);
     lv_obj_stop_scroll_anim(cont);
-    for (uint32_t i = 0; i < data->page_count; i++) {
-        lv_obj_t *page = data->pages[i];
-        if (page == NULL) {
-            continue;
-        }
-        lv_obj_remove_flag(page, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_scroll_dir(page, LV_DIR_NONE);
-        lv_obj_stop_scroll_anim(page);
+    uint32_t page_count = airui_tabview_get_page_count_internal(tabview);
+    for (uint32_t i = 0; i < page_count; i++) {
+        airui_tabview_apply_jump_page_flags(airui_tabview_get_page_by_index(tabview, (int)i));
     }
     if (data->ctx != NULL && data->ctx->indev != NULL && !data->gesture_hooked) {
         lv_indev_add_event_cb(data->ctx->indev, airui_tabview_jump_indev_cb, LV_EVENT_PRESSED, tabview);
@@ -400,14 +427,9 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     memset(data, 0, sizeof(airui_tabview_data_t));
     data->ctx = ctx;
     data->switch_mode = (uint8_t)airui_tabview_parse_switch_mode(switch_mode);
-
-    data->pages = (lv_obj_t **)luat_heap_malloc(sizeof(lv_obj_t *) * tab_count);
-    if (data->pages == NULL) {
-        airui_tabview_data_free(data);
-        lv_obj_delete(tabview);
-        return NULL;
-    }
-    data->page_count = tab_count;
+    data->tab_font_size = tab_font_size;
+    data->page_style = page_style;
+    data->page_style_used = airui_tabview_page_style_used(&page_style);
 
     // 创建每个 Tab 页并应用样式
     for (int i = 0; i < tab_count; i++) {
@@ -418,8 +440,7 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
             name = default_name;
         }
         lv_obj_t *page = lv_tabview_add_tab(tabview, name);
-        data->pages[i] = page;
-        if (airui_tabview_page_style_used(&page_style)) {
+        if (data->page_style_used) {
             airui_tabview_apply_page_style(page, &page_style);
         }
     }
@@ -427,8 +448,8 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     if (active < 0) {
         active = 0;
     }
-    if (active >= (int)data->page_count) {
-        active = data->page_count - 1;
+    if (active >= tab_count) {
+        active = tab_count - 1;
     }
     lv_tabview_set_active(tabview, active, LV_ANIM_OFF);
     if (tab_font_size > 0) {
@@ -436,7 +457,7 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
         if (tab_bar != NULL) {
             (void)airui_text_font_apply_hzfont(tab_bar, tab_font_size,
                 (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
-            for (uint32_t i = 0; i < data->page_count; i++) {
+            for (uint32_t i = 0; i < airui_tabview_get_page_count_internal(tabview); i++) {
                 lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, (int32_t)i);
                 if (tab_btn != NULL) {
                     (void)airui_text_font_apply_hzfont(tab_btn, tab_font_size,
@@ -465,8 +486,89 @@ int airui_tabview_set_active(lv_obj_t *tabview, uint32_t idx)
     if (tabview == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
+    if (idx >= airui_tabview_get_page_count_internal(tabview)) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
     lv_tabview_set_active(tabview, idx, LV_ANIM_OFF);
     return AIRUI_OK;
+}
+
+lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
+{
+    if (tabview == NULL || title == NULL) {
+        return NULL;
+    }
+
+    lv_obj_t *page = lv_tabview_add_tab(tabview, title);
+    if (page == NULL) {
+        return NULL;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    if (meta != NULL && meta->user_data != NULL) {
+        airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
+        if (data->page_style_used) {
+            airui_tabview_apply_page_style(page, &data->page_style);
+        }
+        if (data->tab_font_size > 0) {
+            lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, -1);
+            if (tab_btn != NULL) {
+                (void)airui_text_font_apply_hzfont(tab_btn, data->tab_font_size,
+                    (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            }
+        }
+        if (data->switch_mode == AIRUI_TABVIEW_SWITCH_MODE_JUMP) {
+            airui_tabview_apply_jump_page_flags(page);
+        }
+    }
+
+    return page;
+}
+
+int airui_tabview_remove_tab(lv_obj_t *tabview, uint32_t idx)
+{
+    if (tabview == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    uint32_t tab_count = airui_tabview_get_page_count_internal(tabview);
+    if (tab_count <= 1 || idx >= tab_count) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_t *page = airui_tabview_get_page_by_index(tabview, (int)idx);
+    lv_obj_t *button = lv_tabview_get_tab_button(tabview, (int32_t)idx);
+    if (page == NULL || button == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    uint32_t active = lv_tabview_get_tab_active(tabview);
+    uint32_t new_active = active;
+    if (idx < active) {
+        new_active = active - 1;
+    }
+    else if (idx == active) {
+        new_active = idx;
+        if (new_active >= tab_count - 1) {
+            new_active = tab_count - 2;
+        }
+    }
+
+    lv_obj_delete(page);
+    lv_obj_delete(button);
+
+    lv_tabview_set_active(tabview, new_active, LV_ANIM_OFF);
+
+    if (idx <= active) {
+        lv_obj_send_event(tabview, LV_EVENT_VALUE_CHANGED, NULL);
+    }
+
+    return AIRUI_OK;
+}
+
+uint32_t airui_tabview_get_tab_count(lv_obj_t *tabview)
+{
+    return airui_tabview_get_page_count_internal(tabview);
 }
 
 lv_obj_t *airui_tabview_get_content(lv_obj_t *tabview, int idx)
@@ -475,17 +577,11 @@ lv_obj_t *airui_tabview_get_content(lv_obj_t *tabview, int idx)
         return NULL;
     }
 
-    airui_component_meta_t *meta = airui_component_meta_get(tabview);
-    if (meta == NULL || meta->user_data == NULL) {
+    if (idx < 0 || idx >= (int)airui_tabview_get_page_count_internal(tabview)) {
         return NULL;
     }
 
-    airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
-    if (idx < 0 || idx >= (int)data->page_count) {
-        return NULL;
-    }
-
-    return data->pages[idx];
+    return airui_tabview_get_page_by_index(tabview, idx);
 }
 
 /**

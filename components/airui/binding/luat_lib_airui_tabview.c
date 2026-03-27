@@ -85,9 +85,80 @@ static int l_tabview_get_content(lua_State *L) {
         lua_pushnil(L);
         return 1;
     }
-    airui_component_ud_t *ud = (airui_component_ud_t *)lua_newuserdata(L, sizeof(airui_component_ud_t));
-    ud->obj = page;
+    airui_push_component_userdata(L, page, AIRUI_CONTAINER_MT);
     return 1;
+}
+
+/**
+ * TabView:get_tab_count()
+ * @api tabview:get_tab_count()
+ * @return int 当前标签页数量
+ */
+static int l_tabview_get_tab_count(lua_State *L) {
+    lv_obj_t *tabview = airui_check_component(L, 1, AIRUI_TABVIEW_MT);
+    lua_pushinteger(L, airui_tabview_get_tab_count(tabview));
+    return 1;
+}
+
+/**
+ * TabView:add_tab(title, content)
+ * @api tabview:add_tab(title, content)
+ * @string title 标签标题
+ * @userdata content 可选，追加到新页中的子组件
+ * @return userdata 页对象，失败返回 nil
+ */
+static int l_tabview_add_tab(lua_State *L) {
+    lv_obj_t *tabview = airui_check_component(L, 1, AIRUI_TABVIEW_MT);
+    const char *title = luaL_checkstring(L, 2);
+    airui_component_ud_t *content_ud = NULL;
+
+    if (!lua_isnoneornil(L, 3)) {
+        if (lua_type(L, 3) != LUA_TUSERDATA) {
+            luaL_error(L, "expected userdata as content object");
+            return 0;
+        }
+
+        content_ud = (airui_component_ud_t *)lua_touserdata(L, 3);
+        if (content_ud == NULL || content_ud->obj == NULL) {
+            luaL_error(L, "invalid content object");
+            return 0;
+        }
+    }
+
+    lv_obj_t *page = airui_tabview_add_tab(tabview, title);
+    if (page == NULL) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (content_ud != NULL) {
+        lv_obj_set_parent(content_ud->obj, page);
+    }
+
+    airui_push_component_userdata(L, page, AIRUI_CONTAINER_MT);
+    return 1;
+}
+
+/**
+ * TabView:remove_tab(index)
+ * @api tabview:remove_tab(index)
+ * @int index 页索引
+ * @return nil
+ */
+static int l_tabview_remove_tab(lua_State *L) {
+    lv_obj_t *tabview = airui_check_component(L, 1, AIRUI_TABVIEW_MT);
+    int index = luaL_checkinteger(L, 2);
+    if (index < 0) {
+        luaL_error(L, "index must be >= 0");
+        return 0;
+    }
+
+    if (airui_tabview_remove_tab(tabview, (uint32_t)index) != AIRUI_OK) {
+        luaL_error(L, "remove_tab failed");
+        return 0;
+    }
+
+    return 0;
 }
 
 /**
@@ -135,6 +206,9 @@ void airui_register_tabview_meta(lua_State *L) {
     static const luaL_Reg methods[] = {
         {"set_active", l_tabview_set_active},
         {"get_content", l_tabview_get_content},
+        {"get_tab_count", l_tabview_get_tab_count},
+        {"add_tab", l_tabview_add_tab},
+        {"remove_tab", l_tabview_remove_tab},
         {"set_on_change", l_tabview_set_on_change},
         {"destroy", l_tabview_destroy},
         {NULL, NULL}

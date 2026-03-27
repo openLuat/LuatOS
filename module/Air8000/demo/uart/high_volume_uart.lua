@@ -56,7 +56,7 @@ if uart_mode_zbuff then
             if len <= 0 then
                 break
             end
-            log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr())
+            log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr(0,rxbuff:used()))
             rxbuff:seek(0)
         end
     end
@@ -77,7 +77,7 @@ if uart_mode_zbuff then
     -- 发送数据完成会触发回调, 这里的"sent" 是固定值
     uart.on(uartid, "sent", uart_send_cb)
 
-    sys.taskInit(uart_send)
+    -- sys.taskInit(uart_send)
 else
     local function uart_send()
         -- 循环两秒向串口发一次数据

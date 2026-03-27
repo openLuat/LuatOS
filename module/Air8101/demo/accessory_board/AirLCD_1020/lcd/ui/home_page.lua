@@ -24,9 +24,8 @@ local center_x
 
 -- 按钮区域定义（适配800x480）
 local buttons = {
-    lcd_page = { x1 = 100, y1 = 350, x2 = 250, y2 = 430 },
-    gtfont_page = { x1 = 300, y1 = 350, x2 = 450, y2 = 430 },
-    customer_font_page = { x1 = 500, y1 = 350, x2 = 650, y2 = 430 }
+    lcd_page = { x1 = 100, y1 = 350, x2 = 340, y2 = 430 },
+    customer_font_page = { x1 = 410, y1 = 350, x2 = 650, y2 = 430 }
 }
 
 local title = "合宙LCD演示系统"
@@ -63,17 +62,12 @@ function home_page.draw()
     lcd.fill(buttons.lcd_page.x1, buttons.lcd_page.y1,
         buttons.lcd_page.x2, buttons.lcd_page.y2, 0x001F)
     lcd.setColor(0xFFFF, 0x0000)
-    lcd.drawStr(buttons.lcd_page.x1 + 45, buttons.lcd_page.y1 + 45, "LCD演示", 0xFFFF)
-
-    -- 绘制GTFont演示按钮
-    lcd.fill(buttons.gtfont_page.x1, buttons.gtfont_page.y1,
-        buttons.gtfont_page.x2, buttons.gtfont_page.y2, 0xF800)
-    lcd.drawStr(buttons.gtfont_page.x1 + 35, buttons.gtfont_page.y1 + 45, "矢量字体演示", 0xFFFF)
+    lcd.drawStr(buttons.lcd_page.x1 + 85, buttons.lcd_page.y1 + 45, "LCD演示", 0xFFFF)
 
     -- 绘制自定义字体演示按钮
     lcd.fill(buttons.customer_font_page.x1, buttons.customer_font_page.y1,
         buttons.customer_font_page.x2, buttons.customer_font_page.y2, 0x07E0)
-    lcd.drawStr(buttons.customer_font_page.x1 + 35, buttons.customer_font_page.y1 + 45, "自定义字体演示", 0xFFFF)
+    lcd.drawStr(buttons.customer_font_page.x1 + 75, buttons.customer_font_page.y1 + 45, "自定义字体演示", 0xFFFF)
 end
 
 --[[
@@ -90,13 +84,6 @@ function home_page.handle_touch(x, y, switch_page)
     if x >= buttons.lcd_page.x1 and x <= buttons.lcd_page.x2 and
         y >= buttons.lcd_page.y1 and y <= buttons.lcd_page.y2 then
         switch_page("lcd")
-        return true
-    end
-
-    -- 检查GTFont演示按钮
-    if x >= buttons.gtfont_page.x1 and x <= buttons.gtfont_page.x2 and
-        y >= buttons.gtfont_page.y1 and y <= buttons.gtfont_page.y2 then
-        switch_page("gtfont")
         return true
     end
 

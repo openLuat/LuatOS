@@ -32,6 +32,7 @@ extern "C" {
 #define AIRUI_TEXTAREA_MT "airui.textarea"
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
+#define AIRUI_ANIMIMG_MT "airui.animimg"
 #define AIRUI_CHART_MT "airui.chart"
 #define AIRUI_QRCODE_MT "airui.qrcode"
 
@@ -51,6 +52,7 @@ typedef enum {
     AIRUI_COMPONENT_TEXTAREA,
     AIRUI_COMPONENT_KEYBOARD,
     AIRUI_COMPONENT_LOTTIE,
+    AIRUI_COMPONENT_ANIMIMG,
     AIRUI_COMPONENT_CHART,
     AIRUI_COMPONENT_QRCODE
 } airui_component_type_t;
@@ -524,6 +526,16 @@ int airui_lottie_set_loop(lv_obj_t *lottie, bool loop);
 int airui_lottie_set_speed(lv_obj_t *lottie, float speed);
 int airui_lottie_set_progress(lv_obj_t *lottie, float progress);
 int airui_lottie_destroy(lv_obj_t *lottie);
+
+/**
+ * AnimImg组件
+ */
+lv_obj_t *airui_animimg_create_from_config(void *L, int idx);
+int airui_animimg_play(lv_obj_t *animimg);
+int airui_animimg_pause(lv_obj_t *animimg);
+int airui_animimg_stop(lv_obj_t *animimg);
+int airui_animimg_set_src(lv_obj_t *animimg, void *L, int idx);
+int airui_animimg_destroy(lv_obj_t *animimg);
 
 /**
  * Chart组件

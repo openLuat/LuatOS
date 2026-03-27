@@ -25,8 +25,7 @@ show_time = nil
 
 -- UI 主任务：初始化硬件并发布启动消息
 local function ui_main_task()
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 发布打开开机画面的消息
     sys.publish("OPEN_WELCOME_WIN")

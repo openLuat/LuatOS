@@ -15,7 +15,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -34,7 +34,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     -- 根据硬件环境配置LCD电源GPIO和背光控制引脚
     -- HARDWARE_ENV参数说明：
     -- "CORE_BOARD": 核心板直连，不需要控制GPIO供电，背光使用GPIO1控制
@@ -91,7 +91,6 @@ function lcd_drv.init()
         lcd.autoFlush(false)
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

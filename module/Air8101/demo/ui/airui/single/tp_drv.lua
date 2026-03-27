@@ -14,7 +14,7 @@
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
 
-local tp_drv = {}
+
 
 
 --[[
@@ -34,7 +34,7 @@ else
 end
 ]]
 
-function tp_drv.init()
+local function tp_drv_init()
     -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
     -- 参数说明：
     -- 0: SCL引脚编号
@@ -75,4 +75,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
+tp_drv_init()

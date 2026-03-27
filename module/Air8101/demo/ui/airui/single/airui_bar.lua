@@ -13,8 +13,7 @@ local current = 0   -- 当前值
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建进度条
     local progress = airui.bar({

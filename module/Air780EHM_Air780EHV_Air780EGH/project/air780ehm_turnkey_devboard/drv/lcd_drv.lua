@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -35,7 +35,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     pm.ioVol(pm.IOVOL_ALL_GPIO, 3300)
     -- 开启屏幕供电
     local result = lcd.init("st7796",
@@ -91,7 +91,6 @@ function lcd_drv.init()
         return result
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

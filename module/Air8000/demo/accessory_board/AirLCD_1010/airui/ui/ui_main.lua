@@ -33,18 +33,15 @@ require("qrcode_win")
 
 -- 主任务函数
 local function ui_main_task()
-    -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
+    -- 发布打开首窗口消息
+    sys.publish("OPEN_HOME_WIN")
 
     -- 等待硬件稳定
     sys.wait(500)
 
     -- 开启背光引脚供电
     gpio.setup(1, 1)
-
-    -- 发布打开首窗口消息
-    sys.publish("OPEN_HOME_WIN")
 
     log.info("ui_main", "UI系统启动完成，采用exwin窗口管理")
 end

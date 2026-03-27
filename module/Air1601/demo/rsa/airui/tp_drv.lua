@@ -12,7 +12,7 @@
 
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
-]] local tp_drv = {}
+]] 
 
 --[[
 触摸事件回调函数；
@@ -48,7 +48,7 @@ else
     i2c.setup(port, i2c.SLOW)
 end
 
-function tp_drv.init()
+local function tp_drv_init()
     -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
      -- 初始化复位引脚GPIO4，先拉低再关闭，确保不被拉高
     gpio.setup(rst_pin, 0) -- 设置GPIO4为输出模式，输出低电平
@@ -85,4 +85,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
+tp_drv_init()

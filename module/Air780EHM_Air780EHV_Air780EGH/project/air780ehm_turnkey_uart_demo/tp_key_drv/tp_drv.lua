@@ -10,9 +10,9 @@
 3、发布触摸事件消息供UI系统处理；
 ]]
 
-local tp_drv = {}
 
-function tp_drv.init()
+
+local function tp_drv_init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
     -- 初始化硬件I2C
     i2c.setup(1, i2c.SLOW)
@@ -31,4 +31,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
+tp_drv_init()

@@ -18,8 +18,7 @@ require "fota_win"
 require "fota_progress_win"
 
 local function ui_main_task()
-    lcd_drv.init()
-    tp_drv.init()
+
 
     sys.publish("OPEN_WELCOME_WIN")
 

@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -37,7 +37,7 @@ end
 
 local port, pin_reset, bl = lcd.RGB, 22, 23
 
-function lcd_drv.init()
+local function lcd_drv_init()
     -- 开启屏幕供电
     gpio.setup(141, 1)
     local result = lcd.init("custom", {
@@ -80,4 +80,4 @@ function lcd_drv.init()
     return result
 end
 
-return lcd_drv
+lcd_drv_init()

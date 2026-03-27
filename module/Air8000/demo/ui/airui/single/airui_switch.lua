@@ -10,8 +10,7 @@
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建标签显示状态
     local label = airui.label({

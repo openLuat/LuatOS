@@ -55,8 +55,7 @@ UI主任务函数，初始化硬件并发布启动消息
 -- 5、开启GPIO引脚1（背光供电）
 ]]
 local function ui_main_task()
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 发布打开开机画面的消息
     sys.publish("OPEN_WELCOME_WIN")

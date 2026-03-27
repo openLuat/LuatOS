@@ -10,8 +10,7 @@
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建图表（折线图）
     local chart = airui.chart({

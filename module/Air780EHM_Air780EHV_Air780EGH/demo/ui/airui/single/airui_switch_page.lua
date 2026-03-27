@@ -14,8 +14,7 @@ local pages = {}
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建主容器（竖屏尺寸）
     local main_container = airui.container({

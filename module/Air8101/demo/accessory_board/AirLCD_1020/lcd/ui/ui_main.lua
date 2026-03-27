@@ -101,8 +101,7 @@ local function ui_main()
     
 
     
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 默认使用系统自带的12号中文字体
     lcd.setFont(lcd.font_opposansm12_chinese)

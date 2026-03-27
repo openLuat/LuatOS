@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -35,7 +35,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     local result = lcd.init("h050iwv",
         {
             pin_pwr = 5,    -- 背光控制引脚GPIO端口号
@@ -90,10 +90,8 @@ function lcd_drv.init()
         log.info("airui", "version -> " .. version_result)
 
 
-        return result
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

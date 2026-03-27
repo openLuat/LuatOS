@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -35,7 +35,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     local result = lcd.init("st7796",
         {
             pin_pwr = 1,       -- 背光控制引脚GPIO端口号
@@ -95,7 +95,6 @@ function lcd_drv.init()
         return result
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

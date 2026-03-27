@@ -14,7 +14,7 @@
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
 
-local tp_drv = {}
+
 
 
 --[[
@@ -36,7 +36,7 @@ end
 
 
 
-function tp_drv.init()
+local function tp_drv_init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
     -- 等待供电稳定
     -- sys.wait(100)
@@ -73,4 +73,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
+tp_drv_init()

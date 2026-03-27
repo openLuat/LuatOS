@@ -14,7 +14,7 @@
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
 
-local tp_drv = {}
+
 
 --[[
 初始化触摸面板驱动；
@@ -33,7 +33,7 @@ else
 end
 ]]
 
-function tp_drv.init()
+local function tp_drv_init()
 
     -- 初始化硬件I2C
     i2c.setup(1, i2c.SLOW) -- 初始化I2C 1，设置为低速模式
@@ -68,4 +68,4 @@ function tp_drv.init()
     end
 end
 
-return tp_drv
+tp_drv_init()

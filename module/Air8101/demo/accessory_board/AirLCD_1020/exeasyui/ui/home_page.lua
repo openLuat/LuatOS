@@ -42,7 +42,6 @@ function home_page.create()
     home:configure_subpages({
         component = function() return require("component_page").create(ui) end,
         default_font = function() return require("default_font_page").create(ui) end,
-        gtfont = function() return require("gtfont_page").create(ui) end,
         hzfont = function() return require("hzfont_page").create(ui) end
     })
 
@@ -99,24 +98,9 @@ function home_page.create()
         end
     })
 
-    -- GTFont演示按钮
-    local btn_gtfont = ui.button({
-        x = btn_x,
-        y = 150 + btn_height + btn_spacing,
-        w = btn_width,
-        h = btn_height,
-        text = "GTFont演示",
-        bg_color = ui.COLOR_GREEN,
-        text_color = ui.COLOR_WHITE,
-        font_size = 16,
-        on_click = function()
-            home:show_subpage("gtfont")
-        end
-    })
-
     -- HZFont演示按钮
     local btn_hzfont = ui.button({
-        x = btn_x + btn_width + 40,
+        x = btn_x,
         y = 150 + btn_height + btn_spacing,
         w = btn_width,
         h = btn_height,
@@ -134,7 +118,6 @@ function home_page.create()
     home:add(subtitle)
     home:add(btn_component)
     home:add(btn_default_font)
-    home:add(btn_gtfont)
     home:add(btn_hzfont)
 
     ui.add(home)

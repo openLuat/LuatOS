@@ -29,6 +29,11 @@ typedef struct {
     lv_color_t text_color;
 } airui_table_cell_style_t;
 
+typedef enum {
+    AIRUI_TABLE_CELL_VERTICAL_ALIGN_CENTER = 0,
+    AIRUI_TABLE_CELL_VERTICAL_ALIGN_TOP
+} airui_table_cell_vertical_align_t;
+
 typedef struct {
     lv_coord_t *row_heights;
     uint16_t row_count;
@@ -52,6 +57,7 @@ typedef struct {
     bool marquee_scroll_running;
     bool marquee_scroll_paused;
     uint16_t cell_font_size;
+    uint8_t cell_vertical_align;
 } airui_table_data_t;
 
 static void airui_table_apply_row_height(lv_obj_t *table, uint32_t row, lv_coord_t height);
@@ -75,6 +81,26 @@ static void airui_table_shift_cell_style_rules(airui_table_cell_style_t **styles
 static airui_table_cell_style_t *airui_table_get_cell_style_slot(lv_obj_t *table, bool is_row, uint32_t index, bool create);
 static void airui_table_adjust_after_structure_change(lv_obj_t *table, bool row_axis, uint32_t index, uint32_t remove_count);
 static void airui_table_clamp_selection(lv_obj_t *table);
+
+static airui_table_cell_vertical_align_t airui_table_parse_vertical_align(lua_State *L_state, int idx,
+                                                                          const char *field,
+                                                                          airui_table_cell_vertical_align_t def)
+{
+    lua_getfield(L_state, idx, field);
+    if (lua_type(L_state, -1) == LUA_TSTRING) {
+        const char *value = lua_tostring(L_state, -1);
+        if (value != NULL && strcmp(value, "top") == 0) {
+            lua_pop(L_state, 1);
+            return AIRUI_TABLE_CELL_VERTICAL_ALIGN_TOP;
+        }
+        if (value != NULL && strcmp(value, "center") == 0) {
+            lua_pop(L_state, 1);
+            return AIRUI_TABLE_CELL_VERTICAL_ALIGN_CENTER;
+        }
+    }
+    lua_pop(L_state, 1);
+    return def;
+}
 
 /**
  * 通过 config 表创建 Table 组件
@@ -718,6 +744,25 @@ static void airui_table_draw_task_added_event_cb(lv_event_t *e)
             label_dsc->font = font;
         }
     }
+
+    if (draw_task->type == LV_DRAW_TASK_TYPE_LABEL && data->cell_vertical_align == AIRUI_TABLE_CELL_VERTICAL_ALIGN_TOP) {
+        lv_table_cell_ctrl_t ctrl = 0;
+        uint32_t cell = row * table_dsc->col_cnt + col;
+        if (table_dsc->cell_data != NULL && table_dsc->cell_data[cell] != NULL) {
+            ctrl = table_dsc->cell_data[cell]->ctrl;
+        }
+
+        if ((ctrl & LV_TABLE_CELL_CTRL_TEXT_CROP) == 0) {
+            lv_coord_t row_height = table_dsc->row_h[row];
+            lv_coord_t text_height = lv_area_get_height(&draw_task->area);
+            lv_coord_t pad_top = lv_obj_get_style_pad_top(table, LV_PART_ITEMS);
+            lv_coord_t offset = (row_height - text_height) / 2 - pad_top;
+            if (offset > 0) {
+                draw_task->area.y1 -= offset;
+                draw_task->area.y2 -= offset;
+            }
+        }
+    }
 }
 
 static void airui_table_clamp_selection(lv_obj_t *table)
@@ -913,6 +958,9 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
         lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_MAIN | LV_STATE_DEFAULT);
     }
+    if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
     if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
         lv_obj_set_style_radius(table, value < 0 ? 0 : value, LV_PART_MAIN | LV_STATE_DEFAULT);
     }
@@ -926,8 +974,18 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
     if (airui_marshal_integer_opt(L_state, idx, "cell_border_color", &value)) {
         lv_obj_set_style_border_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
     }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_border_width", &value)) {
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_ITEMS | LV_STATE_DEFAULT);
+        lv_obj_set_style_border_width(table, value < 0 ? 0 : value, LV_PART_ITEMS | LV_STATE_PRESSED);
+    }
     if (airui_marshal_integer_opt(L_state, idx, "cell_text_color", &value)) {
         lv_obj_set_style_text_color(table, lv_color_hex((uint32_t)value), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    }
+    if (airui_marshal_integer_opt(L_state, idx, "cell_text_align", &value)) {
+        if (value == (int)LV_TEXT_ALIGN_LEFT || value == (int)LV_TEXT_ALIGN_CENTER || value == (int)LV_TEXT_ALIGN_RIGHT) {
+            lv_obj_set_style_text_align(table, (lv_text_align_t)value, LV_PART_ITEMS | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_align(table, (lv_text_align_t)value, LV_PART_ITEMS | LV_STATE_PRESSED);
+        }
     }
 
     if (airui_marshal_integer_opt(L_state, idx, "selected_cell_bg_color", &value)) {
@@ -953,7 +1011,17 @@ int airui_table_set_style(lv_obj_t *table, void *L, int idx)
             (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_PRESSED));
     }
 
+    {
+        airui_table_data_t *data = airui_table_ensure_data(table);
+        if (data != NULL) {
+            data->cell_vertical_align = (uint8_t)airui_table_parse_vertical_align(
+                L_state, idx, "cell_vertical_align",
+                (airui_table_cell_vertical_align_t)data->cell_vertical_align);
+        }
+    }
+
     airui_table_reapply_row_heights(table);
+    lv_obj_invalidate(table);
     return AIRUI_OK;
 }
 

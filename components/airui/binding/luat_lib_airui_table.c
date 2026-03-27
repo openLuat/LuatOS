@@ -39,11 +39,15 @@ static int airui_table_parse_axis(lua_State *L, int idx, bool *is_row);
  * @int config.style.bg_color 表格背景色（0xRRGGBB）
  * @int config.style.bg_opa 表格背景透明度（0-255）
  * @int config.style.border_color 表格边框颜色（0xRRGGBB）
+ * @int config.style.border_width 表格边框宽度，设为 0 可隐藏外边框
  * @int config.style.radius 表格圆角半径
  * @int config.style.cell_bg_color 单元格背景色（0xRRGGBB）
  * @int config.style.cell_bg_opa 单元格背景透明度（0-255）
  * @int config.style.cell_border_color 单元格边框颜色（0xRRGGBB）
+ * @int config.style.cell_border_width 单元格边框宽度，设为 0 可隐藏内部网格线
  * @int config.style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int config.style.cell_text_align 单元格水平对齐，支持 airui.TEXT_ALIGN_LEFT/CENTER/RIGHT
+ * @string config.style.cell_vertical_align 单元格垂直对齐，支持 "top"/"center"
  * @int config.style.cell_font_size 单元格字体大小，使用 hzfont 时生效
  * @int config.style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
  * @int config.style.selected_cell_bg_opa 选中单元格背景透明度（0-255）
@@ -154,11 +158,15 @@ static int l_table_set_border_color(lua_State *L) {
  * @int style.bg_color 表格背景色（0xRRGGBB）
  * @int style.bg_opa 表格背景透明度（0-255）
  * @int style.border_color 表格边框颜色（0xRRGGBB）
+ * @int style.border_width 表格边框宽度，设为 0 可隐藏外边框
  * @int style.radius 表格圆角半径
  * @int style.cell_bg_color 单元格背景色（0xRRGGBB）
  * @int style.cell_bg_opa 单元格背景透明度（0-255）
  * @int style.cell_border_color 单元格边框颜色（0xRRGGBB）
+ * @int style.cell_border_width 单元格边框宽度，设为 0 可隐藏内部网格线
  * @int style.cell_text_color 单元格文字颜色（0xRRGGBB）
+ * @int style.cell_text_align 单元格水平对齐，支持 airui.TEXT_ALIGN_LEFT/CENTER/RIGHT
+ * @string style.cell_vertical_align 单元格垂直对齐，支持 "top"/"center"
  * @int style.cell_font_size 单元格字体大小，使用 hzfont 时生效
  * @int style.selected_cell_bg_color 选中单元格背景色（0xRRGGBB）
  * @int style.selected_cell_bg_opa 选中单元格背景透明度（0-255）

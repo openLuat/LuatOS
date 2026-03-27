@@ -66,14 +66,28 @@ function lcd_drv.init()
             return result
         end
 
-        -- 加载字体
-        airui.font_load({
-            type = "hzfont",  -- 字体类型，hzfont
-            path = nil,       -- 字体路径，Air8000固件内置，无需填写
-            size = 14,        -- 默认字体大写
-            cache_size = 512, --
-            antialias = 1,    -- 字体抗锯齿等级，1-4级，级别越高抗锯齿效果越好，加载时间越长
-        })
+        -- 加载中文字体
+        if rtos.bsp() ~= "Air8101" then
+            -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
+            airui.font_load({
+                type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
+                path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                size = 20,         -- 字体大小，默认 16
+                cache_size = 1048, -- 缓存字数大小，默认 2048
+                antialias = 1,     -- 抗锯齿等级1-3，默认 1
+            })
+        else
+            -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+            airui.font_load({
+                type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
+                path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                size = 20,                   -- 字体大小，默认 16
+                cache_size = 1048,           -- 缓存字数大小，默认 2048
+                antialias = 1,               -- 抗锯齿等级1-3，默认 1
+                -- load_to_psram= true,
+                global = true
+            })
+        end
 
         -- 查询当前固件内AirUI核心库版本
         local version_result = airui.version()

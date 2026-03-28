@@ -29,6 +29,9 @@ end
 
 #include "miniz.h"
 
+/* Maximum length (including NUL) of any output path produced by l_miniz_unzip */
+#define LUAT_MINIZ_MAX_PATH 128
+
 static mz_bool luat_output_buffer_putter(const void *pBuf, int len, void *pUser) {
     luaL_addlstring((luaL_Buffer*)pUser, pBuf, len);
     return MZ_TRUE;
@@ -202,7 +205,25 @@ static void luat_mz_free_func(void *opaque, void *address) {
 }
 static void* luat_mz_realloc_func(void *opaque, void *address, size_t items, size_t size) {
     (void)opaque;
+    if (items && size > (size_t)-1 / items) return NULL;
     return luat_heap_opt_realloc(LUAT_HEAP_PSRAM, address, items * size);
+}
+
+static int luat_miniz_is_safe_filename(const char* filename) {
+    if (!filename || filename[0] == '\0') return 0;
+    // Reject absolute paths
+    if (filename[0] == '/' || filename[0] == '\\') return 0;
+    // Reject ".." as a complete path component (must be preceded by separator or start-of-string)
+    const char* p = filename;
+    while (*p) {
+        if ((p == filename || p[-1] == '/' || p[-1] == '\\') &&
+            p[0] == '.' && p[1] == '.' &&
+            (p[2] == '/' || p[2] == '\\' || p[2] == '\0')) {
+            return 0;
+        }
+        p++;
+    }
+    return 1;
 }
 
 /*
@@ -222,10 +243,6 @@ end
 static int l_miniz_unzip(lua_State* L) {
     const char* zip_file_path = luaL_checkstring(L, 1);
     const char* target_dir = luaL_checkstring(L, 2);
-    
-    // Ensure target directory ends with slash
-    char* normalized_target = (char*)target_dir;
-    char tmpdst[256] = {0};
     
     size_t zip_file_size = 0;
     zip_file_size = luat_fs_fsize(zip_file_path);
@@ -264,8 +281,15 @@ static int l_miniz_unzip(lua_State* L) {
     LLOGI("ZIP file contains %u files", num_files);
     
     int success = 1;
-    
-    
+    char* tmpdst = (char*)luat_heap_malloc(LUAT_MINIZ_MAX_PATH);
+    if (!tmpdst) {
+        LLOGE("out of memory for path buffer");
+        luat_fs_fclose(f);
+        mz_zip_reader_end(&zip_archive);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
     for (mz_uint i = 0; i < num_files; i++) {
         mz_zip_archive_file_stat file_stat;
         if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
@@ -276,23 +300,26 @@ static int l_miniz_unzip(lua_State* L) {
         
         // Skip directories (they end with /)
         if (file_stat.m_is_directory) {
-            #if 0
-            // Create directory structure
-            size_t full_path_len = strlen(normalized_target) + strlen(file_stat.m_filename);
-            char* full_path = (char*)luat_heap_malloc(full_path_len + 1);
-            if (full_path) {
-                strcpy(full_path, normalized_target);
-                strcat(full_path, file_stat.m_filename);
-                luat_mkdir_recursive(full_path);
-                luat_heap_free(full_path);
-            }
-            #endif
             LLOGI("Skipping directory: %s", file_stat.m_filename);
             continue;
         }
-        
-        // Construct full output path
-        snprintf(tmpdst, sizeof(tmpdst), "%s%s", target_dir, file_stat.m_filename);
+
+        // Validate filename to prevent path traversal attacks
+        if (!luat_miniz_is_safe_filename(file_stat.m_filename)) {
+            LLOGW("Skipping unsafe filename: %s", file_stat.m_filename);
+            success = 0;
+            goto cleanup;
+        }
+
+        // Construct full output path; total length must not exceed LUAT_MINIZ_MAX_PATH bytes
+        size_t target_dir_len = strlen(target_dir);
+        size_t fname_len = strlen(file_stat.m_filename);
+        if (target_dir_len + fname_len + 1 >= LUAT_MINIZ_MAX_PATH) {
+            LLOGE("path too long (%zu bytes): %s%s", target_dir_len + fname_len, target_dir, file_stat.m_filename);
+            success = 0;
+            goto cleanup;
+        }
+        snprintf(tmpdst, LUAT_MINIZ_MAX_PATH, "%s%s", target_dir, file_stat.m_filename);
         LLOGI("Processing file: %s -> %s", file_stat.m_filename, tmpdst);
         
         // Extract file to disk
@@ -300,7 +327,7 @@ static int l_miniz_unzip(lua_State* L) {
         if (!out_f) {
             LLOGE("Failed to create output file: %s", tmpdst);
             success = 0;
-            continue;
+            goto cleanup;
         }
         if (!mz_zip_reader_extract_to_callback(&zip_archive, i, luat_miniz_file_write_func, out_f, 0)) {
             LLOGE("Failed to extract file: %s", file_stat.m_filename);
@@ -311,13 +338,11 @@ static int l_miniz_unzip(lua_State* L) {
         luat_fs_fclose(out_f);
     }
 
+cleanup:
+    luat_heap_free(tmpdst);
     luat_fs_fclose(f);
     
     mz_zip_reader_end(&zip_archive);
-    
-    if (normalized_target != target_dir) {
-        luat_heap_free(normalized_target);
-    }
     
     lua_pushboolean(L, success);
     return 1;

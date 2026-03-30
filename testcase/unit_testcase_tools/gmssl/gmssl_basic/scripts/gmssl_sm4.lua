@@ -118,6 +118,30 @@ function sm4.test_sm4_test_none_encrypt()
     assert(ret == 1, "× GMSSL SM4 none加密错误")
 end
 
+-- SM4错误传参测试
+function sm4.test_sm4_error_params()
+    log.info("GMSSL SM4 错误传参测试开始")
+    
+    local testStr = "test string"
+    
+    -- 测试空数据加密
+    local encry_empty_data = gmssl.sm4encrypt("ECB", "ZERO", "", passwd)
+    assert(encry_empty_data == nil, "× 空数据加密应该返回nil")
+    log.info("sm4" , "空数据加密测试通过")
+
+    -- 创建有效的加密数据用于解密测试
+    local valid_encrypt = gmssl.sm4encrypt("ECB", "ZERO", testStr, passwd)
+    assert(valid_encrypt, "× 创建有效加密数据失败")
+    
+    -- 测试解密时使用错误的密钥
+    local wrong_password = "wrongpwd12345678"  -- 16字节的错误密钥
+    local decry_wrong_key = gmssl.sm4decrypt("ECB", "ZERO", valid_encrypt, wrong_password)
+    assert(decry_wrong_key == nil, "× 使用错误密钥解密应该返回nil")
+    log.info("sm4" , "错误密钥解密测试通过")
+    
+    
+    log.info("√ GMSSL SM4 错误传参测试全部通过")
+end
 
 
 return sm4

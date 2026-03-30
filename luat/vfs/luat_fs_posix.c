@@ -15,118 +15,6 @@
 
 
 // fs的默认实现, 指向poisx的stdio.h声明的方法
-#ifndef LUAT_USE_FS_VFS
-
-FILE* luat_fs_fopen(const char *filename, const char *mode) {
-    //LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
-    return fopen(filename + FILENAME_OFFSET, mode);
-}
-
-int luat_fs_getc(FILE* stream) {
-    //LLOGD("posix_getc %p", stream);
-    #ifdef LUAT_FS_NO_POSIX_GETC
-    uint8_t buff = 0;
-    int ret = luat_fs_fread(&buff, 1, 1, stream);
-    if (ret == 1) {
-        return buff;
-    }
-    return -1;
-    #else
-    return getc(stream);
-    #endif
-}
-
-int luat_fs_fseek(FILE* stream, long int offset, int origin) {
-    return fseek(stream, offset, origin);
-}
-
-int luat_fs_ftell(FILE* stream) {
-    return ftell(stream);
-}
-
-int luat_fs_fclose(FILE* stream) {
-    return fclose(stream);
-}
-int luat_fs_feof(FILE* stream) {
-    return feof(stream);
-}
-int luat_fs_ferror(FILE *stream) {
-    return ferror(stream);
-}
-size_t luat_fs_fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    //LLOGD("posix_fread %d %p", size*nmemb, stream);
-    int ret = fread(ptr, size, nmemb, stream);
-    if (ret < 0)
-        return 0;
-    return ret;
-}
-size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    int ret = fwrite(ptr, size, nmemb, stream);
-    if (ret < 0)
-        return 0;
-    fflush(stream);
-    return size * nmemb; 
-}
-
-int luat_fs_fflush(FILE *stream) {
-    return fflush(stream);
-}
-
-int luat_fs_remove(const char *filename) {
-    return remove(filename + FILENAME_OFFSET);
-}
-int luat_fs_rename(const char *old_filename, const char *new_filename) {
-#if LUA_USE_VFS_FILENAME_OFFSET
-    return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
-#else
-    return rename(old_filename, new_filename);
-#endif
-}
-int luat_fs_fexist(const char *filename) {
-    FILE* fd = luat_fs_fopen(filename, "rb");
-    if (fd) {
-        luat_fs_fclose(fd);
-        return 1;
-    }
-    return 0;
-}
-
-size_t luat_fs_fsize(const char *filename) {
-    FILE *fd;
-    size_t size = 0;
-    fd = luat_fs_fopen(filename, "rb");
-    if (fd) {
-        luat_fs_fseek(fd, 0, SEEK_END);
-        size = luat_fs_ftell(fd); 
-        luat_fs_fclose(fd);
-    }
-    return size;
-}
-
-LUAT_WEAK int luat_fs_mkfs(luat_fs_conf_t *conf) {
-    LLOGE("not support yet : mkfs");
-    return -1;
-}
-LUAT_WEAK int luat_fs_mount(luat_fs_conf_t *conf) {
-    LLOGE("not support yet : mount");
-    return -1;
-}
-LUAT_WEAK int luat_fs_umount(luat_fs_conf_t *conf) {
-    LLOGE("not support yet : umount");
-    return -1;
-}
-
-int luat_fs_mkdir(char const* _DirName) {
-    //return mkdir(_DirName);
-    return -1;
-}
-int luat_fs_rmdir(char const* _DirName) {
-    //return rmdir(_DirName);
-    return -1;
-}
-
-#else
-
 FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mode) {
     (void)userdata;
     char tmp[16] = {0};
@@ -223,7 +111,7 @@ int luat_vfs_posix_rename(void* userdata, const char *old_filename, const char *
 #endif
 }
 int luat_vfs_posix_fexist(void* userdata, const char *filename) {
-    FILE* fd = luat_vfs_posix_fopen(userdata, filename, "rb");
+    FILE* fd = luat_vfs_posix_fopen(userdata, filename + FILENAME_OFFSET, "rb");
     if (fd) {
         luat_vfs_posix_fclose(userdata, fd);
         return 1;
@@ -234,7 +122,7 @@ int luat_vfs_posix_fexist(void* userdata, const char *filename) {
 size_t luat_vfs_posix_fsize(void* userdata, const char *filename) {
     FILE *fd;
     size_t size = 0;
-    fd = luat_vfs_posix_fopen(userdata, filename, "rb");
+    fd = luat_vfs_posix_fopen(userdata, filename + FILENAME_OFFSET, "rb");
     if (fd) {
         luat_vfs_posix_fseek(userdata, fd, 0, SEEK_END);
         size = luat_vfs_posix_ftell(userdata, fd); 
@@ -272,20 +160,20 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 #include <unistd.h>
 #endif
 
-int luat_vfs_posix_mkdir(void* userdata, char const* _DirName) {
+int luat_vfs_posix_mkdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_WINDOWS)
-    return mkdir(_DirName);
+    return mkdir(filename + FILENAME_OFFSET);
 #elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
-    return mkdir(_DirName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+    return mkdir(filename + FILENAME_OFFSET, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #else
     return -1;
 #endif
 }
-int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
+int luat_vfs_posix_rmdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
-    return rmdir(_DirName);
+    return rmdir(filename + FILENAME_OFFSET);
 #else
     return -1;
 #endif
@@ -309,15 +197,39 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
     struct dirent *ep;
     int index = 0;
 
-    //LLOGW("opendir file %s %d %d", _DirName, offset, len);
+    // LLOGD("opendir file %s %d %d", _DirName, offset, len);
+    char buff[256] = {0};
+    if (strlen(_DirName) > 254) {
+        LLOGW("dir name too long %s", _DirName);
+        return 0;
+    }
+    if (_DirName[0] == '/') {
+        buff[0] = '.';
+        memcpy(buff + 1, _DirName, strlen(_DirName));
+    }
+    else {
+        memcpy(buff, _DirName, strlen(_DirName));
+    }
+    #if defined(LUA_USE_WINDOWS)
+    for (size_t i = 0; i < strlen(buff); i++)
+    {
+        if (buff[i] == '/') {
+            buff[i] = '\\';
+        }
+    }
+    #endif
 
-    dp = opendir (_DirName);
+    dp = opendir (buff);
     if (dp != NULL)
     {
         while ((ep = readdir (dp)) != NULL) {
             //LLOGW("offset %d len %d", offset, len);
             if (offset > 0) {
                 offset --;
+                continue;
+            }
+            // 如果名称是 . 和 .. 就跳过
+            if (strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0) {
                 continue;
             }
             if (len > 0) {
@@ -340,7 +252,7 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
         return index;
     }
     else {
-        LLOGW("opendir file %s", _DirName);
+        LLOGW("opendir file %s failed", _DirName);
     }
     return 0;
 }
@@ -357,15 +269,16 @@ int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
 #else
 int truncate(const char *path, off_t length);
 
-int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
+int luat_vfs_posix_truncate(void* fsdata, char const* filename, size_t len) {
+    (void)fsdata;
     #if defined(LUA_USE_WINDOWS)
-    FILE* fd = fopen(path, "wb");
+    FILE* fd = fopen(filename + FILENAME_OFFSET, "w+b");
     if (fd) {
         _chsize( fileno(fd), len);
         fclose(fd);
     }
     #else
-    truncate(path, len);
+    truncate(filename + FILENAME_OFFSET, len);
     #endif
     return 0;
 }
@@ -402,7 +315,6 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
     }
 };
 
-#endif
 
 
 

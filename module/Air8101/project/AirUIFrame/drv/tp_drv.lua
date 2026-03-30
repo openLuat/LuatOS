@@ -16,7 +16,6 @@
 
 
 
-
 --[[
 初始化触摸面板驱动；
 
@@ -43,7 +42,6 @@ local function tp_drv_init()
 
     if type(result) ~= "userdata" then
         log.error("tp_drv.init i2c.createSoft error")
-        return false
     end
     -- 此处触摸IC数据读取使用的是软件I2C接口
     -- 参数说明：
@@ -53,7 +51,8 @@ local function tp_drv_init()
     -- pin_int: 中断引脚编号
     -- w: 触摸面板宽度
     -- h: 触摸面板高度
-    result = tp.init("gt911", { port = result, pin_rst = 6, pin_int = 7, w = 800, h = 480 })
+
+     result = tp.init("gt911", { port = result, pin_rst = 6, pin_int = 7 })
 
     log.info("tp.init", result)
 
@@ -67,10 +66,9 @@ local function tp_drv_init()
     else
         if not result then
             log.error("ui_main", "触摸初始化失败")
-            return result
         else
             -- 绑定触摸设备到AirUI输入设备
-            return airui.device_bind_touch(result)
+           airui.device_bind_touch(result)
         end
     end
 end

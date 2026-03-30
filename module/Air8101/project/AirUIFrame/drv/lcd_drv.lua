@@ -16,8 +16,6 @@
 ]]
 
 
-
-
 --[[
 初始化LCD显示驱动；
 
@@ -40,9 +38,9 @@ local function lcd_drv_init()
         {
             pin_pwr = 5,    -- 背光控制引脚GPIO端口号
             port = lcd.RGB, -- 驱动端口
-            direction = 1,  -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
-            w = 480,        -- lcd 水平分辨率
-            h = 800,        -- lcd 竖直分辨率
+            direction = 0,  -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
+            w = 800,        -- lcd 水平分辨率
+            h = 480,        -- lcd 竖直分辨率
             xoffset = 0,    -- x偏移(不同屏幕ic 不同屏幕方向会有差异)
             yoffset = 0,    -- y偏移(不同屏幕ic 不同屏幕方向会有差异)
         })
@@ -55,11 +53,11 @@ local function lcd_drv_init()
         local result = airui.init(width, height)
         if not result then
             log.error("airui", "init failed")
-            return result
         end
 
         lcd.setupBuff(nil, true) -- 设置帧缓冲区，使用heap内存
         lcd.autoFlush(false)     -- 禁止自动刷新
+        
         -- 加载中文字体
         if rtos.bsp() ~= "Air8101" then
             -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
@@ -82,6 +80,8 @@ local function lcd_drv_init()
                 global = true
             })
         end
+
+        airui.set_rotation(270)
 
         -- 查询当前固件内AirUI核心库版本
         local version_result = airui.version()

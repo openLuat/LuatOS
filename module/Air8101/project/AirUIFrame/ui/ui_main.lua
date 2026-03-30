@@ -19,7 +19,6 @@ require "fota_progress_win"
 
 local function ui_main_task()
 
-
     sys.publish("OPEN_WELCOME_WIN")
 
     sys.wait(1000)

@@ -815,7 +815,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 				#else
     			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
 				#endif
-				DBG_Printf("TLS handshake failed %d !!\n", -result);
+				DBG_Printf("TLS handshake failed 0x%x !!\n", -result);
     			ctrl->need_close = 1;
     			return -1;
     		}

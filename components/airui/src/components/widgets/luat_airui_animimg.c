@@ -27,6 +27,7 @@ static void airui_animimg_completed_cb(lv_anim_t *anim);
 static void airui_animimg_clear_frames(airui_animimg_data_t *data);
 static void airui_animimg_reset_to_first_frame(lv_obj_t *animimg, airui_animimg_data_t *data);
 static airui_ctx_t *airui_animimg_get_ctx(lua_State *L_state);
+static lv_anim_t *airui_animimg_get_running_anim(lv_obj_t *animimg);
 
 lv_obj_t *airui_animimg_create_from_config(void *L, int idx)
 {
@@ -129,6 +130,15 @@ static airui_ctx_t *airui_animimg_get_ctx(lua_State *L_state)
     }
     lua_pop(L_state, 1);
     return ctx;
+}
+
+static lv_anim_t *airui_animimg_get_running_anim(lv_obj_t *animimg)
+{
+    if (animimg == NULL) {
+        return NULL;
+    }
+
+    return lv_anim_get(animimg, NULL);
 }
 
 static void airui_animimg_release_data(void *user_data)
@@ -259,19 +269,24 @@ static void airui_animimg_reset_to_first_frame(lv_obj_t *animimg, airui_animimg_
 
 int airui_animimg_play(lv_obj_t *animimg)
 {
+    airui_animimg_data_t *data;
+    lv_anim_t *running_anim;
+
     if (animimg == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_anim_t *anim = lv_animimg_get_anim(animimg);
-    if (anim == NULL) {
+    data = airui_animimg_get_data(animimg);
+    if (data == NULL || data->frame_count == 0) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    if (anim->act_time < 0) {
+    running_anim = airui_animimg_get_running_anim(animimg);
+    if (running_anim == NULL) {
+        airui_animimg_reset_to_first_frame(animimg, data);
         lv_animimg_start(animimg);
     } else {
-        lv_anim_resume(anim);
+        lv_anim_resume(running_anim);
     }
     return AIRUI_OK;
 }
@@ -283,9 +298,9 @@ int airui_animimg_pause(lv_obj_t *animimg)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    anim = lv_animimg_get_anim(animimg);
+    anim = airui_animimg_get_running_anim(animimg);
     if (anim == NULL) {
-        return AIRUI_ERR_INVALID_PARAM;
+        return AIRUI_OK;
     }
     lv_anim_pause(anim);
     return AIRUI_OK;
@@ -300,15 +315,16 @@ int airui_animimg_stop(lv_obj_t *animimg)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    anim = lv_animimg_get_anim(animimg);
+    anim = airui_animimg_get_running_anim(animimg);
     data = airui_animimg_get_data(animimg);
-    if (anim == NULL || data == NULL || data->frame_count == 0) {
+    if (data == NULL || data->frame_count == 0) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_anim_pause(anim);
-    anim->act_time = 0;
-    anim->current_value = anim->start_value;
+    if (anim != NULL) {
+        lv_anim_delete(animimg, NULL);
+    }
+
     airui_animimg_reset_to_first_frame(animimg, data);
     return AIRUI_OK;
 }

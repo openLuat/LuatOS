@@ -1,0 +1,30 @@
+-- mGBA 组件说明
+-- 
+-- 构建配置已整合到 bsp/pc/xmake.lua 中
+-- 通过设置环境变量 LUAT_USE_MGBA=y 启用编译
+--
+-- 编译方法:
+--   cd bsp/pc
+--   set LUAT_USE_MGBA=y
+--   set LUAT_USE_GUI=y        # 视频输出需要 GUI 支持
+--   xmake -y
+--
+-- 或者使用 Windows 批处理脚本:
+--   build_windows_64bit_msvc_gui.bat
+--   然后设置 LUAT_USE_MGBA=y 并重新运行 xmake -y
+--
+-- 目录结构:
+--   components/mgba/
+--   ├── include/           - LuatOS 接口头文件
+--   │   └── luat_mgba.h    - 公共 API 定义
+--   ├── src/               - mGBA 源码 (git clone from gitee mirror)
+--   ├── adapter/           - LuatOS 适配层
+--   │   ├── luat_mgba_adapter.c  - 核心适配器 (生命周期, ROM加载, 执行控制)
+--   │   ├── luat_mgba_vfs.c      - 文件系统适配
+--   │   ├── luat_mgba_input.c    - 输入处理适配
+--   │   ├── luat_mgba_video.c    - 视频输出适配 (需要 LUAT_USE_GUI)
+--   │   ├── luat_mgba_stubs.c    - 桩函数实现
+--   │   └── version.c            - 版本信息
+--   └── binding/           - Lua 绑定层 (阶段5实现)
+
+-- 此文件仅作为组件说明，不包含实际构建配置

@@ -243,6 +243,8 @@ LUAMOD_API int luaopen_ndk(lua_State *L);
 LUAMOD_API int luaopen_h264(lua_State *L);
 /** 视频播放库 */
 LUAMOD_API int luaopen_videoplayer(lua_State *L);
+/** GBA模拟器 */
+LUAMOD_API int luaopen_gba(lua_State *L);
 
 
 #endif

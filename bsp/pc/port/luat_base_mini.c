@@ -237,6 +237,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_VIDEOPLAYER
   {"videoplayer", luaopen_videoplayer},
 #endif
+#ifdef LUAT_USE_MGBA
+  {"gba", luaopen_gba},
+#endif
   {NULL, NULL}
 };
 

@@ -497,4 +497,127 @@ target("luatos-lua")
         add_files(luatos.."components/tp/luat_tp.c")
 
     end
+
+    -- mGBA GBA模拟器组件
+    if os.getenv("LUAT_USE_MGBA") == "y" then
+        add_defines("LUAT_USE_MGBA=1")
+        add_defines("MGBA_CONFIG_FILE=\"mgba_config_luatos.h\"")
+        
+        -- mGBA 核心配置宏 - 只定义启用的功能
+        add_defines("PLATFORM_LUATOS=1")
+        add_defines("M_CORE_GBA=1")
+        add_defines("M_CORE_GB=1")
+        add_defines("LIBMGBA_ONLY=1")
+        add_defines("BUILD_STATIC=1")
+        add_defines("DISABLE_FRONTENDS=1")
+        add_defines("USE_ZLIB=1")
+        -- 使用 16 位颜色格式 (GBA 原生 RGB565)
+        -- add_defines("COLOR_16_BIT=1")
+        
+        -- Windows 平台特定配置
+        -- Windows CRT 已提供 strdup (作为 _strdup)，避免与 mGBA 自定义实现冲突
+        if is_host("windows") then
+            add_defines("HAVE_STRDUP")
+        end
+        
+        -- 启用 GBA 和 GB 核心支持
+        add_defines("M_CORE_GBA", "M_CORE_GB")
+        
+        -- 启用 VFS 支持 (不需要 ENABLE_DIRECTORIES)
+        add_defines("ENABLE_VFS", "ENABLE_VFS_FILE")
+        
+        -- 注意: 禁用的功能不定义宏，mGBA 使用 #ifdef 检查
+        
+        -- mGBA 头文件
+        add_includedirs(luatos.."components/mgba/include")
+        add_includedirs(luatos.."components/mgba/src")
+        add_includedirs(luatos.."components/mgba/src/include")
+        add_includedirs(luatos.."components/mgba/src/src")  -- 用于相对路径包含 (如 "gba/cheats/gameshark.h")
+        
+        -- mGBA 核心源文件 (src/src 是 mGBA 项目结构)
+        add_files(
+            luatos.."components/mgba/src/src/core/*.c",
+            luatos.."components/mgba/src/src/gba/*.c",
+            luatos.."components/mgba/src/src/gb/*.c",
+            luatos.."components/mgba/src/src/util/*.c",
+            luatos.."components/mgba/src/src/arm/*.c",
+            luatos.."components/mgba/src/src/sm83/*.c"
+        )
+        
+        -- VFS 子模块 (文件和内存支持)
+        add_files(
+            luatos.."components/mgba/src/src/util/vfs/vfs-file.c",
+            luatos.."components/mgba/src/src/util/vfs/vfs-mem.c"
+        )
+        
+        -- GBA 子目录 (排除 debugger、test 和 video logger)
+        add_files(
+            luatos.."components/mgba/src/src/gba/cart/*.c",
+            luatos.."components/mgba/src/src/gba/cheats/*.c",
+            luatos.."components/mgba/src/src/gba/renderers/*.c",
+            luatos.."components/mgba/src/src/gba/sio/*.c"
+        )
+        
+        -- GB 子目录 (排除 debugger、test 和 extra)
+        add_files(
+            luatos.."components/mgba/src/src/gb/mbc/*.c",
+            luatos.."components/mgba/src/src/gb/renderers/*.c",
+            luatos.."components/mgba/src/src/gb/sio/*.c"
+        )
+        
+        -- 排除不需要的平台相关文件
+        remove_files(
+            luatos.."components/mgba/src/src/platform/**/*.c",
+            luatos.."components/mgba/src/src/debugger/**/*.c",
+            luatos.."components/mgba/src/src/feature/**/*.c",
+            luatos.."components/mgba/src/src/script/**/*.c",
+            luatos.."components/mgba/src/src/tools/**/*.c",
+            luatos.."components/mgba/src/src/third-party/**/*.c",
+            luatos.."components/mgba/src/src/gba/test/**/*.c",
+            luatos.."components/mgba/src/src/gb/test/**/*.c",
+            luatos.."components/mgba/src/src/util/test/**/*.c",
+            luatos.."components/mgba/src/src/arm/debugger/**/*.c",
+            luatos.."components/mgba/src/src/sm83/debugger/**/*.c",
+            -- 禁用脚本支持，排除 scripting.c
+            luatos.."components/mgba/src/src/core/scripting.c",
+            -- 禁用配置文件解析 (需要 inih 库)
+            luatos.."components/mgba/src/src/util/configuration.c",
+            -- 禁用 GUI 工具
+            luatos.."components/mgba/src/src/util/gui.c",
+            -- 禁用 ELF 支持
+            luatos.."components/mgba/src/src/util/elf-read.c",
+            -- 禁用 OpenGL 渲染
+            luatos.."components/mgba/src/src/gba/renderers/gl.c"
+        )
+        
+        -- 添加 Windows 平台内存管理函数 (anonymousMemoryMap 等)
+        add_files(luatos.."components/mgba/src/src/platform/windows/memory.c")
+        
+        -- 添加自定义 version.c (因为 .c.in 需要 CMake 生成)
+        add_files(luatos.."components/mgba/adapter/version.c")
+        
+        -- 添加桩函数实现
+        add_files(luatos.."components/mgba/adapter/luat_mgba_stubs.c")
+        
+        -- 添加 mGBA 核心桥接层 (隔离 mGBA 头文件，避免 Table 冲突)
+        add_files(luatos.."components/mgba/adapter/luat_mgba_core.c")
+        
+        -- 添加 Lua 绑定层
+        add_files(luatos.."components/mgba/binding/luat_lib_gba.c")
+        
+        -- 添加 LuatOS 适配器
+        add_files(luatos.."components/mgba/adapter/luat_mgba_adapter.c")
+        -- VFS 适配器暂时禁用，避免 Table 冲突
+        -- add_files(luatos.."components/mgba/adapter/luat_mgba_vfs.c")
+        add_files(luatos.."components/mgba/adapter/luat_mgba_input.c")
+        
+        -- 视频和音频输出适配器 (需要 GUI 支持)
+        if os.getenv("LUAT_USE_GUI") == "y" then
+            add_files(luatos.."components/mgba/adapter/luat_mgba_video.c")
+            add_files(luatos.."components/mgba/adapter/luat_mgba_audio.c")
+        end
+        
+        -- 添加 Windows 库
+        add_links("shlwapi")
+    end
 target_end()

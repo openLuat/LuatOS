@@ -14,6 +14,7 @@ void luat_heap_opt_free(LUAT_HEAP_TYPE_E type,void* ptr);
 void* luat_heap_opt_realloc(LUAT_HEAP_TYPE_E type,void* ptr, size_t len);
 void* luat_heap_opt_calloc(LUAT_HEAP_TYPE_E type,size_t count, size_t size);
 void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size);
+void* luat_heap_opt_memalign(LUAT_HEAP_TYPE_E type, size_t alignment, size_t size);
 
 void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, size_t* max_used);
 

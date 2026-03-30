@@ -327,9 +327,9 @@ static int l_miniz_unzip(lua_State* L) {
 static const rotable_Reg_t reg_miniz[] = {
     {"compress", ROREG_FUNC(l_miniz_compress)},
     {"uncompress", ROREG_FUNC(l_miniz_uncompress)},
-    // {"inflate", ROREG_FUNC(l_miniz_inflate)},
-    // {"deflate", ROREG_FUNC(l_miniz_deflate)},
+    #ifndef LUAT_USE_MINIZ_LITE
     {"unzip", ROREG_FUNC(l_miniz_unzip)},
+    #endif
 
     // 放些常量
     // 压缩参数-------------------------

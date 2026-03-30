@@ -618,6 +618,8 @@ function exnetif.set_priority_order(networkConfigs)
     end
     if #networkConfigs == 1 then
         single_network_mode = true
+    else
+        single_network_mode = false
     end
 
     if not single_network_mode then

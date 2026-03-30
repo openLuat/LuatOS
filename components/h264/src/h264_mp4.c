@@ -46,14 +46,14 @@
 static uint16_t read_u16_be(FILE *fp)
 {
     uint8_t b[2];
-    if (fread(b, 1, 2, fp) != 2) return 0;
+    if (H264_FREAD(b, 1, 2, fp) != 2) return 0;
     return (uint16_t)((b[0] << 8) | b[1]);
 }
 
 static uint32_t read_u32_be(FILE *fp)
 {
     uint8_t b[4];
-    if (fread(b, 1, 4, fp) != 4) return 0;
+    if (H264_FREAD(b, 1, 4, fp) != 4) return 0;
     return ((uint32_t)b[0]<<24)|((uint32_t)b[1]<<16)|
            ((uint32_t)b[2]<<8 )| (uint32_t)b[3];
 }
@@ -115,13 +115,13 @@ static void mp4_free_ctx_resources(H264Mp4Context *ctx);
  * Returns 0 on success, -1 on error / EOF. */
 static int next_box(FILE *fp, BoxInfo *bi)
 {
-    long pos = ftell(fp);
+    long pos = H264_FTELL(fp);
     if (pos < 0) return -1;
 
     uint32_t size32 = read_u32_be(fp);
-    if (feof(fp) || ferror(fp)) return -1;
+    if (H264_FEOF(fp) || H264_FERROR(fp)) return -1;
     bi->type = read_u32_be(fp);
-    if (feof(fp) || ferror(fp)) return -1;
+    if (H264_FEOF(fp) || H264_FERROR(fp)) return -1;
 
     if (size32 == 1) {
         /* Extended 64-bit size */
@@ -130,10 +130,10 @@ static int next_box(FILE *fp, BoxInfo *bi)
         bi->box_end       = (long)((uint64_t)pos + size64);
     } else if (size32 == 0) {
         /* Box extends to EOF */
-        long save = ftell(fp);
-        fseek(fp, 0, SEEK_END);
-        bi->box_end = ftell(fp);
-        fseek(fp, save, SEEK_SET);
+        long save = H264_FTELL(fp);
+        H264_FSEEK(fp, 0, SEEK_END);
+        bi->box_end = H264_FTELL(fp);
+        H264_FSEEK(fp, save, SEEK_SET);
         bi->payload_start = pos + 8;
     } else {
         if (size32 < 8) return -1; /* malformed */
@@ -150,7 +150,7 @@ static uint8_t *read_alloc(FILE *fp, uint16_t len)
     if (len == 0) return NULL;
     uint8_t *buf = (uint8_t *)H264_MALLOC(len);
     if (!buf) return NULL;
-    if ((int)fread(buf, 1, len, fp) != len) { H264_FREE(buf); return NULL; }
+    if ((int)H264_FREAD(buf, 1, len, fp) != len) { H264_FREE(buf); return NULL; }
     return buf;
 }
 
@@ -158,16 +158,16 @@ static uint8_t *read_alloc(FILE *fp, uint16_t len)
 static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
 {
     (void)box_end;
-    uint8_t cfg_ver = (uint8_t)fgetc(fp);
+    uint8_t cfg_ver = (uint8_t)H264_FGETC(fp);
     if (cfg_ver != 1) return -1;
-    fgetc(fp); /* AVCProfileIndication */
-    fgetc(fp); /* profile_compatibility */
-    fgetc(fp); /* AVCLevelIndication */
+    H264_FGETC(fp); /* AVCProfileIndication */
+    H264_FGETC(fp); /* profile_compatibility */
+    H264_FGETC(fp); /* AVCLevelIndication */
 
-    uint8_t len_byte = (uint8_t)fgetc(fp);
+    uint8_t len_byte = (uint8_t)H264_FGETC(fp);
     ctx->nal_length_size = (len_byte & 0x03) + 1;
 
-    uint8_t num_sps = (uint8_t)fgetc(fp) & 0x1F;
+    uint8_t num_sps = (uint8_t)H264_FGETC(fp) & 0x1F;
     int i;
     for (i = 0; i < (int)num_sps && i < 32; i++) {
         uint16_t slen = read_u16_be(fp);
@@ -178,7 +178,7 @@ static int parse_avcc(FILE *fp, H264Mp4Context *ctx, long box_end)
         ctx->sps_count++;
     }
 
-    uint8_t num_pps = (uint8_t)fgetc(fp);
+    uint8_t num_pps = (uint8_t)H264_FGETC(fp);
     for (i = 0; i < (int)num_pps && i < 32; i++) {
         uint16_t plen = read_u16_be(fp);
         uint8_t *buf = read_alloc(fp, plen);
@@ -197,14 +197,14 @@ static void parse_avc1(FILE *fp, H264Mp4Context *ctx,
                        long payload_start, long box_end)
 {
     /* Skip 78 bytes of fixed VisualSampleEntry fields */
-    fseek(fp, payload_start + 78, SEEK_SET);
+    H264_FSEEK(fp, payload_start + 78, SEEK_SET);
 
-    while (ftell(fp) + 8 <= box_end) {
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo sub;
         if (next_box(fp, &sub) != 0) break;
         if (sub.type == FOURCC('a','v','c','C'))
             parse_avcc(fp, ctx, sub.box_end);
-        fseek(fp, sub.box_end, SEEK_SET);
+        H264_FSEEK(fp, sub.box_end, SEEK_SET);
     }
 }
 
@@ -213,21 +213,21 @@ static void parse_stsd(FILE *fp, H264Mp4Context *ctx,
                        long payload_start, long box_end)
 {
     /* FullBox: skip version(1)+flags(3)+entry_count(4) = 8 bytes */
-    fseek(fp, payload_start + 8, SEEK_SET);
+    H264_FSEEK(fp, payload_start + 8, SEEK_SET);
 
-    while (ftell(fp) + 8 <= box_end) {
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo entry;
         if (next_box(fp, &entry) != 0) break;
         if (entry.type == FOURCC('a','v','c','1'))
             parse_avc1(fp, ctx, entry.payload_start, entry.box_end);
-        fseek(fp, entry.box_end, SEEK_SET);
+        H264_FSEEK(fp, entry.box_end, SEEK_SET);
     }
 }
 
 /* ---- stsc ---- */
 static void parse_stsc(FILE *fp, H264Mp4Context *ctx, long payload_start)
 {
-    fseek(fp, payload_start + 4, SEEK_SET); /* skip version+flags */
+    H264_FSEEK(fp, payload_start + 4, SEEK_SET); /* skip version+flags */
     uint32_t count = read_u32_be(fp);
     if (count == 0) return;
 
@@ -246,7 +246,7 @@ static void parse_stsc(FILE *fp, H264Mp4Context *ctx, long payload_start)
 /* ---- stsz ---- */
 static void parse_stsz(FILE *fp, H264Mp4Context *ctx, long payload_start)
 {
-    fseek(fp, payload_start + 4, SEEK_SET); /* skip version+flags */
+    H264_FSEEK(fp, payload_start + 4, SEEK_SET); /* skip version+flags */
     uint32_t fixed_size  = read_u32_be(fp);
     uint32_t count       = read_u32_be(fp);
     if (count == 0) return;
@@ -266,7 +266,7 @@ static void parse_stsz(FILE *fp, H264Mp4Context *ctx, long payload_start)
 /* ---- stco ---- */
 static void parse_stco(FILE *fp, H264Mp4Context *ctx, long payload_start)
 {
-    fseek(fp, payload_start + 4, SEEK_SET);
+    H264_FSEEK(fp, payload_start + 4, SEEK_SET);
     uint32_t count = read_u32_be(fp);
     if (count == 0) return;
 
@@ -282,7 +282,7 @@ static void parse_stco(FILE *fp, H264Mp4Context *ctx, long payload_start)
 /* ---- co64 ---- */
 static void parse_co64(FILE *fp, H264Mp4Context *ctx, long payload_start)
 {
-    fseek(fp, payload_start + 4, SEEK_SET);
+    H264_FSEEK(fp, payload_start + 4, SEEK_SET);
     uint32_t count = read_u32_be(fp);
     if (count == 0) return;
 
@@ -299,8 +299,8 @@ static void parse_co64(FILE *fp, H264Mp4Context *ctx, long payload_start)
 static void parse_stbl(FILE *fp, H264Mp4Context *ctx,
                        long payload_start, long box_end)
 {
-    fseek(fp, payload_start, SEEK_SET);
-    while (ftell(fp) + 8 <= box_end) {
+    H264_FSEEK(fp, payload_start, SEEK_SET);
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo bi;
         if (next_box(fp, &bi) != 0) break;
         switch (bi.type) {
@@ -311,7 +311,7 @@ static void parse_stbl(FILE *fp, H264Mp4Context *ctx,
         case FOURCC('c','o','6','4'): parse_co64(fp, ctx, bi.payload_start); break;
         default: break;
         }
-        fseek(fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fp, bi.box_end, SEEK_SET);
     }
 }
 
@@ -319,13 +319,13 @@ static void parse_stbl(FILE *fp, H264Mp4Context *ctx,
 static void parse_minf(FILE *fp, H264Mp4Context *ctx,
                        long payload_start, long box_end)
 {
-    fseek(fp, payload_start, SEEK_SET);
-    while (ftell(fp) + 8 <= box_end) {
+    H264_FSEEK(fp, payload_start, SEEK_SET);
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo bi;
         if (next_box(fp, &bi) != 0) break;
         if (bi.type == FOURCC('s','t','b','l'))
             parse_stbl(fp, ctx, bi.payload_start, bi.box_end);
-        fseek(fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fp, bi.box_end, SEEK_SET);
     }
 }
 
@@ -334,21 +334,21 @@ static int parse_mdia(FILE *fp, H264Mp4Context *ctx,
                       long payload_start, long box_end)
 {
     int is_video = 0;
-    fseek(fp, payload_start, SEEK_SET);
-    while (ftell(fp) + 8 <= box_end) {
+    H264_FSEEK(fp, payload_start, SEEK_SET);
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo bi;
         if (next_box(fp, &bi) != 0) break;
 
         if (bi.type == FOURCC('h','d','l','r')) {
             /* FullBox: skip version(1)+flags(3)+pre_defined(4) = 8 bytes */
-            fseek(fp, bi.payload_start + 8, SEEK_SET);
+            H264_FSEEK(fp, bi.payload_start + 8, SEEK_SET);
             uint32_t handler = read_u32_be(fp);
             if (handler == FOURCC('v','i','d','e'))
                 is_video = 1;
         } else if (bi.type == FOURCC('m','i','n','f') && is_video) {
             parse_minf(fp, ctx, bi.payload_start, bi.box_end);
         }
-        fseek(fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fp, bi.box_end, SEEK_SET);
     }
     return is_video;
 }
@@ -364,8 +364,8 @@ static void parse_trak(FILE *fp, H264Mp4Context *ctx,
     tmp.fp              = ctx->fp;
     tmp.nal_length_size = 4; /* default */
 
-    fseek(fp, payload_start, SEEK_SET);
-    while (ftell(fp) + 8 <= box_end) {
+    H264_FSEEK(fp, payload_start, SEEK_SET);
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo bi;
         if (next_box(fp, &bi) != 0) break;
         if (bi.type == FOURCC('m','d','i','a')) {
@@ -375,11 +375,11 @@ static void parse_trak(FILE *fp, H264Mp4Context *ctx,
                 mp4_free_ctx_resources(ctx);
                 memcpy(ctx, &tmp, sizeof(tmp));
                 memset(&tmp, 0, sizeof(tmp)); /* tmp no longer owns anything */
-                fseek(fp, bi.box_end, SEEK_SET);
+                H264_FSEEK(fp, bi.box_end, SEEK_SET);
                 break; /* use first video trak */
             }
         }
-        fseek(fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fp, bi.box_end, SEEK_SET);
     }
 
     /* Free any resources left in tmp (non-video trak) */
@@ -390,13 +390,13 @@ static void parse_trak(FILE *fp, H264Mp4Context *ctx,
 static void parse_moov(FILE *fp, H264Mp4Context *ctx,
                        long payload_start, long box_end)
 {
-    fseek(fp, payload_start, SEEK_SET);
-    while (ftell(fp) + 8 <= box_end) {
+    H264_FSEEK(fp, payload_start, SEEK_SET);
+    while (H264_FTELL(fp) + 8 <= box_end) {
         BoxInfo bi;
         if (next_box(fp, &bi) != 0) break;
         if (bi.type == FOURCC('t','r','a','k'))
             parse_trak(fp, ctx, bi.payload_start, bi.box_end);
-        fseek(fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fp, bi.box_end, SEEK_SET);
     }
 }
 
@@ -503,8 +503,8 @@ static int mp4_read_next(H264FileDecoder *fctx, H264Frame *frame)
         uint8_t *sbuf = (uint8_t *)H264_MALLOC(sz);
         if (!sbuf) return H264_ERR_NOMEM;
 
-        fseek(fctx->fp, (long)offset, SEEK_SET);
-        if (fread(sbuf, 1, sz, fctx->fp) != sz) {
+        H264_FSEEK(fctx->fp, (long)offset, SEEK_SET);
+        if (H264_FREAD(sbuf, 1, sz, fctx->fp) != sz) {
             H264_FREE(sbuf);
             ctx->current_sample++;
             continue;
@@ -580,7 +580,7 @@ static H264FileDecoder *mp4_open_fail(H264FileDecoder *fctx, H264Mp4Context *ctx
         H264_FREE(ctx);
     }
     if (fctx) {
-        if (fctx->fp) { fclose(fctx->fp); fctx->fp = NULL; }
+        if (fctx->fp) { H264_FCLOSE(fctx->fp); fctx->fp = NULL; }
         h264_decoder_destroy(fctx->dec);
         H264_FREE(fctx);
     }
@@ -596,7 +596,7 @@ H264FileDecoder *h264_open_mp4(const char *path)
     H264FileDecoder *fctx = h264_file_decoder_alloc();
     if (!fctx) return NULL;
 
-    fctx->fp = fopen(path, "rb");
+    fctx->fp = H264_FOPEN(path, "rb");
     if (!fctx->fp)
         return mp4_open_fail(fctx, NULL);
 
@@ -609,14 +609,14 @@ H264FileDecoder *h264_open_mp4(const char *path)
 
     /* Walk top-level boxes to find moov */
     int found_moov = 0;
-    while (!feof(fctx->fp)) {
+    while (!H264_FEOF(fctx->fp)) {
         BoxInfo bi;
         if (next_box(fctx->fp, &bi) != 0) break;
         if (bi.type == FOURCC('m','o','o','v')) {
             parse_moov(fctx->fp, ctx, bi.payload_start, bi.box_end);
             found_moov = 1;
         }
-        fseek(fctx->fp, bi.box_end, SEEK_SET);
+        H264_FSEEK(fctx->fp, bi.box_end, SEEK_SET);
     }
 
     /* Validate: need at least one sample and a chunk-offset table */

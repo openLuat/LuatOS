@@ -53,6 +53,7 @@ local chip_type = hmeta.chip()
 function lcd_pin()
     if rtos_bsp == "AIR101" then
         return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
+        -- return lcd.HWID_0,pin.PA07,pin.PA12,pin.PA14,pin.PA02 -- sdio模拟spi
     elseif rtos_bsp == "AIR103" then
         return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
     elseif rtos_bsp == "AIR105" then
@@ -129,6 +130,13 @@ else
 	-- lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 540,h = 540,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=400,vbp=10,vfp=108,vs=2},spi_lcd)
 	-- lcd.init("jd9261t_inited",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 720,h = 720,xoffset = 0,yoffset = 0,interface_mode=lcd.QSPI_MODE,bus_speed=60000000,flush_rate=300,vbp=10,vfp=160,vs=2},spi_lcd)
 	-- lcd_use_buff = true
+
+    -- air101 sdio模拟spi 驱动测试屏幕
+    -- lcd.init("nv3041a",{port = port,pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset, pin_cs = pin_cs,
+    --                     bus_speed = 120*1000*1000, direction = 0,w = 480,h = 272,
+    --                     xoffset = 0,yoffset = 0,endianness_swap = true },
+    --                     spi_lcd)
+
 end
 
 --如果显示颜色相反，请解开下面一行的注释，关闭反色

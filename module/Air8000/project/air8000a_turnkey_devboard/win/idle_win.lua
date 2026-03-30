@@ -23,7 +23,7 @@ local win_id = nil
 local main_container, time_label, temp_label, hum_label, air_label, signal_img, qrcode1
 
 -- 静态资源路径和初始时间
-local full_path, current_time = "/luadb/4Gxinghao6.png", "08:00"
+local full_path, current_time = "/luadb/4Gxinhao6.png", "08:00"
 
 -- 传感器卡片组件
 local card_temp, card_hum, card_air
@@ -264,11 +264,11 @@ end
 local function update_signal()
     local csq_level = StatusProvider.get_signal_level()
     if not signal_img then return end
-    local signal_img_name = "4Gxinghao6.png" -- 默认无信号
+    local signal_img_name = "4Gxinhao6.png" -- 默认无信号
     if csq_level > 0 and csq_level <= 5 then
-        signal_img_name = "4Gxinghao" .. csq_level .. ".png"
+        signal_img_name = "4Gxinhao" .. csq_level .. ".png"
     elseif csq_level >= 6 then
-        signal_img_name = "4Gxinghao6.png"
+        signal_img_name = "4Gxinhao6.png"
     end
     local full_path = "/luadb/" .. signal_img_name
     signal_img:set_src(full_path)

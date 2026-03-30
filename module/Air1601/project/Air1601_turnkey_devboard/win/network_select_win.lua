@@ -26,7 +26,7 @@ local function create_ui()
         return option
     end
 
-    create_network_option(31, 180, "4G (AirLink)", "通过Air780EPM实现4G联网", "/luadb/4Gxinghao4.png", function()
+    create_network_option(31, 180, "4G (AirLink)", "通过Air780EPM实现4G联网", "/luadb/4Gxinhao4.png", function()
         log.info("network", "选择4G网络")
         -- 这里可以添加切换到4G网络的逻辑
     end)

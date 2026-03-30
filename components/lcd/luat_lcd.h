@@ -168,6 +168,7 @@ extern luat_lcd_opts_t lcd_opts_st7735v;
 extern luat_lcd_opts_t lcd_opts_st7789;
 extern luat_lcd_opts_t lcd_opts_st7796;
 extern luat_lcd_opts_t lcd_opts_nv3037;
+extern luat_lcd_opts_t lcd_opts_nv3041a;
 extern luat_lcd_opts_t lcd_opts_h050iwv;
 extern luat_lcd_opts_t lcd_opts_jd9261t_inited;
 //extern luat_lcd_opts_t lcd_opts_jd9261t;
@@ -297,6 +298,7 @@ int luat_lcd_conf_add(luat_lcd_conf_t* conf);
 
 void luat_lcd_service_debug(void);
 
+void lcd_auto_flush(luat_lcd_conf_t *conf);
 
 #endif
 

@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "h264_common.h"
 #include "h264_tables.h"
 #include "../include/h264_decoder.h"
@@ -27,6 +28,110 @@ void h264_mc_chroma(uint8_t *dst, int dst_stride,
                     const uint8_t *src, int src_stride,
                     int src_w, int src_h,
                     int x, int y, int mv_x, int mv_y, int bw, int bh);
+
+/* ---- 4x4 block Z-scan order (H.264 Table 6-10) ---- */
+/* Z-scan index → pixel offset within macroblock */
+static const int zscan_x[16] = {
+    0, 4, 0, 4,  8,12, 8,12,  0, 4, 0, 4,  8,12, 8,12
+};
+static const int zscan_y[16] = {
+    0, 0, 4, 4,  0, 0, 4, 4,  8, 8,12,12,  8, 8,12,12
+};
+
+/* (blk_x, blk_y) in 4-pixel units → Z-scan index */
+static int xy_to_zscan(int bx4, int by4)
+{
+    return (bx4 & 1) | ((by4 & 1) << 1) | ((bx4 & 2) << 1) | ((by4 & 2) << 2);
+}
+
+/* Compute nC for luma 4x4 block at Z-scan index zi in macroblock (mb_x, mb_y) */
+static int compute_nc_luma(const H264Decoder *dec, int mb_x, int mb_y, int zi)
+{
+    int bx = zscan_x[zi] >> 2;  /* block x in 4-pixel units (0-3) */
+    int by = zscan_y[zi] >> 2;  /* block y in 4-pixel units (0-3) */
+    int nA = -1, nB = -1;
+
+    /* Left neighbour (cross-MB only if at left edge of MB) */
+    if (bx > 0) {
+        int left_zi = xy_to_zscan(bx - 1, by);
+        const H264MacroBlock *cur = &dec->mbs[mb_y * dec->mb_width + mb_x];
+        if (cur->nz_count[left_zi] >= 0)
+            nA = cur->nz_count[left_zi];
+    } else if (mb_x > 0) {
+        nA = dec->mbs[mb_y * dec->mb_width + mb_x - 1].nz_count[xy_to_zscan(3, by)];
+    }
+
+    /* Top neighbour (cross-MB only if at top edge of MB) */
+    if (by > 0) {
+        int top_zi = xy_to_zscan(bx, by - 1);
+        const H264MacroBlock *cur = &dec->mbs[mb_y * dec->mb_width + mb_x];
+        if (cur->nz_count[top_zi] >= 0)
+            nB = cur->nz_count[top_zi];
+    } else if (mb_y > 0) {
+        nB = dec->mbs[(mb_y - 1) * dec->mb_width + mb_x].nz_count[xy_to_zscan(bx, 3)];
+    }
+
+    if (mb_x == 0 && mb_y == 1 && zi == 0) {
+        int top_zi_dbg = xy_to_zscan(bx, 3);
+        printf("[nc_dbg] mb(0,1) zi=0 bx=%d by=%d nA=%d nB=%d "
+               "top_mb_nz[%d]=%d top_mb_type=%d\n",
+               bx, by, nA, nB, top_zi_dbg,
+               dec->mbs[0].nz_count[top_zi_dbg],
+               dec->mbs[0].mb_type);
+    }
+
+    if (nA >= 0 && nB >= 0) return (nA + nB + 1) >> 1;
+    if (nA >= 0) return nA;
+    if (nB >= 0) return nB;
+    return 0;
+}
+
+/* Compute nC for chroma 4x4 block at index ci (0-3) in macroblock (mb_x, mb_y).
+ * plane: 0=Cb, 1=Cr */
+static int compute_nc_chroma(const H264Decoder *dec, int mb_x, int mb_y,
+                             int ci, int plane)
+{
+    int cx = ci & 1;   /* chroma block x (0-1) */
+    int cy = ci >> 1;  /* chroma block y (0-1) */
+    int nA = -1, nB = -1;
+    const int *nz;
+
+    /* Left neighbour */
+    if (cx > 0) {
+        nz = plane ? dec->mbs[mb_y * dec->mb_width + mb_x].nz_count_cr
+                    : dec->mbs[mb_y * dec->mb_width + mb_x].nz_count_cb;
+        nA = nz[ci - 1];
+    } else if (mb_x > 0) {
+        nz = plane ? dec->mbs[mb_y * dec->mb_width + mb_x - 1].nz_count_cr
+                    : dec->mbs[mb_y * dec->mb_width + mb_x - 1].nz_count_cb;
+        nA = nz[ci + 1];  /* right column of left MB: index 1 or 3 */
+    }
+
+    /* Top neighbour */
+    if (cy > 0) {
+        nz = plane ? dec->mbs[mb_y * dec->mb_width + mb_x].nz_count_cr
+                    : dec->mbs[mb_y * dec->mb_width + mb_x].nz_count_cb;
+        nB = nz[ci - 2];
+    } else if (mb_y > 0) {
+        nz = plane ? dec->mbs[(mb_y - 1) * dec->mb_width + mb_x].nz_count_cr
+                    : dec->mbs[(mb_y - 1) * dec->mb_width + mb_x].nz_count_cb;
+        nB = nz[ci + 2];  /* bottom row of above MB: index 2 or 3 */
+    }
+
+    if (nA >= 0 && nB >= 0) return (nA + nB + 1) >> 1;
+    if (nA >= 0) return nA;
+    if (nB >= 0) return nB;
+    return 0;
+}
+
+/* Count non-zero coefficients in an array */
+static int count_nonzero(const int16_t *c, int n)
+{
+    int count = 0, k;
+    for (k = 0; k < n; k++)
+        if (c[k]) count++;
+    return count;
+}
 
 /* ---- Helper: get neighbours ---- */
 static void get_neighbours(H264Decoder *dec, int mb_x, int mb_y,
@@ -109,6 +214,8 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
     sh->slice_type_raw     = (int)bs_read_ue(bs);
     sh->slice_type         = sh->slice_type_raw % 5;
     sh->pic_parameter_set_id = (int)bs_read_ue(bs);
+    printf("[slicehdr] after first_mb=%d type=%d pps=%d bit=%d\n",
+           sh->first_mb_in_slice, sh->slice_type_raw, sh->pic_parameter_set_id, bs->bit_pos);
 
     if (sh->pic_parameter_set_id >= H264_MAX_PPS)     return H264_ERR_PARAM;
     if (!dec->pps[sh->pic_parameter_set_id].is_valid) return H264_ERR_PARAM;
@@ -127,10 +234,14 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
     if (sh->is_idr) {
         sh->idr_pic_id = (int)bs_read_ue(bs);
     }
+    printf("[slicehdr] after frame_num=%d idr_id=%d bit=%d log2fn=%d\n",
+           sh->frame_num, sh->idr_pic_id, bs->bit_pos, log2_max_fn);
 
     if (sps->pic_order_cnt_type == 0) {
         int log2_max_poc = sps->log2_max_pic_order_cnt_lsb_minus4 + 4;
         sh->pic_order_cnt_lsb = (int)bs_read_bits(bs, log2_max_poc);
+        printf("[slicehdr] after poc_lsb=%d bit=%d log2poc=%d\n",
+               sh->pic_order_cnt_lsb, bs->bit_pos, log2_max_poc);
         if (pps->bottom_field_pic_order_in_frame_present_flag)
             sh->delta_pic_order_cnt_bottom = (int)bs_read_se(bs);
     } else if (sps->pic_order_cnt_type == 1) {
@@ -188,6 +299,7 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
     if (sh->is_idr) {
         sh->no_output_of_prior_pics_flag = (int)bs_read_u1(bs);
         sh->long_term_reference_flag     = (int)bs_read_u1(bs);
+        printf("[slicehdr] after dec_ref_pic_marking bit=%d\n", bs->bit_pos);
     } else if (sh->nal_ref_idc != 0) {
         sh->adaptive_ref_pic_marking_mode_flag = (int)bs_read_u1(bs);
         if (sh->adaptive_ref_pic_marking_mode_flag) {
@@ -206,6 +318,8 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
 
     sh->slice_qp_delta = (int)bs_read_se(bs);
     sh->qp = 26 + pps->pic_init_qp_minus26 + sh->slice_qp_delta;
+    printf("[slicehdr] after qp_delta=%d qp=%d pic_init_qp_m26=%d bit=%d\n",
+           sh->slice_qp_delta, sh->qp, pps->pic_init_qp_minus26, bs->bit_pos);
 
     if (pps->deblocking_filter_control_present_flag) {
         sh->disable_deblocking_filter_idc = (int)bs_read_ue(bs);
@@ -213,7 +327,18 @@ int h264_parse_slice_header(H264BitStream *bs, H264Decoder *dec,
             sh->slice_alpha_c0_offset_div2 = (int)bs_read_se(bs);
             sh->slice_beta_offset_div2     = (int)bs_read_se(bs);
         }
+        printf("[slicehdr] after deblock_idc=%d alpha=%d beta=%d bit=%d\n",
+               sh->disable_deblocking_filter_idc, sh->slice_alpha_c0_offset_div2,
+               sh->slice_beta_offset_div2, bs->bit_pos);
     }
+
+    #ifndef LUAT_BUILD
+    printf("[h264_diag] slice_header: type=%d(%s) first_mb=%d frame_num=%d qp=%d is_idr=%d bits_left=%d\n",
+           sh->slice_type,
+           sh->slice_type == 0 ? "P" : sh->slice_type == 1 ? "B" : sh->slice_type == 2 ? "I" : "?",
+           sh->first_mb_in_slice, sh->frame_num, sh->qp, sh->is_idr,
+           (int)bs_bits_left(bs));
+    #endif
 
     return H264_OK;
 }
@@ -238,8 +363,27 @@ static int get_intra4x4_pred_mode_from_neighbour(H264Decoder *dec,
                                                    int mb_x, int mb_y,
                                                    int blk_x, int blk_y)
 {
-    (void)dec; (void)mb_x; (void)mb_y; (void)blk_x; (void)blk_y;
-    return 2; /* DC is the safest fallback */
+    int mode_a = 2;
+    int mode_b = 2;
+    H264MacroBlock *cur = &dec->mbs[mb_y * dec->mb_width + mb_x];
+
+    if (blk_x > 0) {
+        mode_a = cur->intra4x4_pred_mode[xy_to_zscan(blk_x - 1, blk_y)];
+    } else if (mb_x > 0) {
+        const H264MacroBlock *left_mb = &dec->mbs[mb_y * dec->mb_width + mb_x - 1];
+        if (left_mb->is_intra && left_mb->mb_type == H264_MB_I_4x4)
+            mode_a = left_mb->intra4x4_pred_mode[xy_to_zscan(3, blk_y)];
+    }
+
+    if (blk_y > 0) {
+        mode_b = cur->intra4x4_pred_mode[xy_to_zscan(blk_x, blk_y - 1)];
+    } else if (mb_y > 0) {
+        const H264MacroBlock *top_mb = &dec->mbs[(mb_y - 1) * dec->mb_width + mb_x];
+        if (top_mb->is_intra && top_mb->mb_type == H264_MB_I_4x4)
+            mode_b = top_mb->intra4x4_pred_mode[xy_to_zscan(blk_x, 3)];
+    }
+
+    return (mode_a < mode_b) ? mode_a : mode_b;
 }
 
 /* CBP parsing for non-I_16x16 macroblocks */
@@ -382,28 +526,38 @@ static int decode_inter_residuals(H264Decoder *dec, H264BitStream *bs,
     int cbp_luma   = cbp & 0x0F;
     int cbp_chroma = (cbp >> 4) & 0x03;
     int i, j;
+    H264MacroBlock *mb = &dec->mbs[mb_y * dec->mb_width + mb_x];
 
     /* Luma: 4 8x8 groups, each containing 4 4x4 CAVLC blocks (no DC Hadamard) */
     for (i = 0; i < 4; i++) {
-        if (!(cbp_luma & (1 << i))) continue;
         int bx8 = (i % 2) * 8;
         int by8 = (i / 2) * 8;
         for (j = 0; j < 4; j++) {
+            int zi = i * 4 + j;  /* Z-scan index */
             int bx = bx8 + (j % 2) * 4;
             int by = by8 + (j / 2) * 4;
             uint8_t *dst = dec->frame_y + (y0 + by) * stride + x0 + bx;
-            int16_t coeffs[16];
-            memset(coeffs, 0, sizeof(coeffs));
-            if (h264_cavlc_decode_block(bs, coeffs, 16, 0) != H264_OK)
-                return H264_ERR_BITSTREAM;
-            h264_idct4x4(coeffs, qp, 1);
-            h264_add_residual4x4(dst, stride, coeffs);
+            if (cbp_luma & (1 << i)) {
+                int nC = compute_nc_luma(dec, mb_x, mb_y, zi);
+                int16_t coeffs[16];
+                memset(coeffs, 0, sizeof(coeffs));
+                if (h264_cavlc_decode_block(bs, coeffs, 16, nC) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                mb->nz_count[zi] = count_nonzero(coeffs, 16);
+                h264_idct4x4(coeffs, qp, 1);
+                h264_add_residual4x4(dst, stride, coeffs);
+            } else {
+                mb->nz_count[zi] = 0;
+            }
         }
     }
 
     /* Chroma DC + (optionally) AC */
+    /* Ensure chroma nz_count initialized to 0 */
+    for (i = 0; i < 4; i++) { mb->nz_count_cb[i] = 0; mb->nz_count_cr[i] = 0; }
     if (cbp_chroma > 0) {
         int16_t dc_cb[4], dc_cr[4];
+        int16_t cb_ac[4][16], cr_ac[4][16];
         memset(dc_cb, 0, sizeof(dc_cb));
         memset(dc_cr, 0, sizeof(dc_cr));
         if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK)
@@ -413,27 +567,40 @@ static int decode_inter_residuals(H264Decoder *dec, H264BitStream *bs,
         h264_hadamard2x2_inverse(dc_cb);
         h264_hadamard2x2_inverse(dc_cr);
 
+        /* Spec: all Cb AC blocks first, then all Cr AC blocks */
+        if (cbp_chroma == 2) {
+            for (i = 0; i < 4; i++) {
+                int nC_cb = compute_nc_chroma(dec, mb_x, mb_y, i, 0);
+                memset(cb_ac[i], 0, sizeof(cb_ac[i]));
+                if (h264_cavlc_decode_block(bs, cb_ac[i] + 1, 15, nC_cb) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                mb->nz_count_cb[i] = count_nonzero(cb_ac[i]+1, 15);
+            }
+            for (i = 0; i < 4; i++) {
+                int nC_cr = compute_nc_chroma(dec, mb_x, mb_y, i, 1);
+                memset(cr_ac[i], 0, sizeof(cr_ac[i]));
+                if (h264_cavlc_decode_block(bs, cr_ac[i] + 1, 15, nC_cr) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                mb->nz_count_cr[i] = count_nonzero(cr_ac[i]+1, 15);
+            }
+        }
+
         for (i = 0; i < 4; i++) {
             int bx = (i % 2) * 4;
             int by = (i / 2) * 4;
             uint8_t *dst_cb = dec->frame_cb + (y0/2 + by) * c_stride + x0/2 + bx;
             uint8_t *dst_cr = dec->frame_cr + (y0/2 + by) * c_stride + x0/2 + bx;
             if (cbp_chroma == 2) {
-                int16_t ac_cb[16], ac_cr[16];
-                memset(ac_cb, 0, sizeof(ac_cb));
-                memset(ac_cr, 0, sizeof(ac_cr));
-                if (h264_cavlc_decode_block(bs, ac_cb + 1, 15, 0) != H264_OK)
-                    return H264_ERR_BITSTREAM;
-                if (h264_cavlc_decode_block(bs, ac_cr + 1, 15, 0) != H264_OK)
-                    return H264_ERR_BITSTREAM;
-                ac_cb[0] = dc_cb[i];
-                ac_cr[0] = dc_cr[i];
-                h264_idct4x4(ac_cb, qp, 0);
-                h264_idct4x4(ac_cr, qp, 0);
-                h264_add_residual4x4(dst_cb, c_stride, ac_cb);
-                h264_add_residual4x4(dst_cr, c_stride, ac_cr);
+                cb_ac[i][0] = dc_cb[i];
+                cr_ac[i][0] = dc_cr[i];
+                h264_idct4x4(cb_ac[i], qp, 0);
+                h264_idct4x4(cr_ac[i], qp, 0);
+                h264_add_residual4x4(dst_cb, c_stride, cb_ac[i]);
+                h264_add_residual4x4(dst_cr, c_stride, cr_ac[i]);
             } else {
                 /* cbp_chroma == 1: DC only */
+                mb->nz_count_cb[i] = 0;
+                mb->nz_count_cr[i] = 0;
                 int16_t ac[16];
                 memset(ac, 0, sizeof(ac));
                 ac[0] = dc_cb[i];
@@ -462,6 +629,10 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
     int i, j;
 
     memset(mb, 0, sizeof(*mb));
+    /* Mark nz_count as "not yet decoded" (-1) so nC computation
+     * only uses blocks that have actually been decoded */
+    for (i = 0; i < 16; i++) mb->nz_count[i] = -1;
+    for (i = 0; i < 4; i++) { mb->nz_count_cb[i] = -1; mb->nz_count_cr[i] = -1; }
 
     int x0 = mb_x * 16;
     int y0 = mb_y * 16;
@@ -483,8 +654,24 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
     }
 
     /* Read mb_type */
+    int mb_start_bit = bs->bit_pos;
+
+    /* Debug: show bits at start of failing MBs */
+    #ifndef LUAT_BUILD
+    if (mb_y <= 1) {
+        printf("[mbpos] mb(%d,%d) start=%d\n", mb_x, mb_y, mb_start_bit);
+    }
+    #endif
+
     int mb_type_raw = (int)bs_read_ue(bs);
     mb->mb_type_raw = mb_type_raw;
+
+    #ifndef LUAT_BUILD
+    if (mb_x == 0 && mb_y == 0) {
+        printf("[h264_diag] first MB: slice_type=%d mb_type_raw=%d bits_left=%d\n",
+               sh->slice_type, mb_type_raw, (int)bs_bits_left(bs));
+    }
+    #endif
 
     /*
      * In a P-slice, mb_type >= 5 signals an intra macroblock:
@@ -523,6 +710,9 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             }
             mb->decoded = 1;
             dec->prev_qp = sh->qp;
+            /* PCM: set nz_count to 16 so neighbours use high nC */
+            for (i = 0; i < 16; i++) mb->nz_count[i] = 16;
+            for (i = 0; i < 4; i++) { mb->nz_count_cb[i] = 16; mb->nz_count_cr[i] = 16; }
             return H264_OK;
         }
 
@@ -537,6 +727,9 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
 
             mb->intra_chroma_pred_mode = (int)bs_read_ue(bs);
             int qp_delta = (int)bs_read_se(bs);
+            if (mb_x == 3 && mb_y == 0)
+                printf("[dbg] mb(3,0) I_16x16: pred=%d cbpl=%d cbpc=%d chroma_pred=%d qp_delta=%d bit_before_dc=%d\n",
+                       pred_mode, cbp_luma, cbp_chroma, mb->intra_chroma_pred_mode, qp_delta, bs->bit_pos);
             mb->qp = dec->prev_qp + qp_delta;
             if (mb->qp < 0) mb->qp = 0;
             if (mb->qp > 51) mb->qp = 51;
@@ -545,8 +738,18 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             /* Luma DC (Hadamard 4x4) */
             int16_t dc_block[16];
             memset(dc_block, 0, sizeof(dc_block));
-            if (h264_cavlc_decode_block(bs, dc_block, 16, 0) != H264_OK)
-                return H264_ERR_BITSTREAM;
+            {
+                int nC_dc = compute_nc_luma(dec, mb_x, mb_y, 0);
+                int dc_start = bs->bit_pos;
+                if (mb_x == 23 && mb_y == 0) { extern int h264_cavlc_trace; h264_cavlc_trace = 1; }
+                if (h264_cavlc_decode_block(bs, dc_block, 16, nC_dc) != H264_OK)
+                    return H264_ERR_BITSTREAM;
+                if (mb_x == 23 && mb_y == 0) {
+                    extern int h264_cavlc_trace; h264_cavlc_trace = 0;
+                    printf("[trace23] DC: nC=%d start=%d end=%d bits=%d\n",
+                           nC_dc, dc_start, bs->bit_pos, bs->bit_pos - dc_start);
+                }
+            }
 
             /* Dequantize DC */
             {
@@ -565,25 +768,33 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             h264_intra16x16_predict(dec->frame_y + y0*stride + x0, stride,
                                     pred_mode, top_y, left_y);
 
-            /* Luma AC blocks */
+            /* Luma AC blocks (Z-scan order) */
             for (i = 0; i < 16; i++) {
-                int bx = (i % 4) * 4;
-                int by = (i / 4) * 4;
+                int bx = zscan_x[i];
+                int by = zscan_y[i];
+                int raster_idx = (by >> 2) * 4 + (bx >> 2);
                 uint8_t *dst = dec->frame_y + (y0+by)*stride + x0+bx;
 
                 if (cbp_luma & (1 << (i/4))) {
+                    int nC = compute_nc_luma(dec, mb_x, mb_y, i);
+                    int blk_start = bs->bit_pos;
                     int16_t ac[16];
                     memset(ac, 0, sizeof(ac));
-                    if (h264_cavlc_decode_block(bs, ac+1, 15, 0) != H264_OK)
+                    if (h264_cavlc_decode_block(bs, ac+1, 15, nC) != H264_OK)
                         return H264_ERR_BITSTREAM;
-                    ac[0] = dc_block[i];
+                    mb->nz_count[i] = count_nonzero(ac+1, 15);
+                    if (mb_x == 23 && mb_y == 0)
+                        printf("[trace23] AC[%d]: nC=%d start=%d bits=%d nz=%d\n",
+                               i, nC, blk_start, bs->bit_pos - blk_start, mb->nz_count[i]);
+                    ac[0] = dc_block[raster_idx];
                     h264_idct4x4(ac, mb->qp, 1);
                     h264_add_residual4x4(dst, stride, ac);
                 } else {
                     /* DC only */
+                    mb->nz_count[i] = 0;
                     int16_t ac[16];
                     memset(ac, 0, sizeof(ac));
-                    ac[0] = dc_block[i];
+                    ac[0] = dc_block[raster_idx];
                     h264_idct4x4(ac, mb->qp, 1);
                     h264_add_residual4x4(dst, stride, ac);
                 }
@@ -597,39 +808,72 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                                       c_stride, mb->intra_chroma_pred_mode,
                                       top_cr, left_cr, 8);
 
+            /* Ensure chroma nz_count initialized to 0 (decoded but no AC) */
+            for (i = 0; i < 4; i++) { mb->nz_count_cb[i] = 0; mb->nz_count_cr[i] = 0; }
+
             if (cbp_chroma) {
                 /* Cb/Cr DC + AC */
                 int16_t dc_cb[4], dc_cr[4];
+                int16_t cb_ac[4][16], cr_ac[4][16];
                 memset(dc_cb, 0, sizeof(dc_cb)); memset(dc_cr, 0, sizeof(dc_cr));
-                if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK)
-                    return H264_ERR_BITSTREAM;
-                if (h264_cavlc_decode_block(bs, dc_cr, 4, -1) != H264_OK)
-                    return H264_ERR_BITSTREAM;
+                {
+                    int cb_dc_start = bs->bit_pos;
+                    if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK)
+                        return H264_ERR_BITSTREAM;
+                    if (mb_x == 23 && mb_y == 0)
+                        printf("[trace23] CbDC: start=%d bits=%d\n", cb_dc_start, bs->bit_pos - cb_dc_start);
+                }
+                {
+                    int cr_dc_start = bs->bit_pos;
+                    if (h264_cavlc_decode_block(bs, dc_cr, 4, -1) != H264_OK)
+                        return H264_ERR_BITSTREAM;
+                    if (mb_x == 23 && mb_y == 0)
+                        printf("[trace23] CrDC: start=%d bits=%d\n", cr_dc_start, bs->bit_pos - cr_dc_start);
+                }
 
                 h264_hadamard2x2_inverse(dc_cb);
                 h264_hadamard2x2_inverse(dc_cr);
 
+                /* Spec: all Cb AC blocks first, then all Cr AC blocks */
+                if (cbp_chroma == 2) {
+                    for (i = 0; i < 4; i++) {
+                        int nC_cb = compute_nc_chroma(dec, mb_x, mb_y, i, 0);
+                        int cb_start = bs->bit_pos;
+                        memset(cb_ac[i], 0, sizeof(cb_ac[i]));
+                        if (h264_cavlc_decode_block(bs, cb_ac[i]+1, 15, nC_cb) != H264_OK)
+                            return H264_ERR_BITSTREAM;
+                        mb->nz_count_cb[i] = count_nonzero(cb_ac[i]+1, 15);
+                        if (mb_x == 23 && mb_y == 0)
+                            printf("[trace23] CbAC[%d]: nC=%d start=%d bits=%d nz=%d\n",
+                                   i, nC_cb, cb_start, bs->bit_pos - cb_start, mb->nz_count_cb[i]);
+                    }
+                    for (i = 0; i < 4; i++) {
+                        int nC_cr = compute_nc_chroma(dec, mb_x, mb_y, i, 1);
+                        int cr_start = bs->bit_pos;
+                        memset(cr_ac[i], 0, sizeof(cr_ac[i]));
+                        if (h264_cavlc_decode_block(bs, cr_ac[i]+1, 15, nC_cr) != H264_OK)
+                            return H264_ERR_BITSTREAM;
+                        mb->nz_count_cr[i] = count_nonzero(cr_ac[i]+1, 15);
+                        if (mb_x == 23 && mb_y == 0)
+                            printf("[trace23] CrAC[%d]: nC=%d start=%d bits=%d nz=%d\n",
+                                   i, nC_cr, cr_start, bs->bit_pos - cr_start, mb->nz_count_cr[i]);
+                    }
+                }
+
+                /* Reconstruct chroma blocks */
                 for (i = 0; i < 4; i++) {
                     int bx = (i % 2) * 4;
                     int by = (i / 2) * 4;
-
                     uint8_t *dst_cb = dec->frame_cb + (y0/2+by)*c_stride + x0/2+bx;
                     uint8_t *dst_cr = dec->frame_cr + (y0/2+by)*c_stride + x0/2+bx;
 
                     if (cbp_chroma == 2) {
-                        int16_t ac_cb[16], ac_cr[16];
-                        memset(ac_cb, 0, sizeof(ac_cb));
-                        memset(ac_cr, 0, sizeof(ac_cr));
-                        if (h264_cavlc_decode_block(bs, ac_cb+1, 15, 0) != H264_OK)
-                            return H264_ERR_BITSTREAM;
-                        if (h264_cavlc_decode_block(bs, ac_cr+1, 15, 0) != H264_OK)
-                            return H264_ERR_BITSTREAM;
-                        ac_cb[0] = dc_cb[i];
-                        ac_cr[0] = dc_cr[i];
-                        h264_idct4x4(ac_cb, mb->qp, 0);
-                        h264_idct4x4(ac_cr, mb->qp, 0);
-                        h264_add_residual4x4(dst_cb, c_stride, ac_cb);
-                        h264_add_residual4x4(dst_cr, c_stride, ac_cr);
+                        cb_ac[i][0] = dc_cb[i];
+                        cr_ac[i][0] = dc_cr[i];
+                        h264_idct4x4(cb_ac[i], mb->qp, 0);
+                        h264_idct4x4(cr_ac[i], mb->qp, 0);
+                        h264_add_residual4x4(dst_cb, c_stride, cb_ac[i]);
+                        h264_add_residual4x4(dst_cr, c_stride, cr_ac[i]);
                     } else {
                         int16_t ac[16];
                         memset(ac, 0, sizeof(ac));
@@ -649,17 +893,45 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             mb->mb_type = H264_MB_I_4x4;
             mb->intra_chroma_pred_mode = 0;
 
+            int pred_start_bit = bs->bit_pos;
             /* Parse intra 4x4 prediction modes */
             for (i = 0; i < 16; i++) {
+                int blk_x = zscan_x[i] >> 2;
+                int blk_y = zscan_y[i] >> 2;
                 int prev = get_intra4x4_pred_mode_from_neighbour(dec, mb_x, mb_y,
-                                                                   i%4, i/4);
+                                                                   blk_x, blk_y);
                 decode_intra4x4_pred_mode(bs, prev, &mb->intra4x4_pred_mode[i]);
             }
+            if ((mb_x == 4 || mb_x == 19) && mb_y == 0)
+                printf("[dbg] mb(%d,0) after 16 pred modes: bit=%d (consumed %d), modes: "
+                       "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
+                       mb_x, bs->bit_pos, bs->bit_pos - pred_start_bit,
+                       mb->intra4x4_pred_mode[0], mb->intra4x4_pred_mode[1],
+                       mb->intra4x4_pred_mode[2], mb->intra4x4_pred_mode[3],
+                       mb->intra4x4_pred_mode[4], mb->intra4x4_pred_mode[5],
+                       mb->intra4x4_pred_mode[6], mb->intra4x4_pred_mode[7],
+                       mb->intra4x4_pred_mode[8], mb->intra4x4_pred_mode[9],
+                       mb->intra4x4_pred_mode[10], mb->intra4x4_pred_mode[11],
+                       mb->intra4x4_pred_mode[12], mb->intra4x4_pred_mode[13],
+                       mb->intra4x4_pred_mode[14], mb->intra4x4_pred_mode[15]);
             mb->intra_chroma_pred_mode = (int)bs_read_ue(bs);
 
             /* CBP */
+            if ((mb_x == 4 || mb_x == 19) && mb_y == 0) {
+                printf("[dbg] mb(%d,0) before parse_cbp: bit=%d chroma_pred=%d\n",
+                       mb_x, bs->bit_pos, mb->intra_chroma_pred_mode);
+            }
             int cbp = parse_cbp(bs, 1);
-            if (cbp < 0) return H264_ERR_BITSTREAM;
+            if (cbp < 0) {
+                if (mb_y == 0) {
+                    /* Re-read the UE to show the value */
+                    int save = bs->bit_pos;
+                    /* We need pre-cbp position; unfortunately parse_cbp already consumed bits.
+                       Just print what we have. */
+                    printf("[cbp_err] mb(%d,%d) parse_cbp FAIL at bit=%d (UE idx>=48)\n", mb_x, mb_y, bs->bit_pos);
+                }
+                return H264_ERR_BITSTREAM;
+            }
             mb->cbp = cbp;
             mb->cbp_luma   = cbp & 0x0F;
             mb->cbp_chroma = (cbp >> 4) & 0x03;
@@ -674,13 +946,17 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
             } else {
                 mb->qp = dec->prev_qp;
             }
+            if (mb_x == 0 && mb_y == 0)
+                printf("[diag] mb(0,0) I_4x4: cbp=0x%02x cbp_luma=0x%x cbp_chroma=%d qp=%d bit_pos=%d\n",
+                       mb->cbp, mb->cbp_luma, mb->cbp_chroma, mb->qp, bs->bit_pos);
+            if (mb_y == 0 && mb_x == 19)
+                printf("[diag] mb(19,0) I_4x4: cbp=0x%02x cbp_luma=0x%x cbp_chroma=%d qp=%d bit_pos=%d\n",
+                       mb->cbp, mb->cbp_luma, mb->cbp_chroma, mb->qp, bs->bit_pos);
 
-            /* Process each 4x4 block */
+            /* Process each 4x4 block in Z-scan order */
             for (i = 0; i < 16; i++) {
-                int blk_x = (i % 4);
-                int blk_y = (i / 4);
-                int bx = blk_x * 4;
-                int by = blk_y * 4;
+                int bx = zscan_x[i];
+                int by = zscan_y[i];
                 uint8_t *dst = dec->frame_y + (y0+by)*stride + x0+bx;
 
                 /* Build neighbours for 4x4 block */
@@ -710,15 +986,39 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                                       blk_top, blk_left, blk_tl);
 
                 /* CAVLC residuals */
-                if (mb->cbp_luma & (1 << blk_y)) {
+                if (mb->cbp_luma & (1 << (i / 4))) {
+                    int nC = compute_nc_luma(dec, mb_x, mb_y, i);
+                    int bits_before = bs->bit_pos;
                     int16_t coeffs[16];
                     memset(coeffs, 0, sizeof(coeffs));
-                    if (h264_cavlc_decode_block(bs, coeffs, 16, 0) != H264_OK)
+                    {
+                        extern int h264_cavlc_trace;
+                        if (mb_x == 2 && mb_y == 1) h264_cavlc_trace = 1;
+                    }
+                    if (h264_cavlc_decode_block(bs, coeffs, 16, nC) != H264_OK) {
+                        printf("[diag] mb(%d,%d) blk zi=%d pos=(%d,%d) nC=%d bits_before=%d CAVLC_FAIL\n",
+                               mb_x, mb_y, i, bx, by, nC, bits_before);
+                        { extern int h264_cavlc_trace; h264_cavlc_trace = 0; }
                         return H264_ERR_BITSTREAM;
+                    }
+                    { extern int h264_cavlc_trace; h264_cavlc_trace = 0; }
+                    mb->nz_count[i] = count_nonzero(coeffs, 16);
+                    if (mb_y <= 1 && (mb_x == 0 || mb_x == 2 || mb_x == 19))
+                        printf("[diag] mb(%d,%d) blk zi=%2d pos=(%2d,%2d) nC=%2d bits=%d nz=%d\n",
+                               mb_x, mb_y, i, bx, by, nC, bs->bit_pos - bits_before, mb->nz_count[i]);
                     h264_idct4x4(coeffs, mb->qp, 1);
                     h264_add_residual4x4(dst, stride, coeffs);
+                } else {
+                    mb->nz_count[i] = 0;
+                    if (mb_y <= 1 && (mb_x == 0 || mb_x == 2 || mb_x == 19))
+                        printf("[diag] mb(%d,%d) blk zi=%2d pos=(%2d,%2d) SKIP (cbp=0x%02x)\n",
+                               mb_x, mb_y, i, bx, by, mb->cbp_luma);
                 }
             }
+
+            if (mb_x == 0 && mb_y == 0)
+                printf("[nz_verify] mb(0,0) after I_4x4 luma: nz[10]=%d nz[0]=%d nz[1]=%d\n",
+                       mb->nz_count[10], mb->nz_count[0], mb->nz_count[1]);
 
             /* Chroma */
             h264_intra_chroma_predict(dec->frame_cb + (y0/2)*c_stride + x0/2,
@@ -728,34 +1028,90 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                                       c_stride, mb->intra_chroma_pred_mode,
                                       top_cr, left_cr, 8);
 
+            /* Ensure chroma nz_count initialized to 0 (decoded but no AC) */
+            for (i = 0; i < 4; i++) { mb->nz_count_cb[i] = 0; mb->nz_count_cr[i] = 0; }
+
             if (mb->cbp_chroma) {
                 int16_t dc_cb[4], dc_cr[4];
+                int16_t cb_ac[4][16], cr_ac[4][16];
+                int chroma_start = bs->bit_pos;
                 memset(dc_cb, 0, sizeof(dc_cb)); memset(dc_cr, 0, sizeof(dc_cr));
-                if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK)
+                {
+                    extern int h264_cavlc_trace;
+                    if (mb_x == 0 && mb_y == 0) h264_cavlc_trace = 1;
+                }
+                if (h264_cavlc_decode_block(bs, dc_cb, 4, -1) != H264_OK) {
+                    if (mb_y == 0)
+                        printf("[chroma_err] mb(%d,%d) Cb DC FAIL at bit=%d\n", mb_x, mb_y, chroma_start);
                     return H264_ERR_BITSTREAM;
-                if (h264_cavlc_decode_block(bs, dc_cr, 4, -1) != H264_OK)
+                }
+                if ((mb_x == 0 || mb_x == 19) && mb_y == 0)
+                    printf("[diag] mb(%d,0) chroma Cb DC: bits=%d\n", mb_x, bs->bit_pos - chroma_start);
+                int dc_cr_start = bs->bit_pos;
+                if (h264_cavlc_decode_block(bs, dc_cr, 4, -1) != H264_OK) {
+                    if (mb_y == 0)
+                        printf("[chroma_err] mb(%d,%d) Cr DC FAIL at bit=%d\n", mb_x, mb_y, dc_cr_start);
                     return H264_ERR_BITSTREAM;
+                }
+                if ((mb_x == 0 || mb_x == 19) && mb_y == 0)
+                    printf("[diag] mb(%d,0) chroma Cr DC: bits=%d\n", mb_x, bs->bit_pos - dc_cr_start);
+                {
+                    extern int h264_cavlc_trace;
+                    h264_cavlc_trace = 0;
+                }
                 h264_hadamard2x2_inverse(dc_cb);
                 h264_hadamard2x2_inverse(dc_cr);
+
+                /* Spec: all Cb AC blocks first, then all Cr AC blocks */
+                if (mb->cbp_chroma == 2) {
+                    for (i = 0; i < 4; i++) {
+                        int nC_cb = compute_nc_chroma(dec, mb_x, mb_y, i, 0);
+                        int ac_start = bs->bit_pos;
+                        memset(cb_ac[i], 0, sizeof(cb_ac[i]));
+                        if (h264_cavlc_decode_block(bs, cb_ac[i]+1, 15, nC_cb) != H264_OK) {
+                            if (mb_y == 0)
+                                printf("[chroma_err] mb(%d,%d) Cb AC[%d] FAIL nC=%d at bit=%d\n", mb_x, mb_y, i, nC_cb, ac_start);
+                            return H264_ERR_BITSTREAM;
+                        }
+                        mb->nz_count_cb[i] = count_nonzero(cb_ac[i]+1, 15);
+                        if ((mb_x == 0 || mb_x == 19) && mb_y == 0)
+                            printf("[diag] mb(%d,0) Cb AC[%d] nC=%d bits=%d nz=%d\n", mb_x, i, nC_cb, bs->bit_pos - ac_start, mb->nz_count_cb[i]);
+                    }
+                    for (i = 0; i < 4; i++) {
+                        int nC_cr = compute_nc_chroma(dec, mb_x, mb_y, i, 1);
+                        int ac_start = bs->bit_pos;
+                        memset(cr_ac[i], 0, sizeof(cr_ac[i]));
+                        {
+                            extern int h264_cavlc_trace;
+                            if (0 && mb_x == 19 && mb_y == 0) h264_cavlc_trace = 1;
+                        }
+                        if (h264_cavlc_decode_block(bs, cr_ac[i]+1, 15, nC_cr) != H264_OK) {
+                            if (mb_y == 0)
+                                printf("[chroma_err] mb(%d,%d) Cr AC[%d] FAIL nC=%d at bit=%d\n", mb_x, mb_y, i, nC_cr, ac_start);
+                            { extern int h264_cavlc_trace; h264_cavlc_trace = 0; }
+                            return H264_ERR_BITSTREAM;
+                        }
+                        { extern int h264_cavlc_trace; h264_cavlc_trace = 0; }
+                        mb->nz_count_cr[i] = count_nonzero(cr_ac[i]+1, 15);
+                        if ((mb_x == 0 || mb_x == 19) && mb_y == 0)
+                            printf("[diag] mb(%d,0) Cr AC[%d] nC=%d bits=%d nz=%d\n", mb_x, i, nC_cr, bs->bit_pos - ac_start, mb->nz_count_cr[i]);
+                    }
+                }
 
                 for (i = 0; i < 4; i++) {
                     int bx = (i%2)*4, by = (i/2)*4;
                     uint8_t *dst_cb = dec->frame_cb + (y0/2+by)*c_stride + x0/2+bx;
                     uint8_t *dst_cr = dec->frame_cr + (y0/2+by)*c_stride + x0/2+bx;
                     if (mb->cbp_chroma == 2) {
-                        int16_t ac_cb[16], ac_cr[16];
-                        memset(ac_cb, 0, sizeof(ac_cb)); memset(ac_cr, 0, sizeof(ac_cr));
-                        if (h264_cavlc_decode_block(bs, ac_cb+1, 15, 0) != H264_OK)
-                            return H264_ERR_BITSTREAM;
-                        if (h264_cavlc_decode_block(bs, ac_cr+1, 15, 0) != H264_OK)
-                            return H264_ERR_BITSTREAM;
-                        ac_cb[0] = dc_cb[i]; ac_cr[0] = dc_cr[i];
-                        h264_idct4x4(ac_cb, mb->qp, 0);
-                        h264_idct4x4(ac_cr, mb->qp, 0);
-                        h264_add_residual4x4(dst_cb, c_stride, ac_cb);
-                        h264_add_residual4x4(dst_cr, c_stride, ac_cr);
+                        cb_ac[i][0] = dc_cb[i]; cr_ac[i][0] = dc_cr[i];
+                        h264_idct4x4(cb_ac[i], mb->qp, 0);
+                        h264_idct4x4(cr_ac[i], mb->qp, 0);
+                        h264_add_residual4x4(dst_cb, c_stride, cb_ac[i]);
+                        h264_add_residual4x4(dst_cr, c_stride, cr_ac[i]);
                     } else {
                         /* cbp_chroma == 1: DC only */
+                        mb->nz_count_cb[i] = 0;
+                        mb->nz_count_cr[i] = 0;
                         int16_t ac[16];
                         memset(ac, 0, sizeof(ac));
                         ac[0] = dc_cb[i];
@@ -768,7 +1124,17 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
                     }
                 }
             }
+            if (mb_x == 0 && mb_y == 0)
+                printf("[diag] mb(0,0) done, bit_pos=%d bits_left=%d\n",
+                       bs->bit_pos, bs_bits_left(bs));
+            if (mb_x == 19 && mb_y == 0)
+                printf("[diag] mb(19,0) done, bit_pos=%d bits_left=%d\n",
+                       bs->bit_pos, bs_bits_left(bs));
         } else {
+            #ifndef LUAT_BUILD
+            printf("[h264_diag] UNSUPPORTED I-slice mb_type_raw=%d at mb(%d,%d) slice_type=%d effective=%d\n",
+                   mb_type_raw, mb_x, mb_y, sh->slice_type, effective_slice_type);
+            #endif
             return H264_ERR_UNSUPPORTED;
         }
     } else if (sh->slice_type == H264_SLICE_P) {
@@ -945,6 +1311,13 @@ int h264_decode_macroblock(H264Decoder *dec, H264BitStream *bs,
     }
 
     mb->decoded = 1;
+    if (mb_x == 0 && mb_y == 0)
+        printf("[nz_verify] mb(0,0) END nz_count[10]=%d nz_count[0]=%d\n",
+               mb->nz_count[10], mb->nz_count[0]);
+    if (mb_y == 0 || mb_x < 4)
+        printf("[mb_done] mb(%d,%d) type=%d cbp_l=%d cbp_c=%d start=%d end=%d bits=%d\n",
+               mb_x, mb_y, mb_type_raw, mb->cbp_luma, mb->cbp_chroma,
+               mb_start_bit, bs->bit_pos, bs->bit_pos - mb_start_bit);
     (void)sps; (void)pps;
     return H264_OK;
 }

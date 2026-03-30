@@ -115,7 +115,7 @@ static int annexb_read_next(H264FileDecoder *fctx, H264Frame *frame)
                 return H264_ERR_BITSTREAM;
             }
 
-            int n = (int)fread(fctx->buf + fctx->buf_len, 1,
+            int n = (int)H264_FREAD(fctx->buf + fctx->buf_len, 1,
                                (size_t)space, fctx->fp);
             if (n > 0) {
                 fctx->buf_len += n;
@@ -145,7 +145,7 @@ H264FileDecoder *h264_open_file(const char *path)
     H264FileDecoder *fctx = h264_file_decoder_alloc();
     if (!fctx) return NULL;
 
-    fctx->fp = fopen(path, "rb");
+    fctx->fp = H264_FOPEN(path, "rb");
     if (!fctx->fp) {
         h264_decoder_destroy(fctx->dec);
         H264_FREE(fctx);
@@ -154,7 +154,7 @@ H264FileDecoder *h264_open_file(const char *path)
 
     fctx->buf = (uint8_t *)H264_MALLOC(H264_FILE_CHUNK_SIZE);
     if (!fctx->buf) {
-        fclose(fctx->fp);
+        H264_FCLOSE(fctx->fp);
         h264_decoder_destroy(fctx->dec);
         H264_FREE(fctx);
         return NULL;
@@ -183,7 +183,7 @@ void h264_close_file(H264FileDecoder *fctx)
 {
     if (!fctx) return;
     if (fctx->cleanup) fctx->cleanup(fctx);
-    if (fctx->fp)  { fclose(fctx->fp);             fctx->fp  = NULL; }
+    if (fctx->fp)  { H264_FCLOSE(fctx->fp);             fctx->fp  = NULL; }
     if (fctx->dec) { h264_decoder_destroy(fctx->dec); fctx->dec = NULL; }
     H264_FREE(fctx);
 }

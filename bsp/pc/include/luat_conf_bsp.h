@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 
-#define LUAT_BSP_VERSION "V2018"
+#define LUAT_BSP_VERSION "V2019"
 // #define LUAT_CONF_USE_LIBSYS_SOURCE 1
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
@@ -145,6 +145,12 @@
 
 #define LUAT_USE_MREPORT 1
 
+#define LUAT_USE_H264_DECODER 1
+
+#define LUAT_USE_VIDEOPLAYER 1
+// videoplayer软解依赖TJPGD, 需在GUI块外启用
+#define LUAT_USE_TJPGD
+
 //--------------------------------------------------
 // GUI相关
 //--------------------------------------------------
@@ -161,11 +167,6 @@
 // UI
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
-#define LUAT_USE_TJPGD
-// GT 字库：PC 模拟器仿真启用
-// #define LUAT_USE_GTFONT 1
-// 若需要直接绘制 UTF8 字符串（lcd/u8g2 的 UTF8 接口），启用
-// #define LUAT_USE_GTFONT_UTF8 1
 // hzfont 字体库支持
 #define LUAT_USE_HZFONT 1
 #define LUAT_CONF_USE_HZFONT_BUILTIN_TTF 1
@@ -188,86 +189,9 @@
 #define USE_U8G2_OPPOSANSM10_CHINESE
 #define USE_U8G2_OPPOSANSM12_CHINESE
 #define USE_U8G2_OPPOSANSM16_CHINESE
-// #define USE_U8G2_OPPOSANSM18_CHINESE
-// #define USE_U8G2_OPPOSANSM20_CHINESE
-// #define USE_U8G2_OPPOSANSM22_CHINESE
-// #define USE_U8G2_OPPOSANSM24_CHINESE
-// #define USE_U8G2_OPPOSANSM32_CHINESE
-// SARASA
-#define USE_U8G2_SARASA_ENGLISH
-#define USE_U8G2_SARASA_M8_CHINESE
-#define USE_U8G2_SARASA_M10_CHINESE
-#define USE_U8G2_SARASA_M12_CHINESE
-#define USE_U8G2_SARASA_M14_CHINESE
-#define USE_U8G2_SARASA_M16_CHINESE
-// #define USE_U8G2_SARASA_M18_CHINESE
-// #define USE_U8G2_SARASA_M20_CHINESE
-// #define USE_U8G2_SARASA_M22_CHINESE
-// #define USE_U8G2_SARASA_M24_CHINESE
-// #define USE_U8G2_SARASA_M26_CHINESE
-// #define USE_U8G2_SARASA_M28_CHINESE
-/**********LVGL FONT*************/
-// #define LV_FONT_OPPOSANS_M_8
-// #define LV_FONT_OPPOSANS_M_10
-// #define LV_FONT_OPPOSANS_M_12
-// #define LV_FONT_OPPOSANS_M_16
-
-//---------------------
 
 #define LUAT_USE_AIRUI 1
 #define LUAT_USE_AIRUI_SDL2 1
-
-// #else
-// // LVGL
-// // 主推的UI库, 功能强大但API繁琐
-// #define LUAT_USE_LVGL      1
-// #define LUAT_USE_TJPGD 1
-
-// #define LUAT_USE_LVGL_JPG 1 // 启用JPG解码支持
-// #define LUAT_USE_LVGL_PNG 1 // 启用PNG解码支持
-// #define LUAT_USE_LVGL_BMP 1 // 启用BMP解码支持
-
-// #define LUAT_USE_LVGL_INDEV 1 // 输入设备
-
-// // TP 模块与PC触摸驱动
-// #define LUAT_USE_TP 1
-// #define LUAT_USE_TP_PC 1
-
-// #define LUAT_USE_LVGL_ARC   //圆弧 无依赖
-// #define LUAT_USE_LVGL_BAR   //进度条 无依赖
-// #define LUAT_USE_LVGL_BTN   //按钮 依赖容器CONT
-// #define LUAT_USE_LVGL_BTNMATRIX   //按钮矩阵 无依赖
-// #define LUAT_USE_LVGL_CALENDAR   //日历 无依赖
-// #define LUAT_USE_LVGL_CANVAS   //画布 依赖图片IMG
-// #define LUAT_USE_LVGL_CHECKBOX   //复选框 依赖按钮BTN 标签LABEL
-// #define LUAT_USE_LVGL_CHART   //图表 无依赖
-// #define LUAT_USE_LVGL_CONT   //容器 无依赖
-// #define LUAT_USE_LVGL_CPICKER   //颜色选择器 无依赖
-// #define LUAT_USE_LVGL_DROPDOWN   //下拉列表 依赖页面PAGE 标签LABEL
-// #define LUAT_USE_LVGL_GAUGE   //仪表 依赖进度条BAR 仪表(弧形刻度)LINEMETER
-// #define LUAT_USE_LVGL_IMG   //图片 依赖标签LABEL
-// #define LUAT_USE_LVGL_IMGBTN   //图片按钮 依赖按钮BTN
-// #define LUAT_USE_LVGL_KEYBOARD   //键盘 依赖图片按钮IMGBTN
-// #define LUAT_USE_LVGL_LABEL   //标签 无依赖
-// #define LUAT_USE_LVGL_LED   //LED 无依赖
-// #define LUAT_USE_LVGL_LINE   //线 无依赖
-// #define LUAT_USE_LVGL_LIST   //列表 依赖页面PAGE 按钮BTN 标签LABEL
-// #define LUAT_USE_LVGL_LINEMETER   //仪表(弧形刻度) 无依赖
-// #define LUAT_USE_LVGL_OBJMASK   //对象蒙版 无依赖
-// #define LUAT_USE_LVGL_MSGBOX   //消息框 依赖图片按钮IMGBTN 标签LABEL
-// #define LUAT_USE_LVGL_PAGE   //页面 依赖容器CONT
-// #define LUAT_USE_LVGL_SPINNER   //旋转器 依赖圆弧ARC 动画ANIM
-// #define LUAT_USE_LVGL_ROLLER   //滚筒 无依赖
-// #define LUAT_USE_LVGL_SLIDER   //滑杆 依赖进度条BAR
-// #define LUAT_USE_LVGL_SPINBOX   //数字调整框 无依赖
-// #define LUAT_USE_LVGL_SWITCH   //开关 依赖滑杆SLIDER
-// #define LUAT_USE_LVGL_TEXTAREA   //文本框 依赖标签LABEL 页面PAGE
-// #define LUAT_USE_LVGL_TABLE   //表格 依赖标签LABEL
-// #define LUAT_USE_LVGL_TABVIEW   //页签 依赖页面PAGE 图片按钮IMGBTN
-// #define LUAT_USE_LVGL_TILEVIEW   //平铺视图 依赖页面PAGE
-// #define LUAT_USE_LVGL_WIN   //窗口 依赖容器CONT 按钮BTN 标签LABEL 图片IMG 页面PAGE
-
-// #endif
 
 #endif
 

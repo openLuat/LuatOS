@@ -239,6 +239,10 @@ LUAMOD_API int luaopen_rtmp(lua_State *L);
 LUAMOD_API int luaopen_rtsp(lua_State *L);
 /** NDK */
 LUAMOD_API int luaopen_ndk(lua_State *L);
+/** H264视频解码 */
+LUAMOD_API int luaopen_h264(lua_State *L);
+/** 视频播放库 */
+LUAMOD_API int luaopen_videoplayer(lua_State *L);
 
 
 #endif

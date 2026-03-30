@@ -21,7 +21,6 @@
 -- 加载子页面
 local home_page = require "home_page"
 local lcd_page = require "lcd_page"
-local gtfont_page = require "gtfont_page"
 local customer_font_page = require "customer_font_page"
 
 -- 当前页面状态
@@ -34,7 +33,7 @@ frame_time = 20*1000
 
 @api switch_page(new_page)
 @string new_page 目标页面名称
-@valid_values "home", "lcd", "gtfont", "customer_font_page"
+@valid_values "home", "lcd", "customer_font_page"
 @return nil
 
 @usage
@@ -47,8 +46,6 @@ local function switch_page(new_page)
         home_page.on_leave()
     elseif current_page == "lcd" and lcd_page.on_leave then
         lcd_page.on_leave()
-    elseif current_page == "gtfont" and gtfont_page.on_leave then
-        gtfont_page.on_leave()
     elseif current_page == "customer_font_page" and customer_font_page.on_leave then
         customer_font_page.on_leave()
     end
@@ -61,8 +58,6 @@ local function switch_page(new_page)
         home_page.on_enter()
     elseif new_page == "lcd" and lcd_page.on_enter then
         lcd_page.on_enter()
-    elseif new_page == "gtfont" and gtfont_page.on_enter then
-        gtfont_page.on_enter()
     elseif new_page == "customer_font_page" and customer_font_page.on_enter then
         customer_font_page.on_enter()
     end
@@ -89,8 +84,6 @@ local function handle_touch_event(event, x, y)
             return home_page.handle_touch(x, y, switch_page)
         elseif current_page == "lcd" then
             return lcd_page.handle_touch(x, y, switch_page)
-        elseif current_page == "gtfont" then
-            return gtfont_page.handle_touch(x, y, switch_page)
         elseif current_page == "customer_font_page" then
             return customer_font_page.handle_touch(x, y, switch_page)
         end
@@ -130,8 +123,6 @@ local function ui_main()
             home_page.draw()
         elseif current_page == "lcd" then
             lcd_page.draw()
-        elseif current_page == "gtfont" then
-            gtfont_page.draw()
         elseif current_page == "customer_font_page" then
             customer_font_page.draw()
         end

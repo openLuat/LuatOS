@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "h264_common.h"
 #include "../include/h264_decoder.h"
 
@@ -201,6 +202,16 @@ int h264_decode_nal(H264Decoder *dec, const uint8_t *nal_data, int nal_size,
 
     case H264_NAL_IDR_SLICE:
     case H264_NAL_SLICE: {
+        /* Dump RBSP for first IDR slice to file */
+        {
+            static int first_idr_dumped = 0;
+            if (nal_unit_type == H264_NAL_IDR_SLICE && !first_idr_dumped) {
+                first_idr_dumped = 1;
+                FILE *f = fopen("rbsp_dump.bin", "wb");
+                if (f) { fwrite(rbsp, 1, rbsp_size, f); fclose(f); }
+                printf("[dump] wrote rbsp_dump.bin: %d bytes\n", rbsp_size);
+            }
+        }
         H264SliceHeader sh;
         sh.is_idr = (nal_unit_type == H264_NAL_IDR_SLICE) ? 1 : 0;
         sh.nal_ref_idc = nal_ref_idc;

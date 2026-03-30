@@ -158,7 +158,18 @@ end
 
 
 function exfotawifi.request()
-    local result, ip, adapter = sys.waitUntil("IP_READY", 30000)
+    -- 先检查网络状态，如果已就绪直接执行，否则等待IP_READY
+    local result = false
+    if socket.adapter() then
+        -- 网络已就绪，直接获取信息
+        log.info("exfotawifi", "网络已就绪，直接执行升级任务")
+        result = true
+    else
+        -- 网络未就绪，等待IP_READY消息
+        log.info("exfotawifi", "网络未就绪，等待IP_READY...")
+        result = sys.waitUntil("IP_READY", 30000)
+    end
+    
     if result then
         log.info("exfotawifi", "开始执行升级任务")
 

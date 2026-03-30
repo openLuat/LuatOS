@@ -195,6 +195,14 @@ int h264_parse_sps(H264BitStream *bs, H264SPS *sps)
     if (sps->height <= 0) sps->height = (sps->pic_height_in_map_units_minus1 + 1) * 16;
 
     sps->is_valid = 1;
+    printf("[SPS] profile=%d level=%d id=%d log2fn_m4=%d poc_type=%d log2poc_m4=%d "
+           "ref=%d w_mbs=%d h_mbs=%d frame_only=%d crop=%d vui=%d width=%d height=%d\n",
+           sps->profile_idc, sps->level_idc, sps->seq_parameter_set_id,
+           sps->log2_max_frame_num_minus4, sps->pic_order_cnt_type,
+           sps->log2_max_pic_order_cnt_lsb_minus4, sps->max_num_ref_frames,
+           sps->pic_width_in_mbs_minus1+1, sps->pic_height_in_map_units_minus1+1,
+           sps->frame_mbs_only_flag, sps->frame_cropping_flag,
+           sps->vui_parameters_present_flag, sps->width, sps->height);
     return H264_OK;
 }
 

@@ -19,11 +19,16 @@ sys.taskInit(function()
     -- 第二个参数, 是一个表数组, 每个表包含 testTable 和 testcase 字段
     --   testTable - 包含测试函数的表, 也就是模块, 其中的所有 test_ 开头的函数都会被执行
     --   testcase - 测试用例的名称, 用于上报
-    testrunner.runBatch("gmssl", {
-        {testTable = gmssl_sm2, testcase = "GMSSL SM2 测试"},
-        {testTable = gmssl_sm3, testcase = "GMSSL SM3 测试"},
-        {testTable = gmssl_sm4, testcase = "GMSSL SM4 测试"}
-    })
+    testrunner.runBatch("gmssl", {{
+        testTable = gmssl_sm2,
+        testcase = "GMSSL SM2 测试"
+    }, {
+        testTable = gmssl_sm3,
+        testcase = "GMSSL SM3 测试"
+    }, {
+        testTable = gmssl_sm4,
+        testcase = "GMSSL SM4 测试"
+    }})
 end)
 
 -- 用户代码已结束---------------------------------------------

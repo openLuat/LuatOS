@@ -615,6 +615,8 @@ target("luatos-lua")
         if os.getenv("LUAT_USE_GUI") == "y" then
             add_files(luatos.."components/mgba/adapter/luat_mgba_video.c")
             add_files(luatos.."components/mgba/adapter/luat_mgba_audio.c")
+            -- AirUI视频适配器 (需要 AirUI 支持)
+            add_files(luatos.."components/mgba/adapter/luat_mgba_airui_video.c")
         end
         
         -- 添加 Windows 库

@@ -179,6 +179,12 @@ struct airui_ctx {
     uint8_t touch_last_track_id;         /**< 上一次触摸 track id */
     uint32_t touch_last_timestamp;       /**< 上一次触摸时间戳 */
 
+    // 键盘订阅
+    int keypad_callback_ref;             /**< 全局键盘订阅回调 */
+    uint32_t keypad_last_key;            /**< 上一次键盘按键值 */
+    bool keypad_last_pressed;            /**< 上一次键盘按键状态（true=按下，false=释放）*/
+    uint32_t keypad_last_timestamp;      /**< 上一次键盘事件时间戳 */
+
     // Debug 运行态
     bool debug_enabled;                  /**< 调试开关 */
     bool debug_refr_hooked;              /**< 是否已挂载 display 刷新事件 */
@@ -387,6 +393,24 @@ void airui_system_keyboard_clear_preedit(airui_ctx_t *ctx);
 int airui_touch_subscribe(airui_ctx_t *ctx, void *L, int callback_ref);
 void airui_touch_unsubscribe(airui_ctx_t *ctx, void *L);
 void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t x, lv_coord_t y, uint8_t track_id, uint32_t timestamp);
+
+/**
+ * 控制全局键盘订阅
+ * @param ctx 上下文指针
+ * @param L Lua 状态指针
+ * @param callback_ref Lua 回调函数引用
+ * @return AIRUI_OK 成功，其他失败
+ */
+int airui_keypad_subscribe(airui_ctx_t *ctx, void *L, int callback_ref);
+void airui_keypad_unsubscribe(airui_ctx_t *ctx, void *L);
+/**
+ * 通知键盘事件
+ * @param ctx 上下文指针
+ * @param key 按键值（SDL_Keycode）
+ * @param pressed true=按下，false=释放
+ * @param timestamp 事件时间戳
+ */
+void airui_keypad_notify(airui_ctx_t *ctx, uint32_t key, bool pressed, uint32_t timestamp);
 
 /**
  * 调试能力控制

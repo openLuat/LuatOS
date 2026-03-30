@@ -45,6 +45,8 @@ static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
 static int l_airui_touch_subscribe(lua_State *L);
 static int l_airui_touch_unsubscribe(lua_State *L);
+static int l_airui_keypad_subscribe(lua_State *L);
+static int l_airui_keypad_unsubscribe(lua_State *L);
 static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
 static int l_airui_debug(lua_State *L);
@@ -138,6 +140,8 @@ static const rotable_Reg_t reg_airui[] = {
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
     {"touch_subscribe", ROREG_FUNC(l_airui_touch_subscribe)},
     {"touch_unsubscribe", ROREG_FUNC(l_airui_touch_unsubscribe)},
+    {"keypad_subscribe", ROREG_FUNC(l_airui_keypad_subscribe)},
+    {"keypad_unsubscribe", ROREG_FUNC(l_airui_keypad_unsubscribe)},
     {"font_load", ROREG_FUNC(l_airui_font_load)},
     {"debug", ROREG_FUNC(l_airui_debug)},
     {"version", ROREG_FUNC(l_airui_version)},
@@ -705,6 +709,52 @@ static int l_airui_touch_unsubscribe(lua_State *L) {
     }
 
     airui_touch_unsubscribe(g_ctx, L);
+    return 0;
+}
+
+// 订阅键盘事件
+/**
+ * 订阅键盘事件
+ * @api airui.keypad_subscribe(callback)
+ * @function callback 回调函数，参数: key(SDL keycode), pressed(bool), timestamp(int)
+ * @return bool 成功返回 true，失败返回 false
+ */
+static int l_airui_keypad_subscribe(lua_State *L) {
+    int ref;
+    int ret;
+
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized");
+        return 0;
+    }
+
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    lua_pushvalue(L, 1);
+    ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    ret = airui_keypad_subscribe(g_ctx, L, ref);
+    if (ret != AIRUI_OK) {
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// 取消键盘事件订阅
+/**
+ * 取消键盘事件订阅
+ * @api airui.keypad_unsubscribe()
+ * @return nil
+ */
+static int l_airui_keypad_unsubscribe(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized");
+        return 0;
+    }
+
+    airui_keypad_unsubscribe(g_ctx, L);
     return 0;
 }
 

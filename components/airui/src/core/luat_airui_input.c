@@ -170,3 +170,75 @@ void airui_touch_notify(airui_ctx_t *ctx, airui_touch_state_t state, lv_coord_t 
     }
 }
 
+// 订阅键盘事件
+int airui_keypad_subscribe(airui_ctx_t *ctx, void *L, int callback_ref) {
+    lua_State *L_state = (lua_State *)L;
+
+    if (ctx == NULL || L_state == NULL || callback_ref <= 0) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (ctx->keypad_callback_ref > 0) {
+        luaL_unref(L_state, LUA_REGISTRYINDEX, ctx->keypad_callback_ref);
+    }
+
+    ctx->keypad_callback_ref = callback_ref;
+    ctx->keypad_last_key = 0;
+    ctx->keypad_last_pressed = false;
+    ctx->keypad_last_timestamp = 0;
+    return AIRUI_OK;
+}
+
+// 取消键盘事件订阅
+void airui_keypad_unsubscribe(airui_ctx_t *ctx, void *L) {
+    lua_State *L_state = (lua_State *)L;
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (L_state != NULL && ctx->keypad_callback_ref > 0) {
+        luaL_unref(L_state, LUA_REGISTRYINDEX, ctx->keypad_callback_ref);
+    }
+
+    ctx->keypad_callback_ref = 0;
+    ctx->keypad_last_key = 0;
+    ctx->keypad_last_pressed = false;
+    ctx->keypad_last_timestamp = 0;
+}
+
+// 通知键盘事件
+void airui_keypad_notify(airui_ctx_t *ctx, uint32_t key, bool pressed, uint32_t timestamp) {
+    lua_State *L_state;
+
+    if (ctx == NULL || ctx->L == NULL) {
+        return;
+    }
+
+    L_state = (lua_State *)ctx->L;
+    if (ctx->keypad_callback_ref <= 0) {
+        return;
+    }
+
+    ctx->keypad_last_key = key;
+    ctx->keypad_last_pressed = pressed;
+    ctx->keypad_last_timestamp = timestamp;
+
+    lua_rawgeti(L_state, LUA_REGISTRYINDEX, ctx->keypad_callback_ref);
+    if (lua_type(L_state, -1) != LUA_TFUNCTION) {
+        lua_pop(L_state, 1);
+        return;
+    }
+
+    // 参数: key (SDL keycode), pressed (bool), timestamp
+    lua_pushinteger(L_state, key);
+    lua_pushboolean(L_state, pressed);
+    lua_pushinteger(L_state, timestamp);
+
+    if (lua_pcall(L_state, 3, 0, 0) != LUA_OK) {
+        const char *err = lua_tostring(L_state, -1);
+        LLOGE("keypad callback error: %s", err ? err : "unknown");
+        lua_pop(L_state, 1);
+    }
+}
+

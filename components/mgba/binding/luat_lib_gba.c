@@ -24,13 +24,23 @@
 #include "luat_mgba.h"
 #include <string.h>
 
+/* AirUI支持 */
+#ifdef LUAT_USE_AIRUI
+#include "../../airui/inc/luat_airui_binding.h"
+#endif
+
 /* ========== 模块上下文 ========== */
 
 /* 当前 mGBA 实例 */
 static luat_mgba_t* g_gba_ctx = NULL;
 
-/* 视频输出上下文 */
+/* 视频输出上下文 (SDL2模式) */
 static luat_mgba_video_t* g_video_ctx = NULL;
+
+/* AirUI视频输出上下文 (AirUI模式) */
+#ifdef LUAT_USE_AIRUI
+static luat_mgba_airui_video_t* g_airui_video_ctx = NULL;
+#endif
 
 /* 音频输出上下文 */
 static luat_mgba_audio_t* g_audio_ctx = NULL;
@@ -38,6 +48,9 @@ static luat_mgba_audio_t* g_audio_ctx = NULL;
 /* 运行状态 */
 static int g_running = 0;
 static int g_frame_interval = 16;  /* 默认约 60 FPS */
+
+/* 视频模式: 0=SDL2, 1=AirUI */
+static int g_video_mode = 0;
 
 /* 当前ROM路径 */
 static char g_rom_path[256] = {0};
@@ -89,18 +102,30 @@ static void _auto_save_sram(void) {
 }
 
 static void video_callback(luat_mgba_t* ctx, luat_mgba_color_t* fb) {
-    if (g_video_ctx && fb) {
+    if (!fb) {
+        LLOGW("video_callback: framebuffer is NULL");
+        return;
+    }
+    
+#ifdef LUAT_USE_AIRUI
+    /* AirUI模式 */
+    if (g_video_mode == 1 && g_airui_video_ctx) {
+        int ret = luat_mgba_airui_video_present(g_airui_video_ctx, fb, ctx->width, ctx->height);
+        if (ret != 0) {
+            LLOGW("video_callback: airui_video_present failed: %d", ret);
+        }
+        return;
+    }
+#endif
+    
+    /* SDL2模式 */
+    if (g_video_ctx) {
         int ret = luat_mgba_video_present(g_video_ctx, fb, ctx->width, ctx->height);
         if (ret != 0) {
             LLOGW("video_callback: video_present failed: %d", ret);
         }
     } else {
-        if (!g_video_ctx) {
-            LLOGW("video_callback: g_video_ctx is NULL");
-        }
-        if (!fb) {
-            LLOGW("video_callback: framebuffer is NULL");
-        }
+        LLOGW("video_callback: g_video_ctx is NULL");
     }
 }
 
@@ -115,13 +140,19 @@ static void audio_callback(luat_mgba_t* ctx, int16_t* samples, size_t count) {
 /*
  * gba.init(config)
  * 初始化模拟器
- * @param config 配置表 {scale=2, audio=true, sample_rate=44100}
+ * @param config 配置表 {scale=2, audio=true, sample_rate=44100, mode="sdl"|"airui"}
  * @return boolean, 成功返回 true
  */
 static int l_gba_init(lua_State* L) {
     int ret;
     luat_mgba_video_config_t video_cfg;
     luat_mgba_audio_config_t audio_cfg;
+    
+    /* AirUI配置（仅在AirUI模式下使用） */
+#ifdef LUAT_USE_AIRUI
+    luat_mgba_airui_video_config_t airui_cfg;
+    luat_mgba_airui_video_get_default_config(&airui_cfg);
+#endif
     
     if (g_gba_ctx) {
         LLOGW("gba already initialized, call gba.deinit() first");
@@ -130,34 +161,58 @@ static int l_gba_init(lua_State* L) {
         return 2;
     }
     
+    /* 重置视频模式 */
+    g_video_mode = 0;
+    
     /* 获取默认配置 */
     luat_mgba_video_get_default_config(&video_cfg);
     luat_mgba_audio_get_default_config(&audio_cfg);
     
     /* 解析配置参数 */
     if (lua_istable(L, 1)) {
-        /* scale */
-        lua_getfield(L, 1, "scale");
-        if (lua_isinteger(L, -1)) {
-            video_cfg.scale = (int)lua_tointeger(L, -1);
+        /* mode - 视频模式选择 */
+        lua_getfield(L, 1, "mode");
+        if (lua_isstring(L, -1)) {
+            const char* mode = lua_tostring(L, -1);
+#ifdef LUAT_USE_AIRUI
+            if (strcmp(mode, "airui") == 0) {
+                g_video_mode = 1;
+                LLOGI("gba using AirUI video mode");
+            } else
+#endif
+            {
+                g_video_mode = 0;
+                LLOGI("gba using SDL video mode");
+            }
         }
         lua_pop(L, 1);
         
-        /* fullscreen */
+        /* scale */
+        lua_getfield(L, 1, "scale");
+        if (lua_isinteger(L, -1)) {
+            int scale = (int)lua_tointeger(L, -1);
+            video_cfg.scale = scale;
+#ifdef LUAT_USE_AIRUI
+            airui_cfg.scale = scale;
+#endif
+        }
+        lua_pop(L, 1);
+        
+        /* fullscreen - 仅SDL模式支持 */
         lua_getfield(L, 1, "fullscreen");
         if (lua_isboolean(L, -1)) {
             video_cfg.fullscreen = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
         
-        /* vsync */
+        /* vsync - 仅SDL模式支持 */
         lua_getfield(L, 1, "vsync");
         if (lua_isboolean(L, -1)) {
             video_cfg.vsync = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
         
-        /* title */
+        /* title - 仅SDL模式支持 */
         lua_getfield(L, 1, "title");
         if (lua_isstring(L, -1)) {
             video_cfg.title = lua_tostring(L, -1);
@@ -188,10 +243,27 @@ static int l_gba_init(lua_State* L) {
         return 2;
     }
     
-    /* 初始化视频输出 */
-    g_video_ctx = luat_mgba_video_init(&video_cfg);
-    if (!g_video_ctx) {
-        LLOGW("gba video init failed, continuing without video");
+#ifdef LUAT_USE_AIRUI
+    /* AirUI模式初始化 */
+    if (g_video_mode == 1) {
+        g_airui_video_ctx = luat_mgba_airui_video_init(&airui_cfg);
+        if (!g_airui_video_ctx) {
+            LLOGE("gba AirUI video init failed");
+            luat_mgba_deinit(g_gba_ctx);
+            g_gba_ctx = NULL;
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "airui video init failed");
+            return 2;
+        }
+        LLOGI("gba AirUI video initialized");
+    } else
+#endif
+    {
+        /* SDL模式初始化 */
+        g_video_ctx = luat_mgba_video_init(&video_cfg);
+        if (!g_video_ctx) {
+            LLOGW("gba video init failed, continuing without video");
+        }
     }
     
     /* 初始化音频输出 */
@@ -221,6 +293,15 @@ static int l_gba_deinit(lua_State* L) {
     /* 退出前自动保存存档 */
     _auto_save_sram();
     
+#ifdef LUAT_USE_AIRUI
+    /* AirUI模式清理 */
+    if (g_airui_video_ctx) {
+        luat_mgba_airui_video_deinit(g_airui_video_ctx);
+        g_airui_video_ctx = NULL;
+    }
+#endif
+    
+    /* SDL模式清理 */
     if (g_video_ctx) {
         luat_mgba_video_deinit(g_video_ctx);
         g_video_ctx = NULL;
@@ -339,30 +420,39 @@ static int l_gba_run(lua_State* L) {
     
     /* 主循环 - 优化事件处理 */
     while (g_running) {
-        /* 先处理所有待处理的SDL事件，确保及时响应输入 */
-        if (g_video_ctx) {
-            /* 循环处理直到没有更多事件 */
-            int quit = luat_mgba_video_handle_events(g_video_ctx, g_gba_ctx);
-            if (quit) {
+#ifdef LUAT_USE_AIRUI
+        /* AirUI模式：检查退出请求 */
+        if (g_video_mode == 1 && g_airui_video_ctx) {
+            if (luat_mgba_airui_video_quit_requested(g_airui_video_ctx)) {
                 g_running = 0;
                 break;
+            }
+        } else
+#endif
+        {
+            /* SDL模式：处理SDL事件 */
+            if (g_video_ctx) {
+                /* 循环处理直到没有更多事件 */
+                int quit = luat_mgba_video_handle_events(g_video_ctx, g_gba_ctx);
+                if (quit) {
+                    g_running = 0;
+                    break;
+                }
             }
         }
         
         /* 执行一帧 */
         luat_mgba_run_frame(g_gba_ctx);
         
-        /* 帧率控制 - 使用更短的延迟避免阻塞事件处理
-         * 将16ms分成多个小延迟，在中间检查事件
-         */
+        /* 帧率控制 */
         int remaining_ms = g_frame_interval;
         while (remaining_ms > 0 && g_running) {
             int delay_ms = (remaining_ms > 5) ? 5 : remaining_ms;
             luat_timer_mdelay(delay_ms);
             remaining_ms -= delay_ms;
             
-            /* 在延迟期间定期检查事件 */
-            if (g_video_ctx && remaining_ms > 0) {
+            /* 在延迟期间定期检查事件（仅SDL模式） */
+            if (g_video_mode == 0 && g_video_ctx && remaining_ms > 0) {
                 int quit = luat_mgba_video_handle_events(g_video_ctx, g_gba_ctx);
                 if (quit) {
                     g_running = 0;
@@ -385,8 +475,8 @@ static int l_gba_step(lua_State* L) {
         return 0;
     }
     
-    /* 处理事件 */
-    if (g_video_ctx) {
+    /* SDL模式：处理事件 */
+    if (g_video_mode == 0 && g_video_ctx) {
         luat_mgba_video_handle_events(g_video_ctx, g_gba_ctx);
     }
     
@@ -641,6 +731,13 @@ static int l_gba_set_scale(lua_State* L) {
         luat_mgba_video_set_scale(g_video_ctx, scale);
     }
     
+#ifdef LUAT_USE_AIRUI
+    /* AirUI模式下也尝试设置缩放 */
+    if (g_video_mode == 1 && g_airui_video_ctx) {
+        luat_mgba_airui_video_set_scale(g_airui_video_ctx, scale);
+    }
+#endif
+    
     return 0;
 }
 
@@ -668,6 +765,214 @@ static int l_gba_is_running(lua_State* L) {
     lua_pushboolean(L, g_running && luat_mgba_is_running(g_gba_ctx));
     return 1;
 }
+
+#ifdef LUAT_USE_AIRUI
+/*
+ * gba.airui_set_scale(scale)
+ * AirUI模式下设置显示缩放倍数
+ * @param scale 缩放倍数 (1-4)
+ * @return boolean 成功返回true
+ */
+static int l_gba_airui_set_scale(lua_State* L) {
+    int scale = (int)luaL_checkinteger(L, 1);
+    
+    if (g_video_mode != 1 || !g_airui_video_ctx) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "not in AirUI mode");
+        return 2;
+    }
+    
+    int ret = luat_mgba_airui_video_set_scale(g_airui_video_ctx, scale);
+    lua_pushboolean(L, ret == 0);
+    if (ret != 0) {
+        lua_pushfstring(L, "set scale failed: %d", ret);
+        return 2;
+    }
+    return 1;
+}
+
+/*
+ * gba.airui_show_controls(show)
+ * AirUI模式下显示/隐藏控制按钮
+ * @param show true显示, false隐藏
+ */
+static int l_gba_airui_show_controls(lua_State* L) {
+    int show = lua_toboolean(L, 1);
+    
+    if (g_video_mode != 1 || !g_airui_video_ctx) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "not in AirUI mode");
+        return 2;
+    }
+    
+    luat_mgba_airui_video_show_controls(g_airui_video_ctx, show);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/*
+ * gba.airui_quit_requested()
+ * AirUI模式下检查是否有退出请求
+ * @return boolean 有退出请求返回true
+ */
+static int l_gba_airui_quit_requested(lua_State* L) {
+    if (g_video_mode != 1 || !g_airui_video_ctx) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    
+    int ret = luat_mgba_airui_video_quit_requested(g_airui_video_ctx);
+    lua_pushboolean(L, ret);
+    return 1;
+}
+
+/*
+ * gba.airui_init_ex(config)
+ * AirUI模式下初始化（扩展版，支持嵌入AirUI容器）
+ * @param config 配置表 {
+ *   scale=2,              -- 缩放倍数
+ *   audio=true,           -- 启用音频
+ *   parent=airui_obj,     -- AirUI父容器（必须）
+ *   x=0, y=0,             -- 在父容器中的位置
+ *   width=480,            -- 宽度
+ *   height=320,           -- 高度
+ *   show_controls=true,   -- 显示控制按钮
+ * }
+ * @return boolean, 成功返回 true
+ */
+static int l_gba_airui_init_ex(lua_State* L) {
+    int ret;
+    luat_mgba_airui_video_config_ex_t airui_cfg;
+    luat_mgba_audio_config_t audio_cfg;
+    
+    memset(&airui_cfg, 0, sizeof(airui_cfg));
+    luat_mgba_airui_video_get_default_config((luat_mgba_airui_video_config_t*)&airui_cfg);
+    luat_mgba_audio_get_default_config(&audio_cfg);
+    
+    if (g_gba_ctx) {
+        LLOGW("gba already initialized, call gba.deinit() first");
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "already initialized");
+        return 2;
+    }
+    
+    /* 解析配置参数 */
+    if (lua_istable(L, 1)) {
+        /* parent - AirUI父容器（必须） */
+        lua_getfield(L, 1, "parent");
+        if (lua_isuserdata(L, -1)) {
+            /* 获取AirUI组件的userdata，并解包出obj字段 */
+            airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L, -1);
+            if (ud && ud->obj) {
+                airui_cfg.parent_obj = ud->obj;
+                LLOGI("Got AirUI parent container: %p", airui_cfg.parent_obj);
+            } else {
+                LLOGE("Invalid AirUI parent container");
+            }
+        }
+        lua_pop(L, 1);
+        
+        if (!airui_cfg.parent_obj) {
+            lua_pushboolean(L, 0);
+            lua_pushstring(L, "parent container required");
+            return 2;
+        }
+        
+        /* scale */
+        lua_getfield(L, 1, "scale");
+        if (lua_isinteger(L, -1)) {
+            airui_cfg.scale = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        /* x */
+        lua_getfield(L, 1, "x");
+        if (lua_isinteger(L, -1)) {
+            airui_cfg.x = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        /* y */
+        lua_getfield(L, 1, "y");
+        if (lua_isinteger(L, -1)) {
+            airui_cfg.y = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        /* width */
+        lua_getfield(L, 1, "width");
+        if (lua_isinteger(L, -1)) {
+            airui_cfg.width = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        /* height */
+        lua_getfield(L, 1, "height");
+        if (lua_isinteger(L, -1)) {
+            airui_cfg.height = (int)lua_tointeger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        /* show_controls */
+        lua_getfield(L, 1, "show_controls");
+        if (lua_isboolean(L, -1)) {
+            airui_cfg.show_controls = lua_toboolean(L, -1) ? 1 : 0;
+        }
+        lua_pop(L, 1);
+        
+        /* audio */
+        lua_getfield(L, 1, "audio");
+        if (lua_isboolean(L, -1)) {
+            audio_cfg.enabled = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+    }
+    
+    /* 初始化 mGBA 核心 */
+    ret = luat_mgba_init(&g_gba_ctx, LUAT_MGBA_PLATFORM_AUTO);
+    if (ret != 0) {
+        LLOGE("gba.init failed: %d", ret);
+        lua_pushboolean(L, 0);
+        lua_pushfstring(L, "init failed: %d", ret);
+        return 2;
+    }
+    
+    /* AirUI扩展模式初始化 */
+    g_airui_video_ctx = luat_mgba_airui_video_init_ex(&airui_cfg);
+    if (!g_airui_video_ctx) {
+        LLOGE("gba AirUI video init_ex failed");
+        luat_mgba_deinit(g_gba_ctx);
+        g_gba_ctx = NULL;
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "airui video init_ex failed");
+        return 2;
+    }
+    
+    g_video_mode = 1;
+    LLOGI("gba AirUI video initialized (ex mode)");
+    
+    /* 初始化音频输出 */
+    if (audio_cfg.enabled) {
+        g_audio_ctx = luat_mgba_audio_init(&audio_cfg);
+        if (!g_audio_ctx) {
+            LLOGW("gba audio init failed, continuing without audio");
+        }
+    }
+    
+    /* 设置回调 */
+    luat_mgba_set_video_callback(g_gba_ctx, video_callback);
+    luat_mgba_set_audio_callback(g_gba_ctx, audio_callback);
+    
+    /* 关键：恢复运行状态，使 step() 能正常执行 */
+    luat_mgba_resume(g_gba_ctx);
+    
+    g_running = 0;  /* Lua层running状态，由主循环控制 */
+    
+    LLOGI("gba initialized (AirUI ex mode)");
+    lua_pushboolean(L, 1);
+    return 1;
+}
+#endif /* LUAT_USE_AIRUI */
 
 /*
  * gba.stop()
@@ -706,6 +1011,12 @@ static const luaL_Reg gba_lib[] = {
     {"set_scale",       l_gba_set_scale},
     {"set_fullscreen",  l_gba_set_fullscreen},
     {"is_running",      l_gba_is_running},
+#ifdef LUAT_USE_AIRUI
+    {"airui_init_ex",         l_gba_airui_init_ex},
+    {"airui_set_scale",       l_gba_airui_set_scale},
+    {"airui_show_controls",   l_gba_airui_show_controls},
+    {"airui_quit_requested",  l_gba_airui_quit_requested},
+#endif
     {NULL, NULL}
 };
 
@@ -757,6 +1068,13 @@ LUAMOD_API int luaopen_gba(lua_State* L) {
     lua_setfield(L, -2, "PLATFORM_AUTO");
     
     return 1;
+}
+
+/*
+ * 全局访问函数（供AirUI视频适配器使用）
+ */
+luat_mgba_t* luat_mgba_get_global_ctx(void) {
+    return g_gba_ctx;
 }
 
 #else /* !LUAT_USE_MGBA */

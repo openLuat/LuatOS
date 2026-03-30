@@ -464,6 +464,102 @@ void luat_mgba_audio_clear(luat_mgba_audio_t* audio);
  */
 void luat_mgba_audio_get_default_config(luat_mgba_audio_config_t* config);
 
+/* ========== AirUI视频输出 API ========== */
+#ifdef LUAT_USE_AIRUI
+
+/**
+ * @brief AirUI视频输出配置
+ */
+typedef struct {
+    int scale;              /**< 显示缩放倍数 (默认 2) */
+    int show_controls;      /**< 是否显示控制按钮 (默认 1) */
+    uint32_t bg_color;      /**< 背景颜色 (默认 0x2C3E50) */
+    uint32_t btn_a_color;   /**< A按钮颜色 (默认 0xE74C3C) */
+    uint32_t btn_b_color;   /**< B按钮颜色 (默认 0x3498DB) */
+} luat_mgba_airui_video_config_t;
+
+/**
+ * @brief AirUI视频输出上下文
+ */
+typedef struct luat_mgba_airui_video luat_mgba_airui_video_t;
+
+/**
+ * @brief 获取默认AirUI视频配置
+ * @param config 输出配置结构
+ */
+void luat_mgba_airui_video_get_default_config(luat_mgba_airui_video_config_t* config);
+
+/**
+ * @brief 初始化AirUI视频输出
+ * @param config 配置参数 (可为 NULL 使用默认值)
+ * @return 视频上下文指针，失败返回 NULL
+ */
+luat_mgba_airui_video_t* luat_mgba_airui_video_init(const luat_mgba_airui_video_config_t* config);
+
+/**
+ * @brief 销毁AirUI视频输出
+ * @param video 视频上下文
+ */
+void luat_mgba_airui_video_deinit(luat_mgba_airui_video_t* video);
+
+/**
+ * @brief 显示帧缓冲到AirUI画布
+ * @param video 视频上下文
+ * @param fb 帧缓冲数据 (ABGR8888格式)
+ * @param width 帧缓冲宽度
+ * @param height 帧缓冲高度
+ * @return 0 成功，负数失败
+ */
+int luat_mgba_airui_video_present(luat_mgba_airui_video_t* video, 
+    const luat_mgba_color_t* fb, uint32_t width, uint32_t height);
+
+/**
+ * @brief 检查是否有退出请求
+ * @param video 视频上下文
+ * @return 1 有退出请求，0 无
+ */
+int luat_mgba_airui_video_quit_requested(luat_mgba_airui_video_t* video);
+
+/**
+ * @brief 设置显示缩放倍数
+ * @param video 视频上下文
+ * @param scale 缩放倍数 (1-4)
+ * @return 0 成功，负数失败
+ */
+int luat_mgba_airui_video_set_scale(luat_mgba_airui_video_t* video, int scale);
+
+/**
+ * @brief 显示/隐藏控制按钮
+ * @param video 视频上下文
+ * @param show 1 显示，0 隐藏
+ */
+void luat_mgba_airui_video_show_controls(luat_mgba_airui_video_t* video, int show);
+
+/**
+ * @brief AirUI视频输出配置（扩展版，支持外部容器）
+ */
+typedef struct {
+    int scale;              /**< 显示缩放倍数 (默认 2) */
+    int show_controls;      /**< 是否显示控制按钮 (默认 1) */
+    uint32_t bg_color;      /**< 背景颜色 (默认 0x2C3E50) */
+    uint32_t btn_a_color;   /**< A按钮颜色 (默认 0xE74C3C) */
+    uint32_t btn_b_color;   /**< B按钮颜色 (默认 0x3498DB) */
+    void* parent_obj;       /**< 父容器对象（lv_obj_t*），为NULL则使用全屏 */
+    int x;                  /**< 在父容器中的X坐标 */
+    int y;                  /**< 在父容器中的Y坐标 */
+    int width;              /**< 宽度（0则使用父容器宽度） */
+    int height;             /**< 高度（0则使用父容器高度） */
+} luat_mgba_airui_video_config_ex_t;
+
+/**
+ * @brief 初始化AirUI视频输出（扩展版，支持嵌入外部容器）
+ * @param config 配置参数
+ * @return 视频上下文指针，失败返回 NULL
+ */
+luat_mgba_airui_video_t* luat_mgba_airui_video_init_ex(const luat_mgba_airui_video_config_ex_t* config);
+
+#endif /* LUAT_USE_AIRUI */
+
 #ifdef __cplusplus
 }
 #endif

@@ -109,6 +109,7 @@ local audio_path = nil
 local function audio_task()
     log.info("开始播放音频文件")
     if exaudio.setup(audio_setup_param) then
+        exaudio.vol(70)            -- 喇叭音量
         exaudio.play_start(audio_play_param) -- 仅仅支持task 中运行
         while true do
             local msg = sys.waitMsg(taskName, MSG_KEY_PRESS)   -- 等待按键触发

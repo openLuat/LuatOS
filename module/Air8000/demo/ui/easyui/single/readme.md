@@ -24,7 +24,7 @@
 
 3. **hw_font_drv.lua** - 默认使用字体、lcd显示、tp触摸初始化驱动模块
    - 统一的硬件初始化接口
-   - 支持默认字体、HZFont、GTFont、自定义字体配置
+   - 支持默认字体、HZFont自定义字体配置
    - LCD显示参数管理
    - 触摸屏配置管理
    - 字体渲染初始化
@@ -61,7 +61,6 @@
 ### 2.6 字体渲染演示
 
 1. **win_hzfont.lua** - 14 号固件内置矢量字体演示（HzFont）
-2. **win_gtfont.lua** - 外置矢量字体演示（GTFont，需要 AirFONTS_1000 配件板）
 
 ## 三、演示效果
 
@@ -146,13 +145,12 @@
 
 - Air8000核心板 × 1
 - AirLCD_1010 触摸配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 母对母杜邦线 × 17，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
-- Air8000核心板和 AirLCD_1010配件板以及AirFONTS_1000 配件板的硬件接线方式为
+- Air8000核心板和 AirLCD_1010配件板的硬件接线方式为
 
-  - Air8000核心板通过 TYPE-C USB 口供电（核心板背面开关拨到 USB ON 一端 正面开关拨到 供电 一端），此种供电方式下，VDD_EXT 引脚和VBAT为 3.3V，可以直接给 AirLCD_1010配件板和AirFONTS_1000 配件板供电；
-  - 为了演示方便，所以 Air8000核心板上电后直接通过 VDD-EXT引脚给 AirLCD_1010配件板供电，VBAT引脚给AirFONTS_1000 配件板供电；
+  - Air8000核心板通过 TYPE-C USB 口供电（核心板背面开关拨到 USB ON 一端 正面开关拨到 供电 一端），此种供电方式下，VDD_EXT 引脚和VBAT为 3.3V，可以直接给 AirLCD_1010配件板供电；
+  - 为了演示方便，所以 Air8000核心板上电后直接通过 VDD-EXT引脚给 AirLCD_1010配件板供电；
   - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
   
 ### 5.2 接线配置
@@ -174,21 +172,9 @@
 <tr> <td>GND</td><td>GND</td></tr>
 </table>
 
-#### 5.2.2 GTFont 字库接线
-
-<table>
-<tr> <td>Air8000核心板</td><td>AirFONTS_1000配件板</td></tr>
-<tr> <td>SPI0_CS</td><td>CS</td></tr>
-<tr> <td>SPI0_MISO</td><td>MISO</td></tr>
-<tr> <td>SPI0_MOSI</td><td>MOSI</td></tr>
-<tr> <td>SPI0_CLK</td><td>CLK</td></tr>
-<tr> <td>VBAT</td><td>VCC</td></tr>
-<tr> <td>GND</td><td>GND</td></tr>
-</table>
-
 ### 5.3 接线图
 
-![](https://docs.openLuat.com/cdn/image/Air8000核心板_AirLCD_1010_AirFONTS_1000接线图.jpg)
+![](https://docs.openluat.com/air8000/luatos/app/accessory/AirLCD_1010/lcd/image/image1.png)
 
 ## 六、演示软件环境
 
@@ -209,7 +195,6 @@
 ### 7.1 硬件准备
 
 1. 按照硬件接线表连接所有设备
-2. 如使用 GTFont 演示，需要连接 AirFONTS_1000  配件板
 3. 通过 TYPE-C USB 口供电
 4. 检查所有接线无误
 
@@ -244,7 +229,6 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
 -- require("win_hzfont")  --内置软件矢量字体演示
--- require("win_gtfont")  --外置硬件矢量字体演示
 ```
 
 ### 7.3 软件烧录步骤

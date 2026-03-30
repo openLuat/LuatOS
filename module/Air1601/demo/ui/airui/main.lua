@@ -66,9 +66,9 @@ end
 -- end, 3000)
 
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+require("lcd_drv")
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+require("tp_drv")
 
 -- 引入演示模块（每次只选择一个运行）
 require("ui_main") --动态更新标签演示

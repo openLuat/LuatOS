@@ -56,7 +56,7 @@ if uart_mode_zbuff then
             if len <= 0 then
                 break
             end
-            log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr())
+            log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr(0,rxbuff:used()))
             rxbuff:seek(0)
         end
     end

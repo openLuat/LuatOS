@@ -10,8 +10,7 @@
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建主容器（竖屏尺寸）
     local main_container = airui.container({
@@ -273,11 +272,6 @@ local function ui_main()
         h = 16,
     })
 
-    -- 主循环,V1.0.3已不需要
-    -- while true do
-    --     airui.refresh()
-    --     sys.wait(50)
-    -- end
 end
 
 sys.taskInit(ui_main)

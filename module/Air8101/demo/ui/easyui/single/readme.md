@@ -61,7 +61,6 @@
 ### 2.6 字体渲染演示
 
 1. **win_hzfont.lua** - 内置HzFont矢量字体演示（目前Air8101支持HZFont的固件正在开发中）
-2. **win_gtfont.lua** - 外置矢量字体演示（GTFont，需要 AirFONTS_1000 配件板）
 
 ## 三、演示效果
 
@@ -143,7 +142,6 @@
 
 - Air8101 核心板 × 1
 - AirLCD_1020 触摸配件板 × 1
-- GTFont 矢量字库，使用的是 AirFONTS_1000 配件板 × 1
 - 双排40PIN的双头线 x 1
 - 母对母杜邦线 × 6，杜邦线太长的话，会出现 spi 通信不稳定的现象；
 - TYPE-C 数据线 × 1
@@ -243,19 +241,8 @@
 <td>11/U1RX<br/></td><td>TP_SDA<br/></td></tr>
 </table>
 
-#### 5.2.2 GTFont 字库接线
-
-<table> 
-<tr> <td>Air8101 核心板</td><td>AirFONTS_1000配件板</td></tr>
- <tr> <td>66/GPIO3</td><td>CS</td></tr> 
- <tr> <td>67/GPIO4</td><td>MOSI</td></tr> 
- <tr> <td>8/GPIO5</td><td>MISO</td></tr> 
- <tr> <td>65/GPIO2</td><td>CLK</td></tr> 
- <tr> <td>vbat</td><td>VCC</td></tr> 
-</table>
-
 #### 5.2.3 接线图
-![](https://docs.openLuat.com/cdn/image/Air8101_AirLCD_1020_AirFONTS_1000接线图.jpg)
+![](https://docs.openluat.com/air8101/luatos/app/multimedia/ui/single/image/image1.png)
 
 ## 六、演示软件环境
 
@@ -273,7 +260,6 @@
 ### 7.1 硬件准备
 
 1. 按照硬件接线表连接所有设备
-2. 如使用 GTFont 演示，需要连接 AirFONTS_1000  配件板
 3. 通过 TYPE-C USB 口供电
 4. 检查所有接线无误
 
@@ -308,7 +294,6 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
 -- require("win_hzfont")  --内置软件矢量字体演示
--- require("win_gtfont")  --外置硬件矢量字体演示
 ```
 
 ### 7.3 软件烧录步骤

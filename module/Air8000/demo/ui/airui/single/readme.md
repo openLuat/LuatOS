@@ -154,9 +154,9 @@
 
 ```lua
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+require("lcd_drv")
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+require("tp_drv")
 
 -- 引入演示模块（每次只选择一个运行）
 -- require("airui_label") --动态更新标签演示

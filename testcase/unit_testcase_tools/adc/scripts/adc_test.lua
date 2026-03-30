@@ -5,9 +5,31 @@ local adc_tests = {}
 -- 温度范围：
 local MIN_TEMP = -40 -- 最低工作温度
 local MAX_TEMP = 85 -- 最高工作温度
+
+-- 获取模组型号
+local platform = rtos.bsp()
+local hmeta_chip = hmeta.chip()
+
+
 -- vabt电压范围：
-local MIN_Voltage = 3000 -- 最小电压
-local MAX_Voltage = 4300 -- 最大电压
+local MIN_Voltage
+local MAX_Voltage = 4300 -- 最大电压统一为4300mV
+
+-- vabt电压范围：
+if platform == "Air8101" then
+    -- wifi/mcu模组：vbat电压范围 3.0V - 4.3V
+    MIN_Voltage = 3000
+    log.info("检测到模组: Air8101, VBAT电压范围: 3.0V-4.3V")
+elseif hmeta_chip == "EC718PM" or hmeta_chip == "EC718HM" then
+    -- 4G模组：vbat电压范围 3.3V - 4.3V
+    MIN_Voltage = 3300
+    log.info("检测到模组: Air8000, VBAT电压范围: 3.3V-4.3V")
+else
+    -- 其他模组默认使用3.0V-4.3V
+    MIN_Voltage = 3000
+    log.info("检测到其他模组: " .. platform .. ", VBAT电压范围: 3.0V-4.3V")
+end
+
 
 function adc_tests.test_GetCpuThermal_rang()
     local result = adc.open(adc.CH_CPU)

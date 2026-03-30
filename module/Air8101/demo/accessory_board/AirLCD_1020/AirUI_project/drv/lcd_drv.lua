@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -35,7 +35,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     local result = lcd.init("h050iwv",
         {
             pin_pwr = 8,    -- 背光控制引脚GPIO端口号
@@ -61,25 +61,27 @@ function lcd_drv.init()
         lcd.setupBuff(nil, true) -- 设置帧缓冲区，使用heap内存
         lcd.autoFlush(false)     -- 禁止自动刷新
         -- 加载中文字体
-        -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255号中文显示
-        -- airui.font_load({
-        --     type = "hzfont", -- 字体类型，可选 "hzfont" 或 "bin"
-        --     path = nil,    -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-        --     size = 20,     -- 字体大小，默认 16
-        --     cache_size = 1048, -- 缓存字数大小，默认 2048
-        --     antialias = 1, -- 抗锯齿等级，默认 4
-        -- })
-
-        -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
-        airui.font_load({
-            type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
-            path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
-            size = 20,                   -- 字体大小，默认 16
-            cache_size = 1048,           -- 缓存字数大小，默认 2048
-            antialias = 1,               -- 抗锯齿等级，默认 4
-            -- load_to_psram= true,
-            global = true
-        })
+        if rtos.bsp() ~= "Air8101" then
+            -- PC端/Air8000/780EHM 从14号固件/114号固件中加载hzfont字库，从而支持12-255~号中文显示
+            airui.font_load({
+                type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
+                path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                size = 20,         -- 字体大小，默认 16
+                cache_size = 1048, -- 缓存字数大小，默认 2048
+                antialias = 1,     -- 抗锯齿等级1-3，默认 1
+            })
+        else
+            -- Air8101使用104号固件将字体文件烧录到文件系统，从文件系统中加载hzfont字库，从而支持12-255号中文显示
+            airui.font_load({
+                type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
+                path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
+                size = 20,                   -- 字体大小，默认 16
+                cache_size = 1048,           -- 缓存字数大小，默认 2048
+                antialias = 1,               -- 抗锯齿等级1-3，默认 1
+                -- load_to_psram= true,
+                global = true
+            })
+        end
 
         -- 查询当前固件内AirUI核心库版本
         local version_result = airui.version()
@@ -93,7 +95,6 @@ function lcd_drv.init()
         return result
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

@@ -378,26 +378,21 @@ static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	LLOGD("request host %s port %d uri %s", websocket_ctrl->host, websocket_ctrl->remote_port, websocket_ctrl->uri);
 	int ret = 0;
 	// 借用pkg_buff
-	if (0) {
-		ret = snprintf_((char*)websocket_ctrl->pkg_buff,
+	ret = snprintf_((char*)websocket_ctrl->pkg_buff,
 						WEBSOCKET_RECV_BUF_LEN_MAX,
 						"GET %s HTTP/1.1\r\n"
-						"Host: %s\r\n",
-						websocket_ctrl->uri, websocket_ctrl->host);
+						"Host: %s:%d\r\n"
+						"%s"
+						"%s",
+						websocket_ctrl->uri, websocket_ctrl->host, websocket_ctrl->remote_port,
+						websocket_ctrl->headers ? websocket_ctrl->headers : "",
+						ws_headers);
+	if (ret < 32) {
+		LLOGE("websocket header format failed %d", ret);
+		return -1;
 	}
-	else {
-		ret = snprintf_((char*)websocket_ctrl->pkg_buff,
-						WEBSOCKET_RECV_BUF_LEN_MAX,
-						"GET %s HTTP/1.1\r\n"
-						"Host: %s:%d\r\n",
-						websocket_ctrl->uri, websocket_ctrl->host, websocket_ctrl->remote_port);
-	}
-	LLOGD("Request %s", websocket_ctrl->pkg_buff);
 	ret = luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->pkg_buff, ret);
-	if (websocket_ctrl->headers) {
-		luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->headers, strlen(websocket_ctrl->headers));
-	}
-	luat_websocket_send_packet(websocket_ctrl, ws_headers, strlen(ws_headers));
+	LLOGD("Request %.*s", ret, websocket_ctrl->pkg_buff);
 	LLOGD("websocket_connect ret %d", ret);
 	return ret;
 }

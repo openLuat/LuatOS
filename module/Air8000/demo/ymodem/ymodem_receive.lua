@@ -51,7 +51,7 @@ local function ymodem_rx(id,len)
         if len <= 0 then
             break
         end
-        log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr())
+        log.info("uart", "receive", id, rxbuff:used(), rxbuff:toStr(0,rxbuff:used()))
     end
     --  打印缓冲区已使用的大小
     log.info(rxbuff:used()) 

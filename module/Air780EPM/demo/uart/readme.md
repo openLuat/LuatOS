@@ -1,4 +1,4 @@
-## 演示模块概述
+## 一、演示模块概述
 
 1、main.lua：主程序入口；
 
@@ -16,11 +16,50 @@
 
 8、uart_mux：动态切换串口引脚复用
 
-## 演示功能概述
+## 二、演示功能概述
 
 使用Air780EPM开发板测试串口相关功能。
 
-## 演示硬件环境
+## 三、演示硬件环境
+
+### 3.1 硬件环境说明
+
+本Demo支持两种硬件环境，请根据实际使用的开发板版本选择对应的配置：
+
+| 硬件环境 | HARDWARE_ENV值 | 控制485接收和发送的使能脚 |
+|---------|---------------|----------|
+| V1.3开发板 | "DEV_BOARD_V1.3" | GPIO24（默认） |
+| V1.2开发板 | "DEV_BOARD_V1.2" | GPIO25 |
+
+**配置方法：** 在`main.lua`中修改`HARDWARE_ENV`变量的值即可切换硬件环境。
+
+#### 3.1.1 V1.3开发板（DEV_BOARD_V1.3，默认）
+
+**配置说明**
+
+在`main.lua`中设置：
+```lua
+HARDWARE_ENV = "DEV_BOARD_V1.3"
+```
+
+485_uart驱动会自动完成以下操作：
+- 使用 **GPIO24** 作为485使能脚
+
+#### 3.1.2 V1.2开发板（DEV_BOARD_V1.2）
+
+**配置说明**
+
+在`main.lua`中设置：
+```lua
+HARDWARE_ENV = "DEV_BOARD_V1.2"
+```
+
+485_uart驱动会自动完成以下操作：
+- 使用 **GPIO25** 作为485使能脚
+
+### 3.2 硬件清单和接线说明
+
+下面以Air780EPM V1.3开发板为例进行演示：
 
 ![](https://docs.openluat.com/air780epm/luatos/app/driver/eth/image/RFSvb75NRoEWqYxfCRVcVrOKnsf.jpg)
 
@@ -105,7 +144,7 @@
 
 ![](https://docs.openluat.com/air8000/luatos/app/driver/uart/image/Uf82bI0mAov9l1xj2DOcQUbgnZu.png)
 
-## 演示软件环境
+## 四、演示软件环境
 
 1、Luatools下载调试工具
 
@@ -113,7 +152,7 @@
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
-## 演示核心步骤
+## 五、演示核心步骤
 
 1、搭建好硬件环境
 

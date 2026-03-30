@@ -8,10 +8,10 @@ static const uint16_t nv3041a_init_cmds[] = {
     0x02FF, 0x03A5,
     0x02E7, 0x0310,  // TE_output_en
     0x0235, 0x0301,  // TE_ interface_en 01
-    // 0x0236, 0x03C0,
+
     0x023A, 0x0301,  // 01---565，00---666
     0x0240, 0x0301,  // 01:IPS/00:TN 
-    0x0241, 0x0303,  // 01--8bit, 03-16bit
+    0x0241, 0x0301,  // 01--8bit, 03-16bit
     0x0244, 0x0315,  // VBP 21
     0x0245, 0x0315,  // VFP 21
     0x027D, 0x0303,  // vdds_trim[2:0]
@@ -129,10 +129,10 @@ luat_lcd_opts_t lcd_opts_nv3041a = {
     .name = "nv3041a",
     .init_cmds_len = sizeof(nv3041a_init_cmds)/sizeof(nv3041a_init_cmds[0]),
     .init_cmds = nv3041a_init_cmds,
-    .direction0 = 0xC0,
-    .direction90 = 0x70,
-    .direction180 = 0x00,
-    .direction270 = 0xA0,
+    .direction0 = 0x00,
+    .direction90 = 0xA0,
+    .direction180 = 0xC0,
+    .direction270 = 0x70,
 	.rb_swap = 1,
 };
 

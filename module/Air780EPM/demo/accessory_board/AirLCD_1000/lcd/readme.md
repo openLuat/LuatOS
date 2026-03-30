@@ -57,46 +57,173 @@
 
 ## 五、演示硬件环境
 
-### 5.1 硬件清单
+本Demo支持三种硬件环境，请根据实际使用的硬件选择对应的配置：
+
+| 硬件环境 | HARDWARE_ENV值 | LCD电源控制 | LCD背光控制 |
+|---------|---------------|------------|------------|
+| 核心板直连 | "CORE_BOARD" | 直接供电，无需GPIO控制 | GPIO1控制 |
+| V1.2开发板 | "DEV_BOARD_V1.2" | GPIO28控制 | 未接背光，无需控制 |
+| V1.3开发板 | "DEV_BOARD_V1.3" | GPIO29控制 | GPIO30控制（低电平亮） |
+
+**配置方法：** 在`main.lua`中修改`HARDWARE_ENV`变量的值即可切换硬件环境。
+
+### 5.1 核心板直连模式（CORE_BOARD）
+
+#### 5.1.1 硬件清单
 
 - Air780EPM核心板 × 1
 - AirLCD_1000 配件板 × 1
 - 母对母杜邦线 × 14
 - TYPE-C 数据线 × 1
-- Air780EPM核心板和 AirLCD_1000配件板以及AirFONTS_1000 配件板的硬件接线方式为
 
-  - Air780EPM核心板通过 TYPE-C USB 口供电（核心板正面开关拨到 ON 一端），此种供电方式下，VDD_EXT 引脚为 3.3V，可以直接给 AirLCD_1000配件板供电；
-  - 为了演示方便，所以 Air780EPM核心板上电后直接通过 VBAT 引脚给 AirLCD_1000配件板供电；
-  - 客户在设计实际项目时，一般来说，需要通过一个 GPIO 来控制 LDO 给配件板供电，这样可以灵活地控制配件板的供电，可以使项目的整体功耗降到最低；
+#### 5.1.2 硬件连接与控制
 
-### 5.2 接线配置
+**核心板供电**：
+   - Air780EPM核心板通过TYPE-C USB口供电（将核心板正面开关拨到 ON 一端）
+   - 使用TYPE-C USB数据线连接核心板与电脑USB口
 
-#### 5.2.1 LCD 显示屏接线
+**配件板接线**：
+   - 使用母对母杜邦线按照下表连接AirLCD_1000配件板
 
-<table>
-<tr>
-<td>Air780EPM核心板<br/></td><td>AirLCD_1000配件板<br/></td></tr>
-<tr>
-<td>53/LCD_CLK<br/></td><td>SCLK/CLK<br/></td></tr>
-<tr>
-<td>52/LCD_CS<br/></td><td>CS<br/></td></tr>
-<tr>
-<td>49/LCD_RST<br/></td><td>RES/RST<br/></td></tr>
-<tr>
-<td>50/LCD_SDA<br/></td><td>SDA/MOS<br/></td></tr>
-<tr>
-<td>51/LCD_RS<br/></td><td>DC/RS<br/></td></tr>
-<tr>
-<td>22/GPIO1<br/></td><td>BLK<br/></td></tr>
-<tr>
-<td>VBAT<br/></td><td>VCC<br/></td></tr>
-<tr>
-<td>GND<br/></td><td>GND<br/></td></tr>
-</table>
+   **LCD 显示屏接线：**
+   <table>
+   <tr>
+   <td>Air780EPM核心板<br/></td><td>AirLCD_1000配件板<br/></td></tr>
+   <tr>
+   <td>53/LCD_CLK<br/></td><td>SCLK/CLK<br/></td></tr>
+   <tr>
+   <td>52/LCD_CS<br/></td><td>CS<br/></td></tr>
+   <tr>
+   <td>49/LCD_RST<br/></td><td>RES/RST<br/></td></tr>
+   <tr>
+   <td>50/LCD_SDA<br/></td><td>SDA/MOS<br/></td></tr>
+   <tr>
+   <td>51/LCD_RS<br/></td><td>DC/RS<br/></td></tr>
+   <tr>
+   <td>22/GPIO1<br/></td><td>BLK<br/></td></tr>
+   <tr>
+   <td>VDD_EXT<br/></td><td>VCC<br/></td></tr>
+   <tr>
+   <td>GND<br/></td><td>GND<br/></td></tr>
+   </table>
 
+   **接线图：**
+   ![](https://docs.openLuat.com/cdn/image/Air780EPM_AirLCD_1000_lcd演示接线图.png)
 
-#### 5.2.3 接线图
-![](https://docs.openLuat.com/cdn/image/Air780EPM_AirLCD_1000_lcd演示接线图.png)
+**LCD电源控制**：
+   - 通过核心板上的VDD_EXT引脚直接供电，无需GPIO控制
+   - 此种供电方式下，VDD_EXT引脚为3.3V
+
+   > **注意**：为了演示方便，本模式直接通过VDD_EXT给配件板供电。客户在设计实际项目时，建议通过GPIO控制LDO给配件板供电，以灵活控制功耗。
+
+**背光控制**：
+   - 使用GPIO1控制LCD背光
+   - 系统会自动设置`pin_pwr = 1`，通过lcd库自动管理背光开关
+
+#### 5.1.3 配置说明
+
+在`main.lua`中设置：
+```lua
+HARDWARE_ENV = "CORE_BOARD"
+```
+
+驱动会自动完成以下操作：
+1. 无需控制GPIO供电（通过核心板上的VDD_EXT引脚供电）
+2. `pin_pwr = 1` - 通过lcd库使用GPIO1控制背光
+
+### 5.2 V1.2开发板（DEV_BOARD_V1.2）
+
+#### 5.2.1 硬件清单
+
+- Air780EPM v1.2开发板 × 1
+- AirLCD_1000 配件板 × 1
+- TYPE-C 数据线 × 1
+
+#### 5.2.2 硬件连接与控制
+
+**开发板供电**：
+   - Air780EPM V1.2版本开发板通过TYPE-C USB口供电
+   - 将开发板上的"外部供电/USB供电"拨动开关拨到"USB供电"一端
+   - 使用TYPE-C USB数据线连接开发板与电脑USB口
+
+**配件板连接**：
+   - 将AirLCD_1000配件板按照下图所示方向插入开发板
+   ![image](https://docs.openLuat.com/cdn/image/Air780EPM/Air780EPM_demo_accessory_board_lcd_v1.2.jpg)
+
+**LCD电源控制**：
+   - 使用GPIO28控制LCD电源供电
+   - 系统会自动执行`gpio.setup(28, 1)`打开供电
+
+**背光控制**：
+   - 本版本开发板未接屏幕背光脚，无法控制背光
+   - 系统会自动设置`pin_pwr = nil`，不通过lcd库控制背光
+
+#### 5.2.3 配置说明
+
+在`main.lua`中设置：
+```lua
+HARDWARE_ENV = "DEV_BOARD_V1.2"
+```
+
+驱动会自动完成以下操作：
+1. `gpio.setup(28, 1)` - 打开GPIO28给LCD供电
+2. `pin_pwr = nil` - 不通过lcd库控制背光
+
+### 5.3 V1.3开发板（DEV_BOARD_V1.3）
+
+#### 5.3.1 硬件清单
+
+- Air780EPM v1.3开发板 × 1
+- AirLCD_1000 配件板 × 1
+- TYPE-C 数据线 × 1
+
+#### 5.3.2 硬件连接与控制
+
+**开发板供电**：
+   - Air780EPM V1.3版本开发板通过TYPE-C USB口供电
+   - 将开发板上的"外部供电/USB供电"拨动开关拨到"USB供电"一端
+   - 使用TYPE-C USB数据线连接开发板与电脑USB口
+
+**配件板连接**：
+   - 将AirLCD_1000配件板按照下图所示方向插入开发板
+   ![image](https://docs.openLuat.com/cdn/image/Air780EPM/Air780EPM_demo_accessory_board_lcd_v1.3.jpg)
+
+**LCD电源控制**：
+   - 使用GPIO29控制LCD电源供电
+   - 系统会自动执行`gpio.setup(29, 1)`打开供电
+
+**背光控制**：
+   - 使用GPIO30控制LCD背光，通过NPN三极管控制
+   - 系统会自动执行`gpio.setup(30, 0)`开启背光
+   - 系统会自动设置`pin_pwr = nil`，不通过lcd库控制背光（避免lcd库逻辑与硬件电路冲突）
+
+**背光控制原理：**
+V1.3开发板的背光控制电路采用NPN三极管：
+- **GPIO30 拉高** → 三极管导通 → BL脚接地 → **灭屏**
+- **GPIO30 拉低** → 三极管截止 → BL脚悬空 → **亮屏**
+
+**手动控制背光：**
+如需在代码中动态控制背光：
+```lua
+-- 关闭背光（灭屏）
+gpio.setup(30, 1)
+
+-- 开启背光（亮屏）
+gpio.setup(30, 0)
+```
+
+#### 5.3.3 配置说明
+
+在`main.lua`中设置：
+```lua
+HARDWARE_ENV = "DEV_BOARD_V1.3"
+```
+
+驱动会自动完成以下操作：
+1. `gpio.setup(29, 1)` - 打开GPIO29给LCD供电
+2. `gpio.setup(30, 0)` - GPIO30拉低，开启背光
+3. `pin_pwr = nil` - 不通过lcd库控制背光（避免lcd库逻辑与硬件电路冲突）
+
 
 ## 六、演示软件环境
 

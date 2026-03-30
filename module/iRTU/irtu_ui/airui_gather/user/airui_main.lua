@@ -8,9 +8,9 @@
 本文件演示airui.image组件的用法，展示图片显示功能。
 ]]
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+require("lcd_drv")
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+require("tp_drv")
 
 
 local card_temp, card_hum, card_air, title_temp,main_container
@@ -32,8 +32,7 @@ sys.subscribe("VOC_TEXT", voc_sext_cb)
 local function ui_main()
     log.info("IMAGE")
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 主容器
     main_container = airui.container({

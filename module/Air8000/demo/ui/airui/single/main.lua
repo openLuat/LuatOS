@@ -57,9 +57,9 @@ log.info("ui_demo", PROJECT, VERSION)
 -- end, 3000)
 
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+require("lcd_drv")
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+require("tp_drv")
 
 -- 引入演示模块（每次只选择一个运行）
 -- require("airui_label") --动态更新标签演示
@@ -74,12 +74,11 @@ tp_drv = require("tp_drv")
 -- require("airui_tabview")  --选项卡演示
 -- require("airui_table") --表格演示
 -- require("airui_win")  --标签窗口演示
--- require("airui_all_component") --所有组件综合演示
+require("airui_all_component") --所有组件综合演示
 -- require("airui_switch_page")  --页面切换演示
 -- require("airui_hzfont")  --内置软件矢量字体演示
 -- require("airui_chart")  --图表组件演示
 -- require("airui_qrcode") --二维码组件演示
-require("airui_msg_input") --二维码组件演示
 
 -- 用户代码已结束
 -- 结尾总是这一句

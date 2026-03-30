@@ -21,6 +21,12 @@
 #define LUAT_LOG_TAG "airui_input_sdl"
 #include "luat_log.h"
 
+/* GBA 模拟器键盘支持 - 获取全局 GBA 上下文 */
+#ifdef LUAT_USE_MGBA
+#include "luat_mgba.h"
+extern luat_mgba_t* luat_mgba_get_global_ctx(void);
+#endif
+
 /** SDL 输入驱动私有数据 */
 typedef struct {
     int16_t last_x;
@@ -291,9 +297,21 @@ static void sdl_process_keyboard_event(const SDL_Event *event, airui_ctx_t *ctx)
     case SDL_KEYDOWN: {
         lv_indev_state_t key_state = (event->type == SDL_KEYDOWN) ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
         uint32_t keypad_key = sdl_map_to_lvgl_key(event->key.keysym.sym);
+        
+        // 通知 Lua 键盘订阅回调（传递原始 SDL keycode）
+        airui_keypad_notify(ctx, event->key.keysym.sym, key_state == LV_INDEV_STATE_PRESSED, lv_tick_get());
+        
         if (g_keypad_enabled && keypad_key != 0) {
             airui_keypad_queue_push(keypad_key, key_state);
         }
+
+#ifdef LUAT_USE_MGBA
+        /* GBA 模拟器键盘输入处理 */
+        luat_mgba_t* gba_ctx = luat_mgba_get_global_ctx();
+        if (gba_ctx) {
+            luat_mgba_handle_key_event(gba_ctx, event->key.keysym.scancode, event->type == SDL_KEYDOWN);
+        }
+#endif
 
         if (event->type != SDL_KEYDOWN) {
             break;

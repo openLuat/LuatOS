@@ -21,11 +21,15 @@
 
 1、Air780EHM/Air780EHV/Air780EGH 核心板两块 + 同型号lora模块两块（芯片选择llcc68/sx1268）；
 
-本演示中，使用的lora模块为Ai-Thinker的Ra-01SC模块，该模块基于llcc68芯片。
+![image](https://docs.openluat.com/air780epm/luatos/app/driver/lora/image/255MN.png)
 
-![image](https://docs.openLuat.com/cdn/image/Ai-Thinker_lora模块.png)
+演示使用的 LoRa 模块是 <font color="orange">南京二五五物联科技</font> 的 <font color="orange">255MN-L03</font> 模块，是一款基于射频芯片LLCC68设计的无线收发模组。该模组具有+22dBm的可调输出功率，最低4.2mA的接收电流，传输距离远，可靠性高，功耗低。模块提供了SPI通用接口，采用半双工通信方式。
 
-[淘宝购买链接 点击此处](https://detail.tmall.com/item.htm?ali_refid=a3_430673_1006%3A1310580056%3AN%3AbqpGoPHh6maprV%2FiOvfLQlttIGZ5%2F0H4%3A8ac800110c31e390e3a00be4332367ec&ali_trackid=1_8ac800110c31e390e3a00be4332367ec&id=642897064381&mi_id=00007gKI69Jf4rfCAQlHSi0FwOhhsjkApkWKIk0aR6x63s4&mm_sceneid=1_0_1079550197_0&priceTId=2147872c17636209574944284e0e8c&skuId=4696650265078&spm=a21n57.sem.item.2&utparam=%7B%22aplus_abtest%22%3A%2204f30be1eb4a5e73cebb07691a717fb3%22%7D&xxc=ad_ztc)
+二五五物联官网：[https://255mesh.com/](https://255mesh.com/)
+
+资料下载：[255MN-L03 模块资料](https://255mesh.com/chanpinzhongxin/255MNmozuxilie/119.html)
+
+淘宝购买链接：[https://item.taobao.com/item.htm?abbucket=9&id=905046008431&mi_id=0000sz-y6pYMNtwApPC3D3afiJFxiZmXkCwCdhnQSR3qV8w&ns=1&priceTId=213e09fa17659699305601049e125b&skuId=5765457041940&spm=a21n57.1.hoverItem.2&utparam=%7B%22aplus_abtest%22%3A%22536abb31a9b47a2a9d837ffff3617cf5%22%7D&xxc=taobaoSearch](https://item.taobao.com/item.htm?abbucket=9&id=905046008431&mi_id=0000sz-y6pYMNtwApPC3D3afiJFxiZmXkCwCdhnQSR3qV8w&ns=1&priceTId=213e09fa17659699305601049e125b&skuId=5765457041940&spm=a21n57.1.hoverItem.2&utparam=%7B%22aplus_abtest%22%3A%22536abb31a9b47a2a9d837ffff3617cf5%22%7D&xxc=taobaoSearch)
 
 
 2、TYPE-C USB数据线一根，Air780EHM/Air780EHV/Air780EGH核心板和数据线的硬件接线方式为：
@@ -38,7 +42,7 @@
 
 3、核心板通过SPI接口与lora模块连接并进行通信，具体接线如下：
 
-![image](https://docs.openLuat.com/cdn/image/Air780EHV_lora.jpg)
+![image](https://docs.openluat.com/air780ehv/luatos/app/driver/lora/image/ObMfbSuEQoWghsxlXuacSthXnn3.png)
 
 | Air780EXX核心板  |  lora模块          |
 | --------------- | ----------------- |

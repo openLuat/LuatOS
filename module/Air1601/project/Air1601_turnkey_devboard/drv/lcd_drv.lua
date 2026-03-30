@@ -16,7 +16,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -37,7 +37,7 @@ end
 
 local port, pin_reset, bl = lcd.RGB, 15, 2
 
-function lcd_drv.init()
+local function lcd_drv_init()
     -- 开启屏幕供电
     local result = lcd.init("custom", {
         port = port,
@@ -85,7 +85,6 @@ function lcd_drv.init()
         return result
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

@@ -7,14 +7,14 @@
 @usage
 本demo演示的核心功能为：
 1、使用U8G2图形库驱动ST7567单色点阵屏（128x64）；
-2、提供三种显示模式选择：组件演示、内置字体显示、GTFont外置字库显示；
+2、提供两种显示模式选择：组件演示、内置字体显示；
 3、通过BOOT键和PWR键进行菜单导航和确认操作；
 4、支持按键防抖和看门狗机制，确保系统稳定运行；
 
 本文件作为程序入口，主要完成以下初始化工作：
 1、定义项目名称和版本号；
 2、初始化看门狗定时器；
-3、加载硬件显示驱动（支持内置12号中文点阵字体和外置GTFont两种模式）；
+3、加载硬件显示驱动（内置12号中文点阵字体）；
 4、加载按键驱动模块；
 5、启动UI主模块；
 
@@ -74,11 +74,8 @@ log.info("u8g2_demo", PROJECT, VERSION)
 
 
 
--- 加载显示和字体驱动模块，有以下两种：
--- 1. hw_default_font_drv - LCD显示驱动和内置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
--- 2. hw_gtfont_drv - LCD显示驱动和GTFont外置字体驱动模块，hw_default_font_drv和hw_gtfont_drv二选一使用
+-- 加载显示和字体驱动模块
 require("hw_default_font_drv")  -- 使用内置12号中文点阵字体
--- require("hw_gtfont_drv")     -- 使用GTFont外置矢量字库（Air780EHM支持，Air780EHV/EGH不支持2路SPI接口）
 
 -- 加载按键驱动
 require("key_drv")

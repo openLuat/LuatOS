@@ -163,6 +163,7 @@ uint16_t luat_sms_decode_7bit_data(uint8_t *src, uint16_t src_len, uint8_t *dst,
     return out_len;
 }
 
+
 int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data, int pdu_len)
 {
     if (msg_info == NULL || pdu_data == NULL || pdu_len < 1)
@@ -221,7 +222,6 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
 
     // Oa Type
     uint8_t OaType = pdu_data[pos];
-    (void)OaType;  // 标记为已使用，避免编译警告
     pos += 1;
 
     uint8_t OaLen2 = (OaLen + 1) / 2;  // 简化计算
@@ -238,19 +238,28 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
     pos += OaLen2;
 
     uint8_t number[30] = {0};
-    for (size_t i = 0; i < OaLen2; i++)
+
+    if (((OaType >> 4) & 0x07) == 5) // 7bit编码的字符串
     {
-        number[i * 2] = int2hex(Oa[i] & 0x0F);
-        if(i == (OaLen2 - 1))
+        luat_sms_decode_7bit_data(Oa, OaLen2, number, sizeof(number), 0);
+        luat_sms_gsm_to_ascii(number, OaLen2);
+    }
+    else // 其他类型，按照半字节交换处理
+    {
+        for (size_t i = 0; i < OaLen2; i++)
         {
-            if (OaLen % 2 == 0)
+            number[i * 2] = int2hex(Oa[i] & 0x0F);
+            if(i == (OaLen2 - 1))
+            {
+                if (OaLen % 2 == 0)
+                {
+                    number[i * 2 + 1] = int2hex((Oa[i] & 0xF0) >> 4);
+                }
+            }
+            else
             {
                 number[i * 2 + 1] = int2hex((Oa[i] & 0xF0) >> 4);
             }
-        }
-        else
-        {
-            number[i * 2 + 1] = int2hex((Oa[i] & 0xF0) >> 4);
         }
     }
 

@@ -6,7 +6,7 @@
 @author  江访
 @usage
 本文件为主页显示模块，核心业务逻辑为：
-1、显示主菜单，包含三个选项：组件演示、内置字体、GTFont演示；
+1、显示主菜单，包含两个选项：组件演示、内置字体；
 2、处理BOOT键和PWR键的导航和确认操作；
 3、管理当前选中项状态；
 
@@ -21,9 +21,8 @@ local home_page = {}
 
 -- 菜单项
 local menu_items = {
-    {name = "component", text = "1.组件演示", x = 15, y = 22},
-    {name = "default_font", text = "2.内置字体", x = 15, y = 40},
-    {name = "gtfont", text = "3.GTFont演示", x = 15, y = 58}
+    {name = "component", text = "1.组件演示", x = 15, y = 30},
+    {name = "default_font", text = "2.内置字体", x = 15, y = 48}
 }
 
 local selected_index = 1

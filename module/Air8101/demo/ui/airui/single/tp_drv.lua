@@ -14,7 +14,7 @@
 1、tp_drv.init()：初始化触摸面板驱动
 ]]
 
-local tp_drv = {}
+
 
 
 --[[
@@ -34,7 +34,7 @@ else
 end
 ]]
 
-function tp_drv.init()
+local function tp_drv_init()
     -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
     -- 参数说明：
     -- 0: SCL引脚编号
@@ -57,13 +57,22 @@ function tp_drv.init()
 
     log.info("tp.init", result)
 
-    if not result then
-        log.error("ui_main", "触摸初始化失败")
-        return result
-    else
+    if rtos.bsp() ~= "PC" then
+       
         -- 绑定触摸设备到AirUI输入设备
-        return airui.device_bind_touch(result)
+        airui.device_bind_touch(result)
+
+        -- 在PC模拟器上启用系统键盘输入
+        airui.keyboard_enable_system(true)
+    else
+        if not result then
+            log.error("ui_main", "触摸初始化失败")
+            return result
+        else
+            -- 绑定触摸设备到AirUI输入设备
+            return airui.device_bind_touch(result)
+        end
     end
 end
 
-return tp_drv
+tp_drv_init()

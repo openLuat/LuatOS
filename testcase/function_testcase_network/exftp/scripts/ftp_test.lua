@@ -194,5 +194,35 @@ function ftp_test.test_ftp_file_download()
 end
 
 
+-- 测试6: FTP关闭测试
+function ftp_test.test_ftp_close()
+    log.info("ftp_test", "开始FTP关闭测试")
+
+    -- 创建FTP客户端并登录
+    local ftpc = create_ftp_client()
+    connect_and_auth(ftpc)
+
+    -- 先确认连接正常
+    local ok, current_dir = ftpc:pwd()
+    assert(ok, "初始连接状态异常")
+    
+    -- 关闭连接
+    ftpc:close()
+    
+    -- 验证：尝试再次执行操作应该失败
+    local pwd_ok, _ = ftpc:pwd()
+    assert(pwd_ok == false, "关闭后仍能执行操作，关闭失败")
+    
+    -- 验证：再次关闭不应出错
+    local close_error = false
+    local success, err = pcall(function()
+        ftpc:close()
+    end)
+    assert(success, "重复关闭时出错: " .. tostring(err))
+    
+    log.info("ftp_test", "FTP关闭测试通过")
+end
+
+
 return ftp_test
 

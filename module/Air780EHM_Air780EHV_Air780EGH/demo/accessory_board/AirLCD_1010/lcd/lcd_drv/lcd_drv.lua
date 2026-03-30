@@ -15,7 +15,7 @@
 ]]
 
 
-local lcd_drv = {}
+
 
 --[[
 初始化LCD显示驱动；
@@ -34,7 +34,7 @@ else
 end
 ]]
 
-function lcd_drv.init()
+local function lcd_drv_init()
     local result = lcd.init("st7796",
         {
             pin_rst = 36,                          -- 复位引脚
@@ -74,7 +74,6 @@ function lcd_drv.init()
         lcd.autoFlush(false)
     end
 
-    return result
 end
 
-return lcd_drv
+lcd_drv_init()

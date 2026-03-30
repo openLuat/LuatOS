@@ -386,6 +386,7 @@ struct u8g2_struct
   uint8_t is_auto_page_clear; 		/* set to 0 to disable automatic clear of the buffer in firstPage() and nextPage() */
 #if (defined __LUATOS__) || defined (__USER_CODE__)
   FILE* font_file;
+  uint8_t* glyph_cache;
 #endif
 };
 

@@ -22,6 +22,7 @@ end
 */
 #include "luat_base.h"
 #include "luat_mem.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "miniz"
 #include "luat_log.h"
@@ -54,13 +55,13 @@ static int l_miniz_compress(lua_State* L) {
     tdefl_compressor *pComp;
     mz_bool succeeded;
     const char* data = luaL_checklstring(L, 1, &len);
-    int flags = luaL_optinteger(L, 2, TDEFL_WRITE_ZLIB_HEADER);
+    int flags = (int)luaL_optinteger(L, 2, TDEFL_WRITE_ZLIB_HEADER);
     if (len > 32* 1024) {
         LLOGE("only 32k data is allow");
         return 0;
     }
     luaL_Buffer buff;
-    if (NULL == luaL_buffinitsize(L, &buff, 4096)) {
+    if (NULL == luaL_buffinitsize(L, &buff, 8*1024)) {
         LLOGE("out of memory when malloc dst buff");
         return 0;
     }
@@ -101,7 +102,7 @@ end
 static int l_miniz_uncompress(lua_State* L) {
     size_t len = 0;
     const char* data = luaL_checklstring(L, 1, &len);
-    int flags = luaL_optinteger(L, 2, TINFL_FLAG_PARSE_ZLIB_HEADER);
+    int flags = (int)luaL_optinteger(L, 2, TINFL_FLAG_PARSE_ZLIB_HEADER);
     if (len > 32* 1024) {
         LLOGE("only 32k data is allow");
         return 0;
@@ -131,12 +132,204 @@ static int l_miniz_uncompress(lua_State* L) {
     return 1;
 }
 
+// 解压zip到指定目录
+#if 0
+static int luat_mkdir_recursive(const char* path) {
+    size_t len = strlen(path);
+    if (len == 0) return 0;
+    
+    char* temp_path = (char*)luat_heap_malloc(len + 1);
+    if (!temp_path) return -1;
+    
+    strcpy(temp_path, path);
+    
+    // Remove trailing slash if present
+    if (temp_path[len - 1] == '/' || temp_path[len - 1] == '\\') {
+        temp_path[len - 1] = '\0';
+    }
+    
+    // Create directories step by step
+    char* p = temp_path;
+    if (*p == '/' || *p == '\\') p++; // Skip root slash
+    
+    while (*p) {
+        if (*p == '/' || *p == '\\') {
+            *p = '\0';
+            if (!luat_fs_dexist(temp_path)) {
+                if (luat_fs_mkdir(temp_path) != 0) {
+                    luat_heap_free(temp_path);
+                    return -1;
+                }
+            }
+            *p = '/';
+        }
+        p++;
+    }
+    
+    // Create the final directory
+    if (!luat_fs_dexist(temp_path)) {
+        if (luat_fs_mkdir(temp_path) != 0) {
+            luat_heap_free(temp_path);
+            return -1;
+        }
+    }
+    
+    luat_heap_free(temp_path);
+    return 0;
+}
+#endif
+
+static size_t luat_miniz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n) {
+    FILE* f = (FILE*)pOpaque;
+    luat_fs_fseek(f, (size_t)file_ofs, SEEK_SET);
+    // printf("读取文件 %p 偏移 %llu 读取 %zu 字节\n", f, file_ofs, n);
+    return (size_t)luat_fs_fread(pBuf, 1, n, f);
+}
+
+static size_t luat_miniz_file_write_func(void *pOpaque, mz_uint64 file_ofs, const void *pBuf, size_t n) {
+    FILE* f = (FILE*)pOpaque;
+    luat_fs_fseek(f, (size_t)file_ofs, SEEK_SET);
+    return (size_t)luat_fs_fwrite(pBuf, 1, n, f);
+}
+
+static void* luat_mz_alloc_func(void *opaque, size_t items, size_t size) {
+    (void)opaque;
+    return luat_heap_opt_calloc(LUAT_HEAP_PSRAM, items, size);
+}
+static void luat_mz_free_func(void *opaque, void *address) {
+    (void)opaque;
+    luat_heap_opt_free(LUAT_HEAP_PSRAM, address);
+}
+static void* luat_mz_realloc_func(void *opaque, void *address, size_t items, size_t size) {
+    (void)opaque;
+    return luat_heap_opt_realloc(LUAT_HEAP_PSRAM, address, items * size);
+}
+
+/*
+解压ZIP文件到指定目录
+@api miniz.unzip(zip_file_path, target_dir)
+@string zip_file_path ZIP文件的完整路径
+@string target_dir 目标解压目录的完整路径
+@return boolean 成功返回true，失败返回false
+@usage
+local success = miniz.unzip("/test/csdk.zip", "/output/")
+if success then
+    log.info("unzip", "解压成功")
+else
+    log.error("unzip", "解压失败")
+end
+*/
+static int l_miniz_unzip(lua_State* L) {
+    const char* zip_file_path = luaL_checkstring(L, 1);
+    const char* target_dir = luaL_checkstring(L, 2);
+    
+    // Ensure target directory ends with slash
+    char* normalized_target = (char*)target_dir;
+    char tmpdst[256] = {0};
+    
+    size_t zip_file_size = 0;
+    zip_file_size = luat_fs_fsize(zip_file_path);
+    if (zip_file_size == 0) {
+        LLOGE("ZIP file is empty: %s", zip_file_path);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    else {
+        LLOGI("ZIP file size: %zu bytes", zip_file_size);
+    }
+    FILE* f = luat_fs_fopen(zip_file_path, "rb");
+    if (!f) {
+        LLOGE("Failed to open ZIP file: %s", zip_file_path);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    
+    // Initialize ZIP reader
+    mz_zip_archive zip_archive = {0};
+    zip_archive.m_pRead = luat_miniz_file_read_func;
+    zip_archive.m_pIO_opaque = f;
+    zip_archive.m_archive_size = zip_file_size;
+    zip_archive.m_pAlloc = luat_mz_alloc_func;
+    zip_archive.m_pFree = luat_mz_free_func;
+    zip_archive.m_pRealloc = luat_mz_realloc_func;
+
+    if(!mz_zip_reader_init(&zip_archive, zip_file_size, 0)) {
+        LLOGE("Failed to initialize ZIP reader err %d", zip_archive.m_last_error);
+        luat_fs_fclose(f);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    
+    mz_uint num_files = mz_zip_reader_get_num_files(&zip_archive);
+    LLOGI("ZIP file contains %u files", num_files);
+    
+    int success = 1;
+    
+    
+    for (mz_uint i = 0; i < num_files; i++) {
+        mz_zip_archive_file_stat file_stat;
+        if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
+            LLOGW("Failed to get file stats for entry %u", i);
+            success = 0;
+            continue;
+        }
+        
+        // Skip directories (they end with /)
+        if (file_stat.m_is_directory) {
+            #if 0
+            // Create directory structure
+            size_t full_path_len = strlen(normalized_target) + strlen(file_stat.m_filename);
+            char* full_path = (char*)luat_heap_malloc(full_path_len + 1);
+            if (full_path) {
+                strcpy(full_path, normalized_target);
+                strcat(full_path, file_stat.m_filename);
+                luat_mkdir_recursive(full_path);
+                luat_heap_free(full_path);
+            }
+            #endif
+            LLOGI("Skipping directory: %s", file_stat.m_filename);
+            continue;
+        }
+        
+        // Construct full output path
+        snprintf(tmpdst, sizeof(tmpdst), "%s%s", target_dir, file_stat.m_filename);
+        LLOGI("Processing file: %s -> %s", file_stat.m_filename, tmpdst);
+        
+        // Extract file to disk
+        FILE* out_f = luat_fs_fopen(tmpdst, "wb+");
+        if (!out_f) {
+            LLOGE("Failed to create output file: %s", tmpdst);
+            success = 0;
+            continue;
+        }
+        if (!mz_zip_reader_extract_to_callback(&zip_archive, i, luat_miniz_file_write_func, out_f, 0)) {
+            LLOGE("Failed to extract file: %s", file_stat.m_filename);
+            success = 0;
+        } else {
+            LLOGD("Extracted: %s (%zu bytes)", file_stat.m_filename, (size_t)file_stat.m_uncomp_size);
+        }
+        luat_fs_fclose(out_f);
+    }
+
+    luat_fs_fclose(f);
+    
+    mz_zip_reader_end(&zip_archive);
+    
+    if (normalized_target != target_dir) {
+        luat_heap_free(normalized_target);
+    }
+    
+    lua_pushboolean(L, success);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_miniz[] = {
     {"compress", ROREG_FUNC(l_miniz_compress)},
     {"uncompress", ROREG_FUNC(l_miniz_uncompress)},
-    // {"inflate", ROREG_FUNC(l_miniz_inflate)},
-    // {"deflate", ROREG_FUNC(l_miniz_deflate)},
+    #ifndef LUAT_USE_MINIZ_LITE
+    {"unzip", ROREG_FUNC(l_miniz_unzip)},
+    #endif
 
     // 放些常量
     // 压缩参数-------------------------

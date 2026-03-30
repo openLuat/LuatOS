@@ -11,7 +11,7 @@
 3、每个演示模块独立运行，展示不同的UI组件和交互逻辑；
 4、支持标签、按钮、进度条、输入框、下拉框、图片轮播、消息框、复选框等20种UI组件演示；
 5、支持横向/纵向滑动页面、页面切换等高级功能演示；
-6、支持不同字体后端（HzFont矢量字体、GTFont矢量字体）的演示；
+6、支持不同字体后端（HzFont矢量字体）的演示；
 
 硬件初始化说明：
 - 所有演示模块都通过hw_font_drv模块进行硬件初始化
@@ -37,7 +37,6 @@
 - win_vertical_slide: 纵向滑动页面演示
 - win_switch_page: 页面切换演示
 - win_hzfont: 内置软件矢量字体演示
-- win_gtfont: 外置硬件矢量字体演示
 
 更多说明参考本目录下的readme.md文件
 ]]
@@ -117,7 +116,6 @@ require("win_all_component")  --所有组件综合演示
 -- require("win_vertical_slide")  --纵向滑动页面演示
 -- require("win_switch_page")  --页面切换演示
 -- require("win_hzfont")  --内置软件矢量字体演示
--- require("win_gtfont")  --外置硬件矢量字体演示
 
 -- 用户代码已结束
 -- 结尾总是这一句

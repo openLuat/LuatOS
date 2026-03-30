@@ -8,9 +8,9 @@
 本文件演示airui.image组件的用法，展示图片显示功能。
 ]]
 -- 加载显示驱动
-lcd_drv = require("lcd_drv")
+require("lcd_drv")
 -- 加载触摸驱动
-tp_drv = require("tp_drv")
+require("tp_drv")
 local exgnss=require "exgnss"
 
 local map_img
@@ -105,8 +105,7 @@ end
 local function ui_main()
     log.info("IMAGE")
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
     
     sys.wait(1000)
     local img = airui.image({

@@ -10,8 +10,7 @@
 
 local function ui_main()
     -- 初始化硬件
-    lcd_drv.init()
-    tp_drv.init()
+
 
     -- 创建按钮
     -- 示例1：创建一个基础按钮

@@ -33,6 +33,14 @@ LUAT_WEAK void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size){
     return ptr;
 }
 
+LUAT_WEAK void* luat_heap_opt_memalign(LUAT_HEAP_TYPE_E type, size_t alignment, size_t size){
+    void *ptr = luat_heap_memalign(alignment, size);
+    if (ptr) {
+        memset(ptr, 0, size);
+    }
+    return ptr;
+}
+
 LUAT_WEAK void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, size_t* max_used){
     if (type == LUAT_HEAP_PSRAM){
         *total = 0;

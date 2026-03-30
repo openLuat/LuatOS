@@ -15,7 +15,7 @@ sys.taskInit(function()
         path = nil, -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
         size = 16, -- 字体大小，默认 16
         cache_size = 2048, -- 缓存字数大小，默认 2048
-        antialias = 4, -- 抗锯齿等级，默认 4
+        antialias = 4, -- 抗锯齿等级1-3，默认 1
     })
 
     -- 允许系统键盘事件转发给当前 textarea, 当前只支持pc模拟器中使用

@@ -7,7 +7,7 @@
 @usage
 本文件为字体驱动配置模块，核心业务逻辑为：
 1、提供统一的硬件初始化接口；
-2、支持默认字体、HzFont矢量字体和GTFont矢量字体配置；
+2、支持默认字体、HzFont矢量字体配置；
 3、配置LCD显示和触摸屏参数；
 
 本文件的对外接口有1个：
@@ -16,10 +16,9 @@
 @api hw_font_drv.init(font_config)
 @summary 初始化exEasyUI硬件系统
 @table font_config 字体配置参数（可选）
-@field type string 字体类型，支持 "hzfont"、"gtfont"，不传则使用默认字体
+@field type string 字体类型，支持 "hzfont"，不传则使用默认字体
 @field size number 字体大小
 @field antialias number 抗锯齿设置（仅HzFont有效）
-@field spi table SPI配置（仅GTFont有效）
 @return nil
 
 @usage
@@ -31,13 +30,6 @@ hw_font_drv.init({
     type = "hzfont",
     size = 24,
     antialias = -1
-})
-
--- 使用GTFont矢量字体初始化硬件
-hw_font_drv.init({
-    type = "gtfont",
-    spi = { id = 0, cs = 8 },
-    size = 32
 })
 ]]
 

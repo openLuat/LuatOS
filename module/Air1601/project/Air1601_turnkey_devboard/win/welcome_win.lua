@@ -58,7 +58,7 @@ local function on_create()
             win_id = nil
         end
         sys.publish("OPEN_IDLE_WIN")
-    end, 3000)
+    end, 50)
 end
 
 local function on_destroy()

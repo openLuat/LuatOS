@@ -34,6 +34,124 @@ static inline void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_
 }
 #endif
 
+static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state);
+static void airui_textarea_bind_shared_keyboard(lv_obj_t *target);
+static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_t *font_state);
+static void airui_textarea_focus_cb(lv_event_t *e);
+static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len, bool *truncated);
+static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text);
+
+/**
+ * 从 Lua 配置表创建 textarea
+ * @api airui.textarea(config)
+ * @param L Lua 状态
+ * @param idx 配置表索引
+ * @return lv_obj_t*，失败返回 NULL
+ * @pre 传入参数为有效 table；ctx 已初始化
+ */
+lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
+{
+    if (L == NULL) {
+        return NULL;
+    }
+
+    lua_State *L_state = (lua_State *)L;
+    airui_ctx_t *ctx = airui_binding_get_ctx(L_state);
+    if (ctx == NULL) {
+        return NULL;
+    }
+
+    // 将 textarea 插入指定 parent，未指定时使用当前 lv_scr_act
+    lv_obj_t *parent = airui_marshal_parent(L, idx);
+    if (parent == NULL) {
+        parent = lv_scr_act();
+    }
+
+    // 解析布局相关字段
+    int x = airui_marshal_integer(L, idx, "x", 0);
+    int y = airui_marshal_integer(L, idx, "y", 0);
+    int w = airui_marshal_integer(L, idx, "w", ctx->width > 0 ? ctx->width - x : 200);
+    int h = airui_marshal_integer(L, idx, "h", 120);
+    int max_len = airui_marshal_integer(L, idx, "max_len", 256);
+    const char *text = airui_marshal_string(L, idx, "text", NULL);
+    const char *placeholder = airui_marshal_string(L, idx, "placeholder", NULL);
+
+    lv_obj_t *textarea = lv_textarea_create(parent);
+    if (textarea == NULL) {
+        return NULL;
+    }
+
+    // 应用布局与文本约束
+    lv_obj_set_pos(textarea, x, y);
+    lv_obj_set_size(textarea, w, h);
+    lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
+    if (max_len > 0) {
+        lv_textarea_set_max_length(textarea, max_len);
+    }
+    if (placeholder != NULL && placeholder[0] != '\0') {
+        lv_textarea_set_placeholder_text(textarea, placeholder);
+    }
+
+    if (text != NULL) {
+        airui_textarea_apply_text_fast(textarea, text);
+        lv_textarea_set_cursor_pos(textarea, 0);
+        lv_obj_scroll_to_y(textarea, 0, LV_ANIM_OFF);
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_alloc(
+        ctx, textarea, AIRUI_COMPONENT_TEXTAREA);
+    if (meta == NULL) {
+        lv_obj_delete(textarea);
+        return NULL;
+    }
+
+    // 监听 focus 事件依次同步系统键盘焦点
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_DEFOCUSED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_PRESSED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    airui_textarea_data_t *data = (airui_textarea_data_t *)luat_heap_malloc(sizeof(airui_textarea_data_t));
+    if (data == NULL) {
+        airui_component_meta_free(meta);
+        lv_obj_delete(textarea);
+        return NULL;
+    }
+    data->keyboard = NULL;
+    airui_text_font_state_init(&data->font, 0);
+    airui_text_font_read_config(&data->font, L, idx);
+    meta->user_data = data;
+    airui_textarea_apply_font(textarea, &data->font);
+
+    // 绑定 Lua on_text_change 回调
+    int callback_ref = airui_component_capture_callback(L, idx, "on_text_change");
+    if (callback_ref != LUA_NOREF) {
+        airui_component_bind_event(meta, AIRUI_EVENT_VALUE_CHANGED, callback_ref);
+    }
+
+    // 可选的虚拟键盘配置：创建/绑定并自动 attach
+    lua_getfield(L_state, idx, "keyboard");
+    if (lua_isuserdata(L_state, -1)) {
+        airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
+        airui_component_meta_t *kbd_meta = airui_component_meta_get(ud->obj);
+        if (kbd_meta == NULL || kbd_meta->component_type != AIRUI_COMPONENT_KEYBOARD) {
+            LLOGW("keyboard绑定组件对象不是键盘");
+        }
+        else {
+            airui_keyboard_set_target(ud->obj, textarea);
+            airui_textarea_attach_keyboard(textarea, ud->obj);
+        }
+    }else{
+        LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");
+    }
+    lua_pop(L_state, 1);
+
+    return textarea;
+}
+
+
 /**
  * 从 Lua 注册表获取 AIRUI 上下文
  * @pre Lua 已调用 airui.init 并保存 ctx
@@ -199,7 +317,7 @@ static char *airui_textarea_dup_clipped_text(const char *text, uint32_t max_len,
     return clipped;
 }
 
-// 应用文本
+// 快速应用文本
 static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text)
 {
     uint32_t max_len;
@@ -239,116 +357,6 @@ static int airui_textarea_apply_text_fast(lv_obj_t *textarea, const char *text)
         luat_heap_free(clipped_text);
     }
     return AIRUI_OK;
-}
-
-/**
- * 从 Lua 配置表创建 textarea
- * @api airui.textarea(config)
- * @param L Lua 状态
- * @param idx 配置表索引
- * @return lv_obj_t*，失败返回 NULL
- * @pre 传入参数为有效 table；ctx 已初始化
- */
-lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
-{
-    if (L == NULL) {
-        return NULL;
-    }
-
-    lua_State *L_state = (lua_State *)L;
-    airui_ctx_t *ctx = airui_binding_get_ctx(L_state);
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    // 将 textarea 插入指定 parent，未指定时使用当前 lv_scr_act
-    lv_obj_t *parent = airui_marshal_parent(L, idx);
-    if (parent == NULL) {
-        parent = lv_scr_act();
-    }
-
-    // 解析布局相关字段
-    int x = airui_marshal_integer(L, idx, "x", 0);
-    int y = airui_marshal_integer(L, idx, "y", 0);
-    int w = airui_marshal_integer(L, idx, "w", ctx->width > 0 ? ctx->width - x : 200);
-    int h = airui_marshal_integer(L, idx, "h", 120);
-    int max_len = airui_marshal_integer(L, idx, "max_len", 256);
-    const char *text = airui_marshal_string(L, idx, "text", NULL);
-    const char *placeholder = airui_marshal_string(L, idx, "placeholder", NULL);
-
-    lv_obj_t *textarea = lv_textarea_create(parent);
-    if (textarea == NULL) {
-        return NULL;
-    }
-
-    // 应用布局与文本约束
-    lv_obj_set_pos(textarea, x, y);
-    lv_obj_set_size(textarea, w, h);
-    lv_obj_set_style_pad_top(textarea, 2, LV_PART_MAIN);
-    lv_obj_set_style_pad_bottom(textarea, 2, LV_PART_MAIN);
-    if (max_len > 0) {
-        lv_textarea_set_max_length(textarea, max_len);
-    }
-    if (placeholder != NULL && placeholder[0] != '\0') {
-        lv_textarea_set_placeholder_text(textarea, placeholder);
-    }
-
-    if (text != NULL) {
-        airui_textarea_apply_text_fast(textarea, text);
-        lv_textarea_set_cursor_pos(textarea, 0);
-        lv_obj_scroll_to_y(textarea, 0, LV_ANIM_OFF);
-    }
-
-    airui_component_meta_t *meta = airui_component_meta_alloc(
-        ctx, textarea, AIRUI_COMPONENT_TEXTAREA);
-    if (meta == NULL) {
-        lv_obj_delete(textarea);
-        return NULL;
-    }
-
-    // 监听 focus 事件依次同步系统键盘焦点
-    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_FOCUSED, NULL);
-    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_DEFOCUSED, NULL);
-    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_PRESSED, NULL);
-    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_VALUE_CHANGED, NULL);
-
-    airui_textarea_data_t *data = (airui_textarea_data_t *)luat_heap_malloc(sizeof(airui_textarea_data_t));
-    if (data == NULL) {
-        airui_component_meta_free(meta);
-        lv_obj_delete(textarea);
-        return NULL;
-    }
-    data->keyboard = NULL;
-    airui_text_font_state_init(&data->font, 0);
-    airui_text_font_read_config(&data->font, L, idx);
-    meta->user_data = data;
-    airui_textarea_apply_font(textarea, &data->font);
-
-    // 绑定 Lua on_text_change 回调
-    int callback_ref = airui_component_capture_callback(L, idx, "on_text_change");
-    if (callback_ref != LUA_NOREF) {
-        airui_component_bind_event(meta, AIRUI_EVENT_VALUE_CHANGED, callback_ref);
-    }
-
-    // 可选的虚拟键盘配置：创建/绑定并自动 attach
-    lua_getfield(L_state, idx, "keyboard");
-    if (lua_isuserdata(L_state, -1)) {
-        airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        airui_component_meta_t *kbd_meta = airui_component_meta_get(ud->obj);
-        if (kbd_meta == NULL || kbd_meta->component_type != AIRUI_COMPONENT_KEYBOARD) {
-            LLOGW("keyboard绑定组件对象不是键盘");
-        }
-        else {
-            airui_keyboard_set_target(ud->obj, textarea);
-            airui_textarea_attach_keyboard(textarea, ud->obj);
-        }
-    }else{
-        LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");
-    }
-    lua_pop(L_state, 1);
-
-    return textarea;
 }
 
 /**

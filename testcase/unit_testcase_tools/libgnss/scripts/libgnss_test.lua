@@ -338,6 +338,20 @@ local function agps()
         if code and code == 200 then
             log.info("exgnss.opts", "下载星历成功", url)
             io.writeFile("/hxxt_tm", tostring(now))
+            
+            -- ========== 新增：下载后检查星历文件 ==========
+            -- 检查星历文件是否存在
+            local file_exists = io.exists("/hxxt.dat")
+            assert(file_exists, "星历文件下载后不存在: /hxxt.dat")
+            log.info("exgnss.opts", "星历文件存在性检查通过")
+            
+            -- 检查星历文件大小
+            local file_size = io.fileSize("/hxxt.dat")
+            assert(file_size and file_size >= 1024, 
+                   string.format("星历文件大小不足: 实际大小=%s字节, 要求>=1024字节", 
+                                 tostring(file_size)))
+            log.info("exgnss.opts", "星历文件大小检查通过", string.format("大小=%d字节", file_size))
+            -- ========== 新增结束 ==========
         else
             log.info("exgnss.opts", "下载星历失败", code)
         end

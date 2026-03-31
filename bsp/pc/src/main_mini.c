@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     #endif
 
     #ifdef LUAT_USE_LWIP
-    LLOGD("初始化lwip");
+    //LLOGD("初始化lwip");
     tcpip_init(NULL, NULL);
     #endif
 

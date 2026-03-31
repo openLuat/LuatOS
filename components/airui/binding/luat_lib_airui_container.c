@@ -118,6 +118,56 @@ static int l_container_open(lua_State *L) {
     return 0;
 }
 
+/**
+ * Container:get_pos()
+ * @api container:get_pos()
+ * @return int x 坐标
+ * @return int y 坐标
+ */
+static int l_container_get_pos(lua_State *L) {
+    lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
+    int32_t x = 0;
+    int32_t y = 0;
+    if (airui_container_get_pos(container, &x, &y) != AIRUI_OK) {
+        return luaL_error(L, "invalid container");
+    }
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+/**
+ * Container:set_pos(x, y)
+ * @api container:set_pos(x, y)
+ * @int x X 坐标
+ * @int y Y 坐标
+ */
+static int l_container_set_pos(lua_State *L) {
+    lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
+    int32_t x = (int32_t)luaL_checkinteger(L, 2);
+    int32_t y = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_container_set_pos(container, x, y) != AIRUI_OK) {
+        return luaL_error(L, "invalid container");
+    }
+    return 0;
+}
+
+/**
+ * Container:move(dx, dy)
+ * @api container:move(dx, dy)
+ * @int dx X 方向偏移量
+ * @int dy Y 方向偏移量
+ */
+static int l_container_move(lua_State *L) {
+    lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
+    int32_t dx = (int32_t)luaL_checkinteger(L, 2);
+    int32_t dy = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_container_move(container, dx, dy) != AIRUI_OK) {
+        return luaL_error(L, "invalid container");
+    }
+    return 0;
+}
+
 
 /**
  * Container:destroy()
@@ -148,6 +198,9 @@ void airui_register_container_meta(lua_State *L) {
         {"set_border_color", l_container_set_border_color},
         {"set_on_click", l_container_set_on_click},
         {"set_hidden", l_container_set_hidden},
+        {"get_pos", l_container_get_pos},
+        {"set_pos", l_container_set_pos},
+        {"move", l_container_move},
         {"hide", l_container_hide},
         {"open", l_container_open},
         {"destroy", l_container_destroy},

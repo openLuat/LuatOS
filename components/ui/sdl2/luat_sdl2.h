@@ -18,6 +18,7 @@ void luat_sdl2_draw(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint32_t* da
 void luat_sdl2_flush(void);
 void luat_sdl2_pump_events(void);
 void* luat_sdl2_get_window(void);
+void luat_sdl2_set_upright_preview(uint8_t enable, uint16_t rotation, size_t native_width, size_t native_height);
 
 #endif
 

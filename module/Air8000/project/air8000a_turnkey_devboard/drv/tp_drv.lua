@@ -43,8 +43,7 @@ local function tp_drv_init()
     gpio.setup(164, 1, gpio.PULLUP)
     gpio.setup(17, 1, gpio.PULLUP)
     gpio.setup(16, 1, gpio.PULLUP)
-    -- 等待供电稳定
-    sys.wait(100)
+
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 

@@ -2,6 +2,18 @@
 
 sys.taskInit(function()
     log.info("wlan_test", "开始 wlan 模块测试")
+    local function wait_sta_disconnected(timeout_ms)
+        while true do
+            local ok, evt, data = sys.waitUntil("WLAN_STA_INC", timeout_ms)
+            if not ok then
+                return false
+            end
+            if evt == "DISCONNECTED" then
+                return true, data
+            end
+        end
+    end
+
     wlan.init()
     sys.wait(1000)  -- 等待模块初始化完成
     
@@ -40,6 +52,19 @@ sys.taskInit(function()
     result = sys.waitUntil("IP_READY", 10000)
     assert(result, "reconnect 后未收到 IP_READY")
     log.info("wlan_test", "reconnect 成功, ready:", wlan.ready())
+
+    wlan.disconnect()
+    sys.wait(500)
+
+    local ret = wlan.connect("luatos1234", "wrongpwd")
+    assert(ret == true, "错误密码连接应返回发起成功")
+    local ok, reason = wait_sta_disconnected(5000)
+    assert(ok and reason == 258, "错误密码应在2秒后收到258")
+
+    ret = wlan.connect("not-found-ssid", "12345678")
+    assert(ret == true, "找不到AP连接应返回发起成功")
+    ok, reason = wait_sta_disconnected(12000)
+    assert(ok and reason == 257, "找不到AP应在10秒后收到257")
 end)
 
 sys.run()

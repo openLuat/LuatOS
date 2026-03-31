@@ -32,6 +32,7 @@ static char wlan_ssid[36] = {0};
 static char wlan_password[64] = {0};
 static uint8_t wlan_bssid[6] = {0};
 static int16_t wlan_rssi = 0;
+static uint32_t wlan_connect_seq = 0;
 static char wlan_hostname[32] = "LUATOS_PC";
 static uint8_t wlan_mac[6] = {0x00, 0x22, 0xEE, 0xCC, 0x23, 0x99};
 static int wlan_ps_mode = 0;
@@ -42,6 +43,15 @@ static char wlan_ap_ssid[36] = {0};
 static char wlan_ap_password[64] = {0};
 static uint8_t wlan_ap_gateway[4] = {192, 168, 4, 1};
 static uint8_t wlan_ap_netmask[4] = {255, 255, 255, 0};
+
+#define WIFI_REASON_NO_AP_FOUND 257
+#define WIFI_REASON_WRONG_PASSWORD 258
+
+typedef struct mock_wlan_connect_timer {
+    uv_timer_t timer;
+    uint32_t seq;
+    int reason;
+} mock_wlan_connect_timer_t;
 
 // ========== Mock scan data ==========
 
@@ -94,13 +104,20 @@ static int l_wlan_sta_connected_cb(lua_State *L, void *ptr) {
 
 static int l_wlan_sta_disconnected_cb(lua_State *L, void *ptr) {
     (void)ptr;
+    rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");
     if (!lua_isfunction(L, -1)) {
         return 0;
     }
     lua_pushliteral(L, "WLAN_STA_INC");
     lua_pushliteral(L, "DISCONNECTED");
-    lua_call(L, 2, 0);
+    if (msg && msg->arg1 > 0) {
+        lua_pushinteger(L, msg->arg1);
+        lua_call(L, 3, 0);
+    }
+    else {
+        lua_call(L, 2, 0);
+    }
     return 0;
 }
 
@@ -194,12 +211,77 @@ static int start_oneshot_timer(uv_timer_cb cb, uint64_t delay_ms) {
     return 0;
 }
 
+static int start_connect_timer(uv_timer_cb cb, uint64_t delay_ms, uint32_t seq, int reason) {
+    mock_wlan_connect_timer_t *t = luat_heap_malloc(sizeof(mock_wlan_connect_timer_t));
+    if (t == NULL) return -1;
+    memset(t, 0, sizeof(mock_wlan_connect_timer_t));
+    t->seq = seq;
+    t->reason = reason;
+    uv_timer_init(main_loop, &t->timer);
+    uv_timer_start(&t->timer, cb, delay_ms, 0);
+    return 0;
+}
+
+static void mock_sta_connected_guard_timer_cb(uv_timer_t *t) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+    uint32_t seq = ctx->seq;
+    free_uv_handle(t);
+    if (seq != wlan_connect_seq || !wlan_connected) {
+        return;
+    }
+    rtos_msg_t msg = {0};
+    msg.handler = l_wlan_sta_connected_cb;
+    luat_msgbus_put(&msg, 0);
+}
+
+static void mock_ip_ready_guard_timer_cb(uv_timer_t *t) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+    uint32_t seq = ctx->seq;
+    free_uv_handle(t);
+    if (seq != wlan_connect_seq || !wlan_connected) {
+        return;
+    }
+    uv_interface_address_t *info = NULL;
+    int count = 0;
+    uint32_t ip_addr = 0xC0A80164;
+    uv_interface_addresses(&info, &count);
+    for (int i = count - 1; i >= 0; i--) {
+        if (!info[i].is_internal && info[i].address.address4.sin_family == 2) {
+            ip_addr = info[i].address.address4.sin_addr.s_addr;
+            break;
+        }
+    }
+    if (info) {
+        uv_free_interface_addresses(info, count);
+    }
+    rtos_msg_t msg = {0};
+    msg.handler = l_wlan_ip_ready_cb;
+    msg.arg1 = 1;
+    msg.arg2 = ip_addr;
+    luat_msgbus_put(&msg, 0);
+}
+
+static void mock_connfail_timer_cb(uv_timer_t *t) {
+    mock_wlan_connect_timer_t *ctx = (mock_wlan_connect_timer_t *)t;
+    uint32_t seq = ctx->seq;
+    int reason = ctx->reason;
+    free_uv_handle(t);
+    if (seq != wlan_connect_seq) {
+        return;
+    }
+    rtos_msg_t msg = {0};
+    msg.handler = l_wlan_sta_disconnected_cb;
+    msg.arg1 = reason;
+    luat_msgbus_put(&msg, 0);
+}
+
 // ========== Mock mode implementations ==========
 
 static int mock_wlan_init(void) {
     wlan_inited = 1;
     wlan_mode = LUAT_WLAN_MODE_STA;
     wlan_connected = 0;
+    wlan_connect_seq++;
     memset(wlan_ssid, 0, sizeof(wlan_ssid));
     memset(wlan_password, 0, sizeof(wlan_password));
     LLOGI("wlan mock init ok");
@@ -224,30 +306,50 @@ static int mock_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap
 }
 
 static int mock_wlan_connect(luat_wlan_conninfo_t* info) {
+    int scan_index = -1;
+    uint32_t seq = 0;
+
     if (!wlan_inited) {
         LLOGW("wlan not inited");
         return -1;
     }
-    // Check credentials
-    if (strcmp(info->ssid, "luatos1234") == 0 && strcmp(info->password, "12341234") == 0) {
-        LLOGI("wlan mock connect: ssid=%s, auth ok", info->ssid);
-        wlan_connected = 1;
-        memcpy(wlan_ssid, info->ssid, sizeof(wlan_ssid));
-        memcpy(wlan_password, info->password, sizeof(wlan_password));
-        // Copy bssid from mock data
-        memcpy(wlan_bssid, mock_scan_results[0].bssid, 6);
-        wlan_rssi = mock_scan_results[0].rssi;
 
-        // Async events: connected after 300ms, IP ready after 800ms
-        start_oneshot_timer(mock_sta_connected_timer_cb, 300);
-        start_oneshot_timer(mock_ip_ready_timer_cb, 800);
-        return 0;
+    seq = ++wlan_connect_seq;
+    for (size_t i = 0; i < MOCK_AP_COUNT; i++) {
+        if (strcmp(info->ssid, mock_scan_results[i].ssid) == 0) {
+            scan_index = (int)i;
+            break;
+        }
     }
-    LLOGW("wlan mock connect failed: ssid=%s, wrong credentials %s", info->ssid, info->password);
-    return -1;
+
+    if (scan_index < 0) {
+        LLOGW("wlan mock connect pending fail: ssid=%s not found, reason=%d", info->ssid, WIFI_REASON_NO_AP_FOUND);
+        return start_connect_timer(mock_connfail_timer_cb, 10000, seq, WIFI_REASON_NO_AP_FOUND);
+    }
+
+    if (strcmp(info->ssid, "luatos1234") != 0 || strcmp(info->password, "12341234") != 0) {
+        LLOGW("wlan mock connect pending fail: ssid=%s wrong password, reason=%d", info->ssid, WIFI_REASON_WRONG_PASSWORD);
+        return start_connect_timer(mock_connfail_timer_cb, 2000, seq, WIFI_REASON_WRONG_PASSWORD);
+    }
+
+    LLOGI("wlan mock connect: ssid=%s, auth ok", info->ssid);
+    wlan_connected = 1;
+    memcpy(wlan_ssid, info->ssid, sizeof(wlan_ssid));
+    memcpy(wlan_password, info->password, sizeof(wlan_password));
+    memcpy(wlan_bssid, mock_scan_results[scan_index].bssid, 6);
+    wlan_rssi = mock_scan_results[scan_index].rssi;
+
+    if (start_connect_timer(mock_sta_connected_guard_timer_cb, 300, seq, 0) != 0) {
+        return -1;
+    }
+    if (start_connect_timer(mock_ip_ready_guard_timer_cb, 800, seq, 0) != 0) {
+        return -1;
+    }
+    return 0;
 }
 
 static int mock_wlan_disconnect(void) {
+    wlan_connect_seq++;
     if (!wlan_connected) {
         return 0;
     }

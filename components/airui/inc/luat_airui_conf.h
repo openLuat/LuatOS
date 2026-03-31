@@ -30,6 +30,13 @@
     /* SDL2 平台配置 */
     #define LV_USE_OS   LV_OS_NONE  /* SDL2 平台可能不需要 OSAL */
 
+    /*
+     * SDL 模拟器预览补偿开关。
+     * 打开后，airui.set_rotation() 仍保持与真机一致的逻辑分辨率和输入语义，
+     * 但 PC 窗口按逻辑坐标直立预览，避免 90/270 度测试时需要歪着阅读。
+     */
+    #define AIRUI_SDL_UPRIGHT_PREVIEW 1
+
     #define LV_COLOR_DEPTH 16
 
     /* 图片缓存配置 */

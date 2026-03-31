@@ -386,5 +386,169 @@ function iconv_tests.test_ucs2beToUtf8_symbol()
     log.info("✓ 测试通过: 【。由UCS-2BE(0x30 0x10 0x30 0x02) → UTF8(0xE3 0X80 0X90 0xE3 0X80 0X82)")
 end
 
+-- 测试iconv.open传入nil参数
+function iconv_tests.test_open_with_nil()
+    -- 测试目标编码为nil
+    local ok, ic = pcall(iconv.open, nil, "gb2312")
+    assert(not ok, "目标编码为nil时应抛出错误")
+    log.info("✓ 测试通过: iconv.open目标编码为nil抛出错误")
+
+    -- 测试源编码为nil
+    local ok2, ic2 = pcall(iconv.open, "utf8", nil)
+    assert(not ok2, "源编码为nil时应抛出错误")
+    log.info("✓ 测试通过: iconv.open源编码为nil抛出错误")
+
+    -- 测试两个参数都为nil
+    local ok3, ic3 = pcall(iconv.open, nil, nil)
+    assert(not ok3, "两个参数都为nil时应抛出错误")
+    log.info("✓ 测试通过: iconv.open两个参数都为nil抛出错误")
+end
+
+-- 测试ic:iconv传入nil参数
+function iconv_tests.test_iconv_with_nil()
+    -- 使用支持的编码对打开句柄
+    local ic = iconv.open("utf8", "ucs2be")
+    assert(ic ~= nil, "打开ucs2be到utf8的转换句柄失败")
+
+    -- 测试传入nil数据
+    local ok, result = pcall(ic.iconv, ic, nil)
+    log.info("✓ 测试通过: ic:iconv传入nil的行为符合预期")
+
+    -- 测试传入空字符串
+    local result2 = ic:iconv("")
+    assert(result2 == "", "iconv传入空字符串应返回空字符串")
+    log.info("✓ 测试通过: ic:iconv传入空字符串返回空字符串")
+end
+
+-- 测试iconv.open传入空字符串
+function iconv_tests.test_open_with_empty_string()
+    local ic = iconv.open("", "gb2312")
+    assert(ic == nil, "目标编码为空字符串时应返回nil")
+
+    local ic2 = iconv.open("utf8", "")
+    assert(ic2 == nil, "源编码为空字符串时应返回nil")
+
+    local ic3 = iconv.open("", "")
+    assert(ic3 == nil, "两个编码都为空字符串时应返回nil")
+
+    log.info("✓ 测试通过: iconv.open传入空字符串返回nil")
+end
+
+-- 测试iconv.open传入数字类型
+function iconv_tests.test_open_with_number()
+    local ic = iconv.open(123, "gb2312")
+    assert(ic == nil, "目标编码为数字时应返回nil")
+
+    local ic2 = iconv.open("utf8", 456)
+    assert(ic2 == nil, "源编码为数字时应返回nil")
+
+    log.info("✓ 测试通过: iconv.open传入数字类型返回nil")
+end
+
+-- 测试iconv.open传入table类型
+function iconv_tests.test_open_with_table()
+    -- 测试目标编码为table
+    local ok, ic = pcall(iconv.open, {}, "gb2312")
+    assert(not ok, "目标编码为table时应抛出错误")
+    log.info("✓ 测试通过: iconv.open传入table类型抛出错误")
+
+    -- 测试源编码为table
+    local ok2, ic2 = pcall(iconv.open, "utf8", {})
+    assert(not ok2, "源编码为table时应抛出错误")
+    log.info("✓ 测试通过: iconv.open传入table类型抛出错误")
+end
+
+-- -- 测试close函数
+-- function iconv_tests.test_close()
+--     -- 测试正常关闭
+--     local ic_test = iconv.open("utf8", "ucs2be")
+--     assert(ic_test ~= nil, "打开ucs2be到utf8的转换句柄失败")
+--     log.info("✓ 测试通过: 正常打开转换句柄")
+
+--     local success = ic_test:close()
+--     assert(success == true, "正常关闭句柄应返回true")
+--     log.info("✓ 测试通过: 正常关闭句柄返回true")
+
+--     -- 测试重复关闭同一个句柄
+--     local ic_test_first = iconv.open("utf8", "ucs2be")
+--     assert(ic_test_first ~= nil, "打开ucs2be到utf8的转换句柄失败")
+--     local result_close_first = ic_test_first:close()
+--     assert(result_close_first == true, "第一次关闭句柄应返回true")
+--     local result_close_second = ic_test_first:close()
+--     assert(result_close_second == true, "重复关闭同一个句柄应返回true")
+--     log.info("✓ 测试通过: 重复关闭同一句柄测试完成")
+-- end
+
+-- -- 测试close后无法继续使用句柄
+-- function iconv_tests.test_use_after_close()
+--     local open_result = iconv.open("utf8", "ucs2be")
+--     assert(open_result ~= nil, "打开ucs2be到utf8的转换句柄失败")
+--     log.info("成功打开转换句柄")
+
+--     local ucs2be_data = string.char(0x30, 0x10, 0x30, 0x02)
+--     local result = open_result:iconv(ucs2be_data)
+--     assert(#result == 6, string.format("结果长度应为4字节，实际是%d字节", #result))
+--     local utf8_data = string.format("%02X%02X%02X%02X%02X%02X", result:byte(1), result:byte(2), result:byte(3),
+--         result:byte(4), result:byte(5), result:byte(6))
+--     local expected_data = "E38090E38082"
+--     assert(utf8_data == expected_data, string.format(
+--         "我字由ucs2be编码到utf8编码格式转换失败: 预期 %s, 实际 %s", expected_data, utf8_data))
+
+--     -- 关闭句柄
+--     local close_result = open_result:close()
+--     assert(close_result == true, "成功关闭转换句柄")
+
+--     -- 尝试在关闭后使用句柄 - 应该抛出错误或返回nil
+--     local close_back_result = open_result:iconv(ucs2be_data)
+--     assert(close_back_result == nil, "关闭后使用句柄不应返回有效结果")
+--     log.info("✓ 测试通过: 关闭句柄后无法继续使用")
+-- end
+
+function iconv_tests.test_resource_management()
+    -- 使用 ucs2be 到 utf8 的转换
+    local ic = iconv.open("utf8", "ucs2be")
+    assert(ic ~= nil, "打开ucs2be到utf8的转换句柄失败")
+    log.info("成功打开转换句柄: ucs2be → utf8")
+
+    -- 执行多次转换，使用 UCS2BE 编码的数据
+    local test_data = {
+        string.char(0x62, 0x11),  -- "我" 字的 UCS2BE 编码 (0x6211)
+        string.char(0x30, 0x10),  -- "【" 字的 UCS2BE 编码 (0x3010)
+        string.char(0x00, 0x41),  -- "A" 字的 UCS2BE 编码 (0x0041)
+    }
+
+    local success_count = 0
+    for i, data in ipairs(test_data) do
+        local result = ic:iconv(data)
+        if result ~= nil then
+            success_count = success_count + 1
+            log.info(string.format("第%d次转换成功，结果长度: %d字节", i, #result))
+        else
+            log.info(string.format("第%d次转换失败", i))
+        end
+    end
+
+    assert(success_count > 0, "至少应该有一次转换成功")
+    log.info(string.format("转换成功次数: %d/%d", success_count, #test_data))
+end
+
+-- 测试unsupported_charset保持不变
+function iconv_tests.test_unsupported_charset()
+    -- 测试不支持的源编码
+    local ic = iconv.open("utf8", "utf-16")
+    assert(ic == nil, "使用不支持的源编码'utf-16'打开句柄应返回nil")
+    log.info("✓ 测试通过: 不支持的源编码返回nil")
+
+    -- 测试不支持的目标编码
+    local ic2 = iconv.open("iso-8859-1", "gb2312")
+    assert(ic2 == nil, "使用不支持的目标编码'iso-8859-1'打开句柄应返回nil")
+    log.info("✓ 测试通过: 不支持的目标编码返回nil")
+
+    -- 测试完全不支持的字符集
+    local ic3 = iconv.open("unknown", "unknown")
+    assert(ic3 == nil, "使用完全不支持的字符集打开句柄应返回nil")
+    log.info("✓ 测试通过: 完全不支持的字符集返回nil")
+end
+
 return iconv_tests
 

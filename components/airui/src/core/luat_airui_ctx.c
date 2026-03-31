@@ -16,6 +16,10 @@
 #include "luat_msgbus.h"
 #include "luat_rtos.h"
 
+#ifdef LUAT_USE_WDT
+#include "luat_wdt.h"
+#endif
+
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
 
@@ -26,6 +30,13 @@ static int airui_start_runtime_timers(airui_ctx_t *ctx);
 static void airui_stop_runtime_timers(airui_ctx_t *ctx);
 static void airui_pause_lvgl_timers(airui_ctx_t *ctx);
 static void airui_resume_lvgl_timers(airui_ctx_t *ctx);
+
+static void airui_feed_wdt_if_enabled(void)
+{
+#ifdef LUAT_USE_WDT
+    luat_wdt_feed();
+#endif
+}
 
 /* 将 LVGL 日志映射到 LuatOS 日志 */
 static void airui_lv_log_cb(lv_log_level_t level, const char * buf)
@@ -120,10 +131,19 @@ static void airui_lv_tick_timer_handler(void *param)
 static int airui_refresh_msg_handler(lua_State *L, void *ptr) {
     (void)L;
     airui_ctx_t *ctx = (airui_ctx_t *)ptr;
-    if (ctx == NULL || ctx->sleeping) {
+    if (ctx == NULL) {
         return 0;
     }
+
+    ctx->refresh_msg_pending = false;
+
+    if (ctx->sleeping) {
+        return 0;
+    }
+
+    airui_feed_wdt_if_enabled();
     lv_timer_handler();
+    airui_feed_wdt_if_enabled();
     return 0;
 }
 
@@ -133,13 +153,21 @@ static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
     if (ctx == NULL || ctx->sleeping) {
         return;
     }
+
+    if (ctx->refresh_msg_pending) {
+        return;
+    }
+
     rtos_msg_t msg = {
         .handler = airui_refresh_msg_handler,
         .ptr = ctx,
         .arg1 = 0,
         .arg2 = 0
     };
-    luat_msgbus_put(&msg, 0);
+
+    if (luat_msgbus_put(&msg, 0) == 0) {
+        ctx->refresh_msg_pending = true;
+    }
 }
 
 // 启动运行时定时器
@@ -212,6 +240,8 @@ static void airui_stop_runtime_timers(airui_ctx_t *ctx)
         ctx->refresh_rtos_timer = NULL;
         LLOGD("lv refresh timer stopped");
     }
+
+    ctx->refresh_msg_pending = false;
 }
 
 // 暂停 LVGL 定时器
@@ -498,6 +528,8 @@ int airui_sleep(airui_ctx_t *ctx)
         luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
     }
 
+    ctx->refresh_msg_pending = false;
+
     ctx->sleeping = true;
 
     if (ctx->ops != NULL && ctx->ops->display_ops != NULL && ctx->ops->display_ops->suspend != NULL) {
@@ -549,6 +581,7 @@ int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
         }
     }
     if (ctx->refresh_rtos_timer != NULL) {
+        ctx->refresh_msg_pending = false;
         ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
         if (ret != 0) {
             LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);
@@ -651,4 +684,3 @@ void airui_deinit(airui_ctx_t *ctx)
     // 清零上下文
     memset(ctx, 0, sizeof(airui_ctx_t));
 }
-

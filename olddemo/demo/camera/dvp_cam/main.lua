@@ -32,9 +32,9 @@ end)
 local testMode = 2
 
 -- WIFI热点名称
-local ssid = "uiot"
+local ssid = "luatos1234"
 -- WIFI热点密码
-local password = "czcjhp1985cbm"
+local password = "12341234"
 
 local rawbuff, err
 

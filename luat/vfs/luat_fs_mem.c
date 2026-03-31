@@ -35,6 +35,16 @@ static ram_file_t* files[RAM_FILE_MAX];
 
 size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream);
 
+static inline char* normalize_path(const char* path) {
+    if (path == NULL || path[0] == '\0') {
+        return "";
+    }
+    if (path[0] == '/') {
+        path++;
+    }
+    return (char*)path;
+}
+
 FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode) {
     (void)userdata;
     // LLOGD("ram fs open %s %s", filename, mode);
@@ -392,11 +402,12 @@ int luat_vfs_ram_fexist(void* userdata, const char *filename) {
 
 size_t luat_vfs_ram_fsize(void* userdata, const char *filename) {
     (void)userdata;
+    char* npath = normalize_path(filename);
     for (size_t i = 0; i < RAM_FILE_MAX; i++)
     {
         if (files[i] == NULL)
             continue;
-        if (!strcmp(filename, files[i]->name)) {
+        if (!strcmp(npath, files[i]->name)) {
             return files[i]->size;
         }
     }
@@ -483,6 +494,7 @@ int luat_vfs_ram_info(void* userdata, const char* path, luat_fs_info_t *conf) {
 }
 
 int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
+    (void)fsdata;
     for (size_t i = 0; i < RAM_FILE_MAX; i++)
     {
         if (files[i] == NULL)

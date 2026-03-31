@@ -492,35 +492,43 @@ int luat_sms_pdu_message_unpack(luat_sms_recv_msg_t *msg_info, uint8_t *pdu_data
 
 int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
 {
-    // 先处理一下电话号码
-    uint8_t gateway_mode = 0;	//短信网关特殊处理
+    uint8_t toa = 0x81;
     uint8_t pos = 0;
     size_t phone_len = packet->phone_len;
     char phone_buff[32] = {0};
     if ((packet->phone_len >= 15) && !memcmp(packet->phone, "10", 2)) {
-    	gateway_mode = 1;
     	memcpy(phone_buff, packet->phone, phone_len);
+        toa = 0x81;
     }
-    else
+    else if(packet->auto_phone)
     {
-        if (packet->auto_phone) {
-            if (packet->phone[0] == '+') {
-                memcpy(phone_buff, packet->phone + 1, phone_len - 1);
-                phone_len -= 1;
-            }
-            // 13416121234
-            else if (packet->phone[0] != '8' && packet->phone[1] != '6') {
-                phone_buff[0] = '8';
-                phone_buff[1] = '6';
-                memcpy(phone_buff + 2, packet->phone, phone_len);
-                phone_len += 2;
-            }
-            else {
-                memcpy(phone_buff, packet->phone, phone_len);
-            }
+        if (phone_len > 0 && packet->phone[0] == '+') {
+            memcpy(phone_buff, packet->phone + 1, phone_len - 1);
+            phone_len -= 1;
+            toa = 0x91;
+        }
+        else if (phone_len >= 2 && packet->phone[0] == '8' && packet->phone[1] == '6') {
+            memcpy(phone_buff, packet->phone, phone_len);
+            toa = 0x91;
+        }
+        else if (phone_len == 11 && packet->phone[0] == '1') {
+            phone_buff[0] = '8';
+            phone_buff[1] = '6';
+            memcpy(phone_buff + 2, packet->phone, phone_len);
+            phone_len += 2;
+            toa = 0x91;
         }
         else {
             memcpy(phone_buff, packet->phone, phone_len);
+            toa = 0x81;
+        }
+    } else {
+        memcpy(phone_buff, packet->phone, phone_len);
+        if (phone_len >= 2 && packet->phone[0] == '8' && packet->phone[1] == '6') {
+            toa = 0x91;
+        }
+        else {
+            toa = 0x81;
         }
     }
 
@@ -535,7 +543,7 @@ int luat_sms_pdu_packet(luat_sms_pdu_packet_t *packet)
     }
     packet->pdu_buf[pos++] = 0x00;
     packet->pdu_buf[pos++] = phone_len;
-    packet->pdu_buf[pos++] = gateway_mode ? 0x81 : 0x91;
+    packet->pdu_buf[pos++] = toa;
     uint8_t one_char = 0;
     for (size_t i = 0; i < phone_len; i+=2)
     {

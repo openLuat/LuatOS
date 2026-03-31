@@ -396,6 +396,14 @@ target("luatos-lua")
         
         -- 添加wlan
         add_includedirs(luatos .. "components/wlan")
+        add_files(luatos .. "components/wlan/luat_lib_wlan.c")
+        add_files("port/driver/luat_wlan_pc.c")
+        if os.getenv("LUAT_USE_WLAN_NATIVE") == "y" then
+            add_defines("LUAT_USE_WLAN_NATIVE")
+            if is_plat("windows") then
+                add_links("wlanapi", "ole32")
+            end
+        end
 
         -- 添加蓝牙
         add_includedirs(luatos .. "components/bluetooth/include")

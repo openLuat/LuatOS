@@ -547,7 +547,7 @@ int luat_ble_connect(void* args, luat_ble_connect_req_t *conn) {
 
     item.cmd = cmd;
     luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item);
-    return -1;
+    return 0;
 }
 
 int luat_ble_disconnect(void* args) {

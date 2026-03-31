@@ -9,6 +9,7 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
 #include "lvgl9/src/display/lv_display.h"
@@ -47,6 +48,60 @@ static airui_keypad_event_t g_keypad_queue[AIRUI_KEYPAD_QUEUE_SIZE]; // 按键�
 static uint8_t g_keypad_head = 0; // 按键队列头
 static uint8_t g_keypad_tail = 0; // 按键队列尾
 static bool g_keypad_enabled = false; // 按键是否启用
+
+static bool sdl_input_use_upright_preview(void)
+{
+#if defined(AIRUI_SDL_UPRIGHT_PREVIEW) && AIRUI_SDL_UPRIGHT_PREVIEW
+    return true;
+#else
+    return false;
+#endif
+}
+
+static void sdl_input_get_preview_size(airui_ctx_t *ctx, uint16_t *preview_w, uint16_t *preview_h)
+{
+    if (preview_w == NULL || preview_h == NULL) {
+        return;
+    }
+
+    *preview_w = ctx ? ctx->native_width : 0;
+    *preview_h = ctx ? ctx->native_height : 0;
+
+    if (ctx == NULL || ctx->display == NULL || !sdl_input_use_upright_preview()) {
+        return;
+    }
+
+    *preview_w = (uint16_t)lv_display_get_horizontal_resolution(ctx->display);
+    *preview_h = (uint16_t)lv_display_get_vertical_resolution(ctx->display);
+}
+
+static void sdl_input_preview_to_native(airui_ctx_t *ctx, int32_t *x, int32_t *y)
+{
+    if (ctx == NULL || x == NULL || y == NULL || ctx->display == NULL || !sdl_input_use_upright_preview()) {
+        return;
+    }
+
+    int32_t src_x = *x;
+    int32_t src_y = *y;
+
+    switch (lv_display_get_rotation(ctx->display)) {
+        case LV_DISPLAY_ROTATION_90:
+            *x = src_y;
+            *y = ctx->native_height - src_x - 1;
+            break;
+        case LV_DISPLAY_ROTATION_180:
+            *x = ctx->native_width - src_x - 1;
+            *y = ctx->native_height - src_y - 1;
+            break;
+        case LV_DISPLAY_ROTATION_270:
+            *x = ctx->native_width - src_y - 1;
+            *y = src_x;
+            break;
+        case LV_DISPLAY_ROTATION_0:
+        default:
+            break;
+    }
+}
 
 /** SDL2 按键映射配置 */
 typedef struct {
@@ -447,12 +502,23 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         // 将 SDL 坐标先转换为面板原生坐标，再交给 LVGL 按 display rotation 处理
         int32_t lvgl_x, lvgl_y;
         
-        if (window_w > 0 && window_h > 0 && ctx->native_width > 0 && ctx->native_height > 0) {
+        uint16_t preview_w = 0;
+        uint16_t preview_h = 0;
+        sdl_input_get_preview_size(ctx, &preview_w, &preview_h);
+
+        if (window_w > 0 && window_h > 0 && preview_w > 0 && preview_h > 0) {
             // 按比例缩放坐标
-            lvgl_x = (int32_t)((int64_t)sdl_x * ctx->native_width / window_w);
-            lvgl_y = (int32_t)((int64_t)sdl_y * ctx->native_height / window_h);
+            lvgl_x = (int32_t)((int64_t)sdl_x * preview_w / window_w);
+            lvgl_y = (int32_t)((int64_t)sdl_y * preview_h / window_h);
             
             // 限制坐标范围
+            if (lvgl_x < 0) lvgl_x = 0;
+            if (lvgl_x >= preview_w) lvgl_x = preview_w - 1;
+            if (lvgl_y < 0) lvgl_y = 0;
+            if (lvgl_y >= preview_h) lvgl_y = preview_h - 1;
+
+            sdl_input_preview_to_native(ctx, &lvgl_x, &lvgl_y);
+
             if (lvgl_x < 0) lvgl_x = 0;
             if (lvgl_x >= ctx->native_width) lvgl_x = ctx->native_width - 1;
             if (lvgl_y < 0) lvgl_y = 0;
@@ -548,9 +614,9 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
     lv_area_t coords;
     lv_obj_get_coords(target, &coords);
 
-    // 初始将 lvgl 区域直接转换为 SDL_Rect
+    // 初始将 lvgl 区域转换为 SDL_Rect
     lv_area_t phy_coords = coords;
-    if (ctx->display != NULL) {
+    if (ctx->display != NULL && !sdl_input_use_upright_preview()) {
         lv_display_rotate_area(ctx->display, &phy_coords);
     }
 
@@ -585,7 +651,7 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
                     label_coords.y1 + letter_pos.y,
                     label_coords.x1 + letter_pos.x,
                     label_coords.y1 + letter_pos.y);
-        if (ctx->display != NULL) {
+        if (ctx->display != NULL && !sdl_input_use_upright_preview()) {
             lv_display_rotate_area(ctx->display, &caret_area);
         }
         // 用 label 区域原点 + 字符偏移指定输入法聚焦位
@@ -596,12 +662,15 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         rect.h = 24;
     }
 
-    // 按实际窗口尺寸缩放物理坐标
-    if (window_w > 0 && window_h > 0 && ctx->native_width > 0 && ctx->native_height > 0) {
-        rect.x = (int32_t)((int64_t)rect.x * window_w / ctx->native_width);
-        rect.y = (int32_t)((int64_t)rect.y * window_h / ctx->native_height);
-        rect.w = (int32_t)((int64_t)rect.w * window_w / ctx->native_width);
-        rect.h = (int32_t)((int64_t)rect.h * window_h / ctx->native_height);
+    // 按实际窗口尺寸缩放预览坐标
+    uint16_t preview_w = 0;
+    uint16_t preview_h = 0;
+    sdl_input_get_preview_size(ctx, &preview_w, &preview_h);
+    if (window_w > 0 && window_h > 0 && preview_w > 0 && preview_h > 0) {
+        rect.x = (int32_t)((int64_t)rect.x * window_w / preview_w);
+        rect.y = (int32_t)((int64_t)rect.y * window_h / preview_h);
+        rect.w = (int32_t)((int64_t)rect.w * window_w / preview_w);
+        rect.h = (int32_t)((int64_t)rect.h * window_h / preview_h);
     }
 
     // 防止宽/高为 0，输入法无法显示（设为最小 1）

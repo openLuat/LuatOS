@@ -9,6 +9,7 @@
 #if defined(LUAT_USE_AIRUI_SDL2)
 
 #include "luat_airui.h"
+#include "luat_airui_conf.h"
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
 #include "lvgl9/src/draw/lv_draw_buf.h"
@@ -34,6 +35,73 @@ typedef struct {
     uint8_t *rotation_buf;
     uint32_t rotation_buf_size;
 } sdl_display_data_t;
+
+static bool sdl_display_use_upright_preview(void)
+{
+#if defined(AIRUI_SDL_UPRIGHT_PREVIEW) && AIRUI_SDL_UPRIGHT_PREVIEW
+    return true;
+#else
+    return false;
+#endif
+}
+
+static void sdl_display_get_preview_size(airui_ctx_t *ctx, uint16_t native_w, uint16_t native_h,
+                                         uint16_t *preview_w, uint16_t *preview_h)
+{
+    if (preview_w == NULL || preview_h == NULL) {
+        return;
+    }
+
+    *preview_w = native_w;
+    *preview_h = native_h;
+
+    if (ctx == NULL || ctx->display == NULL || !sdl_display_use_upright_preview()) {
+        return;
+    }
+
+    *preview_w = (uint16_t)lv_display_get_horizontal_resolution(ctx->display);
+    *preview_h = (uint16_t)lv_display_get_vertical_resolution(ctx->display);
+}
+
+static int sdl_display_ensure_preview_target(airui_ctx_t *ctx, sdl_display_data_t *data)
+{
+    if (ctx == NULL || data == NULL || data->reuse_lcd) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    uint16_t preview_w = 0;
+    uint16_t preview_h = 0;
+    sdl_display_get_preview_size(ctx, data->width, data->height, &preview_w, &preview_h);
+
+    if (preview_w == 0 || preview_h == 0) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (data->texture == NULL || preview_w != data->width || preview_h != data->height) {
+        Uint32 sdl_format;
+        if (data->color_format == LV_COLOR_FORMAT_RGB565) {
+            sdl_format = SDL_PIXELFORMAT_RGB565;
+        } else {
+            sdl_format = SDL_PIXELFORMAT_ARGB8888;
+        }
+
+        if (data->texture != NULL) {
+            SDL_DestroyTexture(data->texture);
+            data->texture = NULL;
+        }
+
+        data->texture = SDL_CreateTexture(data->renderer, sdl_format, SDL_TEXTUREACCESS_STREAMING, preview_w, preview_h);
+        if (data->texture == NULL) {
+            return AIRUI_ERR_INIT_FAILED;
+        }
+
+        SDL_SetWindowSize(data->window, preview_w, preview_h);
+    }
+
+    data->width = preview_w;
+    data->height = preview_h;
+    return AIRUI_OK;
+}
 
 static uint8_t *sdl_display_get_rotation_buf(sdl_display_data_t *data, uint32_t size)
 {
@@ -137,12 +205,16 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
     }
     
     // 创建 SDL 纹理（使用对应的格式）
+    uint16_t preview_w = w;
+    uint16_t preview_h = h;
+    sdl_display_get_preview_size(ctx, w, h, &preview_w, &preview_h);
+
     data->texture = SDL_CreateTexture(
         data->renderer,
         sdl_format,
         SDL_TEXTUREACCESS_STREAMING,
-        w,
-        h
+        preview_w,
+        preview_h
     );
     
     if (data->texture == NULL) {
@@ -152,6 +224,8 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         return AIRUI_ERR_INIT_FAILED;
     }
     
+    data->width = preview_w;
+    data->height = preview_h;
     ctx->platform_data = data;
     return AIRUI_OK;
 }
@@ -217,7 +291,13 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
         return;
     }
 
+    if (sdl_display_ensure_preview_target(ctx, data) != AIRUI_OK) {
+        lv_display_flush_ready(ctx->display);
+        return;
+    }
+
     if (data->texture == NULL) {
+        lv_display_flush_ready(ctx->display);
         return;
     }
     
@@ -235,7 +315,7 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     lv_area_t draw_area = *area;
     const uint8_t *draw_px_map = px_map;
     bool rotated = false;
-    if (rotation != LV_DISPLAY_ROTATION_0) {
+    if (!sdl_display_use_upright_preview() && rotation != LV_DISPLAY_ROTATION_0) {
         lv_color_format_t cf = data->color_format;
         uint32_t px_size = lv_color_format_get_size(cf);
         uint32_t src_w = (uint32_t)lv_area_get_width(area);

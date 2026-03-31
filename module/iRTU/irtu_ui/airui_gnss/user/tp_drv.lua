@@ -37,8 +37,7 @@ local function tp_drv_init()
     -- 开机I2C供电，触摸、摄像头和音频都是使用I2C0
     gpio.setup(147, 1)
     gpio.setup(164, 1)
-    -- 等待供电稳定
-    sys.wait(100)
+
     -- 初始化硬件I2C
     i2c.setup(0, i2c.SLOW) -- 初始化I2C 0，设置为低速模式
 

@@ -52,7 +52,7 @@ local function tp_drv_init()
     -- 初始化软件I2C，接口i2c.createSoft(scl, sda, delay)
      -- 初始化复位引脚GPIO4，先拉低再关闭，确保不被拉高
     gpio.setup(rst_pin, 0) -- 设置GPIO4为输出模式，输出低电平
-    sys.wait(10) -- 短暂延时确保电平稳定
+
     gpio.close(rst_pin) -- 关闭GPIO4功能，恢复高阻态
     if not is_soft_i2c then
         i2c.setup(port, i2c.SLOW)

@@ -1112,7 +1112,7 @@ BLE连接
 @api ble.connect(mac, addr_type)
 @string mac 地址
 @int 地址类型 ble.PUBLIC ble.RANDOM
-@return boolean 是否成功
+@return boolean 启动蓝牙连接是否成功(不代表连接成功, 连接成功会在回调中通过事件通知)
 @usage
 -- BLE连接
 ble_device:connect(string.fromHex("C8478C4E027D"),0)

@@ -458,52 +458,6 @@ function iconv_tests.test_open_with_table()
     log.info("✓ 测试通过: iconv.open传入table类型抛出错误")
 end
 
--- -- 测试close函数
--- function iconv_tests.test_close()
---     -- 测试正常关闭
---     local ic_test = iconv.open("utf8", "ucs2be")
---     assert(ic_test ~= nil, "打开ucs2be到utf8的转换句柄失败")
---     log.info("✓ 测试通过: 正常打开转换句柄")
-
---     local success = ic_test:close()
---     assert(success == true, "正常关闭句柄应返回true")
---     log.info("✓ 测试通过: 正常关闭句柄返回true")
-
---     -- 测试重复关闭同一个句柄
---     local ic_test_first = iconv.open("utf8", "ucs2be")
---     assert(ic_test_first ~= nil, "打开ucs2be到utf8的转换句柄失败")
---     local result_close_first = ic_test_first:close()
---     assert(result_close_first == true, "第一次关闭句柄应返回true")
---     local result_close_second = ic_test_first:close()
---     assert(result_close_second == true, "重复关闭同一个句柄应返回true")
---     log.info("✓ 测试通过: 重复关闭同一句柄测试完成")
--- end
-
--- -- 测试close后无法继续使用句柄
--- function iconv_tests.test_use_after_close()
---     local open_result = iconv.open("utf8", "ucs2be")
---     assert(open_result ~= nil, "打开ucs2be到utf8的转换句柄失败")
---     log.info("成功打开转换句柄")
-
---     local ucs2be_data = string.char(0x30, 0x10, 0x30, 0x02)
---     local result = open_result:iconv(ucs2be_data)
---     assert(#result == 6, string.format("结果长度应为4字节，实际是%d字节", #result))
---     local utf8_data = string.format("%02X%02X%02X%02X%02X%02X", result:byte(1), result:byte(2), result:byte(3),
---         result:byte(4), result:byte(5), result:byte(6))
---     local expected_data = "E38090E38082"
---     assert(utf8_data == expected_data, string.format(
---         "我字由ucs2be编码到utf8编码格式转换失败: 预期 %s, 实际 %s", expected_data, utf8_data))
-
---     -- 关闭句柄
---     local close_result = open_result:close()
---     assert(close_result == true, "成功关闭转换句柄")
-
---     -- 尝试在关闭后使用句柄 - 应该抛出错误或返回nil
---     local close_back_result = open_result:iconv(ucs2be_data)
---     assert(close_back_result == nil, "关闭后使用句柄不应返回有效结果")
---     log.info("✓ 测试通过: 关闭句柄后无法继续使用")
--- end
-
 function iconv_tests.test_resource_management()
     -- 使用 ucs2be 到 utf8 的转换
     local ic = iconv.open("utf8", "ucs2be")

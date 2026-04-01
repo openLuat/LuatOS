@@ -60,11 +60,11 @@ static int l_ws2812_create(lua_State* L) {
         return 0;
     }
     memset(ctx, 0, len);
-    ctx->colors = (luat_ws2812_color_t*)luat_heap_calloc(count, sizeof(luat_ws2812_color_t));
-    if (ctx->colors == NULL) {
-        LLOGE("out of memory when malloc ws2812 colors");
-        return 0;
-    }
+//    ctx->colors = (luat_ws2812_color_t*)luat_heap_calloc(count, sizeof(luat_ws2812_color_t));
+//    if (ctx->colors == NULL) {
+//        LLOGE("out of memory when malloc ws2812 colors");
+//        return 0;
+//    }
     ctx->id = id;
     ctx->count = count;
     ctx->mode = mode;

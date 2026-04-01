@@ -19,14 +19,17 @@ typedef struct luat_ws2812_color
 
 typedef struct luat_ws2812
 {
-    uint8_t mode;
+	uint32_t us;
+    int args[8];
+    void* userdata;
     uint16_t count;
     uint8_t id;
-    void* userdata;
-    int args[8];
-    luat_ws2812_color_t *colors;
-    uint32_t us;
-    uint8_t fast_mode;
+    struct
+	{
+        uint8_t mode:4;
+        uint8_t fast_mode:4;
+	};
+    luat_ws2812_color_t colors[0];
 }luat_ws2812_t;
 
 typedef int (*ws2812_send_opt_impl)(luat_ws2812_t* ctx);

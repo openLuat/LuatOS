@@ -94,7 +94,7 @@ static void lvgl_fs_init(void) {
 
 
 #include "lfs.h"
-#define LUAT_LFS_MEM_SIZE (128 * 1024)
+#define LUAT_LFS_MEM_SIZE (512 * 1024)
 #define LUAT_LFS_MEM_BLOCK_SIZE ( 4 * 1024)
 #define LUAT_LFS_MEM_BLOCK_COUNT (LUAT_LFS_MEM_SIZE / LUAT_LFS_MEM_BLOCK_SIZE)
 static char lfs_mem_buff[LUAT_LFS_MEM_SIZE];
@@ -127,7 +127,7 @@ static int mem_sync(const struct lfs_config *c) {
 #define LFS_BLOCK_DEVICE_PROG_SIZE (256)
 #define LFS_BLOCK_DEVICE_CACHE_SIZE (256)
 #define LFS_BLOCK_DEVICE_ERASE_SIZE (4096) // one sector 4KB
-#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (FLASH_FS_REGION_SIZE * 1024)
+#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (LUAT_LFS_MEM_SIZE)
 #define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 static char lfs_read_buf[256];
 static char lfs_prog_buf[256];

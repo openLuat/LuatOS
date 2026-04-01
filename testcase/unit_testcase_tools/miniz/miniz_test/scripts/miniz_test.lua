@@ -5,11 +5,30 @@ local b64_payload = "eAEFQIGNwyAMXOUm+E2+OzjhCCiOjYyhyvbVR7K7IR0l+iau8G82eIW5jXV
 local compressed_demo = b64_payload:fromBase64()
 local expected_compressed_len = 156
 local expected_uncompressed_len = 235
+local unzip_zip_path = "/luadb/pac_man.zip"
+local unzip_target_dir = "/ram/miniz_test_unzip"
+local unzip_root_dir = unzip_target_dir .. "/pac_man"
+local unzip_nested_dir = unzip_root_dir .. "/user"
+local unzip_expected_files = {
+    {path = unzip_root_dir .. "/main.lua", size = 223},
+    {path = unzip_root_dir .. "/meta.json", size = 493},
+    {path = unzip_root_dir .. "/icon.png", size = 3241},
+    {path = unzip_nested_dir .. "/pacman_game_win.lua", size = 15173},
+}
 
 -- 压缩测试用的测试数据
 local test_data_simple = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"
 local test_data_repeated = string.rep("ABCDE", 100)  -- 重复字符串，压缩效果更好
 local test_data_large = string.rep("This is a test string with some repetition. ", 50)
+
+local function cleanup_unzip_output()
+    for _, item in ipairs(unzip_expected_files) do
+        os.remove(item.path)
+    end
+    io.rmdir(unzip_nested_dir)
+    io.rmdir(unzip_root_dir)
+    io.rmdir(unzip_target_dir)
+end
 
 -- 验证示例数据解压后长度符合预期
 function miniz_test.test_uncompress_demo_blob()
@@ -223,6 +242,46 @@ function miniz_test.test_uncompress_invalid_flags()
     local udata = miniz.uncompress(cdata, miniz.PARSE_ZLIB_HEADER)
     assert(udata == test_data_simple, "带标志解压应正常")
     log.info("miniz测试", "非法标志处理测试通过")
+end
+
+function miniz_test.test_unzip_nested_directories()
+    log.info("miniz测试", "测试 unzip 目录创建")
+    assert(io.exists(unzip_zip_path) == true, "缺少 pac_man.zip 测试资源")
+
+    cleanup_unzip_output()
+
+    local success = miniz.unzip(unzip_zip_path, unzip_target_dir)
+    assert(success == true, "unzip 应成功")
+
+    local ok_root, root_entries = io.lsdir(unzip_root_dir, 10, 0)
+    assert(ok_root == true and type(root_entries) == "table", "pac_man 目录应存在")
+
+    local ok_nested, nested_entries = io.lsdir(unzip_nested_dir, 10, 0)
+    assert(ok_nested == true and type(nested_entries) == "table", "pac_man/user 目录应存在")
+
+    for _, item in ipairs(unzip_expected_files) do
+        assert(io.exists(item.path) == true, "缺少解压文件: " .. item.path)
+        local file_size = io.fileSize(item.path)
+        assert(file_size == item.size, string.format("文件大小不匹配 %s 预期 %d 实际 %d", item.path, item.size, file_size or -1))
+    end
+
+    local root_dir_map = {}
+    for _, entry in ipairs(root_entries) do
+        root_dir_map[entry.name] = entry.type
+    end
+    assert(root_dir_map["user"] == 1, "pac_man 目录下应包含 user 子目录")
+    assert(root_dir_map["main.lua"] == 0, "pac_man 目录下应包含 main.lua 文件")
+    assert(root_dir_map["meta.json"] == 0, "pac_man 目录下应包含 meta.json 文件")
+    assert(root_dir_map["icon.png"] == 0, "pac_man 目录下应包含 icon.png 文件")
+
+    local nested_dir_map = {}
+    for _, entry in ipairs(nested_entries) do
+        nested_dir_map[entry.name] = entry.type
+    end
+    assert(nested_dir_map["pacman_game_win.lua"] == 0, "pac_man/user 目录下应包含 pacman_game_win.lua 文件")
+
+    cleanup_unzip_output()
+    log.info("miniz测试", "unzip 目录创建测试通过")
 end
 
 return miniz_test

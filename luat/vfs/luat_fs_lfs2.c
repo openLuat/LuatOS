@@ -206,8 +206,17 @@ static int dir2name(char* buff, char const* _DirName) {
 int luat_vfs_lfs2_mkdir(void* userdata, char const* _DirName) {
     lfs_t* fs = (lfs_t*)userdata;
     char buff[64] = {0};
+    if (_DirName == NULL) {
+        return -1;
+    }
+    if (_DirName[0] == 0) {
+        return 0;
+    }
     if (dir2name(buff, _DirName)) {
         return -1;
+    }
+    if (buff[0] == 0) {
+        return 0;
     }
     int ret = lfs_mkdir(fs, buff);
     return ret == LFS_ERR_OK ? 0 : -1;

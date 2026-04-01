@@ -160,9 +160,47 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 #include <unistd.h>
 #endif
 
+static int luat_vfs_posix_dir_path(const char* dir_name, char* buff, size_t buff_size) {
+    size_t dir_name_len;
+    if (dir_name == NULL || buff == NULL || buff_size == 0) {
+        return -1;
+    }
+    dir_name_len = strlen(dir_name);
+    if (dir_name_len == 0) {
+        if (buff_size < 2) {
+            return -1;
+        }
+        buff[0] = '.';
+        buff[1] = 0;
+    }
+    else if (dir_name[0] == '/') {
+        if (dir_name_len + 2 > buff_size) {
+            return -1;
+        }
+        buff[0] = '.';
+        memcpy(buff + 1, dir_name, dir_name_len + 1);
+    }
+    else {
+        if (dir_name_len + 1 > buff_size) {
+            return -1;
+        }
+        memcpy(buff, dir_name, dir_name_len + 1);
+    }
+#if defined(LUA_USE_WINDOWS)
+    for (size_t i = 0; buff[i] != 0; i++)
+    {
+        if (buff[i] == '/') {
+            buff[i] = '\\';
+        }
+    }
+#endif
+    return 0;
+}
+
 int luat_vfs_posix_mkdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_WINDOWS)
+    printf("mkdir %s\n", filename + FILENAME_OFFSET);
     return mkdir(filename + FILENAME_OFFSET);
 #elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
     return mkdir(filename + FILENAME_OFFSET, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
@@ -191,6 +229,24 @@ int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) 
 }
 
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+void* luat_vfs_posix_opendir(void* fsdata, char const* _DirName) {
+    char buff[256] = {0};
+    (void)fsdata;
+    if (luat_vfs_posix_dir_path(_DirName, buff, sizeof(buff))) {
+        LLOGW("dir name too long %s", _DirName);
+        return NULL;
+    }
+    return opendir(buff);
+}
+
+int luat_vfs_posix_closedir(void* fsdata, void* dir) {
+    (void)fsdata;
+    if (dir == NULL) {
+        return -1;
+    }
+    return closedir((DIR*)dir);
+}
+
 int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     (void)fsdata;
     DIR *dp;
@@ -199,25 +255,10 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
 
     // LLOGD("opendir file %s %d %d", _DirName, offset, len);
     char buff[256] = {0};
-    if (strlen(_DirName) > 254) {
+    if (luat_vfs_posix_dir_path(_DirName, buff, sizeof(buff))) {
         LLOGW("dir name too long %s", _DirName);
         return 0;
     }
-    if (_DirName[0] == '/') {
-        buff[0] = '.';
-        memcpy(buff + 1, _DirName, strlen(_DirName));
-    }
-    else {
-        memcpy(buff, _DirName, strlen(_DirName));
-    }
-    #if defined(LUA_USE_WINDOWS)
-    for (size_t i = 0; i < strlen(buff); i++)
-    {
-        if (buff[i] == '/') {
-            buff[i] = '\\';
-        }
-    }
-    #endif
 
     dp = opendir (buff);
     if (dp != NULL)
@@ -257,6 +298,14 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
     return 0;
 }
 #else
+void* luat_vfs_posix_opendir(void* fsdata, char const* _DirName) {
+    return NULL;
+}
+
+int luat_vfs_posix_closedir(void* fsdata, void* dir) {
+    return -1;
+}
+
 int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     return 0;
 }
@@ -267,7 +316,9 @@ int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
     return -1;
 }
 #else
+#if !defined(LUA_USE_WINDOWS)
 int truncate(const char *path, off_t length);
+#endif
 
 int luat_vfs_posix_truncate(void* fsdata, char const* filename, size_t len) {
     (void)fsdata;
@@ -299,6 +350,8 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
         T(fsize),
         T(fexist),
         T(info),
+        T(opendir),
+        T(closedir),
         T(truncate)
     },
     .fopts = {

@@ -94,7 +94,7 @@ sys.taskInit(function()
                         log.error("test", string.format("文件大小不匹配在 /lfs2 %s 预期 %d 实际 %d", lfs_target .. item.path:sub(#target_dir + 1), item.size, file_size or -1))
                         pass = false
                     else
-                        log.info("test", "解压文件校验通过在 /lfs2", lfs_target .. item.path:sub(#target_dir + 1), file_size)
+                        log.info("test", "解压文件校验通过在 /lfs2", item.path, file_size)
                     end
                 end
             end
@@ -114,6 +114,33 @@ sys.taskInit(function()
             log.error("test", "测试失败")
         end
         return
+    end
+
+    -- 输出到/abc/目录进行测试
+    local abc_target = "/abc/"
+    local success_abc = miniz.unzip(zip_file, abc_target)
+    if success_abc then
+        log.info("test", "解压到 /abc 成功！")
+        local ok_abc, abc_entries = io.lsdir(abc_target .. "pac_man")
+        assert(ok_abc and type(abc_entries) == "table", "/abc/pac_man 目录应存在")
+        for _, item in ipairs(expected_files) do
+            local abc_path = abc_target .. item.path:sub(#target_dir + 1)
+            if not io.exists(abc_path) then
+                log.error("test", "缺少解压文件在 /abc: " .. abc_path)
+                pass = false
+            else
+                local file_size = io.fileSize(abc_path)
+                if file_size ~= item.size then
+                    log.error("test", string.format("文件大小不匹配在 /abc %s 预期 %d 实际 %d", abc_path, item.size, file_size or -1))
+                    pass = false
+                else
+                    log.info("test", "解压文件校验通过在 /abc", abc_path, file_size)
+                end
+            end
+        end
+    else
+        log.error("test", "解压到 /abc 失败！")
+        pass = false
     end
 
     if pass then

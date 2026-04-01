@@ -20,7 +20,8 @@ local tcp_ssl_receiver = require "tcp_ssl_receiver"
 -- 加载tcp_ssl client socket数据发送功能模块
 local tcp_ssl_sender = require "tcp_ssl_sender"
 
--- 电脑访问：https://netlab.luatos.com/
+-- 电脑访问：https://iot.luatos.com/#/page6/netlab
+-- 本工具使用方法可以参考：https://docs.openluat.com/common/TCPUDP_Test/
 -- 点击 打开TCP SSL 按钮，会创建一个TCP SSL server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"

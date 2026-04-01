@@ -20,7 +20,8 @@ local udp_client_receiver = require "udp_client_receiver"
 -- 加载udp client socket数据发送功能模块
 local udp_client_sender = require "udp_client_sender"
 
--- 电脑访问：https://netlab.luatos.com/
+-- 电脑访问：https://iot.luatos.com/#/page6/netlab
+-- 本工具使用方法可以参考：https://docs.openluat.com/common/TCPUDP_Test/
 -- 点击 打开UDP 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
 local SERVER_ADDR = "112.125.89.8"
@@ -82,6 +83,9 @@ local function udp_client_main_task_func()
         end
 
         log.info("udp_client_main_task_func", "libnet.connect success")
+
+        -- 连接成功后，发布一个事件给aircloud_data文件，通知连接成功了
+        sys.publish("CONNECTION_SUCCESS")
 
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do

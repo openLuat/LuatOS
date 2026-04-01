@@ -137,19 +137,22 @@
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
-4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
-
+4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
 
 ## 演示核心步骤
 
 1、搭建好硬件环境
 
-2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开UDP 按钮，会创建一个UDP server，将server的地址和端口赋值给udp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开UDP 按钮，会创建一个UDP server，将server的地址和端口赋值给udp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
-4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
 5、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 
@@ -165,7 +168,7 @@
 
 7、烧录成功后，自动开机运行
 
-8、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
+8、[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
 
 ``` lua
 [2025-06-24 16:47:39.085]send from timer: 1
@@ -181,14 +184,14 @@
 
 9、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
 
-10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
+10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上的四个server页面都可以接收到数据，类似于以下效果：
 
 ``` lua
 [2025-06-24 17:19:58.402]send from uart: kerjkjwr
 73656E642066726F6D20756172743A206B65726A6B6A7772
 ```
 
-11、在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
+11、在[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
 
 ``` lua
 recv from tcp server: 123456798012345678901234567830

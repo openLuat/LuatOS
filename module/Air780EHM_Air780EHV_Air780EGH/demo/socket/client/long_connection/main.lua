@@ -78,8 +78,12 @@ require "netdrv_device"
 
 -- 加载串口应用功能模块
 require "uart_app"
+
 -- 加载定时器应用功能模块
 require "timer_app"
+
+-- 加载aircloud数据处理模块
+require "aircloud_data"
 
 -- 加载tcp client socket主应用功能模块
 require "tcp_client_main"

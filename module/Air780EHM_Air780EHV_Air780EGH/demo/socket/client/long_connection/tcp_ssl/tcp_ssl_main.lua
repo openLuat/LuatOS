@@ -11,7 +11,7 @@
 3、调用tcp_ssl_receiver和tcp_ssl_sender中的外部接口，进行数据收发处理；
 
 本文件没有对外接口，直接在main.lua中require "tcp_ssl_main"就可以加载运行；
-]]
+]] 
 
 local libnet = require "libnet"
 
@@ -20,15 +20,15 @@ local tcp_ssl_receiver = require "tcp_ssl_receiver"
 -- 加载tcp_ssl client socket数据发送功能模块
 local tcp_ssl_sender = require "tcp_ssl_sender"
 
--- 电脑访问：https://netlab.luatos.com/
--- 点击 打开TCP SSL 按钮，会创建一个TCP SSL server
+-- 电脑访问：https://iot.luatos.com/#/page6/netlab
+-- 详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
+-- 登陆成功后，先点击"工具类" 再点击"Netlab测试工具" 最后在弹出的界面中点击 "打开TCP SSL" 按钮，会创建一个TCP SSL server
 -- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
+local SERVER_ADDR = "115.120.239.161"
 local SERVER_PORT = 43333
 
 -- tcp_ssl_main的任务名
 local TASK_NAME = tcp_ssl_sender.TASK_NAME
-
 
 -- 处理未识别的消息
 local function tcp_ssl_main_cbfunc(msg)
@@ -82,7 +82,10 @@ local function tcp_ssl_main_task_func()
         end
 
         log.info("tcp_ssl_main_task_func", "libnet.connect success")
-
+        
+        -- 连接成功后，发布一个事件给aircloud_data文件，通知连接成功了
+        sys.publish("CONNECTION_SUCCESS")
+        
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do
             -- 数据接收处理（接收处理必须写在libnet.wait之前，因为老版本的内核固件要求必须这样，新版本的内核固件没这个要求，为了不出问题，写在libnet.wait之前就行了）
@@ -114,7 +117,6 @@ local function tcp_ssl_main_task_func()
             end
         end
 
-
         -- 出现异常
         ::EXCEPTION_PROC::
 
@@ -136,6 +138,6 @@ local function tcp_ssl_main_task_func()
     end
 end
 
---创建并且启动一个task
---运行这个task的主函数tcp_ssl_main_task_func
+-- 创建并且启动一个task
+-- 运行这个task的主函数tcp_ssl_main_task_func
 sys.taskInitEx(tcp_ssl_main_task_func, TASK_NAME, tcp_ssl_main_cbfunc)

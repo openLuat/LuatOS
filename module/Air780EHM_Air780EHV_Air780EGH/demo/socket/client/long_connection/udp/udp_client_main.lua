@@ -10,29 +10,30 @@
 2、处理连接异常，出现异常后执行重连动作；
 3、调用udp_client_receiver和udp_client_sender中的外部接口，进行数据收发处理；
 
-本文件没有对外接口，直接在main.lua中require "udp_client_main"就可以加载运行；
-]]
 
+本文件没有对外接口，直接在main.lua中require "udp_client_main"就可以加载运行；
+]] 
 local libnet = require "libnet"
+
 
 -- 加载udp client socket数据接收功能模块
 local udp_client_receiver = require "udp_client_receiver"
 -- 加载udp client socket数据发送功能模块
 local udp_client_sender = require "udp_client_sender"
 
--- 电脑访问：https://netlab.luatos.com/
--- 点击 打开UDP 按钮，会创建一个UDP server
+-- 电脑访问：https://iot.luatos.com/#/page6/netlab
+-- 详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
+-- 登陆成功后，先点击"工具类" 再点击"Netlab测试工具" 最后在弹出的界面中点击 "打开UDP" 按钮，会创建一个UDP server
 -- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
+local SERVER_ADDR = "115.120.239.161"
 local SERVER_PORT = 45692
 
 -- udp_client_main的任务名
 local TASK_NAME = udp_client_sender.TASK_NAME
 
-
 -- 处理未识别的消息
 local function udp_client_main_cbfunc(msg)
-	log.info("udp_client_main_cbfunc", msg[1], msg[2], msg[3], msg[4])
+    log.info("udp_client_main_cbfunc", msg[1], msg[2], msg[3], msg[4])
 end
 
 -- udp client socket的任务处理函数
@@ -83,6 +84,9 @@ local function udp_client_main_task_func()
 
         log.info("udp_client_main_task_func", "libnet.connect success")
 
+        -- 连接成功后，发布一个事件给aircloud_data文件，通知连接成功了
+        sys.publish("CONNECTION_SUCCESS")
+        
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do
             -- 数据接收处理（接收处理必须写在libnet.wait之前，因为老版本的内核固件要求必须这样，新版本的内核固件没这个要求，为了不出问题，写在libnet.wait之前就行了）
@@ -104,16 +108,15 @@ local function udp_client_main_task_func()
             -- 1、socket client和server之间的连接出现异常（例如server主动断开，网络环境出现异常等），此时在内核固件中会发布事件socket.EVENT
             -- 2、socket client接收到server发送过来的数据，此时在内核固件中会发布事件socket.EVENT
             -- 3、socket client需要发送数据到server, 在udp_client_sender.lua中会发布事件socket.EVENT
-			result, para1, para2 = libnet.wait(TASK_NAME, 15000, socket_client)
+            result, para1, para2 = libnet.wait(TASK_NAME, 15000, socket_client)
             log.info("udp_client_main_task_func", "libnet.wait", result, para1, para2)
 
-			-- 如果连接异常，则退出循环
-			if not result then
-				log.warn("udp_client_main_task_func", "connection exception")
-				break
+            -- 如果连接异常，则退出循环
+            if not result then
+                log.warn("udp_client_main_task_func", "connection exception")
+                break
             end
         end
-
 
         -- 出现异常
         ::EXCEPTION_PROC::
@@ -136,7 +139,8 @@ local function udp_client_main_task_func()
     end
 end
 
---创建并且启动一个task
---运行这个task的主函数udp_client_main_task_func
+
+-- 创建并且启动一个task
+-- 运行这个task的主函数udp_client_main_task_func
 sys.taskInitEx(udp_client_main_task_func, TASK_NAME, udp_client_main_cbfunc)
 

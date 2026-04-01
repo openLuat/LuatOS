@@ -17,8 +17,7 @@
    本demo项目中uart_app.lua和timer_app.lua中publish了这个消息；
 2、tcp_ssl_sender.proc：数据发送应用逻辑处理入口，在tcp_ssl_main.lua中调用；
 3、tcp_ssl_sender.exception_proc：数据发送应用逻辑异常处理入口，在tcp_ssl_main.lua中调用；
-]]
-
+]] 
 local tcp_ssl_sender = {}
 
 local libnet = require "libnet"
@@ -40,8 +39,21 @@ tcp_ssl_sender.TASK_NAME = "tcp_ssl_main"
 
 -- "SEND_DATA_REQ"消息的处理函数
 local function send_data_req_proc_func(tag, data, cb)
-    -- 将原始数据增加前缀，然后插入到发送队列send_queue中
-    table.insert(send_queue, {data="send from "..tag..": "..data, cb=cb})
+    -- 符合AirCloud数据发送要求的数据，直接给data赋值为要发送的数据结构；不符合AirCloud数据发送要求的数据，将原始数据增加前缀"send from " .. tag .. ": " .. data，作为要发送的数据；
+    if tag == "Aircloud_main" then
+        -- 处理AirCloud数据发送请求
+        table.insert(send_queue, {
+            data = data,
+            cb = cb
+        })
+    else
+        -- 将原始数据增加前缀，然后插入到发送队列send_queue中
+        table.insert(send_queue, {
+            data = "send from " .. tag .. ": " .. data,
+            cb = cb
+        })
+    end
+
     -- 通知tcp_ssl_main主任务有数据需要发送
     -- tcp_ssl_main主任务如果处在libnet.wait调用的阻塞等待状态，就会退出阻塞状态
     sys.sendMsg(tcp_ssl_sender.TASK_NAME, socket.EVENT, 0)
@@ -71,10 +83,10 @@ function tcp_ssl_sender.proc(task_name, socket_client)
     local result, buff_full
 
     -- 遍历数据发送队列send_queue
-    while #send_queue>0 do
+    while #send_queue > 0 do
         -- 取出来第一条数据赋值给send_item
         -- 同时从队列send_queue中删除这一条数据
-        send_item = table.remove(send_queue,1)
+        send_item = table.remove(send_queue, 1)
 
         -- 发送这条数据，超时时间15秒钟
         result, buff_full = libnet.tx(task_name, 15000, socket_client, send_item.data)
@@ -121,8 +133,8 @@ tcp_ssl_sender.exception_proc()
 ]]
 function tcp_ssl_sender.exception_proc()
     -- 遍历数据发送队列send_queue
-    while #send_queue>0 do
-        local send_item = table.remove(send_queue,1)
+    while #send_queue > 0 do
+        local send_item = table.remove(send_queue, 1)
         -- 发送失败，如果当前发送的数据有用户回调函数，则执行用户回调函数
         if send_item.cb and send_item.cb.func then
             send_item.cb.func(false, send_item.cb.para)

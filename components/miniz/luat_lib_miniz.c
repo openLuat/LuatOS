@@ -177,26 +177,17 @@ static int luat_mkdir_recursive(const char* path) {
     return 0;
 }
 
-static char* luat_miniz_normalize_target_dir(const char* target_dir) {
-    size_t len = strlen(target_dir);
-    int need_sep = 0;
-    char* normalized_target;
+static int luat_miniz_is_valid_target_dir(const char* target_dir) {
+    size_t len;
+
+    if (target_dir == NULL) {
+        return 0;
+    }
+    len = strlen(target_dir);
     if (len == 0) {
-        return NULL;
+        return 0;
     }
-    if (target_dir[len - 1] != '/' && target_dir[len - 1] != '\\') {
-        need_sep = 1;
-    }
-    normalized_target = luat_heap_malloc(len + need_sep + 1);
-    if (normalized_target == NULL) {
-        return NULL;
-    }
-    memcpy(normalized_target, target_dir, len);
-    if (need_sep) {
-        normalized_target[len++] = '/';
-    }
-    normalized_target[len] = 0;
-    return normalized_target;
+    return target_dir[len - 1] == '/';
 }
 
 static int luat_miniz_is_unsafe_path(const char* path) {
@@ -300,7 +291,7 @@ static void* luat_mz_realloc_func(void *opaque, void *address, size_t items, siz
 解压ZIP文件到指定目录
 @api miniz.unzip(zip_file_path, target_dir)
 @string zip_file_path ZIP文件的完整路径
-@string target_dir 目标解压目录的完整路径
+@string target_dir 目标解压目录的完整路径, 必须以 / 结尾
 @return boolean 成功返回true，失败返回false
 @usage
 local success = miniz.unzip("/test/csdk.zip", "/output/")
@@ -313,7 +304,6 @@ end
 static int l_miniz_unzip(lua_State* L) {
     const char* zip_file_path = luaL_checkstring(L, 1);
     const char* target_dir = luaL_checkstring(L, 2);
-    char* normalized_target = NULL;
     
     size_t zip_file_size = 0;
     zip_file_size = luat_fs_fsize(zip_file_path);
@@ -325,22 +315,19 @@ static int l_miniz_unzip(lua_State* L) {
     else {
         LLOGI("ZIP file size: %zu bytes", zip_file_size);
     }
-    normalized_target = luat_miniz_normalize_target_dir(target_dir);
-    if (normalized_target == NULL) {
-        LLOGE("Failed to normalize target directory: %s", target_dir);
+    if (!luat_miniz_is_valid_target_dir(target_dir)) {
+        LLOGE("target_dir must end with '/': %s", target_dir);
         lua_pushboolean(L, 0);
         return 1;
     }
-    if (luat_mkdir_recursive(normalized_target) != 0) {
-        LLOGE("Failed to create target directory: %s", normalized_target);
-        luat_heap_free(normalized_target);
+    if (luat_mkdir_recursive(target_dir) != 0) {
+        LLOGE("Failed to create target directory: %s", target_dir);
         lua_pushboolean(L, 0);
         return 1;
     }
     FILE* f = luat_fs_fopen(zip_file_path, "rb");
     if (!f) {
         LLOGE("Failed to open ZIP file: %s", zip_file_path);
-        luat_heap_free(normalized_target);
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -357,7 +344,6 @@ static int l_miniz_unzip(lua_State* L) {
     if(!mz_zip_reader_init(&zip_archive, zip_file_size, 0)) {
         LLOGE("Failed to initialize ZIP reader err %d", zip_archive.m_last_error);
         luat_fs_fclose(f);
-        luat_heap_free(normalized_target);
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -381,7 +367,7 @@ static int l_miniz_unzip(lua_State* L) {
             continue;
         }
 
-        char* full_path = luat_miniz_join_path(normalized_target, file_stat.m_filename);
+        char* full_path = luat_miniz_join_path(target_dir, file_stat.m_filename);
         if (full_path == NULL) {
             LLOGE("Out of memory when joining target path: %s", file_stat.m_filename);
             success = 0;
@@ -427,8 +413,6 @@ static int l_miniz_unzip(lua_State* L) {
 
     mz_zip_reader_end(&zip_archive);
     luat_fs_fclose(f);
-    
-    luat_heap_free(normalized_target);
     
     lua_pushboolean(L, success);
     return 1;

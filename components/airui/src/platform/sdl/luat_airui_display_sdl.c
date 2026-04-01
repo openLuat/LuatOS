@@ -45,6 +45,20 @@ static bool sdl_display_use_upright_preview(void)
 #endif
 }
 
+static void sdl_display_sync_lcd_preview(airui_ctx_t *ctx, sdl_display_data_t *data)
+{
+    if (ctx == NULL || data == NULL || !data->reuse_lcd) {
+        return;
+    }
+
+    luat_sdl2_set_upright_preview(
+        sdl_display_use_upright_preview() ? 1 : 0,
+        (uint16_t)airui_display_get_rotation(ctx),
+        ctx->native_width,
+        ctx->native_height
+    );
+}
+
 static void sdl_display_get_preview_size(airui_ctx_t *ctx, uint16_t native_w, uint16_t native_h,
                                          uint16_t *preview_w, uint16_t *preview_h)
 {
@@ -166,6 +180,7 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         data->lcd_conf = lcd_conf;
         lcd_conf->lcd_use_lvgl = 1;
         ctx->platform_data = data;
+        sdl_display_sync_lcd_preview(ctx, data);
         LLOGI("reuse lcd sdl2 window for airui");
         return AIRUI_OK;
     }
@@ -249,6 +264,7 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     }
 
     if (data->reuse_lcd) {
+        sdl_display_sync_lcd_preview(ctx, data);
         if (data->lcd_conf == NULL) {
             lv_display_flush_ready(ctx->display);
             return;
@@ -424,6 +440,7 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     sdl_display_data_t *data = (sdl_display_data_t *)ctx->platform_data;
 
     if (data->reuse_lcd) {
+        luat_sdl2_set_upright_preview(0, 0, 0, 0);
         if (data->lcd_conf != NULL) {
             data->lcd_conf->lcd_use_lvgl = 0;
         }

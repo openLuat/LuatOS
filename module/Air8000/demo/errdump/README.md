@@ -74,7 +74,7 @@
 
 2、[Air8000 V2014版本固件）](https://docs.openluat.com/air8000/luatos/firmware/)
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
 
 ## 演示开发步骤
 

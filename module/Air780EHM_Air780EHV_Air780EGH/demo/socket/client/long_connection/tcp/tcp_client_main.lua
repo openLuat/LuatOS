@@ -1,8 +1,8 @@
 --[[
 @module  tcp_client_main
 @summary tcp client socket主应用功能模块
-@version 1.0
-@date    2025.07.31
+@version 1.1
+@date    2026.03.27
 @author  孟伟
 @usage
 本文件为tcp client socket主应用功能模块，核心业务逻辑为：
@@ -11,8 +11,7 @@
 3、调用tcp_client_receiver和tcp_client_sender中的外部接口，进行数据收发处理；
 
 本文件没有对外接口，直接在main.lua中require "tcp_client_main"就可以加载运行；
-]]
-
+]] 
 local libnet = require "libnet"
 
 -- 加载tcp client socket数据接收功能模块
@@ -20,15 +19,15 @@ local tcp_client_receiver = require "tcp_client_receiver"
 -- 加载tcp client socket数据发送功能模块
 local tcp_client_sender = require "tcp_client_sender"
 
--- 电脑访问：https://netlab.luatos.com/
--- 点击 打开TCP 按钮，会创建一个TCP server
+-- 电脑访问：https://iot.luatos.com/#/page6/netlab
+-- 本工具使用方法可以参考：https://docs.openluat.com/common/TCPUDP_Test/
+-- 登陆成功后，先点击"工具类" 再点击"Netlab测试工具" 最后在弹出的界面中点击 "打开TCP" 按钮，会创建一个TCP server
 -- 将server的地址和端口赋值给下面这两个变量
-local SERVER_ADDR = "112.125.89.8"
-local SERVER_PORT = 45584
+local SERVER_ADDR = "115.120.239.161"
+local SERVER_PORT = 25345
 
 -- tcp_client_main的任务名
 local TASK_NAME = tcp_client_sender.TASK_NAME
-
 
 -- 处理未识别的消息
 local function tcp_client_main_cbfunc(msg)
@@ -82,6 +81,13 @@ local function tcp_client_main_task_func()
 
         log.info("tcp_client_main_task_func", "libnet.connect success")
 
+        -- 连接成功后，发布一个事件给aircloud_data文件，通知连接成功了
+        sys.publish("CONNECTION_SUCCESS")
+
+         -- 连接成功后，发送一条消息通知tcp_client_receiver和tcp_client_sender模块进行数据收发处理
+         -- tcp_client_receiver模块会在接收到这个消息后，调用tcp_client_receiver.proc接口进行数据接收处理；
+         -- tcp_client_sender模块会在接收到这个消息后，调用tcp_client_sender.proc接口进行数据发送处理；
+
         -- 数据收发以及网络连接异常事件总处理逻辑
         while true do
             -- 数据接收处理（接收处理必须写在libnet.wait之前，因为老版本的内核固件要求必须这样，新版本的内核固件没这个要求，为了不出问题，写在libnet.wait之前就行了）
@@ -113,7 +119,6 @@ local function tcp_client_main_task_func()
             end
         end
 
-
         -- 出现异常
         ::EXCEPTION_PROC::
 
@@ -135,6 +140,6 @@ local function tcp_client_main_task_func()
     end
 end
 
---创建并且启动一个task
---运行这个task的主函数tcp_client_main_task_func
+-- 创建并且启动一个task
+-- 运行这个task的主函数tcp_client_main_task_func
 sys.taskInitEx(tcp_client_main_task_func, TASK_NAME, tcp_client_main_cbfunc)

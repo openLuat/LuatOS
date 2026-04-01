@@ -111,8 +111,8 @@
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
-4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
-
+4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 ## 演示开发步骤
 
 1、搭建好硬件环境

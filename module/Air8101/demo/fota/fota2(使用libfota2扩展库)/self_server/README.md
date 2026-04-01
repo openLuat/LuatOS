@@ -115,14 +115,14 @@
 
 2、[Air8101 V1005版本固件](https://docs.openluat.com/air8101/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
-
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 ## 演示核心步骤
 
 1、搭建好硬件环境
 
-2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_self_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
-
+2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_self_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 3、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 
 - 如果需要单4G网卡，打开require "netdrv_4g"，其余注释掉
@@ -139,7 +139,7 @@
 
 6、烧录成功后，自动开机运行
 
-7、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的两个TCP server可以看到有设备连接上来，然后可以下发下面字符串触发升级：
+7、[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上创建的两个TCP server可以看到有设备连接上来，然后可以下发下面字符串触发升级：
 
 
 ``` lua

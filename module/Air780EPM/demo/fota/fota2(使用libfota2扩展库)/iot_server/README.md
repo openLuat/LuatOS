@@ -78,14 +78,16 @@
 
 2、[Air780EPM V2012版本固件）](https://docs.openluat.com/air780epm/luatos/firmware/version/)
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
 
 
 ## 演示核心步骤
 
 1、搭建好硬件环境
 
-2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_iot_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_iot_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+
+详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
 4、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 

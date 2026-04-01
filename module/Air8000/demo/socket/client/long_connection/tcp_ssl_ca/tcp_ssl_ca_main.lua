@@ -83,7 +83,7 @@ local function tcp_ssl_ca_main_task_func()
         -- 2、任何证书都有有效期，无论是ca证书还是server证书，必须在有效期截止之前，及时更换证书，延长有效期，否则证书校验会失败；
         -- 3、如果要更换ca证书，需要在设备端远程升级，必须保证ca证书失效之前升级成功，否则校验失败，就无法连接server；
         -- 综上所述，证书校验虽然安全，可以验证身份，但是后续维护成本比较高；除非有需要，否则可以不配置证书校验功能；
-        -- 另外，如果使用https://netlab.luatos.com/创建的TCP SSL Server，使用的server证书有可能过了有效期；
+        -- 另外，如果使用https://iot.luatos.com/#/page6/netlab创建的TCP SSL Server，使用的server证书有可能过了有效期；
         -- 如果过了有效期，使用本文件无法连接成功tcp ssl ca server，遇到这种问题，可以在main.lua中打开socket.sslLog(3)，观察Luatools的日志，如果出现类似于下面的日志
         -- expires on        : 2020-12-27 15:46:55
         -- 表示证书有效期截止到2020-12-27 15:46:55，明显就是证书已经过了有效期

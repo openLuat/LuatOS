@@ -18,6 +18,8 @@
 
 9、uart_app.lua：在四个client和uart外设之间透传数据；
 
+10、aircloud_data.lua：通知四个client上报符合aircloud规则的数据到aircloud平台；
+
 
 
 ## 系统消息介绍
@@ -36,6 +38,7 @@
 
 3、"FEED_NETWORK_WATCHDOG"：网络环境检测看门狗的喂狗消息，在需要喂狗的地方发布此消息；
 
+4、"CONNECTION_SUCCESS"：socket client连接成功后，通过此消息发布出去，给其他应用模块处理；
 
 
 ## 演示功能概述
@@ -57,6 +60,8 @@
 - 串口应用功能模块uart_app.lua，通过uart1接收到串口数据，将串口数据增加send from uart: 前缀后发送给server；
 
 - 定时器应用功能模块timer_app.lua，定时产生数据，将数据增加send from timer：前缀后发送给server；
+
+- aircloud应用功能模块aircloud_data.lua，定时产生符合Aircloud格式的数据，将数据发送给Aircloud服务器；
 
 4、每一路socket连接，client收到server数据后，将数据增加recv from tcp/udp/tcp ssl/tcp ssl ca（四选一）server: 前缀后，通过uart1发送出去；
 
@@ -115,18 +120,24 @@
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
-4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)；
+4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
+
+该工具具体使用方法可以参考[合宙TCP/UDP web测试工具](https://docs.openluat.com/common/TCPUDP_Test/)的说明；
+
+登陆成功后点击"工具等"，进入工具列表，点击"Netlab测试工具"
+
+![netlab所在位置](https://docs.openLuat.com/cdn/image/socket/netlab_local.png)
 
 
 ## 演示核心步骤
 
 1、搭建好硬件环境
 
-2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+2、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；登陆成功后点击"工具等"，进入工具列表，点击"Netlab测试工具"![/netlab所在位置](https://docs.openLuat.com/cdn/image/socket/netlab_local.png)，点击 打开TCP 按钮，会创建一个TCP server，将server的地址和端口赋值给tcp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开UDP 按钮，会创建一个UDP server，将server的地址和端口赋值给udp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+3、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；登陆成功后点击"工具等"，进入工具列表，点击"Netlab测试工具"![/netlab所在位置](https://docs.openLuat.com/cdn/image/socket/netlab_local.png)，点击 打开UDP 按钮，会创建一个UDP server，将server的地址和端口赋值给udp_client_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
-4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
+4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；登陆成功后点击"工具等"，进入工具列表，点击"Netlab测试工具"![/netlab所在位置](https://docs.openLuat.com/cdn/image/socket/netlab_local.png)，点击 打开TCP SSL 按钮，会创建一个TCP SSL server，将server的地址和端口赋值给tcp_ssl_main.lua中的SERVER_ADDR和SERVER_PORT两个变量
 
 5、demo脚本代码netdrv_device.lua中，按照自己的网卡需求启用对应的Lua文件
 
@@ -142,7 +153,7 @@
 
 7、烧录成功后，自动开机运行
 
-8、[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
+8、[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上创建的TCP server、UDP server、TCP SSL server，一共三个server，可以看到有设备连接上来，每隔5秒钟，会接收到一段类似于 send from timer: 1 的数据，最后面的数字每次加1，类似于以下效果：
 
 ``` lua
 [2025-06-24 16:47:39.085]send from timer: 1
@@ -155,17 +166,24 @@
 73656E642066726F6D2074696D65723A2033
 ```
 
+9、[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上创建的TCP server、UDP server、TCP SSL server，一共三个server，每隔30秒钟，会接收到一段符合AirCloud格式的数据，类似于以下效果：
+
+``` json
+[ { "value": 31, "data_type": 0, "field_meaning": 782 }, { "value": "898608751025C0771365", "data_type": 3, "field_meaning": 783 }, { "value": 1774529029, "data_type": 0, "field_meaning": 1280 }, { "value": "863434088224404", "data_type": 3, "field_meaning": 798 }, { "value": "29.0000000", "data_type": 1, "field_meaning": 256 }, { "value": "3.7309999", "data_type": 0, "field_meaning": 799 }, { "value": "用户utf-8格式自定义数据", "data_type": 5, "field_meaning": 0 } ]
+7
+``` 
+
 
 9、打开PC端的串口工具，选择对应的端口，配置波特率115200，数据位8，停止位1，无奇偶校验位；
 
-10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)上的四个server页面都可以接收到数据，类似于以下效果：
+10、PC端的串口工具输入一段数据，点击发送，在[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)上的四个server页面都可以接收到数据，类似于以下效果：
 
 ``` lua
 [2025-06-24 17:19:58.402]send from uart: kerjkjwr
 73656E642066726F6D20756172743A206B65726A6B6A7772
 ```
 
-11、在[合宙TCP/UDP web测试工具](https://netlab.luatos.com/)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
+11、在[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)的发送编辑框内，输入一段数据，点击发送，在PC端的串口工具上可以接收到这段数据，并且也能看到是哪一个server发送的，类似于以下效果：
 
 ``` lua
 recv from tcp server: 123456798012345678901234567830

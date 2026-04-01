@@ -198,6 +198,7 @@ struct airui_ctx {
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
     bool sleep_power_down_lcd;           /**< 休眠时是否关闭 LCD 供电 */
     bool sleeping;                       /**< 当前是否处于休眠状态 */
+    bool refresh_msg_pending;            /**< 是否已有待处理的刷新消息 */
 };
 
 /**********************
@@ -452,4 +453,3 @@ void airui_debug_deinit(airui_ctx_t *ctx);
 #endif
 
 #endif /* AIRUI_H */
-

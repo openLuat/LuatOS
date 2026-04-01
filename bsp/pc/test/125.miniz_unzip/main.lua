@@ -8,11 +8,20 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 sys.taskInit(function()
+    sys.wait(1000) -- 等待系统稳定
     log.info("test", "开始测试 miniz.unzip 功能")
     
     -- 测试文件路径
-    local zip_file = "/luadb/csdk.zip"
-    local target_dir = "/ram/"
+    local zip_file = "/luadb/pac_man.zip"
+    local target_dir = "/ram/miniz_unzip"
+    local extracted_root = target_dir .. "/pac_man"
+    local nested_dir = extracted_root .. "/user"
+    local expected_files = {
+        {path = extracted_root .. "/main.lua", size = 223},
+        {path = extracted_root .. "/meta.json", size = 493},
+        {path = extracted_root .. "/icon.png", size = 3241},
+        {path = nested_dir .. "/pacman_game_win.lua", size = 15173},
+    }
     
     -- 确保测试文件存在
     if not io.exists(zip_file) then
@@ -28,14 +37,17 @@ sys.taskInit(function()
     
     if success then
         log.info("test", "解压成功！")
-        -- 看看/ram/csdk.lua是否存在
-        if io.exists(target_dir .. "csdk.lua") then
-            log.info("test", "解压后的文件 csdk.lua 存在！")
-            -- 检测文件大小
-            local file_size = io.fileSize(target_dir .. "csdk.lua")
-            log.info("test", "csdk.lua 文件大小:", file_size, "字节")
-        else
-            log.error("test", "解压后的文件 csdk.lua 不存在！")
+        local ok_root, root_entries = io.lsdir(extracted_root)
+        assert(ok_root and type(root_entries) == "table", "pac_man 目录应存在")
+
+        local ok_nested, nested_entries = io.lsdir(nested_dir)
+        assert(ok_nested and type(nested_entries) == "table", "pac_man/user 目录应存在")
+
+        for _, item in ipairs(expected_files) do
+            assert(io.exists(item.path), "缺少解压文件: " .. item.path)
+            local file_size = io.fileSize(item.path)
+            assert(file_size == item.size, string.format("文件大小不匹配 %s 预期 %d 实际 %d", item.path, item.size, file_size or -1))
+            log.info("test", "解压文件校验通过", item.path, file_size)
         end
 
         -- 列出解压后的文件
@@ -45,11 +57,12 @@ sys.taskInit(function()
             for i, file in pairs(files) do
                 log.info("test", "-", i, json.encode(file))
             end
-            os.exit(0)
         else
             log.info("test", "无法列出解压后的文件")
-            os.exit(2)
         end
+
+        log.info("test", "目录创建测试通过")
+        os.exit(0)
     else
         log.error("test", "解压失败！")
         os.exit(1)

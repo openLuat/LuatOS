@@ -133,51 +133,142 @@ static int l_miniz_uncompress(lua_State* L) {
 }
 
 // 解压zip到指定目录
-#if 0
 static int luat_mkdir_recursive(const char* path) {
     size_t len = strlen(path);
+    int need_sep = 0;
     if (len == 0) return 0;
-    
-    char* temp_path = (char*)luat_heap_malloc(len + 1);
-    if (!temp_path) return -1;
-    
-    strcpy(temp_path, path);
-    
-    // Remove trailing slash if present
-    if (temp_path[len - 1] == '/' || temp_path[len - 1] == '\\') {
-        temp_path[len - 1] = '\0';
+
+    if (path[len - 1] != '/' && path[len - 1] != '\\') {
+        need_sep = 1;
     }
-    
-    // Create directories step by step
+
+    char* temp_path = (char*)luat_heap_malloc(len + need_sep + 1);
+    if (!temp_path) return -1;
+
+    memcpy(temp_path, path, len);
+    if (need_sep) {
+        temp_path[len++] = '/';
+    }
+    temp_path[len] = '\0';
+
+    for (size_t i = 0; i < len; i++) {
+        if (temp_path[i] == '\\') {
+            temp_path[i] = '/';
+        }
+    }
+
     char* p = temp_path;
-    if (*p == '/' || *p == '\\') p++; // Skip root slash
-    
     while (*p) {
-        if (*p == '/' || *p == '\\') {
-            *p = '\0';
-            if (!luat_fs_dexist(temp_path)) {
-                if (luat_fs_mkdir(temp_path) != 0) {
+        if (*p == '/') {
+            char next = *(p + 1);
+            if (p != temp_path) {
+                *(p + 1) = '\0';
+                if (luat_fs_mkdir(temp_path) != 0 && !luat_fs_dexist(temp_path)) {
                     luat_heap_free(temp_path);
                     return -1;
                 }
+                *(p + 1) = next;
             }
-            *p = '/';
         }
         p++;
     }
-    
-    // Create the final directory
-    if (!luat_fs_dexist(temp_path)) {
-        if (luat_fs_mkdir(temp_path) != 0) {
-            luat_heap_free(temp_path);
-            return -1;
-        }
-    }
-    
+
     luat_heap_free(temp_path);
     return 0;
 }
-#endif
+
+static char* luat_miniz_normalize_target_dir(const char* target_dir) {
+    size_t len = strlen(target_dir);
+    int need_sep = 0;
+    char* normalized_target;
+    if (len == 0) {
+        return NULL;
+    }
+    if (target_dir[len - 1] != '/' && target_dir[len - 1] != '\\') {
+        need_sep = 1;
+    }
+    normalized_target = luat_heap_malloc(len + need_sep + 1);
+    if (normalized_target == NULL) {
+        return NULL;
+    }
+    memcpy(normalized_target, target_dir, len);
+    if (need_sep) {
+        normalized_target[len++] = '/';
+    }
+    normalized_target[len] = 0;
+    return normalized_target;
+}
+
+static int luat_miniz_is_unsafe_path(const char* path) {
+    const char* segment = path;
+    const char* cursor = path;
+    size_t segment_len;
+
+    if (path == NULL || path[0] == 0) {
+        return 1;
+    }
+    if (path[0] == '/' || path[0] == '\\') {
+        return 1;
+    }
+    if ((((path[0] >= 'A') && (path[0] <= 'Z')) || ((path[0] >= 'a') && (path[0] <= 'z'))) && path[1] == ':') {
+        return 1;
+    }
+    while (1) {
+        if (*cursor == '/' || *cursor == '\\' || *cursor == 0) {
+            segment_len = cursor - segment;
+            if (segment_len == 2 && segment[0] == '.' && segment[1] == '.') {
+                return 1;
+            }
+            if (*cursor == 0) {
+                break;
+            }
+            segment = cursor + 1;
+        }
+        cursor++;
+    }
+    return 0;
+}
+
+static char* luat_miniz_join_path(const char* base_path, const char* entry_path) {
+    size_t base_len = strlen(base_path);
+    size_t entry_len = strlen(entry_path);
+    char* full_path = luat_heap_malloc(base_len + entry_len + 1);
+    if (full_path == NULL) {
+        return NULL;
+    }
+    memcpy(full_path, base_path, base_len);
+    memcpy(full_path + base_len, entry_path, entry_len + 1);
+    return full_path;
+}
+
+static int luat_miniz_ensure_parent_dir(const char* full_path) {
+    const char* slash = strrchr(full_path, '/');
+    const char* backslash = strrchr(full_path, '\\');
+    const char* last_sep = slash;
+    char* dir_path;
+    size_t dir_len;
+    int ret;
+
+    if (backslash != NULL && (last_sep == NULL || backslash > last_sep)) {
+        last_sep = backslash;
+    }
+    if (last_sep == NULL) {
+        return 0;
+    }
+    dir_len = last_sep - full_path;
+    if (dir_len == 0) {
+        return 0;
+    }
+    dir_path = luat_heap_malloc(dir_len + 1);
+    if (dir_path == NULL) {
+        return -1;
+    }
+    memcpy(dir_path, full_path, dir_len);
+    dir_path[dir_len] = 0;
+    ret = luat_mkdir_recursive(dir_path);
+    luat_heap_free(dir_path);
+    return ret;
+}
 
 static size_t luat_miniz_file_read_func(void *pOpaque, mz_uint64 file_ofs, void *pBuf, size_t n) {
     FILE* f = (FILE*)pOpaque;
@@ -222,10 +313,7 @@ end
 static int l_miniz_unzip(lua_State* L) {
     const char* zip_file_path = luaL_checkstring(L, 1);
     const char* target_dir = luaL_checkstring(L, 2);
-    
-    // Ensure target directory ends with slash
-    char* normalized_target = (char*)target_dir;
-    char tmpdst[256] = {0};
+    char* normalized_target = NULL;
     
     size_t zip_file_size = 0;
     zip_file_size = luat_fs_fsize(zip_file_path);
@@ -237,9 +325,22 @@ static int l_miniz_unzip(lua_State* L) {
     else {
         LLOGI("ZIP file size: %zu bytes", zip_file_size);
     }
+    normalized_target = luat_miniz_normalize_target_dir(target_dir);
+    if (normalized_target == NULL) {
+        LLOGE("Failed to normalize target directory: %s", target_dir);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    if (luat_mkdir_recursive(normalized_target) != 0) {
+        LLOGE("Failed to create target directory: %s", normalized_target);
+        luat_heap_free(normalized_target);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     FILE* f = luat_fs_fopen(zip_file_path, "rb");
     if (!f) {
         LLOGE("Failed to open ZIP file: %s", zip_file_path);
+        luat_heap_free(normalized_target);
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -256,6 +357,7 @@ static int l_miniz_unzip(lua_State* L) {
     if(!mz_zip_reader_init(&zip_archive, zip_file_size, 0)) {
         LLOGE("Failed to initialize ZIP reader err %d", zip_archive.m_last_error);
         luat_fs_fclose(f);
+        luat_heap_free(normalized_target);
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -273,32 +375,43 @@ static int l_miniz_unzip(lua_State* L) {
             success = 0;
             continue;
         }
-        
-        // Skip directories (they end with /)
-        if (file_stat.m_is_directory) {
-            #if 0
-            // Create directory structure
-            size_t full_path_len = strlen(normalized_target) + strlen(file_stat.m_filename);
-            char* full_path = (char*)luat_heap_malloc(full_path_len + 1);
-            if (full_path) {
-                strcpy(full_path, normalized_target);
-                strcat(full_path, file_stat.m_filename);
-                luat_mkdir_recursive(full_path);
-                luat_heap_free(full_path);
-            }
-            #endif
-            LLOGI("Skipping directory: %s", file_stat.m_filename);
+        if (luat_miniz_is_unsafe_path(file_stat.m_filename)) {
+            LLOGE("Unsafe ZIP entry path: %s", file_stat.m_filename);
+            success = 0;
             continue;
         }
-        
-        // Construct full output path
-        snprintf(tmpdst, sizeof(tmpdst), "%s%s", target_dir, file_stat.m_filename);
-        LLOGI("Processing file: %s -> %s", file_stat.m_filename, tmpdst);
+
+        char* full_path = luat_miniz_join_path(normalized_target, file_stat.m_filename);
+        if (full_path == NULL) {
+            LLOGE("Out of memory when joining target path: %s", file_stat.m_filename);
+            success = 0;
+            continue;
+        }
+
+        if (file_stat.m_is_directory) {
+            if (luat_mkdir_recursive(full_path) != 0) {
+                LLOGE("Failed to create directory: %s", full_path);
+                success = 0;
+            }
+            else {
+                LLOGI("Created directory: %s", full_path);
+            }
+            luat_heap_free(full_path);
+            continue;
+        }
+        if (luat_miniz_ensure_parent_dir(full_path) != 0) {
+            LLOGE("Failed to create parent directory for: %s", full_path);
+            luat_heap_free(full_path);
+            success = 0;
+            continue;
+        }
+        LLOGI("Processing file: %s -> %s", file_stat.m_filename, full_path);
         
         // Extract file to disk
-        FILE* out_f = luat_fs_fopen(tmpdst, "wb+");
+        FILE* out_f = luat_fs_fopen(full_path, "wb+");
         if (!out_f) {
-            LLOGE("Failed to create output file: %s", tmpdst);
+            LLOGE("Failed to create output file: %s", full_path);
+            luat_heap_free(full_path);
             success = 0;
             continue;
         }
@@ -309,15 +422,13 @@ static int l_miniz_unzip(lua_State* L) {
             LLOGD("Extracted: %s (%zu bytes)", file_stat.m_filename, (size_t)file_stat.m_uncomp_size);
         }
         luat_fs_fclose(out_f);
+        luat_heap_free(full_path);
     }
 
+    mz_zip_reader_end(&zip_archive);
     luat_fs_fclose(f);
     
-    mz_zip_reader_end(&zip_archive);
-    
-    if (normalized_target != target_dir) {
-        luat_heap_free(normalized_target);
-    }
+    luat_heap_free(normalized_target);
     
     lua_pushboolean(L, success);
     return 1;

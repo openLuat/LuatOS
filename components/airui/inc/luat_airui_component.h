@@ -405,6 +405,9 @@ int airui_container_set_hidden(lv_obj_t *container, bool hidden); //设置隐藏
 int airui_container_open(lv_obj_t *container); //显示并置顶容器
 int airui_container_set_border_color(lv_obj_t *container, uint32_t color, int width); //设置边框颜色+宽度
 int airui_container_set_on_click(lv_obj_t *container, int callback_ref); //设置点击回调
+int airui_container_get_pos(lv_obj_t *container, int32_t *x, int32_t *y); //获取容器位置
+int airui_container_set_pos(lv_obj_t *container, int32_t x, int32_t y); //设置容器绝对位置
+int airui_container_move(lv_obj_t *container, int32_t dx, int32_t dy); //按偏移量移动容器
 int airui_container_destroy(lv_obj_t *container); //销毁容器及关联资源
 
 /**

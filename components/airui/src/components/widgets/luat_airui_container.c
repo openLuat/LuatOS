@@ -170,3 +170,45 @@ int airui_container_set_on_click(lv_obj_t *container, int callback_ref)
     return airui_component_bind_event(meta, AIRUI_EVENT_CLICKED, callback_ref);
 }
 
+/**
+ * 获取容器位置
+ */
+int airui_container_get_pos(lv_obj_t *container, int32_t *x, int32_t *y)
+{
+    if (container == NULL || x == NULL || y == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    *x = lv_obj_get_x(container);
+    *y = lv_obj_get_y(container);
+    return AIRUI_OK;
+}
+
+/**
+ * 设置容器位置
+ */
+int airui_container_set_pos(lv_obj_t *container, int32_t x, int32_t y)
+{
+    if (container == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_set_pos(container, x, y);
+    return AIRUI_OK;
+}
+
+/**
+ * 按偏移量移动容器
+ */
+int airui_container_move(lv_obj_t *container, int32_t dx, int32_t dy)
+{
+    int32_t x;
+    int32_t y;
+    int ret = airui_container_get_pos(container, &x, &y);
+    if (ret != AIRUI_OK) {
+        return ret;
+    }
+
+    return airui_container_set_pos(container, x + dx, y + dy);
+}
+

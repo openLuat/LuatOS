@@ -96,15 +96,16 @@
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
 
-    #define LV_USE_LOG 1
-    /** Set value to one of the following levels of logging detail:
-     *  - LV_LOG_LEVEL_TRACE    Log detailed information.
-     *  - LV_LOG_LEVEL_INFO     Log important events.
-     *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
-     *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
-     *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
-     *  - LV_LOG_LEVEL_NONE     Do not log anything. */
-    #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
+    // 打开后会增加70k左右代码，只有调试才打开
+    // #define LV_USE_LOG 1
+    // /** Set value to one of the following levels of logging detail:
+    //  *  - LV_LOG_LEVEL_TRACE    Log detailed information.
+    //  *  - LV_LOG_LEVEL_INFO     Log important events.
+    //  *  - LV_LOG_LEVEL_WARN     Log if something unwanted happened but didn't cause a problem.
+    //  *  - LV_LOG_LEVEL_ERROR    Log only critical issues, when system may fail.
+    //  *  - LV_LOG_LEVEL_USER     Log only custom log messages added by the user.
+    //  *  - LV_LOG_LEVEL_NONE     Do not log anything. */
+    // #define LV_LOG_LEVEL LV_LOG_LEVEL_WARN
     
     // 图片解码支持，真机还支持硬件jpg解码，默认打开
     #define LV_USE_LODEPNG 1

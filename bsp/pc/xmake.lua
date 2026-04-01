@@ -57,9 +57,9 @@ elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
 end
 
--- suppress common noisy warnings on GCC/Clang (non-MSVC)
+-- suppress common noisy warnings on non-Windows hosts (where these flags are supported)
 if not is_host("windows") then
-    add_cflags("-Wno-unused-parameter", "-Wno-unused-function", "-Wno-unused-variable", {force = true})
+    add_cflags("-Wno-unused-parameter", "-Wno-unused-function", "-Wno-unused-variable")
 end
 
 add_includedirs("include",{public = true})

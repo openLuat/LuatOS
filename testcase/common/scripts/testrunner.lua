@@ -224,6 +224,10 @@ function testrunner.runBatch(name, testcases)
     reportResult(all_passed, name, (all_passed and "所有测试均通过" or "部分测试失败"))
     
     deInitNetwork()
+    -- 对于PC测试, 结束后要退出程序, 返回值表示测试结果
+    if rtos.bsp() == "PC" then
+        os.exit(all_passed and 0 or 1)
+    end
     return all_passed
 end
 

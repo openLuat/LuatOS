@@ -172,23 +172,48 @@ function ftp_test.test_ftp_file_download()
     connect_and_auth(ftpc)
 
     -- 执行文件下载
-    local download_ok = ftpc:download(
-        TEST_FILES.download.remote_path,
-        TEST_FILES.download.local_path,
-        {
-            timeout = 30 * 1000  -- 30秒超时
-        }
-    )
+    local download_ok = ftpc:download(TEST_FILES.download.remote_path, TEST_FILES.download.local_path, {
+        timeout = 30 * 1000 -- 30秒超时
+    })
 
     assert(download_ok, "文件下载失败")
 
-    -- 验证下载的文件
-    local downloaded_size = io.fileSize(TEST_FILES.download.local_path)
-    assert(downloaded_size, "下载文件不存在")
-    assert(downloaded_size > 0, "下载文件为空")
-
     -- 关闭连接
     ftpc:close()
+
+    -- ========== 验证阶段 ==========
+    local file_path = TEST_FILES.download.local_path
+
+    -- 1. 验证文件是否存在
+    assert(io.exists(file_path), "下载文件不存在: " .. file_path)
+    log.info("ftp_test", "验证1: 文件存在 ✓", file_path)
+
+    -- 2. 验证文件大小 > 0
+    local downloaded_size = io.fileSize(file_path)
+    assert(downloaded_size, "获取文件大小失败")
+    assert(downloaded_size > 0, "下载文件为空，大小: " .. downloaded_size .. "字节")
+    log.info("ftp_test", "验证2: 文件大小 ✓", downloaded_size .. "字节")
+
+    -- 3. 读取并验证文件内容不为空
+    local file = io.open(file_path, "rb")
+    assert(file, "无法打开下载的文件进行内容验证")
+
+    local file_content = file:read("*a")
+    file:close()
+
+    assert(file_content, "读取文件内容失败")
+    assert(#file_content == downloaded_size, string.format(
+        "内容大小与文件大小不一致: 内容%d字节 vs 文件%d字节", #file_content, downloaded_size))
+    log.info("ftp_test", "验证3: 文件内容读取成功 ✓", string.format("内容长度:%d字节", #file_content))
+
+    -- 打印下载的文件内容
+    log.info("ftp_test", "下载的文件内容:", file_content)
+    log.info("ftp_test", "下载的文件内容(HEX):", file_content:toHex())
+
+    -- 4. 验证内容包含预期关键字（可选，根据实际文件内容调整）
+    assert(string.find(file_content, "LuatOS") or string.find(file_content, "FTP"),
+        "文件内容不包含预期关键字")
+    log.info("ftp_test", "验证4: 文件内容包含预期关键字 ✓")
 
     log.info("ftp_test", "FTP文件下载测试通过")
 end

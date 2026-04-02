@@ -117,6 +117,56 @@ static int l_image_set_opacity(lua_State *L) {
 }
 
 /**
+ * Image:get_pos()
+ * @api image:get_pos()
+ * @return int x X 坐标
+ * @return int y Y 坐标
+ */
+static int l_image_get_pos(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    int32_t x = 0;
+    int32_t y = 0;
+    if (airui_component_get_pos(img, &x, &y) != AIRUI_OK) {
+        return luaL_error(L, "invalid image");
+    }
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+/**
+ * Image:set_pos(x, y)
+ * @api image:set_pos(x, y)
+ * @int x X 坐标
+ * @int y Y 坐标
+ */
+static int l_image_set_pos(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    int32_t x = (int32_t)luaL_checkinteger(L, 2);
+    int32_t y = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_set_pos(img, x, y) != AIRUI_OK) {
+        return luaL_error(L, "invalid image");
+    }
+    return 0;
+}
+
+/**
+ * Image:move(dx, dy)
+ * @api image:move(dx, dy)
+ * @int dx X 方向偏移量
+ * @int dy Y 方向偏移量
+ */
+static int l_image_move(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    int32_t dx = (int32_t)luaL_checkinteger(L, 2);
+    int32_t dy = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_move(img, dx, dy) != AIRUI_OK) {
+        return luaL_error(L, "invalid image");
+    }
+    return 0;
+}
+
+/**
  * Image:destroy（手动销毁）
  */
 static int l_image_destroy(lua_State *L) {
@@ -148,6 +198,9 @@ void airui_register_image_meta(lua_State *L) {
         {"set_rotation", l_image_set_rotation},
         {"set_zoom", l_image_set_zoom},
         {"set_opacity", l_image_set_opacity},
+        {"get_pos", l_image_get_pos},
+        {"set_pos", l_image_set_pos},
+        {"move", l_image_move},
         {"destroy", l_image_destroy},
         {NULL, NULL}
     };

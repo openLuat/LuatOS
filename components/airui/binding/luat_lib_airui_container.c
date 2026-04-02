@@ -128,7 +128,7 @@ static int l_container_get_pos(lua_State *L) {
     lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
     int32_t x = 0;
     int32_t y = 0;
-    if (airui_container_get_pos(container, &x, &y) != AIRUI_OK) {
+    if (airui_component_get_pos(container, &x, &y) != AIRUI_OK) {
         return luaL_error(L, "invalid container");
     }
     lua_pushinteger(L, x);
@@ -146,7 +146,7 @@ static int l_container_set_pos(lua_State *L) {
     lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
     int32_t x = (int32_t)luaL_checkinteger(L, 2);
     int32_t y = (int32_t)luaL_checkinteger(L, 3);
-    if (airui_container_set_pos(container, x, y) != AIRUI_OK) {
+    if (airui_component_set_pos(container, x, y) != AIRUI_OK) {
         return luaL_error(L, "invalid container");
     }
     return 0;
@@ -162,12 +162,11 @@ static int l_container_move(lua_State *L) {
     lv_obj_t *container = airui_check_component(L, 1, AIRUI_CONTAINER_MT);
     int32_t dx = (int32_t)luaL_checkinteger(L, 2);
     int32_t dy = (int32_t)luaL_checkinteger(L, 3);
-    if (airui_container_move(container, dx, dy) != AIRUI_OK) {
+    if (airui_component_move(container, dx, dy) != AIRUI_OK) {
         return luaL_error(L, "invalid container");
     }
     return 0;
 }
-
 
 /**
  * Container:destroy()

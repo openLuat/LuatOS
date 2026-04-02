@@ -150,6 +150,56 @@ static int l_button_focus(lua_State *L) {
 }
 
 /**
+ * Button:get_pos()
+ * @api button:get_pos()
+ * @return int x X 坐标
+ * @return int y Y 坐标
+ */
+static int l_button_get_pos(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    int32_t x = 0;
+    int32_t y = 0;
+    if (airui_component_get_pos(btn, &x, &y) != AIRUI_OK) {
+        return luaL_error(L, "invalid button");
+    }
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+/**
+ * Button:set_pos(x, y)
+ * @api button:set_pos(x, y)
+ * @int x X 坐标
+ * @int y Y 坐标
+ */
+static int l_button_set_pos(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    int32_t x = (int32_t)luaL_checkinteger(L, 2);
+    int32_t y = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_set_pos(btn, x, y) != AIRUI_OK) {
+        return luaL_error(L, "invalid button");
+    }
+    return 0;
+}
+
+/**
+ * Button:move(dx, dy)
+ * @api button:move(dx, dy)
+ * @int dx X 方向偏移量
+ * @int dy Y 方向偏移量
+ */
+static int l_button_move(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    int32_t dx = (int32_t)luaL_checkinteger(L, 2);
+    int32_t dy = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_move(btn, dx, dy) != AIRUI_OK) {
+        return luaL_error(L, "invalid button");
+    }
+    return 0;
+}
+
+/**
  * Button:destroy（手动销毁）
  */
 static int l_button_destroy(lua_State *L) {
@@ -180,6 +230,9 @@ void airui_register_button_meta(lua_State *L) {
         {"set_style", l_button_set_style},
         {"set_stype", l_button_set_stype},
         {"set_on_click", l_button_set_on_click},
+        {"get_pos", l_button_get_pos},
+        {"set_pos", l_button_set_pos},
+        {"move", l_button_move},
         {"focus", l_button_focus},
         {"destroy", l_button_destroy},
         {NULL, NULL}

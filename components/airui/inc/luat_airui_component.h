@@ -221,6 +221,10 @@ airui_component_meta_t *airui_component_meta_alloc(
     lv_obj_t *obj,
     airui_component_type_t component_type);
 
+int airui_component_get_pos(lv_obj_t *obj, int32_t *x, int32_t *y);
+int airui_component_set_pos(lv_obj_t *obj, int32_t x, int32_t y);
+int airui_component_move(lv_obj_t *obj, int32_t dx, int32_t dy);
+
 /**
  * 释放组件元数据
  * @param meta 元数据指针

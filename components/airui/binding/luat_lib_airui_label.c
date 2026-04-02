@@ -178,6 +178,56 @@ static int l_label_get_text(lua_State *L) {
 }
 
 /**
+ * Label:get_pos()
+ * @api label:get_pos()
+ * @return int x X 坐标
+ * @return int y Y 坐标
+ */
+static int l_label_get_pos(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    int32_t x = 0;
+    int32_t y = 0;
+    if (airui_component_get_pos(label, &x, &y) != AIRUI_OK) {
+        return luaL_error(L, "invalid label");
+    }
+    lua_pushinteger(L, x);
+    lua_pushinteger(L, y);
+    return 2;
+}
+
+/**
+ * Label:set_pos(x, y)
+ * @api label:set_pos(x, y)
+ * @int x X 坐标
+ * @int y Y 坐标
+ */
+static int l_label_set_pos(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    int32_t x = (int32_t)luaL_checkinteger(L, 2);
+    int32_t y = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_set_pos(label, x, y) != AIRUI_OK) {
+        return luaL_error(L, "invalid label");
+    }
+    return 0;
+}
+
+/**
+ * Label:move(dx, dy)
+ * @api label:move(dx, dy)
+ * @int dx X 方向偏移量
+ * @int dy Y 方向偏移量
+ */
+static int l_label_move(lua_State *L) {
+    lv_obj_t *label = airui_check_component(L, 1, AIRUI_LABEL_MT);
+    int32_t dx = (int32_t)luaL_checkinteger(L, 2);
+    int32_t dy = (int32_t)luaL_checkinteger(L, 3);
+    if (airui_component_move(label, dx, dy) != AIRUI_OK) {
+        return luaL_error(L, "invalid label");
+    }
+    return 0;
+}
+
+/**
  * Label:destroy（手动销毁）
  */
 static int l_label_destroy(lua_State *L) {
@@ -212,6 +262,9 @@ void airui_register_label_meta(lua_State *L) {
         {"set_align", l_label_set_align},
         {"set_on_click", l_label_set_on_click},
         {"get_text", l_label_get_text},
+        {"get_pos", l_label_get_pos},
+        {"set_pos", l_label_set_pos},
+        {"move", l_label_move},
         {"destroy", l_label_destroy},
         {NULL, NULL}
     };

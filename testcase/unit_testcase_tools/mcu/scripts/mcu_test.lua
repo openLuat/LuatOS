@@ -295,5 +295,131 @@ function mcu_tests.test_mcu_uniqueId_length()
     end
 end
 
+function mcu_tests.test_mcu_constants_exists()
+    log.info("===== 测试 mcu 常量是否存在 =====")
+
+    -- 定义需要检查的常量列表
+    local constants = {"UART", "I2C", "SPI", "PWM", "CAN", "GPIO", "I2S", "LCD", "CAM", "CAMERA", "ONEWIRE", "SDIO",
+                       "KEYBORAD", "ETH"}
+
+    for _, const_name in ipairs(constants) do
+        local const_value = mcu[const_name]
+        assert(const_value ~= nil, string.format("mcu.%s 常量不存在", const_name))
+        assert(type(const_value) == "number",
+            string.format("mcu.%s 常量类型错误: 预期number, 实际 %s", const_name, type(const_value)))
+        log.info(string.format("mcu.%s = %d", const_name, const_value))
+    end
+
+    log.info("所有 mcu 常量检查通过")
+end
+
+-- ==================== mcu.x32 nil 参数测试 ====================
+function mcu_tests.test_mcu_x32_with_nil()
+    log.info("===== 测试 mcu.x32(nil) =====")
+
+    -- 测试传入 nil
+    local success, result = pcall(mcu.x32, nil)
+    assert(success == false, string.format("mcu.x32(nil) 应返回错误，但实际返回了: %s", tostring(result)))
+    log.info("mcu.x32(nil) 正确返回错误")
+end
+
+-- ==================== mcu.tick64 nil 参数测试 ====================
+function mcu_tests.test_mcu_tick64_with_nil()
+    log.info("===== 测试 mcu.tick64(nil) =====")
+
+    -- 测试传入 nil（应等同于默认行为，即 false）
+    local tick_str, tick_per = mcu.tick64(nil)
+
+    assert(type(tick_str) == "string",
+        string.format("mcu.tick64(nil)返回值1类型错误: 预期string, 实际 %s", type(tick_str)))
+    assert(#tick_str >= 8,
+        string.format("mcu.tick64(nil)返回值1长度不足: 至少8字节, 实际 %d字节", #tick_str))
+    assert(type(tick_per) == "number",
+        string.format("mcu.tick64(nil)返回值2类型错误: 预期number, 实际 %s", type(tick_per)))
+    assert(tick_per >= 0, string.format("mcu.tick64(nil) tick_per应为非负数: 实际 %d", tick_per))
+
+    log.info("mcu.tick64(nil) 测试通过")
+end
+
+-- ==================== mcu.dtick64 nil 参数测试 ====================
+function mcu_tests.test_mcu_dtick64_with_nil()
+    log.info("===== 测试 mcu.dtick64() nil参数 =====")
+
+    -- 获取有效的时间点用于测试
+    local tick_valid, _ = mcu.tick64()
+
+    -- 测试 tick1 为 nil
+    local success1, err1 = pcall(mcu.dtick64, nil, tick_valid)
+    assert(success1 == false, string.format("mcu.dtick64(nil, valid) 应返回错误，实际: %s", tostring(err1)))
+
+    -- 测试 tick2 为 nil
+    local success2, err2 = pcall(mcu.dtick64, tick_valid, nil)
+    assert(success2 == false, string.format("mcu.dtick64(valid, nil) 应返回错误，实际: %s", tostring(err2)))
+
+    -- 测试两个参数都为 nil
+    local success3, err3 = pcall(mcu.dtick64, nil, nil)
+    assert(success3 == false, string.format("mcu.dtick64(nil, nil) 应返回错误，实际: %s", tostring(err3)))
+
+    -- 测试 check_value 为 nil
+    local result, diff_tick = mcu.dtick64(tick_valid, tick_valid, nil)
+    assert(type(result) == "boolean",
+        string.format("check_value为nil时返回值1类型错误: 预期boolean, 实际 %s", type(result)))
+    assert(type(diff_tick) == "number",
+        string.format("check_value为nil时返回值2类型错误: 预期number, 实际 %s", type(diff_tick)))
+    assert(diff_tick == 0, string.format("相同时间点差值应为0，实际: %d", diff_tick))
+    assert(result == true, string.format(
+        "check_value为nil时，差值为0应 >= 参考值0，result应为true，实际: %s", tostring(result)))
+
+    log.info("mcu.dtick64 nil参数测试通过")
+end
+
+-- ==================== mcu.ticks2 nil 参数测试 ====================
+function mcu_tests.test_mcu_ticks2_with_nil()
+    log.info("===== 测试 mcu.ticks2(nil) =====")
+
+    -- 测试传入 nil 不应导致崩溃
+    local success, high, low = pcall(mcu.ticks2, nil)
+
+    assert(success == true, string.format("mcu.ticks2(nil) 调用失败: %s", tostring(high)))
+
+    assert(type(high) == "number",
+        string.format("mcu.ticks2(nil) 返回值1类型错误: 预期number, 实际 %s", type(high)))
+    assert(type(low) == "number",
+        string.format("mcu.ticks2(nil) 返回值2类型错误: 预期number, 实际 %s", type(low)))
+    assert(high >= 0 and low >= 0, string.format("mcu.ticks2(nil) 返回值应为非负数: high=%d, low=%d", high, low))
+    log.info(string.format("mcu.ticks2(nil) 返回: high=%d, low=%d (nil被当作默认值处理)", high, low))
+end
+
+-- ==================== mcu.hz 无参数调用验证 ====================
+function mcu_tests.test_mcu_hz_no_param()
+    log.info("===== 验证 mcu.hz() 无参数调用 =====")
+
+    -- hz() 本身不需要参数，传nil应该等同于不传参
+    local hz1 = mcu.hz()
+    local hz2 = mcu.hz(nil)
+
+    assert(type(hz1) == "number" and type(hz2) == "number", "mcu.hz() 返回值类型错误")
+    assert(hz1 == hz2, string.format("mcu.hz() 与 mcu.hz(nil) 返回值不一致: %d vs %d", hz1, hz2))
+    assert(hz1 > 0, string.format("mcu.hz() 应大于0，实际: %d", hz1))
+
+    log.info("mcu.hz() 无参数调用验证通过")
+end
+
+-- ==================== mcu.unique_id 无参数调用验证 ====================
+function mcu_tests.test_mcu_unique_id_no_param()
+    log.info("===== 验证 mcu.unique_id() 无参数调用 =====")
+
+    -- unique_id() 本身不需要参数，传nil应该等同于不传参
+    local id1 = mcu.unique_id()
+    local id2 = mcu.unique_id(nil)
+
+    assert(type(id1) == "string" and type(id2) == "string", "mcu.unique_id() 返回值类型错误")
+    assert(id1 == id2,
+        string.format("mcu.unique_id() 与 mcu.unique_id(nil) 返回值不一致: %s vs %s", string.toHex(id1),
+            string.toHex(id2)))
+    assert(#id1 > 0, "mcu.unique_id() 返回值不应为空")
+
+    log.info("mcu.unique_id() 无参数调用验证通过")
+end
 
 return mcu_tests

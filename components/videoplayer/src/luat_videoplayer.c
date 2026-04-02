@@ -354,6 +354,26 @@ void luat_videoplayer_frame_free(luat_vp_frame_t *frame) {
 int luat_videoplayer_get_info(luat_vp_ctx_t *ctx, luat_vp_info_t *info) {
     if (!ctx || !info) return LUAT_VP_ERR_PARAM;
 
+    /* If dimensions are unknown, try to decode first frame to get them */
+    if (ctx->width == 0 && ctx->format == LUAT_VP_FMT_MJPG) {
+        /* Save current file position */
+        long file_pos = VP_FTELL(ctx->fp);
+        if (file_pos != -1) {
+            luat_vp_frame_t frame;
+            int ret = luat_videoplayer_read_frame(ctx, &frame);
+            if (ret == LUAT_VP_OK) {
+                ctx->width = frame.width;
+                ctx->height = frame.height;
+                luat_videoplayer_frame_free(&frame);
+                VP_LOGD("video size: %dx%d", ctx->width, ctx->height);
+            }
+            
+            /* Reset file position to original */
+            VP_FSEEK(ctx->fp, file_pos, SEEK_SET);
+            ctx->eof = 0;  /* Reset EOF flag */
+        }
+    }
+
     info->width = ctx->width;
     info->height = ctx->height;
     info->format = ctx->format;

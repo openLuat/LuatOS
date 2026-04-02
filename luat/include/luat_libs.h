@@ -245,6 +245,8 @@ LUAMOD_API int luaopen_h264(lua_State *L);
 LUAMOD_API int luaopen_videoplayer(lua_State *L);
 /** GBA模拟器 */
 LUAMOD_API int luaopen_gba(lua_State *L);
+/** VoIP库 */
+LUAMOD_API int luaopen_voip( lua_State *L );
 
 
 #endif

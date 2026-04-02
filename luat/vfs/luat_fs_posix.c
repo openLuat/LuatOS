@@ -200,7 +200,6 @@ static int luat_vfs_posix_dir_path(const char* dir_name, char* buff, size_t buff
 int luat_vfs_posix_mkdir(void* userdata, char const* filename) {
     (void)userdata;
 #if defined(LUA_USE_WINDOWS)
-    printf("mkdir %s\n", filename + FILENAME_OFFSET);
     return mkdir(filename + FILENAME_OFFSET);
 #elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
     return mkdir(filename + FILENAME_OFFSET, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

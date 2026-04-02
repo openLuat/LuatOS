@@ -229,6 +229,12 @@ static char* luat_miniz_join_path(const char* base_path, const char* entry_path)
     }
     memcpy(full_path, base_path, base_len);
     memcpy(full_path + base_len, entry_path, entry_len + 1);
+    // 将路径分隔符统一为 '/'
+    for (size_t i = 0; i < base_len + entry_len; i++) {
+        if (full_path[i] == '\\') {
+            full_path[i] = '/';
+        }
+    }
     return full_path;
 }
 

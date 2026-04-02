@@ -18,6 +18,21 @@
 
 #define AIRUI_ANIMIMG_MT "airui.animimg"
 
+/**
+ * 创建 AnimImg 组件
+ * @api airui.animimg(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 100
+ * @int config.h 高度，默认 100
+ * @table config.frames 帧图片路径数组，必填
+ * @int config.duration 动画总时长，单位毫秒，默认 1000
+ * @boolean config.loop 是否循环播放，默认 true
+ * @boolean config.auto_play 是否创建后自动播放，默认 true
+ * @userdata config.parent 父对象，可选，默认当前屏幕
+ * @return userdata AnimImg 对象
+ */
 static int l_airui_animimg(lua_State *L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -37,24 +52,53 @@ static lv_obj_t *animimg_check(lua_State *L)
     return airui_check_component(L, 1, AIRUI_ANIMIMG_MT);
 }
 
+/**
+ * AnimImg:play()
+ * @api animimg:play()
+ * @return nil
+ * @usage
+ * anim:play()
+ */
 static int l_animimg_play(lua_State *L)
 {
     airui_animimg_play(animimg_check(L));
     return 0;
 }
 
+/**
+ * AnimImg:pause()
+ * @api animimg:pause()
+ * @return nil
+ * @usage
+ * anim:pause()
+ */
 static int l_animimg_pause(lua_State *L)
 {
     airui_animimg_pause(animimg_check(L));
     return 0;
 }
 
+/**
+ * AnimImg:stop()
+ * @api animimg:stop()
+ * @return nil
+ * @usage
+ * anim:stop()
+ */
 static int l_animimg_stop(lua_State *L)
 {
     airui_animimg_stop(animimg_check(L));
     return 0;
 }
 
+/**
+ * AnimImg:set_src(frames)
+ * @api animimg:set_src(frames)
+ * @table frames 帧图片路径数组
+ * @return nil
+ * @usage
+ * anim:set_src({"/luadb/frame1.png", "/luadb/frame2.png"})
+ */
 static int l_animimg_set_src(lua_State *L)
 {
     lv_obj_t *obj = animimg_check(L);
@@ -65,6 +109,13 @@ static int l_animimg_set_src(lua_State *L)
     return 0;
 }
 
+/**
+ * AnimImg:destroy（手动销毁）
+ * @api animimg:destroy()
+ * @return nil
+ * @usage
+ * anim:destroy()
+ */
 static int l_animimg_destroy(lua_State *L)
 {
     lv_obj_t *obj = animimg_check(L);
@@ -73,6 +124,7 @@ static int l_animimg_destroy(lua_State *L)
         LLOGE("airui.animimg:destroy failed: %d", ret);
     }
 
+    // destroy 后主动清空 userdata，避免 Lua 侧继续持有失效对象
     airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_ANIMIMG_MT);
     if (ud != NULL) {
         ud->obj = NULL;
@@ -80,6 +132,10 @@ static int l_animimg_destroy(lua_State *L)
     return 0;
 }
 
+/**
+ * 注册 AnimImg 元表
+ * @param L Lua 状态
+ */
 void airui_register_animimg_meta(lua_State *L)
 {
     luaL_newmetatable(L, AIRUI_ANIMIMG_MT);
@@ -98,6 +154,9 @@ void airui_register_animimg_meta(lua_State *L)
     lua_pop(L, 1);
 }
 
+/**
+ * AnimImg 创建函数（供主模块注册）
+ */
 int airui_animimg_create(lua_State *L)
 {
     return l_airui_animimg(L);

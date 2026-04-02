@@ -46,6 +46,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "lottie";
         case AIRUI_COMPONENT_ANIMIMG:
             return "animimg";
+        case AIRUI_COMPONENT_VIDEO:
+            return "video";
         case AIRUI_COMPONENT_CHART:
             return "chart";
         case AIRUI_COMPONENT_QRCODE:

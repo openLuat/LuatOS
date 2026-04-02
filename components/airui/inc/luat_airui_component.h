@@ -33,6 +33,7 @@ extern "C" {
 #define AIRUI_KEYBOARD_MT "airui.keyboard"
 #define AIRUI_LOTTIE_MT "airui.lottie"
 #define AIRUI_ANIMIMG_MT "airui.animimg"
+#define AIRUI_VIDEO_MT "airui.video"
 #define AIRUI_CHART_MT "airui.chart"
 #define AIRUI_QRCODE_MT "airui.qrcode"
 
@@ -53,9 +54,32 @@ typedef enum {
     AIRUI_COMPONENT_KEYBOARD,
     AIRUI_COMPONENT_LOTTIE,
     AIRUI_COMPONENT_ANIMIMG,
+    AIRUI_COMPONENT_VIDEO,
     AIRUI_COMPONENT_CHART,
     AIRUI_COMPONENT_QRCODE
 } airui_component_type_t;
+
+/** Video 格式 */
+typedef enum {
+    AIRUI_VIDEO_FORMAT_AUTO = 0,
+    AIRUI_VIDEO_FORMAT_MJPG,
+    AIRUI_VIDEO_FORMAT_AVI_MJPG,
+    AIRUI_VIDEO_FORMAT_MP4_H264,
+} airui_video_format_t;
+
+/** Video 后端 */
+typedef enum {
+    AIRUI_VIDEO_BACKEND_AUTO = 0,
+    AIRUI_VIDEO_BACKEND_VIDEOPLAYER,
+    AIRUI_VIDEO_BACKEND_FFMPEG,
+    AIRUI_VIDEO_BACKEND_PLATFORM,
+} airui_video_backend_t;
+
+/** Video 解码模式 */
+typedef enum {
+    AIRUI_VIDEO_DECODE_SW = 0,
+    AIRUI_VIDEO_DECODE_HW = 1,
+} airui_video_decode_mode_t;
 
 /** TabView 对齐常量 */
 typedef enum {
@@ -542,6 +566,15 @@ int airui_animimg_pause(lv_obj_t *animimg);
 int airui_animimg_stop(lv_obj_t *animimg);
 int airui_animimg_set_src(lv_obj_t *animimg, void *L, int idx);
 int airui_animimg_destroy(lv_obj_t *animimg);
+
+/**
+ * Video组件
+ */
+lv_obj_t *airui_video_create_from_config(void *L, int idx);
+int airui_video_play(lv_obj_t *video);
+int airui_video_pause(lv_obj_t *video);
+int airui_video_stop(lv_obj_t *video);
+int airui_video_destroy(lv_obj_t *video);
 
 /**
  * Chart组件

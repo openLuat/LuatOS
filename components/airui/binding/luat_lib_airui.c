@@ -124,6 +124,10 @@ extern int airui_lottie_create(lua_State *L);
 extern void airui_register_animimg_meta(lua_State *L);
 extern int airui_animimg_create(lua_State *L);
 
+// Video 模块声明
+extern void airui_register_video_meta(lua_State *L);
+extern int airui_video_create(lua_State *L);
+
 // Chart 模块声明
 extern void airui_register_chart_meta(lua_State *L);
 extern int airui_chart_create(lua_State *L);
@@ -181,6 +185,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"keyboard", ROREG_FUNC(airui_keyboard_create)},
     {"lottie", ROREG_FUNC(airui_lottie_create)},
     {"animimg", ROREG_FUNC(airui_animimg_create)},
+    {"video", ROREG_FUNC(airui_video_create)},
     {"chart", ROREG_FUNC(airui_chart_create)},
     {"qrcode", ROREG_FUNC(airui_qrcode_create)},
     // 颜色格式常量
@@ -229,6 +234,7 @@ LUAMOD_API int luaopen_airui(lua_State *L) {
     airui_register_keyboard_meta(L);
     airui_register_lottie_meta(L);
     airui_register_animimg_meta(L);
+    airui_register_video_meta(L);
     airui_register_chart_meta(L);
     airui_register_qrcode_meta(L);
     

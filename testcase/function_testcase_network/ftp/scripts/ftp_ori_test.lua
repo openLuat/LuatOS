@@ -278,9 +278,8 @@ function ftp_ori_test.test_ftp_file_transfer()
             -- 验证文件存在
             local exists_file_result = io.exists(local_file_second)
             assert(exists_file_result == true,
-                string.format("适配器[%s] pull命令下载文件存在测试失败: 预期true,实际结果%s", name,
-                    tostring(exists_file_result)))
-            log.info("ftp_test", string.format("适配器[%s] pull命令下载文件存在测试通过", name))
+                string.format("适配器[%s] 下载文件不存在于路径: %s", name, local_file_second))
+            log.info("ftp_test", string.format("适配器[%s] 验证1: 文件已保存到指定路径 ✓ %s", name, local_file_second))
 
             -- 验证文件内容大小
             local full_data_content = io.readFile(local_file_second)
@@ -290,14 +289,14 @@ function ftp_ori_test.test_ftp_file_transfer()
             assert(full_data_size == file_content_size,
                 string.format("适配器[%s] 文件内容大小测试失败: 预期%s,实际结果%s", name,
                     file_content_size, full_data_size))
-            log.info("ftp_test", string.format("适配器[%s] 文件内容大小测试通过", name))
+            log.info("ftp_test", string.format("适配器[%s] 验证2: 文件大小 ✓ %d字节", name, full_data_size))
 
             -- 验证文件内容一致性
             local full_data = io.readFile(local_file_second)
             assert(tostring(full_data) == file_content,
                 string.format("适配器[%s] 文件内容一致性测试失败: 预期%s,实际结果%s", name,
                     file_content, tostring(full_data)))
-            log.info("ftp_test", string.format("适配器[%s] 文件内容一致性测试通过", name))
+            log.info("ftp_test", string.format("适配器[%s] 验证3: 文件内容一致 ✓", name))
 
             -- LIST命令测试
             local list_result = ftp.command("LIST " .. remote_file).wait()
@@ -337,6 +336,7 @@ function ftp_ori_test.test_ftp_file_transfer()
         sys.wait(100)
     end
 end
+
 
 -- FTP debug测试 - 遍历所有适配器
 function ftp_ori_test.test_ftp_debug()

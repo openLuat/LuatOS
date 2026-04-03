@@ -37,7 +37,7 @@ end
 local function lcd_drv_init()
     local result = lcd.init("st7796",
         {
-            pin_rst = 36,                          -- 复位引脚
+            pin_rst = 2,                          -- 复位引脚
             pin_pwr = 1,                           -- 背光控制引脚GPIO的ID号
             port = lcd.HWID_0,                     -- 驱动端口
             -- pin_dc = 0xFF,          -- lcd数据/命令选择引脚GPIO ID号，使用lcd 专用 SPI 接口 lcd.HWID_0不需要填此参数，使用通用SPI接口需要赋值

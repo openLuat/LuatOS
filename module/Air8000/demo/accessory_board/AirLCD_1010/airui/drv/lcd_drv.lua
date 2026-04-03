@@ -42,7 +42,7 @@ local function lcd_drv_init()
         {
             pin_pwr = 1,       -- 背光控制引脚GPIO端口号
             port = lcd.HWID_0, -- 驱动端口
-            pin_rst = 36,      -- lcd复位引脚
+            pin_rst = 2,       -- lcd复位引脚
             direction = 0,     -- lcd屏幕方向 0:0° 1:90° 2:180° 3:270°，屏幕方向和分辨率保存一致
             w = 320,           -- lcd 水平分辨率
             h = 480,           -- lcd 竖直分辨率

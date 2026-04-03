@@ -24,14 +24,14 @@ local adapter_test_results = {}
 local ALL_ADAPTERS = {}
 
 -- WiFi配置（仅WiFi模块使用）
-local ssid = "HHHHHHHHHHH"
-local password = "huanghefm94.3"
+local ssid = "luatos1234"
+local password = "12341234"
 
 -- UDP服务器配置
 local UDP_SERVERS_CONFIG = {{
     name = "UDP服务器1",
-    host = "115.120.239.161",
-    port = 27639,
+    host = "gz01.air32.cn",
+    port = 9901,
 }}
 
 -- 检查wlan库是否可用

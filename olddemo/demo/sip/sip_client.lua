@@ -426,11 +426,12 @@ local function sip_task(opts)
         domain = opts.domain,
         server = opts.server,
         port = opts.port,
+        adapter = opts.adapter,
         local_port = opts.local_port or LOCAL_PORT,
         expires = opts.expires or REGISTER_EXPIRES,
 
         -- 传输层状态。
-        transport = (opts.transport or SIP_TRANSPORT),
+        transport = opts.transport,
         tcp_stream = "",
 
         -- REGISTER 事务基础字段。
@@ -1242,10 +1243,9 @@ local function sip_task(opts)
 
     -- 外层重连循环：只要未显式 stop，断线后就会等待 3 秒重连。
     while true do
-        local netc = socket.create(nil, netCB)
+        local netc = socket.create(opts.adapter, netCB)
         state.netc = netc
-        -- socket.debug(netc, true)
-        socket.config(netc, state.local_port, (state.transport == "UDP"))
+        socket.config(netc, state.local_port, (state.transport == "udp"))
 
         local succ = socket.connect(netc, state.server, state.port)
         if not succ then
@@ -1310,6 +1310,10 @@ function M.start(opts)
     end
 
     if (not opts.server) or (not opts.port) or (not opts.domain) or (not opts.user) then
+        return false
+    end
+
+    if not opts.transport or (opts.transport ~= "udp" and opts.transport ~= "tcp" and opts.transport ~= "tls") then
         return false
     end
 

@@ -62,8 +62,8 @@ local TEST_FILES = {
 -- 设备类型判断和适配器配置
 if device_name == "Air8000" then
     -- Air8000: 支持4G和WiFi STA
-    local ssid = "HHHHHHHHHHH"
-    local password = "huanghefm94.3"
+    local ssid = "luatos1234"
+    local password = "12341234"
     pcall(function()
         wlan.connect(ssid, password, 1)
     end)
@@ -76,8 +76,8 @@ elseif device_name == "Air780EPM" or device_name == "Air780EHM" or device_name =
        device_name == "Air780EGH" or device_name == "Air780EGG" or device_name == "Air780EGP" then
     -- Air780系列: 支持4G，WiFi不支持（用于测试错误处理）
     pcall(function()
-        local ssid = "HHHHHHHHHHH"
-        local password = "huanghefm94.3"
+        local ssid = "luatos1234"
+        local password = "12341234"
         wlan.connect(ssid, password, 1)
     end)
     -- 先测试不支持的WiFi网卡（预期报错），再测试支持的4G网卡
@@ -88,8 +88,8 @@ elseif device_name == "Air780EPM" or device_name == "Air780EHM" or device_name =
     }
 elseif device_name == "Air8101" then
     -- Air8101: 支持WiFi，4G不支持（用于测试错误处理）
-    local ssid = "HHHHHHHHHHH"
-    local password = "huanghefm94.3"
+    local ssid = "luatos1234"
+    local password = "12341234"
     pcall(function()
         wlan.connect(ssid, password, 1)
     end)

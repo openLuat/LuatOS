@@ -18,6 +18,19 @@
 /**
  * 创建 Container 组件
  * @api airui.container(config)
+ * @table config 配置表
+ * @int config.x X 坐标，默认 0
+ * @int config.y Y 坐标，默认 0
+ * @int config.w 宽度，默认 100
+ * @int config.h 高度，默认 100
+ * @int config.color 背景色（0xRRGGBB），不传或小于 0 时为透明背景
+ * @int config.color_opacity 背景透明度（0-255），默认不透明
+ * @int config.radius 圆角半径，默认 0
+ * @int config.border_color 边框颜色（0xRRGGBB），不传或小于 0 时不绘制边框
+ * @int config.border_width 边框宽度，默认 1；需与 border_color 同时有效才显示边框
+ * @function config.on_click 点击回调函数，可选；传入时容器可点击
+ * @userdata config.parent 父对象，可选，默认当前屏幕
+ * @return userdata Container 对象；创建失败时返回 nil
  */
 static int l_airui_container(lua_State *L) {
     airui_ctx_t *ctx = NULL;

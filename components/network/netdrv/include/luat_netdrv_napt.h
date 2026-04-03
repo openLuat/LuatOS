@@ -181,6 +181,7 @@ static inline int napt_output_to_wan(napt_ctx_t* ctx,
     if (gw->netif->flags & NETIF_FLAG_ETHARP) {
         if (ctx->eth) {
             memcpy(ctx->eth->dest.addr, gw->gw_mac, 6);
+            memcpy(ctx->eth->src.addr, gw->netif->hwaddr, 6);
             gw->dataout(gw, gw->userdata, ctx->eth, ctx->len);
         }
         else {

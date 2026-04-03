@@ -39,8 +39,8 @@ require 后调用 M.start(opts)
 注意：
 - 服务器若要求 TCP/TLS，本示例需要相应改为 TCP/TLS（socket.config 的 is_udp/is_tls 参数）
 - Contact 里填写的是本地 IP/端口，若在 NAT 后可能需要服务器支持 rport/received
-]] local sys = require "sys"
-local proto = require "sip_proto"
+]]
+local proto = require "exsipproto"
 
 local M = {}
 -- 全局回调/控制（单实例）

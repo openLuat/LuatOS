@@ -1565,6 +1565,7 @@ int luat_http_client_start_luatos(luat_http_ctrl_t* http_ctrl) {
 
 	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 		// network_close(http_ctrl->netc, 0);
+		LLOGE("can not connect! %s:%d", http_ctrl->host, http_ctrl->remote_port);
 		return -1;
 	}
 	return 0;

@@ -2150,7 +2150,7 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	ctrl->wait_target_state = NW_WAIT_ON_LINE;
 	if (!network_check_ready(ctrl, 0))
 	{
-
+		DBG("network[%d] not ready!", ctrl->adapter_index);
 		ctrl->state = NW_STATE_LINK_OFF;
 		goto NETWORK_CONNECT_WAIT;
 	}

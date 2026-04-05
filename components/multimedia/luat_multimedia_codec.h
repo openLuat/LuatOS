@@ -6,6 +6,9 @@
 
 #include "luat_base.h"
 
+#include <stddef.h>
+#include <stdio.h> // TODO 应该将FILE* 换成 void*，以适配不同平台的文件系统接口
+
 #ifdef __LUATOS__
 #include "luat_zbuff.h"
 
@@ -62,9 +65,6 @@ enum{
     LUAT_CODEC_VDDA_3V3,
     LUAT_CODEC_VDDA_1V8,
 };
-
-#include <stddef.h>
-#include <stdio.h>
 
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"

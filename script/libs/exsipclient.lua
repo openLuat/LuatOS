@@ -1,46 +1,45 @@
 --[[
-SIP 客户端示例（REGISTER + 呼叫信令 + MESSAGE，支持 UDP/TCP + Digest 401/407）
+@module exsipclient
+@summary SIP 信令客户端，支持 REGISTER、呼叫信令、MESSAGE、UDP/TCP 以及 401/407 Digest 认证。
+@usage
+本库实现的是“信令侧”的最小 SIP UA，只处理 REGISTER、INVITE、ACK、CANCEL、BYE、MESSAGE，
+不包含 RTP 或音频媒体收发。媒体协商完成后会通过 event_callback 抛出结果，供外部媒体模块继续处理。
 
-说明：
-- 本脚本实现的是“信令侧”的最小 SIP UA：REGISTER / INVITE / ACK / CANCEL / BYE / MESSAGE。
-- 仅信令，不包含 RTP/音频媒体。
-- 支持 UDP 或 TCP：
-  - UDP：每次 EVENT 基本对应一个 SIP 报文（仍可能分片，但通常较少）。
-  - TCP：必须做流式拆包（粘包/分片），本脚本按“header 结束 + Content-Length”组包。
-- Digest 认证：处理 401/407 的 MD5 Digest（常见的 qop=auth）。
-- 运行模型：LuatOS socket 异步回调 + sys.task 的后台循环，适合常驻。
+支持特性：
+1、支持 UDP 和 TCP 传输
+2、支持 401/407 Digest 鉴权，适用于常见 qop=auth 场景
+3、基于 socket 异步回调和 sys.task 后台循环，适合常驻运行
+4、通过统一事件回调向外抛出注册、通话、媒体、消息、错误等状态
 
-异步回调用法（推荐）：
-    local sip = require "sip_register_client"
-    sip.start({
-        server = "x.x.x.x",
-        port = 5060,
-        domain = "example.com",
-        user = "100",
-        password = "100",
-        transport = "TCP",
-        event_callback = function(event, action, payload)
-            if event == "register" and action == "ok" then
-            elseif event == "call" and action == "incoming" then
-            elseif event == "call" then
-            elseif event == "message" and action == "rx" then
-            elseif event == "error" and action == "net" then
-            end
+基本用法：
+local sip = require "exsipclient"
+
+sip.start({
+    server = "192.168.1.10",
+    port = 5060,
+    domain = "example.com",
+    user = "1001",
+    password = "123456",
+    transport = "tcp",
+    event_callback = function(event, action, payload)
+        if event == "register" and action == "ok" then
+            log.info("sip", "register ok", payload.expires)
+        elseif event == "call" and action == "incoming" then
+            log.info("sip", "incoming call", payload.from)
+        elseif event == "message" and action == "rx" then
+            log.info("sip", "message rx", payload.text)
+        elseif event == "error" and action == "net" then
+            log.warn("sip", "network error", payload.event, payload.param)
         end
-    })
+    end
+})
 
-回调注意事项：
-- 回调是在 socket 回调/任务逻辑中触发的：务必“短小快”，不要在回调里做长时间阻塞。
-- 如果需要耗时操作，建议在回调里 sys.taskInit/发布消息让别的 task 去做。
-
-使用：
-require 后调用 M.start(opts)
-
-注意：
-- 服务器若要求 TCP/TLS，本示例需要相应改为 TCP/TLS（socket.config 的 is_udp/is_tls 参数）
-- Contact 里填写的是本地 IP/端口，若在 NAT 后可能需要服务器支持 rport/received
-]] local sys = require "sys"
-local proto = require "sip_proto"
+注意事项：
+1、回调运行在 socket 回调或 SIP 任务中，应保持短小，避免长时间阻塞
+2、如果服务器要求 TCP 或 TLS，请同步匹配 transport 和底层 socket 配置
+3、Contact 使用本地 IP 和端口，若设备位于 NAT 后，需要服务端支持 rport 或 received 等机制
+]]
+local proto = require "exsipproto"
 
 local M = {}
 -- 全局回调/控制（单实例）
@@ -58,9 +57,6 @@ local SIP_EVENT = {
 }
 
 -- 统一事件回调分发。
----@param event SipEventName
----@param action SipEventAction
----@param payload SipEventPayload|table|nil
 local function emit_event(event, action, payload)
     if type(g_callback) ~= "function" then
         return
@@ -426,11 +422,12 @@ local function sip_task(opts)
         domain = opts.domain,
         server = opts.server,
         port = opts.port,
+        adapter = opts.adapter,
         local_port = opts.local_port or LOCAL_PORT,
         expires = opts.expires or REGISTER_EXPIRES,
 
         -- 传输层状态。
-        transport = (opts.transport or SIP_TRANSPORT),
+        transport = opts.transport,
         tcp_stream = "",
 
         -- REGISTER 事务基础字段。
@@ -1242,10 +1239,9 @@ local function sip_task(opts)
 
     -- 外层重连循环：只要未显式 stop，断线后就会等待 3 秒重连。
     while true do
-        local netc = socket.create(nil, netCB)
+        local netc = socket.create(opts.adapter, netCB)
         state.netc = netc
-        -- socket.debug(netc, true)
-        socket.config(netc, state.local_port, (state.transport == "UDP"))
+        socket.config(netc, state.local_port, (state.transport == "udp"))
 
         local succ = socket.connect(netc, state.server, state.port)
         if not succ then
@@ -1271,34 +1267,35 @@ end
 
 -- ==================== 异步回调式对外 API（单实例） ====================
 
--- 启动 SIP 客户端（后台 task + 自动重连 + 自动续租）
--- opts:
---   server/port/domain/user/password/local_port/expires/transport
---
---   event_callback(event, action, payload): 统一事件回调（可选）
---       event:
---         "lifecycle"
---         "register"
---         "call"
---         "media"
---         "message"
---         "error"
---       action:
---         - lifecycle: "online" | "offline" | "stopped"
---         - register: "ok" | "challenge"
---         - call: "incoming" | "established" | "ended" | "failed" | "auth_retry"
---         - media: "offer" | "ready" | "stop"
---         - message: "rx" | "sent" | "auth_retry" | "failed"
---         - error: "net" | "rx_failed"
---
---       payload:
---         - lifecycle: { server?, port?, transport?, local_ip?, reason? }
---         - register: { expires?, headers?, code?, auth? }
---         - call: { dialog?, from?, call_id?, uri?, headers?, body?, remote_sdp?, code?, reason? }
---         - media: { call_id?, from?, sdp?, raw_sdp?, session?, reason? }
---         - message: { message?, from?, to?, call_id?, headers?, text?, body?, code?, reason? }
---         - error: { event?, param? }
----@param opts SipStartOptions|nil
+--[[
+启动 SIP 客户端。
+@api exsipclient.start(opts)
+@table opts SIP 启动参数表，至少需要 server、port、domain、user、transport
+@return boolean 参数合法并成功启动后台任务返回 true，否则返回 false
+@usage
+exsipclient.start({
+    server = "192.168.1.10",
+    port = 5060,
+    domain = "example.com",
+    user = "1001",
+    password = "123456",
+    transport = "tcp",
+    local_port = 5062,
+    expires = 600,
+    rtp_port = 40000,
+    codecs = {"PCMU", "PCMA"},
+    ptime = 20,
+    event_callback = function(event, action, payload)
+        -- event 可取 lifecycle、register、call、media、message、error
+        -- lifecycle: online、offline、stopped
+        -- register: ok、challenge
+        -- call: incoming、established、ended、failed、auth_retry
+        -- media: offer、ready、stop
+        -- message: rx、sent、auth_retry、failed
+        -- error: net、rx_failed
+    end
+})
+]]
 function M.start(opts)
 
     if g_started then
@@ -1310,6 +1307,10 @@ function M.start(opts)
     end
 
     if (not opts.server) or (not opts.port) or (not opts.domain) or (not opts.user) then
+        return false
+    end
+
+    if not opts.transport or (opts.transport ~= "udp" and opts.transport ~= "tcp" and opts.transport ~= "tls") then
         return false
     end
 
@@ -1328,15 +1329,29 @@ function M.start(opts)
     return true
 end
 
--- 停止（退出重连循环）
+--[[
+停止 SIP 客户端。
+@api exsipclient.stop()
+@return nil 无返回值
+@usage
+exsipclient.stop()
+]]
 function M.stop()
     -- 这里不直接强杀 task，而是通过发布断开事件让主循环自行收尾退出。
     g_stop = true
     sys.publish(TOPIC_DISCONNECT)
 end
 
--- 便捷：注册统一事件回调
----@param fn SipEventCallback
+--[[
+注册统一事件回调。
+@api exsipclient.on(fn)
+@function fn 事件回调函数，参数格式为 function(event, action, payload)
+@return boolean 设置成功返回 true，参数不是函数时返回 false
+@usage
+exsipclient.on(function(event, action, payload)
+    log.info("sip", event, action)
+end)
+]]
 function M.on(fn)
     if type(fn) ~= "function" then
         return false
@@ -1345,22 +1360,52 @@ function M.on(fn)
     return true
 end
 
--- 呼叫/接听/挂断/消息：异步触发，实际执行在 sip_task 内
+--[[
+发起外呼。
+@api exsipclient.call(target)
+@string target 目标号码或 sip URI，例如 "1002" 或 "sip:1002@example.com"
+@return nil 无返回值
+@usage
+exsipclient.call("1002")
+]]
 function M.call(target)
     -- 通过 topic 把命令投递到 SIP 主任务中串行执行，避免跨 task 直接操作内部状态。
     sys.publish(TOPIC_CMD, "call", target)
 end
 
+--[[
+接听当前缓存的来电。
+@api exsipclient.answer()
+@return nil 无返回值
+@usage
+exsipclient.answer()
+]]
 function M.answer()
     -- 接听最近一次缓存的来电 INVITE。
     sys.publish(TOPIC_CMD, "answer")
 end
 
+--[[
+挂断当前通话，或拒绝当前未接来电。
+@api exsipclient.hangup()
+@return nil 无返回值
+@usage
+exsipclient.hangup()
+]]
 function M.hangup()
     -- 挂断当前通话，或拒绝当前未接来电。
     sys.publish(TOPIC_CMD, "hangup")
 end
 
+--[[
+发送一条 SIP MESSAGE。
+@api exsipclient.message(target, text)
+@string target 目标号码或 sip URI，例如 "1002" 或 "sip:1002@example.com"
+@string text 要发送的消息文本
+@return nil 无返回值
+@usage
+exsipclient.message("1002", "hello")
+]]
 function M.message(target, text)
     -- 发起一条 SIP MESSAGE。
     sys.publish(TOPIC_CMD, "message", {

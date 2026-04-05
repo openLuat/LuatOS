@@ -1,4 +1,22 @@
 local mqtt_test = {}
+local device_name = rtos.bsp()
+
+-- ===========================================================================
+-- 测试配置
+local TEST_CONFIG = {
+    test_all_adapters = true,
+    connect_timeout = 30000,
+}
+
+-- 记录每个适配器的测试结果
+local adapter_test_results = {}
+
+-- 网络适配器配置表
+local ALL_ADAPTERS = {}
+
+-- WiFi配置
+local ssid = "HHHHHHHHHHH"
+local password = "huanghefm94.3"
 
 -- broker参数
 local mqtt_host = "lbsmqtt.airm2m.com"
@@ -13,17 +31,88 @@ local mqtts_port = 8888
 local mqtts_username = "mqtt_hz_test_2"
 local mqtts_password = "3bEKUb"
 
--- SSL双向认证服务器配置
-local mqtt_mtls_host = "airtest.openluat.com"
-local mqtt_mtls_port = 8886
-local mqtt_mtls_username = "mqtt_hz_test_2"
-local mqtt_mtls_password = "3bEKUb"
+-- 检查wlan库是否可用
+local function is_wlan_available()
+    return wlan ~= nil and type(wlan.ready) == "function"
+end
 
-local mqttc
-local pub_topic
-local sub_topic
-local will_topic
+-- 设备类型判断和适配器配置
+if device_name == "Air8000" then
+    ALL_ADAPTERS = {
+        {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, expected = true},
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, expected = true},
+        {name = "默认网卡", adapter = nil, expected = true}
+    }
+elseif device_name == "Air780EPM" or device_name == "Air780EHM" or device_name == "Air780EHV" or 
+       device_name == "Air780EGH" or device_name == "Air780EGG" or device_name == "Air780EGP" then
+    ALL_ADAPTERS = {
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, expected = false},
+        {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, expected = true},
+        {name = "默认网卡", adapter = nil, expected = true}
+    }
+elseif device_name == "Air8101" then
+    ALL_ADAPTERS = {
+        {name = "4G网卡(LWIP_GP)", adapter = socket.LWIP_GP, expected = false},
+        {name = "WiFi网卡(LWIP_STA)", adapter = socket.LWIP_STA, expected = true},
+        {name = "默认网卡", adapter = nil, expected = true}
+    }
+else
+    ALL_ADAPTERS = {{name = "默认网卡", adapter = nil, expected = true}}
+end
 
+-- 获取网卡IP地址
+local function get_adapter_ip(adapter)
+    local success, ip = pcall(socket.localIP, adapter)
+    if success and ip and ip ~= "0.0.0.0" then
+        return ip
+    end
+    return "未就绪"
+end
+
+-- 检查是否为网卡不支持的错误
+local function is_adapter_not_supported_error(err_msg)
+    if not err_msg then return false end
+    local err_lower = string.lower(tostring(err_msg))
+    return err_lower:find("adapter") ~= nil or
+           err_lower:find("invalid") ~= nil or
+           err_lower:find("index") ~= nil or
+           err_lower:find("faid") ~= nil or
+           err_lower:find("ret -1") ~= nil or
+           err_lower:find("network_alloc_ctrl") ~= nil
+end
+
+-- WiFi连接函数
+local function wifi_connect_demo()
+    if not is_wlan_available() then
+        return false
+    end
+    
+    if wlan.ready() then
+        local ip = wlan.getIP()
+        if ip and ip ~= "0.0.0.0" then
+            return true
+        end
+    end
+
+    local wlan_result = wlan.connect(ssid, password, 1)
+    if not wlan_result then
+        return false
+    end
+
+    for i = 1, 15 do
+        sys.wait(1000)
+        if wlan.ready() then
+            sys.wait(500)
+            local ip = wlan.getIP()
+            if ip and ip ~= "0.0.0.0" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- 生成设备ID
 local function generate_fallback_id()
     local timestamp = os.time()
     local tick = rtos and rtos.tick and rtos.tick() or 0
@@ -34,14 +123,12 @@ local function get_device_id()
     if mobile and mobile.imei then
         local imei = mobile.imei()
         if imei and imei ~= "" then
-            log.info("mqtt_test", "使用IMEI作为设备ID:", imei)
             return imei
         end
     end
     if wlan and wlan.getMac then
         local mac = wlan.getMac()
         if mac and mac ~= "" then
-            log.info("mqtt_test", "使用MAC地址作为设备ID:", mac)
             return mac
         end
     end
@@ -50,27 +137,241 @@ local function get_device_id()
         if unique_id and type(unique_id) == "table" and unique_id.toHex then
             local hex_id = unique_id:toHex()
             if hex_id and hex_id ~= "" then
-                log.info("mqtt_test", "使用MCU唯一ID作为设备ID:", hex_id)
                 return hex_id
             end
         end
     end
-    local fallback_id = generate_fallback_id()
-    log.warn("mqtt_test", "无法获取硬件ID，使用生成的后备ID:", fallback_id)
-    return fallback_id
+    return generate_fallback_id()
 end
 
-local function reset_client()
-    if mqttc then
-        pcall(mqttc.unsubscribe, mqttc, { pub_topic, sub_topic, will_topic })
-        pcall(mqttc.close, mqttc)
+-- 输出测试结果汇总
+local function print_test_summary(test_name)
+    log.info("mqtt_test", string.rep("=", 60))
+    log.info("mqtt_test", string.format("测试[%s] 结果汇总:", test_name))
+    
+    local success_count = 0
+    local expected_success = 0
+    local expected_fail = 0
+    local unexpected = {}
+    
+    for name, result in pairs(adapter_test_results) do
+        if result.test_name == test_name then
+            local expected = result.expected
+            if result.connected then
+                if expected then
+                    log.info("mqtt_test", string.format("  ✓ %s: 连接成功 [符合预期]", name))
+                    expected_success = expected_success + 1
+                else
+                    log.error("mqtt_test", string.format("  ✗ %s: 连接成功 [不符合预期]", name))
+                    table.insert(unexpected, name)
+                end
+                success_count = success_count + 1
+            elseif result.error_type == "adapter_not_supported" then
+                if not expected then
+                    log.info("mqtt_test", string.format("  ○ %s: 网卡不支持 [符合预期]", name))
+                    expected_fail = expected_fail + 1
+                else
+                    log.error("mqtt_test", string.format("  ✗ %s: 网卡不支持 [不符合预期]", name))
+                    table.insert(unexpected, name)
+                end
+            else
+                if not expected then
+                    log.info("mqtt_test", string.format("  ○ %s: %s [符合预期]", name, tostring(result.error or "失败")))
+                    expected_fail = expected_fail + 1
+                else
+                    log.error("mqtt_test", string.format("  ✗ %s: %s [不符合预期]", name, tostring(result.error)))
+                    table.insert(unexpected, name)
+                end
+            end
+        end
     end
-    mqttc = nil
+    
+    log.info("mqtt_test", "")
+    log.info("mqtt_test", string.format("统计: 连接成功=%d, 预期成功=%d, 预期失败=%d", 
+              success_count, expected_success, expected_fail))
+    
+    if #unexpected > 0 then
+        log.error("mqtt_test", "不符合预期的结果:")
+        for _, msg in ipairs(unexpected) do
+            log.error("mqtt_test", "  - " .. msg)
+        end
+    end
+    
+    if expected_success > 0 and expected_fail > 0 then
+        log.info("mqtt_test", "✓ 自动适配功能验证通过: 不支持的网卡正确报错，支持的网卡成功连接")
+    elseif expected_fail > 0 and expected_success == 0 then
+        log.error("mqtt_test", "✗ 自动适配功能验证失败: 没有找到支持的网卡")
+    elseif expected_fail == 0 and expected_success > 0 then
+        if #unexpected == 0 then
+            log.info("mqtt_test", "✓ 所有配置的网卡均支持")
+        else
+            log.error("mqtt_test", "✗ 部分网卡行为与预期不符")
+        end
+    end
+    
+    log.info("mqtt_test", string.rep("=", 60))
 end
+
+-- 尝试MQTT连接指定适配器（只测试连接，不测试发布订阅）
+local function try_connect_adapter(adapter, adapter_name, expected, test_name, use_ssl)
+    log.info("mqtt_test", string.format("尝试连接 [%s] (预期支持: %s)...", adapter_name, tostring(expected)))
+    
+    local host = use_ssl and mqtts_host or mqtt_host
+    local port = use_ssl and mqtts_port or mqtt_port
+    local username = use_ssl and mqtts_username or mqtt_username
+    local password = use_ssl and mqtts_password or mqtt_password
+    
+    if adapter_name:find("WiFi") and is_wlan_available() then
+        if not wlan.ready() then
+            wifi_connect_demo()
+        end
+    end
+    
+    local device_id = get_device_id() .. "_" .. test_name .. "_" .. adapter_name:gsub("[^%w]", "")
+    local client = nil
+    
+    -- 创建客户端
+    local create_ok, create_result = pcall(mqtt.create, adapter, host, port, use_ssl)
+    if not create_ok or create_result == nil then
+        local err_detail = tostring(create_result)
+        if is_adapter_not_supported_error(err_detail) then
+            if expected == true then
+                assert(false, string.format("适配器[%s] 预期支持但创建失败（网卡不支持）", adapter_name))
+            else
+                log.info("mqtt_test", string.format("适配器 [%s] 网卡不支持（符合预期）", adapter_name))
+            end
+            adapter_test_results[adapter_name .. "_" .. test_name] = {
+                connected = false, error_type = "adapter_not_supported",
+                expected = expected, test_name = test_name
+            }
+            return false, nil
+        else
+            if expected == true then
+                assert(false, string.format("适配器[%s] 创建客户端失败: %s", adapter_name, err_detail))
+            else
+                log.info("mqtt_test", string.format("适配器 [%s] 创建失败（符合预期）", adapter_name))
+                adapter_test_results[adapter_name .. "_" .. test_name] = {
+                    connected = false, error_type = "create_failed",
+                    expected = expected, test_name = test_name, error = err_detail
+                }
+            end
+            return false, nil
+        end
+    end
+    
+    client = create_result
+    assert(client ~= nil, string.format("适配器[%s] 客户端创建失败", adapter_name))
+    
+    -- 认证
+    local auth_result = client:auth(device_id, username, password, true)
+    assert(auth_result == true, string.format("适配器[%s] 认证失败", adapter_name))
+    
+    client:keepalive(60)
+    client:autoreconn(false, 3000)
+    
+    -- 连接等待
+    local conack_received = false
+    client:on(function(cl, event, data, payload, meta)
+        if event == "conack" then
+            conack_received = true
+        end
+    end)
+    
+    local conn_result = client:connect()
+    assert(conn_result == true, string.format("适配器[%s] 连接请求失败", adapter_name))
+    
+    -- 等待CONACK
+    local ok = false
+    for i = 1, 30 do
+        sys.wait(1000)
+        if conack_received then
+            ok = true
+            break
+        end
+    end
+    
+    if not ok then
+        if expected == true then
+            assert(false, string.format("适配器[%s] 连接超时", adapter_name))
+        else
+            log.info("mqtt_test", string.format("适配器 [%s] 连接超时（符合预期）", adapter_name))
+            client:close()
+            adapter_test_results[adapter_name .. "_" .. test_name] = {
+                connected = false, error_type = "timeout",
+                expected = expected, test_name = test_name
+            }
+            return false, nil
+        end
+    end
+    
+    log.info("mqtt_test", string.format("✓ 适配器 [%s] MQTT连接成功", adapter_name))
+    
+    adapter_test_results[adapter_name .. "_" .. test_name] = {
+        connected = true, expected = expected, test_name = test_name,
+        client = client
+    }
+    
+    client:close()
+    return true, nil
+end
+
+-- 执行适配器连接测试
+local function run_adapter_test(test_name, use_ssl)
+    local any_success = false
+    local success_adapter = nil
+    
+    log.info("mqtt_test", string.format("开始测试 [%s]，共 %d 个适配器", test_name, #ALL_ADAPTERS))
+    
+    for _, adp in ipairs(ALL_ADAPTERS) do
+        log.info("mqtt_test", string.format("测试[%s]: 尝试适配器 [%s] (预期支持: %s)", 
+                  test_name, adp.name, tostring(adp.expected)))
+        
+        local ok = try_connect_adapter(adp.adapter, adp.name, adp.expected, test_name, use_ssl)
+        
+        if ok then
+            any_success = true
+            success_adapter = adp.name
+            log.info("mqtt_test", string.format("✓ 适配器 [%s] %s 通过", adp.name, test_name))
+        end
+        sys.wait(200)
+    end
+    
+    print_test_summary(test_name)
+    
+    if any_success then
+        log.info("mqtt_test", string.format("测试[%s] 成功使用适配器: %s", test_name, success_adapter))
+    else
+        log.error("mqtt_test", string.format("测试[%s] 所有适配器均失败", test_name))
+    end
+    
+    return any_success
+end
+
+-- ========== 以下为测试用例 ==========
+
+-- 测试1: 基础MQTT连接测试（测试网卡适配器）
+function mqtt_test.test_basic_connection()
+    run_adapter_test("基础连接测试", false)
+end
+
+-- 测试2: SSL连接测试（测试网卡适配器）
+function mqtt_test.test_ssl_connection()
+    run_adapter_test("SSL连接测试", true)
+end
+
+-- 以下为原始MQTT功能测试（使用默认网卡，不测试多适配器）
+-- 这些测试保持原有逻辑，确保功能正常
+
+local mqttc
+local pub_topic
+local sub_topic
+local will_topic
 
 function mqtt_test.setUp()
-    reset_client()
-
+    if mqttc then
+        pcall(mqttc.close, mqttc)
+    end
+    
     local device_id = get_device_id()
     pub_topic = "/luatos/testcase/mqtt/" .. device_id .. "/pub"
     sub_topic = "/luatos/testcase/mqtt/" .. device_id .. "/sub"
@@ -118,7 +419,10 @@ function mqtt_test.setUp()
 end
 
 function mqtt_test.tearDown()
-    reset_client()
+    if mqttc then
+        pcall(mqttc.close, mqttc)
+    end
+    mqttc = nil
     sys.wait(200)
 end
 
@@ -161,7 +465,6 @@ function mqtt_test.test_publish_qos2()
     local device_id = get_device_id() .. "_qos2_" .. tostring(os.time())
     local qos2_pub_topic = "/luatos/testcase/mqtt/" .. device_id .. "/qos2_pub"
     
-    -- 使用SSL服务器
     qos2_client = mqtt.create(nil, mqtts_host, mqtts_port, true)
     assert(qos2_client, "qos2 mqtt create failed")
     
@@ -195,7 +498,6 @@ function mqtt_test.test_publish_qos2()
         end
     end)
     
-    -- 连接
     local connect_result = qos2_client:connect()
     assert(connect_result == true, "qos2 connect failed")
     
@@ -203,7 +505,6 @@ function mqtt_test.test_publish_qos2()
     assert(ok, "qos2 connection timeout")
     assert(conack_received, "qos2 conack not received")
     
-    -- 订阅自己的发布主题
     local sub_msg_id = qos2_client:subscribe(qos2_pub_topic, 2)
     assert(sub_msg_id, "qos2 subscribe msg id missing")
     
@@ -211,20 +512,16 @@ function mqtt_test.test_publish_qos2()
     assert(sub_ok, "qos2 subscribe timeout")
     assert(sub_ready, "qos2 suback not received")
     
-    -- 等待订阅完成
     sys.wait(500)
     
-    -- 发布QoS2消息
     local payload = "qos2-" .. tostring(rtos and rtos.tick and rtos.tick() or os.time())
     local pub_msg_id = qos2_client:publish(qos2_pub_topic, payload, 2)
     assert(pub_msg_id, "qos2 publish msg id missing")
     
-    -- 等待发送确认
     local sent_ok = sys.waitUntil("qos2_sent", 15000)
     assert(sent_ok, "qos2 publish sent timeout")
     assert(sent_ready, "qos2 sent not received")
     
-    -- 等待接收消息
     local recv_ok = sys.waitUntil("qos2_recv", 30000)
     assert(recv_ok, "qos2 message not received")
     assert(recv_ready, "qos2 recv not received")
@@ -265,7 +562,8 @@ function mqtt_test.test_connect_invalid_host()
     pcall(bad.close, bad)
 end
 
-function mqtt_test.test_ssl_connection()
+-- SSL连接测试（使用默认网卡的功能测试）
+function mqtt_test.test_ssl_connection_function()
     local ssl_client = nil
     local cleanup = function()
         if ssl_client then
@@ -310,18 +608,16 @@ function mqtt_test.test_ssl_connection()
     cleanup()
 end
 
--- 正确的遗嘱消息测试
+-- 遗嘱消息测试
 function mqtt_test.test_will_message()
     local will_payload = "device_offline"
     local test_device_id = get_device_id() .. "_will_" .. tostring(os.time())
     
-    -- 创建遗嘱客户端并设置遗嘱消息
     local will_client = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_ssl)
     assert(will_client, "will mqtt create failed")
     
     local will_topic = "/luatos/testcase/mqtt/" .. test_device_id .. "/will"
     
-    -- 设置遗嘱消息
     local will_result = will_client:will(will_topic, will_payload, 1, 0)
     assert(will_result == true, "遗嘱消息设置失败")
     
@@ -338,7 +634,6 @@ function mqtt_test.test_will_message()
         end
     end)
     
-    -- 连接遗嘱客户端
     local connect_result = will_client:connect()
     assert(connect_result == true, "will connect failed")
     
@@ -346,7 +641,6 @@ function mqtt_test.test_will_message()
     assert(ok, "will client connect timeout")
     assert(will_conack, "will client conack not received")
     
-    -- 创建监控客户端来接收遗嘱消息
     local monitor_client = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_ssl)
     assert(monitor_client, "monitor mqtt create failed")
     
@@ -377,7 +671,6 @@ function mqtt_test.test_will_message()
         end
     end)
     
-    -- 连接监控客户端
     local monitor_connect = monitor_client:connect()
     assert(monitor_connect == true, "monitor connect failed")
     
@@ -385,7 +678,6 @@ function mqtt_test.test_will_message()
     assert(monitor_ok, "monitor client connect timeout")
     assert(monitor_conack, "monitor client conack not received")
     
-    -- 订阅遗嘱主题
     local sub_msg_id = monitor_client:subscribe(will_topic, 1)
     assert(sub_msg_id, "monitor subscribe failed")
     
@@ -393,21 +685,14 @@ function mqtt_test.test_will_message()
     assert(sub_ok, "monitor subscribe timeout")
     assert(sub_ready, "monitor suback not received")
     
-    -- 等待订阅完成
     sys.wait(1000)
     
-    -- 模拟异常断开，触发遗嘱消息
     log.info("mqtt_test", "模拟异常断开，触发遗嘱消息")
-    -- 直接关闭will_client（不发送DISCONNECT报文）
-    -- 注意：close()会释放所有资源，但可能不会立即触发遗嘱
-    -- 更好的方式是让底层socket异常断开
     will_client:close()
     will_client = nil
     
-    -- 等待遗嘱消息
     local will_ok = sys.waitUntil("will_recv", 30000)
     
-    -- 验证遗嘱消息
     assert(will_ok, "遗嘱消息未在30秒内收到")
     assert(will_received, "遗嘱消息未收到")
     assert(will_topic_received == will_topic,
@@ -417,7 +702,6 @@ function mqtt_test.test_will_message()
     
     log.info("mqtt_test", "遗嘱消息测试通过")
     
-    -- 清理
     pcall(monitor_client.close, monitor_client)
 end
 

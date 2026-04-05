@@ -1,6 +1,6 @@
 PROJECT = "sip_demo"
 VERSION = "1.0.0"
-local sip = require "sip_client"
+local sip = require "exsipproto"
 
 -- ======== 配置 ========
 

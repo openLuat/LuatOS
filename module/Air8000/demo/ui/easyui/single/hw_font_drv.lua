@@ -32,8 +32,8 @@ local hw_config = {
     -- lcd_config参数填写可以参考合宙exlcd显示扩展库exlcd.init(param)接口说明：https://docs.openluat.com/osapi/ext/exlcd/#31-exlcdinitparam
     lcd_config = {
         lcd_model = "AirLCD_1010", -- LCD型号
-        -- pin_vcc = 24,                  -- 供电引脚，使用GPIO控制屏幕供电可配置
-        pin_rst = 36,              -- 复位引脚
+        -- pin_vcc = 24,           -- 供电引脚，使用GPIO控制屏幕供电可配置
+        pin_rst = 2,               -- 复位引脚
         pin_pwr = 1,               -- 背光控制引脚GPIO ID号
         pin_pwm = 0,               -- 背光控制引脚PWM ID号
         port = lcd.HWID_0,         -- 驱动端口

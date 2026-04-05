@@ -1,3 +1,23 @@
+--[[
+@module exsipproto
+@summary SIP 协议辅助库，提供报文解析、Digest 鉴权、SIP 请求/响应构造、SDP 与媒体协商工具。
+@usage
+本库主要给 exsipclient 等 SIP 信令模块复用，负责处理协议层字符串拼装与解析。
+使用前需要确保固件启用了 crypto 库中的 MD5 能力。
+
+基本用法：
+local proto = require "exsipproto"
+
+local headers = proto.parse_headers(packet_head)
+local auth = proto.digest_auth({
+    username = "1001",
+    password = "123456",
+    realm = "example.com",
+    nonce = "abcdef",
+    method = "REGISTER",
+    uri = "sip:example.com"
+})
+]]
 local crypto = assert(_G.crypto, "crypto is required (MD5). Please enable crypto in firmware")
 
 local M = {}
@@ -18,6 +38,12 @@ local function log_info(...)
     end
 end
 
+--[[
+解析 SIP 头部字段。
+@api exsipproto.parse_headers(resp)
+@string resp SIP 报文头部字符串
+@return table 解析后的头字段表，键名统一转为小写
+]]
 function M.parse_headers(resp)
     local headers = {}
     for line in resp:gmatch("([^\r\n]+)\r?\n") do
@@ -30,6 +56,12 @@ function M.parse_headers(resp)
     return headers
 end
 
+--[[
+查找 SIP 头部结束位置。
+@api exsipproto.sip_find_header_end(s)
+@string s 待解析的 SIP 字符串
+@return number 头部结束后的起始位置，未找到时返回 nil
+]]
 function M.sip_find_header_end(s)
     local p = s:find("\r\n\r\n", 1, true)
     if p then
@@ -42,6 +74,14 @@ function M.sip_find_header_end(s)
     return nil
 end
 
+--[[
+从 TCP 流缓冲区中弹出一条完整的 SIP 报文。
+@api exsipproto.pop_stream_message(stream)
+@string stream TCP 流式接收缓冲区
+@return string 完整的 SIP 头部，数据不足时返回 nil
+@return string SIP 消息体，未携带消息体时返回空字符串
+@return string 剩余未消费的流数据
+]]
 function M.pop_stream_message(stream)
     local header_end = M.sip_find_header_end(stream)
     if not header_end then
@@ -64,8 +104,16 @@ function M.pop_stream_message(stream)
     return head, body, rest
 end
 
+-- 兼容别名，等价于 pop_stream_message。
 M.sip_pop_stream_message = M.pop_stream_message
 
+--[[
+拆分单条 SIP 报文为头部和消息体。
+@api exsipproto.split_message(msg)
+@string msg 一条完整的 SIP 报文
+@return string SIP 头部
+@return string SIP 消息体，不存在时返回空字符串
+]]
 function M.split_message(msg)
     local p = msg:find("\r\n\r\n", 1, true)
     if p then
@@ -78,8 +126,16 @@ function M.split_message(msg)
     return msg, ""
 end
 
+-- 兼容别名，等价于 split_message。
 M.split_sip_message = M.split_message
 
+--[[
+解析 SIP 请求行。
+@api exsipproto.parse_request_line(msg)
+@string msg SIP 报文头部或整包字符串
+@return string 请求方法，例如 INVITE、REGISTER
+@return string 请求 URI，解析失败时返回 nil
+]]
 function M.parse_request_line(msg)
     local method, uri = msg:match("^([A-Z]+)%s+([^%s]+)%s+SIP/2%.0")
     if method and uri then
@@ -88,6 +144,13 @@ function M.parse_request_line(msg)
     return nil, nil
 end
 
+--[[
+解析 SIP 状态行。
+@api exsipproto.parse_status(resp)
+@string resp SIP 响应报文头部或整包字符串
+@return number 状态码，解析失败时返回 nil
+@return string 原因短语，解析失败时返回 nil
+]]
 function M.parse_status(resp)
     local code, reason = resp:match("^SIP/2%.0%s+(%d%d%d)%s+([^\r\n]+)")
     if code then
@@ -96,6 +159,12 @@ function M.parse_status(resp)
     return nil, nil
 end
 
+--[[
+解析 WWW-Authenticate 或 Proxy-Authenticate 头中的 Digest 参数。
+@api exsipproto.parse_www_authenticate(www)
+@string www Authenticate 头内容
+@return table 解析后的参数表，常见字段包括 realm、nonce、opaque、algorithm、qop
+]]
 function M.parse_www_authenticate(www)
     if not www then return nil end
     if not www:lower():find("digest", 1, true) then return nil end
@@ -114,6 +183,12 @@ function M.parse_www_authenticate(www)
     return t
 end
 
+--[[
+从 qop 字段中选择当前支持的认证模式。
+@api exsipproto.pick_qop(qop)
+@string qop 服务端返回的 qop 字段
+@return string 当前支持的 qop 值，目前仅返回 auth，未命中时返回 nil
+]]
 function M.pick_qop(qop)
     if not qop then return nil end
     qop = qop:gsub('"', ''):lower()
@@ -125,6 +200,13 @@ function M.pick_qop(qop)
     return nil
 end
 
+--[[
+计算 Digest 鉴权参数。
+@api exsipproto.digest_auth(params)
+@table params Digest 参数表，至少需要 username、password、realm、nonce、method、uri
+@return table 计算后的 Digest 参数表，可直接交给 build_auth_header 使用
+@return string 失败原因，仅在不支持的算法等异常情况下返回
+]]
 function M.digest_auth(params)
     local username = assert(params.username)
     local password = assert(params.password)
@@ -166,8 +248,15 @@ function M.digest_auth(params)
     }
 end
 
+-- 兼容别名，等价于 digest_auth。
 M.sip_digest_auth = M.digest_auth
 
+--[[
+构造 Authorization 或 Proxy-Authorization 头。
+@api exsipproto.build_auth_header(auth)
+@table auth Digest 参数表，通常由 digest_auth 返回
+@return string 拼装好的认证头字符串，auth 为空时返回 nil
+]]
 function M.build_auth_header(auth)
     if not auth then return nil end
 
@@ -210,6 +299,12 @@ local function append_header_line(lines, header)
     end
 end
 
+--[[
+构造 Via 头字段值。
+@api exsipproto.build_via(params)
+@table params Via 参数表，常见字段包括 transport、local_ip、local_port、branch
+@return string Via 头字段值
+]]
 function M.build_via(params)
     local transport = tostring(params.transport or "UDP"):upper()
     local suffix = (transport == "TCP") and "" or ";rport"
@@ -223,6 +318,12 @@ function M.build_via(params)
     )
 end
 
+--[[
+构造 Contact 头字段值。
+@api exsipproto.build_contact(params)
+@table params Contact 参数表，常见字段包括 user、local_ip、local_port、transport、uri_params、header_params
+@return string Contact 头字段值
+]]
 function M.build_contact(params)
     local uri_params = {}
     local header_params = {}
@@ -250,6 +351,12 @@ function M.build_contact(params)
     )
 end
 
+--[[
+构造 SIP 请求报文。
+@api exsipproto.build_request(ctx)
+@table ctx 请求上下文，至少需要 method 和 uri，其余字段按需传入
+@return string 完整的 SIP 请求字符串
+]]
 function M.build_request(ctx)
     local body = ctx.body or ""
     local lines = {}
@@ -290,6 +397,12 @@ function M.build_request(ctx)
     return table.concat(lines)
 end
 
+--[[
+构造 SIP 响应报文。
+@api exsipproto.build_response(ctx)
+@table ctx 响应上下文，至少需要 code 和 headers，其余字段按需传入
+@return string 完整的 SIP 响应字符串
+]]
 function M.build_response(ctx)
     local body = ctx.body or ""
     local lines = {}
@@ -318,6 +431,12 @@ function M.build_response(ctx)
     return table.concat(lines)
 end
 
+--[[
+规范化单个编解码器名称。
+@api exsipproto.normalize_codec_name(name)
+@string name 编解码器名称
+@return string 规范化后的名称，例如 PCMU、PCMA；不支持时返回 nil
+]]
 function M.normalize_codec_name(name)
     local key = tostring(name or ""):upper()
     if RTP_CODEC_PT[key] then
@@ -326,6 +445,12 @@ function M.normalize_codec_name(name)
     return nil
 end
 
+--[[
+规范化编解码器列表并去重。
+@api exsipproto.normalize_codec_list(codecs)
+@table codecs 编解码器名称列表
+@return table 规范化后的编解码器列表，输入为空或无有效值时返回默认值
+]]
 function M.normalize_codec_list(codecs)
     local out = {}
     local seen = {}
@@ -342,6 +467,13 @@ function M.normalize_codec_list(codecs)
     return out
 end
 
+--[[
+在本地和远端编解码器列表中选择一个共同支持的编码。
+@api exsipproto.pick_common_codec(local_codecs, remote_codecs)
+@table local_codecs 本地支持的编解码器列表
+@table remote_codecs 远端支持的编解码器列表
+@return string 匹配到的编解码器名称，未命中时返回 nil
+]]
 function M.pick_common_codec(local_codecs, remote_codecs)
     local remote_set = {}
     for _, name in ipairs(remote_codecs or {}) do
@@ -359,6 +491,12 @@ function M.pick_common_codec(local_codecs, remote_codecs)
     return nil
 end
 
+--[[
+获取编解码器对应的静态 payload type。
+@api exsipproto.codec_payload_type(codec)
+@string codec 编解码器名称
+@return number 对应的 payload type，不支持时返回 nil
+]]
 function M.codec_payload_type(codec)
     local key = M.normalize_codec_name(codec)
     if not key then
@@ -367,6 +505,13 @@ function M.codec_payload_type(codec)
     return RTP_CODEC_PT[key]
 end
 
+--[[
+根据本地和远端 SDP 信息整理媒体会话参数。
+@api exsipproto.build_media_session(params)
+@table params 媒体参数表，常见字段包括 call_id、remote_ip、remote_sdp、local_rtp_port、local_codecs、ptime、source
+@return table 媒体会话参数表
+@return string 失败原因，例如 no_common_codec 或 invalid_remote_port
+]]
 function M.build_media_session(params)
     local remote_sdp = params.remote_sdp or {}
     local selected_codec = params.codec or M.pick_common_codec(params.local_codecs, remote_sdp.codecs)
@@ -399,6 +544,13 @@ function M.build_media_session(params)
     }
 end
 
+--[[
+构造本地 SDP 描述。
+@api exsipproto.build_sdp(state, direction)
+@table state SIP 状态表，需要包含 local_ip 以及 media 相关配置
+@string direction 媒体方向，例如 sendrecv、sendonly、recvonly
+@return string SDP 字符串
+]]
 function M.build_sdp(state, direction)
     local ip = state.local_ip or "0.0.0.0"
     log_info("test ip", ip)
@@ -437,6 +589,12 @@ function M.build_sdp(state, direction)
     return table.concat(sdp)
 end
 
+--[[
+解析远端 SDP 描述。
+@api exsipproto.parse_sdp(sdp)
+@string sdp SDP 字符串
+@return table 解析结果，常见字段包括 conn_ip、audio_port、payloads、codecs、direction、ptime
+]]
 function M.parse_sdp(sdp)
     if type(sdp) ~= "string" or #sdp == 0 then return nil end
     log_info("sip", "parsing remote SDP", sdp)

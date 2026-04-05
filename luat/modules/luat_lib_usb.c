@@ -38,26 +38,21 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 
 static int l_usb_cb[MAX_USB_DEVICE_COUNT];
 
+
 int l_usb_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
-    int usb_id = msg->arg1 & 0x000000ff;
-    int class_id = (msg->arg1 & 0x0000ff00) >> 8;
-    if (l_usb_cb[usb_id] && usb_id < MAX_USB_DEVICE_COUNT)
+    usb_event_u u_event;
+    u_event.u32 = msg->arg1;;
+    if (l_usb_cb[u_event.usb_id] && u_event.usb_id < MAX_USB_DEVICE_COUNT)
     {
-        lua_geti(L, LUA_REGISTRYINDEX, l_usb_cb[usb_id]);
-        lua_pushinteger(L, usb_id);
-        lua_pushinteger(L, msg->arg2);
-        if (class_id != 0x000000ff)
-        {
-        	lua_pushinteger(L, class_id);
-        }
-        else
-        {
-        	lua_pushnil(L);
-        }
-        lua_call(L, 3, 0);
+        lua_geti(L, LUA_REGISTRYINDEX, l_usb_cb[u_event.usb_id]);
+        lua_pushinteger(L, u_event.usb_id);
+        lua_pushinteger(L, u_event.class);
+        lua_pushinteger(L, u_event.app_id);
+        lua_pushinteger(L, u_event.event);
+        lua_call(L, 4, 0);
     }
     // 给rtos.recv方法返回个空数据
     lua_pushinteger(L, 0);
@@ -66,68 +61,57 @@ int l_usb_handler(lua_State *L, void* ptr) {
 
 
 /*
-USB发送数据,目前仅限于HID设备,CDC-ACM虚拟串口直接使用串口API操作
-@api usb.tx(id, data, class)
-@int 设备id,默认为0
+USB发送数据,目前仅限于HID设备,CDC-ACM虚拟串口直接使用串口API操作,暂时无法使用
+@api usb.tx(id, data, app_id)
+@int usb总线id,默认0,如果芯片只有1条USB线,填0
 @zbuff or string 需要发送的数据
-@int 设备类
+@int 设备应用id
 @return bool 成功返回true,否则返回false,总线id填错,所填设备类不支持直接发送数据等情况下返回错误
 @usage
 -- HID上传数据
-usb.tx(0, "1234", usb.HID_KB) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
+usb.tx(0, "1234", 1) -- usb hid上传0x31 0x32 0x33 0x34  + N个0
 */
 static int l_usb_tx(lua_State* L) {
 	int result;
-    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_HID_CUSTOMER);
-    int usb_id = luaL_optinteger(L, 1, 0);
+	uint32_t app_id = luaL_checkinteger(L, 3);
+	uint32_t usb_id = luaL_optinteger(L, 1, 0);
     const char *buf;
     luat_zbuff_t *buff = NULL;
     if(lua_isuserdata(L, 2)) {
         buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        result = luat_usb_tx(usb_id, class, buff->addr, buff->used);
+        result = luat_usb_tx(usb_id, app_id, buff->addr, buff->used);
     } else {
     	size_t len;
     	buf = luaL_checklstring(L, 2, &len);
-    	switch(class)
-    	{
-    	case LUAT_USB_CLASS_HID_CUSTOMER:
-    		result = luat_usb_hid_tx(usb_id, buf, len, 0);
-    		break;
-    	case LUAT_USB_CLASS_HID_KEYBOARD:
-    		result = luat_usb_hid_tx(usb_id, buf, len, 1);
-    		break;
-    	default:
-    		result = luat_usb_tx(usb_id, class, buf, len);
-    		break;
-    	}
+    	result = luat_usb_tx(usb_id, app_id, buf, len);
         lua_pushboolean(L, !result);
     }
     return 1;
 }
 
 /*
-buff形式读接收到的数据，一次读出全部数据存入buff中，如果buff空间不够会自动扩展
-@api usb.rx(id, buff, class)
-@int 设备id,默认为0
+buff形式读接收到的数据，一次读出全部数据存入buff中，如果buff空间不够会自动扩展,暂时无法使用
+@api usb.rx(id, buff, app_id)
+@int usb总线id,默认0,如果芯片只有1条USB线,填0
 @zbuff zbuff对象
-@int 设备类
+@int 设备应用id
 @return int 返回读到的长度，并把zbuff指针后移
 @usage
-usb.rx(0, buff, usb.HID_CM)
+usb.rx(0, buff, 1)
 */
 static int l_usb_rx(lua_State *L)
 {
-    uint8_t class = luaL_optinteger(L, 3, LUAT_USB_CLASS_HID_CUSTOMER);
-    int usb_id = luaL_optinteger(L, 1, 0);
+	uint32_t app_id = luaL_checkinteger(L, 3);
+	uint32_t usb_id = luaL_optinteger(L, 1, 0);
 
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
     	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        int result = luat_usb_rx(usb_id, class, NULL, 0);	//读出当前缓存的长度
+        int result = luat_usb_rx(usb_id, app_id, NULL, 0);	//读出当前缓存的长度
         if (result > (buff->len - buff->used))
         {
         	__zbuff_resize(buff, buff->len + result);
         }
-        result = luat_usb_rx(usb_id, class, buff->addr + buff->used, result);
+        result = luat_usb_rx(usb_id, app_id, buff->addr + buff->used, result);
         lua_pushinteger(L, result);
         buff->used += result;
         return 1;
@@ -165,11 +149,13 @@ static int l_usb_mode(lua_State* L) {
 @function 回调方法
 @return nil 无返回值
 @usage
-usb.on(0, function(id, class, event)
+usb.on(0, function(id, class, app_id, event)
     log.info("usb", id, class, event)
 end)
---回调参数有3个
+--回调参数有6个
 1、usb总线id
+2、class,设备类
+3、app_id
 2、event,见usb.EV_XXX
 3、如果event是usb.EV_RX或usb.EV_TX,则第三个参数表示哪个设备类,目前只有usb.HID和usb.WINUSB
 */

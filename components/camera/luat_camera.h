@@ -49,6 +49,9 @@ enum
     LUAT_CAMERA_CONF_UVC_FPS = 0x220,
 
     LUAT_CAMERA_CONF_LOG_LEVEL = 0x230,
+	// USB摄像头配置项
+	LUAT_CAMERA_CONF_UVC_FORMAT = 0x300,
+	LUAT_CAMERA_CONF_UVC_RESOLUTION,
 };
 
 typedef struct luat_camera_conf
@@ -203,8 +206,6 @@ int luat_camera_start(int id);
  */
 int luat_camera_stop(int id);
 
-int luat_camera_stream(int id, void *buff1, void *buff2, void *buff3);
-
 int luat_camera_preview(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);
@@ -220,6 +221,18 @@ int luat_camera_config(int id, int key, int value);
 void luat_camera_reset_pin(int id, uint8_t level);
 
 void luat_camera_pwdn_pin(int id, uint8_t level);
+
+int luat_camera_set_cache(uint8_t app_id, uint32_t **cache, uint8_t cache_num, uint32_t cache_len);
+
+int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
+
+int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
+
+int luat_usb_camera_stream_get_config_format_num(uint8_t app_id);
+
+int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t format_index, uint8_t *format_type, uint8_t *resolution_num);
+
+int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index, uint8_t resolution_index, uint8_t *fps, uint16_t *w, uint16_t *h);
 
 extern int32_t g_camera_log_level;
 /** @}*/

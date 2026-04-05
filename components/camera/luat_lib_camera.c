@@ -22,6 +22,7 @@
 
 typedef struct luat_camera_cb {
     int scanned;
+    int raw_mode_function;
     luat_zbuff_t *zbuff[3];
 } luat_camera_cb_t;
 static luat_camera_cb_t camera_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
@@ -50,26 +51,27 @@ int l_camera_handler(lua_State *L, void* ptr) {
             lua_pushinteger(L, camera_id);
             if (msg->ptr)
             {
-            	if (msg->arg2 > 0)
-            	{
-            		lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
-            	}
-            	else
-            	{
-            		if (msg->ptr == camera_cbs[camera_id].zbuff[0])
-            		{
-            			lua_pushinteger(L, 0);
-            		}
-            		else if (msg->ptr == camera_cbs[camera_id].zbuff[1])
-            		{
-            			lua_pushinteger(L, 1);
-            		}
-            		else if (msg->ptr == camera_cbs[camera_id].zbuff[2])
-            		{
-            			lua_pushinteger(L, 2);
-            		}
-            	}
-
+                lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            }
+            else if (msg->arg2 > 1)
+            {
+            	lua_pushinteger(L, msg->arg2);
+            }
+            else
+            {
+            	lua_pushboolean(L, msg->arg2);
+            }
+            lua_call(L, 2, 0);
+        }
+    }
+    else if (camera_cbs[camera_id].raw_mode_function)
+    {
+        lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].raw_mode_function);
+        if (lua_isfunction(L, -1)) {
+            lua_pushinteger(L, camera_id);
+            if (msg->ptr)
+            {
+                lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
             }
             else if (msg->arg2 > 1)
             {
@@ -334,14 +336,23 @@ camera.on(0, "scanned", function(id, event)
 --event 多种类型，详见下表
     print(id, event)
 end)
+camera.on(0, "usb_raw", function(id, event, app_id)
+--id int camera id
+--event 多种类型，详见下表
+--app_id
+    print(id, event, param1, param2)
+end)
 --[[
-event可能出现的值有
+
+事件名称填 "scanned" 情况下, event可能出现的值有
   boolean型 false   摄像头没有正常工作，检查硬件和软件配置
   boolean型 true    拍照模式下拍照成功并保存完成，可以读取照片文件数据进一步处理，比如读出数据上传
   int型 原始图像大小 RAW模式下，采集完一帧图像后回调，回调值为图像数据大小，可以对传入的zbuff做进一步处理，比如读出数据上传
-  int型 zbuff序号 stream流模式下，返回保存数据的zbuff序号，0~2，如果只设置了2个，就是0~1
   string型  扫码结果 扫码模式下扫码成功一次，并且回调解码值，可以对回调值做进一步处理，比如打印到LCD上
-
+事件名称填 "usb_raw" 情况下, event可能出现的值
+  boolean型 true    usb摄像头插入识别完成
+  boolean型 false   usb摄像头拔出
+  int型 zbuff序号 stream流模式下，返回保存数据的zbuff序号，0~2，如果只设置了2个，就是0~1，param1
 ]]
 */
 static int l_camera_on(lua_State *L) {
@@ -359,6 +370,16 @@ static int l_camera_on(lua_State *L) {
         if (lua_isfunction(L, 3)) {
             lua_pushvalue(L, 3);
             camera_cbs[camera_id].scanned = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    if (!strcmp("stream", event)) {
+        if (camera_cbs[camera_id].raw_mode_function != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].raw_mode_function);
+            camera_cbs[camera_id].raw_mode_function = 0;
+        }
+        if (lua_isfunction(L, 3)) {
+            lua_pushvalue(L, 3);
+            camera_cbs[camera_id].raw_mode_function = luaL_ref(L, LUA_REGISTRYINDEX);
         }
     }
     return 0;
@@ -441,12 +462,6 @@ LUAT_WEAK int luat_camera_video(int id, int w, int h, uint8_t uart_id) {
     return -1;
 }
 
-LUAT_WEAK int luat_camera_stream(int id, void *buff1, void *buff2, void *buff3) {
-    LLOGD("not support yet");
-    return -1;
-}
-
-
 LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     LLOGD("not support yet");
     return -1;
@@ -471,6 +486,44 @@ LUAT_WEAK void luat_camera_reset_pin(int id, uint8_t level) {
     LLOGD("not support yet");
     return;
 }
+
+LUAT_WEAK int luat_camera_set_cache(uint8_t app_id, uint32_t **cache, uint8_t cache_num, uint32_t cache_len)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_index, uint8_t resolution_index)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK int luat_usb_camera_stream_get_config_format_num(uint8_t app_id)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t format_index, uint8_t *format_type, uint8_t *resolution_num)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK int luat_usb_camera_stream_get_config_info(uint8_t app_id, uint8_t format_index, uint8_t resolution_index, uint8_t *fps, uint16_t *w, uint16_t *h)
+{
+    LLOGD("not support yet");
+    return -1;
+}
+
+
 /**
 camera拍照
 @api camera.capture(id, save_path, quality, x, y, w, h)
@@ -568,41 +621,6 @@ static int l_camera_get_raw(lua_State *L) {
 }
 
 /**
-配置camera输出数据流到用户指定的zbuff缓存区，需要输入2~3个zbuff，并通过camera.on设置的回调函数返回具体哪一个zbuff有数据
-@api camera.stream(id, buff0, buff1, buff2)
-@userdata zbuff0
-@userdata zbuff1
-@userdata zbuff2
-@return boolean 成功返回true,否则返回false
-@usage
-buff0 = zbuff.create(1024*768*2)
-buff1 = zbuff.create(1024*768*2)
-buff2 = zbuff.create(1024*768*2)	--可以去掉，最少需要2个缓存
-camera.stream(camera_id, buff0, buff1, buff2)
-*/
-static int l_camera_stream(lua_State *L) {
-    int camera_id = luaL_checkinteger(L, 1);
-    if (camera_id >= LUAT_CAMERA_TYPE_USB)
-    {
-        camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
-    }
-    luat_zbuff_t *zbuff[3] = {NULL, NULL, NULL};
-    zbuff[0] = luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
-    zbuff[1] = luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
-    zbuff[2] = luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
-    if (!luat_camera_stream(camera_id, zbuff[0], zbuff[1], zbuff[2]))
-    {
-    	memcpy(camera_cbs[camera_id].zbuff, zbuff, 3 * sizeof(luat_zbuff_t *));
-    	lua_pushboolean(L, 1);
-    }
-    else
-    {
-    	lua_pushboolean(L, 0);
-    }
-    return 1;
-}
-
-/**
 启停camera预览功能，直接输出到LCD上，只有硬件支持的SOC可以运行，启动预览前必须调用lcd.int等api初始化LCD，预览时自动选择已经初始化过的lcd。
 @api camera.preview(id, onoff)
 @int camera id,例如0
@@ -643,11 +661,12 @@ static int l_camera_config(lua_State *L) {
     return 1;
 }
 
-/*
+/**
 对于无法用GPIO控制camera pwdn脚的平台，手动控制camera pwdn脚拉高或者拉低,2025/9/6启用
 @api camera.pwdn_pin(id, level)
 @int camera id,例如0
 @int pwdn脚电平，1高电平，0低电平
+@return nil
 @usage
 -- camera pwdn脚低电平
 camera.pwdn_pin(camera_id, 0)
@@ -657,11 +676,12 @@ static int l_camera_set_pwdn_pin(lua_State* L) {
     return 0;
 }
 
-/*
+/**
 对于无法用GPIO控制camera reset脚的平台，手动控制camera reset脚拉高或者拉低,2025/9/6启用
 @api camera.reset_pin(level)
 @int camera id,例如0
 @int reset脚电平，1高电平，0低电平
+@return nil
 @usage
 -- camera reset脚高电平
 camera.reset_pin(camera_id, 1)
@@ -669,6 +689,132 @@ camera.reset_pin(camera_id, 1)
 static int l_camera_set_reset_pin(lua_State* L) {
 	luat_camera_reset_pin(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 1));
     return 0;
+}
+
+
+/**
+配置camera输出数据流到用户指定的zbuff缓存区，需要输入2~3个zbuff，并通过camera.on设置的回调函数返回具体哪一个zbuff有数据 2026/4/5启用
+@api camera.cache(id, buff0, buff1, buff2)
+@userdata zbuff0
+@userdata zbuff1
+@userdata zbuff2
+@return boolean 成功返回true,否则返回false
+@usage
+buff0 = zbuff.create(1024*768*2)
+buff1 = zbuff.create(1024*768*2)
+buff2 = zbuff.create(1024*768*2)	--可以去掉，最少需要2个缓存
+camera.cache(camera_id, buff0, buff1, buff2)
+*/
+static int l_camera_cache(lua_State *L) {
+    int camera_id = luaL_checkinteger(L, 1);
+    if (camera_id >= LUAT_CAMERA_TYPE_USB)
+    {
+        camera_id = MAX_DEVICE_COUNT + camera_id - LUAT_CAMERA_TYPE_USB;
+    }
+    luat_zbuff_t *zbuff[3] = {NULL, NULL, NULL};
+    uint32_t *cache[3] = {NULL, NULL, NULL};
+    uint8_t zbuff_num = 2;
+    uint32_t max_size = 0;
+    zbuff[0] = luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+    cache[0] = (uint32_t *)zbuff[0]->addr;
+    max_size = (max_size > zbuff[0]->len)?zbuff[0]->len:max_size;
+
+    zbuff[1] = luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+    cache[1] = (uint32_t *)zbuff[1]->addr;
+    max_size = (max_size > zbuff[1]->len)?zbuff[1]->len:max_size;
+
+    zbuff[2] = luaL_testudata(L, 4, LUAT_ZBUFF_TYPE);
+    if (zbuff[2])
+    {
+    	cache[2] = (uint32_t *)zbuff[2]->addr;
+    	max_size = (max_size > zbuff[2]->len)?zbuff[2]->len:max_size;
+    	zbuff_num = 3;
+    }
+
+    if (!luat_camera_set_cache(camera_id, cache, zbuff_num, max_size))
+    {
+    	memcpy(camera_cbs[camera_id].zbuff, zbuff, 3 * sizeof(luat_zbuff_t *));
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+
+/**
+获取USB摄像头图像参数，根据不同的配置项的id和参数值组合，有不同的返回值组合
+@api camera.get_usb_config(id, key, param1, param2)
+@int camera id,
+@int 配置项的id，目前只有camera.CONF_UVC_FORMAT,camera.CONF_UVC_RESOLUTION
+@int 参数1
+@int 参数2
+@return boolean 成功返回true,否则返回false
+@return int value1
+@return int value2
+@return int value3
+@usage
+-- 本函数于 2026.4.5 新增, 当前仅Air1601可用
+--配置项的id和参数值组合，及返回如下，第一个返回值固定是成功、失败，不再表述，从第二个返回值开始描述
+--1、查询USB摄像头数据流有多少种类型
+--通常返回1~3, value2和value3是nil
+result,value1 = camera.get_usb_config(id, camera.CONF_UVC_FORMAT)
+--2、查询USB摄像头某种数据流有多少种图像类型，param1在0~组合1的返回值里选
+--通常返回数据流类型(0 原始图像，1 mjpg，2 h264), 图像类型数量1~10, value3是nil
+result,value1,value2 = camera.get_usb_config(id, camera.CONF_UVC_FORMAT, 1)	--数据流1的数据流类型，及包含的图像类型数量
+--3、查询USB摄像头某种数据流下某种图像类型的具体参数，param1选0~2(0 原始图像，1 mjpg，2 h264), param2在0~组合2的返回值图像类型数量里选
+--返回值分别为帧率，图像宽，图像高
+result,fps,w,h = camera.get_usb_config(id, camera.CONF_UVC_RESOLUTION, 1, 3)	--数据流1第4种图像类型的具体值
+--4、查询USB摄像头当前使用的数据流和图像类型序号
+--返回值分别为数据流序号，图像类型序号, value3是nil
+result,value1,value2 = camera.get_usb_config(id, camera.CONF_UVC_RESOLUTION)
+*/
+static int l_camera_get_usb_config(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int key = luaL_checkinteger(L, 2);
+    int param1 = luaL_optinteger(L, 3, -1);
+    int param2 = luaL_optinteger(L, 4, -1);
+    int ret = -1;
+    int value[3] = {-1,-1,-1};
+
+    lua_pushboolean(L, !ret);
+    for(uint8_t i = 0; i < 3; i++)
+    {
+    	if (value[i] >= 0)
+    	{
+    		lua_pushinteger(L, value[i]);
+    	}
+    	else
+    	{
+    		lua_pushnil(L);
+    	}
+    }
+    return 4;
+}
+
+/**
+配置USB摄像头图像参数，根据不同的配置项的id和参数值组合，有不同的设置效果
+@api camera.set_usb_config(id, key, param1, param2)
+@int camera id,
+@int 配置项的id，目前只有camera.CONF_UVC_RESOLUTION
+@int 参数1
+@int 参数2
+@return boolean 成功返回true,否则返回false
+@usage
+-- 本函数于 2026.4.5 新增, 当前仅Air1601可用
+--配置项的id和参数值组合如下
+--1、设置USB摄像头使用的数据流和图像类型序号
+result = camera.set_usb_config(id, camera.CONF_UVC_RESOLUTION, 1, 5)--配置USB摄像头使用数据流1下第6种图像类型
+*/
+static int l_camera_set_usb_config(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int key = luaL_checkinteger(L, 2);
+    int param1 = luaL_optinteger(L, 3, -1);
+    int param2 = luaL_optinteger(L, 4, -1);
+    int ret = -1;
+    lua_pushboolean(L, !ret);
+    return 1;
 }
 
 #include "rotable2.h"
@@ -682,12 +828,15 @@ static const rotable_Reg_t reg_camera[] =
 	{ "video",       ROREG_FUNC(l_camera_video)},
 	{ "startRaw",    ROREG_FUNC(l_camera_start_raw)},
 	{ "getRaw",      ROREG_FUNC(l_camera_get_raw)},
-	{ "stream",		 ROREG_FUNC(l_camera_stream)},
+
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
     { "config",      ROREG_FUNC(l_camera_config)},
     { "pwdn_pin",      ROREG_FUNC(l_camera_set_pwdn_pin)},
     { "reset_pin",      ROREG_FUNC(l_camera_set_reset_pin)},
+	{ "get_usb_config",		 ROREG_FUNC(l_camera_get_usb_config)},
+	{ "set_usb_config",		 ROREG_FUNC(l_camera_set_usb_config)},
+	{ "cache",		 ROREG_FUNC(l_camera_cache)},
     //@const AUTO number 摄像头工作在自动模式
 	{ "AUTO",        ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
     //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
@@ -728,6 +877,12 @@ static const rotable_Reg_t reg_camera[] =
     { "CONF_UVC_FPS",               ROREG_INT(LUAT_CAMERA_CONF_UVC_FPS)},
     //@const CONF_LOG_LEVEL number 设置摄像头日志级别
     { "CONF_LOG_LEVEL",             ROREG_INT(LUAT_CAMERA_CONF_LOG_LEVEL)},
+
+    //@const CONF_UVC_FORMAT number USB摄像头数据流类型
+    { "CONF_UVC_FORMAT",               ROREG_INT(LUAT_CAMERA_CONF_UVC_FORMAT)},
+    //@const CONF_UVC_RESOLUTION number USB摄像头的数据流中具体数据信息，包括图像大小和帧率
+    { "CONF_UVC_RESOLUTION",               ROREG_INT(LUAT_CAMERA_CONF_UVC_RESOLUTION)},
+
 
 	{ NULL,          ROREG_INT(0)}
 };

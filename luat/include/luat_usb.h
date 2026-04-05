@@ -25,7 +25,19 @@ enum
 	LUAT_USB_EVENT_RESUME,
 };
 
-typedef void (*usb_callback_t)(int id, int event, uint8_t *data, uint32_t len);
+typedef union
+{
+	struct
+	{
+		uint8_t usb_id;
+		uint8_t class;
+		uint8_t app_id;
+		uint8_t event;
+	};
+	uint32_t u32;
+}usb_event_u;
+
+typedef void (*usb_app_callback_t)(uint8_t usb_id, uint8_t class_type, uint8_t app_id, uint8_t event, uint8_t *data, uint32_t len);
 
 int luat_usb_set_vid(int id, uint16_t vid);
 int luat_usb_get_vid(int id, uint16_t *vid);
@@ -42,11 +54,11 @@ int luat_usb_add_class(int id, uint8_t class, uint8_t num);
 int luat_usb_get_free_ep_num(int id);
 int luat_usb_clear_class(int id);
 
-int luat_usb_set_callback(int id, usb_callback_t callback);
+int luat_usb_set_callback(int id, usb_app_callback_t callback);
 
-int luat_usb_tx(int id, uint8_t class, const void *data, uint32_t len);
+int luat_usb_tx(int id, uint8_t app_id, const void *data, uint32_t len);
 int luat_usb_hid_tx(int id, const char *string, uint32_t len, uint8_t is_keyboard);
-int luat_usb_rx(int id, uint8_t class, void *data, uint32_t len);
+int luat_usb_rx(int id, uint8_t app_id, void *data, uint32_t len);
 
 int luat_usb_power_on_off(int id, uint8_t on_off);
 

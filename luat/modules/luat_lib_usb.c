@@ -358,14 +358,18 @@ static const rotable_Reg_t reg_usb[] =
     { "MSC",       			ROREG_INT(LUAT_USB_CLASS_MSC)},
 
 
-	//@const EV_RX number  有新的数据到来
-    { "EV_RX",       		ROREG_INT(LUAT_USB_EVENT_NEW_RX)},
-	//@const EV_TX number 所有数据都已发送
-    { "EV_TX",        		ROREG_INT(LUAT_USB_EVENT_TX_DONE)},
+	//@const EV_NEW_RX number  有新的数据到来
+    { "EV_NEW_RX",       		ROREG_INT(LUAT_USB_EVENT_NEW_RX)},
+	//@const EV_TX_DONE number 所有数据都已发送
+    { "EV_TX_DONE",        		ROREG_INT(LUAT_USB_EVENT_TX_DONE)},
 	//@const EV_CONNECT number usb从机已经连接上并且枚举成功
     { "EV_CONNECT",       	ROREG_INT(LUAT_USB_EVENT_CONNECT)},
 	//@const EV_DISCONNECT number usb从机断开
     { "EV_DISCONNECT",      ROREG_INT(LUAT_USB_EVENT_DISCONNECT)},
+	//@const EV_RX_ERROR number  有新的数据到来
+    { "EV_RX_ERROR",       		ROREG_INT(LUAT_USB_EVENT_RX_ERROR)},
+	//@const EV_TX_ERROR number 所有数据都已发送
+    { "EV_TX_ERROR",        		ROREG_INT(LUAT_USB_EVENT_TX_ERROR)},
 	//@const EV_SUSPEND number usb从机挂起
     { "EV_SUSPEND",       	ROREG_INT(LUAT_USB_EVENT_SUSPEND)},
 	//@const EV_RESUME number usb从机恢复

@@ -3,6 +3,12 @@ VERSION = "1.0.0"
 
 log.style(1)
 
+local uartid = 1 -- 根据实际设备选取不同的uartid
+local result = uart.setup(uartid, -- 串口id
+    3000000, -- 波特率
+    8, -- 数据位
+    1 -- 停止位
+)
 -- 摄像头图像基本参数，格式，长，宽
 local frame_type = 1    --mjpg
 local sensor_w = 1024
@@ -11,6 +17,9 @@ local usb_app_id = nil
 -- 双缓冲接收图像数据
 local frame_buff0 = zbuff.create(sensor_w * sensor_h)
 local frame_buff1 = zbuff.create(sensor_w * sensor_h)
+-- 保存从串口发出的图像数据
+local send_buff = zbuff.create(sensor_w * sensor_h)
+local test_cnt = 0
 
 local function usb_cb(usb_id, class, app_id, event, param1, param2, param3)
     if event == usb.EV_CONNECT then
@@ -29,6 +38,14 @@ local function  camera_cb(app_id, event, param)
     if event == usb.EV_NEW_RX then
         if param == 0 then
             log.info("usb摄像头接收数据，位于buffer0 ,数据长度", frame_buff0:used())
+            test_cnt = test_cnt + 1
+            if test_cnt == 10 then
+                log.info("发送1帧数据给电脑")
+                send_buff:del()
+                send_buff:copy(0, frame_buff0)
+                uart.tx(uartid, send_buff)
+                
+            end
         end
         if param == 1 then
             log.info("usb摄像头接收数据，位于buffer1 ,数据长度", frame_buff1:used())

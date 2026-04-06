@@ -79,6 +79,10 @@ int l_camera_handler(lua_State *L, void* ptr) {
             	if (camera_cbs[camera_id].zbuff[u_event.usb_id])
             	{
             		camera_cbs[camera_id].zbuff[u_event.usb_id]->used = msg->arg2;
+            		LLOGD("4data %x,%x,%x,%x", camera_cbs[camera_id].zbuff[u_event.usb_id]->addr[0],
+            				camera_cbs[camera_id].zbuff[u_event.usb_id]->addr[1],
+							camera_cbs[camera_id].zbuff[u_event.usb_id]->addr[2],
+							camera_cbs[camera_id].zbuff[u_event.usb_id]->addr[3]);
             	}
             	lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
             	lua_pushinteger(L, u_event.usb_id);

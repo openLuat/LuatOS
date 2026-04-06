@@ -73,19 +73,28 @@ int l_camera_handler(lua_State *L, void* ptr) {
         	usb_event_u u_event;
         	u_event.u32 = (uint32_t)msg->ptr;
         	lua_pushinteger(L, u_event.app_id);
-
-            if (LUAT_CAMERA_FRAME_RX_DONE == u_event.event)
-            {
+        	switch (u_event.event)
+        	{
+        	case LUAT_CAMERA_FRAME_RX_DONE:
             	if (camera_cbs[camera_id].zbuff[u_event.usb_id])
             	{
             		camera_cbs[camera_id].zbuff[u_event.usb_id]->used = msg->arg2;
             	}
+            	lua_pushinteger(L, LUAT_USB_EVENT_NEW_RX);
             	lua_pushinteger(L, u_event.usb_id);
-            }
-            else
-            {
-            	lua_pushnil(L);
-            }
+            	break;
+        	case LUAT_CAMERA_USB_CONNECT:
+        		lua_pushinteger(L, LUAT_USB_EVENT_CONNECT);
+        		lua_pushinteger(L, u_event.usb_id);
+        		break;
+        	case LUAT_CAMERA_USB_DISCONNECT:
+        		lua_pushinteger(L, LUAT_USB_EVENT_DISCONNECT);
+        		lua_pushinteger(L, u_event.usb_id);
+        		break;
+        	default:
+        		lua_pushnil(L);
+        		break;
+        	}
             lua_call(L, 2, 0);
         }
     }
@@ -342,7 +351,7 @@ camera.on(0, "scanned", function(id, event)
 --event 多种类型，详见下表
     print(id, event)
 end)
-camera.on(0, "usb_raw", function(app_id, event) -- 2026/4/6新增
+camera.on(0, "usb_raw", function(app_id, event, param) -- 2026/4/6新增
 --app_id int usb应用id
 --event 多种类型，详见下表
 --param 返回参数
@@ -355,8 +364,10 @@ end)
   boolean型 true    拍照模式下拍照成功并保存完成，可以读取照片文件数据进一步处理，比如读出数据上传
   int型 原始图像大小 RAW模式下，采集完一帧图像后回调，回调值为图像数据大小，可以对传入的zbuff做进一步处理，比如读出数据上传
   string型  扫码结果 扫码模式下扫码成功一次，并且回调解码值，可以对回调值做进一步处理，比如打印到LCD上
-事件名称填 "usb_raw" 情况下, event可能出现的值
-  int型 zbuff序号 stream流模式下，返回保存数据的zbuff序号，0~2，如果只设置了2个，就是0~1，param1
+事件名称填 "usb_raw" 情况下, event和param可能出现的值
+  usb.EV_RX 		接收到新的一帧数据，param为zbuff序号，0~2，如果只设置了2个，就是0~1
+  usb.EV_CONNECT	摄像头接入完成，param为hub port序号，1~15
+  usb.EV_DISCONNECT 摄像头拔出，param为hub port序号，1~15
 ]]
 */
 static int l_camera_on(lua_State *L) {

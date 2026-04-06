@@ -37,6 +37,18 @@ typedef union
 	uint32_t u32;
 }usb_event_u;
 
+typedef union
+{
+	struct
+	{
+		uint8_t hub_address;
+		uint8_t hub_port;
+		uint8_t device_address;
+		uint8_t unuse;
+	};
+	uint32_t u32;
+}usb_info_u;
+
 typedef void (*usb_app_callback_t)(uint8_t usb_id, uint8_t class_type, uint8_t app_id, uint8_t event, uint8_t *data, uint32_t len);
 
 int luat_usb_set_vid(int id, uint16_t vid);

@@ -44,7 +44,9 @@ int l_usb_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
     usb_event_u u_event;
-    u_event.u32 = msg->arg1;;
+    usb_info_u u_info;
+    u_event.u32 = msg->arg1;
+    u_info.u32 = msg->arg2;
     if (l_usb_cb[u_event.usb_id] && u_event.usb_id < MAX_USB_DEVICE_COUNT)
     {
         lua_geti(L, LUA_REGISTRYINDEX, l_usb_cb[u_event.usb_id]);
@@ -52,7 +54,21 @@ int l_usb_handler(lua_State *L, void* ptr) {
         lua_pushinteger(L, u_event.class);
         lua_pushinteger(L, u_event.app_id);
         lua_pushinteger(L, u_event.event);
-        lua_call(L, 4, 0);
+        switch(u_event.event)
+        {
+        case LUAT_USB_EVENT_CONNECT:
+        case LUAT_USB_EVENT_DISCONNECT:
+            lua_pushinteger(L, u_info.hub_address);
+            lua_pushinteger(L, u_info.hub_port);
+            lua_pushinteger(L, u_info.device_address);
+        	break;
+        default:
+        	lua_pushnil(L);
+        	lua_pushnil(L);
+        	lua_pushnil(L);
+        	break;
+        }
+        lua_call(L, 7, 0);
     }
     // 给rtos.recv方法返回个空数据
     lua_pushinteger(L, 0);
@@ -149,15 +165,21 @@ static int l_usb_mode(lua_State* L) {
 @function 回调方法
 @return nil 无返回值
 @usage
-usb.on(0, function(id, class, app_id, event)
+usb.on(0, function(id, class, app_id, event, param1, param2, param3)
     log.info("usb", id, class, event)
 end)
---回调参数有6个
+--回调参数有7个
 1、usb总线id
 2、class,设备类
 3、app_id
-2、event,见usb.EV_XXX
-3、如果event是usb.EV_RX或usb.EV_TX,则第三个参数表示哪个设备类,目前只有usb.HID和usb.WINUSB
+4、event,见usb.EV_XXX
+5、param1,
+6、param2,
+7、param3,
+event类型含义及后续param含义
+1、usb.EV_CONNECT,设备枚举完成,param1为hub地址,param2为设备所在的hub port序号,param3是设备自身地址
+2、usb.EV_DISCONNECT,设备断开,后续参数同usb.EV_CONNECT
+
 */
 static int l_usb_on(lua_State *L) {
     int usb_id = luaL_optinteger(L, 1, 0);

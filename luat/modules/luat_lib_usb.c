@@ -35,7 +35,7 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #include "luat_log.h"
 #include "rotable2.h"
 
-
+#ifdef LUAT_USE_USB
 static int l_usb_cb[MAX_USB_DEVICE_COUNT];
 
 
@@ -356,3 +356,4 @@ LUAMOD_API int luaopen_usb( lua_State *L )
     luat_newlib2(L, reg_usb);
     return 1;
 }
+#endif

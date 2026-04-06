@@ -222,13 +222,15 @@ void luat_camera_reset_pin(int id, uint8_t level);
 
 void luat_camera_pwdn_pin(int id, uint8_t level);
 
-int luat_camera_set_cache(uint8_t app_id, uint32_t **cache, uint8_t cache_num, uint32_t cache_len);
+int luat_camera_set_cache(int id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
 
 int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
 
-int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
+int luat_usb_camera_stream_set_config_by_index(uint8_t app_id, uint8_t format_index, uint8_t resolution_index);
 
-int luat_usb_camera_stream_get_config_format_num(uint8_t app_id);
+int luat_usb_camera_stream_set_config(uint8_t app_id, uint8_t format_type, uint16_t w, uint16_t h);
+
+int luat_usb_camera_stream_get_config_format_num(uint8_t app_id, uint8_t *format_num);
 
 int luat_usb_camera_stream_get_config_resolution_num(uint8_t app_id, uint8_t format_index, uint8_t *format_type, uint8_t *resolution_num);
 

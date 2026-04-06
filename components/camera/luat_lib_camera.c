@@ -13,6 +13,7 @@
 #include "luat_fs.h"
 #include "luat_mem.h"
 #include "luat_uart.h"
+#include "luat_usb.h"
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
@@ -64,26 +65,31 @@ int l_camera_handler(lua_State *L, void* ptr) {
             lua_call(L, 2, 0);
         }
     }
+#ifdef LUAT_USE_USB
     else if (camera_cbs[camera_id].raw_mode_function)
     {
         lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].raw_mode_function);
         if (lua_isfunction(L, -1)) {
-            lua_pushinteger(L, camera_id);
-            if (msg->ptr)
+        	usb_event_u u_event;
+        	u_event.u32 = (uint32_t)msg->ptr;
+        	lua_pushinteger(L, u_event.app_id);
+
+            if (LUAT_CAMERA_FRAME_RX_DONE == u_event.event)
             {
-                lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
-            }
-            else if (msg->arg2 > 1)
-            {
-            	lua_pushinteger(L, msg->arg2);
+            	if (camera_cbs[camera_id].zbuff[u_event.usb_id])
+            	{
+            		camera_cbs[camera_id].zbuff[u_event.usb_id]->used = msg->arg2;
+            	}
+            	lua_pushinteger(L, u_event.usb_id);
             }
             else
             {
-            	lua_pushboolean(L, msg->arg2);
+            	lua_pushnil(L);
             }
             lua_call(L, 2, 0);
         }
     }
+#endif
     lua_pushinteger(L, 0);
     return 1;
 }
@@ -336,11 +342,11 @@ camera.on(0, "scanned", function(id, event)
 --event 多种类型，详见下表
     print(id, event)
 end)
-camera.on(0, "usb_raw", function(id, event, app_id)
---id int camera id
+camera.on(0, "usb_raw", function(app_id, event) -- 2026/4/6新增
+--app_id int usb应用id
 --event 多种类型，详见下表
---app_id
-    print(id, event, param1, param2)
+--param 返回参数
+    print(app_id, event)
 end)
 --[[
 
@@ -350,8 +356,6 @@ end)
   int型 原始图像大小 RAW模式下，采集完一帧图像后回调，回调值为图像数据大小，可以对传入的zbuff做进一步处理，比如读出数据上传
   string型  扫码结果 扫码模式下扫码成功一次，并且回调解码值，可以对回调值做进一步处理，比如打印到LCD上
 事件名称填 "usb_raw" 情况下, event可能出现的值
-  boolean型 true    usb摄像头插入识别完成
-  boolean型 false   usb摄像头拔出
   int型 zbuff序号 stream流模式下，返回保存数据的zbuff序号，0~2，如果只设置了2个，就是0~1，param1
 ]]
 */

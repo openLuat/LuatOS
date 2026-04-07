@@ -20,7 +20,8 @@ typedef struct luat_airlink_cmd_ext
 enum {
     LUAT_AIRLINK_MODE_SPI_SLAVE = 0,
     LUAT_AIRLINK_MODE_SPI_MASTER = 1,
-    LUAT_AIRLINK_MODE_UART = 2
+    LUAT_AIRLINK_MODE_UART = 2,
+    LUAT_AIRLINK_MODE_UNKNOW = -1
 };
 
 
@@ -94,6 +95,11 @@ typedef void (*luat_airlink_newdata_notify_cb)(void);
 typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
 
 typedef int (*luat_airlink_link_data_cb)(airlink_link_data_t* link);
+
+int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb);
+int luat_airlink_mode_cb_unregister(uint8_t mode);
+luat_airlink_newdata_notify_cb luat_airlink_mode_newdata_cb_get(void);
+luat_airlink_link_data_cb luat_airlink_mode_link_data_cb_get(void);
 
 
 typedef struct luat_airlink_cmd_reg
@@ -172,8 +178,6 @@ typedef struct luat_airlink_dev_info
 }luat_airlink_dev_info_t;
 
 
-extern luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
-
 typedef struct luat_airlink_spi_conf
 {
     uint8_t spi_id;
@@ -187,7 +191,6 @@ typedef struct luat_airlink_spi_conf
 }luat_airlink_spi_conf_t;
 
 extern luat_airlink_spi_conf_t g_airlink_spi_conf;
-extern luat_airlink_link_data_cb g_airlink_link_data_cb;
 
 #include "luat_rtos.h"
 extern luat_rtos_mutex_t g_airlink_pause_mutex;
@@ -330,6 +333,10 @@ uint32_t luat_airlink_sversion(void);
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
 typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
+
+
+void luat_airlink_current_mode_set(int mode);
+int luat_airlink_current_mode_get(void);
 
 #ifdef TYPE_EC718M
 #include "platform_def.h"

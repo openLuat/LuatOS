@@ -39,6 +39,7 @@ extern luat_rtos_mutex_t g_airlink_pause_mutex;
 // static uint8_t slave_rdy;
 static uint8_t thread_rdy;
 static uint8_t spi_rdy;
+static uint8_t g_master_running;
 static luat_rtos_task_handle spi_task_handle;
 static luat_rtos_task_handle spi_irq_task_handle;
 
@@ -408,12 +409,13 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     }
 }
 
-__USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
+__USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
     memset(&link->flags, 0, sizeof(uint32_t));
     if (g_airlink_irq_ctx.enable) {
         link->flags.irq_ready = 1;
         link->flags.irq_pin = g_airlink_irq_ctx.slave_pin - 140;
     }
+    return 0;
 }
 
 #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
@@ -439,15 +441,22 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 
     luat_rtos_task_sleep(5); // 等5ms
     luat_airlink_spi_master_pin_setup();
-    g_airlink_newdata_notify_cb = on_newdata_notify;
-    g_airlink_link_data_cb = on_link_data_notify;
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_MASTER, on_newdata_notify, on_link_data_notify);
     thread_rdy = 1;
     while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) == 1) {
+        if (!g_master_running) {
+            break;
+        }
         luat_rtos_task_sleep(4);
     }
     int res = 0;
-    while (1)
+    while (g_master_running)
     {
+        #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
+        if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UNKNOW && luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_SPI_MASTER) {
+            break;
+        }
+        #endif
         if (g_airlink_fota != NULL && g_airlink_fota->state == 1) {
             airlink_sfota_exec();
         }
@@ -466,6 +475,20 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
         }
         // LLOGD("spi master task loop");
     }
+
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_SPI_MASTER);
+    if (s_txbuff) {
+        luat_heap_opt_free(LUAT_HEAP_SRAM, s_txbuff);
+        s_txbuff = NULL;
+    }
+    if (s_rxbuff) {
+        luat_heap_opt_free(LUAT_HEAP_SRAM, s_rxbuff);
+        s_rxbuff = NULL;
+    }
+    thread_rdy = 0;
+    spi_rdy = 0;
+    spi_task_handle = NULL;
+    luat_rtos_task_delete(NULL);
 }
 
 
@@ -485,10 +508,26 @@ int luat_airlink_start_master(void)
     }
 
     // 创建通用事件队列 (id=2,3等)
+    g_master_running = 1;
     luat_rtos_queue_create(&evt_queue, 4 * 1024, sizeof(luat_event_t));
     // 创建专门的RDY事件队列 (id=6)
     luat_rtos_queue_create(&rdy_evt_queue, 10, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 8 * 1024, 50, "spi", spi_master_task, NULL, 0);
+    return 0;
+}
+
+int luat_airlink_stop_master(void)
+{
+    g_master_running = 0;
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_SPI_MASTER);
+    if (evt_queue) {
+        luat_event_t evt = {.id = 0};
+        luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
+    }
+    if (rdy_evt_queue) {
+        luat_event_t evt = {.id = 0};
+        luat_rtos_queue_send(rdy_evt_queue, &evt, sizeof(evt), 0);
+    }
     return 0;
 }
 

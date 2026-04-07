@@ -31,7 +31,6 @@
 #include "luat_log.h"
 
 extern airlink_statistic_t g_airlink_statistic;
-extern uint32_t g_airlink_spi_task_mode;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_irq_ctx_t g_airlink_wakeup_irq_ctx;
 
@@ -91,16 +90,8 @@ static int l_airlink_start(lua_State *L) {
 -- 本函数当前无任何功能, 只做预留
 */
 static int l_airlink_stop(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    if (id == 0) {
-        // 临时入口,先写死
-        LLOGD("停止AirLink从机模式");
-    }
-    else {
-        // 临时入口,先写死
-        LLOGD("停止AirLink主机模式");
-    }
-    luat_airlink_stop(id);
+    // int id = luaL_checkinteger(L, 1);
+    // luat_airlink_stop(id);
     return 0;
 }
 
@@ -158,7 +149,7 @@ static int l_airlink_statistics(lua_State *L) {
     print_stat("发送IP字节", &tmp.tx_bytes, 1);
     print_stat("接收IP包",   &tmp.rx_ip, 1);
     print_stat("接收IP字节", &tmp.rx_bytes, 1);
-    if (g_airlink_spi_task_mode == 0) {
+    if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_SPI_SLAVE) {
 
     }
     else {

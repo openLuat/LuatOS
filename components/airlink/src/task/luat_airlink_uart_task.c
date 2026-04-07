@@ -27,6 +27,14 @@
 #define __USER_FUNC_IN_RAM__
 #endif
 
+
+
+#ifdef LUAT_CONF_AIRLINK_MODE_WAIT
+#define AIRLINK_MODE_WAIT_TIMEOUT 100
+#else
+#define AIRLINK_MODE_WAIT_TIMEOUT 15*1000
+#endif
+
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 
@@ -36,6 +44,7 @@ static luat_rtos_task_handle g_uart_receive_task;
 // static luat_rtos_queue_t evt_queue;
 static luat_rtos_queue_t tx_evt_queue;// 
 static luat_rtos_queue_t rx_evt_queue;
+static uint8_t g_uart_running;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
 
 static void luat_airlink_uart_transfer_task(void);
@@ -86,12 +95,13 @@ static uint8_t *s_txbuff;
 static uint8_t *s_rxbuff;
 // static airlink_link_data_t s_link;
 
-__USER_FUNC_IN_RAM__ static void on_link_data_notify(airlink_link_data_t* link) {
+__USER_FUNC_IN_RAM__ static int on_link_data_notify(airlink_link_data_t* link) {
     memset(&link->flags, 0, sizeof(uint32_t));
     if (g_airlink_irq_ctx.enable) {
         link->flags.irq_ready = 1;
         link->flags.irq_pin = g_airlink_irq_ctx.slave_pin - 140;
     }
+    return 0;
 }
 
 static void unpack_data(uint8_t* buff, size_t len)
@@ -236,12 +246,20 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     uint8_t *pbuff = luat_heap_malloc(4*1024);
     event.id = 0;
 
-    while(1)
+    while(g_uart_running)
     {
-        ret = luat_rtos_queue_recv(tx_evt_queue, &event, sizeof(luat_event_t), 15*1000);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
+        ret = luat_rtos_queue_recv(tx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
         (void)ret;
         //LLOGD("收到airlink数据事件 ret:%d, id:%d", ret, event.id);
-        record_statistic(event);
+        if (ret == 0) {
+            record_statistic(event);
+        }
+        #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
+        if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UNKNOW && luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UART) {
+            luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
+            break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
+        }
+        #endif
         while (1) {
             uart_id = g_airlink_spi_conf.uart_id;
             // 有数据, 要处理了
@@ -282,6 +300,11 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             }
         }
     }
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
+    LLOGI("uart_transfer_task exit");
+    luat_heap_free(pbuff);
+    g_uart_transfer_task = NULL;
+    luat_rtos_task_delete(NULL); // 删除当前任务
 }
 __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
 {
@@ -289,11 +312,20 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
     luat_event_t event = {0};
     int uart_id;
     event.id = 0;
-    while (1)
+    while (g_uart_running)
     {
-        ret = luat_rtos_queue_recv(rx_evt_queue, &event, sizeof(luat_event_t), 15*1000);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
+        ret = luat_rtos_queue_recv(rx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
         //LLOGD("收到airlink数据事件 ret:%d, id:%d", ret, event.id);
-        record_statistic(event);
+        if (ret == 0) {
+            record_statistic(event);
+        }
+        #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
+        if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UNKNOW && luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UART) {
+            luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
+            break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
+        }
+        #endif
+
         while (1) { 
             uart_id = g_airlink_spi_conf.uart_id;
             ret = luat_uart_read(uart_id, (char *)s_rxbuff, 1024);
@@ -310,11 +342,16 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
             }
         }
     }
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
+    LLOGI("uart_receive_task exit");
+    g_uart_receive_task = NULL;
+    luat_rtos_task_delete(NULL); // 删除当前任务
 }
 
 int luat_airlink_start_uart(void)
 {
     int ret = 0;
+    g_uart_running = 1;
     
     ret = luat_rtos_queue_create(&tx_evt_queue, 128, sizeof(luat_event_t));
     if (ret) {
@@ -326,13 +363,27 @@ int luat_airlink_start_uart(void)
     }
     luat_rtos_task_sleep(5);
     uart_gpio_setup();
-    g_airlink_newdata_notify_cb = on_newdata_notify;
-    g_airlink_link_data_cb = on_link_data_notify;
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify);
 
     luat_airlink_uart_transfer_task();
     luat_airlink_uart_receive_task();
 
     return ret;
+}
+
+int luat_airlink_stop_uart(void)
+{
+    g_uart_running = 0;
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
+    if (tx_evt_queue) {
+        luat_event_t evt = {.id = 0};
+        luat_rtos_queue_send(tx_evt_queue, &evt, sizeof(evt), 0);
+    }
+    if (rx_evt_queue) {
+        luat_event_t evt = {.id = 0};
+        luat_rtos_queue_send(rx_evt_queue, &evt, sizeof(evt), 0);
+    }
+    return 0;
 }
 
 static void luat_airlink_uart_transfer_task(void)
@@ -344,7 +395,7 @@ static void luat_airlink_uart_transfer_task(void)
         return;
     }
     s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
-    ret = luat_rtos_task_create(&g_uart_transfer_task, 8 * 1024, 50, "uart_transfer", uart_transfer_task, NULL, 0);
+    ret = luat_rtos_task_create(&g_uart_transfer_task, 4 * 1024, 50, "uart_transfer", uart_transfer_task, NULL, 0);
     if (ret) {
         LLOGW("创建uart_transfer_task ret:%d", ret);
     }
@@ -361,7 +412,7 @@ static void luat_airlink_uart_receive_task(void)
     s_rxbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);
     rxbuf = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, UNPACK_BUFF_SIZE);
 
-    ret = luat_rtos_task_create(&g_uart_receive_task, 8 * 1024, 52, "uart_receive", uart_receive_task, NULL, 0);
+    ret = luat_rtos_task_create(&g_uart_receive_task, 4 * 1024, 52, "uart_receive", uart_receive_task, NULL, 0);
     if (ret) {
         LLOGW("创建uart_receive_task ret:%d", ret);
     }

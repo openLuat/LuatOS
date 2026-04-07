@@ -143,6 +143,9 @@ typedef struct{
     luat_mic_config_t mic_config;
 }luat_record_ctrl_t;
 
+// 临时处理,luat_record_ctrl_t结构体后期迁移至luat_audio_conf_t中,随后废弃此接口
+luat_record_ctrl_t *luat_audio_get_record_config(uint8_t multimedia_id);
+
 #endif
 
 /**

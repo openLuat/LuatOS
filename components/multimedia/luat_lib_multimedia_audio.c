@@ -20,10 +20,17 @@
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif
+
+static luat_multimedia_cb_t multimedia_cbs[MAX_DEVICE_COUNT];
+
 #ifdef LUAT_USE_RECORD
 static luat_record_ctrl_t g_s_record = {0};
+
+// 临时处理,luat_record_ctrl_t结构体后期迁移至luat_audio_conf_t中,随后废弃此接口
+LUAT_WEAK luat_record_ctrl_t *luat_audio_get_record_config(uint8_t multimedia_id){
+    return &g_s_record;
+}
 #endif
-static luat_multimedia_cb_t multimedia_cbs[MAX_DEVICE_COUNT];
 
 int l_multimedia_raw_handler(lua_State *L, void* ptr) {
     (void)ptr;
@@ -1011,17 +1018,16 @@ static const rotable_Reg_t reg_audio[] =
     //@const RECORD_STEREO number 录音使用立体声
 	{ "RECORD_STEREO", 		ROREG_INT(LUAT_RECORD_STEREO)},
 #ifdef LUAT_USE_RECORD
-    //@const RECORD_STEREO number 录音使用立体声
-	{ "CHL_L", 		ROREG_INT(LUAT_ADC_CHL_L)},
-    { "CHL_R", 		ROREG_INT(LUAT_ADC_CHL_R)},
-    { "CHL_LR", 		ROREG_INT(LUAT_ADC_CHL_LR)},
+	{ "CHL_L", 		        ROREG_INT(LUAT_ADC_CHL_L)},
+    { "CHL_R", 		        ROREG_INT(LUAT_ADC_CHL_R)},
+    { "CHL_LR", 		    ROREG_INT(LUAT_ADC_CHL_LR)},
 
-    { "SAMP_8000", 		ROREG_INT(LUAT_ADC_SAMP_8000)},
-    { "SAMP_16000", 	ROREG_INT(LUAT_ADC_SAMP_16000)},
-    { "SAMP_44100", 	ROREG_INT(LUAT_ADC_SAMP_44100)},
-    { "SAMP_48000", 	ROREG_INT(LUAT_ADC_SAMP_48000)},
+    { "SAMP_8000", 		    ROREG_INT(LUAT_ADC_SAMP_8000)},
+    { "SAMP_16000", 	    ROREG_INT(LUAT_ADC_SAMP_16000)},
+    { "SAMP_44100", 	    ROREG_INT(LUAT_ADC_SAMP_44100)},
+    { "SAMP_48000", 	    ROREG_INT(LUAT_ADC_SAMP_48000)},
 
-    { "BITS_16", 		ROREG_INT(LUAT_ADC_BITS_16)},
+    { "BITS_16", 		    ROREG_INT(LUAT_ADC_BITS_16)},
 #endif
 
 	{ NULL,            ROREG_INT(0)}

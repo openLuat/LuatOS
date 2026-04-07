@@ -889,7 +889,7 @@ static int l_camera_get_usb_config(lua_State *L) {
     case LUAT_CAMERA_CONF_UVC_RESOLUTION:
     	if ((param1 < 0) || (param2 < 0))
     	{
-    		break;
+    		goto DONE;
     	}
 		ret = luat_usb_camera_stream_get_config_info(id, param1, param2, &fps, &w, &h);
 		if (!ret)

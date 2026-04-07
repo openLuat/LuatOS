@@ -3,7 +3,7 @@
 
 #include "luat_base.h"
 
-#define MAX_USB_DEVICE_COUNT 2
+#define MAX_USB_BUS_COUNT 2
 enum
 {
 	LUAT_USB_MODE_DEVICE,

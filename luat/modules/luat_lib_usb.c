@@ -36,7 +36,7 @@ pm.power(pm.USB, true)		--USB上电初始化开始工作
 #include "rotable2.h"
 
 #ifdef LUAT_USE_USB
-static int l_usb_cb[MAX_USB_DEVICE_COUNT];
+static int l_usb_cb[MAX_USB_BUS_COUNT];
 
 
 int l_usb_handler(lua_State *L, void* ptr) {
@@ -47,7 +47,7 @@ int l_usb_handler(lua_State *L, void* ptr) {
     usb_info_u u_info;
     u_event.u32 = msg->arg1;
     u_info.u32 = msg->arg2;
-    if (l_usb_cb[u_event.usb_id] && u_event.usb_id < MAX_USB_DEVICE_COUNT)
+    if (l_usb_cb[u_event.usb_id] && u_event.usb_id < MAX_USB_BUS_COUNT)
     {
         lua_geti(L, LUA_REGISTRYINDEX, l_usb_cb[u_event.usb_id]);
         lua_pushinteger(L, u_event.usb_id);
@@ -183,7 +183,7 @@ event类型含义及后续param含义
 */
 static int l_usb_on(lua_State *L) {
     int usb_id = luaL_optinteger(L, 1, 0);
-    if (usb_id >= MAX_USB_DEVICE_COUNT) return 0;
+    if (usb_id >= MAX_USB_BUS_COUNT) return 0;
     if (l_usb_cb[usb_id])
     {
     	luaL_unref(L, LUA_REGISTRYINDEX, l_usb_cb[usb_id]);

@@ -241,6 +241,15 @@ function crypto_tests.test_crc16_modbus()
     assert(actual == expected, string.format("CRC16-MODBUS 测试失败: 预期 %s, 实际 %s", expected, actual))
 end
 
+function crypto_tests.test_crc16_modbus_contrast()
+    log.info("crypto_tests", "开始 CRC16-USER-DEFINED和CRC16-MODBUS 对比测试")
+    local data_user = crypto.crc16("USER-DEFINED", "123456sdfdsfdsfdsffdsfdsfsdfs1234", 0x8005, 0xFFFF, 0x0000, 1, 1)
+    local actual_user = string.format("%04X", data_user)
+    local data_modbus = crypto.crc16("MODBUS", "123456sdfdsfdsfdsffdsfdsfsdfs1234")
+    local actual_modbus = string.format("%04X", data_modbus)
+    assert(data_user == data_modbus, string.format("CRC16-USER-DEFINED和CRC16-MODBUS 对比测试失败: USER-DEFINED为 %s, MODBUS为 %s", actual_user, actual_modbus))
+end
+
 
 function crypto_tests.test_crc32()
     log.info("crypto_tests", "开始 CRC32 测试")

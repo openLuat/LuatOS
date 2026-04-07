@@ -3,6 +3,23 @@ VERSION = "1.0.0"
 
 log.style(1)
 
+lcd.init("custom", {
+	port = lcd.RGB,
+	hbp = 140,
+	hspw = 20,
+	hfp = 160,
+	vbp = 20,
+	vspw = 3,
+	vfp = 12,
+	bus_speed = 50 * 1000 * 1000,
+	pin_pwr = 2,
+	pin_rst = 15,
+	direction = 0,
+	w = 1024,
+	h = 600
+})
+
+
 local uartid = 1 -- 根据实际设备选取不同的uartid
 local result = uart.setup(uartid, -- 串口id
     3000000, -- 波特率
@@ -86,6 +103,7 @@ local function  camera_cb(app_id, event, param)
 end
 usb.on(0, usb_cb)
 --usb.debug(0, true)
+camera.preview(camera.USB, true)
 camera.on(camera.USB, "usb_raw", camera_cb)
 pm.power(pm.USB, false)		--确保USB外设是掉电状态
 usb.mode(0, usb.HOST)		--usb设置成主机模式

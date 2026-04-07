@@ -194,6 +194,9 @@ void luat_camera_image_decode_deinit(void);
  */
 int luat_camera_image_decode_get_result(uint8_t *buf);
 
+
+int luat_camera_set_cache(int id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
+
 /**********以下是luatos使用，csdk不要使用***********/
 /**
  * @brief 开始接收camera数据
@@ -223,8 +226,6 @@ int luat_camera_config(int id, int key, int value);
 void luat_camera_reset_pin(int id, uint8_t level);
 
 void luat_camera_pwdn_pin(int id, uint8_t level);
-
-int luat_camera_set_cache(int id, uint8_t **cache, uint8_t cache_num, uint32_t cache_len);
 
 int luat_usb_camera_stream_on_off(uint8_t app_id, uint8_t on_off);
 

@@ -275,7 +275,7 @@ static void record_start(uint8_t *data, uint32_t len){
     	}
     	luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
     } else { //非I2S的录音device
-    	uint32_t sample_rate = 8000;
+    	uint32_t sample_rate = g_s_record.mic_config->sample_rate;
     	if (g_s_record.type >= 8000)
     	{
     		sample_rate = g_s_record.type;
@@ -836,7 +836,7 @@ static int l_audio_set_output_bus(lua_State *L) {
     int tp = luaL_checkinteger(L, 2);
     int ret = luat_audio_set_bus_type(id,tp);
     if (audio_conf!=NULL && lua_istable(L,3)){
-        if (tp==LUAT_AUDIO_BUS_I2S || tp==LUAT_AUDIO_BUS_ADC){
+        if (tp==LUAT_AUDIO_BUS_I2S){
             audio_conf->codec_conf.multimedia_id = id;
             audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
             audio_conf->codec_conf.codec_opts = &codec_opts_common;
@@ -1008,7 +1008,7 @@ static const rotable_Reg_t reg_audio[] =
 	//@const BUS_SOFT_DAC number 硬件输出总线，软件模式DAC类型
 	{ "BUS_SOFT_DAC", 		ROREG_INT(LUAT_AUDIO_BUS_SOFT_DAC)},
     //@const BUS_ADC number 硬件输入总线，ADC类型
-	{ "BUS_ADC", 		ROREG_INT(LUAT_AUDIO_BUS_ADC)},
+	{ "BUS_ADC", 		ROREG_INT(LUAT_AUDIO_BUS_DAC)},
     //@const VOLTAGE_1800 number 可配置的codec工作电压，1.8V
 	{ "VOLTAGE_1800", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_1800)},
     //@const VOLTAGE_3300 number 可配置的codec工作电压，3.3V

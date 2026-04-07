@@ -79,7 +79,6 @@ typedef enum{
 	LUAT_AUDIO_BUS_DAC=0,
 	LUAT_AUDIO_BUS_I2S,
 	LUAT_AUDIO_BUS_SOFT_DAC,
-    LUAT_AUDIO_BUS_ADC,
 }luat_audio_bus_type_t;
 
 #ifdef LUAT_USE_RECORD

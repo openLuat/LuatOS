@@ -873,6 +873,7 @@ static int l_audio_set_output_bus(lua_State *L) {
             }
             lua_pop(L, 1);
 
+            #ifdef LUAT_USE_RECORD
             lua_pushstring(L, "adc_chl");
             if (LUA_TNUMBER == lua_gettable(L, 3)) {
                 g_s_record.mic_config.adc_chl = luaL_checknumber(L, -1);
@@ -890,6 +891,7 @@ static int l_audio_set_output_bus(lua_State *L) {
                 g_s_record.mic_config.bits = luaL_checknumber(L, -1);
             }
             lua_pop(L, 1);
+            #endif
 
         }
     }

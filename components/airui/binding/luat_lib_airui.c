@@ -834,7 +834,7 @@ lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
  * @string config.type 字体类型，"hzfont" 或 "bin"
  * @string config.path 字体路径，对于 "hzfont"，传 nil 则使用内置字库
  * @int config.size 可选，TTF 字体大小，默认 16
- * @int config.cache_size 可选，TTF 缓存数量，默认 256
+ * @int config.cache_size 可选，TTF 缓存数量，默认 1024
  * @int config.antialias 可选，TTF 抗锯齿等级，默认 -1（自动）；1=边界2x2，2=边界3x3，3=边界4x4
  * @bool config.load_to_psram 可选，是否将字体及缓存加载到 PSRAM（默认 false）
  * @bool config.global 可选，是否设为全局默认字体（默认 true）
@@ -853,7 +853,7 @@ static int l_airui_font_load(lua_State *L) {
     if (strcmp(type, "hzfont") == 0) {
         const char *path = airui_marshal_string(L, 1, "path", NULL);
         uint16_t size = airui_marshal_integer(L, 1, "size", 16);
-        uint32_t cache_size = airui_marshal_integer(L, 1, "cache_size", 256);
+        uint32_t cache_size = airui_marshal_integer(L, 1, "cache_size", 1024);
         int antialias = airui_marshal_integer(L, 1, "antialias", -1);
         bool load_to_psram = airui_marshal_bool(L, 1, "load_to_psram", false);
         font = airui_font_hzfont_create(path, size, cache_size, antialias, load_to_psram);

@@ -52,6 +52,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "chart";
         case AIRUI_COMPONENT_QRCODE:
             return "qrcode";
+        case AIRUI_COMPONENT_SPINNER:
+            return "spinner";
         default:
             return "unknown";
     }

@@ -78,7 +78,8 @@ typedef enum{
 typedef enum{
 	LUAT_AUDIO_BUS_DAC=0,
 	LUAT_AUDIO_BUS_I2S,
-	LUAT_AUDIO_BUS_SOFT_DAC
+	LUAT_AUDIO_BUS_SOFT_DAC,
+    LUAT_AUDIO_BUS_ADC,
 }luat_audio_bus_type_t;
 
 #ifdef LUAT_USE_RECORD
@@ -116,7 +117,7 @@ typedef struct {
 	luat_adc_samp_t samp_rate;
     luat_adc_bits_t bits;
 	uint32_t work_mode;
-} luat_mic_config_t;
+} luat_mic_config_t; // 板载adc配置结构体
 
 typedef struct{
 //	luat_rtos_task_handle task_handle;
@@ -139,6 +140,7 @@ typedef struct{
 	uint8_t is_run;
 	uint8_t wait_stop;
     luat_record_channel_t channelCnt;
+    luat_mic_config_t mic_config;
 }luat_record_ctrl_t;
 
 #endif

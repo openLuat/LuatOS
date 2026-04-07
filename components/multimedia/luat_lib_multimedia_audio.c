@@ -819,6 +819,8 @@ static int l_audio_mic_vol(lua_State *L) {
 @usage
 audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软件DAC
 audio.setBus(0, audio.BUS_I2S,{chip="es8311",i2cid=0,i2sid=0,voltage=codec.VDDA_3V3})	--通道0的硬件输出通道设置为I2S
+audio.setBus(0, audio.BUS_DAC,{dacid=0})	--通道0的硬件输出通道设置为DAC
+audio.setBus(0, audio.BUS_ADC,{adcid=0, adc_chl=audio.CHL_L, sample_rate=audio.SAMP_16000, bits=audio.BITS_16}) --通道0的输入为板载ADC
 */
 static int l_audio_set_output_bus(lua_State *L) {
     size_t len;
@@ -827,7 +829,7 @@ static int l_audio_set_output_bus(lua_State *L) {
     int tp = luaL_checkinteger(L, 2);
     int ret = luat_audio_set_bus_type(id,tp);
     if (audio_conf!=NULL && lua_istable(L,3)){
-        if (tp==LUAT_AUDIO_BUS_I2S){
+        if (tp==LUAT_AUDIO_BUS_I2S || tp==LUAT_AUDIO_BUS_ADC){
             audio_conf->codec_conf.multimedia_id = id;
             audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
             audio_conf->codec_conf.codec_opts = &codec_opts_common;
@@ -864,6 +866,31 @@ static int l_audio_set_output_bus(lua_State *L) {
                 audio_conf->codec_conf.dac_id = luaL_checknumber(L, -1);
             }
             lua_pop(L, 1);
+
+            lua_pushstring(L, "adcid");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                audio_conf->codec_conf.adc_id = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "adc_chl");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                g_s_record.mic_config.adc_chl = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "sample_rate");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                g_s_record.mic_config.samp_rate = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "bits");
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                g_s_record.mic_config.bits = luaL_checknumber(L, -1);
+            }
+            lua_pop(L, 1);
+
         }
     }
     ret |= luat_audio_init(id, 0, 0);
@@ -971,6 +998,8 @@ static const rotable_Reg_t reg_audio[] =
 	{ "BUS_I2S", 		ROREG_INT(LUAT_AUDIO_BUS_I2S)},
 	//@const BUS_SOFT_DAC number 硬件输出总线，软件模式DAC类型
 	{ "BUS_SOFT_DAC", 		ROREG_INT(LUAT_AUDIO_BUS_SOFT_DAC)},
+    //@const BUS_ADC number 硬件输入总线，ADC类型
+	{ "BUS_ADC", 		ROREG_INT(LUAT_AUDIO_BUS_ADC)},
     //@const VOLTAGE_1800 number 可配置的codec工作电压，1.8V
 	{ "VOLTAGE_1800", 		ROREG_INT(LUAT_AUDIO_VOLTAGE_1800)},
     //@const VOLTAGE_3300 number 可配置的codec工作电压，3.3V
@@ -979,6 +1008,20 @@ static const rotable_Reg_t reg_audio[] =
 	{ "RECORD_MONO", 		ROREG_INT(LUAT_RECORD_MONO)},
     //@const RECORD_STEREO number 录音使用立体声
 	{ "RECORD_STEREO", 		ROREG_INT(LUAT_RECORD_STEREO)},
+#ifdef LUAT_USE_RECORD
+    //@const RECORD_STEREO number 录音使用立体声
+	{ "CHL_L", 		ROREG_INT(LUAT_ADC_CHL_L)},
+    { "CHL_R", 		ROREG_INT(LUAT_ADC_CHL_R)},
+    { "CHL_LR", 		ROREG_INT(LUAT_ADC_CHL_LR)},
+
+    { "SAMP_8000", 		ROREG_INT(LUAT_ADC_SAMP_8000)},
+    { "SAMP_16000", 	ROREG_INT(LUAT_ADC_SAMP_16000)},
+    { "SAMP_44100", 	ROREG_INT(LUAT_ADC_SAMP_44100)},
+    { "SAMP_48000", 	ROREG_INT(LUAT_ADC_SAMP_48000)},
+
+    { "BITS_16", 		ROREG_INT(LUAT_ADC_BITS_16)},
+#endif
+
 	{ NULL,            ROREG_INT(0)}
 };
 

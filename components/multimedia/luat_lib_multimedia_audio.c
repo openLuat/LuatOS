@@ -275,7 +275,7 @@ static void record_start(uint8_t *data, uint32_t len){
     	}
     	luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
     } else { //非I2S的录音device
-    	uint32_t sample_rate = g_s_record.mic_config->sample_rate;
+    	uint32_t sample_rate = g_s_record.mic_config.samp_rate;
     	if (g_s_record.type >= 8000)
     	{
     		sample_rate = g_s_record.type;

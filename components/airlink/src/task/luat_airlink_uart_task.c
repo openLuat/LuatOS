@@ -139,6 +139,11 @@ static void unpack_data(uint8_t* buff, size_t len)
         // LLOGE("luat_airlink_data_unpack failed, unpacked_len %d", unpacked_len);
         return; // 解析失败
     }
+    // 解析成功了, 那就是走uart为主模式了
+    if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UNKNOW) {
+        // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to UART");
+        luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_UART);
+    }
     // LLOGD("luat_airlink data unpacked, len: %d, data: %p", link->len, link->data);
     luat_airlink_on_data_recv(link->data, link->len);
 }

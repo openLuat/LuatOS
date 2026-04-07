@@ -832,7 +832,7 @@ static int s_airlink_main_mode = -1;
 void luat_airlink_current_mode_set(int mode) {
     if (s_airlink_main_mode == -1) {
         s_airlink_main_mode = mode;
-        LLOGI("当前AirLink主模式设定为 %d", mode);
+        // LLOGI("当前AirLink主模式设定为 %d", mode);
     }
     else {
         if (s_airlink_main_mode != mode) {

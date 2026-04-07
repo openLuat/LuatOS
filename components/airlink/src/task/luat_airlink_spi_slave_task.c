@@ -271,6 +271,10 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
                     g_airlink_statistic.tx_pkg.ok++;
                     luat_airlink_on_data_recv(link->data, link->len);
                     g_airlink_last_cmd_timestamp = luat_mcu_tick64_ms();
+                    if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UNKNOW) {
+                        // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to SPI_SLAVE");
+                        luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_SPI_SLAVE);
+                    }
                 }
                 else {
                     g_airlink_statistic.tx_pkg.err++;

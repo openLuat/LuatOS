@@ -271,6 +271,10 @@ __USER_FUNC_IN_RAM__ void airlink_transfer_and_exec(uint8_t *txbuff, uint8_t *rx
             LLOGI("slave回复irq模式已经开启,正式开始IRQ交互模式");
             slave_is_irq_ready = 1;
         }
+        if (luat_airlink_current_mode_get() == LUAT_AIRLINK_MODE_UNKNOW) {
+            // LLOGD("luat_airlink_current_mode_get is UNKNOW, set to SPI_MASTER");
+            luat_airlink_current_mode_set(LUAT_AIRLINK_MODE_SPI_MASTER);
+        }
         luat_airlink_on_data_recv(link->data, link->len);
     }
     else

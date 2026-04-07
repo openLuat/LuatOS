@@ -30,6 +30,7 @@
 // static uint8_t thread_rdy;
 static luat_rtos_task_handle spi_task_handle;
 static luat_rtos_queue_t evt_queue;
+static uint8_t g_slave_running;
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 
@@ -235,20 +236,25 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
     #endif
 
     // 注册上下文
-    g_airlink_link_data_cb = link_data_cb;
-    g_airlink_newdata_notify_cb = on_newdata_notify;
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_SLAVE, on_newdata_notify, link_data_cb);
 
     // 告知已经就绪
     self_ready = 1;
     start_spi_trans();
-    while (1) {   
+    while (g_slave_running) {   
+        #ifdef LUAT_CONF_AIRLINK_MODE_WAIT
+        if (luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_UNKNOW && luat_airlink_current_mode_get() != LUAT_AIRLINK_MODE_SPI_SLAVE) {
+            break;
+        }
+        #endif
         // // 执行主循环
         event.id = 0;
         // print_tm("执行luat_rtos_event_recv");
 
-        ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), LUAT_WAIT_FOREVER);
+        ret = luat_rtos_queue_recv(evt_queue, &event, sizeof(luat_event_t), 100);
         if (ret) {
             // nop
+            continue;
         }
         // luat_rtos_event_recv(spi_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
         // print_tm("执行完luat_rtos_event_recv");
@@ -284,15 +290,20 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
         }
     }
     // LLOGD("退出SPI从机任务!!");
-    
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_SPI_SLAVE);
     luat_spi_close(SLAVE_SPI_ID);
     luat_spi_slave_transfer_stop(SLAVE_SPI_ID);
-    while (1) {
-        // 循环执行复位
-        luat_rtos_task_sleep(1000);
-        // LLOGD("尝试重启系统 %d", g_sys_need_reboot);
-        // bk_reboot();
+    if (s_rxbuff) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, s_rxbuff);
+        s_rxbuff = NULL;
     }
+    if (s_txbuff) {
+        luat_heap_opt_free(AIRLINK_MEM_TYPE, s_txbuff);
+        s_txbuff = NULL;
+    }
+    self_ready = 0;
+    spi_task_handle = NULL;
+    luat_rtos_task_delete(NULL);
 }
 
 #ifndef __BK72XX__
@@ -319,8 +330,21 @@ int luat_airlink_start_slave(void)
     }
     spi_gpio_setup();
 
+    g_slave_running = 1;
+
     luat_rtos_queue_create(&evt_queue, 2 * 1024, sizeof(luat_event_t));
     luat_rtos_task_create(&spi_task_handle, 16 * 1024, 50, "spi_slave", spi_slave_task, NULL, 0);
+    return 0;
+}
+
+int luat_airlink_stop_slave(void)
+{
+    g_slave_running = 0;
+    luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_SPI_SLAVE);
+    if (evt_queue) {
+        luat_event_t evt = {.id = 0};
+        luat_rtos_queue_send(evt_queue, &evt, sizeof(evt), 0);
+    }
     return 0;
 }
 #endif

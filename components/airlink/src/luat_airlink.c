@@ -30,10 +30,146 @@ luat_rtos_queue_t airlink_ippkg_queue;
 extern int luat_airlink_start_slave(void);
 extern int luat_airlink_start_master(void);
 extern int luat_airlink_start_uart(void);
-luat_airlink_newdata_notify_cb g_airlink_newdata_notify_cb;
+extern int luat_airlink_stop_slave(void);
+extern int luat_airlink_stop_master(void);
+extern int luat_airlink_stop_uart(void);
+
+typedef struct luat_airlink_mode_cb_reg {
+    luat_airlink_newdata_notify_cb newdata_cb;
+    luat_airlink_link_data_cb link_data_cb;
+    uint32_t seq;
+} luat_airlink_mode_cb_reg_t;
+
+static luat_airlink_mode_cb_reg_t g_airlink_mode_cb_regs[3];
+static luat_rtos_mutex_t g_airlink_mode_cb_mutex = NULL;
+static uint32_t g_airlink_mode_cb_seq = 0;
+static int g_airlink_last_reg_mode = LUAT_AIRLINK_MODE_UNKNOW;
+
+static int luat_airlink_mode_valid(int mode) {
+    return mode >= LUAT_AIRLINK_MODE_SPI_SLAVE && mode <= LUAT_AIRLINK_MODE_UART;
+}
+
+static int luat_airlink_mode_has_cb_nolock(int mode) {
+    if (!luat_airlink_mode_valid(mode)) {
+        return 0;
+    }
+    return g_airlink_mode_cb_regs[mode].newdata_cb != NULL || g_airlink_mode_cb_regs[mode].link_data_cb != NULL;
+}
+
+static int luat_airlink_last_registered_mode_get_nolock(void) {
+    int mode = LUAT_AIRLINK_MODE_UNKNOW;
+    uint32_t max_seq = 0;
+    for (int i = LUAT_AIRLINK_MODE_SPI_SLAVE; i <= LUAT_AIRLINK_MODE_UART; i++) {
+        if (!luat_airlink_mode_has_cb_nolock(i)) {
+            continue;
+        }
+        if (g_airlink_mode_cb_regs[i].seq >= max_seq) {
+            max_seq = g_airlink_mode_cb_regs[i].seq;
+            mode = i;
+        }
+    }
+    return mode;
+}
+
+static void luat_airlink_mode_cb_init(void) {
+    if (g_airlink_mode_cb_mutex == NULL) {
+        luat_rtos_mutex_create(&g_airlink_mode_cb_mutex);
+    }
+}
+
+static int luat_airlink_active_mode_get_nolock(void) {
+    int mode = luat_airlink_current_mode_get();
+    if (luat_airlink_mode_valid(mode) && luat_airlink_mode_has_cb_nolock(mode)) {
+        return mode;
+    }
+
+    if (luat_airlink_mode_valid(g_airlink_last_reg_mode) && luat_airlink_mode_has_cb_nolock(g_airlink_last_reg_mode)) {
+        return g_airlink_last_reg_mode;
+    }
+
+    mode = luat_airlink_last_registered_mode_get_nolock();
+    if (luat_airlink_mode_valid(mode)) {
+        g_airlink_last_reg_mode = mode;
+        return mode;
+    }
+
+    return LUAT_AIRLINK_MODE_UNKNOW;
+}
+
+int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb) {
+    if (!luat_airlink_mode_valid(mode)) {
+        return -1;
+    }
+    luat_airlink_mode_cb_init();
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_lock(g_airlink_mode_cb_mutex, 1000);
+    }
+    g_airlink_mode_cb_regs[mode].newdata_cb = newdata_cb;
+    g_airlink_mode_cb_regs[mode].link_data_cb = link_data_cb;
+    g_airlink_mode_cb_regs[mode].seq = ++g_airlink_mode_cb_seq;
+    g_airlink_last_reg_mode = mode;
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);
+    }
+    return 0;
+}
+
+int luat_airlink_mode_cb_unregister(uint8_t mode) {
+    if (!luat_airlink_mode_valid(mode)) {
+        return -1;
+    }
+    luat_airlink_mode_cb_init();
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_lock(g_airlink_mode_cb_mutex, 1000);
+    }
+    g_airlink_mode_cb_regs[mode].newdata_cb = NULL;
+    g_airlink_mode_cb_regs[mode].link_data_cb = NULL;
+    g_airlink_mode_cb_regs[mode].seq = 0;
+    if (g_airlink_last_reg_mode == mode) {
+        g_airlink_last_reg_mode = luat_airlink_last_registered_mode_get_nolock();
+    }
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);
+    }
+    return 0;
+}
+
+luat_airlink_newdata_notify_cb luat_airlink_mode_newdata_cb_get(void) {
+    luat_airlink_newdata_notify_cb cb = NULL;
+    int mode = LUAT_AIRLINK_MODE_UNKNOW;
+    luat_airlink_mode_cb_init();
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_lock(g_airlink_mode_cb_mutex, 1000);
+    }
+    mode = luat_airlink_active_mode_get_nolock();
+    if (luat_airlink_mode_valid(mode)) {
+        cb = g_airlink_mode_cb_regs[mode].newdata_cb;
+    }
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);
+    }
+    return cb;
+}
+
+luat_airlink_link_data_cb luat_airlink_mode_link_data_cb_get(void) {
+    luat_airlink_link_data_cb cb = NULL;
+    int mode = LUAT_AIRLINK_MODE_UNKNOW;
+    luat_airlink_mode_cb_init();
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_lock(g_airlink_mode_cb_mutex, 1000);
+    }
+    mode = luat_airlink_active_mode_get_nolock();
+    if (luat_airlink_mode_valid(mode)) {
+        cb = g_airlink_mode_cb_regs[mode].link_data_cb;
+    }
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);
+    }
+    return cb;
+}
+
 luat_airlink_spi_conf_t g_airlink_spi_conf;
 airlink_statistic_t g_airlink_statistic;
-uint32_t g_airlink_spi_task_mode;
 uint64_t g_airlink_last_cmd_timestamp;
 uint32_t g_airlink_debug;
 uint32_t g_airlink_pause;
@@ -62,7 +198,6 @@ int luat_airlink_start(int id)
     if (id == 0)
     {
         #ifdef LUAT_USE_AIRLINK_SPI_SLAVE
-        g_airlink_spi_task_mode = 0;
         ret = luat_airlink_start_slave();
         #else
         LLOGE("当前固件不支持 SPI从机模式");
@@ -71,7 +206,6 @@ int luat_airlink_start(int id)
     else if (id == 1)
     {
         #ifdef LUAT_USE_AIRLINK_SPI_MASTER
-        g_airlink_spi_task_mode = 1;
         ret = luat_airlink_start_master();
         #else
         LLOGE("当前固件不支持 SPI主机模式");
@@ -79,14 +213,13 @@ int luat_airlink_start(int id)
     }
     else if (id == 2) {
         #ifdef LUAT_USE_AIRLINK_UART
-        g_airlink_spi_task_mode = 2;
         ret = luat_airlink_start_uart();
         #else
         LLOGE("当前固件不支持 UART模式");
         #endif
     }
     if (ret != 0 || airlink_cmd_queue == NULL || airlink_ippkg_queue == NULL) {
-        LLOGD("mode %d ret %d queue %p %p", id, ret, airlink_cmd_queue, airlink_ippkg_queue);
+        LLOGE("mode %d ret %d queue %p %p", id, ret, airlink_cmd_queue, airlink_ippkg_queue);
         return -1;
     }
     return 0;
@@ -138,6 +271,27 @@ void luat_airlink_set_pause(uint32_t val)
 
 int luat_airlink_stop(int id)
 {
+    if (id == LUAT_AIRLINK_MODE_SPI_SLAVE)
+    {
+        #ifdef LUAT_USE_AIRLINK_SPI_SLAVE
+        return luat_airlink_stop_slave();
+        #endif
+        return -1;
+    }
+    if (id == LUAT_AIRLINK_MODE_SPI_MASTER)
+    {
+        #ifdef LUAT_USE_AIRLINK_SPI_MASTER
+        return luat_airlink_stop_master();
+        #endif
+        return -1;
+    }
+    if (id == LUAT_AIRLINK_MODE_UART)
+    {
+        #ifdef LUAT_USE_AIRLINK_UART
+        return luat_airlink_stop_uart();
+        #endif
+        return -1;
+    }
     return 0;
 }
 
@@ -158,6 +312,7 @@ void luat_airlink_print_buff(const char *tag, uint8_t *buff, size_t len)
 int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
 {
     int ret = -1;
+    luat_airlink_newdata_notify_cb notify_cb = NULL;
     if (tp == LUAT_AIRLINK_QUEUE_CMD)
     {
         if (airlink_cmd_queue == NULL)
@@ -180,8 +335,9 @@ int luat_airlink_queue_send(int tp, airlink_queue_item_t *item)
     }
     // LLOGD("luat_airlink_queue_send %d %d", tp, ret);
     if (ret == 0) {
-        if (g_airlink_newdata_notify_cb) {
-            g_airlink_newdata_notify_cb();
+        notify_cb = luat_airlink_mode_newdata_cb_get();
+        if (notify_cb) {
+            notify_cb();
         }
         return 0;
     }
@@ -668,4 +824,23 @@ void luat_airlink_master_autostart(void) {
 	}
 
 	tcpip_callback(netdrv_airlink_setup, NULL);
+}
+
+// 使用哪种模式作为主模式, 默认是-1, 等待阶段, 0 - 2 已经收到某种模式的消息了, 就固定使用这种模式, 不再切换了
+static int s_airlink_main_mode = -1;
+
+void luat_airlink_current_mode_set(int mode) {
+    if (s_airlink_main_mode == -1) {
+        s_airlink_main_mode = mode;
+        LLOGI("当前AirLink主模式设定为 %d", mode);
+    }
+    else {
+        if (s_airlink_main_mode != mode) {
+            LLOGW("当前AirLink主模式已经设定为 %d, 收到不同模式的消息 %d, 但不切换主模式", s_airlink_main_mode, mode);
+        }
+    }
+}
+
+int luat_airlink_current_mode_get(void) {
+    return s_airlink_main_mode;
 }

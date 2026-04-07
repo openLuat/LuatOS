@@ -1,8 +1,8 @@
 --[[
 @module airlbs
 @summary airlbs 定位服务(收费服务，需自行联系销售申请)
-@version 1.1
-@date    2024.12.30
+@version 1.0
+@date    2024.11.01
 @author  Dozingfiretruck
 @usage
 -- lbsloc 是异步回调接口，
@@ -26,12 +26,12 @@ local lib_topic = lib_name .. "topic"
 local location_data = 0
 local disconnect = -1
 local airlbs_timeout = 15000
-
+local bsp = rtos.bsp()
 local airlbs = {}
 
 local function airlbs_task(task_name, buff, timeout, adapter)
     local netc = socket.create(nil, lib_name)
-    socket.config(netc, nil, true) -- udp
+    socket.config(netc, adapter, true) -- udp
 
     sysplus.cleanMsg(lib_name)
     local result = libnet.connect(lib_name, 15000, netc, airlbs_host, airlbs_port)
@@ -131,20 +131,16 @@ function airlbs.request(param)
     if project_id:len() ~= 6 then
         log.error("airlbs", "project_id len not 6")
     end
-    local mac1, mac    
     local timestamp = os.time()
     local project_key = param.project_key
     local nonce = crypto.trng(6)
     local hmac_data
-    local bsp = rtos.bsp()
+    local mac1 = netdrv.mac(socket.LWIP_STA)
+    local mac = "M01" .. mac1 
+    log.info("mac", mac)
     log.info("硬件型号", rtos.bsp())
     if bsp == "Air8101" then
-        mac1 = netdrv.mac(socket.LWIP_STA)
-        mac = "MAC" .. mac1 
-        log.info("mac", mac)
-        -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
-        -- local muid =  mcu.muid() or ""
-        local muid = "12345678901234567890123456789012"
+        local muid =  mcu.muid() or ""
         log.info("muid", muid)
         hmac_data = crypto.hmac_sha1(project_id .. mac .. muid .. timestamp .. nonce, project_key)
     else
@@ -183,11 +179,8 @@ function airlbs.request(param)
     end
     local lbs_jdata = json.encode(lbs_data)
     log.info("扫描出的数据",lbs_jdata)
-    -- local bsp = rtos.bsp()
     if bsp == "Air8101" then
-        -- 此处由于目前属于测试阶段，先将muid写死，后续会进行修改
-        -- local muid =  mcu.muid() or ""
-        local muid = "12345678901234567890123456789012"
+        local muid =  mcu.muid() or ""
         udp_buff:write(string.char(auth_type) .. project_id .. mac .. muid ..  timestamp .. nonce .. hmac_data:fromHex() .. string.char(lbs_data_type) .. lbs_jdata)
     else
         local imei = mobile and mobile.imei() or ""
@@ -211,7 +204,11 @@ function airlbs.request(param)
                 log.error(lib_name, "no location(基站定位服务器查询当前地址失败)")
                 return false
             elseif data.result == 1 then
+                if bsp == "Air8101" then
+                log.info("多wifi请求成功,服务器返回的原始数据", data)
+                else
                 log.info("多基站请求成功,服务器返回的原始数据", data)
+                end
                 return true, {
                     lng = data.lng,
                     lat = data.lat

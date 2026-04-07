@@ -56,6 +56,35 @@ static double luat_sdl2_get_preview_angle(void) {
     }
 }
 
+// 将窗口居中显示
+static void luat_sdl2_center_window(void) {
+    if (window == NULL) {
+        return;
+    }
+
+    int window_w = 0;
+    int window_h = 0;
+    SDL_GetWindowSize(window, &window_w, &window_h);
+    if (window_w <= 0 || window_h <= 0) {
+        return;
+    }
+
+    int display_index = SDL_GetWindowDisplayIndex(window);
+    if (display_index < 0) {
+        display_index = 0;
+    }
+
+    SDL_Rect usable_bounds;
+    if (SDL_GetDisplayUsableBounds(display_index, &usable_bounds) != 0) {
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        return;
+    }
+
+    int pos_x = usable_bounds.x + (usable_bounds.w - window_w) / 2;
+    int pos_y = usable_bounds.y + (usable_bounds.h - window_h) / 2;
+    SDL_SetWindowPosition(window, pos_x, pos_y);
+}
+
 static void luat_sdl2_apply_preview_window_size(void) {
     if (window == NULL) {
         return;
@@ -66,7 +95,16 @@ static void luat_sdl2_apply_preview_window_size(void) {
     size_t preview_width = native_width;
     size_t preview_height = native_height;
     luat_sdl2_get_preview_size(native_width, native_height, &preview_width, &preview_height);
+
+    int current_w = 0;
+    int current_h = 0;
+    SDL_GetWindowSize(window, &current_w, &current_h);
+    if ((size_t)current_w == preview_width && (size_t)current_h == preview_height) {
+        return;
+    }
+
     SDL_SetWindowSize(window, (int)preview_width, (int)preview_height);
+    luat_sdl2_center_window();
 }
 
 // 定时调用此函数以保持 SDL2 事件泵活跃，避免窗口无响应
@@ -99,6 +137,7 @@ int luat_sdl2_init(luat_sdl2_conf_t *conf) {
     window = SDL_CreateWindow(conf->title == NULL ? "LuatOS" : conf->title,
                               SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                               conf->width, conf->height, 0);
+    luat_sdl2_center_window();
 
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     framebuffer = SDL_CreateTexture(renderer,

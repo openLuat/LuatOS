@@ -52,6 +52,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "chart";
         case AIRUI_COMPONENT_QRCODE:
             return "qrcode";
+        case AIRUI_COMPONENT_SPINNER:
+            return "spinner";
         default:
             return "unknown";
     }
@@ -123,6 +125,68 @@ airui_component_meta_t *airui_component_meta_alloc(
     }
     
     return meta;
+}
+
+/**
+ * 获取组件位置
+ * @param obj 组件对象指针
+ * @param x 位置 x 坐标
+ * @param y 位置 y 坐标
+ * @return 错误码
+ */
+int airui_component_get_pos(lv_obj_t *obj, int32_t *x, int32_t *y)
+{
+    if (obj == NULL || x == NULL || y == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (airui_component_meta_get(obj) == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    *x = lv_obj_get_x(obj);
+    *y = lv_obj_get_y(obj);
+    return AIRUI_OK;
+}
+
+/**
+ * 设置组件位置
+ * @param obj 组件对象指针
+ * @param x 位置 x 坐标
+ * @param y 位置 y 坐标
+ * @return 错误码
+ */
+int airui_component_set_pos(lv_obj_t *obj, int32_t x, int32_t y)
+{
+    if (obj == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    if (airui_component_meta_get(obj) == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_obj_set_pos(obj, x, y);
+    return AIRUI_OK;
+}
+
+/**
+ * 移动组件
+ * @param obj 组件对象指针
+ * @param dx 移动 x 坐标
+ * @param dy 移动 y 坐标
+ * @return 错误码
+ */
+int airui_component_move(lv_obj_t *obj, int32_t dx, int32_t dy)
+{
+    int32_t x = 0;
+    int32_t y = 0;
+    int ret = airui_component_get_pos(obj, &x, &y);
+    if (ret != AIRUI_OK) {
+        return ret;
+    }
+
+    return airui_component_set_pos(obj, x + dx, y + dy);
 }
 
 /**

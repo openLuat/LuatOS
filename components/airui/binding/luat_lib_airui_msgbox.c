@@ -23,29 +23,6 @@
 #define AIRUI_MSGBOX_MT "airui.msgbox"
 
 /**
- * 清理 msgbox Lua 侧关联数据
- * @param ud 组件用户数据
- */
-static void airui_msgbox_lua_cleanup(airui_component_ud_t *ud)
-{
-    if (ud == NULL || ud->obj == NULL) {
-        return;
-    }
-
-    airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-    if (meta != NULL) {
-        lv_timer_t *timer = airui_msgbox_release_user_data(meta);
-        if (timer != NULL) {
-            lv_timer_delete(timer);
-        }
-        airui_component_meta_free(meta);
-    }
-
-    lv_msgbox_close(ud->obj);
-    ud->obj = NULL;
-}
-
-/**
  * 创建 Msgbox 组件
  * @api airui.msgbox(config)
  * @table config 配置表
@@ -81,6 +58,29 @@ static int l_airui_msgbox(lua_State *L)
 
     airui_push_component_userdata(L, msgbox, AIRUI_MSGBOX_MT);
     return 1;
+}
+
+/**
+ * 清理 msgbox Lua 侧关联数据
+ * @param ud 组件用户数据
+ */
+static void airui_msgbox_lua_cleanup(airui_component_ud_t *ud)
+{
+    if (ud == NULL || ud->obj == NULL) {
+        return;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
+    if (meta != NULL) {
+        lv_timer_t *timer = airui_msgbox_release_user_data(meta);
+        if (timer != NULL) {
+            lv_timer_delete(timer);
+        }
+        airui_component_meta_free(meta);
+    }
+
+    lv_msgbox_close(ud->obj);
+    ud->obj = NULL;
 }
 
 /**

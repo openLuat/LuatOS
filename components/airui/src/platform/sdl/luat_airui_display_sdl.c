@@ -45,6 +45,36 @@ static bool sdl_display_use_upright_preview(void)
 #endif
 }
 
+// 将窗口居中显示
+static void sdl_display_center_window(SDL_Window *window)
+{
+    if (window == NULL) {
+        return;
+    }
+
+    int window_w = 0;
+    int window_h = 0;
+    SDL_GetWindowSize(window, &window_w, &window_h);
+    if (window_w <= 0 || window_h <= 0) {
+        return;
+    }
+
+    int display_index = SDL_GetWindowDisplayIndex(window);
+    if (display_index < 0) {
+        display_index = 0;
+    }
+
+    SDL_Rect usable_bounds;
+    if (SDL_GetDisplayUsableBounds(display_index, &usable_bounds) != 0) {
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+        return;
+    }
+
+    int pos_x = usable_bounds.x + (usable_bounds.w - window_w) / 2;
+    int pos_y = usable_bounds.y + (usable_bounds.h - window_h) / 2;
+    SDL_SetWindowPosition(window, pos_x, pos_y);
+}
+
 static void sdl_display_sync_lcd_preview(airui_ctx_t *ctx, sdl_display_data_t *data)
 {
     if (ctx == NULL || data == NULL || !data->reuse_lcd) {
@@ -110,6 +140,8 @@ static int sdl_display_ensure_preview_target(airui_ctx_t *ctx, sdl_display_data_
         }
 
         SDL_SetWindowSize(data->window, preview_w, preview_h);
+        // 将窗口居中显示
+        sdl_display_center_window(data->window);
     }
 
     data->width = preview_w;
@@ -199,6 +231,9 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         free(data);
         return AIRUI_ERR_INIT_FAILED;
     }
+
+    // 将窗口居中显示
+    sdl_display_center_window(data->window);
     
     // 创建 SDL 渲染器
     data->renderer = SDL_CreateRenderer(data->window, -1, SDL_RENDERER_ACCELERATED);

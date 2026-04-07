@@ -36,6 +36,7 @@ extern "C" {
 #define AIRUI_VIDEO_MT "airui.video"
 #define AIRUI_CHART_MT "airui.chart"
 #define AIRUI_QRCODE_MT "airui.qrcode"
+#define AIRUI_SPINNER_MT "airui.spinner"
 
 /** 组件类型 */
 typedef enum {
@@ -56,7 +57,8 @@ typedef enum {
     AIRUI_COMPONENT_ANIMIMG,
     AIRUI_COMPONENT_VIDEO,
     AIRUI_COMPONENT_CHART,
-    AIRUI_COMPONENT_QRCODE
+    AIRUI_COMPONENT_QRCODE,
+    AIRUI_COMPONENT_SPINNER
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -220,6 +222,10 @@ airui_component_meta_t *airui_component_meta_alloc(
     airui_ctx_t *ctx,
     lv_obj_t *obj,
     airui_component_type_t component_type);
+
+int airui_component_get_pos(lv_obj_t *obj, int32_t *x, int32_t *y);
+int airui_component_set_pos(lv_obj_t *obj, int32_t x, int32_t y);
+int airui_component_move(lv_obj_t *obj, int32_t dx, int32_t dy);
 
 /**
  * 释放组件元数据
@@ -445,6 +451,13 @@ int airui_bar_set_bg_color(lv_obj_t *bar, lv_color_t color); //设置背景颜�
 int airui_bar_get_value(lv_obj_t *bar); //获取当前值
 int airui_bar_set_progress_text_format(lv_obj_t *bar, const char *format); //设置进度文字格式
 int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color); //设置进度文字颜色
+
+/**
+ * Spinner 组件创建
+ */
+lv_obj_t *airui_spinner_create_from_config(void *L, int idx);
+int airui_spinner_set_style(lv_obj_t *spinner, void *L, int idx); //按样式表设置 spinner 样式
+int airui_spinner_set_anim_params(lv_obj_t *spinner, uint32_t duration, uint32_t arc_angle); //设置 spinner 动画参数
 
 /**
  * Table 组件创建

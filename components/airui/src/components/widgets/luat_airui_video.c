@@ -645,10 +645,23 @@ static int airui_video_vp_restart(void *backend_ctx)
 {
     airui_video_videoplayer_ctx_t *ctx = (airui_video_videoplayer_ctx_t *)backend_ctx;
     luat_vp_ctx_t *player;
+    luat_vp_ctx_t *old_player;
     int ret;
 
     if (ctx == NULL || ctx->src == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    old_player = ctx->player;
+
+    /*
+     * BK72xx 硬解链路存在全局/单实例资源约束，不能在旧实例未释放前
+     * 再创建一个新的硬解 player，否则 reopen 时可能出现 decode_start 失败。
+     */
+    if (ctx->decode_mode == AIRUI_VIDEO_DECODE_HW && old_player != NULL) {
+        luat_videoplayer_close(old_player);
+        old_player = NULL;
+        ctx->player = NULL;
     }
 
     /* videoplayer 当前没有 seek，restart 通过 reopen 实现回到开头。 */
@@ -663,8 +676,8 @@ static int airui_video_vp_restart(void *backend_ctx)
         return AIRUI_ERR_INIT_FAILED;
     }
 
-    if (ctx->player != NULL) {
-        luat_videoplayer_close(ctx->player);
+    if (old_player != NULL) {
+        luat_videoplayer_close(old_player);
     }
     ctx->player = player;
     return AIRUI_OK;

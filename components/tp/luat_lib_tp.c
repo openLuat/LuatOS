@@ -28,7 +28,9 @@ typedef struct tp_reg {
 
 static const tp_reg_t tp_regs[] = {
 #ifndef LUAT_USE_TP_PC
-    {"gt911",  &tp_config_gt911},
+    {"gt9xx",  &tp_config_gt9xx},
+    {"gt911",  &tp_config_gt9xx},
+    {"gt927",  &tp_config_gt9xx},
     // 临时措施, Air780EPM仅开启gt911触摸屏
     #if !defined(TYPE_EC718PM) && !defined(LUAT_USE_TP_TINY)
     {"gt9157",  &tp_config_gt9157},

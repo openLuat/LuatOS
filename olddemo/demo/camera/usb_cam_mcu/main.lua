@@ -100,6 +100,12 @@ local function  camera_cb(app_id, event, param)
         log.info("usb摄像头接收数据，发生异常") 
         return
     end
+    if event == usb.EV_ERR_STOP then
+        log.info("usb摄像头接收数据发生异常，已经停止工作")
+        usb.reset_device(0, app_id)
+        usb_app_id = nil
+        return
+    end
 end
 usb.on(0, usb_cb)
 --usb.debug(0, true)

@@ -25,6 +25,7 @@ enum
 	LUAT_USB_EVENT_TX_ERROR,
 	LUAT_USB_EVENT_SUSPEND,
 	LUAT_USB_EVENT_RESUME,
+	LUAT_USB_EVENT_ERROR_STOP,
 };
 
 typedef union
@@ -77,4 +78,6 @@ int luat_usb_rx(int id, uint8_t app_id, void *data, uint32_t len);
 int luat_usb_power_on_off(int id, uint8_t on_off);
 
 int luat_usb_debug(int id, uint8_t on_off);
+
+int luat_usb_host_reset_device(int id, uint8_t app_id);
 #endif

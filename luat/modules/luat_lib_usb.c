@@ -326,6 +326,22 @@ static int l_usb_set_debug(lua_State* L) {
     return 0;
 }
 
+/*
+USB主机重新枚举从机
+@api usb.reset_device(id, app_id)
+@int usb总线id,默认0,如果芯片只有1条USB线,填0
+@int app id
+@return boolean true开始重新枚举，false无法枚举
+@usage
+usb.reset_device(0, 2)
+*/
+static int l_usb_reset_device(lua_State* L) {
+	int ret = luat_usb_host_reset_device(luaL_optinteger(L, 1, 0), luaL_checkinteger(L, 2));
+	LLOGD("reset ret %d", ret);
+	lua_pushboolean(L, !ret);
+    return 1;
+}
+
 static const rotable_Reg_t reg_usb[] =
 {
 	{ "tx",					ROREG_FUNC(l_usb_tx)},
@@ -338,6 +354,7 @@ static const rotable_Reg_t reg_usb[] =
 	{ "clear_all_class" ,   ROREG_FUNC(l_usb_clear_all_class)},
 	{ "get_free_ep_num" ,   ROREG_FUNC(l_usb_get_free_ep_num)},
 	{ "debug",         		ROREG_FUNC(l_usb_set_debug)},
+	{ "reset_device",       ROREG_FUNC(l_usb_reset_device)},
 	//@const HOST number USB主机模式
     { "HOST",        		ROREG_INT(LUAT_USB_MODE_HOST)},
 	//@const DEVICE number USB从机模式
@@ -374,6 +391,8 @@ static const rotable_Reg_t reg_usb[] =
     { "EV_SUSPEND",       	ROREG_INT(LUAT_USB_EVENT_SUSPEND)},
 	//@const EV_RESUME number usb从机恢复
     { "EV_RESUME",       	ROREG_INT(LUAT_USB_EVENT_RESUME)},
+	//@const EV_ERR_STOP number usb从机遇到故障停止工作了，可以调用usb.reset_device来尝试恢复
+    { "EV_ERR_STOP",       	ROREG_INT(LUAT_USB_EVENT_ERROR_STOP)},
     { NULL,         ROREG_INT(0) }
 };
 

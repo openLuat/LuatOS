@@ -95,6 +95,10 @@ int l_camera_handler(lua_State *L, void* ptr) {
             	lua_pushinteger(L, LUAT_USB_EVENT_RX_ERROR);
             	lua_pushnil(L);
             	break;
+        	case LUAT_CAMERA_FRAME_END:
+        		lua_pushinteger(L, LUAT_USB_EVENT_ERROR_STOP);
+            	lua_pushnil(L);
+        		break;
         	default:
         		lua_pushnil(L);
         		lua_pushnil(L);

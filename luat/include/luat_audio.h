@@ -83,6 +83,41 @@ typedef enum{
 
 #ifdef LUAT_USE_RECORD
 #include "luat_i2s.h"
+
+typedef enum {
+	LUAT_ADC_CHL_L = 0,
+	LUAT_ADC_CHL_R,
+	LUAT_ADC_CHL_LR,
+	LUAT_ADC_CHL_MAX,
+} luat_adc_chl_t;
+
+typedef enum {
+	LUAT_ADC_SAMP_8000  = 8000,
+	LUAT_ADC_SAMP_12000 = 12000,
+    LUAT_ADC_SAMP_16000 = 16000,
+	LUAT_ADC_SAMP_22050 = 22050,
+	LUAT_ADC_SAMP_24000 = 24000,
+    LUAT_ADC_SAMP_32000 = 32000,
+    LUAT_ADC_SAMP_44100 = 44100,
+    LUAT_ADC_SAMP_48000 = 48000,
+	LUAT_ADC_SAMP_MAX,
+} luat_adc_samp_t;
+
+typedef enum {
+	LUAT_ADC_BITS_8  = 8,
+    LUAT_ADC_BITS_16 = 16,
+    LUAT_ADC_BITS_24 = 24,
+    LUAT_ADC_BITS_32 = 32,
+	LUAT_ADC_BITS_MAX,
+} luat_adc_bits_t;
+
+typedef struct {
+	luat_adc_chl_t adc_chl;
+	luat_adc_samp_t samp_rate;
+    luat_adc_bits_t bits;
+	uint32_t work_mode;
+} luat_mic_config_t;
+
 typedef struct{
 //	luat_rtos_task_handle task_handle;
 	FILE* fd;

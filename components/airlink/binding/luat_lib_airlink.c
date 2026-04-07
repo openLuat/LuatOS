@@ -600,11 +600,11 @@ static const rotable_Reg_t reg_airlink[] =
     { "debug",         ROREG_FUNC(l_airlink_debug )},
 
     //@const MODE_SPI_SLAVE number airlink.start参数, SPI从机模式
-    { "MODE_SPI_SLAVE",    ROREG_INT(0) },
+    { "MODE_SPI_SLAVE",    ROREG_INT(LUAT_AIRLINK_MODE_SPI_SLAVE) },
     //@const MODE_SPI_MASTER number airlink.start参数, SPI主机模式
-    { "MODE_SPI_MASTER",   ROREG_INT(1) },
+    { "MODE_SPI_MASTER",   ROREG_INT(LUAT_AIRLINK_MODE_SPI_MASTER) },
     //@const MODE_UART number airlink.start参数, UART模式
-    { "MODE_UART",         ROREG_INT(2) },
+    { "MODE_UART",         ROREG_INT(LUAT_AIRLINK_MODE_UART) },
 
     //@const CONF_SPI_ID number SPI配置参数, 设置SPI的ID
     { "CONF_SPI_ID",       ROREG_INT(LUAT_AIRLINK_CONF_SPI_ID)},

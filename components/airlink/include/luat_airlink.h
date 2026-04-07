@@ -17,6 +17,12 @@ typedef struct luat_airlink_cmd_ext
     uint8_t cdata[0];
 }luat_airlink_cmd_ext_t;
 
+enum {
+    LUAT_AIRLINK_MODE_SPI_SLAVE = 0,
+    LUAT_AIRLINK_MODE_SPI_MASTER = 1,
+    LUAT_AIRLINK_MODE_UART = 2
+};
+
 
 typedef struct luat_airlink_cmd
 {

@@ -13,8 +13,6 @@
 ]] 
 
 
-sys = require("sys")
-sysplus = require("sysplus")
 libnet = require "libnet"
 
 local airlbs_host = "airlbs.openluat.com"

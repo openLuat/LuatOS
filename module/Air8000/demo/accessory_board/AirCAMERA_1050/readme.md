@@ -61,7 +61,7 @@
 - 配置excloud链接，启动心跳包
 - 开启自动重连机制，断网后自动重连
 - 订阅excloud_post_image_done消息，收到消息后打印上传结果：log.info("excloud_post_image_func", err)
-- 每 30 秒触发一次拍照：AirCAMERA_1040_func()
+- 每 30 秒触发一次拍照：AirCAMERA_1050_func()
 - 每 3 秒打印一次系统和 LUA 的内存信息：memory_check()
 - 注册excloud回调：on_excloud_event()
 - 配置excloud链接，启动心跳包：excloud_task_func()

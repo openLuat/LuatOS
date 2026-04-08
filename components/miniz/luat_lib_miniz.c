@@ -29,6 +29,10 @@ end
 
 #include "miniz.h"
 
+#define LUAT_MINIZ_DEBUG_LOGI(debug, ...) do { if (debug) { LLOGI(__VA_ARGS__); } } while (0)
+#define LUAT_MINIZ_DEBUG_LOGD(debug, ...) do { if (debug) { LLOGD(__VA_ARGS__); } } while (0)
+#define LUAT_MINIZ_DEBUG_LOGW(debug, ...) do { if (debug) { LLOGW(__VA_ARGS__); } } while (0)
+
 static mz_bool luat_output_buffer_putter(const void *pBuf, int len, void *pUser) {
     luaL_addlstring((luaL_Buffer*)pUser, pBuf, len);
     return MZ_TRUE;
@@ -295,12 +299,13 @@ static void* luat_mz_realloc_func(void *opaque, void *address, size_t items, siz
 
 /*
 解压ZIP文件到指定目录
-@api miniz.unzip(zip_file_path, target_dir)
+@api miniz.unzip(zip_file_path, target_dir, debug)
 @string zip_file_path ZIP文件的完整路径
 @string target_dir 目标解压目录的完整路径, 必须以 / 结尾
+@boolean debug 可选, 是否输出解压过程日志, 默认为false
 @return boolean 成功返回true，失败返回false
 @usage
-local success = miniz.unzip("/test/csdk.zip", "/output/")
+local success = miniz.unzip("/test/csdk.zip", "/output/", true)
 if success then
     log.info("unzip", "解压成功")
 else
@@ -310,6 +315,7 @@ end
 static int l_miniz_unzip(lua_State* L) {
     const char* zip_file_path = luaL_checkstring(L, 1);
     const char* target_dir = luaL_checkstring(L, 2);
+    int debug = lua_toboolean(L, 3);
     
     size_t zip_file_size = 0;
     zip_file_size = luat_fs_fsize(zip_file_path);
@@ -318,9 +324,7 @@ static int l_miniz_unzip(lua_State* L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    else {
-        LLOGI("ZIP file size: %zu bytes", zip_file_size);
-    }
+    LUAT_MINIZ_DEBUG_LOGI(debug, "ZIP file size: %zu bytes", zip_file_size);
     if (!luat_miniz_is_valid_target_dir(target_dir)) {
         LLOGE("target_dir must end with '/': %s", target_dir);
         lua_pushboolean(L, 0);
@@ -355,7 +359,7 @@ static int l_miniz_unzip(lua_State* L) {
     }
     
     mz_uint num_files = mz_zip_reader_get_num_files(&zip_archive);
-    LLOGI("ZIP file contains %u files", num_files);
+    LUAT_MINIZ_DEBUG_LOGI(debug, "ZIP file contains %u files", num_files);
     
     int success = 1;
     
@@ -363,7 +367,7 @@ static int l_miniz_unzip(lua_State* L) {
     for (mz_uint i = 0; i < num_files; i++) {
         mz_zip_archive_file_stat file_stat;
         if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
-            LLOGW("Failed to get file stats for entry %u", i);
+            LUAT_MINIZ_DEBUG_LOGW(debug, "Failed to get file stats for entry %u", i);
             success = 0;
             continue;
         }
@@ -386,7 +390,7 @@ static int l_miniz_unzip(lua_State* L) {
                 success = 0;
             }
             else {
-                LLOGI("Created directory: %s", full_path);
+                LUAT_MINIZ_DEBUG_LOGI(debug, "Created directory: %s", full_path);
             }
             luat_heap_free(full_path);
             continue;
@@ -397,7 +401,7 @@ static int l_miniz_unzip(lua_State* L) {
             success = 0;
             continue;
         }
-        LLOGI("Processing file: %s -> %s", file_stat.m_filename, full_path);
+        LUAT_MINIZ_DEBUG_LOGI(debug, "Processing file: %s -> %s", file_stat.m_filename, full_path);
         
         // Extract file to disk
         FILE* out_f = luat_fs_fopen(full_path, "wb+");
@@ -411,7 +415,7 @@ static int l_miniz_unzip(lua_State* L) {
             LLOGE("Failed to extract file: %s", file_stat.m_filename);
             success = 0;
         } else {
-            LLOGD("Extracted: %s (%zu bytes)", file_stat.m_filename, (size_t)file_stat.m_uncomp_size);
+            LUAT_MINIZ_DEBUG_LOGD(debug, "Extracted: %s (%zu bytes)", file_stat.m_filename, (size_t)file_stat.m_uncomp_size);
         }
         luat_fs_fclose(out_f);
         luat_heap_free(full_path);

@@ -55,6 +55,19 @@ end
 - Use `assert()` for validations
 - Use `log.info()` for output
 
+### Testcase File Style (Recommended)
+
+- Follow the same structure used by `unit_testcase_tools/fastlz`:
+    - `scripts/main.lua`: only does runner wiring (`PROJECT/VERSION`, `testrunner`, `runBatch`, `sys.run()`)
+    - `scripts/<feature>_test.lua`: contains actual `test_` functions and assertions
+- Avoid putting full test logic directly in `main.lua`.
+
+### Media Fixture Convention (PC)
+
+- For media testcase in PC simulator, place fixture files (e.g. mp3) in the same directory as `scripts/main.lua`.
+- Load fixtures via `/luadb/<filename>` path in tests.
+- Example: put `test_16k.mp3` under `scripts/`, and access it by `/luadb/test_16k.mp3`.
+
 ## ANTI-PATTERNS
 
 - ❌ Do NOT depend on test execution order

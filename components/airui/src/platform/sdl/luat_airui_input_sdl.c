@@ -436,6 +436,9 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         luat_lcd_conf_t *lcd_conf;
         uint8_t *rotation_buf;
         uint32_t rotation_buf_size;
+        int last_window_w;
+        int last_window_h;
+        uint8_t adjusting_window_size;
     } sdl_display_data_t;
     
     sdl_display_data_t *display_data = (sdl_display_data_t *)ctx->platform_data;
@@ -484,6 +487,41 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         } else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP || event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING) {
             sdl_process_keyboard_event(&event, ctx);
         }
+#if !defined(_WIN32)
+        else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED && window != NULL &&
+                   event.window.windowID == SDL_GetWindowID(window)) {
+            if (display_data->adjusting_window_size) {
+                display_data->adjusting_window_size = 0;
+                display_data->last_window_w = event.window.data1;
+                display_data->last_window_h = event.window.data2;
+            } else if (!display_data->reuse_lcd) {
+                int request_w = event.window.data1;
+                int request_h = event.window.data2;
+                uint16_t preview_w = 0;
+                uint16_t preview_h = 0;
+                sdl_input_get_preview_size(ctx, &preview_w, &preview_h);
+                if (preview_w > 0 && preview_h > 0) {
+                    int adjusted_w = request_w;
+                    int adjusted_h = request_h;
+                    int delta_w = abs(request_w - display_data->last_window_w);
+                    int delta_h = abs(request_h - display_data->last_window_h);
+
+                    if (display_data->last_window_w == 0 || display_data->last_window_h == 0 || delta_w >= delta_h) {
+                        adjusted_h = (int)(((int64_t)adjusted_w * preview_h + preview_w / 2) / preview_w);
+                    } else {
+                        adjusted_w = (int)(((int64_t)adjusted_h * preview_w + preview_h / 2) / preview_h);
+                    }
+
+                    if (adjusted_w > 0 && adjusted_h > 0 && (adjusted_w != request_w || adjusted_h != request_h)) {
+                        display_data->adjusting_window_size = 1;
+                        display_data->last_window_w = adjusted_w;
+                        display_data->last_window_h = adjusted_h;
+                        SDL_SetWindowSize(window, adjusted_w, adjusted_h);
+                    }
+                }
+            }
+        }
+#endif
     }
     
     if (has_event) {
@@ -507,11 +545,9 @@ static bool sdl_input_read_pointer(airui_ctx_t *ctx, lv_indev_data_t *data)
         sdl_input_get_preview_size(ctx, &preview_w, &preview_h);
 
         if (window_w > 0 && window_h > 0 && preview_w > 0 && preview_h > 0) {
-            // 按比例缩放坐标
             lvgl_x = (int32_t)((int64_t)sdl_x * preview_w / window_w);
             lvgl_y = (int32_t)((int64_t)sdl_y * preview_h / window_h);
-            
-            // 限制坐标范围
+
             if (lvgl_x < 0) lvgl_x = 0;
             if (lvgl_x >= preview_w) lvgl_x = preview_w - 1;
             if (lvgl_y < 0) lvgl_y = 0;
@@ -594,6 +630,9 @@ void airui_platform_sdl2_set_text_input_rect(airui_ctx_t *ctx, lv_obj_t *target)
         luat_lcd_conf_t *lcd_conf;
         uint8_t *rotation_buf;
         uint32_t rotation_buf_size;
+        int last_window_w;
+        int last_window_h;
+        uint8_t adjusting_window_size;
     } sdl_display_data_t;
 
     // 获取 display_data 指针并判空

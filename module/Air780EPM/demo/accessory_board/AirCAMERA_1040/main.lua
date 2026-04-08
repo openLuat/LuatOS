@@ -6,7 +6,7 @@
 @author  陈取德
 @usage
 本demo主要使用AirCAMERA_1040 SPI摄像头完成一次拍照上传任务
-]]
+]] -- 
 --[[
 必须定义PROJECT和VERSION变量，Luatools工具会用到这两个变量，远程升级功能也会用到这两个变量
 PROJECT：项目名，ascii string类型
@@ -16,15 +16,12 @@ VERSION：项目版本号，ascii string类型
             X、Y、Z各表示1位数字，三个X表示的数字可以相同，也可以不同，同理三个Y和三个Z表示的数字也是可以相同，可以不同
             因为历史原因，YYY这三位数字必须存在，但是没有任何用处，可以一直写为999
         如果不使用合宙iot.openluat.com进行远程升级，根据自己项目的需求，自定义格式即可
-]]
+]]--
 PROJECT = "AirCAMERA_1040_Demo"
 VERSION = "001.999.000"
 
 -- 在日志中打印项目名和项目版本号
 log.info("main", PROJECT, VERSION)
-
-
-
 
 -- 如果内核固件支持errDump功能，此处进行配置，【强烈建议打开此处的注释】
 -- 因为此功能模块可以记录并且上传脚本在运行过程中出现的语法错误或者其他自定义的错误信息，可以初步分析一些设备运行异常的问题
@@ -34,12 +31,10 @@ log.info("main", PROJECT, VERSION)
 --     errDump.config(true, 600)
 -- end
 
-
 -- 使用LuatOS开发的任何一个项目，都强烈建议使用远程升级FOTA功能
 -- 可以使用合宙的iot.openluat.com平台进行远程升级
 -- 也可以使用客户自己搭建的平台进行远程升级
 -- 远程升级的详细用法，可以参考fota的demo进行使用
-
 
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
@@ -49,17 +44,25 @@ log.info("main", PROJECT, VERSION)
 --     log.info("mem.sys", rtos.meminfo("sys"))
 -- end, 3000)
 
--- 导入gc032a配置表
-require "gc032a"
 -- 导入netdrv_4g联网状态模块
 require "netdrv_4g"
 
+-- 导入gc032a配置表
+require "gc032a"
+
 -- 拍照和扫描模式需要在初始化时确认，导入对应模式的DEMO后注释另一个DEMO，拍照和扫描不可同时使用
--- 导入take_photo_http_post拍照上传应用DEMO
-require "take_photo_http_post"
+--[[ 导入photo_to_aircloud拍照上传应用DEMO，该DEMO上传照片至aircloud平台，需要先配置photo_to_aircloud.lua中105行的 auth_key ，否则会报错
+        auth_key：aircloud应用的认证密钥，用于验证上传请求的合法性
+        获取方式为：登录iot.openluat.com，点击”我的项目“，找到您所使用的模块对应的项目，即可复制项目KEY
+        当您的模块没有在您的账号下时，请参考https://docs.openluat.com/air780epm/product/attributioniot/ 处理办法，获取项目KEY]] --
+require "photo_to_aircloud"
+
+-- 导入take_photo_http_post拍照上传应用DEMO，air32.cn为虚拟服务器，仅用于演示，实际使用时请替换为自己的服务器。
+-- 与photo_to_aircloud.lua二选一执行即可，不可同时导入
+-- require "take_photo_http_post"
+
 -- 导入scan_code扫描二维码应用DEMO
 -- require "scan_code"
-
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

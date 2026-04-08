@@ -42,6 +42,8 @@ local function scan_code_func()
         }
         -- 等待外部触发扫描事件(SCAN_CODE)
         sys.waitUntil("SCAN_CODE")
+        -- 打开外设分组
+        exmux.open("i2c0")
         -- 初始化摄像头，传入配置参数
         result = excamera.open(spi_camera_param)
         -- 记录摄像头初始化状态

@@ -59,10 +59,10 @@ log.info("main", PROJECT, VERSION)
 -- 启动一个循环定时器
 -- 每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况
 -- 音频对内存影响较大，不断的打印内存，用于判断是否异常
-sys.timerLoopStart(function()
-    log.info("mem.lua", rtos.meminfo())
-    log.info("mem.sys", rtos.meminfo("sys"))
-end, 3000)
+-- sys.timerLoopStart(function()
+--     log.info("mem.lua", rtos.meminfo())
+--     log.info("mem.sys", rtos.meminfo("sys"))
+-- end, 3000)
 
 
 require "play_file"     --   播放音频文件，可支持wav,amr,mp3 格式音频

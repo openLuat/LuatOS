@@ -18,8 +18,8 @@ add_packages("gmssl")
 add_requires("libsdl2")
 add_packages("libsdl2")
 
--- set warning all as error
-set_warnings("allextra")
+-- set warning level: all (-Wall), without extra (-Wextra) to reduce noise
+set_warnings("all")
 set_optimize("fastest")
 -- set language: c11 and c++17
 set_languages("gnu11", "cxx17")
@@ -52,10 +52,14 @@ if is_host("windows") then
 elseif is_host("linux") then
     add_defines("LUA_USE_LINUX")
     add_cflags("-ffunction-sections -fdata-sections")
-    add_cflags("-Wno-unused-parameter -Wno-unused-function -Wno-unused-variable")
     add_ldflags("-Wl,--gc-sections")
 elseif is_host("macos") then
     add_defines("LUA_USE_MACOSX")
+end
+
+-- suppress common noisy warnings on non-Windows hosts (where these flags are supported)
+if not is_host("windows") then
+    add_cflags("-Wno-unused-parameter", "-Wno-unused-function", "-Wno-unused-variable")
 end
 
 add_includedirs("include",{public = true})

@@ -14,6 +14,8 @@ local excamera = require "excamera"
 local httpplus = require "httpplus"
 -- 引入exmux扩展库模块
 local exmux = require "exmux"
+-- 导入excloud库
+local excloud = require "excloud"
 
 -- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
 -- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
@@ -27,16 +29,147 @@ local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
 -- 2、保存到内存文件系统中，路径名需指向/ram/文件夹
 -- 3、保存到内置FLASH文件系统中
 -- 选择其中一个即可，注释另两个路径变量
-local save_method = "ZBUFF"
+-- local save_method = "ZBUFF"
 -- local save_method = "/ram/test.jpg"
--- local save_method = "/test.jpg"
+local save_method = "/test.jpg"
+
+--[[
+excloud事件回调函数
+参数：
+    event: 事件类型字符串
+    data: 事件数据，根据事件类型不同而不同
+
+事件类型说明：
+    connect_result: 连接结果
+    auth_result: 认证结果
+    disconnect: 断开连接
+    reconnect_failed: 重连失败
+]]
+function on_excloud_event(event, data)
+    -- 打印事件信息
+    log.info("用户回调函数", event, json.encode(data))
+
+    -- 处理连接结果事件
+    if event == "connect_result" then
+        if data.success then
+            log.info("连接成功")
+            -- 发布连接成功消息，通知其他任务
+            sys.publish("aircloud_connected")
+        else
+            log.info("连接失败: " .. (data.error or "未知错误"))
+        end
+        -- 处理认证结果事件
+    elseif event == "auth_result" then
+        if data.success then
+            log.info("认证成功")
+        else
+            log.info("认证失败: " .. data.message)
+        end
+        -- 处理断开连接事件
+    elseif event == "disconnect" then
+        log.warn("与服务器断开连接")
+        -- 处理重连失败事件
+    elseif event == "reconnect_failed" then
+        log.info("重连失败，已尝试 " .. data.count .. " 次")
+    end
+end
+
+-- 注册excloud事件回调函数
+excloud.on(on_excloud_event)
+
+--[[
+excloud任务函数
+功能：
+    1. 等待网络连接就绪
+    2. 配置excloud参数
+    3. 初始化并开启excloud服务
+    4. 启动自动心跳
+]]
+local function excloud_task_func()
+    -- 如果当前时间点设置的默认网卡还没有连接成功，一直在这里循环等待
+    while not socket.adapter(socket.dft()) do
+        log.warn("excloud_task_func", "wait IP_READY", socket.dft())
+        -- 在此处阻塞等待默认网卡连接成功的消息"IP_READY"
+        -- 或者等待1秒超时退出阻塞等待状态;
+        -- 注意：此处的1000毫秒超时不要修改的更长；
+        -- 因为当使用exnetif.set_priority_order配置多个网卡连接外网的优先级时，会隐式的修改默认使用的网卡
+        -- 当exnetif.set_priority_order的调用时序和此处的socket.adapter(socket.dft())判断时序有可能不匹配
+        -- 此处的1秒，能够保证，即使时序不匹配，也能1秒钟退出阻塞状态，再去判断socket.adapter(socket.dft())
+        sys.waitUntil("IP_READY", 1000)
+    end
+
+    -- 配置excloud参数
+    local ok, err_msg = excloud.setup({
+        use_getip = true, -- 使用getip服务
+        device_type = 1, -- 4G设备
+        auth_key = "sh5g0OTP7ThOSlGKmE5jiEMbOBqQWyw9", -- 认证密钥
+        transport = "tcp", -- 使用TCP传输
+        auto_reconnect = true, -- 自动重连
+        reconnect_interval = 10, -- 重连间隔(秒)
+        max_reconnect = 5, -- 最大重连次数
+        mtn_log_enabled = true, -- 启用运维日志
+        mtn_log_blocks = 2, -- 日志文件块数
+        mtn_log_write_way = excloud.MTN_LOG_CACHE_WRITE -- 缓存写入方式
+    })
+
+    -- 检查初始化是否成功
+    if not ok then
+        log.info("初始化失败: " .. err_msg)
+        return
+    end
+    log.info("excloud初始化成功")
+
+    -- 开启excloud服务
+    local ok, err_msg = excloud.open()
+    if not ok then
+        log.info("开启excloud服务失败: " .. err_msg)
+        return
+    end
+    log.info("excloud服务已开启")
+
+    -- 启动自动心跳，默认5分钟一次的心跳
+    excloud.start_heartbeat()
+    log.info("自动心跳已启动")
+end
+
+--[[
+照片上传任务函数
+功能：
+    1. 等待excloud连接建立
+    2. 等待图片数据
+    3. 上传图片到云端
+    4. 处理上传结果
+]]
+function upload_image_fun(image)
+
+    -- 连接成功，等待图片数据
+    if excloud.status().is_connected then
+        log.info("开始上传图片")
+        if image then
+            local ok, err = excloud.upload_image(image, "test.jpg")
+            if ok then
+                log.info("图片上传成功")
+                return true
+            else
+                log.error("图片上传失败:", err)
+                return false
+            end
+        else
+            log.warn("测试图片文件不存在")
+            return false
+        end
+    end
+    -- 连接断开，等待重连
+    log.info("excloud连接已断开，等待重连")
+    return false
+end
 
 -- 拍照功能函数
 -- 作用：循环监听拍照事件，执行摄像头初始化、拍照和资源释放
 local function capture_func()
     -- 定义变量用于存储操作结果和数据
-    local result, data
-    -- 初始化外设分组开关状态
+    local result, data, err
+    -- 初始化开发板
     exmux.setup(HARDWARE_ENV)
     -- 无限循环，持续等待拍照事件
     while true do
@@ -71,25 +204,7 @@ local function capture_func()
                     log.warn("tcp_client_main_task_func", "wait IP_READY")
                     sys.waitUntil("IP_READY", 30000)
                 end
-                if type(data) == "userdata" then
-                    data = data:query()
-                else
-                    data = io.readFile(data)
-                end
-                -- 通过网卡(本demo使用的是socket.LWIP_STA网卡)将拍摄到的照片数据result上传到服务器air32.cn
-                -- 如果上传成功，电脑上浏览器打开https://www.air32.cn/upload/jpg/，打开对应的测试日期目录，点击具体的测试时间照片，可以查看摄像头拍照上传的照片
-                -- 执行httpplus.request后，等待服务器的http应答，此处会阻塞当前task，等待整个过程成功结束或者出现错误异常结束
-                -- code表示结果，number类型，详细说明参考API手册，一般来说：
-                --             200表示成功
-                --             小于0的值表示出错，例如-8表示超时错误
-                --             其余结果值参考API手册
-                local code = httpplus.request({
-                    url = "http://upload.air32.cn/api/upload/jpg",
-                    method = "POST",
-                    body = data
-                })
-                -- 打印http传输状态
-                log.info("http_upload_photo_task_func", "httpplus.request", code)
+                upload_image_fun(data)
             end
         end
         -- 判断是否ZBUFF存储方式，如果是文件系统保存则删除本地文件
@@ -125,6 +240,9 @@ local function AirCAMERA_1040_func()
         sys.wait(30000)
     end
 end
+
+-- 启动excloud连接任务
+sys.taskInit(excloud_task_func)
 
 -- 创建拍照功能任务
 -- 作用：在单独的任务中运行拍照逻辑

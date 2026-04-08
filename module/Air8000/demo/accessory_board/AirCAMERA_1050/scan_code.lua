@@ -11,14 +11,23 @@
 -- 功能：提供摄像头初始化、扫描和资源管理功能
 -- 引入excamera扩展库模块
 local excamera = require "excamera"
+-- 引入exmux扩展库模块
+local exmux = require "exmux"
+
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
 -- 扫描功能函数
 -- 作用：循环监听扫描事件，执行摄像头初始化、扫描和资源释放
 local function scan_code_func()
     -- 定义变量用于存储操作结果和数据
     local result, data
-    gpio.setup(24, 1)
-    gpio.setup(164, 1)
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
     -- 无限循环，持续等待扫描事件
     while true do
         -- 配置gc0310摄像头参数表
@@ -48,6 +57,8 @@ local function scan_code_func()
         end
         -- 关闭摄像头，释放资源
         excamera.close()
+        -- 关闭外设分组
+        exmux.close("i2c0")
     end
 end
 

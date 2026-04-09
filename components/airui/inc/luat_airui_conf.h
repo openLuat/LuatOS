@@ -90,7 +90,7 @@
 
     /* 图片缓存配置 */
     #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 16        /* 16个图片头缓存 */
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
 
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM

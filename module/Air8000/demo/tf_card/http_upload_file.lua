@@ -15,6 +15,14 @@
 -- 加载httpplus扩展库，不可省略
 local httpplus = require "httpplus"
 
+local exmux = require "exmux"
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
+
 local function http_upload_task()
     -- 阶段1: 网络就绪检测
     while not socket.adapter(socket.dft()) do
@@ -25,7 +33,11 @@ local function http_upload_task()
 
     -- 检测到了IP_READY消息
     log.info("HTTP上传", "网络已就绪", socket.dft())
-
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
+    -- 打开外设分组
+    exmux.open("spi1")
+    
     -- 阶段2: TF卡文件系统初始化
     local spi_id, pin_cs = 1, 20
     spi.setup(spi_id, nil, 0, 0, 400 * 1000)
@@ -92,6 +104,8 @@ local function http_upload_task()
     fatfs.unmount("/sd")
     spi.close(spi_id)
     log.info("HTTP上传", "资源清理完成")
+    -- 关闭外设分组
+    exmux.close("spi1")
 end
 
 -- 创建上传任务

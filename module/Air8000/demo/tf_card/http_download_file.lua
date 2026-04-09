@@ -12,7 +12,14 @@
 4. 获取并记录文件大小
 本文件没有对外接口，直接在main.lua中require "http_download_file"即可
 ]] 
+local exmux = require "exmux"
 
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
 local function http_download_file_task()
 
@@ -26,6 +33,10 @@ local function http_download_file_task()
 
     -- 检测到了IP_READY消息
     log.info("HTTP下载", "网络已就绪", socket.dft())
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
+    -- 打开外设分组
+    exmux.open("spi1")
 
     -- 进行SPI初始化，Air8000开发板TF卡的CS脚为：SPI1，GPIO20
     local spi_id, pin_cs = 1, 20 
@@ -75,6 +86,8 @@ local function http_download_file_task()
     fatfs.unmount("/sd")
     spi.close(spi_id)
     log.info("HTTP下载", "资源清理完成")
+    -- 关闭外设分组
+    exmux.close("spi1")
 end
 
 -- 创建下载任务

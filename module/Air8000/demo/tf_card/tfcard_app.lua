@@ -20,20 +20,31 @@
 12. 删除文件
 13. 删除目录
 本文件没有对外接口，直接在main.lua中require "tfcard_app"就可以加载运行
-]] 
+]] --
+local exmux = require "exmux"
+
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
 function tfcard_main_task() -- 开始进行主测试流程。
-
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
+    -- 打开外设分组
+    exmux.open("spi1")
     -- ##########  SPI初始化 ##########
     -- Air8000整机开发板上TF卡的的pin_cs为gpio20，spi_id为1.请根据实际硬件修改
     spi_id, pin_cs = 1, 20
     spi.setup(spi_id, nil, 0, 0, 400 * 1000)
-    --设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
+    -- 设置片选引脚同一spi总线上的所有从设备在初始化时必须要先拉高CS脚，防止从设备之间互相干扰。
     -- 在air8000开发板上，TF卡和ch390共用SPI1总线。
     gpio.setup(pin_cs, 1)
 
     -- ########## 开始进行tf卡挂载 ##########
-    --挂载失败默认格式化，
+    -- 挂载失败默认格式化，
     -- 如无需格式化应改为fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000, nil, 1, false),
     -- 一般是在测试硬件是否有问题的时候把格式化取消掉
     mount_ok, mount_err = fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
@@ -47,10 +58,10 @@ function tfcard_main_task() -- 开始进行主测试流程。
     -- ########## 获取SD卡的可用空间信息并打印。 ########## 
     data, err = fatfs.getfree("/sd")
     if data then
-        --打印SD卡的可用空间信息
+        -- 打印SD卡的可用空间信息
         log.info("fatfs", "getfree", json.encode(data))
     else
-        --打印错误信息
+        -- 打印错误信息
         log.info("fatfs", "getfree", "err", err)
         goto resource_cleanup
     end
@@ -85,7 +96,7 @@ function tfcard_main_task() -- 开始进行主测试流程。
     if file then
         file:write("这是io库API文档示例的测试内容")
         file:close()
-        --在LuatOS文件操作中，执行file:close()是必须且关键的操作，它用于关闭文件句柄，释放资源，并确保数据被正确写入磁盘。
+        -- 在LuatOS文件操作中，执行file:close()是必须且关键的操作，它用于关闭文件句柄，释放资源，并确保数据被正确写入磁盘。
         -- 如果不执行file:close()，可能会导致数据丢失、文件损坏或其他不可预测的问题。
         log.info("文件创建", "文件写入成功", "路径:" .. file_path)
     else
@@ -123,7 +134,7 @@ function tfcard_main_task() -- 开始进行主测试流程。
 
     -- 6. 启动计数文件操作
     count = 0
-    --以只读模式打开文件
+    -- 以只读模式打开文件
     file = io.open(file_path, "rb")
     if file then
         data = file:read("*a")
@@ -136,7 +147,7 @@ function tfcard_main_task() -- 开始进行主测试流程。
     end
 
     log.info("启动计数", "当前值:", count)
-    count=count + 1
+    count = count + 1
     log.info("启动计数", "更新值:", count)
 
     file = io.open(file_path, "wb")
@@ -310,7 +321,7 @@ function tfcard_main_task() -- 开始进行主测试流程。
     -- 卸载文件系统和关闭SPI
     ::resource_cleanup::
 
-    log.info("结束", "开始执行关闭操作...")  
+    log.info("结束", "开始执行关闭操作...")
     -- 如已挂载需先卸载文件系统，未挂载直接关闭SPI
     if mount_ok then
         if fatfs.unmount("/sd") then
@@ -323,9 +334,8 @@ function tfcard_main_task() -- 开始进行主测试流程。
     -- 2. 关闭SPI接口
     spi.close(spi_id)
     log.info("SPI接口", "已关闭")
-
+    exmux.close("spi1")
 end
 
 sys.taskInit(tfcard_main_task)
-
 

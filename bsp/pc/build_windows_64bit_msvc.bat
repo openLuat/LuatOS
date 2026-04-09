@@ -2,17 +2,14 @@
 @echo off
 setlocal enabledelayedexpansion
 
-xmake clean -a
-set VM_64bit=1
-set LUAT_USE_GUI=n
-xmake f -a x86 -y -p windows --toolchain=msvc
-if !errorlevel! neq 0 exit /b !errorlevel!
-xmake g --pkg_searchdirs=%cd%\pkgs
-if !errorlevel! neq 0 exit /b !errorlevel!
+set "MODE=%LUAT_BUILD_MODE%"
+if not defined MODE set "MODE=summary"
+set "CLEAN_FLAG="
 
-@REM xmake f -m debug
-xmake -y
-if !errorlevel! neq 0 exit /b !errorlevel!
+if /i "%~1"=="full" set "MODE=full"
+if /i "%~2"=="full" set "MODE=full"
+if /i "%~1"=="clean" set "CLEAN_FLAG=-Clean"
+if /i "%~2"=="clean" set "CLEAN_FLAG=-Clean"
 
-echo Build completed successfully!
-exit /b 0
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build_with_summary.ps1" -Arch x86 -Vm64 1 -Gui n -Mode %MODE% %CLEAN_FLAG%
+exit /b %errorlevel%

@@ -30,6 +30,9 @@ cd bsp/pc
 - If the change touches `components/airui/`, LVGL, SDL display flow, or any code gated by `LUAT_USE_GUI`, you MUST use a GUI-enabled build
 - Do not report AirUI-related verification as complete if you only ran plain `xmake -y`
 - Prefer the existing platform helper scripts when available, because they already set the expected GUI environment flags
+- Helper scripts now default to incremental `summary` mode to reduce low-value warning noise during routine development
+- Use `full` to see raw compiler output, and use `clean` only when you explicitly need a clean rebuild
+- Summary/full logs are written to `bsp/pc/build/logs/`
 
 ### Windows
 
@@ -41,8 +44,15 @@ cd bsp/pc
 | `build_windows_64bit_msvc_gui.bat` | 64-bit, GUI |
 
 Recommended:
-- Non-GUI verification: `xmake -y`
+- Non-GUI verification: `build_windows_64bit_msvc.bat`
 - GUI / AirUI verification: `build_windows_64bit_msvc_gui.bat` (or `build_windows_32bit_msvc_gui.bat` when targeting 32-bit)
+- Full output: append `full`
+- Clean rebuild: append `clean`
+
+Examples:
+- `build_windows_64bit_msvc.bat`
+- `build_windows_64bit_msvc.bat full`
+- `build_windows_64bit_msvc_gui.bat clean`
 
 ### Linux
 
@@ -54,8 +64,10 @@ Recommended:
 | `build_linux_64bit_gui.sh` | 64-bit, GUI |
 
 Recommended:
-- Non-GUI verification: `xmake -y`
-- GUI / AirUI verification: set `LUAT_USE_GUI=y`, run `xmake f ...`, then `xmake -y`, or use `build_linux_64bit_gui.sh`
+- Non-GUI verification: `./build_linux_64bit.sh`
+- GUI / AirUI verification: `./build_linux_64bit_gui.sh`
+- Full output: append `full`
+- Clean rebuild: append `clean`
 
 ### macOS
 
@@ -65,8 +77,10 @@ Recommended:
 | `build_macos_gui.sh` | GUI |
 
 Recommended:
-- Non-GUI verification: `xmake -y`
-- GUI / AirUI verification: set `LUAT_USE_GUI=y`, run `xmake f ...`, then `xmake -y`, or use `build_macos_gui.sh`
+- Non-GUI verification: `./build_macos.sh`
+- GUI / AirUI verification: `./build_macos_gui.sh`
+- Full output: append `full`
+- Clean rebuild: append `clean`
 
 Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/macOS)
 

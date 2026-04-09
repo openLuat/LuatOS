@@ -35,10 +35,10 @@ lf_err_t little_flash_read_status(const little_flash_t *lf, uint8_t address, uin
 static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeout) {
     lf_err_t result = LF_ERR_OK;
     size_t retry_times = lf->chip_info.retry_times;
-    uint32_t timeout_us = timeout;
+    int32_t timeout_us;
     volatile uint8_t status;
     do{
-        timeout_us = timeout;
+        timeout_us = (int32_t)timeout;
         do{
             if (lf->chip_info.type==LF_DRIVER_NOR_FLASH){
                 result = little_flash_read_status(lf, 0, &status);
@@ -49,7 +49,7 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeou
             if (result==LF_ERR_OK && (status&LF_STATUS_REGISTER_BUSY)==0){
                 return LF_ERR_OK;
             }
-            if (timeout>1000){
+            if (timeout_us>1000){
                 lf->wait_ms(1);
                 timeout_us -= 1000;
             }else{
@@ -369,6 +369,7 @@ static lf_err_t little_flash_cheak_read(const little_flash_t *lf){
         if (result==0 && ecc<2){
             return LF_ERR_OK;
         }
+        return LF_ERR_READ;
     }
     return result;
 }
@@ -443,8 +444,8 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
     cmd_data[0] = lf->chip_info.erase_cmd;
 
     if(lf->chip_info.type==LF_DRIVER_NAND_FLASH){
-        erase_off = addr % lf->chip_info.read_size;
-        erase_addr = addr / lf->chip_info.read_size;
+        erase_off = addr % lf->chip_info.erase_size;
+        erase_addr = (addr / lf->chip_info.erase_size) * (lf->chip_info.erase_size / lf->chip_info.read_size);
     }else{
         erase_off = addr % lf->chip_info.erase_size;
         erase_addr = addr / lf->chip_info.erase_size * lf->chip_info.erase_size;
@@ -488,6 +489,10 @@ error:
 }
 
 lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8_t *data, uint32_t len){
+    if (addr + len > lf->chip_info.capacity) {
+        LF_ERROR("Error: Flash address is out of bound.");
+        return LF_ERR_BAD_ADDRESS;
+    }
 #ifdef LF_USE_HEAP
     uint8_t* cmd_data = (uint8_t*)lf->malloc(4+lf->chip_info.prog_size);
     if (!cmd_data){
@@ -605,6 +610,9 @@ lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8
     return LF_ERR_OK;
 error:
     LF_ERROR("Error: Write failed.");
+#ifdef LF_USE_HEAP
+    lf->free(cmd_data);
+#endif /* LF_USE_HEAP */
     if (lf->unlock) {
         lf->unlock(lf);
     }

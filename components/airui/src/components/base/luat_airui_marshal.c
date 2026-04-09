@@ -177,10 +177,8 @@ lv_obj_t *airui_marshal_parent(void *L, int idx)
     
     lv_obj_t *parent = NULL;
     if (lua_type(L_state, -1) == LUA_TUSERDATA) {
-        // 从 userdata 结构体中获取 LVGL 对象指针
-        // userdata 是 airui_component_ud_t 结构体，需要访问其 obj 字段
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        parent = (ud != NULL) ? ud->obj : NULL;
+        parent = airui_component_userdata_obj(ud);
     }
     lua_pop(L_state, 1);
 

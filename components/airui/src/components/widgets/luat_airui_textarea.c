@@ -135,13 +135,14 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lua_getfield(L_state, idx, "keyboard");
     if (lua_isuserdata(L_state, -1)) {
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        airui_component_meta_t *kbd_meta = airui_component_meta_get(ud->obj);
+        lv_obj_t *keyboard = airui_component_userdata_obj(ud);
+        airui_component_meta_t *kbd_meta = airui_component_meta_get(keyboard);
         if (kbd_meta == NULL || kbd_meta->component_type != AIRUI_COMPONENT_KEYBOARD) {
             LLOGW("keyboard绑定组件对象不是键盘");
         }
         else {
-            airui_keyboard_set_target(ud->obj, textarea);
-            airui_textarea_attach_keyboard(textarea, ud->obj);
+            airui_keyboard_set_target(keyboard, textarea);
+            airui_textarea_attach_keyboard(textarea, keyboard);
         }
     }else{
         LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");

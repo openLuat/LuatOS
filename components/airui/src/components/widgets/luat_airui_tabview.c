@@ -440,6 +440,9 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
             name = default_name;
         }
         lv_obj_t *page = lv_tabview_add_tab(tabview, name);
+        if (page != NULL && airui_component_meta_get(page) == NULL) {
+            (void)airui_component_meta_alloc(ctx, page, AIRUI_COMPONENT_CONTAINER);
+        }
         if (data->page_style_used) {
             airui_tabview_apply_page_style(page, &page_style);
         }
@@ -505,6 +508,15 @@ lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
     }
 
     airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    airui_component_meta_t *page_meta = airui_component_meta_get(page);
+    if (page_meta == NULL) {
+        page_meta = airui_component_meta_alloc(meta != NULL ? meta->ctx : NULL, page, AIRUI_COMPONENT_CONTAINER);
+        if (page_meta == NULL) {
+            lv_obj_delete(page);
+            return NULL;
+        }
+    }
+
     if (meta != NULL && meta->user_data != NULL) {
         airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
         if (data->page_style_used) {

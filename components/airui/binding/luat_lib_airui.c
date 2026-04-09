@@ -766,7 +766,6 @@ static int l_airui_touch_unsubscribe(lua_State *L) {
     return 0;
 }
 
-// 订阅键盘事件
 /**
  * 订阅键盘事件
  * @api airui.keypad_subscribe(callback)
@@ -796,7 +795,6 @@ static int l_airui_keypad_subscribe(lua_State *L) {
     return 1;
 }
 
-// 取消键盘事件订阅
 /**
  * 取消键盘事件订阅
  * @api airui.keypad_unsubscribe()
@@ -810,27 +808,6 @@ static int l_airui_keypad_unsubscribe(lua_State *L) {
 
     airui_keypad_unsubscribe(g_ctx, L);
     return 0;
-}
-
-/**
- * 推送组件 userdata（通用辅助函数）
- */
-void airui_push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)lua_newuserdata(L, sizeof(airui_component_ud_t));
-    ud->obj = obj;
-    luaL_getmetatable(L, mt);
-    lua_setmetatable(L, -2);
-}
-
-/**
- * 检查组件 userdata（通用辅助函数）
- */
-lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, index, mt);
-    if (ud == NULL || ud->obj == NULL) {
-        luaL_error(L, "invalid %s object", mt);
-    }
-    return ud->obj;
 }
 
 /**

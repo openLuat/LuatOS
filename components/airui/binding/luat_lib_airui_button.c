@@ -203,19 +203,7 @@ static int l_button_move(lua_State *L) {
  * Button:destroy（手动销毁）
  */
 static int l_button_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_BUTTON_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        // 获取元数据并释放
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_component_meta_free(meta);
-        }
-        
-        // 删除 LVGL 对象
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_BUTTON_MT);
 }
 
 /**

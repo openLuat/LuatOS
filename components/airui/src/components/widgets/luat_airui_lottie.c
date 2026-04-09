@@ -632,7 +632,6 @@ int airui_lottie_destroy(lv_obj_t *lottie)
         meta->user_data = NULL;
     }
 
-    airui_component_meta_free(meta);
     lv_obj_delete(lottie);
     return AIRUI_OK;
 }

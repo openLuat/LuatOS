@@ -777,8 +777,9 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
     lua_getfield(L_state, idx, "target");
     if (lua_type(L_state, -1) == LUA_TUSERDATA) {
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        if (ud != NULL && ud->obj != NULL) {
-            airui_keyboard_set_target(keyboard, ud->obj);
+        lv_obj_t *target = airui_component_userdata_obj(ud);
+        if (target != NULL) {
+            airui_keyboard_set_target(keyboard, target);
         }
     }
     lua_pop(L_state, 1);

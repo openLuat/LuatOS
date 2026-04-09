@@ -5,6 +5,7 @@
  */
 
 #include "luat_airui_component.h"
+#include "luat_airui_binding.h"
 #include "luat_malloc.h"
 #include "lvgl9/src/misc/lv_event.h"
 #include <stdint.h>
@@ -59,6 +60,8 @@ static const char *airui_component_type_name(uint8_t component_type)
     }
 }
 
+static uint32_t g_airui_component_ref_id = 0;
+
 static void airui_component_meta_delete_event_cb(lv_event_t *e)
 {
     if (lv_event_get_code(e) != LV_EVENT_DELETE) {
@@ -92,12 +95,27 @@ airui_component_meta_t *airui_component_meta_alloc(
     if (meta == NULL) {
         return NULL;
     }
+
+    airui_component_ref_t *ref = luat_heap_malloc(sizeof(airui_component_ref_t));
+    if (ref == NULL) {
+        luat_heap_free(meta);
+        return NULL;
+    }
     
     memset(meta, 0, sizeof(airui_component_meta_t));
+    memset(ref, 0, sizeof(airui_component_ref_t));
     
     meta->obj = obj;
     meta->ctx = ctx;
+    meta->ref = ref;
     meta->component_type = component_type;
+
+    ref->obj = obj;
+    ref->alive = 1;
+    if (g_airui_component_ref_id < UINT32_MAX) {
+        g_airui_component_ref_id++;
+    }
+    ref->id = g_airui_component_ref_id;
     
     // 初始化回调引用数组为 LUA_NOREF
     // 注意：LUA_NOREF 通常定义为 -1，但这里避免直接依赖 Lua 头文件
@@ -197,6 +215,11 @@ void airui_component_meta_free(airui_component_meta_t *meta)
 {
     if (meta == NULL) {
         return;
+    }
+
+    if (meta->ref != NULL) {
+        meta->ref->alive = 0;
+        meta->ref->obj = NULL;
     }
     
     // 释放 Lua 回调引用

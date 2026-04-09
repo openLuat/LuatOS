@@ -119,7 +119,7 @@ static int l_tabview_add_tab(lua_State *L) {
         }
 
         content_ud = (airui_component_ud_t *)lua_touserdata(L, 3);
-        if (content_ud == NULL || content_ud->obj == NULL) {
+        if (content_ud == NULL || airui_component_userdata_obj(content_ud) == NULL) {
             luaL_error(L, "invalid content object");
             return 0;
         }
@@ -132,7 +132,7 @@ static int l_tabview_add_tab(lua_State *L) {
     }
 
     if (content_ud != NULL) {
-        lv_obj_set_parent(content_ud->obj, page);
+        lv_obj_set_parent(airui_component_userdata_obj(content_ud), page);
     }
 
     airui_push_component_userdata(L, page, AIRUI_CONTAINER_MT);
@@ -187,17 +187,13 @@ static int l_tabview_set_on_change(lua_State *L) {
  * @return nil
  */
 static int l_tabview_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_TABVIEW_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_tabview_release_data(meta);
-            airui_component_meta_free(meta);
-        }
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
+    lv_obj_t *tabview = airui_check_component(L, 1, AIRUI_TABVIEW_MT);
+    airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    if (meta != NULL) {
+        airui_tabview_release_data(meta);
+        meta->user_data = NULL;
     }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_TABVIEW_MT);
 }
 
 void airui_register_tabview_meta(lua_State *L) {

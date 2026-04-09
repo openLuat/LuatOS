@@ -881,18 +881,14 @@ int airui_video_stop(lv_obj_t *video)
 
 int airui_video_destroy(lv_obj_t *video)
 {
-    airui_component_meta_t *meta;
-
     if (video == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    meta = airui_component_meta_get(video);
-    if (meta == NULL) {
+    if (!lv_obj_is_valid(video)) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    airui_component_meta_free(meta);
     lv_obj_delete(video);
     return AIRUI_OK;
 }

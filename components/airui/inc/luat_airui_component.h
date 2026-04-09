@@ -13,6 +13,8 @@ extern "C" {
 
 #include "luat_airui.h"
 
+typedef struct airui_component_ref airui_component_ref_t;
+
 /*********************
  *      DEFINES
  *********************/
@@ -126,6 +128,7 @@ typedef enum {
 struct airui_component_meta {
     lv_obj_t *obj;                      /**< LVGL 对象指针 */
     airui_ctx_t *ctx;                /**< 上下文引用 */
+    airui_component_ref_t *ref;      /**< 共享 Lua 引用 */
     
     // 回调引用（Lua registry）
     int callback_refs[AIRUI_CALLBACK_MAX];  /**< 事件回调引用数组 */

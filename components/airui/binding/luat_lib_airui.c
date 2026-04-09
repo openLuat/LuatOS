@@ -379,7 +379,7 @@ static int l_airui_full_refresh(lua_State *L) {
  * 休眠 AIRUI
  * @api airui.sleep(opts)
  * @table opts 可选配置
- * @bool opts.power_down_lcd 休眠时是否关闭 LCD 供电，默认 true
+ * @bool opts.power_down_lcd 休眠时是否关闭 LCD 背光，默认 true
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_sleep(lua_State *L) {

@@ -26,6 +26,11 @@
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_HZFONT
+#include "hzfont_u8g2_adapter.h"
+#include "luat_hzfont.h"
+#endif
+
 static luat_u8g2_conf_t* conf = NULL;
 
 uint8_t pinType = 255; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
@@ -1051,6 +1056,149 @@ static int l_u8g2_SetPowerSave(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_HZFONT
+/*
+设置U8G2使用HzFont字体
+@api u8g2.SetHzFont([path][, size][, antialias])
+@string path TTF字体路径，nil表示使用内置字库
+@number size 字号，范围12-255
+@number antialias 抗锯齿等级，-1=自动，1-3=指定等级，可选
+@return boolean 成功返回true，失败返回false
+@usage
+-- 使用内置字体
+u8g2.SetHzFont(nil, 16, 1)
+u8g2.DrawUTF8("合宙LuatOS", 10, 30)
+-- 使用外部字体
+u8g2.SetHzFont("/sd/font.ttf", 20, 1)
+u8g2.DrawUTF8("Hello世界", 10, 50)
+*/
+static int l_u8g2_set_hzfont(lua_State* L) {
+    if (conf == NULL) {
+        LLOGE("u8g2 not initialized");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    const char* path = lua_isnoneornil(L, 1) ? NULL : luaL_checkstring(L, 1);
+    uint8_t size = luaL_checkinteger(L, 2);
+    uint8_t antialias = lua_isnoneornil(L, 3) ? 0xFF : luaL_checkinteger(L, 3);
+
+    // 创建HzFont字体对象
+    void* font = hzfont_u8g2_create_font(path, size, antialias);
+    if (!font) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    // 设置到U8G2
+    int ret = hzfont_u8g2_set_font(&conf->u8g2, font);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/*
+使用HzFont在指定位置绘制文本
+@api u8g2.DrawHzfontText(x, y, text, size, antialias)
+@number x X坐标
+@number y Y坐标
+@string text UTF-8文本
+@number size 字号（0表示使用SetHzFont设置的默认值）
+@number antialias 抗锯齿等级（0xFF表示使用SetHzFont设置的默认值）
+@return number 实际渲染的字符数
+@usage
+u8g2.DrawHzfontText(10, 30, "合宙LuatOS", 16, 1)
+*/
+static int l_u8g2_draw_hzfont_text(lua_State* L) {
+    if (conf == NULL) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    const char* text = luaL_checkstring(L, 3);
+    uint8_t size = luaL_checkinteger(L, 4);
+    uint8_t antialias = lua_isnoneornil(L, 5) ? 0xFF : luaL_checkinteger(L, 5);
+
+    // 绘制文本，传入size和antialias参数
+    uint16_t count = hzfont_u8g2_draw_text(&conf->u8g2, x, y, text, size, antialias);
+
+    lua_pushinteger(L, count);
+    return 1;
+}
+
+/*
+获取HzFont文本的像素宽度
+@api u8g2.GetHzfontWidth(text, size)
+@string text UTF-8文本
+@number size 字号
+@return number 文本像素宽度
+@usage
+local width = u8g2.GetHzfontWidth("合宙LuatOS", 16)
+log.info("width", width)
+*/
+static int l_u8g2_get_hzfont_width(lua_State* L) {
+    if (conf == NULL) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+
+    const char* text = luaL_checkstring(L, 1);
+    uint8_t size = luaL_checkinteger(L, 2);
+
+    // 直接调用底层HZFont的宽度计算函数
+    uint32_t width = luat_hzfont_get_str_width(text, size);
+
+    lua_pushinteger(L, width);
+    return 1;
+}
+
+/*
+设置HzFont渲染参数
+@api u8g2.SetHzfontParams(size, antialias, threshold)
+@number size 字号，范围12-255
+@number antialias 抗锯齿等级，-1=自动，1-3=指定等级，可选
+@number threshold 灰度阈值，0-255，可选
+@return boolean 成功返回true，失败返回false
+@usage
+u8g2.SetHzfontParams(20, 1, 128)
+*/
+static int l_u8g2_set_hzfont_params(lua_State* L) {
+    if (conf == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    // 检查是否使用HzFont
+    hzfont_u8g2_font_t* font = hzfont_u8g2_get_font(&conf->u8g2);
+    if (!font) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    uint8_t size = luaL_checkinteger(L, 1);
+    uint8_t antialias = lua_isnoneornil(L, 2) ? 0xFF : luaL_checkinteger(L, 2);
+    uint8_t threshold = lua_isnoneornil(L, 3) ? 128 : luaL_checkinteger(L, 3);
+
+    int ret = hzfont_u8g2_set_font_attr(font, size, antialias, threshold);
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/*
+初始化HzFont U8G2适配器
+@api u8g2.InitHzfont()
+@return boolean 成功返回true，失败返回false
+@usage
+u8g2.InitHzfont()
+*/
+static int l_u8g2_init_hzfont(lua_State* L) {
+    int ret = hzfont_u8g2_adapter_init();
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif // LUAT_USE_HZFONT
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_u8g2[] =
 {
@@ -1077,7 +1225,14 @@ static const rotable_Reg_t reg_u8g2[] =
     { "DrawRBox",    ROREG_FUNC(l_u8g2_DrawRBox)},
     { "DrawRFrame",  ROREG_FUNC(l_u8g2_DrawRFrame)},
     { "DrawGlyph",   ROREG_FUNC(l_u8g2_DrawGlyph)},
-    { "DrawTriangle", ROREG_FUNC(l_u8g2_DrawTriangle)},
+    { "DrawTriangle",ROREG_FUNC(l_u8g2_DrawTriangle)},
+#ifdef LUAT_USE_HZFONT
+    { "SetHzFont",      ROREG_FUNC(l_u8g2_set_hzfont)},
+    { "DrawHzfontText", ROREG_FUNC(l_u8g2_draw_hzfont_text)},
+    { "GetHzfontWidth",  ROREG_FUNC(l_u8g2_get_hzfont_width)},
+    { "SetHzfontParams",ROREG_FUNC(l_u8g2_set_hzfont_params)},
+    { "InitHzfont",     ROREG_FUNC(l_u8g2_init_hzfont)},
+#endif
     { "SetBitmapMode",ROREG_FUNC(l_u8g2_SetBitmapMode)},
     { "DrawXBM",      ROREG_FUNC(l_u8g2_DrawXBM)},
     { "DrawDrcode",   ROREG_FUNC(l_u8g2_DrawDrcode)},

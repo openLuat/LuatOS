@@ -30,6 +30,11 @@
 #define LUAT_LOG_TAG "eink"
 #endif
 
+#ifdef LUAT_USE_HZFONT
+#include "hzfont_eink_backend.h"
+#include "luat_hzfont.h"
+#endif
+
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
@@ -1266,6 +1271,111 @@ static int l_eink_async(lua_State *L) {
   return 0;
 }
 
+#ifdef LUAT_USE_HZFONT
+/*
+在EINK屏幕上绘制HzFont UTF-8文本
+@api eink.drawHzfont(x, y, text, size, antialias)
+@number x X坐标
+@number y Y坐标
+@string text UTF-8文本（支持中文、英文、数字）
+@number size 字号，范围12-255
+@number antialias 抗锯齿等级，-1=自动，1-3=指定等级，可选
+@return boolean 成功返回true，失败返回false
+@usage
+-- 使用HzFont绘制文本
+hzfont.init()  -- 先初始化HzFont
+eink.drawHzfont(10, 10, "合宙LuatOS", 20, 1)
+eink.drawHzfont(10, 50, "Hello世界", 24, 2)
+*/
+static int l_eink_draw_hzfont(lua_State* L) {
+    if (!check_init()) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    const char* text = luaL_checkstring(L, 3);
+    uint8_t font_size = luaL_checkinteger(L, 4);
+    uint8_t antialias = lua_isnoneornil(L, 5) ? 0xFF : luaL_checkinteger(L, 5);
+
+    // 获取当前绘制上下文
+    if (econf.ctxs[0] == NULL) {
+        LLOGE("eink context not available");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    Paint* paint = &econf.ctxs[0]->paint;
+
+    // 绘制HzFont文本
+    int ret = eink_hzfont_draw_utf8(paint, x, y, text, font_size, antialias);
+
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/*
+获取HzFont UTF-8文本的像素宽度
+@api eink.getHzfontWidth(text, size)
+@string text UTF-8文本
+@number size 字号
+@return number 文本像素宽度，失败返回0
+@usage
+local width = eink.getHzfontWidth("合宙LuatOS", 20)
+log.info("width", width)
+*/
+static int l_eink_get_hzfont_width(lua_State* L) {
+    if (!check_init()) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+
+    const char* text = luaL_checkstring(L, 1);
+    uint8_t font_size = luaL_checkinteger(L, 2);
+
+    // 直接调用底层HZFont的宽度计算函数
+    uint32_t width = luat_hzfont_get_str_width(text, font_size);
+
+    lua_pushinteger(L, width);
+    return 1;
+}
+
+/*
+初始化HzFont EINK后端
+@api eink.initHzfont()
+@return boolean 成功返回true，失败返回false
+@usage
+eink.initHzfont()
+*/
+static int l_eink_init_hzfont(lua_State* L) {
+    int ret = eink_hzfont_backend_init();
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+
+/*
+设置HzFont EINK渲染参数
+@api eink.setHzfontParams(size, antialias, threshold)
+@number size 字号，范围12-255
+@number antialias 抗锯齿等级，-1=自动，1-3=指定等级，可选
+@number threshold 灰度阈值，0-255，可选
+@return boolean 成功返回true，失败返回false
+@usage
+eink.setHzfontParams(20, 1, 128)
+*/
+static int l_eink_set_hzfont_params(lua_State* L) {
+    uint8_t font_size = luaL_checkinteger(L, 1);
+    uint8_t antialias = lua_isnoneornil(L, 2) ? 0xFF : luaL_checkinteger(L, 2);
+    uint8_t threshold = lua_isnoneornil(L, 3) ? 128 : luaL_checkinteger(L, 3);
+
+    int ret = eink_hzfont_set_params(font_size, antialias, threshold);
+
+    lua_pushboolean(L, ret == 0);
+    return 1;
+}
+#endif // LUAT_USE_HZFONT
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_eink[] =
 {
@@ -1293,6 +1403,12 @@ static const rotable_Reg_t reg_eink[] =
     { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},
     { "draw",           ROREG_FUNC(l_eink_draw)},
     { "setCtx",         ROREG_FUNC(l_eink_set_ctx)},
+#ifdef LUAT_USE_HZFONT
+    { "drawHzfont",      ROREG_FUNC(l_eink_draw_hzfont)},
+    { "getHzfontWidth",  ROREG_FUNC(l_eink_get_hzfont_width)},
+    { "initHzfont",     ROREG_FUNC(l_eink_init_hzfont)},
+    { "setHzfontParams",ROREG_FUNC(l_eink_set_hzfont_params)},
+#endif
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_eink_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_eink_draw_gtfont_gb2312_gray)},

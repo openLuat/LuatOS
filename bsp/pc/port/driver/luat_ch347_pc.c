@@ -48,11 +48,20 @@ static PFN_CH347GPIO_Set pfn_CH347GPIO_Set = NULL;
 static PFN_CH347GPIO_Get pfn_CH347GPIO_Get = NULL;
 
 static HMODULE hCH347DLL = NULL;
+// 只允许加载一次DLL
+static int g_ch347DLLLoaded_try = 0;
 #endif
 
 int luat_load_ch347(int flag) {
 #ifdef _WIN32
+	if (hCH347DLL != NULL) {
+		return 1; // 已经加载过DLL，直接返回成功
+	}
+	if (g_ch347DLLLoaded_try > 0) {
+		return 0; // 已经尝试加载过DLL但失败，不再尝试
+	}
     hCH347DLL = LoadLibraryA(CH347_DLL_NAME);
+	g_ch347DLLLoaded_try ++;
     if(hCH347DLL == NULL) {
         LLOGD("not be load %s", CH347_DLL_NAME);
         return 0;

@@ -451,6 +451,7 @@ int luat_ch347_gpio_setup(int pin, int mode, int pull, int irq) {
 			s_Gpiostatus &= ~(1 << pin);
 
 		pfn_CH347GPIO_Set(g_ch3470_SpiI2cGpioDevIndex, s_Gpioflag,  (uint8_t)(s_Gpiostatus & 0x00FF), (uint8_t)(s_Gpiovalues & 0x00FF));
+		return 0;
 	} else {
 		LLOGD("only support GPIO0~7");
 		return 0;
@@ -472,6 +473,7 @@ int luat_ch347_gpio_set(int pin, int level) {
 		else
 			s_Gpiovalues &= ~(1 << pin);
 		pfn_CH347GPIO_Set(g_ch3470_SpiI2cGpioDevIndex, s_Gpioflag,  (uint8_t)(s_Gpiostatus & 0x00FF), (uint8_t)(s_Gpiovalues & 0x00FF));
+		return 0;
 	} else {
 		LLOGD("only support GPIO0~7");
 		return 0;

@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
     if(!memcmp(luatdb_secret, luadb_mod, 32))
     {
         LLOGI("luadb mod init");
-        luadb_ptr = luadb_mod + 32;
+        luadb_ptr = (char*)luadb_mod + 32;
         cmdline_argc = 2;
     }
     else

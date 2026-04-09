@@ -260,6 +260,8 @@ try {
         Remove-Item Env:LUAT_USE_MGBA -ErrorAction SilentlyContinue
     }
 
+    Invoke-XmakeStep -Step "theme" -Arguments @("g", "--theme=plain")
+
     if ($Clean.IsPresent -or $env:LUAT_BUILD_CLEAN -eq "1") {
         Invoke-XmakeStep -Step "clean" -Arguments @("clean", "-a")
     }

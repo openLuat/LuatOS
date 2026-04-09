@@ -31,6 +31,7 @@ cd bsp/pc
 - Do not report AirUI-related verification as complete if you only ran plain `xmake -y`
 - Prefer the existing platform helper scripts when available, because they already set the expected GUI environment flags
 - Helper scripts now default to incremental `summary` mode to reduce low-value warning noise during routine development
+- Helper scripts also normalize xmake to `--theme=plain` so build logs and terminal output do not include ANSI color noise
 - Use `full` to see raw compiler output, and use `clean` only when you explicitly need a clean rebuild
 - Summary/full logs are written to `bsp/pc/build/logs/`
 

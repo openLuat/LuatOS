@@ -129,6 +129,8 @@ export LUAT_USE_GUI="$USE_GUI"
 log_section "mode=$MODE clean=$CLEAN arch=$ARCH vm64=$VM_64BIT gui=$USE_GUI platform=$PLATFORM"
 log_section "full log: $LOG_FILE"
 
+run_step theme g --theme=plain
+
 if [ "$CLEAN" -eq 1 ] || [ "${LUAT_BUILD_CLEAN:-0}" = "1" ]; then
     run_step clean clean -a
 fi

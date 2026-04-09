@@ -402,7 +402,7 @@ static void on_connect(uv_connect_t *req, int status)
         // LLOGD("启动接收回调");
         if (sockets[socket_id].is_tcp)
         {
-            ret = uv_read_start(&sockets[socket_id].tcp, uv_buf_alloc, on_recv);
+            ret = uv_read_start((uv_stream_t *)&sockets[socket_id].tcp, uv_buf_alloc, on_recv);
             if (ret) // TODO 中止连接
                 LLOGD("socket_id[%d] uv_read_start %d", socket_id, ret);
         }
@@ -553,7 +553,7 @@ static void udp_async_close(uv_async_t *handle)
 {
     int socket_id = (int)(intptr_t)handle->data;
     free_uv_handle(handle);
-    on_close(&sockets[socket_id].udp);
+    on_close((uv_handle_t *)&sockets[socket_id].udp);
 }
 
 static int close_socket(int socket_id, const char *tag)
@@ -563,7 +563,7 @@ static int close_socket(int socket_id, const char *tag)
     {
         uv_shutdown_t *shutdown = luat_heap_malloc(sizeof(uv_shutdown_t));
         shutdown->data = (void *)socket_id;
-        ret = uv_shutdown(shutdown, &sockets[socket_id].tcp, on_shutdown);
+        ret = uv_shutdown(shutdown, (uv_stream_t *)&sockets[socket_id].tcp, on_shutdown);
         if (ret) {
             luat_heap_free(shutdown);
             // if (ret != ENOTCONN)
@@ -776,7 +776,7 @@ static int libuv_socket_send(int socket_id, uint64_t tag, const uint8_t *buf, ui
         return -1;
     }
 
-    buff = uv_buf_init(buf, len);
+    buff = uv_buf_init((char*)buf, len);
     // LLOGD("待发送的内容 %.*s", len, buf);
     if (sockets[socket_id].is_tcp)
     {
@@ -1133,7 +1133,7 @@ static void ip_ready_timer_cb(uv_timer_t *t)
 
 void luat_network_init(void)
 {
-    network_register_adapter(NW_ADAPTER_INDEX_ETH0, &prv_libuv_adapter, NULL);
+    network_register_adapter(NW_ADAPTER_INDEX_ETH0, (network_adapter_info *)&prv_libuv_adapter, NULL);
 
     // 延时500ms后发布联网成功的消息
 

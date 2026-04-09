@@ -24,7 +24,9 @@ if data then
 end
 */
 #ifdef _MSC_VER
+#ifndef _CRT_SECURE_NO_WARNINGS
 # define _CRT_SECURE_NO_WARNINGS
+#endif
 # define _CRT_NONSTDC_NO_WARNINGS
 # pragma warning(disable: 4244) /* int -> char */
 # pragma warning(disable: 4706) /* = in if condition */

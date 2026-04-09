@@ -7,6 +7,7 @@
  * @version 1.0
  */
 
+#ifdef LUAT_USE_HZFONT
 #include "hzfont_u8g2_adapter.h"
 #include "luat_hzfont.h"
 #include "luat_log.h"
@@ -421,3 +422,5 @@ hzfont_u8g2_font_t* hzfont_u8g2_get_font(u8g2_t* u8g2) {
 LUAT_WEAK int hzfont_u8g2_auto_init(void) {
     return hzfont_u8g2_adapter_init();
 }
+
+#endif

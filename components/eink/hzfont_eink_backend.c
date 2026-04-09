@@ -6,7 +6,7 @@
  * @date    2026-4-9
  * @version 1.0
  */
-
+#ifdef LUAT_USE_HZFONT
 #include "hzfont_eink_backend.h"
 #include "luat_hzfont.h"
 #include "luat_log.h"
@@ -258,3 +258,5 @@ const char* eink_hzfont_strerror(int err) {
 LUAT_WEAK int eink_hzfont_auto_init(void) {
     return eink_hzfont_backend_init();
 }
+
+#endif

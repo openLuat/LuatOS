@@ -7,6 +7,9 @@
 #define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
 #endif
 
+
+typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
+
 extern uint64_t g_airlink_last_cmd_timestamp;
 
 int luat_airlink_ready(void);
@@ -333,7 +336,6 @@ uint32_t luat_airlink_sversion(void);
 
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
-typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
 
 
 void luat_airlink_current_mode_set(int mode);

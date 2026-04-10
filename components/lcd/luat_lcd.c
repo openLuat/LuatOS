@@ -52,6 +52,9 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
 }
 
 int lcd_write_data(luat_lcd_conf_t* conf, const uint8_t data){
+    if (conf->opts->write_data){
+        return conf->opts->write_data(conf,&data,1);
+    }
     size_t len;
     if (conf->port == LUAT_LCD_SPI_DEVICE){
         len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)&data, 1);

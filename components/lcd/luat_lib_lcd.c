@@ -154,6 +154,8 @@ static int l_lcd_init(lua_State* L) {
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->acc_hw = 0xFF;
     conf->bpp = 16;
+    conf->lcd_clk_pin = LUAT_GPIO_NONE;
+    conf->lcd_sda_pin = LUAT_GPIO_NONE;
     conf->lcd_cs_pin = LUAT_GPIO_NONE;
     conf->pin_dc = LUAT_GPIO_NONE;
     conf->pin_pwr = LUAT_GPIO_NONE;
@@ -356,7 +358,15 @@ static int l_lcd_init(lua_State* L) {
                 conf->vfp = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-
+            
+            lua_pushstring(L, "pin_clk");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->lcd_clk_pin = luaL_checkinteger(L, -1);
+            }
+            lua_pushstring(L, "pin_sda");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->lcd_sda_pin = luaL_checkinteger(L, -1);
+            }
             lua_pushstring(L, "pin_cs");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->lcd_cs_pin = luaL_checkinteger(L, -1);

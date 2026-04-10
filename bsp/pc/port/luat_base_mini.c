@@ -262,7 +262,12 @@ void luat_openlibs(lua_State *L) {
     }
 }
 
+extern int cfg_noexit;
+
 void luat_os_reboot(int code) {
+    if (cfg_noexit) {
+        while (1) luat_timer_mdelay(1000);
+    }
     exit(code);
 }
 
@@ -293,6 +298,9 @@ void luat_os_standy(int timeout) {
 void luat_ota_reboot(int timeout_ms) {
   if (timeout_ms > 0)
     luat_timer_mdelay(timeout_ms);
+  if (cfg_noexit) {
+      while(1) luat_timer_mdelay(1000);
+  }
   exit(0);
 }
 

@@ -35,6 +35,7 @@
 typedef struct {
     lv_obj_t *keyboard;
     lv_obj_t *target;
+    lv_obj_t *owner;
     lv_obj_t *container;
     lv_obj_t *preview_ta;
     int32_t height;
@@ -81,7 +82,36 @@ static airui_ctx_t *airui_binding_get_ctx(lua_State *L_state) {
 // 输入预览框目标事件回调
 static void airui_keyboard_preview_target_event_cb(lv_event_t *e);
 static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e);
+static void airui_keyboard_preview_owner_event_cb(lv_event_t *e);
+static void airui_keyboard_preview_container_event_cb(lv_event_t *e);
 static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t *data);
+
+static airui_keyboard_data_t *airui_keyboard_preview_get_data(airui_keyboard_preview_runtime_t *runtime)
+{
+    if (runtime == NULL || runtime->keyboard == NULL || !lv_obj_is_valid(runtime->keyboard)) {
+        return NULL;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(runtime->keyboard);
+    if (meta == NULL || meta->user_data == NULL) {
+        return NULL;
+    }
+
+    return (airui_keyboard_data_t *)meta->user_data;
+}
+
+static void airui_keyboard_preview_detach_target(airui_keyboard_preview_runtime_t *runtime)
+{
+    if (runtime == NULL) {
+        return;
+    }
+
+    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
+        lv_obj_remove_event_cb_with_user_data(runtime->target, airui_keyboard_preview_target_event_cb, runtime);
+    }
+
+    runtime->target = NULL;
+}
 
 static bool airui_keyboard_preview_is_visible(airui_keyboard_preview_runtime_t *runtime)
 {
@@ -272,9 +302,7 @@ static void airui_keyboard_preview_bind_target(airui_keyboard_preview_runtime_t 
         return;
     }
 
-    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
-        lv_obj_remove_event_cb_with_user_data(runtime->target, airui_keyboard_preview_target_event_cb, runtime);
-    }
+    airui_keyboard_preview_detach_target(runtime);
 
     runtime->target = target;
     if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
@@ -331,6 +359,9 @@ static void airui_keyboard_preview_set_visible(airui_keyboard_data_t *data, bool
             lv_keyboard_set_textarea(runtime->keyboard, runtime->target);
             airui_keyboard_restore_textarea_cursor(runtime->target);
         }
+        else if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {
+            lv_keyboard_set_textarea(runtime->keyboard, NULL);
+        }
         if (runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta)) {
             lv_obj_clear_state(runtime->preview_ta, LV_STATE_FOCUSED);
         }
@@ -358,9 +389,47 @@ static void airui_keyboard_preview_target_event_cb(lv_event_t *e)
         airui_keyboard_preview_sync_text(runtime);
     }
     else if (code == LV_EVENT_DELETE) {
-        runtime->target = NULL;
-        airui_keyboard_preview_sync_text(runtime);
+        airui_keyboard_preview_detach_target(runtime);
+
+        airui_keyboard_data_t *data = airui_keyboard_preview_get_data(runtime);
+        if (data != NULL) {
+            airui_keyboard_preview_set_visible(data, false);
+        }
     }
+}
+
+static void airui_keyboard_preview_owner_event_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_DELETE) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)lv_event_get_user_data(e);
+    if (runtime == NULL) {
+        return;
+    }
+
+    airui_keyboard_preview_detach_target(runtime);
+    runtime->owner = NULL;
+
+    if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {
+        lv_keyboard_set_textarea(runtime->keyboard, NULL);
+    }
+}
+
+static void airui_keyboard_preview_container_event_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_DELETE) {
+        return;
+    }
+
+    airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)lv_event_get_user_data(e);
+    if (runtime == NULL) {
+        return;
+    }
+
+    runtime->container = NULL;
+    runtime->preview_ta = NULL;
 }
 
 // 输入预览框代理事件回调
@@ -407,14 +476,28 @@ static void airui_keyboard_preview_cleanup_event_cb(lv_event_t *e)
         return;
     }
 
-    if (runtime->target != NULL && lv_obj_is_valid(runtime->target)) {
-        lv_obj_remove_event_cb_with_user_data(runtime->target, airui_keyboard_preview_target_event_cb, runtime);
+    airui_keyboard_data_t *data = airui_keyboard_preview_get_data(runtime);
+    if (data != NULL && data->preview_runtime == runtime) {
+        data->preview_runtime = NULL;
     }
-    runtime->target = NULL;
+
+    airui_keyboard_preview_detach_target(runtime);
+
+    if (runtime->owner != NULL && lv_obj_is_valid(runtime->owner)) {
+        lv_obj_remove_event_cb_with_user_data(runtime->owner, airui_keyboard_preview_owner_event_cb, runtime);
+    }
 
     if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
         lv_obj_delete(runtime->container);
     }
+
+    if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {
+        lv_keyboard_set_textarea(runtime->keyboard, NULL);
+    }
+
+    runtime->owner = NULL;
+    runtime->container = NULL;
+    runtime->preview_ta = NULL;
 
     luat_heap_free(runtime);
 }
@@ -436,6 +519,7 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     runtime->height = data->preview_height;
 
     lv_obj_t *parent = lv_obj_get_parent(keyboard);
+    runtime->owner = parent;
     runtime->container = lv_obj_create(parent);
     if (runtime->container == NULL) {
         luat_heap_free(runtime);
@@ -478,6 +562,10 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    if (runtime->owner != NULL && lv_obj_is_valid(runtime->owner)) {
+        lv_obj_add_event_cb(runtime->owner, airui_keyboard_preview_owner_event_cb, LV_EVENT_DELETE, runtime);
+    }
+    lv_obj_add_event_cb(runtime->container, airui_keyboard_preview_container_event_cb, LV_EVENT_DELETE, runtime);
     lv_obj_add_event_cb(keyboard, airui_keyboard_preview_cleanup_event_cb, LV_EVENT_DELETE, runtime);
     lv_obj_add_flag(runtime->container, LV_OBJ_FLAG_HIDDEN);
 

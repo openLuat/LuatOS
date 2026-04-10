@@ -112,6 +112,7 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_PRESSED, NULL);
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_DELETE, NULL);
 
     airui_textarea_data_t *data = (airui_textarea_data_t *)luat_heap_malloc(sizeof(airui_textarea_data_t));
     if (data == NULL) {
@@ -277,6 +278,14 @@ static void airui_textarea_focus_cb(lv_event_t *e)
                 airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
             }
 #endif
+            break;
+        case LV_EVENT_DELETE:
+            if (airui_ctx_get_focused_textarea(meta->ctx) == target) {
+#if defined(LUAT_USE_AIRUI_SDL2)
+                airui_system_keyboard_clear_preedit(meta->ctx);
+#endif
+                airui_ctx_set_focused_textarea(meta->ctx, NULL);
+            }
             break;
         default:
             break;

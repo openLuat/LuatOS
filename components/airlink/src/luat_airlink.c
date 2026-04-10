@@ -37,6 +37,7 @@ extern int luat_airlink_stop_uart(void);
 typedef struct luat_airlink_mode_cb_reg {
     luat_airlink_newdata_notify_cb newdata_cb;
     luat_airlink_link_data_cb link_data_cb;
+    AIRLINK_DEV_INFO_UPDATE_CB dev_info_update_cb;
     uint32_t seq;
 } luat_airlink_mode_cb_reg_t;
 
@@ -53,7 +54,7 @@ static int luat_airlink_mode_has_cb_nolock(int mode) {
     if (!luat_airlink_mode_valid(mode)) {
         return 0;
     }
-    return g_airlink_mode_cb_regs[mode].newdata_cb != NULL || g_airlink_mode_cb_regs[mode].link_data_cb != NULL;
+    return g_airlink_mode_cb_regs[mode].newdata_cb != NULL || g_airlink_mode_cb_regs[mode].link_data_cb != NULL || g_airlink_mode_cb_regs[mode].dev_info_update_cb != NULL;
 }
 
 static int luat_airlink_last_registered_mode_get_nolock(void) {
@@ -96,7 +97,7 @@ static int luat_airlink_active_mode_get_nolock(void) {
     return LUAT_AIRLINK_MODE_UNKNOW;
 }
 
-int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb) {
+int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb, AIRLINK_DEV_INFO_UPDATE_CB dev_info_update_cb) {
     if (!luat_airlink_mode_valid(mode)) {
         return -1;
     }
@@ -106,6 +107,7 @@ int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb n
     }
     g_airlink_mode_cb_regs[mode].newdata_cb = newdata_cb;
     g_airlink_mode_cb_regs[mode].link_data_cb = link_data_cb;
+    g_airlink_mode_cb_regs[mode].dev_info_update_cb = dev_info_update_cb;
     g_airlink_mode_cb_regs[mode].seq = ++g_airlink_mode_cb_seq;
     g_airlink_last_reg_mode = mode;
     if (g_airlink_mode_cb_mutex) {
@@ -124,6 +126,7 @@ int luat_airlink_mode_cb_unregister(uint8_t mode) {
     }
     g_airlink_mode_cb_regs[mode].newdata_cb = NULL;
     g_airlink_mode_cb_regs[mode].link_data_cb = NULL;
+    g_airlink_mode_cb_regs[mode].dev_info_update_cb = NULL;
     g_airlink_mode_cb_regs[mode].seq = 0;
     if (g_airlink_last_reg_mode == mode) {
         g_airlink_last_reg_mode = luat_airlink_last_registered_mode_get_nolock();
@@ -161,6 +164,23 @@ luat_airlink_link_data_cb luat_airlink_mode_link_data_cb_get(void) {
     mode = luat_airlink_active_mode_get_nolock();
     if (luat_airlink_mode_valid(mode)) {
         cb = g_airlink_mode_cb_regs[mode].link_data_cb;
+    }
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);
+    }
+    return cb;
+}
+
+AIRLINK_DEV_INFO_UPDATE_CB luat_airlink_mode_dev_info_update_cb_get(void) {
+    AIRLINK_DEV_INFO_UPDATE_CB cb = NULL;
+    int mode = LUAT_AIRLINK_MODE_UNKNOW;
+    luat_airlink_mode_cb_init();
+    if (g_airlink_mode_cb_mutex) {
+        luat_rtos_mutex_lock(g_airlink_mode_cb_mutex, 1000);
+    }
+    mode = luat_airlink_active_mode_get_nolock();
+    if (luat_airlink_mode_valid(mode)) {
+        cb = g_airlink_mode_cb_regs[mode].dev_info_update_cb;
     }
     if (g_airlink_mode_cb_mutex) {
         luat_rtos_mutex_unlock(g_airlink_mode_cb_mutex);

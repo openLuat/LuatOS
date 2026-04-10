@@ -340,7 +340,7 @@ int luat_airlink_start_uart(void)
 {
     int ret = 0;
     g_airlink_uart.uart_running = 1;
-    
+    AIRLINK_DEV_INFO_UPDATE_CB device_info_update_cb = NULL;
     ret = luat_rtos_queue_create(&g_airlink_uart.tx_evt_queue, 128, sizeof(luat_event_t));
     if (ret) {
         LLOGW("创建tx_evt_queue ret:%d", ret);
@@ -351,7 +351,7 @@ int luat_airlink_start_uart(void)
     }
     luat_rtos_task_sleep(5);
     uart_gpio_setup();
-    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify);
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify, device_info_update_cb);
 
     if (g_airlink_uart.s_txbuff == NULL) {
         g_airlink_uart.s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);

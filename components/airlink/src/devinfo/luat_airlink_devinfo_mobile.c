@@ -17,6 +17,7 @@ static AIRLINK_DEV_INFO_UPDATE_CB send_devinfo_update_evt = NULL;
 extern luat_airlink_mobile_evt_cb g_airlink_mobile_evt_cb;
 
 static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
+    send_devinfo_update_evt = luat_airlink_mode_dev_info_update_cb_get();
     // luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     luat_airlink_dev_info_t *devinfo = &g_airlink_self_dev_info;
 	// LLOGD("mobile_evt_handler event:%d, index:%d, status:%d", event, index, status);
@@ -34,12 +35,16 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
             luat_mobile_get_imsi(0, (char*)devinfo->cat1.imsi, 16);
             // LLOGD("SIM_READY -> ICCID %s", devinfo->cat1.iccid);
             // LLOGD("SIM_READY -> IMSI %s", devinfo->cat1.imsi);
-            send_devinfo_update_evt();
+            if(send_devinfo_update_evt) {
+                send_devinfo_update_evt();
+            }
             break;
         case LUAT_MOBILE_NO_SIM:
             memset(devinfo->cat1.iccid, 0, 20);
             memset(devinfo->cat1.imsi, 0, 16);
-            send_devinfo_update_evt();
+            if(send_devinfo_update_evt) {
+                send_devinfo_update_evt();
+            };
             break;
         case LUAT_MOBILE_SIM_NEED_PIN:
             break;
@@ -71,13 +76,17 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
 		{
 		case LUAT_MOBILE_NETIF_LINK_ON: {
             devinfo->cat1.cat_state = 1;
-            send_devinfo_update_evt();
+            if(send_devinfo_update_evt) {
+                send_devinfo_update_evt();
+            }
             // LLOGD("NETIF_LINK_ON -> IP_READY cat1.cat_state %d ipv4 %d.%d.%d.%d", devinfo->cat1.cat_state, devinfo->cat1.ipv4[0], devinfo->cat1.ipv4[1], devinfo->cat1.ipv4[2], devinfo->cat1.ipv4[3]);
 			break;
         }
         case LUAT_MOBILE_NETIF_LINK_OFF:
             devinfo->cat1.cat_state = 0;
-            send_devinfo_update_evt();
+            if(send_devinfo_update_evt) {
+                send_devinfo_update_evt();
+            }
             // LLOGD("NETIF_LINK_OFF -> IP_LOSE cat1.cat_state %d", devinfo->cat1.cat_state); 
             break;
 		default:
@@ -149,12 +158,13 @@ static int mobile_evt_handler(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t 
 	default:
 		break;
 	}
-    send_devinfo_update_evt();
+    if(send_devinfo_update_evt) {
+        send_devinfo_update_evt();
+    }
     return 0;
 }
 
 void luat_airlink_devinfo_init(AIRLINK_DEV_INFO_UPDATE_CB cb) {
-    send_devinfo_update_evt = cb;
     g_airlink_self_dev_info.tp = 0x02;
     uint32_t fw_version = 3;
     memcpy(g_airlink_self_dev_info.cat1.version, &fw_version, sizeof(uint32_t));   // 版本

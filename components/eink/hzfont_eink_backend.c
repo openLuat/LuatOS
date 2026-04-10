@@ -7,7 +7,7 @@
  * @version 1.0
  */
 #include "luat_base.h"
-#ifdef LUAT_USE_HZFONT
+#if defined(LUAT_USE_HZFONT) && defined(LUAT_USE_EINK)
 #include "hzfont_eink_backend.h"
 #include "luat_hzfont.h"
 #include "luat_log.h"

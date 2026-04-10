@@ -8,7 +8,7 @@
  */
 
 #include "luat_base.h"
-#ifdef LUAT_USE_HZFONT
+#if defined(LUAT_USE_HZFONT) && defined(LUAT_USE_U8G2)
 #include "hzfont_u8g2_adapter.h"
 #include "luat_hzfont.h"
 #include "luat_log.h"

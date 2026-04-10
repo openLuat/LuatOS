@@ -111,3 +111,4 @@ openspec/*
 .chroma_code/
 components/h264/test/test_h264
 testcase/ctx.json
+bsp/pc/pclogs/

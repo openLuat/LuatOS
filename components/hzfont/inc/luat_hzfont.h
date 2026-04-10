@@ -30,7 +30,7 @@ uint32_t luat_hzfont_get_str_width(const char *utf8, unsigned char font_size);
 // 在屏幕上绘制 UTF-8 文本（带缓存和抗锯齿控制）
 int luat_hzfont_draw_utf8(int x, int y, const char *utf8, unsigned char font_size, uint32_t color, int antialias);
 
-#ifdef LUAT_USE_AIRUI
+#if defined(LUAT_USE_AIRUI) || defined(LUAT_USE_EINK) || defined(LUAT_USE_U8G2)
 //  hzfont绘制耗时统计
 typedef struct {
     uint8_t cache_hit;

@@ -7,11 +7,12 @@
 #ifndef LUAT_BASE_H
 #define LUAT_BASE_H
 /**LuatOS版本号*/
-#define LUAT_VERSION "25.11"
+#define LUAT_VERSION "26.04"
 #define LUAT_VERSION_BETA 0
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
+#ifndef LUAT_WEAK
 #if !defined(LUA_USE_C89) && defined(_WIN32)
 #define LUAT_WEAK
 #elif defined(__ARMCC_VERSION)
@@ -24,6 +25,7 @@
 #define LUAT_WEAK
 #else
 #define LUAT_WEAK                     __attribute__((weak))
+#endif
 #endif
 
 //-------------------------------

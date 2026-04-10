@@ -1333,7 +1333,7 @@ void network_register_set_default(uint8_t adapter_index)
 	int dft = network_register_get_default();
 	if (dft != -1 && dft != adapter_index)
 	{
-		DBG_Printf("change from %d to %d", dft, adapter_index);
+		DBG_Printf("dft adapter change from %d to %d", dft, adapter_index);
 	}
 	prv_network.default_adapter_index = adapter_index;
 }

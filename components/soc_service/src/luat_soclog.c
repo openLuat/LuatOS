@@ -617,7 +617,7 @@ void soc_info(const char *fmt, ...)
 
 void soc_debug_out(char *string, uint32_t size)
 {
-	va_list args = NULL;
+	va_list args;
 	am_make_log(0, "LTOS", string, args, 1, size);
 }
 

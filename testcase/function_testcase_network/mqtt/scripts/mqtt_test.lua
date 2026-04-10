@@ -15,8 +15,8 @@ local adapter_test_results = {}
 local ALL_ADAPTERS = {}
 
 -- WiFi配置
-local ssid = "HHHHHHHHHHH"
-local password = "huanghefm94.3"
+local ssid = "luatos1234"
+local password = "12341234"
 
 -- broker参数
 local mqtt_host = "lbsmqtt.airm2m.com"

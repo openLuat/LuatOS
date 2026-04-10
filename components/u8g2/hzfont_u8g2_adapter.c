@@ -7,6 +7,7 @@
  * @version 1.0
  */
 
+#include "luat_base.h"
 #ifdef LUAT_USE_HZFONT
 #include "hzfont_u8g2_adapter.h"
 #include "luat_hzfont.h"

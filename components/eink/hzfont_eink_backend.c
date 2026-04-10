@@ -6,6 +6,7 @@
  * @date    2026-4-9
  * @version 1.0
  */
+#include "luat_base.h"
 #ifdef LUAT_USE_HZFONT
 #include "hzfont_eink_backend.h"
 #include "luat_hzfont.h"

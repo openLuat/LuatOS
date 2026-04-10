@@ -203,6 +203,7 @@ typedef struct {
     lv_obj_t *target;
     lv_obj_t *ime;   /**< LVGL 词库对象，可能为 lv_ime_pinyin */
     bool auto_hide; /**< Keyboard 是否自动跟随 textarea 焦点显示/隐藏 */
+    bool auto_hide_indev_hooked; /**< 是否已注册全局指针按下兜底回调 */
     uint16_t font_size; /**< Keyboard hzfont 字号 */
     bool preview_enabled; /**< 是否启用输入预览框 */
     int32_t preview_height; /**< 预览框固定高度（像素） */

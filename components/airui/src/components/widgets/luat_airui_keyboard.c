@@ -14,6 +14,7 @@
 #include "lvgl9/src/widgets/textarea/lv_textarea.h"
 #include "lvgl9/src/widgets/label/lv_label.h"
 #include "lvgl9/src/misc/lv_event.h"
+#include "lvgl9/src/core/lv_group.h"
 #include "lvgl9/src/core/lv_obj_pos.h"
 #include "lvgl9/src/core/lv_obj_scroll.h"
 #include "lvgl9/src/core/lv_obj_style.h"
@@ -53,6 +54,7 @@ static void airui_keyboard_data_init_defaults(airui_keyboard_data_t *data)
     data->target = NULL;
     data->ime = NULL;
     data->auto_hide = false;
+    data->auto_hide_indev_hooked = false;
     data->font_size = 0;
     data->preview_enabled = false;
     data->preview_height = 40;
@@ -84,7 +86,130 @@ static void airui_keyboard_preview_target_event_cb(lv_event_t *e);
 static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e);
 static void airui_keyboard_preview_owner_event_cb(lv_event_t *e);
 static void airui_keyboard_preview_container_event_cb(lv_event_t *e);
+static void airui_keyboard_owner_auto_hide_cb(lv_event_t *e);
+static void airui_keyboard_indev_auto_hide_cb(lv_event_t *e);
 static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t *data);
+
+static bool airui_keyboard_is_obj_or_ancestor(lv_obj_t *obj, lv_obj_t *candidate)
+{
+    if (obj == NULL || candidate == NULL || !lv_obj_is_valid(obj) || !lv_obj_is_valid(candidate)) {
+        return false;
+    }
+
+    lv_obj_t *current = candidate;
+    while (current != NULL && lv_obj_is_valid(current)) {
+        if (current == obj) {
+            return true;
+        }
+        current = lv_obj_get_parent(current);
+    }
+
+    return false;
+}
+
+static bool airui_keyboard_is_focus_within_related_objects(lv_obj_t *keyboard, airui_keyboard_data_t *data)
+{
+    if (keyboard == NULL || data == NULL || !lv_obj_is_valid(keyboard)) {
+        return false;
+    }
+
+    lv_obj_t *focused = NULL;
+    lv_group_t *group = lv_obj_get_group(keyboard);
+    if (group == NULL && data->target != NULL && lv_obj_is_valid(data->target)) {
+        group = lv_obj_get_group(data->target);
+    }
+    if (group != NULL) {
+        focused = lv_group_get_focused(group);
+    }
+
+    if (focused != NULL && lv_obj_is_valid(focused)) {
+        if (airui_keyboard_is_obj_or_ancestor(keyboard, focused) ||
+            airui_keyboard_is_obj_or_ancestor(data->target, focused) ||
+            airui_keyboard_is_obj_or_ancestor(data->ime, focused)) {
+            return true;
+        }
+
+        if (data->preview_runtime != NULL) {
+            airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+            if (airui_keyboard_is_obj_or_ancestor(runtime->container, focused) ||
+                airui_keyboard_is_obj_or_ancestor(runtime->preview_ta, focused)) {
+                return true;
+            }
+
+#if LV_USE_IME_PINYIN
+            if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
+                lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+                if (airui_keyboard_is_obj_or_ancestor(cand_panel, focused)) {
+                    return true;
+                }
+            }
+#endif
+        }
+    }
+
+    if (lv_obj_has_state(keyboard, LV_STATE_FOCUSED)) {
+        return true;
+    }
+    if (data->target != NULL && lv_obj_is_valid(data->target) && lv_obj_has_state(data->target, LV_STATE_FOCUSED)) {
+        return true;
+    }
+    if (data->ime != NULL && lv_obj_is_valid(data->ime) && lv_obj_has_state(data->ime, LV_STATE_FOCUSED)) {
+        return true;
+    }
+
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        if (runtime->container != NULL && lv_obj_is_valid(runtime->container) && lv_obj_has_state(runtime->container, LV_STATE_FOCUSED)) {
+            return true;
+        }
+        if (runtime->preview_ta != NULL && lv_obj_is_valid(runtime->preview_ta) && lv_obj_has_state(runtime->preview_ta, LV_STATE_FOCUSED)) {
+            return true;
+        }
+
+#if LV_USE_IME_PINYIN
+        if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
+            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            if (cand_panel != NULL && lv_obj_is_valid(cand_panel) && lv_obj_has_state(cand_panel, LV_STATE_FOCUSED)) {
+                return true;
+            }
+        }
+#endif
+    }
+
+    return false;
+}
+
+static bool airui_keyboard_is_related_obj(lv_obj_t *keyboard, airui_keyboard_data_t *data, lv_obj_t *obj)
+{
+    if (keyboard == NULL || data == NULL || obj == NULL || !lv_obj_is_valid(obj)) {
+        return false;
+    }
+
+    if (airui_keyboard_is_obj_or_ancestor(keyboard, obj) ||
+        airui_keyboard_is_obj_or_ancestor(data->target, obj) ||
+        airui_keyboard_is_obj_or_ancestor(data->ime, obj)) {
+        return true;
+    }
+
+    if (data->preview_runtime != NULL) {
+        airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
+        if (airui_keyboard_is_obj_or_ancestor(runtime->container, obj) ||
+            airui_keyboard_is_obj_or_ancestor(runtime->preview_ta, obj)) {
+            return true;
+        }
+
+#if LV_USE_IME_PINYIN
+        if (data->ime != NULL && lv_obj_is_valid(data->ime)) {
+            lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
+            if (airui_keyboard_is_obj_or_ancestor(cand_panel, obj)) {
+                return true;
+            }
+        }
+#endif
+    }
+
+    return false;
+}
 
 static airui_keyboard_data_t *airui_keyboard_preview_get_data(airui_keyboard_preview_runtime_t *runtime)
 {
@@ -432,6 +557,56 @@ static void airui_keyboard_preview_container_event_cb(lv_event_t *e)
     runtime->preview_ta = NULL;
 }
 
+static void airui_keyboard_owner_auto_hide_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_PRESSED) {
+        return;
+    }
+
+    lv_obj_t *keyboard = (lv_obj_t *)lv_event_get_user_data(e);
+    lv_obj_t *pressed = lv_event_get_target(e);
+    if (keyboard == NULL || !lv_obj_is_valid(keyboard) || pressed == NULL || !lv_obj_is_valid(pressed)) {
+        return;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    airui_keyboard_data_t *data = meta != NULL ? (airui_keyboard_data_t *)meta->user_data : NULL;
+    if (data == NULL || !data->auto_hide) {
+        return;
+    }
+
+    if (airui_keyboard_is_related_obj(keyboard, data, pressed)) {
+        return;
+    }
+
+    airui_keyboard_hide(keyboard);
+}
+
+static void airui_keyboard_indev_auto_hide_cb(lv_event_t *e)
+{
+    if (e == NULL || lv_event_get_code(e) != LV_EVENT_PRESSED) {
+        return;
+    }
+
+    lv_obj_t *keyboard = (lv_obj_t *)lv_event_get_user_data(e);
+    if (keyboard == NULL || !lv_obj_is_valid(keyboard)) {
+        return;
+    }
+
+    airui_component_meta_t *meta = airui_component_meta_get(keyboard);
+    airui_keyboard_data_t *data = meta != NULL ? (airui_keyboard_data_t *)meta->user_data : NULL;
+    if (data == NULL || !data->auto_hide) {
+        return;
+    }
+
+    lv_obj_t *pressed = lv_indev_get_active_obj();
+    if (pressed != NULL && lv_obj_is_valid(pressed) && airui_keyboard_is_related_obj(keyboard, data, pressed)) {
+        return;
+    }
+
+    airui_keyboard_hide(keyboard);
+}
+
 // 输入预览框代理事件回调
 static void airui_keyboard_preview_proxy_event_cb(lv_event_t *e)
 {
@@ -485,6 +660,18 @@ static void airui_keyboard_preview_cleanup_event_cb(lv_event_t *e)
 
     if (runtime->owner != NULL && lv_obj_is_valid(runtime->owner)) {
         lv_obj_remove_event_cb_with_user_data(runtime->owner, airui_keyboard_preview_owner_event_cb, runtime);
+    }
+
+    if (runtime->keyboard != NULL && lv_obj_is_valid(runtime->keyboard)) {
+        airui_component_meta_t *meta = airui_component_meta_get(runtime->keyboard);
+        airui_keyboard_data_t *data = meta != NULL ? (airui_keyboard_data_t *)meta->user_data : NULL;
+        if (data != NULL && data->auto_hide && runtime->owner != NULL && lv_obj_is_valid(runtime->owner)) {
+            lv_obj_remove_event_cb_with_user_data(runtime->owner, airui_keyboard_owner_auto_hide_cb, runtime->keyboard);
+        }
+        if (data != NULL && data->auto_hide_indev_hooked && meta != NULL && meta->ctx != NULL && meta->ctx->indev != NULL) {
+            lv_indev_remove_event_cb_with_user_data(meta->ctx->indev, airui_keyboard_indev_auto_hide_cb, runtime->keyboard);
+            data->auto_hide_indev_hooked = false;
+        }
     }
 
     if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
@@ -595,11 +782,10 @@ static void airui_keyboard_target_auto_hide_cb(lv_event_t *e)
             break;
         case LV_EVENT_DEFOCUSED:
         case LV_EVENT_LEAVE:
-            if (data != NULL && data->preview_runtime != NULL) {
-                airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
-                if (airui_keyboard_preview_is_visible(runtime) && target == data->target) {
-                    break;
-                }
+            /* 只有焦点仍停留在键盘/预览/候选框相关对象内时才保留显示，
+             * 避免依赖 preview_ta 后续再补一次失焦事件。 */
+            if (data != NULL && airui_keyboard_is_focus_within_related_objects(keyboard, data)) {
+                break;
             }
             /* LV_EVENT_LEAVE：点击 group 外区域时触发；LV_EVENT_DEFOCUSED：group 内切换焦点时触发 */
             airui_keyboard_hide(keyboard);
@@ -859,6 +1045,14 @@ lv_obj_t *airui_keyboard_create_from_config(void *L, int idx)
         if (!auto_hide) {
             airui_keyboard_preview_set_visible(data, true);
         }
+    }
+
+    if (auto_hide && parent != NULL && lv_obj_is_valid(parent)) {
+        lv_obj_add_event_cb(parent, airui_keyboard_owner_auto_hide_cb, LV_EVENT_PRESSED, keyboard);
+    }
+    if (auto_hide && ctx->indev != NULL) {
+        lv_indev_add_event_cb(ctx->indev, airui_keyboard_indev_auto_hide_cb, LV_EVENT_PRESSED, keyboard);
+        data->auto_hide_indev_hooked = true;
     }
 
     // 如果配置里提供了 Textarea userdata，立即绑定方可让默认按钮生效

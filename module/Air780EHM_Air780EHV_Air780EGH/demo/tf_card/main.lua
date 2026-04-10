@@ -68,12 +68,6 @@ log.info("main", PROJECT, VERSION)
 -- end, 3000)
 
 
-
--- 加载ch390控制模块，
--- 在使用Air780EHM/EHV/EGH开发板时，打开这个功能模块。
--- 在使用Air780E/EHV/EGH核心板时，关闭这个功能模块。                  
---require "ch390_manager"
-
 --[[在加载以下三个功能时，建议分别打开进行测试，因为文件操作，http下载功能和http大文件上传功能是异步操作。
 放到一个项目中，如果加载的时间点是随机的，就会出现tfcard_app在spi.setup和fatfs挂载文件系统之后，
 还没有释放资源，然后http_download_file或http_upload_file又去重复spi.setup和fatfs挂载文件系统了，

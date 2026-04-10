@@ -5,7 +5,7 @@
 1、main.lua：主程序入口 <br> 
 2、tfcard_app.lua：TF卡基础应用模块，实现文件系统管理、文件操作和目录管理功能<br> 
 3、http_download_file.lua：HTTP下载模块，实现网络检测与文件下载到TF卡的功能<br>
-4、http_upload_file.lua：HTTP下载模块，实现网络检测与tf卡内大文件上传服务器的功能
+4、http_upload_file.lua：HTTP上传模块，实现网络检测与tf卡内大文件上传服务器的功能
 
 ## **演示功能概述**
 

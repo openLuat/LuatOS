@@ -4,8 +4,8 @@
 
 1、main.lua：主程序入口 <br> 
 2、tfcard_app.lua：TF卡基础应用模块，实现文件系统管理、文件操作和目录管理功能<br> 
-3、http_download_file.lua：HTTP下载模块，实现网络检测与文件下载到TF卡的功能<br> 
-4、http_upload_file.lua：HTTP上传模块，实现网络检测与文件上传到服务器的功能<br> 
+3、http_download_file.lua：HTTP下载模块，实现网络检测与文件下载到TF卡的功能<br>
+4、http_upload_file.lua：HTTP上传模块，实现网络检测与tf卡内大文件上传服务器的功能
 
 ## **演示功能概述**
 
@@ -14,21 +14,12 @@
 - 初始化项目信息和版本号
 - 初始化看门狗，并定时喂狗
 - 启动一个循环定时器，每隔3秒钟打印一次总内存，实时的已使用内存，历史最高的已使用内存情况方便分析内存使用是否有异常
-- 加载ch390_manager模块（通过require "ch390_manager"）。
 - 加载tfcard_app模块（通过require "tfcard_app"）
 - 加载http_download_file模块（通过require "http_download_file"）
 - 加载http_upload_file模块（通过require "http_upload_file"）
 - 最后运行sys.run()。
 
-### 2、CH390控制模块（ch390_manager.lua）
-
-在Air780EHM/EHV/EGH开发板上，spi0上同时外挂了tf卡和ch390h以太网芯片两种spi从设备，这两种外设通过不同的cs引脚区分；
-测试tf功能前，需要将ch390h的cs引脚拉高，这样可以保证ch390h不会干扰到tf功能；
-- 控制CH390供电引脚（GPIO20）的开关
-- 控制CH390片选引脚（GPIO8）的电平状态
-
-
-### 3、TF卡核心演示模块（tfcard_app.lua）
+### 2、TF卡核心演示模块（tfcard_app.lua）
 
 #### 文件系统管理
 
@@ -58,7 +49,7 @@
 
 - 资源清理（卸载/SPI关闭）
 
-### 4、HTTP下载功能 (http_download_file.lua)
+### 3、HTTP下载功能 (http_download_file.lua)
 
 #### 文件系统管理
 
@@ -79,17 +70,22 @@
 - 自动文件大小验证
 - 资源清理（卸载/spi关闭）
 
+### 4、HTTP上传功能 (http_download_file.lua)
 
-### 5、HTTP上传功能 (http_upload_file.lua)
+#### 加载扩展库
+
+- require("httpplus")
+
+#### 网络就绪检测
+
+- 1秒循环等待IP就绪
 
 #### 文件系统管理
 
 - SPI初始化与挂载
 
-#### 网络就绪检测
+- 确认文件存在
 
-- 1秒循环等待IP就绪
-- 网络故障处理机制
 
 #### 安全上传
 
@@ -269,3 +265,9 @@ Air780EHV:https://docs.openluat.com/air780ehv/luatos/firmware/version/
 [2025-11-14 12:10:20.031][000000013.557] I/user.HTTP上传 资源清理完成
 
 ```
+
+## **异常处理**
+
+1、使用合宙开发板时，如出现TF卡初始化失败的情况，请使用exmux扩展库的setup函数初始化外设分组开关状态，使用open函数打开外设分组，并跳转至exmux扩展库介绍文档中了解I2C/SPI总线上拉问题；https://docs.openluat.com/osapi/ext/exmodbus/
+
+2、使用自己制作的板子时，如出现TF卡初始化失败的情况，请根据各型号文档中”硬件设计资料“的I2C和SPI板块”常见的坑“栏目中的经验，检查板子上的I2C/SPI总线是正常上拉；也可使用exmux库来管理i2c和spi总线的上拉状态，详情请参考exmux扩展库介绍文档。

@@ -69,7 +69,7 @@ local function lcd_drv_init()
                 type = "hzfont",   -- 字体类型，可选 "hzfont" 或 "bin"
                 path = nil,        -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
                 size = 20,         -- 字体大小，默认 16
-                cache_size = 1048, -- 缓存字数大小，默认 2048
+                cache_size = 1024, -- 缓存字数大小，默认 2048
                 antialias = 1,     -- 抗锯齿等级1-3，默认 1
             })
         else
@@ -78,7 +78,7 @@ local function lcd_drv_init()
                 type = "hzfont",             -- 字体类型，可选 "hzfont" 或 "bin"
                 path = "/MiSans_gb2312.ttf", -- 字体路径，对于 "hzfont"，传 nil 则使用内置字库
                 size = 20,                   -- 字体大小，默认 16
-                cache_size = 1048,           -- 缓存字数大小，默认 2048
+                cache_size = 1024,           -- 缓存字数大小，默认 2048
                 antialias = 1,               -- 抗锯齿等级1-3，默认 1
                 -- load_to_psram= true,
                 global = true

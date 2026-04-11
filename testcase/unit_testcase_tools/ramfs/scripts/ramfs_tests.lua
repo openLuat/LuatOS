@@ -159,4 +159,100 @@ function ramfs_tests.test_ioRamRenameDirectoryOverwriteEmptyTarget()
 end
 
 
+function ramfs_tests.test_ioRamLsdirFileSize()
+    local dir = "/ram/lsdir_size_test"
+    local file = dir .. "/hello.txt"
+    local content = "size check content"
+
+    cleanup_ram_paths({file}, {dir})
+
+    local ok, err = io.mkdir(dir)
+    assert(ok == true and err == 0, "创建测试目录失败")
+    assert(io.writeFile(file, content) == true, "写入文件失败")
+
+    local found, entries = io.lsdir(dir, 10, 0)
+    assert(found == true and #entries == 1, "lsdir 应返回1个条目")
+    assert(entries[1].name == "hello.txt", "文件名错误")
+    assert(entries[1].type == 0, "应为文件类型")
+    assert(entries[1].size == #content,
+        string.format("lsdir d_size 应为 %d, 实际为 %d", #content, entries[1].size))
+
+    cleanup_ram_paths({file}, {dir})
+end
+
+function ramfs_tests.test_ioRamRemoveOpenFileFails()
+    local dir = "/ram/refcount_test"
+    local file = dir .. "/open.txt"
+
+    cleanup_ram_paths({file}, {dir})
+
+    local ok, err = io.mkdir(dir)
+    assert(ok == true and err == 0, "创建测试目录失败")
+    assert(io.writeFile(file, "open file data") == true, "写入文件失败")
+
+    local fd = io.open(file, "r")
+    assert(fd ~= nil, "打开文件失败")
+
+    -- 文件打开时不应允许删除
+    local removed, remove_err = os.remove(file)
+    assert(removed ~= true, "打开中的文件不应被删除，但删除成功了")
+
+    fd:close()
+
+    -- 关闭后应可正常删除
+    removed, remove_err = os.remove(file)
+    assert(removed == true and remove_err == nil,
+        string.format("关闭后删除文件失败: %s %s", removed, remove_err))
+
+    io.rmdir(dir)
+end
+
+function ramfs_tests.test_ioRamRenameOpenFileFails()
+    local dir = "/ram/rename_refcount_test"
+    local src = dir .. "/src.txt"
+    local dst = dir .. "/dst.txt"
+
+    cleanup_ram_paths({src, dst}, {dir})
+
+    local ok, err = io.mkdir(dir)
+    assert(ok == true and err == 0, "创建测试目录失败")
+    assert(io.writeFile(src, "rename test") == true, "写入文件失败")
+
+    local fd = io.open(src, "r")
+    assert(fd ~= nil, "打开文件失败")
+
+    -- 文件打开时不应允许重命名
+    local renamed, rename_err = os.rename(src, dst)
+    assert(renamed ~= true, "打开中的文件不应被重命名，但重命名成功了")
+
+    fd:close()
+
+    -- 关闭后应可正常重命名
+    renamed, rename_err = os.rename(src, dst)
+    assert(renamed == true and rename_err == nil,
+        string.format("关闭后重命名文件失败: %s %s", renamed, rename_err))
+
+    cleanup_ram_paths({dst}, {dir})
+end
+
+function ramfs_tests.test_ioRamLongPath()
+    -- 路径名支持127字符, 测试接近上限的路径
+    local dir = "/ram/longpath_test"
+    -- 构造一个长文件名 (100字符)
+    local long_name = string.rep("a", 100) .. ".txt"
+    local file = dir .. "/" .. long_name
+
+    cleanup_ram_paths({file}, {dir})
+
+    local ok, err = io.mkdir(dir)
+    assert(ok == true and err == 0, "创建测试目录失败")
+
+    assert(io.writeFile(file, "long path content") == true,
+        string.format("写入长路径文件失败, 路径长=%d", #file))
+    assert(io.exists(file) == true, "长路径文件应存在")
+
+    cleanup_ram_paths({file}, {dir})
+end
+
+
 return ramfs_tests

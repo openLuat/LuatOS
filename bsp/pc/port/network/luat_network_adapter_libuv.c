@@ -33,7 +33,8 @@ enum
     SC_CONNECTING,
     SC_CONNECTED,
     SC_CLOSING,
-    SC_CLOSED
+    SC_CLOSED,
+    SC_LISTENING
 };
 
 static const char* state_strs[] = {
@@ -42,7 +43,8 @@ static const char* state_strs[] = {
     "连接中",
     "已连接",
     "关闭中",
-    "已关闭"
+    "已关闭",
+    "监听中"
 };
 
 typedef struct
@@ -83,6 +85,7 @@ typedef struct uv_conn
     // struct sockaddr_in remote;
     int is_ipv6;
     int is_tcp;
+    uv_tcp_t *listen_tcp;   // 监听专用句柄
 } uv_conn_t;
 
 int libuv_init(uint8_t adapter_index);
@@ -118,7 +121,7 @@ static uv_conn_t sockets[MAX_SOCK_NUM];
 static uint64_t socket_tag_counter = 0xFAFB;
 
 static const char* socket_state_str(int state) {
-    if (state >= 0 && state <= SC_CLOSED) {
+    if (state >= 0 && state <= SC_LISTENING) {
         return state_strs[state];
     }
     return "";
@@ -167,7 +170,7 @@ static void cb_to_nw_task(uint32_t event_id, size_t param1, size_t param2, size_
     }
     OS_EVENT event = {.ID = event_id, .Param1 = param1, .Param2 = param2, .Param3 = param3};
     memcpy(&e->event, &event, sizeof(OS_EVENT));
-    luat_network_cb_param_t param = {.tag = 0, .param = NULL};
+    luat_network_cb_param_t param = {.tag = 0, .param = ctrl.user_data};
     if ((e->event.ID > EV_NW_DNS_RESULT))
     {
         e->event.Param3 = (size_t)sockets[e->event.Param1].param;
@@ -494,16 +497,122 @@ static int libuv_socket_connect(int socket_id, uint64_t tag, uint16_t local_port
     return ret;
 }
 // 作为server绑定一个port，开始监听
+static void on_listen_close(uv_handle_t *handle) {
+    luat_heap_free(handle);
+}
+
+static void on_reject_close(uv_handle_t *handle) {
+    luat_heap_free(handle);
+}
+
+static void on_new_connection(uv_stream_t *server, int status) {
+    int32_t socket_id = (int32_t)(intptr_t)server->data;
+    if (socket_id < 0 || socket_id >= MAX_SOCK_NUM) return;
+    if (status < 0) {
+        LLOGE("socket[%d] on_new_connection error: %s", socket_id, uv_strerror(status));
+        return;
+    }
+    // 一对一模式: 如果已有客户端连接, 拒绝新连接
+    if (sockets[socket_id].state != SC_LISTENING) {
+        LLOGW("socket[%d] 已有客户端连接, 拒绝新连接", socket_id);
+        uv_tcp_t *tmp = luat_heap_malloc(sizeof(uv_tcp_t));
+        uv_tcp_init(main_loop, tmp);
+        if (uv_accept(server, (uv_stream_t*)tmp) == 0) {
+            uv_close((uv_handle_t*)tmp, on_reject_close);
+        } else {
+            luat_heap_free(tmp);
+        }
+        return;
+    }
+    // 直接accept到server socket自身的embedded tcp (create_socket时已init, 未连接)
+    if (uv_accept(server, (uv_stream_t*)&sockets[socket_id].tcp) == 0) {
+        LLOGI("socket[%d] 收到新的客户端连接", socket_id);
+        set_socket_state(socket_id, SC_CONNECTED);
+        uv_read_start((uv_stream_t*)&sockets[socket_id].tcp, uv_buf_alloc, on_recv);
+        cb_to_nw_task(EV_NW_SOCKET_CONNECT_OK, socket_id, 0, (size_t)sockets[socket_id].param);
+    } else {
+        LLOGE("socket[%d] uv_accept failed", socket_id);
+    }
+}
+
 static int libuv_socket_listen(int socket_id, uint64_t tag, uint16_t local_port, void *user_data)
 {
-    LLOGI("socket[%d] 执行listen, 未支持", socket_id);
-    return -1;
+    if (socket_id < 0 || socket_id >= MAX_SOCK_NUM) {
+        LLOGE("socket id不合法 %d", socket_id);
+        return -1;
+    }
+    if (sockets[socket_id].tag != tag) {
+        LLOGE("socket[%d] tag不匹配", socket_id);
+        return -1;
+    }
+    // 已经在监听了
+    if (sockets[socket_id].listen_tcp != NULL) {
+        LLOGI("socket[%d] 已经在监听, 直接返回事件", socket_id);
+        cb_to_nw_task(EV_NW_SOCKET_LISTEN, socket_id, 0, (size_t)sockets[socket_id].param);
+        return 0;
+    }
+
+    int ret = 0;
+    struct sockaddr_in bind_addr;
+    uv_ip4_addr("0.0.0.0", local_port, &bind_addr);
+
+    uv_tcp_t *listen_tcp = luat_heap_malloc(sizeof(uv_tcp_t));
+    if (listen_tcp == NULL) {
+        LLOGE("socket[%d] listen out of memory", socket_id);
+        return -1;
+    }
+    uv_tcp_init(main_loop, listen_tcp);
+    listen_tcp->data = (void*)(intptr_t)socket_id;
+
+    ret = uv_tcp_bind(listen_tcp, (const struct sockaddr*)&bind_addr, 0);
+    if (ret) {
+        LLOGE("socket[%d] uv_tcp_bind port %d failed: %s", socket_id, local_port, uv_strerror(ret));
+        uv_close((uv_handle_t*)listen_tcp, on_listen_close);
+        return -1;
+    }
+
+    ret = uv_listen((uv_stream_t*)listen_tcp, 1, on_new_connection);
+    if (ret) {
+        LLOGE("socket[%d] uv_listen port %d failed: %s", socket_id, local_port, uv_strerror(ret));
+        uv_close((uv_handle_t*)listen_tcp, on_listen_close);
+        return -1;
+    }
+
+    sockets[socket_id].listen_tcp = listen_tcp;
+    set_socket_state(socket_id, SC_LISTENING);
+    LLOGI("socket[%d] 开始监听端口 %d", socket_id, local_port);
+    cb_to_nw_task(EV_NW_SOCKET_LISTEN, socket_id, 0, (size_t)sockets[socket_id].param);
+    return 0;
 }
-// 作为server接受一个client
+// 作为server接受一个client (一对一模式: 连接已在on_new_connection中accept到embedded tcp)
 static int libuv_socket_accept(int socket_id, uint64_t tag, luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
 {
-    LLOGI("socket[%d] 执行accept, 未支持", socket_id);
-    return -1;
+    if (socket_id < 0 || socket_id >= MAX_SOCK_NUM) {
+        LLOGE("socket id不合法 %d", socket_id);
+        return -1;
+    }
+    if (sockets[socket_id].state != SC_CONNECTED) {
+        LLOGE("socket[%d] accept失败, 当前状态 %s", socket_id, socket_state_str(sockets[socket_id].state));
+        return -1;
+    }
+    // 获取远端地址
+    struct sockaddr_storage peername;
+    int namelen = sizeof(peername);
+    if (uv_tcp_getpeername(&sockets[socket_id].tcp, (struct sockaddr*)&peername, &namelen) == 0) {
+        struct sockaddr_in *addr4 = (struct sockaddr_in*)&peername;
+        if (remote_ip) {
+            #ifdef LUAT_USE_LWIP
+            ip_addr_set_ip4_u32_val((*remote_ip), addr4->sin_addr.s_addr);
+            #else
+            remote_ip->ipv4 = addr4->sin_addr.s_addr;
+            #endif
+        }
+        if (remote_port) {
+            *remote_port = ntohs(addr4->sin_port);
+        }
+    }
+    LLOGI("socket[%d] accept完成", socket_id);
+    return 0;
 }
 
 static void on_close(uv_handle_t *handle)
@@ -559,6 +668,20 @@ static void udp_async_close(uv_async_t *handle)
 static int close_socket(int socket_id, const char *tag)
 {
     int ret = 0;
+    // 先关闭listen_tcp(如果存在)
+    if (sockets[socket_id].listen_tcp) {
+        uv_close((uv_handle_t*)sockets[socket_id].listen_tcp, on_listen_close);
+        sockets[socket_id].listen_tcp = NULL;
+    }
+    // 如果是监听状态, 也需要关闭embedded tcp (create_socket时init的)
+    if (sockets[socket_id].state == SC_LISTENING) {
+        if (!uv_is_closing((uv_handle_t*)&sockets[socket_id].tcp)) {
+            uv_close((uv_handle_t*)&sockets[socket_id].tcp, NULL);
+        }
+        sockets[socket_id].tag = 0;
+        set_socket_state(socket_id, SC_CLOSED);
+        return 0;
+    }
     if (sockets[socket_id].is_tcp)
     {
         uv_shutdown_t *shutdown = luat_heap_malloc(sizeof(uv_shutdown_t));
@@ -627,10 +750,8 @@ static int libuv_socket_close(int socket_id, uint64_t tag, void *user_data)
     CHECK_SOCKET_ID
 
     if (sockets[socket_id].tag == 0 || sockets[socket_id].state == SC_CLOSED) {
-        LLOGI("socket[%d] 该socket已经释放,无需再次释放", socket_id);
         return 0;
     }
-
     return close_socket(socket_id, "close");
 }
 

@@ -237,6 +237,7 @@ static int l_socket_create(lua_State *L)
 		lua_pushnil(L);
 		return 1;
 	}
+	memset(l_ctrl, 0, sizeof(luat_socket_ctrl_t));
 	l_ctrl->adapter_index = adapter_index;
 	l_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!l_ctrl->netc)

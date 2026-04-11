@@ -89,9 +89,45 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
 
 - Lua 5.3 VM execution
 - GUI simulation (SDL2)
-- Network (via host OS)
+- Network (via host OS, libuv adapter)
+- TCP Client & Server (listen/accept)
 - File system (host filesystem)
 - Most libraries supported
+
+## NETWORK ADAPTER (libuv)
+
+**File**: `port/network/luat_network_adapter_libuv.c`
+
+The PC simulator uses libuv for async network I/O. Key architecture:
+
+### Threading Model
+- **Main thread**: Lua VM, message bus, coroutine scheduling
+- **libuv thread**: Runs `uv_run()` event loop, handles I/O callbacks
+- **Bridge**: `cb_to_nw_task()` sends events via `uv_async_send` from main → libuv thread
+
+### Socket States
+```
+SC_IDLE → SC_USED → SC_CONNECTING → SC_CONNECTED → SC_CLOSING → SC_CLOSED
+                  → SC_LISTENING (TCP Server)
+```
+
+### TCP Server Flow (one-to-one mode, `no_accept=1`)
+1. `libuv_socket_listen`: creates separate `listen_tcp` (heap), binds, listens
+2. `on_new_connection`: accepts client into socket's embedded `tcp` handle
+3. State: LISTEN(6) → ONLINE(5)
+4. Close: closes both `listen_tcp` and embedded `tcp`
+
+### ⚠️ Critical libuv Pitfalls
+
+| Pitfall | Detail |
+|---------|--------|
+| **Never memcpy uv handles** | `uv_tcp_t` contains internal linked-list pointers (`handle_queue`). Memcpy corrupts the event loop. |
+| **`uv_close` is async** | Close callback fires in future event loop iteration. Heap-allocate handles that need to outlive close. |
+| **`uv_accept` target must be init'd** | The target handle must be initialized (`uv_tcp_init`) but not connected. |
+| **Thread safety** | Callbacks from `uv_async_send` fire on the libuv thread. Be careful with Lua state access. |
+
+### Debug Reference
+- See `docs/debug_tcp_listen.md` for the full TCP listen/accept debugging record
 
 ## WHERE TO LOOK
 
@@ -100,7 +136,9 @@ Output: `build/out/luatos-lua.exe` (Windows) or `build/out/luatos-lua` (Linux/ma
 | Main entry | `src/main.c` |
 | Build config | `xmake.lua` |
 | Platform port | `port/` |
+| Network adapter | `port/network/luat_network_adapter_libuv.c` |
 | UI tests | `ui/` |
+| Debug records | `docs/` |
 
 ## CONVENTIONS
 

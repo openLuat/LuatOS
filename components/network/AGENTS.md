@@ -33,8 +33,51 @@ network/
 | MQTT | `libemqtt/` | `libemqtt.c` |
 | WebSocket | `websocket/` | `websocket.c` |
 | TCP/UDP (raw) | `adapter/` | `luat_network_adapter.c` |
+| Socket Lua API | `adapter/` | `luat_lib_socket.c` |
 | SNTP | `libsntp/` | `libsntp.c` |
 | HTTP server | `httpsrv/` | `httpsrv.c` |
+
+## THREE-LAYER ARCHITECTURE
+
+```
+┌─────────────────────────────────┐
+│ Lua API (luat_lib_socket.c)     │  socket.create/listen/accept/rx/tx
+├─────────────────────────────────┤
+│ Framework (luat_network_adapter │  network_ctrl_t state machine
+│           .c / .h)             │  States: OFF_LINE → CONNECTING → ONLINE / LISTEN
+├─────────────────────────────────┤
+│ Adapter (per-platform)          │  lwip2: net_lwip2.c
+│                                 │  PC:    luat_network_adapter_libuv.c
+└─────────────────────────────────┘
+```
+
+### State Machine (network_ctrl_t)
+```
+NW_STATE_LINK_OFF(0) → NW_STATE_OFF_LINE(1) → NW_STATE_CONNECTING(3)
+  → NW_STATE_ONLINE(5)      (client connected)
+  → NW_STATE_LISTEN(6)      (server listening)
+  → NW_STATE_DISCONNECTING(7)
+```
+
+### Key Events
+| Event | Meaning |
+|-------|---------|
+| `EV_NW_SOCKET_LISTEN` | Listen started successfully |
+| `EV_NW_SOCKET_CONNECT_OK` | Client connected (or accepted) |
+| `EV_NW_SOCKET_CLOSE_OK` | Socket closed (⚠️ not sent for LISTEN close) |
+| `EV_NW_SOCKET_RX_NEW` | Data received |
+| `EV_NW_SOCKET_TX_OK` | Data sent |
+
+### TCP Server (Listen/Accept) Notes
+- Framework supports two modes: `no_accept=0` (allocates new socket per client) and `no_accept=1` (reuses listener socket)
+- PC simulator uses `no_accept=1` (one-to-one mode)
+- When closing a LISTENING socket, do NOT send `EV_NW_SOCKET_CLOSE_OK` — it triggers callbacks that may access uninitialized Lua state
+- `l_socket_create` must `memset(l_ctrl, 0, ...)` — `lua_newuserdata` does not zero memory
+
+### Debug Macros
+- `DBG()` — prints only when `ctrl->is_debug` is true (per-socket)
+- `DBG_ERR()` — always prints regardless of debug flag
+- Both require `__NW_DEBUG_ENABLE__` defined (line ~162 of `luat_network_adapter.c`)
 
 ## CONVENTIONS
 

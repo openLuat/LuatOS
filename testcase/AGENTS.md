@@ -73,3 +73,23 @@ end
 - ❌ Do NOT depend on test execution order
 - ❌ Do NOT leave test resources uncleaned
 - ❌ Do NOT hardcode hardware-specific values
+
+## NETWORK TEST PATTERN (PC Simulator)
+
+For TCP server tests that require async callbacks, use **state polling** instead of relying on callbacks:
+
+```lua
+local function wait_state(netc, target, timeout)
+    local deadline = socket.getStatistics(netc) -- use time-based deadline
+    while true do
+        local state = cycbuff.read(netc, 0x20000000, 0)  -- read socket state
+        if state == target then return true end
+        sys.wait(100)
+        -- timeout check
+    end
+end
+```
+
+This is more reliable than callback-based testing because the 2-hop async chain (libuv → framework → Lua) may not deliver callbacks during `sys.wait()` polling.
+
+**Example**: See `testcase/function_testcase_network/tcp_server/tcp_server_basic/` for a complete TCP server test with state polling + PING/PONG validation.

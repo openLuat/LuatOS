@@ -247,7 +247,11 @@ Before reporting task completion, verify:
 | File | Description |
 |------|-------------|
 | `bsp/pc/xmake.lua` | PC simulator build configuration |
+| `bsp/pc/port/network/luat_network_adapter_libuv.c` | PC network adapter (libuv) |
 | `luat/include/luat.h` | Core header file |
+| `components/network/adapter/luat_network_adapter.c` | Network framework state machine |
+| `components/network/adapter/luat_network_adapter.h` | Network adapter API definitions |
+| `components/network/adapter/luat_lib_socket.c` | Socket Lua bindings |
 | `script/corelib/sys.lua` | Lua task system core |
 | `module/<model>/core` | Module firmware description |
 | `.github/workflows/` | CI/CD configuration |
@@ -256,7 +260,33 @@ Before reporting task completion, verify:
 
 ---
 
-## Documentation & Resources
+## Debugging Lessons & Common Pitfalls
+
+### Memory Initialization
+- `lua_newuserdata` does **NOT** zero memory — always `memset` the returned pointer
+- `malloc` / `luat_heap_malloc` also do not zero — use `memset` or `calloc`
+- Uninitialized pointers (e.g. `task_name`, `cb_ref`) cause delayed crashes in callback chains
+
+### Async Event Safety
+- When closing resources, consider what events are still in-flight
+- `uv_async_send` callbacks fire on a **different thread** — the originating context may already be freed
+- Don't send state-machine events (e.g. `EV_NW_SOCKET_CLOSE_OK`) if the handler will access uninitialized state
+
+### libuv Handle Rules
+- **Never memcpy** `uv_tcp_t` or other handles — they have internal linked-list pointers
+- `uv_close` is async — the handle must remain valid until the close callback fires
+- Heap-allocate handles that need to outlive their creating scope
+
+### Debugging Methodology
+1. Add `DBG_ERR` prints to narrow down the layer (Lua API → framework → adapter)
+2. In async systems, trace the **full event chain** from send to callback
+3. Check if the crash is in a synchronous return path or an async callback
+4. Always clean up debug prints after fixing
+
+### Debug Records
+- `bsp/pc/docs/debug_tcp_listen.md` — TCP listen/accept implementation and crash debugging
+
+---
 
 - **Official Documentation**: https://docs.openluat.com/
 - **API Reference**: https://docs.openluat.com/osapi/

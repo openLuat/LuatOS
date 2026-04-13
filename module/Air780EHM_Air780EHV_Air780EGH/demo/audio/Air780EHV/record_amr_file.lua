@@ -87,8 +87,8 @@ local record_timer = nil       -- 录音计时器
 local record_seconds = 0       -- 录音计时秒数
 
 -- 音量设置
-local PLAY_VOLUME = 60         -- 播放音量
-local RECORD_VOLUME = 60       -- 录音麦克风音量
+local PLAY_VOLUME = 70         -- 播放音量
+local RECORD_VOLUME = 70       -- 录音麦克风音量
 
 -- 录音时长设置（秒）
 local RECORD_DURATION = 5      -- 录音时长
@@ -103,16 +103,21 @@ local function play_end_callback(event)
     end
 end
 
-local audio_play_param = {
-                type = 0,              -- 0=播放文件
-                content = recordPath,  -- 播放录音文件
-                cbfnc = play_end_callback,
-                priority = 1
-}
-
 -- 开始播放录音文件
 local function start_playback()
+    log.info("录音文件路径", recordPath)
+    
+    -- 如果录音文件存在，播放录音
     if io.exists(recordPath) then
+
+        -- 播放设置
+        local audio_play_param = {
+            type = 0,              -- 0=播放文件
+            content = recordPath,  -- 播放录音文件
+            cbfnc = play_end_callback,
+            priority = 1
+        }
+
         local file_size = io.fileSize(recordPath)
         if file_size > 0 then
             log.info("播放录音文件", "大小:", file_size, "字节")

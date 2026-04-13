@@ -186,7 +186,8 @@ function sm2.test_sm2_nil_params()
     assert(sm2decrypt_third ~= nil, "× sm2decrypt mode为nil应该使用默认值false，不应返回nil")
     log.info("sm2", "sm2decrypt mode为nil测试通过")
 
-    local sm2decrypt_fourth = gmssl.sm2decrypt(private, sm2encrypt_valid, true, nil)
+    local sm2encrypt_valid_nil = gmssl.sm2encrypt(pkx, pky, testStr, true, nil)
+    local sm2decrypt_fourth = gmssl.sm2decrypt(private, sm2encrypt_valid_nil, true, nil)
     assert(sm2decrypt_fourth ~= nil,
         "× sm2decrypt mode1为true,mode2为nil应该使用默认值false，不应返回nil")
     log.info("sm2", "sm2decrypt mode1为true,mode2为nil测试通过")

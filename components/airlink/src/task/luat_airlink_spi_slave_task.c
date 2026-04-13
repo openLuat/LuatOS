@@ -225,7 +225,7 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
     int ret = 0;
     airlink_link_data_t* link = NULL;
     luat_event_t event = {0};
-
+    AIRLINK_DEV_INFO_UPDATE_CB device_info_update_cb = NULL;
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     cmd->cmd = 0x10;
     cmd->len = 128;
@@ -233,10 +233,11 @@ __AIRLINK_CODE_IN_RAM__ static void spi_slave_task(void *param)
     #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     extern void luat_airlink_devinfo_init();
     luat_airlink_devinfo_init(send_devinfo_update_evt);
+    device_info_update_cb = send_devinfo_update_evt;
     #endif
 
     // 注册上下文
-    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_SLAVE, on_newdata_notify, link_data_cb);
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_SLAVE, on_newdata_notify, link_data_cb, device_info_update_cb);
 
     // 告知已经就绪
     self_ready = 1;

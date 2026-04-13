@@ -1,0 +1,9 @@
+{
+    "timeout" : 120,
+    "model" : {
+        "pc": [1, 102]
+    },
+    "action_count" : 1,
+    "priority" : 5,
+    "description" : "PC模拟器audio.play MP3基础回归"
+}

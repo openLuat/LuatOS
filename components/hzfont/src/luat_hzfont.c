@@ -1381,7 +1381,7 @@ glyph_timing_update:
     return result;
 }
 
-#ifdef LUAT_USE_AIRUI
+#if defined(LUAT_USE_AIRUI) || defined(LUAT_USE_EINK) || defined(LUAT_USE_U8G2)
 // 获取底层 TTF 对象供 airui 或其他模块使用
 TtfFont * luat_hzfont_get_ttf(void) {
     if (g_ft_ctx.state == LUAT_HZFONT_STATE_READY) {

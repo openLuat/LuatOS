@@ -434,6 +434,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 {
     // int i;
     // luat_event_t event = {0};
+    AIRLINK_DEV_INFO_UPDATE_CB device_info_update_cb = NULL;
     #if defined(LUAT_USE_AIRLINK_EXEC_MOBILE)
     luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
     cmd->cmd = 0x10;
@@ -441,11 +442,12 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
 
     extern void luat_airlink_devinfo_init();
     luat_airlink_devinfo_init(send_devinfo_update_evt);
+    device_info_update_cb = send_devinfo_update_evt;
     #endif
 
     luat_rtos_task_sleep(5); // 等5ms
     luat_airlink_spi_master_pin_setup();
-    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_MASTER, on_newdata_notify, on_link_data_notify);
+    luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_MASTER, on_newdata_notify, on_link_data_notify, device_info_update_cb);
     thread_rdy = 1;
     while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) == 1) {
         if (!g_master_running) {

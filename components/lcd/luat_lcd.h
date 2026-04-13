@@ -83,6 +83,8 @@ typedef struct luat_lcd_conf {
     uint8_t pin_dc;
     uint8_t pin_pwr;
     uint8_t pin_rst;
+    uint8_t lcd_clk_pin;	//注意不用的时候写0xff
+    uint8_t lcd_sda_pin;	//注意不用的时候写0xff
     uint8_t lcd_cs_pin;		//注意不用的时候写0xff
     uint8_t is_init_done;
     uint8_t interface_mode;	// LUAT_LCD_IM_XXX
@@ -150,6 +152,7 @@ typedef struct luat_lcd_opts {
     int (*user_ctrl_init)(luat_lcd_conf_t* conf);
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
+    int (*write_data)(luat_lcd_conf_t* conf, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
     int (*lcd_draw)(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
     int (*lcd_fill)(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);

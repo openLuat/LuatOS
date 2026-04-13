@@ -46,6 +46,7 @@ extern void luat_lwip_init(void);
 int lua_main (int argc, char** argv);
 
 void luat_log_init_win32(void);
+void luat_log_deinit_win32(void);
 void luat_uart_initial_win32(void);
 void luat_network_init(void);
 
@@ -121,7 +122,7 @@ int main(int argc, char** argv) {
     if(!memcmp(luatdb_secret, luadb_mod, 32))
     {
         LLOGI("luadb mod init");
-        luadb_ptr = luadb_mod + 32;
+        luadb_ptr = (char*)luadb_mod + 32;
         cmdline_argc = 2;
     }
     else
@@ -151,6 +152,7 @@ int main(int argc, char** argv) {
     uv_timer_start(&t, timer_nop, 1000, 1000);
     uv_luat_main(NULL);
 
+    luat_log_deinit_win32();
     uv_loop_close(main_loop);
     free(main_loop);
     return 0;

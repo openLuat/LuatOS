@@ -6,6 +6,7 @@ modbus.__metatable = "instance is protected" -- 定义 modbus 实例的元表，
 -- 模块级变量：依赖注入的引用；
 local exmodbus_ref -- 主模块引用，用于访问enqueue_request等核心功能；
 local gen_id_func  -- ID生成函数引用，用于生成唯一请求ID；
+local debug_enabled = false -- Debug开关；
 
 -- Modbus TCP 协议头长度
 local MODBUS_TCP_HEADER_LEN = 7
@@ -593,6 +594,9 @@ local function tcp_master_receiver(instance)
 
         if instance.recv_buff:used() > 0 then
             local data = instance.recv_buff:query()
+            if debug_enabled then
+                log.info("exmodbus.debug", "主站接收到原始数据:", data:toHex())
+            end
             sys.publish("exmodbus/tcp_resp/" .. instance.current_transaction_id, data)
             -- log.info("exmodbus", "读取数据成功")
             instance.recv_buff:del()
@@ -619,6 +623,9 @@ local function tcp_master_sender(instance)
         instance.current_transaction_id = transaction_id
 
         -- 发送请求
+        if debug_enabled then
+            log.info("exmodbus.debug", "主站发送请求帧:", request_frame:toHex())
+        end
         local result, buff_full = libnet.tx(instance.TASK_NAME, 15000, instance.socket_client, request_frame)
         if not result then
             log.error("exmodbus", "发送请求失败")
@@ -970,6 +977,11 @@ local function tcp_receiver(netc, instance)
             -- 读取数据
             local data = instance.recv_buff:query()
             
+            -- Debug模式下打印接收到的原始数据
+            if debug_enabled then
+                log.info("exmodbus.debug", "从站接收到原始数据:", data:toHex())
+            end
+            
             -- 解析 TCP 请求帧
             local request, err = parse_tcp_request(data)
             if request then
@@ -991,6 +1003,9 @@ local function tcp_receiver(netc, instance)
                     local user_return = instance.slaveHandler(request)
                     local response = build_tcp_response(request, user_return)
                     if response then
+                        if debug_enabled then
+                            log.info("exmodbus.debug", "从站发送响应帧:", response:toHex())
+                        end
                         libnet.tx(instance.TASK_NAME, 0, netc, response)
                         sys.sendMsg(instance.TASK_NAME, socket.EVENT, 0)
                     else
@@ -1094,9 +1109,10 @@ local function tcp_slave_main_task_func(instance)
 end
 
 -- 创建一个新的实例；
-local function create(config, exmodbus, gen_request_id)
+local function create(config, exmodbus, gen_request_id, debug_flag)
     exmodbus_ref = exmodbus
     gen_id_func = gen_request_id
+    debug_enabled = debug_flag or false
     local TASK_NAME = "exmodbus_tcp_task_"..gen_id_func()
 
     -- 创建一个新的实例；

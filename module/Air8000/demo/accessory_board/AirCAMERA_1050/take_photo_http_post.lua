@@ -12,6 +12,15 @@
 local excamera = require "excamera"
 -- 引入httpplus扩展库模块
 local httpplus = require "httpplus"
+-- 引入exmux扩展库模块
+local exmux = require "exmux"
+
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
 -- 定义照片保存方式，有三种类型：
 -- 1、ZBUFF保存，输入"ZBUFF"即可，excamera库会自动处理ZBUFF
@@ -27,8 +36,8 @@ local save_method = "ZBUFF"
 local function capture_func()
     -- 定义变量用于存储操作结果和数据
     local result, data
-    gpio.setup(24, 1)
-    gpio.setup(164, 1)
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
     -- 无限循环，持续等待拍照事件
     while true do
         -- 配置gc0310摄像头参数表
@@ -43,6 +52,8 @@ local function capture_func()
         }
         -- 等待外部触发拍照事件(ONCE_CAPTURE)
         sys.waitUntil("ONCE_CAPTURE")
+        -- 打开外设分组
+        exmux.open("i2c0")
         -- 初始化摄像头，传入配置参数
         result = excamera.open(spi_camera_param)
         -- 记录摄像头初始化状态
@@ -85,8 +96,11 @@ local function capture_func()
         if save_method ~= "ZBUFF" then
             os.remove(spi_camera_param.save_path)
         end
+        data = nil
         -- 关闭摄像头，释放资源
         excamera.close()
+        -- 关闭外设分组
+        exmux.close("i2c0")
     end
 end
 

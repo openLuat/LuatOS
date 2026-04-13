@@ -5,12 +5,13 @@
 @date    2025.
 @author  马梦阳
 @usage
-本文件的对外接口有 5 个：
+本文件的对外接口有 6 个：
 1、exmodbus.create(config)：创建 modbus 主站/从站，支持 RTU、ASCII、TCP 三种通信模式
 2、modbus:read(config)：主站向从站发起读取请求（仅适用于 RTU、ASCII、TCP 主站模式）
 3、modbus:write(config)：主站向从站发起写入请求（仅适用于 RTU、ASCII、TCP 主站模式）
 4、modbus:destroy()：销毁 modbus 主站/从站实例对象
 5、modbus:on(callback)：从站注册回调接口，用于处理主站发起的请求（仅适用于 RTU、ASCII、TCP 从站模式）
+6、exmodbus.debug(enable)：设置 debug 开关，开启后会打印接收和发送的原始数据
 ]]
 local exmodbus = {}
 
@@ -56,6 +57,23 @@ exmodbus.NEGATIVE_ACKNOWLEDGE = 0x07       -- 无法执行编程功能
 exmodbus.MEMORY_PARITY_ERROR = 0x08        -- 内存奇偶校验错误
 exmodbus.GATEWAY_PATH_UNAVAILABLE = 0x0A   -- 网关路径不可用
 exmodbus.GATEWAY_TARGET_NO_RESPONSE = 0x0B -- 网关目标设备无响应
+
+-- Debug 开关（默认关闭）
+local debug_enabled = true
+
+--[[
+设置 debug 开关
+@api exmodbus.debug(enable)
+@param enable boolean 是否开启 debug 模式，true 为开启，false 为关闭
+@return nil
+@usage
+exmodbus.debug(true)  -- 开启 debug 模式
+exmodbus.debug(false) -- 关闭 debug 模式
+--]]
+function exmodbus.debug(enable)
+    debug_enabled = enable
+    log.info("exmodbus", "debug模式已", enable and "开启" or "关闭")
+end
 
 -- 全局队列与调度器；
 local request_queue = {}
@@ -213,14 +231,14 @@ function exmodbus.create(config)
             log.error("exmodbus", "加载 RTU/ASCII 模块失败")
             return false
         end
-        return mod.create(config, exmodbus, gen_request_id)
+        return mod.create(config, exmodbus, gen_request_id, debug_enabled)
     elseif config.mode == exmodbus.TCP_MASTER or config.mode == exmodbus.TCP_SLAVE then
         local result, mod = pcall(require, "exmodbus_tcp")
         if not result then
             log.error("exmodbus", "加载 TCP 模块失败")
             return false
         end
-        return mod.create(config, exmodbus, gen_request_id)
+        return mod.create(config, exmodbus, gen_request_id, debug_enabled)
     else
         log.error("exmodbus", "通信模式不支持")
         return false

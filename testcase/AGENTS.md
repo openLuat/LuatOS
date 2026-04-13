@@ -55,8 +55,41 @@ end
 - Use `assert()` for validations
 - Use `log.info()` for output
 
+### Testcase File Style (Recommended)
+
+- Follow the same structure used by `unit_testcase_tools/fastlz`:
+    - `scripts/main.lua`: only does runner wiring (`PROJECT/VERSION`, `testrunner`, `runBatch`, `sys.run()`)
+    - `scripts/<feature>_test.lua`: contains actual `test_` functions and assertions
+- Avoid putting full test logic directly in `main.lua`.
+
+### Media Fixture Convention (PC)
+
+- For media testcase in PC simulator, place fixture files (e.g. mp3) in the same directory as `scripts/main.lua`.
+- Load fixtures via `/luadb/<filename>` path in tests.
+- Example: put `test_16k.mp3` under `scripts/`, and access it by `/luadb/test_16k.mp3`.
+
 ## ANTI-PATTERNS
 
 - ❌ Do NOT depend on test execution order
 - ❌ Do NOT leave test resources uncleaned
 - ❌ Do NOT hardcode hardware-specific values
+
+## NETWORK TEST PATTERN (PC Simulator)
+
+For TCP server tests that require async callbacks, use **state polling** instead of relying on callbacks:
+
+```lua
+local function wait_state(netc, target, timeout)
+    local deadline = socket.getStatistics(netc) -- use time-based deadline
+    while true do
+        local state = cycbuff.read(netc, 0x20000000, 0)  -- read socket state
+        if state == target then return true end
+        sys.wait(100)
+        -- timeout check
+    end
+end
+```
+
+This is more reliable than callback-based testing because the 2-hop async chain (libuv → framework → Lua) may not deliver callbacks during `sys.wait()` polling.
+
+**Example**: See `testcase/function_testcase_network/tcp_server/tcp_server_basic/` for a complete TCP server test with state polling + PING/PONG validation.

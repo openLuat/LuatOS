@@ -6,7 +6,7 @@
 #include "luat_log.h"
 
 #define BLOCK_SIZE 4096
-#define MEMFS_MAX_FILE_NAME 63
+#define MEMFS_MAX_FILE_NAME 127
 
 #define RAM_NODE_TYPE_FILE 0
 #define RAM_NODE_TYPE_DIR 1
@@ -22,9 +22,11 @@ typedef struct ram_file_block
 typedef struct ram_node
 {
     uint8_t type;
+    uint8_t ref_count;
     size_t size;
     char name[MEMFS_MAX_FILE_NAME + 1];
     ram_file_block_t* head;
+    ram_file_block_t* tail;
 } ram_node_t;
 
 typedef struct luat_ram_fd
@@ -32,7 +34,7 @@ typedef struct luat_ram_fd
     int fid;
     uint32_t offset;
     uint8_t readonly;
-} luat_raw_fd_t;
+} luat_ram_fd_t;
 
 static ram_node_t* nodes[RAM_NODE_MAX];
 
@@ -151,6 +153,7 @@ static void ram_free_blocks(ram_node_t* node) {
         block = next;
     }
     node->head = NULL;
+    node->tail = NULL;
 }
 
 static void ram_free_node(ram_node_t* node) {
@@ -214,10 +217,8 @@ static int ram_mode_is_append(const char* mode) {
 }
 
 static int ram_ensure_capacity(ram_node_t* node, size_t needed_size) {
-    size_t current_blocks = 0;
+    size_t current_blocks;
     size_t needed_blocks;
-    ram_file_block_t* block;
-    ram_file_block_t* last = NULL;
 
     if (node == NULL || node->type != RAM_NODE_TYPE_FILE) {
         return -1;
@@ -227,12 +228,8 @@ static int ram_ensure_capacity(ram_node_t* node, size_t needed_size) {
         return 0;
     }
 
-    block = node->head;
-    while (block) {
-        current_blocks++;
-        last = block;
-        block = block->next;
-    }
+    /* derive current block count from node->size (always consistent) */
+    current_blocks = (node->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     while (current_blocks < needed_blocks) {
         ram_file_block_t* nb = luat_heap_malloc(sizeof(ram_file_block_t));
@@ -241,13 +238,14 @@ static int ram_ensure_capacity(ram_node_t* node, size_t needed_size) {
             return -1;
         }
         memset(nb, 0, sizeof(ram_file_block_t));
-        if (node->head == NULL) {
+        if (node->tail == NULL) {
             node->head = nb;
+            node->tail = nb;
         }
         else {
-            last->next = nb;
+            node->tail->next = nb;
+            node->tail = nb;
         }
-        last = nb;
         current_blocks++;
     }
     return 0;
@@ -342,7 +340,7 @@ static int ram_ensure_directory(const char* path) {
 }
 
 static FILE* ram_make_fd(int fid, uint32_t offset, uint8_t readonly) {
-    luat_raw_fd_t* fd = luat_heap_malloc(sizeof(luat_raw_fd_t));
+    luat_ram_fd_t* fd = luat_heap_malloc(sizeof(luat_ram_fd_t));
     if (fd == NULL) {
         LLOGE("out of memory when malloc luat_raw_fd_t");
         return NULL;
@@ -370,6 +368,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
         if (idx < 0 || nodes[idx]->type != RAM_NODE_TYPE_FILE) {
             return NULL;
         }
+        nodes[idx]->ref_count++;
         return ram_make_fd(idx, 0, 1);
     }
     if (ram_mode_is_truncate(mode)) {
@@ -384,12 +383,14 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
         }
         nodes[idx]->size = 0;
         ram_free_blocks(nodes[idx]);
+        nodes[idx]->ref_count++;
         return ram_make_fd(idx, 0, 0);
     }
     if (ram_mode_is_update(mode)) {
         if (idx < 0 || nodes[idx]->type != RAM_NODE_TYPE_FILE) {
             return NULL;
         }
+        nodes[idx]->ref_count++;
         return ram_make_fd(idx, 0, 0);
     }
     if (ram_mode_is_append(mode)) {
@@ -402,6 +403,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
         else if (nodes[idx]->type != RAM_NODE_TYPE_FILE) {
             return NULL;
         }
+        nodes[idx]->ref_count++;
         return ram_make_fd(idx, (uint32_t)nodes[idx]->size, 0);
     }
     LLOGE("unkown open mode %s", mode);
@@ -419,7 +421,7 @@ int luat_vfs_ram_getc(void* userdata, FILE* stream) {
 
 int luat_vfs_ram_fseek(void* userdata, FILE* stream, long int offset, int origin) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
     ram_node_t* node;
     long long new_offset;
 
@@ -448,22 +450,26 @@ int luat_vfs_ram_fseek(void* userdata, FILE* stream, long int offset, int origin
 
 int luat_vfs_ram_ftell(void* userdata, FILE* stream) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
     // LLOGD("tell %p %p offset %d", userdata, stream, fd->offset);
     return fd->offset;
 }
 
 int luat_vfs_ram_fclose(void* userdata, FILE* stream) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
-    //LLOGD("fclose %p %p %d %d", userdata, stream, fd->size, fd->offset);
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
+    if (fd != NULL && fd->fid >= 0 && fd->fid < RAM_NODE_MAX && nodes[fd->fid] != NULL) {
+        if (nodes[fd->fid]->ref_count > 0) {
+            nodes[fd->fid]->ref_count--;
+        }
+    }
     luat_heap_free(fd);
     return 0;
 }
 
 int luat_vfs_ram_feof(void* userdata, FILE* stream) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
     if (fd == NULL || fd->fid < 0 || fd->fid >= RAM_NODE_MAX || nodes[fd->fid] == NULL) {
         return 1;
     }
@@ -478,7 +484,7 @@ int luat_vfs_ram_ferror(void* userdata, FILE *stream) {
 
 size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
     ram_node_t* node;
     size_t read_size = size * nmemb;
 
@@ -529,7 +535,7 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
 
 size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     (void)userdata;
-    luat_raw_fd_t* fd = (luat_raw_fd_t*)stream;
+    luat_ram_fd_t* fd = (luat_ram_fd_t*)stream;
     ram_node_t* node;
     size_t write_size = size * nmemb;
 
@@ -593,6 +599,10 @@ int luat_vfs_ram_remove(void* userdata, const char *filename) {
     if (idx < 0 || nodes[idx]->type != RAM_NODE_TYPE_FILE) {
         return -1;
     }
+    if (nodes[idx]->ref_count > 0) {
+        LLOGW("remove: file %s is still open", path);
+        return -1;
+    }
     ram_free_node(nodes[idx]);
     nodes[idx] = NULL;
     return 0;
@@ -638,7 +648,21 @@ int luat_vfs_ram_rename(void* userdata, const char *old_filename, const char *ne
         }
     }
 
+    /* refuse rename if any node in the source subtree is still open */
     old_len = strlen(old_path);
+    for (size_t i = 0; i < RAM_NODE_MAX; i++) {
+        if (nodes[i] == NULL) {
+            continue;
+        }
+        if (!ram_path_in_subtree(old_path, nodes[i]->name)) {
+            continue;
+        }
+        if (nodes[i]->ref_count > 0) {
+            LLOGW("rename: file %s is still open", nodes[i]->name);
+            return -1;
+        }
+    }
+
     for (size_t i = 0; i < RAM_NODE_MAX; i++) {
         char renamed[MEMFS_MAX_FILE_NAME + 1] = {0};
         const char* suffix;
@@ -722,18 +746,6 @@ size_t luat_vfs_ram_fsize(void* userdata, const char *filename) {
     return nodes[idx]->size;
 }
 
-void* luat_vfs_ram_mmap(void* userdata, FILE *stream) {
-    (void)userdata;
-    luat_raw_fd_t *fd = (luat_raw_fd_t*)(stream);
-    if (fd == NULL || fd->fid < 0 || fd->fid >= RAM_NODE_MAX || nodes[fd->fid] == NULL) {
-        return NULL;
-    }
-    if (nodes[fd->fid]->type != RAM_NODE_TYPE_FILE || nodes[fd->fid]->head == NULL) {
-        return NULL;
-    }
-    return nodes[fd->fid]->head->data;
-}
-
 int luat_vfs_ram_mkfs(void* userdata, luat_fs_conf_t *conf) {
     (void)userdata;
     (void)conf;
@@ -807,7 +819,7 @@ int luat_vfs_ram_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* e
             continue;
         }
         ents[count].d_type = nodes[i]->type;
-        ents[count].d_size = 0;
+        ents[count].d_size = (nodes[i]->type == RAM_NODE_TYPE_FILE) ? nodes[i]->size : 0;
         strcpy(ents[count].d_name, child_name);
         count++;
     }
@@ -829,7 +841,7 @@ int luat_vfs_ram_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     luat_meminfo_sys(&total, &used, &max_used);
     
     conf->type = 0;
-    conf->total_block = 64;
+    conf->total_block = total / BLOCK_SIZE;
     conf->block_used = (ftotal + BLOCK_SIZE - 1) / BLOCK_SIZE;
     conf->block_size = BLOCK_SIZE;
     return 0;
@@ -878,6 +890,7 @@ int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
                     next = nn;
                 }
             }
+            node->tail = block;
             break;
         }
         block = block->next;

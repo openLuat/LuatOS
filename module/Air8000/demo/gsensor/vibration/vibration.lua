@@ -21,6 +21,7 @@
 ]]
 
 exvib=require("exvib")
+exmux = require("exmux")
 
 local intPin=gpio.WAKEUP2   --中断检测脚，内部固定wakeup2
 local tid   --获取定时打开的定时器id
@@ -30,18 +31,13 @@ local eff=false --有效震动标志位，用于判断是否触发定位
 local ipready=false --网络是否连接成功标志位
 local tickid
 
--- 项目演示硬件环境为Air8000A整机开发板；
--- 在Air8000A整机开发板上，ES8311音频与摄像头部分还有Gsensor使用的是同一个I2C通道；
--- GPIO164为ES8311音频的LDO使能引脚，需要将GPIO164设置为输出高电平，否则I2C0的SDA和SCLK管脚电平只有2.8V左右，无法达到稳定的3.3V；
--- 最终会造成I2C初始化不成功，Gsensor无法正常工作；
--- 
--- GPIO164为WiFi芯片的GPIO管脚，需要Air8000系列模组内部包含有WiFi芯片；
--- Air8000A/Air8000U/Air8000N/Air8000AB/Air8000W内部包含有WiFi芯片；
--- Air8000D/Air8000DB/Air8000T模组内部未包含WiFi芯片；
--- 需要根据型号判断是否设置GPIO164为输出高电平；
--- 如果客户使用的是其他开发板，则不需要关注此处配置；
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
-gpio.setup(164, 1, gpio.PULLUP) 
 --有效震动模式
 --tick计数器，每秒+1用于存放5次中断的tick值，用于做有效震动对比
 local function tick()
@@ -105,6 +101,11 @@ sys.subscribe("EFFECTIVE_VIBRATION",eff_vib)
 
 
 local function vib_fnc()
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
+    -- 打开外设分组
+    exmux.open("i2c0")
+
     -- 1，微小震动检测，用于检测轻微震动的场景，例如用手敲击桌面；加速度量程2g；
     -- 2，运动检测，用于电动车或汽车行驶时的检测和人行走和跑步时的检测；加速度量程4g；
     -- 3，跌倒检测，用于人或物体瞬间跌倒时的检测；加速度量程8g；

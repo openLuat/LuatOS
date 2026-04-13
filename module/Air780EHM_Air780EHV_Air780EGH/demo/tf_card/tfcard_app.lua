@@ -20,13 +20,21 @@
 12. 删除文件
 13. 删除目录
 本文件没有对外接口，直接在main.lua中require "tfcard_app"就可以加载运行
-]] 
+]] --
+local exmux = require "exmux"
 
+-- 硬件I2C/SPI配置，当您使用合宙开发板时，请根据具体的开发板版本选择对应的变量，
+-- exmux库将会自动处理开发板上的I2C/SPI外设，确保总线通讯正常
+-- 当您使用自己的制作的板子，请参考exmux库的文档，配置对应的变量：https://docs.openluat.com/osapi/ext/exmux/
+-- local HARDWARE_ENV = "DEV_BOARD_8000_V2.0"
+local HARDWARE_ENV = "DEV_BOARD_780_V1.2"
+-- local HARDWARE_ENV = "DEV_BOARD_780_V1.3"
 
-
-
-
-local function tfcard_main_task() -- 开始进行主测试流程。
+function tfcard_main_task() -- 开始进行主测试流程。
+    -- 初始化外设分组开关状态
+    exmux.setup(HARDWARE_ENV)
+    -- 打开外设分组
+    exmux.open("spi0")
     -- ##########  SPI初始化 ##########
     -- 如果使用核心板演示环境，请打开33——36行代码，同时关闭38——43行的代码。
     -- 如果使用开发板演示环境，请打开38——43行代码，同时关闭33——36行的代码。
@@ -334,7 +342,7 @@ local function tfcard_main_task() -- 开始进行主测试流程。
     -- 2. 关闭SPI接口
     spi.close(spi_id)
     log.info("SPI接口", "已关闭")
-
+    exmux.close("spi0")
 end
 
 sys.taskInit(tfcard_main_task)

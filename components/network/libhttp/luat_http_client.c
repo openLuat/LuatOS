@@ -1,4 +1,4 @@
-
+#ifdef __LUATOS__
 #include "luat_base.h"
 
 #include "luat_rtos.h"
@@ -13,9 +13,9 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_str.h"
-#ifdef __LUATOS__
+
 #include "luat_msgbus.h"
-#endif
+
 
 #include "luat_fs.h"
 #include "luat_network_adapter.h"
@@ -1408,7 +1408,7 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 
     LLOGD("http connect %s:%d", http_ctrl->host, http_ctrl->remote_port);
 
-    http_ctrl->error_code = HTTP_ERROR_CONNECT;
+    http_ctrl->error_code = HTTP_OK;
 	http_ctrl->context_len_vaild = 0;
 	http_ctrl->context_len = 0;
 	if (network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0)
@@ -1571,3 +1571,4 @@ int luat_http_client_start_luatos(luat_http_ctrl_t* http_ctrl) {
 	return 0;
 }
 
+#endif

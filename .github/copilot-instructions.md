@@ -34,9 +34,9 @@ LuatOS is an embedded Lua operating system based on Lua 5.3.
   - **`luat/modules/`**: C implementations of Lua libraries (e.g., `luat_lib_gpio.c`).
   - **`luat/vfs/`**: Virtual File System.
 - **`components/`**: Extension libraries (Network, GUI, Drivers).
-  - **`components/network/`**: Network stacks (LwIP, etc.).
+  - **`components/network/`**: Network stacks (LwIP, etc.). See `components/network/AGENTS.md` for 3-layer architecture.
   - **`components/airui/`**: GUI components (LVGL based).
-- **`bsp/`**: Board Support Packages. `bsp/pc` is the simulator.
+- **`bsp/`**: Board Support Packages. `bsp/pc` is the simulator. See `bsp/pc/AGENTS.md` for network/libuv details.
 - **`script/`**: Lua scripts, core libraries (`corelib`), and drivers (`libs`).
 
 ## Key Conventions

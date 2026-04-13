@@ -7,6 +7,9 @@
 #define AIRLINK_MEM_TYPE LUAT_HEAP_SRAM
 #endif
 
+
+typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
+
 extern uint64_t g_airlink_last_cmd_timestamp;
 
 int luat_airlink_ready(void);
@@ -96,10 +99,11 @@ typedef int (*luat_airlink_cmd_exec)(luat_airlink_cmd_t* cmd, void* userdata);
 
 typedef int (*luat_airlink_link_data_cb)(airlink_link_data_t* link);
 
-int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb);
+int luat_airlink_mode_cb_register(uint8_t mode, luat_airlink_newdata_notify_cb newdata_cb, luat_airlink_link_data_cb link_data_cb, AIRLINK_DEV_INFO_UPDATE_CB dev_info_update_cb);
 int luat_airlink_mode_cb_unregister(uint8_t mode);
 luat_airlink_newdata_notify_cb luat_airlink_mode_newdata_cb_get(void);
 luat_airlink_link_data_cb luat_airlink_mode_link_data_cb_get(void);
+AIRLINK_DEV_INFO_UPDATE_CB luat_airlink_mode_dev_info_update_cb_get(void);
 
 
 typedef struct luat_airlink_cmd_reg
@@ -332,7 +336,6 @@ uint32_t luat_airlink_sversion(void);
 
 extern luat_airlink_dev_info_t g_airlink_ext_dev_info;
 
-typedef void (*AIRLINK_DEV_INFO_UPDATE_CB)(void);
 
 
 void luat_airlink_current_mode_set(int mode);

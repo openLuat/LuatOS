@@ -26,6 +26,7 @@ int cfg_luac_strip;
 int cfg_dump_luadb;
 int cfg_dump_report;
 int cfg_norun;
+int cfg_noexit;
 
 static void *check_file_path_depth(const char *path, int depth);
 void *check_file_path(const char *path);
@@ -139,6 +140,14 @@ int luat_cmd_parse(int argc, char **argv)
 			// LLOGD("只导出luadb数据");
 			if (!strcmp("--norun=1", arg)) {
 				cfg_norun = 1;
+			}
+			continue;
+		}
+
+		if (is_opts("--noexit=", arg))
+		{
+			if (!strcmp("--noexit=1", arg)) {
+				cfg_noexit = 1;
 			}
 			continue;
 		}

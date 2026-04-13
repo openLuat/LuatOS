@@ -77,8 +77,8 @@ local record_timer = nil       -- 录音计时器
 local record_seconds = 0       -- 录音计时秒数
 
 -- 音量设置
-local PLAY_VOLUME = 60         -- 播放音量
-local RECORD_VOLUME = 60       -- 录音麦克风音量
+local PLAY_VOLUME = 70         -- 播放音量
+local RECORD_VOLUME = 70       -- 录音麦克风音量
 
 -- 录音时长设置（秒）
 local RECORD_DURATION = 5      -- 录音时长
@@ -109,17 +109,6 @@ local function play_end_callback(event)
         exaudio.finish()
     end
 end
-
--- 播放设置
--- 需要注意：播放采样位深仅支持到24位，如果录制32位录音则无法播放，需要用电脑进行播放！！！
-local audio_play_param = {
-                type = 2,              -- 2=流式播放
-                cbfnc = play_end_callback,
-                priority = 1,
-                sampling_rate = 16000,  -- 采样率
-                sampling_depth = 16,    -- 采样位深
-                signed_or_unsigned = true  -- PCM数据是否有符号
-}
 
 -- 流式数据读取和写入任务
 local function stream_audio_data()
@@ -165,7 +154,22 @@ end
 
 -- 开始播放录音文件
 local function start_playback()
+    log.info("录音文件路径", recordPath)
+    
+    -- 如果录音文件存在，播放录音
     if io.exists(recordPath) then
+
+        -- 播放设置
+        -- 需要注意：播放采样位深仅支持到24位，如果录制32位录音则无法播放，需要用电脑进行播放！！！
+        local audio_play_param = {
+            type = 2,              -- 2=流式播放
+            cbfnc = play_end_callback,
+            priority = 1,
+            sampling_rate = 16000,  -- 采样率
+            sampling_depth = 16,    -- 采样位深
+            signed_or_unsigned = true  -- PCM数据是否有符号
+        }
+
         local file_size = io.fileSize(recordPath)
         if file_size > 0 then
             log.info("流式播放录音文件", "大小:", file_size, "字节")

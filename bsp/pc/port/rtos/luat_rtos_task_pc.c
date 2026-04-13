@@ -22,11 +22,11 @@ typedef struct utask
 
 
 LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3) {
-    luat_rtos_event_send(task_handle, id, param1, param2, param3, 0);
+    return luat_rtos_event_send(task_handle, id, param1, param2, param3, 0);
 }
 
 LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, luat_event_t *out_event, void *call_back, uint32_t ms) {
-    luat_rtos_event_recv(task_handle, wait_event_id, out_event, call_back, ms);
+    return luat_rtos_event_recv(task_handle, wait_event_id, out_event, call_back, ms);
 }
 
 // void *luat_get_current_task(void) {

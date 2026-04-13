@@ -3,18 +3,17 @@ setlocal enabledelayedexpansion
 
 echo Building LuatOS-PC with mGBA support...
 
-xmake clean -a
-set VM_64bit=1
-set LUAT_USE_GUI=y
-set LUAT_USE_MGBA=y
-xmake f -a x86 -y -p windows --toolchain=msvc
-if !errorlevel! neq 0 exit /b !errorlevel!
-xmake g --pkg_searchdirs=%cd%\pkgs
-if !errorlevel! neq 0 exit /b !errorlevel!
+set "MODE=%LUAT_BUILD_MODE%"
+if not defined MODE set "MODE=summary"
+set "CLEAN_FLAG="
 
-xmake -y
-if !errorlevel! neq 0 exit /b !errorlevel!
+if /i "%~1"=="full" set "MODE=full"
+if /i "%~2"=="full" set "MODE=full"
+if /i "%~1"=="clean" set "CLEAN_FLAG=-Clean"
+if /i "%~2"=="clean" set "CLEAN_FLAG=-Clean"
 
-echo Build completed successfully!
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build_with_summary.ps1" -Arch x86 -Vm64 1 -Gui y -Mgba y -Mode %MODE% %CLEAN_FLAG%
+if %errorlevel% neq 0 exit /b %errorlevel%
+
 echo mGBA support enabled.
 exit /b 0

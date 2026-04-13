@@ -48,11 +48,20 @@ static PFN_CH347GPIO_Set pfn_CH347GPIO_Set = NULL;
 static PFN_CH347GPIO_Get pfn_CH347GPIO_Get = NULL;
 
 static HMODULE hCH347DLL = NULL;
+// 只允许加载一次DLL
+static int g_ch347DLLLoaded_try = 0;
 #endif
 
 int luat_load_ch347(int flag) {
 #ifdef _WIN32
+	if (hCH347DLL != NULL) {
+		return 1; // 已经加载过DLL，直接返回成功
+	}
+	if (g_ch347DLLLoaded_try > 0) {
+		return 0; // 已经尝试加载过DLL但失败，不再尝试
+	}
     hCH347DLL = LoadLibraryA(CH347_DLL_NAME);
+	g_ch347DLLLoaded_try ++;
     if(hCH347DLL == NULL) {
         LLOGD("not be load %s", CH347_DLL_NAME);
         return 0;
@@ -451,6 +460,7 @@ int luat_ch347_gpio_setup(int pin, int mode, int pull, int irq) {
 			s_Gpiostatus &= ~(1 << pin);
 
 		pfn_CH347GPIO_Set(g_ch3470_SpiI2cGpioDevIndex, s_Gpioflag,  (uint8_t)(s_Gpiostatus & 0x00FF), (uint8_t)(s_Gpiovalues & 0x00FF));
+		return 0;
 	} else {
 		LLOGD("only support GPIO0~7");
 		return 0;
@@ -472,6 +482,7 @@ int luat_ch347_gpio_set(int pin, int level) {
 		else
 			s_Gpiovalues &= ~(1 << pin);
 		pfn_CH347GPIO_Set(g_ch3470_SpiI2cGpioDevIndex, s_Gpioflag,  (uint8_t)(s_Gpiostatus & 0x00FF), (uint8_t)(s_Gpiovalues & 0x00FF));
+		return 0;
 	} else {
 		LLOGD("only support GPIO0~7");
 		return 0;

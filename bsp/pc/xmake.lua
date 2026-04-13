@@ -4,6 +4,7 @@ set_xmakever("3.0.4")
 set_version("1.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")
 
+local unpack = table.unpack or unpack
 local luatos = "../../"
 -- 2表示mbedtls 2.18.x，3表示mbedtls 3.x
 local mbedtls_version = 3
@@ -11,15 +12,28 @@ local mbedtls_version = 3
 add_requires("libuv v1.49.2")
 add_packages("libuv")
 
-
 add_requires("gmssl")
 add_packages("gmssl")
 
 add_requires("libsdl2")
 add_packages("libsdl2")
 
--- set warning all as error
-set_warnings("allextra")
+local function thirdparty_file_options()
+    if is_host("windows") then
+        return {cflags = {"/W0"}, cxflags = {"/W0"}}
+    end
+    return {cflags = {"-w"}, cxflags = {"-w"}}
+end
+
+local function add_thirdparty_files(...)
+    local options = thirdparty_file_options()
+    for _, pattern in ipairs({...}) do
+        add_files(pattern, options)
+    end
+end
+
+-- set_policy("build.optimization.lto", true)
+-- set_warnings("all")
 set_optimize("fastest")
 -- set language: c11 and c++17
 set_languages("gnu11", "cxx17")
@@ -72,7 +86,7 @@ target("luatos-lua")
     add_files("src/*.c",{public = true})
     add_files("port/**.c")
 
-    add_files(luatos.."lua/src/*.c")
+    add_thirdparty_files(luatos.."lua/src/*.c")
     -- printf
     add_includedirs(luatos.."components/printf",{public = true})
     add_files(luatos.."components/printf/*.c")
@@ -125,15 +139,15 @@ target("luatos-lua")
     remove_files(luatos .. "luat/vfs/luat_fs_onefile.c")
     -- lfs
     add_includedirs(luatos.."components/lfs")
-    add_files(luatos.."components/lfs/*.c")
+    add_thirdparty_files(luatos.."components/lfs/*.c")
 
     -- add_files(luatos.."components/sfd/*.c")
     -- lua-cjson
     add_includedirs(luatos.."components/lua-cjson")
-    add_files(luatos.."components/lua-cjson/*.c")
+    add_thirdparty_files(luatos.."components/lua-cjson/*.c")
     -- cjson
     add_includedirs(luatos.."components/cjson")
-    add_files(luatos.."components/cjson/*.c")
+    add_thirdparty_files(luatos.."components/cjson/*.c")
     -- ndk core
     add_includedirs(luatos.."components/ndk/include",{public = true})
     add_files(luatos.."components/ndk/src/*.c")
@@ -144,10 +158,10 @@ target("luatos-lua")
     add_files(luatos.."components/fft/binding/*.c")
     -- mbedtls
     if mbedtls_version == 2 then
-        add_files(luatos.."components/mbedtls/library/*.c")
+        add_thirdparty_files(luatos.."components/mbedtls/library/*.c")
         add_includedirs(luatos.."components/mbedtls/include")
     else
-        add_files(luatos.."components/mbedtls3/library/*.c")
+        add_thirdparty_files(luatos.."components/mbedtls3/library/*.c")
         add_includedirs(luatos.."components/mbedtls3/include")
     end
 
@@ -175,7 +189,7 @@ target("luatos-lua")
     add_files(luatos.."components/iconv/*.c")
 
     -- miniz
-    add_files(luatos .. "components/miniz/*.c")
+    add_thirdparty_files(luatos .. "components/miniz/*.c")
     add_includedirs(luatos .. "components/miniz")
 
     -- fskv
@@ -228,8 +242,8 @@ target("luatos-lua")
                     luatos.."/components/multimedia/amr_decode/amr_nb/enc/src",
                     luatos.."/components/multimedia/dtmf_codec",
                     luatos.."/components/multimedia/vtool/include")
-    add_files(luatos.."/components/multimedia/*.c|luat_multimedia_audio.c|luat_audio_tm8211.c|luat_audio_es8311.c",
-            luatos.."/components/multimedia/amr_decode/**.c",
+        add_files(luatos.."/components/multimedia/*.c|luat_multimedia_audio.c|luat_audio_tm8211.c|luat_audio_es8311.c")
+        add_thirdparty_files(luatos.."/components/multimedia/amr_decode/**.c",
             luatos.."/components/multimedia/g711_codec/**.c",
             luatos.."/components/multimedia/dtmf_codec/**.c",
             luatos.."/components/multimedia/vtool/**.c")
@@ -245,7 +259,7 @@ target("luatos-lua")
                     luatos.."/components/multimedia/opus/silk/arm",
                     luatos.."/components/multimedia/opus/silk/fixed"
                     )
-    add_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
+    add_thirdparty_files(  luatos.."/components/multimedia/opus/celt/*.c|opus_custom_demo.c",
                 luatos.."/components/multimedia/opus/celt/arm/armcpu.c",
                 luatos.."/components/multimedia/opus/celt/arm/arm_celt_map.c",
                 luatos.."/components/multimedia/opus/silk/*.c",
@@ -323,7 +337,7 @@ target("luatos-lua")
 
     -- fatfs
     add_includedirs(luatos.."components/fatfs")
-    add_files(luatos.."components/fatfs/**.c")
+    add_thirdparty_files(luatos.."components/fatfs/**.c")
 
     -- vtool
     add_includedirs(luatos.."components/multimedia/vtool/include")
@@ -363,9 +377,9 @@ target("luatos-lua")
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"
         add_includedirs(lwip_path .. "include")
-        add_files(lwip_path .. "/api/**.c")
-        add_files(lwip_path .. "/core/**.c")
-        add_files(lwip_path .. "/netif/**.c")
+        add_thirdparty_files(lwip_path .. "/api/**.c")
+        add_thirdparty_files(lwip_path .. "/core/**.c")
+        add_thirdparty_files(lwip_path .. "/netif/**.c")
         
         add_includedirs(luatos .. "components/network/ulwip/include")
         add_files(luatos .. "components/network/ulwip/**.c")
@@ -433,10 +447,10 @@ target("luatos-lua")
         add_includedirs(luatos.."components/airui/lvgl9/src")
         
         -- 先添加所有源文件
-        add_files(luatos.."components/airui/lvgl9/src/**.c")
+        add_thirdparty_files(luatos.."components/airui/lvgl9/src/**.c")
 
          -- ThorVG 内部库使用 C++ 编译,单独添加
-         add_files(luatos.."components/airui/lvgl9/src/libs/**/*.cpp")
+         add_thirdparty_files(luatos.."components/airui/lvgl9/src/libs/**/*.cpp")
         -- 排除不需要的组件（按优先级排序）
         -- 1. 硬件驱动（PC 模拟器不需要）
         remove_files(luatos.."components/airui/lvgl9/src/drivers/**/*.c")

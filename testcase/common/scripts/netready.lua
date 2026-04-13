@@ -1,12 +1,19 @@
 local ctx_path = "/luadb/ctx.json"
 
 local netready = {}
-
 function netready.exec(ctx, timeout)
     -- 应该 根据 型号和上下文, 进行联网操作
     if mobile then
         -- 什么都不做
         log.info("netready", "使用移动网络，无需初始化")
+        if rtos.bsp() == "Air8000" then
+            log.info("netready", "使用 WiFi 网络开始初始化")
+            local ssid = ctx.wifi_ssid
+            local password = ctx.wifi_password
+            wlan.init()
+            wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
+            wlan.connect(ssid, password, 1)
+        end
     elseif wlan and wlan.init and rtos.bsp() ~= "Air1601" then
         log.info("netready", "使用 WiFi 网络开始初始化")
         local ssid = ctx.wifi_ssid
@@ -49,6 +56,7 @@ function netready.exec(ctx, timeout)
         end
     end
 end
+
 
 function netready.deinit()
     if mobile then

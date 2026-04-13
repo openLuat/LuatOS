@@ -43,7 +43,8 @@ local dvp_camera_param = {
     id = camera.DVP, -- 摄像头类型，默认camera.DVP
     sensor_width = 1280, -- 摄像头像素宽度，根据摄像头实际参数填写数值
     sensor_height = 720, -- 摄像头像素高度，根据摄像头实际参数填写数值
-    save_path = "/ram/test.jpg"
+    save_path = "/ram/test.jpg",
+    i2c_id = 0  -- 模块上使用的I2C编号
 }
 
 local usb_camera_rtmp_param = {

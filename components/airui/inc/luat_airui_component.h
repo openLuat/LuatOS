@@ -400,6 +400,8 @@ int airui_text_font_apply_hzfont(lv_obj_t *obj, int font_size, lv_style_selector
  */
 lv_obj_t *airui_button_create_from_config(void *L, int idx);
 int airui_button_set_text(lv_obj_t *btn, const char *text); //设置按钮文本
+const char *airui_button_get_text(lv_obj_t *btn); //获取按钮文本
+int airui_button_set_disabled(lv_obj_t *btn, bool disabled); //设置按钮失活状态
 int airui_button_set_on_click(lv_obj_t *btn, int callback_ref); //设置点击回调
 int airui_button_set_style(lv_obj_t *btn, void *L, int idx); //按样式表设置按钮样式
 int airui_button_set_stype(lv_obj_t *btn, void *L, int idx); //按样式表设置按钮样式

@@ -23,9 +23,6 @@
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
 
-// 刷新消息重试超时时间
-#define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
-
 static bool g_lv_log_cb_registered = false;
 static int airui_refresh_msg_handler(lua_State *L, void *ptr);
 static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM);

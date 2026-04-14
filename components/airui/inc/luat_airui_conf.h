@@ -22,6 +22,9 @@
 /** AIRUI 自动刷新周期，单位：毫秒 */
 #define AIRUI_REFRESH_PERIOD_MS 33
 
+/** 刷新消息重试超时时间, 当前设计下刷新消息有时会发生丢失，需要支持画面刷新重试 */
+#define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
+
 /*=================
  * PLATFORM CONFIGURATION
  *=================*/

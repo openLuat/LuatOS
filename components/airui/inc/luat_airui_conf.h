@@ -87,10 +87,6 @@
 
     #define LV_COLOR_DEPTH 16
 
-    /* 图片缓存配置 */
-    #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
-    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
-
     // 使用自定义堆（Lua堆）
     #define LV_USE_STDLIB_MALLOC    LV_STDLIB_CUSTOM
 
@@ -125,6 +121,16 @@
         #define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(lv_font_misans_16)
         #define LV_FONT_DEFAULT &lv_font_misans_16
     #endif
+
+    // 图片缓存配置 
+    #ifdef LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+        // 使用自定义img缓存大小
+        #define LV_CACHE_DEF_SIZE LUAT_USE_AIRUI_IMAGE_CACHE_SIZE
+    #else
+        // 使用默认img缓存大小
+        #define LV_CACHE_DEF_SIZE (1024 * 1024)          /* 1024KB */
+    #endif
+    #define LV_IMAGE_HEADER_CACHE_DEF_CNT 64        /* 64个图片头缓存 */
 
 #else
     /* 默认配置（如果未定义平台） */

@@ -429,16 +429,25 @@ wsc:close()
 */
 static int l_websocket_close(lua_State *L)
 {
-	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
-	// websocket_disconnect(&(websocket_ctrl->broker));
-	luat_websocket_close_socket(websocket_ctrl);
-	if (websocket_ctrl->websocket_cb_id != 0)
-	{
-		luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
-		websocket_ctrl->websocket_cb_id = 0;
-	}
-	luat_websocket_release_socket(websocket_ctrl);
-	return 0;
+    luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
+    
+    // 检查是否已关闭
+    if (websocket_ctrl->websocket_state == 0 && 
+        websocket_ctrl->netc == NULL) {
+        LLOGW("websocket already closed");
+        return 0;
+    }
+    
+    luat_websocket_close_socket(websocket_ctrl);
+    
+    if (websocket_ctrl->websocket_cb_id != 0)
+    {
+        luaL_unref(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb_id);
+        websocket_ctrl->websocket_cb_id = 0;
+    }
+    
+    luat_websocket_release_socket(websocket_ctrl);
+    return 0;
 }
 
 /*

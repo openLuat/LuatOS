@@ -198,7 +198,9 @@ struct airui_ctx {
     bool debug_warned_refr_unavailable;  /**< 是否已打印过刷新计数不可用告警 */
     bool sleep_power_down_lcd;           /**< 休眠时是否关闭 LCD 供电 */
     bool sleeping;                       /**< 当前是否处于休眠状态 */
-    bool refresh_msg_pending;            /**< 是否已有待处理的刷新消息 */
+    uint32_t refresh_posted_seq;         /**< 已成功投递的刷新序号 */
+    uint32_t refresh_handled_seq;        /**< 已处理完成的刷新序号 */
+    uint32_t refresh_last_post_tick;     /**< 最近一次成功投递刷新时刻(ms) */
 };
 
 /**********************

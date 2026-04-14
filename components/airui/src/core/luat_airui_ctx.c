@@ -23,6 +23,9 @@
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
 
+// 刷新消息重试超时时间
+#define AIRUI_REFRESH_RETRY_TIMEOUT_MS 200U
+
 static bool g_lv_log_cb_registered = false;
 static int airui_refresh_msg_handler(lua_State *L, void *ptr);
 static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM);
@@ -129,44 +132,79 @@ static void airui_lv_tick_timer_handler(void *param)
 
 // 信息接受后激活 LVGL 定时器处理函数
 static int airui_refresh_msg_handler(lua_State *L, void *ptr) {
-    (void)L;
     airui_ctx_t *ctx = (airui_ctx_t *)ptr;
+    rtos_msg_t *msg = NULL;
+    uint32_t handled_seq = 0;
     if (ctx == NULL) {
         return 0;
     }
 
-    ctx->refresh_msg_pending = false;
+    msg = (rtos_msg_t *)lua_topointer(L, -1);
+    if (msg != NULL && msg->arg1 > 0) {
+        handled_seq = (uint32_t)msg->arg1;
+    } else {
+        handled_seq = ctx->refresh_posted_seq;
+    }
 
     if (ctx->sleeping) {
+        if (handled_seq > ctx->refresh_handled_seq) {
+            ctx->refresh_handled_seq = handled_seq;
+        }
         return 0;
     }
 
     airui_feed_wdt_if_enabled();
     lv_timer_handler();
     airui_feed_wdt_if_enabled();
+    if (handled_seq > ctx->refresh_handled_seq) {
+        ctx->refresh_handled_seq = handled_seq;
+    }
     return 0;
 }
 
 // 自动刷新定时器回调发送信息激活 LVGL 定时器处理函数
 static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
     airui_ctx_t *ctx = (airui_ctx_t *)param;
+    uint32_t next_seq = 0;
+    uint32_t now = 0;
+    bool has_unhandled = false;
     if (ctx == NULL || ctx->sleeping) {
         return;
     }
 
-    if (ctx->refresh_msg_pending) {
-        return;
+    if (ctx->ops != NULL && ctx->ops->time_ops != NULL && ctx->ops->time_ops->get_tick != NULL) {
+        now = ctx->ops->time_ops->get_tick(ctx);
     }
+
+    has_unhandled = (ctx->refresh_posted_seq != ctx->refresh_handled_seq);
+    if (has_unhandled) {
+        uint32_t elapsed = 0;
+        if (ctx->refresh_last_post_tick != 0U && now != 0U) {
+            elapsed = now - ctx->refresh_last_post_tick;
+        }
+        if (elapsed < AIRUI_REFRESH_RETRY_TIMEOUT_MS) {
+            return;
+        }
+    }
+
+    next_seq = ctx->refresh_posted_seq + 1U;
 
     rtos_msg_t msg = {
         .handler = airui_refresh_msg_handler,
         .ptr = ctx,
-        .arg1 = 0,
+        .arg1 = (int)next_seq,
         .arg2 = 0
     };
 
     if (luat_msgbus_put(&msg, 0) == 0) {
-        ctx->refresh_msg_pending = true;
+        ctx->refresh_posted_seq = next_seq;
+        ctx->refresh_last_post_tick = now;
+        if (has_unhandled) {
+            LLOGW("refresh retry posted seq=%lu handled=%lu posted=%lu",
+                  (unsigned long)next_seq,
+                  (unsigned long)ctx->refresh_handled_seq,
+                  (unsigned long)ctx->refresh_posted_seq);
+        }
     }
 }
 
@@ -241,7 +279,9 @@ static void airui_stop_runtime_timers(airui_ctx_t *ctx)
         LLOGD("lv refresh timer stopped");
     }
 
-    ctx->refresh_msg_pending = false;
+    ctx->refresh_posted_seq = 0;
+    ctx->refresh_handled_seq = 0;
+    ctx->refresh_last_post_tick = 0;
 }
 
 // 暂停 LVGL 定时器
@@ -528,7 +568,9 @@ int airui_sleep(airui_ctx_t *ctx)
         luat_rtos_timer_stop((luat_rtos_timer_t)ctx->refresh_rtos_timer);
     }
 
-    ctx->refresh_msg_pending = false;
+    ctx->refresh_posted_seq = 0;
+    ctx->refresh_handled_seq = 0;
+    ctx->refresh_last_post_tick = 0;
 
     ctx->sleeping = true;
 
@@ -581,7 +623,9 @@ int airui_wakeup(airui_ctx_t *ctx, bool auto_refresh)
         }
     }
     if (ctx->refresh_rtos_timer != NULL) {
-        ctx->refresh_msg_pending = false;
+        ctx->refresh_posted_seq = 0;
+        ctx->refresh_handled_seq = 0;
+        ctx->refresh_last_post_tick = 0;
         ret = luat_rtos_timer_start((luat_rtos_timer_t)ctx->refresh_rtos_timer, AIRUI_REFRESH_PERIOD_MS, 1, airui_refresh_timer_cb, ctx);
         if (ret != 0) {
             LLOGE("airui_wakeup start refresh_rtos_timer failed ret=%d ctx=%p", ret, ctx);

@@ -61,10 +61,6 @@
     // #define LV_FONT_DEFAULT &lv_font_misans_20
     #define LV_FONT_DEFAULT &lv_font_misans_14
 
-    // 打开XML支持
-    #define LV_USE_XML 1
-    #define LV_USE_OBJ_NAME 1
-
     // 打开拼音输入法
     #define LV_USE_IME_PINYIN 1
     #define LV_IME_PINYIN_USE_DEFAULT_DICT 0 // 关闭默认使用自己的pinyin词库，但需要打开LUAT_USE_PINYIN宏
@@ -127,12 +123,6 @@
         #define LV_FONT_DEFAULT &lv_font_misans_16
     #endif
 
-    // 打开XML支持
-    #ifdef LUAT_USE_AIRUI_XML
-        #define LV_USE_XML 1
-        #define LV_USE_OBJ_NAME 1
-    #endif
-    
 #else
     /* 默认配置（如果未定义平台） */
     /* 使用 lv_conf.h 中的默认值，这里不需要重新定义 */

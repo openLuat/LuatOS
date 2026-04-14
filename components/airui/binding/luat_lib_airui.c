@@ -53,17 +53,6 @@ static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
 static int l_airui_debug(lua_State *L);
 
-// XML 模块声明
-extern int l_airui_xml_init(lua_State *L);
-extern int l_airui_xml_deinit(lua_State *L);
-extern int l_airui_xml_register_from_file(lua_State *L);
-extern int l_airui_xml_register_from_data(lua_State *L);
-extern int l_airui_xml_create_screen(lua_State *L);
-extern int l_airui_xml_bind_event(lua_State *L);
-extern int l_airui_xml_register_image(lua_State *L);
-extern int l_airui_xml_register_font(lua_State *L);
-extern int l_airui_xml_keyboard_bind(lua_State *L);
-
 // Button 模块声明
 extern void airui_register_button_meta(lua_State *L);
 extern int airui_button_create(lua_State *L);
@@ -163,16 +152,6 @@ static const rotable_Reg_t reg_airui[] = {
     {"version", ROREG_FUNC(l_airui_version)},
     // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
     {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
-    // XML 模块
-    {"xml_init", ROREG_FUNC(l_airui_xml_init)},
-    {"xml_deinit", ROREG_FUNC(l_airui_xml_deinit)},
-    {"xml_register_from_file", ROREG_FUNC(l_airui_xml_register_from_file)},
-    {"xml_register_from_data", ROREG_FUNC(l_airui_xml_register_from_data)},
-    {"xml_register_image", ROREG_FUNC(l_airui_xml_register_image)},
-    {"xml_register_font", ROREG_FUNC(l_airui_xml_register_font)},
-    {"xml_create_screen", ROREG_FUNC(l_airui_xml_create_screen)},
-    {"xml_bind_event", ROREG_FUNC(l_airui_xml_bind_event)},
-    {"xml_keyboard_bind", ROREG_FUNC(l_airui_xml_keyboard_bind)},
     // 组件注册
     {"button", ROREG_FUNC(airui_button_create)},
     {"label", ROREG_FUNC(airui_label_create)},

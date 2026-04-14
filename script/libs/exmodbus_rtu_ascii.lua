@@ -7,6 +7,7 @@ modbus.__metatable = "instance is protected" -- 定义 modbus 实例的元表，
 local exmodbus_ref -- 主模块引用，用于访问enqueue_request等核心功能；
 local gen_id_func  -- ID生成函数引用，用于生成唯一请求ID；
 local read_buf = "" -- 接收缓冲区；
+local debug_enabled = false -- Debug开关；
 
 -- 创建 modbus 实例的构造函数；
 function modbus:new(config)
@@ -298,6 +299,10 @@ local function init_uart(instance)
     -- 当一包数据被拆分为多个小包时，此函数用于拼接这些小包；
     local function concat_timeout_func()
         if read_buf:len() > 0 then
+            -- Debug模式下打印接收到的原始数据
+            if debug_enabled then
+                log.info("exmodbus.debug", "接收到原始数据:", read_buf:toHex())
+            end
             -- 处理 RTU 主站模式下的接收数据；
             if instance.mode == exmodbus_ref.RTU_MASTER then
                 -- 校验等待主题是否存在；
@@ -325,6 +330,9 @@ local function init_uart(instance)
                         local user_return = instance.slaveHandler(request)
                         local response_frame = build_rtu_response(request, user_return)
                         if response_frame then
+                            if debug_enabled then
+                                log.info("exmodbus.debug", "从站发送响应帧:", response_frame:toHex())
+                            end
                             uart.write(instance.uart_id, response_frame)
                         else
                             log.error("exmodbus", "构建响应帧失败，从站地址:", request.slave_id)
@@ -380,9 +388,10 @@ local function init_uart(instance)
 end
 
 -- 创建一个新的实例；
-local function create(config, exmodbus, gen_request_id)
+local function create(config, exmodbus, gen_request_id, debug_flag)
     exmodbus_ref = exmodbus
     gen_id_func = gen_request_id
+    debug_enabled = debug_flag or false
 
     -- 创建一个新的实例；
     local instance = modbus:new(config)
@@ -687,6 +696,9 @@ local function sendRequest_waitResponse(instance, request_frame, config)
     instance.current_wait_request_id = req_id
 
     -- 执行发送请求；
+    if debug_enabled then
+        log.info("exmodbus.debug", "主站发送请求帧:", request_frame:toHex())
+    end
     uart.write(instance.uart_id, request_frame)
 
     -- 等待发送完成；

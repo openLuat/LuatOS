@@ -305,19 +305,25 @@ local C_1 = {"bit64", "adc", "airlink", "fft", "protobuf", "iconv", "rsa", "xxte
              "ble", "fastlz", "lcd", "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio",
              "hmeta", "http", "httpsrv", "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz",
              "mqtt", "netdrv", "os", "pack", "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus",
-             "uart", "wdt", "websocket", "wlan", "zbuff", "libgnss", "sfud", "ymodem", "eink", "u8g2"}
+             "uart", "wdt", "websocket", "wlan", "zbuff", "libgnss", "sfud", "ymodem", "eink", "u8g2", "codec", "audio",
+            "i2s"}
 
 local C_2 = {"bit64", "adc", "airlink", "camera", "fatfs", "fft", "hzfont", "can", "pins", "ble", "fastlz", "lcd", "lf",
              "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
              "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
              "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
-             "wlan", "zbuff"}
+             "wlan", "zbuff", "codec", "audio", "i2s"}
 
 local C_4 = {"bit64", "adc", "airlink", "airui", "hzfont", "camera", "fatfs", "can", "pins", "ble", "fastlz", "lcd",
              "lf", "otp", "tp", "crypto", "errDump", "fota", "fskv", "ftp", "gmssl", "gpio", "hmeta", "http", "httpsrv",
              "i2c", "io", "iotauth", "iperf", "json", "log", "lora2", "mcu", "miniz", "mqtt", "netdrv", "os", "pack",
              "pwm", "pm", "rtc", "rtos", "socket", "spi", "string", "sys", "sysplus", "uart", "wdt", "websocket",
-             "wlan", "zbuff"}
+             "wlan", "zbuff", "codec", "audio", "i2s"}
+
+local C_5 = {"bit64", "adc", "airui", "hzfont", "can", "crypto", "errDump", "fastlz", "fota", "fskv", "ftp",
+             "gpio", "http", "httpsrv", "hzfont", "i2c", "io", "json", "lcd", "little_flash", "log", "mcu", "miniz",
+             "mqtt", "netdrv", "os", "otp", "pack", "pins", "pm", "pwm", "rtc", "rtos", "socket", "spi", "string",
+             "sys", "sysplus", "tp", "uart", "websocket", "wdt", "wlan", "zbuff"}
 
 local C_size = {
     [1] = {
@@ -331,8 +337,11 @@ local C_size = {
     [4] = {
         fs_size = 1752,
         script_size = 512
+    },
+    [5] = {
+        fs_size = 2488,
+        script_size = 512
     }
-
 }
 
 local function findMissingElements(aTable, bTable)
@@ -479,6 +488,8 @@ local function getConfigByCore()
             config_table = C_2
         elseif table_name == "C_4" then
             config_table = C_4
+        elseif table_name == "C_5" then
+            config_table = C_5
         else
             log.error("未知的配置表名:", table_name)
         end

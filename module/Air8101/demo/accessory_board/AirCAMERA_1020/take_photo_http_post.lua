@@ -34,7 +34,8 @@ local function capture_func()
             id = camera.DVP, -- 摄像头类型，DVP接口
             sensor_width = 1280, -- 摄像头像素宽度，1280像素
             sensor_height = 720, -- 摄像头像素高度，720像素
-            save_path = save_method -- 照片保存路径，保存在RAM中
+            save_path = save_method, -- 照片保存路径，保存在RAM中
+            i2c_id = 1  -- 模块上使用的I2C编号
         }
         -- 等待外部触发拍照事件(ONCE_CAPTURE)
         sys.waitUntil("ONCE_CAPTURE")

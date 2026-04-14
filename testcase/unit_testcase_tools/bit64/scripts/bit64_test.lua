@@ -211,7 +211,7 @@ function bit64_context.test_pide_integer64_unsigned()
     local number = -12345678
     local computation = bit64.pide(date, number,true)
     local computation_val = tonumber(bit64.show(computation, 10))
-    local expectation = -7
+    local expectation = 0
     assert(computation_val == expectation,
         string.format("64位整数除法运算时按照无符号方式测试失败: 预期 %s, 实际 %s, 当前bit位数 %s", expectation,
             computation_val, luatos_version_system))
@@ -525,7 +525,7 @@ function bit64_context.test_show_unsigned()
     log.info("bit64_context", "开始 64bit数据格式化按照无符号方式打印测试")
     local date = -123456
     local computation = tonumber(bit64.show(bit64.to64(date), 10, true))
-    local expectation = -123456
+    local expectation = 18446744073709428160
     assert(computation == expectation,
         string.format(
             "64bit数据格式化按照无符号方式打印测试失败: 预期 %s, 实际 %s, 当前bit位数 %s",

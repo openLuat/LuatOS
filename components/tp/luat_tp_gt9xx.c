@@ -210,14 +210,14 @@ static int tp_gt9xx_detect(luat_tp_config_t* luat_tp_config){
     uint32_t product_id = 0;
     luat_tp_config->address = GT9XX_ADDRESS0;
     tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-    LLOGI("TP detect read product id:0x%08X", product_id);
+    // LLOGI("TP detect read product id:0x%08X", product_id);
     if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE){
         LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
         return 0;
     }else{
         luat_tp_config->address = GT9XX_ADDRESS1;
         tp_i2c_read_reg16(luat_tp_config, GT9XX_PRODUCT_ID, &product_id, sizeof(product_id), 1);
-        LLOGI("TP detect read product id:0x%08X", product_id);
+        // LLOGI("TP detect read product id:0x%08X", product_id);
         if (product_id == GT911_PRODUCT_ID_CODE || product_id == GT927_PRODUCT_ID_CODE){
             LLOGI("TP find device GT9XX ,address:0x%02X",luat_tp_config->address);
             return 0;

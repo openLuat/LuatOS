@@ -6,6 +6,7 @@
 #include "luat_mock.h"
 #include "luat_luadb2.h"
 #include <stdlib.h>
+#include <ctype.h>
 
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
@@ -27,14 +28,953 @@ int cfg_dump_luadb;
 int cfg_dump_report;
 int cfg_norun;
 int cfg_noexit;
+// PC 模拟器默认开启依赖裁剪; 如需回退到旧行为, 用 --dep_strip=0 关闭
+int cfg_dep_strip = 1;
 
 static void *check_file_path_depth(const char *path, int depth);
 void *check_file_path(const char *path);
+static int add_onefile(const char *path);
 
 static int luat_cmd_load_luadb(const char *path);
 static int luat_cmd_load_luatools(const char *path);
+int luat_search_module(const char *name, char *filename);
 
 int luadb_do_report(luat_luadb2_ctx_t *ctx);
+
+typedef enum luat_dep_file_kind
+{
+	LUAT_DEP_FILE_SOURCE = 1,
+	LUAT_DEP_FILE_BINARY,
+	LUAT_DEP_FILE_RESOURCE,
+} luat_dep_file_kind_t;
+
+typedef enum luat_dep_ref_kind
+{
+	LUAT_DEP_REF_MODULE = 1,
+	LUAT_DEP_REF_FILE,
+} luat_dep_ref_kind_t;
+
+typedef struct luat_dep_ref
+{
+	char *value;
+	uint8_t kind;
+} luat_dep_ref_t;
+
+typedef struct luat_dep_file
+{
+	// 原始全路径, 最终真正送入 add_onefile 的路径
+	char *fullpath;
+	// basename, 与当前 PC 模拟器打入 luadb 的文件名规则保持一致
+	char *name;
+	// 去扩展名后的模块名, 用于 require "foo" -> foo.lua/foo.luac 匹配
+	char *stem;
+	uint8_t kind;
+	// selected 表示最终需要打入 luadb, parsed/expanded 仅服务静态分析流程
+	uint8_t selected;
+	uint8_t parsed;
+	uint8_t expanded;
+	luat_dep_ref_t *deps;
+	size_t dep_count;
+	size_t dep_capacity;
+} luat_dep_file_t;
+
+typedef struct luat_dep_ctx
+{
+	// 本次命令行所有目录/文件参数统一汇总后的候选文件集
+	luat_dep_file_t *files;
+	size_t count;
+	size_t capacity;
+	// 一旦发现只有二进制脚本、无法安全分析等场景, 直接退回到全量 Lua 打包
+	uint8_t fallback_all_lua;
+	size_t skipped_lua_count;
+} luat_dep_ctx_t;
+
+static int luat_cmd_pack_with_dep_strip(const char **paths, size_t count);
+static int luat_cmd_collect_path(luat_dep_ctx_t *ctx, const char *path, int depth);
+static void luat_cmd_free_dep_ctx(luat_dep_ctx_t *ctx);
+static luat_dep_file_t *luat_cmd_find_file_by_name(luat_dep_ctx_t *ctx, const char *name);
+static luat_dep_file_t *luat_cmd_find_source_by_stem(luat_dep_ctx_t *ctx, const char *stem);
+static luat_dep_file_t *luat_cmd_find_binary_by_stem(luat_dep_ctx_t *ctx, const char *stem);
+static int luat_cmd_mark_required(luat_dep_ctx_t *ctx, luat_dep_file_t *file, const char *from_name);
+static int luat_cmd_expand_dependencies(luat_dep_ctx_t *ctx, luat_dep_file_t *file, const char *from_name);
+static int luat_cmd_parse_file_deps(luat_dep_file_t *file);
+static int luat_cmd_add_dep(luat_dep_file_t *file, uint8_t kind, const char *value, size_t len);
+static int luat_cmd_parse_lua_buffer(luat_dep_file_t *file, const char *data, size_t len);
+static int luat_cmd_module_exists_elsewhere(const char *name);
+static int luat_cmd_resolve_module(luat_dep_ctx_t *ctx, const char *module_name, luat_dep_file_t **pack_file, luat_dep_file_t **parse_file);
+static int luat_cmd_resolve_file(luat_dep_ctx_t *ctx, const char *file_name, luat_dep_file_t **pack_file, luat_dep_file_t **parse_file);
+
+static char *luat_cmd_strdup_n(const char *src, size_t len)
+{
+	char *dst = malloc(len + 1);
+	if (dst == NULL)
+	{
+		return NULL;
+	}
+	memcpy(dst, src, len);
+	dst[len] = 0;
+	return dst;
+}
+
+static const char *luat_cmd_basename(const char *path)
+{
+	const char *slash = strrchr(path, '/');
+	const char *backslash = strrchr(path, '\\');
+	const char *base = slash;
+	if (backslash && (!base || backslash > base))
+	{
+		base = backslash;
+	}
+	return base ? base + 1 : path;
+}
+
+static char *luat_cmd_dup_stem(const char *name)
+{
+	const char *dot = strrchr(name, '.');
+	if (!dot)
+	{
+		return luat_cmd_strdup_n(name, strlen(name));
+	}
+	return luat_cmd_strdup_n(name, (size_t)(dot - name));
+}
+
+static const char *luat_cmd_file_ext(const char *name)
+{
+	const char *dot = strrchr(name, '.');
+	return dot ? dot : "";
+}
+
+static int luat_cmd_is_lua_source_name(const char *name)
+{
+	return strcmp(luat_cmd_file_ext(name), ".lua") == 0;
+}
+
+static int luat_cmd_is_lua_binary_name(const char *name)
+{
+	const char *ext = luat_cmd_file_ext(name);
+	return strcmp(ext, ".luac") == 0 || strcmp(ext, ".luae") == 0;
+}
+
+static size_t luat_cmd_skip_space(const char *data, size_t len, size_t pos)
+{
+	while (pos < len)
+	{
+		char ch = data[pos];
+		if (ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n' && ch != '\f' && ch != '\v')
+		{
+			break;
+		}
+		pos++;
+	}
+	return pos;
+}
+
+static int luat_cmd_is_ident_char(char ch)
+{
+	return isalnum((unsigned char)ch) || ch == '_';
+}
+
+static int luat_cmd_match_keyword(const char *data, size_t len, size_t pos, const char *keyword)
+{
+	size_t keyword_len = strlen(keyword);
+	if (pos + keyword_len > len)
+	{
+		return 0;
+	}
+	if (memcmp(data + pos, keyword, keyword_len) != 0)
+	{
+		return 0;
+	}
+	if (pos > 0 && luat_cmd_is_ident_char(data[pos - 1]))
+	{
+		return 0;
+	}
+	if (pos + keyword_len < len && luat_cmd_is_ident_char(data[pos + keyword_len]))
+	{
+		return 0;
+	}
+	return 1;
+}
+
+static int luat_cmd_long_bracket_level(const char *data, size_t len, size_t pos)
+{
+	size_t cursor = pos + 1;
+	int level = 0;
+	if (pos >= len || data[pos] != '[')
+	{
+		return -1;
+	}
+	while (cursor < len && data[cursor] == '=')
+	{
+		level++;
+		cursor++;
+	}
+	if (cursor < len && data[cursor] == '[')
+	{
+		return level;
+	}
+	return -1;
+}
+
+static size_t luat_cmd_skip_long_bracket(const char *data, size_t len, size_t pos, int level)
+{
+	size_t cursor = pos + 1;
+	while (cursor < len && data[cursor] == '=')
+	{
+		cursor++;
+	}
+	if (cursor < len)
+	{
+		cursor++;
+	}
+	while (cursor < len)
+	{
+		if (data[cursor] == ']')
+		{
+			size_t check = cursor + 1;
+			int matched = 1;
+			for (int i = 0; i < level; i++)
+			{
+				if (check >= len || data[check] != '=')
+				{
+					matched = 0;
+					break;
+				}
+				check++;
+			}
+			if (matched && check < len && data[check] == ']')
+			{
+				return check + 1;
+			}
+		}
+		cursor++;
+	}
+	return len;
+}
+
+static size_t luat_cmd_skip_quoted(const char *data, size_t len, size_t pos, char quote)
+{
+	pos++;
+	while (pos < len)
+	{
+		if (data[pos] == '\\')
+		{
+			pos += 2;
+			continue;
+		}
+		if (data[pos] == quote)
+		{
+			return pos + 1;
+		}
+		pos++;
+	}
+	return len;
+}
+
+static int luat_cmd_parse_string_literal(const char *data, size_t len, size_t *pos, char **value, size_t *value_len)
+{
+	char quote;
+	size_t start;
+	size_t cursor;
+	if (*pos >= len)
+	{
+		return -1;
+	}
+	quote = data[*pos];
+	if (quote != '\'' && quote != '"')
+	{
+		return -1;
+	}
+	start = *pos + 1;
+	cursor = start;
+	while (cursor < len)
+	{
+		if (data[cursor] == '\\')
+		{
+			cursor += 2;
+			continue;
+		}
+		if (data[cursor] == quote)
+		{
+			*value = luat_cmd_strdup_n(data + start, cursor - start);
+			if (*value == NULL)
+			{
+				return -2;
+			}
+			*value_len = cursor - start;
+			*pos = cursor + 1;
+			return 0;
+		}
+		cursor++;
+	}
+	return -1;
+}
+
+static int luat_cmd_append_file(luat_dep_ctx_t *ctx, const char *path)
+{
+	const char *name = luat_cmd_basename(path);
+	luat_dep_file_t *file;
+	size_t name_len = strlen(name);
+	if (name_len == 0 || name_len >= 256)
+	{
+		LLOGE("文件名不合法 %s", path);
+		return -1;
+	}
+	if (luat_cmd_find_file_by_name(ctx, name) != NULL)
+	{
+		// 现有 PC 模拟器会把目录结构抹平成 basename, 所以这里必须提前拦截重名
+		LLOGE("依赖裁剪模式下不允许重名文件 %s", name);
+		return -1;
+	}
+	if (ctx->count + 1 > ctx->capacity)
+	{
+		size_t next_capacity = ctx->capacity == 0 ? 16 : ctx->capacity * 2;
+		luat_dep_file_t *next_files = realloc(ctx->files, next_capacity * sizeof(luat_dep_file_t));
+		if (next_files == NULL)
+		{
+			LLOGE("内存不足, 无法建立文件索引");
+			return -1;
+		}
+		ctx->files = next_files;
+		ctx->capacity = next_capacity;
+	}
+	file = &ctx->files[ctx->count++];
+	memset(file, 0, sizeof(luat_dep_file_t));
+	file->fullpath = luat_cmd_strdup_n(path, strlen(path));
+	file->name = luat_cmd_strdup_n(name, name_len);
+	file->stem = luat_cmd_dup_stem(name);
+	if (file->fullpath == NULL || file->name == NULL || file->stem == NULL)
+	{
+		LLOGE("内存不足, 无法记录文件信息");
+		return -1;
+	}
+	if (luat_cmd_is_lua_source_name(name))
+	{
+		file->kind = LUAT_DEP_FILE_SOURCE;
+	}
+	else if (luat_cmd_is_lua_binary_name(name))
+	{
+		file->kind = LUAT_DEP_FILE_BINARY;
+	}
+	else
+	{
+		file->kind = LUAT_DEP_FILE_RESOURCE;
+	}
+	return 0;
+}
+
+static int luat_cmd_collect_path(luat_dep_ctx_t *ctx, const char *path, int depth)
+{
+	if (strlen(path) < 4 || strlen(path) >= 512)
+	{
+		LLOGD("文件长度不对劲 %d %s", strlen(path), path);
+		return -1;
+	}
+	if (!memcmp(path + strlen(path) - 1, "/", 1) || !memcmp(path + strlen(path) - 1, "\\", 1))
+	{
+		// 目录模式: 这里只收集候选文件, 不立即 add_onefile, 方便后面统一算闭包
+		DIR *dp;
+		struct dirent *ep;
+		char buff[512] = {0};
+	#ifdef LUA_USE_WINDOWS
+		memcpy(buff, path, strlen(path));
+	#else
+		memcpy(buff, path, strlen(path) - 1);
+	#endif
+		dp = opendir(buff);
+		if (dp == NULL)
+		{
+			LLOGW("opendir file %s failed", path);
+			return -1;
+		}
+		while ((ep = readdir(dp)) != NULL)
+		{
+			if (!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."))
+			{
+				continue;
+			}
+			if (ep->d_type == DT_DIR)
+			{
+				char child_path[512] = {0};
+				if (depth >= 4)
+				{
+					continue;
+				}
+	#ifdef LUA_USE_WINDOWS
+				snprintf(child_path, sizeof(child_path), "%s\\%s\\", path, ep->d_name);
+	#else
+				snprintf(child_path, sizeof(child_path), "%s/%s/", path, ep->d_name);
+	#endif
+				if (luat_cmd_collect_path(ctx, child_path, depth + 1))
+				{
+					closedir(dp);
+					return -1;
+				}
+				continue;
+			}
+			if (ep->d_type != DT_REG)
+			{
+				continue;
+			}
+	#ifdef LUA_USE_WINDOWS
+			snprintf(buff, sizeof(buff), "%s\\%s", path, ep->d_name);
+	#else
+			snprintf(buff, sizeof(buff), "%s/%s", path, ep->d_name);
+	#endif
+			if (luat_cmd_append_file(ctx, buff))
+			{
+				closedir(dp);
+				return -1;
+			}
+		}
+		closedir(dp);
+		return 0;
+	}
+	return luat_cmd_append_file(ctx, path);
+}
+
+static luat_dep_file_t *luat_cmd_find_file_by_name(luat_dep_ctx_t *ctx, const char *name)
+{
+	for (size_t i = 0; i < ctx->count; i++)
+	{
+		if (!strcmp(ctx->files[i].name, name))
+		{
+			return &ctx->files[i];
+		}
+	}
+	return NULL;
+}
+
+static luat_dep_file_t *luat_cmd_find_source_by_stem(luat_dep_ctx_t *ctx, const char *stem)
+{
+	for (size_t i = 0; i < ctx->count; i++)
+	{
+		if (ctx->files[i].kind == LUAT_DEP_FILE_SOURCE && !strcmp(ctx->files[i].stem, stem))
+		{
+			return &ctx->files[i];
+		}
+	}
+	return NULL;
+}
+
+static luat_dep_file_t *luat_cmd_find_binary_by_stem(luat_dep_ctx_t *ctx, const char *stem)
+{
+	luat_dep_file_t *luae = NULL;
+	for (size_t i = 0; i < ctx->count; i++)
+	{
+		if (ctx->files[i].kind != LUAT_DEP_FILE_BINARY || strcmp(ctx->files[i].stem, stem))
+		{
+			continue;
+		}
+		if (!strcmp(luat_cmd_file_ext(ctx->files[i].name), ".luac"))
+		{
+			return &ctx->files[i];
+		}
+		if (luae == NULL)
+		{
+			luae = &ctx->files[i];
+		}
+	}
+	return luae;
+}
+
+static int luat_cmd_add_dep(luat_dep_file_t *file, uint8_t kind, const char *value, size_t len)
+{
+	luat_dep_ref_t *ref;
+	for (size_t i = 0; i < file->dep_count; i++)
+	{
+		if (file->deps[i].kind == kind && strlen(file->deps[i].value) == len && !memcmp(file->deps[i].value, value, len))
+		{
+			return 0;
+		}
+	}
+	if (file->dep_count + 1 > file->dep_capacity)
+	{
+		size_t next_capacity = file->dep_capacity == 0 ? 8 : file->dep_capacity * 2;
+		luat_dep_ref_t *next_deps = realloc(file->deps, next_capacity * sizeof(luat_dep_ref_t));
+		if (next_deps == NULL)
+		{
+			LLOGE("内存不足, 无法记录依赖");
+			return -1;
+		}
+		file->deps = next_deps;
+		file->dep_capacity = next_capacity;
+	}
+	ref = &file->deps[file->dep_count++];
+	memset(ref, 0, sizeof(luat_dep_ref_t));
+	ref->kind = kind;
+	ref->value = luat_cmd_strdup_n(value, len);
+	if (ref->value == NULL)
+	{
+		LLOGE("内存不足, 无法复制依赖字符串");
+		return -1;
+	}
+	return 0;
+}
+
+static int luat_cmd_parse_simple_call(luat_dep_file_t *file, const char *data, size_t len, size_t *pos, const char *keyword, uint8_t dep_kind)
+{
+	char *value = NULL;
+	size_t value_len = 0;
+	size_t cursor = *pos + strlen(keyword);
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (cursor >= len)
+	{
+		return 0;
+	}
+	if (data[cursor] == '(')
+	{
+		// 兼容 require("foo") / dofile("a.lua") 这种带括号写法
+		cursor++;
+		cursor = luat_cmd_skip_space(data, len, cursor);
+		if (luat_cmd_parse_string_literal(data, len, &cursor, &value, &value_len))
+		{
+			return 0;
+		}
+		cursor = luat_cmd_skip_space(data, len, cursor);
+		if (cursor >= len || data[cursor] != ')')
+		{
+			free(value);
+			return 0;
+		}
+		cursor++;
+	}
+	else
+	{
+		// 兼容 require "foo" 这种不带括号写法
+		if (luat_cmd_parse_string_literal(data, len, &cursor, &value, &value_len))
+		{
+			return 0;
+		}
+	}
+	if (luat_cmd_add_dep(file, dep_kind, value, value_len))
+	{
+		free(value);
+		return -1;
+	}
+	free(value);
+	*pos = cursor;
+	return 1;
+}
+
+static int luat_cmd_parse_pcall_require(luat_dep_file_t *file, const char *data, size_t len, size_t *pos)
+{
+	char *value = NULL;
+	size_t value_len = 0;
+	size_t cursor = *pos + strlen("pcall");
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (cursor >= len || data[cursor] != '(')
+	{
+		return 0;
+	}
+	cursor++;
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (!luat_cmd_match_keyword(data, len, cursor, "require"))
+	{
+		return 0;
+	}
+	cursor += strlen("require");
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (cursor >= len || data[cursor] != ',')
+	{
+		return 0;
+	}
+	cursor++;
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (luat_cmd_parse_string_literal(data, len, &cursor, &value, &value_len))
+	{
+		return 0;
+	}
+	cursor = luat_cmd_skip_space(data, len, cursor);
+	if (cursor >= len || data[cursor] != ')')
+	{
+		free(value);
+		return 0;
+	}
+	cursor++;
+	if (luat_cmd_add_dep(file, LUAT_DEP_REF_MODULE, value, value_len))
+	{
+		free(value);
+		return -1;
+	}
+	free(value);
+	*pos = cursor;
+	return 1;
+}
+
+static int luat_cmd_parse_lua_buffer(luat_dep_file_t *file, const char *data, size_t len)
+{
+	size_t pos = 0;
+	while (pos < len)
+	{
+		// 先跳过注释/字符串/长字符串, 避免把注释里的 require 误识别成真实依赖
+		if (data[pos] == '-' && pos + 1 < len && data[pos + 1] == '-')
+		{
+			int level = -1;
+			if (pos + 2 < len)
+			{
+				level = luat_cmd_long_bracket_level(data, len, pos + 2);
+			}
+			if (level >= 0)
+			{
+				pos = luat_cmd_skip_long_bracket(data, len, pos + 2, level);
+			}
+			else
+			{
+				pos += 2;
+				while (pos < len && data[pos] != '\n')
+				{
+					pos++;
+				}
+			}
+			continue;
+		}
+		if (data[pos] == '\'' || data[pos] == '"')
+		{
+			pos = luat_cmd_skip_quoted(data, len, pos, data[pos]);
+			continue;
+		}
+		if (data[pos] == '[')
+		{
+			int level = luat_cmd_long_bracket_level(data, len, pos);
+			if (level >= 0)
+			{
+				pos = luat_cmd_skip_long_bracket(data, len, pos, level);
+				continue;
+			}
+		}
+		if (luat_cmd_match_keyword(data, len, pos, "pcall"))
+		{
+			// 仅处理 pcall(require, "foo") 这种静态字符串形式
+			int ret = luat_cmd_parse_pcall_require(file, data, len, &pos);
+			if (ret < 0)
+			{
+				return -1;
+			}
+			if (ret > 0)
+			{
+				continue;
+			}
+		}
+		if (luat_cmd_match_keyword(data, len, pos, "require"))
+		{
+			// 模块依赖: require "foo" -> foo.lua/foo.luac
+			int ret = luat_cmd_parse_simple_call(file, data, len, &pos, "require", LUAT_DEP_REF_MODULE);
+			if (ret < 0)
+			{
+				return -1;
+			}
+			if (ret > 0)
+			{
+				continue;
+			}
+		}
+		if (luat_cmd_match_keyword(data, len, pos, "dofile"))
+		{
+			// 文件依赖: dofile("foo.lua")
+			int ret = luat_cmd_parse_simple_call(file, data, len, &pos, "dofile", LUAT_DEP_REF_FILE);
+			if (ret < 0)
+			{
+				return -1;
+			}
+			if (ret > 0)
+			{
+				continue;
+			}
+		}
+		if (luat_cmd_match_keyword(data, len, pos, "loadfile"))
+		{
+			// 文件依赖: loadfile("foo.lua")
+			int ret = luat_cmd_parse_simple_call(file, data, len, &pos, "loadfile", LUAT_DEP_REF_FILE);
+			if (ret < 0)
+			{
+				return -1;
+			}
+			if (ret > 0)
+			{
+				continue;
+			}
+		}
+		pos++;
+	}
+	return 0;
+}
+
+static int luat_cmd_parse_file_deps(luat_dep_file_t *file)
+{
+	long len;
+	char *buffer;
+	FILE *f;
+	if (file->parsed || file->kind != LUAT_DEP_FILE_SOURCE)
+	{
+		return 0;
+	}
+	f = fopen(file->fullpath, "rb");
+	if (!f)
+	{
+		LLOGE("文件不存在 %s", file->fullpath);
+		return -1;
+	}
+	fseek(f, 0, SEEK_END);
+	len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	buffer = malloc((size_t)len + 1);
+	if (buffer == NULL)
+	{
+		fclose(f);
+		LLOGE("文件太大,内存放不下 %s", file->fullpath);
+		return -1;
+	}
+	if (len > 0)
+	{
+		fread(buffer, 1, (size_t)len, f);
+	}
+	buffer[len] = 0;
+	fclose(f);
+	if (luat_cmd_parse_lua_buffer(file, buffer, (size_t)len))
+	{
+		free(buffer);
+		return -1;
+	}
+	file->parsed = 1;
+	free(buffer);
+	return 0;
+}
+
+static int luat_cmd_module_exists_elsewhere(const char *name)
+{
+	char filename[64] = {0};
+	return luat_search_module(name, filename) == 0;
+}
+
+static int luat_cmd_resolve_module(luat_dep_ctx_t *ctx, const char *module_name, luat_dep_file_t **pack_file, luat_dep_file_t **parse_file)
+{
+	luat_dep_file_t *source = luat_cmd_find_source_by_stem(ctx, module_name);
+	luat_dep_file_t *binary = luat_cmd_find_binary_by_stem(ctx, module_name);
+	*pack_file = NULL;
+	*parse_file = NULL;
+	if (binary)
+	{
+		// 若同时存在 foo.lua 与 foo.luac, 优先把二进制产物打进包, 但仍用源码继续分析依赖
+		*pack_file = binary;
+		if (source)
+		{
+			*parse_file = source;
+		}
+		else
+		{
+			ctx->fallback_all_lua = 1;
+			LLOGW("模块 %s 只有编译产物, 退回到全量 Lua 打包", module_name);
+		}
+		return 0;
+	}
+	if (source)
+	{
+		*pack_file = source;
+		*parse_file = source;
+		return 0;
+	}
+	if (luat_cmd_module_exists_elsewhere(module_name))
+	{
+		return 0;
+	}
+	return -1;
+}
+
+static int luat_cmd_resolve_file(luat_dep_ctx_t *ctx, const char *file_name, luat_dep_file_t **pack_file, luat_dep_file_t **parse_file)
+{
+	const char *base = luat_cmd_basename(file_name);
+	luat_dep_file_t *exact;
+	*pack_file = NULL;
+	*parse_file = NULL;
+	if (strchr(file_name, '/') || strchr(file_name, '\\'))
+	{
+		// 当前运行时打包键是 basename, 第一版不尝试恢复目录语义, 避免误裁剪
+		LLOGW("暂不分析带路径的 dofile/loadfile %s", file_name);
+		return 0;
+	}
+	exact = luat_cmd_find_file_by_name(ctx, base);
+	if (exact)
+	{
+		*pack_file = exact;
+		if (exact->kind == LUAT_DEP_FILE_SOURCE)
+		{
+			*parse_file = exact;
+		}
+		else if (exact->kind == LUAT_DEP_FILE_BINARY)
+		{
+			luat_dep_file_t *source = luat_cmd_find_source_by_stem(ctx, exact->stem);
+			if (source)
+			{
+				*parse_file = source;
+			}
+			else
+			{
+				ctx->fallback_all_lua = 1;
+				LLOGW("文件 %s 只有编译产物, 退回到全量 Lua 打包", base);
+			}
+		}
+		return 0;
+	}
+	if (luat_fs_fexist(file_name) || luat_fs_fexist(base))
+	{
+		return 0;
+	}
+	return -1;
+}
+
+static int luat_cmd_mark_required(luat_dep_ctx_t *ctx, luat_dep_file_t *file, const char *from_name)
+{
+	if (file == NULL)
+	{
+		return 0;
+	}
+	if (file->selected)
+	{
+		return 0;
+	}
+	file->selected = 1;
+	if (ctx->fallback_all_lua || file->kind != LUAT_DEP_FILE_SOURCE)
+	{
+		return 0;
+	}
+	return luat_cmd_expand_dependencies(ctx, file, from_name);
+}
+
+static int luat_cmd_expand_dependencies(luat_dep_ctx_t *ctx, luat_dep_file_t *file, const char *from_name)
+{
+	if (file == NULL || file->kind != LUAT_DEP_FILE_SOURCE)
+	{
+		return 0;
+	}
+	if (file->expanded)
+	{
+		return 0;
+	}
+	if (luat_cmd_parse_file_deps(file))
+	{
+		return -1;
+	}
+	file->expanded = 1;
+	for (size_t i = 0; i < file->dep_count; i++)
+	{
+		// pack_file 是最终要打入 luadb 的目标; parse_file 是继续递归分析的源码来源
+		luat_dep_file_t *pack_file = NULL;
+		luat_dep_file_t *parse_file = NULL;
+		int ret;
+		if (file->deps[i].kind == LUAT_DEP_REF_MODULE)
+		{
+			ret = luat_cmd_resolve_module(ctx, file->deps[i].value, &pack_file, &parse_file);
+		}
+		else
+		{
+			ret = luat_cmd_resolve_file(ctx, file->deps[i].value, &pack_file, &parse_file);
+		}
+		if (ret)
+		{
+			LLOGE("依赖缺失 %s <- %s", file->deps[i].value, from_name ? from_name : file->name);
+			return -1;
+		}
+		if (pack_file && luat_cmd_mark_required(ctx, pack_file, file->name))
+		{
+			return -1;
+		}
+		if (parse_file && parse_file != pack_file && luat_cmd_expand_dependencies(ctx, parse_file, file->name))
+		{
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void luat_cmd_free_dep_ctx(luat_dep_ctx_t *ctx)
+{
+	if (ctx == NULL)
+	{
+		return;
+	}
+	for (size_t i = 0; i < ctx->count; i++)
+	{
+		free(ctx->files[i].fullpath);
+		free(ctx->files[i].name);
+		free(ctx->files[i].stem);
+		for (size_t j = 0; j < ctx->files[i].dep_count; j++)
+		{
+			free(ctx->files[i].deps[j].value);
+		}
+		free(ctx->files[i].deps);
+	}
+	free(ctx->files);
+	memset(ctx, 0, sizeof(luat_dep_ctx_t));
+}
+
+static int luat_cmd_pack_with_dep_strip(const char **paths, size_t count)
+{
+	luat_dep_ctx_t ctx = {0};
+	luat_dep_file_t *main_file = NULL;
+	int ret = 0;
+	for (size_t i = 0; i < count; i++)
+	{
+		// 先把所有输入目录/文件扁平收集到同一个候选集, 再统一从 main.lua 求依赖闭包
+		if (luat_cmd_collect_path(&ctx, paths[i], 1))
+		{
+			ret = -1;
+			goto done;
+		}
+	}
+	main_file = luat_cmd_find_file_by_name(&ctx, "main.lua");
+	if (main_file == NULL)
+	{
+		luat_dep_file_t *binary_main = luat_cmd_find_file_by_name(&ctx, "main.luac");
+		if (binary_main != NULL)
+		{
+			ctx.fallback_all_lua = 1;
+			LLOGW("main.lua 不存在, 依赖裁剪退回到全量 Lua 打包");
+		}
+		else
+		{
+			LLOGE("依赖裁剪模式要求存在 main.lua");
+			ret = -1;
+			goto done;
+		}
+	}
+	if (main_file && luat_cmd_mark_required(&ctx, main_file, "main.lua"))
+	{
+		ret = -1;
+		goto done;
+	}
+	if (ctx.fallback_all_lua)
+	{
+		// 回退模式下保留旧行为: 所有 Lua/luac/luae 全量打包, 资源文件照常保留
+		for (size_t i = 0; i < ctx.count; i++)
+		{
+			if (ctx.files[i].kind != LUAT_DEP_FILE_RESOURCE)
+			{
+				ctx.files[i].selected = 1;
+			}
+		}
+	}
+	for (size_t i = 0; i < ctx.count; i++)
+	{
+		if (ctx.files[i].kind == LUAT_DEP_FILE_RESOURCE || ctx.files[i].selected)
+		{
+			if (add_onefile(ctx.files[i].fullpath))
+			{
+				ret = -1;
+				goto done;
+			}
+		}
+		else
+		{
+			ctx.skipped_lua_count++;
+			LLOGD("剔除未引用脚本 %s", ctx.files[i].name);
+		}
+	}
+	LLOGI("依赖裁剪完成, 文件总数 %d, 剔除脚本 %d", (int)ctx.count, (int)ctx.skipped_lua_count);
+done:
+	luat_cmd_free_dep_ctx(&ctx);
+	return ret;
+}
 
 static int is_opts(const char *key, const char *arg)
 {
@@ -47,6 +987,9 @@ static int is_opts(const char *key, const char *arg)
 
 int luat_cmd_parse(int argc, char **argv)
 {
+	const char **input_paths = NULL;
+	size_t input_count = 0;
+	size_t input_capacity = 0;
 	if (cmdline_argc == 1)
 	{
 		return 0;
@@ -152,12 +1095,58 @@ int luat_cmd_parse(int argc, char **argv)
 			continue;
 		}
 
+		if (is_opts("--dep_strip=", arg))
+		{
+			// 开关:默认已开启
+			if (!strcmp("--dep_strip=1", arg)) {
+				cfg_dep_strip = 1;
+			}
+			else if (!strcmp("--dep_strip=0", arg)) {
+				cfg_dep_strip = 0;
+			}
+			continue;
+		}
+
 		if (arg[0] == '-')
 		{
 			continue;
 		}
-		check_file_path(arg);
+		if (cfg_dep_strip)
+		{
+			// 默认开启依赖裁剪时, 把所有输入路径先缓存起来, 最后统一分析并打包
+			if (input_count + 1 > input_capacity)
+			{
+				size_t next_capacity = input_capacity == 0 ? 4 : input_capacity * 2;
+				const char **next_paths = realloc(input_paths, next_capacity * sizeof(const char *));
+				if (next_paths == NULL)
+				{
+					free(input_paths);
+					LLOGE("内存不足, 无法缓存待分析路径");
+					return -1;
+				}
+				input_paths = next_paths;
+				input_capacity = next_capacity;
+			}
+			input_paths[input_count++] = arg;
+			continue;
+		}
+		if (check_file_path(arg) == NULL)
+		{
+			free(input_paths);
+			return -1;
+		}
 	}
+
+	if (cfg_dep_strip && input_count > 0)
+	{
+		// 统一分析 main.lua 的静态依赖闭包, 只打入命中的脚本和全部资源文件
+		if (luat_cmd_pack_with_dep_strip(input_paths, input_count))
+		{
+			free(input_paths);
+			return -1;
+		}
+	}
+	free(input_paths);
 
 	if (luadb_dump_path[0]) {
 		LLOGD("导出luadb数据到 %s 大小 %d", luadb_dump_path, luadb_ctx.offset);

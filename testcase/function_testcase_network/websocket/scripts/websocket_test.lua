@@ -360,7 +360,7 @@ function websocket_tests.test_WebsocketEcho_all_formats()
                         sys.timerStop(test_state.send_timer)
                         test_state.send_timer = nil
                     end
-                    wsc:close()
+                    -- wsc:close()
                 end
             end
 

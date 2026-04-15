@@ -196,7 +196,7 @@ static void airui_refresh_timer_cb(LUAT_RT_CB_PARAM) {
     if (luat_msgbus_put(&msg, 0) == 0) {
         ctx->refresh_posted_seq = next_seq;
         ctx->refresh_last_post_tick = now;
-        if (has_unhandled) {
+        if (has_unhandled && ctx->debug_enabled) {
             LLOGW("refresh retry posted seq=%lu handled=%lu posted=%lu",
                   (unsigned long)next_seq,
                   (unsigned long)ctx->refresh_handled_seq,

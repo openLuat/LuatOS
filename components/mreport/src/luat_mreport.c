@@ -6,7 +6,16 @@
 #include "lwip/udp.h"
 #include "luat_mcu.h"
 #include "luat_mem.h"
+#ifdef LUAT_USE_MOBILE
 #include "luat_mobile.h"
+#endif
+#ifdef LUAT_USE_WLAN
+#include "luat_wlan.h"
+#endif
+#ifdef LUAT_USE_BLE
+#include "luat_bluetooth.h"
+#endif
+#include "luat_rtc.h"
 #include "luat_hmeta.h"
 #include "luat_pm.h"
 #include "luat_adc.h"
@@ -91,10 +100,37 @@ static inline uint16_t u162bcd(uint16_t src) {
 
 // 基础信息
 static void luat_mreport_sys_basic(cJSON* mreport_data) {
-    // 时间戳
-	time_t t;
-	time(&t);
-    cJSON_AddNumberToObject(mreport_data, "localtime", t);
+    struct tm tblock = {0};
+    int ret;
+    ret = luat_rtc_get(&tblock);
+    if (ret == 0) {
+        char time_str[32] = {0};
+        snprintf(time_str, sizeof(time_str), "%04d-%02d-%02d %02d:%02d:%02d", tblock.tm_year + 1900, tblock.tm_mon + 1, tblock.tm_mday, tblock.tm_hour, tblock.tm_min, tblock.tm_sec);
+        cJSON_AddStringToObject(mreport_data, "localtime", time_str);
+    }
+
+    // 版本号
+    cJSON_AddStringToObject(mreport_data, "bspver", luat_version_str());
+
+    // 模组型号
+    char model_name[20] = {0};
+    luat_hmeta_model_name(model_name);
+    cJSON_AddStringToObject(mreport_data, "model", model_name);
+
+    // unique_id
+	size_t len = 0;
+    char buff[128] = {0};
+    const char* unique_id = luat_mcu_unique_id(&len);
+    luat_str_tohex(unique_id, len, buff);
+    cJSON_AddStringToObject(mreport_data, "unique_id", buff);
+
+    // 硬件版本
+    char hwversion[20] = {0};
+    luat_hmeta_hwversion(hwversion);
+    cJSON_AddStringToObject(mreport_data, "hwver", hwversion);
+
+    // sdk固件类型 0:luatos 1:at 2:csdk
+    cJSON_AddNumberToObject(mreport_data, "sdk", 0);
 
     // luatos项目信息
     cJSON_AddStringToObject(mreport_data, "proj", s_mreport_ctx->project_name);
@@ -121,6 +157,7 @@ static void luat_mreport_sys_basic(cJSON* mreport_data) {
     cJSON_AddNumberToObject(mreport_data, "tms", tms);
 }
 
+#ifdef LUAT_USE_MOBILE
 // 模块的信息
 static void luat_mreport_mobile(cJSON* mreport_data) {
     // IMEI
@@ -133,30 +170,6 @@ static void luat_mreport_mobile(cJSON* mreport_data) {
     luat_mobile_get_muid(muid, 32); // TODO 如果不是cat1,要从mcu库取.
     muid[32] = '\0';
     cJSON_AddStringToObject(mreport_data, "muid", muid);
-
-    // unique_id
-	size_t len = 0;
-    char buff[128] = {0};
-    const char* unique_id = luat_mcu_unique_id(&len);
-    luat_str_tohex(unique_id, len, buff);
-    cJSON_AddStringToObject(mreport_data, "unique_id", buff);
-
-    // 版本号
-    cJSON_AddStringToObject(mreport_data, "bspver", luat_version_str());
-
-    // 模组型号
-    char model_name[20] = {0};
-    luat_hmeta_model_name(model_name);
-    cJSON_AddStringToObject(mreport_data, "model", model_name);
-
-    // 硬件版本
-    char hwversion[20] = {0};
-    luat_hmeta_hwversion(hwversion);
-    cJSON_AddStringToObject(mreport_data, "hwver", hwversion);
-
-    // sdk固件类型 0:luatos 1:
-    cJSON_AddNumberToObject(mreport_data, "sdk", 0);
-
 }
 
 // 网络信息
@@ -218,6 +231,7 @@ static void luat_mreport_sim_network(cJSON* mreport_data, struct netif* netif) {
     cJSON_AddNumberToObject(mreport_data, "uplink", uplink);
     cJSON_AddNumberToObject(mreport_data, "downlink", downlink);
 }
+#endif
 
 // adc信息
 static void luat_mreport_adc(cJSON* mreport_data) {
@@ -243,6 +257,7 @@ static void luat_mreport_adc(cJSON* mreport_data) {
 
 // wifi信息
 static void luat_mreport_wifi(cJSON* mreport_data) {
+#ifdef LUAT_USE_DRV_WLAN
     // wifi版本
     uint32_t wifi_version = 0;
     if (g_airlink_ext_dev_info.tp == 0x01) {
@@ -269,7 +284,63 @@ static void luat_mreport_wifi(cJSON* mreport_data) {
         cJSON_AddStringToObject(mreport_data, "wifi_bssid", mac);
         cJSON_AddNumberToObject(mreport_data, "wifi_rssi", g_airlink_ext_dev_info.wifi.sta_ap_rssi);
         cJSON_AddNumberToObject(mreport_data, "wifi_channel", g_airlink_ext_dev_info.wifi.sta_ap_channel);
+
+        char sta_ip_addr[16] = {0};
+        luat_wlan_get_ip(0, &sta_ip_addr);
+        cJSON_AddStringToObject(mreport_data, "wifi_sta_ip", ip4addr_ntoa(&sta_ip_addr));
     }
+    if (g_airlink_ext_dev_info.wifi.ap_state == 1) {
+        char ap_ip_addr[16] = {0};
+        luat_wlan_get_ip(1, &ap_ip_addr);
+        cJSON_AddStringToObject(mreport_data, "wifi_ap_ip", ip4addr_ntoa(&ap_ip_addr));
+    }
+#elif __BK72XX__    
+    // MUID
+    char muid[33] = {0};
+	luat_mcu_muid(muid);
+    cJSON_AddStringToObject(mreport_data, "muid", muid);
+
+    // wifi版本号
+    cJSON_AddStringToObject(mreport_data, "wifi_ver", luat_version_str());
+
+    // wifi mac
+    uint8_t sta_mac[6] = {0};
+    uint8_t ap_mac[6] = {0};
+    uint8_t bt_mac[6] = {0};
+    char mac[18] = {0};
+
+    luat_wlan_get_mac(0, (char*)sta_mac);   // sta mac
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", sta_mac[0], sta_mac[1], sta_mac[2], sta_mac[3], sta_mac[4], sta_mac[5]);           
+    cJSON_AddStringToObject(mreport_data, "imei", mac);
+    cJSON_AddStringToObject(mreport_data, "wifi_sta_mac", mac);
+    
+    luat_wlan_get_mac(1, (char*)ap_mac);   // ap mac
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", ap_mac[0], ap_mac[1], ap_mac[2], ap_mac[3], ap_mac[4], ap_mac[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_ap_mac", mac);
+
+    luat_bluetooth_get_mac(NULL, bt_mac);
+    luat_bluetooth_mac_swap(bt_mac);
+    sprintf_(mac, "%02x:%02x:%02x:%02x:%02x:%02x", bt_mac[0], bt_mac[1], bt_mac[2], bt_mac[3], bt_mac[4], bt_mac[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_bt_mac", mac);
+    
+    // wifi connect ap bssid/rssi/channel
+    char sta_ip_addr[16] = {0};
+    uint8_t buff[48] = {0};
+    char buff2[32] = {0};
+    int rssi = 0;
+    luat_wlan_get_ip(0, &sta_ip_addr);
+    cJSON_AddStringToObject(mreport_data, "wifi_sta_ip", ip4addr_ntoa(&sta_ip_addr));
+
+    luat_wlan_get_ap_bssid((char*)buff);
+    sprintf_(buff2, "%02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+    cJSON_AddStringToObject(mreport_data, "wifi_bssid", buff2);
+
+    rssi = luat_wlan_get_ap_rssi();
+    cJSON_AddNumberToObject(mreport_data, "wifi_rssi", rssi);
+
+    luat_wlan_get_ap_gateway((char*)buff);
+    cJSON_AddStringToObject(mreport_data, "wifi_gw", ip4addr_ntoa(buff));
+#endif
 }
 
 // 内存信息
@@ -359,14 +430,16 @@ void luat_mreport_send(void) {
 
     // 基础信息
     luat_mreport_sys_basic(mreport_data);
+#if defined(LUAT_USE_MOBILE)
     // 模组信息, TODO 有mobile库的才添加
     luat_mreport_mobile(mreport_data);
     // sim卡和网络相关, TODO 有mobile库的才添加
     luat_mreport_sim_network(mreport_data, netif);
+#endif
     // adc信息
     luat_mreport_adc(mreport_data);
     // wifi信息
-#ifdef LUAT_USE_DRV_WLAN
+#if defined(LUAT_USE_DRV_WLAN) || defined(__BK72XX__)
     luat_mreport_wifi(mreport_data);
 #endif
     // 内存信息

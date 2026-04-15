@@ -24,7 +24,7 @@ local SIP_CONFIG = {
     sip_domain = "xxx.xxx.xxx.xxx",
     sip_username = "xxxx",
     sip_password = "xxxxxxxx",
-    rtp_transport = exsip.TRANSPORT_TCP
+    sip_transport = exsip.TRANSPORT_TCP
 }
 
 local audio_configs = {

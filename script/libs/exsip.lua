@@ -77,7 +77,7 @@ local g_current_call = nil
 
 -- 默认配置
 local default_config = {
-    rtp_transport = exsip.TRANSPORT_TCP,
+    sip_transport = exsip.TRANSPORT_TCP,
     port = exsip.DEFAULT_SIP_PORT,
     rtp_port = exsip.DEFAULT_RTP_PORT,
     expires = exsip.DEFAULT_EXPIRES,
@@ -244,7 +244,7 @@ end
 @string config.sip_domain SIP 域
 @string config.sip_username SIP 用户名
 @string config.sip_password SIP 密码
-@string config.rtp_transport RTP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
+@string config.sip_transport RTP 传输协议，"UDP" 或 "TCP"，默认 "TCP"
 @number config.rtp_port 本地 RTP 端口，默认 40000
 @number config.expires 注册有效期（秒），默认 600
 @table config.codecs 编解码器列表，默认 {"PCMU", "PCMA"}
@@ -324,7 +324,7 @@ function exsip.start()
         sip_domain = g_config.sip_domain,
         sip_username = g_config.sip_username,
         sip_password = g_config.sip_password,
-        rtp_transport = g_config.rtp_transport,
+        sip_transport = g_config.sip_transport,
         rtp_port = g_config.rtp_port,
         expires = g_config.expires,
         codecs = g_config.codecs,

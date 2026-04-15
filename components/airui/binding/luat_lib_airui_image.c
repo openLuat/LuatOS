@@ -78,6 +78,21 @@ static int l_image_set_src(lua_State *L) {
 }
 
 /**
+ * Image:set_pivot(x, y)
+ * @api image:set_pivot(x, y)
+ * @int x 旋转中心 X 坐标
+ * @int y 旋转中心 Y 坐标
+ * @return nil
+ */
+static int l_image_set_pivot(lua_State *L) {
+    lv_obj_t *img = airui_check_component(L, 1, AIRUI_IMAGE_MT);
+    int x = luaL_checkinteger(L, 2);
+    int y = luaL_checkinteger(L, 3);
+    airui_image_set_pivot(img, x, y);
+    return 0;
+}
+
+/**
  * Image:set_rotation(rotation)
  * @api image:set_rotation(rotation)
  * @int rotation 旋转角度，0.1 度单位，900 = 90.0 度
@@ -183,6 +198,7 @@ void airui_register_image_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_src", l_image_set_src},
+        {"set_pivot", l_image_set_pivot},
         {"set_rotation", l_image_set_rotation},
         {"set_zoom", l_image_set_zoom},
         {"set_opacity", l_image_set_opacity},

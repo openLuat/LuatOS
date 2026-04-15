@@ -638,7 +638,7 @@ static int l_mobile_scell_extern_info(lua_State* L) {
 
 LUAT_WEAK int luat_mobile_set_flymode_async(int index, int mode)
 {
-	return luat_mobile_set_flymode(index, lua_toboolean(L, 2));
+	return luat_mobile_set_flymode(index, mode);
 }
 /**
 进出飞行模式

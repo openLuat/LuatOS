@@ -1,8 +1,8 @@
 --[[
 @module  tp_drv
-@summary 触摸面板驱动模块，基于tp核心库
+@summary 触摸面板驱动模块，基于tp核心库(Air1601版本)
 @version 1.0
-@date    2026.02.04
+@date    2026.03.16
 @author  孙志鹏
 @usage
 本模块为触摸面板驱动功能模块，主要功能包括：
@@ -12,10 +12,12 @@
 
 对外接口：
 1、tp_drv.init()：初始化触摸面板驱动
-]] 
+]]
+
+
 
 --[[
-触摸事件回调函数；
+touch事件回调函数；
 
 --[[
 初始化触摸面板驱动；
@@ -38,12 +40,12 @@ local rst_pin = 2
 local int_pin = 51
 
 
-local is_soft_i2c = true
+local is_soft_i2c = false
 
 local port = 1
 
 if is_soft_i2c then
-    port = i2c.createSoft(23, 22) -- scl, sda, delay
+    port = i2c.createSoft(55, 54) -- scl, sda, delay (修改为GPIO8和GPIO14)
 else
     i2c.setup(port, i2c.SLOW)
 end
@@ -70,8 +72,8 @@ local function tp_drv_init()
         pin_rst = rst_pin,
         pin_int = int_pin,
         int_type = 1,
-        w = 1280,
-        h = 400
+        w = 1024,
+        h = 600
     })
 
     log.info("tp.init", result)
@@ -81,7 +83,7 @@ local function tp_drv_init()
         return result
     else
         -- 绑定触摸设备到AirUI输入设备
-        return airui.indev_bind_touch(result)
+        return airui.device_bind_touch(result)
     end
 end
 

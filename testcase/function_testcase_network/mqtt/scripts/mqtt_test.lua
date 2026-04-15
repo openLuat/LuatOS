@@ -654,7 +654,7 @@ function mqtt_test.test_will_message()
     assert(will_conack, "will client conack not received")
     
     sys.wait(1000)
-    socket.close_all(socket.LWIP_STA)
+    socket.close_all(socket.dft())
 
     local monitor_client = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_ssl)
     assert(monitor_client, "monitor mqtt create failed")

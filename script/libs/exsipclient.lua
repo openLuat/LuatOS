@@ -173,14 +173,14 @@ local build_media_session = proto.build_media_session
 
 -- 构造 REGISTER 报文，可选携带 Digest Authorization。
 local function build_register(state, auth)
-    local uri = "sip:" .. state.domain
-    local from_to = string.format("<sip:%s@%s>", state.user, state.domain)
+    local uri = "sip:" .. state.sip_domain
+    local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
 
     return build_request({
         method = "REGISTER",
         uri = uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = state.branch
@@ -189,10 +189,10 @@ local function build_register(state, auth)
                    {"Call-ID", string.format("%s@luatos", state.call_id)},
                    {"CSeq", string.format("%d REGISTER", state.cseq)}},
         contact_ctx = {
-            user = state.user,
+            user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.transport,
+            transport = state.rtp_transport,
             header_params = {string.format("expires=%d", state.expires)}
         },
         user_agent = "LuatOS-SIP-REG",
@@ -223,8 +223,8 @@ end
 
 local function build_digest_retry_auth(state, code, www_params, method, uri)
     local digest, err = sip_digest_auth({
-        username = state.user,
-        password = state.password,
+        username = state.sip_username,
+        password = state.sip_password,
         realm = www_params.realm,
         nonce = www_params.nonce,
         opaque = www_params.opaque,
@@ -257,10 +257,10 @@ local function build_response(state, req_headers, code, reason, extra_headers, b
                    req_headers["call-id"] and {"Call-ID", req_headers["call-id"]} or nil,
                    req_headers["cseq"] and {"CSeq", req_headers["cseq"]} or nil},
         contact_ctx = {
-            user = state.user,
+            user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.transport
+            transport = state.rtp_transport
         },
         extra_headers = extra_headers,
         body = body or "",
@@ -274,7 +274,7 @@ local function build_ack(state, dialog)
         method = "ACK",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = gen_token("br")
@@ -290,7 +290,7 @@ local function build_ack_non2xx(state, dialog)
         method = "ACK",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -307,7 +307,7 @@ local function build_bye(state, dialog)
         method = "BYE",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = gen_token("br")
@@ -324,7 +324,7 @@ local function build_cancel(state, dialog)
         method = "CANCEL",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -348,7 +348,7 @@ local function build_invite(state, dialog, auth)
         method = "INVITE",
         uri = uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -356,10 +356,10 @@ local function build_invite(state, dialog, auth)
         headers = {{"From", dialog.from}, {"To", dialog.to}, {"Call-ID", dialog.call_id},
                    {"CSeq", string.format("%d INVITE", dialog.invite_cseq)}},
         contact_ctx = {
-            user = state.user,
+            user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.transport
+            transport = state.rtp_transport
         },
         user_agent = "LuatOS-SIP",
         auth_header = auth and build_auth_header(auth) or nil,
@@ -380,7 +380,7 @@ local function build_message(state, msg, auth)
         method = "MESSAGE",
         uri = uri,
         via_ctx = {
-            transport = state.transport,
+            transport = state.rtp_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = msg.branch
@@ -388,10 +388,10 @@ local function build_message(state, msg, auth)
         headers = {{"From", msg.from}, {"To", msg.to}, {"Call-ID", msg.call_id},
                    {"CSeq", string.format("%d MESSAGE", msg.cseq)}},
         contact_ctx = {
-            user = state.user,
+            user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.transport
+            transport = state.rtp_transport
         },
         user_agent = "LuatOS-SIP",
         auth_header = auth and build_auth_header(auth) or nil,
@@ -409,7 +409,7 @@ end
 -- 4. 在正确时机把媒体协商结果通过回调抛给外部媒体层
 local function sip_task(opts)
     local rxbuf = zbuff.create(2048)
-
+    log.info("JQsip", "sip_task start")
     opts = opts or {}
 
     -- `state` 是 SIP 主任务的唯一运行时状态容器。
@@ -417,17 +417,17 @@ local function sip_task(opts)
     -- 避免全局散落多个可变变量，便于断线重连时整体重建。
     local state = {
         -- 账号与服务器配置。
-        user = opts.user,
-        password = opts.password,
-        domain = opts.domain,
-        server = opts.server,
-        port = opts.port,
+        sip_username = opts.sip_username,
+        sip_password = opts.sip_password,
+        sip_domain = opts.sip_domain,
+        sip_server_addr = opts.sip_server_addr,
+        sip_server_port = opts.sip_server_port,
         adapter = opts.adapter,
         local_port = opts.local_port or LOCAL_PORT,
         expires = opts.expires or REGISTER_EXPIRES,
 
         -- 传输层状态。
-        transport = opts.transport,
+        rtp_transport = opts.rtp_transport,
         tcp_stream = "",
 
         -- REGISTER 事务基础字段。
@@ -480,7 +480,7 @@ local function sip_task(opts)
 
         local session, err = build_media_session({
             call_id = dialog.call_id,
-            remote_ip = dialog.remote_sdp.conn_ip or dialog.remote_ip or state.server,
+            remote_ip = dialog.remote_sdp.conn_ip or dialog.remote_ip or state.sip_server_addr,
             remote_sdp = dialog.remote_sdp,
             remote_sdp_raw = dialog.remote_sdp_raw,
             local_rtp_port = state.media.local_rtp_port,
@@ -493,6 +493,8 @@ local function sip_task(opts)
             log.warn("sip", "no common media codec")
             return
         end
+        log.info("JQsip", "media session ready", session)
+        -- 通知外部媒体层启动当前会话。
 
         state.media.active = true
         state.media.session = session
@@ -559,7 +561,7 @@ local function sip_task(opts)
 
     -- 收到 REGISTER 的 401/407 后，构造带 Digest 的重试请求。
     local function send_register_with_auth(code, www_params)
-        local uri = "sip:" .. state.domain
+        local uri = "sip:" .. state.sip_domain
         state.branch = gen_token("br")
         state.cseq = state.cseq + 1
 
@@ -594,12 +596,12 @@ local function sip_task(opts)
         if type(target) == "string" and target:lower():find("^sip:") then
             to_uri = target
         else
-            to_uri = string.format("sip:%s@%s", tostring(target or ""), state.domain)
+            to_uri = string.format("sip:%s@%s", tostring(target or ""), state.sip_domain)
         end
 
         -- 外呼时会立即创建一个“待建立”的 dialog。
         -- 只有当收到 200 OK 并完成 ACK 后，该 dialog 才算真正 established。
-        local from_to = string.format("<sip:%s@%s>", state.user, state.domain)
+        local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
         local local_tag = gen_token("tag")
         local call_id = gen_token("call") .. "@luatos"
 
@@ -719,10 +721,10 @@ local function sip_task(opts)
         if type(target) == "string" and target:lower():find("^sip:") then
             to_uri = target
         else
-            to_uri = string.format("sip:%s@%s", tostring(target or ""), state.domain)
+            to_uri = string.format("sip:%s@%s", tostring(target or ""), state.sip_domain)
         end
 
-        local from_to = string.format("<sip:%s@%s>", state.user, state.domain)
+        local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
         local local_tag = gen_token("tag")
         local call_id = gen_token("msg") .. "@luatos"
 
@@ -790,13 +792,13 @@ local function sip_task(opts)
             state.auth_tried = 0
 
             local req = build_register(state, nil)
-            log.info("sip", "send REGISTER", state.server, state.port)
+            log.info("sip", "send REGISTER", state.sip_server_addr, state.sip_server_port)
             net_send_on(netc, req)
             state.online = false
             emit_lifecycle("online", {
-                server = state.server,
-                port = state.port,
-                transport = state.transport,
+                server = state.sip_server_addr,
+                port = state.sip_server_port,
+                transport = state.rtp_transport,
                 local_ip = state.local_ip
             })
             return
@@ -1189,7 +1191,7 @@ local function sip_task(opts)
                 local resp = rxbuf:toStr(0, rxbuf:used())
                 rxbuf:del()
 
-                if state.transport == "TCP" then
+                if state.rtp_transport == "TCP" then
                     -- TCP 是字节流：先拼到流缓冲里，再循环拆出完整 SIP 报文。
                     state.tcp_stream = state.tcp_stream .. resp
                     while true do
@@ -1198,7 +1200,7 @@ local function sip_task(opts)
                         if not head then
                             break
                         end
-                        process_packet(head, body, state.server, state.port)
+                        process_packet(head, body, state.sip_server_addr, state.sip_server_port)
                     end
                 else
                     -- UDP 下一般一包就是一份 SIP 报文。
@@ -1241,9 +1243,9 @@ local function sip_task(opts)
     while true do
         local netc = socket.create(opts.adapter, netCB)
         state.netc = netc
-        socket.config(netc, state.local_port, (state.transport == "udp"))
+        socket.config(netc, state.local_port, (state.rtp_transport == "udp"))
 
-        local succ = socket.connect(netc, state.server, state.port)
+        local succ = socket.connect(netc, state.sip_server_addr, state.sip_server_port)
         if not succ then
             log.warn("sip", "connect start failed, retry")
             socket.close(netc)
@@ -1297,26 +1299,36 @@ exsipclient.start({
 })
 ]]
 function M.start(opts)
-
+    
+    log.info("JQsip", "starting with opts!!!!!!!!!!!!!!!!!!!!")
     if g_started then
         return true
     end
+    
+    log.info("JQsip", "starting with opts",g_started)
     -- 在这里要判断基础的参数合法性，如果不合法就直接返回 false，不启动后台 task。
     if not opts or type(opts) ~= "table" then
         return false
     end
 
-    if (not opts.server) or (not opts.port) or (not opts.domain) or (not opts.user) then
+    log.info("JQsip", "starting with opts", type(opts))
+
+    if (not opts.sip_server_addr) or (not opts.sip_server_port) or (not opts.sip_domain) or (not opts.sip_username) then
+        return false
+    end
+    
+    log.info("JQsip", "starting with opts", opts.sip_server_addr, opts.sip_server_port, opts.sip_domain, opts.sip_username)
+
+    if not opts.rtp_transport  or (opts.rtp_transport ~= "udp" and opts.rtp_transport ~= "tcp" and opts.rtp_transport ~= "tls") then
         return false
     end
 
-    if not opts.transport or (opts.transport ~= "udp" and opts.transport ~= "tcp" and opts.transport ~= "tls") then
-        return false
-    end
+    log.info("JQsip", "starting with opts", opts.rtp_transport)
 
     if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback
     end
+    log.info("JQsip", "event callback set", type(g_callback))
     g_stop = false
     g_started = true
 

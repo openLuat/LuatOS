@@ -635,18 +635,36 @@ static int l_mobile_scell_extern_info(lua_State* L) {
     return 1;
 }
 
+
+LUAT_WEAK int luat_mobile_set_flymode_async(int index, int mode)
+{
+	return luat_mobile_set_flymode(index, lua_toboolean(L, 2));
+}
 /**
 进出飞行模式
-@api mobile.flymode(index, enable)
+@api mobile.flymode(index, enable, is_async)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @bool 是否设置为飞行模式,true为设置, false为退出,可选
+@bool 是否异步执行，true异步，false同步，兼容之前的使用情况，默认是false。2026.4.15启用
 @return bool 原飞行模式的状态
  */
 static int l_mobile_flymode(lua_State* L) {
     int index = luaL_optinteger(L, 1, 0);
     int flymode = luat_mobile_get_flymode(index);
+    uint8_t is_async = 0;
+    if (lua_isboolean(L, 3))
+    {
+    	is_async = lua_toboolean(L, 3);
+    }
     if (lua_isboolean(L, 2)) {
-        luat_mobile_set_flymode(index, lua_toboolean(L, 2));
+    	if (is_async)
+    	{
+    		luat_mobile_set_flymode_async(index, lua_toboolean(L, 2));
+    	}
+    	else
+    	{
+    		luat_mobile_set_flymode(index, lua_toboolean(L, 2));
+    	}
     }
     lua_pushboolean(L, flymode == 1 ? 0 : 1);
     return 1;

@@ -14,7 +14,7 @@
 
 local function helloworld_task_func()
     while true do
-        -- 打印模组名称，硬件版本号，原始芯片型号
+        -- 每隔三秒钟通过日志输出一次hello world
         log.info("hello world")
         sys.wait(3000)
     end

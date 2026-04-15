@@ -42,6 +42,7 @@ static int l_airui_sleep(lua_State *L);
 static int l_airui_wakeup(lua_State *L);
 static int l_airui_set_rotation(lua_State *L);
 static int l_airui_get_rotation(lua_State *L);
+static int l_airui_status(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
@@ -140,6 +141,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"wakeup", ROREG_FUNC(l_airui_wakeup)},
     {"set_rotation", ROREG_FUNC(l_airui_set_rotation)},
     {"get_rotation", ROREG_FUNC(l_airui_get_rotation)},
+    {"status", ROREG_FUNC(l_airui_status)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
@@ -438,6 +440,31 @@ static int l_airui_get_rotation(lua_State *L) {
     }
 
     lua_pushinteger(L, airui_display_get_rotation(g_ctx));
+    return 1;
+}
+
+/**
+ * 获取 AIRUI 当前状态
+ * @api airui.status()
+ * @return table 状态表，包含 rotation/w/h
+ */
+static int l_airui_status(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_createtable(L, 0, 3);
+
+    lua_pushinteger(L, airui_display_get_rotation(g_ctx));
+    lua_setfield(L, -2, "rotation");
+
+    lua_pushinteger(L, g_ctx->width);
+    lua_setfield(L, -2, "w");
+
+    lua_pushinteger(L, g_ctx->height);
+    lua_setfield(L, -2, "h");
+
     return 1;
 }
 

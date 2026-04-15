@@ -35,6 +35,7 @@ struct _lv_tabview_t {
     lv_obj_t obj;
     uint32_t tab_cur;
     lv_dir_t tab_pos;
+    uint8_t swipe_threshold_ratio;
 };
 
 

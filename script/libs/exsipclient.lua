@@ -180,7 +180,7 @@ local function build_register(state, auth)
         method = "REGISTER",
         uri = uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = state.branch
@@ -192,7 +192,7 @@ local function build_register(state, auth)
             user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             header_params = {string.format("expires=%d", state.expires)}
         },
         user_agent = "LuatOS-SIP-REG",
@@ -260,7 +260,7 @@ local function build_response(state, req_headers, code, reason, extra_headers, b
             user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.rtp_transport
+            transport = state.sip_transport
         },
         extra_headers = extra_headers,
         body = body or "",
@@ -274,7 +274,7 @@ local function build_ack(state, dialog)
         method = "ACK",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = gen_token("br")
@@ -290,7 +290,7 @@ local function build_ack_non2xx(state, dialog)
         method = "ACK",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -307,7 +307,7 @@ local function build_bye(state, dialog)
         method = "BYE",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = gen_token("br")
@@ -324,7 +324,7 @@ local function build_cancel(state, dialog)
         method = "CANCEL",
         uri = dialog.remote_uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -348,7 +348,7 @@ local function build_invite(state, dialog, auth)
         method = "INVITE",
         uri = uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = dialog.invite_branch
@@ -359,7 +359,7 @@ local function build_invite(state, dialog, auth)
             user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.rtp_transport
+            transport = state.sip_transport
         },
         user_agent = "LuatOS-SIP",
         auth_header = auth and build_auth_header(auth) or nil,
@@ -380,7 +380,7 @@ local function build_message(state, msg, auth)
         method = "MESSAGE",
         uri = uri,
         via_ctx = {
-            transport = state.rtp_transport,
+            transport = state.sip_transport,
             local_ip = state.local_ip,
             local_port = state.local_port,
             branch = msg.branch
@@ -391,7 +391,7 @@ local function build_message(state, msg, auth)
             user = state.sip_username,
             local_ip = state.local_ip,
             local_port = state.local_port,
-            transport = state.rtp_transport
+            transport = state.sip_transport
         },
         user_agent = "LuatOS-SIP",
         auth_header = auth and build_auth_header(auth) or nil,
@@ -427,7 +427,7 @@ local function sip_task(opts)
         expires = opts.expires or REGISTER_EXPIRES,
 
         -- 传输层状态。
-        rtp_transport = opts.rtp_transport,
+        sip_transport = opts.sip_transport,
         tcp_stream = "",
 
         -- REGISTER 事务基础字段。
@@ -798,7 +798,7 @@ local function sip_task(opts)
             emit_lifecycle("online", {
                 server = state.sip_server_addr,
                 port = state.sip_server_port,
-                transport = state.rtp_transport,
+                transport = state.sip_transport,
                 local_ip = state.local_ip
             })
             return
@@ -1191,7 +1191,7 @@ local function sip_task(opts)
                 local resp = rxbuf:toStr(0, rxbuf:used())
                 rxbuf:del()
 
-                if state.rtp_transport == "TCP" then
+                if state.sip_transport == "TCP" then
                     -- TCP 是字节流：先拼到流缓冲里，再循环拆出完整 SIP 报文。
                     state.tcp_stream = state.tcp_stream .. resp
                     while true do
@@ -1243,7 +1243,7 @@ local function sip_task(opts)
     while true do
         local netc = socket.create(opts.adapter, netCB)
         state.netc = netc
-        socket.config(netc, state.local_port, (state.rtp_transport == "udp"))
+        socket.config(netc, state.local_port, (state.sip_transport == "udp"))
 
         local succ = socket.connect(netc, state.sip_server_addr, state.sip_server_port)
         if not succ then
@@ -1319,11 +1319,11 @@ function M.start(opts)
     
     log.info("JQsip", "starting with opts", opts.sip_server_addr, opts.sip_server_port, opts.sip_domain, opts.sip_username)
 
-    if not opts.rtp_transport  or (opts.rtp_transport ~= "udp" and opts.rtp_transport ~= "tcp" and opts.rtp_transport ~= "tls") then
+    if not opts.sip_transport  or (opts.sip_transport ~= "udp" and opts.sip_transport ~= "tcp" and opts.sip_transport ~= "tls") then
         return false
     end
 
-    log.info("JQsip", "starting with opts", opts.rtp_transport)
+    log.info("JQsip", "starting with opts", opts.sip_transport)
 
     if type(opts.event_callback) == "function" then
         g_callback = opts.event_callback

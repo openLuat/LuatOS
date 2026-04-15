@@ -31,7 +31,7 @@ lf_err_t little_flash_read_status(const little_flash_t *lf, uint8_t address, uin
     return result;
 }
 
-
+// timeout unit us
 static lf_err_t little_flash_wait_busy(const little_flash_t *lf, uint32_t timeout) {
     lf_err_t result = LF_ERR_OK;
     size_t retry_times = lf->chip_info.retry_times;
@@ -104,7 +104,7 @@ static lf_err_t little_flash_write_enabled(const little_flash_t *lf, uint8_t ena
     uint8_t status;
     lf->spi.transfer(lf,enable?(uint8_t[]){LF_CMD_WRITE_ENABLE}:(uint8_t[]){LF_CMD_WRITE_DISABLE}, 1,LF_NULL,0);
 
-    result = little_flash_wait_busy(lf,1);
+    result = little_flash_wait_busy(lf,1000);
     if (result) {
         LF_ERROR("Error: Write enabled timeout.");
         return result;
@@ -323,7 +323,7 @@ lf_err_t little_flash_deinit(void){
 static lf_err_t little_flash_cheak_erase(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     uint8_t status;
-    result |= little_flash_wait_busy(lf,4000);
+    result |= little_flash_wait_busy(lf,1000 * 1000);// 擦除时间比较长，最长给1s
     if (result) {
         LF_ERROR("Error: Cheak erase timeout.");
         return result;
@@ -460,8 +460,11 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
 
         lf->wait_ms(lf->chip_info.erase_times);
-
-        if(little_flash_cheak_erase(lf)) goto error;
+        // LF_ERROR("erase_times:%d",lf->chip_info.erase_times);
+        if(little_flash_cheak_erase(lf)) {
+            // LF_ERROR("addr:%d len:%d erase_off:%d erase_addr:%d",addr, len, erase_off, erase_addr);
+            goto error;
+        }
 
         erase_addr += (lf->chip_info.type==LF_DRIVER_NAND_FLASH)?lf->chip_info.erase_size/lf->chip_info.read_size:lf->chip_info.erase_size;
 

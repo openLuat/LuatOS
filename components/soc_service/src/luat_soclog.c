@@ -587,11 +587,16 @@ __CORE_FUNC_IN_RAM__ void am_make_log(int level, const char *tag, const char *fm
     }
 }
 
+__CORE_FUNC_IN_RAM__ void soc_vprintf_with_tags(const char *tags, const char *fmt, va_list ap)
+{
+    am_make_log(0, tags, fmt, ap, 1, 0);
+}
+
 __CORE_FUNC_IN_RAM__ void soc_printf(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, "CAPP", fmt, args, 1, 0);
+    soc_vprintf_with_tags("CAPP", fmt, args);
 	va_end(args);
 }
 
@@ -599,20 +604,20 @@ void soc_printf_with_tags(const char * tags, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, tags, fmt, args, 1, 0);
+    soc_vprintf_with_tags(tags, fmt, args);
 	va_end(args);
 }
 
 __CORE_FUNC_IN_RAM__ void soc_vsprintf(const char *fmt, va_list ap)
 {
-	am_make_log(0, "LTOS", fmt, ap, 1, 0);
+    soc_vprintf_with_tags("LTOS", fmt, ap);
 }
 
 void soc_info(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, "LTIF", fmt, args, 1, 0);
+    soc_vprintf_with_tags("LTIF", fmt, args);
 	va_end(args);
 }
 

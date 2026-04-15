@@ -280,6 +280,7 @@ int luat_mobile_del_apn(int sim_id, uint8_t cid, uint8_t is_dedicated);
  */
 int luat_mobile_set_flymode(int index, int mode);
 
+int luat_mobile_set_flymode_async(int index, int mode);
 /**
  * @brief 飞行模式当前状态
  * 

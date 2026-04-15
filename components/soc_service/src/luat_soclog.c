@@ -1,7 +1,7 @@
 
 #include "luat_base.h"
-
 #include "luat_soc_service.h"
+#include <stdarg.h>
 
 #undef DBG
 #define DBG(...)
@@ -130,35 +130,35 @@ enum {
 
 };
 
-static const char * const print_info[] = {
-	[PRINT_HFSR_VECTBL]           = "发生硬错误，原因：取中断向量时出错",
-	[PRINT_MFSR_IACCVIOL]         = "发生存储器管理错误，原因：企图从不允许访问的区域取指令",
-	[PRINT_MFSR_DACCVIOL]         = "发生存储器管理错误，原因：企图从不允许访问的区域读、写数据",
-	[PRINT_MFSR_MUNSTKERR]        = "发生存储器管理错误，原因：出栈时企图访问不被允许的区域",
-	[PRINT_MFSR_MSTKERR]          = "发生存储器管理错误，原因：入栈时企图访问不被允许的区域",
-	[PRINT_MFSR_MLSPERR]          = "发生存储器管理错误，原因：惰性保存浮点状态时发生错误",
-	[PRINT_BFSR_IBUSERR]          = "发生总线错误，原因：指令总线错误",
-	[PRINT_BFSR_PRECISERR]        = "发生总线错误，原因：精确的数据总线错误",
-	[PRINT_BFSR_IMPREISERR]       = "发生总线错误，原因：不精确的数据总线错误",
-	[PRINT_BFSR_UNSTKERR]         = "发生总线错误，原因：出栈时发生错误",
-	[PRINT_BFSR_STKERR]           = "发生总线错误，原因：入栈时发生错误",
-	[PRINT_BFSR_LSPERR]           = "发生总线错误，原因：惰性保存浮点状态时发生错误",
-	[PRINT_UFSR_UNDEFINSTR]       = "发生用法错误，原因：企图执行未定义指令",
-	[PRINT_UFSR_INVSTATE]         = "发生用法错误，原因：试图切换到 ARM 状态",
-	[PRINT_UFSR_INVPC]            = "发生用法错误，原因：无效的异常返回码",
-	[PRINT_UFSR_NOCP]             = "发生用法错误，原因：企图执行协处理器指令",
-#if (__CORTEX_M == 33)
-	[PRINT_UFSR_STKOF]        	  = "发生用法错误，原因：硬件检测到栈溢出",
-#endif
-	[PRINT_UFSR_UNALIGNED]        = "发生用法错误，原因：企图执行非对齐访问",
-	[PRINT_UFSR_DIVBYZERO0]       = "发生用法错误，原因：企图执行除 0 操作",
-	[PRINT_DFSR_HALTED]           = "发生调试错误，原因：NVIC 停机请求",
-	[PRINT_DFSR_BKPT]             = "发生调试错误，原因：执行 BKPT 指令",
-	[PRINT_DFSR_DWTTRAP]          = "发生调试错误，原因：数据监测点匹配",
-	[PRINT_DFSR_VCATCH]           = "发生调试错误，原因：发生向量捕获",
-	[PRINT_DFSR_EXTERNAL]         = "发生调试错误，原因：外部调试请求",
+// static const char * const print_info[] = {
+// 	[PRINT_HFSR_VECTBL]           = "发生硬错误，原因：取中断向量时出错",
+// 	[PRINT_MFSR_IACCVIOL]         = "发生存储器管理错误，原因：企图从不允许访问的区域取指令",
+// 	[PRINT_MFSR_DACCVIOL]         = "发生存储器管理错误，原因：企图从不允许访问的区域读、写数据",
+// 	[PRINT_MFSR_MUNSTKERR]        = "发生存储器管理错误，原因：出栈时企图访问不被允许的区域",
+// 	[PRINT_MFSR_MSTKERR]          = "发生存储器管理错误，原因：入栈时企图访问不被允许的区域",
+// 	[PRINT_MFSR_MLSPERR]          = "发生存储器管理错误，原因：惰性保存浮点状态时发生错误",
+// 	[PRINT_BFSR_IBUSERR]          = "发生总线错误，原因：指令总线错误",
+// 	[PRINT_BFSR_PRECISERR]        = "发生总线错误，原因：精确的数据总线错误",
+// 	[PRINT_BFSR_IMPREISERR]       = "发生总线错误，原因：不精确的数据总线错误",
+// 	[PRINT_BFSR_UNSTKERR]         = "发生总线错误，原因：出栈时发生错误",
+// 	[PRINT_BFSR_STKERR]           = "发生总线错误，原因：入栈时发生错误",
+// 	[PRINT_BFSR_LSPERR]           = "发生总线错误，原因：惰性保存浮点状态时发生错误",
+// 	[PRINT_UFSR_UNDEFINSTR]       = "发生用法错误，原因：企图执行未定义指令",
+// 	[PRINT_UFSR_INVSTATE]         = "发生用法错误，原因：试图切换到 ARM 状态",
+// 	[PRINT_UFSR_INVPC]            = "发生用法错误，原因：无效的异常返回码",
+// 	[PRINT_UFSR_NOCP]             = "发生用法错误，原因：企图执行协处理器指令",
+// #if (__CORTEX_M == 33)
+// 	[PRINT_UFSR_STKOF]        	  = "发生用法错误，原因：硬件检测到栈溢出",
+// #endif
+// 	[PRINT_UFSR_UNALIGNED]        = "发生用法错误，原因：企图执行非对齐访问",
+// 	[PRINT_UFSR_DIVBYZERO0]       = "发生用法错误，原因：企图执行除 0 操作",
+// 	[PRINT_DFSR_HALTED]           = "发生调试错误，原因：NVIC 停机请求",
+// 	[PRINT_DFSR_BKPT]             = "发生调试错误，原因：执行 BKPT 指令",
+// 	[PRINT_DFSR_DWTTRAP]          = "发生调试错误，原因：数据监测点匹配",
+// 	[PRINT_DFSR_VCATCH]           = "发生调试错误，原因：发生向量捕获",
+// 	[PRINT_DFSR_EXTERNAL]         = "发生调试错误，原因：外部调试请求",
 
-};
+// };
 
 static const char *gLogNullString = "(null)";
 #define SOC_ALIGN_UP(v, n) (((unsigned long)(v) + (n)-1) & ~((n)-1))
@@ -199,6 +199,7 @@ uint64_t soc_get_poweron_time_ms(void) {
     return luat_mcu_tick64_ms();
 }
 
+uint8_t luat_mcu_get_cpu_id(void);
 #if 0
 void am_print_base_info(void)
 {
@@ -504,7 +505,7 @@ __CORE_FUNC_IN_RAM__ void am_make_log(int level, const char *tag, const char *fm
 
 	soc_log_head_t header = {0};
 	header.ms = soc_get_poweron_time_ms();
-	header.cpu = 255;
+	header.cpu = luat_mcu_get_cpu_id();
 	header.tag.level = level;
 	if (tag)
 	{
@@ -586,11 +587,16 @@ __CORE_FUNC_IN_RAM__ void am_make_log(int level, const char *tag, const char *fm
     }
 }
 
+__CORE_FUNC_IN_RAM__ void soc_vprintf_with_tags(const char *tags, const char *fmt, va_list ap)
+{
+    am_make_log(0, tags, fmt, ap, 1, 0);
+}
+
 __CORE_FUNC_IN_RAM__ void soc_printf(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, "CAPP", fmt, args, 1, 0);
+    soc_vprintf_with_tags("CAPP", fmt, args);
 	va_end(args);
 }
 
@@ -598,20 +604,20 @@ void soc_printf_with_tags(const char * tags, const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, tags, fmt, args, 1, 0);
+    soc_vprintf_with_tags(tags, fmt, args);
 	va_end(args);
 }
 
 __CORE_FUNC_IN_RAM__ void soc_vsprintf(const char *fmt, va_list ap)
 {
-	am_make_log(0, "LTOS", fmt, ap, 1, 0);
+    soc_vprintf_with_tags("LTOS", fmt, ap);
 }
 
 void soc_info(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
-	am_make_log(0, "LTIF", fmt, args, 1, 0);
+    soc_vprintf_with_tags("LTIF", fmt, args);
 	va_end(args);
 }
 

@@ -489,12 +489,12 @@ function mqtt_test.test_publish_qos2()
             sys.publish("qos2_suback", data, payload)
         elseif event == "sent" then
             sent_ready = true
-            sys.publish("qos2_sent", data)
+            -- sys.publish("qos2_sent", data)
         elseif event == "recv" then
             recv_ready = true
             received_topic = data
             received_payload = payload
-            sys.publish("qos2_recv", data, payload, meta)
+            -- sys.publish("qos2_recv", data, payload, meta)
         end
     end)
     
@@ -518,12 +518,24 @@ function mqtt_test.test_publish_qos2()
     local pub_msg_id = qos2_client:publish(qos2_pub_topic, payload, 2)
     assert(pub_msg_id, "qos2 publish msg id missing")
     
-    local sent_ok = sys.waitUntil("qos2_sent", 15000)
-    assert(sent_ok, "qos2 publish sent timeout")
+    local num = 0
+    while sent_ready == false do
+        sys.wait(100)
+        num = num + 1
+        if num > 100 then
+            break
+        end
+    end
     assert(sent_ready, "qos2 sent not received")
-    
-    local recv_ok = sys.waitUntil("qos2_recv", 30000)
-    assert(recv_ok, "qos2 message not received")
+
+    num = 0
+    while recv_ready == false do
+        sys.wait(100)
+        num = num + 1
+        if num > 100 then
+            break
+        end
+    end
     assert(recv_ready, "qos2 recv not received")
     assert(received_topic == qos2_pub_topic, 
         string.format("topic mismatch: expected %s got %s", qos2_pub_topic, tostring(received_topic)))
@@ -618,7 +630,7 @@ function mqtt_test.test_will_message()
     
     local will_topic = "/luatos/testcase/mqtt/" .. test_device_id .. "/will"
     
-    local will_result = will_client:will(will_topic, will_payload, 1, 0)
+    local will_result = will_client:will(will_topic, will_payload, 1, 1)
     assert(will_result == true, "遗嘱消息设置失败")
     
     local auth_result = will_client:auth(test_device_id, mqtt_username, mqtt_password, true)
@@ -641,6 +653,9 @@ function mqtt_test.test_will_message()
     assert(ok, "will client connect timeout")
     assert(will_conack, "will client conack not received")
     
+    sys.wait(1000)
+    socket.close_all(socket.dft())
+
     local monitor_client = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_ssl)
     assert(monitor_client, "monitor mqtt create failed")
     
@@ -685,15 +700,13 @@ function mqtt_test.test_will_message()
     assert(sub_ok, "monitor subscribe timeout")
     assert(sub_ready, "monitor suback not received")
     
-    sys.wait(1000)
+    sys.wait(5000)
     
     log.info("mqtt_test", "模拟异常断开，触发遗嘱消息")
-    will_client:close()
-    will_client = nil
+
+    -- will_client:close()
+    -- will_client = nil
     
-    local will_ok = sys.waitUntil("will_recv", 30000)
-    
-    assert(will_ok, "遗嘱消息未在30秒内收到")
     assert(will_received, "遗嘱消息未收到")
     assert(will_topic_received == will_topic,
         string.format("遗嘱主题不匹配: 期望 %s, 实际 %s", will_topic, tostring(will_topic_received)))

@@ -34,7 +34,8 @@
 
 #define LWIP_TIMEVAL_PRIVATE 1
 #define LWIP_ERRNO_STDINCLUDE	1
-#define LWIP_NO_LIMITS_H 1
+/* Allow limits.h so SSIZE_MAX is defined, preventing arch.h from redefining ssize_t */
+/* LWIP_NO_LIMITS_H deliberately NOT set to 1 for PC builds */
 #define LWIP_NO_UNISTD_H 1
 
 #ifdef _MSC_VER

@@ -323,5 +323,9 @@ void sys_check_core_locking(void);
 #define LWIP_ASSERT_CORE_LOCKED()  sys_check_core_locking()
 #endif
 
+/* Prevent lwip from redefining ssize_t; system headers provide it. */
+#ifndef LWIP_NO_UNISTD_H
+#define LWIP_NO_UNISTD_H 1
+#endif
 
 #endif /* LWIP_LWIPOPTS_H */

@@ -553,6 +553,17 @@ int luat_airlink_cmd_recv_simple(airlink_queue_item_t *cmd)
     return ret;
 }
 
+static int luat_airlink_try_recv_queue_item(luat_rtos_queue_t queue, airlink_queue_item_t *item) {
+    size_t cnt = 0;
+    if (queue == NULL) {
+        return -1;
+    }
+    if (luat_rtos_queue_get_cnt(queue, &cnt) != 0 || cnt == 0) {
+        return -1;
+    }
+    return luat_rtos_queue_recv(queue, item, 0, 0);
+}
+
 // ============================================================
 // Per-transport slot 管理 (multi-transport 支持)
 // ============================================================
@@ -580,37 +591,34 @@ int luat_airlink_slot_unregister(uint8_t mode) {
 // 未启用 LUAT_USE_AIRLINK_MULTI_TRANSPORT 时自动回落到全局队列
 int luat_airlink_cmd_recv_for_mode(uint8_t mode, airlink_queue_item_t* cmd) {
     airlink_queue_item_t item = {0};
+    int ret = -1;
+    if (cmd == NULL) {
+        return -1;
+    }
     if (mode >= LUAT_AIRLINK_MAX_TRANSPORTS) {
         LLOGE("cmd_recv_for_mode: 无效 mode %d", mode);
         memcpy(cmd, &item, sizeof(item));
-        return 0;
+        return -1;
     }
 #ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
     luat_rtos_queue_t cq = g_transport_slots[mode].cmd_queue;
     luat_rtos_queue_t iq = g_transport_slots[mode].ippkg_queue;
-    size_t cnt = 0;
-    if (cq && luat_rtos_queue_get_cnt(cq, &cnt) == 0 && cnt > 0) {
-        luat_rtos_queue_recv(cq, &item, 0, 0);
-    } else if (iq) {
-        cnt = 0;
-        if (luat_rtos_queue_get_cnt(iq, &cnt) == 0 && cnt > 0) {
-            luat_rtos_queue_recv(iq, &item, 0, 0);
-        }
+    ret = luat_airlink_try_recv_queue_item(cq, &item);
+    if (ret != 0) {
+        luat_airlink_try_recv_queue_item(iq, &item);
     }
-#else
-    // 回落: 使用全局队列 (单 transport 模式)
-    size_t cnt = 0;
-    if (airlink_cmd_queue && luat_rtos_queue_get_cnt(airlink_cmd_queue, &cnt) == 0 && cnt > 0) {
-        luat_rtos_queue_recv(airlink_cmd_queue, &item, 0, 0);
-    } else if (airlink_ippkg_queue) {
-        cnt = 0;
-        if (luat_rtos_queue_get_cnt(airlink_ippkg_queue, &cnt) == 0 && cnt > 0) {
-            luat_rtos_queue_recv(airlink_ippkg_queue, &item, 0, 0);
-        }
-    }
-#endif
     memcpy(cmd, &item, sizeof(item));
     return 0;
+#else
+    // 回落: 使用全局队列 (单 transport 模式)
+    ret = luat_airlink_try_recv_queue_item(airlink_cmd_queue, &item);
+    if (ret != 0) {
+        ret = luat_airlink_try_recv_queue_item(airlink_ippkg_queue, &item);
+    }
+    memcpy(cmd, &item, sizeof(item));
+    return ret;
+#endif
+
 }
 
 // 向指定 mode 的 CMD 队列发送命令, 并触发其 notify_cb

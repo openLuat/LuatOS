@@ -98,7 +98,8 @@ require "tcp_client_main"
 -- require "tcp_ssl_main"
 
 -- 加载tcp ssl ca client socket主应用功能模块
--- require "tcp_ssl_ca_main"
+require "tcp_ssl_ca_main"
+
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -399,18 +399,14 @@ int airui_animimg_set_src(lv_obj_t *animimg, void *L, int idx)
 
 int airui_animimg_destroy(lv_obj_t *animimg)
 {
-    airui_component_meta_t *meta;
-
     if (animimg == NULL) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    meta = airui_component_meta_get(animimg);
-    if (meta == NULL) {
+    if (!lv_obj_is_valid(animimg)) {
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    airui_component_meta_free(meta);
     lv_obj_delete(animimg);
     return AIRUI_OK;
 }

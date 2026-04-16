@@ -387,7 +387,7 @@ __USER_FUNC_IN_RAM__ void airlink_wait_and_prepare_data(uint8_t *txbuff)
     // LLOGD("事件id %p %d", spi_task_handle, event.id);
     if (s_link.flags.mem_is_high == 0)
     {
-        luat_airlink_cmd_recv_simple(&item);
+        luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_SPI_MASTER, &item);
     }
     else
     {
@@ -448,6 +448,7 @@ __USER_FUNC_IN_RAM__ static void spi_master_task(void *param)
     luat_rtos_task_sleep(5); // 等5ms
     luat_airlink_spi_master_pin_setup();
     luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_SPI_MASTER, on_newdata_notify, on_link_data_notify, device_info_update_cb);
+    luat_airlink_slot_register(LUAT_AIRLINK_MODE_SPI_MASTER, on_newdata_notify);
     thread_rdy = 1;
     while (luat_gpio_get(AIRLINK_SPI_RDY_PIN) == 1) {
         if (!g_master_running) {

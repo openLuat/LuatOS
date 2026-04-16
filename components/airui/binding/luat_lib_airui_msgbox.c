@@ -66,21 +66,20 @@ static int l_airui_msgbox(lua_State *L)
  */
 static void airui_msgbox_lua_cleanup(airui_component_ud_t *ud)
 {
-    if (ud == NULL || ud->obj == NULL) {
+    lv_obj_t *obj = airui_component_userdata_obj(ud);
+    if (obj == NULL) {
         return;
     }
 
-    airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
+    airui_component_meta_t *meta = airui_component_meta_get(obj);
     if (meta != NULL) {
         lv_timer_t *timer = airui_msgbox_release_user_data(meta);
         if (timer != NULL) {
             lv_timer_delete(timer);
         }
-        airui_component_meta_free(meta);
     }
 
-    lv_msgbox_close(ud->obj);
-    ud->obj = NULL;
+    lv_msgbox_close(obj);
 }
 
 /**
@@ -131,7 +130,7 @@ static int l_msgbox_set_on_action(lua_State *L)
 static int l_msgbox_release(lua_State *L)
 {
     airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_MSGBOX_MT);
-    if (ud != NULL && ud->obj != NULL) {
+    if (airui_component_userdata_obj(ud) != NULL) {
         airui_msgbox_lua_cleanup(ud);
     }
     return 0;

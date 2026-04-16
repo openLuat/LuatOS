@@ -118,18 +118,7 @@ static int l_animimg_set_src(lua_State *L)
  */
 static int l_animimg_destroy(lua_State *L)
 {
-    lv_obj_t *obj = animimg_check(L);
-    int ret = airui_animimg_destroy(obj);
-    if (ret != AIRUI_OK) {
-        LLOGE("airui.animimg:destroy failed: %d", ret);
-    }
-
-    // destroy 后主动清空 userdata，避免 Lua 侧继续持有失效对象
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_ANIMIMG_MT);
-    if (ud != NULL) {
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_ANIMIMG_MT);
 }
 
 /**

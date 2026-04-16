@@ -124,13 +124,13 @@ static int l_win_add_content(lua_State *L) {
         return 0;
     }
     
-    // 验证对象指针是否有效
-    if (child_ud->obj == NULL) {
+    lv_obj_t *child = airui_component_userdata_obj(child_ud);
+    if (child == NULL) {
         luaL_error(L, "child object is NULL");
         return 0;
     }
     
-    airui_win_add_content(win, child_ud->obj);
+    airui_win_add_content(win, child);
     return 0;
 }
 
@@ -153,10 +153,10 @@ static int l_win_set_style(lua_State *L) {
  * @return nil
  */
 static int l_win_close(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_WIN_MT);
-    if (ud != NULL && ud->obj != NULL) {
+    lv_obj_t *win = airui_check_component(L, 1, AIRUI_WIN_MT);
+    if (win != NULL) {
         // 获取元数据并释放 Win 私有数据
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
+        airui_component_meta_t *meta = airui_component_meta_get(win);
         if (meta != NULL) {
             // 释放 Win 私有数据
             if (meta->user_data != NULL) {
@@ -166,8 +166,7 @@ static int l_win_close(lua_State *L) {
         }
         
         // 删除窗口对象（会触发 on_close 回调）
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
+        lv_obj_delete(win);
     }
     return 0;
 }
@@ -176,24 +175,7 @@ static int l_win_close(lua_State *L) {
  * Win:destroy（手动销毁）
  */
 static int l_win_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_WIN_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        // 获取元数据并释放
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            // 释放 Win 私有数据
-            if (meta->user_data != NULL) {
-                luat_heap_free(meta->user_data);
-                meta->user_data = NULL;
-            }
-            airui_component_meta_free(meta);
-        }
-        
-        // 删除 LVGL 对象
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return l_win_close(L);
 }
 
 /**
@@ -208,7 +190,7 @@ void airui_register_win_meta(lua_State *L) {
         {"set_style", l_win_set_style}, // 设置窗口样式
         {"add_content", l_win_add_content}, // 添加内容,当前也支持通过组件设置parent为win来添加内容,todo：后续1.1版本可以移除
         {"destroy", l_win_destroy}, // 销毁窗口
-        {"close", l_win_close}, // 关闭窗口
+        {"close", l_win_close}, // 关闭窗口, 当前和destroy功能有点重复
         {NULL, NULL}
     };
     

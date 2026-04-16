@@ -16,11 +16,18 @@
 #include "lvgl9/src/draw/sw/lv_draw_sw_utils.h"
 #include "luat_log.h"
 #include <SDL2/SDL.h>
+#if defined(_WIN32)
+#include <windows.h>
+#include <SDL_syswm.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 
 #define LUAT_LOG_TAG "airui.sdl"
 #include "luat_log.h"
+
+// 屏幕适配比例, 当画面超过屏幕长宽时，缩放到屏幕长宽的90%以内
+#define AIRUI_SDL_SCREEN_FIT_PERCENT 90
 
 /** SDL 显示驱动私有数据 */
 typedef struct {
@@ -34,7 +41,18 @@ typedef struct {
     luat_lcd_conf_t *lcd_conf;
     uint8_t *rotation_buf;
     uint32_t rotation_buf_size;
+    int last_window_w;
+    int last_window_h;
+    uint8_t adjusting_window_size;
+#if defined(_WIN32)
+    HWND hwnd;
+    WNDPROC prev_wndproc;
+    int frame_w;
+    int frame_h;
+#endif
 } sdl_display_data_t;
+
+static void sdl_display_present_current_frame(sdl_display_data_t *data);
 
 static bool sdl_display_use_upright_preview(void)
 {
@@ -43,6 +61,231 @@ static bool sdl_display_use_upright_preview(void)
 #else
     return false;
 #endif
+}
+
+#if defined(_WIN32)
+static void sdl_display_refresh_window_frame(sdl_display_data_t *data)
+{
+    if (data == NULL || data->hwnd == NULL) {
+        return;
+    }
+
+    RECT window_rect;
+    RECT client_rect;
+    if (!GetWindowRect(data->hwnd, &window_rect) || !GetClientRect(data->hwnd, &client_rect)) {
+        return;
+    }
+
+    data->frame_w = (window_rect.right - window_rect.left) - (client_rect.right - client_rect.left);
+    data->frame_h = (window_rect.bottom - window_rect.top) - (client_rect.bottom - client_rect.top);
+}
+
+static void sdl_display_apply_aspect_rect(sdl_display_data_t *data, RECT *rect, UINT edge)
+{
+    if (data == NULL || rect == NULL || data->width <= 0 || data->height <= 0) {
+        return;
+    }
+
+    int outer_w = rect->right - rect->left;
+    int outer_h = rect->bottom - rect->top;
+    int client_w = outer_w - data->frame_w;
+    int client_h = outer_h - data->frame_h;
+    if (client_w <= 0 || client_h <= 0) {
+        return;
+    }
+
+    int width_driven = 0;
+    switch (edge) {
+        case WMSZ_LEFT:
+        case WMSZ_RIGHT:
+            width_driven = 1;
+            break;
+        case WMSZ_TOP:
+        case WMSZ_BOTTOM:
+            width_driven = 0;
+            break;
+        default:
+            width_driven = abs(outer_w - data->last_window_w) >= abs(outer_h - data->last_window_h);
+            break;
+    }
+
+    if (width_driven) {
+        int target_client_h = (int)(((int64_t)client_w * data->height + data->width / 2) / data->width);
+        int target_outer_h = target_client_h + data->frame_h;
+        if (edge == WMSZ_TOP || edge == WMSZ_TOPLEFT || edge == WMSZ_TOPRIGHT) {
+            rect->top = rect->bottom - target_outer_h;
+        } else {
+            rect->bottom = rect->top + target_outer_h;
+        }
+    } else {
+        int target_client_w = (int)(((int64_t)client_h * data->width + data->height / 2) / data->height);
+        int target_outer_w = target_client_w + data->frame_w;
+        if (edge == WMSZ_LEFT || edge == WMSZ_TOPLEFT || edge == WMSZ_BOTTOMLEFT) {
+            rect->left = rect->right - target_outer_w;
+        } else {
+            rect->right = rect->left + target_outer_w;
+        }
+    }
+
+    data->last_window_w = rect->right - rect->left;
+    data->last_window_h = rect->bottom - rect->top;
+}
+
+static LRESULT CALLBACK sdl_display_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    sdl_display_data_t *data = (sdl_display_data_t *)GetPropA(hwnd, "luatos_airui_sdl_window_data");
+    if (msg == WM_SIZING && data != NULL) {
+        sdl_display_apply_aspect_rect(data, (RECT *)lparam, (UINT)wparam);
+        return TRUE;
+    }
+
+    if ((msg == WM_SIZE || msg == WM_PAINT) && data != NULL) {
+        LRESULT result = CallWindowProc(data->prev_wndproc, hwnd, msg, wparam, lparam);
+        sdl_display_present_current_frame(data);
+        return result;
+    }
+
+    if (data != NULL && data->prev_wndproc != NULL) {
+        return CallWindowProc(data->prev_wndproc, hwnd, msg, wparam, lparam);
+    }
+    return DefWindowProc(hwnd, msg, wparam, lparam);
+}
+
+static void sdl_display_install_native_resize_hook(sdl_display_data_t *data)
+{
+    if (data == NULL || data->window == NULL || data->prev_wndproc != NULL) {
+        return;
+    }
+
+    SDL_SysWMinfo wm_info;
+    SDL_VERSION(&wm_info.version);
+    if (!SDL_GetWindowWMInfo(data->window, &wm_info) || wm_info.subsystem != SDL_SYSWM_WINDOWS) {
+        return;
+    }
+
+    data->hwnd = wm_info.info.win.window;
+    SetPropA(data->hwnd, "luatos_airui_sdl_window_data", data);
+    data->prev_wndproc = (WNDPROC)SetWindowLongPtr(data->hwnd, GWLP_WNDPROC, (LONG_PTR)sdl_display_window_proc);
+    sdl_display_refresh_window_frame(data);
+}
+
+static void sdl_display_uninstall_native_resize_hook(sdl_display_data_t *data)
+{
+    if (data == NULL || data->hwnd == NULL) {
+        return;
+    }
+
+    RemovePropA(data->hwnd, "luatos_airui_sdl_window_data");
+    if (data->prev_wndproc != NULL) {
+        SetWindowLongPtr(data->hwnd, GWLP_WNDPROC, (LONG_PTR)data->prev_wndproc);
+    }
+    data->hwnd = NULL;
+    data->prev_wndproc = NULL;
+}
+
+static void sdl_display_update_native_aspect(sdl_display_data_t *data)
+{
+    if (data == NULL) {
+        return;
+    }
+    sdl_display_refresh_window_frame(data);
+}
+#else
+static void sdl_display_install_native_resize_hook(sdl_display_data_t *data) { (void)data; }
+static void sdl_display_uninstall_native_resize_hook(sdl_display_data_t *data) { (void)data; }
+static void sdl_display_update_native_aspect(sdl_display_data_t *data) { (void)data; }
+#endif
+
+static void sdl_display_get_usable_bounds(SDL_Window *window, SDL_Rect *usable_bounds)
+{
+    if (usable_bounds == NULL) {
+        return;
+    }
+
+    int display_index = 0;
+    if (window != NULL) {
+        display_index = SDL_GetWindowDisplayIndex(window);
+        if (display_index < 0) {
+            display_index = 0;
+        }
+    }
+
+    if (SDL_GetDisplayUsableBounds(display_index, usable_bounds) != 0) {
+        usable_bounds->x = 0;
+        usable_bounds->y = 0;
+        usable_bounds->w = 0;
+        usable_bounds->h = 0;
+    }
+}
+
+static void sdl_display_calc_fitted_size(int container_w, int container_h,
+                                         int content_w, int content_h,
+                                         int max_percent,
+                                         int *target_w, int *target_h)
+{
+    if (target_w == NULL || target_h == NULL || container_w <= 0 || container_h <= 0 || content_w <= 0 || content_h <= 0) {
+        return;
+    }
+
+    int max_w = container_w * max_percent / 100;
+    int max_h = container_h * max_percent / 100;
+    if (max_w <= 0) {
+        max_w = container_w;
+    }
+    if (max_h <= 0) {
+        max_h = container_h;
+    }
+
+    if (content_w <= max_w && content_h <= max_h) {
+        *target_w = content_w;
+        *target_h = content_h;
+        return;
+    }
+
+    int fitted_w = max_w;
+    int fitted_h = (int)((int64_t)content_h * fitted_w / content_w);
+    if (fitted_h > max_h) {
+        fitted_h = max_h;
+        fitted_w = (int)((int64_t)content_w * fitted_h / content_h);
+    }
+
+    if (fitted_w <= 0) {
+        fitted_w = 1;
+    }
+    if (fitted_h <= 0) {
+        fitted_h = 1;
+    }
+
+    *target_w = fitted_w;
+    *target_h = fitted_h;
+}
+
+static void sdl_display_get_target_window_size(SDL_Window *window, int content_w, int content_h,
+                                               int *target_w, int *target_h)
+{
+    SDL_Rect usable_bounds;
+    sdl_display_get_usable_bounds(window, &usable_bounds);
+    if (usable_bounds.w <= 0 || usable_bounds.h <= 0) {
+        *target_w = content_w;
+        *target_h = content_h;
+        return;
+    }
+
+    sdl_display_calc_fitted_size(usable_bounds.w, usable_bounds.h,
+                                 content_w, content_h,
+                                 AIRUI_SDL_SCREEN_FIT_PERCENT,
+                                 target_w, target_h);
+}
+
+static void sdl_display_present_current_frame(sdl_display_data_t *data)
+{
+    if (data == NULL || data->renderer == NULL || data->texture == NULL) {
+        return;
+    }
+
+    SDL_RenderClear(data->renderer);
+    SDL_RenderCopy(data->renderer, data->texture, NULL, NULL);
+    SDL_RenderPresent(data->renderer);
 }
 
 // 将窗口居中显示
@@ -59,13 +302,9 @@ static void sdl_display_center_window(SDL_Window *window)
         return;
     }
 
-    int display_index = SDL_GetWindowDisplayIndex(window);
-    if (display_index < 0) {
-        display_index = 0;
-    }
-
     SDL_Rect usable_bounds;
-    if (SDL_GetDisplayUsableBounds(display_index, &usable_bounds) != 0) {
+    sdl_display_get_usable_bounds(window, &usable_bounds);
+    if (usable_bounds.w <= 0 || usable_bounds.h <= 0) {
         SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
         return;
     }
@@ -139,8 +378,15 @@ static int sdl_display_ensure_preview_target(airui_ctx_t *ctx, sdl_display_data_
             return AIRUI_ERR_INIT_FAILED;
         }
 
-        SDL_SetWindowSize(data->window, preview_w, preview_h);
-        // 将窗口居中显示
+        int target_w = 0;
+        int target_h = 0;
+        sdl_display_get_target_window_size(data->window, preview_w, preview_h, &target_w, &target_h);
+        if (target_w > 0 && target_h > 0) {
+            SDL_SetWindowSize(data->window, target_w, target_h);
+            data->last_window_w = target_w;
+            data->last_window_h = target_h;
+        }
+        sdl_display_update_native_aspect(data);
         sdl_display_center_window(data->window);
     }
 
@@ -217,14 +463,26 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
         return AIRUI_OK;
     }
     
+    uint16_t preview_w = w;
+    uint16_t preview_h = h;
+    sdl_display_get_preview_size(ctx, w, h, &preview_w, &preview_h);
+
+    int window_w = 0;
+    int window_h = 0;
+    sdl_display_get_target_window_size(NULL, preview_w, preview_h, &window_w, &window_h);
+    if (window_w <= 0 || window_h <= 0) {
+        window_w = preview_w;
+        window_h = preview_h;
+    }
+
     // 创建 SDL 窗口
     data->window = SDL_CreateWindow(
         "AIRUI",
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
-        w,
-        h,
-        SDL_WINDOW_SHOWN
+        window_w,
+        window_h,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI
     );
     
     if (data->window == NULL) {
@@ -234,6 +492,10 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
 
     // 将窗口居中显示
     sdl_display_center_window(data->window);
+    data->last_window_w = window_w;
+    data->last_window_h = window_h;
+    sdl_display_install_native_resize_hook(data);
+    sdl_display_update_native_aspect(data);
     
     // 创建 SDL 渲染器
     data->renderer = SDL_CreateRenderer(data->window, -1, SDL_RENDERER_ACCELERATED);
@@ -255,10 +517,6 @@ static int sdl_display_init(airui_ctx_t *ctx, uint16_t w, uint16_t h, lv_color_f
     }
     
     // 创建 SDL 纹理（使用对应的格式）
-    uint16_t preview_w = w;
-    uint16_t preview_h = h;
-    sdl_display_get_preview_size(ctx, w, h, &preview_w, &preview_h);
-
     data->texture = SDL_CreateTexture(
         data->renderer,
         sdl_format,
@@ -438,8 +696,7 @@ static void sdl_display_flush(airui_ctx_t *ctx, const lv_area_t *area, const uin
     bool is_last = lv_display_flush_is_last(ctx->display);
 
     if (is_last) {
-        // 渲染到窗口（不清除，直接复制整个纹理）
-        // 注意：不要调用 SDL_RenderClear，因为这会清除之前的内容
+        SDL_RenderClear(data->renderer);
         if (SDL_RenderCopy(data->renderer, data->texture, NULL, NULL) != 0) {
             const char *error = SDL_GetError();
             LLOGE("SDL_RenderCopy failed: %s", error);
@@ -500,6 +757,7 @@ static void sdl_display_deinit(airui_ctx_t *ctx)
     }
     
     if (data->window != NULL) {
+        sdl_display_uninstall_native_resize_hook(data);
         SDL_DestroyWindow(data->window);
         data->window = NULL;
     }

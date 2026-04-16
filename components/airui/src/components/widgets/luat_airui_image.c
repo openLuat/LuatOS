@@ -134,6 +134,23 @@ int airui_image_set_src(lv_obj_t *img, const char *src)
 }
 
 /**
+ * 设置 Image 旋转中心点
+ * @param img Image 对象指针
+ * @param x 旋转中心 X 坐标
+ * @param y 旋转中心 Y 坐标
+ * @return 0 成功，<0 失败
+ */
+int airui_image_set_pivot(lv_obj_t *img, int x, int y)
+{
+    if (img == NULL) {
+        return AIRUI_ERR_INVALID_PARAM;
+    }
+
+    lv_image_set_pivot(img, x, y);
+    return AIRUI_OK;
+}
+
+/**
  * 设置 Image 旋转角度
  * @param img Image 对象指针
  * @param rotation 旋转角度，0.1度单位，900 = 90.0°

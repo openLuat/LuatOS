@@ -112,6 +112,7 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_PRESSED, NULL);
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(textarea, airui_textarea_focus_cb, LV_EVENT_DELETE, NULL);
 
     airui_textarea_data_t *data = (airui_textarea_data_t *)luat_heap_malloc(sizeof(airui_textarea_data_t));
     if (data == NULL) {
@@ -135,13 +136,14 @@ lv_obj_t *airui_textarea_create_from_config(void *L, int idx)
     lua_getfield(L_state, idx, "keyboard");
     if (lua_isuserdata(L_state, -1)) {
         airui_component_ud_t *ud = (airui_component_ud_t *)lua_touserdata(L_state, -1);
-        airui_component_meta_t *kbd_meta = airui_component_meta_get(ud->obj);
+        lv_obj_t *keyboard = airui_component_userdata_obj(ud);
+        airui_component_meta_t *kbd_meta = airui_component_meta_get(keyboard);
         if (kbd_meta == NULL || kbd_meta->component_type != AIRUI_COMPONENT_KEYBOARD) {
             LLOGW("keyboard绑定组件对象不是键盘");
         }
         else {
-            airui_keyboard_set_target(ud->obj, textarea);
-            airui_textarea_attach_keyboard(textarea, ud->obj);
+            airui_keyboard_set_target(keyboard, textarea);
+            airui_textarea_attach_keyboard(textarea, keyboard);
         }
     }else{
         LLOGW("不存在keyboard绑定组件对象，请先创建键盘对象");
@@ -276,6 +278,14 @@ static void airui_textarea_focus_cb(lv_event_t *e)
                 airui_platform_sdl2_set_text_input_rect(meta->ctx, target);
             }
 #endif
+            break;
+        case LV_EVENT_DELETE:
+            if (airui_ctx_get_focused_textarea(meta->ctx) == target) {
+#if defined(LUAT_USE_AIRUI_SDL2)
+                airui_system_keyboard_clear_preedit(meta->ctx);
+#endif
+                airui_ctx_set_focused_textarea(meta->ctx, NULL);
+            }
             break;
         default:
             break;

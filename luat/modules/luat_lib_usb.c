@@ -187,6 +187,7 @@ static int l_usb_on(lua_State *L) {
     if (l_usb_cb[usb_id])
     {
     	luaL_unref(L, LUA_REGISTRYINDEX, l_usb_cb[usb_id]);
+    	l_usb_cb[usb_id] = 0;
     }
 	if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);

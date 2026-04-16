@@ -91,6 +91,31 @@ static int l_button_set_text(lua_State *L) {
 }
 
 /**
+ * Button:get_text()
+ * @api button:get_text()
+ * @return string 当前文本
+ */
+static int l_button_get_text(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    const char *text = airui_button_get_text(btn);
+    lua_pushstring(L, text ? text : "");
+    return 1;
+}
+
+/**
+ * Button:set_disabled(disabled)
+ * @api button:set_disabled(disabled)
+ * @boolean disabled 是否失活
+ * @return nil
+ */
+static int l_button_set_disabled(lua_State *L) {
+    lv_obj_t *btn = airui_check_component(L, 1, AIRUI_BUTTON_MT);
+    bool disabled = lua_toboolean(L, 2);
+    airui_button_set_disabled(btn, disabled);
+    return 0;
+}
+
+/**
  * Button:set_on_click(callback)
  * @api button:set_on_click(callback)
  * @function callback 回调函数
@@ -203,19 +228,7 @@ static int l_button_move(lua_State *L) {
  * Button:destroy（手动销毁）
  */
 static int l_button_destroy(lua_State *L) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_BUTTON_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        // 获取元数据并释放
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_component_meta_free(meta);
-        }
-        
-        // 删除 LVGL 对象
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_BUTTON_MT);
 }
 
 /**
@@ -227,6 +240,8 @@ void airui_register_button_meta(lua_State *L) {
     // 设置方法表
     static const luaL_Reg methods[] = {
         {"set_text", l_button_set_text},
+        {"get_text", l_button_get_text},
+        {"set_disabled", l_button_set_disabled},
         {"set_style", l_button_set_style},
         {"set_stype", l_button_set_stype},
         {"set_on_click", l_button_set_on_click},

@@ -180,12 +180,7 @@ static int l_lottie_set_src(lua_State *L)
  */
 static int l_lottie_destroy(lua_State *L)
 {
-    lv_obj_t *obj = lottie_check(L);
-    int ret = airui_lottie_destroy(obj);
-    if (ret != AIRUI_OK) {
-        LLOGE("airui.lottie:destroy failed: %d", ret);
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_LOTTIE_MT);
 }
 
 void airui_register_lottie_meta(lua_State *L)

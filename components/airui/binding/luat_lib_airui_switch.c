@@ -106,16 +106,7 @@ static int l_switch_set_on_change(lua_State *L)
  */
 static int l_switch_destroy(lua_State *L)
 {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, 1, AIRUI_SWITCH_MT);
-    if (ud != NULL && ud->obj != NULL) {
-        airui_component_meta_t *meta = airui_component_meta_get(ud->obj);
-        if (meta != NULL) {
-            airui_component_meta_free(meta);
-        }
-        lv_obj_delete(ud->obj);
-        ud->obj = NULL;
-    }
-    return 0;
+    return airui_component_destroy_userdata(L, 1, AIRUI_SWITCH_MT);
 }
 
 /**

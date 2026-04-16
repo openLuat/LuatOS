@@ -75,6 +75,22 @@ void lv_tabview_set_tab_bar_position(lv_obj_t * obj, lv_dir_t dir);
 void lv_tabview_set_tab_bar_size(lv_obj_t * obj, int32_t size);
 
 /**
+ * Set the swipe trigger ratio used to decide whether a drag should switch tabs.
+ * The value is expressed as a percentage of one page size.
+ * For example, `50` means half-page and `25` means quarter-page.
+ * @param obj       pointer to a tabview widget
+ * @param ratio     swipe trigger ratio in percent (0..100)
+ */
+void lv_tabview_set_swipe_threshold_ratio(lv_obj_t * obj, uint8_t ratio);
+
+/**
+ * Get the swipe trigger ratio used to decide whether a drag should switch tabs.
+ * @param obj       pointer to a tabview widget
+ * @return          swipe trigger ratio in percent (0..100)
+ */
+uint8_t lv_tabview_get_swipe_threshold_ratio(lv_obj_t * obj);
+
+/**
  * Get the number of tabs
  * @param obj       pointer to a tabview widget
  * @return          the number of tabs

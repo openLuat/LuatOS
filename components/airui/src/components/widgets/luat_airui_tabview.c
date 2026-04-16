@@ -25,6 +25,9 @@ typedef enum {
     AIRUI_TABVIEW_SWITCH_MODE_JUMP
 } airui_tabview_switch_mode_t;
 
+// 设置swipe模式下，触发切屏的阈值比例，范围 0~100，默认 20，就是五分之一屏
+#define AIRUI_TABVIEW_DEFAULT_SWIPE_THRESHOLD_RATIO 20
+
 typedef struct {
     airui_tabview_pad_method_t pad_method;
     bool has_pad;
@@ -402,6 +405,8 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
     lv_obj_set_pos(tabview, x, y);
     lv_obj_set_size(tabview, w, h);
     lv_tabview_set_tab_bar_position(tabview, (lv_dir_t)tabbar_pos);
+    // AirUI 默认使用四分之一屏阈值，避免对外暴露底层手势比例细节。
+    lv_tabview_set_swipe_threshold_ratio(tabview, AIRUI_TABVIEW_DEFAULT_SWIPE_THRESHOLD_RATIO);
 
     int tab_count = airui_marshal_table_length(L, idx, "tabs");
     if (tab_count <= 0) {
@@ -440,6 +445,9 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
             name = default_name;
         }
         lv_obj_t *page = lv_tabview_add_tab(tabview, name);
+        if (page != NULL && airui_component_meta_get(page) == NULL) {
+            (void)airui_component_meta_alloc(ctx, page, AIRUI_COMPONENT_CONTAINER);
+        }
         if (data->page_style_used) {
             airui_tabview_apply_page_style(page, &page_style);
         }
@@ -505,6 +513,15 @@ lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
     }
 
     airui_component_meta_t *meta = airui_component_meta_get(tabview);
+    airui_component_meta_t *page_meta = airui_component_meta_get(page);
+    if (page_meta == NULL) {
+        page_meta = airui_component_meta_alloc(meta != NULL ? meta->ctx : NULL, page, AIRUI_COMPONENT_CONTAINER);
+        if (page_meta == NULL) {
+            lv_obj_delete(page);
+            return NULL;
+        }
+    }
+
     if (meta != NULL && meta->user_data != NULL) {
         airui_tabview_data_t *data = (airui_tabview_data_t *)meta->user_data;
         if (data->page_style_used) {

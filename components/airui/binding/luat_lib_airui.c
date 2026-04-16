@@ -42,6 +42,7 @@ static int l_airui_sleep(lua_State *L);
 static int l_airui_wakeup(lua_State *L);
 static int l_airui_set_rotation(lua_State *L);
 static int l_airui_get_rotation(lua_State *L);
+static int l_airui_status(lua_State *L);
 static int l_airui_indev_bind_touch(lua_State *L);
 static int l_airui_device_bind_keypad(lua_State *L);
 static int l_airui_keyboard_enable_system(lua_State *L);
@@ -52,17 +53,6 @@ static int l_airui_keypad_unsubscribe(lua_State *L);
 static int l_airui_font_load(lua_State *L);
 static int l_airui_version(lua_State *L);
 static int l_airui_debug(lua_State *L);
-
-// XML 模块声明
-extern int l_airui_xml_init(lua_State *L);
-extern int l_airui_xml_deinit(lua_State *L);
-extern int l_airui_xml_register_from_file(lua_State *L);
-extern int l_airui_xml_register_from_data(lua_State *L);
-extern int l_airui_xml_create_screen(lua_State *L);
-extern int l_airui_xml_bind_event(lua_State *L);
-extern int l_airui_xml_register_image(lua_State *L);
-extern int l_airui_xml_register_font(lua_State *L);
-extern int l_airui_xml_keyboard_bind(lua_State *L);
 
 // Button 模块声明
 extern void airui_register_button_meta(lua_State *L);
@@ -151,6 +141,7 @@ static const rotable_Reg_t reg_airui[] = {
     {"wakeup", ROREG_FUNC(l_airui_wakeup)},
     {"set_rotation", ROREG_FUNC(l_airui_set_rotation)},
     {"get_rotation", ROREG_FUNC(l_airui_get_rotation)},
+    {"status", ROREG_FUNC(l_airui_status)},
     {"device_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)},
     {"device_bind_keypad", ROREG_FUNC(l_airui_device_bind_keypad)},
     {"keyboard_enable_system", ROREG_FUNC(l_airui_keyboard_enable_system)},
@@ -163,16 +154,6 @@ static const rotable_Reg_t reg_airui[] = {
     {"version", ROREG_FUNC(l_airui_version)},
     // 废弃api接口说明，当前保持兼容，todo：后续2.0版本将删除
     {"indev_bind_touch", ROREG_FUNC(l_airui_indev_bind_touch)}, // 废弃，使用 airui.device_bind_touch 替代
-    // XML 模块
-    {"xml_init", ROREG_FUNC(l_airui_xml_init)},
-    {"xml_deinit", ROREG_FUNC(l_airui_xml_deinit)},
-    {"xml_register_from_file", ROREG_FUNC(l_airui_xml_register_from_file)},
-    {"xml_register_from_data", ROREG_FUNC(l_airui_xml_register_from_data)},
-    {"xml_register_image", ROREG_FUNC(l_airui_xml_register_image)},
-    {"xml_register_font", ROREG_FUNC(l_airui_xml_register_font)},
-    {"xml_create_screen", ROREG_FUNC(l_airui_xml_create_screen)},
-    {"xml_bind_event", ROREG_FUNC(l_airui_xml_bind_event)},
-    {"xml_keyboard_bind", ROREG_FUNC(l_airui_xml_keyboard_bind)},
     // 组件注册
     {"button", ROREG_FUNC(airui_button_create)},
     {"label", ROREG_FUNC(airui_label_create)},
@@ -379,7 +360,7 @@ static int l_airui_full_refresh(lua_State *L) {
  * 休眠 AIRUI
  * @api airui.sleep(opts)
  * @table opts 可选配置
- * @bool opts.power_down_lcd 休眠时是否关闭 LCD 供电，默认 true
+ * @bool opts.power_down_lcd 休眠时是否关闭 LCD 背光，默认 true
  * @return bool 成功返回 true，失败返回 false
  */
 static int l_airui_sleep(lua_State *L) {
@@ -459,6 +440,31 @@ static int l_airui_get_rotation(lua_State *L) {
     }
 
     lua_pushinteger(L, airui_display_get_rotation(g_ctx));
+    return 1;
+}
+
+/**
+ * 获取 AIRUI 当前状态
+ * @api airui.status()
+ * @return table 状态表，包含 rotation/w/h
+ */
+static int l_airui_status(lua_State *L) {
+    if (g_ctx == NULL) {
+        luaL_error(L, "airui not initialized, call airui.init() first");
+        return 0;
+    }
+
+    lua_createtable(L, 0, 3);
+
+    lua_pushinteger(L, airui_display_get_rotation(g_ctx));
+    lua_setfield(L, -2, "rotation");
+
+    lua_pushinteger(L, g_ctx->width);
+    lua_setfield(L, -2, "w");
+
+    lua_pushinteger(L, g_ctx->height);
+    lua_setfield(L, -2, "h");
+
     return 1;
 }
 
@@ -766,7 +772,6 @@ static int l_airui_touch_unsubscribe(lua_State *L) {
     return 0;
 }
 
-// 订阅键盘事件
 /**
  * 订阅键盘事件
  * @api airui.keypad_subscribe(callback)
@@ -796,7 +801,6 @@ static int l_airui_keypad_subscribe(lua_State *L) {
     return 1;
 }
 
-// 取消键盘事件订阅
 /**
  * 取消键盘事件订阅
  * @api airui.keypad_unsubscribe()
@@ -810,27 +814,6 @@ static int l_airui_keypad_unsubscribe(lua_State *L) {
 
     airui_keypad_unsubscribe(g_ctx, L);
     return 0;
-}
-
-/**
- * 推送组件 userdata（通用辅助函数）
- */
-void airui_push_component_userdata(lua_State *L, lv_obj_t *obj, const char *mt) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)lua_newuserdata(L, sizeof(airui_component_ud_t));
-    ud->obj = obj;
-    luaL_getmetatable(L, mt);
-    lua_setmetatable(L, -2);
-}
-
-/**
- * 检查组件 userdata（通用辅助函数）
- */
-lv_obj_t *airui_check_component(lua_State *L, int index, const char *mt) {
-    airui_component_ud_t *ud = (airui_component_ud_t *)luaL_checkudata(L, index, mt);
-    if (ud == NULL || ud->obj == NULL) {
-        luaL_error(L, "invalid %s object", mt);
-    }
-    return ud->obj;
 }
 
 /**

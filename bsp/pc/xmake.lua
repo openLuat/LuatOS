@@ -395,6 +395,7 @@ target("luatos-lua")
         -- 添加airlink
         add_includedirs(luatos .. "components/airlink/include")
         add_files(luatos .. "components/airlink/**.c")
+        add_defines("LUAT_USE_AIRLINK_RPC")
 
         -- 添加iperf
         add_includedirs(luatos .. "components/network/iperf/include")

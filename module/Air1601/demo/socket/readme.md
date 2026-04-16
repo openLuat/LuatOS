@@ -19,13 +19,11 @@
 9、uart_app.lua：在四个client和uart外设之间透传数据；
 
 
-
 ## 系统消息介绍
 
 1、"IP_READY"：某种网卡已经获取到ip信息，仅仅获取到了ip信息，能否和外网连通还不确认；
 
 2、"IP_LOSE"：某种网卡已经掉网；
-
 
 
 ## 用户消息介绍
@@ -35,7 +33,6 @@
 2、"SEND_DATA_REQ"：其他应用模块发布此消息，通知socket client发送数据给服务器；
 
 3、"FEED_NETWORK_WATCHDOG"：网络环境检测看门狗的喂狗消息，在需要喂狗的地方发布此消息；
-
 
 
 ## 演示功能概述
@@ -115,11 +112,12 @@
 
 1、Luatools下载调试工具
 
-2、[Air8000 V2012版本固件）](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2025年7月26日之后发布的固件都可以）
+2、[Air1601 V1010版本固件）](https://docs.openluat.com/air1601/luatos/firmware/)（理论上，2026年4月16日之后发布的固件都可以）
 
 3、PC端的串口工具，例如SSCOM、LLCOM等都可以；
 
 4、PC端浏览器访问[合宙TCP/UDP web测试工具](https://iot.luatos.com/#/page6/netlab)；
+
 详细使用说明参考：[合宙 TCP/UDP web 测试工具使用说明](https://docs.openluat.com/TCPUDP_Test/) 。
 
 ## 演示核心步骤

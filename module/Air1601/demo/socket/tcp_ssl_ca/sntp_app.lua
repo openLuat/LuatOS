@@ -32,9 +32,11 @@ local function sntp_task_func()
         -- 检测到了IP_READY消息
         log.warn("sntp_task_func", "recv IP_READY")
 
+        -- local id = socket.dft()
+        -- log.info("当前网卡",id)
+
         -- 发起ntp时间同步动作
-        -- socket.sntp()
-        socket.sntp(nil, socket.LWIP_ETH)
+        socket.sntp()
 
         -- 等待ntp时间同步结果，30秒超时失败，通常只需要几百毫秒就能成功
         local ret = sys.waitUntil("NTP_UPDATE", 30000)

@@ -1,10 +1,7 @@
 #ifndef LUAT_AIRLINK_DRV_UART_H
 #define LUAT_AIRLINK_DRV_UART_H
 
-
-#ifndef LUAT_AIRLINK_H
-#error "include luat_airlink.h first"
-#endif
+#include "luat_airlink.h"
 
 // uart参数
 #include "luat_uart.h"

@@ -267,7 +267,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             // 有数据, 要处理了
             item.len = 0;
             item.cmd = NULL;
-            ret = luat_airlink_cmd_recv_simple(&item);//从（发送）队列里取出数据存在item中
+            ret = luat_airlink_cmd_recv_for_mode(LUAT_AIRLINK_MODE_UART, &item);//从（发送）队列里取出数据存在item中
             if (ret != 0) {
                 break; // 没有数据了, 退出循环
             }
@@ -376,6 +376,7 @@ int luat_airlink_start_uart(void)
     luat_rtos_task_sleep(5);
     uart_gpio_setup();
     luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify, device_info_update_cb);
+    luat_airlink_slot_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify);
 
     if (g_airlink_uart.s_txbuff == NULL) {
         g_airlink_uart.s_txbuff = luat_heap_opt_malloc(AIRLINK_MEM_TYPE, TEST_BUFF_SIZE);

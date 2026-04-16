@@ -1,10 +1,7 @@
 #ifndef LUAT_AIRLINK_DRV_BLUETOOTH_H
 #define LUAT_AIRLINK_DRV_BLUETOOTH_H
 
-
-#ifndef LUAT_AIRLINK_H
-#error "include luat_airlink.h first"
-#endif
+#include "luat_airlink.h"
 
 // bluetooth 操作
 #include "luat_bluetooth.h"

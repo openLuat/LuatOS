@@ -70,7 +70,7 @@
 
 4、lib 脚本文件：使用 Luatools 烧录时，勾选 添加默认 lib 选项，使用默认 lib 脚本文件
 
-准备好软件环境之后，接下来查看 [Air1101 开发板使用说明](https://docs.openluat.com/air1601/product/file/Air1101%E5%BC%80%E5%8F%91%E6%9D%BF%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E260227.pdf)，将本篇文章中演示使用的项目文件烧录到 Air1101 开发板中，烧录固件及脚本请参考[如何使用 Luatools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)。
+准备好软件环境之后，接下来查看 [Air1601 开发板使用说明](https://docs.openluat.com/air1601/product/shouce/#air1601_2)，将本篇文章中演示使用的项目文件烧录到 Air1601 开发板中，烧录固件及脚本请参考[如何使用 Luatools 烧录软件](https://docs.openluat.com/air1601/luatos/common/download/)。
 
 ### 5.2  **API 介绍**
 

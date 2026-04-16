@@ -30,7 +30,7 @@ local demos = {
     {name = "图片组件", icon = airui.SYMBOL_IMAGE, page = "image", color = 0x8BC34A},
     {name = "选项卡组件", icon = airui.SYMBOL_PASTE, page = "tabview", color = 0xFF5722},
     {name = "窗口组件", icon = airui.SYMBOL_BELL, page = "win", color = 0x009688},
-    {name = "页面切换演示", icon = airui.SYMBOL_LEFT, page = "switch_page_demo", color = 0x673AB7},
+    {name = "页面切换演示", icon = airui.SYMBOL_LEFT, page = "airui_switch_page", color = 0x673AB7},
     {name = "矢量字体演示", icon = airui.SYMBOL_EYE_OPEN, page = "hzfont", color = 0x2196F3},
     {name = "俄罗斯方块游戏", icon = airui.SYMBOL_WARNING, page = "game", color = 0xFF4081},
 }

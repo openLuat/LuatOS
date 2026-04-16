@@ -17,7 +17,7 @@ local function init_airlink_net()
     local uartid = 2 -- 根据实际设备选取不同的uartid
     -- 初始化
     uart.setup(uartid, -- 串口id
-    6000000, -- 波特率
+    2000000, -- 波特率
     8, -- 数据位
     1 -- 停止位
     )

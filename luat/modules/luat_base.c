@@ -71,12 +71,28 @@ void luat_newlib2(lua_State* l, const rotable_Reg_t* reg) {
 
 void luat_os_print_heapinfo(const char* tag) {
     size_t total; size_t used; size_t max_used;
+
+    #ifdef LUAT_USE_MEM_LOGOUT
+    luat_meminfo_query(0, &total, &used, &max_used, 1);
+    #else
     luat_meminfo_luavm(&total, &used, &max_used);
+    #endif
     LLOGD("%s luavm %ld %ld %ld", tag, total, used, max_used);
+
+    #ifdef LUAT_USE_MEM_LOGOUT
+    luat_meminfo_query(LUAT_HEAP_SRAM, &total, &used, &max_used, 1);
+    #else
     luat_meminfo_sys(&total, &used, &max_used);
+    #endif
     LLOGD("%s sys   %ld %ld %ld", tag, total, used, max_used);
+
+
     #ifdef LUAT_USE_PSRAM
+    #ifdef LUAT_USE_MEM_LOGOUT
+    luat_meminfo_query(LUAT_HEAP_PSRAM, &total, &used, &max_used, 1);
+    #else
     luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+    #endif
     LLOGD("%s psram %ld %ld %ld", tag, total, used, max_used);
     #endif
 }

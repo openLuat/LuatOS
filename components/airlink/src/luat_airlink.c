@@ -499,20 +499,20 @@ int luat_airlink_cmd_recv_simple(airlink_queue_item_t *cmd)
     if (ret > 0)
     {
         ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_CMD, &item, 0);
+        memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+        return ret;
     }
-    else
+
+    ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_IPPKG);
+    if (ret <= 0)
     {
-        ret = luat_airlink_queue_get_cnt(LUAT_AIRLINK_QUEUE_IPPKG);
-        // LLOGD("待发送IPPKG队列长度 %d", ret);
-        if (ret > 0)
-        {
-            ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0);
-            // LLOGD("从队列获取到IP数据包 %d %p", item.len, item.cmd);
-            // luat_airlink_hexdump("从队列获取到IP数据包", item.cmd->data + 1, item.len - 1);
-        }
+        memcpy(cmd, &item, sizeof(airlink_queue_item_t));
+        return -1;
     }
+
+    ret = luat_airlink_cmd_recv(LUAT_AIRLINK_QUEUE_IPPKG, &item, 0);
     memcpy(cmd, &item, sizeof(airlink_queue_item_t));
-    return 0;
+    return ret;
 }
 
 void luat_airlink_print_mac_pkg(uint8_t* buff, uint16_t len) {

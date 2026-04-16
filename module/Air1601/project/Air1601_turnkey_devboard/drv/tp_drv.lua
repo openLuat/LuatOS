@@ -40,7 +40,7 @@ local rst_pin = 2
 local int_pin = 51
 
 
-local is_soft_i2c = true
+local is_soft_i2c = false
 
 local port = 1
 

@@ -3,6 +3,8 @@ VERSION = "1.0.0"
 
 log.style(1)
 
+gpio.setup(12, 1, gpio.PULLUP) -- 输出高，内部上拉可选
+
 lcd.init("custom", {
 	port = lcd.RGB,
 	hbp = 140,
@@ -20,16 +22,16 @@ lcd.init("custom", {
 })
 
 
-local uartid = 1 -- 根据实际设备选取不同的uartid
+local uartid = 3 -- 根据实际设备选取不同的uartid
 local result = uart.setup(uartid, -- 串口id
-    3000000, -- 波特率
+    2000000, -- 波特率
     8, -- 数据位
     1 -- 停止位
 )
 -- 摄像头图像基本参数，格式，长，宽
 local frame_type = 1    --mjpg
-local sensor_w = 1024
-local sensor_h = 768
+local sensor_w = 1920
+local sensor_h = 1080
 local usb_app_id = nil
 -- 双缓冲接收图像数据
 local frame_buff0 = zbuff.create(sensor_w * sensor_h)

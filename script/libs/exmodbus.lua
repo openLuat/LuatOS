@@ -59,7 +59,7 @@ exmodbus.GATEWAY_PATH_UNAVAILABLE = 0x0A   -- 网关路径不可用
 exmodbus.GATEWAY_TARGET_NO_RESPONSE = 0x0B -- 网关目标设备无响应
 
 -- Debug 开关（默认关闭）
-local debug_enabled = true
+local debug_enabled = false
 
 --[[
 设置 debug 开关

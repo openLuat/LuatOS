@@ -227,6 +227,8 @@ int luat_airlink_drv_gpio_setup(luat_gpio_t* gpio);
 int luat_airlink_drv_gpio_set(int pin, int level);
 int luat_airlink_drv_gpio_open(luat_gpio_cfg_t* gpio);
 
+void luat_airlink_ip2br_init(void);
+
 // WLAN, 也就是wifi
 #include "luat_wlan.h"
 typedef void (*luat_airlink_wlan_evt_cb)(void *arg, luat_event_module_t event_module, int event_id, void *event_data);

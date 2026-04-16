@@ -486,22 +486,51 @@ local function setup_airlink_4G(config)
         auto_socket_switch = config.auto_socket_switch
         -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
     end
-    if config.airlink_spi_id then
-        airlink.config(airlink.CONF_SPI_ID, config.airlink_spi_id)
+    
+    -- 判断是SPI模式还是UART模式
+    local is_spi_mode = (config.airlink_type == airlink.MODE_SPI_MASTER or 
+                         config.airlink_type == airlink.MODE_SPI_SLAVE)
+    local is_uart_mode = (config.airlink_type == airlink.MODE_UART)
+    
+    -- 根据模式配置不同的参数
+    if is_spi_mode then
+        -- SPI模式配置
+        if config.airlink_spi_id then
+            airlink.config(airlink.CONF_SPI_ID, config.airlink_spi_id)
+        end
+        if config.airlink_cs_pin then
+            airlink.config(airlink.CONF_SPI_CS, config.airlink_cs_pin)
+        end
+        if config.airlink_rdy_pin then
+            airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
+        end
+    elseif is_uart_mode then
+        -- UART模式配置
+        if config.airlink_uart_id then
+            -- 配置UART参数
+            local uart_baud = config.airlink_uart_baud or 2000000
+            uart.setup(config.airlink_uart_id, uart_baud, 8, 1)
+            airlink.config(airlink.CONF_UART_ID, config.airlink_uart_id)
+        end
     end
-    if config.airlink_cs_pin then
-        airlink.config(airlink.CONF_SPI_CS, config.airlink_cs_pin)
-    end
-    if config.airlink_rdy_pin then
-        airlink.config(airlink.CONF_SPI_RDY, config.airlink_rdy_pin)
-    end
+    
     airlink.init()
     log.info("创建桥接网络设备")
-    netdrv.setup(socket.LWIP_GP_GW, netdrv.WHALE)
+    
+    -- 根据模式选择网卡标识
+    local adapter_id = socket.LWIP_GP_GW
+    if is_uart_mode and config.airlink_adapter then
+        -- UART模式可以使用自定义网卡标识（如Air1601的socket.LWIP_USER0）
+        adapter_id = config.airlink_adapter
+    end
+    
+    netdrv.setup(adapter_id, netdrv.WHALE)
     airlink.start(config.airlink_type)
-    netdrv.ipv4(socket.LWIP_GP_GW, "192.168.111.1", "255.255.255.0", "192.168.111.2")
-    socket_state_detection(socket.LWIP_GP_GW)
-    return true
+    netdrv.ipv4(adapter_id, "192.168.111.1", "255.255.255.0", "192.168.111.2")
+    socket_state_detection(adapter_id)
+    
+    -- 返回实际使用的网卡标识
+    return adapter_id
 end
 
 
@@ -608,6 +637,30 @@ exnetif.set_priority_order({
             }
         }
     })
+-- Air1601单网络模式下使用UART接口外挂4G模组(Air780EPM)
+    exnetif.set_priority_order({
+        {
+            airlink_4G = { -- AirLink 4G配置
+                auto_socket_switch = false,     -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
+                airlink_uart_id = 3,            -- airlink使用的UART接口ID(选填参数)，UART模式时填写
+                airlink_uart_baud = 2000000,    -- airlink使用的UART波特率(选填参数)，默认2000000
+                airlink_adapter = socket.LWIP_USER0 -- 网卡标识(选填参数)，Air1601使用socket.LWIP_USER0
+            }
+        }
+    })
+-- Air8101单网络模式下使用SPI接口外挂4G模组(Air780EPM)
+    exnetif.set_priority_order({
+        {
+            airlink_4G = { -- AirLink 4G配置
+                auto_socket_switch = false,     -- 切换网卡时是否断开之前网卡的所有socket连接并用新的网卡重新建立连接
+                airlink_type = airlink.MODE_SPI_MASTER, -- airlink工作模式：SPI主模式
+                airlink_spi_id = 0,             -- airlink使用的SPI接口ID(选填参数)，SPI模式时填写
+                airlink_cs_pin = 15,            -- airlink使用的片选引脚gpio号(选填参数)，SPI模式时填写
+                airlink_rdy_pin = 48            -- airlink使用的rdy引脚gpio号(选填参数)，SPI模式时填写
+            }
+        }
+    })
 -- 4G单网模式下，不需要require "exnetif"，减少不必要的功能模块加载
 ]]
 function exnetif.set_priority_order(networkConfigs)
@@ -697,14 +750,14 @@ function exnetif.set_priority_order(networkConfigs)
         end
         if type(config.airlink_4G) == "table"then
             -- airlink_4G
-            table.insert(new_priority, socket.LWIP_GP_GW)
-            setup_airlink_4G(config.airlink_4G)
+            local adapter_id = setup_airlink_4G(config.airlink_4G)
+            table.insert(new_priority, adapter_id)
             if config.auto_socket_switch ~= nil then
                 auto_socket_switch = config.auto_socket_switch
                 -- log.info("设置自动关闭非当前网卡socket连接", auto_socket_switch)
             end
-            available[socket.LWIP_GP_GW] = connection_states.CONNECTED
-            log.info("airlink_4G网卡已开启")
+            available[adapter_id] = connection_states.CONNECTED
+            log.info("airlink_4G网卡已开启", adapter_id)
         end
     end
 

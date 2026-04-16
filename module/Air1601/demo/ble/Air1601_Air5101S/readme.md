@@ -81,61 +81,74 @@ main.lua (入口文件)
 3、烧录成功后，自动开机运行，通过luatools日志可以观察到以下信息：
 
 ```lua
-[2026-03-03 14:02:43.562][000000000.299] I/user.exril_5101_wdt 初等待主模块初始化完成...
-[2026-03-03 14:02:43.565][000000000.337] I/user.exril_5101_main ========== 配置初始化 ==========
-[2026-03-03 14:02:43.565][000000000.338] I/user.exril_5101_main 当前工作模式: exril_5101.MODE_UA
-[2026-03-03 14:02:43.566][000000000.338] I/user.exril_5101_main 切换到AT指令模式...
-[2026-03-03 14:02:43.569][000000000.359] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +UA
-[2026-03-03 14:02:43.569][000000000.360] I/user.exril_5101_main 已切换到: exril_5101.MODE_AT
-[2026-03-03 14:02:43.576][000000000.361] I/user.exril_5101_main 配置设备参数...
-[2026-03-03 14:02:43.579][000000000.361] I/user.exril_5101.set 处理配置项: name 值: Air5101_Test
-[2026-03-03 14:02:43.581][000000000.361] I/user.exril_5101.set 设备名称: Air5101_Test
-[2026-03-03 14:02:43.582][000000000.361] I/user.exril_5101.set 添加配置项到序列: name 命令: AT+SN=Air5101_Test
-[2026-03-03 14:02:43.584][000000000.362] I/user.exril_5101.set 处理配置项: mtu_len 值: 247
-[2026-03-03 14:02:43.586][000000000.362] W/user.exril_5101.set mtu_len需要在蓝牙连接后才能设置，跳过
-[2026-03-03 14:02:43.588][000000000.363] I/user.exril_5101.set.sync 执行命令: name 命令: AT+SN=Air5101_Test
-[2026-03-03 14:02:43.589][000000000.397] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SN
-[2026-03-03 14:02:43.591][000000000.398] I/user.exril_5101.set.sync 执行结果: name 成功: true 响应: AT:OK
-[2026-03-03 14:02:43.592][000000000.418] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SAVE
-[2026-03-03 14:02:43.596][000000000.419] I/user.exril_5101.set 配置保存到Flash成功
-[2026-03-03 14:02:43.599][000000000.419] I/user.exril_5101_main 参数配置成功
-[2026-03-03 14:02:43.600][000000000.419] I/user.exril_5101_main 查询设备信息...
-[2026-03-03 14:02:43.602][000000000.419] I/user.exril_5101.get 批量获取参数: name,mac,ver
-[2026-03-03 14:02:43.603][000000000.450] I/user.ril.proatc AT:Air5101_Test cmdtype: 11 cmdhead: +GN
-[2026-03-03 14:02:43.605][000000000.452] I/user.exril_5101.get name 获取成功: Air5101_Test
-[2026-03-03 14:02:43.607][000000000.485] I/user.ril.proatc AT:0x443322116AED cmdtype: 11 cmdhead: +GM
-[2026-03-03 14:02:43.608][000000000.487] I/user.exril_5101.get mac 获取成功: ED6A11223344
-[2026-03-03 14:02:43.612][000000000.520] I/user.ril.proatc AT:1.5.2-2601211840 cmdtype: 11 cmdhead: +VER
-[2026-03-03 14:02:43.614][000000000.521] I/user.exril_5101.get ver 获取成功: 1.5.2-2601211840
-[2026-03-03 14:02:43.615][000000000.522] I/user.exril_5101_main 设备名称: Air5101_Test
-[2026-03-03 14:02:43.616][000000000.522] I/user.exril_5101_main MAC地址: ED6A11223344
-[2026-03-03 14:02:43.618][000000000.522] I/user.exril_5101_main 固件版本: 1.5.2-2601211840
-[2026-03-03 14:02:43.619][000000000.522] I/user.exril_5101_main BLE事件回调已注册
-[2026-03-03 14:02:43.621][000000000.523] I/user.exril_5101_wdt 收到主模块初始化完成信号，开始初始化看门狗...
-[2026-03-03 14:02:43.622][000000000.523] I/user.exril_5101_wdt 当前工作模式: exril_5101.MODE_AT
-[2026-03-03 14:02:43.624][000000000.524] D/user.exril_5101.wdcfg 设置命令: AT+WDCFG=1,60,0,100
-[2026-03-03 14:02:43.629][000000000.559] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +WDCFG
-[2026-03-03 14:02:43.630][000000000.578] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SAVE
-[2026-03-03 14:02:43.632][000000000.579] I/user.exril_5101.wdt.init 看门狗初始化成功，超时: 60 秒
-[2026-03-03 14:02:43.633][000000000.579] I/user.exril_5101_wdt 看门狗初始化成功
-[2026-03-03 14:02:43.635][000000000.580] I/user.exril_5101_wdt 喂狗任务启动，间隔: 30.00000 秒
-[2026-03-03 14:02:58.275][000000015.395] I/user.ril.proatc AT:DISCONNECT cmdtype: nil cmdhead: nil
-[2026-03-03 14:02:58.283][000000015.397] I/user.exril_5101_main 收到BLE事件: DISCONNECTED table: 0C7E36D0
-[2026-03-03 14:02:58.287][000000015.397] I/user.exril_5101_main 蓝牙断开连接
-[2026-03-03 14:02:58.289][000000015.398] I/user.exril_5101_timer 已停止notify发送定时器
-[2026-03-03 14:02:58.819][000000015.937] I/user.ril.proatc AT:CONNECTED cmdtype: nil cmdhead: nil
-[2026-03-03 14:02:58.824][000000015.938] I/user.exril_5101_main 收到BLE事件: CONNECTED table: 0C7E3010
-[2026-03-03 14:02:58.825][000000015.939] I/user.exril_5101_main 蓝牙连接成功
-[2026-03-03 14:02:58.829][000000015.940] I/user.exril_5101_timer 已启动notify发送定时器, 间隔: 5000 ms
-[2026-03-03 14:03:03.859][000000020.977] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +BS
-[2026-03-03 14:03:08.823][000000025.941] I/user.exril_5101_timer 发送结果: true 参数: notify Notify 1 08:00:20
-[2026-03-03 14:03:08.859][000000025.978] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +BS
-[2026-03-03 14:03:12.448][000000029.565] I/user.ril.proatc AT:DISCONNECT cmdtype: nil cmdhead: nil
-[2026-03-03 14:03:12.450][000000029.566] I/user.exril_5101_main 收到BLE事件: DISCONNECTED table: 0C7E1AC0
-[2026-03-03 14:03:12.451][000000029.567] I/user.exril_5101_main 蓝牙断开连接
-[2026-03-03 14:03:12.454][000000029.568] I/user.exril_5101_timer 已停止notify发送定时器
-[2026-03-03 14:03:13.485][000000030.603] I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +WDFED
-[2026-03-03 14:03:13.487][000000030.604] D/user.exril_5101.wdt.feed 喂狗成功
-[2026-03-03 14:03:13.488][000000030.605] D/user.exril_5101_wdt 喂狗成功
+[2026-04-16 18:55:30.476][LTOS/N][000000000.015]:I/user.main project name is  exril_5101_demo version is  001.999.000
+[2026-04-16 18:55:30.479][CAPP/N][000000000.044]:Uart_ChangeBR 347:uart1 波特率 目标 9600 实际 9600
+[2026-04-16 18:55:30.482][LTOS/N][000000000.048]:I/user.exril_5101_wdt 初等待主模块初始化完成...
+[2026-04-16 18:55:30.486][CAPP/N][000000000.056]:Uart_ChangeBR 347:uart3 波特率 目标 9600 实际 9600
+[2026-04-16 18:55:30.489][LTOS/N][000000000.057]:I/user.exril_5101.config_uart 已更新主控串口ID: 3
+[2026-04-16 18:55:30.492][LTOS/N][000000000.071]:I/user.exril_5101_main ========== 配置初始化 ==========
+[2026-04-16 18:55:30.494][LTOS/N][000000000.082]:I/user.exril_5101_main 当前工作模式: exril_5101.MODE_UA
+[2026-04-16 18:55:30.496][LTOS/N][000000000.082]:I/user.exril_5101_main 切换到AT指令模式...
+[2026-04-16 18:55:30.499][CAPP/N][000000000.092]:_uart_tx_next 114:uart3, tx one block done 7
+[2026-04-16 18:55:30.502][CAPP/N][000000000.092]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.504][CAPP/N][000000000.099]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.507][LTOS/N][000000000.114]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +UA
+[2026-04-16 18:55:30.510][LTOS/N][000000000.123]:I/user.exril_5101_main 已切换到: exril_5101.MODE_AT
+[2026-04-16 18:55:30.513][LTOS/N][000000000.124]:I/user.exril_5101_main 配置设备参数...
+[2026-04-16 18:55:30.515][LTOS/N][000000000.125]:I/user.exril_5101.set 设备名称: Air5101_Test
+[2026-04-16 18:55:30.518][LTOS/N][000000000.125]:I/user.exril_5101.set 添加配置项到序列: name 命令: AT+SN=Air5101_Test
+[2026-04-16 18:55:30.521][LTOS/N][000000000.126]:W/user.exril_5101.set mtu_len需要在蓝牙连接后才能设置，跳过
+[2026-04-16 18:55:30.524][CAPP/N][000000000.132]:_uart_tx_next 114:uart3, tx one block done 20
+[2026-04-16 18:55:30.527][CAPP/N][000000000.132]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.529][CAPP/N][000000000.147]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.531][LTOS/N][000000000.162]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SN
+[2026-04-16 18:55:30.534][CAPP/N][000000000.163]:_uart_tx_next 114:uart3, tx one block done 9
+[2026-04-16 18:55:30.537][CAPP/N][000000000.163]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.540][CAPP/N][000000000.172]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.542][LTOS/N][000000000.184]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SAVE
+[2026-04-16 18:55:30.545][LTOS/N][000000000.184]:I/user.exril_5101.set 配置保存到Flash成功
+[2026-04-16 18:55:30.547][LTOS/N][000000000.185]:I/user.exril_5101_main 参数配置成功
+[2026-04-16 18:55:30.550][LTOS/N][000000000.185]:I/user.exril_5101_main 查询设备信息...
+[2026-04-16 18:55:30.552][LTOS/N][000000000.195]:I/user.exril_5101.get 批量获取参数: name,mac,ver
+[2026-04-16 18:55:30.554][CAPP/N][000000000.195]:_uart_tx_next 114:uart3, tx one block done 7
+[2026-04-16 18:55:30.557][CAPP/N][000000000.196]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.559][CAPP/N][000000000.203]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.562][LTOS/N][000000000.228]:I/user.ril.proatc AT:Air5101_Test cmdtype: 11 cmdhead: +GN
+[2026-04-16 18:55:30.566][LTOS/N][000000000.229]:I/user.exril_5101.get name 获取成功: Air5101_Test
+[2026-04-16 18:55:30.570][CAPP/N][000000000.229]:_uart_tx_next 114:uart3, tx one block done 7
+[2026-04-16 18:55:30.573][CAPP/N][000000000.230]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.576][CAPP/N][000000000.237]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.611][LTOS/N][000000000.264]:I/user.ril.proatc AT:0xA4A493C6C2C8 cmdtype: 11 cmdhead: +GM
+[2026-04-16 18:55:30.616][LTOS/N][000000000.265]:I/user.exril_5101.get mac 获取成功: C8C2C693A4A4
+[2026-04-16 18:55:30.619][CAPP/N][000000000.265]:_uart_tx_next 114:uart3, tx one block done 8
+[2026-04-16 18:55:30.622][CAPP/N][000000000.265]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.627][CAPP/N][000000000.274]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.631][LTOS/N][000000000.301]:I/user.ril.proatc AT:1.5.2-2601211840 cmdtype: 11 cmdhead: +VER
+[2026-04-16 18:55:30.634][LTOS/N][000000000.302]:I/user.exril_5101.get ver 获取成功: 1.5.2-2601211840
+[2026-04-16 18:55:30.637][LTOS/N][000000000.308]:I/user.exril_5101_main 设备名称: Air5101_Test
+[2026-04-16 18:55:30.640][LTOS/N][000000000.309]:I/user.exril_5101_main MAC地址: C8C2C693A4A4
+[2026-04-16 18:55:30.645][LTOS/N][000000000.309]:I/user.exril_5101_main 固件版本: 1.5.2-2601211840
+[2026-04-16 18:55:30.648][LTOS/N][000000000.309]:I/user.exril_5101_main BLE事件回调已注册
+[2026-04-16 18:55:30.651][LTOS/N][000000000.309]:I/user.exril_5101_wdt 收到主模块初始化完成信号，开始初始化看门狗...
+[2026-04-16 18:55:30.654][LTOS/N][000000000.320]:I/user.exril_5101_wdt 当前工作模式: exril_5101.MODE_AT
+[2026-04-16 18:55:30.657][LTOS/N][000000000.323]:D/user.exril_5101.wdcfg 设置命令: AT+WDCFG=1,60,0,100
+[2026-04-16 18:55:30.664][CAPP/N][000000000.330]:_uart_tx_next 114:uart3, tx one block done 21
+[2026-04-16 18:55:30.667][CAPP/N][000000000.330]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.670][CAPP/N][000000000.345]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.704][LTOS/N][000000000.360]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +WDCFG
+[2026-04-16 18:55:30.709][CAPP/N][000000000.361]:_uart_tx_next 114:uart3, tx one block done 9
+[2026-04-16 18:55:30.712][CAPP/N][000000000.361]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:30.716][CAPP/N][000000000.371]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:30.719][LTOS/N][000000000.382]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +SAVE
+[2026-04-16 18:55:30.724][LTOS/N][000000000.383]:I/user.exril_5101.wdt.init 看门狗初始化成功，超时: 60 秒
+[2026-04-16 18:55:30.728][LTOS/N][000000000.383]:I/user.exril_5101_wdt 看门狗初始化成功
+[2026-04-16 18:55:30.730][LTOS/N][000000000.383]:I/user.exril_5101_wdt 喂狗任务启动，间隔: 20.000000000000 秒
+[2026-04-16 18:55:50.705][CAPP/N][000000020.393]:_uart_tx_next 114:uart3, tx one block done 10
+[2026-04-16 18:55:50.713][CAPP/N][000000020.393]:_uart_tx_next 150:uart3, tx wait done
+[2026-04-16 18:55:50.717][CAPP/N][000000020.403]:_uart_tx_next 142:uart3, tx done
+[2026-04-16 18:55:50.722][LTOS/N][000000020.418]:I/user.ril.proatc AT:OK cmdtype: 11 cmdhead: +WDFED
+[2026-04-16 18:55:50.726][LTOS/N][000000020.419]:D/user.exril_5101.wdt.feed 喂狗成功
+[2026-04-16 18:55:50.729][LTOS/N][000000020.425]:D/user.exril_5101_wdt 喂狗成功
+
 
 ```

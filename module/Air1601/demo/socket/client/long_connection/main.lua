@@ -89,13 +89,13 @@ require "aircloud_data"
 require "tcp_client_main"
 
 -- 加载udp client socket主应用功能模块
--- require "udp_client_main"
+require "udp_client_main"
 
 -- 打开内核固件中ssl的调试日志（需要分析问题时再打开）
 -- socket.sslLog(3)
 
 -- 加载tcp ssl client socket主应用功能模块
--- require "tcp_ssl_main"
+require "tcp_ssl_main"
 
 -- 加载tcp ssl ca client socket主应用功能模块
 require "tcp_ssl_ca_main"

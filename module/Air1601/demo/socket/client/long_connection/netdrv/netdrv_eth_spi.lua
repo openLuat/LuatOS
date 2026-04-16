@@ -63,6 +63,7 @@ local function netdrv_eth_spi_task_func()
     exnetif.set_priority_order({
         {
             ETHERNET = {
+                pwrpin = nil,
                 tp = netdrv.CH390,
                 opts = {spi = 1, cs = 14}
             }

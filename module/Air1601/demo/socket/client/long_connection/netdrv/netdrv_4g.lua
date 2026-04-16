@@ -59,50 +59,6 @@ end
 sys.subscribe("IP_READY", ip_ready_func)
 sys.subscribe("IP_LOSE", ip_lose_func)
 
-
--- Air1601发送数据信息给Air780EPM。
-local function airlink_sdata_Air780EPM()
-    while 1 do
-        -- rtos.bsp()：设备硬件bsp型号；os.date()：本地时间。
-        local data = rtos.bsp() .. " " .. os.date()
-        log.info("发送数据给对端设备", data, "当前airlink状态", airlink.ready())
-        airlink.sdata(data)
-        sys.wait(1000)
-        log.info("ticks", mcu.ticks(), hmeta.chip(), hmeta.model(), hmeta.hwver())
-        airlink.statistics()
-    end
-end
-
--- 一个简单的HTTP GET请求测试程序，用于判断Air1601的网络连接情况。
-local function http_get_test()
-    while true do
-        sys.wait(10000)
-        -- 检查网卡是否就绪
-        log.info("网卡状态", socket.adapter(socket.LWIP_USER0))
-        -- 发起一个HTTP GET请求。
-        log.info("发起HTTP GET请求", "https://httpbin.air32.cn/bytes/2048")
-        local code, headers, body = http.request("GET", "https://httpbin.air32.cn/bytes/2048", nil, nil, {
-            timeout = 9000,
-            adapter = socket.LWIP_USER0
-        }).wait()
-
-        -- 打印HTTP请求的结果，包括响应码code和响应体长度#body。
-        if code == 200 then
-            log.info("HTTP请求成功", "响应码", code, "响应体长度", body and #body)
-            sys.publish("打印网卡信息", "succeeded")
-        else
-            log.error("HTTP请求失败", "错误码", code)
-            sys.publish("打印网卡信息", "failed")
-        end
-    end
-end
-
--- 订阅airlink的SDATA事件，打印收到的信息。
-local function airlink_sdata(data)
-    -- 打印收到的信息。
-    log.info("收到AIRLINK_SDATA!!", data)
-end
-
 local function netdrv_4g_task_func()
     -- 配置UART外接的4G单网卡
     -- 本demo使用Air1601核心板+Air780EPM核心板/开发板测试，Air1601核心板上的硬件配置为：
@@ -127,9 +83,3 @@ end
 -- 因为exnetif.set_priority_order要求必须在task中被调用，所以此处启动一个task
 sys.taskInit(netdrv_4g_task_func)
 
--- Air1601发送数据信息给Air780EPM。
-sys.taskInit(airlink_sdata_Air780EPM)
-
--- sys.taskInit(http_get_test)
--- 订阅airlink的SDATA事件，打印收到的信息。
-sys.subscribe("AIRLINK_SDATA", airlink_sdata)

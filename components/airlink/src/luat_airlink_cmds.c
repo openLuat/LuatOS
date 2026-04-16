@@ -101,12 +101,18 @@ CMD_DEFINE(otp_lock);
 CMD_DEFINE(otp_erase);
 CMD_DEFINE(otp_read_cb);
 
+#ifdef LUAT_USE_AIRLINK_RPC
+CMD_DEFINE(rpc);
+#endif
+
 __AIRLINK_CODE_IN_RAM__ const luat_airlink_cmd_reg_t airlink_cmds[] = {
     // 最常用的放前面
     CMD_REG(0x10,  dev_info),
     CMD_REG(0x100, ip_pkg),
     CMD_REG(0x03,  reset),
-    // CMD_REG(0x08,  result),
+#ifdef LUAT_USE_AIRLINK_RPC
+    CMD_REG(0x30,  rpc),    // 通用 RPC 请求
+#endif
 #ifdef LUAT_USE_AIRLINK_EXEC_SDATA
     CMD_REG(0x20,  sdata),
 #endif

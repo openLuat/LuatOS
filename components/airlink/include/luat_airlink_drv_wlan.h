@@ -1,12 +1,12 @@
 #ifndef LUAT_AIRLINK_DRV_WLAN_H
 #define LUAT_AIRLINK_DRV_WLAN_H
 
-#ifndef LUAT_AIRLINK_H
-#error "include luat_airlink.h first"
-#endif
+#include "luat_airlink.h"
 
 // WLAN, 也就是wifi
 #include "luat_wlan.h"
+typedef void (*luat_airlink_wlan_evt_cb)(void *arg, luat_event_module_t event_module, int event_id, void *event_data);
+int luat_airlink_wlan_event_callback(void *arg, luat_event_module_t event_module, int event_id, void *event_data);
 int luat_airlink_drv_wlan_init(luat_wlan_config_t *conf);
 
 int luat_airlink_drv_wlan_mode(luat_wlan_config_t *conf);

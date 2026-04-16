@@ -1,10 +1,7 @@
 #ifndef LUAT_AIRLINK_DRV_GPIO_H
 #define LUAT_AIRLINK_DRV_GPIO_H
 
-
-#ifndef LUAT_AIRLINK_H
-#error "include luat_airlink.h first"
-#endif
+#include "luat_airlink.h"
 
 // GPIO 操作, 临时放这里
 #include "luat_gpio.h"

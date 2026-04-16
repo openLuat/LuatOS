@@ -373,6 +373,14 @@ target("luatos-lua")
     add_files(luatos.."components/videoplayer/src/*.c")
     add_files(luatos.."components/videoplayer/binding/*.c")
 
+    -- 添加 libwebp (仅解码器, 无SIMD, 无线程)
+    add_defines("LUAT_USE_WEBP=1")
+    add_includedirs(luatos.."components/libwebp")
+    add_includedirs(luatos.."components/libwebp/include")
+    add_thirdparty_files(luatos.."components/libwebp/src/dec/*.c")
+    add_thirdparty_files(luatos.."components/libwebp/src/dsp/*.c")
+    add_thirdparty_files(luatos.."components/libwebp/src/utils/*.c")
+
     if true then
         -- lwip & zlink
         local lwip_path = luatos .. "components/network/lwip22/"

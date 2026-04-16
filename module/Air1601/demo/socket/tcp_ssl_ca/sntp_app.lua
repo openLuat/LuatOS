@@ -32,9 +32,6 @@ local function sntp_task_func()
         -- 检测到了IP_READY消息
         log.warn("sntp_task_func", "recv IP_READY")
 
-        -- local id = socket.dft()
-        -- log.info("当前网卡",id)
-
         -- 发起ntp时间同步动作
         socket.sntp()
 

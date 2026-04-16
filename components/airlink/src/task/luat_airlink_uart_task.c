@@ -39,8 +39,9 @@
 extern airlink_statistic_t g_airlink_statistic;
 extern uint32_t g_airlink_pause;
 extern luat_airlink_irq_ctx_t g_airlink_irq_ctx;
+extern luat_airlink_dev_info_t g_airlink_self_dev_info;
 
-
+static uint8_t basic_info[sizeof(luat_airlink_dev_info_t) + 64];
 typedef struct
 {
     luat_rtos_task_handle transfer_task;
@@ -229,6 +230,11 @@ void on_airlink_uart_data_in(uint8_t* buff, size_t len)
     }
 }
 
+static void send_devinfo_update_evt(void) {
+    airlink_queue_item_t item = {0};
+    luat_airlink_queue_send(LUAT_AIRLINK_QUEUE_CMD, &item); 
+}
+
 __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
 {
     int ret;
@@ -244,8 +250,6 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
     while(g_airlink_uart.uart_running)
     {
         ret = luat_rtos_queue_recv(g_airlink_uart.tx_evt_queue, &event, sizeof(luat_event_t), AIRLINK_MODE_WAIT_TIMEOUT);//在evt_queue队列中复制数据到指定缓冲区event，阻塞等待60s
-        (void)ret;
-        //LLOGD("收到airlink数据事件 ret:%d, id:%d", ret, event.id);
         if (ret == 0) {
             record_statistic(event);
         }
@@ -254,24 +258,35 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
             break; // 如果当前模式已经确定了, 并且不是UART模式, 那么就退出这个任务
         }
+        if (ret < 0) {
+            continue; // 等待事件超时了, 继续等待
+        }
         #endif
         while (1) {
             uart_id = g_airlink_spi_conf.uart_id;
             // 有数据, 要处理了
             item.len = 0;
             item.cmd = NULL;
-            luat_airlink_cmd_recv_simple(&item);//从（发送）队列里取出数据存在item中
-            if (item.len == 0 || item.cmd == NULL) {
+            ret = luat_airlink_cmd_recv_simple(&item);//从（发送）队列里取出数据存在item中
+            if (ret != 0) {
                 break; // 没有数据了, 退出循环
             }
-            // LLOGD("队列数据长度:%d, cmd:%p", item.len, item.cmd);
-            // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
-            luat_airlink_data_pack((uint8_t*)item.cmd, item.len, pbuff);
+            size_t len = item.len;
             uint8_t *txbuff = g_airlink_uart.s_txbuff;
+            if (item.len == 0 || item.cmd == NULL) {
+                memcpy(basic_info + sizeof(luat_airlink_cmd_t), &g_airlink_self_dev_info, sizeof(g_airlink_self_dev_info));
+                luat_airlink_data_pack(basic_info, 128, pbuff);
+                LLOGE("uart_transfer_task send basic info %d", sizeof(basic_info));
+                len = 128;
+            } else {
+                luat_airlink_data_pack((uint8_t*)item.cmd, item.len, pbuff);
+                luat_airlink_cmd_free(item.cmd);
+            }            
+            // 0x7E 开始, 0x7D 结束, 遇到 0x7E/0x7D 要转义
             txbuff[0] = 0x7E;
             offset = 1;
             ptr = (uint8_t*)pbuff;
-            for (size_t i = 0; i < item.len + sizeof(airlink_link_data_t); i++)
+            for (size_t i = 0; i < len + sizeof(airlink_link_data_t); i++)
             {
                 if (ptr[i] == 0x7E) {
                     txbuff[offset++] = 0x7D;
@@ -288,8 +303,7 @@ __USER_FUNC_IN_RAM__ static void uart_transfer_task(void *param)
             }
             txbuff[offset++] = 0x7E;
             luat_uart_write(uart_id, (const char *)txbuff, offset);
-            // LLOGD ("发送数据长度:%d", offset);
-            luat_airlink_cmd_free(item.cmd);
+            // LLOGD("发送数据长度:%d", offset);
         }
     }
     luat_airlink_mode_cb_unregister(LUAT_AIRLINK_MODE_UART);
@@ -338,9 +352,18 @@ __USER_FUNC_IN_RAM__ static void uart_receive_task(void *param)
 
 int luat_airlink_start_uart(void)
 {
+    
+    luat_airlink_cmd_t *cmd = (luat_airlink_cmd_t *)basic_info;
+    cmd->cmd = 0x10;
+    cmd->len = 128;
     int ret = 0;
     g_airlink_uart.uart_running = 1;
     AIRLINK_DEV_INFO_UPDATE_CB device_info_update_cb = NULL;
+#if defined(LUAT_USE_AIRLINK_EXEC_MOBILE) || defined(LUAT_USE_AIRLINK_EXEC_WLAN)
+    device_info_update_cb = send_devinfo_update_evt;
+    extern void luat_airlink_devinfo_init();
+    luat_airlink_devinfo_init(device_info_update_cb);
+#endif
     ret = luat_rtos_queue_create(&g_airlink_uart.tx_evt_queue, 128, sizeof(luat_event_t));
     if (ret) {
         LLOGW("创建tx_evt_queue ret:%d", ret);
@@ -349,6 +372,7 @@ int luat_airlink_start_uart(void)
     if (ret) {
         LLOGW("创建rx_evt_queue ret:%d", ret);
     }
+    luat_airlink_ip2br_init();
     luat_rtos_task_sleep(5);
     uart_gpio_setup();
     luat_airlink_mode_cb_register(LUAT_AIRLINK_MODE_UART, on_newdata_notify, on_link_data_notify, device_info_update_cb);

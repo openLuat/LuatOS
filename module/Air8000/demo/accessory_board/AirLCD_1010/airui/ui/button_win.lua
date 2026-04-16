@@ -149,7 +149,7 @@ local function create_ui()
             local g = math.random(0, 0xFF)
             local b = math.random(0, 0xFF)
             local color = (r << 16) | (g << 8) | b
-            style_btn:set_stype({
+            style_btn:set_style({
                 bg_color = color,
                 pressed_bg_color = color & 0x7F7F7F,
             })

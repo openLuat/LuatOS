@@ -17,7 +17,12 @@
     - exril_5101_sender: 用于发送BLE数据
 ]]
 
+-- 加载exril_5101扩展库
 local exril_5101 = require("exril_5101")
+
+-- 配置主控串口ID为3（必须在其他操作之前调用）
+exril_5101.config_uart(3, 9600)
+
 local exril_5101_receiver = require("exril_5101_receiver")
 local exril_5101_sender = require("exril_5101_sender")
 

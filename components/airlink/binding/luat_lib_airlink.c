@@ -564,6 +564,7 @@ static int l_airlink_sversion(lua_State *L) {
 // 多出口绑定 & RPC Lua 绑定
 // ============================================================
 
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
 //@api airlink.bindTransport(adapter_id, mode)
 //@int  adapter_id  网络适配器ID (0=wifi, 1=4G 等, 对应 luat_netdrv_get 的 id)
 //@int  mode        目标传输 mode (airlink.MODE_SPI_SLAVE / MODE_SPI_MASTER / MODE_UART)
@@ -579,6 +580,7 @@ static int l_airlink_bind_transport(lua_State* L) {
     lua_pushboolean(L, ret == 0);
     return 1;
 }
+#endif
 
 #ifdef LUAT_USE_AIRLINK_RPC
 
@@ -756,9 +758,11 @@ static const rotable_Reg_t reg_airlink[] =
 
     { "debug",         ROREG_FUNC(l_airlink_debug )},
 
+#ifdef LUAT_USE_AIRLINK_MULTI_TRANSPORT
     // 多出口绑定
     //@const bindTransport function 绑定 adapter 到指定 transport
     { "bindTransport", ROREG_FUNC(l_airlink_bind_transport )},
+#endif
 
 #ifdef LUAT_USE_AIRLINK_RPC
     //@const rpcRegister function 注册 RPC 服务端处理函数

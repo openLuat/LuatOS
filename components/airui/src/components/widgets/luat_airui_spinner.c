@@ -28,8 +28,8 @@ static airui_ctx_t *airui_spinner_get_ctx(lua_State *L)
 
 static void airui_spinner_apply_default_style(lv_obj_t *spinner)
 {
-    lv_style_selector_t main_sel = (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_style_selector_t indicator_sel = (lv_style_selector_t)(LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_style_selector_t main_sel = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
+    lv_style_selector_t indicator_sel = (lv_style_selector_t)LV_PART_INDICATOR | LV_STATE_DEFAULT;
     lv_color_t color = lv_color_hex(0x00b4ff);
     lv_color_t track_color = lv_color_hex(0x202835);
 
@@ -107,8 +107,8 @@ int airui_spinner_set_style(lv_obj_t *spinner, void *L, int idx)
     }
 
     int value = 0;
-    lv_style_selector_t main_sel = (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_style_selector_t indicator_sel = (lv_style_selector_t)(LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_style_selector_t main_sel = (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT;
+    lv_style_selector_t indicator_sel = (lv_style_selector_t)LV_PART_INDICATOR | LV_STATE_DEFAULT;
 
     if (airui_marshal_integer_opt(L_state, idx, "color", &value)) {
         lv_obj_set_style_arc_color(spinner, lv_color_hex((uint32_t)value), indicator_sel);

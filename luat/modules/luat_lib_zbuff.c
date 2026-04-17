@@ -706,6 +706,11 @@ static int l_zbuff_toStr(lua_State *L)
     if (start > buff->len)
         start = buff->len;
     int len = luaL_optinteger(L, 3, buff->len);
+    if (len < 0)
+    {
+        lua_pushlstring(L, "", 0);
+        return 1;
+    }   
     if (start + len > buff->len)
         len = buff->len - start;
     lua_pushlstring(L, (const char*)(buff->addr + start), len);

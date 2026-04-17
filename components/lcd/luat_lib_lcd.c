@@ -1747,11 +1747,11 @@ int l_lcd_showimage(lua_State *L) {
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
     const char* input_file = luaL_checklstring(L, 3, &size);
-    if (size >= 4 && (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || (size >= 5 && (memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0)))){
+    if (size >= 4 && (memcmp(input_file+size-4, ".jpg", 4) == 0 || memcmp(input_file+size-4, ".JPG", 4) == 0 || (size >= 5 && (memcmp(input_file+size-5, ".jpeg", 5) == 0 || memcmp(input_file+size-5, ".JPEG", 5) == 0)))){
         ret = lcd_draw_jpeg(lcd_dft_conf, input_file, x, y);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
 #ifdef LUAT_USE_WEBP
-    } else if (size >= 5 && (memcmp(input_file+size-5, ".webp", 6) == 0 || memcmp(input_file+size-5, ".WEBP", 6) == 0)) {
+    } else if (size >= 5 && (memcmp(input_file+size-5, ".webp", 5) == 0 || memcmp(input_file+size-5, ".WEBP", 5) == 0)) {
         ret = lcd_draw_webp(lcd_dft_conf, input_file, x, y);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
 #endif

@@ -21,7 +21,7 @@
 local exnetif = require "exnetif"
 
 local function ip_ready_func(ip, adapter)
-    if adapter == socket.LWIP_USER0 then
+    if adapter == socket.LWIP_GP_GW then
         -- 在位置1和2设置自定义的DNS服务器ip地址：
         -- "223.5.5.5"，这个DNS服务器IP地址是阿里云提供的DNS服务器IP地址；
         -- "114.114.114.114"，这个DNS服务器IP地址是国内通用的DNS服务器IP地址；
@@ -31,12 +31,12 @@ local function ip_ready_func(ip, adapter)
         socket.setDNS(adapter, 1, "223.5.5.5")
         socket.setDNS(adapter, 2, "114.114.114.114")
         
-        log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_USER0))
+        log.info("netdrv_4g.ip_ready_func", "IP_READY", socket.localIP(socket.LWIP_GP_GW))
     end
 end
 
 local function ip_lose_func(adapter)
-    if adapter == socket.LWIP_USER0 then
+    if adapter == socket.LWIP_GP_GW then
         log.warn("netdrv_4g.ip_lose_func", "IP_LOSE")
     end
 end
@@ -44,11 +44,11 @@ end
 
 -- 4G联网成功后，内核固件会产生一个"IP_READY"消息
 -- 各个功能模块可以订阅"IP_READY"消息实时处理4G联网成功的事件
--- 也可以在任何时刻调用socket.adapter(socket.LWIP_USER0)来获取4G是否联网成功
+-- 也可以在任何时刻调用socket.adapter(socket.LWIP_GP_GW来获取4G是否联网成功
 
 -- 4G断网后，内核固件会产生一个"IP_LOSE"消息
 -- 各个功能模块可以订阅"IP_LOSE"消息实时处理4G断网的事件
--- 也可以在任何时刻调用socket.adapter(socket.LWIP_USER0)来获取4G是否联网成功
+-- 也可以在任何时刻调用socket.adapter(socket.LWIP_GP_GW)来获取4G是否联网成功
 
 --此处订阅"IP_READY"和"IP_LOSE"两种消息
 -- 在消息的处理函数中，仅仅打印了一些信息，便于实时观察4G的联网状态
@@ -72,7 +72,7 @@ local function netdrv_4g_task_func()
                 airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
                 airlink_uart_id = 3, -- airlink使用的UART接口ID
                 airlink_uart_baud = 2000000, -- airlink使用的UART波特率，默认2000000
-                airlink_adapter = socket.LWIP_USER0 -- Air1601使用socket.LWIP_USER0网卡标识
+                airlink_adapter = socket.LWIP_GP_GW -- Air1601使用socket.LWIP_GP_GW网卡标识
             }
         }
     })

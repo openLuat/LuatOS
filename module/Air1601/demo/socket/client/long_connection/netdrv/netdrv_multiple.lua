@@ -89,7 +89,7 @@ local function netdrv_multiple_task_func()
                     airlink_type = airlink.MODE_UART, -- airlink工作模式：UART模式
                     airlink_uart_id = 3,            -- airlink使用的UART接口ID
                     airlink_uart_baud = 2000000,    -- airlink使用的UART波特率，默认2000000
-                    airlink_adapter = socket.LWIP_USER0 -- Air1601使用socket.LWIP_USER0网卡标识
+                    airlink_adapter = socket.LWIP_GP_GW -- Air1601使用socket.LWIP_GP_GW网卡标识
                 }
             }
         }

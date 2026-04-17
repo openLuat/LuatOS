@@ -58,20 +58,20 @@ function rtc_test.test_rtc_set_params()
 
     -- 测试错误负数参数
     local set_invalid_date = rtc.set({year=-2025, mon=-2, day=-31, hour=-7, min=-10, sec=-23})
-    assert(set_invalid_date == nil, 
-           string.format("负数参数设置测试失败: 预期nil, 实际%s", tostring(set_invalid_date)))
+    assert(set_invalid_date == false, 
+           string.format("负数参数设置测试失败: 预期false, 实际%s", tostring(set_invalid_date)))
     log.info("rtc_test", "负数参数设置测试通过")
     
     -- 测试无效的日期值（如2月30日）
     local set_invalid_date = rtc.set({year=2025, mon=2, day=31, hour=7, min=10, sec=23})
-    assert(set_invalid_date == nil, 
-           string.format("负数参数设置测试失败: 预期nil, 实际%s", tostring(set_invalid_date)))
-    log.info("rtc_test", "负数参数设置测试通过")
+    assert(set_invalid_date == false, 
+           string.format("无效日期参数设置测试失败: 预期false, 实际%s", tostring(set_invalid_date)))
+    log.info("rtc_test", "无效日期参数设置测试通过")
     
     -- 测试无效的时间值（小时超出范围）
     local set_invalid_hour = rtc.set({year=2025, mon=10, day=28, hour=25, min=10, sec=53})
-    assert(set_invalid_hour == nil, 
-           string.format("无效小时参数设置测试失败: 预期nil, 实际%s", tostring(set_invalid_hour)))
+    assert(set_invalid_hour == false, 
+           string.format("无效小时参数设置测试失败: 预期false, 实际%s", tostring(set_invalid_hour)))
     log.info("rtc_test", "无效小时参数设置测试通过")
     
     -- 测试0值时间戳

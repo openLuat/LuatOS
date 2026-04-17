@@ -14,6 +14,123 @@
 
 int Base_year = 1900;
 
+/**
+ * @brief 检查月份是否有效
+ * 
+ * @param month 月份
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_month(int month) {
+    return (month >= 1 && month <= 12);
+}
+
+/**
+ * @brief 检查日期是否有效
+ * 
+ * @param year 年份
+ * @param month 月份
+ * @param day 日期
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_day(int year, int month, int day) {
+    if (day < 1) return 0;
+    
+    int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    
+    // 闰年判断：能被4整除但不能被100整除，或者能被400整除
+    int is_leap_year = ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0));
+    
+    if (month == 2 && is_leap_year) {
+        return day <= 29;
+    }
+    
+    if (month >= 1 && month <= 12) {
+        return day <= days_in_month[month - 1];
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief 检查小时是否有效
+ * 
+ * @param hour 小时
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_hour(int hour) {
+    return (hour >= 0 && hour <= 23);
+}
+
+/**
+ * @brief 检查分钟是否有效
+ * 
+ * @param minute 分钟
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_minute(int minute) {
+    return (minute >= 0 && minute <= 59);
+}
+
+/**
+ * @brief 检查秒数是否有效
+ * 
+ * @param second 秒数
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_second(int second) {
+    return (second >= 0 && second <= 59);
+}
+
+/**
+ * @brief 检查年份是否有效
+ * 
+ * @param year 年份
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_year(int year) {
+    // 允许合理的年份范围，避免极端值
+    return (year >= 1970 && year <= 2100);
+}
+
+/**
+ * @brief 检查时间参数是否有效
+ * 
+ * @param year 年份
+ * @param month 月份
+ * @param day 日期
+ * @param hour 小时
+ * @param minute 分钟
+ * @param second 秒数
+ * @return int 1-有效，0-无效
+ */
+static int is_valid_time_params(int year, int month, int day, int hour, int minute, int second) {
+    if (!is_valid_year(year)) {
+        LLOGW("rtc time invalid year: %d", year);
+        return 0;
+    }
+    if (!is_valid_month(month)) {
+        LLOGW("rtc time invalid month: %d", month);
+        return 0;
+    }
+    if (!is_valid_day(year, month, day)) {
+        LLOGW("rtc time invalid day: %d-%d-%d", year, month, day);
+        return 0;
+    }
+    if (!is_valid_hour(hour)) {
+        LLOGW("rtc time invalid hour: %d", hour);
+        return 0;
+    }
+    if (!is_valid_minute(minute)) {
+        LLOGW("rtc time invalid minute: %d", minute);
+        return 0;
+    }
+    if (!is_valid_second(second)) {
+        LLOGW("rtc time invalid second: %d", second);
+        return 0;
+    }
+    return 1;
+}
+
 #ifndef LUAT_COMPILER_NOWEAK
 void LUAT_WEAK luat_rtc_set_tamp32(uint32_t tamp) {
     LLOGD("not support yet");
@@ -103,6 +220,13 @@ static int l_rtc_set(lua_State *L){
     else {
         LLOGW("rtc time miss sec");
         return 0;
+    }
+
+    // 在转换基准年之前进行参数校验
+    if (!is_valid_time_params(tblock.tm_year, tblock.tm_mon, tblock.tm_mday, 
+                              tblock.tm_hour, tblock.tm_min, tblock.tm_sec)) {
+        lua_pushboolean(L, 0); // 参数无效，返回false
+        return 1;
     }
 
     tblock.tm_year -= Base_year;

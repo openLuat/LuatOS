@@ -506,6 +506,28 @@ local function sip_task(opts)
         }
     }
 
+    local function copy_headers(headers)
+        local out = {}
+        for k, v in pairs(headers or {}) do
+            out[k] = v
+        end
+        return out
+    end
+
+    -- 避免相同媒体参数的重复 ready 把上层音频引擎再次启动一遍。
+    local function same_media_session(current, next_session)
+        if not current or not next_session then
+            return false
+        end
+        return tostring(current.call_id or "") == tostring(next_session.call_id or "") and
+                   tostring(current.remote_ip or "") == tostring(next_session.remote_ip or "") and
+                   tonumber(current.remote_port or 0) == tonumber(next_session.remote_port or 0) and
+                   tostring(current.codec or "") == tostring(next_session.codec or "") and
+                   tonumber(current.ptime or 0) == tonumber(next_session.ptime or 0) and
+                   tonumber(current.local_rtp_port or 0) == tonumber(next_session.local_rtp_port or 0) and
+                   tostring(current.remote_direction or "") == tostring(next_session.remote_direction or "")
+    end
+
     -- 当本地 SDP 和远端 SDP 都齐备后，整理出媒体会话描述并通知上层。
     -- SIP 层只负责“协商结果”，不直接创建 RTP socket 或音频线程。
     local function maybe_start_media(dialog, source)
@@ -532,6 +554,11 @@ local function sip_task(opts)
         })
         if not session then
             log.warn("sip", "no common media codec")
+            return
+        end
+        -- 某些设备会在通话建立后发 re-INVITE/重复 ACK；媒体未变化时不再重复通知上层。
+        if state.media.active and same_media_session(state.media.session, session) then
+            state.media.session = session
             return
         end
         log.info("JQsip", "media session ready", session)
@@ -926,6 +953,37 @@ local function sip_task(opts)
             end
 
             local function handle_invite_request(req_headers, req_uri, body, rip, remote_port)
+                local invite_cseq = cseq_number(req_headers["cseq"]) or 1
+                local dialog = state.dialog
+
+                if dialog and dialog.direction == "in" and dialog.call_id == req_headers["call-id"] then
+                    local resp_headers = copy_headers(req_headers)
+                    resp_headers["to"] = dialog.to
+
+                    -- 已答但尚未收到 ACK 时，同 CSeq 的 INVITE 视为 UDP 重传，直接重发 200 OK。
+                    if not dialog.established and invite_cseq == dialog.invite_cseq then
+                        local resp_body = dialog.local_sdp or build_sdp(state, "sendrecv")
+                        dialog.local_sdp = resp_body
+                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        return
+                    end
+
+                    local dialog_to_tag = header_tag_value(dialog.to)
+                    local req_to_tag = header_tag_value(req_headers["to"])
+                    -- 已建立来电对话内的 INVITE 按 re-INVITE 处理，不再抛成新的 incoming。
+                    if dialog.established and dialog_to_tag and req_to_tag == dialog_to_tag then
+                        local resp_body = build_sdp(state, "sendrecv")
+                        dialog.local_sdp = resp_body
+                        dialog.remote_uri = req_uri or dialog.remote_uri
+                        dialog.remote_ip = rip or dialog.remote_ip
+                        dialog.remote_sdp_raw = body
+                        dialog.remote_sdp = parse_sdp(body)
+                        dialog.pending_reinvite_cseq = invite_cseq
+                        net_send_on(netc, build_response(state, resp_headers, 200, "OK", nil, resp_body))
+                        return
+                    end
+                end
+
                 local local_tag = gen_token("tag")
                 local to_hdr = ensure_to_has_tag(req_headers["to"], local_tag)
                 req_headers["to"] = to_hdr
@@ -957,7 +1015,20 @@ local function sip_task(opts)
             end
 
             local function handle_ack_request(req_headers)
+                local ack_cseq = cseq_number(req_headers["cseq"]) or 0
                 if state.dialog and state.dialog.direction == "in" and state.dialog.call_id == req_headers["call-id"] then
+                    -- re-INVITE 的 ACK 只用于完成媒体更新，不应再次触发 established。
+                    if state.dialog.pending_reinvite_cseq and ack_cseq == state.dialog.pending_reinvite_cseq then
+                        state.dialog.pending_reinvite_cseq = nil
+                        maybe_start_media(state.dialog, "incoming_reinvite_ack")
+                        return
+                    end
+                    if state.dialog.established then
+                        return
+                    end
+                    if ack_cseq ~= (state.dialog.invite_cseq or 0) then
+                        return
+                    end
                     state.dialog.established = true
                     state.incoming_invite = nil
                     maybe_start_media(state.dialog, "incoming_ack")

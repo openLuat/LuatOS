@@ -39,6 +39,7 @@ typedef struct airui_component_ref airui_component_ref_t;
 #define AIRUI_CHART_MT "airui.chart"
 #define AIRUI_QRCODE_MT "airui.qrcode"
 #define AIRUI_SPINNER_MT "airui.spinner"
+#define AIRUI_SHAPE_MT "airui.shape"
 
 /** 组件类型 */
 typedef enum {
@@ -60,7 +61,8 @@ typedef enum {
     AIRUI_COMPONENT_VIDEO,
     AIRUI_COMPONENT_CHART,
     AIRUI_COMPONENT_QRCODE,
-    AIRUI_COMPONENT_SPINNER
+    AIRUI_COMPONENT_SPINNER,
+    AIRUI_COMPONENT_SHAPE
 } airui_component_type_t;
 
 /** Video 格式 */
@@ -629,6 +631,15 @@ int airui_chart_remove_series(lv_obj_t *chart, uint32_t series_index);
 int airui_chart_remove_last_series(lv_obj_t *chart);
 int airui_chart_set_axis_config(lv_obj_t *chart, bool is_x, bool enable, int32_t min, int32_t max, uint32_t ticks, const char *unit);
 int airui_chart_set_legend_enabled(lv_obj_t *chart, bool enable);
+
+/**
+ * Shape缁勪欢
+ */
+lv_obj_t *airui_shape_create_from_config(void *L, int idx);
+int airui_shape_set_items(lv_obj_t *shape, void *L, int idx);
+int airui_shape_add_item(lv_obj_t *shape, void *L, int idx);
+int airui_shape_clear(lv_obj_t *shape);
+int airui_shape_get_count(lv_obj_t *shape);
 
 #ifdef __cplusplus
 }

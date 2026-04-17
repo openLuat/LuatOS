@@ -55,6 +55,8 @@ static const char *airui_component_type_name(uint8_t component_type)
             return "qrcode";
         case AIRUI_COMPONENT_SPINNER:
             return "spinner";
+        case AIRUI_COMPONENT_SHAPE:
+            return "shape";
         default:
             return "unknown";
     }

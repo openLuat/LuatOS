@@ -400,6 +400,39 @@ local function build_message(state, msg, auth)
     })
 end
 
+-- 构造 OPTIONS 请求，用于 UDP NAT 保活 Ping。
+-- 每次发送使用独立 Call-ID 和独立 options_cseq，不与 REGISTER 事务混淆。
+local function build_options(state)
+    local uri = "sip:" .. state.sip_domain
+    local from_to = string.format("<sip:%s@%s>", state.sip_username, state.sip_domain)
+    state.options_cseq = (state.options_cseq or 0) + 1
+    return build_request({
+        method = "OPTIONS",
+        uri = uri,
+        via_ctx = {
+            transport = state.sip_transport,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            branch = gen_token("br")
+        },
+        headers = {
+            {"From", string.format("%s;tag=%s", from_to, gen_token("tag"))},
+            {"To", string.format("<%s>", uri)},
+            {"Call-ID", gen_token("opt") .. "@luatos"},
+            {"CSeq", string.format("%d OPTIONS", state.options_cseq)},
+            {"Accept", "application/sdp"},
+            {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"}
+        },
+        contact_ctx = {
+            user = state.sip_username,
+            local_ip = state.local_ip,
+            local_port = state.local_port,
+            transport = state.sip_transport
+        },
+        user_agent = "LuatOS-SIP"
+    })
+end
+
 -- SIP 主任务。
 --
 -- 职责：
@@ -452,6 +485,14 @@ local function sip_task(opts)
 
         -- 当前正在进行的 MESSAGE 事务。
         msg_tx = nil, -- 正在发送的 MESSAGE
+
+        -- UDP NAT 保活（OPTIONS Ping），TCP 模式下不使用。
+        options_cseq = 0,
+        options_timer = nil,
+        options_pending = false,
+        options_fail_count = 0,
+        options_interval = tonumber(opts.options_interval) or 25000,
+        options_max_fail = tonumber(opts.options_max_fail) or 3,
 
         -- 媒体协商结果缓存。
         -- SIP 层不会直接收发 RTP，但会把最终协商好的参数保存于此，
@@ -526,12 +567,18 @@ local function sip_task(opts)
         net_send_on(state.netc, data)
     end
 
-    -- 停止注册续租定时器。
+    -- 停止注册续租定时器，同时停止 UDP OPTIONS 保活定时器。
     local function stop_reg_timer()
         if state.reg_timer then
             sys.timerStop(state.reg_timer)
             state.reg_timer = nil
         end
+        if state.options_timer then
+            sys.timerStop(state.options_timer)
+            state.options_timer = nil
+        end
+        state.options_pending = false
+        state.options_fail_count = 0
     end
 
     -- 按过期时间安排下一次 REGISTER 续租。
@@ -557,6 +604,38 @@ local function sip_task(opts)
             end
         end, delay_s * 1000)
         log.info("sip", "next register in", delay_s, "sec")
+    end
+
+    -- 启动 UDP OPTIONS 保活定时器（仅 UDP 模式下调用）。
+    -- 每隔 options_interval ms 发一次 OPTIONS，连续 options_max_fail 次无响应则主动触发断线重连。
+    local start_options_keepalive
+    start_options_keepalive = function()
+        if state.options_timer then
+            return
+        end
+        local function do_options_ping()
+            if not state.netc or not state.online then
+                state.options_timer = nil
+                return
+            end
+            if state.options_pending then
+                state.options_fail_count = state.options_fail_count + 1
+                log.warn("sip", "OPTIONS no reply, fail_count", state.options_fail_count)
+                if state.options_fail_count >= state.options_max_fail then
+                    log.warn("sip", "OPTIONS keepalive timeout, reconnecting")
+                    state.options_timer = nil
+                    sys.publish(TOPIC_DISCONNECT)
+                    return
+                end
+            end
+            state.options_pending = true
+            local req = build_options(state)
+            log.info("sip", "send OPTIONS ping")
+            net_send(req)
+            state.options_timer = sys.timerStart(do_options_ping, state.options_interval)
+        end
+        state.options_timer = sys.timerStart(do_options_ping, state.options_interval)
+        log.info("sip", "UDP OPTIONS keepalive started, interval", state.options_interval, "ms")
     end
 
     -- 收到 REGISTER 的 401/407 后，构造带 Digest 的重试请求。
@@ -955,6 +1034,12 @@ local function sip_task(opts)
                     handle_cancel_request(req_headers)
                 elseif method == "MESSAGE" then
                     handle_message_request(req_headers, body)
+                elseif method == "OPTIONS" then
+                    -- 回应服务端发来的 OPTIONS 探活，避免被标记为不可达。
+                    net_send_on(netc, build_response(state, req_headers, 200, "OK", {
+                        {"Allow", "INVITE, ACK, CANCEL, BYE, OPTIONS, MESSAGE"},
+                        {"Accept", "application/sdp"}
+                    }, ""))
                 else
                     net_send_on(netc, build_response(state, req_headers, 501, "Not Implemented", nil, ""))
                 end
@@ -971,6 +1056,9 @@ local function sip_task(opts)
                     end
                     state.online = true
                     schedule_reregister(tonumber(exp) or state.expires)
+                    if state.sip_transport == "udp" then
+                        start_options_keepalive()
+                    end
                     emit_register("ok", {
                         expires = tonumber(exp) or state.expires,
                         headers = headers
@@ -1148,7 +1236,12 @@ local function sip_task(opts)
                 local cseq = headers["cseq"]
                 local cseq_m = cseq_method(cseq)
 
-                if call_id and call_id:find(state.call_id, 1, true) then
+                if cseq_m == "OPTIONS" then
+                    -- OPTIONS 响应：任意响应均视为保活成功，重置失败计数。
+                    state.options_pending = false
+                    state.options_fail_count = 0
+                    return
+                elseif call_id and call_id:find(state.call_id, 1, true) then
                     handle_register_response(code, headers)
                 elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m ==
                     "INVITE" then

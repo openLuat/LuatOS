@@ -1089,6 +1089,21 @@ local function sip_task(opts)
 
             local function handle_invite_response(code, reason, headers, body, rip)
                 local function handle_invite_auth_challenge()
+                    if not state.dialog then
+                        return
+                    end
+
+                    local ack_dialog = {
+                        remote_uri = state.dialog.remote_uri,
+                        from = state.dialog.from,
+                        to = headers["to"] or state.dialog.to,
+                        call_id = state.dialog.call_id,
+                        invite_cseq = state.dialog.invite_cseq,
+                        invite_branch = state.dialog.invite_branch
+                    }
+
+                    net_send_on(netc, build_ack_non2xx(state, ack_dialog))
+
                     return retry_transaction_auth(code, headers, {
                         tx = state.dialog,
                         method = "INVITE",
@@ -1235,7 +1250,6 @@ local function sip_task(opts)
                 local call_id = headers["call-id"]
                 local cseq = headers["cseq"]
                 local cseq_m = cseq_method(cseq)
-
                 if cseq_m == "OPTIONS" then
                     -- OPTIONS 响应：任意响应均视为保活成功，重置失败计数。
                     state.options_pending = false
@@ -1243,8 +1257,7 @@ local function sip_task(opts)
                     return
                 elseif call_id and call_id:find(state.call_id, 1, true) then
                     handle_register_response(code, headers)
-                elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m ==
-                    "INVITE" then
+                elseif state.dialog and state.dialog.direction == "out" and call_id == state.dialog.call_id and cseq_m == "INVITE" then
                     handle_invite_response(code, reason, headers, body, rip)
                 elseif state.dialog and call_id == state.dialog.call_id and (cseq_m == "BYE" or cseq_m == "CANCEL") then
                     handle_dialog_teardown_response(code)

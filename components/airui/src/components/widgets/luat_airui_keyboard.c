@@ -257,7 +257,7 @@ static void airui_keyboard_hide_textarea_cursor(lv_obj_t *textarea)
         return;
     }
 
-    lv_style_selector_t sel = LV_PART_CURSOR | LV_STATE_FOCUSED;
+    lv_style_selector_t sel = (lv_style_selector_t)LV_PART_CURSOR | LV_STATE_FOCUSED;
     lv_obj_set_style_bg_opa(textarea, LV_OPA_0, sel);
     lv_obj_set_style_border_opa(textarea, LV_OPA_0, sel);
     lv_obj_set_style_text_opa(textarea, LV_OPA_0, sel);
@@ -271,7 +271,7 @@ static void airui_keyboard_restore_textarea_cursor(lv_obj_t *textarea)
         return;
     }
 
-    lv_style_selector_t sel = LV_PART_CURSOR | LV_STATE_FOCUSED;
+    lv_style_selector_t sel = (lv_style_selector_t)LV_PART_CURSOR | LV_STATE_FOCUSED;
     lv_obj_remove_local_style_prop(textarea, LV_STYLE_BG_OPA, sel);
     lv_obj_remove_local_style_prop(textarea, LV_STYLE_BORDER_OPA, sel);
     lv_obj_remove_local_style_prop(textarea, LV_STYLE_TEXT_OPA, sel);
@@ -385,9 +385,9 @@ static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t 
     }
 
     (void)airui_text_font_apply_hzfont(keyboard, data->font_size,
-        (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+        ((lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT));
     (void)airui_text_font_apply_hzfont(keyboard, data->font_size,
-        (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_PRESSED));
+        ((lv_style_selector_t)LV_PART_ITEMS | LV_STATE_PRESSED));
 
     if (data->preview_runtime != NULL) {
         airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
@@ -395,10 +395,10 @@ static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t 
             lv_obj_t *preview_label = lv_textarea_get_label(runtime->preview_ta);
             if (preview_label != NULL) {
                 (void)airui_text_font_apply_hzfont(preview_label, data->font_size,
-                    (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                    ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             }
             (void)airui_text_font_apply_hzfont(runtime->preview_ta, data->font_size,
-                (lv_style_selector_t)(LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
         }
     }
 
@@ -407,9 +407,9 @@ static void airui_keyboard_apply_font(lv_obj_t *keyboard, airui_keyboard_data_t 
         lv_obj_t *cand_panel = lv_ime_pinyin_get_cand_panel(data->ime);
         if (cand_panel != NULL && lv_obj_is_valid(cand_panel)) {
             (void)airui_text_font_apply_hzfont(cand_panel, data->font_size,
-                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             (void)airui_text_font_apply_hzfont(cand_panel, data->font_size,
-                (lv_style_selector_t)(LV_PART_ITEMS | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT));
         }
     }
 #endif
@@ -720,24 +720,24 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
         return;
     }
 
-    lv_obj_set_style_pad_hor(runtime->container, 8, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_ver(runtime->container, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(runtime->container, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(runtime->container, lv_color_hex(0xcbd5e1), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(runtime->container, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(runtime->container, 6, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_opa(runtime->container, LV_OPA_0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_hor(runtime->container, 8, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_ver(runtime->container, 6, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(runtime->container, lv_color_hex(0xffffff), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(runtime->container, lv_color_hex(0xcbd5e1), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(runtime->container, 1, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(runtime->container, 6, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_opa(runtime->container, LV_OPA_0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_scroll_dir(runtime->container, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(runtime->container, LV_SCROLLBAR_MODE_AUTO);
 
-    lv_obj_set_style_text_align(runtime->preview_ta, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(runtime->preview_ta, LV_TEXT_ALIGN_LEFT, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_width(runtime->preview_ta, LV_PCT(100));
     lv_obj_set_height(runtime->preview_ta, LV_SIZE_CONTENT);
-    lv_obj_set_style_border_width(runtime->preview_ta, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(runtime->preview_ta, LV_OPA_0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(runtime->preview_ta, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_left(runtime->preview_ta, 0, LV_PART_CURSOR | LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(runtime->preview_ta, 0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->preview_ta, LV_OPA_0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(runtime->preview_ta, 0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(runtime->preview_ta, 0, (lv_style_selector_t)LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_textarea_set_placeholder_text(runtime->preview_ta, "");
     lv_textarea_set_text(runtime->preview_ta, "");
     lv_textarea_set_text_selection(runtime->preview_ta, true);
@@ -746,8 +746,8 @@ static void airui_keyboard_preview_init(lv_obj_t *keyboard, airui_keyboard_data_
     lv_obj_add_event_cb(runtime->preview_ta, airui_keyboard_preview_proxy_event_cb, LV_EVENT_PRESSED, runtime);
     lv_obj_add_event_cb(runtime->preview_ta, airui_keyboard_preview_proxy_event_cb, LV_EVENT_CLICKED, runtime);
 
-    lv_obj_set_style_bg_color(runtime->container, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(runtime->container, data->bg_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
 
     if (runtime->owner != NULL && lv_obj_is_valid(runtime->owner)) {
         lv_obj_add_event_cb(runtime->owner, airui_keyboard_preview_owner_event_cb, LV_EVENT_DELETE, runtime);
@@ -1135,8 +1135,8 @@ static void airui_keyboard_apply_pinyin_bg(airui_keyboard_data_t *data, lv_obj_t
     if (data == NULL || cand_panel == NULL) {
         return;
     }
-    lv_obj_set_style_bg_color(cand_panel, data->bg_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(cand_panel, data->bg_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
 #else
     (void)data;
     (void)cand_panel;
@@ -1280,12 +1280,12 @@ int airui_keyboard_set_bg_color(lv_obj_t *keyboard, lv_color_t color)
     if (data->preview_runtime != NULL) {
         airui_keyboard_preview_runtime_t *runtime = (airui_keyboard_preview_runtime_t *)data->preview_runtime;
         if (runtime->container != NULL && lv_obj_is_valid(runtime->container)) {
-            lv_obj_set_style_bg_color(runtime->container, color, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(runtime->container, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(runtime->container, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         }
     }
 
-    lv_obj_set_style_bg_color(keyboard, color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(keyboard, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(keyboard, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }

@@ -478,9 +478,9 @@ static void airui_chart_apply_bar_style(lv_obj_t *chart, airui_chart_data_t *dat
     data->bar_series_gap = series_gap;
     data->bar_radius = radius;
 
-    lv_obj_set_style_pad_column(chart, group_gap, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_column(chart, series_gap, LV_PART_ITEMS | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(chart, radius, LV_PART_ITEMS | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(chart, group_gap, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(chart, series_gap, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(chart, radius, (lv_style_selector_t)LV_PART_ITEMS | LV_STATE_DEFAULT);
 }
 
 /**
@@ -582,7 +582,7 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
         char text[32] = {0};
         snprintf(text, sizeof(text), "%ld", (long)value);
         lv_label_set_text(label, text);
-        lv_obj_set_style_text_color(label, lv_color_hex(0x6b7280), LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(label, lv_color_hex(0x6b7280), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
         lv_obj_update_layout(label);
 
         int32_t label_w = lv_obj_get_width(label);
@@ -670,7 +670,7 @@ static void airui_chart_axis_render(lv_obj_t *chart, airui_chart_axis_state_t *a
             int32_t parent_w = lv_obj_get_width(parent);
             int32_t parent_h = lv_obj_get_height(parent);
             lv_label_set_text(axis->unit_label, axis->unit);
-            lv_obj_set_style_text_color(axis->unit_label, lv_color_hex(0x374151), LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(axis->unit_label, lv_color_hex(0x374151), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             lv_obj_update_layout(axis->unit_label);
             unit_w = lv_obj_get_width(axis->unit_label);
             unit_h = lv_obj_get_height(axis->unit_label);
@@ -776,12 +776,12 @@ static void airui_chart_legend_render(lv_obj_t *chart)
     lv_obj_set_size(legend, legend_w, legend_h);
     lv_obj_set_pos(legend, lv_obj_get_width(chart) - (int32_t)legend_w - 30, 8);
 
-    lv_obj_set_style_bg_color(legend, lv_color_hex(0xffffff), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(legend, 180, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(legend, lv_color_hex(0xcbd5e1), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(legend, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(legend, 4, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_all(legend, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(legend, lv_color_hex(0xffffff), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(legend, 180, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(legend, lv_color_hex(0xcbd5e1), (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(legend, 1, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(legend, 4, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_all(legend, 0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_move_foreground(legend);
 
     for (uint32_t i = 0; i < data->series_count; i++) {
@@ -789,10 +789,10 @@ static void airui_chart_legend_render(lv_obj_t *chart)
         if (mark != NULL) {
             lv_obj_set_size(mark, 10, 10);
             lv_obj_set_pos(mark, 8, 5 + (int32_t)(i * line_h));
-            lv_obj_set_style_radius(mark, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(mark, data->series_colors[i], LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-            lv_obj_set_style_border_width(mark, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_radius(mark, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(mark, data->series_colors[i], (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_border_width(mark, 0, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             data->legend_marks[i] = mark;
         }
 
@@ -800,7 +800,7 @@ static void airui_chart_legend_render(lv_obj_t *chart)
         if (label != NULL) {
             lv_label_set_text(label, data->series_names[i]);
             lv_obj_set_pos(label, 24, 2 + (int32_t)(i * line_h));
-            lv_obj_set_style_text_color(label, data->series_colors[i], LV_PART_MAIN | LV_STATE_DEFAULT);
+            lv_obj_set_style_text_color(label, data->series_colors[i], (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
             data->legend_labels[i] = label;
         }
     }

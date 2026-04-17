@@ -155,7 +155,7 @@ int airui_label_set_text_color(lv_obj_t *label, lv_color_t color)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_obj_set_style_text_color(label, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }
 
@@ -176,7 +176,7 @@ int airui_label_set_font_size(lv_obj_t *label, int font_size)
     data->font.use_hzfont = true;
     data->font.hzfont_size = (uint16_t)font_size;
     if (airui_text_font_apply_hzfont(label, font_size,
-        (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT)) != AIRUI_OK) {
+        ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT)) != AIRUI_OK) {
         return AIRUI_ERR_NOT_SUPPORTED;
     }
     lv_obj_refresh_self_size(label);
@@ -197,7 +197,7 @@ int airui_label_set_text_align(lv_obj_t *label, lv_text_align_t align)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_obj_set_style_text_align(label, align, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(label, align, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }
 

@@ -459,12 +459,12 @@ lv_obj_t *airui_tabview_create_from_config(void *L, int idx)
         lv_obj_t *tab_bar = lv_tabview_get_tab_bar(tabview);
         if (tab_bar != NULL) {
             (void)airui_text_font_apply_hzfont(tab_bar, tab_font_size,
-                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             for (uint32_t i = 0; i < airui_tabview_get_page_count_internal(tabview); i++) {
                 lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, (int32_t)i);
                 if (tab_btn != NULL) {
                     (void)airui_text_font_apply_hzfont(tab_btn, tab_font_size,
-                        (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                        ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
                 }
             }
         }
@@ -526,7 +526,7 @@ lv_obj_t *airui_tabview_add_tab(lv_obj_t *tabview, const char *title)
             lv_obj_t *tab_btn = lv_tabview_get_tab_button(tabview, -1);
             if (tab_btn != NULL) {
                 (void)airui_text_font_apply_hzfont(tab_btn, data->tab_font_size,
-                    (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                    ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
             }
         }
         if (data->switch_mode == AIRUI_TABVIEW_SWITCH_MODE_JUMP) {

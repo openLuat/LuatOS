@@ -251,51 +251,51 @@ int airui_button_set_style(lv_obj_t *btn, void *L, int idx)
 
     if (airui_marshal_integer_opt(L_state, idx, "bg_color", &value)) {
         lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "bg_opa", &value)) {
         lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_color", &value)) {
         lv_obj_set_style_border_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "border_width", &value)) {
         lv_obj_set_style_border_width(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "radius", &value)) {
         lv_obj_set_style_radius(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pad", &value)) {
         lv_obj_set_style_pad_all(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "text_color", &value)) {
         lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_DEFAULT);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_color", &value)) {
         lv_obj_set_style_bg_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_bg_opa", &value)) {
         lv_obj_set_style_bg_opa(btn, airui_marshal_opacity(value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "pressed_text_color", &value)) {
         lv_obj_set_style_text_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_PRESSED);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
     }
     if (airui_marshal_integer_opt(L_state, idx, "focus_outline_color", &value)) {
         lv_obj_set_style_outline_color(btn, lv_color_hex((uint32_t)value),
-            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     }
     if (airui_marshal_integer_opt(L_state, idx, "focus_outline_width", &value)) {
         lv_obj_set_style_outline_width(btn, value < 0 ? 0 : value,
-            LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+            (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
     }
 
     return AIRUI_OK;
@@ -319,20 +319,20 @@ static void airui_button_apply_default_style(lv_obj_t *btn)
     lv_color_t disabled_bg = lv_color_make(0xee, 0xf1, 0xf5);
     lv_color_t disabled_text_color = lv_color_make(0x8a, 0x93, 0xa5);
 
-    lv_obj_set_style_border_color(btn, border_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(btn, 2, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(btn, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, normal_bg, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btn, pressed_bg, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_text_color(btn, text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(btn, disabled_border_color, LV_PART_MAIN | LV_STATE_DISABLED);
-    lv_obj_set_style_bg_color(btn, disabled_bg, LV_PART_MAIN | LV_STATE_DISABLED);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, LV_PART_MAIN | LV_STATE_DISABLED);
-    lv_obj_set_style_text_color(btn, disabled_text_color, LV_PART_MAIN | LV_STATE_DISABLED);
-    lv_obj_set_style_outline_width(btn, 2, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
-    lv_obj_set_style_outline_color(btn, focus_border_color, LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_border_color(btn, border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(btn, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(btn, 10, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, normal_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btn, pressed_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(btn, text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(btn, disabled_border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_bg_color(btn, disabled_bg, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_text_color(btn, disabled_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DISABLED);
+    lv_obj_set_style_outline_width(btn, 2, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
+    lv_obj_set_style_outline_color(btn, focus_border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_FOCUS_KEY);
 }
 
 static void airui_button_warn_stype_deprecated(void)

@@ -210,7 +210,7 @@ static void airui_textarea_apply_font(lv_obj_t *textarea, airui_text_font_state_
         airui_text_font_apply_to_obj(label, font_state);
     }
     (void)airui_text_font_apply_hzfont(textarea, font_state->hzfont_size,
-        (lv_style_selector_t)(LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
+        ((lv_style_selector_t)LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT));
 }
 
 /**

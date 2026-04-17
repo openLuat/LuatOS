@@ -114,11 +114,11 @@ lv_obj_t *airui_dropdown_create_from_config(void *L, int idx) {
     airui_text_font_read_config(&font_state, L, idx);
     if (font_state.prefer_hzfont && font_state.hzfont_size > 0) {
         (void)airui_text_font_apply_hzfont(dropdown, font_state.hzfont_size,
-            (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+            ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         lv_obj_t *list = lv_dropdown_get_list(dropdown);
         if (list != NULL) {
             (void)airui_text_font_apply_hzfont(list, font_state.hzfont_size,
-                (lv_style_selector_t)(LV_PART_MAIN | LV_STATE_DEFAULT));
+                ((lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT));
         }
     }
 

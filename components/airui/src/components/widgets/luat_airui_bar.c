@@ -113,12 +113,12 @@ lv_obj_t *airui_bar_create_from_config(void *L, int idx)
     }
 
     // 8. 应用样式（圆角、边框、颜色等）
-    lv_obj_set_style_radius(bar, radius, LV_PART_MAIN | LV_STATE_DEFAULT); // 主体圆角
-    lv_obj_set_style_radius(bar, radius, LV_PART_INDICATOR | LV_STATE_DEFAULT); // 指示器圆角
-    lv_obj_set_style_border_width(bar, border_width, LV_PART_MAIN | LV_STATE_DEFAULT); // 主体边框宽度
-    lv_obj_set_style_border_color(bar, border_color, LV_PART_MAIN | LV_STATE_DEFAULT); // 主体边框颜色
-    lv_obj_set_style_bg_color(bar, bg_color, LV_PART_MAIN | LV_STATE_DEFAULT); // 主体背景色
-    lv_obj_set_style_bg_color(bar, indicator_color, LV_PART_INDICATOR | LV_STATE_DEFAULT); // 指示器色
+    lv_obj_set_style_radius(bar, radius, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT); // 主体圆角
+    lv_obj_set_style_radius(bar, radius, (lv_style_selector_t)LV_PART_INDICATOR | LV_STATE_DEFAULT); // 指示器圆角
+    lv_obj_set_style_border_width(bar, border_width, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT); // 主体边框宽度
+    lv_obj_set_style_border_color(bar, border_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT); // 主体边框颜色
+    lv_obj_set_style_bg_color(bar, bg_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT); // 主体背景色
+    lv_obj_set_style_bg_color(bar, indicator_color, (lv_style_selector_t)LV_PART_INDICATOR | LV_STATE_DEFAULT); // 指示器色
 
     // 9. 组件元数据注册，失败则释放对象
     airui_component_meta_t *meta = airui_component_meta_alloc(
@@ -196,7 +196,7 @@ int airui_bar_set_indicator_color(lv_obj_t *bar, lv_color_t color)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_obj_set_style_bg_color(bar, color, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bar, color, (lv_style_selector_t)LV_PART_INDICATOR | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }
 
@@ -209,7 +209,7 @@ int airui_bar_set_bg_color(lv_obj_t *bar, lv_color_t color)
         return AIRUI_ERR_INVALID_PARAM;
     }
 
-    lv_obj_set_style_bg_color(bar, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bar, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     return AIRUI_OK;
 }
 
@@ -266,9 +266,9 @@ static void airui_bar_create_progress_label(lv_obj_t *bar, airui_bar_data_t *dat
     data->progress_label = label;
     lv_label_set_long_mode(label, LV_LABEL_LONG_CLIP);
     lv_obj_add_flag(label, LV_OBJ_FLAG_IGNORE_LAYOUT);
-    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_center(label);
-    lv_obj_set_style_text_color(label, data->progress_text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(label, data->progress_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
 }
 
 // 设置进度文字 label 可见性
@@ -310,7 +310,7 @@ static void airui_bar_update_progress_text(lv_obj_t *bar)
     }
     lv_label_set_text(data->progress_label, buffer);
     if (data->progress_text_color_set) {
-        lv_obj_set_style_text_color(data->progress_label, data->progress_text_color, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(data->progress_label, data->progress_text_color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     airui_bar_set_label_visibility(data, true);
     lv_obj_center(data->progress_label);
@@ -345,7 +345,7 @@ int airui_bar_set_progress_text_color(lv_obj_t *bar, lv_color_t color)
     data->progress_text_color = color;
     data->progress_text_color_set = true;
     if (data->progress_label != NULL) {
-        lv_obj_set_style_text_color(data->progress_label, color, LV_PART_MAIN | LV_STATE_DEFAULT);
+        lv_obj_set_style_text_color(data->progress_label, color, (lv_style_selector_t)LV_PART_MAIN | LV_STATE_DEFAULT);
     }
     return AIRUI_OK;
 }
